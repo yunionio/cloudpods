@@ -772,24 +772,29 @@ func (manager *SElasticipManager) getEipByExtEip(ctx context.Context, userCred m
 }
 
 func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.SElasticipCreateInput) (*jsonutils.JSONDict, error) {
+	var (
+		region   *SCloudregion
+		provider *SCloudprovider
+		err      error
+	)
 	for _, cloudregion := range []string{input.Cloudregion, input.Region, input.RegionId} {
 		if len(cloudregion) > 0 {
 			input.Cloudregion = cloudregion
 			break
 		}
 	}
-	if len(input.Cloudregion) == 0 {
-		return nil, httperrors.NewMissingParameterError("cloudregion")
+	if input.Cloudregion == "" {
+		input.Cloudregion = api.DEFAULT_REGION_ID
 	}
-	_region, err := CloudregionManager.FetchByIdOrName(nil, input.Cloudregion)
-	if err != nil {
+	if obj, err := CloudregionManager.FetchByIdOrName(nil, input.Cloudregion); err != nil {
 		if err != sql.ErrNoRows {
 			return nil, httperrors.NewGeneralError(err)
 		} else {
 			return nil, httperrors.NewResourceNotFoundError("Region %s not found", input.Cloudregion)
 		}
+	} else {
+		region = obj.(*SCloudregion)
 	}
-	region := _region.(*SCloudregion)
 	input.CloudregionId = region.GetId()
 
 	for _, cloudprovider := range []string{input.Cloudprovider, input.Manager, input.ManagerId} {
@@ -798,20 +803,18 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 			break
 		}
 	}
-	if len(input.Cloudprovider) == 0 {
-		return nil, httperrors.NewMissingParameterError("cloudprovider")
-	}
-
-	providerObj, err := CloudproviderManager.FetchByIdOrName(nil, input.Cloudprovider)
-	if err != nil {
-		if err != sql.ErrNoRows {
-			return nil, httperrors.NewGeneralError(err)
-		} else {
-			return nil, httperrors.NewResourceNotFoundError("Cloud provider %s not found", input.Cloudprovider)
+	if input.Cloudprovider != "" {
+		providerObj, err := CloudproviderManager.FetchByIdOrName(nil, input.Cloudprovider)
+		if err != nil {
+			if err != sql.ErrNoRows {
+				return nil, httperrors.NewGeneralError(err)
+			} else {
+				return nil, httperrors.NewResourceNotFoundError("Cloud provider %s not found", input.Cloudprovider)
+			}
 		}
+		provider = providerObj.(*SCloudprovider)
+		input.ManagerId = provider.Id
 	}
-	provider := providerObj.(*SCloudprovider)
-	input.ManagerId = provider.Id
 
 	// publicIp cannot be created standalone
 	input.Mode = api.EIP_MODE_STANDALONE_EIP
@@ -824,19 +827,19 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 		return nil, httperrors.NewInputParameterError("charge type %s not supported", input.ChargeType)
 	}
 
-	input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
-	if err != nil {
+	if input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput); err != nil {
 		return nil, err
 	}
 
-	err = region.GetDriver().ValidateCreateEipData(ctx, userCred, &input)
+	if err = region.GetDriver().ValidateCreateEipData(ctx, userCred, &input); err != nil {
+		return nil, err
+	}
 
 	//避免参数重名后还有pending.eip残留
 	eipPendingUsage := &SRegionQuota{Eip: 1}
 	quotaKeys := fetchRegionalQuotaKeys(rbacutils.ScopeProject, ownerId, region, provider)
 	eipPendingUsage.SetKeys(quotaKeys)
-	err = quotas.CheckSetPendingQuota(ctx, userCred, eipPendingUsage)
-	if err != nil {
+	if err = quotas.CheckSetPendingQuota(ctx, userCred, eipPendingUsage); err != nil {
 		return nil, err
 	}
 
