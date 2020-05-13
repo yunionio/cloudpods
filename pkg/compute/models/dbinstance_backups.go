@@ -578,3 +578,7 @@ func (manager *SDBInstanceBackupManager) ListItemExportKeys(ctx context.Context,
 	}
 	return q, nil
 }
+
+func (self *SDBInstanceBackup) GetChangeOwnerCandidateDomainIds() []string {
+	return self.SManagedResourceBase.GetChangeOwnerCandidateDomainIds()
+}

@@ -220,3 +220,11 @@ func (manager *SNatgatewayResourceBaseManager) FilterByParentId(q *sqlchemy.SQue
 	return q
 }
 */
+
+func (self *SNatgatewayResourceBase) GetChangeOwnerCandidateDomainIds() []string {
+	nat, _ := self.GetNatgateway()
+	if nat != nil {
+		return nat.GetChangeOwnerCandidateDomainIds()
+	}
+	return nil
+}

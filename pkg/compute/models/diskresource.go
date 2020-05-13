@@ -252,3 +252,11 @@ func (manager *SDiskResourceBaseManager) GetExportKeys() []string {
 	keys = append(keys, manager.SStorageResourceBaseManager.GetExportKeys()...)
 	return keys
 }
+
+func (self *SDiskResourceBase) GetChangeOwnerCandidateDomainIds() []string {
+	disk := self.GetDisk()
+	if disk != nil {
+		return disk.GetChangeOwnerCandidateDomainIds()
+	}
+	return nil
+}

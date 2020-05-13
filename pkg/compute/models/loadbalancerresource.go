@@ -344,3 +344,11 @@ func (manager *SLoadbalancerResourceBaseManager) GetExportKeys() []string {
 	keys = append(keys, "vpc")
 	return keys
 }
+
+func (self *SLoadbalancerResourceBase) GetChangeOwnerCandidateDomainIds() []string {
+	lb := self.GetLoadbalancer()
+	if lb != nil {
+		return lb.GetChangeOwnerCandidateDomainIds()
+	}
+	return nil
+}

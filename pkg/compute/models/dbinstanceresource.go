@@ -264,3 +264,11 @@ func (manager *SDBInstanceResourceBaseManager) GetExportKeys() []string {
 	keys = append(keys, manager.SVpcResourceBaseManager.GetExportKeys()...)
 	return keys
 }
+
+func (self *SDBInstanceResourceBase) GetChangeOwnerCandidateDomainIds() []string {
+	dbinst, _ := self.GetDBInstance()
+	if dbinst != nil {
+		return dbinst.GetChangeOwnerCandidateDomainIds()
+	}
+	return nil
+}

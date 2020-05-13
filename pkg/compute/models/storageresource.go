@@ -53,6 +53,15 @@ func ValidateStorageResourceInput(userCred mcclient.TokenCredential, query api.S
 	return storageObj.(*SStorage), query, nil
 }
 
+func (self *SStorageResourceBase) GetStorage() *SStorage {
+	obj, err := StorageManager.FetchById(self.StorageId)
+	if err != nil {
+		log.Errorf("fail to fetch storage by id: %s: %s", self.StorageId, err)
+		return nil
+	}
+	return obj.(*SStorage)
+}
+
 func (self *SStorageResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) api.StorageResourceInfo {
 	return api.StorageResourceInfo{}
 }
@@ -267,4 +276,12 @@ func (manager *SStorageResourceBaseManager) GetExportKeys() []string {
 	keys = append(keys, manager.SZoneResourceBaseManager.GetExportKeys()...)
 	keys = append(keys, manager.SManagedResourceBaseManager.GetExportKeys()...)
 	return keys
+}
+
+func (model *SStorageResourceBase) GetChangeOwnerCandidateDomainIds() []string {
+	storage := model.GetStorage()
+	if storage != nil {
+		return storage.GetChangeOwnerCandidateDomainIds()
+	}
+	return nil
 }

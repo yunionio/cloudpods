@@ -310,3 +310,11 @@ func (manager *SVpcResourceBaseManager) GetExportKeys() []string {
 	keys = append(keys, manager.SCloudregionResourceBaseManager.GetExportKeys()...)
 	return keys
 }
+
+func (self *SVpcResourceBase) GetChangeOwnerCandidateDomainIds() []string {
+	vpc := self.GetVpc()
+	if vpc != nil {
+		return vpc.GetChangeOwnerCandidateDomainIds()
+	}
+	return nil
+}
