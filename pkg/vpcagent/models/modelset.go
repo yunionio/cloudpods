@@ -64,9 +64,12 @@ func (ms Vpcs) joinNetworks(subEntries Networks) bool {
 		}
 		m, ok := ms[id]
 		if !ok {
+			// let it go.  By the time the subnet has externalId or
+			// managerId set, we will not receive updates from them
+			// anymore
 			log.Warningf("network %s(%s): vpc id %s not found",
 				subEntry.Name, subEntry.Id, id)
-			correct = false
+			delete(subEntries, subId)
 			continue
 		}
 		if _, ok := m.Networks[subId]; ok {
