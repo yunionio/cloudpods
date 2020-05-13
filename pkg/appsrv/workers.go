@@ -83,9 +83,6 @@ func (worker *SWorker) run() {
 			task := req.(*sWorkerTask)
 			if task.worker != nil {
 				task.worker <- worker
-				// worker channel is buffered
-				// close the worker channel
-				close(task.worker)
 			}
 			execCallback(task)
 		} else {
