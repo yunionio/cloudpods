@@ -179,7 +179,7 @@ func (secgrouprule *SSecurityGroupRule) toRules() []secrules.SecurityRule {
 		Description: secgrouprule.Description,
 		Priority:    1,
 	}
-	if utils.IsInStringArray(secgrouprule.Protocol, []string{"", "0", "any"}) {
+	if utils.IsInStringArray(secgrouprule.Protocol, []string{"any", "-1", ""}) {
 		rule.Protocol = secrules.PROTO_ANY
 	} else if utils.IsInStringArray(secgrouprule.Protocol, []string{"6", "tcp"}) {
 		rule.Protocol = secrules.PROTO_TCP
@@ -395,16 +395,20 @@ func (region *SRegion) addSecurityGroupRules(secgroupId string, rule *secrules.S
 	}
 
 	if rule.Protocol == secrules.PROTO_ANY {
-		rule.Protocol = "0"
+		rule.Protocol = ""
+	}
+
+	ruleInfo := map[string]interface{}{
+		"direction":         direction,
+		"security_group_id": secgroupId,
+		"remote_ip_prefix":  rule.IPNet.String(),
+	}
+	if len(rule.Protocol) > 0 {
+		ruleInfo["protocol"] = rule.Protocol
 	}
 
 	params := map[string]map[string]interface{}{
-		"security_group_rule": {
-			"direction":         direction,
-			"protocol":          rule.Protocol,
-			"security_group_id": secgroupId,
-			"remote_ip_prefix":  rule.IPNet.String(),
-		},
+		"security_group_rule": ruleInfo,
 	}
 	if len(rule.Ports) > 0 {
 		for _, port := range rule.Ports {
