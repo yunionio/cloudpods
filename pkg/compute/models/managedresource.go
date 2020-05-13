@@ -220,8 +220,8 @@ func (manager *SManagedResourceBaseManager) FetchCustomizeColumns(
 		return rows
 	}
 
-	accountIds := make([]string, 0)
-	projectIds := make([]string, 0)
+	accountIds := make([]string, len(objs))
+	projectIds := make([]string, len(objs))
 	for i := range rows {
 		if _, ok := managers[managerIds[i]]; ok {
 			manager := managers[managerIds[i]]
@@ -229,12 +229,9 @@ func (manager *SManagedResourceBaseManager) FetchCustomizeColumns(
 			rows[i].ManagerDomainId = manager.DomainId
 			rows[i].ManagerProjectId = manager.ProjectId
 			rows[i].AccountId = manager.CloudaccountId
-			if len(manager.ProjectId) > 0 {
-				projectIds = append(projectIds, manager.ProjectId)
-			}
-			if len(manager.CloudaccountId) > 0 {
-				accountIds = append(accountIds, manager.CloudaccountId)
-			}
+
+			projectIds[i] = manager.ProjectId
+			accountIds[i] = manager.CloudaccountId
 		}
 	}
 
