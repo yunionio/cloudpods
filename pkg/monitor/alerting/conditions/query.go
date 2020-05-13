@@ -17,7 +17,6 @@ package conditions
 import (
 	gocontext "context"
 	"fmt"
-	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -76,14 +75,14 @@ func (c FormatCond) String() string {
 }
 
 func (c *QueryCondition) filterTags(tags map[string]string) map[string]string {
-	ret := make(map[string]string)
-	for key, val := range tags {
-		if strings.HasSuffix(key, "_id") {
-			continue
-		}
-		ret[key] = val
-	}
-	return ret
+	//ret := make(map[string]string)
+	//for key, val := range tags {
+	//	if strings.HasSuffix(key, "_id") {
+	//		continue
+	//	}
+	//	ret[key] = val
+	//}
+	return tags
 }
 
 // Eval evaluates te `QueryCondition`.

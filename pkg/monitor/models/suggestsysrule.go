@@ -60,6 +60,7 @@ type SSuggestSysRule struct {
 
 	Type     string               `width:"256" charset:"ascii" list:"user" update:"user"`
 	Period   string               `width:"256" charset:"ascii" list:"user" update:"user"`
+	TimeFrom string               `width:"256" charset:"ascii" list:"user" update:"user"`
 	Setting  jsonutils.JSONObject ` list:"user" update:"user"`
 	ExecTime time.Time            `json:"exec_time"`
 }
@@ -84,13 +85,9 @@ func (man *SSuggestSysRuleManager) FetchSuggestSysAlartSettings(ruleTypes ...str
 //根据数据库中查询得到的信息进行适配转换，同时更新drivers中的内容
 func (dConfig *SSuggestSysRule) getSuggestSysAlertSetting() (*monitor.SSuggestSysAlertSetting, error) {
 	setting := new(monitor.SSuggestSysAlertSetting)
-	switch dConfig.Type {
-	case monitor.EIP_UN_USED:
-		setting.EIPUnused = new(monitor.EIPUnused)
-		err := dConfig.Setting.Unmarshal(setting.EIPUnused)
-		if err != nil {
-			return nil, errors.Wrap(err, "SSuggestSysRule getSuggestSysAlertSetting error")
-		}
+	err := dConfig.Setting.Unmarshal(setting)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSuggestSysRule getSuggestSysAlertSetting error")
 	}
 	return setting, nil
 }
@@ -124,12 +121,18 @@ func (man *SSuggestSysRuleManager) ValidateCreateData(
 		// default 30s
 		data.Period = "30s"
 	}
+	if data.TimeFrom == "" {
+		data.TimeFrom = "24h"
+	}
 	if data.Enabled == nil {
 		enable := true
 		data.Enabled = &enable
 	}
 	if _, err := time.ParseDuration(data.Period); err != nil {
 		return data, httperrors.NewInputParameterError("Invalid period format: %s", data.Period)
+	}
+	if _, err := time.ParseDuration(data.TimeFrom); err != nil {
+		return data, httperrors.NewInputParameterError("Invalid period format: %s", data.TimeFrom)
 	}
 	if dri, ok := suggestSysRuleDrivers[data.Type]; !ok {
 		return data, httperrors.NewInputParameterError("not support type %q", data.Type)
@@ -138,6 +141,11 @@ func (man *SSuggestSysRuleManager) ValidateCreateData(
 		err := db.NewNameValidator(man, ownerId, data.Type, "")
 		if err != nil {
 			return data, err
+		}
+		if data.Type == monitor.SCALE_DOWN || data.Type == monitor.SCALE_UP {
+			if data.Setting == nil {
+				return data, httperrors.NewInputParameterError("no found rule setting")
+			}
 		}
 		if data.Setting != nil {
 			err = dri.ValidateSetting(data.Setting)
@@ -267,6 +275,36 @@ func (self *SSuggestSysRuleManager) GetPropertyRuleType(ctx context.Context, use
 		ruleArr.Add(jsonutils.NewString(rule.Type))
 	}
 	return ret, nil
+}
+
+func (self *SSuggestSysRuleManager) AllowGetPropertyDatabases(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject) bool {
+	return true
+}
+func (self *SSuggestSysRuleManager) GetPropertyDatabases(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return DataSourceManager.GetDatabases()
+}
+
+func (self *SSuggestSysRuleManager) AllowGetPropertyMeasurements(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject) bool {
+	return true
+}
+
+func (self *SSuggestSysRuleManager) GetPropertyMeasurements(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return DataSourceManager.GetMeasurements(query)
+}
+
+func (self *SSuggestSysRuleManager) AllowGetPropertyMetricMeasurement(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject) bool {
+	return true
+}
+
+func (self *SSuggestSysRuleManager) GetPropertyMetricMeasurement(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return DataSourceManager.GetMetricMeasurement(query)
 }
 
 func (self *SSuggestSysRuleManager) GetRules(tp ...string) ([]SSuggestSysRule, error) {

@@ -18,8 +18,11 @@ const (
 	EIP_UN_USED  = "EIP_UNUSED"
 	DISK_UN_USED = "DISK_UNUSED"
 	LB_UN_USED   = "LB_UNUSED"
+	SCALE_DOWN   = "SCALE_DOWN"
+	SCALE_UP     = "SCALE_UP"
 
-	DRIVER_ACTION = "DELETE"
+	DRIVER_ACTION            = "DELETE"
+	SCALE_DOWN_DRIVER_ACTION = "SCALE DOWN"
 
 	EIP_UNUSED_START_DELETE = "start_delete"
 	EIP_UNUSED_DELETE_FAIL  = "delete_fail"
@@ -30,13 +33,15 @@ type MonitorSuggest string
 type MonitorResourceType string
 
 const (
-	EIP_MONITOR_RES_TYPE  = MonitorResourceType("弹性EIP")
-	DISK_MONITOR_RES_TYPE = MonitorResourceType("云硬盘")
-	LB_MONITOR_RES_TYPE   = MonitorResourceType("负载均衡实例")
+	EIP_MONITOR_RES_TYPE    = MonitorResourceType("弹性EIP")
+	DISK_MONITOR_RES_TYPE   = MonitorResourceType("云硬盘")
+	LB_MONITOR_RES_TYPE     = MonitorResourceType("负载均衡实例")
+	SCALE_MONTITOR_RES_TYPE = MonitorResourceType("虚拟机")
 )
 
 const (
-	EIP_MONITOR_SUGGEST  = MonitorSuggest("释放未使用的EIP")
-	DISK_MONITOR_SUGGEST = MonitorSuggest("释放未使用的Disk")
-	LB_MONITOR_SUGGEST   = MonitorSuggest("释放未使用的LB")
+	EIP_MONITOR_SUGGEST        = MonitorSuggest("释放未使用的EIP")
+	DISK_MONITOR_SUGGEST       = MonitorSuggest("释放未使用的Disk")
+	LB_MONITOR_SUGGEST         = MonitorSuggest("释放未使用的LB")
+	SCALE_DOWN_MONITOR_SUGGEST = MonitorSuggest("缩减机器配置")
 )

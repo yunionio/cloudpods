@@ -17,10 +17,13 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"strings"
 	"time"
 
 	"golang.org/x/sync/errgroup"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
@@ -28,10 +31,12 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/monitor/options"
 	"yunion.io/x/onecloud/pkg/monitor/registry"
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
+	"yunion.io/x/onecloud/pkg/util/influxdb"
 )
 
 var (
@@ -166,4 +171,122 @@ func (ds *SDataSource) ToTSDBDataSource(db string) *tsdb.DataSource {
 		BasicAuthPassword: ds.BasicAuthPassword,
 		TimeInterval: ds.TimeInterval,*/
 	}
+}
+
+func (self *SDataSourceManager) GetDatabases() (jsonutils.JSONObject, error) {
+	ret := jsonutils.NewDict()
+	dataSource, err := self.GetDefaultSource()
+	if err != nil {
+		return jsonutils.JSONNull, errors.Wrap(err, "s.GetDefaultSource")
+	}
+	db := influxdb.NewInfluxdb(dataSource.Url)
+	//db.SetDatabase("telegraf")
+	databases, err := db.GetDatabases()
+	if err != nil {
+		return jsonutils.JSONNull, errors.Wrap(err, "GetDatabases")
+	}
+	ret.Add(jsonutils.NewStringArray(databases), "databases")
+	return ret, nil
+}
+
+func (self *SDataSourceManager) GetMeasurements(query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	ret := jsonutils.NewDict()
+	database, _ := query.GetString("database")
+	if database == "" {
+		return jsonutils.JSONNull, httperrors.NewInputParameterError("not support database")
+	}
+	dataSource, err := self.GetDefaultSource()
+	if err != nil {
+		return jsonutils.JSONNull, errors.Wrap(err, "s.GetDefaultSource")
+	}
+	db := influxdb.NewInfluxdb(dataSource.Url)
+	db.SetDatabase(database)
+	dbRtn, err := db.Query(fmt.Sprintf("SHOW MEASUREMENTS ON %s", database))
+	if err != nil {
+		return jsonutils.JSONNull, errors.Wrap(err, "SHOW MEASUREMENTS")
+	}
+	res := dbRtn[0][0]
+	measurements := make([]monitor.InfluxMeasurement, len(res.Values))
+	for i := range res.Values {
+		tmpDict := jsonutils.NewDict()
+		tmpDict.Add(res.Values[i][0], "measurement")
+		err := tmpDict.Unmarshal(&measurements[i])
+		if err != nil {
+			return jsonutils.JSONNull, errors.Wrap(err, "measurement unmarshal error")
+		}
+	}
+	ret.Add(jsonutils.Marshal(&measurements), "measurements")
+	return ret, nil
+}
+
+func (self *SDataSourceManager) GetMetricMeasurement(query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	database, _ := query.GetString("database")
+	if database == "" {
+		return jsonutils.JSONNull, httperrors.NewInputParameterError("not support database")
+	}
+	measurement, _ := query.GetString("measurement")
+	if measurement == "" {
+		return jsonutils.JSONNull, httperrors.NewInputParameterError("not support measurement")
+	}
+	dataSource, err := self.GetDefaultSource()
+	if err != nil {
+		return jsonutils.JSONNull, errors.Wrap(err, "s.GetDefaultSource")
+	}
+
+	db := influxdb.NewInfluxdb(dataSource.Url)
+	db.SetDatabase(database)
+	output := new(monitor.InfluxMeasurement)
+	output.Measurement = measurement
+	output.Database = database
+	for _, val := range monitor.METRIC_ATTRI {
+		err = getAttributesOnMeasurement(database, val, output, db)
+		if err != nil {
+			return jsonutils.JSONNull, errors.Wrap(err, "getAttributesOnMeasurement error")
+		}
+	}
+	err = getTagValue(database, output, db)
+	if err != nil {
+		return jsonutils.JSONNull, errors.Wrap(err, "getTagValue error")
+	}
+	return jsonutils.Marshal(output), nil
+
+}
+
+func getAttributesOnMeasurement(database, tp string, output *monitor.InfluxMeasurement, db *influxdb.SInfluxdb) error {
+	dbRtn, err := db.Query(fmt.Sprintf("SHOW %s KEYS ON %s FROM %s", tp, database, output.Measurement))
+	if err != nil {
+		return errors.Wrap(err, "SHOW MEASUREMENTS")
+	}
+	res := dbRtn[0][0]
+	tmpDict := jsonutils.NewDict()
+	tmpArr := jsonutils.NewArray()
+	for i := range res.Values {
+		tmpArr.Add(res.Values[i][0])
+	}
+	tmpDict.Add(tmpArr, res.Columns[0])
+	err = tmpDict.Unmarshal(output)
+	if err != nil {
+		return errors.Wrap(err, "measurement unmarshal error")
+	}
+	return nil
+}
+
+func getTagValue(database string, output *monitor.InfluxMeasurement, db *influxdb.SInfluxdb) error {
+
+	dbRtn, err := db.Query(fmt.Sprintf("SHOW TAG VALUES ON %s FROM %s WITH KEY IN (%s)", database, output.Measurement, strings.Join(output.TagKey, ",")))
+	if err != nil {
+		return errors.Wrap(err, "SHOW MEASUREMENTS")
+	}
+	res := dbRtn[0][0]
+	tagValue := make(map[string][]string, 0)
+	for i := range res.Values {
+		val := res.Values[i][0].(*jsonutils.JSONString)
+		if _, ok := tagValue[val.Value()]; !ok {
+			tagValue[val.Value()] = make([]string, 0)
+		}
+		tag := res.Values[i][1].(*jsonutils.JSONString)
+		tagValue[val.Value()] = append(tagValue[val.Value()], tag.Value())
+	}
+	output.TagValue = tagValue
+	return nil
 }
