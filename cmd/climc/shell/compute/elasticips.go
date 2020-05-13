@@ -46,9 +46,9 @@ func init() {
 	})
 
 	type EipCreateOptions struct {
-		MANAGER    string `help:"cloud provider"`
-		REGION     string `help:"cloud region in which EIP is allocated"`
 		NAME       string `help:"name of the EIP"`
+		Manager    string `help:"cloud provider"`
+		Region     string `help:"cloud region in which EIP is allocated"`
 		Bandwidth  int    `help:"Bandwidth in Mbps"`
 		Ip         string `help:"IP address of the EIP"`
 		Network    string `help:"Network of the EIP"`
@@ -56,9 +56,13 @@ func init() {
 	}
 	R(&EipCreateOptions{}, "eip-create", "Create an EIP", func(s *mcclient.ClientSession, args *EipCreateOptions) error {
 		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(args.MANAGER), "manager")
-		params.Add(jsonutils.NewString(args.REGION), "region")
 		params.Add(jsonutils.NewString(args.NAME), "name")
+		if args.Region != "" {
+			params.Add(jsonutils.NewString(args.Region), "region")
+		}
+		if args.Manager != "" {
+			params.Add(jsonutils.NewString(args.Manager), "manager")
+		}
 		if args.Bandwidth != 0 {
 			params.Add(jsonutils.NewInt(int64(args.Bandwidth)), "bandwidth")
 		}
