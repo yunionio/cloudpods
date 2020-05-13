@@ -201,3 +201,7 @@ var conditionFactories = make(map[string]ConditionFactory)
 func RegisterCondition(typeName string, factory ConditionFactory) {
 	conditionFactories[typeName] = factory
 }
+
+func GetConditionFactories() map[string]ConditionFactory {
+	return conditionFactories
+}

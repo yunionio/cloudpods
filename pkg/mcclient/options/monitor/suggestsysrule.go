@@ -38,7 +38,7 @@ type SuggestSysRuleAlertSettingOptions struct {
 type SuggestRuleCreateOptions struct {
 	SuggestSysRuleAlertSettingOptions
 	Name    string `help:"Name of the alert"`
-	Type    string `help:"Type of suggest rule" choices:"EIP_UNUSED|DISK_UNUSED|LB_UNUSED"`
+	Type    string `help:"Type of suggest rule" choices:"EIP_UNUSED|DISK_UNUSED|LB_UNUSED|SCALE_DOWN"`
 	Enabled bool   `help:"Enable rule"`
 	Period  string `help:"Period of suggest rule e.g. '5s', '1m'" default:"30s""`
 }
@@ -86,6 +86,34 @@ func newSuggestSysAlertSetting(tp string) *monitor.SSuggestSysAlertSetting {
 		setting = &monitor.SSuggestSysAlertSetting{
 			LBUnused: &monitor.LBUnused{},
 		}
+	case monitor.SCALE_DOWN:
+		scaleRuel := make(monitor.ScaleRule, 0)
+		scale := monitor.Scale{
+			Database:    "telegraf",
+			Measurement: "vm_cpu",
+			Operator:    "and",
+			Field:       "usage_active",
+			EvalType:    ">=",
+			Threshold:   50,
+			Tag:         "",
+			TagVal:      "",
+		}
+		scaleRuel = append(scaleRuel, scale)
+		scale = monitor.Scale{
+			Database:    "telegraf",
+			Measurement: "vm_diskio",
+			Operator:    "or",
+			Field:       "read_bps",
+			EvalType:    ">=",
+			Threshold:   500,
+			Tag:         "",
+			TagVal:      "",
+		}
+		scaleRuel = append(scaleRuel, scale)
+		setting = &monitor.SSuggestSysAlertSetting{
+			ScaleRule: &scaleRuel,
+		}
+
 	}
 	return setting
 }
