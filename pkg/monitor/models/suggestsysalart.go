@@ -200,6 +200,8 @@ func (self *SSuggestSysAlert) getMoreDetails(out monitor.SuggestSysAlertDetails)
 		out.Suggest = string(monitor.DISK_MONITOR_SUGGEST)
 	case monitor.LB_UN_USED:
 		out.Suggest = string(monitor.LB_MONITOR_SUGGEST)
+	case monitor.SCALE_DOWN:
+		out.Suggest = string(monitor.SCALE_DOWN_MONITOR_SUGGEST)
 
 	}
 	return out
@@ -263,7 +265,7 @@ func (self *SSuggestSysAlert) Delete(ctx context.Context, userCred mcclient.Toke
 }
 
 func (self *SSuggestSysAlert) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return self.SVirtualResourceBase.Delete(ctx, userCred)
+	return db.DeleteModel(ctx, userCred, self)
 }
 
 func (self *SSuggestSysAlert) StartDeleteTask(

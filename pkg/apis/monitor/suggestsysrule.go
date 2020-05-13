@@ -20,6 +20,25 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
+const (
+	METRIC_TAG   = "TAG"
+	METRIC_FIELD = "FIELD"
+)
+
+var PROPERTY_TYPE = []string{"databases", "measurements", "metric-measurement"}
+
+var METRIC_ATTRI = []string{METRIC_TAG, METRIC_FIELD}
+
+type InfluxMeasurement struct {
+	apis.Meta
+	Database    string
+	Measurement string
+	TagKey      []string
+	TagValue    map[string][]string
+	FieldKey    []string
+	Unit        []string
+}
+
 type SuggestSysRuleListInput struct {
 	apis.VirtualResourceListInput
 	apis.EnabledResourceBaseListInput
@@ -29,10 +48,11 @@ type SuggestSysRuleCreateInput struct {
 	apis.VirtualResourceCreateInput
 
 	// 查询指标周期
-	Period  string                   `json:"period"`
-	Type    string                   `json:"type"`
-	Enabled *bool                    `json:"enabled"`
-	Setting *SSuggestSysAlertSetting `json:"setting"`
+	Period   string                   `json:"period"`
+	TimeFrom string                   `json:"time_from"`
+	Type     string                   `json:"type"`
+	Enabled  *bool                    `json:"enabled"`
+	Setting  *SSuggestSysAlertSetting `json:"setting"`
 }
 
 type SuggestSysRuleUpdateInput struct {
@@ -60,6 +80,7 @@ type SSuggestSysAlertSetting struct {
 	EIPUnused  *EIPUnused  `json:"eip_unused"`
 	DiskUnused *DiskUnused `json:"disk_unused"`
 	LBUnused   *LBUnused   `json:"lb_unused"`
+	ScaleRule  *ScaleRule  `json:"scale_rule"`
 }
 
 type EIPUnused struct {
@@ -70,4 +91,23 @@ type DiskUnused struct {
 }
 
 type LBUnused struct {
+}
+
+type ScaleRule []Scale
+
+type Scale struct {
+	Database    string `json:"database"`
+	Measurement string `json:"measurement"`
+	//rule operator rule [and|or]
+	Operator  string  `json:"operator"`
+	Field     string  `json:"field"`
+	EvalType  string  `json:"eval_type"`
+	Threshold float64 `json:"threshold"`
+	Tag       string  `json:"tag"`
+	TagVal    string  `json:"tag_val"`
+}
+
+type ScaleEvalMatch struct {
+	EvalMatch
+	ResourceId map[string]string `json:"resource_id"`
 }

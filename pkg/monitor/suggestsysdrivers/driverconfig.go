@@ -25,7 +25,7 @@ import (
 )
 
 func init() {
-	models.RegisterSuggestSysRuleDrivers(NewEIPUsedDriver(), NewDiskUnusedDriver(), NewLBUnusedDriver())
+	models.RegisterSuggestSysRuleDrivers(NewEIPUsedDriver(), NewDiskUnusedDriver(), NewLBUnusedDriver(), NewScaleDownDriver())
 }
 
 func InitSuggestSysRuleCronjob() {
