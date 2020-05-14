@@ -15,7 +15,10 @@ import (
 	"yunion.io/x/onecloud/pkg/monitor/models"
 )
 
-func DealAlertData(oldAlerts []models.SSuggestSysAlert, newAlerts []jsonutils.JSONObject) {
+func DealAlertData(typ string, oldAlerts []models.SSuggestSysAlert, newAlerts []jsonutils.JSONObject) {
+	rules, _ := models.SuggestSysRuleManager.GetRules(typ)
+	rules[0].UpdateExecTime()
+
 	oldMap := make(map[string]models.SSuggestSysAlert, 0)
 	for _, alert := range oldAlerts {
 		oldMap[alert.ResId] = alert
