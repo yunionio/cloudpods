@@ -1147,8 +1147,11 @@ func (self *SElasticip) PerformSyncstatus(ctx context.Context, userCred mcclient
 	if self.Mode == api.EIP_MODE_INSTANCE_PUBLICIP {
 		return nil, httperrors.NewUnsupportOperationError("fixed eip cannot sync status")
 	}
-
-	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "EipSyncstatusTask", "")
+	if self.IsManaged() {
+		return nil, StartResourceSyncStatusTask(ctx, userCred, self, "EipSyncstatusTask", "")
+	} else {
+		return nil, self.SetStatus(userCred, api.EIP_STATUS_READY, "eip sync status")
+	}
 }
 
 func (self *SElasticip) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -1156,15 +1159,13 @@ func (self *SElasticip) AllowPerformSync(ctx context.Context, userCred mcclient.
 }
 
 func (self *SElasticip) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	/*if self.Status != EIP_STATUS_READY && !strings.HasSuffix(self.Status, "_fail") {
-		return nil, httperrors.NewInvalidStatusError("eip cannot syncstatus in status %s", self.Status)
-	}*/
-
 	if self.Mode == api.EIP_MODE_INSTANCE_PUBLICIP {
 		return nil, httperrors.NewUnsupportOperationError("fixed eip cannot sync status")
 	}
-
-	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "EipSyncstatusTask", "")
+	if self.IsManaged() {
+		return nil, StartResourceSyncStatusTask(ctx, userCred, self, "EipSyncstatusTask", "")
+	}
+	return nil, nil
 }
 
 func (self *SElasticip) GetExtraDetails(
