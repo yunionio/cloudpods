@@ -15,13 +15,15 @@
 package tokens
 
 import (
+	"context"
+
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
-func FernetTokenVerifier(tokenStr string) (mcclient.TokenCredential, error) {
+func FernetTokenVerifier(ctx context.Context, tokenStr string) (mcclient.TokenCredential, error) {
 	token := SAuthToken{}
 	err := token.ParseFernetToken(tokenStr)
 	if err != nil {
