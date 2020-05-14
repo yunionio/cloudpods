@@ -23,6 +23,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -85,6 +86,8 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 			self.TaskFail(ctx, eip, "unsupported associate type", nil)
 			return
 		}
+		lockman.LockObject(ctx, model)
+		defer lockman.ReleaseObject(ctx, model)
 
 		extEip, err := eip.GetIEip()
 		if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound {
