@@ -64,7 +64,6 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 	eip := obj.(*models.SElasticip)
 
 	if eip.IsAssociated() {
-
 		var (
 			model db.IModel
 			logOp string
@@ -89,24 +88,49 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		lockman.LockObject(ctx, model)
 		defer lockman.ReleaseObject(ctx, model)
 
-		extEip, err := eip.GetIEip()
-		if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound {
-			msg := fmt.Sprintf("fail to find iEIP for eip %s", err)
-			self.TaskFail(ctx, eip, msg, model)
-			return
-		}
-
-		if err == nil && len(extEip.GetAssociationExternalId()) > 0 {
-			err = extEip.Dissociate()
-			if err != nil {
-				msg := fmt.Sprintf("fail to remote dissociate eip %s", err)
+		if eip.IsManaged() {
+			extEip, err := eip.GetIEip()
+			if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound {
+				msg := fmt.Sprintf("fail to find iEIP for eip %s", err)
 				self.TaskFail(ctx, eip, msg, model)
 				return
 			}
+			if err == nil && len(extEip.GetAssociationExternalId()) > 0 {
+				err = extEip.Dissociate()
+				if err != nil {
+					msg := fmt.Sprintf("fail to remote dissociate eip %s", err)
+					self.TaskFail(ctx, eip, msg, model)
+					return
+				}
+			}
+		} else {
+			var guestnics []models.SGuestnetwork
+			q := models.GuestnetworkManager.Query().
+				Equals("guest_id", model.GetId()).
+				Equals("eip_id", eip.Id)
+			if err := db.FetchModelObjects(models.GuestnetworkManager, q, &guestnics); err != nil {
+				msg := errors.Wrapf(err, "fetch guest nic associated with eip %s(%s)", eip.Name, eip.Id).Error()
+				self.TaskFail(ctx, eip, msg, model)
+				return
+			}
+			var errs []error
+			for i := range guestnics {
+				guestnic := &guestnics[i]
+				if _, err := db.Update(guestnic, func() error {
+					guestnic.EipId = ""
+					return nil
+				}); err != nil {
+					errs = append(errs, errors.Wrapf(err, "nic %s", guestnic.Ifname))
+				}
+			}
+			if len(errs) > 0 {
+				err := errors.NewAggregate(errs)
+				msg := errors.Wrapf(err, "disassociate eip %s(%s)", eip.Name, eip.Id).Error()
+				self.TaskFail(ctx, eip, msg, model)
+			}
 		}
 
-		err = eip.Dissociate(ctx, self.UserCred)
-		if err != nil {
+		if err := eip.Dissociate(ctx, self.UserCred); err != nil {
 			msg := fmt.Sprintf("fail to local dissociate eip %s", err)
 			self.TaskFail(ctx, eip, msg, model)
 			return
