@@ -84,8 +84,8 @@ func RegistUserCredCacheUpdater() {
 	auth.RegisterAuthHook(onAuthCompleteUpdateCache)
 }
 
-func onAuthCompleteUpdateCache(userCred mcclient.TokenCredential) {
-	TenantCacheManager.updateTenantCache(userCred)
+func onAuthCompleteUpdateCache(ctx context.Context, userCred mcclient.TokenCredential) {
+	TenantCacheManager.updateTenantCache(ctx, userCred)
 	UserCacheManager.updateUserCache(userCred)
 }
 
@@ -109,8 +109,8 @@ func (manager *STenantCacheManager) InitializeData() error {
 	return nil
 }
 
-func (manager *STenantCacheManager) updateTenantCache(userCred mcclient.TokenCredential) {
-	manager.Save(context.Background(), userCred.GetProjectId(), userCred.GetProjectName(),
+func (manager *STenantCacheManager) updateTenantCache(ctx context.Context, userCred mcclient.TokenCredential) {
+	manager.Save(ctx, userCred.GetProjectId(), userCred.GetProjectName(),
 		userCred.GetProjectDomainId(), userCred.GetProjectDomain())
 }
 
@@ -381,14 +381,14 @@ func (manager *STenantCacheManager) findFirstProjectOfDomain(domainId string) (*
 	return &tenant, nil
 }
 
-func (manager *STenantCacheManager) fetchDomainTenantsFromKeystone(domainId string) error {
+func (manager *STenantCacheManager) fetchDomainTenantsFromKeystone(ctx context.Context, domainId string) error {
 	if len(domainId) == 0 {
 		log.Debugf("fetch empty domain!!!!")
 		debug.PrintStack()
 		return fmt.Errorf("Empty domainId")
 	}
 
-	s := auth.GetAdminSession(context.Background(), consts.GetRegion(), "v1")
+	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
 	params := jsonutils.Marshal(map[string]string{"domain_id": domainId})
 	tenants, err := modules.Projects.List(s, params)
 	if err != nil {
@@ -399,7 +399,7 @@ func (manager *STenantCacheManager) fetchDomainTenantsFromKeystone(domainId stri
 		tenantName, _ := tenant.GetString("name")
 		domainId, _ := tenant.GetString("domain_id")
 		domainName, _ := tenant.GetString("project_domain")
-		_, err = manager.Save(context.Background(), tenantId, tenantName, domainId, domainName)
+		_, err = manager.Save(ctx, tenantId, tenantName, domainId, domainName)
 		if err != nil {
 			return err
 		}
@@ -407,11 +407,11 @@ func (manager *STenantCacheManager) fetchDomainTenantsFromKeystone(domainId stri
 	return nil
 }
 
-func (manager *STenantCacheManager) FindFirstProjectOfDomain(domainId string) (*STenant, error) {
+func (manager *STenantCacheManager) FindFirstProjectOfDomain(ctx context.Context, domainId string) (*STenant, error) {
 	tenant, err := manager.findFirstProjectOfDomain(domainId)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			err = manager.fetchDomainTenantsFromKeystone(domainId)
+			err = manager.fetchDomainTenantsFromKeystone(ctx, domainId)
 			if err != nil {
 				return nil, errors.Wrap(err, "fetchDomainTenantsFromKeystone")
 			}
