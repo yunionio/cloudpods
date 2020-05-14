@@ -423,24 +423,6 @@ func (this *ImageManager) Upload(s *mcclient.ClientSession, params jsonutils.JSO
 	return this._create(s, params, body, size)
 }
 
-func (this *ImageManager) IsNameDuplicate(s *mcclient.ClientSession, name string) (bool, error) {
-	dupName := true
-	_, e := this.GetByName(s, name, nil)
-	if e != nil {
-		switch e.(type) {
-		case *httputils.JSONClientError:
-			je := e.(*httputils.JSONClientError)
-			if je.Code == 404 {
-				dupName = false
-			}
-		default:
-			log.Errorf("GetByName fail %s", e)
-			return false, e
-		}
-	}
-	return dupName, nil
-}
-
 func (this *ImageManager) _create(s *mcclient.ClientSession, params jsonutils.JSONObject, body io.Reader, size int64) (jsonutils.JSONObject, error) {
 	/*format, _ := params.GetString("disk-format")
 	if len(format) == 0 {
@@ -461,16 +443,9 @@ func (this *ImageManager) _create(s *mcclient.ClientSession, params jsonutils.JS
 		if len(name) == 0 {
 			return nil, httperrors.NewMissingParameterError("name")
 		}
-		dupName, e := this.IsNameDuplicate(s, name)
-		if dupName {
-			return nil, httperrors.NewDuplicateNameError("name", name)
-		}
-		if e != nil {
-			return nil, fmt.Errorf("Check name duplicate error %s", e)
-		}
 	} else {
 		path = fmt.Sprintf("/%s/%s", this.URLPath(), imageId)
-		method = "PUT"
+		method = httputils.PUT
 	}
 	headers, e := setImageMeta(params)
 	if e != nil {
@@ -485,7 +460,6 @@ func (this *ImageManager) _create(s *mcclient.ClientSession, params jsonutils.JS
 		size = 0
 		headers.Set(IMAGE_META_COPY_FROM, copyFromUrl)
 	}
-	headers.Set(fmt.Sprintf("%s%s", IMAGE_META, utils.Capitalize("container-format")), "bare")
 	if body != nil {
 		headers.Add("Content-Type", "application/octet-stream")
 		if size > 0 {

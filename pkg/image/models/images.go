@@ -150,7 +150,8 @@ func (manager *SImageManager) CustomizeHandlerInfo(info *appsrv.SHandlerInfo) {
 }
 
 func (manager *SImageManager) FetchCreateHeaderData(ctx context.Context, header http.Header) (jsonutils.JSONObject, error) {
-	return modules.FetchImageMeta(header), nil
+	data := modules.FetchImageMeta(header)
+	return data, nil
 }
 
 func (manager *SImageManager) FetchUpdateHeaderData(ctx context.Context, header http.Header) (jsonutils.JSONObject, error) {
@@ -372,31 +373,26 @@ func (self *SImage) GetExtraDetailsHeaders(ctx context.Context, userCred mcclien
 	return headers
 }
 
-func (manager *SImageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	input := apis.SharableVirtualResourceCreateInput{}
-	err := data.Unmarshal(&input)
+func (manager *SImageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ImageCreateInput) (api.ImageCreateInput, error) {
+	var err error
+	input.SharableVirtualResourceCreateInput, err = manager.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.SharableVirtualResourceCreateInput)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
+		return input, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ValidateCreateData")
 	}
-	input, err = manager.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
-	if err != nil {
-		return nil, err
-	}
-	data.Update(jsonutils.Marshal(input))
 
 	// If this image is the part of guest image (contains "guest_image_id"),
 	// we do not need to check and set pending quota
 	// because that pending quota has been checked and set in SGuestImage.ValidateCreateData
-	if !data.Contains("guest_image_id") {
+	if input.IsGuestImage == nil || !*input.IsGuestImage {
 		pendingUsage := SQuota{Image: 1}
-		keys := imageCreateInput2QuotaKeys(data, ownerId)
+		keys := imageCreateInput2QuotaKeys(input.DiskFormat, ownerId)
 		pendingUsage.SetKeys(keys)
 		if err := quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
-			return nil, httperrors.NewOutOfQuotaError("%s", err)
+			return input, httperrors.NewOutOfQuotaError("%s", err)
 		}
 	}
 
-	return data, nil
+	return input, nil
 }
 
 func (self *SImage) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -406,10 +402,6 @@ func (self *SImage) CustomizeCreate(ctx context.Context, userCred mcclient.Token
 	}
 	self.Status = api.IMAGE_STATUS_QUEUED
 	self.Owner = self.ProjectId
-	// if belong to a guest image,
-	if data.Contains("guest_image_id") {
-		self.IsGuestImage = tristate.True
-	}
 	return nil
 }
 
@@ -421,9 +413,17 @@ func (self *SImage) GetPath(format string) string {
 	return path
 }
 
+func (self *SImage) unprotectImage() {
+	db.Update(self, func() error {
+		self.Protected = tristate.False
+		return nil
+	})
+}
+
 func (self *SImage) OnJointFailed(ctx context.Context, userCred mcclient.TokenCredential) {
 	log.Errorf("create joint of image and guest image failed")
 	self.SetStatus(userCred, api.IMAGE_STATUS_KILLED, "")
+	self.unprotectImage()
 }
 
 func (self *SImage) OnSaveFailed(ctx context.Context, userCred mcclient.TokenCredential, msg string) {
@@ -455,6 +455,7 @@ func (self *SImage) saveSuccess(userCred mcclient.TokenCredential, msg string) {
 func (self *SImage) saveFailed(userCred mcclient.TokenCredential, msg string) {
 	log.Errorf(msg)
 	self.SetStatus(userCred, api.IMAGE_STATUS_KILLED, msg)
+	self.unprotectImage()
 	db.OpsLog.LogEvent(self, db.ACT_SAVE_FAIL, msg, userCred)
 }
 
@@ -537,7 +538,7 @@ func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 	// if SImage belong to a guest image, pending quota will not be set.
 	if self.IsGuestImage.IsFalse() {
 		pendingUsage := SQuota{Image: 1}
-		keys := imageCreateInput2QuotaKeys(data, ownerId)
+		keys := imageCreateInput2QuotaKeys(self.DiskFormat, ownerId)
 		pendingUsage.SetKeys(keys)
 		cancelUsage := SQuota{Image: 1}
 		keys = self.GetQuotaKeys()
@@ -574,15 +575,6 @@ func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 		}
 	}
 
-	// This image is belong to some guestImage.
-	// Code below must be run without upload.
-	if data.Contains("guest_image_id") {
-		guestImageId, _ := data.GetString("guest_image_id")
-		_, err := GuestImageJointManager.CreateGuestImageJoint(ctx, guestImageId, self.Id)
-		if err != nil {
-			self.OnJointFailed(ctx, userCred)
-		}
-	}
 }
 
 // After image probe and customization, image size and checksum changed
@@ -1420,10 +1412,9 @@ func (img *SImage) GetQuotaKeys() quotas.IQuotaKeys {
 	return keys
 }
 
-func imageCreateInput2QuotaKeys(data jsonutils.JSONObject, ownerId mcclient.IIdentityProvider) quotas.IQuotaKeys {
+func imageCreateInput2QuotaKeys(format string, ownerId mcclient.IIdentityProvider) quotas.IQuotaKeys {
 	keys := SImageQuotaKeys{}
 	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(rbacutils.ScopeProject, ownerId)
-	format, _ := data.GetString("disk_format")
 	if format == string(api.ImageTypeISO) {
 		keys.Type = string(api.ImageTypeISO)
 	} else if len(format) > 0 {

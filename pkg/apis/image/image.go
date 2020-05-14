@@ -61,3 +61,27 @@ type ImageDetails struct {
 	DisableDelete bool `json:"disable_delete"`
 	//OssChecksum   string    `json:"oss_checksum"`
 }
+
+type ImageCreateInput struct {
+	apis.SharableVirtualResourceCreateInput
+
+	// 镜像大小, 单位Byte
+	Size *int64 `json:"size"`
+	// 镜像格式
+	DiskFormat string `json:"disk_format"`
+	// 最小系统盘要求
+	MinDiskMB *int32 `json:"min_disk"`
+	// 最小内存要求
+	MinRamMB *int32 `json:"min_ram"`
+	// 是否有删除保护
+	Protected *bool `json:"protected"`
+	// 是否是标准镜像
+	IsStandard *bool `json:"is_standard"`
+	// 是否是主机镜像
+	IsGuestImage *bool `json:"is_guest_image"`
+	// 是否是数据盘镜像
+	IsData *bool `json:"is_data"`
+
+	// 镜像属性
+	Properties map[string]string `json:"properties"`
+}

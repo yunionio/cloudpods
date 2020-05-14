@@ -153,9 +153,6 @@ func SharableManagerValidateCreateData(
 	query jsonutils.JSONObject,
 	input apis.SharableResourceBaseCreateInput,
 ) (apis.SharableResourceBaseCreateInput, error) {
-	if len(input.PublicScope) == 0 {
-		return input, nil
-	}
 	resScope := manager.ResourceScope()
 	reqScope := resScope
 	isPublic := true
@@ -167,10 +164,10 @@ func SharableManagerValidateCreateData(
 		} else if input.PublicScope == string(rbacutils.ScopeDomain) {
 			input.IsPublic = &isPublic
 			reqScope = rbacutils.ScopeDomain
-		} else if input.IsPublic != nil && *input.IsPublic {
-			// return input, errors.Wrap(httperrors.ErrNotSupported, "project level resource can be shared to domain or system ONLY")
-			input.IsPublic = nil
-			input.PublicScope = string(rbacutils.ScopeNone)
+		} else if input.IsPublic != nil && *input.IsPublic && len(input.PublicScope) == 0 {
+			// backward compatible, if only is_public is true, make it share to system
+			input.IsPublic = &isPublic
+			input.PublicScope = string(rbacutils.ScopeSystem)
 		} else {
 			input.IsPublic = nil
 			input.PublicScope = string(rbacutils.ScopeNone)
@@ -179,10 +176,10 @@ func SharableManagerValidateCreateData(
 		if input.PublicScope == string(rbacutils.ScopeSystem) {
 			input.IsPublic = &isPublic
 			reqScope = rbacutils.ScopeSystem
-		} else if input.IsPublic != nil && *input.IsPublic {
-			// return input, errors.Wrap(httperrors.ErrNotSupported, "domain level resource can be shared to system ONLY")
-			input.IsPublic = nil
-			input.PublicScope = string(rbacutils.ScopeNone)
+		} else if input.IsPublic != nil && *input.IsPublic && len(input.PublicScope) == 0 {
+			// backward compatible, if only is_public is true, make it share to system
+			input.IsPublic = &isPublic
+			input.PublicScope = string(rbacutils.ScopeSystem)
 		} else {
 			input.IsPublic = nil
 			input.PublicScope = string(rbacutils.ScopeNone)
