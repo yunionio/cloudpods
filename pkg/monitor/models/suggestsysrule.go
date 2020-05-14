@@ -62,7 +62,7 @@ type SSuggestSysRule struct {
 	Period   string               `width:"256" charset:"ascii" list:"user" update:"user"`
 	TimeFrom string               `width:"256" charset:"ascii" list:"user" update:"user"`
 	Setting  jsonutils.JSONObject ` list:"user" update:"user"`
-	ExecTime time.Time            `json:"exec_time"`
+	ExecTime time.Time            `list:"user" update:"user"`
 }
 
 func (man *SSuggestSysRuleManager) FetchSuggestSysAlartSettings(ruleTypes ...string) (map[string]*monitor.SuggestSysRuleDetails, error) {
@@ -194,6 +194,7 @@ func (man *SSuggestSysRuleManager) FetchCustomizeColumns(
 		rows[i] = monitor.SuggestSysRuleDetails{
 			VirtualResourceDetails: virtRows[i],
 		}
+		rows[i] = objs[i].(*SSuggestSysRule).getMoreDetails(rows[i])
 	}
 	return rows
 }
@@ -334,4 +335,11 @@ func (self *SSuggestSysRuleManager) GetRules(tp ...string) ([]SSuggestSysRule, e
 		return rules, err
 	}
 	return rules, nil
+}
+
+func (self *SSuggestSysRule) UpdateExecTime() {
+	db.Update(self, func() error {
+		self.ExecTime = time.Now()
+		return nil
+	})
 }
