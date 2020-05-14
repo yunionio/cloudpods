@@ -1665,37 +1665,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 			log.Errorf("timeout for waiting dbinstance running error: %v", err)
 		}
 
-		dbinstance.ZoneId = idbinstance.GetIZoneId()
-		err = dbinstance.SetZoneInfo(ctx, userCred)
-		if err != nil {
-			log.Errorf("failed to set dbinstance %s(%s) zoneInfo from cloud dbinstance: %v", dbinstance.Name, dbinstance.Id, err)
-		}
-
-		_, err = db.Update(dbinstance, func() error {
-			dbinstance.Engine = idbinstance.GetEngine()
-			dbinstance.EngineVersion = idbinstance.GetEngineVersion()
-			dbinstance.StorageType = idbinstance.GetStorageType()
-			dbinstance.DiskSizeGB = idbinstance.GetDiskSizeGB()
-			dbinstance.Category = idbinstance.GetCategory()
-			dbinstance.VcpuCount = idbinstance.GetVcpuCount()
-			dbinstance.VmemSizeMb = idbinstance.GetVmemSizeMB()
-			dbinstance.InstanceType = idbinstance.GetInstanceType()
-			dbinstance.ConnectionStr = idbinstance.GetConnectionStr()
-			dbinstance.InternalConnectionStr = idbinstance.GetInternalConnectionStr()
-			dbinstance.MaintainTime = idbinstance.GetMaintainTime()
-			dbinstance.Port = idbinstance.GetPort()
-
-			if createdAt := idbinstance.GetCreatedAt(); !createdAt.IsZero() {
-				dbinstance.CreatedAt = idbinstance.GetCreatedAt()
-			}
-			if expiredAt := idbinstance.GetExpiredAt(); !expiredAt.IsZero() {
-				dbinstance.ExpiredAt = expiredAt
-			}
-			return nil
-		})
-		if err != nil {
-			log.Errorf("failed to update dbinstance conf: %v", err)
-		}
+		dbinstance.SyncWithCloudDBInstance(ctx, userCred, dbinstance.GetCloudprovider(), idbinstance)
 
 		network, err := idbinstance.GetDBNetwork()
 		if err != nil {
