@@ -139,9 +139,9 @@ func (l *sLinuxRootFs) DeployPublicKey(rootFs IDiskPartition, selUsr string, pub
 	return DeployAuthorizedKeys(rootFs, usrDir, pubkeys, false)
 }
 
-func (l *sLinuxRootFs) DeployYunionroot(rootFs IDiskPartition, pubkeys *deployapi.SSHKeys, isInit, enableCloudInit bool) error {
+func (l *sLinuxRootFs) DeployYunionroot(rootFs IDiskPartition, pubkeys *deployapi.SSHKeys, enableCloudInit bool) error {
 	l.DisableSelinux(rootFs)
-	if !enableCloudInit && isInit {
+	if !enableCloudInit {
 		l.DisableCloudinit(rootFs)
 	}
 	var yunionroot = YUNIONROOT_USER
