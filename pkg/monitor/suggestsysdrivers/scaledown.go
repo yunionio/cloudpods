@@ -92,7 +92,7 @@ func (rule *ScaleDown) Run(instance *monitor.SSuggestSysAlertSetting) {
 		log.Errorln(err)
 		return
 	}
-	DealAlertData(oldAlert, newAlert.Value())
+	DealAlertData(rule.GetType(), oldAlert, newAlert.Value())
 }
 
 func (rule *ScaleDown) getLatestAlerts(instance *monitor.SSuggestSysAlertSetting) (*jsonutils.JSONArray, error) {
