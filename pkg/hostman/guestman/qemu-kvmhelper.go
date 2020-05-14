@@ -366,7 +366,7 @@ func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (stri
 		cmd += d.GetDiskSetupScripts(int(diskIndex))
 	}
 
-	cmd += fmt.Sprintf("STATE_FILE=`ls -d %s* | head -n 1`\n", s.getStateFilePathRootPrefix())
+	// cmd += fmt.Sprintf("STATE_FILE=`ls -d %s* | head -n 1`\n", s.getStateFilePathRootPrefix())
 	cmd += fmt.Sprintf("PID_FILE=%s\n", s.GetPidFilePath())
 
 	var qemuCmd = qemutils.GetQemu(qemuVersion)
@@ -375,23 +375,23 @@ func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (stri
 	}
 
 	cmd += fmt.Sprintf("DEFAULT_QEMU_CMD='%s'\n", qemuCmd)
-	cmd += "if [ -n \"$STATE_FILE\" ]; then\n"
-	cmd += "    QEMU_VER=`echo $STATE_FILE" +
-		` | grep -o '_[[:digit:]]\+\.[[:digit:]]\+.*'` + "`\n"
-	cmd += "    QEMU_CMD=\"qemu-system-x86_64\"\n"
-	cmd += "    QEMU_LOCAL_PATH=\"/usr/local/bin/$QEMU_CMD\"\n"
-	cmd += "    QEMU_LOCAL_PATH_VER=\"/usr/local/qemu-$QEMU_VER/bin/$QEMU_CMD\"\n"
-	cmd += "    QEMU_BIN_PATH=\"/usr/bin/$QEMU_CMD\"\n"
-	cmd += "    if [ -f \"$QEMU_LOCAL_PATH_VER\" ]; then\n"
-	cmd += "        QEMU_CMD=$QEMU_LOCAL_PATH_VER\n"
-	cmd += "    elif [ -f \"$QEMU_LOCAL_PATH\" ]; then\n"
-	cmd += "        QEMU_CMD=$QEMU_LOCAL_PATH\n"
-	cmd += "    elif [ -f \"$QEMU_BIN_PATH\" ]; then\n"
-	cmd += "        QEMU_CMD=$QEMU_BIN_PATH\n"
-	cmd += "    fi\n"
-	cmd += "else\n"
-	cmd += "    QEMU_CMD=$DEFAULT_QEMU_CMD\n"
-	cmd += "fi\n"
+	// cmd += "if [ -n \"$STATE_FILE\" ]; then\n"
+	// cmd += "    QEMU_VER=`echo $STATE_FILE" +
+	// 	` | grep -o '_[[:digit:]]\+\.[[:digit:]]\+.*'` + "`\n"
+	// cmd += "    QEMU_CMD=\"qemu-system-x86_64\"\n"
+	// cmd += "    QEMU_LOCAL_PATH=\"/usr/local/bin/$QEMU_CMD\"\n"
+	// cmd += "    QEMU_LOCAL_PATH_VER=\"/usr/local/qemu-$QEMU_VER/bin/$QEMU_CMD\"\n"
+	// cmd += "    QEMU_BIN_PATH=\"/usr/bin/$QEMU_CMD\"\n"
+	// cmd += "    if [ -f \"$QEMU_LOCAL_PATH_VER\" ]; then\n"
+	// cmd += "        QEMU_CMD=$QEMU_LOCAL_PATH_VER\n"
+	// cmd += "    elif [ -f \"$QEMU_LOCAL_PATH\" ]; then\n"
+	// cmd += "        QEMU_CMD=$QEMU_LOCAL_PATH\n"
+	// cmd += "    elif [ -f \"$QEMU_BIN_PATH\" ]; then\n"
+	// cmd += "        QEMU_CMD=$QEMU_BIN_PATH\n"
+	// cmd += "    fi\n"
+	// cmd += "else\n"
+	cmd += "QEMU_CMD=$DEFAULT_QEMU_CMD\n"
+	// cmd += "fi\n"
 	cmd += "function nic_speed() {\n"
 	cmd += "    $QEMU_CMD "
 
@@ -635,13 +635,13 @@ func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (stri
 	}
 
 	cmd += "\"\n"
-	cmd += "if [ ! -z \"$STATE_FILE\" ] && [ -d \"$STATE_FILE\" ] && [ -f \"$STATE_FILE/content\" ]; then\n"
-	cmd += "    $CMD --incoming \"exec: cat $STATE_FILE/content\"\n"
-	cmd += "elif [ ! -z \"$STATE_FILE\" ] && [ -f $STATE_FILE ]; then\n"
-	cmd += "    $CMD --incoming \"exec: cat $STATE_FILE\"\n"
-	cmd += "else\n"
-	cmd += "    $CMD\n"
-	cmd += "fi\n"
+	// cmd += "if [ ! -z \"$STATE_FILE\" ] && [ -d \"$STATE_FILE\" ] && [ -f \"$STATE_FILE/content\" ]; then\n"
+	// cmd += "    $CMD --incoming \"exec: cat $STATE_FILE/content\"\n"
+	// cmd += "elif [ ! -z \"$STATE_FILE\" ] && [ -f $STATE_FILE ]; then\n"
+	// cmd += "    $CMD --incoming \"exec: cat $STATE_FILE\"\n"
+	// cmd += "else\n"
+	cmd += "$CMD\n"
+	// cmd += "fi\n"
 
 	return cmd, nil
 }
