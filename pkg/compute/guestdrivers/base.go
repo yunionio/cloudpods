@@ -298,6 +298,14 @@ func (self *SBaseGuestDriver) IsNeedInjectPasswordByCloudInit(desc *cloudprovide
 	return false
 }
 
+func (self *SBaseGuestDriver) GetWindowsUserDataType() string {
+	return cloudprovider.CLOUD_POWER_SHELL
+}
+
+func (self *SBaseGuestDriver) IsWindowsUserDataTypeNeedEncode() bool {
+	return false
+}
+
 func (self *SBaseGuestDriver) GetUserDataType() string {
 	return cloudprovider.CLOUD_CONFIG
 }
