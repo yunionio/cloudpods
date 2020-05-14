@@ -58,7 +58,7 @@ func AuthenticateWithDelayDecision(f appsrv.FilterHandler, delayDecision bool) a
 			token = &GuestToken
 		} else {
 			var err error
-			token, err = DefaultTokenVerifier(tokenStr)
+			token, err = DefaultTokenVerifier(ctx, tokenStr)
 			if err != nil {
 				log.Errorf("Verify token failed: %s", err)
 				if !delayDecision {

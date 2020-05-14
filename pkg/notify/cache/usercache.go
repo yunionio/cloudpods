@@ -52,7 +52,7 @@ func RegistUserCredCacheUpdater() {
 	auth.RegisterAuthHook(onAuthCompleteUpdateCache)
 }
 
-func onAuthCompleteUpdateCache(userCred mcclient.TokenCredential) {
+func onAuthCompleteUpdateCache(ctx context.Context, userCred mcclient.TokenCredential) {
 	UserCacheManager.updateUserCache(userCred)
 }
 
