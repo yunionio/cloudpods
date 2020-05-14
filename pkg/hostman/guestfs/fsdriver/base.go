@@ -80,7 +80,7 @@ func (d *sGuestRootFsDriver) IsFsCaseInsensitive() bool {
 	return false
 }
 
-func (d *sGuestRootFsDriver) DeployYunionroot(rootfs IDiskPartition, pubkeys *deployapi.SSHKeys, isInit, enableCloudInit bool) error {
+func (d *sGuestRootFsDriver) DeployYunionroot(rootfs IDiskPartition, pubkeys *deployapi.SSHKeys, enableCloudInit bool) error {
 	return nil
 }
 
