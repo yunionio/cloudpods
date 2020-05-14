@@ -31,6 +31,7 @@ type (
 	Hosts              map[string]*Host
 	SecurityGroups     map[string]*SecurityGroup
 	SecurityGroupRules map[string]*SecurityGroupRule
+	Elasticips         map[string]*Elasticip
 
 	Guestnetworks  map[string]*Guestnetwork  // key: guestId/ifname
 	Guestsecgroups map[string]*Guestsecgroup // key: guestId/secgroupId
@@ -293,6 +294,30 @@ func (ms Networks) joinGuestnetworks(subEntries Guestnetworks) bool {
 	return true
 }
 
+func (ms Networks) joinElasticips(subEntries Elasticips) bool {
+	for _, m := range ms {
+		m.Elasticips = Elasticips{}
+	}
+	correct := true
+	for _, subEntry := range subEntries {
+		netId := subEntry.NetworkId
+		m, ok := ms[netId]
+		if !ok {
+			log.Warningf("eip %s(%s): network %s not found", subEntry.Name, subEntry.Id, netId)
+			correct = false
+			continue
+		}
+		if _, ok := m.Elasticips[subEntry.Id]; ok {
+			log.Warningf("elasticip %s(%s) already joined", subEntry.Name, subEntry.Id)
+			correct = false
+			continue
+		}
+		subEntry.Network = m
+		m.Elasticips[subEntry.Id] = subEntry
+	}
+	return correct
+}
+
 func (set Guestnetworks) ModelManager() mcclient_modulebase.IBaseManager {
 	return &mcclient_modules.Servernetworks
 }
@@ -330,6 +355,33 @@ func (set Guestnetworks) joinGuests(subEntries Guests) bool {
 		gn.Guest = g
 	}
 	return true
+}
+
+func (set Guestnetworks) joinElasticips(subEntries Elasticips) bool {
+	correct := true
+	for _, gn := range set {
+		eipId := gn.EipId
+		if eipId == "" {
+			continue
+		}
+		eip, ok := subEntries[eipId]
+		if !ok {
+			log.Warningf("guestnetwork %s(%s): eip %s not found", gn.GuestId, gn.Ifname, eipId)
+			correct = false
+			continue
+		}
+		if eip.Guestnetwork != nil {
+			if eip.Guestnetwork != gn {
+				log.Errorf("eip %s associated to more than 1 guestnetwork: %s(%s), %s(%s)", eipId,
+					eip.Guestnetwork.GuestId, eip.Guestnetwork.Ifname, gn.GuestId, gn.Ifname)
+				correct = false
+			}
+			continue
+		}
+		eip.Guestnetwork = gn
+		gn.Elasticip = eip
+	}
+	return correct
 }
 
 func (set SecurityGroups) ModelManager() mcclient_modulebase.IBaseManager {
@@ -458,4 +510,25 @@ func (set Guestsecgroups) join(secgroups SecurityGroups, guests Guests) bool {
 	c0 := set.joinSecurityGroups(secgroups)
 	c1 := set.joinGuests(guests)
 	return c0 && c1
+}
+
+func (set Elasticips) ModelManager() mcclient_modulebase.IBaseManager {
+	return &mcclient_modules.Elasticips
+}
+
+func (set Elasticips) NewModel() db.IModel {
+	return &Elasticip{}
+}
+
+func (set Elasticips) AddModel(i db.IModel) {
+	m := i.(*Elasticip)
+	set[m.Id] = m
+}
+
+func (set Elasticips) Copy() apihelper.IModelSet {
+	setCopy := Elasticips{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
 }

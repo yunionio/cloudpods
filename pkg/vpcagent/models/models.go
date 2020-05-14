@@ -49,6 +49,7 @@ type Network struct {
 	Vpc           *Vpc          `json:"-"`
 	Wire          *Wire         `json:"-"`
 	Guestnetworks Guestnetworks `json:"-"`
+	Elasticips    Elasticips    `json:"-"`
 }
 
 func (el *Network) Copy() *Network {
@@ -60,8 +61,9 @@ func (el *Network) Copy() *Network {
 type Guestnetwork struct {
 	compute_models.SGuestnetwork
 
-	Guest   *Guest   `json:"-"`
-	Network *Network `json:"-"`
+	Guest     *Guest     `json:"-"`
+	Network   *Network   `json:"-"`
+	Elasticip *Elasticip `json:"-"`
 }
 
 func (el *Guestnetwork) Copy() *Guestnetwork {
@@ -132,5 +134,18 @@ type SecurityGroupRule struct {
 func (el *SecurityGroupRule) Copy() *SecurityGroupRule {
 	return &SecurityGroupRule{
 		SSecurityGroupRule: el.SSecurityGroupRule,
+	}
+}
+
+type Elasticip struct {
+	compute_models.SElasticip
+
+	Network      *Network      `json:"-"`
+	Guestnetwork *Guestnetwork `json:"-"`
+}
+
+func (el *Elasticip) Copy() *Elasticip {
+	return &Elasticip{
+		SElasticip: el.SElasticip,
 	}
 }
