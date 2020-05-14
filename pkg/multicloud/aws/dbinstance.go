@@ -232,7 +232,7 @@ func (region *SRegion) GetDBInstance(instanceId string) (*SDBInstance, error) {
 	return nil, cloudprovider.ErrDuplicateId
 }
 
-func (rds *SDBInstance) GetIZoneId() string {
+func (rds *SDBInstance) GetZone1Id() string {
 	if len(rds.AvailabilityZone) > 0 {
 		zone, err := rds.region.getZoneById(rds.AvailabilityZone)
 		if err != nil {
@@ -241,6 +241,14 @@ func (rds *SDBInstance) GetIZoneId() string {
 		}
 		return zone.GetGlobalId()
 	}
+	return ""
+}
+
+func (rds *SDBInstance) GetZone2Id() string {
+	return ""
+}
+
+func (rds *SDBInstance) GetZone3Id() string {
 	return ""
 }
 
