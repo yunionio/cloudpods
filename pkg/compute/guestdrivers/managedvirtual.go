@@ -1042,7 +1042,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestAssociateEip(ctx context.Cont
 			return nil, fmt.Errorf("ManagedVirtualizedGuestDriver.RequestAssociateEip fail to local associate EIP %s", err)
 		}
 
-		eip.SetStatus(userCred, api.EIP_STATUS_READY, "associate")
+		eip.SetStatus(userCred, api.EIP_STATUS_READY, api.EIP_STATUS_ASSOCIATE)
 		return nil, nil
 	})
 
