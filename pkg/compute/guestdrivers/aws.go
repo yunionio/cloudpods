@@ -78,6 +78,14 @@ func (self *SAwsGuestDriver) IsNeedInjectPasswordByCloudInit(desc *cloudprovider
 	return true
 }
 
+func (self *SAwsGuestDriver) IsWindowsUserDataTypeNeedEncode() bool {
+	return true
+}
+
+func (self *SAwsGuestDriver) GetWindowsUserDataType() string {
+	return cloudprovider.CLOUD_EC2
+}
+
 func (self *SAwsGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
 	// return fetchAwsUserName(desc)
 	if desc.OsType == "Windows" {
