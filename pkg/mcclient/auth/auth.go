@@ -112,7 +112,7 @@ func (c *TokenCacheVerify) DeleteToken(token string) bool {
 	return c.Delete(token)
 }
 
-func (c *TokenCacheVerify) Verify(cli *mcclient.Client, adminToken, token string) (mcclient.TokenCredential, error) {
+func (c *TokenCacheVerify) Verify(ctx context.Context, cli *mcclient.Client, adminToken, token string) (mcclient.TokenCredential, error) {
 	cred, found := c.GetToken(token)
 	if found {
 		if cred.IsValid() {
@@ -132,7 +132,7 @@ func (c *TokenCacheVerify) Verify(cli *mcclient.Client, adminToken, token string
 	if err != nil {
 		return nil, fmt.Errorf("Add %s credential to cache: %#v", cred.GetTokenString(), err)
 	}
-	callbackAuthhooks(cred)
+	callbackAuthhooks(ctx, cred)
 	// log.Debugf("Add token: %s", cred)
 	return cred, nil
 }
@@ -165,11 +165,11 @@ func (a *authManager) verifyRequest(req http.Request, virtualHost bool) (mcclien
 	return cred, nil
 }
 
-func (a *authManager) verify(token string) (mcclient.TokenCredential, error) {
+func (a *authManager) verify(ctx context.Context, token string) (mcclient.TokenCredential, error) {
 	if a.adminCredential == nil {
 		return nil, fmt.Errorf("No valid admin token credential")
 	}
-	cred, err := a.tokenCacheVerify.Verify(a.client, a.adminCredential.GetTokenString(), token)
+	cred, err := a.tokenCacheVerify.Verify(ctx, a.client, a.adminCredential.GetTokenString(), token)
 	if err != nil {
 		return nil, err
 	}
@@ -258,8 +258,8 @@ func GetCatalogData(serviceTypes []string, region string) jsonutils.JSONObject {
 	return manager.adminCredential.GetCatalogData(serviceTypes, region)
 }
 
-func Verify(tokenId string) (mcclient.TokenCredential, error) {
-	return manager.verify(tokenId)
+func Verify(ctx context.Context, tokenId string) (mcclient.TokenCredential, error) {
+	return manager.verify(ctx, tokenId)
 }
 
 func VerifyRequest(req http.Request, virtualHost bool) (mcclient.TokenCredential, error) {
