@@ -62,7 +62,9 @@ func (el *Guestnetwork) Copy() *Guestnetwork {
 type Guest struct {
 	compute_models.SGuest
 
-	Host *Host `json:"-"`
+	Host               *Host          `json:"-"`
+	AdminSecurityGroup *SecurityGroup `json:"-"`
+	SecurityGroups     SecurityGroups `json:"-"`
 }
 
 func (el *Guest) Copy() *Guest {
@@ -78,5 +80,46 @@ type Host struct {
 func (el *Host) Copy() *Host {
 	return &Host{
 		SHost: el.SHost,
+	}
+}
+
+type Guestsecgroup struct {
+	compute_models.SGuestsecgroup
+
+	Guest         *Guest         `json:"-"`
+	SecurityGroup *SecurityGroup `json:"-"`
+}
+
+func (el *Guestsecgroup) ModelSetKey() string {
+	return el.GuestId + "/" + el.SecgroupId
+}
+
+func (el *Guestsecgroup) Copy() *Guestsecgroup {
+	return &Guestsecgroup{
+		SGuestsecgroup: el.SGuestsecgroup,
+	}
+}
+
+type SecurityGroup struct {
+	compute_models.SSecurityGroup
+
+	SecurityGroupRules SecurityGroupRules `json:"-"`
+}
+
+func (el *SecurityGroup) Copy() *SecurityGroup {
+	return &SecurityGroup{
+		SSecurityGroup: el.SSecurityGroup,
+	}
+}
+
+type SecurityGroupRule struct {
+	compute_models.SSecurityGroupRule
+
+	SecurityGroup *SecurityGroup `json:"-"`
+}
+
+func (el *SecurityGroupRule) Copy() *SecurityGroupRule {
+	return &SecurityGroupRule{
+		SSecurityGroupRule: el.SSecurityGroupRule,
 	}
 }

@@ -136,9 +136,9 @@ type SGuest struct {
 
 	// 安全组Id
 	// example: default
-	SecgrpId string `width:"36" charset:"ascii" nullable:"true" get:"user" create:"optional"`
+	SecgrpId string `width:"36" charset:"ascii" nullable:"true" list:"user" get:"user" create:"optional"`
 	// 管理员可见安全组Id
-	AdminSecgrpId string `width:"36" charset:"ascii" nullable:"true" get:"domain"`
+	AdminSecgrpId string `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"domain"`
 
 	SrcIpCheck  tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
 	SrcMacCheck tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`

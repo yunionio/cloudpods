@@ -24,11 +24,17 @@ import (
 	"yunion.io/x/onecloud/pkg/vpcagent/apihelper"
 )
 
-type Vpcs map[string]*Vpc
-type Networks map[string]*Network
-type Guests map[string]*Guest
-type Hosts map[string]*Host
-type Guestnetworks map[string]*Guestnetwork // key: guestId/ifname
+type (
+	Vpcs               map[string]*Vpc
+	Networks           map[string]*Network
+	Guests             map[string]*Guest
+	Hosts              map[string]*Host
+	SecurityGroups     map[string]*SecurityGroup
+	SecurityGroupRules map[string]*SecurityGroupRule
+
+	Guestnetworks  map[string]*Guestnetwork  // key: guestId/ifname
+	Guestsecgroups map[string]*Guestsecgroup // key: guestId/secgroupId
+)
 
 func (set Vpcs) ModelManager() mcclient_modulebase.IBaseManager {
 	return &mcclient_modules.Vpcs
@@ -106,6 +112,12 @@ func (set Guests) Copy() apihelper.IModelSet {
 	return setCopy
 }
 
+func (set Guests) initJoin() {
+	for _, el := range set {
+		el.SecurityGroups = SecurityGroups{}
+	}
+}
+
 func (set Guests) joinHosts(subEntries Hosts) bool {
 	correct := true
 	for gId, g := range set {
@@ -128,6 +140,32 @@ func (set Guests) joinHosts(subEntries Hosts) bool {
 			continue
 		}
 		g.Host = h
+	}
+	return correct
+}
+
+func (set Guests) joinSecurityGroups(subEntries SecurityGroups) bool {
+	correct := true
+	j := func(guest *Guest, fname, secgroupId string) (*SecurityGroup, bool) {
+		if secgroupId == "" {
+			return nil, true
+		}
+		secgroup, ok := subEntries[secgroupId]
+		if !ok {
+			log.Warningf("cannot find %s %s of guest %s(%s)",
+				fname, secgroupId, guest.Name, guest.Id)
+			return nil, false
+		}
+		guest.SecurityGroups[secgroupId] = secgroup
+		return secgroup, true
+	}
+	for _, g := range set {
+		adminSecgroup, c0 := j(g, "admin_secgrp_id", g.AdminSecgrpId)
+		_, c1 := j(g, "secgrp_id", g.SecgrpId)
+		g.AdminSecurityGroup = adminSecgroup
+		if !(c0 && c1) {
+			correct = false
+		}
 	}
 	return correct
 }
@@ -236,4 +274,132 @@ func (set Guestnetworks) joinGuests(subEntries Guests) bool {
 		gn.Guest = g
 	}
 	return true
+}
+
+func (set SecurityGroups) ModelManager() mcclient_modulebase.IBaseManager {
+	return &mcclient_modules.SecGroups
+}
+
+func (set SecurityGroups) NewModel() db.IModel {
+	return &SecurityGroup{}
+}
+
+func (set SecurityGroups) AddModel(i db.IModel) {
+	m := i.(*SecurityGroup)
+	set[m.Id] = m
+}
+
+func (set SecurityGroups) Copy() apihelper.IModelSet {
+	setCopy := SecurityGroups{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
+}
+
+func (ms SecurityGroups) joinSecurityGroupRules(subEntries SecurityGroupRules) bool {
+	for _, m := range ms {
+		m.SecurityGroupRules = SecurityGroupRules{}
+	}
+	correct := true
+	for subId, subEntry := range subEntries {
+		id := subEntry.SecgroupId
+		m, ok := ms[id]
+		if !ok {
+			log.Warningf("secgrouprule %s: secgroup %s not found",
+				subEntry.Id, id)
+			correct = false
+			continue
+		}
+		if _, ok := m.SecurityGroupRules[subId]; ok {
+			log.Warningf("secgrouprule %s: already joined", subEntry.Id)
+			continue
+		}
+		subEntry.SecurityGroup = m
+		m.SecurityGroupRules[subId] = subEntry
+	}
+	return correct
+}
+
+func (set SecurityGroupRules) ModelManager() mcclient_modulebase.IBaseManager {
+	return &mcclient_modules.SecGroupRules
+}
+
+func (set SecurityGroupRules) NewModel() db.IModel {
+	return &SecurityGroupRule{}
+}
+
+func (set SecurityGroupRules) AddModel(i db.IModel) {
+	m := i.(*SecurityGroupRule)
+	set[m.Id] = m
+}
+
+func (set SecurityGroupRules) Copy() apihelper.IModelSet {
+	setCopy := SecurityGroupRules{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
+}
+
+func (set Guestsecgroups) ModelManager() mcclient_modulebase.IBaseManager {
+	return &mcclient_modules.Serversecgroups
+}
+
+func (set Guestsecgroups) NewModel() db.IModel {
+	return &Guestsecgroup{}
+}
+
+func (set Guestsecgroups) AddModel(i db.IModel) {
+	m := i.(*Guestsecgroup)
+	set[m.ModelSetKey()] = m
+}
+
+func (set Guestsecgroups) Copy() apihelper.IModelSet {
+	setCopy := Guestsecgroups{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
+}
+
+func (set Guestsecgroups) joinSecurityGroups(subEntries SecurityGroups) bool {
+	for _, el := range set {
+		secgroupId := el.SecgroupId
+		guestId := el.GuestId
+		subEntry, ok := subEntries[secgroupId]
+		if !ok {
+			// This is possible if guestsecgroups is for external resources
+			log.Infof("guestsecgroups cannot find secgroup %s for guest %s",
+				secgroupId, guestId)
+			continue
+		}
+		el.SecurityGroup = subEntry
+	}
+	return true
+}
+
+func (set Guestsecgroups) joinGuests(subEntries Guests) bool {
+	for _, el := range set {
+		secgroupId := el.SecgroupId
+		guestId := el.GuestId
+		subEntry, ok := subEntries[guestId]
+		if !ok {
+			// This is possible if guestsecgroups is for external resources
+			log.Infof("guestsecgroups cannot find guest %s for secgroup %s",
+				guestId, secgroupId)
+			continue
+		}
+		el.Guest = subEntry
+		subEntry.SecurityGroups[secgroupId] = el.SecurityGroup
+	}
+	return true
+}
+
+func (set Guestsecgroups) join(secgroups SecurityGroups, guests Guests) bool {
+	// order matters as joinGuests() will need to refer to secgroup joined
+	// by joinSecurityGroups()
+	c0 := set.joinSecurityGroups(secgroups)
+	c1 := set.joinGuests(guests)
+	return c0 && c1
 }

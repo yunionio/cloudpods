@@ -38,38 +38,50 @@ func init() {
 }
 
 type ModelSetsMaxUpdatedAt struct {
-	Vpcs          time.Time
-	Networks      time.Time
-	Guests        time.Time
-	Hosts         time.Time
-	Guestnetworks time.Time
+	Vpcs               time.Time
+	Networks           time.Time
+	Guests             time.Time
+	Hosts              time.Time
+	SecurityGroups     time.Time
+	SecurityGroupRules time.Time
+	Guestnetworks      time.Time
+	Guestsecgroups     time.Time
 }
 
 func NewModelSetsMaxUpdatedAt() *ModelSetsMaxUpdatedAt {
 	return &ModelSetsMaxUpdatedAt{
-		Vpcs:          apihelper.PseudoZeroTime,
-		Networks:      apihelper.PseudoZeroTime,
-		Guests:        apihelper.PseudoZeroTime,
-		Hosts:         apihelper.PseudoZeroTime,
-		Guestnetworks: apihelper.PseudoZeroTime,
+		Vpcs:               apihelper.PseudoZeroTime,
+		Networks:           apihelper.PseudoZeroTime,
+		Guests:             apihelper.PseudoZeroTime,
+		Hosts:              apihelper.PseudoZeroTime,
+		SecurityGroups:     apihelper.PseudoZeroTime,
+		SecurityGroupRules: apihelper.PseudoZeroTime,
+		Guestnetworks:      apihelper.PseudoZeroTime,
+		Guestsecgroups:     apihelper.PseudoZeroTime,
 	}
 }
 
 type ModelSets struct {
-	Vpcs          Vpcs
-	Networks      Networks
-	Guests        Guests
-	Hosts         Hosts
-	Guestnetworks Guestnetworks
+	Vpcs               Vpcs
+	Networks           Networks
+	Guests             Guests
+	Hosts              Hosts
+	SecurityGroups     SecurityGroups
+	SecurityGroupRules SecurityGroupRules
+	Guestnetworks      Guestnetworks
+	Guestsecgroups     Guestsecgroups
 }
 
 func NewModelSets() *ModelSets {
 	return &ModelSets{
-		Vpcs:          Vpcs{},
-		Networks:      Networks{},
-		Guests:        Guests{},
-		Hosts:         Hosts{},
-		Guestnetworks: Guestnetworks{},
+		Vpcs:               Vpcs{},
+		Networks:           Networks{},
+		Guests:             Guests{},
+		Hosts:              Hosts{},
+		SecurityGroups:     SecurityGroups{},
+		SecurityGroupRules: SecurityGroupRules{},
+		Guestnetworks:      Guestnetworks{},
+		Guestsecgroups:     Guestsecgroups{},
 	}
 }
 
@@ -80,7 +92,10 @@ func (mss *ModelSets) ModelSetList() []apihelper.IModelSet {
 		mss.Networks,
 		mss.Guests,
 		mss.Hosts,
+		mss.SecurityGroups,
+		mss.SecurityGroupRules,
 		mss.Guestnetworks,
+		mss.Guestsecgroups,
 	}
 }
 
@@ -90,11 +105,14 @@ func (mss *ModelSets) NewEmpty() apihelper.IModelSets {
 
 func (mss *ModelSets) Copy() apihelper.IModelSets {
 	mssCopy := &ModelSets{
-		Vpcs:          mss.Vpcs.Copy().(Vpcs),
-		Networks:      mss.Networks.Copy().(Networks),
-		Guests:        mss.Guests.Copy().(Guests),
-		Hosts:         mss.Hosts.Copy().(Hosts),
-		Guestnetworks: mss.Guestnetworks.Copy().(Guestnetworks),
+		Vpcs:               mss.Vpcs.Copy().(Vpcs),
+		Networks:           mss.Networks.Copy().(Networks),
+		Guests:             mss.Guests.Copy().(Guests),
+		Hosts:              mss.Hosts.Copy().(Hosts),
+		SecurityGroups:     mss.SecurityGroups.Copy().(SecurityGroups),
+		SecurityGroupRules: mss.SecurityGroupRules.Copy().(SecurityGroupRules),
+		Guestnetworks:      mss.Guestnetworks.Copy().(Guestnetworks),
+		Guestsecgroups:     mss.Guestsecgroups.Copy().(Guestsecgroups),
 	}
 	mssCopy.join()
 	return mssCopy
@@ -121,10 +139,14 @@ func (mss *ModelSets) ApplyUpdates(mssNews apihelper.IModelSets) apihelper.Model
 }
 
 func (mss *ModelSets) join() bool {
+	mss.Guests.initJoin()
 	var p []bool
 	p = append(p, mss.Vpcs.joinNetworks(mss.Networks))
 	p = append(p, mss.Networks.joinGuestnetworks(mss.Guestnetworks))
 	p = append(p, mss.Guests.joinHosts(mss.Hosts))
+	p = append(p, mss.Guests.joinSecurityGroups(mss.SecurityGroups))
+	p = append(p, mss.SecurityGroups.joinSecurityGroupRules(mss.SecurityGroupRules))
+	p = append(p, mss.Guestsecgroups.join(mss.SecurityGroups, mss.Guests))
 	p = append(p, mss.Guestnetworks.joinGuests(mss.Guests))
 	for _, b := range p {
 		if !b {

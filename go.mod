@@ -3,7 +3,6 @@ module yunion.io/x/onecloud
 go 1.12
 
 require (
-	cloud.google.com/go v0.50.0
 	cloud.google.com/go/storage v1.5.0
 	github.com/360EntSecGroup-Skylar/excelize v1.4.0
 	github.com/Azure/azure-sdk-for-go v36.1.0+incompatible
@@ -87,7 +86,7 @@ require (
 	github.com/opentracing/opentracing-go v1.0.2 // indirect
 	github.com/openzipkin/zipkin-go-opentracing v0.3.4 // indirect
 	github.com/pierrec/lz4 v2.0.5+incompatible
-	github.com/pkg/errors v0.8.1
+	github.com/pkg/errors v0.9.1
 	github.com/pkg/term v0.0.0-20181116001808-27bbf2edb814 // indirect
 	github.com/pquerna/otp v1.2.0
 	github.com/serialx/hashring v0.0.0-20180504054112-49a4782e9908
@@ -130,6 +129,7 @@ require (
 	yunion.io/x/executor v0.0.0-20200227030256-a18417815e74
 	yunion.io/x/jsonutils v0.0.0-20200415132054-2bf8a5e94501
 	yunion.io/x/log v0.0.0-20200313080802-57a4ce5966b3
+	yunion.io/x/ovsdb v0.0.0-20200512112253-a3601d1ee987
 	yunion.io/x/pkg v0.0.0-20200416145704-22c189971435
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 	yunion.io/x/sqlchemy v0.0.0-20200312002602-1177cd8fbc57
