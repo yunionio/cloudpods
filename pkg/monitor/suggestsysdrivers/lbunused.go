@@ -54,7 +54,7 @@ func (rule *LBUnused) Run(instance *monitor.SSuggestSysAlertSetting) {
 		log.Errorln(errors.Wrap(err, "getEIPUnused error"))
 		return
 	}
-	DealAlertData(oldAlert, newAlert.Value())
+	DealAlertData(rule.GetType(), oldAlert, newAlert.Value())
 }
 
 func (rule *LBUnused) getLatestAlerts(instance *monitor.SSuggestSysAlertSetting) (*jsonutils.JSONArray, error) {
