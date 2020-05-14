@@ -23,10 +23,13 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -298,6 +301,56 @@ func (self *SKVMGuestDriver) OnDeleteGuestFinalCleanup(ctx context.Context, gues
 			isp.DecRefCount(ctx, userCred)
 		}
 		guest.SetMetadata(ctx, "__base_instance_snapshot_id", "", userCred)
+	}
+	return nil
+}
+
+func (self *SKVMGuestDriver) IsSupportEip() bool {
+	return true
+}
+
+func (self *SKVMGuestDriver) RequestAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, eip *models.SElasticip, task taskman.ITask) error {
+	defer task.ScheduleRun(nil)
+
+	lockman.LockObject(ctx, guest)
+	defer lockman.ReleaseObject(ctx, guest)
+
+	var guestnics []models.SGuestnetwork
+	{
+		netq := models.NetworkManager.Query().SubQuery()
+		wirq := models.WireManager.Query().SubQuery()
+		vpcq := models.VpcManager.Query().SubQuery()
+		gneq := models.GuestnetworkManager.Query()
+		q := gneq.Equals("guest_id", guest.Id).
+			IsNullOrEmpty("eip_id")
+		q = q.Join(netq, sqlchemy.Equals(netq.Field("id"), gneq.Field("network_id")))
+		q = q.Join(wirq, sqlchemy.Equals(wirq.Field("id"), netq.Field("wire_id")))
+		q = q.Join(vpcq, sqlchemy.Equals(vpcq.Field("id"), wirq.Field("vpc_id")))
+		q = q.Filter(sqlchemy.NotEquals(vpcq.Field("id"), api.DEFAULT_VPC_ID))
+		if err := db.FetchModelObjects(models.GuestnetworkManager, q, &guestnics); err != nil {
+			return err
+		}
+		if len(guestnics) == 0 {
+			return errors.Errorf("guest has no nics to associate eip")
+		}
+	}
+
+	guestnic := &guestnics[0]
+	lockman.LockObject(ctx, guestnic)
+	defer lockman.ReleaseObject(ctx, guestnic)
+	if _, err := db.Update(guestnic, func() error {
+		guestnic.EipId = eip.Id
+		return nil
+	}); err != nil {
+		return errors.Wrapf(err, "set associated eip for guestnic %s (guest:%s, network:%s)",
+			guestnic.Ifname, guestnic.GuestId, guestnic.NetworkId)
+	}
+
+	if err := eip.AssociateVM(ctx, userCred, guest); err != nil {
+		return errors.Wrapf(err, "associate eip %s(%s) to vm %s(%s)", eip.Name, eip.Id, guest.Name, guest.Id)
+	}
+	if err := eip.SetStatus(userCred, api.EIP_STATUS_READY, api.EIP_STATUS_ASSOCIATE); err != nil {
+		return errors.Wrapf(err, "set eip status to %s", api.EIP_STATUS_ALLOCATE)
 	}
 	return nil
 }

@@ -967,6 +967,8 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 		return nil, httperrors.NewInvalidStatusError("cannot associate pending delete server")
 	}
 
+	// IMPORTANT: this serves as a guard against a guest to have multiple
+	// associated elastic_ips
 	seip, _ := server.GetEip()
 	if seip != nil {
 		return nil, httperrors.NewInvalidStatusError("instance is already associated with eip")
