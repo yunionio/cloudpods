@@ -100,6 +100,9 @@ type SGuestnetwork struct {
 
 	// IPv4映射地址，当子网属于私有云vpc的时候分配，用于访问外网
 	MappedIpAddr string `width:"16" charset:"ascii" nullable:"true" list:"user"`
+
+	// 网卡关联的Eip实例
+	EipId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
 }
 
 func (manager *SGuestnetworkManager) GetSlaveFieldName() string {
