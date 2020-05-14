@@ -17,7 +17,6 @@ package huawei
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -284,16 +283,30 @@ func (rds *SDBInstance) Refresh() error {
 	return jsonutils.Update(rds, instance)
 }
 
-func (rds *SDBInstance) GetIZoneId() string {
-	zones := []string{}
+func (rds *SDBInstance) GetZone1Id() string {
+	return rds.GetZoneIdByRole("master")
+}
+
+func (rds *SDBInstance) GetZoneIdByRole(role string) string {
 	for _, node := range rds.Nodes {
-		if node.Role == "master" {
-			zones = append([]string{node.AvailabilityZone}, zones...)
-		} else if node.Role == "slave" {
-			zones = append(zones, node.AvailabilityZone)
+		if node.Role == role {
+			zone, err := rds.region.getZoneById(node.AvailabilityZone)
+			if err != nil {
+				log.Errorf("failed to found zone %s for rds %s error: %v", node.AvailabilityZone, rds.Name, err)
+				return ""
+			}
+			return zone.GetGlobalId()
 		}
 	}
-	return strings.Join(zones, ",")
+	return ""
+}
+
+func (rds *SDBInstance) GetZone2Id() string {
+	return rds.GetZoneIdByRole("slave")
+}
+
+func (rds *SDBInstance) GetZone3Id() string {
+	return ""
 }
 
 type SRdsNetwork struct {
