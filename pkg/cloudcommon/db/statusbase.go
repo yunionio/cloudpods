@@ -37,9 +37,13 @@ type SStatusResourceBase struct {
 }
 
 type IStatusBase interface {
-	IModel
 	SetStatusValue(status string)
 	GetStatus() string
+}
+
+type IStatusBaseModel interface {
+	IModel
+	IStatusBase
 }
 
 func (model *SStatusResourceBase) SetStatusValue(status string) {
@@ -50,7 +54,7 @@ func (model SStatusResourceBase) GetStatus() string {
 	return model.Status
 }
 
-func statusBaseSetStatus(model IStatusBase, userCred mcclient.TokenCredential, status string, reason string) error {
+func statusBaseSetStatus(model IStatusBaseModel, userCred mcclient.TokenCredential, status string, reason string) error {
 	if model.GetStatus() == status {
 		return nil
 	}
@@ -73,7 +77,7 @@ func statusBaseSetStatus(model IStatusBase, userCred mcclient.TokenCredential, s
 	return nil
 }
 
-func StatusBasePerformStatus(model IStatusBase, userCred mcclient.TokenCredential, input apis.PerformStatusInput) error {
+func StatusBasePerformStatus(model IStatusBaseModel, userCred mcclient.TokenCredential, input apis.PerformStatusInput) error {
 	if len(input.Status) == 0 {
 		return httperrors.NewMissingParameterError("status")
 	}
