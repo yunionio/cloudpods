@@ -246,7 +246,8 @@ func (*DeployerServer) DisconnectEsxiDisks(
 				delete(connectedEsxiDisks, req.Disks[i].DiskPath)
 			}
 		} else {
-			return new(deployapi.Empty), fmt.Errorf("disk %s not connected", req.Disks[i].DiskPath)
+			log.Warningf("esxi disk %s not connected", req.Disks[i].DiskPath)
+			continue
 		}
 	}
 	return new(deployapi.Empty), nil
