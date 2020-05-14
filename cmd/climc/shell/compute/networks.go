@@ -37,7 +37,7 @@ func init() {
 		Region     string   `help:"search networks belongs to a CloudRegion" json:"cloudregion"`
 		City       string   `help:"search networks belongs to a city"`
 		Usable     *bool    `help:"search usable networks"`
-		ServerType string   `help:"search networks belongs to a ServerType" choices:"guest|baremetal|container|pxe|ipmi"`
+		ServerType string   `help:"search networks belongs to a ServerType" choices:"baremetal|container|eip|guest|ipmi|pxe"`
 		Schedtag   string   `help:"filter networks by schedtag"`
 
 		Status string `help:"filter by network status"`
@@ -68,7 +68,7 @@ func init() {
 		ID          string `help:"ID or Name of zone to update"`
 		Name        string `help:"Name of zone"`
 		Desc        string `metavar:"<DESCRIPTION>" help:"Description"`
-		ServerType  string `help:"server type," choices:"baremetal|guest|container|pxe|ipmi"`
+		ServerType  string `help:"server type," choices:"baremetal|container|eip|guest|ipmi|pxe"`
 		StartIp     string `help:"Start ip"`
 		EndIp       string `help:"end ip"`
 		NetMask     int64  `help:"Netmask"`
@@ -227,7 +227,7 @@ func init() {
 		VlanId      int64  `help:"Vlan ID" default:"1"`
 		IfnameHint  string `help:"Hint for ifname generation"`
 		AllocPolicy string `help:"Address allocation policy" choices:"none|stepdown|stepup|random"`
-		ServerType  string `help:"Server type" choices:"baremetal|guest|container|pxe|ipmi"`
+		ServerType  string `help:"Server type" choices:"baremetal|container|eip|guest|ipmi|pxe"`
 		Desc        string `help:"Description" metavar:"DESCRIPTION"`
 	}
 	R(&NetworkCreateOptions{}, "network-create", "Create a virtual network", func(s *mcclient.ClientSession, args *NetworkCreateOptions) error {
