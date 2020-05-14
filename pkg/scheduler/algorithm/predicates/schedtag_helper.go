@@ -123,6 +123,16 @@ func GetRequestSchedtags(reqTags []*computeapi.SchedtagConfig, allTags []models.
 
 	appendedTagIds := make(map[string]int)
 
+	for _, reqTag := range reqTags {
+		for _, dbTag := range allTags {
+			if reqTag.Id == dbTag.Id || reqTag.Id == dbTag.Name {
+				if reqTag.Strategy == "" {
+					reqTag.Strategy = dbTag.DefaultStrategy
+				}
+			}
+		}
+	}
+
 	appendTagByStrategy := func(tag *computeapi.SchedtagConfig, defaultWeight int) {
 		if tag.Weight <= 0 {
 			tag.Weight = defaultWeight
