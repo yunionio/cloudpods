@@ -73,7 +73,7 @@ type IRootFsDriver interface {
 	GetLoginAccount(IDiskPartition, bool, bool) string
 	DeployPublicKey(IDiskPartition, string, *deployapi.SSHKeys) error
 	ChangeUserPasswd(part IDiskPartition, account, gid, publicKey, password string) (string, error)
-	DeployYunionroot(rootFs IDiskPartition, pubkeys *deployapi.SSHKeys, isInit bool, enableCloudInit bool) error
+	DeployYunionroot(rootFs IDiskPartition, pubkeys *deployapi.SSHKeys, enableCloudInit bool) error
 	EnableSerialConsole(IDiskPartition, *jsonutils.JSONDict) error
 	DisableSerialConsole(IDiskPartition) error
 	CommitChanges(IDiskPartition) error
