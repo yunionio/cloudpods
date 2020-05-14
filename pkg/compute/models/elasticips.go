@@ -80,7 +80,7 @@ type SElasticip struct {
 	// | elastic_ip | 弹性公网IP |
 	//
 	// example: elastic_ip
-	Mode string `width:"32" charset:"ascii" list:"user"`
+	Mode string `width:"32" charset:"ascii" get:"user" list:"user" create:"optional"`
 
 	// IP地址
 	IpAddr string `width:"17" charset:"ascii" list:"user" create:"optional"`
@@ -812,6 +812,9 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 	}
 	provider := providerObj.(*SCloudprovider)
 	input.ManagerId = provider.Id
+
+	// publicIp cannot be created standalone
+	input.Mode = api.EIP_MODE_STANDALONE_EIP
 
 	if len(input.ChargeType) == 0 {
 		input.ChargeType = api.EIP_CHARGE_TYPE_DEFAULT
