@@ -25,6 +25,7 @@ const (
 	PolicyActionList   = common_policy.PolicyActionList
 	PolicyActionCreate = common_policy.PolicyActionCreate
 	PolicyActionUpdate = common_policy.PolicyActionUpdate
+	PolicyActionDelete = common_policy.PolicyActionDelete
 )
 
 var (
@@ -55,6 +56,12 @@ var (
 					Service:  api.SERVICE_TYPE,
 					Resource: "parameters",
 					Action:   PolicyActionUpdate,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "parameters",
+					Action:   PolicyActionDelete,
 					Result:   rbacutils.Allow,
 				},
 			},
