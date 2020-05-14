@@ -439,8 +439,12 @@ func getCookie(r *http.Request, name string) string {
 	}
 }
 
-func clearCookie(w http.ResponseWriter, name string) {
+func clearCookie(w http.ResponseWriter, name string, domain string) {
 	cookie := &http.Cookie{Name: name, Expires: time.Now(), Path: "/", MaxAge: -1, HttpOnly: false}
+	if len(domain) > 0 {
+		cookie.Domain = domain
+	}
+
 	http.SetCookie(w, cookie)
 }
 
@@ -541,7 +545,7 @@ func (h *AuthHandlers) postLogoutHandler(ctx context.Context, w http.ResponseWri
 	if len(tid) > 0 {
 		clientman.TokenMan.Remove(tid)
 	}
-	clearCookie(w, constants.YUNION_AUTH_COOKIE)
+	clearCookie(w, constants.YUNION_AUTH_COOKIE, options.Options.CookieDomain)
 	appsrv.Send(w, "")
 }
 
