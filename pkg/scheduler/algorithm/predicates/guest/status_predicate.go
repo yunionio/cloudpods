@@ -75,6 +75,9 @@ func (p *StatusPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core
 		if !utils.IsInStringArray(cloudprovider.HealthStatus, api.CLOUD_PROVIDER_VALID_HEALTH_STATUS) {
 			h.Exclude2("cloud_provider_health_status", cloudprovider.HealthStatus, api.CLOUD_PROVIDER_VALID_HEALTH_STATUS)
 		}
+		if !cloudprovider.Enabled {
+			h.Exclude2("cloud_provider_enable", cloudprovider.Enabled, true)
+		}
 	}
 
 	return h.GetResult()
