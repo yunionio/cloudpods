@@ -1088,16 +1088,9 @@ func (self *SElasticip) PerformDissociate(ctx context.Context, userCred mcclient
 	}
 
 	autoDelete := jsonutils.QueryBoolean(data, "auto_delete", false)
-	switch self.AssociateType {
-	case api.EIP_ASSOCIATE_TYPE_SERVER:
-		guest := self.GetAssociateVM()
-		if guest == nil {
-			return nil, httperrors.NewInputParameterError("unable to found guest for elasticip %s(%s)", self.Name, self.IpAddr)
-		}
-		return nil, guest.StartGuestDissociateEipTask(ctx, userCred, self, autoDelete, "")
-	default:
-		return nil, self.StartEipDissociateTask(ctx, userCred, autoDelete, "")
-	}
+
+	err := self.StartEipDissociateTask(ctx, userCred, autoDelete, "")
+	return nil, err
 }
 
 func (self *SElasticip) StartEipDissociateTask(ctx context.Context, userCred mcclient.TokenCredential, autoDelete bool, parentTaskId string) error {
