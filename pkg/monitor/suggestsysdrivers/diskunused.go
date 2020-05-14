@@ -48,7 +48,7 @@ func (rule *DiskUnused) Run(instance *monitor.SSuggestSysAlertSetting) {
 		log.Errorln(errors.Wrap(err, "DiskUnused getLatestAlerts error"))
 		return
 	}
-	DealAlertData(oldAlert, newAlerts.Value())
+	DealAlertData(rule.GetType(), oldAlert, newAlerts.Value())
 }
 
 func (rule *DiskUnused) getLatestAlerts(instance *monitor.SSuggestSysAlertSetting) (*jsonutils.JSONArray, error) {
