@@ -79,7 +79,7 @@ func (manager *SGuestImageManager) ValidateCreateData(ctx context.Context, userC
 
 	pendingUsage := SQuota{Image: int(imageNum)}
 	data.Set("disk_format", jsonutils.NewString("qcow2"))
-	keys := imageCreateInput2QuotaKeys(data, ownerId)
+	keys := imageCreateInput2QuotaKeys("qcow2", ownerId)
 	pendingUsage.SetKeys(keys)
 	if err := quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
 
@@ -114,9 +114,8 @@ func (gi *SGuestImage) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 	}
 	images, _ := kwargs.GetArray("images")
 	kwargs.Remove("images")
-	kwargs.Add(jsonutils.NewString(gi.Id), "guest_image_id")
+	// kwargs.Add(jsonutils.NewString(gi.Id), "guest_image_id")
 
-	imageIds := jsonutils.NewArray()
 	suc := true
 
 	// HACK
@@ -130,6 +129,7 @@ func (gi *SGuestImage) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 			tmp, _ := image.Get(key)
 			params.Add(tmp, key)
 		}
+		params.Add(jsonutils.JSONTrue, "is_guest_image")
 		if i == len(images)-1 {
 			params.Add(jsonutils.NewString(fmt.Sprintf("%s-%s", gi.Name, "root")), "generate_name")
 		} else {
@@ -138,7 +138,6 @@ func (gi *SGuestImage) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 		}
 		model, err := db.DoCreate(ImageManager, ctx, userCred, query, params, ownerId)
 		if err != nil {
-			imageIds.Add(jsonutils.NewString(""))
 			suc = false
 			break
 		} else {
@@ -148,12 +147,15 @@ func (gi *SGuestImage) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 
 				model.PostCreate(ctx, userCred, ownerId, query, data)
 			}()
-			imageIds.Add(jsonutils.NewString(model.GetId()))
+			_, err := GuestImageJointManager.CreateGuestImageJoint(ctx, gi.Id, model.GetId())
+			if err != nil {
+				model.(*SImage).OnJointFailed(ctx, userCred)
+			}
 		}
 	}
 
 	pendingUsage := SQuota{Image: int(imageNumber)}
-	keys := imageCreateInput2QuotaKeys(data, ownerId)
+	keys := imageCreateInput2QuotaKeys("qcow2", ownerId)
 	pendingUsage.SetKeys(keys)
 	quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, true)
 
@@ -162,9 +164,6 @@ func (gi *SGuestImage) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 	}
 
 	gi.SetStatus(userCred, api.IMAGE_STATUS_SAVING, "")
-	// HACK
-	tmp := query.(*jsonutils.JSONDict)
-	tmp.Add(imageIds, "image_ids")
 }
 
 func (gi *SGuestImage) ValidateDeleteCondition(ctx context.Context) error {
@@ -276,10 +275,6 @@ func (gi *SGuestImage) DoCancelPendingDelete(ctx context.Context, userCred mccli
 func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
 	out api.GuestImageDetails) api.GuestImageDetails {
 
-	if query.Contains("image_ids") {
-		out.ImageIds, _ = query.Get("image_ids")
-	}
-
 	if self.Status != api.IMAGE_STATUS_ACTIVE {
 		self.checkStatus(ctx, userCred)
 		out.Status = self.Status
@@ -297,6 +292,7 @@ func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.T
 	var rootImage api.SubImageInfo
 	for i := range images {
 		image := images[i]
+		out.ImageIds = append(out.ImageIds, image.Id)
 		size += image.Size
 		if !image.IsData.IsTrue() {
 			rootImage = api.SubImageInfo{
