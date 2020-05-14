@@ -142,7 +142,7 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 		}
 	}
 
-	if err = rootfs.DeployYunionroot(partition, deployInfo.PublicKey, deployInfo.IsInit, deployInfo.EnableCloudInit); err != nil {
+	if err = rootfs.DeployYunionroot(partition, deployInfo.PublicKey, deployInfo.EnableCloudInit); err != nil {
 		return nil, fmt.Errorf("DeployYunionroot: %v", err)
 	}
 	if partition.SupportSerialPorts() {
