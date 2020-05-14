@@ -16,6 +16,7 @@ package guestdrivers
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"math"
 	"strings"
@@ -347,7 +348,15 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 			desc.UserData = oUserData.UserDataBase64()
 		}
 		if strings.ToLower(desc.OsType) == strings.ToLower(osprofile.OS_TYPE_WINDOWS) {
-			desc.UserData = oUserData.UserDataPowerShell()
+			switch guest.GetDriver().GetWindowsUserDataType() {
+			case cloudprovider.CLOUD_EC2:
+				desc.UserData = oUserData.UserDataEc2()
+			default:
+				desc.UserData = oUserData.UserDataPowerShell()
+			}
+			if guest.GetDriver().IsWindowsUserDataTypeNeedEncode() {
+				desc.UserData = base64.StdEncoding.EncodeToString([]byte(desc.UserData))
+			}
 		}
 	}
 
