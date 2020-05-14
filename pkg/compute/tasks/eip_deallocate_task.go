@@ -48,7 +48,7 @@ func (self *EipDeallocateTask) taskFail(ctx context.Context, eip *models.SElasti
 func (self *EipDeallocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	eip := obj.(*models.SElasticip)
 
-	if len(eip.ExternalId) > 0 {
+	if eip.ExternalId != "" {
 		expEip, err := eip.GetIEip()
 		if err != nil {
 			if errors.Cause(err) != cloudprovider.ErrNotFound && errors.Cause(err) != cloudprovider.ErrInvalidProvider {
@@ -64,6 +64,10 @@ func (self *EipDeallocateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 				return
 			}
 		}
+	}
+
+	if eip.IsManaged() {
+		// TODO clear out guestnics
 	}
 
 	err := eip.RealDelete(ctx, self.UserCred)

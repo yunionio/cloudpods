@@ -889,7 +889,7 @@ func (self *SElasticip) startEipAllocateTask(ctx context.Context, userCred mccli
 }
 
 func (self *SElasticip) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	log.Infof("Elasticip delete do nothing")
+	// Elasticip delete do nothing
 	return nil
 }
 
