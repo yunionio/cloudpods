@@ -51,9 +51,13 @@ func (self *SStatusStandaloneResourceBase) AllowPerformStatus(ctx context.Contex
 	return IsAdminAllowPerform(userCred, self, "status")
 }
 
+func (self *SStatusStandaloneResourceBase) GetIStatusStandaloneModel() IStatusStandaloneModel {
+	return self.GetVirtualObject().(IStatusStandaloneModel)
+}
+
 // 更新资源状态
 func (self *SStatusStandaloneResourceBase) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) (jsonutils.JSONObject, error) {
-	err := StatusBasePerformStatus(self, userCred, input)
+	err := StatusBasePerformStatus(self.GetIStatusStandaloneModel(), userCred, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "StatusBasePerformStatus")
 	}
@@ -61,7 +65,7 @@ func (self *SStatusStandaloneResourceBase) PerformStatus(ctx context.Context, us
 }
 
 func (model *SStatusStandaloneResourceBase) SetStatus(userCred mcclient.TokenCredential, status string, reason string) error {
-	return statusBaseSetStatus(model, userCred, status, reason)
+	return statusBaseSetStatus(model.GetIStatusStandaloneModel(), userCred, status, reason)
 }
 
 func (manager *SStatusStandaloneResourceBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input apis.StatusStandaloneResourceCreateInput) (apis.StatusStandaloneResourceCreateInput, error) {
