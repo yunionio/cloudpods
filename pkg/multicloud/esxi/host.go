@@ -757,11 +757,15 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, data *jsonuti
 			ideIdx += 1
 		}
 		log.Debugf("size: %d, image path: %s, uuid: %s, index: %d, ctrlKey: %d, driver: %s.", size, imagePath, uuid,
-			index, ctrlKey, disk.Driver)
+			index, ctrlKey, driver)
 		spec := addDevSpec(NewDiskDev(size, imagePath, uuid, int32(index), 2000, int32(ctrlKey)))
 		spec.FileOperation = "create"
 		deviceChange = append(deviceChange, spec)
 	}
+
+	// add usb to support mouse
+	usbController := addDevSpec(NewUSBController(nil))
+	deviceChange = append(deviceChange, usbController)
 
 	nics, _ := data.GetArray("nics")
 	for _, nic := range nics {
