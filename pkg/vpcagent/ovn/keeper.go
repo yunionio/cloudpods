@@ -200,7 +200,7 @@ func (keeper *OVNNorthboundKeeper) ClaimVpcHost(ctx context.Context, vpc *agentm
 	)
 	vpcHostLsp := &ovn_nb.LogicalSwitchPort{
 		Name:      vpcHostLspName(vpc.Id, host.Id),
-		Addresses: []string{fmt.Sprintf("%s %s", mac.HashMac(host.Id), host.OvnMappedIpAddr)},
+		Addresses: []string{fmt.Sprintf("%s %s", mac.HashVpcHostDistgwMac(host.Id), host.OvnMappedIpAddr)},
 	}
 	if m := keeper.DB.LogicalSwitchPort.FindOneMatchNonZeros(vpcHostLsp); m != nil {
 		m.SetExternalId(externalKeyOcVersion, ocVersion)
