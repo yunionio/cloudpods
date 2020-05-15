@@ -377,6 +377,7 @@ func (m *SBaremetalManager) fetchIpmiIp(sshCli *ssh.Client) (string, error) {
 func (m *SBaremetalManager) checkNetworkFromIp(ip string) (string, error) {
 	params := jsonutils.NewDict()
 	params.Set("ip", jsonutils.NewString(ip))
+	params.Set("scope", jsonutils.NewString("system"))
 	params.Set("is_on_premise", jsonutils.JSONTrue)
 	res, err := modules.Networks.List(m.GetClientSession(), params)
 	if err != nil {
@@ -403,6 +404,7 @@ func (m *SBaremetalManager) verifyMacAddr(sshCli *ssh.Client) (error, bool) {
 	for _, nic := range nicinfo {
 		if len(nic.Mac) > 0 {
 			params.Set("any_mac", jsonutils.NewString(nic.Mac.String()))
+			params.Set("scope", jsonutils.NewString("system"))
 			res, err := modules.Hosts.List(m.GetClientSession(), params)
 			if err != nil {
 				return fmt.Errorf("Get hosts info failed: %s", err), false
@@ -1038,6 +1040,7 @@ func (b *SBaremetalInstance) getSyslinuxPath(filename string, isTftp bool) strin
 func (b *SBaremetalInstance) findAccessNetwork(accessIp string) (*types.SNetworkConfig, error) {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(accessIp), "ip")
+	params.Add(jsonutils.NewString("system"), "scope")
 	params.Add(jsonutils.JSONTrue, "is_on_premise")
 	session := b.manager.GetClientSession()
 	ret, err := modules.Networks.List(session, params)

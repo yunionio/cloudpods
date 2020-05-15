@@ -782,6 +782,7 @@ func (h *SHostInfo) fetchAccessNetworkInfo() {
 	params := jsonutils.NewDict()
 	params.Set("ip", jsonutils.NewString(masterIp))
 	params.Set("is_on_premise", jsonutils.JSONTrue)
+	params.Set("scope", jsonutils.NewString("system"))
 	params.Set("limit", jsonutils.NewInt(0))
 	// use default vpc
 	params.Set("vpc", jsonutils.NewString(api.DEFAULT_VPC_ID))
@@ -1106,6 +1107,7 @@ func (h *SHostInfo) uploadNetworkInfo() {
 				kwargs := jsonutils.NewDict()
 				kwargs.Set("ip", jsonutils.NewString(nic.Ip))
 				kwargs.Set("is_on_premise", jsonutils.JSONTrue)
+				kwargs.Set("scope", jsonutils.NewString("system"))
 				kwargs.Set("limit", jsonutils.NewInt(0))
 
 				wireInfo, err := hostutils.GetWireOfIp(context.Background(), kwargs)
@@ -1319,6 +1321,7 @@ func (h *SHostInfo) getIsolatedDevices() {
 	params.Set("details", jsonutils.JSONTrue)
 	params.Set("limit", jsonutils.NewInt(0))
 	params.Set("host", jsonutils.NewString(h.GetHostId()))
+	params.Set("scope", jsonutils.NewString("system"))
 	res, err := modules.IsolatedDevices.List(h.GetSession(), params)
 	if err != nil {
 		h.onFail(fmt.Sprintf("getIsolatedDevices: %v", err))
@@ -1372,7 +1375,7 @@ func (h *SHostInfo) deployAdminAuthorizedKeys() {
 	}
 
 	query := jsonutils.NewDict()
-	query.Add(jsonutils.JSONTrue, "admin")
+	query.Add(jsonutils.NewString("system"), "scope")
 	ret, err := modules.Sshkeypairs.List(h.GetSession(), query)
 	if err != nil {
 		onErr("Get admin sshkey: %v", err)
