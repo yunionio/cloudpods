@@ -204,6 +204,7 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 		if err != nil {
 			return nil, errors.Wrap(err, "agentRebuildRoot")
 		}
+		init = true
 	}
 
 	var (
