@@ -34,6 +34,7 @@ type ImageOptionalOptions struct {
 	Unprotected        bool     `help:"Allow image to be deleted"`
 	Standard           bool     `help:"Mark image as a standard image"`
 	Nonstandard        bool     `help:"Mark image as a non-standard image"`
+	Public             bool     `help:"make image public"`
 	MinDisk            int64    `help:"Disk size after expanded, in MB" metavar:"MIN_DISK_SIZE_MB"`
 	MinRam             int64    `help:"Minimal memory size required" metavar:"MIN_RAM_MB"`
 	VirtualSize        int64    `help:"Disk size after expanded, in MB"`
@@ -57,7 +58,6 @@ type ImageOptionalOptions struct {
 
 func addImageOptionalOptions(s *mcclient.ClientSession, params *jsonutils.JSONDict, args ImageOptionalOptions) error {
 	if len(args.Format) > 0 {
-		params.Add(jsonutils.NewString("bare"), "container-format")
 		params.Add(jsonutils.NewString(args.Format), "disk-format")
 	}
 	if args.Protected && !args.Unprotected {
@@ -69,6 +69,9 @@ func addImageOptionalOptions(s *mcclient.ClientSession, params *jsonutils.JSONDi
 		params.Add(jsonutils.JSONTrue, "is_standard")
 	} else if !args.Standard && args.Nonstandard {
 		params.Add(jsonutils.JSONFalse, "is_standard")
+	}
+	if args.Public {
+		params.Add(jsonutils.JSONTrue, "is_public")
 	}
 	if args.MinDisk > 0 {
 		params.Add(jsonutils.NewString(fmt.Sprintf("%d", args.MinDisk)), "min_disk")
@@ -244,22 +247,6 @@ func init() {
 		return nil
 	})
 
-	type ImageMembershipOptions struct {
-		IMAGE   string `help:"ID or name of image to share"`
-		PROJECT string `help:"ID or name of project to share image with"`
-	}
-	type ImageMembershipAddOptions struct {
-		ImageMembershipOptions
-		CanShare bool `help:"Indicating whether the project can share the image with others"`
-	}
-	R(&ImageMembershipAddOptions{}, "image-add-project", "Add a project to private image's membership list", func(s *mcclient.ClientSession, args *ImageMembershipAddOptions) error {
-		return modules.Images.AddMembership(s, args.IMAGE, args.PROJECT, args.CanShare)
-	})
-
-	R(&ImageMembershipOptions{}, "image-remove-project", "Remove a project from private image's membership list", func(s *mcclient.ClientSession, args *ImageMembershipOptions) error {
-		return modules.Images.RemoveMembership(s, args.IMAGE, args.PROJECT)
-	})
-
 	type ImageDetailOptions struct {
 		ID string `help:"Image ID or name"`
 	}
@@ -275,19 +262,6 @@ func init() {
 		}
 		ret := modules.Images.BatchDeleteWithParam(s, args.ID, params, nil)
 		printBatchResults(ret, modules.Images.GetColumns(s))
-		return nil
-	})
-
-	R(&ImageDetailOptions{}, "image-list-project", "List image members", func(s *mcclient.ClientSession, args *ImageDetailOptions) error {
-		imgId, e := modules.Images.GetId(s, args.ID, nil)
-		if e != nil {
-			return e
-		}
-		result, e := modules.Images.ListMemberProjects(s, imgId)
-		if e != nil {
-			return e
-		}
-		printList(result, modules.Projects.GetColumns(s))
 		return nil
 	})
 
