@@ -95,7 +95,7 @@ func (manager *SDBInstanceResourceBaseManager) FetchCustomizeColumns(
 	rows := make([]api.DBInstanceResourceInfo, len(objs))
 	dbinstanceIds := make([]string, len(objs))
 	for i := range objs {
-		var base *SDBInstanceDatabase
+		var base *SDBInstanceResourceBase
 		reflectutils.FindAnonymouStructPointer(objs[i], &base)
 		if base != nil {
 			dbinstanceIds[i] = base.DBInstanceId
