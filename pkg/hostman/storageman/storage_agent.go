@@ -286,10 +286,11 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 		DiskPath:  rootPath,
 		GuestDesc: &guestDesc,
 		DeployInfo: &deployapi.DeployInfo{
-			PublicKey: &key,
-			Deploys:   deployArray,
-			Password:  passwd,
-			IsInit:    init,
+			PublicKey:               &key,
+			Deploys:                 deployArray,
+			Password:                passwd,
+			IsInit:                  init,
+			WindowsDefaultAdminUser: true,
 		},
 		VddkInfo: &vddkInfo,
 	})
