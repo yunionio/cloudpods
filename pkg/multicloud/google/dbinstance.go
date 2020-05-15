@@ -352,8 +352,21 @@ func (rds *SDBInstance) GetInternalConnectionStr() string {
 	return strings.Join(ret, ",")
 }
 
-func (rds *SDBInstance) GetIZoneId() string {
-	return rds.GceZone
+func (rds *SDBInstance) GetZone1Id() string {
+	zone, err := rds.region.GetZone(rds.GceZone)
+	if err != nil {
+		log.Errorf("failed to found rds %s zone %s", rds.Name, rds.GceZone)
+		return ""
+	}
+	return zone.GetGlobalId()
+}
+
+func (rds *SDBInstance) GetZone2Id() string {
+	return ""
+}
+
+func (rds *SDBInstance) GetZone3Id() string {
+	return ""
 }
 
 func (rds *SDBInstance) GetIVpcId() string {
