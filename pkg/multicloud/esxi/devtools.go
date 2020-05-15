@@ -125,6 +125,17 @@ func NewCDROMDev(path string, key, ctlKey int32) types.BaseVirtualDevice {
 	return &device
 }
 
+func NewUSBController(key *int32) types.BaseVirtualDevice {
+	device := types.VirtualUSBController{}
+	device.DeviceInfo = &types.Description{
+		Label: "USB controller",
+	}
+	if key != nil {
+		device.Key = *key
+	}
+	return &device
+}
+
 func NewVNICDev(host *SHost, mac, driver string, vlanId int32, key, ctlKey, index int32) (types.BaseVirtualDevice, error) {
 	desc := types.Description{Label: fmt.Sprintf("Network adapter %d", index+1), Summary: "VM Network"}
 
