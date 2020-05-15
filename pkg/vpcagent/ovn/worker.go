@@ -120,41 +120,47 @@ func (w *Worker) run(ctx context.Context, mss *agentmodels.ModelSets) (err error
 			continue
 		}
 		ovndb.ClaimVpc(ctx, vpc)
+		if vpcHasEipgw(vpc) {
+			ovndb.ClaimVpcEipgw(ctx, vpc)
+		}
 		for _, network := range vpc.Networks {
 			ovndb.ClaimNetwork(ctx, network)
 			for _, guestnetwork := range network.Guestnetworks {
 				if guestnetwork.Guest == nil {
 					continue
 				}
-				var (
-					guest   = guestnetwork.Guest
-					network = guestnetwork.Network
-					vpc     = network.Vpc
-					host    = guest.Host
-				)
-				if host.OvnVersion == "" {
-					// Just in case.  This should never happen
-					log.Errorf("host %s(%s) of vpc guestnetwork (%s,%s) has no ovn support",
-						host.Id, host.Name, guestnetwork.NetworkId, guestnetwork.IpAddr)
-					continue
-				}
-				if host.OvnMappedIpAddr == "" {
-					// trigger ovn mapped ip addr allocation
-					apiVersion := "v2"
-					s := auth.GetAdminSession(ctx, w.opts.Region, apiVersion)
-					j, err := mcclient_modules.Hosts.Update(s, host.Id, nil)
-					if err != nil {
-						log.Errorf("host %s(%s) dummy update err: %v", host.Id, host.Name, err)
-						continue
-					}
-					j.Unmarshal(host) // update local copy in place
-					if host.OvnMappedIpAddr == "" {
-						log.Errorf("host %s(%s) has no mapped addr", host.Id, host.Name)
-						continue
-					}
-				}
 
-				ovndb.ClaimVpcHost(ctx, vpc, host)
+				if vpcHasDistgw(vpc) {
+					var (
+						guest   = guestnetwork.Guest
+						network = guestnetwork.Network
+						vpc     = network.Vpc
+						host    = guest.Host
+					)
+					if host.OvnVersion == "" {
+						// Just in case.  This should never happen
+						log.Errorf("host %s(%s) of vpc guestnetwork (%s,%s) has no ovn support",
+							host.Id, host.Name, guestnetwork.NetworkId, guestnetwork.IpAddr)
+						continue
+					}
+					if host.OvnMappedIpAddr == "" {
+						// trigger ovn mapped ip addr allocation
+						apiVersion := "v2"
+						s := auth.GetAdminSession(ctx, w.opts.Region, apiVersion)
+						j, err := mcclient_modules.Hosts.Update(s, host.Id, nil)
+						if err != nil {
+							log.Errorf("host %s(%s) dummy update err: %v", host.Id, host.Name, err)
+							continue
+						}
+						j.Unmarshal(host) // update local copy in place
+						if host.OvnMappedIpAddr == "" {
+							log.Errorf("host %s(%s) has no mapped addr", host.Id, host.Name)
+							continue
+						}
+					}
+
+					ovndb.ClaimVpcHost(ctx, vpc, host)
+				}
 				ovndb.ClaimGuestnetwork(ctx, guestnetwork)
 			}
 		}

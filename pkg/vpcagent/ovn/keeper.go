@@ -85,37 +85,87 @@ func (keeper *OVNNorthboundKeeper) ClaimVpc(ctx context.Context, vpc *agentmodel
 	vpcLr := &ovn_nb.LogicalRouter{
 		Name: vpcLrName(vpc.Id),
 	}
-	vpcHostLs := &ovn_nb.LogicalSwitch{
-		Name: vpcHostLsName(vpc.Id),
-	}
-	vpcRhp := &ovn_nb.LogicalRouterPort{
-		Name:     vpcRhpName(vpc.Id),
-		Mac:      apis.VpcMappedGatewayMac,
-		Networks: []string{fmt.Sprintf("%s/%d", apis.VpcMappedGatewayIP(), apis.VpcMappedIPMask)},
-	}
-	vpcHrp := &ovn_nb.LogicalSwitchPort{
-		Name:      vpcHrpName(vpc.Id),
-		Type:      "router",
-		Addresses: []string{"router"},
-		Options: map[string]string{
-			"router-port": vpcRhpName(vpc.Id),
-		},
-	}
-	allFound, args := cmp(&keeper.DB, ocVersion,
-		vpcLr,
-		vpcHostLs,
-		vpcRhp,
-		vpcHrp,
+	irows := []types.IRow{vpcLr}
+
+	// distgw
+	var (
+		vpcHostLs *ovn_nb.LogicalSwitch
+		vpcRhp    *ovn_nb.LogicalRouterPort
+		vpcHrp    *ovn_nb.LogicalSwitchPort
 	)
+	if vpcHasDistgw(vpc) {
+		vpcHostLs = &ovn_nb.LogicalSwitch{
+			Name: vpcHostLsName(vpc.Id),
+		}
+		vpcRhp = &ovn_nb.LogicalRouterPort{
+			Name:     vpcRhpName(vpc.Id),
+			Mac:      apis.VpcMappedGatewayMac,
+			Networks: []string{fmt.Sprintf("%s/%d", apis.VpcMappedGatewayIP(), apis.VpcMappedIPMask)},
+		}
+		vpcHrp = &ovn_nb.LogicalSwitchPort{
+			Name:      vpcHrpName(vpc.Id),
+			Type:      "router",
+			Addresses: []string{"router"},
+			Options: map[string]string{
+				"router-port": vpcRhpName(vpc.Id),
+			},
+		}
+		irows = append(irows,
+			vpcHostLs,
+			vpcRhp,
+			vpcHrp,
+		)
+	}
+
+	// eipgw
+	var (
+		vpcEipLs *ovn_nb.LogicalSwitch
+		vpcRep   *ovn_nb.LogicalRouterPort
+		vpcErp   *ovn_nb.LogicalSwitchPort
+	)
+	if vpcHasEipgw(vpc) {
+		vpcEipLs = &ovn_nb.LogicalSwitch{
+			Name: vpcEipLsName(vpc.Id),
+		}
+		vpcRep = &ovn_nb.LogicalRouterPort{
+			Name:     vpcRepName(vpc.Id),
+			Mac:      apis.VpcEipGatewayMac,
+			Networks: []string{fmt.Sprintf("%s/%d", apis.VpcEipGatewayIP(), apis.VpcEipGatewayIPMask)},
+		}
+		vpcErp = &ovn_nb.LogicalSwitchPort{
+			Name:      vpcErpName(vpc.Id),
+			Type:      "router",
+			Addresses: []string{"router"},
+			Options: map[string]string{
+				"router-port": vpcRepName(vpc.Id),
+			},
+		}
+		irows = append(irows,
+			vpcEipLs,
+			vpcRep,
+			vpcErp,
+		)
+	}
+
+	allFound, args := cmp(&keeper.DB, ocVersion, irows...)
 	if allFound {
 		return nil
 	}
 	args = append(args, ovnCreateArgs(vpcLr, vpcLr.Name)...)
-	args = append(args, ovnCreateArgs(vpcHostLs, vpcHostLs.Name)...)
-	args = append(args, ovnCreateArgs(vpcRhp, vpcRhp.Name)...)
-	args = append(args, ovnCreateArgs(vpcHrp, vpcHrp.Name)...)
-	args = append(args, "--", "add", "Logical_Switch", vpcHostLs.Name, "ports", "@"+vpcHrp.Name)
-	args = append(args, "--", "add", "Logical_Router", vpcLr.Name, "ports", "@"+vpcRhp.Name)
+	if vpcHasDistgw(vpc) {
+		args = append(args, ovnCreateArgs(vpcHostLs, vpcHostLs.Name)...)
+		args = append(args, ovnCreateArgs(vpcRhp, vpcRhp.Name)...)
+		args = append(args, ovnCreateArgs(vpcHrp, vpcHrp.Name)...)
+		args = append(args, "--", "add", "Logical_Switch", vpcHostLs.Name, "ports", "@"+vpcHrp.Name)
+		args = append(args, "--", "add", "Logical_Router", vpcLr.Name, "ports", "@"+vpcRhp.Name)
+	}
+	if vpcHasEipgw(vpc) {
+		args = append(args, ovnCreateArgs(vpcEipLs, vpcEipLs.Name)...)
+		args = append(args, ovnCreateArgs(vpcRep, vpcRep.Name)...)
+		args = append(args, ovnCreateArgs(vpcErp, vpcErp.Name)...)
+		args = append(args, "--", "add", "Logical_Switch", vpcEipLs.Name, "ports", "@"+vpcErp.Name)
+		args = append(args, "--", "add", "Logical_Router", vpcLr.Name, "ports", "@"+vpcRep.Name)
+	}
 	return keeper.cli.Must(ctx, "ClaimVpc", args)
 }
 
@@ -222,18 +272,48 @@ func (keeper *OVNNorthboundKeeper) ClaimVpcHost(ctx context.Context, vpc *agentm
 	return keeper.cli.Must(ctx, "ClaimVpcHost", args)
 }
 
+func (keeper *OVNNorthboundKeeper) ClaimVpcEipgw(ctx context.Context, vpc *agentmodels.Vpc) error {
+	var (
+		ocVersion = fmt.Sprintf("%s.%d", vpc.UpdatedAt, vpc.UpdateVersion)
+		eipgwVip  = apis.VpcEipGatewayIP3().String()
+	)
+	vpcEipLsp := &ovn_nb.LogicalSwitchPort{
+		Name:      vpcEipLspName(vpc.Id, eipgwVip),
+		Addresses: []string{fmt.Sprintf("%s %s", apis.VpcEipGatewayMac3, eipgwVip)},
+	}
+	if m := keeper.DB.LogicalSwitchPort.FindOneMatchNonZeros(vpcEipLsp); m != nil {
+		m.SetExternalId(externalKeyOcVersion, ocVersion)
+		return nil
+	} else {
+		args := []string{
+			"--bare", "--columns=_uuid", "find", vpcEipLsp.OvsdbTableName(),
+			fmt.Sprintf("name=%q", vpcEipLsp.Name),
+		}
+		res := keeper.cli.Must(ctx, "find vpcEipLsp", args)
+		vpcEipLspUuid := strings.TrimSpace(res.Output)
+		if vpcEipLspUuid != "" {
+			return nil
+		}
+	}
+	var args []string
+	args = append(args, ovnCreateArgs(vpcEipLsp, vpcEipLsp.Name)...)
+	args = append(args, "--", "add", "Logical_Switch", vpcEipLsName(vpc.Id), "ports", "@"+vpcEipLsp.Name)
+	return keeper.cli.Must(ctx, "ClaimVpcEipgw", args)
+}
+
 func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestnetwork *agentmodels.Guestnetwork) error {
 	var (
 		guest   = guestnetwork.Guest
 		network = guestnetwork.Network
 		vpc     = network.Vpc
 		host    = guest.Host
+		eip     = guestnetwork.Elasticip
 
-		lportName = gnpName(guestnetwork.NetworkId, guestnetwork.Ifname)
-		ocVersion = fmt.Sprintf("%s.%d", guestnetwork.UpdatedAt, guestnetwork.UpdateVersion)
-		ocGnrRef  = fmt.Sprintf("gnr/%s/%s/%s", vpc.Id, guestnetwork.GuestId, guestnetwork.Ifname)
-		ocAclRef  = fmt.Sprintf("acl/%s/%s/%s", network.Id, guestnetwork.GuestId, guestnetwork.Ifname)
-		dhcpOpt   string
+		lportName       = gnpName(guestnetwork.NetworkId, guestnetwork.Ifname)
+		ocVersion       = fmt.Sprintf("%s.%d", guestnetwork.UpdatedAt, guestnetwork.UpdateVersion)
+		ocGnrDefaultRef = fmt.Sprintf("gnrDefault/%s/%s/%s", vpc.Id, guestnetwork.GuestId, guestnetwork.Ifname)
+		ocAclRef        = fmt.Sprintf("acl/%s/%s/%s", network.Id, guestnetwork.GuestId, guestnetwork.Ifname)
+		dhcpOpt         string
 	)
 
 	{
@@ -264,14 +344,33 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 		Dhcpv4Options: &dhcpOpt,
 	}
 
-	gnrPolicy := "src-ip"
-	gnr := &ovn_nb.LogicalRouterStaticRoute{
-		Policy:   &gnrPolicy,
-		IpPrefix: guestnetwork.IpAddr + "/32",
-		Nexthop:  host.OvnMappedIpAddr,
-		ExternalIds: map[string]string{
-			externalKeyOcRef: ocGnrRef,
-		},
+	var gnrDefault *ovn_nb.LogicalRouterStaticRoute
+	{
+		gnrDefaultPolicy := "src-ip"
+		ptr := func(s string) *string {
+			return &s
+		}
+		if eip != nil && vpcHasEipgw(vpc) {
+			gnrDefault = &ovn_nb.LogicalRouterStaticRoute{
+				Policy:     &gnrDefaultPolicy,
+				IpPrefix:   guestnetwork.IpAddr + "/32",
+				Nexthop:    apis.VpcEipGatewayIP3().String(),
+				OutputPort: ptr(vpcRepName(vpc.Id)),
+				ExternalIds: map[string]string{
+					externalKeyOcRef: ocGnrDefaultRef,
+				},
+			}
+		} else if vpcHasDistgw(vpc) {
+			gnrDefault = &ovn_nb.LogicalRouterStaticRoute{
+				Policy:     &gnrDefaultPolicy,
+				IpPrefix:   guestnetwork.IpAddr + "/32",
+				Nexthop:    host.OvnMappedIpAddr,
+				OutputPort: ptr(vpcRhpName(vpc.Id)),
+				ExternalIds: map[string]string{
+					externalKeyOcRef: ocGnrDefaultRef,
+				},
+			}
+		}
 	}
 
 	var acls []*ovn_nb.ACL
@@ -291,7 +390,10 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 	}
 
 	irows := []types.IRow{
-		gnp, gnr,
+		gnp,
+	}
+	if gnrDefault != nil {
+		irows = append(irows, gnrDefault)
 	}
 	for _, acl := range acls {
 		irows = append(irows, acl)
@@ -300,10 +402,13 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 	if allFound {
 		return nil
 	}
+
 	args = append(args, ovnCreateArgs(gnp, gnp.Name)...)
-	args = append(args, ovnCreateArgs(gnr, "gnr")...)
 	args = append(args, "--", "add", "Logical_Switch", netLsName(guestnetwork.NetworkId), "ports", "@"+gnp.Name)
-	args = append(args, "--", "add", "Logical_Router", vpcLrName(vpc.Id), "static_routes", "@gnr")
+	if gnrDefault != nil {
+		args = append(args, ovnCreateArgs(gnrDefault, "gnrDefault")...)
+		args = append(args, "--", "add", "Logical_Router", vpcLrName(vpc.Id), "static_routes", "@gnrDefault")
+	}
 	for i, acl := range acls {
 		ref := fmt.Sprintf("acl%d", i)
 		args = append(args, ovnCreateArgs(acl, ref)...)
