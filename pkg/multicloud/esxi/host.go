@@ -1326,13 +1326,14 @@ func (host *SHost) findVlanDVPG(vlanId int32) (*SDistributedVirtualPortgroup, er
 			if dvpg.ContainHost(host) {
 				return dvpg, nil
 			}
+			msg := "Find dvpg with correct vlan but it didn't contain this host"
+			log.Debugf(msg)
 			// add host to dvg
-			log.Debugf("Find dvpg with correct vlan but it didn't contain this host")
-			err := dvpg.AddHostToDVS(host)
-			if err != nil {
-				return nil, errors.Wrapf(err, "dvpg %s add host to dvs error", dvpg.GetName())
-			}
-			return dvpg, nil
+			// err := dvpg.AddHostToDVS(host)
+			// if err != nil {
+			//     return nil, errors.Wrapf(err, "dvpg %s add host to dvs error", dvpg.GetName())
+			// }
+			continue
 		}
 	}
 	return nil, nil
