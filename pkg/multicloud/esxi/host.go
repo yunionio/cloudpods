@@ -795,7 +795,8 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 			index = ideIdx % 2
 			ideIdx += 1
 		}
-		log.Debugf("size: %d, image path: %s, uuid: %s, index: %d, ctrlKey: %d", size, imagePath, uuid, index, ctrlKey)
+		log.Debugf("size: %d, image path: %s, uuid: %s, index: %d, ctrlKey: %d, driver: %s.", size, imagePath, uuid,
+			index, ctrlKey, disk.Driver)
 		spec := addDevSpec(NewDiskDev(size, imagePath, uuid, int32(index), 2000, int32(ctrlKey)))
 		spec.FileOperation = "create"
 		deviceChange = append(deviceChange, spec)
