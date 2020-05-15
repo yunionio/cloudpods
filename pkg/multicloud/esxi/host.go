@@ -802,6 +802,10 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 		deviceChange = append(deviceChange, spec)
 	}
 
+	// add usb to support mouse
+	usbController := addDevSpec(NewUSBController(nil))
+	deviceChange = append(deviceChange, usbController)
+
 	nics := params.Nics
 	for _, nic := range nics {
 		index, _ := nic.Int("index")
