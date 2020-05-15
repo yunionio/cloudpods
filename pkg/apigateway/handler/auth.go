@@ -929,7 +929,7 @@ func (h *AuthHandlers) getPermissionDetails(ctx context.Context, w http.Response
 	if query != nil {
 		name, _ = query.GetString("policy")
 	}
-	result, err := policy.PolicyManager.ExplainRpc(t, body, name)
+	result, err := policy.ExplainRpc(ctx, t, body, name)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return

@@ -15,6 +15,7 @@
 package identity
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"strings"
@@ -363,7 +364,7 @@ func init() {
 			token = s.GetToken()
 		}
 
-		result, err := policy.PolicyManager.ExplainRpc(token, req, args.Name)
+		result, err := policy.ExplainRpc(context.Background(), token, req, args.Name)
 		if err != nil {
 			return err
 		}
