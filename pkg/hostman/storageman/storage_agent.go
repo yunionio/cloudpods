@@ -151,9 +151,14 @@ func (as *SAgentStorage) agentCreateGuest(ctx context.Context, data *jsonutils.J
 	if err != nil {
 		return errors.Wrapf(err, "%s: fail to unmarshal to esxi.SCreateVMParam", hostutils.ParamsError)
 	}
-	_, err = host.CreateVM2(ctx, ds, createParam)
+	vm, err := host.CreateVM2(ctx, ds, createParam)
 	if err != nil {
 		return errors.Wrap(err, "SHost.CreateVM2")
+	}
+	name, _ := descDict.GetString("name")
+	err = as.tryRenameVm(ctx, vm, name)
+	if err != nil {
+		return errors.Wrapf(err, "RenameVm name '%s'", name)
 	}
 	return nil
 }
