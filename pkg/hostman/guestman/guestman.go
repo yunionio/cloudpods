@@ -128,7 +128,7 @@ func (m *SGuestManager) Bootstrap() {
 func (m *SGuestManager) VerifyExistingGuests(pendingDelete bool) {
 	params := jsonutils.NewDict()
 	params.Set("limit", jsonutils.NewInt(0))
-	params.Set("admin", jsonutils.JSONTrue)
+	params.Set("scope", jsonutils.NewString("system"))
 	params.Set("system", jsonutils.JSONTrue)
 	params.Set("host", jsonutils.NewString(m.host.GetHostId()))
 	params.Set("pending_delete", jsonutils.NewBool(pendingDelete))
