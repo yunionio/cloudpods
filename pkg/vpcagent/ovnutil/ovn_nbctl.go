@@ -151,18 +151,26 @@ func OvnNbctlArgsDestroy(irows []IRow) []string {
 	})
 	var args []string
 	for _, irow := range irows {
+		var newArgs []string
 		switch irow.(type) {
 		case *LogicalSwitchPort:
-			args = append(args, "--", "--if-exists", "lsp-del", irow.OvnUuid())
+			newArgs = []string{"--", "--if-exists", "lsp-del", irow.OvnUuid()}
 		case *LogicalRouterPort:
-			args = append(args, "--", "--if-exists", "lrp-del", irow.OvnUuid())
+			newArgs = []string{"--", "--if-exists", "lrp-del", irow.OvnUuid()}
 		case *LogicalRouterStaticRoute:
 			// find out vpc id/logical router from external_ids
 		default:
 			if !irow.OvnIsRoot() {
 				panic(irow.OvnTableName())
 			}
-			args = append(args, "--", "--if-exists", "destroy", irow.OvnTableName(), irow.OvnUuid())
+			newArgs = []string{"--", "--if-exists", "destroy", irow.OvnTableName(), irow.OvnUuid()}
+		}
+		if len(newArgs) > 0 {
+			if irow.OvnIsRoot() {
+				args = append(args, newArgs...)
+			} else {
+				args = append(newArgs, args...)
+			}
 		}
 	}
 	return args
