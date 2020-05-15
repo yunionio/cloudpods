@@ -1187,6 +1187,9 @@ func (manager *SGuestManager) validateCreateData(
 				rootDiskConfig.SizeMb = sysMinDiskMB
 			}
 		}
+		if len(rootDiskConfig.Driver) == 0 {
+			rootDiskConfig.Driver = osProf.DiskDriver
+		}
 		log.Debugf("ROOT DISK: %#v", rootDiskConfig)
 		input.Disks[0] = rootDiskConfig
 		//data.Set("disk.0", jsonutils.Marshal(rootDiskConfig))
