@@ -122,12 +122,14 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 		if len(metas) > idx {
 			meta = &metas[idx]
 		}
-		matches = append(matches, &monitor.EvalMatch{
-			Condition: c.GenerateFormatCond(meta).String(),
-			Metric:    series.Name,
-			Value:     reducedValue,
-			Tags:      tags,
-		})
+		if evalMatch {
+			matches = append(matches, &monitor.EvalMatch{
+				Condition: c.GenerateFormatCond(meta).String(),
+				Metric:    series.Name,
+				Value:     reducedValue,
+				Tags:      tags,
+			})
+		}
 	}
 
 	// handle no series special case
@@ -215,7 +217,6 @@ func (c *QueryCondition) executeQuery(context *alerting.EvalContext, timeRange *
 
 		return nil, errors.Wrap(err, "tsdb.HandleRequest() error")
 	}
-
 	for _, v := range resp.Results {
 		if v.Error != nil {
 			return nil, errors.Wrap(err, "tsdb.HandleResult() response")
