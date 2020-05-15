@@ -270,7 +270,10 @@ func (disk *SVirtualDisk) GetDriver() string {
 	controller := disk.vm.getVdev(disk.getControllerKey())
 	name := controller.GetDriver()
 	name = strings.Replace(name, "controller", "", -1)
-	return driverMap[name]
+	if driver, ok := driverMap[name]; ok {
+		return driver
+	}
+	return name
 }
 
 func (disk *SVirtualDisk) GetCacheMode() string {
