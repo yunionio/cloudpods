@@ -93,14 +93,14 @@ type sPolicyData struct {
 	Policy        jsonutils.JSONObject `json:"policy"`
 }
 
-func parseJsonPolicy(obj jsonutils.JSONObject) (rbacutils.SPolicyInfo, error) {
+func parseJsonPolicy(obj jsonutils.JSONObject, enabled bool) (rbacutils.SPolicyInfo, error) {
 	sp := rbacutils.SPolicyInfo{}
 	pData := sPolicyData{}
 	err := obj.Unmarshal(&pData)
 	if err != nil {
 		return sp, errors.Wrap(err, "Unmarshal")
 	}
-	if !pData.Enabled {
+	if enabled && !pData.Enabled {
 		return sp, errors.Wrap(httperrors.ErrInvalidFormat, "not enabled")
 	}
 	if len(pData.Type) == 0 {
@@ -150,7 +150,7 @@ func remotePolicyFetcher(ctx context.Context) (map[rbacutils.TRbacScope][]rbacut
 		}
 
 		for i := 0; i < len(result.Data); i += 1 {
-			sp, err := parseJsonPolicy(result.Data[i])
+			sp, err := parseJsonPolicy(result.Data[i], true)
 			if err != nil {
 				log.Errorf("error parse policty %s", err)
 				continue
@@ -429,7 +429,7 @@ func fetchPolicyByIdOrName(ctx context.Context, id string) (rbacutils.SPolicyInf
 	if err != nil {
 		return rbacutils.SPolicyInfo{}, errors.Wrap(err, "modules.Policies.Get")
 	}
-	return parseJsonPolicy(data)
+	return parseJsonPolicy(data, false)
 }
 
 func explainPolicyInternal(ctx context.Context, userCred mcclient.TokenCredential, policyReq jsonutils.JSONObject, name string) (rbacutils.TRbacScope, []string, rbacutils.TRbacResult, error) {
@@ -481,7 +481,7 @@ func explainPolicyInternal(ctx context.Context, userCred mcclient.TokenCredentia
 		// policy not found locally, remote fetch
 		sp, err := fetchPolicyByIdOrName(ctx, name)
 		if err != nil {
-			return scope, reqStrs, rbacutils.Deny, httperrors.NewNotFoundError("policy %s not found", name)
+			return scope, reqStrs, rbacutils.Deny, httperrors.NewNotFoundError("policy %s not found: %s", name, err)
 		}
 		policy = sp.Policy
 	}
