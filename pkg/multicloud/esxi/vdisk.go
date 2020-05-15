@@ -268,7 +268,10 @@ func (disk *SVirtualDisk) GetDriver() string {
 		"lsilogic":    "scsi",
 		"lsilogicsas": "scsi",
 	}
-	return mapping[name]
+	if driver, ok := mapping[name]; ok {
+		return driver
+	}
+	return name
 }
 
 func (disk *SVirtualDisk) GetCacheMode() string {
