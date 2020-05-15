@@ -559,6 +559,7 @@ type ipmiIPConfig struct {
 func (task *sBaremetalPrepareTask) getIPMIIPConfig(ipAddr string) (*ipmiIPConfig, error) {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(ipAddr), "ip")
+	params.Add(jsonutils.NewString("system"), "scope")
 	params.Add(jsonutils.JSONTrue, "is_on_premise")
 	listRet, err := modules.Networks.List(task.getClientSession(), params)
 	if err != nil {

@@ -4116,6 +4116,20 @@ func (self *SGuest) PerformSyncFixNics(ctx context.Context,
 		return nil, httperrors.NewInputParameterError("missing field ip, list of ip")
 	}
 	iplist := iplistArray.(*jsonutils.JSONArray).GetStringArray()
+	errs := make([]error, 0)
+	for i := range vnics {
+		ip := vnics[i].GetIP()
+		if len(ip) == 0 {
+			continue
+		}
+		_, err := host.getNetworkOfIPOnHost(ip)
+		if err != nil {
+			errs = append(errs, errors.Wrap(err, ip))
+		}
+	}
+	if len(errs) > 0 {
+		return nil, httperrors.NewInvalidStatusError(errors.NewAggregate(errs).Error())
+	}
 	result := self.SyncVMNics(ctx, userCred, host, vnics, iplist)
 	if result.IsError() {
 		return nil, httperrors.NewInternalServerError(result.Result())

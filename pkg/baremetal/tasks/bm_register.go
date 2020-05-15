@@ -185,6 +185,7 @@ func (s *sBaremetalRegisterTask) UpdateBaremetal() (string, error) {
 
 	params := jsonutils.NewDict()
 	params.Set("any_mac", jsonutils.NewString(accessMacAddr.String()))
+	params.Set("scope", jsonutils.NewString("system"))
 	res, err := modules.Hosts.List(s.BmManager.GetClientSession(), params)
 	if err != nil {
 		return "", fmt.Errorf("Fetch baremetal failed %s", err)
