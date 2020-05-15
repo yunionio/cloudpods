@@ -692,9 +692,10 @@ func (self *SHost) CreateVM2(ctx context.Context, ds *SDatastore, params SCreate
 func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreateVMParam) (*SVirtualMachine, error) {
 	deviceChange := make([]types.BaseVirtualDeviceConfigSpec, 0, 5)
 
-	// name first
-	if len(params.Name) == 0 {
-		params.Name = params.Uuid
+	// uuid first
+	name := params.Name
+	if len(params.Uuid) != 0 {
+		name = params.Uuid
 	}
 	datastorePath := fmt.Sprintf("[%s] ", ds.GetRelName())
 
@@ -718,7 +719,7 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 	}
 
 	spec := types.VirtualMachineConfigSpec{
-		Name:     params.Name,
+		Name:     name,
 		Version:  version,
 		Uuid:     params.Uuid,
 		GuestId:  guestId,
@@ -862,8 +863,7 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 	return NewVirtualMachine(self.manager, &moVM, self.datacenter), nil
 }
 
-func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SDatastore,
-	params SCreateVMParam) (*SVirtualMachine, error) {
+func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SDatastore, params SCreateVMParam) (*SVirtualMachine, error) {
 	ovm := from.getVmObj()
 
 	deviceChange := make([]types.BaseVirtualDeviceConfigSpec, 0, 5)
@@ -1008,11 +1008,13 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 		Location: relocateSpec,
 	}
 
-	if len(params.Name) == 0 {
-		params.Name = params.Uuid
+	// uuid first
+	name := params.Name
+	if len(params.Uuid) != 0 {
+		name = params.Uuid
 	}
 	spec := types.VirtualMachineConfigSpec{
-		Name:     params.Name,
+		Name:     name,
 		Uuid:     params.Uuid,
 		NumCPUs:  int32(params.Cpu),
 		MemoryMB: int64(params.Mem),
