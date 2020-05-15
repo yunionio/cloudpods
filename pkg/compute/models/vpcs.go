@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -80,11 +81,8 @@ type SVpc struct {
 	// example: 192.168.222.0/24
 	CidrBlock string `charset:"ascii" nullable:"true" list:"domain" create:"domain_required"`
 
-	// 区域Id
-	// CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"domain" create:"domain_required" default:"default"`
-
-	// 全局VPC Id
-	// GlobalvpcId string `width:"36" charset:"ascii" list:"user" json:"globalvpc_id"`
+	// Vpc外网访问模式
+	ExternalAccessMode string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
 }
 
 func (manager *SVpcManager) GetContextManagers() [][]db.IModelManager {
@@ -125,6 +123,19 @@ func (self *SVpc) GetNatgateways() ([]SNatGateway, error) {
 		return nil, err
 	}
 	return nats, nil
+}
+
+func (self *SVpc) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.VpcUpdateInput) (api.VpcUpdateInput, error) {
+	if input.ExternalAccessMode != "" {
+		if !utils.IsInStringArray(input.ExternalAccessMode, api.VPC_EXTERNAL_ACCESS_MODES) {
+			return input, httperrors.NewInputParameterError("invalid external_access_mode %q, want %s",
+				input.ExternalAccessMode, api.VPC_EXTERNAL_ACCESS_MODES)
+		}
+	}
+	if _, err := self.SEnabledStatusInfrasResourceBase.ValidateUpdateData(ctx, userCred, query, input.EnabledStatusInfrasResourceBaseUpdateInput); err != nil {
+		return input, err
+	}
+	return input, nil
 }
 
 func (self *SVpc) ValidateDeleteCondition(ctx context.Context) error {
@@ -561,8 +572,7 @@ func (self *SVpc) markAllNetworksUnknown(userCred mcclient.TokenCredential) erro
 }
 
 func (manager *SVpcManager) InitializeData() error {
-	vpcObj, err := manager.FetchById(api.DEFAULT_VPC_ID)
-	if err != nil {
+	if vpcObj, err := manager.FetchById(api.DEFAULT_VPC_ID); err != nil {
 		if err == sql.ErrNoRows {
 			defVpc := SVpc{}
 			defVpc.SetModelManager(VpcManager, &defVpc)
@@ -594,6 +604,27 @@ func (manager *SVpcManager) InitializeData() error {
 			return err
 		}
 	}
+
+	{ // initialize default external_access_mode for onecloud vpc
+		var vpcs []SVpc
+		q := manager.Query().
+			IsNullOrEmpty("manager_id").
+			IsNullOrEmpty("external_id").
+			IsNullOrEmpty("external_access_mode")
+		if err := db.FetchModelObjects(manager, q, &vpcs); err != nil {
+			return errors.Wrap(err, "fetch onecloud vpc with external_access_mode not set")
+		}
+		for i := range vpcs {
+			vpc := &vpcs[i]
+			if _, err := db.Update(vpc, func() error {
+				vpc.ExternalAccessMode = api.VPC_EXTERNAL_ACCESS_MODE_EIP_DISTGW
+				return nil
+			}); err != nil {
+				return errors.Wrap(err, "db set default external_access_mode")
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -635,8 +666,14 @@ func (manager *SVpcManager) ValidateCreateData(
 		input.Cloudprovider = managerObj.GetId()
 		// data.Add(jsonutils.NewString(managerObj.GetId()), "manager_id")
 	} else {
-		// data.Set("status", jsonutils.NewString(api.VPC_STATUS_AVAILABLE))
 		input.Status = api.VPC_STATUS_AVAILABLE
+		if input.ExternalAccessMode == "" {
+			input.ExternalAccessMode = api.VPC_EXTERNAL_ACCESS_MODE_EIP_DISTGW
+		}
+		if !utils.IsInStringArray(input.ExternalAccessMode, api.VPC_EXTERNAL_ACCESS_MODES) {
+			return input, httperrors.NewInputParameterError("invalid external_access_mode %q, want %s",
+				input.Status, api.VPC_EXTERNAL_ACCESS_MODES)
+		}
 	}
 
 	cidrBlock := input.CidrBlock

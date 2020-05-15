@@ -5,6 +5,20 @@ import (
 )
 
 const (
+	VPC_EXTERNAL_ACCESS_MODE_DISTGW     = "distgw"     // distgw only
+	VPC_EXTERNAL_ACCESS_MODE_EIP_DISTGW = "eip-distgw" // eip when available, distgw otherwise
+	VPC_EXTERNAL_ACCESS_MODE_EIP        = "eip"        // eip only
+)
+
+var (
+	VPC_EXTERNAL_ACCESS_MODES = []string{
+		VPC_EXTERNAL_ACCESS_MODE_DISTGW,
+		VPC_EXTERNAL_ACCESS_MODE_EIP_DISTGW,
+		VPC_EXTERNAL_ACCESS_MODE_EIP,
+	}
+)
+
+const (
 	sVpcMappedCidr      = "100.64.0.0/17"
 	VpcMappedIPMask     = 17
 	sVpcMappedGatewayIP = "100.64.0.1"
