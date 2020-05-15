@@ -32,7 +32,7 @@ func cmp(db *ovn_nb.OVNNorthbound, ocver string, irows ...types.IRow) (bool, []s
 	if len(irowsFound) == len(irows) {
 		return true, nil
 	}
-	args := ovnutil.OvnNbctlArgsDestroy(irowsFound)
-	args = append(args, ovnutil.OvnNbctlArgsDestroy(irowsDiff)...)
+	irowsCleanup := append(irowsFound, irowsDiff...)
+	args := ovnutil.OvnNbctlArgsDestroy(irowsCleanup)
 	return false, args
 }
