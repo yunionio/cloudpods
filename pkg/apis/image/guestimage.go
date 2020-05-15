@@ -26,7 +26,7 @@ type GuestImageDetails struct {
 	apis.SharableVirtualResourceDetails
 	SGuestImage
 
-	ImageIds jsonutils.JSONObject `json:"image_ids"`
+	ImageIds []string `json:"image_ids"`
 
 	//Status     string               `json:"status"`
 	Size       int64          `json:"size"`
