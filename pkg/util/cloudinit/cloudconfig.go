@@ -37,8 +37,9 @@ type TSudoPolicy string
 type TSshPwauth string
 
 const (
-	CLOUD_CONFIG_HEADER = "#cloud-config\n"
-	CLOUD_SHELL_HEADER  = "#!/usr/bin/env bash\n"
+	CLOUD_CONFIG_HEADER      = "#cloud-config\n"
+	CLOUD_SHELL_HEADER       = "#!/usr/bin/env bash\n"
+	CLOUD_POWER_SHELL_HEADER = "#ps1\n"
 
 	USER_SUDO_NOPASSWD = TSudoPolicy("sudo_nopasswd")
 	USER_SUDO          = TSudoPolicy("sudo")
@@ -255,7 +256,16 @@ func (conf *SCloudConfig) UserDataPowerShell() string {
 	}
 	shells = append(shells, conf.Runcmd...)
 
-	return strings.Join(shells, "\n")
+	return CLOUD_POWER_SHELL_HEADER + strings.Join(shells, "\n")
+}
+
+func (conf *SCloudConfig) UserDataEc2() string {
+	shells := []string{}
+	for _, u := range conf.Users {
+		shells = append(shells, u.PowerShellScripts()...)
+	}
+	shells = append(shells, conf.Runcmd...)
+	return "<powershell>\n" + strings.Join(shells, "\n") + "\n</powershell>"
 }
 
 func (conf *SCloudConfig) UserDataBase64() string {
