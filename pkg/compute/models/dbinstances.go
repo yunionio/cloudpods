@@ -132,9 +132,6 @@ type SDBInstance struct {
 	Zone2 string `width:"36" charset:"ascii" nullable:"false" create:"optional" list:"user"`
 	// 可用区3
 	Zone3 string `width:"36" charset:"ascii" nullable:"false" create:"optional" list:"user"`
-
-	// 可用区Id(对应公有云的可用区Id)
-	ZoneId string `width:"36" charset:"ascii" nullable:"false" create:"optional"`
 }
 
 func (manager *SDBInstanceManager) GetContextManagers() [][]db.IModelManager {
@@ -543,14 +540,6 @@ func (self *SDBInstance) GetVpc() (*SVpc, error) {
 		return nil, err
 	}
 	return vpc.(*SVpc), nil
-}
-
-func (self *SDBInstance) GetZone() (*SZone, error) {
-	zone, err := ZoneManager.FetchById(self.ZoneId)
-	if err != nil {
-		return nil, err
-	}
-	return zone.(*SZone), nil
 }
 
 func (self *SDBInstance) GetNetwork() (*SNetwork, error) {
@@ -1348,7 +1337,7 @@ func (self *SDBInstance) ValidateDeleteCondition(ctx context.Context) error {
 func (self *SDBInstance) GetDBInstanceSkuQuery() *sqlchemy.SQuery {
 	q := DBInstanceSkuManager.Query().Equals("storage_type", self.StorageType).Equals("category", self.Category).
 		Equals("cloudregion_id", self.CloudregionId).Equals("engine", self.Engine).Equals("engine_version", self.EngineVersion)
-	for k, v := range map[string]string{"zone1": self.Zone1, "zone2": self.Zone2, "zone3": self.Zone3, "zone_id": self.ZoneId} {
+	for k, v := range map[string]string{"zone1": self.Zone1, "zone2": self.Zone2, "zone3": self.Zone3} {
 		if len(v) > 0 {
 			q = q.Equals(k, v)
 		}
@@ -1451,6 +1440,30 @@ func (self *SDBInstance) SetZoneInfo(ctx context.Context, userCred mcclient.Toke
 	return err
 }
 
+func (self *SDBInstance) SetZoneIds(extInstance cloudprovider.ICloudDBInstance) {
+	zone1 := extInstance.GetZone1Id()
+	if len(zone1) > 0 {
+		zone, _ := db.FetchByExternalId(ZoneManager, zone1)
+		if zone != nil {
+			self.Zone1 = zone.GetId()
+		}
+	}
+	zone2 := extInstance.GetZone2Id()
+	if len(zone2) > 0 {
+		zone, _ := db.FetchByExternalId(ZoneManager, zone2)
+		if zone != nil {
+			self.Zone2 = zone.GetId()
+		}
+	}
+	zone3 := extInstance.GetZone3Id()
+	if len(zone3) > 0 {
+		zone, _ := db.FetchByExternalId(ZoneManager, zone3)
+		if zone != nil {
+			self.Zone3 = zone.GetId()
+		}
+	}
+}
+
 func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extInstance cloudprovider.ICloudDBInstance) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		self.Engine = extInstance.GetEngine()
@@ -1461,20 +1474,20 @@ func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred m
 		self.DiskSizeGB = extInstance.GetDiskSizeGB()
 		self.StorageType = extInstance.GetStorageType()
 		self.Status = extInstance.GetStatus()
+		self.Port = extInstance.GetPort()
 
 		self.ConnectionStr = extInstance.GetConnectionStr()
 		self.InternalConnectionStr = extInstance.GetInternalConnectionStr()
 
 		self.MaintainTime = extInstance.GetMaintainTime()
-
-		self.ZoneId = extInstance.GetIZoneId()
-		err := self.setZoneInfo()
-		if err != nil {
-			log.Errorf("failed to set zone info for dbinstance %s(%s) error: %v", self.Name, self.Id, err)
-		}
+		self.SetZoneIds(extInstance)
 
 		if createdAt := extInstance.GetCreatedAt(); !createdAt.IsZero() {
 			self.CreatedAt = createdAt
+		}
+
+		if expiredAt := extInstance.GetExpiredAt(); !expiredAt.IsZero() {
+			self.ExpiredAt = expiredAt
 		}
 
 		if len(self.VpcId) == 0 {
@@ -1545,11 +1558,7 @@ func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, u
 	instance.InternalConnectionStr = extInstance.GetInternalConnectionStr()
 
 	instance.MaintainTime = extInstance.GetMaintainTime()
-	instance.ZoneId = extInstance.GetIZoneId()
-	err = instance.setZoneInfo()
-	if err != nil {
-		log.Errorf("failed to set zone info for dbinstance %s error: %v", instance.ExternalId, err)
-	}
+	instance.SetZoneIds(extInstance)
 
 	if secgroupId := extInstance.GetSecurityGroupId(); len(secgroupId) > 0 {
 		q := SecurityGroupCacheManager.Query().Equals("manager_id", provider.Id).Equals("external_id", secgroupId)

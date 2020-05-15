@@ -757,7 +757,9 @@ type ICloudDBInstance interface {
 
 	GetConnectionStr() string
 	GetInternalConnectionStr() string
-	GetIZoneId() string
+	GetZone1Id() string
+	GetZone2Id() string
+	GetZone3Id() string
 	GetIVpcId() string
 
 	GetDBNetwork() (*SDBInstanceNetwork, error)

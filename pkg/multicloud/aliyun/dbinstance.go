@@ -259,8 +259,43 @@ func (rds *SDBInstance) Refresh() error {
 	return jsonutils.Update(rds, instance)
 }
 
-func (rds *SDBInstance) GetIZoneId() string {
-	return rds.ZoneId
+func (rds *SDBInstance) getZoneId(index int) string {
+	zoneId := rds.getZone(index)
+	if len(zoneId) > 0 {
+		zone, err := rds.region.getZoneById(zoneId)
+		if err != nil {
+			log.Errorf("failed to found zone %s for rds %s", zoneId, rds.GetName())
+			return ""
+		}
+		return zone.GetGlobalId()
+	}
+	return ""
+}
+
+func (rds *SDBInstance) GetZone1Id() string {
+	return rds.getZoneId(1)
+}
+
+func (rds *SDBInstance) GetZone2Id() string {
+	return rds.getZoneId(2)
+}
+
+func (rds *SDBInstance) GetZone3Id() string {
+	return rds.getZoneId(3)
+}
+
+func (rds *SDBInstance) getZone(index int) string {
+	zoneStr := strings.Replace(rds.ZoneId, ")", "", -1)
+	zoneInfo := strings.Split(zoneStr, ",")
+	if len(zoneInfo) < index {
+		return ""
+	}
+	zone := zoneInfo[index-1]
+	zoneCode := zone[len(zone)-1]
+	if strings.HasPrefix(rds.ZoneId, fmt.Sprintf("%s-", rds.RegionId)) {
+		return fmt.Sprintf("%s-%s", rds.RegionId, string(zoneCode))
+	}
+	return fmt.Sprintf("%s%s", rds.RegionId, string(zoneCode))
 }
 
 func (rds *SDBInstance) GetDBNetwork() (*cloudprovider.SDBInstanceNetwork, error) {
