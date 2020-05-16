@@ -151,9 +151,14 @@ func (as *SAgentStorage) agentCreateGuest(ctx context.Context, data *jsonutils.J
 	if err != nil {
 		return errors.Wrapf(err, "%s: fail to unmarshal to esxi.SCreateVMParam", hostutils.ParamsError)
 	}
-	_, err = host.CreateVM2(ctx, ds, createParam)
+	vm, err := host.CreateVM2(ctx, ds, createParam)
 	if err != nil {
 		return errors.Wrap(err, "SHost.CreateVM2")
+	}
+	name, _ := descDict.GetString("name")
+	err = as.tryRenameVm(ctx, vm, name)
+	if err != nil {
+		return errors.Wrapf(err, "RenameVm name '%s'", name)
 	}
 	return nil
 }
@@ -197,6 +202,7 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 		if err != nil {
 			return nil, errors.Wrap(err, "agentRebuildRoot")
 		}
+		init = true
 	}
 
 	var (
@@ -285,10 +291,11 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 		DiskPath:  rootPath,
 		GuestDesc: &guestDesc,
 		DeployInfo: &deployapi.DeployInfo{
-			PublicKey: &key,
-			Deploys:   deployArray,
-			Password:  passwd,
-			IsInit:    init,
+			PublicKey:               &key,
+			Deploys:                 deployArray,
+			Password:                passwd,
+			IsInit:                  init,
+			WindowsDefaultAdminUser: true,
 		},
 		VddkInfo: &vddkInfo,
 	})
