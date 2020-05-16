@@ -692,9 +692,10 @@ func (self *SHost) CreateVM2(ctx context.Context, ds *SDatastore, params SCreate
 func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreateVMParam) (*SVirtualMachine, error) {
 	deviceChange := make([]types.BaseVirtualDeviceConfigSpec, 0, 5)
 
-	// name first
-	if len(params.Name) == 0 {
-		params.Name = params.Uuid
+	// uuid first
+	name := params.Name
+	if len(params.Uuid) != 0 {
+		name = params.Uuid
 	}
 	datastorePath := fmt.Sprintf("[%s] ", ds.GetRelName())
 
@@ -718,7 +719,7 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 	}
 
 	spec := types.VirtualMachineConfigSpec{
-		Name:     params.Name,
+		Name:     name,
 		Version:  version,
 		Uuid:     params.Uuid,
 		GuestId:  guestId,
@@ -795,11 +796,16 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 			index = ideIdx % 2
 			ideIdx += 1
 		}
-		log.Debugf("size: %d, image path: %s, uuid: %s, index: %d, ctrlKey: %d", size, imagePath, uuid, index, ctrlKey)
+		log.Debugf("size: %d, image path: %s, uuid: %s, index: %d, ctrlKey: %d, driver: %s.", size, imagePath, uuid,
+			index, ctrlKey, disk.Driver)
 		spec := addDevSpec(NewDiskDev(size, imagePath, uuid, int32(index), 2000, int32(ctrlKey)))
 		spec.FileOperation = "create"
 		deviceChange = append(deviceChange, spec)
 	}
+
+	// add usb to support mouse
+	usbController := addDevSpec(NewUSBController(nil))
+	deviceChange = append(deviceChange, usbController)
 
 	nics := params.Nics
 	for _, nic := range nics {
@@ -857,8 +863,7 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 	return NewVirtualMachine(self.manager, &moVM, self.datacenter), nil
 }
 
-func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SDatastore,
-	params SCreateVMParam) (*SVirtualMachine, error) {
+func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SDatastore, params SCreateVMParam) (*SVirtualMachine, error) {
 	ovm := from.getVmObj()
 
 	deviceChange := make([]types.BaseVirtualDeviceConfigSpec, 0, 5)
@@ -1003,11 +1008,13 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 		Location: relocateSpec,
 	}
 
-	if len(params.Name) == 0 {
-		params.Name = params.Uuid
+	// uuid first
+	name := params.Name
+	if len(params.Uuid) != 0 {
+		name = params.Uuid
 	}
 	spec := types.VirtualMachineConfigSpec{
-		Name:     params.Name,
+		Name:     name,
 		Uuid:     params.Uuid,
 		NumCPUs:  int32(params.Cpu),
 		MemoryMB: int64(params.Mem),
@@ -1326,13 +1333,14 @@ func (host *SHost) findVlanDVPG(vlanId int32) (*SDistributedVirtualPortgroup, er
 			if dvpg.ContainHost(host) {
 				return dvpg, nil
 			}
+			msg := "Find dvpg with correct vlan but it didn't contain this host"
+			log.Debugf(msg)
 			// add host to dvg
-			log.Debugf("Find dvpg with correct vlan but it didn't contain this host")
-			err := dvpg.AddHostToDVS(host)
-			if err != nil {
-				return nil, errors.Wrapf(err, "dvpg %s add host to dvs error", dvpg.GetName())
-			}
-			return dvpg, nil
+			// err := dvpg.AddHostToDVS(host)
+			// if err != nil {
+			//     return nil, errors.Wrapf(err, "dvpg %s add host to dvs error", dvpg.GetName())
+			// }
+			continue
 		}
 	}
 	return nil, nil
