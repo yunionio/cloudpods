@@ -35,3 +35,46 @@ func (dict *JSONDict) UpdateDefault(json JSONObject) {
 		}
 	}
 }
+
+func Diff(a, b *JSONDict) (aNoB, aDiffB, aAndB, bNoA *JSONDict) {
+	keysA := a.SortedKeys()
+	keysB := b.SortedKeys()
+	aNoB = NewDict()
+	aDiffB = NewDict()
+	aAndB = NewDict()
+	bNoA = NewDict()
+
+	i := 0
+	j := 0
+	for i < len(keysA) || j < len(keysB) {
+		if i < len(keysA) && j < len(keysB) {
+			keyA := keysA[i]
+			keyB := keysB[j]
+			if keyA > keyB {
+				aNoB.data[keyA] = a.data[keyA]
+				i += 1
+			} else if keyA < keyB {
+				bNoA.data[keyB] = b.data[keyB]
+				j += 1
+			} else {
+				valA := a.data[keysA[i]].String()
+				valB := b.data[keysB[i]].String()
+				if valA != valB {
+					aDiffB.data[keyA] = NewArray(a.data[keyA], b.data[keyB])
+				} else {
+					aAndB.data[keyA] = a.data[keyA]
+				}
+				i += 1
+				j += 1
+			}
+		} else if i < len(keysA) {
+			aNoB.data[keysA[i]] = a.data[keysA[i]]
+			i = i + 1
+		} else if j < len(keysB) {
+			bNoA.data[keysB[j]] = b.data[keysB[j]]
+			j = j + 1
+		}
+	}
+
+	return
+}

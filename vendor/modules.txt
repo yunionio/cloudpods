@@ -1,6 +1,5 @@
 # cloud.google.com/go v0.38.0
 cloud.google.com/go/compute/metadata
-cloud.google.com/go/monitoring/apiv3
 # github.com/360EntSecGroup-Skylar/excelize v1.4.0
 github.com/360EntSecGroup-Skylar/excelize
 # github.com/Azure/azure-sdk-for-go v36.1.0+incompatible
@@ -305,8 +304,6 @@ github.com/google/gopacket
 github.com/google/gopacket/layers
 # github.com/google/uuid v1.1.0
 github.com/google/uuid
-# github.com/googleapis/gax-go/v2 v2.0.5
-github.com/googleapis/gax-go/v2
 # github.com/googleapis/gnostic v0.2.0
 github.com/googleapis/gnostic/OpenAPIv2
 github.com/googleapis/gnostic/compiler
@@ -337,8 +334,6 @@ github.com/gregjones/httpcache/diskcache
 github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc
 # github.com/hako/durafmt v0.0.0-20180520121703-7b7ae1e72ead
 github.com/hako/durafmt
-# github.com/hashicorp/golang-lru v0.5.1
-github.com/hashicorp/golang-lru/simplelru
 # github.com/huandu/xstrings v1.2.0
 github.com/huandu/xstrings
 # github.com/imdario/mergo v0.3.6
@@ -560,24 +555,6 @@ go.etcd.io/etcd/raft/confchange
 go.etcd.io/etcd/raft/quorum
 go.etcd.io/etcd/raft/raftpb
 go.etcd.io/etcd/raft/tracker
-# go.opencensus.io v0.21.0
-go.opencensus.io
-go.opencensus.io/internal
-go.opencensus.io/internal/tagencoding
-go.opencensus.io/metric/metricdata
-go.opencensus.io/metric/metricproducer
-go.opencensus.io/plugin/ocgrpc
-go.opencensus.io/plugin/ochttp
-go.opencensus.io/plugin/ochttp/propagation/b3
-go.opencensus.io/resource
-go.opencensus.io/stats
-go.opencensus.io/stats/internal
-go.opencensus.io/stats/view
-go.opencensus.io/tag
-go.opencensus.io/trace
-go.opencensus.io/trace/internal
-go.opencensus.io/trace/propagation
-go.opencensus.io/trace/tracestate
 # go.uber.org/atomic v1.4.0
 go.uber.org/atomic
 # go.uber.org/multierr v1.1.0
@@ -642,15 +619,6 @@ golang.org/x/text/unicode/norm
 golang.org/x/time/rate
 # golang.zx2c4.com/wireguard/wgctrl v0.0.0-20191008142428-8d021180e987
 golang.zx2c4.com/wireguard/wgctrl/wgtypes
-# google.golang.org/api v0.13.0
-google.golang.org/api/googleapi/transport
-google.golang.org/api/internal
-google.golang.org/api/iterator
-google.golang.org/api/option
-google.golang.org/api/transport
-google.golang.org/api/transport/grpc
-google.golang.org/api/transport/http
-google.golang.org/api/transport/http/internal/propagation
 # google.golang.org/appengine v1.5.0
 google.golang.org/appengine
 google.golang.org/appengine/cloudsql
@@ -662,9 +630,7 @@ google.golang.org/appengine/internal/datastore
 google.golang.org/appengine/internal/log
 google.golang.org/appengine/internal/modules
 google.golang.org/appengine/internal/remote_api
-google.golang.org/appengine/internal/socket
 google.golang.org/appengine/internal/urlfetch
-google.golang.org/appengine/socket
 google.golang.org/appengine/urlfetch
 # google.golang.org/genproto v0.0.0-20190502173448-54afdca5d873
 google.golang.org/genproto/googleapis/api
@@ -680,23 +646,12 @@ google.golang.org/genproto/protobuf/field_mask
 google.golang.org/grpc
 google.golang.org/grpc/balancer
 google.golang.org/grpc/balancer/base
-google.golang.org/grpc/balancer/grpclb
-google.golang.org/grpc/balancer/grpclb/grpc_lb_v1
 google.golang.org/grpc/balancer/roundrobin
 google.golang.org/grpc/binarylog/grpc_binarylog_v1
 google.golang.org/grpc/codes
 google.golang.org/grpc/connectivity
 google.golang.org/grpc/credentials
-google.golang.org/grpc/credentials/alts
-google.golang.org/grpc/credentials/alts/internal
-google.golang.org/grpc/credentials/alts/internal/authinfo
-google.golang.org/grpc/credentials/alts/internal/conn
-google.golang.org/grpc/credentials/alts/internal/handshaker
-google.golang.org/grpc/credentials/alts/internal/handshaker/service
-google.golang.org/grpc/credentials/alts/internal/proto/grpc_gcp
-google.golang.org/grpc/credentials/google
 google.golang.org/grpc/credentials/internal
-google.golang.org/grpc/credentials/oauth
 google.golang.org/grpc/encoding
 google.golang.org/grpc/encoding/proto
 google.golang.org/grpc/grpclog
@@ -867,12 +822,12 @@ sigs.k8s.io/yaml
 yunion.io/x/executor/apis
 yunion.io/x/executor/client
 yunion.io/x/executor/server
-# yunion.io/x/jsonutils v0.0.0-20200303051356-aa609aba0cda
+# yunion.io/x/jsonutils v0.0.0-20200415132054-2bf8a5e94501
 yunion.io/x/jsonutils
-# yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
+# yunion.io/x/log v0.0.0-20200313080802-57a4ce5966b3
 yunion.io/x/log
 yunion.io/x/log/hooks
-# yunion.io/x/pkg v0.0.0-20200304112442-9dae9351325e
+# yunion.io/x/pkg v0.0.0-20200516092703-0a53bc9270aa
 yunion.io/x/pkg/errors
 yunion.io/x/pkg/gotypes
 yunion.io/x/pkg/prettytable
@@ -906,5 +861,5 @@ yunion.io/x/pkg/utils
 yunion.io/x/s3cli
 # yunion.io/x/sqlchemy v0.0.0-20200312002602-1177cd8fbc57
 yunion.io/x/sqlchemy
-# yunion.io/x/structarg v0.0.0-20190809075558-115bed041de3
+# yunion.io/x/structarg v0.0.0-20200423163001-168d0687be7e
 yunion.io/x/structarg
