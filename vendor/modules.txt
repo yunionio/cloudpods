@@ -1000,7 +1000,7 @@ yunion.io/x/log/hooks
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v0.0.0-20200416145704-22c189971435
+# yunion.io/x/pkg v0.0.0-20200516092703-0a53bc9270aa
 yunion.io/x/pkg/errors
 yunion.io/x/pkg/gotypes
 yunion.io/x/pkg/prettytable
