@@ -3954,10 +3954,16 @@ func (self *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCrede
 			}
 			net, err = wire.GetCandidatePrivateNetwork(userCred, NetworkManager.AllowScope(userCred), false, netTypes)
 			if err != nil {
-				return fmt.Errorf("fail to find network %s", err)
+				return fmt.Errorf("fail to find private network %s", err)
 			}
 			if net == nil {
-				return fmt.Errorf("No network found")
+				net, err = wire.GetCandidatePublicNetwork(userCred, NetworkManager.AllowScope(userCred), false, netTypes)
+				if err != nil {
+					return fmt.Errorf("fail to find public network %s", err)
+				}
+				if net == nil {
+					return fmt.Errorf("No network found")
+				}
 			}
 		}
 	} else if net.WireId != wire.Id {
