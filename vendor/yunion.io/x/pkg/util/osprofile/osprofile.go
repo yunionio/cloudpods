@@ -64,7 +64,7 @@ func GetOSProfile(osname string, hypervisor string) SOSProfile {
 	case OS_TYPE_WINDOWS:
 		if hypervisor == "esxi" {
 			return SOSProfile{
-				DiskDriver: "scsi",
+				DiskDriver: "ide",
 				NetDriver:  "e1000",
 				FsFormat:   "ntfs",
 			}
