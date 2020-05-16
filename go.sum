@@ -1115,10 +1115,6 @@ yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d h1:59zrDL7Ft+hDukguJRmLr/Gdu/
 yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d/go.mod h1:LC6f/4FozL0iaAbnFt2eDX9jlsyo3WiOUPm03d7+U4U=
 yunion.io/x/log v0.0.0-20200313080802-57a4ce5966b3 h1:5Wc5hkB8PtMudmHuzCyok960RuOa9I55imIGrigSdjs=
 yunion.io/x/log v0.0.0-20200313080802-57a4ce5966b3/go.mod h1:LC6f/4FozL0iaAbnFt2eDX9jlsyo3WiOUPm03d7+U4U=
-yunion.io/x/ovsdb v0.0.0-20200508121407-498ee891147e h1:M6sOv52s2wqXECm9w9eMHfEnxvSAfPsVwVmyD4yKbiI=
-yunion.io/x/ovsdb v0.0.0-20200508121407-498ee891147e/go.mod h1:0vLkNEhlmA64HViPBAnSTUMrx5QP1CLsxXmxDKQ80tc=
-yunion.io/x/ovsdb v0.0.0-20200508142751-3e60f3fc7d18 h1:MTR7IYAR5oxAjmBIcnk8A6PIjHz7gLN69jUgnkgYgQ8=
-yunion.io/x/ovsdb v0.0.0-20200508142751-3e60f3fc7d18/go.mod h1:0vLkNEhlmA64HViPBAnSTUMrx5QP1CLsxXmxDKQ80tc=
 yunion.io/x/ovsdb v0.0.0-20200512112253-a3601d1ee987 h1:BlHpXbNhqG1rZ57io0+XI4L9ckWunn7LHR2JQikGqQg=
 yunion.io/x/ovsdb v0.0.0-20200512112253-a3601d1ee987/go.mod h1:0vLkNEhlmA64HViPBAnSTUMrx5QP1CLsxXmxDKQ80tc=
 yunion.io/x/pkg v0.0.0-20190620104149-945c25821dbf/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=
@@ -1126,6 +1122,8 @@ yunion.io/x/pkg v0.0.0-20190628082551-f4033ba2ea30/go.mod h1:t6rEGG2sQ4J7DhFxSZV
 yunion.io/x/pkg v0.0.0-20200302034534-fdf44d54b070/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=
 yunion.io/x/pkg v0.0.0-20200416145704-22c189971435 h1:Fwf1rjdl+Qmw9BNxQN7wi2lQpYVExV7eBLifd0emHaI=
 yunion.io/x/pkg v0.0.0-20200416145704-22c189971435/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=
+yunion.io/x/pkg v0.0.0-20200516092703-0a53bc9270aa h1:VizPfW8+mLFEE7W/97zxQJbfdxchi2dn1M/Y7YBwTTc=
+yunion.io/x/pkg v0.0.0-20200516092703-0a53bc9270aa/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=
 yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e h1:v+EzIadodSwkdZ/7bremd7J8J50Cise/HCylsOJngmo=
 yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e/go.mod h1:0iFKpOs1y4lbCxeOmq3Xx/0AcQoewVPwj62eRluioEo=
 yunion.io/x/sqlchemy v0.0.0-20200312002602-1177cd8fbc57 h1:KtQAuLJ00RSUVqkiRmJ1DiDABiw0U3xxXnzD3lGavaY=
