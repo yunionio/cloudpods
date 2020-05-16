@@ -110,6 +110,124 @@ func (cycle SBillingCycle) EndAt(tm time.Time) time.Time {
 	}
 }
 
+func minuteStart(tm time.Time) time.Time {
+	return time.Date(
+		tm.Year(),
+		tm.Month(),
+		tm.Day(),
+		tm.Hour(),
+		tm.Minute(),
+		0,
+		0,
+		tm.Location(),
+	)
+}
+
+func hourStart(tm time.Time) time.Time {
+	return time.Date(
+		tm.Year(),
+		tm.Month(),
+		tm.Day(),
+		tm.Hour(),
+		0,
+		0,
+		0,
+		tm.Location(),
+	)
+}
+
+func dayStart(tm time.Time) time.Time {
+	return time.Date(
+		tm.Year(),
+		tm.Month(),
+		tm.Day(),
+		0,
+		0,
+		0,
+		0,
+		tm.Location(),
+	)
+}
+
+func weekStart(tm time.Time) time.Time {
+	tm = dayStart(tm)
+	dayOff := int(tm.Weekday()) - 1
+	if dayOff < 0 {
+		dayOff += 7
+	}
+	return tm.Add(-time.Duration(dayOff) * time.Hour * 24)
+}
+
+func monthStart(tm time.Time) time.Time {
+	return time.Date(
+		tm.Year(),
+		tm.Month(),
+		1,
+		0,
+		0,
+		0,
+		0,
+		tm.Location(),
+	)
+}
+
+func yearStart(tm time.Time) time.Time {
+	return time.Date(
+		tm.Year(),
+		time.January,
+		1,
+		0,
+		0,
+		0,
+		0,
+		tm.Location(),
+	)
+}
+
+func (cycle SBillingCycle) LatestLastStart(tm time.Time) time.Time {
+	if tm.IsZero() {
+		tm = time.Now().UTC()
+	}
+	switch cycle.Unit {
+	case BillingCycleMinute:
+		return minuteStart(tm)
+	case BillingCycleHour:
+		return hourStart(tm)
+	case BillingCycleDay:
+		return dayStart(tm)
+	case BillingCycleWeek:
+		return weekStart(tm)
+	case BillingCycleMonth:
+		return monthStart(tm)
+	case BillingCycleYear:
+		return yearStart(tm)
+	default: // hour
+		return hourStart(tm)
+	}
+}
+
+func (cycle SBillingCycle) TimeString(tm time.Time) string {
+	if tm.IsZero() {
+		tm = time.Now().UTC()
+	}
+	switch cycle.Unit {
+	case BillingCycleMinute:
+		return tm.Format("200601021504")
+	case BillingCycleHour:
+		return tm.Format("2006010215")
+	case BillingCycleDay:
+		return tm.Format("20060102")
+	case BillingCycleWeek:
+		return tm.Format("20060102w")
+	case BillingCycleMonth:
+		return tm.Format("200601")
+	case BillingCycleYear:
+		return tm.Format("2006")
+	default: // hour
+		return tm.Format("2006010215")
+	}
+}
+
 func (cycle SBillingCycle) Duration() time.Duration {
 	now := time.Now().UTC()
 	endAt := cycle.EndAt(now)
