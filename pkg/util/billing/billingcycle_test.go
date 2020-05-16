@@ -30,3 +30,73 @@ func TestParseBillingCycle(t *testing.T) {
 		}
 	}
 }
+
+func TestLatestLastStart(t *testing.T) {
+	cases := []struct {
+		tm   string
+		bc   string
+		want string
+	}{
+		{
+			tm:   "2020-05-16T00:00:00Z",
+			bc:   "1m",
+			want: "2020-05-01T00:00:00Z",
+		},
+		{
+			tm:   "2020-05-16T23:34:02Z",
+			bc:   "1h",
+			want: "2020-05-16T23:00:00Z",
+		},
+		{
+			tm:   "2020-05-16T23:34:02Z",
+			bc:   "1i",
+			want: "2020-05-16T23:34:00Z",
+		},
+		{
+			tm:   "2020-05-16T23:34:02Z",
+			bc:   "1d",
+			want: "2020-05-16T00:00:00Z",
+		},
+		{
+			tm:   "2020-05-16T23:34:02Z",
+			bc:   "1w",
+			want: "2020-05-11T00:00:00Z",
+		},
+		{
+			tm:   "2020-05-16T23:34:02Z",
+			bc:   "1y",
+			want: "2020-01-01T00:00:00Z",
+		},
+	}
+	for _, c := range cases {
+		tm, _ := time.Parse(time.RFC3339, c.tm)
+		bc, _ := ParseBillingCycle(c.bc)
+		got := bc.LatestLastStart(tm)
+		want, _ := time.Parse(time.RFC3339, c.want)
+		if got != want {
+			t.Errorf("bc: %s want: %s got: %s", c.bc, want, got)
+		}
+	}
+}
+
+func TestTimeString(t *testing.T) {
+	cases := []struct {
+		tm   string
+		bc   string
+		want string
+	}{
+		{
+			tm:   "2020-05-16T23:23:54Z",
+			bc:   "1m",
+			want: "202005",
+		},
+	}
+	for _, c := range cases {
+		tm, _ := time.Parse(time.RFC3339, c.tm)
+		bc, _ := ParseBillingCycle(c.bc)
+		got := bc.TimeString(tm)
+		if c.want != got {
+			t.Errorf("bc: %s TimeString want: %s got: %s", c.bc, c.want, got)
+		}
+	}
+}
