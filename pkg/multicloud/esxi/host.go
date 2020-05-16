@@ -756,11 +756,16 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, data *jsonuti
 			index = ideIdx % 2
 			ideIdx += 1
 		}
-		log.Debugf("size: %d, image path: %s, uuid: %s, index: %d, ctrlKey: %d", size, imagePath, uuid, index, ctrlKey)
+		log.Debugf("size: %d, image path: %s, uuid: %s, index: %d, ctrlKey: %d, driver: %s.", size, imagePath, uuid,
+			index, ctrlKey, driver)
 		spec := addDevSpec(NewDiskDev(size, imagePath, uuid, int32(index), 2000, int32(ctrlKey)))
 		spec.FileOperation = "create"
 		deviceChange = append(deviceChange, spec)
 	}
+
+	// add usb to support mouse
+	usbController := addDevSpec(NewUSBController(nil))
+	deviceChange = append(deviceChange, usbController)
 
 	nics, _ := data.GetArray("nics")
 	for _, nic := range nics {
@@ -1100,13 +1105,14 @@ func (host *SHost) findVlanDVPG(vlanId int32) (*SDistributedVirtualPortgroup, er
 			if dvpg.ContainHost(host) {
 				return dvpg, nil
 			}
+			msg := "Find dvpg with correct vlan but it didn't contain this host"
+			log.Debugf(msg)
 			// add host to dvg
-			log.Debugf("Find dvpg with correct vlan but it didn't contain this host")
-			err := dvpg.AddHostToDVS(host)
-			if err != nil {
-				return nil, errors.Wrapf(err, "dvpg %s add host to dvs error", dvpg.GetName())
-			}
-			return dvpg, nil
+			// err := dvpg.AddHostToDVS(host)
+			// if err != nil {
+			//     return nil, errors.Wrapf(err, "dvpg %s add host to dvs error", dvpg.GetName())
+			// }
+			continue
 		}
 	}
 	return nil, nil

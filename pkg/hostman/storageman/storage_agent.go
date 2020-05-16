@@ -204,6 +204,7 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 		if err != nil {
 			return nil, errors.Wrap(err, "agentRebuildRoot")
 		}
+		init = true
 	}
 
 	var (
@@ -292,10 +293,11 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 		DiskPath:  rootPath,
 		GuestDesc: &guestDesc,
 		DeployInfo: &deployapi.DeployInfo{
-			PublicKey: &key,
-			Deploys:   deployArray,
-			Password:  passwd,
-			IsInit:    init,
+			PublicKey:               &key,
+			Deploys:                 deployArray,
+			Password:                passwd,
+			IsInit:                  init,
+			WindowsDefaultAdminUser: true,
 		},
 		VddkInfo: &vddkInfo,
 	})
