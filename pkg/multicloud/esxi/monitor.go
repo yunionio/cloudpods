@@ -122,17 +122,19 @@ func (cli *SESXiClient) getManagerEntityofVm(server jsonutils.JSONObject) (*mo.M
 }
 
 func (cli *SESXiClient) getManagerEntityofHost(host jsonutils.JSONObject) (*mo.ManagedEntity, error) {
-	name, _ := host.GetString("name")
+	extId, _ := host.GetString("external_id")
 	hostSystems, err := cli.GetHostSystem()
 	if err != nil {
 		return nil, err
 	}
 	for _, hostSystem := range hostSystems {
-		if strings.Contains(hostSystem.Name, name) || strings.Contains(name, hostSystem.Name) {
+		host := NewHost(cli, &hostSystem, nil)
+		ip := host.GetGlobalId()
+		if ip == extId {
 			return hostSystem.Entity(), nil
 		}
 	}
-	return nil, fmt.Errorf("No ManagerEntiry for %s host", name)
+	return nil, fmt.Errorf("No VMware ManagerEntiry for %s host", extId)
 }
 
 //根据perfCounterInfos装载metricIdTable、metricNameTable、metricIdNameTable
