@@ -44,6 +44,10 @@ type SStructFieldInfo struct {
 	Tags        map[string]string
 }
 
+func (s *SStructFieldInfo) updateTags(k, v string) {
+	s.Tags[k] = v
+}
+
 func (s SStructFieldInfo) deepCopy() *SStructFieldInfo {
 	scopy := SStructFieldInfo{
 		Ignore:      s.Ignore,
@@ -134,11 +138,11 @@ type SStructFieldValue struct {
 type SStructFieldValueSet []SStructFieldValue
 
 func FetchStructFieldValueSet(dataValue reflect.Value) SStructFieldValueSet {
-	return fetchStructFieldValueSet(dataValue, false)
+	return expandAmbiguousPrefix(fetchStructFieldValueSet(dataValue, false, nil))
 }
 
 func FetchStructFieldValueSetForWrite(dataValue reflect.Value) SStructFieldValueSet {
-	return fetchStructFieldValueSet(dataValue, true)
+	return expandAmbiguousPrefix(fetchStructFieldValueSet(dataValue, true, nil))
 }
 
 type sStructFieldInfoMap map[string]SStructFieldInfo
@@ -182,7 +186,7 @@ func fetchStructFieldInfos(dataType reflect.Type) sStructFieldInfoMap {
 	return smap
 }
 
-func fetchStructFieldValueSet(dataValue reflect.Value, allocatePtr bool) SStructFieldValueSet {
+func fetchStructFieldValueSet(dataValue reflect.Value, allocatePtr bool, tags map[string]string) SStructFieldValueSet {
 	fields := SStructFieldValueSet{}
 	dataType := dataValue.Type()
 	fieldInfos := fetchCacheStructFieldInfos(dataType)
@@ -218,7 +222,8 @@ func fetchStructFieldValueSet(dataValue reflect.Value, allocatePtr bool) SStruct
 			// different from how encoding/json handles struct
 			// field of interface type.
 			if fv.Kind() == reflect.Struct && sf.Type != gotypes.TimeType {
-				subfields := fetchStructFieldValueSet(fv, allocatePtr)
+				anonymousTags := utils.TagMap(sf.Tag)
+				subfields := fetchStructFieldValueSet(fv, allocatePtr, anonymousTags)
 				fields = append(fields, subfields...)
 				continue
 			}
@@ -231,50 +236,80 @@ func fetchStructFieldValueSet(dataValue reflect.Value, allocatePtr bool) SStruct
 			})
 		}
 	}
+	if len(tags) > 0 {
+		for i := range fields {
+			fieldName := fields[i].Info.MarshalName()
+			for k, v := range tags {
+				target := ""
+				pos := strings.Index(k, "->")
+				if pos > 0 {
+					target = k[:pos]
+					k = k[pos+2:]
+				}
+				if len(target) > 0 && target != fieldName {
+					continue
+				}
+				fields[i].Info.updateTags(k, v)
+			}
+		}
+	}
 	return fields
 }
 
-func (set SStructFieldValueSet) GetStructFieldIndex(name string) int {
-	for i := 0; i < len(set); i += 1 {
-		jsonInfo := set[i].Info
-		if jsonInfo.MarshalName() == name {
-			return i
-		}
-		if utils.CamelSplit(jsonInfo.FieldName, "_") == utils.CamelSplit(name, "_") {
-			return i
-		}
-		if jsonInfo.FieldName == name {
-			return i
-		}
-		if jsonInfo.FieldName == utils.Capitalize(name) {
-			return i
-		}
+func (fields SStructFieldValueSet) GetStructFieldIndex(name string) int {
+	indexes := fields.GetStructFieldIndexes(name)
+	if len(indexes) > 0 {
+		return indexes[0]
 	}
 	return -1
 }
 
-func (set SStructFieldValueSet) GetStructFieldIndexes(name string) []int {
+func (fields SStructFieldValueSet) GetStructFieldIndexes(name string) []int {
+	return fields.GetStructFieldIndexes2(name, false)
+}
+
+func (fields SStructFieldValueSet) GetStructFieldIndexes2(name string, strictMode bool) []int {
 	ret := make([]int, 0)
-	for i := 0; i < len(set); i += 1 {
-		jsonInfo := set[i].Info
-		if jsonInfo.MarshalName() == name {
+	for i := range fields {
+		if fields[i].Info.Ignore {
+			continue
+		}
+		if fields[i].Info.MarshalName() == name {
 			ret = append(ret, i)
 			continue
 		}
-		if utils.CamelSplit(jsonInfo.FieldName, "_") == utils.CamelSplit(name, "_") {
-			ret = append(ret, i)
-			continue
-		}
-		if jsonInfo.FieldName == name {
-			ret = append(ret, i)
-			continue
-		}
-		if jsonInfo.FieldName == utils.Capitalize(name) {
-			ret = append(ret, i)
-			continue
+		if !strictMode {
+			if utils.CamelSplit(fields[i].Info.FieldName, "_") == utils.CamelSplit(name, "_") {
+				ret = append(ret, i)
+				continue
+			}
+			if fields[i].Info.FieldName == name {
+				ret = append(ret, i)
+				continue
+			}
+			if fields[i].Info.FieldName == utils.Capitalize(name) {
+				ret = append(ret, i)
+				continue
+			}
 		}
 	}
 	return ret
+}
+
+func (fields SStructFieldValueSet) GetStructFieldIndexesMap() map[string][]int {
+	keyIndexMap := make(map[string][]int)
+	for i := range fields {
+		if fields[i].Info.Ignore {
+			continue
+		}
+		key := fields[i].Info.MarshalName()
+		values, ok := keyIndexMap[key]
+		if !ok {
+			values = make([]int, 0, 2)
+		}
+		keyIndexMap[key] = append(values, i)
+	}
+	return keyIndexMap
 }
 
 func (set SStructFieldValueSet) GetValue(name string) (reflect.Value, bool) {

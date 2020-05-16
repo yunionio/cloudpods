@@ -1,4 +1,4 @@
-// Copyright 2018, OpenCensus Authors
+// Copyright 2019 Yunion
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,8 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package ochttp provides OpenCensus instrumentation for net/http package.
-//
-// For server instrumentation, see Handler. For client-side instrumentation,
-// see Transport.
-package ochttp // import "go.opencensus.io/plugin/ochttp"
+package jsonutils
+
+import (
+	"yunion.io/x/pkg/util/reflectutils"
+)
+
+const (
+	TAG_DEPRECATED_BY = reflectutils.TAG_DEPRECATED_BY
+)
