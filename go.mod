@@ -3,7 +3,6 @@ module yunion.io/x/onecloud
 go 1.12
 
 require (
-	cloud.google.com/go v0.38.0
 	github.com/360EntSecGroup-Skylar/excelize v1.4.0
 	github.com/Azure/azure-sdk-for-go v36.1.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.9.3
@@ -115,7 +114,6 @@ require (
 	golang.org/x/sys v0.0.0-20191228213918-04cbcbbfeed8
 	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20191008142428-8d021180e987
-	google.golang.org/api v0.13.0 // indirect
 	google.golang.org/genproto v0.0.0-20190502173448-54afdca5d873
 	google.golang.org/grpc v1.23.1
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
@@ -131,10 +129,10 @@ require (
 	yunion.io/x/executor v0.0.0-20200227030256-a18417815e74
 	yunion.io/x/jsonutils v0.0.0-20200415132054-2bf8a5e94501
 	yunion.io/x/log v0.0.0-20200313080802-57a4ce5966b3
-	yunion.io/x/pkg v0.0.0-20200415124010-2c7da30b998f
+	yunion.io/x/pkg v0.0.0-20200516092703-0a53bc9270aa
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 	yunion.io/x/sqlchemy v0.0.0-20200312002602-1177cd8fbc57
-	yunion.io/x/structarg v0.0.0-20190809075558-115bed041de3
+	yunion.io/x/structarg v0.0.0-20200423163001-168d0687be7e
 )
 
 replace (
