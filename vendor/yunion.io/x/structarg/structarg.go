@@ -535,6 +535,10 @@ func (this *SingleArgument) InChoices(val string) bool {
 	}
 }
 
+func (this *SingleArgument) Choices() []string {
+	return this.choices
+}
+
 func (this *SingleArgument) SetValue(val string) error {
 	if !this.InChoices(val) {
 		return this.choicesErr(val)
