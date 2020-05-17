@@ -15,22 +15,23 @@
 package service
 
 import (
-	"github.com/pkg/errors"
+	"context"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
-func localPolicyFetcher() (map[rbacutils.TRbacScope]map[string]*rbacutils.SRbacPolicy, error) {
+func localPolicyFetcher(ctx context.Context) (map[rbacutils.TRbacScope][]rbacutils.SPolicyInfo, error) {
 	policyList, err := models.PolicyManager.FetchEnabledPolicies()
 	if err != nil {
 		return nil, errors.Wrap(err, "models.PolicyManager.FetchEnabledPolicies")
 	}
 
-	policies := make(map[rbacutils.TRbacScope]map[string]*rbacutils.SRbacPolicy)
+	policies := make(map[rbacutils.TRbacScope][]rbacutils.SPolicyInfo)
 
 	for i := range policyList {
 		typeStr := policyList[i].Name
@@ -57,10 +58,16 @@ func localPolicyFetcher() (map[rbacutils.TRbacScope]map[string]*rbacutils.SRbacP
 		policy.SharedDomainIds = policyList[i].GetSharedDomains()
 
 		if _, ok := policies[policy.Scope]; !ok {
-			policies[policy.Scope] = make(map[string]*rbacutils.SRbacPolicy)
+			policies[policy.Scope] = make([]rbacutils.SPolicyInfo, 0)
 		}
 
-		policies[policy.Scope][typeStr] = &policy
+		sp := rbacutils.SPolicyInfo{
+			Id:     policyList[i].Id,
+			Name:   policyList[i].Name,
+			Policy: &policy,
+		}
+
+		policies[policy.Scope] = append(policies[policy.Scope], sp)
 	}
 
 	return policies, nil
