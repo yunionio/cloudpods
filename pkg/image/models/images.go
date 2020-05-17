@@ -694,6 +694,9 @@ func (self *SImage) ValidateDeleteCondition(ctx context.Context) error {
 	if self.IsGuestImage.IsTrue() {
 		return httperrors.NewForbiddenError("image is the part of guest image")
 	}
+	if self.IsStandard.IsTrue() {
+		return httperrors.NewForbiddenError("image is standard")
+	}
 	// if self.IsShared() {
 	// 	return httperrors.NewForbiddenError("image is shared")
 	// }
