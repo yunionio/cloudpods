@@ -55,13 +55,13 @@ type SHostnetwork struct {
 	SHostJointsBase
 
 	// 宿主机ID
-	BaremetalId string `width:"36" charset:"ascii" nullable:"false" list:"admin"`
+	BaremetalId string `width:"36" charset:"ascii" nullable:"false" list:"domain"`
 	// 网络ID
-	NetworkId string `width:"36" charset:"ascii" nullable:"false" list:"admin"`
+	NetworkId string `width:"36" charset:"ascii" nullable:"false" list:"domain"`
 	// IP地址
-	IpAddr string `width:"16" charset:"ascii" list:"admin"`
+	IpAddr string `width:"16" charset:"ascii" list:"domain"`
 	// MAC地址
-	MacAddr string `width:"18" charset:"ascii" list:"admin"`
+	MacAddr string `width:"18" charset:"ascii" list:"domain"`
 }
 
 func (manager *SHostnetworkManager) GetMasterFieldName() string {

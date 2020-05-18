@@ -39,7 +39,7 @@ import (
 
 type SManagedResourceBase struct {
 	// 云订阅ID
-	ManagerId string `width:"128" charset:"ascii" nullable:"true" list:"admin" create:"optional"`
+	ManagerId string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 }
 
 type SManagedResourceBaseManager struct {
