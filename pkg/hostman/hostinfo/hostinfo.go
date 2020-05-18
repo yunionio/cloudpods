@@ -1073,6 +1073,7 @@ func (h *SHostInfo) getNetworkInfo() {
 	params := jsonutils.NewDict()
 	params.Set("details", jsonutils.JSONTrue)
 	params.Set("limit", jsonutils.NewInt(0))
+	params.Set("scope", jsonutils.NewString("system"))
 	res, err := modules.Hostwires.ListDescendent(
 		h.GetSession(),
 		h.HostId, params)
@@ -1228,6 +1229,7 @@ func (h *SHostInfo) getStorageInfo() {
 	params := jsonutils.NewDict()
 	params.Set("details", jsonutils.JSONTrue)
 	params.Set("limit", jsonutils.NewInt(0))
+	params.Set("scope", jsonutils.NewString("system"))
 	res, err := modules.Hoststorages.ListDescendent(
 		h.GetSession(),
 		h.HostId, params)
