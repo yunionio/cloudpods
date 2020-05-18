@@ -29,6 +29,7 @@ import (
 	computeapis "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -726,4 +727,25 @@ func (manager *SGuestTemplateManager) ListItemExportKeys(ctx context.Context,
 	}
 
 	return q, nil
+}
+
+func (g *SGuest) AllowPerformSaveTemplate(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject) bool {
+	return g.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, g, "")
+}
+
+func (g *SGuest) PerformSaveTemplate(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, input computeapis.GuestSaveToTemplateInput) (jsonutils.JSONObject, error) {
+	g.SetStatus(userCred, computeapis.VM_TEMPLATE_SAVING, "save to template")
+
+	if len(input.Name) == 0 {
+		input.Name = fmt.Sprintf("%s-template", g.Name)
+	}
+	data := jsonutils.Marshal(input).(*jsonutils.JSONDict)
+	if task, err := taskman.TaskManager.NewTask(ctx, "GuestSaveTemplateTask", g, userCred, data, "", "", nil); err != nil {
+		return nil, errors.Wrap(err, "Unbale to init 'GuestSaveTemplateTask'")
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil, nil
 }
