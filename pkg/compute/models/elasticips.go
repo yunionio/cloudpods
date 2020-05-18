@@ -148,7 +148,7 @@ func (manager *SElasticipManager) ListItemFilter(
 				return nil, httperrors.NewGeneralError(err)
 			}
 			guest := serverObj.(*SGuest)
-			if utils.IsInStringArray(guest.Hypervisor, api.PRIVATE_CLOUD_HYPERVISORS) {
+			if guest.Hypervisor == api.HYPERVISOR_KVM || utils.IsInStringArray(guest.Hypervisor, api.PRIVATE_CLOUD_HYPERVISORS) {
 				zone := guest.getZone()
 				networks := NetworkManager.Query().SubQuery()
 				wires := WireManager.Query().SubQuery()
@@ -161,7 +161,11 @@ func (manager *SElasticipManager) ListItemFilter(
 				q = q.Equals("cloudregion_id", region.Id)
 			}
 			managerId := guest.GetHost().ManagerId
-			q = q.Equals("manager_id", managerId)
+			if managerId != "" {
+				q = q.Equals("manager_id", managerId)
+			} else {
+				q = q.IsNullOrEmpty("manager_id")
+			}
 		default:
 			return nil, httperrors.NewInputParameterError("Not support associate type %s, only support %s", associateType, api.EIP_ASSOCIATE_VALID_TYPES)
 		}
