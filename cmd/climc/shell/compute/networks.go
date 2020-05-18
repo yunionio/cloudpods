@@ -38,6 +38,7 @@ func init() {
 		City       string   `help:"search networks belongs to a city"`
 		Usable     *bool    `help:"search usable networks"`
 		ServerType string   `help:"search networks belongs to a ServerType" choices:"guest|baremetal|container|pxe|ipmi"`
+		Schedtag   string   `help:"filter networks by schedtag"`
 
 		Status string `help:"filter by network status"`
 	}

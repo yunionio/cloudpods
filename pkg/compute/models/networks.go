@@ -1800,6 +1800,18 @@ func (manager *SNetworkManager) ListItemFilter(
 		q = q.Filter(ipCondtion)
 	}
 
+	if len(input.Schedtag) > 0 {
+		schedTag, err := SchedtagManager.FetchByIdOrName(nil, input.Schedtag)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(SchedtagManager.Keyword(), input.Schedtag)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		sq := NetworkschedtagManager.Query("network_id").Equals("schedtag_id", schedTag.GetId()).SubQuery()
+		q = q.In("id", sq)
+	}
+
 	if len(input.IfnameHint) > 0 {
 		q = q.In("ifname_hint", input.IfnameHint)
 	}
