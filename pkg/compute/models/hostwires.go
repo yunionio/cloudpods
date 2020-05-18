@@ -55,18 +55,18 @@ func init() {
 type SHostwire struct {
 	SHostJointsBase
 
-	Bridge string `width:"16" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"`
+	Bridge string `width:"16" charset:"ascii" nullable:"false" list:"domain" update:"domain" create:"domain_required"`
 	// 接口名称
-	Interface string `width:"16" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"`
+	Interface string `width:"16" charset:"ascii" nullable:"false" list:"domain" update:"domain" create:"domain_required"`
 	// 是否是主地址
-	IsMaster bool `nullable:"true" default:"false" list:"admin" update:"admin" create:"admin_optional"`
+	IsMaster bool `nullable:"true" default:"false" list:"domain" update:"domain" create:"domain_optional"`
 	// MAC地址
-	MacAddr string `width:"18" charset:"ascii" list:"admin" update:"admin" create:"admin_required"`
+	MacAddr string `width:"18" charset:"ascii" list:"domain" update:"domain" create:"domain_required"`
 
 	// 宿主机Id
-	HostId string `width:"128" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
+	HostId string `width:"128" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
 	// 二层网络Id
-	WireId string `width:"128" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
+	WireId string `width:"128" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
 }
 
 func (manager *SHostwireManager) GetMasterFieldName() string {

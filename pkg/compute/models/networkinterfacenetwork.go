@@ -57,7 +57,7 @@ type SNetworkinterfacenetwork struct {
 	Primary            bool   `nullable:"false" list:"user"`
 	IpAddr             string `width:"16" charset:"ascii" nullable:"false" list:"user"`
 	NetworkinterfaceId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
-	NetworkId          string `width:"36" charset:"ascii" nullable:"false" list:"admin"`
+	NetworkId          string `width:"36" charset:"ascii" nullable:"false" list:"user"`
 }
 
 func (manager *SNetworkinterfacenetworkManager) GetMasterFieldName() string {
