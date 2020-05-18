@@ -161,6 +161,46 @@ func (route *Route) Add(netStr, maskStr, gwStr string) *Route {
 	return route.AddByIPNet(ipnet, gw)
 }
 
+func (route *Route) Del(netStr, maskStr string) *Route {
+	ip, mask, _, err := route.parse(netStr, maskStr, "")
+	if err != nil {
+		route.addErr2(err)
+		return route
+	}
+	ipnet := &net.IPNet{
+		IP:   ip,
+		Mask: mask,
+	}
+	return route.DelByIPNet(ipnet)
+}
+
+func (route *Route) DelByCidr(cidr string) *Route {
+	dst, _, err := route.parseCidr(cidr, "")
+	if err != nil {
+		route.addErr2(err)
+		return route
+	}
+
+	return route.DelByIPNet(dst)
+}
+
+func (route *Route) DelByIPNet(ipnet *net.IPNet) *Route {
+	link, ok := route.link()
+	if !ok {
+		return route
+	}
+
+	r := &netlink.Route{
+		LinkIndex: link.Attrs().Index,
+		Dst:       ipnet,
+	}
+	if err := netlink.RouteDel(r); err != nil {
+		route.addErr(err, "RouteDel %s", r)
+		return route
+	}
+	return route
+}
+
 func RouteGetByDst(dstStr string) ([]netlink.Route, error) {
 	dstIp := net.ParseIP(dstStr)
 	routes, err := netlink.RouteGet(dstIp)

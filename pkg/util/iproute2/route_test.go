@@ -48,4 +48,16 @@ func TestRoute(t *testing.T) {
 		}
 
 	})
+
+	t.Run("route del", func(t *testing.T) {
+		ifname := genDummyName(t)
+		dum := addDummy(t, ifname)
+		defer delDummy(t, dum)
+
+		r := NewRoute(ifname)
+		r.DelByCidr("10.1.1.30/32")
+		if err := r.Err(); !IsErrSrch(err) {
+			t.Errorf("expecting ESRCH, got %v", err)
+		}
+	})
 }
