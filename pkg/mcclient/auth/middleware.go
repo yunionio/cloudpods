@@ -50,7 +50,7 @@ func AuthenticateWithDelayDecision(f appsrv.FilterHandler, delayDecision bool) a
 		tokenStr := r.Header.Get(api.AUTH_TOKEN_HEADER)
 		var token mcclient.TokenCredential
 		if len(tokenStr) == 0 {
-			log.Errorf("no auth_token found!")
+			log.Errorf("no auth_token found! delayDecision=%v", delayDecision)
 			if !delayDecision {
 				httperrors.UnauthorizedError(w, "Unauthorized")
 				return

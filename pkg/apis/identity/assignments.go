@@ -62,3 +62,7 @@ func (ra *SRoleAssignment) GetRoles() []string {
 func (ra *SRoleAssignment) GetLoginIp() string {
 	return ""
 }
+
+func (ra *SRoleAssignment) GetTokenString() string {
+	return "faketoken"
+}
