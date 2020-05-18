@@ -28,6 +28,9 @@ type ImageListInput struct {
 	// 列出是否支持UEFI启动的镜像
 	Uefi *bool `json:"uefi"`
 
+	// 根据已转换格式过滤, 可能值为: qcow2, vmdk, vhd, raw等
+	SubFormats []string `json:"subFormats"`
+
 	// 是否为标准镜像
 	IsStandard *bool `json:"is_standard"`
 
