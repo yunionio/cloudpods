@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/timeutils"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -221,17 +222,23 @@ func (manager *SCloudproviderregionManager) FetchByIdsOrCreate(providerId string
 	return cpr
 }
 
-func (self *SCloudproviderregion) markStartingSync(userCred mcclient.TokenCredential) error {
+func (self *SCloudproviderregion) markStartingSync(userCred mcclient.TokenCredential, syncRange *SSyncRange) error {
 	if !self.Enabled {
 		return fmt.Errorf("Cloudprovider(%s)region(%s) disabled", self.CloudproviderId, self.CloudregionId)
 	}
-	_, err := db.Update(self, func() error {
-		self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_QUEUING
-		return nil
-	})
-	if err != nil {
-		log.Errorf("Failed to markStartingSync error: %v", err)
-		return err
+	regionIds := []string{}
+	if syncRange != nil {
+		regionIds, _ = syncRange.GetRegionIds()
+	}
+	if syncRange == nil || len(regionIds) == 0 || utils.IsInStringArray(self.CloudregionId, regionIds) {
+		_, err := db.Update(self, func() error {
+			self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_QUEUING
+			return nil
+		})
+		if err != nil {
+			log.Errorf("Failed to markStartingSync error: %v", err)
+			return err
+		}
 	}
 	return nil
 }
