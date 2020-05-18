@@ -16,7 +16,7 @@ package options
 
 type MetadataListOptions struct {
 	Resources []string `help:"list of resource e.g server、disk、eip、snapshot, empty will show all metadata"`
-	Service   string   `help:"service type" default:"compute"`
+	Service   string   `help:"service type"`
 
 	SysMeta   *bool `help:"Show sys metadata only"`
 	CloudMeta *bool `help:"Show cloud metadata olny"`
