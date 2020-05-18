@@ -537,7 +537,9 @@ func SharableModelIsShared(model ISharableBaseModel) bool {
 	}
 	switch model.GetPublicScope() {
 	case rbacutils.ScopeSystem:
-		return true
+		if model.GetIsPublic() {
+			return true
+		}
 	case rbacutils.ScopeDomain:
 		if model.GetModelManager().ResourceScope() == rbacutils.ScopeProject {
 			return true
