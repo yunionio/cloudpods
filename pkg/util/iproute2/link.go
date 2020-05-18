@@ -48,6 +48,10 @@ func (l *Link) addErr(err error, fmtStr string, vals ...interface{}) {
 	l.errs = append(l.errs, errors.Wrapf(err, fmtStr, vals...))
 }
 
+func (l *Link) addErr2(err error) {
+	l.errs = append(l.errs, err)
+}
+
 func (l *Link) Err() error {
 	err := errors.NewAggregate(l.errs)
 	if err != nil {

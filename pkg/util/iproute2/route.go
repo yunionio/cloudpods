@@ -89,25 +89,57 @@ func (route *Route) AddByIPNet(ipnet *net.IPNet, gw net.IP) *Route {
 }
 
 func (route *Route) AddByCidr(cidr string, gwStr string) *Route {
-	var (
-		dst *net.IPNet
-		gw  net.IP
-		err error
-	)
-	if _, dst, err = net.ParseCIDR(cidr); err != nil {
-		route.addErr(err, "parse cidr")
+	dst, gw, err := route.parseCidr(cidr, gwStr)
+	if err != nil {
+		route.addErr2(err)
 		return route
+	}
+
+	return route.AddByIPNet(dst, gw)
+}
+
+func (route *Route) parseCidr(cidr, gwStr string) (dst *net.IPNet, gw net.IP, err error) {
+	if _, dst, err = net.ParseCIDR(cidr); err != nil {
+		err = errors.Wrap(err, "parse cidr")
+		return
 	}
 
 	if gwStr != "" {
 		gw = net.ParseIP(gwStr)
 		if len(gw) == 0 {
-			route.addErr(errBadIP, "gwStr: %s", gwStr)
-			return route
+			err = errors.Wrapf(errBadIP, "gwStr: %s", gwStr)
+			return
 		}
 	}
+	return
+}
 
-	return route.AddByIPNet(dst, gw)
+func (route *Route) parse(netStr, maskStr, gwStr string) (ip net.IP, mask net.IPMask, gw net.IP, err error) {
+	if ip = net.ParseIP(netStr); len(ip) == 0 {
+		err = errors.Wrapf(errBadIP, "netStr %s", netStr)
+		return
+	}
+	if maskIp := net.ParseIP(maskStr); len(maskIp) == 0 {
+		err = errors.Wrapf(errBadIP, "maskStr %s", maskStr)
+		return
+	} else {
+		if ip := maskIp.To4(); len(ip) > 0 {
+			maskIp = ip
+		}
+		mask = net.IPMask(maskIp)
+		ones, bits := mask.Size()
+		if ones == 0 && bits == 0 {
+			err = errors.Wrapf(errBadIP, "bad mask %s", maskStr)
+			return
+		}
+	}
+	if gwStr != "" {
+		if gw = net.ParseIP(gwStr); len(gw) == 0 {
+			err = errors.Wrapf(errBadIP, "gwStr %s", gwStr)
+			return
+		}
+	}
+	return
 }
 
 func (route *Route) Add(netStr, maskStr, gwStr string) *Route {
@@ -117,29 +149,9 @@ func (route *Route) Add(netStr, maskStr, gwStr string) *Route {
 		gw   net.IP
 	)
 
-	if ip = net.ParseIP(netStr); len(ip) == 0 {
-		route.addErr(errBadIP, "netStr %s", netStr)
-		return route
-	}
-	if maskIp := net.ParseIP(maskStr); len(maskIp) == 0 {
-		route.addErr(errBadIP, "maskStr %s", maskStr)
-		return route
-	} else {
-		if ip := maskIp.To4(); len(ip) > 0 {
-			maskIp = ip
-		}
-		mask = net.IPMask(maskIp)
-		ones, bits := mask.Size()
-		if ones == 0 && bits == 0 {
-			route.addErr(errBadIP, "bad mask %s", maskStr)
-			return route
-		}
-	}
-	if gwStr != "" {
-		if gw = net.ParseIP(gwStr); len(gw) == 0 {
-			route.addErr(errBadIP, "gwStr %s", gwStr)
-			return route
-		}
+	ip, mask, gw, err := route.parse(netStr, maskStr, gwStr)
+	if err != nil {
+		route.addErr2(err)
 	}
 
 	ipnet := &net.IPNet{
