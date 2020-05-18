@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -324,6 +325,18 @@ func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.C
 		if err != nil {
 			syncResult.AddError(err)
 			continue
+		}
+		if secgroup.ProjectId != provider.ProjectId {
+			_, err = secgroup.PerformPublic(ctx, userCred, nil,
+				apis.PerformPublicProjectInput{
+					PerformPublicDomainInput: apis.PerformPublicDomainInput{
+						Scope:         "domain",
+						SharedDomains: []string{provider.DomainId},
+					},
+				})
+			if err != nil {
+				log.Warningf("failed to set secgroup %s(%s) project sharable", secgroup.Name, secgroup.Id)
+			}
 		}
 		cache, err := manager.NewCache(ctx, userCred, secgroup.Id, vpcId, vpc.CloudregionId, provider.Id)
 		if err != nil {
