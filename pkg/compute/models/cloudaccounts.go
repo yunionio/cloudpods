@@ -687,13 +687,13 @@ func (self *SCloudaccount) StartSyncCloudProviderInfoTask(ctx context.Context, u
 		log.Errorf("CloudAccountSyncInfoTask newTask error %s", err)
 		return err
 	}
-	self.markStartSync(userCred)
+	self.markStartSync(userCred, syncRange)
 	db.OpsLog.LogEvent(self, db.ACT_SYNC_HOST_START, "", userCred)
 	task.ScheduleRun(nil)
 	return nil
 }
 
-func (self *SCloudaccount) markStartSync(userCred mcclient.TokenCredential) error {
+func (self *SCloudaccount) markStartSync(userCred mcclient.TokenCredential, syncRange *SSyncRange) error {
 	_, err := db.Update(self, func() error {
 		self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_QUEUED
 		return nil
@@ -705,7 +705,7 @@ func (self *SCloudaccount) markStartSync(userCred mcclient.TokenCredential) erro
 	providers := self.GetCloudproviders()
 	for i := range providers {
 		if providers[i].GetEnabled() {
-			err := providers[i].markStartingSync(userCred)
+			err := providers[i].markStartingSync(userCred, syncRange)
 			if err != nil {
 				return errors.Wrap(err, "providers.markStartSync")
 			}
