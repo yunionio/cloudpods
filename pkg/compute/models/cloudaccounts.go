@@ -1496,6 +1496,17 @@ func (manager *SCloudaccountManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SSyncableBaseResourceManager.ListItemFilter")
 	}
 
+	if len(query.ProxySetting) > 0 {
+		proxy, err := proxy.ProxySettingManager.FetchByIdOrName(nil, query.ProxySetting)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("proxy_setting", query.ProxySetting)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		q = q.Equals("proxy_setting_id", proxy.GetId())
+	}
+
 	managerStr := query.Cloudprovider
 	if len(managerStr) > 0 {
 		providerObj, err := CloudproviderManager.FetchByIdOrName(userCred, managerStr)

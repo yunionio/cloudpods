@@ -1292,6 +1292,18 @@ func (manager *SStorageManager) ListItemFilter(
 		q = q.Filter(sqlchemy.In(q.Field("storage_type"), api.STORAGE_LOCAL_TYPES))
 	}
 
+	if len(query.Schedtag) > 0 {
+		schedTag, err := SchedtagManager.FetchByIdOrName(nil, query.Schedtag)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(SchedtagManager.Keyword(), query.Schedtag)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		sq := StorageschedtagManager.Query("storage_id").Equals("schedtag_id", schedTag.GetId()).SubQuery()
+		q = q.In("id", sq)
+	}
+
 	if query.Usable != nil && *query.Usable {
 		hostStorageTable := HoststorageManager.Query().SubQuery()
 		hostTable := HostManager.Query().SubQuery()

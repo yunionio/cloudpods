@@ -55,6 +55,7 @@ func init() {
 		Capability []string `help:"capability filter" choices:"project|compute|network|loadbalancer|objectstore|rds|cache|event"`
 
 		DistinctField string `help:"distinct field"`
+		ProxySetting  string `help:"Proxy setting id or name"`
 	}
 	R(&CloudaccountListOptions{}, "cloud-account-list", "List cloud accounts", func(s *mcclient.ClientSession, args *CloudaccountListOptions) error {
 		var params *jsonutils.JSONDict
@@ -66,6 +67,9 @@ func init() {
 			}
 			if len(args.Capability) > 0 {
 				params.Add(jsonutils.NewStringArray(args.Capability), "capability")
+			}
+			if len(args.ProxySetting) > 0 {
+				params.Add(jsonutils.NewString(args.ProxySetting), "proxy_setting")
 			}
 		}
 		if len(args.DistinctField) > 0 {

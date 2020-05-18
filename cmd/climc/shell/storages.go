@@ -29,11 +29,12 @@ func init() {
 	type StorageListOptions struct {
 		options.BaseListOptions
 
-		Share  *bool  `help:"Share storage list"`
-		Local  *bool  `help:"Local storage list"`
-		Usable *bool  `help:"Usable storage list"`
-		Zone   string `help:"List storages in zone" json:"-"`
-		Region string `help:"List storages in region"`
+		Share    *bool  `help:"Share storage list"`
+		Local    *bool  `help:"Local storage list"`
+		Usable   *bool  `help:"Usable storage list"`
+		Zone     string `help:"List storages in zone" json:"-"`
+		Region   string `help:"List storages in region"`
+		Schedtag string `help:"filter storage by schedtag"`
 	}
 	R(&StorageListOptions{}, "storage-list", "List storages", func(s *mcclient.ClientSession, opts *StorageListOptions) error {
 		params, err := options.ListStructToParams(opts)
