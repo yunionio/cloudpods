@@ -296,6 +296,7 @@ type sRbacIdentity struct {
 	Project  string
 	Roles    []string
 	Ip       string
+	Token    string
 }
 
 func (ri *sRbacIdentity) GetProjectDomainId() string {
@@ -312,6 +313,10 @@ func (ri *sRbacIdentity) GetRoles() []string {
 
 func (ri *sRbacIdentity) GetLoginIp() string {
 	return ri.Ip
+}
+
+func (ri *sRbacIdentity) GetTokenString() string {
+	return ri.Token
 }
 
 func TestSRbacPolicyMatch(t *testing.T) {
@@ -337,6 +342,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 			},
 			&sRbacIdentity{
 				Project: "system",
+				Token:   "faketoken",
 			},
 			true,
 		},
@@ -346,6 +352,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 			},
 			&sRbacIdentity{
 				Project: "demo",
+				Token:   "faketoken",
 			},
 			false,
 		},
@@ -357,6 +364,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 			&sRbacIdentity{
 				Project: "system",
 				Roles:   []string{"admin"},
+				Token:   "faketoken",
 			},
 			true,
 		},
@@ -368,6 +376,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 			&sRbacIdentity{
 				Project: "system",
 				Roles:   []string{"admin", "_member_"},
+				Token:   "faketoken",
 			},
 			true,
 		},
@@ -379,6 +388,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 			&sRbacIdentity{
 				Project: "system",
 				Roles:   []string{"_member_"},
+				Token:   "faketoken",
 			},
 			false,
 		},
@@ -407,6 +417,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 				Project: "system",
 				Roles:   []string{"admin"},
 				Ip:      "10.0.0.23",
+				Token:   "faketoken",
 			},
 			false,
 		},
@@ -420,6 +431,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 				Project: "system",
 				Roles:   []string{"admin"},
 				Ip:      "10.168.22.23",
+				Token:   "faketoken",
 			},
 			true,
 		},
@@ -433,6 +445,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 				Project: "system",
 				Roles:   []string{"_member_"},
 				Ip:      "10.168.22.23",
+				Token:   "faketoken",
 			},
 			false,
 		},
@@ -445,6 +458,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 				Project: "system",
 				Roles:   []string{"_member_", "admin"},
 				Ip:      "10.168.22.23",
+				Token:   "faketoken",
 			},
 			true,
 		},
@@ -458,6 +472,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 				Project: "system",
 				Roles:   []string{"_member_", "projectowner"},
 				Ip:      "10.168.22.23",
+				Token:   "faketoken",
 			},
 			true,
 		},
@@ -470,6 +485,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 			&sRbacIdentity{
 				Project: "ldapproj",
 				Roles:   []string{"domain_admin"},
+				Token:   "faketoken",
 			},
 			true,
 		},
