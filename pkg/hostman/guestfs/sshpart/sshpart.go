@@ -309,20 +309,25 @@ func (p *SSHPartition) sshFilePutContents(sPath, content string, modAppend bool)
 	}
 
 	cmds := []string{}
-	var chunkSize int = 8192
-	for offset := 0; offset < len(content); offset += chunkSize {
-		end := offset + chunkSize
-		if end > len(content) {
-			end = len(content)
-		}
-		ll, err := stringutils.EscapeEchoString(content[offset:end])
-		if err != nil {
-			return fmt.Errorf("EscapeEchoString %q error: %v", content[offset:end], err)
-		}
-		cmd := fmt.Sprintf(`echo -n -e "%s" %s %s`, ll, op, sPath)
+	if len(content) == 0 {
+		cmd := fmt.Sprintf(`echo -n -e "" %s %s`, op, sPath)
 		cmds = append(cmds, cmd)
-		if op == ">" {
-			op = ">>"
+	} else {
+		var chunkSize int = 8192
+		for offset := 0; offset < len(content); offset += chunkSize {
+			end := offset + chunkSize
+			if end > len(content) {
+				end = len(content)
+			}
+			ll, err := stringutils.EscapeEchoString(content[offset:end])
+			if err != nil {
+				return fmt.Errorf("EscapeEchoString %q error: %v", content[offset:end], err)
+			}
+			cmd := fmt.Sprintf(`echo -n -e "%s" %s %s`, ll, op, sPath)
+			cmds = append(cmds, cmd)
+			if op == ">" {
+				op = ">>"
+			}
 		}
 	}
 	_, err := p.term.Run(cmds...)
