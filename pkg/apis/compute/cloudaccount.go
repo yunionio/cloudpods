@@ -223,6 +223,11 @@ type CloudaccountListInput struct {
 
 	// 共享模式
 	ShareMode []string `json:"share_mode"`
+
+	// 代理
+	ProxySetting string `json:"proxy_setting"`
+	// swagger:ignore
+	ProxySettingId string `json:"proxy_setting_id" "yunion:deprecated-by":"proxy_setting"`
 }
 
 type ProviderProject struct {
