@@ -1430,8 +1430,12 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 		self.IsEmulated = extDisk.IsEmulated()
 
 		if provider.GetFactory().IsSupportPrepaidResources() && !recycle {
-			self.BillingType = extDisk.GetBillingType()
-			self.ExpiredAt = extDisk.GetExpiredAt()
+			if billintType := extDisk.GetBillingType(); len(billintType) > 0 {
+				self.BillingType = extDisk.GetBillingType()
+			}
+			if expiredAt := extDisk.GetExpiredAt(); !expiredAt.IsZero() {
+				self.ExpiredAt = extDisk.GetExpiredAt()
+			}
 		}
 
 		if createdAt := extDisk.GetCreatedAt(); !createdAt.IsZero() {
