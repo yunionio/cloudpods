@@ -65,6 +65,7 @@ type NetworkFilterListInput struct {
 type NetworkListInput struct {
 	apis.SharableVirtualResourceListInput
 	apis.ExternalizedResourceBaseListInput
+	SchedtagResourceInput
 	WireFilterListInput
 
 	HostResourceInput

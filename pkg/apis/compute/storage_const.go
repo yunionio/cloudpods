@@ -174,6 +174,7 @@ type StorageShareFilterListInput struct {
 type StorageListInput struct {
 	apis.EnabledStatusInfrasResourceBaseListInput
 	apis.ExternalizedResourceBaseListInput
+	SchedtagResourceInput
 
 	ManagedResourceListInput
 	ZonalFilterListInput
