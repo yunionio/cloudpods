@@ -24,7 +24,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/vpcagent/options"
 )
 
 const (
@@ -32,14 +31,14 @@ const (
 )
 
 type APIHelper struct {
-	opts        *options.Options
+	opts        *Options
 	modelSets   IModelSets
 	modelSetsCh chan IModelSets
 
 	mcclientSession *mcclient.ClientSession
 }
 
-func NewAPIHelper(opts *options.Options, modelSets IModelSets) (*APIHelper, error) {
+func NewAPIHelper(opts *Options, modelSets IModelSets) (*APIHelper, error) {
 	modelSetsCh := make(chan IModelSets)
 	helper := &APIHelper{
 		opts:        opts,
@@ -58,7 +57,7 @@ func (h *APIHelper) Start(ctx context.Context) {
 
 	h.run(ctx)
 
-	tickDuration := time.Duration(h.opts.APISyncInterval) * time.Second
+	tickDuration := time.Duration(h.opts.SyncInterval) * time.Second
 	tick := time.NewTimer(tickDuration)
 	defer tick.Stop()
 
@@ -101,7 +100,7 @@ func (h *APIHelper) doSync(ctx context.Context) (changed bool, err error) {
 	}
 
 	s := h.adminClientSession(ctx)
-	r, err := SyncModelSets(h.modelSets, s, h.opts.APIListBatchSize)
+	r, err := SyncModelSets(h.modelSets, s, h.opts.ListBatchSize)
 	if err != nil {
 		return false, err
 	}
