@@ -21,6 +21,7 @@ import (
 type Vpc struct {
 	compute_models.SVpc
 
+	Wire     *Wire    `json:"-"`
 	Networks Networks `json:"-"`
 }
 
@@ -30,19 +31,29 @@ func (el *Vpc) Copy() *Vpc {
 	}
 }
 
+type Wire struct {
+	compute_models.SWire
+
+	Vpc *Vpc
+}
+
+func (el *Wire) Copy() *Wire {
+	return &Wire{
+		SWire: el.SWire,
+	}
+}
+
 type Network struct {
 	compute_models.SNetwork
-	// returned as extra column
-	VpcId string
 
 	Vpc           *Vpc          `json:"-"`
+	Wire          *Wire         `json:"-"`
 	Guestnetworks Guestnetworks `json:"-"`
 }
 
 func (el *Network) Copy() *Network {
 	return &Network{
 		SNetwork: el.SNetwork,
-		VpcId:    el.VpcId,
 	}
 }
 

@@ -17,7 +17,6 @@ package models
 import (
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	mcclient_modulebase "yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	mcclient_modules "yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -26,6 +25,7 @@ import (
 
 type (
 	Vpcs               map[string]*Vpc
+	Wires              map[string]*Wire
 	Networks           map[string]*Network
 	Guests             map[string]*Guest
 	Hosts              map[string]*Host
@@ -46,9 +46,6 @@ func (set Vpcs) NewModel() db.IModel {
 
 func (set Vpcs) AddModel(i db.IModel) {
 	m := i.(*Vpc)
-	if m.Id == compute.DEFAULT_VPC_ID {
-		return
-	}
 	set[m.Id] = m
 }
 
@@ -68,16 +65,36 @@ func (set Vpcs) IncludeEmulated() bool {
 	return false
 }
 
+func (ms Vpcs) joinWires(subEntries Wires) bool {
+	correct := true
+	for _, subEntry := range subEntries {
+		vpcId := subEntry.VpcId
+		m, ok := ms[vpcId]
+		if !ok {
+			log.Warningf("vpc_id %s of wire %s(%s) is not present", vpcId, subEntry.Name, subEntry.Id)
+			correct = false
+			continue
+		}
+		subEntry.Vpc = m
+		m.Wire = subEntry
+	}
+	return correct
+}
+
 func (ms Vpcs) joinNetworks(subEntries Networks) bool {
 	for _, m := range ms {
 		m.Networks = Networks{}
 	}
 	correct := true
 	for subId, subEntry := range subEntries {
-		id := subEntry.VpcId
-		if id == compute.DEFAULT_VPC_ID {
+		wire := subEntry.Wire
+		if wire == nil {
+			// ensured by vpcs.joinWires
+			log.Warningf("network %s(%s) has no wire", subEntry.Name, subEntry.Id)
+			correct = false
 			continue
 		}
+		id := wire.VpcId
 		m, ok := ms[id]
 		if !ok {
 			// let it go.  By the time the subnet has externalId or
@@ -95,6 +112,49 @@ func (ms Vpcs) joinNetworks(subEntries Networks) bool {
 		}
 		subEntry.Vpc = m
 		m.Networks[subId] = subEntry
+	}
+	return correct
+}
+
+func (set Wires) ModelManager() mcclient_modulebase.IBaseManager {
+	return &mcclient_modules.Wires
+}
+
+func (set Wires) NewModel() db.IModel {
+	return &Wire{}
+}
+
+func (set Wires) AddModel(i db.IModel) {
+	m := i.(*Wire)
+	set[m.Id] = m
+}
+
+func (set Wires) Copy() apihelper.IModelSet {
+	setCopy := Wires{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
+}
+
+func (set Wires) IncludeDetails() bool {
+	return false
+}
+
+func (set Wires) IncludeEmulated() bool {
+	return true
+}
+
+func (ms Wires) joinNetworks(subEntries Networks) bool {
+	correct := true
+	for _, subEntry := range subEntries {
+		wireId := subEntry.WireId
+		m, ok := ms[wireId]
+		if !ok {
+			correct = false
+			continue
+		}
+		subEntry.Wire = m
 	}
 	return correct
 }
