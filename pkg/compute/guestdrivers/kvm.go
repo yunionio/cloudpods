@@ -309,6 +309,9 @@ func (self *SKVMGuestDriver) IsSupportEip() bool {
 	return true
 }
 
+func (self *SKVMGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+	return nil
+}
 func (self *SKVMGuestDriver) RequestAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, eip *models.SElasticip, task taskman.ITask) error {
 	defer task.ScheduleRun(nil)
 

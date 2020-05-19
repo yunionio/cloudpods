@@ -2932,25 +2932,24 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 	}
 	autoDellocate, _ := data.Bool("auto_dellocate")
 
-	if len(self.ExternalId) == 0 {
-		return nil, httperrors.NewInvalidStatusError("Not a managed VM")
-	}
 	host := self.GetHost()
 	if host == nil {
 		return nil, httperrors.NewInvalidStatusError("No host???")
 	}
-
-	_, err := host.GetDriver()
-	if err != nil {
-		return nil, httperrors.NewInvalidStatusError("No valid cloud provider")
+	{
+		if self.ExternalId != "" {
+			_, err := host.GetDriver()
+			if err != nil {
+				return nil, httperrors.NewInvalidStatusError("No valid cloud provider")
+			}
+		}
+		region := host.GetRegion()
+		if region == nil {
+			return nil, httperrors.NewInvalidStatusError("No cloudregion???")
+		}
 	}
 
-	region := host.GetRegion()
-	if region == nil {
-		return nil, httperrors.NewInvalidStatusError("No cloudregion???")
-	}
-
-	err = self.GetDriver().ValidateCreateEip(ctx, userCred, data)
+	err := self.GetDriver().ValidateCreateEip(ctx, userCred, data)
 	if err != nil {
 		return nil, err
 	}

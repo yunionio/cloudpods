@@ -1235,6 +1235,32 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 	eip.ManagerId = host.ManagerId
 	eip.CloudregionId = region.Id
 	eip.Name = fmt.Sprintf("eip-for-%s", vm.GetName())
+	if host.ManagerId == "" {
+		hostq := HostManager.Query().SubQuery()
+		wireq := WireManager.Query().SubQuery()
+		hostwireq := HostwireManager.Query().SubQuery()
+		q := NetworkManager.Query()
+		q = q.Join(wireq, sqlchemy.Equals(wireq.Field("id"), q.Field("wire_id")))
+		q = q.Join(hostwireq, sqlchemy.Equals(hostwireq.Field("wire_id"), wireq.Field("id")))
+		q = q.Join(hostq, sqlchemy.Equals(hostq.Field("id"), host.Id))
+		q = q.Equals("server_type", api.NETWORK_TYPE_EIP)
+		var nets []SNetwork
+		if err := db.FetchModelObjects(NetworkManager, q, &nets); err != nil {
+			return nil, errors.Wrapf(err, "fetch eip networks usable in host %s(%s)",
+				host.Name, host.Id)
+		}
+		for i := range nets {
+			net := &nets[i]
+			cnt, err := net.GetFreeAddressCount()
+			if err != nil {
+				continue
+			}
+			if cnt > 0 {
+				eip.NetworkId = net.Id
+				break
+			}
+		}
+	}
 
 	var err error
 	eip.Name, err = db.GenerateName(manager, userCred, eip.Name)
