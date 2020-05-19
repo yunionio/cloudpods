@@ -168,6 +168,7 @@ func SharableManagerValidateCreateData(
 			// backward compatible, if only is_public is true, make it share to system
 			input.IsPublic = &isPublic
 			input.PublicScope = string(rbacutils.ScopeSystem)
+			reqScope = rbacutils.ScopeSystem
 		} else {
 			input.IsPublic = nil
 			input.PublicScope = string(rbacutils.ScopeNone)
@@ -180,6 +181,7 @@ func SharableManagerValidateCreateData(
 			// backward compatible, if only is_public is true, make it share to system
 			input.IsPublic = &isPublic
 			input.PublicScope = string(rbacutils.ScopeSystem)
+			reqScope = rbacutils.ScopeSystem
 		} else {
 			input.IsPublic = nil
 			input.PublicScope = string(rbacutils.ScopeNone)
@@ -187,9 +189,11 @@ func SharableManagerValidateCreateData(
 	default:
 		return input, errors.Wrap(httperrors.ErrInputParameter, "the resource is not sharable")
 	}
-	allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionPerform, "public")
-	if reqScope.HigherThan(allowScope) {
-		return input, errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "require %s allow %s", reqScope, allowScope)
+	if input.IsPublic != nil && *input.IsPublic {
+		allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionPerform, "public")
+		if reqScope.HigherThan(allowScope) {
+			return input, errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "require %s allow %s", reqScope, allowScope)
+		}
 	}
 	return input, nil
 }
