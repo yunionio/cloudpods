@@ -583,6 +583,7 @@ type IRbacIdentity interface {
 	GetProjectName() string
 	GetRoles() []string
 	GetLoginIp() string
+	GetTokenString() string
 }
 
 func (policy *SRbacPolicy) IsSystemWidePolicy() bool {
@@ -636,7 +637,7 @@ func (policy *SRbacPolicy) Match(userCred IRbacIdentity) (bool, int) {
 	if !policy.Auth && len(policy.Roles) == 0 && len(policy.Projects) == 0 && len(policy.Ips) == 0 {
 		return true, 1
 	}
-	if userCred == nil {
+	if userCred == nil || len(userCred.GetTokenString()) == 0 {
 		return false, 0
 	}
 	weight := 0
@@ -689,6 +690,10 @@ func (id sSimpleRbacIdentity) GetProjectName() string {
 
 func (id sSimpleRbacIdentity) GetLoginIp() string {
 	return ""
+}
+
+func (id sSimpleRbacIdentity) GetTokenString() string {
+	return "faketoken"
 }
 
 func NewRbacIdentity(domainId, projectName string, roleNames []string) IRbacIdentity {
