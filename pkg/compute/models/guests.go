@@ -2520,10 +2520,10 @@ func (manager *SGuestManager) TotalCount(
 	ownerId mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel,
 	status []string, hypervisors []string,
-	includeSystem bool, pendingDelete bool,
+	isSystem bool, pendingDelete bool,
 	hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string,
 ) SGuestCountStat {
-	return totalGuestResourceCount(scope, ownerId, rangeObjs, status, hypervisors, includeSystem, pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv)
+	return usageTotalGuestResouceCount(scope, ownerId, rangeObjs, status, hypervisors, isSystem, pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv)
 }
 
 func (self *SGuest) detachNetworks(ctx context.Context, userCred mcclient.TokenCredential, gns []SGuestnetwork, reserve bool, deploy bool) error {
@@ -3005,6 +3005,39 @@ type SGuestCountStat struct {
 	TotalBackupDiskSize   int
 }
 
+func usageTotalGuestResouceCount(
+	scope rbacutils.TRbacScope,
+	ownerId mcclient.IIdentityProvider,
+	rangeObjs []db.IStandaloneModel,
+	status []string,
+	hypervisors []string,
+	isSystem bool,
+	pendingDelete bool,
+	hostTypes []string,
+	resourceTypes []string,
+	providers []string, brands []string, cloudEnv string,
+) SGuestCountStat {
+	q, guests := _guestResourceCountQuery(scope, ownerId, rangeObjs, status, hypervisors,
+		pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv)
+	if isSystem {
+		q = q.IsTrue("is_system")
+	} else {
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.IsNull(guests.Field("is_system")), sqlchemy.IsFalse(guests.Field("is_system"))))
+	}
+
+	stat := SGuestCountStat{}
+	row := q.Row()
+	err := q.Row2Struct(row, &stat)
+	if err != nil {
+		log.Errorf("%s", err)
+	}
+	stat.TotalCpuCount += stat.TotalBackupCpuCount
+	stat.TotalMemSize += stat.TotalBackupMemSize
+	stat.TotalDiskSize += stat.TotalBackupDiskSize
+	return stat
+}
+
 func totalGuestResourceCount(
 	scope rbacutils.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
@@ -3017,6 +3050,36 @@ func totalGuestResourceCount(
 	resourceTypes []string,
 	providers []string, brands []string, cloudEnv string,
 ) SGuestCountStat {
+	q, guests := _guestResourceCountQuery(scope, ownerId, rangeObjs, status, hypervisors,
+		pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv)
+
+	if !includeSystem {
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.IsNull(guests.Field("is_system")), sqlchemy.IsFalse(guests.Field("is_system"))))
+	}
+	stat := SGuestCountStat{}
+	row := q.Row()
+	err := q.Row2Struct(row, &stat)
+	if err != nil {
+		log.Errorf("%s", err)
+	}
+	stat.TotalCpuCount += stat.TotalBackupCpuCount
+	stat.TotalMemSize += stat.TotalBackupMemSize
+	stat.TotalDiskSize += stat.TotalBackupDiskSize
+	return stat
+}
+
+func _guestResourceCountQuery(
+	scope rbacutils.TRbacScope,
+	ownerId mcclient.IIdentityProvider,
+	rangeObjs []db.IStandaloneModel,
+	status []string,
+	hypervisors []string,
+	pendingDelete bool,
+	hostTypes []string,
+	resourceTypes []string,
+	providers []string, brands []string, cloudEnv string,
+) (*sqlchemy.SQuery, *sqlchemy.SSubQuery) {
 
 	guestdisks := GuestdiskManager.Query().SubQuery()
 	disks := DiskManager.Query().SubQuery()
@@ -3083,24 +3146,13 @@ func totalGuestResourceCount(
 	if len(hypervisors) > 0 {
 		q = q.Filter(sqlchemy.In(guests.Field("hypervisor"), hypervisors))
 	}
-	if !includeSystem {
-		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(guests.Field("is_system")), sqlchemy.IsFalse(guests.Field("is_system"))))
-	}
+
 	if pendingDelete {
 		q = q.Filter(sqlchemy.IsTrue(guests.Field("pending_deleted")))
 	} else {
 		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(guests.Field("pending_deleted")), sqlchemy.IsFalse(guests.Field("pending_deleted"))))
 	}
-	stat := SGuestCountStat{}
-	row := q.Row()
-	err := q.Row2Struct(row, &stat)
-	if err != nil {
-		log.Errorf("%s", err)
-	}
-	stat.TotalCpuCount += stat.TotalBackupCpuCount
-	stat.TotalMemSize += stat.TotalBackupMemSize
-	stat.TotalDiskSize += stat.TotalBackupDiskSize
-	return stat
+	return q, guests
 }
 
 func (self *SGuest) getDefaultNetworkConfig() *api.NetworkConfig {
