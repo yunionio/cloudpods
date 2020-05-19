@@ -58,11 +58,13 @@ type NetworkListInput struct {
 
 	UsableResourceListInput
 
-	WireFilterListInput
-
-	// description: search ip address in network.
+	// description: Exact matching ip address in network.
 	// example: 10.168.222.1
 	Ip string `json:"ip"`
+
+	// description: Fuzzy matching ip address in network.
+	// example: 10.168.222.1
+	IpMatch string `json:"ip_match"`
 }
 
 type NetworkCreateInput struct {
