@@ -1780,8 +1780,17 @@ func (manager *SNetworkManager) ListItemFilter(
 		}
 	}
 
+	ip := ""
+	exactIpMatch := false
 	if len(input.Ip) > 0 {
-		ipIa, err := parseIpToIntArray(input.Ip)
+		exactIpMatch = true
+		ip = input.Ip
+	} else if len(input.IpMatch) > 0 {
+		ip = input.IpMatch
+	}
+
+	if len(ip) > 0 {
+		ipIa, err := parseIpToIntArray(ip)
 		if err != nil {
 			return nil, err
 		}
@@ -1796,7 +1805,13 @@ func (manager *SNetworkManager) ListItemFilter(
 		ipStart := sqlchemy.INET_ATON(q.Field("guest_ip_start"))
 		ipEnd := sqlchemy.INET_ATON(q.Field("guest_ip_end"))
 
-		ipCondtion := sqlchemy.OR(sqlchemy.Between(ipField, ipStart, ipEnd), sqlchemy.Contains(q.Field("guest_ip_start"), input.Ip), sqlchemy.Contains(q.Field("guest_ip_end"), input.Ip))
+		var ipCondtion sqlchemy.ICondition
+		if exactIpMatch {
+			ipCondtion = sqlchemy.Between(ipField, ipStart, ipEnd)
+		} else {
+			ipCondtion = sqlchemy.OR(sqlchemy.Between(ipField, ipStart, ipEnd), sqlchemy.Contains(q.Field("guest_ip_start"), ip), sqlchemy.Contains(q.Field("guest_ip_end"), ip))
+		}
+
 		q = q.Filter(ipCondtion)
 	}
 
