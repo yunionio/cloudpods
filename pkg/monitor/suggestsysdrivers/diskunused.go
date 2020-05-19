@@ -2,12 +2,15 @@ package suggestsysdrivers
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -52,6 +55,12 @@ func (rule *DiskUnused) Run(instance *monitor.SSuggestSysAlertSetting) {
 }
 
 func (rule *DiskUnused) getLatestAlerts(instance *monitor.SSuggestSysAlertSetting) (*jsonutils.JSONArray, error) {
+	rules, _ := models.SuggestSysRuleManager.GetRules(rule.GetType())
+	if len(rules) == 0 {
+		log.Println("Rule may have been deleted")
+		return jsonutils.NewArray(), nil
+	}
+	duration, _ := time.ParseDuration(rules[0].TimeFrom)
 	session := auth.GetAdminSession(context.Background(), "", "")
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.NewString("0"), "limit")
@@ -63,6 +72,21 @@ func (rule *DiskUnused) getLatestAlerts(instance *monitor.SSuggestSysAlertSettin
 	}
 	DiskUnusedArr := jsonutils.NewArray()
 	for _, disk := range disks.Data {
+		id, _ := disk.GetString("id")
+		logInput := logInput{
+			ObjId:   id,
+			ObjType: "disk",
+			Limit:   "0",
+			Scope:   "system",
+		}
+		latestTime, err := getResourceObjLatestUsedTime(disk, logInput, db.ACT_DETACH)
+		if err != nil {
+			continue
+		}
+
+		if time.Now().Add(-duration).Sub(latestTime) < 0 {
+			continue
+		}
 		suggestSysAlert, err := getSuggestSysAlertFromJson(disk, rule)
 		if err != nil {
 			return DiskUnusedArr, errors.Wrap(err, "getEIPUnused's alertData Unmarshal error")
@@ -77,7 +101,8 @@ func (rule *DiskUnused) getLatestAlerts(instance *monitor.SSuggestSysAlertSettin
 		}
 
 		problem := jsonutils.NewDict()
-		problem.Add(jsonutils.NewString(rule.GetType()), "disk")
+		rtnTime := fmt.Sprintf("%.1fm", time.Now().Sub(latestTime).Minutes())
+		problem.Add(jsonutils.NewString(rtnTime), "diskUnused time")
 		suggestSysAlert.Problem = problem
 		DiskUnusedArr.Add(jsonutils.Marshal(suggestSysAlert))
 	}

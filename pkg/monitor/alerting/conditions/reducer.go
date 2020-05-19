@@ -21,11 +21,20 @@ import (
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
 )
 
+type Reduce interface {
+	Reduce(series *tsdb.TimeSeries) *float64
+	GetType() string
+}
+
 // queryReducer reduces an timeseries to a float
 type queryReducer struct {
 	// Type is how the timeseries should be reduced.
 	// Ex: avg, sum, max, min, count
 	Type string
+}
+
+func (s *queryReducer) GetType() string {
+	return s.Type
 }
 
 func (s *queryReducer) Reduce(series *tsdb.TimeSeries) *float64 {

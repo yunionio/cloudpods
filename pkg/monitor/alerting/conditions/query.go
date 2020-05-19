@@ -39,7 +39,7 @@ func init() {
 type QueryCondition struct {
 	Index         int
 	Query         AlertQuery
-	Reducer       *queryReducer
+	Reducer       Reduce
 	Evaluator     AlertEvaluator
 	Operator      string
 	HandleRequest tsdb.HandleRequestFunc
@@ -63,7 +63,7 @@ type FormatCond struct {
 func (c *QueryCondition) GenerateFormatCond(meta *tsdb.QueryResultMeta) *FormatCond {
 	return &FormatCond{
 		QueryMeta: meta,
-		Reducer:   c.Reducer.Type,
+		Reducer:   c.Reducer.GetType(),
 		Evaluator: c.Evaluator,
 	}
 }

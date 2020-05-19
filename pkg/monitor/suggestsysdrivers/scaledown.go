@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -16,6 +17,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/monitor/alerting"
+	"yunion.io/x/onecloud/pkg/monitor/alerting/conditions"
 	"yunion.io/x/onecloud/pkg/monitor/models"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
 )
@@ -129,6 +131,9 @@ func (rule *ScaleDown) getScaleEvalResult(scales []monitor.Scale) (bool, map[str
 			return firing, scaleEvalMatchs, errors.Wrapf(err, "construct query condition %s",
 				jsonutils.Marshal(condition))
 		}
+		duration, _ := time.ParseDuration(condition.Query.From)
+		queryCon := queryCondition.(*conditions.QueryCondition)
+		queryCon.Reducer = conditions.NewSuggestRuleReducer(queryCon.Reducer.GetType(), duration)
 		//evalContext := alerting.NewEvalContext(context.Background(), auth.AdminCredential(), nil)
 		evalContext := alerting.EvalContext{
 			Ctx:       context.Background(),
