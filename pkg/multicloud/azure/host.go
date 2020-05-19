@@ -146,6 +146,9 @@ func (self *SHost) _createVM(desc *cloudprovider.SManagedVMCreateConfig, nicId s
 	if len(computeName) > 15 {
 		computeName = computeName[:15]
 	}
+	if len(desc.ProjectName) > 0 {
+		self.zone.region.CreateAndSetResourceGroup(desc.ProjectName)
+	}
 	instance := SInstance{
 		Name:     desc.Name,
 		Location: self.zone.region.Name,

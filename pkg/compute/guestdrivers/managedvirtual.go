@@ -73,6 +73,23 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 		config.IpAddr = nics[0].IpAddr
 	}
 
+	provider := host.GetCloudprovider()
+	projects, _ := provider.GetExternalProjects()
+	if projects != nil && len(projects) > 0 {
+		for _, project := range projects {
+			config.ProjectId = project.ExternalId
+			config.ProjectName = project.Name
+			if project.ProjectId == guest.ProjectId {
+				break
+			}
+		}
+	} else {
+		project, _ := db.TenantCacheManager.FetchById(guest.ProjectId)
+		if project != nil {
+			config.ProjectName = project.GetName()
+		}
+	}
+
 	disks := guest.GetDisks()
 	config.DataDisks = []cloudprovider.SDiskInfo{}
 
