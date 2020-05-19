@@ -15,6 +15,8 @@
 package modules
 
 import (
+	"strings"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -37,16 +39,43 @@ func init() {
 	registerCompute(&Metadatas)
 }
 
-func (this *MetadataManager) getModule(session *mcclient.ClientSession, params jsonutils.JSONObject) (*modulebase.ResourceManager, error) {
-	service, _ := params.GetString("service")
-	if len(service) > 0 {
-		_, err := session.GetServiceURL(service, "")
-		if err != nil {
-			return nil, httperrors.NewNotFoundError("service %s not found error: %v", service, err)
-		}
+func (this *MetadataManager) getModule(session *mcclient.ClientSession, params jsonutils.JSONObject) (modulebase.Manager, error) {
+	service := "compute_v2"
+	if params.Contains("service") {
+		service, _ = params.GetString("service")
 	} else {
-		service = "compute"
+		// 若参数有resources，可根据资源类型自动判断服务类型
+		resources := []string{}
+		if params.Contains("resources") { // yunionapi
+			err := params.Unmarshal(&resources, "resources")
+			if err != nil {
+				return nil, httperrors.NewInputParameterError("invalid resources format")
+			}
+		} else if params.Contains("resources.0") { // climc
+			resource, _ := params.GetString("resources.0")
+			if len(resource) > 0 {
+				resources = append(resources, resource)
+			}
+		}
+		if len(resources) >= 1 {
+			resource := resources[0]
+			keyString := resource + "s"
+			if strings.HasSuffix(resource, "y") {
+				keyString = resource[:len(resource)-1] + "ies"
+			}
+			mod, err := modulebase.GetModule(session, keyString)
+			if err != nil {
+				return nil, err
+			}
+			service = mod.ServiceType()
+		}
 	}
+
+	_, err := session.GetServiceURL(service, "")
+	if err != nil {
+		return nil, httperrors.NewNotFoundError("service %s not found error: %v", service, err)
+	}
+
 	return &modulebase.ResourceManager{
 		BaseManager: *modulebase.NewBaseManager(service, "", "", []string{}, []string{}),
 		Keyword:     "metadata", KeywordPlural: "metadatas",
