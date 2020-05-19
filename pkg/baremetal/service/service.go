@@ -64,6 +64,7 @@ func (s *BaremetalService) StartService() {
 
 	fsdriver.Init(nil)
 	app := app_common.InitApp(&o.Options.BaseOptions, false)
+
 	handler.InitHandlers(app)
 
 	s.startAgent(app)
