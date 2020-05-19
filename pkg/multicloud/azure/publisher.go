@@ -21,6 +21,8 @@ import (
 
 type SPublisherDriver struct {
 	OsType       string
+	GetOffers    func() []string
+	GetSkus      func(offer string) []string
 	GetOsDist    func(offser, sku, version string) string
 	GetOsVersion func(offser, sku, version string) string
 	GetOsArch    func(offser, sku, version string) string
@@ -29,8 +31,19 @@ type SPublisherDriver struct {
 
 var publisherDrivers = map[string]SPublisherDriver{
 	// Microsoft Windows Server
-	"MicrosoftWindowsServer": {
+	"microsoftwindowsserver": {
 		OsType: "Windows",
+		GetOffers: func() []string {
+			return []string{"WindowsServer", "2019-Datacenter"}
+		},
+		GetSkus: func(offer string) []string {
+			switch offer {
+			case "WindowsServer":
+				return []string{"2016-Datacenter", "2019-Datacenter"}
+			default:
+				return []string{}
+			}
+		},
 		GetOsDist: func(offer, sku, version string) string {
 			parts := strings.Split(sku, "-")
 			return fmt.Sprintf("Windows Server %s", strings.Join(parts, " "))
@@ -47,8 +60,19 @@ var publisherDrivers = map[string]SPublisherDriver{
 		},
 	},
 	// RHEL
-	"RedHat": {
+	"redhat": {
 		OsType: "Linux",
+		GetOffers: func() []string {
+			return []string{"rhel-75"}
+		},
+		GetSkus: func(offer string) []string {
+			switch offer {
+			case "rhel-75":
+				return []string{"standard"}
+			default:
+				return []string{}
+			}
+		},
 		GetOsDist: func(offer, sku, version string) string {
 			return "RHEL"
 		},
@@ -63,8 +87,19 @@ var publisherDrivers = map[string]SPublisherDriver{
 		},
 	},
 	// Ubuntu
-	"Canonical": {
+	"canonical": {
 		OsType: "Linux",
+		GetOffers: func() []string {
+			return []string{"UbuntuServer"}
+		},
+		GetSkus: func(offer string) []string {
+			switch offer {
+			case "UbuntuServer":
+				return []string{"14.04.5-LTS", "16.04-LTS", "17.10", "18.04-LTS", "18_04-lts-gen2", "19.04", "19_04-gen2"}
+			default:
+				return []string{}
+			}
+		},
 		GetOsDist: func(offer, sku, version string) string {
 			return "Ubuntu"
 		},
@@ -79,8 +114,19 @@ var publisherDrivers = map[string]SPublisherDriver{
 		},
 	},
 	// CentOS
-	"OpenLogic": {
+	"openlogic": {
 		OsType: "Linux",
+		GetOffers: func() []string {
+			return []string{"CentOS"}
+		},
+		GetSkus: func(offer string) []string {
+			switch offer {
+			case "CentOS":
+				return []string{"6.9", "7.3", "7.4", "7.5", "7.6", "7.7", "8.0", "7_4-gen2", "7_5-gen2", "7_6-gen2", "7_7-gen2", "8_0-gen2", "8_1-gen2"}
+			default:
+				return []string{}
+			}
+		},
 		GetOsDist: func(offer, sku, version string) string {
 			return "CentOS"
 		},
@@ -95,8 +141,19 @@ var publisherDrivers = map[string]SPublisherDriver{
 		},
 	},
 	// SUSE
-	"SUSE": {
+	"suse": {
 		OsType: "Linux",
+		GetOffers: func() []string {
+			return []string{"SLES"}
+		},
+		GetSkus: func(offer string) []string {
+			switch offer {
+			case "SLES":
+				return []string{"12-SP4", "12-SP4-gen2"}
+			default:
+				return []string{}
+			}
+		},
 		GetOsDist: func(offer, sku, version string) string {
 			return "SUSE"
 		},
@@ -111,8 +168,19 @@ var publisherDrivers = map[string]SPublisherDriver{
 		},
 	},
 	// CoreOS
-	"CoreOS": {
+	"coreos": {
 		OsType: "Linux",
+		GetOffers: func() []string {
+			return []string{"CoreOS"}
+		},
+		GetSkus: func(offer string) []string {
+			switch offer {
+			case "CoreOS":
+				return []string{"Alpha", "Beta", "Stable"}
+			default:
+				return []string{}
+			}
+		},
 		GetOsDist: func(offer, sku, version string) string {
 			return "CoreOS"
 		},
@@ -129,6 +197,17 @@ var publisherDrivers = map[string]SPublisherDriver{
 	// Debian
 	"credativ": {
 		OsType: "Linux",
+		GetOffers: func() []string {
+			return []string{"Debian"}
+		},
+		GetSkus: func(offer string) []string {
+			switch offer {
+			case "Debian":
+				return []string{"8", "9"}
+			default:
+				return []string{}
+			}
+		},
 		GetOsDist: func(offer, sku, version string) string {
 			return "Debian"
 		},
@@ -143,8 +222,19 @@ var publisherDrivers = map[string]SPublisherDriver{
 		},
 	},
 	// FreeBSD
-	"MicrosoftOSTC": {
+	"microsoftostc": {
 		OsType: "FreeBSD",
+		GetOffers: func() []string {
+			return []string{"FreeBSD"}
+		},
+		GetSkus: func(offer string) []string {
+			switch offer {
+			case "FreeBSD":
+				return []string{"10.4", "11.2", "12.0"}
+			default:
+				return []string{}
+			}
+		},
 		GetOsDist: func(offer, sku, version string) string {
 			return "FreeBSD"
 		},
