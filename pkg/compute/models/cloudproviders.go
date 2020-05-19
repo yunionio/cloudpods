@@ -1076,6 +1076,36 @@ func (manager *SCloudproviderManager) ListItemFilter(
 		q = q.Equals("cloudaccount_id", accountObj.GetId())
 	}
 
+	var zone *SZone
+	var region *SCloudregion
+
+	if len(query.Zone) > 0 {
+		zoneObj, err := ZoneManager.FetchByIdOrName(userCred, query.Zone)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", ZoneManager.Keyword(), query.Zone)
+			} else {
+				return nil, errors.Wrap(err, "ZoneManager.FetchByIdOrName")
+			}
+		}
+		zone = zoneObj.(*SZone)
+		pr := CloudproviderRegionManager.Query().SubQuery()
+		sq := pr.Query(pr.Field("cloudprovider_id")).Equals("cloudregion_id", zone.CloudregionId).Distinct()
+		q = q.In("id", sq)
+	} else if len(query.Cloudregion) > 0 {
+		regionObj, err := CloudregionManager.FetchByIdOrName(userCred, query.Cloudregion)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("cloudregion", query.Cloudregion)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		region = regionObj.(*SCloudregion)
+		pr := CloudproviderRegionManager.Query().SubQuery()
+		sq := pr.Query(pr.Field("cloudprovider_id")).Equals("cloudregion_id", region.Id).Distinct()
+		q = q.In("id", sq)
+	}
+
 	if query.Usable != nil && *query.Usable {
 		providers := CloudproviderManager.Query().SubQuery()
 		networks := NetworkManager.Query().SubQuery()
@@ -1097,21 +1127,13 @@ func (manager *SCloudproviderManager) ListItemFilter(
 			sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")),
 			sqlchemy.Equals(vpcs.Field("manager_id"), providers.Field("id")),
 		))
+		if zone != nil {
+			sq = sq.Filter(sqlchemy.Equals(wires.Field("zone_id"), zone.GetId()))
+		} else if region != nil {
+			sq = sq.Filter(sqlchemy.Equals(vpcs.Field("cloudregion_id"), region.GetId()))
+		}
 
 		q = q.Filter(sqlchemy.In(q.Field("id"), sq.SubQuery()))
-	}
-
-	if len(query.Cloudregion) > 0 {
-		region, err := CloudregionManager.FetchByIdOrName(userCred, query.Cloudregion)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2("cloudregion", query.Cloudregion)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-		pr := CloudproviderRegionManager.Query().SubQuery()
-		sq := pr.Query(pr.Field("cloudprovider_id")).Equals("cloudregion_id", region.GetId()).Distinct()
-		q = q.In("id", sq)
 	}
 
 	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
