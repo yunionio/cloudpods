@@ -66,7 +66,6 @@ type KubeClusterCreateOptions struct {
 
 type KubeClusterImportOptions struct {
 	NAME       string `help:"Name of cluster"`
-	APISERVER  string `help:"API server of this cluster"`
 	KUBECONFIG string `help:"Cluster kubeconfig file path"`
 }
 
@@ -163,7 +162,6 @@ func (o KubeClusterImportOptions) Params() (*jsonutils.JSONDict, error) {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(o.NAME), "name")
 	params.Add(jsonutils.NewString("import"), "mode")
-	params.Add(jsonutils.NewString(o.APISERVER), "api_server")
 	params.Add(jsonutils.NewString(string(kubeconfig)), "kubeconfig")
 	params.Add(jsonutils.NewString("external"), "provider")
 	params.Add(jsonutils.NewString("unknown"), "resource_type")

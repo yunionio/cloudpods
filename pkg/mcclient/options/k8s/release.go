@@ -30,6 +30,7 @@ type ReleaseListOptions struct {
 	Failed     bool   `help:"Show failed status releases"`
 	Superseded bool   `help:"Show superseded status releases"`
 	Pending    bool   `help:"Show pending status releases"`
+	Type       string `help:"Release type" choices:"internal|external"`
 }
 
 func (o ReleaseListOptions) Params() *jsonutils.JSONDict {
@@ -42,6 +43,9 @@ func (o ReleaseListOptions) Params() *jsonutils.JSONDict {
 	}
 	if o.Name != "" {
 		params.Add(jsonutils.NewString(o.Name), "name")
+	}
+	if o.Type != "" {
+		params.Add(jsonutils.NewString(o.Type), "type")
 	}
 	params.Add(jsonutils.JSONTrue, "all")
 	if o.Admin {

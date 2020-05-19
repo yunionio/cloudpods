@@ -30,6 +30,7 @@ type RepoGetOptions struct {
 
 type RepoCreateOptions struct {
 	RepoGetOptions
+	Type   string `help:"Repository type" choices:"internal|external"`
 	URL    string `help:"Repository url"`
 	Public bool   `help:"Make repostitory public"`
 }
@@ -38,6 +39,9 @@ func (o RepoCreateOptions) Params() *jsonutils.JSONDict {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(o.NAME), "name")
 	params.Add(jsonutils.NewString(o.URL), "url")
+	if o.Type != "" {
+		params.Add(jsonutils.NewString(o.Type), "type")
+	}
 	if o.Public {
 		params.Add(jsonutils.JSONTrue, "is_public")
 	}

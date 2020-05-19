@@ -118,7 +118,7 @@ func (c Columns) Array() []string {
 }
 
 func NewNameCols(col ...string) *Columns {
-	return NewColumns("Name").Add(col...)
+	return NewColumns("Name", "Id").Add(col...)
 }
 
 func NewMetaCols(col ...string) *Columns {
