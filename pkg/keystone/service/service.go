@@ -68,13 +68,14 @@ func StartService() {
 	*/
 
 	app := app_common.InitApp(&opts.BaseOptions, true)
-	InitHandlers(app)
 
 	db.EnsureAppInitSyncDB(app, &opts.DBOptions, models.InitDB)
 
 	app_common.InitBaseAuth(&opts.BaseOptions)
 
 	common_options.StartOptionManagerWithSessionDriver(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, "", options.OnOptionsChange, models.NewServiceConfigSession())
+
+	InitHandlers(app)
 
 	if !opts.IsSlaveNode {
 		cron := cronman.InitCronJobManager(true, opts.CronJobWorkerCount)
