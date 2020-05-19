@@ -828,6 +828,8 @@ func (self *SHost) PerformUpdateStorage(
 		storage.Enabled = tristate.True
 		storage.ZoneId = zoneId
 		storage.StoragecacheId = storageCacheId
+		storage.DomainId = self.DomainId
+		storage.DomainSrc = string(apis.OWNER_SOURCE_LOCAL)
 		err := StorageManager.TableSpec().Insert(&storage)
 		if err != nil {
 			return nil, fmt.Errorf("Create baremetal storage error: %v", err)
@@ -846,6 +848,7 @@ func (self *SHost) PerformUpdateStorage(
 		}
 		bmStorage.SetModelManager(HoststorageManager, &bmStorage)
 		db.OpsLog.LogAttachEvent(ctx, self, &storage, userCred, bmStorage.GetShortDesc(ctx))
+		bmStorage.syncLocalStorageShare(ctx, userCred)
 		return nil, nil
 	}
 	storage := bs.GetStorage()
@@ -854,12 +857,15 @@ func (self *SHost) PerformUpdateStorage(
 		storage.Capacity = capacity
 		storage.StoragecacheId = storageCacheId
 		storage.Enabled = tristate.True
+		storage.DomainId = self.DomainId
+		storage.DomainSrc = string(apis.OWNER_SOURCE_LOCAL)
 		return nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("Update baremetal storage error: %v", err)
 	}
 	db.OpsLog.LogEvent(storage, db.ACT_UPDATE, diff, userCred)
+	bs.syncLocalStorageShare(ctx, userCred)
 	//}
 	return nil, nil
 }

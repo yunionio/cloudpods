@@ -190,8 +190,34 @@ func (manager *SHoststorageManager) ValidateCreateData(ctx context.Context, user
 	return data, nil
 }
 
+func (self *SHoststorage) syncLocalStorageShare(ctx context.Context, userCred mcclient.TokenCredential) {
+	// sync host and local storage permissions
+	host := self.GetHost()
+	storage := self.GetStorage()
+	if host != nil && storage != nil && storage.IsLocal() {
+		shareInfo := host.GetSharedInfo()
+		if !shareInfo.IsPublic {
+			_, err := storage.performPrivateInternal(ctx, userCred, nil, apis.PerformPrivateInput{})
+			if err != nil {
+				log.Errorf("attach storage: private local storage fail %s", err)
+			}
+		} else {
+			input := apis.PerformPublicDomainInput{
+				Scope:         string(shareInfo.PublicScope),
+				SharedDomains: shareInfo.SharedDomains,
+			}
+			_, err := storage.performPublicInternal(ctx, userCred, nil, input)
+			if err != nil {
+				log.Errorf("attach storage: public local storage fail %s", err)
+			}
+		}
+	}
+}
+
 func (self *SHoststorage) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SHostJointsBase.PostCreate(ctx, userCred, ownerId, query, data)
+
+	self.syncLocalStorageShare(ctx, userCred)
 
 	if err := self.StartHostStorageAttachTask(ctx, userCred); err != nil {
 		log.Errorf("failed to attach storage error: %v", err)
