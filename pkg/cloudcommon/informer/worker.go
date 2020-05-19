@@ -12,29 +12,35 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package modules
+package informer
 
-import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
+import (
+	"yunion.io/x/log"
+
+	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/util/nopanic"
+)
 
 var (
-	ServiceCertificatesV3 modulebase.ResourceManager
+	informerWorkerMan *appsrv.SWorkerManager
 )
 
 func init() {
-	ServiceCertificatesV3 = NewIdentityV3Manager(
-		"servicecertificate", "servicecertificates",
-		[]string{
-			"id",
-			"name",
-			"algorithm",
-			"fingerprint",
-			"not_before",
-			"not_after",
-			"common_name",
-			"subject_alternative_names",
-		},
-		[]string{"tenant"},
-	)
+	informerWorkerMan = appsrv.NewWorkerManager("InformerWorkerManager", 1024, 10240, false)
+}
 
-	register(&ServiceCertificatesV3)
+func run(f func(be IInformerBackend) error) error {
+	be := GetDefaultBackend()
+	if be == nil {
+		return ErrBackendNotInit
+	}
+	wf := func() {
+		nopanic.Run(func() {
+			if err := f(be); err != nil {
+				log.Errorf("run informer error: %v", err)
+			}
+		})
+	}
+	informerWorkerMan.Run(wf, nil, nil)
+	return nil
 }

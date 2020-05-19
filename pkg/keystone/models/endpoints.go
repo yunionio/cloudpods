@@ -16,11 +16,13 @@ package models
 
 import (
 	"context"
+	"crypto/tls"
 	"database/sql"
 	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
@@ -28,9 +30,13 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/etcd"
+	"yunion.io/x/onecloud/pkg/cloudcommon/informer"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -38,6 +44,8 @@ type SEndpointManager struct {
 	db.SStandaloneResourceBaseManager
 	SServiceResourceBaseManager
 	SRegionResourceBaseManager
+
+	informerBackends map[string]informer.IInformerBackend
 }
 
 var EndpointManager *SEndpointManager
@@ -108,6 +116,119 @@ func (manager *SEndpointManager) InitializeData() error {
 			})
 		}
 	}
+	if err := manager.SetInformerBackend(); err != nil {
+		log.Errorf("init informer backend error: %v", err)
+	}
+	return nil
+}
+
+func (manager *SEndpointManager) SetInformerBackend() error {
+	informerEp, err := manager.fetchInformerEndpoint()
+	if err != nil {
+		return errors.Wrap(err, "fetch informer endpoint")
+	}
+	return manager.SetInformerBackendByEndpoint(informerEp)
+}
+
+func (manager *SEndpointManager) getSessionEndpointType() string {
+	epType := api.EndpointInterfaceInternal
+	if options.Options.SessionEndpointType != "" {
+		epType = options.Options.SessionEndpointType
+	}
+	return epType
+}
+
+func (manager *SEndpointManager) IsEtcdInformerBackend(ep *SEndpoint) bool {
+	if ep == nil {
+		return false
+	}
+	svc := ep.getService()
+	if svc == nil {
+		return false
+	}
+	if svc.GetName() != api.SERVICE_TYPE_ETCD {
+		return false
+	}
+	epType := manager.getSessionEndpointType()
+	if ep.Interface != epType {
+		return false
+	}
+	return true
+}
+
+func (manager *SEndpointManager) SetInformerBackendByEndpoint(ep *SEndpoint) error {
+	if !manager.IsEtcdInformerBackend(ep) {
+		return nil
+	}
+	return manager.SetEtcdInformerBackend(ep)
+}
+
+func (manager *SEndpointManager) fetchInformerEndpoint() (*SEndpoint, error) {
+	epType := manager.getSessionEndpointType()
+
+	endpoints := manager.Query().SubQuery()
+	services := ServiceManager.Query().SubQuery()
+	regions := RegionManager.Query().SubQuery()
+	q := endpoints.Query()
+	q = q.Join(regions, sqlchemy.Equals(endpoints.Field("region_id"), regions.Field("id")))
+	q = q.Join(services, sqlchemy.Equals(endpoints.Field("service_id"), services.Field("id")))
+	q = q.Filter(sqlchemy.AND(
+		sqlchemy.Equals(endpoints.Field("interface"), epType),
+		sqlchemy.IsTrue(endpoints.Field("enabled"))))
+	q = q.Filter(sqlchemy.AND(
+		sqlchemy.IsTrue(services.Field("enabled")),
+		sqlchemy.Equals(services.Field("type"), api.SERVICE_TYPE_ETCD)))
+
+	informerEp := new(SEndpoint)
+	if err := q.First(informerEp); err != nil {
+		return nil, err
+	}
+	informerEp.SetModelManager(manager, informerEp)
+
+	return informerEp, nil
+}
+
+func (manager *SEndpointManager) newEtcdInformerBackend(ep *SEndpoint) (informer.IInformerBackend, error) {
+	useTLS := false
+	var (
+		tlsCfg *tls.Config
+	)
+	if ep.ServiceCertificateId != "" {
+		useTLS = true
+		cert, err := ep.getServiceCertificate()
+		if err != nil {
+			return nil, errors.Wrap(err, "get service certificate")
+		}
+		caData := []byte(cert.CaCertificate)
+		certData := []byte(cert.Certificate)
+		keyData := []byte(cert.PrivateKey)
+		cfg, err := seclib2.InitTLSConfigByData(caData, certData, keyData)
+		if err != nil {
+			return nil, errors.Wrap(err, "build TLS config")
+		}
+		// always set insecure skip verify
+		cfg.InsecureSkipVerify = true
+		tlsCfg = cfg
+	}
+	opt := &etcd.SEtcdOptions{
+		EtcdEndpoint:              []string{ep.Url},
+		EtcdTimeoutSeconds:        5,
+		EtcdRequestTimeoutSeconds: 10,
+		EtcdLeaseExpireSeconds:    5,
+	}
+	if useTLS {
+		opt.TLSConfig = tlsCfg
+		opt.EtcdEnabldSsl = true
+	}
+	return informer.NewEtcdBackend(opt, nil)
+}
+
+func (manager *SEndpointManager) SetEtcdInformerBackend(ep *SEndpoint) error {
+	be, err := manager.newEtcdInformerBackend(ep)
+	if err != nil {
+		return errors.Wrap(err, "new etcd informer backend")
+	}
+	informer.Set(be)
 	return nil
 }
 
@@ -255,14 +376,25 @@ func (endpoint *SEndpoint) GetExtraDetails(
 
 func (endpoint *SEndpoint) getMoreDetails(details api.EndpointDetails) (api.EndpointDetails, error) {
 	if len(endpoint.ServiceCertificateId) > 0 {
-		icert, _ := ServiceCertificateManager.FetchById(endpoint.ServiceCertificateId)
-		if icert != nil {
-			cert := icert.(*SServiceCertificate)
+		cert, _ := endpoint.getServiceCertificate()
+		if cert != nil {
 			certOutput := cert.ToOutput()
 			details.CertificateDetails = *certOutput
 		}
 	}
 	return details, nil
+}
+
+func (endpoint *SEndpoint) getServiceCertificate() (*SServiceCertificate, error) {
+	certId := endpoint.ServiceCertificateId
+	if certId == "" {
+		return nil, nil
+	}
+	icert, err := ServiceCertificateManager.FetchById(certId)
+	if err != nil {
+		return nil, err
+	}
+	return icert.(*SServiceCertificate), nil
 }
 
 func (manager *SEndpointManager) FetchCustomizeColumns(
@@ -449,22 +581,34 @@ func (manager *SEndpointManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fie
 	return q, httperrors.ErrNotFound
 }
 
+func (endpoint *SEndpoint) trySetInformerBackend() {
+	if err := EndpointManager.SetInformerBackendByEndpoint(endpoint); err != nil {
+		log.Errorf("Set informer by endpoint %s error: %v", endpoint.GetName(), err)
+	}
+}
+
 func (endpoint *SEndpoint) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	endpoint.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	logclient.AddActionLogWithContext(ctx, endpoint, logclient.ACT_CREATE, data, userCred, true)
 	refreshDefaultClientServiceCatalog()
+	endpoint.trySetInformerBackend()
 }
 
 func (endpoint *SEndpoint) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	endpoint.SStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
 	logclient.AddActionLogWithContext(ctx, endpoint, logclient.ACT_UPDATE, data, userCred, true)
 	refreshDefaultClientServiceCatalog()
+	endpoint.trySetInformerBackend()
 }
 
 func (endpoint *SEndpoint) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
 	endpoint.SStandaloneResourceBase.PostDelete(ctx, userCred)
 	logclient.AddActionLogWithContext(ctx, endpoint, logclient.ACT_DELETE, nil, userCred, true)
 	refreshDefaultClientServiceCatalog()
+	if EndpointManager.IsEtcdInformerBackend(endpoint) {
+		// remove informer backend
+		informer.Set(nil)
+	}
 }
 
 func (endpoint *SEndpoint) ValidateUpdateData(

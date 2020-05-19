@@ -44,7 +44,7 @@ type SModelBase struct {
 type SModelBaseManager struct {
 	object.SObject
 
-	tableSpec     *sqlchemy.STableSpec
+	tableSpec     ITableSpec
 	keyword       string
 	keywordPlural string
 	alias         string
@@ -52,7 +52,7 @@ type SModelBaseManager struct {
 }
 
 func NewModelBaseManager(model interface{}, tableName string, keyword string, keywordPlural string) SModelBaseManager {
-	ts := sqlchemy.NewTableSpecFromStruct(model, tableName)
+	ts := newTableSpec(model, tableName)
 	modelMan := SModelBaseManager{tableSpec: ts, keyword: keyword, keywordPlural: keywordPlural}
 	return modelMan
 }
@@ -78,7 +78,7 @@ func (manager *SModelBaseManager) SetAlias(alias string, aliasPlural string) {
 	manager.aliasPlural = aliasPlural
 }
 
-func (manager *SModelBaseManager) TableSpec() *sqlchemy.STableSpec {
+func (manager *SModelBaseManager) TableSpec() ITableSpec {
 	return manager.tableSpec
 }
 

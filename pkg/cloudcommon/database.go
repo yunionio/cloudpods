@@ -27,6 +27,8 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/etcd"
+	"yunion.io/x/onecloud/pkg/cloudcommon/informer"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 )
 
@@ -77,6 +79,26 @@ func InitDB(options *common_options.DBOptions) {
 		lockman.Init(lm)
 	}
 	// lm := lockman.NewNoopLockManager()
+
+	if len(options.EtcdEndpoints) != 0 {
+		log.Infof("using etcd as resource informer backend")
+		tlsCfg, err := options.GetEtcdTLSConfig()
+		if err != nil {
+			log.Fatalf("get etcd informer backend tls config err: %v", err)
+		}
+		informerBackend, err := informer.NewEtcdBackend(&etcd.SEtcdOptions{
+			EtcdEndpoint:              options.EtcdEndpoints,
+			EtcdTimeoutSeconds:        5,
+			EtcdRequestTimeoutSeconds: 2,
+			EtcdLeaseExpireSeconds:    5,
+			EtcdEnabldSsl:             options.EtcdUseTLS,
+			TLSConfig:                 tlsCfg,
+		}, nil)
+		if err != nil {
+			log.Fatalf("new etcd informer backend error: %v", err)
+		}
+		informer.Init(informerBackend)
+	}
 }
 
 func CloseDB() {

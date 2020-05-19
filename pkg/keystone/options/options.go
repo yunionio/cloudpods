@@ -49,6 +49,8 @@ type SKeystoneOptions struct {
 	DefaultProjectQuota int `default:"100" help:"default quota for project per domain, default is 500"`
 	DefaultRoleQuota    int `default:"100" help:"default quota for role per domain, default is 500"`
 	DefaultPolicyQuota  int `default:"100" help:"default quota for policy per domain, default is 500"`
+
+	SessionEndpointType string `help:"Client session end point type"`
 }
 
 var (
