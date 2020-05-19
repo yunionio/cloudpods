@@ -4301,11 +4301,8 @@ func (manager *SGuestManager) CleanPendingDeleteServers(ctx context.Context, use
 }
 
 func (manager *SGuestManager) getExpiredPrepaidGuests() []SGuest {
-	deadline := time.Now().Add(time.Duration(options.Options.PrepaidExpireCheckSeconds*-1) * time.Second)
-
-	q := manager.Query()
-	q = q.Equals("billing_type", billing_api.BILLING_TYPE_PREPAID).LT("expired_at", deadline).
-		IsFalse("pending_deleted").Limit(options.Options.ExpiredPrepaidMaxCleanBatchSize)
+	q := ListExpiredPostpaidResources(manager.Query(), options.Options.ExpiredPrepaidMaxCleanBatchSize)
+	q = q.IsFalse("pending_deleted")
 
 	guests := make([]SGuest, 0)
 	err := db.FetchModelObjects(GuestManager, q, &guests)

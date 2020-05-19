@@ -22,7 +22,9 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/billing"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -151,4 +153,45 @@ func (manager *SBillingResourceBaseManager) OrderByExtraFields(
 	query api.BillingResourceListInput,
 ) (*sqlchemy.SQuery, error) {
 	return q, nil
+}
+
+func ListExpiredPostpaidResources(
+	q *sqlchemy.SQuery, limit int) *sqlchemy.SQuery {
+	q = q.Equals("billing_type", api.BILLING_TYPE_POSTPAID)
+	q = q.GE("expired_at", time.Now())
+	if limit > 0 {
+		q = q.Limit(limit)
+	}
+	return q
+}
+
+func ParseBillingCycleInput(billingBase *SBillingResourceBase, data jsonutils.JSONObject) (*billing.SBillingCycle, error) {
+	var (
+		bc          billing.SBillingCycle
+		err         error
+		durationStr string
+	)
+	durationStr, _ = data.GetString("duration")
+	if len(durationStr) == 0 {
+		expireTime, err := data.GetTime("expire_time")
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("missing duration/expire_time")
+		}
+		timeC := billingBase.ExpiredAt
+		if timeC.IsZero() {
+			timeC = time.Now()
+		}
+		dur := expireTime.Sub(timeC)
+		if dur <= 0 {
+			return nil, httperrors.NewInputParameterError("expire time is before current expire at")
+		}
+		bc = billing.DurationToBillingCycle(dur)
+	} else {
+		bc, err = billing.ParseBillingCycle(durationStr)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("invalid duration %s: %s", durationStr, err)
+		}
+	}
+
+	return &bc, nil
 }

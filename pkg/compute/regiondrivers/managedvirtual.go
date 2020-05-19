@@ -1843,7 +1843,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteElasticcache(ctx co
 	}
 
 	iec, err := iregion.GetIElasticcacheById(ec.ExternalId)
-	if err == cloudprovider.ErrNotFound {
+	if errors.Cause(err) == cloudprovider.ErrNotFound {
 		return nil
 	} else if err != nil {
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcache.GetIElasticcacheById")
