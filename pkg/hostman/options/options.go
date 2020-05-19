@@ -118,8 +118,9 @@ type SHostOptions struct {
 	AllowSwitchVMs bool `help:"allow machines run as switch (spoof mac)" default:"true"`
 	AllowRouterVMs bool `help:"allow machines run as router (spoof ip)" default:"true"`
 
-	SdnEnableGuestMan bool `help:"enable guest network manager in sdnagent" default:"$SDN_ENABLE_GUEST_MAN|true"`
-	SdnEnableEipMan   bool `help:"enable eip network manager in sdnagent" default:"$SDN_ENABLE_EIP_MAN|false"`
+	SdnPidFile        string `help:"pid file for sdnagent" default:"$SDN_PID_FILE|/var/run/yunion-sdnagent.pid"`
+	SdnEnableGuestMan bool   `help:"enable guest network manager in sdnagent" default:"$SDN_ENABLE_GUEST_MAN|true"`
+	SdnEnableEipMan   bool   `help:"enable eip network manager in sdnagent" default:"$SDN_ENABLE_EIP_MAN|false"`
 
 	OvnSouthDatabase     string `help:"address for accessing ovn south database" default:"$HOST_OVN_SOUTH_DATABASE|unix:/var/run/openvswitch/ovnsb_db.sock"`
 	OvnEncapIp           string `help:"encap ip for ovn datapath.  Default to output src address of default route" default:"$HOST_OVN_ENCAP_IP"`
