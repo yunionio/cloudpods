@@ -4692,7 +4692,9 @@ func (self *SGuest) ToCreateInput(userCred mcclient.TokenCredential) *api.Server
 		for idx, disk := range genInput.Disks {
 			tmpD := disk
 			if idx < len(userInput.Disks) {
-				tmpD.Schedtags = userInput.Disks[idx].Schedtags
+				inputDisk := userInput.Disks[idx]
+				tmpD.Schedtags = inputDisk.Schedtags
+				tmpD.Storage = inputDisk.Storage
 			}
 			disks = append(disks, tmpD)
 		}
@@ -4702,7 +4704,9 @@ func (self *SGuest) ToCreateInput(userCred mcclient.TokenCredential) *api.Server
 	for idx, net := range genInput.Networks {
 		tmpN := net
 		if idx < len(userInput.Networks) {
-			tmpN.Schedtags = userInput.Disks[idx].Schedtags
+			inputNet := userInput.Networks[idx]
+			tmpN.Schedtags = inputNet.Schedtags
+			tmpN.Network = inputNet.Network
 		}
 		nets = append(nets, tmpN)
 	}
