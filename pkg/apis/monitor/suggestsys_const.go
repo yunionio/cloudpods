@@ -45,3 +45,9 @@ const (
 	LB_MONITOR_SUGGEST         = MonitorSuggest("释放未使用的LB")
 	SCALE_DOWN_MONITOR_SUGGEST = MonitorSuggest("缩减机器配置")
 )
+
+const (
+	LB_UNUSED_NLISTENER = "没有监听"
+	LB_UNUSED_NBCGROUP  = "没有后端服务器组"
+	LB_UNUSED_NBC       = "没有后端服务器"
+)
