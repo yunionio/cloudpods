@@ -341,21 +341,21 @@ func (self *SRegion) GetOfferedImageIDs(publishersFilter []string, offersFilter 
 	for _, publisher := range publishers {
 		offers, err := self.getImageOffers(publisher, toLowerStringArray(offersFilter))
 		if err != nil {
-			return nil, err
+			log.Errorf("failed to found offers for publisher %s error: %v", publisher, err)
+			continue
 		}
 		for _, offer := range offers {
 			skus, err := self.getImageSkus(publisher, offer, toLowerStringArray(skusFilter))
 			if err != nil {
-				return nil, err
+				log.Errorf("failed to found skus for publisher %s offer %s error: %v", publisher, offer, err)
+				continue
 			}
 			for _, sku := range skus {
 				verFilter = toLowerStringArray(verFilter)
-				vers, err := self.getImageVersions(publisher, offer, sku, verFilter)
+				vers, err := self.getImageVersions(publisher, offer, sku, verFilter, latestVer)
 				if err != nil {
-					return nil, err
-				}
-				if latestVer && len(vers) > 0 {
-					vers = []string{vers[len(vers)-1]}
+					log.Errorf("failed to found publisher %s offer %s sku %s version error: %v", publisher, offer, sku, err)
+					continue
 				}
 				for _, ver := range vers {
 					idStr := strings.Join([]string{publisher, offer, sku, ver}, "/")
@@ -463,27 +463,51 @@ func (region *SRegion) GetImagePublishers(filter []string) ([]string, error) {
 }
 
 func (region *SRegion) getImageOffers(publisher string, filter []string) ([]string, error) {
-	offsers := make([]SAzureImageResource, 0)
-	err := region.client.ListResources(fmt.Sprintf("Microsoft.Compute/locations/%s/publishers/%s/artifacttypes/vmimage/offers", region.Name, publisher), &offsers, nil)
+	ret := make([]string, 0)
+	if driver, ok := publisherDrivers[strings.ToLower(publisher)]; ok {
+		offers := driver.GetOffers()
+		if len(offers) > 0 {
+			for _, offer := range offers {
+				if len(filter) == 0 || utils.IsInStringArray(strings.ToLower(offer), filter) {
+					ret = append(ret, offer)
+				}
+			}
+			return offers, nil
+		}
+	} else {
+		log.Warningf("failed to get publisher %s driver", publisher)
+	}
+	offers := make([]SAzureImageResource, 0)
+	err := region.client.ListResources(fmt.Sprintf("Microsoft.Compute/locations/%s/publishers/%s/artifacttypes/vmimage/offers", region.Name, publisher), &offers, nil)
 	if err != nil {
 		return nil, err
 	}
-	ret := make([]string, 0)
-	for i := range offsers {
-		if len(filter) == 0 || utils.IsInStringArray(strings.ToLower(offsers[i].Name), filter) {
-			ret = append(ret, offsers[i].Name)
+	for i := range offers {
+		if len(filter) == 0 || utils.IsInStringArray(strings.ToLower(offers[i].Name), filter) {
+			ret = append(ret, offers[i].Name)
 		}
 	}
 	return ret, nil
 }
 
-func (region *SRegion) getImageSkus(publisher string, offser string, filter []string) ([]string, error) {
+func (region *SRegion) getImageSkus(publisher string, offer string, filter []string) ([]string, error) {
+	ret := make([]string, 0)
+	if driver, ok := publisherDrivers[strings.ToLower(publisher)]; ok {
+		skus := driver.GetSkus(offer)
+		if len(skus) > 0 {
+			for _, sku := range skus {
+				if len(filter) == 0 || utils.IsInStringArray(strings.ToLower(sku), filter) {
+					ret = append(ret, sku)
+				}
+			}
+			return ret, nil
+		}
+	}
 	skus := make([]SAzureImageResource, 0)
-	err := region.client.ListResources(fmt.Sprintf("Microsoft.Compute/locations/%s/publishers/%s/artifacttypes/vmimage/offers/%s/skus", region.Name, publisher, offser), &skus, nil)
+	err := region.client.ListResources(fmt.Sprintf("Microsoft.Compute/locations/%s/publishers/%s/artifacttypes/vmimage/offers/%s/skus", region.Name, publisher, offer), &skus, nil)
 	if err != nil {
 		return nil, err
 	}
-	ret := make([]string, 0)
 	for i := range skus {
 		if len(filter) == 0 || utils.IsInStringArray(strings.ToLower(skus[i].Name), filter) {
 			ret = append(ret, skus[i].Name)
@@ -492,9 +516,13 @@ func (region *SRegion) getImageSkus(publisher string, offser string, filter []st
 	return ret, nil
 }
 
-func (region *SRegion) getImageVersions(publisher string, offer string, sku string, filter []string) ([]string, error) {
+func (region *SRegion) getImageVersions(publisher string, offer string, sku string, filter []string, latestVer bool) ([]string, error) {
 	vers := make([]SAzureImageResource, 0)
-	err := region.client.ListResources(fmt.Sprintf("Microsoft.Compute/locations/%s/publishers/%s/artifacttypes/vmimage/offers/%s/skus/%s/versions", region.Name, publisher, offer, sku), &vers, nil)
+	resource := fmt.Sprintf("Microsoft.Compute/locations/%s/publishers/%s/artifacttypes/vmimage/offers/%s/skus/%s/versions", region.Name, publisher, offer, sku)
+	if latestVer {
+		resource = resource + "?$top=1&$orderby=name%20desc"
+	}
+	err := region.client.ListResources(resource, &vers, nil)
 	if err != nil {
 		return nil, err
 	}
