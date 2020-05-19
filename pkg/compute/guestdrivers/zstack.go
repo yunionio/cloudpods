@@ -154,6 +154,10 @@ func (self *SZStackGuestDriver) GetUserDataType() string {
 	return cloudprovider.CLOUD_SHELL
 }
 
+func (self *SZStackGuestDriver) IsWindowsUserDataTypeNeedEncode() bool {
+	return true
+}
+
 func (self *SZStackGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
 	userName := "root"
 	if desc.OsType == "Windows" {
