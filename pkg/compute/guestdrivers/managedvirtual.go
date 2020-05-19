@@ -75,15 +75,16 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 
 	provider := host.GetCloudprovider()
 	projects, _ := provider.GetExternalProjects()
-	if projects != nil && len(projects) > 0 {
+	if projects != nil {
 		for _, project := range projects {
-			config.ProjectId = project.ExternalId
-			config.ProjectName = project.Name
 			if project.ProjectId == guest.ProjectId {
+				config.ProjectId = project.ExternalId
+				config.ProjectName = project.Name
 				break
 			}
 		}
-	} else {
+	}
+	if len(config.ProjectName) == 0 {
 		project, _ := db.TenantCacheManager.FetchById(guest.ProjectId)
 		if project != nil {
 			config.ProjectName = project.GetName()

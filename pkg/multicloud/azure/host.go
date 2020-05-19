@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/utils"
 
@@ -86,6 +87,13 @@ func (self *SHost) searchNetorkInterface(IPAddr string, networkId string, secgro
 }
 
 func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
+	if len(desc.ProjectName) > 0 {
+		err := self.zone.region.CreateAndSetResourceGroup(desc.ProjectName)
+		if err != nil {
+			return nil, errors.Wrapf(err, "CreateAndSetResourceGroup(%s)", desc.ProjectName)
+		}
+	}
+
 	net := self.zone.getNetworkById(desc.ExternalNetworkId)
 	if net == nil {
 		return nil, fmt.Errorf("invalid network ID %s", desc.ExternalNetworkId)
@@ -145,9 +153,6 @@ func (self *SHost) _createVM(desc *cloudprovider.SManagedVMCreateConfig, nicId s
 	}
 	if len(computeName) > 15 {
 		computeName = computeName[:15]
-	}
-	if len(desc.ProjectName) > 0 {
-		self.zone.region.CreateAndSetResourceGroup(desc.ProjectName)
 	}
 	instance := SInstance{
 		Name:     desc.Name,
