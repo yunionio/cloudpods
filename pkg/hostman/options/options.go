@@ -127,6 +127,7 @@ type SHostOptions struct {
 	OvnIntegrationBridge string `help:"name of integration bridge for logical ports" default:"$HOST_OVN_INTEGRATION_BRIDGE|brvpc"`
 	OvnMappedBridge      string `help:"name of bridge for mapped traffic management" default:"$HOST_OVN_MAPPED_BRIDGE|brmapped"`
 	OvnEipBridge         string `help:"name of bridge for eip traffic management" default:"$HOST_OVN_EIP_BRIDGE|breip"`
+	OvnUnderlayMtu       int    `help:"mtu of ovn underlay network" default:"1500"`
 
 	EnableHealthChecker bool   `help:"enable host health checker" default:"true"`
 	HealthDriver        string `help:"Component save host health state" default:"etcd"`
