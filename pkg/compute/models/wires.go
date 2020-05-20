@@ -107,8 +107,8 @@ func (manager *SWireManager) ValidateCreateData(
 		return input, httperrors.NewOutOfRangeError("mtu must be range of 0~1000000")
 	}
 
-	if len(input.Vpc) == 0 {
-		return input, httperrors.NewMissingParameterError("vpc")
+	if input.Vpc == "" {
+		input.Vpc = api.DEFAULT_VPC_ID
 	}
 
 	var vpc *SVpc
