@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/utils"
@@ -38,9 +39,11 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -1691,4 +1694,88 @@ func (manager *SDBInstanceManager) ListItemExportKeys(ctx context.Context,
 	}
 
 	return q, nil
+}
+
+func (manager *SDBInstanceManager) getExpiredPostpaids() []SDBInstance {
+	q := ListExpiredPostpaidResources(manager.Query(), options.Options.ExpiredPrepaidMaxCleanBatchSize)
+	q = q.IsFalse("pending_deleted")
+
+	dbs := make([]SDBInstance, 0)
+	err := db.FetchModelObjects(DBInstanceManager, q, &dbs)
+	if err != nil {
+		log.Errorf("fetch dbinstances error %s", err)
+		return nil
+	}
+
+	return dbs
+}
+
+func (cache *SDBInstance) SetDisableDelete(userCred mcclient.TokenCredential, val bool) error {
+	diff, err := db.Update(cache, func() error {
+		if val {
+			cache.DisableDelete = tristate.True
+		} else {
+			cache.DisableDelete = tristate.False
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	db.OpsLog.LogEvent(cache, db.ACT_UPDATE, diff, userCred)
+	logclient.AddSimpleActionLog(cache, logclient.ACT_UPDATE, diff, userCred, true)
+	return err
+}
+
+func (self *SDBInstance) doExternalSync(ctx context.Context, userCred mcclient.TokenCredential) error {
+	provider := self.GetCloudprovider()
+	if provider != nil {
+		return fmt.Errorf("no cloud provider???")
+	}
+
+	iregion, err := self.GetIRegion()
+	if err != nil || iregion == nil {
+		return fmt.Errorf("no cloud region??? %s", err)
+	}
+
+	idbs, err := iregion.GetIDBInstanceById(self.ExternalId)
+	if err != nil {
+		return err
+	}
+	return self.SyncWithCloudDBInstance(ctx, userCred, provider, idbs)
+}
+
+func (manager *SDBInstanceManager) DeleteExpiredPostpaids(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	dbs := manager.getExpiredPostpaids()
+	if dbs == nil {
+		return
+	}
+	for i := 0; i < len(dbs); i += 1 {
+		if len(dbs[i].ExternalId) > 0 {
+			err := dbs[i].doExternalSync(ctx, userCred)
+			if err == nil && dbs[i].IsValidPostPaid() {
+				continue
+			}
+		}
+		dbs[i].SetDisableDelete(userCred, false)
+		dbs[i].StartDBInstanceDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
+	}
+}
+
+func (self *SDBInstance) AllowPerformPostpaidExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "postpaid-expire")
+}
+
+func (self *SDBInstance) PerformPostpaidExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.BillingType != billing_api.BILLING_TYPE_POSTPAID {
+		return nil, httperrors.NewBadRequestError("dbinstance billing type is %s", self.BillingType)
+	}
+
+	bc, err := ParseBillingCycleInput(&self.SBillingResourceBase, data)
+	if err != nil {
+		return nil, err
+	}
+
+	err = self.SaveRenewInfo(ctx, userCred, bc, nil, billing_api.BILLING_TYPE_POSTPAID)
+	return nil, err
 }

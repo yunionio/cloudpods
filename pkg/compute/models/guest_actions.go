@@ -3512,34 +3512,12 @@ func (self *SGuest) PerformPostpaidExpire(ctx context.Context, userCred mcclient
 		return nil, httperrors.NewBadRequestError("guest %s unsupport postpaid expire", self.Hypervisor)
 	}
 
-	var (
-		bc          billing.SBillingCycle
-		err         error
-		durationStr string
-	)
-	durationStr, _ = data.GetString("duration")
-	if len(durationStr) == 0 {
-		expireTime, err := data.GetTime("expire_time")
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("missing duration/expire_time")
-		}
-		timeC := self.ExpiredAt
-		if timeC.IsZero() {
-			timeC = time.Now()
-		}
-		dur := expireTime.Sub(timeC)
-		if dur <= 0 {
-			return nil, httperrors.NewInputParameterError("expire time is before current expire at")
-		}
-		bc = billing.DurationToBillingCycle(dur)
-	} else {
-		bc, err = billing.ParseBillingCycle(durationStr)
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("invalid duration %s: %s", durationStr, err)
-		}
+	bc, err := ParseBillingCycleInput(&self.SBillingResourceBase, data)
+	if err != nil {
+		return nil, err
 	}
 
-	err = self.SaveRenewInfo(ctx, userCred, &bc, nil, billing_api.BILLING_TYPE_POSTPAID)
+	err = self.SaveRenewInfo(ctx, userCred, bc, nil, billing_api.BILLING_TYPE_POSTPAID)
 	return nil, err
 }
 
