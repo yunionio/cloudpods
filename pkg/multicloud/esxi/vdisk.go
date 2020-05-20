@@ -294,7 +294,7 @@ func (disk *SVirtualDisk) Delete(ctx context.Context) error {
 		return err
 	}
 	ds := istorage.(*SDatastore)
-	return ds.DeleteVmdk(ctx, disk.getBackingInfo().GetFileName())
+	return ds.Delete2(ctx, disk.getBackingInfo().GetFileName(), false, false)
 }
 
 func (disk *SVirtualDisk) CreateISnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudSnapshot, error) {
