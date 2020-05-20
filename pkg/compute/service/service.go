@@ -61,6 +61,7 @@ func StartService() {
 	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
 	})
+	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
 
 	if opts.FetchEtcdServiceInfoAndUseEtcdLock {
 		err := initEtcdLockOpts(opts)
@@ -71,12 +72,9 @@ func StartService() {
 
 	app := app_common.InitApp(baseOpts, true)
 
+	InitHandlers(app)
 	db.EnsureAppInitSyncDB(app, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
-
-	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
-
-	InitHandlers(app)
 
 	options.InitNameSyncResources()
 
