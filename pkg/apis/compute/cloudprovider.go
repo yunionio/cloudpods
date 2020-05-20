@@ -224,6 +224,8 @@ type CloudproviderListInput struct {
 
 	CloudregionResourceInput
 
+	ZoneResourceInput
+
 	CapabilityListInput
 
 	SyncableBaseResourceListInput
