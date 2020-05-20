@@ -116,8 +116,8 @@ func (manager *SWireManager) ValidateCreateData(ctx context.Context, userCred mc
 			break
 		}
 	}
-	if len(input.Vpc) == 0 {
-		return nil, httperrors.NewMissingParameterError("vpc")
+	if input.Vpc == "" {
+		input.Vpc = api.DEFAULT_VPC_ID
 	}
 
 	_vpc, err := VpcManager.FetchByIdOrName(userCred, input.Vpc)
