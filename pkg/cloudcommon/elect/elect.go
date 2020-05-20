@@ -97,7 +97,7 @@ func NewElect(config *EtcdConfig, key string) (*Elect, error) {
 
 		DialOptions: []grpc.DialOption{
 			grpc.WithBlock(),
-			grpc.WithTimeout(500 * time.Millisecond),
+			grpc.WithTimeout(3000 * time.Millisecond),
 		},
 		DialTimeout: 3 * time.Second,
 	})
