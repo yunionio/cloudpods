@@ -1156,6 +1156,10 @@ func (manager *SImageManager) ListItemFilter(
 	if len(query.DiskFormats) > 0 {
 		q = q.In("disk_format", query.DiskFormats)
 	}
+	if len(query.SubFormats) > 0 {
+		sq := ImageSubformatManager.Query().SubQuery()
+		q = q.Join(sq, sqlchemy.Equals(sq.Field("image_id"), q.Field("id"))).Filter(sqlchemy.In(sq.Field("format"), query.SubFormats))
+	}
 	if query.Uefi != nil && *query.Uefi {
 		imagePropertyQ := ImagePropertyManager.Query().
 			Equals("name", api.IMAGE_UEFI_SUPPORT).Equals("value", "true").SubQuery()

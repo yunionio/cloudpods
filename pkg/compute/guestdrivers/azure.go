@@ -19,14 +19,18 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
@@ -122,6 +126,37 @@ func (self *SAzureGuestDriver) ValidateCreateData(ctx context.Context, userCred 
 	}
 	if len(input.Networks) > 2 {
 		return nil, httperrors.NewInputParameterError("cannot support more than 1 nic")
+	}
+	if len(input.Disks) > 0 && len(input.Disks[0].ImageId) > 0 {
+		_image, err := models.CachedimageManager.FetchById(input.Disks[0].ImageId)
+		if err != nil {
+			return nil, errors.Wrap(err, "FetchById")
+		}
+		image := _image.(*models.SCachedimage)
+		if len(image.ExternalId) == 0 {
+			s := auth.GetAdminSession(ctx, options.Options.Region, "")
+			result, err := modules.Images.GetSpecific(s, image.Id, "subformats", nil)
+			if err != nil {
+				return nil, errors.Wrap(err, "get subformats")
+			}
+			subFormats := []struct {
+				Format string
+			}{}
+			err = result.Unmarshal(&subFormats)
+			if err != nil {
+				return nil, errors.Wrap(err, "Unmarshal subformats")
+			}
+			find := false
+			for i := range subFormats {
+				if subFormats[i].Format == "vhd" {
+					find = true
+					break
+				}
+			}
+			if !find {
+				return nil, httperrors.NewResourceNotFoundError("failed to find subformat vhd for image %s, please append 'vhd' for glance options(target_image_formats)", image.Name)
+			}
+		}
 	}
 	return input, nil
 }

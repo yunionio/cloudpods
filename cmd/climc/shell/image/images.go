@@ -143,6 +143,7 @@ func init() {
 		Protected  string   `help:"filter images by protected" choices:"true|false"`
 		IsUefi     bool     `help:"list uefi image"`
 		Format     []string `help:"Disk formats"`
+		SubFormats []string `help:"Sub formats"`
 		Name       string   `help:"Name filter"`
 	}
 	R(&ImageListOptions{}, "image-list", "List images", func(s *mcclient.ClientSession, args *ImageListOptions) error {
@@ -173,15 +174,14 @@ func init() {
 			params.Add(jsonutils.NewString(args.Name), "name")
 		}
 		if len(args.Format) > 0 {
-			if len(args.Format) == 1 {
-				params.Add(jsonutils.NewString(args.Format[0]), "disk_format")
-			} else {
-				fs := jsonutils.NewArray()
-				for _, f := range args.Format {
-					fs.Add(jsonutils.NewString(f))
-				}
-				params.Add(fs, "disk_formats")
+			fs := jsonutils.NewArray()
+			for _, f := range args.Format {
+				fs.Add(jsonutils.NewString(f))
 			}
+			params.Add(fs, "disk_formats")
+		}
+		if len(args.SubFormats) > 0 {
+			params.Add(jsonutils.Marshal(args.SubFormats), "sub_formats")
 		}
 		result, err := modules.Images.List(s, params)
 		if err != nil {
