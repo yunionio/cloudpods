@@ -116,8 +116,8 @@ func (c *Command) Wait() error {
 	return <-c.done
 }
 
-func (c *Command) Kill() {
-	c.Process.Kill()
+func (c *Command) Kill() error {
+	return c.Process.Kill()
 }
 
 func execpath() string {
@@ -155,7 +155,12 @@ func (vd *VDDKDisk) MountRootfs() fsdriver.IRootFsDriver {
 		log.Errorf("VDDKDisk Mount failed: %s", err)
 	}
 	// something is wrong
-	vd.UmountRootfs(nil)
+	if vd.Proc != nil {
+		err := vd.Proc.Kill()
+		if err != nil {
+			log.Errorf("unable to kill proc: %s", err.Error())
+		}
+	}
 	return nil
 }
 
@@ -337,6 +342,7 @@ Loop:
 	}
 
 	backup := vd.Proc.stdouterr.String()
+	log.Debugf(backup)
 	err := vd.ParsePartitions(backup)
 	if err != nil {
 		return errors.Wrap(err, "VDDKDisk.ParsePartitions")
