@@ -694,7 +694,6 @@ func (self *SDatastore) GetVmdkInfo(ctx context.Context, remotePath string) (*vm
 
 func (self *SDatastore) CheckVmdk(ctx context.Context, remotePath string) error {
 	dm := object.NewVirtualDiskManager(self.manager.client.Client)
-	defer dm.Destroy(ctx)
 
 	dc, err := self.GetDatacenter()
 	if err != nil {
