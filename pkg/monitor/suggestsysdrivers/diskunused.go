@@ -78,8 +78,9 @@ func (rule *DiskUnused) getLatestAlerts(instance *monitor.SSuggestSysAlertSettin
 			ObjType: "disk",
 			Limit:   "0",
 			Scope:   "system",
+			Action:  db.ACT_DETACH,
 		}
-		latestTime, err := getResourceObjLatestUsedTime(disk, logInput, db.ACT_DETACH)
+		latestTime, err := getResourceObjLatestUsedTime(disk, logInput)
 		if err != nil {
 			continue
 		}
@@ -117,6 +118,7 @@ func (rule *DiskUnused) ValidateSetting(input *monitor.SSuggestSysAlertSetting) 
 
 func (rule *DiskUnused) StartResolveTask(ctx context.Context, userCred mcclient.TokenCredential,
 	suggestSysAlert *models.SSuggestSysAlert, params *jsonutils.JSONDict) error {
+	suggestSysAlert.SetStatus(userCred, monitor.SUGGEST_ALERT_DELETING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "ResolveUnusedTask", suggestSysAlert, userCred, params, "", "", nil)
 	if err != nil {
 		return err
@@ -129,7 +131,7 @@ func (rule *DiskUnused) Resolve(data *models.SSuggestSysAlert) error {
 	session := auth.GetAdminSession(context.Background(), "", "")
 	_, err := modules.Disks.Delete(session, data.ResId, jsonutils.NewDict())
 	if err != nil {
-		log.Errorln("delete unused eip error", err)
+		log.Errorln("delete unused error", err)
 		return err
 	}
 	return nil

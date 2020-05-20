@@ -3,7 +3,6 @@ package suggestsysdrivers
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -108,12 +107,13 @@ func getSuggestSysAlertFromJson(obj jsonutils.JSONObject, rule models.ISuggestSy
 	suggestSysAlert.Type = rule.GetType()
 	suggestSysAlert.ResMeta = obj
 	suggestSysAlert.Action = monitor.DRIVER_ACTION
+	suggestSysAlert.Status = monitor.SUGGEST_ALERT_READY
 	return suggestSysAlert, nil
 }
 
-func getResourceObjLatestUsedTime(resObj jsonutils.JSONObject, param logInput, action string) (time.Time, error) {
+func getResourceObjLatestUsedTime(resObj jsonutils.JSONObject, param logInput) (time.Time, error) {
 	logActions := getResourceObjLogOfAction(param)
-	latestTime, err := getLatestActionTimeFromLogs(logActions, action)
+	latestTime, err := getLatestActionTimeFromLogs(logActions)
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -127,30 +127,31 @@ func getResourceObjLatestUsedTime(resObj jsonutils.JSONObject, param logInput, a
 
 func getResourceObjLogOfAction(param logInput) []jsonutils.JSONObject {
 	session := auth.GetAdminSession(context.Background(), "", "")
-	list, _ := mod.Logs.List(session, jsonutils.Marshal(&param))
+	list, err := mod.Logs.List(session, jsonutils.Marshal(&param))
+	if err != nil {
+		log.Errorln("get Logs err", err)
+		return jsonutils.NewArray().Value()
+	}
 	if list == nil || len(list.Data) == 0 {
 		return jsonutils.NewArray().Value()
 	}
 	return list.Data
 }
 
-func getLatestActionTimeFromLogs(logActions []jsonutils.JSONObject, actionLike string) (*time.Time, error) {
+func getLatestActionTimeFromLogs(logActions []jsonutils.JSONObject) (*time.Time, error) {
 	var latestTime *time.Time = nil
 	for _, aLog := range logActions {
-		action, _ := aLog.GetString("action")
-		if strings.Contains(action, actionLike) {
-			ops_time, err := aLog.GetTime("ops_time")
-			if err != nil {
-				log.Errorln(err)
-				return nil, err
-			}
-			if latestTime == nil {
+		ops_time, err := aLog.GetTime("ops_time")
+		if err != nil {
+			log.Errorln(err)
+			return nil, err
+		}
+		if latestTime == nil {
 
-				latestTime = &ops_time
-			}
-			if ops_time.Sub(*latestTime) > 0 {
-				latestTime = &ops_time
-			}
+			latestTime = &ops_time
+		}
+		if ops_time.Sub(*latestTime) > 0 {
+			latestTime = &ops_time
 		}
 	}
 	return latestTime, nil

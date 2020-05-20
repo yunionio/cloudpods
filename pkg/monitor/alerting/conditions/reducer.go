@@ -21,7 +21,7 @@ import (
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
 )
 
-type Reduce interface {
+type Reducer interface {
 	Reduce(series *tsdb.TimeSeries) *float64
 	GetType() string
 }

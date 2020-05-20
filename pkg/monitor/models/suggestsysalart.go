@@ -271,7 +271,7 @@ func (self *SSuggestSysAlert) RealDelete(ctx context.Context, userCred mcclient.
 func (self *SSuggestSysAlert) StartDeleteTask(
 	ctx context.Context, userCred mcclient.TokenCredential) error {
 	params := jsonutils.NewDict()
-	self.SetStatus(userCred, api.EIP_UNUSED_START_DELETE, "")
+	self.SetStatus(userCred, api.SUGGEST_ALERT_START_DELETE, "")
 	return GetSuggestSysRuleDrivers()[self.Type].StartResolveTask(ctx, userCred, self, params)
 }
 
