@@ -509,6 +509,13 @@ func (self *SKVMHostDriver) getDeployConfig(host *models.SHost) ([]*api.DeployCo
 	}
 	authInfo += fmt.Sprintf("API_SERVER=%s\n", apiServer)
 	authInfo += fmt.Sprintf("JOIN_TOKEN=%s\n", joinToken)
+	if apiServer != "" {
+		dockerCfg, err := tokens.GetDockerDaemonContent()
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to get docker daemon config")
+		}
+		authInfo += fmt.Sprintf("DOCKER_DAEMON_JSON=%s\n", dockerCfg)
+	}
 	deployConf.Content = authInfo
 	return []*api.DeployConfig{deployConf}, nil
 }
