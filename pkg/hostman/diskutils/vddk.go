@@ -116,8 +116,8 @@ func (c *Command) Wait() error {
 	return <-c.done
 }
 
-func (c *Command) Kill() {
-	c.Process.Kill()
+func (c *Command) Kill() error {
+	return c.Process.Kill()
 }
 
 func execpath() string {
@@ -154,8 +154,12 @@ func (vd *VDDKDisk) MountRootfs() fsdriver.IRootFsDriver {
 	if err != nil {
 		log.Errorf("VDDKDisk Mount failed: %s", err)
 	}
-	// something is wrong
-	vd.UmountRootfs(nil)
+	if vd.Proc != nil {
+		err := vd.Proc.Kill()
+		if err != nil {
+			log.Errorf("")
+		}
+	}
 	return nil
 }
 
@@ -333,10 +337,11 @@ Loop:
 			}
 		}
 		// Reduce inspection density
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(500 * time.Millisecond)
 	}
 
 	backup := vd.Proc.stdouterr.String()
+	log.Debugf(backup)
 	err := vd.ParsePartitions(backup)
 	if err != nil {
 		return errors.Wrap(err, "VDDKDisk.ParsePartitions")
@@ -349,7 +354,11 @@ Loop:
 		return errors.Error(fmt.Sprintf("VDDKDisk prog exit error(%d): %s", retCode, backup))
 	} else if !isEnd {
 		// timeout
-		vd.Proc.Kill()
+		err := vd.Proc.Kill()
+		if err != nil {
+			log.Errorf("kill error: %s")
+		}
+		vd.Proc = nil
 		return errors.Error(fmt.Sprintf("VDDKDisk read timeout, program blocked"))
 	}
 	return nil
