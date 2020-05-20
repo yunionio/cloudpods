@@ -39,7 +39,7 @@ func init() {
 type QueryCondition struct {
 	Index         int
 	Query         AlertQuery
-	Reducer       Reduce
+	Reducer       Reducer
 	Evaluator     AlertEvaluator
 	Operator      string
 	HandleRequest tsdb.HandleRequestFunc

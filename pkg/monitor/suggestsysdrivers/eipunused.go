@@ -99,9 +99,10 @@ func (rule *EIPUnused) getEIPUnused(instance *monitor.SSuggestSysAlertSetting) (
 			ObjType: "eip",
 			Limit:   "0",
 			Scope:   "system",
+			Action:  db.ACT_DETACH,
 		}
 
-		latestTime, err := getResourceObjLatestUsedTime(row, logInput, db.ACT_DETACH)
+		latestTime, err := getResourceObjLatestUsedTime(row, logInput)
 		if err != nil {
 			continue
 		}

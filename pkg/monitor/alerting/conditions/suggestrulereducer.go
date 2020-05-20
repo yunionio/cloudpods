@@ -11,7 +11,7 @@ type suggestRuleReducer struct {
 	duration time.Duration
 }
 
-func NewSuggestRuleReducer(t string, duration time.Duration) Reduce {
+func NewSuggestRuleReducer(t string, duration time.Duration) Reducer {
 	return &suggestRuleReducer{
 		queryReducer: &queryReducer{Type: t},
 		duration:     duration,

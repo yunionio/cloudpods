@@ -15,6 +15,13 @@
 package monitor
 
 const (
+	SUGGEST_ALERT_READY        = "ready"
+	SUGGEST_ALERT_START_DELETE = "start_delete"
+	SUGGEST_ALERT_DELETE_FAIL  = "delete_fail"
+	SUGGEST_ALERT_DELETING     = "deleting"
+)
+
+const (
 	EIP_UN_USED  = "EIP_UNUSED"
 	DISK_UN_USED = "DISK_UNUSED"
 	LB_UN_USED   = "LB_UNUSED"
@@ -22,10 +29,7 @@ const (
 	SCALE_UP     = "SCALE_UP"
 
 	DRIVER_ACTION            = "DELETE"
-	SCALE_DOWN_DRIVER_ACTION = "SCALE DOWN"
-
-	EIP_UNUSED_START_DELETE = "start_delete"
-	EIP_UNUSED_DELETE_FAIL  = "delete_fail"
+	SCALE_DOWN_DRIVER_ACTION = "SCALE_DOWN"
 )
 
 type MonitorSuggest string
