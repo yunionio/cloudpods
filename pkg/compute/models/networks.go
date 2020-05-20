@@ -53,10 +53,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
-var (
-	ALL_NETWORK_TYPES = api.ALL_NETWORK_TYPES
-)
-
 type SNetworkManager struct {
 	db.SSharableVirtualResourceBaseManager
 	db.SExternalizedResourceBaseManager
@@ -1223,6 +1219,11 @@ func (manager *SNetworkManager) validateEnsureWire(ctx context.Context, userCred
 }
 
 func (manager *SNetworkManager) validateEnsureZoneVpc(ctx context.Context, userCred mcclient.TokenCredential, input api.NetworkCreateInput) (w *SWire, v *SVpc, cr *SCloudregion, err error) {
+	defer func() {
+		if cause := errors.Cause(err); cause == sql.ErrNoRows {
+			err = httperrors.NewResourceNotFoundError("%s", err)
+		}
+	}()
 	zObj, err := ZoneManager.FetchByIdOrName(userCred, input.Zone)
 	if err != nil {
 		err = errors.Wrapf(err, "zone %s", input.Zone)
@@ -1271,7 +1272,7 @@ func (manager *SNetworkManager) validateEnsureZoneVpc(ctx context.Context, userC
 func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.NetworkCreateInput) (api.NetworkCreateInput, error) {
 	if input.ServerType == "" {
 		input.ServerType = api.NETWORK_TYPE_GUEST
-	} else if !utils.IsInStringArray(input.ServerType, ALL_NETWORK_TYPES) {
+	} else if !utils.IsInStringArray(input.ServerType, api.ALL_NETWORK_TYPES) {
 		return input, httperrors.NewInputParameterError("Invalid server_type: %s", input.ServerType)
 	}
 
