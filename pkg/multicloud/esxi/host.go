@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -765,9 +766,8 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 	)
 	for _, disk := range disks {
 		imagePath := disk.ImagePath
-		var size int64 = 0
+		var size = disk.Size
 		if len(imagePath) == 0 {
-			size = disk.Size
 			if size == 0 {
 				size = 30 * 1024
 			}
@@ -928,6 +928,7 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 		ctlKey = minDevKey(scsiDevs)
 	}
 	// change disk if set
+	newSizes := make([]int64, 0, len(params.Disks))
 	if params.Disks != nil && len(params.Disks) > 0 {
 		var (
 			i    int
@@ -941,15 +942,9 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 			}
 			size := disk.Size
 			if size == 0 {
-				continue
+				size = 30 * 1024
 			}
-			dev := from.vdisks[i].getVirtualDisk()
-			dev.CapacityInKB = size * 1024
-
-			deviceChange = append(deviceChange, &types.VirtualDeviceConfigSpec{
-				Operation: types.VirtualDeviceConfigSpecOperationEdit,
-				Device:    dev,
-			})
+			newSizes = append(newSizes, size)
 		}
 
 		// create new disk
@@ -1020,7 +1015,7 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 		MemoryMB: int64(params.Mem),
 	}
 	cloneSpec.Config = &spec
-	task, err := ovm.Clone(ctx, folders.VmFolder, params.Name, *cloneSpec)
+	task, err := ovm.Clone(ctx, folders.VmFolder, name, *cloneSpec)
 	if err != nil {
 		return nil, errors.Wrap(err, "object.VirtualMachine.Clone")
 	}
@@ -1035,7 +1030,16 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 		return nil, errors.Wrap(err, "fail to fetch virtual machine just created")
 	}
 
-	return NewVirtualMachine(host.manager, &moVM, host.datacenter), nil
+	// resize the disk
+	vm := NewVirtualMachine(host.manager, &moVM, host.datacenter)
+	sort.Sort(byDiskType(vm.vdisks))
+	for i, s := range newSizes {
+		err := vm.vdisks[i].Resize(ctx, s)
+		if err != nil {
+			log.Errorf("no.%d vdisk.Resize failed", i)
+		}
+	}
+	return vm, nil
 }
 
 func (host *SHost) changeNic(device types.BaseVirtualDevice, update types.BaseVirtualDevice) {

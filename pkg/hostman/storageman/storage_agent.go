@@ -191,6 +191,7 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 	init := false
 	dataDict := data.(*jsonutils.JSONDict)
 	action, _ := dataDict.GetString("action")
+	log.Debugf("data: %s", dataDict.String())
 	if action == "create" {
 		err := as.agentCreateGuest(ctx, dataDict)
 		if err != nil {
