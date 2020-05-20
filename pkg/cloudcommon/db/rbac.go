@@ -70,7 +70,7 @@ func isObjectRbacAllowed(model IModel, userCred mcclient.TokenCredential, action
 	if !requireScope.HigherThan(scope) {
 		return nil
 	}
-	return httperrors.NewForbiddenError(fmt.Sprintf("not enough privillege(require:%s,allow:%s)", requireScope, scope))
+	return httperrors.NewForbiddenError(fmt.Sprintf("not enough privilege(require:%s,allow:%s)", requireScope, scope))
 }
 
 func isJointObjectRbacAllowed(item IJointModel, userCred mcclient.TokenCredential, action string, extra ...string) error {
