@@ -15,12 +15,15 @@
 package tokens
 
 import (
+	"encoding/base64"
 	"fmt"
+	"strings"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
@@ -29,22 +32,36 @@ import (
 	kubeadmscheme "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm/scheme"
 	kubeadmconstants "k8s.io/kubernetes/cmd/kubeadm/app/constants"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/wait"
+	"yunion.io/x/pkg/utils"
 )
 
-func GetCoreClient() (corev1.CoreV1Interface, error) {
+func GetClusterConfig() (*rest.Config, error) {
 	// Load kubernetes config inside cluster
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, errors.Wrap(err, "get kubernetes config inside cluster")
 	}
-	coreCli, err := corev1.NewForConfig(cfg)
+	return cfg, nil
+}
+
+func GetClient() (kubernetes.Interface, error) {
+	cfg, err := GetClusterConfig()
 	if err != nil {
-		return nil, errors.Wrap(err, "get kubernetes client")
+		return nil, err
 	}
-	return coreCli, nil
+	return kubernetes.NewForConfig(cfg)
+}
+
+func GetCoreClient() (corev1.CoreV1Interface, error) {
+	cli, err := GetClient()
+	if err != nil {
+		return nil, err
+	}
+	return cli.CoreV1(), nil
 }
 
 func IsInsideKubernetesCluster() (bool, error) {
@@ -95,6 +112,91 @@ func GetNodeJoinToken() (string, error) {
 		return "", errors.Wrap(err, "failed to create new bootstrap token")
 	}
 	return bootstrapToken, nil
+}
+
+func GetImageRegistries() ([]string, error) {
+	cli, err := GetClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "get k8s client")
+	}
+	nodes, err := cli.CoreV1().Nodes().List(metav1.ListOptions{})
+	if err != nil {
+		return nil, errors.Wrap(err, "get k8s nodes")
+	}
+	masterNodes := make([]*v1.Node, 0)
+	for _, n := range nodes.Items {
+		if _, ok := n.Labels["node-role.kubernetes.io/master"]; ok {
+			masterNodes = append(masterNodes, &n)
+		}
+	}
+	if len(masterNodes) == 0 {
+		return nil, errors.Wrap(err, "not found master nodes")
+	}
+	regs := make([]string, 0)
+	getImg := func(img v1.ContainerImage) {
+		for _, name := range img.Names {
+			parts := strings.Split(name, "/")
+			if len(parts) == 0 {
+				continue
+			}
+			imgRepo := parts[0]
+			if !strings.Contains(imgRepo, ".") {
+				// filter image like: grafana, nginx
+				continue
+			}
+			if utils.IsInStringArray(imgRepo, regs) {
+				continue
+			}
+			regs = append(regs, imgRepo)
+		}
+	}
+	for _, n := range masterNodes {
+		for _, img := range n.Status.Images {
+			getImg(img)
+		}
+	}
+	return regs, nil
+}
+
+// TODO: move to other packages
+type DockerDaemonConfig struct {
+	Bridge             string            `json:"bridge"`
+	Iptables           bool              `json:"iptables"`
+	ExecOpts           []string          `json:"exec-opts"`
+	DataRoot           string            `json:"data-root"`
+	LogDriver          string            `json:"log-driver"`
+	LogOpts            map[string]string `json:"log-opts"`
+	RegistryMirrors    []string          `json:"registry-mirrors"`
+	InsecureRegistries []string          `json:"insecure-registries"`
+	LiveRestore        bool              `json:"live-restore"`
+}
+
+func GetDockerDaemonConfig() (*DockerDaemonConfig, error) {
+	regs, err := GetImageRegistries()
+	if err != nil {
+		return nil, err
+	}
+	return &DockerDaemonConfig{
+		Bridge:    "none",
+		Iptables:  false,
+		ExecOpts:  []string{"native.cgroupdriver=systemd"},
+		DataRoot:  "/opt/docker",
+		LogDriver: "json-file",
+		LogOpts: map[string]string{
+			"max-size": "100m",
+		},
+		InsecureRegistries: regs,
+		LiveRestore:        true,
+	}, nil
+}
+
+func GetDockerDaemonContent() (string, error) {
+	cfg, err := GetDockerDaemonConfig()
+	if err != nil {
+		return "", nil
+	}
+	content := jsonutils.Marshal(cfg).PrettyString()
+	return base64.StdEncoding.EncodeToString([]byte(content)), nil
 }
 
 var (
