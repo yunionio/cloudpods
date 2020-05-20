@@ -108,11 +108,10 @@ func (manager *SWireManager) ValidateCreateData(ctx context.Context, userCred mc
 	}
 
 	vpcStr := jsonutils.GetAnyString(data, []string{"vpc", "vpc_id"})
-	if len(vpcStr) == 0 {
-		return nil, httperrors.NewMissingParameterError("vpc_id")
+	if vpcStr == "" {
+		vpcStr = api.DEFAULT_VPC_ID
 	}
-
-	if len(vpcStr) > 0 {
+	{
 		vpcObj, err := VpcManager.FetchByIdOrName(userCred, vpcStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
