@@ -49,10 +49,11 @@ type SAzureClient struct {
 	domain  string
 	baseUrl string
 
-	ressourceGroups     []SResourceGroup
-	fetchResourceGroups bool
-	env                 azureenv.Environment
-	authorizer          autorest.Authorizer
+	ressourceGroups      []SResourceGroup
+	currentResourceGroup string
+	fetchResourceGroups  bool
+	env                  azureenv.Environment
+	authorizer           autorest.Authorizer
 
 	iregions []cloudprovider.ICloudRegion
 	iBuckets []cloudprovider.ICloudBucket
@@ -388,6 +389,21 @@ func (self *SAzureClient) PerformAction(resourceId string, action string, body s
 	return jsonRequest(cli, "POST", self.domain, url, self.subscriptionId, body)
 }
 
+func (self *SAzureClient) createAndSetResourceGroup(resourceGroup, location string) error {
+	cli, err := self.getDefaultClient()
+	if err != nil {
+		return errors.Wrap(err, "getDefaultClient")
+	}
+	//Create resourceGroup
+	_url := fmt.Sprintf("/subscriptions/%s/resourcegroups/%s", self.subscriptionId, resourceGroup)
+	_, err = jsonRequest(cli, "PUT", self.domain, _url, self.subscriptionId, fmt.Sprintf(`{"name": "%s", "location": "%s"}`, resourceGroup, location))
+	if err != nil {
+		return err
+	}
+	self.currentResourceGroup = resourceGroup
+	return nil
+}
+
 func (self *SAzureClient) fetchResourceGroup(cli *autorest.Client, location string) error {
 	if !self.fetchResourceGroups {
 		err := self.List("resourcegroups", &self.ressourceGroups)
@@ -396,20 +412,6 @@ func (self *SAzureClient) fetchResourceGroup(cli *autorest.Client, location stri
 			return err
 		}
 		self.fetchResourceGroups = true
-	}
-	if len(self.ressourceGroups) == 0 {
-		//Create Default resourceGroup
-		_url := fmt.Sprintf("/subscriptions/%s/resourcegroups/Default", self.subscriptionId)
-		body, err := jsonRequest(cli, "PUT", self.domain, _url, self.subscriptionId, fmt.Sprintf(`{"name": "Default", "location": "%s"}`, location))
-		if err != nil {
-			return err
-		}
-		resourceGroup := SResourceGroup{}
-		err = body.Unmarshal(&resourceGroup)
-		if err != nil {
-			return err
-		}
-		self.ressourceGroups = []SResourceGroup{resourceGroup}
 	}
 	return nil
 }
@@ -443,7 +445,7 @@ func (e *AzureError) Error() string {
 }
 
 func (self *SAzureClient) getUniqName(cli *autorest.Client, resourceType, name string, body jsonutils.JSONObject) (string, string, error) {
-	url := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s", self.subscriptionId, self.ressourceGroups[0].Name, resourceType, name)
+	url := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s", self.subscriptionId, self.currentResourceGroup, resourceType, name)
 	if _, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, ""); err != nil {
 		if err == cloudprovider.ErrNotFound {
 			return url, body.String(), nil
@@ -451,7 +453,7 @@ func (self *SAzureClient) getUniqName(cli *autorest.Client, resourceType, name s
 		return "", "", err
 	}
 	for i := 0; i < 20; i++ {
-		url = fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s-%d", self.subscriptionId, self.ressourceGroups[0].Name, resourceType, name, i)
+		url = fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s-%d", self.subscriptionId, self.currentResourceGroup, resourceType, name, i)
 		if _, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, ""); err == cloudprovider.ErrNotFound {
 			if err == cloudprovider.ErrNotFound {
 				data := body.(*jsonutils.JSONDict)
@@ -462,6 +464,26 @@ func (self *SAzureClient) getUniqName(cli *autorest.Client, resourceType, name s
 		}
 	}
 	return "", "", fmt.Errorf("not find uniq name for %s[%s]", resourceType, name)
+}
+
+func (self *SAzureClient) CreateAndSetResourceGroup(resourceGroup, location string) error {
+	cli, err := self.getDefaultClient()
+	if err != nil {
+		return errors.Wrap(err, "getDefaultClient")
+	}
+	if !self.fetchResourceGroups {
+		err := self.fetchResourceGroup(cli, location)
+		if err != nil {
+			return errors.Wrap(err, "fetchResourceGroup")
+		}
+	}
+	for _, group := range self.ressourceGroups {
+		if strings.ToLower(group.Name) == strings.ToLower(resourceGroup) {
+			self.currentResourceGroup = resourceGroup
+			return nil
+		}
+	}
+	return self.createAndSetResourceGroup(resourceGroup, location)
 }
 
 func (self *SAzureClient) Create(body jsonutils.JSONObject, retVal interface{}) error {
@@ -476,12 +498,11 @@ func (self *SAzureClient) Create(body jsonutils.JSONObject, retVal interface{}) 
 	if err != nil {
 		return fmt.Errorf("Azure create resource failed: %s", err.Error())
 	}
-	err = self.fetchResourceGroup(cli, params["location"])
-	if err != nil {
-		return err
-	}
-	if len(self.ressourceGroups) == 0 {
-		return fmt.Errorf("Create Default resourceGroup error?")
+	if len(self.currentResourceGroup) == 0 {
+		err = self.CreateAndSetResourceGroup("Default", params["location"])
+		if err != nil {
+			return errors.Wrap(err, "CreateAndSetResourceGroup")
+		}
 	}
 
 	url, reqString, err := self.getUniqName(cli, params["type"], params["name"], body)

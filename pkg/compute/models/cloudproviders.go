@@ -1619,3 +1619,13 @@ func (provider *SCloudprovider) GetChangeOwnerCandidateDomainIds() []string {
 	}
 	return []string{}
 }
+
+func (self *SCloudprovider) GetExternalProjects() ([]SExternalProject, error) {
+	q := ExternalProjectManager.Query().Equals("manager_id", self.Id)
+	projects := []SExternalProject{}
+	err := db.FetchModelObjects(ExternalProjectManager, q, &projects)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	return projects, nil
+}

@@ -62,6 +62,8 @@ type SManagedVMCreateConfig struct {
 	Account             string
 	Password            string
 	UserData            string
+	ProjectId           string
+	ProjectName         string
 
 	BillingCycle *billing.SBillingCycle
 }
