@@ -58,6 +58,8 @@ type NetworkListInput struct {
 
 	UsableResourceListInput
 
+	WireFilterListInput
+
 	// description: Exact matching ip address in network.
 	// example: 10.168.222.1
 	Ip string `json:"ip"`
