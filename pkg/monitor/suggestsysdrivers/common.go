@@ -3,6 +3,7 @@ package suggestsysdrivers
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -12,8 +13,17 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	mod "yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/monitor/models"
 )
+
+type logInput struct {
+	ObjId   string `json:"obj_id"`
+	ObjType string `json:"obj_type"`
+	Action  string `json:"action"`
+	Scope   string `json:"scope"`
+	Limit   string `json:"limit"`
+}
 
 func DealAlertData(typ string, oldAlerts []models.SSuggestSysAlert, newAlerts []jsonutils.JSONObject) {
 	rules, _ := models.SuggestSysRuleManager.GetRules(typ)
@@ -97,5 +107,52 @@ func getSuggestSysAlertFromJson(obj jsonutils.JSONObject, rule models.ISuggestSy
 	suggestSysAlert.Type = rule.GetType()
 	suggestSysAlert.ResMeta = obj
 	suggestSysAlert.Action = monitor.DRIVER_ACTION
+	suggestSysAlert.Status = monitor.SUGGEST_ALERT_READY
 	return suggestSysAlert, nil
+}
+
+func getResourceObjLatestUsedTime(resObj jsonutils.JSONObject, param logInput) (time.Time, error) {
+	logActions := getResourceObjLogOfAction(param)
+	latestTime, err := getLatestActionTimeFromLogs(logActions)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	if latestTime == nil {
+		createdAt, _ := resObj.GetTime("created_at")
+		latestTime = &createdAt
+	}
+	return *latestTime, nil
+}
+
+func getResourceObjLogOfAction(param logInput) []jsonutils.JSONObject {
+	session := auth.GetAdminSession(context.Background(), "", "")
+	list, err := mod.Logs.List(session, jsonutils.Marshal(&param))
+	if err != nil {
+		log.Errorln("get Logs err", err)
+		return jsonutils.NewArray().Value()
+	}
+	if list == nil || len(list.Data) == 0 {
+		return jsonutils.NewArray().Value()
+	}
+	return list.Data
+}
+
+func getLatestActionTimeFromLogs(logActions []jsonutils.JSONObject) (*time.Time, error) {
+	var latestTime *time.Time = nil
+	for _, aLog := range logActions {
+		ops_time, err := aLog.GetTime("ops_time")
+		if err != nil {
+			log.Errorln(err)
+			return nil, err
+		}
+		if latestTime == nil {
+
+			latestTime = &ops_time
+		}
+		if ops_time.Sub(*latestTime) > 0 {
+			latestTime = &ops_time
+		}
+	}
+	return latestTime, nil
 }

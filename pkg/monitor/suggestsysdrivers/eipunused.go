@@ -16,12 +16,15 @@ package suggestsysdrivers
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -69,6 +72,12 @@ func (rule *EIPUnused) Run(instance *monitor.SSuggestSysAlertSetting) {
 }
 
 func (rule *EIPUnused) getEIPUnused(instance *monitor.SSuggestSysAlertSetting) (*jsonutils.JSONArray, error) {
+	rules, _ := models.SuggestSysRuleManager.GetRules(rule.GetType())
+	if len(rules) == 0 {
+		log.Println("Rule may have been deleted")
+		return jsonutils.NewArray(), nil
+	}
+	duration, _ := time.ParseDuration(rules[0].TimeFrom)
 	//处理逻辑
 	session := auth.GetAdminSession(context.Background(), "", "")
 	query := jsonutils.NewDict()
@@ -80,7 +89,25 @@ func (rule *EIPUnused) getEIPUnused(instance *monitor.SSuggestSysAlertSetting) (
 	}
 	EIPUnsedArr := jsonutils.NewArray()
 	for _, row := range rtn.Data {
+		//Determine whether EIP is used
 		if row.ContainsIgnoreCases("associate_type") || row.ContainsIgnoreCases("associate_id") {
+			continue
+		}
+		id, _ := row.GetString("id")
+		logInput := logInput{
+			ObjId:   id,
+			ObjType: "eip",
+			Limit:   "0",
+			Scope:   "system",
+			Action:  db.ACT_DETACH,
+		}
+
+		latestTime, err := getResourceObjLatestUsedTime(row, logInput)
+		if err != nil {
+			continue
+		}
+		//Judge that the unused time is beyond the duration time
+		if time.Now().Add(-duration).Sub(latestTime) < 0 {
 			continue
 		}
 		suggestSysAlert, err := getSuggestSysAlertFromJson(row, rule)
@@ -97,7 +124,8 @@ func (rule *EIPUnused) getEIPUnused(instance *monitor.SSuggestSysAlertSetting) (
 		}
 
 		problem := jsonutils.NewDict()
-		problem.Add(jsonutils.NewString(rule.GetType()), "eip")
+		rtnTime := fmt.Sprintf("%.1fm", time.Now().Sub(latestTime).Minutes())
+		problem.Add(jsonutils.NewString(rtnTime), "eipUnused time")
 		suggestSysAlert.Problem = problem
 
 		EIPUnsedArr.Add(jsonutils.Marshal(suggestSysAlert))

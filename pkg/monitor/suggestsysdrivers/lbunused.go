@@ -69,14 +69,24 @@ func (rule *LBUnused) getLatestAlerts(instance *monitor.SSuggestSysAlertSetting)
 	lbArr := jsonutils.NewArray()
 	for _, lb := range lbs.Data {
 		lbId, _ := lb.GetString("id")
-		contains, err := containsLbBackEndGroups(lbId)
+
+		contains, problem, err := containsLbBackEndGroups(lbId)
 		if err != nil {
-			return lbArr, err
+			log.Errorln(err)
+			continue
 		}
 		if *contains {
 			continue
 		}
-
+		contains, err = getLbListeners(lbId)
+		if err != nil {
+			log.Errorln(err)
+			continue
+		}
+		if *contains {
+			continue
+		}
+		problem.(*jsonutils.JSONDict).Add(jsonutils.NewString(monitor.LB_UNUSED_NLISTENER), "listener")
 		suggestSysAlert, err := getSuggestSysAlertFromJson(lb, rule)
 		if err != nil {
 			return lbArr, errors.Wrap(err, "getLatestAlerts's alertData Unmarshal error")
@@ -89,9 +99,6 @@ func (rule *LBUnused) getLatestAlerts(instance *monitor.SSuggestSysAlertSetting)
 		if instance != nil {
 			suggestSysAlert.MonitorConfig = jsonutils.Marshal(instance)
 		}
-
-		problem := jsonutils.NewDict()
-		problem.Add(jsonutils.NewString(rule.GetType()), "lb")
 		suggestSysAlert.Problem = problem
 
 		lbArr.Add(jsonutils.Marshal(suggestSysAlert))
@@ -99,8 +106,32 @@ func (rule *LBUnused) getLatestAlerts(instance *monitor.SSuggestSysAlertSetting)
 	return lbArr, nil
 }
 
-func containsLbBackEndGroups(lbId string) (*bool, error) {
+func getLbListeners(lbId string) (*bool, error) {
 	contains := false
+	session := auth.GetAdminSession(context.Background(), "", "")
+	query := jsonutils.NewDict()
+	query.Add(jsonutils.NewString("0"), "limit")
+	query.Add(jsonutils.NewString("system"), "scope")
+	query.Add(jsonutils.NewString(lbId), "loadbalancer")
+	listeners, err := modules.LoadbalancerListeners.List(session, query)
+	if err != nil {
+		return nil, err
+	}
+	if listeners != nil && len(listeners.Data) > 0 {
+		for _, listener := range listeners.Data {
+			status, _ := listener.GetString("status")
+			if status == "enabled" {
+				contains = true
+				break
+			}
+		}
+	}
+	return &contains, nil
+}
+
+func containsLbBackEndGroups(lbId string) (*bool, jsonutils.JSONObject, error) {
+	contains := false
+	problem := jsonutils.NewDict()
 	session := auth.GetAdminSession(context.Background(), "", "")
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.NewString("0"), "limit")
@@ -108,23 +139,29 @@ func containsLbBackEndGroups(lbId string) (*bool, error) {
 	query.Add(jsonutils.NewString(lbId), "loadbalancer")
 	groups, err := modules.LoadbalancerBackendGroups.List(session, query)
 	if err != nil {
-		return nil, err
+		return nil, problem, err
 	}
 	for _, group := range groups.Data {
 		groupId, _ := group.GetString("id")
 		backEnds, err := containsLbBackEnd(groupId)
 		if err != nil {
-			return nil, err
+			return nil, problem, err
 		}
 		if *backEnds {
-			return backEnds, nil
+			return backEnds, problem, nil
 		}
 	}
-	return &contains, nil
+	if len(groups.Data) == 0 {
+		problem.Add(jsonutils.NewString(monitor.LB_UNUSED_NBCGROUP), "backendgroup")
+	}
+	problem.Add(jsonutils.NewString(monitor.LB_UNUSED_NBC), "backend")
+
+	return &contains, problem, nil
 }
 
 func containsLbBackEnd(groupId string) (*bool, error) {
 	contains := false
+
 	session := auth.GetAdminSession(context.Background(), "", "")
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.NewString("0"), "limit")
