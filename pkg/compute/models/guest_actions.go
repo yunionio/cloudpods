@@ -1363,6 +1363,19 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 		}
 		imageId = img.Id
 	}
+	templateId := self.GetTemplateId()
+
+	if templateId != imageId && len(templateId) > 0 && len(imageId) > 0 && !self.GetDriver().IsRebuildRootSupportChangeUEFI() {
+		q := CachedimageManager.Query().In("id", []string{imageId, templateId})
+		images := []SCachedimage{}
+		err := db.FetchModelObjects(CachedimageManager, q, &images)
+		if err != nil {
+			return nil, errors.Wrap(err, "FetchModelObjects")
+		}
+		if len(images) == 2 && images[0].UEFI != images[1].UEFI {
+			return nil, httperrors.NewUnsupportOperationError("Can not rebuild root with with diff uefi image")
+		}
+	}
 
 	rebuildStatus, err := self.GetDriver().GetRebuildRootStatus()
 	if err != nil {
@@ -1370,7 +1383,6 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 	}
 
 	if !self.GetDriver().IsRebuildRootSupportChangeImage() && len(imageId) > 0 {
-		templateId := self.GetTemplateId()
 		if len(templateId) == 0 {
 			return nil, httperrors.NewBadRequestError("No template for root disk, cannot rebuild root")
 		}

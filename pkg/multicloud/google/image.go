@@ -243,3 +243,7 @@ func (region *SRegion) CreateImage(name string, desc string, bucketName string, 
 	}
 	return region.GetImage(fmt.Sprintf("projects/%s/global/images/%s", region.GetProjectId(), name))
 }
+
+func (self *SImage) UEFI() bool {
+	return false
+}

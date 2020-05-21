@@ -139,6 +139,7 @@ type IGuestDriver interface {
 	CanKeepDetachDisk() bool
 	IsNeedRestartForResetLoginInfo() bool
 	IsRebuildRootSupportChangeImage() bool
+	IsRebuildRootSupportChangeUEFI() bool
 
 	RequestDeleteDetachedDisk(ctx context.Context, disk *SDisk, task taskman.ITask, isPurge bool) error
 	StartGuestDetachdiskTask(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, params *jsonutils.JSONDict, parentTaskId string) error
