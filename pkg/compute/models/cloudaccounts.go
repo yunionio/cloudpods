@@ -479,6 +479,13 @@ func (self *SCloudaccount) CustomizeCreate(ctx context.Context, userCred mcclien
 		// mark the public_scope has been set
 		data.(*jsonutils.JSONDict).Set("public_scope", jsonutils.NewString(self.PublicScope))
 	}
+	if len(self.ShareMode) == 0 {
+		if self.IsPublic {
+			self.ShareMode = api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM
+		} else {
+			self.ShareMode = api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN
+		}
+	}
 	return self.SEnabledStatusInfrasResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
