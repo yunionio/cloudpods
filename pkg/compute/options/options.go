@@ -134,6 +134,9 @@ type ComputeOptions struct {
 
 	FetchEtcdServiceInfoAndUseEtcdLock bool `default:"true" help:"fetch etcd service info and use etcd lock"`
 
+	GuestTemplateCheckInterval int `help:"The interval between two consecutive inspections about Guest Template, 
+unit: h" default:"12"`
+
 	SCapabilityOptions
 	SASControllerOptions
 	common_options.CommonOptions

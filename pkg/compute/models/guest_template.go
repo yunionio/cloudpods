@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -80,6 +81,8 @@ type SGuestTemplate struct {
 
 	// 其他配置信息
 	Content jsonutils.JSONObject `nullable:"false" list:"user" update:"user" create:"optional" json:"content"`
+
+	LastCheckTime time.Time
 }
 
 var GuestTemplateManager *SGuestTemplateManager
@@ -125,8 +128,17 @@ func (gtm *SGuestTemplateManager) ValidateCreateData(
 
 func (gt *SGuestTemplate) PostCreate(ctx context.Context, userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	gt.SetStatus(userCred, "ready", "")
+	gt.SetStatus(userCred, computeapis.GT_READY, "")
+	gt.updateCheckTime()
 	logclient.AddActionLogWithContext(ctx, gt, logclient.ACT_CREATE, nil, userCred, true)
+}
+
+func (gt *SGuestTemplate) updateCheckTime() error {
+	_, err := db.Update(gt, func() error {
+		gt.LastCheckTime = time.Now()
+		return nil
+	})
+	return err
 }
 
 func (gt *SGuestTemplate) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential,
@@ -748,4 +760,29 @@ func (g *SGuest) PerformSaveTemplate(ctx context.Context, userCred mcclient.Toke
 		task.ScheduleRun(nil)
 	}
 	return nil, nil
+}
+
+func (gm *SGuestTemplateManager) InspectAllTemplate(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	lastCheckTime := time.Now().Add(time.Duration(-options.Options.GuestTemplateCheckInterval) * time.Hour)
+	q := gm.Query().Equals("status", computeapis.GT_READY)
+	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("last_check_time")), sqlchemy.LE(q.Field("last_check_time"),
+		lastCheckTime)))
+	gts := make([]SGuestTemplate, 0, 10)
+	err := db.FetchModelObjects(gm, q, &gts)
+	if err != nil {
+		log.Errorf("Unable to fetch all guest templates that need to check: %s", err.Error())
+		return
+	}
+	for i := range gts {
+		_, err := GuestManager.validateCreateData(ctx, userCred, gts[i].GetOwnerId(), jsonutils.NewDict(),
+			gts[i].Content.(*jsonutils.JSONDict))
+		if err == nil {
+			gts[i].updateCheckTime()
+			continue
+		}
+		// invalid
+		gts[i].updateCheckTime()
+		reason := fmt.Sprintf("During the inspection, the guest template is not available: %s", err.Error())
+		gts[i].SetStatus(userCred, computeapis.GT_INVALID, reason)
+	}
 }
