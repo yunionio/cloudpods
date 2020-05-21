@@ -57,6 +57,10 @@ func (n *NotifierBase) ShouldNotify(_ context.Context, evalCtx *alerting.EvalCon
 		return false
 	}
 
+	if newState == monitor.AlertStateAlerting {
+		return true
+	}
+
 	// Only notify on state change
 	if prevState == newState && !n.SendReminder {
 		return false
