@@ -724,9 +724,9 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, data *jsonuti
 	)
 	for _, disk := range disks {
 		imagePath, _ := disk.GetString("image_path")
-		var size int64 = 0
+		var size int64
+		size, _ = disk.Int("size")
 		if len(imagePath) == 0 {
-			size, _ = disk.Int("size")
 			if size == 0 {
 				size = 30 * 1024
 			}

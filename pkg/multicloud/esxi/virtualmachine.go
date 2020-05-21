@@ -489,6 +489,13 @@ func (self *SVirtualMachine) shutdownVM(ctx context.Context) error {
 
 func (self *SVirtualMachine) doDelete(ctx context.Context) error {
 	vm := self.getVmObj()
+	// detach all disks first
+	for i := range self.vdisks {
+		err := self.doDetachAndDeleteDisk(ctx, &self.vdisks[i])
+		if err != nil {
+			return errors.Wrap(err, "doDetachAndDeteteDisk")
+		}
+	}
 
 	task, err := vm.Destroy(ctx)
 	if err != nil {
@@ -526,10 +533,6 @@ func (self *SVirtualMachine) doDetachDisk(ctx context.Context, vdisk *SVirtualDi
 	removeSpec.Operation = types.VirtualDeviceConfigSpecOperationRemove
 	removeSpec.Device = vdisk.dev
 
-	if remove {
-		removeSpec.FileOperation = types.VirtualDeviceConfigSpecFileOperationDestroy
-	}
-
 	spec := types.VirtualMachineConfigSpec{}
 	spec.DeviceChange = []types.BaseVirtualDeviceConfigSpec{&removeSpec}
 
@@ -547,7 +550,10 @@ func (self *SVirtualMachine) doDetachDisk(ctx context.Context, vdisk *SVirtualDi
 		return err
 	}
 
-	return nil
+	if !remove {
+		return nil
+	}
+	return vdisk.Delete(ctx)
 }
 
 func (self *SVirtualMachine) GetVNCInfo() (jsonutils.JSONObject, error) {
