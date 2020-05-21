@@ -43,20 +43,20 @@ func isObjectRbacAllowed(model IModel, userCred mcclient.TokenCredential, action
 	case rbacutils.ScopeSystem:
 		requireScope = rbacutils.ScopeSystem
 	case rbacutils.ScopeDomain:
-		if ownerId != nil && objOwnerId != nil && (ownerId.GetProjectDomainId() == objOwnerId.GetProjectDomainId() || (model.IsSharable(ownerId) && action == policy.PolicyActionGet)) {
+		if ownerId != nil && objOwnerId != nil && (ownerId.GetProjectDomainId() == objOwnerId.GetProjectDomainId() || objOwnerId.GetProjectDomainId() == "" || (model.IsSharable(ownerId) && action == policy.PolicyActionGet)) {
 			requireScope = rbacutils.ScopeDomain
 		} else {
 			requireScope = rbacutils.ScopeSystem
 		}
 	case rbacutils.ScopeUser:
-		if ownerId != nil && objOwnerId != nil && (ownerId.GetUserId() == objOwnerId.GetUserId() || (model.IsSharable(ownerId) && action == policy.PolicyActionGet)) {
+		if ownerId != nil && objOwnerId != nil && (ownerId.GetUserId() == objOwnerId.GetUserId() || objOwnerId.GetUserId() == "" || (model.IsSharable(ownerId) && action == policy.PolicyActionGet)) {
 			requireScope = rbacutils.ScopeUser
 		} else {
 			requireScope = rbacutils.ScopeSystem
 		}
 	default:
 		// objOwnerId should not be nil
-		if ownerId != nil && objOwnerId != nil && (ownerId.GetProjectId() == objOwnerId.GetProjectId() || (model.IsSharable(ownerId) && action == policy.PolicyActionGet)) {
+		if ownerId != nil && objOwnerId != nil && (ownerId.GetProjectId() == objOwnerId.GetProjectId() || objOwnerId.GetProjectId() == "" || (model.IsSharable(ownerId) && action == policy.PolicyActionGet)) {
 			requireScope = rbacutils.ScopeProject
 		} else if ownerId != nil && objOwnerId != nil && ownerId.GetProjectDomainId() == objOwnerId.GetProjectDomainId() {
 			requireScope = rbacutils.ScopeDomain
@@ -70,7 +70,7 @@ func isObjectRbacAllowed(model IModel, userCred mcclient.TokenCredential, action
 	if !requireScope.HigherThan(scope) {
 		return nil
 	}
-	return httperrors.NewForbiddenError(fmt.Sprintf("not enough privilege(require:%s,allow:%s)", requireScope, scope))
+	return httperrors.NewForbiddenError(fmt.Sprintf("not enough privilege(require:%s,allow:%s:resource:%s)", requireScope, scope, resScope))
 }
 
 func isJointObjectRbacAllowed(item IJointModel, userCred mcclient.TokenCredential, action string, extra ...string) error {

@@ -1558,7 +1558,7 @@ func totalDiskSize(
 	storages := StorageManager.Query().SubQuery()
 	q = q.Join(storages, sqlchemy.Equals(storages.Field("id"), disks.Field("storage_id")))
 	q = CloudProviderFilter(q, storages.Field("manager_id"), providers, brands, cloudEnv)
-	q = RangeObjectsFilter(q, rangeObjs, nil, storages.Field("zone_id"), storages.Field("manager_id"))
+	q = RangeObjectsFilter(q, rangeObjs, nil, storages.Field("zone_id"), storages.Field("manager_id"), nil, storages.Field("id"))
 	if len(hypervisors) > 0 {
 		hoststorages := HoststorageManager.Query().SubQuery()
 		hosts := HostManager.Query().SubQuery()
