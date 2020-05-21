@@ -37,6 +37,8 @@ type IModelSet interface {
 	NewModel() db.IModel
 	AddModel(db.IModel)
 	Copy() IModelSet
+
+	IncludeDetails() bool
 }
 
 func SyncModelSets(mssOld IModelSets, s *mcclient.ClientSession, batchSize int) (r ModelSetsUpdateResult, err error) {
@@ -50,7 +52,7 @@ func SyncModelSets(mssOld IModelSets, s *mcclient.ClientSession, batchSize int) 
 			MinUpdatedAt:   minUpdatedAt,
 			ModelSet:       msNew,
 			BatchListSize:  batchSize,
-			IncludeDetails: true,
+			IncludeDetails: msNew.IncludeDetails(),
 		})
 		if err != nil {
 			return
