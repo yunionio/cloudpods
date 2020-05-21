@@ -43,6 +43,10 @@ func (t *SVMTemplate) GetId() string {
 	return t.uuid
 }
 
+func (t *SVMTemplate) UEFI() bool {
+	return false
+}
+
 func (t *SVMTemplate) GetName() string {
 	return t.vm.GetName()
 }

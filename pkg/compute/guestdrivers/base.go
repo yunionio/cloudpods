@@ -128,6 +128,10 @@ func (self *SBaseGuestDriver) IsRebuildRootSupportChangeImage() bool {
 	return true
 }
 
+func (self *SBaseGuestDriver) IsRebuildRootSupportChangeUEFI() bool {
+	return true
+}
+
 func (self *SBaseGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
 	return []string{}, fmt.Errorf("This Guest driver dose not implement GetChangeConfigStatus")
 }

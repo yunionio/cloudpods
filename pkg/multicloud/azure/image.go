@@ -76,6 +76,7 @@ type ImageProperties struct {
 	SourceVirtualMachine *SubResource
 	StorageProfile       ImageStorageProfile `json:"storageProfile,omitempty"`
 	ProvisioningState    ImageStatusType
+	HyperVGeneration     string `json:"hyperVGeneration,omitempty"`
 }
 
 type SImage struct {
@@ -615,4 +616,8 @@ func (image *SImage) getImageReference() ImageReference {
 			Offer:     image.Offer,
 		}
 	}
+}
+
+func (image *SImage) UEFI() bool {
+	return image.Properties.HyperVGeneration == "V2"
 }

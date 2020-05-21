@@ -98,6 +98,10 @@ func (self *SAzureGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
+func (self *SAzureGuestDriver) IsRebuildRootSupportChangeUEFI() bool {
+	return false
+}
+
 func (self *SAzureGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }

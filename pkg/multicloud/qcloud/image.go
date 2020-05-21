@@ -360,3 +360,7 @@ func (self *SRegion) ImportImage(name string, osArch, osDist, osVersion string, 
 	}
 	return nil, cloudprovider.ErrNotFound
 }
+
+func (self *SImage) UEFI() bool {
+	return false
+}

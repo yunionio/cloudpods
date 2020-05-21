@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/sqlchemy"
 
@@ -81,6 +82,10 @@ type SCachedimage struct {
 	// 引用次数
 	// example: 0
 	RefCount int `default:"0" list:"user"`
+
+	// 是否支持UEFI
+	// example: false
+	UEFI tristate.TriState `default:"false" list:"user"`
 
 	// 镜像类型, system: 公有云镜像, customized: 自定义镜像
 	// example: system
@@ -454,6 +459,7 @@ func (self *SCachedimage) syncWithCloudImage(ctx context.Context, userCred mccli
 		self.Size = image.GetSizeByte()
 		self.ExternalId = image.GetGlobalId()
 		self.ImageType = image.GetImageType()
+		self.UEFI = tristate.NewFromBool(image.UEFI())
 		sImage := cloudprovider.CloudImage2Image(image)
 		self.Info = jsonutils.Marshal(&sImage)
 		self.LastSync = time.Now().UTC()
@@ -477,6 +483,7 @@ func (manager *SCachedimageManager) newFromCloudImage(ctx context.Context, userC
 
 	cachedImage.Name = newName
 	cachedImage.Size = image.GetSizeByte()
+	cachedImage.UEFI = tristate.NewFromBool(image.UEFI())
 	sImage := cloudprovider.CloudImage2Image(image)
 	cachedImage.Info = jsonutils.Marshal(&sImage)
 	cachedImage.LastSync = time.Now().UTC()
