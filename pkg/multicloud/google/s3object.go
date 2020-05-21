@@ -124,7 +124,7 @@ func (region *SRegion) ConvertAcl(acls []GCSAcl) cloudprovider.TBucketACLType {
 
 func (o *SObject) GetAcl() cloudprovider.TBucketACLType {
 	if strings.HasSuffix(o.Name, "/") {
-		return cloudprovider.ACLUnknown
+		return cloudprovider.ACLPrivate
 	}
 	acls, err := o.bucket.region.GetObjectAcl(o.bucket.Name, o.Name)
 	if err != nil {
