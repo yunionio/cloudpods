@@ -52,6 +52,15 @@ func (n *NotifierBase) ShouldNotify(_ context.Context, evalCtx *alerting.EvalCon
 	prevState := evalCtx.PrevAlertState
 	newState := evalCtx.Rule.State
 
+	//Do not notify if alert state is no_data
+	if newState == monitor.AlertStateNoData {
+		return false
+	}
+
+	if newState == monitor.AlertStateAlerting {
+		return true
+	}
+
 	// Only notify on state change
 	if prevState == newState && !n.SendReminder {
 		return false

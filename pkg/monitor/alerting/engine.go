@@ -220,7 +220,7 @@ func (e *AlertEngine) processJob(attemptID int, attemptChan chan int, cancelChan
 		// override the context used for evaluation with a new context for notifications.
 		// This makes it possible for notifiers to execute when datasources
 		// don't respond within the timeout limit. We should rewrite this so notifications
-		// don't reuse the evalContext and get its own context.
+		// don't reuse the evalContext and get its own context.g
 		evalContext.Ctx = resultHandleCtx
 		evalContext.Rule.State = evalContext.GetNewState()
 		if err := e.resultHandler.handle(evalContext); err != nil {
