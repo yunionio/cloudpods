@@ -297,7 +297,7 @@ func (set Networks) Copy() apihelper.IModelSet {
 }
 
 func (set Networks) IncludeDetails() bool {
-	return true
+	return false
 }
 
 func (set Networks) IncludeEmulated() bool {
