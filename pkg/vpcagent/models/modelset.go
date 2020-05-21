@@ -64,6 +64,10 @@ func (set Vpcs) IncludeDetails() bool {
 	return false
 }
 
+func (set Vpcs) IncludeEmulated() bool {
+	return false
+}
+
 func (ms Vpcs) joinNetworks(subEntries Networks) bool {
 	for _, m := range ms {
 		m.Networks = Networks{}
@@ -117,6 +121,10 @@ func (set Guests) Copy() apihelper.IModelSet {
 }
 
 func (set Guests) IncludeDetails() bool {
+	return false
+}
+
+func (set Guests) IncludeEmulated() bool {
 	return false
 }
 
@@ -203,6 +211,10 @@ func (set Hosts) IncludeDetails() bool {
 	return false
 }
 
+func (set Hosts) IncludeEmulated() bool {
+	return false
+}
+
 func (set Networks) ModelManager() mcclient_modulebase.IBaseManager {
 	return &mcclient_modules.Networks
 }
@@ -226,6 +238,10 @@ func (set Networks) Copy() apihelper.IModelSet {
 
 func (set Networks) IncludeDetails() bool {
 	return true
+}
+
+func (set Networks) IncludeEmulated() bool {
+	return false
 }
 
 func (ms Networks) joinGuestnetworks(subEntries Guestnetworks) bool {
@@ -278,6 +294,10 @@ func (set Guestnetworks) IncludeDetails() bool {
 	return false
 }
 
+func (set Guestnetworks) IncludeEmulated() bool {
+	return false
+}
+
 func (set Guestnetworks) joinGuests(subEntries Guests) bool {
 	for _, gn := range set {
 		gId := gn.GuestId
@@ -318,6 +338,10 @@ func (set SecurityGroups) Copy() apihelper.IModelSet {
 }
 
 func (set SecurityGroups) IncludeDetails() bool {
+	return false
+}
+
+func (set SecurityGroups) IncludeEmulated() bool {
 	return false
 }
 
@@ -370,6 +394,10 @@ func (set SecurityGroupRules) IncludeDetails() bool {
 	return false
 }
 
+func (set SecurityGroupRules) IncludeEmulated() bool {
+	return false
+}
+
 func (set Guestsecgroups) ModelManager() mcclient_modulebase.IBaseManager {
 	return &mcclient_modules.Serversecgroups
 }
@@ -392,6 +420,10 @@ func (set Guestsecgroups) Copy() apihelper.IModelSet {
 }
 
 func (set Guestsecgroups) IncludeDetails() bool {
+	return false
+}
+
+func (set Guestsecgroups) IncludeEmulated() bool {
 	return false
 }
 
