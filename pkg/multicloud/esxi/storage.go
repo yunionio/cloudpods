@@ -610,6 +610,28 @@ func (self *SDatastore) FilePutContent(ctx context.Context, remotePath string, c
 	return self.Upload(ctx, remotePath, strings.NewReader(content))
 }
 
+// Delete2 can delete file from this Datastore.
+// isNamespace: remotePath is uuid of namespace on vsan datastore
+// force: ignore nonexistent files and arguments
+func (self *SDatastore) Delete2(ctx context.Context, remotePath string, isNamespace, force bool) error {
+	var err error
+	ds := self.getDatastoreObj()
+	dc := self.datacenter.getObjectDatacenter()
+	if isNamespace {
+		nm := object.NewDatastoreNamespaceManager(self.manager.client.Client)
+		err = nm.DeleteDirectory(ctx, dc, remotePath)
+	} else {
+		fm := ds.NewFileManager(dc, force)
+		err = fm.Delete(ctx, remotePath)
+	}
+
+	if err != nil && types.IsFileNotFound(err) && force {
+		// Ignore error
+		return nil
+	}
+	return err
+}
+
 func (self *SDatastore) Delete(ctx context.Context, remotePath string) error {
 	url := self.GetPathUrl(remotePath)
 
@@ -672,7 +694,6 @@ func (self *SDatastore) GetVmdkInfo(ctx context.Context, remotePath string) (*vm
 
 func (self *SDatastore) CheckVmdk(ctx context.Context, remotePath string) error {
 	dm := object.NewVirtualDiskManager(self.manager.client.Client)
-	defer dm.Destroy(ctx)
 
 	dc, err := self.GetDatacenter()
 	if err != nil {
