@@ -966,7 +966,7 @@ func (self *SImage) MigrateSubImage() error {
 	if err != nil {
 		return err
 	}
-	if self.GetImageType() != api.ImageTypeISO && imgInst.IsSparse() {
+	if self.GetImageType() != api.ImageTypeISO && imgInst.IsSparse() && utils.IsInStringArray(self.DiskFormat, options.Options.TargetImageFormats) {
 		// need to convert again
 		return self.newSubformat(qemuimg.String2ImageFormat(self.DiskFormat), false)
 	} else {
