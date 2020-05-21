@@ -1449,7 +1449,7 @@ func (man *SElasticcacheManager) TotalCount(
 	q = q.Join(vpcs, sqlchemy.Equals(q.Field("vpc_id"), vpcs.Field("id")))
 	q = scopeOwnerIdFilter(q, scope, ownerId)
 	q = CloudProviderFilter(q, vpcs.Field("manager_id"), providers, brands, cloudEnv)
-	q = RangeObjectsFilter(q, rangeObjs, vpcs.Field("cloudregion_id"), nil, vpcs.Field("manager_id"))
+	q = RangeObjectsFilter(q, rangeObjs, vpcs.Field("cloudregion_id"), nil, vpcs.Field("manager_id"), nil, nil)
 	return q.CountWithError()
 }
 

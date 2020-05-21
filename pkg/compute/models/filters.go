@@ -22,14 +22,14 @@ import (
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
-func RangeObjectsFilter(q *sqlchemy.SQuery, rangeObjs []db.IStandaloneModel, regionField sqlchemy.IQueryField, zoneField sqlchemy.IQueryField, managerField sqlchemy.IQueryField) *sqlchemy.SQuery {
+func RangeObjectsFilter(q *sqlchemy.SQuery, rangeObjs []db.IStandaloneModel, regionField sqlchemy.IQueryField, zoneField sqlchemy.IQueryField, managerField sqlchemy.IQueryField, hostField sqlchemy.IQueryField, storageField sqlchemy.IQueryField) *sqlchemy.SQuery {
 	for _, rangeObj := range rangeObjs {
-		q = rangeObjFilter(q, rangeObj, regionField, zoneField, managerField)
+		q = rangeObjFilter(q, rangeObj, regionField, zoneField, managerField, hostField, storageField)
 	}
 	return q
 }
 
-func rangeObjFilter(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, regionField sqlchemy.IQueryField, zoneField sqlchemy.IQueryField, managerField sqlchemy.IQueryField) *sqlchemy.SQuery {
+func rangeObjFilter(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, regionField sqlchemy.IQueryField, zoneField sqlchemy.IQueryField, managerField sqlchemy.IQueryField, hostField sqlchemy.IQueryField, storageField sqlchemy.IQueryField) *sqlchemy.SQuery {
 	if rangeObj == nil {
 		return q
 	}
@@ -37,40 +37,124 @@ func rangeObjFilter(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, regionFiel
 	switch kw {
 	case "zone":
 		zone := rangeObj.(*SZone)
-		if regionField != nil {
-			q = q.Filter(sqlchemy.Equals(regionField, zone.CloudregionId))
+		if hostField != nil {
+			hosts := HostManager.Query("id", "zone_id").SubQuery()
+			q = q.Join(hosts, sqlchemy.Equals(hosts.Field("id"), hostField))
+			q = q.Filter(sqlchemy.Equals(hosts.Field("zone_id"), zone.Id))
+		} else if storageField != nil {
+			storages := StorageManager.Query("id", "zone_id").SubQuery()
+			q = q.Join(storages, sqlchemy.Equals(storages.Field("id"), storageField))
+			q = q.Filter(sqlchemy.Equals(storages.Field("zone_id"), zone.Id))
 		} else if zoneField != nil {
 			q = q.Filter(sqlchemy.Equals(zoneField, zone.Id))
+		} else if regionField != nil {
+			q = q.Filter(sqlchemy.Equals(regionField, zone.CloudregionId))
 		}
 	case "wire":
 		wire := rangeObj.(*SWire)
-		if regionField != nil {
-			vpc := wire.GetVpc()
-			q = q.Filter(sqlchemy.Equals(regionField, vpc.CloudregionId))
+		if hostField != nil {
+			hostwires := HostwireManager.Query("host_id", "wire_id").SubQuery()
+			q = q.Join(hostwires, sqlchemy.Equals(hostwires.Field("host_id"), hostField))
+			q = q.Filter(sqlchemy.Equals(hostwires.Field("wire_id"), wire.Id))
+		} else if storageField != nil {
+			hostwires := HostwireManager.Query("host_id", "wire_id").SubQuery()
+			hoststorages := HoststorageManager.Query("host_id", "storage_id").SubQuery()
+			q = q.Join(hoststorages, sqlchemy.Equals(hoststorages.Field("storage_id"), storageField))
+			q = q.Join(hostwires, sqlchemy.Equals(hoststorages.Field("host_id"), hostwires.Field("host_id")))
+			q = q.Filter(sqlchemy.Equals(hostwires.Field("wire_id"), wire.Id))
 		} else if zoneField != nil {
 			q = q.Filter(sqlchemy.Equals(zoneField, wire.ZoneId))
+		} else if regionField != nil {
+			vpc := wire.GetVpc()
+			q = q.Filter(sqlchemy.Equals(regionField, vpc.CloudregionId))
 		}
 	case "host":
 		host := rangeObj.(*SHost)
-		if regionField != nil {
-			zone := host.GetZone()
-			q = q.Filter(sqlchemy.Equals(regionField, zone.CloudregionId))
+		if hostField != nil {
+			q = q.Filter(sqlchemy.Equals(hostField, host.Id))
+		} else if storageField != nil {
+			hoststorages := HoststorageManager.Query("host_id", "storage_id").SubQuery()
+			q = q.Join(hoststorages, sqlchemy.Equals(hoststorages.Field("storage_id"), storageField))
+			q = q.Filter(sqlchemy.Equals(hoststorages.Field("host_id"), host.Id))
 		} else if zoneField != nil {
 			q = q.Filter(sqlchemy.Equals(zoneField, host.ZoneId))
+		} else if regionField != nil {
+			zone := host.GetZone()
+			q = q.Filter(sqlchemy.Equals(regionField, zone.CloudregionId))
+		}
+	case "storage":
+		storage := rangeObj.(*SStorage)
+		if hostField != nil {
+			hoststorages := HoststorageManager.Query("host_id", "storage_id").SubQuery()
+			q = q.Join(hoststorages, sqlchemy.Equals(hoststorages.Field("host_id"), hostField))
+			q = q.Filter(sqlchemy.Equals(hoststorages.Field("storage_id"), storage.Id))
+		} else if storageField != nil {
+			q = q.Filter(sqlchemy.Equals(storageField, storage.Id))
+		} else if zoneField != nil {
+			q = q.Filter(sqlchemy.Equals(zoneField, storage.ZoneId))
+		} else if regionField != nil {
+			zone := storage.GetZone()
+			q = q.Filter(sqlchemy.Equals(regionField, zone.CloudregionId))
 		}
 	case "cloudprovider":
-		q = q.Filter(sqlchemy.Equals(managerField, rangeObj.GetId()))
+		if hostField != nil {
+			hosts := HostManager.Query("id", "manager_id").SubQuery()
+			q = q.Join(hosts, sqlchemy.Equals(hosts.Field("id"), hostField))
+			q = q.Filter(sqlchemy.Equals(hosts.Field("manager_id"), rangeObj.GetId()))
+		} else if storageField != nil {
+			storages := StorageManager.Query("id", "manager_id").SubQuery()
+			q = q.Join(storages, sqlchemy.Equals(storages.Field("id"), storageField))
+			q = q.Filter(sqlchemy.Equals(storages.Field("manager_id"), rangeObj.GetId()))
+		} else if managerField != nil {
+			q = q.Filter(sqlchemy.Equals(managerField, rangeObj.GetId()))
+		}
 	case "cloudaccount":
-		cloudproviders := CloudproviderManager.Query().SubQuery()
-		subq := cloudproviders.Query(cloudproviders.Field("id")).Equals("cloudaccount_id", rangeObj.GetId()).SubQuery()
-		q = q.Filter(sqlchemy.In(managerField, subq))
+		if hostField != nil {
+			hosts := HostManager.Query("id", "manager_id").SubQuery()
+			providers := CloudproviderManager.Query("id", "cloudaccount_id").SubQuery()
+			q = q.Join(hosts, sqlchemy.Equals(hosts.Field("id"), hostField))
+			q = q.Join(providers, sqlchemy.Equals(hosts.Field("manager_id"), providers.Field("id")))
+			q = q.Filter(sqlchemy.Equals(providers.Field("cloudaccount_id"), rangeObj.GetId()))
+		} else if storageField != nil {
+			storages := StorageManager.Query("id", "manager_id").SubQuery()
+			providers := CloudproviderManager.Query("id", "cloudaccount_id").SubQuery()
+			q = q.Join(storages, sqlchemy.Equals(storages.Field("id"), storageField))
+			q = q.Join(providers, sqlchemy.Equals(storages.Field("manager_id"), providers.Field("id")))
+			q = q.Filter(sqlchemy.Equals(providers.Field("cloudaccount_id"), rangeObj.GetId()))
+		} else if managerField != nil {
+			providers := CloudproviderManager.Query("id", "cloudaccount_id").SubQuery()
+			q = q.Join(providers, sqlchemy.Equals(providers.Field("id"), managerField))
+			q = q.Filter(sqlchemy.Equals(providers.Field("cloudaccount_id"), rangeObj.GetId()))
+		}
 	case "cloudregion":
-		if regionField != nil {
-			q = q.Filter(sqlchemy.Equals(regionField, rangeObj.GetId()))
+		if hostField != nil {
+			hosts := HostManager.Query("id", "zone_id").SubQuery()
+			zones := ZoneManager.Query("id", "cloudregion_id").SubQuery()
+			q = q.Join(hosts, sqlchemy.Equals(hosts.Field("id"), hostField))
+			q = q.Join(zones, sqlchemy.Equals(zones.Field("id"), hosts.Field("zone_id")))
+			q = q.Filter(sqlchemy.Equals(zones.Field("cloudregion_id"), rangeObj.GetId()))
+		} else if storageField != nil {
+			storages := StorageManager.Query("id", "zone_id").SubQuery()
+			zones := ZoneManager.Query("id", "cloudregion_id").SubQuery()
+			q = q.Join(storages, sqlchemy.Equals(storages.Field("id"), storageField))
+			q = q.Join(zones, sqlchemy.Equals(zones.Field("id"), storages.Field("zone_id")))
+			q = q.Filter(sqlchemy.Equals(zones.Field("cloudregion_id"), rangeObj.GetId()))
 		} else if zoneField != nil {
-			zones := ZoneManager.Query().SubQuery()
-			subq := zones.Query(zones.Field("id")).Equals("cloudregion_id", rangeObj.GetId()).SubQuery()
-			q = q.Filter(sqlchemy.In(zoneField, subq))
+			zones := ZoneManager.Query("id", "cloudregion_id").SubQuery()
+			q = q.Join(zones, sqlchemy.Equals(zones.Field("id"), zoneField))
+			q = q.Filter(sqlchemy.Equals(zones.Field("cloudregion_id"), rangeObj.GetId()))
+		} else if regionField != nil {
+			q = q.Filter(sqlchemy.Equals(regionField, rangeObj.GetId()))
+		}
+	case "schedtag":
+		if hostField != nil {
+			hostschedtags := HostschedtagManager.Query("host_id", "schedtag_id").SubQuery()
+			q = q.Join(hostschedtags, sqlchemy.Equals(hostschedtags.Field("host_id"), hostField))
+			q = q.Filter(sqlchemy.Equals(hostschedtags.Field("schedtag_id"), rangeObj.GetId()))
+		} else if storageField != nil {
+			storageschedtags := StorageschedtagManager.Query("storage_id", "schedtag_id").SubQuery()
+			q = q.Join(storageschedtags, sqlchemy.Equals(storageschedtags.Field("storage_id"), storageField))
+			q = q.Filter(sqlchemy.Equals(storageschedtags.Field("schedtag_id"), rangeObj.GetId()))
 		}
 	}
 	return q

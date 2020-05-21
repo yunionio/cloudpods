@@ -950,7 +950,7 @@ func (manager *SStorageManager) totalCapacityQ(
 
 	if len(rangeObjs) > 0 || len(providers) > 0 || len(brands) > 0 || cloudEnv != "" {
 		q = CloudProviderFilter(q, storages.Field("manager_id"), providers, brands, cloudEnv)
-		q = RangeObjectsFilter(q, rangeObjs, nil, storages.Field("zone_id"), storages.Field("manager_id"))
+		q = RangeObjectsFilter(q, rangeObjs, nil, storages.Field("zone_id"), storages.Field("manager_id"), nil, storages.Field("id"))
 	}
 
 	q = q.Distinct()

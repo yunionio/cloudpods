@@ -531,7 +531,7 @@ func RegionUsage(rangeObjs []db.IStandaloneModel, providers []string, brands []s
 	if len(rangeObjs) > 0 || len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
 		subq := models.VpcManager.Query("cloudregion_id")
 		subq = models.CloudProviderFilter(subq, subq.Field("manager_id"), providers, brands, cloudEnv)
-		subq = models.RangeObjectsFilter(subq, rangeObjs, nil, nil, subq.Field("manager_id"))
+		subq = models.RangeObjectsFilter(subq, rangeObjs, nil, nil, subq.Field("manager_id"), nil, nil)
 		q = q.In("id", subq.SubQuery())
 	}
 
@@ -546,7 +546,7 @@ func ZoneUsage(rangeObjs []db.IStandaloneModel, providers []string, brands []str
 	if len(rangeObjs) > 0 || len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
 		subq := models.HostManager.Query("zone_id")
 		subq = models.CloudProviderFilter(subq, subq.Field("manager_id"), providers, brands, cloudEnv)
-		subq = models.RangeObjectsFilter(subq, rangeObjs, nil, nil, subq.Field("manager_id"))
+		subq = models.RangeObjectsFilter(subq, rangeObjs, nil, nil, subq.Field("manager_id"), nil, nil)
 		q = q.In("id", subq.SubQuery())
 	}
 
@@ -559,7 +559,7 @@ func VpcUsage(prefix string, providers []string, brands []string, cloudEnv strin
 	q := models.VpcManager.Query().IsFalse("is_emulated")
 	if len(rangeObjs) > 0 || len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
 		q = models.CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
-		q = models.RangeObjectsFilter(q, rangeObjs, nil, nil, q.Field("manager_id"))
+		q = models.RangeObjectsFilter(q, rangeObjs, nil, nil, q.Field("manager_id"), nil, nil)
 	}
 	if scope == rbacutils.ScopeDomain {
 		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
