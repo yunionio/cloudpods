@@ -27,6 +27,7 @@ type GuestnetworkShortDesc struct {
 	// IP地址
 	IpAddr string `json:"ip_addr"`
 	// 是否为外网网卡
+	// Deprecated
 	IsExit bool `json:"is_exit"`
 	// IPv6地址
 	Ip6Addr string `json:"ip6_addr"`
@@ -34,6 +35,10 @@ type GuestnetworkShortDesc struct {
 	Mac string `json:"mac"`
 	// Bonding的配对网卡MAC
 	TeamWith string `json:"team_with"`
+	// 所属Vpc
+	VpcId string `json:"vpc_id"`
+	// 所属Network
+	NetworkId string `json:"network_id"`
 }
 
 type GuestnetworkListInput struct {

@@ -265,20 +265,41 @@ func fetchGuestIPs(guestIds []string, virtual tristate.TriState) map[string][]st
 }
 
 func fetchGuestNICs(ctx context.Context, guestIds []string, virtual tristate.TriState) map[string][]api.GuestnetworkShortDesc {
-	q := GuestnetworkManager.Query().In("guest_id", guestIds)
-	nics := make([]SGuestnetwork, 0)
-	if err := q.All(&nics); err != nil {
+	netq := NetworkManager.Query().SubQuery()
+	wirq := WireManager.Query().SubQuery()
+	gnwq := GuestnetworkManager.Query()
+	q := gnwq.AppendField(
+		gnwq.Field("guest_id"),
+
+		gnwq.Field("ip_addr"),
+		gnwq.Field("ip6_addr"),
+		gnwq.Field("mac_addr").Label("mac"),
+		gnwq.Field("team_with"),
+		gnwq.Field("network_id"), // caution: do not alias netq.id as network_id
+		wirq.Field("vpc_id"),
+	)
+	q = q.Join(netq, sqlchemy.Equals(netq.Field("id"), gnwq.Field("network_id")))
+	q = q.Join(wirq, sqlchemy.Equals(wirq.Field("id"), netq.Field("wire_id")))
+	q = q.In("guest_id", guestIds)
+
+	var descs []struct {
+		GuestId string `json:"guest_id"`
+		api.GuestnetworkShortDesc
+	}
+	if err := q.All(&descs); err != nil {
+		if err != sql.ErrNoRows {
+			log.Errorf("query guest nics info: %v", err)
+		}
 		return nil
 	}
-	ret := make(map[string][]api.GuestnetworkShortDesc)
-	for i := range nics {
-		desc := api.GuestnetworkShortDesc{}
-		jsonDesc := nics[i].GetShortDesc(ctx)
-		jsonDesc.Unmarshal(&desc)
-		if _, ok := ret[nics[i].GuestId]; !ok {
-			ret[nics[i].GuestId] = []api.GuestnetworkShortDesc{desc}
+	ret := map[string][]api.GuestnetworkShortDesc{}
+	for i := range descs {
+		desc := &descs[i]
+		guestId := desc.GuestId
+		if _, ok := ret[guestId]; !ok {
+			ret[guestId] = []api.GuestnetworkShortDesc{desc.GuestnetworkShortDesc}
 		} else {
-			ret[nics[i].GuestId] = append(ret[nics[i].GuestId], desc)
+			ret[guestId] = append(ret[guestId], desc.GuestnetworkShortDesc)
 		}
 	}
 	return ret
