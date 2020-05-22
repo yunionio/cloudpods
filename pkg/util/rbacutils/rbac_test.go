@@ -489,6 +489,15 @@ func TestSRbacPolicyMatch(t *testing.T) {
 			},
 			true,
 		},
+		{
+			SRbacPolicy{
+				Projects: []string{},
+				Roles:    []string{"admin"},
+				Auth:     true,
+			},
+			NewRbacIdentity("", "", []string{"admin"}),
+			true,
+		},
 	}
 	for i, c := range cases {
 		got, _ := c.policy.Match(c.userCred)
