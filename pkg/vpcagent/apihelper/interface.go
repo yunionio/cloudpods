@@ -37,8 +37,9 @@ type IModelSet interface {
 	NewModel() db.IModel
 	AddModel(db.IModel)
 	Copy() IModelSet
+}
 
-	IncludeDetails() bool
+type IModelSetEmulatedIncluder interface {
 	IncludeEmulated() bool
 }
 
@@ -46,7 +47,13 @@ func SyncModelSets(mssOld IModelSets, s *mcclient.ClientSession, batchSize int) 
 	mss := mssOld.ModelSetList()
 	mssNews := mssOld.NewEmpty()
 	for i, msNew := range mssNews.ModelSetList() {
-		minUpdatedAt := ModelSetMaxUpdatedAt(mss[i])
+		var (
+			minUpdatedAt    = ModelSetMaxUpdatedAt(mss[i])
+			includeEmulated = false
+		)
+		if optProvider, ok := msNew.(IModelSetEmulatedIncluder); ok {
+			includeEmulated = optProvider.IncludeEmulated()
+		}
 		err = GetModels(&GetModelsOptions{
 			ClientSession: s,
 			ModelManager:  msNew.ModelManager(),
@@ -54,8 +61,8 @@ func SyncModelSets(mssOld IModelSets, s *mcclient.ClientSession, batchSize int) 
 			ModelSet:      msNew,
 			BatchListSize: batchSize,
 
-			IncludeDetails:  msNew.IncludeDetails(),
-			IncludeEmulated: msNew.IncludeEmulated(),
+			IncludeDetails:  false,
+			IncludeEmulated: includeEmulated,
 		})
 		if err != nil {
 			return
