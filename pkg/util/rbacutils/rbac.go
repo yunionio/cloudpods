@@ -588,7 +588,7 @@ func (policy *SRbacPolicy) IsSystemWidePolicy() bool {
 }
 
 func (policy *SRbacPolicy) MatchDomain(domainId string) bool {
-	if len(domainId) == 0 {
+	if len(policy.DomainId) == 0 || len(domainId) == 0 {
 		return true
 	}
 	if policy.DomainId == domainId {
@@ -601,7 +601,7 @@ func (policy *SRbacPolicy) MatchDomain(domainId string) bool {
 }
 
 func (policy *SRbacPolicy) MatchProject(projectName string) bool {
-	if len(policy.Projects) == 0 {
+	if len(policy.Projects) == 0 || len(projectName) == 0 {
 		return true
 	}
 	if contains(policy.Projects, projectName) {
