@@ -391,8 +391,8 @@ func (man *SAwsCachedLbbgManager) newFromCloudLoadbalancerBackendgroup(ctx conte
 	lbbg := &SAwsCachedLbbg{}
 	lbbg.SetModelManager(man, lbbg)
 
-	// lbbg.ManagerId = lb.ManagerId
-	// lbbg.CloudregionId = lb.CloudregionId
+	lbbg.ManagerId = lb.ManagerId
+	lbbg.CloudregionId = lb.CloudregionId
 	lbbg.LoadbalancerId = lb.Id
 	lbbg.BackendGroupId = LocalLbbg.GetId()
 	lbbg.ExternalId = extLoadbalancerBackendgroup.GetGlobalId()
