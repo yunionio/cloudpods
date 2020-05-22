@@ -433,12 +433,33 @@ func (manager *SElasticcacheBackupManager) FetchCustomizeColumns(
 
 	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	cacheRows := manager.SElasticcacheResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-
+	cacheIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.ElasticcacheBackupDetails{
 			StatusStandaloneResourceDetails: stdRows[i],
 			ElasticcacheResourceInfo:        cacheRows[i],
 		}
+		backup := objs[i].(*SElasticcacheBackup)
+		cacheIds[i] = backup.ElasticcacheId
+	}
+
+	caches := make(map[string]SElasticcache)
+	err := db.FetchStandaloneObjectsByIds(ElasticcacheManager, cacheIds, &caches)
+	if err != nil {
+		log.Errorf("FetchStandaloneObjectsByIds fail: %v", err)
+		return rows
+	}
+
+	virObjs := make([]interface{}, len(objs))
+	for i := range rows {
+		if cache, ok := caches[cacheIds[i]]; ok {
+			virObjs[i] = &cache
+		}
+	}
+
+	projRows := ElasticcacheManager.SProjectizedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, virObjs, fields, isList)
+	for i := range rows {
+		rows[i].ProjectizedResourceInfo = projRows[i]
 	}
 
 	return rows

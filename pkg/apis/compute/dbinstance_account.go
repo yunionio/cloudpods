@@ -81,6 +81,7 @@ type DBInstancePrivilege struct {
 
 type DBInstanceAccountDetails struct {
 	apis.StatusStandaloneResourceDetails
+	apis.ProjectizedResourceInfo
 	DBInstanceResourceInfo
 
 	SDBInstanceAccount

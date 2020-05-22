@@ -302,13 +302,36 @@ func (manager *SDBInstanceDatabaseManager) FetchCustomizeColumns(
 	rows := make([]api.DBInstancedatabaseDetails, len(objs))
 	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	dbRows := manager.SDBInstanceResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	dbinstanceIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.DBInstancedatabaseDetails{
 			StatusStandaloneResourceDetails: stdRows[i],
 			DBInstanceResourceInfo:          dbRows[i],
 		}
-		rows[i], _ = objs[i].(*SDBInstanceDatabase).getMoreDetails(ctx, userCred, rows[i])
+		database := objs[i].(*SDBInstanceDatabase)
+		rows[i], _ = database.getMoreDetails(ctx, userCred, rows[i])
+		dbinstanceIds[i] = database.DBInstanceId
 	}
+
+	dbinstances := make(map[string]SDBInstance)
+	err := db.FetchStandaloneObjectsByIds(DBInstanceManager, dbinstanceIds, &dbinstances)
+	if err != nil {
+		log.Errorf("FetchStandaloneObjectsByIds fail: %v", err)
+		return rows
+	}
+
+	virObjs := make([]interface{}, len(objs))
+	for i := range rows {
+		if dbinstance, ok := dbinstances[dbinstanceIds[i]]; ok {
+			virObjs[i] = &dbinstance
+		}
+	}
+
+	projRows := DBInstanceManager.SProjectizedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, virObjs, fields, isList)
+	for i := range rows {
+		rows[i].ProjectizedResourceInfo = projRows[i]
+	}
+
 	return rows
 }
 

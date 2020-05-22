@@ -18,6 +18,7 @@ import "yunion.io/x/onecloud/pkg/apis"
 
 type ElasticcacheBackupDetails struct {
 	apis.StatusStandaloneResourceDetails
+	apis.ProjectizedResourceInfo
 	ElasticcacheResourceInfo
 
 	SElasticcacheBackup
