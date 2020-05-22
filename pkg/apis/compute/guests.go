@@ -64,7 +64,9 @@ type ServerListInput struct {
 	UsableServerForEip string `json:"usable_server_for_eip"`
 
 	// 列出可以挂载磁盘的主机
-	AttachableServersForDisk string `json:"attachable_servers_for_disk" "yunion:deprecated-by":"disk"`
+	AttachableServersForDisk string `json:"attachable_servers_for_disk"`
+	// Deprecated:列出可以挂载磁盘的主机
+	Disk string `json:"disk" "yunion:deprecated-by":"attachable_servers_for_disk"`
 
 	// 按主机资源类型进行排序
 	// enum: shared,prepaid,dedicated
