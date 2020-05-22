@@ -275,17 +275,21 @@ func (self *SNotificationManager) syncDatabase(ids []string) error {
 
 // 通知消息列表
 func (self *SNotificationManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	input api.NotificationListInput) (*sqlchemy.SQuery, error) {
 
 	// no domainID for now
-	scopeStr, err := query.GetString("scope")
-	if err != nil {
-		scopeStr = "system"
+	scopeStr := "system"
+	if len(input.Scope) > 0 {
+		scopeStr = input.Scope
 	}
 	scope := rbacutils.TRbacScope(scopeStr)
 
 	if !scope.HigherEqual(rbacutils.ScopeSystem) {
 		q = q.Equals("uid", userCred.GetUserId())
+	}
+
+	if len(input.ContactType) > 0 {
+		q = q.Equals("contact_type", input.ContactType)
 	}
 
 	q = q.GroupBy("cluster_id").Desc("received_at")
