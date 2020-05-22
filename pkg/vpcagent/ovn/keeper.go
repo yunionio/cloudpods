@@ -190,7 +190,7 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 	args = append(args, ovnCreateArgs(netMdp, netMdp.Name)...)
 	args = append(args, ovnCreateArgs(dhcpopts, "dhcpopts")...)
 	args = append(args, "--", "add", "Logical_Switch", netLs.Name, "ports", "@"+netNrp.Name, "@"+netMdp.Name)
-	args = append(args, "--", "add", "Logical_Router", vpcLrName(network.VpcId), "ports", "@"+netRnp.Name)
+	args = append(args, "--", "add", "Logical_Router", vpcLrName(network.Vpc.Id), "ports", "@"+netRnp.Name)
 	return keeper.cli.Must(ctx, "ClaimNetwork", args)
 }
 

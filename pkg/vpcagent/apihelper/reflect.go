@@ -38,9 +38,10 @@ type GetModelsOptions struct {
 	ModelManager  mcclient_modulebase.IBaseManager
 	ModelSet      IModelSet
 
-	BatchListSize  int
-	MinUpdatedAt   time.Time
-	IncludeDetails bool
+	BatchListSize   int
+	MinUpdatedAt    time.Time
+	IncludeDetails  bool
+	IncludeEmulated bool
 }
 
 func GetModels(opts *GetModelsOptions) error {
@@ -100,8 +101,9 @@ func GetModels(opts *GetModelsOptions) error {
 	}
 
 	listOptions := options.BaseListOptions{
-		Admin:   options.Bool(true),
-		Details: options.Bool(opts.IncludeDetails),
+		Admin:        options.Bool(true),
+		Details:      options.Bool(opts.IncludeDetails),
+		ShowEmulated: options.Bool(opts.IncludeEmulated),
 		Filter: []string{
 			minUpdatedAtFilter(minUpdatedAt), // order matters, filter.0
 			"manager_id.isnullorempty()",     // len(manager_id) > 0 is for pubcloud objects

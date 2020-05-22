@@ -39,6 +39,7 @@ func init() {
 
 type ModelSetsMaxUpdatedAt struct {
 	Vpcs               time.Time
+	Wires              time.Time
 	Networks           time.Time
 	Guests             time.Time
 	Hosts              time.Time
@@ -51,6 +52,7 @@ type ModelSetsMaxUpdatedAt struct {
 func NewModelSetsMaxUpdatedAt() *ModelSetsMaxUpdatedAt {
 	return &ModelSetsMaxUpdatedAt{
 		Vpcs:               apihelper.PseudoZeroTime,
+		Wires:              apihelper.PseudoZeroTime,
 		Networks:           apihelper.PseudoZeroTime,
 		Guests:             apihelper.PseudoZeroTime,
 		Hosts:              apihelper.PseudoZeroTime,
@@ -63,6 +65,7 @@ func NewModelSetsMaxUpdatedAt() *ModelSetsMaxUpdatedAt {
 
 type ModelSets struct {
 	Vpcs               Vpcs
+	Wires              Wires
 	Networks           Networks
 	Guests             Guests
 	Hosts              Hosts
@@ -75,6 +78,7 @@ type ModelSets struct {
 func NewModelSets() *ModelSets {
 	return &ModelSets{
 		Vpcs:               Vpcs{},
+		Wires:              Wires{},
 		Networks:           Networks{},
 		Guests:             Guests{},
 		Hosts:              Hosts{},
@@ -89,6 +93,7 @@ func (mss *ModelSets) ModelSetList() []apihelper.IModelSet {
 	// it's ordered this way to favour creation, not deletion
 	return []apihelper.IModelSet{
 		mss.Vpcs,
+		mss.Wires,
 		mss.Networks,
 		mss.Guests,
 		mss.Hosts,
@@ -106,6 +111,7 @@ func (mss *ModelSets) NewEmpty() apihelper.IModelSets {
 func (mss *ModelSets) Copy() apihelper.IModelSets {
 	mssCopy := &ModelSets{
 		Vpcs:               mss.Vpcs.Copy().(Vpcs),
+		Wires:              mss.Wires.Copy().(Wires),
 		Networks:           mss.Networks.Copy().(Networks),
 		Guests:             mss.Guests.Copy().(Guests),
 		Hosts:              mss.Hosts.Copy().(Hosts),
@@ -141,6 +147,8 @@ func (mss *ModelSets) ApplyUpdates(mssNews apihelper.IModelSets) apihelper.Model
 func (mss *ModelSets) join() bool {
 	mss.Guests.initJoin()
 	var p []bool
+	p = append(p, mss.Vpcs.joinWires(mss.Wires))
+	p = append(p, mss.Wires.joinNetworks(mss.Networks))
 	p = append(p, mss.Vpcs.joinNetworks(mss.Networks))
 	p = append(p, mss.Networks.joinGuestnetworks(mss.Guestnetworks))
 	p = append(p, mss.Guests.joinHosts(mss.Hosts))

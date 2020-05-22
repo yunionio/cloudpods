@@ -247,11 +247,8 @@ func TestBaseListOptions(t *testing.T) {
 		}
 		for _, f := range []string{"details"} {
 			got, err := params.Bool(f)
-			if err != nil {
-				t.Fatalf("getting %s field failed: %s", f, err)
-			}
-			if !got {
-				t.Errorf("expecting %s=true, got false", f)
+			if got {
+				t.Fatalf("pending_delete=all should not imply details=true: %v", err)
 			}
 		}
 	})

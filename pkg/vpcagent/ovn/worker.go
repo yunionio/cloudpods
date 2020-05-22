@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	apis "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	mcclient_modules "yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/vpcagent/apihelper"
@@ -110,6 +111,9 @@ func (w *Worker) run(ctx context.Context, mss *agentmodels.ModelSets) (err error
 
 	ovndb.Mark(ctx)
 	for _, vpc := range mss.Vpcs {
+		if vpc.Id == apis.DEFAULT_VPC_ID {
+			continue
+		}
 		ovndb.ClaimVpc(ctx, vpc)
 		for _, network := range vpc.Networks {
 			ovndb.ClaimNetwork(ctx, network)

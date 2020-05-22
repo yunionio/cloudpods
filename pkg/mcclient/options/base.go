@@ -267,7 +267,6 @@ func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
 	}
 	if BoolV(opts.PendingDeleteAll) {
 		params.Set("pending_delete", jsonutils.NewString("all"))
-		params.Set("details", jsonutils.JSONTrue) // required to get pending_deleted field
 	}
 	/*if opts.Admin == nil {
 		requiresSystem := len(opts.Tenant) > 0 ||
