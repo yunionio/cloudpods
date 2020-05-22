@@ -766,12 +766,6 @@ func (manager *SScalingGroupManager) ListItemExportKeys(ctx context.Context,
 			return nil, errors.Wrap(err, "SGuestTemplateResourceBaseManager.ListItemExportKeys")
 		}
 	}
-	if keys.ContainsAny(manager.SGuestResourceBaseManager.GetExportKeys()...) {
-		q, err = manager.SGuestResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
-		if err != nil {
-			return nil, errors.Wrap(err, "SGuestResourceBaseManager.ListItemExportKeys")
-		}
-	}
 
 	return q, nil
 }
