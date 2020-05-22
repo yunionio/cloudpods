@@ -471,9 +471,26 @@ func (self *NotifyModelDispatcher) UpdateContacts(ctx context.Context, idstr str
 		newDatas = append(newDatas, tmp)
 	}
 
+	// Enable closing feishu and dingtalk notify.
+	// Temporary solution for 3.2.
+	allPullType := sets.NewString(models.FEISHU, models.DINGTALK)
+
 	pulls := make([]string, len(pullCtypes))
 	for i := range pullCtypes {
 		pulls[i], _ = pullCtypes[i].GetString()
+		allPullType.Delete(pulls[i])
+	}
+
+	// delete first
+	records, err = models.ContactManager.FetchByUIDAndCType(idstr, allPullType.UnsortedList())
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+	for i := range records {
+		err := DeleteItem(&records[i], ctx, userCred, jsonutils.JSONNull, jsonutils.JSONNull)
+		if err != nil {
+			deleteFailed = append(deleteFailed, fmt.Sprintf(`uid:%q, contact_type:%q`, idstr, records[i].ContactType))
+		}
 	}
 
 	if len(pulls) > 0 {
