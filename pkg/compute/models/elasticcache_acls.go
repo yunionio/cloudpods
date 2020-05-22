@@ -420,11 +420,33 @@ func (manager *SElasticcacheAclManager) FetchCustomizeColumns(
 	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	elasticRows := manager.SElasticcacheResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
+	cacheIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.ElasticcacheAclDetails{
 			StandaloneResourceDetails: stdRows[i],
 			ElasticcacheResourceInfo:  elasticRows[i],
 		}
+		acl := objs[i].(*SElasticcacheAcl)
+		cacheIds[i] = acl.ElasticcacheId
+	}
+
+	caches := make(map[string]SElasticcache)
+	err := db.FetchStandaloneObjectsByIds(ElasticcacheManager, cacheIds, &caches)
+	if err != nil {
+		log.Errorf("FetchStandaloneObjectsByIds fail: %v", err)
+		return rows
+	}
+
+	virObjs := make([]interface{}, len(objs))
+	for i := range rows {
+		if cache, ok := caches[cacheIds[i]]; ok {
+			virObjs[i] = &cache
+		}
+	}
+
+	projRows := ElasticcacheManager.SProjectizedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, virObjs, fields, isList)
+	for i := range rows {
+		rows[i].ProjectizedResourceInfo = projRows[i]
 	}
 
 	return rows
