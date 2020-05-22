@@ -550,3 +550,7 @@ func (self *SRegion) addTags(resId string, key string, value string) error {
 	}
 	return nil
 }
+
+func (self *SImage) UEFI() bool {
+	return false
+}

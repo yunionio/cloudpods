@@ -285,3 +285,7 @@ func (region *SRegion) CreateImage(imageName string, osType string, osDist strin
 	image := &SImage{}
 	return image, resp.Unmarshal(image)
 }
+
+func (self *SImage) UEFI() bool {
+	return false
+}

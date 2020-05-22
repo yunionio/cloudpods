@@ -221,3 +221,7 @@ func (self *SRegion) DeleteImage(imageId string) error {
 
 	return self.DoAction("TerminateCustomImage", params, nil)
 }
+
+func (self *SImage) UEFI() bool {
+	return false
+}
