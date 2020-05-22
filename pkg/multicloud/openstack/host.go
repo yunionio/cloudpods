@@ -231,10 +231,18 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 			"destination_type":      "volume",
 			"delete_on_termination": true,
 		})
+	} else {
+		BlockDeviceMappingV2 = append(BlockDeviceMappingV2, map[string]interface{}{
+			"boot_index":            0,
+			"uuid":                  image.ID,
+			"source_type":           "image",
+			"destination_type":      "local",
+			"delete_on_termination": true,
+		})
 	}
 
 	var _disk *SDisk
-	for _, disk := range desc.DataDisks {
+	for index, disk := range desc.DataDisks {
 		istorage, err := host.zone.GetIStorageById(disk.StorageExternalId)
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetIStorageById(%s)", disk.StorageExternalId)
@@ -249,6 +257,7 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 			"source_type":           "volume",
 			"destination_type":      "volume",
 			"delete_on_termination": true,
+			"boot_index":            index + 1,
 			"uuid":                  _disk.ID,
 		}
 
