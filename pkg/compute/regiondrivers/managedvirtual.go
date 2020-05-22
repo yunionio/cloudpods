@@ -1545,7 +1545,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncSecurityGroup(ctx con
 	sort.Sort(outRules)
 	_inAllowList := inRules.AllowList()
 	_outAllowList := outRules.AllowList()
-	if inAllowList.Equals(_inAllowList) && outAllowList.Equals(_outAllowList) {
+	if inAllowList.Equals(_inAllowList) && outAllowList.Equals(_outAllowList) && (len(_inAllowList) > 0 && len(_outAllowList) > 0) { // 避免单个deny any的allowList为空,导致安全组规则未同步
 		return cache.ExternalId, nil
 	}
 
