@@ -283,3 +283,7 @@ func (region *SRegion) CreateImage(zoneId string, imageName, format, osType, des
 	defer resp.Body.Close()
 	return image, nil
 }
+
+func (self *SImage) UEFI() bool {
+	return false
+}

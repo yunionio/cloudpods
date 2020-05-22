@@ -203,3 +203,7 @@ func (self *SRegion) GetImage(imageId string) (*SImage, error) {
 
 	return nil, errors.Wrap(cloudprovider.ErrNotFound, "SRegion.GetImage")
 }
+
+func (self *SImage) UEFI() bool {
+	return false
+}

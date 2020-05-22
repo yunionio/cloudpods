@@ -377,3 +377,7 @@ func (self *SRegion) DeleteImage(imageId string) error {
 	}
 	return nil
 }
+
+func (self *SImage) UEFI() bool {
+	return false
+}

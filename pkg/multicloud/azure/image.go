@@ -76,6 +76,7 @@ type ImageProperties struct {
 	SourceVirtualMachine *SubResource
 	StorageProfile       ImageStorageProfile `json:"storageProfile,omitempty"`
 	ProvisioningState    ImageStatusType
+	HyperVGeneration     string `json:"hyperVGeneration,omitempty"`
 }
 
 type SImage struct {
@@ -327,6 +328,7 @@ func (self *SRegion) getOfferedImages(publishersFilter []string, offersFilter []
 			image.ImageType = imageType
 			image.Properties.StorageProfile.OsDisk.DiskSizeGB = int32(_image.Properties.OsDiskImage.SizeInGb)
 			image.Properties.StorageProfile.OsDisk.OsType = _image.Properties.OsDiskImage.OperatingSystem
+			image.Properties.HyperVGeneration = _image.Properties.HyperVGeneration
 			images = append(images, image)
 		}
 	}
@@ -446,8 +448,9 @@ type SOsDiskImage struct {
 }
 
 type SAzureImageResourceProperties struct {
-	ReplicaType string       `json:"replicaType"`
-	OsDiskImage SOsDiskImage `json:"osDiskImage"`
+	ReplicaType      string       `json:"replicaType"`
+	OsDiskImage      SOsDiskImage `json:"osDiskImage"`
+	HyperVGeneration string       `json:"hyperVGeneration,omitempty"`
 }
 
 type SAzureImageResource struct {
@@ -586,6 +589,7 @@ func (region *SRegion) getOfferedImage(offerId string) (SImage, error) {
 	if err == nil {
 		image.Properties.StorageProfile.OsDisk.DiskSizeGB = int32(_image.Properties.OsDiskImage.SizeInGb)
 		image.Properties.StorageProfile.OsDisk.OperatingSystem = _image.Properties.OsDiskImage.OperatingSystem
+		image.Properties.HyperVGeneration = _image.Properties.HyperVGeneration
 	}
 	return image, nil
 }
@@ -615,4 +619,8 @@ func (image *SImage) getImageReference() ImageReference {
 			Offer:     image.Offer,
 		}
 	}
+}
+
+func (image *SImage) UEFI() bool {
+	return image.Properties.HyperVGeneration == "V2"
 }

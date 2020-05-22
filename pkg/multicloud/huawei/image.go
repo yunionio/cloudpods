@@ -461,3 +461,7 @@ func stdVersion(osDist string, osVersion string, osArch string) (string, error) 
 
 	return fmt.Sprintf("%s %s %s", dist, ver, arch), nil
 }
+
+func (self *SImage) UEFI() bool {
+	return false
+}
