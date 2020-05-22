@@ -69,6 +69,7 @@ type ElasticcacheFilterListInput struct {
 
 type ElasticcacheAccountDetails struct {
 	apis.StatusStandaloneResourceDetails
+	apis.ProjectizedResourceInfo
 	ElasticcacheResourceInfo
 
 	SElasticcacheAccount
@@ -76,6 +77,7 @@ type ElasticcacheAccountDetails struct {
 
 type ElasticcacheAclDetails struct {
 	apis.StandaloneResourceDetails
+	apis.ProjectizedResourceInfo
 	ElasticcacheResourceInfo
 
 	SElasticcacheAcl

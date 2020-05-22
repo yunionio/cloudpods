@@ -217,12 +217,35 @@ func (manager *SSecurityGroupRuleManager) FetchCustomizeColumns(
 	rows := make([]api.SecgroupRuleDetails, len(objs))
 	bRows := manager.SResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	secRows := manager.SSecurityGroupResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	secIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.SecgroupRuleDetails{
 			ResourceBaseDetails:       bRows[i],
 			SecurityGroupResourceInfo: secRows[i],
 		}
+		rule := objs[i].(*SSecurityGroupRule)
+		secIds[i] = rule.SecgroupId
 	}
+
+	secgroups := make(map[string]SSecurityGroup)
+	err := db.FetchStandaloneObjectsByIds(SecurityGroupManager, secIds, &secgroups)
+	if err != nil {
+		log.Errorf("FetchStandaloneObjectsByIds fail: %v", err)
+		return rows
+	}
+
+	virObjs := make([]interface{}, len(objs))
+	for i := range rows {
+		if secgroup, ok := secgroups[secIds[i]]; ok {
+			virObjs[i] = &secgroup
+		}
+	}
+
+	projRows := SecurityGroupManager.SProjectizedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, virObjs, fields, isList)
+	for i := range rows {
+		rows[i].ProjectizedResourceInfo = projRows[i]
+	}
+
 	return rows
 }
 

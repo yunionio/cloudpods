@@ -63,6 +63,7 @@ type DBInstanceDatabaseCreateInput struct {
 
 type DBInstancedatabaseDetails struct {
 	apis.StatusStandaloneResourceDetails
+	apis.ProjectizedResourceInfo
 	DBInstanceResourceInfo
 
 	SDBInstanceDatabase
