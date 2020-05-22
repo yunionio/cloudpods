@@ -525,10 +525,10 @@ func (manager *SPolicyManager) AllPolicies() map[string][]string {
 }
 
 func (manager *SPolicyManager) RoleMatchPolicies(roleName string) []string {
+	ident := rbacutils.NewRbacIdentity("", "", []string{roleName})
 	ret := make([]string, 0)
 	for _, policies := range manager.policies {
 		for name, policy := range policies {
-			ident := rbacutils.NewRbacIdentity("", "", []string{roleName})
 			if matched, _ := policy.Match(ident); matched {
 				ret = append(ret, name)
 			}
