@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/reflectutils"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -165,12 +166,38 @@ func (manager *SWireResourceBaseManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
 	}
 
-	zoneQuery := api.ZonalFilterListInput{
-		ZonalFilterListBase: query.ZonalFilterListBase,
-	}
-	wireQ, err = manager.SZoneResourceBaseManager.ListItemFilter(ctx, wireQ, userCred, zoneQuery)
-	if err != nil {
-		return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemFilter")
+	if len(query.Zone) > 0 {
+		sq := ZoneManager.Query().SubQuery()
+		q := CloudregionManager.Query()
+		q = q.Join(sq, sqlchemy.Equals(sq.Field("cloudregion_id"), q.Field("id"))).Filter(sqlchemy.OR(
+			sqlchemy.Equals(sq.Field("id"), query.Zone),
+			sqlchemy.Equals(sq.Field("name"), query.Zone),
+		))
+		count, err := q.CountWithError()
+		if err != nil {
+			return nil, errors.Wrap(err, "CountWithError")
+		}
+		if count < 1 {
+			return nil, httperrors.NewResourceNotFoundError2("zone", query.Zone)
+		}
+		region := &SCloudregion{}
+		err = q.First(region)
+		if err != nil {
+			return nil, errors.Wrap(err, "q.First")
+		}
+		if utils.IsInStringArray(region.Provider, api.REGIONAL_NETWORK_PROVIDERS) {
+			vpcQ := VpcManager.Query().SubQuery()
+			q = q.Join(vpcQ, sqlchemy.Equals(vpcQ.Field("id"), q.Field("vpc_id"))).
+				Filter(sqlchemy.Equals(vpcQ.Field("cloudregion_id"), region.Id))
+		} else {
+			zoneQuery := api.ZonalFilterListInput{
+				ZonalFilterListBase: query.ZonalFilterListBase,
+			}
+			wireQ, err = manager.SZoneResourceBaseManager.ListItemFilter(ctx, wireQ, userCred, zoneQuery)
+			if err != nil {
+				return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemFilter")
+			}
+		}
 	}
 
 	if wireQ.IsAltered() {
