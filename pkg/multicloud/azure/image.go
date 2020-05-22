@@ -328,6 +328,7 @@ func (self *SRegion) getOfferedImages(publishersFilter []string, offersFilter []
 			image.ImageType = imageType
 			image.Properties.StorageProfile.OsDisk.DiskSizeGB = int32(_image.Properties.OsDiskImage.SizeInGb)
 			image.Properties.StorageProfile.OsDisk.OsType = _image.Properties.OsDiskImage.OperatingSystem
+			image.Properties.HyperVGeneration = _image.Properties.HyperVGeneration
 			images = append(images, image)
 		}
 	}
@@ -447,8 +448,9 @@ type SOsDiskImage struct {
 }
 
 type SAzureImageResourceProperties struct {
-	ReplicaType string       `json:"replicaType"`
-	OsDiskImage SOsDiskImage `json:"osDiskImage"`
+	ReplicaType      string       `json:"replicaType"`
+	OsDiskImage      SOsDiskImage `json:"osDiskImage"`
+	HyperVGeneration string       `json:"hyperVGeneration,omitempty"`
 }
 
 type SAzureImageResource struct {
@@ -587,6 +589,7 @@ func (region *SRegion) getOfferedImage(offerId string) (SImage, error) {
 	if err == nil {
 		image.Properties.StorageProfile.OsDisk.DiskSizeGB = int32(_image.Properties.OsDiskImage.SizeInGb)
 		image.Properties.StorageProfile.OsDisk.OperatingSystem = _image.Properties.OsDiskImage.OperatingSystem
+		image.Properties.HyperVGeneration = _image.Properties.HyperVGeneration
 	}
 	return image, nil
 }
