@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -342,12 +343,18 @@ func (self *SRegion) GetOfferedImageIDs(publishersFilter []string, offersFilter 
 		offers, err := self.getImageOffers(publisher, toLowerStringArray(offersFilter))
 		if err != nil {
 			log.Errorf("failed to found offers for publisher %s error: %v", publisher, err)
+			if errors.Cause(err) != cloudprovider.ErrNotFound {
+				return nil, errors.Wrap(err, "getImageOffers")
+			}
 			continue
 		}
 		for _, offer := range offers {
 			skus, err := self.getImageSkus(publisher, offer, toLowerStringArray(skusFilter))
 			if err != nil {
 				log.Errorf("failed to found skus for publisher %s offer %s error: %v", publisher, offer, err)
+				if errors.Cause(err) != cloudprovider.ErrNotFound {
+					return nil, errors.Wrap(err, "getImageSkus")
+				}
 				continue
 			}
 			for _, sku := range skus {
@@ -355,6 +362,9 @@ func (self *SRegion) GetOfferedImageIDs(publishersFilter []string, offersFilter 
 				vers, err := self.getImageVersions(publisher, offer, sku, verFilter, latestVer)
 				if err != nil {
 					log.Errorf("failed to found publisher %s offer %s sku %s version error: %v", publisher, offer, sku, err)
+					if errors.Cause(err) != cloudprovider.ErrNotFound {
+						return nil, errors.Wrap(err, "getImageVersions")
+					}
 					continue
 				}
 				for _, ver := range vers {
