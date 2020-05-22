@@ -94,6 +94,15 @@ type SIsolatedDevice struct {
 	Addr string `width:"16" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 
 	VendorDeviceId string `width:"16" charset:"ascii" nullable:"true" list:"domain" create:"domain_optional"`
+
+	// reserved memory size for isolated device, default 8G
+	ReservedMemory int `nullable:"true" default:"8192" list:"domain" update:"domain" create:"domain_optional"`
+
+	// reserved cpu count for isolated device, default 8
+	ReservedCpu int `nullable:"true" default:"8" list:"domain" update:"domain" create:"domain_optional"`
+
+	// reserved storage size for isolated device, default 100G
+	ReservedStorage int `nullable:"true" default:"102400" list:"domain" update:"domain" create:"domain_optional"`
 }
 
 func (manager *SIsolatedDeviceManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -134,11 +143,46 @@ func (manager *SIsolatedDeviceManager) ValidateCreateData(ctx context.Context,
 		return input, errors.Wrap(err, "SStandaloneResourceBaseManager.ValidateCreateData")
 	}
 
+	if input.ReservedCpu != nil && *input.ReservedCpu < 0 {
+		return input, httperrors.NewInputParameterError("reserved cpu must >= 0")
+	}
+	if input.ReservedMemory != nil && *input.ReservedMemory < 0 {
+		return input, httperrors.NewInputParameterError("reserved memory must >= 0")
+	}
+	if input.ReservedStorage != nil && *input.ReservedStorage < 0 {
+		return input, httperrors.NewInputParameterError("reserved storage must >= 0")
+	}
 	return input, nil
 }
 
 func (self *SIsolatedDevice) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
 	return db.IsAdminAllowUpdate(userCred, self)
+}
+
+func (self *SIsolatedDevice) ValidateUpdateData(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, input api.IsolatedDeviceUpdateInput,
+) (api.IsolatedDeviceUpdateInput, error) {
+	var err error
+	input.StandaloneResourceBaseUpdateInput, err = self.SStandaloneResourceBase.ValidateUpdateData(
+		ctx, userCred, query, input.StandaloneResourceBaseUpdateInput)
+	if err != nil {
+		return input, err
+	}
+	if input.ReservedCpu != nil && *input.ReservedCpu < 0 {
+		return input, httperrors.NewInputParameterError("reserved cpu must >= 0")
+	}
+	if input.ReservedMemory != nil && *input.ReservedMemory < 0 {
+		return input, httperrors.NewInputParameterError("reserved memory must >= 0")
+	}
+	if input.ReservedStorage != nil && *input.ReservedStorage < 0 {
+		return input, httperrors.NewInputParameterError("reserved storage must >= 0")
+	}
+	return input, nil
+}
+
+func (self *SIsolatedDevice) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	HostManager.ClearSchedDescCache(self.HostId)
 }
 
 // 直通设备（GPU等）列表

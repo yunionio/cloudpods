@@ -40,11 +40,6 @@ type SchedOptions struct {
 	SchedulerHistoryLimit       int    `help:"Scheduler history items' limitations" default:"1000"`
 	SchedulerHistoryCleanPeriod string `help:"Scheduler history cleanup period" default:"60s"`
 
-	// per isolated device default reserverd resource
-	MemoryReservedPerIsolatedDevice  int64 `help:"Per isolated device default reserverd memory size in MB" default:"8192"`    // 8G
-	CpuReservedPerIsolatedDevice     int64 `help:"Per isolated device default reserverd CPU count" default:"8"`               // 8 core
-	StorageReservedPerIsolatedDevice int64 `help:"Per isolated device default reserverd storage size in MB" default:"102400"` // 100G
-
 	// parallelization options
 	HostBuildParallelizeSize int `help:"Number of host description build parallelization" default:"14"`
 	PredicateParallelizeSize int `help:"Number of execute predicates parallelization" default:"14"`
