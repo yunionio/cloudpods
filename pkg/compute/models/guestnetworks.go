@@ -652,7 +652,7 @@ func totalGuestNicCount(
 	q = q.Join(hosts, sqlchemy.Equals(guests.Field("host_id"), hosts.Field("id")))
 
 	q = CloudProviderFilter(q, hosts.Field("manager_id"), providers, brands, cloudEnv)
-	q = RangeObjectsFilter(q, rangeObjs, nil, hosts.Field("zone_id"), hosts.Field("manager_id"))
+	q = RangeObjectsFilter(q, rangeObjs, nil, hosts.Field("zone_id"), hosts.Field("manager_id"), hosts.Field("id"), nil)
 
 	switch scope {
 	case rbacutils.ScopeSystem:
