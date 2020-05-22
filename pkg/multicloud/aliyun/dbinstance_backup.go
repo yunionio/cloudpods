@@ -187,12 +187,36 @@ func (rds *SDBInstance) GetIDBInstanceBackups() ([]cloudprovider.ICloudDBInstanc
 func (rds *SDBInstance) CreateIBackup(conf *cloudprovider.SDBInstanceBackupCreateConfig) (string, error) {
 	params := map[string]string{
 		"DBInstanceId": rds.DBInstanceId,
-		"BackupMethod": "Snapshot",
 	}
-	if len(conf.Databases) > 0 {
-		params["BackupStrategy"] = "db"
-		params["DBName"] = strings.Join(conf.Databases, ",")
-		params["BackupMethod"] = "Logical"
+	switch rds.Engine {
+	case api.DBINSTANCE_TYPE_MYSQL:
+		if utils.IsInStringArray(rds.EngineVersion, []string{"5.7", "8.0"}) && ((utils.IsInStringArray(rds.GetStorageType(), []string{
+			api.ALIYUN_DBINSTANCE_STORAGE_TYPE_CLOUD_ESSD,
+			api.ALIYUN_DBINSTANCE_STORAGE_TYPE_CLOUD_SSD,
+		}) && rds.GetCategory() == api.ALIYUN_DBINSTANCE_CATEGORY_HA) ||
+			(rds.GetStorageType() == api.ALIYUN_DBINSTANCE_STORAGE_TYPE_CLOUD_SSD &&
+				rds.GetCategory() == api.ALIYUN_DBINSTANCE_CATEGORY_BASIC)) {
+			params["BackupMethod"] = "Snapshot"
+		} else {
+			params["BackupMethod"] = "Physical"
+			if len(conf.Databases) > 0 {
+				params["BackupStrategy"] = "db"
+				params["DBName"] = strings.Join(conf.Databases, ",")
+				params["BackupMethod"] = "Logical"
+			}
+		}
+	case api.DBINSTANCE_TYPE_MARIADB:
+		params["BackupMethod"] = "Snapshot"
+	case api.DBINSTANCE_TYPE_SQLSERVER:
+		params["BackupMethod"] = "Physical"
+	case api.DBINSTANCE_TYPE_POSTGRESQL:
+		if rds.GetStorageType() == api.ALIYUN_DBINSTANCE_STORAGE_TYPE_LOCAL_SSD {
+			params["BackupMethod"] = "Physical"
+		} else {
+			params["BackupMethod"] = "Snapshot"
+		}
+	case api.DBINSTANCE_TYPE_PPAS:
+		params["BackupMethod"] = "Physical"
 	}
 	body, err := rds.region.rdsRequest("CreateBackup", params)
 	if err != nil {
