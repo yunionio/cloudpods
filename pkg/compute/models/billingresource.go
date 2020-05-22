@@ -158,7 +158,8 @@ func (manager *SBillingResourceBaseManager) OrderByExtraFields(
 func ListExpiredPostpaidResources(
 	q *sqlchemy.SQuery, limit int) *sqlchemy.SQuery {
 	q = q.Equals("billing_type", api.BILLING_TYPE_POSTPAID)
-	q = q.GE("expired_at", time.Now())
+	q = q.IsNotNull("expired_at")
+	q = q.LT("expired_at", time.Now())
 	if limit > 0 {
 		q = q.Limit(limit)
 	}
