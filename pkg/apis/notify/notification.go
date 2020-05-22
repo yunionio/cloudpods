@@ -25,3 +25,8 @@ type NotificationDetails struct {
 
 	UserList jsonutils.JSONObject `json:"user_list"`
 }
+
+type NotificationListInput struct {
+	Scope       string `json:"scope"`
+	ContactType string `json:"contact_type"`
+}
