@@ -605,6 +605,7 @@ func (this *projectRoles) add(roleId, roleName string) {
 
 func (this *projectRoles) getToken(scope rbacutils.TRbacScope, user, userId, domain, domainId string, ip string) mcclient.TokenCredential {
 	return &mcclient.SSimpleToken{
+		Token:           "faketoken",
 		Domain:          domain,
 		DomainId:        domainId,
 		User:            user,
@@ -644,9 +645,9 @@ func (this *projectRoles) json(user, userId, domain, domainId string, ip string)
 	}
 	obj.Add(roles, "roles")
 	for _, scope := range []rbacutils.TRbacScope{
-		rbacutils.ScopeSystem,
-		rbacutils.ScopeDomain,
 		rbacutils.ScopeProject,
+		rbacutils.ScopeDomain,
+		rbacutils.ScopeSystem,
 	} {
 		token := this.getToken(scope, user, userId, domain, domainId, ip)
 		matches := policy.PolicyManager.MatchedPolicyNames(scope, token)
