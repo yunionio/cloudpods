@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/torrentutils"
 )
 
+// +onecloud:swagger-gen-ignore
 type SImageSubformatManager struct {
 	db.SResourceBaseManager
 }

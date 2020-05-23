@@ -16,6 +16,7 @@ package models
 
 import "yunion.io/x/onecloud/pkg/cloudcommon/db"
 
+// +onecloud:swagger-gen-ignore
 type SFederationProtocolManager struct {
 	db.SModelBaseManager
 }

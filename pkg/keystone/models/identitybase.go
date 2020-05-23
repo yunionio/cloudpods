@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-ignore
 type IIdentityModelManager interface {
 	db.IStandaloneModelManager
 
@@ -46,6 +47,7 @@ type IIdentityModel interface {
 	GetIIdentityModel() IIdentityModel
 }
 
+// +onecloud:swagger-gen-ignore
 type SIdentityBaseResourceManager struct {
 	db.SStandaloneResourceBaseManager
 	db.SDomainizedResourceBaseManager
@@ -65,6 +67,7 @@ type SIdentityBaseResource struct {
 	// DomainId string `width:"64" charset:"ascii" default:"default" nullable:"false" index:"true" list:"user"`
 }
 
+// +onecloud:swagger-gen-ignore
 type SEnabledIdentityBaseResourceManager struct {
 	SIdentityBaseResourceManager
 }

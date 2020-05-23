@@ -126,20 +126,10 @@ class ModelAPI(FuncDispatcher):
     def gen_cloudcommon(self):
         self.run(pkg=["cloudcommon", "db"])
         self.run(pkg=["cloudcommon", "db", "proxy"], out=["cloudcommon", "proxy"])
-
-    def gen_cloudprovider(self):
         self.run_same("cloudprovider")
-
-    def gen_compute(self):
-        self.run_model("compute")
-
-    def gen_image(self):
-        self.run_model("image")
-
-    def gen_identity(self):
         self.run(pkg=["keystone", "models"], out=["identity"])
-
-    def gen_monitor(self):
+        self.run_model("compute")
+        self.run_model("image")
         self.run(pkg=["monitor", "models"], out=["monitor"])
 
 class SwaggerCode(FuncDispatcher):
