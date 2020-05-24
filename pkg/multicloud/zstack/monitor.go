@@ -31,7 +31,8 @@ type DataPoint struct {
 }
 
 type Label struct {
-	VMUuid string `json:"VMUuid"`
+	VMUuid   string `json:"VMUuid"`
+	HostUuid string `json:"HostUuid"`
 }
 
 func (region *SRegion) GetMonitorData(name string, namespace string, since time.Time,
