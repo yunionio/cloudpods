@@ -1360,4 +1360,21 @@ func init() {
 		return nil
 	})
 
+	type ServerSaveTemplateOptions struct {
+		ID           string `help:"The ID or Name of server"`
+		TemplateName string `help:"The name of guest template"`
+	}
+
+	R(&ServerSaveTemplateOptions{}, "server-save-template", "Save Guest Template of this Server",
+		func(s *mcclient.ClientSession, args *ServerSaveTemplateOptions) error {
+			dict := jsonutils.NewDict()
+			dict.Set("name", jsonutils.NewString(args.TemplateName))
+			result, err := modules.Servers.PerformAction(s, args.ID, "save-template", dict)
+			if err != nil {
+				return err
+			}
+			printObject(result)
+			return nil
+		},
+	)
 }

@@ -333,3 +333,8 @@ type ConvertEsxiToKvmInput struct {
 	// 指定转换的宿主机
 	PreferHost string `json:"prefer_host"`
 }
+
+type GuestSaveToTemplateInput struct {
+	// The name of guest
+	Name string `json:"name"`
+}

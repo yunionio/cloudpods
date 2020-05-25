@@ -191,4 +191,6 @@ const (
 	ACT_REMOVE_GUEST          = "移除实例"
 	ACT_CREATE_SCALING_POLICY = "创建伸缩策略"
 	ACT_DELETE_SCALING_POLICY = "删除伸缩策略"
+
+	ACT_SAVE_TO_TEMPLATE = "保存为模版"
 )

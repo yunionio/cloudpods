@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -29,6 +30,7 @@ import (
 	computeapis "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -79,6 +81,8 @@ type SGuestTemplate struct {
 
 	// 其他配置信息
 	Content jsonutils.JSONObject `nullable:"false" list:"user" update:"user" create:"optional" json:"content"`
+
+	LastCheckTime time.Time
 }
 
 var GuestTemplateManager *SGuestTemplateManager
@@ -124,8 +128,17 @@ func (gtm *SGuestTemplateManager) ValidateCreateData(
 
 func (gt *SGuestTemplate) PostCreate(ctx context.Context, userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	gt.SetStatus(userCred, "ready", "")
+	gt.SetStatus(userCred, computeapis.GT_READY, "")
+	gt.updateCheckTime()
 	logclient.AddActionLogWithContext(ctx, gt, logclient.ACT_CREATE, nil, userCred, true)
+}
+
+func (gt *SGuestTemplate) updateCheckTime() error {
+	_, err := db.Update(gt, func() error {
+		gt.LastCheckTime = time.Now()
+		return nil
+	})
+	return err
 }
 
 func (gt *SGuestTemplate) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential,
@@ -726,4 +739,50 @@ func (manager *SGuestTemplateManager) ListItemExportKeys(ctx context.Context,
 	}
 
 	return q, nil
+}
+
+func (g *SGuest) AllowPerformSaveTemplate(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject) bool {
+	return g.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, g, "")
+}
+
+func (g *SGuest) PerformSaveTemplate(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, input computeapis.GuestSaveToTemplateInput) (jsonutils.JSONObject, error) {
+	g.SetStatus(userCred, computeapis.VM_TEMPLATE_SAVING, "save to template")
+
+	if len(input.Name) == 0 {
+		input.Name = fmt.Sprintf("%s-template", g.Name)
+	}
+	data := jsonutils.Marshal(input).(*jsonutils.JSONDict)
+	if task, err := taskman.TaskManager.NewTask(ctx, "GuestSaveTemplateTask", g, userCred, data, "", "", nil); err != nil {
+		return nil, errors.Wrap(err, "Unbale to init 'GuestSaveTemplateTask'")
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil, nil
+}
+
+func (gm *SGuestTemplateManager) InspectAllTemplate(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	lastCheckTime := time.Now().Add(time.Duration(-options.Options.GuestTemplateCheckInterval) * time.Hour)
+	q := gm.Query().Equals("status", computeapis.GT_READY)
+	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("last_check_time")), sqlchemy.LE(q.Field("last_check_time"),
+		lastCheckTime)))
+	gts := make([]SGuestTemplate, 0, 10)
+	err := db.FetchModelObjects(gm, q, &gts)
+	if err != nil {
+		log.Errorf("Unable to fetch all guest templates that need to check: %s", err.Error())
+		return
+	}
+	for i := range gts {
+		_, err := GuestManager.validateCreateData(ctx, userCred, gts[i].GetOwnerId(), jsonutils.NewDict(),
+			gts[i].Content.(*jsonutils.JSONDict))
+		if err == nil {
+			gts[i].updateCheckTime()
+			continue
+		}
+		// invalid
+		gts[i].updateCheckTime()
+		reason := fmt.Sprintf("During the inspection, the guest template is not available: %s", err.Error())
+		gts[i].SetStatus(userCred, computeapis.GT_INVALID, reason)
+	}
 }
