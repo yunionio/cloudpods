@@ -66,7 +66,9 @@ var (
 	meterDomainResources = []string{}
 	meterUserResources   = []string{}
 
-	k8sSystemResources = []string{}
+	k8sSystemResources = []string{
+		"repos",
+	}
 	k8sDomainResources = []string{}
 	k8sUserResources   = []string{}
 
