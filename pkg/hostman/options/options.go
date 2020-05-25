@@ -91,9 +91,8 @@ type SHostOptions struct {
 	SetVncPassword         bool `default:"true" help:"Auto set vnc password after monitor connected"`
 	UseBootVga             bool `default:"false" help:"Use boot VGA GPU for guest"`
 
-	EnableCpuBinding         bool   `default:"true" help:"Enable cpu binding and rebalance"`
-	EnableOpenflowController bool   `default:"false"`
-	K8sClusterCidr           string `default:"10.43.0.0/16" help:"Kubernetes cluster IP range"`
+	EnableCpuBinding         bool `default:"true" help:"Enable cpu binding and rebalance"`
+	EnableOpenflowController bool `default:"false"`
 
 	PingRegionInterval     int      `default:"60" help:"interval to ping region, deefault is 1 minute"`
 	ManageNtpConfiguration bool     `default:"true"`
