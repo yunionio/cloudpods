@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
+// +onecloud:swagger-gen-ignore
 type SGuestImageJointManager struct {
 	db.SJointResourceBaseManager
 }

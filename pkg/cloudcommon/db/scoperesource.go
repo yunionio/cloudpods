@@ -34,6 +34,7 @@ type SScopedResourceBaseManager struct {
 	SProjectizedResourceBaseManager
 }
 
+// +onecloud:model-api-gen
 type SScopedResourceBase struct {
 	SProjectizedResourceBase
 	// DomainId  string `width:"64" charset:"ascii" nullable:"true" index:"true" list:"user"`

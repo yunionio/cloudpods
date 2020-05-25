@@ -4,6 +4,7 @@ import (
 	"time"
 )
 
+// +onecloud:model-api-gen
 type SCertificateResourceBase struct {
 	Certificate string `create:"required" list:"user" update:"user"`
 	PrivateKey  string `create:"required" list:"admin" update:"user"`

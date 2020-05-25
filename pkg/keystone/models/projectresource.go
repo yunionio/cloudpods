@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
+// +onecloud:swagger-gen-ignore
 type SProjectResourceBaseManager struct{}
 
 func (manager *SProjectResourceBaseManager) ListItemFilter(

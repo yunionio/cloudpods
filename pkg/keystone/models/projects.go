@@ -482,6 +482,7 @@ func (project *SProject) AllowPerformJoin(ctx context.Context,
 	return db.IsAdminAllowPerform(userCred, project, "join")
 }
 
+// 将用户或组加入项目
 func (project *SProject) PerformJoin(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -567,6 +568,7 @@ func (project *SProject) AllowPerformLeave(ctx context.Context,
 	return db.IsAdminAllowPerform(userCred, project, "leave")
 }
 
+// 将用户或组移出项目
 func (project *SProject) PerformLeave(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

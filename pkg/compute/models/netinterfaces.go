@@ -42,6 +42,7 @@ type SNetInterface struct {
 	Mtu         int16  `nullable:"true"`                            // Column(SMALLINT, nullable=True)
 }
 
+// +onecloud:swagger-gen-ignore
 type SNetInterfaceManager struct {
 	db.SModelBaseManager
 }

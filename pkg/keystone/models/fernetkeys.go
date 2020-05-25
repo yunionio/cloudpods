@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
+// +onecloud:swagger-gen-ignore
 type SFernetKeyManager struct {
 	db.SModelBaseManager
 }
