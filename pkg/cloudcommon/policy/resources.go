@@ -25,8 +25,13 @@ var (
 	itsmDomainResources = []string{}
 	itsmUserResources   = []string{}
 
+	k8sSystemResources = []string{
+		"repos",
+	}
+
 	systemResources = map[string][]string{
 		"itsm": itsmSystemResources,
+		"k8s":  k8sSystemResources,
 	}
 
 	domainResources = map[string][]string{
