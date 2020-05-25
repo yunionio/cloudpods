@@ -1312,13 +1312,15 @@ func (self *SElasticip) PerformChangeBandwidth(ctx context.Context, userCred mcc
 		return nil, httperrors.NewInputParameterError("Invalid bandwidth")
 	}
 
-	factory, err := self.GetProviderFactory()
-	if err != nil {
-		return nil, err
-	}
+	if self.IsManaged() {
+		factory, err := self.GetProviderFactory()
+		if err != nil {
+			return nil, err
+		}
 
-	if err := factory.ValidateChangeBandwidth(self.AssociateId, bandwidth); err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+		if err := factory.ValidateChangeBandwidth(self.AssociateId, bandwidth); err != nil {
+			return nil, httperrors.NewInputParameterError(err.Error())
+		}
 	}
 
 	err = self.StartEipChangeBandwidthTask(ctx, userCred, bandwidth)

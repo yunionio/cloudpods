@@ -44,14 +44,6 @@ func (self *EipChangeBandwidthTask) TaskFail(ctx context.Context, eip *models.SE
 
 func (self *EipChangeBandwidthTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	eip := obj.(*models.SElasticip)
-
-	extEip, err := eip.GetIEip()
-	if err != nil {
-		msg := fmt.Sprintf("fail to find iEip %s", err)
-		self.TaskFail(ctx, eip, msg)
-		return
-	}
-
 	bandwidth, _ := self.Params.Int("bandwidth")
 	if bandwidth <= 0 {
 		msg := fmt.Sprintf("invalid bandwidth %d", bandwidth)
@@ -59,22 +51,29 @@ func (self *EipChangeBandwidthTask) OnInit(ctx context.Context, obj db.IStandalo
 		return
 	}
 
-	err = extEip.ChangeBandwidth(int(bandwidth))
+	if eip.IsManaged() {
+		extEip, err := eip.GetIEip()
+		if err != nil {
+			msg := fmt.Sprintf("fail to find iEip %s", err)
+			self.TaskFail(ctx, eip, msg)
+			return
+		}
 
-	if err != nil {
-		msg := fmt.Sprintf("fail to find iEip %s", err)
-		self.TaskFail(ctx, eip, msg)
-		return
+		err = extEip.ChangeBandwidth(int(bandwidth))
+
+		if err != nil {
+			msg := fmt.Sprintf("fail to find iEip %s", err)
+			self.TaskFail(ctx, eip, msg)
+			return
+		}
+
 	}
 
-	err = eip.DoChangeBandwidth(self.UserCred, int(bandwidth))
-
-	if err != nil {
+	if err := eip.DoChangeBandwidth(self.UserCred, int(bandwidth)); err != nil {
 		msg := fmt.Sprintf("fail to synchronize iEip bandwidth %s", err)
 		self.TaskFail(ctx, eip, msg)
 		return
 	}
-
 	logclient.AddActionLogWithStartable(self, eip, logclient.ACT_CHANGE_BANDWIDTH, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
