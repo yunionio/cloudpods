@@ -42,6 +42,8 @@ type IdentityProviderDetails struct {
 
 	// 该认证源关联的所有域的组数量
 	GroupCount int `json:"group_count,allowempty"`
+
+	SIdentityProvider
 }
 
 type IdpResourceInfo struct {
