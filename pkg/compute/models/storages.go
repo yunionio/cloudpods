@@ -1161,11 +1161,10 @@ func (self *SStorage) PerformUncacheImage(ctx context.Context, userCred mcclient
 	return cache.PerformUncacheImage(ctx, userCred, query, data)
 }
 
-func (self *SStorage) GetIStorage() (cloudprovider.ICloudStorage, error) {
+func (self *SStorage) GetIStorageAndProvider() (cloudprovider.ICloudStorage, cloudprovider.ICloudProvider, error) {
 	provider, err := self.GetDriver()
 	if err != nil {
-		log.Errorf("fail to find cloud provider")
-		return nil, err
+		return nil, nil, errors.Wrap(err, "self.GetDriver")
 	}
 	var iRegion cloudprovider.ICloudRegion
 	if provider.GetFactory().IsOnPremise() {
@@ -1175,18 +1174,26 @@ func (self *SStorage) GetIStorage() (cloudprovider.ICloudStorage, error) {
 		if region == nil {
 			msg := "cannot find region for storage???"
 			log.Errorf(msg)
-			return nil, fmt.Errorf(msg)
+			return nil, nil, fmt.Errorf(msg)
 		}
 		iRegion, err = provider.GetIRegionById(region.ExternalId)
 	}
 	if err != nil {
-		log.Errorf("provider.GetIRegionById fail %s", err)
-		return nil, err
+		return nil, nil, errors.Wrap(err, "provider.GetIRegionById")
 	}
 	istore, err := iRegion.GetIStorageById(self.GetExternalId())
 	if err != nil {
 		log.Errorf("iRegion.GetIStorageById fail %s", err)
-		return nil, err
+		return nil, nil, errors.Wrapf(err, "iRegion.GetIStorageById(%s)", self.GetExternalId())
+	}
+	return istore, provider, nil
+
+}
+
+func (self *SStorage) GetIStorage() (cloudprovider.ICloudStorage, error) {
+	istore, _, err := self.GetIStorageAndProvider()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIStorageAndProvider")
 	}
 	return istore, nil
 }

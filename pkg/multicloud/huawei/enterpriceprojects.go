@@ -15,10 +15,13 @@
 package huawei
 
 import (
+	"strings"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
@@ -45,4 +48,69 @@ func (self *SHuaweiClient) GetEnterpriseProjects() ([]SEnterpriseProject, error)
 		return nil, errors.Wrap(err, "doListAllWithOffset")
 	}
 	return projects, nil
+}
+
+func (ep *SEnterpriseProject) GetId() string {
+	return ep.Id
+}
+
+func (ep *SEnterpriseProject) GetGlobalId() string {
+	return ep.Id
+}
+
+func (ep *SEnterpriseProject) GetStatus() string {
+	if ep.Status == 1 {
+		return "available"
+	}
+	return "unavailable"
+}
+
+func (ep *SEnterpriseProject) GetName() string {
+	return ep.Name
+}
+
+func (self *SHuaweiClient) CreateExterpriseProject(name, desc string) (*SEnterpriseProject, error) {
+	client, err := self.newGeneralAPIClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "newGeneralAPIClient")
+	}
+	params := map[string]string{
+		"name": name,
+	}
+	if len(desc) > 0 {
+		params["description"] = desc
+	}
+	resp, err := client.EnterpriseProjects.Create(jsonutils.Marshal(params))
+	if err != nil {
+		if strings.Contains(err.Error(), "EPS.0004") {
+			return nil, cloudprovider.ErrNotSupported
+		}
+		return nil, errors.Wrap(err, "EnterpriseProjects.Create")
+	}
+	project := &SEnterpriseProject{}
+	err = resp.Unmarshal(&project)
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return project, nil
+}
+
+func (self *SHuaweiClient) CreateIProject(name string) (cloudprovider.ICloudProject, error) {
+	return self.CreateExterpriseProject(name, "")
+}
+
+func (self *SHuaweiClient) SetProjectId(id string) {
+	self.enterpriseProjectId = id
+}
+
+func (self *SHuaweiClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	projects, err := self.GetEnterpriseProjects()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetProjects")
+	}
+	ret := []cloudprovider.ICloudProject{}
+	for i := range projects {
+		ret = append(ret, &projects[i])
+	}
+	return ret, nil
 }

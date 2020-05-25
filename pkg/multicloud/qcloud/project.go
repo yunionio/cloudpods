@@ -15,10 +15,14 @@
 package qcloud
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SProject struct {
@@ -64,4 +68,52 @@ func (p *SProject) IsEmulated() bool {
 
 func (p *SProject) Refresh() error {
 	return nil
+}
+
+func (client *SQcloudClient) CreateIProject(name string) (cloudprovider.ICloudProject, error) {
+	return client.CreateProject(name, "")
+}
+
+func (client *SQcloudClient) SetProjectId(id string) {
+	if id != "0" {
+		client.projectId = id
+	}
+}
+
+func (client *SQcloudClient) GetProjects() ([]SProject, error) {
+	projects := []SProject{}
+	params := map[string]string{"allList": "1"}
+	resp, err := client.accountRequestRequest("DescribeProject", params)
+	err = resp.Unmarshal(&projects)
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return projects, nil
+}
+
+func (client *SQcloudClient) CreateProject(name, desc string) (*SProject, error) {
+	params := map[string]string{
+		"projectName": name,
+	}
+	if len(desc) > 0 {
+		params["projectDesc"] = desc
+	}
+	body, err := client.accountRequestRequest("AddProject", params)
+	if err != nil {
+		return nil, errors.Wrap(err, "AddProject")
+	}
+	projectId, _ := body.GetString("projectId")
+	if len(projectId) == 0 {
+		return nil, fmt.Errorf("empty project reture")
+	}
+	projects, err := client.GetProjects()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetProjects")
+	}
+	for i := range projects {
+		if projects[i].GetId() == projectId {
+			return &projects[i], nil
+		}
+	}
+	return nil, fmt.Errorf("failedd to found created project")
 }

@@ -310,7 +310,11 @@ func (self *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternetCh
 		return nil, fmt.Errorf("AllocateEIP bgp type should not be empty")
 	}
 	paramsStr = fmt.Sprintf(paramsStr, bgpType, name, bwMbps, chargeType)
-	params, _ := jsonutils.ParseString(paramsStr)
+	_params, _ := jsonutils.ParseString(paramsStr)
+	params := _params.(*jsonutils.JSONDict)
+	if len(self.client.enterpriseProjectId) > 0 {
+		params.Set("enterprise_project_id", jsonutils.NewString(self.client.enterpriseProjectId))
+	}
 	eip := SEipAddress{}
 	err := DoCreate(self.ecsClient.Eips.Create, params, &eip)
 	return &eip, err

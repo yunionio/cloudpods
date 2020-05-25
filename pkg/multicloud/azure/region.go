@@ -689,7 +689,3 @@ func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket
 func (region *SRegion) GetCapabilities() []string {
 	return region.client.GetCapabilities()
 }
-
-func (region *SRegion) CreateAndSetResourceGroup(resourceGroup string) error {
-	return region.client.CreateAndSetResourceGroup(resourceGroup, region.Name)
-}

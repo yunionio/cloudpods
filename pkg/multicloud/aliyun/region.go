@@ -34,6 +34,12 @@ import (
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
+var RESOURCE_GROUP_API_NAMES = []string{
+	"CreateInstance", "CreateDisk", "CreateImage", "CreateSecurityGroup", "CreateKeyPair",
+	"CreateDBInstance",
+	"AllocateEipAddress",
+}
+
 type SRegion struct {
 	multicloud.SRegion
 
@@ -106,6 +112,9 @@ func (self *SRegion) ecsRequest(apiName string, params map[string]string) (jsonu
 	if err != nil {
 		return nil, err
 	}
+	if utils.IsInStringArray(apiName, RESOURCE_GROUP_API_NAMES) && len(self.client.projectId) > 0 {
+		params["ResourceGroupId"] = self.client.projectId
+	}
 	return jsonRequest(client, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params, self.client.debug)
 }
 
@@ -113,6 +122,9 @@ func (self *SRegion) rdsRequest(apiName string, params map[string]string) (jsonu
 	client, err := self.getSdkClient()
 	if err != nil {
 		return nil, err
+	}
+	if utils.IsInStringArray(apiName, RESOURCE_GROUP_API_NAMES) && len(self.client.projectId) > 0 {
+		params["ResourceGroupId"] = self.client.projectId
 	}
 	return jsonRequest(client, "rds.aliyuncs.com", ALIYUN_API_VERION_RDS, apiName, params, self.client.debug)
 }
@@ -122,6 +134,11 @@ func (self *SRegion) vpcRequest(action string, params map[string]string) (jsonut
 	if err != nil {
 		return nil, err
 	}
+
+	if utils.IsInStringArray(action, RESOURCE_GROUP_API_NAMES) && len(self.client.projectId) > 0 {
+		params["ResourceGroupId"] = self.client.projectId
+	}
+
 	return jsonRequest(client, "vpc.aliyuncs.com", ALIYUN_API_VERSION_VPC, action, params, self.client.debug)
 }
 
@@ -130,6 +147,11 @@ func (self *SRegion) kvsRequest(action string, params map[string]string) (jsonut
 	if err != nil {
 		return nil, err
 	}
+
+	if utils.IsInStringArray(action, RESOURCE_GROUP_API_NAMES) && len(self.client.projectId) > 0 {
+		params["ResourceGroupId"] = self.client.projectId
+	}
+
 	return jsonRequest(client, "r-kvstore.aliyuncs.com", ALIYUN_API_VERSION_KVS, action, params, self.client.debug)
 }
 

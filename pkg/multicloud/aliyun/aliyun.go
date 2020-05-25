@@ -90,6 +90,8 @@ type SAliyunClient struct {
 	ownerId   string
 	ownerName string
 
+	projectId string
+
 	iregions []cloudprovider.ICloudRegion
 	iBuckets []cloudprovider.ICloudBucket
 }

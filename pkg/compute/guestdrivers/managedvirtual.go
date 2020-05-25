@@ -73,22 +73,11 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 		config.IpAddr = nics[0].IpAddr
 	}
 
+	var err error
 	provider := host.GetCloudprovider()
-	projects, _ := provider.GetExternalProjects()
-	if projects != nil {
-		for _, project := range projects {
-			if project.ProjectId == guest.ProjectId {
-				config.ProjectId = project.ExternalId
-				config.ProjectName = project.Name
-				break
-			}
-		}
-	}
-	if len(config.ProjectName) == 0 {
-		project, _ := db.TenantCacheManager.FetchById(guest.ProjectId)
-		if project != nil {
-			config.ProjectName = project.GetName()
-		}
+	config.ProjectId, err = provider.SyncProject(ctx, userCred, guest.ProjectId)
+	if err != nil {
+		log.Errorf("failed to sync project %s", err)
 	}
 
 	disks := guest.GetDisks()
@@ -439,7 +428,7 @@ func (self *SManagedVirtualizedGuestDriver) GetLinuxDefaultAccount(desc cloudpro
 }
 
 func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error) {
-	ihost, err := host.GetIHost()
+	ihost, provider, err := host.GetIHostAndProvider()
 	if err != nil {
 		return nil, errors.Wrapf(err, "RemoteDeployGuestForCreate.GetIHost")
 	}
@@ -448,10 +437,15 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 		lockman.LockObject(ctx, host)
 		defer lockman.ReleaseObject(ctx, host)
 
+		if len(desc.ProjectId) == 0 {
+			provider.SetProjectId(desc.ProjectId)
+		}
+
 		iVM, err := ihost.CreateVM(&desc)
 		if err != nil {
 			return nil, err
 		}
+
 		db.SetExternalId(guest, userCred, iVM.GetGlobalId())
 		err = iVM.SetSecurityGroups(desc.ExternalSecgroupIds)
 		if err != nil {
