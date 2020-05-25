@@ -484,7 +484,7 @@ func (self *SRegion) GetDisks(zoneId string) ([]SDisk, error) {
 }
 
 // https://support.huaweicloud.com/api-evs/zh-cn_topic_0058762427.html
-func (self *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, snapshotId string, desc string) (string, error) {
+func (self *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, snapshotId string, desc string, projectId string) (string, error) {
 	params := jsonutils.NewDict()
 	volumeObj := jsonutils.NewDict()
 	volumeObj.Add(jsonutils.NewString(name), "name")
@@ -495,8 +495,8 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 	if len(snapshotId) > 0 {
 		volumeObj.Add(jsonutils.NewString(snapshotId), "snapshot_id")
 	}
-	if len(self.client.enterpriseProjectId) > 0 {
-		volumeObj.Add(jsonutils.NewString(self.client.enterpriseProjectId), "enterprise_project_id")
+	if len(projectId) > 0 {
+		volumeObj.Add(jsonutils.NewString(projectId), "enterprise_project_id")
 	}
 
 	params.Add(volumeObj, "volume")

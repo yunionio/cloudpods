@@ -291,7 +291,7 @@ func (self *SRegion) GetInstancePortId(instanceId string) (string, error) {
 }
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090596.html
-func (self *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternetChargeType, bgpType string) (*SEipAddress, error) {
+func (self *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternetChargeType, bgpType string, projectId string) (*SEipAddress, error) {
 	paramsStr := `
 {
     "publicip": {
@@ -312,8 +312,8 @@ func (self *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternetCh
 	paramsStr = fmt.Sprintf(paramsStr, bgpType, name, bwMbps, chargeType)
 	_params, _ := jsonutils.ParseString(paramsStr)
 	params := _params.(*jsonutils.JSONDict)
-	if len(self.client.enterpriseProjectId) > 0 {
-		params.Set("enterprise_project_id", jsonutils.NewString(self.client.enterpriseProjectId))
+	if len(projectId) > 0 {
+		params.Set("enterprise_project_id", jsonutils.NewString(projectId))
 	}
 	eip := SEipAddress{}
 	err := DoCreate(self.ecsClient.Eips.Create, params, &eip)

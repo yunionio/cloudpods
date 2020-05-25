@@ -102,7 +102,3 @@ func (self *SAliyunClient) CreateProject(name string) (*SResourceGroup, error) {
 	}
 	return &group, nil
 }
-
-func (self *SAliyunClient) SetProjectId(id string) {
-	self.projectId = id
-}

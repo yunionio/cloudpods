@@ -28,4 +28,5 @@ type SLoadbalancer struct {
 	ChargeType       string
 	EgressMbps       int
 	billingCycle     *billing.SBillingCycle
+	ProjectId        string
 }

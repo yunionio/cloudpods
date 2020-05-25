@@ -424,7 +424,7 @@ func (self *SDatastore) GetFullPath(remotePath string) string {
 	return path.Join(self.GetUrl(), remotePath)
 }
 
-func (self *SDatastore) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
+func (self *SDatastore) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 

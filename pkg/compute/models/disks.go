@@ -943,34 +943,25 @@ func (disk *SDisk) doResize(ctx context.Context, userCred mcclient.TokenCredenti
 	}
 }
 
-func (self *SDisk) GetIStorageAndProvider() (cloudprovider.ICloudStorage, cloudprovider.ICloudProvider, error) {
+func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
 	storage := self.GetStorage()
 	if storage == nil {
-		return nil, nil, httperrors.NewResourceNotFoundError("fail to find storage for disk %s", self.GetName())
+		return nil, httperrors.NewResourceNotFoundError("fail to find storage for disk %s", self.GetName())
 	}
-	return storage.GetIStorageAndProvider()
-}
-
-func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
-	istore, _, err := self.GetIStorageAndProvider()
-	return istore, err
-}
-
-func (self *SDisk) GetIDiskAndProvider() (cloudprovider.ICloudDisk, cloudprovider.ICloudProvider, error) {
-	istore, provider, err := self.GetIStorageAndProvider()
+	istorage, err := storage.GetIStorage()
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "GetIStorageAndProvider")
+		return nil, err
 	}
-	idisk, err := istore.GetIDiskById(self.GetExternalId())
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "GetIDiskById(%s)", self.GetExternalId())
-	}
-	return idisk, provider, nil
+	return istorage, nil
 }
 
 func (self *SDisk) GetIDisk() (cloudprovider.ICloudDisk, error) {
-	idisk, _, err := self.GetIDiskAndProvider()
-	return idisk, err
+	iStorage, err := self.GetIStorage()
+	if err != nil {
+		log.Errorf("fail to find iStorage: %v", err)
+		return nil, err
+	}
+	return iStorage.GetIDiskById(self.GetExternalId())
 }
 
 func (self *SDisk) GetZone() *SZone {

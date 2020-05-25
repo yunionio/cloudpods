@@ -20,7 +20,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -64,7 +63,7 @@ func (self *EipAllocateTask) setGuestAllocateEipFailed(eip *models.SElasticip, r
 func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	eip := obj.(*models.SElasticip)
 
-	iregion, provider, err := eip.GetIRegionAndProvider()
+	iregion, err := eip.GetIRegion()
 	if err != nil {
 		msg := fmt.Sprintf("fail to find iregion for eip %s", err)
 		eip.SetStatus(self.UserCred, api.EIP_STATUS_ALLOCATE_FAIL, msg)
@@ -116,13 +115,9 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 	}
 
 	_cloudprovider := eip.GetCloudprovider()
-	projectId, err := _cloudprovider.SyncProject(ctx, self.GetUserCred(), eip.ProjectId)
-	if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
-		self.onFailed(ctx, eip, fmt.Sprintf("cloudprovider.SyncProject error: %v", err))
-		return
-	}
-	if len(projectId) > 0 {
-		provider.SetProjectId(projectId)
+	args.ProjectId, err = _cloudprovider.SyncProject(ctx, self.GetUserCred(), eip.ProjectId)
+	if err != nil {
+		log.Errorf("failed to sync project %s for create %s eip %s error: %v", eip.ProjectId, _cloudprovider.Provider, eip.Name, err)
 	}
 
 	extEip, err := iregion.CreateEIP(args)

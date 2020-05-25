@@ -694,25 +694,16 @@ func (self *SVpc) PostCreate(ctx context.Context, userCred mcclient.TokenCredent
 	}
 }
 
-func (self *SVpc) GetIRegionAndProvider() (cloudprovider.ICloudRegion, cloudprovider.ICloudProvider, error) {
+func (self *SVpc) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	region, err := self.GetRegion()
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "GetRegion")
+		return nil, errors.Wrap(err, "GetRegion")
 	}
 	provider, err := self.GetDriver()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	iregion, err := provider.GetIRegionById(region.GetExternalId())
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "GetIRegionById")
-	}
-	return iregion, provider, nil
-}
-
-func (self *SVpc) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	iregion, _, err := self.GetIRegionAndProvider()
-	return iregion, err
+	return provider.GetIRegionById(region.GetExternalId())
 }
 
 func (self *SVpc) GetIVpc() (cloudprovider.ICloudVpc, error) {

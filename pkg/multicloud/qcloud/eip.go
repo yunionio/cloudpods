@@ -314,6 +314,8 @@ func (region *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternet
 	return nil, cloudprovider.ErrNotFound
 }
 
+// https://cloud.tencent.com/document/api/215/16699
+// 腾讯云eip不支持指定项目
 func (region *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
 	var ctype TInternetChargeType
 	switch eip.ChargeType {

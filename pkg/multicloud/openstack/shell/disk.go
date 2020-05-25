@@ -51,14 +51,15 @@ func init() {
 	})
 
 	type DiskCreateOptions struct {
-		ImageRef string `help:"ImageRef"`
-		CATEGORY string `help:"Disk category"`
-		NAME     string `help:"Disk Name"`
-		SIZE     int    `help:"Disk Size GB"`
-		Desc     string `help:"Description of disk"`
+		ImageRef  string `help:"ImageRef"`
+		CATEGORY  string `help:"Disk category"`
+		NAME      string `help:"Disk Name"`
+		SIZE      int    `help:"Disk Size GB"`
+		Desc      string `help:"Description of disk"`
+		ProjectId string `help:"ProjectId"`
 	}
 	shellutils.R(&DiskCreateOptions{}, "disk-create", "Create disk", func(cli *openstack.SRegion, args *DiskCreateOptions) error {
-		disk, err := cli.CreateDisk(args.ImageRef, args.CATEGORY, args.NAME, args.SIZE, args.Desc)
+		disk, err := cli.CreateDisk(args.ImageRef, args.CATEGORY, args.NAME, args.SIZE, args.Desc, args.ProjectId)
 		if err != nil {
 			return err
 		}

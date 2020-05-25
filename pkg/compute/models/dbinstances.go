@@ -1648,25 +1648,16 @@ func (dbinstance *SDBInstance) GetUsages() []db.IUsage {
 	}
 }
 
-func (dbinstance *SDBInstance) GetIRegionAndProvider() (cloudprovider.ICloudRegion, cloudprovider.ICloudProvider, error) {
+func (dbinstance *SDBInstance) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	region := dbinstance.GetRegion()
 	if region == nil {
-		return nil, nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid cloudregion")
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid cloudregion")
 	}
 	provider, err := dbinstance.GetDriver()
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "dbinstance.GetDriver")
+		return nil, errors.Wrap(err, "dbinstance.GetDriver")
 	}
-	iregion, err := provider.GetIRegionById(region.GetExternalId())
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "provider.GetIRegionById")
-	}
-	return iregion, provider, nil
-}
-
-func (dbinstance *SDBInstance) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	iregion, _, err := dbinstance.GetIRegionAndProvider()
-	return iregion, err
+	return provider.GetIRegionById(region.GetExternalId())
 }
 
 func (manager *SDBInstanceManager) ListItemExportKeys(ctx context.Context,

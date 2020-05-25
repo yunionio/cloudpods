@@ -161,22 +161,22 @@ func (self *SManagedVirtualizationRegionDriver) GetBackendStatusForAdd() []strin
 
 func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, provider, err := lb.GetIRegionAndProvider()
+		iRegion, err := lb.GetIRegion()
 		if err != nil {
 			return nil, err
 		}
-		_cloudprovider := lb.GetCloudprovider()
-		projectId, err := _cloudprovider.SyncProject(ctx, userCred, lb.ProjectId)
-		if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
-			return nil, errors.Wrap(err, "cloudprovider.SyncProject")
-		}
-		if len(projectId) > 0 {
-			provider.SetProjectId(projectId)
-		}
+
 		params, err := lb.GetCreateLoadbalancerParams(iRegion)
 		if err != nil {
 			return nil, err
 		}
+
+		_cloudprovider := lb.GetCloudprovider()
+		params.ProjectId, err = _cloudprovider.SyncProject(ctx, userCred, lb.ProjectId)
+		if err != nil {
+			log.Errorf("failed to sync project %s for create %s lb %s error: %v", lb.ProjectId, _cloudprovider.Provider, lb.Name, err)
+		}
+
 		iLoadbalancer, err := iRegion.CreateILoadBalancer(params)
 		if err != nil {
 			return nil, err
@@ -1279,19 +1279,11 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateSnapshot(ctx contex
 	if err != nil {
 		return err
 	}
-	iDisk, provider, err := disk.GetIDiskAndProvider()
+	iDisk, err := disk.GetIDisk()
 	if err != nil {
 		return err
 	}
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		_cloudprovider := snapshot.GetCloudprovider()
-		projectId, err := _cloudprovider.SyncProject(ctx, task.GetUserCred(), snapshot.ProjectId)
-		if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
-			return nil, errors.Wrap(err, "cloudprovider.SyncProject")
-		}
-		if len(projectId) > 0 {
-			provider.SetProjectId(projectId)
-		}
 		iSnapshot, err := iDisk.CreateISnapshot(ctx, snapshot.Name, "")
 		if err != nil {
 			return nil, err
@@ -1587,14 +1579,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestCacheSecurityGroup(ctx co
 
 func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx context.Context, userCred mcclient.TokenCredential, dbinstance *models.SDBInstance, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iregion, provider, err := dbinstance.GetIRegionAndProvider()
+		iregion, err := dbinstance.GetIRegion()
 		if err != nil {
 			return nil, errors.Wrap(err, "GetIRegionAndProvider")
-		}
-		_cloudprovider := dbinstance.GetCloudprovider()
-		projectId, err := _cloudprovider.SyncProject(ctx, userCred, dbinstance.ProjectId)
-		if err != nil && errors.Cause(err) != cloudprovider.ErrNotSupported && errors.Cause(err) != cloudprovider.ErrNotImplemented {
-			return nil, errors.Wrap(err, "cloudprovider.SyncProject")
 		}
 
 		vpc, err := dbinstance.GetVpc()
@@ -1625,6 +1612,12 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 			Category:      dbinstance.Category,
 			Port:          dbinstance.Port,
 			Password:      passwd,
+		}
+
+		_cloudprovider := dbinstance.GetCloudprovider()
+		desc.ProjectId, err = _cloudprovider.SyncProject(ctx, userCred, dbinstance.ProjectId)
+		if err != nil {
+			log.Errorf("failed to sync project %s for create %s rds %s error: %v", dbinstance.ProjectId, _cloudprovider.Provider, dbinstance.Name, err)
 		}
 
 		if len(dbinstance.InstanceType) > 0 {
@@ -1672,10 +1665,6 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 		}
 
 		log.Debugf("create dbinstance params: %s", jsonutils.Marshal(desc).String())
-
-		if len(projectId) > 0 {
-			provider.SetProjectId(projectId)
-		}
 
 		idbinstance, err := iregion.CreateIDBInstance(&desc)
 		if idbinstance != nil { //避免创建失败后,删除本地的未能同步删除云上失败的RDS

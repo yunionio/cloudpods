@@ -48,10 +48,8 @@ type OpenstackClientConfig struct {
 	project       string
 	projectDomain string
 
-	domainName        string
-	endpointType      string
-	targetProjectId   string
-	targetProjectName string
+	domainName   string
+	endpointType string
 
 	debug bool
 }
@@ -144,25 +142,30 @@ func (cli *SOpenStackClient) fetchRegions() error {
 	return fmt.Errorf("failed to find right endpoint type")
 }
 
-func (cli *SOpenStackClient) Request(region, service, method string, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
+func (cli *SOpenStackClient) Request(projectId string, region, service, method string, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
 	header := http.Header{}
 	if len(microversion) > 0 {
 		header.Set("X-Openstack-Nova-API-Version", microversion)
 	}
+
+	var session *mcclient.ClientSession
 	ctx := context.Background()
-	session := cli.client.NewSession(ctx, region, "", cli.endpointType, cli.tokenCredential, "")
+	if method == "POST" && len(projectId) > 0 {
+		targetToken, err := cli.getProjectTokenCredential(projectId)
+		if err != nil {
+			log.Errorf("failed to get project %s token credential %v", projectId, err)
+		} else {
+			session = cli.client.NewSession(ctx, region, "", cli.endpointType, targetToken, "")
+		}
+	} else {
+		session = cli.client.NewSession(ctx, region, "", cli.endpointType, cli.tokenCredential, "")
+	}
+
 	serviceUrl, err := session.GetServiceURL(service, "")
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "GetServiceURL(%s)", service)
 	}
 	url = strings.TrimPrefix(url, serviceUrl)
-	if method == "POST" && len(cli.targetProjectId) > 0 {
-		targetToken, err := cli.getTargetProjectTokenCredential()
-		if err != nil {
-			return nil, nil, errors.Wrap(err, "getTargetProjectTokenCredential")
-		}
-		session = cli.client.NewSession(ctx, region, "", cli.endpointType, targetToken, "")
-	}
 	header, resp, err := session.JSONRequest(service, "", httputils.THttpMethod(method), url, header, body)
 	if err != nil && body != nil {
 		log.Errorf("microversion %s url: %s, params: %s", microversion, serviceUrl+url, body.PrettyString())
@@ -246,10 +249,26 @@ func (cli *SOpenStackClient) connect() error {
 	return nil
 }
 
-func (cli *SOpenStackClient) getTargetProjectTokenCredential() (mcclient.TokenCredential, error) {
+func (cli *SOpenStackClient) getProjectTokenCredential(projectId string) (mcclient.TokenCredential, error) {
+	project, err := cli.GetProject(projectId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetProject(%s)", projectId)
+	}
+	region := cli.iregions[0].(*SRegion)
+	s := cli.client.NewSession(context.Background(), region.Name, "", cli.endpointType, cli.tokenCredential, "")
+
+	roleId, err := modules.RolesV3.GetId(s, "admin", jsonutils.Marshal(map[string]string{}))
+	if err != nil {
+		return nil, errors.Wrap(err, "RolesV3.GetId")
+	}
+	_, err = modules.RolesV3.PutInContexts(s, roleId, nil, []modulebase.ManagerContext{{InstanceManager: &modules.Projects, InstanceId: project.GetId()}, {InstanceManager: &modules.UsersV3, InstanceId: s.GetUserId()}})
+	if err != nil {
+		return nil, errors.Wrap(err, "RolesV3.PutInContexts")
+	}
+
 	cli.client = mcclient.NewClient(cli.authURL, 5, cli.debug, false, "", "")
 	cli.client.SetHttpTransportProxyFunc(cli.cpcfg.ProxyFunc)
-	tokenCredential, err := cli.client.Authenticate(cli.username, cli.password, cli.domainName, cli.targetProjectName, cli.projectDomain)
+	tokenCredential, err := cli.client.Authenticate(cli.username, cli.password, cli.domainName, project.Name, cli.projectDomain)
 	if err != nil {
 		return nil, errors.Wrap(err, "Authenticate")
 	}
@@ -354,31 +373,6 @@ func (cli *SOpenStackClient) CreateProject(name, desc string) (*SProject, error)
 		return nil, errors.Wrap(err, "result.Unmarshal")
 	}
 	return &project, nil
-}
-
-func (cli *SOpenStackClient) SetProjectId(id string) {
-	project, err := cli.GetProject(id)
-	if err != nil {
-		log.Errorf("failed to get project %s error: %v", id, err)
-		return
-	}
-	region := cli.iregions[0].(*SRegion)
-	s := cli.client.NewSession(context.Background(), region.Name, "", cli.endpointType, cli.tokenCredential, "")
-
-	roleId, err := modules.RolesV3.GetId(s, "admin", jsonutils.Marshal(map[string]string{}))
-	if err != nil {
-		log.Errorf("failed to get admin role id %v", err)
-		return
-	}
-
-	_, err = modules.RolesV3.PutInContexts(s, roleId, nil, []modulebase.ManagerContext{{InstanceManager: &modules.Projects, InstanceId: project.GetId()}, {InstanceManager: &modules.UsersV3, InstanceId: s.GetUserId()}})
-	if err != nil {
-		log.Errorf("RolesV3.PutInContexts error: %v", err)
-		return
-	}
-
-	cli.targetProjectId = project.GetId()
-	cli.targetProjectName = project.GetName()
 }
 
 func (self *SOpenStackClient) GetCapabilities() []string {

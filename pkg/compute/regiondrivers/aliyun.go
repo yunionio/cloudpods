@@ -1256,7 +1256,7 @@ func (self *SAliyunRegionDriver) ValidateCreateElasticcacheData(ctx context.Cont
 
 func (self *SAliyunRegionDriver) RequestCreateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, iProvider, err := ec.GetIRegionAndProvider()
+		iRegion, err := ec.GetIRegion()
 		if err != nil {
 			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcache.GetIRegion")
 		}
@@ -1266,18 +1266,15 @@ func (self *SAliyunRegionDriver) RequestCreateElasticcache(ctx context.Context, 
 			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcache.GetProvider")
 		}
 
-		provider := iprovider.(*models.SCloudprovider)
-		projectId, err := provider.SyncProject(ctx, userCred, ec.ProjectId)
-		if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
-			return nil, errors.Wrap(err, "provider.SyncProject")
-		}
-		if len(projectId) > 0 {
-			iProvider.SetProjectId(projectId)
-		}
-
 		params, err := ec.GetCreateAliyunElasticcacheParams(task.GetParams())
 		if err != nil {
 			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcache.GetCreateAliyunElasticcacheParams")
+		}
+
+		provider := iprovider.(*models.SCloudprovider)
+		params.ProjectId, err = provider.SyncProject(ctx, userCred, ec.ProjectId)
+		if err != nil {
+			log.Errorf("failed to sync project %s for create %s elastic cache %s error: %v", ec.ProjectId, provider.Provider, ec.Name, err)
 		}
 
 		iec, err := iRegion.CreateIElasticcaches(params)

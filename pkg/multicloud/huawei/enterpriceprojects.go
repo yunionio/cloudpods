@@ -99,10 +99,6 @@ func (self *SHuaweiClient) CreateIProject(name string) (cloudprovider.ICloudProj
 	return self.CreateExterpriseProject(name, "")
 }
 
-func (self *SHuaweiClient) SetProjectId(id string) {
-	self.enterpriseProjectId = id
-}
-
 func (self *SHuaweiClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
 	projects, err := self.GetEnterpriseProjects()
 	if err != nil {

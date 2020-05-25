@@ -88,8 +88,6 @@ type SHuaweiClient struct {
 
 	ownerId string
 
-	enterpriseProjectId string
-
 	iregions []cloudprovider.ICloudRegion
 	iBuckets []cloudprovider.ICloudBucket
 }

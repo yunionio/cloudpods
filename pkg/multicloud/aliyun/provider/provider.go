@@ -155,10 +155,6 @@ func (self *SAliyunProvider) CreateIProject(name string) (cloudprovider.ICloudPr
 	return self.client.CreateIProject(name)
 }
 
-func (self *SAliyunProvider) SetProjectId(id string) {
-	self.client.SetProjectId(id)
-}
-
 func (self *SAliyunProvider) GetStorageClasses(regionId string) []string {
 	return []string{
 		"Standard", "IA", "Archive",

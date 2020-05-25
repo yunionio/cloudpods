@@ -204,10 +204,6 @@ func (self *SOpenStackProvider) CreateProject(name string) (cloudprovider.ICloud
 	return self.client.CreateIProject(name)
 }
 
-func (self *SOpenStackProvider) SetProjectId(id string) {
-	self.client.SetProjectId(id)
-}
-
 func (self *SOpenStackProvider) GetStorageClasses(regionId string) []string {
 	return nil
 }

@@ -52,6 +52,7 @@ type SManagedDBInstanceCreateConfig struct {
 	MasterInstanceId string
 	Password         string
 	Username         string
+	ProjectId        string
 
 	BillingCycle *billing.SBillingCycle
 }

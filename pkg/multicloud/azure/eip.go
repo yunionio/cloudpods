@@ -61,7 +61,7 @@ type SEipAddress struct {
 	Sku        *PublicIPAddressSku
 }
 
-func (region *SRegion) AllocateEIP(eipName string) (*SEipAddress, error) {
+func (region *SRegion) AllocateEIP(eipName, projectId string) (*SEipAddress, error) {
 	eip := SEipAddress{
 		region:   region,
 		Location: region.Name,
@@ -72,7 +72,7 @@ func (region *SRegion) AllocateEIP(eipName string) (*SEipAddress, error) {
 		},
 		Type: "Microsoft.Network/publicIPAddresses",
 	}
-	err := region.client.Create(jsonutils.Marshal(eip), &eip)
+	err := region.client.CreateWithResourceGroup(projectId, jsonutils.Marshal(eip), &eip)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func (region *SRegion) AllocateEIP(eipName string) (*SEipAddress, error) {
 }
 
 func (region *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
-	return region.AllocateEIP(eip.Name)
+	return region.AllocateEIP(eip.Name, eip.ProjectId)
 }
 
 func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {

@@ -447,8 +447,8 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 		"security_group_id": desc.SecgroupId,
 	}
 
-	if len(region.client.projectId) > 0 {
-		params["enterprise_project_id"] = region.client.projectId
+	if len(desc.ProjectId) > 0 {
+		params["enterprise_project_id"] = desc.ProjectId
 	}
 
 	if len(desc.MasterInstanceId) > 0 {
