@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/baremetal/tasks"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
@@ -84,6 +85,10 @@ func (s *BaremetalService) StartService() {
 }
 
 func (s *BaremetalService) startAgent(app *appsrv.Application) {
+	// init lockman
+	lm := lockman.NewInMemoryLockManager()
+	lockman.Init(lm)
+
 	err := baremetal.Start(app)
 	if err != nil {
 		log.Fatalf("Start agent error: %v", err)
