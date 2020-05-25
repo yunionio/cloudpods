@@ -30,4 +30,19 @@ func init() {
 		printList(project, 0, 0, 0, nil)
 		return nil
 	})
+
+	type ProjectCreateOptions struct {
+		NAME string
+		Desc string
+	}
+
+	shellutils.R(&ProjectCreateOptions{}, "project-create", "Create project", func(cli *openstack.SRegion, args *ProjectCreateOptions) error {
+		project, err := cli.GetClient().CreateProject(args.NAME, args.Desc)
+		if err != nil {
+			return err
+		}
+		printObject(project)
+		return nil
+	})
+
 }

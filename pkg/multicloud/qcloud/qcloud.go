@@ -59,6 +59,8 @@ type QcloudClientConfig struct {
 	secretKey string
 	appId     string
 
+	projectId string
+
 	debug bool
 }
 
@@ -256,10 +258,11 @@ func (r *vpc2017JsonResponse) GetResponse() *interface{} {
 
 // SSL证书专用response
 type wssJsonResponse struct {
-	Code     int          `json:"code"`
-	CodeDesc string       `json:"codeDesc"`
-	Message  string       `json:"message"`
-	Response *interface{} `json:"data"`
+	Code      int          `json:"code"`
+	CodeDesc  string       `json:"codeDesc"`
+	ProjectId int          `json:"projectId"`
+	Message   string       `json:"message"`
+	Response  *interface{} `json:"data"`
 }
 
 func (r *wssJsonResponse) ParseErrorFromHTTPResponse(body []byte) (err error) {
@@ -276,6 +279,11 @@ func (r *wssJsonResponse) ParseErrorFromHTTPResponse(body []byte) (err error) {
 }
 
 func (r *wssJsonResponse) GetResponse() *interface{} {
+	if r.Response == nil {
+		return func(resp interface{}) *interface{} {
+			return &resp
+		}(jsonutils.Marshal(r))
+	}
 	return r.Response
 }
 
@@ -411,7 +419,10 @@ func _baseJsonRequest(client *common.Client, req tchttp.Request, resp qcloudResp
 	}
 	if debug {
 		log.Debugf("request: %s", req.GetParams())
-		log.Debugf("response: %s", jsonutils.Marshal(resp.GetResponse()).PrettyString())
+		response := resp.GetResponse()
+		if response != nil {
+			log.Debugf("response: %s", jsonutils.Marshal(response).PrettyString())
+		}
 	}
 	if err != nil {
 		return nil, err
@@ -758,20 +769,11 @@ func (client *SQcloudClient) QueryAccountBalance() (*SAccountBalance, error) {
 }
 
 func (client *SQcloudClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
-	projects := []SProject{}
-	params := map[string]string{"allList": "1"}
-	body, err := client.accountRequestRequest("DescribeProject", params)
+	projects, err := client.GetProjects()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetProjects")
 	}
-	if err := body.Unmarshal(&projects); err != nil {
-		return nil, err
-	}
-	projects = append(projects, SProject{
-		ProjectId:   "0",
-		ProjectName: "默认项目",
-		// CreateTime:  time.Time{},
-	})
+	projects = append(projects, SProject{ProjectId: "0", ProjectName: "默认项目"})
 	iprojects := []cloudprovider.ICloudProject{}
 	for i := 0; i < len(projects); i++ {
 		projects[i].client = client

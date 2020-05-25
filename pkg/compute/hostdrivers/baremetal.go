@@ -23,6 +23,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SBaremetalHostDriver struct {
@@ -80,7 +81,7 @@ func (self *SBaremetalHostDriver) CheckAndSetCacheImage(ctx context.Context, hos
 	return nil
 }
 
-func (self *SBaremetalHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
+func (self *SBaremetalHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
 	return fmt.Errorf("not supported")
 }
 

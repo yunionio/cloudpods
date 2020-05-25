@@ -389,6 +389,9 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 	}
 	params["DiskName"] = name
 	params["Placement.Zone"] = zoneId
+	if len(self.client.projectId) > 0 {
+		params["Placement.ProjectId"] = self.client.projectId
+	}
 	//params["Encrypted"] = "false"
 	params["DiskSize"] = fmt.Sprintf("%d", sizeGb)
 	params["ClientToken"] = utils.GenRequestId(20)

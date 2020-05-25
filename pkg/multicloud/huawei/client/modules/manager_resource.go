@@ -184,6 +184,9 @@ func (self *SResourceManager) CreateInContext(ctx manager.IManagerContext, param
 func (self *SResourceManager) CreateInContextWithSpec(ctx manager.IManagerContext, spec string, params jsonutils.JSONObject, responseKey string) (jsonutils.JSONObject, error) {
 	request := self.newRequest("POST", "", spec, ctx)
 	request.SetContent([]byte(params.String()))
+	if len(self.DomainId) > 0 {
+		request.AddHeaderParam("X-Domain-Id", self.DomainId)
+	}
 
 	return self._do(request, responseKey)
 }

@@ -388,6 +388,24 @@ func (self *SAzureClient) PerformAction(resourceId string, action string, body s
 	return jsonRequest(cli, "POST", self.domain, url, self.subscriptionId, body)
 }
 
+func (self *SAzureClient) CreateIProject(name string) (cloudprovider.ICloudProject, error) {
+	cli, err := self.getDefaultClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "getDefaultClient")
+	}
+	if len(self.iregions) == 0 {
+		return nil, fmt.Errorf("missing location info")
+	}
+	//Create resourceGroup
+	_url := fmt.Sprintf("/subscriptions/%s/resourcegroups/%s", self.subscriptionId, name)
+	_, err = jsonRequest(cli, "PUT", self.domain, _url, self.subscriptionId, fmt.Sprintf(`{"name": "%s", "location": "%s"}`, name, self.iregions[0].GetId()))
+	if err != nil {
+		return nil, errors.Wrap(err, "jsonRequest")
+	}
+	group := &SResourceGroup{}
+	return group, self.Get(_url, []string{}, group)
+}
+
 func (self *SAzureClient) fetchResourceGroup(cli *autorest.Client, location string) error {
 	if !self.fetchResourceGroups {
 		err := self.List("resourcegroups", &self.ressourceGroups)
@@ -982,9 +1000,6 @@ func (self *SAzureClient) GetIProjects() ([]cloudprovider.ICloudProject, error) 
 	}
 	iprojects := []cloudprovider.ICloudProject{}
 	for i := 0; i < len(resourceGroups); i++ {
-		if groupInfo := strings.Split(resourceGroups[i].ID, "/"); len(groupInfo) > 0 {
-			resourceGroups[i].ID = strings.ToLower(groupInfo[len(groupInfo)-1])
-		}
 		iprojects = append(iprojects, &resourceGroups[i])
 	}
 	return iprojects, nil

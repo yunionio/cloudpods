@@ -707,7 +707,7 @@ func (self *SDisk) StartAllocate(ctx context.Context, host *SHost, storage *SSto
 	if rebuild {
 		return host.GetHostDriver().RequestRebuildDiskOnStorage(ctx, host, storage, self, task, content)
 	} else {
-		return host.GetHostDriver().RequestAllocateDiskOnStorage(ctx, host, storage, self, task, content)
+		return host.GetHostDriver().RequestAllocateDiskOnStorage(ctx, userCred, host, storage, self, task, content)
 	}
 }
 
@@ -943,25 +943,34 @@ func (disk *SDisk) doResize(ctx context.Context, userCred mcclient.TokenCredenti
 	}
 }
 
-func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
+func (self *SDisk) GetIStorageAndProvider() (cloudprovider.ICloudStorage, cloudprovider.ICloudProvider, error) {
 	storage := self.GetStorage()
 	if storage == nil {
-		return nil, httperrors.NewResourceNotFoundError("fail to find storage for disk %s", self.GetName())
+		return nil, nil, httperrors.NewResourceNotFoundError("fail to find storage for disk %s", self.GetName())
 	}
-	istorage, err := storage.GetIStorage()
+	return storage.GetIStorageAndProvider()
+}
+
+func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
+	istore, _, err := self.GetIStorageAndProvider()
+	return istore, err
+}
+
+func (self *SDisk) GetIDiskAndProvider() (cloudprovider.ICloudDisk, cloudprovider.ICloudProvider, error) {
+	istore, provider, err := self.GetIStorageAndProvider()
 	if err != nil {
-		return nil, err
+		return nil, nil, errors.Wrap(err, "GetIStorageAndProvider")
 	}
-	return istorage, nil
+	idisk, err := istore.GetIDiskById(self.GetExternalId())
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "GetIDiskById(%s)", self.GetExternalId())
+	}
+	return idisk, provider, nil
 }
 
 func (self *SDisk) GetIDisk() (cloudprovider.ICloudDisk, error) {
-	iStorage, err := self.GetIStorage()
-	if err != nil {
-		log.Errorf("fail to find iStorage: %v", err)
-		return nil, err
-	}
-	return iStorage.GetIDiskById(self.GetExternalId())
+	idisk, _, err := self.GetIDiskAndProvider()
+	return idisk, err
 }
 
 func (self *SDisk) GetZone() *SZone {

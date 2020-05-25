@@ -200,6 +200,8 @@ type ICloudProvider interface {
 
 	GetIRegions() []ICloudRegion
 	GetIProjects() ([]ICloudProject, error)
+	CreateIProject(name string) (ICloudProject, error)
+	SetProjectId(id string)
 	GetIRegionById(id string) (ICloudRegion, error)
 
 	GetOnPremiseIRegion() (ICloudRegion, error)
@@ -327,6 +329,14 @@ func (self *SBaseProvider) GetICloudPolicyDefinitions() ([]ICloudPolicyDefinitio
 
 func (self *SBaseProvider) GetCloudRegionExternalIdPrefix() string {
 	return self.factory.GetId()
+}
+
+func (self *SBaseProvider) CreateIProject(name string) (ICloudProject, error) {
+	return nil, ErrNotImplemented
+}
+
+func (self *SBaseProvider) SetProjectId(id string) {
+	return
 }
 
 func NewBaseProvider(factory ICloudProviderFactory) SBaseProvider {

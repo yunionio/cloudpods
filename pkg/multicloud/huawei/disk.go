@@ -495,6 +495,9 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 	if len(snapshotId) > 0 {
 		volumeObj.Add(jsonutils.NewString(snapshotId), "snapshot_id")
 	}
+	if len(self.client.enterpriseProjectId) > 0 {
+		volumeObj.Add(jsonutils.NewString(self.client.enterpriseProjectId), "enterprise_project_id")
+	}
 
 	params.Add(volumeObj, "volume")
 

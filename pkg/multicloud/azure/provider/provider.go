@@ -189,6 +189,10 @@ func (self *SAzureProvider) GetIProjects() ([]cloudprovider.ICloudProject, error
 	return self.client.GetIProjects()
 }
 
+func (self *SAzureProvider) CreateIProject(name string) (cloudprovider.ICloudProject, error) {
+	return self.client.CreateIProject(name)
+}
+
 func (self *SAzureProvider) GetStorageClasses(regionId string) []string {
 	sc, err := self.client.GetStorageClasses(regionId)
 	if err != nil {

@@ -19,7 +19,6 @@ import (
 	"strings"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 // https://support.huaweicloud.com/api-iam/zh-cn_topic_0057845625.html
@@ -70,8 +69,4 @@ func (self *SHuaweiClient) GetProjectById(projectId string) (SProject, error) {
 
 func (self *SHuaweiClient) GetProjects() ([]SProject, error) {
 	return self.fetchProjects()
-}
-
-func (self *SHuaweiClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
-	return nil, cloudprovider.ErrNotImplemented
 }

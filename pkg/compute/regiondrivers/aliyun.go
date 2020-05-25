@@ -1256,7 +1256,7 @@ func (self *SAliyunRegionDriver) ValidateCreateElasticcacheData(ctx context.Cont
 
 func (self *SAliyunRegionDriver) RequestCreateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, err := ec.GetIRegion()
+		iRegion, iProvider, err := ec.GetIRegionAndProvider()
 		if err != nil {
 			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcache.GetIRegion")
 		}
@@ -1267,6 +1267,13 @@ func (self *SAliyunRegionDriver) RequestCreateElasticcache(ctx context.Context, 
 		}
 
 		provider := iprovider.(*models.SCloudprovider)
+		projectId, err := provider.SyncProject(ctx, userCred, ec.ProjectId)
+		if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+			return nil, errors.Wrap(err, "provider.SyncProject")
+		}
+		if len(projectId) > 0 {
+			iProvider.SetProjectId(projectId)
+		}
 
 		params, err := ec.GetCreateAliyunElasticcacheParams(task.GetParams())
 		if err != nil {
