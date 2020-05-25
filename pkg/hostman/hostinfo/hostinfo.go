@@ -871,7 +871,7 @@ func (h *SHostInfo) setHostname(name string) {
 
 func (h *SHostInfo) fetchHostname() string {
 	if len(options.HostOptions.Hostname) > 0 {
-		return options.HostOptions.Hostname
+		return strings.Replace(options.HostOptions.Hostname, ".", "-", -1)
 	} else {
 		hn, err := os.Hostname()
 		if err != nil {
