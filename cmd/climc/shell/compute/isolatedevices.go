@@ -84,4 +84,16 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type DeviceUpdateOptions struct {
+		ID              []string `help:"ID of the isolated device" json:"-"`
+		ReservedCpu     *int     `help:"reserved cpu for isolated device"`
+		ReservedMem     *int     `help:"reserved mem for isolated device"`
+		ReservedStorage *int     `help:"reserved storage for isolated device"`
+	}
+	R(&DeviceUpdateOptions{}, "isolated-device-update", "Update a isolated device", func(s *mcclient.ClientSession, args *DeviceUpdateOptions) error {
+		res := modules.IsolatedDevices.BatchUpdate(s, args.ID, jsonutils.Marshal(args))
+		printBatchResults(res, modules.IsolatedDevices.GetColumns(s))
+		return nil
+	})
 }

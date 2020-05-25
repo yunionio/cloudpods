@@ -166,6 +166,9 @@ type HostDetails struct {
 	// 允许开启宿主机健康检查
 	AllowHealthCheck bool `json:"allow_health_check"`
 
+	// reserved resource for isolated device
+	ReservedResourceForGpu IsolatedDeviceReservedResourceInput `json:"reserved_resource_for_gpu"`
+
 	// 标签
 	Metadata map[string]string `json:"metadata"`
 }

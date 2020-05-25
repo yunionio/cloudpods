@@ -815,4 +815,20 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type HostSetReservedResourceForIsolatedDevice struct {
+		ID              []string `help:"ID or name of host" json:"-"`
+		ReservedCpu     *int     `help:"reserved cpu count"`
+		ReservedMem     *int     `help:"reserved mem count"`
+		ReservedStorage *int     `help:"reserved storage count"`
+	}
+	R(&HostSetReservedResourceForIsolatedDevice{},
+		"host-set-reserved-resource-for-isolated-device",
+		"Set reserved resource for isolated device",
+		func(s *mcclient.ClientSession, args *HostSetReservedResourceForIsolatedDevice) error {
+			res := modules.Hosts.BatchPerformAction(s, args.ID, "set-reserved-resource-for-isolated-device", jsonutils.Marshal(args))
+			printBatchResults(res, modules.Hosts.GetColumns(s))
+			return nil
+		},
+	)
 }

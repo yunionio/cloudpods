@@ -59,6 +59,7 @@ type IsolatedDeviceCreateInput struct {
 	apis.StandaloneResourceCreateInput
 
 	HostResourceInput
+	IsolatedDeviceReservedResourceInput
 
 	// 设备类型USB/GPU
 	// example: GPU
@@ -74,4 +75,20 @@ type IsolatedDeviceCreateInput struct {
 
 	// 设备VendorId
 	VendorDeviceId string `json:"vendor_device_id"`
+}
+
+type IsolatedDeviceReservedResourceInput struct {
+	// GPU 预留内存
+	ReservedMemory *int `json:"reserved_memory"`
+
+	// GPU 预留CPU
+	ReservedCpu *int `json:"reserved_cpu"`
+
+	// GPU 预留磁盘
+	ReservedStorage *int `json:"reserved_storage"`
+}
+
+type IsolatedDeviceUpdateInput struct {
+	apis.StandaloneResourceBaseUpdateInput
+	IsolatedDeviceReservedResourceInput
 }

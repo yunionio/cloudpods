@@ -2604,7 +2604,34 @@ func (self *SHost) getMoreDetails(ctx context.Context, out api.HostDetails, show
 	if self.EnableHealthCheck && hostHealthChecker != nil {
 		out.AllowHealthCheck = true
 	}
+
+	if rs := self.GetReservedResourceForIsolatedDevice(); rs != nil {
+		out.ReservedResourceForGpu = *rs
+	}
 	return out
+}
+
+func (self *SHost) GetReservedResourceForIsolatedDevice() *api.IsolatedDeviceReservedResourceInput {
+	if devs := IsolatedDeviceManager.FindByHost(self.Id); len(devs) == 0 {
+		return nil
+	} else {
+		return self.GetDevsReservedResource(devs)
+	}
+}
+
+func (self *SHost) GetDevsReservedResource(devs []SIsolatedDevice) *api.IsolatedDeviceReservedResourceInput {
+	reservedCpu, reservedMem, reservedStorage := 0, 0, 0
+	reservedResourceForGpu := api.IsolatedDeviceReservedResourceInput{
+		ReservedStorage: &reservedStorage,
+		ReservedMemory:  &reservedMem,
+		ReservedCpu:     &reservedCpu,
+	}
+	for _, dev := range devs {
+		reservedCpu += dev.ReservedCpu
+		reservedMem += dev.ReservedMemory
+		reservedStorage += dev.ReservedStorage
+	}
+	return &reservedResourceForGpu
 }
 
 func (self *SHost) GetMetadataHiddenKeys() []string {
@@ -5151,6 +5178,66 @@ func (host *SHost) PerformPrivate(ctx context.Context, userCred mcclient.TokenCr
 		}
 	}
 	return host.SEnabledStatusInfrasResourceBase.PerformPrivate(ctx, userCred, query, input)
+}
+
+func (host *SHost) AllowPerformSetReservedResourceForIsolatedDevice(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, input api.IsolatedDeviceReservedResourceInput,
+) bool {
+	return db.IsDomainAllowPerform(userCred, host, "set-reserved-resource-for-isolated-device")
+}
+
+func (host *SHost) PerfromSetReservedResourceForIsolatedDevice(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, input api.IsolatedDeviceReservedResourceInput,
+) (jsonutils.JSONObject, error) {
+	if input.ReservedCpu != nil && *input.ReservedCpu < 0 {
+		return nil, httperrors.NewInputParameterError("reserved cpu must >= 0")
+	}
+	if input.ReservedMemory != nil && *input.ReservedMemory < 0 {
+		return nil, httperrors.NewInputParameterError("reserved memory must >= 0")
+	}
+	if input.ReservedStorage != nil && *input.ReservedStorage < 0 {
+		return nil, httperrors.NewInputParameterError("reserved storage must >= 0")
+	}
+	devs := IsolatedDeviceManager.FindByHost(host.Id)
+	if len(devs) == 0 {
+		return nil, nil
+	}
+	if input.ReservedCpu != nil && host.GetCpuCount() < *input.ReservedCpu*len(devs) {
+		return nil, httperrors.NewBadRequestError(
+			"host %s can't reserve %d cpu for each isolated device, not enough", host.Name, *input.ReservedCpu)
+	}
+	if input.ReservedMemory != nil && host.GetMemSize() < *input.ReservedMemory*len(devs) {
+		return nil, httperrors.NewBadRequestError(
+			"host %s can't reserve %dM memory for each isolated device, not enough", host.Name, *input.ReservedMemory)
+	}
+	caps := host.GetAttachedLocalStorageCapacity()
+	if input.ReservedStorage != nil && caps.Capacity < int64(*input.ReservedStorage*len(devs)) {
+		return nil, httperrors.NewBadRequestError(
+			"host %s can't reserve %dM storage for each isolated device, not enough")
+	}
+	defer func() {
+		go host.ClearSchedDescCache()
+	}()
+	for i := 0; i < len(devs); i++ {
+		_, err := db.Update(&devs[i], func() error {
+			if input.ReservedCpu != nil {
+				devs[i].ReservedCpu = *input.ReservedCpu
+			}
+			if input.ReservedMemory != nil {
+				devs[i].ReservedMemory = *input.ReservedMemory
+			}
+			if input.ReservedStorage != nil {
+				devs[i].ReservedStorage = *input.ReservedStorage
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "update isolated device")
+		}
+	}
+	return nil, nil
 }
 
 func (manager *SHostManager) ListItemExportKeys(ctx context.Context,
