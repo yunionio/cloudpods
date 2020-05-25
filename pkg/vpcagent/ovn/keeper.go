@@ -51,6 +51,7 @@ func DumpOVNNorthbound(ctx context.Context, cli *ovnutil.OvnNbCtl) (*OVNNorthbou
 		&db.LogicalRouterStaticRoute,
 		&db.ACL,
 		&db.DHCPOptions,
+		&db.QoS,
 	}
 	args := []string{"--format=json", "list", "<tbl>"}
 	for _, itbl := range itbls {
@@ -315,6 +316,7 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 		ocVersion       = fmt.Sprintf("%s.%d", guestnetwork.UpdatedAt, guestnetwork.UpdateVersion)
 		ocGnrDefaultRef = fmt.Sprintf("gnrDefault/%s/%s/%s", vpc.Id, guestnetwork.GuestId, guestnetwork.Ifname)
 		ocAclRef        = fmt.Sprintf("acl/%s/%s/%s", network.Id, guestnetwork.GuestId, guestnetwork.Ifname)
+		ocQosRef        = fmt.Sprintf("qos/%s/%s/%s", network.Id, guestnetwork.GuestId, guestnetwork.Ifname)
 		dhcpOpt         string
 	)
 
@@ -344,6 +346,41 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 		Addresses:     []string{fmt.Sprintf("%s %s", guestnetwork.MacAddr, guestnetwork.IpAddr)},
 		PortSecurity:  []string{fmt.Sprintf("%s %s/%d", guestnetwork.MacAddr, guestnetwork.IpAddr, guestnetwork.Network.GuestIpMask)},
 		Dhcpv4Options: &dhcpOpt,
+		Options:       map[string]string{},
+	}
+
+	var qosVif []*ovn_nb.QoS
+	if bwMbps := guestnetwork.BwLimit; bwMbps > 0 {
+		var (
+			kbps = int64(bwMbps * 1000)
+			kbur = int64(kbps * 2)
+		)
+		qosVif = []*ovn_nb.QoS{
+			&ovn_nb.QoS{
+				Priority:  2000,
+				Direction: "from-lport",
+				Match:     fmt.Sprintf("inport == %q", lportName),
+				Bandwidth: map[string]int64{
+					"rate":  kbps,
+					"burst": kbur,
+				},
+				ExternalIds: map[string]string{
+					externalKeyOcRef: ocQosRef,
+				},
+			},
+			&ovn_nb.QoS{
+				Priority:  1000,
+				Direction: "to-lport",
+				Match:     fmt.Sprintf("outport == %q", lportName),
+				Bandwidth: map[string]int64{
+					"rate":  kbps,
+					"burst": kbur,
+				},
+				ExternalIds: map[string]string{
+					externalKeyOcRef: ocQosRef,
+				},
+			},
+		}
 	}
 
 	var gnrDefault *ovn_nb.LogicalRouterStaticRoute
@@ -400,6 +437,9 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 	for _, acl := range acls {
 		irows = append(irows, acl)
 	}
+	for _, qos := range qosVif {
+		irows = append(irows, qos)
+	}
 	allFound, args := cmp(&keeper.DB, ocVersion, irows...)
 	if allFound {
 		return nil
@@ -416,6 +456,11 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 		args = append(args, ovnCreateArgs(acl, ref)...)
 		args = append(args, "--", "add", "Logical_Switch", netLsName(guestnetwork.NetworkId), "acls", "@"+ref)
 	}
+	for i, qos := range qosVif {
+		ref := fmt.Sprintf("qosVif%d", i)
+		args = append(args, ovnCreateArgs(qos, ref)...)
+		args = append(args, "--", "add", "Logical_Switch", netLsName(guestnetwork.NetworkId), "qos_rules", "@"+ref)
+	}
 	return keeper.cli.Must(ctx, "ClaimGuestnetwork", args)
 }
 
@@ -429,6 +474,7 @@ func (keeper *OVNNorthboundKeeper) Mark(ctx context.Context) {
 		&db.LogicalRouterStaticRoute,
 		&db.ACL,
 		&db.DHCPOptions,
+		&db.QoS,
 	}
 	for _, itbl := range itbls {
 		for _, irow := range itbl.Rows() {
@@ -487,6 +533,20 @@ func (keeper *OVNNorthboundKeeper) Sweep(ctx context.Context) error {
 		}
 		if len(args) > 0 {
 			keeper.cli.Must(ctx, "Sweep acls", args)
+		}
+	}
+	{ //  remove unused QoS rows
+		var args []string
+		for _, irow := range db.QoS.Rows() {
+			_, ok := irow.GetExternalId(externalKeyOcVersion)
+			if !ok {
+				for _, ls := range db.LogicalSwitch.FindQoSReferrer_qos_rules(irow.OvsdbUuid()) {
+					args = append(args, "--", "--if-exists", "remove", "Logical_Switch", ls.Name, "qos_rules", irow.OvsdbUuid())
+				}
+			}
+		}
+		if len(args) > 0 {
+			keeper.cli.Must(ctx, "Sweep qos", args)
 		}
 	}
 	return nil
