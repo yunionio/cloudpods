@@ -74,12 +74,6 @@ func (client *SQcloudClient) CreateIProject(name string) (cloudprovider.ICloudPr
 	return client.CreateProject(name, "")
 }
 
-func (client *SQcloudClient) SetProjectId(id string) {
-	if id != "0" {
-		client.projectId = id
-	}
-}
-
 func (client *SQcloudClient) GetProjects() ([]SProject, error) {
 	projects := []SProject{}
 	params := map[string]string{"allList": "1"}

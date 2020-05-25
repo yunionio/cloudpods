@@ -411,25 +411,16 @@ func (lb *SLoadbalancer) GetNetworks() ([]SNetwork, error) {
 	return networks, nil
 }
 
-func (lb *SLoadbalancer) GetIRegionAndProvider() (cloudprovider.ICloudRegion, cloudprovider.ICloudProvider, error) {
+func (lb *SLoadbalancer) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	provider, err := lb.GetDriver()
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "lb.GetDriver")
+		return nil, errors.Wrap(err, "lb.GetDriver")
 	}
 	region := lb.GetRegion()
 	if region == nil {
-		return nil, nil, fmt.Errorf("failed to get region for lb %s", lb.Name)
+		return nil, fmt.Errorf("failed to get region for lb %s", lb.Name)
 	}
-	iregion, err := provider.GetIRegionById(region.ExternalId)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "GetIRegionById")
-	}
-	return iregion, provider, nil
-}
-
-func (lb *SLoadbalancer) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	iregion, _, err := lb.GetIRegionAndProvider()
-	return iregion, err
+	return provider.GetIRegionById(region.ExternalId)
 }
 
 func (lb *SLoadbalancer) GetCreateLoadbalancerParams(iRegion cloudprovider.ICloudRegion) (*cloudprovider.SLoadbalancer, error) {

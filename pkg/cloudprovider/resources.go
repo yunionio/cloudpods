@@ -204,7 +204,7 @@ type ICloudStorage interface {
 	GetStorageConf() jsonutils.JSONObject
 	GetEnabled() bool
 
-	CreateIDisk(name string, sizeGb int, desc string) (ICloudDisk, error)
+	CreateIDisk(conf *DiskCreateConfig) (ICloudDisk, error)
 
 	GetIDiskById(idStr string) (ICloudDisk, error)
 

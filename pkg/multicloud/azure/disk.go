@@ -74,7 +74,7 @@ type SDisk struct {
 	Tags map[string]string `json:"tags,omitempty"`
 }
 
-func (self *SRegion) CreateDisk(storageType string, name string, sizeGb int32, desc string, imageId string) (*SDisk, error) {
+func (self *SRegion) CreateDisk(storageType string, name string, sizeGb int32, desc string, imageId, resourceGroup string) (*SDisk, error) {
 	disk := SDisk{
 		Name:     name,
 		Location: self.Name,
@@ -118,7 +118,7 @@ func (self *SRegion) CreateDisk(storageType string, name string, sizeGb int32, d
 		}
 		disk.Properties.OsType = image.GetOsType()
 	}
-	return &disk, self.client.Create(jsonutils.Marshal(disk), &disk)
+	return &disk, self.client.CreateWithResourceGroup(resourceGroup, jsonutils.Marshal(disk), &disk)
 }
 
 func (self *SRegion) DeleteDisk(diskId string) error {

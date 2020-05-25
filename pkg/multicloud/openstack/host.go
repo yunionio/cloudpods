@@ -217,7 +217,7 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 			return nil, errors.Wrapf(err, "GetIStorageById(%s)", desc.SysDisk.StorageExternalId)
 		}
 
-		_sysDisk, err := host.zone.region.CreateDisk(desc.ExternalImageId, istorage.GetName(), "", desc.SysDisk.SizeGB, desc.SysDisk.Name)
+		_sysDisk, err := host.zone.region.CreateDisk(desc.ExternalImageId, istorage.GetName(), "", desc.SysDisk.SizeGB, desc.SysDisk.Name, desc.ProjectId)
 		if err != nil {
 			return nil, errors.Wrapf(err, "CreateDisk %s", desc.SysDisk.Name)
 		}
@@ -247,7 +247,7 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetIStorageById(%s)", disk.StorageExternalId)
 		}
-		_disk, err = host.zone.region.CreateDisk("", istorage.GetName(), "", disk.SizeGB, disk.Name)
+		_disk, err = host.zone.region.CreateDisk("", istorage.GetName(), "", disk.SizeGB, disk.Name, desc.ProjectId)
 		if err != nil {
 			return nil, errors.Wrapf(err, "CreateDisk %s", disk.Name)
 		}
@@ -298,7 +298,7 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 		params["server"]["key_name"] = keypairName
 	}
 
-	_, resp, err := host.zone.region.Post("compute", "/servers", "", jsonutils.Marshal(params))
+	_, resp, err := host.zone.region.PostWithProject(desc.ProjectId, "compute", "/servers", "", jsonutils.Marshal(params))
 	if err != nil {
 		return nil, err
 	}

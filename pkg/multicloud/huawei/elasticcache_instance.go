@@ -448,8 +448,8 @@ func (self *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheIn
 	}
 	params.Set("available_zones", jsonutils.NewStringArray(zones))
 
-	if len(self.client.enterpriseProjectId) > 0 {
-		params.Set("enterprise_project_id", jsonutils.NewString(self.client.enterpriseProjectId))
+	if len(ec.ProjectId) > 0 {
+		params.Set("enterprise_project_id", jsonutils.NewString(ec.ProjectId))
 	}
 
 	if len(ec.Password) > 0 {

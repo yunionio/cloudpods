@@ -1631,6 +1631,9 @@ func (self *SCloudprovider) GetExternalProjects() ([]SExternalProject, error) {
 }
 
 func (self *SCloudprovider) SyncProject(ctx context.Context, userCred mcclient.TokenCredential, id string) (string, error) {
+	lockman.LockRawObject(ctx, self.Id, id)
+	defer lockman.ReleaseRawObject(ctx, self.Id, id)
+
 	projects, err := self.GetExternalProjects()
 	if err != nil {
 		return "", errors.Wrap(err, "GetExternalProjects")

@@ -609,7 +609,7 @@ func (self *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP
 		eip.Name = eip.Name[:64]
 	}
 
-	ieip, err := self.AllocateEIP(eip.Name, eip.BandwidthMbps, ctype, eip.BGPType)
+	ieip, err := self.AllocateEIP(eip.Name, eip.BandwidthMbps, ctype, eip.BGPType, eip.ProjectId)
 	ieip.region = self
 	if err != nil {
 		return nil, err

@@ -114,8 +114,8 @@ func (self *SStorage) GetEnabled() bool {
 	return true
 }
 
-func (self *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
-	diskId, err := self.zone.region.CreateDisk(self.zone.GetId(), self.storageType, name, sizeGb, "", desc)
+func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
+	diskId, err := self.zone.region.CreateDisk(self.zone.GetId(), self.storageType, conf.Name, conf.SizeGb, "", conf.Desc, conf.ProjectId)
 	if err != nil {
 		log.Errorf("createDisk fail %s", err)
 		return nil, err

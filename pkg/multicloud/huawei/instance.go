@@ -797,7 +797,7 @@ type ServerTag struct {
 */
 func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, SubnetId string,
 	securityGroupId string, vpcId string, zoneId string, desc string, disks []SDisk, ipAddr string,
-	keypair string, publicKey string, passwd string, userData string, bc *billing.SBillingCycle) (string, error) {
+	keypair string, publicKey string, passwd string, userData string, bc *billing.SBillingCycle, projectId string) (string, error) {
 	params := SServerCreate{}
 	params.AvailabilityZone = zoneId
 	params.Name = name
@@ -821,8 +821,8 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 		}
 	}
 
-	if len(self.client.enterpriseProjectId) > 0 {
-		params.Extendparam.EnterpriseProjectId = self.client.enterpriseProjectId
+	if len(projectId) > 0 {
+		params.Extendparam.EnterpriseProjectId = projectId
 	}
 
 	// billing type

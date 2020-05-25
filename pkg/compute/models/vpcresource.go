@@ -79,17 +79,12 @@ func (self *SVpcResourceBase) GetRegionId() string {
 	return ""
 }
 
-func (self *SVpcResourceBase) GetIRegionAndProvider() (cloudprovider.ICloudRegion, cloudprovider.ICloudProvider, error) {
+func (self *SVpcResourceBase) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	vpc := self.GetVpc()
 	if vpc != nil {
-		return vpc.GetIRegionAndProvider()
+		return vpc.GetIRegion()
 	}
-	return nil, nil, errors.Wrap(httperrors.ErrBadRequest, "not a valid vpc")
-}
-
-func (self *SVpcResourceBase) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	ivpc, _, err := self.GetIRegionAndProvider()
-	return ivpc, err
+	return nil, errors.Wrap(httperrors.ErrBadRequest, "not a valid vpc")
 }
 
 func (self *SVpcResourceBase) GetCloudprovider() *SCloudprovider {

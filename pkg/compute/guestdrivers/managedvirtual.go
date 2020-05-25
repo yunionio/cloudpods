@@ -77,7 +77,7 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 	provider := host.GetCloudprovider()
 	config.ProjectId, err = provider.SyncProject(ctx, userCred, guest.ProjectId)
 	if err != nil {
-		log.Errorf("failed to sync project %s", err)
+		log.Errorf("failed to sync project %s for create %s guest %s error: %v", guest.ProjectId, provider.Provider, guest.Name, err)
 	}
 
 	disks := guest.GetDisks()
@@ -428,7 +428,7 @@ func (self *SManagedVirtualizedGuestDriver) GetLinuxDefaultAccount(desc cloudpro
 }
 
 func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error) {
-	ihost, provider, err := host.GetIHostAndProvider()
+	ihost, err := host.GetIHost()
 	if err != nil {
 		return nil, errors.Wrapf(err, "RemoteDeployGuestForCreate.GetIHost")
 	}
@@ -436,10 +436,6 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 	iVM, err := func() (cloudprovider.ICloudVM, error) {
 		lockman.LockObject(ctx, host)
 		defer lockman.ReleaseObject(ctx, host)
-
-		if len(desc.ProjectId) == 0 {
-			provider.SetProjectId(desc.ProjectId)
-		}
 
 		iVM, err := ihost.CreateVM(&desc)
 		if err != nil {

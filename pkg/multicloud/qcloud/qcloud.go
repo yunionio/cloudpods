@@ -59,8 +59,6 @@ type QcloudClientConfig struct {
 	secretKey string
 	appId     string
 
-	projectId string
-
 	debug bool
 }
 

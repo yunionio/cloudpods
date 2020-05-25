@@ -192,10 +192,6 @@ func (self *SQcloudProvider) CreateIProject(name string) (cloudprovider.ICloudPr
 	return self.client.CreateIProject(name)
 }
 
-func (self *SQcloudProvider) SetProjectId(id string) {
-	self.client.SetProjectId(id)
-}
-
 func (self *SQcloudProvider) GetStorageClasses(regionId string) []string {
 	return []string{
 		"STANDARD", "STANDARD_IA", "ARCHIVE",
