@@ -57,21 +57,4 @@ func init() {
 		return nil
 	})
 
-	type SecurityGroupRuleCreateOptions struct {
-		Group     string `help:"secgroup id"`
-		Direction string `help:"direction"`
-		Ethertype string `help:"ethertype" choice:"IPv4|IPv6"`
-		Protocol  string `help:"protocol,icmp，tcp，udp，and so on "`
-		IpPrefix  string `help:"remote ip prefix"`
-		PortMin   int64  `help:"portRangeMin"`
-		PortMax   int64  `help:"portRangeMax"`
-	}
-	shellutils.R(&SecurityGroupRuleCreateOptions{}, "secrule-create", "Create secgroup rule", func(cli *ctyun.SRegion, args *SecurityGroupRuleCreateOptions) error {
-		e := cli.CreateSecurityGroupRule(args.Group, args.Direction, args.Ethertype, args.Protocol, args.IpPrefix, args.PortMin, args.PortMax)
-		if e != nil {
-			return e
-		}
-
-		return nil
-	})
 }
