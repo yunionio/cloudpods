@@ -30,6 +30,7 @@ type IModelSets interface {
 	ModelSetList() []IModelSet
 	ApplyUpdates(IModelSets) ModelSetsUpdateResult
 	Copy() IModelSets
+	CopyJoined() IModelSets
 }
 
 type IModelSet interface {
