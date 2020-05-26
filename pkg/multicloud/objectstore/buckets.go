@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/s3cli"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
@@ -51,7 +52,7 @@ func (bucket *SBucket) GetId() string {
 }
 
 func (bucket *SBucket) GetStatus() string {
-	return ""
+	return api.BUCKET_STATUS_READY
 }
 
 func (bucket *SBucket) GetMetadata() *jsonutils.JSONDict {
