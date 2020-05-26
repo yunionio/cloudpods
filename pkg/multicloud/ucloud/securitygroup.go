@@ -18,20 +18,22 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
-	"strconv"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 // https://docs.ucloud.cn/api/unet-api/describe_firewall
 type SSecurityGroup struct {
+	multicloud.SSecurityGroup
 	region *SRegion
 	vpc    *SVPC // 安全组在UCLOUD实际上与VPC是没有直接关联的。这里的vpc字段只是为了统一，仅仅是标记是哪个VPC在操作该安全组。
 
@@ -99,15 +101,15 @@ func (self *SSecurityGroup) GetDescription() string {
 	return self.Remark
 }
 
-func (self *SSecurityGroup) UcloudSecRuleToOnecloud(rule Rule) secrules.SecurityRule {
-	secrule := secrules.SecurityRule{}
+func (self *SSecurityGroup) UcloudSecRuleToOnecloud(rule Rule) (cloudprovider.SecurityRule, error) {
+	secrule := cloudprovider.SecurityRule{}
 	switch rule.Priority {
 	case "HIGH":
-		secrule.Priority = 90
+		secrule.Priority = 3
 	case "MEDIUM":
-		secrule.Priority = 60
+		secrule.Priority = 2
 	case "LOW":
-		secrule.Priority = 30
+		secrule.Priority = 1
 	default:
 		secrule.Priority = 1
 	}
@@ -123,46 +125,30 @@ func (self *SSecurityGroup) UcloudSecRuleToOnecloud(rule Rule) secrules.Security
 
 	_, ipNet, err := net.ParseCIDR(rule.SrcIP)
 	if err != nil {
-		log.Errorln(err)
+		return secrule, errors.Wrapf(err, "net.ParseCIDR(%s)", rule.SrcIP)
 	}
 
 	secrule.IPNet = ipNet
 	secrule.Protocol = strings.ToLower(rule.ProtocolType)
 	secrule.Direction = secrules.SecurityRuleIngress
-	if rule.DstPort == "" {
-		secrule.PortStart = -1
-		secrule.PortEnd = -1
-	} else if strings.Contains(rule.DstPort, "-") {
-		segs := strings.Split(rule.DstPort, "-")
-		s, err := strconv.Atoi(segs[0])
-		if err != nil {
-			log.Errorln(err)
-		}
-		e, err := strconv.Atoi(segs[1])
-		if err != nil {
-			log.Errorln(err)
-		}
-		secrule.PortStart = s
-		secrule.PortEnd = e
-	} else {
-		port, err := strconv.Atoi(rule.DstPort)
-		if err != nil {
-			log.Errorln(err)
-		}
-
-		secrule.PortStart = port
-		secrule.PortEnd = port
+	err = secrule.ParsePorts(rule.DstPort)
+	if err != nil {
+		return secrule, errors.Wrapf(err, "ParsePorts(%s)", rule.DstPort)
 	}
 
-	return secrule
+	return secrule, nil
 }
 
 // https://docs.ucloud.cn/network/firewall/firewall
 // 只有入方向规则
-func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
-	rules := make([]secrules.SecurityRule, 0)
+func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
+	rules := make([]cloudprovider.SecurityRule, 0)
 	for _, r := range self.Rule {
-		rule := self.UcloudSecRuleToOnecloud(r)
+		rule, err := self.UcloudSecRuleToOnecloud(r)
+		if err != nil {
+			log.Errorf("failed to convert rule for group %s(%s) error: %v", self.Name, self.GroupID, err)
+			continue
+		}
 		rules = append(rules, rule)
 	}
 
@@ -264,22 +250,11 @@ func (self *SRegion) GetSecurityGroups(secGroupId string, resourceId string, nam
 	return result, nil
 }
 
-func (self *SSecurityGroup) SyncRules(rules []secrules.SecurityRule) error {
-	// 如果是空规则，onecloud。默认拒绝所有流量
-	if len(rules) == 0 {
-		_, IpNet, _ := net.ParseCIDR("0.0.0.0/0")
-		rules = []secrules.SecurityRule{{
-			Priority:    0,
-			Action:      secrules.SecurityRuleDeny,
-			IPNet:       IpNet,
-			Protocol:    secrules.PROTO_ANY,
-			Direction:   secrules.SecurityRuleIngress,
-			PortStart:   0,
-			PortEnd:     0,
-			Ports:       nil,
-			Description: "",
-		}}
+func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
+	if len(inAdds) == 0 && len(inDels) == 0 {
+		return nil
 	}
+	rules := append(common, inAdds...)
 	return self.region.syncSecgroupRules(self.FWID, rules)
 }
 

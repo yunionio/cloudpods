@@ -19,7 +19,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -260,10 +259,6 @@ func (self *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
 
 func (self *SRegion) DeleteSecurityGroup(vpcId, secgroupId string) error {
 	return cloudprovider.ErrNotImplemented
-}
-
-func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
 }
 
 func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {

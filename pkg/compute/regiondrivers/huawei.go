@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
@@ -50,6 +51,30 @@ type SHuaWeiRegionDriver struct {
 func init() {
 	driver := SHuaWeiRegionDriver{}
 	models.RegisterRegionDriver(&driver)
+}
+
+func (self *SHuaWeiRegionDriver) GetSecurityGroupRuleOrder() cloudprovider.TPriorityOrder {
+	return cloudprovider.PriorityOrderByAsc
+}
+
+func (self *SHuaWeiRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
+}
+
+func (self *SHuaWeiRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:allow any")}
+}
+
+func (self *SHuaWeiRegionDriver) GetSecurityGroupRuleMaxPriority() int {
+	return 0
+}
+
+func (self *SHuaWeiRegionDriver) GetSecurityGroupRuleMinPriority() int {
+	return 0
+}
+
+func (self *SHuaWeiRegionDriver) IsOnlySupportAllowRules() bool {
+	return true
 }
 
 func (self *SHuaWeiRegionDriver) GetProvider() string {

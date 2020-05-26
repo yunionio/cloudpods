@@ -17,17 +17,19 @@ package aws
 import (
 	"fmt"
 	"math/rand"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/pkg/errors"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/secrules"
 
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type Tags struct {
@@ -40,6 +42,7 @@ type Tag struct {
 }
 
 type SSecurityGroup struct {
+	multicloud.SSecurityGroup
 	vpc *SVpc
 
 	RegionId          string
@@ -47,7 +50,7 @@ type SSecurityGroup struct {
 	SecurityGroupId   string
 	Description       string
 	SecurityGroupName string
-	Permissions       []secrules.SecurityRule
+	Permissions       []cloudprovider.SecurityRule
 	Tags              Tags
 
 	// CreationTime      time.Time
@@ -114,33 +117,30 @@ func (self *SSecurityGroup) GetDescription() string {
 	return self.Description
 }
 
-func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
-	rules := make([]secrules.SecurityRule, 0)
-	if secgrp, err := self.vpc.region.GetSecurityGroupDetails(self.SecurityGroupId); err != nil {
-		return rules, err
-	} else {
-		rules = secgrp.Permissions
+func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
+	secgrp, err := self.vpc.region.GetSecurityGroupDetails(self.SecurityGroupId)
+	if err != nil {
+		return nil, err
 	}
-
-	return rules, nil
+	return secgrp.Permissions, nil
 }
 
-func (self *SRegion) addSecurityGroupRules(secGrpId string, rule *secrules.SecurityRule) error {
+func (self *SRegion) addSecurityGroupRules(secGrpId string, rule cloudprovider.SecurityRule) error {
 	if len(rule.Ports) != 0 {
 		for _, port := range rule.Ports {
 			rule.PortStart, rule.PortEnd = port, port
-			if err := self.addSecurityGroupRule(secGrpId, rule); err != nil {
-				return err
+			err := self.addSecurityGroupRule(secGrpId, rule)
+			if err != nil {
+				return errors.Wrapf(err, "addSecurityGroupRule(%d %s)", rule.Priority, rule.String())
 			}
 		}
-	} else {
-		return self.addSecurityGroupRule(secGrpId, rule)
+		return nil
 	}
-	return nil
+	return self.addSecurityGroupRule(secGrpId, rule)
 }
 
-func (self *SRegion) addSecurityGroupRule(secGrpId string, rule *secrules.SecurityRule) error {
-	ipPermissions, err := YunionSecRuleToAws(*rule)
+func (self *SRegion) addSecurityGroupRule(secGrpId string, rule cloudprovider.SecurityRule) error {
+	ipPermissions, err := YunionSecRuleToAws(rule)
 	log.Debugf("Aws security group rule: %s", ipPermissions)
 	if err != nil {
 		return err
@@ -168,8 +168,8 @@ func (self *SRegion) addSecurityGroupRule(secGrpId string, rule *secrules.Securi
 	return err
 }
 
-func (self *SRegion) delSecurityGroupRule(secGrpId string, rule *secrules.SecurityRule) error {
-	ipPermissions, err := YunionSecRuleToAws(*rule)
+func (self *SRegion) DelSecurityGroupRule(secGrpId string, rule cloudprovider.SecurityRule) error {
+	ipPermissions, err := YunionSecRuleToAws(rule)
 	if err != nil {
 		return err
 	}
@@ -195,8 +195,8 @@ func (self *SRegion) delSecurityGroupRule(secGrpId string, rule *secrules.Securi
 	return nil
 }
 
-func (self *SRegion) updateSecurityGroupRuleDescription(secGrpId string, rule *secrules.SecurityRule) error {
-	ipPermissions, err := YunionSecRuleToAws(*rule)
+func (self *SRegion) updateSecurityGroupRuleDescription(secGrpId string, rule cloudprovider.SecurityRule) error {
+	ipPermissions, err := YunionSecRuleToAws(rule)
 	if err != nil {
 		return err
 	}
@@ -270,13 +270,15 @@ func (self *SRegion) createDefaultSecurityGroup(vpcId string) (string, error) {
 		return "", err
 	}
 
-	rule := &secrules.SecurityRule{
-		Priority:  1,
-		Action:    secrules.SecurityRuleAllow,
-		Protocol:  "",
-		Direction: secrules.SecurityRuleIngress,
-		PortStart: -1,
-		PortEnd:   -1,
+	rule := cloudprovider.SecurityRule{
+		SecurityRule: secrules.SecurityRule{
+			Priority:  1,
+			Action:    secrules.SecurityRuleAllow,
+			Protocol:  "",
+			Direction: secrules.SecurityRuleIngress,
+			PortStart: -1,
+			PortEnd:   -1,
+		},
 	}
 
 	err = self.addSecurityGroupRule(secId, rule)
@@ -360,68 +362,8 @@ func (self *SRegion) modifySecurityGroup(secGrpId string, name string, desc stri
 	return nil
 }
 
-func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.SecurityRule) error {
-	var DeleteRules []secrules.SecurityRule
-	var AddRules []secrules.SecurityRule
-
-	if secgroup, err := self.GetSecurityGroupDetails(secgroupId); err != nil {
-		return err
-	} else {
-
-		sort.Sort(secrules.SecurityRuleSet(rules))
-		sort.Sort(secrules.SecurityRuleSet(secgroup.Permissions))
-
-		i, j := 0, 0
-		for i < len(rules) || j < len(secgroup.Permissions) {
-			if i < len(rules) && j < len(secgroup.Permissions) {
-				permissionStr := secgroup.Permissions[j].String()
-				ruleStr := rules[i].String()
-				cmp := strings.Compare(permissionStr, ruleStr)
-				if cmp == 0 {
-					DeleteRules = append(DeleteRules, secgroup.Permissions[j])
-					AddRules = append(AddRules, rules[i])
-					i += 1
-					j += 1
-				} else if cmp > 0 {
-					DeleteRules = append(DeleteRules, secgroup.Permissions[j])
-					j += 1
-				} else {
-					AddRules = append(AddRules, rules[i])
-					i += 1
-				}
-			} else if i >= len(rules) {
-				DeleteRules = append(DeleteRules, secgroup.Permissions[j])
-				j += 1
-			} else if j >= len(secgroup.Permissions) {
-				AddRules = append(AddRules, rules[i])
-				i += 1
-			}
-		}
-	}
-
-	for _, r := range DeleteRules {
-		if err := self.delSecurityGroupRule(secgroupId, &r); err != nil {
-			if strings.Contains(err.Error(), "InvalidPermission.NotFound") {
-				continue
-			}
-
-			log.Errorf("delSecurityGroupRule %v error: %s", r, err.Error())
-			return err
-		}
-	}
-
-	for _, r := range AddRules {
-		if err := self.addSecurityGroupRules(secgroupId, &r); err != nil {
-			log.Errorf("addSecurityGroupRule %v error: %s", r, err.Error())
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (self *SRegion) getSecRules(ingress []*ec2.IpPermission, egress []*ec2.IpPermission) []secrules.SecurityRule {
-	rules := []secrules.SecurityRule{}
+func (self *SRegion) getSecRules(ingress []*ec2.IpPermission, egress []*ec2.IpPermission) []cloudprovider.SecurityRule {
+	rules := []cloudprovider.SecurityRule{}
 	for _, p := range ingress {
 		ret, err := AwsIpPermissionToYunion(secrules.SecurityRuleIngress, *p)
 		if err != nil {
@@ -511,9 +453,24 @@ func (self *SSecurityGroup) GetProjectId() string {
 	return ""
 }
 
-func (self *SSecurityGroup) SyncRules(rules []secrules.SecurityRule) error {
-	rules = SecurityRuleSetToAllowSet(rules)
-	return self.vpc.region.syncSecgroupRules(self.SecurityGroupId, rules)
+func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
+	for _, r := range append(inDels, outDels...) {
+		err := self.vpc.region.DelSecurityGroupRule(self.SecurityGroupId, r)
+		if err != nil {
+			if strings.Contains(err.Error(), "InvalidPermission.NotFound") {
+				continue
+			}
+			return errors.Wrapf(err, "delSecurityGroupRule %s %d %s", r.Name, r.Priority, r.String())
+		}
+	}
+
+	for _, r := range append(inAdds, outAdds...) {
+		err := self.vpc.region.addSecurityGroupRules(self.SecurityGroupId, r)
+		if err != nil {
+			return errors.Wrapf(err, "addSecurityGroupRules %d %s", r.Priority, r.String())
+		}
+	}
+	return nil
 }
 
 func (self *SSecurityGroup) Delete() error {
