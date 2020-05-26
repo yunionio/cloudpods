@@ -15,6 +15,7 @@
 package aws
 
 import (
+	"github.com/aws/aws-sdk-go/aws"
 	sdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -189,7 +190,7 @@ func (self *SAwsClient) fetchRegions() error {
 
 func (client *SAwsClient) getAwsSession(regionId string) (*session.Session, error) {
 	httpClient := client.cpcfg.HttpClient()
-	return session.NewSession(&sdk.Config{
+	s, err := session.NewSession(&sdk.Config{
 		Region: sdk.String(regionId),
 		Credentials: credentials.NewStaticCredentials(
 			client.accessKey, client.accessSecret, "",
@@ -198,6 +199,14 @@ func (client *SAwsClient) getAwsSession(regionId string) (*session.Session, erro
 		DisableParamValidation:        sdk.Bool(true),
 		CredentialsChainVerboseErrors: sdk.Bool(true),
 	})
+	if err != nil {
+		return nil, err
+	}
+	if client.debug {
+		logLevel := aws.LogLevelType(uint(aws.LogDebugWithRequestErrors) + uint(aws.LogDebugWithHTTPBody) + uint(aws.LogDebugWithSigning))
+		s.Config.LogLevel = &logLevel
+	}
+	return s, nil
 }
 
 func (self *SAwsClient) invalidateIBuckets() {
