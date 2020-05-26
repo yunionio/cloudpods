@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"regexp"
 
+	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/stringutils"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -122,6 +123,16 @@ type SDnsNameValidatorManager struct{}
 
 func (manager *SDnsNameValidatorManager) ValidateName(name string) error {
 	if dnsNameREG.MatchString(name) {
+		return nil
+	}
+	return httperrors.NewInputParameterError("name starts with letter, and contains letter, number and - only")
+}
+
+type SHostNameValidatorManager struct{}
+
+// `^[a-zA-Z][a-zA-Z0-9._@-]*$`
+func (manager *SHostNameValidatorManager) ValidateName(name string) error {
+	if regutils.MatchName(name) {
 		return nil
 	}
 	return httperrors.NewInputParameterError("name starts with letter, and contains letter, number and - only")
