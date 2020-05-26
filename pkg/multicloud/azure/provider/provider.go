@@ -173,10 +173,6 @@ func (self *SAzureProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.client.GetIRegions()
 }
 
-func (self *SAzureProvider) GetICloudPolicyDefinitions() ([]cloudprovider.ICloudPolicyDefinition, error) {
-	return self.client.GetICloudDefinitions()
-}
-
 func (self *SAzureProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
 	return self.client.GetIRegionById(id)
 }
