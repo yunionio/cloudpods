@@ -16,7 +16,6 @@ package ucloud
 
 import (
 	"fmt"
-	"net"
 	"sort"
 	"strings"
 
@@ -227,41 +226,6 @@ func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreat
 // https://docs.ucloud.cn/api/unet-api/describe_firewall
 // 绑定防火墙组的资源类型，默认为全部资源类型。枚举值为："unatgw"，NAT网关； "uhost"，云主机； "upm"，物理云主机； "hadoophost"，hadoop节点； "fortresshost"，堡垒机； "udhost"，私有专区主机；"udockhost"，容器；"dbaudit"，数据库审计.
 // todo: 是否需要过滤出仅绑定云主机的安全组？
-func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
-	if len(secgroupId) > 0 {
-		_, err := self.GetSecurityGroupById(secgroupId)
-		if err == cloudprovider.ErrNotFound {
-			secgroupId = ""
-		} else if err != nil {
-			return "", err
-		}
-	}
-
-	if len(secgroupId) == 0 {
-		extID, err := self.CreateDefaultSecurityGroup(name, desc)
-		if err != nil {
-			return "", err
-		}
-		secgroupId = extID
-	}
-
-	// 如果是空规则，onecloud。默认拒绝所有流量
-	if len(rules) == 0 {
-		_, IpNet, _ := net.ParseCIDR("0.0.0.0/0")
-		rules = []secrules.SecurityRule{{
-			Priority:    0,
-			Action:      secrules.SecurityRuleDeny,
-			IPNet:       IpNet,
-			Protocol:    secrules.PROTO_ANY,
-			Direction:   secrules.SecurityRuleIngress,
-			PortStart:   0,
-			PortEnd:     0,
-			Ports:       nil,
-			Description: "",
-		}}
-	}
-	return secgroupId, self.syncSecgroupRules(secgroupId, rules)
-}
 
 func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
 	params := NewUcloudParams()
@@ -571,7 +535,7 @@ func inList(s int, lst []int) bool {
 	return false
 }
 
-func toUcloudSecurityRules(rules []secrules.SecurityRule) ([]string, error) {
+func toUcloudSecurityRules(rules []cloudprovider.SecurityRule) ([]string, error) {
 	ps := make([]int, 0)
 	for _, rule := range rules {
 		if rule.Direction == secrules.SecurityRuleIngress && !inList(rule.Priority, ps) {
@@ -601,7 +565,7 @@ func toUcloudSecurityRules(rules []secrules.SecurityRule) ([]string, error) {
 }
 
 // GRE协议被忽略了
-func toUcloudSecRule(rule secrules.SecurityRule, pmap map[int]string) []string {
+func toUcloudSecRule(rule cloudprovider.SecurityRule, pmap map[int]string) []string {
 	net := rule.IPNet.String()
 	priority := pmap[rule.Priority]
 	action := "DROP"
@@ -653,7 +617,7 @@ func generatorRule(protocol, priority, net, action string, startPort, endPort in
 }
 
 // https://docs.ucloud.cn/api/unet-api/update_firewall
-func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.SecurityRule) error {
+func (self *SRegion) syncSecgroupRules(secgroupId string, rules []cloudprovider.SecurityRule) error {
 	_rules, err := toUcloudSecurityRules(rules)
 	if err != nil {
 		return err

@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"sort"
 	"strings"
 	"time"
 
@@ -645,44 +644,46 @@ func (manager *SSecurityGroupManager) getSecurityGroups() ([]SSecurityGroup, err
 }
 
 func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extSec cloudprovider.ICloudSecurityGroup) (*SSecurityGroup, error) {
+	regionDriver, err := provider.GetRegionDriver()
+	if err != nil {
+		return nil, errors.Wrap(err, "provider.GetRegionDriver")
+	}
+
 	rules, err := extSec.GetRules()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "extSec.GetRules")
 	}
-	inRules := secrules.SecurityRuleSet{}
-	outRules := secrules.SecurityRuleSet{}
-	for i := 0; i < len(rules); i++ {
+
+	inRules := []cloudprovider.SecurityRule{}
+	outRules := []cloudprovider.SecurityRule{}
+	for i := range rules {
 		if rules[i].Direction == secrules.DIR_IN {
 			inRules = append(inRules, rules[i])
 		} else {
 			outRules = append(outRules, rules[i])
 		}
 	}
-	sort.Sort(inRules)
-	sort.Sort(outRules)
-	inAllowList := inRules.AllowList()
-	outAllowList := outRules.AllowList()
+
+	maxPriority := regionDriver.GetSecurityGroupRuleMaxPriority()
+	minPriority := regionDriver.GetSecurityGroupRuleMinPriority()
+
+	defaultInRule := regionDriver.GetDefaultSecurityGroupInRule()
+	defaultOutRule := regionDriver.GetDefaultSecurityGroupOutRule()
+	order := regionDriver.GetSecurityGroupRuleOrder()
+	onlyAllowRules := regionDriver.IsOnlySupportAllowRules()
 
 	// 查询所有共享或与provider在同一项目的安全组，比对寻找一个与云上安全组规则相同的安全组
 	secgroups := []SSecurityGroup{}
-	q := manager.Query()
-	q = q.Filter(
-		sqlchemy.OR(
-			sqlchemy.Equals(q.Field("tenant_id"), provider.ProjectId),
-			sqlchemy.AND(
-				sqlchemy.IsTrue(q.Field("is_public")),
-				sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeSystem),
-			),
-		),
-	)
-	if err := db.FetchModelObjects(manager, q, &secgroups); err != nil {
-		log.Errorf("failed to fetch secgroups %v", err)
+	q := manager.Query().Equals("domain_id", provider.DomainId)
+	err = db.FetchModelObjects(manager, q, &secgroups)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
 	}
-	for _, secgroup := range secgroups {
-		_inAllowList := secgroup.GetInAllowList()
-		_outAllowList := secgroup.GetOutAllowList()
-		if outAllowList.Equals(_outAllowList) && inAllowList.Equals(_inAllowList) {
-			return &secgroup, nil
+	for i := range secgroups {
+		localRules := secrules.SecurityRuleSet(secgroups[i].GetSecRules(""))
+		_, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(minPriority, maxPriority, order, localRules, rules, defaultInRule, defaultOutRule, onlyAllowRules, true)
+		if len(inAdds) == 0 && len(outAdds) == 0 && len(inDels) == 0 && len(outDels) == 0 {
+			return &secgroups[i], nil
 		}
 	}
 
@@ -695,6 +696,7 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 	if err != nil {
 		return nil, err
 	}
+
 	secgroup.Name = newName
 	secgroup.Description = extSec.GetDescription()
 	secgroup.ProjectId = provider.ProjectId
@@ -705,6 +707,11 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 	}
 
 	//这里必须先同步下规则,不然下次对比此安全组规则为空
+	inRules = cloudprovider.AddDefaultRule(inRules, defaultInRule, "in:deny any", order, minPriority, maxPriority, onlyAllowRules)
+	cloudprovider.SortSecurityRule(inRules, order, onlyAllowRules)
+	outRules = cloudprovider.AddDefaultRule(outRules, defaultOutRule, "out:allow any", order, minPriority, maxPriority, onlyAllowRules)
+	cloudprovider.SortSecurityRule(outRules, order, onlyAllowRules)
+
 	SecurityGroupRuleManager.SyncRules(ctx, userCred, &secgroup, inRules)
 	SecurityGroupRuleManager.SyncRules(ctx, userCred, &secgroup, outRules)
 

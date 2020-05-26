@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -49,11 +50,30 @@ func (self *SQcloudRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_QCLOUD
 }
 
+func (self *SQcloudRegionDriver) GetSecurityGroupRuleOrder() cloudprovider.TPriorityOrder {
+	return cloudprovider.PriorityOrderByAsc
+}
+
+func (self *SQcloudRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
+}
+
+func (self *SQcloudRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:deny any")}
+}
+
+func (self *SQcloudRegionDriver) GetSecurityGroupRuleMaxPriority() int {
+	return 0
+}
+
+func (self *SQcloudRegionDriver) GetSecurityGroupRuleMinPriority() int {
+	return 100
+}
+
 func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	ownerId := ctx.Value("ownerId").(mcclient.IIdentityProvider)
-	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", ownerId)
-	vpcV := validators.NewModelIdOrNameValidator("vpc", "vpc", ownerId)
-	managerIdV := validators.NewModelIdOrNameValidator("manager", "cloudprovider", ownerId)
+	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", userCred)
+	vpcV := validators.NewModelIdOrNameValidator("vpc", "vpc", userCred)
+	managerIdV := validators.NewModelIdOrNameValidator("manager", "cloudprovider", userCred)
 	addressTypeV := validators.NewStringChoicesValidator("address_type", api.LB_ADDR_TYPES)
 
 	keyV := map[string]validators.IValidator{
@@ -70,7 +90,7 @@ func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerData(ctx context.Cont
 
 	// 内网ELB需要增加network
 	if addressTypeV.Value == api.LB_ADDR_TYPE_INTRANET {
-		networkV := validators.NewModelIdOrNameValidator("network", "network", ownerId)
+		networkV := validators.NewModelIdOrNameValidator("network", "network", userCred)
 		if err := networkV.Validate(data); err != nil {
 			return nil, err
 		}
