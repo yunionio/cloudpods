@@ -91,7 +91,7 @@ func (mss *ModelSets) NewEmpty() apihelper.IModelSets {
 	return NewModelSets()
 }
 
-func (mss *ModelSets) Copy() apihelper.IModelSets {
+func (mss *ModelSets) copy_() *ModelSets {
 	mssCopy := &ModelSets{
 		Vpcs:               mss.Vpcs.Copy().(Vpcs),
 		Wires:              mss.Wires.Copy().(Wires),
@@ -103,12 +103,17 @@ func (mss *ModelSets) Copy() apihelper.IModelSets {
 		Guestnetworks:      mss.Guestnetworks.Copy().(Guestnetworks),
 		Guestsecgroups:     mss.Guestsecgroups.Copy().(Guestsecgroups),
 	}
-	mssCopy.join()
 	return mssCopy
 }
 
+func (mss *ModelSets) Copy() apihelper.IModelSets {
+	return mss.copy_()
+}
+
 func (mss *ModelSets) CopyJoined() apihelper.IModelSets {
-	return mss.Copy()
+	mssCopy := mss.copy_()
+	mssCopy.join()
+	return mssCopy
 }
 
 func (mss *ModelSets) ApplyUpdates(mssNews apihelper.IModelSets) apihelper.ModelSetsUpdateResult {
