@@ -17,15 +17,19 @@ package azure
 import (
 	"fmt"
 	"net"
-	"sort"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SecurityRulePropertiesFormat struct {
@@ -50,25 +54,6 @@ type SecurityRules struct {
 	ID         string
 }
 
-type SecurityRulesSet []SecurityRules
-
-func (v SecurityRulesSet) Len() int {
-	return len(v)
-}
-
-func (v SecurityRulesSet) Swap(i, j int) {
-	v[i], v[j] = v[j], v[i]
-}
-
-func (v SecurityRulesSet) Less(i, j int) bool {
-	if v[i].Properties.Priority < v[j].Properties.Priority {
-		return true
-	} else if v[i].Properties.Priority == v[j].Properties.Priority {
-		return strings.Compare(v[i].Properties.String(), v[j].Properties.String()) <= 0
-	}
-	return false
-}
-
 type Interface struct {
 	ID string
 }
@@ -81,6 +66,7 @@ type SecurityGroupPropertiesFormat struct {
 	ProvisioningState    string          //Possible values are: 'Updating', 'Deleting', and 'Failed'
 }
 type SSecurityGroup struct {
+	multicloud.SSecurityGroup
 	vpc        *SVpc
 	region     *SRegion
 	Properties *SecurityGroupPropertiesFormat `json:"properties,omitempty"`
@@ -204,15 +190,16 @@ func paresPortsWithIpNet(port string, ports []string, ip string, ips []string) (
 	return portsResult, ipResult, nil
 }
 
-func (self *SecurityRulePropertiesFormat) toRules() ([]secrules.SecurityRule, error) {
-	result := []secrules.SecurityRule{}
-	rule := secrules.SecurityRule{
-		Action:      secrules.TSecurityRuleAction(strings.ToLower(self.Access)),
-		Direction:   secrules.TSecurityRuleDirection(strings.Replace(strings.ToLower(self.Direction), "bound", "", -1)),
-		Protocol:    strings.ToLower(self.Protocol),
-		Priority:    int(self.Priority),
-		Description: self.Description,
-	}
+func (self *SecurityRulePropertiesFormat) toRules() ([]cloudprovider.SecurityRule, error) {
+	result := []cloudprovider.SecurityRule{}
+	rule := cloudprovider.SecurityRule{
+		SecurityRule: secrules.SecurityRule{
+			Action:      secrules.TSecurityRuleAction(strings.ToLower(self.Access)),
+			Direction:   secrules.TSecurityRuleDirection(strings.Replace(strings.ToLower(self.Direction), "bound", "", -1)),
+			Protocol:    strings.ToLower(self.Protocol),
+			Priority:    int(self.Priority),
+			Description: self.Description,
+		}}
 
 	if rule.Protocol == "*" {
 		rule.Protocol = "any"
@@ -240,47 +227,15 @@ func (self *SecurityRulePropertiesFormat) toRules() ([]secrules.SecurityRule, er
 
 	for i := 0; i < len(ips); i++ {
 		rule.IPNet = ips[i]
-		withICMP := false
 		for j := 0; j < len(ports); j++ {
 			rule.Ports = ports[j].ports
 			rule.PortStart = ports[j].portStart
 			rule.PortEnd = ports[j].portEnd
-			if rule.Protocol == secrules.PROTO_ANY && len(rule.Ports) > 0 || (rule.PortStart+rule.PortStart > 0) {
-				tcp := rule
-				tcp.Protocol = secrules.PROTO_TCP
-				err := tcp.ValidateRule()
-				if err != nil {
-					return nil, err
-				}
-				result = append(result, tcp)
-
-				udp := rule
-				udp.Protocol = secrules.PROTO_UDP
-				err = udp.ValidateRule()
-				if err != nil {
-					return nil, err
-				}
-				result = append(result, udp)
-				withICMP = true
-			} else {
-				err := rule.ValidateRule()
-				if err != nil {
-					return nil, err
-				}
-				result = append(result, rule)
-			}
-		}
-		if withICMP {
-			icmp := rule
-			icmp.Protocol = secrules.PROTO_ICMP
-			icmp.PortStart = -1
-			icmp.PortEnd = -1
-			icmp.Ports = []int{}
-			err := icmp.ValidateRule()
-			if err != nil {
+			err := rule.ValidateRule()
+			if err != nil && err != secrules.ErrInvalidPriority {
 				return nil, err
 			}
-			result = append(result, icmp)
+			result = append(result, rule)
 		}
 	}
 
@@ -316,24 +271,20 @@ func (self *SSecurityGroup) GetName() string {
 	return self.Name
 }
 
-func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
-	rules := make([]secrules.SecurityRule, 0)
+func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
+	rules := make([]cloudprovider.SecurityRule, 0)
 	if self.Properties.SecurityRules == nil {
 		return rules, nil
 	}
-	sort.Sort(SecurityRulesSet(self.Properties.SecurityRules))
-	priority := 100
 	for _, _rule := range self.Properties.SecurityRules {
-		_rule.Properties.Priority = int32(priority)
 		secRules, err := _rule.Properties.toRules()
 		if err != nil {
-			log.Errorf("Azure convert rule %v error: %v", _rule, err)
-			return nil, err
+			return nil, errors.Wrap(err, "_rule.Properties.toRules")
 		}
-		if len(secRules) > 0 {
-			priority--
+		for i := range secRules {
+			secRules[i].Name = _rule.Name
+			rules = append(rules, secRules[i])
 		}
-		rules = append(rules, secRules...)
 	}
 	return rules, nil
 }
@@ -392,7 +343,7 @@ func (self *SSecurityGroup) Refresh() error {
 	return jsonutils.Update(self, sec)
 }
 
-func convertRulePort(rule secrules.SecurityRule) []string {
+func convertRulePort(rule cloudprovider.SecurityRule) []string {
 	ports := []string{}
 	if len(rule.Ports) > 0 {
 		for i := 0; i < len(rule.Ports); i++ {
@@ -409,18 +360,31 @@ func convertRulePort(rule secrules.SecurityRule) []string {
 	return ports
 }
 
-func convertSecurityGroupRule(rule secrules.SecurityRule, priority int32) *SecurityRules {
-	name := strings.Replace(rule.String(), ":", "_", -1)
-	name = strings.Replace(name, " ", "_", -1)
-	name = strings.Replace(name, "-", "_", -1)
-	name = strings.Replace(name, "/", "_", -1)
-	name = strings.Replace(name, ",", "_", -1)
-	name = fmt.Sprintf("%s_%d", name, rule.Priority)
+func convertSecurityGroupRule(rule cloudprovider.SecurityRule) *SecurityRules {
+	if len(rule.Name) == 0 {
+		rule.Name = fmt.Sprintf("%s_%d", rule.String(), rule.Priority)
+	}
+	rule.Name = func(name string) string {
+		// 名称必须以字母或数字开头，以字母、数字或下划线结尾，并且只能包含字母、数字、下划线、句点或连字符
+		for _, s := range name {
+			if !(unicode.IsDigit(s) || unicode.IsLetter(s) || s == '.' || s == '-' || s == '_') {
+				name = strings.ReplaceAll(name, string(s), "_")
+			}
+		}
+		if !unicode.IsDigit(rune(name[0])) && !unicode.IsLetter(rune(name[0])) {
+			name = fmt.Sprintf("r_%s", name)
+		}
+		last := len(name) - 1
+		if !unicode.IsDigit(rune(name[last])) && !unicode.IsLetter(rune(name[last])) && name[last] != '_' {
+			name = fmt.Sprintf("%s_", name)
+		}
+		return name
+	}(rule.Name)
 	destRule := SecurityRules{
-		Name: name,
+		Name: rule.Name,
 		Properties: SecurityRulePropertiesFormat{
 			Access:                   utils.Capitalize(string(rule.Action)),
-			Priority:                 priority,
+			Priority:                 int32(rule.Priority),
 			Protocol:                 "*",
 			Direction:                utils.Capitalize((string(rule.Direction) + "bound")),
 			Description:              rule.Description,
@@ -433,10 +397,6 @@ func convertSecurityGroupRule(rule secrules.SecurityRule, priority int32) *Secur
 	}
 	if rule.Protocol != secrules.PROTO_ANY {
 		destRule.Properties.Protocol = utils.Capitalize(rule.Protocol)
-	}
-
-	if rule.Protocol == secrules.PROTO_ICMP {
-		return nil
 	}
 
 	if len(destRule.Properties.DestinationPortRanges) > 0 {
@@ -453,31 +413,6 @@ func convertSecurityGroupRule(rule secrules.SecurityRule, priority int32) *Secur
 		destRule.Properties.DestinationAddressPrefix = ipAddr
 	}
 	return &destRule
-}
-
-func (region *SRegion) updateSecurityGroupRules(secgroupId string, rules []secrules.SecurityRule) (string, error) {
-	secgroup, err := region.GetSecurityGroupDetails(secgroupId)
-	if err != nil {
-		return "", err
-	}
-	sort.Sort(secrules.SecurityRuleSet(rules))
-	securityRules := []SecurityRules{}
-	priority := int32(100)
-	ruleStrs := []string{}
-	for i := 0; i < len(rules); i++ {
-		ruleStr := rules[i].String()
-		if !utils.IsInStringArray(ruleStr, ruleStrs) {
-			rule := convertSecurityGroupRule(rules[i], priority)
-			if rule != nil {
-				securityRules = append(securityRules, *rule)
-				priority++
-			}
-			ruleStrs = append(ruleStrs, ruleStr)
-		}
-	}
-	secgroup.Properties.SecurityRules = securityRules
-	secgroup.Properties.ProvisioningState = ""
-	return secgroup.ID, region.client.Update(jsonutils.Marshal(secgroup), nil)
 }
 
 func (region *SRegion) AttachSecurityToInterfaces(secgroupId string, nicIds []string) error {
@@ -526,7 +461,28 @@ func (self *SSecurityGroup) Delete() error {
 	return self.region.client.Delete(self.ID)
 }
 
-func (self *SSecurityGroup) SyncRules(rules []secrules.SecurityRule) error {
-	_, err := self.region.updateSecurityGroupRules(self.ID, rules)
-	return err
+func (self *SSecurityGroup) SetRules(rules []cloudprovider.SecurityRule) error {
+	names := []string{}
+	securityRules := []SecurityRules{}
+	for i := 0; i < len(rules); i++ {
+		rule := convertSecurityGroupRule(rules[i])
+		if rule != nil {
+			for {
+				if !utils.IsInStringArray(rule.Name, names) {
+					names = append(names, rule.Name)
+					break
+				}
+				rule.Name = fmt.Sprintf("%s_", rule.Name)
+			}
+			securityRules = append(securityRules, *rule)
+		}
+	}
+	self.Properties.SecurityRules = securityRules
+	self.Properties.ProvisioningState = ""
+	return self.region.client.Update(jsonutils.Marshal(self), nil)
+}
+
+func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
+	rules := append(common, append(inAdds, outAdds...)...)
+	return self.SetRules(rules)
 }

@@ -17,7 +17,6 @@ package google
 import (
 	"fmt"
 	"net"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -29,6 +28,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SFirewallAction struct {
@@ -55,24 +55,8 @@ type SFirewall struct {
 	Kind                  string
 }
 
-type FirewallSet []SFirewall
-
-func (f FirewallSet) Len() int {
-	return len(f)
-}
-
-func (f FirewallSet) Swap(i, j int) {
-	f[i], f[j] = f[j], f[i]
-}
-
-func (f FirewallSet) Less(i, j int) bool {
-	if f[i].Priority != f[j].Priority {
-		return f[i].Priority < f[j].Priority
-	}
-	return len(f[i].Allowed) < len(f[j].Allowed)
-}
-
 type SSecurityGroup struct {
+	multicloud.SSecurityGroup
 	vpc *SVpc
 
 	ServiceAccount string
@@ -94,18 +78,20 @@ func (region *SRegion) GetFirewall(id string) (*SFirewall, error) {
 	return firewall, region.Get(id, firewall)
 }
 
-func (firewall *SFirewall) _toRules(action secrules.TSecurityRuleAction) ([]secrules.SecurityRule, error) {
-	rules := []secrules.SecurityRule{}
+func (firewall *SFirewall) _toRules(action secrules.TSecurityRuleAction) ([]cloudprovider.SecurityRule, error) {
+	rules := []cloudprovider.SecurityRule{}
 	list := firewall.Allowed
 	if action == secrules.SecurityRuleDeny {
 		list = firewall.Denied
 	}
 	for _, allow := range list {
-		rule := secrules.SecurityRule{
-			Action:      action,
-			Direction:   secrules.DIR_IN,
-			Description: firewall.Description,
-			Priority:    firewall.Priority,
+		rule := cloudprovider.SecurityRule{
+			ExternalId: firewall.SelfLink,
+			SecurityRule: secrules.SecurityRule{
+				Action:    action,
+				Direction: secrules.DIR_IN,
+				Priority:  firewall.Priority,
+			},
 		}
 		if firewall.Direction == "EGRESS" {
 			rule.Direction = secrules.DIR_OUT
@@ -134,6 +120,7 @@ func (firewall *SFirewall) _toRules(action secrules.TSecurityRuleAction) ([]secr
 			ports := []int{}
 			for _, port := range allow.Ports {
 				if strings.Index(port, "-") > 0 {
+					port = strings.Replace(port, "0-", "1-", 1)
 					err := rule.ParsePorts(port)
 					if err != nil {
 						return nil, errors.Wrapf(err, "Parse port %s", port)
@@ -158,8 +145,8 @@ func (firewall *SFirewall) _toRules(action secrules.TSecurityRuleAction) ([]secr
 	return rules, nil
 }
 
-func (firewall *SFirewall) toRules() ([]secrules.SecurityRule, error) {
-	rules := []secrules.SecurityRule{}
+func (firewall *SFirewall) toRules() ([]cloudprovider.SecurityRule, error) {
+	rules := []cloudprovider.SecurityRule{}
 	_rules, err := firewall._toRules(secrules.SecurityRuleAllow)
 	if err != nil {
 		return nil, err
@@ -229,7 +216,7 @@ func (secgroup *SSecurityGroup) GetVpcId() string {
 	return secgroup.vpc.GetGlobalId()
 }
 
-func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
+func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
 	_firewalls, err := self.vpc.region.GetFirewalls(self.vpc.globalnetwork.SelfLink, 0, "")
 	if err != nil {
 		return nil, err
@@ -246,14 +233,8 @@ func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
 			}
 		}
 	}
-	sort.Sort(FirewallSet(firewalls))
-	rules := []secrules.SecurityRule{}
-	priority := 100
+	rules := []cloudprovider.SecurityRule{}
 	for _, firewall := range firewalls {
-		firewall.Priority = priority
-		if priority > 2 {
-			priority--
-		}
 		_rules, err := firewall.toRules()
 		if err != nil {
 			return nil, err
@@ -263,7 +244,7 @@ func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
 	return rules, nil
 }
 
-func (secgroup *SSecurityGroup) SyncRules(rules []secrules.SecurityRule) error {
+func (secgroup *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
 	return cloudprovider.ErrNotImplemented
 }
 
