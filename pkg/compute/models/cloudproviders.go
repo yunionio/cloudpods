@@ -1234,6 +1234,14 @@ func (self *SCloudprovider) ClearSchedDescCache() error {
 	return nil
 }
 
+func (self *SCloudprovider) GetRegionDriver() (IRegionDriver, error) {
+	driver := GetRegionDriver(self.Provider)
+	if driver == nil {
+		return nil, fmt.Errorf("failed to found region driver for %s", self.Provider)
+	}
+	return driver, nil
+}
+
 func (self *SCloudprovider) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if strings.Index(self.Status, "delet") >= 0 {
 		return nil, httperrors.NewInvalidStatusError("Cannot enable deleting account")

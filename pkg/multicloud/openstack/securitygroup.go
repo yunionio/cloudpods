@@ -17,8 +17,6 @@ package openstack
 import (
 	"fmt"
 	"net"
-	"sort"
-	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -28,6 +26,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -55,6 +54,7 @@ type SSecurityGroupRule struct {
 }
 
 type SSecurityGroup struct {
+	multicloud.SSecurityGroup
 	region *SRegion
 
 	Description        string
@@ -67,20 +67,6 @@ type SSecurityGroup struct {
 	UpdatedAt          time.Time
 	Tags               []string
 	TenantID           string
-}
-
-type SecurigyGroupRuleSet []SSecurityGroupRule
-
-func (v SecurigyGroupRuleSet) Len() int {
-	return len(v)
-}
-
-func (v SecurigyGroupRuleSet) Swap(i, j int) {
-	v[i], v[j] = v[j], v[i]
-}
-
-func (v SecurigyGroupRuleSet) Less(i, j int) bool {
-	return strings.Compare(v[i].String(), v[j].String()) <= 0
 }
 
 func (region *SRegion) GetSecurityGroup(secgroupId string) (*SSecurityGroup, error) {
@@ -158,26 +144,19 @@ func (secgroup *SSecurityGroup) GetName() string {
 	return secgroup.ID
 }
 
-func (secgroup *SSecurityGroupRule) String() string {
-	rules := secgroup.toRules()
-	result := []string{}
-	for _, rule := range rules {
-		result = append(result, rule.String())
-	}
-	return strings.Join(result, ";")
-}
-
-func (secgrouprule *SSecurityGroupRule) toRules() []secrules.SecurityRule {
-	rules := []secrules.SecurityRule{}
+func (secgrouprule *SSecurityGroupRule) toRules() ([]cloudprovider.SecurityRule, error) {
+	rules := []cloudprovider.SecurityRule{}
 	// 暂时忽略IPv6安全组规则,忽略远端也是安全组的规则
 	if secgrouprule.Ethertype != "IPv4" || len(secgrouprule.RemoteGroupID) > 0 {
-		return rules
+		return rules, fmt.Errorf("ethertype: %s remoteGroupId: %s", secgrouprule.Ethertype, secgrouprule.RemoteGroupID)
 	}
-	rule := secrules.SecurityRule{
-		Direction:   secrules.DIR_IN,
-		Action:      secrules.SecurityRuleAllow,
-		Description: secgrouprule.Description,
-		Priority:    1,
+	rule := cloudprovider.SecurityRule{
+		ExternalId: secgrouprule.ID,
+		SecurityRule: secrules.SecurityRule{
+			Direction:   secrules.DIR_IN,
+			Action:      secrules.SecurityRuleAllow,
+			Description: secgrouprule.Description,
+		},
 	}
 	if utils.IsInStringArray(secgrouprule.Protocol, []string{"any", "-1", ""}) {
 		rule.Protocol = secrules.PROTO_ANY
@@ -188,7 +167,7 @@ func (secgrouprule *SSecurityGroupRule) toRules() []secrules.SecurityRule {
 	} else if utils.IsInStringArray(secgrouprule.Protocol, []string{"1", "icmp"}) {
 		rule.Protocol = secrules.PROTO_ICMP
 	} else {
-		return rules
+		return rules, fmt.Errorf("unsupport protocol: %s", secgrouprule.Protocol)
 	}
 	if secgrouprule.Direction == "egress" {
 		rule.Direction = secrules.DIR_OUT
@@ -198,7 +177,7 @@ func (secgrouprule *SSecurityGroupRule) toRules() []secrules.SecurityRule {
 	}
 	_, ipnet, err := net.ParseCIDR(secgrouprule.RemoteIpPrefix)
 	if err != nil {
-		return rules
+		return rules, errors.Wrapf(err, "net.ParseCIDR(%s)", secgrouprule.RemoteIpPrefix)
 	}
 	rule.IPNet = ipnet
 	if secgrouprule.PortRangeMax > 0 && secgrouprule.PortRangeMin > 0 {
@@ -209,28 +188,23 @@ func (secgrouprule *SSecurityGroupRule) toRules() []secrules.SecurityRule {
 			rule.PortEnd = secgrouprule.PortRangeMax
 		}
 	}
-	if err := rule.ValidateRule(); err != nil {
-		return rules
+	err = rule.ValidateRule()
+	if err != nil && err != secrules.ErrInvalidPriority {
+		return rules, errors.Wrap(err, "rule.ValidateRule")
 	}
-	return []secrules.SecurityRule{rule}
+	return []cloudprovider.SecurityRule{rule}, nil
 }
 
-func (secgroup *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
-	rules := []secrules.SecurityRule{}
-	priority := 100
+func (secgroup *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
+	rules := []cloudprovider.SecurityRule{}
 	for _, rule := range secgroup.SecurityGroupRules {
-		if priority < 2 {
-			priority = 2
+		subRules, err := rule.toRules()
+		if err != nil {
+			log.Errorf("failed to convert rule %s for secgroup %s(%s) error: %v", rule.ID, secgroup.Name, secgroup.ID, err)
+			continue
 		}
-		subRules := rule.toRules()
-		for _, subRule := range subRules {
-			subRule.Priority = priority
-			rules = append(rules, subRule)
-		}
+		rules = append(rules, subRules...)
 	}
-	defaultDenyRule := secrules.MustParseSecurityRule("out:deny any")
-	defaultDenyRule.Priority = 1
-	rules = append(rules, *defaultDenyRule)
 	return rules, nil
 }
 
@@ -250,145 +224,12 @@ func (secgroup *SSecurityGroup) Refresh() error {
 	return jsonutils.Update(secgroup, new)
 }
 
-func (region *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
-	if len(secgroupId) > 0 {
-		_, err := region.GetSecurityGroup(secgroupId)
-		if err != nil {
-			if err != cloudprovider.ErrNotFound {
-				return "", err
-			}
-			secgroupId = ""
-		}
-	}
-	if len(secgroupId) == 0 {
-		secgroups, err := region.GetSecurityGroups("")
-		if err != nil {
-			// 若返回 cloudprovider.ErrNotFound, 表明不支持安全组或者未安装安全组相关组件
-			if err == cloudprovider.ErrNotFound {
-				return SECGROUP_NOT_SUPPORT, nil
-			}
-			log.Errorf("failed to get secgroups: %v", err)
-			return "", err
-		}
-
-		secgroupNames := []string{}
-		for _, secgroup := range secgroups {
-			secgroupNames = append(secgroupNames, strings.ToLower(secgroup.Name))
-		}
-
-		uniqName := strings.ToLower(name)
-		if utils.IsInStringArray(uniqName, secgroupNames) {
-			for i := 0; i < 20; i++ {
-				uniqName = fmt.Sprintf("%s-%d", strings.ToLower(name), i)
-				if !utils.IsInStringArray(uniqName, secgroupNames) {
-					break
-				}
-			}
-		}
-		log.Errorf("create secgroup %s", uniqName)
-		secgroup, err := region.CreateSecurityGroup(uniqName, desc)
-		if err != nil {
-			return "", err
-		}
-		secgroupId = secgroup.ID
-	}
-	return region.syncSecgroupRules(secgroupId, rules)
-}
-
-func (region *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.SecurityRule) (string, error) {
-	secgroup, err := region.GetSecurityGroup(secgroupId)
-	if err != nil {
-		return "", err
-	}
-
-	// OpenStack仅支持allow规则添加，需要将规则全转换为allow rules
-	inRules, outRules := secrules.SecurityRuleSet{}, secrules.SecurityRuleSet{}
-	for i := 0; i < len(rules); i++ {
-		if rules[i].Direction == secrules.DIR_IN {
-			inRules = append(inRules, rules[i])
-		} else {
-			outRules = append(outRules, rules[i])
-		}
-	}
-
-	// OpenStack Out方向默认是禁止所有流量，需要给本地安全组规则加一条优先级最低的allow any规则，和OpenStack规则语义保持一致
-	defaultAllow := secrules.MustParseSecurityRule("out:allow any")
-	defaultAllow.Priority = 0
-	outRules = append(outRules, *defaultAllow)
-
-	rules = inRules.AllowList()
-	rules = append(rules, outRules.AllowList()...)
-
-	sort.Sort(secrules.SecurityRuleSet(rules))
-	sort.Sort(SecurigyGroupRuleSet(secgroup.SecurityGroupRules))
-
-	delSecgroupRuleIds := []string{}
-	addSecgroupRules := []secrules.SecurityRule{}
-	addSecgroupRuleStrings := []string{}
-
-	i, j := 0, 0
-	for i < len(rules) || j < len(secgroup.SecurityGroupRules) {
-		if i < len(rules) && j < len(secgroup.SecurityGroupRules) {
-			secruleStr := secgroup.SecurityGroupRules[j].String()
-			ruleStr := rules[i].String()
-			cmp := strings.Compare(secruleStr, ruleStr)
-			if cmp == 0 {
-				i++
-				j++
-			} else if cmp > 0 {
-				delSecgroupRuleIds = append(delSecgroupRuleIds, secgroup.SecurityGroupRules[j].ID)
-				j++
-			} else {
-				if !utils.IsInStringArray(ruleStr, addSecgroupRuleStrings) {
-					addSecgroupRules = append(addSecgroupRules, rules[i])
-					addSecgroupRuleStrings = append(addSecgroupRuleStrings, ruleStr)
-				}
-				i++
-			}
-		} else if i >= len(rules) {
-			delSecgroupRuleIds = append(delSecgroupRuleIds, secgroup.SecurityGroupRules[j].ID)
-			j++
-		} else if j >= len(secgroup.SecurityGroupRules) {
-			ruleStr := rules[i].String()
-			if !utils.IsInStringArray(ruleStr, addSecgroupRuleStrings) {
-				addSecgroupRules = append(addSecgroupRules, rules[i])
-				addSecgroupRuleStrings = append(addSecgroupRuleStrings, ruleStr)
-			}
-			i++
-		}
-	}
-
-	for _, ruleId := range delSecgroupRuleIds {
-		if err := region.delSecurityGroupRule(ruleId); err != nil {
-			log.Errorf("delSecurityGroupRule error %v", err)
-			return "", err
-		}
-	}
-	for i := 0; i < len(addSecgroupRules); i++ {
-		if err := region.addSecurityGroupRules(secgroupId, &addSecgroupRules[i]); err != nil {
-			if jsonError, ok := err.(*httputils.JSONClientError); ok {
-				if jsonError.Class == "SecurityGroupRuleExists" {
-					continue
-				}
-			}
-			log.Errorf("addSecurityGroupRule error %v", rules[i])
-			return "", err
-		}
-	}
-
-	return secgroupId, nil
-}
-
 func (region *SRegion) delSecurityGroupRule(ruleId string) error {
 	_, err := region.Delete("network", "/v2.0/security-group-rules/"+ruleId, "")
 	return err
 }
 
-func (region *SRegion) addSecurityGroupRules(secgroupId string, rule *secrules.SecurityRule) error {
-	if rule.Action == secrules.SecurityRuleDeny {
-		// openstack 不支持deny规则
-		return nil
-	}
+func (region *SRegion) addSecurityGroupRules(secgroupId string, rule cloudprovider.SecurityRule) error {
 	direction := "ingress"
 	if rule.Direction == secrules.SecurityRuleEgress {
 		direction = "egress"
@@ -457,7 +298,23 @@ func (secgroup *SSecurityGroup) GetProjectId() string {
 	return secgroup.TenantID
 }
 
-func (secgroup *SSecurityGroup) SyncRules(rules []secrules.SecurityRule) error {
-	_, err := secgroup.region.syncSecgroupRules(secgroup.ID, rules)
-	return err
+func (secgroup *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
+	for _, r := range append(inDels, outDels...) {
+		err := secgroup.region.delSecurityGroupRule(r.ExternalId)
+		if err != nil {
+			return errors.Wrapf(err, "delSecurityGroupRule(%s)", r.ExternalId)
+		}
+	}
+	for _, r := range append(inAdds, outAdds...) {
+		err := secgroup.region.addSecurityGroupRules(secgroup.ID, r)
+		if err != nil {
+			if jsonError, ok := err.(*httputils.JSONClientError); ok {
+				if jsonError.Class == "SecurityGroupRuleExists" {
+					continue
+				}
+			}
+			return errors.Wrapf(err, "addSecgroupRules(%s)", r.String())
+		}
+	}
+	return nil
 }

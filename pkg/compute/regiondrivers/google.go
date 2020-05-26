@@ -15,7 +15,10 @@
 package regiondrivers
 
 import (
+	"yunion.io/x/pkg/util/secrules"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
@@ -30,6 +33,26 @@ func init() {
 
 func (self *SGoogleRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_GOOGLE
+}
+
+func (self *SGoogleRegionDriver) GetSecurityGroupRuleOrder() cloudprovider.TPriorityOrder {
+	return cloudprovider.PriorityOrderByAsc
+}
+
+func (self *SGoogleRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
+}
+
+func (self *SGoogleRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:allow any")}
+}
+
+func (self *SGoogleRegionDriver) GetSecurityGroupRuleMaxPriority() int {
+	return 0
+}
+
+func (self *SGoogleRegionDriver) GetSecurityGroupRuleMinPriority() int {
+	return 65535
 }
 
 func (self *SGoogleRegionDriver) IsSecurityGroupBelongGlobalVpc() bool {

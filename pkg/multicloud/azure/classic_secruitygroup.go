@@ -27,9 +27,11 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SClassicSecurityGroup struct {
+	multicloud.SSecurityGroup
 	region     *SRegion
 	vpc        *SClassicVpc
 	Properties ClassicSecurityGroupProperties `json:"properties,omitempty"`
@@ -84,12 +86,15 @@ func (v ClassicSecurityRulesSet) Less(i, j int) bool {
 	return false
 }
 
-func (self *ClassicSecurityGroupRuleProperties) toRules() []secrules.SecurityRule {
-	rules := []secrules.SecurityRule{}
-	rule := secrules.SecurityRule{
-		Action:    secrules.TSecurityRuleAction(strings.ToLower(self.Action)),
-		Direction: secrules.TSecurityRuleDirection(strings.Replace(strings.ToLower(self.Type), "bound", "", -1)),
-		Protocol:  strings.ToLower(self.Protocol),
+func (self *ClassicSecurityGroupRuleProperties) toRules() []cloudprovider.SecurityRule {
+	rules := []cloudprovider.SecurityRule{}
+	rule := cloudprovider.SecurityRule{
+		SecurityRule: secrules.SecurityRule{
+			Action:    secrules.TSecurityRuleAction(strings.ToLower(self.Action)),
+			Direction: secrules.TSecurityRuleDirection(strings.Replace(strings.ToLower(self.Type), "bound", "", -1)),
+			Protocol:  strings.ToLower(self.Protocol),
+			Priority:  int(self.Priority),
+		},
 	}
 	if rule.Protocol == "*" {
 		rule.Protocol = "any"
@@ -174,14 +179,12 @@ func (self *SClassicSecurityGroup) GetName() string {
 	return self.Name
 }
 
-func (self *SClassicSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
-	rules := make([]secrules.SecurityRule, 0)
+func (self *SClassicSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
+	rules := make([]cloudprovider.SecurityRule, 0)
 	secgrouprules, err := self.region.getClassicSecurityGroupRules(self.ID)
 	if err != nil {
 		return nil, err
 	}
-	sort.Sort(ClassicSecurityRulesSet(secgrouprules))
-	priority := 100
 
 	for i := 0; i < len(secgrouprules); i++ {
 		if secgrouprules[i].Properties.Priority >= 65000 {
@@ -190,16 +193,12 @@ func (self *SClassicSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
 		_rules := secgrouprules[i].Properties.toRules()
 		for i := 0; i < len(_rules); i++ {
 			rule := _rules[i]
-			rule.Priority = priority
 			rule.Description = secgrouprules[i].Name
 			if err := rule.ValidateRule(); err != nil {
 				log.Errorf("Azure classic secgroup get rules error: %v", err)
 				return nil, err
 			}
 			rules = append(rules, rule)
-		}
-		if len(_rules) > 0 {
-			priority--
 		}
 	}
 	return rules, nil
@@ -384,7 +383,7 @@ func (self *SClassicSecurityGroup) GetProjectId() string {
 	return getResourceGroup(self.ID)
 }
 
-func (self *SClassicSecurityGroup) SyncRules(rules []secrules.SecurityRule) error {
-	_, err := self.region.syncClassicSecgroupRules(self.ID, rules)
-	return err
+func (self *SClassicSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
+	//_, err := self.region.syncClassicSecgroupRules(self.ID, rules)
+	return cloudprovider.ErrNotImplemented
 }
