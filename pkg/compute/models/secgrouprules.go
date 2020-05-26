@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -335,13 +336,13 @@ func (manager *SSecurityGroupRuleManager) getRulesBySecurityGroup(secgroup *SSec
 	return rules, nil
 }
 
-func (manager *SSecurityGroupRuleManager) SyncRules(ctx context.Context, userCred mcclient.TokenCredential, secgroup *SSecurityGroup, rules secrules.SecurityRuleSet) compare.SyncResult {
+func (manager *SSecurityGroupRuleManager) SyncRules(ctx context.Context, userCred mcclient.TokenCredential, secgroup *SSecurityGroup, rules cloudprovider.SecurityRuleSet) compare.SyncResult {
 	syncResult := compare.SyncResult{}
-	priority, prePriority := 100, 0
+	priority, prePriority := 10, 0
 	for i := 0; i < len(rules); i++ {
 		// 这里避免了Rule规则优先级在 1-100之外的问题,ext.GetRules()不需要进行优先级转换
-		if prePriority != 0 && rules[i].Priority != prePriority && priority > 1 {
-			priority--
+		if prePriority != 0 && rules[i].Priority != prePriority && priority < 100 {
+			priority++
 		}
 		prePriority = rules[i].Priority
 		rules[i].Priority = priority
@@ -355,7 +356,7 @@ func (manager *SSecurityGroupRuleManager) SyncRules(ctx context.Context, userCre
 	return syncResult
 }
 
-func (manager *SSecurityGroupRuleManager) newFromCloudSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, rule secrules.SecurityRule, secgroup *SSecurityGroup) (*SSecurityGroupRule, error) {
+func (manager *SSecurityGroupRuleManager) newFromCloudSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, rule cloudprovider.SecurityRule, secgroup *SSecurityGroup) (*SSecurityGroupRule, error) {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 

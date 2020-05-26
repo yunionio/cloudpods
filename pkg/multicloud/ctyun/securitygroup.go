@@ -22,9 +22,11 @@ import (
 	"yunion.io/x/pkg/util/secrules"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SSecurityGroup struct {
+	multicloud.SSecurityGroup
 	region *SRegion
 	vpc    *SVpc
 
@@ -40,7 +42,7 @@ type SSecurityGroup struct {
 	Status             int64  `json:"status"`
 }
 
-func (self *SSecurityGroup) SyncRules(rules []secrules.SecurityRule) error {
+func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
 	return cloudprovider.ErrNotImplemented
 }
 
@@ -102,19 +104,19 @@ func compatibleSecurityGroupRule(r SSecurityGroupRule) bool {
 	return true
 }
 
-func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
+func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
 	_rules, err := self.region.GetSecurityGroupRules(self.GetId())
 	if err != nil {
 		return nil, errors.Wrap(err, "SSecurityGroup.GetRules.GetSecurityGroupRules")
 	}
 
-	rules := make([]secrules.SecurityRule, 0)
+	rules := make([]cloudprovider.SecurityRule, 0)
 	for _, r := range _rules {
 		if !compatibleSecurityGroupRule(r) {
 			continue
 		}
 
-		rule, err := self.GetSecurityRule(r, false)
+		rule, err := self.GetSecurityRule(r)
 		if err != nil {
 			return rules, err
 		}
@@ -125,7 +127,7 @@ func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
 	return rules, nil
 }
 
-func (self *SSecurityGroup) GetSecurityRule(remoteRule SSecurityGroupRule, withRuleId bool) (secrules.SecurityRule, error) {
+func (self *SSecurityGroup) GetSecurityRule(remoteRule SSecurityGroupRule) (cloudprovider.SecurityRule, error) {
 	var err error
 	var direction secrules.TSecurityRuleDirection
 	if remoteRule.Direction == "ingress" {
@@ -157,27 +159,22 @@ func (self *SSecurityGroup) GetSecurityRule(remoteRule SSecurityGroupRule, withR
 	}
 
 	if err != nil {
-		return secrules.SecurityRule{}, err
+		return cloudprovider.SecurityRule{}, err
 	}
 
-	// withRuleId.将ruleId附加到description字段。该hook有特殊目的，仅在同步安全组时使用。
-	desc := ""
-	if withRuleId {
-		desc = remoteRule.ID
-	} else {
-		desc = remoteRule.Description
-	}
-
-	rule := secrules.SecurityRule{
-		Priority:    1,
-		Action:      secrules.SecurityRuleAllow,
-		IPNet:       ipNet,
-		Protocol:    protocol,
-		Direction:   direction,
-		PortStart:   portStart,
-		PortEnd:     portEnd,
-		Ports:       nil,
-		Description: desc,
+	rule := cloudprovider.SecurityRule{
+		ExternalId: remoteRule.ID,
+		SecurityRule: secrules.SecurityRule{
+			Priority:    1,
+			Action:      secrules.SecurityRuleAllow,
+			IPNet:       ipNet,
+			Protocol:    protocol,
+			Direction:   direction,
+			PortStart:   portStart,
+			PortEnd:     portEnd,
+			Ports:       nil,
+			Description: remoteRule.Description,
+		},
 	}
 
 	err = rule.ValidateRule()
