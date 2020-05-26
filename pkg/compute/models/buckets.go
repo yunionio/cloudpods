@@ -714,10 +714,10 @@ func (bucket *SBucket) GetDetailsObjects(
 	}
 	ret := jsonutils.NewDict()
 	ret.Add(retArray, "data")
+	ret.Add(jsonutils.NewString("key"), "marker_field")
+	ret.Add(jsonutils.NewString("DESC"), "marker_order")
 	if len(nextMarker) > 0 {
 		ret.Add(jsonutils.NewString(nextMarker), "next_marker")
-		ret.Add(jsonutils.NewString("key"), "marker_field")
-		ret.Add(jsonutils.NewString("DESC"), "marker_order")
 	}
 	return ret, nil
 }
