@@ -466,13 +466,8 @@ func (keeper *OVNNorthboundKeeper) Sweep(ctx context.Context) error {
 		for _, irow := range db.LogicalRouterStaticRoute.Rows() {
 			_, ok := irow.GetExternalId(externalKeyOcVersion)
 			if !ok {
-				ref, ok := irow.GetExternalId(externalKeyOcRef)
-				if ok {
-					parts := strings.SplitN(ref, "/", 4)
-					if len(parts) == 4 {
-						vpcId := parts[1]
-						args = append(args, "--", "remove", "Logical_Router", vpcLrName(vpcId), "static_routes", irow.OvsdbUuid())
-					}
+				for _, lr := range db.LogicalRouter.FindLogicalRouterStaticRouteReferrer_static_routes(irow.OvsdbUuid()) {
+					args = append(args, "--", "--if-exists", "remove", "Logical_Router", lr.Name, "static_routes", irow.OvsdbUuid())
 				}
 			}
 		}
@@ -485,13 +480,8 @@ func (keeper *OVNNorthboundKeeper) Sweep(ctx context.Context) error {
 		for _, irow := range db.ACL.Rows() {
 			_, ok := irow.GetExternalId(externalKeyOcVersion)
 			if !ok {
-				ref, ok := irow.GetExternalId(externalKeyOcRef)
-				if ok {
-					parts := strings.SplitN(ref, "/", 4)
-					if len(parts) == 4 {
-						networkId := parts[1]
-						args = append(args, "--", "remove", "Logical_Switch", netLsName(networkId), "acls", irow.OvsdbUuid())
-					}
+				for _, ls := range db.LogicalSwitch.FindACLReferrer_acls(irow.OvsdbUuid()) {
+					args = append(args, "--", "--if-exists", "remove", "Logical_Switch", ls.Name, "acls", irow.OvsdbUuid())
 				}
 			}
 		}
