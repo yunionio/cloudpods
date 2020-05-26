@@ -107,6 +107,10 @@ func (mss *ModelSets) Copy() apihelper.IModelSets {
 	return mssCopy
 }
 
+func (mss *ModelSets) CopyJoined() apihelper.IModelSets {
+	return mss.Copy()
+}
+
 func (mss *ModelSets) ApplyUpdates(mssNews apihelper.IModelSets) apihelper.ModelSetsUpdateResult {
 	r := apihelper.ModelSetsUpdateResult{
 		Changed: false,
