@@ -26,7 +26,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
-	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -784,26 +783,6 @@ func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCre
 		return nil, err
 	}
 	return region.GetISecurityGroupById(externalId)
-}
-
-func (region *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
-	if len(secgroupId) > 0 {
-		_, total, err := region.GetSecurityGroups("", "", []string{secgroupId}, 0, 1)
-		if err != nil {
-			return "", err
-		}
-		if total == 0 {
-			secgroupId = ""
-		}
-	}
-	if len(secgroupId) == 0 {
-		extID, err := region.CreateSecurityGroup(vpcId, name, desc)
-		if err != nil {
-			return "", err
-		}
-		secgroupId = extID
-	}
-	return secgroupId, region.syncSecgroupRules(secgroupId, rules)
 }
 
 func (region *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {

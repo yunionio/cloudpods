@@ -18,8 +18,10 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -52,4 +54,24 @@ func (self *SAzureRegionDriver) ValidateCreateLoadbalancerCertificateData(ctx co
 
 func (self *SAzureRegionDriver) IsSupportClassicSecurityGroup() bool {
 	return true
+}
+
+func (self *SAzureRegionDriver) GetSecurityGroupRuleOrder() cloudprovider.TPriorityOrder {
+	return cloudprovider.PriorityOrderByAsc
+}
+
+func (self *SAzureRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
+}
+
+func (self *SAzureRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:deny any")}
+}
+
+func (self *SAzureRegionDriver) GetSecurityGroupRuleMaxPriority() int {
+	return 4096
+}
+
+func (self *SAzureRegionDriver) GetSecurityGroupRuleMinPriority() int {
+	return 100
 }
