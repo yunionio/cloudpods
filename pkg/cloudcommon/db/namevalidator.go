@@ -126,3 +126,16 @@ func (manager *SDnsNameValidatorManager) ValidateName(name string) error {
 	}
 	return httperrors.NewInputParameterError("name starts with letter, and contains letter, number and - only")
 }
+
+var (
+	hostNameREG = regexp.MustCompile(`^[a-z$][a-z0-9-${}.]*$`)
+)
+
+type SHostNameValidatorManager struct{}
+
+func (manager *SHostNameValidatorManager) ValidateName(name string) error {
+	if hostNameREG.MatchString(name) {
+		return nil
+	}
+	return httperrors.NewInputParameterError("name starts with letter, and contains letter, number and - only")
+}
