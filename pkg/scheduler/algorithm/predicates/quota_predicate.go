@@ -93,6 +93,10 @@ func (p *SQuotaPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core
 	if len(d.PendingUsages) > 1 {
 		d.PendingUsages[1].Unmarshal(&regionPending)
 	}
+	computePending.ProjectId = d.Project
+	computePending.DomainId = d.Domain
+	regionPending.ProjectId = d.Project
+	regionPending.DomainId = d.Domain
 
 	computeKeys := c.Getter().GetQuotaKeys(d)
 
@@ -103,21 +107,19 @@ func (p *SQuotaPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core
 
 	ctx := context.Background()
 	minCnt := -1
-	if !computePending.IsEmpty() {
-		computeCnt, _ := quotas.GetQuotaCount(ctx, &computeQuota, computePending.GetKeys())
-		if computeCnt >= 0 && (minCnt < 0 || minCnt > computeCnt) {
-			minCnt = computeCnt
-		}
+	computeCnt, _ := quotas.GetQuotaCount(ctx, &computeQuota, computePending.GetKeys())
+	if computeCnt >= 0 && (minCnt < 0 || minCnt > computeCnt) {
+		minCnt = computeCnt
 	}
-	if !regionPending.IsEmpty() {
-		regionCnt, _ := quotas.GetQuotaCount(ctx, &regionQuota, regionPending.GetKeys())
-		if regionCnt >= 0 && (minCnt < 0 || minCnt > regionCnt) {
-			minCnt = regionCnt
-		}
+	regionCnt, _ := quotas.GetQuotaCount(ctx, &regionQuota, regionPending.GetKeys())
+	if regionCnt >= 0 && (minCnt < 0 || minCnt > regionCnt) {
+		minCnt = regionCnt
 	}
 
-	if minCnt >= 0 {
+	if minCnt > 0 {
 		h.SetCapacity(int64(minCnt))
+	} else if minCnt == 0 {
+		h.Exclude("out_of_quota")
 	}
 
 	return h.GetResult()
