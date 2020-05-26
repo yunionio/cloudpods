@@ -821,6 +821,13 @@ func (manager *SServerSkuManager) ListItemFilter(
 		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
 	}
 
+	if len(query.PostpaidStatus) > 0 {
+		q = q.Equals("postpaid_status", query.PostpaidStatus)
+	}
+	if len(query.PrepaidStatus) > 0 {
+		q = q.Equals("prepaid_status", query.PrepaidStatus)
+	}
+
 	// 按区间查询内存, 避免0.75G这样的套餐不好过滤
 	memSizeMB := query.MemorySizeMb
 	if memSizeMB > 0 {

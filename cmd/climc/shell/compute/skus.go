@@ -25,13 +25,15 @@ import (
 func init() {
 	type ServerSkusListOptions struct {
 		options.BaseListOptions
-		Cloudregion string  `help:"region Id or name"`
-		Usable      bool    `help:"Filter usable sku"`
-		Zone        string  `help:"zone Id or name"`
-		City        *string `help:"city name,eg. BeiJing"`
-		Cpu         *int    `help:"Cpu core count" json:"cpu_core_count"`
-		Mem         *int    `help:"Memory size in MB" json:"memory_size_mb"`
-		Name        string  `help:"Name of Sku"`
+		Cloudregion    string  `help:"region Id or name"`
+		Usable         bool    `help:"Filter usable sku"`
+		Zone           string  `help:"zone Id or name"`
+		City           *string `help:"city name,eg. BeiJing"`
+		Cpu            *int    `help:"Cpu core count" json:"cpu_core_count"`
+		Mem            *int    `help:"Memory size in MB" json:"memory_size_mb"`
+		Name           string  `help:"Name of Sku"`
+		PostpaidStatus string  `help:"Postpaid status" choices:"soldout|available"`
+		PrepaidStatus  string  `help:"Prepaid status" choices:"soldout|available"`
 	}
 
 	R(&ServerSkusListOptions{}, "server-sku-list", "List all avaiable Server SKU", func(s *mcclient.ClientSession, args *ServerSkusListOptions) error {
