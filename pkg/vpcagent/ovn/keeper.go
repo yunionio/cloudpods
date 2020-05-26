@@ -317,6 +317,7 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 		ocGnrDefaultRef = fmt.Sprintf("gnrDefault/%s/%s/%s", vpc.Id, guestnetwork.GuestId, guestnetwork.Ifname)
 		ocAclRef        = fmt.Sprintf("acl/%s/%s/%s", network.Id, guestnetwork.GuestId, guestnetwork.Ifname)
 		ocQosRef        = fmt.Sprintf("qos/%s/%s/%s", network.Id, guestnetwork.GuestId, guestnetwork.Ifname)
+		ocQosEipRef     = fmt.Sprintf("qos-eip/%s/%s/%s", vpc.Id, guestnetwork.GuestId, guestnetwork.Ifname)
 		dhcpOpt         string
 	)
 
@@ -383,7 +384,10 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 		}
 	}
 
-	var gnrDefault *ovn_nb.LogicalRouterStaticRoute
+	var (
+		gnrDefault *ovn_nb.LogicalRouterStaticRoute
+		qosEip     []*ovn_nb.QoS
+	)
 	{
 		gnrDefaultPolicy := "src-ip"
 		ptr := func(s string) *string {
@@ -399,6 +403,40 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 					externalKeyOcRef: ocGnrDefaultRef,
 				},
 			}
+			if bwMbps := eip.Bandwidth; bwMbps > 0 {
+				var (
+					kbps     = int64(bwMbps * 1000)
+					kbur     = int64(kbps * 2)
+					eipgwVip = apis.VpcEipGatewayIP3().String()
+				)
+				qosEip = []*ovn_nb.QoS{
+					&ovn_nb.QoS{
+						Priority:  2000,
+						Direction: "from-lport",
+						Match:     fmt.Sprintf("inport == %q && ip4 && ip4.dst == %s", vpcEipLspName(vpc.Id, eipgwVip), guestnetwork.IpAddr),
+						Bandwidth: map[string]int64{
+							"rate":  kbps,
+							"burst": kbur,
+						},
+						ExternalIds: map[string]string{
+							externalKeyOcRef: ocQosEipRef,
+						},
+					},
+					&ovn_nb.QoS{
+						Priority:  3000,
+						Direction: "from-lport",
+						Match:     fmt.Sprintf("inport == %q", lportName),
+						Bandwidth: map[string]int64{
+							"rate":  kbps,
+							"burst": kbur,
+						},
+						ExternalIds: map[string]string{
+							externalKeyOcRef: ocQosEipRef,
+						},
+					},
+				}
+			}
+
 		} else if vpcHasDistgw(vpc) {
 			gnrDefault = &ovn_nb.LogicalRouterStaticRoute{
 				Policy:     &gnrDefaultPolicy,
@@ -440,6 +478,9 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 	for _, qos := range qosVif {
 		irows = append(irows, qos)
 	}
+	for _, qos := range qosEip {
+		irows = append(irows, qos)
+	}
 	allFound, args := cmp(&keeper.DB, ocVersion, irows...)
 	if allFound {
 		return nil
@@ -460,6 +501,11 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 		ref := fmt.Sprintf("qosVif%d", i)
 		args = append(args, ovnCreateArgs(qos, ref)...)
 		args = append(args, "--", "add", "Logical_Switch", netLsName(guestnetwork.NetworkId), "qos_rules", "@"+ref)
+	}
+	for i, qos := range qosEip {
+		ref := fmt.Sprintf("qosEip%d", i)
+		args = append(args, ovnCreateArgs(qos, ref)...)
+		args = append(args, "--", "add", "Logical_Switch", vpcEipLsName(vpc.Id), "qos_rules", "@"+ref)
 	}
 	return keeper.cli.Must(ctx, "ClaimGuestnetwork", args)
 }
