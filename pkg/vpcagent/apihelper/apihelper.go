@@ -82,7 +82,7 @@ func (h *APIHelper) run(ctx context.Context) {
 		log.Errorln(err)
 	}
 	if changed {
-		mssCopy := h.modelSets.Copy()
+		mssCopy := h.modelSets.CopyJoined()
 		select {
 		case h.modelSetsCh <- mssCopy:
 		case <-ctx.Done():
@@ -100,10 +100,12 @@ func (h *APIHelper) doSync(ctx context.Context) (changed bool, err error) {
 	}
 
 	s := h.adminClientSession(ctx)
-	r, err := SyncModelSets(h.modelSets, s, h.opts.ListBatchSize)
+	mss := h.modelSets.Copy()
+	r, err := SyncModelSets(mss, s, h.opts.ListBatchSize)
 	if err != nil {
 		return false, err
 	}
+	h.modelSets = mss
 	if !r.Correct {
 		return false, errors.Wrap(ErrSync, "incorrect")
 	}
