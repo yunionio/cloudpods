@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -241,6 +242,30 @@ func (self *SBaseRegionDriver) GetSecurityGroupVpcId(ctx context.Context, userCr
 
 func (self *SBaseRegionDriver) RequestSyncSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, vpcId string, vpc *models.SVpc, secgroup *models.SSecurityGroup) (string, error) {
 	return "", fmt.Errorf("Not Implemented RequestSyncSecurityGroup")
+}
+
+func (self *SBaseRegionDriver) GetSecurityGroupRuleOrder() cloudprovider.TPriorityOrder {
+	return cloudprovider.PriorityOrderByDesc
+}
+
+func (self *SBaseRegionDriver) IsOnlySupportAllowRules() bool {
+	return false
+}
+
+func (self *SBaseRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
+}
+
+func (self *SBaseRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:allow any")}
+}
+
+func (self *SBaseRegionDriver) GetSecurityGroupRuleMaxPriority() int {
+	return 100
+}
+
+func (self *SBaseRegionDriver) GetSecurityGroupRuleMinPriority() int {
+	return 1
 }
 
 func (self *SBaseRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.DBInstanceCreateInput, skus []models.SDBInstanceSku, network *models.SNetwork) (api.DBInstanceCreateInput, error) {

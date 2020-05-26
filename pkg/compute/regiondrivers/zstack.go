@@ -19,8 +19,10 @@ import (
 	"database/sql"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -33,6 +35,30 @@ type SZStackRegionDriver struct {
 func init() {
 	driver := SZStackRegionDriver{}
 	models.RegisterRegionDriver(&driver)
+}
+
+func (self *SZStackRegionDriver) GetSecurityGroupRuleOrder() cloudprovider.TPriorityOrder {
+	return cloudprovider.PriorityOrderByAsc
+}
+
+func (self *SZStackRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
+}
+
+func (self *SZStackRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:allow any")}
+}
+
+func (self *SZStackRegionDriver) GetSecurityGroupRuleMaxPriority() int {
+	return 1
+}
+
+func (self *SZStackRegionDriver) GetSecurityGroupRuleMinPriority() int {
+	return 1
+}
+
+func (self *SZStackRegionDriver) IsOnlySupportAllowRules() bool {
+	return true
 }
 
 func (self *SZStackRegionDriver) GetProvider() string {

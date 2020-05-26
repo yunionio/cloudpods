@@ -17,18 +17,18 @@ package ctyun
 import (
 	"fmt"
 	"net"
-	"sort"
-	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 
 	apis "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SSecurityGroup struct {
+	multicloud.SSecurityGroup
 	region *SRegion
 
 	ResSecurityGroupID string `json:"resSecurityGroupId"`
@@ -42,136 +42,11 @@ type SSecurityGroup struct {
 	Status             int64  `json:"status"`
 }
 
-// 将安全组规则全部转换为等价的allow规则
-func SecurityRuleSetToAllowSet(srs secrules.SecurityRuleSet) secrules.SecurityRuleSet {
-	inRuleSet := secrules.SecurityRuleSet{}
-	outRuleSet := secrules.SecurityRuleSet{}
-
-	for _, rule := range srs {
-		if rule.Direction == secrules.SecurityRuleIngress {
-			inRuleSet = append(inRuleSet, rule)
-		}
-
-		if rule.Direction == secrules.SecurityRuleEgress {
-			outRuleSet = append(outRuleSet, rule)
-		}
-	}
-
-	sort.Sort(inRuleSet)
-	sort.Sort(outRuleSet)
-
-	inRuleSet = inRuleSet.AllowList()
-	// out方向空规则默认全部放行
-	if outRuleSet.Len() == 0 {
-		_, ipNet, _ := net.ParseCIDR("0.0.0.0/0")
-		outRuleSet = append(outRuleSet, secrules.SecurityRule{
-			Priority:  0,
-			Action:    secrules.SecurityRuleAllow,
-			IPNet:     ipNet,
-			Protocol:  secrules.PROTO_ANY,
-			Direction: secrules.SecurityRuleEgress,
-			PortStart: -1,
-			PortEnd:   -1,
-		})
-	}
-	outRuleSet = outRuleSet.AllowList()
-
-	ret := secrules.SecurityRuleSet{}
-	ret = append(ret, inRuleSet...)
-	ret = append(ret, outRuleSet...)
-	return ret
-}
-
-func (self *SSecurityGroup) GetRulesWithExtId() ([]secrules.SecurityRule, error) {
-	_rules, err := self.region.GetSecurityGroupRules(self.GetId())
-	if err != nil {
-		return nil, errors.Wrap(err, "SSecurityGroup.GetRulesWithExtId.GetSecurityGroupRules")
-	}
-
-	rules := make([]secrules.SecurityRule, 0)
-	for _, r := range _rules {
-		if !compatibleSecurityGroupRule(r) {
-			continue
-		}
-
-		rule, err := self.GetSecurityRule(r, true)
-		if err != nil {
-			return rules, err
-		}
-
-		rules = append(rules, rule)
-	}
-
-	return rules, nil
-}
-
-func (self *SRegion) syncSecgroupRules(secgroupId string, srules []secrules.SecurityRule) error {
-	var DeleteRules []secrules.SecurityRule
-	var AddRules []secrules.SecurityRule
-
-	rules := SecurityRuleSetToAllowSet(srules)
-	if secgroup, err := self.GetSecurityGroupDetails(secgroupId); err != nil {
-		return errors.Wrapf(err, "syncSecgroupRules.GetSecurityGroupDetails(%s)", secgroupId)
-	} else {
-		remoteRules, err := secgroup.GetRulesWithExtId()
-		if err != nil {
-			return errors.Wrap(err, "secgroup.GetRulesWithExtId")
-		}
-
-		sort.Sort(secrules.SecurityRuleSet(rules))
-		sort.Sort(secrules.SecurityRuleSet(remoteRules))
-
-		i, j := 0, 0
-		for i < len(rules) || j < len(remoteRules) {
-			if i < len(rules) && j < len(remoteRules) {
-				permissionStr := remoteRules[j].String()
-				ruleStr := rules[i].String()
-				cmp := strings.Compare(permissionStr, ruleStr)
-				if cmp == 0 {
-					// DeleteRules = append(DeleteRules, remoteRules[j])
-					// AddRules = append(AddRules, rules[i])
-					i += 1
-					j += 1
-				} else if cmp > 0 {
-					DeleteRules = append(DeleteRules, remoteRules[j])
-					j += 1
-				} else {
-					AddRules = append(AddRules, rules[i])
-					i += 1
-				}
-			} else if i >= len(rules) {
-				DeleteRules = append(DeleteRules, remoteRules[j])
-				j += 1
-			} else if j >= len(remoteRules) {
-				AddRules = append(AddRules, rules[i])
-				i += 1
-			}
-		}
-	}
-
-	for _, r := range DeleteRules {
-		// r.Description 实际存储的是ruleId
-		if err := self.delSecurityGroupRule(r.Description); err != nil {
-			log.Errorf("delSecurityGroupRule %v error: %s", r, err.Error())
-			return err
-		}
-	}
-
-	for _, r := range AddRules {
-		if err := self.addSecurityGroupRules(secgroupId, &r); err != nil {
-			log.Errorf("addSecurityGroupRule %v error: %s", r, err.Error())
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (self *SRegion) delSecurityGroupRule(secGrpRuleId string) error {
 	return self.DeleteSecurityGroupRule(secGrpRuleId)
 }
 
-func (self *SRegion) addSecurityGroupRules(secGrpId string, rule *secrules.SecurityRule) error {
+func (self *SRegion) AddSecurityGroupRules(secGrpId string, rule cloudprovider.SecurityRule) error {
 	direction := ""
 	if rule.Direction == secrules.SecurityRuleIngress {
 		direction = "ingress"
@@ -209,9 +84,20 @@ func (self *SRegion) addSecurityGroupRules(secGrpId string, rule *secrules.Secur
 	return nil
 }
 
-func (self *SSecurityGroup) SyncRules(rules []secrules.SecurityRule) error {
-	rules = SecurityRuleSetToAllowSet(rules)
-	return self.region.syncSecgroupRules(self.ResSecurityGroupID, rules)
+func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
+	for _, r := range append(inDels, outDels...) {
+		err := self.region.delSecurityGroupRule(r.ExternalId)
+		if err != nil {
+			return errors.Wrapf(err, "delSecurityGroupRule(%s)", r.ExternalId)
+		}
+	}
+	for _, r := range append(inAdds, outAdds...) {
+		err := self.region.AddSecurityGroupRules(self.ResSecurityGroupID, r)
+		if err != nil {
+			return errors.Wrapf(err, "addSecurityGroupRule(%d %s)", r.Priority, r.String())
+		}
+	}
+	return nil
 }
 
 func (self *SSecurityGroup) Delete() error {
@@ -272,19 +158,19 @@ func compatibleSecurityGroupRule(r SSecurityGroupRule) bool {
 	return true
 }
 
-func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
+func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
 	_rules, err := self.region.GetSecurityGroupRules(self.GetId())
 	if err != nil {
 		return nil, errors.Wrap(err, "SSecurityGroup.GetRules.GetSecurityGroupRules")
 	}
 
-	rules := make([]secrules.SecurityRule, 0)
+	rules := make([]cloudprovider.SecurityRule, 0)
 	for _, r := range _rules {
 		if !compatibleSecurityGroupRule(r) {
 			continue
 		}
 
-		rule, err := self.GetSecurityRule(r, false)
+		rule, err := self.GetSecurityRule(r)
 		if err != nil {
 			return rules, err
 		}
@@ -295,7 +181,7 @@ func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
 	return rules, nil
 }
 
-func (self *SSecurityGroup) GetSecurityRule(remoteRule SSecurityGroupRule, withRuleId bool) (secrules.SecurityRule, error) {
+func (self *SSecurityGroup) GetSecurityRule(remoteRule SSecurityGroupRule) (cloudprovider.SecurityRule, error) {
 	var err error
 	var direction secrules.TSecurityRuleDirection
 	if remoteRule.Direction == "ingress" {
@@ -327,27 +213,22 @@ func (self *SSecurityGroup) GetSecurityRule(remoteRule SSecurityGroupRule, withR
 	}
 
 	if err != nil {
-		return secrules.SecurityRule{}, err
+		return cloudprovider.SecurityRule{}, err
 	}
 
-	// withRuleId.将ruleId附加到description字段。该hook有特殊目的，仅在同步安全组时使用。
-	desc := ""
-	if withRuleId {
-		desc = remoteRule.ID
-	} else {
-		desc = remoteRule.Description
-	}
-
-	rule := secrules.SecurityRule{
-		Priority:    1,
-		Action:      secrules.SecurityRuleAllow,
-		IPNet:       ipNet,
-		Protocol:    protocol,
-		Direction:   direction,
-		PortStart:   portStart,
-		PortEnd:     portEnd,
-		Ports:       nil,
-		Description: desc,
+	rule := cloudprovider.SecurityRule{
+		ExternalId: remoteRule.ID,
+		SecurityRule: secrules.SecurityRule{
+			Priority:    1,
+			Action:      secrules.SecurityRuleAllow,
+			IPNet:       ipNet,
+			Protocol:    protocol,
+			Direction:   direction,
+			PortStart:   portStart,
+			PortEnd:     portEnd,
+			Ports:       nil,
+			Description: remoteRule.Description,
+		},
 	}
 
 	err = rule.ValidateRule()

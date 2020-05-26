@@ -20,7 +20,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/tristate"
-	"yunion.io/x/pkg/util/secrules"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
@@ -338,10 +337,10 @@ type ICloudSecurityGroup interface {
 	ICloudResource
 
 	GetDescription() string
-	GetRules() ([]secrules.SecurityRule, error)
+	GetRules() ([]SecurityRule, error)
 	GetVpcId() string
 
-	SyncRules(rules []secrules.SecurityRule) error
+	SyncRules(common, inAdds, outAdds, inDels, outDels []SecurityRule) error
 	Delete() error
 }
 
