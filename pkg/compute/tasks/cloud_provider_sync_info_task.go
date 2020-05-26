@@ -90,14 +90,6 @@ func (self *CloudProviderSyncInfoTask) OnInit(ctx context.Context, obj db.IStand
 			notes := fmt.Sprintf("SyncQuotas for provider %s result: %s", provider.Name, msg)
 			log.Infof(notes)
 		}
-
-		policyDefinitions, err := p.GetICloudPolicyDefinitions()
-		if err == nil {
-			result := models.PolicyDefinitionManager.SyncPolicyDefinitions(ctx, self.GetUserCred(), provider.GetOwnerId(), provider, policyDefinitions)
-			msg := result.Result()
-			notes := fmt.Sprintf("SyncPolicyDefinitions for provider %s result: %s", provider.Name, msg)
-			log.Infof(notes)
-		}
 		return nil, nil
 	})
 }

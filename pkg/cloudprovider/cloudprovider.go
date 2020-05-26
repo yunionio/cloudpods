@@ -217,7 +217,6 @@ type ICloudProvider interface {
 
 	GetCapabilities() []string
 	GetICloudQuotas() ([]ICloudQuota, error)
-	GetICloudPolicyDefinitions() ([]ICloudPolicyDefinition, error)
 }
 
 func IsSupportProject(prod ICloudProvider) bool {
@@ -318,10 +317,6 @@ func (self *SBaseProvider) GetOnPremiseIRegion() (ICloudRegion, error) {
 }
 
 func (self *SBaseProvider) GetICloudQuotas() ([]ICloudQuota, error) {
-	return nil, ErrNotImplemented
-}
-
-func (self *SBaseProvider) GetICloudPolicyDefinitions() ([]ICloudPolicyDefinition, error) {
 	return nil, ErrNotImplemented
 }
 
