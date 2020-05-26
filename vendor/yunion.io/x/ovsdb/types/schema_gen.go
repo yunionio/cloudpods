@@ -293,6 +293,65 @@ func (tbl *Table) gen(w writer) {
 	w.Writef(`}`)
 	w.Writef(``)
 
+	for _, colName := range tbl.OrderedColumnNames() {
+		var (
+			col = tbl.Columns[colName]
+		)
+		if col.Type.Key.Type == Uuid && col.Type.Key.RefTable != "" {
+			var (
+				refTbl    = tbl.schema.Tables[col.Type.Key.RefTable]
+				refRowTyp = refTbl.rowTypeName()
+			)
+			w.Writef(`func (tbl %s) Find%sReferrer_%s(refUuid string) (r []*%s) {`, tblTyp, refRowTyp, col.Name, tbl.rowTypeName())
+			w.Writef(`	for i := range tbl {`)
+			w.Writef(`		row := &tbl[i]`)
+			ordinal := col.ordinal()
+			switch ordinal {
+			case ordinalAtom:
+				w.Writef(`	if row.%s == refUuid {`, col.goField())
+			case ordinalOptional:
+				w.Writef(`	if row.%s != nil && *row.%s == refUuid {`, col.goField(), col.goField())
+			case ordinalMultiples:
+				w.Writef(`	for _, val := range row.%s {`, col.goField())
+				w.Writef(`		if val == refUuid {`)
+			case ordinalMap:
+				w.Writef(`	for val := range row.%s {`, col.goField())
+				w.Writef(`		if val == refUuid {`)
+			default:
+				panic(fmt.Sprintf("table %s column %s: unexpected ordinal %#v",
+					tbl.Name, col.Name, ordinal))
+			}
+			w.Writef(`			r = append(r, row)`)
+			w.Writef(`		}`)
+			if ordinal == ordinalMultiples || ordinal == ordinalMap {
+				w.Writef(`	}`)
+			}
+			w.Writef(`	}`)
+			w.Writef(`	return r`)
+			w.Writef(`}`)
+			w.Writef(``)
+		}
+		if col.Type.Value.Type.isValid() &&
+			col.Type.Value.Type == Uuid && col.Type.Value.RefTable != "" {
+			var (
+				refTbl    = tbl.schema.Tables[col.Type.Value.RefTable]
+				refRowTyp = refTbl.rowTypeName()
+			)
+			w.Writef(`func (tbl %s) Find%sReferrer2_%s(refUuid string) (r []*%s) {`, tblTyp, refRowTyp, col.Name, tbl.rowTypeName())
+			w.Writef(`	for i := range tbl {`)
+			w.Writef(`		row := &tbl[i]`)
+			w.Writef(`		for _, val := range row.%s {`, col.goField())
+			w.Writef(`			if val == refUuid {`)
+			w.Writef(`				r = append(r, row)`)
+			w.Writef(`			}`)
+			w.Writef(`		}`)
+			w.Writef(`	}`)
+			w.Writef(`	return r`)
+			w.Writef(`}`)
+			w.Writef(``)
+		}
+	}
+
 	{
 		_, ok := tbl.Columns["external_ids"]
 		g := func(f func()) {
@@ -391,6 +450,43 @@ func (col *Column) goType() string {
 
 func (col *Column) goTags() string {
 	return fmt.Sprintf("`json:\"%s\"`", col.Name)
+}
+
+type ordinal int
+
+const (
+	ordinalAtom ordinal = iota
+	ordinalOptional
+	ordinalMultiples
+	ordinalMap
+)
+
+func (col *Column) ordinal() ordinal {
+	var (
+		typ   = &col.Type
+		atomV = typ.Value.Type
+	)
+
+	if atomV.isValid() {
+		return ordinalMap
+	}
+	if typ.MaxUnlimited {
+		return ordinalMultiples
+	}
+	min, max := typ.Min, typ.Max
+	if min == 0 {
+		if max == 0 {
+			panic(fmt.Sprintf("column type with min, max both being 0"))
+		} else if max == 1 {
+			return ordinalOptional
+		} else {
+			return ordinalMultiples
+		}
+	} else if max == 1 {
+		return ordinalAtom
+	} else {
+		return ordinalMultiples
+	}
 }
 
 func (col *Column) funcNameSuffix() string {

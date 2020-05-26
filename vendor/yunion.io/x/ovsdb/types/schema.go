@@ -22,6 +22,8 @@ type Table struct {
 	MaxRows int
 	IsRoot  bool
 	Indexes [][]string
+
+	schema *Schema
 }
 
 type Columns map[string]Column
@@ -118,6 +120,8 @@ func ParseSchema(r io.Reader) (*Schema, error) {
 					},
 				},
 			},
+
+			schema: sch,
 		}
 		for colName, pcol := range ptbl.Columns {
 			col := Column{

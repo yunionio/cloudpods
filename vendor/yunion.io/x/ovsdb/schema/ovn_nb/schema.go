@@ -23,8 +23,11 @@ type OVNNorthbound struct {
 	LogicalRouterStaticRoute LogicalRouterStaticRouteTable
 	LogicalSwitch            LogicalSwitchTable
 	LogicalSwitchPort        LogicalSwitchPortTable
+	Meter                    MeterTable
+	MeterBand                MeterBandTable
 	NAT                      NATTable
 	NBGlobal                 NBGlobalTable
+	PortGroup                PortGroupTable
 	QoS                      QoSTable
 	SSL                      SSLTable
 }
@@ -93,6 +96,16 @@ func (db OVNNorthbound) FindOneMatchNonZeros(irow types.IRow) types.IRow {
 			return r
 		}
 		return nil
+	case *Meter:
+		if r := db.Meter.FindOneMatchNonZeros(row); r != nil {
+			return r
+		}
+		return nil
+	case *MeterBand:
+		if r := db.MeterBand.FindOneMatchNonZeros(row); r != nil {
+			return r
+		}
+		return nil
 	case *NAT:
 		if r := db.NAT.FindOneMatchNonZeros(row); r != nil {
 			return r
@@ -100,6 +113,11 @@ func (db OVNNorthbound) FindOneMatchNonZeros(irow types.IRow) types.IRow {
 		return nil
 	case *NBGlobal:
 		if r := db.NBGlobal.FindOneMatchNonZeros(row); r != nil {
+			return r
+		}
+		return nil
+	case *PortGroup:
+		if r := db.PortGroup.FindOneMatchNonZeros(row); r != nil {
 			return r
 		}
 		return nil
@@ -179,6 +197,16 @@ func (db OVNNorthbound) FindOneMatchByAnyIndex(irow types.IRow) types.IRow {
 			return r
 		}
 		return nil
+	case *Meter:
+		if r := db.Meter.OvsdbGetByAnyIndex(row); r != nil {
+			return r
+		}
+		return nil
+	case *MeterBand:
+		if r := db.MeterBand.OvsdbGetByAnyIndex(row); r != nil {
+			return r
+		}
+		return nil
 	case *NAT:
 		if r := db.NAT.OvsdbGetByAnyIndex(row); r != nil {
 			return r
@@ -186,6 +214,11 @@ func (db OVNNorthbound) FindOneMatchByAnyIndex(irow types.IRow) types.IRow {
 		return nil
 	case *NBGlobal:
 		if r := db.NBGlobal.OvsdbGetByAnyIndex(row); r != nil {
+			return r
+		}
+		return nil
+	case *PortGroup:
+		if r := db.PortGroup.OvsdbGetByAnyIndex(row); r != nil {
 			return r
 		}
 		return nil
@@ -258,6 +291,7 @@ type ACL struct {
 	ExternalIds map[string]string `json:"external_ids"`
 	Log         bool              `json:"log"`
 	Match       string            `json:"match"`
+	Meter       *string           `json:"meter"`
 	Name        *string           `json:"name"`
 	Priority    int64             `json:"priority"`
 	Severity    *string           `json:"severity"`
@@ -284,6 +318,7 @@ func (row *ACL) OvsdbCmdArgs() []string {
 	r = append(r, types.OvsdbCmdArgsMapStringString("external_ids", row.ExternalIds)...)
 	r = append(r, types.OvsdbCmdArgsBoolean("log", row.Log)...)
 	r = append(r, types.OvsdbCmdArgsString("match", row.Match)...)
+	r = append(r, types.OvsdbCmdArgsStringOptional("meter", row.Meter)...)
 	r = append(r, types.OvsdbCmdArgsStringOptional("name", row.Name)...)
 	r = append(r, types.OvsdbCmdArgsInteger("priority", row.Priority)...)
 	r = append(r, types.OvsdbCmdArgsStringOptional("severity", row.Severity)...)
@@ -311,6 +346,8 @@ func (row *ACL) SetColumn(name string, val interface{}) (err error) {
 		row.Log = types.EnsureBoolean(val)
 	case "match":
 		row.Match = types.EnsureString(val)
+	case "meter":
+		row.Meter = types.EnsureStringOptional(val)
 	case "name":
 		row.Name = types.EnsureStringOptional(val)
 	case "priority":
@@ -343,6 +380,9 @@ func (row *ACL) MatchNonZeros(row1 *ACL) bool {
 		return false
 	}
 	if !types.MatchStringIfNonZero(row.Match, row1.Match) {
+		return false
+	}
+	if !types.MatchStringOptionalIfNonZero(row.Meter, row1.Meter) {
 		return false
 	}
 	if !types.MatchStringOptionalIfNonZero(row.Name, row1.Name) {
@@ -1546,6 +1586,54 @@ func (row *LogicalRouter) MatchNonZeros(row1 *LogicalRouter) bool {
 	return true
 }
 
+func (tbl LogicalRouterTable) FindLoadBalancerReferrer_load_balancer(refUuid string) (r []*LogicalRouter) {
+	for i := range tbl {
+		row := &tbl[i]
+		for _, val := range row.LoadBalancer {
+			if val == refUuid {
+				r = append(r, row)
+			}
+		}
+	}
+	return r
+}
+
+func (tbl LogicalRouterTable) FindNATReferrer_nat(refUuid string) (r []*LogicalRouter) {
+	for i := range tbl {
+		row := &tbl[i]
+		for _, val := range row.Nat {
+			if val == refUuid {
+				r = append(r, row)
+			}
+		}
+	}
+	return r
+}
+
+func (tbl LogicalRouterTable) FindLogicalRouterPortReferrer_ports(refUuid string) (r []*LogicalRouter) {
+	for i := range tbl {
+		row := &tbl[i]
+		for _, val := range row.Ports {
+			if val == refUuid {
+				r = append(r, row)
+			}
+		}
+	}
+	return r
+}
+
+func (tbl LogicalRouterTable) FindLogicalRouterStaticRouteReferrer_static_routes(refUuid string) (r []*LogicalRouter) {
+	for i := range tbl {
+		row := &tbl[i]
+		for _, val := range row.StaticRoutes {
+			if val == refUuid {
+				r = append(r, row)
+			}
+		}
+	}
+	return r
+}
+
 func (row *LogicalRouter) HasExternalIds() bool {
 	return true
 }
@@ -1758,6 +1846,18 @@ func (row *LogicalRouterPort) MatchNonZeros(row1 *LogicalRouterPort) bool {
 		return false
 	}
 	return true
+}
+
+func (tbl LogicalRouterPortTable) FindGatewayChassisReferrer_gateway_chassis(refUuid string) (r []*LogicalRouterPort) {
+	for i := range tbl {
+		row := &tbl[i]
+		for _, val := range row.GatewayChassis {
+			if val == refUuid {
+				r = append(r, row)
+			}
+		}
+	}
+	return r
 }
 
 func (row *LogicalRouterPort) HasExternalIds() bool {
@@ -2107,6 +2207,66 @@ func (row *LogicalSwitch) MatchNonZeros(row1 *LogicalSwitch) bool {
 	return true
 }
 
+func (tbl LogicalSwitchTable) FindACLReferrer_acls(refUuid string) (r []*LogicalSwitch) {
+	for i := range tbl {
+		row := &tbl[i]
+		for _, val := range row.Acls {
+			if val == refUuid {
+				r = append(r, row)
+			}
+		}
+	}
+	return r
+}
+
+func (tbl LogicalSwitchTable) FindDNSReferrer_dns_records(refUuid string) (r []*LogicalSwitch) {
+	for i := range tbl {
+		row := &tbl[i]
+		for _, val := range row.DnsRecords {
+			if val == refUuid {
+				r = append(r, row)
+			}
+		}
+	}
+	return r
+}
+
+func (tbl LogicalSwitchTable) FindLoadBalancerReferrer_load_balancer(refUuid string) (r []*LogicalSwitch) {
+	for i := range tbl {
+		row := &tbl[i]
+		for _, val := range row.LoadBalancer {
+			if val == refUuid {
+				r = append(r, row)
+			}
+		}
+	}
+	return r
+}
+
+func (tbl LogicalSwitchTable) FindLogicalSwitchPortReferrer_ports(refUuid string) (r []*LogicalSwitch) {
+	for i := range tbl {
+		row := &tbl[i]
+		for _, val := range row.Ports {
+			if val == refUuid {
+				r = append(r, row)
+			}
+		}
+	}
+	return r
+}
+
+func (tbl LogicalSwitchTable) FindQoSReferrer_qos_rules(refUuid string) (r []*LogicalSwitch) {
+	for i := range tbl {
+		row := &tbl[i]
+		for _, val := range row.QosRules {
+			if val == refUuid {
+				r = append(r, row)
+			}
+		}
+	}
+	return r
+}
+
 func (row *LogicalSwitch) HasExternalIds() bool {
 	return true
 }
@@ -2356,6 +2516,26 @@ func (row *LogicalSwitchPort) MatchNonZeros(row1 *LogicalSwitchPort) bool {
 	return true
 }
 
+func (tbl LogicalSwitchPortTable) FindDHCPOptionsReferrer_dhcpv4_options(refUuid string) (r []*LogicalSwitchPort) {
+	for i := range tbl {
+		row := &tbl[i]
+		if row.Dhcpv4Options != nil && *row.Dhcpv4Options == refUuid {
+			r = append(r, row)
+		}
+	}
+	return r
+}
+
+func (tbl LogicalSwitchPortTable) FindDHCPOptionsReferrer_dhcpv6_options(refUuid string) (r []*LogicalSwitchPort) {
+	for i := range tbl {
+		row := &tbl[i]
+		if row.Dhcpv6Options != nil && *row.Dhcpv6Options == refUuid {
+			r = append(r, row)
+		}
+	}
+	return r
+}
+
 func (row *LogicalSwitchPort) HasExternalIds() bool {
 	return true
 }
@@ -2376,6 +2556,353 @@ func (row *LogicalSwitchPort) GetExternalId(k string) (string, bool) {
 }
 
 func (row *LogicalSwitchPort) RemoveExternalId(k string) (string, bool) {
+	if row.ExternalIds == nil {
+		return "", false
+	}
+	r, ok := row.ExternalIds[k]
+	if ok {
+		delete(row.ExternalIds, k)
+	}
+	return r, ok
+}
+
+type MeterTable []Meter
+
+var _ types.ITable = &MeterTable{}
+
+func (tbl MeterTable) OvsdbTableName() string {
+	return "Meter"
+}
+
+func (tbl MeterTable) OvsdbIsRoot() bool {
+	return true
+}
+
+func (tbl MeterTable) Rows() []types.IRow {
+	r := make([]types.IRow, len(tbl))
+	for i := range tbl {
+		r[i] = &tbl[i]
+	}
+	return r
+}
+
+func (tbl MeterTable) NewRow() types.IRow {
+	return &Meter{}
+}
+
+func (tbl *MeterTable) AppendRow(irow types.IRow) {
+	row := irow.(*Meter)
+	*tbl = append(*tbl, *row)
+}
+
+func (tbl MeterTable) OvsdbHasIndex() bool {
+	return true
+}
+
+func (row *Meter) MatchByName(row1 *Meter) bool {
+	if !types.MatchString(row.Name, row1.Name) {
+		return false
+	}
+	return true
+}
+
+func (tbl MeterTable) GetByName(row1 *Meter) *Meter {
+	for i := range tbl {
+		row := &tbl[i]
+		if row.MatchByName(row1) {
+			return row
+		}
+	}
+	return nil
+}
+
+func (tbl MeterTable) OvsdbGetByAnyIndex(irow1 types.IRow) types.IRow {
+	row1 := irow1.(*Meter)
+	if !(types.IsZeroString(row1.Name)) {
+		if row := tbl.GetByName(row1); row != nil {
+			return row
+		}
+	}
+	return nil
+}
+
+func (tbl MeterTable) FindOneMatchNonZeros(row1 *Meter) *Meter {
+	for i := range tbl {
+		row := &tbl[i]
+		if row.MatchNonZeros(row1) {
+			return row
+		}
+	}
+	return nil
+}
+
+type Meter struct {
+	Uuid        string            `json:"_uuid"`
+	Version     string            `json:"_version"`
+	Bands       []string          `json:"bands"`
+	ExternalIds map[string]string `json:"external_ids"`
+	Name        string            `json:"name"`
+	Unit        string            `json:"unit"`
+}
+
+var _ types.IRow = &Meter{}
+
+func (row *Meter) OvsdbTableName() string {
+	return "Meter"
+}
+
+func (row *Meter) OvsdbIsRoot() bool {
+	return true
+}
+
+func (row *Meter) OvsdbUuid() string {
+	return row.Uuid
+}
+
+func (row *Meter) OvsdbCmdArgs() []string {
+	r := []string{}
+	r = append(r, types.OvsdbCmdArgsUuidMultiples("bands", row.Bands)...)
+	r = append(r, types.OvsdbCmdArgsMapStringString("external_ids", row.ExternalIds)...)
+	r = append(r, types.OvsdbCmdArgsString("name", row.Name)...)
+	r = append(r, types.OvsdbCmdArgsString("unit", row.Unit)...)
+	return r
+}
+
+func (row *Meter) SetColumn(name string, val interface{}) (err error) {
+	defer func() {
+		if panicErr := recover(); panicErr != nil {
+			err = errors.Wrapf(panicErr.(error), "%s: %#v", name, fmt.Sprintf("%#v", val))
+		}
+	}()
+	switch name {
+	case "_uuid":
+		row.Uuid = types.EnsureUuid(val)
+	case "_version":
+		row.Version = types.EnsureUuid(val)
+	case "bands":
+		row.Bands = types.EnsureUuidMultiples(val)
+	case "external_ids":
+		row.ExternalIds = types.EnsureMapStringString(val)
+	case "name":
+		row.Name = types.EnsureString(val)
+	case "unit":
+		row.Unit = types.EnsureString(val)
+	default:
+		panic(types.ErrUnknownColumn)
+	}
+	return
+}
+
+func (row *Meter) MatchNonZeros(row1 *Meter) bool {
+	if !types.MatchUuidIfNonZero(row.Uuid, row1.Uuid) {
+		return false
+	}
+	if !types.MatchUuidIfNonZero(row.Version, row1.Version) {
+		return false
+	}
+	if !types.MatchUuidMultiplesIfNonZero(row.Bands, row1.Bands) {
+		return false
+	}
+	if !types.MatchMapStringStringIfNonZero(row.ExternalIds, row1.ExternalIds) {
+		return false
+	}
+	if !types.MatchStringIfNonZero(row.Name, row1.Name) {
+		return false
+	}
+	if !types.MatchStringIfNonZero(row.Unit, row1.Unit) {
+		return false
+	}
+	return true
+}
+
+func (tbl MeterTable) FindMeterBandReferrer_bands(refUuid string) (r []*Meter) {
+	for i := range tbl {
+		row := &tbl[i]
+		for _, val := range row.Bands {
+			if val == refUuid {
+				r = append(r, row)
+			}
+		}
+	}
+	return r
+}
+
+func (row *Meter) HasExternalIds() bool {
+	return true
+}
+
+func (row *Meter) SetExternalId(k, v string) {
+	if row.ExternalIds == nil {
+		row.ExternalIds = map[string]string{}
+	}
+	row.ExternalIds[k] = v
+}
+
+func (row *Meter) GetExternalId(k string) (string, bool) {
+	if row.ExternalIds == nil {
+		return "", false
+	}
+	r, ok := row.ExternalIds[k]
+	return r, ok
+}
+
+func (row *Meter) RemoveExternalId(k string) (string, bool) {
+	if row.ExternalIds == nil {
+		return "", false
+	}
+	r, ok := row.ExternalIds[k]
+	if ok {
+		delete(row.ExternalIds, k)
+	}
+	return r, ok
+}
+
+type MeterBandTable []MeterBand
+
+var _ types.ITable = &MeterBandTable{}
+
+func (tbl MeterBandTable) OvsdbTableName() string {
+	return "Meter_Band"
+}
+
+func (tbl MeterBandTable) OvsdbIsRoot() bool {
+	return false
+}
+
+func (tbl MeterBandTable) Rows() []types.IRow {
+	r := make([]types.IRow, len(tbl))
+	for i := range tbl {
+		r[i] = &tbl[i]
+	}
+	return r
+}
+
+func (tbl MeterBandTable) NewRow() types.IRow {
+	return &MeterBand{}
+}
+
+func (tbl *MeterBandTable) AppendRow(irow types.IRow) {
+	row := irow.(*MeterBand)
+	*tbl = append(*tbl, *row)
+}
+
+func (tbl MeterBandTable) OvsdbHasIndex() bool {
+	return false
+}
+
+func (tbl MeterBandTable) OvsdbGetByAnyIndex(irow1 types.IRow) types.IRow {
+	return nil
+}
+
+func (tbl MeterBandTable) FindOneMatchNonZeros(row1 *MeterBand) *MeterBand {
+	for i := range tbl {
+		row := &tbl[i]
+		if row.MatchNonZeros(row1) {
+			return row
+		}
+	}
+	return nil
+}
+
+type MeterBand struct {
+	Uuid        string            `json:"_uuid"`
+	Version     string            `json:"_version"`
+	Action      string            `json:"action"`
+	BurstSize   int64             `json:"burst_size"`
+	ExternalIds map[string]string `json:"external_ids"`
+	Rate        int64             `json:"rate"`
+}
+
+var _ types.IRow = &MeterBand{}
+
+func (row *MeterBand) OvsdbTableName() string {
+	return "Meter_Band"
+}
+
+func (row *MeterBand) OvsdbIsRoot() bool {
+	return false
+}
+
+func (row *MeterBand) OvsdbUuid() string {
+	return row.Uuid
+}
+
+func (row *MeterBand) OvsdbCmdArgs() []string {
+	r := []string{}
+	r = append(r, types.OvsdbCmdArgsString("action", row.Action)...)
+	r = append(r, types.OvsdbCmdArgsInteger("burst_size", row.BurstSize)...)
+	r = append(r, types.OvsdbCmdArgsMapStringString("external_ids", row.ExternalIds)...)
+	r = append(r, types.OvsdbCmdArgsInteger("rate", row.Rate)...)
+	return r
+}
+
+func (row *MeterBand) SetColumn(name string, val interface{}) (err error) {
+	defer func() {
+		if panicErr := recover(); panicErr != nil {
+			err = errors.Wrapf(panicErr.(error), "%s: %#v", name, fmt.Sprintf("%#v", val))
+		}
+	}()
+	switch name {
+	case "_uuid":
+		row.Uuid = types.EnsureUuid(val)
+	case "_version":
+		row.Version = types.EnsureUuid(val)
+	case "action":
+		row.Action = types.EnsureString(val)
+	case "burst_size":
+		row.BurstSize = types.EnsureInteger(val)
+	case "external_ids":
+		row.ExternalIds = types.EnsureMapStringString(val)
+	case "rate":
+		row.Rate = types.EnsureInteger(val)
+	default:
+		panic(types.ErrUnknownColumn)
+	}
+	return
+}
+
+func (row *MeterBand) MatchNonZeros(row1 *MeterBand) bool {
+	if !types.MatchUuidIfNonZero(row.Uuid, row1.Uuid) {
+		return false
+	}
+	if !types.MatchUuidIfNonZero(row.Version, row1.Version) {
+		return false
+	}
+	if !types.MatchStringIfNonZero(row.Action, row1.Action) {
+		return false
+	}
+	if !types.MatchIntegerIfNonZero(row.BurstSize, row1.BurstSize) {
+		return false
+	}
+	if !types.MatchMapStringStringIfNonZero(row.ExternalIds, row1.ExternalIds) {
+		return false
+	}
+	if !types.MatchIntegerIfNonZero(row.Rate, row1.Rate) {
+		return false
+	}
+	return true
+}
+
+func (row *MeterBand) HasExternalIds() bool {
+	return true
+}
+
+func (row *MeterBand) SetExternalId(k, v string) {
+	if row.ExternalIds == nil {
+		row.ExternalIds = map[string]string{}
+	}
+	row.ExternalIds[k] = v
+}
+
+func (row *MeterBand) GetExternalId(k string) (string, bool) {
+	if row.ExternalIds == nil {
+		return "", false
+	}
+	r, ok := row.ExternalIds[k]
+	return r, ok
+}
+
+func (row *MeterBand) RemoveExternalId(k string) (string, bool) {
 	if row.ExternalIds == nil {
 		return "", false
 	}
@@ -2696,6 +3223,28 @@ func (row *NBGlobal) MatchNonZeros(row1 *NBGlobal) bool {
 	return true
 }
 
+func (tbl NBGlobalTable) FindConnectionReferrer_connections(refUuid string) (r []*NBGlobal) {
+	for i := range tbl {
+		row := &tbl[i]
+		for _, val := range row.Connections {
+			if val == refUuid {
+				r = append(r, row)
+			}
+		}
+	}
+	return r
+}
+
+func (tbl NBGlobalTable) FindSSLReferrer_ssl(refUuid string) (r []*NBGlobal) {
+	for i := range tbl {
+		row := &tbl[i]
+		if row.Ssl != nil && *row.Ssl == refUuid {
+			r = append(r, row)
+		}
+	}
+	return r
+}
+
 func (row *NBGlobal) HasExternalIds() bool {
 	return true
 }
@@ -2716,6 +3265,209 @@ func (row *NBGlobal) GetExternalId(k string) (string, bool) {
 }
 
 func (row *NBGlobal) RemoveExternalId(k string) (string, bool) {
+	if row.ExternalIds == nil {
+		return "", false
+	}
+	r, ok := row.ExternalIds[k]
+	if ok {
+		delete(row.ExternalIds, k)
+	}
+	return r, ok
+}
+
+type PortGroupTable []PortGroup
+
+var _ types.ITable = &PortGroupTable{}
+
+func (tbl PortGroupTable) OvsdbTableName() string {
+	return "Port_Group"
+}
+
+func (tbl PortGroupTable) OvsdbIsRoot() bool {
+	return true
+}
+
+func (tbl PortGroupTable) Rows() []types.IRow {
+	r := make([]types.IRow, len(tbl))
+	for i := range tbl {
+		r[i] = &tbl[i]
+	}
+	return r
+}
+
+func (tbl PortGroupTable) NewRow() types.IRow {
+	return &PortGroup{}
+}
+
+func (tbl *PortGroupTable) AppendRow(irow types.IRow) {
+	row := irow.(*PortGroup)
+	*tbl = append(*tbl, *row)
+}
+
+func (tbl PortGroupTable) OvsdbHasIndex() bool {
+	return true
+}
+
+func (row *PortGroup) MatchByName(row1 *PortGroup) bool {
+	if !types.MatchString(row.Name, row1.Name) {
+		return false
+	}
+	return true
+}
+
+func (tbl PortGroupTable) GetByName(row1 *PortGroup) *PortGroup {
+	for i := range tbl {
+		row := &tbl[i]
+		if row.MatchByName(row1) {
+			return row
+		}
+	}
+	return nil
+}
+
+func (tbl PortGroupTable) OvsdbGetByAnyIndex(irow1 types.IRow) types.IRow {
+	row1 := irow1.(*PortGroup)
+	if !(types.IsZeroString(row1.Name)) {
+		if row := tbl.GetByName(row1); row != nil {
+			return row
+		}
+	}
+	return nil
+}
+
+func (tbl PortGroupTable) FindOneMatchNonZeros(row1 *PortGroup) *PortGroup {
+	for i := range tbl {
+		row := &tbl[i]
+		if row.MatchNonZeros(row1) {
+			return row
+		}
+	}
+	return nil
+}
+
+type PortGroup struct {
+	Uuid        string            `json:"_uuid"`
+	Version     string            `json:"_version"`
+	Acls        []string          `json:"acls"`
+	ExternalIds map[string]string `json:"external_ids"`
+	Name        string            `json:"name"`
+	Ports       []string          `json:"ports"`
+}
+
+var _ types.IRow = &PortGroup{}
+
+func (row *PortGroup) OvsdbTableName() string {
+	return "Port_Group"
+}
+
+func (row *PortGroup) OvsdbIsRoot() bool {
+	return true
+}
+
+func (row *PortGroup) OvsdbUuid() string {
+	return row.Uuid
+}
+
+func (row *PortGroup) OvsdbCmdArgs() []string {
+	r := []string{}
+	r = append(r, types.OvsdbCmdArgsUuidMultiples("acls", row.Acls)...)
+	r = append(r, types.OvsdbCmdArgsMapStringString("external_ids", row.ExternalIds)...)
+	r = append(r, types.OvsdbCmdArgsString("name", row.Name)...)
+	r = append(r, types.OvsdbCmdArgsUuidMultiples("ports", row.Ports)...)
+	return r
+}
+
+func (row *PortGroup) SetColumn(name string, val interface{}) (err error) {
+	defer func() {
+		if panicErr := recover(); panicErr != nil {
+			err = errors.Wrapf(panicErr.(error), "%s: %#v", name, fmt.Sprintf("%#v", val))
+		}
+	}()
+	switch name {
+	case "_uuid":
+		row.Uuid = types.EnsureUuid(val)
+	case "_version":
+		row.Version = types.EnsureUuid(val)
+	case "acls":
+		row.Acls = types.EnsureUuidMultiples(val)
+	case "external_ids":
+		row.ExternalIds = types.EnsureMapStringString(val)
+	case "name":
+		row.Name = types.EnsureString(val)
+	case "ports":
+		row.Ports = types.EnsureUuidMultiples(val)
+	default:
+		panic(types.ErrUnknownColumn)
+	}
+	return
+}
+
+func (row *PortGroup) MatchNonZeros(row1 *PortGroup) bool {
+	if !types.MatchUuidIfNonZero(row.Uuid, row1.Uuid) {
+		return false
+	}
+	if !types.MatchUuidIfNonZero(row.Version, row1.Version) {
+		return false
+	}
+	if !types.MatchUuidMultiplesIfNonZero(row.Acls, row1.Acls) {
+		return false
+	}
+	if !types.MatchMapStringStringIfNonZero(row.ExternalIds, row1.ExternalIds) {
+		return false
+	}
+	if !types.MatchStringIfNonZero(row.Name, row1.Name) {
+		return false
+	}
+	if !types.MatchUuidMultiplesIfNonZero(row.Ports, row1.Ports) {
+		return false
+	}
+	return true
+}
+
+func (tbl PortGroupTable) FindACLReferrer_acls(refUuid string) (r []*PortGroup) {
+	for i := range tbl {
+		row := &tbl[i]
+		for _, val := range row.Acls {
+			if val == refUuid {
+				r = append(r, row)
+			}
+		}
+	}
+	return r
+}
+
+func (tbl PortGroupTable) FindLogicalSwitchPortReferrer_ports(refUuid string) (r []*PortGroup) {
+	for i := range tbl {
+		row := &tbl[i]
+		for _, val := range row.Ports {
+			if val == refUuid {
+				r = append(r, row)
+			}
+		}
+	}
+	return r
+}
+
+func (row *PortGroup) HasExternalIds() bool {
+	return true
+}
+
+func (row *PortGroup) SetExternalId(k, v string) {
+	if row.ExternalIds == nil {
+		row.ExternalIds = map[string]string{}
+	}
+	row.ExternalIds[k] = v
+}
+
+func (row *PortGroup) GetExternalId(k string) (string, bool) {
+	if row.ExternalIds == nil {
+		return "", false
+	}
+	r, ok := row.ExternalIds[k]
+	return r, ok
+}
+
+func (row *PortGroup) RemoveExternalId(k string) (string, bool) {
 	if row.ExternalIds == nil {
 		return "", false
 	}
