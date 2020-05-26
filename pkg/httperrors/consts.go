@@ -84,6 +84,8 @@ const (
 	ErrTooManyAttempts = errors.Error("TooManyFailedAttempts")
 	ErrTooManyRequests = errors.Error("TooManyRequests")
 
+	ErrUnsupportedProtocol = errors.Error("UnsupportedProtocol")
+
 	ErrPolicyDefinition = errors.Error("PolicyDefinitionError")
 )
 

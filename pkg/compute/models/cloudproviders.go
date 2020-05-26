@@ -1405,6 +1405,14 @@ func (self *SCloudprovider) StartCloudproviderDeleteTask(ctx context.Context, us
 	return nil
 }
 
+func (self *SCloudprovider) GetRegionDriver() (IRegionDriver, error) {
+	driver := GetRegionDriver(self.Provider)
+	if driver == nil {
+		return nil, fmt.Errorf("failed to found region driver for %s", self.Provider)
+	}
+	return driver, nil
+}
+
 func (self *SCloudprovider) ClearSchedDescCache() error {
 	hosts := make([]SHost, 0)
 	q := HostManager.Query().Equals("manager_id", self.Id)

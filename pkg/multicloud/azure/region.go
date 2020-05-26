@@ -22,7 +22,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -570,31 +569,9 @@ func (region *SRegion) GetISecurityGroupByName(vpcId string, name string) (cloud
 
 func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
 	if conf.VpcId == "classic" {
-		return region.CreateClassicSecurityGroup(conf.Desc)
+		return region.CreateClassicSecurityGroup(conf.Name)
 	}
 	return region.CreateSecurityGroup(conf.Name)
-}
-
-func (region *SRegion) SyncSecurityGroup(secgroupId, vpcId, name, desc string, rules []secrules.SecurityRule) (string, error) {
-	if vpcId == "classic" {
-		return region.syncClassicSecurityGroup(secgroupId, name, desc, rules)
-	}
-	if len(secgroupId) > 0 {
-		if _, err := region.GetSecurityGroupDetails(secgroupId); err != nil {
-			if err != cloudprovider.ErrNotFound {
-				return "", err
-			}
-			secgroupId = ""
-		}
-	}
-	if len(secgroupId) == 0 {
-		secgroup, err := region.CreateSecurityGroup(name)
-		if err != nil {
-			return "", err
-		}
-		secgroupId = secgroup.ID
-	}
-	return region.updateSecurityGroupRules(secgroupId, rules)
 }
 
 func (region *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {
