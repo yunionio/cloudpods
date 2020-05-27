@@ -4318,9 +4318,12 @@ func (self *SHost) PerformConvertHypervisor(ctx context.Context, userCred mcclie
 	if err != nil {
 		return nil, httperrors.NewNotAcceptableError("Convert error: %s", err.Error())
 	}
+	// admin delegate user to create system resource
+	input.ProjectDomain = userCred.GetProjectDomainId()
+	input.Project = userCred.GetProjectId()
 	params := input.JSON(input)
-	// ownerId := userCred.GetProjectId()
-	guest, err := db.DoCreate(GuestManager, ctx, userCred, nil, params, userCred)
+	adminCred := auth.AdminCredential()
+	guest, err := db.DoCreate(GuestManager, ctx, adminCred, nil, params, userCred)
 	if err != nil {
 		return nil, err
 	}
@@ -4328,7 +4331,7 @@ func (self *SHost) PerformConvertHypervisor(ctx context.Context, userCred mcclie
 		lockman.LockObject(ctx, guest)
 		defer lockman.ReleaseObject(ctx, guest)
 
-		guest.PostCreate(ctx, userCred, userCred, nil, params)
+		guest.PostCreate(ctx, adminCred, userCred, nil, params)
 	}()
 	log.Infof("Host convert to %s", guest.GetName())
 	db.OpsLog.LogEvent(self, db.ACT_CONVERT_START, "", userCred)
@@ -4339,7 +4342,7 @@ func (self *SHost) PerformConvertHypervisor(ctx context.Context, userCred mcclie
 	opts.Set("server_id", jsonutils.NewString(guest.GetId()))
 	opts.Set("convert_host_type", jsonutils.NewString(hostType))
 
-	task, err := taskman.TaskManager.NewTask(ctx, "BaremetalConvertHypervisorTask", self, userCred, opts, "", "", nil)
+	task, err := taskman.TaskManager.NewTask(ctx, "BaremetalConvertHypervisorTask", self, adminCred, opts, "", "", nil)
 	if err != nil {
 		return nil, err
 	}
