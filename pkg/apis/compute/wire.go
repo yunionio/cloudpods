@@ -53,7 +53,7 @@ type WireDetails struct {
 	// example: 1
 	Networks int `json:"networks"`
 	// VPC名称
-	Vpc string `json:"vpc'`
+	Vpc string `json:"vpc"`
 	// VPC外部Id
 	VpcExtId string `json:"vpc_ext_id"`
 
