@@ -24,7 +24,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/vpcagent/options"
 )
 
 const (
@@ -32,14 +31,14 @@ const (
 )
 
 type APIHelper struct {
-	opts        *options.Options
+	opts        *Options
 	modelSets   IModelSets
 	modelSetsCh chan IModelSets
 
 	mcclientSession *mcclient.ClientSession
 }
 
-func NewAPIHelper(opts *options.Options, modelSets IModelSets) (*APIHelper, error) {
+func NewAPIHelper(opts *Options, modelSets IModelSets) (*APIHelper, error) {
 	modelSetsCh := make(chan IModelSets)
 	helper := &APIHelper{
 		opts:        opts,
@@ -58,7 +57,7 @@ func (h *APIHelper) Start(ctx context.Context) {
 
 	h.run(ctx)
 
-	tickDuration := time.Duration(h.opts.APISyncInterval) * time.Second
+	tickDuration := time.Duration(h.opts.SyncInterval) * time.Second
 	tick := time.NewTimer(tickDuration)
 	defer tick.Stop()
 
@@ -83,7 +82,7 @@ func (h *APIHelper) run(ctx context.Context) {
 		log.Errorln(err)
 	}
 	if changed {
-		mssCopy := h.modelSets.Copy()
+		mssCopy := h.modelSets.CopyJoined()
 		select {
 		case h.modelSetsCh <- mssCopy:
 		case <-ctx.Done():
@@ -101,10 +100,12 @@ func (h *APIHelper) doSync(ctx context.Context) (changed bool, err error) {
 	}
 
 	s := h.adminClientSession(ctx)
-	r, err := SyncModelSets(h.modelSets, s, h.opts.APIListBatchSize)
+	mss := h.modelSets.Copy()
+	r, err := SyncModelSets(mss, s, h.opts.ListBatchSize)
 	if err != nil {
 		return false, err
 	}
+	h.modelSets = mss
 	if !r.Correct {
 		return false, errors.Wrap(ErrSync, "incorrect")
 	}

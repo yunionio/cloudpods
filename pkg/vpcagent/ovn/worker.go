@@ -41,7 +41,12 @@ type Worker struct {
 
 func NewWorker(opts *options.Options) worker.IWorker {
 	modelSets := agentmodels.NewModelSets()
-	apih, err := apihelper.NewAPIHelper(opts, modelSets)
+	apiOpts := &apihelper.Options{
+		CommonOptions: opts.CommonOptions,
+		SyncInterval:  opts.APISyncInterval,
+		ListBatchSize: opts.APIListBatchSize,
+	}
+	apih, err := apihelper.NewAPIHelper(apiOpts, modelSets)
 	if err != nil {
 		return nil
 	}

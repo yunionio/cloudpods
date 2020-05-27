@@ -121,8 +121,8 @@ type SHostOptions struct {
 
 	OvnSouthDatabase     string `help:"address for accessing ovn south database" default:"$HOST_OVN_SOUTH_DATABASE|unix:/var/run/openvswitch/ovnsb_db.sock"`
 	OvnEncapIp           string `help:"encap ip for ovn datapath.  Default to output src address of default route" default:"$HOST_OVN_ENCAP_IP"`
-	OvnIntegrationBridge string `help:"name of integration bridge for logical ports" default:"brvpc" default:"$HOST_OVN_INTEGRATION_BRIDGE|brvpc"`
-	OvnMappedBridge      string `help:"name of bridge for mapped traffic management" default:"mapped" default:"$HOST_OVN_MAPPED_BRIDGE|brmapped"`
+	OvnIntegrationBridge string `help:"name of integration bridge for logical ports" default:"$HOST_OVN_INTEGRATION_BRIDGE|brvpc"`
+	OvnMappedBridge      string `help:"name of bridge for mapped traffic management" default:"$HOST_OVN_MAPPED_BRIDGE|brmapped"`
 
 	EnableHealthChecker bool   `help:"enable host health checker" default:"true"`
 	HealthDriver        string `help:"Component save host health state" default:"etcd"`
