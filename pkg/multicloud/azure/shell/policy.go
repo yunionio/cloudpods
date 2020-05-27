@@ -15,8 +15,6 @@
 package shell
 
 import (
-	"fmt"
-
 	"yunion.io/x/onecloud/pkg/multicloud/azure"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -56,17 +54,6 @@ func init() {
 			return err
 		}
 		printObject(definition)
-		return nil
-	})
-
-	shellutils.R(&PolicyListOptions{}, "policy-definition-list-onecloud", "List convert policy assignment", func(cli *azure.SRegion, args *PolicyListOptions) error {
-		definitions, err := cli.GetClient().GetICloudDefinitions()
-		if err != nil {
-			return err
-		}
-		for _, definition := range definitions {
-			fmt.Printf("definition %s category %s condition %s paramters: %s\n", definition.GetName(), definition.GetCategory(), definition.GetCondition(), definition.GetParameters())
-		}
 		return nil
 	})
 

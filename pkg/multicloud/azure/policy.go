@@ -17,15 +17,10 @@ package azure
 import (
 	"fmt"
 	"net/url"
-	"regexp"
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-
-	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SPolicyDefinitonPropertieParameterMetadata struct {
@@ -142,109 +137,4 @@ func (client *SAzureClient) GetPolicyAssignments(defineId string) ([]SPolicyAssi
 		return nil, errors.Wrap(err, "Microsoft.Authorization/policyAssignments.List")
 	}
 	return assignments, nil
-}
-
-func (client *SAzureClient) GetICloudDefinitions() ([]cloudprovider.ICloudPolicyDefinition, error) {
-	ret := []cloudprovider.ICloudPolicyDefinition{}
-	definitions, err := client.GetPolicyDefinitions()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetPolicyDefinitions")
-	}
-	for i := range definitions {
-		if definitions[i].Properties.PolicyRule.Then.Effect != "deny" {
-			continue
-		}
-		rule := definitions[i].Properties.PolicyRule.If
-		if rule.Contains("field") {
-			field, _ := rule.GetString("field")
-			if field == "location" {
-				defaultValue := []string{}
-				locationParameter := ""
-				for k, v := range definitions[i].Properties.Parameters {
-					if v.Metadata.StrongType == "location" {
-						defaultValue = v.DefaultValue
-						locationParameter = k
-						break
-					}
-				}
-				assignments, err := client.GetPolicyAssignments(definitions[i].Id)
-				if err != nil {
-					return nil, errors.Wrapf(err, "GetPolicyAssignments(%s)", definitions[i].Id)
-				}
-				for i := range assignments {
-					location, ok := assignments[i].Properties.Parameters[locationParameter]
-					if ok {
-						if len(location.Value) > 0 {
-							assignments[i].values = location.Value
-						} else {
-							assignments[i].values = defaultValue
-						}
-					}
-					regionIds := jsonutils.NewArray()
-					assignments[i].parameters = jsonutils.NewDict()
-					for _, value := range assignments[i].values {
-						region := client.GetRegion(value)
-						if region != nil {
-							regionIds.Add(jsonutils.NewString(region.GetGlobalId()))
-						} else {
-							log.Errorf("failed to found region %s", value)
-						}
-					}
-					assignments[i].category = api.POLICY_DEFINITION_CATEGORY_CLOUDREGION
-					if rule.Contains("in") {
-						assignments[i].condition = api.POLICY_DEFINITION_CONDITION_NOT_IN
-					} else if rule.Contains("notIn") {
-						assignments[i].condition = api.POLICY_DEFINITION_CONDITION_IN
-					}
-					assignments[i].parameters.Add(regionIds, "cloudregions")
-					ret = append(ret, &assignments[i])
-				}
-			} else if strings.Contains(field, "tags") {
-				reg := regexp.MustCompile(`^\[concat\('tags\[', parameters\('\w+'\), '\]'\)\]$`)
-				if !reg.MatchString(field) {
-					continue
-				}
-				if rule.Contains("exists") {
-					exists, _ := rule.Bool("exists")
-					defaultValue := []string{}
-					tagParameter := ""
-					for k, v := range definitions[i].Properties.Parameters {
-						tagParameter = k
-						defaultValue = v.DefaultValue
-					}
-					assignments, err := client.GetPolicyAssignments(definitions[i].Id)
-					if err != nil {
-						return nil, errors.Wrapf(err, "GetPolicyAssignments(%s)", definitions[i].Id)
-					}
-					for i := range assignments {
-						tag, ok := assignments[i].Properties.Parameters[tagParameter]
-						if ok {
-							if len(tag.Value) > 0 {
-								assignments[i].values = tag.Value
-							} else {
-								assignments[i].values = defaultValue
-							}
-						}
-						if len(assignments[i].values) == 0 {
-							continue
-						}
-						tags := jsonutils.NewArray()
-						for _, _tag := range assignments[i].values {
-							tags.Add(jsonutils.NewString(_tag))
-						}
-						assignments[i].parameters = jsonutils.NewDict()
-						assignments[i].category = api.POLICY_DEFINITION_CATEGORY_TAG
-						if exists {
-							assignments[i].condition = api.POLICY_DEFINITION_CONDITION_EXCEPT
-						} else {
-							assignments[i].condition = api.POLICY_DEFINITION_CONDITION_CONTAINS
-						}
-						assignments[i].parameters.Add(tags, "tags")
-						ret = append(ret, &assignments[i])
-					}
-				}
-			}
-		}
-	}
-	return ret, nil
 }
