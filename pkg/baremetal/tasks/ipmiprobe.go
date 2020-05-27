@@ -70,29 +70,38 @@ func (self *SBaremetalIpmiProbeTask) DoIpmiProbe(ctx context.Context, args inter
 	}
 	redfishCli := redfish.NewRedfishDriver(ctx, "https://"+ipmiInfo.IpAddr, ipmiInfo.Username, ipmiInfo.Password, false)
 	if redfishCli != nil {
-		return self.doRedfishIpmiProbe(ctx, redfishCli)
-	} else {
-		log.Warningf("BMC not redfish-compatible")
-		ipmiTool := ipmitool.NewLanPlusIPMI(ipmiInfo.IpAddr, ipmiInfo.Username, ipmiInfo.Password)
-		return self.doRawIpmiProbe(ctx, ipmiTool)
+		redfishSuccess, err := self.doRedfishIpmiProbe(ctx, redfishCli)
+		if err == nil {
+			// success
+			return nil
+		}
+		if redfishSuccess {
+			return errors.Wrap(err, "doRedfishIpmiProbe")
+		}
+		// else, redfish call fails, try IPMI
 	}
+	log.Warningf("BMC not redfish-compatible")
+	ipmiTool := ipmitool.NewLanPlusIPMI(ipmiInfo.IpAddr, ipmiInfo.Username, ipmiInfo.Password)
+	return self.doRawIpmiProbe(ctx, ipmiTool)
 }
 
-func (self *SBaremetalIpmiProbeTask) doRedfishIpmiProbe(ctx context.Context, drv redfish.IRedfishDriver) error {
+// return redfishSuccess, error
+// redfishSuccess: does Redfish API call success
+func (self *SBaremetalIpmiProbeTask) doRedfishIpmiProbe(ctx context.Context, drv redfish.IRedfishDriver) (bool, error) {
 	confs, err := drv.GetLanConfigs(ctx)
 	if err != nil {
-		return errors.Wrap(err, "drv.GetLanConfigs")
+		return false, errors.Wrap(err, "drv.GetLanConfigs")
 	}
 	if len(confs) == 0 {
-		return errors.Wrap(httperrors.ErrNotFound, "no IPMI lan")
+		return false, errors.Wrap(httperrors.ErrNotFound, "no IPMI lan")
 	}
 	err = self.sendIpmiNicInfo(&confs[0])
 	if err != nil {
-		return errors.Wrap(err, "self.sendIpmiNicInfo")
+		return false, errors.Wrap(err, "self.sendIpmiNicInfo")
 	}
 	_, sysInfo, err := drv.GetSystemInfo(ctx)
 	if err != nil {
-		return errors.Wrap(err, "drv.GetSystemInfo")
+		return false, errors.Wrap(err, "drv.GetSystemInfo")
 	}
 	updateInfo := make(map[string]interface{})
 	if len(sysInfo.EthernetNICs) > 0 {
@@ -127,20 +136,20 @@ func (self *SBaremetalIpmiProbeTask) doRedfishIpmiProbe(ctx context.Context, drv
 	_, err = modules.Hosts.Update(self.Baremetal.GetClientSession(), self.Baremetal.GetId(), updateData)
 	if err != nil {
 		log.Errorf("Update baremetal info error: %v", err)
-		return errors.Wrap(err, "modules.Hosts.Update")
+		return true, errors.Wrap(err, "modules.Hosts.Update")
 	}
 	for i := range sysInfo.EthernetNICs {
 		mac, err := net.ParseMAC(sysInfo.EthernetNICs[i])
 		if err == nil {
 			err = self.sendNicInfo(i, mac)
 			if err != nil {
-				return errors.Wrapf(err, "sendNicInfo %d %s", i, mac)
+				return true, errors.Wrapf(err, "sendNicInfo %d %s", i, mac)
 			}
 		}
 	}
 	self.Baremetal.SyncStatus("", "Probe Redfish finished")
 	SetTaskComplete(self, nil)
-	return nil
+	return true, nil
 }
 
 func (self *SBaremetalIpmiProbeTask) sendIpmiNicInfo(lanConf *types.SIPMILanConfig) error {
