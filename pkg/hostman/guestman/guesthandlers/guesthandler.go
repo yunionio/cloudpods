@@ -58,6 +58,7 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 		for action, f := range map[string]actionFunc{
 			"create":               guestCreate,
 			"deploy":               guestDeploy,
+			"rebuild":              guestRebuild,
 			"start":                guestStart,
 			"stop":                 guestStop,
 			"monitor":              guestMonitor,
@@ -150,6 +151,19 @@ func guestDeploy(ctx context.Context, sid string, body jsonutils.JSONObject) (in
 	hostutils.DelayTaskWithWorker(ctx,
 		guestman.GetGuestManager().GuestDeploy,
 		&guestman.SGuestDeploy{sid, body, false},
+		guestman.NbdWorker,
+	)
+	return nil, nil
+}
+
+func guestRebuild(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	err := guestman.GetGuestManager().PrepareDeploy(sid)
+	if err != nil {
+		return nil, err
+	}
+	hostutils.DelayTaskWithWorker(ctx,
+		guestman.GetGuestManager().GuestDeploy,
+		&guestman.SGuestDeploy{sid, body, true},
 		guestman.NbdWorker,
 	)
 	return nil, nil

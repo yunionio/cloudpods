@@ -96,6 +96,11 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 		return ret, nil
 	}
 
+	if deployInfo.IsInit {
+		if err = rootfs.CleanNetworkScripts(partition); err != nil {
+			return nil, errors.Wrap(err, "Clean network scripts")
+		}
+	}
 	if len(deployInfo.Deploys) > 0 {
 		if err = rootfs.DeployFiles(deployInfo.Deploys); err != nil {
 			return nil, fmt.Errorf("DeployFiles: %v", err)
