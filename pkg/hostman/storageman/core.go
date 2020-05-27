@@ -65,12 +65,14 @@ func NewStorageManager(host hostutils.IHost) (*SStorageManager, error) {
 
 	for i, d := range options.HostOptions.LocalImagePath {
 		s := NewLocalStorage(ret, d, i)
-		if s.Accessible() {
+		if err := s.Accessible(); err == nil {
 			StartSnapshotRecycle(s)
 			ret.Storages = append(ret.Storages, s)
 			if allFull && s.GetFreeSizeMb() > MINIMAL_FREE_SPACE {
 				allFull = false
 			}
+		} else {
+			log.Errorf("storage %s not accessible", s.Path)
 		}
 	}
 
