@@ -121,6 +121,9 @@ func (manager *SSuggestSysAlertManager) ListItemFilter(
 	if len(query.Cloudaccount) > 0 {
 		q.Equals("cloudaccount", query.Cloudaccount)
 	}
+	if len(query.CloudEnv) > 0 {
+		q = q.Equals("cloud_env", query.CloudEnv)
+	}
 	return q, nil
 }
 
