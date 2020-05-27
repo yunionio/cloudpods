@@ -1261,6 +1261,9 @@ func (h *SHostInfo) onGetStorageInfoSucc(hoststorages []jsonutils.JSONObject) {
 				storage.SetStoragecacheId(storagecacheId)
 				storage.SetStorageInfo(storageId, storageName, storageConf)
 				storageManager.Storages = append(storageManager.Storages, storage)
+				if err := storage.Accessible(); err != nil {
+					h.onFail(err)
+				}
 				storageManager.InitSharedStorageImageCache(
 					storagetype, storagecacheId, imagecachePath, storage)
 			}

@@ -146,17 +146,32 @@ func (s *SLocalStorage) CreateDisk(diskId string) IDisk {
 	return disk
 }
 
-func (s *SLocalStorage) Accessible() bool {
-	if !fileutils2.Exists(s.Path) {
-		if err := procutils.NewCommand("mkdir", "-p", s.Path).Run(); err != nil {
-			log.Errorln(err)
+func (s *SLocalStorage) Accessible() error {
+	var c = make(chan error)
+	go func() {
+		if !fileutils2.Exists(s.Path) {
+			if err := procutils.NewCommand("mkdir", "-p", s.Path).Run(); err != nil {
+				c <- err
+				return
+			}
 		}
+		if !fileutils2.IsDir(s.Path) {
+			c <- fmt.Errorf("path %s isn't directory", s.Path)
+		}
+		if !fileutils2.Writable(s.Path) {
+			c <- fmt.Errorf("dir %s not writable", s.Path)
+		}
+		c <- nil
+	}()
+	var err error
+	select {
+	case err = <-c:
+		break
+	case <-time.After(time.Second * 10):
+		err = ErrStorageTimeout
 	}
-	if fileutils2.IsDir(s.Path) && fileutils2.Writable(s.Path) {
-		return true
-	} else {
-		return false
-	}
+	return err
+
 }
 
 func (s *SLocalStorage) DeleteDiskfile(diskpath string) error {

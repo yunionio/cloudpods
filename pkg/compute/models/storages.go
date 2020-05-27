@@ -1549,3 +1549,36 @@ func (manager *SStorageManager) ListItemExportKeys(ctx context.Context,
 	}
 	return q, nil
 }
+
+func (storage *SStorage) AllowPerformForceDetachHost(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, storage, "force-detach-host")
+}
+
+func (storage *SStorage) PerformForceDetachHost(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.StorageForceDetachHostInput) (jsonutils.JSONObject, error) {
+	if storage.Enabled.Bool() {
+		return nil, httperrors.NewBadRequestError("storage is enabled")
+	}
+	iHost, err := HostManager.FetchByIdOrName(userCred, input.Host)
+	if err == sql.ErrNoRows {
+		return nil, httperrors.NewNotFoundError("host %s not found", input.Host)
+	} else if err != nil {
+		return nil, err
+	}
+	host := iHost.(*SHost)
+	if host.Status == api.HOST_ONLINE {
+		return nil, httperrors.NewBadRequestError("can't detach host in status online")
+	}
+	iHostStorage, err := db.FetchJointByIds(HoststorageManager, host.GetId(), storage.Id, nil)
+	if err == sql.ErrNoRows {
+		return nil, httperrors.NewNotFoundError("host %s storage %s not found", input.Host, storage.Name)
+	} else if err != nil {
+		return nil, err
+	}
+	hostStorage := iHostStorage.(*SHoststorage)
+	hostStorage.SetModelManager(HoststorageManager, hostStorage)
+	err = hostStorage.Delete(ctx, userCred)
+	if err == nil {
+		db.OpsLog.LogDetachEvent(ctx, hostStorage.Master(), hostStorage.Slave(), userCred, jsonutils.NewString("force detach"))
+	}
+	return nil, err
+}
