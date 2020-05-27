@@ -61,7 +61,7 @@ import (
 type SHostManager struct {
 	db.SEnabledStatusInfrasResourceBaseManager
 	db.SExternalizedResourceBaseManager
-	db.SDnsNameValidatorManager
+	db.SHostNameValidatorManager
 	SZoneResourceBaseManager
 	SManagedResourceBaseManager
 }
