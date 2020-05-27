@@ -169,7 +169,7 @@ type ServerDetails struct {
 	AdminSecurityRules string `json:"admin_security_rules"`
 
 	// list
-	AttachTime time.Time `attach_time`
+	AttachTime time.Time `json:"attach_time"`
 
 	// common
 	IsPrepaidRecycle bool `json:"is_prepaid_recycle"`
