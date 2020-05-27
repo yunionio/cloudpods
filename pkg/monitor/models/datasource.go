@@ -189,7 +189,8 @@ func (self *SDataSourceManager) GetDatabases() (jsonutils.JSONObject, error) {
 	return ret, nil
 }
 
-func (self *SDataSourceManager) GetMeasurements(query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SDataSourceManager) GetMeasurements(query jsonutils.JSONObject, filter string) (jsonutils.JSONObject,
+	error) {
 	ret := jsonutils.NewDict()
 	database, _ := query.GetString("database")
 	if database == "" {
@@ -201,7 +202,14 @@ func (self *SDataSourceManager) GetMeasurements(query jsonutils.JSONObject) (jso
 	}
 	db := influxdb.NewInfluxdb(dataSource.Url)
 	db.SetDatabase(database)
-	dbRtn, err := db.Query(fmt.Sprintf("SHOW MEASUREMENTS ON %s", database))
+	var q string
+	if filter != "" {
+		q = fmt.Sprintf("SHOW MEASUREMENTS ON %s WHERE %s", database, filter)
+	} else {
+		q = fmt.Sprintf("SHOW MEASUREMENTS ON %s", database)
+	}
+
+	dbRtn, err := db.Query(q)
 	if err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "SHOW MEASUREMENTS")
 	}

@@ -309,7 +309,7 @@ func (self *SSuggestSysRuleManager) AllowGetPropertyMeasurements(ctx context.Con
 
 func (self *SSuggestSysRuleManager) GetPropertyMeasurements(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return DataSourceManager.GetMeasurements(query)
+	return DataSourceManager.GetMeasurements(query, "")
 }
 
 func (self *SSuggestSysRuleManager) AllowGetPropertyMetricMeasurement(ctx context.Context,

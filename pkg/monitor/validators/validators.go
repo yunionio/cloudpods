@@ -99,6 +99,24 @@ func ValidateAlertQueryModel(input monitor.MetricQuery) error {
 	return nil
 }
 
+func ValidateSelectOfMetricQuery(input monitor.MetricQuery) error {
+	for _, sel := range input.Selects {
+		if len(sel) == 0 {
+			return httperrors.NewInputParameterError("select for nothing in query")
+		}
+	}
+	if len(input.GroupBy) == 0 {
+		input.GroupBy = append(input.GroupBy, monitor.MetricQueryPart{
+			Type:   "fill",
+			Params: []string{"none"},
+		}, monitor.MetricQueryPart{
+			Type:   "time",
+			Params: []string{input.Interval},
+		})
+	}
+	return nil
+}
+
 func ValidateAlertConditionReducer(input monitor.Condition) error {
 	return nil
 }

@@ -15,6 +15,7 @@
 package influxdb
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -53,16 +54,39 @@ func NewInfluxdbExecutor(datasource *tsdb.DataSource) (tsdb.TsdbQueryEndpoint, e
 
 func (e *InfluxdbExecutor) Query(ctx context.Context, dsInfo *tsdb.DataSource, tsdbQuery *tsdb.TsdbQuery) (*tsdb.Response, error) {
 	result := &tsdb.Response{}
+	querys := make([]*tsdb.Query, len(tsdbQuery.Queries)+1)
+	influxQ := make([]*Query, 0)
+	copy(querys, tsdbQuery.Queries)
+	var buffer bytes.Buffer
+	var rawQuery string
+	for i := 0; i < len(querys); i++ {
+		query, err := e.getQuery(dsInfo, querys, tsdbQuery)
+		influxQ = append(influxQ, query)
+		if err != nil {
+			return nil, err
+		}
 
-	query, err := e.getQuery(dsInfo, tsdbQuery.Queries, tsdbQuery)
-	if err != nil {
-		return nil, err
+		rawQuery, err := query.Build(tsdbQuery)
+		if err != nil {
+			return nil, err
+		}
+		buffer.WriteString(rawQuery + ";")
+		if len(querys) > 0 {
+			querys = querys[1:]
+		}
 	}
-
-	rawQuery, err := query.Build(tsdbQuery)
-	if err != nil {
-		return nil, err
-	}
+	rawQuery = buffer.String()
+	spitCount := strings.Count(rawQuery, ";")
+	rawQuery = strings.Replace(rawQuery, ";", "", spitCount)
+	//query, err := e.getQuery(dsInfo, tsdbQuery.Queries, tsdbQuery)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//rawQuery, err := query.Build(tsdbQuery)
+	//if err != nil {
+	//	return nil, err
+	//}
 
 	db := dsInfo.Database
 	if db == "" {
@@ -103,11 +127,18 @@ func (e *InfluxdbExecutor) Query(ctx context.Context, dsInfo *tsdb.DataSource, t
 	}
 
 	result.Results = make(map[string]*tsdb.QueryResult)
-	ret := e.ResponseParser.Parse(&response, query)
-	ret.Meta = tsdb.QueryResultMeta{
-		RawQuery: rawQuery,
+	for i, query := range tsdbQuery.Queries {
+		ret := e.ResponseParser.Parse(&response, influxQ[i])
+		ret.Meta = tsdb.QueryResultMeta{
+			RawQuery: rawQuery,
+		}
+		result.Results[query.RefId] = ret
 	}
-	result.Results["A"] = ret
+	//ret := e.ResponseParser.Parse(&response, query)
+	//ret.Meta = tsdb.QueryResultMeta{
+	//	RawQuery: rawQuery,
+	//}
+	//result.Results["A"] = ret
 
 	return result, nil
 }
