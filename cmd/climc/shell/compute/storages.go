@@ -234,6 +234,20 @@ func init() {
 		return nil
 	})
 
+	type StorageForceDetachHost struct {
+		ID   string `help:"ID or name of storage" json:"-"`
+		Host string `help:"ID or name of host"`
+	}
+	R(&StorageForceDetachHost{}, "storage-public", "Force detach host", func(s *mcclient.ClientSession, args *StorageForceDetachHost) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Storages.PerformAction(s, args.ID, "force-detach-host", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	type StoragePublicOptions struct {
 		ID            string   `help:"ID or name of storage" json:"-"`
 		Scope         string   `help:"sharing scope" choices:"system|domain"`

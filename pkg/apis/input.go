@@ -224,6 +224,11 @@ type PerformEnableInput struct {
 type PerformDisableInput struct {
 }
 
+type StorageForceDetachHostInput struct {
+	// Host id or name
+	Host string `json:"host"`
+}
+
 type InfrasResourceBaseCreateInput struct {
 	DomainLevelResourceCreateInput
 
