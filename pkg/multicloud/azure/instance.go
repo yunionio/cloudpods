@@ -602,7 +602,7 @@ func (region *SRegion) DetachDisk(instanceId, diskId string) error {
 	}
 	dataDisks := []DataDisk{}
 	for _, origDisk := range instance.Properties.StorageProfile.DataDisks {
-		if origDisk.ManagedDisk.ID != disk.ID {
+		if strings.ToLower(origDisk.ManagedDisk.ID) != strings.ToLower(disk.ID) {
 			dataDisks = append(dataDisks, origDisk)
 		}
 	}
