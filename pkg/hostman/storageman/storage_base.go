@@ -43,7 +43,13 @@ const (
 	_RECYCLE_BIN_     = "recycle_bin"
 	_IMGSAVE_BACKUPS_ = "imgsave_backups"
 	_SNAPSHOT_PATH_   = "snapshots"
+
+	ErrStorageTimeout = constError("storage accessible check timeout")
 )
+
+type constError string
+
+func (e constError) Error() string { return string(e) }
 
 var DELETEING_SNAPSHOTS = sync.Map{}
 
@@ -115,6 +121,8 @@ type IStorage interface {
 
 	DestinationPrepareMigrate(ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string,
 		desc, disksBackingFile, srcSnapshots jsonutils.JSONObject, rebaseDisks bool) error
+
+	Accessible() error
 }
 
 type SBaseStorage struct {

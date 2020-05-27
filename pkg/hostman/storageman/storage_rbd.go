@@ -622,11 +622,22 @@ func (s *SRbdStorage) CreateDisk(diskId string) IDisk {
 	return disk
 }
 
-func (s *SRbdStorage) Accessible() bool {
-	_, err := s.withCluster(func(conn *rados.Conn) (interface{}, error) {
-		return conn.ListPools()
-	})
-	return err == nil
+func (s *SRbdStorage) Accessible() error {
+	var c = make(chan error)
+	go func() {
+		_, err := s.withCluster(func(conn *rados.Conn) (interface{}, error) {
+			return conn.ListPools()
+		})
+		c <- err
+	}()
+	var err error
+	select {
+	case err = <-c:
+		break
+	case <-time.After(time.Second * 10):
+		err = ErrStorageTimeout
+	}
+	return err
 }
 
 func (s *SRbdStorage) SaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
