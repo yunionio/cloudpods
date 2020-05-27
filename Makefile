@@ -163,9 +163,15 @@ goimports-check:
 	fi
 .PHONY: goimports-check
 
+vet-check:
+	./scripts/vet.sh gen
+	./scripts/vet.sh chk
+.PHONY: vet-check
+
 check: fmt-check
 check: gendocgo-check
 check: goimports-check
+check: vet-check
 .PHONY: check
 
 
