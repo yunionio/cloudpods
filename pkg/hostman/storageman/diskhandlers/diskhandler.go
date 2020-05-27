@@ -242,7 +242,12 @@ func diskCreate(ctx context.Context, storage storageman.IStorage, diskId string,
 		return nil, httperrors.NewMissingParameterError("disk")
 	}
 	hostutils.DelayTask(ctx, storage.CreateDiskByDiskinfo,
-		&storageman.SDiskCreateByDiskinfo{diskId, disk, diskInfo, storage})
+		&storageman.SDiskCreateByDiskinfo{
+			DiskId:   diskId,
+			Disk:     disk,
+			DiskInfo: diskInfo,
+			Storage:  storage,
+		})
 	return nil, nil
 }
 
@@ -284,7 +289,10 @@ func diskReset(ctx context.Context, storage storageman.IStorage, diskId string, 
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("snapshot_id")
 	}
-	hostutils.DelayTask(ctx, disk.ResetFromSnapshot, &storageman.SDiskReset{snapshotId, body})
+	hostutils.DelayTask(ctx, disk.ResetFromSnapshot, &storageman.SDiskReset{
+		SnapshotId: snapshotId,
+		Input:      body,
+	})
 	return nil, nil
 }
 
@@ -315,6 +323,9 @@ func diskCleanupSnapshots(ctx context.Context, storage storageman.IStorage, disk
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("delete_snapshots")
 	}
-	hostutils.DelayTask(ctx, disk.CleanupSnapshots, &storageman.SDiskCleanupSnapshots{convertSnapshots, deleteSnapshots})
+	hostutils.DelayTask(ctx, disk.CleanupSnapshots, &storageman.SDiskCleanupSnapshots{
+		ConvertSnapshots: convertSnapshots,
+		DeleteSnapshots:  deleteSnapshots,
+	})
 	return nil, nil
 }

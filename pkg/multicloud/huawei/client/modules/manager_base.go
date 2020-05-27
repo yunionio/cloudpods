@@ -99,7 +99,12 @@ func (self *SBaseManager) _list(request requests.IRequest, responseKey string) (
 		offset, _ = strconv.Atoi(v)
 	}
 
-	return &responses.ListResult{rets, int(total), limit, offset}, nil
+	return &responses.ListResult{
+		Data:   rets,
+		Total:  int(total),
+		Limit:  limit,
+		Offset: offset,
+	}, nil
 }
 
 func (self *SBaseManager) _do(request requests.IRequest, responseKey string) (jsonutils.JSONObject, error) {

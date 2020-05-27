@@ -328,7 +328,10 @@ func NewPendingUsageBySchedInfo(hostId string, req *api.SchedInfo) *SPendingUsag
 		// but in the future, info may increase
 		group := &computemodels.SGroup{}
 		group.Id = groupId
-		u.InstanceGroupUsage[groupId] = &api.CandidateGroup{group, 1}
+		u.InstanceGroupUsage[groupId] = &api.CandidateGroup{
+			SGroup:     group,
+			ReferCount: 1,
+		}
 	}
 
 	return u

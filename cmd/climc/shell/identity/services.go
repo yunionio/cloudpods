@@ -164,16 +164,8 @@ func init() {
 
 	type ServiceConfigOptions struct {
 		SERVICE string   `help:"service name or id"`
-		Config  []string `help:"config options, can be a JSON, a YAML or a key=value pair, e.g:
-    * JSON
-      '{\"default\":{\"password_expiration_seconds\":300}}'
-    * YAML
-      default:
-        password_expiration_seconds: 300
-    * A key=value pair (under default section)
-      password_expiration_seconds=300
-"`
-		Remove bool `help:"remove config"`
+		Config  []string `help:"config options, can be a JSON, a YAML or a key=value pair, e.g:\n    * JSON\n      '{\"default\":{\"password_expiration_seconds\":300}}'\n    * YAML\n      default:\n        password_expiration_seconds: 300\n    * A key=value pair (under default section)\n      password_expiration_seconds=300\n"`
+		Remove  bool     `help:"remove config"`
 	}
 	R(&ServiceConfigOptions{}, "service-config", "Add config to service", func(s *mcclient.ClientSession, args *ServiceConfigOptions) error {
 		config := jsonutils.NewDict()

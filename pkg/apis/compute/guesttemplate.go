@@ -105,7 +105,7 @@ type GuestTemplateSku struct {
 	Name                 string `json:"name"`
 	CpuCoreCount         int    `json:"cpu_core_count"`
 	MemorySizeMb         int    `json:"memory_size_mb"`
-	InstanceTypeCategory string `json:"instance_type_category`
+	InstanceTypeCategory string `json:"instance_type_category"`
 	InstanceTypeFamily   string `json:"instance_type_family"`
 }
 

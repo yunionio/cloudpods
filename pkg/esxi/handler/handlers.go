@@ -128,7 +128,10 @@ func savePrepareHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	hostutils.DelayTask(ctx, disk.PrepareSaveToGlance, storageman.PrepareSaveToGlanceParams{taskId, diskInfo})
+	hostutils.DelayTask(ctx, disk.PrepareSaveToGlance, storageman.PrepareSaveToGlanceParams{
+		TaskId:   taskId,
+		DiskInfo: diskInfo,
+	})
 	hostutils.ResponseOk(ctx, w)
 }
 

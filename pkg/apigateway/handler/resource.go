@@ -325,7 +325,10 @@ func (f *ResourceHandlers) listInContextsHandler(ctx context.Context, w http.Res
 	module3 := req.Mod3()
 	session := req.Session()
 	query := req.Query()
-	obj, e := module3.ListInContexts(session, query, []modulebase.ManagerContext{{module, req.ResID()}, {module2, req.ResID2()}})
+	obj, e := module3.ListInContexts(session, query, []modulebase.ManagerContext{
+		{InstanceManager: module, InstanceId: req.ResID()},
+		{InstanceManager: module2, InstanceId: req.ResID2()},
+	})
 	if e != nil {
 		httperrors.GeneralServerError(w, e)
 	} else {
@@ -659,7 +662,10 @@ func (f *ResourceHandlers) updateInContextsHandler(ctx context.Context, w http.R
 		return
 	}
 
-	obj, e := req.Mod3().PutInContexts(req.Session(), req.ResID3(), req.Body(), []modulebase.ManagerContext{{req.Mod1(), req.ResID()}, {req.Mod2(), req.ResID2()}})
+	obj, e := req.Mod3().PutInContexts(req.Session(), req.ResID3(), req.Body(), []modulebase.ManagerContext{
+		{InstanceManager: req.Mod1(), InstanceId: req.ResID()},
+		{InstanceManager: req.Mod2(), InstanceId: req.ResID2()},
+	})
 	if e != nil {
 		httperrors.GeneralServerError(w, e)
 	} else {
@@ -679,7 +685,10 @@ func (f *ResourceHandlers) patchInContextsHandler(ctx context.Context, w http.Re
 	session := req.Session()
 	body := req.Body()
 
-	obj, e := module3.PatchInContexts(session, req.ResID3(), body, []modulebase.ManagerContext{{module, req.ResID()}, {module2, req.ResID2()}})
+	obj, e := module3.PatchInContexts(session, req.ResID3(), body, []modulebase.ManagerContext{
+		{InstanceManager: module, InstanceId: req.ResID()},
+		{InstanceManager: module2, InstanceId: req.ResID2()},
+	})
 	if e != nil {
 		httperrors.GeneralServerError(w, e)
 	} else {
@@ -794,7 +803,10 @@ func (f *ResourceHandlers) deleteInContextsHandler(ctx context.Context, w http.R
 	query := req.Query()
 	body := req.Body()
 
-	obj, e := module3.DeleteInContextsWithParam(session, req.ResID3(), query, body, []modulebase.ManagerContext{{module, req.ResID()}, {module2, req.ResID2()}})
+	obj, e := module3.DeleteInContextsWithParam(session, req.ResID3(), query, body, []modulebase.ManagerContext{
+		{InstanceManager: module, InstanceId: req.ResID()},
+		{InstanceManager: module2, InstanceId: req.ResID2()},
+	})
 	if e != nil {
 		httperrors.GeneralServerError(w, e)
 	} else {
