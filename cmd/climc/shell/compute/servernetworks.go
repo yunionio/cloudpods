@@ -155,7 +155,7 @@ func init() {
 		NETDESC []string `help:"Network description"`
 	}
 	R(&ServerAttachNetworkOptions{}, "server-attach-network", "Attach a server to a virtual network", func(s *mcclient.ClientSession, args *ServerAttachNetworkOptions) error {
-		input := compute.AttachNetworkInput{[]*compute.NetworkConfig{}}
+		input := compute.AttachNetworkInput{}
 		for i := 0; i < len(args.NETDESC); i++ {
 			conf, err := cmdline.ParseNetworkConfig(args.NETDESC[i], -1)
 			if err != nil {

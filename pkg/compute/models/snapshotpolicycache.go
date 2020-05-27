@@ -69,8 +69,12 @@ func init() {
 func NewSSnapshotPolicyCache(snapshotpolicyId, cloudregionId, externalId string) *SSnapshotPolicyCache {
 	cache := SSnapshotPolicyCache{
 		// SnapshotpolicyId:          snapshotpolicyId,
-		SCloudregionResourceBase:  SCloudregionResourceBase{cloudregionId},
-		SExternalizedResourceBase: db.SExternalizedResourceBase{externalId},
+		SCloudregionResourceBase: SCloudregionResourceBase{
+			CloudregionId: cloudregionId,
+		},
+		SExternalizedResourceBase: db.SExternalizedResourceBase{
+			ExternalId: externalId,
+		},
 	}
 	cache.SnapshotpolicyId = snapshotpolicyId
 	cache.SetModelManager(SnapshotPolicyCacheManager, &cache)

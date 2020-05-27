@@ -101,7 +101,7 @@ func init() {
 				ScalingGroup: args.ScalingGroup,
 				TriggerType:  args.TriggerType,
 				Timer: api.ScalingTimerCreateInput{
-					args.TimingExecTime,
+					ExecTime: args.TimingExecTime,
 				},
 				CycleTimer: api.ScalingCycleTimerCreateInput{
 					CycleType: args.CycleCycleType,

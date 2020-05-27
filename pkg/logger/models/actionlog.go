@@ -57,7 +57,11 @@ var logQueue = make(chan *SActionlog, 50)
 
 func init() {
 	InitActionWhiteList()
-	ActionLog = &SActionlogManager{db.SOpsLogManager{db.NewModelBaseManager(SActionlog{}, "action_tbl", "action", "actions")}}
+	ActionLog = &SActionlogManager{
+		SOpsLogManager: db.SOpsLogManager{
+			SModelBaseManager: db.NewModelBaseManager(SActionlog{}, "action_tbl", "action", "actions"),
+		},
+	}
 	ActionLog.SetVirtualObject(ActionLog)
 }
 

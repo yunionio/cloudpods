@@ -94,7 +94,12 @@ func guestCreateFromLibvirt(ctx context.Context, sid string, body jsonutils.JSON
 	}
 
 	hostutils.DelayTask(ctx, guestman.GetGuestManager().GuestCreateFromLibvirt,
-		&guestman.SGuestCreateFromLibvirt{sid, monitorPath, guestDesc, disksPath})
+		&guestman.SGuestCreateFromLibvirt{
+			Sid:         sid,
+			MonitorPath: monitorPath,
+			GuestDesc:   guestDesc,
+			DisksPath:   disksPath,
+		})
 	return nil, nil
 }
 
@@ -118,6 +123,10 @@ func guestCreateFromEsxi(ctx context.Context, sid string, body jsonutils.JSONObj
 		return nil, httperrors.NewMissingParameterError("esxi_access_info")
 	}
 	hostutils.DelayTask(ctx, guestman.GetGuestManager().GuestCreateFromEsxi,
-		&guestman.SGuestCreateFromEsxi{sid, guestDesc, disksAccessInfo})
+		&guestman.SGuestCreateFromEsxi{
+			Sid:            sid,
+			GuestDesc:      guestDesc,
+			EsxiAccessInfo: disksAccessInfo,
+		})
 	return nil, nil
 }

@@ -36,12 +36,18 @@ var (
 
 func (this *ProjectManagerV3) _join(s *mcclient.ClientSession, pid, uid, rid, resource string) error {
 	if resource == "users" {
-		_, err := RolesV3.PutInContexts(s, rid, nil, []modulebase.ManagerContext{{&Projects, pid}, {&UsersV3, uid}})
+		_, err := RolesV3.PutInContexts(s, rid, nil, []modulebase.ManagerContext{
+			{InstanceManager: &Projects, InstanceId: pid},
+			{InstanceManager: &UsersV3, InstanceId: uid},
+		})
 		if err != nil {
 			return err
 		}
 	} else if resource == "groups" {
-		_, err := RolesV3.PutInContexts(s, rid, nil, []modulebase.ManagerContext{{&Projects, pid}, {&Groups, uid}})
+		_, err := RolesV3.PutInContexts(s, rid, nil, []modulebase.ManagerContext{
+			{InstanceManager: &Projects, InstanceId: pid},
+			{InstanceManager: &Groups, InstanceId: uid},
+		})
 		if err != nil {
 			return err
 		}
@@ -52,9 +58,15 @@ func (this *ProjectManagerV3) _join(s *mcclient.ClientSession, pid, uid, rid, re
 func (this *ProjectManagerV3) _leave(s *mcclient.ClientSession, pid string, resource string, uid string, rid string) error {
 	var err error
 	if resource == "users" {
-		_, err = RolesV3.DeleteInContexts(s, rid, nil, []modulebase.ManagerContext{{&Projects, pid}, {&UsersV3, uid}})
+		_, err = RolesV3.DeleteInContexts(s, rid, nil, []modulebase.ManagerContext{
+			{InstanceManager: &Projects, InstanceId: pid},
+			{InstanceManager: &UsersV3, InstanceId: uid},
+		})
 	} else if resource == "groups" {
-		_, err = RolesV3.DeleteInContexts(s, rid, nil, []modulebase.ManagerContext{{&Projects, pid}, {&Groups, uid}})
+		_, err = RolesV3.DeleteInContexts(s, rid, nil, []modulebase.ManagerContext{
+			{InstanceManager: &Projects, InstanceId: pid},
+			{InstanceManager: &Groups, InstanceId: uid},
+		})
 	}
 	if err != nil {
 		return err
@@ -194,9 +206,9 @@ func (this *ProjectManagerV3) DoProjectBatchJoin(s *mcclient.ClientSession, para
 					rid,
 					nil,
 					[]modulebase.ManagerContext{
-						{&Projects,
-							pid},
-						{&UsersV3, id}})
+						{InstanceManager: &Projects, InstanceId: pid},
+						{InstanceManager: &UsersV3, InstanceId: id},
+					})
 				if err != nil {
 					return nil, err
 				}
@@ -206,9 +218,9 @@ func (this *ProjectManagerV3) DoProjectBatchJoin(s *mcclient.ClientSession, para
 					rid,
 					nil,
 					[]modulebase.ManagerContext{
-						{&Projects,
-							pid},
-						{&Groups, id}})
+						{InstanceManager: &Projects, InstanceId: pid},
+						{InstanceManager: &Groups, InstanceId: id},
+					})
 				if err != nil {
 					return nil, err
 				}
@@ -243,12 +255,18 @@ func (this *ProjectManagerV3) DoProjectBatchDeleteUserGroup(s *mcclient.ClientSe
 		res_type, _ := item.GetString("res_type")
 
 		if res_type == "user" {
-			_, err := RolesV3.DeleteInContexts(s, role_id, nil, []modulebase.ManagerContext{{&Projects, pid}, {&UsersV3, id}})
+			_, err := RolesV3.DeleteInContexts(s, role_id, nil, []modulebase.ManagerContext{
+				{InstanceManager: &Projects, InstanceId: pid},
+				{InstanceManager: &UsersV3, InstanceId: id},
+			})
 			if err != nil {
 				return nil, err
 			}
 		} else if res_type == "group" {
-			_, err := RolesV3.DeleteInContexts(s, role_id, nil, []modulebase.ManagerContext{{&Projects, pid}, {&Groups, id}})
+			_, err := RolesV3.DeleteInContexts(s, role_id, nil, []modulebase.ManagerContext{
+				{InstanceManager: &Projects, InstanceId: pid},
+				{InstanceManager: &Groups, InstanceId: id},
+			})
 			if err != nil {
 				return nil, err
 			}
@@ -282,7 +300,10 @@ func (this *ProjectManagerV3) FetchId(s *mcclient.ClientSession, project string,
 }
 
 func (this *ProjectManagerV3) JoinProject(s *mcclient.ClientSession, rid, pid, uid string) error {
-	_, err := RolesV3.PutInContexts(s, rid, nil, []modulebase.ManagerContext{{&Projects, pid}, {&UsersV3, uid}})
+	_, err := RolesV3.PutInContexts(s, rid, nil, []modulebase.ManagerContext{
+		{InstanceManager: &Projects, InstanceId: pid},
+		{InstanceManager: &UsersV3, InstanceId: uid},
+	})
 	if err != nil {
 		return err
 	}

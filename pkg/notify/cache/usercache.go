@@ -40,8 +40,10 @@ func (user *SUser) GetModelManager() db.IModelManager {
 var UserCacheManager *SUserCacheManager
 
 func init() {
-	dbUserCacheManager := db.SUserCacheManager{db.NewKeystoneCacheObjectManager(db.SUser{}, "users_cache_tbl", "user",
-		"users")}
+	dbUserCacheManager := db.SUserCacheManager{
+		SKeystoneCacheObjectManager: db.NewKeystoneCacheObjectManager(
+			db.SUser{}, "users_cache_tbl", "user", "users"),
+	}
 	UserCacheManager = &SUserCacheManager{
 		dbUserCacheManager,
 	}

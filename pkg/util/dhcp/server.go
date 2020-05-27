@@ -61,22 +61,22 @@ func NewDHCPServer3(address string, port int) (*DHCPServer, error) {
 func NewDHCPServer2(iface string, dhcpServerPort, dhcpRelayPort uint16) (*DHCPServer, *Conn, error) {
 	// ip and udp and port 67 and port 68
 	bpf := []bpf.RawInstruction{
-		{0x28, 0, 0, 0x0000000c},
-		{0x15, 0, 13, 0x00000800},
-		{0x30, 0, 0, 0x00000017},
-		{0x15, 0, 11, 0x00000011},
-		{0x28, 0, 0, 0x00000014},
-		{0x45, 9, 0, 0x00001fff},
-		{0xb1, 0, 0, 0x0000000e},
-		{0x48, 0, 0, 0x0000000e},
-		{0x15, 0, 2, uint32(dhcpServerPort)},
-		{0x48, 0, 0, 0x00000010},
-		{0x15, 3, 4, uint32(dhcpRelayPort)},
-		{0x15, 0, 3, uint32(dhcpRelayPort)},
-		{0x48, 0, 0, 0x00000010},
-		{0x15, 0, 1, uint32(dhcpServerPort)},
-		{0x6, 0, 0, 0x00040000},
-		{0x6, 0, 0, 0x00000000},
+		{Op: 0x28, Jt: 0, Jf: 0, K: 0x0000000c},
+		{Op: 0x15, Jt: 0, Jf: 13, K: 0x00000800},
+		{Op: 0x30, Jt: 0, Jf: 0, K: 0x00000017},
+		{Op: 0x15, Jt: 0, Jf: 11, K: 0x00000011},
+		{Op: 0x28, Jt: 0, Jf: 0, K: 0x00000014},
+		{Op: 0x45, Jt: 9, Jf: 0, K: 0x00001fff},
+		{Op: 0xb1, Jt: 0, Jf: 0, K: 0x0000000e},
+		{Op: 0x48, Jt: 0, Jf: 0, K: 0x0000000e},
+		{Op: 0x15, Jt: 0, Jf: 2, K: uint32(dhcpServerPort)},
+		{Op: 0x48, Jt: 0, Jf: 0, K: 0x00000010},
+		{Op: 0x15, Jt: 3, Jf: 4, K: uint32(dhcpRelayPort)},
+		{Op: 0x15, Jt: 0, Jf: 3, K: uint32(dhcpRelayPort)},
+		{Op: 0x48, Jt: 0, Jf: 0, K: 0x00000010},
+		{Op: 0x15, Jt: 0, Jf: 1, K: uint32(dhcpServerPort)},
+		{Op: 0x6, Jt: 0, Jf: 0, K: 0x00040000},
+		{Op: 0x6, Jt: 0, Jf: 0, K: 0x00000000},
 	}
 	conn, err := NewRawSocketConn(iface, bpf, dhcpServerPort)
 	if err != nil {
