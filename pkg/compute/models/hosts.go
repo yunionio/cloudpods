@@ -4321,6 +4321,21 @@ func (self *SHost) PerformConvertHypervisor(ctx context.Context, userCred mcclie
 	if !utils.IsInStringArray(self.Status, []string{api.BAREMETAL_READY, api.BAREMETAL_RUNNING}) {
 		return nil, httperrors.NewNotAcceptableError("Connot convert hypervisor in status %s", self.Status)
 	}
+	// check ownership
+	var ownerId mcclient.IIdentityProvider
+	hostOwnerId := self.GetOwnerId()
+	if userCred.GetProjectDomainId() != hostOwnerId.GetProjectDomainId() {
+		if !db.IsAdminAllowPerform(userCred, self, "convert-hypervisor") {
+			return nil, httperrors.NewNotSufficientPrivilegeError("require system previleges to convert host in other domain")
+		}
+		firstProject, err := db.TenantCacheManager.FindFirstProjectOfDomain(ctx, hostOwnerId.GetProjectDomainId())
+		if err != nil {
+			return nil, errors.Wrap(err, "FindFirstProjectOfDomain")
+		}
+		ownerId = firstProject
+	} else {
+		ownerId = userCred
+	}
 	driver := GetHostDriver(hostType)
 	if driver == nil {
 		return nil, httperrors.NewNotAcceptableError("Unsupport driver type %s", hostType)
@@ -4346,11 +4361,11 @@ func (self *SHost) PerformConvertHypervisor(ctx context.Context, userCred mcclie
 		return nil, httperrors.NewNotAcceptableError("Convert error: %s", err.Error())
 	}
 	// admin delegate user to create system resource
-	input.ProjectDomain = userCred.GetProjectDomainId()
-	input.Project = userCred.GetProjectId()
+	input.ProjectDomain = ownerId.GetProjectDomainId()
+	input.Project = ownerId.GetProjectId()
 	params := input.JSON(input)
 	adminCred := auth.AdminCredential()
-	guest, err := db.DoCreate(GuestManager, ctx, adminCred, nil, params, userCred)
+	guest, err := db.DoCreate(GuestManager, ctx, adminCred, nil, params, ownerId)
 	if err != nil {
 		return nil, err
 	}
@@ -4358,7 +4373,7 @@ func (self *SHost) PerformConvertHypervisor(ctx context.Context, userCred mcclie
 		lockman.LockObject(ctx, guest)
 		defer lockman.ReleaseObject(ctx, guest)
 
-		guest.PostCreate(ctx, adminCred, userCred, nil, params)
+		guest.PostCreate(ctx, adminCred, ownerId, nil, params)
 	}()
 	log.Infof("Host convert to %s", guest.GetName())
 	db.OpsLog.LogEvent(self, db.ACT_CONVERT_START, "", userCred)
