@@ -356,7 +356,7 @@ func (manager *STenantCacheManager) Save(ctx context.Context, idStr string, name
 	}, nil
 }*/
 
-func (tenant *STenant) GetDomain() string {
+/*func (tenant *STenant) GetDomain() string {
 	if len(tenant.Domain) == 0 {
 		return identityapi.DEFAULT_DOMAIN_NAME
 	}
@@ -368,7 +368,7 @@ func (tenant *STenant) GetDomainId() string {
 		return identityapi.DEFAULT_DOMAIN_ID
 	}
 	return tenant.DomainId
-}
+}*/
 
 func (manager *STenantCacheManager) findFirstProjectOfDomain(domainId string) (*STenant, error) {
 	q := manager.Query().Equals("domain_id", domainId)
@@ -420,4 +420,68 @@ func (manager *STenantCacheManager) FindFirstProjectOfDomain(ctx context.Context
 		return nil, errors.Wrap(err, "findFirstProjectOfDomain.queryFirst")
 	}
 	return tenant, nil
+}
+
+func (tenant *STenant) GetProjectId() string {
+	if tenant.IsDomain() {
+		return ""
+	} else {
+		return tenant.Id
+	}
+}
+
+func (tenant *STenant) GetTenantId() string {
+	return tenant.GetProjectId()
+}
+
+func (tenant *STenant) GetProjectDomainId() string {
+	if tenant.IsDomain() {
+		return tenant.Id
+	} else {
+		return tenant.DomainId
+	}
+}
+
+func (tenant *STenant) GetTenantName() string {
+	return tenant.GetProjectName()
+}
+
+func (tenant *STenant) GetProjectName() string {
+	if tenant.IsDomain() {
+		return ""
+	} else {
+		return tenant.Name
+	}
+}
+
+func (tenant *STenant) GetProjectDomain() string {
+	if tenant.IsDomain() {
+		return tenant.Name
+	} else {
+		return tenant.Domain
+	}
+}
+
+func (tenant *STenant) GetUserId() string {
+	return ""
+}
+
+func (tenant *STenant) GetUserName() string {
+	return ""
+}
+
+func (tenant *STenant) GetDomainId() string {
+	return ""
+}
+
+func (tenant *STenant) GetDomainName() string {
+	return ""
+}
+
+func (tenant *STenant) IsDomain() bool {
+	if tenant.DomainId == identityapi.KeystoneDomainRoot {
+		return true
+	} else {
+		return false
+	}
 }
