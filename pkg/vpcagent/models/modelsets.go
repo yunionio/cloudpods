@@ -15,27 +15,10 @@
 package models
 
 import (
-	"strings"
 	"time"
 
 	"yunion.io/x/onecloud/pkg/vpcagent/apihelper"
 )
-
-// pluralMap maps from KeyPlurals to underscore-separated field names
-var pluralMap = map[string]string{}
-
-func init() {
-	// XXX drop this
-	ss := []string{
-		"vpcs",
-		"networks",
-		"guestnetworks",
-	}
-	for _, s := range ss {
-		k := strings.Replace(s, "_", "", -1)
-		pluralMap[k] = s
-	}
-}
 
 type ModelSetsMaxUpdatedAt struct {
 	Vpcs               time.Time
@@ -108,7 +91,7 @@ func (mss *ModelSets) NewEmpty() apihelper.IModelSets {
 	return NewModelSets()
 }
 
-func (mss *ModelSets) Copy() apihelper.IModelSets {
+func (mss *ModelSets) copy_() *ModelSets {
 	mssCopy := &ModelSets{
 		Vpcs:               mss.Vpcs.Copy().(Vpcs),
 		Wires:              mss.Wires.Copy().(Wires),
@@ -120,6 +103,15 @@ func (mss *ModelSets) Copy() apihelper.IModelSets {
 		Guestnetworks:      mss.Guestnetworks.Copy().(Guestnetworks),
 		Guestsecgroups:     mss.Guestsecgroups.Copy().(Guestsecgroups),
 	}
+	return mssCopy
+}
+
+func (mss *ModelSets) Copy() apihelper.IModelSets {
+	return mss.copy_()
+}
+
+func (mss *ModelSets) CopyJoined() apihelper.IModelSets {
+	mssCopy := mss.copy_()
 	mssCopy.join()
 	return mssCopy
 }
