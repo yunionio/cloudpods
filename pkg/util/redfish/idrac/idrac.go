@@ -142,7 +142,7 @@ type iDracComponenct struct {
 }
 
 type iDracAttribute struct {
-	Name  string `json:"Name""`
+	Name  string `json:"Name"`
 	Value string `json:"Value"`
 }
 

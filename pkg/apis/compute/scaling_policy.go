@@ -77,5 +77,5 @@ type ScalingPolicyListInput struct {
 	// description: trigger type
 	// enum: timing,cycel,alarm
 	// example: alarm
-	TriggerType string `json:"trigger_type""`
+	TriggerType string `json:"trigger_type"`
 }

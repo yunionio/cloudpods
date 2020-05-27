@@ -56,7 +56,7 @@ func init() {
 		TEMPLATEID string `help:"id of template ma"`
 		NAME       string `help:"New VM's name'"`
 		Uuid       string `help:"Uuid of new VM"`
-		CpuNum     int    `help:"Number of CPU""`
+		CpuNum     int    `help:"Number of CPU"`
 		MemSize    int    `help:"Size of Memory(MB)"`
 	}
 	shellutils.R(&VirtualMachineCloneOptions{}, "vm-clone", "Clone vm", func(cli *esxi.SESXiClient,

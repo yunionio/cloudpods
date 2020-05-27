@@ -76,7 +76,7 @@ type SScalingGroup struct {
 	ShrinkPrinciple string `width:"32" charset:"ascii" default:"earliest" create:"optional" list:"user" update:"user" get:"user"`
 
 	HealthCheckMode  string `width:"32" charset:"ascii" default:"normal" create:"optional" list:"user" update:"user" get:"user"`
-	HealthCheckCycle int    `nullable:"false" default:"300" create:"optional" list:"user" update:"user" get:"user"'`
+	HealthCheckCycle int    `nullable:"false" default:"300" create:"optional" list:"user" update:"user" get:"user"`
 	HealthCheckGov   int    `nullable:"false" default:"180" create:"optional" list:"user" update:"user" get:"user"`
 
 	LoadbalancerBackendPort   int `nullable:"false" default:"80" create:"optional" list:"user" get:"user"`

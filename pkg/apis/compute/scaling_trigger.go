@@ -26,7 +26,7 @@ type ScalingCycleTimerCreateInput struct {
 
 	// description: 周期类型
 	// enum: day,week,month
-	CycleType string `json:"cycle_type""`
+	CycleType string `json:"cycle_type"`
 
 	// description: 分(0-59)
 	// example: 13
