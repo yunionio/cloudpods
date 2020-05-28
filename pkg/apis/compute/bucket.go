@@ -120,3 +120,65 @@ type BucketSyncstatusInput struct {
 type BucketUpdateInput struct {
 	apis.SharableVirtualResourceBaseUpdateInput
 }
+
+type BucketPerformTempUrlInput struct {
+	// 访问对象方法
+	Method string `json:"method"`
+	// 对象KEY
+	// required:true
+	Key string `json:"key"`
+	// 过期时间，单位秒
+	ExpireSeconds *int `json:"expire_seconds"`
+}
+
+type BucketPerformTempUrlOutput struct {
+	// 生成的临时URL
+	Url string `json:"url"`
+}
+
+type BucketPerformMakedirInput struct {
+	// 目录对象KEY
+	// required:true
+	Key string `json:"key"`
+}
+
+type BucketPerformDeleteInput struct {
+	// 待删除对象KEY
+	// required:true
+	Keys []string `json:"keys"`
+}
+
+type BucketGetAclInput struct {
+	// 对象KEY
+	// required:false
+	Key string `json:"key"`
+}
+
+type BucketGetAclOutput struct {
+	// ACL
+	Acl string `json:"acl"`
+}
+
+type BucketGetObjectsInput struct {
+	// Prefix
+	Prefix string `json:"prefix"`
+	// 是否模拟列举目录模式
+	Recursive *bool `json:"recursive"`
+	// 分页标识
+	PagingMarker string `json:"paging_marker"`
+	// 最大输出条目数
+	Limit *int `json:"limit"`
+}
+
+type BucketGetObjectsOutput struct {
+	// 对象列表
+	Data []cloudprovider.SCloudObject `json:"data"`
+	// 排序字段，总是key
+	// example: key
+	MarkerField string `json:"marker_field"`
+	// 排序顺序，总是降序
+	// example: DESC
+	MarkerOrder string `json:"marker_order"`
+	// 下一页请求的paging_marker标识
+	NextMarker string `json:"next_marker"`
+}

@@ -43,6 +43,7 @@ func init() {
 	GuestcdromManager.SetVirtualObject(GuestcdromManager)
 }
 
+// +onecloud:swagger-gen-ignore
 type SGuestcdrom struct {
 	db.SModelBase
 
