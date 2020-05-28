@@ -149,7 +149,7 @@ func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred m
 	}
 	for _, q := range inputQuery.MetricQuery {
 		setDefaultValue(q, inputQuery)
-		err = self.ValidateInputQuery(*q)
+		err = self.ValidateInputQuery(q)
 		if err != nil {
 			return jsonutils.NewDict(), err
 		}
@@ -178,37 +178,56 @@ func doQuery(query monitor.MetricInputQuery) (*mq.Metrics, error) {
 	return metricQ.ExecuteQuery()
 }
 
-func (self *SUnifiedMonitorManager) ValidateInputQuery(query monitor.AlertQuery) error {
+func (self *SUnifiedMonitorManager) ValidateInputQuery(query *monitor.AlertQuery) error {
 	if query.From == "" {
 		query.From = "30m"
 	}
 	if query.Model.Interval == "" {
 		query.Model.Interval = "5m"
 	}
+	if query.To == "" {
+		query.To = "now"
+	}
 	if _, err := time.ParseDuration(query.Model.Interval); err != nil {
 		return httperrors.NewInputParameterError("Invalid interval format: %s", query.Model.Interval)
 	}
-	return validators.ValidateAlertConditionQuery(query)
+	return validators.ValidateSelectOfMetricQuery(*query)
 }
 
 func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricInputQuery) {
 	setDataSourceId(query)
 	query.From = inputQuery.From
-	query.To = "now"
+	query.To = inputQuery.To
 	query.Model.Interval = inputQuery.Interval
+
 	if len(query.Model.GroupBy) == 0 {
-		query.Model.GroupBy = append(query.Model.GroupBy, monitor.MetricQueryPart{
-			Type:   "field",
-			Params: []string{"*"},
-		})
+		query.Model.GroupBy = append(query.Model.GroupBy,
+			monitor.MetricQueryPart{
+				Type:   "field",
+				Params: []string{"*"},
+			})
 	}
-	//query.Model.GroupBy = append(query.Model.GroupBy, monitor.MetricQueryPart{
-	//	Type:   "time",
-	//	Params: []string{inputQuery.Interval},
-	//}, monitor.MetricQueryPart{
-	//	Type:   "fill",
-	//	Params: []string{"none"},
-	//})
+
+	query.Model.GroupBy = append(query.Model.GroupBy,
+		monitor.MetricQueryPart{
+			Type:   "time",
+			Params: []string{inputQuery.Interval},
+		},
+		monitor.MetricQueryPart{
+			Type:   "fill",
+			Params: []string{"linear"},
+		})
+
+	for i, sel := range query.Model.Selects {
+		if len(sel) > 1 {
+			continue
+		}
+		sel = append(sel, monitor.MetricQueryPart{
+			Type:   "mean",
+			Params: []string{},
+		})
+		query.Model.Selects[i] = sel
+	}
 }
 
 func setDataSourceId(query *monitor.AlertQuery) {

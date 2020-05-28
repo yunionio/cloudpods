@@ -99,22 +99,46 @@ func ValidateAlertQueryModel(input monitor.MetricQuery) error {
 	return nil
 }
 
-func ValidateSelectOfMetricQuery(input monitor.MetricQuery) error {
-	for _, sel := range input.Selects {
+func ValidateSelectOfMetricQuery(input monitor.AlertQuery) error {
+	if err := ValidateFromAndToValue(input); err != nil {
+		return err
+	}
+
+	if err := ValidateAlertQueryModel(input.Model); err != nil {
+		return err
+	}
+
+	for _, sel := range input.Model.Selects {
 		if len(sel) == 0 {
 			return httperrors.NewInputParameterError("select for nothing in query")
 		}
 	}
-	if len(input.GroupBy) == 0 {
-		input.GroupBy = append(input.GroupBy, monitor.MetricQueryPart{
-			Type:   "fill",
-			Params: []string{"none"},
-		}, monitor.MetricQueryPart{
-			Type:   "time",
-			Params: []string{input.Interval},
-		})
-	}
 	return nil
+}
+
+func ValidateFromAndToValue(input monitor.AlertQuery) error {
+	fromRaw := strings.Replace(input.From, "now-", "", 1)
+
+	fromDur, err := time.ParseDuration("-" + fromRaw)
+	if err != nil {
+		return err
+	}
+
+	if input.To == "now" {
+		return nil
+	} else if strings.HasPrefix(input.To, "now-") {
+		withoutNow := strings.Replace(input.To, "now-", "", 1)
+
+		toDur, err := time.ParseDuration("-" + withoutNow)
+		if err == nil {
+			if toDur >= fromDur {
+				return nil
+			}
+			return httperrors.NewInputParameterError("query from:%s,to:%s err", input.From, input.To)
+		}
+		return err
+	}
+	return httperrors.NewInputParameterError("query to:%s format err", input.To)
 }
 
 func ValidateAlertConditionReducer(input monitor.Condition) error {

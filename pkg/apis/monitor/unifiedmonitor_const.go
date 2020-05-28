@@ -22,6 +22,7 @@ type MetricFunc struct {
 
 type MetricInputQuery struct {
 	From        string        `json:"from"`
+	To          string        `json:"to"`
 	Interval    string        `json:"interval"`
 	MetricQuery []*AlertQuery `json:"metric_query"`
 }
