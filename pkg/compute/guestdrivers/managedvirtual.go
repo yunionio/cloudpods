@@ -472,20 +472,20 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 		return nil, err
 	}
 
+	ret, expect := 0, len(desc.DataDisks)+1
 	err = cloudprovider.RetryUntil(func() (bool, error) {
 		idisks, err := iVM.GetIDisks()
 		if err != nil {
-			log.Errorf("fail to find vm disks %s after create", err)
-			return false, err
+			return false, errors.Wrap(err, "iVM.GetIDisks")
 		}
-		if len(idisks) == len(desc.DataDisks)+1 {
+		ret = len(idisks)
+		if ret >= expect { // 有可能自定义镜像里面也有磁盘，会导致返回的磁盘多于创建时的磁盘
 			return true, nil
-		} else {
-			return false, nil
 		}
+		return false, nil
 	}, 10)
 	if err != nil {
-		return nil, errors.Wrap(err, "GuestDriver.RemoteDeployGuestForCreate.RetryUntil")
+		return nil, errors.Wrapf(err, "GuestDriver.RemoteDeployGuestForCreate.RetryUntil expect %d disks return %d disks", expect, ret)
 	}
 
 	guest.GetDriver().RemoteActionAfterGuestCreated(ctx, userCred, guest, host, iVM, &desc)
