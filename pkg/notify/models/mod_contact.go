@@ -30,6 +30,8 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/notify/utils"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -278,16 +280,39 @@ func (self *SContactManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 
 	scopeStr, err := query.GetString("scope")
 	if err != nil {
-		scopeStr = "system"
+		scopeStr = "project"
 	}
 	scope := rbacutils.TRbacScope(scopeStr)
 
-	if !scope.HigherEqual(rbacutils.ScopeSystem) {
+	switch {
+	case scope.HigherEqual(rbacutils.ScopeSystem):
+	case scope.HigherEqual(rbacutils.ScopeDomain):
+		uids, err := self.uidsInDomain(ctx, userCred)
+		if err != nil {
+			return q, err
+		}
+		q = q.In("uid", uids)
+	default:
 		q = q.Equals("uid", userCred.GetUserId())
 	}
-	q = q.GroupBy("uid").Desc("created_at")
 
 	return q, nil
+}
+
+func (self *SContactManager) uidsInDomain(ctx context.Context, userCred mcclient.TokenCredential) ([]string, error) {
+	session := auth.GetSession(ctx, userCred, "", "")
+	params := jsonutils.NewDict()
+	params.Set("scope", jsonutils.NewString("domain"))
+	ret, err := modules.UsersV3.List(session, params)
+	if err != nil {
+		return nil, errors.Wrap(err, "modules.Userv3.List")
+	}
+	uids := make([]string, 0, len(ret.Data))
+	for i := range ret.Data {
+		id, _ := ret.Data[i].GetString("id")
+		uids = append(uids, id)
+	}
+	return uids, nil
 }
 
 // Contacts query all contacts by uids and contactType
