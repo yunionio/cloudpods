@@ -322,7 +322,7 @@ func (disk *SDisk) GetMountpoint() string {
 	return ""
 }
 
-func (region *SRegion) CreateDisk(imageRef string, category string, name string, sizeGb int, desc string) (*SDisk, error) {
+func (region *SRegion) CreateDisk(imageRef string, category string, name string, sizeGb int, desc string, projectId string) (*SDisk, error) {
 	params := map[string]map[string]interface{}{
 		"volume": {
 			"size":        sizeGb,
@@ -334,7 +334,7 @@ func (region *SRegion) CreateDisk(imageRef string, category string, name string,
 	if len(imageRef) > 0 {
 		params["volume"]["imageRef"] = imageRef
 	}
-	_, resp, err := region.CinderCreate("/volumes", "", jsonutils.Marshal(params))
+	_, resp, err := region.CinderCreate(projectId, "/volumes", "", jsonutils.Marshal(params))
 	if err != nil {
 		return nil, err
 	}

@@ -707,7 +707,7 @@ func (self *SDisk) StartAllocate(ctx context.Context, host *SHost, storage *SSto
 	if rebuild {
 		return host.GetHostDriver().RequestRebuildDiskOnStorage(ctx, host, storage, self, task, content)
 	} else {
-		return host.GetHostDriver().RequestAllocateDiskOnStorage(ctx, host, storage, self, task, content)
+		return host.GetHostDriver().RequestAllocateDiskOnStorage(ctx, userCred, host, storage, self, task, content)
 	}
 }
 

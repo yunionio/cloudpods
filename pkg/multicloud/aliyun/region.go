@@ -122,6 +122,7 @@ func (self *SRegion) vpcRequest(action string, params map[string]string) (jsonut
 	if err != nil {
 		return nil, err
 	}
+
 	return jsonRequest(client, "vpc.aliyuncs.com", ALIYUN_API_VERSION_VPC, action, params, self.client.debug)
 }
 
@@ -130,6 +131,7 @@ func (self *SRegion) kvsRequest(action string, params map[string]string) (jsonut
 	if err != nil {
 		return nil, err
 	}
+
 	return jsonRequest(client, "r-kvstore.aliyuncs.com", ALIYUN_API_VERSION_KVS, action, params, self.client.debug)
 }
 
@@ -912,6 +914,10 @@ func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbala
 
 	if len(loadbalancer.ChargeType) > 0 {
 		params["InternetChargeType"] = "payby" + loadbalancer.ChargeType
+	}
+
+	if len(loadbalancer.ProjectId) > 0 {
+		params["ResourceGroupId"] = loadbalancer.ProjectId
 	}
 
 	if loadbalancer.ChargeType == api.LB_CHARGE_TYPE_BY_BANDWIDTH && loadbalancer.EgressMbps > 0 {

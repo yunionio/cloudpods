@@ -548,7 +548,7 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 
 func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, securityGroupId string,
 	zoneId string, desc string, passwd string, disks []SDisk, vSwitchId string, ipAddr string,
-	keypair string, userData string, bc *billing.SBillingCycle) (string, error) {
+	keypair string, userData string, bc *billing.SBillingCycle, projectId string) (string, error) {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
 	params["ImageId"] = imageId
@@ -565,6 +565,10 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 		params["Password"] = passwd
 	} else {
 		params["PasswordInherit"] = "True"
+	}
+
+	if len(projectId) > 0 {
+		params["ResourceGroupId"] = projectId
 	}
 	//{"Code":"InvalidSystemDiskCategory.ValueNotSupported","HostId":"ecs.aliyuncs.com","Message":"The specified parameter 'SystemDisk.Category' is not support IoOptimized Instance. Valid Values: cloud_efficiency;cloud_ssd. ","RequestId":"9C9A4E99-5196-42A2-80B6-4762F8F75C90"}
 	params["IoOptimized"] = "optimized"

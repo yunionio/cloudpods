@@ -165,10 +165,18 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancer(ctx co
 		if err != nil {
 			return nil, err
 		}
+
 		params, err := lb.GetCreateLoadbalancerParams(iRegion)
 		if err != nil {
 			return nil, err
 		}
+
+		_cloudprovider := lb.GetCloudprovider()
+		params.ProjectId, err = _cloudprovider.SyncProject(ctx, userCred, lb.ProjectId)
+		if err != nil {
+			log.Errorf("failed to sync project %s for create %s lb %s error: %v", lb.ProjectId, _cloudprovider.Provider, lb.Name, err)
+		}
+
 		iLoadbalancer, err := iRegion.CreateILoadBalancer(params)
 		if err != nil {
 			return nil, err
@@ -1573,7 +1581,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		iregion, err := dbinstance.GetIRegion()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "GetIRegionAndProvider")
 		}
 
 		vpc, err := dbinstance.GetVpc()
@@ -1604,6 +1612,12 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 			Category:      dbinstance.Category,
 			Port:          dbinstance.Port,
 			Password:      passwd,
+		}
+
+		_cloudprovider := dbinstance.GetCloudprovider()
+		desc.ProjectId, err = _cloudprovider.SyncProject(ctx, userCred, dbinstance.ProjectId)
+		if err != nil {
+			log.Errorf("failed to sync project %s for create %s rds %s error: %v", dbinstance.ProjectId, _cloudprovider.Provider, dbinstance.Name, err)
 		}
 
 		if len(dbinstance.InstanceType) > 0 {

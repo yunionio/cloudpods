@@ -1164,8 +1164,7 @@ func (self *SStorage) PerformUncacheImage(ctx context.Context, userCred mcclient
 func (self *SStorage) GetIStorage() (cloudprovider.ICloudStorage, error) {
 	provider, err := self.GetDriver()
 	if err != nil {
-		log.Errorf("fail to find cloud provider")
-		return nil, err
+		return nil, errors.Wrap(err, "self.GetDriver")
 	}
 	var iRegion cloudprovider.ICloudRegion
 	if provider.GetFactory().IsOnPremise() {
@@ -1180,13 +1179,12 @@ func (self *SStorage) GetIStorage() (cloudprovider.ICloudStorage, error) {
 		iRegion, err = provider.GetIRegionById(region.ExternalId)
 	}
 	if err != nil {
-		log.Errorf("provider.GetIRegionById fail %s", err)
-		return nil, err
+		return nil, errors.Wrap(err, "provider.GetIRegionById")
 	}
 	istore, err := iRegion.GetIStorageById(self.GetExternalId())
 	if err != nil {
 		log.Errorf("iRegion.GetIStorageById fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "iRegion.GetIStorageById(%s)", self.GetExternalId())
 	}
 	return istore, nil
 }

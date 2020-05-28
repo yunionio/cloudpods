@@ -151,6 +151,10 @@ func (self *SAliyunProvider) GetIProjects() ([]cloudprovider.ICloudProject, erro
 	return self.client.GetIProjects()
 }
 
+func (self *SAliyunProvider) CreateIProject(name string) (cloudprovider.ICloudProject, error) {
+	return self.client.CreateIProject(name)
+}
+
 func (self *SAliyunProvider) GetStorageClasses(regionId string) []string {
 	return []string{
 		"Standard", "IA", "Archive",

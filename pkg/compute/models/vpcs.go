@@ -697,7 +697,7 @@ func (self *SVpc) PostCreate(ctx context.Context, userCred mcclient.TokenCredent
 func (self *SVpc) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	region, err := self.GetRegion()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetRegion")
 	}
 	provider, err := self.GetDriver()
 	if err != nil {

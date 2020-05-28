@@ -1652,7 +1652,7 @@ func (dbinstance *SDBInstance) GetIRegion() (cloudprovider.ICloudRegion, error) 
 	}
 	provider, err := dbinstance.GetDriver()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "dbinstance.GetDriver")
 	}
 	return provider.GetIRegionById(region.GetExternalId())
 }

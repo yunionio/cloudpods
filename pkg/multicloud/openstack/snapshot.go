@@ -171,7 +171,7 @@ func (region *SRegion) CreateSnapshot(diskId, name, desc string) (*SSnapshot, er
 			"force":       true,
 		},
 	}
-	_, resp, err := region.CinderCreate("/snapshots", "", jsonutils.Marshal(params))
+	_, resp, err := region.CinderCreate("", "/snapshots", "", jsonutils.Marshal(params))
 	if err != nil {
 		return nil, err
 	}

@@ -89,7 +89,7 @@ func (storage *SNovaStorage) GetIStoragecache() cloudprovider.ICloudStoragecache
 	return storage.zone.region.getStoragecache()
 }
 
-func (storage *SNovaStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
+func (storage *SNovaStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 

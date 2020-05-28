@@ -760,12 +760,13 @@ type DataVolumeExtendparam struct {
 }
 
 type ServerExtendparam struct {
-	ChargingMode string `json:"chargingMode"` // 计费模式 prePaid|postPaid
-	PeriodType   string `json:"periodType"`   // 周期类型：month|year
-	PeriodNum    string `json:"periodNum"`    // 订购周期数：periodType=month（周期类型为月）时，取值为[1，9]。periodType=year（周期类型为年）时，取值为1。
-	IsAutoRenew  string `json:"isAutoRenew"`  // 是否自动续订  true|false
-	IsAutoPay    string `json:"isAutoPay"`    // 是否自动从客户的账户中支付 true|false
-	RegionID     string `json:"regionID"`
+	ChargingMode        string `json:"chargingMode"` // 计费模式 prePaid|postPaid
+	PeriodType          string `json:"periodType"`   // 周期类型：month|year
+	PeriodNum           string `json:"periodNum"`    // 订购周期数：periodType=month（周期类型为月）时，取值为[1，9]。periodType=year（周期类型为年）时，取值为1。
+	IsAutoRenew         string `json:"isAutoRenew"`  // 是否自动续订  true|false
+	IsAutoPay           string `json:"isAutoPay"`    // 是否自动从客户的账户中支付 true|false
+	RegionID            string `json:"regionID"`
+	EnterpriseProjectId string `json:"enterprise_project_id,omitempty"`
 }
 
 type NIC struct {
@@ -796,7 +797,7 @@ type ServerTag struct {
 */
 func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, SubnetId string,
 	securityGroupId string, vpcId string, zoneId string, desc string, disks []SDisk, ipAddr string,
-	keypair string, publicKey string, passwd string, userData string, bc *billing.SBillingCycle) (string, error) {
+	keypair string, publicKey string, passwd string, userData string, bc *billing.SBillingCycle, projectId string) (string, error) {
 	params := SServerCreate{}
 	params.AvailabilityZone = zoneId
 	params.Name = name
@@ -818,6 +819,10 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 			dataVolume.SizeGB = disk.SizeGB
 			params.DataVolumes = append(params.DataVolumes, dataVolume)
 		}
+	}
+
+	if len(projectId) > 0 {
+		params.Extendparam.EnterpriseProjectId = projectId
 	}
 
 	// billing type

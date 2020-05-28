@@ -14,18 +14,9 @@
 
 package cloudprovider
 
-type SEip struct {
-	Name              string
-	BandwidthMbps     int
-	ChargeType        string
-	BGPType           string
-	NetworkExternalId string
-	IP                string
-	ProjectId         string
-}
-
-type AssociateConfig struct {
-	InstanceId    string
-	AssociateType string
-	Bandwidth     int
+type DiskCreateConfig struct {
+	Name      string
+	SizeGb    int
+	Desc      string
+	ProjectId string
 }

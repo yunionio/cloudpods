@@ -23,10 +23,12 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/version"
@@ -140,18 +142,33 @@ func (cli *SOpenStackClient) fetchRegions() error {
 	return fmt.Errorf("failed to find right endpoint type")
 }
 
-func (cli *SOpenStackClient) Request(region, service, method string, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
+func (cli *SOpenStackClient) Request(projectId string, region, service, method string, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
 	header := http.Header{}
 	if len(microversion) > 0 {
 		header.Set("X-Openstack-Nova-API-Version", microversion)
 	}
+
+	var session *mcclient.ClientSession
 	ctx := context.Background()
-	session := cli.client.NewSession(ctx, region, "", cli.endpointType, cli.tokenCredential, "")
-	uri, _ := session.GetServiceURL(service, "")
-	url = strings.TrimPrefix(url, uri)
+	if method == "POST" && len(projectId) > 0 {
+		targetToken, err := cli.getProjectTokenCredential(projectId)
+		if err != nil {
+			log.Errorf("failed to get project %s token credential %v", projectId, err)
+		} else {
+			session = cli.client.NewSession(ctx, region, "", cli.endpointType, targetToken, "")
+		}
+	} else {
+		session = cli.client.NewSession(ctx, region, "", cli.endpointType, cli.tokenCredential, "")
+	}
+
+	serviceUrl, err := session.GetServiceURL(service, "")
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "GetServiceURL(%s)", service)
+	}
+	url = strings.TrimPrefix(url, serviceUrl)
 	header, resp, err := session.JSONRequest(service, "", httputils.THttpMethod(method), url, header, body)
 	if err != nil && body != nil {
-		log.Errorf("microversion %s url: %s, params: %s", microversion, uri+url, body.PrettyString())
+		log.Errorf("microversion %s url: %s, params: %s", microversion, serviceUrl+url, body.PrettyString())
 	}
 	return header, resp, err
 }
@@ -232,6 +249,32 @@ func (cli *SOpenStackClient) connect() error {
 	return nil
 }
 
+func (cli *SOpenStackClient) getProjectTokenCredential(projectId string) (mcclient.TokenCredential, error) {
+	project, err := cli.GetProject(projectId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetProject(%s)", projectId)
+	}
+	region := cli.iregions[0].(*SRegion)
+	s := cli.client.NewSession(context.Background(), region.Name, "", cli.endpointType, cli.tokenCredential, "")
+
+	roleId, err := modules.RolesV3.GetId(s, "admin", jsonutils.Marshal(map[string]string{}))
+	if err != nil {
+		return nil, errors.Wrap(err, "RolesV3.GetId")
+	}
+	_, err = modules.RolesV3.PutInContexts(s, roleId, nil, []modulebase.ManagerContext{{InstanceManager: &modules.Projects, InstanceId: project.GetId()}, {InstanceManager: &modules.UsersV3, InstanceId: s.GetUserId()}})
+	if err != nil {
+		return nil, errors.Wrap(err, "RolesV3.PutInContexts")
+	}
+
+	cli.client = mcclient.NewClient(cli.authURL, 5, cli.debug, false, "", "")
+	cli.client.SetHttpTransportProxyFunc(cli.cpcfg.ProxyFunc)
+	tokenCredential, err := cli.client.Authenticate(cli.username, cli.password, cli.domainName, project.Name, cli.projectDomain)
+	if err != nil {
+		return nil, errors.Wrap(err, "Authenticate")
+	}
+	return tokenCredential, nil
+}
+
 func (cli *SOpenStackClient) GetRegion(regionId string) *SRegion {
 	for i := 0; i < len(cli.iregions); i++ {
 		if cli.iregions[i].GetId() == regionId {
@@ -281,8 +324,55 @@ func (cli *SOpenStackClient) GetIProjects() ([]cloudprovider.ICloudProject, erro
 		}
 		return iprojects, nil
 	}
-
 	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (cli *SOpenStackClient) GetProject(id string) (*SProject, error) {
+	if len(cli.iregions) > 0 {
+		region := cli.iregions[0].(*SRegion)
+		s := cli.client.NewSession(context.Background(), region.Name, "", cli.endpointType, cli.tokenCredential, "")
+		result, err := modules.Projects.Get(s, id, jsonutils.NewDict())
+		if err != nil {
+			return nil, err
+		}
+		project := &SProject{}
+		err = result.Unmarshal(project)
+		if err != nil {
+			return nil, errors.Wrap(err, "result.Unmarshal")
+		}
+		return project, nil
+	}
+	return nil, fmt.Errorf("no region info")
+}
+
+func (cli *SOpenStackClient) CreateIProject(name string) (cloudprovider.ICloudProject, error) {
+	if len(cli.iregions) > 0 {
+		return cli.CreateProject(name, "")
+	}
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (cli *SOpenStackClient) CreateProject(name, desc string) (*SProject, error) {
+	region := cli.iregions[0].(*SRegion)
+	s := cli.client.NewSession(context.Background(), region.Name, "", cli.endpointType, cli.tokenCredential, "")
+
+	params := map[string]string{
+		"name":      name,
+		"domain_id": s.GetDomainId(),
+	}
+	if len(desc) > 0 {
+		params["description"] = desc
+	}
+	result, err := modules.Projects.Create(s, jsonutils.Marshal(params))
+	if err != nil {
+		return nil, errors.Wrap(err, "Projects.Create")
+	}
+	project := SProject{}
+	err = result.Unmarshal(&project)
+	if err != nil {
+		return nil, errors.Wrap(err, "result.Unmarshal")
+	}
+	return &project, nil
 }
 
 func (self *SOpenStackClient) GetCapabilities() []string {

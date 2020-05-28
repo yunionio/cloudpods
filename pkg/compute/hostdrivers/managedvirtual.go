@@ -239,7 +239,7 @@ func (self *SManagedVirtualizationHostDriver) RequestResizeDiskOnHost(ctx contex
 	return nil
 }
 
-func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
+func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
 	iCloudStorage, err := storage.GetIStorage()
 	if err != nil {
 		return err
@@ -251,7 +251,20 @@ func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx c
 	size = size >> 10
 
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iDisk, err := iCloudStorage.CreateIDisk(disk.GetName(), int(size), "")
+		_cloudprovider := storage.GetCloudprovider()
+		if _cloudprovider == nil {
+			return nil, fmt.Errorf("invalid cloudprovider for storage %s(%s)", storage.Name, storage.Id)
+		}
+		projectId, err := _cloudprovider.SyncProject(ctx, userCred, disk.ProjectId)
+		if err != nil {
+			log.Errorf("failed to sync project for create %s disk %s error: %v", _cloudprovider.Provider, disk.GetName(), err)
+		}
+		conf := cloudprovider.DiskCreateConfig{
+			Name:      disk.GetName(),
+			SizeGb:    int(size),
+			ProjectId: projectId,
+		}
+		iDisk, err := iCloudStorage.CreateIDisk(&conf)
 		if err != nil {
 			return nil, err
 		}

@@ -180,7 +180,14 @@ func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 }
 
 func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	vmId, err := self._createVM(desc.Name, desc.ExternalImageId, desc.SysDisk, desc.Cpu, desc.MemoryMB, desc.InstanceType, desc.ExternalNetworkId, desc.IpAddr, desc.Description, desc.Account, desc.Password, desc.DataDisks, desc.PublicKey, desc.ExternalSecgroupId, desc.UserData, desc.BillingCycle)
+	vmId, err := self._createVM(
+		desc.Name, desc.ExternalImageId, desc.SysDisk,
+		desc.Cpu, desc.MemoryMB, desc.InstanceType,
+		desc.ExternalNetworkId, desc.IpAddr,
+		desc.Description, desc.Account,
+		desc.Password, desc.DataDisks,
+		desc.PublicKey, desc.ExternalSecgroupId,
+		desc.UserData, desc.BillingCycle, desc.ProjectId)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +207,7 @@ func (self *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error
 func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SDiskInfo, cpu int, memMB int, instanceType string,
 	networkId string, ipAddr string, desc string, account string, passwd string,
 	diskSizes []cloudprovider.SDiskInfo, publicKey string, secgroupId string,
-	userData string, bc *billing.SBillingCycle) (string, error) {
+	userData string, bc *billing.SBillingCycle, projectId string) (string, error) {
 	net := self.zone.getNetworkById(networkId)
 	if net == nil {
 		return "", fmt.Errorf("invalid network ID %s", networkId)
@@ -269,7 +276,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SD
 	// 创建实例
 	if len(instanceType) > 0 {
 		log.Debugf("Try instancetype : %s", instanceType)
-		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceType, networkId, secgroupId, net.VpcID, self.zone.GetId(), desc, disks, ipAddr, keypair, publicKey, passwd, userData, bc)
+		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceType, networkId, secgroupId, net.VpcID, self.zone.GetId(), desc, disks, ipAddr, keypair, publicKey, passwd, userData, bc, projectId)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", instanceType, err)
 			return "", fmt.Errorf("create %s failed:%s", instanceType, ErrMessage(err))
@@ -291,7 +298,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SD
 	for _, instType := range instanceTypes {
 		instanceTypeId := instType.Name
 		log.Debugf("Try instancetype : %s", instanceTypeId)
-		vmId, err = self.zone.region.CreateInstance(name, imgId, instanceTypeId, networkId, secgroupId, net.VpcID, self.zone.GetId(), desc, disks, ipAddr, keypair, publicKey, passwd, userData, bc)
+		vmId, err = self.zone.region.CreateInstance(name, imgId, instanceTypeId, networkId, secgroupId, net.VpcID, self.zone.GetId(), desc, disks, ipAddr, keypair, publicKey, passwd, userData, bc, projectId)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", instanceTypeId, err)
 		} else {

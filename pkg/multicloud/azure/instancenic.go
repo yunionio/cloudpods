@@ -150,7 +150,7 @@ func (self *SRegion) GetNetworkInterfaces() ([]SInstanceNic, error) {
 	return result, nil
 }
 
-func (self *SRegion) CreateNetworkInterface(nicName string, ipAddr string, subnetId string, secgrpId string) (*SInstanceNic, error) {
+func (self *SRegion) CreateNetworkInterface(resourceGroup string, nicName string, ipAddr string, subnetId string, secgrpId string) (*SInstanceNic, error) {
 	instancenic := SInstanceNic{
 		Name:     nicName,
 		Location: self.Name,
@@ -177,5 +177,5 @@ func (self *SRegion) CreateNetworkInterface(nicName string, ipAddr string, subne
 		instancenic.Properties.IPConfigurations[0].Properties.PrivateIPAllocationMethod = "Dynamic"
 	}
 
-	return &instancenic, self.client.Create(jsonutils.Marshal(&instancenic), &instancenic)
+	return &instancenic, self.client.CreateWithResourceGroup(resourceGroup, jsonutils.Marshal(&instancenic), &instancenic)
 }

@@ -215,12 +215,12 @@ func (storage *SStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
 	return &SStoragecache{ZoneId: storage.ZoneUUID, region: storage.region}
 }
 
-func (storage *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
+func (storage *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
 	poolName, err := storage.GetDataPoolName()
 	if err != nil {
 		return nil, err
 	}
-	disk, err := storage.region.CreateDisk(name, storage.UUID, "", poolName, sizeGb, desc)
+	disk, err := storage.region.CreateDisk(conf.Name, storage.UUID, "", poolName, conf.SizeGb, conf.Desc)
 	if err != nil {
 		return nil, err
 	}

@@ -495,13 +495,16 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 
 func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, securityGroupId string,
 	zoneId string, desc string, passwd string, disks []SDisk, networkId string, ipAddr string,
-	keypair string, userData string, bc *billing.SBillingCycle) (string, error) {
+	keypair string, userData string, bc *billing.SBillingCycle, projectId string) (string, error) {
 	params := make(map[string]string)
 	params["Region"] = self.Region
 	params["ImageId"] = imageId
 	params["InstanceType"] = instanceType
 	params["SecurityGroupIds.0"] = securityGroupId
 	params["Placement.Zone"] = zoneId
+	if len(projectId) > 0 {
+		params["Placement.ProjectId"] = projectId
+	}
 	params["InstanceName"] = name
 
 	params["InternetAccessible.InternetMaxBandwidthOut"] = "1"

@@ -1118,7 +1118,7 @@ func (self *SElasticip) StartEipDissociateTask(ctx context.Context, userCred mcc
 func (self *SElasticip) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	provider, err := self.GetDriver()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetDriver")
 	}
 
 	region := self.GetRegion()
