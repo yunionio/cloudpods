@@ -171,7 +171,11 @@ func guestRebuild(ctx context.Context, sid string, body jsonutils.JSONObject) (i
 	}
 	hostutils.DelayTaskWithWorker(ctx,
 		guestman.GetGuestManager().GuestDeploy,
-		&guestman.SGuestDeploy{sid, body, true},
+		&guestman.SGuestDeploy{
+			Sid:    sid,
+			Body:   body,
+			IsInit: true,
+		},
 		guestman.NbdWorker,
 	)
 	return nil, nil
