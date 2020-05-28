@@ -30,4 +30,18 @@ func init() {
 		printList(project, 0, 0, 0, nil)
 		return nil
 	})
+
+	type ProjectCreateOptions struct {
+		NAME string
+	}
+
+	shellutils.R(&ProjectCreateOptions{}, "project-create", "Create project", func(cli *aliyun.SRegion, args *ProjectCreateOptions) error {
+		project, err := cli.GetClient().CreateProject(args.NAME)
+		if err != nil {
+			return err
+		}
+		printObject(project)
+		return nil
+	})
+
 }

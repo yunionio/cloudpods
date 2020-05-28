@@ -447,6 +447,10 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 		"security_group_id": desc.SecgroupId,
 	}
 
+	if len(desc.ProjectId) > 0 {
+		params["enterprise_project_id"] = desc.ProjectId
+	}
+
 	if len(desc.MasterInstanceId) > 0 {
 		params["replica_of_id"] = desc.MasterInstanceId
 	}

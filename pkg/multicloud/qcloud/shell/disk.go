@@ -60,13 +60,15 @@ func init() {
 	})
 
 	type DiskCreateOptions struct {
-		ZONE     string `help:"Zone ID"`
-		CATEGORY string `help:"Disk category" choices:"CLOUD_BASIC|CLOUD_PREMIUM|CLOUD_SSD"`
-		NAME     string `help:"Disk Name"`
-		SIZE     int    `help:"Disk Size GB"`
+		ZONE      string `help:"Zone ID"`
+		CATEGORY  string `help:"Disk category" choices:"CLOUD_BASIC|CLOUD_PREMIUM|CLOUD_SSD"`
+		NAME      string `help:"Disk Name"`
+		SIZE      int    `help:"Disk Size GB"`
+		Desc      string `help:"Description"`
+		ProjectId string `help:"Project Id"`
 	}
 	shellutils.R(&DiskCreateOptions{}, "disk-create", "Create disk", func(cli *qcloud.SRegion, args *DiskCreateOptions) error {
-		diskId, err := cli.CreateDisk(args.ZONE, args.CATEGORY, args.NAME, args.SIZE, "")
+		diskId, err := cli.CreateDisk(args.ZONE, args.CATEGORY, args.NAME, args.SIZE, args.Desc, args.ProjectId)
 		if err != nil {
 			return err
 		}

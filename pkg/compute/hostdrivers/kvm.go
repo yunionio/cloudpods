@@ -240,7 +240,7 @@ func (self *SKVMHostDriver) RequestUncacheImage(ctx context.Context, host *model
 	return nil
 }
 
-func (self *SKVMHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
+func (self *SKVMHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
 	header := task.GetTaskRequestHeader()
 	if snapshotId, err := content.GetString("snapshot"); err == nil {
 		iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
@@ -281,7 +281,7 @@ func (self *SKVMHostDriver) RequestRebuildDiskOnStorage(ctx context.Context, hos
 		backingDiskId, _ := task.GetParams().GetString("backing_disk_id")
 		content.Set("backing_disk_id", jsonutils.NewString(backingDiskId))
 	}
-	return self.RequestAllocateDiskOnStorage(ctx, host, storage, disk, task, content)
+	return self.RequestAllocateDiskOnStorage(ctx, task.GetUserCred(), host, storage, disk, task, content)
 }
 
 func (self *SKVMHostDriver) RequestDeallocateDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {

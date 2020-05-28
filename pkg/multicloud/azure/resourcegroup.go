@@ -16,6 +16,7 @@ package azure
 
 import (
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 )
@@ -70,7 +71,7 @@ func (r *SResourceGroup) GetId() string {
 }
 
 func (r *SResourceGroup) GetGlobalId() string {
-	return r.ID
+	return strings.ToLower(r.Name)
 }
 
 func (r *SResourceGroup) GetStatus() string {

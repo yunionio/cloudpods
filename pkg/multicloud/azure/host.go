@@ -21,7 +21,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/utils"
 
@@ -87,13 +86,6 @@ func (self *SHost) searchNetorkInterface(IPAddr string, networkId string, secgro
 }
 
 func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	if len(desc.ProjectName) > 0 {
-		err := self.zone.region.CreateAndSetResourceGroup(desc.ProjectName)
-		if err != nil {
-			return nil, errors.Wrapf(err, "CreateAndSetResourceGroup(%s)", desc.ProjectName)
-		}
-	}
-
 	net := self.zone.getNetworkById(desc.ExternalNetworkId)
 	if net == nil {
 		return nil, fmt.Errorf("invalid network ID %s", desc.ExternalNetworkId)
@@ -101,7 +93,7 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 	nic, err := self.searchNetorkInterface(desc.IpAddr, net.GetId(), desc.ExternalSecgroupId)
 	if err != nil {
 		if err == cloudprovider.ErrNotFound {
-			nic, err = self.zone.region.CreateNetworkInterface(fmt.Sprintf("%s-ipconfig", desc.Name), desc.IpAddr, net.GetId(), desc.ExternalSecgroupId)
+			nic, err = self.zone.region.CreateNetworkInterface(desc.ProjectId, fmt.Sprintf("%s-ipconfig", desc.Name), desc.IpAddr, net.GetId(), desc.ExternalSecgroupId)
 			if err != nil {
 				return nil, err
 			}
@@ -224,7 +216,7 @@ func (self *SHost) _createVM(desc *cloudprovider.SManagedVMCreateConfig, nicId s
 	if len(desc.InstanceType) > 0 {
 		instance.Properties.HardwareProfile.VMSize = desc.InstanceType
 		log.Debugf("Try HardwareProfile : %s", desc.InstanceType)
-		err = self.zone.region.client.Create(jsonutils.Marshal(instance), &instance)
+		err = self.zone.region.client.CreateWithResourceGroup(desc.ProjectId, jsonutils.Marshal(instance), &instance)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", desc.InstanceType, err)
 			return "", fmt.Errorf("Failed to create specification %s.%s", desc.InstanceType, err.Error())
@@ -235,7 +227,7 @@ func (self *SHost) _createVM(desc *cloudprovider.SManagedVMCreateConfig, nicId s
 	for _, profile := range self.zone.region.getHardwareProfile(desc.Cpu, desc.MemoryMB) {
 		instance.Properties.HardwareProfile.VMSize = profile
 		log.Debugf("Try HardwareProfile : %s", profile)
-		err = self.zone.region.client.Create(jsonutils.Marshal(instance), &instance)
+		err = self.zone.region.client.CreateWithResourceGroup(desc.ProjectId, jsonutils.Marshal(instance), &instance)
 		if err != nil {
 			for _, key := range []string{`"code":"InvalidParameter"`, `"code":"NicInUse"`} {
 				if strings.Contains(err.Error(), key) {

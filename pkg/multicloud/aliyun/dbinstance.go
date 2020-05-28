@@ -630,6 +630,9 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 	if len(desc.Address) > 0 {
 		params["PrivateIpAddress"] = desc.Address
 	}
+	if len(desc.ProjectId) > 0 {
+		params["ResourceGroupId"] = desc.ProjectId
+	}
 	if desc.BillingCycle != nil {
 		params["PayType"] = "Prepaid"
 		if desc.BillingCycle.GetMonths() > 0 {

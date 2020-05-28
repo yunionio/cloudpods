@@ -1629,3 +1629,42 @@ func (self *SCloudprovider) GetExternalProjects() ([]SExternalProject, error) {
 	}
 	return projects, nil
 }
+
+func (self *SCloudprovider) SyncProject(ctx context.Context, userCred mcclient.TokenCredential, id string) (string, error) {
+	lockman.LockRawObject(ctx, self.Id, id)
+	defer lockman.ReleaseRawObject(ctx, self.Id, id)
+
+	projects, err := self.GetExternalProjects()
+	if err != nil {
+		return "", errors.Wrap(err, "GetExternalProjects")
+	}
+	for _, project := range projects {
+		if project.ProjectId == id {
+			return project.ExternalId, nil
+		}
+	}
+
+	project, err := db.TenantCacheManager.FetchById(id)
+	if err != nil {
+		return "", errors.Wrap(err, "TenantCacheManager.FetchById")
+	}
+
+	for _, extProj := range projects {
+		if extProj.Name == project.GetName() {
+			return extProj.ExternalId, nil
+		}
+	}
+	provider, err := self.GetProvider()
+	if err != nil {
+		return "", errors.Wrap(err, "GetProvider")
+	}
+	iProject, err := provider.CreateIProject(project.GetName())
+	if err != nil {
+		return "", errors.Wrap(err, "CreateIProject")
+	}
+	extProj, err := ExternalProjectManager.newFromCloudProject(ctx, userCred, self, iProject)
+	if err != nil {
+		return "", errors.Wrap(err, "newFromCloudProject")
+	}
+	return extProj.ExternalId, nil
+}

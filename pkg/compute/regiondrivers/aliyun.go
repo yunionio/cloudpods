@@ -1266,11 +1266,15 @@ func (self *SAliyunRegionDriver) RequestCreateElasticcache(ctx context.Context, 
 			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcache.GetProvider")
 		}
 
-		provider := iprovider.(*models.SCloudprovider)
-
 		params, err := ec.GetCreateAliyunElasticcacheParams(task.GetParams())
 		if err != nil {
 			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcache.GetCreateAliyunElasticcacheParams")
+		}
+
+		provider := iprovider.(*models.SCloudprovider)
+		params.ProjectId, err = provider.SyncProject(ctx, userCred, ec.ProjectId)
+		if err != nil {
+			log.Errorf("failed to sync project %s for create %s elastic cache %s error: %v", ec.ProjectId, provider.Provider, ec.Name, err)
 		}
 
 		iec, err := iRegion.CreateIElasticcaches(params)

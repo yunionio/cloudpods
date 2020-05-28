@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
@@ -75,4 +76,29 @@ func (self *SAliyunClient) GetResourceGroups(pageNumber int, pageSize int) ([]SR
 	}
 	total, _ := resp.Int("TotalCount")
 	return groups, int(total), nil
+}
+
+func (self *SAliyunClient) CreateIProject(name string) (cloudprovider.ICloudProject, error) {
+	project, err := self.CreateProject(name)
+	if err != nil {
+		return nil, errors.Wrap(err, "CreateProject")
+	}
+	return project, nil
+}
+
+func (self *SAliyunClient) CreateProject(name string) (*SResourceGroup, error) {
+	params := map[string]string{
+		"DisplayName": name,
+		"Name":        name,
+	}
+	resp, err := self.rmRequest("CreateResourceGroup", params)
+	if err != nil {
+		return nil, errors.Wrap(err, "CreateResourceGroup")
+	}
+	group := SResourceGroup{}
+	err = resp.Unmarshal(&group, "ResourceGroup")
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return &group, nil
 }

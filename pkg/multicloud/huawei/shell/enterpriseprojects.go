@@ -22,7 +22,7 @@ import (
 func init() {
 	type EnterpriseProjectListOptions struct {
 	}
-	shellutils.R(&EnterpriseProjectListOptions{}, "enterprise-project-list", "List regions", func(cli *huawei.SRegion, args *EnterpriseProjectListOptions) error {
+	shellutils.R(&EnterpriseProjectListOptions{}, "enterprise-project-list", "List enterprise projects", func(cli *huawei.SRegion, args *EnterpriseProjectListOptions) error {
 		projects, err := cli.GetClient().GetEnterpriseProjects()
 		if err != nil {
 			return err
@@ -30,4 +30,19 @@ func init() {
 		printList(projects, 0, 0, 0, nil)
 		return nil
 	})
+
+	type EnterpriseProjectCreateOptions struct {
+		NAME string
+		Desc string
+	}
+
+	shellutils.R(&EnterpriseProjectCreateOptions{}, "enterprise-project-create", "Create enterprise project", func(cli *huawei.SRegion, args *EnterpriseProjectCreateOptions) error {
+		project, err := cli.GetClient().CreateExterpriseProject(args.NAME, args.Desc)
+		if err != nil {
+			return err
+		}
+		printObject(project)
+		return nil
+	})
+
 }
