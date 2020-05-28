@@ -183,16 +183,18 @@ type ICloudObject interface {
 	SetAcl(acl TBucketACLType) error
 }
 
-func ICloudObject2JSONObject(obj ICloudObject) jsonutils.JSONObject {
-	obj2 := struct {
-		Key          string
-		SizeBytes    int64
-		StorageClass string
-		ETag         string
-		LastModified time.Time
-		Meta         http.Header
-		Acl          string
-	}{
+type SCloudObject struct {
+	Key          string
+	SizeBytes    int64
+	StorageClass string
+	ETag         string
+	LastModified time.Time
+	Meta         http.Header
+	Acl          string
+}
+
+func ICloudObject2Struct(obj ICloudObject) SCloudObject {
+	return SCloudObject{
 		Key:          obj.GetKey(),
 		SizeBytes:    obj.GetSizeBytes(),
 		StorageClass: obj.GetStorageClass(),
@@ -201,7 +203,10 @@ func ICloudObject2JSONObject(obj ICloudObject) jsonutils.JSONObject {
 		Meta:         obj.GetMeta(),
 		Acl:          string(obj.GetAcl()),
 	}
-	return jsonutils.Marshal(obj2)
+}
+
+func ICloudObject2JSONObject(obj ICloudObject) jsonutils.JSONObject {
+	return jsonutils.Marshal(ICloudObject2Struct(obj))
 }
 
 func (o *SBaseCloudObject) GetKey() string {

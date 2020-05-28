@@ -69,7 +69,7 @@ func init() {
 	})
 
 	type NetworkInterfaceCreateOptions struct {
-		ResourceGroup string `help":"ResourceGroup Name"`
+		ResourceGroup string `help:"ResourceGroup Name"`
 		NAME          string `help:"Nic interface name"`
 		IP            string `help:"Nic private ip address"`
 		NETWORK       string `help:"Netowrk ID"`

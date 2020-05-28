@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
+// +onecloud:swagger-gen-ignore
 type SNetInterface struct {
 	db.SModelBase
 
