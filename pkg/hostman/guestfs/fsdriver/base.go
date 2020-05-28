@@ -120,6 +120,10 @@ func (l *sGuestRootFsDriver) IsResizeFsPartitionSupport() bool {
 	return true
 }
 
+func (r *sGuestRootFsDriver) CleanNetworkScripts(rootFs IDiskPartition) error {
+	return nil
+}
+
 const (
 	modeAuthorizedKeysRWX = syscall.S_IRUSR | syscall.S_IWUSR | syscall.S_IXUSR
 	modeAuthorizedKeysRW  = syscall.S_IRUSR | syscall.S_IWUSR

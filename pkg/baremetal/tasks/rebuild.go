@@ -56,7 +56,7 @@ func (self *SBaremetalServerRebuildTask) DoDeploys(term *ssh.Client) (jsonutils.
 	}
 	data := jsonutils.NewDict()
 	data.Add(jsonutils.NewArray(disks...), "disks")
-	deployInfo, err := self.Baremetal.GetServer().DoDeploy(term, self.data, false)
+	deployInfo, err := self.Baremetal.GetServer().DoDeploy(term, self.data, true)
 	if err != nil {
 		return nil, fmt.Errorf("DoDeploy: %v", err)
 	}

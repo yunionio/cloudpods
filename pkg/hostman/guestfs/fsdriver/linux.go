@@ -836,6 +836,10 @@ func (r *sRedhatLikeRootFs) PrepareFsForTemplate(rootFs IDiskPartition) error {
 	if err := r.sLinuxRootFs.PrepareFsForTemplate(rootFs); err != nil {
 		return err
 	}
+	return r.CleanNetworkScripts(rootFs)
+}
+
+func (r *sRedhatLikeRootFs) CleanNetworkScripts(rootFs IDiskPartition) error {
 	networkPath := "/etc/sysconfig/network-scripts"
 	files := rootFs.ListDir(networkPath, false)
 	for i := 0; i < len(files); i++ {

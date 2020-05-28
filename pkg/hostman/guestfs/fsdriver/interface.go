@@ -83,6 +83,7 @@ type IRootFsDriver interface {
 	IsResizeFsPartitionSupport() bool
 
 	PrepareFsForTemplate(IDiskPartition) error
+	CleanNetworkScripts(rootFs IDiskPartition) error
 }
 
 type IDebianRootFsDriver interface {

@@ -228,7 +228,7 @@ func (self *KVMGuestRebuildRootTask) OnRebuildRootDiskComplete(ctx context.Conte
 	guest.SetStatus(self.UserCred, api.VM_DEPLOYING, "")
 	// params := jsonutils.NewDict()
 	// params.Set("reset_password", jsonutils.JSONTrue)
-	guest.StartGuestDeployTask(ctx, self.UserCred, self.GetParams(), "deploy", self.GetTaskId())
+	guest.StartGuestDeployTask(ctx, self.UserCred, self.GetParams(), "rebuild", self.GetTaskId())
 }
 
 func (self *KVMGuestRebuildRootTask) OnRebuildRootDiskCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
