@@ -25,21 +25,13 @@ type TPolicySet []*SRbacPolicy
 func GetMatchedPolicies(policies []SPolicyInfo, userCred IRbacIdentity) (TPolicySet, []string) {
 	matchedPolicies := make([]*SRbacPolicy, 0)
 	matchedNames := make([]string, 0)
-	maxMatchWeight := 0
 	for i := range policies {
-		isMatched, matchWeight := policies[i].Policy.Match(userCred)
-		if !isMatched || matchWeight < maxMatchWeight {
+		isMatched, _ := policies[i].Policy.Match(userCred)
+		if !isMatched {
 			continue
 		}
-		if maxMatchWeight <= matchWeight {
-			if maxMatchWeight < matchWeight {
-				maxMatchWeight = matchWeight
-				matchedPolicies = matchedPolicies[:0]
-				matchedNames = matchedNames[:0]
-			}
-			matchedPolicies = append(matchedPolicies, policies[i].Policy)
-			matchedNames = append(matchedNames, policies[i].Name)
-		}
+		matchedPolicies = append(matchedPolicies, policies[i].Policy)
+		matchedNames = append(matchedNames, policies[i].Name)
 	}
 	return matchedPolicies, matchedNames
 }
