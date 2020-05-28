@@ -562,9 +562,10 @@ func (manager *SOpsLogManager) ListItemFilter(
 
 func (manager *SOpsLogManager) SyncOwner(m IModel, former *STenant, userCred mcclient.TokenCredential) {
 	notes := jsonutils.NewDict()
-	notes.Add(jsonutils.NewString(former.GetDomain()), "former_domain_id")
-	notes.Add(jsonutils.NewString(former.GetId()), "former_project_id")
-	notes.Add(jsonutils.NewString(former.GetName()), "former_project")
+	notes.Add(jsonutils.NewString(former.GetProjectDomainId()), "former_domain_id")
+	notes.Add(jsonutils.NewString(former.GetProjectDomain()), "former_domain")
+	notes.Add(jsonutils.NewString(former.GetProjectId()), "former_project_id")
+	notes.Add(jsonutils.NewString(former.GetProjectName()), "former_project")
 	manager.LogEvent(m, ACT_CHANGE_OWNER, notes, userCred)
 }
 

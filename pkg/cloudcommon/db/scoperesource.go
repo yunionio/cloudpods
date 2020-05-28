@@ -156,15 +156,15 @@ func (m *SScopedResourceBaseManager) PerformSetScope(
 		if err != nil {
 			return nil, err
 		}
-		projectId = project.GetId()
-		domainId = project.GetDomainId()
+		projectId = project.GetProjectId()
+		domainId = project.GetProjectDomainId()
 	}
 	if domainId != "" {
 		domain, err := DefaultDomainFetcher(ctx, domainId)
 		if err != nil {
 			return nil, err
 		}
-		domainId = domain.GetId()
+		domainId = domain.GetProjectDomainId()
 	}
 	scopeToSet := getScopedResourceScope(domainId, projectId)
 	var err error
@@ -225,7 +225,7 @@ func (m *SScopedResourceBaseManager) SetScopedResourceToProject(model IScopedRes
 	if err != nil {
 		return err
 	}
-	return setScopedResourceIds(model, userCred, project.GetDomainId(), projectId)
+	return setScopedResourceIds(model, userCred, project.GetProjectDomainId(), projectId)
 }
 
 func (m *SScopedResourceBaseManager) ListItemFilter(
