@@ -270,7 +270,7 @@ func GetIBucketStats(bucket ICloudBucket) (SBucketStats, error) {
 	if objs.IsTruncated {
 		return stats, errors.Wrap(httperrors.ErrTooLarge, "too many objects")
 	}
-	stats.ObjectCount = 0
+	stats.ObjectCount, stats.SizeBytes = 0, 0
 	for _, obj := range objs.Objects {
 		stats.SizeBytes += obj.GetSizeBytes()
 		stats.ObjectCount += 1
