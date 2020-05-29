@@ -295,11 +295,17 @@ func guestDestPrepareMigrate(ctx context.Context, sid string, body jsonutils.JSO
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("Get desc disks error")
 		} else {
-			targetStorageId, _ := disks[0].GetString("target_storage_id")
-			if len(targetStorageId) == 0 {
-				return nil, httperrors.NewMissingParameterError("target_storage_id")
+			targetStorageIds := []string{}
+			for i := 0; i < len(disks); i++ {
+				targetStorageId, _ := disks[i].GetString("target_storage_id")
+				if len(targetStorageId) == 0 {
+					return nil, httperrors.NewMissingParameterError("target_storage_id")
+				}
+				targetStorageIds = append(targetStorageIds, targetStorageId)
+				// params.TargetStorageId = targetStorageId
+				params.TargetStorageIds = targetStorageIds
 			}
-			params.TargetStorageId = targetStorageId
+
 		}
 		params.RebaseDisks = jsonutils.QueryBoolean(body, "rebase_disks", false)
 	}
