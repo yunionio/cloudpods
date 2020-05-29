@@ -21,4 +21,6 @@ type SecgroupRuleDetails struct {
 	apis.ProjectizedResourceInfo
 	SSecurityGroupRule
 	SecurityGroupResourceInfo
+
+	ProjectId string `json:"tenant_id"`
 }

@@ -88,4 +88,6 @@ type DBInstanceAccountDetails struct {
 
 	// 账号权限列表
 	DBInstanceprivileges []DBInstancePrivilege `json:"dbinstanceprivileges,allowempty"`
+
+	ProjectId string `json:"tenant_id"`
 }

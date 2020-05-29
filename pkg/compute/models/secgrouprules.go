@@ -238,6 +238,7 @@ func (manager *SSecurityGroupRuleManager) FetchCustomizeColumns(
 	for i := range rows {
 		if secgroup, ok := secgroups[secIds[i]]; ok {
 			virObjs[i] = &secgroup
+			rows[i].ProjectId = secgroup.ProjectId
 		}
 	}
 
