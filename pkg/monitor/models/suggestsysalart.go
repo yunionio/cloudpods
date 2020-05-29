@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
-	api "yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -73,6 +72,11 @@ type SSuggestSysAlert struct {
 	Provider     string `list:"user" update:"user"`
 	Project      string `list:"user" update:"user"`
 	Cloudaccount string `list:"user" update:"user"`
+
+	//费用
+	Amount float64 `list:"user" update:"user"`
+	//币种
+	Currency string `list:"user" update:"user"`
 }
 
 func NewSuggestSysAlertManager(dt interface{}, keyword, keywordPlural string) *SSuggestSysAlertManager {
@@ -271,7 +275,7 @@ func (self *SSuggestSysAlert) RealDelete(ctx context.Context, userCred mcclient.
 func (self *SSuggestSysAlert) StartDeleteTask(
 	ctx context.Context, userCred mcclient.TokenCredential) error {
 	params := jsonutils.NewDict()
-	self.SetStatus(userCred, api.SUGGEST_ALERT_START_DELETE, "")
+
 	return GetSuggestSysRuleDrivers()[self.Type].StartResolveTask(ctx, userCred, self, params)
 }
 
