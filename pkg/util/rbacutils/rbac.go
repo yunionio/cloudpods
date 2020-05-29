@@ -642,13 +642,14 @@ func (policy *SRbacPolicy) Match(userCred IRbacIdentity) (bool, int) {
 	weight := 0
 	if policy.MatchDomain(userCred.GetProjectDomainId()) {
 		if len(policy.DomainId) > 0 {
-			weight += 10
+			if policy.DomainId == userCred.GetProjectDomainId() {
+				weight += 30 // exact domain match
+			} else if len(policy.SharedDomainIds) > 0 {
+				weight += 20 // shared domain match
+			} else {
+				weight += 10 // else, system scope match
+			}
 		}
-		if !policy.IsPublic {
-			weight += 30 // exact domain match
-		} else if len(policy.SharedDomainIds) > 0 {
-			weight += 20 // shared domain match
-		} // else, system scope match
 		if policy.MatchRoles(userCred.GetRoles()) {
 			if len(policy.Roles) != 0 {
 				weight += 100
