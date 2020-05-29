@@ -145,6 +145,8 @@ func StartService() {
 		cron.AddJobEveryFewDays("StorageSnapshotsRecycle", 1, 2, 0, 0, models.StorageManager.StorageSnapshotsRecycle, false)
 
 		cron.AddJobEveryFewHour("InspectAllTemplate", 1, 0, 0, models.GuestTemplateManager.InspectAllTemplate, true)
+
+		cron.AddJobAtIntervalsWithStartRun("ScheduledTaskCheck", time.Duration(60)*time.Second, models.ScheduledTaskManager.Timer, true)
 		go cron.Start2(ctx, electObj)
 
 		// init auto scaling controller
