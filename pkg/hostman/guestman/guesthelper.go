@@ -37,14 +37,15 @@ type SSrcPrepareMigrate struct {
 }
 
 type SDestPrepareMigrate struct {
-	Sid             string
-	ServerUrl       string
-	QemuVersion     string
-	SnapshotsUri    string
-	DisksUri        string
-	TargetStorageId string
-	LiveMigrate     bool
-	RebaseDisks     bool
+	Sid          string
+	ServerUrl    string
+	QemuVersion  string
+	SnapshotsUri string
+	DisksUri     string
+	// TargetStorageId string
+	TargetStorageIds []string
+	LiveMigrate      bool
+	RebaseDisks      bool
 
 	Desc             jsonutils.JSONObject
 	DisksBackingFile jsonutils.JSONObject
