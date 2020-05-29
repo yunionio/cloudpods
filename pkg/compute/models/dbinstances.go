@@ -358,8 +358,14 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 		if !region.GetDriver().IsSupportedBillingCycle(billingCycle, man.KeywordPlural()) {
 			return nil, httperrors.NewInputParameterError("unsupported duration %s", input.Duration)
 		}
-		input.BillingType = billing_api.BILLING_TYPE_PREPAID
+
+		if !utils.IsInStringArray(input.BillingType, []string{billing_api.BILLING_TYPE_PREPAID, billing_api.BILLING_TYPE_POSTPAID}) {
+			input.BillingType = billing_api.BILLING_TYPE_PREPAID
+		}
+
+		tm := time.Time{}
 		input.BillingCycle = billingCycle.String()
+		input.ExpiredAt = billingCycle.EndAt(tm)
 	}
 
 	if len(input.InstanceType) == 0 && (input.VcpuCount == 0 || input.VmemSizeMb == 0) {

@@ -4356,8 +4356,11 @@ func (manager *SGuestManager) CleanPendingDeleteServers(ctx context.Context, use
 }
 
 func (manager *SGuestManager) getExpiredPrepaidGuests() []SGuest {
-	q := ListExpiredPostpaidResources(manager.Query(), options.Options.ExpiredPrepaidMaxCleanBatchSize)
-	q = q.IsFalse("pending_deleted")
+	deadline := time.Now().Add(time.Duration(options.Options.PrepaidExpireCheckSeconds*-1) * time.Second)
+
+	q := manager.Query()
+	q = q.Equals("billing_type", billing_api.BILLING_TYPE_PREPAID).LT("expired_at", deadline).
+		IsFalse("pending_deleted").Limit(options.Options.ExpiredPrepaidMaxCleanBatchSize)
 
 	guests := make([]SGuest, 0)
 	err := db.FetchModelObjects(GuestManager, q, &guests)
@@ -4386,9 +4389,8 @@ func (manager *SGuestManager) getNeedRenewPrepaidGuests() ([]SGuest, error) {
 }
 
 func (manager *SGuestManager) getExpiredPostpaidGuests() []SGuest {
-	deadline := time.Now()
-	q := manager.Query().Equals("billing_type", billing_api.BILLING_TYPE_POSTPAID).IsFalse("pending_deleted").
-		LT("expired_at", deadline).Limit(options.Options.ExpiredPrepaidMaxCleanBatchSize)
+	q := ListExpiredPostpaidResources(manager.Query(), options.Options.ExpiredPrepaidMaxCleanBatchSize)
+	q = q.IsFalse("pending_deleted")
 	guests := make([]SGuest, 0)
 	err := db.FetchModelObjects(GuestManager, q, &guests)
 	if err != nil {

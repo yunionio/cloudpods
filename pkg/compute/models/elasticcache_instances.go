@@ -660,6 +660,22 @@ func (manager *SElasticcacheManager) ValidateCreateData(ctx context.Context, use
 		return nil, fmt.Errorf("getting region failed")
 	}
 
+	// postpiad billing cycle
+	billingType, _ := data.GetString("billing_type")
+	if billingType == billing_api.BILLING_TYPE_POSTPAID {
+		billingCycle, _ := data.GetString("duration")
+		if len(billingCycle) > 0 {
+			cycle, err := bc.ParseBillingCycle(billingCycle)
+			if err != nil {
+				return nil, httperrors.NewInputParameterError("invalid billing_cycle %s", billingCycle)
+			}
+
+			tm := time.Time{}
+			data.Set("billing_cycle", jsonutils.NewString(cycle.String()))
+			data.Set("expired_at", jsonutils.NewString(cycle.EndAt(tm).Format("2006-01-02 15:04:05")))
+		}
+	}
+
 	input := apis.VirtualResourceCreateInput{}
 	var err error
 	err = data.Unmarshal(&input)

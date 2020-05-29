@@ -14,7 +14,11 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"time"
+
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 type DBInstanceCreateInput struct {
 	apis.VirtualResourceCreateInput
@@ -75,6 +79,10 @@ type DBInstanceCreateInput struct {
 	Duration string `json:"duration"`
 
 	// swagger:ignore
+	ExpiredAt time.Time `json:"expired_at"`
+
+	// 计费方式
+	// enum: postpaid, prepaid
 	BillingType string
 	// swagger:ignore
 	BillingCycle string
