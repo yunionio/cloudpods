@@ -598,23 +598,27 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 		return nil, err
 	}
 
-	if len(migParams.TargetStorageId) > 0 {
-		iStorage := storageman.GetManager().GetStorage(migParams.TargetStorageId)
-		if iStorage == nil {
-			return nil, fmt.Errorf("Target storage %s not found", migParams.TargetStorageId)
-		}
+	disks, _ := migParams.Desc.GetArray("disks")
+	if len(migParams.TargetStorageIds) > 0 {
+		for i := 0; i < len(migParams.TargetStorageIds); i++ {
+			iStorage := storageman.GetManager().GetStorage(migParams.TargetStorageIds[i])
+			if iStorage == nil {
+				return nil, fmt.Errorf("Target storage %s not found", migParams.TargetStorageIds[i])
+			}
 
-		err := iStorage.DestinationPrepareMigrate(
-			ctx, migParams.LiveMigrate, migParams.DisksUri, migParams.SnapshotsUri,
-			migParams.Desc, migParams.DisksBackingFile, migParams.SrcSnapshots, migParams.RebaseDisks)
-		if err != nil {
-			return nil, fmt.Errorf("dest prepare migrate failed %s", err)
+			err := iStorage.DestinationPrepareMigrate(
+				ctx, migParams.LiveMigrate, migParams.DisksUri, migParams.SnapshotsUri,
+				migParams.DisksBackingFile, migParams.SrcSnapshots, migParams.RebaseDisks, disks[i],
+			)
+			if err != nil {
+				return nil, fmt.Errorf("dest prepare migrate failed %s", err)
+			}
 		}
-
-		if err = guest.SaveDesc(migParams.Desc); err != nil {
+		if err := guest.SaveDesc(migParams.Desc); err != nil {
 			log.Errorln(err)
 			return nil, err
 		}
+
 	}
 
 	if migParams.LiveMigrate {
