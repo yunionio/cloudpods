@@ -15,6 +15,7 @@
 package compute
 
 import (
+	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -24,6 +25,20 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
+
+type Timer struct {
+	TimingExecTime string `help:"Exectime for 'timing' type trigger, format:'2006-01-02 15:04:05'" json:"exec_time"`
+}
+
+type CycleTimer struct {
+	CycleCycleType string `help:"Cycle type for cycle timer" json:"cycle_type" choices:"day|week|month"`
+	CycleMinute    int    `help:"Minute of cycle timer" json:"minute"`
+	CycleHour      int    `help:"Hour of cycle timer" json:"hour"`
+	CycleWeekdays  []int  `help:"Weekdays for cycle timer" json:"weekdays"`
+	CycleMonthDays []int  `help:"Month days for cycle timer" json:"month_days"`
+	CycleStartTime string `help:"Start time for cycle timer, format:'2006-01-02 15:04:05'" json:"start_time"`
+	CycleEndTime   string `help:"End time for cycle timer, format:'2006-01-02 15:04:05'" json:"end_time"`
+}
 
 func init() {
 	type ScalingPolicyListOptions struct {
@@ -57,20 +72,6 @@ func init() {
 		return nil
 	})
 
-	type ScalingTimer struct {
-		TimingExecTime time.Time `help:"Exectime for 'timing' type trigger" json:"exec_time"`
-	}
-
-	type ScalingCycleTimer struct {
-		CycleCycleType string    `help:"Cycle type for 'cycle' type trigger" json:"cycle_type"`
-		CycleMinute    int       `help:"Minute of 'cycle' type trigger" json:"minute"`
-		CycleHour      int       `help:"Hour of 'cycle' type trigger" json:"hour"`
-		CycleWeekdays  []int     `help:"Weekdays for 'cycle' type trigger" json:"weekdays"`
-		CycleMonthDays []int     `help:"Month days for 'cycle' type trigger" json:"month_days"`
-		CycleStartTime time.Time `help:"Start time for 'cycle' type trigger" json:"start_time"`
-		CycleEndTime   time.Time `help:"End time for 'cycle' type trigger" json:"end_time"`
-	}
-
 	type ScalingAlarm struct {
 		AlarmCumulate  int     `help:"Cumulate times alarm will trigger, for 'alarm' trigger" json:"cumulate"`
 		AlarmCycle     int     `help:"Monitoring cycle for indicators, for 'alarm' trigger" json:"cycle"`
@@ -85,8 +86,8 @@ func init() {
 		ScalingGroup string `help:"ScalingGroup ID or Name" json:"scaling_group"`
 		TriggerType  string `help:"Trigger type" choices:"alarm|timing|cycle" json:"trigger_type"`
 
-		ScalingTimer
-		ScalingCycleTimer
+		Timer
+		CycleTimer
 		ScalingAlarm
 
 		Action      string `help:"Action for scaling policy" choices:"add|remove|set" json:"action"`
@@ -97,20 +98,33 @@ func init() {
 
 	R(&ScalingPolicyCreateOptions{}, "scaling-policy-create", "Create Scaling Policy",
 		func(s *mcclient.ClientSession, args *ScalingPolicyCreateOptions) error {
+			formatStr := "2006-01-02 15:04:05"
+			timingExecTime, err := time.Parse(formatStr, args.TimingExecTime)
+			if err != nil {
+				return fmt.Errorf("invalid time format for 'exec_time'")
+			}
+			cycleStarTime, err := time.Parse(formatStr, args.CycleStartTime)
+			if err != nil {
+				return fmt.Errorf("invalid time format for 'start_time'")
+			}
+			cycleEndTime, err := time.Parse(formatStr, args.CycleEndTime)
+			if err != nil {
+				return fmt.Errorf("invalid time format for 'end_time'")
+			}
 			spCreateInput := api.ScalingPolicyCreateInput{
 				ScalingGroup: args.ScalingGroup,
 				TriggerType:  args.TriggerType,
-				Timer: api.ScalingTimerCreateInput{
-					ExecTime: args.TimingExecTime,
+				Timer: api.TimerCreateInput{
+					ExecTime: timingExecTime,
 				},
-				CycleTimer: api.ScalingCycleTimerCreateInput{
+				CycleTimer: api.CycleTimerCreateInput{
 					CycleType: args.CycleCycleType,
 					Minute:    args.CycleMinute,
 					Hour:      args.CycleHour,
 					WeekDays:  args.CycleWeekdays,
 					MonthDays: args.CycleMonthDays,
-					StartTime: args.CycleStartTime,
-					EndTime:   args.CycleEndTime,
+					StartTime: cycleStarTime,
+					EndTime:   cycleEndTime,
 				},
 				Alarm: api.ScalingAlarmCreateInput{
 					Cumulate:  args.AlarmCumulate,

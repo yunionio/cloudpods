@@ -150,7 +150,7 @@ type ScalingGroupResourceInfo struct {
 }
 
 type ScalingGroupFilterListInput struct {
-	// descirption: 伸缩组 Id or Name
+	// description: 伸缩组 Id or Name
 	// example: sg-1234
 	ScalingGroup string `json:"scaling_group"`
 }

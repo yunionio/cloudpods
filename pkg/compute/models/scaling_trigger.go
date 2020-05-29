@@ -18,7 +18,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -35,7 +34,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
-	"yunion.io/x/onecloud/pkg/util/bitmap"
 )
 
 type IScalingTriggerDesc interface {
@@ -97,30 +95,7 @@ type SScalingTimer struct {
 
 	SScalingPolicyBase
 
-	// Timer type
-	Type string `width:"8" charset:"ascii"`
-
-	// 0-59
-	Minute int `nullable:"false"`
-
-	// 0-23
-	Hour int `nullable:"false"`
-
-	// 0-7 1 is Monday 0 is unlimited
-	WeekDays uint8 `nullable:"false"`
-
-	// 0-31 0 is unlimited
-	MonthDays uint32 `nullable:"false"`
-
-	// StartTime represent the start time of this timer
-	StartTime time.Time
-
-	// EndTime represent deadline of this timer
-	EndTime time.Time
-
-	// NextTime represent the time timer should bell
-	NextTime  time.Time `index:"true"`
-	IsExpired bool
+	STimer
 }
 
 type SScalingAlarmManager struct {
@@ -181,111 +156,6 @@ func init() {
 	ScalingAlarmManager.SetVirtualObject(ScalingAlarmManager)
 }
 
-func (st *SScalingTimer) GetWeekDays() []int {
-	return bitmap.Uint2IntArray(uint32(st.WeekDays))
-}
-
-func (st *SScalingTimer) GetMonthDays() []int {
-	return bitmap.Uint2IntArray(st.MonthDays)
-}
-
-func (st *SScalingTimer) SetWeekDays(days []int) {
-	st.WeekDays = uint8(bitmap.IntArray2Uint(days))
-}
-
-func (st *SScalingTimer) SetMonthDays(days []int) {
-	st.MonthDays = bitmap.IntArray2Uint(days)
-}
-
-// Update will update the SScalingTimer
-func (st *SScalingTimer) Update(now time.Time) {
-	if now.IsZero() {
-		now = time.Now()
-	}
-	if !now.Before(st.EndTime) {
-		st.IsExpired = true
-		return
-	}
-	if now.Before(st.StartTime) {
-		now = st.StartTime
-	}
-	if !st.NextTime.Before(now) {
-		return
-	}
-
-	newNextTime := time.Date(now.Year(), now.Month(), now.Day(), st.Hour, st.Minute, 0, 0, now.Location())
-	if now.After(newNextTime) {
-		newNextTime = newNextTime.AddDate(0, 0, 1)
-	}
-	switch {
-	case st.WeekDays != 0:
-		// week
-		nowDay, weekdays := int(newNextTime.Weekday()), st.GetWeekDays()
-		if nowDay == 0 {
-			nowDay = 7
-		}
-
-		// weekdays[0]+7 is for the case that all time nodes has been missed in this week
-		weekdays = append(weekdays, weekdays[0]+7)
-		index := sort.SearchInts(weekdays, nowDay)
-		newNextTime = newNextTime.AddDate(0, 0, weekdays[index]-nowDay)
-	case st.MonthDays != 0:
-		// month
-		monthdays := st.GetMonthDays()
-		suitTime := newNextTime
-		for {
-			day := suitTime.Day()
-			index := sort.SearchInts(monthdays, day)
-			if index == len(monthdays) || monthdays[index] > st.MonthDaySum(suitTime) {
-				// set suitTime as the first day of next month
-				suitTime = suitTime.AddDate(0, 1, -suitTime.Day()+1)
-				continue
-			}
-			newNextTime = time.Date(suitTime.Year(), suitTime.Month(), monthdays[index], suitTime.Hour(),
-				suitTime.Minute(), 0, 0, suitTime.Location())
-			break
-		}
-	default:
-		// day
-
-	}
-	log.Debugf("The final NextTime: %s", newNextTime)
-	st.NextTime = newNextTime
-	if st.NextTime.After(st.EndTime) {
-		st.IsExpired = true
-	}
-}
-
-// MonthDaySum calculate the number of month's days
-func (st *SScalingTimer) MonthDaySum(t time.Time) int {
-	year, month := t.Year(), t.Month()
-	monthDays := []int{31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
-	if month != 2 {
-		return monthDays[2]
-	}
-	if year%4 != 0 || (year%100 == 0 && year%400 != 0) {
-		return 28
-	}
-	return 29
-}
-
-func (st *SScalingTimer) TimerDetails() api.ScalingTimerDetails {
-	return api.ScalingTimerDetails{ExecTime: st.EndTime}
-}
-
-func (st *SScalingTimer) CycleTimerDetails() api.ScalingCycleTimerDetails {
-	out := api.ScalingCycleTimerDetails{
-		Minute:    st.Minute,
-		Hour:      st.Hour,
-		WeekDays:  st.GetWeekDays(),
-		MonthDays: st.GetMonthDays(),
-		StartTime: st.StartTime,
-		EndTime:   st.EndTime,
-		CycleType: st.Type,
-	}
-	return out
-}
-
 func (sa *SScalingAlarm) AlarmDetails() api.ScalingAlarmDetails {
 	return api.ScalingAlarmDetails{
 		Cumulate:  sa.Cumulate,
@@ -298,40 +168,13 @@ func (sa *SScalingAlarm) AlarmDetails() api.ScalingAlarmDetails {
 }
 
 func (st *SScalingTimer) ValidateCreateData(input api.ScalingPolicyCreateInput) (api.ScalingPolicyCreateInput, error) {
-	now := time.Now()
+	var err error
 	if input.TriggerType == api.TRIGGER_TIMING {
-		if now.After(input.Timer.ExecTime) {
-			return input, fmt.Errorf("exec_time is earlier than now")
-		}
-		return input, nil
+		input.Timer, err = checkTimerCreateInput(input.Timer)
+		return input, err
 	}
-	if input.CycleTimer.Minute < 0 || input.CycleTimer.Minute > 59 {
-		return input, fmt.Errorf("minute should between 0 and 59")
-	}
-	if input.CycleTimer.Hour < 0 || input.CycleTimer.Hour > 23 {
-		return input, fmt.Errorf("hour should between 0 and 23")
-	}
-	switch input.CycleTimer.CycleType {
-	case api.TIMER_TYPE_DAY:
-		input.CycleTimer.WeekDays = []int{}
-		input.CycleTimer.MonthDays = []int{}
-	case api.TIMER_TYPE_WEEK:
-		if len(input.CycleTimer.WeekDays) == 0 {
-			return input, fmt.Errorf("week_days should not be empty")
-		}
-		input.CycleTimer.MonthDays = []int{}
-	case api.TIMER_TYPE_MONTH:
-		if len(input.CycleTimer.MonthDays) == 0 {
-			return input, fmt.Errorf("month_days should not be empty")
-		}
-		input.CycleTimer.WeekDays = []int{}
-	default:
-		return input, fmt.Errorf("unkown cycle type %s", input.CycleTimer.CycleType)
-	}
-	if now.After(input.CycleTimer.EndTime) {
-		return input, fmt.Errorf("end_time is earlier than now")
-	}
-	return input, nil
+	input.CycleTimer, err = checkCycleTimerCreateInput(input.CycleTimer)
+	return input, err
 }
 
 func (st *SScalingTimer) Register(ctx context.Context, userCred mcclient.TokenCredential) error {
