@@ -324,6 +324,7 @@ func (manager *SDBInstanceDatabaseManager) FetchCustomizeColumns(
 	for i := range rows {
 		if dbinstance, ok := dbinstances[dbinstanceIds[i]]; ok {
 			virObjs[i] = &dbinstance
+			rows[i].ProjectId = dbinstance.ProjectId
 		}
 	}
 
