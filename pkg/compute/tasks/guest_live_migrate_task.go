@@ -105,6 +105,17 @@ func (self *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj ISched
 	isLocalStorage := utils.IsInStringArray(disk.GetStorage().StorageType,
 		api.STORAGE_LOCAL_TYPES)
 	if isLocalStorage {
+		targetStorages := jsonutils.NewArray()
+		for i := 0; i < len(disks); i++ {
+			var targetStroage string
+			if len(target.Disks[i].StorageIds) == 0 {
+				targetStroage = targetHost.GetLeastUsedStorage(disk.GetStorage().StorageType).Id
+			} else {
+				targetStroage = target.Disks[i].StorageIds[0]
+			}
+			targetStorages.Add(jsonutils.NewString(targetStroage))
+		}
+		body.Set("target_storages", targetStorages)
 		body.Set("is_local_storage", jsonutils.JSONTrue)
 	} else {
 		body.Set("is_local_storage", jsonutils.JSONFalse)
@@ -309,19 +320,14 @@ func (self *GuestMigrateTask) localStorageMigrateConf(ctx context.Context,
 		self.TaskFailed(ctx, guest, "Get disksDesc error")
 		return nil, true
 	}
-	targetStorageId, _ := disksDesc[0].GetString("target_storage_id")
-	if len(targetStorageId) == 0 {
-		self.TaskFailed(ctx, guest, "Get targetStorageId error")
-		return nil, true
+	targetStorages, _ := self.Params.GetArray("target_storages")
+	for i := 0; i < len(disks); i++ {
+		diskDesc := disksDesc[i].(*jsonutils.JSONDict)
+		diskDesc.Set("target_storage_id", targetStorages[i])
 	}
 
-	targetStorage := targetHost.GetHoststorageOfId(targetStorageId)
-	sourceStorage := sourceHost.GetHoststorageOfId(disks[0].GetDisk().StorageId)
-	if sourceStorage.MountPoint != targetStorage.MountPoint {
-		// rebase disks backing file
-		body.Set("rebase_disks", jsonutils.JSONTrue)
-	}
 	body.Set("desc", targetDesc)
+	body.Set("rebase_disks", jsonutils.JSONTrue)
 	body.Set("is_local_storage", jsonutils.JSONTrue)
 	return body, false
 }
@@ -363,20 +369,19 @@ func (self *GuestLiveMigrateTask) OnStartDestCompleteFailed(ctx context.Context,
 func (self *GuestMigrateTask) setGuest(ctx context.Context, guest *models.SGuest) error {
 	targetHostId, _ := self.Params.GetString("target_host_id")
 	if jsonutils.QueryBoolean(self.Params, "is_local_storage", false) {
-		targetHost := models.HostManager.FetchHostById(targetHostId)
-		targetStorage := targetHost.GetLeastUsedStorage(api.STORAGE_LOCAL)
+		targetStorages, _ := self.Params.GetArray("target_storages")
 		guestDisks := guest.GetDisks()
 		for i := 0; i < len(guestDisks); i++ {
 			disk := guestDisks[i].GetDisk()
 			db.Update(disk, func() error {
 				disk.Status = api.DISK_READY
-				disk.StorageId = targetStorage.Id
+				disk.StorageId, _ = targetStorages[i].GetString()
 				return nil
 			})
 			snapshots := models.SnapshotManager.GetDiskSnapshots(disk.Id)
 			for _, snapshot := range snapshots {
 				db.Update(&snapshot, func() error {
-					snapshot.StorageId = targetStorage.Id
+					snapshot.StorageId, _ = targetStorages[i].GetString()
 					return nil
 				})
 			}
