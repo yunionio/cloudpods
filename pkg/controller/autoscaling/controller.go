@@ -586,6 +586,7 @@ func (asc *SASController) checkAllServer(session *mcclient.ClientSession, guestI
 				ret, e := modules.Servers.GetSpecific(session, id, "status", nil)
 				if e != nil {
 					log.Errorf("Servers.GetSpecific failed: %s", e)
+					<-ticker.C
 					continue
 				}
 				log.Debugf("ret from GetSpecific: %s", ret.String())
