@@ -113,7 +113,7 @@ type IStorage interface {
 	GetImgsaveBackupPath() string
 
 	DestinationPrepareMigrate(ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string,
-		desc, disksBackingFile, srcSnapshots jsonutils.JSONObject, rebaseDisks bool) error
+		disksBackingFile, srcSnapshots jsonutils.JSONObject, rebaseDisks bool, diskDesc jsonutils.JSONObject) error
 }
 
 type SBaseStorage struct {
@@ -303,7 +303,7 @@ func (s *SBaseStorage) CreateDiskFromSnpashot(ctx context.Context, disk IDisk, c
 
 func (s *SBaseStorage) DestinationPrepareMigrate(
 	ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string,
-	desc, disksBackingFile, srcSnapshots jsonutils.JSONObject, rebaseDisks bool,
+	disksBackingFile, srcSnapshots jsonutils.JSONObject, rebaseDisks bool, diskinfo jsonutils.JSONObject,
 ) error {
 	return nil
 }
