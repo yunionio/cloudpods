@@ -175,7 +175,7 @@ func (e *InfluxdbExecutor) createRequest(dsInfo *tsdb.DataSource, query string) 
 
 	params := req.URL.Query()
 	params.Set("db", dsInfo.Database)
-	params.Set("epoch", "s")
+	params.Set("epoch", "ms")
 
 	req.Header.Set("Content-type", "application/x-www-form-urlencoded")
 

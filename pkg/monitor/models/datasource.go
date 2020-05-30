@@ -18,7 +18,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -280,10 +279,14 @@ func getAttributesOnMeasurement(database, tp string, output *monitor.InfluxMeasu
 }
 
 func getTagValue(database string, output *monitor.InfluxMeasurement, db *influxdb.SInfluxdb) error {
-
-	dbRtn, err := db.Query(fmt.Sprintf("SHOW TAG VALUES ON %s FROM %s WITH KEY IN (%s)", database, output.Measurement, strings.Join(output.TagKey, ",")))
+	if len(output.TagKey) == 0 {
+		return nil
+	}
+	tagKeyStr := jsonutils.NewStringArray(output.TagKey).String()
+	tagKeyStr = tagKeyStr[1 : len(tagKeyStr)-1]
+	dbRtn, err := db.Query(fmt.Sprintf("SHOW TAG VALUES ON %s FROM %s WITH KEY IN (%s)", database, output.Measurement, tagKeyStr))
 	if err != nil {
-		return errors.Wrap(err, "SHOW MEASUREMENTS")
+		return err
 	}
 	res := dbRtn[0][0]
 	tagValue := make(map[string][]string, 0)

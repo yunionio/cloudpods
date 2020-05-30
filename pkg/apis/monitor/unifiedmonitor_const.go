@@ -11,6 +11,18 @@ var (
 	UNIFIED_MONITOR_GROUPBY_OPT_VALUE = map[string][]string{
 		"fill": {"linear", "none", "previous", "0"},
 	}
+
+	MEASUREMENT_TAG_KEYWORD = map[string]string{
+		"cpu":       "host",
+		"disk":      "device",
+		"mem":       "host",
+		"net":       "host",
+		"netstat":   "host",
+		"vm_cpu":    "vm_name",
+		"vm_diskio": "vm_name",
+		"vm_mem":    "vm_name",
+		"vm_netio":  "vm_name",
+	}
 )
 
 type MetricFunc struct {

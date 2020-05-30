@@ -17,6 +17,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	mq "yunion.io/x/onecloud/pkg/monitor/metricquery"
+	"yunion.io/x/onecloud/pkg/monitor/tsdb"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
 )
 
@@ -154,10 +155,22 @@ func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred m
 			return jsonutils.NewDict(), err
 		}
 	}
+
+	var groupByTag = make([]string, 0)
+	for _, query := range inputQuery.MetricQuery {
+		for _, group := range query.Model.GroupBy {
+			if group.Type == "tag" {
+				groupByTag = append(groupByTag, group.Params[0])
+			}
+		}
+	}
+
 	rtn, err := doQuery(*inputQuery)
 	if err != nil {
 		return jsonutils.NewDict(), err
 	}
+
+	setSerieRowName(&rtn.Series, groupByTag)
 	return jsonutils.Marshal(rtn), nil
 }
 
@@ -233,4 +246,47 @@ func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricInputQ
 func setDataSourceId(query *monitor.AlertQuery) {
 	datasource, _ := DataSourceManager.GetDefaultSource()
 	query.DataSourceId = datasource.Id
+}
+
+func setSerieRowName(series *tsdb.TimeSeriesSlice, groupTag []string) {
+	//Add rowname，The front end displays the curve according to rowname
+	var index, unknownIndex = 1, 1
+	for i, serie := range *series {
+		//setRowName by groupTag
+		if len(groupTag) != 0 {
+			for key, val := range serie.Tags {
+
+				if strings.Contains(strings.Join(groupTag, ","), key) {
+					serie.RawName = fmt.Sprintf("%s", val)
+					(*series)[i] = serie
+					break
+				}
+			}
+			continue
+		}
+
+		//sep measurement set RowName by spe param
+		measurement := strings.Split(serie.Name, ".")[0]
+		if key, ok := monitor.MEASUREMENT_TAG_KEYWORD[measurement]; ok {
+			serie.RawName = serie.Tags[key]
+			(*series)[i] = serie
+			continue
+		}
+
+		//other condition set RowName
+		for key, val := range serie.Tags {
+			if strings.Contains(key, "id") {
+				serie.RawName = fmt.Sprintf("%d: %s", index, val)
+				(*series)[i] = serie
+				index++
+				break
+			}
+		}
+		if serie.RawName == "" {
+			serie.RawName = fmt.Sprintf("unknown-%d", unknownIndex)
+			(*series)[i] = serie
+			unknownIndex++
+		}
+	}
+
 }
