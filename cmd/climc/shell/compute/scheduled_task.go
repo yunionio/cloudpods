@@ -161,6 +161,21 @@ func init() {
 		},
 	)
 
+	type ScheduledTaskTriggerOptions struct {
+		ID string `help:"ScheduledTask ID or Name"`
+	}
+	R(&ScheduledTaskTriggerOptions{}, "scheduledtask-trigger", "Trigger ScheduledTask",
+		func(s *mcclient.ClientSession, args *ScheduledTaskTriggerOptions) error {
+			params := jsonutils.NewDict()
+			ret, err := modules.ScheduledTask.PerformAction(s, args.ID, "trigger", params)
+			if err != nil {
+				return err
+			}
+			printObject(ret)
+			return nil
+		},
+	)
+
 	type ScheduledTaskDeleteOptions struct {
 		ID string `help:"ScheduledTask ID or Name"`
 	}
