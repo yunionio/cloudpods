@@ -64,7 +64,7 @@ func (manager *SModelBaseManager) IsStandaloneManager() bool {
 func (manager *SModelBaseManager) GetIModelManager() IModelManager {
 	virt := manager.GetVirtualObject()
 	if virt == nil {
-		panic(fmt.Sprintf("Forgot to call SetVirtualObject?"))
+		panic(fmt.Sprintf("[%s] Forgot to call SetVirtualObject?", manager.Keyword()))
 	}
 	r, ok := virt.(IModelManager)
 	if !ok {

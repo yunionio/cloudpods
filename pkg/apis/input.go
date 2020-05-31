@@ -17,7 +17,7 @@ package apis
 type DomainizedResourceInput struct {
 	// 指定项目归属域名称或ID
 	// required: false
-	ProjectDomain string `json:"project_domain"`
+	ProjectDomain string `json:"project_domain" help:"name or id of the belonging domain"`
 
 	// swagger:ignore
 	// Deprecated
@@ -62,11 +62,11 @@ type ProjectizedResourceCreateInput struct {
 type SharableResourceBaseCreateInput struct {
 	// 是否共享
 	// required: false
-	IsPublic *bool `json:"is_public"`
+	IsPublic *bool `json:"is_public" token:"public" negative:"private" help:"Turn on/off public/private"`
 
 	// 共享范围
 	// required: false
-	PublicScope string `json:"public_scope"`
+	PublicScope string `json:"public_scope" help:"set public_scope, either project, domain or system" choices:"project|domain|system"`
 }
 
 type SharableVirtualResourceCreateInput struct {
@@ -87,11 +87,11 @@ type VirtualResourceCreateInput struct {
 type EnabledBaseResourceCreateInput struct {
 	// 该资源是否被管理员*人为*启用或者禁用
 	// required: false
-	Enabled *bool `json:"enabled"`
+	Enabled *bool `json:"enabled" help:"turn on enabled flag"`
 
 	// 该资源是否被管理员*人为*禁用, 和enabled互斥
 	// required: false
-	Disabled *bool `json:"disabled"`
+	Disabled *bool `json:"disabled" help:"turn off enabled flag"`
 }
 
 func (input *EnabledBaseResourceCreateInput) AfterUnmarshal() {
@@ -104,7 +104,7 @@ func (input *EnabledBaseResourceCreateInput) AfterUnmarshal() {
 type StatusBaseResourceCreateInput struct {
 	// 用来存储资源的状态
 	// required: false
-	Status string `json:"status"`
+	Status string `json:"status" help:"set initial status"`
 }
 
 type EnabledStatusDomainLevelResourceCreateInput struct {
@@ -140,28 +140,28 @@ type StandaloneResourceCreateInput struct {
 	// unique: true
 	// required: true
 	// example: test-network
-	Name string `json:"name"`
+	Name string `json:"name" help:"name of newly created resource" positional:"true" required:"true"`
 
 	// 生成资源名称的模板，如果name为空，则为必填项
 	// description: generated resource name, given a pattern to generate name, required if name is not given
 	// unique: false
 	// required: false
 	// example: test###
-	GenerateName string `json:"generate_name"`
+	GenerateName string `json:"generate_name" help:"pattern for generating name if no name is given"`
 
 	// 资源描述
 	// required: false
 	// example: test create network
-	Description string `json:"description"`
+	Description string `json:"description" token:"desc" help:"description"`
 
 	// 资源是否为模拟资源
 	// description: the resource is an emulated resource
 	// required: false
-	IsEmulated *bool `json:"is_emulated"`
+	IsEmulated *bool `json:"is_emulated" token:"emulated" negative:"no_emulated" help:"set is_emulated flag"`
 
 	// 标签列表,最多支持20个
 	// example: { "user:rd": "op" }
-	Metadata map[string]string `json:"__meta__"`
+	Metadata map[string]string `json:"__meta__" token:"tag" help:"tags in the form of key=value"`
 }
 
 type JoinResourceBaseCreateInput struct {

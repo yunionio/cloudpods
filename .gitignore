@@ -35,3 +35,5 @@ GPATH
 GRTAGS
 GTAGS
 pkg/generated
+
+*.orig
