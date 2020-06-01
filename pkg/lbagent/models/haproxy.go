@@ -581,7 +581,6 @@ frontend {{ .id }}
 	{{- println }}
 	{{- if .log }}	{{ println "option httplog clf" }} {{- end }}
 	{{- if .acl }}	{{ println .acl }} {{- end}}
-	{{- range .rate_rules }}	{{ println . }} {{- end }}
 	{{- if .client_request_timeout }}	timeout http-request {{ println .client_request_timeout }} {{- end}}
 	{{- if .client_idle_timeout }}	timeout http-keep-alive {{ println .client_idle_timeout }} {{- end}}
 	{{- if .xforwardedfor }}	{{ println "option forwardfor" }} {{- end}}
