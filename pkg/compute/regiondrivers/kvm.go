@@ -313,9 +313,6 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx con
 	if listenerType != api.LB_LISTENER_TYPE_HTTP && listenerType != api.LB_LISTENER_TYPE_HTTPS {
 		return nil, httperrors.NewInputParameterError("listener type must be http/https, got %s", listenerType)
 	}
-	if listener.Redirect != api.LB_REDIRECT_OFF {
-		return nil, httperrors.NewInputParameterError("do not allow adding rules for redirect listener")
-	}
 
 	{
 		if redirectV.Value == api.LB_REDIRECT_OFF {
