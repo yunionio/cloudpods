@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -1119,4 +1120,16 @@ func (self *SKVMRegionDriver) RequestElasticcacheBackupRestoreInstance(ctx conte
 
 func (self *SKVMRegionDriver) AllowUpdateElasticcacheAuthMode(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, elasticcache *models.SElasticcache) error {
 	return fmt.Errorf("not support update kvm elastic cache auth_mode")
+}
+
+func (self *SKVMRegionDriver) RequestSyncBucketStatus(ctx context.Context, userCred mcclient.TokenCredential, bucket *models.SBucket, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iBucket, err := bucket.GetIBucket()
+		if err != nil {
+			return nil, errors.Wrap(err, "bucket.GetIBucket")
+		}
+
+		return nil, bucket.SetStatus(userCred, iBucket.GetStatus(), "syncstatus")
+	})
+	return nil
 }
