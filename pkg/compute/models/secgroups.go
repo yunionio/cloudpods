@@ -719,18 +719,21 @@ func (manager *SSecurityGroupManager) DelaySync(ctx context.Context, userCred mc
 	} else {
 		needSync := false
 
-		lockman.LockObject(ctx, secgrp)
-		defer lockman.ReleaseObject(ctx, secgrp)
+		func() {
+			lockman.LockObject(ctx, secgrp)
+			defer lockman.ReleaseObject(ctx, secgrp)
 
-		if secgrp.IsDirty {
-			if _, err := db.Update(secgrp, func() error {
-				secgrp.IsDirty = false
-				return nil
-			}); err != nil {
-				log.Errorf("Update Security Group error: %s", err.Error())
+			if secgrp.IsDirty {
+				if _, err := db.Update(secgrp, func() error {
+					secgrp.IsDirty = false
+					return nil
+				}); err != nil {
+					log.Errorf("Update Security Group error: %s", err.Error())
+				}
+				needSync = true
 			}
-			needSync = true
-		}
+		}()
+
 		if needSync {
 			for _, guest := range secgrp.GetGuests() {
 				guest.StartSyncTask(ctx, userCred, true, "")
@@ -747,7 +750,7 @@ func (self *SSecurityGroup) DoSync(ctx context.Context, userCred mcclient.TokenC
 		log.Errorf("Update Security Group error: %s", err.Error())
 	}
 	time.AfterFunc(10*time.Second, func() {
-		SecurityGroupManager.DelaySync(ctx, userCred, self.Id)
+		SecurityGroupManager.DelaySync(context.Background(), userCred, self.Id)
 	})
 }
 
