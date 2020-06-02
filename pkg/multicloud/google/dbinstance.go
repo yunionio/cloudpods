@@ -498,7 +498,7 @@ func (rds *SDBInstance) CreateDatabase(conf *cloudprovider.SDBInstanceDatabaseCr
 }
 
 func (rds *SDBInstance) CreateAccount(conf *cloudprovider.SDBInstanceAccountCreateConfig) error {
-	return rds.region.CreateDBInstanceAccount(rds.SelfLink, conf.Name, conf.Password, "")
+	return rds.region.CreateDBInstanceAccount(rds.SelfLink, conf.Name, conf.Password, "%")
 }
 
 func (rds *SDBInstance) CreateIBackup(conf *cloudprovider.SDBInstanceBackupCreateConfig) (string, error) {
