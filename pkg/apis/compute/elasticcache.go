@@ -73,6 +73,7 @@ type ElasticcacheAccountDetails struct {
 	ElasticcacheResourceInfo
 
 	SElasticcacheAccount
+	ProjectId string `json:"tenant_id"`
 }
 
 type ElasticcacheAclDetails struct {
@@ -81,6 +82,7 @@ type ElasticcacheAclDetails struct {
 	ElasticcacheResourceInfo
 
 	SElasticcacheAcl
+	ProjectId string `json:"tenant_id"`
 }
 
 type ElasticcacheParameterDetails struct {

@@ -22,4 +22,5 @@ type ElasticcacheBackupDetails struct {
 	ElasticcacheResourceInfo
 
 	SElasticcacheBackup
+	ProjectId string `json:"tenant_id"`
 }

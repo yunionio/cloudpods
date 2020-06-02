@@ -70,6 +70,7 @@ type DBInstancedatabaseDetails struct {
 
 	// 数据库权限
 	DBInstanceprivileges []DBInstancePrivilege `json:"dbinstanceprivileges"`
+	ProjectId            string                `json:"tenant_id"`
 }
 
 type DBInstanceparameterDetails struct {
