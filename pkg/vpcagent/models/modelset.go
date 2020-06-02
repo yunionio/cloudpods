@@ -35,6 +35,8 @@ type (
 
 	Guestnetworks  map[string]*Guestnetwork  // key: guestId/ifname
 	Guestsecgroups map[string]*Guestsecgroup // key: guestId/secgroupId
+
+	DnsRecords map[string]*DnsRecord
 )
 
 func (set Vpcs) ModelManager() mcclient_modulebase.IBaseManager {
@@ -527,6 +529,27 @@ func (set Elasticips) AddModel(i db.IModel) {
 
 func (set Elasticips) Copy() apihelper.IModelSet {
 	setCopy := Elasticips{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
+}
+
+func (set DnsRecords) ModelManager() mcclient_modulebase.IBaseManager {
+	return &mcclient_modules.DNSRecords
+}
+
+func (set DnsRecords) NewModel() db.IModel {
+	return &DnsRecord{}
+}
+
+func (set DnsRecords) AddModel(i db.IModel) {
+	m := i.(*DnsRecord)
+	set[m.Id] = m
+}
+
+func (set DnsRecords) Copy() apihelper.IModelSet {
+	setCopy := DnsRecords{}
 	for id, el := range set {
 		setCopy[id] = el.Copy()
 	}

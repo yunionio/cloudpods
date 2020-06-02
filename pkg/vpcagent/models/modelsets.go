@@ -31,6 +31,8 @@ type ModelSetsMaxUpdatedAt struct {
 	Guestnetworks      time.Time
 	Guestsecgroups     time.Time
 	Elasticips         time.Time
+
+	DnsRecords time.Time
 }
 
 func NewModelSetsMaxUpdatedAt() *ModelSetsMaxUpdatedAt {
@@ -45,6 +47,8 @@ func NewModelSetsMaxUpdatedAt() *ModelSetsMaxUpdatedAt {
 		Guestnetworks:      apihelper.PseudoZeroTime,
 		Guestsecgroups:     apihelper.PseudoZeroTime,
 		Elasticips:         apihelper.PseudoZeroTime,
+
+		DnsRecords: apihelper.PseudoZeroTime,
 	}
 }
 
@@ -59,6 +63,8 @@ type ModelSets struct {
 	Guestnetworks      Guestnetworks
 	Guestsecgroups     Guestsecgroups
 	Elasticips         Elasticips
+
+	DnsRecords DnsRecords
 }
 
 func NewModelSets() *ModelSets {
@@ -73,6 +79,8 @@ func NewModelSets() *ModelSets {
 		Guestnetworks:      Guestnetworks{},
 		Guestsecgroups:     Guestsecgroups{},
 		Elasticips:         Elasticips{},
+
+		DnsRecords: DnsRecords{},
 	}
 }
 
@@ -89,6 +97,8 @@ func (mss *ModelSets) ModelSetList() []apihelper.IModelSet {
 		mss.Guestnetworks,
 		mss.Guestsecgroups,
 		mss.Elasticips,
+
+		mss.DnsRecords,
 	}
 }
 
@@ -108,6 +118,8 @@ func (mss *ModelSets) copy_() *ModelSets {
 		Guestnetworks:      mss.Guestnetworks.Copy().(Guestnetworks),
 		Guestsecgroups:     mss.Guestsecgroups.Copy().(Guestsecgroups),
 		Elasticips:         mss.Elasticips.Copy().(Elasticips),
+
+		DnsRecords: mss.DnsRecords.Copy().(DnsRecords),
 	}
 	return mssCopy
 }

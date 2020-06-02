@@ -149,3 +149,13 @@ func (el *Elasticip) Copy() *Elasticip {
 		SElasticip: el.SElasticip,
 	}
 }
+
+type DnsRecord struct {
+	compute_models.SDnsRecord
+}
+
+func (el *DnsRecord) Copy() *DnsRecord {
+	return &DnsRecord{
+		SDnsRecord: el.SDnsRecord,
+	}
+}
