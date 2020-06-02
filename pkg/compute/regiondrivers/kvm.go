@@ -354,11 +354,32 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx con
 }
 
 func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerListenerRuleData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
-	lbr := ctx.Value("lbr").(*models.SLoadbalancerListenerRule)
-	domainV := validators.NewHostPortValidator("domain").OptionalPort(true)
-	pathV := validators.NewURLPathValidator("path")
-	redirectV := validators.NewStringChoicesValidator("redirect", api.LB_REDIRECT_TYPES)
-	redirectV.Default(lbr.Redirect)
+	var (
+		lbr     = ctx.Value("lbr").(*models.SLoadbalancerListenerRule)
+		domainV = validators.NewHostPortValidator("domain").OptionalPort(true)
+		pathV   = validators.NewURLPathValidator("path")
+
+		redirectV       = validators.NewStringChoicesValidator("redirect", api.LB_REDIRECT_TYPES)
+		redirectCodeV   = validators.NewIntChoicesValidator("redirect_code", api.LB_REDIRECT_CODES)
+		redirectSchemeV = validators.NewStringChoicesValidator("redirect_scheme", api.LB_REDIRECT_SCHEMES)
+		redirectHostV   = validators.NewHostPortValidator("redirect_host").OptionalPort(true)
+		redirectPathV   = validators.NewURLPathValidator("redirect_path")
+	)
+	if lbr.Redirect != "" {
+		redirectV.Default(lbr.Redirect)
+	}
+	if lbr.RedirectCode > 0 {
+		redirectCodeV.Default(int64(lbr.RedirectCode))
+	}
+	if lbr.RedirectScheme != "" {
+		redirectSchemeV.Default(lbr.RedirectScheme)
+	}
+	if lbr.RedirectHost != "" {
+		redirectHostV.Default(lbr.RedirectHost)
+	}
+	if lbr.RedirectPath != "" {
+		redirectPathV.Default(lbr.RedirectPath)
+	}
 	keyV := map[string]validators.IValidator{
 		"domain": domainV.AllowEmpty(true).Default(lbr.Domain),
 		"path":   pathV.Default(lbr.Path),
@@ -367,10 +388,10 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerListenerRuleData(ctx con
 		"http_request_rate_per_src": validators.NewNonNegativeValidator("http_request_rate_per_src"),
 
 		"redirect":        redirectV,
-		"redirect_code":   validators.NewIntChoicesValidator("redirect_code", api.LB_REDIRECT_CODES),
-		"redirect_scheme": validators.NewStringChoicesValidator("redirect_scheme", api.LB_REDIRECT_SCHEMES),
-		"redirect_host":   validators.NewHostPortValidator("redirect_host").OptionalPort(true),
-		"redirect_path":   validators.NewURLPathValidator("redirect_path"),
+		"redirect_code":   redirectCodeV,
+		"redirect_scheme": redirectSchemeV,
+		"redirect_host":   redirectHostV,
+		"redirect_path":   redirectPathV,
 	}
 	for _, v := range keyV {
 		v.Optional(true)
@@ -378,11 +399,26 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerListenerRuleData(ctx con
 			return nil, err
 		}
 	}
-	if lbr.Redirect != redirectV.Value {
-		// this can be relaxed to do not allow on/off
-		return nil, httperrors.NewInputParameterError("do not allow changing redirect type")
+
+	var (
+		redirectType = redirectV.Value
+	)
+	if redirectType != api.LB_REDIRECT_OFF {
+		if redirectType == api.LB_REDIRECT_RAW {
+			var (
+				lblis        = lbr.GetLoadbalancerListener()
+				listenerType = lblis.ListenerType
+			)
+			scheme, host, path := redirectSchemeV.Value, redirectHostV.Value, redirectPathV.Value
+			if (scheme == "" || scheme == listenerType) && host == "" && path == "" {
+				return nil, httperrors.NewInputParameterError("redirect must have at least one of scheme, host, path changed")
+			}
+		}
 	}
 
+	if redirectType == api.LB_REDIRECT_OFF && backendGroup == nil {
+		return nil, httperrors.NewInputParameterError("non redirect lblistener rule must have backend_group set")
+	}
 	if backendGroup, ok := backendGroup.(*models.SLoadbalancerBackendGroup); ok && backendGroup.Id != lbr.BackendGroupId {
 		listenerM, err := models.LoadbalancerListenerManager.FetchById(lbr.ListenerId)
 		if err != nil {

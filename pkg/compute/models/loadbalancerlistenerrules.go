@@ -558,7 +558,11 @@ func (lbr *SLoadbalancerListenerRule) AllowPerformStatus(ctx context.Context, us
 
 func (lbr *SLoadbalancerListenerRule) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", lbr.GetOwnerId())
-	backendGroupV.Optional(true)
+	if lbr.BackendGroupId != "" {
+		backendGroupV.Default(lbr.BackendGroupId)
+	} else {
+		backendGroupV.Optional(true)
+	}
 	if err := backendGroupV.Validate(data); err != nil {
 		return nil, err
 	}
