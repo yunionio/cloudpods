@@ -439,13 +439,15 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *L
 	}
 
 	var (
-		rules            = listener.rules.OrderedEnabledList()
+		rules     = listener.rules.OrderedEnabledList()
+		ruleLines = []string{}
+		backends  = []interface{}{}
+
 		ruleBackendIdGen = func(id string) string {
 			return fmt.Sprintf("backends_rule-%s", id)
 		}
 	)
 	{ // dispatch
-		ruleLines := []string{}
 		for _, rule := range rules {
 			sufCond := ""
 			if rule.Domain != "" || rule.Path != "" {
@@ -478,8 +480,7 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *L
 		}
 		data["rules"] = ruleLines
 	}
-	{
-		backends := []interface{}{}
+	{ // those with backend group
 		// rules backend group
 		for _, rule := range rules {
 			// NOTE dup is ok
@@ -523,11 +524,11 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *L
 			backends = append(backends, backendData)
 			data["default_backend"] = backendData
 		}
-		if len(backends) == 0 {
-			// no backendgroup specified, nothing to serve
-			return haproxyConfigErrNop
-		}
 		data["backends"] = backends
+	}
+	if len(ruleLines) == 0 && len(backends) == 0 {
+		// nothing to serve
+		return haproxyConfigErrNop
 	}
 	err := haproxyConfigTmpl.ExecuteTemplate(buf, "httpListen", data)
 	return err
