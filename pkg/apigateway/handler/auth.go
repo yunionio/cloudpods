@@ -706,7 +706,24 @@ func isBaremetalAgentExists(s *mcclient.ClientSession) (bool, error) {
 	params.Add(jsonutils.JSONFalse, "details")
 	agents, err := modules.Baremetalagents.List(s, params)
 	if err != nil {
-		return false, errors.Wrap(err, "modules.LoadbalancerAgents.List")
+		return false, errors.Wrap(err, "modules.Baremetalagents.List")
+	}
+
+	if len(agents.Data) > 0 {
+		return true, nil
+	} else {
+		return false, nil
+	}
+}
+
+func isEsxiAgentExists(s *mcclient.ClientSession) (bool, error) {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString("agent_type.equals(esxiagent)"), "filter.0")
+	params.Add(jsonutils.NewInt(1), "limit")
+	params.Add(jsonutils.JSONFalse, "details")
+	agents, err := modules.Baremetalagents.List(s, params)
+	if err != nil {
+		return false, errors.Wrap(err, "modules.Baremetalagents.List esxiagent")
 	}
 
 	if len(agents.Data) > 0 {
@@ -848,6 +865,10 @@ func getUserInfo(ctx context.Context, s *mcclient.ClientSession, token mcclient.
 		{
 			existFunc: isHostAgentExists,
 			srvName:   "hostagent",
+		},
+		{
+			existFunc: isEsxiAgentExists,
+			srvName:   "esxiagent",
 		},
 	} {
 		exist, err := cf.existFunc(s)
