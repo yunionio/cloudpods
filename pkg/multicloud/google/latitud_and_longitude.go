@@ -44,6 +44,7 @@ var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
 	"us-west1":                {Latitude: 43.8041334, Longitude: -120.5542012, City: api.CITY_OREGON, CountryCode: api.COUNTRY_CODE_US},
 	"us-west2":                {Latitude: 34.0522342, Longitude: -118.2436849, City: api.CITY_LOS_ANGELES, CountryCode: api.COUNTRY_CODE_US},
 	"us-west3":                {Latitude: 40.7767168, Longitude: -111.9905243, City: api.CITY_SALT_LAKE_CITY, CountryCode: api.COUNTRY_CODE_US},
+	"us-west4":                {Latitude: 36.1249185, Longitude: -115.3150811, City: api.CITY_LAS_VEGAS, CountryCode: api.COUNTRY_CODE_US},
 }
 
 var RegionNames = map[string]string{
@@ -71,4 +72,5 @@ var RegionNames = map[string]string{
 	"us-west1":                "俄勒冈州",
 	"us-west2":                "洛杉矶",
 	"us-west3":                "盐湖城",
+	"us-west4":                "拉斯维加斯",
 }
