@@ -23,7 +23,7 @@ type LoadbalancerListenerCreateOptions struct {
 	BackendServerPort *int
 	BackendGroup      *string `json:",allowempty"`
 
-	Scheduler string `required:"true" choices:"rr|wrr|wlc|sch|tch"`
+	Scheduler string `choices:"rr|wrr|wlc|sch|tch"`
 
 	SendProxy string `choices:"off|v1|v2|v2-ssl|v2-ssl-cn"`
 
