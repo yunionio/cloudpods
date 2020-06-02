@@ -32,6 +32,8 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/notify/options"
 	"yunion.io/x/onecloud/pkg/notify/rpc/apis"
 	"yunion.io/x/onecloud/pkg/util/httputils"
@@ -118,6 +120,54 @@ func (tm *STemplateManager) defaultTemplate() ([]STemplate, error) {
 		}
 	}
 	return templates, nil
+}
+
+var (
+	InitVerifyEmailOver = false
+)
+
+type CompanyInfo struct {
+	Logo       string
+	LogoFormat string
+	Copyright  string
+}
+
+func (tm *STemplateManager) TryInitVerifyEmail(ctx context.Context) error {
+	if InitVerifyEmailOver {
+		return nil
+	}
+	// fetch copyright and logo
+	session := auth.GetAdminSession(ctx, "", "")
+	obj, err := modules.Info.Get(session, "info", jsonutils.NewDict())
+	if err != nil {
+		return err
+	}
+	var info CompanyInfo
+	err = obj.Unmarshal(&info)
+	if err != nil {
+		return err
+	}
+
+	// fetch verify email template
+	q := tm.Query().Equals("contact_type", "email").Equals("topic", "VERIFY").Equals("template_type", "content")
+	tem := &STemplate{}
+	err = q.First(tem)
+	if err != nil {
+		return err
+	}
+
+	tem.SetModelManager(TemplateManager, tem)
+
+	content, err := tem.Execute(jsonutils.Marshal(info).String())
+	if err != nil {
+		return err
+	}
+
+	_, err = db.Update(tem, func() error {
+		tem.Content = content
+		return nil
+	})
+	return err
 }
 
 func (tm *STemplateManager) InitializeData() error {
