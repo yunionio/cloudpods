@@ -128,6 +128,7 @@ func (rule *EIPUnused) getEIPUnused(instance *monitor.SSuggestSysAlertSetting) (
 		problem.Add(jsonutils.NewString(rtnTime), "eipUnused time")
 		suggestSysAlert.Problem = problem
 
+		getResourceAmount(suggestSysAlert, latestTime)
 		EIPUnsedArr.Add(jsonutils.Marshal(suggestSysAlert))
 	}
 	return EIPUnsedArr, nil
@@ -159,6 +160,7 @@ func (rule *EIPUnused) Resolve(data *models.SSuggestSysAlert) error {
 
 func (rule *EIPUnused) StartResolveTask(ctx context.Context, userCred mcclient.TokenCredential,
 	suggestSysAlert *models.SSuggestSysAlert, params *jsonutils.JSONDict) error {
+	suggestSysAlert.SetStatus(userCred, monitor.SUGGEST_ALERT_START_DELETE, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "ResolveUnusedTask", suggestSysAlert, userCred, params, "", "", nil)
 	if err != nil {
 		return err

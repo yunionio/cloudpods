@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/timeutils"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -108,6 +109,7 @@ func getSuggestSysAlertFromJson(obj jsonutils.JSONObject, rule models.ISuggestSy
 	suggestSysAlert.ResMeta = obj
 	suggestSysAlert.Action = monitor.DRIVER_ACTION
 	suggestSysAlert.Status = monitor.SUGGEST_ALERT_READY
+	getResourceAmount(suggestSysAlert, time.Now().Add(-30*24*time.Hour))
 	return suggestSysAlert, nil
 }
 
@@ -155,4 +157,38 @@ func getLatestActionTimeFromLogs(logActions []jsonutils.JSONObject) (*time.Time,
 		}
 	}
 	return latestTime, nil
+}
+
+func getResourceAmount(alert *models.SSuggestSysAlert, lastUsedTime time.Time) {
+	param := jsonutils.NewDict()
+	param.Add(jsonutils.NewString("system"), "scope")
+	param.Add(jsonutils.NewString("0"), "limit")
+	filter := fmt.Sprintf("resource_id.contains(%s)", alert.ResId)
+	param.Add(jsonutils.NewString(filter), "filter")
+
+	start_day := timeutils.ShortDate(lastUsedTime)
+	end_day := timeutils.ShortDate(time.Now())
+
+	param.Add(jsonutils.NewString(start_day), "start_day")
+	param.Add(jsonutils.NewString(end_day), "end_day")
+	session := auth.GetAdminSession(context.Background(), "", "")
+	billRtn, err := mod.BillResources.List(session, param)
+	if err != nil {
+		log.Errorln(err)
+		return
+	}
+	for _, bill := range billRtn.Data {
+		amount, err := bill.Float("amount")
+		if err != nil {
+			log.Errorln(err)
+			break
+		}
+		alert.Amount += amount
+		currency, err := bill.GetString("currency")
+		if err != nil {
+			log.Errorln(err)
+		}
+		alert.Currency = currency
+	}
+
 }
