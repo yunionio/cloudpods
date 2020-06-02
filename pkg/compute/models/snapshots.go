@@ -497,9 +497,8 @@ func (self *SSnapshotManager) GetDiskSnapshotsByCreate(diskId, createdBy string)
 
 func (self *SSnapshotManager) GetDiskSnapshots(diskId string) []SSnapshot {
 	dest := make([]SSnapshot, 0)
-	q := self.Query().SubQuery()
-	sq := q.Query().Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), diskId)))
-	err := db.FetchModelObjects(self, sq, &dest)
+	q := self.Query().Equals("disk_id", diskId).Asc("created_at")
+	err := db.FetchModelObjects(self, q, &dest)
 	if err != nil {
 		log.Errorf("GetDiskSnapshots error: %s", err)
 		return nil
