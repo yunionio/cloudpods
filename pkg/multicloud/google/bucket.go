@@ -227,7 +227,7 @@ func (b *SBucket) AbortMultipartUpload(ctx context.Context, key string, uploadId
 }
 
 func (b *SBucket) CompleteMultipartUpload(ctx context.Context, key string, uploadId string, partEtags []string) error {
-	resource := fmt.Sprintf("b/%s/o/%s", b.Name, key)
+	resource := fmt.Sprintf("b/%s/o/%s", b.Name, url.PathEscape(key))
 	err := b.region.StorageGet(resource, nil)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get object %s", key)
@@ -236,8 +236,8 @@ func (b *SBucket) CompleteMultipartUpload(ctx context.Context, key string, uploa
 }
 
 func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) error {
-	resource := fmt.Sprintf("b/%s/o/%s", srcBucket, srcKey)
-	action := fmt.Sprintf("copyTo/b/%s/o/%s", b.Name, destKey)
+	resource := fmt.Sprintf("b/%s/o/%s", srcBucket, url.PathEscape(srcKey))
+	action := fmt.Sprintf("copyTo/b/%s/o/%s", b.Name, url.PathEscape(destKey))
 	err := b.region.StorageDo(resource, action, nil, nil)
 	if err != nil {
 		return errors.Wrap(err, "CopyObject")
@@ -267,7 +267,7 @@ func (b *SBucket) DeleteObject(ctx context.Context, key string) error {
 }
 
 func (region *SRegion) DownloadObjectRange(bucket, object string, start, end int64) (io.ReadCloser, error) {
-	resource := fmt.Sprintf("b/%s/o/%s?alt=media", bucket, object)
+	resource := fmt.Sprintf("b/%s/o/%s?alt=media", bucket, url.PathEscape(object))
 	header := http.Header{}
 	if start <= 0 {
 		if end > 0 {

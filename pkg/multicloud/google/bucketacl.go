@@ -16,6 +16,7 @@ package google
 
 import (
 	"fmt"
+	"net/url"
 
 	"cloud.google.com/go/storage"
 
@@ -47,7 +48,7 @@ func (region *SRegion) GetBucketAcl(bucket string) ([]GCSAcl, error) {
 }
 
 func (region *SRegion) SetObjectAcl(bucket, object string, cannedAcl cloudprovider.TBucketACLType) error {
-	resource := fmt.Sprintf("b/%s/o/%s", bucket, object)
+	resource := fmt.Sprintf("b/%s/o/%s", bucket, url.PathEscape(object))
 	acl := map[string]string{}
 	switch cannedAcl {
 	case cloudprovider.ACLPrivate:
@@ -57,7 +58,7 @@ func (region *SRegion) SetObjectAcl(bucket, object string, cannedAcl cloudprovid
 		}
 		for _, _acl := range acls {
 			if _acl.Entity == string(storage.AllUsers) || _acl.Entity == string(storage.AllAuthenticatedUsers) {
-				resource := fmt.Sprintf("b/%s/o/%s/acl/%s", bucket, object, _acl.Entity)
+				resource := fmt.Sprintf("b/%s/o/%s/acl/%s", bucket, url.PathEscape(object), _acl.Entity)
 				err = region.StorageDelete(resource)
 				if err != nil {
 					return errors.Wrapf(err, "StorageDelete(%s)", resource)
@@ -120,7 +121,7 @@ func (region *SRegion) SetBucketIam(bucket string, iam *SBucketIam) (*SBucketIam
 }
 
 func (region *SRegion) GetObjectAcl(bucket string, object string) ([]GCSAcl, error) {
-	resource := fmt.Sprintf("b/%s/o/%s/acl", bucket, object)
+	resource := fmt.Sprintf("b/%s/o/%s/acl", bucket, url.PathEscape(object))
 	acls := []GCSAcl{}
 	err := region.StorageListAll(resource, map[string]string{}, &acls)
 	if err != nil {

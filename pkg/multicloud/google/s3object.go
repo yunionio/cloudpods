@@ -33,6 +33,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -197,7 +198,7 @@ func (region *SRegion) SetObjectMeta(bucket, object string, meta http.Header) er
 			body[fmt.Sprintf("metadata.%s", k)] = meta.Get(k)
 		}
 	}
-	resource := fmt.Sprintf("b/%s/o/%s", bucket, object)
+	resource := fmt.Sprintf("b/%s/o/%s", bucket, url.PathEscape(object))
 	return region.StoragePut(resource, jsonutils.Marshal(body), nil)
 }
 
