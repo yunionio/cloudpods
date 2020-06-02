@@ -39,6 +39,10 @@ func (self *SOpenStackRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_OPENSTACK
 }
 
+func (self *SOpenStackRegionDriver) IsVpcCreateNeedInputCidr() bool {
+	return false
+}
+
 func (self *SOpenStackRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return nil, httperrors.NewNotImplementedError("%s does not currently support creating loadbalancer", self.GetProvider())
 }
