@@ -181,6 +181,7 @@ func containsLbBackEnd(groupId string) (*bool, error) {
 func (rule *LBUnused) StartResolveTask(ctx context.Context, userCred mcclient.TokenCredential,
 	suggestSysAlert *models.SSuggestSysAlert,
 	params *jsonutils.JSONDict) error {
+	suggestSysAlert.SetStatus(userCred, monitor.SUGGEST_ALERT_START_DELETE, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "ResolveUnusedTask", suggestSysAlert, userCred, params, "", "", nil)
 	if err != nil {
 		return err

@@ -43,6 +43,7 @@ func (self *ResolveUnusedTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		self.taskFail(ctx, suggestSysAlert, msg)
 		return
 	}
+	suggestSysAlert.SetStatus(self.UserCred, api.SUGGEST_ALERT_DELETING, "")
 	err = suggestSysAlert.RealDelete(ctx, self.UserCred)
 	if err != nil {
 		msg := fmt.Sprintf("fail to delete SSuggestSysAlert %s", err)
