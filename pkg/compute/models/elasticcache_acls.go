@@ -441,6 +441,7 @@ func (manager *SElasticcacheAclManager) FetchCustomizeColumns(
 	for i := range rows {
 		if cache, ok := caches[cacheIds[i]]; ok {
 			virObjs[i] = &cache
+			rows[i].ProjectId = cache.ProjectId
 		}
 	}
 
