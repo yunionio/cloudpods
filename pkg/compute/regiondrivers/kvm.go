@@ -522,8 +522,28 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context
 		aclV.Default(lblis.AclId)
 	}
 
-	redirectV := validators.NewStringChoicesValidator("redirect", api.LB_REDIRECT_TYPES)
-	redirectV.Default(lblis.Redirect)
+	var (
+		redirectV       = validators.NewStringChoicesValidator("redirect", api.LB_REDIRECT_TYPES)
+		redirectCodeV   = validators.NewIntChoicesValidator("redirect_code", api.LB_REDIRECT_CODES)
+		redirectSchemeV = validators.NewStringChoicesValidator("redirect_scheme", api.LB_REDIRECT_SCHEMES)
+		redirectHostV   = validators.NewHostPortValidator("redirect_host").OptionalPort(true)
+		redirectPathV   = validators.NewURLPathValidator("redirect_path")
+	)
+	if lblis.Redirect != "" {
+		redirectV.Default(lblis.Redirect)
+	}
+	if lblis.RedirectCode > 0 {
+		redirectCodeV.Default(int64(lblis.RedirectCode))
+	}
+	if lblis.RedirectScheme != "" {
+		redirectSchemeV.Default(lblis.RedirectScheme)
+	}
+	if lblis.RedirectHost != "" {
+		redirectHostV.Default(lblis.RedirectHost)
+	}
+	if lblis.RedirectPath != "" {
+		redirectPathV.Default(lblis.RedirectPath)
+	}
 
 	certV := validators.NewModelIdOrNameValidator("certificate", "loadbalancercertificate", ownerId)
 	tlsCipherPolicyV := validators.NewStringChoicesValidator("tls_cipher_policy", api.LB_TLS_CIPHER_POLICIES).Default(api.LB_TLS_CIPHER_POLICY_1_2)
@@ -570,20 +590,32 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context
 		"enable_http2":      validators.NewBoolValidator("enable_http2"),
 
 		"redirect":        redirectV,
-		"redirect_code":   validators.NewIntChoicesValidator("redirect_code", api.LB_REDIRECT_CODES),
-		"redirect_scheme": validators.NewStringChoicesValidator("redirect_scheme", api.LB_REDIRECT_SCHEMES),
-		"redirect_host":   validators.NewHostPortValidator("redirect_host").OptionalPort(true),
-		"redirect_path":   validators.NewURLPathValidator("redirect_path"),
+		"redirect_code":   redirectCodeV,
+		"redirect_scheme": redirectSchemeV,
+		"redirect_host":   redirectHostV,
+		"redirect_path":   redirectPathV,
 	}
 
 	if err := RunValidators(keyV, data, true); err != nil {
 		return nil, err
 	}
 
-	if lblis.Redirect != redirectV.Value {
-		// this can be relaxed to do not allow on/off
-		return nil, httperrors.NewInputParameterError("do not allow changing redirect type")
+	var (
+		redirectType = redirectV.Value
+		listenerType = lblis.ListenerType
+	)
+	if redirectType != api.LB_REDIRECT_OFF {
+		if redirectType == api.LB_REDIRECT_RAW {
+			scheme, host, path := redirectSchemeV.Value, redirectHostV.Value, redirectPathV.Value
+			if (scheme == "" || scheme == listenerType) && host == "" && path == "" {
+				return nil, httperrors.NewInputParameterError("redirect must have at least one of scheme, host, path changed")
+			}
+		}
 	}
+	// NOTE: it's okay we turn off redirect
+	//
+	//  - scheduler have default value on creation
+	//  - backend_group_id is allowed to have unset value for http, https listener
 
 	if err := models.LoadbalancerListenerManager.ValidateAcl(aclStatusV, aclTypeV, aclV, data, lblis.GetProviderName()); err != nil {
 		return nil, err
