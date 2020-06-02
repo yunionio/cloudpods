@@ -111,6 +111,7 @@ const (
 	CITY_US_GOV_WEST    = "us-gov-west"    //???
 	CITY_SOUTH_CAROLINA = "South Carolina" //南卡罗来纳州
 	CITY_SALT_LAKE_CITY = "Salt Lake City" //盐湖城
+	CITY_LAS_VEGAS      = "Las Vegas"      //拉斯维加斯
 
 	// 英国
 	CITY_LONDON      = "London"      //伦敦
