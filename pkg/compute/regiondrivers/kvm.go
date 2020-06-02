@@ -403,7 +403,7 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerData(ctx context
 		"acl_type":   aclTypeV.Optional(true),
 		"acl":        aclV.Optional(true),
 
-		"scheduler":   validators.NewStringChoicesValidator("scheduler", api.LB_SCHEDULER_TYPES),
+		"scheduler":   validators.NewStringChoicesValidator("scheduler", api.LB_SCHEDULER_TYPES).Default(api.LB_SCHEDULER_RR),
 		"egress_mbps": validators.NewRangeValidator("egress_mbps", api.LB_MbpsMin, api.LB_MbpsMax).Optional(true),
 
 		"client_request_timeout":  validators.NewRangeValidator("client_request_timeout", 0, 600).Default(10),

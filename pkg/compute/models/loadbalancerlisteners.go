@@ -132,7 +132,7 @@ type SLoadbalancerListener struct {
 	BackendGroupId    string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 	BackendServerPort int    `nullable:"false" get:"user" list:"user" default:"0" create:"optional"`
 
-	Scheduler string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
+	Scheduler string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
 
 	SendProxy string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user" default:"off"`
 
