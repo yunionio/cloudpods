@@ -53,6 +53,10 @@ func (self *SGoogleRegionDriver) IsVpcBelongGlobalVpc() bool {
 	return true
 }
 
+func (self *SGoogleRegionDriver) IsVpcCreateNeedInputCidr() bool {
+	return false
+}
+
 func (self *SGoogleRegionDriver) RequestCreateVpc(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		provider := vpc.GetCloudprovider()

@@ -78,7 +78,7 @@ type SVpc struct {
 
 	// CIDR地址段
 	// example: 192.168.222.0/24
-	CidrBlock string `charset:"ascii" nullable:"true" list:"domain" create:"domain_required"`
+	CidrBlock string `charset:"ascii" nullable:"true" list:"domain" create:"domain_optional"`
 
 	// 区域Id
 	// CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"domain" create:"domain_required" default:"default"`
@@ -658,6 +658,10 @@ func (manager *SVpcManager) ValidateCreateData(
 	input, err = region.GetDriver().ValidateCreateVpcData(ctx, userCred, input)
 	if err != nil {
 		return input, errors.Wrapf(err, "region.GetDriver().ValidateCreateVpcData")
+	}
+
+	if region.GetDriver().IsVpcCreateNeedInputCidr() && len(input.CidrBlock) == 0 {
+		return input, httperrors.NewMissingParameterError("cidr")
 	}
 
 	keys := GetVpcQuotaKeysFromCreateInput(input)
