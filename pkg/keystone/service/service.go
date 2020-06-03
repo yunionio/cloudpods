@@ -45,6 +45,7 @@ func StartService() {
 	db.DefaultUUIDGenerator = keystoneUUIDGenerator
 	db.DefaultProjectFetcher = keystoneProjectFetcher
 	db.DefaultDomainFetcher = keystoneDomainFetcher
+	db.DefaultUserFetcher = keystoneUserFetcher
 	db.DefaultDomainQuery = keystoneDomainQuery
 	db.DefaultProjectQuery = keystoneProjectQuery
 	db.DefaultProjectsFetcher = keystoneProjectsFetcher
