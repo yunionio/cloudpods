@@ -521,6 +521,7 @@ func (keeper *OVNNorthboundKeeper) Mark(ctx context.Context) {
 		&db.ACL,
 		&db.DHCPOptions,
 		&db.QoS,
+		&db.DNS,
 	}
 	for _, itbl := range itbls {
 		for _, irow := range itbl.Rows() {
@@ -538,6 +539,7 @@ func (keeper *OVNNorthboundKeeper) Sweep(ctx context.Context) error {
 		&db.LogicalSwitch,
 		&db.LogicalRouter,
 		&db.DHCPOptions,
+		&db.DNS,
 	}
 	var irows []types.IRow
 	for _, itbl := range itbls {
