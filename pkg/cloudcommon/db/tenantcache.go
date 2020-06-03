@@ -130,25 +130,22 @@ func (manager *STenantCacheManager) fetchTenant(ctx context.Context, idStr strin
 		q = manager.GetTenantQuery()
 	}
 	q = filter(q)
-	tcnt, err := q.CountWithError()
+	caches := []STenant{}
+	err := FetchModelObjects(manager, q, &caches)
 	if err != nil {
-		return nil, errors.Wrap(err, "CountWithError")
+		return nil, errors.Wrap(err, "FetchModelObjects")
 	}
-	if tcnt > 1 {
-		return nil, errors.Wrapf(httperrors.ErrDuplicateName, "duplicate tenant/domain name (%d)", tcnt)
-	}
-	tobj, err := NewModelObject(manager)
-	if err != nil {
-		return nil, errors.Wrap(err, "NewModelObject")
-	}
-	err = q.First(tobj)
-	if err != nil && err != sql.ErrNoRows {
-		return nil, errors.Wrap(err, "query")
-	} else if tobj != nil {
-		tenant := tobj.(*STenant)
-		if noExpireCheck || !tenant.IsExpired() {
-			return tenant, nil
+	normal := []STenant{}
+	for _, cache := range caches {
+		if noExpireCheck || !cache.IsExpired() {
+			normal = append(normal, cache)
 		}
+	}
+	if len(normal) > 1 {
+		return nil, errors.Wrapf(httperrors.ErrDuplicateName, "duplicate tenant/domain name (%d)", len(normal))
+	}
+	if len(normal) == 1 {
+		return &normal[0], nil
 	}
 	if isDomain {
 		return manager.fetchDomainFromKeystone(ctx, idStr)
