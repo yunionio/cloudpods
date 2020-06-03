@@ -203,6 +203,10 @@ func (self *SBaseRegionDriver) RequestBingToNatgateway(ctx context.Context, task
 	return fmt.Errorf("Not implement RequestBindIPToNatgateway")
 }
 
+func (self *SBaseRegionDriver) IsVpcCreateNeedInputCidr() bool {
+	return true
+}
+
 func (self *SBaseRegionDriver) RequestCreateVpc(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, task taskman.ITask) error {
 	return fmt.Errorf("Not implement RequestCreateVpc")
 }
