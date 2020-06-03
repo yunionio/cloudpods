@@ -853,29 +853,43 @@ func getItemDetails(manager IModelManager, item IModel, ctx context.Context, use
 }
 
 func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, property string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	userCred := fetchUserCredential(ctx)
 	funcName := fmt.Sprintf("GetProperty%s", utils.Kebab2Camel(property, "-"))
 	allowFuncName := "Allow" + funcName
 	modelValue := reflect.ValueOf(dispatcher.modelManager)
+	params := []interface{}{ctx, userCred, query}
 
-	funcValue := modelValue.MethodByName(allowFuncName)
+	if consts.IsRbacEnabled() {
+		ownerId, err := fetchOwnerId(ctx, dispatcher.modelManager, userCred, query)
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+		err = isClassRbacAllowed(dispatcher.modelManager, userCred, ownerId, policy.PolicyActionList, property)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		funcValue := modelValue.MethodByName(allowFuncName)
+		if !funcValue.IsValid() || funcValue.IsNil() {
+			return nil, nil
+		}
+		outs, err := callFunc(funcValue, allowFuncName, params...)
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("reflect call %s fail %s", allowFuncName, err)
+		}
+		if len(outs) != 1 {
+			return nil, httperrors.NewInternalServerError("Invald %s return value", funcName)
+		}
+		if !outs[0].Bool() {
+			return nil, httperrors.NewForbiddenError("%s not allow to get property %s", dispatcher.Keyword(), property)
+		}
+	}
+
+	funcValue := modelValue.MethodByName(funcName)
 	if !funcValue.IsValid() || funcValue.IsNil() {
 		return nil, nil
 	}
-	userCred := fetchUserCredential(ctx)
-	params := []interface{}{ctx, userCred, query}
-	outs, err := callFunc(funcValue, allowFuncName, params...)
-	if err != nil {
-		return nil, httperrors.NewInternalServerError("reflect call %s fail %s", allowFuncName, err)
-	}
-	if len(outs) != 1 {
-		return nil, httperrors.NewInternalServerError("Invald %s return value", funcName)
-	}
-	if !outs[0].Bool() {
-		return nil, httperrors.NewForbiddenError("%s not allow to get property %s", dispatcher.Keyword(), property)
-	}
-
-	funcValue = modelValue.MethodByName(funcName)
-	outs, err = callFunc(funcValue, funcName, params...)
+	outs, err := callFunc(funcValue, funcName, params...)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("reflect call %s fail %s", funcName, err)
 	}

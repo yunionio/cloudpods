@@ -67,7 +67,7 @@ type ModelBaseListInput struct {
 
 	// 查询限制量
 	// default: 20
-	Limit *int `json:"limit"`
+	Limit *int `json:"limit" default:"20" help:"max items per page"`
 	// 查询偏移量
 	// default: 0
 	Offset *int `json:"offset"`
@@ -182,12 +182,12 @@ type StandaloneResourceListInput struct {
 	MetadataResourceListInput
 
 	// 显示所有的资源，包括模拟的资源
-	ShowEmulated *bool `json:"show_emulated"`
+	ShowEmulated *bool `json:"show_emulated" help:"show emulated resources" negative:"do not show emulated resources"`
 
 	// 以资源名称过滤列表
-	Names []string `json:"name"`
+	Names []string `json:"name" help:"filter by names"`
 	// 以资源ID过滤列表
-	Ids []string `json:"id"`
+	Ids []string `json:"id" help:"filter by ids"`
 }
 
 type StatusResourceBaseListInput struct {
