@@ -52,6 +52,7 @@ func DumpOVNNorthbound(ctx context.Context, cli *ovnutil.OvnNbCtl) (*OVNNorthbou
 		&db.ACL,
 		&db.DHCPOptions,
 		&db.QoS,
+		&db.DNS,
 	}
 	args := []string{"--format=json", "list", "<tbl>"}
 	for _, itbl := range itbls {
@@ -508,6 +509,48 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 		args = append(args, "--", "add", "Logical_Switch", vpcEipLsName(vpc.Id), "qos_rules", "@"+ref)
 	}
 	return keeper.cli.Must(ctx, "ClaimGuestnetwork", args)
+}
+
+func (keeper *OVNNorthboundKeeper) ClaimVpcGuestDnsRecords(ctx context.Context, vpc *agentmodels.Vpc) error {
+	var (
+		grs = map[string][]string{}
+		has = map[string]struct{}{}
+	)
+	for _, network := range vpc.Networks {
+		for _, guestnetwork := range network.Guestnetworks {
+			var (
+				guest = guestnetwork.Guest
+				ip    = guestnetwork.IpAddr
+			)
+			grs[guest.Name] = append(grs[guest.Name], ip)
+		}
+		if len(network.Guestnetworks) > 0 {
+			has[network.Id] = struct{}{}
+		}
+	}
+
+	if len(has) > 0 {
+		var (
+			grs_      = map[string]string{}
+			ocVersion = fmt.Sprintf("%s.%d", vpc.Id, vpc.UpdateVersion)
+		)
+		for name, addrs := range grs {
+			grs_[name] = strings.Join(addrs, " ")
+		}
+		dns := &ovn_nb.DNS{
+			Records: grs_,
+		}
+		allFound, args := cmp(&keeper.DB, ocVersion, dns)
+		if allFound {
+			return nil
+		}
+		args = append(args, ovnCreateArgs(dns, "dns")...)
+		for networkId := range has {
+			args = append(args, "--", "add", "Logical_Switch", netLsName(networkId), "dns_records", "@dns")
+		}
+		return keeper.cli.Must(ctx, "ClaimVpcGuestDnsRecords", args)
+	}
+	return nil
 }
 
 func (keeper *OVNNorthboundKeeper) Mark(ctx context.Context) {
