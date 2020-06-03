@@ -193,9 +193,6 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.
 		basename = guest.Name
 		backend = backendV.Model
 	case api.LB_BACKEND_HOST:
-		if !db.IsAdminAllowCreate(userCred, man) {
-			return nil, httperrors.NewInputParameterError("only sysadmin can specify host as backend")
-		}
 		backendV := validators.NewModelIdOrNameValidator("backend", "host", userCred)
 		err := backendV.Validate(data)
 		if err != nil {
@@ -211,9 +208,6 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.
 		basename = host.Name
 		backend = backendV.Model
 	case api.LB_BACKEND_IP:
-		if !db.IsAdminAllowCreate(userCred, man) {
-			return nil, fmt.Errorf("only sysadmin can specify ip address as backend")
-		}
 		backendV := validators.NewIPv4AddrValidator("backend")
 		err := backendV.Validate(data)
 		if err != nil {
