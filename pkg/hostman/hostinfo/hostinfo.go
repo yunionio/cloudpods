@@ -1270,7 +1270,9 @@ func (h *SHostInfo) getIsolatedDevices() {
 func (h *SHostInfo) onGetIsolatedDeviceSucc(objs []jsonutils.JSONObject) {
 	for _, obj := range objs {
 		info := isolated_device.CloudDeviceInfo{}
-		obj.Unmarshal(&info)
+		if err := obj.Unmarshal(&info); err != nil {
+			h.onFail(fmt.Sprintf("unmarshal isolated device to cloud device info failed %s", err))
+		}
 		dev := h.IsolatedDeviceMan.GetDeviceByIdent(info.VendorDeviceId, info.Addr)
 		if dev != nil {
 			dev.SetDeviceInfo(info)
