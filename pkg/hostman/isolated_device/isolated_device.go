@@ -17,8 +17,10 @@ package isolated_device
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -537,11 +539,20 @@ func (d *PCIDevice) IsBootVGA() (bool, error) {
 	addr := d.Addr
 	output, err := procutils.NewCommand("find", "/sys/devices", "-name", "boot_vga").Output()
 	if err != nil {
-		return false, err
+		if exiterr, ok := err.(*exec.ExitError); ok {
+			if code, ok := exiterr.Sys().(syscall.WaitStatus); ok &&
+				code.ExitStatus() == 1 && strings.Contains(string(output), "No such file or directory") {
+				log.Warningf("find boot vga %s", output)
+			} else {
+				return false, err
+			}
+		} else {
+			return false, err
+		}
 	}
 	paths := ParseOutput(output)
 	for _, p := range paths {
-		if strings.Contains(p, addr) {
+		if strings.Contains(p, addr) && !strings.Contains(p, "No such file or directory") {
 			if content, err := fileutils2.FileGetContents(p); err != nil {
 				return false, err
 			} else {
