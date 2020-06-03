@@ -39,4 +39,6 @@ var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
 	"na-ashburn":        {Latitude: 37.431572, Longitude: -78.656891, City: api.CITY_VIRGINIA, CountryCode: api.COUNTRY_CODE_US},       // 腾讯云 美国东部(弗吉尼亚)
 	"na-siliconvalley":  {Latitude: 37.387474, Longitude: -122.057541, City: api.CITY_SILICONVALLEY, CountryCode: api.COUNTRY_CODE_US}, // 腾讯云 美国西部(硅谷)
 	"na-toronto":        {Latitude: 43.653225, Longitude: -79.383186, City: api.CITY_TORONTO, CountryCode: api.COUNTRY_CODE_CA},        // 腾讯云 北美地区(多伦多)
+
+	"ap-nanjing": {Latitude: 32.0584065670, Longitude: 118.7964897811, City: api.CITY_NAN_JING, CountryCode: api.COUNTRY_CODE_CN},
 }
