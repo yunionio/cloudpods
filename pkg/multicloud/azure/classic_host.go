@@ -51,7 +51,7 @@ func (self *SClassicHost) IsEmulated() bool {
 }
 
 func (self *SClassicHost) GetStatus() string {
-	return api.HOST_STATUS_RUNNING
+	return api.HOST_STATUS_READY
 }
 
 func (self *SClassicHost) Refresh() error {

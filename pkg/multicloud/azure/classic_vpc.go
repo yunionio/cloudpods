@@ -201,7 +201,7 @@ func (self *SClassicVpc) GetRegion() cloudprovider.ICloudRegion {
 }
 
 func (self *SClassicVpc) GetStatus() string {
-	return api.VPC_STATUS_UNAVAILABLE
+	return api.VPC_STATUS_AVAILABLE
 }
 
 func (self *SClassicVpc) Refresh() error {
