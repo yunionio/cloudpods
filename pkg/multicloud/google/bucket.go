@@ -286,7 +286,7 @@ func (region *SRegion) DownloadObjectRange(bucket, object string, start, end int
 }
 
 func (b *SBucket) GetObject(ctx context.Context, key string, rangeOpt *cloudprovider.SGetObjectRange) (io.ReadCloser, error) {
-	return b.region.DownloadObjectRange(b.Name, url.PathEscape(key), rangeOpt.Start, rangeOpt.End)
+	return b.region.DownloadObjectRange(b.Name, key, rangeOpt.Start, rangeOpt.End)
 }
 
 func (region *SRegion) SingedUrl(bucket, key string, method string, expire time.Duration) (string, error) {
@@ -512,7 +512,6 @@ func (region *SRegion) PutObject(bucket string, name string, input io.Reader, si
 	params.Set("uploadType", "media")
 	header := http.Header{}
 	header.Set("Content-Length", fmt.Sprintf("%v", sizeBytes))
-	name = url.QueryEscape(name)
 	err := region.UploadObject(bucket, params, header, input)
 	if err != nil {
 		return errors.Wrap(err, "UploadObject")
