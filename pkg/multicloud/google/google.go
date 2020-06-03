@@ -685,6 +685,15 @@ func rawRequest(client *http.Client, method httputils.THttpMethod, domain, apiVe
 	return httputils.Request(client, context.Background(), method, resource, header, body, debug)
 }
 
+type gError struct {
+	Code int
+	err  error
+}
+
+func (g *gError) Error() string {
+	return g.err.Error()
+}
+
 func _jsonRequest(client *http.Client, method httputils.THttpMethod, url string, body jsonutils.JSONObject, debug bool) (jsonutils.JSONObject, error) {
 	var (
 		retry bool                 = false
@@ -719,12 +728,15 @@ func _jsonRequest(client *http.Client, method httputils.THttpMethod, url string,
 		}
 	}
 	if err != nil {
-		errMsg := strings.ToLower(err.Error())
-		if strings.Index(errMsg, "not found") > 0 || strings.Index(errMsg, "not exist") > 0 {
-			// The Cloud SQL instance does not exist.
-			return nil, cloudprovider.ErrNotFound
+		ge := &gError{err: err}
+		e, ok := err.(*httputils.JSONClientError)
+		if ok {
+			if e.Code == 404 {
+				return nil, cloudprovider.ErrNotFound
+			}
+			ge.Code = e.Code
 		}
-		return nil, errors.Wrap(err, "JSONRequest")
+		return nil, ge
 	}
 	return data, nil
 }
