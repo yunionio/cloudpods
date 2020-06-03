@@ -194,7 +194,7 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.
 		backend = backendV.Model
 	case api.LB_BACKEND_HOST:
 		if !db.IsAdminAllowCreate(userCred, man) {
-			return nil, fmt.Errorf("only sysadmin can specify host as backend")
+			return nil, httperrors.NewInputParameterError("only sysadmin can specify host as backend")
 		}
 		backendV := validators.NewModelIdOrNameValidator("backend", "host", userCred)
 		err := backendV.Validate(data)
@@ -204,7 +204,7 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.
 		host := backendV.Model.(*models.SHost)
 		{
 			if len(host.AccessIp) == 0 {
-				return nil, fmt.Errorf("host %s has no access ip", host.GetId())
+				return nil, httperrors.NewInputParameterError("host %s has no access ip", host.GetId())
 			}
 			data.Set("address", jsonutils.NewString(host.AccessIp))
 		}
@@ -223,7 +223,7 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.
 		data.Set("address", jsonutils.NewString(ip))
 		basename = ip
 	default:
-		return nil, fmt.Errorf("internal error: unexpected backend type %s", backendType)
+		return nil, httperrors.NewInputParameterError("internal error: unexpected backend type %s", backendType)
 	}
 
 	name, _ := data.GetString("name")
@@ -238,14 +238,14 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.
 			// guest zone must match that of loadbalancer's
 			host := guest.GetHost()
 			if host == nil {
-				return nil, fmt.Errorf("error getting host of guest %s", guest.GetId())
+				return nil, httperrors.NewInputParameterError("error getting host of guest %s", guest.GetId())
 			}
 
 			if lb == nil {
-				return nil, fmt.Errorf("error loadbalancer of backend group %s", backendGroup.GetId())
+				return nil, httperrors.NewInputParameterError("error loadbalancer of backend group %s", backendGroup.GetId())
 			}
 			if host.ZoneId != lb.ZoneId {
-				return nil, fmt.Errorf("zone of host %q (%s) != zone of loadbalancer %q (%s)",
+				return nil, httperrors.NewInputParameterError("zone of host %q (%s) != zone of loadbalancer %q (%s)",
 					host.Name, host.ZoneId, lb.Name, lb.ZoneId)
 			}
 		}
