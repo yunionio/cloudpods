@@ -403,14 +403,51 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttpRate(data map[string]interface{
 	return nil
 }
 
-func (b *LoadbalancerCorpus) genHaproxyConfigHttpRedirectOff(listener *LoadbalancerListener, data map[string]interface{}) error {
-	lb := listener.loadbalancer
-	rules := listener.rules.OrderedEnabledList()
-	ruleBackendIdGen := func(id string) string {
-		return fmt.Sprintf("backends_rule-%s", id)
+func (b *LoadbalancerCorpus) haproxyRedirectLine(r *models.LoadbalancerHTTPRedirect, listenerType string) string {
+	var (
+		code   = r.RedirectCode
+		scheme = r.RedirectScheme
+		host   = r.RedirectHost
+		path   = r.RedirectPath
+	)
+	if scheme == "" {
+		scheme = strings.ToLower(listenerType)
 	}
-	{ // use_backend rule.Id if xx
-		ruleLines := []string{}
+	if host == "" {
+		host = "%[req.hdr(host)]"
+	}
+	if path == "" {
+		path = "%[capture.req.uri]"
+	}
+	line := fmt.Sprintf("http-request redirect code %d location %s://%s%s", code, scheme, host, path)
+	return line
+}
+
+func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *LoadbalancerListener, opts *AgentParams) error {
+	var (
+		lb = listener.loadbalancer
+	)
+
+	data := b.genHaproxyConfigCommon(lb, listener, opts)
+	{
+		// NOTE add X-Real-IP if needed
+		//
+		//	http-request set-header X-Client-IP %[src]
+		//
+		data["xforwardedfor"] = listener.XForwardedFor
+		data["gzip"] = listener.Gzip
+	}
+
+	var (
+		rules     = listener.rules.OrderedEnabledList()
+		ruleLines = []string{}
+		backends  = []interface{}{}
+
+		ruleBackendIdGen = func(id string) string {
+			return fmt.Sprintf("backends_rule-%s", id)
+		}
+	)
+	{ // dispatch
 		for _, rule := range rules {
 			sufCond := ""
 			if rule.Domain != "" || rule.Path != "" {
@@ -423,20 +460,27 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttpRedirectOff(listener *Loadbalan
 				}
 			}
 			if rule.Redirect == computeapi.LB_REDIRECT_OFF {
+				// use_backend rule.Id if xx
 				ruleLine := fmt.Sprintf("use_backend %s", ruleBackendIdGen(rule.Id))
 				ruleLines = append(ruleLines, ruleLine+sufCond)
 				continue
 			} else if rule.Redirect == computeapi.LB_REDIRECT_RAW {
+				// http-request redirect ... if xx
 				ruleLine := b.haproxyRedirectLine(&rule.LoadbalancerHTTPRedirect, listener.ListenerType)
 				ruleLines = append(ruleLines, ruleLine+sufCond)
 			} else {
 				return haproxyConfigErrNop
 			}
 		}
+		// default is a raw redirect
+		if listener.Redirect == computeapi.LB_REDIRECT_RAW {
+			ruleLines = append(ruleLines,
+				b.haproxyRedirectLine(&listener.LoadbalancerHTTPRedirect, listener.ListenerType),
+			)
+		}
 		data["rules"] = ruleLines
 	}
-	{
-		backends := []interface{}{}
+	{ // those with backend group
 		// rules backend group
 		for _, rule := range rules {
 			// NOTE dup is ok
@@ -463,7 +507,7 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttpRedirectOff(listener *Loadbalan
 			backends = append(backends, backendData)
 		}
 		// default backend group
-		if listener.BackendGroupId != "" {
+		if listener.Redirect == computeapi.LB_REDIRECT_OFF && listener.BackendGroupId != "" {
 			backendGroup := lb.backendGroups[listener.BackendGroupId]
 			backendData := map[string]interface{}{
 				"comment": fmt.Sprintf("listener %s(%s) default backendGroup %s(%s)",
@@ -480,58 +524,10 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttpRedirectOff(listener *Loadbalan
 			backends = append(backends, backendData)
 			data["default_backend"] = backendData
 		}
-		if len(backends) == 0 {
-			// no backendgroup specified, nothing to serve
-			return haproxyConfigErrNop
-		}
 		data["backends"] = backends
 	}
-	return nil
-}
-
-func (b *LoadbalancerCorpus) genHaproxyConfigHttpRedirectRaw(listener *LoadbalancerListener, data map[string]interface{}) error {
-	data["rules"] = []string{
-		b.haproxyRedirectLine(&listener.LoadbalancerHTTPRedirect, listener.ListenerType),
-	}
-	return nil
-}
-
-func (b *LoadbalancerCorpus) haproxyRedirectLine(r *models.LoadbalancerHTTPRedirect, listenerType string) string {
-	var (
-		code   = r.RedirectCode
-		scheme = r.RedirectScheme
-		host   = r.RedirectHost
-		path   = r.RedirectPath
-	)
-	if scheme == "" {
-		scheme = strings.ToLower(listenerType)
-	}
-	if host == "" {
-		host = "%[req.hdr(host)]"
-	}
-	if path == "" {
-		path = "%[capture.req.uri]"
-	}
-	line := fmt.Sprintf("http-request redirect code %d location %s://%s%s", code, scheme, host, path)
-	return line
-}
-
-func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *LoadbalancerListener, opts *AgentParams) error {
-	lb := listener.loadbalancer
-	data := b.genHaproxyConfigCommon(lb, listener, opts)
-	{
-		// NOTE add X-Real-IP if needed
-		//
-		//	http-request set-header X-Client-IP %[src]
-		//
-		data["xforwardedfor"] = listener.XForwardedFor
-		data["gzip"] = listener.Gzip
-	}
-	if listener.Redirect == computeapi.LB_REDIRECT_OFF {
-		b.genHaproxyConfigHttpRedirectOff(listener, data)
-	} else if listener.Redirect == computeapi.LB_REDIRECT_RAW {
-		b.genHaproxyConfigHttpRedirectRaw(listener, data)
-	} else {
+	if len(ruleLines) == 0 && len(backends) == 0 {
+		// nothing to serve
 		return haproxyConfigErrNop
 	}
 	err := haproxyConfigTmpl.ExecuteTemplate(buf, "httpListen", data)
@@ -586,7 +582,6 @@ frontend {{ .id }}
 	{{- println }}
 	{{- if .log }}	{{ println "option httplog clf" }} {{- end }}
 	{{- if .acl }}	{{ println .acl }} {{- end}}
-	{{- range .rate_rules }}	{{ println . }} {{- end }}
 	{{- if .client_request_timeout }}	timeout http-request {{ println .client_request_timeout }} {{- end}}
 	{{- if .client_idle_timeout }}	timeout http-keep-alive {{ println .client_idle_timeout }} {{- end}}
 	{{- if .xforwardedfor }}	{{ println "option forwardfor" }} {{- end}}
