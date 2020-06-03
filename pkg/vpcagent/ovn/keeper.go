@@ -553,6 +553,66 @@ func (keeper *OVNNorthboundKeeper) ClaimVpcGuestDnsRecords(ctx context.Context, 
 	return nil
 }
 
+func (keeper *OVNNorthboundKeeper) ClaimDnsRecords(ctx context.Context, vpcs agentmodels.Vpcs, dnsrecords agentmodels.DnsRecords) error {
+	var (
+		names = map[string][]string{}
+	)
+	for _, dnsrecord := range dnsrecords {
+		if !dnsrecord.Enabled.Bool() {
+			continue
+		}
+		name := dnsrecord.Name
+		for _, r := range dnsrecord.GetInfo() {
+			prefs := []string{"A:", "AAAA:"}
+			for _, pref := range prefs {
+				if strings.HasPrefix(r, pref) {
+					names[name] = append(names[name], r[len(pref):])
+				}
+			}
+		}
+	}
+	if len(names) == 0 {
+		return nil
+	}
+
+	var (
+		has = map[string]struct{}{}
+	)
+	for _, vpc := range vpcs {
+		if vpc.Id == apis.DEFAULT_VPC_ID {
+			continue
+		}
+		for _, network := range vpc.Networks {
+			if len(network.Guestnetworks) > 0 {
+				has[network.Id] = struct{}{}
+			}
+		}
+	}
+	if len(has) == 0 {
+		return nil
+	}
+
+	var (
+		names_    = map[string]string{}
+		ocVersion = "dnsrecords"
+	)
+	for name, addrs := range names {
+		names_[name] = strings.Join(addrs, " ")
+	}
+	dns := &ovn_nb.DNS{
+		Records: names_,
+	}
+	allFound, args := cmp(&keeper.DB, ocVersion, dns)
+	if allFound {
+		return nil
+	}
+	args = append(args, ovnCreateArgs(dns, "dns")...)
+	for networkId := range has {
+		args = append(args, "--", "add", "Logical_Switch", netLsName(networkId), "dns_records", "@dns")
+	}
+	return keeper.cli.Must(ctx, "ClaimDnsRecords", args)
+}
+
 func (keeper *OVNNorthboundKeeper) Mark(ctx context.Context) {
 	db := &keeper.DB
 	itbls := []types.ITable{

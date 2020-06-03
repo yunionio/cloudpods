@@ -171,6 +171,7 @@ func (w *Worker) run(ctx context.Context, mss *agentmodels.ModelSets) (err error
 		}
 		ovndb.ClaimVpcGuestDnsRecords(ctx, vpc)
 	}
+	ovndb.ClaimDnsRecords(ctx, mss.Vpcs, mss.DnsRecords)
 	ovndb.Sweep(ctx)
 	return nil
 }
