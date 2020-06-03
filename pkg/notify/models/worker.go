@@ -75,6 +75,10 @@ func SendVerifyMessage(ctx context.Context, userCred mcclient.TokenCredential, v
 		err error
 		msg string
 	)
+	err = TemplateManager.TryInitVerifyEmail(ctx)
+	if err != nil {
+		log.Errorf("unable to try to init verify eamil: %s", err.Error())
+	}
 	processId, token := verify.ID, verify.Token
 	if contact.ContactType == "email" {
 		emailUrl := strings.Replace(TemplateManager.GetEmailUrl(), "{0}", processId, 1)
