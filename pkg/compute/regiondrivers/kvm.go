@@ -16,6 +16,7 @@ package regiondrivers
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"regexp"
 
@@ -897,7 +898,34 @@ func (self *SKVMRegionDriver) RequestDeleteVpc(ctx context.Context, userCred mcc
 }
 
 func (self *SKVMRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, input *api.SElasticipCreateInput) error {
-	return httperrors.NewNotImplementedError("Not Implement EIP")
+	if len(input.Network) == 0 {
+		return httperrors.NewMissingParameterError("network")
+	}
+	_network, err := models.NetworkManager.FetchByIdOrName(userCred, input.Network)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return httperrors.NewResourceNotFoundError("failed to found network %s", input.Network)
+		}
+		return httperrors.NewGeneralError(err)
+	}
+	network := _network.(*models.SNetwork)
+	if network.ServerType != api.NETWORK_TYPE_EIP {
+		return httperrors.NewInputParameterError("bad network type %q, want %q", network.ServerType, api.NETWORK_TYPE_EIP)
+	}
+	input.NetworkId = network.Id
+
+	vpc := network.GetVpc()
+	if vpc == nil {
+		return httperrors.NewInputParameterError("failed to found vpc for network %s(%s)", network.Name, network.Id)
+	}
+	region, err := vpc.GetRegion()
+	if err != nil {
+		return err
+	}
+	if region.GetDriver().GetProvider() != self.GetProvider() {
+		return httperrors.NewUnsupportOperationError("network %s(%s) does not belong to %s", network.Name, network.Id, self.GetProvider())
+	}
+	return nil
 }
 
 func (self *SKVMRegionDriver) ValidateSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot) error {

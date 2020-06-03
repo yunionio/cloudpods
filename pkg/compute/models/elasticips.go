@@ -80,7 +80,7 @@ type SElasticip struct {
 	// | elastic_ip | 弹性公网IP |
 	//
 	// example: elastic_ip
-	Mode string `width:"32" charset:"ascii" list:"user"`
+	Mode string `width:"32" charset:"ascii" get:"user" list:"user" create:"optional"`
 
 	// IP地址
 	IpAddr string `width:"17" charset:"ascii" list:"user" create:"optional"`
@@ -148,7 +148,7 @@ func (manager *SElasticipManager) ListItemFilter(
 				return nil, httperrors.NewGeneralError(err)
 			}
 			guest := serverObj.(*SGuest)
-			if utils.IsInStringArray(guest.Hypervisor, api.PRIVATE_CLOUD_HYPERVISORS) {
+			if guest.Hypervisor == api.HYPERVISOR_KVM || utils.IsInStringArray(guest.Hypervisor, api.PRIVATE_CLOUD_HYPERVISORS) {
 				zone := guest.getZone()
 				networks := NetworkManager.Query().SubQuery()
 				wires := WireManager.Query().SubQuery()
@@ -161,7 +161,11 @@ func (manager *SElasticipManager) ListItemFilter(
 				q = q.Equals("cloudregion_id", region.Id)
 			}
 			managerId := guest.GetHost().ManagerId
-			q = q.Equals("manager_id", managerId)
+			if managerId != "" {
+				q = q.Equals("manager_id", managerId)
+			} else {
+				q = q.IsNullOrEmpty("manager_id")
+			}
 		default:
 			return nil, httperrors.NewInputParameterError("Not support associate type %s, only support %s", associateType, api.EIP_ASSOCIATE_VALID_TYPES)
 		}
@@ -772,24 +776,29 @@ func (manager *SElasticipManager) getEipByExtEip(ctx context.Context, userCred m
 }
 
 func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.SElasticipCreateInput) (*jsonutils.JSONDict, error) {
+	var (
+		region   *SCloudregion
+		provider *SCloudprovider
+		err      error
+	)
 	for _, cloudregion := range []string{input.Cloudregion, input.Region, input.RegionId} {
 		if len(cloudregion) > 0 {
 			input.Cloudregion = cloudregion
 			break
 		}
 	}
-	if len(input.Cloudregion) == 0 {
-		return nil, httperrors.NewMissingParameterError("cloudregion")
+	if input.Cloudregion == "" {
+		input.Cloudregion = api.DEFAULT_REGION_ID
 	}
-	_region, err := CloudregionManager.FetchByIdOrName(nil, input.Cloudregion)
-	if err != nil {
+	if obj, err := CloudregionManager.FetchByIdOrName(nil, input.Cloudregion); err != nil {
 		if err != sql.ErrNoRows {
 			return nil, httperrors.NewGeneralError(err)
 		} else {
 			return nil, httperrors.NewResourceNotFoundError("Region %s not found", input.Cloudregion)
 		}
+	} else {
+		region = obj.(*SCloudregion)
 	}
-	region := _region.(*SCloudregion)
 	input.CloudregionId = region.GetId()
 
 	for _, cloudprovider := range []string{input.Cloudprovider, input.Manager, input.ManagerId} {
@@ -798,20 +807,21 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 			break
 		}
 	}
-	if len(input.Cloudprovider) == 0 {
-		return nil, httperrors.NewMissingParameterError("cloudprovider")
+	if input.Cloudprovider != "" {
+		providerObj, err := CloudproviderManager.FetchByIdOrName(nil, input.Cloudprovider)
+		if err != nil {
+			if err != sql.ErrNoRows {
+				return nil, httperrors.NewGeneralError(err)
+			} else {
+				return nil, httperrors.NewResourceNotFoundError("Cloud provider %s not found", input.Cloudprovider)
+			}
+		}
+		provider = providerObj.(*SCloudprovider)
+		input.ManagerId = provider.Id
 	}
 
-	providerObj, err := CloudproviderManager.FetchByIdOrName(nil, input.Cloudprovider)
-	if err != nil {
-		if err != sql.ErrNoRows {
-			return nil, httperrors.NewGeneralError(err)
-		} else {
-			return nil, httperrors.NewResourceNotFoundError("Cloud provider %s not found", input.Cloudprovider)
-		}
-	}
-	provider := providerObj.(*SCloudprovider)
-	input.ManagerId = provider.Id
+	// publicIp cannot be created standalone
+	input.Mode = api.EIP_MODE_STANDALONE_EIP
 
 	if len(input.ChargeType) == 0 {
 		input.ChargeType = api.EIP_CHARGE_TYPE_DEFAULT
@@ -821,19 +831,19 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 		return nil, httperrors.NewInputParameterError("charge type %s not supported", input.ChargeType)
 	}
 
-	input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
-	if err != nil {
+	if input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput); err != nil {
 		return nil, err
 	}
 
-	err = region.GetDriver().ValidateCreateEipData(ctx, userCred, &input)
+	if err = region.GetDriver().ValidateCreateEipData(ctx, userCred, &input); err != nil {
+		return nil, err
+	}
 
 	//避免参数重名后还有pending.eip残留
 	eipPendingUsage := &SRegionQuota{Eip: 1}
 	quotaKeys := fetchRegionalQuotaKeys(rbacutils.ScopeProject, ownerId, region, provider)
 	eipPendingUsage.SetKeys(quotaKeys)
-	err = quotas.CheckSetPendingQuota(ctx, userCred, eipPendingUsage)
-	if err != nil {
+	if err = quotas.CheckSetPendingQuota(ctx, userCred, eipPendingUsage); err != nil {
 		return nil, err
 	}
 
@@ -883,7 +893,7 @@ func (self *SElasticip) startEipAllocateTask(ctx context.Context, userCred mccli
 }
 
 func (self *SElasticip) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	log.Infof("Elasticip delete do nothing")
+	// Elasticip delete do nothing
 	return nil
 }
 
@@ -961,6 +971,8 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 		return nil, httperrors.NewInvalidStatusError("cannot associate pending delete server")
 	}
 
+	// IMPORTANT: this serves as a guard against a guest to have multiple
+	// associated elastic_ips
 	seip, _ := server.GetEip()
 	if seip != nil {
 		return nil, httperrors.NewInvalidStatusError("instance is already associated with eip")
@@ -1088,16 +1100,9 @@ func (self *SElasticip) PerformDissociate(ctx context.Context, userCred mcclient
 	}
 
 	autoDelete := jsonutils.QueryBoolean(data, "auto_delete", false)
-	switch self.AssociateType {
-	case api.EIP_ASSOCIATE_TYPE_SERVER:
-		guest := self.GetAssociateVM()
-		if guest == nil {
-			return nil, httperrors.NewInputParameterError("unable to found guest for elasticip %s(%s)", self.Name, self.IpAddr)
-		}
-		return nil, guest.StartGuestDissociateEipTask(ctx, userCred, self, autoDelete, "")
-	default:
-		return nil, self.StartEipDissociateTask(ctx, userCred, autoDelete, "")
-	}
+
+	err := self.StartEipDissociateTask(ctx, userCred, autoDelete, "")
+	return nil, err
 }
 
 func (self *SElasticip) StartEipDissociateTask(ctx context.Context, userCred mcclient.TokenCredential, autoDelete bool, parentTaskId string) error {
@@ -1146,8 +1151,11 @@ func (self *SElasticip) PerformSyncstatus(ctx context.Context, userCred mcclient
 	if self.Mode == api.EIP_MODE_INSTANCE_PUBLICIP {
 		return nil, httperrors.NewUnsupportOperationError("fixed eip cannot sync status")
 	}
-
-	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "EipSyncstatusTask", "")
+	if self.IsManaged() {
+		return nil, StartResourceSyncStatusTask(ctx, userCred, self, "EipSyncstatusTask", "")
+	} else {
+		return nil, self.SetStatus(userCred, api.EIP_STATUS_READY, "eip sync status")
+	}
 }
 
 func (self *SElasticip) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -1155,15 +1163,13 @@ func (self *SElasticip) AllowPerformSync(ctx context.Context, userCred mcclient.
 }
 
 func (self *SElasticip) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	/*if self.Status != EIP_STATUS_READY && !strings.HasSuffix(self.Status, "_fail") {
-		return nil, httperrors.NewInvalidStatusError("eip cannot syncstatus in status %s", self.Status)
-	}*/
-
 	if self.Mode == api.EIP_MODE_INSTANCE_PUBLICIP {
 		return nil, httperrors.NewUnsupportOperationError("fixed eip cannot sync status")
 	}
-
-	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "EipSyncstatusTask", "")
+	if self.IsManaged() {
+		return nil, StartResourceSyncStatusTask(ctx, userCred, self, "EipSyncstatusTask", "")
+	}
+	return nil, nil
 }
 
 func (self *SElasticip) GetExtraDetails(
@@ -1229,6 +1235,32 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 	eip.ManagerId = host.ManagerId
 	eip.CloudregionId = region.Id
 	eip.Name = fmt.Sprintf("eip-for-%s", vm.GetName())
+	if host.ManagerId == "" {
+		hostq := HostManager.Query().SubQuery()
+		wireq := WireManager.Query().SubQuery()
+		hostwireq := HostwireManager.Query().SubQuery()
+		q := NetworkManager.Query()
+		q = q.Join(wireq, sqlchemy.Equals(wireq.Field("id"), q.Field("wire_id")))
+		q = q.Join(hostwireq, sqlchemy.Equals(hostwireq.Field("wire_id"), wireq.Field("id")))
+		q = q.Join(hostq, sqlchemy.Equals(hostq.Field("id"), host.Id))
+		q = q.Equals("server_type", api.NETWORK_TYPE_EIP)
+		var nets []SNetwork
+		if err := db.FetchModelObjects(NetworkManager, q, &nets); err != nil {
+			return nil, errors.Wrapf(err, "fetch eip networks usable in host %s(%s)",
+				host.Name, host.Id)
+		}
+		for i := range nets {
+			net := &nets[i]
+			cnt, err := net.GetFreeAddressCount()
+			if err != nil {
+				continue
+			}
+			if cnt > 0 {
+				eip.NetworkId = net.Id
+				break
+			}
+		}
+	}
 
 	var err error
 	eip.Name, err = db.GenerateName(manager, userCred, eip.Name)
@@ -1280,13 +1312,15 @@ func (self *SElasticip) PerformChangeBandwidth(ctx context.Context, userCred mcc
 		return nil, httperrors.NewInputParameterError("Invalid bandwidth")
 	}
 
-	factory, err := self.GetProviderFactory()
-	if err != nil {
-		return nil, err
-	}
+	if self.IsManaged() {
+		factory, err := self.GetProviderFactory()
+		if err != nil {
+			return nil, err
+		}
 
-	if err := factory.ValidateChangeBandwidth(self.AssociateId, bandwidth); err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+		if err := factory.ValidateChangeBandwidth(self.AssociateId, bandwidth); err != nil {
+			return nil, httperrors.NewInputParameterError(err.Error())
+		}
 	}
 
 	err = self.StartEipChangeBandwidthTask(ctx, userCred, bandwidth)

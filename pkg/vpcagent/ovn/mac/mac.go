@@ -20,3 +20,7 @@ func HashMac(in ...string) string {
 	}
 	return mac
 }
+
+func HashVpcHostDistgwMac(hostId string) string {
+	return HashMac(hostId)
+}

@@ -2901,30 +2901,16 @@ func (self *SGuest) PerformDissociateEip(ctx context.Context, userCred mcclient.
 		return nil, httperrors.NewInvalidStatusError("No eip to dissociate")
 	}
 
-	if eip.Mode != api.EIP_MODE_STANDALONE_EIP {
-		return nil, httperrors.NewNotSupportedError("%s not support dissociate", eip.Mode)
-	}
+	self.SetStatus(userCred, api.VM_DISSOCIATE_EIP, "associate eip")
 
 	autoDelete := jsonutils.QueryBoolean(data, "auto_delete", false)
-	err = self.StartGuestDissociateEipTask(ctx, userCred, eip, autoDelete, "")
+
+	err = eip.StartEipDissociateTask(ctx, userCred, autoDelete, "")
 	if err != nil {
-		return nil, errors.Wrap(err, "StartGuestDissociateEipTask")
+		log.Errorf("fail to start dissociate task %s", err)
+		return nil, httperrors.NewGeneralError(err)
 	}
 	return nil, nil
-}
-
-func (self *SGuest) StartGuestDissociateEipTask(ctx context.Context, userCred mcclient.TokenCredential, eip *SElasticip, autoDelete bool, parentTaskId string) error {
-	self.SetStatus(userCred, api.VM_DISSOCIATE_EIP, "associate eip")
-	eip.SetStatus(userCred, api.EIP_STATUS_DISSOCIATE, "start to dissociate")
-	params := jsonutils.NewDict()
-	params.Add(jsonutils.NewBool(autoDelete), "auto_delete")
-	task, err := taskman.TaskManager.NewTask(ctx, "GuestDissociateEipTask", self, userCred, params, parentTaskId, "", nil)
-	if err != nil {
-		eip.SetStatus(userCred, api.EIP_STATUS_READY, "")
-		return errors.Wrap(err, "NewTask")
-	}
-	task.ScheduleRun(nil)
-	return nil
 }
 
 func (self *SGuest) AllowPerformCreateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -2946,25 +2932,24 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 	}
 	autoDellocate, _ := data.Bool("auto_dellocate")
 
-	if len(self.ExternalId) == 0 {
-		return nil, httperrors.NewInvalidStatusError("Not a managed VM")
-	}
 	host := self.GetHost()
 	if host == nil {
 		return nil, httperrors.NewInvalidStatusError("No host???")
 	}
-
-	_, err := host.GetDriver()
-	if err != nil {
-		return nil, httperrors.NewInvalidStatusError("No valid cloud provider")
+	{
+		if self.ExternalId != "" {
+			_, err := host.GetDriver()
+			if err != nil {
+				return nil, httperrors.NewInvalidStatusError("No valid cloud provider")
+			}
+		}
+		region := host.GetRegion()
+		if region == nil {
+			return nil, httperrors.NewInvalidStatusError("No cloudregion???")
+		}
 	}
 
-	region := host.GetRegion()
-	if region == nil {
-		return nil, httperrors.NewInvalidStatusError("No cloudregion???")
-	}
-
-	err = self.GetDriver().ValidateCreateEip(ctx, userCred, data)
+	err := self.GetDriver().ValidateCreateEip(ctx, userCred, data)
 	if err != nil {
 		return nil, err
 	}

@@ -161,6 +161,7 @@ func OvnNbctlArgsDestroy(irows []types.IRow) []string {
 			newArgs = []string{"--", "--if-exists", "lrp-del", irow.OvsdbUuid()}
 		case *ovn_nb.LogicalRouterStaticRoute:
 		case *ovn_nb.ACL:
+		case *ovn_nb.QoS:
 		default:
 			if !irow.OvsdbIsRoot() {
 				panic(irow.OvsdbTableName())

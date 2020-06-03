@@ -769,6 +769,8 @@ github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2 h1:eY9dn8+vbi4tKz5
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xlab/handysort v0.0.0-20150421192137-fb3537ed64a1/go.mod h1:QcJo0QPSfTONNIgpN5RA8prR7fF8nkF6cTWTcNerRO8=
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=
+github.com/yousong/ovsdb v0.0.0-20200526055947-05168ba66aaf h1:MfwaIeKiVUqeWZSKyO5GwOccti0O/ENZDdqOkB3OPnU=
+github.com/yousong/ovsdb v0.0.0-20200526055947-05168ba66aaf/go.mod h1:0vLkNEhlmA64HViPBAnSTUMrx5QP1CLsxXmxDKQ80tc=
 github.com/yunionio/go-ceph v0.0.0-20190912101231-6f05a06b3859 h1:wu596gn6sV3j5wy+GDfiG8nwtzIDpalJihfmC/TjoYc=
 github.com/yunionio/go-ceph v0.0.0-20190912101231-6f05a06b3859/go.mod h1:8XuBae5AzsgotLArJSewMruYVaQs8AlfsK5jBCG8T9Y=
 go.etcd.io/bbolt v1.3.3 h1:MUGmc65QhB3pIlaQ5bB4LwqSj6GIonVJXpZiaKNyaKk=
@@ -1117,6 +1119,10 @@ yunion.io/x/log v0.0.0-20200313080802-57a4ce5966b3 h1:5Wc5hkB8PtMudmHuzCyok960Ru
 yunion.io/x/log v0.0.0-20200313080802-57a4ce5966b3/go.mod h1:LC6f/4FozL0iaAbnFt2eDX9jlsyo3WiOUPm03d7+U4U=
 yunion.io/x/ovsdb v0.0.0-20200512112253-a3601d1ee987 h1:BlHpXbNhqG1rZ57io0+XI4L9ckWunn7LHR2JQikGqQg=
 yunion.io/x/ovsdb v0.0.0-20200512112253-a3601d1ee987/go.mod h1:0vLkNEhlmA64HViPBAnSTUMrx5QP1CLsxXmxDKQ80tc=
+yunion.io/x/ovsdb v0.0.0-20200526062315-c921cb58f76e h1:v5AnakAKVOvYoYEtsTkntcr4MIgawTAI106/5mmaMAs=
+yunion.io/x/ovsdb v0.0.0-20200526062315-c921cb58f76e/go.mod h1:0vLkNEhlmA64HViPBAnSTUMrx5QP1CLsxXmxDKQ80tc=
+yunion.io/x/ovsdb v0.0.0-20200526071744-27bf0940cbc7 h1:gjqNa2uQzIEXyySsbvVz0UltTEbGsnFFlvnzOpCfHdo=
+yunion.io/x/ovsdb v0.0.0-20200526071744-27bf0940cbc7/go.mod h1:0vLkNEhlmA64HViPBAnSTUMrx5QP1CLsxXmxDKQ80tc=
 yunion.io/x/pkg v0.0.0-20190620104149-945c25821dbf/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=
 yunion.io/x/pkg v0.0.0-20190628082551-f4033ba2ea30/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=
 yunion.io/x/pkg v0.0.0-20200302034534-fdf44d54b070/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=

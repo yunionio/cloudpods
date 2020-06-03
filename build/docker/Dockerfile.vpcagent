@@ -1,4 +1,4 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/openvswitch:2.9.6-1
+FROM registry.cn-beijing.aliyuncs.com/yunionio/openvswitch:2.10.4-0
 
 MAINTAINER "Yousong Zhou <zhouyousong@yunion.cn>"
 

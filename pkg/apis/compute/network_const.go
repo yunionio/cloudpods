@@ -27,6 +27,7 @@ const (
 	NETWORK_TYPE_CONTAINER = "container"
 	NETWORK_TYPE_PXE       = "pxe"
 	NETWORK_TYPE_IPMI      = "ipmi"
+	NETWORK_TYPE_EIP       = "eip"
 
 	STATIC_ALLOC = "static"
 
@@ -53,6 +54,7 @@ var (
 		NETWORK_TYPE_CONTAINER,
 		NETWORK_TYPE_PXE,
 		NETWORK_TYPE_IPMI,
+		NETWORK_TYPE_EIP,
 	}
 
 	REGIONAL_NETWORK_PROVIDERS = []string{

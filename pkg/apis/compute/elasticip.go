@@ -61,6 +61,8 @@ type SElasticipCreateInput struct {
 	// enum: traffic, bandwidth
 	ChargeType string `json:"charge_type"`
 
+	Mode string `json:"mode"`
+
 	// 子网名称或Id
 	// 私有云创建此参数必传,例如Openstack, ZStack
 	Network string `json:"network"`

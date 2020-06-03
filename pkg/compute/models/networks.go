@@ -1360,6 +1360,9 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 	if vpc.Status != api.VPC_STATUS_AVAILABLE {
 		return input, httperrors.NewInvalidStatusError("VPC not ready")
 	}
+	if input.ServerType == api.NETWORK_TYPE_EIP && vpc.Id != api.DEFAULT_VPC_ID {
+		return input, httperrors.NewInputParameterError("eip network can only exist in default vpc, got %s(%s)", vpc.Name, vpc.Id)
+	}
 
 	var (
 		ipStart = ipRange.StartIp()

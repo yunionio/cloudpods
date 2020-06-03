@@ -8,6 +8,7 @@ func vpcLrName(vpcId string) string {
 	return fmt.Sprintf("vpc-r/%s", vpcId)
 }
 
+// distgw
 func vpcHostLsName(vpcId string) string {
 	return fmt.Sprintf("vpc-h/%s", vpcId)
 }
@@ -22,6 +23,23 @@ func vpcHrpName(vpcId string) string {
 
 func vpcHostLspName(vpcId string, hostId string) string {
 	return fmt.Sprintf("vpc-h/%s/%s", vpcId, hostId)
+}
+
+// eipgw
+func vpcEipLsName(vpcId string) string {
+	return fmt.Sprintf("vpc-e/%s", vpcId)
+}
+
+func vpcRepName(vpcId string) string {
+	return fmt.Sprintf("vpc-re/%s", vpcId)
+}
+
+func vpcErpName(vpcId string) string {
+	return fmt.Sprintf("vpc-er/%s", vpcId)
+}
+
+func vpcEipLspName(vpcId string, eipgwId string) string {
+	return fmt.Sprintf("vpc-ep/%s/%s", vpcId, eipgwId)
 }
 
 func netLsName(netId string) string {

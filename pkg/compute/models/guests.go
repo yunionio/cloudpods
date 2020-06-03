@@ -323,14 +323,21 @@ func (manager *SGuestManager) ListItemFilter(
 			return nil, httperrors.NewGeneralError(err)
 		}
 		eip := eipObj.(*SElasticip)
-		hostTable := HostManager.Query().SubQuery()
-		zoneTable := ZoneManager.Query().SubQuery()
-		hostQ := hostTable.Query(hostTable.Field("id")).Join(zoneTable,
-			sqlchemy.Equals(zoneTable.Field("id"), hostTable.Field("zone_id"))).Equals("manager_id", eip.ManagerId)
 
 		if len(eip.NetworkId) > 0 {
 			sq := GuestnetworkManager.Query("guest_id").Equals("network_id", eip.NetworkId).SubQuery()
 			q = q.NotIn("id", sq)
+		}
+
+		hostTable := HostManager.Query().SubQuery()
+		zoneTable := ZoneManager.Query().SubQuery()
+		hostQ := hostTable.Query(hostTable.Field("id"))
+		hostQ = hostQ.Join(zoneTable,
+			sqlchemy.Equals(zoneTable.Field("id"), hostTable.Field("zone_id")))
+		if eip.ManagerId != "" {
+			hostQ = hostQ.Equals("manager_id", eip.ManagerId)
+		} else {
+			hostQ = hostQ.IsNullOrEmpty("manager_id")
 		}
 		region := eip.GetRegion()
 		regionTable := CloudregionManager.Query().SubQuery()

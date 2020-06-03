@@ -39,6 +39,7 @@ type VpcAgentOptions struct {
 
 	OvnWorkerCheckInterval int    `default:"180"`
 	OvnNorthDatabase       string `help:"address for accessing ovn north database.  Default to local unix socket"`
+	OvnUnderlayMtu         int    `help:"mtu of ovn underlay network" default:"1500"`
 }
 
 type Options struct {
@@ -65,6 +66,10 @@ func (opts *Options) ValidateThenInit() error {
 
 	if opts.OvnWorkerCheckInterval <= 60 {
 		opts.OvnWorkerCheckInterval = 60
+	}
+
+	if opts.OvnUnderlayMtu <= 576 {
+		opts.OvnUnderlayMtu = 576
 	}
 
 	if db, err := ovsutils.NormalizeDbHost(opts.OvnNorthDatabase); err != nil {

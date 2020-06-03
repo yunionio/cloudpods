@@ -29,9 +29,10 @@ func init() {
 	type VpcListOptions struct {
 		options.BaseListOptions
 
-		Usable    *bool  `help:"Filter usable vpcs"`
-		Region    string `help:"ID or Name of region" json:"-"`
-		Globalvpc string `help:"Filter by globalvpc"`
+		Usable             *bool  `help:"Filter usable vpcs"`
+		Region             string `help:"ID or Name of region" json:"-"`
+		Globalvpc          string `help:"Filter by globalvpc"`
+		ExternalAccessMode string `help:"Filter by external access mode" choices:"distgw|eip|eip-distgw"`
 	}
 	R(&VpcListOptions{}, "vpc-list", "List VPCs", func(s *mcclient.ClientSession, opts *VpcListOptions) error {
 		params, err := options.ListStructToParams(opts)
@@ -58,13 +59,14 @@ func init() {
 	})
 
 	type VpcCreateOptions struct {
-		REGION  string `help:"ID or name of the region where the VPC is created"`
-		Id      string `help:"ID of the new VPC"`
-		NAME    string `help:"Name of the VPC"`
-		CIDR    string `help:"CIDR block"`
-		Default bool   `help:"default VPC for the region" default:"false"`
-		Desc    string `help:"Description of the VPC"`
-		Manager string `help:"ID or Name of Cloud provider"`
+		REGION             string `help:"ID or name of the region where the VPC is created"`
+		Id                 string `help:"ID of the new VPC"`
+		NAME               string `help:"Name of the VPC"`
+		CIDR               string `help:"CIDR block"`
+		Default            bool   `help:"default VPC for the region" default:"false"`
+		Desc               string `help:"Description of the VPC"`
+		Manager            string `help:"ID or Name of Cloud provider"`
+		ExternalAccessMode string `help:"Filter by external access mode" choices:"distgw|eip|eip-distgw" default:"eip-distgw"`
 	}
 	R(&VpcCreateOptions{}, "vpc-create", "Create a VPC", func(s *mcclient.ClientSession, args *VpcCreateOptions) error {
 		params := jsonutils.NewDict()
@@ -72,6 +74,9 @@ func init() {
 		params.Add(jsonutils.NewString(args.CIDR), "cidr_block")
 		if len(args.Id) > 0 {
 			params.Add(jsonutils.NewString(args.Id), "id")
+		}
+		if len(args.ExternalAccessMode) > 0 {
+			params.Add(jsonutils.NewString(args.ExternalAccessMode), "external_access_mode")
 		}
 		if len(args.Desc) > 0 {
 			params.Add(jsonutils.NewString(args.Desc), "description")
@@ -112,14 +117,18 @@ func init() {
 	})
 
 	type VpcUpdateOptions struct {
-		ID   string `help:"ID or name of the VPC"`
-		Name string `help:"New name of the VPC"`
-		Desc string `help:"Description of the VPC"`
+		ID                 string `help:"ID or name of the VPC"`
+		Name               string `help:"New name of the VPC"`
+		Desc               string `help:"Description of the VPC"`
+		ExternalAccessMode string `help:"Filter by external access mode" choices:"distgw|eip|eip-distgw"`
 	}
 	R(&VpcUpdateOptions{}, "vpc-update", "Update a VPC", func(s *mcclient.ClientSession, args *VpcUpdateOptions) error {
 		params := jsonutils.NewDict()
 		if len(args.Name) > 0 {
 			params.Add(jsonutils.NewString(args.Name), "name")
+		}
+		if len(args.ExternalAccessMode) > 0 {
+			params.Add(jsonutils.NewString(args.ExternalAccessMode), "external_access_mode")
 		}
 		if len(args.Desc) > 0 {
 			params.Add(jsonutils.NewString(args.Desc), "description")
