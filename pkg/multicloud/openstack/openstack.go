@@ -148,7 +148,7 @@ func (cli *SOpenStackClient) Request(projectId string, region, service, method s
 		header.Set("X-Openstack-Nova-API-Version", microversion)
 	}
 
-	var session *mcclient.ClientSession
+	var session *mcclient.ClientSession = nil
 	ctx := context.Background()
 	if method == "POST" && len(projectId) > 0 {
 		targetToken, err := cli.getProjectTokenCredential(projectId)
@@ -157,7 +157,8 @@ func (cli *SOpenStackClient) Request(projectId string, region, service, method s
 		} else {
 			session = cli.client.NewSession(ctx, region, "", cli.endpointType, targetToken, "")
 		}
-	} else {
+	}
+	if session == nil {
 		session = cli.client.NewSession(ctx, region, "", cli.endpointType, cli.tokenCredential, "")
 	}
 
