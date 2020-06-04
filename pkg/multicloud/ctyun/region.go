@@ -35,6 +35,9 @@ type SRegion struct {
 	client       *SCtyunClient
 	storageCache *SStoragecache
 
+	//
+	initialled bool
+
 	RegionName     string
 	Description    string `json:"description"`
 	ID             string `json:"id"`
@@ -195,12 +198,14 @@ func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 
 // http://ctyun-api-url/apiproxy/v3/order/getZoneConfig
 func (self *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
-	if self.izones == nil {
+	if self.izones == nil || self.initialled == false {
 		var err error
 		err = self.fetchInfrastructure()
 		if err != nil {
 			return nil, err
 		}
+
+		self.initialled = true
 	}
 	return self.izones, nil
 }
@@ -208,11 +213,13 @@ func (self *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
 // http://ctyun-api-url/apiproxy/v3/getVpcs
 // http://ctyun-api-url/apiproxy/v3/getVpcs
 func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
-	if self.ivpcs == nil {
+	if self.ivpcs == nil || self.initialled == false {
 		err := self.fetchInfrastructure()
 		if err != nil {
 			return nil, err
 		}
+
+		self.initialled = true
 	}
 	return self.ivpcs, nil
 }
