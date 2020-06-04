@@ -48,7 +48,7 @@ func parseAccount(account string) (user string, accessKey string) {
 }
 
 func NewXskyClient(cfg *objectstore.ObjectStoreClientConfig) (*SXskyClient, error) {
-	usrname, accessKey := parseAccount(cfg.GetEndpoint())
+	usrname, accessKey := parseAccount(cfg.GetAccessKey())
 	adminApi := newXskyAdminApi(
 		usrname,
 		cfg.GetAccessSecret(),
