@@ -35,6 +35,10 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+var (
+	DefaultUserFetcher func(ctx context.Context, id string) (*SUser, error)
+)
+
 type SUserCacheManager struct {
 	SKeystoneCacheObjectManager
 }
@@ -54,6 +58,8 @@ func init() {
 		NewKeystoneCacheObjectManager(SUser{}, "users_cache_tbl", "user", "users")}
 	// log.Debugf("initialize user cache manager %s", UserCacheManager.KeywordPlural())
 	UserCacheManager.SetVirtualObject(UserCacheManager)
+
+	DefaultUserFetcher = UserCacheManager.FetchUserByIdOrName
 }
 
 func (manager *SUserCacheManager) updateUserCache(userCred mcclient.TokenCredential) {

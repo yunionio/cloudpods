@@ -34,8 +34,8 @@ type BaseEventListOptions struct {
 	OrderBy    string   `help:"order by specific field"`
 	Action     []string `help:"Log action"`
 
-	User    []string `help:"filter by operator user"`
-	Project []string `help:"filter by owner project"`
+	User    string `help:"filter by operator user"`
+	Project string `help:"filter by owner project"`
 
 	PagingMarker string `help:"marker for pagination"`
 }
@@ -99,10 +99,10 @@ func doEventList(man modulebase.ResourceManager, s *mcclient.ClientSession, args
 		params.Add(jsonutils.NewStringArray(args.Action), "action")
 	}
 	if len(args.User) > 0 {
-		params.Add(jsonutils.NewStringArray(args.User), "user")
+		params.Add(jsonutils.NewString(args.User), "user")
 	}
 	if len(args.Project) > 0 {
-		params.Add(jsonutils.NewStringArray(args.Project), "project")
+		params.Add(jsonutils.NewString(args.Project), "project")
 	}
 	if len(args.Scope) > 0 {
 		params.Add(jsonutils.NewString(args.Scope), "scope")
