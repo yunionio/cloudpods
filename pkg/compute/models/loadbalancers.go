@@ -108,7 +108,7 @@ type SLoadbalancer struct {
 	// VpcId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	// 负载均衡集群Id
-	ClusterId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" json:"cluster_id"`
+	ClusterId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user" json:"cluster_id"`
 
 	// 计费类型
 	ChargeType string `list:"user" get:"user" create:"optional" update:"user" json:"charge_type"`
@@ -514,18 +514,44 @@ func (lb *SLoadbalancer) StartLoadBalancerCreateTask(ctx context.Context, userCr
 }
 
 func (lb *SLoadbalancer) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", lb.GetOwnerId())
-	backendGroupV.Optional(true)
-	err := backendGroupV.Validate(data)
-	if err != nil {
-		return nil, err
+	var (
+		ownerId       = lb.GetOwnerId()
+		backendGroupV = validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", ownerId)
+		clusterV      = validators.NewModelIdOrNameValidator("cluster", "loadbalancercluster", ownerId)
+		keyV          = map[string]validators.IValidator{
+			"backend_group": backendGroupV,
+			"cluster":       clusterV,
+		}
+	)
+	for _, v := range keyV {
+		v.Optional(true)
+		if err := v.Validate(data); err != nil {
+			return nil, err
+		}
 	}
 	if backendGroup, ok := backendGroupV.Model.(*SLoadbalancerBackendGroup); ok && backendGroup.LoadbalancerId != lb.Id {
 		return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s, not %s",
 			backendGroup.Name, backendGroup.Id, backendGroup.LoadbalancerId, lb.Id)
 	}
+	if clusterV.Model != nil {
+		var (
+			cluster = clusterV.Model.(*SLoadbalancerCluster)
+			network = lb.GetNetwork()
+			wire    = network.GetWire()
+			zone    = wire.GetZone()
+		)
+		if cluster.ZoneId != zone.Id {
+			return nil, httperrors.NewInputParameterError("cluster zone %s does not match network zone %s ",
+				cluster.ZoneId, zone.Id)
+		}
+		if cluster.WireId != "" && cluster.WireId != network.WireId {
+			return nil, httperrors.NewInputParameterError("cluster wire affiliation does not match network's: %s != %s",
+				cluster.WireId, network.WireId)
+		}
+	}
+
 	input := apis.VirtualResourceBaseUpdateInput{}
-	err = data.Unmarshal(&input)
+	err := data.Unmarshal(&input)
 	if err != nil {
 		return nil, errors.Wrap(err, "Unmarshal")
 	}
