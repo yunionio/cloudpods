@@ -35,6 +35,7 @@ type LoadbalancerUpdateOptions struct {
 	ID   string `json:"-"`
 	Name string
 
+	Cluster      string
 	BackendGroup string
 }
 
