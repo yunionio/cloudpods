@@ -750,8 +750,8 @@ func (g *SGuest) PerformSaveTemplate(ctx context.Context, userCred mcclient.Toke
 	query jsonutils.JSONObject, input computeapis.GuestSaveToTemplateInput) (jsonutils.JSONObject, error) {
 	g.SetStatus(userCred, computeapis.VM_TEMPLATE_SAVING, "save to template")
 
-	if len(input.Name) == 0 {
-		input.Name = fmt.Sprintf("%s-template", g.Name)
+	if len(input.Name) == 0 && len(input.GenerateName) == 0 {
+		input.GenerateName = fmt.Sprintf("%s-template", g.Name)
 	}
 	data := jsonutils.Marshal(input).(*jsonutils.JSONDict)
 	if task, err := taskman.TaskManager.NewTask(ctx, "GuestSaveTemplateTask", g, userCred, data, "", "", nil); err != nil {

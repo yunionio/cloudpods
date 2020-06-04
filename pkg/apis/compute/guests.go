@@ -335,6 +335,8 @@ type ConvertEsxiToKvmInput struct {
 }
 
 type GuestSaveToTemplateInput struct {
-	// The name of guest
+	// The name of guest template
 	Name string `json:"name"`
+	// The generate name of guest template
+	GenerateName string `json:"generate_name"`
 }
