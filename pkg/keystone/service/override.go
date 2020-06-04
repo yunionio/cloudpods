@@ -114,3 +114,25 @@ func keystoneProjectQuery(fields ...string) *sqlchemy.SQuery {
 func keystoneDomainQuery(fields ...string) *sqlchemy.SQuery {
 	return models.DomainManager.Query(fields...)
 }
+
+func keystoneUserFetcher(ctx context.Context, idstr string) (*db.SUser, error) {
+	userObj, err := models.UserManager.FetchByIdOrName(nil, idstr)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "user %s", idstr)
+		} else {
+			return nil, errors.Wrap(err, "models.UserManager.FetchByIdOrName")
+		}
+	}
+	ret := user2User(userObj.(*models.SUser))
+	return &ret, nil
+}
+
+func user2User(u *models.SUser) db.SUser {
+	ret := db.SUser{}
+	ret.Id = u.Id
+	ret.Name = u.Name
+	ret.DomainId = u.DomainId
+	ret.Domain = u.GetDomain().Name
+	return ret
+}
