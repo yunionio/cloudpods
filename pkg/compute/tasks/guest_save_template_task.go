@@ -54,8 +54,13 @@ func (self *GuestSaveTemplateTask) OnInit(ctx context.Context, obj db.IStandalon
 	}
 
 	gtName, _ := self.Params.GetString("name")
+	genGtName, _ := self.Params.GetString("generate_name")
 	dict := jsonutils.NewDict()
-	dict.Set("name", jsonutils.NewString(gtName))
+	if len(genGtName) > 0 {
+		dict.Set("generate_name", jsonutils.NewString(genGtName))
+	} else {
+		dict.Set("name", jsonutils.NewString(gtName))
+	}
 	dict.Set("description", jsonutils.NewString(fmt.Sprintf("Save from Guest '%s'", g.Name)))
 	dict.Set("content", jsonutils.Marshal(ci))
 	session := auth.GetSession(ctx, self.UserCred, "", "")
