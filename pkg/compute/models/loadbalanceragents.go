@@ -93,29 +93,29 @@ type SLoadbalancerAgent struct {
 }
 
 type SLoadbalancerAgentParamsVrrp struct {
-	Priority          int
-	VirtualRouterId   int
-	GarpMasterRefresh int
+	Priority          int `json:",omitzero"`
+	VirtualRouterId   int `json:",omitzero"`
+	GarpMasterRefresh int `json:",omitzero"`
 	Preempt           bool
 	Interface         string
-	AdvertInt         int
+	AdvertInt         int `json:",omitzero"`
 	Pass              string
 }
 
 type SLoadbalancerAgentParamsHaproxy struct {
 	GlobalLog      string
-	GlobalNbthread int
+	GlobalNbthread int `json:",omitzero"`
 	LogHttp        bool
 	LogTcp         bool
 	LogNormal      bool
-	TuneHttpMaxhdr int
+	TuneHttpMaxhdr int `json:",omitzero"`
 }
 
 type SLoadbalancerAgentParamsTelegraf struct {
 	InfluxDbOutputUrl       string
 	InfluxDbOutputName      string
 	InfluxDbOutputUnsafeSsl bool
-	HaproxyInputInterval    int
+	HaproxyInputInterval    int `json:",omitzero"`
 }
 
 type SLoadbalancerAgentParams struct {
@@ -323,6 +323,20 @@ func (p *SLoadbalancerAgentParams) IsZero() bool {
 		return true
 	}
 	return false
+}
+
+func (man *SLoadbalancerAgentManager) AllowGetPropertyDefaultParams(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowGetSpec(userCred, man, "default-params")
+}
+
+func (man *SLoadbalancerAgentManager) GetPropertyDefaultParams(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	params := SLoadbalancerAgentParams{}
+	params.initDefault(jsonutils.NewDict())
+	obj := jsonutils.Marshal(params)
+
+	r := jsonutils.NewDict()
+	r.Set("params", obj)
+	return r, nil
 }
 
 func (man *SLoadbalancerAgentManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
