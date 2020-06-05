@@ -387,6 +387,8 @@ type SIntegerColumn struct {
 	IsAutoIncrement bool
 	IsAutoVersion   bool
 	IsUnsigned      bool
+
+	AutoIncrementOffset int64
 }
 
 func (c *SIntegerColumn) IsNumeric() bool {
@@ -426,9 +428,16 @@ func (c *SIntegerColumn) ColType() string {
 
 func NewIntegerColumn(name string, sqltype string, unsigned bool, tagmap map[string]string, isPointer bool) SIntegerColumn {
 	autoinc := false
+	autoincBase := int64(0)
 	tagmap, v, ok := utils.TagPop(tagmap, TAG_AUTOINCREMENT)
 	if ok {
-		autoinc = utils.ToBool(v)
+		base, err := strconv.ParseInt(v, 10, 64)
+		if err == nil && base > 0 {
+			autoinc = true
+			autoincBase = base
+		} else {
+			autoinc = utils.ToBool(v)
+		}
 	}
 	autover := false
 	tagmap, v, ok = utils.TagPop(tagmap, TAG_AUTOVERSION)
@@ -436,10 +445,11 @@ func NewIntegerColumn(name string, sqltype string, unsigned bool, tagmap map[str
 		autover = utils.ToBool(v)
 	}
 	c := SIntegerColumn{
-		SBaseWidthColumn: NewBaseWidthColumn(name, sqltype, tagmap, isPointer),
-		IsAutoIncrement:  autoinc,
-		IsAutoVersion:    autover,
-		IsUnsigned:       unsigned,
+		SBaseWidthColumn:    NewBaseWidthColumn(name, sqltype, tagmap, isPointer),
+		IsAutoIncrement:     autoinc,
+		AutoIncrementOffset: autoincBase,
+		IsAutoVersion:       autover,
+		IsUnsigned:          unsigned,
 	}
 	if autoinc {
 		c.isPrimary = true // autoincrement column must be primary key
@@ -585,11 +595,9 @@ func (c *STextColumn) DefinitionString() string {
 
 func (c *STextColumn) IsZero(val interface{}) bool {
 	if c.isPointer {
-		bval := val.(*string)
-		return bval == nil
+		return gotypes.IsNil(val)
 	} else {
-		bVal := val.(string)
-		return len(bVal) == 0
+		return reflect.ValueOf(val).Len() == 0
 	}
 }
 

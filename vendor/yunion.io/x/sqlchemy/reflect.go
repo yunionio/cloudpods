@@ -20,9 +20,9 @@ import (
 	"strconv"
 	"time"
 
-	"yunion.io/x/pkg/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/timeutils"
@@ -31,22 +31,10 @@ import (
 func getStringValue(dat interface{}) string {
 	value := reflect.ValueOf(dat)
 	switch value.Type() {
-	case gotypes.BoolType:
-		if value.Bool() {
-			return "true"
-		} else {
-			return "false"
-		}
-	case gotypes.IntType, gotypes.Int8Type, gotypes.Int16Type, gotypes.Int32Type, gotypes.Int64Type:
-		return fmt.Sprintf("%d", value.Int())
-	case gotypes.UintType, gotypes.Uint8Type, gotypes.Uint16Type, gotypes.Uint32Type, gotypes.Uint64Type:
-		return fmt.Sprintf("%d", value.Uint())
-	case gotypes.Float32Type, gotypes.Float64Type:
-		return fmt.Sprintf("%f", value.Float())
-	case gotypes.StringType:
-		return value.String()
+	case tristate.TriStateType:
+		return dat.(tristate.TriState).String()
 	case gotypes.TimeType:
-		tm, ok := value.Interface().(time.Time)
+		tm, ok := dat.(time.Time)
 		if !ok {
 			log.Errorf("Fail to convert to time.Time %s", value)
 		} else {
@@ -67,14 +55,28 @@ func getStringValue(dat interface{}) string {
 		} else {
 			return string(rawBytes)
 		}
-	default:
-		serializable, ok := value.Interface().(gotypes.ISerializable)
-		if !ok {
-			log.Errorf("cannot convert %v to string", value)
-			return ""
+	}
+	switch value.Kind() {
+	case reflect.Bool:
+		if value.Bool() {
+			return "true"
+		} else {
+			return "false"
 		}
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return fmt.Sprintf("%d", value.Int())
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return fmt.Sprintf("%d", value.Uint())
+	case reflect.Float32, reflect.Float64:
+		return fmt.Sprintf("%f", value.Float())
+	case reflect.String:
+		return value.String()
+	}
+	serializable, ok := value.Interface().(gotypes.ISerializable)
+	if ok {
 		return serializable.String()
 	}
+	log.Errorf("cannot convert %v to string", value)
 	return ""
 }
 
@@ -83,12 +85,6 @@ func setValueBySQLString(value reflect.Value, val string) error {
 		return errors.Wrap(ErrReadOnly, "value is not settable")
 	}
 	switch value.Type() {
-	case gotypes.BoolType:
-		if val == "0" {
-			value.SetBool(false)
-		} else {
-			value.SetBool(true)
-		}
 	case tristate.TriStateType:
 		if val == "0" {
 			value.Set(tristate.TriStateFalseValue)
@@ -97,63 +93,71 @@ func setValueBySQLString(value reflect.Value, val string) error {
 		} else {
 			value.Set(tristate.TriStateNoneValue)
 		}
-	case gotypes.IntType, gotypes.Int8Type, gotypes.Int16Type, gotypes.Int32Type, gotypes.Int64Type:
-		valInt, err := strconv.ParseInt(val, 10, 64)
-		if err != nil {
-			return err
-		}
-		value.SetInt(valInt)
-	case gotypes.UintType, gotypes.Uint8Type, gotypes.Uint16Type, gotypes.Uint32Type, gotypes.Uint64Type:
-		valUint, err := strconv.ParseUint(val, 10, 64)
-		if err != nil {
-			return err
-		}
-		value.SetUint(valUint)
-	case gotypes.Float32Type, gotypes.Float64Type:
-		valFloat, err := strconv.ParseFloat(val, 64)
-		if err != nil {
-			return err
-		}
-		value.SetFloat(valFloat)
-	case gotypes.StringType:
-		value.SetString(val)
+		return nil
 	case gotypes.TimeType:
 		if val != "0000-00-00 00:00:00" {
 			tm, err := timeutils.ParseTimeStr(val)
 			if err != nil {
-				return err
+				return errors.Wrap(err, "ParseTimeStr")
 			}
 			value.Set(reflect.ValueOf(tm))
 		}
-	/*case jsonutils.JSONDictType, jsonutils.JSONArrayType, jsonutils.JSONStringType, jsonutils.JSONIntType,
-		jsonutils.JSONFloatType, jsonutils.JSONBoolType, jsonutils.JSONObjectType:
-	log.Debugf("Decode JSON value: $%s$", val)
-	json, err := jsonutils.ParseString(val)
-	if err != nil {
-		return err
+		return nil
 	}
-	value.Set(reflect.ValueOf(json))*/
-	case gotypes.BoolSliceType, gotypes.IntSliceType, gotypes.Int8SliceType, gotypes.Int16SliceType,
-		gotypes.Int32SliceType, gotypes.Int64SliceType, gotypes.UintSliceType, gotypes.Uint8SliceType,
-		gotypes.Uint16SliceType, gotypes.Uint32SliceType, gotypes.Uint64SliceType,
-		gotypes.Float32SliceType, gotypes.Float64SliceType, gotypes.StringSliceType:
-		reflect.Append(value, reflect.ValueOf(val))
-	default:
-		valueType := value.Type()
-		if valueType.Implements(gotypes.ISerializableType) {
-			serializable, err := jsonutils.JSONDeserialize(valueType, val)
-			if err != nil {
-				return err
-			}
-			value.Set(reflect.ValueOf(serializable))
-			return nil
-		} else if value.Kind() == reflect.Ptr {
-			if value.IsNil() {
-				value.Set(reflect.New(value.Type().Elem()))
-			}
-			return setValueBySQLString(value.Elem(), val)
+	switch value.Kind() {
+	case reflect.Bool:
+		if val == "0" {
+			value.SetBool(false)
+		} else {
+			value.SetBool(true)
 		}
-		return errors.Wrapf(ErrNotSupported, "not supported type: %s", valueType)
+		return nil
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		valInt, err := strconv.ParseInt(val, 10, 64)
+		if err != nil {
+			return errors.Wrap(err, "ParseInt")
+		}
+		value.SetInt(valInt)
+		return nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		valUint, err := strconv.ParseUint(val, 10, 64)
+		if err != nil {
+			return errors.Wrap(err, "ParseUint")
+		}
+		value.SetUint(valUint)
+		return nil
+	case reflect.Float32, reflect.Float64:
+		valFloat, err := strconv.ParseFloat(val, 64)
+		if err != nil {
+			return errors.Wrap(err, "ParseFloat")
+		}
+		value.SetFloat(valFloat)
+		return nil
+	case reflect.String:
+		value.SetString(val)
+		return nil
+	case reflect.Slice:
+		elemValue := reflect.New(value.Type().Elem()).Elem()
+		err := setValueBySQLString(elemValue, val)
+		if err != nil {
+			return errors.Wrap(err, "reflect.Slice")
+		}
+		value.Set(reflect.Append(value, elemValue))
+		return nil
+	case reflect.Ptr:
+		if value.IsNil() {
+			value.Set(reflect.New(value.Type().Elem()))
+		}
+		return setValueBySQLString(value.Elem(), val)
 	}
-	return nil
+	valueType := value.Type()
+	if valueType.Implements(gotypes.ISerializableType) {
+		serializable, err := jsonutils.JSONDeserialize(valueType, val)
+		if err != nil {
+			return errors.Wrap(err, "jsonutils.JSONDeserialize")
+		}
+		value.Set(reflect.ValueOf(serializable))
+		return nil
+	}
+	return errors.Wrapf(ErrNotSupported, "not supported type: %s", valueType)
 }

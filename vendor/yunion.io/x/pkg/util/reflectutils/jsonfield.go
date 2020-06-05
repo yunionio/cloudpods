@@ -138,11 +138,19 @@ type SStructFieldValue struct {
 type SStructFieldValueSet []SStructFieldValue
 
 func FetchStructFieldValueSet(dataValue reflect.Value) SStructFieldValueSet {
-	return expandAmbiguousPrefix(fetchStructFieldValueSet(dataValue, false, nil))
+	return expandAmbiguousPrefix(fetchStructFieldValueSet(dataValue, false))
 }
 
 func FetchStructFieldValueSetForWrite(dataValue reflect.Value) SStructFieldValueSet {
-	return expandAmbiguousPrefix(fetchStructFieldValueSet(dataValue, true, nil))
+	return expandAmbiguousPrefix(fetchStructFieldValueSet(dataValue, true))
+}
+
+func FetchAllStructFieldValueSet(dataValue reflect.Value) SStructFieldValueSet {
+	return expandAmbiguousPrefix(fetchStructFieldValueSet2(dataValue, false, nil, true))
+}
+
+func FetchAllStructFieldValueSetForWrite(dataValue reflect.Value) SStructFieldValueSet {
+	return expandAmbiguousPrefix(fetchStructFieldValueSet2(dataValue, true, nil, true))
 }
 
 type sStructFieldInfoMap map[string]SStructFieldInfo
@@ -186,7 +194,11 @@ func fetchStructFieldInfos(dataType reflect.Type) sStructFieldInfoMap {
 	return smap
 }
 
-func fetchStructFieldValueSet(dataValue reflect.Value, allocatePtr bool, tags map[string]string) SStructFieldValueSet {
+func fetchStructFieldValueSet(dataValue reflect.Value, allocatePtr bool) SStructFieldValueSet {
+	return fetchStructFieldValueSet2(dataValue, allocatePtr, nil, false)
+}
+
+func fetchStructFieldValueSet2(dataValue reflect.Value, allocatePtr bool, tags map[string]string, includeIgnore bool) SStructFieldValueSet {
 	fields := SStructFieldValueSet{}
 	dataType := dataValue.Type()
 	fieldInfos := fetchCacheStructFieldInfos(dataType)
@@ -223,13 +235,13 @@ func fetchStructFieldValueSet(dataValue reflect.Value, allocatePtr bool, tags ma
 			// field of interface type.
 			if fv.Kind() == reflect.Struct && sf.Type != gotypes.TimeType {
 				anonymousTags := utils.TagMap(sf.Tag)
-				subfields := fetchStructFieldValueSet(fv, allocatePtr, anonymousTags)
+				subfields := fetchStructFieldValueSet2(fv, allocatePtr, anonymousTags, includeIgnore)
 				fields = append(fields, subfields...)
 				continue
 			}
 		}
 		fieldInfo := fieldInfos[sf.Name].deepCopy()
-		if !fieldInfo.Ignore {
+		if !fieldInfo.Ignore || includeIgnore {
 			fields = append(fields, SStructFieldValue{
 				Info:  fieldInfo,
 				Value: fv,

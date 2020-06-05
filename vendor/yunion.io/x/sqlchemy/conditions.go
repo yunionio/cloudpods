@@ -225,6 +225,32 @@ func IsFalse(f IQueryField) ICondition {
 	return &c
 }
 
+type SNoLaterThanCondition struct {
+	SSingleCondition
+}
+
+func (c *SNoLaterThanCondition) WhereClause() string {
+	return fmt.Sprintf("%s >= NOW()", c.field.Reference())
+}
+
+func NoLaterThan(f IQueryField) ICondition {
+	c := SNoLaterThanCondition{NewSingleCondition(f)}
+	return &c
+}
+
+type SNoEarlierThanCondition struct {
+	SSingleCondition
+}
+
+func (c *SNoEarlierThanCondition) WhereClause() string {
+	return fmt.Sprintf("%s <= NOW()", c.field.Reference())
+}
+
+func NoEarlierThan(f IQueryField) ICondition {
+	c := SNoEarlierThanCondition{NewSingleCondition(f)}
+	return &c
+}
+
 type STupleCondition struct {
 	left  IQueryField
 	right interface{}
