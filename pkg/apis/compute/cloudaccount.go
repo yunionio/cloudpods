@@ -325,3 +325,62 @@ type CloudaccountPerformPublicInput struct {
 	// example: provider_domain
 	ShareMode string `json:"share_mode"`
 }
+
+type CloudaccountPerformPrepareNetsInput struct {
+	CloudaccountCreateInput
+}
+
+type CloudaccountPerformPrepareNetsOutput struct {
+	SuggestedWire CAWireConf  `json:"suggested_wire"`
+	SuitableWire  string      `json:"suitable_wire,allowempty"`
+	Hosts         []CAHostNet `json:"hosts"`
+	// description: 没有合适的已有网络，推荐的网络配置
+	HostSuggestedNetworks []CANetConf  `json:"host_suggested_networks"`
+	Guests                []CAGuestNet `json:"guests"`
+	// description: 没有合适的已有网络，推荐的网络配置
+	GuestSuggestedNetworks []CANetConf `json:"guest_suggested_networks"`
+}
+
+type CAWireConf struct {
+	// Zoneids to be selected
+	ZoneIds []string `json:"zone_ids"`
+	// description: wire name
+	Name string `json:"name"`
+	// description: wire description
+	Description string `json:"description"`
+}
+
+type CAHostNet struct {
+	// description: Host 的 Name
+	Name string `json:"name"`
+	// description: IP
+	IP string `json:"ip"`
+	// description: 合适的已有网络
+	SuitableNetwork string `json:"suitable_network,allowempty"`
+}
+
+type CAGuestNet struct {
+	// description: Host 的 Name
+	Name   string    `json:"name"`
+	IPNets []CAIPNet `json:"ip_nets"`
+}
+
+type CAIPNet struct {
+	// description: IP
+	IP string `json:"ip"`
+	// description: 合适的已有网络
+	SuitableNetwork string `json:"suitable_network,allowempty"`
+}
+
+type CASimpleNetConf struct {
+	GuestIpStart string `json:"guest_ip_start"`
+	GuestIpEnd   string `json:"guest_ip_end"`
+	GuestIpMask  int8   `json:"guest_ip_mask"`
+	GuestGateway string `json:"guest_gateway"`
+}
+
+type CANetConf struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	CASimpleNetConf
+}

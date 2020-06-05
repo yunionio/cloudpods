@@ -125,6 +125,22 @@ func init() {
 		printObject(result)
 		return nil
 	})
+	type SVMwareCloudAccountPrepareNetsOptions struct {
+		Project       string `help:"project for this account"`
+		ProjectDomain string `help:"domain for this account"`
+		NAME          string `help:"name for this account"`
+		options.SVMwareCredentialWithEnvironment
+	}
+	R(&SVMwareCloudAccountPrepareNetsOptions{}, "cloud-account-preparenets-vmware", "Prepare networks for a VMware cloud account before create this accout", func(s *mcclient.ClientSession, args *SVMwareCloudAccountPrepareNetsOptions) error {
+		params := jsonutils.Marshal(args)
+		params.(*jsonutils.JSONDict).Add(jsonutils.NewString("VMware"), "provider")
+		result, err := modules.Cloudaccounts.PerformClassAction(s, "prepare-nets", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 
 	R(&options.SAliyunCloudAccountCreateOptions{}, "cloud-account-create-aliyun", "Create an Aliyun cloud account", func(s *mcclient.ClientSession, args *options.SAliyunCloudAccountCreateOptions) error {
 		params := jsonutils.Marshal(args)
