@@ -136,6 +136,8 @@ type ComputeOptions struct {
 
 	GuestTemplateCheckInterval int `help:"interval between two consecutive inspections of Guest Template in hour unit" default:"12"`
 
+	ScheduledTaskQueueSize int `help:"the maximum number of scheduled tasks that are being executed simultaneously" default:"100"`
+
 	SCapabilityOptions
 	SASControllerOptions
 	common_options.CommonOptions

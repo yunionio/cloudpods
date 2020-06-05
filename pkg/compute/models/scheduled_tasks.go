@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	cop "yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -549,7 +550,12 @@ func (stm *SScheduledTaskManager) timeScope(median time.Time, interval time.Dura
 	}
 }
 
+var timerQueue = make(chan struct{}, cop.Options.ScheduledTaskQueueSize)
+
 func (stm *SScheduledTaskManager) Timer(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	if len(timerQueue) == 0 {
+		timerQueue = make(chan struct{}, cop.Options.ScheduledTaskQueueSize)
+	}
 	// 60 is for fault tolerance
 	interval := 60 + 30
 	timeScope := stm.timeScope(time.Now(), time.Duration(interval)*time.Second)
@@ -560,7 +566,6 @@ func (stm *SScheduledTaskManager) Timer(ctx context.Context, userCred mcclient.T
 		log.Errorf("db.FetchModelObjects error: %s", err.Error())
 		return
 	}
-	timerQueue := make(chan struct{}, 20)
 	log.Debugf("timeScope: start: %s, end: %s", timeScope.Start, timeScope.End)
 	for i := range sts {
 		st := sts[i]
@@ -592,6 +597,7 @@ func (stm *SScheduledTaskManager) Timer(ctx context.Context, userCred mcclient.T
 			}
 		}(ctx)
 	}
+	// wait all finish
 }
 
 func init() {
