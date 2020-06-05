@@ -42,6 +42,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 func AppContextToken(ctx context.Context) mcclient.TokenCredential {
@@ -271,7 +272,7 @@ func (h *AuthHandlers) doCredentialLogin(ctx context.Context, req *http.Request,
 			return nil, httperrors.NewInputParameterError("get password in body")
 		}
 		// try base64 decryption
-		if decPasswd, err := base64.StdEncoding.DecodeString(passwd); err == nil {
+		if decPasswd, err := base64.StdEncoding.DecodeString(passwd); err == nil && stringutils2.IsPrintableAsciiString(string(decPasswd)) {
 			passwd = string(decPasswd)
 		}
 		if len(uname) == 0 || len(passwd) == 0 {
