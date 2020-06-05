@@ -53,6 +53,12 @@ func NewPrettyTable(fields []string) *PrettyTable {
 	return &pt
 }
 
+func NewPrettyTableWithTryTermWidth(fields []string, tryTermWidth bool) *PrettyTable {
+	pt := NewPrettyTable(fields)
+	pt.tryTermWidth = tryTermWidth
+	return pt
+}
+
 func rowLine(buf *bytes.Buffer, widths []int) {
 	buf.WriteByte('+')
 	for _, w := range widths {
