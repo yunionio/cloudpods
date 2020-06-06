@@ -429,6 +429,10 @@ func (manager *SStandaloneResourceBaseManager) ValidateCreateData(ctx context.Co
 	if err != nil {
 		return input, errors.Wrap(err, "SResourceBaseManager.ValidateCreateData")
 	}
+	input.Name = strings.TrimSpace(input.Name)
+	if strings.ContainsAny(input.Name, "\n\r\t") {
+		return input, errors.Wrap(httperrors.ErrInputParameter, "name should not contains any \\n\\r\\t")
+	}
 	return input, nil
 }
 
@@ -491,6 +495,10 @@ func (model *SStandaloneResourceBase) ValidateUpdateData(ctx context.Context, us
 	}
 
 	if len(input.Name) > 0 {
+		input.Name = strings.TrimSpace(input.Name)
+		if strings.ContainsAny(input.Name, "\n\r\t") {
+			return input, errors.Wrap(httperrors.ErrInputParameter, "name should not contains any \\n\\r\\t")
+		}
 		err = alterNameValidator(model.GetIStandaloneModel(), input.Name)
 		if err != nil {
 			return input, errors.Wrap(err, "alterNameValidator")
