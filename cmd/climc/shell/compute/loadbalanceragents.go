@@ -70,6 +70,14 @@ func init() {
 		printLbagent(lbagent)
 		return nil
 	})
+	R(&options.EmptyOption{}, "lbagent-show-default-params", "Show lbagent default params", func(s *mcclient.ClientSession, opts *options.EmptyOption) error {
+		lbagent, err := modules.LoadbalancerAgents.Get(s, "default-params", nil)
+		if err != nil {
+			return err
+		}
+		printLbagent(lbagent)
+		return nil
+	})
 	R(&options.LoadbalancerAgentListOptions{}, "lbagent-list", "List lbagents", func(s *mcclient.ClientSession, opts *options.LoadbalancerAgentListOptions) error {
 		params, err := options.ListStructToParams(opts)
 		if err != nil {
