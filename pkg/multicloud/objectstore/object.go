@@ -43,6 +43,14 @@ func (o *SObject) GetIBucket() cloudprovider.ICloudBucket {
 func (o *SObject) GetAcl() cloudprovider.TBucketACLType {
 	acl, err := o.bucket.client.GetObjectAcl(o.bucket.Name, o.Key)
 	if err != nil {
+		if e, ok := errors.Cause(err).(s3cli.ErrorResponse); ok {
+			if e.Code == "NoSuchKey" || e.Message == "The specified key does not exist." {
+				objects, _ := o.bucket.ListObjects(o.Key, "", "", 1)
+				if len(objects.Objects) > 0 {
+					return cloudprovider.ACLPrivate
+				}
+			}
+		}
 		log.Errorf("o.bucket.client.GetObjectAcl error %s", err)
 		return acl
 	}
