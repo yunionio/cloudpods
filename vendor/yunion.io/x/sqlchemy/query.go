@@ -609,7 +609,7 @@ func mapString2Struct(mapResult map[string]string, destValue reflect.Value) erro
 			if ok {
 				err = setValueBySQLString(fieldValue, v)
 				if err != nil {
-					log.Errorf("Set value error %s", err)
+					log.Errorf("Set field %q value error %s", k, err)
 				}
 			}
 		}

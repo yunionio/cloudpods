@@ -144,20 +144,21 @@ func setValueBySQLString(value reflect.Value, val string) error {
 		}
 		value.Set(reflect.Append(value, elemValue))
 		return nil
-	case reflect.Ptr:
-		if value.IsNil() {
-			value.Set(reflect.New(value.Type().Elem()))
+	default:
+		if valueType := value.Type(); valueType.Implements(gotypes.ISerializableType) {
+			serializable, err := jsonutils.JSONDeserialize(valueType, val)
+			if err != nil {
+				return err
+			}
+			value.Set(reflect.ValueOf(serializable))
+			return nil
+		} else if value.Kind() == reflect.Ptr {
+			if value.IsNil() {
+				value.Set(reflect.New(value.Type().Elem()))
+			}
+			return setValueBySQLString(value.Elem(), val)
+		} else {
+			return errors.Wrapf(ErrNotSupported, "not supported type: %s", valueType)
 		}
-		return setValueBySQLString(value.Elem(), val)
 	}
-	valueType := value.Type()
-	if valueType.Implements(gotypes.ISerializableType) {
-		serializable, err := jsonutils.JSONDeserialize(valueType, val)
-		if err != nil {
-			return errors.Wrap(err, "jsonutils.JSONDeserialize")
-		}
-		value.Set(reflect.ValueOf(serializable))
-		return nil
-	}
-	return errors.Wrapf(ErrNotSupported, "not supported type: %s", valueType)
 }
