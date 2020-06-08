@@ -68,7 +68,7 @@ type SStorage struct {
 	db.SExternalizedResourceBase
 
 	SManagedResourceBase
-	SZoneResourceBase
+	SZoneResourceBase `update:""`
 
 	// 容量大小,单位Mb
 	Capacity int64 `nullable:"false" list:"domain" update:"domain" create:"domain_required"`
