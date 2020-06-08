@@ -439,8 +439,7 @@ func (this *ImageManager) _create(s *mcclient.ClientSession, params jsonutils.JS
 	path := fmt.Sprintf("/%s", this.URLPath())
 	method := httputils.POST
 	if len(imageId) == 0 {
-		name, _ := params.GetString("name")
-		if len(name) == 0 {
+		if !params.Contains("name") && !params.Contains("generate_name") {
 			return nil, httperrors.NewMissingParameterError("name")
 		}
 	} else {
