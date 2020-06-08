@@ -79,6 +79,8 @@ const (
 	ErrNoBalancePermission = errors.Error("NoBalancePermission")
 
 	ErrTooLarge = errors.Error("TooLargeEntity")
+
+	ErrUnsupportedProtocol = errors.Error("UnsupportedProtocol")
 )
 
 var (

@@ -569,7 +569,7 @@ func (region *SRegion) GetISecurityGroupByName(vpcId string, name string) (cloud
 
 func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
 	if conf.VpcId == "classic" {
-		return region.CreateClassicSecurityGroup(conf.Desc)
+		return region.CreateClassicSecurityGroup(conf.Name)
 	}
 	return region.CreateSecurityGroup(conf.Name)
 }
