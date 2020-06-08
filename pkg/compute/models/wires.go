@@ -65,8 +65,8 @@ type SWire struct {
 	db.SInfrasResourceBase
 	db.SExternalizedResourceBase
 
-	SVpcResourceBase  `wdith:"36" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
-	SZoneResourceBase `width:"36" charset:"ascii" nullable:"true" list:"domain" create:"domain_required"`
+	SVpcResourceBase  `wdith:"36" charset:"ascii" nullable:"false" list:"domain" create:"domain_required" update:""`
+	SZoneResourceBase `width:"36" charset:"ascii" nullable:"true" list:"domain" create:"domain_required" update:""`
 
 	// 带宽大小, 单位Mbps
 	// example: 1000

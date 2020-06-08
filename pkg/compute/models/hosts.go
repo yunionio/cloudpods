@@ -84,7 +84,7 @@ func init() {
 type SHost struct {
 	db.SEnabledStatusInfrasResourceBase
 	db.SExternalizedResourceBase
-	SZoneResourceBase
+	SZoneResourceBase `update:""`
 	SManagedResourceBase
 	SBillingResourceBase
 
