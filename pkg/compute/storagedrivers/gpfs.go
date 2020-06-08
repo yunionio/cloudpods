@@ -52,7 +52,7 @@ func (self *SGpfsStorageDriver) PostCreate(ctx context.Context, userCred mcclien
 	sc.ExternalId = storage.Id
 	timeutils.IsoTime(time.Now())
 	sc.Name = "gpfs-" + storage.Name + timeutils.IsoTime(time.Now())
-	if err := models.StoragecacheManager.TableSpec().Insert(sc); err != nil {
+	if err := models.StoragecacheManager.TableSpec().Insert(ctx, sc); err != nil {
 		log.Errorf("insert storagecache for storage %s error: %v", storage.Name, err)
 		return
 	}

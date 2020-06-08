@@ -132,7 +132,7 @@ func (self *SConfigManager) InitializeData() error {
 		},
 	}
 	for _, config := range configs {
-		err := self.TableSpec().Insert(&config)
+		err := self.TableSpec().Insert(context.TODO(), &config)
 		if err != nil {
 			return err
 		}

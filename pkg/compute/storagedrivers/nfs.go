@@ -62,7 +62,7 @@ func (self *SNfsStorageDriver) PostCreate(ctx context.Context, userCred mcclient
 	sc.Path = options.Options.DefaultImageCacheDir
 	sc.ExternalId = storage.Id
 	sc.Name = "nfs-" + storage.Name + time.Now().Format("2006-01-02 15:04:05")
-	if err := models.StoragecacheManager.TableSpec().Insert(sc); err != nil {
+	if err := models.StoragecacheManager.TableSpec().Insert(ctx, sc); err != nil {
 		log.Errorf("insert storagecache for storage %s error: %v", storage.Name, err)
 		return
 	}

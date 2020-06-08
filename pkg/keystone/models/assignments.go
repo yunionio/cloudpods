@@ -79,10 +79,10 @@ type SAssignment struct {
 }
 
 func (manager *SAssignmentManager) InitializeData() error {
-	return manager.initSysAssignment()
+	return manager.initSysAssignment(context.TODO())
 }
 
-func (manager *SAssignmentManager) initSysAssignment() error {
+func (manager *SAssignmentManager) initSysAssignment(ctx context.Context) error {
 	adminUser, err := UserManager.FetchUserExtended("", api.SystemAdminUser, api.DEFAULT_DOMAIN_ID, "")
 	if err != nil {
 		return errors.Wrap(err, "FetchUserExtended")
@@ -119,7 +119,7 @@ func (manager *SAssignmentManager) initSysAssignment() error {
 	assign.RoleId = adminRole.Id
 	assign.Inherited = tristate.False
 
-	err = manager.TableSpec().Insert(&assign)
+	err = manager.TableSpec().Insert(ctx, &assign)
 	if err != nil {
 		return errors.Wrap(err, "insert")
 	}
@@ -259,7 +259,7 @@ func (manager *SAssignmentManager) ProjectAddUser(ctx context.Context, userCred 
 			return httperrors.NewForbiddenError("not enough privilege")
 		}
 	}
-	err = manager.add(api.AssignmentUserProject, user.Id, project.Id, role.Id)
+	err = manager.add(ctx, api.AssignmentUserProject, user.Id, project.Id, role.Id)
 	if err != nil {
 		return errors.Wrap(err, "manager.add")
 	}
@@ -359,7 +359,7 @@ func (manager *SAssignmentManager) projectAddGroup(ctx context.Context, userCred
 			return httperrors.NewForbiddenError("not enough privilege")
 		}
 	}
-	err = manager.add(api.AssignmentGroupProject, group.Id, project.Id, role.Id)
+	err = manager.add(ctx, api.AssignmentGroupProject, group.Id, project.Id, role.Id)
 	if err != nil {
 		return errors.Wrap(err, "manager.add")
 	}
@@ -408,7 +408,7 @@ func (manager *SAssignmentManager) remove(typeStr, actorId, projectId, roleId st
 	return nil
 }
 
-func (manager *SAssignmentManager) add(typeStr, actorId, projectId, roleId string) error {
+func (manager *SAssignmentManager) add(ctx context.Context, typeStr, actorId, projectId, roleId string) error {
 	assign := SAssignment{
 		Type:      typeStr,
 		ActorId:   actorId,
@@ -417,7 +417,7 @@ func (manager *SAssignmentManager) add(typeStr, actorId, projectId, roleId strin
 		Inherited: tristate.False,
 	}
 	assign.SetModelManager(manager, &assign)
-	err := manager.TableSpec().InsertOrUpdate(&assign)
+	err := manager.TableSpec().InsertOrUpdate(ctx, &assign)
 	if err != nil {
 		return errors.Wrap(err, "InsertOrUpdate")
 	}

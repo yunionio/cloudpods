@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/cache"
 
+	"yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -33,11 +34,6 @@ var (
 	defaultCacheCount  int64     = 100000
 	initCh             chan bool = make(chan bool)
 	globalEndpointType string
-)
-
-const (
-	PublicEndpointType   string = "public"
-	InternalEndpointType string = "internal"
 )
 
 type AuthInfo struct {
@@ -271,7 +267,7 @@ func GetServiceURL(service, region, zone, endpointType string) (string, error) {
 }
 
 func GetPublicServiceURL(service, region, zone string) (string, error) {
-	return manager.GetServiceURL(service, region, zone, PublicEndpointType)
+	return manager.GetServiceURL(service, region, zone, identity.EndpointInterfacePublic)
 }
 
 func GetServiceURLs(service, region, zone, endpointType string) ([]string, error) {
@@ -369,11 +365,11 @@ func GetSession(ctx context.Context, token mcclient.TokenCredential, region stri
 }
 
 func GetSessionWithInternal(ctx context.Context, token mcclient.TokenCredential, region string, apiVersion string) *mcclient.ClientSession {
-	return getSessionByType(ctx, token, region, apiVersion, InternalEndpointType)
+	return getSessionByType(ctx, token, region, apiVersion, identity.EndpointInterfaceInternal)
 }
 
 func GetSessionWithPublic(ctx context.Context, token mcclient.TokenCredential, region string, apiVersion string) *mcclient.ClientSession {
-	return getSessionByType(ctx, token, region, apiVersion, PublicEndpointType)
+	return getSessionByType(ctx, token, region, apiVersion, identity.EndpointInterfacePublic)
 }
 
 func getSessionByType(ctx context.Context, token mcclient.TokenCredential, region string, apiVersion string, epType string) *mcclient.ClientSession {

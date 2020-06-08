@@ -148,7 +148,7 @@ func (self *SGroupguestManager) Attach(ctx context.Context, groupId, guestId str
 	joint.GuestId = guestId
 	joint.GroupId = groupId
 
-	err := self.TableSpec().Insert(joint)
+	err := self.TableSpec().Insert(ctx, joint)
 	if err != nil {
 		return nil, err
 	}

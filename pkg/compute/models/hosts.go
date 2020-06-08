@@ -830,7 +830,7 @@ func (self *SHost) PerformUpdateStorage(
 		storage.StoragecacheId = storageCacheId
 		storage.DomainId = self.DomainId
 		storage.DomainSrc = string(apis.OWNER_SOURCE_LOCAL)
-		err := StorageManager.TableSpec().Insert(&storage)
+		err := StorageManager.TableSpec().Insert(ctx, &storage)
 		if err != nil {
 			return nil, fmt.Errorf("Create baremetal storage error: %v", err)
 		}
@@ -842,7 +842,7 @@ func (self *SHost) PerformUpdateStorage(
 		bmStorage.StorageId = storage.Id
 		bmStorage.RealCapacity = capacity
 		bmStorage.MountPoint = ""
-		err = HoststorageManager.TableSpec().Insert(&bmStorage)
+		err = HoststorageManager.TableSpec().Insert(ctx, &bmStorage)
 		if err != nil {
 			return nil, fmt.Errorf("Create baremetal hostStorage error: %v", err)
 		}
@@ -1747,7 +1747,7 @@ func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mccl
 	host.IsPublic = false
 	host.PublicScope = string(rbacutils.ScopeNone)
 
-	err = manager.TableSpec().Insert(&host)
+	err = manager.TableSpec().Insert(ctx, &host)
 	if err != nil {
 		log.Errorf("newFromCloudHost fail %s", err)
 		return nil, err
@@ -1882,7 +1882,7 @@ func (self *SHost) Attach2Storage(ctx context.Context, userCred mcclient.TokenCr
 	hs.StorageId = storage.Id
 	hs.HostId = self.Id
 	hs.MountPoint = mountPoint
-	err := HoststorageManager.TableSpec().Insert(&hs)
+	err := HoststorageManager.TableSpec().Insert(ctx, &hs)
 	if err != nil {
 		return err
 	}
@@ -1999,7 +1999,7 @@ func (self *SHost) Attach2Wire(ctx context.Context, userCred mcclient.TokenCrede
 
 	hs.WireId = wire.Id
 	hs.HostId = self.Id
-	err := HostwireManager.TableSpec().Insert(&hs)
+	err := HostwireManager.TableSpec().Insert(ctx, &hs)
 	if err != nil {
 		return err
 	}
@@ -3694,7 +3694,7 @@ func (self *SHost) PerformInitialize(
 	guest.Status = api.VM_RUNNING
 	guest.OsType = "Linux"
 	guest.SetModelManager(GuestManager, guest)
-	err = GuestManager.TableSpec().Insert(guest)
+	err = GuestManager.TableSpec().Insert(ctx, guest)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("Guest Insert error: %s", err)
 	}
@@ -3815,7 +3815,7 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 			netif.LinkUp = linkUp.Bool()
 		}
 		netif.Mtu = mtu
-		err = NetInterfaceManager.TableSpec().Insert(netif)
+		err = NetInterfaceManager.TableSpec().Insert(ctx, netif)
 		if err != nil {
 			return err
 		}
@@ -3876,7 +3876,7 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 				hw.WireId = sw.Id
 				hw.IsMaster = isMaster
 				hw.MacAddr = mac
-				err := HostwireManager.TableSpec().Insert(hw)
+				err := HostwireManager.TableSpec().Insert(ctx, hw)
 				if err != nil {
 					return err
 				}
@@ -4074,7 +4074,7 @@ func (self *SHost) Attach2Network(ctx context.Context, userCred mcclient.TokenCr
 	bn.NetworkId = net.Id
 	bn.IpAddr = freeIp
 	bn.MacAddr = netif.Mac
-	err = HostnetworkManager.TableSpec().Insert(bn)
+	err = HostnetworkManager.TableSpec().Insert(ctx, bn)
 	if err != nil {
 		return nil, errors.Wrap(err, "HostnetworkManager.TableSpec().Insert")
 	}

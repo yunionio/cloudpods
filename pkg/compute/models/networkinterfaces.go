@@ -347,7 +347,7 @@ func (manager *SNetworkInterfaceManager) newFromCloudNetworkInterface(ctx contex
 		}
 	}
 
-	err = manager.TableSpec().Insert(&networkinterface)
+	err = manager.TableSpec().Insert(ctx, &networkinterface)
 	if err != nil {
 		return nil, errors.Wrap(err, "TableSpec().Insert(&networkinterface)")
 	}

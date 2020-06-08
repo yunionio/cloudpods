@@ -181,7 +181,7 @@ func (tm *STemplateManager) InitializeData() error {
 		if count > 0 {
 			continue
 		}
-		err := tm.TableSpec().InsertOrUpdate(&template)
+		err := tm.TableSpec().InsertOrUpdate(context.TODO(), &template)
 		if err != nil {
 			return errors.Wrap(err, "sqlchemy.TableSpec.InsertOrUpdate")
 		}

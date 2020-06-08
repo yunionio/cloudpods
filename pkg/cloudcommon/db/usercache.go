@@ -178,7 +178,7 @@ func (manager *SUserCacheManager) Save(ctx context.Context, idStr string, name s
 		obj.Domain = domain
 		obj.DomainId = domainId
 		obj.LastCheck = time.Now().UTC()
-		err = manager.TableSpec().InsertOrUpdate(obj)
+		err = manager.TableSpec().InsertOrUpdate(ctx, obj)
 		if err != nil {
 			return nil, err
 		} else {

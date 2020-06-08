@@ -199,7 +199,7 @@ func (manager *SNetworkinterfacenetworkManager) newFromCloudInterfaceAddress(ctx
 
 	address.NetworkId = network.Id
 
-	err = manager.TableSpec().Insert(&address)
+	err = manager.TableSpec().Insert(ctx, &address)
 	if err != nil {
 		return errors.Wrap(err, "TableSpec().Insert(&address)")
 	}

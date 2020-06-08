@@ -802,7 +802,7 @@ func (self *SAwsRegionDriver) createLoadbalancerBackendGroup(ctx context.Context
 	cachedLbbg.HealthCheckProtocol = lblis.HealthCheckType
 	cachedLbbg.HealthCheckInterval = lblis.HealthCheckInterval
 
-	err = models.AwsCachedLbbgManager.TableSpec().Insert(cachedLbbg)
+	err = models.AwsCachedLbbgManager.TableSpec().Insert(ctx, cachedLbbg)
 	if err != nil {
 		return nil, errors.Wrap(err, "AwsRegionDriver.createlbBackendgroup.Insert")
 	}

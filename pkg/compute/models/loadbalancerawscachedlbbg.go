@@ -422,7 +422,7 @@ func (man *SAwsCachedLbbgManager) newFromCloudLoadbalancerBackendgroup(ctx conte
 	lbbg.Name = newName
 	lbbg.Status = extLoadbalancerBackendgroup.GetStatus()
 
-	err = man.TableSpec().Insert(lbbg)
+	err = man.TableSpec().Insert(ctx, lbbg)
 	if err != nil {
 		return nil, err
 	}

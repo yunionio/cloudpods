@@ -854,7 +854,7 @@ func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRul
 	}
 	lbr.Name = newName
 	lbr.constructFieldsFromCloudListenerRule(userCred, extRule)
-	err = man.TableSpec().Insert(lbr)
+	err = man.TableSpec().Insert(ctx, lbr)
 
 	if err != nil {
 		log.Errorf("newFromCloudLoadbalancerListenerRule fail %s", err)

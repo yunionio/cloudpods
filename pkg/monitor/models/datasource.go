@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/wait"
 
+	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -98,7 +99,7 @@ func (man *SDataSourceManager) initDefaultDataSource(ctx context.Context) error 
 			log.Errorf("get empty public session for region %s", region)
 			return
 		}
-		url, err := s.GetServiceURL("influxdb", auth.PublicEndpointType)
+		url, err := s.GetServiceURL("influxdb", identityapi.EndpointInterfacePublic)
 		if err != nil {
 			log.Errorf("get influxdb public url: %v", err)
 			return
@@ -108,7 +109,7 @@ func (man *SDataSourceManager) initDefaultDataSource(ctx context.Context) error 
 			Url:  url,
 		}
 		ds.Name = DefaultDataSource
-		if err := man.TableSpec().Insert(ds); err != nil {
+		if err := man.TableSpec().Insert(ctx, ds); err != nil {
 			log.Errorf("insert default influxdb: %v", err)
 		}
 	}

@@ -73,7 +73,7 @@ func (manager *SCloudproviderCapabilityManager) setRegionCapabilities(ctx contex
 
 	for _, capability := range added {
 		cpc.Capability = capability
-		err := manager.TableSpec().InsertOrUpdate(&cpc)
+		err := manager.TableSpec().InsertOrUpdate(ctx, &cpc)
 		if err != nil {
 			return errors.Wrap(err, "manager.TableSpec().InsertOrUpdate")
 		}

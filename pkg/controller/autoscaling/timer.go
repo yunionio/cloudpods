@@ -74,7 +74,7 @@ func (asc *SASController) Timer(ctx context.Context, userCred mcclient.TokenCred
 				scalingTimer.Update(timeScope.Start)
 				// scalingTimer should not exec for now.
 				if scalingTimer.NextTime.After(timeScope.End) || scalingTimer.IsExpired {
-					err = models.ScalingTimerManager.TableSpec().InsertOrUpdate(&scalingTimer)
+					err = models.ScalingTimerManager.TableSpec().InsertOrUpdate(ctx, &scalingTimer)
 					if err != nil {
 						log.Errorf("update ScalingTimer whose ScalingPolicyId is %s error: %s",
 							scalingTimer.ScalingPolicyId, err.Error())
@@ -88,7 +88,7 @@ func (asc *SASController) Timer(ctx context.Context, userCred mcclient.TokenCred
 				log.Errorf("unable to request to trigger ScalingPolicy '%s'", scalingTimer.ScalingPolicyId)
 			}
 			scalingTimer.Update(timeScope.End)
-			err = models.ScalingTimerManager.TableSpec().InsertOrUpdate(&scalingTimer)
+			err = models.ScalingTimerManager.TableSpec().InsertOrUpdate(ctx, &scalingTimer)
 			if err != nil {
 				log.Errorf("update ScalingTimer whose ScalingPolicyId is %s error: %s",
 					scalingTimer.ScalingPolicyId, err.Error())

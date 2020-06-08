@@ -111,11 +111,11 @@ func FetchProjectResourceCount(ctx context.Context, userCred mcclient.TokenCrede
 		if err != nil {
 			continue
 		}
-		syncProjectResourceCount(ep.regionId, ep.serviceId, projectResCounts)
+		syncProjectResourceCount(ctx, ep.regionId, ep.serviceId, projectResCounts)
 	}
 }
 
-func syncProjectResourceCount(regionId string, serviceId string, projResCnt map[string][]db.SScopeResourceCount) {
+func syncProjectResourceCount(ctx context.Context, regionId string, serviceId string, projResCnt map[string][]db.SScopeResourceCount) {
 	projList := make([]string, 0)
 	for res, resCnts := range projResCnt {
 		for i := range resCnts {
@@ -136,7 +136,7 @@ func syncProjectResourceCount(regionId string, serviceId string, projResCnt map[
 
 			projList = append(projList, projRes.ProjectId)
 
-			err := models.ProjectResourceManager.TableSpec().InsertOrUpdate(&projRes)
+			err := models.ProjectResourceManager.TableSpec().InsertOrUpdate(ctx, &projRes)
 			if err != nil {
 				log.Errorf("table insert error %s", err)
 			}

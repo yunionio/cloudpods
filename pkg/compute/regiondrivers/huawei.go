@@ -557,7 +557,7 @@ func (self *SHuaWeiRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx cont
 	return self.SManagedVirtualizationRegionDriver.ValidateUpdateLoadbalancerListenerData(ctx, userCred, data, lblis, backendGroup)
 }
 
-func (self *SHuaWeiRegionDriver) createCachedLbbg(lb *models.SLoadbalancer, lblis *models.SLoadbalancerListener, lbr *models.SLoadbalancerListenerRule, lbbg *models.SLoadbalancerBackendGroup) (*models.SHuaweiCachedLbbg, error) {
+func (self *SHuaWeiRegionDriver) createCachedLbbg(ctx context.Context, lb *models.SLoadbalancer, lblis *models.SLoadbalancerListener, lbr *models.SLoadbalancerListenerRule, lbbg *models.SLoadbalancerBackendGroup) (*models.SHuaweiCachedLbbg, error) {
 	// create loadbalancer backendgroup cache
 	cachedLbbg := &models.SHuaweiCachedLbbg{}
 	cachedLbbg.ManagerId = lb.GetCloudproviderId()
@@ -574,7 +574,7 @@ func (self *SHuaWeiRegionDriver) createCachedLbbg(lb *models.SLoadbalancer, lbli
 		cachedLbbg.ProtocolType = lblis.ListenerType
 	}
 
-	err := models.HuaweiCachedLbbgManager.TableSpec().Insert(cachedLbbg)
+	err := models.HuaweiCachedLbbgManager.TableSpec().Insert(ctx, cachedLbbg)
 	if err != nil {
 		return nil, err
 	}
@@ -646,7 +646,7 @@ func (self *SHuaWeiRegionDriver) createLoadbalancerBackendGroup(ctx context.Cont
 		return nil, err
 	}
 
-	cachedLbbg, err := self.createCachedLbbg(lb, lblis, lbr, lbbg)
+	cachedLbbg, err := self.createCachedLbbg(ctx, lb, lblis, lbr, lbbg)
 	if err != nil {
 		return nil, errors.Wrap(err, "HuaWeiRegionDriver.createLoadbalancerBackendGroupCache")
 	}
@@ -948,7 +948,7 @@ func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context
 
 			// case 2：新绑定,创建本地缓存
 			if olbbg == nil && nlbbg == nil && rlbbg != nil {
-				cachedLbbg, err := self.createCachedLbbg(lb, lblis, nil, lbbg)
+				cachedLbbg, err := self.createCachedLbbg(ctx, lb, lblis, nil, lbbg)
 				if err != nil {
 					return nil, errors.Wrap(err, "HuaWeiRegionDriver.Sync.Case2.createCachedLbbg")
 				}
@@ -2145,7 +2145,7 @@ func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceData(ctx context.Contex
 	return input, nil
 }
 
-func (self *SHuaWeiRegionDriver) InitDBInstanceUser(instance *models.SDBInstance, task taskman.ITask, desc *cloudprovider.SManagedDBInstanceCreateConfig) error {
+func (self *SHuaWeiRegionDriver) InitDBInstanceUser(ctx context.Context, instance *models.SDBInstance, task taskman.ITask, desc *cloudprovider.SManagedDBInstanceCreateConfig) error {
 	user := "root"
 	if desc.Engine == api.DBINSTANCE_TYPE_SQLSERVER {
 		user = "rdsuser"
@@ -2157,7 +2157,7 @@ func (self *SHuaWeiRegionDriver) InitDBInstanceUser(instance *models.SDBInstance
 	account.Status = api.DBINSTANCE_USER_AVAILABLE
 	account.ExternalId = user
 	account.SetModelManager(models.DBInstanceAccountManager, &account)
-	err := models.DBInstanceAccountManager.TableSpec().Insert(&account)
+	err := models.DBInstanceAccountManager.TableSpec().Insert(ctx, &account)
 	if err != nil {
 		return err
 	}

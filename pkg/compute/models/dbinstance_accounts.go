@@ -681,7 +681,7 @@ func (manager *SDBInstanceAccountManager) newFromCloudDBInstanceAccount(ctx cont
 	account.Status = extAccount.GetStatus()
 	account.ExternalId = extAccount.GetGlobalId()
 
-	err := manager.TableSpec().Insert(&account)
+	err := manager.TableSpec().Insert(ctx, &account)
 	if err != nil {
 		return nil, errors.Wrapf(err, "newFromCloudDBInstanceAccount.Insert")
 	}

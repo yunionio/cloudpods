@@ -812,7 +812,7 @@ func (manager *SStorageManager) newFromCloudStorage(ctx context.Context, userCre
 
 	storage.IsSysDiskStore = tristate.NewFromBool(extStorage.IsSysDiskStore())
 
-	err = manager.TableSpec().Insert(&storage)
+	err = manager.TableSpec().Insert(ctx, &storage)
 	if err != nil {
 		log.Errorf("newFromCloudStorage fail %s", err)
 		return nil, err
@@ -1064,7 +1064,7 @@ func (manager *SStorageManager) TotalCapacity(
 	return res1
 }
 
-func (self *SStorage) createDisk(name string, diskConfig *api.DiskConfig, userCred mcclient.TokenCredential,
+func (self *SStorage) createDisk(ctx context.Context, name string, diskConfig *api.DiskConfig, userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider, autoDelete bool, isSystem bool,
 	billingType string, billingCycle string,
 ) (*SDisk, error) {
@@ -1084,7 +1084,7 @@ func (self *SStorage) createDisk(name string, diskConfig *api.DiskConfig, userCr
 	disk.BillingType = billingType
 	disk.BillingCycle = billingCycle
 
-	err := disk.GetModelManager().TableSpec().Insert(&disk)
+	err := disk.GetModelManager().TableSpec().Insert(ctx, &disk)
 	if err != nil {
 		return nil, err
 	}
@@ -1227,7 +1227,7 @@ func (manager *SStorageManager) InitializeData() error {
 				log.Fatalf("Get storage %s pool info error", s.Name)
 			} else {
 				storagecache.Path = "rbd:" + pool
-				if err := StoragecacheManager.TableSpec().Insert(storagecache); err != nil {
+				if err := StoragecacheManager.TableSpec().Insert(context.TODO(), storagecache); err != nil {
 					log.Fatalf("Cannot Add storagecache for %s", s.Name)
 				} else {
 					db.Update(&s, func() error {

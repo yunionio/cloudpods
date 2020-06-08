@@ -170,7 +170,7 @@ func (iface *SIface) addOrUpdatePeer(ctx context.Context, userCred mcclient.Toke
 			PersistentKeepalive: persistentKeepalive,
 		}
 		ifacePeer.Name = fmt.Sprintf("%s-%s", iface.Name, peerIface.Name)
-		err := IfacePeerManager.TableSpec().Insert(ifacePeer)
+		err := IfacePeerManager.TableSpec().Insert(ctx, ifacePeer)
 		return err
 	}
 	_, err = db.Update(ifacePeer, func() error {
@@ -396,7 +396,7 @@ func (man *SIfaceManager) addWireguardIface(ctx context.Context, userCred mcclie
 	}
 
 	iface.SetModelManager(man, iface)
-	err := man.TableSpec().Insert(iface)
+	err := man.TableSpec().Insert(ctx, iface)
 	if err != nil {
 		return nil, err
 	}
@@ -419,7 +419,7 @@ func (man *SIfaceManager) addIface(ctx context.Context, userCred mcclient.TokenC
 		Ifname:   ifname,
 	}
 	iface.SetModelManager(man, iface)
-	err := man.TableSpec().Insert(iface)
+	err := man.TableSpec().Insert(ctx, iface)
 	if err != nil {
 		return nil, err
 	}

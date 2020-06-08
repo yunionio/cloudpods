@@ -499,7 +499,7 @@ func (manager *SSecurityGroupRuleManager) newFromCloudSecurityGroup(ctx context.
 	}
 	secrule.SecgroupId = secgroup.Id
 
-	err := manager.TableSpec().Insert(secrule)
+	err := manager.TableSpec().Insert(ctx, secrule)
 	if err != nil {
 		return nil, err
 	}

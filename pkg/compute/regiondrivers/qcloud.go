@@ -366,7 +366,7 @@ func (self *SQcloudRegionDriver) RequestDeleteLoadbalancerBackend(ctx context.Co
 	return nil
 }
 
-func (self *SQcloudRegionDriver) createCachedLbbg(lb *models.SLoadbalancer, lblis *models.SLoadbalancerListener, lbr *models.SLoadbalancerListenerRule, lbbg *models.SLoadbalancerBackendGroup) (*models.SQcloudCachedLbbg, error) {
+func (self *SQcloudRegionDriver) createCachedLbbg(ctx context.Context, lb *models.SLoadbalancer, lblis *models.SLoadbalancerListener, lbr *models.SLoadbalancerListenerRule, lbbg *models.SLoadbalancerBackendGroup) (*models.SQcloudCachedLbbg, error) {
 	// create loadbalancer backendgroup cache
 	cachedLbbg := &models.SQcloudCachedLbbg{}
 	cachedLbbg.ManagerId = lb.GetCloudproviderId()
@@ -381,7 +381,7 @@ func (self *SQcloudRegionDriver) createCachedLbbg(lb *models.SLoadbalancer, lbli
 		cachedLbbg.AssociatedId = lblis.GetId()
 	}
 
-	err := models.QcloudCachedLbbgManager.TableSpec().Insert(cachedLbbg)
+	err := models.QcloudCachedLbbgManager.TableSpec().Insert(ctx, cachedLbbg)
 	if err != nil {
 		return nil, errors.Wrap(err, "SQcloudRegionDriver.createCachedLbbg.Insert")
 	}
@@ -486,7 +486,7 @@ func (self *SQcloudRegionDriver) createLoadbalancerBackendGroup(ctx context.Cont
 		return nil, fmt.Errorf("could not create loadbalancer backendgroup, loadbalancer listener & rule are nil")
 	}
 
-	cachedLbbg, err := self.createCachedLbbg(lb, lblis, lbr, lbbg)
+	cachedLbbg, err := self.createCachedLbbg(ctx, lb, lblis, lbr, lbbg)
 	if err != nil {
 		return nil, errors.Wrap(err, "QcloudRegionDriver.createLoadbalancerBackendGroupCache")
 	}

@@ -148,7 +148,7 @@ func (manager *SCloudeventManager) SyncCloudevent(ctx context.Context, userCred 
 
 		event.CreatedAt = iEvent.GetCreatedAt()
 		event.SetModelManager(manager, event)
-		err := manager.TableSpec().Insert(event)
+		err := manager.TableSpec().Insert(ctx, event)
 		if err != nil {
 			log.Errorf("failed to insert event: %s for cloudprovider: %s(%s) error: %v", jsonutils.Marshal(event).PrettyString(), cloudprovider.Name, cloudprovider.Id, err)
 			continue

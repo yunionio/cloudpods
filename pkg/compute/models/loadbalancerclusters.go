@@ -360,7 +360,7 @@ func (man *SLoadbalancerClusterManager) InitializeData() error {
 				lbc = m.(*SLoadbalancerCluster)
 				lbc.Name = "auto-lbc-" + zoneId
 				lbc.ZoneId = zoneId
-				if err := man.TableSpec().Insert(lbc); err != nil {
+				if err := man.TableSpec().Insert(context.TODO(), lbc); err != nil {
 					return errors.Wrap(err, "insert lbcluster model")
 				}
 			} else {

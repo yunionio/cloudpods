@@ -195,7 +195,7 @@ func (manager *SDBInstancePrivilegeManager) newFromCloudPrivileges(ctx context.C
 
 	privilege.DBInstancedatabaseId = database.Id
 
-	err = manager.TableSpec().Insert(&privilege)
+	err = manager.TableSpec().Insert(ctx, &privilege)
 	if err != nil {
 		return errors.Wrapf(err, "newFromCloudDBInstanceDatabase.Insert")
 	}

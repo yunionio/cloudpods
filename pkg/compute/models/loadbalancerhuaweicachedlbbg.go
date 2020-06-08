@@ -359,7 +359,7 @@ func (man *SHuaweiCachedLbbgManager) newFromCloudLoadbalancerBackendgroup(ctx co
 	lbbg.Name = newName
 	lbbg.Status = extLoadbalancerBackendgroup.GetStatus()
 
-	err = man.TableSpec().Insert(lbbg)
+	err = man.TableSpec().Insert(ctx, lbbg)
 	if err != nil {
 		return nil, err
 	}
@@ -389,7 +389,7 @@ func newLocalBackendgroupFromCloudLoadbalancerBackendgroup(ctx context.Context, 
 	lbbg.Type = extLoadbalancerBackendgroup.GetType()
 	lbbg.Status = extLoadbalancerBackendgroup.GetStatus()
 
-	err = localman.TableSpec().Insert(lbbg)
+	err = localman.TableSpec().Insert(ctx, lbbg)
 	if err != nil {
 		return nil, err
 	}

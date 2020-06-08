@@ -333,7 +333,7 @@ func (manager *STenantCacheManager) Save(ctx context.Context, idStr string, name
 		obj.Domain = domain
 		obj.DomainId = domainId
 		obj.LastCheck = now
-		err = manager.TableSpec().InsertOrUpdate(obj)
+		err = manager.TableSpec().InsertOrUpdate(ctx, obj)
 		if err != nil {
 			return nil, errors.Wrap(err, "InsertOrUpdate")
 		} else {

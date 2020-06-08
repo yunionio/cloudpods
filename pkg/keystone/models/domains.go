@@ -79,7 +79,7 @@ func (manager *SDomainManager) InitializeData() error {
 		root.DomainId = api.KeystoneDomainRoot
 		root.Enabled = tristate.False
 		root.Description = "The hidden root domain"
-		err := manager.TableSpec().Insert(root)
+		err := manager.TableSpec().Insert(context.TODO(), root)
 		if err != nil {
 			log.Errorf("fail to insert root domain ... %s", err)
 			return err
@@ -97,7 +97,7 @@ func (manager *SDomainManager) InitializeData() error {
 		defDomain.DomainId = api.KeystoneDomainRoot
 		defDomain.Enabled = tristate.True
 		defDomain.Description = "The default domain"
-		err := manager.TableSpec().Insert(defDomain)
+		err := manager.TableSpec().Insert(context.TODO(), defDomain)
 		if err != nil {
 			log.Errorf("fail to insert default domain ... %s", err)
 			return err

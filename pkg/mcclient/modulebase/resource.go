@@ -47,27 +47,27 @@ type ResourceManager struct {
 	idFieldName   string
 }
 
-func (this *ResourceManager) GetKeyword() string {
+func (this ResourceManager) GetKeyword() string {
 	return this.Keyword
 }
 
-func (this *ResourceManager) KeyString() string {
+func (this ResourceManager) KeyString() string {
 	return this.KeywordPlural
 }
 
-func (this *ResourceManager) Version() string {
+func (this ResourceManager) Version() string {
 	return this.version
 }
 
-func (this *ResourceManager) ServiceType() string {
+func (this ResourceManager) ServiceType() string {
 	return this.serviceType
 }
 
-func (this *ResourceManager) EndpointType() string {
+func (this ResourceManager) EndpointType() string {
 	return this.endpointType
 }
 
-func (this *ResourceManager) URLPath() string {
+func (this ResourceManager) URLPath() string {
 	return strings.Replace(this.KeywordPlural, ":", "/", -1)
 }
 

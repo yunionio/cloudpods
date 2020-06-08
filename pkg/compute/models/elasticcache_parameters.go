@@ -175,7 +175,7 @@ func (manager *SElasticcacheParameterManager) newFromCloudElasticcacheParameter(
 	parameter.ForceRestart = extParameter.GetForceRestart()
 	parameter.Description = extParameter.GetDescription()
 
-	err := manager.TableSpec().Insert(&parameter)
+	err := manager.TableSpec().Insert(ctx, &parameter)
 	if err != nil {
 		return nil, errors.Wrapf(err, "newFromCloudElasticcacheParameter.Insert")
 	}

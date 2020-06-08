@@ -213,7 +213,7 @@ func (manager *SBucketManager) newFromCloudBucket(
 
 	bucket.IsEmulated = false
 
-	err = manager.TableSpec().Insert(&bucket)
+	err = manager.TableSpec().Insert(ctx, &bucket)
 	if err != nil {
 		return nil, errors.Wrap(err, "Insert")
 	}

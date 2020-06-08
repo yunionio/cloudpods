@@ -183,7 +183,7 @@ func (manager *SWireManager) getWireExternalIdForClassicNetwork(provider string,
 	return vpcId
 }
 
-func (manager *SWireManager) GetOrCreateWireForClassicNetwork(vpc *SVpc, zone *SZone) (*SWire, error) {
+func (manager *SWireManager) GetOrCreateWireForClassicNetwork(ctx context.Context, vpc *SVpc, zone *SZone) (*SWire, error) {
 	cloudprovider := vpc.GetCloudprovider()
 	if cloudprovider == nil {
 		return nil, fmt.Errorf("failed to found cloudprovider for vpc %s(%s)", vpc.Id, vpc.Id)
@@ -210,7 +210,7 @@ func (manager *SWireManager) GetOrCreateWireForClassicNetwork(vpc *SVpc, zone *S
 	wire.ExternalId = externalId
 	wire.IsEmulated = true
 	wire.Name = name
-	err = manager.TableSpec().Insert(wire)
+	err = manager.TableSpec().Insert(ctx, wire)
 	if err != nil {
 		return nil, errors.Wrap(err, "Insert wire for classic network")
 	}
@@ -406,7 +406,7 @@ func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mccl
 
 	wire.IsEmulated = extWire.IsEmulated()
 
-	err = manager.TableSpec().Insert(&wire)
+	err = manager.TableSpec().Insert(ctx, &wire)
 	if err != nil {
 		log.Errorf("newFromCloudWire fail %s", err)
 		return nil, err

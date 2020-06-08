@@ -95,7 +95,7 @@ func (manager *SIdmappingManager) RegisterIdMapWithId(ctx context.Context, idpId
 		mapping.IdpEntityId = entityId
 		mapping.EntityType = entityType
 
-		err = manager.TableSpec().InsertOrUpdate(&mapping)
+		err = manager.TableSpec().InsertOrUpdate(ctx, &mapping)
 		if err != nil {
 			return "", errors.Wrap(err, "Insert")
 		}

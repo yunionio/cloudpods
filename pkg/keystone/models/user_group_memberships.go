@@ -187,7 +187,7 @@ func (manager *SUsergroupManager) add(ctx context.Context, userCred mcclient.Tok
 		// create one
 		membership.UserId = user.Id
 		membership.GroupId = group.Id
-		err = manager.TableSpec().Insert(&membership)
+		err = manager.TableSpec().Insert(ctx, &membership)
 		if err != nil {
 			return errors.Wrap(err, "insert")
 		}

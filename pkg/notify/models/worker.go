@@ -172,7 +172,7 @@ func pullContact(ctx context.Context, uid string, contactType string) {
 	}
 	contact.Status = CONTACT_VERIFIED
 
-	err = ContactManager.TableSpec().Insert(&contact)
+	err = ContactManager.TableSpec().Insert(ctx, &contact)
 	if err != nil {
 		log.Errorf("create new %s contact failed", contactType)
 	}

@@ -187,7 +187,7 @@ func (manager *SElasticcacheBackupManager) newFromCloudElasticcacheBackup(ctx co
 	backup.StartTime = extBackup.GetStartTime()
 	backup.EndTime = extBackup.GetEndTime()
 
-	err := manager.TableSpec().Insert(&backup)
+	err := manager.TableSpec().Insert(ctx, &backup)
 	if err != nil {
 		return nil, errors.Wrapf(err, "newFromCloudElasticcacheBackup.Insert")
 	}

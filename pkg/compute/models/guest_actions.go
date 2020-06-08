@@ -3716,7 +3716,7 @@ func (man *SGuestManager) createImportGuest(ctx context.Context, userCred mcclie
 	gst.VcpuCount = desc.Cpu
 	gst.BootOrder = desc.BootOrder
 	gst.Description = desc.Description
-	err = man.TableSpec().Insert(gst)
+	err = man.TableSpec().Insert(ctx, gst)
 	return gst, err
 }
 

@@ -211,7 +211,7 @@ func (manager *SDBInstanceParameterManager) newFromCloudDBInstanceParameter(ctx 
 	parameter.Value = extParameter.GetValue()
 	parameter.ExternalId = extParameter.GetGlobalId()
 
-	err := manager.TableSpec().Insert(&parameter)
+	err := manager.TableSpec().Insert(ctx, &parameter)
 	if err != nil {
 		return errors.Wrapf(err, "newFromCloudDBInstanceParameter.Insert")
 	}

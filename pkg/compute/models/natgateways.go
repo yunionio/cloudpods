@@ -411,7 +411,7 @@ func (manager *SNatGatewayManager) newFromCloudNatGateway(ctx context.Context, u
 		nat.AutoRenew = extNat.IsAutoRenew()
 	}
 
-	err = manager.TableSpec().Insert(&nat)
+	err = manager.TableSpec().Insert(ctx, &nat)
 	if err != nil {
 		log.Errorf("newFromCloudNatGateway fail %s", err)
 		return nil, errors.Wrap(err, "Insert")

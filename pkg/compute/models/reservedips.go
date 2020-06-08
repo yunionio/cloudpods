@@ -113,7 +113,7 @@ func (manager *SReservedipManager) ReserveIPWithDurationAndStatus(userCred mccli
 	if rip == nil {
 		rip := SReservedip{IpAddr: ip, Notes: notes, ExpiredAt: expiredAt, Status: status}
 		rip.NetworkId = network.Id
-		err := manager.TableSpec().Insert(&rip)
+		err := manager.TableSpec().Insert(context.TODO(), &rip)
 		if err != nil {
 			log.Errorf("ReserveIP fail: %s", err)
 			return errors.Wrap(err, "Insert")

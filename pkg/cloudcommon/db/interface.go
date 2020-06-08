@@ -40,7 +40,7 @@ type IModelManager interface {
 	GetIModelManager() IModelManager
 
 	// Table() *sqlchemy.STable
-	TableSpec() *sqlchemy.STableSpec
+	TableSpec() ITableSpec
 
 	// Keyword() string
 	KeywordPlural() string

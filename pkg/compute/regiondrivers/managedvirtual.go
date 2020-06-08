@@ -1628,7 +1628,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 
 		region := dbinstance.GetRegion()
 
-		err = region.GetDriver().InitDBInstanceUser(dbinstance, task, &desc)
+		err = region.GetDriver().InitDBInstanceUser(ctx, dbinstance, task, &desc)
 		if err != nil {
 			return nil, err
 		}

@@ -906,7 +906,7 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 
 		newCloudprovider.SetModelManager(CloudproviderManager, &newCloudprovider)
 
-		err = CloudproviderManager.TableSpec().Insert(&newCloudprovider)
+		err = CloudproviderManager.TableSpec().Insert(ctx, &newCloudprovider)
 		if err != nil {
 			return nil, err
 		} else {
@@ -1173,7 +1173,7 @@ func migrateCloudprovider(cloudprovider *SCloudprovider) error {
 		account.Name = providerName
 		account.Status = cloudprovider.Status
 
-		err := CloudaccountManager.TableSpec().Insert(&account)
+		err := CloudaccountManager.TableSpec().Insert(context.Background(), &account)
 		if err != nil {
 			log.Errorf("Insert Account error: %v", err)
 			return err

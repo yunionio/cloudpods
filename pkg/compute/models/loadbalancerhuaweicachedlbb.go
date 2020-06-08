@@ -92,7 +92,7 @@ func (man *SHuaweiCachedLbManager) CreateHuaweiCachedLb(ctx context.Context, use
 		return nil, err
 	}
 
-	err = man.TableSpec().Insert(cachedlbb)
+	err = man.TableSpec().Insert(ctx, cachedlbb)
 
 	if err != nil {
 		return nil, err
@@ -272,7 +272,7 @@ func (man *SHuaweiCachedLbManager) newFromCloudLoadbalancerBackend(ctx context.C
 		return nil, err
 	}
 
-	err = man.TableSpec().Insert(lbb)
+	err = man.TableSpec().Insert(ctx, lbb)
 
 	if err != nil {
 		return nil, err
@@ -354,7 +354,7 @@ func newLocalBackendFromCloudLoadbalancerBackend(ctx context.Context, userCred m
 			return nil, err
 		}
 
-		err = man.TableSpec().Insert(lbb)
+		err = man.TableSpec().Insert(ctx, lbb)
 
 		if err != nil {
 			return nil, err

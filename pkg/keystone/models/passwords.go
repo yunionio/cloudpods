@@ -15,6 +15,7 @@
 package models
 
 import (
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -148,7 +149,7 @@ func (manager *SPasswordManager) savePassword(localUserId int, password string, 
 		rec.ExpiresAt = now.Add(time.Second * time.Duration(o.Options.PasswordExpirationSeconds))
 		rec.ExpiresAtInt = rec.ExpiresAt.UnixNano() / 1000
 	}
-	err = manager.TableSpec().Insert(&rec)
+	err = manager.TableSpec().Insert(context.TODO(), &rec)
 	if err != nil {
 		return errors.Wrap(err, "Insert")
 	}

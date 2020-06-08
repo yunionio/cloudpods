@@ -341,7 +341,7 @@ func (man *SQcloudCachedLbbgManager) newFromCloudLoadbalancerBackendgroup(ctx co
 	lbbg.Name = newName
 	lbbg.Status = extLoadbalancerBackendgroup.GetStatus()
 
-	err = man.TableSpec().Insert(lbbg)
+	err = man.TableSpec().Insert(ctx, lbbg)
 	if err != nil {
 		return nil, err
 	}

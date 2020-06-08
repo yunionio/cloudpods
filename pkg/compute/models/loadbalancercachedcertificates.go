@@ -281,7 +281,7 @@ func (man *SCachedLoadbalancerCertificateManager) GetOrCreateCachedCertificate(c
 	lbcert.IsSystem = cert.IsSystem
 	lbcert.CertificateId = cert.Id
 
-	err = man.TableSpec().Insert(&lbcert)
+	err = man.TableSpec().Insert(ctx, &lbcert)
 	if err != nil {
 		return nil, errors.Wrap(err, "cachedLoadbalancerCertificateManager.create")
 	}
@@ -317,7 +317,7 @@ func (man *SCachedLoadbalancerCertificateManager) newFromCloudLoadbalancerCertif
 	if err != nil {
 		switch err {
 		case sql.ErrNoRows:
-			localcert, err := LoadbalancerCertificateManager.CreateCertificate(userCred, lbcert.Name, extCertificate.GetPublickKey(), extCertificate.GetPrivateKey(), extCertificate.GetFingerprint())
+			localcert, err := LoadbalancerCertificateManager.CreateCertificate(ctx, userCred, lbcert.Name, extCertificate.GetPublickKey(), extCertificate.GetPrivateKey(), extCertificate.GetFingerprint())
 			if err != nil {
 				return nil, fmt.Errorf("newFromCloudLoadbalancerCertificate CreateCertificate %s", err)
 			}
@@ -330,7 +330,7 @@ func (man *SCachedLoadbalancerCertificateManager) newFromCloudLoadbalancerCertif
 		lbcert.CertificateId = c.Id
 	}
 
-	err = man.TableSpec().Insert(&lbcert)
+	err = man.TableSpec().Insert(ctx, &lbcert)
 	if err != nil {
 		log.Errorf("newFromCloudLoadbalancerCertificate fail %s", err)
 		return nil, err

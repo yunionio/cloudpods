@@ -437,7 +437,7 @@ func (manager *SDBInstanceDatabaseManager) newFromCloudDBInstanceDatabase(ctx co
 	database.CharacterSet = extDatabase.GetCharacterSet()
 	database.ExternalId = extDatabase.GetGlobalId()
 
-	err := manager.TableSpec().Insert(&database)
+	err := manager.TableSpec().Insert(ctx, &database)
 	if err != nil {
 		return errors.Wrapf(err, "newFromCloudDBInstanceDatabase.Insert")
 	}

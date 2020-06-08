@@ -167,7 +167,7 @@ func (manager *SGuestdiskManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (self *SGuestdisk) DoSave(driver string, cache string, mountpoint string) error {
+func (self *SGuestdisk) DoSave(ctx context.Context, driver string, cache string, mountpoint string) error {
 	self.ImagePath = ""
 	if len(driver) == 0 {
 		driver = "scsi"
@@ -181,7 +181,7 @@ func (self *SGuestdisk) DoSave(driver string, cache string, mountpoint string) e
 	self.Driver = driver
 	self.CacheMode = cache
 	self.AioMode = "native"
-	return GuestdiskManager.TableSpec().Insert(self)
+	return GuestdiskManager.TableSpec().Insert(ctx, self)
 }
 
 func (self *SGuestdisk) GetDisk() *SDisk {

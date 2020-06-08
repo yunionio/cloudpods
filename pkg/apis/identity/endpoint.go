@@ -38,5 +38,5 @@ type CertificateDetails struct {
 }
 
 const (
-	ENDPOINT_ETCD_INTERNAL = "etcd-internal"
+	SERVICE_TYPE_ETCD = "etcd"
 )

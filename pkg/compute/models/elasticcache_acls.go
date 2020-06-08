@@ -159,7 +159,7 @@ func (manager *SElasticcacheAclManager) newFromCloudElasticcacheAcl(ctx context.
 	acl.ExternalId = extAcl.GetGlobalId()
 	acl.IpList = extAcl.GetIpList()
 
-	err := manager.TableSpec().Insert(&acl)
+	err := manager.TableSpec().Insert(ctx, &acl)
 	if err != nil {
 		return nil, errors.Wrapf(err, "newFromCloudElasticcacheAcl.Insert")
 	}

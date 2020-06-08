@@ -613,7 +613,7 @@ func (manager *SElasticcacheManager) newFromCloudElasticcache(ctx context.Contex
 		instance.AutoRenew = extInstance.IsAutoRenew()
 	}
 
-	err = manager.TableSpec().Insert(&instance)
+	err = manager.TableSpec().Insert(ctx, &instance)
 	if err != nil {
 		return nil, errors.Wrapf(err, "newFromCloudElasticcache.Insert")
 	}

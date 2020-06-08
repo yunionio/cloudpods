@@ -425,7 +425,7 @@ func (man *SRouteTableManager) insertFromCloud(ctx context.Context, userCred mcc
 	if err != nil {
 		return nil, err
 	}
-	if err := man.TableSpec().Insert(routeTable); err != nil {
+	if err := man.TableSpec().Insert(ctx, routeTable); err != nil {
 		return nil, err
 	}
 	SyncCloudDomain(userCred, routeTable, provider.GetOwnerId())

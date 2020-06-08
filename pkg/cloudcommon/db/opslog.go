@@ -398,7 +398,7 @@ func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes inter
 		}
 	}
 
-	err := manager.TableSpec().Insert(&opslog)
+	err := manager.TableSpec().Insert(context.Background(), &opslog)
 	if err != nil {
 		log.Errorf("fail to insert opslog: %s", err)
 	}

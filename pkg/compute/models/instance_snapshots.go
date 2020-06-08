@@ -284,7 +284,7 @@ func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(
 	instanceSnapshot.OsType = guest.OsType
 	instanceSnapshot.ServerMetadata = serverMetadata
 	instanceSnapshot.InstanceType = guest.InstanceType
-	err := manager.TableSpec().Insert(instanceSnapshot)
+	err := manager.TableSpec().Insert(ctx, instanceSnapshot)
 	if err != nil {
 		return nil, err
 	}

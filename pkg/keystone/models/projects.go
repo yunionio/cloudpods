@@ -90,10 +90,10 @@ func (manager *SProjectManager) GetContextManagers() [][]db.IModelManager {
 }
 
 func (manager *SProjectManager) InitializeData() error {
-	return manager.initSysProject()
+	return manager.initSysProject(context.TODO())
 }
 
-func (manager *SProjectManager) initSysProject() error {
+func (manager *SProjectManager) initSysProject(ctx context.Context) error {
 	q := manager.Query().Equals("name", api.SystemAdminProject)
 	q = q.Equals("domain_id", api.DEFAULT_DOMAIN_ID)
 	cnt, err := q.CountWithError()
@@ -117,7 +117,7 @@ func (manager *SProjectManager) initSysProject() error {
 	project.ParentId = api.DEFAULT_DOMAIN_ID
 	project.SetModelManager(manager, &project)
 
-	err = manager.TableSpec().Insert(&project)
+	err = manager.TableSpec().Insert(ctx, &project)
 	if err != nil {
 		return errors.Wrap(err, "insert")
 	}
@@ -659,7 +659,7 @@ func (manager *SProjectManager) NewProject(ctx context.Context, projectName stri
 	project.Description = desc
 	project.IsDomain = tristate.False
 	project.ParentId = domainId
-	err = ProjectManager.TableSpec().Insert(project)
+	err = ProjectManager.TableSpec().Insert(ctx, project)
 	if err != nil {
 		return nil, errors.Wrap(err, "Insert")
 	}

@@ -263,7 +263,7 @@ func (manager *STaskManager) NewTask(
 		Params:   data,
 		Stage:    TASK_INIT_STAGE,
 	}
-	err := manager.TableSpec().Insert(&task)
+	err := manager.TableSpec().Insert(ctx, &task)
 	if err != nil {
 		log.Errorf("Task insert error %s", err)
 		return nil, err
@@ -271,7 +271,7 @@ func (manager *STaskManager) NewTask(
 	parentTask := task.GetParentTask()
 	if parentTask != nil {
 		st := SSubTask{TaskId: parentTask.Id, Stage: parentTask.Stage, SubtaskId: task.Id}
-		err := SubTaskManager.TableSpec().Insert(&st)
+		err := SubTaskManager.TableSpec().Insert(ctx, &st)
 		if err != nil {
 			log.Errorf("Subtask insert error %s", err)
 			return nil, err
@@ -311,14 +311,14 @@ func (manager *STaskManager) NewParallelTask(
 		Params:   data,
 		Stage:    TASK_INIT_STAGE,
 	}
-	err := manager.TableSpec().Insert(&task)
+	err := manager.TableSpec().Insert(ctx, &task)
 	if err != nil {
 		log.Errorf("Task insert error %s", err)
 		return nil, err
 	}
 	for _, obj := range objs {
 		to := STaskObject{TaskId: task.Id, ObjId: obj.GetId()}
-		err := TaskObjectManager.TableSpec().Insert(&to)
+		err := TaskObjectManager.TableSpec().Insert(ctx, &to)
 		if err != nil {
 			log.Errorf("Taskobject insert error %s", err)
 			return nil, err
@@ -327,7 +327,7 @@ func (manager *STaskManager) NewParallelTask(
 	parentTask := task.GetParentTask()
 	if parentTask != nil {
 		st := SSubTask{TaskId: parentTask.Id, Stage: parentTask.Stage, SubtaskId: task.Id}
-		err := SubTaskManager.TableSpec().Insert(&st)
+		err := SubTaskManager.TableSpec().Insert(ctx, &st)
 		if err != nil {
 			log.Errorf("Subtask insert error %s", err)
 			return nil, err

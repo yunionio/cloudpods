@@ -1517,7 +1517,7 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 		disk.CreatedAt = createAt
 	}
 
-	err = manager.TableSpec().Insert(&disk)
+	err = manager.TableSpec().Insert(ctx, &disk)
 	if err != nil {
 		log.Errorf("newFromCloudZone fail %s", err)
 		return nil, err

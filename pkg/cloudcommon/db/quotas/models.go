@@ -155,7 +155,7 @@ func (manager *SQuotaBaseManager) getQuotasInternal(ctx context.Context, keys IQ
 }
 
 func (manager *SQuotaBaseManager) setQuotaInternal(ctx context.Context, userCred mcclient.TokenCredential, quota IQuota) error {
-	err := manager.TableSpec().InsertOrUpdate(quota)
+	err := manager.TableSpec().InsertOrUpdate(ctx, quota)
 	if err != nil {
 		return errors.Wrap(err, "InsertOrUpdate")
 	}
@@ -292,7 +292,7 @@ func (manager *SQuotaBaseManager) InitializeData() error {
 		if quota.IsEmpty() {
 			quota.FetchSystemQuota()
 		}
-		err = manager.TableSpec().Insert(quota)
+		err = manager.TableSpec().Insert(context.Background(), quota)
 		if err != nil {
 			log.Errorf("%s insert error %s", manager.KeywordPlural(), err)
 			continue

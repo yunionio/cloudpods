@@ -15,6 +15,7 @@
 package models
 
 import (
+	"context"
 	"database/sql"
 	"sort"
 
@@ -130,7 +131,7 @@ func (manager *SConfigOptionManager) deleteConfigs(model db.IModel) error {
 
 func (manager *SConfigOptionManager) updateConfigs(newOpts TConfigOptions) error {
 	for i := range newOpts {
-		err := manager.TableSpec().InsertOrUpdate(&newOpts[i])
+		err := manager.TableSpec().InsertOrUpdate(context.Background(), &newOpts[i])
 		if err != nil {
 			return errors.Wrap(err, "Insert")
 		}
@@ -179,7 +180,7 @@ func (manager *SConfigOptionManager) syncConfigs(model db.IModel, newOpts TConfi
 		}
 	}
 	for i := range added {
-		err = manager.TableSpec().InsertOrUpdate(&added[i])
+		err = manager.TableSpec().InsertOrUpdate(context.TODO(), &added[i])
 		if err != nil {
 			return errors.Wrap(err, "Insert")
 		}

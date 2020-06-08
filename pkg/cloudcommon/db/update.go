@@ -23,7 +23,7 @@ import (
 )
 
 func Update(model IModel, updateFunc func() error) (sqlchemy.UpdateDiffs, error) {
-	return model.GetModelManager().TableSpec().Update(model, updateFunc)
+	return model.GetModelManager().TableSpec().Update(context.Background(), model, updateFunc)
 }
 
 func UpdateWithLock(ctx context.Context, model IModel, updateFunc func() error) (sqlchemy.UpdateDiffs, error) {

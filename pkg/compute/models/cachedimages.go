@@ -220,7 +220,7 @@ func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, us
 			imageCache.Info = info
 			imageCache.LastSync = timeutils.UtcNow()
 
-			err = manager.TableSpec().Insert(&imageCache)
+			err = manager.TableSpec().Insert(ctx, &imageCache)
 			if err != nil {
 				return nil, err
 			}
@@ -490,7 +490,7 @@ func (manager *SCachedimageManager) newFromCloudImage(ctx context.Context, userC
 	cachedImage.ImageType = image.GetImageType()
 	cachedImage.ExternalId = image.GetGlobalId()
 
-	err = manager.TableSpec().Insert(&cachedImage)
+	err = manager.TableSpec().Insert(ctx, &cachedImage)
 	if err != nil {
 		return nil, err
 	}

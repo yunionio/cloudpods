@@ -454,7 +454,7 @@ func (self *SElasticcacheSku) syncWithCloudSku(ctx context.Context, userCred mcc
 }
 
 func (manager *SElasticcacheSkuManager) newFromCloudSku(ctx context.Context, userCred mcclient.TokenCredential, extSku SElasticcacheSku) error {
-	return manager.TableSpec().Insert(&extSku)
+	return manager.TableSpec().Insert(ctx, &extSku)
 }
 
 func (manager *SElasticcacheSkuManager) AllowGetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {

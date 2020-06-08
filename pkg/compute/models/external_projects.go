@@ -232,7 +232,7 @@ func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context,
 		}
 	}
 
-	err := manager.TableSpec().Insert(&project)
+	err := manager.TableSpec().Insert(ctx, &project)
 	if err != nil {
 		log.Errorf("newFromCloudProject fail %s", err)
 		return nil, err

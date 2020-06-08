@@ -89,7 +89,7 @@ func (man *SAwsCachedLbManager) CreateAwsCachedLb(ctx context.Context, userCred 
 		return nil, err
 	}
 
-	err = man.TableSpec().Insert(cachedlbb)
+	err = man.TableSpec().Insert(ctx, cachedlbb)
 
 	if err != nil {
 		return nil, err
@@ -269,7 +269,7 @@ func (man *SAwsCachedLbManager) newFromCloudLoadbalancerBackend(ctx context.Cont
 		return nil, err
 	}
 
-	err = man.TableSpec().Insert(lbb)
+	err = man.TableSpec().Insert(ctx, lbb)
 
 	if err != nil {
 		return nil, err

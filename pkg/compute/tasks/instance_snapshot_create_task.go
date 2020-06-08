@@ -119,7 +119,7 @@ func (self *InstanceSnapshotCreateTask) GuestDiskCreateSnapshot(
 		return
 	}
 
-	err = models.InstanceSnapshotJointManager.CreateJoint(isp.Id, snapshot.Id, int8(diskIndex))
+	err = models.InstanceSnapshotJointManager.CreateJoint(ctx, isp.Id, snapshot.Id, int8(diskIndex))
 	if err != nil {
 		self.taskFail(ctx, isp, guest, err.Error())
 		return
