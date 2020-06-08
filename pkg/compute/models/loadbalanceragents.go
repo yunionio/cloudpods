@@ -332,10 +332,29 @@ func (man *SLoadbalancerAgentManager) AllowGetPropertyDefaultParams(ctx context.
 func (man *SLoadbalancerAgentManager) GetPropertyDefaultParams(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	params := SLoadbalancerAgentParams{}
 	params.initDefault(jsonutils.NewDict())
-	obj := jsonutils.Marshal(params)
 
+	{
+		clusterV := validators.NewModelIdOrNameValidator("cluster", "loadbalancercluster", userCred)
+		clusterV.Optional(true)
+		if err := clusterV.Validate(query.(*jsonutils.JSONDict)); err != nil {
+			return nil, err
+		}
+		if clusterV.Model != nil {
+			cluster := clusterV.Model.(*SLoadbalancerCluster)
+			lbagents, err := LoadbalancerClusterManager.getLoadbalancerAgents(cluster.Id)
+			if err != nil {
+				return nil, httperrors.NewGeneralError(err)
+			}
+			if len(lbagents) > 0 {
+				lbagent := lbagents[0]
+				params.Vrrp.updateBy(&lbagent.Params.Vrrp)
+			}
+		}
+	}
+
+	paramsObj := jsonutils.Marshal(params)
 	r := jsonutils.NewDict()
-	r.Set("params", obj)
+	r.Set("params", paramsObj)
 	return r, nil
 }
 
