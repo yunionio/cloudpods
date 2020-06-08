@@ -609,7 +609,7 @@ func (man *SLoadbalancerBackendManager) newFromCloudLoadbalancerBackend(ctx cont
 		return nil, err
 	}
 
-	err = man.TableSpec().Insert(lbb)
+	err = man.TableSpec().Insert(ctx, lbb)
 
 	if err != nil {
 		return nil, err

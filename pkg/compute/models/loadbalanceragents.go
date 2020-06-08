@@ -684,7 +684,7 @@ func (lbagent *SLoadbalancerAgent) PerformHb(ctx context.Context, userCred mccli
 			}
 		}
 	}
-	diff, err := lbagent.GetModelManager().TableSpec().Update(lbagent, func() error {
+	diff, err := lbagent.GetModelManager().TableSpec().Update(ctx, lbagent, func() error {
 		lbagent.HbLastSeen = time.Now()
 		if jVer, err := data.Get("version"); err == nil {
 			if jVerStr, ok := jVer.(*jsonutils.JSONString); ok {

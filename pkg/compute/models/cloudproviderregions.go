@@ -253,7 +253,7 @@ func (manager *SCloudproviderregionManager) FetchByIdsOrCreate(providerId string
 	cpr.Enabled = true
 	cpr.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
 
-	err := manager.TableSpec().Insert(cpr)
+	err := manager.TableSpec().Insert(context.Background(), cpr)
 	if err != nil {
 		log.Errorf("insert fail %s", err)
 		return nil

@@ -123,7 +123,7 @@ func (self *DBInstanceAccountCreateTask) CreateDBInstanceAccount(ctx context.Con
 			DBInstanceaccountId:  account.Id,
 			DBInstancedatabaseId: privilege.DBInstancedatabaseId,
 		}
-		models.DBInstancePrivilegeManager.TableSpec().Insert(&_privilege)
+		models.DBInstancePrivilegeManager.TableSpec().Insert(ctx, &_privilege)
 		logclient.AddActionLogWithStartable(self, account, logclient.ACT_GRANT_PRIVILEGE, privilege, self.UserCred, true)
 	}
 

@@ -93,7 +93,7 @@ func (manager *SGuestsecgroupManager) newGuestSecgroup(ctx context.Context, user
 	lockman.LockObject(ctx, secgroup)
 	defer lockman.ReleaseObject(ctx, secgroup)
 
-	return &gs, manager.TableSpec().Insert(&gs)
+	return &gs, manager.TableSpec().Insert(ctx, &gs)
 }
 
 func (manager *SGuestsecgroupManager) GetGuestSecgroups(guest *SGuest, secgroup *SSecurityGroup) ([]SGuestsecgroup, error) {

@@ -322,7 +322,7 @@ func (m *SSnapshotPolicyDiskManager) SyncAttachDisk(ctx context.Context, userCre
 		sd.DiskId = disk.GetId()
 		sd.SnapshotpolicyId = spId
 		sd.Status = api.SNAPSHOT_POLICY_DISK_READY
-		err = m.TableSpec().Insert(&sd)
+		err = m.TableSpec().Insert(ctx, &sd)
 		if err != nil {
 			failRecord = append(failRecord, fmt.Sprintf("attachsnapshotpolicy %s to disk %s failed",
 				spId, disk.GetId()))
@@ -424,7 +424,7 @@ func (self *SSnapshotPolicyDiskManager) newSnapshotpolicyDisk(ctx context.Contex
 
 	lockman.LockJointObject(ctx, disk, sp)
 	defer lockman.ReleaseJointObject(ctx, disk, sp)
-	return &spd, self.TableSpec().Insert(&spd)
+	return &spd, self.TableSpec().Insert(ctx, &spd)
 
 }
 func (self *SSnapshotPolicyDiskManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

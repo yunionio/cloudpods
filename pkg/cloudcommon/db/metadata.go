@@ -514,7 +514,7 @@ func (manager *SMetadataManager) SetValues(ctx context.Context, obj IModel, stor
 		}
 
 		if len(record.Id) == 0 {
-			err = manager.TableSpec().InsertOrUpdate(&newRecord)
+			err = manager.TableSpec().InsertOrUpdate(ctx, &newRecord)
 		} else {
 			rV, rD := record.Value, record.Deleted
 			_, err = Update(&record, func() error {

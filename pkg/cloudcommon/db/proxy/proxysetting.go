@@ -228,7 +228,7 @@ func (man *SProxySettingManager) InitializeData() error {
 	ps.Description = "Connect directly"
 	ps.IsPublic = true
 	ps.PublicScope = string(rbacutils.ScopeSystem)
-	if err := man.TableSpec().Insert(ps); err != nil {
+	if err := man.TableSpec().Insert(context.Background(), ps); err != nil {
 		return err
 	}
 	return nil

@@ -337,7 +337,7 @@ func (st *SScalingTimer) ValidateCreateData(input api.ScalingPolicyCreateInput) 
 func (st *SScalingTimer) Register(ctx context.Context, userCred mcclient.TokenCredential) error {
 	// insert
 	st.Update(time.Time{})
-	err := ScalingTimerManager.TableSpec().Insert(st)
+	err := ScalingTimerManager.TableSpec().Insert(ctx, st)
 	if err != nil {
 		return errors.Wrap(err, "STableSpec.Insert")
 	}
@@ -469,7 +469,7 @@ func (sa *SScalingAlarm) Register(ctx context.Context, userCred mcclient.TokenCr
 	sa.AlarmId = alarmId
 
 	// insert
-	err = ScalingAlarmManager.TableSpec().Insert(sa)
+	err = ScalingAlarmManager.TableSpec().Insert(ctx, sa)
 	if err != nil {
 		return errors.Wrap(err, "STableSpec.Insert")
 	}

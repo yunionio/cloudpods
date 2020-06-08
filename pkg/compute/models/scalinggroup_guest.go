@@ -68,7 +68,7 @@ func (sggm *SScalingGroupGuestManager) Attach(ctx context.Context, scaligGroupId
 	} else {
 		sgg.Manual = tristate.False
 	}
-	return sggm.TableSpec().Insert(sgg)
+	return sggm.TableSpec().Insert(ctx, sgg)
 }
 
 func (sgg *SScalingGroupGuest) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {

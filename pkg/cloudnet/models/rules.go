@@ -380,7 +380,7 @@ func (man *SRuleManager) addRules(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (man *SRuleManager) addRule(ctx context.Context, userCred mcclient.TokenCredential, rule *SRule) error {
-	return man.TableSpec().Insert(rule)
+	return man.TableSpec().Insert(ctx, rule)
 }
 
 func (rule *SRule) firewalldRule() (*firewalld.Rule, error) {

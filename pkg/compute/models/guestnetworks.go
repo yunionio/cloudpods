@@ -277,7 +277,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 	}
 	gn.Ifname = ifname
 	gn.TeamWith = teamWithMac
-	err = manager.TableSpec().Insert(&gn)
+	err = manager.TableSpec().Insert(ctx, &gn)
 	if err != nil {
 		return nil, err
 	}

@@ -446,7 +446,7 @@ func (manager *SLoadbalancerAclManager) InitializeData() error {
 		}
 		cachedAcl.Id = ""
 		cachedAcl.AclId = acl.Id
-		err = CachedLoadbalancerAclManager.TableSpec().Insert(cachedAcl)
+		err = CachedLoadbalancerAclManager.TableSpec().Insert(context.TODO(), cachedAcl)
 		if err != nil {
 			return err
 		}

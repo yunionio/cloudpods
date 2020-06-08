@@ -283,7 +283,7 @@ func (manager *SNatDEntryManager) newFromCloudNatDTable(ctx context.Context, use
 	table.InternalPort = extEntry.GetInternalPort()
 	table.IpProtocol = extEntry.GetIpProtocol()
 
-	err := manager.TableSpec().Insert(&table)
+	err := manager.TableSpec().Insert(ctx, &table)
 	if err != nil {
 		log.Errorf("newFromCloudNatDTable fail %s", err)
 		return nil, err

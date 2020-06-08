@@ -118,7 +118,7 @@ func (self *SRbdStorageDriver) ValidateUpdateData(ctx context.Context, userCred 
 	}
 
 	if update, _ := data.Bool("update_storage_conf"); update {
-		_, err := storage.GetModelManager().TableSpec().Update(storage, func() error {
+		_, err := storage.GetModelManager().TableSpec().Update(ctx, storage, func() error {
 			storage.StorageConf = conf
 			return nil
 		})
@@ -159,7 +159,7 @@ func (self *SRbdStorageDriver) PostCreate(ctx context.Context, userCred mcclient
 		sc.Name = fmt.Sprintf("imagecache-%s", storage.Id)
 		pool, _ := data.GetString("rbd_pool")
 		sc.Path = fmt.Sprintf("rbd:%s", pool)
-		if err := models.StoragecacheManager.TableSpec().Insert(sc); err != nil {
+		if err := models.StoragecacheManager.TableSpec().Insert(ctx, sc); err != nil {
 			log.Errorf("insert storagecache for storage %s error: %v", storage.Name, err)
 			return
 		}

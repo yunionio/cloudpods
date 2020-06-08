@@ -109,7 +109,7 @@ func (man *SDataSourceManager) initDefaultDataSource(ctx context.Context) error 
 			Url:  url,
 		}
 		ds.Name = DefaultDataSource
-		if err := man.TableSpec().Insert(ds); err != nil {
+		if err := man.TableSpec().Insert(ctx, ds); err != nil {
 			log.Errorf("insert default influxdb: %v", err)
 		}
 	}

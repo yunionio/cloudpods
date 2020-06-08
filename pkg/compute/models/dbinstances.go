@@ -1608,7 +1608,7 @@ func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, u
 		instance.AutoRenew = extInstance.IsAutoRenew()
 	}
 
-	err = manager.TableSpec().Insert(&instance)
+	err = manager.TableSpec().Insert(ctx, &instance)
 	if err != nil {
 		return nil, errors.Wrapf(err, "newFromCloudDBInstance.Insert")
 	}

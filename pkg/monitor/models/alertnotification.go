@@ -162,7 +162,7 @@ func (joint *SAlertnotification) GetExtraDetails(
 }
 
 func (joint *SAlertnotification) DoSave(ctx context.Context, userCred mcclient.TokenCredential) error {
-	if err := AlertNotificationManager.TableSpec().Insert(joint); err != nil {
+	if err := AlertNotificationManager.TableSpec().Insert(ctx, joint); err != nil {
 		return err
 	}
 	joint.SetModelManager(AlertNotificationManager, joint)

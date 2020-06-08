@@ -109,7 +109,7 @@ func (manager *SIdentityProviderManager) InitializeData() error {
 	sqldrv.Status = api.IdentityDriverStatusConnected
 	sqldrv.Driver = api.IdentityDriverSQL
 	sqldrv.Description = "Default sql identity provider"
-	err = manager.TableSpec().Insert(&sqldrv)
+	err = manager.TableSpec().Insert(context.TODO(), &sqldrv)
 	if err != nil {
 		return errors.Wrap(err, "insert default sql driver")
 	}
@@ -141,7 +141,7 @@ func (manager *SIdentityProviderManager) InitializeData() error {
 		drv.Status = api.IdentityDriverStatusDisconnected
 		drv.Driver = driver
 		drv.Description = domains[i].Description
-		err = manager.TableSpec().Insert(&drv)
+		err = manager.TableSpec().Insert(context.TODO(), &drv)
 		if err != nil {
 			return errors.Wrap(err, "insert driver")
 		}
@@ -840,7 +840,7 @@ func (self *SIdentityProvider) SyncOrCreateDomain(ctx context.Context, extId str
 	domain.IsDomain = tristate.True
 	domain.DomainId = api.KeystoneDomainRoot
 	domain.Description = fmt.Sprintf("domain for %s", extDesc)
-	err = DomainManager.TableSpec().Insert(domain)
+	err = DomainManager.TableSpec().Insert(ctx, domain)
 	if err != nil {
 		return nil, errors.Wrap(err, "insert")
 	}
@@ -899,7 +899,7 @@ func (self *SIdentityProvider) SyncOrCreateUser(ctx context.Context, extId strin
 		user.Id = userId
 		user.Name = extName
 		user.DomainId = domainId
-		err = UserManager.TableSpec().Insert(user)
+		err = UserManager.TableSpec().Insert(ctx, user)
 		if err != nil {
 			return nil, errors.Wrap(err, "Insert")
 		}

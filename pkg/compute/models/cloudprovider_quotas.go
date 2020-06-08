@@ -283,7 +283,7 @@ func (manager *SCloudproviderQuotaManager) newFromCloudQuota(ctx context.Context
 		quota.CloudregionId = region.Id
 	}
 
-	return manager.TableSpec().Insert(&quota)
+	return manager.TableSpec().Insert(ctx, &quota)
 }
 
 func (manager *SCloudproviderQuotaManager) ListItemExportKeys(ctx context.Context,

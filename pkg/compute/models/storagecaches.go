@@ -209,7 +209,7 @@ func (manager *SStoragecacheManager) newFromCloudStoragecache(ctx context.Contex
 
 	local.Path = cloudCache.GetPath()
 
-	err = manager.TableSpec().Insert(&local)
+	err = manager.TableSpec().Insert(ctx, &local)
 	if err != nil {
 		return nil, err
 	}

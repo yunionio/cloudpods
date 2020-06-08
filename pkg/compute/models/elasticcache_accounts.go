@@ -179,7 +179,7 @@ func (manager *SElasticcacheAccountManager) newFromCloudElasticcacheAccount(ctx 
 	account.AccountType = extAccount.GetAccountType()
 	account.AccountPrivilege = extAccount.GetAccountPrivilege()
 
-	err := manager.TableSpec().Insert(&account)
+	err := manager.TableSpec().Insert(ctx, &account)
 	if err != nil {
 		return nil, errors.Wrapf(err, "newFromCloudElasticcacheAccount.Insert")
 	}

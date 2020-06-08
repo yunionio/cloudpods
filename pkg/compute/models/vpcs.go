@@ -179,7 +179,7 @@ func (manager *SVpcManager) getVpcExternalIdForClassicNetwork(regionId, cloudpro
 	return fmt.Sprintf("%s-%s", regionId, cloudproviderId)
 }
 
-func (manager *SVpcManager) GetOrCreateVpcForClassicNetwork(host *SHost) (*SVpc, error) {
+func (manager *SVpcManager) GetOrCreateVpcForClassicNetwork(ctx context.Context, host *SHost) (*SVpc, error) {
 	region := host.GetRegion()
 	cloudprovider := host.GetCloudprovider()
 	externalId := manager.getVpcExternalIdForClassicNetwork(region.Id, cloudprovider.Id)
@@ -200,7 +200,7 @@ func (manager *SVpcManager) GetOrCreateVpcForClassicNetwork(host *SHost) (*SVpc,
 	vpc.Status = api.VPC_STATUS_UNAVAILABLE
 	vpc.ExternalId = externalId
 	vpc.ManagerId = host.ManagerId
-	err = manager.TableSpec().Insert(vpc)
+	err = manager.TableSpec().Insert(ctx, vpc)
 	if err != nil {
 		return nil, errors.Wrap(err, "Insert vpc for classic network")
 	}
@@ -471,7 +471,7 @@ func (self *SVpc) SyncGlobalVpc(ctx context.Context, userCred mcclient.TokenCred
 			gv.SetEnabled(true)
 			gv.Status = api.GLOBAL_VPC_STATUS_AVAILABLE
 			gv.SetModelManager(GlobalVpcManager, gv)
-			err = GlobalVpcManager.TableSpec().Insert(gv)
+			err = GlobalVpcManager.TableSpec().Insert(ctx, gv)
 			if err != nil {
 				return errors.Wrap(err, "GlobalVpcManager.Insert")
 			}
@@ -532,7 +532,7 @@ func (manager *SVpcManager) newFromCloudVpc(ctx context.Context, userCred mcclie
 
 	vpc.IsEmulated = extVPC.IsEmulated()
 
-	err = manager.TableSpec().Insert(&vpc)
+	err = manager.TableSpec().Insert(ctx, &vpc)
 	if err != nil {
 		log.Errorf("newFromCloudVpc fail %s", err)
 		return nil, err
@@ -575,7 +575,7 @@ func (manager *SVpcManager) InitializeData() error {
 			defVpc.IsDefault = true
 			defVpc.IsPublic = true
 			defVpc.PublicScope = string(rbacutils.ScopeSystem)
-			err = manager.TableSpec().Insert(&defVpc)
+			err = manager.TableSpec().Insert(context.TODO(), &defVpc)
 			if err != nil {
 				log.Errorf("Insert default vpc fail: %s", err)
 			}
@@ -1022,7 +1022,7 @@ func (self *SVpc) initWire(ctx context.Context, zone *SZone) (*SWire, error) {
 	wire.IsEmulated = true
 	wire.Name = fmt.Sprintf("vpc-%s", self.Name)
 	wire.SetModelManager(WireManager, wire)
-	err := WireManager.TableSpec().Insert(wire)
+	err := WireManager.TableSpec().Insert(ctx, wire)
 	if err != nil {
 		return nil, err
 	}

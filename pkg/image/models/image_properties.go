@@ -123,7 +123,7 @@ func (manager *SImagePropertyManager) NewProperty(ctx context.Context, userCred 
 	prop.Name = key
 	prop.Value = value
 
-	err := manager.TableSpec().Insert(&prop)
+	err := manager.TableSpec().Insert(ctx, &prop)
 	if err != nil {
 		return nil, err
 	}

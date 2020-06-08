@@ -1053,7 +1053,7 @@ func (manager *SCloudproviderManager) migrateVCenterInfo(vc *SVCenter) error {
 	cp.LastSync = vc.LastSync
 	cp.Provider = api.CLOUD_PROVIDER_VMWARE
 
-	return manager.TableSpec().Insert(&cp)
+	return manager.TableSpec().Insert(context.TODO(), &cp)
 }
 
 // 云订阅列表

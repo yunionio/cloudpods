@@ -296,7 +296,7 @@ func (manager *SZoneManager) newFromCloudZone(ctx context.Context, userCred mccl
 
 	zone.CloudregionId = region.Id
 
-	err = manager.TableSpec().Insert(&zone)
+	err = manager.TableSpec().Insert(ctx, &zone)
 	if err != nil {
 		log.Errorf("newFromCloudZone fail %s", err)
 		return nil, err

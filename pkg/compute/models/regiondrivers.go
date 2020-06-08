@@ -153,7 +153,7 @@ type IDBInstanceDriver interface {
 	IsSupportDBInstancePublicConnection() bool
 	IsSupportKeepDBInstanceManualBackup() bool
 
-	InitDBInstanceUser(dbinstance *SDBInstance, task taskman.ITask, desc *cloudprovider.SManagedDBInstanceCreateConfig) error
+	InitDBInstanceUser(ctx context.Context, dbinstance *SDBInstance, task taskman.ITask, desc *cloudprovider.SManagedDBInstanceCreateConfig) error
 	IsDBInstanceNeedSecgroup() bool
 }
 

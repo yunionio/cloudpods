@@ -55,7 +55,7 @@ func Set(be IInformerBackend) {
 
 func GetDefaultBackend() IInformerBackend {
 	if defaultBackend == nil {
-		log.Warningf("default informer backend is not init")
+		log.V(10).Warningf("default informer backend is not init")
 	}
 	return defaultBackend
 }

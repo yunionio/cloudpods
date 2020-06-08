@@ -1661,7 +1661,7 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 		gs := SGuestsecgroup{}
 		gs.SecgroupId = secgroup
 		gs.GuestId = guest.Id
-		GuestsecgroupManager.TableSpec().Insert(&gs)
+		GuestsecgroupManager.TableSpec().Insert(ctx, &gs)
 	}
 }
 
@@ -1982,7 +1982,7 @@ func (self *SGuest) getCdrom(create bool) *SGuestcdrom {
 		if err == sql.ErrNoRows {
 			if create {
 				cdrom.Id = self.Id
-				err = GuestcdromManager.TableSpec().Insert(&cdrom)
+				err = GuestcdromManager.TableSpec().Insert(context.TODO(), &cdrom)
 				if err != nil {
 					log.Errorf("insert cdrom fail %s", err)
 					return nil
@@ -2510,7 +2510,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 		guest.VmemSize = extVM.GetVmemSizeMB()
 	}
 
-	err := manager.TableSpec().Insert(&guest)
+	err := manager.TableSpec().Insert(ctx, &guest)
 	if err != nil {
 		log.Errorf("Insert fail %s", err)
 		return nil, err
@@ -2700,20 +2700,20 @@ type sAddGuestnic struct {
 	reserve bool
 }
 
-func getCloudNicNetwork(vnic cloudprovider.ICloudNic, host *SHost, ipList []string, index int) (*SNetwork, error) {
+func getCloudNicNetwork(ctx context.Context, vnic cloudprovider.ICloudNic, host *SHost, ipList []string, index int) (*SNetwork, error) {
 	vnet := vnic.GetINetwork()
 	if vnet == nil {
 		if vnic.InClassicNetwork() {
-			vpc, err := VpcManager.GetOrCreateVpcForClassicNetwork(host)
+			vpc, err := VpcManager.GetOrCreateVpcForClassicNetwork(ctx, host)
 			if err != nil {
 				return nil, errors.Wrap(err, "NewVpcForClassicNetwork")
 			}
 			zone := host.GetZone()
-			wire, err := WireManager.GetOrCreateWireForClassicNetwork(vpc, zone)
+			wire, err := WireManager.GetOrCreateWireForClassicNetwork(ctx, vpc, zone)
 			if err != nil {
 				return nil, errors.Wrap(err, "NewWireForClassicNetwork")
 			}
-			return NetworkManager.GetOrCreateClassicNetwork(wire)
+			return NetworkManager.GetOrCreateClassicNetwork(ctx, wire)
 		}
 		ip := vnic.GetIP()
 		if len(ip) == 0 {
@@ -2749,7 +2749,7 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 
 	for i := 0; i < len(guestnics) || i < len(vnics); i += 1 {
 		if i < len(guestnics) && i < len(vnics) {
-			localNet, err := getCloudNicNetwork(vnics[i], host, ipList, i)
+			localNet, err := getCloudNicNetwork(ctx, vnics[i], host, ipList, i)
 			if err != nil {
 				log.Errorf("%s", err)
 				result.Error(err)
@@ -2783,7 +2783,7 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 		} else if i < len(guestnics) {
 			removed = append(removed, sRemoveGuestnic{nic: &guestnics[i]})
 		} else if i < len(vnics) {
-			localNet, err := getCloudNicNetwork(vnics[i], host, ipList, i)
+			localNet, err := getCloudNicNetwork(ctx, vnics[i], host, ipList, i)
 			if err != nil {
 				log.Errorf("%s", err) // ignore this case
 			} else {
@@ -2907,7 +2907,7 @@ func (self *SGuest) attach2Disk(ctx context.Context, disk *SDisk, userCred mccli
 	lockman.LockObject(ctx, self)
 
 	guestdisk.Index = self.getDiskIndex()
-	err = guestdisk.DoSave(driver, cache, mountpoint)
+	err = guestdisk.DoSave(ctx, driver, cache, mountpoint)
 	if err == nil {
 		db.OpsLog.LogAttachEvent(ctx, self, disk, userCred, nil)
 	}
@@ -3326,7 +3326,7 @@ func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.T
 	if storage.IsLocal() || billingType == billing_api.BILLING_TYPE_PREPAID || isWithServerCreate {
 		autoDelete = true
 	}
-	disk, err := storage.createDisk(diskName, diskConfig, userCred, self.GetOwnerId(), autoDelete, self.IsSystem,
+	disk, err := storage.createDisk(ctx, diskName, diskConfig, userCred, self.GetOwnerId(), autoDelete, self.IsSystem,
 		billingType, billingCycle)
 
 	if err != nil {

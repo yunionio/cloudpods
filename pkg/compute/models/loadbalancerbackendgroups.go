@@ -977,7 +977,7 @@ func (man *SLoadbalancerBackendGroupManager) newFromCloudLoadbalancerBackendgrou
 
 	lbbg.Type = extLoadbalancerBackendgroup.GetType()
 	lbbg.Status = extLoadbalancerBackendgroup.GetStatus()
-	err = man.TableSpec().Insert(lbbg)
+	err = man.TableSpec().Insert(ctx, lbbg)
 	if err != nil {
 		return nil, err
 	}

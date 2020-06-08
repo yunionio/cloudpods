@@ -575,7 +575,7 @@ func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, owner mcclient
 	if retentionDay > 0 {
 		snapshot.ExpiredAt = time.Now().AddDate(0, 0, retentionDay)
 	}
-	err = SnapshotManager.TableSpec().Insert(snapshot)
+	err = SnapshotManager.TableSpec().Insert(ctx, snapshot)
 	if err != nil {
 		return nil, err
 	}
@@ -892,7 +892,7 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userC
 	snapshot.ManagerId = provider.Id
 	snapshot.CloudregionId = region.Id
 
-	err = manager.TableSpec().Insert(&snapshot)
+	err = manager.TableSpec().Insert(ctx, &snapshot)
 	if err != nil {
 		log.Errorf("newFromCloudEip fail %s", err)
 		return nil, err

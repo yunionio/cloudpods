@@ -205,7 +205,7 @@ func (manager *SSharedResourceManager) shareToTarget(
 		sharedResource.ResourceId = model.GetId()
 		sharedResource.TargetProjectId = targetId
 		sharedResource.TargetType = targetType
-		if insetErr := SharedResourceManager.TableSpec().Insert(sharedResource); insetErr != nil {
+		if insetErr := SharedResourceManager.TableSpec().Insert(ctx, sharedResource); insetErr != nil {
 			return nil, httperrors.NewInternalServerError("Insert shared resource failed %s", insetErr)
 		}
 	}

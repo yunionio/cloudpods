@@ -701,7 +701,7 @@ func (self *SKVMRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx context.
 			loadbalancerBackend.ProjectId = userCred.GetProjectId()
 			loadbalancerBackend.DomainId = userCred.GetProjectDomainId()
 			loadbalancerBackend.Name = fmt.Sprintf("%s-%s-%s", lbbg.Name, backend.BackendType, backend.Name)
-			if err := models.LoadbalancerBackendManager.TableSpec().Insert(&loadbalancerBackend); err != nil {
+			if err := models.LoadbalancerBackendManager.TableSpec().Insert(ctx, &loadbalancerBackend); err != nil {
 				return nil, err
 			}
 		}

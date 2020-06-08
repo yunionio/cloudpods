@@ -792,7 +792,7 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 		lb.LBInfo = extLb.GetMetadata()
 	}
 
-	if err := man.TableSpec().Insert(&lb); err != nil {
+	if err := man.TableSpec().Insert(ctx, &lb); err != nil {
 		log.Errorf("newFromCloudRegion fail %s", err)
 		return nil, err
 	}

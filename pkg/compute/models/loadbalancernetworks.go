@@ -121,7 +121,7 @@ func (m *SLoadbalancernetworkManager) NewLoadbalancerNetwork(ctx context.Context
 		return nil, err
 	}
 	ln.IpAddr = ipAddr
-	err = m.TableSpec().Insert(ln)
+	err = m.TableSpec().Insert(ctx, ln)
 	if err != nil {
 		// NOTE no need to free ipAddr as GetFreeIP has no side effect
 		return nil, err
@@ -179,7 +179,7 @@ func (m *SLoadbalancernetworkManager) syncLoadbalancerNetwork(ctx context.Contex
 	}
 	if len(lns) == 0 {
 		ln := &SLoadbalancerNetwork{LoadbalancerId: req.Loadbalancer.Id, NetworkId: req.NetworkId, IpAddr: req.Address}
-		return m.TableSpec().Insert(ln)
+		return m.TableSpec().Insert(ctx, ln)
 	}
 	for i := 0; i < len(lns); i++ {
 		if i == 0 {

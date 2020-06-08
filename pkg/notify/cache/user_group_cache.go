@@ -131,7 +131,7 @@ func (manager *SUserGroupCacheManager) Sync(ctx context.Context, ugCache []SUser
 	now := time.Now().UTC()
 	for i := range added {
 		added[i].LastCheck = now
-		err := manager.TableSpec().Insert(&added[i])
+		err := manager.TableSpec().Insert(ctx, &added[i])
 		if err != nil {
 			syncResult.AddError(err)
 		} else {

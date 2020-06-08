@@ -147,6 +147,6 @@ func (man *SMeshNetworkMemberManager) addMember(ctx context.Context, userCred mc
 	}
 	member.SetModelManager(man, member)
 	member.Name = fmt.Sprintf("%s-%s", mn.Name, router.Name)
-	man.TableSpec().Insert(member)
+	man.TableSpec().Insert(ctx, member)
 	return member, nil
 }

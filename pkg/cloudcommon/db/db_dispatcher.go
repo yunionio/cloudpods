@@ -1167,7 +1167,7 @@ func _doCreateItem(
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
-	err = manager.TableSpec().InsertOrUpdate(model)
+	err = manager.TableSpec().InsertOrUpdate(ctx, model)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}

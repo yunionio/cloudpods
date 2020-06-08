@@ -54,7 +54,7 @@ func (sgnm *SScalingGroupNetworkManager) Attach(ctx context.Context, scalingGrou
 		ScalingGroupId: scalingGroupId,
 		NetworkId:      networkId,
 	}
-	return sgnm.TableSpec().Insert(sgn)
+	return sgnm.TableSpec().Insert(ctx, sgn)
 }
 
 func (sgn *SScalingGroupNetwork) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {

@@ -94,7 +94,7 @@ func (self *DBInstanceAccountGrantPrivilegeTask) OnInit(ctx context.Context, obj
 		DBInstancedatabaseId: database.Id,
 	}
 
-	models.DBInstancePrivilegeManager.TableSpec().Insert(&privilege)
+	models.DBInstancePrivilegeManager.TableSpec().Insert(ctx, &privilege)
 
 	account.SetStatus(self.UserCred, api.DBINSTANCE_USER_AVAILABLE, "")
 	logclient.AddActionLogWithStartable(self, account, logclient.ACT_GRANT_PRIVILEGE, nil, self.UserCred, true)

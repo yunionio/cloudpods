@@ -550,7 +550,7 @@ func PerformSetResourceSchedtag(obj IModelWithSchedtag, ctx context.Context, use
 				if err := createData.Unmarshal(newTagObj); err != nil {
 					return nil, httperrors.NewGeneralError(fmt.Errorf("Create %s joint schedtag error: %v", jointMan.Keyword(), err))
 				}
-				if err := newTagObj.GetModelManager().TableSpec().Insert(newTagObj); err != nil {
+				if err := newTagObj.GetModelManager().TableSpec().Insert(ctx, newTagObj); err != nil {
 					return nil, httperrors.NewGeneralError(err)
 				}
 			}

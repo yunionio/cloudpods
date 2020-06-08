@@ -308,7 +308,7 @@ func (self *SNetwork) GetNetworkInterfacesCount() (int, error) {
 	return NetworkInterfaceManager.Query().In("id", sq).CountWithError()
 }
 
-func (manager *SNetworkManager) GetOrCreateClassicNetwork(wire *SWire) (*SNetwork, error) {
+func (manager *SNetworkManager) GetOrCreateClassicNetwork(ctx context.Context, wire *SWire) (*SNetwork, error) {
 	_network, err := db.FetchByExternalId(manager, wire.Id)
 	if err == nil {
 		return _network.(*SNetwork), nil
@@ -334,7 +334,7 @@ func (manager *SNetworkManager) GetOrCreateClassicNetwork(wire *SWire) (*SNetwor
 	network.DomainId = admin.GetProjectDomainId()
 	network.ProjectId = admin.GetProjectId()
 	network.Status = api.NETWORK_STATUS_UNAVAILABLE
-	err = manager.TableSpec().Insert(&network)
+	err = manager.TableSpec().Insert(ctx, &network)
 	if err != nil {
 		return nil, errors.Wrap(err, "Insert classic network")
 	}
@@ -726,7 +726,7 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 
 	net.AllocTimoutSeconds = extNet.GetAllocTimeoutSeconds()
 
-	err = manager.TableSpec().Insert(&net)
+	err = manager.TableSpec().Insert(ctx, &net)
 	if err != nil {
 		log.Errorf("newFromCloudZone fail %s", err)
 		return nil, err
@@ -2156,7 +2156,7 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	network.IsSystem = self.IsSystem
 	network.Description = self.Description
 
-	err = NetworkManager.TableSpec().Insert(network)
+	err = NetworkManager.TableSpec().Insert(ctx, network)
 	if err != nil {
 		return nil, err
 	}
@@ -2286,7 +2286,7 @@ func (manager *SNetworkManager) PerformTryCreateNetwork(ctx context.Context, use
 		}
 		newNetwork.Name = newName
 
-		err = NetworkManager.TableSpec().Insert(newNetwork)
+		err = NetworkManager.TableSpec().Insert(ctx, newNetwork)
 		if err != nil {
 			return nil, err
 		}

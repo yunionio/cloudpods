@@ -15,6 +15,7 @@
 package models
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
@@ -114,7 +115,7 @@ func (manager *SLocalUserManager) register(userId string, domainId string, name 
 	localUser.DomainId = domainId
 	localUser.Name = name
 
-	err = manager.TableSpec().Insert(localUser)
+	err = manager.TableSpec().Insert(context.TODO(), localUser)
 	if err != nil {
 		return nil, errors.Wrap(err, "Insert")
 	}

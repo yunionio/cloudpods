@@ -329,7 +329,7 @@ func (manager *SNatSEntryManager) newFromCloudNatSTable(ctx context.Context, use
 		table.NetworkId = network.GetId()
 	}
 
-	err := manager.TableSpec().Insert(&table)
+	err := manager.TableSpec().Insert(ctx, &table)
 	if err != nil {
 		log.Errorf("newFromCloudNatSTable fail %s", err)
 		return nil, err

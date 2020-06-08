@@ -586,7 +586,7 @@ func (manager *SDBInstanceSkuManager) newFromCloudSku(ctx context.Context, userC
 		sku.Zone3 = zone.Id
 	}
 
-	return manager.TableSpec().Insert(sku)
+	return manager.TableSpec().Insert(ctx, sku)
 }
 
 func SyncRegionDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, regionId string, isStart bool) {

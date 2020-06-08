@@ -240,7 +240,7 @@ func (manager *SGroupManager) RegisterExternalGroup(ctx context.Context, idpId s
 		group.Name = groupName
 		group.Displayname = groupName
 
-		err = manager.TableSpec().Insert(&group)
+		err = manager.TableSpec().Insert(ctx, &group)
 		if err != nil {
 			return nil, errors.Wrap(err, "Insert")
 		}

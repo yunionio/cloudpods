@@ -30,9 +30,9 @@ import (
 type ITableSpec interface {
 	Name() string
 	DataType() reflect.Type
-	Insert(dt interface{}) error
-	InsertOrUpdate(dt interface{}) error
-	Update(dt interface{}, doUpdate func() error) (sqlchemy.UpdateDiffs, error)
+	Insert(ctx context.Context, dt interface{}) error
+	InsertOrUpdate(ctx context.Context, dt interface{}) error
+	Update(ctx context.Context, dt interface{}, doUpdate func() error) (sqlchemy.UpdateDiffs, error)
 	Instance() *sqlchemy.STable
 	ColumnSpec(name string) sqlchemy.IColumnSpec
 	PrimaryColumns() []sqlchemy.IColumnSpec
@@ -87,23 +87,23 @@ func (ts *sTableSpec) isMarkDeleted(dt interface{}) (bool, error) {
 	return obj.GetDeleted(), nil
 }
 
-func (ts *sTableSpec) Insert(dt interface{}) error {
+func (ts *sTableSpec) Insert(ctx context.Context, dt interface{}) error {
 	if err := ts.STableSpec.Insert(dt); err != nil {
 		return err
 	}
-	ts.inform(dt, informer.Create)
+	ts.inform(ctx, dt, informer.Create)
 	return nil
 }
 
-func (ts *sTableSpec) InsertOrUpdate(dt interface{}) error {
+func (ts *sTableSpec) InsertOrUpdate(ctx context.Context, dt interface{}) error {
 	if err := ts.STableSpec.InsertOrUpdate(dt); err != nil {
 		return err
 	}
-	ts.inform(dt, informer.Create)
+	ts.inform(ctx, dt, informer.Create)
 	return nil
 }
 
-func (ts *sTableSpec) Update(dt interface{}, doUpdate func() error) (sqlchemy.UpdateDiffs, error) {
+func (ts *sTableSpec) Update(ctx context.Context, dt interface{}, doUpdate func() error) (sqlchemy.UpdateDiffs, error) {
 	oldObj := jsonutils.Marshal(dt)
 	diffs, err := ts.STableSpec.Update(dt, doUpdate)
 	if err != nil {
@@ -118,36 +118,44 @@ func (ts *sTableSpec) Update(dt interface{}, doUpdate func() error) (sqlchemy.Up
 		return nil, errors.Wrap(err, "check is mark deleted")
 	}
 	if isDeleted {
-		ts.inform(dt, informer.Delete)
+		ts.inform(ctx, dt, informer.Delete)
 	} else {
-		ts.informUpdate(dt, oldObj.(*jsonutils.JSONDict))
+		ts.informUpdate(ctx, dt, oldObj.(*jsonutils.JSONDict))
 	}
 	return diffs, nil
 }
 
-func (ts *sTableSpec) inform(dt interface{}, f func(ctx context.Context, obj *informer.ModelObject) error) {
+func (ts *sTableSpec) inform(ctx context.Context, dt interface{}, f func(ctx context.Context, obj *informer.ModelObject) error) {
 	nf := func() {
 		obj, err := ts.newInformerModel(dt)
 		if err != nil {
 			log.Warningf("newInformerModel error: %v", err)
 			return
 		}
-		if err := f(context.Background(), obj); err != nil {
-			log.Errorf("call informer func error: %v", err)
+		if err := f(ctx, obj); err != nil {
+			if errors.Cause(err) == informer.ErrBackendNotInit {
+				log.V(4).Warningf("informer backend not init")
+			} else {
+				log.Errorf("call informer func error: %v", err)
+			}
 		}
 	}
 	nopanic.Run(nf)
 }
 
-func (ts *sTableSpec) informUpdate(dt interface{}, oldObj *jsonutils.JSONDict) {
+func (ts *sTableSpec) informUpdate(ctx context.Context, dt interface{}, oldObj *jsonutils.JSONDict) {
 	nf := func() {
 		obj, err := ts.newInformerModel(dt)
 		if err != nil {
 			log.Warningf("newInformerModel error: %v", err)
 			return
 		}
-		if err := informer.Update(context.Background(), obj, oldObj); err != nil {
-			log.Errorf("call informer update func error: %v", err)
+		if err := informer.Update(ctx, obj, oldObj); err != nil {
+			if errors.Cause(err) == informer.ErrBackendNotInit {
+				log.V(4).Warningf("informer backend not init")
+			} else {
+				log.Errorf("call informer update func error: %v", err)
+			}
 		}
 	}
 	nopanic.Run(nf)

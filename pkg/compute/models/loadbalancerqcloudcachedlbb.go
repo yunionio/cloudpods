@@ -170,7 +170,7 @@ func (man *SQcloudCachedLbManager) newFromCloudLoadbalancerBackend(ctx context.C
 		return nil, err
 	}
 
-	err = man.TableSpec().Insert(lbb)
+	err = man.TableSpec().Insert(ctx, lbb)
 
 	if err != nil {
 		return nil, err
@@ -275,7 +275,7 @@ func (man *SQcloudCachedLbManager) CreateQcloudCachedLb(ctx context.Context, use
 		return nil, err
 	}
 
-	err = man.TableSpec().Insert(cachedlbb)
+	err = man.TableSpec().Insert(ctx, cachedlbb)
 
 	if err != nil {
 		return nil, err

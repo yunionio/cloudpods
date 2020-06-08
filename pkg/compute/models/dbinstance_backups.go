@@ -504,7 +504,7 @@ func (manager *SDBInstanceBackupManager) newFromCloudDBInstanceBackup(
 		}
 	}
 
-	err = manager.TableSpec().Insert(&backup)
+	err = manager.TableSpec().Insert(ctx, &backup)
 	if err != nil {
 		return errors.Wrapf(err, "newFromCloudDBInstanceBackup.Insert")
 	}

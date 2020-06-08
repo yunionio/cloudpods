@@ -104,7 +104,7 @@ func (manager *SRoleManager) InitializeData() error {
 	if err != nil {
 		return errors.Wrap(err, "InitializeDomainId")
 	}
-	err = manager.initSysRole()
+	err = manager.initSysRole(context.TODO())
 	if err != nil {
 		return errors.Wrap(err, "initSysRole")
 	}
@@ -127,7 +127,7 @@ func (manager *SRoleManager) initializeDomainId() error {
 	return nil
 }
 
-func (manager *SRoleManager) initSysRole() error {
+func (manager *SRoleManager) initSysRole(ctx context.Context) error {
 	q := manager.Query().Equals("name", api.SystemAdminRole)
 	q = q.Equals("domain_id", api.DEFAULT_DOMAIN_ID)
 	cnt, err := q.CountWithError()
@@ -148,7 +148,7 @@ func (manager *SRoleManager) initSysRole() error {
 	role.Description = "Boostrap system default admin role"
 	role.SetModelManager(manager, &role)
 
-	err = manager.TableSpec().Insert(&role)
+	err = manager.TableSpec().Insert(ctx, &role)
 	if err != nil {
 		return errors.Wrap(err, "insert")
 	}

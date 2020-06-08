@@ -774,11 +774,11 @@ func (self *SImage) StartImageCheckTask(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SImage) StartImageConvertTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	err := self.MigrateSubImage()
+	err := self.MigrateSubImage(ctx)
 	if err != nil {
 		return err
 	}
-	err = self.MakeSubImages()
+	err = self.MakeSubImages(ctx)
 	if err != nil {
 		return err
 	}
@@ -963,7 +963,7 @@ func (self *SImage) GetImageType() api.TImageType {
 	}
 }
 
-func (self *SImage) newSubformat(format qemuimg.TImageFormat, migrate bool) error {
+func (self *SImage) newSubformat(ctx context.Context, format qemuimg.TImageFormat, migrate bool) error {
 	subformat := &SImageSubformat{}
 	subformat.SetModelManager(ImageSubformatManager, subformat)
 
@@ -982,7 +982,7 @@ func (self *SImage) newSubformat(format qemuimg.TImageFormat, migrate bool) erro
 
 	subformat.TorrentStatus = api.IMAGE_STATUS_QUEUED
 
-	err := ImageSubformatManager.TableSpec().Insert(subformat)
+	err := ImageSubformatManager.TableSpec().Insert(ctx, subformat)
 	if err != nil {
 		log.Errorf("fail to make subformat %s: %s", format, err)
 		return err
@@ -990,7 +990,7 @@ func (self *SImage) newSubformat(format qemuimg.TImageFormat, migrate bool) erro
 	return nil
 }
 
-func (self *SImage) MigrateSubImage() error {
+func (self *SImage) MigrateSubImage(ctx context.Context) error {
 	if !qemuimg.IsSupportedImageFormat(self.DiskFormat) {
 		log.Warningf("Unsupported image format %s, no need to migrate", self.DiskFormat)
 		return nil
@@ -1007,7 +1007,7 @@ func (self *SImage) MigrateSubImage() error {
 	}
 	if self.GetImageType() != api.ImageTypeISO && imgInst.IsSparse() && utils.IsInStringArray(self.DiskFormat, options.Options.TargetImageFormats) {
 		// need to convert again
-		return self.newSubformat(qemuimg.String2ImageFormat(self.DiskFormat), false)
+		return self.newSubformat(ctx, qemuimg.String2ImageFormat(self.DiskFormat), false)
 	} else {
 		localPath := self.getLocalLocation()
 		if !strings.HasSuffix(localPath, fmt.Sprintf(".%s", self.DiskFormat)) {
@@ -1025,11 +1025,11 @@ func (self *SImage) MigrateSubImage() error {
 				return err
 			}
 		}
-		return self.newSubformat(qemuimg.String2ImageFormat(self.DiskFormat), true)
+		return self.newSubformat(ctx, qemuimg.String2ImageFormat(self.DiskFormat), true)
 	}
 }
 
-func (self *SImage) MakeSubImages() error {
+func (self *SImage) MakeSubImages(ctx context.Context) error {
 	if self.GetImageType() == api.ImageTypeISO {
 		return nil
 	}
@@ -1042,7 +1042,7 @@ func (self *SImage) MakeSubImages() error {
 			// need to create a record
 			subformat := ImageSubformatManager.FetchSubImage(self.Id, format)
 			if subformat == nil {
-				err := self.newSubformat(qemuimg.String2ImageFormat(format), false)
+				err := self.newSubformat(ctx, qemuimg.String2ImageFormat(format), false)
 				if err != nil {
 					return err
 				}

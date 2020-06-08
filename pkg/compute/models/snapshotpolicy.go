@@ -577,7 +577,7 @@ func (manager *SSnapshotPolicyManager) newFromCloudSnapshotPolicy(
 		snapshotPolicyTmp.Name = newName
 		snapshotPolicyTmp.Status = ext.GetStatus()
 
-		err = manager.TableSpec().Insert(&snapshotPolicyTmp)
+		err = manager.TableSpec().Insert(ctx, &snapshotPolicyTmp)
 		if err != nil {
 			log.Errorf("newFromCloudEip fail %s", err)
 			return nil, err

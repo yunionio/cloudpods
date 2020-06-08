@@ -510,7 +510,7 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 		eip.NetworkId = network.GetId()
 	}
 
-	err = manager.TableSpec().Insert(&eip)
+	err = manager.TableSpec().Insert(ctx, &eip)
 	if err != nil {
 		log.Errorf("newFromCloudEip fail %s", err)
 		return nil, err
@@ -1236,7 +1236,7 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 		return nil, errors.Wrap(err, "db.GenerateName")
 	}
 
-	err = manager.TableSpec().Insert(&eip)
+	err = manager.TableSpec().Insert(ctx, &eip)
 	if err != nil {
 		log.Errorf("create EIP record fail %s", err)
 		return nil, err

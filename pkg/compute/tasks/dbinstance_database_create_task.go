@@ -146,7 +146,7 @@ func (self *DBInstanceDatabaseCreateTask) CreateDBInstanceDatabase(ctx context.C
 			DBInstanceaccountId:  account.DBInstanceaccountId,
 			DBInstancedatabaseId: database.Id,
 		}
-		models.DBInstancePrivilegeManager.TableSpec().Insert(&privilege)
+		models.DBInstancePrivilegeManager.TableSpec().Insert(ctx, &privilege)
 		logclient.AddActionLogWithStartable(self, database, logclient.ACT_GRANT_PRIVILEGE, account, self.UserCred, true)
 	}
 	database.SetStatus(self.UserCred, api.DBINSTANCE_DATABASE_RUNNING, "")

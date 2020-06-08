@@ -348,7 +348,7 @@ func (self *SSecurityGroup) PostCreate(ctx context.Context, userCred mcclient.To
 		}
 		rule.SecgroupId = self.Id
 
-		SecurityGroupRuleManager.TableSpec().Insert(rule)
+		SecurityGroupRuleManager.TableSpec().Insert(ctx, rule)
 	}
 }
 
@@ -499,7 +499,7 @@ func (self *SSecurityGroup) PerformAddRule(ctx context.Context, userCred mcclien
 	if err := rule.ValidateRule(); err != nil {
 		return nil, httperrors.NewInputParameterError(err.Error())
 	}
-	if err := SecurityGroupRuleManager.TableSpec().Insert(secgrouprule); err != nil {
+	if err := SecurityGroupRuleManager.TableSpec().Insert(ctx, secgrouprule); err != nil {
 		return nil, httperrors.NewInputParameterError(err.Error())
 	}
 	self.DoSync(ctx, userCred)
@@ -532,7 +532,7 @@ func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.
 	secgroup.ProjectId = userCred.GetProjectId()
 	secgroup.DomainId = userCred.GetProjectDomainId()
 
-	err = SecurityGroupManager.TableSpec().Insert(secgroup)
+	err = SecurityGroupManager.TableSpec().Insert(ctx, secgroup)
 	if err != nil {
 		return nil, err
 		//db.OpsLog.LogCloneEvent(self, secgroup, userCred, nil)
@@ -551,7 +551,7 @@ func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.
 		secgrouprule.Action = rule.Action
 		secgrouprule.Description = rule.Description
 		secgrouprule.SecgroupId = secgroup.Id
-		if err := SecurityGroupRuleManager.TableSpec().Insert(secgrouprule); err != nil {
+		if err := SecurityGroupRuleManager.TableSpec().Insert(ctx, secgrouprule); err != nil {
 			return nil, err
 		}
 	}
@@ -742,7 +742,7 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 	secgroup.ProjectId = provider.ProjectId
 	secgroup.DomainId = provider.DomainId
 
-	if err := manager.TableSpec().Insert(&secgroup); err != nil {
+	if err := manager.TableSpec().Insert(ctx, &secgroup); err != nil {
 		return nil, err
 	}
 
@@ -811,7 +811,7 @@ func (manager *SSecurityGroupManager) InitializeData() error {
 		// secGrp.IsEmulated = false
 		secGrp.IsPublic = true
 		secGrp.PublicScope = string(rbacutils.ScopeSystem)
-		err = manager.TableSpec().Insert(secGrp)
+		err = manager.TableSpec().Insert(context.TODO(), secGrp)
 		if err != nil {
 			log.Errorf("Insert default secgroup failed!!! %s", err)
 			return err
@@ -825,7 +825,7 @@ func (manager *SSecurityGroupManager) InitializeData() error {
 		defRule.CIDR = "0.0.0.0/0"
 		defRule.Action = string(secrules.SecurityRuleAllow)
 		defRule.SecgroupId = "default"
-		err = SecurityGroupRuleManager.TableSpec().Insert(&defRule)
+		err = SecurityGroupRuleManager.TableSpec().Insert(context.TODO(), &defRule)
 		if err != nil {
 			log.Errorf("Insert default secgroup rule fail %s", err)
 			return err

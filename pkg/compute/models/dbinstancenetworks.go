@@ -122,7 +122,7 @@ func (m *SDBInstanceNetworkManager) NewDBInstanceNetwork(ctx context.Context, us
 		return nil, err
 	}
 	in.IpAddr = ipAddr
-	err = m.TableSpec().Insert(in)
+	err = m.TableSpec().Insert(ctx, in)
 	if err != nil {
 		// NOTE no need to free ipAddr as GetFreeIP has no side effect
 		return nil, err
@@ -210,7 +210,7 @@ func (manager *SDBInstanceNetworkManager) newFromCloudDBNetwork(ctx context.Cont
 	dbNetwork.NetworkId = localnetwork.Id
 	dbNetwork.IpAddr = network.IP
 
-	err = manager.TableSpec().Insert(&dbNetwork)
+	err = manager.TableSpec().Insert(ctx, &dbNetwork)
 	if err != nil {
 		return errors.Wrapf(err, "newFromCloudDBNetwork.Insert")
 	}

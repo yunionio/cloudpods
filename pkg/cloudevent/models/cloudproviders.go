@@ -206,7 +206,7 @@ func (self *SCloudprovider) SetLastSyncTimeAt(userCred mcclient.TokenCredential,
 
 func (manager *SCloudproviderManager) newFromRegionProvider(ctx context.Context, userCred mcclient.TokenCredential, cloudprovider SCloudprovider) error {
 	cloudprovider.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
-	return manager.TableSpec().Insert(&cloudprovider)
+	return manager.TableSpec().Insert(ctx, &cloudprovider)
 }
 
 func (manager *SCloudproviderManager) syncCloudeventTask(ctx context.Context, userCred mcclient.TokenCredential) error {

@@ -106,19 +106,19 @@ func (manager *SPolicyAssignmentManager) QueryDistinctExtraField(q *sqlchemy.SQu
 	return q, httperrors.ErrNotFound
 }
 
-func (manager *SPolicyAssignmentManager) checkAndSetAssignment(definition *SPolicyDefinition, domainId string) error {
+func (manager *SPolicyAssignmentManager) checkAndSetAssignment(ctx context.Context, definition *SPolicyDefinition, domainId string) error {
 	q := manager.Query().Equals("policydefinition_id", definition.Id).Equals("domain_id", domainId)
 	count, err := q.CountWithError()
 	if err != nil {
 		return errors.Wrap(err, "CountWithError")
 	}
 	if count == 0 {
-		return manager.newAssignment(definition, domainId)
+		return manager.newAssignment(ctx, definition, domainId)
 	}
 	return nil
 }
 
-func (manager *SPolicyAssignmentManager) newAssignment(definition *SPolicyDefinition, domainId string) error {
+func (manager *SPolicyAssignmentManager) newAssignment(ctx context.Context, definition *SPolicyDefinition, domainId string) error {
 	assignment := SPolicyAssignment{}
 	assignment.SetModelManager(manager, &assignment)
 
@@ -126,5 +126,5 @@ func (manager *SPolicyAssignmentManager) newAssignment(definition *SPolicyDefini
 	assignment.DomainId = domainId
 	assignment.PolicydefinitionId = definition.Id
 
-	return manager.TableSpec().Insert(&assignment)
+	return manager.TableSpec().Insert(ctx, &assignment)
 }

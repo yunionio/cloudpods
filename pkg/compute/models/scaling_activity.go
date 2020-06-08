@@ -108,7 +108,7 @@ func (sam *SScalingActivity) SetReject(action string, reason string) error {
 	return sam.SetResult(action, compute.SA_STATUS_REJECT, reason, -1)
 }
 
-func (sam *SScalingActivityManager) CreateScalingActivity(sgId, triggerDesc, status string) (*SScalingActivity, error) {
+func (sam *SScalingActivityManager) CreateScalingActivity(ctx context.Context, sgId, triggerDesc, status string) (*SScalingActivity, error) {
 	scalingActivity := &SScalingActivity{
 		TriggerDesc: triggerDesc,
 		StartTime:   time.Now(),
@@ -116,7 +116,7 @@ func (sam *SScalingActivityManager) CreateScalingActivity(sgId, triggerDesc, sta
 	scalingActivity.ScalingGroupId = sgId
 	scalingActivity.Status = status
 	scalingActivity.SetModelManager(sam, scalingActivity)
-	return scalingActivity, sam.TableSpec().Insert(scalingActivity)
+	return scalingActivity, sam.TableSpec().Insert(ctx, scalingActivity)
 }
 
 func (sa *SScalingActivity) StartToScale(triggerDesc string) (*SScalingActivity, error) {

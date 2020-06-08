@@ -1191,7 +1191,7 @@ func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx co
 
 	lblis.constructFieldsFromCloudListener(userCred, lb, extListener)
 
-	err = man.TableSpec().Insert(lblis)
+	err = man.TableSpec().Insert(ctx, lblis)
 	if err != nil {
 		return nil, err
 	}

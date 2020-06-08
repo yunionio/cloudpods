@@ -148,7 +148,7 @@ func (manager *SUserManager) InitializeData() error {
 	if err != nil {
 		return errors.Wrap(err, "initSystemAccount")
 	}
-	return manager.initSysUser()
+	return manager.initSysUser(context.TODO())
 }
 
 func (manager *SUserManager) initSystemAccount() error {
@@ -171,7 +171,7 @@ func (manager *SUserManager) initSystemAccount() error {
 	return nil
 }
 
-func (manager *SUserManager) initSysUser() error {
+func (manager *SUserManager) initSysUser(ctx context.Context) error {
 	q := manager.Query().Equals("name", api.SystemAdminUser)
 	q = q.Equals("domain_id", api.DEFAULT_DOMAIN_ID)
 	cnt, err := q.CountWithError()
@@ -209,7 +209,7 @@ func (manager *SUserManager) initSysUser() error {
 	usr.Description = "Boostrap system default admin user"
 	usr.SetModelManager(manager, &usr)
 
-	err = manager.TableSpec().Insert(&usr)
+	err = manager.TableSpec().Insert(ctx, &usr)
 	if err != nil {
 		return errors.Wrap(err, "insert")
 	}

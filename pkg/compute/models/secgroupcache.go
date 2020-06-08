@@ -307,7 +307,7 @@ func (manager *SSecurityGroupCacheManager) NewCache(ctx context.Context, userCre
 	secgroupCache.CloudregionId = regionId
 	secgroupCache.Name = secgroup.GetName()
 	secgroupCache.SetModelManager(manager, secgroupCache)
-	if err := manager.TableSpec().Insert(secgroupCache); err != nil {
+	if err := manager.TableSpec().Insert(ctx, secgroupCache); err != nil {
 		log.Errorf("insert secgroupcache error: %v", err)
 		return nil, err
 	}

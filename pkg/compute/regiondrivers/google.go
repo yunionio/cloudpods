@@ -175,7 +175,7 @@ func (self *SGoogleRegionDriver) ValidateCreateDBInstanceData(ctx context.Contex
 	return input, nil
 }
 
-func (self *SGoogleRegionDriver) InitDBInstanceUser(instance *models.SDBInstance, task taskman.ITask, desc *cloudprovider.SManagedDBInstanceCreateConfig) error {
+func (self *SGoogleRegionDriver) InitDBInstanceUser(ctx context.Context, instance *models.SDBInstance, task taskman.ITask, desc *cloudprovider.SManagedDBInstanceCreateConfig) error {
 	user := "root"
 	switch desc.Engine {
 	case api.DBINSTANCE_TYPE_POSTGRESQL:
@@ -192,7 +192,7 @@ func (self *SGoogleRegionDriver) InitDBInstanceUser(instance *models.SDBInstance
 	account.Status = api.DBINSTANCE_USER_AVAILABLE
 	account.ExternalId = user
 	account.SetModelManager(models.DBInstanceAccountManager, &account)
-	err := models.DBInstanceAccountManager.TableSpec().Insert(&account)
+	err := models.DBInstanceAccountManager.TableSpec().Insert(ctx, &account)
 	if err != nil {
 		return err
 	}

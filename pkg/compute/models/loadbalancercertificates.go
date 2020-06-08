@@ -357,7 +357,7 @@ func (man *SLoadbalancerCertificateManager) InitializeData() error {
 	return nil
 }
 
-func (man *SLoadbalancerCertificateManager) CreateCertificate(userCred mcclient.TokenCredential, name string, publicKey string, privateKey, fingerprint string) (*SLoadbalancerCertificate, error) {
+func (man *SLoadbalancerCertificateManager) CreateCertificate(ctx context.Context, userCred mcclient.TokenCredential, name string, publicKey string, privateKey, fingerprint string) (*SLoadbalancerCertificate, error) {
 	if len(fingerprint) == 0 {
 		return nil, fmt.Errorf("CreateCertificate fingerprint can not be empty")
 	}
@@ -385,7 +385,7 @@ func (man *SLoadbalancerCertificateManager) CreateCertificate(userCred mcclient.
 		cert.ProjectId = userCred.GetProjectId()
 		cert.ProjectSrc = string(apis.OWNER_SOURCE_CLOUD)
 
-		err = man.TableSpec().Insert(cert)
+		err = man.TableSpec().Insert(ctx, cert)
 		if err != nil {
 			return nil, err
 		}

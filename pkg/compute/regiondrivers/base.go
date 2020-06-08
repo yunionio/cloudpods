@@ -263,7 +263,7 @@ func (self *SBaseRegionDriver) GetSecgroupVpcid(vpcId string) string {
 	return vpcId
 }
 
-func (self *SBaseRegionDriver) InitDBInstanceUser(dbinstance *models.SDBInstance, task taskman.ITask, desc *cloudprovider.SManagedDBInstanceCreateConfig) error {
+func (self *SBaseRegionDriver) InitDBInstanceUser(ctx context.Context, dbinstance *models.SDBInstance, task taskman.ITask, desc *cloudprovider.SManagedDBInstanceCreateConfig) error {
 	return nil
 }
 
