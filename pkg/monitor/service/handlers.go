@@ -52,6 +52,13 @@ func InitHandlers(app *appsrv.Application) {
 		dispatcher.AddModelDispatcher("", app, handler)
 	}
 
+	for _, manager := range []db.IModelManager{
+		models.UnifiedMonitorManager,
+	} {
+		handler := db.NewModelHandler(manager)
+		dispatcher.AddModelDispatcher("", app, handler)
+	}
+
 	for _, manager := range []db.IJointModelManager{
 		models.AlertNotificationManager,
 	} {

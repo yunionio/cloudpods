@@ -18,7 +18,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -190,7 +189,8 @@ func (self *SDataSourceManager) GetDatabases() (jsonutils.JSONObject, error) {
 	return ret, nil
 }
 
-func (self *SDataSourceManager) GetMeasurements(query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SDataSourceManager) GetMeasurements(query jsonutils.JSONObject, filter string) (jsonutils.JSONObject,
+	error) {
 	ret := jsonutils.NewDict()
 	database, _ := query.GetString("database")
 	if database == "" {
@@ -202,7 +202,14 @@ func (self *SDataSourceManager) GetMeasurements(query jsonutils.JSONObject) (jso
 	}
 	db := influxdb.NewInfluxdb(dataSource.Url)
 	db.SetDatabase(database)
-	dbRtn, err := db.Query(fmt.Sprintf("SHOW MEASUREMENTS ON %s", database))
+	var q string
+	if filter != "" {
+		q = fmt.Sprintf("SHOW MEASUREMENTS ON %s WHERE %s", database, filter)
+	} else {
+		q = fmt.Sprintf("SHOW MEASUREMENTS ON %s", database)
+	}
+
+	dbRtn, err := db.Query(q)
 	if err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "SHOW MEASUREMENTS")
 	}
@@ -273,10 +280,14 @@ func getAttributesOnMeasurement(database, tp string, output *monitor.InfluxMeasu
 }
 
 func getTagValue(database string, output *monitor.InfluxMeasurement, db *influxdb.SInfluxdb) error {
-
-	dbRtn, err := db.Query(fmt.Sprintf("SHOW TAG VALUES ON %s FROM %s WITH KEY IN (%s)", database, output.Measurement, strings.Join(output.TagKey, ",")))
+	if len(output.TagKey) == 0 {
+		return nil
+	}
+	tagKeyStr := jsonutils.NewStringArray(output.TagKey).String()
+	tagKeyStr = tagKeyStr[1 : len(tagKeyStr)-1]
+	dbRtn, err := db.Query(fmt.Sprintf("SHOW TAG VALUES ON %s FROM %s WITH KEY IN (%s)", database, output.Measurement, tagKeyStr))
 	if err != nil {
-		return errors.Wrap(err, "SHOW MEASUREMENTS")
+		return err
 	}
 	res := dbRtn[0][0]
 	tagValue := make(map[string][]string, 0)

@@ -87,7 +87,12 @@ func (query *Query) renderTags() []string {
 }
 
 func (query *Query) renderTimeFilter(queryCtx *tsdb.TsdbQuery) string {
-	from := "now() - " + queryCtx.TimeRange.From
+	from := ""
+	if strings.Contains(queryCtx.TimeRange.From, "now-") {
+		from = "now() - " + strings.Replace(queryCtx.TimeRange.From, "now-", "", 1)
+	} else {
+		from = "now() - " + queryCtx.TimeRange.From
+	}
 	to := ""
 
 	if queryCtx.TimeRange.To != "now" && queryCtx.TimeRange.To != "" {
