@@ -142,6 +142,9 @@ func (p *SLoadbalancerAgentParamsVrrp) Validate(data *jsonutils.JSONDict) error 
 	if p.VirtualRouterId < 1 || p.VirtualRouterId > 255 {
 		return httperrors.NewInputParameterError("invalid vrrp virtual_router_id %d: want [1,255]", p.VirtualRouterId)
 	}
+	if p.AdvertInt < 1 || p.AdvertInt > 255 {
+		return httperrors.NewInputParameterError("invalid vrrp advert_int %d: want [1,255]", p.AdvertInt)
+	}
 	return nil
 }
 
