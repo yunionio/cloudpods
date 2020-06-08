@@ -169,3 +169,7 @@ func (opts *LoadbalancerAgentActionDeployOptions) Params() (*jsonutils.JSONDict,
 type LoadbalancerAgentActionUndeployOptions struct {
 	ID string `json:"-"`
 }
+
+type LoadbalancerAgentDefaultParamsOptions struct {
+	Cluster string
+}
