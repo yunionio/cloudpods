@@ -16,6 +16,10 @@ package service
 
 import (
 	"fmt"
+	"time"
+
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -23,16 +27,34 @@ import (
 )
 
 func setInfluxdbRetentionPolicy() error {
-	urls, err := auth.GetServiceURLs("influxdb", options.Options.Region, "", "")
-	if err != nil {
-		return err
-	}
-	for _, url := range urls {
-		err = setInfluxdbRetentionPolicyForUrl(url)
+	setF := func() error {
+		urls, err := auth.GetServiceURLs("influxdb", options.Options.Region, "", "")
 		if err != nil {
-			return err
+			return errors.Wrap(err, "get influxdb service urls")
 		}
+		log.Infof("get influxdb service urls: %v", urls)
+		for _, url := range urls {
+			err = setInfluxdbRetentionPolicyForUrl(url)
+			if err != nil {
+				return errors.Wrapf(err, "set retention policy for url %q", url)
+			}
+		}
+		return nil
 	}
+
+	go func() {
+		for {
+			err := setF()
+			if err == nil {
+				log.Infof("setInfluxdbRetentionPolicy completed")
+				return
+			}
+			retryInternal := 1 * time.Minute
+			log.Errorf("setInfluxdbRetentionPolicy error: %v, retry after %s", err, retryInternal)
+			time.Sleep(retryInternal)
+		}
+	}()
+
 	return nil
 }
 
@@ -40,7 +62,7 @@ func setInfluxdbRetentionPolicyForUrl(url string) error {
 	db := influxdb.NewInfluxdb(url)
 	err := db.SetDatabase("telegraf")
 	if err != nil {
-		return err
+		return errors.Wrap(err, "set database telegraf")
 	}
 	rp := influxdb.SRetentionPolicy{
 		Name:     "30day_only",
@@ -50,7 +72,7 @@ func setInfluxdbRetentionPolicyForUrl(url string) error {
 	}
 	err = db.SetRetentionPolicy(rp)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "set retention policy")
 	}
 	return nil
 }
