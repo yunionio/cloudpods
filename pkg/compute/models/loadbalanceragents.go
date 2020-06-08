@@ -217,6 +217,14 @@ func (p *SLoadbalancerAgentParamsHaproxy) Validate(data *jsonutils.JSONDict) err
 	return nil
 }
 
+func (p *SLoadbalancerAgentParamsHaproxy) needsUpdatePeer(pp *SLoadbalancerAgentParamsHaproxy) bool {
+	return *p != *pp
+}
+
+func (p *SLoadbalancerAgentParamsHaproxy) updateBy(pp *SLoadbalancerAgentParamsHaproxy) {
+	*p = *pp
+}
+
 func (p *SLoadbalancerAgentParamsHaproxy) initDefault(data *jsonutils.JSONDict) {
 	if !data.Contains("params", "haproxy", "global_nbthread") {
 		p.GlobalNbthread = 1
@@ -246,6 +254,14 @@ func (p *SLoadbalancerAgentParamsTelegraf) Validate(data *jsonutils.JSONDict) er
 		p.InfluxDbOutputName = "telegraf"
 	}
 	return nil
+}
+
+func (p *SLoadbalancerAgentParamsTelegraf) needsUpdatePeer(pp *SLoadbalancerAgentParamsTelegraf) bool {
+	return *p != *pp
+}
+
+func (p *SLoadbalancerAgentParamsTelegraf) updateBy(pp *SLoadbalancerAgentParamsTelegraf) {
+	*p = *pp
 }
 
 func (p *SLoadbalancerAgentParamsTelegraf) initDefault(data *jsonutils.JSONDict) {
@@ -314,6 +330,27 @@ func (p *SLoadbalancerAgentParams) Validate(data *jsonutils.JSONDict) error {
 	return nil
 }
 
+func (p *SLoadbalancerAgentParams) needsUpdatePeer(pp *SLoadbalancerAgentParams) bool {
+	if p.KeepalivedConfTmpl != pp.KeepalivedConfTmpl ||
+		p.HaproxyConfTmpl != pp.HaproxyConfTmpl ||
+		p.TelegrafConfTmpl != pp.TelegrafConfTmpl {
+		return true
+	}
+	return p.Vrrp.needsUpdatePeer(&pp.Vrrp) ||
+		p.Haproxy.needsUpdatePeer(&pp.Haproxy) ||
+		p.Telegraf.needsUpdatePeer(&pp.Telegraf)
+}
+
+func (p *SLoadbalancerAgentParams) updateBy(pp *SLoadbalancerAgentParams) {
+	p.KeepalivedConfTmpl = pp.KeepalivedConfTmpl
+	p.HaproxyConfTmpl = pp.HaproxyConfTmpl
+	p.TelegrafConfTmpl = pp.TelegrafConfTmpl
+
+	p.Vrrp.updateBy(&pp.Vrrp)
+	p.Haproxy.updateBy(&pp.Haproxy)
+	p.Telegraf.updateBy(&pp.Telegraf)
+}
+
 func (p *SLoadbalancerAgentParams) String() string {
 	return jsonutils.Marshal(p).String()
 }
@@ -347,7 +384,7 @@ func (man *SLoadbalancerAgentManager) GetPropertyDefaultParams(ctx context.Conte
 			}
 			if len(lbagents) > 0 {
 				lbagent := lbagents[0]
-				params.Vrrp.updateBy(&lbagent.Params.Vrrp)
+				params.updateBy(lbagent.Params)
 			}
 		}
 	}
@@ -810,7 +847,7 @@ func (lbagent *SLoadbalancerAgent) PerformParamsPatch(ctx context.Context, userC
 		}
 		db.OpsLog.LogEvent(lbagent, db.ACT_UPDATE, diff, userCred)
 	}
-	if oldParams.Vrrp.needsUpdatePeer(&params.Vrrp) {
+	if oldParams.needsUpdatePeer(&params) {
 		lbagents, err := LoadbalancerClusterManager.getLoadbalancerAgents(lbagent.ClusterId)
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err)
@@ -820,7 +857,7 @@ func (lbagent *SLoadbalancerAgent) PerformParamsPatch(ctx context.Context, userC
 			peerLbagent := &lbagents[i]
 			if lbagent.Id != peerLbagent.Id {
 				diff, err := db.Update(peerLbagent, func() error {
-					peerLbagent.Params.Vrrp.updateBy(&params.Vrrp)
+					peerLbagent.Params.updateBy(&params)
 					return nil
 				})
 				if err != nil {
