@@ -1289,6 +1289,8 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 
 	var (
 		ipRange netutils.IPV4AddrRange
+		masklen int8
+		netAddr netutils.IPV4Addr
 	)
 	if len(input.GuestIpPrefix) > 0 {
 		prefix, err := netutils.NewIPV4Prefix(input.GuestIpPrefix)
@@ -1296,6 +1298,8 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 			return input, httperrors.NewInputParameterError("ip_prefix error: %s", err)
 		}
 		ipRange = prefix.ToIPRange()
+		masklen = prefix.MaskLen
+		netAddr = prefix.Address.NetAddr(masklen)
 		input.GuestIpMask = int64(prefix.MaskLen)
 		// 根据掩码得到合法的GuestIpPrefix
 		input.GuestIpPrefix = prefix.String()
@@ -1312,6 +1316,11 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 			return input, httperrors.NewInputParameterError("invalid end ip: %s %s", input.GuestIpEnd, err)
 		}
 		ipRange = netutils.NewIPV4AddrRange(ipStart, ipEnd)
+		masklen = int8(input.GuestIpMask)
+		netAddr = ipStart.NetAddr(masklen)
+		if ipEnd.NetAddr(masklen) != netAddr {
+			return input, httperrors.NewInputParameterError("start and end ip not in the same subnet")
+		}
 	}
 
 	if len(input.GuestDns) == 0 {
@@ -1335,6 +1344,15 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 			}
 		} else if !regutils.MatchIPAddr(ipStr) {
 			return input, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipStr)
+		}
+	}
+	if input.GuestGateway != "" {
+		addr, err := netutils.NewIPV4Addr(input.GuestGateway)
+		if err != nil {
+			return input, httperrors.NewInputParameterError("bad gateway ip: %v", err)
+		}
+		if addr.NetAddr(masklen) != netAddr {
+			return input, httperrors.NewInputParameterError("gateway ip must be in the same subnet as start, end ip")
 		}
 	}
 
@@ -1426,8 +1444,23 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 }
 
 func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.NetworkUpdateInput) (api.NetworkUpdateInput, error) {
-	var startIp, endIp netutils.IPV4Addr
-	var err error
+	var (
+		startIp netutils.IPV4Addr
+		endIp   netutils.IPV4Addr
+		netAddr netutils.IPV4Addr
+		masklen int8
+		err     error
+	)
+
+	if input.GuestIpMask != nil {
+		maskLen64 := int64(*input.GuestIpMask)
+		if !isValidMaskLen(maskLen64) {
+			return input, httperrors.NewInputParameterError("Invalid masklen %d", maskLen64)
+		}
+		masklen = int8(maskLen64)
+	} else {
+		masklen = int8(self.GuestIpMask)
+	}
 
 	if input.GuestIpStart != "" || input.GuestIpEnd != "" {
 		if input.GuestIpStart != "" {
@@ -1478,12 +1511,9 @@ func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 
 		input.GuestIpStart = startIp.String()
 		input.GuestIpEnd = endIp.String()
-	}
-
-	if input.GuestIpMask != nil {
-		maskLen64 := int64(*input.GuestIpMask)
-		if !isValidMaskLen(maskLen64) {
-			return input, httperrors.NewInputParameterError("Invalid masklen %d", maskLen64)
+		netAddr = startIp.NetAddr(masklen)
+		if endIp.NetAddr(masklen) != netAddr {
+			return input, httperrors.NewInputParameterError("start, end ip must be in the same subnet")
 		}
 	}
 
@@ -1506,6 +1536,16 @@ func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 			return input, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipStr)
 		}
 	}
+	if input.GuestGateway != "" {
+		addr, err := netutils.NewIPV4Addr(input.GuestGateway)
+		if err != nil {
+			return input, httperrors.NewInputParameterError("bad gateway ip: %v", err)
+		}
+		if addr.NetAddr(masklen) != netAddr {
+			return input, httperrors.NewInputParameterError("gateway ip must be in the same subnet as start, end ip")
+		}
+	}
+
 	return input, nil
 }
 
