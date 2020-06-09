@@ -228,15 +228,22 @@ func (policy *SRbacPolicy) GetMatchRule(service string, resource string, action 
 	return GetMatchRule(policy.Rules, service, resource, action, extra...)
 }
 
+var (
+	ShowMatchRuleDebug = false
+)
+
 func GetMatchRule(rules []SRbacRule, service string, resource string, action string, extra ...string) *SRbacRule {
 	maxMatchCnt := 0
 	minWeight := 1000000
 	var matchRule *SRbacRule
 	for i := 0; i < len(rules); i += 1 {
 		match, matchCnt, weight := rules[i].match(service, resource, action, extra...)
+		if match && ShowMatchRuleDebug {
+			log.Debugf("rule %s match cnt %d weight %d", rules[i], matchCnt, weight)
+		}
 		if match && (maxMatchCnt < matchCnt ||
 			(maxMatchCnt == matchCnt && minWeight > weight) ||
-			(maxMatchCnt == matchCnt && minWeight == weight && matchRule.looserThan(&rules[i]))) {
+			(maxMatchCnt == matchCnt && minWeight == weight && matchRule.stricterThan(&rules[i]))) {
 			maxMatchCnt = matchCnt
 			minWeight = weight
 			matchRule = &rules[i]
