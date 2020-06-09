@@ -1318,18 +1318,23 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 		input.GuestDns = options.Options.DNSServer
 	}
 
-	for key, ipStr := range map[string]string{"guest_gateway": input.GuestGateway, "guest_dns": input.GuestDns, "guest_dhcp": input.GuestDHCP} {
-		if len(ipStr) > 0 {
-			if key == "guest_dhcp" {
-				ipList := strings.Split(ipStr, ",")
-				for _, ipstr := range ipList {
-					if !regutils.MatchIPAddr(ipstr) {
-						return input, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipstr)
-					}
+	for key, ipStr := range map[string]string{
+		"guest_gateway": input.GuestGateway,
+		"guest_dns":     input.GuestDns,
+		"guest_dhcp":    input.GuestDHCP,
+	} {
+		if ipStr == "" {
+			continue
+		}
+		if key == "guest_dhcp" {
+			ipList := strings.Split(ipStr, ",")
+			for _, ipstr := range ipList {
+				if !regutils.MatchIPAddr(ipstr) {
+					return input, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipstr)
 				}
-			} else if !regutils.MatchIPAddr(ipStr) {
-				return input, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipStr)
 			}
+		} else if !regutils.MatchIPAddr(ipStr) {
+			return input, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipStr)
 		}
 	}
 
@@ -1493,18 +1498,18 @@ func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 		"guest_dns":     input.GuestDns,
 		"guest_dhcp":    input.GuestDhcp,
 	} {
-		if len(ipStr) > 0 {
-			if key == "guest_dhcp" {
-				ipList := strings.Split(ipStr, ",")
-				for _, ipstr := range ipList {
-					if !regutils.MatchIPAddr(ipstr) {
-						return input, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipstr)
-					}
+		if ipStr == "" {
+			continue
+		}
+		if key == "guest_dhcp" {
+			ipList := strings.Split(ipStr, ",")
+			for _, ipstr := range ipList {
+				if !regutils.MatchIPAddr(ipstr) {
+					return input, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipstr)
 				}
-			} else if !regutils.MatchIPAddr(ipStr) {
-				return input, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipStr)
 			}
-
+		} else if !regutils.MatchIPAddr(ipStr) {
+			return input, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipStr)
 		}
 	}
 	return input, nil
