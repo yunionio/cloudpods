@@ -1300,6 +1300,9 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 		// 根据掩码得到合法的GuestIpPrefix
 		input.GuestIpPrefix = prefix.String()
 	} else {
+		if !isValidMaskLen(input.GuestIpMask) {
+			return input, httperrors.NewInputParameterError("Invalid masklen %d", input.GuestIpMask)
+		}
 		ipStart, err := netutils.NewIPV4Addr(input.GuestIpStart)
 		if err != nil {
 			return input, httperrors.NewInputParameterError("Invalid start ip: %s %s", input.GuestIpStart, err)
@@ -1309,10 +1312,6 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 			return input, httperrors.NewInputParameterError("invalid end ip: %s %s", input.GuestIpEnd, err)
 		}
 		ipRange = netutils.NewIPV4AddrRange(ipStart, ipEnd)
-	}
-
-	if !isValidMaskLen(input.GuestIpMask) {
-		return input, httperrors.NewInputParameterError("Invalid masklen %d", input.GuestIpMask)
 	}
 
 	if len(input.GuestDns) == 0 {
