@@ -1207,7 +1207,10 @@ func (manager *SDiskManager) syncCloudDisk(ctx context.Context, userCred mcclien
 	diskObj, err := db.FetchByExternalId(manager, vdisk.GetGlobalId())
 	if err != nil {
 		if err == sql.ErrNoRows {
-			vstorage, _ := vdisk.GetIStorage()
+			vstorage, err := vdisk.GetIStorage()
+			if err != nil {
+				return nil, errors.Wrapf(err, "unable to GetIStorage of vdisk %q", vdisk.GetName())
+			}
 
 			storageObj, err := db.FetchByExternalId(StorageManager, vstorage.GetGlobalId())
 			if err != nil {
