@@ -29,19 +29,22 @@ import (
 
 type ITableSpec interface {
 	Name() string
+	Columns() []sqlchemy.IColumnSpec
+	PrimaryColumns() []sqlchemy.IColumnSpec
 	DataType() reflect.Type
+	CreateSQL() string
+	Instance() *sqlchemy.STable
+	ColumnSpec(name string) sqlchemy.IColumnSpec
 	Insert(ctx context.Context, dt interface{}) error
 	InsertOrUpdate(ctx context.Context, dt interface{}) error
 	Update(ctx context.Context, dt interface{}, doUpdate func() error) (sqlchemy.UpdateDiffs, error)
-	Instance() *sqlchemy.STable
-	ColumnSpec(name string) sqlchemy.IColumnSpec
-	PrimaryColumns() []sqlchemy.IColumnSpec
-	Columns() []sqlchemy.IColumnSpec
 	Fetch(dt interface{}) error
 	FetchAll(dest interface{}) error
 	SyncSQL() []string
 	DropForeignKeySQL() []string
 	AddIndex(unique bool, cols ...string) bool
+	Increment(diff interface{}, target interface{}) error
+	Decrement(diff interface{}, target interface{}) error
 }
 
 type sTableSpec struct {
