@@ -88,6 +88,8 @@ func InitHandlers(app *appsrv.Application) {
 		models.ScalingAlarmManager,
 		models.ScalingGroupGuestManager,
 		models.ScalingGroupNetworkManager,
+
+		models.ScheduledTaskLabelManager,
 	} {
 		db.RegisterModelManager(manager)
 	}
@@ -181,6 +183,9 @@ func InitHandlers(app *appsrv.Application) {
 		models.ScalingActivityManager,
 		models.PolicyDefinitionManager,
 		models.PolicyAssignmentManager,
+
+		models.ScheduledTaskManager,
+		models.ScheduledTaskActivityManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

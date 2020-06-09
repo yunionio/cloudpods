@@ -21,9 +21,9 @@ type ScalingPolicyDetails struct {
 	ScalingGroupResourceInfo
 	SScalingPolicy
 	// 定时方式触发
-	Timer ScalingTimerDetails `json:"timer"`
+	Timer TimerDetails `json:"timer"`
 	// 周期方式触发
-	CycleTimer ScalingCycleTimerDetails `json:"cycle_timer"`
+	CycleTimer CycleTimerDetails `json:"cycle_timer"`
 	//  告警方式触发
 	Alarm ScalingAlarmDetails `json:"alarm"`
 }
@@ -43,9 +43,9 @@ type ScalingPolicyCreateInput struct {
 	// enum: timing,cycle,alarm
 	TriggerType string `json:"trigger_type"`
 
-	Timer      ScalingTimerCreateInput      `json:"timer"`
-	CycleTimer ScalingCycleTimerCreateInput `json:"cycle_timer"`
-	Alarm      ScalingAlarmCreateInput      `json:"alarm"`
+	Timer      TimerCreateInput        `json:"timer"`
+	CycleTimer CycleTimerCreateInput   `json:"cycle_timer"`
+	Alarm      ScalingAlarmCreateInput `json:"alarm"`
 
 	// desciption: 伸缩策略的行为(增加还是删除或者调整为)
 	// enum: add,remove,set

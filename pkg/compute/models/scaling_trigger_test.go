@@ -22,14 +22,14 @@ import (
 	"yunion.io/x/onecloud/pkg/util/bitmap"
 )
 
-func TestSScalingTimer_Update(t *testing.T) {
+func TestSTimer_Update(t *testing.T) {
 	loc, _ := time.LoadLocation("Asia/Shanghai")
 	ins := []struct {
-		Timer       *SScalingTimer
+		Timer       *STimer
 		UpdateTimes int
 	}{
 		{
-			Timer: &SScalingTimer{
+			Timer: &STimer{
 				Hour:      7,
 				Minute:    21,
 				Type:      compute.TIMER_TYPE_DAY,
@@ -40,7 +40,7 @@ func TestSScalingTimer_Update(t *testing.T) {
 			UpdateTimes: 2,
 		},
 		{
-			Timer: &SScalingTimer{
+			Timer: &STimer{
 				Hour:      7,
 				Minute:    21,
 				WeekDays:  uint8(bitmap.IntArray2Uint([]int{1, 5, 7})),
@@ -52,7 +52,7 @@ func TestSScalingTimer_Update(t *testing.T) {
 			UpdateTimes: 4,
 		},
 		{
-			Timer: &SScalingTimer{
+			Timer: &STimer{
 				Hour:      7,
 				Minute:    21,
 				MonthDays: bitmap.IntArray2Uint([]int{1, 10, 30}),
@@ -82,7 +82,7 @@ func TestSScalingTimer_Update(t *testing.T) {
 			{},
 		},
 	}
-	wrapper := func(timer *SScalingTimer) time.Time {
+	wrapper := func(timer *STimer) time.Time {
 		fakeNow := timer.NextTime
 		if !fakeNow.IsZero() {
 			fakeNow = fakeNow.Add(time.Minute)

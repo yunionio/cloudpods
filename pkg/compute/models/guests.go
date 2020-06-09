@@ -4675,6 +4675,22 @@ func (self *SGuest) PendingDetachScalingGroup() error {
 	return nil
 }
 
+func (self *SGuest) DetachScheduledTask(ctx context.Context, userCred mcclient.TokenCredential) error {
+	q := ScheduledTaskLabelManager.Query().Equals("label", self.Id)
+	stls := make([]SScheduledTaskLabel, 0, 1)
+	err := db.FetchModelObjects(ScheduledTaskLabelManager, q, &stls)
+	if err != nil {
+		return err
+	}
+	for i := range stls {
+		err := stls[i].Detach(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (self *SGuest) DeleteEip(ctx context.Context, userCred mcclient.TokenCredential) error {
 	eip, err := self.GetEip()
 	if err != nil {
