@@ -15,5 +15,12 @@
 package handler
 
 import (
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules/cloudnet"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 )
+
+func init() {
+	modules.InitUsages()
+	modules.Usages.RegisterManager(modules.UsageManagerK8s, k8s.Usages)
+}

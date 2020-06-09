@@ -35,6 +35,10 @@ func NewResourceManager(keyword, keywordPlural string, columns, adminColumns *Co
 	return &ResourceManager{man}
 }
 
+func (m ResourceManager) GetBaseManager() modulebase.ResourceManager {
+	return *m.ResourceManager
+}
+
 type IClusterResourceManager interface {
 	modulebase.Manager
 	GetRaw(s *mcclient.ClientSession, id string, params *jsonutils.JSONDict) (jsonutils.JSONObject, error)
