@@ -1432,22 +1432,19 @@ func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 	var startIp, endIp netutils.IPV4Addr
 	var err error
 
-	ipStartStr := input.GuestIpStart
-	ipEndStr := input.GuestIpEnd
-
-	if len(ipStartStr) > 0 || len(ipEndStr) > 0 {
-		if len(ipStartStr) > 0 {
-			startIp, err = netutils.NewIPV4Addr(ipStartStr)
+	if input.GuestIpStart != "" || input.GuestIpEnd != "" {
+		if input.GuestIpStart != "" {
+			startIp, err = netutils.NewIPV4Addr(input.GuestIpStart)
 			if err != nil {
-				return input, httperrors.NewInputParameterError("Invalid start ip: %s %s", ipStartStr, err)
+				return input, httperrors.NewInputParameterError("Invalid start ip: %s %s", input.GuestIpStart, err)
 			}
 		} else {
 			startIp, _ = netutils.NewIPV4Addr(self.GuestIpStart)
 		}
-		if len(ipEndStr) > 0 {
-			endIp, err = netutils.NewIPV4Addr(ipEndStr)
+		if input.GuestIpEnd != "" {
+			endIp, err = netutils.NewIPV4Addr(input.GuestIpEnd)
 			if err != nil {
-				return input, httperrors.NewInputParameterError("invalid end ip: %s %s", ipEndStr, err)
+				return input, httperrors.NewInputParameterError("invalid end ip: %s %s", input.GuestIpEnd, err)
 			}
 		} else {
 			endIp, _ = netutils.NewIPV4Addr(self.GuestIpEnd)
