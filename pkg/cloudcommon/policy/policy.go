@@ -172,7 +172,7 @@ func (manager *SPolicyManager) start(refreshInterval time.Duration, retryInterva
 			policiesMap[policy.Scope] = policies
 		}
 		manager.defaultPolicies = policiesMap
-		log.Debugf("%#v", manager.defaultPolicies)
+		// log.Debugf("%#v", manager.defaultPolicies)
 	}
 
 	manager.cache = hashcache.NewCache(2048, manager.refreshInterval/2)
