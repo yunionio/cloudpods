@@ -16,7 +16,7 @@ package huawei
 
 import (
 	"fmt"
-	"strings"
+	"strconv"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -88,7 +88,8 @@ func (event *SEvent) GetAccount() string {
 }
 
 func (event *SEvent) IsSuccess() bool {
-	return strings.HasPrefix(event.Code, "2") || len(event.Code) == 0
+	code, _ := strconv.Atoi(event.Code)
+	return code < 400
 }
 
 func (event *SEvent) GetCreatedAt() time.Time {
