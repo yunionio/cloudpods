@@ -285,10 +285,28 @@ func init() {
 		if err != nil {
 			log.Fatalf("Set log level %q: %v", "debug", err)
 		}
+		if args.Debug {
+			rbacutils.ShowMatchRuleDebug = true
+		}
 		auth.InitFromClientSession(s)
 		policy.EnableGlobalRbac(15*time.Second, 15*time.Second, false)
 		if args.Debug {
 			consts.EnableRbacDebug()
+		}
+
+		findPolicy := false
+		for !findPolicy {
+			all := policy.PolicyManager.AllPolicies()
+			for _, allP := range all {
+				if len(allP) > 0 {
+					findPolicy = true
+					break
+				}
+			}
+			if findPolicy {
+				break
+			}
+			time.Sleep(time.Second)
 		}
 
 		req := jsonutils.NewDict()
@@ -356,6 +374,7 @@ func init() {
 				Context: mcclient.SAuthContext{
 					Ip: args.Ip,
 				},
+				Token: "faketoken",
 			}
 		} else {
 			token = s.GetToken()
@@ -366,6 +385,10 @@ func init() {
 			return err
 		}
 		printObject(result)
+
+		for _, r := range args.Role {
+			fmt.Println("role", r, "matched policies:", policy.PolicyManager.RoleMatchPolicies(r))
+		}
 
 		fmt.Println("userCred:", token)
 		for _, scope := range []rbacutils.TRbacScope{

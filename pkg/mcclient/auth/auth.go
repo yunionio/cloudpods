@@ -390,4 +390,6 @@ func InitFromClientSession(session *mcclient.ClientSession) {
 		info:            info,
 		adminCredential: token,
 	}
+
+	SetEndpointType(session.GetEndpointType())
 }
