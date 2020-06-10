@@ -140,7 +140,7 @@ func (m *SGuestManager) VerifyExistingGuests(pendingDelete bool) {
 			keys[index] = k
 			index++
 		}
-		params.Set("filter.1", jsonutils.NewString(fmt.Sprintf("id.in(%s)", strings.Join(keys, ","))))
+		params.Set("filter.0", jsonutils.NewString(fmt.Sprintf("id.in(%s)", strings.Join(keys, ","))))
 	}
 	res, err := modules.Servers.List(hostutils.GetComputeSession(context.Background()), params)
 	if err != nil {
