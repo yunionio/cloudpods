@@ -142,6 +142,9 @@ func (p *SLoadbalancerAgentParamsVrrp) Validate(data *jsonutils.JSONDict) error 
 	if p.VirtualRouterId < 1 || p.VirtualRouterId > 255 {
 		return httperrors.NewInputParameterError("invalid vrrp virtual_router_id %d: want [1,255]", p.VirtualRouterId)
 	}
+	if p.AdvertInt < 1 || p.AdvertInt > 255 {
+		return httperrors.NewInputParameterError("invalid vrrp advert_int %d: want [1,255]", p.AdvertInt)
+	}
 	return nil
 }
 
@@ -217,6 +220,14 @@ func (p *SLoadbalancerAgentParamsHaproxy) Validate(data *jsonutils.JSONDict) err
 	return nil
 }
 
+func (p *SLoadbalancerAgentParamsHaproxy) needsUpdatePeer(pp *SLoadbalancerAgentParamsHaproxy) bool {
+	return *p != *pp
+}
+
+func (p *SLoadbalancerAgentParamsHaproxy) updateBy(pp *SLoadbalancerAgentParamsHaproxy) {
+	*p = *pp
+}
+
 func (p *SLoadbalancerAgentParamsHaproxy) initDefault(data *jsonutils.JSONDict) {
 	if !data.Contains("params", "haproxy", "global_nbthread") {
 		p.GlobalNbthread = 1
@@ -246,6 +257,14 @@ func (p *SLoadbalancerAgentParamsTelegraf) Validate(data *jsonutils.JSONDict) er
 		p.InfluxDbOutputName = "telegraf"
 	}
 	return nil
+}
+
+func (p *SLoadbalancerAgentParamsTelegraf) needsUpdatePeer(pp *SLoadbalancerAgentParamsTelegraf) bool {
+	return *p != *pp
+}
+
+func (p *SLoadbalancerAgentParamsTelegraf) updateBy(pp *SLoadbalancerAgentParamsTelegraf) {
+	*p = *pp
 }
 
 func (p *SLoadbalancerAgentParamsTelegraf) initDefault(data *jsonutils.JSONDict) {
@@ -314,6 +333,27 @@ func (p *SLoadbalancerAgentParams) Validate(data *jsonutils.JSONDict) error {
 	return nil
 }
 
+func (p *SLoadbalancerAgentParams) needsUpdatePeer(pp *SLoadbalancerAgentParams) bool {
+	if p.KeepalivedConfTmpl != pp.KeepalivedConfTmpl ||
+		p.HaproxyConfTmpl != pp.HaproxyConfTmpl ||
+		p.TelegrafConfTmpl != pp.TelegrafConfTmpl {
+		return true
+	}
+	return p.Vrrp.needsUpdatePeer(&pp.Vrrp) ||
+		p.Haproxy.needsUpdatePeer(&pp.Haproxy) ||
+		p.Telegraf.needsUpdatePeer(&pp.Telegraf)
+}
+
+func (p *SLoadbalancerAgentParams) updateBy(pp *SLoadbalancerAgentParams) {
+	p.KeepalivedConfTmpl = pp.KeepalivedConfTmpl
+	p.HaproxyConfTmpl = pp.HaproxyConfTmpl
+	p.TelegrafConfTmpl = pp.TelegrafConfTmpl
+
+	p.Vrrp.updateBy(&pp.Vrrp)
+	p.Haproxy.updateBy(&pp.Haproxy)
+	p.Telegraf.updateBy(&pp.Telegraf)
+}
+
 func (p *SLoadbalancerAgentParams) String() string {
 	return jsonutils.Marshal(p).String()
 }
@@ -332,10 +372,29 @@ func (man *SLoadbalancerAgentManager) AllowGetPropertyDefaultParams(ctx context.
 func (man *SLoadbalancerAgentManager) GetPropertyDefaultParams(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	params := SLoadbalancerAgentParams{}
 	params.initDefault(jsonutils.NewDict())
-	obj := jsonutils.Marshal(params)
 
+	{
+		clusterV := validators.NewModelIdOrNameValidator("cluster", "loadbalancercluster", userCred)
+		clusterV.Optional(true)
+		if err := clusterV.Validate(query.(*jsonutils.JSONDict)); err != nil {
+			return nil, err
+		}
+		if clusterV.Model != nil {
+			cluster := clusterV.Model.(*SLoadbalancerCluster)
+			lbagents, err := LoadbalancerClusterManager.getLoadbalancerAgents(cluster.Id)
+			if err != nil {
+				return nil, httperrors.NewGeneralError(err)
+			}
+			if len(lbagents) > 0 {
+				lbagent := lbagents[0]
+				params.updateBy(lbagent.Params)
+			}
+		}
+	}
+
+	paramsObj := jsonutils.Marshal(params)
 	r := jsonutils.NewDict()
-	r.Set("params", obj)
+	r.Set("params", paramsObj)
 	return r, nil
 }
 
@@ -791,7 +850,7 @@ func (lbagent *SLoadbalancerAgent) PerformParamsPatch(ctx context.Context, userC
 		}
 		db.OpsLog.LogEvent(lbagent, db.ACT_UPDATE, diff, userCred)
 	}
-	if oldParams.Vrrp.needsUpdatePeer(&params.Vrrp) {
+	if oldParams.needsUpdatePeer(&params) {
 		lbagents, err := LoadbalancerClusterManager.getLoadbalancerAgents(lbagent.ClusterId)
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err)
@@ -801,7 +860,7 @@ func (lbagent *SLoadbalancerAgent) PerformParamsPatch(ctx context.Context, userC
 			peerLbagent := &lbagents[i]
 			if lbagent.Id != peerLbagent.Id {
 				diff, err := db.Update(peerLbagent, func() error {
-					peerLbagent.Params.Vrrp.updateBy(&params.Vrrp)
+					peerLbagent.Params.updateBy(&params)
 					return nil
 				})
 				if err != nil {

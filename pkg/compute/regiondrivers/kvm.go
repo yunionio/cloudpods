@@ -153,15 +153,6 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerCertificateData(ctx cont
 }
 
 func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendGroupData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lb *models.SLoadbalancer, backends []cloudprovider.SLoadbalancerBackend) (*jsonutils.JSONDict, error) {
-	for _, backend := range backends {
-		switch backend.BackendType {
-		case api.LB_BACKEND_GUEST:
-			if backend.ZoneId != lb.ZoneId {
-				return nil, fmt.Errorf("zone of host %q (%s) != zone of loadbalancer %q (%s)",
-					backend.HostName, backend.ZoneId, lb.Name, lb.ZoneId)
-			}
-		}
-	}
 	return data, nil
 }
 
@@ -238,12 +229,15 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.
 			if host == nil {
 				return nil, httperrors.NewInputParameterError("error getting host of guest %s", guest.GetId())
 			}
-
 			if lb == nil {
 				return nil, httperrors.NewInputParameterError("error loadbalancer of backend group %s", backendGroup.GetId())
 			}
-			if host.ZoneId != lb.ZoneId {
-				return nil, httperrors.NewInputParameterError("zone of host %q (%s) != zone of loadbalancer %q (%s)",
+			var (
+				lbRegion   = lb.GetRegion()
+				hostRegion = host.GetRegion()
+			)
+			if lbRegion.Id != hostRegion.Id {
+				return nil, httperrors.NewInputParameterError("region of host %q (%s) != region of loadbalancer %q (%s)",
 					host.Name, host.ZoneId, lb.Name, lb.ZoneId)
 			}
 		}

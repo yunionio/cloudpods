@@ -188,8 +188,12 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 	}
 	data.Update(jsonutils.Marshal(input))
 
-	lb := lbV.Model.(*SLoadbalancer)
-	backends := []cloudprovider.SLoadbalancerBackend{}
+	var (
+		lb          = lbV.Model.(*SLoadbalancer)
+		lbRegion    = lb.GetRegion()
+		lbIsManaged = lb.IsManaged()
+		backends    = []cloudprovider.SLoadbalancerBackend{}
+	)
 	if data.Contains("backends") {
 		if err := data.Unmarshal(&backends, "backends"); err != nil {
 			return nil, err
@@ -207,6 +211,8 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 			if len(backends[i].ID) == 0 {
 				return nil, httperrors.NewMissingParameterError("Missing backend id")
 			}
+
+			var backendRegion *SCloudregion
 
 			switch backends[i].BackendType {
 			case api.LB_BACKEND_GUEST:
@@ -233,6 +239,7 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 					return nil, err
 				}
 				backends[i].Address = address
+				backendRegion = host.GetRegion()
 			case api.LB_BACKEND_HOST:
 				if !db.IsAdminAllowCreate(userCred, man) {
 					return nil, httperrors.NewForbiddenError("only sysadmin can specify host as backend")
@@ -249,8 +256,12 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 				backends[i].Name = host.Name
 				backends[i].ExternalID = host.ExternalId
 				backends[i].Address = host.AccessIp
+				backendRegion = host.GetRegion()
 			default:
 				return nil, httperrors.NewInputParameterError("unexpected backend type %s", backends[i].BackendType)
+			}
+			if lbIsManaged && backendRegion.Id != lbRegion.Id {
+				return nil, httperrors.NewInputParameterError("region of backend %d does not match that of lb's", i)
 			}
 		}
 	}
