@@ -167,7 +167,7 @@ func (w *SWinRegTool) samChange(user string, seq ...string) error {
 		return fmt.Errorf("Failed to change SAM password, not exit cleanly")
 	case err := <-done:
 		if err != nil {
-			if exitStatus, ok := procutils.GetExitStatus(err); ok {
+			if exitStatus, ok := proc.GetExitStatus(err); ok {
 				if exitStatus == 2 {
 					return nil
 				}
@@ -297,6 +297,7 @@ func (w *SWinRegTool) listRegistry(spath string, keySeg []string) ([]string, []s
 	keyPattern := regexp.MustCompile("^<(?P<key>[^>]+)>$")
 	valPattern := regexp.MustCompile(`^(?P<size>\d+)\s+(?P<type>REG\_\w+)\s+<(?P<key>[^>]+)>\s*`)
 	for _, line := range lines {
+		line = strings.TrimSpace(line)
 		m := regutils2.GetParams(keyPattern, line)
 		if len(m) > 0 {
 			keys = append(keys, m["key"])
@@ -310,7 +311,7 @@ func (w *SWinRegTool) listRegistry(spath string, keySeg []string) ([]string, []s
 	return keys, values, nil
 }
 
-func (w *SWinRegTool) cmdRegistry(spath string, ops []string, retcode int) bool {
+func (w *SWinRegTool) cmdRegistry(spath string, ops []string, retcode []int) bool {
 	proc := procutils.NewCommand(GetChntpwPath(), "-e", spath)
 	stdin, err := proc.StdinPipe()
 	if err != nil {
@@ -339,6 +340,7 @@ func (w *SWinRegTool) cmdRegistry(spath string, ops []string, retcode int) bool 
 	}
 
 	for _, op := range ops {
+		log.Debugf("Input: %s", op)
 		io.WriteString(stdin, op+"\n")
 	}
 	io.WriteString(stdin, "q\n")
@@ -360,17 +362,22 @@ func (w *SWinRegTool) cmdRegistry(spath string, ops []string, retcode int) bool 
 		done <- proc.Wait()
 	}()
 	select {
-	case <-time.After(time.Millisecond * 100):
-		proc.Kill()
+	case <-time.After(time.Millisecond * 1000):
+		log.Errorf("Cmd registry timeout")
+		if err := proc.Kill(); err != nil {
+			log.Errorf("kill cmd registry process failed %s", err)
+		}
 	case err := <-done:
 		if err != nil {
-			if exitStatus, ok := procutils.GetExitStatus(err); ok {
-				if exitStatus == retcode {
+			if exitStatus, ok := proc.GetExitStatus(err); ok {
+				if in, _ := utils.InArray(exitStatus, retcode); in {
 					return true
 				}
 			}
 		} else {
-			return retcode == 0
+			if in, _ := utils.InArray(0, retcode); in {
+				return true
+			}
 		}
 	}
 	return false
@@ -378,7 +385,7 @@ func (w *SWinRegTool) cmdRegistry(spath string, ops []string, retcode int) bool 
 
 func (w *SWinRegTool) setRegistry(spath string, keySeg []string, value string) bool {
 	keyPath := strings.Join(keySeg, "\\")
-	return w.cmdRegistry(spath, []string{fmt.Sprintf("ed %s", keyPath), value}, 0)
+	return w.cmdRegistry(spath, []string{fmt.Sprintf("ed %s", keyPath), value}, []int{0})
 }
 
 func (w *SWinRegTool) mkdir(spath string, keySeg []string) bool {
@@ -386,7 +393,7 @@ func (w *SWinRegTool) mkdir(spath string, keySeg []string) bool {
 		[]string{
 			fmt.Sprintf("cd %s", strings.Join(keySeg[:len(keySeg)-1], "\\")),
 			fmt.Sprintf("nk %s", keySeg[len(keySeg)-1]),
-		}, 2)
+		}, []int{0, 2})
 }
 
 func (w *SWinRegTool) keyExists(spath string, keySeg []string) bool {
@@ -460,7 +467,7 @@ func (w *SWinRegTool) newValue(spath string, keySeg []string, regtype, val strin
 	} else {
 		cmds = append(cmds, val)
 	}
-	return w.cmdRegistry(spath, cmds, 0)
+	return w.cmdRegistry(spath, cmds, []int{0})
 }
 
 func (w *SWinRegTool) GetRegistry(keyPath string) string {
@@ -687,16 +694,16 @@ func (w *SWinRegTool) installGpeditStartScript(script, scriptPath string) {
 		for _, kvt := range kvts {
 			w.SetRegistry(fmt.Sprintf(`%s\Startup\0\%s`, scriptPath, kvt[0]), kvt[1], kvt[2])
 		}
-
 	} else {
 		for w.KeyExists(scriptPath + (fmt.Sprintf(`\Startup\0\%d`, idx))) {
 			idx += 1
 		}
 	}
 
+	// `%WINDIR%\cloudboot.bat`
 	kvts := [][3]string{
 		{"Script", script, "REG_SZ"},
-		{"Parameters", "", "REG_SZ"},
+		{"Parameters", `%WINDIR%\cloudboot.bat`, "REG_SZ"},
 		{"ExecTime", "", "REG_QWORD"},
 		{"IsPowershell", "0", "REG_DWORD"},
 	}
