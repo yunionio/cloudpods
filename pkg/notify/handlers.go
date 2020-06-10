@@ -38,8 +38,12 @@ import (
 	"yunion.io/x/onecloud/pkg/notify/utils"
 )
 
+var API_VERSION = "api/v1"
+
 func InitHandlers(app *appsrv.Application) {
-	db.AddProjectResourceCountHandler("api/v1", app)
+	// add version handler with API_VERSION prefix
+	app.AddDefaultHandler("GET", API_VERSION+"/version", appsrv.VersionHandler, "version")
+	db.AddProjectResourceCountHandler(API_VERSION, app)
 	db.RegisterModelManager(models.ContactManager)
 	db.RegisterModelManager(models.VerifyManager)
 	db.RegisterModelManager(models.NotificationManager)
@@ -47,7 +51,7 @@ func InitHandlers(app *appsrv.Application) {
 	db.RegisterModelManager(cache.UserCacheManager)
 	db.RegisterModelManager(cache.UserGroupCacheManager)
 	db.RegisterModelManager(models.TemplateManager)
-	AddNotifyDispatcher("/api/v1/", app)
+	AddNotifyDispatcher(API_VERSION, app)
 }
 
 // Middleware
