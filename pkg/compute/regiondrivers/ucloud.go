@@ -18,8 +18,10 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -32,6 +34,26 @@ type SUcloudRegionDriver struct {
 func init() {
 	driver := SUcloudRegionDriver{}
 	models.RegisterRegionDriver(&driver)
+}
+
+func (self *SUcloudRegionDriver) GetSecurityGroupRuleOrder() cloudprovider.TPriorityOrder {
+	return cloudprovider.PriorityOrderByDesc
+}
+
+func (self *SUcloudRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
+}
+
+func (self *SUcloudRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:allow any")}
+}
+
+func (self *SUcloudRegionDriver) GetSecurityGroupRuleMaxPriority() int {
+	return 3
+}
+
+func (self *SUcloudRegionDriver) GetSecurityGroupRuleMinPriority() int {
+	return 1
 }
 
 func (self *SUcloudRegionDriver) GetProvider() string {

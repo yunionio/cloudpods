@@ -128,6 +128,7 @@ func (self *SClassicVpc) getClassicSecurityGroups() ([]SClassicSecurityGroup, er
 	}
 	for i := 0; i < len(securityGroups); i++ {
 		securityGroups[i].vpc = self
+		securityGroups[i].region = self.region
 	}
 	return securityGroups, nil
 }

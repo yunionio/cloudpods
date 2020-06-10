@@ -33,7 +33,8 @@ func init() {
 	})
 
 	type SecurityGroupShowOptions struct {
-		ID string `help:"ID of security group"`
+		ID        string `help:"ID of security group"`
+		ShowRules bool   `help:"Show rules"`
 	}
 	shellutils.R(&SecurityGroupShowOptions{}, "security-group-show", "Show security group", func(cli *openstack.SRegion, args *SecurityGroupShowOptions) error {
 		secgroup, err := cli.GetSecurityGroup(args.ID)
@@ -41,6 +42,15 @@ func init() {
 			return err
 		}
 		printObject(secgroup)
+		if args.ShowRules {
+			rules, err := secgroup.GetRules()
+			if err != nil {
+				return err
+			}
+			for _, r := range rules {
+				printObject(r)
+			}
+		}
 		return nil
 	})
 
