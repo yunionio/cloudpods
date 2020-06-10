@@ -165,6 +165,13 @@ func (w *Worker) run(ctx context.Context, mss *agentmodels.ModelSets) (err error
 			}
 		}
 	}
+	for _, vpc := range mss.Vpcs {
+		if vpc.Id == apis.DEFAULT_VPC_ID {
+			continue
+		}
+		ovndb.ClaimVpcGuestDnsRecords(ctx, vpc)
+	}
+	ovndb.ClaimDnsRecords(ctx, mss.Vpcs, mss.DnsRecords)
 	ovndb.Sweep(ctx)
 	return nil
 }
