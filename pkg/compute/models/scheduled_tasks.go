@@ -457,7 +457,7 @@ func (st *SScheduledTask) Execute(ctx context.Context, userCred mcclient.TokenCr
 			Scope:   "system",
 			Tags:    labels,
 		}
-		res, err := action.List(&opts)
+		res, err := action.List(&WrapperListOptions{opts})
 		if err != nil {
 			return err
 		}
@@ -480,7 +480,7 @@ func (st *SScheduledTask) Execute(ctx context.Context, userCred mcclient.TokenCr
 		workerQueue <- struct{}{}
 		go func(n int, id string) {
 			ok, reason := action.Apply(id)
-			results[i] = result{id, ok, reason}
+			results[n] = result{id, ok, reason}
 			<-workerQueue
 		}(i, id)
 	}
@@ -701,7 +701,11 @@ func (r SAction) DefaultParams(dict *jsonutils.JSONDict) SAction {
 	return r
 }
 
-func (r SAction) List(opts *options.BaseListOptions) (map[string]string, error) {
+type WrapperListOptions struct {
+	options.BaseListOptions
+}
+
+func (r SAction) List(opts *WrapperListOptions) (map[string]string, error) {
 	resourceManager, ok := Modules[r.operation.Resource]
 	if !ok {
 		return nil, errors.Errorf("no such resource '%s' in Modules", r.operation.Resource)
