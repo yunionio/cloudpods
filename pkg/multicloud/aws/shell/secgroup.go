@@ -17,6 +17,10 @@ package shell
 import (
 	"fmt"
 
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/secrules"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/aws"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -62,6 +66,19 @@ func init() {
 		}
 		fmt.Println(id)
 		return nil
+	})
+
+	type SecurityGroupRuleDeleteOption struct {
+		SECGROUP_ID string
+		RULE        string
+	}
+
+	shellutils.R(&SecurityGroupRuleDeleteOption{}, "security-group-rule-delete", "Delete  security group rule", func(cli *aws.SRegion, args *SecurityGroupRuleDeleteOption) error {
+		rule, err := secrules.ParseSecurityRule(args.RULE)
+		if err != nil {
+			return errors.Wrapf(err, "ParseSecurityRule(%s)", args.RULE)
+		}
+		return cli.DelSecurityGroupRule(args.SECGROUP_ID, cloudprovider.SecurityRule{SecurityRule: *rule})
 	})
 
 }

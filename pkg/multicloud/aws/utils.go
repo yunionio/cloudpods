@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net"
 	"reflect"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -225,7 +224,7 @@ func awsProtocolToYunion(p ec2.IpPermission) string {
 	}
 }
 
-func yunionProtocolToAws(r secrules.SecurityRule) string {
+func yunionProtocolToAws(r cloudprovider.SecurityRule) string {
 	if r.Protocol == secrules.PROTO_ANY {
 		return "-1"
 	} else {
@@ -244,7 +243,7 @@ func isYunionRuleAllPorts(r secrules.SecurityRule) bool {
 	}
 }
 
-func yunionPortRangeToAws(r secrules.SecurityRule) []portRange {
+func yunionPortRangeToAws(r cloudprovider.SecurityRule) []portRange {
 	// port 0 / -1 都代表所有端口
 	portranges := []portRange{}
 	if len(r.Ports) == 0 {
@@ -287,7 +286,7 @@ func yunionPortRangeToAws(r secrules.SecurityRule) []portRange {
 }
 
 // Security Rule Transform
-func AwsIpPermissionToYunion(direction secrules.TSecurityRuleDirection, p ec2.IpPermission) ([]secrules.SecurityRule, error) {
+func AwsIpPermissionToYunion(direction secrules.TSecurityRuleDirection, p ec2.IpPermission) ([]cloudprovider.SecurityRule, error) {
 
 	if len(p.UserIdGroupPairs) > 0 {
 		return nil, fmt.Errorf("AwsIpPermissionToYunion not supported aws rule: UserIdGroupPairs specified")
@@ -301,7 +300,7 @@ func AwsIpPermissionToYunion(direction secrules.TSecurityRuleDirection, p ec2.Ip
 		log.Debugf("AwsIpPermissionToYunion ignored IPV6 rule: %s", p.Ipv6Ranges)
 	}
 
-	rules := []secrules.SecurityRule{}
+	rules := []cloudprovider.SecurityRule{}
 	isAllPorts := isAwsPermissionAllPorts(p)
 	protocol := awsProtocolToYunion(p)
 	for _, ip := range p.IpRanges {
@@ -311,24 +310,28 @@ func AwsIpPermissionToYunion(direction secrules.TSecurityRuleDirection, p ec2.Ip
 			continue
 		}
 
-		var rule secrules.SecurityRule
+		var rule cloudprovider.SecurityRule
 		if isAllPorts {
-			rule = secrules.SecurityRule{
-				Action:      secrules.SecurityRuleAllow,
-				IPNet:       ipNet,
-				Protocol:    protocol,
-				Direction:   direction,
-				Priority:    1,
-				Description: StrVal(ip.Description),
+			rule = cloudprovider.SecurityRule{
+				SecurityRule: secrules.SecurityRule{
+					Action:      secrules.SecurityRuleAllow,
+					IPNet:       ipNet,
+					Protocol:    protocol,
+					Direction:   direction,
+					Priority:    1,
+					Description: StrVal(ip.Description),
+				},
 			}
 		} else {
-			rule = secrules.SecurityRule{
-				Action:      secrules.SecurityRuleAllow,
-				IPNet:       ipNet,
-				Protocol:    protocol,
-				Direction:   direction,
-				Priority:    1,
-				Description: StrVal(ip.Description),
+			rule = cloudprovider.SecurityRule{
+				SecurityRule: secrules.SecurityRule{
+					Action:      secrules.SecurityRuleAllow,
+					IPNet:       ipNet,
+					Protocol:    protocol,
+					Direction:   direction,
+					Priority:    1,
+					Description: StrVal(ip.Description),
+				},
 			}
 
 			if p.FromPort != nil {
@@ -349,36 +352,35 @@ func AwsIpPermissionToYunion(direction secrules.TSecurityRuleDirection, p ec2.Ip
 
 // YunionSecRuleToAws 不能保证无损转换
 // 规则描述如果包含中文等字符，将被丢弃掉
-func YunionSecRuleToAws(rule secrules.SecurityRule) ([]*ec2.IpPermission, error) {
-	if rule.Action == secrules.SecurityRuleDeny {
-		return nil, fmt.Errorf("YunionSecRuleToAws ignored  aws not supported deny rule")
-	}
-
+func YunionSecRuleToAws(rule cloudprovider.SecurityRule) ([]*ec2.IpPermission, error) {
 	iprange := rule.IPNet.String()
 	if iprange == "<nil>" {
 		return nil, fmt.Errorf("YunionSecRuleToAws ignored  ipnet should not be empty")
 	}
 
-	description := ""
-	if match, err := regexp.MatchString("^[\\sa-zA-Z0-9. _:/()#,@\\]\\[+=&;{}!$*-]+$", rule.Description); err == nil && match {
-		description = rule.Description
-	}
 	ipranges := []*ec2.IpRange{}
-	ipranges = append(ipranges, &ec2.IpRange{CidrIp: &iprange, Description: &description})
+	ipranges = append(ipranges, &ec2.IpRange{CidrIp: &iprange})
 
 	portranges := yunionPortRangeToAws(rule)
 	protocol := yunionProtocolToAws(rule)
 	permissions := []*ec2.IpPermission{}
-	for i := range portranges {
-		port := portranges[i]
-		permission := ec2.IpPermission{
-			FromPort:   &port.Start,
+	if rule.Protocol != secrules.PROTO_ANY {
+		for i := range portranges {
+			port := portranges[i]
+			permission := ec2.IpPermission{
+				FromPort:   &port.Start,
+				IpProtocol: &protocol,
+				IpRanges:   ipranges,
+				ToPort:     &port.End,
+			}
+
+			permissions = append(permissions, &permission)
+		}
+	} else {
+		permissions = append(permissions, &ec2.IpPermission{
 			IpProtocol: &protocol,
 			IpRanges:   ipranges,
-			ToPort:     &port.End,
-		}
-
-		permissions = append(permissions, &permission)
+		})
 	}
 
 	return permissions, nil

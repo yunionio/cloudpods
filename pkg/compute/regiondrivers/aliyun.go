@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
@@ -50,6 +51,26 @@ type SAliyunRegionDriver struct {
 func init() {
 	driver := SAliyunRegionDriver{}
 	models.RegisterRegionDriver(&driver)
+}
+
+func (self *SAliyunRegionDriver) GetSecurityGroupRuleOrder() cloudprovider.TPriorityOrder {
+	return cloudprovider.PriorityOrderByAsc
+}
+
+func (self *SAliyunRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
+}
+
+func (self *SAliyunRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:allow any")}
+}
+
+func (self *SAliyunRegionDriver) GetSecurityGroupRuleMaxPriority() int {
+	return 1
+}
+
+func (self *SAliyunRegionDriver) GetSecurityGroupRuleMinPriority() int {
+	return 100
 }
 
 func (self *SAliyunRegionDriver) GetProvider() string {
