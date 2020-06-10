@@ -23,6 +23,7 @@ import (
 	"syscall"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
@@ -38,14 +39,16 @@ import (
 const (
 	TCPIP_PARAM_KEY      = `HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters`
 	BOOT_SCRIPT_PATH     = "/Windows/System32/GroupPolicy/Machine/Scripts/Startup/cloudboot.bat"
-	WIN_BOOT_SCRIPT_PATH = "cloudboot.bat"
+	WIN_BOOT_SCRIPT_PATH = "cloudboot"
 )
 
 type SWindowsRootFs struct {
 	*sGuestRootFsDriver
 
 	guestDebugLogPath string
-	bootScripts       string
+
+	bootScript  string
+	bootScripts map[string]string
 }
 
 func NewWindowsRootFs(part IDiskPartition) IRootFsDriver {
@@ -59,6 +62,7 @@ func NewWindowsRootFs(part IDiskPartition) IRootFsDriver {
 	return &SWindowsRootFs{
 		sGuestRootFsDriver: newGuestRootFsDriver(part),
 		guestDebugLogPath:  `%SystemRoot%\mdbg_` + string(suffix),
+		bootScripts:        make(map[string]string),
 	}
 }
 
@@ -149,9 +153,9 @@ func (w *SWindowsRootFs) GetOs() string {
 	return "Windows"
 }
 
-func (w *SWindowsRootFs) appendGuestBootScript(content string) string {
-	w.bootScripts += "\r\n" + content
-	return w.bootScripts
+func (w *SWindowsRootFs) appendGuestBootScript(name, content string) {
+	w.bootScript += "\r\n" + fmt.Sprintf("start %s", name)
+	w.bootScripts[name] = content
 }
 
 func (w *SWindowsRootFs) regAdd(path, key, val, regType string) string {
@@ -192,7 +196,7 @@ func (w *SWindowsRootFs) DeployHostname(part IDiskPartition, hostname, domain st
 		`    del %HOSTNAME_SCRIPT%`,
 		`)`,
 	}, "\r\n")
-	w.appendGuestBootScript(bootScript)
+	w.appendGuestBootScript("hostnamecfg", bootScript)
 
 	lines := []string{}
 	for k, v := range map[string]string{
@@ -247,7 +251,7 @@ func (w *SWindowsRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*
 		`    del %NETCFG_SCRIPT%`,
 		`)`,
 	}, "\r\n")
-	w.appendGuestBootScript(bootScript)
+	w.appendGuestBootScript("netcfg", bootScript)
 	lines := []string{
 		"@echo off",
 		w.MakeGuestDebugCmd("netcfg step 1"),
@@ -311,7 +315,7 @@ func (w *SWindowsRootFs) MakeGuestDebugCmd(content string) string {
 }
 
 func (w *SWindowsRootFs) prependGuestBootScript(content string) {
-	w.bootScripts = content + "\r\n" + w.bootScripts
+	w.bootScript = content + "\r\n" + w.bootScript
 }
 
 func (w *SWindowsRootFs) PrepareFsForTemplate(IDiskPartition) error {
@@ -329,10 +333,20 @@ func (w *SWindowsRootFs) CommitChanges(part IDiskPartition) error {
 	tool.CheckPath()
 	tool.EnableRdp()
 	tool.InstallGpeditStartScript(WIN_BOOT_SCRIPT_PATH)
-	if err := w.rootFs.Mkdir(path.Dir(BOOT_SCRIPT_PATH), syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR, true); err != nil {
+
+	bootDir := path.Dir(BOOT_SCRIPT_PATH)
+	if err := w.rootFs.Mkdir(bootDir, syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR, true); err != nil {
 		return err
 	}
-	return w.rootFs.FilePutContents(BOOT_SCRIPT_PATH, w.bootScripts, false, false)
+	if err := w.rootFs.FilePutContents(BOOT_SCRIPT_PATH, w.bootScript, false, false); err != nil {
+		return errors.Wrap(err, "write boot script")
+	}
+	for k, v := range w.bootScripts {
+		if err := w.rootFs.FilePutContents(path.Join(bootDir, fmt.Sprintf("%s.bat", k)), v, false, false); err != nil {
+			return errors.Wrap(err, "write boot scripts")
+		}
+	}
+	return nil
 }
 
 func (w *SWindowsRootFs) ChangeUserPasswd(part IDiskPartition, account, gid, publicKey, password string) (string, error) {
@@ -341,6 +355,7 @@ func (w *SWindowsRootFs) ChangeUserPasswd(part IDiskPartition, account, gid, pub
 	tool := winutils.NewWinRegTool(confPath)
 	tool.CheckPath()
 	success := false
+
 	if rinfo != nil && version.GE(rinfo.Version, "6.1") {
 		success = w.deployPublicKeyByGuest(account, password)
 	} else {
@@ -389,7 +404,7 @@ func (w *SWindowsRootFs) deployPublicKeyByGuest(uname, passwd string) bool {
 		`    del %CHANGE_PASSWD_SCRIPT%`,
 		`)`,
 	}, "\r\n")
-	w.prependGuestBootScript(bootScript)
+	w.appendGuestBootScript("chgpwd", bootScript)
 	logPath := w.guestDebugLogPath
 	chksum := stringutils2.GetMD5Hash(passwd + logPath[(len(logPath)-10):])
 
@@ -458,7 +473,7 @@ func (w *SWindowsRootFs) DeployFstabScripts(rootFs IDiskPartition, disks []*depl
 		`    del %MOUNT_DISK_SCRIPT%`,
 		`)`,
 	}, "\r\n")
-	w.appendGuestBootScript(bootScript)
+	w.appendGuestBootScript("mountdisk", bootScript)
 	logPath := w.guestDebugLogPath
 	mountScript := strings.Join([]string{
 		w.MakeGuestDebugCmd("mount disk step 1"),
