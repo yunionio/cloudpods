@@ -18,7 +18,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -1471,35 +1470,32 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncSecurityGroup(ctx con
 		return "", errors.Wrap(err, "db.Update")
 	}
 
-	inAllowList := secgroup.GetInAllowList()
-	outAllowList := secgroup.GetOutAllowList()
-
 	rules, err := iSecgroup.GetRules()
 	if err != nil {
 		return "", errors.Wrap(err, "iSecgroup.GetRules")
 	}
 
-	inRules := secrules.SecurityRuleSet{}
-	outRules := secrules.SecurityRuleSet{}
-	for i := 0; i < len(rules); i++ {
-		if rules[i].Direction == secrules.DIR_IN {
-			inRules = append(inRules, rules[i])
-		} else {
-			outRules = append(outRules, rules[i])
-		}
-	}
-	sort.Sort(inRules)
-	sort.Sort(outRules)
-	_inAllowList := inRules.AllowList()
-	_outAllowList := outRules.AllowList()
-	if inAllowList.Equals(_inAllowList) && outAllowList.Equals(_outAllowList) && (len(_inAllowList) > 0 && len(_outAllowList) > 0) { // 避免单个deny any的allowList为空,导致安全组规则未同步
+	maxPriority := region.GetDriver().GetSecurityGroupRuleMaxPriority()
+	minPriority := region.GetDriver().GetSecurityGroupRuleMinPriority()
+
+	defaultInRule := region.GetDriver().GetDefaultSecurityGroupInRule()
+	defaultOutRule := region.GetDriver().GetDefaultSecurityGroupOutRule()
+	order := region.GetDriver().GetSecurityGroupRuleOrder()
+	onlyAllowRules := region.GetDriver().IsOnlySupportAllowRules()
+
+	localRules := secrules.SecurityRuleSet(secgroup.GetSecRules(""))
+
+	common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(minPriority, maxPriority, order, localRules, rules, defaultInRule, defaultOutRule, onlyAllowRules, false)
+
+	if len(inAdds) == 0 && len(inDels) == 0 && len(outAdds) == 0 && len(outDels) == 0 {
 		return cache.ExternalId, nil
 	}
 
-	err = iSecgroup.SyncRules(secgroup.GetSecRules(""))
+	err = iSecgroup.SyncRules(common, inAdds, outAdds, inDels, outDels)
 	if err != nil {
 		return "", errors.Wrap(err, "iSecgroup.SyncRules")
 	}
+
 	return cache.ExternalId, nil
 }
 
