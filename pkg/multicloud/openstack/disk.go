@@ -157,7 +157,15 @@ func (region *SRegion) GetDisks(category, volumeBackendName string) ([]SDisk, er
 	}
 	result := []SDisk{}
 	for _, disk := range disks {
-		if len(category) == 0 || disk.VolumeType == category || strings.HasSuffix(disk.Host, "#"+volumeBackendName) {
+		if len(category) > 0 {
+			if disk.VolumeType == category {
+				result = append(result, disk)
+			}
+		} else if len(volumeBackendName) > 0 {
+			if strings.HasSuffix(disk.Host, "#"+volumeBackendName) {
+				result = append(result, disk)
+			}
+		} else {
 			result = append(result, disk)
 		}
 	}
