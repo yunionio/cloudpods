@@ -15,8 +15,10 @@
 package service
 
 import (
+	"context"
 	"net"
 	"net/http"
+	"net/http/pprof"
 	"net/url"
 	"os"
 	"strconv"
@@ -26,6 +28,7 @@ import (
 	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/webconsole"
+	"yunion.io/x/onecloud/pkg/appsrv"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/webconsole"
@@ -88,6 +91,9 @@ func start() {
 	// websocketproxy handler
 	root.Handle(webconsole.WebsocketProxyPathPrefix, srv)
 
+	// misc handler
+	addMiscHandlers(root)
+
 	addr := net.JoinHostPort(o.Options.Address, strconv.Itoa(o.Options.Port))
 	log.Infof("Start listen on %s", addr)
 	if o.Options.EnableSsl {
@@ -104,4 +110,25 @@ func start() {
 			log.Fatalf("%v", err)
 		}
 	}
+}
+
+func addMiscHandlers(root *mux.Router) {
+	adapterF := func(appHandleFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request)) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			appHandleFunc(context.TODO(), w, r)
+		}
+	}
+
+	// ref: pkg/appsrv/appsrv:addDefaultHandlers
+	root.HandleFunc("/version", adapterF(appsrv.VersionHandler))
+	root.HandleFunc("/stats", adapterF(appsrv.StatisticHandler))
+	root.HandleFunc("/ping", adapterF(appsrv.PingHandler))
+	root.HandleFunc("/worker_stats", adapterF(appsrv.WorkerStatsHandler))
+
+	// pprof handler
+	root.HandleFunc("/debug/pprof/", pprof.Index)
+	root.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	root.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	root.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	root.HandleFunc("/debug/pprof/trace", pprof.Trace)
 }
