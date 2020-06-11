@@ -21,6 +21,8 @@ import (
 	"os"
 	"syscall"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/signalutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -31,9 +33,10 @@ import (
 
 func init() {
 	type TraceOptions struct {
-		Second  int    `help:"pprof seconds" short-token:"s"`
+		Second  int    `help:"pprof seconds" short-token:"s" default:"15"`
 		Service string `help:"Service type"`
 		Address string `help:"Service listen address"`
+		Gc      bool   `help:"run GC before taking the heap sample"`
 	}
 
 	downloadToTemp := func(input io.Reader, pattern string) (string, error) {
@@ -50,21 +53,29 @@ func init() {
 
 	pprofRun := func(s *mcclient.ClientSession, opts *TraceOptions, pType string, args ...string) error {
 		var (
-			src io.Reader
-			err error
+			src    io.Reader
+			err    error
+			svcUrl string
 		)
 		if len(opts.Service) > 0 {
-			src, err = modules.GetPProfByType(s, opts.Service, pType, opts.Second)
+			svcUrl, err = s.GetServiceURL(opts.Service, "")
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "get service %s url", opts.Service)
 			}
 		} else if len(opts.Address) > 0 {
-			src, err = modules.GetNamedAddressPProfByType(s, opts.Address, pType, opts.Second)
-			if err != nil {
-				return err
-			}
+			svcUrl = opts.Address
 		} else {
 			return fmt.Errorf("no service address provide")
+		}
+
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewInt(int64(opts.Second)), "seconds")
+		if pType == "heap" && opts.Gc {
+			params.Add(jsonutils.JSONTrue, "gc")
+		}
+		src, err = modules.GetNamedAddressPProfByType(s, svcUrl, pType, params)
+		if err != nil {
+			return err
 		}
 
 		tempfile, err := downloadToTemp(src, pType)
@@ -90,14 +101,35 @@ func init() {
 	}
 
 	R(&TraceOptions{}, "pprof-trace", "pprof trace of backend service", func(s *mcclient.ClientSession, args *TraceOptions) error {
+		// A trace of execution of the current program
 		return pprofRun(s, args, "trace", "trace")
 	})
 
-	R(&TraceOptions{}, "pprof-profile", "pprof profile of backend service", func(s *mcclient.ClientSession, args *TraceOptions) error {
-		port, err := netutils2.GetFreePort()
-		if err != nil {
-			return err
-		}
-		return pprofRun(s, args, "profile", "pprof", fmt.Sprintf("-http=:%d", port))
-	})
+	for _, kind := range []string{
+		// A sampling of all past memory allocations
+		"allocs",
+		// Stack traces that led to blocking on synchronization primitives
+		"block",
+		// The command line invocation of the current program
+		"cmdline",
+		// Stack traces of all current goroutines
+		"goroutine",
+		// A sampling of memory allocations of live objects
+		"heap",
+		// Stack straces of holders of contended mutexes
+		"mutex",
+		// CPU profile
+		"profile",
+		// Stack traces that led to the creation of new OS threads
+		"threadcreate",
+	} {
+		pType := kind
+		R(&TraceOptions{}, fmt.Sprintf("pprof-%s", pType), fmt.Sprintf("pprof %s of backend service", pType), func(s *mcclient.ClientSession, args *TraceOptions) error {
+			port, err := netutils2.GetFreePort()
+			if err != nil {
+				return err
+			}
+			return pprofRun(s, args, pType, "pprof", fmt.Sprintf("-http=:%d", port))
+		})
+	}
 }

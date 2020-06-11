@@ -26,7 +26,7 @@ var (
 )
 
 func init() {
-	informerWorkerMan = appsrv.NewWorkerManager("InformerWorkerManager", 1024, 10240, false)
+	informerWorkerMan = appsrv.NewWorkerManager("InformerWorkerManager", 10, 10240, false)
 }
 
 func run(f func(be IInformerBackend) error) error {

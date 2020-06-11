@@ -90,6 +90,10 @@ func (this *Client) SetDebug(debug bool) {
 	this.debug = debug
 }
 
+func (this *Client) GetDebug() bool {
+	return this.debug
+}
+
 func (this *Client) AuthVersion() string {
 	pos := strings.LastIndexByte(this.authUrl, '/')
 	if pos > 0 {
