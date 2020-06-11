@@ -208,7 +208,7 @@ func (st *SScheduledTask) TimerDescription() string {
 		}
 		prefix = fmt.Sprintf("每月 【%s】", strings.Join(monthDays, "｜"))
 	}
-	return fmt.Sprintf("%s %2d:%2d触发 有效时间为%s至%s", prefix, timer.Hour, timer.Minute, timer.StartTime.In(zone).Format(format), timer.EndTime.In(zone).Format(format))
+	return fmt.Sprintf("%s %02d:%02d触发 有效时间为%s至%s", prefix, timer.Hour, timer.Minute, timer.StartTime.In(zone).Format(format), timer.EndTime.In(zone).Format(format))
 }
 
 func (st *SScheduledTask) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential,
