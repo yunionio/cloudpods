@@ -45,7 +45,7 @@ type SScheduledTaskLabelManager struct {
 type SScheduledTaskLabel struct {
 	db.SVirtualJointResourceBase
 	ScheduledTaskId string `width:"36" charset:"ascii" nullable:"false" index:"true"`
-	Label           string `width:"36" charset:"ascii" nullable:"false" index:"true"`
+	Label           string `width:"64" charset:"utf8" nullable:"false" index:"true"`
 }
 
 func (slm *SScheduledTaskLabelManager) Attach(ctx context.Context, taskId, label string) error {
