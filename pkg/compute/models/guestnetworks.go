@@ -17,10 +17,10 @@ package models
 import (
 	"context"
 	"crypto/md5"
-	"crypto/rand"
 	"database/sql"
 	"fmt"
 	"io"
+	"math/rand"
 	"regexp"
 	"time"
 
