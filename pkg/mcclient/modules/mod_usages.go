@@ -23,8 +23,28 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
+type TUsageManager string
+
+const (
+	UsageManagerImage    TUsageManager = "image"
+	UsageManagerIdentity TUsageManager = "identity"
+	UsageManagerK8s      TUsageManager = "k8s"
+)
+
+type IUsageManager interface {
+	GetUsage(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
+}
+
 type UsageManager struct {
 	modulebase.ResourceManager
+	managers map[TUsageManager]IUsageManager
+}
+
+func (this *UsageManager) RegisterManager(manType TUsageManager, man IUsageManager) {
+	if this.managers == nil {
+		this.managers = make(map[TUsageManager]IUsageManager, 0)
+	}
+	this.managers[manType] = man
 }
 
 func (this *UsageManager) GetGeneralUsage(session *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -46,14 +66,41 @@ func (this *UsageManager) GetGeneralUsage(session *mcclient.ClientSession, param
 	return modulebase.Get(this.ResourceManager, session, url, this.Keyword)
 }
 
+func (this *UsageManager) GetManagerByType(t TUsageManager) IUsageManager {
+	return this.managers[t]
+}
+
+func (this *UsageManager) getManagerUsage(manType TUsageManager, s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return this.GetManagerByType(manType).GetUsage(s, params)
+}
+
+func (this *UsageManager) GetK8sUsage(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return this.getManagerUsage(UsageManagerK8s, s, params)
+}
+
+func (this *UsageManager) GetIdentityUsage(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return this.getManagerUsage(UsageManagerIdentity, s, params)
+}
+
+func (this *UsageManager) GetImageUsage(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return this.getManagerUsage(UsageManagerImage, s, params)
+}
+
 var (
-	Usages UsageManager
+	Usages *UsageManager
 )
 
 func init() {
-	Usages = UsageManager{NewComputeManager("usage", "usages",
-		[]string{},
-		[]string{})}
+	Usages = &UsageManager{
+		ResourceManager: NewComputeManager("usage", "usages",
+			[]string{},
+			[]string{}),
+	}
 
-	registerCompute(&Usages)
+	registerCompute(Usages)
+}
+
+func InitUsages() {
+	Usages.RegisterManager(UsageManagerImage, &Images)
+	Usages.RegisterManager(UsageManagerIdentity, &IdentityUsages)
 }

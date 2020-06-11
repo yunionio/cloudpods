@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 )
 
 type GeneralUsageOptions struct {
@@ -172,6 +173,16 @@ func init() {
 	}
 	R(&IdentityUsageOptions{}, "identity-usage", "Show general usage of identity", func(s *mcclient.ClientSession, args *IdentityUsageOptions) error {
 		result, err := modules.IdentityUsages.GetUsage(s, nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type K8sUsageOptions struct{}
+	R(&K8sUsageOptions{}, "k8s-usage", "Show general usage of k8s", func(s *mcclient.ClientSession, args *K8sUsageOptions) error {
+		result, err := k8s.Usages.GetUsage(s, nil)
 		if err != nil {
 			return err
 		}
