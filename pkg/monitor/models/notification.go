@@ -111,10 +111,10 @@ func (man *SNotificationManager) GetNotifications(ids []string) ([]SNotification
 func (man *SNotificationManager) GetNotificationsWithDefault(ids []string) ([]SNotification, error) {
 	objs := make([]SNotification, 0)
 	notis := man.Query().SubQuery()
-	q := notis.Query().Filter(
-		sqlchemy.OR(
-			sqlchemy.IsTrue(notis.Field("is_default")),
-			sqlchemy.In(notis.Field("id"), ids)))
+	q := notis.Query().Filter(sqlchemy.In(notis.Field("id"), ids))
+	//sqlchemy.OR(
+	//	sqlchemy.IsTrue(notis.Field("is_default")),
+	//	sqlchemy.In(notis.Field("id"), ids)))
 	if err := db.FetchModelObjects(man, q, &objs); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil

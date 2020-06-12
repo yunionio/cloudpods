@@ -36,7 +36,7 @@ import (
 type AlertEngine struct {
 	execQueue     chan *Job
 	ticker        *Ticker
-	scheduler     scheduler
+	Scheduler     scheduler
 	evalHandler   evalHandler
 	ruleReader    ruleReader
 	resultHandler resultHandler
@@ -56,7 +56,7 @@ func (e *AlertEngine) IsDisabled() bool {
 func (e *AlertEngine) Init() error {
 	e.ticker = NewTicker(time.Now(), time.Second*0, clock.New())
 	e.execQueue = make(chan *Job, 1000)
-	e.scheduler = newScheduler()
+	e.Scheduler = newScheduler()
 	e.evalHandler = NewEvalHandler()
 	e.ruleReader = newRuleReader()
 	e.resultHandler = newResultHandler()
@@ -90,10 +90,10 @@ func (e *AlertEngine) alertingTicker(ctx context.Context) error {
 		case tick := <-e.ticker.C:
 			// TEMP SOLUTION update rules ever tenth tick
 			if tickIndex%10 == 0 {
-				e.scheduler.Update(e.ruleReader.fetch())
+				e.Scheduler.Update(e.ruleReader.fetch())
 			}
 
-			e.scheduler.Tick(tick, e.execQueue)
+			e.Scheduler.Tick(tick, e.execQueue)
 			tickIndex++
 		}
 	}
