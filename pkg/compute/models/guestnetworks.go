@@ -16,11 +16,9 @@ package models
 
 import (
 	"context"
-	"crypto/md5"
-	"crypto/rand"
 	"database/sql"
 	"fmt"
-	"io"
+	"math/rand"
 	"regexp"
 	"time"
 
@@ -37,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	randutil "yunion.io/x/onecloud/pkg/util/rand"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -226,17 +225,6 @@ func (manager *SGuestnetworkManager) newGuestNetwork(ctx context.Context, userCr
 	return &gn, nil
 }
 
-func (self *SGuestnetwork) getVirtualRand(width int, randomized bool) string {
-	hash := md5.New()
-	io.WriteString(hash, self.GuestId)
-	io.WriteString(hash, self.NetworkId)
-	if randomized {
-		io.WriteString(hash, fmt.Sprintf("%d", time.Now().Unix()))
-	}
-	hex := fmt.Sprintf("%x", hash.Sum(nil))
-	return hex[:width]
-}
-
 func (self *SGuestnetwork) generateIfname(network *SNetwork, virtual bool, randomized bool) string {
 	// It may happen that external networks when synced can miss ifname hint
 	network.ensureIfnameHint()
@@ -247,8 +235,7 @@ func (self *SGuestnetwork) generateIfname(network *SNetwork, virtual bool, rando
 		nName = nName[:(MAX_IFNAME_SIZE - 4)]
 	}
 	if virtual {
-		rand := self.getVirtualRand(3, randomized)
-		return fmt.Sprintf("%s-%s", nName, rand)
+		return fmt.Sprintf("%s-%s", nName, randutil.String(3))
 	} else {
 		ip, _ := netutils.NewIPV4Addr(self.IpAddr)
 		cliaddr := ip.CliAddr(network.GuestIpMask)
