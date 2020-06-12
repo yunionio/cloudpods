@@ -2605,17 +2605,18 @@ func (self *SHost) getMoreDetails(ctx context.Context, out api.HostDetails, show
 		out.AllowHealthCheck = true
 	}
 
-	if rs := self.GetReservedResourceForIsolatedDevice(); rs != nil {
+	if count, rs := self.GetReservedResourceForIsolatedDevice(); rs != nil {
 		out.ReservedResourceForGpu = *rs
+		out.IsolatedDeviceCount = count
 	}
 	return out
 }
 
-func (self *SHost) GetReservedResourceForIsolatedDevice() *api.IsolatedDeviceReservedResourceInput {
+func (self *SHost) GetReservedResourceForIsolatedDevice() (int, *api.IsolatedDeviceReservedResourceInput) {
 	if devs := IsolatedDeviceManager.FindByHost(self.Id); len(devs) == 0 {
-		return nil
+		return -1, nil
 	} else {
-		return self.GetDevsReservedResource(devs)
+		return len(devs), self.GetDevsReservedResource(devs)
 	}
 }
 
@@ -5205,7 +5206,7 @@ func (host *SHost) AllowPerformSetReservedResourceForIsolatedDevice(
 	return db.IsDomainAllowPerform(userCred, host, "set-reserved-resource-for-isolated-device")
 }
 
-func (host *SHost) PerfromSetReservedResourceForIsolatedDevice(
+func (host *SHost) PerformSetReservedResourceForIsolatedDevice(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, input api.IsolatedDeviceReservedResourceInput,
 ) (jsonutils.JSONObject, error) {

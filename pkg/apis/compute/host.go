@@ -168,6 +168,8 @@ type HostDetails struct {
 
 	// reserved resource for isolated device
 	ReservedResourceForGpu IsolatedDeviceReservedResourceInput `json:"reserved_resource_for_gpu"`
+	// isolated device count
+	IsolatedDeviceCount int
 
 	// 标签
 	Metadata map[string]string `json:"metadata"`
