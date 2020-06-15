@@ -37,40 +37,42 @@ func CamelSplit(str string, sep string) string {
 }
 
 func CamelSplitTokens(str string) []string {
-	tokens := make([]string, 0)
-	var buf bytes.Buffer
-	upperCount := 0
-	for i := 0; i < len(str); i++ {
-		c := str[i]
-		split := false
-		var nchar byte
+	var (
+		tokens     = make([]string, 0, 4)
+		buf        = make([]byte, 0, 16)
+		upperCount int
+	)
+	for i := range str {
+		var (
+			c     = str[i]
+			inc   = true
+			split bool
+		)
 		if isUpperChar(c) {
 			upperCount += 1
-			if upperCount > 1 {
-				if i+1 < len(str) && isLowerChar(str[i+1]) && upperCount > 2 {
-					split = true
-				}
-			} else {
+			if upperCount == 1 {
+				split = true
+			} else if upperCount > 2 && i+1 < len(str) && isLowerChar(str[i+1]) {
 				split = true
 			}
-			nchar = c - 'A' + 'a'
+			c += 'a' - 'A'
 		} else if isLowerChar(c) {
-			nchar = c
 			upperCount = 0
 		} else {
 			upperCount = 0
 			split = true
+			inc = false
 		}
-		if split && buf.Len() > 0 {
-			tokens = append(tokens, buf.String())
-			buf.Reset()
+		if split && len(buf) > 0 {
+			tokens = append(tokens, string(buf))
+			buf = buf[:0]
 		}
-		if nchar != 0 {
-			buf.WriteByte(nchar)
+		if inc {
+			buf = append(buf, c)
 		}
 	}
-	if buf.Len() > 0 {
-		tokens = append(tokens, buf.String())
+	if len(buf) > 0 {
+		tokens = append(tokens, string(buf))
 	}
 	return tokens
 }

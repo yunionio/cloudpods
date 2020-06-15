@@ -127,10 +127,10 @@ require (
 	k8s.io/cluster-bootstrap v0.17.3
 	k8s.io/kubernetes v1.16.0
 	yunion.io/x/executor v0.0.0-20200227030256-a18417815e74
-	yunion.io/x/jsonutils v0.0.0-20200601015434-d61aefddfe79
+	yunion.io/x/jsonutils v0.0.0-20200615014624-f9c3576579c9
 	yunion.io/x/log v0.0.0-20200313080802-57a4ce5966b3
 	yunion.io/x/ovsdb v0.0.0-20200526071744-27bf0940cbc7
-	yunion.io/x/pkg v0.0.0-20200603123312-ad58e621aec0
+	yunion.io/x/pkg v0.0.0-20200615071345-60a252beb982
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 	yunion.io/x/sqlchemy v0.0.0-20200608080702-9b6683aa048c
 	yunion.io/x/structarg v0.0.0-20200603035440-0690e9bc7655

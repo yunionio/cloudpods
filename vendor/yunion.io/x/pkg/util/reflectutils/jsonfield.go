@@ -25,6 +25,10 @@ import (
 
 // SStructFieldInfo describes struct field, especially behavior for (json)
 // marshal
+//
+// This struct has unexported fields initialized by exported functions in this
+// package.  Do not construct a literal or modify the exported fields in an
+// unmanaged way
 type SStructFieldInfo struct {
 	// True if the field has json tag `json:"-"`
 	Ignore    bool
@@ -38,10 +42,11 @@ type SStructFieldInfo struct {
 	//  2. name of "json" tag, when it's not for ignoration
 	//  3. kebab form of FieldName concatenated with "_" when Ignore is false
 	//  4. empty string
-	Name        string
-	FieldName   string
-	ForceString bool
-	Tags        map[string]string
+	Name           string
+	FieldName      string
+	kebabFieldName string
+	ForceString    bool
+	Tags           map[string]string
 }
 
 func (s *SStructFieldInfo) updateTags(k, v string) {
@@ -50,13 +55,14 @@ func (s *SStructFieldInfo) updateTags(k, v string) {
 
 func (s SStructFieldInfo) deepCopy() *SStructFieldInfo {
 	scopy := SStructFieldInfo{
-		Ignore:      s.Ignore,
-		OmitEmpty:   s.OmitEmpty,
-		OmitFalse:   s.OmitFalse,
-		OmitZero:    s.OmitZero,
-		Name:        s.Name,
-		FieldName:   s.FieldName,
-		ForceString: s.ForceString,
+		Ignore:         s.Ignore,
+		OmitEmpty:      s.OmitEmpty,
+		OmitFalse:      s.OmitFalse,
+		OmitZero:       s.OmitZero,
+		Name:           s.Name,
+		FieldName:      s.FieldName,
+		ForceString:    s.ForceString,
+		kebabFieldName: s.kebabFieldName,
 	}
 	tags := make(map[string]string, len(s.Tags))
 	for k, v := range s.Tags {
@@ -73,6 +79,7 @@ func ParseStructFieldJsonInfo(sf reflect.StructField) SStructFieldInfo {
 func ParseFieldJsonInfo(name string, tag reflect.StructTag) SStructFieldInfo {
 	info := SStructFieldInfo{}
 	info.FieldName = name
+	info.kebabFieldName = utils.CamelSplit(name, "_")
 	info.OmitEmpty = true
 	info.OmitZero = false
 	info.OmitFalse = false
@@ -116,7 +123,7 @@ func ParseFieldJsonInfo(name string, tag reflect.StructTag) SStructFieldInfo {
 		info.Name = val
 	}
 	if !info.Ignore && len(info.Name) == 0 {
-		info.Name = utils.CamelSplit(info.FieldName, "_")
+		info.Name = info.kebabFieldName
 	}
 	return info
 }
@@ -127,7 +134,7 @@ func (info *SStructFieldInfo) MarshalName() string {
 	if len(info.Name) > 0 {
 		return info.Name
 	}
-	return utils.CamelSplit(info.FieldName, "_")
+	return info.kebabFieldName
 }
 
 type SStructFieldValue struct {
@@ -281,27 +288,31 @@ func (fields SStructFieldValueSet) GetStructFieldIndexes(name string) []int {
 }
 
 func (fields SStructFieldValueSet) GetStructFieldIndexes2(name string, strictMode bool) []int {
-	ret := make([]int, 0)
+	var (
+		ret       []int
+		kebabName string
+		capName   string
+	)
+	if !strictMode && len(fields) > 0 {
+		kebabName = utils.CamelSplit(name, "_")
+		capName = utils.Capitalize(name)
+	}
 	for i := range fields {
-		if fields[i].Info.Ignore {
+		info := fields[i].Info
+		if info.Ignore {
 			continue
 		}
-		if fields[i].Info.MarshalName() == name {
+		if info.MarshalName() == name {
 			ret = append(ret, i)
 			continue
 		}
 		if !strictMode {
-			if utils.CamelSplit(fields[i].Info.FieldName, "_") == utils.CamelSplit(name, "_") {
+			if info.kebabFieldName == kebabName {
 				ret = append(ret, i)
-				continue
-			}
-			if fields[i].Info.FieldName == name {
+			} else if info.FieldName == name {
 				ret = append(ret, i)
-				continue
-			}
-			if fields[i].Info.FieldName == utils.Capitalize(name) {
+			} else if info.FieldName == capName {
 				ret = append(ret, i)
-				continue
 			}
 		}
 	}
