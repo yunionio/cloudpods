@@ -21,7 +21,9 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
+	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
@@ -45,9 +47,10 @@ type TaskExecutor struct {
 	callback  TaskExecuteCallback
 	unit      *core.Unit
 
-	resultItems *core.SchedResultItemList
+	resultItems *ScheduleResult
 	resultError error
 	logs        []string
+	capacityMap interface{}
 	completed   bool
 }
 
@@ -78,7 +81,16 @@ func (te *TaskExecutor) Execute() {
 	}
 }
 
-func (te *TaskExecutor) execute() (*core.SchedResultItemList, error) {
+type ScheduleResult struct {
+	// Result is sync schedule result
+	Result *schedapi.ScheduleOutput
+	// ForecastResult is forecast schedule result
+	ForecastResult interface{}
+	// TestResult is test schedule result
+	TestResult interface{}
+}
+
+func (te *TaskExecutor) execute() (*ScheduleResult, error) {
 	scheduler := te.scheduler
 	genericScheduler, err := core.NewGenericScheduler(scheduler.(core.Scheduler))
 	if err != nil {
@@ -92,7 +104,26 @@ func (te *TaskExecutor) execute() (*core.SchedResultItemList, error) {
 	}
 
 	te.unit = scheduler.Unit()
-	return genericScheduler.Schedule(te.unit, candidates)
+	schedInfo := te.unit.SchedInfo
+	result, err := genericScheduler.Schedule(te.unit, candidates)
+	if err != nil {
+		return nil, errors.Wrap(err, "genericScheduler.Schedule")
+	}
+	out := new(ScheduleResult)
+	if schedInfo.IsSuggestion {
+		if schedInfo.ShowSuggestionDetails && schedInfo.SuggestionAll {
+			out.ForecastResult = transToSchedForecastResult(result)
+		} else {
+			out.TestResult = transToSchedTestResult(result, schedInfo.SuggestionLimit)
+		}
+	} else {
+		out.Result = transToSchedResult(result, schedInfo)
+		driver := te.unit.GetHypervisorDriver()
+		if err := setSchedPendingUsage(driver, schedInfo, out.Result); err != nil {
+			return nil, errors.Wrap(err, "setSchedPendingUsage")
+		}
+	}
+	return out, nil
 }
 
 func (te *TaskExecutor) cleanup() {
@@ -107,7 +138,7 @@ func (te *TaskExecutor) Kill() {
 	}
 }
 
-func (te *TaskExecutor) GetResult() (*core.SchedResultItemList, error) {
+func (te *TaskExecutor) GetResult() (*ScheduleResult, error) {
 	return te.resultItems, te.resultError
 }
 
@@ -115,9 +146,12 @@ func (te *TaskExecutor) GetLogs() []string {
 	return te.logs
 }
 
+func (te *TaskExecutor) GetCapacityMap() interface{} {
+	return te.capacityMap
+}
+
 type TaskExecutorQueue struct {
 	schedType string
-	poolId    string
 	queue     chan *TaskExecutor
 	running   bool
 }
@@ -129,39 +163,38 @@ func (teq *TaskExecutorQueue) AddTaskExecutor(scheduler Scheduler,
 	return taskExecutor
 }
 
-func NewTaskExecutorQueue(schedType string, poolId string, stopCh <-chan struct{}) *TaskExecutorQueue {
-	taskExecutorQueue := &TaskExecutorQueue{
+func NewTaskExecutorQueue(schedType string, stopCh <-chan struct{}) *TaskExecutorQueue {
+	teq := &TaskExecutorQueue{
 		schedType: schedType,
-		poolId:    poolId,
 		running:   false,
 	}
-
-	taskExecutorQueue.Start(stopCh)
-	return taskExecutorQueue
+	teq.Start(stopCh)
+	return teq
 }
 
 func (teq *TaskExecutorQueue) Start(stopCh <-chan struct{}) {
-	if !teq.running {
-		teq.running = true
-		teq.queue = make(chan *TaskExecutor, 5000)
-
-		go func() {
-			defer close(teq.queue)
-
-			var taskExecutor *TaskExecutor
-			for taskExecutor = <-teq.queue; teq.running; taskExecutor = <-teq.queue {
-				if taskExecutor.Status == TaskExecutorStatusWaiting {
-					taskExecutor.Execute()
-				}
-			}
-		}()
-
-		go func() {
-			<-stopCh
-			teq.running = false
-			teq.queue <- nil
-		}()
+	if teq.running {
+		return
 	}
+	teq.running = true
+	teq.queue = make(chan *TaskExecutor, 5000)
+
+	go func() {
+		defer close(teq.queue)
+
+		var taskExecutor *TaskExecutor
+		for taskExecutor = <-teq.queue; teq.running; taskExecutor = <-teq.queue {
+			if taskExecutor.Status == TaskExecutorStatusWaiting {
+				taskExecutor.Execute()
+			}
+		}
+	}()
+
+	go func() {
+		<-stopCh
+		teq.running = false
+		teq.queue <- nil
+	}()
 }
 
 type TaskExecutorQueueManager struct {
@@ -178,8 +211,7 @@ func NewTaskExecutorQueueManager(stopCh <-chan struct{}) *TaskExecutorQueueManag
 	}
 }
 
-func (teqm *TaskExecutorQueueManager) GetQueue(schedType string, poolId string,
-) *TaskExecutorQueue {
+func (teqm *TaskExecutorQueueManager) GetQueue(schedType string) *TaskExecutorQueue {
 	teqm.lock.Lock()
 	defer teqm.lock.Unlock()
 
@@ -189,9 +221,8 @@ func (teqm *TaskExecutorQueueManager) GetQueue(schedType string, poolId string,
 		ok                bool
 	)
 
-	key = fmt.Sprintf("%v:%v", schedType, poolId)
 	if taskExecutorQueue, ok = teqm.taskExecutorMap[key]; !ok {
-		taskExecutorQueue = NewTaskExecutorQueue(schedType, poolId, teqm.stopCh)
+		taskExecutorQueue = NewTaskExecutorQueue(schedType, teqm.stopCh)
 		teqm.taskExecutorMap[key] = taskExecutorQueue
 	}
 
@@ -201,8 +232,7 @@ func (teqm *TaskExecutorQueueManager) GetQueue(schedType string, poolId string,
 func (teqm *TaskExecutorQueueManager) AddTaskExecutor(
 	scheduler Scheduler, callback TaskExecuteCallback) *TaskExecutor {
 	schedData := scheduler.SchedData()
-	log.V(10).Infof("AddTaskExecutor schedData: %#v", schedData)
-	taskQueue := teqm.GetQueue(schedData.Type, "")
+	taskQueue := teqm.GetQueue(schedData.Hypervisor)
 	return taskQueue.AddTaskExecutor(scheduler, callback)
 }
 
@@ -269,7 +299,7 @@ type Task struct {
 	waitCh        chan struct{}
 
 	completedCount int
-	resultItems    *core.SchedResultItemList
+	resultItems    *ScheduleResult
 	resultError    error
 }
 
@@ -344,6 +374,7 @@ func (t *Task) readLog(taskExecutor *TaskExecutor) {
 	if u != nil {
 		logs := u.LogManager.Read()
 		taskExecutor.logs = logs
+		taskExecutor.capacityMap = u.CapacityMap
 	}
 }
 
@@ -352,8 +383,7 @@ func (t *Task) onError() {
 		taskExecutor.Kill()
 	}
 
-	log.Errorf("Remove Session on error: %v\n", t.SchedInfo.SessionId)
-	//t.manager.ReservedPoolManager.RemoveSession(t.SchedInfo.SessionID)
+	log.Errorf("Remove Session on error: %v", t.SchedInfo.SessionId)
 
 	close(t.waitCh)
 }
@@ -363,12 +393,12 @@ func (t *Task) onCompleted() {
 	close(t.waitCh)
 }
 
-func (t *Task) Wait() (*core.SchedResultItemList, error) {
+func (t *Task) Wait() (*ScheduleResult, error) {
 	log.V(10).Infof("Task wait...")
 	<-t.waitCh
 	return t.GetResult()
 }
 
-func (t *Task) GetResult() (*core.SchedResultItemList, error) {
+func (t *Task) GetResult() (*ScheduleResult, error) {
 	return t.resultItems, t.resultError
 }

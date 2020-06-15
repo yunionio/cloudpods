@@ -30,6 +30,7 @@ import (
 	candidatecache "yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager"
+	schedmodels "yunion.io/x/onecloud/pkg/scheduler/models"
 	o "yunion.io/x/onecloud/pkg/scheduler/options"
 	"yunion.io/x/onecloud/pkg/util/k8s"
 )
@@ -44,10 +45,8 @@ type SchedulerManager struct {
 	HistoryManager   *HistoryManager
 	TaskManager      *TaskManager
 
-	DataManager      *data_manager.DataManager
-	CandidateManager *data_manager.CandidateManager
-	//ReservedPoolManager *data_manager.ReservedPoolManager
-	//NetworkManager   *data_manager.NetworkManager
+	DataManager        *data_manager.DataManager
+	CandidateManager   *data_manager.CandidateManager
 	KubeClusterManager *k8s.SKubeClusterManager
 }
 
@@ -59,8 +58,6 @@ func NewSchedulerManager(stopCh <-chan struct{}) *SchedulerManager {
 	sm.CompletedManager = NewCompletedManager(stopCh)
 	sm.HistoryManager = NewHistoryManager(stopCh)
 	sm.TaskManager = NewTaskManager(stopCh)
-	//sm.ReservedPoolManager = data_manager.NewReservedPoolManager(stopCh)
-	//sm.NetworkManager = data_manager.NewNetworkManager(sm.DataManager, sm.ReservedPoolManager)
 	sm.KubeClusterManager = k8s.NewKubeClusterManager(o.GetOptions().Region, 30*time.Second)
 
 	return sm
@@ -92,16 +89,14 @@ func (sm *SchedulerManager) start() {
 		sm.TaskManager.Run,
 		sm.DataManager.Run,
 		sm.CandidateManager.Run,
-		//sm.ReservedPoolManager.Run,
-		//sm.NetworkManager.Run,
-		sm.KubeClusterManager.Start,
+		//sm.KubeClusterManager.Start,
 	}
 	for _, f := range startFuncs {
 		go f()
 	}
 }
 
-func (sm *SchedulerManager) schedule(info *api.SchedInfo) (*core.SchedResultItemList, error) {
+func (sm *SchedulerManager) schedule(info *api.SchedInfo) (*ScheduleResult, error) {
 	log.V(10).Infof("SchedulerManager do schedule, input: %#v", info)
 	task, err := sm.TaskManager.AddTask(sm, info)
 	if err != nil {
@@ -126,7 +121,7 @@ func NewSessionID() string {
 
 // Schedule process the request data that is scheduled for dispatch and complements
 // the session information.
-func Schedule(info *api.SchedInfo) (*core.SchedResultItemList, error) {
+func Schedule(info *api.SchedInfo) (*ScheduleResult, error) {
 	if len(info.SessionId) == 0 {
 		info.SessionId = NewSessionID()
 	}
@@ -273,6 +268,11 @@ func GetCandidateHostList(
 			HostStatus:   c.HostStatus,
 			HostType:     c.GetHostType(),
 			EnableStatus: c.GetEnableStatus(),
+		}
+
+		pendingUsage, _ := schedmodels.HostPendingUsageManager.GetPendingUsage(c.GetId())
+		if pendingUsage != nil {
+			item.PendingUsage = pendingUsage.ToMap()
 		}
 		r.Data = append(r.Data, item)
 	}
@@ -447,6 +447,7 @@ func GetHistoryDetail(historyDetailArgs *api.HistoryDetailArgs) (*api.HistoryDet
 
 		if historyDetailArgs.Log {
 			historyTask.Logs = taskExecutor.GetLogs()
+			historyTask.CapacityMap = taskExecutor.GetCapacityMap()
 		}
 	}
 

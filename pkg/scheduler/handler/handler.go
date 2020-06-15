@@ -26,14 +26,11 @@ import (
 	"yunion.io/x/log"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
-	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
-	"yunion.io/x/onecloud/pkg/scheduler/core"
 	skuman "yunion.io/x/onecloud/pkg/scheduler/data_manager/sku"
 	schedman "yunion.io/x/onecloud/pkg/scheduler/manager"
-	schedmodels "yunion.io/x/onecloud/pkg/scheduler/models"
 )
 
 // InstallHandler is an interface that registes route and
@@ -51,7 +48,12 @@ func timer(f gin.HandlerFunc) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		startTime := time.Now()
 		f(c)
-		log.Infof("Handler %q cost: %v", c.Request.URL.Path, time.Since(startTime))
+		path := c.Request.URL.Path
+		raw := c.Request.URL.RawQuery
+		if raw != "" {
+			path = path + "?" + raw
+		}
+		log.Infof("Handler %q cost: %v", path, time.Since(startTime))
 	}
 }
 
@@ -118,16 +120,7 @@ func doSchedulerTest(c *gin.Context) {
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
-	c.JSON(http.StatusOK, transToSchedTestResult(result, schedInfo.SuggestionLimit))
-}
-
-func transToSchedTestResult(result *core.SchedResultItemList, limit int64) interface{} {
-	return &api.SchedTestResult{
-		Data:   result.Data,
-		Total:  int64(result.Len()),
-		Limit:  limit,
-		Offset: 0,
-	}
+	c.JSON(http.StatusOK, result.TestResult)
 }
 
 func doSchedulerForecast(c *gin.Context) {
@@ -150,7 +143,7 @@ func doSchedulerForecast(c *gin.Context) {
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
-	c.JSON(http.StatusOK, transToSchedForecastResult(result))
+	c.JSON(http.StatusOK, result.ForecastResult)
 }
 
 func doCandidateList(c *gin.Context) {
@@ -283,66 +276,7 @@ func doSyncSchedule(c *gin.Context) {
 		return
 	}
 
-	count := int64(schedInfo.Count)
-	var resp *schedapi.ScheduleOutput
-	sid := schedInfo.SessionId
-	if schedInfo.Backup {
-		resp = transToBackupSchedResult(result, schedInfo.PreferHost, schedInfo.PreferBackupHost, count, sid)
-	} else {
-		resp = transToRegionSchedResult(result.Data, count, sid)
-	}
-
-	driver := result.Unit.GetHypervisorDriver()
-	if err := setSchedPendingUsage(driver, schedInfo, resp); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
-	c.JSON(http.StatusOK, resp)
-}
-
-func IsDriverSkipScheduleDirtyMark(driver computemodels.IGuestDriver) bool {
-	return !(driver.DoScheduleCPUFilter() && driver.DoScheduleMemoryFilter() && driver.DoScheduleStorageFilter())
-}
-
-func setSchedPendingUsage(driver computemodels.IGuestDriver, req *api.SchedInfo, resp *schedapi.ScheduleOutput) error {
-	if req.IsSuggestion || IsDriverSkipScheduleDirtyMark(driver) || req.SkipDirtyMarkHost() {
-		return nil
-	}
-	for _, item := range resp.Candidates {
-		schedmodels.HostPendingUsageManager.SetPendingUsage(req, item)
-	}
-	return nil
-}
-
-func transToRegionSchedResult(result []*core.SchedResultItem, count int64, sid string) *schedapi.ScheduleOutput {
-	apiResults := make([]*schedapi.CandidateResource, 0)
-	succCount := 0
-	storageUsed := core.NewStorageUsed()
-	for _, nr := range result {
-		for {
-			if nr.Count <= 0 {
-				break
-			}
-			tr := nr.ToCandidateResource(storageUsed)
-			tr.SessionId = sid
-			apiResults = append(apiResults, tr)
-			nr.Count--
-			succCount++
-		}
-	}
-
-	for {
-		if int64(succCount) >= count {
-			break
-		}
-		er := &schedapi.CandidateResource{Error: "Out of resource"}
-		apiResults = append(apiResults, er)
-		succCount++
-	}
-
-	return &schedapi.ScheduleOutput{
-		Candidates: apiResults,
-	}
+	c.JSON(http.StatusOK, result.Result)
 }
 
 func regionResponse(v interface{}) interface{} {
