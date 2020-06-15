@@ -437,7 +437,7 @@ func NewScheduleUnit(info *api.SchedInfo, schedManager interface{}) *Unit {
 }
 
 func (u *Unit) Info() string {
-	return fmt.Sprintf("%#v", u.SchedInfo)
+	return u.SchedInfo.JSON(u.SchedInfo).String()
 }
 
 func (u *Unit) SessionID() string {
