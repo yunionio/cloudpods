@@ -119,7 +119,7 @@ type LoadbalancerListenerListOptions struct {
 	XForwardedFor string `choices:"true|false"`
 	Gzip          string `choices:"true|false"`
 
-	Certificate     string
+	Certificate     string `json:"certificate_id"`
 	TLSCipherPolicy string
 	EnableHttp2     string `choices:"true|false"`
 

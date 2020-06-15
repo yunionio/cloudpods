@@ -48,6 +48,8 @@ type LoadbalancerListenerListInput struct {
 
 	Scheduler []string `json:"scheduler"`
 
+	Certificate []string `json:"certificate_id"`
+
 	SendProxy []string `json:"send_proxy"`
 
 	AclStatus []string `json:"acl_status"`

@@ -248,6 +248,9 @@ func (man *SLoadbalancerListenerManager) ListItemFilter(
 	if len(query.Scheduler) > 0 {
 		q = q.In("scheduler", query.Scheduler)
 	}
+	if len(query.Certificate) > 0 {
+		q = q.In("certificate_id", query.Certificate)
+	}
 	if len(query.SendProxy) > 0 {
 		q = q.In("send_proxy", query.SendProxy)
 	}
