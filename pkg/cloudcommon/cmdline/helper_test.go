@@ -15,7 +15,6 @@
 package cmdline
 
 import (
-	"reflect"
 	"testing"
 
 	"yunion.io/x/jsonutils"
@@ -94,13 +93,13 @@ func TestFetchServerConfigsByJSON(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := FetchServerConfigsByJSON(tt.args.obj)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("FetchServerConfigsByJSON() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("wantErr %v, error = %v", tt.wantErr, err)
 				return
 			}
-			gotJ := jsonutils.Marshal(got).String()
-			wantJ := jsonutils.Marshal(tt.want).String()
-			if !reflect.DeepEqual(gotJ, wantJ) {
-				t.Errorf("FetchServerConfigsByJSON() = %v, want %v", gotJ, wantJ)
+			gotJ := jsonutils.Marshal(got)
+			wantJ := jsonutils.Marshal(tt.want)
+			if !gotJ.Equals(wantJ) {
+				t.Errorf("got:\n%s\nwant:\n%s", gotJ, wantJ)
 			}
 		})
 	}
