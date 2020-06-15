@@ -16,7 +16,6 @@ package jsonutils
 
 import (
 	"bytes"
-	"fmt"
 	"reflect"
 	"sort"
 	"strconv"
@@ -32,6 +31,8 @@ type JSONObject interface {
 	gotypes.ISerializable
 
 	parse(str []byte, offset int) (int, error)
+	writeSource
+
 	// String() string
 	PrettyString() string
 	prettyString(level int) string
@@ -98,12 +99,14 @@ type JSONBool struct {
 }
 
 func skipEmpty(str []byte, offset int) int {
-	const (
-		EMPTYSTR = " \t\n\r"
-	)
 	i := offset
-	for i < len(str) && strings.IndexByte(EMPTYSTR, str[i]) >= 0 {
-		i++
+	for i < len(str) {
+		switch str[i] {
+		case ' ', '\t', '\n', '\r':
+			i++
+		default:
+			return i
+		}
 	}
 	return i
 }
@@ -151,79 +154,88 @@ func hexstr2rune(str []byte) (rune, error) {
 	return rune(v1)*256 + rune(v2), nil
 }
 
-func parseString(str []byte, offset int) (string, bool, int, error) {
-	var buffer bytes.Buffer
-	var endstr string
-	var runebytes = make([]byte, 4)
-	var runen int
-	var i = offset
-	var quote bool = false
-	if str[i] == '"' {
-		endstr = "\""
-		i++
-		quote = true
-	} else if str[i] == '\'' {
-		endstr = "'"
-		i++
-		quote = true
-	} else {
-		endstr = " :,\t\n}]"
-	}
+func parseQuoteString(str []byte, offset int, quotec byte) (string, int, error) {
+	var (
+		buffer    []byte
+		runebytes = make([]byte, 4)
+		runen     int
+		i         = offset
+	)
+ret:
 	for i < len(str) {
-		if quote && str[i] == '\\' {
+		switch str[i] {
+		case '\\':
 			if i+1 < len(str) {
 				i++
 				switch str[i] {
 				case 'u':
 					i++
 					if i+4 >= len(str) {
-						return "", quote, i, NewJSONError(str, i, "Incomplete unicode")
+						return "", i, NewJSONError(str, i, "Incomplete unicode")
 					}
 					r, e := hexstr2rune(str[i : i+4])
 					if e != nil {
-						return "", quote, i, NewJSONError(str, i, e.Error())
+						return "", i, NewJSONError(str, i, e.Error())
 					}
 					runen = utf8.EncodeRune(runebytes, r)
-					buffer.Write(runebytes[0:runen])
+					buffer = append(buffer, runebytes[0:runen]...)
 					i += 4
 				case 'x':
 					i++
 					if i+2 >= len(str) {
-						return "", quote, i, NewJSONError(str, i, "Incomplete hex")
+						return "", i, NewJSONError(str, i, "Incomplete hex")
 					}
 					b, e := hexstr2byte(str[i : i+2])
 					if e != nil {
-						return "", quote, i, NewJSONError(str, i, e.Error())
+						return "", i, NewJSONError(str, i, e.Error())
 					}
-					buffer.WriteByte(b)
+					buffer = append(buffer, b)
 					i += 2
 				case 'n':
-					buffer.WriteByte('\n')
+					buffer = append(buffer, '\n')
 					i++
 				case 'r':
-					buffer.WriteByte('\r')
+					buffer = append(buffer, '\r')
 					i++
 				case 't':
-					buffer.WriteByte('\t')
+					buffer = append(buffer, '\t')
 					i++
 				default:
-					buffer.WriteByte(str[i])
+					buffer = append(buffer, str[i])
 					i++
 				}
 			} else {
-				return "", quote, i, NewJSONError(str, i, "Incomplete escape")
+				return "", i, NewJSONError(str, i, "Incomplete escape")
 			}
-		} else if strings.IndexByte(endstr, str[i]) >= 0 {
-			if quote {
-				i++
-			}
-			break
-		} else {
-			buffer.WriteByte(str[i])
+		case quotec:
+			i++
+			break ret
+		default:
+			buffer = append(buffer, str[i])
 			i++
 		}
 	}
-	return buffer.String(), quote, i, nil
+	return string(buffer), i, nil
+}
+
+func parseString(str []byte, offset int) (string, bool, int, error) {
+	var (
+		i = offset
+	)
+	if c := str[i]; c == '"' || c == '\'' {
+		r, newOfs, err := parseQuoteString(str, i+1, c)
+		return r, true, newOfs, err
+	}
+ret2:
+	for i < len(str) {
+		switch str[i] {
+		case ' ', ':', ',', '\t', '\n', '}', ']':
+			break ret2
+		default:
+			i++
+		}
+	}
+	return string(str[offset:i]), false, i, nil
 }
 
 func parseJSONValue(str []byte, offset int) (JSONObject, int, error) {
@@ -256,37 +268,27 @@ func parseJSONValue(str []byte, offset int) (JSONObject, int, error) {
 }
 
 func quoteString(str string) string {
-	var buffer bytes.Buffer
-	buffer.WriteByte('"')
+	sb := &strings.Builder{}
+	sb.Grow(len(str) + 2)
+	sb.WriteByte('"')
 	for i := 0; i < len(str); i++ {
-		var escape byte = 0xff
-		switch str[i] {
+		switch c := str[i]; c {
 		case '"':
-			escape = '"'
+			sb.Write([]byte{'\\', '"'})
 		case '\r':
-			escape = 'r'
+			sb.Write([]byte{'\\', 'r'})
 		case '\n':
-			escape = 'n'
+			sb.Write([]byte{'\\', 'n'})
 		case '\t':
-			escape = 't'
+			sb.Write([]byte{'\\', 't'})
 		case '\\':
-			escape = '\\'
+			sb.Write([]byte{'\\', '\\'})
 		default:
-			escape = 0xff
-		}
-		if escape != 0xff {
-			buffer.WriteByte('\\')
-			buffer.WriteByte(escape)
-		} else {
-			buffer.WriteByte(str[i])
+			sb.WriteByte(c)
 		}
 	}
-	buffer.WriteByte('"')
-	return buffer.String()
-}
-
-func (this *JSONString) String() string {
-	return quoteString(this.data)
+	sb.WriteByte('"')
+	return sb.String()
 }
 
 func jsonPrettyString(o JSONObject, level int) string {
@@ -314,20 +316,12 @@ func (this *JSONValue) parse(str []byte, offset int) (int, error) {
 	return 0, nil
 }
 
-func (this *JSONValue) String() string {
-	return "null"
-}
-
 func (this *JSONValue) PrettyString() string {
 	return this.String()
 }
 
 func (this *JSONValue) prettyString(level int) string {
 	return jsonPrettyString(this, level)
-}
-
-func (this *JSONInt) String() string {
-	return fmt.Sprintf("%d", this.data)
 }
 
 func (this *JSONInt) PrettyString() string {
@@ -342,10 +336,6 @@ func (this *JSONInt) Value() int64 {
 	return this.data
 }
 
-func (this *JSONFloat) String() string {
-	return fmt.Sprintf("%f", this.data)
-}
-
 func (this *JSONFloat) PrettyString() string {
 	return this.String()
 }
@@ -356,14 +346,6 @@ func (this *JSONFloat) prettyString(level int) string {
 
 func (this *JSONFloat) Value() float64 {
 	return this.data
-}
-
-func (this *JSONBool) String() string {
-	if this.data {
-		return "true"
-	} else {
-		return "false"
-	}
 }
 
 func (this *JSONBool) PrettyString() string {
@@ -449,14 +431,16 @@ func parseDict(str []byte, offset int) (map[string]JSONObject, int, error) {
 }
 
 func parseArray(str []byte, offset int) ([]JSONObject, int, error) {
-	var list = make([]JSONObject, 0)
 	if str[offset] != '[' {
-		return list, offset, NewJSONError(str, offset, "[ not found")
+		return nil, offset, NewJSONError(str, offset, "[ not found")
 	}
-	var i = offset + 1
-	var val JSONObject = nil
-	var e error = nil
-	var stop = false
+	var (
+		list []JSONObject
+		i    = offset + 1
+		val  JSONObject
+		e    error
+		stop bool
+	)
 	for !stop && i < len(str) {
 		i = skipEmpty(str, i)
 		if i >= len(str) {
@@ -517,24 +501,6 @@ func (this *JSONDict) SortedKeys() []string {
 	return keys
 }
 
-func (this *JSONDict) String() string {
-	var buffer bytes.Buffer
-	buffer.WriteByte('{')
-	var idx = 0
-	for _, k := range this.SortedKeys() {
-		v := this.data[k]
-		if idx > 0 {
-			buffer.WriteString(",")
-		}
-		buffer.WriteString(quoteString(k))
-		buffer.WriteByte(':')
-		buffer.WriteString(v.String())
-		idx++
-	}
-	buffer.WriteByte('}')
-	return buffer.String()
-}
-
 func (this *JSONDict) PrettyString() string {
 	return this.prettyString(0)
 }
@@ -589,19 +555,6 @@ func (this *JSONArray) parse(str []byte, offset int) (int, error) {
 		this.data = val
 	}
 	return i, errors.Wrap(e, "parseArray")
-}
-
-func (this *JSONArray) String() string {
-	var buffer bytes.Buffer
-	buffer.WriteByte('[')
-	for idx, v := range this.data {
-		if idx > 0 {
-			buffer.WriteString(",")
-		}
-		buffer.WriteString(v.String())
-	}
-	buffer.WriteByte(']')
-	return buffer.String()
 }
 
 func (this *JSONArray) PrettyString() string {
