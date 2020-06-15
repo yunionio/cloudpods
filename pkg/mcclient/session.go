@@ -352,6 +352,10 @@ func (this *ClientSession) WaitTaskNotify() {
 	}
 }
 
+func (this *ClientSession) SetApiVersion(version string) {
+	this.defaultApiVersion = version
+}
+
 func (this *ClientSession) GetApiVersion() string {
 	apiVersion := this.getApiVersion("")
 	if len(apiVersion) == 0 {
