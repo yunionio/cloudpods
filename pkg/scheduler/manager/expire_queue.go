@@ -57,17 +57,6 @@ func newExpireHost(id string, sid string) *expireHost {
 func (e *ExpireManager) Run() {
 	t := time.Tick(u.ToDuration(o.GetOptions().ExpireQueueConsumptionPeriod))
 
-	//notInSession := func(hosts []*expireHost, resType string) []*expireHost {
-	////var newIds []string
-	////for _, id := range ids {
-	////if !schedManager.ReservedPoolManager.InSession(resType, id) {
-	////newIds = append(newIds, id)
-	////}
-	////}
-	////return newIds
-	//return ids
-	//}
-
 	waitTimeOut := func(wg *sync.WaitGroup, timeout time.Duration) bool {
 		ch := make(chan struct{})
 		go func() {

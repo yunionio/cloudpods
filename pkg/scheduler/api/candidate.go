@@ -66,15 +66,16 @@ func NewResultResourceInt64(f, r, t int64) *ResultResource {
 }
 
 type CandidateListResultItem struct {
-	ID           string         `json:"id"`
-	Name         string         `json:"name"`
-	Cpu          ResultResource `json:"cpu"`
-	Mem          ResultResource `json:"mem"`
-	Storage      ResultResource `json:"storage"`
-	Status       string         `json:"status"`
-	HostStatus   string         `json:"host_status"`
-	EnableStatus string         `json:"enable_status"`
-	HostType     string         `json:"host_type"`
+	ID           string                 `json:"id"`
+	Name         string                 `json:"name"`
+	Cpu          ResultResource         `json:"cpu"`
+	Mem          ResultResource         `json:"mem"`
+	Storage      ResultResource         `json:"storage"`
+	Status       string                 `json:"status"`
+	HostStatus   string                 `json:"host_status"`
+	EnableStatus string                 `json:"enable_status"`
+	HostType     string                 `json:"host_type"`
+	PendingUsage map[string]interface{} `json:"pending_usage"`
 }
 
 type CandidateListResult struct {
