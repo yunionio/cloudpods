@@ -19,6 +19,8 @@ import (
 	"net/url"
 	"testing"
 
+	"yunion.io/x/s3cli"
+
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/util/httputils"
@@ -113,6 +115,7 @@ func TestProxyFunc(t *testing.T) {
 		}
 	})
 	t.Run("objectstore", func(t *testing.T) {
+		s3cli.MaxRetry = 1
 		cpcfgs := map[string]*cloudprovider.ProviderConfig{
 			compute.CLOUD_PROVIDER_CEPH:      &cloudprovider.ProviderConfig{},
 			compute.CLOUD_PROVIDER_XSKY:      &cloudprovider.ProviderConfig{},
