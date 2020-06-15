@@ -15,9 +15,11 @@
 package modules
 
 import (
+	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -40,7 +42,7 @@ func init() {
 }
 
 func (this *MetadataManager) getModule(session *mcclient.ClientSession, params jsonutils.JSONObject) (modulebase.Manager, error) {
-	service := "compute_v2"
+	service, version := "compute", ""
 	if params.Contains("service") {
 		service, _ = params.GetString("service")
 	} else {
@@ -63,14 +65,37 @@ func (this *MetadataManager) getModule(session *mcclient.ClientSession, params j
 			if strings.HasSuffix(resource, "y") {
 				keyString = resource[:len(resource)-1] + "ies"
 			}
-			mod, err := modulebase.GetModule(session, keyString)
-			if err != nil {
-				return nil, err
+			find := false
+			mods, _ := modulebase.GetRegisterdModules()
+			for _versin, mds := range mods {
+				if utils.IsInStringArray(keyString, mds) {
+					version = _versin
+					session.SetApiVersion(version)
+					mod, err := modulebase.GetModule(session, keyString)
+					if err != nil {
+						return nil, err
+					}
+					service = mod.ServiceType()
+					find = true
+					break
+				}
 			}
-			service = mod.ServiceType()
+			if !find {
+				return nil, fmt.Errorf("No such module %s", keyString)
+			}
 		}
 	}
 
+	switch service {
+	case "identity":
+		version = "v3"
+	case "compute":
+		version = "v2"
+	default:
+		version = "v1"
+	}
+
+	session.SetApiVersion(version)
 	_, err := session.GetServiceURL(service, "")
 	if err != nil {
 		return nil, httperrors.NewNotFoundError("service %s not found error: %v", service, err)
