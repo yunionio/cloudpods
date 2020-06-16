@@ -162,7 +162,7 @@ func ResizeDiskFs(diskPath string, sizeMb int) error {
 		}
 		log.Infof("gdisk: %s %s", stdoutPut, stderrOutPut)
 		if err = proc.Wait(); err != nil {
-			if status, succ := procutils.GetExitStatus(err); succ {
+			if status, succ := proc.GetExitStatus(err); succ {
 				if status != 1 {
 					return err
 				}
@@ -279,7 +279,7 @@ func FsckExtFs(fpath string) bool {
 	} else {
 		err = cmd.Wait()
 		if err != nil {
-			if status, ok := procutils.GetExitStatus(err); ok {
+			if status, ok := cmd.GetExitStatus(err); ok {
 				if status < 4 {
 					return true
 				}
