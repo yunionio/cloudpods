@@ -479,7 +479,7 @@ func (m *SGuestMonitor) Netio() jsonutils.JSONObject {
 }
 
 func (m *SGuestMonitor) Cpu() jsonutils.JSONObject {
-	percent, _ := m.Process.CPUPercent()
+	percent, _ := m.Process.Percent(time.Millisecond * 100)
 	cpuTimes, _ := m.Process.Times()
 	ret := jsonutils.NewDict()
 	ret.Set("usage_active", jsonutils.NewFloat(percent))
