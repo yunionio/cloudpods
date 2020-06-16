@@ -58,6 +58,7 @@ func (r *Ring) Pop() interface{} {
 		return nil
 	}
 	ret := r.buffer[r.tail]
+	r.buffer[r.tail] = nil
 	r.tail = nextPointer(r.tail, len(r.buffer))
 	return ret
 }
