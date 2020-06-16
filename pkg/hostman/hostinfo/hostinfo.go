@@ -419,13 +419,13 @@ func (h *SHostInfo) checkSystemServices() error {
 			srvinst.Start(false)
 		}
 	}
-	for _, srv := range []string{"telegraf", "ntpd"} {
+	for _, srv := range []string{"ntpd"} {
 		srvinst := system_service.GetService(srv)
 		funcEn(srv, srvinst)
 	}
 
 	svcs := os.Getenv("HOST_SYSTEM_SERVICES_OFF")
-	for _, srv := range []string{"host_sdnagent", "host-deployer"} {
+	for _, srv := range []string{"host_sdnagent", "host-deployer", "telegraf"} {
 		srvinst := system_service.GetService(srv)
 		if strings.Contains(svcs, srv) {
 			if srvinst.IsActive() || srvinst.IsEnabled() {
@@ -1547,7 +1547,12 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 	log.Debugf("telegraf config: %s", conf)
 	if !reflect.DeepEqual(telegraf.GetConf(), conf) || !telegraf.IsActive() {
 		telegraf.SetConf(conf)
-		telegraf.BgReload(conf)
+		svcs := os.Getenv("HOST_SYSTEM_SERVICES_OFF")
+		if !strings.Contains(svcs, "telegraf") {
+			telegraf.BgReload(conf)
+		} else {
+			telegraf.BgReloadConf(conf)
+		}
 	}
 
 	urls, _ = catalog.GetServiceURLs("elasticsearch",

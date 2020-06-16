@@ -33,6 +33,7 @@ type ISystemService interface {
 	SetConf(interface{})
 	GetConf() interface{}
 	BgReload(kwargs map[string]interface{})
+	BgReloadConf(kwargs map[string]interface{})
 	Enable() error
 	Disable() error
 	Reload(kwargs map[string]interface{}) error
@@ -84,21 +85,31 @@ func NewBaseSystemService(name string, urls interface{}) *SBaseSystemService {
 }
 
 func (s *SBaseSystemService) reload(conf, conFile string) error {
+	if ok, err := s.reloadConf(conf, conFile); err != nil {
+		return err
+	} else if ok {
+		return s.Start(false)
+	} else {
+		return nil
+	}
+}
+
+func (s *SBaseSystemService) reloadConf(conf, conFile string) (bool, error) {
 	output, _ := procutils.NewRemoteCommandAsFarAsPossible("cat", conFile).Output()
 	oldConf := string(output)
 	if conf != oldConf {
 		log.Infof("Reload service %s ...", s.name)
 		err := procutils.NewRemoteCommandAsFarAsPossible("rm", "-f", conFile).Run()
 		if err != nil {
-			return nil
+			return false, err
 		}
 		err = procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", fmt.Sprintf("echo '%s' > %s", conf, conFile)).Run()
 		if err != nil {
-			return err
+			return false, err
 		}
-		return s.Start(false)
+		return true, nil
 	}
-	return nil
+	return false, nil
 }
 
 func (s *SBaseSystemService) IsInstalled() bool {
@@ -156,4 +167,8 @@ func (s *SBaseSystemService) Enable() error {
 
 func (s *SBaseSystemService) Disable() error {
 	return s.manager.Disable(s.name)
+}
+
+func (s *SBaseSystemService) BgReloadConf(kwargs map[string]interface{}) {
+	go s.reloadConf(s.GetConfig(kwargs), s.GetConfigFile())
 }

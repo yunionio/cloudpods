@@ -29,3 +29,7 @@ func (s *SHostDeployer) Reload(kwargs map[string]interface{}) error {
 func (s *SHostDeployer) BgReload(kwargs map[string]interface{}) {
 	go s.reload(s.GetConfig(kwargs), s.GetConfigFile())
 }
+
+func (s *SHostDeployer) BgReloadConf(kwargs map[string]interface{}) {
+	go s.reloadConf(s.GetConfig(kwargs), s.GetConfigFile())
+}
