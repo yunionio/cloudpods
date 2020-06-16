@@ -250,32 +250,6 @@ func GetMatchRule(rules []SRbacRule, service string, resource string, action str
 	return matchRule
 }
 
-func CompactRules(rules []SRbacRule) []SRbacRule {
-	if len(rules) == 0 {
-		return nil
-	}
-	/*output := make([]SRbacRule, 1)
-	output[0] = rules[0]
-	for i := 1; i < len(rules); i += 1 {
-		isContains := false
-		for j := 0; j < len(output); j += 1 {
-			if output[j].contains(&rules[i]) {
-				isContains = true
-				break
-			}
-			if rules[i].contains(&output[j]) {
-				output[j] = rules[i]
-				isContains = true
-				break
-			}
-		}
-		if !isContains {
-			output = append(output, rules[i])
-		}
-	}*/
-	return reduceRules(rules)
-}
-
 var (
 	tenantEqualsPattern = regexp.MustCompile(`tenant\s*==\s*['"]?(\w+)['"]?`)
 	roleContainsPattern = regexp.MustCompile(`roles.contains\(['"]?(\w+)['"]?\)`)
