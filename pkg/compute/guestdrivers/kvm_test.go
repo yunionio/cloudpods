@@ -21,5 +21,7 @@ func TestSKVMGuestDriver_GetGuestVncInfo(t *testing.T) {
 address: 0.0.0.0:5901
 auth: none
 Client: none`
-	t.Logf("port=%d", findVNCPort(results))
+	if want, got := 5901, findVNCPort(results); got != want {
+		t.Errorf("bad port, want %d, got %d", want, got)
+	}
 }
