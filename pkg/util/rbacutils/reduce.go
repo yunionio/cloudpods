@@ -240,7 +240,7 @@ func rules2Json(rules []SRbacRule) jsonutils.JSONObject {
 	for _, r := range rules {
 		root.AddRule(r)
 	}
-	root.reduce()
+	// root.reduce()
 	return root.json()
 }
 
@@ -250,7 +250,7 @@ func json2Rules(json jsonutils.JSONObject) ([]SRbacRule, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "root.parseJson")
 	}
-	root.reduce()
+	// root.reduce()
 	return root.GetRules(), nil
 }
 
