@@ -19,28 +19,33 @@ import (
 )
 
 func TestRing(t *testing.T) {
-	r := NewRing(10)
-	var v int32 = 10
-	r.Push(v)
-	v = 20
-	r.Push(v)
-	v = 30
-	r.Push(v)
-	v1 := r.Pop().(int32)
-	if v1 != 10 {
-		t.Error("Fail")
-	}
-	v2 := r.Pop().(int32)
-	if v2 != 20 {
-		t.Error("Fail")
-	}
-	v3 := r.Pop().(int32)
-	if v3 != 30 {
-		t.Error("Fail")
-	}
-	v4 := r.Pop()
-	if v4 != nil {
-		t.Error("Fail")
+	var (
+		r    = NewRing(10)
+		push = func(v int32) {
+			r.Push(v)
+		}
+		pop = func(want int32) {
+			got := r.Pop().(int32)
+			if got != want {
+				t.Fatalf("got %d, want %d", got, want)
+			}
+			for i := r.header; i != r.tail; i = nextPointer(i, len(r.buffer)) {
+				if r.buffer[i] != nil {
+					t.Fatalf("head %d, tail %d, index %d not nil",
+						r.header, r.tail, i)
+				}
+			}
+		}
+	)
+	push(10)
+	push(20)
+	push(30)
+
+	pop(10)
+	pop(20)
+	pop(30)
+	if v := r.Pop(); v != nil {
+		t.Fatalf("want nil, got %#v", v)
 	}
 }
 
