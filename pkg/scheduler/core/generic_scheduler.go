@@ -118,7 +118,7 @@ func (g *GenericScheduler) Schedule(unit *Unit, candidates []Candidater) (*Sched
 	trace := utiltrace.New(fmt.Sprintf("SessionID: %s, schedule info: %s",
 		schedInfo.SessionId, unit.Info()))
 
-	defer trace.LogIfLong(100 * time.Millisecond)
+	defer trace.LogIfLong(1 * time.Second)
 	if len(candidates) == 0 {
 		return nil, &NoResourceError{
 			sessionID: schedInfo.SessionId,

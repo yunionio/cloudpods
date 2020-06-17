@@ -82,6 +82,10 @@ func FetchSchedInfo(req *http.Request) (*SchedInfo, error) {
 		details[groups[i].Id] = &groups[i]
 	}
 	data.InstanceGroupsDetail = details
+	if data.Count == 0 {
+		log.Warningf("schedule info data count is 0, set to 1")
+		data.Count = 1
+	}
 
 	return data, nil
 }
