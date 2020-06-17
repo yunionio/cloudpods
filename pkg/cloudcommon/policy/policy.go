@@ -387,8 +387,15 @@ func (manager *SPolicyManager) allowWithoutCache(scope rbacutils.TRbacScope, use
 
 	var result rbacutils.TRbacResult
 	if len(matchRules) > 0 {
-		rule := rbacutils.GetMatchRule(matchRules, service, resource, action, extra...)
-		result = rule.Result
+		result = rbacutils.Deny
+		for _, rule := range matchRules {
+			if rule.Result == rbacutils.Allow {
+				result = rbacutils.Allow
+				break
+			}
+		}
+		// rule := rbacutils.GetMatchRule(matchRules, service, resource, action, extra...)
+		// result = rule.Result
 	} else if findMatchPolicy {
 		// if find matched policy, but no rule matching, allow anyway
 		result = rbacutils.Allow
