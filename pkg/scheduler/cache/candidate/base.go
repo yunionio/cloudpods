@@ -47,7 +47,8 @@ type BaseHostDesc struct {
 	InstanceGroups map[string]*api.CandidateGroup `json:"instance_groups"`
 	IpmiInfo       types.SIPMIInfo                `json:"ipmi_info"`
 
-	SharedDomains []string `json:"shared_domains"`
+	SharedDomains []string               `json:"shared_domains"`
+	PendingUsage  map[string]interface{} `json:"pending_usage"`
 }
 
 type baseHostGetter struct {
@@ -267,6 +268,7 @@ func newBaseHostDesc(host *computemodels.SHost) (*BaseHostDesc, error) {
 	}
 
 	desc.fillSharedDomains()
+	desc.PendingUsage = desc.GetPendingUsage().ToMap()
 
 	return desc, nil
 }

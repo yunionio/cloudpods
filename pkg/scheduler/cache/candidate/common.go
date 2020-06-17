@@ -36,6 +36,7 @@ var (
 	)
 
 	VMCreatingStatus = sets.NewString(
+		computeapi.VM_SCHEDULE,
 		computeapi.VM_CREATE_NETWORK,
 		computeapi.VM_CREATE_DISK,
 		computeapi.VM_START_DEPLOY,
