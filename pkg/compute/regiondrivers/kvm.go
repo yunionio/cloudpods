@@ -299,8 +299,8 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx con
 		"redirect":        redirectV.Default(api.LB_REDIRECT_OFF),
 		"redirect_code":   redirectCodeV.Default(api.LB_REDIRECT_CODE_302),
 		"redirect_scheme": redirectSchemeV.Optional(true),
-		"redirect_host":   redirectHostV.Optional(true),
-		"redirect_path":   redirectPathV.Optional(true),
+		"redirect_host":   redirectHostV.AllowEmpty(true).Optional(true),
+		"redirect_path":   redirectPathV.AllowEmpty(true).Optional(true),
 	}
 
 	if err := RunValidators(keyV, data, false); err != nil {
@@ -382,8 +382,8 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerListenerRuleData(ctx con
 		"redirect":        redirectV,
 		"redirect_code":   redirectCodeV,
 		"redirect_scheme": redirectSchemeV,
-		"redirect_host":   redirectHostV,
-		"redirect_path":   redirectPathV,
+		"redirect_host":   redirectHostV.AllowEmpty(true),
+		"redirect_path":   redirectPathV.AllowEmpty(true),
 	}
 	for _, v := range keyV {
 		v.Optional(true)
@@ -475,8 +475,8 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerData(ctx context
 		"redirect":        redirectV.Default(api.LB_REDIRECT_OFF),
 		"redirect_code":   redirectCodeV.Default(api.LB_REDIRECT_CODE_302),
 		"redirect_scheme": redirectSchemeV.Optional(true),
-		"redirect_host":   redirectHostV.Optional(true),
-		"redirect_path":   redirectPathV.Optional(true),
+		"redirect_host":   redirectHostV.AllowEmpty(true).Optional(true),
+		"redirect_path":   redirectPathV.AllowEmpty(true).Optional(true),
 	}
 
 	if err := RunValidators(keyV, data, false); err != nil {
@@ -637,8 +637,8 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context
 		"redirect":        redirectV,
 		"redirect_code":   redirectCodeV,
 		"redirect_scheme": redirectSchemeV,
-		"redirect_host":   redirectHostV,
-		"redirect_path":   redirectPathV,
+		"redirect_host":   redirectHostV.AllowEmpty(true),
+		"redirect_path":   redirectPathV.AllowEmpty(true),
 	}
 
 	if err := RunValidators(keyV, data, true); err != nil {
