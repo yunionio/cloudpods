@@ -25,10 +25,12 @@ type Ring struct {
 }
 
 func NewRing(size int) *Ring {
-	r := Ring{buffer: make([]interface{}, size+1),
+	r := Ring{
+		buffer: make([]interface{}, size+1),
 		header: 0,
 		tail:   0,
-		lock:   &sync.Mutex{}}
+		lock:   &sync.Mutex{},
+	}
 	return &r
 }
 
@@ -58,6 +60,7 @@ func (r *Ring) Pop() interface{} {
 		return nil
 	}
 	ret := r.buffer[r.tail]
+	r.buffer[r.tail] = nil
 	r.tail = nextPointer(r.tail, len(r.buffer))
 	return ret
 }
