@@ -51,7 +51,7 @@ const (
 	CITY_FU_ZHOU       = "Fuzhou"      //福州
 	CITY_WU_HAN        = "Wuhan"       //武汉
 	CITY_CHANG_SHA     = "Changsha"    //长沙
-	CITY_SHU_ZHOU      = "Shuzhou"     //苏州
+	CITY_SU_ZHOU       = "Suzhou"      //苏州
 	CITY_BAO_DING      = "Baoding"     //保定
 	CITY_NAN_JING      = "Nanjing"     //南京
 	CITY_FO_SHAN       = "Foshan"      //佛山
