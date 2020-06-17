@@ -178,3 +178,7 @@ func (s *STelegraf) Reload(kwargs map[string]interface{}) error {
 func (s *STelegraf) BgReload(kwargs map[string]interface{}) {
 	go s.reload(s.GetConfig(kwargs), s.GetConfigFile())
 }
+
+func (s *STelegraf) BgReloadConf(kwargs map[string]interface{}) {
+	go s.reloadConf(s.GetConfig(kwargs), s.GetConfigFile())
+}

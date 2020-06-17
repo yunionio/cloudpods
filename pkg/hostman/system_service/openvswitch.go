@@ -29,3 +29,7 @@ func (s *SOpenvswitch) Reload(kwargs map[string]interface{}) error {
 func (s *SOpenvswitch) BgReload(kwargs map[string]interface{}) {
 	go s.reload(s.GetConfig(kwargs), s.GetConfigFile())
 }
+
+func (s *SOpenvswitch) BgReloadConf(kwargs map[string]interface{}) {
+	go s.reloadConf(s.GetConfig(kwargs), s.GetConfigFile())
+}
