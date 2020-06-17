@@ -355,12 +355,15 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("invalid duration %s", input.Duration)
 		}
-		if !region.GetDriver().IsSupportedBillingCycle(billingCycle, man.KeywordPlural()) {
-			return nil, httperrors.NewInputParameterError("unsupported duration %s", input.Duration)
-		}
 
 		if !utils.IsInStringArray(input.BillingType, []string{billing_api.BILLING_TYPE_PREPAID, billing_api.BILLING_TYPE_POSTPAID}) {
 			input.BillingType = billing_api.BILLING_TYPE_PREPAID
+		}
+
+		if input.BillingType == billing_api.BILLING_TYPE_PREPAID {
+			if !region.GetDriver().IsSupportedBillingCycle(billingCycle, man.KeywordPlural()) {
+				return nil, httperrors.NewInputParameterError("unsupported duration %s", input.Duration)
+			}
 		}
 
 		tm := time.Time{}
