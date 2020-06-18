@@ -373,23 +373,24 @@ func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes inter
 			return
 		}
 	}
-	opslog := &SOpsLog{}
+	opslog := &SOpsLog{
+		ObjType:         model.Keyword(),
+		ObjId:           model.GetId(),
+		ObjName:         model.GetName(),
+		Action:          action,
+		Notes:           stringutils.Interface2String(notes),
+		ProjectId:       userCred.GetProjectId(),
+		Project:         userCred.GetProjectName(),
+		ProjectDomainId: userCred.GetProjectDomainId(),
+		ProjectDomain:   userCred.GetProjectDomain(),
+		UserId:          userCred.GetUserId(),
+		User:            userCred.GetUserName(),
+		DomainId:        userCred.GetDomainId(),
+		Domain:          userCred.GetDomainName(),
+		Roles:           strings.Join(userCred.GetRoles(), ","),
+		OpsTime:         time.Now().UTC(),
+	}
 	opslog.SetModelManager(OpsLog, opslog)
-	opslog.ObjType = model.Keyword()
-	opslog.ObjId = model.GetId()
-	opslog.ObjName = model.GetName()
-	opslog.Action = action
-	opslog.Notes = stringutils.Interface2String(notes)
-	opslog.ProjectId = userCred.GetProjectId()
-	opslog.Project = userCred.GetProjectName()
-	opslog.ProjectDomainId = userCred.GetProjectDomainId()
-	opslog.ProjectDomain = userCred.GetProjectDomain()
-	opslog.UserId = userCred.GetUserId()
-	opslog.User = userCred.GetUserName()
-	opslog.DomainId = userCred.GetDomainId()
-	opslog.Domain = userCred.GetDomainName()
-	opslog.Roles = strings.Join(userCred.GetRoles(), ",")
-	opslog.OpsTime = time.Now().UTC()
 
 	if virtualModel, ok := model.(IVirtualModel); ok && virtualModel != nil {
 		ownerId := virtualModel.GetOwnerId()
