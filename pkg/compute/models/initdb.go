@@ -58,6 +58,7 @@ func InitDB() error {
 		ElasticcacheSkuManager,
 
 		ScheduledTaskActivityManager,
+		ExternalProjectManager,
 	} {
 		err := manager.InitializeData()
 		if err != nil {
