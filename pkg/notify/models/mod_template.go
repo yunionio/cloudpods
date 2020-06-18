@@ -90,7 +90,7 @@ var templatePath = "/opt/yunion/share/template"
 func (tm *STemplateManager) defaultTemplate() ([]STemplate, error) {
 	templates := make([]STemplate, 0, 4)
 
-	for _, templateType := range []string{"title", "content", "remote"} {
+	for _, templateType := range []string{"title", "content"} {
 		contactType, topic := CONTACTTYPE_ALL, ""
 		titleTemplatePath := fmt.Sprintf("%s/%s", templatePath, templateType)
 		files, err := ioutil.ReadDir(titleTemplatePath)
@@ -122,52 +122,25 @@ func (tm *STemplateManager) defaultTemplate() ([]STemplate, error) {
 	return templates, nil
 }
 
-var (
-	InitVerifyEmailOver = false
-)
-
-type CompanyInfo struct {
-	Logo       string
-	LogoFormat string
-	Copyright  string
+type SCompanyInfo struct {
+	LoginLogo       string `json:"login_logo"`
+	LoginLogoFormat string `json:"login_logo_format"`
+	Copyright       string `json:"copyright"`
 }
 
-func (tm *STemplateManager) TryInitVerifyEmail(ctx context.Context) error {
-	if InitVerifyEmailOver {
-		return nil
-	}
+func (tm *STemplateManager) GetCompanyInfo(ctx context.Context) (SCompanyInfo, error) {
 	// fetch copyright and logo
 	session := auth.GetAdminSession(ctx, "", "")
 	obj, err := modules.Info.Get(session, "info", jsonutils.NewDict())
 	if err != nil {
-		return err
+		return SCompanyInfo{}, err
 	}
-	var info CompanyInfo
+	var info SCompanyInfo
 	err = obj.Unmarshal(&info)
 	if err != nil {
-		return err
+		return SCompanyInfo{}, err
 	}
-
-	// fetch verify email template
-	q := tm.Query().Equals("contact_type", "email").Equals("topic", "VERIFY").Equals("template_type", "content")
-	tem := &STemplate{}
-	err = q.First(tem)
-	if err != nil {
-		return err
-	}
-
-	tem.SetModelManager(TemplateManager, tem)
-
-	content, err := tem.Execute(jsonutils.Marshal(info).String())
-	if err != nil {
-		return err
-	}
-
-	_, err = db.Update(tem, func() error {
-		tem.Content = content
-		return nil
-	})
-	return err
+	return info, nil
 }
 
 func (tm *STemplateManager) InitializeData() error {
