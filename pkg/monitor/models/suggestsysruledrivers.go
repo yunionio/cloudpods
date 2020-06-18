@@ -25,12 +25,14 @@ import (
 
 var (
 	//存储初始化的内容，同时起到默认配置的作用。
-	suggestSysRuleDrivers = make(map[string]ISuggestSysRuleDriver, 0)
+	suggestSysRuleDrivers = make(map[monitor.SuggestDriverType]ISuggestSysRuleDriver, 0)
 )
 
 type ISuggestSysRuleDriver interface {
-	GetType() string
-	GetResourceType() string
+	GetType() monitor.SuggestDriverType
+	GetResourceType() monitor.MonitorResourceType
+	GetAction() monitor.SuggestDriverAction
+	GetSuggest() monitor.MonitorSuggest
 	//validate on create
 	ValidateSetting(input *monitor.SSuggestSysAlertSetting) error
 
@@ -50,6 +52,6 @@ func RegisterSuggestSysRuleDrivers(drvs ...ISuggestSysRuleDriver) {
 	}
 }
 
-func GetSuggestSysRuleDrivers() map[string]ISuggestSysRuleDriver {
+func GetSuggestSysRuleDrivers() map[monitor.SuggestDriverType]ISuggestSysRuleDriver {
 	return suggestSysRuleDrivers
 }

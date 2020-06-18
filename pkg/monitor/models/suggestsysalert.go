@@ -186,31 +186,34 @@ func (man *SSuggestSysAlertManager) FetchCustomizeColumns(
 	return rows
 }
 
+func (man *SSuggestSysRuleManager) GetDriver(drvType monitor.SuggestDriverType) ISuggestSysRuleDriver {
+	return GetSuggestSysRuleDrivers()[drvType]
+}
+
+func (self *SSuggestSysAlert) GetDriver() ISuggestSysRuleDriver {
+	return SuggestSysRuleManager.GetDriver(self.GetType())
+}
+
+func (self *SSuggestSysAlert) GetType() monitor.SuggestDriverType {
+	return monitor.SuggestDriverType(self.Type)
+}
+
 func (self *SSuggestSysAlert) getMoreDetails(out monitor.SuggestSysAlertDetails) monitor.SuggestSysAlertDetails {
 	err := self.ResMeta.Unmarshal(&out)
 	if err != nil {
 		log.Errorln("SSuggestSysAlert getMoreDetails's error:", err)
 	}
+	drv := self.GetDriver()
 	out.Account = self.Cloudaccount
-	out.ResType = GetSuggestSysRuleDrivers()[self.Type].GetResourceType()
-	out.RuleName = strings.ToLower(GetSuggestSysRuleDrivers()[self.Type].GetType())
-	rule, _ := SuggestSysRuleManager.GetRules(self.Type)
+	out.ResType = string(drv.GetResourceType())
+	out.RuleName = strings.ToLower(string(drv.GetType()))
+	rule, _ := SuggestSysRuleManager.GetRules(self.GetType())
 	if len(rule) != 0 {
 		out.ShowName = fmt.Sprintf("%s-%s", self.Name, rule[0].Name)
 	} else {
 		out.ShowName = fmt.Sprintf("%s-%s", self.Name, self.Type)
 	}
-	switch self.Type {
-	case monitor.EIP_UN_USED:
-		out.Suggest = string(monitor.EIP_MONITOR_SUGGEST)
-	case monitor.DISK_UN_USED:
-		out.Suggest = string(monitor.DISK_MONITOR_SUGGEST)
-	case monitor.LB_UN_USED:
-		out.Suggest = string(monitor.LB_MONITOR_SUGGEST)
-	case monitor.SCALE_DOWN:
-		out.Suggest = string(monitor.SCALE_DOWN_MONITOR_SUGGEST)
-
-	}
+	out.Suggest = string(drv.GetSuggest())
 	return out
 }
 
@@ -279,10 +282,10 @@ func (self *SSuggestSysAlert) StartDeleteTask(
 	ctx context.Context, userCred mcclient.TokenCredential) error {
 	params := jsonutils.NewDict()
 
-	return GetSuggestSysRuleDrivers()[self.Type].StartResolveTask(ctx, userCred, self, params)
+	return self.GetDriver().StartResolveTask(ctx, userCred, self, params)
 }
 
-func (self *SSuggestSysAlertManager) GetResources(tp ...string) ([]SSuggestSysAlert, error) {
+func (self *SSuggestSysAlertManager) GetResources(tp ...monitor.SuggestDriverType) ([]SSuggestSysAlert, error) {
 	resources := make([]SSuggestSysAlert, 0)
 	query := self.Query()
 	if len(tp) > 0 {

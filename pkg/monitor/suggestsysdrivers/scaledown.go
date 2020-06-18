@@ -37,22 +37,18 @@ import (
 )
 
 type ScaleDown struct {
-	monitor.ScaleRule
+	*baseDriver
 }
 
 func NewScaleDownDriver() models.ISuggestSysRuleDriver {
 	return &ScaleDown{
-		ScaleRule: []monitor.Scale{},
+		baseDriver: newBaseDriver(
+			monitor.SCALE_DOWN,
+			monitor.SCALE_MONTITOR_RES_TYPE,
+			monitor.SCALE_DOWN_DRIVER_ACTION,
+			monitor.SCALE_DOWN_MONITOR_SUGGEST,
+		),
 	}
-}
-
-func (_ *ScaleDown) GetType() string {
-	return monitor.SCALE_DOWN
-
-}
-
-func (rule *ScaleDown) GetResourceType() string {
-	return string(monitor.SCALE_MONTITOR_RES_TYPE)
 }
 
 func (rule *ScaleDown) ValidateSetting(input *monitor.SSuggestSysAlertSetting) error {
@@ -118,7 +114,6 @@ func (rule *ScaleDown) getLatestAlerts(instance *monitor.SSuggestSysAlertSetting
 		return jsonutils.NewArray(), errors.Wrap(err, "rule getScaleEvalResult happen error")
 	}
 	if firing {
-
 		serverArr, err := rule.getResourcesByEvalMatchsMap(evalMatchMap, instance)
 		if err != nil {
 			return jsonutils.NewArray(), errors.Wrap(err, "rule  getResource error")
@@ -205,7 +200,7 @@ func (rule *ScaleDown) getResourcesByEvalMatchsMap(evalMatchsMap map[string][]*m
 		if err != nil {
 			return serverArr, errors.Wrap(err, "Scale getSuggestSysAlertFromJson error")
 		}
-		suggestSysAlert.Action = monitor.SCALE_DOWN_DRIVER_ACTION
+		suggestSysAlert.Action = string(monitor.SCALE_DOWN_DRIVER_ACTION)
 		suggestSysAlert.MonitorConfig = jsonutils.Marshal(instance)
 		suggestSysAlert.Problem = describeEvalResultTojson(evalMatchsMap, mappingId, mappingVal)
 		serverArr.Add(jsonutils.Marshal(suggestSysAlert))

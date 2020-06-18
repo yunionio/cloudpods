@@ -21,15 +21,20 @@ const (
 	SUGGEST_ALERT_DELETING     = "deleting"
 )
 
-const (
-	EIP_UN_USED  = "EIP_UNUSED"
-	DISK_UN_USED = "DISK_UNUSED"
-	LB_UN_USED   = "LB_UNUSED"
-	SCALE_DOWN   = "SCALE_DOWN"
-	SCALE_UP     = "SCALE_UP"
+type SuggestDriverType string
 
-	DRIVER_ACTION            = "DELETE"
-	SCALE_DOWN_DRIVER_ACTION = "SCALE_DOWN"
+type SuggestDriverAction string
+
+const (
+	EIP_UNUSED      SuggestDriverType = "EIP_UNUSED"
+	DISK_UNUSED     SuggestDriverType = "DISK_UNUSED"
+	LB_UNUSED       SuggestDriverType = "LB_UNUSED"
+	SNAPSHOT_UNUSED SuggestDriverType = "SNAPSHOT_UNUSED"
+	SCALE_DOWN      SuggestDriverType = "SCALE_DOWN"
+	SCALE_UP        SuggestDriverType = "SCALE_UP"
+
+	DELETE_DRIVER_ACTION     SuggestDriverAction = "DELETE"
+	SCALE_DOWN_DRIVER_ACTION SuggestDriverAction = "SCALE_DOWN"
 )
 
 type MonitorSuggest string

@@ -33,20 +33,17 @@ import (
 )
 
 type EIPUnused struct {
-	monitor.EIPUnused
-}
-
-func (_ *EIPUnused) GetType() string {
-	return monitor.EIP_UN_USED
-}
-
-func (_ *EIPUnused) GetResourceType() string {
-	return string(monitor.EIP_MONITOR_RES_TYPE)
+	*baseDriver
 }
 
 func NewEIPUsedDriver() models.ISuggestSysRuleDriver {
 	return &EIPUnused{
-		EIPUnused: monitor.EIPUnused{},
+		baseDriver: newBaseDriver(
+			monitor.EIP_UNUSED,
+			monitor.EIP_MONITOR_RES_TYPE,
+			monitor.DELETE_DRIVER_ACTION,
+			monitor.EIP_MONITOR_SUGGEST,
+		),
 	}
 }
 
@@ -137,7 +134,7 @@ func (rule *EIPUnused) getEIPUnused(instance *monitor.SSuggestSysAlertSetting) (
 func (rule *EIPUnused) DoSuggestSysRule(ctx context.Context, userCred mcclient.TokenCredential,
 	isStart bool) {
 	var instance *monitor.SSuggestSysAlertSetting
-	suggestSysSettingMap, err := models.SuggestSysRuleManager.FetchSuggestSysAlartSettings(rule.GetType())
+	suggestSysSettingMap, err := models.SuggestSysRuleManager.FetchSuggestSysAlertSettings(rule.GetType())
 	if err != nil {
 		log.Errorln("DoSuggestSysRule error :", err)
 		return
