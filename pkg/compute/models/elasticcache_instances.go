@@ -500,9 +500,12 @@ func (self *SElasticcache) syncRemoveCloudElasticcache(ctx context.Context, user
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
+	self.SetDisableDelete(userCred, false)
+
 	err := self.ValidateDeleteCondition(ctx)
 	if err != nil {
-		return self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_ERROR, "sync to delete")
+		self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_ERROR, "sync to delete")
+		return errors.Wrap(err, "ValidateDeleteCondition")
 	}
 	return self.SVirtualResourceBase.Delete(ctx, userCred)
 }
