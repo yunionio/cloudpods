@@ -22,7 +22,6 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -67,18 +66,14 @@ func (dc *SDatacenter) getObjectDatacenter() *object.Datacenter {
 
 func (dc *SDatacenter) scanResourcePool() error {
 	if dc.iresoucePool == nil {
-		var pools []mo.ResourcePool
-		err := dc.manager.scanMObjects(dc.object.Entity().Self, RESOURCEPOOL_PROPS, &pools)
+		pools, err := dc.listResourcePools()
 		if err != nil {
-			return errors.Wrap(err, "scanMObjects")
+			return errors.Wrap(err, "listResourcePools")
 		}
 		dc.iresoucePool = []cloudprovider.ICloudProject{}
 		for i := 0; i < len(pools); i++ {
 			p := NewResourcePool(dc.manager, &pools[i], dc)
-			rpPath := p.GetPath()
-			if utils.IsInStringArray("Resources", rpPath) && rpPath[len(rpPath)-1] != "Resources" {
-				dc.iresoucePool = append(dc.iresoucePool, p)
-			}
+			dc.iresoucePool = append(dc.iresoucePool, p)
 		}
 	}
 	return nil
@@ -115,6 +110,53 @@ func (dc *SDatacenter) GetResourcePools() ([]cloudprovider.ICloudProject, error)
 		return nil, errors.Wrap(err, "dc.scanResourcePool")
 	}
 	return dc.iresoucePool, nil
+}
+
+func (dc *SDatacenter) listResourcePools() ([]mo.ResourcePool, error) {
+	var pools, result []mo.ResourcePool
+	err := dc.manager.scanMObjects(dc.object.Entity().Self, RESOURCEPOOL_PROPS, &pools)
+	if err != nil {
+		return nil, errors.Wrap(err, "scanMObjects")
+	}
+	for i := range pools {
+		if pools[i].Parent.Type == "ClusterComputeResource" {
+			continue
+		}
+		result = append(result, pools[i])
+	}
+	return result, nil
+}
+
+func (dc *SDatacenter) ListClusters() ([]*SCluster, error) {
+	return dc.listClusters()
+}
+
+func (dc *SDatacenter) GetCluster(cluster string) (*SCluster, error) {
+	clusters, err := dc.ListClusters()
+	if err != nil {
+		return nil, errors.Wrap(err, "ListClusters")
+	}
+	for i := range clusters {
+		if clusters[i].GetName() == cluster {
+			return clusters[i], nil
+		}
+
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (dc *SDatacenter) listClusters() ([]*SCluster, error) {
+	clusters := []mo.ClusterComputeResource{}
+	err := dc.manager.scanMObjects(dc.object.Entity().Self, RESOURCEPOOL_PROPS, &clusters)
+	if err != nil {
+		return nil, errors.Wrap(err, "scanMObjects")
+	}
+	ret := []*SCluster{}
+	for i := range clusters {
+		c := NewCluster(dc.manager, &clusters[i], dc)
+		ret = append(ret, c)
+	}
+	return ret, nil
 }
 
 func (dc *SDatacenter) GetIHosts() ([]cloudprovider.ICloudHost, error) {

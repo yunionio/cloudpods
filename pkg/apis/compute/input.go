@@ -66,7 +66,7 @@ type CachedimageListInput struct {
 }
 
 type ExternalProjectListInput struct {
-	apis.StandaloneResourceListInput
+	apis.StatusStandaloneResourceListInput
 	apis.ProjectizedResourceListInput
 	apis.ExternalizedResourceBaseListInput
 

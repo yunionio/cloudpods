@@ -56,6 +56,7 @@ func InitDB() error {
 		DynamicschedtagManager,
 		ServerSkuManager,
 		ElasticcacheSkuManager,
+		ExternalProjectManager,
 	} {
 		err := manager.InitializeData()
 		if err != nil {

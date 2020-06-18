@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
@@ -51,7 +52,16 @@ func (self *SResourceGroup) GetName() string {
 }
 
 func (self *SResourceGroup) GetStatus() string {
-	return ""
+	switch self.Status {
+	case "Creating":
+		return api.EXTERNAL_PROJECT_STATUS_CREATING
+	case "OK":
+		return api.EXTERNAL_PROJECT_STATUS_AVAILABLE
+	case "Deleted", "Deleting", "PendingDelete":
+		return api.EXTERNAL_PROJECT_STATUS_DELETING
+	default:
+		return api.EXTERNAL_PROJECT_STATUS_UNKNOWN
+	}
 }
 
 func (self *SAliyunClient) GetResourceGroups(pageNumber int, pageSize int) ([]SResourceGroup, int, error) {
