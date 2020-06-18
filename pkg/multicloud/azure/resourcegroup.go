@@ -19,6 +19,8 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 type GroupProperties struct {
@@ -75,7 +77,7 @@ func (r *SResourceGroup) GetGlobalId() string {
 }
 
 func (r *SResourceGroup) GetStatus() string {
-	return r.Properties.ProvisioningState
+	return api.EXTERNAL_PROJECT_STATUS_AVAILABLE
 }
 
 func (r *SResourceGroup) GetMetadata() *jsonutils.JSONDict {

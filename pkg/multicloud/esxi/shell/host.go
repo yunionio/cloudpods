@@ -89,4 +89,32 @@ func init() {
 		printList(networks, nil)
 		return nil
 	})
+
+	shellutils.R(&HostShowOptions{}, "host-cluster", "Show host cluster", func(cli *esxi.SESXiClient,
+		args *HostShowOptions) error {
+		host, err := cli.FindHostByIp(args.IP)
+		if err != nil {
+			return err
+		}
+		cluster, err := host.GetCluster()
+		if err != nil {
+			return err
+		}
+		printObject(cluster)
+		return nil
+	})
+
+	shellutils.R(&HostShowOptions{}, "host-pool-list", "List host pools", func(cli *esxi.SESXiClient,
+		args *HostShowOptions) error {
+		host, err := cli.FindHostByIp(args.IP)
+		if err != nil {
+			return err
+		}
+		pool, err := host.GetResourcePool()
+		if err != nil {
+			return err
+		}
+		printObject(pool)
+		return nil
+	})
 }

@@ -15,8 +15,12 @@
 package esxi
 
 import (
+	"net/url"
+	"strings"
+
 	"github.com/vmware/govmomi/vim25/mo"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
@@ -32,12 +36,20 @@ func (pool *SResourcePool) GetGlobalId() string {
 }
 
 func (pool *SResourcePool) GetStatus() string {
-	return ""
+	return api.EXTERNAL_PROJECT_STATUS_AVAILABLE
 }
 
 func (pool *SResourcePool) GetName() string {
 	path := pool.GetPath()
-	return path[len(path)-1]
+	if len(path) > 5 {
+		path = path[5:]
+	}
+	name := []string{}
+	for _, _name := range path {
+		p, _ := url.PathUnescape(_name)
+		name = append([]string{p}, name...)
+	}
+	return strings.Join(name, "/")
 }
 
 func NewResourcePool(manager *SESXiClient, rp *mo.ResourcePool, dc *SDatacenter) *SResourcePool {

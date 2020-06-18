@@ -234,10 +234,26 @@ func (self *SESXiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gues
 	}
 	config.Add(jsonutils.NewString(extId), "guest_ext_id")
 
-	accessInfo, err := host.GetCloudaccount().GetVCenterAccessInfo(storage.ExternalId)
+	account := host.GetCloudaccount()
+	accessInfo, err := account.GetVCenterAccessInfo(storage.ExternalId)
 	if err != nil {
 		return err
 	}
+
+	action, _ := config.GetString("action")
+	if action == "create" {
+		extProj, name, err := account.GetExternalProject(ctx, task.GetUserCred(), guest.ProjectId)
+		if err != nil {
+			log.Errorf("failed to get external project %s from account %s(%s) error: %v", guest.ProjectId, account.Name, account.Id, err)
+		}
+		if extProj != nil {
+			config.Add(jsonutils.NewString(extProj.ExternalId), "desc", "group_id")
+		}
+		if len(name) > 0 {
+			config.Add(jsonutils.NewString(name), "desc", "resource_pool")
+		}
+	}
+
 	config.Add(jsonutils.Marshal(accessInfo), "datastore")
 
 	url := "/disks/agent/deploy"
