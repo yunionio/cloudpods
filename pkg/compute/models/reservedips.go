@@ -367,3 +367,16 @@ func (rip *SReservedip) GetOwnerId() mcclient.IIdentityProvider {
 	}
 	return nil
 }
+
+func (manager *SReservedipManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, err
+	}
+	return manager.SNetworkResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+}
