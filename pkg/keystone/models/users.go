@@ -91,7 +91,7 @@ type SUser struct {
 	DefaultProjectId string `width:"64" charset:"ascii" nullable:"true"`
 
 	AllowWebConsole tristate.TriState `nullable:"false" default:"true" list:"domain" update:"domain" create:"domain_optional"`
-	EnableMfa       tristate.TriState `nullable:"false" default:"true" list:"domain" update:"domain" create:"domain_optional"`
+	EnableMfa       tristate.TriState `nullable:"false" default:"false" list:"domain" update:"domain" create:"domain_optional"`
 }
 
 func (manager *SUserManager) GetContextManagers() [][]db.IModelManager {
@@ -481,7 +481,6 @@ func (user *SUser) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 		data := jsonutils.Marshal(input)
 		for _, k := range []string{
 			"name",
-			"enabled",
 			"displayname",
 			"email",
 			"mobile",

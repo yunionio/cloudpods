@@ -140,7 +140,7 @@ func (self *SCASDriver) Authenticate(ctx context.Context, ident mcclient.SAuthen
 	if err != nil {
 		return nil, errors.Wrap(err, "idp.GetSingleDomain")
 	}
-	usr, err := idp.SyncOrCreateUser(ctx, usrId, usrId, domain.Id, nil)
+	usr, err := idp.SyncOrCreateUser(ctx, usrId, usrId, domain.Id, true, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "idp.SyncOrCreateUser")
 	}
