@@ -18,10 +18,13 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -43,7 +46,10 @@ func (self *CloudAccountSyncInfoTask) OnInit(ctx context.Context, obj db.IStanda
 	err := cloudaccount.SyncCallSyncAccountTask(ctx, self.UserCred)
 
 	if err != nil {
-		cloudaccount.MarkEndSyncWithLock(ctx, self.UserCred)
+		if errors.Cause(err) != httperrors.ErrConflict {
+			log.Debugf("no other sync task, mark end sync for all cloudproviders")
+			cloudaccount.MarkEndSyncWithLock(ctx, self.UserCred)
+		}
 		db.OpsLog.LogEvent(cloudaccount, db.ACT_SYNC_HOST_FAILED, err, self.UserCred)
 		self.SetStageFailed(ctx, err.Error())
 		logclient.AddActionLogWithStartable(self, cloudaccount, logclient.ACT_CLOUD_SYNC, err, self.UserCred, false)
