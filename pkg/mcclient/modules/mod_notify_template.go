@@ -26,7 +26,7 @@ type NotifyTemplateManager struct {
 }
 
 func (nm *NotifyTemplateManager) DeleteContents(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	path := "/templates/delete-template"
+	path := "/notifytemplates/delete-template"
 	return modulebase.Post(nm.ResourceManager, s, path, params, "")
 }
 
