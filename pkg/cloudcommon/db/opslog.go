@@ -394,7 +394,7 @@ func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes inter
 	}
 	opslog.SetModelManager(OpsLog, opslog)
 
-	if virtualModel, ok := model.(IVirtualModel); ok && virtualModel != nil {
+	if virtualModel, ok := model.(IVirtualModel); ok {
 		ownerId := virtualModel.GetOwnerId()
 		if ownerId != nil {
 			opslog.OwnerProjectId = ownerId.GetProjectId()
