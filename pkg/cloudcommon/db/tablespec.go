@@ -129,6 +129,9 @@ func (ts *sTableSpec) Update(ctx context.Context, dt interface{}, doUpdate func(
 }
 
 func (ts *sTableSpec) inform(ctx context.Context, dt interface{}, f func(ctx context.Context, obj *informer.ModelObject) error) {
+	if !informer.IsInit() {
+		return
+	}
 	nf := func() {
 		obj, err := ts.newInformerModel(dt)
 		if err != nil {
@@ -147,6 +150,9 @@ func (ts *sTableSpec) inform(ctx context.Context, dt interface{}, f func(ctx con
 }
 
 func (ts *sTableSpec) informUpdate(ctx context.Context, dt interface{}, oldObj *jsonutils.JSONDict) {
+	if !informer.IsInit() {
+		return
+	}
 	nf := func() {
 		obj, err := ts.newInformerModel(dt)
 		if err != nil {
