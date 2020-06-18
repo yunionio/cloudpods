@@ -374,21 +374,23 @@ func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes inter
 		}
 	}
 	opslog := &SOpsLog{
-		ObjType:         model.Keyword(),
-		ObjId:           model.GetId(),
-		ObjName:         model.GetName(),
-		Action:          action,
-		Notes:           stringutils.Interface2String(notes),
+		OpsTime: time.Now().UTC(),
+		ObjType: model.Keyword(),
+		ObjId:   model.GetId(),
+		ObjName: model.GetName(),
+		Action:  action,
+		Notes:   stringutils.Interface2String(notes),
+
 		ProjectId:       userCred.GetProjectId(),
 		Project:         userCred.GetProjectName(),
 		ProjectDomainId: userCred.GetProjectDomainId(),
 		ProjectDomain:   userCred.GetProjectDomain(),
-		UserId:          userCred.GetUserId(),
-		User:            userCred.GetUserName(),
-		DomainId:        userCred.GetDomainId(),
-		Domain:          userCred.GetDomainName(),
-		Roles:           strings.Join(userCred.GetRoles(), ","),
-		OpsTime:         time.Now().UTC(),
+
+		UserId:   userCred.GetUserId(),
+		User:     userCred.GetUserName(),
+		DomainId: userCred.GetDomainId(),
+		Domain:   userCred.GetDomainName(),
+		Roles:    strings.Join(userCred.GetRoles(), ","),
 	}
 	opslog.SetModelManager(OpsLog, opslog)
 
