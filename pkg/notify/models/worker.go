@@ -75,9 +75,9 @@ func SendVerifyMessage(ctx context.Context, userCred mcclient.TokenCredential, v
 		err error
 		msg string
 	)
-	err = TemplateManager.TryInitVerifyEmail(ctx)
+	info, err := TemplateManager.GetCompanyInfo(ctx)
 	if err != nil {
-		log.Errorf("unable to try to init verify eamil: %s", err.Error())
+		log.Errorf("unable to try to get company info: %s", err.Error())
 	}
 	processId, token := verify.ID, verify.Token
 	if contact.ContactType == "email" {
@@ -92,7 +92,12 @@ func SendVerifyMessage(ctx context.Context, userCred mcclient.TokenCredential, v
 		data := struct {
 			Name string
 			Link string
-		}{uName, emailUrl}
+			SCompanyInfo
+		}{
+			Name:         uName,
+			Link:         emailUrl,
+			SCompanyInfo: info,
+		}
 		msg = jsonutils.Marshal(data).String()
 	} else if contact.ContactType == "mobile" {
 		msg = fmt.Sprintf(`{"code": "%s"}`, token)

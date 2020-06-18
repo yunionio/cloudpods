@@ -11,7 +11,7 @@
   			<table style="margin-left: 20px;">
   				<tr>
   					<td>
-  						<img src="data:{{.logo_format}};base64,{{.logo}}" alt="" style="color: #fff; width: 80px; vertical-align: middle;">
+  						<img src="data:{{.login_logo_format}};base64,{{.login_logo}}" alt="" style="color: #fff; height: 32px; vertical-align: middle;">
   					</td>
   				</tr>
   			</table>
@@ -56,10 +56,10 @@
   		</td>
   	</tr>
   	<tr style="width: 96%;">
-		<td colspan="2" style="border-top: 1px dashed #ccc; color: #ccc; font-size: 12px; padding-bottom: 10px; font-weight: 100;">*为了确保您的帐号安全，该链接仅48小时内访问有效，请勿直接回复此邮件。</td>
+		<td colspan="2" style="border-top: 1px dashed #ccc; color: #333; font-size: 12px; padding-bottom: 10px; font-weight: 100;">*为了确保您的帐号安全，该链接仅48小时内访问有效，请勿直接回复此邮件。</td>
 	</tr>
 	<tr>
-		<td colspan="2" style="background: #333; text-align: right; padding-right: 20px; font-size: 12px; color: #949494; height: 50px;">版权所有 © {{.copyright}} 保留一切权利</td>
+		<td colspan="2" style="background: #333; text-align: right; padding-right: 20px; font-size: 12px; color: #fff; height: 50px;">版权所有 © {{.copyright}} 保留一切权利</td>
 	</tr>
   </table>
 </body>
