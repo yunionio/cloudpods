@@ -171,7 +171,7 @@ func SharableManagerValidateCreateData(
 			reqScope = rbacutils.ScopeSystem
 		} else {
 			input.IsPublic = nil
-			input.PublicScope = string(rbacutils.ScopeNone)
+			input.PublicScope = "" // string(rbacutils.ScopeNone)
 		}
 	case rbacutils.ScopeDomain:
 		if input.PublicScope == string(rbacutils.ScopeSystem) {
@@ -184,7 +184,7 @@ func SharableManagerValidateCreateData(
 			reqScope = rbacutils.ScopeSystem
 		} else {
 			input.IsPublic = nil
-			input.PublicScope = string(rbacutils.ScopeNone)
+			input.PublicScope = "" // string(rbacutils.ScopeNone)
 		}
 	default:
 		return input, errors.Wrap(httperrors.ErrInputParameter, "the resource is not sharable")
