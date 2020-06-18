@@ -22,6 +22,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -2340,8 +2341,26 @@ func (account *SCloudaccount) markAutoSync(userCred mcclient.TokenCredential) er
 	return nil
 }
 
+var (
+	cloudaccountPendingSyncs      = map[string]struct{}{}
+	cloudaccountPendingSyncsMutex = &sync.Mutex{}
+)
+
 func (account *SCloudaccount) SubmitSyncAccountTask(ctx context.Context, userCred mcclient.TokenCredential, waitChan chan error, autoSync bool) {
+	cloudaccountPendingSyncsMutex.Lock()
+	defer cloudaccountPendingSyncsMutex.Unlock()
+	if _, ok := cloudaccountPendingSyncs[account.Id]; ok {
+		return
+	}
+	cloudaccountPendingSyncs[account.Id] = struct{}{}
+
 	RunSyncCloudAccountTask(func() {
+		func() {
+			cloudaccountPendingSyncsMutex.Lock()
+			defer cloudaccountPendingSyncsMutex.Unlock()
+			delete(cloudaccountPendingSyncs, account.Id)
+		}()
+
 		log.Debugf("syncAccountStatus %s %s", account.Id, account.Name)
 		err := account.syncAccountStatus(ctx, userCred)
 		if waitChan != nil {
@@ -2356,7 +2375,8 @@ func (account *SCloudaccount) SubmitSyncAccountTask(ctx context.Context, userCre
 				account.markAutoSync(userCred)
 				providers := account.GetEnabledCloudproviders()
 				for i := range providers {
-					providers[i].syncCloudproviderRegions(ctx, userCred, syncRange, nil, autoSync)
+					provider := &providers[i]
+					provider.syncCloudproviderRegions(ctx, userCred, syncRange, nil, autoSync)
 					syncCnt += 1
 				}
 			}
