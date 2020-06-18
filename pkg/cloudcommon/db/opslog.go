@@ -373,7 +373,8 @@ func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes inter
 			return
 		}
 	}
-	opslog := SOpsLog{}
+	opslog := &SOpsLog{}
+	opslog.SetModelManager(OpsLog, opslog)
 	opslog.ObjType = model.Keyword()
 	opslog.ObjId = model.GetId()
 	opslog.ObjName = model.GetName()
@@ -398,7 +399,7 @@ func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes inter
 		}
 	}
 
-	err := manager.TableSpec().Insert(context.Background(), &opslog)
+	err := manager.TableSpec().Insert(context.Background(), opslog)
 	if err != nil {
 		log.Errorf("fail to insert opslog: %s", err)
 	}
