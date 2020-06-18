@@ -34,3 +34,14 @@ type SGroupInfo struct {
 func (info SDomainInfo) isValid() bool {
 	return len(info.DN) > 0 && len(info.Id) > 0 && len(info.Name) > 0
 }
+
+func (info SUserInfo) isValid() bool {
+	if !info.SDomainInfo.isValid() {
+		return false
+	}
+	// regarding disabled LDAP user as invalid
+	if !info.Enabled {
+		return false
+	}
+	return true
+}

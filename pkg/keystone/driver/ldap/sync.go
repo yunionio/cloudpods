@@ -22,7 +22,6 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/tristate"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/keystone/models"
@@ -230,12 +229,13 @@ func (self *SLDAPDriver) syncUserDB(ctx context.Context, ui SUserInfo, domainId 
 	if err != nil {
 		return "", errors.Wrap(err, "models.IdentityProviderManager.FetchIdentityProviderById")
 	}
-	usr, err := idp.SyncOrCreateUser(ctx, ui.Id, ui.Name, domainId, func(user *models.SUser) {
-		if ui.Enabled {
-			user.Enabled = tristate.True
-		} else {
-			user.Enabled = tristate.False
-		}
+	usr, err := idp.SyncOrCreateUser(ctx, ui.Id, ui.Name, domainId, !self.ldapConfig.DisableUserOnImport, func(user *models.SUser) {
+		// LDAP user is always enabled
+		// if ui.Enabled {
+		// 	user.Enabled = tristate.True
+		// } else {
+		//	user.Enabled = tristate.False
+		// }
 		if val, ok := ui.Extra["email"]; ok && len(val) > 0 {
 			user.Email = val
 		}

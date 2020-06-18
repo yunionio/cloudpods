@@ -299,7 +299,9 @@ func init() {
 		IDP string `help:"identity provider name or ID"`
 	}
 	R(&IdentityProviderConfigEditOptions{}, "idp-config-edit", "Edit config yaml of an identity provider", func(s *mcclient.ClientSession, args *IdentityProviderConfigEditOptions) error {
-		conf, err := modules.IdentityProviders.GetSpecific(s, args.IDP, "config", nil)
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.JSONTrue, "sensitive")
+		conf, err := modules.IdentityProviders.GetSpecific(s, args.IDP, "config", params)
 		if err != nil {
 			return err
 		}
