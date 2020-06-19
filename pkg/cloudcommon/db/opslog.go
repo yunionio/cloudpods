@@ -373,24 +373,28 @@ func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes inter
 			return
 		}
 	}
-	opslog := SOpsLog{}
-	opslog.ObjType = model.Keyword()
-	opslog.ObjId = model.GetId()
-	opslog.ObjName = model.GetName()
-	opslog.Action = action
-	opslog.Notes = stringutils.Interface2String(notes)
-	opslog.ProjectId = userCred.GetProjectId()
-	opslog.Project = userCred.GetProjectName()
-	opslog.ProjectDomainId = userCred.GetProjectDomainId()
-	opslog.ProjectDomain = userCred.GetProjectDomain()
-	opslog.UserId = userCred.GetUserId()
-	opslog.User = userCred.GetUserName()
-	opslog.DomainId = userCred.GetDomainId()
-	opslog.Domain = userCred.GetDomainName()
-	opslog.Roles = strings.Join(userCred.GetRoles(), ",")
-	opslog.OpsTime = time.Now().UTC()
+	opslog := &SOpsLog{
+		OpsTime: time.Now().UTC(),
+		ObjType: model.Keyword(),
+		ObjId:   model.GetId(),
+		ObjName: model.GetName(),
+		Action:  action,
+		Notes:   stringutils.Interface2String(notes),
 
-	if virtualModel, ok := model.(IVirtualModel); ok && virtualModel != nil {
+		ProjectId:       userCred.GetProjectId(),
+		Project:         userCred.GetProjectName(),
+		ProjectDomainId: userCred.GetProjectDomainId(),
+		ProjectDomain:   userCred.GetProjectDomain(),
+
+		UserId:   userCred.GetUserId(),
+		User:     userCred.GetUserName(),
+		DomainId: userCred.GetDomainId(),
+		Domain:   userCred.GetDomainName(),
+		Roles:    strings.Join(userCred.GetRoles(), ","),
+	}
+	opslog.SetModelManager(OpsLog, opslog)
+
+	if virtualModel, ok := model.(IVirtualModel); ok {
 		ownerId := virtualModel.GetOwnerId()
 		if ownerId != nil {
 			opslog.OwnerProjectId = ownerId.GetProjectId()
@@ -398,7 +402,7 @@ func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes inter
 		}
 	}
 
-	err := manager.TableSpec().Insert(context.Background(), &opslog)
+	err := manager.TableSpec().Insert(context.Background(), opslog)
 	if err != nil {
 		log.Errorf("fail to insert opslog: %s", err)
 	}
