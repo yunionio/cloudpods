@@ -165,7 +165,7 @@ type ManagedResourceListInput struct {
 	CloudproviderResourceInput
 
 	// 列出关联指定云账号(ID或Name)的资源
-	Cloudaccount string `json:"cloudaccount"`
+	Cloudaccount []string `json:"cloudaccount"`
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0

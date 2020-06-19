@@ -1063,17 +1063,14 @@ func (manager *SCloudproviderManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.CloudproviderListInput,
 ) (*sqlchemy.SQuery, error) {
-	accountStr := query.Cloudaccount
-	if len(accountStr) > 0 {
-		accountObj, err := CloudaccountManager.FetchByIdOrName(userCred, accountStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2("cloudaccount", accountStr)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
-		q = q.Equals("cloudaccount_id", accountObj.GetId())
+	accountArr := query.Cloudaccount
+	if len(accountArr) > 0 {
+		cpq := CloudaccountManager.Query().SubQuery()
+		subcpq := cpq.Query(cpq.Field("id")).Filter(sqlchemy.OR(
+			sqlchemy.In(cpq.Field("id"), accountArr),
+			sqlchemy.In(cpq.Field("name"), accountArr),
+		)).SubQuery()
+		q = q.In("cloudaccount_id", subcpq)
 	}
 
 	var zone *SZone

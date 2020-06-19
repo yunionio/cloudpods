@@ -207,17 +207,22 @@ func (self *SCloudproviderregion) Detach(ctx context.Context, userCred mcclient.
 /*
 过滤出指定cloudAccountId || providerIds || cloudAccountId+providerIds关联的region id
 */
-func (manager *SCloudproviderregionManager) QueryRelatedRegionIds(cloudAccountId string, providerIds ...string) *sqlchemy.SSubQuery {
+func (manager *SCloudproviderregionManager) QueryRelatedRegionIds(cloudAccounts []string, providerIds ...string) *sqlchemy.SSubQuery {
 	q := manager.Query("cloudregion_id")
 
 	if len(providerIds) > 0 {
 		q = q.Filter(sqlchemy.In(q.Field("cloudprovider_id"), providerIds))
 	}
 
-	if len(cloudAccountId) > 0 {
+	if len(cloudAccounts) > 0 {
+		cpq := CloudaccountManager.Query().SubQuery()
+		subcpq := cpq.Query(cpq.Field("id")).Filter(sqlchemy.OR(
+			sqlchemy.In(cpq.Field("id"), cloudAccounts),
+			sqlchemy.In(cpq.Field("name"), cloudAccounts),
+		)).SubQuery()
 		providers := CloudproviderManager.Query().SubQuery()
 		q = q.Join(providers, sqlchemy.Equals(providers.Field("id"), q.Field("cloudprovider_id")))
-		q.Filter(sqlchemy.Equals(providers.Field("cloudaccount_id"), cloudAccountId))
+		q.Filter(sqlchemy.In(providers.Field("cloudaccount_id"), subcpq))
 	}
 
 	return q.Distinct().SubQuery()

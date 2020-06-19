@@ -26,6 +26,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -123,7 +124,12 @@ func (manager *SSuggestSysAlertManager) ListItemFilter(
 		q = q.In("provider", query.Brands)
 	}
 	if len(query.Cloudaccount) > 0 {
-		q.Equals("cloudaccount", query.Cloudaccount)
+		cpq := computemodels.CloudaccountManager.Query().SubQuery()
+		subcpq := cpq.Query(cpq.Field("id")).Filter(sqlchemy.OR(
+			sqlchemy.In(cpq.Field("id"), query.Cloudaccount),
+			sqlchemy.In(cpq.Field("name"), query.Cloudaccount),
+		)).SubQuery()
+		q.In("cloudaccount", subcpq)
 	}
 	if len(query.CloudEnv) > 0 {
 		q = q.Equals("cloud_env", query.CloudEnv)
