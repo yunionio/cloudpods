@@ -65,8 +65,8 @@ type SSuggestSysRule struct {
 	ExecTime time.Time            `list:"user" update:"user"`
 }
 
-func (man *SSuggestSysRuleManager) FetchSuggestSysAlartSettings(ruleTypes ...string) (map[string]*monitor.SuggestSysRuleDetails, error) {
-	suggestSysAlerSettingMap := make(map[string]*monitor.SuggestSysRuleDetails, 0)
+func (man *SSuggestSysRuleManager) FetchSuggestSysAlertSettings(ruleTypes ...monitor.SuggestDriverType) (map[monitor.SuggestDriverType]*monitor.SuggestSysRuleDetails, error) {
+	suggestSysAlerSettingMap := make(map[monitor.SuggestDriverType]*monitor.SuggestSysRuleDetails, 0)
 
 	rules, err := man.GetRules(ruleTypes...)
 	if err != nil {
@@ -77,15 +77,19 @@ func (man *SSuggestSysRuleManager) FetchSuggestSysAlartSettings(ruleTypes ...str
 		if err != nil {
 			return suggestSysAlerSettingMap, errors.Wrap(err, "FetchSuggestSysAlartSettings")
 		}
-		suggestSysAlerSettingMap[config.Type] = &suggestSysRuleDetails
+		suggestSysAlerSettingMap[config.GetType()] = &suggestSysRuleDetails
 	}
 	return suggestSysAlerSettingMap, nil
 }
 
+func (rule *SSuggestSysRule) GetType() monitor.SuggestDriverType {
+	return monitor.SuggestDriverType(rule.Type)
+}
+
 //根据数据库中查询得到的信息进行适配转换，同时更新drivers中的内容
-func (dConfig *SSuggestSysRule) getSuggestSysAlertSetting() (*monitor.SSuggestSysAlertSetting, error) {
+func (rule *SSuggestSysRule) getSuggestSysAlertSetting() (*monitor.SSuggestSysAlertSetting, error) {
 	setting := new(monitor.SSuggestSysAlertSetting)
-	err := dConfig.Setting.Unmarshal(setting)
+	err := rule.Setting.Unmarshal(setting)
 	if err != nil {
 		return nil, errors.Wrap(err, "SSuggestSysRule getSuggestSysAlertSetting error")
 	}
@@ -134,7 +138,7 @@ func (man *SSuggestSysRuleManager) ValidateCreateData(
 	if _, err := time.ParseDuration(data.TimeFrom); err != nil {
 		return data, httperrors.NewInputParameterError("Invalid period format: %s", data.TimeFrom)
 	}
-	if dri, ok := suggestSysRuleDrivers[data.Type]; !ok {
+	if dri, ok := suggestSysRuleDrivers[monitor.SuggestDriverType(data.Type)]; !ok {
 		return data, httperrors.NewInputParameterError("not support type %q", data.Type)
 	} else {
 		//Type is uniq
@@ -142,7 +146,8 @@ func (man *SSuggestSysRuleManager) ValidateCreateData(
 		if err != nil {
 			return data, err
 		}
-		if data.Type == monitor.SCALE_DOWN || data.Type == monitor.SCALE_UP {
+		drvType := monitor.SuggestDriverType(data.Type)
+		if drvType == monitor.SCALE_DOWN || drvType == monitor.SCALE_UP {
 			if data.Setting == nil {
 				return data, httperrors.NewInputParameterError("no found rule setting")
 			}
@@ -155,6 +160,10 @@ func (man *SSuggestSysRuleManager) ValidateCreateData(
 		}
 	}
 	return data, nil
+}
+
+func (rule *SSuggestSysRule) GetDriver() ISuggestSysRuleDriver {
+	return GetSuggestSysRuleDrivers()[rule.GetType()]
 }
 
 func (rule *SSuggestSysRule) ValidateUpdateData(
@@ -172,7 +181,7 @@ func (rule *SSuggestSysRule) ValidateUpdateData(
 		return data, httperrors.NewInputParameterError("Invalid period format: %s", data.Period)
 	}
 	if data.Setting != nil {
-		err := suggestSysRuleDrivers[rule.Type].ValidateSetting(data.Setting)
+		err := rule.GetDriver().ValidateSetting(data.Setting)
 		if err != nil {
 			return data, errors.Wrap(err, "validate setting error")
 		}
@@ -238,7 +247,7 @@ func (self *SSuggestSysRule) updateCronjob() {
 	if self.Enabled.Bool() {
 		dur, _ := time.ParseDuration(self.Period)
 		cronman.GetCronJobManager().AddJobAtIntervalsWithStartRun(self.Type, dur,
-			suggestSysRuleDrivers[self.Type].DoSuggestSysRule, true)
+			self.GetDriver().DoSuggestSysRule, true)
 	}
 }
 
@@ -323,7 +332,7 @@ func (self *SSuggestSysRuleManager) GetPropertyMetricMeasurement(ctx context.Con
 	return DataSourceManager.GetMetricMeasurement(query)
 }
 
-func (self *SSuggestSysRuleManager) GetRules(tp ...string) ([]SSuggestSysRule, error) {
+func (self *SSuggestSysRuleManager) GetRules(tp ...monitor.SuggestDriverType) ([]SSuggestSysRule, error) {
 	rules := make([]SSuggestSysRule, 0)
 	query := self.Query()
 	if len(tp) > 0 {

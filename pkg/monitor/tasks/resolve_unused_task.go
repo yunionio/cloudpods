@@ -37,7 +37,7 @@ func init() {
 
 func (self *ResolveUnusedTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	suggestSysAlert := obj.(*models.SSuggestSysAlert)
-	err := models.GetSuggestSysRuleDrivers()[suggestSysAlert.Type].Resolve(suggestSysAlert)
+	err := suggestSysAlert.GetDriver().Resolve(suggestSysAlert)
 	if err != nil {
 		msg := fmt.Sprintf("fail to delete %s", err)
 		self.taskFail(ctx, suggestSysAlert, msg)

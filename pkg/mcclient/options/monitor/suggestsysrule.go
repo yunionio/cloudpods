@@ -73,16 +73,16 @@ func (opt SuggestRuleUpdateOptions) Params() (jsonutils.JSONObject, error) {
 
 func newSuggestSysAlertSetting(tp string) *monitor.SSuggestSysAlertSetting {
 	setting := new(monitor.SSuggestSysAlertSetting)
-	switch tp {
-	case monitor.EIP_UN_USED:
+	switch monitor.SuggestDriverType(tp) {
+	case monitor.EIP_UNUSED:
 		setting = &monitor.SSuggestSysAlertSetting{
 			EIPUnused: &monitor.EIPUnused{},
 		}
-	case monitor.DISK_UN_USED:
+	case monitor.DISK_UNUSED:
 		setting = &monitor.SSuggestSysAlertSetting{
 			DiskUnused: &monitor.DiskUnused{},
 		}
-	case monitor.LB_UN_USED:
+	case monitor.LB_UNUSED:
 		setting = &monitor.SSuggestSysAlertSetting{
 			LBUnused: &monitor.LBUnused{},
 		}

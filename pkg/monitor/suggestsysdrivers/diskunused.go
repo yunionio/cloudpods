@@ -33,34 +33,31 @@ import (
 )
 
 type DiskUnused struct {
-	monitor.DiskUnused
+	*baseDriver
 }
 
 func NewDiskUnusedDriver() models.ISuggestSysRuleDriver {
 	return &DiskUnused{
-		DiskUnused: monitor.DiskUnused{},
+		baseDriver: newBaseDriver(
+			monitor.DISK_UNUSED,
+			monitor.DISK_MONITOR_RES_TYPE,
+			monitor.DELETE_DRIVER_ACTION,
+			monitor.DISK_MONITOR_SUGGEST,
+		),
 	}
-}
-
-func (rule *DiskUnused) GetType() string {
-	return monitor.DISK_UN_USED
-}
-
-func (rule *DiskUnused) GetResourceType() string {
-	return string(monitor.DISK_MONITOR_RES_TYPE)
 }
 
 func (rule *DiskUnused) DoSuggestSysRule(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	doSuggestSysRule(ctx, userCred, isStart, rule)
 }
 
-func (rule *DiskUnused) Run(instance *monitor.SSuggestSysAlertSetting) {
+func (rule *DiskUnused) Run(setting *monitor.SSuggestSysAlertSetting) {
 	oldAlert, err := getLastAlerts(rule)
 	if err != nil {
 		log.Errorln(err)
 		return
 	}
-	newAlerts, err := rule.getLatestAlerts(instance)
+	newAlerts, err := rule.getLatestAlerts(setting)
 	if err != nil {
 		log.Errorln(errors.Wrap(err, "DiskUnused getLatestAlerts error"))
 		return

@@ -30,21 +30,18 @@ import (
 )
 
 type LBUnused struct {
-	monitor.LBUnused
+	*baseDriver
 }
 
 func NewLBUnusedDriver() models.ISuggestSysRuleDriver {
 	return &LBUnused{
-		LBUnused: monitor.LBUnused{},
+		baseDriver: newBaseDriver(
+			monitor.LB_UNUSED,
+			monitor.LB_MONITOR_RES_TYPE,
+			monitor.DELETE_DRIVER_ACTION,
+			monitor.LB_MONITOR_SUGGEST,
+		),
 	}
-}
-
-func (_ *LBUnused) GetType() string {
-	return monitor.LB_UN_USED
-}
-
-func (rule *LBUnused) GetResourceType() string {
-	return string(monitor.LB_MONITOR_RES_TYPE)
 }
 
 func (rule *LBUnused) ValidateSetting(input *monitor.SSuggestSysAlertSetting) error {

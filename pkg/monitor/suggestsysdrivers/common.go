@@ -40,9 +40,19 @@ type logInput struct {
 	Limit   string `json:"limit"`
 }
 
-func DealAlertData(typ string, oldAlerts []models.SSuggestSysAlert, newAlerts []jsonutils.JSONObject) {
-	rules, _ := models.SuggestSysRuleManager.GetRules(typ)
+func DealAlertData(drvType monitor.SuggestDriverType, oldAlerts []models.SSuggestSysAlert, newAlerts []jsonutils.JSONObject) {
+	rules, err := models.SuggestSysRuleManager.GetRules(drvType)
+	if err != nil {
+		log.Errorf("get suggest rule by type %q error: %v", drvType, err)
+		return
+	}
+	if len(rules) == 0 {
+		log.Errorf("not found suggest rule by type %q", drvType)
+		return
+	}
+
 	rules[0].UpdateExecTime()
+	adminCredential := auth.AdminCredential()
 
 	oldMap := make(map[string]models.SSuggestSysAlert, 0)
 	for _, alert := range oldAlerts {
@@ -66,17 +76,16 @@ func DealAlertData(typ string, oldAlerts []models.SSuggestSysAlert, newAlerts []
 			delete(oldMap, res_id)
 		} else {
 			//新增的alert
-			adminCredential := auth.AdminCredential()
 			_, err := db.DoCreate(models.SuggestSysAlertManager, context.Background(), adminCredential, nil, newAlert,
 				adminCredential)
 			if err != nil {
-				log.Errorln(err)
+				log.Errorf("create new suggest alert %v error: %v", newAlert, err)
 			}
 		}
 	}
 
 	for _, oldAlert := range oldMap {
-		err := oldAlert.RealDelete(context.Background(), auth.AdminCredential())
+		err := oldAlert.RealDelete(context.Background(), adminCredential)
 		if err != nil {
 			log.Errorln("删除旧alert数据失败", err)
 		}
@@ -85,7 +94,7 @@ func DealAlertData(typ string, oldAlerts []models.SSuggestSysAlert, newAlerts []
 
 func doSuggestSysRule(ctx context.Context, userCred mcclient.TokenCredential, isStart bool, rule models.ISuggestSysRuleDriver) {
 	var instance *monitor.SSuggestSysAlertSetting
-	suggestSysSettingMap, err := models.SuggestSysRuleManager.FetchSuggestSysAlartSettings(rule.GetType())
+	suggestSysSettingMap, err := models.SuggestSysRuleManager.FetchSuggestSysAlertSettings(rule.GetType())
 	if err != nil {
 		log.Errorln("DoSuggestSysRule error :", err)
 		return
@@ -119,9 +128,9 @@ func getSuggestSysAlertFromJson(obj jsonutils.JSONObject, rule models.ISuggestSy
 	if val, err := alertData.GetString("account"); err == nil {
 		suggestSysAlert.Cloudaccount = val
 	}
-	suggestSysAlert.Type = rule.GetType()
+	suggestSysAlert.Type = string(rule.GetType())
 	suggestSysAlert.ResMeta = obj
-	suggestSysAlert.Action = monitor.DRIVER_ACTION
+	suggestSysAlert.Action = string(rule.GetAction())
 	suggestSysAlert.Status = monitor.SUGGEST_ALERT_READY
 	getResourceAmount(suggestSysAlert, time.Now().Add(-30*24*time.Hour))
 	return suggestSysAlert, nil
