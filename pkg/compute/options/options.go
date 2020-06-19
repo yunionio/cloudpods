@@ -125,7 +125,7 @@ type ComputeOptions struct {
 
 	SyncPurgeRemovedResources []string `help:"resources that shoud be purged immediately if found removed" default:"server"`
 
-	DisconnectedCloudAccountRetryProbeIntervalHours int `help:"interval to wait to probe status of a disconnected cloud account" default:"24"`
+	DisconnectedCloudAccountRetryProbeIntervalHours int `help:"interval to wait to probe status of a disconnected cloud account" default:"2"`
 
 	BaremetalServerReuseHostIp bool `help:"baremetal server reuse host IP address, default true" default:"true"`
 
