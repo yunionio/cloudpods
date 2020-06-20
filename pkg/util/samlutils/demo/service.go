@@ -32,15 +32,17 @@ import (
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/samlutils"
 	"yunion.io/x/onecloud/pkg/util/samlutils/idp"
+	"yunion.io/x/onecloud/pkg/util/samlutils/sp"
 )
 
 type Options struct {
-	Help   bool     `help:"show help"`
-	Cert   string   `help:"certificate file"`
-	Key    string   `help:"certificate private key file"`
-	Port   int      `help:"listening port"`
-	Entity string   `help:"SAML entityID"`
-	SpMeta []string `help:"ServiceProvider metadata filename"`
+	Help    bool     `help:"show help"`
+	Cert    string   `help:"certificate file"`
+	Key     string   `help:"certificate private key file"`
+	Port    int      `help:"listening port"`
+	Entity  string   `help:"SAML entityID"`
+	SpMeta  []string `help:"ServiceProvider metadata filename"`
+	IdpMeta []string `help:"IdentityProvider metadata filename"`
 }
 
 func showErrorAndExit(e error) {
@@ -400,6 +402,49 @@ func prepareServer() error {
 			},
 		} {
 			htmlBuf.WriteString(fmt.Sprintf(`<li><a href="%s">%s (SP-Initiated)</a></li>`, v.url, v.name))
+		}
+
+		htmlBuf.WriteString(`</ol></body></html>`)
+		appsrv.SendHTML(w, htmlBuf.String())
+	})
+
+	consumeFunc := func(ctx context.Context, w http.ResponseWriter, idp *sp.SSAMLIdentityProvider, result sp.SSAMLAssertionConsumeResult) error {
+		html := strings.Builder{}
+		html.WriteString("<!doctype html><html lang=en><body><ol>")
+		html.WriteString(fmt.Sprintf("<li>RequestId: %s</li>", result.RequestID))
+		html.WriteString(fmt.Sprintf("<li>RelayState: %s</li>", result.RelayState))
+		for _, v := range result.Attributes {
+			html.WriteString(fmt.Sprintf("<li>%s(%s): %s</li>", v.Name, v.FriendlyName, v.Values))
+		}
+		html.WriteString("</ol></body></html>")
+		appsrv.SendHTML(w, html.String())
+		return nil
+	}
+
+	spLoginFunc := func(ctx context.Context, idp *sp.SSAMLIdentityProvider) (sp.SSAMLSpInitiatedLoginRequest, error) {
+		result := sp.SSAMLSpInitiatedLoginRequest{}
+		result.RequestID = samlutils.GenerateSAMLId()
+		return result, nil
+	}
+
+	spInst := sp.NewSpInstance(saml, "Yunion SAML Demo Service", consumeFunc, spLoginFunc)
+	for _, idpFile := range options.IdpMeta {
+		err := spInst.AddIdpMetadataFile(idpFile)
+		if err != nil {
+			return errors.Wrap(err, "AddIdpMetadataFile")
+		}
+	}
+	spInst.AddHandlers(app, "SAML/sp")
+
+	app.AddHandler("GET", "SAML/sp", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		spInitUrl := httputils.JoinPath(options.Entity, "SAML/sp/sso")
+
+		htmlBuf := strings.Builder{}
+		htmlBuf.WriteString(`<!doctype html><html lang=en><body><ol>`)
+
+		for _, idp := range spInst.GetIdentityProviders() {
+			entityId := idp.GetEntityId()
+			htmlBuf.WriteString(fmt.Sprintf(`<li><a href="%s?EntityID=%s">%s (SP-Initiated)</a></li>`, spInitUrl, url.QueryEscape(entityId), entityId))
 		}
 
 		htmlBuf.WriteString(`</ol></body></html>`)

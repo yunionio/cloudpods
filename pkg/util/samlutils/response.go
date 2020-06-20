@@ -18,8 +18,8 @@ import (
 	"encoding/xml"
 	"time"
 
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/timeutils"
-	"yunion.io/x/pkg/utils"
 )
 
 type SSAMLResponseAttribute struct {
@@ -61,8 +61,8 @@ func NewResponse(input SSAMLResponseInput) Response {
 	// since := timeutils.IsoTime(time.Now().UTC().Add(-time.Minute * 60 * 24))
 	until := timeutils.IsoTime(time.Now().UTC().Add(time.Minute * 60 * 24))
 
-	respId := "_" + utils.GenRequestId(16)
-	assertId := "_" + utils.GenRequestId(16)
+	respId := GenerateSAMLId()
+	assertId := GenerateSAMLId()
 	now := timeutils.IsoTime(time.Now().UTC())
 	issuerFormat := NAME_ID_FORMAT_ENTITY
 
@@ -111,7 +111,7 @@ func NewResponse(input SSAMLResponseInput) Response {
 				Message: STATUS_SUCCESS,
 			},
 		},
-		Assertion: Assertion{
+		Assertion: &Assertion{
 			XMLName: xml.Name{
 				Space: XMLNS_ASSERT,
 				Local: "Assertion",
@@ -200,7 +200,7 @@ func NewResponse(input SSAMLResponseInput) Response {
 						Space: XMLNS_DS,
 						Local: "KeyInfo",
 					},
-					X509Data: X509Data{
+					X509Data: &X509Data{
 						XMLName: xml.Name{
 							Space: XMLNS_DS,
 							Local: "X509Data",
@@ -349,4 +349,28 @@ func (r *Response) AddAudienceRestriction(value string) {
 		},
 	}
 	r.Assertion.Conditions.AudienceRestrictions = append(r.Assertion.Conditions.AudienceRestrictions, restrict)
+}
+
+func (saml *SSAMLInstance) UnmarshalResponse(xmlText []byte) (*Response, error) {
+	resp := Response{}
+	err := xml.Unmarshal(xmlText, &resp)
+	if err != nil {
+		return nil, errors.Wrap(err, "xml.Unmarshal response")
+	}
+	if resp.EncryptedAssertion != nil {
+		asserText, err := resp.EncryptedAssertion.EncryptedData.decryptData(saml.privateKey)
+		if err != nil {
+			return nil, errors.Wrap(err, "EncryptedAssertion.EncryptedData.decryptData")
+		}
+
+		assertion := Assertion{}
+		err = xml.Unmarshal(asserText, &assertion)
+		if err != nil {
+			return nil, errors.Wrap(err, "xml.Unmarshal assertion")
+		}
+
+		resp.Assertion = &assertion
+	}
+
+	return &resp, nil
 }

@@ -15,21 +15,14 @@
 package idp
 
 import (
-	"context"
-
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/samlutils"
 )
 
-type ISAMLSpDriver interface {
-	RenderResponse(ctx context.Context, resp samlutils.Response) samlutils.Response
-}
-
 type SSAMLServiceProvider struct {
-	desc   samlutils.EntityDescriptor
-	driver ISAMLSpDriver
+	desc samlutils.EntityDescriptor
 }
 
 func (sp *SSAMLServiceProvider) GetEntityId() string {
@@ -46,6 +39,9 @@ func (sp *SSAMLServiceProvider) GetPostAssertionConsumerServiceUrl() string {
 }
 
 func (sp *SSAMLServiceProvider) IsValid() error {
+	if sp.desc.SPSSODescriptor == nil {
+		return errors.Wrap(httperrors.ErrInputParameter, "missing SPSSODescriptor")
+	}
 	if sp.GetEntityId() == "" {
 		return errors.Wrap(httperrors.ErrInputParameter, "empty entityID")
 	}

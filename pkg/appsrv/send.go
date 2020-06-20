@@ -63,12 +63,12 @@ func SendJSON(w http.ResponseWriter, obj jsonutils.JSONObject) {
 }
 
 func SendHeader(w http.ResponseWriter, hdr http.Header) {
-	w.WriteHeader(204)
 	for k, v := range hdr {
 		if len(v) > 0 && len(v[0]) > 0 {
 			w.Header().Set(k, v[0])
 		}
 	}
+	w.WriteHeader(204)
 	w.Write([]byte{})
 }
 
@@ -151,4 +151,10 @@ func SendStream(w http.ResponseWriter, isPartial bool, hdr http.Header, stream i
 		}
 	}
 	return nil
+}
+
+func SendRedirect(w http.ResponseWriter, redirectUrl string) {
+	w.Header().Set("Location", redirectUrl)
+	w.WriteHeader(301)
+	w.Write([]byte{})
 }

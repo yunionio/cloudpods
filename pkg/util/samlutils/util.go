@@ -26,6 +26,7 @@ import (
 	"github.com/ma314smith/signedxml"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 )
 
 func compressString(in string) string {
@@ -125,4 +126,8 @@ func ValidateXML(signed string) ([]string, error) {
 		return nil, errors.Wrap(err, "validator.ValidateReferences")
 	}
 	return validXMLs, nil
+}
+
+func GenerateSAMLId() string {
+	return "_" + utils.GenRequestId(16)
 }

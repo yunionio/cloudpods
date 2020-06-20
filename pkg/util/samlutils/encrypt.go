@@ -15,9 +15,15 @@
 package samlutils
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha1"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/pem"
+	"hash"
 	"io/ioutil"
 
 	"yunion.io/x/log"
@@ -78,4 +84,64 @@ func (saml *SSAMLInstance) parseKeys() error {
 	}
 
 	return nil
+}
+
+func (key EncryptedKey) decryptKey(privateKey *rsa.PrivateKey) ([]byte, error) {
+	cipher, err := base64.StdEncoding.DecodeString(key.CipherData.CipherValue.Value)
+	if err != nil {
+		return nil, errors.Wrap(err, "base64.StdEncoding.DecodeString")
+	}
+	encAlg := key.EncryptionMethod.Algorithm
+	switch encAlg {
+	case "http://www.w3.org/2001/04/xmlenc#rsa-oaep-mgf1p":
+		var shaAlg hash.Hash
+		hashAlg := key.EncryptionMethod.DigestMethod.Algorithm
+		switch hashAlg {
+		case "http://www.w3.org/2000/09/xmldsig#sha1":
+			shaAlg = sha1.New()
+		default:
+			return nil, errors.Wrapf(httperrors.ErrUnsupportedProtocol, "unsupported digest algorithm %s", hashAlg)
+		}
+		plaintext, err := rsa.DecryptOAEP(shaAlg, rand.Reader, privateKey, cipher, nil)
+		if err != nil {
+			return nil, errors.Wrap(err, "rsa.DecryptOAEP")
+		}
+		return plaintext, nil
+	default:
+		return nil, errors.Wrapf(httperrors.ErrUnsupportedProtocol, "unsupported encryption algorithm %s", encAlg)
+	}
+}
+
+func (data EncryptedData) decryptData(privateKey *rsa.PrivateKey) ([]byte, error) {
+	cipher, err := base64.StdEncoding.DecodeString(data.CipherData.CipherValue.Value)
+	if err != nil {
+		return nil, errors.Wrap(err, "base64.StdEncoding.DecodeString")
+	}
+	key, err := data.KeyInfo.EncryptedKey.decryptKey(privateKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "KeyInfo.EncryptedKey.decryptKey")
+	}
+	encAlg := data.EncryptionMethod.Algorithm
+	switch encAlg {
+	case "http://www.w3.org/2001/04/xmlenc#aes128-cbc":
+		return decryptAes128Cbc(key, cipher)
+	default:
+		return nil, errors.Wrapf(httperrors.ErrUnsupportedProtocol, "unsupported encryption algorithm %s", encAlg)
+	}
+}
+
+func decryptAes128Cbc(key []byte, secret []byte) ([]byte, error) {
+	c, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, errors.Wrap(err, "aes.NewCipher")
+	}
+
+	decrypter := cipher.NewCBCDecrypter(c, secret[0:aes.BlockSize])
+
+	data := make([]byte, len(secret)-aes.BlockSize)
+	copy(data, secret[aes.BlockSize:])
+
+	decrypter.CryptBlocks(data, data)
+
+	return data, nil
 }

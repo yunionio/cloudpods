@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
-	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/httputils"
@@ -177,8 +176,7 @@ func (idp *SSAMLIdpInstance) getMetadata(ctx context.Context) samlutils.EntityDe
 		RedirectLoginUrl:  idp.getRedirectLoginUrl(),
 		RedirectLogoutUrl: idp.getRedirectLogoutUrl(),
 	}
-	hostId := appctx.AppContextHostId(ctx)
-	return samlutils.NewIdpMetadata(hostId, input)
+	return samlutils.NewIdpMetadata(input)
 }
 
 func (idp *SSAMLIdpInstance) processLoginRequest(ctx context.Context, input samlutils.SIdpRedirectLoginInput) (string, error) {

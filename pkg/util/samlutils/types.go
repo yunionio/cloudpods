@@ -38,7 +38,7 @@ type RequestInitiator struct {
 type SXMLText struct {
 	XMLName xml.Name
 
-	Lang string `xml:"lang,attr"`
+	Lang string `xml:"xml:lang,attr"`
 	Text string `xml:",innerxml"`
 }
 
@@ -99,13 +99,16 @@ type X509Data struct {
 type KeyInfo struct {
 	XMLName xml.Name
 
-	X509Data X509Data `xml:"X509Data"`
+	X509Data     *X509Data     `xml:"X509Data"`
+	EncryptedKey *EncryptedKey `xml:"EncryptedKey"`
 }
 
 type EncryptionMethod struct {
 	XMLName xml.Name
 
 	Algorithm string `xml:"Algorithm,attr"`
+
+	DigestMethod *DigestMethod `xml:"DigestMethod"`
 }
 
 type KeyDescriptor struct {
@@ -148,7 +151,7 @@ type AttributeConsumingService struct {
 
 	ServiceName SXMLText `xml:"ServiceName"`
 
-	RequestedAttribute []RequestedAttribute `xml:"RequestedAttribute"`
+	RequestedAttributes []RequestedAttribute `xml:"RequestedAttribute"`
 }
 
 type SSODescriptor struct {
@@ -172,7 +175,7 @@ type SSODescriptor struct {
 
 	AssertionConsumerServices []SSAMLService `xml:"AssertionConsumerService"`
 
-	AttributeConsumingService []AttributeConsumingService `xml:"AttributeConsumingService"`
+	AttributeConsumingServices []AttributeConsumingService `xml:"AttributeConsumingService"`
 }
 
 type SSAMLValue struct {
@@ -238,10 +241,10 @@ type EntityDescriptor struct {
 }
 
 type SIdpRedirectLoginInput struct {
-	SAMLRequest string `json:"SAMLRequest"`
-	RelayState  string `json:"RelayState"`
-	SigAlg      string `json:"SigAlg"`
-	Signature   string `json:"Signature"`
+	SAMLRequest string `json:"SAMLRequest,ignoreempty"`
+	RelayState  string `json:"RelayState,ignoreempty"`
+	SigAlg      string `json:"SigAlg,ignoreempty"`
+	Signature   string `json:"Signature,ignoreempty"`
 }
 
 type SIdpInitiatedLoginInput struct {
@@ -312,7 +315,8 @@ type Response struct {
 	Issuer Issuer `xml:"Issuer"`
 	Status Status `xml:"Status"`
 
-	Assertion Assertion `xml:"Assertion"`
+	Assertion          *Assertion          `xml:"Assertion"`
+	EncryptedAssertion *EncryptedAssertion `xml:"EncryptedAssertion"`
 }
 
 type Assertion struct {
@@ -436,4 +440,48 @@ type AuthnContextClassRef struct {
 	XMLName xml.Name
 
 	Value string `xml:",innerxml"`
+}
+
+type SSpInitiatedLoginInput struct {
+	EntityID string `json:"EntityID"`
+}
+
+type EncryptedAssertion struct {
+	XMLName xml.Name
+
+	EncryptedData EncryptedData `xml:"EncryptedData"`
+}
+
+type EncryptedData struct {
+	XMLName xml.Name
+
+	Id   string `xml:"Id,attr"`
+	Type string `xml:"Type,attr"`
+
+	EncryptionMethod EncryptionMethod `xml:"EncryptionMethod"`
+	KeyInfo          KeyInfo          `xml:"KeyInfo"`
+	CipherData       CipherData       `xml:"CipherData"`
+}
+
+type CipherData struct {
+	XMLName xml.Name
+
+	CipherValue CipherValue `xml:"CipherValue"`
+}
+
+type CipherValue struct {
+	XMLName xml.Name
+
+	Value string `xml:",innerxml"`
+}
+
+type EncryptedKey struct {
+	XMLName xml.Name
+
+	Id        string `xml:"Id,attr"`
+	Recipient string `xml:"Recipient,attr"`
+
+	EncryptionMethod EncryptionMethod `xml:"EncryptionMethod"`
+	KeyInfo          KeyInfo          `xml:"KeyInfo"`
+	CipherData       CipherData       `xml:"CipherData"`
 }

@@ -36,7 +36,7 @@ type SSAMLIdpMetadataInput struct {
 	RedirectLogoutUrl string
 }
 
-func NewIdpMetadata(id string, input SSAMLIdpMetadataInput) EntityDescriptor {
+func NewIdpMetadata(input SSAMLIdpMetadataInput) EntityDescriptor {
 	desc := EntityDescriptor{
 		XMLName: xml.Name{
 			Space: XMLNS_MD,
@@ -61,7 +61,7 @@ func NewIdpMetadata(id string, input SSAMLIdpMetadataInput) EntityDescriptor {
 							Space: XMLNS_DS,
 							Local: "KeyInfo",
 						},
-						X509Data: X509Data{
+						X509Data: &X509Data{
 							XMLName: xml.Name{
 								Space: XMLNS_DS,
 								Local: "X509Data",
@@ -87,7 +87,7 @@ func NewIdpMetadata(id string, input SSAMLIdpMetadataInput) EntityDescriptor {
 							Space: XMLNS_DS,
 							Local: "KeyInfo",
 						},
-						X509Data: X509Data{
+						X509Data: &X509Data{
 							XMLName: xml.Name{
 								Space: XMLNS_DS,
 								Local: "X509Data",
@@ -130,6 +130,142 @@ func NewIdpMetadata(id string, input SSAMLIdpMetadataInput) EntityDescriptor {
 					},
 					Binding:  BINDING_HTTP_REDIRECT,
 					Location: input.RedirectLoginUrl,
+				},
+			},
+		},
+	}
+	return desc
+}
+
+type SSAMLSpMetadataInput struct {
+	EntityId             string
+	CertString           string
+	AssertionConsumerUrl string
+	ServiceName          string
+	RequestedAttributes  []RequestedAttribute
+}
+
+func NewSpMetadata(input SSAMLSpMetadataInput) EntityDescriptor {
+	strTrue := "true"
+	strIndex := "1"
+
+	reqAttrs := make([]RequestedAttribute, len(input.RequestedAttributes))
+	for i := range input.RequestedAttributes {
+		reqAttrs[i] = RequestedAttribute{
+			XMLName: xml.Name{
+				Space: XMLNS_MD,
+				Local: "RequestedAttribute",
+			},
+			IsRequired:   input.RequestedAttributes[i].IsRequired,
+			Name:         input.RequestedAttributes[i].Name,
+			FriendlyName: input.RequestedAttributes[i].FriendlyName,
+		}
+	}
+
+	desc := EntityDescriptor{
+		XMLName: xml.Name{
+			Space: XMLNS_MD,
+			Local: "EntityDescriptor",
+		},
+		EntityId: input.EntityId,
+		SPSSODescriptor: &SSODescriptor{
+			XMLName: xml.Name{
+				Space: XMLNS_MD,
+				Local: "SPSSODescriptor",
+			},
+			ProtocolSupportEnumeration: PROTOCOL_SAML2,
+			WantAssertionsSigned:       &strTrue,
+			KeyDescriptors: []KeyDescriptor{
+				{
+					XMLName: xml.Name{
+						Space: XMLNS_MD,
+						Local: "KeyDescriptor",
+					},
+					Use: KEY_USE_SIGNING,
+					KeyInfo: KeyInfo{
+						XMLName: xml.Name{
+							Space: XMLNS_DS,
+							Local: "KeyInfo",
+						},
+						X509Data: &X509Data{
+							XMLName: xml.Name{
+								Space: XMLNS_DS,
+								Local: "X509Data",
+							},
+							X509Certificate: X509Certificate{
+								XMLName: xml.Name{
+									Space: XMLNS_DS,
+									Local: "X509Certificate",
+								},
+								Cert: input.CertString,
+							},
+						},
+					},
+				},
+				{
+					XMLName: xml.Name{
+						Space: XMLNS_MD,
+						Local: "KeyDescriptor",
+					},
+					Use: KEY_USE_ENCRYPTION,
+					KeyInfo: KeyInfo{
+						XMLName: xml.Name{
+							Space: XMLNS_DS,
+							Local: "KeyInfo",
+						},
+						X509Data: &X509Data{
+							XMLName: xml.Name{
+								Space: XMLNS_DS,
+								Local: "X509Data",
+							},
+							X509Certificate: X509Certificate{
+								XMLName: xml.Name{
+									Space: XMLNS_DS,
+									Local: "X509Certificate",
+								},
+								Cert: input.CertString,
+							},
+						},
+					},
+				},
+			},
+			NameIDFormat: []SSAMLNameIDFormat{
+				{
+					XMLName: xml.Name{
+						Space: XMLNS_MD,
+						Local: "NameIDFormat",
+					},
+					Format: NAME_ID_FORMAT_TRANSIENT,
+				},
+			},
+			AssertionConsumerServices: []SSAMLService{
+				{
+					XMLName: xml.Name{
+						Space: XMLNS_MD,
+						Local: "AssertionConsumerService",
+					},
+					Binding:   BINDING_HTTP_POST,
+					Location:  input.AssertionConsumerUrl,
+					Index:     &strIndex,
+					IsDefault: &strTrue,
+				},
+			},
+			AttributeConsumingServices: []AttributeConsumingService{
+				{
+					XMLName: xml.Name{
+						Space: XMLNS_MD,
+						Local: "AttributeConsumingService",
+					},
+					Index: strIndex,
+					ServiceName: SXMLText{
+						XMLName: xml.Name{
+							Space: XMLNS_MD,
+							Local: "ServiceName",
+						},
+						Lang: "en",
+						Text: input.ServiceName,
+					},
+					RequestedAttributes: reqAttrs,
 				},
 			},
 		},
