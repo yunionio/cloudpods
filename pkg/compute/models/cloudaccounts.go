@@ -1939,17 +1939,12 @@ func (manager *SCloudaccountManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.CloudaccountListInput,
 ) (*sqlchemy.SQuery, error) {
-	accountStr := query.Cloudaccount
-	if len(accountStr) > 0 {
-		accountObj, err := manager.FetchByIdOrName(userCred, accountStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), accountStr)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
-		q = q.Equals("id", accountObj.GetId())
+	accountArr := query.Cloudaccount
+	if len(accountArr) > 0 {
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.In(q.Field("id"), accountArr),
+			sqlchemy.In(q.Field("name"), accountArr),
+		))
 	}
 
 	q, err := manager.SEnabledStatusInfrasResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusInfrasResourceBaseListInput)
