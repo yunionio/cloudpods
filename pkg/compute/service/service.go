@@ -43,6 +43,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/compute/storagedrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks"
 	"yunion.io/x/onecloud/pkg/controller/autoscaling"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	_ "yunion.io/x/onecloud/pkg/multicloud/loader"
 )
 
@@ -180,6 +181,9 @@ func initDefaultEtcdClient(opts *common_options.DBOptions) error {
 func initEtcdLockOpts(opts *options.ComputeOptions) error {
 	etcdEndpoint, err := app_common.FetchEtcdServiceInfo()
 	if err != nil {
+		if errors.Cause(err) == httperrors.ErrNotFound {
+			return nil
+		}
 		return errors.Wrap(err, "fetch etcd service info")
 	}
 	if etcdEndpoint != nil {

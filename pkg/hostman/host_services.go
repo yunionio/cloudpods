@@ -43,6 +43,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman/diskhandlers"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/storagehandler"
 	"yunion.io/x/onecloud/pkg/hostman/system_service"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
@@ -170,6 +171,9 @@ func (host *SHostService) initHandlers(app *appsrv.Application) {
 func (host *SHostService) initEtcdConfig() error {
 	etcdEndpoint, err := app_common.FetchEtcdServiceInfo()
 	if err != nil {
+		if errors.Cause(err) == httperrors.ErrNotFound {
+			return nil
+		}
 		return errors.Wrap(err, "fetch etcd service info")
 	}
 	if etcdEndpoint == nil {
