@@ -1015,7 +1015,7 @@ func (self *SSnapshot) getCloudProviderInfo() SCloudProviderInfo {
 
 func (manager *SSnapshotManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
 	virts := manager.Query().IsFalse("fake_deleted")
-	return db.CalculateProjectResourceCount(virts)
+	return db.CalculateResourceCount(virts, "tenant_id")
 }
 
 func (manager *SSnapshotManager) CleanupSnapshots(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {

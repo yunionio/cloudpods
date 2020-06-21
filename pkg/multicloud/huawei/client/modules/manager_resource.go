@@ -209,6 +209,9 @@ func (self *SResourceManager) UpdateInContextWithSpec(ctx manager.IManagerContex
 	if len(content) > 0 {
 		request.SetContent([]byte(content))
 	}
+	if len(self.DomainId) > 0 {
+		request.AddHeaderParam("X-Domain-Id", self.DomainId)
+	}
 
 	return self._do(request, responseKey)
 }
@@ -230,6 +233,9 @@ func (self *SResourceManager) DeleteInContextWithSpec(ctx manager.IManagerContex
 	content := getContent(params)
 	if len(content) > 0 {
 		request.SetContent([]byte(content))
+	}
+	if len(self.DomainId) > 0 {
+		request.AddHeaderParam("X-Domain-Id", self.DomainId)
 	}
 
 	return self._do(request, responseKey)

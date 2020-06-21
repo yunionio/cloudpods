@@ -323,6 +323,13 @@ type IVirtualModelManager interface {
 	GetResourceCount() ([]SScopeResourceCount, error)
 }
 
+type IUserModelManager interface {
+	IStandaloneModelManager
+
+	GetIUserModelManager() IUserModelManager
+	GetResourceCount() ([]SScopeResourceCount, error)
+}
+
 type IVirtualModel interface {
 	IStandaloneModel
 	IPendingDeletable

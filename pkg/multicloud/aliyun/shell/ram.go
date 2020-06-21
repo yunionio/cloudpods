@@ -91,4 +91,17 @@ func init() {
 	shellutils.R(&ListRolesOptions{}, "enable-image-export", "Enable image export privilege", func(cli *aliyun.SRegion, args *ListRolesOptions) error {
 		return cli.GetClient().EnableImageExport()
 	})
+
+	type CallerShowOptions struct {
+	}
+
+	shellutils.R(&CallerShowOptions{}, "caller-show", "Show caller info", func(cli *aliyun.SRegion, args *CallerShowOptions) error {
+		caller, err := cli.GetClient().GetCallerIdentity()
+		if err != nil {
+			return err
+		}
+		printObject(caller)
+		return nil
+	})
+
 }

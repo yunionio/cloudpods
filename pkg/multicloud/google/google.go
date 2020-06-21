@@ -51,6 +51,7 @@ const (
 	GOOGLE_BILLING_API_VERSION    = "v1"
 	GOOGLE_MONITOR_API_VERSION    = "v3"
 	GOOGLE_DBINSTANCE_API_VERSION = "v1beta4"
+	GOOGLE_IAM_API_VERSION        = "v1"
 
 	GOOGLE_MANAGER_DOMAIN        = "https://cloudresourcemanager.googleapis.com"
 	GOOGLE_COMPUTE_DOMAIN        = "https://www.googleapis.com/compute"
@@ -60,6 +61,7 @@ const (
 	GOOGLE_BILLING_DOMAIN        = "https://cloudbilling.googleapis.com"
 	GOOGLE_MONITOR_DOMAIN        = "https://monitoring.googleapis.com"
 	GOOGLE_DBINSTANCE_DOMAIN     = "https://www.googleapis.com/sql"
+	GOOGLE_IAM_DOMAIN            = "https://iam.googleapis.com"
 
 	MAX_RETRY = 3
 )
@@ -256,6 +258,42 @@ func (self *SGoogleClient) managerList(resource string, params map[string]string
 
 func (self *SGoogleClient) managerGet(resource string) (jsonutils.JSONObject, error) {
 	return jsonRequest(self.client, "GET", GOOGLE_MANAGER_DOMAIN, GOOGLE_MANAGER_API_VERSION, resource, nil, nil, self.debug)
+}
+
+func (self *SGoogleClient) managerPost(resource string, params map[string]string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return jsonRequest(self.client, "POST", GOOGLE_MANAGER_DOMAIN, GOOGLE_MANAGER_API_VERSION, resource, params, body, self.debug)
+}
+
+func (self *SGoogleClient) iamList(resource string, params map[string]string) (jsonutils.JSONObject, error) {
+	return jsonRequest(self.client, "GET", GOOGLE_IAM_DOMAIN, GOOGLE_IAM_API_VERSION, resource, params, nil, self.debug)
+}
+
+func (self *SGoogleClient) iamListAll(resource string, params map[string]string, retval interface{}) error {
+	if params == nil {
+		params = map[string]string{}
+	}
+	items := jsonutils.NewArray()
+	nextPageToken := ""
+	params["pageSize"] = "100"
+	for {
+		params["pageToken"] = nextPageToken
+		resp, err := self.iamList(resource, params)
+		if err != nil {
+			return errors.Wrap(err, "iamList")
+		}
+		if resp.Contains("roles") {
+			_items, err := resp.GetArray("roles")
+			if err != nil {
+				return errors.Wrap(err, "resp.GetArray")
+			}
+			items.Add(_items...)
+		}
+		nextPageToken, _ = resp.GetString("nextPageToken")
+		if len(nextPageToken) == 0 {
+			break
+		}
+	}
+	return items.Unmarshal(retval)
 }
 
 func (self *SGoogleClient) ecsListAll(resource string, params map[string]string, retval interface{}) error {

@@ -53,6 +53,14 @@ func (self *SQcloudProviderFactory) GetMaxCloudEventKeepDays() int {
 	return 30
 }
 
+func (self *SQcloudProviderFactory) IsSupportClouduser() bool {
+	return true
+}
+
+func (self *SQcloudProviderFactory) IsSupportCreateCloudgroup() bool {
+	return true
+}
+
 func (self *SQcloudProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
 	if len(instanceId) == 0 {
 		return fmt.Errorf("Only changes to the binding machine's EIP bandwidth are supported")
@@ -164,6 +172,14 @@ func (self *SQcloudProvider) GetAccountId() string {
 	return self.client.GetAccountId()
 }
 
+func (self *SQcloudProvider) GetIamLoginUrl() string {
+	return self.client.GetIamLoginUrl()
+}
+
+func (self *SQcloudProvider) IsSupportCloudId() bool {
+	return cloudprovider.IsSupportCloudId(self)
+}
+
 func (self *SQcloudProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.client.GetIRegions()
 }
@@ -200,4 +216,32 @@ func (self *SQcloudProvider) GetStorageClasses(regionId string) []string {
 
 func (self *SQcloudProvider) GetCapabilities() []string {
 	return self.client.GetCapabilities()
+}
+
+func (self *SQcloudProvider) CreateIClouduser(conf *cloudprovider.SClouduserCreateConfig) (cloudprovider.IClouduser, error) {
+	return self.client.CreateIClouduser(conf)
+}
+
+func (self *SQcloudProvider) GetICloudusers() ([]cloudprovider.IClouduser, error) {
+	return self.client.GetICloudusers()
+}
+
+func (self *SQcloudProvider) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
+	return self.client.GetICloudgroups()
+}
+
+func (self *SQcloudProvider) GetICloudgroupByName(name string) (cloudprovider.ICloudgroup, error) {
+	return self.client.GetICloudgroupByName(name)
+}
+
+func (self *SQcloudProvider) CreateICloudgroup(name, desc string) (cloudprovider.ICloudgroup, error) {
+	return self.client.CreateICloudgroup(name, desc)
+}
+
+func (self *SQcloudProvider) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	return self.client.GetISystemCloudpolicies()
+}
+
+func (self *SQcloudProvider) GetIClouduserByName(name string) (cloudprovider.IClouduser, error) {
+	return self.client.GetIClouduserByName(name)
 }

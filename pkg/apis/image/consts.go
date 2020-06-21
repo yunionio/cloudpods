@@ -14,10 +14,12 @@
 
 package image
 
+import "yunion.io/x/onecloud/pkg/apis"
+
 type TImageType string
 
 const (
-	SERVICE_TYPE    = "image"
+	SERVICE_TYPE    = apis.SERVICE_TYPE_IMAGE
 	SERVICE_VERSION = ""
 
 	// https://docs.openstack.org/glance/pike/user/statuses.html

@@ -941,7 +941,7 @@ func (lbr *SLoadbalancerListenerRule) SyncWithCloudLoadbalancerListenerRule(
 
 func (manager *SLoadbalancerListenerRuleManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
 	virts := manager.Query().IsFalse("pending_deleted")
-	return db.CalculateProjectResourceCount(virts)
+	return db.CalculateResourceCount(virts, "tenant_id")
 }
 
 func (manager *SLoadbalancerListenerRuleManager) ListItemExportKeys(ctx context.Context,

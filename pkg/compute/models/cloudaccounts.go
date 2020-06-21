@@ -160,6 +160,12 @@ type SCloudaccount struct {
 
 	// 默认值proxyapi.ProxySettingId_DIRECT
 	ProxySettingId string `width:"36" charset:"ascii" nullable:"false" list:"domain" create:"optional" update:"domain" default:"DIRECT"`
+
+	// 公有云子账号登录地址
+	IamLoginUrl string `width:"512" charset:"ascii" nullable:"false" list:"domain" update:"domain"`
+
+	// 是否支持创建公有云子账号
+	IsSupportCloudId tristate.TriState `nullable:"false" get:"domain" list:"domain" default:"false"`
 }
 
 func (self *SCloudaccount) GetCloudproviders() []SCloudprovider {
@@ -2269,6 +2275,7 @@ func (account *SCloudaccount) probeAccountStatus(ctx context.Context, userCred m
 		log.Errorf("manager.GetSysInfo fail %s", err)
 		return nil, errors.Wrap(err, "manager.GetSysInfo")
 	}
+	iamLoginUrl := manager.GetIamLoginUrl()
 	factory := manager.GetFactory()
 	diff, err := db.Update(account, func() error {
 		isPublic := factory.IsPublicCloud()
@@ -2282,6 +2289,8 @@ func (account *SCloudaccount) probeAccountStatus(ctx context.Context, userCred m
 		account.ProbeAt = timeutils.UtcNow()
 		account.Version = version
 		account.Sysinfo = sysInfo
+		account.IamLoginUrl = iamLoginUrl
+		account.IsSupportCloudId = tristate.NewFromBool(manager.IsSupportCloudId())
 		return nil
 	})
 	if err != nil {

@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/keystone/options"
 	o "yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -605,6 +606,16 @@ func userExtra(user *SUser, out api.UserDetails) api.UserDetails {
 		}
 	}
 
+	external, update, _ := user.getExternalResources()
+	if len(external) > 0 {
+		out.ExtResource = jsonutils.Marshal(external)
+		out.ExtResourcesLastUpdate = update
+		if update.IsZero() {
+			update = time.Now()
+		}
+		nextUpdate := update.Add(time.Duration(options.Options.FetchScopeResourceCountIntervalSeconds) * time.Second)
+		out.ExtResourcesNextUpdate = nextUpdate
+	}
 	return out
 }
 
@@ -664,7 +675,15 @@ func (user *SUser) ValidateDeleteCondition(ctx context.Context) error {
 	if user.IsReadOnly() {
 		return httperrors.NewForbiddenError("readonly")
 	}
+	external, _, _ := user.getExternalResources()
+	if len(external) > 0 {
+		return httperrors.NewNotEmptyError("user contains external resources")
+	}
 	return user.SIdentityBaseResource.ValidateDeleteCondition(ctx)
+}
+
+func (user *SUser) getExternalResources() (map[string]int, time.Time, error) {
+	return ScopeResourceManager.getScopeResource("", "", user.Id)
 }
 
 func (user *SUser) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

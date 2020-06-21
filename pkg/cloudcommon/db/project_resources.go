@@ -29,13 +29,13 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
-func AddProjectResourceCountHandler(prefix string, app *appsrv.Application) {
-	prefix = fmt.Sprintf("%s/project-resources", prefix)
-	app.AddHandler2("GET", prefix, auth.Authenticate(getAllProjectResourceCountsHandler), nil, "get_project_resources", nil)
+func AddScopeResourceCountHandler(prefix string, app *appsrv.Application) {
+	prefix = fmt.Sprintf("%s/scope-resources", prefix)
+	app.AddHandler2("GET", prefix, auth.Authenticate(getAllScopeResourceCountsHandler), nil, "get_scope_resources", nil)
 }
 
-func getAllProjectResourceCountsHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	cnt, err := getAllProjectResourceCounts()
+func getAllScopeResourceCountsHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	cnt, err := getAllScopeResourceCounts()
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
@@ -43,7 +43,7 @@ func getAllProjectResourceCountsHandler(ctx context.Context, w http.ResponseWrit
 	appsrv.SendJSON(w, jsonutils.Marshal(cnt))
 }
 
-func getAllProjectResourceCounts() (map[string][]SScopeResourceCount, error) {
+func getAllScopeResourceCounts() (map[string][]SScopeResourceCount, error) {
 	ret := make(map[string][]SScopeResourceCount)
 	for _, manager := range globalTables {
 		if virtman, ok := manager.(IVirtualModelManager); ok {
@@ -58,6 +58,12 @@ func getAllProjectResourceCounts() (map[string][]SScopeResourceCount, error) {
 				return nil, errors.Wrap(err, "getDomainResourceCount")
 			}
 			ret[domainMan.KeywordPlural()] = resCnt
+		} else if userMan, ok := manager.(IUserModelManager); ok {
+			resCnt, err := userMan.GetResourceCount()
+			if err != nil {
+				return nil, errors.Wrap(err, "getUserResourceCount")
+			}
+			ret[userMan.KeywordPlural()] = resCnt
 		}
 	}
 	return ret, nil
@@ -66,39 +72,30 @@ func getAllProjectResourceCounts() (map[string][]SScopeResourceCount, error) {
 type SScopeResourceCount struct {
 	TenantId string `json:"tenant_id"`
 	DomainId string `json:"domain_id"`
+	OwnerId  string `json:"owner_id"`
 	ResCount int    `json:"res_count"`
 }
 
 func (virtman *SVirtualResourceBaseManager) GetResourceCount() ([]SScopeResourceCount, error) {
 	virts := virtman.GetIVirtualModelManager().Query()
-	// log.Debugf("GetResourceCount: %s", virtman.keywordPlural)
-	return CalculateProjectResourceCount(virts)
-}
-
-func CalculateProjectResourceCount(query *sqlchemy.SQuery) ([]SScopeResourceCount, error) {
-	virts := query.SubQuery()
-	q := virts.Query(virts.Field("tenant_id"), sqlchemy.COUNT("res_count"))
-	q = q.IsNotEmpty("tenant_id")
-	q = q.GroupBy(virts.Field("tenant_id"))
-	cnts := make([]SScopeResourceCount, 0)
-	err := q.All(&cnts)
-	if err != nil && err != sql.ErrNoRows {
-		return nil, errors.Wrap(err, "q.All")
-	}
-	return cnts, nil
+	return CalculateResourceCount(virts, "tenant_id")
 }
 
 func (domainman *SDomainLevelResourceBaseManager) GetResourceCount() ([]SScopeResourceCount, error) {
 	virts := domainman.GetIDomainLevelModelManager().Query()
-	// log.Debugf("GetResourceCount: %s", virtman.keywordPlural)
-	return CalculateDomainResourceCount(virts)
+	return CalculateResourceCount(virts, "domain_id")
 }
 
-func CalculateDomainResourceCount(query *sqlchemy.SQuery) ([]SScopeResourceCount, error) {
+func (userman *SUserResourceBaseManager) GetResourceCount() ([]SScopeResourceCount, error) {
+	virts := userman.GetIUserModelManager().Query()
+	return CalculateResourceCount(virts, "owner_id")
+}
+
+func CalculateResourceCount(query *sqlchemy.SQuery, field string) ([]SScopeResourceCount, error) {
 	virts := query.SubQuery()
-	q := virts.Query(virts.Field("domain_id"), sqlchemy.COUNT("res_count"))
-	q = q.IsNotEmpty("domain_id")
-	q = q.GroupBy(virts.Field("domain_id"))
+	q := virts.Query(virts.Field(field), sqlchemy.COUNT("res_count"))
+	q = q.IsNotEmpty(field)
+	q = q.GroupBy(virts.Field(field))
 	cnts := make([]SScopeResourceCount, 0)
 	err := q.All(&cnts)
 	if err != nil && err != sql.ErrNoRows {

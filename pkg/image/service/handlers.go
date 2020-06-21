@@ -36,7 +36,7 @@ func InitHandlers(app *appsrv.Application) {
 
 	db.RegistUserCredCacheUpdater()
 
-	db.AddProjectResourceCountHandler(API_VERSION, app)
+	db.AddScopeResourceCountHandler(API_VERSION, app)
 
 	quotas.AddQuotaHandler(&models.QuotaManager.SQuotaBaseManager, API_VERSION, app)
 	usages.AddUsageHandler(API_VERSION, app)

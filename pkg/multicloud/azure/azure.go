@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	net_url "net/url"
 	"strconv"
 	"strings"
@@ -40,6 +41,13 @@ const (
 	CLOUD_PROVIDER_AZURE_CN = "微软"
 
 	AZURE_API_VERSION = "2016-02-01"
+)
+
+type TAzureResource string
+
+var (
+	GraphResource   = TAzureResource("graph")
+	DefaultResource = TAzureResource("default")
 )
 
 type SAzureClient struct {
@@ -86,6 +94,13 @@ var DEFAULT_API_VERSION = map[string]string{
 	"microsoft.insights/eventtypes/management/values": "2017-03-01-preview",
 	"Microsoft.Authorization/policyDefinitions":       "2019-09-01",
 	"Microsoft.Authorization/policyAssignments":       "2019-09-01",
+}
+
+var GRAPH_API_VERSION = map[string]string{
+	"Microsoft.DirectoryServices.User":  "1.6",
+	"users":                             "1.6",
+	"Microsoft.DirectoryServices.Group": "1.6",
+	"groups":                            "1.6",
 }
 
 type AzureClientConfig struct {
@@ -144,7 +159,7 @@ func NewAzureClient(cfg *AzureClientConfig) (*SAzureClient, error) {
 	return &client, nil
 }
 
-func (self *SAzureClient) getDefaultClient() (*autorest.Client, error) {
+func (self *SAzureClient) getClient(resource TAzureResource) (*autorest.Client, error) {
 	client := autorest.NewClientWithUserAgent("Yunion API")
 	conf := auth.NewClientCredentialsConfig(self.clientId, self.clientSecret, self.tenantId)
 	env, err := azureenv.EnvironmentFromName(self.envName)
@@ -156,8 +171,14 @@ func (self *SAzureClient) getDefaultClient() (*autorest.Client, error) {
 	client.Sender = httpClient
 
 	self.env = env
-	self.domain = env.ResourceManagerEndpoint
-	conf.Resource = env.ResourceManagerEndpoint
+	switch resource {
+	case GraphResource:
+		self.domain = env.GraphEndpoint
+		conf.Resource = env.GraphEndpoint
+	default:
+		self.domain = env.ResourceManagerEndpoint
+		conf.Resource = env.ResourceManagerEndpoint
+	}
 	conf.AADEndpoint = env.ActiveDirectoryEndpoint
 	{
 		spt, err := conf.ServicePrincipalToken()
@@ -175,12 +196,20 @@ func (self *SAzureClient) getDefaultClient() (*autorest.Client, error) {
 	return &client, nil
 }
 
+func (self *SAzureClient) getDefaultClient() (*autorest.Client, error) {
+	return self.getClient(DefaultResource)
+}
+
+func (self *SAzureClient) getGraphClient() (*autorest.Client, error) {
+	return self.getClient(GraphResource)
+}
+
 func (self *SAzureClient) jsonRequest(method, url string, body string) (jsonutils.JSONObject, error) {
 	cli, err := self.getDefaultClient()
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, method, self.domain, url, self.subscriptionId, body)
+	return jsonRequest(cli, method, self.domain, url, self.subscriptionId, body, DefaultResource)
 }
 
 func (self *SAzureClient) Put(url string, body jsonutils.JSONObject) error {
@@ -188,7 +217,7 @@ func (self *SAzureClient) Put(url string, body jsonutils.JSONObject) error {
 	if err != nil {
 		return err
 	}
-	resp, err := jsonRequest(cli, "PUT", self.domain, url, self.subscriptionId, body.String())
+	resp, err := jsonRequest(cli, "PUT", self.domain, url, self.subscriptionId, body.String(), DefaultResource)
 	if err != nil {
 		return err
 	}
@@ -203,7 +232,7 @@ func (self *SAzureClient) Patch(url string, body jsonutils.JSONObject) error {
 	if err != nil {
 		return err
 	}
-	resp, err := jsonRequest(cli, "PATCH", self.domain, url, self.subscriptionId, body.String())
+	resp, err := jsonRequest(cli, "PATCH", self.domain, url, self.subscriptionId, body.String(), DefaultResource)
 	if err != nil {
 		return err
 	}
@@ -225,7 +254,7 @@ func (self *SAzureClient) Get(resourceId string, params []string, retVal interfa
 	if err != nil {
 		return err
 	}
-	body, err := jsonRequest(cli, "GET", self.domain, path, self.subscriptionId, "")
+	body, err := jsonRequest(cli, "GET", self.domain, path, self.subscriptionId, "", DefaultResource)
 	if err != nil {
 		return err
 	}
@@ -246,7 +275,7 @@ func (self *SAzureClient) ListVmSizes(location string) (jsonutils.JSONObject, er
 		return nil, fmt.Errorf("need subscription id")
 	}
 	url := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Compute/locations/%s/vmSizes", self.subscriptionId, location)
-	return jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "")
+	return jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "", DefaultResource)
 }
 
 func (self *SAzureClient) ListClassicDisks() (jsonutils.JSONObject, error) {
@@ -258,7 +287,7 @@ func (self *SAzureClient) ListClassicDisks() (jsonutils.JSONObject, error) {
 		return nil, fmt.Errorf("need subscription id")
 	}
 	url := fmt.Sprintf("/subscriptions/%s/services/disks", self.subscriptionId)
-	return jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "")
+	return jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "", DefaultResource)
 }
 
 func (self *SAzureClient) ListAll(resourceType string, retVal interface{}) error {
@@ -267,6 +296,45 @@ func (self *SAzureClient) ListAll(resourceType string, retVal interface{}) error
 
 func (self *SAzureClient) ListAllWithNextToken(resourceType string, retVal interface{}) (string, error) {
 	return self.ListResourcesWithNextLink(resourceType, retVal, []string{"value"})
+}
+
+func (self *SAzureClient) ListGraphResource(resource string, params url.Values, retVal interface{}) error {
+	cli, err := self.getGraphClient()
+	if err != nil {
+		return err
+	}
+	if params == nil {
+		params = url.Values{}
+	}
+	params.Set("api-version", "1.6")
+	url := fmt.Sprintf("%s/%s?%s", self.tenantId, resource, params.Encode())
+	body, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "", GraphResource)
+	if err != nil {
+		return err
+	}
+	if retVal != nil {
+		err = body.Unmarshal(retVal, "value")
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (self *SAzureClient) CreateGraphResource(resource string, body jsonutils.JSONObject, retVal interface{}) error {
+	cli, err := self.getGraphClient()
+	if err != nil {
+		return err
+	}
+	url := fmt.Sprintf("%s/%s?api-version=1.6", self.tenantId, resource)
+	result, err := jsonRequest(cli, "POST", self.domain, url, self.subscriptionId, body.String(), GraphResource)
+	if err != nil {
+		return err
+	}
+	if retVal != nil {
+		return result.Unmarshal(retVal)
+	}
+	return nil
 }
 
 func (self *SAzureClient) ListResourcesWithNextLink(resourceType string, retVal interface{}, keys []string) (string, error) {
@@ -281,7 +349,7 @@ func (self *SAzureClient) ListResourcesWithNextLink(resourceType string, retVal 
 	if len(resourceType) > 0 {
 		url += fmt.Sprintf("/providers/%s", resourceType)
 	}
-	body, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "")
+	body, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "", DefaultResource)
 	if err != nil {
 		return "", err
 	}
@@ -320,7 +388,7 @@ func (self *SAzureClient) ListResourcesOfMetirc(resourceType string, external_id
 		url += fmt.Sprintf("?%s", values.Encode())
 	}
 	//body, err := jsonRequest(cli, "GET", "https://management.azure.com", url, self.subscriptionId, "")
-	body, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "")
+	body, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "", DefaultResource)
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +400,7 @@ func (self *SAzureClient) ListSubscriptions() (jsonutils.JSONObject, error) {
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, "GET", self.domain, "/subscriptions", self.subscriptionId, "")
+	return jsonRequest(cli, "GET", self.domain, "/subscriptions", self.subscriptionId, "", DefaultResource)
 }
 
 func (self *SAzureClient) List(golbalResource string, retVal interface{}) error {
@@ -347,7 +415,7 @@ func (self *SAzureClient) List(golbalResource string, retVal interface{}) error 
 	if len(self.subscriptionId) > 0 && len(golbalResource) > 0 {
 		url += fmt.Sprintf("/%s", golbalResource)
 	}
-	body, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "")
+	body, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "", DefaultResource)
 	if err != nil {
 		return err
 	}
@@ -363,7 +431,7 @@ func (self *SAzureClient) ListByTypeWithResourceGroup(resourceGroupName string, 
 		return fmt.Errorf("Missing subscription Info")
 	}
 	url := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s", self.subscriptionId, resourceGroupName, Type)
-	body, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "")
+	body, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "", DefaultResource)
 	if err != nil {
 		return err
 	}
@@ -375,7 +443,16 @@ func (self *SAzureClient) Delete(resourceId string) error {
 	if err != nil {
 		return err
 	}
-	_, err = jsonRequest(cli, "DELETE", self.domain, resourceId, self.subscriptionId, "")
+	_, err = jsonRequest(cli, "DELETE", self.domain, resourceId, self.subscriptionId, "", DefaultResource)
+	return err
+}
+
+func (self *SAzureClient) DeleteGraph(resourceId string) error {
+	cli, err := self.getGraphClient()
+	if err != nil {
+		return err
+	}
+	_, err = jsonRequest(cli, "DELETE", self.domain, resourceId, self.subscriptionId, "", GraphResource)
 	return err
 }
 
@@ -385,7 +462,7 @@ func (self *SAzureClient) PerformAction(resourceId string, action string, body s
 		return nil, err
 	}
 	url := fmt.Sprintf("%s/%s", resourceId, action)
-	return jsonRequest(cli, "POST", self.domain, url, self.subscriptionId, body)
+	return jsonRequest(cli, "POST", self.domain, url, self.subscriptionId, body, DefaultResource)
 }
 
 func (self *SAzureClient) CreateResourceGroup(name, location string) (*SResourceGroup, error) {
@@ -401,7 +478,7 @@ func (self *SAzureClient) CreateResourceGroup(name, location string) (*SResource
 	}
 	//Create resourceGroup
 	_url := fmt.Sprintf("/subscriptions/%s/resourcegroups/%s", self.subscriptionId, name)
-	_, err = jsonRequest(cli, "PUT", self.domain, _url, self.subscriptionId, fmt.Sprintf(`{"name": "%s", "location": "%s"}`, name, location))
+	_, err = jsonRequest(cli, "PUT", self.domain, _url, self.subscriptionId, fmt.Sprintf(`{"name": "%s", "location": "%s"}`, name, location), DefaultResource)
 	if err != nil {
 		return nil, errors.Wrap(err, "jsonRequest")
 	}
@@ -456,7 +533,7 @@ func (e *AzureError) Error() string {
 
 func (self *SAzureClient) getUniqName(cli *autorest.Client, resourceGroup string, resourceType, name string, body jsonutils.JSONObject) (string, string, error) {
 	url := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s", self.subscriptionId, resourceGroup, resourceType, name)
-	if _, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, ""); err != nil {
+	if _, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "", DefaultResource); err != nil {
 		if err == cloudprovider.ErrNotFound {
 			return url, body.String(), nil
 		}
@@ -464,7 +541,7 @@ func (self *SAzureClient) getUniqName(cli *autorest.Client, resourceGroup string
 	}
 	for i := 0; i < 20; i++ {
 		url = fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s-%d", self.subscriptionId, resourceGroup, resourceType, name, i)
-		if _, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, ""); err == cloudprovider.ErrNotFound {
+		if _, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "", DefaultResource); err == cloudprovider.ErrNotFound {
 			if err == cloudprovider.ErrNotFound {
 				data := body.(*jsonutils.JSONDict)
 				data.Set("name", jsonutils.NewString(fmt.Sprintf("%s-%d", name, i)))
@@ -528,7 +605,7 @@ func (self *SAzureClient) CreateWithResourceGroup(resourceGroup string, body jso
 		return err
 	}
 
-	result, err := jsonRequest(cli, "PUT", self.domain, url, self.subscriptionId, reqString)
+	result, err := jsonRequest(cli, "PUT", self.domain, url, self.subscriptionId, reqString, DefaultResource)
 	if err != nil {
 		return err
 	}
@@ -552,7 +629,7 @@ func (self *SAzureClient) CheckNameAvailability(Type string, body string) (jsonu
 		return nil, fmt.Errorf("Missing subscription ID")
 	}
 	url := fmt.Sprintf("/subscriptions/%s/providers/%s/checkNameAvailability", self.subscriptionId, Type)
-	return jsonRequest(cli, "POST", self.domain, url, self.subscriptionId, body)
+	return jsonRequest(cli, "POST", self.domain, url, self.subscriptionId, body, DefaultResource)
 }
 
 func (self *SAzureClient) Update(body jsonutils.JSONObject, retVal interface{}) error {
@@ -564,7 +641,7 @@ func (self *SAzureClient) Update(body jsonutils.JSONObject, retVal interface{}) 
 	if err != nil {
 		return errors.Wrap(err, "failed to found id for update operation")
 	}
-	result, err := jsonRequest(cli, "PUT", self.domain, url, self.subscriptionId, body.String())
+	result, err := jsonRequest(cli, "PUT", self.domain, url, self.subscriptionId, body.String(), DefaultResource)
 	if err != nil {
 		return err
 	}
@@ -576,7 +653,7 @@ func (self *SAzureClient) Update(body jsonutils.JSONObject, retVal interface{}) 
 
 func waitRegisterComplete(client *autorest.Client, domain, subscriptionId string, serviceType string) error {
 	for i := 1; i < 10; i++ {
-		result, err := _jsonRequest(client, "GET", domain, fmt.Sprintf("/subscriptions/%s/providers", subscriptionId), "")
+		result, err := _jsonRequest(client, "GET", domain, fmt.Sprintf("/subscriptions/%s/providers", subscriptionId), "", DefaultResource)
 		if err != nil {
 			return err
 		}
@@ -601,7 +678,7 @@ func waitRegisterComplete(client *autorest.Client, domain, subscriptionId string
 
 func registerService(client *autorest.Client, domain, subscriptionId string, serviceType string) error {
 	registryUrl := fmt.Sprintf("/subscriptions/%s/providers/%s/register", subscriptionId, serviceType)
-	result, err := _jsonRequest(client, "POST", domain, registryUrl, "")
+	result, err := _jsonRequest(client, "POST", domain, registryUrl, "", DefaultResource)
 	if err != nil || result.Contains("error") {
 		return fmt.Errorf("failed to register %s service", serviceType)
 	}
@@ -636,21 +713,24 @@ func recoverFromError(client *autorest.Client, domain, subscriptionId string, az
 	}
 }
 
-func jsonRequest(client *autorest.Client, method, domain, baseUrl string, subscriptionId string, body string) (jsonutils.JSONObject, error) {
-	result, err := _jsonRequest(client, method, domain, baseUrl, body)
+func jsonRequest(client *autorest.Client, method, domain, baseUrl string, subscriptionId string, body string, resourceType TAzureResource) (jsonutils.JSONObject, error) {
+	result, err := _jsonRequest(client, method, domain, baseUrl, body, resourceType)
 	if err != nil {
 		return nil, err
 	}
-	if result.Contains("error") {
-		azureError := AzureError{}
-		if err := result.Unmarshal(&azureError, "error"); err != nil {
+	for _, errKey := range []string{"error", "odata.error"} {
+		if result.Contains(errKey) {
+			azureError := AzureError{}
+			err := result.Unmarshal(&azureError, errKey)
+			if err != nil {
+				return nil, fmt.Errorf(result.String())
+			}
+			if recoverFromError(client, domain, subscriptionId, azureError) {
+				return _jsonRequest(client, method, domain, baseUrl, body, resourceType)
+			}
+			log.Errorf("Azure %s request: %s \nbody: %s error: %v", method, baseUrl, body, result.String())
 			return nil, fmt.Errorf(result.String())
 		}
-		if recoverFromError(client, domain, subscriptionId, azureError) {
-			return _jsonRequest(client, method, domain, baseUrl, body)
-		}
-		log.Errorf("Azure %s request: %s \nbody: %s error: %v", method, baseUrl, body, result.String())
-		return nil, fmt.Errorf(result.String())
 	}
 	return result, nil
 }
@@ -664,6 +744,9 @@ func waitForComplatetion(client *autorest.Client, req *http.Request, resp *http.
 			location = asyncoperation
 		}
 		for {
+			if strings.HasSuffix(location, "Microsoft.DirectoryServices.User") || strings.HasSuffix(location, "Microsoft.DirectoryServices.Group") {
+				location = location + "?api-version=1.6"
+			}
 			asyncReq, err := http.NewRequest("GET", location, nil)
 			if err != nil {
 				return nil, err
@@ -745,11 +828,16 @@ func waitForComplatetion(client *autorest.Client, req *http.Request, resp *http.
 	return nil, nil
 }
 
-func _jsonRequest(client *autorest.Client, method, domain, baseURL, body string) (result jsonutils.JSONObject, err error) {
+func _jsonRequest(client *autorest.Client, method, domain, baseURL, body string, resourceType TAzureResource) (result jsonutils.JSONObject, err error) {
 	version := AZURE_API_VERSION
-	for resourceType, _version := range DEFAULT_API_VERSION {
-		if strings.Index(strings.ToLower(baseURL), strings.ToLower(resourceType)) > 0 {
-			version = _version
+	switch resourceType {
+	case GraphResource:
+		version = "1.6"
+	default:
+		for resourceType, _version := range DEFAULT_API_VERSION {
+			if strings.Index(strings.ToLower(baseURL), strings.ToLower(resourceType)) > 0 {
+				version = _version
+			}
 		}
 	}
 	url := fmt.Sprintf("%s%s?api-version=%s", domain, baseURL, version)
@@ -923,6 +1011,15 @@ func (self *SAzureClient) GetSubAccounts() (subAccounts []cloudprovider.SSubAcco
 
 func (self *SAzureClient) GetAccountId() string {
 	return self.tenantId
+}
+
+func (self *SAzureClient) GetIamLoginUrl() string {
+	switch self.envName {
+	case "AzureChinaCloud":
+		return "http://portal.azure.cn"
+	default:
+		return "http://portal.azure.com"
+	}
 }
 
 func (self *SAzureClient) GetIRegions() []cloudprovider.ICloudRegion {

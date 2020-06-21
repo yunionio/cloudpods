@@ -11,6 +11,7 @@ package imports
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"go/ast"
 	"go/build"
@@ -20,13 +21,13 @@ import (
 	"go/token"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"golang.org/x/tools/go/ast/astutil"
+	"golang.org/x/tools/internal/gocommand"
 )
 
 // Options is golang.org/x/tools/imports.Options with extra internal-only options.
@@ -115,23 +116,23 @@ func ApplyFixes(fixes []*ImportFix, filename string, src []byte, opt *Options, e
 	return formatFile(fileSet, file, src, nil, opt)
 }
 
-// GetAllCandidates gets all of the standard library candidate packages to import in
-// sorted order on import path.
-func GetAllCandidates(filename string, opt *Options) (pkgs []ImportFix, err error) {
-	_, opt, err = initialize(filename, nil, opt)
+// GetAllCandidates gets all of the packages starting with prefix that can be
+// imported by filename, sorted by import path.
+func GetAllCandidates(ctx context.Context, callback func(ImportFix), searchPrefix, filename, filePkg string, opt *Options) error {
+	_, opt, err := initialize(filename, []byte{}, opt)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return getAllCandidates(filename, opt.Env)
+	return getAllCandidates(ctx, callback, searchPrefix, filename, filePkg, opt.Env)
 }
 
 // GetPackageExports returns all known packages with name pkg and their exports.
-func GetPackageExports(pkg, filename string, opt *Options) (exports []PackageExport, err error) {
-	_, opt, err = initialize(filename, nil, opt)
+func GetPackageExports(ctx context.Context, callback func(PackageExport), searchPkg, filename, filePkg string, opt *Options) error {
+	_, opt, err := initialize(filename, []byte{}, opt)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return getPackageExports(pkg, filename, opt.Env)
+	return getPackageExports(ctx, callback, searchPkg, filename, filePkg, opt.Env)
 }
 
 // initialize sets the values for opt and src.
@@ -154,12 +155,10 @@ func initialize(filename string, src []byte, opt *Options) ([]byte, *Options, er
 			GOSUMDB:     os.Getenv("GOSUMDB"),
 		}
 	}
-
-	// Set the logger if the user has not provided it.
-	if opt.Env.Logf == nil {
-		opt.Env.Logf = log.Printf
+	// Set the gocmdRunner if the user has not provided it.
+	if opt.Env.GocmdRunner == nil {
+		opt.Env.GocmdRunner = &gocommand.Runner{}
 	}
-
 	if src == nil {
 		b, err := ioutil.ReadFile(filename)
 		if err != nil {

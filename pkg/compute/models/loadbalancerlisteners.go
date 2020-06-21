@@ -1236,7 +1236,7 @@ func (manager *SLoadbalancerListenerManager) InitializeData() error {
 
 func (manager *SLoadbalancerListenerManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
 	virts := manager.Query().IsFalse("pending_deleted")
-	return db.CalculateProjectResourceCount(virts)
+	return db.CalculateResourceCount(virts, "tenant_id")
 }
 
 func (manager *SLoadbalancerListenerManager) ListItemExportKeys(ctx context.Context,

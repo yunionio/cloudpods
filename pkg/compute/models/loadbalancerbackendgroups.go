@@ -1078,7 +1078,7 @@ func (manager *SLoadbalancerBackendGroupManager) initBackendGroupRegion() error 
 
 func (manager *SLoadbalancerBackendGroupManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
 	virts := manager.Query().IsFalse("pending_deleted")
-	return db.CalculateProjectResourceCount(virts)
+	return db.CalculateResourceCount(virts, "tenant_id")
 }
 
 func (manager *SLoadbalancerBackendGroupManager) ListItemExportKeys(ctx context.Context,

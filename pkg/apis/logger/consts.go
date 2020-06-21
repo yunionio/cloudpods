@@ -14,6 +14,8 @@
 
 package logger
 
+import "yunion.io/x/onecloud/pkg/apis"
+
 const (
-	SERVICE_TYPE = "log"
+	SERVICE_TYPE = apis.SERVICE_TYPE_LOG
 )

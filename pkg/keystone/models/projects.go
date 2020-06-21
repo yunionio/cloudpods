@@ -375,14 +375,14 @@ func projectExtra(proj *SProject, out api.ProjectDetails) api.ProjectDetails {
 		if update.IsZero() {
 			update = time.Now()
 		}
-		nextUpdate := update.Add(time.Duration(options.Options.FetchProjectResourceCountIntervalSeconds) * time.Second)
+		nextUpdate := update.Add(time.Duration(options.Options.FetchScopeResourceCountIntervalSeconds) * time.Second)
 		out.ExtResourcesNextUpdate = nextUpdate
 	}
 	return out
 }
 
 func (proj *SProject) getExternalResources() (map[string]int, time.Time, error) {
-	return ProjectResourceManager.getProjectResource(proj.Id)
+	return ScopeResourceManager.getScopeResource("", proj.Id, "")
 }
 
 func NormalizeProjectName(name string) string {

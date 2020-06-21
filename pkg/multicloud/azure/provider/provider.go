@@ -62,6 +62,14 @@ func (self *SAzureProviderFactory) IsSupportPrepaidResources() bool {
 	return false
 }
 
+func (self *SAzureProviderFactory) IsSupportClouduser() bool {
+	return true
+}
+
+func (self *SAzureProviderFactory) IsSupportCreateCloudgroup() bool {
+	return true
+}
+
 func (self *SAzureProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.DirectoryId) == 0 {
@@ -169,6 +177,14 @@ func (self *SAzureProvider) GetAccountId() string {
 	return self.client.GetAccountId()
 }
 
+func (self *SAzureProvider) GetIamLoginUrl() string {
+	return self.client.GetIamLoginUrl()
+}
+
+func (self *SAzureProvider) IsSupportCloudId() bool {
+	return cloudprovider.IsSupportCloudId(self)
+}
+
 func (self *SAzureProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.client.GetIRegions()
 }
@@ -204,4 +220,28 @@ func (self *SAzureProvider) GetCloudRegionExternalIdPrefix() string {
 
 func (self *SAzureProvider) GetCapabilities() []string {
 	return self.client.GetCapabilities()
+}
+
+func (self *SAzureProvider) CreateIClouduser(conf *cloudprovider.SClouduserCreateConfig) (cloudprovider.IClouduser, error) {
+	return self.client.CreateIClouduser(conf)
+}
+
+func (self *SAzureProvider) GetICloudusers() ([]cloudprovider.IClouduser, error) {
+	return self.client.GetICloudusers()
+}
+
+func (self *SAzureProvider) GetIClouduserByName(name string) (cloudprovider.IClouduser, error) {
+	return self.client.GetIClouduserByName(name)
+}
+
+func (self *SAzureProvider) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
+	return self.client.GetICloudgroups()
+}
+
+func (self *SAzureProvider) CreateICloudgroup(name, desc string) (cloudprovider.ICloudgroup, error) {
+	return self.client.CreateICloudgroup(name, desc)
+}
+
+func (self *SAzureProvider) GetICloudgroupByName(name string) (cloudprovider.ICloudgroup, error) {
+	return self.client.GetICloudgroupByName(name)
 }

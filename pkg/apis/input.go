@@ -75,6 +75,18 @@ type SharableVirtualResourceCreateInput struct {
 	SharableResourceBaseCreateInput
 }
 
+type StatusUserResourceCreateInput struct {
+	StatusBaseResourceCreateInput
+	UserResourceCreateInput
+}
+
+type UserResourceCreateInput struct {
+	StandaloneResourceCreateInput
+
+	// 本地用户Id，若为空则使用当前用户Id作为此参数值
+	OwnerId string `json:"owner_id"`
+}
+
 type VirtualResourceCreateInput struct {
 	StatusStandaloneResourceCreateInput
 	ProjectizedResourceCreateInput

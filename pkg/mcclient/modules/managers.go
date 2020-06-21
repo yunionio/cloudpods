@@ -15,6 +15,7 @@
 package modules
 
 import (
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
@@ -32,25 +33,25 @@ func NewResourceManager(serviceType string, keyword, keywordPlural string,
 
 func NewComputeManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("compute", "", "", columns, adminColumns),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_REGION, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewActionManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("log", "", "", columns, adminColumns),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_LOG, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewServiceTreeManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("servicetree", "", "v1", columns, adminColumns),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_SERVICETREE, "", "v1", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewMonitorV2Manager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("monitor", "", "", columns, adminColumns),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_MONITOR, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
@@ -63,19 +64,26 @@ func NewJointMonitorV2Manager(keyword, keywordPlural string, columns, adminColum
 
 func NewCloudwatcherManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("cloudwatcher", "", "v1", columns, adminColumns),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_CLOUDWATCHER, "", "v1", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewNotifyManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("notify", "", "v1", columns, adminColumns),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_NOTIFY, "", "v1", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewJointComputeManager(keyword, keywordPlural string, columns, adminColumns []string, master, slave modulebase.Manager) modulebase.JointResourceManager {
 	return modulebase.JointResourceManager{
 		ResourceManager: NewComputeManager(keyword, keywordPlural, columns, adminColumns),
+		Master:          master,
+		Slave:           slave}
+}
+
+func NewJointCloudIdManager(keyword, keywordPlural string, columns, adminColumns []string, master, slave modulebase.Manager) modulebase.JointResourceManager {
+	return modulebase.JointResourceManager{
+		ResourceManager: NewCloudIdManager(keyword, keywordPlural, columns, adminColumns),
 		Master:          master,
 		Slave:           slave}
 }
@@ -89,96 +97,102 @@ func NewJointMonitorManager(keyword, keywordPlural string, columns, adminColumns
 
 func NewIdentityManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("identity", "", "v2.0", columns, adminColumns),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_KEYSTONE, "", "v2.0", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewIdentityV3Manager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("identity", "", "v3", columns, adminColumns),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_KEYSTONE, "", "v3", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewImageManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("image", "", "v1", columns, adminColumns),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_IMAGE, "", "v1", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewVNCProxyManager() modulebase.ResourceManager {
-	return modulebase.ResourceManager{BaseManager: *modulebase.NewBaseManager("vncproxy", "", "", nil, nil),
+	return modulebase.ResourceManager{BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_VNCPROXY, "", "", nil, nil),
 		Keyword: "vncproxy", KeywordPlural: "vncproxy"}
 }
 
 func NewITSMManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("itsm", "", "", columns, adminColumns),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_ITSM, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewSchedulerManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("scheduler", "", "", columns, adminColumns),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_SCHEDULER, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewMeterManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("meter", "", "", columns, adminColumns),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_METER, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewYunionAgentManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("yunionagent", "", "", columns, adminColumns),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_YUNIONAGENT, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewYunionConfManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("yunionconf", "", "", columns, adminColumns),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_YUNIONCONF, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewAutoUpdateManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("autoupdate", "", "", columns, adminColumns),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_AUTOUPDATE, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewWebsocketManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("websocket", "", "", columns, adminColumns),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_WEBSOCKET, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 // deprecate
 func NewCloudmetaManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("cloudmeta", "", "", columns, adminColumns),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_CLOUDMETA, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewOfflineCloudmetaManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("offlinecloudmeta", "", "", columns, adminColumns),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_OFFLINE_CLOUDMETA, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewAnsibleManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("ansible", "", "", columns, adminColumns),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_ANSIBLE, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewDevtoolManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("devtool", "", "", columns, adminColumns),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_DEVTOOL, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewCloudeventManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("cloudevent", "", "", columns, adminColumns),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_CLOUDEVENT, "", "", columns, adminColumns),
+		Keyword:     keyword, KeywordPlural: keywordPlural}
+}
+
+func NewCloudIdManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
+	return modulebase.ResourceManager{
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_CLOUDID, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }

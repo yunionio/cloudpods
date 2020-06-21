@@ -15,10 +15,12 @@
 package aliyun
 
 import (
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -123,6 +125,76 @@ type SPolicy struct {
 	PolicyType      string
 }
 
+func (policy *SPolicy) GetName() string {
+	return policy.PolicyName
+}
+
+func (policy *SPolicy) GetPolicyType() string {
+	return policy.PolicyType
+}
+
+func (policy *SPolicy) GetDescription() string {
+	return policy.Description
+}
+
+func (policy *SPolicy) GetGlobalId() string {
+	return policy.PolicyName
+}
+
+func (self *SAliyunClient) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	policies, err := self.ListPolicies("System", "")
+	if err != nil {
+		return nil, errors.Wrap(err, "GetPolicy")
+	}
+	ret := []cloudprovider.ICloudpolicy{}
+	for i := range policies {
+		ret = append(ret, &policies[i])
+	}
+	return ret, nil
+}
+
+func (self *SAliyunClient) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	policies, err := self.ListPolicies("", "")
+	if err != nil {
+		return nil, errors.Wrap(err, "GetPolicy")
+	}
+	ret := []cloudprovider.ICloudpolicy{}
+	for i := range policies {
+		ret = append(ret, &policies[i])
+	}
+	return ret, nil
+}
+
+func (self *SAliyunClient) AttachPolicyToUser(policyName, policyType, userName string) error {
+	params := map[string]string{
+		"UserName":   userName,
+		"PolicyName": policyName,
+		"PolicyType": policyType,
+	}
+	_, err := self.ramRequest("AttachPolicyToUser", params)
+	if err != nil && !strings.Contains(err.Error(), "EntityAlreadyExists.User.Policy") {
+		return errors.Wrap(err, "AttachPolicyToUser")
+	}
+	return nil
+}
+
+func (self *SAliyunClient) DetachPolicyFromUser(policyName, policyType, userName string) error {
+	if len(policyType) == 0 {
+		policyType = "System"
+	}
+	params := map[string]string{
+		"UserName":   userName,
+		"PolicyName": policyName,
+		"PolicyType": policyType,
+	}
+	_, err := self.ramRequest("DetachPolicyFromUser", params)
+	if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound {
+		return errors.Wrap(err, "DetachPolicyFromUser")
+	}
+	return nil
+}
+
+// https://help.aliyun.com/document_detail/28719.html?spm=a2c4g.11174283.6.764.27055662H6TGg5
 func (self *SAliyunClient) ListPolicies(policyType string, role string) ([]SPolicy, error) {
 	var action string
 	params := make(map[string]string)

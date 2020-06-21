@@ -130,6 +130,9 @@ class ModelAPI(FuncDispatcher):
         self.run(pkg=["keystone", "models"], out=["identity"])
         self.run_model("compute")
         self.run_model("image")
+        self.run_model("cloudid")
+
+    def gen_monitor(self):
         self.run(pkg=["monitor", "models"], out=["monitor"])
 
 class SwaggerCode(FuncDispatcher):
@@ -165,6 +168,9 @@ class SwaggerCode(FuncDispatcher):
     def gen_image(self):
         self.run("image", pkg=["models"], out="image")
 
+    def gen_cloudid(self):
+        self.run("cloudid", pkg=["models"], out="cloudid")
+
     def gen_monitor(self):
         self.run("monitor", pkg=["models"], out="monitor")
 
@@ -191,6 +197,9 @@ class SwaggerYAML(FuncDispatcher):
 
     def gen_image(self):
         self.run("image")
+
+    def gen_cloudid(self):
+        self.run("cloudid")
 
     def gen_monitor(self):
         self.run("monitor")

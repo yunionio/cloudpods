@@ -81,7 +81,7 @@ func StartService() {
 		cron := cronman.InitCronJobManager(true, opts.CronJobWorkerCount)
 
 		cron.AddJobAtIntervalsWithStartRun("AutoSyncIdentityProviderTask", time.Duration(opts.AutoSyncIntervalSeconds)*time.Second, models.AutoSyncIdentityProviderTask, true)
-		cron.AddJobAtIntervalsWithStartRun("FetchProjectResourceCount", time.Duration(opts.FetchProjectResourceCountIntervalSeconds)*time.Second, cronjobs.FetchProjectResourceCount, false)
+		cron.AddJobAtIntervalsWithStartRun("FetchScopeResourceCount", time.Duration(opts.FetchScopeResourceCountIntervalSeconds)*time.Second, cronjobs.FetchScopeResourceCount, false)
 		cron.AddJobAtIntervalsWithStartRun("CalculateIdentityQuotaUsages", time.Duration(opts.CalculateQuotaUsageIntervalSeconds)*time.Second, models.IdentityQuotaManager.CalculateQuotaUsages, true)
 
 		cron.Start()

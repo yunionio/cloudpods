@@ -52,6 +52,18 @@ func (self *SHuaweiProviderFactory) GetMaxCloudEventKeepDays() int {
 	return 7
 }
 
+func (self *SHuaweiProviderFactory) IsSupportClouduser() bool {
+	return true
+}
+
+func (self *SHuaweiProviderFactory) IsSupportClouduserPolicy() bool {
+	return false
+}
+
+func (self *SHuaweiProviderFactory) IsSupportCreateCloudgroup() bool {
+	return true
+}
+
 func (self *SHuaweiProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {
@@ -176,6 +188,14 @@ func (self *SHuaweiProvider) GetAccountId() string {
 	return self.client.GetAccountId()
 }
 
+func (self *SHuaweiProvider) GetIamLoginUrl() string {
+	return self.client.GetIamLoginUrl()
+}
+
+func (self *SHuaweiProvider) IsSupportCloudId() bool {
+	return cloudprovider.IsSupportCloudId(self)
+}
+
 func (self *SHuaweiProvider) GetCloudRegionExternalIdPrefix() string {
 	return self.client.GetCloudRegionExternalIdPrefix()
 }
@@ -196,4 +216,32 @@ func (self *SHuaweiProvider) GetStorageClasses(regionId string) []string {
 
 func (self *SHuaweiProvider) GetCapabilities() []string {
 	return self.client.GetCapabilities()
+}
+
+func (self *SHuaweiProvider) CreateIClouduser(conf *cloudprovider.SClouduserCreateConfig) (cloudprovider.IClouduser, error) {
+	return self.client.CreateIClouduser(conf)
+}
+
+func (self *SHuaweiProvider) GetICloudusers() ([]cloudprovider.IClouduser, error) {
+	return self.client.GetICloudusers()
+}
+
+func (self *SHuaweiProvider) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
+	return self.client.GetICloudgroups()
+}
+
+func (self *SHuaweiProvider) GetICloudgroupByName(name string) (cloudprovider.ICloudgroup, error) {
+	return self.client.GetICloudgroupByName(name)
+}
+
+func (self *SHuaweiProvider) CreateICloudgroup(name, desc string) (cloudprovider.ICloudgroup, error) {
+	return self.client.CreateICloudgroup(name, desc)
+}
+
+func (self *SHuaweiProvider) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	return self.client.GetICloudpolicies()
+}
+
+func (self *SHuaweiProvider) GetIClouduserByName(name string) (cloudprovider.IClouduser, error) {
+	return self.client.GetIClouduserByName(name)
 }

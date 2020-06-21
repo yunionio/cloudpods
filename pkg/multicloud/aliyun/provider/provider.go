@@ -43,6 +43,14 @@ func (self *SAliyunProviderFactory) IsCloudeventRegional() bool {
 	return true
 }
 
+func (self *SAliyunProviderFactory) IsSupportClouduser() bool {
+	return true
+}
+
+func (self *SAliyunProviderFactory) IsSupportCreateCloudgroup() bool {
+	return true
+}
+
 func (self *SAliyunProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {
@@ -163,4 +171,40 @@ func (self *SAliyunProvider) GetStorageClasses(regionId string) []string {
 
 func (self *SAliyunProvider) GetCapabilities() []string {
 	return self.client.GetCapabilities()
+}
+
+func (self *SAliyunProvider) GetIamLoginUrl() string {
+	return self.client.GetIamLoginUrl()
+}
+
+func (self *SAliyunProvider) IsSupportCloudId() bool {
+	return cloudprovider.IsSupportCloudId(self)
+}
+
+func (self *SAliyunProvider) CreateIClouduser(conf *cloudprovider.SClouduserCreateConfig) (cloudprovider.IClouduser, error) {
+	return self.client.CreateIClouduser(conf)
+}
+
+func (self *SAliyunProvider) GetICloudusers() ([]cloudprovider.IClouduser, error) {
+	return self.client.GetICloudusers()
+}
+
+func (self *SAliyunProvider) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
+	return self.client.GetICloudgroups()
+}
+
+func (self *SAliyunProvider) GetICloudgroupByName(name string) (cloudprovider.ICloudgroup, error) {
+	return self.client.GetICloudgroupByName(name)
+}
+
+func (self *SAliyunProvider) GetIClouduserByName(name string) (cloudprovider.IClouduser, error) {
+	return self.client.GetIClouduserByName(name)
+}
+
+func (self *SAliyunProvider) CreateICloudgroup(name, desc string) (cloudprovider.ICloudgroup, error) {
+	return self.client.CreateICloudgroup(name, desc)
+}
+
+func (self *SAliyunProvider) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	return self.client.GetISystemCloudpolicies()
 }

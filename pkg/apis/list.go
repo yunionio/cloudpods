@@ -53,7 +53,18 @@ type ProjectizedResourceListInput struct {
 	OrderByTenant string `json:"order_by_tenant" "yunion:deprecated-by":"order_by_project"`
 }
 
+type StatusUserResourceListInput struct {
+	StatusResourceBaseListInput
+	UserResourceListInput
+}
+
 type UserResourceListInput struct {
+	StandaloneResourceListInput
+	ScopedResourceInput
+
+	// list in admin mode
+	Admin *bool `json:"admin"`
+
 	// 查询指定的用户（ID或名称）拥有的资源
 	User string `json:"user"`
 	// swagger:ignore
