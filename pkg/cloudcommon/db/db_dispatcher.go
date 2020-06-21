@@ -266,7 +266,6 @@ func listItemQueryFiltersRaw(manager IModelManager,
 		q = manager.FilterBySystemAttributes(q, userCred, query, queryScope)
 		q = manager.FilterByHiddenSystemAttributes(q, userCred, query, queryScope)
 	}
-
 	q, err = ListItemFilter(manager, ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
@@ -415,7 +414,6 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 			sortedListFields = stringutils2.NewSortedStrings(fieldFilter)
 		}
 		extraRows, err := FetchCustomizeColumns(manager, ctx, userCred, query, items, sortedListFields, true)
-
 		if err != nil {
 			return nil, errors.Wrap(err, "FetchCustomizeColumns")
 		}
@@ -565,7 +563,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		if err != nil {
 			return nil, err
 		}
-		// log.Debugf("total count %d", totalCnt)
+		//log.Debugf("total count %d", totalCnt)
 		if totalCnt == 0 {
 			emptyList := modulebase.ListResult{Data: []jsonutils.JSONObject{}}
 			return &emptyList, nil

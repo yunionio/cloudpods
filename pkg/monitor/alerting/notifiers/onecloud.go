@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -115,10 +116,9 @@ func GetNotifyTemplateConfig(ctx *alerting.EvalContext) monitor.NotificationTemp
 // Notify sends the alert notification.
 func (oc *OneCloudNotifier) Notify(ctx *alerting.EvalContext, _ jsonutils.JSONObject) error {
 	//onecloud 默认向webconsole发送消息
-	if err := WebConsoleNotify(ctx, oc.Setting.UserIds); err != nil {
-		log.Errorf("failed to send webconsole %s: %v", oc.GetNotifierId(), err)
-	}
-
+	//if err := WebConsoleNotify(ctx, oc.Setting.UserIds); err != nil {
+	//	log.Errorf("failed to send webconsole %s: %v", oc.GetNotifierId(), err)
+	//}
 	log.Infof("Sending alert notification %s to onecloud", ctx.GetRuleTitle())
 	config := GetNotifyTemplateConfig(ctx)
 	contentConfig := oc.buildContent(config)
@@ -142,7 +142,11 @@ func (oc *OneCloudNotifier) Notify(ctx *alerting.EvalContext, _ jsonutils.JSONOb
 		Priority:    notify.TNotifyPriority(config.Priority),
 		Msg:         content,
 	}
-
+	//系统报警UserIds 为空
+	if len(oc.Setting.UserIds) == 0 {
+		notifyclient.SystemNotify(notify.TNotifyPriority(msg.Priority), msg.Topic, jsonutils.NewString(content))
+		return nil
+	}
 	return notify.Notifications.Send(oc.session, msg)
 }
 

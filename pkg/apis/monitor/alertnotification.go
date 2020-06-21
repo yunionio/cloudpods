@@ -21,7 +21,7 @@ import (
 )
 
 type AlertJointResourceBaseDetails struct {
-	apis.VirtualJointResourceBaseDetails
+	apis.JointResourceBaseDetails
 	SAlertJointsBase
 	Alert string `json:"alert"`
 }

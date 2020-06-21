@@ -35,6 +35,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/monitor/notifydrivers"
 	"yunion.io/x/onecloud/pkg/monitor/options"
 	"yunion.io/x/onecloud/pkg/monitor/registry"
+	"yunion.io/x/onecloud/pkg/monitor/subscriptionmodel"
 	"yunion.io/x/onecloud/pkg/monitor/suggestsysdrivers"
 	_ "yunion.io/x/onecloud/pkg/monitor/tasks"
 	_ "yunion.io/x/onecloud/pkg/monitor/tsdb/driver/influxdb"
@@ -65,7 +66,10 @@ func StartService() {
 	cron.Start()
 	defer cron.Stop()
 
-	common_app.ServeForever(app, baseOpts)
+	subscriptionmodel.SubscriptionManager.AddSubscription()
+
+	InitInfluxDBSubscriptionHandlers(app, baseOpts)
+	//common_app.ServeForever(app, baseOpts)
 }
 
 func startServices() {

@@ -447,7 +447,7 @@ func (man *SMeterAlertManager) CustomizeFilterList(
 }
 
 func (alert *SMeterAlert) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	if err := alert.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data); err != nil {
+	if err := alert.SAlert.CustomizeCreate(ctx, userCred, ownerId, query, data); err != nil {
 		return err
 	}
 	input := new(monitor.MeterAlertCreateInput)
@@ -492,7 +492,7 @@ func (alert *SMeterAlert) getProvider() string {
 func (alert *SMeterAlert) PostCreate(ctx context.Context,
 	userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	alert.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	alert.SStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	input := new(monitor.MeterAlertCreateInput)
 	if err := data.Unmarshal(input); err != nil {
 		log.Errorf("post create unmarshal input: %v", err)

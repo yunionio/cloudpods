@@ -283,9 +283,13 @@ func newQueryCondition(model *monitor.AlertCondition, index int) (*QueryConditio
 	}
 
 	cond.Query.DataSourceId = q.DataSourceId
-	reducer := model.Reducer
-	cond.Reducer = newSimpleReducer(reducer.Type)
-
+	//reducer := model.Reducer
+	//cond.Reducer = newSimpleReducer(reducer.Type)
+	reducer, err := NewAlertReducer(&model.Reducer)
+	if err != nil {
+		return nil, fmt.Errorf("error in condition %v: %v", index, err)
+	}
+	cond.Reducer = reducer
 	evaluator, err := NewAlertEvaluator(&model.Evaluator)
 	if err != nil {
 		return nil, fmt.Errorf("error in condition %v: %v", index, err)

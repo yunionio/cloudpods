@@ -23,6 +23,17 @@ var (
 		"vm_mem":    "vm_name",
 		"vm_netio":  "vm_name",
 	}
+	AlertReduceFunc = map[string]string{
+		"avg":          "average value",
+		"sum":          "Summation",
+		"min":          "minimum value",
+		"max":          "Maximum",
+		"count":        "count value",
+		"last":         "Latest value",
+		"median":       "median",
+		"diff":         "The difference between the latest value and the oldest value. The judgment basis value must be legal",
+		"percent_diff": "The difference between the new value and the old value,based on the percentage of the old value",
+	}
 )
 
 type MetricFunc struct {

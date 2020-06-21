@@ -28,15 +28,15 @@ import (
 )
 
 type SAlertJointsManager struct {
-	db.SVirtualJointResourceBaseManager
+	db.SJointResourceBaseManager
 }
 
 func NewAlertJointsManager(
 	dt interface{}, tableName string,
 	keyword string, keywordPlural string,
-	slave db.IVirtualModelManager) SAlertJointsManager {
+	slave db.IStandaloneModelManager) SAlertJointsManager {
 	return SAlertJointsManager{
-		db.NewVirtualJointResourceBaseManager(
+		db.NewJointResourceBaseManager(
 			dt, tableName, keyword, keywordPlural, AlertManager, slave),
 	}
 }
@@ -65,11 +65,11 @@ func (man *SAlertJointsManager) FetchCustomizeColumns(
 	isList bool,
 ) []monitor.AlertJointResourceBaseDetails {
 	rows := make([]monitor.AlertJointResourceBaseDetails, len(objs))
-	jointRows := man.SVirtualJointResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	jointRows := man.SJointResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	alertIds := make([]string, len(rows))
 	for i := range jointRows {
 		rows[i] = monitor.AlertJointResourceBaseDetails{
-			VirtualJointResourceBaseDetails: jointRows[i],
+			JointResourceBaseDetails: jointRows[i],
 		}
 		var base *SAlertJointsBase
 		reflectutils.FindAnonymouStructPointer(objs[i], &base)

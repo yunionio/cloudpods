@@ -38,7 +38,7 @@ func (rp *ResponseParser) Parse(response *Response, query *Query) *tsdb.QueryRes
 	queryRes := tsdb.NewQueryResult()
 
 	for _, result := range response.Results {
-		queryRes.Series = append(queryRes.Series, rp.transformRows(result.Series, queryRes, query)...)
+		queryRes.Series = append(queryRes.Series, rp.transformRowsV2(result.Series, queryRes, query)...)
 	}
 
 	return queryRes
@@ -68,6 +68,50 @@ func (rp *ResponseParser) transformRows(rows []Row, queryResult *tsdb.QueryResul
 	}
 
 	return result
+}
+
+func (rp *ResponseParser) transformRowsV2(rows []Row, queryResult *tsdb.QueryResult, query *Query) tsdb.TimeSeriesSlice {
+	var result tsdb.TimeSeriesSlice
+	for _, row := range rows {
+		col := ""
+		for _, column := range row.Columns {
+			if column == "time" {
+				continue
+			}
+			if col == "" {
+				col = column
+				continue
+			}
+			col = fmt.Sprintf("%s-%s", col, column)
+		}
+		var points tsdb.TimeSeriesPoints
+		for _, valuePair := range row.Values {
+			point, err := rp.parseTimepointV2(valuePair)
+			if err == nil {
+				points = append(points, point)
+			}
+		}
+		result = append(result, &tsdb.TimeSeries{
+			Name:   rp.formatSerieName(row, col, query),
+			Points: points,
+			Tags:   row.Tags,
+		})
+	}
+
+	return result
+}
+
+func (rp *ResponseParser) transformRowToTable(row Row, table *tsdb.Table) *tsdb.Table {
+	for _, col := range row.Columns {
+		table.Columns = append(table.Columns, tsdb.TableColumn{
+			Text: col})
+	}
+	table.Rows = make([]tsdb.RowValues, len(row.Values))
+	for _, value := range row.Values {
+		rowvalue := tsdb.RowValues(value)
+		table.Rows = append(table.Rows, rowvalue)
+	}
+	return table
 }
 
 func (rp *ResponseParser) formatSerieName(row Row, column string, query *Query) string {
@@ -137,6 +181,20 @@ func (rp *ResponseParser) parseTimepoint(valuePair []interface{}, valuePosition 
 	}
 
 	return tsdb.NewTimePoint(value, timestamp), nil
+}
+
+func (rp *ResponseParser) parseTimepointV2(valuePair []interface{}) (tsdb.TimePoint, error) {
+	timepoint := make(tsdb.TimePoint, 0)
+	for i := 1; i < len(valuePair); i++ {
+		timepoint = append(timepoint, rp.parseValue(valuePair[i]))
+	}
+	timestampNumber, _ := valuePair[0].(json.Number)
+	timestamp, err := timestampNumber.Float64()
+	if err != nil {
+		return tsdb.TimePoint{}, err
+	}
+	timepoint = append(timepoint, timestamp)
+	return timepoint, nil
 }
 
 func (rp *ResponseParser) parseValue(value interface{}) *float64 {

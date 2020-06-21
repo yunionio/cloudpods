@@ -120,7 +120,7 @@ type AlertCreateInput struct {
 }
 
 type AlertUpdateInput struct {
-	apis.VirtualResourceBaseUpdateInput
+	apis.StandaloneResourceBaseUpdateInput
 
 	Message *string `json:"message"`
 
@@ -139,15 +139,16 @@ type AlertUpdateInput struct {
 }
 
 type AlertListInput struct {
-	apis.VirtualResourceListInput
+	apis.ScopedResourceBaseListInput
 	apis.EnabledResourceBaseListInput
-
+	apis.StatusStandaloneResourceListInput
 	// 以报警是否启用/禁用过滤列表
 	// Enabled *bool `json:"enabled"`
 }
 
 type AlertDetails struct {
-	apis.VirtualResourceDetails
+	apis.StatusStandaloneResourceDetails
+	apis.ScopedResourceBaseInfo
 }
 
 type AlertTestRunInput struct {

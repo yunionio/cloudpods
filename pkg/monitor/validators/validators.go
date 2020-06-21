@@ -36,6 +36,10 @@ const (
 var (
 	EvaluatorDefaultTypes = []string{"gt", "lt"}
 	EvaluatorRangedTypes  = []string{"within_range", "outside_range"}
+
+	CommonAlertType             = []string{monitor.CommonAlertNomalAlertType, monitor.CommonAlertSystemAlertType}
+	CommonAlertReducerFieldOpts = []string{"/"}
+	CommonAlertNotifyTypes      = []string{"email", "mobile", "dingtalk", "webconsole", "feishu"}
 )
 
 func ValidateAlertCreateInput(input monitor.AlertCreateInput) error {

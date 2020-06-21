@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -208,22 +209,23 @@ func (self *SDataSourceManager) GetMeasurements(query jsonutils.JSONObject, filt
 	} else {
 		q = fmt.Sprintf("SHOW MEASUREMENTS ON %s", database)
 	}
-
 	dbRtn, err := db.Query(q)
 	if err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "SHOW MEASUREMENTS")
 	}
-	res := dbRtn[0][0]
-	measurements := make([]monitor.InfluxMeasurement, len(res.Values))
-	for i := range res.Values {
-		tmpDict := jsonutils.NewDict()
-		tmpDict.Add(res.Values[i][0], "measurement")
-		err := tmpDict.Unmarshal(&measurements[i])
-		if err != nil {
-			return jsonutils.JSONNull, errors.Wrap(err, "measurement unmarshal error")
+	if len(dbRtn) > 0 && len(dbRtn[0]) > 0 {
+		res := dbRtn[0][0]
+		measurements := make([]monitor.InfluxMeasurement, len(res.Values))
+		for i := range res.Values {
+			tmpDict := jsonutils.NewDict()
+			tmpDict.Add(res.Values[i][0], "measurement")
+			err := tmpDict.Unmarshal(&measurements[i])
+			if err != nil {
+				return jsonutils.JSONNull, errors.Wrap(err, "measurement unmarshal error")
+			}
 		}
+		ret.Add(jsonutils.Marshal(&measurements), "measurements")
 	}
-	ret.Add(jsonutils.Marshal(&measurements), "measurements")
 	return ret, nil
 }
 
@@ -258,6 +260,68 @@ func (self *SDataSourceManager) GetMetricMeasurement(query jsonutils.JSONObject)
 	}
 	return jsonutils.Marshal(output), nil
 
+}
+
+type InfluxdbSubscription struct {
+	SubName  string
+	DataBase string
+	//retention policy
+	Rc  string
+	Url string
+}
+
+func (self *SDataSourceManager) AddSubscription(subscription InfluxdbSubscription) error {
+
+	query := fmt.Sprintf("CREATE SUBSCRIPTION %s ON %s.%s DESTINATIONS ALL %s",
+		jsonutils.NewString(subscription.SubName).String(),
+		jsonutils.NewString(subscription.DataBase).String(),
+		jsonutils.NewString(subscription.Rc).String(),
+		strings.ReplaceAll(jsonutils.NewString(subscription.Url).String(), "\"", "'"),
+	)
+	dataSource, err := self.GetDefaultSource()
+	if err != nil {
+		return errors.Wrap(err, "s.GetDefaultSource")
+	}
+
+	db := influxdb.NewInfluxdbWithDebug(dataSource.Url, true)
+	db.SetDatabase(subscription.DataBase)
+
+	rtn, err := db.GetQuery(query)
+	if err != nil {
+		return err
+	}
+	for _, result := range rtn {
+		for _, obj := range result {
+			objJson := jsonutils.Marshal(&obj)
+			log.Errorln(objJson.String())
+		}
+	}
+	return nil
+}
+
+func (self *SDataSourceManager) DropSubscription(subscription InfluxdbSubscription) error {
+	query := fmt.Sprintf("DROP SUBSCRIPTION %s ON %s.%s", jsonutils.NewString(subscription.SubName).String(),
+		jsonutils.NewString(subscription.DataBase).String(),
+		jsonutils.NewString(subscription.Rc).String(),
+	)
+	dataSource, err := self.GetDefaultSource()
+	if err != nil {
+		return errors.Wrap(err, "s.GetDefaultSource")
+	}
+
+	db := influxdb.NewInfluxdb(dataSource.Url)
+	db.SetDatabase(subscription.DataBase)
+	rtn, err := db.Query(query)
+	if err != nil {
+		return err
+	}
+	for _, result := range rtn {
+		for _, obj := range result {
+			objJson := jsonutils.Marshal(&obj)
+			log.Errorln(objJson.String())
+		}
+	}
+	return nil
 }
 
 func getAttributesOnMeasurement(database, tp string, output *monitor.InfluxMeasurement, db *influxdb.SInfluxdb) error {

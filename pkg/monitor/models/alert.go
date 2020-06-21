@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -51,15 +52,18 @@ type AlertTestRunner interface {
 }
 
 type SAlertManager struct {
-	db.SVirtualResourceBaseManager
+	//db.SVirtualResourceBaseManager
 	db.SEnabledResourceBaseManager
+	db.SStatusStandaloneResourceBaseManager
+	db.SScopedResourceBaseManager
+	//db.SStatusResourceBaseManager
 
 	tester AlertTestRunner
 }
 
 func NewAlertManager(dt interface{}, keyword, keywordPlural string) *SAlertManager {
 	man := &SAlertManager{
-		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
+		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
 			dt,
 			"alerts_tbl",
 			keyword,
@@ -77,6 +81,22 @@ func (man *SAlertManager) GetTester() AlertTestRunner {
 	return man.tester
 }
 
+func (manager *SAlertManager) NamespaceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeSystem
+}
+
+func (manager *SAlertManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemExportKeys")
+	}
+	q, err = manager.SScopedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SScopedResourceBaseManager.ListItemExportKeys")
+	}
+	return q, nil
+}
+
 func (man *SAlertManager) FetchAllAlerts() ([]SAlert, error) {
 	objs := make([]SAlert, 0)
 	q := man.Query()
@@ -88,8 +108,11 @@ func (man *SAlertManager) FetchAllAlerts() ([]SAlert, error) {
 }
 
 type SAlert struct {
-	db.SVirtualResourceBase
+	//db.SVirtualResourceBase
 	db.SEnabledResourceBase
+	db.SStatusStandaloneResourceBase
+	db.SScopedResourceBase
+	//db.SStatusResourceBase
 
 	// Frequency is evaluate period
 	Frequency int64                `nullable:"false" list:"user" create:"required" update:"user"`
@@ -260,15 +283,19 @@ func (man *SAlertManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	input monitor.AlertListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, err := man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.VirtualResourceListInput)
+	var err error
+	q, err = man.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StatusStandaloneResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+	}
+	q, err = man.SScopedResourceBaseManager.ListItemFilter(ctx, q, userCred, input.ScopedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SScopedResourceBaseManager.ListItemFilter")
 	}
 	q, err = man.SEnabledResourceBaseManager.ListItemFilter(ctx, q, userCred, input.EnabledResourceBaseListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SEnabledResourceBaseManager.ListItemFilter")
 	}
-
 	return q, nil
 }
 
@@ -280,18 +307,25 @@ func (man *SAlertManager) OrderByExtraFields(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = man.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.VirtualResourceListInput)
+	q, err = man.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.StatusStandaloneResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
 	}
-
+	q, err = man.SScopedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.ScopedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SScopedResourceBaseManager.OrderByExtraFields")
+	}
 	return q, nil
 }
 
 func (man *SAlertManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = man.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	q, err = man.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = man.SScopedResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -317,10 +351,12 @@ func (man *SAlertManager) FetchCustomizeColumns(
 	isList bool,
 ) []monitor.AlertDetails {
 	rows := make([]monitor.AlertDetails, len(objs))
-	virtRows := man.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	stdRows := man.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	scopedRows := man.SScopedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		rows[i] = monitor.AlertDetails{
-			VirtualResourceDetails: virtRows[i],
+			StatusStandaloneResourceDetails: stdRows[i],
+			ScopedResourceBaseInfo:          scopedRows[i],
 		}
 	}
 	return rows
@@ -368,7 +404,7 @@ func (man *SAlertManager) CustomizeFilterList(
 func (alert *SAlert) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	alert.LastStateChange = time.Now()
 	alert.State = string(monitor.AlertStateUnknown)
-	return alert.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	return alert.SScopedResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (alert *SAlert) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) bool {
@@ -446,9 +482,9 @@ func (alert *SAlert) ValidateUpdateData(ctx context.Context, userCred mcclient.T
 		}
 	}
 	var err error
-	input.VirtualResourceBaseUpdateInput, err = alert.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.VirtualResourceBaseUpdateInput)
+	input.StandaloneResourceBaseUpdateInput, err = alert.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StandaloneResourceBaseUpdateInput)
 	if err != nil {
-		return input, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
+		return input, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
 	}
 
 	if err := AlertManager.validateStates(input.NoDataState, input.ExecutionErrorState); err != nil {

@@ -98,6 +98,7 @@ type MetricQuery struct {
 type AlertConditionCombiner string
 
 type Condition struct {
-	Type   string    `json:"type"`
-	Params []float64 `json:"params"`
+	Type      string    `json:"type"`
+	Params    []float64 `json:"params"`
+	Operators []string  `json:"operators"`
 }

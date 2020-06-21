@@ -66,7 +66,7 @@ type TableColumn struct {
 }
 
 type RowValues []interface{}
-type TimePoint [2]interface{}
+type TimePoint []interface{}
 type TimeSeriesPoints []TimePoint
 type TimeSeriesSlice []*TimeSeries
 
@@ -85,7 +85,13 @@ func NewTimePointByVal(value float64, timestamp float64) TimePoint {
 }
 
 func (p TimePoint) IsValid() bool {
-	return p[0].(*float64) != nil
+	for i := 0; i < len(p)-1; i++ {
+		if p[i].(*float64) == nil {
+			return false
+		}
+	}
+	return true
+	//return p[0].(*float64) != nil
 }
 
 func (p TimePoint) Value() float64 {
@@ -93,7 +99,16 @@ func (p TimePoint) Value() float64 {
 }
 
 func (p TimePoint) Timestamp() float64 {
-	return p[1].(float64)
+	return p[len(p)-1].(float64)
+}
+
+func (p TimePoint) Values() []float64 {
+	values := make([]float64, len(p)-1)
+	for i := 0; i < len(p); i++ {
+		values = append(values, *(p[i].(*float64)))
+	}
+	return values
+
 }
 
 func NewTimeSeriesPointsFromArgs(values ...float64) TimeSeriesPoints {

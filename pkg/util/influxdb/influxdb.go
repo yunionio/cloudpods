@@ -20,13 +20,17 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"path"
+	"strconv"
 	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -106,6 +110,60 @@ func (db *SInfluxdb) Query(sql string) ([][]dbResult, error) {
 		}
 	}
 	return rets, nil
+}
+
+func (db *SInfluxdb) GetQuery(sql string) ([][]dbResult, error) {
+	u, _ := url.Parse(db.accessUrl)
+	u.Path = path.Join(u.Path, "query")
+	_, body, err := JSONRequest(db.client, context.Background(), http.MethodPost, u.String(), nil, sql, db.debug)
+	if err != nil {
+		return nil, err
+	}
+	if db.debug {
+		log.Debugf("influx query: %s %s", db.accessUrl, body)
+	}
+	results, err := body.GetArray("results")
+	if err != nil {
+		return nil, err
+	}
+	rets := make([][]dbResult, len(results))
+	for i := range results {
+		series, err := results[i].Get("series")
+		if err == nil {
+			ret := make([]dbResult, 0)
+			err = series.Unmarshal(&ret)
+			if err != nil {
+				return nil, err
+			}
+			rets[i] = ret
+			continue
+		}
+		val, err := results[i].Get("error")
+		if err == nil {
+			log.Errorln(val)
+			return nil, httperrors.ErrNotSupported
+		}
+	}
+	return rets, nil
+}
+
+func JSONRequest(client *http.Client, ctx context.Context, method httputils.THttpMethod, urlStr string, header http.Header,
+	body string, debug bool) (http.Header, jsonutils.JSONObject, error) {
+	var bodystr string
+	if !gotypes.IsNil(body) {
+		// use POST mode
+		bodyValues := url.Values{}
+		bodyValues.Add("q", body)
+		bodystr = bodyValues.Encode()
+	}
+	jbody := strings.NewReader(bodystr)
+	if header == nil {
+		header = http.Header{}
+	}
+	header.Set("Content-Length", strconv.FormatInt(int64(len(bodystr)), 10))
+	header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := httputils.Request(client, ctx, method, urlStr, header, jbody, debug)
+	return httputils.ParseJSONResponse(resp, err, debug)
 }
 
 func (db *SInfluxdb) SetDatabase(dbName string) error {
