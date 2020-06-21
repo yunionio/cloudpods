@@ -1034,5 +1034,5 @@ yunion.io/x/pkg/utils
 yunion.io/x/s3cli
 # yunion.io/x/sqlchemy v0.0.0-20200608080702-9b6683aa048c
 yunion.io/x/sqlchemy
-# yunion.io/x/structarg v0.0.0-20200603035440-0690e9bc7655
+# yunion.io/x/structarg v0.0.0-20200619020316-f93fbe32ffc7
 yunion.io/x/structarg

@@ -257,14 +257,9 @@ func (this *ArgumentParser) addArgument(prefix string, fv reflect.Value, info *r
 	if len(defval) == 0 {
 		use_default = false
 	}
-	choices_str := tagMap[TAG_CHOICES]
-	choices := make([]string, 0)
-	if len(choices_str) > 0 {
-		for _, s := range strings.Split(choices_str, "|") {
-			if len(s) > 0 {
-				choices = append(choices, s)
-			}
-		}
+	var choices []string
+	if choices_str, ok := tagMap[TAG_CHOICES]; ok {
+		choices = strings.Split(choices_str, "|")
 	}
 	// heuristic guessing "positional"
 	var positional bool
