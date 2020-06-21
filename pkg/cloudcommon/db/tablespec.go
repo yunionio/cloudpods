@@ -63,10 +63,10 @@ func (ts *sTableSpec) newInformerModel(dt interface{}) (*informer.ModelObject, e
 		return nil, errors.Errorf("informer model is not IModel")
 	}
 	if obj.GetVirtualObject() == nil {
-		return nil, errors.Errorf("object %v virtual object is nil", obj)
+		return nil, errors.Errorf("object %t %v virtual object is nil", obj, obj)
 	}
 	if obj.GetModelManager() == nil {
-		return nil, errors.Errorf("object %v model manager is nil", obj)
+		return nil, errors.Errorf("object %t %v model manager is nil", obj, obj)
 	}
 	jointObj, isJoint := obj.(IJointModel)
 	if isJoint {
