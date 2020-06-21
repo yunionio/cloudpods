@@ -28,6 +28,8 @@ type SLDAPIdpConfigBaseOptions struct {
 	Suffix   string `json:"suffix,omitempty" required:"true"`
 	User     string `json:"user,omitempty" required:"true"`
 	Password string `json:"password,omitempty" required:"true"`
+
+	DisableUserOnImport bool `json:"disable_user_on_import"`
 }
 
 type SLDAPIdpConfigSingleDomainOptions struct {
@@ -50,6 +52,8 @@ type SLDAPIdpConfigOptions struct {
 
 	User     string `json:"user,omitempty"`
 	Password string `json:"password,omitempty"`
+
+	DisableUserOnImport bool `json:"disable_user_on_import"`
 
 	DomainTreeDN        string `json:"domain_tree_dn,omitempty" help:"Domain tree root node dn(distinguished name)"`
 	DomainFilter        string `json:"domain_filter,omitempty"`
