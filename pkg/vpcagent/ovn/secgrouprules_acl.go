@@ -28,18 +28,21 @@ func ruleToAcl(lport string, rule *agentmodels.SecurityGroupRule) (*ovn_nb.ACL, 
 
 		match   string
 		matches []string
-		subfn   string
+		l3subfn string
+		l4subfn string
 		errs    []error
 	)
 
 	switch secrules.TSecurityRuleDirection(rule.Direction) {
 	case secrules.SecurityRuleIngress:
 		dir = aclDirToLport
-		subfn = "src"
+		l3subfn = "src"
+		l4subfn = "dst"
 		matches = append(matches, fmt.Sprintf("outport == %q", lport))
 	case secrules.SecurityRuleEgress:
 		dir = aclDirFromLport
-		subfn = "dst"
+		l3subfn = "dst"
+		l4subfn = "dst"
 		matches = append(matches, fmt.Sprintf("inport == %q", lport))
 	default:
 		return nil, errors.Wrapf(errBadSecgroupRule, "unknown direction %q", rule.Direction)
@@ -57,12 +60,12 @@ func ruleToAcl(lport string, rule *agentmodels.SecurityGroupRule) (*ovn_nb.ACL, 
 	addL3Match := func() {
 		matches = append(matches, "ip4")
 		if cidr := strings.TrimSpace(rule.CIDR); cidr != "" && cidr != "0.0.0.0/0" {
-			matches = append(matches, fmt.Sprintf("ip4.%s == %s", subfn, cidr))
+			matches = append(matches, fmt.Sprintf("ip4.%s == %s", l3subfn, cidr))
 		}
 	}
 	addL4Match := func(l4proto string) {
 		var (
-			l4portfn    = fmt.Sprintf("%s.%s", l4proto, subfn)
+			l4portfn    = fmt.Sprintf("%s.%s", l4proto, l4subfn)
 			portMatches []string
 		)
 
