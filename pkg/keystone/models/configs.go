@@ -213,16 +213,18 @@ func getConfigOptions(conf api.TConfigs, model db.IModel, sensitiveList map[stri
 	sensitive := make(TConfigOptions, 0)
 	for group, groupConf := range conf {
 		for optKey, optVal := range groupConf {
-			opt := SConfigOption{}
-			opt.ResType = model.Keyword()
-			opt.ResId = model.GetId()
-			opt.Group = group
-			opt.Option = optKey
-			opt.Value = optVal
+			opt := &SConfigOption{
+				ResType: model.Keyword(),
+				ResId:   model.GetId(),
+				Group:   group,
+				Option:  optKey,
+				Value:   optVal,
+			}
+			opt.SetModelManager(WhitelistedConfigManager, opt)
 			if v, ok := sensitiveList[group]; ok && utils.IsInStringArray(optKey, v) {
-				sensitive = append(sensitive, opt)
+				sensitive = append(sensitive, *opt)
 			} else {
-				options = append(options, opt)
+				options = append(options, *opt)
 			}
 		}
 	}
