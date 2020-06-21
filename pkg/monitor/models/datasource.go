@@ -209,22 +209,23 @@ func (self *SDataSourceManager) GetMeasurements(query jsonutils.JSONObject, filt
 	} else {
 		q = fmt.Sprintf("SHOW MEASUREMENTS ON %s", database)
 	}
-
 	dbRtn, err := db.Query(q)
 	if err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "SHOW MEASUREMENTS")
 	}
-	res := dbRtn[0][0]
-	measurements := make([]monitor.InfluxMeasurement, len(res.Values))
-	for i := range res.Values {
-		tmpDict := jsonutils.NewDict()
-		tmpDict.Add(res.Values[i][0], "measurement")
-		err := tmpDict.Unmarshal(&measurements[i])
-		if err != nil {
-			return jsonutils.JSONNull, errors.Wrap(err, "measurement unmarshal error")
+	if len(dbRtn) > 0 && len(dbRtn[0]) > 0 {
+		res := dbRtn[0][0]
+		measurements := make([]monitor.InfluxMeasurement, len(res.Values))
+		for i := range res.Values {
+			tmpDict := jsonutils.NewDict()
+			tmpDict.Add(res.Values[i][0], "measurement")
+			err := tmpDict.Unmarshal(&measurements[i])
+			if err != nil {
+				return jsonutils.JSONNull, errors.Wrap(err, "measurement unmarshal error")
+			}
 		}
+		ret.Add(jsonutils.Marshal(&measurements), "measurements")
 	}
-	ret.Add(jsonutils.Marshal(&measurements), "measurements")
 	return ret, nil
 }
 

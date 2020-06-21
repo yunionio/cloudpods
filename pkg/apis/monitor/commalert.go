@@ -35,6 +35,11 @@ type CommonAlertCreateInput struct {
 	Recipients []string `json:"recipients"`
 	// 报警类型
 	AlertType string `json:"alert_type"`
+
+	//scope Resource
+	Scope     string `json:"scope"`
+	DomainId  string `json:"domain_id"`
+	ProjectId string `json:"project_id"`
 }
 
 type CommonMetricInputQuery struct {
@@ -57,11 +62,14 @@ type CommonAlertQuery struct {
 }
 
 type CommonAlertListInput struct {
-	V1AlertListInput
+	AlertListInput
+	//V1AlertListInput
 	// 报警类型
 	AlertType string `json:"alert_type"`
 	// 监控指标名称
 	Metric string `json:"metric"`
+
+	Level string `json:"level"`
 }
 
 type CommonAlertUpdateInput struct {

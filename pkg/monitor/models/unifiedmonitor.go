@@ -60,11 +60,55 @@ func (self *SUnifiedMonitorManager) AllowGetPropertyMeasurements(ctx context.Con
 
 func (self *SUnifiedMonitorManager) GetPropertyMeasurements(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	filter, err := filterByCredential(userCred)
+	var filter string
+	var err error
+
+	if scope, err := query.GetString("scope"); err == nil {
+		filter, err = filterByScope(ctx, scope, query)
+	} else {
+		filter, err = filterByCredential(userCred)
+	}
 	if err != nil {
 		return nil, err
 	}
 	return DataSourceManager.GetMeasurements(query, filter)
+}
+
+func filterByScope(ctx context.Context, scope string, data jsonutils.JSONObject) (string, error) {
+	domainId := jsonutils.GetAnyString(data, []string{"domain_id", "domain", "project_domain_id", "project_domain"})
+	projectId := jsonutils.GetAnyString(data, []string{"project_id", "project"})
+	if projectId != "" {
+		project, err := db.DefaultProjectFetcher(ctx, projectId)
+		if err != nil {
+			return "", err
+		}
+		projectId = project.GetProjectId()
+		domainId = project.GetProjectDomainId()
+	}
+	if domainId != "" {
+		domain, err := db.DefaultDomainFetcher(ctx, domainId)
+		if err != nil {
+			return "", err
+		}
+		domainId = domain.GetProjectDomainId()
+		domain.GetProjectId()
+	}
+	switch scope {
+	case "system":
+		return "", nil
+	case "domain":
+		if domainId == "" {
+			return "", fmt.Errorf("scope is domain but domainId is null")
+		}
+		return getProjectIdsFilterByDomain(domainId)
+	case "project":
+		if projectId == "" {
+			return "", fmt.Errorf("scope is project but projectId is null")
+		}
+		return getProjectIdFilterByProject(projectId)
+
+	}
+	return "", fmt.Errorf("scope is illegal")
 }
 
 func filterByCredential(userCred mcclient.TokenCredential) (string, error) {
@@ -88,28 +132,36 @@ func getTenantIdStr(role string, userCred mcclient.TokenCredential) (string, err
 	}
 	if role == "domainadmin" {
 		domainId := userCred.GetDomainId()
-		s := auth.GetAdminSession(context.Background(), "", "")
-		params := jsonutils.Marshal(map[string]string{"domain_id": domainId})
-		tenants, err := modules.Projects.List(s, params)
-		if err != nil {
-			return "", errors.Wrap(err, "Projects.List")
-		}
-		var buffer bytes.Buffer
-		for index, tenant := range tenants.Data {
-			tenantId, _ := tenant.GetString("id")
-			if index != len(tenants.Data)-1 {
-				buffer.WriteString(fmt.Sprintf("%s=%s %s", "tenant_id", tenantId, "OR"))
-			} else {
-				buffer.WriteString(fmt.Sprintf("%s=%s", "tenant_id", tenantId))
-			}
-		}
-		return buffer.String(), nil
+		return getProjectIdsFilterByDomain(domainId)
 	}
 	if role == "member" {
 		tenantId := userCred.GetProjectId()
-		return fmt.Sprintf("%s=%s", "tenant_id", tenantId), nil
+		return getProjectIdFilterByProject(tenantId)
 	}
 	return "", errors.ErrNotFound
+}
+
+func getProjectIdsFilterByDomain(domainId string) (string, error) {
+	s := auth.GetAdminSession(context.Background(), "", "")
+	params := jsonutils.Marshal(map[string]string{"domain_id": domainId})
+	tenants, err := modules.Projects.List(s, params)
+	if err != nil {
+		return "", errors.Wrap(err, "Projects.List")
+	}
+	var buffer bytes.Buffer
+	for index, tenant := range tenants.Data {
+		tenantId, _ := tenant.GetString("id")
+		if index != len(tenants.Data)-1 {
+			buffer.WriteString(fmt.Sprintf(" %s =~ /%s/ %s ", "tenant_id", tenantId, "OR"))
+		} else {
+			buffer.WriteString(fmt.Sprintf(" %s =~ /%s/ ", "tenant_id", tenantId))
+		}
+	}
+	return buffer.String(), nil
+}
+
+func getProjectIdFilterByProject(projectId string) (string, error) {
+	return fmt.Sprintf("%s =~ /%s/", "tenant_id", projectId), nil
 }
 
 func (self *SUnifiedMonitorManager) AllowGetPropertyMetricMeasurement(ctx context.Context,

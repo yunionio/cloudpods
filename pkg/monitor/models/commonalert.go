@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -16,6 +17,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -40,7 +42,11 @@ type SCommonAlertManager struct {
 }
 
 type SCommonAlert struct {
-	SV1Alert
+	SAlert
+}
+
+func (man *SCommonAlertManager) NamespaceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeSystem
 }
 
 func (man *SCommonAlertManager) ValidateCreateData(
@@ -150,7 +156,7 @@ func (alert *SCommonAlert) CustomizeCreate(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) error {
-	if err := alert.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data); err != nil {
+	if err := alert.SAlert.CustomizeCreate(ctx, userCred, ownerId, query, data); err != nil {
 		return err
 	}
 	input := new(monitor.CommonAlertCreateInput)
@@ -211,7 +217,6 @@ func (alert *SCommonAlert) createAlertNoti(ctx context.Context, userCred mcclien
 func (alert *SCommonAlert) PostCreate(ctx context.Context,
 	userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	alert.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
 	input := new(monitor.CommonAlertCreateInput)
 	if err := data.Unmarshal(input); err != nil {
@@ -237,6 +242,10 @@ func (alert *SCommonAlert) PostCreate(ctx context.Context,
 	if fieldOpt != "" {
 		alert.setFieldOpt(ctx, userCred, fieldOpt)
 	}
+	_, err := alert.PerformSetScope(ctx, userCred, query, data)
+	if err != nil {
+		log.Errorln(errors.Wrap(err, "Alert PerformSetScope"))
+	}
 }
 
 func (man *SCommonAlertManager) ListItemFilter(
@@ -249,6 +258,11 @@ func (man *SCommonAlertManager) ListItemFilter(
 		return nil, err
 	}
 	q.Filter(sqlchemy.IsNull(q.Field("used_by")))
+
+	if len(query.Level) > 0 {
+		q.Equals("level", query.Level)
+	}
+
 	return q, nil
 }
 
@@ -326,7 +340,6 @@ func (man *SCommonAlertManager) FetchCustomizeColumns(
 	isList bool,
 ) []monitor.CommonAlertDetails {
 	rows := make([]monitor.CommonAlertDetails, len(objs))
-
 	alertRows := man.SAlertManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		rows[i].AlertDetails = alertRows[i]
@@ -535,6 +548,10 @@ func (alert *SCommonAlert) PostUpdate(
 	if err := alert.UpdateNotification(ctx, userCred, query, data); err != nil {
 		log.Errorln("update notification", err)
 	}
+	_, err := alert.PerformSetScope(ctx, userCred, query, data)
+	if err != nil {
+		log.Errorln(errors.Wrap(err, "Alert PerformSetScope"))
+	}
 }
 
 func (alert *SCommonAlert) UpdateNotification(ctx context.Context, userCred mcclient.TokenCredential,
@@ -617,4 +634,31 @@ func (self *SCommonAlertManager) GetSystemAlerts() ([]SCommonAlert, error) {
 		return nil, err
 	}
 	return objs, nil
+}
+
+func (alert *SCommonAlert) AllowPerformSetScope(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return true
+}
+
+func (alert *SCommonAlert) PerformSetScope(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return CommonAlertManager.PerformSetScope(ctx, alert, userCred, data)
+}
+
+func (manager *SCommonAlertManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SScopedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	switch field {
+	case "status":
+		q.AppendField(sqlchemy.DISTINCT(field, q.Field("status"))).Distinct()
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
 }
