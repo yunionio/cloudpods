@@ -139,17 +139,19 @@ func (manager *SPasswordManager) savePassword(localUserId int, password string, 
 	if err != nil {
 		return errors.Wrap(err, "seclib2.BcryptPassword")
 	}
-	rec := SPassword{}
-	rec.LocalUserId = localUserId
-	rec.PasswordHash = hash
-	rec.Password = shaPassword(password)
+	rec := &SPassword{
+		LocalUserId:  localUserId,
+		PasswordHash: hash,
+		Password:     shaPassword(password),
+	}
+	rec.SetModelManager(PasswordManager, rec)
 	now := time.Now()
 	rec.CreatedAtInt = now.UnixNano() / 1000
 	if o.Options.PasswordExpirationSeconds > 0 && !isSystemAccount {
 		rec.ExpiresAt = now.Add(time.Second * time.Duration(o.Options.PasswordExpirationSeconds))
 		rec.ExpiresAtInt = rec.ExpiresAt.UnixNano() / 1000
 	}
-	err = manager.TableSpec().Insert(context.TODO(), &rec)
+	err = manager.TableSpec().Insert(context.TODO(), rec)
 	if err != nil {
 		return errors.Wrap(err, "Insert")
 	}
