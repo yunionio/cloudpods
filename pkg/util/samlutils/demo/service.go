@@ -410,7 +410,7 @@ func prepareServer() error {
 
 	consumeFunc := func(ctx context.Context, w http.ResponseWriter, idp *sp.SSAMLIdentityProvider, result sp.SSAMLAssertionConsumeResult) error {
 		html := strings.Builder{}
-		html.WriteString("<!doctype html><html lang=en><body><ol>")
+		html.WriteString("<!doctype html><html lang=en><head><meta charset=\"utf-8\"><meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"></head><body><ol>")
 		html.WriteString(fmt.Sprintf("<li>RequestId: %s</li>", result.RequestID))
 		html.WriteString(fmt.Sprintf("<li>RelayState: %s</li>", result.RelayState))
 		for _, v := range result.Attributes {
