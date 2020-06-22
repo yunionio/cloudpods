@@ -29,23 +29,15 @@ func init() {
 		Equals string `help:"Secgroup ID or Name, filter secgroups whose rules equals the specified one"`
 		Server string `help:"Filter secgroups bound to specified server"`
 		options.BaseListOptions
+		Ip        string `help:"Filter secgroup by ip"`
+		Ports     string `help:"Filter secgroup by ports"`
+		Direction string `help:"Filter secgroup by ports" choices:"all|in|out"`
 	}
 
 	R(&SecGroupsListOptions{}, "secgroup-list", "List all security group", func(s *mcclient.ClientSession, args *SecGroupsListOptions) error {
-		var params *jsonutils.JSONDict
-		{
-			var err error
-			params, err = args.BaseListOptions.Params()
-			if err != nil {
-				return err
-
-			}
-		}
-		if len(args.Equals) > 0 {
-			params.Add(jsonutils.NewString(args.Equals), "equals")
-		}
-		if len(args.Server) > 0 {
-			params.Add(jsonutils.NewString(args.Server), "server")
+		params, err := options.ListStructToParams(args)
+		if err != nil {
+			return err
 		}
 		result, err := modules.SecGroups.List(s, params)
 		if err != nil {
