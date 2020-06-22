@@ -158,6 +158,8 @@ github.com/aws/aws-sdk-go/service/iam
 github.com/aws/aws-sdk-go/service/s3
 github.com/aws/aws-sdk-go/service/sts
 github.com/aws/aws-sdk-go/service/sts/stsiface
+# github.com/beevik/etree v1.1.0
+github.com/beevik/etree
 # github.com/benbjohnson/clock v1.0.0
 github.com/benbjohnson/clock
 # github.com/beorn7/perks v1.0.0
@@ -393,6 +395,8 @@ github.com/kr/pty
 github.com/leodido/go-urn
 # github.com/libvirt/libvirt-go-xml v5.2.0+incompatible
 github.com/libvirt/libvirt-go-xml
+# github.com/ma314smith/signedxml v0.0.0-20200410192636-c342a2d0ae60
+github.com/ma314smith/signedxml
 # github.com/mattn/go-colorable v0.1.2
 github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.9

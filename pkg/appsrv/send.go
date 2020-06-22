@@ -63,18 +63,28 @@ func SendJSON(w http.ResponseWriter, obj jsonutils.JSONObject) {
 }
 
 func SendHeader(w http.ResponseWriter, hdr http.Header) {
-	w.WriteHeader(204)
 	for k, v := range hdr {
 		if len(v) > 0 && len(v[0]) > 0 {
 			w.Header().Set(k, v[0])
 		}
 	}
+	w.WriteHeader(204)
 	w.Write([]byte{})
 }
 
 func SendXml(w http.ResponseWriter, hdr http.Header, obj interface{}) {
+	SendXmlWithIndent(w, hdr, obj, false)
+}
+
+func SendXmlWithIndent(w http.ResponseWriter, hdr http.Header, obj interface{}, indent bool) {
 	if !gotypes.IsNil(obj) {
-		xmlBytes, err := xml.Marshal(obj)
+		var xmlBytes []byte
+		var err error
+		if indent {
+			xmlBytes, err = xml.MarshalIndent(obj, "", "  ")
+		} else {
+			xmlBytes, err = xml.Marshal(obj)
+		}
 		if err == nil {
 			for k, v := range hdr {
 				if k != "Content-Type" && k != "Content-Length" {
@@ -141,4 +151,10 @@ func SendStream(w http.ResponseWriter, isPartial bool, hdr http.Header, stream i
 		}
 	}
 	return nil
+}
+
+func SendRedirect(w http.ResponseWriter, redirectUrl string) {
+	w.Header().Set("Location", redirectUrl)
+	w.WriteHeader(301)
+	w.Write([]byte{})
 }

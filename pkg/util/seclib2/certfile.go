@@ -17,6 +17,7 @@ package seclib2
 import (
 	"fmt"
 	"io/ioutil"
+	"regexp"
 	"strings"
 )
 
@@ -54,4 +55,12 @@ func MergeCaCertFiles(cafile string, certfile string) (string, error) {
 	tmpfile.Write(cont)
 
 	return tmpfile.Name(), nil
+}
+
+func CleanCertificate(cert string) string {
+	re := regexp.MustCompile("---(.*)CERTIFICATE(.*)---")
+	cert = re.ReplaceAllString(cert, "")
+	cert = strings.Trim(cert, " \n")
+	// cert = strings.Replace(cert, "\n", "", -1)
+	return cert
 }

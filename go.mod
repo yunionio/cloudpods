@@ -24,6 +24,7 @@ require (
 	github.com/aokoli/goutils v1.0.1
 	github.com/aws/aws-sdk-go v1.21.4
 	github.com/baiyubin/aliyun-sts-go-sdk v0.0.0-20180326062324-cfa1a18b161f // indirect
+	github.com/beevik/etree v1.1.0 // indirect
 	github.com/benbjohnson/clock v1.0.0
 	github.com/bitly/go-simplejson v0.5.0
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
@@ -70,6 +71,7 @@ require (
 	github.com/kr/pty v1.1.5
 	github.com/lib/pq v1.2.0 // indirect
 	github.com/libvirt/libvirt-go-xml v5.2.0+incompatible
+	github.com/ma314smith/signedxml v0.0.0-20200410192636-c342a2d0ae60
 	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/mattn/go-sqlite3 v1.10.0 // indirect
 	github.com/mattn/go-tty v0.0.0-20181127064339-e4f871175a2f // indirect
