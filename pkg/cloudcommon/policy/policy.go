@@ -20,6 +20,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -191,11 +192,33 @@ func (manager *SPolicyManager) start(refreshInterval time.Duration, retryInterva
 
 	manager.cache = hashcache.NewCache(2048, manager.refreshInterval/2)
 
-	manager.SyncOnce()
+	manager.syncByInterval()
 }
 
+func (manager *SPolicyManager) syncByInterval() {
+	syncWorkerManager.Run(manager.syncByInterval_, nil, nil)
+}
+
+func (manager *SPolicyManager) syncByInterval_() {
+	err := manager.doSync()
+	var interval time.Duration
+	if err != nil {
+		interval = manager.failedRetryInterval
+	} else {
+		interval = manager.refreshInterval
+	}
+	time.AfterFunc(interval, manager.syncByInterval)
+}
+
+var syncOnce int32
+
 func (manager *SPolicyManager) SyncOnce() {
-	syncWorkerManager.Run(manager.sync, nil, nil)
+	if atomic.CompareAndSwapInt32(&syncOnce, 0, 1) {
+		syncWorkerManager.Run(func() {
+			atomic.StoreInt32(&syncOnce, 0)
+			manager.doSync()
+		}, nil, nil)
+	}
 }
 
 func (manager *SPolicyManager) doSync() error {
@@ -221,17 +244,6 @@ func (manager *SPolicyManager) doSync() error {
 	manager.cache.Invalidate()
 
 	return nil
-}
-
-func (manager *SPolicyManager) sync() {
-	err := manager.doSync()
-	var interval time.Duration
-	if err != nil {
-		interval = manager.failedRetryInterval
-	} else {
-		interval = manager.refreshInterval
-	}
-	time.AfterFunc(interval, manager.SyncOnce)
 }
 
 func queryKey(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) string {
