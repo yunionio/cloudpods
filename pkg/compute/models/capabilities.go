@@ -315,10 +315,10 @@ type StorageInfo struct {
 	Name            string
 	VirtualCapacity int64
 	Capacity        int64
-	Reserved        int64
+	Reserved        sql.NullInt64
 	StorageType     string
 	MediumType      string
-	Cmtbound        float32
+	Cmtbound        sql.NullFloat64
 	UsedCapacity    sql.NullInt64
 	WasteCapacity   sql.NullInt64
 	FreeCapacity    int64
@@ -440,7 +440,7 @@ func getStorageTypes(
 		addStorageInfo = func(storage *StorageInfo, simpleStorage *SimpleStorageInfo) {
 			simpleStorage.VirtualCapacity += storage.VirtualCapacity
 			simpleStorage.FreeCapacity += storage.FreeCapacity
-			simpleStorage.Reserved += storage.Reserved
+			simpleStorage.Reserved += storage.Reserved.Int64
 			simpleStorage.Capacity += storage.Capacity
 			simpleStorage.WasteCapacity += storage.WasteCapacity.Int64
 			simpleStorage.UsedCapacity += storage.UsedCapacity.Int64
@@ -493,10 +493,10 @@ func getStorageTypes(
 				}
 				allStorageTypes = append(allStorageTypes, storageType)
 			}
-			if storage.Cmtbound == 0 {
-				storage.Cmtbound = options.Options.DefaultStorageOvercommitBound
+			if storage.Cmtbound.Float64 == 0 {
+				storage.Cmtbound.Float64 = float64(options.Options.DefaultStorageOvercommitBound)
 			}
-			storage.VirtualCapacity = int64(float32((storage.Capacity - storage.Reserved)) * storage.Cmtbound)
+			storage.VirtualCapacity = int64(float64(storage.Capacity-storage.Reserved.Int64) * storage.Cmtbound.Float64)
 			storage.FreeCapacity = storage.VirtualCapacity - storage.UsedCapacity.Int64 - storage.WasteCapacity.Int64
 			addStorageInfo(&storage, simpleStorage)
 			storageInfos[storageType] = simpleStorage
