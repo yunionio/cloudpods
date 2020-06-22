@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
+	"strings"
 	"syscall"
 
 	"yunion.io/x/jsonutils"
@@ -48,6 +50,7 @@ type IBridgeDriver interface {
 	SetupBridgeDev() error
 	SetupInterface() error
 	PersistentMac() error
+	DisableDHCPClient() error
 
 	GenerateIfupScripts(scriptPath string, nic jsonutils.JSONObject) error
 	GenerateIfdownScripts(scriptPath string, nic jsonutils.JSONObject) error
@@ -324,6 +327,35 @@ func (d *SBaseBridgeDriver) GetMetadataServerPort() int {
 }
 
 func (d *SBaseBridgeDriver) WarmupConfig() error {
+	return nil
+}
+
+func (d *SBaseBridgeDriver) DisableDHCPClient() error {
+	if d.inter != nil {
+		filename := fmt.Sprintf("/var/run/dhclient-%s.pid", d.inter.String())
+		if !fileutils2.Exists(filename) {
+			return nil
+		}
+		s, err := fileutils2.FileGetContents(filename)
+		if err != nil {
+			return errors.Wrap(err, "get dhclient pid")
+		}
+		pid, err := strconv.Atoi(strings.TrimSpace(s))
+		if err != nil {
+			return errors.Wrap(err, "convert pid str to int")
+		}
+		if fileutils2.Exists(fmt.Sprintf("/proc/%d/cmdline", pid)) {
+			cmdline, err := fileutils2.FileGetContents(fmt.Sprintf("/proc/%d/cmdline", pid))
+			if err != nil {
+				return errors.Wrap(err, "get proc cmdline")
+			}
+			if strings.Contains(cmdline, "dhclient") {
+				// kill process
+				p, _ := os.FindProcess(pid)
+				return p.Kill()
+			}
+		}
+	}
 	return nil
 }
 

@@ -349,6 +349,9 @@ func NewNIC(desc string) (*SNIC, error) {
 	if err := nic.BridgeDev.PersistentMac(); err != nil {
 		return nil, err
 	}
+	if err := nic.BridgeDev.DisableDHCPClient(); err != nil {
+		return nil, errors.Wrap(err, "disable dhcp client")
+	}
 
 	var dhcpRelay []string
 	if nic.EnableDHCPRelay() {
