@@ -145,8 +145,18 @@ type SecgroupListInput struct {
 	// pattern:asc|desc
 	OrderByGuestCnt string `json:"order_by_guest_cnt"`
 
-	// 是否被修改
-	IsDirty *bool `json:"is_dirty"`
+	// 模糊过滤规则中含有指定ip的安全组
+	// example: 10.10.2.1
+	Ip string `json:"ip"`
+
+	// 精确匹配规则中含有指定端口的安全组
+	// example: 100-200
+	Ports string `json:"ports"`
+
+	// 指定过滤规则的方向(仅在指定ip或ports时生效) choices: all|in|out
+	// default: all
+	// example: in
+	Direction string `json:"direction"`
 }
 
 type SecurityGroupCacheListInput struct {
