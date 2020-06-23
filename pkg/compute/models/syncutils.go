@@ -25,9 +25,10 @@ import (
 )
 
 type IMetadataSetter interface {
-	// SetAllMetadata(ctx context.Context, meta map[string]interface{}, userCred mcclient.TokenCredential) error
-	// SetMetadata(ctx context.Context, key string, value interface{}, userCred mcclient.TokenCredential) error
 	SetCloudMetadataAll(ctx context.Context, meta map[string]interface{}, userCred mcclient.TokenCredential) error
+	Keyword() string
+	GetName() string
+	GetCloudproviderId() string
 }
 
 func syncMetadata(ctx context.Context, userCred mcclient.TokenCredential, model IMetadataSetter, remote cloudprovider.ICloudResource) error {
@@ -50,6 +51,42 @@ func syncMetadata(ctx context.Context, userCred mcclient.TokenCredential, model 
 	return nil
 }
 
+func syncVirtualResourceMetadata(ctx context.Context, userCred mcclient.TokenCredential, model IMetadataSetter, remote cloudprovider.IVirtualResource) error {
+	metaData := remote.GetMetadata()
+	store := make(map[string]interface{}, 0)
+	if metaData != nil {
+		meta := make(map[string]interface{}, 0)
+		err := metaData.Unmarshal(meta)
+		if err != nil {
+			log.Errorf("Get VM Metadata error: %v", err)
+			return err
+		}
+		for key, value := range meta {
+			store[db.CLOUD_TAG_PREFIX+key] = value
+		}
+
+	}
+
+	extProjectId := remote.GetProjectId()
+	if len(extProjectId) > 0 {
+		extProject, err := ExternalProjectManager.GetProject(extProjectId, model.GetCloudproviderId())
+		if err != nil {
+			log.Errorf("sync project metadata for %s %s error: %v", model.Keyword(), model.GetName(), err)
+		} else {
+			store[db.CLOUD_TAG_PREFIX+"project"] = extProject.Name
+		}
+	}
+
+	if len(store) > 0 {
+		model.SetCloudMetadataAll(ctx, store, userCred)
+	}
+	return nil
+}
+
 func SyncMetadata(ctx context.Context, userCred mcclient.TokenCredential, model IMetadataSetter, remote cloudprovider.ICloudResource) error {
 	return syncMetadata(ctx, userCred, model, remote)
+}
+
+func SyncVirtualResourceMetadata(ctx context.Context, userCred mcclient.TokenCredential, model IMetadataSetter, remote cloudprovider.IVirtualResource) error {
+	return syncVirtualResourceMetadata(ctx, userCred, model, remote)
 }

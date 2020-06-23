@@ -780,6 +780,14 @@ func (guest *SGuest) CustomizeCreate(ctx context.Context, userCred mcclient.Toke
 	return guest.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
+func (guest *SGuest) GetCloudproviderId() string {
+	host := guest.GetHost()
+	if host != nil {
+		return host.GetCloudproviderId()
+	}
+	return ""
+}
+
 func (guest *SGuest) GetHost() *SHost {
 	if len(guest.HostId) > 0 && regutils.MatchUUID(guest.HostId) {
 		host, _ := HostManager.FetchById(guest.HostId)

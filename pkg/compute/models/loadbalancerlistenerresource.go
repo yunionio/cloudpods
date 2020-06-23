@@ -62,6 +62,14 @@ func (self *SLoadbalancerListenerResourceBase) GetLoadbalancerListener() *SLoadb
 	return listener.(*SLoadbalancerListener)
 }
 
+func (self *SLoadbalancerListenerResourceBase) GetCloudproviderId() string {
+	cloudprovider := self.GetCloudprovider()
+	if cloudprovider != nil {
+		return cloudprovider.Id
+	}
+	return ""
+}
+
 func (self *SLoadbalancerListenerResourceBase) GetCloudprovider() *SCloudprovider {
 	listener := self.GetLoadbalancerListener()
 	if listener != nil {
