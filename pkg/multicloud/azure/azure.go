@@ -393,7 +393,7 @@ func (self *SAzureClient) CreateResourceGroup(name, location string) (*SResource
 	if err != nil {
 		return nil, errors.Wrap(err, "getDefaultClient")
 	}
-	if len(location) == 0 || len(self.iregions) == 0 {
+	if len(location) == 0 && len(self.iregions) == 0 {
 		return nil, fmt.Errorf("missing location info")
 	}
 	if len(location) == 0 {
