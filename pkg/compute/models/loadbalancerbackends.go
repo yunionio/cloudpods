@@ -264,6 +264,14 @@ func (lbb *SLoadbalancerBackend) AllowPerformStatus(ctx context.Context, userCre
 	return false
 }
 
+func (lbb *SLoadbalancerBackend) GetCloudproviderId() string {
+	lbbg := lbb.GetLoadbalancerBackendGroup()
+	if lbbg != nil {
+		return lbbg.GetCloudproviderId()
+	}
+	return ""
+}
+
 func (lbb *SLoadbalancerBackend) GetLoadbalancerBackendGroup() *SLoadbalancerBackendGroup {
 	backendgroup, err := LoadbalancerBackendGroupManager.FetchById(lbb.BackendGroupId)
 	if err != nil {

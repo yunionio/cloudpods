@@ -322,22 +322,18 @@ func (manager *SExternalProjectManager) ListItemFilter(
 			return nil, httperrors.NewGeneralError(err)
 		}
 		provider := p.(*SCloudprovider)
-		query.Cloudaccount = []string{provider.CloudaccountId}
+		query.Cloudaccount = provider.CloudaccountId
 	}
 
 	if len(query.Cloudaccount) > 0 {
-		accountIds := []string{}
-		for _, _account := range query.Cloudaccount {
-			account, err := CloudaccountManager.FetchByIdOrName(userCred, _account)
-			if err != nil {
-				if errors.Cause(err) == sql.ErrNoRows {
-					return nil, httperrors.NewResourceNotFoundError2("cloudaccount", _account)
-				}
-				return nil, httperrors.NewGeneralError(err)
+		account, err := CloudaccountManager.FetchByIdOrName(userCred, query.Cloudaccount)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("cloudaccount", query.Cloudaccount)
 			}
-			accountIds = append(accountIds, account.GetId())
+			return nil, httperrors.NewGeneralError(err)
 		}
-		q = q.In("cloudaccount_id", accountIds)
+		q = q.Equals("cloudaccount_id", account.GetId())
 	}
 
 	return q, nil

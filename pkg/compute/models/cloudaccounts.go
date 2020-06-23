@@ -2427,7 +2427,7 @@ func (self *SCloudaccount) SyncProject(ctx context.Context, userCred mcclient.To
 	lockman.LockRawObject(ctx, self.Id, id)
 	defer lockman.ReleaseRawObject(ctx, self.Id, id)
 
-	project, _, err := self.GetExternalProject(ctx, userCred, id)
+	project, projectName, err := self.GetExternalProject(ctx, userCred, id)
 	if err == nil {
 		return project.ExternalId, nil
 	}
@@ -2435,11 +2435,15 @@ func (self *SCloudaccount) SyncProject(ctx context.Context, userCred mcclient.To
 		return "", err
 	}
 
+	if len(projectName) == 0 {
+		return "", fmt.Errorf("empty project name")
+	}
+
 	provider, err := self.GetProvider()
 	if err != nil {
 		return "", errors.Wrap(err, "GetProvider")
 	}
-	iProject, err := provider.CreateIProject(project.GetName())
+	iProject, err := provider.CreateIProject(projectName)
 	if err != nil {
 		return "", errors.Wrap(err, "CreateIProject")
 	}

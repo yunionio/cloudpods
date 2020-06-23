@@ -275,7 +275,7 @@ func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx c
 
 		cloudprovider.WaitStatus(iDisk, api.DISK_READY, time.Second*5, time.Minute*5)
 
-		models.SyncMetadata(ctx, task.GetUserCred(), disk, iDisk)
+		models.SyncVirtualResourceMetadata(ctx, task.GetUserCred(), disk, iDisk)
 
 		data := jsonutils.NewDict()
 		data.Add(jsonutils.NewInt(int64(iDisk.GetDiskSizeMB())), "disk_size")

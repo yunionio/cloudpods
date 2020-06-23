@@ -472,7 +472,7 @@ func (manager *SElasticcacheManager) SyncElasticcaches(ctx context.Context, user
 			syncResult.UpdateError(err)
 			continue
 		}
-		syncMetadata(ctx, userCred, &commondb[i], commonext[i])
+		syncVirtualResourceMetadata(ctx, userCred, &commondb[i], commonext[i])
 		localElasticcaches = append(localElasticcaches, commondb[i])
 		remoteElasticcaches = append(remoteElasticcaches, commonext[i])
 		syncResult.Update()
@@ -484,7 +484,7 @@ func (manager *SElasticcacheManager) SyncElasticcaches(ctx context.Context, user
 			syncResult.AddError(err)
 			continue
 		}
-		syncMetadata(ctx, userCred, instance, added[i])
+		syncVirtualResourceMetadata(ctx, userCred, instance, added[i])
 		localElasticcaches = append(localElasticcaches, *instance)
 		remoteElasticcaches = append(remoteElasticcaches, added[i])
 		syncResult.Add()
