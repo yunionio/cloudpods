@@ -171,6 +171,10 @@ func (zone *SZone) GetExtraDetails(ctx context.Context, userCred mcclient.TokenC
 	return api.ZoneDetails{}, nil
 }
 
+func (zone *SZone) GetCloudproviderId() string {
+	return ""
+}
+
 func (zone *SZone) GetCloudRegionId() string {
 	if len(zone.CloudregionId) == 0 {
 		return "default"

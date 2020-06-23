@@ -63,6 +63,14 @@ type SNatSEntry struct {
 	SourceCIDR string `width:"22" charset:"ascii" list:"user" create:"required"`
 }
 
+func (self *SNatSEntry) GetCloudproviderId() string {
+	network, err := self.GetNetwork()
+	if err == nil {
+		return network.GetCloudproviderId()
+	}
+	return ""
+}
+
 func (self *SNatSEntry) GetNetwork() (*SNetwork, error) {
 	if len(self.NetworkId) == 0 {
 		return nil, nil

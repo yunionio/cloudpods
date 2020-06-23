@@ -636,7 +636,7 @@ func syncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, syncRes
 }
 
 func syncVMPeripherals(ctx context.Context, userCred mcclient.TokenCredential, local *SGuest, remote cloudprovider.ICloudVM, host *SHost, provider *SCloudprovider, driver cloudprovider.ICloudProvider) {
-	syncMetadata(ctx, userCred, local, remote)
+	syncVirtualResourceMetadata(ctx, userCred, local, remote)
 	err := syncVMNics(ctx, userCred, provider, host, local, remote)
 	if err != nil {
 		log.Errorf("syncVMNics error %s", err)

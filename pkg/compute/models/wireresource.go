@@ -63,6 +63,14 @@ func (self *SWireResourceBase) GetWire() *SWire {
 	return nil
 }
 
+func (self *SWireResourceBase) GetCloudproviderId() string {
+	vpc := self.GetVpc()
+	if vpc != nil {
+		return vpc.ManagerId
+	}
+	return ""
+}
+
 func (self *SWireResourceBase) GetVpc() *SVpc {
 	wire := self.GetWire()
 	if wire != nil {

@@ -237,6 +237,14 @@ func (manager *SNatDEntryManager) SyncNatDTable(ctx context.Context, userCred mc
 	return result
 }
 
+func (self *SNatDEntry) GetCloudproviderId() string {
+	nat, _ := self.GetNatgateway()
+	if nat != nil {
+		return nat.GetCloudproviderId()
+	}
+	return ""
+}
+
 func (self *SNatDEntry) syncRemoveCloudNatDTable(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
