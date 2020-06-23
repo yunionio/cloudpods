@@ -397,23 +397,34 @@ func (self *SGoogleClient) rdsUpdate(resource string, params map[string]string, 
 	return selfLink, nil
 }
 
-func (self *SGoogleClient) ecsInsert(resource string, body jsonutils.JSONObject, retval interface{}) error {
-	resource = fmt.Sprintf("projects/%s/%s", self.projectId, resource)
-	if name, _ := body.GetString("name"); len(name) > 0 {
+func (self *SGoogleClient) checkAndSetName(body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	name, _ := body.GetString("name")
+	if len(name) > 0 {
 		generateName := ""
-		for _, s := range name {
-			if unicode.IsLetter(s) || unicode.IsDigit(s) {
+		for _, s := range strings.ToLower(name) {
+			if unicode.IsLetter(s) || unicode.IsDigit(s) || s == '-' {
 				generateName = fmt.Sprintf("%s%c", generateName, s)
-			} else {
-				generateName = fmt.Sprintf("%s-", generateName)
 			}
+		}
+		if strings.HasSuffix(generateName, "-") {
+			generateName += "1"
 		}
 		if name != generateName {
 			err := jsonutils.Update(body, map[string]string{"name": generateName})
 			if err != nil {
-				log.Errorf("faild to generate google name from %s -> %s", name, generateName)
+				return nil, fmt.Errorf("faild to generate google name from %s -> %s", name, generateName)
 			}
 		}
+	}
+	return body, nil
+}
+
+func (self *SGoogleClient) ecsInsert(resource string, body jsonutils.JSONObject, retval interface{}) error {
+	resource = fmt.Sprintf("projects/%s/%s", self.projectId, resource)
+	var err error
+	body, err = self.checkAndSetName(body)
+	if err != nil {
+		return errors.Wrap(err, "checkAndSetName")
 	}
 	resp, err := jsonRequest(self.client, "POST", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, resource, nil, body, self.debug)
 	if err != nil {
@@ -596,6 +607,11 @@ func (self *SGoogleClient) cloudbuildInsert(resource string, body jsonutils.JSON
 
 func (self *SGoogleClient) rdsInsert(resource string, body jsonutils.JSONObject, retval interface{}) error {
 	resource = fmt.Sprintf("projects/%s/%s", self.projectId, resource)
+	var err error
+	body, err = self.checkAndSetName(body)
+	if err != nil {
+		return errors.Wrap(err, "checkAndSetName")
+	}
 	resp, err := jsonRequest(self.client, "POST", GOOGLE_DBINSTANCE_DOMAIN, GOOGLE_DBINSTANCE_API_VERSION, resource, nil, body, self.debug)
 	if err != nil {
 		return err
