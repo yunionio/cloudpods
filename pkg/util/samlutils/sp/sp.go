@@ -203,15 +203,20 @@ func (sp *SSAMLSpInstance) processAssertionConsumer(ctx context.Context, w http.
 	if err != nil {
 		return errors.Wrap(err, "base64.StdEncoding.DecodeString")
 	}
-	// log.Debugf("samlResponse: %s", string(samlRespBytes))
-	_, err = samlutils.ValidateXML(string(samlRespBytes))
-	if err != nil {
-		return errors.Wrap(err, "ValidateXML")
-	}
+	log.Debugf("samlResponse: %s", string(samlRespBytes))
 
 	samlResp, err := sp.saml.UnmarshalResponse(samlRespBytes)
 	if err != nil {
 		return errors.Wrap(err, "saml.UnmarshalResponse")
+	}
+
+	/*_, err = samlutils.ValidateXML(string(samlRespBytes))
+	if err != nil {
+		return errors.Wrap(err, "ValidateXML")
+	}*/
+
+	if !samlResp.IsSuccess() {
+		return errors.Wrapf(httperrors.ErrInvalidCredential, "SAML authenticate fail: %s", samlResp.Status.StatusCode.Value)
 	}
 
 	idp := sp.getIdentityProvider(samlResp.Issuer.Issuer)
@@ -226,7 +231,7 @@ func (sp *SSAMLSpInstance) processAssertionConsumer(ctx context.Context, w http.
 	}
 	result.RelayState = relayState
 
-	if samlResp.Assertion.AttributeStatement != nil {
+	if samlResp.Assertion != nil && samlResp.Assertion.AttributeStatement != nil {
 		result.Attributes = make([]SSAMLAttribute, len(samlResp.Assertion.AttributeStatement.Attributes))
 		for i, attr := range samlResp.Assertion.AttributeStatement.Attributes {
 			values := make([]string, len(attr.AttributeValues))

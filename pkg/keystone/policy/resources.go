@@ -21,12 +21,12 @@ import (
 
 var (
 	identitySystemResources = []string{
-		"identity_providers",
 		"domains",
 		"services",
 		"endpoints",
 	}
 	identityDomainResources = []string{
+		"identity_providers",
 		"users",
 		"groups",
 		"projects",

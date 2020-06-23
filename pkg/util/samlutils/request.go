@@ -55,9 +55,9 @@ func NewRequest(input SSAMLRequestInput) AuthnRequest {
 				Space: XMLNS_PROTO,
 				Local: "NameIDPolicy",
 			},
-			AllowCreate:     "true",
-			Format:          NAME_ID_FORMAT_TRANSIENT,
-			SPNameQualifier: input.EntityID,
+			AllowCreate: "true",
+			Format:      NAME_ID_FORMAT_TRANSIENT,
+			// SPNameQualifier: input.EntityID,
 		},
 	}
 	return req

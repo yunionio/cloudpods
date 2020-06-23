@@ -288,6 +288,8 @@ func (input SProjectRemoveUserGroupInput) Validate() error {
 type IdentityProviderListInput struct {
 	apis.EnabledStatusStandaloneResourceListInput
 
+	apis.DomainizedResourceListInput
+
 	// 以驱动类型过滤
 	Driver []string `json:"driver"`
 

@@ -123,14 +123,14 @@ func (data EncryptedData) decryptData(privateKey *rsa.PrivateKey) ([]byte, error
 	}
 	encAlg := data.EncryptionMethod.Algorithm
 	switch encAlg {
-	case "http://www.w3.org/2001/04/xmlenc#aes128-cbc":
-		return decryptAes128Cbc(key, cipher)
+	case "http://www.w3.org/2001/04/xmlenc#aes128-cbc", "http://www.w3.org/2001/04/xmlenc#aes192-cbc", "http://www.w3.org/2001/04/xmlenc#aes256-cbc":
+		return decryptAesCbc(key, cipher)
 	default:
 		return nil, errors.Wrapf(httperrors.ErrUnsupportedProtocol, "unsupported encryption algorithm %s", encAlg)
 	}
 }
 
-func decryptAes128Cbc(key []byte, secret []byte) ([]byte, error) {
+func decryptAesCbc(key []byte, secret []byte) ([]byte, error) {
 	c, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, errors.Wrap(err, "aes.NewCipher")

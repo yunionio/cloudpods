@@ -327,4 +327,111 @@ func init() {
 		return nil
 	})
 
+	type IdentityProviderCreateSAMLOptions struct {
+		NAME string `help:"name of identity provider" json:"-"`
+
+		AutoCreateProject   bool `help:"automatically create a default project when importing domain" json:"-"`
+		NoAutoCreateProject bool `help:"do not create default project when importing domain" json:"-"`
+
+		TargetDomain string `help:"target domain without creating new domain" json:"-"`
+
+		api.SSAMLIdpConfigOptions
+	}
+	R(&IdentityProviderCreateSAMLOptions{}, "idp-create-saml", "Create an identity provider with SAML driver", func(s *mcclient.ClientSession, args *IdentityProviderCreateSAMLOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.NAME), "name")
+
+		if len(args.TargetDomain) > 0 {
+			params.Add(jsonutils.NewString(args.TargetDomain), "target_domain")
+		}
+		if args.AutoCreateProject {
+			params.Add(jsonutils.JSONTrue, "auto_create_project")
+		} else if args.NoAutoCreateProject {
+			params.Add(jsonutils.JSONFalse, "auto_create_project")
+		}
+
+		params.Add(jsonutils.NewString("saml"), "driver")
+		params.Add(jsonutils.Marshal(args), "config", "saml")
+
+		idp, err := modules.IdentityProviders.Create(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(idp)
+		return nil
+	})
+
+	type IdentityProviderConfigSAMLOptions struct {
+		ID string `help:"ID of idp to config" json:"-"`
+		api.SSAMLIdpConfigOptions
+	}
+	R(&IdentityProviderConfigSAMLOptions{}, "idp-config-SAML", "Config an Identity provider with SAML driver", func(s *mcclient.ClientSession, args *IdentityProviderConfigSAMLOptions) error {
+		config := jsonutils.NewDict()
+		config.Add(jsonutils.Marshal(args), "config", "saml")
+		nconf, err := modules.IdentityProviders.PerformAction(s, args.ID, "config", config)
+		if err != nil {
+			return err
+		}
+		fmt.Println(nconf.PrettyString())
+		return nil
+	})
+
+	type IdentityProviderGetSAMLMetadataOptions struct {
+		ID string `help:"ID of idp to config" json:"-"`
+		api.GetIdpSamlMetadataInput
+	}
+	R(&IdentityProviderGetSAMLMetadataOptions{}, "idp-saml-metadata", "Get SAML service provider metadata", func(s *mcclient.ClientSession, args *IdentityProviderGetSAMLMetadataOptions) error {
+		nconf, err := modules.IdentityProviders.GetSpecific(s, args.ID, "saml-metadata", jsonutils.Marshal(args))
+		if err != nil {
+			return err
+		}
+		spMeta, _ := nconf.GetString("metadata")
+		fmt.Println(spMeta)
+		return nil
+	})
+
+	type IdentityProviderCreateSAMLTestOptions struct {
+		NAME string `help:"name of identity provider" json:"-"`
+		// TEMPLATE string `help:"configuration template name" choices:"msad_multi_domain" json:"-"`
+
+		api.SSAMLTestIdpConfigOptions
+	}
+	R(&IdentityProviderCreateSAMLTestOptions{}, "idp-create-saml-test", "Create an identity provider with samltest.id (test only)", func(s *mcclient.ClientSession, args *IdentityProviderCreateSAMLTestOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.NAME), "name")
+		params.Add(jsonutils.NewString("saml"), "driver")
+		params.Add(jsonutils.NewString(api.IdpTemplateSAMLTest), "template")
+
+		params.Add(jsonutils.Marshal(args), "config", "saml")
+
+		idp, err := modules.IdentityProviders.Create(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(idp)
+		return nil
+	})
+
+	type IdentityProviderCreateAzureADSAMLOptions struct {
+		NAME string `help:"name of identity provider" json:"-"`
+		// TEMPLATE string `help:"configuration template name" choices:"msad_multi_domain" json:"-"`
+
+		api.SSAMLAzureADConfigOptions
+	}
+	R(&IdentityProviderCreateAzureADSAMLOptions{}, "idp-create-azure-ad-saml", "Create an identity provider with Azure AD SAML", func(s *mcclient.ClientSession, args *IdentityProviderCreateAzureADSAMLOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.NAME), "name")
+		params.Add(jsonutils.NewString("saml"), "driver")
+		params.Add(jsonutils.NewString(api.IdpTemplateAzureADSAML), "template")
+
+		params.Add(jsonutils.Marshal(args), "config", "saml")
+
+		idp, err := modules.IdentityProviders.Create(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(idp)
+		return nil
+	})
+
 }

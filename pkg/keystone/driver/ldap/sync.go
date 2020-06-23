@@ -165,7 +165,7 @@ func (self *SLDAPDriver) syncDomainInfo(ctx context.Context, info SDomainInfo) (
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetIdentityProvider")
 	}
-	return idp.SyncOrCreateDomain(ctx, info.Id, info.Name, info.DN)
+	return idp.SyncOrCreateDomain(ctx, info.Id, info.Name, info.DN, true)
 }
 
 func (self *SLDAPDriver) syncUsers(ctx context.Context, cli *ldaputils.SLDAPClient, domainId string, baseDN string) (map[string]string, error) {

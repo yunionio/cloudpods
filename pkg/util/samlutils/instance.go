@@ -57,3 +57,7 @@ func (saml *SSAMLInstance) GetCertString() string {
 func (saml *SSAMLInstance) SignXML(xmlstr string) (string, error) {
 	return SignXML(xmlstr, saml.privateKey)
 }
+
+func (saml *SSAMLInstance) SetEntityId(id string) {
+	saml.entityID = id
+}
