@@ -144,12 +144,18 @@ func (manager *SSecurityGroupManager) ListItemFilter(
 		q = q.Filter(sqlchemy.OR(filters...))
 	}
 
-	if input.IsDirty != nil {
-		if *input.IsDirty {
-			q = q.IsTrue("is_dirty")
-		} else {
-			q = q.IsFalse("is_dirty")
+	if len(input.Ip) > 0 || len(input.Ports) > 0 {
+		sq := SecurityGroupRuleManager.Query("secgroup_id")
+		if len(input.Ip) > 0 {
+			sq = sq.Like("cidr", input.Ip+"%")
 		}
+		if len(input.Ports) > 0 {
+			sq = sq.Equals("ports", input.Ports)
+		}
+		if utils.IsInStringArray(input.Direction, []string{"in", "out"}) {
+			sq = sq.Equals("direction", input.Direction)
+		}
+		q = q.In("id", sq.SubQuery())
 	}
 
 	return q, nil
