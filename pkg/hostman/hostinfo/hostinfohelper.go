@@ -349,8 +349,10 @@ func NewNIC(desc string) (*SNIC, error) {
 	if err := nic.BridgeDev.PersistentMac(); err != nil {
 		return nil, err
 	}
-	if err := nic.BridgeDev.DisableDHCPClient(); err != nil {
+	if isDHCP, err := nic.BridgeDev.DisableDHCPClient(); err != nil {
 		return nil, errors.Wrap(err, "disable dhcp client")
+	} else if isDHCP {
+		Instance().SysWarning["dhcp"] = "dhcp client is enabled before host agent start, please disable it"
 	}
 
 	var dhcpRelay []string
