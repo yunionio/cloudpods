@@ -5271,11 +5271,20 @@ func (guest *SGuest) GetUsages() []db.IUsage {
 }
 
 var (
-	serverNameREG = regexp.MustCompile(`^[a-z$][a-z0-9-${}.]*$`)
+	// `^[a-zA-Z][a-zA-Z0-9._@-]*$`)
+	serverNameREG = regexp.MustCompile(`^[a-zA-Z$][a-zA-Z0-9-${}.]*$`)
+	hostnameREG   = regexp.MustCompile(`^[a-z$][a-z0-9-${}.]*$`)
 )
 
 func (manager *SGuestManager) ValidateName(name string) error {
 	if serverNameREG.MatchString(name) {
+		return nil
+	}
+	return httperrors.NewInputParameterError("name starts with letter, and contains letter, number and - only")
+}
+
+func (manager *SGuestManager) ValidateNameLoginAccount(name string) error {
+	if hostnameREG.MatchString(name) {
 		return nil
 	}
 	return httperrors.NewInputParameterError("name starts with letter, and contains letter, number and - only")
