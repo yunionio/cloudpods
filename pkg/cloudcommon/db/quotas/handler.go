@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"sort"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -481,7 +482,7 @@ func (manager *SQuotaBaseManager) listDomainQuotaHandler(ctx context.Context, w 
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	manager.sendQuotaList(w, quotaList)
+	manager.sendQuotaList(w, sortQuotaByUsage(quotaList))
 }
 
 func (manager *SQuotaBaseManager) sendQuotaList(w http.ResponseWriter, quotaList []jsonutils.JSONObject) {
@@ -524,7 +525,7 @@ func (manager *SQuotaBaseManager) listProjectQuotaHandler(ctx context.Context, w
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	manager.sendQuotaList(w, quotaList)
+	manager.sendQuotaList(w, sortQuotaByUsage(quotaList))
 }
 
 func (manager *SQuotaBaseManager) listQuotas(ctx context.Context, userCred mcclient.TokenCredential, targetDomainId string, targetProjectId string, domainOnly bool, primaryOnly bool, refresh bool) ([]jsonutils.JSONObject, error) {
@@ -615,4 +616,34 @@ func (manager *SQuotaBaseManager) listQuotas(ctx context.Context, userCred mccli
 		ret = append(ret, quotaJson)
 	}
 	return ret, nil
+}
+
+type tQuotaResultList []jsonutils.JSONObject
+
+func (a tQuotaResultList) Len() int           { return len(a) }
+func (a tQuotaResultList) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a tQuotaResultList) Less(i, j int) bool { return usageRateOfQuota(a[i]) > usageRateOfQuota(a[j]) }
+
+func usageRateOfQuota(quota jsonutils.JSONObject) float32 {
+	maxRate := float32(0)
+	quotaMap, _ := quota.GetMap()
+	for k, v := range quotaMap {
+		usageK := fmt.Sprintf("usage.%s", k)
+		if usageV, ok := quotaMap[usageK]; ok {
+			intV, _ := v.Int()
+			if intV > 0 {
+				intUsageV, _ := usageV.Int()
+				rate := float32(intUsageV) / float32(intV)
+				if maxRate < rate {
+					maxRate = rate
+				}
+			}
+		}
+	}
+	return maxRate
+}
+
+func sortQuotaByUsage(quotaList []jsonutils.JSONObject) []jsonutils.JSONObject {
+	sort.Sort(tQuotaResultList(quotaList))
+	return quotaList
 }
