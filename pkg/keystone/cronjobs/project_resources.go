@@ -135,9 +135,15 @@ func syncScopeResourceCount(ctx context.Context, regionId string, serviceId stri
 			scopeRes.Resource = res
 			scopeRes.Count = resCnts[i].ResCount
 
-			projList = append(projList, scopeRes.ProjectId)
-			domainList = append(domainList, scopeRes.DomainId)
-			ownerList = append(ownerList, scopeRes.OwnerId)
+			if len(scopeRes.ProjectId) > 0 {
+				projList = append(projList, scopeRes.ProjectId)
+			}
+			if len(scopeRes.DomainId) > 0 {
+				domainList = append(domainList, scopeRes.DomainId)
+			}
+			if len(scopeRes.OwnerId) > 0 {
+				ownerList = append(ownerList, scopeRes.OwnerId)
+			}
 
 			err := models.ScopeResourceManager.TableSpec().InsertOrUpdate(ctx, &scopeRes)
 			if err != nil {
