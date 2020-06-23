@@ -158,6 +158,7 @@ func (h *SHostInfo) Init() error {
 			return err
 		}
 	}
+
 	log.Infof("Start detectHostInfo")
 	if err := h.detectHostInfo(); err != nil {
 		return err
@@ -307,15 +308,6 @@ func (h *SHostInfo) prepareEnv() error {
 	_, err := procutils.NewCommand("mkdir", "-p", options.HostOptions.ServersPath).Output()
 	if err != nil {
 		return fmt.Errorf("Failed to create path %s", options.HostOptions.ServersPath)
-	}
-
-	if len(qemutils.GetQemu("")) == 0 {
-		return fmt.Errorf("Qemu not installed")
-	}
-
-	_, err = procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemu(""), "-version").Output()
-	if err != nil {
-		return fmt.Errorf("Qemu/Kvm not installed")
 	}
 
 	_, err = procutils.NewCommand("ethtool", "-h").Output()
@@ -626,7 +618,7 @@ func (h *SHostInfo) detectSyssoftwareInfo() error {
 	h.detectOsDist()
 	h.detectKernelVersion()
 	if err := h.detectQemuVersion(); err != nil {
-		return err
+		h.SysError["qemu"] = err.Error()
 	}
 	h.detectOvsVersion()
 	if err := h.detectOvsKOVersion(); err != nil {
@@ -636,6 +628,15 @@ func (h *SHostInfo) detectSyssoftwareInfo() error {
 }
 
 func (h *SHostInfo) detectQemuVersion() error {
+	if len(qemutils.GetQemu("")) == 0 {
+		return fmt.Errorf("Qemu not installed")
+	}
+
+	out, err := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemu(""), "-version").Output()
+	if err != nil {
+		return errors.Errorf("exec qemu version failed %s", out)
+	}
+
 	cmd := qemutils.GetQemu(options.HostOptions.DefaultQemuVersion)
 	version, err := procutils.NewRemoteCommandAsFarAsPossible(cmd, "--version").Output()
 	if err != nil {
@@ -675,7 +676,7 @@ func (h *SHostInfo) detectOvsVersion() {
 func (h *SHostInfo) detectOvsKOVersion() error {
 	output, err := procutils.NewRemoteCommandAsFarAsPossible("modinfo", "openvswitch").Output()
 	if err != nil {
-		return errors.Wrap(err, "modinfo openvswitch")
+		return errors.Errorf("modinfo openvswitch failed %s", output)
 	}
 	lines := strings.Split(string(output), "\n")
 	for i := 0; i < len(lines); i++ {
