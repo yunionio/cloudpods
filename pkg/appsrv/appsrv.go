@@ -184,7 +184,6 @@ func (lrw *loggingResponseWriter) Hijack() (rwc net.Conn, buf *bufio.ReadWriter,
 }
 
 func (lrw *loggingResponseWriter) WriteHeader(code int) {
-	log.Debugf("XXXX loggingResponseWriter WriteHeader %d", code)
 	if code < 100 || code >= 600 {
 		log.Errorf("Invalud status code %d, set code to 598", code)
 		code = 598
