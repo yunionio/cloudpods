@@ -53,6 +53,8 @@ type SLoadbalancerManager struct {
 
 	SManagedResourceBaseManager
 	SCloudregionResourceBaseManager
+
+	SLoadbalancerClusterResourceBaseManager
 }
 
 var LoadbalancerManager *SLoadbalancerManager
@@ -107,8 +109,7 @@ type SLoadbalancer struct {
 	// 虚拟私有网络Id
 	// VpcId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
-	// 负载均衡集群Id
-	ClusterId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" json:"cluster_id"`
+	SLoadbalancerClusterResourceBase
 
 	// 计费类型
 	ChargeType string `list:"user" get:"user" create:"optional" update:"user" json:"charge_type"`
@@ -548,6 +549,7 @@ func (man *SLoadbalancerManager) FetchCustomizeColumns(
 ) []api.LoadbalancerDetails {
 	rows := make([]api.LoadbalancerDetails, len(objs))
 
+	clusterRows := man.SLoadbalancerClusterResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	virtRows := man.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	manRows := man.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	regRows := man.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
@@ -557,6 +559,8 @@ func (man *SLoadbalancerManager) FetchCustomizeColumns(
 
 	for i := range rows {
 		rows[i] = api.LoadbalancerDetails{
+			LoadbalancerClusterResourceInfo: clusterRows[i],
+
 			VirtualResourceDetails:  virtRows[i],
 			ManagedResourceInfo:     manRows[i],
 			CloudregionResourceInfo: regRows[i],
