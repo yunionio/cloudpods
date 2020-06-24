@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -449,7 +450,9 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 		}
 
 		if hostId := iVM.GetIHostId(); len(hostId) > 0 {
-			host, err := db.FetchByExternalId(models.HostManager, hostId)
+			host, err := db.FetchByExternalIdAndManagerId(models.HostManager, hostId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				return q.Equals("manager_id", host.ManagerId)
+			})
 			if err != nil {
 				log.Warningf("failed to found new hostId(%s) for ivm %s(%s) error: %v", hostId, guest.Name, guest.Id, err)
 			} else if host.GetId() != guest.HostId {
@@ -886,7 +889,13 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 				}
 
 				if len(diskInfo[i].StorageExternalId) > 0 {
-					storage, err := db.FetchByExternalId(models.StorageManager, diskInfo[i].StorageExternalId)
+					storage, err := db.FetchByExternalIdAndManagerId(models.StorageManager, diskInfo[i].StorageExternalId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+						host := guest.GetHost()
+						if host != nil {
+							return q.Equals("manager_id", host.ManagerId)
+						}
+						return q
+					})
 					if err != nil {
 						log.Warningf("failed to found storage by externalId %s error: %v", diskInfo[i].StorageExternalId, err)
 					} else if disk.StorageId != storage.GetId() {

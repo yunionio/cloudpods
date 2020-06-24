@@ -1082,20 +1082,6 @@ func (region *SCloudregion) purge(ctx context.Context, userCred mcclient.TokenCr
 	return region.Delete(ctx, userCred)
 }
 
-func (manager *SCloudregionManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	regions, err := manager.getCloudregionsByProviderId(providerId)
-	if err != nil {
-		return err
-	}
-	for i := range regions {
-		err = regions[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (table *SNatSEntry) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, table)
 	defer lockman.ReleaseObject(ctx, table)

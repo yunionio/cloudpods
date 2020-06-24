@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -162,7 +163,13 @@ func (manager *SDBInstanceNetworkManager) SyncDBInstanceNetwork(ctx context.Cont
 
 func (self *SDBInstanceNetwork) syncWithCloudDBNetwork(ctx context.Context, userCred mcclient.TokenCredential, dbinstance *SDBInstance, network *cloudprovider.SDBInstanceNetwork) error {
 	_, err := db.UpdateWithLock(ctx, self, func() error {
-		_localnetwork, err := db.FetchByExternalId(NetworkManager, network.NetworkId)
+		_localnetwork, err := db.FetchByExternalIdAndManagerId(NetworkManager, network.NetworkId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			wire := WireManager.Query().SubQuery()
+			vpc := VpcManager.Query().SubQuery()
+			return q.Join(wire, sqlchemy.Equals(wire.Field("id"), q.Field("wire_id"))).
+				Join(vpc, sqlchemy.Equals(vpc.Field("id"), wire.Field("vpc_id"))).
+				Filter(sqlchemy.Equals(vpc.Field("manager_id"), dbinstance.ManagerId))
+		})
 		if err != nil {
 			return errors.Wrapf(err, "FetchByExternalId")
 		}
@@ -194,7 +201,13 @@ func (manager *SDBInstanceNetworkManager) newFromCloudDBNetwork(ctx context.Cont
 	dbNetwork.SetModelManager(manager, &dbNetwork)
 
 	dbNetwork.DBInstanceId = dbinstance.Id
-	_localnetwork, err := db.FetchByExternalId(NetworkManager, network.NetworkId)
+	_localnetwork, err := db.FetchByExternalIdAndManagerId(NetworkManager, network.NetworkId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		wire := WireManager.Query().SubQuery()
+		vpc := VpcManager.Query().SubQuery()
+		return q.Join(wire, sqlchemy.Equals(wire.Field("id"), q.Field("wire_id"))).
+			Join(vpc, sqlchemy.Equals(vpc.Field("id"), wire.Field("vpc_id"))).
+			Filter(sqlchemy.Equals(vpc.Field("manager_id"), dbinstance.ManagerId))
+	})
 	if err != nil {
 		return errors.Wrapf(err, "newFromCloudDBNetwork.FetchByExternalId")
 	}

@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -197,7 +198,10 @@ func (lbb *SHuaweiCachedLb) syncRemoveCloudLoadbalancerBackend(ctx context.Conte
 func (lbb *SHuaweiCachedLb) constructFieldsFromCloudLoadbalancerBackend(extLoadbalancerBackend cloudprovider.ICloudLoadbalancerBackend) error {
 	lbb.Status = extLoadbalancerBackend.GetStatus()
 
-	instance, err := db.FetchByExternalId(GuestManager, extLoadbalancerBackend.GetBackendId())
+	instance, err := db.FetchByExternalIdAndManagerId(GuestManager, extLoadbalancerBackend.GetBackendId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		sq := HostManager.Query().SubQuery()
+		return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("host_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), lbb.ManagerId))
+	})
 	if err != nil {
 		return err
 	}
@@ -286,7 +290,19 @@ func (man *SHuaweiCachedLbManager) newFromCloudLoadbalancerBackend(ctx context.C
 }
 
 func newLocalBackendFromCloudLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, loadbalancerBackendgroup *SLoadbalancerBackendGroup, extLoadbalancerBackend cloudprovider.ICloudLoadbalancerBackend, syncOwnerId mcclient.IIdentityProvider) (*SLoadbalancerBackend, error) {
-	instance, err := db.FetchByExternalId(GuestManager, extLoadbalancerBackend.GetBackendId())
+	lbbgRegion := loadbalancerBackendgroup.GetRegion()
+	if lbbgRegion == nil {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "loadbalancerBackendgroup is not attached to any region")
+	}
+	lbbgProvider := loadbalancerBackendgroup.GetCloudprovider()
+	if lbbgProvider == nil {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "loadbalancerBackendgroup is not attached to any cloudprovider")
+	}
+
+	instance, err := db.FetchByExternalIdAndManagerId(GuestManager, extLoadbalancerBackend.GetBackendId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		sq := HostManager.Query().SubQuery()
+		return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("host_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), lbbgProvider.Id))
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -296,15 +312,6 @@ func newLocalBackendFromCloudLoadbalancerBackend(ctx context.Context, userCred m
 	//if err != nil {
 	//	return nil, err
 	//}
-
-	lbbgRegion := loadbalancerBackendgroup.GetRegion()
-	if lbbgRegion == nil {
-		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "loadbalancerBackendgroup is not attached to any region")
-	}
-	lbbgProvider := loadbalancerBackendgroup.GetCloudprovider()
-	if lbbgProvider == nil {
-		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "loadbalancerBackendgroup is not attached to any cloudprovider")
-	}
 
 	man := LoadbalancerBackendManager
 	q := man.Query().IsFalse("pending_deleted")
@@ -350,7 +357,7 @@ func newLocalBackendFromCloudLoadbalancerBackend(ctx context.Context, userCred m
 		}
 		lbb.Name = newName
 
-		if err := lbb.constructFieldsFromCloudLoadbalancerBackend(extLoadbalancerBackend); err != nil {
+		if err := lbb.constructFieldsFromCloudLoadbalancerBackend(extLoadbalancerBackend, lbbgProvider.Id); err != nil {
 			return nil, err
 		}
 

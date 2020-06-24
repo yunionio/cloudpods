@@ -194,7 +194,9 @@ func (manager *SVpcManager) GetOrCreateVpcForClassicNetwork(ctx context.Context,
 	region := host.GetRegion()
 	cloudprovider := host.GetCloudprovider()
 	externalId := manager.getVpcExternalIdForClassicNetwork(region.Id, cloudprovider.Id)
-	_vpc, err := db.FetchByExternalId(manager, externalId)
+	_vpc, err := db.FetchByExternalIdAndManagerId(manager, externalId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.Equals("manager_id", host.ManagerId)
+	})
 	if err == nil {
 		return _vpc.(*SVpc), nil
 	}
@@ -321,19 +323,6 @@ func (manager *SVpcManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (manager *SVpcManager) getVpcsByRegion(region *SCloudregion, provider *SCloudprovider) ([]SVpc, error) {
-	vpcs := make([]SVpc, 0)
-	q := manager.Query().Equals("cloudregion_id", region.Id)
-	if provider != nil {
-		q = q.Equals("manager_id", provider.Id)
-	}
-	err := db.FetchModelObjects(manager, q, &vpcs)
-	if err != nil {
-		return nil, err
-	}
-	return vpcs, nil
-}
-
 func (self *SVpc) setDefault(def bool) error {
 	var err error
 	if self.IsDefault != def {
@@ -353,7 +342,7 @@ func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.Toke
 	remoteVPCs := make([]cloudprovider.ICloudVpc, 0)
 	syncResult := compare.SyncResult{}
 
-	dbVPCs, err := manager.getVpcsByRegion(region, provider)
+	dbVPCs, err := provider.GetVpcs()
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult

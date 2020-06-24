@@ -2424,6 +2424,16 @@ func (self *SCloudaccount) Delete(ctx context.Context, userCred mcclient.TokenCr
 	return nil
 }
 
+func (self *SCloudaccount) GetCloudregions() ([]SCloudregion, error) {
+	regions := []SCloudregion{}
+	q := CloudregionManager.Query().Equals("cloudaccount_id", self.Id)
+	err := db.FetchModelObjects(CloudregionManager, q, &regions)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
+	}
+	return regions, nil
+}
+
 func (self *SCloudaccount) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	self.SetStatus(userCred, api.CLOUD_PROVIDER_DELETED, "real delete")
 	projects, err := self.GetExternalProjects()
@@ -2434,6 +2444,16 @@ func (self *SCloudaccount) RealDelete(ctx context.Context, userCred mcclient.Tok
 		err = projects[i].Delete(ctx, userCred)
 		if err != nil {
 			return errors.Wrapf(err, "project %s Delete", projects[i].Id)
+		}
+	}
+	regions, err := self.GetCloudregions()
+	if err != nil {
+		return errors.Wrap(err, "GetCloudregions")
+	}
+	for i := range regions {
+		err = regions[i].purge(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "purge %s(%s)", regions[i].Name, regions[i].Id)
 		}
 	}
 	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)

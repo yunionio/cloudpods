@@ -250,6 +250,16 @@ func (self *SCloudprovider) getVpcCount() (int, error) {
 	return VpcManager.Query().Equals("manager_id", self.Id).IsFalse("is_emulated").CountWithError()
 }
 
+func (self *SCloudprovider) GetVpcs() ([]SVpc, error) {
+	vpcs := []SVpc{}
+	q := VpcManager.Query().Equals("manager_id", self.Id)
+	err := db.FetchModelObjects(VpcManager, q, &vpcs)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
+	}
+	return vpcs, nil
+}
+
 func (self *SCloudprovider) getStorageCount() (int, error) {
 	return StorageManager.Query().Equals("manager_id", self.Id).IsFalse("is_emulated").CountWithError()
 }
@@ -807,13 +817,14 @@ func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) 
 	account := self.GetCloudaccount()
 
 	return cloudprovider.GetProvider(cloudprovider.ProviderConfig{
-		Id:        self.Id,
-		Name:      self.Name,
-		Vendor:    self.Provider,
-		URL:       accessUrl,
-		Account:   self.Account,
-		Secret:    passwd,
-		ProxyFunc: account.proxyFunc(),
+		Id:             self.Id,
+		CloudaccountId: self.CloudaccountId,
+		Name:           self.Name,
+		Vendor:         self.Provider,
+		URL:            accessUrl,
+		Account:        self.Account,
+		Secret:         passwd,
+		ProxyFunc:      account.proxyFunc(),
 	})
 }
 
@@ -1369,7 +1380,6 @@ func (self *SCloudprovider) RealDelete(ctx context.Context, userCred mcclient.To
 		ElasticipManager,
 		NetworkInterfaceManager,
 		CloudproviderRegionManager,
-		CloudregionManager,
 		CloudproviderQuotaManager,
 	} {
 		err = manager.purgeAll(ctx, userCred, self.Id)

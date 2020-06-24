@@ -101,18 +101,26 @@ func NewOpenStackClient(cfg *OpenstackClientConfig) (*SOpenStackClient, error) {
 }
 
 func (cli *SOpenStackClient) GetCloudRegionExternalIdPrefix() string {
-	return fmt.Sprintf("%s/%s/", CLOUD_PROVIDER_OPENSTACK, cli.cpcfg.Id)
+	return fmt.Sprintf("%s/%s/", CLOUD_PROVIDER_OPENSTACK, cli.cpcfg.CloudaccountId)
 }
 
 func (cli *SOpenStackClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
-	subAccount := cloudprovider.SSubAccount{
-		Account: fmt.Sprintf("%s/%s", cli.project, cli.username),
-		Name:    cli.cpcfg.Name,
+	projects, err := cli.GetIProjects()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIProjects")
 	}
-	if len(cli.domainName) > 0 {
-		subAccount.Account = fmt.Sprintf("%s/%s", subAccount.Account, cli.domainName)
+	accounts := []cloudprovider.SSubAccount{}
+	for i := range projects {
+		subAccount := cloudprovider.SSubAccount{
+			Account: fmt.Sprintf("%s/%s", projects[i].GetName(), cli.username),
+			Name:    projects[i].GetName(),
+		}
+		if len(cli.domainName) > 0 {
+			subAccount.Account = fmt.Sprintf("%s/%s", subAccount.Account, cli.domainName)
+		}
+		accounts = append(accounts, subAccount)
 	}
-	return []cloudprovider.SSubAccount{subAccount}, nil
+	return accounts, nil
 }
 
 func (cli *SOpenStackClient) fetchRegions() error {
@@ -347,10 +355,7 @@ func (cli *SOpenStackClient) GetProject(id string) (*SProject, error) {
 }
 
 func (cli *SOpenStackClient) CreateIProject(name string) (cloudprovider.ICloudProject, error) {
-	if len(cli.iregions) > 0 {
-		return cli.CreateProject(name, "")
-	}
-	return nil, cloudprovider.ErrNotImplemented
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (cli *SOpenStackClient) CreateProject(name, desc string) (*SProject, error) {

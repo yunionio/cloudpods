@@ -147,8 +147,9 @@ type SCloudaccount struct {
 
 type ProviderConfig struct {
 	// Id, Name are properties of Cloudprovider object
-	Id   string
-	Name string
+	Id             string
+	Name           string
+	CloudaccountId string
 
 	// Vendor are names like Aliyun, OpenStack, etc.
 	Vendor  string

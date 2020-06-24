@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -182,7 +183,13 @@ func (manager *SNetworkinterfacenetworkManager) newFromCloudInterfaceAddress(ctx
 	address.SetModelManager(manager, &address)
 
 	networkId := ext.GetINetworkId()
-	_network, err := db.FetchByExternalId(NetworkManager, networkId)
+	_network, err := db.FetchByExternalIdAndManagerId(NetworkManager, networkId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		wire := WireManager.Query().SubQuery()
+		vpc := VpcManager.Query().SubQuery()
+		return q.Join(wire, sqlchemy.Equals(wire.Field("id"), q.Field("wire_id"))).
+			Join(vpc, sqlchemy.Equals(vpc.Field("id"), wire.Field("vpc_id"))).
+			Filter(sqlchemy.Equals(vpc.Field("manager_id"), networkinterface.ManagerId))
+	})
 	if err != nil {
 		return errors.Wrapf(err, "newFromCloudInterfaceAddress.FetchByExternalId(%s)", networkId)
 	}

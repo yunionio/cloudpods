@@ -63,7 +63,7 @@ func (region *SRegion) GetName() string {
 }
 
 func (region *SRegion) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s/%s", CLOUD_PROVIDER_OPENSTACK, region.client.cpcfg.Id, region.Name)
+	return fmt.Sprintf("%s/%s/%s", CLOUD_PROVIDER_OPENSTACK, region.client.cpcfg.CloudaccountId, region.Name)
 }
 
 func (region *SRegion) IsEmulated() bool {

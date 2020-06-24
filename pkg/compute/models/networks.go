@@ -309,7 +309,17 @@ func (self *SNetwork) GetNetworkInterfacesCount() (int, error) {
 }
 
 func (manager *SNetworkManager) GetOrCreateClassicNetwork(ctx context.Context, wire *SWire) (*SNetwork, error) {
-	_network, err := db.FetchByExternalId(manager, wire.Id)
+	_network, err := db.FetchByExternalIdAndManagerId(manager, wire.Id, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		v := wire.GetVpc()
+		if v != nil {
+			wire := WireManager.Query().SubQuery()
+			vpc := VpcManager.Query().SubQuery()
+			return q.Join(wire, sqlchemy.Equals(wire.Field("id"), q.Field("wire_id"))).
+				Join(vpc, sqlchemy.Equals(vpc.Field("id"), wire.Field("vpc_id"))).
+				Filter(sqlchemy.Equals(vpc.Field("manager_id"), v.ManagerId))
+		}
+		return q
+	})
 	if err == nil {
 		return _network.(*SNetwork), nil
 	}
