@@ -170,6 +170,8 @@ type LoadbalancerDetails struct {
 	ManagedResourceInfo
 	CloudregionResourceInfo
 
+	LoadbalancerClusterResourceInfo
+
 	VpcResourceInfoBase
 	ZoneResourceInfoBase
 	NetworkResourceInfoBase
