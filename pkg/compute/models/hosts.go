@@ -432,6 +432,30 @@ func (manager *SHostManager) ListItemFilter(
 		q = q.In("boot_mode", query.BootMode)
 	}
 
+	// for provider onecloud
+	if len(query.ServerIdForNetwork) > 0 {
+		guest := GuestManager.FetchGuestById(query.ServerIdForNetwork)
+		if guest != nil && guest.GetHypervisor() == api.HYPERVISOR_KVM {
+			nets, _ := guest.GetNetworks("")
+			if len(nets) > 0 {
+				wires := []string{}
+				for i := 0; i < len(nets); i++ {
+					net := nets[i].GetNetwork()
+					if net.GetVpc().Id != api.DEFAULT_VPC_ID {
+						q = q.IsNotEmpty("ovn_version")
+					} else {
+						if !utils.IsInStringArray(net.WireId, wires) {
+							wires = append(wires, net.WireId)
+							hostwires := HostwireManager.Query().SubQuery()
+							scopeQuery := hostwires.Query(hostwires.Field("host_id")).Equals("wire_id", net.WireId).SubQuery()
+							q = q.In("id", scopeQuery)
+						}
+					}
+				}
+			}
+		}
+	}
+
 	return q, nil
 }
 
@@ -2521,6 +2545,7 @@ func (self *SHost) getMoreDetails(ctx context.Context, out api.HostDetails, show
 	if server != nil {
 		out.ServerId = server.Id
 		out.Server = server.Name
+		out.ServerPendingDeleted = server.PendingDeleted
 		if self.HostType == api.HOST_TYPE_BAREMETAL {
 			out.ServerIps = strings.Join(server.GetRealIPs(), ",")
 		}

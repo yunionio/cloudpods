@@ -21,6 +21,8 @@ type GuestnetworkDetails struct {
 
 	// IP子网名称
 	Network string `json:"network"`
+	// 所属Wire
+	WireId string `json:"wire_id"`
 }
 
 type GuestnetworkShortDesc struct {
