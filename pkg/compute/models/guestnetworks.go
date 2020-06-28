@@ -142,6 +142,9 @@ func (manager *SGuestnetworkManager) FetchCustomizeColumns(
 			GuestJointResourceDetails: guestRows[i],
 		}
 		netIds[i] = objs[i].(*SGuestnetwork).NetworkId
+		iNet, _ := NetworkManager.FetchById(netIds[i])
+		net := iNet.(*SNetwork)
+		rows[i].WireId = net.WireId
 	}
 
 	netIdMaps, err := db.FetchIdNameMap2(NetworkManager, netIds)
