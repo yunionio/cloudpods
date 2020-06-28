@@ -188,7 +188,7 @@ func (self *SQuota) FetchUsage(ctx context.Context) error {
 
 	diskSize := totalDiskSize(scope, ownerId, tristate.None, tristate.None, false, false, rangeObjs, providers, brands, keys.CloudEnv, hypervisors)
 
-	guest := totalGuestResourceCount(scope, ownerId, rangeObjs, nil, hypervisors, false, false, nil, nil, providers, brands, keys.CloudEnv)
+	guest := usageTotalGuestResouceCount(scope, ownerId, rangeObjs, nil, hypervisors, false, false, nil, nil, providers, brands, keys.CloudEnv)
 
 	self.Count = guest.TotalGuestCount
 	self.Cpu = guest.TotalCpuCount
