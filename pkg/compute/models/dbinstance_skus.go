@@ -480,7 +480,7 @@ func (manager *SDBInstanceSkuManager) SyncDBInstanceSkus(ctx context.Context, us
 
 	syncResult := compare.SyncResult{}
 
-	iskus, err := meta.GetDBInstanceSkusByRegion(region.ExternalId)
+	iskus, err := meta.GetDBInstanceSkusByRegionExternalId(region.ExternalId)
 	if err != nil {
 		syncResult.Error(err)
 		return syncResult
@@ -545,52 +545,11 @@ func (sku *SDBInstanceSku) syncWithCloudSku(ctx context.Context, userCred mcclie
 	return err
 }
 
-func (manager *SDBInstanceSkuManager) getZoneBySuffix(region *SCloudregion, suffix string) (*SZone, error) {
-	q := ZoneManager.Query().Equals("cloudregion_id", region.Id).Endswith("external_id", suffix)
-	count, err := q.CountWithError()
-	if err != nil {
-		return nil, err
-	}
-	if count > 1 {
-		return nil, fmt.Errorf("duplicate zone with suffix %s in region %s", suffix, region.Name)
-	}
-	if count == 0 {
-		return nil, fmt.Errorf("failed to found zone with suffix %s in region %s", suffix, region.Name)
-	}
-	zone := &SZone{}
-	return zone, q.First(zone)
-}
-
 func (manager *SDBInstanceSkuManager) newFromCloudSku(ctx context.Context, userCred mcclient.TokenCredential, isku SDBInstanceSku, region *SCloudregion) error {
 	sku := &isku
 	sku.SetModelManager(manager, sku)
 	sku.Id = "" //避免使用yunion meta的id,导致出现duplicate entry问题
 	sku.CloudregionId = region.Id
-
-	if len(isku.Zone1) > 0 {
-		zone, err := manager.getZoneBySuffix(region, isku.Zone1)
-		if err != nil {
-			return errors.Wrapf(err, "failed to get zone1 info by %s", isku.Zone1)
-		}
-		sku.Zone1 = zone.Id
-	}
-
-	if len(isku.Zone2) > 0 {
-		zone, err := manager.getZoneBySuffix(region, isku.Zone2)
-		if err != nil {
-			return errors.Wrapf(err, "failed to get zone1 info by %s", isku.Zone2)
-		}
-		sku.Zone2 = zone.Id
-	}
-
-	if len(isku.Zone3) > 0 {
-		zone, err := manager.getZoneBySuffix(region, isku.Zone3)
-		if err != nil {
-			return errors.Wrapf(err, "failed to get zone1 info by %s", isku.Zone3)
-		}
-		sku.Zone3 = zone.Id
-	}
-
 	return manager.TableSpec().Insert(ctx, sku)
 }
 

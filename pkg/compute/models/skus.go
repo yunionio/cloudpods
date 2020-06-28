@@ -1237,7 +1237,7 @@ func (manager *SServerSkuManager) SyncServerSkus(ctx context.Context, userCred m
 
 	syncResult := compare.SyncResult{}
 
-	extSkus, err := extSkuMeta.GetServerSkus(region)
+	extSkus, err := extSkuMeta.GetServerSkusByRegionExternalId(region.ExternalId)
 	if err != nil {
 		syncResult.Error(err)
 		return syncResult
