@@ -383,8 +383,7 @@ func (manager *SElasticcacheSkuManager) SyncElasticcacheSkus(ctx context.Context
 
 	syncResult := compare.SyncResult{}
 
-	extSkuMeta.SetRegionFilter(region)
-	extSkus, err := extSkuMeta.GetElasticCacheSkus()
+	extSkus, err := extSkuMeta.GetElasticCacheSkusByRegionExternalId(region.ExternalId)
 	if err != nil {
 		syncResult.Error(err)
 		return syncResult
