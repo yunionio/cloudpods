@@ -108,6 +108,8 @@ type HostListInput struct {
 	Uuid []string `json:"uuid"`
 	// 主机启动模式, 可能值位PXE和ISO
 	BootMode []string `json:"boot_mode"`
+	// 虚拟机所在的二层网络
+	ServerIdForNetwork string `json:"server_id_for_network"`
 }
 
 type HostDetails struct {
@@ -119,9 +121,10 @@ type HostDetails struct {
 
 	Schedtags []SchedtagShortDescDetails `json:"schedtags"`
 
-	ServerId  string `json:"server_id"`
-	Server    string `json:"server"`
-	ServerIps string `json:"server_ips"`
+	ServerId             string `json:"server_id"`
+	Server               string `json:"server"`
+	ServerIps            string `json:"server_ips"`
+	ServerPendingDeleted bool   `json:"server_pending_deleted"`
 	// 网卡数量
 	NicCount int `json:"nic_count"`
 	// 网卡详情
