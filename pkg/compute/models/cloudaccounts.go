@@ -389,7 +389,7 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 		zoneids = append(zoneids, id)
 	}
 	// fetch all wire candidate
-	wires, err := scm.fetchWires(zoneids, input.ProjectDomain)
+	wires, err := scm.fetchWires(zoneids, domainId)
 	if err != nil {
 		return output, errors.Wrap(err, "unable to fetch wires")
 	}
@@ -499,13 +499,15 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 		output.Hosts = append(output.Hosts, rnet)
 	}
 
-	sConfs := scm.suggestHostNetworks(noNetHostIP)
-	confs := make([]api.CANetConf, len(sConfs))
-	for i := range confs {
-		confs[i].CASimpleNetConf = sConfs[i]
-		confs[i].Name = fmt.Sprintf("%s-host-network-%d", input.Name, i+1)
+	if len(noNetHostIP) > 0 {
+		sConfs := scm.suggestHostNetworks(noNetHostIP)
+		confs := make([]api.CANetConf, len(sConfs))
+		for i := range confs {
+			confs[i].CASimpleNetConf = sConfs[i]
+			confs[i].Name = fmt.Sprintf("%s-host-network-%d", input.Name, i+1)
+		}
+		output.HostSuggestedNetworks = confs
 	}
-	output.HostSuggestedNetworks = confs
 
 	// Find the suitable network containing the VM IP in Project 'input.Project', and if not, give the corresponding suggested network configuration in this project.
 	project := input.Project
@@ -592,13 +594,15 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 		endIP, _ := netutils.NewIPV4Addr(endIPStr)
 		excludedIRs = append(excludedIRs, netutils.NewIPV4AddrRange(startIP, endIP))
 	}
-	sConfs = scm.suggestVMNetwors(noNetVMIPs, excludedIRs)
-	confs = make([]api.CANetConf, len(sConfs))
-	for i := range confs {
-		confs[i].CASimpleNetConf = sConfs[i]
-		confs[i].Name = fmt.Sprintf("%s-guest-network-%d", input.Name, i+1)
+	if len(noNetVMIPs) > 0 {
+		sConfs := scm.suggestVMNetwors(noNetVMIPs, excludedIRs)
+		confs := make([]api.CANetConf, len(sConfs))
+		for i := range confs {
+			confs[i].CASimpleNetConf = sConfs[i]
+			confs[i].Name = fmt.Sprintf("%s-guest-network-%d", input.Name, i+1)
+		}
+		output.GuestSuggestedNetworks = confs
 	}
-	output.GuestSuggestedNetworks = confs
 	return output, nil
 }
 
