@@ -69,6 +69,9 @@ require (
 	github.com/jinzhu/now v1.0.1 // indirect
 	github.com/koding/websocketproxy v0.0.0-20181220232114-7ed82d81a28c
 	github.com/kr/pty v1.1.5
+	github.com/lestrrat-go/jwx v1.0.2
+	github.com/lestrrat/go-jwx v0.0.0-20180221005942-b7d4802280ae
+	github.com/lestrrat/go-pdebug v0.0.0-20180220043741-569c97477ae8 // indirect
 	github.com/lib/pq v1.2.0 // indirect
 	github.com/libvirt/libvirt-go-xml v5.2.0+incompatible
 	github.com/ma314smith/signedxml v0.0.0-20200410192636-c342a2d0ae60
@@ -97,7 +100,7 @@ require (
 	github.com/skip2/go-qrcode v0.0.0-20190110000554-dc11ecdae0a9
 	github.com/smartystreets/goconvey v1.6.4
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.5.1
 	github.com/tencentcloud/tencentcloud-sdk-go v3.0.135+incompatible
 	github.com/tencentyun/cos-go-sdk-v5 v0.0.0-20191108095731-8ca4b370cde4
 	github.com/tinylib/msgp v1.1.0 // indirect

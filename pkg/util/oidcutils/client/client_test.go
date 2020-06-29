@@ -15,12 +15,12 @@
 package client
 
 import (
+	"crypto/rsa"
 	"testing"
 
-	"github.com/lestrrat/go-jwx/jwa"
-	"github.com/lestrrat/go-jwx/jwk"
-
-	"github.com/lestrrat/go-jwx/jwt"
+	"github.com/lestrrat-go/jwx/jwa"
+	"github.com/lestrrat-go/jwx/jwk"
+	"github.com/lestrrat-go/jwx/jwt"
 
 	"yunion.io/x/jsonutils"
 
@@ -77,7 +77,8 @@ func TestJWKVerify(t *testing.T) {
 	for i := range keySet.Keys {
 		key := keySet.Keys[i]
 		if key.KeyUsage() == "sig" {
-			oKey, err := key.Materialize()
+			var oKey rsa.PublicKey
+			err := key.Raw(&oKey)
 			if err != nil {
 				t.Fatalf("Meterialize fail %s", err)
 			}
