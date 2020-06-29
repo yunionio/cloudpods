@@ -232,6 +232,8 @@ docker-centos-build-stop:
 .PHONY: docker-centos-build
 .PHONY: docker-centos-build-stop
 
+DOCKER_ALPINE_BUILD_IMAGE?=registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-2
+
 define dockerAlpineBuildCmd
 set -o xtrace
 set -o errexit
@@ -250,7 +252,7 @@ docker-alpine-build:
 		-v $(CURDIR):/root/go/src/yunion.io/x/onecloud \
 		-v $(CURDIR)/_output/alpine-build:/root/go/src/yunion.io/x/onecloud/_output \
 		-v $(CURDIR)/_output/alpine-build/_cache:/root/.cache \
-		registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-1 \
+		$(DOCKER_ALPINE_BUILD_IMAGE) \
 		/bin/sh -c "$$dockerAlpineBuildCmd"
 	ls -lh _output/alpine-build/bin
 
