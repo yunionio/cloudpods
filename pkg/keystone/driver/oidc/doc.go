@@ -12,12 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package service
-
-import (
-	_ "yunion.io/x/onecloud/pkg/keystone/driver/cas"
-	_ "yunion.io/x/onecloud/pkg/keystone/driver/ldap"
-	_ "yunion.io/x/onecloud/pkg/keystone/driver/oidc"
-	_ "yunion.io/x/onecloud/pkg/keystone/driver/saml"
-	_ "yunion.io/x/onecloud/pkg/keystone/driver/sql"
-)
+package oidc // import "yunion.io/x/onecloud/pkg/keystone/driver/saml"

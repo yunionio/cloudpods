@@ -16,8 +16,6 @@ package cas
 
 import (
 	"context"
-	"database/sql"
-	"encoding/xml"
 	"fmt"
 	"regexp"
 	"strings"
@@ -27,7 +25,6 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/models"
@@ -66,8 +63,14 @@ func (self *SCASDriver) prepareConfig() error {
 		if err != nil {
 			return errors.Wrap(err, "json.Unmarshal")
 		}
-		log.Debugf("%s %s %#v", self.Config, confJson, self.casConfig)
+		if len(conf.UserIdAttribute) == 0 {
+			conf.UserIdAttribute = "cas:user"
+		}
+		if len(conf.UserNameAttribute) == 0 {
+			conf.UserNameAttribute = "cas:user"
+		}
 		self.casConfig = &conf
+		log.Debugf("%s %s %#v", self.Config, confJson, self.casConfig)
 	}
 	return nil
 }
@@ -101,12 +104,12 @@ serviceValidate response:
     </cas:authenticationSuccess>
 </cas:serviceResponse>
 */
-type SCASServiceResponse struct {
+/*type SCASServiceResponse struct {
 	XMLName                  xml.Name `xml:"serviceResponse"`
 	CASAuthenticationSuccess struct {
 		CASUser string `xml:"user"`
 	} `xml:"authenticationSuccess"`
-}
+}*/
 
 func (self *SCASDriver) Authenticate(ctx context.Context, ident mcclient.SAuthenticationIdentity) (*api.SUserExtended, error) {
 	query := jsonutils.NewDict()
@@ -122,13 +125,24 @@ func (self *SCASDriver) Authenticate(ctx context.Context, ident mcclient.SAuthen
 		return nil, errors.Wrap(err, "self.request")
 	}
 	log.Debugf("%s", resp)
-	casResp := SCASServiceResponse{}
-	err = xml.Unmarshal(resp, &casResp)
-	if err != nil {
-		return nil, errors.Wrap(err, "xml.Unmarshal")
+	attrs := fetchAttributes(resp)
+
+	var usrId, usrName string
+	if v, ok := attrs[self.casConfig.UserIdAttribute]; ok && len(v) > 0 {
+		usrId = v[0]
 	}
-	log.Debugf("%s", jsonutils.Marshal(&casResp))
-	usrId := casResp.CASAuthenticationSuccess.CASUser
+	if v, ok := attrs[self.casConfig.UserNameAttribute]; ok && len(v) > 0 {
+		usrName = v[0]
+	}
+	if len(usrId) == 0 && len(usrName) == 0 {
+		return nil, errors.Wrap(httperrors.ErrUnauthenticated, "empty userId or userName")
+	}
+	if len(usrId) == 0 {
+		usrId = usrName
+	} else if len(usrName) == 0 {
+		usrName = usrId
+	}
+
 	if len(usrId) == 0 {
 		return nil, errors.Wrap(httperrors.ErrUnauthenticated, "empty cas:user")
 	}
@@ -140,7 +154,7 @@ func (self *SCASDriver) Authenticate(ctx context.Context, ident mcclient.SAuthen
 	if err != nil {
 		return nil, errors.Wrap(err, "idp.GetSingleDomain")
 	}
-	usr, err := idp.SyncOrCreateUser(ctx, usrId, usrId, domain.Id, true, nil)
+	usr, err := idp.SyncOrCreateUser(ctx, usrId, usrName, domain.Id, true, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "idp.SyncOrCreateUser")
 	}
@@ -149,12 +163,12 @@ func (self *SCASDriver) Authenticate(ctx context.Context, ident mcclient.SAuthen
 		return nil, errors.Wrap(err, "models.UserManager.FetchUserExtended")
 	}
 
-	self.userTryJoinProject(ctx, usr, domain.Id, resp)
+	idp.TryUserJoinProject(self.casConfig.SIdpAttributeOptions, ctx, usr, domain.Id, attrs)
 
 	return extUser, nil
 }
 
-func (self *SCASDriver) userTryJoinProject(ctx context.Context, usr *models.SUser, domainId string, resp []byte) {
+/*func (self *SCASDriver) userTryJoinProject(ctx context.Context, usr *models.SUser, domainId string, resp []byte) {
 	var err error
 	var targetProject *models.SProject
 	log.Debugf("userTryJoinProject resp %s proj %s", string(resp), self.casConfig.CasProjectAttribute)
@@ -207,15 +221,24 @@ func (self *SCASDriver) userTryJoinProject(ctx context.Context, usr *models.SUse
 			}
 		}
 	}
-}
+}*/
 
-func fetchAttribute(heystack []byte, name string) string {
-	pattern := regexp.MustCompile(fmt.Sprintf(`<%s>([^<]*)</%s>`, name, name))
-	result := pattern.FindAllStringSubmatch(string(heystack), -1)
-	if len(result) > 0 && len(result[0]) > 1 {
-		return strings.TrimSpace(result[0][1])
+func fetchAttributes(heystack []byte) map[string][]string {
+	ret := make(map[string][]string)
+	pattern := regexp.MustCompile(`<([^>/]+)>([^<]*)</([^>]+)>`)
+	results := pattern.FindAllStringSubmatch(string(heystack), -1)
+	for _, result := range results {
+		key := result[1]
+		value := strings.TrimSpace(result[2])
+		var vs []string
+		if _, ok := ret[key]; ok {
+			vs = ret[key]
+		} else {
+			vs = make([]string, 0, 1)
+		}
+		ret[key] = append(vs, value)
 	}
-	return ""
+	return ret
 }
 
 func (self *SCASDriver) Sync(ctx context.Context) error {
@@ -224,7 +247,7 @@ func (self *SCASDriver) Sync(ctx context.Context) error {
 
 func (self *SCASDriver) Probe(ctx context.Context) error {
 	_, err := self.request(ctx, "GET", "login")
-	if err != nil {
+	if err != nil && httputils.ErrorCode(err) != 401 {
 		return errors.Wrap(err, "self.request")
 	}
 	return nil

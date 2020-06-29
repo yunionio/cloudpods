@@ -274,6 +274,50 @@ func authUserBySAML(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 	return usr, nil
 }
 
+func authUserByOIDC(ctx context.Context, input mcclient.SAuthenticationInputV3) (*api.SUserExtended, error) {
+	idps, err := models.IdentityProviderManager.FetchEnabledProviders(api.IdentityDriverOIDC)
+	if err != nil {
+		return nil, errors.Wrap(err, "models.fetchEnabledProviders")
+	}
+
+	var idp *models.SIdentityProvider
+	for i := range idps {
+		conf, _ := models.GetConfigs(&idps[i], true, nil, nil)
+		if conf != nil && conf["oidc"] != nil && conf["oidc"]["client_id"] != nil {
+			clientId, _ := conf["oidc"]["client_id"].GetString()
+			if clientId == input.Auth.Identity.OIDCAuth.ClientId {
+				idp = &idps[i]
+				break
+			}
+		}
+	}
+
+	if idp == nil {
+		return nil, errors.Wrap(httperrors.ErrResourceNotFound, "No matched oidc identity provider")
+	}
+
+	conf, err := models.GetConfigs(idp, true, nil, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "idp.GetConfig")
+	}
+
+	backend, err := driver.GetDriver(idp.Driver, idp.Id, idp.Name, idp.Template, idp.TargetDomainId, conf)
+	if err != nil {
+		return nil, errors.Wrap(err, "driver.GetDriver")
+	}
+
+	usr, err := backend.Authenticate(ctx, input.Auth.Identity)
+	if err != nil {
+		return nil, errors.Wrap(err, "Authenticate")
+	}
+
+	if idp.Status == api.IdentityDriverStatusDisconnected {
+		idp.MarkConnected(ctx, models.GetDefaultAdminCred())
+	}
+
+	return usr, nil
+}
+
 func authUserByAccessKeyV3(ctx context.Context, input mcclient.SAuthenticationInputV3) (*api.SUserExtended, string, api.SAccessKeySecretInfo, error) {
 	var aksk api.SAccessKeySecretInfo
 
@@ -357,6 +401,12 @@ func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 		user, err = authUserBySAML(ctx, input)
 		if err != nil {
 			return nil, errors.Wrap(err, "authUserBySAML")
+		}
+	case api.AUTH_METHOD_OIDC:
+		// auth by OpenID Connect, keystone acts as an OpenID Connect client
+		user, err = authUserByOIDC(ctx, input)
+		if err != nil {
+			return nil, errors.Wrap(err, "authUserByOIDC")
 		}
 	default:
 		// auth by other methods, password, openid, saml, etc...

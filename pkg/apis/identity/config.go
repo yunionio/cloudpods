@@ -91,6 +91,9 @@ const (
 
 	IdpTemplateSAMLTest    = "samltest_saml"
 	IdpTemplateAzureADSAML = "azure_ad_saml"
+
+	IdpTemplateDex    = "dex_oidc"
+	IdpTemplateGithub = "github_oidc"
 )
 
 var (
@@ -101,6 +104,9 @@ var (
 
 		IdpTemplateSAMLTest:    IdentityDriverSAML,
 		IdpTemplateAzureADSAML: IdentityDriverSAML,
+
+		IdpTemplateDex:    IdentityDriverOIDC,
+		IdpTemplateGithub: IdentityDriverOIDC,
 	}
 )
 

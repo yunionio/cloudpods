@@ -204,29 +204,25 @@ func (h *AuthHandlers) listTotpRecoveryQuestions(ctx context.Context, w http.Res
 }
 
 // 返回 token及totp验证状态
-func doTenantLogin(ctx context.Context, w http.ResponseWriter, req *http.Request, body jsonutils.JSONObject) (mcclient.TokenCredential, bool) {
+func doTenantLogin(ctx context.Context, req *http.Request, body jsonutils.JSONObject) (mcclient.TokenCredential, bool, error) {
 	otpVerified := false
 	tenantId, e := body.GetString("tenantId")
 	if e != nil {
-		httperrors.InvalidInputError(w, "not found tenantId in body")
-		return nil, otpVerified
+		return nil, otpVerified, httperrors.NewInputParameterError("not found tenantId in body")
 	}
 	authTokenStr := getAuthToken(req)
 	if len(authTokenStr) == 0 {
-		httperrors.InvalidCredentialError(w, "not found auth token")
-		return nil, otpVerified
+		return nil, otpVerified, httperrors.NewInvalidCredentialError("not found auth token")
 	}
 	token := clientman.TokenMan.Get(authTokenStr)
 	if token == nil || !token.IsValid() {
-		httperrors.InvalidCredentialError(w, "auth token %q is invalid", authTokenStr)
-		return nil, otpVerified
+		return nil, otpVerified, httperrors.NewInvalidCredentialError("auth token %q is invalid", authTokenStr)
 	}
 
 	if isUserEnableTotp(ctx, req, token) {
 		totp := clientman.TokenMan.GetTotp(authTokenStr)
 		if !totp.IsVerified() {
-			httperrors.UnauthorizedError(w, "invalid totp token %q", authTokenStr)
-			return nil, otpVerified
+			return nil, otpVerified, httperrors.NewInvalidCredentialError("invalid totp token %q", authTokenStr)
 		} else {
 			otpVerified = true
 		}
@@ -237,10 +233,9 @@ func doTenantLogin(ctx context.Context, w http.ResponseWriter, req *http.Request
 
 	token, e = auth.Client().SetProject(tenantId, "", "", token)
 	if e != nil {
-		httperrors.InvalidCredentialError(w, "failed to change project")
-		return nil, otpVerified
+		return nil, otpVerified, httperrors.NewInvalidCredentialError("failed to change project")
 	}
-	return token, otpVerified
+	return token, otpVerified, nil
 }
 
 func isUserEnableTotp(ctx context.Context, req *http.Request, token mcclient.TokenCredential) bool {
@@ -259,6 +254,7 @@ func (h *AuthHandlers) doCredentialLogin(ctx context.Context, req *http.Request,
 	var token mcclient.TokenCredential
 	var err error
 	var tenant string
+	log.Debugf("body: %s", body)
 	cliIp := netutils2.GetHttpRequestIp(req)
 	if body.Contains("username") {
 		uname, _ := body.GetString("username")
@@ -298,6 +294,20 @@ func (h *AuthHandlers) doCredentialLogin(ctx context.Context, req *http.Request,
 			return nil, httperrors.NewInputParameterError("saml_response is empty")
 		}
 		token, err = auth.Client().AuthenticateSAML(samlResp, "", "", "", cliIp)
+	} else if body.Contains("oidc_code") {
+		oidcCode, _ := body.GetString("oidc_code")
+		if len(oidcCode) == 0 {
+			return nil, httperrors.NewInputParameterError("oidc_code is empty")
+		}
+		oidcCliId, _ := body.GetString("oidc_client_id")
+		if len(oidcCliId) == 0 {
+			return nil, httperrors.NewInputParameterError("oidc_client_id is empty")
+		}
+		oidcRedir, _ := body.GetString("oidc_redirect_uri")
+		if len(oidcRedir) == 0 {
+			return nil, httperrors.NewInputParameterError("oidc_redirect_uri is empty")
+		}
+		token, err = auth.Client().AuthenticateOIDC(oidcCliId, oidcCode, oidcRedir, "", "", "", cliIp)
 	} else {
 		return nil, httperrors.NewInputParameterError("missing credential")
 	}
@@ -469,20 +479,14 @@ func (h *AuthHandlers) postLoginHandler(ctx context.Context, w http.ResponseWrit
 	var token mcclient.TokenCredential
 	otpVerified := false
 	if body.Contains("tenantId") { // switch project
-		token, otpVerified = doTenantLogin(ctx, w, req, body)
-	} else if body.Contains("username") || body.Contains("cas_ticket") {
+		token, otpVerified, e = doTenantLogin(ctx, req, body)
+	} else {
 		// user/password authenticate
 		// cas authentication
 		token, e = h.doCredentialLogin(ctx, req, body)
-		if e != nil {
-			httperrors.GeneralServerError(w, e)
-			return
-		}
-	} else {
-		httperrors.InvalidInputError(w, "no login credential")
-		return
 	}
-	if token == nil {
+	if e != nil {
+		httperrors.GeneralServerError(w, e)
 		return
 	}
 

@@ -16,15 +16,13 @@ package saml
 
 import (
 	"context"
-	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
-	"yunion.io/x/onecloud/pkg/keystone/models"
+	"yunion.io/x/onecloud/pkg/keystone/driver/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -48,34 +46,21 @@ func (self *SSAMLDriverClass) Name() string {
 
 func (self *SSAMLDriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, tconf api.TConfigs) (api.TConfigs, error) {
 	conf := api.SSAMLIdpConfigOptions{}
-	confJson := jsonutils.Marshal(tconf["saml"])
+	confJson := jsonutils.Marshal(tconf[api.IdentityDriverSAML])
 	err := confJson.Unmarshal(&conf)
 	if err != nil {
 		return tconf, errors.Wrap(err, "unmarshal config")
 	}
-	if len(conf.DefaultProjectId) > 0 {
-		obj, err := models.ProjectManager.FetchByIdOrName(userCred, conf.DefaultProjectId)
-		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return tconf, errors.Wrapf(httperrors.ErrResourceNotFound, "project %s", conf.DefaultProjectId)
-			} else {
-				return tconf, errors.Wrap(err, "FetchProjectById")
-			}
-		}
-		tconf["cas"]["default_project_id"] = jsonutils.NewString(obj.GetId())
+	conf.SIdpAttributeOptions, err = utils.ValidateConfig(conf.SIdpAttributeOptions, userCred)
+	if err != nil {
+		return tconf, errors.Wrap(err, "ValidateConfig")
 	}
-	if len(conf.DefaultRoleId) > 0 {
-		obj, err := models.RoleManager.FetchByIdOrName(userCred, conf.DefaultRoleId)
-		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return tconf, errors.Wrapf(httperrors.ErrResourceNotFound, "role %s", conf.DefaultRoleId)
-			} else {
-				return tconf, errors.Wrap(err, "FetchRoleById")
-			}
-		}
-		tconf["cas"]["default_role_id"] = jsonutils.NewString(obj.GetId())
+	nconf := make(map[string]jsonutils.JSONObject)
+	err = jsonutils.Marshal(conf).Unmarshal(&nconf)
+	if err != nil {
+		return tconf, errors.Wrap(err, "Unmarshal new config")
 	}
-
+	tconf[api.IdentityDriverSAML] = nconf
 	return tconf, nil
 }
 
