@@ -61,6 +61,15 @@ func NewRemoteCommandAsFarAsPossible(name string, args ...string) *Command {
 	}
 }
 
+func NewRemoteCommandContextAsFarAsPossible(ctx context.Context, name string, args ...string) *Command {
+	return &Command{
+		path:      name,
+		args:      args,
+		cmd:       execInstance.CommandContext(ctx, name, args...),
+		remoteCmd: true,
+	}
+}
+
 func (c *Command) StdinPipe() (io.WriteCloser, error) {
 	return c.cmd.StdinPipe()
 }
