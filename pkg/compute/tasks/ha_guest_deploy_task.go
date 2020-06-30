@@ -22,10 +22,10 @@ type HAGuestDeployTask struct {
 	GuestDeployTask
 }
 
-func (self *HAGuestDeployTask) OnDeployGuestComplete(
+func (self *HAGuestDeployTask) OnDeployWaitServerStop(
 	ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject,
 ) {
-	self.DeployBackup(ctx, guest, data)
+	self.DeployBackup(ctx, guest, nil)
 }
 
 func (self *HAGuestDeployTask) DeployBackup(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -43,7 +43,9 @@ func (self *HAGuestDeployTask) DeployBackup(ctx context.Context, guest *models.S
 func (self *HAGuestDeployTask) OnDeploySlaveGuestComplete(
 	ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject,
 ) {
-	self.GuestDeployTask.OnDeployGuestComplete(ctx, guest, data)
+	host := guest.GetHost()
+	self.SetStage("OnDeployGuestComplete", nil)
+	self.DeployOnHost(ctx, guest, host)
 }
 
 func (self *HAGuestDeployTask) OnDeploySlaveGuestCompleteFailed(

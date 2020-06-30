@@ -42,11 +42,14 @@ func (self *GuestDeployTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 }
 
 func (self *GuestDeployTask) OnGuestNetworkReady(ctx context.Context, guest *models.SGuest) {
+	self.SetStage("OnDeployWaitServerStop", nil)
 	if jsonutils.QueryBoolean(self.Params, "restart", false) {
-		self.SetStage("OnDeployWaitServerStop", nil)
 		guest.StartGuestStopTask(ctx, self.UserCred, false, self.GetTaskId())
 	} else {
-		self.OnDeployWaitServerStop(ctx, guest, nil)
+		// Note: have to use LocalTaskRun, run to another place implement OnDeployWaitServerStop
+		taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
+			return nil, nil
+		})
 	}
 }
 
