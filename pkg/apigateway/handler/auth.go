@@ -230,6 +230,9 @@ func doTenantLogin(ctx context.Context, w http.ResponseWriter, req *http.Request
 		} else {
 			otpVerified = true
 		}
+	} else {
+		// if totp disabled, then assume totp been verified
+		otpVerified = true
 	}
 
 	token, e = auth.Client().SetProject(tenantId, "", "", token)
@@ -542,6 +545,11 @@ func (h *AuthHandlers) postLoginHandler(ctx context.Context, w http.ResponseWrit
 			httperrors.GeneralServerError(w, err)
 			return
 		}
+	} else {
+		// if totp is disabled, assume totp been verified
+		totp := clientman.TokenMan.GetTotp(tid)
+		totp.MarkVerified()
+		clientman.TokenMan.SaveTotp(tid)
 	}
 
 	appsrv.Send(w, qrcode)
