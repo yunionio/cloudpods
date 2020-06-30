@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -199,9 +200,21 @@ func (manager *SClouduserPolicyManager) newFromClouduserPolicy(ctx context.Conte
 
 	p, err := db.FetchByExternalId(CloudpolicyManager, iPolicy.GetGlobalId())
 	if err != nil {
-		return errors.Wrapf(err, "db.FetchByExternalId(%s)", iPolicy.GetGlobalId())
+		if errors.Cause(err) != sql.ErrNoRows {
+			return errors.Wrapf(err, "db.FetchByExternalId(%s)", iPolicy.GetGlobalId())
+		}
+		account, err := user.GetCloudaccount()
+		if err != nil {
+			return errors.Wrap(err, "user.GetCloudaccount")
+		}
+		policy, err := CloudpolicyManager.newFromCloudpolicy(ctx, userCred, iPolicy, account.Provider)
+		if err != nil {
+			return errors.Wrap(err, "newFromCloudpolicy")
+		}
+		up.CloudpolicyId = policy.Id
+	} else {
+		up.CloudpolicyId = p.GetId()
 	}
-	up.CloudpolicyId = p.GetId()
 
 	return manager.TableSpec().Insert(ctx, up)
 }

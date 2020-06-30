@@ -75,7 +75,7 @@ func (self *ClouduserSyncGroupsTask) OnInit(ctx context.Context, obj db.IStandal
 			}
 			result, err := cache.SyncCloudusersForCloud(ctx)
 			if err != nil {
-				self.taskFailed(ctx, user, errors.Wrap(err, "GetOrCreateICloudgroup"))
+				self.taskFailed(ctx, user, errors.Wrap(err, "SyncCloudusersForCloud"))
 				return
 			}
 			log.Infof("sync cloudusers for cache %s(%s) result: %s", cache.Name, cache.Id, result.Result())
@@ -84,6 +84,18 @@ func (self *ClouduserSyncGroupsTask) OnInit(ctx context.Context, obj db.IStandal
 				self.taskFailed(ctx, user, result.AllError())
 				return
 			}
+
+			result, err = cache.SyncCloudpoliciesForCloud(ctx)
+			if err != nil {
+				self.taskFailed(ctx, user, errors.Wrap(err, "SyncCloudpoliciesForCloud"))
+				return
+			}
+
+			if result.AddErrCnt+result.DelErrCnt > 0 {
+				self.taskFailed(ctx, user, result.AllError())
+				return
+			}
+			log.Infof("sync cloudpolicies for cache %s(%s) result: %s", cache.Name, cache.Id, result.Result())
 		}
 	} else if factory.IsSupportClouduserPolicy() {
 		result, err := user.SyncCloudpoliciesForCloud(ctx)
