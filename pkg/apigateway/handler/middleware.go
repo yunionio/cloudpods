@@ -112,15 +112,15 @@ func FetchAuthToken(f func(context.Context, http.ResponseWriter, *http.Request))
 			return
 		}
 		// 启用双因子认证
-		t := AppContextToken(ctx)
-		if isUserEnableTotp(ctx, r, t) {
-			tid := getAuthToken(r)
-			totp := clientman.TokenMan.GetTotp(tid)
-			if !totp.IsVerified() {
-				httperrors.UnauthorizedError(w, "TOTP authentication failed")
-				return
-			}
+		// t := AppContextToken(ctx)
+		// if isUserEnableTotp(ctx, r, t) {
+		tid := getAuthToken(r)
+		totp := clientman.TokenMan.GetTotp(tid)
+		if !totp.IsVerified() {
+			httperrors.UnauthorizedError(w, "TOTP authentication failed")
+			return
 		}
+		// }
 
 		f(ctx, w, r)
 	}
