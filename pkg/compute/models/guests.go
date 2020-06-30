@@ -2539,10 +2539,10 @@ func (manager *SGuestManager) TotalCount(
 	ownerId mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel,
 	status []string, hypervisors []string,
-	isSystem bool, pendingDelete bool,
+	includeSystem bool, pendingDelete bool,
 	hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string,
 ) SGuestCountStat {
-	return usageTotalGuestResouceCount(scope, ownerId, rangeObjs, status, hypervisors, isSystem, pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv)
+	return usageTotalGuestResouceCount(scope, ownerId, rangeObjs, status, hypervisors, includeSystem, pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv)
 }
 
 func (self *SGuest) detachNetworks(ctx context.Context, userCred mcclient.TokenCredential, gns []SGuestnetwork, reserve bool, deploy bool) error {
@@ -3030,39 +3030,6 @@ func usageTotalGuestResouceCount(
 	rangeObjs []db.IStandaloneModel,
 	status []string,
 	hypervisors []string,
-	isSystem bool,
-	pendingDelete bool,
-	hostTypes []string,
-	resourceTypes []string,
-	providers []string, brands []string, cloudEnv string,
-) SGuestCountStat {
-	q, guests := _guestResourceCountQuery(scope, ownerId, rangeObjs, status, hypervisors,
-		pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv)
-	if isSystem {
-		q = q.IsTrue("is_system")
-	} else {
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.IsNull(guests.Field("is_system")), sqlchemy.IsFalse(guests.Field("is_system"))))
-	}
-
-	stat := SGuestCountStat{}
-	row := q.Row()
-	err := q.Row2Struct(row, &stat)
-	if err != nil {
-		log.Errorf("%s", err)
-	}
-	stat.TotalCpuCount += stat.TotalBackupCpuCount
-	stat.TotalMemSize += stat.TotalBackupMemSize
-	stat.TotalDiskSize += stat.TotalBackupDiskSize
-	return stat
-}
-
-func totalGuestResourceCount(
-	scope rbacutils.TRbacScope,
-	ownerId mcclient.IIdentityProvider,
-	rangeObjs []db.IStandaloneModel,
-	status []string,
-	hypervisors []string,
 	includeSystem bool,
 	pendingDelete bool,
 	hostTypes []string,
@@ -3071,11 +3038,11 @@ func totalGuestResourceCount(
 ) SGuestCountStat {
 	q, guests := _guestResourceCountQuery(scope, ownerId, rangeObjs, status, hypervisors,
 		pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv)
-
 	if !includeSystem {
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.IsNull(guests.Field("is_system")), sqlchemy.IsFalse(guests.Field("is_system"))))
 	}
+
 	stat := SGuestCountStat{}
 	row := q.Row()
 	err := q.Row2Struct(row, &stat)
