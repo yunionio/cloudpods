@@ -159,16 +159,13 @@ func (cli *SEtcdClient) startSession() error {
 
 	go func() {
 		for {
-			ka := <-ch
-			if ka == nil {
+			if _, ok := <-ch; !ok {
 				cli.leaseLiving = false
 				log.Errorf("fail to keepalive sessoin")
 				if cli.onKeepaliveFailure != nil {
 					cli.onKeepaliveFailure()
 				}
 				break
-			} else {
-				log.Debugf("etcd session %d keepalive ttl: %d", ka.ID, ka.TTL)
 			}
 		}
 	}()

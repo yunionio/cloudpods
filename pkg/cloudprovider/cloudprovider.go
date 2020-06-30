@@ -280,7 +280,6 @@ func GetProviderFactory(provider string) (ICloudProviderFactory, error) {
 	if ok {
 		return factory, nil
 	}
-	log.Errorf("Provider %s not registered", provider)
 	return nil, fmt.Errorf("No such provider %s", provider)
 }
 
