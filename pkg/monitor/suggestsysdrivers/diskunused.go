@@ -47,42 +47,24 @@ func NewDiskUnusedDriver() models.ISuggestSysRuleDriver {
 	}
 }
 
-func (rule *DiskUnused) DoSuggestSysRule(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	doSuggestSysRule(ctx, userCred, isStart, rule)
+func (drv *DiskUnused) DoSuggestSysRule(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	doSuggestSysRule(ctx, userCred, isStart, drv)
 }
 
-func (rule *DiskUnused) Run(setting *monitor.SSuggestSysAlertSetting) {
-	oldAlert, err := getLastAlerts(rule)
-	if err != nil {
-		log.Errorln(err)
-		return
-	}
-	newAlerts, err := rule.getLatestAlerts(setting)
-	if err != nil {
-		log.Errorln(errors.Wrap(err, "DiskUnused getLatestAlerts error"))
-		return
-	}
-	DealAlertData(rule.GetType(), oldAlert, newAlerts.Value())
+func (drv *DiskUnused) Run(rule *models.SSuggestSysRule, setting *monitor.SSuggestSysAlertSetting) {
+	Run(drv, rule, setting)
 }
 
-func (rule *DiskUnused) getLatestAlerts(instance *monitor.SSuggestSysAlertSetting) (*jsonutils.JSONArray, error) {
-	rules, _ := models.SuggestSysRuleManager.GetRules(rule.GetType())
-	if len(rules) == 0 {
-		log.Println("Rule may have been deleted")
-		return jsonutils.NewArray(), nil
-	}
-	duration, _ := time.ParseDuration(rules[0].TimeFrom)
-	session := auth.GetAdminSession(context.Background(), "", "")
+func (drv *DiskUnused) GetLatestAlerts(rule *models.SSuggestSysRule, instance *monitor.SSuggestSysAlertSetting) ([]jsonutils.JSONObject, error) {
+	duration, _ := time.ParseDuration(rule.TimeFrom)
 	query := jsonutils.NewDict()
-	query.Add(jsonutils.NewString("0"), "limit")
 	query.Add(jsonutils.NewBool(true), "unused")
-	query.Add(jsonutils.NewString("system"), "scope")
-	disks, err := modules.Disks.List(session, query)
+	disks, err := ListAllResources(&modules.Disks, query)
 	if err != nil {
 		return nil, err
 	}
-	DiskUnusedArr := jsonutils.NewArray()
-	for _, disk := range disks.Data {
+	diskUnusedArr := make([]jsonutils.JSONObject, 0)
+	for _, disk := range disks {
 		id, _ := disk.GetString("id")
 		logInput := logInput{
 			ObjId:   id,
@@ -99,9 +81,9 @@ func (rule *DiskUnused) getLatestAlerts(instance *monitor.SSuggestSysAlertSettin
 		if time.Now().Add(-duration).Sub(latestTime) < 0 {
 			continue
 		}
-		suggestSysAlert, err := getSuggestSysAlertFromJson(disk, rule)
+		suggestSysAlert, err := getSuggestSysAlertFromJson(disk, drv)
 		if err != nil {
-			return DiskUnusedArr, errors.Wrap(err, "getEIPUnused's alertData Unmarshal error")
+			return diskUnusedArr, errors.Wrap(err, "getEIPUnused's alertData Unmarshal error")
 		}
 
 		input := &monitor.SSuggestSysAlertSetting{
@@ -116,18 +98,18 @@ func (rule *DiskUnused) getLatestAlerts(instance *monitor.SSuggestSysAlertSettin
 		rtnTime := fmt.Sprintf("%.1fm", time.Now().Sub(latestTime).Minutes())
 		problem.Add(jsonutils.NewString(rtnTime), "diskUnused time")
 		suggestSysAlert.Problem = problem
-		DiskUnusedArr.Add(jsonutils.Marshal(suggestSysAlert))
+		diskUnusedArr = append(diskUnusedArr, jsonutils.Marshal(suggestSysAlert))
 	}
-	return DiskUnusedArr, nil
+	return diskUnusedArr, nil
 }
 
-func (rule *DiskUnused) ValidateSetting(input *monitor.SSuggestSysAlertSetting) error {
+func (drv *DiskUnused) ValidateSetting(input *monitor.SSuggestSysAlertSetting) error {
 	obj := new(monitor.DiskUnused)
 	input.DiskUnused = obj
 	return nil
 }
 
-func (rule *DiskUnused) StartResolveTask(ctx context.Context, userCred mcclient.TokenCredential,
+func (drv *DiskUnused) StartResolveTask(ctx context.Context, userCred mcclient.TokenCredential,
 	suggestSysAlert *models.SSuggestSysAlert, params *jsonutils.JSONDict) error {
 	suggestSysAlert.SetStatus(userCred, monitor.SUGGEST_ALERT_START_DELETE, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "ResolveUnusedTask", suggestSysAlert, userCred, params, "", "", nil)
@@ -138,7 +120,7 @@ func (rule *DiskUnused) StartResolveTask(ctx context.Context, userCred mcclient.
 	return nil
 }
 
-func (rule *DiskUnused) Resolve(data *models.SSuggestSysAlert) error {
+func (drv *DiskUnused) Resolve(data *models.SSuggestSysAlert) error {
 	session := auth.GetAdminSession(context.Background(), "", "")
 	_, err := modules.Disks.Delete(session, data.ResId, jsonutils.NewDict())
 	if err != nil {

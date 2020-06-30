@@ -16,14 +16,17 @@ package db
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
-	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -37,8 +40,76 @@ type SScopedResourceBaseManager struct {
 // +onecloud:model-api-gen
 type SScopedResourceBase struct {
 	SProjectizedResourceBase
-	// DomainId  string `width:"64" charset:"ascii" nullable:"true" index:"true" list:"user"`
-	// ProjectId string `name:"tenant_id" width:"128" charset:"ascii" nullable:"true" index:"true" list:"user"`
+}
+
+func (m *SScopedResourceBaseManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
+	parentScope := rbacutils.ScopeSystem
+	scope, _ := data.GetString("scope")
+	if scope != "" {
+		parentScope = rbacutils.TRbacScope(scope)
+	}
+	switch parentScope {
+	case rbacutils.ScopeSystem:
+		return string(rbacutils.ScopeSystem)
+	case rbacutils.ScopeDomain:
+		domain, _ := data.GetString("project_domain")
+		return fmt.Sprintf("domain:%s", domain)
+	case rbacutils.ScopeProject:
+		project, _ := data.GetString("project")
+		return fmt.Sprintf("project:%s", project)
+	}
+	return ""
+}
+
+func (m *SScopedResourceBaseManager) filterByScope(q *sqlchemy.SQuery, scope rbacutils.TRbacScope, scopeResId string) *sqlchemy.SQuery {
+	isNotNullOrEmpty := func(field string) sqlchemy.ICondition {
+		return sqlchemy.AND(sqlchemy.IsNotNull(q.Field(field)), sqlchemy.IsNotEmpty(q.Field(field)))
+	}
+	switch scope {
+	case rbacutils.ScopeSystem:
+		q = q.IsNullOrEmpty("domain_id").IsNullOrEmpty("tenant_id")
+	case rbacutils.ScopeDomain:
+		q = q.IsNullOrEmpty("tenant_id").Filter(isNotNullOrEmpty("domain_id"))
+		if scopeResId != "" {
+			q = q.Equals("domain_id", scopeResId)
+		}
+	case rbacutils.ScopeProject:
+		q = q.Filter(isNotNullOrEmpty("domain_id")).Filter(isNotNullOrEmpty("tenant_id"))
+		if scopeResId != "" {
+			q = q.Equals("tenant_id", scopeResId)
+		}
+	}
+	return q
+}
+
+func (m *SScopedResourceBaseManager) FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery {
+	if parentId == "" {
+		return q
+	}
+	// TODO: use structure data represents parentId
+	parts := strings.Split(parentId, ":")
+	if len(parts) == 0 {
+		log.Errorf("invalid parentId %q", parentId)
+		return q
+	}
+	scope := rbacutils.TRbacScope(parts[0])
+	var pid string
+	if len(parts) == 2 {
+		pid = parts[1]
+	}
+	return m.filterByScope(q, scope, pid)
+}
+
+func (m *SScopedResourceBase) IsOwner(userCred mcclient.TokenCredential) bool {
+	scope := m.GetResourceScope()
+	switch scope {
+	case rbacutils.ScopeDomain:
+		return userCred.GetProjectDomainId() == m.GetDomainId()
+	case rbacutils.ScopeProject:
+		return userCred.GetProjectId() == m.GetProjectId()
+	}
+	// system scope
+	return userCred.HasSystemAdminPrivilege()
 }
 
 func (m *SScopedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
@@ -47,20 +118,14 @@ func (m *SScopedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, userCred 
 	}
 	switch scope {
 	case rbacutils.ScopeDomain:
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.Equals(q.Field("domain_id"), userCred.GetProjectDomainId()),
-			sqlchemy.IsNullOrEmpty(q.Field("domain_id")),
-		))
+		q = q.Equals("domain_id", userCred.GetProjectDomainId())
 	case rbacutils.ScopeProject:
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.Equals(q.Field("tenant_id"), userCred.GetProjectId()),
-			sqlchemy.IsNullOrEmpty(q.Field("tenant_id")),
-		))
+		q = q.Equals("tenant_id", userCred.GetProjectId())
 	}
 	return q
 }
 
-func (m *SScopedResourceBaseManager) ValidateCreateData(man IScopedResourceManager, ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ScopedResourceCreateInput) (api.ScopedResourceCreateInput, error) {
+func (m *SScopedResourceBaseManager) ValidateCreateData(man IScopedResourceManager, ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input apis.ScopedResourceCreateInput) (apis.ScopedResourceCreateInput, error) {
 	if input.Scope == "" {
 		input.Scope = string(rbacutils.ScopeSystem)
 	}
@@ -76,8 +141,11 @@ func (m *SScopedResourceBaseManager) ValidateCreateData(man IScopedResourceManag
 		allowCreate = IsAdminAllowCreate(userCred, man)
 	case rbacutils.ScopeDomain:
 		allowCreate = IsDomainAllowCreate(userCred, man)
+		input.ProjectDomain = ownerId.GetDomainId()
 	case rbacutils.ScopeProject:
 		allowCreate = IsProjectAllowCreate(userCred, man)
+		input.ProjectDomain = ownerId.GetDomainId()
+		input.Project = ownerId.GetProjectId()
 	}
 	if !allowCreate {
 		return input, httperrors.NewForbiddenError("not allow create %s in scope %s", man.ResourceScope(), input.Scope)
@@ -119,8 +187,12 @@ func (s *SScopedResourceBase) SetResourceScope(domainId, projectId string) error
 func (s *SScopedResourceBase) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	scope, _ := data.GetString("scope")
 	switch rbacutils.TRbacScope(scope) {
+	case rbacutils.ScopeSystem:
+		s.DomainId = ""
+		s.ProjectId = ""
 	case rbacutils.ScopeDomain:
 		s.DomainId = ownerId.GetDomainId()
+		s.ProjectId = ""
 	case rbacutils.ScopeProject:
 		s.DomainId = ownerId.GetDomainId()
 		s.ProjectId = ownerId.GetProjectId()
@@ -238,6 +310,9 @@ func (m *SScopedResourceBaseManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SProjectizedResourceBaseManager.ListItemFilter")
 	}
+	if query.BelongScope != "" {
+		q = m.filterByScope(q, rbacutils.TRbacScope(query.BelongScope), "")
+	}
 	return q, nil
 }
 
@@ -269,6 +344,23 @@ func (manager *SScopedResourceBaseManager) FetchCustomizeColumns(
 	for i := range rows {
 		rows[i] = apis.ScopedResourceBaseInfo{
 			ProjectizedResourceInfo: projRows[i],
+		}
+		var base *SScopedResourceBase
+		reflectutils.FindAnonymouStructPointer(objs[i], &base)
+		if base != nil {
+			if base.ProjectId != "" {
+				project, _ := DefaultProjectFetcher(ctx, base.ProjectId)
+				if project != nil {
+					rows[i].Project = project.Name
+					rows[i].ProjectDomain = project.Domain
+				}
+			} else if base.DomainId != "" {
+				domain, _ := DefaultDomainFetcher(ctx, base.DomainId)
+				if domain != nil {
+					rows[i].ProjectDomain = domain.Name
+				}
+			}
+			rows[i].Scope = string(base.GetResourceScope())
 		}
 	}
 

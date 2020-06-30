@@ -161,6 +161,7 @@ type ProjectizedResourceInfo struct {
 
 type ScopedResourceBaseInfo struct {
 	ProjectizedResourceInfo
+	Scope string `json:"scope"`
 }
 
 type InfrasResourceBaseDetails struct {

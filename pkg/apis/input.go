@@ -257,6 +257,11 @@ type EnabledStatusInfrasResourceBaseCreateInput struct {
 	EnabledBaseResourceCreateInput
 }
 
+type ScopedResourceCreateInput struct {
+	ProjectizedResourceCreateInput
+	Scope string `json:"scope"`
+}
+
 type OpsLogCreateInput struct {
 	ModelBaseCreateInput
 

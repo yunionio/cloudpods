@@ -26,12 +26,13 @@ type SuggestDriverType string
 type SuggestDriverAction string
 
 const (
-	EIP_UNUSED      SuggestDriverType = "EIP_UNUSED"
-	DISK_UNUSED     SuggestDriverType = "DISK_UNUSED"
-	LB_UNUSED       SuggestDriverType = "LB_UNUSED"
-	SNAPSHOT_UNUSED SuggestDriverType = "SNAPSHOT_UNUSED"
-	SCALE_DOWN      SuggestDriverType = "SCALE_DOWN"
-	SCALE_UP        SuggestDriverType = "SCALE_UP"
+	EIP_UNUSED               SuggestDriverType = "EIP_UNUSED"
+	DISK_UNUSED              SuggestDriverType = "DISK_UNUSED"
+	LB_UNUSED                SuggestDriverType = "LB_UNUSED"
+	SNAPSHOT_UNUSED          SuggestDriverType = "SNAPSHOT_UNUSED"
+	INSTANCE_SNAPSHOT_UNUSED SuggestDriverType = "INSTANCE_SNAPSHOT_UNUSED"
+	SCALE_DOWN               SuggestDriverType = "SCALE_DOWN"
+	SCALE_UP                 SuggestDriverType = "SCALE_UP"
 
 	DELETE_DRIVER_ACTION     SuggestDriverAction = "DELETE"
 	SCALE_DOWN_DRIVER_ACTION SuggestDriverAction = "SCALE_DOWN"
@@ -42,10 +43,12 @@ type MonitorSuggest string
 type MonitorResourceType string
 
 const (
-	EIP_MONITOR_RES_TYPE    = MonitorResourceType("弹性EIP")
-	DISK_MONITOR_RES_TYPE   = MonitorResourceType("云硬盘")
-	LB_MONITOR_RES_TYPE     = MonitorResourceType("负载均衡实例")
-	SCALE_MONTITOR_RES_TYPE = MonitorResourceType("虚拟机")
+	EIP_MONITOR_RES_TYPE               = MonitorResourceType("eip")
+	DISK_MONITOR_RES_TYPE              = MonitorResourceType("disk")
+	LB_MONITOR_RES_TYPE                = MonitorResourceType("loadbalancer")
+	SCALE_MONTITOR_RES_TYPE            = MonitorResourceType("server")
+	SNAPSHOT_MONITOR_RES_TYPE          = MonitorResourceType("snapshot")
+	INSTANCE_SNAPSHOT_MONITOR_RES_TYPE = MonitorResourceType("instance_snapshot")
 )
 
 const (

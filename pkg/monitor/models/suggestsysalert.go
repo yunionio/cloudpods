@@ -29,17 +29,13 @@ import (
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 var (
 	SuggestSysAlertManager *SSuggestSysAlertManager
 )
-
-type SSuggestSysAlertManager struct {
-	db.SVirtualResourceBaseManager
-	db.SEnabledResourceBaseManager
-}
 
 func init() {
 	SuggestSysAlertManager = &SSuggestSysAlertManager{
@@ -51,6 +47,13 @@ func init() {
 		),
 	}
 	SuggestSysAlertManager.SetVirtualObject(SuggestSysAlertManager)
+}
+
+// +onecloud:swagger-gen-model-singular=suggestsysalert
+// +onecloud:swagger-gen-model-plural=suggestsysalerts
+type SSuggestSysAlertManager struct {
+	db.SVirtualResourceBaseManager
+	db.SEnabledResourceBaseManager
 }
 
 type SSuggestSysAlert struct {
@@ -135,6 +138,36 @@ func (manager *SSuggestSysAlertManager) ListItemFilter(
 		q = q.Equals("cloud_env", query.CloudEnv)
 	}
 	return q, nil
+}
+
+func (manager *SSuggestSysAlertManager) CustomizeFilterList(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*db.CustomizeListFilters, error) {
+	filters := db.NewCustomizeListFilters()
+	listInput := new(monitor.SuggestSysAlertListInput)
+	if err := query.Unmarshal(listInput); err != nil {
+		return filters, errors.Wrap(err, "unmarshal list input")
+	}
+	scope := rbacutils.ScopeProject
+	if listInput.Scope != "" {
+		scope = rbacutils.TRbacScope(listInput.Scope)
+	}
+	scopeFilter := func(obj jsonutils.JSONObject) (bool, error) {
+		ignoreConfigs, err := SuggestSysRuleConfigManager.GetConfigsByScope(scope, userCred, true)
+		if err != nil {
+			return false, err
+		}
+		alert := new(SSuggestSysAlert)
+		if err := obj.Unmarshal(alert); err != nil {
+			return false, errors.Wrap(err, "unmarshal suggest alert")
+		}
+		for _, conf := range ignoreConfigs {
+			if conf.ShouldIgnoreAlert(alert) {
+				return false, nil
+			}
+		}
+		return true, nil
+	}
+	filters.Append(scopeFilter)
+	return filters, nil
 }
 
 func (manager *SSuggestSysAlertManager) GetAlert(id string) (*SSuggestSysAlert, error) {
