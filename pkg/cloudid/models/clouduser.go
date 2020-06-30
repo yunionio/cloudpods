@@ -276,6 +276,10 @@ func (manager *SClouduserManager) ValidateCreateData(ctx context.Context, userCr
 	if err != nil {
 		return input, httperrors.NewGeneralError(errors.Wrap(err, "FetchAccount"))
 	}
+	// 只有系统管理员和账号所在的域管理员可以创建子用户
+	if !((account.DomainId == userCred.GetProjectDomainId() && db.IsDomainAllowCreate(userCred, manager)) || userCred.HasSystemAdminPrivilege()) {
+		return input, httperrors.NewForbiddenError("forbidden to create clouduser for cloudaccount %s", account.Name)
+	}
 	if !account.IsSupportCloudId.Bool() {
 		return input, httperrors.NewUnsupportOperationError("account %s not support create clouduser", account.Name)
 	}
@@ -564,13 +568,29 @@ func (self *SClouduser) SyncCloudgroups(ctx context.Context, userCred mcclient.T
 	result.UpdateCnt = len(commondb)
 
 	for i := 0; i < len(added); i++ {
+		var cloudgroupId string
 		_cache, err := db.FetchByExternalId(CloudgroupcacheManager, added[i].GetGlobalId())
 		if err != nil {
-			result.AddError(errors.Wrapf(err, "FetchByExternalId(%s)", added[i].GetGlobalId()))
-			continue
+			if errors.Cause(err) != sql.ErrNoRows {
+				result.AddError(errors.Wrapf(err, "FetchByExternalId(%s)", added[i].GetGlobalId()))
+				continue
+			}
+			account, err := self.GetCloudaccount()
+			if err != nil {
+				result.AddError(errors.Wrap(err, "GetCloudaccount"))
+				continue
+			}
+			cache, err := account.newCloudgroup(ctx, userCred, added[i])
+			if err != nil {
+				result.AddError(errors.Wrap(err, "account.newCloudgroup"))
+				continue
+			}
+			cloudgroupId = cache.CloudgroupId
+		} else {
+			cache := _cache.(*SCloudgroupcache)
+			cloudgroupId = cache.CloudgroupId
 		}
-		cache := _cache.(*SCloudgroupcache)
-		err = self.joinGroup(cache.CloudgroupId)
+		err = self.joinGroup(cloudgroupId)
 		if err != nil {
 			result.AddError(errors.Wrap(err, "joinGroup"))
 			continue
@@ -1159,7 +1179,7 @@ func (self *SClouduser) AllowPerformChangeOwner(ctx context.Context, userCred mc
 
 // 变更子账号所属本地用户
 func (self *SClouduser) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ClouduserChangeOwnerInput) (jsonutils.JSONObject, error) {
-	user, err := db.UserCacheManager.FetchById(input.UserId)
+	user, err := db.UserCacheManager.FetchUserById(ctx, input.UserId)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "Not found user %s", input.UserId))
 	}
