@@ -276,9 +276,8 @@ func (self *SCloudgroup) removePolicies() error {
 }
 
 func (self *SCloudgroup) GetCloudpolicyQuery() *sqlchemy.SQuery {
-	q := CloudpolicyManager.Query()
-	sq := CloudgroupPolicyManager.Query().SubQuery()
-	return q.Join(sq, sqlchemy.Equals(q.Field("id"), sq.Field("cloudpolicy_id"))).Filter(sqlchemy.Equals(sq.Field("cloudgroup_id"), self.Id))
+	sq := CloudgroupPolicyManager.Query("cloudpolicy_id").Equals("cloudgroup_id", self.Id).SubQuery()
+	return CloudpolicyManager.Query().In("id", sq)
 }
 
 func (self *SCloudgroup) GetCloudpolicyCount() (int, error) {
@@ -346,9 +345,8 @@ func (self *SCloudgroup) detachPolicy(policyId string) error {
 }
 
 func (self *SCloudgroup) GetClouduserQuery() *sqlchemy.SQuery {
-	q := ClouduserManager.Query()
-	sq := CloudgroupUserManager.Query().SubQuery()
-	return q.Join(sq, sqlchemy.Equals(q.Field("id"), sq.Field("clouduser_id"))).Filter(sqlchemy.Equals(sq.Field("cloudgroup_id"), self.Id))
+	sq := CloudgroupUserManager.Query("clouduser_id").Equals("cloudgroup_id", self.Id).SubQuery()
+	return ClouduserManager.Query().In("id", sq)
 }
 
 func (self *SCloudgroup) GetClouduserCount() (int, error) {

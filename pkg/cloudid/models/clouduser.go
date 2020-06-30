@@ -612,9 +612,8 @@ func (self *SClouduser) GetClouduserPolicies() ([]SClouduserPolicy, error) {
 }
 
 func (self *SClouduser) GetCloudpolicyQuery() *sqlchemy.SQuery {
-	q := CloudpolicyManager.Query()
-	sq := ClouduserPolicyManager.Query().SubQuery()
-	return q.Join(sq, sqlchemy.Equals(q.Field("id"), sq.Field("cloudpolicy_id"))).Filter(sqlchemy.Equals(sq.Field("clouduser_id"), self.Id))
+	sq := ClouduserPolicyManager.Query("cloudpolicy_id").Equals("clouduser_id", self.Id).SubQuery()
+	return CloudpolicyManager.Query().In("id", sq)
 }
 
 func (self *SClouduser) GetCloudpolicyCount() (int, error) {
