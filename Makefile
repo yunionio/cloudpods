@@ -199,7 +199,7 @@ mod:
 	go mod vendor -v
 
 
-DOCKER_BUILD_IMAGE_VERSION?=1.0-1
+DOCKER_CENTOS_BUILD_IMAGE?=registry.cn-beijing.aliyuncs.com/yunionio/centos-build:1.1-1
 
 define dockerCentOSBuildCmd
 set -o xtrace
@@ -215,11 +215,11 @@ docker-centos-build: export dockerCentOSBuildCmd:=$(call dockerCentOSBuildCmd,$(
 docker-centos-build:
 	docker rm --force onecloud-ci-build &>/dev/null || true
 	docker run \
-		--name onecloud-ci-build \
+		--name onecloud-docker-centos-build \
 		--rm \
 		--volume $(CURDIR):/root/onecloud \
 		--volume $(CURDIR)/_output/_cache:/root/.cache \
-		registry.cn-beijing.aliyuncs.com/yunionio/centos-build:$(DOCKER_BUILD_IMAGE_VERSION) \
+		$(DOCKER_CENTOS_BUILD_IMAGE) \
 		/bin/bash -c "$$dockerCentOSBuildCmd"
 	chown -R $$(id -u):$$(id -g) _output
 	ls -lh _output/bin
@@ -227,10 +227,12 @@ docker-centos-build:
 # NOTE we need a way to stop and remove the container started by docker-build.
 # No --tty, --stop-signal won't work
 docker-centos-build-stop:
-	docker-centos stop --time 0 onecloud-ci-build || true
+	docker stop --time 0 onecloud-docker-centos-build || true
 
 .PHONY: docker-centos-build
 .PHONY: docker-centos-build-stop
+
+DOCKER_ALPINE_BUILD_IMAGE?=registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-2
 
 define dockerAlpineBuildCmd
 set -o xtrace
@@ -250,7 +252,7 @@ docker-alpine-build:
 		-v $(CURDIR):/root/go/src/yunion.io/x/onecloud \
 		-v $(CURDIR)/_output/alpine-build:/root/go/src/yunion.io/x/onecloud/_output \
 		-v $(CURDIR)/_output/alpine-build/_cache:/root/.cache \
-		registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-1 \
+		$(DOCKER_ALPINE_BUILD_IMAGE) \
 		/bin/sh -c "$$dockerAlpineBuildCmd"
 	ls -lh _output/alpine-build/bin
 

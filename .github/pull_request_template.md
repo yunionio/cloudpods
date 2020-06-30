@@ -11,5 +11,5 @@
 <!--
 如果不需要，填写 "NONE".
 如果需要，就以下面 item 的格式写 release 分支名，并提交对应的 cherry-pick PR:
-- release/3.1
+- release/3.2
 -->
