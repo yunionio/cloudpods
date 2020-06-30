@@ -17,8 +17,6 @@ package oidc
 import (
 	"context"
 
-	"yunion.io/x/onecloud/pkg/util/oidcutils/client"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
@@ -26,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/driver/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/oidcutils/client"
 )
 
 type SOIDCDriverClass struct{}

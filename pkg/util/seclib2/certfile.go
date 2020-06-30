@@ -15,10 +15,17 @@
 package seclib2
 
 import (
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"regexp"
 	"strings"
+
+	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 const (
@@ -63,4 +70,17 @@ func CleanCertificate(cert string) string {
 	cert = strings.Trim(cert, " \n")
 	// cert = strings.Replace(cert, "\n", "", -1)
 	return cert
+}
+
+func DecodePrivateKey(keyString []byte) (*rsa.PrivateKey, error) {
+	block, _ := pem.Decode(keyString)
+	privKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err == nil {
+		return privKey.(*rsa.PrivateKey), nil
+	}
+	priv, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err == nil {
+		return priv, nil
+	}
+	return nil, errors.Wrap(httperrors.ErrInvalidFormat, "not a valid private key")
 }

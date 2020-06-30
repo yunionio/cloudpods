@@ -28,7 +28,7 @@ type GatewayOptions struct {
 
 	EnableTotp bool `help:"Enable two-factor authentication" default:"true"`
 
-	SqlitePath string `help:"sqlite db path" default:"/etc/yunion/data/yunionapi.db"`
+	// SqlitePath string `help:"sqlite db path" default:"/etc/yunion/data/yunionapi.db"`
 
 	common_options.CommonOptions `"request_worker_count->default":"32"`
 }

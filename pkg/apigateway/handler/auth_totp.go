@@ -27,7 +27,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/apigateway/clientman"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -204,13 +203,12 @@ func validateTotpRecoverySecrets(s *mcclient.ClientSession, uid string, question
 
 // 验证OTP
 func ValidatePasscodeHandler(ctx context.Context, w http.ResponseWriter, req *http.Request) {
-	ctx, err := SetAuthToken(ctx, w, req)
+	t, authToken, err := fetchAuthInfo(ctx, req)
 	if err != nil {
-		httperrors.InvalidCredentialError(w, "set auth token: %v", err)
+		httperrors.InvalidCredentialError(w, "fetchAuthInfo fail %s", err)
 		return
 	}
 
-	t := AppContextToken(ctx)
 	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
 	_, _, body := appsrv.FetchEnv(ctx, w, req)
 	if body == nil {
@@ -229,15 +227,14 @@ func ValidatePasscodeHandler(ctx context.Context, w http.ResponseWriter, req *ht
 		return
 	}
 
-	tid := getAuthToken(req)
-	totp := clientman.TokenMan.GetTotp(tid)
-	err = totp.VerifyTotpPasscode(s, t.GetUserId(), passcode)
+	err = authToken.VerifyTotpPasscode(s, t.GetUserId(), passcode)
+
+	saveAuthCookie(w, authToken, t)
+
 	if err != nil {
 		log.Warningf("VerifyTotpPasscode %s", err.Error())
 		httperrors.InvalidCredentialError(w, "invalid passcode: %v", err)
 		return
-	} else {
-		clientman.TokenMan.SaveTotp(tid)
 	}
 
 	appsrv.SendJSON(w, jsonutils.NewDict())
@@ -245,13 +242,12 @@ func ValidatePasscodeHandler(ctx context.Context, w http.ResponseWriter, req *ht
 
 // 验证OTP credential重置问题.如果答案正确，返回重置后的Qrcode（base64编码，png格式）。
 func ResetTotpSecrets(ctx context.Context, w http.ResponseWriter, req *http.Request) {
-	ctx, err := SetAuthToken(ctx, w, req)
+	t, _, err := fetchAuthInfo(ctx, req)
 	if err != nil {
-		httperrors.InvalidCredentialError(w, "set auth token: %v", err)
+		httperrors.InvalidCredentialError(w, "fetchAuthInfo fail %s", err)
 		return
 	}
 
-	t := AppContextToken(ctx)
 	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
 	_, _, body := appsrv.FetchEnv(ctx, w, req)
 	if body == nil {
@@ -284,13 +280,12 @@ func ResetTotpSecrets(ctx context.Context, w http.ResponseWriter, req *http.Requ
 
 // 获取OTP 重置密码问题列表。
 func ListTotpRecoveryQuestions(ctx context.Context, w http.ResponseWriter, req *http.Request) {
-	ctx, err := SetAuthToken(ctx, w, req)
+	t, _, err := fetchAuthInfo(ctx, req)
 	if err != nil {
-		httperrors.InvalidCredentialError(w, "set auth token: %v", err)
+		httperrors.InvalidCredentialError(w, "fetchAuthInfo fail %s", err)
 		return
 	}
 
-	t := AppContextToken(ctx)
 	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
 	// 做缓存？
 	ss, err := modules.Credentials.GetRecoverySecrets(s, t.GetUserId())
@@ -311,13 +306,12 @@ func ListTotpRecoveryQuestions(ctx context.Context, w http.ResponseWriter, req *
 
 // 提交OTP 重置密码问题。
 func ResetTotpRecoveryQuestions(ctx context.Context, w http.ResponseWriter, req *http.Request) {
-	ctx, err := SetAuthToken(ctx, w, req)
+	t, _, err := fetchAuthInfo(ctx, req)
 	if err != nil {
-		httperrors.InvalidCredentialError(w, "set auth token: %v", err)
+		httperrors.InvalidCredentialError(w, "fetchAuthInfo fail %s", err)
 		return
 	}
 
-	t := AppContextToken(ctx)
 	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
 	_, _, body := appsrv.FetchEnv(ctx, w, req)
 	if body == nil {

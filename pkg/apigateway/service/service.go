@@ -48,7 +48,7 @@ func StartService() {
 		mcclient.DisableApiVersionByModule()
 	}
 
-	if err := clientman.InitClient(opts.SqlitePath); err != nil {
+	if err := clientman.InitClient(); err != nil {
 		log.Fatalf("Init client token manager: %v", err)
 	}
 

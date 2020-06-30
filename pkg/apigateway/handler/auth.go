@@ -174,9 +174,8 @@ func (h *AuthHandlers) getRegions(ctx context.Context, w http.ResponseWriter, re
 }
 
 func (h *AuthHandlers) getUser(ctx context.Context, w http.ResponseWriter, req *http.Request) {
-	t := AppContextToken(ctx)
-	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
-	data, err := getUserInfo(ctx, s, t, req)
+
+	data, err := getUserInfo(ctx, req)
 	if err != nil {
 		httperrors.NotFoundError(w, err.Error())
 		return
@@ -204,57 +203,42 @@ func (h *AuthHandlers) listTotpRecoveryQuestions(ctx context.Context, w http.Res
 }
 
 // 返回 token及totp验证状态
-func doTenantLogin(ctx context.Context, req *http.Request, body jsonutils.JSONObject) (mcclient.TokenCredential, bool, error) {
-	otpVerified := false
-	tenantId, e := body.GetString("tenantId")
-	if e != nil {
-		return nil, otpVerified, httperrors.NewInputParameterError("not found tenantId in body")
+func doTenantLogin(ctx context.Context, req *http.Request, body jsonutils.JSONObject) (mcclient.TokenCredential, *clientman.SAuthToken, error) {
+	tenantId, err := body.GetString("tenantId")
+	if err != nil {
+		return nil, nil, httperrors.NewInputParameterError("not found tenantId in body")
 	}
-	authTokenStr := getAuthToken(req)
-	if len(authTokenStr) == 0 {
-		return nil, otpVerified, httperrors.NewInvalidCredentialError("not found auth token")
+	token, authToken, err := fetchAuthInfo(ctx, req)
+	if err != nil {
+		return nil, nil, errors.Wrapf(httperrors.ErrInvalidCredential, "fetchAuthToken fail %s", err)
 	}
-	token := clientman.TokenMan.Get(authTokenStr)
-	if token == nil || !token.IsValid() {
-		return nil, otpVerified, httperrors.NewInvalidCredentialError("auth token %q is invalid", authTokenStr)
+	if !authToken.IsTotpVerified() {
+		return nil, nil, errors.Wrap(httperrors.ErrInvalidCredential, "TOTP authentication failed")
 	}
 
-	if isUserEnableTotp(ctx, req, token) {
-		totp := clientman.TokenMan.GetTotp(authTokenStr)
-		if !totp.IsVerified() {
-			return nil, otpVerified, httperrors.NewInvalidCredentialError("invalid totp token %q", authTokenStr)
-		} else {
-			otpVerified = true
-		}
-	} else {
-		// if totp disabled, then assume totp been verified
-		otpVerified = true
+	ntoken, err := auth.Client().SetProject(tenantId, "", "", token)
+	if err != nil {
+		return nil, nil, httperrors.NewInvalidCredentialError("failed to change project")
 	}
 
-	token, e = auth.Client().SetProject(tenantId, "", "", token)
-	if e != nil {
-		return nil, otpVerified, httperrors.NewInvalidCredentialError("failed to change project")
-	}
-	return token, otpVerified, nil
+	authToken.SetToken(ntoken.GetTokenString())
+	return ntoken, authToken, nil
 }
 
-func isUserEnableTotp(ctx context.Context, req *http.Request, token mcclient.TokenCredential) bool {
-	if !options.Options.EnableTotp {
-		return false
-	}
+func fetchUserInfoFromToken(ctx context.Context, req *http.Request, token mcclient.TokenCredential) (jsonutils.JSONObject, error) {
 	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
-	usr, err := modules.UsersV3.Get(s, token.GetUserId(), nil)
-	if err != nil {
-		return false
-	}
-	return jsonutils.QueryBoolean(usr, "enable_mfa", true)
+	return modules.UsersV3.Get(s, token.GetUserId(), nil)
+}
+
+func isUserEnableTotp(userInfo jsonutils.JSONObject) bool {
+	return jsonutils.QueryBoolean(userInfo, "enable_mfa", false)
 }
 
 func (h *AuthHandlers) doCredentialLogin(ctx context.Context, req *http.Request, body jsonutils.JSONObject) (mcclient.TokenCredential, error) {
 	var token mcclient.TokenCredential
 	var err error
 	var tenant string
-	log.Debugf("body: %s", body)
+	log.Debugf("doCredentialLogin body: %s", body)
 	cliIp := netutils2.GetHttpRequestIp(req)
 	if body.Contains("username") {
 		uname, _ := body.GetString("username")
@@ -318,7 +302,7 @@ func (h *AuthHandlers) doCredentialLogin(ctx context.Context, req *http.Request,
 				return nil, err
 			}
 		}
-		return nil, httperrors.NewInvalidCredentialError("username/password incorrect")
+		return nil, httperrors.NewInvalidCredentialError("invalid credential")
 	}
 	uname := token.GetUserName()
 	if len(tenant) > 0 {
@@ -407,18 +391,8 @@ func parseLoginUser(uname string) (string, string) {
 	return tenant, uname
 }
 
-func isUserAllowWebconsole(ctx context.Context, w http.ResponseWriter, req *http.Request, token mcclient.TokenCredential) bool {
-	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
-	usr, err := modules.UsersV3.Get(s, token.GetUserId(), nil)
-	if err != nil {
-		httperrors.GeneralServerError(w, err)
-		return false
-	}
-	if !jsonutils.QueryBoolean(usr, "allow_web_console", true) {
-		httperrors.ForbiddenError(w, "user forbidden login from web")
-		return false
-	}
-	return true
+func isUserAllowWebconsole(userInfo jsonutils.JSONObject) bool {
+	return jsonutils.QueryBoolean(userInfo, "allow_web_console", true)
 }
 
 func saveCookie(w http.ResponseWriter, name, val, domain string, expire time.Time, base64 bool) {
@@ -468,6 +442,15 @@ func clearCookie(w http.ResponseWriter, name string, domain string) {
 	http.SetCookie(w, cookie)
 }
 
+func saveAuthCookie(w http.ResponseWriter, authToken *clientman.SAuthToken, token mcclient.TokenCredential) {
+	authCookie := authToken.GetAuthCookie(token)
+	saveCookie(w, constants.YUNION_AUTH_COOKIE, authCookie, options.Options.CookieDomain, token.GetExpires(), true)
+}
+
+func clearAuthCookie(w http.ResponseWriter) {
+	clearCookie(w, constants.YUNION_AUTH_COOKIE, options.Options.CookieDomain)
+}
+
 type PreLoginFunc func(ctx context.Context, req *http.Request, uname string, body jsonutils.JSONObject) error
 
 func (h *AuthHandlers) postLoginHandler(ctx context.Context, w http.ResponseWriter, req *http.Request) {
@@ -476,46 +459,42 @@ func (h *AuthHandlers) postLoginHandler(ctx context.Context, w http.ResponseWrit
 		httperrors.InvalidInputError(w, "fetch json for request: %v", e)
 		return
 	}
+	var authToken *clientman.SAuthToken
 	var token mcclient.TokenCredential
-	otpVerified := false
+	var userInfo jsonutils.JSONObject
 	if body.Contains("tenantId") { // switch project
-		token, otpVerified, e = doTenantLogin(ctx, req, body)
+		token, authToken, e = doTenantLogin(ctx, req, body)
+		if e != nil {
+			httperrors.GeneralServerError(w, e)
+			return
+		}
+		userInfo, e = fetchUserInfoFromToken(ctx, req, token)
+		if e != nil {
+			httperrors.GeneralServerError(w, e)
+			return
+		}
 	} else {
 		// user/password authenticate
 		// cas authentication
 		token, e = h.doCredentialLogin(ctx, req, body)
+		if e != nil {
+			httperrors.GeneralServerError(w, e)
+			return
+		}
+		userInfo, e = fetchUserInfoFromToken(ctx, req, token)
+		if e != nil {
+			httperrors.GeneralServerError(w, e)
+			return
+		}
+		authToken = clientman.NewAuthToken(token.GetTokenString(), isUserEnableTotp(userInfo))
 	}
-	if e != nil {
-		httperrors.GeneralServerError(w, e)
+
+	if !isUserAllowWebconsole(userInfo) {
+		httperrors.ForbiddenError(w, "user forbidden login from web")
 		return
 	}
 
-	if !isUserAllowWebconsole(ctx, w, req, token) {
-		return
-	}
-
-	//if len(token.GetProjectId()) == 0 {
-	// no vaid project, return 403
-	//	httperrors.NoProjectError(w, "no valid project")
-	//	return
-	//}
-
-	tid := clientman.TokenMan.Save(token)
-
-	// 切换项目时，如果之前totp已经验证通过，自动放行
-	if otpVerified {
-		totp := clientman.TokenMan.GetTotp(tid)
-		totp.MarkVerified()
-		clientman.TokenMan.SaveTotp(tid)
-	}
-	// log.Debugf("auth %s token %s", tid, token)
-	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
-	authCookie, err := getUserAuthCookie(ctx, s, token, tid, req)
-	if err != nil {
-		httperrors.GeneralServerError(w, err)
-		return
-	}
-	saveCookie(w, constants.YUNION_AUTH_COOKIE, authCookie, options.Options.CookieDomain, token.GetExpires(), true)
+	saveAuthCookie(w, authToken, token)
 
 	if len(token.GetProjectId()) > 0 {
 		if body.Contains("isadmin") {
@@ -539,32 +518,23 @@ func (h *AuthHandlers) postLoginHandler(ctx context.Context, w http.ResponseWrit
 		saveCookie(w, "tenant", token.GetProjectId(), "", token.GetExpires(), false)
 	}
 
-	setAuthHeader(w, tid)
-
 	// 开启Totp的状态下，如果用户未设置
 	qrcode := ""
-	if isUserEnableTotp(ctx, req, token) {
+	if !authToken.IsTotpVerified() {
+		s := auth.GetAdminSession(ctx, FetchRegion(req), "")
+		var err error
 		qrcode, err = initializeUserTotpCred(s, token)
 		if err != nil {
 			httperrors.GeneralServerError(w, err)
 			return
 		}
-	} else {
-		// if totp is disabled, assume totp been verified
-		totp := clientman.TokenMan.GetTotp(tid)
-		totp.MarkVerified()
-		clientman.TokenMan.SaveTotp(tid)
 	}
 
 	appsrv.Send(w, qrcode)
 }
 
 func (h *AuthHandlers) postLogoutHandler(ctx context.Context, w http.ResponseWriter, req *http.Request) {
-	tid := getAuthToken(req)
-	if len(tid) > 0 {
-		clientman.TokenMan.Remove(tid)
-	}
-	clearCookie(w, constants.YUNION_AUTH_COOKIE, options.Options.CookieDomain)
+	clearAuthCookie(w)
 	appsrv.Send(w, "")
 }
 
@@ -688,19 +658,6 @@ func (this *projectRoles) json(user, userId, domain, domainId string, ip string)
 	return obj
 }
 
-func getUserAuthCookie(ctx context.Context, s *mcclient.ClientSession, token mcclient.TokenCredential, sid string, req *http.Request) (string, error) {
-	// info, err := getUserInfo(s, token, req)
-	// if err != nil {
-	// 	return "", err
-	// }
-	info := jsonutils.NewDict()
-	info.Add(jsonutils.NewTimeString(token.GetExpires()), "exp")
-	info.Add(jsonutils.NewString(sid), "session")
-	info.Add(jsonutils.NewBool(isUserEnableTotp(ctx, req, token)), "totp_on") // 用户totp 开启状态。 True（已开启）|False(未开启)
-	info.Add(jsonutils.NewBool(options.Options.EnableTotp), "system_totp_on") // 全局totp 开启状态。 True（已开启）|False(未开启)
-	return info.String(), nil
-}
-
 func isLBAgentExists(s *mcclient.ClientSession) (bool, error) {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString("hb_last_seen.isnotempty()"), "filter.0")
@@ -771,12 +728,18 @@ func isHostAgentExists(s *mcclient.ClientSession) (bool, error) {
 	}
 }
 
-func getUserInfo(ctx context.Context, s *mcclient.ClientSession, token mcclient.TokenCredential, req *http.Request) (*jsonutils.JSONDict, error) {
-	log.Infof("getUserInfo modules.UsersV3.Get")
+func getUserInfo(ctx context.Context, req *http.Request) (*jsonutils.JSONDict, error) {
+	token := AppContextToken(ctx)
+	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
+	/*log.Infof("getUserInfo modules.UsersV3.Get")
 	usr, err := modules.UsersV3.Get(s, token.GetUserId(), nil)
 	if err != nil {
 		log.Errorf("modules.UsersV3.Get fail %s", err)
 		return nil, fmt.Errorf("not found user %s", token.GetUserId())
+	}*/
+	usr, err := fetchUserInfoFromToken(ctx, req, token)
+	if err != nil {
+		return nil, errors.Wrapf(err, "fetchUserInfoFromToken %s", token.GetUserId())
 	}
 	data := jsonutils.NewDict()
 	for _, k := range []string{
@@ -944,20 +907,6 @@ func getUserInfo(ctx context.Context, s *mcclient.ClientSession, token mcclient.
 	return data, nil
 }
 
-func getUserHandler(ctx context.Context, w http.ResponseWriter, req *http.Request) {
-	t := AppContextToken(ctx)
-	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
-	data, err := getUserInfo(ctx, s, t, req)
-	if err != nil {
-		httperrors.NotFoundError(w, err.Error())
-		return
-	}
-	body := jsonutils.NewDict()
-	body.Add(data, "data")
-
-	appsrv.SendJSON(w, body)
-}
-
 func (h *AuthHandlers) getPermissionDetails(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	t := AppContextToken(ctx)
 
@@ -1073,27 +1022,19 @@ func (h *AuthHandlers) doDeletePolicies(ctx context.Context, w http.ResponseWrit
 4.重置密码，清除认证token
 */
 func (h *AuthHandlers) resetUserPassword(ctx context.Context, w http.ResponseWriter, req *http.Request) {
-	ctx, err := SetAuthToken(ctx, w, req)
+	t, authToken, err := fetchAuthInfo(ctx, req)
 	if err != nil {
-		httperrors.InvalidCredentialError(w, "set auth token %v", err)
+		httperrors.InvalidCredentialError(w, "fetchAuthInfo fail: %s", err)
 		return
 	}
 
-	t := AppContextToken(ctx)
-	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
 	_, _, body := appsrv.FetchEnv(ctx, w, req)
 	if body == nil {
 		httperrors.InvalidInputError(w, "body is empty")
 		return
 	}
 
-	uid := t.GetUserId()
-	if len(uid) == 0 {
-		httperrors.ConflictError(w, "uid is empty")
-		return
-	}
-
-	user, err := modules.UsersV3.Get(s, uid, nil)
+	user, err := fetchUserInfoFromToken(ctx, req, t)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
@@ -1110,7 +1051,7 @@ func (h *AuthHandlers) resetUserPassword(ctx context.Context, w http.ResponseWri
 	}
 
 	// 1.验证原密码正确，且idp_driver为空
-	if isLdapUser(user) {
+	if isIdpUser(user) {
 		httperrors.ForbiddenError(w, "not support reset user password")
 		return
 	}
@@ -1129,32 +1070,30 @@ func (h *AuthHandlers) resetUserPassword(ctx context.Context, w http.ResponseWri
 		return
 	}
 
+	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
 	// 2.如果已开启MFA，验证 随机密码正确
-	tid := getAuthToken(req)
 	if isMfaEnabled(user) {
-		totp := clientman.TokenMan.GetTotp(tid)
-		err = totp.VerifyTotpPasscode(s, uid, passcode)
+		err = authToken.VerifyTotpPasscode(s, t.GetUserId(), passcode)
 		if err != nil {
 			httperrors.InputParameterError(w, "invalid passcode")
 			return
 		}
 	}
 
-	// 3.重置密码，清除认证token
+	// 3.重置密码，
 	params := jsonutils.NewDict()
 	params.Set("password", jsonutils.NewString(newPwd))
-	ret, err := modules.UsersV3.Patch(s, uid, params)
+	_, err = modules.UsersV3.Patch(s, t.GetUserId(), params)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
-	} else {
-		clientman.TokenMan.Remove(tid)
 	}
 
-	appsrv.SendJSON(w, ret)
+	// 4. 清除认证token, logout
+	h.postLogoutHandler(ctx, w, req)
 }
 
-func isLdapUser(user jsonutils.JSONObject) bool {
+func isIdpUser(user jsonutils.JSONObject) bool {
 	if driver, _ := user.GetString("idp_driver"); len(driver) > 0 {
 		return true
 	}

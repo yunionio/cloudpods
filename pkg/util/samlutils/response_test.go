@@ -18,6 +18,8 @@ import (
 	"encoding/xml"
 	"strings"
 	"testing"
+
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 var (
@@ -107,7 +109,7 @@ func TestNewResponse(t *testing.T) {
 		t.Fatalf("xml.MarshalIndent fail %s", err)
 	}
 
-	privateKey, err := decodePrivateKey([]byte(privateKeyString))
+	privateKey, err := seclib2.DecodePrivateKey([]byte(privateKeyString))
 	if err != nil {
 		t.Fatalf("decodePrivateKey fail %s", err)
 	}
@@ -169,7 +171,7 @@ k2RJp4luPEqxoBcDVpcuiyfu3s3Jtnr3Lns=</ds:X509Certificate></ds:X509Data></ds:KeyI
 
 func TestDecryptResponse(t *testing.T) {
 
-	privateKey, err := decodePrivateKey([]byte(privateKeyString))
+	privateKey, err := seclib2.DecodePrivateKey([]byte(privateKeyString))
 	if err != nil {
 		t.Fatalf("decodePrivateKey fail %s", err)
 	}

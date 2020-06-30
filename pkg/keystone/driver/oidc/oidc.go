@@ -18,8 +18,6 @@ import (
 	"context"
 	"fmt"
 
-	"yunion.io/x/onecloud/pkg/util/oidcutils/client"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -29,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/oidcutils/client"
 )
 
 // OpenID Connect client driver
