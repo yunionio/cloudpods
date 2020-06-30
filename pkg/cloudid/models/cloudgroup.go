@@ -756,7 +756,7 @@ func (self *SCloudgroup) IsEqual(iPolicies []cloudprovider.ICloudpolicy) (bool, 
 	if err != nil {
 		return false, errors.Wrap(err, "CompareSets")
 	}
-	return len(iPolicies) == len(commondb), nil
+	return len(removed)+len(added) == 0, nil
 }
 
 func (self *SCloudgroup) attachPolicyFromCloudpolicy(ctx context.Context, userCred mcclient.TokenCredential, iPolicy cloudprovider.ICloudpolicy) error {
@@ -767,6 +767,13 @@ func (self *SCloudgroup) attachPolicyFromCloudpolicy(ctx context.Context, userCr
 	if err != nil {
 		return errors.Wrapf(err, "db.FetchByExternalId(%s)", iPolicy.GetGlobalId())
 	}
-	up.CloudpolicyId = p.GetId()
-	return CloudgroupPolicyManager.TableSpec().Insert(ctx, up)
+	_, err = self.GetCloudpolicy(p.GetId())
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			up.CloudpolicyId = p.GetId()
+			return CloudgroupPolicyManager.TableSpec().Insert(ctx, up)
+		}
+		return errors.Wrapf(err, "GetCloudpolicy(%s)", p.GetId())
+	}
+	return nil
 }
