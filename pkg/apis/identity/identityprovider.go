@@ -18,6 +18,7 @@ import "yunion.io/x/onecloud/pkg/apis"
 
 type IdentityProviderDetails struct {
 	apis.EnabledStatusStandaloneResourceDetails
+	apis.DomainizedResourceInfo
 
 	// 认证源账号信息同步周期
 	SyncIntervalSeconds int `json:"sync_interval_seconds"`
@@ -83,4 +84,9 @@ type IdentityProviderCreateInput struct {
 
 	// 配置信息
 	Config TConfigs `json:"config"`
+}
+
+type GetIdpSamlMetadataInput struct {
+	// 缩进展示SAML sp metadata
+	Pretty *bool `json:"pretty"`
 }

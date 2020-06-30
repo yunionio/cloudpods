@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/options"
+	"yunion.io/x/onecloud/pkg/keystone/saml"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -41,6 +42,7 @@ import (
 
 type SIdentityProviderManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
+	db.SDomainizedResourceBaseManager
 }
 
 var (
@@ -73,6 +75,8 @@ desc identity_provider;
 
 type SIdentityProvider struct {
 	db.SEnabledStatusStandaloneResourceBase
+
+	db.SDomainizedResourceBase `default:""`
 
 	Driver   string `width:"32" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
 	Template string `width:"32" charset:"ascii" nullable:"true" list:"admin" create:"admin_optional"`
@@ -323,6 +327,10 @@ func (manager *SIdentityProviderManager) ValidateCreateData(
 			}
 		}
 		input.TargetDomain = domain.Id
+
+		if domain.Id != ownerId.GetProjectDomainId() && !db.IsAdminAllowCreate(userCred, manager) {
+			return input, errors.Wrap(httperrors.ErrNotSufficientPrivilege, "require system priviliges")
+		}
 	}
 
 	var err error
@@ -341,6 +349,10 @@ func (manager *SIdentityProviderManager) ValidateCreateData(
 
 func (ident *SIdentityProvider) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	ident.SetEnabled(true)
+	if !db.IsAdminAllowCreate(userCred, ident.GetModelManager()) {
+		ident.DomainId = ownerId.GetProjectDomainId()
+		ident.TargetDomainId = ownerId.GetProjectDomainId()
+	}
 	return ident.SEnabledStatusStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
@@ -447,10 +459,10 @@ func (manager *SIdentityProviderManager) FetchCustomizeColumns(
 	rows := make([]api.IdentityProviderDetails, len(objs))
 
 	stdRows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	domainRows := manager.SDomainizedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
-		rows[i] = api.IdentityProviderDetails{
-			EnabledStatusStandaloneResourceDetails: stdRows[i],
-		}
+		rows[i].EnabledStatusStandaloneResourceDetails = stdRows[i]
+		rows[i].DomainizedResourceInfo = domainRows[i]
 		rows[i] = objs[i].(*SIdentityProvider).getMoreDetails(rows[i])
 	}
 
@@ -788,7 +800,7 @@ func (self *SIdentityProvider) startDeleteIdentityProviderTask(ctx context.Conte
 	return nil
 }
 
-func (self *SIdentityProvider) GetSingleDomain(ctx context.Context, extId string, extName string, extDesc string) (*SDomain, error) {
+func (self *SIdentityProvider) GetSingleDomain(ctx context.Context, extId string, extName string, extDesc string, createDefaultProject bool) (*SDomain, error) {
 	if len(self.TargetDomainId) > 0 {
 		targetDomain, err := DomainManager.FetchDomainById(self.TargetDomainId)
 		if err != nil && err != sql.ErrNoRows {
@@ -800,10 +812,10 @@ func (self *SIdentityProvider) GetSingleDomain(ctx context.Context, extId string
 			return targetDomain, nil
 		}
 	}
-	return self.SyncOrCreateDomain(ctx, extId, extName, extDesc)
+	return self.SyncOrCreateDomain(ctx, extId, extName, extDesc, createDefaultProject)
 }
 
-func (self *SIdentityProvider) SyncOrCreateDomain(ctx context.Context, extId string, extName string, extDesc string) (*SDomain, error) {
+func (self *SIdentityProvider) SyncOrCreateDomain(ctx context.Context, extId string, extName string, extDesc string, createDefaultProject bool) (*SDomain, error) {
 	domainId, err := IdmappingManager.RegisterIdMap(ctx, self.Id, extId, api.IdMappingEntityDomain)
 	if err != nil {
 		return nil, errors.Wrap(err, "IdmappingManager.RegisterIdMap")
@@ -851,7 +863,7 @@ func (self *SIdentityProvider) SyncOrCreateDomain(ctx context.Context, extId str
 		return nil, errors.Wrap(err, "insert")
 	}
 
-	if self.AutoCreateProject.IsTrue() && consts.GetNonDefaultDomainProjects() {
+	if self.AutoCreateProject.IsTrue() && consts.GetNonDefaultDomainProjects() && createDefaultProject {
 		_, err := ProjectManager.NewProject(ctx,
 			fmt.Sprintf("%s_default_project", extName),
 			fmt.Sprintf("Default project for domain %s", extName),
@@ -950,6 +962,10 @@ func (manager *SIdentityProviderManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
+	q, err = manager.SDomainizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.DomainizedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDomainizedResourceBaseManager.ListItemFilter")
+	}
 	if len(query.Driver) > 0 {
 		q = q.In("driver", query.Driver)
 	}
@@ -974,6 +990,10 @@ func (manager *SIdentityProviderManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields")
 	}
+	q, err = manager.SDomainizedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.DomainizedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDomainizedResourceBaseManager.OrderByExtraFields")
+	}
 
 	return q, nil
 }
@@ -985,6 +1005,125 @@ func (manager *SIdentityProviderManager) QueryDistinctExtraField(q *sqlchemy.SQu
 	if err == nil {
 		return q, nil
 	}
+	q, err = manager.SDomainizedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
 
 	return q, httperrors.ErrNotFound
+}
+
+func fetchAttribute(attrs map[string][]string, key string) string {
+	if v, ok := attrs[key]; ok && len(v) > 0 {
+		return v[0]
+	}
+	return ""
+}
+
+func fetchAttributes(attrs map[string][]string, key string) []string {
+	if v, ok := attrs[key]; ok && len(v) > 0 {
+		return v
+	}
+	return nil
+}
+
+func (idp *SIdentityProvider) TryUserJoinProject(attrConf api.SIdpAttributeOptions, ctx context.Context, usr *SUser, domainId string, attrs map[string][]string) {
+	// update user attributes
+	_, err := db.Update(usr, func() error {
+		if v, ok := attrs[attrConf.UserDisplaynameAttribtue]; ok && len(v) > 0 {
+			usr.Displayname = v[0]
+		}
+		if v, ok := attrs[attrConf.UserEmailAttribute]; ok && len(v) > 0 {
+			usr.Email = v[0]
+		}
+		if v, ok := attrs[attrConf.UserMobileAttribute]; ok && len(v) > 0 {
+			usr.Mobile = v[0]
+		}
+		return nil
+	})
+	if err != nil {
+		log.Errorf("update user attributes fail %s", err)
+	}
+
+	var targetProject *SProject
+	log.Debugf("userTryJoinProject resp %s proj %s", attrs, attrConf.ProjectAttribute)
+	if !consts.GetNonDefaultDomainProjects() {
+		// if non-default-domain-project is disabled, place new project in default domain
+		domainId = api.DEFAULT_DOMAIN_ID
+	}
+	if len(attrConf.ProjectAttribute) > 0 {
+		projName := fetchAttribute(attrs, attrConf.ProjectAttribute)
+		if len(projName) > 0 {
+			targetProject, err = ProjectManager.FetchProject("", projName, domainId, "")
+			if err != nil {
+				log.Errorf("fetch project %s fail %s", projName, err)
+				if errors.Cause(err) == sql.ErrNoRows && idp.AutoCreateProject.IsTrue() {
+					targetProject, err = ProjectManager.NewProject(ctx, projName, fmt.Sprintf("auto create project for idp %s", idp.Name), domainId)
+					if err != nil {
+						log.Errorf("auto create project %s fail %s", projName, err)
+					}
+				}
+			}
+		}
+	}
+	if targetProject == nil && len(attrConf.DefaultProjectId) > 0 {
+		targetProject, err = ProjectManager.FetchProjectById(attrConf.DefaultProjectId)
+		if err != nil {
+			log.Errorf("fetch default project %s fail %s", attrConf.DefaultProjectId, err)
+		}
+	}
+	if targetProject != nil {
+		// put user in project
+		targetRoles := make([]*SRole, 0)
+		if len(attrConf.RolesAttribute) > 0 {
+			roleNames := fetchAttributes(attrs, attrConf.RolesAttribute)
+			for _, roleName := range roleNames {
+				if len(roleName) > 0 {
+					targetRole, err := RoleManager.FetchRole("", roleName, domainId, "")
+					if err != nil {
+						log.Errorf("fetch role %s fail %s", roleName, err)
+					} else {
+						targetRoles = append(targetRoles, targetRole)
+					}
+				}
+			}
+		}
+		if len(targetRoles) == 0 && len(attrConf.DefaultRoleId) > 0 {
+			targetRole, err := RoleManager.FetchRoleById(attrConf.DefaultRoleId)
+			if err != nil {
+				log.Errorf("fetch default role %s fail %s", attrConf.DefaultRoleId, err)
+			} else {
+				targetRoles = append(targetRoles, targetRole)
+			}
+		}
+		for _, targetRole := range targetRoles {
+			err = AssignmentManager.ProjectAddUser(ctx, GetDefaultAdminCred(), targetProject, usr, targetRole)
+			if err != nil {
+				log.Errorf("CAS user %s join project %s with role %s fail %s", usr.Name, targetProject.Name, targetRole.Name, err)
+			}
+		}
+	}
+}
+
+func (idp *SIdentityProvider) AllowGetDetailsSamlMetadata(ctx context.Context, userCred mcclient.TokenCredential, query api.GetIdpSamlMetadataInput) bool {
+	return db.IsAdminAllowGetSpec(userCred, idp, "saml-metadata")
+}
+
+func (idp *SIdentityProvider) GetDetailsSamlMetadata(ctx context.Context, userCred mcclient.TokenCredential, query api.GetIdpSamlMetadataInput) (jsonutils.JSONObject, error) {
+	if !saml.IsSAMLEnabled() {
+		return nil, errors.Wrap(httperrors.ErrNotSupported, "enable SSL first")
+	}
+	if idp.Driver != api.IdentityDriverSAML {
+		return nil, errors.Wrap(httperrors.ErrNotSupported, "not a saml IDP")
+	}
+	pretty := false
+	if query.Pretty != nil && *query.Pretty {
+		pretty = true
+	}
+	md := struct {
+		Metadata string `json:"metadata"`
+	}{
+		Metadata: saml.GetMetadata(idp.Name, pretty),
+	}
+	return jsonutils.Marshal(md), nil
 }

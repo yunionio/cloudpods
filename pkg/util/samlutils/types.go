@@ -263,9 +263,9 @@ type Issuer struct {
 type NameIDPolicy struct {
 	XMLName xml.Name
 
-	AllowCreate     string `xml:"AllowCreate,attr"`
-	Format          string `xml:"Format,attr"`
-	SPNameQualifier string `xml:"SPNameQualifier,attr"`
+	AllowCreate     string  `xml:"AllowCreate,attr"`
+	Format          string  `xml:"Format,attr"`
+	SPNameQualifier *string `xml:"SPNameQualifier,attr"`
 }
 
 type AuthnRequest struct {

@@ -28,12 +28,10 @@ import (
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/keystone/cronjobs"
-	_ "yunion.io/x/onecloud/pkg/keystone/driver/cas"
-	_ "yunion.io/x/onecloud/pkg/keystone/driver/ldap"
-	_ "yunion.io/x/onecloud/pkg/keystone/driver/sql"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	_ "yunion.io/x/onecloud/pkg/keystone/policy"
+	"yunion.io/x/onecloud/pkg/keystone/saml"
 	_ "yunion.io/x/onecloud/pkg/keystone/tasks"
 	"yunion.io/x/onecloud/pkg/keystone/tokens"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -86,6 +84,14 @@ func StartService() {
 
 		cron.Start()
 		defer cron.Stop()
+	}
+
+	if options.Options.EnableSsl {
+		// enable SAML support only if ssl is enabled
+		err := saml.InitSAMLInstance()
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	go func() {

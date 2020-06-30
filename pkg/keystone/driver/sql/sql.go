@@ -31,8 +31,8 @@ type SSQLDriver struct {
 	driver.SBaseIdentityDriver
 }
 
-func NewSQLDriver(idpId, idpName, template, targetDomainId string, autoCreateProject bool, conf api.TConfigs) (driver.IIdentityBackend, error) {
-	base, err := driver.NewBaseIdentityDriver(idpId, idpName, template, targetDomainId, autoCreateProject, conf)
+func NewSQLDriver(idpId, idpName, template, targetDomainId string, conf api.TConfigs) (driver.IIdentityBackend, error) {
+	base, err := driver.NewBaseIdentityDriver(idpId, idpName, template, targetDomainId, conf)
 	if err != nil {
 		return nil, err
 	}

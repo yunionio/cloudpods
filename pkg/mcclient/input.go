@@ -110,6 +110,11 @@ type SAuthenticationIdentity struct {
 	CASTicket struct {
 		Id string `json:"id,omitempty"`
 	} `json:"cas_ticket,omitempty"`
+	// 当认证方式为saml时，通过该字段提供SAML认证的Response信息
+	SAMLAuth struct {
+		Response   string `json:"response,omitempty"`
+		RelayState string `json:"relay_state,omitempty"`
+	} `json:"saml_auth,omitempty"`
 }
 
 type SAuthenticationInputV3 struct {

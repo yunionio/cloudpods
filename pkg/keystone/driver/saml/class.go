@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cas
+package saml
 
 import (
 	"context"
@@ -28,58 +28,57 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
-type SCASDriverClass struct{}
+type SSAMLDriverClass struct{}
 
-func (self *SCASDriverClass) SingletonInstance() bool {
-	return true
+func (self *SSAMLDriverClass) SingletonInstance() bool {
+	return false
 }
 
-func (self *SCASDriverClass) SyncMethod() string {
+func (self *SSAMLDriverClass) SyncMethod() string {
 	return api.IdentityProviderSyncOnAuth
 }
 
-func (self *SCASDriverClass) NewDriver(idpId, idpName, template, targetDomainId string, conf api.TConfigs) (driver.IIdentityBackend, error) {
-	return NewCASDriver(idpId, idpName, template, targetDomainId, conf)
+func (self *SSAMLDriverClass) NewDriver(idpId, idpName, template, targetDomainId string, conf api.TConfigs) (driver.IIdentityBackend, error) {
+	return NewSAMLDriver(idpId, idpName, template, targetDomainId, conf)
 }
 
-func (self *SCASDriverClass) Name() string {
-	return api.IdentityDriverCAS
+func (self *SSAMLDriverClass) Name() string {
+	return api.IdentityDriverSAML
 }
 
-func (self *SCASDriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, tconf api.TConfigs) (api.TConfigs, error) {
-
-	conf := api.SCASIdpConfigOptions{}
-	confJson := jsonutils.Marshal(tconf["cas"])
+func (self *SSAMLDriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, tconf api.TConfigs) (api.TConfigs, error) {
+	conf := api.SSAMLIdpConfigOptions{}
+	confJson := jsonutils.Marshal(tconf["saml"])
 	err := confJson.Unmarshal(&conf)
 	if err != nil {
 		return tconf, errors.Wrap(err, "unmarshal config")
 	}
-	if len(conf.DefaultCasProjectId) > 0 {
-		obj, err := models.ProjectManager.FetchByIdOrName(userCred, conf.DefaultCasProjectId)
+	if len(conf.DefaultProjectId) > 0 {
+		obj, err := models.ProjectManager.FetchByIdOrName(userCred, conf.DefaultProjectId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
-				return tconf, errors.Wrapf(httperrors.ErrResourceNotFound, "project %s", conf.DefaultCasProjectId)
+				return tconf, errors.Wrapf(httperrors.ErrResourceNotFound, "project %s", conf.DefaultProjectId)
 			} else {
 				return tconf, errors.Wrap(err, "FetchProjectById")
 			}
 		}
-		tconf["cas"]["default_cas_project_id"] = jsonutils.NewString(obj.GetId())
+		tconf["cas"]["default_project_id"] = jsonutils.NewString(obj.GetId())
 	}
-	if len(conf.DefaultCasRoleId) > 0 {
-		obj, err := models.RoleManager.FetchByIdOrName(userCred, conf.DefaultCasRoleId)
+	if len(conf.DefaultRoleId) > 0 {
+		obj, err := models.RoleManager.FetchByIdOrName(userCred, conf.DefaultRoleId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
-				return tconf, errors.Wrapf(httperrors.ErrResourceNotFound, "role %s", conf.DefaultCasRoleId)
+				return tconf, errors.Wrapf(httperrors.ErrResourceNotFound, "role %s", conf.DefaultRoleId)
 			} else {
 				return tconf, errors.Wrap(err, "FetchRoleById")
 			}
 		}
-		tconf["cas"]["default_cas_role_id"] = jsonutils.NewString(obj.GetId())
+		tconf["cas"]["default_role_id"] = jsonutils.NewString(obj.GetId())
 	}
 
 	return tconf, nil
 }
 
 func init() {
-	driver.RegisterDriverClass(&SCASDriverClass{})
+	driver.RegisterDriverClass(&SSAMLDriverClass{})
 }

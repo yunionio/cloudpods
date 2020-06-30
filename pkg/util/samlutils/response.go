@@ -374,3 +374,21 @@ func (saml *SSAMLInstance) UnmarshalResponse(xmlText []byte) (*Response, error) 
 
 	return &resp, nil
 }
+
+func (samlResp Response) FetchAttribtues() map[string][]string {
+	ret := make(map[string][]string)
+	if samlResp.Assertion != nil && samlResp.Assertion.AttributeStatement != nil {
+		for _, attr := range samlResp.Assertion.AttributeStatement.Attributes {
+			values := make([]string, len(attr.AttributeValues))
+			for i := range values {
+				values[i] = attr.AttributeValues[i].Value
+			}
+			ret[attr.Name] = values
+		}
+	}
+	return ret
+}
+
+func (samlResp Response) IsSuccess() bool {
+	return samlResp.Status.StatusCode.Value == STATUS_SUCCESS
+}

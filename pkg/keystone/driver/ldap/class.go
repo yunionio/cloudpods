@@ -32,8 +32,8 @@ func (self *SLDAPDriverClass) SyncMethod() string {
 	return api.IdentityProviderSyncFull
 }
 
-func (self *SLDAPDriverClass) NewDriver(idpId, idpName, template, targetDomainId string, autoCreateProject bool, conf api.TConfigs) (driver.IIdentityBackend, error) {
-	return NewLDAPDriver(idpId, idpName, template, targetDomainId, autoCreateProject, conf)
+func (self *SLDAPDriverClass) NewDriver(idpId, idpName, template, targetDomainId string, conf api.TConfigs) (driver.IIdentityBackend, error) {
+	return NewLDAPDriver(idpId, idpName, template, targetDomainId, conf)
 }
 
 func (self *SLDAPDriverClass) Name() string {

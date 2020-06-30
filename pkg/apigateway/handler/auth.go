@@ -289,6 +289,12 @@ func (h *AuthHandlers) doCredentialLogin(ctx context.Context, req *http.Request,
 			return nil, httperrors.NewInputParameterError("cas_ticket is empty")
 		}
 		token, err = auth.Client().AuthenticateCAS(ticket, "", "", "", cliIp)
+	} else if body.Contains("saml_response") {
+		samlResp, _ := body.GetString("saml_response")
+		if len(samlResp) == 0 {
+			return nil, httperrors.NewInputParameterError("saml_response is empty")
+		}
+		token, err = auth.Client().AuthenticateSAML(samlResp, "", "", "", cliIp)
 	} else {
 		return nil, httperrors.NewInputParameterError("missing credential")
 	}

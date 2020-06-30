@@ -50,7 +50,7 @@ func submitIdpSyncTask(ctx context.Context, userCred mcclient.TokenCredential, i
 			idp.MarkDisconnected(ctx, userCred, err)
 			return
 		}
-		driver, err := driver.GetDriver(idp.Driver, idp.Id, idp.Name, idp.Template, idp.TargetDomainId, idp.AutoCreateProject.Bool(), conf)
+		driver, err := driver.GetDriver(idp.Driver, idp.Id, idp.Name, idp.Template, idp.TargetDomainId, conf)
 		if err != nil {
 			log.Errorf("GetDriver for idp %s fail %s", idp.Name, err)
 			idp.MarkDisconnected(ctx, userCred, err)

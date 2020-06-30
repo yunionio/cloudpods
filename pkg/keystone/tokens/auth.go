@@ -17,6 +17,8 @@ package tokens
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
+	"encoding/xml"
 	"fmt"
 	"time"
 
@@ -29,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/options"
+	"yunion.io/x/onecloud/pkg/keystone/saml"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/s3auth"
 )
@@ -155,7 +158,7 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 		return nil, errors.Wrap(err, "GetConfig")
 	}
 
-	backend, err := driver.GetDriver(idp.Driver, idp.Id, idp.Name, idp.Template, idp.TargetDomainId, idp.AutoCreateProject.Bool(), conf)
+	backend, err := driver.GetDriver(idp.Driver, idp.Id, idp.Name, idp.Template, idp.TargetDomainId, conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "driver.GetDriver")
 	}
@@ -189,10 +192,75 @@ func authUserByCASV3(ctx context.Context, input mcclient.SAuthenticationInputV3)
 		return nil, errors.Wrap(err, "idp.GetConfig")
 	}
 
-	backend, err := driver.GetDriver(idp.Driver, idp.Id, idp.Name, idp.Template, idp.TargetDomainId, idp.AutoCreateProject.Bool(), conf)
+	backend, err := driver.GetDriver(idp.Driver, idp.Id, idp.Name, idp.Template, idp.TargetDomainId, conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "driver.GetDriver")
 	}
+
+	usr, err := backend.Authenticate(ctx, input.Auth.Identity)
+	if err != nil {
+		return nil, errors.Wrap(err, "Authenticate")
+	}
+
+	if idp.Status == api.IdentityDriverStatusDisconnected {
+		idp.MarkConnected(ctx, models.GetDefaultAdminCred())
+	}
+
+	return usr, nil
+}
+
+func authUserBySAML(ctx context.Context, input mcclient.SAuthenticationInputV3) (*api.SUserExtended, error) {
+	if !saml.IsSAMLEnabled() {
+		return nil, errors.Wrap(httperrors.ErrNotSupported, "unsupported SAML backend")
+	}
+
+	idps, err := models.IdentityProviderManager.FetchEnabledProviders(api.IdentityDriverSAML)
+	if err != nil {
+		return nil, errors.Wrap(err, "models.fetchEnabledProviders")
+	}
+
+	samlRespBytes, err := base64.StdEncoding.DecodeString(input.Auth.Identity.SAMLAuth.Response)
+	if err != nil {
+		return nil, errors.Wrap(err, "base64.StdEncoding.DecodeString")
+	}
+
+	resp, err := saml.SAMLInstance().UnmarshalResponse(samlRespBytes)
+	if err != nil {
+		return nil, errors.Wrapf(httperrors.ErrInputParameter, "decode SAMLResponse error: %s", err)
+	}
+
+	var idp *models.SIdentityProvider
+	for i := range idps {
+		conf, _ := models.GetConfigs(&idps[i], true, nil, nil)
+		if conf != nil && conf["saml"] != nil && conf["saml"]["entity_id"] != nil {
+			entityId, _ := conf["saml"]["entity_id"].GetString()
+			if entityId == resp.Issuer.Issuer {
+				idp = &idps[i]
+				break
+			}
+		}
+	}
+
+	if idp == nil {
+		return nil, errors.Wrap(httperrors.ErrResourceNotFound, "No matched saml identity provider")
+	}
+
+	conf, err := models.GetConfigs(idp, true, nil, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "idp.GetConfig")
+	}
+
+	backend, err := driver.GetDriver(idp.Driver, idp.Id, idp.Name, idp.Template, idp.TargetDomainId, conf)
+	if err != nil {
+		return nil, errors.Wrap(err, "driver.GetDriver")
+	}
+
+	respXml, err := xml.Marshal(resp)
+	if err != nil {
+		return nil, errors.Wrap(err, "xml.Marshal SAML response")
+	}
+	// save to the input
+	input.Auth.Identity.SAMLAuth.Response = string(respXml)
 
 	usr, err := backend.Authenticate(ctx, input.Auth.Identity)
 	if err != nil {
@@ -283,6 +351,12 @@ func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 		user, err = authUserByCASV3(ctx, input)
 		if err != nil {
 			return nil, errors.Wrap(err, "authUserByCASV3")
+		}
+	case api.AUTH_METHOD_SAML:
+		// auth by SAML 2.0 IDP, keystone acts as a SAML SP
+		user, err = authUserBySAML(ctx, input)
+		if err != nil {
+			return nil, errors.Wrap(err, "authUserBySAML")
 		}
 	default:
 		// auth by other methods, password, openid, saml, etc...

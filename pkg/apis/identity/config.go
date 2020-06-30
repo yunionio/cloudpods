@@ -88,6 +88,9 @@ const (
 	IdpTemplateMSSingleDomain       = "msad_one_domain"
 	IdpTemplateMSMultiDomain        = "msad_multi_domain"
 	IdpTemplateOpenLDAPSingleDomain = "openldap_one_domain"
+
+	IdpTemplateSAMLTest    = "samltest_saml"
+	IdpTemplateAzureADSAML = "azure_ad_saml"
 )
 
 var (
@@ -95,6 +98,9 @@ var (
 		IdpTemplateMSSingleDomain:       IdentityDriverLDAP,
 		IdpTemplateMSMultiDomain:        IdentityDriverLDAP,
 		IdpTemplateOpenLDAPSingleDomain: IdentityDriverLDAP,
+
+		IdpTemplateSAMLTest:    IdentityDriverSAML,
+		IdpTemplateAzureADSAML: IdentityDriverSAML,
 	}
 )
 
