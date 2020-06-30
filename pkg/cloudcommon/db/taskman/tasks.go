@@ -264,7 +264,7 @@ func (manager *STaskManager) NewTask(
 		Stage:    TASK_INIT_STAGE,
 	}
 	task.SetModelManager(manager, task)
-	err := manager.TableSpec().Insert(ctx, &task)
+	err := manager.TableSpec().Insert(ctx, task)
 	if err != nil {
 		log.Errorf("Task insert error %s", err)
 		return nil, err
@@ -313,7 +313,7 @@ func (manager *STaskManager) NewParallelTask(
 		Stage:    TASK_INIT_STAGE,
 	}
 	task.SetModelManager(manager, task)
-	err := manager.TableSpec().Insert(ctx, &task)
+	err := manager.TableSpec().Insert(ctx, task)
 	if err != nil {
 		log.Errorf("Task insert error %s", err)
 		return nil, err
