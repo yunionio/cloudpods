@@ -108,7 +108,7 @@ func (s *SNFSStorage) checkAndMount() error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	err = procutils.NewCommandContext(ctx,
+	err = procutils.NewRemoteCommandContextAsFarAsPossible(ctx,
 		"mount", "-t", "nfs", fmt.Sprintf("%s:%s", host, sharedDir), s.Path).Run()
 	if err != nil {
 		return err
