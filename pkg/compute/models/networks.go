@@ -1612,7 +1612,8 @@ func (self *SNetwork) CustomizeCreate(ctx context.Context, userCred mcclient.Tok
 		if self.ServerType == api.NETWORK_TYPE_GUEST && !self.IsManaged() {
 			if db.IsAdminAllowPerform(userCred, self, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
 				self.SetShare(rbacutils.ScopeSystem)
-			} else if db.IsDomainAllowPerform(userCred, self, "public") && ownerId.GetProjectId() == userCred.GetProjectId() {
+			} else if db.IsDomainAllowPerform(userCred, self, "public") && ownerId.GetProjectId() == userCred.GetProjectId() && consts.GetNonDefaultDomainProjects() {
+				// only if non_default_domain_projects turned on, share to domain
 				self.SetShare(rbacutils.ScopeDomain)
 			} else {
 				self.SetShare(rbacutils.ScopeNone)
