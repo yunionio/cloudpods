@@ -276,9 +276,8 @@ func (self *SCloudgroup) removePolicies() error {
 }
 
 func (self *SCloudgroup) GetCloudpolicyQuery() *sqlchemy.SQuery {
-	q := CloudpolicyManager.Query()
-	sq := CloudgroupPolicyManager.Query().SubQuery()
-	return q.Join(sq, sqlchemy.Equals(q.Field("id"), sq.Field("cloudpolicy_id"))).Filter(sqlchemy.Equals(sq.Field("cloudgroup_id"), self.Id))
+	sq := CloudgroupPolicyManager.Query("cloudpolicy_id").Equals("cloudgroup_id", self.Id).SubQuery()
+	return CloudpolicyManager.Query().In("id", sq)
 }
 
 func (self *SCloudgroup) GetCloudpolicyCount() (int, error) {
@@ -346,9 +345,8 @@ func (self *SCloudgroup) detachPolicy(policyId string) error {
 }
 
 func (self *SCloudgroup) GetClouduserQuery() *sqlchemy.SQuery {
-	q := ClouduserManager.Query()
-	sq := CloudgroupUserManager.Query().SubQuery()
-	return q.Join(sq, sqlchemy.Equals(q.Field("id"), sq.Field("clouduser_id"))).Filter(sqlchemy.Equals(sq.Field("cloudgroup_id"), self.Id))
+	sq := CloudgroupUserManager.Query("clouduser_id").Equals("cloudgroup_id", self.Id).SubQuery()
+	return ClouduserManager.Query().In("id", sq)
 }
 
 func (self *SCloudgroup) GetClouduserCount() (int, error) {
@@ -758,7 +756,7 @@ func (self *SCloudgroup) IsEqual(iPolicies []cloudprovider.ICloudpolicy) (bool, 
 	if err != nil {
 		return false, errors.Wrap(err, "CompareSets")
 	}
-	return len(iPolicies) == len(commondb), nil
+	return len(removed)+len(added) == 0, nil
 }
 
 func (self *SCloudgroup) attachPolicyFromCloudpolicy(ctx context.Context, userCred mcclient.TokenCredential, iPolicy cloudprovider.ICloudpolicy) error {
@@ -769,6 +767,13 @@ func (self *SCloudgroup) attachPolicyFromCloudpolicy(ctx context.Context, userCr
 	if err != nil {
 		return errors.Wrapf(err, "db.FetchByExternalId(%s)", iPolicy.GetGlobalId())
 	}
-	up.CloudpolicyId = p.GetId()
-	return CloudgroupPolicyManager.TableSpec().Insert(ctx, up)
+	_, err = self.GetCloudpolicy(p.GetId())
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			up.CloudpolicyId = p.GetId()
+			return CloudgroupPolicyManager.TableSpec().Insert(ctx, up)
+		}
+		return errors.Wrapf(err, "GetCloudpolicy(%s)", p.GetId())
+	}
+	return nil
 }

@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"net/http"
 	"net/url"
+	"time"
 
 	"golang.org/x/net/http/httpproxy"
 
@@ -48,6 +49,7 @@ type SCloudaccountManager struct {
 }
 
 var CloudaccountManager *SCloudaccountManager
+var isCloudacountSynced bool
 
 func init() {
 	CloudaccountManager = &SCloudaccountManager{
@@ -59,6 +61,7 @@ func init() {
 		),
 	}
 	CloudaccountManager.SetVirtualObject(CloudaccountManager)
+	isCloudacountSynced = false
 }
 
 type SCloudaccount struct {
@@ -279,6 +282,15 @@ func (manager *SCloudaccountManager) SyncCloudaccounts(ctx context.Context, user
 		result = account.syncCloudprovider(ctx, userCred)
 		log.Infof("sync cloudprovider for cloudaccount %s(%s) result: %s", account.Name, account.Id, result.Result())
 	}
+	isCloudacountSynced = true
+}
+
+// 避免第一次启动时，云账号列表为空，子账号及其他资源需要等待一个周期才能同步
+func waitForSync(task string) {
+	for isCloudacountSynced == false {
+		log.Debugf("cloudaccount not sync try later do task %s", task)
+		time.Sleep(time.Second * 30)
+	}
 }
 
 func (self SCloudaccount) GetGlobalId() string {
@@ -414,6 +426,7 @@ func (account *SCloudDelegate) GetProvider() (cloudprovider.ICloudProvider, erro
 }
 
 func (manager *SCloudaccountManager) SyncCloudusers(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	waitForSync("SyncCloudusersTask")
 	accounts, err := manager.GetCloudaccounts()
 	if err != nil {
 		log.Errorf("GetLocalCloudaccounts: %v", err)
@@ -594,7 +607,7 @@ func (self *SCloudaccount) SyncCloudpolicies(ctx context.Context, userCred mccli
 	}
 
 	for i := 0; i < len(added); i++ {
-		err := CloudpolicyManager.newFromCloudpolicy(ctx, userCred, added[i], self.Provider)
+		_, err := CloudpolicyManager.newFromCloudpolicy(ctx, userCred, added[i], self.Provider)
 		if err != nil {
 			result.AddError(err)
 			continue
@@ -716,6 +729,7 @@ func (manager *SCloudaccountManager) GetSupportCreateCloudgroupAccounts() ([]SCl
 }
 
 func (manager *SCloudaccountManager) SyncCloudpolicies(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	waitForSync("SyncCloudpoliciesTask")
 	accounts, err := manager.GetCloudaccounts()
 	if err != nil {
 		log.Errorf("GetCloudaccounts error: %v", err)
@@ -740,6 +754,7 @@ func (self *SCloudaccount) StartSyncCloudpolicyTask(ctx context.Context, userCre
 }
 
 func (manager *SCloudaccountManager) SyncCloudgroups(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	waitForSync("SyncCloudgroupsTask")
 	accounts, err := manager.GetSupportCreateCloudgroupAccounts()
 	if err != nil {
 		log.Errorf("GetSupportCreateCloudgroupAccounts error: %v", err)
@@ -804,12 +819,7 @@ func (self *SCloudaccount) SyncCloudgroupcaches(ctx context.Context, userCred mc
 	}
 
 	for i := 0; i < len(added); i++ {
-		group, err := self.GetOrCreateCloudgroup(ctx, userCred, added[i])
-		if err != nil {
-			result.AddError(err)
-			continue
-		}
-		err = CloudgroupcacheManager.newFromCloudgroup(ctx, userCred, added[i], group, self.Id)
+		_, err := self.newCloudgroup(ctx, userCred, added[i])
 		if err != nil {
 			result.AddError(err)
 			continue
@@ -817,6 +827,18 @@ func (self *SCloudaccount) SyncCloudgroupcaches(ctx context.Context, userCred mc
 		result.Add()
 	}
 	return result
+}
+
+func (self *SCloudaccount) newCloudgroup(ctx context.Context, userCred mcclient.TokenCredential, iGroup cloudprovider.ICloudgroup) (*SCloudgroupcache, error) {
+	group, err := self.GetOrCreateCloudgroup(ctx, userCred, iGroup)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetOrCreateCloudgroup")
+	}
+	cache, err := CloudgroupcacheManager.newFromCloudgroup(ctx, userCred, iGroup, group, self.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "newFromCloudgroup")
+	}
+	return cache, nil
 }
 
 func (self *SCloudaccount) GetOrCreateCloudgroup(ctx context.Context, userCred mcclient.TokenCredential, iGroup cloudprovider.ICloudgroup) (*SCloudgroup, error) {
@@ -827,6 +849,20 @@ func (self *SCloudaccount) GetOrCreateCloudgroup(ctx context.Context, userCred m
 	iPolicies, err := iGroup.GetISystemCloudpolicies()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetICloudpolicies")
+	}
+
+	for i := range iPolicies {
+		_, err := db.FetchByExternalId(CloudpolicyManager, iPolicies[i].GetGlobalId())
+		if err == nil {
+			continue
+		}
+		if errors.Cause(err) != sql.ErrNoRows {
+			return nil, errors.Wrapf(err, "db.FetchByExternalId(%s)", iPolicies[i].GetGlobalId())
+		}
+		_, err = CloudpolicyManager.newFromCloudpolicy(ctx, userCred, iPolicies[i], self.Provider)
+		if err != nil {
+			return nil, errors.Wrap(err, "newFromCloudpolicy")
+		}
 	}
 	for i := range groups {
 		isEqual, err := groups[i].IsEqual(iPolicies)

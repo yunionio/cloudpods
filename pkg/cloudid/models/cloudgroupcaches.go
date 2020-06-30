@@ -119,7 +119,7 @@ func (self *SCloudgroupcache) RealDelete(ctx context.Context, userCred mcclient.
 	return self.SStatusStandaloneResourceBase.Delete(ctx, userCred)
 }
 
-func (manager *SCloudgroupcacheManager) newFromCloudgroup(ctx context.Context, userCred mcclient.TokenCredential, iGroup cloudprovider.ICloudgroup, group *SCloudgroup, cloudaccountId string) error {
+func (manager *SCloudgroupcacheManager) newFromCloudgroup(ctx context.Context, userCred mcclient.TokenCredential, iGroup cloudprovider.ICloudgroup, group *SCloudgroup, cloudaccountId string) (*SCloudgroupcache, error) {
 	cache := &SCloudgroupcache{}
 	cache.SetModelManager(manager, cache)
 	cache.CloudgroupId = group.Id
@@ -128,7 +128,7 @@ func (manager *SCloudgroupcacheManager) newFromCloudgroup(ctx context.Context, u
 	cache.Status = api.CLOUD_GROUP_STATUS_AVAILABLE
 	cache.ExternalId = iGroup.GetGlobalId()
 	cache.CloudaccountId = cloudaccountId
-	return manager.TableSpec().Insert(ctx, cache)
+	return cache, manager.TableSpec().Insert(ctx, cache)
 }
 
 func (self *SCloudgroupcache) syncWithCloudgrup(ctx context.Context, userCred mcclient.TokenCredential, iGroup cloudprovider.ICloudgroup) error {

@@ -254,7 +254,7 @@ func (self *SCloudpolicy) AllowDeleteItem(ctx context.Context, userCred mcclient
 	return false
 }
 
-func (manager *SCloudpolicyManager) newFromCloudpolicy(ctx context.Context, userCred mcclient.TokenCredential, iPolicy cloudprovider.ICloudpolicy, provider string) error {
+func (manager *SCloudpolicyManager) newFromCloudpolicy(ctx context.Context, userCred mcclient.TokenCredential, iPolicy cloudprovider.ICloudpolicy, provider string) (*SCloudpolicy, error) {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
@@ -266,7 +266,7 @@ func (manager *SCloudpolicyManager) newFromCloudpolicy(ctx context.Context, user
 	policy.Provider = provider
 	policy.ExternalId = iPolicy.GetGlobalId()
 	policy.Description = iPolicy.GetDescription()
-	return manager.TableSpec().Insert(ctx, policy)
+	return policy, manager.TableSpec().Insert(ctx, policy)
 }
 
 func (self *SCloudpolicy) SyncWithCloudpolicy(ctx context.Context, userCred mcclient.TokenCredential, iPolicy cloudprovider.ICloudpolicy) error {
