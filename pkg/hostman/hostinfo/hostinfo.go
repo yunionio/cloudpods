@@ -86,7 +86,9 @@ type SHostInfo struct {
 	CloudregionId  string
 	ZoneManagerUri string
 
-	FullName string
+	FullName   string
+	SysError   map[string]string
+	SysWarning map[string]string
 }
 
 func (h *SHostInfo) GetIsolatedDeviceManager() *isolated_device.IsolatedDeviceManager {
@@ -156,6 +158,7 @@ func (h *SHostInfo) Init() error {
 			return err
 		}
 	}
+
 	log.Infof("Start detectHostInfo")
 	if err := h.detectHostInfo(); err != nil {
 		return err
@@ -305,15 +308,6 @@ func (h *SHostInfo) prepareEnv() error {
 	_, err := procutils.NewCommand("mkdir", "-p", options.HostOptions.ServersPath).Output()
 	if err != nil {
 		return fmt.Errorf("Failed to create path %s", options.HostOptions.ServersPath)
-	}
-
-	if len(qemutils.GetQemu("")) == 0 {
-		return fmt.Errorf("Qemu not installed")
-	}
-
-	_, err = procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemu(""), "-version").Output()
-	if err != nil {
-		return fmt.Errorf("Qemu/Kvm not installed")
 	}
 
 	_, err = procutils.NewCommand("ethtool", "-h").Output()
@@ -624,13 +618,25 @@ func (h *SHostInfo) detectSyssoftwareInfo() error {
 	h.detectOsDist()
 	h.detectKernelVersion()
 	if err := h.detectQemuVersion(); err != nil {
-		return err
+		h.SysError["qemu"] = err.Error()
 	}
 	h.detectOvsVersion()
+	if err := h.detectOvsKOVersion(); err != nil {
+		h.SysError["openvswitch"] = err.Error()
+	}
 	return nil
 }
 
 func (h *SHostInfo) detectQemuVersion() error {
+	if len(qemutils.GetQemu("")) == 0 {
+		return fmt.Errorf("Qemu not installed")
+	}
+
+	out, err := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemu(""), "-version").Output()
+	if err != nil {
+		return errors.Errorf("exec qemu version failed %s", out)
+	}
+
 	cmd := qemutils.GetQemu(options.HostOptions.DefaultQemuVersion)
 	version, err := procutils.NewRemoteCommandAsFarAsPossible(cmd, "--version").Output()
 	if err != nil {
@@ -665,6 +671,21 @@ func (h *SHostInfo) detectOvsVersion() {
 			log.Errorln("Failed to detect ovs version")
 		}
 	}
+}
+
+func (h *SHostInfo) detectOvsKOVersion() error {
+	output, err := procutils.NewRemoteCommandAsFarAsPossible("modinfo", "openvswitch").Output()
+	if err != nil {
+		return errors.Errorf("modinfo openvswitch failed %s", output)
+	}
+	lines := strings.Split(string(output), "\n")
+	for i := 0; i < len(lines); i++ {
+		if strings.HasPrefix(lines[i], "version:") {
+			log.Infof("kernel module openvswitch %s", lines[i])
+			return nil
+		}
+	}
+	return errors.Errorf("kernel module openvswitch paramters version not found, is kernel version correct ??")
 }
 
 func (h *SHostInfo) GetMasterNicIpAndMask() (string, int) {
@@ -976,8 +997,11 @@ func (h *SHostInfo) updateHostMetadata(hostname string) error {
 		OnKubernetes: onK8s,
 		Hostname:     hostname,
 	}
+	data := meta.JSON(meta)
+	data.Set("__sys_error", jsonutils.Marshal(h.SysError))
+	data.Set("__sys_warning", jsonutils.Marshal(h.SysWarning))
 
-	_, err := modules.Hosts.SetMetadata(h.GetSession(), h.HostId, meta.JSON(meta))
+	_, err := modules.Hosts.SetMetadata(h.GetSession(), h.HostId, data)
 	return err
 }
 
@@ -1055,6 +1079,14 @@ func (h *SHostInfo) PutHostOffline() {
 }
 
 func (h *SHostInfo) PutHostOnline() error {
+	if len(h.SysError) > 0 {
+		log.Fatalf("Can't put host online, unless resolve these problem %v", h.SysError)
+	}
+
+	if len(h.SysWarning) > 0 {
+		log.Warningf("Host have some hidden problem %v", h.SysWarning)
+	}
+
 	data := jsonutils.NewDict()
 	if options.HostOptions.EnableHealthChecker && len(options.HostOptions.EtcdEndpoints) > 0 {
 		_, err := host_health.InitHostHealthManager(h.HostId, h.onHostDown)
@@ -1622,6 +1654,8 @@ func NewHostInfo() (*SHostInfo, error) {
 
 	res.Nics = make([]*SNIC, 0)
 	res.IsRegistered = make(chan struct{})
+	res.SysError = make(map[string]string)
+	res.SysWarning = make(map[string]string)
 	return res, nil
 }
 
