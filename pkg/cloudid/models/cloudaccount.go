@@ -73,13 +73,27 @@ type SCloudaccount struct {
 
 func (manager *SCloudaccountManager) GetICloudaccounts() ([]SCloudaccount, error) {
 	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
+
+	data := []jsonutils.JSONObject{}
+	offset := int64(0)
 	params := jsonutils.NewDict()
-	result, err := modules.Cloudaccounts.List(s, params)
-	if err != nil {
-		return nil, errors.Wrap(err, "modules.Cloudaccounts.List")
+	params.Set("scope", jsonutils.NewString("system"))
+	params.Set("limit", jsonutils.NewInt(1024))
+	for {
+		params.Set("offset", jsonutils.NewInt(offset))
+		result, err := modules.Cloudaccounts.List(s, params)
+		if err != nil {
+			return nil, errors.Wrap(err, "modules.Cloudaccounts.List")
+		}
+		data = append(data, result.Data...)
+		if len(data) >= result.Total {
+			break
+		}
+		offset += 1024
 	}
+
 	accounts := []SCloudaccount{}
-	err = jsonutils.Update(&accounts, result.Data)
+	err := jsonutils.Update(&accounts, data)
 	if err != nil {
 		return nil, errors.Wrap(err, "jsonutils.Update")
 	}
