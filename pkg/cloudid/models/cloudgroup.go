@@ -765,7 +765,7 @@ func (self *SCloudgroup) attachPolicyFromCloudpolicy(ctx context.Context, userCr
 	up := &SCloudgroupPolicy{}
 	up.SetModelManager(CloudgroupPolicyManager, up)
 	up.CloudgroupId = self.Id
-	p, err := db.FetchByExternalId(CloudgroupPolicyManager, iPolicy.GetGlobalId())
+	p, err := db.FetchByExternalId(CloudpolicyManager, iPolicy.GetGlobalId())
 	if err != nil {
 		return errors.Wrapf(err, "db.FetchByExternalId(%s)", iPolicy.GetGlobalId())
 	}
