@@ -16,8 +16,6 @@ package hostman
 
 import (
 	"os"
-	"path"
-	"strings"
 
 	execlient "yunion.io/x/executor/client"
 	"yunion.io/x/log"
@@ -44,8 +42,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
-
-const TempBindMountPath = "/opt/cloud/workspace/temp-bind"
 
 type SHostService struct {
 	*service.SServiceBase
@@ -79,36 +75,9 @@ func (host *SHostService) InitService() {
 	if options.HostOptions.EnableRemoteExecutor {
 		execlient.Init(options.HostOptions.ExecutorSocketPath)
 		procutils.SetRemoteExecutor()
-		host.mountLocalImagePath()
 	}
 
 	system_service.Init()
-}
-
-func (host *SHostService) mountLocalImagePath() {
-	for i := 0; i < len(options.HostOptions.LocalImagePath); i++ {
-		if !strings.HasPrefix(options.HostOptions.LocalImagePath[i], "/opt/cloud") {
-			tempPath := path.Join(TempBindMountPath, options.HostOptions.LocalImagePath[i])
-			out, err := procutils.NewCommand("mkdir", "-p", tempPath).Output()
-			if err != nil {
-				log.Fatalf("mkdir temp mount path %s failed %s", tempPath, out)
-			}
-			out, err = procutils.NewCommand("mkdir", "-p", options.HostOptions.LocalImagePath[i]).Output()
-			if err != nil {
-				log.Fatalf("mkdir mount path %s failed %s", options.HostOptions.LocalImagePath[i], out)
-			}
-			if procutils.NewCommand("mountpoint", tempPath).Run() != nil {
-				out, err = procutils.NewRemoteCommandAsFarAsPossible("mount", "--bind", options.HostOptions.LocalImagePath[i], tempPath).Output()
-				if err != nil {
-					log.Fatalf("bind mount to temp path failed %s", out)
-				}
-			}
-			out, err = procutils.NewCommand("mount", "--bind", tempPath, options.HostOptions.LocalImagePath[i]).Output()
-			if err != nil {
-				log.Fatalf("bind mount temp path to local image path failed %s", out)
-			}
-		}
-	}
 }
 
 func (host *SHostService) OnExitService() {}
