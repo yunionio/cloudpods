@@ -265,7 +265,7 @@ func (region *SRegion) CreateEip(eip *cloudprovider.SEip) (*SEipAddress, error) 
 	if len(eip.IP) > 0 {
 		parmas["floatingip"]["floating_ip_address"] = eip.IP
 	}
-	_, resp, err := region.PostWithProject(eip.ProjectId, "network", "/v2.0/floatingips", "", jsonutils.Marshal(parmas))
+	_, resp, err := region.Post("network", "/v2.0/floatingips", "", jsonutils.Marshal(parmas))
 	if err != nil {
 		return nil, err
 	}

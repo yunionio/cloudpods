@@ -150,26 +150,13 @@ func (cli *SOpenStackClient) fetchRegions() error {
 	return fmt.Errorf("failed to find right endpoint type")
 }
 
-func (cli *SOpenStackClient) Request(projectId string, region, service, method string, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
+func (cli *SOpenStackClient) Request(region, service, method string, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
 	header := http.Header{}
 	if len(microversion) > 0 {
 		header.Set("X-Openstack-Nova-API-Version", microversion)
 	}
 
-	var session *mcclient.ClientSession = nil
-	ctx := context.Background()
-	if method == "POST" && len(projectId) > 0 {
-		targetToken, err := cli.getProjectTokenCredential(projectId)
-		if err != nil {
-			log.Errorf("failed to get project %s token credential %v", projectId, err)
-		} else {
-			session = cli.client.NewSession(ctx, region, "", cli.endpointType, targetToken, "")
-		}
-	}
-	if session == nil {
-		session = cli.client.NewSession(ctx, region, "", cli.endpointType, cli.tokenCredential, "")
-	}
-
+	session := cli.client.NewSession(context.Background(), region, "", cli.endpointType, cli.tokenCredential, "")
 	serviceUrl, err := session.GetServiceURL(service, "")
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "GetServiceURL(%s)", service)

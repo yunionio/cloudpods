@@ -154,7 +154,7 @@ func (region *SRegion) GetSecurityGroupsByInstance(instanceId string) ([]Securit
 
 func (region *SRegion) GetInstances(hostName string) ([]SInstance, error) {
 	_, maxVersion, _ := region.GetVersion("compute")
-	url := "/servers/detail?all_tenants=True"
+	url := "/servers/detail"
 	instances := []SInstance{}
 	for len(url) > 0 {
 		_, resp, err := region.List("compute", url, maxVersion, nil)

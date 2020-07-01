@@ -2342,7 +2342,8 @@ func (account *SCloudaccount) syncAccountStatus(ctx context.Context, userCred mc
 			_, err := providers[i].prepareCloudproviderRegions(ctx, userCred)
 			if err != nil {
 				log.Errorf("syncCloudproviderRegion fail %s", err)
-				return errors.Wrap(err, "providers[i].prepareCloudproviderRegions")
+				providers[i].SetStatus(userCred, api.CLOUD_PROVIDER_SYNC_STATUS_ERROR, err.Error())
+				//return errors.Wrap(err, "providers[i].prepareCloudproviderRegions")
 			}
 		}
 	}

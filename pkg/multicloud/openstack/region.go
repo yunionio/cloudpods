@@ -296,7 +296,7 @@ func (region *SRegion) Get(service, url string, microversion string, body jsonut
 	if strings.HasSuffix(url, "/") {
 		return nil, nil, cloudprovider.ErrNotFound
 	}
-	header, resp, err := region.client.Request("", region.Name, service, "GET", url, microversion, body)
+	header, resp, err := region.client.Request(region.Name, service, "GET", url, microversion, body)
 	if err != nil {
 		if jsonErr, ok := err.(*httputils.JSONClientError); ok {
 			if jsonErr.Code == 404 || strings.HasSuffix(jsonErr.Class, "NotFound") {
@@ -309,7 +309,7 @@ func (region *SRegion) Get(service, url string, microversion string, body jsonut
 }
 
 func (region *SRegion) List(service, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
-	header, resp, err := region.client.Request("", region.Name, service, "GET", url, microversion, body)
+	header, resp, err := region.client.Request(region.Name, service, "GET", url, microversion, body)
 	if err != nil {
 		if jsonErr, ok := err.(*httputils.JSONClientError); ok {
 			if jsonErr.Code == 404 || strings.HasSuffix(jsonErr.Class, "NotFound") {
@@ -322,15 +322,11 @@ func (region *SRegion) List(service, url string, microversion string, body jsonu
 }
 
 func (region *SRegion) Post(service, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
-	return region.client.Request("", region.Name, service, "POST", url, microversion, body)
-}
-
-func (region *SRegion) PostWithProject(projectId string, service, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
-	return region.client.Request(projectId, region.Name, service, "POST", url, microversion, body)
+	return region.client.Request(region.Name, service, "POST", url, microversion, body)
 }
 
 func (region *SRegion) Update(service, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
-	return region.client.Request("", region.Name, service, "PUT", url, microversion, body)
+	return region.client.Request(region.Name, service, "PUT", url, microversion, body)
 }
 
 func (region *SRegion) Delete(service, url string, microversion string) (*http.Response, error) {
@@ -364,7 +360,7 @@ func (region *SRegion) CinderGet(url string, microversion string, body jsonutils
 
 func (region *SRegion) CinderCreate(projectId string, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
 	for _, service := range []string{"volumev3", "volumev2", "volume"} {
-		header, resp, err := region.PostWithProject(projectId, service, url, microversion, body)
+		header, resp, err := region.Post(service, url, microversion, body)
 		if err == nil || !strings.Contains(err.Error(), "No such service") {
 			return header, resp, err
 		}

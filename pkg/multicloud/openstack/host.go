@@ -298,7 +298,7 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 		params["server"]["key_name"] = keypairName
 	}
 
-	_, resp, err := host.zone.region.PostWithProject(desc.ProjectId, "compute", "/servers", "", jsonutils.Marshal(params))
+	_, resp, err := host.zone.region.Post("compute", "/servers", "", jsonutils.Marshal(params))
 	if err != nil {
 		return nil, err
 	}

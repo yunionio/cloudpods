@@ -547,7 +547,7 @@ func (manager *SCloudregionManager) FetchRegionById(id string) *SCloudregion {
 
 // 私有云cloudregion属于账号级资源
 func (manager *SCloudregionManager) migratePrivateCloudregion() error {
-	q := manager.Query().In("provider", api.PRIVATE_CLOUD_PROVIDERS).IsNotEmpty("manager_id").IsEmpty("cloudaccount_id")
+	q := manager.Query().In("provider", api.PRIVATE_CLOUD_PROVIDERS).IsNotEmpty("manager_id").IsNullOrEmpty("cloudaccount_id")
 	regions := []SCloudregion{}
 	err := db.FetchModelObjects(manager, q, &regions)
 	if err != nil {
