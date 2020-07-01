@@ -776,11 +776,18 @@ func (man *SLoadbalancerManager) SyncLoadbalancers(ctx context.Context, userCred
 	return localLbs, remoteLbs, syncResult
 }
 
-func getExtLbNetworkIds(extLb cloudprovider.ICloudLoadbalancer) []string {
+func getExtLbNetworkIds(extLb cloudprovider.ICloudLoadbalancer, managerId string) []string {
 	extNetworkIds := extLb.GetNetworkIds()
 	lbNetworkIds := []string{}
 	for _, networkId := range extNetworkIds {
-		if network, err := db.FetchByExternalId(NetworkManager, networkId); err == nil && network != nil {
+		network, err := db.FetchByExternalIdAndManagerId(NetworkManager, networkId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			wire := WireManager.Query().SubQuery()
+			vpc := VpcManager.Query().SubQuery()
+			return q.Join(wire, sqlchemy.Equals(wire.Field("id"), q.Field("wire_id"))).
+				Join(vpc, sqlchemy.Equals(vpc.Field("id"), wire.Field("vpc_id"))).
+				Filter(sqlchemy.Equals(vpc.Field("manager_id"), managerId))
+		})
+		if err == nil && network != nil {
 			lbNetworkIds = append(lbNetworkIds, network.GetId())
 		}
 	}
@@ -808,11 +815,13 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 	lb.ChargeType = extLb.GetChargeType()
 	lb.EgressMbps = extLb.GetEgressMbps()
 	lb.ExternalId = extLb.GetGlobalId()
-	lbNetworkIds := getExtLbNetworkIds(extLb)
+	lbNetworkIds := getExtLbNetworkIds(extLb, lb.ManagerId)
 	lb.NetworkId = strings.Join(lbNetworkIds, ",")
 
 	if vpcId := extLb.GetVpcId(); len(vpcId) > 0 {
-		if vpc, err := db.FetchByExternalId(VpcManager, vpcId); err == nil && vpc != nil {
+		if vpc, err := db.FetchByExternalIdAndManagerId(VpcManager, vpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			return q.Equals("manager_id", provider.Id)
+		}); err == nil && vpc != nil {
 			lb.VpcId = vpc.GetId()
 		}
 	}
@@ -984,14 +993,16 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 		lb.EgressMbps = extLb.GetEgressMbps()
 		lb.ChargeType = extLb.GetChargeType()
 		lb.ManagerId = provider.Id
-		lbNetworkIds := getExtLbNetworkIds(extLb)
+		lbNetworkIds := getExtLbNetworkIds(extLb, lb.ManagerId)
 		lb.NetworkId = strings.Join(lbNetworkIds, ",")
 		if extLb.GetMetadata() != nil {
 			lb.LBInfo = extLb.GetMetadata()
 		}
 
 		if vpcId := extLb.GetVpcId(); len(vpcId) > 0 {
-			if vpc, err := db.FetchByExternalId(VpcManager, vpcId); err == nil && vpc != nil {
+			if vpc, err := db.FetchByExternalIdAndManagerId(VpcManager, vpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				return q.Equals("manager_id", provider.Id)
+			}); err == nil && vpc != nil {
 				lb.VpcId = vpc.GetId()
 			}
 		}
@@ -1001,7 +1012,7 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 
 	db.OpsLog.LogSyncUpdate(lb, diff, userCred)
 
-	networkIds := getExtLbNetworkIds(extLb)
+	networkIds := getExtLbNetworkIds(extLb, lb.ManagerId)
 	SyncCloudProject(userCred, lb, syncOwnerId, extLb, provider.Id)
 	lb.syncLoadbalancerNetwork(ctx, userCred, networkIds)
 

@@ -586,7 +586,9 @@ func (manager *SElasticcacheManager) newFromCloudElasticcache(ctx context.Contex
 	}
 
 	if vpcId := extInstance.GetVpcId(); len(vpcId) > 0 {
-		vpc, err := db.FetchByExternalId(VpcManager, vpcId)
+		vpc, err := db.FetchByExternalIdAndManagerId(VpcManager, vpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			return q.Equals("manager_id", provider.Id)
+		})
 		if err != nil {
 			return nil, errors.Wrapf(err, "newFromCloudElasticcache.FetchVpcId")
 		}
@@ -594,7 +596,13 @@ func (manager *SElasticcacheManager) newFromCloudElasticcache(ctx context.Contex
 	}
 
 	if networkId := extInstance.GetNetworkId(); len(networkId) > 0 {
-		network, err := db.FetchByExternalId(NetworkManager, networkId)
+		network, err := db.FetchByExternalIdAndManagerId(NetworkManager, networkId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			wire := WireManager.Query().SubQuery()
+			vpc := VpcManager.Query().SubQuery()
+			return q.Join(wire, sqlchemy.Equals(wire.Field("id"), q.Field("wire_id"))).
+				Join(vpc, sqlchemy.Equals(vpc.Field("id"), wire.Field("vpc_id"))).
+				Filter(sqlchemy.Equals(vpc.Field("manager_id"), provider.Id))
+		})
 		if err != nil {
 			return nil, errors.Wrapf(err, "newFromCloudElasticcache.FetchNetworkId")
 		}

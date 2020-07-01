@@ -226,15 +226,28 @@ func (self *SCloudregion) getGuestCountInternal(increment bool) (int, error) {
 	return query.CountWithError()
 }
 
-func (self *SCloudregion) GetVpcCount() (int, error) {
+func (self *SCloudregion) GetVpcQuery() *sqlchemy.SQuery {
 	vpcs := VpcManager.Query()
 	if self.Id == api.DEFAULT_REGION_ID {
 		return vpcs.Filter(sqlchemy.OR(sqlchemy.IsNull(vpcs.Field("cloudregion_id")),
 			sqlchemy.IsEmpty(vpcs.Field("cloudregion_id")),
-			sqlchemy.Equals(vpcs.Field("cloudregion_id"), self.Id))).CountWithError()
-	} else {
-		return vpcs.Equals("cloudregion_id", self.Id).CountWithError()
+			sqlchemy.Equals(vpcs.Field("cloudregion_id"), self.Id)))
 	}
+	return vpcs.Equals("cloudregion_id", self.Id)
+}
+
+func (self *SCloudregion) GetVpcCount() (int, error) {
+	return self.GetVpcQuery().CountWithError()
+}
+
+func (self *SCloudregion) GetVpcs() ([]SVpc, error) {
+	vpcs := []SVpc{}
+	q := self.GetVpcQuery()
+	err := db.FetchModelObjects(VpcManager, q, &vpcs)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
+	}
+	return vpcs, nil
 }
 
 func (self *SCloudregion) GetDriver() IRegionDriver {
@@ -497,7 +510,7 @@ func (self *SCloudregion) AllowPerformDefaultVpc(ctx context.Context, userCred m
 }
 
 func (self *SCloudregion) PerformDefaultVpc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	vpcs, err := VpcManager.getVpcsByRegion(self, nil)
+	vpcs, err := self.GetVpcs()
 	if err != nil {
 		return nil, err
 	}

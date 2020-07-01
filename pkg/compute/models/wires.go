@@ -196,7 +196,10 @@ func (manager *SWireManager) GetOrCreateWireForClassicNetwork(ctx context.Contex
 	} else {
 		name = fmt.Sprintf("emulate for zone %s vpc %s classic network", zone.Name, vpc.Id)
 	}
-	_wire, err := db.FetchByExternalId(manager, externalId)
+	_wire, err := db.FetchByExternalIdAndManagerId(manager, externalId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		sq := VpcManager.Query().SubQuery()
+		return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), vpc.ManagerId))
+	})
 	if err == nil {
 		return _wire.(*SWire), nil
 	}
