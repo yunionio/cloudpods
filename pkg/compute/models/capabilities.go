@@ -42,6 +42,8 @@ type SCapabilities struct {
 	DisabledBrands              []string `json:",allowempty"`
 	ComputeEngineBrands         []string `json:",allowempty"`
 	DisabledComputeEngineBrands []string `json:",allowempty"`
+	CloudIdBrands               []string `json:",allowempty"`
+	DisabledCloudIdBrands       []string `json:",allowempty"`
 	NetworkManageBrands         []string `json:",allowempty"`
 	DisabledNetworkManageBrands []string `json:",allowempty"`
 	ObjectStorageBrands         []string `json:",allowempty"`
@@ -213,6 +215,7 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabi
 	capa.ComputeEngineBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_COMPUTE)
 	capa.NetworkManageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_NETWORK)
 	capa.ObjectStorageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE)
+	capa.CloudIdBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_CLOUDID)
 
 	if utils.IsInStringArray(api.HYPERVISOR_KVM, capa.Hypervisors) || utils.IsInStringArray(api.HYPERVISOR_BAREMETAL, capa.Hypervisors) {
 		capa.Brands = append(capa.Brands, api.ONECLOUD_BRAND_ONECLOUD)
@@ -224,6 +227,7 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabi
 	capa.DisabledComputeEngineBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_COMPUTE)
 	capa.DisabledNetworkManageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_NETWORK)
 	capa.DisabledObjectStorageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE)
+	capa.DisabledCloudIdBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_CLOUDID)
 
 	return
 }
