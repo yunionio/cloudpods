@@ -1291,7 +1291,9 @@ func (h *SHostInfo) onGetStorageInfoSucc(hoststorages []jsonutils.JSONObject) {
 			storage := storageManager.NewSharedStorageInstance(mountPoint, storagetype)
 			if storage != nil {
 				storage.SetStoragecacheId(storagecacheId)
-				storage.SetStorageInfo(storageId, storageName, storageConf)
+				if err := storage.SetStorageInfo(storageId, storageName, storageConf); err != nil {
+					h.onFail(err)
+				}
 				storageManager.Storages = append(storageManager.Storages, storage)
 				if err := storage.Accessible(); err != nil {
 					h.onFail(err)
@@ -1304,7 +1306,9 @@ func (h *SHostInfo) onGetStorageInfoSucc(hoststorages []jsonutils.JSONObject) {
 			storage := storageManager.GetStorageByPath(mountPoint)
 			if storage != nil {
 				storage.SetStoragecacheId(storagecacheId)
-				storage.SetStorageInfo(storageId, storageName, storageConf)
+				if err := storage.SetStorageInfo(storageId, storageName, storageConf); err != nil {
+					h.onFail(err)
+				}
 			} else {
 				// XXX hack: storage type baremetal is a converted host，reserve storage
 				if storagetype != api.STORAGE_BAREMETAL {
@@ -1338,7 +1342,9 @@ func (h *SHostInfo) onSyncStorageInfoSucc(storage storageman.IStorage, storageIn
 		id, _ := storageInfo.GetString("id")
 		name, _ := storageInfo.GetString("name")
 		storageConf, _ := storageInfo.Get("storage_conf")
-		storage.SetStorageInfo(id, name, storageConf)
+		if err := storage.SetStorageInfo(id, name, storageConf); err != nil {
+			h.onFail(err)
+		}
 		h.attachStorage(storage)
 	}
 }
