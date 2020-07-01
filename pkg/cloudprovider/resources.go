@@ -308,6 +308,9 @@ type ICloudVM interface {
 
 	Renew(bc billing.SBillingCycle) error
 
+	MigrateVM(hostid string) error
+	LiveMigrateVM(hostid string) error
+
 	GetError() error
 }
 

@@ -334,3 +334,99 @@ func (self *SOpenStackGuestDriver) AllowReconfigGuest() bool {
 func (self *SOpenStackGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) bool {
 	return false
 }
+
+func (self *SOpenStackGuestDriver) IsSupportMigrate() bool {
+	return true
+}
+
+func (self *SOpenStackGuestDriver) IsSupportLiveMigrate() bool {
+	return true
+}
+
+func (self *SOpenStackGuestDriver) CheckMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+	return nil
+}
+
+func (self *SOpenStackGuestDriver) CheckLiveMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+	return nil
+}
+
+func (self *SOpenStackGuestDriver) RequestMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iVM, err := guest.GetIVM()
+		if err != nil {
+			return nil, errors.Wrap(err, "guest.GetIVM")
+		}
+		hostID, _ := data.GetString("prefer_host_id")
+		hostExternalId := ""
+		if hostID != "" {
+			iHost, err := models.HostManager.FetchById(hostID)
+			if err != nil {
+				return nil, errors.Wrapf(err, "models.HostManager.FetchById(%s)", hostID)
+			}
+			host := iHost.(*models.SHost)
+			hostExternalId = host.ExternalId
+		}
+		if err = iVM.MigrateVM(hostExternalId); err != nil {
+			return nil, errors.Wrapf(err, "iVM.MigrateVM(%s)", hostExternalId)
+		}
+		hostExternalId = iVM.GetIHostId()
+		if hostExternalId == "" {
+			return nil, errors.Wrap(fmt.Errorf("empty hostExternalId"), "iVM.GetIHostId()")
+		}
+		iHost, err := db.FetchByExternalId(models.HostManager, hostExternalId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.FetchByExternalId(models.HostManager,%s)", hostExternalId)
+		}
+		host := iHost.(*models.SHost)
+		_, err = db.Update(guest, func() error {
+			guest.HostId = host.GetId()
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "db.Update guest.hostId")
+		}
+		return nil, nil
+	})
+	return nil
+}
+
+func (self *SOpenStackGuestDriver) RequestLiveMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iVM, err := guest.GetIVM()
+		if err != nil {
+			return nil, errors.Wrap(err, "guest.GetIVM")
+		}
+		hostID, _ := data.GetString("prefer_host_id")
+		hostExternalId := ""
+		if hostID != "" {
+			iHost, err := models.HostManager.FetchById(hostID)
+			if err != nil {
+				return nil, errors.Wrapf(err, "models.HostManager.FetchById(%s)", hostID)
+			}
+			host := iHost.(*models.SHost)
+			hostExternalId = host.ExternalId
+		}
+		if err = iVM.LiveMigrateVM(hostExternalId); err != nil {
+			return nil, errors.Wrapf(err, "iVM.LiveMigrateVM(%s)", hostExternalId)
+		}
+		hostExternalId = iVM.GetIHostId()
+		if hostExternalId == "" {
+			return nil, errors.Wrap(fmt.Errorf("empty hostExternalId"), "iVM.GetIHostId()")
+		}
+		iHost, err := db.FetchByExternalId(models.HostManager, hostExternalId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.FetchByExternalId(models.HostManager,%s)", hostExternalId)
+		}
+		host := iHost.(*models.SHost)
+		_, err = db.Update(guest, func() error {
+			guest.HostId = host.GetId()
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "db.Update guest.hostId")
+		}
+		return nil, nil
+	})
+	return nil
+}
