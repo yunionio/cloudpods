@@ -172,28 +172,6 @@ func syncRegionSkus(ctx context.Context, userCred mcclient.TokenCredential, loca
 	}
 }
 
-func syncProjects(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, driver cloudprovider.ICloudProvider, provider *SCloudprovider) {
-	projects, err := driver.GetIProjects()
-	if err != nil {
-		msg := fmt.Sprintf("GetIProjects for provider %s failed %s", provider.GetName(), err)
-		log.Errorf(msg)
-		// logSyncFailed(provider, task, msg)
-		return
-	}
-
-	result := ExternalProjectManager.SyncProjects(ctx, userCred, provider, projects)
-
-	syncResults.Add(ExternalProjectManager, result)
-
-	msg := result.Result()
-	log.Infof("SyncProjects for provider %s result: %s", provider.Name, msg)
-	if result.IsError() {
-		// logSyncFailed(provider, task, msg)
-		return
-	}
-	// db.OpsLog.LogEvent(provider, db.ACT_SYNC_PROJECT_COMPLETE, msg, task.UserCred)
-}
-
 func syncRegionEips(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
 	eips, err := remoteRegion.GetIEips()
 	if err != nil {
@@ -658,7 +636,7 @@ func syncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, syncRes
 }
 
 func syncVMPeripherals(ctx context.Context, userCred mcclient.TokenCredential, local *SGuest, remote cloudprovider.ICloudVM, host *SHost, provider *SCloudprovider, driver cloudprovider.ICloudProvider) {
-	syncMetadata(ctx, userCred, local, remote)
+	syncVirtualResourceMetadata(ctx, userCred, local, remote)
 	err := syncVMNics(ctx, userCred, provider, host, local, remote)
 	if err != nil {
 		log.Errorf("syncVMNics error %s", err)
@@ -1027,10 +1005,6 @@ func syncPublicCloudProviderInfo(
 
 	storageCachePairs := make([]sStoragecacheSyncPair, 0)
 
-	if cloudprovider.IsSupportProject(driver) {
-		syncProjects(ctx, userCred, syncResults, driver, provider)
-	}
-
 	syncRegionQuotas(ctx, userCred, syncResults, driver, provider, localRegion, remoteRegion)
 
 	localZones, remoteZones, _ := syncRegionZones(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
@@ -1123,10 +1097,6 @@ func syncOnPremiseCloudProviderInfo(
 	syncRange *SSyncRange,
 ) error {
 	log.Debugf("Start sync on-premise provider %s(%s)", provider.Name, provider.Provider)
-
-	if cloudprovider.IsSupportProject(driver) {
-		syncProjects(ctx, userCred, syncResults, driver, provider)
-	}
 
 	iregion, err := driver.GetOnPremiseIRegion()
 	if err != nil {
@@ -1221,7 +1191,7 @@ func SyncCloudProject(userCred mcclient.TokenCredential, model db.IVirtualModel,
 	if extProjectId := extModel.GetProjectId(); len(extProjectId) > 0 {
 		extProject, err := ExternalProjectManager.GetProject(extProjectId, managerId)
 		if err != nil {
-			log.Errorln(err)
+			log.Errorf("sync project for %s %s error: %v", model.Keyword(), model.GetName(), err)
 		} else {
 			newOwnerId = extProject.GetOwnerId()
 		}

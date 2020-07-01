@@ -16,6 +16,7 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -23,6 +24,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -54,6 +56,26 @@ func (self *CloudAccountSyncInfoTask) OnInit(ctx context.Context, obj db.IStanda
 		self.SetStageFailed(ctx, err.Error())
 		logclient.AddActionLogWithStartable(self, cloudaccount, logclient.ACT_CLOUD_SYNC, err, self.UserCred, false)
 		return
+	}
+
+	driver, err := cloudaccount.GetProvider()
+	if err != nil {
+		cloudaccount.MarkEndSyncWithLock(ctx, self.UserCred)
+		db.OpsLog.LogEvent(cloudaccount, db.ACT_SYNC_HOST_FAILED, err, self.UserCred)
+		self.SetStageFailed(ctx, err.Error())
+		logclient.AddActionLogWithStartable(self, cloudaccount, logclient.ACT_CLOUD_SYNC, err, self.UserCred, false)
+		return
+	}
+
+	if cloudprovider.IsSupportProject(driver) {
+		projects, err := driver.GetIProjects()
+		if err != nil {
+			msg := fmt.Sprintf("GetIProjects for cloudaccount %s failed %s", cloudaccount.GetName(), err)
+			log.Errorf(msg)
+		} else {
+			result := models.ExternalProjectManager.SyncProjects(ctx, self.GetUserCred(), cloudaccount, projects)
+			log.Infof("Sync project for cloudaccount %s result: %s", cloudaccount.GetName(), result.Result())
+		}
 	}
 
 	syncRange := models.SSyncRange{}

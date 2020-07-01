@@ -14,7 +14,11 @@
 
 package openstack
 
-import "yunion.io/x/jsonutils"
+import (
+	"yunion.io/x/jsonutils"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+)
 
 type SProject struct {
 	Description string
@@ -40,7 +44,7 @@ func (p *SProject) GetName() string {
 }
 
 func (p *SProject) GetStatus() string {
-	return ""
+	return api.EXTERNAL_PROJECT_STATUS_AVAILABLE
 }
 
 func (p *SProject) IsEmulated() bool {
