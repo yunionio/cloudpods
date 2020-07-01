@@ -1893,7 +1893,9 @@ func (self *SHost) Attach2Storage(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (self *SHost) newCloudHostStorage(ctx context.Context, userCred mcclient.TokenCredential, extStorage cloudprovider.ICloudStorage, provider *SCloudprovider) (*SStorage, error) {
-	storageObj, err := db.FetchByExternalId(StorageManager, extStorage.GetGlobalId())
+	storageObj, err := db.FetchByExternalIdAndManagerId(StorageManager, extStorage.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.Equals("manager_id", provider.Id)
+	})
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// no cloud storage found, this may happen for on-premise host
@@ -2008,7 +2010,10 @@ func (self *SHost) Attach2Wire(ctx context.Context, userCred mcclient.TokenCrede
 }
 
 func (self *SHost) newCloudHostWire(ctx context.Context, userCred mcclient.TokenCredential, extWire cloudprovider.ICloudWire) error {
-	wireObj, err := db.FetchByExternalId(WireManager, extWire.GetGlobalId())
+	wireObj, err := db.FetchByExternalIdAndManagerId(WireManager, extWire.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		sq := VpcManager.Query().SubQuery()
+		return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("vpc_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), self.ManagerId))
+	})
 	if err != nil {
 		log.Errorf("%s", err)
 		return nil
@@ -2076,7 +2081,10 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	for i := 0; i < len(added); i += 1 {
-		vm, err := db.FetchByExternalId(GuestManager, added[i].GetGlobalId())
+		vm, err := db.FetchByExternalIdAndManagerId(GuestManager, added[i].GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			sq := HostManager.Query().SubQuery()
+			return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("host_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), self.ManagerId))
+		})
 		if err != nil && err != sql.ErrNoRows {
 			log.Errorf("failed to found guest by externalId %s error: %v", added[i].GetGlobalId(), err)
 			continue
@@ -2088,7 +2096,9 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 				log.Errorf("failed to found ihost from vm %s", added[i].GetGlobalId())
 				continue
 			}
-			_host, err := db.FetchByExternalId(HostManager, ihost.GetGlobalId())
+			_host, err := db.FetchByExternalIdAndManagerId(HostManager, ihost.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				return q.Equals("manager_id", self.ManagerId)
+			})
 			if err != nil {
 				log.Errorf("failed to found host by externalId %s", ihost.GetGlobalId())
 				continue

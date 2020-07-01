@@ -324,7 +324,10 @@ func (acl *SCachedLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Cont
 		} else {
 			ext_listener_id := extAcl.GetAclListenerID()
 			if len(ext_listener_id) > 0 {
-				ilistener, err := db.FetchByExternalId(LoadbalancerListenerManager, ext_listener_id)
+				ilistener, err := db.FetchByExternalIdAndManagerId(LoadbalancerListenerManager, ext_listener_id, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+					sq := LoadbalancerManager.Query().SubQuery()
+					return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("loadbalancer_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), acl.ManagerId))
+				})
 				if err != nil {
 					return errors.Wrap(err, "cacheLoadbalancerAcl.sync.FetchByExternalId")
 				}
