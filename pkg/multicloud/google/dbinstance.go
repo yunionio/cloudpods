@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -320,7 +321,12 @@ func (rds *SDBInstance) GetDiskSizeGB() int {
 }
 
 func (rds *SDBInstance) GetCategory() string {
-	return rds.BackendType
+	switch rds.Settings.AvailabilityType {
+	case "REGIONAL":
+		return api.GOOGLE_DBINSTANCE_CATEGORY_REGIONAL
+	default:
+		return api.GOOGLE_DBINSTANCE_CATEGORY_ZONAL
+	}
 }
 
 func (rds *SDBInstance) GetStorageType() string {
@@ -545,6 +551,14 @@ func (region *SRegion) CreateRds(name, databaseVersion, category, instanceType, 
 		"dataDiskType":      storageType,
 		"dataDiskSizeGb":    diskSizeGb,
 	}
+	if utils.IsInStringArray(category, []string{api.GOOGLE_DBINSTANCE_CATEGORY_REGIONAL, api.GOOGLE_DBINSTANCE_CATEGORY_ZONAL}) {
+		settings["availabilityType"] = strings.ToUpper(category)
+		settings["backupConfiguration"] = map[string]interface{}{
+			"enabled":          true,
+			"binaryLogEnabled": true,
+			"startTime":        "19:00",
+		}
+	}
 	ipConfiguration := map[string]interface{}{
 		"ipv4Enabled": true,
 	}
@@ -560,10 +574,13 @@ func (region *SRegion) CreateRds(name, databaseVersion, category, instanceType, 
 		"name":            name,
 		"region":          region.Name,
 		"settings":        settings,
-		"backendType":     category,
+		"backendType":     "SECOND_GEN",
+		"instanceType":    "CLOUD_SQL_INSTANCE",
 	}
 	if len(zoneId) > 0 {
-		body["gceZone"] = zoneId
+		settings["locationPreference"] = map[string]string{
+			"zone": zoneId,
+		}
 	}
 	if len(password) > 0 {
 		body["rootPassword"] = password
