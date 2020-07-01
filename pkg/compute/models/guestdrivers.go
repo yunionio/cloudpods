@@ -189,6 +189,12 @@ type IGuestDriver interface {
 
 	IsSupportSetAutoRenew() bool
 	RequestSetAutoRenewInstance(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, autoRenew bool, task taskman.ITask) error
+	IsSupportMigrate() bool
+	IsSupportLiveMigrate() bool
+	CheckMigrate(guest *SGuest, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error
+	CheckLiveMigrate(guest *SGuest, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error
+	RequestMigrate(ctx context.Context, guest *SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error
+	RequestLiveMigrate(ctx context.Context, guest *SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error
 }
 
 var guestDrivers map[string]IGuestDriver

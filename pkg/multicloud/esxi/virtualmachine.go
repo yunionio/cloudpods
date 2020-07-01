@@ -40,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	cloudtypes "yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
@@ -47,6 +48,7 @@ import (
 var VIRTUAL_MACHINE_PROPS = []string{"name", "parent", "runtime", "summary", "config", "guest", "resourcePool", "layoutEx"}
 
 type SVirtualMachine struct {
+	multicloud.SInstanceBase
 	SManagedObject
 
 	vnics  []SVirtualNIC

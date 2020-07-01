@@ -317,35 +317,19 @@ func (self *SGuest) AllowPerformMigrate(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SGuest) PerformMigrate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.GetHypervisor() != api.HYPERVISOR_KVM {
+	if !self.GetDriver().IsSupportMigrate() {
 		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.GetHypervisor())
 	}
-	if len(self.BackupHostId) > 0 {
-		return nil, httperrors.NewBadRequestError("Guest have backup, can't migrate")
+	if err := self.GetDriver().CheckMigrate(self, userCred, data); err != nil {
+		return nil, err
 	}
-	isRescueMode := jsonutils.QueryBoolean(data, "rescue_mode", false)
-	if !isRescueMode && self.Status != api.VM_READY {
+	if self.Status != api.VM_READY {
 		return nil, httperrors.NewServerStatusError("Cannot normal migrate guest in status %s, try rescue mode or server-live-migrate?", self.Status)
 	}
-	if isRescueMode {
-		guestDisks := self.GetDisks()
-		for _, guestDisk := range guestDisks {
-			if utils.IsInStringArray(
-				guestDisk.GetDisk().GetStorage().StorageType, api.STORAGE_LOCAL_TYPES) {
-				return nil, httperrors.NewBadRequestError("Rescue mode requires all disk store in shared storages")
-			}
-		}
-	}
-	devices := self.GetIsolatedDevices()
-	if len(devices) > 0 {
-		return nil, httperrors.NewBadRequestError("Cannot migrate with isolated devices")
-	}
+	isRescueMode := jsonutils.QueryBoolean(data, "rescue_mode", false)
 	var preferHostId string
 	preferHost, _ := data.GetString("prefer_host")
 	if len(preferHost) > 0 {
-		if !db.IsAdminAllowPerform(userCred, self, "assign-host") {
-			return nil, httperrors.NewBadRequestError("Only system admin can assign host")
-		}
 		iHost, _ := HostManager.FetchByIdOrName(userCred, preferHost)
 		if iHost == nil {
 			return nil, httperrors.NewBadRequestError("Host %s not found", preferHost)
@@ -374,7 +358,11 @@ func (self *SGuest) StartMigrateTask(
 		data.Set("auto_start", jsonutils.JSONTrue)
 	}
 	data.Set("guest_status", jsonutils.NewString(guestStatus))
-	if task, err := taskman.TaskManager.NewTask(ctx, "GuestMigrateTask", self, userCred, data, parentTaskId, "", nil); err != nil {
+	dedicateMigrateTask := "GuestMigrateTask"
+	if self.GetHypervisor() != api.HYPERVISOR_KVM {
+		dedicateMigrateTask = "ManagedGuestMigrateTask" //托管私有云
+	}
+	if task, err := taskman.TaskManager.NewTask(ctx, dedicateMigrateTask, self, userCred, data, parentTaskId, "", nil); err != nil {
 		log.Errorln(err)
 		return err
 	} else {
@@ -388,30 +376,16 @@ func (self *SGuest) AllowPerformLiveMigrate(ctx context.Context, userCred mcclie
 }
 
 func (self *SGuest) PerformLiveMigrate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.GetHypervisor() != api.HYPERVISOR_KVM {
+	if !self.GetDriver().IsSupportLiveMigrate() {
 		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.GetHypervisor())
 	}
-	if len(self.BackupHostId) > 0 {
-		return nil, httperrors.NewBadRequestError("Guest have backup, can't migrate")
+	if err := self.GetDriver().CheckLiveMigrate(self, userCred, data); err != nil {
+		return nil, err
 	}
 	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_SUSPEND}) {
-		cdrom := self.getCdrom(false)
-		if cdrom != nil && len(cdrom.ImageId) > 0 {
-			return nil, httperrors.NewBadRequestError("Cannot live migrate with cdrom")
-		}
-		devices := self.GetIsolatedDevices()
-		if devices != nil && len(devices) > 0 {
-			return nil, httperrors.NewBadRequestError("Cannot live migrate with isolated devices")
-		}
-		if !self.CheckQemuVersion(self.GetQemuVersion(userCred), "1.1.2") {
-			return nil, httperrors.NewBadRequestError("Cannot do live migrate, too low qemu version")
-		}
 		var preferHostId string
 		preferHost, _ := data.GetString("prefer_host")
 		if len(preferHost) > 0 {
-			if !db.IsAdminAllowPerform(userCred, self, "assign-host") {
-				return nil, httperrors.NewBadRequestError("Only system admin can assign host")
-			}
 			iHost, _ := HostManager.FetchByIdOrName(userCred, preferHost)
 			if iHost == nil {
 				return nil, httperrors.NewBadRequestError("Host %s not found", preferHost)
@@ -432,7 +406,11 @@ func (self *SGuest) StartGuestLiveMigrateTask(ctx context.Context, userCred mccl
 		data.Set("prefer_host_id", jsonutils.NewString(preferHostId))
 	}
 	data.Set("guest_status", jsonutils.NewString(guestStatus))
-	if task, err := taskman.TaskManager.NewTask(ctx, "GuestLiveMigrateTask", self, userCred, data, parentTaskId, "", nil); err != nil {
+	dedicateMigrateTask := "GuestLiveMigrateTask"
+	if self.GetHypervisor() != api.HYPERVISOR_KVM {
+		dedicateMigrateTask = "ManagedGuestLiveMigrateTask" //托管私有云
+	}
+	if task, err := taskman.TaskManager.NewTask(ctx, dedicateMigrateTask, self, userCred, data, parentTaskId, "", nil); err != nil {
 		log.Errorln(err)
 		return err
 	} else {
