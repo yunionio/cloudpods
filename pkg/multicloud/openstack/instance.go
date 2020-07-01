@@ -17,6 +17,7 @@ package openstack
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -627,6 +628,86 @@ func (region *SRegion) AttachDisk(instanceId string, diskId string) error {
 	return fmt.Errorf("timeout for waitting attach disk, current status: %s", status)
 }
 
+func (region *SRegion) MigrateVM(instanceId string, hostName string) error {
+	params := jsonutils.NewDict()
+	migrate := jsonutils.NewDict()
+	migrate.Add(jsonutils.JSONNull, "host")
+	if hostName != "" {
+		migrate.Add(jsonutils.NewString(hostName), "host")
+	}
+	params.Add(migrate, "migrate")
+	_, maxVersion, _ := region.GetVersion("compute")
+	_, _, err := region.Post("compute", fmt.Sprintf("/servers/%s/action", instanceId), maxVersion, jsonutils.Marshal(params))
+	if err != nil {
+		return errors.Wrapf(err, "On Requst Migrate instance:%s", instanceId)
+	}
+	return nil
+}
+
+func (region *SRegion) LiveMigrateVM(instanceId string, hostName string) error {
+	params := jsonutils.NewDict()
+	osMigrateLive := jsonutils.NewDict()
+	osMigrateLive.Add(jsonutils.NewString("auto"), "block_migration")
+	osMigrateLive.Add(jsonutils.JSONNull, "host")
+	if hostName != "" {
+		osMigrateLive.Add(jsonutils.NewString(hostName), "host")
+	}
+	params.Add(osMigrateLive, "os-migrateLive")
+	_, maxVersion, _ := region.GetVersion("compute")
+	_, _, err := region.Post("compute", fmt.Sprintf("/servers/%s/action", instanceId), maxVersion, params)
+	if err != nil {
+		return errors.Wrapf(err, "On Requst LiveMigrate instance:%s", instanceId)
+	}
+	return nil
+}
+
+//仅live-migration
+func (region *SRegion) ListServerMigration(instanceId string) error {
+	_, maxVersion, _ := region.GetVersion("compute")
+	_, _, err := region.Get("compute", fmt.Sprintf("/servers/%s/migrations", instanceId), maxVersion, nil)
+	if err != nil {
+		return errors.Wrapf(err, "ListServerMigration")
+	}
+	return nil
+}
+
+//仅live-migration
+func (region *SRegion) DeleteMigration(instanceId string, migrationId string) error {
+	_, maxVersion, _ := region.GetVersion("compute")
+	_, err := region.Delete("compute", fmt.Sprintf("/servers/%s/migrations/%s", instanceId, migrationId), maxVersion)
+	if err != nil {
+		return errors.Wrapf(err, "On Requst delete LiveMigrate:%s", migrationId)
+	}
+	return nil
+}
+
+//仅live-migration
+func (region *SRegion) ForceCompleteMigration(instanceId string, migrationId string) error {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.JSONNull, "force_complete")
+	_, maxVersion, _ := region.GetVersion("compute")
+	_, _, err := region.Post("compute", fmt.Sprintf("/servers/%s/migrations/%s/action", instanceId, migrationId), maxVersion, params)
+	if err != nil {
+		return errors.Wrapf(err, "On Requst delete LiveMigrate:%s", migrationId)
+	}
+	return nil
+}
+
+func (region *SRegion) GetMigrations(instanceId string, migrationType string) (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(instanceId), "instance_uuid")
+	params.Add(jsonutils.NewString(migrationType), "migration_type")
+	query := url.Values{}
+	query.Set("instance_uuid", instanceId)
+	query.Set("migration_type", migrationType)
+	_, maxVersion, _ := region.GetVersion("compute")
+	_, migrations, err := region.Get("compute", "/os-migrations?"+query.Encode(), maxVersion, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "On Get instance :%s Migration,migration_type:%s", instanceId, migrationType)
+	}
+	return migrations, nil
+}
+
 func (instance *SInstance) AssignSecurityGroup(secgroupId string) error {
 	if secgroupId == SECGROUP_NOT_SUPPORT {
 		return fmt.Errorf("Security groups are not supported. Security group components are not installed")
@@ -734,4 +815,74 @@ func (self *SInstance) GetError() error {
 		return fmt.Errorf(self.Fault.Message)
 	}
 	return nil
+}
+
+func (instance *SInstance) MigrateVM(hostId string) error {
+	hostName := ""
+	if hostId != "" {
+		iHost, err := instance.host.zone.region.GetIHostById(hostId)
+		if err != nil {
+			return errors.Wrapf(err, "GetIHostById(%s)", hostId)
+		}
+		hostName = iHost.GetName()
+	}
+
+	previousHostName := instance.Host
+	if err := instance.host.zone.region.MigrateVM(instance.ID, hostName); err != nil {
+		return errors.Wrap(err, "MigrateVm")
+	}
+	if err := cloudprovider.WaitMultiStatus(instance, []string{api.VM_SYNC_CONFIG, api.VM_READY, api.VM_UNKNOWN}, time.Second*10, time.Hour*3); err != nil {
+		return errors.Wrap(err, "WaitMultiStatus")
+	}
+	if instance.GetStatus() == api.VM_UNKNOWN {
+		return errors.Wrap(errors.ErrInvalidStatus, "GetStatus")
+	}
+	if instance.GetStatus() == api.VM_READY {
+		if instance.Host == previousHostName {
+			return errors.Wrap(fmt.Errorf("instance not migrated"), "Check host after migration")
+		}
+		return nil
+	}
+	return instance.host.zone.region.instanceOperation(instance.ID, "confirmResize")
+}
+
+func (instance *SInstance) LiveMigrateVM(hostId string) error {
+	hostName := ""
+	if hostId != "" {
+		iHost, err := instance.host.zone.region.GetIHostById(hostId)
+		if err != nil {
+			return errors.Wrapf(err, "GetIHostById(%s)", hostId)
+		}
+		hostName = iHost.GetName()
+	}
+	previousHostName := instance.Host
+	if err := instance.host.zone.region.LiveMigrateVM(instance.ID, hostName); err != nil {
+		return errors.Wrap(err, "LiveMIgrateVm")
+	}
+	if err := cloudprovider.WaitMultiStatus(instance, []string{api.VM_SYNC_CONFIG, api.VM_RUNNING, api.VM_UNKNOWN}, time.Second*10, time.Hour*3); err != nil {
+		return errors.Wrap(err, "WaitMultiStatus")
+	}
+	if instance.GetStatus() == api.VM_UNKNOWN {
+		return errors.Wrap(errors.ErrInvalidStatus, "GetStatus")
+	}
+	if instance.GetStatus() == api.VM_RUNNING {
+		if instance.Host == previousHostName {
+			return errors.Wrap(fmt.Errorf("instance not migrated"), "Check host after migration")
+		}
+		return nil
+	}
+	return instance.host.zone.region.instanceOperation(instance.ID, "confirmResize")
+}
+func (instance *SInstance) GetIHostId() string {
+	iHosts, err := instance.host.zone.region.GetIHosts()
+	if err != nil {
+		log.Errorf("instance.host.zone.region.GetIHosts error:%s", err)
+		return ""
+	}
+	for _, iHost := range iHosts {
+		if iHost.GetName() == instance.Host {
+			return iHost.GetId()
+		}
+	}
+	return ""
 }

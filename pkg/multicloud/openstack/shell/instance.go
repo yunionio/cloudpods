@@ -86,4 +86,36 @@ func init() {
 	shellutils.R(&InstanceDiskOptions{}, "instance-detach-disk", "Detach instance disk", func(cli *openstack.SRegion, args *InstanceDiskOptions) error {
 		return cli.DetachDisk(args.ID, args.DISK)
 	})
+
+	type InstanceMigrateOptions struct {
+		ID   string `help:"Instance ID"`
+		Host string `help:"host id"`
+	}
+	type MigrationOptions struct {
+		ID          string `help:"Instance ID"`
+		Type        string `help:"migration choices:evacuation|live-migration|migration|resize"`
+		Migrationid string `help:"migration ID"`
+	}
+	shellutils.R(&InstanceMigrateOptions{}, "instance-migrate", "migrate instance", func(cli *openstack.SRegion, args *InstanceMigrateOptions) error {
+		return cli.MigrateVM(args.ID, args.Host)
+	})
+
+	shellutils.R(&InstanceMigrateOptions{}, "instance-live-migrate", "migrate instance", func(cli *openstack.SRegion, args *InstanceMigrateOptions) error {
+		return cli.LiveMigrateVM(args.ID, args.Host)
+	})
+
+	shellutils.R(&MigrationOptions{}, "instance-migration-list", "list live migration", func(cli *openstack.SRegion, args *MigrationOptions) error {
+		return cli.ListServerMigration(args.ID)
+	})
+	shellutils.R(&MigrationOptions{}, "instance-migration-delete", "delet migration", func(cli *openstack.SRegion, args *MigrationOptions) error {
+		return cli.DeleteMigration(args.ID, args.Migrationid)
+	})
+	shellutils.R(&MigrationOptions{}, "instance-migration-forceComplete", "deletmigration", func(cli *openstack.SRegion, args *MigrationOptions) error {
+		return cli.ForceCompleteMigration(args.ID, args.Migrationid)
+	})
+
+	shellutils.R(&MigrationOptions{}, "migrations-show", "show migrations", func(cli *openstack.SRegion, args *MigrationOptions) error {
+		_, err := cli.GetMigrations(args.ID, args.Type)
+		return err
+	})
 }
