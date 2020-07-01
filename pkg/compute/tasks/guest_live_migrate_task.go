@@ -38,10 +38,19 @@ type GuestMigrateTask struct {
 type GuestLiveMigrateTask struct {
 	GuestMigrateTask
 }
+type ManagedGuestMigrateTask struct {
+	SGuestBaseTask
+}
+
+type ManagedGuestLiveMigrateTask struct {
+	SGuestBaseTask
+}
 
 func init() {
 	taskman.RegisterTask(GuestLiveMigrateTask{})
 	taskman.RegisterTask(GuestMigrateTask{})
+	taskman.RegisterTask(ManagedGuestMigrateTask{})
+	taskman.RegisterTask(ManagedGuestLiveMigrateTask{})
 }
 
 func (self *GuestMigrateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -467,4 +476,94 @@ func (self *GuestMigrateTask) TaskFailed(ctx context.Context, guest *models.SGue
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_MIGRATE, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
 	notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_MIGRATE_FAILED, reason)
+}
+
+//ManagedGuestMigrateTask
+func (self *ManagedGuestMigrateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	db.OpsLog.LogEvent(guest, db.ACT_MIGRATING, nil, self.UserCred)
+	self.MigrateStart(ctx, guest, data)
+}
+
+func (self *ManagedGuestMigrateTask) MigrateStart(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.SetStage("OnMigrateComplete", nil)
+	guest.SetStatus(self.UserCred, api.VM_MIGRATING, "")
+	if err := guest.GetDriver().RequestMigrate(ctx, guest, self.UserCred, self.GetParams(), self); err != nil {
+		self.OnMigrateCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+	}
+}
+
+func (self *ManagedGuestMigrateTask) OnMigrateComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_MIGRATE, data, self.UserCred, true)
+	db.OpsLog.LogEvent(guest, db.ACT_MIGRATE, guest.GetShortDesc(ctx), self.UserCred)
+	if jsonutils.QueryBoolean(self.Params, "auto_start", false) {
+		self.SetStage("OnGuestStartSucc", nil)
+		guest.StartGueststartTask(ctx, self.UserCred, nil, self.GetId())
+	} else {
+		self.SetStage("OnGuestSyncStatus", nil)
+		guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
+	}
+}
+
+func (self *ManagedGuestMigrateTask) OnGuestStartSucc(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.SetStageComplete(ctx, nil)
+}
+
+func (self *ManagedGuestMigrateTask) OnGuestSyncStatus(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.SetStageComplete(ctx, nil)
+}
+
+func (self *ManagedGuestMigrateTask) OnGuestSyncStatusFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, "Guest SyncStatus Failed")
+}
+
+func (self *ManagedGuestMigrateTask) OnGuestStartSuccFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, "Guest Start Failed")
+}
+
+func (self *ManagedGuestMigrateTask) OnMigrateCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	guest.SetStatus(self.UserCred, api.VM_MIGRATE_FAILED, "")
+	db.OpsLog.LogEvent(guest, db.ACT_MIGRATE_FAIL, data, self.UserCred)
+	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_MIGRATE, data, self.UserCred, false)
+	self.SetStageFailed(ctx, api.VM_MIGRATE_FAILED)
+	notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_MIGRATE_FAILED, data.String())
+}
+
+//ManagedGuestLiveMigrateTask
+func (self *ManagedGuestLiveMigrateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	db.OpsLog.LogEvent(guest, db.ACT_MIGRATING, nil, self.UserCred)
+	self.MigrateStart(ctx, guest, data)
+}
+
+func (self *ManagedGuestLiveMigrateTask) MigrateStart(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.SetStage("OnMigrateComplete", nil)
+	guest.SetStatus(self.UserCred, api.VM_MIGRATING, "")
+	if err := guest.GetDriver().RequestLiveMigrate(ctx, guest, self.UserCred, self.GetParams(), self); err != nil {
+		self.OnMigrateCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+	}
+}
+
+func (self *ManagedGuestLiveMigrateTask) OnMigrateComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.SetStage("OnGuestSyncStatus", nil)
+	db.OpsLog.LogEvent(guest, db.ACT_MIGRATE, guest.GetShortDesc(ctx), self.UserCred)
+	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_MIGRATE, data, self.UserCred, true)
+	guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
+}
+
+func (self *ManagedGuestLiveMigrateTask) OnGuestSyncStatus(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.SetStageComplete(ctx, nil)
+}
+
+func (self *ManagedGuestLiveMigrateTask) OnGuestSyncStatusFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, "Guest SyncStatus Failed")
+}
+
+func (self *ManagedGuestLiveMigrateTask) OnMigrateCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	guest.SetStatus(self.UserCred, api.VM_MIGRATE_FAILED, "")
+	db.OpsLog.LogEvent(guest, db.ACT_MIGRATE_FAIL, data, self.UserCred)
+	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_MIGRATE, data, self.UserCred, false)
+	self.SetStageFailed(ctx, db.ACT_MIGRATE_FAIL)
+	notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_MIGRATE_FAILED, data.String())
 }

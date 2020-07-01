@@ -37,6 +37,24 @@ func WaitStatus(res ICloudResource, expect string, interval time.Duration, timeo
 	return ErrTimeout
 }
 
+func WaitMultiStatus(res ICloudResource, expects []string, interval time.Duration, timeout time.Duration) error {
+	startTime := time.Now()
+	for time.Now().Sub(startTime) < timeout {
+		err := res.Refresh()
+		if err != nil {
+			return errors.Wrap(err, "resource.Refresh()")
+		}
+		log.Debugf("status %s expect %s", res.GetStatus(), expects)
+		for _, expect := range expects {
+			if res.GetStatus() == expect {
+				return nil
+			}
+		}
+		time.Sleep(interval)
+	}
+	return errors.Wrap(errors.ErrTimeout, "WaitMultistatus")
+}
+
 func WaitStatusWithDelay(res ICloudResource, expect string, delay time.Duration, interval time.Duration, timeout time.Duration) error {
 	time.Sleep(delay)
 	return WaitStatus(res, expect, interval, timeout)

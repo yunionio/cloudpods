@@ -358,3 +358,26 @@ func (self *SBaseGuestDriver) IsSupportSetAutoRenew() bool {
 func (self *SBaseGuestDriver) RequestSetAutoRenewInstance(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, autoRenew bool, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement RequestSetAutoRenewInstance")
 }
+
+func (self *SBaseGuestDriver) IsSupportMigrate() bool {
+	return false
+}
+
+func (self *SBaseGuestDriver) IsSupportLiveMigrate() bool {
+	return false
+}
+
+func (self *SBaseGuestDriver) CheckMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+	return httperrors.NewNotAcceptableError("Not allow for hypervisor %s", guest.GetHypervisor())
+}
+
+func (self *SBaseGuestDriver) CheckLiveMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+	return httperrors.NewNotAcceptableError("Not allow for hypervisor %s", guest.GetHypervisor())
+}
+func (self *SBaseGuestDriver) RequestMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestMigrate")
+}
+
+func (self *SBaseGuestDriver) RequestLiveMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestLiveMigrate")
+}

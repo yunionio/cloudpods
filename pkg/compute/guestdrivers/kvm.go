@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -542,4 +543,68 @@ func (self *SKVMGuestDriver) OnGuestChangeCpuMemFailed(ctx context.Context, gues
 
 func (self *SKVMGuestDriver) IsSupportCdrom(guest *models.SGuest) (bool, error) {
 	return true, nil
+}
+
+func (self *SKVMGuestDriver) IsSupportMigrate() bool {
+	return true
+}
+
+func (self *SKVMGuestDriver) IsSupportLiveMigrate() bool {
+	return true
+}
+
+func (self *SKVMGuestDriver) CheckMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+	if len(guest.BackupHostId) > 0 {
+		return httperrors.NewBadRequestError("Guest have backup, can't migrate")
+	}
+	isRescueMode := jsonutils.QueryBoolean(data, "rescue_mode", false)
+	if !isRescueMode && guest.Status != api.VM_READY {
+		return httperrors.NewServerStatusError("Cannot normal migrate guest in status %s, try rescue mode or server-live-migrate?", guest.Status)
+	}
+	if isRescueMode {
+		guestDisks := guest.GetDisks()
+		for _, guestDisk := range guestDisks {
+			if utils.IsInStringArray(
+				guestDisk.GetDisk().GetStorage().StorageType, api.STORAGE_LOCAL_TYPES) {
+				return httperrors.NewBadRequestError("Rescue mode requires all disk store in shared storages")
+			}
+		}
+	}
+	devices := guest.GetIsolatedDevices()
+	if len(devices) > 0 {
+		return httperrors.NewBadRequestError("Cannot migrate with isolated devices")
+	}
+	preferHost, _ := data.GetString("prefer_host")
+	if len(preferHost) > 0 {
+		if !db.IsAdminAllowPerform(userCred, guest, "assign-host") {
+			return httperrors.NewBadRequestError("Only system admin can assign host")
+		}
+	}
+	return nil
+}
+
+func (self *SKVMGuestDriver) CheckLiveMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+	if len(guest.BackupHostId) > 0 {
+		return httperrors.NewBadRequestError("Guest have backup, can't migrate")
+	}
+	if utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_SUSPEND}) {
+		cdrom := guest.GetCdrom()
+		if cdrom != nil && len(cdrom.ImageId) > 0 {
+			return httperrors.NewBadRequestError("Cannot live migrate with cdrom")
+		}
+		devices := guest.GetIsolatedDevices()
+		if devices != nil && len(devices) > 0 {
+			return httperrors.NewBadRequestError("Cannot live migrate with isolated devices")
+		}
+		if !guest.CheckQemuVersion(guest.GetQemuVersion(userCred), "1.1.2") {
+			return httperrors.NewBadRequestError("Cannot do live migrate, too low qemu version")
+		}
+		preferHost, _ := data.GetString("prefer_host")
+		if len(preferHost) > 0 {
+			if !db.IsAdminAllowPerform(userCred, guest, "assign-host") {
+				return httperrors.NewBadRequestError("Only system admin can assign host")
+			}
+		}
+	}
+	return nil
 }

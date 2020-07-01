@@ -32,3 +32,11 @@ func (instance *SInstanceBase) GetSerialOutput(port int) (string, error) {
 func (instance *SInstanceBase) ConvertPublicIpToEip() error {
 	return cloudprovider.ErrNotImplemented
 }
+
+func (instance *SInstanceBase) MigrateVM(hostId string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (instance *SInstanceBase) LiveMigrateVM(hostId string) error {
+	return cloudprovider.ErrNotImplemented
+}
