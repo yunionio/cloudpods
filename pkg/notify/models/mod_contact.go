@@ -272,6 +272,8 @@ func (self *SContactManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.Equals("uid", userCred.GetUserId())
 	}
 
+	q = q.GroupBy("uid").Desc("created_at")
+
 	return q, nil
 }
 
