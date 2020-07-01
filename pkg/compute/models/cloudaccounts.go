@@ -1954,6 +1954,16 @@ func (self *SCloudaccount) Delete(ctx context.Context, userCred mcclient.TokenCr
 
 func (self *SCloudaccount) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	self.SetStatus(userCred, api.CLOUD_PROVIDER_DELETED, "real delete")
+	projects, err := self.GetExternalProjects()
+	if err != nil {
+		return errors.Wrap(err, "GetExternalProjects")
+	}
+	for i := range projects {
+		err = projects[i].Delete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "project %s Delete", projects[i].Id)
+		}
+	}
 	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
 }
 
@@ -2284,6 +2294,16 @@ func (account *SCloudaccount) PerformSyncSkus(ctx context.Context, userCred mccl
 	return nil, nil
 }
 
+func (self *SCloudaccount) GetExternalProjects() ([]SExternalProject, error) {
+	projects := []SExternalProject{}
+	q := ExternalProjectManager.Query().Equals("cloudaccount_id", self.Id)
+	err := db.FetchModelObjects(ExternalProjectManager, q, &projects)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
+	}
+	return projects, nil
+}
+
 func (manager *SCloudaccountManager) queryCloudAccountByCapability(region *SCloudregion, zone *SZone, domainId string, enabled tristate.TriState, capability string) *sqlchemy.SQuery {
 	providers := CloudproviderManager.Query().SubQuery()
 	q := manager.Query()
@@ -2374,4 +2394,62 @@ func (account *SCloudaccount) GetUsages() []db.IUsage {
 	return []db.IUsage{
 		&usage,
 	}
+}
+
+func (self *SCloudaccount) GetExternalProject(ctx context.Context, userCred mcclient.TokenCredential, id string) (*SExternalProject, string, error) {
+	projects, err := self.GetExternalProjects()
+	if err != nil {
+		return nil, "", errors.Wrap(err, "GetExternalProjects")
+	}
+	for i := range projects {
+		if projects[i].ProjectId == id && projects[i].Status == api.EXTERNAL_PROJECT_STATUS_AVAILABLE {
+			return &projects[i], projects[i].Name, nil
+		}
+	}
+
+	project, err := db.TenantCacheManager.FetchById(id)
+	if err != nil {
+		return nil, "", errors.Wrap(err, "TenantCacheManager.FetchById")
+	}
+
+	for i := range projects {
+		if projects[i].Name == project.GetName() {
+			if projects[i].Status != api.EXTERNAL_PROJECT_STATUS_AVAILABLE {
+				return nil, "", fmt.Errorf("external project %s not available", projects[i].Name)
+			}
+			return &projects[i], project.GetName(), nil
+		}
+	}
+	return nil, project.GetName(), cloudprovider.ErrNotFound
+}
+
+func (self *SCloudaccount) SyncProject(ctx context.Context, userCred mcclient.TokenCredential, id string) (string, error) {
+	lockman.LockRawObject(ctx, self.Id, id)
+	defer lockman.ReleaseRawObject(ctx, self.Id, id)
+
+	project, projectName, err := self.GetExternalProject(ctx, userCred, id)
+	if err == nil {
+		return project.ExternalId, nil
+	}
+	if err != cloudprovider.ErrNotFound {
+		return "", err
+	}
+
+	if len(projectName) == 0 {
+		return "", fmt.Errorf("empty project name")
+	}
+
+	provider, err := self.GetProvider()
+	if err != nil {
+		return "", errors.Wrap(err, "GetProvider")
+	}
+	iProject, err := provider.CreateIProject(projectName)
+	if err != nil {
+		return "", errors.Wrap(err, "CreateIProject")
+	}
+	extProj, err := ExternalProjectManager.newFromCloudProject(ctx, userCred, self, iProject)
+	if err != nil {
+		return "", errors.Wrap(err, "newFromCloudProject")
+	}
+	return extProj.ExternalId, nil
 }

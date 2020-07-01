@@ -371,6 +371,10 @@ func (sp *SSnapshotPolicy) getMoreDetails(out api.SnapshotPolicyDetails) api.Sna
 	return out
 }
 
+func (sp *SSnapshotPolicy) GetCloudproviderId() string {
+	return ""
+}
+
 // ==================================================== sync ===========================================================
 func (manager *SSnapshotPolicyManager) SyncSnapshotPolicies(ctx context.Context, userCred mcclient.TokenCredential,
 	provider *SCloudprovider, region *SCloudregion, cloudSPs []cloudprovider.ICloudSnapshotPolicy,
@@ -507,7 +511,7 @@ func (manager *SSnapshotPolicyManager) allNewFromCloudSnapshotPolicy(
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
-			syncMetadata(ctx, userCred, local, added[i])
+			syncVirtualResourceMetadata(ctx, userCred, local, added[i])
 			syncResult.Add()
 		}
 	}

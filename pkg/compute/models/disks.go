@@ -1138,6 +1138,14 @@ func (self *SDisk) IsLocal() bool {
 	return false
 }
 
+func (self *SDisk) GetCloudproviderId() string {
+	storage := self.GetStorage()
+	if storage != nil {
+		return storage.GetCloudproviderId()
+	}
+	return ""
+}
+
 func (self *SDisk) GetStorage() *SStorage {
 	store, _ := StorageManager.FetchById(self.StorageId)
 	if store != nil {
@@ -1284,7 +1292,7 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
-			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
+			syncVirtualResourceMetadata(ctx, userCred, &commondb[i], commonext[i])
 			localDisks = append(localDisks, commondb[i])
 			remoteDisks = append(remoteDisks, commonext[i])
 			syncResult.Update()
@@ -1314,7 +1322,7 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
-			syncMetadata(ctx, userCred, new, added[i])
+			syncVirtualResourceMetadata(ctx, userCred, new, added[i])
 			localDisks = append(localDisks, *new)
 			remoteDisks = append(remoteDisks, added[i])
 			syncResult.Add()

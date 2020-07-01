@@ -1372,7 +1372,6 @@ func (self *SCloudprovider) RealDelete(ctx context.Context, userCred mcclient.To
 		ElasticipManager,
 		NetworkInterfaceManager,
 		CloudproviderRegionManager,
-		ExternalProjectManager,
 		CloudregionManager,
 		CloudproviderQuotaManager,
 	} {
@@ -1628,51 +1627,10 @@ func (provider *SCloudprovider) GetChangeOwnerCandidateDomainIds() []string {
 	return []string{}
 }
 
-func (self *SCloudprovider) GetExternalProjects() ([]SExternalProject, error) {
-	q := ExternalProjectManager.Query().Equals("manager_id", self.Id)
-	projects := []SExternalProject{}
-	err := db.FetchModelObjects(ExternalProjectManager, q, &projects)
-	if err != nil {
-		return nil, errors.Wrap(err, "FetchModelObjects")
-	}
-	return projects, nil
-}
-
 func (self *SCloudprovider) SyncProject(ctx context.Context, userCred mcclient.TokenCredential, id string) (string, error) {
-	lockman.LockRawObject(ctx, self.Id, id)
-	defer lockman.ReleaseRawObject(ctx, self.Id, id)
-
-	projects, err := self.GetExternalProjects()
-	if err != nil {
-		return "", errors.Wrap(err, "GetExternalProjects")
+	account := self.GetCloudaccount()
+	if account == nil {
+		return "", fmt.Errorf("failed to get cloudprovider %s account", self.Name)
 	}
-	for _, project := range projects {
-		if project.ProjectId == id {
-			return project.ExternalId, nil
-		}
-	}
-
-	project, err := db.TenantCacheManager.FetchById(id)
-	if err != nil {
-		return "", errors.Wrap(err, "TenantCacheManager.FetchById")
-	}
-
-	for _, extProj := range projects {
-		if extProj.Name == project.GetName() {
-			return extProj.ExternalId, nil
-		}
-	}
-	provider, err := self.GetProvider()
-	if err != nil {
-		return "", errors.Wrap(err, "GetProvider")
-	}
-	iProject, err := provider.CreateIProject(project.GetName())
-	if err != nil {
-		return "", errors.Wrap(err, "CreateIProject")
-	}
-	extProj, err := ExternalProjectManager.newFromCloudProject(ctx, userCred, self, iProject)
-	if err != nil {
-		return "", errors.Wrap(err, "newFromCloudProject")
-	}
-	return extProj.ExternalId, nil
+	return account.SyncProject(ctx, userCred, id)
 }

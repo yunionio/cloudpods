@@ -1039,20 +1039,6 @@ func (manager *SCloudproviderregionManager) purgeAll(ctx context.Context, userCr
 	return nil
 }
 
-func (manager *SExternalProjectManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	projs, err := manager.getProjectsByProviderId(providerId)
-	if err != nil {
-		return err
-	}
-	for i := range projs {
-		err = projs[i].Delete(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (zone *SZone) Purge(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, zone)
 	defer lockman.ReleaseObject(ctx, zone)

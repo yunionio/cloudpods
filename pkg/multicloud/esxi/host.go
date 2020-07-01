@@ -645,15 +645,17 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 }
 
 type SCreateVMParam struct {
-	Name   string
-	Uuid   string
-	OsName string
-	Cpu    int
-	Mem    int
-	Bios   string
-	Cdrom  jsonutils.JSONObject
-	Disks  []SDiskInfo
-	Nics   []jsonutils.JSONObject
+	Name         string
+	Uuid         string
+	OsName       string
+	Cpu          int
+	Mem          int
+	Bios         string
+	Cdrom        jsonutils.JSONObject
+	Disks        []SDiskInfo
+	Nics         []jsonutils.JSONObject
+	GroupId      string // resourcePoolId
+	ResourcePool string
 }
 
 type SDiskInfo struct {
@@ -840,9 +842,9 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 		return nil, errors.Wrap(err, "object.DataCenter.Folders")
 	}
 	vmFolder := folders.VmFolder
-	resourcePool, err := self.GetResourcePool()
+	resourcePool, err := self.SyncResourcePool(params.GroupId, params.ResourcePool)
 	if err != nil {
-		return nil, errors.Wrap(err, "SHost.GetResourcePool")
+		return nil, errors.Wrap(err, "SyncResourcePool")
 	}
 	task, err := vmFolder.CreateVM(ctx, spec, resourcePool, self.GetoHostSystem())
 	if err != nil {
@@ -1357,7 +1359,7 @@ func (host *SHost) GetoHostSystem() *object.HostSystem {
 func (host *SHost) GetResourcePool() (*object.ResourcePool, error) {
 	var err error
 	if host.parent == nil {
-		host.parent, err = host.getResourcePool()
+		host.parent, err = host.getParent()
 		if err != nil {
 			return nil, err
 		}
@@ -1365,7 +1367,7 @@ func (host *SHost) GetResourcePool() (*object.ResourcePool, error) {
 	return object.NewResourcePool(host.manager.client.Client, *host.parent.ResourcePool), nil
 }
 
-func (host *SHost) getResourcePool() (*mo.ComputeResource, error) {
+func (host *SHost) getParent() (*mo.ComputeResource, error) {
 	var mcr *mo.ComputeResource
 	var parent interface{}
 
@@ -1383,19 +1385,58 @@ func (host *SHost) getResourcePool() (*mo.ComputeResource, error) {
 		return nil, errors.Error(fmt.Sprintf("unknown host parent type: %s", moHost.Parent.Type))
 	}
 
-	err := host.manager.reference2Object(*moHost.Parent, []string{"resourcePool"}, parent)
+	err := host.manager.reference2Object(*moHost.Parent, []string{"name", "resourcePool"}, parent)
 	if err != nil {
 		return nil, errors.Wrap(err, "SESXiClient.reference2Object")
 	}
 	return mcr, nil
 }
 
-func (host *SHost) GetCluster() (*mo.ComputeResource, error) {
-	return host.getResourcePool()
+func (host *SHost) GetResourcePools() ([]mo.ResourcePool, error) {
+	cluster, err := host.GetCluster()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetCluster")
+	}
+	return cluster.ListResourcePools()
+}
+
+func (host *SHost) GetCluster() (*SCluster, error) {
+	cluster, err := host.getCluster()
+	if err != nil {
+		return nil, errors.Wrap(err, "getCluster")
+	}
+	return NewCluster(host.manager, cluster, host.datacenter), nil
+}
+
+func (host *SHost) SyncResourcePool(groupId, name string) (*object.ResourcePool, error) {
+	cluster, err := host.GetCluster()
+	if err != nil {
+		log.Errorf("failed to get host %s cluster info: %v", host.GetName(), err)
+		return host.GetResourcePool()
+	}
+	pool, err := cluster.SyncResourcePool(groupId, name)
+	if err != nil {
+		log.Errorf("failed to sync resourcePool(%s, %s) for cluster %s error: %v", groupId, name, cluster.GetName(), err)
+		return host.GetResourcePool()
+	}
+	return object.NewResourcePool(host.manager.client.Client, pool.Reference()), nil
+}
+
+func (host *SHost) getCluster() (*mo.ClusterComputeResource, error) {
+	moHost := host.getHostSystem()
+	if moHost.Parent.Type != "ClusterComputeResource" {
+		return nil, fmt.Errorf("host %s parent is not the cluster resource", host.GetName())
+	}
+	cluster := &mo.ClusterComputeResource{}
+	err := host.manager.reference2Object(*moHost.Parent, []string{"name", "resourcePool"}, cluster)
+	if err != nil {
+		return nil, errors.Wrap(err, "SESXiClient.reference2Object")
+	}
+	return cluster, nil
 }
 
 func (host *SHost) GetSiblingHosts() ([]*SHost, error) {
-	rp, err := host.GetCluster()
+	rp, err := host.getParent()
 	if err != nil {
 		return nil, err
 	}

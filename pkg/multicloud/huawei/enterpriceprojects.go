@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
@@ -60,9 +61,9 @@ func (ep *SEnterpriseProject) GetGlobalId() string {
 
 func (ep *SEnterpriseProject) GetStatus() string {
 	if ep.Status == 1 {
-		return "available"
+		return api.EXTERNAL_PROJECT_STATUS_AVAILABLE
 	}
-	return "unavailable"
+	return api.EXTERNAL_PROJECT_STATUS_UNAVAILABLE
 }
 
 func (ep *SEnterpriseProject) GetName() string {
