@@ -259,7 +259,8 @@ func (this *ClientSession) JSONRequest(service, endpointType string, method http
 }
 
 func (this *ClientSession) ParseJSONResponse(resp *http.Response, err error) (http.Header, jsonutils.JSONObject, error) {
-	return httputils.ParseJSONResponse(resp, err, this.client.debug)
+	ce := &httputils.JSONClientError{}
+	return httputils.ParseJSONResponse(resp, err, ce, this.client.debug)
 }
 
 func (this *ClientSession) HasSystemAdminPrivilege() bool {

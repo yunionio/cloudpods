@@ -133,6 +133,24 @@ func (self *SBaseManager) _get(request requests.IRequest, responseKey string) (j
 	return self._do(request, responseKey)
 }
 
+type HuaweiClientError struct {
+	httputils.JSONClientError
+}
+
+func (he *HuaweiClientError) ParseError(statusCode int, jrbody jsonutils.JSONObject) error {
+	if jrbody.Contains("errorcode") { //{"errorcode": ["1101"]}
+		errcode := []string{}
+		err := jrbody.Unmarshal(&errcode, "errorcode")
+		if err == nil && len(errcode) > 0 {
+			he.Class = errcode[0]
+			he.Code = statusCode
+			he.Details = jrbody.String()
+			return he
+		}
+	}
+	return he.JSONClientError.ParseError(statusCode, jrbody)
+}
+
 func (self *SBaseManager) jsonRequest(request requests.IRequest) (http.Header, jsonutils.JSONObject, error) {
 	ctx := context.Background()
 	// hook request
@@ -166,7 +184,8 @@ func (self *SBaseManager) jsonRequest(request requests.IRequest) (http.Header, j
 	const MAX_RETRY = 3
 	retry := MAX_RETRY
 	for {
-		h, b, e := httputils.JSONRequest(self.httpClient, ctx, httputils.THttpMethod(request.GetMethod()), request.BuildUrl(), header, jsonBody, self.debug)
+		err := &HuaweiClientError{}
+		h, b, e := httputils.JSONRequestWithJsonError(self.httpClient, ctx, httputils.THttpMethod(request.GetMethod()), request.BuildUrl(), header, jsonBody, err, self.debug)
 		if e == nil {
 			if self.debug {
 				log.Debugf("response: %s body: %s", h, b)
@@ -174,17 +193,12 @@ func (self *SBaseManager) jsonRequest(request requests.IRequest) (http.Header, j
 			return h, b, e
 		}
 
-		switch err := e.(type) {
-		case *httputils.JSONClientError:
-			if err.Code == 499 && retry > 0 && request.GetMethod() == "GET" {
-				retry -= 1
-				time.Sleep(time.Second * time.Duration(MAX_RETRY-retry))
-			} else if (err.Code == 404 || strings.Contains(err.Details, "could not be found") || strings.Contains(err.Details, "does not exist")) && request.GetMethod() != "POST" {
-				return h, b, cloudprovider.ErrNotFound
-			} else {
-				return h, b, e
-			}
-		default:
+		if err.Code == 499 && retry > 0 && request.GetMethod() == "GET" {
+			retry -= 1
+			time.Sleep(time.Second * time.Duration(MAX_RETRY-retry))
+		} else if (err.Code == 404 || strings.Contains(err.Details, "could not be found") || strings.Contains(err.Details, "does not exist")) && request.GetMethod() != "POST" {
+			return h, b, cloudprovider.ErrNotFound
+		} else {
 			return h, b, e
 		}
 	}

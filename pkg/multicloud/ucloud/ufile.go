@@ -196,7 +196,8 @@ func doRequest(req *http.Request) (jsonutils.JSONObject, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "httpclient Do")
 	}
-	_, body, err := httputils.ParseJSONResponse(res, err, false)
+	ce := &httputils.JSONClientError{}
+	_, body, err := httputils.ParseJSONResponse(res, err, ce, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "ParseJSONResponse")
 	}

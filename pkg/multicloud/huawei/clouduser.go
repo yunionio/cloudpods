@@ -19,6 +19,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/modules"
 )
 
 type SLink struct {
@@ -182,7 +183,17 @@ func (self *SHuaweiClient) CreateClouduser(name, password, desc string) (*SCloud
 	user := SClouduser{client: self}
 	err = DoCreate(client.Users.Create, jsonutils.Marshal(map[string]interface{}{"user": params}), &user)
 	if err != nil {
-		return nil, errors.Wrap(err, "DoCreate")
+		switch he := err.(type) {
+		case *modules.HuaweiClientError:
+			switch he.Class { //https://support.huaweicloud.com/api-iam/iam_02_0006.html
+			case "1101":
+				return nil, errors.Wrap(err, "用户名校验失败 IAM用户名。长度5~32之间，首位不能为数字，特殊字符只能包含下划线“_”、中划线“-”和空格") //https://support.huaweicloud.com/api-iam/iam_08_0015.html
+			default:
+				return nil, err
+			}
+		default:
+			return nil, errors.Wrap(err, "DoCreate")
+		}
 	}
 	return &user, nil
 }

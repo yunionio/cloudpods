@@ -430,7 +430,8 @@ func (cli *SZStackClient) wait(header http.Header, action string, requestURL str
 		if err != nil {
 			return nil, errors.Wrap(err, fmt.Sprintf("wait location %s", location))
 		}
-		_, result, err := httputils.ParseJSONResponse(resp, err, cli.debug)
+		ce := &httputils.JSONClientError{}
+		_, result, err := httputils.ParseJSONResponse(resp, err, ce, cli.debug)
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return nil, cloudprovider.ErrNotFound

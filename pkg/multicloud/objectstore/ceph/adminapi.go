@@ -85,7 +85,8 @@ func (api *SCephAdminApi) jsonRequest(ctx context.Context, method httputils.THtt
 
 	resp, err := api.client.Do(newReq)
 
-	return httputils.ParseJSONResponse(resp, err, api.debug)
+	ce := &httputils.JSONClientError{}
+	return httputils.ParseJSONResponse(resp, err, ce, api.debug)
 }
 
 func (api *SCephAdminApi) GetUsage(ctx context.Context, uid string) (jsonutils.JSONObject, error) {
