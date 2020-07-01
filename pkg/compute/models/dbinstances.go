@@ -687,22 +687,19 @@ func (self *SDBInstance) AllowPerformRecovery(ctx context.Context, userCred mccl
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "recovery")
 }
 
-func (self *SDBInstance) PerformRecovery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SDBInstance) PerformRecovery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SDBInstanceRecoveryConfigInput) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(self.Status, []string{api.DBINSTANCE_RUNNING}) {
 		return nil, httperrors.NewInvalidStatusError("Cannot do recovery dbinstance in status %s required status %s", self.Status, api.DBINSTANCE_RUNNING)
 	}
 
-	params := data.(*jsonutils.JSONDict)
-	backupV := validators.NewModelIdOrNameValidator("dbinstancebackup", "dbinstancebackup", userCred)
-	err := backupV.Validate(params)
+	_backup, err := DBInstanceBackupManager.FetchByIdOrName(userCred, input.DBInstancebackupId)
 	if err != nil {
-		return nil, err
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError2("dbinstancebackup", input.DBInstancebackupId)
+		}
+		return nil, httperrors.NewGeneralError(err)
 	}
-	input := &api.SDBInstanceRecoveryConfigInput{}
-	err = params.Unmarshal(input)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("Failed to unmarshal input config: %v", err)
-	}
+	input.DBInstancebackupId = _backup.GetId()
 
 	databases, err := self.GetDBInstanceDatabases()
 	if err != nil {
@@ -714,7 +711,7 @@ func (self *SDBInstance) PerformRecovery(ctx context.Context, userCred mcclient.
 		dbDatabases = append(dbDatabases, database.Name)
 	}
 
-	backup := backupV.Model.(*SDBInstanceBackup)
+	backup := _backup.(*SDBInstanceBackup)
 	for src, dest := range input.Databases {
 		if len(dest) == 0 {
 			dest = src
@@ -735,6 +732,20 @@ func (self *SDBInstance) PerformRecovery(ctx context.Context, userCred mcclient.
 
 	if backup.CloudregionId != self.CloudregionId {
 		return nil, httperrors.NewInputParameterError("backup and instance not in same cloudregion")
+	}
+
+	if len(backup.Engine) > 0 && backup.Engine != self.Engine {
+		return nil, httperrors.NewInputParameterError("can not recover data from diff rds engine")
+	}
+
+	driver, err := self.GetRegionDriver()
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+
+	err = driver.ValidateDBInstanceRecovery(ctx, userCred, self, backup, input)
+	if err != nil {
+		return nil, err
 	}
 
 	return nil, self.StartDBInstanceRecoveryTask(ctx, userCred, input.JSON(input), "")

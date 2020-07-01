@@ -88,6 +88,7 @@ type SDBInstanceBackupCreateConfig struct {
 }
 
 type SDBInstanceRecoveryConfig struct {
-	BackupId  string
-	Databases map[string]string
+	BackupId                   string
+	Databases                  map[string]string
+	OriginDBInstanceExternalId string
 }

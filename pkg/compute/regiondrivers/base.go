@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -334,6 +335,10 @@ func (self *SBaseRegionDriver) ValidateResetDBInstancePassword(ctx context.Conte
 
 func (self *SBaseRegionDriver) IsSupportKeepDBInstanceManualBackup() bool {
 	return false
+}
+
+func (self *SBaseRegionDriver) ValidateDBInstanceRecovery(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, backup *models.SDBInstanceBackup, input api.SDBInstanceRecoveryConfigInput) error {
+	return errors.Wrap(cloudprovider.ErrNotImplemented, "ValidateDBInstanceRecovery")
 }
 
 func (self *SBaseRegionDriver) IsSupportedDBInstance() bool {
