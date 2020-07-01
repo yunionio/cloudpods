@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -374,7 +375,12 @@ func (self *SOpenStackGuestDriver) RequestMigrate(ctx context.Context, guest *mo
 		if hostExternalId == "" {
 			return nil, errors.Wrap(fmt.Errorf("empty hostExternalId"), "iVM.GetIHostId()")
 		}
-		iHost, err := db.FetchByExternalId(models.HostManager, hostExternalId)
+		iHost, err := db.FetchByExternalIdAndManagerId(models.HostManager, hostExternalId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			if host := guest.GetHost(); host != nil {
+				return q.Equals("manager_id", host.ManagerId)
+			}
+			return q
+		})
 		if err != nil {
 			return nil, errors.Wrapf(err, "db.FetchByExternalId(models.HostManager,%s)", hostExternalId)
 		}
@@ -414,7 +420,12 @@ func (self *SOpenStackGuestDriver) RequestLiveMigrate(ctx context.Context, guest
 		if hostExternalId == "" {
 			return nil, errors.Wrap(fmt.Errorf("empty hostExternalId"), "iVM.GetIHostId()")
 		}
-		iHost, err := db.FetchByExternalId(models.HostManager, hostExternalId)
+		iHost, err := db.FetchByExternalIdAndManagerId(models.HostManager, hostExternalId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			if host := guest.GetHost(); host != nil {
+				return q.Equals("manager_id", host.ManagerId)
+			}
+			return q
+		})
 		if err != nil {
 			return nil, errors.Wrapf(err, "db.FetchByExternalId(models.HostManager,%s)", hostExternalId)
 		}
