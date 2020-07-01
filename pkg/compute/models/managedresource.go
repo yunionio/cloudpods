@@ -46,6 +46,10 @@ type SManagedResourceBaseManager struct {
 	managerIdFieldName string
 }
 
+func (self *SManagedResourceBase) GetCloudproviderId() string {
+	return self.ManagerId
+}
+
 func ValidateCloudproviderResourceInput(userCred mcclient.TokenCredential, query api.CloudproviderResourceInput) (*SCloudprovider, api.CloudproviderResourceInput, error) {
 	managerObj, err := CloudproviderManager.FetchByIdOrName(userCred, query.Cloudprovider)
 	if err != nil {

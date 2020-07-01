@@ -385,6 +385,10 @@ func (lb *SLoadbalancer) GetRegion() *SCloudregion {
 	return lb.SCloudregionResourceBase.GetRegion()
 }
 
+func (lb *SLoadbalancer) GetCloudproviderId() string {
+	return lb.SManagedResourceBase.GetCloudproviderId()
+}
+
 func (lb *SLoadbalancer) GetZone() *SZone {
 	return lb.SZoneResourceBase.GetZone()
 }
@@ -752,7 +756,7 @@ func (man *SLoadbalancerManager) SyncLoadbalancers(ctx context.Context, userCred
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
-			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
+			syncVirtualResourceMetadata(ctx, userCred, &commondb[i], commonext[i])
 			localLbs = append(localLbs, commondb[i])
 			remoteLbs = append(remoteLbs, commonext[i])
 			syncResult.Update()
@@ -763,7 +767,7 @@ func (man *SLoadbalancerManager) SyncLoadbalancers(ctx context.Context, userCred
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
-			syncMetadata(ctx, userCred, new, added[i])
+			syncVirtualResourceMetadata(ctx, userCred, new, added[i])
 			localLbs = append(localLbs, *new)
 			remoteLbs = append(remoteLbs, added[i])
 			syncResult.Add()
