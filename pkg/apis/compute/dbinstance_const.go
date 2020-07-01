@@ -103,6 +103,10 @@ const (
 	HUAWEI_DBINSTANCE_CATEGORY_SINGLE  = "single"  //单机
 	HUAWEI_DBINSTANCE_CATEGORY_REPLICA = "replica" //只读
 
+	//谷歌云实例类型
+	GOOGLE_DBINSTANCE_CATEGORY_REGIONAL = "Regional" // 高可用性（区域级）
+	GOOGLE_DBINSTANCE_CATEGORY_ZONAL    = "Zonal"    // 单个地区
+
 	//阿里云存储类型
 	ALIYUN_DBINSTANCE_STORAGE_TYPE_LOCAL_SSD  = "local_ssd"  //本地盘SSD盘
 	ALIYUN_DBINSTANCE_STORAGE_TYPE_CLOUD_ESSD = "cloud_essd" //ESSD云盘
