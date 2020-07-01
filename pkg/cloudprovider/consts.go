@@ -49,6 +49,7 @@ const (
 	CLOUD_CAPABILITY_RDS          = "rds"
 	CLOUD_CAPABILITY_CACHE        = "cache"
 	CLOUD_CAPABILITY_EVENT        = "event"
+	CLOUD_CAPABILITY_CLOUDID      = "cloudid"
 )
 
 const (
