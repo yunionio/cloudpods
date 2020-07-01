@@ -717,19 +717,27 @@ func (region *SRegion) ChangeDBInstanceConfig(instanceId string, instanceType st
 }
 
 func (rds *SDBInstance) RecoveryFromBackup(conf *cloudprovider.SDBInstanceRecoveryConfig) error {
-	return rds.region.RecoveryDBInstanceFromBackup(rds.Id, conf.BackupId, conf.Databases)
+	if len(conf.OriginDBInstanceExternalId) == 0 {
+		conf.OriginDBInstanceExternalId = rds.Id
+	}
+	return rds.region.RecoveryDBInstanceFromBackup(rds.Id, conf.OriginDBInstanceExternalId, conf.BackupId, conf.Databases)
 }
 
-func (region *SRegion) RecoveryDBInstanceFromBackup(instanceId string, backupId string, databases map[string]string) error {
+func (region *SRegion) RecoveryDBInstanceFromBackup(target, origin string, backupId string, databases map[string]string) error {
+	source := map[string]interface{}{
+		"type":      "backup",
+		"backup_id": backupId,
+	}
+	if len(origin) > 0 {
+		source["instance_id"] = origin
+	}
+	if len(databases) > 0 {
+		source["database_name"] = databases
+	}
 	params := map[string]interface{}{
-		"source": map[string]interface{}{
-			"instance_id":   instanceId,
-			"type":          "backup",
-			"backup_id":     backupId,
-			"database_name": databases,
-		},
+		"source": source,
 		"target": map[string]string{
-			"instance_id": instanceId,
+			"instance_id": target,
 		},
 	}
 	_, err := region.ecsClient.DBInstance.PerformAction("", "recovery", jsonutils.Marshal(params))
