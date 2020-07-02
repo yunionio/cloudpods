@@ -302,3 +302,11 @@ func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
 	}
 	return params, nil
 }
+
+type ScopedResourceListOptions struct {
+	BelongScope string `help:"Filter by resource belong scope" choices:"system|domain|project"`
+}
+
+func (o *ScopedResourceListOptions) Params() (*jsonutils.JSONDict, error) {
+	return optionsStructToParams(o)
+}

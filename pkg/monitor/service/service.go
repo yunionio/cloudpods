@@ -17,6 +17,7 @@ package service
 import (
 	"context"
 	"os"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"golang.org/x/sync/errgroup"
@@ -63,6 +64,7 @@ func StartService() {
 
 	cron := cronman.InitCronJobManager(true, opts.CronJobWorkerCount)
 	suggestsysdrivers.InitSuggestSysRuleCronjob()
+	cron.AddJobAtIntervalsWithStartRun("InitScopeSuggestConfigs", time.Duration(opts.InitScopeSuggestConfigIntervalSeconds)*time.Second, models.SuggestSysRuleConfigManager.InitScopeConfigs, true)
 	cron.Start()
 	defer cron.Stop()
 

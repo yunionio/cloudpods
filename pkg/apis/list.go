@@ -263,6 +263,8 @@ type DeletePreventableResourceBaseListInput struct {
 
 type ScopedResourceBaseListInput struct {
 	ProjectizedResourceListInput
+	// 指定匹配的范围，可能值为project, domain or system
+	BelongScope string `json:"belong_scope"`
 }
 
 type InfrasResourceBaseListInput struct {

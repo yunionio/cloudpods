@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	mod "yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/monitor/models"
 )
@@ -92,26 +93,50 @@ func DealAlertData(drvType monitor.SuggestDriverType, oldAlerts []models.SSugges
 	}
 }
 
-func doSuggestSysRule(ctx context.Context, userCred mcclient.TokenCredential, isStart bool, rule models.ISuggestSysRuleDriver) {
+func doSuggestSysRule(ctx context.Context, userCred mcclient.TokenCredential, isStart bool, drv models.ISuggestSysRuleDriver) {
 	var instance *monitor.SSuggestSysAlertSetting
-	suggestSysSettingMap, err := models.SuggestSysRuleManager.FetchSuggestSysAlertSettings(rule.GetType())
+	suggestSysSettingMap, err := models.SuggestSysRuleManager.FetchSuggestSysAlertSettings(drv.GetType())
 	if err != nil {
-		log.Errorln("DoSuggestSysRule error :", err)
+		log.Errorf("DoSuggestSysRule error: %v", err)
 		return
 	}
-	if details, ok := suggestSysSettingMap[rule.GetType()]; ok {
+	if details, ok := suggestSysSettingMap[drv.GetType()]; ok {
 		instance = details.Setting
 	}
-	rule.Run(instance)
+	rule, err := models.SuggestSysRuleManager.GetRuleByType(drv.GetType())
+	if err != nil {
+		log.Errorf("Get rule by type %s: %v", drv.GetType(), err)
+		return
+	}
+	drv.Run(rule, instance)
 }
 
 func getLastAlerts(rule models.ISuggestSysRuleDriver) ([]models.SSuggestSysAlert, error) {
 	oldAlert, err := models.SuggestSysAlertManager.GetResources(rule.GetType())
 	if err != nil {
-		log.Errorln(errors.Wrap(err, "db.FetchModelObjects"))
-		return oldAlert, err
+		return oldAlert, errors.Wrapf(err, "get last alerts by type %s", rule.GetType())
 	}
 	return oldAlert, nil
+}
+
+type iRuleDriver interface {
+	models.ISuggestSysRuleDriver
+	GetLatestAlerts(rule *models.SSuggestSysRule, setting *monitor.SSuggestSysAlertSetting) ([]jsonutils.JSONObject, error)
+}
+
+func Run(drv iRuleDriver, rule *models.SSuggestSysRule, setting *monitor.SSuggestSysAlertSetting) {
+	oldAlert, err := getLastAlerts(drv)
+	if err != nil {
+		log.Errorf("get %s old alert result: %v", drv.GetType(), err)
+		return
+	}
+
+	newAlerts, err := drv.GetLatestAlerts(rule, setting)
+	if err != nil {
+		log.Errorf("get %s latest alert results: %v", drv.GetType(), err)
+		return
+	}
+	DealAlertData(drv.GetType(), oldAlert, newAlerts)
 }
 
 func getSuggestSysAlertFromJson(obj jsonutils.JSONObject, rule models.ISuggestSysRuleDriver) (*models.SSuggestSysAlert, error) {
@@ -214,4 +239,31 @@ func getResourceAmount(alert *models.SSuggestSysAlert, lastUsedTime time.Time) {
 		alert.Currency = currency
 	}
 
+}
+
+func ListAllResources(manager modulebase.Manager, params *jsonutils.JSONDict) ([]jsonutils.JSONObject, error) {
+	if params == nil {
+		params = jsonutils.NewDict()
+	}
+	params.Add(jsonutils.NewString("system"), "scope")
+	params.Add(jsonutils.NewInt(0), "limit")
+	var count int
+	session := auth.GetAdminSession(context.Background(), "", "")
+	objs := make([]jsonutils.JSONObject, 0)
+	for {
+		params.Set("offset", jsonutils.NewInt(int64(count)))
+		result, err := manager.List(session, params)
+		if err != nil {
+			return nil, errors.Wrapf(err, "list %s resources with params %s", manager.KeyString(), params.String())
+		}
+		for _, data := range result.Data {
+			objs = append(objs, data)
+		}
+		total := result.Total
+		count = count + len(result.Data)
+		if count >= total {
+			break
+		}
+	}
+	return objs, nil
 }

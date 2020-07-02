@@ -44,31 +44,21 @@ func NewLBUnusedDriver() models.ISuggestSysRuleDriver {
 	}
 }
 
-func (rule *LBUnused) ValidateSetting(input *monitor.SSuggestSysAlertSetting) error {
+func (drv *LBUnused) ValidateSetting(input *monitor.SSuggestSysAlertSetting) error {
 	obj := new(monitor.LBUnused)
 	input.LBUnused = obj
 	return nil
 }
 
-func (rule *LBUnused) DoSuggestSysRule(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	doSuggestSysRule(ctx, userCred, isStart, rule)
+func (drv *LBUnused) DoSuggestSysRule(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	doSuggestSysRule(ctx, userCred, isStart, drv)
 }
 
-func (rule *LBUnused) Run(instance *monitor.SSuggestSysAlertSetting) {
-	oldAlert, err := getLastAlerts(rule)
-	if err != nil {
-		log.Errorln(err)
-		return
-	}
-	newAlert, err := rule.getLatestAlerts(instance)
-	if err != nil {
-		log.Errorln(errors.Wrap(err, "getEIPUnused error"))
-		return
-	}
-	DealAlertData(rule.GetType(), oldAlert, newAlert.Value())
+func (drv *LBUnused) Run(rule *models.SSuggestSysRule, setting *monitor.SSuggestSysAlertSetting) {
+	Run(drv, rule, setting)
 }
 
-func (rule *LBUnused) getLatestAlerts(instance *monitor.SSuggestSysAlertSetting) (*jsonutils.JSONArray, error) {
+func (drv *LBUnused) GetLatestAlerts(rule *models.SSuggestSysRule, instance *monitor.SSuggestSysAlertSetting) ([]jsonutils.JSONObject, error) {
 	session := auth.GetAdminSession(context.Background(), "", "")
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.NewString("0"), "limit")
@@ -77,7 +67,7 @@ func (rule *LBUnused) getLatestAlerts(instance *monitor.SSuggestSysAlertSetting)
 	if err != nil {
 		return nil, err
 	}
-	lbArr := jsonutils.NewArray()
+	lbArr := make([]jsonutils.JSONObject, 0)
 	for _, lb := range lbs.Data {
 		lbId, _ := lb.GetString("id")
 
@@ -98,7 +88,7 @@ func (rule *LBUnused) getLatestAlerts(instance *monitor.SSuggestSysAlertSetting)
 			continue
 		}
 		problem.(*jsonutils.JSONDict).Add(jsonutils.NewString(monitor.LB_UNUSED_NLISTENER), "listener")
-		suggestSysAlert, err := getSuggestSysAlertFromJson(lb, rule)
+		suggestSysAlert, err := getSuggestSysAlertFromJson(lb, drv)
 		if err != nil {
 			return lbArr, errors.Wrap(err, "getLatestAlerts's alertData Unmarshal error")
 		}
@@ -112,7 +102,7 @@ func (rule *LBUnused) getLatestAlerts(instance *monitor.SSuggestSysAlertSetting)
 		}
 		suggestSysAlert.Problem = problem
 
-		lbArr.Add(jsonutils.Marshal(suggestSysAlert))
+		lbArr = append(lbArr, jsonutils.Marshal(suggestSysAlert))
 	}
 	return lbArr, nil
 }

@@ -51,7 +51,7 @@ func NewScaleDownDriver() models.ISuggestSysRuleDriver {
 	}
 }
 
-func (rule *ScaleDown) ValidateSetting(input *monitor.SSuggestSysAlertSetting) error {
+func (drv *ScaleDown) ValidateSetting(input *monitor.SSuggestSysAlertSetting) error {
 	if input.ScaleRule == nil {
 		return httperrors.NewInputParameterError("no found rule setting ")
 	}
@@ -89,38 +89,29 @@ func getQueryEvalType(scale monitor.Scale) string {
 	return typ
 }
 
-func (rule *ScaleDown) DoSuggestSysRule(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	doSuggestSysRule(ctx, userCred, isStart, rule)
+func (drv *ScaleDown) DoSuggestSysRule(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	doSuggestSysRule(ctx, userCred, isStart, drv)
 }
 
-func (rule *ScaleDown) Run(instance *monitor.SSuggestSysAlertSetting) {
-	oldAlert, err := getLastAlerts(rule)
-	if err != nil {
-		log.Errorln(err)
-		return
-	}
-	newAlert, err := rule.getLatestAlerts(instance)
-	if err != nil {
-		log.Errorln(err)
-		return
-	}
-	DealAlertData(rule.GetType(), oldAlert, newAlert.Value())
+func (drv *ScaleDown) Run(rule *models.SSuggestSysRule, instance *monitor.SSuggestSysAlertSetting) {
+	Run(drv, rule, instance)
 }
 
-func (rule *ScaleDown) getLatestAlerts(instance *monitor.SSuggestSysAlertSetting) (*jsonutils.JSONArray, error) {
+func (drv *ScaleDown) GetLatestAlerts(rule *models.SSuggestSysRule, instance *monitor.SSuggestSysAlertSetting) ([]jsonutils.JSONObject, error) {
 	//scaleEvalMatchs := make([]*monitor.EvalMatch, 0)
-	firing, evalMatchMap, err := rule.getScaleEvalResult(*instance.ScaleRule)
+	ret := make([]jsonutils.JSONObject, 0)
+	firing, evalMatchMap, err := drv.getScaleEvalResult(*instance.ScaleRule)
 	if err != nil {
-		return jsonutils.NewArray(), errors.Wrap(err, "rule getScaleEvalResult happen error")
+		return ret, errors.Wrap(err, "rule getScaleEvalResult happen error")
 	}
 	if firing {
-		serverArr, err := rule.getResourcesByEvalMatchsMap(evalMatchMap, instance)
+		serverArr, err := drv.getResourcesByEvalMatchsMap(evalMatchMap, instance)
 		if err != nil {
-			return jsonutils.NewArray(), errors.Wrap(err, "rule  getResource error")
+			return ret, errors.Wrap(err, "rule  getResource error")
 		}
 		return serverArr, nil
 	}
-	return jsonutils.NewArray(), nil
+	return ret, nil
 }
 
 func (rule *ScaleDown) getScaleEvalResult(scales []monitor.Scale) (bool, map[string][]*monitor.EvalMatch, error) {
@@ -181,7 +172,7 @@ func (rule *ScaleDown) getScaleEvalResult(scales []monitor.Scale) (bool, map[str
 	return firing, scaleEvalMatchs, nil
 }
 
-func (rule *ScaleDown) getResourcesByEvalMatchsMap(evalMatchsMap map[string][]*monitor.EvalMatch, instance *monitor.SSuggestSysAlertSetting) (*jsonutils.JSONArray, error) {
+func (rule *ScaleDown) getResourcesByEvalMatchsMap(evalMatchsMap map[string][]*monitor.EvalMatch, instance *monitor.SSuggestSysAlertSetting) ([]jsonutils.JSONObject, error) {
 	matchLength := 0
 	var maxEvalMatch []*monitor.EvalMatch
 	for _, evalMatchs := range evalMatchsMap {
@@ -198,14 +189,14 @@ func (rule *ScaleDown) getResourcesByEvalMatchsMap(evalMatchsMap map[string][]*m
 		}
 		suggestSysAlert, err := getSuggestSysAlertFromJson(server, rule)
 		if err != nil {
-			return serverArr, errors.Wrap(err, "Scale getSuggestSysAlertFromJson error")
+			return nil, errors.Wrap(err, "Scale getSuggestSysAlertFromJson error")
 		}
 		suggestSysAlert.Action = string(monitor.SCALE_DOWN_DRIVER_ACTION)
 		suggestSysAlert.MonitorConfig = jsonutils.Marshal(instance)
 		suggestSysAlert.Problem = describeEvalResultTojson(evalMatchsMap, mappingId, mappingVal)
 		serverArr.Add(jsonutils.Marshal(suggestSysAlert))
 	}
-	return serverArr, nil
+	return serverArr.Value(), nil
 }
 
 func getServerFromEvalMatch(evalMatch *monitor.EvalMatch) (jsonutils.JSONObject, string, string) {

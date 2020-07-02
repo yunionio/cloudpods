@@ -47,34 +47,18 @@ func NewEIPUsedDriver() models.ISuggestSysRuleDriver {
 	}
 }
 
-func (dri *EIPUnused) ValidateSetting(input *monitor.SSuggestSysAlertSetting) error {
+func (drv *EIPUnused) ValidateSetting(input *monitor.SSuggestSysAlertSetting) error {
 	obj := new(monitor.EIPUnused)
 	input.EIPUnused = obj
 	return nil
 }
 
-func (rule *EIPUnused) Run(instance *monitor.SSuggestSysAlertSetting) {
-	oldAlert, err := getLastAlerts(rule)
-	if err != nil {
-		log.Errorln(err)
-		return
-	}
-	newAlert, err := rule.getEIPUnused(instance)
-	if err != nil {
-		log.Errorln(errors.Wrap(err, "getEIPUnused error"))
-		return
-	}
-
-	DealAlertData(rule.GetType(), oldAlert, newAlert.Value())
+func (drv *EIPUnused) Run(rule *models.SSuggestSysRule, setting *monitor.SSuggestSysAlertSetting) {
+	Run(drv, rule, setting)
 }
 
-func (rule *EIPUnused) getEIPUnused(instance *monitor.SSuggestSysAlertSetting) (*jsonutils.JSONArray, error) {
-	rules, _ := models.SuggestSysRuleManager.GetRules(rule.GetType())
-	if len(rules) == 0 {
-		log.Println("Rule may have been deleted")
-		return jsonutils.NewArray(), nil
-	}
-	duration, _ := time.ParseDuration(rules[0].TimeFrom)
+func (drv *EIPUnused) GetLatestAlerts(rule *models.SSuggestSysRule, instance *monitor.SSuggestSysAlertSetting) ([]jsonutils.JSONObject, error) {
+	duration, _ := time.ParseDuration(rule.TimeFrom)
 	//处理逻辑
 	session := auth.GetAdminSession(context.Background(), "", "")
 	query := jsonutils.NewDict()
@@ -84,7 +68,7 @@ func (rule *EIPUnused) getEIPUnused(instance *monitor.SSuggestSysAlertSetting) (
 	if err != nil {
 		return nil, err
 	}
-	EIPUnsedArr := jsonutils.NewArray()
+	unused := make([]jsonutils.JSONObject, 0)
 	for _, row := range rtn.Data {
 		//Determine whether EIP is used
 		if row.ContainsIgnoreCases("associate_type") || row.ContainsIgnoreCases("associate_id") {
@@ -107,9 +91,9 @@ func (rule *EIPUnused) getEIPUnused(instance *monitor.SSuggestSysAlertSetting) (
 		if time.Now().Add(-duration).Sub(latestTime) < 0 {
 			continue
 		}
-		suggestSysAlert, err := getSuggestSysAlertFromJson(row, rule)
+		suggestSysAlert, err := getSuggestSysAlertFromJson(row, drv)
 		if err != nil {
-			return EIPUnsedArr, errors.Wrap(err, "getEIPUnused's alertData Unmarshal error")
+			return unused, errors.Wrap(err, "getEIPUnused's alertData Unmarshal error")
 		}
 
 		input := &monitor.SSuggestSysAlertSetting{
@@ -126,26 +110,16 @@ func (rule *EIPUnused) getEIPUnused(instance *monitor.SSuggestSysAlertSetting) (
 		suggestSysAlert.Problem = problem
 
 		getResourceAmount(suggestSysAlert, latestTime)
-		EIPUnsedArr.Add(jsonutils.Marshal(suggestSysAlert))
+		unused = append(unused, jsonutils.Marshal(suggestSysAlert))
 	}
-	return EIPUnsedArr, nil
+	return unused, nil
 }
 
-func (rule *EIPUnused) DoSuggestSysRule(ctx context.Context, userCred mcclient.TokenCredential,
-	isStart bool) {
-	var instance *monitor.SSuggestSysAlertSetting
-	suggestSysSettingMap, err := models.SuggestSysRuleManager.FetchSuggestSysAlertSettings(rule.GetType())
-	if err != nil {
-		log.Errorln("DoSuggestSysRule error :", err)
-		return
-	}
-	if details, ok := suggestSysSettingMap[rule.GetType()]; ok {
-		instance = details.Setting
-	}
-	rule.Run(instance)
+func (drv *EIPUnused) DoSuggestSysRule(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	doSuggestSysRule(ctx, userCred, isStart, drv)
 }
 
-func (rule *EIPUnused) Resolve(data *models.SSuggestSysAlert) error {
+func (drv *EIPUnused) Resolve(data *models.SSuggestSysAlert) error {
 	session := auth.GetAdminSession(context.Background(), "", "")
 	_, err := modules.Elasticips.Delete(session, data.ResId, jsonutils.NewDict())
 	if err != nil {
@@ -155,7 +129,7 @@ func (rule *EIPUnused) Resolve(data *models.SSuggestSysAlert) error {
 	return nil
 }
 
-func (rule *EIPUnused) StartResolveTask(ctx context.Context, userCred mcclient.TokenCredential,
+func (drv *EIPUnused) StartResolveTask(ctx context.Context, userCred mcclient.TokenCredential,
 	suggestSysAlert *models.SSuggestSysAlert, params *jsonutils.JSONDict) error {
 	suggestSysAlert.SetStatus(userCred, monitor.SUGGEST_ALERT_START_DELETE, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "ResolveUnusedTask", suggestSysAlert, userCred, params, "", "", nil)
