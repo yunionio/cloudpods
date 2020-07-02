@@ -1125,6 +1125,8 @@ yunion.io/x/executor v0.0.0-20200227030256-a18417815e74/go.mod h1:Uxuou9WQIeJXNp
 yunion.io/x/jsonutils v0.0.0-20190625054549-a964e1e8a051/go.mod h1:4N0/RVzsYL3kH3WE/H1BjUQdFiWu50JGCFQuuy+Z634=
 yunion.io/x/jsonutils v0.0.0-20200615014624-f9c3576579c9 h1:s7sobXxn4ckRHdjIaA91Rnfy2kreV/+dN3P2pQLg7F0=
 yunion.io/x/jsonutils v0.0.0-20200615014624-f9c3576579c9/go.mod h1:T7kxQJR13+t7z0TuT+Wzd7MTxBOk2H9c0pO1ONQSv90=
+yunion.io/x/jsonutils v0.0.0-20200701074723-fea7ff9d66b6 h1:QoboWGwBpiZ3YhNAjuV3PwzGl2JTsawEQ69GpXlMKUM=
+yunion.io/x/jsonutils v0.0.0-20200701074723-fea7ff9d66b6/go.mod h1:T7kxQJR13+t7z0TuT+Wzd7MTxBOk2H9c0pO1ONQSv90=
 yunion.io/x/log v0.0.0-20190514041436-04ce53b17c6b/go.mod h1:+gauLs73omeJAPlsXcevLsJLKixV+sR/E7WSYTSx1fE=
 yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d h1:59zrDL7Ft+hDukguJRmLr/Gdu/9V75x+yX99ovZwfaA=
 yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d/go.mod h1:LC6f/4FozL0iaAbnFt2eDX9jlsyo3WiOUPm03d7+U4U=

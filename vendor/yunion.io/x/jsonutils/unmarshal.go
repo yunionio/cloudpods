@@ -37,7 +37,7 @@ import (
 )
 
 func (this *JSONValue) Unmarshal(obj interface{}, keys ...string) error {
-	return ErrUnsupported
+	return jsonUnmarshal(this, obj, keys)
 }
 
 func (this *JSONArray) Unmarshal(obj interface{}, keys ...string) error {
