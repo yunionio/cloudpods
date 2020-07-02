@@ -102,6 +102,15 @@ func (sgg *SScalingGroupGuest) SetGuestStatus(status string) error {
 	return err
 }
 
+func (sgg *SScalingGroupGuest) Master() db.IStandaloneModel {
+	return sgg.getGuest()
+}
+
+func (sgg *SScalingGroupGuest) Slave() db.IStandaloneModel {
+	sg, _ := ScalingGroupManager.FetchById(sgg.ScalingGroupId)
+	return sg.(*SScalingGroup)
+}
+
 func (sggm *SScalingGroupGuestManager) Query(fields ...string) *sqlchemy.SQuery {
 	return sggm.SVirtualJointResourceBaseManager.Query(fields...).NotEquals("guest_status",
 		compute.SG_GUEST_STATUS_PENDING_REMOVE)
