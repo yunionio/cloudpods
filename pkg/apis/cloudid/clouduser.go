@@ -35,7 +35,7 @@ const (
 )
 
 type ClouduserCreateInput struct {
-	apis.StatusUserResourceCreateInput
+	apis.StatusDomainLevelUserResourceCreateInput
 	apis.StatusBaseResourceCreateInput
 
 	// 云订阅ID
@@ -100,10 +100,14 @@ type ClouduserCreateInput struct {
 }
 
 type ClouduserListInput struct {
-	apis.StatusUserResourceListInput
+	apis.StatusDomainLevelUserResourceListInput
 
 	CloudaccountResourceListInput
 	CloudproviderResourceListInput
+
+	// 通过关联用户查找公有云子账号
+	// example: cloudadmin
+	OwnerName string `json:"owner_name"`
 
 	// 过滤绑定权限的子账号
 	CloudpolicyId string `json:"cloudpolicy_id"`
@@ -113,7 +117,7 @@ type ClouduserListInput struct {
 }
 
 type ClouduserDetails struct {
-	apis.StatusUserResourceDetails
+	apis.StatusDomainLevelUserResourceDetails
 	SClouduser
 
 	CloudaccountResourceDetails

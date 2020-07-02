@@ -143,16 +143,14 @@ func (self *SCloudgroupcache) syncWithCloudgrup(ctx context.Context, userCred mc
 
 func (manager *SCloudgroupcacheManager) Register(group *SCloudgroup, account *SCloudaccount) (*SCloudgroupcache, error) {
 	q := manager.Query().Equals("cloudgroup_id", group.Id).Equals("cloudaccount_id", account.Id)
-	count, err := q.CountWithError()
+	caches := []SCloudgroupcache{}
+	err := db.FetchModelObjects(manager, q, &caches)
 	if err != nil {
-		return nil, errors.Wrap(err, "CountWithError")
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
 	}
-	if count > 1 {
-		return nil, sqlchemy.ErrDuplicateEntry
-	}
-	cache := &SCloudgroupcache{}
-	cache.SetModelManager(manager, cache)
-	if count < 1 {
+	if len(caches) == 0 {
+		cache := &SCloudgroupcache{}
+		cache.SetModelManager(manager, cache)
 		cache.Name = group.Name
 		cache.Description = group.Description
 		cache.Status = api.CLOUD_GROUP_CACHE_STATUS_CREATING
@@ -160,11 +158,12 @@ func (manager *SCloudgroupcacheManager) Register(group *SCloudgroup, account *SC
 		cache.CloudaccountId = account.Id
 		return cache, manager.TableSpec().Insert(context.Background(), cache)
 	}
-	err = q.First(cache)
-	if err != nil {
-		return nil, errors.Wrap(err, "q.First")
+	for i := range caches {
+		if len(caches[i].ExternalId) > 0 {
+			return &caches[i], nil
+		}
 	}
-	return cache, nil
+	return &caches[0], nil
 }
 
 // 获取权限组缓存详情
