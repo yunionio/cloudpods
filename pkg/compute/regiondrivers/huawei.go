@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -1908,7 +1909,9 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancer(ctx context.Context, 
 					return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.Associate")
 				}
 
-				eip, err := db.FetchByExternalId(models.ElasticipManager, ieip.GetGlobalId())
+				eip, err := db.FetchByExternalIdAndManagerId(models.ElasticipManager, ieip.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+					return q.Equals("manager_id", lb.MarkUnDelete)
+				})
 				if err != nil {
 					return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.FetchByExternalId")
 				}

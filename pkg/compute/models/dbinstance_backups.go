@@ -437,7 +437,9 @@ func (self *SDBInstanceBackup) SyncWithCloudDBInstanceBackup(
 
 		if dbinstanceId := extBackup.GetDBInstanceId(); len(dbinstanceId) > 0 {
 			//有可能云上删除了实例，未删除备份
-			_instance, err := db.FetchByExternalId(DBInstanceManager, dbinstanceId)
+			_instance, err := db.FetchByExternalIdAndManagerId(DBInstanceManager, dbinstanceId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				return q.Equals("manager_id", provider.Id)
+			})
 			if err == sql.ErrNoRows {
 				self.DBInstanceId = ""
 			}
@@ -493,7 +495,9 @@ func (manager *SDBInstanceBackupManager) newFromCloudDBInstanceBackup(
 	backup.ExternalId = extBackup.GetGlobalId()
 
 	if dbinstanceId := extBackup.GetDBInstanceId(); len(dbinstanceId) > 0 {
-		_dbinstance, err := db.FetchByExternalId(DBInstanceManager, dbinstanceId)
+		_dbinstance, err := db.FetchByExternalIdAndManagerId(DBInstanceManager, dbinstanceId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			return q.Equals("manager_id", provider.Id)
+		})
 		if err != nil {
 			log.Warningf("failed to found dbinstance for backup %s by externalId: %s error: %v", backup.Name, dbinstanceId, err)
 		} else {
