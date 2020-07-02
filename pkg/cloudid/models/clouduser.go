@@ -37,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -89,7 +90,12 @@ func (manager *SClouduserManager) GetIVirtualModelManager() db.IVirtualModelMana
 // 公有云用户列表
 func (manager *SClouduserManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ClouduserListInput) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = manager.SStatusUserResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusUserResourceListInput)
+	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, err
+	}
+
+	q, err = manager.SStatusResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusResourceBaseListInput)
 	if err != nil {
 		return nil, err
 	}
@@ -102,6 +108,23 @@ func (manager *SClouduserManager) ListItemFilter(ctx context.Context, q *sqlchem
 	q, err = manager.SCloudproviderResourceBaseManager.ListItemFilter(ctx, q, userCred, query.CloudproviderResourceListInput)
 	if err != nil {
 		return nil, err
+	}
+
+	if ((query.Admin != nil && *query.Admin) || query.Scope == string(rbacutils.ScopeSystem)) && db.IsAdminAllowList(userCred, manager) {
+		user := query.User
+		if len(user) > 0 {
+			uc, _ := db.UserCacheManager.FetchUserByIdOrName(ctx, user)
+			if uc == nil {
+				return nil, httperrors.NewUserNotFoundError("user %s not found", user)
+			}
+			q = q.Equals("owner_id", uc.Id)
+		}
+	} else if query.Scope == string(rbacutils.ScopeDomain) && db.IsDomainAllowList(userCred, manager) {
+		sq := CloudaccountManager.Query().SubQuery()
+		q = q.Join(sq, sqlchemy.Equals(q.Field("cloudaccount_id"), sq.Field("id"))).
+			Filter(sqlchemy.Equals(sq.Field("domain_id"), userCred.GetProjectDomainId()))
+	} else {
+		q = q.Equals("owner_id", userCred.GetUserId())
 	}
 
 	if len(query.CloudpolicyId) > 0 {
