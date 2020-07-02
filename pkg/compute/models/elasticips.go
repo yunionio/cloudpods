@@ -414,7 +414,16 @@ func (self *SElasticip) SyncInstanceWithCloudEip(ctx context.Context, userCred m
 			return errors.Error("unsupported association type")
 		}
 
-		extRes, err := db.FetchByExternalId(manager, vmExtId)
+		extRes, err := db.FetchByExternalIdAndManagerId(manager, vmExtId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			switch ext.GetAssociationType() {
+			case api.EIP_ASSOCIATE_TYPE_SERVER:
+				sq := HostManager.Query().SubQuery()
+				return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("host_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), self.ManagerId))
+			case api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY, api.EIP_ASSOCIATE_TYPE_LOADBALANCER:
+				return q.Equals("manager_id", self.ManagerId)
+			}
+			return q
+		})
 		if err != nil {
 			log.Errorf("fail to find vm by external ID %s", vmExtId)
 			return err
@@ -501,7 +510,13 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 	eip.CloudregionId = region.Id
 	eip.ChargeType = extEip.GetInternetChargeType()
 	if networkId := extEip.GetINetworkId(); len(networkId) > 0 {
-		network, err := db.FetchByExternalId(NetworkManager, networkId)
+		network, err := db.FetchByExternalIdAndManagerId(NetworkManager, networkId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			wire := WireManager.Query().SubQuery()
+			vpc := VpcManager.Query().SubQuery()
+			return q.Join(wire, sqlchemy.Equals(wire.Field("id"), q.Field("wire_id"))).
+				Join(vpc, sqlchemy.Equals(vpc.Field("id"), wire.Field("vpc_id"))).
+				Filter(sqlchemy.Equals(vpc.Field("manager_id"), provider.Id))
+		})
 		if err != nil {
 			msg := fmt.Sprintf("failed to found network by externalId %s error: %v", networkId, err)
 			log.Errorf(msg)
@@ -759,7 +774,9 @@ func (self *SElasticip) AssociateNatGateway(ctx context.Context, userCred mcclie
 }
 
 func (manager *SElasticipManager) getEipByExtEip(ctx context.Context, userCred mcclient.TokenCredential, extEip cloudprovider.ICloudEIP, provider *SCloudprovider, region *SCloudregion, syncOwnerId mcclient.IIdentityProvider) (*SElasticip, error) {
-	eipObj, err := db.FetchByExternalId(manager, extEip.GetGlobalId())
+	eipObj, err := db.FetchByExternalIdAndManagerId(manager, extEip.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.Equals("manager_id", provider.Id)
+	})
 	if err == nil {
 		return eipObj.(*SElasticip), nil
 	}

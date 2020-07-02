@@ -173,7 +173,9 @@ func (manager *SStoragecacheManager) SyncWithCloudStoragecache(ctx context.Conte
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
-	localCacheObj, err := db.FetchByExternalId(manager, cloudCache.GetGlobalId())
+	localCacheObj, err := db.FetchByExternalIdAndManagerId(manager, cloudCache.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.Equals("manager_id", provider.Id)
+	})
 	if err != nil {
 		if err == sql.ErrNoRows {
 			localCache, err := manager.newFromCloudStoragecache(ctx, userCred, cloudCache, provider)

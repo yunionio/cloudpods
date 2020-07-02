@@ -66,7 +66,14 @@ func SetExternalId(model IExternalizedModel, userCred mcclient.TokenCredential, 
 }
 
 func FetchByExternalId(manager IModelManager, idStr string) (IExternalizedModel, error) {
+	return FetchByExternalIdAndManagerId(manager, idStr, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q
+	})
+}
+
+func FetchByExternalIdAndManagerId(manager IModelManager, idStr string, filter func(q *sqlchemy.SQuery) *sqlchemy.SQuery) (IExternalizedModel, error) {
 	q := manager.Query().Equals("external_id", idStr)
+	q = filter(q)
 	count, err := q.CountWithError()
 	if err != nil {
 		return nil, err

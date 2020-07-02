@@ -1236,12 +1236,16 @@ func (manager *SDBInstanceManager) SyncDBInstanceMasterId(ctx context.Context, u
 	for _, instance := range cloudDBInstances {
 		masterId := instance.GetMasterInstanceId()
 		if len(masterId) > 0 {
-			master, err := db.FetchByExternalId(manager, masterId)
+			master, err := db.FetchByExternalIdAndManagerId(manager, masterId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				return q.Equals("manager_id", provider.Id)
+			})
 			if err != nil {
 				log.Errorf("failed to found master dbinstance by externalId: %s error: %v", masterId, err)
 				continue
 			}
-			slave, err := db.FetchByExternalId(manager, instance.GetGlobalId())
+			slave, err := db.FetchByExternalIdAndManagerId(manager, instance.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				return q.Equals("manager_id", provider.Id)
+			})
 			if err != nil {
 				log.Errorf("failed to found local dbinstance by externalId %s error: %v", instance.GetGlobalId(), err)
 				continue
@@ -1495,7 +1499,9 @@ func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred m
 
 		if len(self.VpcId) == 0 {
 			if vpcId := extInstance.GetIVpcId(); len(vpcId) > 0 {
-				vpc, err := db.FetchByExternalId(VpcManager, vpcId)
+				vpc, err := db.FetchByExternalIdAndManagerId(VpcManager, vpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+					return q.Equals("manager_id", provider.Id)
+				})
 				if err != nil {
 					return errors.Wrapf(err, "SyncWithCloudDBInstance.FetchVpcId")
 				}
@@ -1580,7 +1586,9 @@ func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, u
 	}
 
 	if vpcId := extInstance.GetIVpcId(); len(vpcId) > 0 {
-		vpc, err := db.FetchByExternalId(VpcManager, vpcId)
+		vpc, err := db.FetchByExternalIdAndManagerId(VpcManager, vpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			return q.Equals("manager_id", provider.Id)
+		})
 		if err != nil {
 			return nil, errors.Wrapf(err, "newFromCloudDBInstance.FetchVpcId")
 		}

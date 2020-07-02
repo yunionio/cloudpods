@@ -955,7 +955,9 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 
 	lblis.AclType = extListener.GetAclType()
 	if aclID := extListener.GetAclId(); len(aclID) > 0 {
-		if _acl, err := db.FetchByExternalId(CachedLoadbalancerAclManager, aclID); err == nil {
+		if _acl, err := db.FetchByExternalIdAndManagerId(CachedLoadbalancerAclManager, aclID, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			return q.Equals("manager_id", lb.ManagerId)
+		}); err == nil {
 			acl := _acl.(*SCachedLoadbalancerAcl)
 			lblis.CachedAclId = acl.GetId()
 			lblis.AclId = acl.AclId
@@ -991,7 +993,9 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 		lblis.TLSCipherPolicy = extListener.GetTLSCipherPolicy()
 		lblis.EnableHttp2 = extListener.HTTP2Enabled()
 		if certificateId := extListener.GetCertificateId(); len(certificateId) > 0 {
-			if _cert, err := db.FetchByExternalId(CachedLoadbalancerCertificateManager, certificateId); err == nil {
+			if _cert, err := db.FetchByExternalIdAndManagerId(CachedLoadbalancerCertificateManager, certificateId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				return q.Equals("manager_id", lb.ManagerId)
+			}); err == nil {
 				cert := _cert.(*SCachedLoadbalancerCertificate)
 				lblis.CachedCertificateId = cert.GetId()
 				lblis.CertificateId = cert.CertificateId
@@ -1025,7 +1029,9 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 	switch lblis.GetProviderName() {
 	case api.CLOUD_PROVIDER_HUAWEI:
 		if len(groupId) > 0 {
-			group, err := db.FetchByExternalId(HuaweiCachedLbbgManager, groupId)
+			group, err := db.FetchByExternalIdAndManagerId(HuaweiCachedLbbgManager, groupId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				return q.Equals("manager_id", lb.ManagerId)
+			})
 			if err != nil {
 				if err == sql.ErrNoRows {
 					lblis.BackendGroupId = ""
@@ -1037,7 +1043,9 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 		}
 	case api.CLOUD_PROVIDER_AWS:
 		if len(groupId) > 0 {
-			group, err := db.FetchByExternalId(AwsCachedLbbgManager, groupId)
+			group, err := db.FetchByExternalIdAndManagerId(AwsCachedLbbgManager, groupId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				return q.Equals("manager_id", lb.ManagerId)
+			})
 			if err != nil {
 				log.Errorf("Fetch aws loadbalancer backendgroup by external id %s failed: %s", groupId, err)
 			} else {
@@ -1060,7 +1068,9 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 			lb := lblis.GetLoadbalancer()
 			if forward, _ := lb.LBInfo.Int("Forward"); forward == 1 {
 				// 应用型负载均衡
-				group, err := db.FetchByExternalId(QcloudCachedLbbgManager, groupId)
+				group, err := db.FetchByExternalIdAndManagerId(QcloudCachedLbbgManager, groupId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+					return q.Equals("manager_id", lb.ManagerId)
+				})
 				if err != nil {
 					log.Errorf("Fetch qcloud loadbalancer backendgroup by external id %s failed: %s", groupId, err)
 				} else {
@@ -1068,7 +1078,10 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 				}
 			} else {
 				// 传统型负载均衡
-				if group, err := db.FetchByExternalId(LoadbalancerBackendGroupManager, groupId); err == nil {
+				if group, err := db.FetchByExternalIdAndManagerId(LoadbalancerBackendGroupManager, groupId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+					sq := LoadbalancerManager.Query().SubQuery()
+					return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("loadbalancer_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), lb.ManagerId))
+				}); err == nil {
 					lblis.BackendGroupId = group.GetId()
 				}
 			}
@@ -1076,13 +1089,16 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 	default:
 		if len(lblis.BackendGroupId) == 0 && len(groupId) == 0 {
 			lblis.BackendGroupId = lb.BackendGroupId
-		} else if group, err := db.FetchByExternalId(LoadbalancerBackendGroupManager, groupId); err == nil {
+		} else if group, err := db.FetchByExternalIdAndManagerId(LoadbalancerBackendGroupManager, groupId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			sq := LoadbalancerManager.Query().SubQuery()
+			return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("loadbalancer_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), lb.ManagerId))
+		}); err == nil {
 			lblis.BackendGroupId = group.GetId()
 		}
 	}
 }
 
-func (lblis *SLoadbalancerListener) updateCachedLoadbalancerBackendGroupAssociate(ctx context.Context, extListener cloudprovider.ICloudLoadbalancerListener) error {
+func (lblis *SLoadbalancerListener) updateCachedLoadbalancerBackendGroupAssociate(ctx context.Context, extListener cloudprovider.ICloudLoadbalancerListener, managerId string) error {
 	exteralLbbgId := extListener.GetBackendGroupId()
 	if len(exteralLbbgId) == 0 {
 		return nil
@@ -1090,7 +1106,9 @@ func (lblis *SLoadbalancerListener) updateCachedLoadbalancerBackendGroupAssociat
 
 	switch lblis.GetProviderName() {
 	case api.CLOUD_PROVIDER_HUAWEI:
-		_group, err := db.FetchByExternalId(HuaweiCachedLbbgManager, exteralLbbgId)
+		_group, err := db.FetchByExternalIdAndManagerId(HuaweiCachedLbbgManager, exteralLbbgId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			return q.Equals("manager_id", managerId)
+		})
 		if err != nil {
 			if err == sql.ErrNoRows {
 				lblis.BackendGroupId = ""
@@ -1115,7 +1133,9 @@ func (lblis *SLoadbalancerListener) updateCachedLoadbalancerBackendGroupAssociat
 	case api.CLOUD_PROVIDER_QCLOUD:
 		lb := lblis.GetLoadbalancer()
 		if forward, _ := lb.LBInfo.Int("Forward"); forward == 1 {
-			_group, err := db.FetchByExternalId(QcloudCachedLbbgManager, exteralLbbgId)
+			_group, err := db.FetchByExternalIdAndManagerId(QcloudCachedLbbgManager, exteralLbbgId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				return q.Equals("manager_id", managerId)
+			})
 			if err != nil {
 				if err == sql.ErrNoRows {
 					lblis.BackendGroupId = ""
@@ -1167,7 +1187,7 @@ func (lblis *SLoadbalancerListener) SyncWithCloudLoadbalancerListener(ctx contex
 		return err
 	}
 
-	err = lblis.updateCachedLoadbalancerBackendGroupAssociate(ctx, extListener)
+	err = lblis.updateCachedLoadbalancerBackendGroupAssociate(ctx, extListener, lb.ManagerId)
 	if err != nil {
 		return errors.Wrap(err, "LoadbalancerListener.SyncWithCloudLoadbalancerListener")
 	}
@@ -1199,7 +1219,7 @@ func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx co
 		return nil, err
 	}
 
-	err = lblis.updateCachedLoadbalancerBackendGroupAssociate(ctx, extListener)
+	err = lblis.updateCachedLoadbalancerBackendGroupAssociate(ctx, extListener, lb.ManagerId)
 	if err != nil {
 		return nil, errors.Wrap(err, "LoadbalancerListener.newFromCloudLoadbalancerListener")
 	}

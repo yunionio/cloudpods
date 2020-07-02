@@ -313,7 +313,10 @@ func (self *SNetworkInterface) SyncWithCloudNetworkInterface(ctx context.Context
 func (self *SNetworkInterface) Associate(associateId string) error {
 	switch self.AssociateType {
 	case api.NETWORK_INTERFACE_ASSOCIATE_TYPE_SERVER:
-		guest, err := db.FetchByExternalId(GuestManager, associateId)
+		guest, err := db.FetchByExternalIdAndManagerId(GuestManager, associateId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			sq := HostManager.Query().SubQuery()
+			return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("host_id"))).Filter(sqlchemy.Equals(q.Field("manager_id"), self.ManagerId))
+		})
 		if err != nil {
 			return errors.Wrapf(err, "failed to get guest for networkinterface %s associateId %s", self.Name, associateId)
 		}

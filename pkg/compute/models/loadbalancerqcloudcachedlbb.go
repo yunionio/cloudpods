@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -94,7 +95,10 @@ func (lbb *SQcloudCachedLb) syncRemoveCloudLoadbalancerBackend(ctx context.Conte
 func (lbb *SQcloudCachedLb) constructFieldsFromCloudLoadbalancerBackend(extLoadbalancerBackend cloudprovider.ICloudLoadbalancerBackend) error {
 	lbb.Status = extLoadbalancerBackend.GetStatus()
 
-	instance, err := db.FetchByExternalId(GuestManager, extLoadbalancerBackend.GetBackendId())
+	instance, err := db.FetchByExternalIdAndManagerId(GuestManager, extLoadbalancerBackend.GetBackendId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		sq := HostManager.Query().SubQuery()
+		return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("host_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), lbb.ManagerId))
+	})
 	if err != nil {
 		return err
 	}

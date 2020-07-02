@@ -183,16 +183,6 @@ func (zone *SZone) GetCloudRegionId() string {
 	}
 }
 
-func (manager *SZoneManager) GetZonesByRegion(region *SCloudregion) ([]SZone, error) {
-	zones := make([]SZone, 0)
-	q := manager.Query().Equals("cloudregion_id", region.Id)
-	err := db.FetchModelObjects(manager, q, &zones)
-	if err != nil {
-		return nil, err
-	}
-	return zones, nil
-}
-
 func (manager *SZoneManager) SyncZones(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, zones []cloudprovider.ICloudZone) ([]SZone, []cloudprovider.ICloudZone, compare.SyncResult) {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
@@ -201,7 +191,7 @@ func (manager *SZoneManager) SyncZones(ctx context.Context, userCred mcclient.To
 	remoteZones := make([]cloudprovider.ICloudZone, 0)
 	syncResult := compare.SyncResult{}
 
-	dbZones, err := manager.GetZonesByRegion(region)
+	dbZones, err := region.GetZones()
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult

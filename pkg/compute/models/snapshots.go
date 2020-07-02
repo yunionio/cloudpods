@@ -877,7 +877,10 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userC
 	snapshot.ExternalId = extSnapshot.GetGlobalId()
 	var localDisk *SDisk
 	if len(extSnapshot.GetDiskId()) > 0 {
-		disk, err := db.FetchByExternalId(DiskManager, extSnapshot.GetDiskId())
+		disk, err := db.FetchByExternalIdAndManagerId(DiskManager, extSnapshot.GetDiskId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			sq := StorageManager.Query().SubQuery()
+			return q.Join(sq, sqlchemy.Equals(q.Field("storage_id"), sq.Field("id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), provider.Id))
+		})
 		if err != nil {
 			log.Errorf("snapshot %s missing disk?", snapshot.Name)
 		} else {
