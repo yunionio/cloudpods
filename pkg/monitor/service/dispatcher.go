@@ -17,6 +17,14 @@ import (
 	"yunion.io/x/onecloud/pkg/monitor/subscriptionmodel"
 )
 
+var (
+	SubscriptionWorkerManager *appsrv.SWorkerManager
+)
+
+func init() {
+	SubscriptionWorkerManager = appsrv.NewWorkerManager("SubscriptionWorkerManager", 4, 1024, false)
+}
+
 func addCommonAlertDispatcher(prefix string, app *appsrv.Application) {
 	manager := db.NewModelHandler(subscriptionmodel.SubscriptionManager)
 
@@ -28,12 +36,13 @@ func addCommonAlertDispatcher(prefix string, app *appsrv.Application) {
 }
 
 func performHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	_, query, body := fetchEnv(ctx, w, r)
-	ctx = context.WithValue(context.Background(), auth.AUTH_TOKEN, auth.AdminCredential())
+	SubscriptionWorkerManager.Run(func() {
+		_, query, body := fetchEnv(ctx, w, r)
+		ctx = context.WithValue(context.Background(), auth.AUTH_TOKEN, auth.AdminCredential())
+		subscriptionmodel.SubscriptionManager.PerformWrite(ctx, auth.AdminCredential(), query, body)
+		appsrv.SendJSON(w, wrap(jsonutils.NewDict(), "subscription"))
+	}, nil, nil)
 
-	go subscriptionmodel.SubscriptionManager.PerformWrite(ctx, auth.AdminCredential(), query, body)
-
-	appsrv.SendJSON(w, wrap(jsonutils.NewDict(), "subscription"))
 }
 
 // fetchEnv fetch handler, params, query and body from ctx(context.Context)
