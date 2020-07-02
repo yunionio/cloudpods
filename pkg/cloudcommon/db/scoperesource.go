@@ -61,7 +61,7 @@ func (m *SScopedResourceBaseManager) FetchParentId(ctx context.Context, data jso
 	return ""
 }
 
-func (m *SScopedResourceBaseManager) filterByScope(q *sqlchemy.SQuery, scope rbacutils.TRbacScope, scopeResId string) *sqlchemy.SQuery {
+func (m *SScopedResourceBaseManager) FilterByScope(q *sqlchemy.SQuery, scope rbacutils.TRbacScope, scopeResId string) *sqlchemy.SQuery {
 	isNotNullOrEmpty := func(field string) sqlchemy.ICondition {
 		return sqlchemy.AND(sqlchemy.IsNotNull(q.Field(field)), sqlchemy.IsNotEmpty(q.Field(field)))
 	}
@@ -97,7 +97,7 @@ func (m *SScopedResourceBaseManager) FilterByParentId(q *sqlchemy.SQuery, parent
 	if len(parts) == 2 {
 		pid = parts[1]
 	}
-	return m.filterByScope(q, scope, pid)
+	return m.FilterByScope(q, scope, pid)
 }
 
 func (m *SScopedResourceBase) IsOwner(userCred mcclient.TokenCredential) bool {
@@ -311,7 +311,7 @@ func (m *SScopedResourceBaseManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SProjectizedResourceBaseManager.ListItemFilter")
 	}
 	if query.BelongScope != "" {
-		q = m.filterByScope(q, rbacutils.TRbacScope(query.BelongScope), "")
+		q = m.FilterByScope(q, rbacutils.TRbacScope(query.BelongScope), "")
 	}
 	return q, nil
 }

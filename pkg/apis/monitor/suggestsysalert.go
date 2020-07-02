@@ -73,3 +73,7 @@ type SuggestSysAlertUpdateInput struct {
 
 	RuleAt time.Time `json:"rule_at"`
 }
+
+type SuggestAlertIngoreInput struct {
+	apis.ScopedResourceCreateInput
+}

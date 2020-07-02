@@ -15,6 +15,8 @@
 package monitor
 
 import (
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -25,4 +27,15 @@ type SuggestSysAlertListOptions struct {
 
 type SSuggestAlertShowOptions struct {
 	ID string `help:"ID or name of the alert" json:"-"`
+}
+
+type SuggestAlertIgnoreOptions struct {
+	ID      string `help:"ID or name of the alert" json:"-"`
+	Scope   string `help:"Resource scope" choices:"system|domain|project" default:"project"`
+	Domain  string `help:"'Owner domain ID or Name" json:"project_domain"`
+	Project string `help:"'Owner project ID or Name" json:"project"`
+}
+
+func (opt *SuggestAlertIgnoreOptions) Params() (*jsonutils.JSONDict, error) {
+	return options.StructToParams(opt)
 }

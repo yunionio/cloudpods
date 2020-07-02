@@ -26,6 +26,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -237,6 +238,17 @@ func (self *SSuggestSysAlert) GetType() monitor.SuggestDriverType {
 	return monitor.SuggestDriverType(self.Type)
 }
 
+func (self *SSuggestSysAlert) GetShowName() string {
+	rule, _ := SuggestSysRuleManager.GetRules(self.GetType())
+	var showName string
+	if len(rule) != 0 {
+		showName = fmt.Sprintf("%s-%s", self.Name, rule[0].Name)
+	} else {
+		showName = fmt.Sprintf("%s-%s", self.Name, self.Type)
+	}
+	return showName
+}
+
 func (self *SSuggestSysAlert) getMoreDetails(out monitor.SuggestSysAlertDetails) monitor.SuggestSysAlertDetails {
 	err := self.ResMeta.Unmarshal(&out)
 	if err != nil {
@@ -246,12 +258,7 @@ func (self *SSuggestSysAlert) getMoreDetails(out monitor.SuggestSysAlertDetails)
 	out.Account = self.Cloudaccount
 	out.ResType = string(drv.GetResourceType())
 	out.RuleName = strings.ToLower(string(drv.GetType()))
-	rule, _ := SuggestSysRuleManager.GetRules(self.GetType())
-	if len(rule) != 0 {
-		out.ShowName = fmt.Sprintf("%s-%s", self.Name, rule[0].Name)
-	} else {
-		out.ShowName = fmt.Sprintf("%s-%s", self.Name, self.Type)
-	}
+	out.ShowName = self.GetShowName()
 	out.Suggest = string(drv.GetSuggest())
 	return out
 }
@@ -347,4 +354,76 @@ func (manager *SSuggestSysAlertManager) GetExportExtraKeys(ctx context.Context, 
 	dic.Add(jsonutils.NewString(input.Account), "manager")
 	dic.Add(jsonutils.NewString(alert.Provider), "hypervisor")
 	return dic
+}
+
+func (self *SSuggestSysAlert) AllowPerformIgnore(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsProjectAllowPerform(userCred, self, "ignore")
+}
+
+func (self *SSuggestSysAlert) GetSuggestConfig(scope rbacutils.TRbacScope, domainId string, projectId string) (*SSuggestSysRuleConfig, error) {
+	if scope == "" {
+		scope = rbacutils.ScopeSystem
+	}
+	drv := self.GetDriver()
+	resType := drv.GetResourceType()
+	resId := self.ResId
+	drvType := drv.GetType()
+	scopeId := ""
+	if scope == rbacutils.ScopeDomain {
+		scopeId = domainId
+	} else if scope == rbacutils.ScopeProject {
+		scopeId = projectId
+	}
+	q := SuggestSysRuleConfigManager.Query().Equals("type", drvType).Equals("resource_id", resId).Equals("resource_type", resType)
+	q = SuggestSysRuleConfigManager.FilterByScope(q, scope, scopeId)
+	configs := make([]SSuggestSysRuleConfig, 0)
+	if err := db.FetchModelObjects(SuggestSysRuleConfigManager, q, &configs); err != nil {
+		return nil, errors.Wrap(err, "fetch suggest config")
+	}
+	if len(configs) == 0 {
+		return nil, nil
+	}
+	config := configs[0]
+	return &config, nil
+}
+
+func (self *SSuggestSysAlert) PerformIgnore(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONDict, data monitor.SuggestAlertIngoreInput) (jsonutils.JSONObject, error) {
+	if data.Scope == "" {
+		data.Scope = string(rbacutils.ScopeSystem)
+	}
+	config, err := self.GetSuggestConfig(rbacutils.TRbacScope(data.Scope), data.ProjectDomain, data.Project)
+	if err != nil {
+		return nil, err
+	}
+	drv := self.GetDriver()
+	drvType := drv.GetType()
+	resType := drv.GetResourceType()
+	if config == nil {
+		createData := new(monitor.SuggestSysRuleConfigCreateInput)
+		createData.Name = self.GetShowName()
+		createData.ScopedResourceCreateInput = data.ScopedResourceCreateInput
+		createData.Type = &drvType
+		createData.ResourceType = &resType
+		createData.ResourceId = &self.ResId
+		createData.IgnoreAlert = true
+		data := createData.JSON(createData)
+		conf, err := db.DoCreate(SuggestSysRuleConfigManager, ctx, userCred, nil, data, userCred)
+		if err != nil {
+			return nil, err
+		}
+		func() {
+			lockman.LockObject(ctx, conf)
+			defer lockman.ReleaseObject(ctx, conf)
+
+			conf.PostCreate(ctx, userCred, userCred, nil, data)
+		}()
+	} else {
+		if _, err := db.Update(config, func() error {
+			config.IgnoreAlert = true
+			return nil
+		}); err != nil {
+			return nil, err
+		}
+	}
+	return nil, nil
 }
