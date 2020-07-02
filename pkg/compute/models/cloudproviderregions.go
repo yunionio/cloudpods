@@ -122,7 +122,7 @@ func (self *SCloudproviderregion) GetAccount() *SCloudaccount {
 func (self *SCloudproviderregion) GetRegion() *SCloudregion {
 	regionObj, err := CloudregionManager.FetchById(self.CloudregionId)
 	if err != nil {
-		log.Errorf("CloudproviderManager.FetchById fail %s", err)
+		log.Errorf("CloudregionManager.FetchById(%s) fail %s", self.CloudregionId, err)
 		return nil
 	}
 	return regionObj.(*SCloudregion)

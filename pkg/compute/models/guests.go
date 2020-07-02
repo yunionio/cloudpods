@@ -2311,7 +2311,13 @@ func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 	iVM, err := iregion.GetIVMById(self.ExternalId)
 	if err == nil { //漂移归位
 		if hostId := iVM.GetIHostId(); len(hostId) > 0 {
-			host, err := db.FetchByExternalId(HostManager, hostId)
+			host, err := db.FetchByExternalIdAndManagerId(HostManager, hostId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				host := self.GetHost()
+				if host != nil {
+					return q.Equals("manager_id", host.ManagerId)
+				}
+				return q
+			})
 			if err == nil {
 				_, err = db.Update(self, func() error {
 					self.HostId = host.GetId()
@@ -2742,7 +2748,13 @@ func getCloudNicNetwork(ctx context.Context, vnic cloudprovider.ICloudNic, host 
 		// find network by IP
 		return host.getNetworkOfIPOnHost(ip)
 	}
-	localNetObj, err := db.FetchByExternalId(NetworkManager, vnet.GetGlobalId())
+	localNetObj, err := db.FetchByExternalIdAndManagerId(NetworkManager, vnet.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		vpc := VpcManager.Query().SubQuery()
+		wire := WireManager.Query().SubQuery()
+		return q.Join(wire, sqlchemy.Equals(q.Field("wire_id"), wire.Field("id"))).
+			Join(vpc, sqlchemy.Equals(wire.Field("vpc_id"), vpc.Field("id"))).
+			Filter(sqlchemy.Equals(vpc.Field("manager_id"), host.ManagerId))
+	})
 	if err != nil {
 		return nil, fmt.Errorf("Cannot find network of external_id %s: %v", vnet.GetGlobalId(), err)
 	}
@@ -2942,7 +2954,7 @@ func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCred
 		if len(vdisks[i].GetGlobalId()) == 0 {
 			continue
 		}
-		disk, err := DiskManager.syncCloudDisk(ctx, userCred, provider, vdisks[i], i, syncOwnerId)
+		disk, err := DiskManager.syncCloudDisk(ctx, userCred, provider, vdisks[i], i, syncOwnerId, host.ManagerId)
 		if err != nil {
 			log.Errorf("syncCloudDisk error: %v", err)
 			result.Error(err)
