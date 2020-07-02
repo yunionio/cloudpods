@@ -67,6 +67,7 @@ func StartService() {
 	defer cron.Stop()
 
 	subscriptionmodel.SubscriptionManager.AddSubscription()
+	models.CommonAlertManager.SetSubscriptionManager(subscriptionmodel.SubscriptionManager)
 
 	InitInfluxDBSubscriptionHandlers(app, baseOpts)
 	//common_app.ServeForever(app, baseOpts)
