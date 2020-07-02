@@ -50,4 +50,18 @@ func init() {
 			printObject(ret)
 			return nil
 		})
+
+	R(&options.SuggestAlertIgnoreOptions{}, aN("ignore"), "Ignore alert result",
+		func(s *mcclient.ClientSession, args *options.SuggestAlertIgnoreOptions) error {
+			params, err := args.Params()
+			if err != nil {
+				return err
+			}
+			ret, err := monitor.SuggestSysAlertManager.PerformAction(s, args.ID, "ignore", params)
+			if err != nil {
+				return err
+			}
+			printObject(ret)
+			return nil
+		})
 }
