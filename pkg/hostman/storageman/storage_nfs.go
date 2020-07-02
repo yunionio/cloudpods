@@ -17,10 +17,12 @@ package storageman
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -84,15 +86,27 @@ func (s *SNFSStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	return res, err
 }
 
-func (s *SNFSStorage) SetStorageInfo(storageId, storageName string, conf jsonutils.JSONObject) {
-	s.SLocalStorage.SetStorageInfo(storageId, storageName, conf)
-	if err := s.checkAndMount(); err != nil {
-		log.Errorf("Fail to mount storage to mountpoint: %s, %s", s.Path, err)
+func (s *SNFSStorage) SetStorageInfo(storageId, storageName string, conf jsonutils.JSONObject) error {
+	s.StorageId = storageId
+	s.StorageName = storageName
+	if dconf, ok := conf.(*jsonutils.JSONDict); ok {
+		s.StorageConf = dconf
 	}
+	if err := s.checkAndMount(); err != nil {
+		return errors.Errorf("Fail to mount storage to mountpoint: %s, %s", s.Path, err)
+	}
+	if !s.isSetStorageInfo && !strings.HasPrefix(s.Path, "/opt/cloud") {
+		err := s.bindMountTo(s.Path)
+		if err != nil {
+			return err
+		}
+		s.isSetStorageInfo = true
+	}
+	return nil
 }
 
 func (s *SNFSStorage) checkAndMount() error {
-	if err := procutils.NewCommand("mountpoint", s.Path).Run(); err == nil {
+	if err := procutils.NewRemoteCommandAsFarAsPossible("mountpoint", s.Path).Run(); err == nil {
 		return nil
 	}
 	if s.StorageConf == nil {
