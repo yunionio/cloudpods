@@ -28,6 +28,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -45,6 +46,7 @@ const (
 	_SNAPSHOT_PATH_   = "snapshots"
 
 	ErrStorageTimeout = constError("storage accessible check timeout")
+	TempBindMountPath = "/opt/cloud/workspace/temp-bind"
 )
 
 type constError string
@@ -82,7 +84,7 @@ type IStorage interface {
 	GetStorageName() string
 	GetZoneName() string
 
-	SetStorageInfo(storageId, storageName string, conf jsonutils.JSONObject)
+	SetStorageInfo(storageId, storageName string, conf jsonutils.JSONObject) error
 	SyncStorageInfo() (jsonutils.JSONObject, error)
 	StorageType() string
 	GetStorageConf() *jsonutils.JSONDict
@@ -126,12 +128,13 @@ type IStorage interface {
 }
 
 type SBaseStorage struct {
-	Manager        *SStorageManager
-	StorageId      string
-	Path           string
-	StorageName    string
-	StorageConf    *jsonutils.JSONDict
-	StoragecacheId string
+	Manager          *SStorageManager
+	StorageId        string
+	Path             string
+	StorageName      string
+	StorageConf      *jsonutils.JSONDict
+	StoragecacheId   string
+	isSetStorageInfo bool
 
 	Disks    []IDisk
 	DiskLock *sync.Mutex
@@ -218,12 +221,45 @@ func (s *SBaseStorage) GetTotalSizeMb() int {
 	return int(stat.Blocks * uint64(stat.Bsize) / 1024 / 1024)
 }
 
-func (s *SBaseStorage) SetStorageInfo(storageId, storageName string, conf jsonutils.JSONObject) {
+func (s *SBaseStorage) SetStorageInfo(storageId, storageName string, conf jsonutils.JSONObject) error {
 	s.StorageId = storageId
 	s.StorageName = storageName
 	if dconf, ok := conf.(*jsonutils.JSONDict); ok {
 		s.StorageConf = dconf
 	}
+	if !s.isSetStorageInfo && options.HostOptions.EnableRemoteExecutor {
+		err := s.bindMountTo(s.Path)
+		if err == nil {
+			s.isSetStorageInfo = true
+		}
+		return err
+	}
+	return nil
+}
+
+func (s *SBaseStorage) bindMountTo(sPath string) error {
+	tempPath := path.Join(TempBindMountPath, sPath)
+	out, err := procutils.NewCommand("mkdir", "-p", tempPath).Output()
+	if err != nil {
+		return errors.Errorf("mkdir temp mount path %s failed %s", tempPath, out)
+	}
+	out, err = procutils.NewCommand("mkdir", "-p", sPath).Output()
+	if err != nil {
+		errors.Errorf("mkdir mount path %s failed %s", sPath, out)
+	}
+	if procutils.NewCommand("mountpoint", tempPath).Run() != nil {
+		out, err = procutils.NewRemoteCommandAsFarAsPossible("mount", "--bind", sPath, tempPath).Output()
+		if err != nil {
+			errors.Errorf("bind mount to temp path failed %s", out)
+		}
+	}
+	if procutils.NewCommand("mountpoint", sPath).Run() != nil {
+		out, err = procutils.NewCommand("mount", "--bind", tempPath, sPath).Output()
+		if err != nil {
+			errors.Errorf("bind mount temp path to local image path failed %s", out)
+		}
+	}
+	return nil
 }
 
 func (s *SBaseStorage) RemoveDisk(d IDisk) {
