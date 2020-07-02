@@ -32,17 +32,35 @@ var (
 
 func init() {
 	CommonAlertManager = &SCommonAlertManager{
-		*NewAlertManager(SCommonAlert{}, "commonalert", "commonalerts"),
+		SAlertManager: *NewAlertManager(SCommonAlert{}, "commonalert", "commonalerts"),
 	}
 	CommonAlertManager.SetVirtualObject(CommonAlertManager)
 }
 
+type ISubscriptionManager interface {
+	SetAlert(alert *SCommonAlert)
+	DeleteAlert(alert *SCommonAlert)
+}
+
 type SCommonAlertManager struct {
 	SAlertManager
+	subscriptionManager ISubscriptionManager
 }
 
 type SCommonAlert struct {
 	SAlert
+}
+
+func (man *SCommonAlertManager) SetSubscriptionManager(sman ISubscriptionManager) {
+	man.subscriptionManager = sman
+}
+
+func (man *SCommonAlertManager) SetSubscriptionAlert(alert *SCommonAlert) {
+	man.subscriptionManager.SetAlert(alert)
+}
+
+func (man *SCommonAlertManager) DeleteSubscriptionAlert(alert *SCommonAlert) {
+	man.subscriptionManager.DeleteAlert(alert)
 }
 
 func (man *SCommonAlertManager) NamespaceScope() rbacutils.TRbacScope {
@@ -246,6 +264,7 @@ func (alert *SCommonAlert) PostCreate(ctx context.Context,
 	if err != nil {
 		log.Errorln(errors.Wrap(err, "Alert PerformSetScope"))
 	}
+	CommonAlertManager.SetSubscriptionAlert(alert)
 }
 
 func (man *SCommonAlertManager) ListItemFilter(
@@ -552,6 +571,7 @@ func (alert *SCommonAlert) PostUpdate(
 	if err != nil {
 		log.Errorln(errors.Wrap(err, "Alert PerformSetScope"))
 	}
+	CommonAlertManager.SetSubscriptionAlert(alert)
 }
 
 func (alert *SCommonAlert) UpdateNotification(ctx context.Context, userCred mcclient.TokenCredential,
@@ -618,6 +638,7 @@ func (alert *SCommonAlert) customizeDeleteNotis(
 }
 
 func (alert *SCommonAlert) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	CommonAlertManager.DeleteSubscriptionAlert(alert)
 	return alert.SetStatus(userCred, monitor.ALERT_STATUS_DELETED, "")
 }
 

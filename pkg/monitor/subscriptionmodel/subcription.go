@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -38,12 +40,14 @@ func init() {
 			"subscription",
 			"subscriptions",
 		),
+		systemAlerts: new(sync.Map),
 	}
 	SubscriptionManager.SetVirtualObject(SubscriptionManager)
 }
 
 type SSubscriptionManager struct {
 	db.SVirtualResourceBaseManager
+	systemAlerts *sync.Map
 }
 
 func (self *SSubscriptionManager) getThisFunctionUrl() string {
@@ -62,13 +66,28 @@ func (self *SSubscriptionManager) AddSubscription() {
 		log.Errorln("DropSubscription err:", err)
 		return
 	}
-	log.Println("drop success")
+	log.Infof("drop success")
 	err = models.DataSourceManager.AddSubscription(sub)
 	if err != nil {
 		log.Errorln("add subscription err:", err)
 		return
 	}
-	log.Println("add success")
+	log.Infof("add success")
+	if err := self.LoadSystemAlerts(); err != nil {
+		log.Errorf("load system alerts error: %v", err)
+		return
+	}
+}
+
+func (self *SSubscriptionManager) LoadSystemAlerts() error {
+	alerts, err := models.CommonAlertManager.GetSystemAlerts()
+	if err != nil {
+		return errors.Wrap(err, "load system alerts")
+	}
+	for _, alert := range alerts {
+		self.SetAlert(&alert)
+	}
+	return nil
 }
 
 func (self *SSubscriptionManager) AllowPerformWrite(ctx context.Context,
@@ -76,13 +95,26 @@ func (self *SSubscriptionManager) AllowPerformWrite(ctx context.Context,
 	return true
 }
 
+func (self *SSubscriptionManager) SetAlert(alert *models.SCommonAlert) {
+	self.systemAlerts.Store(alert.GetId(), alert)
+}
+
+func (self *SSubscriptionManager) DeleteAlert(alert *models.SCommonAlert) {
+	self.systemAlerts.Delete(alert.GetId())
+}
+
+func (self *SSubscriptionManager) GetSystemAlerts() []*models.SCommonAlert {
+	ret := make([]*models.SCommonAlert, 0)
+	self.systemAlerts.Range(func(key, val interface{}) bool {
+		ret = append(ret, val.(*models.SCommonAlert))
+		return true
+	})
+	return nil
+}
+
 func (self *SSubscriptionManager) PerformWrite(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data []sub.Point) {
-	sysAlerts, err := models.CommonAlertManager.GetSystemAlerts()
-	if err != nil {
-		log.Errorln(err, "CommonAlertManager.GetSystemAlerts")
-	}
-	log.Errorf("subcription list sysalert length:%d", len(sysAlerts))
+	sysAlerts := self.GetSystemAlerts()
 	for _, sysalert := range sysAlerts {
 		details := monitor.CommonAlertDetails{}
 		details, err := sysalert.GetMoreDetails(details)
@@ -91,7 +123,7 @@ func (self *SSubscriptionManager) PerformWrite(ctx context.Context, userCred mcc
 			continue
 		}
 		for _, metricDetails := range details.CommonAlertMetricDetails {
-			evalMatch, match, err := self.Eval(*metricDetails, sysalert, data)
+			evalMatch, match, err := self.Eval(*metricDetails, *sysalert, data)
 			if err != nil {
 				log.Errorln("SSubscriptionManager Eval error:", err)
 				continue
@@ -113,7 +145,7 @@ func (self *SSubscriptionManager) PerformWrite(ctx context.Context, userCred mcc
 					Ctx:            context.Background(),
 					UserCred:       auth.AdminCredential(),
 				}
-				err := self.evalNotifyOfAlert(sysalert, *metricDetails, evalCtx)
+				err := self.evalNotifyOfAlert(*sysalert, *metricDetails, evalCtx)
 				if err != nil {
 					log.Errorln(err)
 				}
