@@ -19,7 +19,6 @@ import (
 	"database/sql"
 	"net/http"
 	"net/url"
-	"time"
 
 	"golang.org/x/net/http/httpproxy"
 
@@ -61,7 +60,6 @@ func init() {
 		),
 	}
 	CloudaccountManager.SetVirtualObject(CloudaccountManager)
-	isCloudacountSynced = false
 }
 
 type SCloudaccount struct {
@@ -195,9 +193,9 @@ func (self *SCloudaccount) removeCloudgroupcaches(ctx context.Context, userCred 
 		return errors.Wrap(err, "GetCloudgroupcaches")
 	}
 	for i := range caches {
-		err = caches[i].Delete(ctx, userCred)
+		err = caches[i].RealDelete(ctx, userCred)
 		if err != nil {
-			return errors.Wrap(err, "caches[i].Delete")
+			return errors.Wrap(err, "caches[i].RealDelete")
 		}
 	}
 	return nil
@@ -219,7 +217,7 @@ func (self *SCloudaccount) syncRemoveCloudaccount(ctx context.Context, userCred 
 		return errors.Wrap(err, "removeCloudgroupcaches")
 	}
 
-	return nil
+	return self.Delete(ctx, userCred)
 }
 
 func (self *SCloudaccount) syncRemoveClouduser(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -233,7 +231,7 @@ func (self *SCloudaccount) syncRemoveClouduser(ctx context.Context, userCred mcc
 			return errors.Wrapf(err, "RealDelete user %s(%s)", users[i].Name, users[i].Id)
 		}
 	}
-	return self.Delete(ctx, userCred)
+	return nil
 }
 
 func (manager *SCloudaccountManager) newFromICloudaccount(ctx context.Context, userCred mcclient.TokenCredential, account *SCloudaccount) (*SCloudaccount, error) {
@@ -281,15 +279,6 @@ func (manager *SCloudaccountManager) SyncCloudaccounts(ctx context.Context, user
 		}
 		result = account.syncCloudprovider(ctx, userCred)
 		log.Infof("sync cloudprovider for cloudaccount %s(%s) result: %s", account.Name, account.Id, result.Result())
-	}
-	isCloudacountSynced = true
-}
-
-// 避免第一次启动时，云账号列表为空，子账号及其他资源需要等待一个周期才能同步
-func waitForSync(task string) {
-	for isCloudacountSynced == false {
-		log.Debugf("cloudaccount not sync try later do task %s", task)
-		time.Sleep(time.Second * 30)
 	}
 }
 
@@ -425,50 +414,9 @@ func (account *SCloudDelegate) GetProvider() (cloudprovider.ICloudProvider, erro
 	})
 }
 
-func (manager *SCloudaccountManager) SyncCloudusers(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	waitForSync("SyncCloudusersTask")
-	accounts, err := manager.GetCloudaccounts()
-	if err != nil {
-		log.Errorf("GetLocalCloudaccounts: %v", err)
-		return
-	}
-	for i := range accounts {
-		factory, err := accounts[i].GetProviderFactory()
-		if err != nil {
-			continue
-		}
-		if factory.IsSupportClouduser() {
-			err = accounts[i].StartSyncCloudusersTask(ctx, userCred, "")
-			if err != nil {
-				log.Errorf("StartSyncCloudusersTask for account %s(%s) error: %v", accounts[i].Name, accounts[i].Provider, err)
-			}
-		}
-	}
-}
-
 func (self *SCloudaccount) StartSyncCloudusersTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	params := jsonutils.NewDict()
 	task, err := taskman.TaskManager.NewTask(ctx, "SyncCloudusersTask", self, userCred, params, parentTaskId, "", nil)
-	if err != nil {
-		return errors.Wrap(err, "NewTask")
-	}
-	task.ScheduleRun(nil)
-	return nil
-}
-
-func (self *SCloudaccount) StartSyncCloudgroupsTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	params := jsonutils.NewDict()
-	task, err := taskman.TaskManager.NewTask(ctx, "SyncCloudgroupsTask", self, userCred, params, parentTaskId, "", nil)
-	if err != nil {
-		return errors.Wrap(err, "NewTask")
-	}
-	task.ScheduleRun(nil)
-	return nil
-}
-
-func (self *SCloudaccount) StartSyncCloudpoliciesTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	params := jsonutils.NewDict()
-	task, err := taskman.TaskManager.NewTask(ctx, "SyncCloudpoliciesTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
@@ -728,49 +676,23 @@ func (manager *SCloudaccountManager) GetSupportCreateCloudgroupAccounts() ([]SCl
 	return accounts, nil
 }
 
-func (manager *SCloudaccountManager) SyncCloudpolicies(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	waitForSync("SyncCloudpoliciesTask")
+func (manager *SCloudaccountManager) SyncCloudidResources(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	accounts, err := manager.GetCloudaccounts()
 	if err != nil {
 		log.Errorf("GetCloudaccounts error: %v", err)
 		return
 	}
 	for i := range accounts {
-		err = accounts[i].StartSyncCloudpolicyTask(ctx, userCred, "")
+		err = accounts[i].StartSyncCloudIdResourcesTask(ctx, userCred, "")
 		if err != nil {
-			log.Errorf("StartSyncCloudpolicyTask for account %s(%s) error: %v", accounts[i].Name, accounts[i].Provider, err)
+			log.Errorf("StartSyncCloudIdResourcesTask for account %s(%s) error: %v", accounts[i].Name, accounts[i].Provider, err)
 		}
 	}
 }
 
-func (self *SCloudaccount) StartSyncCloudpolicyTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+func (self *SCloudaccount) StartSyncCloudIdResourcesTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	params := jsonutils.NewDict()
-	task, err := taskman.TaskManager.NewTask(ctx, "SyncCloudpoliciesTask", self, userCred, params, parentTaskId, "", nil)
-	if err != nil {
-		return errors.Wrap(err, "NewTask")
-	}
-	task.ScheduleRun(nil)
-	return nil
-}
-
-func (manager *SCloudaccountManager) SyncCloudgroups(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	waitForSync("SyncCloudgroupsTask")
-	accounts, err := manager.GetSupportCreateCloudgroupAccounts()
-	if err != nil {
-		log.Errorf("GetSupportCreateCloudgroupAccounts error: %v", err)
-		return
-	}
-	for i := range accounts {
-		err = accounts[i].StartSyncCloudgroupcacheTask(ctx, userCred, "")
-		if err != nil {
-			log.Errorf("StartSyncCloudgroupcacheTask for account %s(%s) error: %v", accounts[i].Name, accounts[i].Provider, err)
-		}
-	}
-}
-
-func (self *SCloudaccount) StartSyncCloudgroupcacheTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	params := jsonutils.NewDict()
-	task, err := taskman.TaskManager.NewTask(ctx, "SyncCloudgroupcachesTask", self, userCred, params, parentTaskId, "", nil)
+	task, err := taskman.TaskManager.NewTask(ctx, "SyncCloudIdResourcesTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
