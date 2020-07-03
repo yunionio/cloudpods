@@ -340,3 +340,8 @@ type GuestSaveToTemplateInput struct {
 	// The generate name of guest template
 	GenerateName string `json:"generate_name"`
 }
+
+type GuestSyncFixNicsInput struct {
+	// 需要修正的IP地址列表
+	Ip []string `json:"ip"`
+}

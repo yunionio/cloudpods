@@ -4044,14 +4044,14 @@ func (self *SGuest) createConvertedServer(
 func (self *SGuest) AllowPerformSyncFixNics(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject) bool {
+	input api.GuestSyncFixNicsInput) bool {
 	return db.IsAdminAllowPerform(userCred, self, "sync-fix-nics")
 }
 
 func (self *SGuest) PerformSyncFixNics(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	input api.GuestSyncFixNicsInput) (jsonutils.JSONObject, error) {
 	iVM, err := self.GetIVM()
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
@@ -4064,11 +4064,30 @@ func (self *SGuest) PerformSyncFixNics(ctx context.Context,
 	if host == nil {
 		return nil, httperrors.NewInternalServerError("host not found???")
 	}
-	iplistArray, err := data.Get("ip")
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("missing field ip, list of ip")
+	iplist := input.Ip
+	// validate iplist
+	if len(iplist) == 0 {
+		return nil, httperrors.NewInputParameterError("empty ip list")
 	}
-	iplist := iplistArray.(*jsonutils.JSONArray).GetStringArray()
+	for _, ip := range iplist {
+		// ip is reachable on host
+		net, err := host.getNetworkOfIPOnHost(ip)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("Unreachable IP %s: %s", ip, err)
+		}
+		// check ip is reserved or free
+		rip := ReservedipManager.GetReservedIP(net, ip)
+		if rip == nil {
+			// check ip is free
+			nip, err := net.GetFreeIPWithLock(ctx, userCred, nil, nil, ip, "", false)
+			if err != nil {
+				return nil, httperrors.NewInputParameterError("Unavailable IP %s: occupied", ip)
+			}
+			if nip != ip {
+				return nil, httperrors.NewInputParameterError("Unavailable IP %s: occupied", ip)
+			}
+		}
+	}
 	errs := make([]error, 0)
 	for i := range vnics {
 		ip := vnics[i].GetIP()
