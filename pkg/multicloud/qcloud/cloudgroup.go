@@ -167,7 +167,7 @@ func (self *SQcloudClient) ListGroups(keyword string, page int, rp int) ([]SClou
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "resp.Unmarshal")
 	}
-	total, _ := resp.Int("TotalNum")
+	total, _ := resp.Float("TotalNum")
 	return groups, int(total), nil
 }
 
@@ -244,7 +244,7 @@ func (self *SQcloudClient) ListAttachedGroupPolicies(groupId int, page int, rp i
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "resp.Unmarshal")
 	}
-	total, _ := resp.Int("TotalNum")
+	total, _ := resp.Float("TotalNum")
 	return policies, int(total), nil
 }
 
@@ -269,7 +269,7 @@ func (self *SQcloudClient) ListGroupUsers(groupId int, page int, rp int) ([]SClo
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "resp.Unmarshal")
 	}
-	total, _ := resp.Int("TotalNum")
+	total, _ := resp.Float("TotalNum")
 	return users, int(total), nil
 }
 

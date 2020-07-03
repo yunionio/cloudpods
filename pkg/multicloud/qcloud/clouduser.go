@@ -174,7 +174,7 @@ func (self *SQcloudClient) ListGroupsForUser(uin string, rp, page int) ([]SCloud
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "resp.Unmarshal")
 	}
-	total, _ := resp.Int("TotalNum")
+	total, _ := resp.Float("TotalNum")
 	return groups, int(total), nil
 }
 
@@ -271,11 +271,15 @@ func (policy *SClouduserPolicy) GetPolicyType() string {
 }
 
 func (policy *SClouduserPolicy) GetDescription() string {
+	if len(policy.Description) > 0 {
+		return policy.Description
+	}
 	p, err := policy.client.GetPolicy(policy.GetGlobalId())
 	if err != nil {
+		log.Errorf("failed to get policy %s description: %v", policy.PolicyName, err)
 		return p.Description
 	}
-	return ""
+	return p.Description
 }
 
 func (self *SQcloudClient) ListAttachedUserPolicies(uin string, page int, rp int) ([]SClouduserPolicy, int, error) {
@@ -299,7 +303,7 @@ func (self *SQcloudClient) ListAttachedUserPolicies(uin string, page int, rp int
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "resp.Unmarshal")
 	}
-	total, _ := resp.Int("TotalNum")
+	total, _ := resp.Float("TotalNum")
 	return policies, int(total), nil
 }
 
@@ -348,7 +352,7 @@ func (self *SQcloudClient) ListPolicies(keyword, scope string, page int, rp int)
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "resp.Unmarshal")
 	}
-	total, _ := resp.Int("TotalNum")
+	total, _ := resp.Float("TotalNum")
 	return policies, int(total), nil
 }
 
