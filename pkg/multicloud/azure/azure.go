@@ -65,6 +65,8 @@ type SAzureClient struct {
 	iregions []cloudprovider.ICloudRegion
 	iBuckets []cloudprovider.ICloudBucket
 
+	subscriptions []SSubscription
+
 	debug bool
 }
 
@@ -414,6 +416,11 @@ func (self *SAzureClient) List(golbalResource string, retVal interface{}) error 
 	}
 	if len(self.subscriptionId) > 0 && len(golbalResource) > 0 {
 		url += fmt.Sprintf("/%s", golbalResource)
+	}
+	if strings.ToLower(golbalResource) == "resourcegroups" && len(self.subscriptionId) == 0 { // 资源组必须要有订阅id
+		if len(self.subscriptions) > 0 {
+			url += fmt.Sprintf("/%s/%s", self.subscriptions[0].SubscriptionId, golbalResource)
+		}
 	}
 	body, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "", DefaultResource)
 	if err != nil {
@@ -931,8 +938,7 @@ func (self *SAzureClient) fetchRegions() error {
 			self.iregions[i] = &regions[i]
 		}
 	}
-	_, err := self.ListSubscriptions()
-	return err
+	return self.fetchSubscriptions()
 }
 
 func (self *SAzureClient) invalidateIBuckets() {
@@ -979,31 +985,21 @@ func (self *SAzureClient) GetRegions() []SRegion {
 	return regions
 }
 
-func (self *SAzureClient) GetSubAccounts() (subAccounts []cloudprovider.SSubAccount, err error) {
-	body, err := self.ListSubscriptions()
+func (self *SAzureClient) fetchSubscriptions() error {
+	var err error
+	self.subscriptions, err = self.GetSubscriptions()
 	if err != nil {
-		return nil, err
+		return errors.Wrap(err, "GetSubscriptions")
 	}
-	subscriptions, err := body.GetArray("value")
-	if err != nil {
-		return nil, err
-	}
-	subAccounts = make([]cloudprovider.SSubAccount, len(subscriptions))
-	for i, subscription := range subscriptions {
-		subscriptionId, err := subscription.GetString("subscriptionId")
-		if err != nil {
-			return nil, err
-		}
-		subAccounts[i].Account = fmt.Sprintf("%s/%s", self.tenantId, subscriptionId)
-		subAccounts[i].State, err = subscription.GetString("state")
-		if err != nil {
-			return nil, err
-		}
-		subAccounts[i].Name, err = subscription.GetString("displayName")
-		if err != nil {
-			return nil, err
-		}
+	return nil
+}
 
+func (self *SAzureClient) GetSubAccounts() (subAccounts []cloudprovider.SSubAccount, err error) {
+	subAccounts = make([]cloudprovider.SSubAccount, len(self.subscriptions))
+	for i, subscription := range self.subscriptions {
+		subAccounts[i].Account = fmt.Sprintf("%s/%s", self.tenantId, subscription.SubscriptionId)
+		subAccounts[i].State = subscription.State
+		subAccounts[i].Name = subscription.DisplayName
 		subAccounts[i].HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
 	}
 	return subAccounts, nil
