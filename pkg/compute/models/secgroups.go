@@ -281,19 +281,116 @@ func (manager *SSecurityGroupManager) FetchCustomizeColumns(
 	rows := make([]api.SecgroupDetails, len(objs))
 
 	virtRows := manager.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-
+	secgroupIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.SecgroupDetails{
 			SharableVirtualResourceDetails: virtRows[i],
 		}
-		sg := objs[i].(*SSecurityGroup)
-		rows[i].GuestCnt = len(sg.GetGuests())
-		rows[i].CacheCnt, _ = sg.GetSecgroupCacheCount()
-		if !isList {
-			rows[i].Rules = sg.getSecurityRuleString("")
-			rows[i].InRules = sg.getSecurityRuleString("in")
-			rows[i].OutRules = sg.getSecurityRuleString("out")
+		secgroup := objs[i].(*SSecurityGroup)
+		secgroupIds[i] = secgroup.Id
+	}
+
+	caches := []SSecurityGroupCache{}
+	q := SecurityGroupCacheManager.Query().In("secgroup_id", secgroupIds)
+	err := db.FetchModelObjects(SecurityGroupCacheManager, q, &caches)
+	if err != nil {
+		log.Errorf("db.FetchModelObjects error: %v", err)
+		return rows
+	}
+
+	cacheMaps := map[string]int{}
+	for i := range caches {
+		if _, ok := cacheMaps[caches[i].SecgroupId]; !ok {
+			cacheMaps[caches[i].SecgroupId] = 0
 		}
+		cacheMaps[caches[i].SecgroupId]++
+	}
+
+	guests := []SGuest{}
+	q = GuestManager.Query()
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.In(q.Field("secgrp_id"), secgroupIds),
+		sqlchemy.In(q.Field("admin_secgrp_id"), secgroupIds),
+	))
+	err = db.FetchModelObjects(GuestManager, q, &guests)
+	if err != nil {
+		log.Errorf("db.FetchModelObjects error: %v", err)
+		return rows
+	}
+
+	guestMaps := map[string]int{}
+	for i := range guests {
+		if _, ok := guestMaps[guests[i].SecgrpId]; !ok {
+			guestMaps[guests[i].SecgrpId] = 0
+		}
+		guestMaps[guests[i].SecgrpId]++
+		if _, ok := guestMaps[guests[i].AdminSecgrpId]; !ok {
+			guestMaps[guests[i].AdminSecgrpId] = 0
+		}
+		guestMaps[guests[i].AdminSecgrpId]++
+	}
+
+	guestSecgroups := []SGuestsecgroup{}
+	q = GuestsecgroupManager.Query().In("secgroup_id", secgroupIds)
+	err = db.FetchModelObjects(GuestsecgroupManager, q, &guestSecgroups)
+	if err != nil {
+		log.Errorf("db.FetchModelObjects error: %v", err)
+		return rows
+	}
+
+	for i := range guestSecgroups {
+		if _, ok := guestMaps[guestSecgroups[i].SecgroupId]; !ok {
+			guestMaps[guestSecgroups[i].SecgroupId] = 0
+		}
+		guestMaps[guestSecgroups[i].SecgroupId]++
+	}
+
+	rules := []SSecurityGroupRule{}
+	q = SecurityGroupRuleManager.Query().In("secgroup_id", secgroupIds)
+	err = db.FetchModelObjects(SecurityGroupRuleManager, q, &rules)
+	if err != nil {
+		log.Errorf("db.FetchModelObjects error: %v", err)
+		return rows
+	}
+	ruleMaps := map[string][]SSecurityGroupRule{}
+	for i := range rules {
+		if _, ok := ruleMaps[rules[i].SecgroupId]; !ok {
+			ruleMaps[rules[i].SecgroupId] = []SSecurityGroupRule{}
+		}
+		ruleMaps[rules[i].SecgroupId] = append(ruleMaps[rules[i].SecgroupId], rules[i])
+	}
+	for i := range rows {
+		rules, ok := ruleMaps[secgroupIds[i]]
+		if !ok {
+			continue
+		}
+		_rules := []api.SSecurityGroupRule{}
+		_inRules := []api.SSecurityGroupRule{}
+		_outRules := []api.SSecurityGroupRule{}
+		for j := range rules {
+			rule := api.SSecurityGroupRule{
+				Id:          rules[j].Id,
+				Priority:    rules[j].Priority,
+				Protocol:    rules[j].Protocol,
+				Ports:       rules[j].Ports,
+				Direction:   rules[j].Direction,
+				CIDR:        rules[j].CIDR,
+				Action:      rules[j].Action,
+				Description: rules[j].Description,
+			}
+			_rules = append(_rules, rule)
+			switch rule.Direction {
+			case secrules.DIR_IN:
+				_inRules = append(_inRules, rule)
+			case secrules.DIR_OUT:
+				_outRules = append(_outRules, rule)
+			}
+		}
+		rows[i].Rules = _rules
+		rows[i].InRules = _inRules
+		rows[i].OutRules = _outRules
+		rows[i].CacheCnt, _ = cacheMaps[secgroupIds[i]]
+		rows[i].GuestCnt, _ = guestMaps[secgroupIds[i]]
 	}
 
 	return rows
