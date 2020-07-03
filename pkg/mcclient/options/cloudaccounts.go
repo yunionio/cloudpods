@@ -267,6 +267,18 @@ type SQcloudCloudAccountUpdateOptions struct {
 
 type SGoogleCloudAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
+
+	OptionsBillingReportBucket        string `help:"update Google S3 bucket that stores account billing report" json:"-"`
+	RemoveOptionsBillingReportBucket  bool   `help:"remove Google S3 bucket that stores account billing report" json:"-"`
+	OptionsBillingBucketAccount       string `help:"update id of account that can access bucket, blank if this account can access" json:"-"`
+	RemoveOptionsBillingBucketAccount bool   `help:"remove id of account that can access bucket, blank if this account can access" json:"-"`
+	OptionsBillingFilePrefix          string `help:"update prefix of billing file name" json:"-"`
+	RemoveOptionsBillingFilePrefix    bool   `help:"remove prefix of billing file name" json:"-"`
+
+	OptionsUsageReportBucket       string `help:"update Google S3 bucket that stores account usage report" json:"-"`
+	RemoveOptionsUsageReportBucket bool   `help:"remove Google S3 bucket that stores account usage report" json:"-"`
+	OptionsUsageFilePrefix         string `help:"update prefix of usage file name" json:"-"`
+	RemoveOptionsUsageFilePrefix   bool   `help:"remove prefix of usage file name" json:"-"`
 }
 
 type SAWSCloudAccountUpdateOptions struct {
@@ -286,6 +298,13 @@ type SOpenStackCloudAccountUpdateOptions struct {
 
 type SHuaweiCloudAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
+
+	OptionsBillingReportBucket        string `help:"update Huawei S3 bucket that stores account billing report" json:"-"`
+	RemoveOptionsBillingReportBucket  bool   `help:"remove Huawei S3 bucket that stores account billing report" json:"-"`
+	OptionsBillingBucketAccount       string `help:"update id of account that can access bucket, blank if this account can access" json:"-"`
+	RemoveOptionsBillingBucketAccount bool   `help:"remove id of account that can access bucket, blank if this account can access" json:"-"`
+	OptionsBillingFilePrefix          string `help:"update prefix of billing file name" json:"-"`
+	RemoveOptionsBillingFilePrefix    bool   `help:"remove prefix of billing file name" json:"-"`
 }
 
 type SUcloudCloudAccountUpdateOptions struct {
