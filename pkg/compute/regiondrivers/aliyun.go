@@ -620,23 +620,6 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 		if len(lb.LoadbalancerSpec) == 0 {
 			return nil, httperrors.NewInputParameterError("The specified Scheduler %s is invalid for performance sharing loadbalancer", scheduler)
 		}
-		supportRegions := []string{}
-		for region := range map[string]string{
-			"ap-northeast-1":   "东京",
-			"ap-southeast-2":   "悉尼",
-			"ap-southeast-3":   "吉隆坡",
-			"ap-southeast-5":   "雅加达",
-			"eu-frankfurt":     "法兰克福",
-			"na-siliconvalley": "硅谷",
-			"us-east-1":        "弗吉利亚",
-			"me-east-1":        "迪拜",
-			"cn-huhehaote":     "呼和浩特",
-		} {
-			supportRegions = append(supportRegions, "Aliyun/"+region)
-		}
-		if !utils.IsInStringArray(cloudregion.ExternalId, supportRegions) {
-			return nil, httperrors.NewUnsupportOperationError("cloudregion %s(%d) not support %s scheduler", cloudregion.Name, cloudregion.Id, scheduler)
-		}
 	}
 
 	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerListenerData(ctx, userCred, ownerId, data, lb, backendGroup)
