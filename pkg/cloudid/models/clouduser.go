@@ -285,9 +285,6 @@ func (manager *SClouduserManager) ValidateCreateData(ctx context.Context, userCr
 	if !((account.DomainId == userCred.GetProjectDomainId() && db.IsDomainAllowCreate(userCred, manager)) || userCred.HasSystemAdminPrivilege()) {
 		return input, httperrors.NewForbiddenError("forbidden to create clouduser for cloudaccount %s", account.Name)
 	}
-	if !account.IsSupportCloudId.Bool() {
-		return input, httperrors.NewUnsupportOperationError("account %s not support create clouduser", account.Name)
-	}
 	ca = account
 	delegate, err := account.getCloudDelegate(ctx)
 	if err != nil {

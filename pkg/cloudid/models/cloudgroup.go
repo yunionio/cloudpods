@@ -100,6 +100,11 @@ func (manager *SCloudgroupManager) ListItemFilter(ctx context.Context, q *sqlche
 		q = q.In("id", sq.SubQuery())
 	}
 
+	if query.Usable != nil && *query.Usable {
+		sq := CloudaccountManager.Query("provider").SubQuery()
+		q = q.In("provider", sq)
+	}
+
 	return q, nil
 }
 

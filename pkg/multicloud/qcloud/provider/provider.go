@@ -176,10 +176,6 @@ func (self *SQcloudProvider) GetIamLoginUrl() string {
 	return self.client.GetIamLoginUrl()
 }
 
-func (self *SQcloudProvider) IsSupportCloudId() bool {
-	return cloudprovider.IsSupportCloudId(self)
-}
-
 func (self *SQcloudProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.client.GetIRegions()
 }

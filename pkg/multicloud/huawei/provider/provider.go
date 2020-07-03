@@ -192,10 +192,6 @@ func (self *SHuaweiProvider) GetIamLoginUrl() string {
 	return self.client.GetIamLoginUrl()
 }
 
-func (self *SHuaweiProvider) IsSupportCloudId() bool {
-	return cloudprovider.IsSupportCloudId(self)
-}
-
 func (self *SHuaweiProvider) GetCloudRegionExternalIdPrefix() string {
 	return self.client.GetCloudRegionExternalIdPrefix()
 }
