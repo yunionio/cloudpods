@@ -177,10 +177,6 @@ func (self *SAliyunProvider) GetIamLoginUrl() string {
 	return self.client.GetIamLoginUrl()
 }
 
-func (self *SAliyunProvider) IsSupportCloudId() bool {
-	return cloudprovider.IsSupportCloudId(self)
-}
-
 func (self *SAliyunProvider) CreateIClouduser(conf *cloudprovider.SClouduserCreateConfig) (cloudprovider.IClouduser, error) {
 	return self.client.CreateIClouduser(conf)
 }

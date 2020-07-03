@@ -129,10 +129,6 @@ func (self *SAwsProvider) GetIamLoginUrl() string {
 	return self.client.GetIamLoginUrl()
 }
 
-func (self *SAwsProvider) IsSupportCloudId() bool {
-	return cloudprovider.IsSupportCloudId(self)
-}
-
 func (self *SAwsProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.client.GetIRegions()
 }

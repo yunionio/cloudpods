@@ -80,6 +80,9 @@ type CloudgroupListInput struct {
 
 	// 根据权限过滤权限组
 	CloudpolicyId string `json:"cloudpolicy_id"`
+
+	// 是否可用
+	Usable *bool `json:"usable"`
 }
 
 type SCloudIdBaseResource struct {

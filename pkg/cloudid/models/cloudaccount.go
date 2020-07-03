@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 
@@ -66,10 +65,9 @@ type SCloudaccount struct {
 	db.SStandaloneResourceBase
 	db.SDomainizedResourceBase
 
-	Provider         string            `width:"64" charset:"ascii" list:"domain"`
-	Brand            string            `width:"64" charset:"utf8" nullable:"true" list:"domain"`
-	IamLoginUrl      string            `width:"512" charset:"ascii"`
-	IsSupportCloudId tristate.TriState `nullable:"false" get:"domain" list:"domain" default:"false"`
+	Provider    string `width:"64" charset:"ascii" list:"domain"`
+	Brand       string `width:"64" charset:"utf8" nullable:"true" list:"domain"`
+	IamLoginUrl string `width:"512" charset:"ascii"`
 }
 
 func (manager *SCloudaccountManager) GetICloudaccounts() ([]SCloudaccount, error) {
@@ -253,7 +251,6 @@ func (self *SCloudaccount) syncWithICloudaccount(ctx context.Context, userCred m
 		self.DomainId = account.DomainId
 		self.Brand = account.Brand
 		self.IamLoginUrl = account.IamLoginUrl
-		self.IsSupportCloudId = account.IsSupportCloudId
 		return nil
 	})
 	if err != nil {
@@ -492,16 +489,14 @@ func (self *SCloudaccount) SyncCloudusers(ctx context.Context, userCred mcclient
 	}
 
 	for i := 0; i < len(added); i++ {
-		if added[i].GetName() != cloudprovider.TEST_CLOUDID_USER_NAME {
-			user, err := ClouduserManager.newFromClouduser(ctx, userCred, added[i], self.Id, cloudproviderId)
-			if err != nil {
-				result.AddError(err)
-				continue
-			}
-			localUsers = append(localUsers, *user)
-			remoteUsers = append(remoteUsers, added[i])
-			result.Add()
+		user, err := ClouduserManager.newFromClouduser(ctx, userCred, added[i], self.Id, cloudproviderId)
+		if err != nil {
+			result.AddError(err)
+			continue
 		}
+		localUsers = append(localUsers, *user)
+		remoteUsers = append(remoteUsers, added[i])
+		result.Add()
 	}
 
 	return localUsers, remoteUsers, result
