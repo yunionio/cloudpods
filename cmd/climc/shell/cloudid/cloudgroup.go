@@ -28,6 +28,7 @@ func init() {
 
 		ClouduserId   string `json:"clouduser_id"`
 		CloudpolicyId string `json:"cloudpolicy_id"`
+		Usable        bool   `json:"usable"`
 	}
 	R(&CloudgroupListOptions{}, "cloud-group-list", "List cloud groups", func(s *mcclient.ClientSession, opts *CloudgroupListOptions) error {
 		params, err := options.ListStructToParams(opts)
