@@ -30,6 +30,8 @@ import (
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -426,4 +428,154 @@ func (self *SSuggestSysAlert) PerformIgnore(ctx context.Context, userCred mcclie
 		}
 	}
 	return nil, nil
+}
+
+type SuggestAlertCost struct {
+	CostType string
+	Amount   float64
+}
+
+func (self *SSuggestSysAlertManager) AllowGetPropertyCost(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject) bool {
+	return true
+}
+
+func (self *SSuggestSysAlertManager) GetPropertyCost(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	costData := jsonutils.NewDict()
+	suggestAlertCosts, err := self.getSuggestAlertCosts(ctx, userCred, query)
+	if err != nil {
+		return jsonutils.NewDict(), err
+	}
+	costData.Add(jsonutils.Marshal(&suggestAlertCosts), "suggest_cost")
+	details, _ := query.Bool("details")
+	if details {
+		return costData, nil
+	}
+	meterCost, err := self.getMeterForcastCosts(ctx, userCred, query)
+	if err != nil {
+		log.Errorln(err)
+		return costData, nil
+	}
+	costData.Add(jsonutils.Marshal(&meterCost), "meter_forcast_cost")
+	return costData, nil
+}
+
+func (self *SSuggestSysAlertManager) getSuggestAlertCosts(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject) ([]SuggestAlertCost, error) {
+	suggestAlertCosts := make([]SuggestAlertCost, 0)
+	details, _ := query.Bool("details")
+	if details {
+		return self.getDetailCosts(ctx, userCred, query)
+	}
+	cost, err := self.getCostWithSuggestAlertType("", ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	typeCost := SuggestAlertCost{
+		Amount:   cost,
+		CostType: "all",
+	}
+	suggestAlertCosts = append(suggestAlertCosts, typeCost)
+	return suggestAlertCosts, nil
+}
+
+func (self *SSuggestSysAlertManager) getDetailCosts(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject) ([]SuggestAlertCost, error) {
+	suggestAlertCosts := make([]SuggestAlertCost, 0)
+	types, err := self.getSuggestAlertTypes()
+	if err != nil {
+		return nil, err
+	}
+	allTypeCost := SuggestAlertCost{
+		CostType: "all",
+		Amount:   0,
+	}
+
+	for _, typ := range types {
+		cost, err := self.getCostWithSuggestAlertType(typ, ctx, userCred, query)
+		if err != nil {
+			return nil, err
+		}
+		typeCost := SuggestAlertCost{
+			Amount:   cost,
+			CostType: typ,
+		}
+		allTypeCost.Amount += cost
+		suggestAlertCosts = append(suggestAlertCosts, typeCost)
+	}
+	suggestAlertCosts = append(suggestAlertCosts, allTypeCost)
+	return suggestAlertCosts, nil
+}
+
+func (self *SSuggestSysAlertManager) getMeterForcastCosts(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject) (SuggestAlertCost, error) {
+	meterCost := SuggestAlertCost{
+		CostType: "",
+		Amount:   0,
+	}
+	domainId := ""
+	projectId := ""
+	reqScope, _ := query.GetString("scope")
+	switch reqScope {
+	case "system":
+	case "domain":
+		domainId = userCred.GetProjectDomain()
+	default:
+		projectId = userCred.GetProjectId()
+	}
+	session := auth.GetAdminSession(ctx, "", "")
+	param := jsonutils.NewDict()
+	param.Add(jsonutils.NewString(domainId), "domain_id")
+	param.Add(jsonutils.NewString(projectId), "project_id")
+	meterRtn, err := modules.AmountEstimations.GetById(session, "month", param)
+	if err != nil {
+		return meterCost, err
+	}
+	log.Errorln(meterRtn.String())
+	amount, _ := meterRtn.Float("amount")
+	meterCost.Amount = amount
+	return meterCost, nil
+}
+
+func (self *SSuggestSysAlertManager) getCostWithSuggestAlertType(typ string, ctx context.Context,
+	userCred mcclient.TokenCredential,
+	param jsonutils.JSONObject) (float64, error) {
+	typeCost := float64(0)
+	queryScope := rbacutils.ScopeProject
+	suggestAlerts := make([]SSuggestSysAlert, 0)
+	query := self.Query("amount")
+	if len(typ) > 0 {
+		query.Equals("type", typ)
+	}
+	reqScope, _ := param.GetString("scope")
+	if len(reqScope) > 0 {
+		queryScope = rbacutils.String2Scope(reqScope)
+	}
+	query = self.FilterByOwner(query, userCred, queryScope)
+	err := db.FetchModelObjects(self, query, &suggestAlerts)
+	if err != nil {
+		log.Errorln(errors.Wrap(err, "getCostWithSuggestAlertType"))
+		return 0, err
+	}
+	for _, suggestAlert := range suggestAlerts {
+		typeCost += suggestAlert.Amount
+	}
+	return typeCost, nil
+}
+
+func (self *SSuggestSysAlertManager) getSuggestAlertTypes() ([]string, error) {
+	suggestAlerts := make([]SSuggestSysAlert, 0)
+	query := self.Query("type").Distinct()
+
+	err := db.FetchModelObjects(self, query, &suggestAlerts)
+	if err != nil {
+		log.Errorln(errors.Wrap(err, "getSuggestAlertTypes"))
+		return nil, err
+	}
+	types := make([]string, 0)
+	for _, suggestAlert := range suggestAlerts {
+		types = append(types, suggestAlert.Type)
+	}
+	return types, nil
 }

@@ -211,7 +211,7 @@ func getResourceAmount(alert *models.SSuggestSysAlert, lastUsedTime time.Time) {
 	param := jsonutils.NewDict()
 	param.Add(jsonutils.NewString("system"), "scope")
 	param.Add(jsonutils.NewString("0"), "limit")
-	filter := fmt.Sprintf("resource_id.contains(%s)", alert.ResId)
+	filter := fmt.Sprintf("resource_id.equals(%s)", alert.ResId)
 	param.Add(jsonutils.NewString(filter), "filter")
 
 	start_day := timeutils.ShortDate(lastUsedTime)
@@ -220,7 +220,7 @@ func getResourceAmount(alert *models.SSuggestSysAlert, lastUsedTime time.Time) {
 	param.Add(jsonutils.NewString(start_day), "start_day")
 	param.Add(jsonutils.NewString(end_day), "end_day")
 	session := auth.GetAdminSession(context.Background(), "", "")
-	billRtn, err := mod.BillResources.List(session, param)
+	billRtn, err := mod.DailyBills.List(session, param)
 	if err != nil {
 		log.Errorln(err)
 		return
@@ -238,7 +238,6 @@ func getResourceAmount(alert *models.SSuggestSysAlert, lastUsedTime time.Time) {
 		}
 		alert.Currency = currency
 	}
-
 }
 
 func ListAllResources(manager modulebase.Manager, params *jsonutils.JSONDict) ([]jsonutils.JSONObject, error) {
