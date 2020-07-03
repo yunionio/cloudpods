@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
 )
 
@@ -53,6 +54,8 @@ const (
 	CompactTimeFormat     = "20060102150405"
 	DateFormat            = "2006-01-02"
 	ShortDateFormat       = "20060102"
+	MonthFormat           = "2006-01"
+	ShortMonthFormat      = "200601"
 	ZStackTimeFormat      = "Jan 2, 2006 15:04:05 PM"
 
 	RFC2882Format = time.RFC1123
@@ -92,6 +95,14 @@ func DateStr(now time.Time) string {
 
 func ShortDate(now time.Time) string {
 	return Utcify(now).Format(ShortDateFormat)
+}
+
+func MonthStr(now time.Time) string {
+	return Utcify(now).Format(MonthFormat)
+}
+
+func ShortMonth(now time.Time) string {
+	return Utcify(now).Format(ShortMonthFormat)
 }
 
 func ZStackTime(now time.Time) string {
@@ -191,4 +202,39 @@ func ParseTimeStr(str string) (time.Time, error) {
 	} else {
 		return time.Time{}, fmt.Errorf("unknown time format %s", str)
 	}
+}
+
+func ParseTimeStrInLocation(str string, loc *time.Location) (time.Time, error) {
+	utcTm, err := ParseTimeStr(str)
+	if err != nil {
+		return utcTm, errors.Wrap(err, "ParseTimeStr")
+	}
+	if loc == nil {
+		loc, _ = time.LoadLocation("Local")
+	}
+	_, offset := utcTm.In(loc).Zone()
+	return utcTm.Add(-time.Duration(offset) * time.Second), nil
+}
+
+func ParseTimeStrInTimeZone(str string, tz string) (time.Time, error) {
+	if len(tz) == 0 {
+		tz = "Local"
+	}
+	loc, err := time.LoadLocation(tz)
+	if err != nil {
+		return time.Time{}, errors.Wrap(err, "LoadLocation")
+	}
+	return ParseTimeStrInLocation(str, loc)
+}
+
+func TimeZoneOffset(tz string) (int, error) {
+	if len(tz) == 0 {
+		tz = "Local"
+	}
+	loc, err := time.LoadLocation(tz)
+	if err != nil {
+		return 0, errors.Wrap(err, "LoadLocation")
+	}
+	_, offset := time.Now().In(loc).Zone()
+	return offset, nil
 }
