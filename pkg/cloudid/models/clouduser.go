@@ -42,7 +42,7 @@ import (
 )
 
 type SClouduserManager struct {
-	db.SStatusUserResourceBaseManager
+	db.SStatusDomainLevelUserResourceBaseManager
 	db.SExternalizedResourceBaseManager
 	SCloudaccountResourceBaseManager
 	SCloudproviderResourceBaseManager
@@ -52,19 +52,18 @@ var ClouduserManager *SClouduserManager
 
 func init() {
 	ClouduserManager = &SClouduserManager{
-		SStatusUserResourceBaseManager: db.NewStatusUserResourceBaseManager(
+		SStatusDomainLevelUserResourceBaseManager: db.NewStatusDomainLevelUserResourceBaseManager(
 			SClouduser{},
 			"cloudusers_tbl",
 			"clouduser",
 			"cloudusers",
 		),
 	}
-	ClouduserManager.NameRequireAscii = false
 	ClouduserManager.SetVirtualObject(ClouduserManager)
 }
 
 type SClouduser struct {
-	db.SStatusUserResourceBase
+	db.SStatusDomainLevelUserResourceBase
 	db.SExternalizedResourceBase
 	SCloudproviderResourceBase
 	SCloudaccountResourceBase
@@ -89,7 +88,7 @@ func (manager *SClouduserManager) GetIVirtualModelManager() db.IVirtualModelMana
 // 公有云用户列表
 func (manager *SClouduserManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ClouduserListInput) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = manager.SStatusUserResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusUserResourceListInput)
+	q, err = manager.SStatusDomainLevelUserResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusDomainLevelUserResourceListInput)
 	if err != nil {
 		return nil, err
 	}
@@ -128,6 +127,12 @@ func (manager *SClouduserManager) ListItemFilter(ctx context.Context, q *sqlchem
 		q = q.In("id", sq.SubQuery())
 	}
 
+	if len(query.OwnerName) > 0 {
+		caches := db.UserCacheManager.Query().SubQuery()
+		q = q.Join(caches, sqlchemy.Equals(caches.Field("id"), q.Field("owner_id"))).
+			Filter(sqlchemy.Equals(caches.Field("name"), query.OwnerName))
+	}
+
 	return q, nil
 }
 
@@ -143,9 +148,9 @@ func (manager *SClouduserManager) OrderByExtraFields(
 	query api.ClouduserListInput,
 ) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = manager.SStatusUserResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusUserResourceListInput)
+	q, err = manager.SStatusDomainLevelUserResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusDomainLevelUserResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SStatusUserResourceBaseManager.OrderByExtraFields")
+		return nil, errors.Wrap(err, "SStatusDomainLevelUserResourceBaseManager.OrderByExtraFields")
 	}
 
 	return q, nil
@@ -153,7 +158,7 @@ func (manager *SClouduserManager) OrderByExtraFields(
 
 func (manager *SClouduserManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = manager.SStatusUserResourceBaseManager.QueryDistinctExtraField(q, field)
+	q, err = manager.SStatusDomainLevelUserResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -179,14 +184,14 @@ func (manager *SClouduserManager) FetchCustomizeColumns(
 	isList bool,
 ) []api.ClouduserDetails {
 	rows := make([]api.ClouduserDetails, len(objs))
-	userRows := manager.SStatusUserResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	userRows := manager.SStatusDomainLevelUserResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	acRows := manager.SCloudaccountResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	apRows := manager.SCloudproviderResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		rows[i] = api.ClouduserDetails{
-			StatusUserResourceDetails:    userRows[i],
-			CloudaccountResourceDetails:  acRows[i],
-			CloudproviderResourceDetails: apRows[i],
+			StatusDomainLevelUserResourceDetails: userRows[i],
+			CloudaccountResourceDetails:          acRows[i],
+			CloudproviderResourceDetails:         apRows[i],
 		}
 		user := objs[i].(*SClouduser)
 		policies, _ := user.GetCloudpolicies()
@@ -299,7 +304,7 @@ func (manager *SClouduserManager) ValidateCreateData(ctx context.Context, userCr
 		return input, httperrors.NewMissingParameterError("cloudprovider_id")
 	}
 	input.CloudaccountId = delegate.Id
-	input.StatusUserResourceCreateInput, err = manager.SStatusUserResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusUserResourceCreateInput)
+	input.StatusDomainLevelUserResourceCreateInput, err = manager.SStatusDomainLevelUserResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusDomainLevelUserResourceCreateInput)
 	if err != nil {
 		return input, err
 	}
@@ -412,6 +417,7 @@ func (manager *SClouduserManager) ValidateCreateData(ctx context.Context, userCr
 	input.ExternalId = iUser.GetGlobalId()
 
 	input.OwnerId = user.Id
+	input.DomainId = account.DomainId
 	return input, nil
 }
 
@@ -457,6 +463,11 @@ func (self *SClouduser) SyncWithClouduser(ctx context.Context, userCred mcclient
 			self.IsConsoleLogin = tristate.False
 		}
 		self.CloudproviderId = cloudproviderId
+		account, err := self.GetCloudaccount()
+		if err != nil {
+			return errors.Wrap(err, "GetCloudaccount")
+		}
+		self.DomainId = account.DomainId
 		return nil
 	})
 	return err
@@ -472,6 +483,12 @@ func (manager *SClouduserManager) newFromClouduser(ctx context.Context, userCred
 	user.ExternalId = iUser.GetGlobalId()
 	user.Status = api.CLOUD_USER_STATUS_AVAILABLE
 	user.CloudaccountId = accountId
+	_account, err := CloudaccountManager.FetchById(user.CloudaccountId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CloudaccountManagerFetchById(%s)", user.CloudaccountId)
+	}
+	account := _account.(*SCloudaccount)
+	user.DomainId = account.DomainId
 	user.CloudproviderId = providerId
 	switch iUser.IsConsoleLogin() {
 	case true:
@@ -479,7 +496,7 @@ func (manager *SClouduserManager) newFromClouduser(ctx context.Context, userCred
 	case false:
 		user.IsConsoleLogin = tristate.False
 	}
-	err := manager.TableSpec().Insert(ctx, user)
+	err = manager.TableSpec().Insert(ctx, user)
 	if err != nil {
 		return nil, errors.Wrap(err, "Insert")
 	}
@@ -713,7 +730,7 @@ func (self *SClouduser) RealDelete(ctx context.Context, userCred mcclient.TokenC
 	if err != nil {
 		return errors.Wrap(err, "leaveGroups")
 	}
-	return self.SStatusUserResourceBase.Delete(ctx, userCred)
+	return self.SStatusDomainLevelResourceBase.Delete(ctx, userCred)
 }
 
 func (self *SClouduser) GetCloudpolicy(policyId string) (*SCloudpolicy, error) {

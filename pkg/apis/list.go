@@ -53,8 +53,8 @@ type ProjectizedResourceListInput struct {
 	OrderByTenant string `json:"order_by_tenant" "yunion:deprecated-by":"order_by_project"`
 }
 
-type StatusUserResourceListInput struct {
-	StatusResourceBaseListInput
+type StatusDomainLevelUserResourceListInput struct {
+	StatusDomainLevelResourceListInput
 	UserResourceListInput
 }
 
