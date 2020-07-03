@@ -207,11 +207,11 @@ type SecgroupDetails struct {
 	// 安全组缓存数量
 	CacheCnt int `json:"cache_cnt"`
 	// 规则信息
-	Rules string `json:"rules"`
+	Rules []SSecurityGroupRule `json:"rules"`
 	// 入方向规则信息
-	InRules string `json:"in_rules"`
+	InRules []SSecurityGroupRule `json:"in_rules"`
 	// 出方向规则信息
-	OutRules string `json:"out_rules"`
+	OutRules []SSecurityGroupRule `json:"out_rules"`
 }
 
 type SecurityGroupResourceInfo struct {
