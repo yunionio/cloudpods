@@ -17,14 +17,11 @@ package handler
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 	"net/http"
 	"strings"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apigateway/clientman"
 	"yunion.io/x/onecloud/pkg/apigateway/constants"
@@ -43,7 +40,7 @@ func Base64UrlEncode(data []byte) string {
 
 func Base64UrlDecode(str string) ([]byte, error) {
 	if strings.ContainsAny(str, "+/") {
-		return nil, errors.New("invalid base64url encoding")
+		return nil, errors.Wrap(httperrors.ErrInputParameter, "invalid base64url encoding")
 	}
 	str = strings.Replace(str, "-", "+", -1)
 	str = strings.Replace(str, "_", "/", -1)
@@ -53,75 +50,86 @@ func Base64UrlDecode(str string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(str)
 }
 
-func getAuthToken(r *http.Request) string {
+/*func getAuthToken(r *http.Request) string {
 	auth := r.Header.Get(constants.AUTH_HEADER)
 	if len(auth) > 0 && auth[:len(constants.AUTH_PREFIX)] == constants.AUTH_PREFIX {
 		return auth[len(constants.AUTH_PREFIX):]
 	} else {
 		return ""
 	}
-}
+}*/
 
 func getAuthCookie(r *http.Request) string {
 	return getCookie(r, constants.YUNION_AUTH_COOKIE)
 }
 
-func setAuthHeader(w http.ResponseWriter, tid string) {
+/*func setAuthHeader(w http.ResponseWriter, tid string) {
 	w.Header().Set(constants.AUTH_HEADER, fmt.Sprintf("%s%s", constants.AUTH_PREFIX, tid))
-}
+}*/
 
-func SetAuthToken(ctx context.Context, w http.ResponseWriter, r *http.Request) (context.Context, error) {
+func fetchAuthInfo(ctx context.Context, r *http.Request) (mcclient.TokenCredential, *clientman.SAuthToken, error) {
 	var token mcclient.TokenCredential
-	auth1 := getAuthToken(r)
+	var authToken *clientman.SAuthToken
+
+	// no more use Auth header
+	// auth1 := getAuthToken(r)
 	auth := "" // getAuthToken(r)
-	if len(auth) == 0 {
-		authCookieStr := getAuthCookie(r)
-		if len(authCookieStr) > 0 {
-			authCookie, err := jsonutils.ParseString(authCookieStr)
-			if err != nil {
-				return ctx, fmt.Errorf("Auth cookie decode error: %s", err)
-			}
-			auth, err = authCookie.GetString("session")
-			if err != nil {
-				return ctx, err
-			}
+	authCookieStr := getAuthCookie(r)
+	if len(authCookieStr) > 0 {
+		authCookie, err := jsonutils.ParseString(authCookieStr)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "Auth cookie decode")
+		}
+		auth, err = authCookie.GetString("session")
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "authCookie.GetString session")
 		}
 	}
-	if len(auth) > 0 && auth != auth1 { // hack!!! browser cache problem???
-		log.Errorf("XXXX Auth cookie and header mismatch!!! %s:%s", auth, auth1)
-		auth = auth1
-	}
+	// if len(auth) > 0 && auth != auth1 { // hack!!! browser cache problem???
+	//	log.Errorf("XXXX Auth cookie and header mismatch!!! %s:%s", auth, auth1)
+	//	auth = auth1
+	// }
 	if len(auth) > 0 {
-		token = clientman.TokenMan.Get(auth)
+		var err error
+		authToken, err = clientman.Decode(auth)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "clientman.GetAuthToken")
+		}
+		token, err = authToken.GetToken(ctx)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "authToken.GetToken")
+		}
 	}
 	if token == nil {
-		return ctx, fmt.Errorf("No token in header")
+		return nil, nil, errors.Wrap(httperrors.ErrInvalidCredential, "No token in header")
 	} else if !token.IsValid() {
-		return ctx, fmt.Errorf("Token in header invalid")
+		return nil, nil, errors.Wrap(httperrors.ErrInvalidCredential, "Token in header invalid")
 	}
-	setAuthHeader(w, auth)
+	return token, authToken, nil
+}
+
+func fetchAndSetAuthContext(ctx context.Context, w http.ResponseWriter, r *http.Request) (context.Context, error) {
+	token, authToken, err := fetchAuthInfo(ctx, r)
+	if err != nil {
+		return ctx, errors.Wrap(err, "fetchAuthInfo")
+	}
+	// 启用双因子认证
+	if !authToken.IsTotpVerified() {
+		return ctx, errors.Wrap(httperrors.ErrInvalidCredential, "TOTP authentication failed")
+	}
+	// no more send auth header, save auth info in cookie
+	// setAuthHeader(w, authHeader)
 	ctx = context.WithValue(ctx, appctx.AppContextKey(constants.AUTH_TOKEN), token)
 	return ctx, nil
 }
 
 func FetchAuthToken(f func(context.Context, http.ResponseWriter, *http.Request)) func(context.Context, http.ResponseWriter, *http.Request) {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-		ctx, err := SetAuthToken(ctx, w, r)
+		ctx, err := fetchAndSetAuthContext(ctx, w, r)
 		if err != nil {
 			httperrors.InvalidCredentialError(w, "invalid token: %v", err)
 			return
 		}
-		// 启用双因子认证
-		// t := AppContextToken(ctx)
-		// if isUserEnableTotp(ctx, r, t) {
-		tid := getAuthToken(r)
-		totp := clientman.TokenMan.GetTotp(tid)
-		if !totp.IsVerified() {
-			httperrors.UnauthorizedError(w, "TOTP authentication failed")
-			return
-		}
-		// }
-
 		f(ctx, w, r)
 	}
 }

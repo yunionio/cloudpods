@@ -17,6 +17,7 @@ package service
 import (
 	_ "yunion.io/x/onecloud/pkg/keystone/driver/cas"
 	_ "yunion.io/x/onecloud/pkg/keystone/driver/ldap"
+	_ "yunion.io/x/onecloud/pkg/keystone/driver/oidc"
 	_ "yunion.io/x/onecloud/pkg/keystone/driver/saml"
 	_ "yunion.io/x/onecloud/pkg/keystone/driver/sql"
 )

@@ -16,8 +16,7 @@ package clientman
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
+	"io/ioutil"
 	"strings"
 	"time"
 
@@ -30,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apigateway/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 func authVersion() string {
@@ -85,7 +85,7 @@ func UnmarshalV3Token(rbody jsonutils.JSONObject, tokenId string) (cred mcclient
 	return
 }
 
-func (this *SMapTokenManagerV2) Save(token mcclient.TokenCredential) string {
+func (this *SMapTokenManagerV2) save(token mcclient.TokenCredential) string {
 	key, e := uuid.NewV4()
 	if e != nil {
 		log.Fatalf("uuid.NewV4 returns error!")
@@ -120,7 +120,7 @@ func (this *SMapTokenManagerV2) Save(token mcclient.TokenCredential) string {
 	return kkey
 }
 
-func (this *SMapTokenManagerV2) Get(tid string) mcclient.TokenCredential {
+func (this *SMapTokenManagerV2) get(tid string) mcclient.TokenCredential {
 	if cred := this.table[tid]; cred != nil && cred.Token != nil {
 		return cred.Token
 	}
@@ -135,14 +135,14 @@ func (this *SMapTokenManagerV2) Get(tid string) mcclient.TokenCredential {
 	}
 }
 
-func (this *SMapTokenManagerV2) Remove(tid string) {
+func (this *SMapTokenManagerV2) remove(tid string) {
 	delete(this.table, tid)
 	if DB.Delete(TokenRecord{}, "token_id = ?", tid); DB.Error != nil {
 		log.Errorf("%v", DB.Error)
 	}
 }
 
-func (this *SMapTokenManagerV2) GetTotp(tid string) ITotp {
+func (this *SMapTokenManagerV2) getTotp(tid string) ITotp {
 	if cred := this.table[tid]; cred != nil && cred.Totp != nil {
 		return cred.Totp
 	}
@@ -157,7 +157,7 @@ func (this *SMapTokenManagerV2) GetTotp(tid string) ITotp {
 	}
 }
 
-func (this *SMapTokenManagerV2) SaveTotp(tid string) {
+func (this *SMapTokenManagerV2) saveTotp(tid string) {
 	totp := this.table[tid].Totp
 	if totp == nil {
 		log.Errorf("%s totp is nil", tid)
@@ -212,22 +212,11 @@ func (this *SMapTokenManagerV2) loadFromDB(tid string) error {
 	return nil
 }
 
-func NewMapTokenManagerV2() ITokenManagerV2 {
+/*func NewMapTokenManagerV2() ITokenManagerV2 {
 	return &SMapTokenManagerV2{table: make(map[string]*credential)}
-}
+}*/
 
-var (
-	TokenMan ITokenManagerV2
-)
-
-func InitClient(dbPath string) error {
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
-		return errors.Wrapf(err, "ensure sqlite dir %s", filepath.Dir(dbPath))
-	}
-	if err := initDB("sqlite3", dbPath); err != nil {
-		return errors.Wrap(err, "init sqlite db")
-	}
-
+func InitClient() error {
 	info := auth.NewAuthInfo(options.Options.AuthURL,
 		options.Options.AdminDomain,
 		options.Options.AdminUser,
@@ -239,6 +228,17 @@ func InitClient(dbPath string) error {
 	auth.Init(info, options.Options.DebugClient, true,
 		options.Options.SslCertfile, options.Options.SslKeyfile)
 
-	TokenMan = NewMapTokenManagerV2()
+	if options.Options.EnableSsl {
+		privData, err := ioutil.ReadFile(options.Options.SslKeyfile)
+		if err != nil {
+			return errors.Wrapf(err, "ioutil.ReadFile %s", options.Options.SslKeyfile)
+		}
+		privateKey, err := seclib2.DecodePrivateKey(privData)
+		if err != nil {
+			return errors.Wrap(err, "decodePrivateKey")
+		}
+		setPrivateKey(privateKey)
+	}
+
 	return nil
 }

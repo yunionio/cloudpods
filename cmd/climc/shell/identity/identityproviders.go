@@ -365,7 +365,7 @@ func init() {
 		ID string `help:"ID of idp to config" json:"-"`
 		api.SSAMLIdpConfigOptions
 	}
-	R(&IdentityProviderConfigSAMLOptions{}, "idp-config-SAML", "Config an Identity provider with SAML driver", func(s *mcclient.ClientSession, args *IdentityProviderConfigSAMLOptions) error {
+	R(&IdentityProviderConfigSAMLOptions{}, "idp-config-saml", "Config an Identity provider with SAML driver", func(s *mcclient.ClientSession, args *IdentityProviderConfigSAMLOptions) error {
 		config := jsonutils.NewDict()
 		config.Add(jsonutils.Marshal(args), "config", "saml")
 		nconf, err := modules.IdentityProviders.PerformAction(s, args.ID, "config", config)
@@ -425,6 +425,97 @@ func init() {
 		params.Add(jsonutils.NewString(api.IdpTemplateAzureADSAML), "template")
 
 		params.Add(jsonutils.Marshal(args), "config", "saml")
+
+		idp, err := modules.IdentityProviders.Create(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(idp)
+		return nil
+	})
+
+	type IdentityProviderCreateOIDCOptions struct {
+		NAME string `help:"name of identity provider" json:"-"`
+
+		AutoCreateProject   bool `help:"automatically create a default project when importing domain" json:"-"`
+		NoAutoCreateProject bool `help:"do not create default project when importing domain" json:"-"`
+
+		TargetDomain string `help:"target domain without creating new domain" json:"-"`
+
+		api.SOIDCIdpConfigOptions
+	}
+	R(&IdentityProviderCreateOIDCOptions{}, "idp-create-oidc", "Create an identity provider with OpenID connect driver", func(s *mcclient.ClientSession, args *IdentityProviderCreateOIDCOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.NAME), "name")
+
+		if len(args.TargetDomain) > 0 {
+			params.Add(jsonutils.NewString(args.TargetDomain), "target_domain")
+		}
+		if args.AutoCreateProject {
+			params.Add(jsonutils.JSONTrue, "auto_create_project")
+		} else if args.NoAutoCreateProject {
+			params.Add(jsonutils.JSONFalse, "auto_create_project")
+		}
+
+		params.Add(jsonutils.NewString("oidc"), "driver")
+		params.Add(jsonutils.Marshal(args), "config", "oidc")
+
+		idp, err := modules.IdentityProviders.Create(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(idp)
+		return nil
+	})
+
+	type IdentityProviderConfigOIDCOptions struct {
+		ID string `help:"ID of idp to config" json:"-"`
+		api.SOIDCIdpConfigOptions
+	}
+	R(&IdentityProviderConfigOIDCOptions{}, "idp-config-oidc", "Config an Identity provider with OpenID connect driver", func(s *mcclient.ClientSession, args *IdentityProviderConfigOIDCOptions) error {
+		config := jsonutils.NewDict()
+		config.Add(jsonutils.Marshal(args), "config", "oidc")
+		nconf, err := modules.IdentityProviders.PerformAction(s, args.ID, "config", config)
+		if err != nil {
+			return err
+		}
+		fmt.Println(nconf.PrettyString())
+		return nil
+	})
+
+	type IdentityProviderCreateDexOIDCOptions struct {
+		NAME string `help:"name of identity provider" json:"-"`
+
+		api.SOIDCDexConfigOptions
+	}
+	R(&IdentityProviderCreateDexOIDCOptions{}, "idp-create-dex-oidc", "Create an identity provider with DEX OpenID Connect", func(s *mcclient.ClientSession, args *IdentityProviderCreateDexOIDCOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.NAME), "name")
+		params.Add(jsonutils.NewString("oidc"), "driver")
+		params.Add(jsonutils.NewString(api.IdpTemplateDex), "template")
+
+		params.Add(jsonutils.Marshal(args), "config", "oidc")
+
+		idp, err := modules.IdentityProviders.Create(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(idp)
+		return nil
+	})
+
+	type IdentityProviderCreateGithubOIDCOptions struct {
+		NAME string `help:"name of identity provider" json:"-"`
+
+		api.SOIDCGithubConfigOptions
+	}
+	R(&IdentityProviderCreateGithubOIDCOptions{}, "idp-create-github-oidc", "Create an identity provider with Github OpenID Connect", func(s *mcclient.ClientSession, args *IdentityProviderCreateGithubOIDCOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.NAME), "name")
+		params.Add(jsonutils.NewString("oidc"), "driver")
+		params.Add(jsonutils.NewString(api.IdpTemplateGithub), "template")
+
+		params.Add(jsonutils.Marshal(args), "config", "oidc")
 
 		idp, err := modules.IdentityProviders.Create(s, params)
 		if err != nil {

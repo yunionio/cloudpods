@@ -16,15 +16,13 @@ package cas
 
 import (
 	"context"
-	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
-	"yunion.io/x/onecloud/pkg/keystone/models"
+	"yunion.io/x/onecloud/pkg/keystone/driver/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -47,36 +45,22 @@ func (self *SCASDriverClass) Name() string {
 }
 
 func (self *SCASDriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, tconf api.TConfigs) (api.TConfigs, error) {
-
 	conf := api.SCASIdpConfigOptions{}
-	confJson := jsonutils.Marshal(tconf["cas"])
+	confJson := jsonutils.Marshal(tconf[api.IdentityDriverCAS])
 	err := confJson.Unmarshal(&conf)
 	if err != nil {
 		return tconf, errors.Wrap(err, "unmarshal config")
 	}
-	if len(conf.DefaultCasProjectId) > 0 {
-		obj, err := models.ProjectManager.FetchByIdOrName(userCred, conf.DefaultCasProjectId)
-		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return tconf, errors.Wrapf(httperrors.ErrResourceNotFound, "project %s", conf.DefaultCasProjectId)
-			} else {
-				return tconf, errors.Wrap(err, "FetchProjectById")
-			}
-		}
-		tconf["cas"]["default_cas_project_id"] = jsonutils.NewString(obj.GetId())
+	conf.SIdpAttributeOptions, err = utils.ValidateConfig(conf.SIdpAttributeOptions, userCred)
+	if err != nil {
+		return tconf, errors.Wrap(err, "ValidateConfig")
 	}
-	if len(conf.DefaultCasRoleId) > 0 {
-		obj, err := models.RoleManager.FetchByIdOrName(userCred, conf.DefaultCasRoleId)
-		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return tconf, errors.Wrapf(httperrors.ErrResourceNotFound, "role %s", conf.DefaultCasRoleId)
-			} else {
-				return tconf, errors.Wrap(err, "FetchRoleById")
-			}
-		}
-		tconf["cas"]["default_cas_role_id"] = jsonutils.NewString(obj.GetId())
+	nconf := make(map[string]jsonutils.JSONObject)
+	err = jsonutils.Marshal(conf).Unmarshal(&nconf)
+	if err != nil {
+		return tconf, errors.Wrap(err, "Unmarshal new config")
 	}
-
+	tconf[api.IdentityDriverCAS] = nconf
 	return tconf, nil
 }
 

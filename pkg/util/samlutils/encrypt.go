@@ -26,33 +26,18 @@ import (
 	"hash"
 	"io/ioutil"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
-func decodePrivateKey(keyString []byte) (*rsa.PrivateKey, error) {
-	block, _ := pem.Decode(keyString)
-	log.Debugf("pem.Decode privateKey data: type=%s header: %s", block.Type, block.Headers)
-	privKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-	if err == nil {
-		return privKey.(*rsa.PrivateKey), nil
-	}
-	priv, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-	if err == nil {
-		return priv, nil
-	}
-	return nil, errors.Wrap(httperrors.ErrInvalidFormat, "not a valid private key")
-}
-
 func (saml *SSAMLInstance) parseKeys() error {
 	privData, err := ioutil.ReadFile(saml.privateKeyFile)
 	if err != nil {
 		return errors.Wrapf(err, "ioutil.ReadFile %s", saml.privateKeyFile)
 	}
-	saml.privateKey, err = decodePrivateKey(privData)
+	saml.privateKey, err = seclib2.DecodePrivateKey(privData)
 	if err != nil {
 		return errors.Wrap(err, "decodePrivateKey")
 	}
@@ -73,8 +58,6 @@ func (saml *SSAMLInstance) parseKeys() error {
 		if first {
 			first = false
 			saml.certString = seclib2.CleanCertificate(string(pem.EncodeToMemory(block)))
-
-			log.Debugf("cert: %s", saml.certString)
 		}
 		cert, err := x509.ParseCertificate(block.Bytes)
 		if err != nil {
