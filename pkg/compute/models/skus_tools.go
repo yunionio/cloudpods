@@ -187,7 +187,7 @@ func (self *SSkuResourcesMeta) GetElasticCacheSkusByRegionExternalId(regionExter
 			if len(zoneId) == 0 {
 				return nil, fmt.Errorf("invalid sku %s %s slave zoneId: %s", sku.Id, sku.CloudregionId, sku.SlaveZoneId)
 			}
-			sku.ZoneId = zoneId
+			sku.SlaveZoneId = zoneId
 		}
 		sku.Id = ""
 		sku.CloudregionId = regionId
