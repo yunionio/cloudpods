@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
@@ -32,8 +31,6 @@ import (
 
 const (
 	ErrNoSuchProvder = errors.Error("no such provider")
-
-	TEST_CLOUDID_USER_NAME = "cloud-id-user"
 )
 
 type SCloudaccountCredential struct {
@@ -208,7 +205,6 @@ type ICloudProvider interface {
 	GetSysInfo() (jsonutils.JSONObject, error)
 	GetVersion() string
 	GetIamLoginUrl() string
-	IsSupportCloudId() bool
 
 	GetIRegions() []ICloudRegion
 	GetIProjects() ([]ICloudProject, error)
@@ -343,28 +339,6 @@ func (self *SBaseProvider) GetICloudQuotas() ([]ICloudQuota, error) {
 
 func (self *SBaseProvider) GetIamLoginUrl() string {
 	return ""
-}
-
-func (self *SBaseProvider) IsSupportCloudId() bool {
-	return false
-}
-
-func IsSupportCloudId(provider ICloudProvider) bool {
-	defer func() {
-		iUser, err := provider.GetIClouduserByName(TEST_CLOUDID_USER_NAME)
-		if err != nil {
-			return
-		}
-		err = iUser.Delete()
-		if err != nil {
-			log.Errorf("failed to delete test user: %v", err)
-		}
-	}()
-	_, err := provider.CreateIClouduser(&SClouduserCreateConfig{Name: TEST_CLOUDID_USER_NAME})
-	if err != nil {
-		return false
-	}
-	return true
 }
 
 func (self *SBaseProvider) IsClouduserSupportPassword() bool {
