@@ -26,19 +26,19 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudid/models"
 )
 
-type SyncCloudpoliciesTask struct {
+type SyncCloudIdResourcesTask struct {
 	taskman.STask
 }
 
 func init() {
-	taskman.RegisterTask(SyncCloudpoliciesTask{})
+	taskman.RegisterTask(SyncCloudIdResourcesTask{})
 }
 
-func (self *SyncCloudpoliciesTask) taskFailed(ctx context.Context, cloudaccount *models.SCloudaccount, err error) {
+func (self *SyncCloudIdResourcesTask) taskFailed(ctx context.Context, cloudaccount *models.SCloudaccount, err error) {
 	self.SetStageFailed(ctx, err.Error())
 }
 
-func (self *SyncCloudpoliciesTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
+func (self *SyncCloudIdResourcesTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	account := obj.(*models.SCloudaccount)
 
 	provider, err := account.GetProvider()
@@ -49,12 +49,29 @@ func (self *SyncCloudpoliciesTask) OnInit(ctx context.Context, obj db.IStandalon
 
 	policy, err := provider.GetISystemCloudpolicies()
 	if err != nil {
-		self.taskFailed(ctx, account, errors.Wrapf(err, "GetISystemCloudpolicies for %s(%s)", account.Name, account.Provider))
-		return
+		log.Errorf("GetISystemCloudpolicies for %s(%s) failed: %v", account.Name, account.Provider, err)
+	} else {
+		result := account.SyncCloudpolicies(ctx, self.GetUserCred(), policy)
+		log.Infof("Sync policies for %s(%s) result: %s", account.Name, account.Provider, result.Result())
 	}
 
-	result := account.SyncCloudpolicies(ctx, self.GetUserCred(), policy)
-	log.Infof("Sync policies for %s(%s) result: %s", account.Name, account.Provider, result.Result())
+	groups, err := provider.GetICloudgroups()
+	if err != nil {
+		log.Errorf("GetICloudgroups for %s(%s) failed: %v", account.Name, account.Provider, err)
+	} else {
+		result := account.SyncCloudgroupcaches(ctx, self.GetUserCred(), groups)
+		log.Infof("Sync groups for %s(%s) result: %s", account.Name, account.Provider, result.Result())
+	}
 
+	self.SetStage("OnSyncCloudusersComplete", nil)
+	account.StartSyncCloudusersTask(ctx, self.GetUserCred(), self.GetParentId())
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *SyncCloudIdResourcesTask) OnSyncCloudusersComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	self.SetStageComplete(ctx, nil)
+}
+
+func (self *SyncCloudIdResourcesTask) OnClouduserSyncCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, data.String())
 }

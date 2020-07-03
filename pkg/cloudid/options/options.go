@@ -22,10 +22,8 @@ type SCloudIdOptions struct {
 	common_options.CommonOptions
 	common_options.DBOptions
 
-	CloudaccountSyncIntervalMinutes int `help:"frequency to sync region cloudaccount task" default:"3"`
-	CloudpolicySyncIntervalHours    int `help:"frequency to sync region cloudpolicy task" default:"12"`
-	CloudgroupSyncIntervalHours     int `help:"frequency to sync region cloudgrouptask" default:"3"`
-	ClouduserSyncIntervalHours      int `help:"frequency to sync clouduser task" default:"7"`
+	CloudaccountSyncIntervalMinutes  int `help:"frequency to sync region cloudaccount task" default:"3"`
+	CloudIdResourceSyncIntervalHours int `help:"frequency to sync region cloudpolicy task" default:"3"`
 }
 
 var (
