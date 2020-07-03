@@ -210,10 +210,6 @@ func (self *SGoogleProvider) GetIamLoginUlr() string {
 	return "https://console.cloud.google.com"
 }
 
-func (self *SGoogleProvider) IsSupportCloudId() bool {
-	return self.client.IsSupportCloudId()
-}
-
 func (self *SGoogleProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.client.GetIRegions()
 }

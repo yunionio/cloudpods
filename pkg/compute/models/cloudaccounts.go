@@ -163,9 +163,6 @@ type SCloudaccount struct {
 
 	// 公有云子账号登录地址
 	IamLoginUrl string `width:"512" charset:"ascii" nullable:"false" list:"domain" update:"domain"`
-
-	// 是否支持创建公有云子账号
-	IsSupportCloudId tristate.TriState `nullable:"false" get:"domain" list:"domain" default:"false"`
 }
 
 func (self *SCloudaccount) GetCloudproviders() []SCloudprovider {
@@ -2294,7 +2291,6 @@ func (account *SCloudaccount) probeAccountStatus(ctx context.Context, userCred m
 		account.Version = version
 		account.Sysinfo = sysInfo
 		account.IamLoginUrl = iamLoginUrl
-		account.IsSupportCloudId = tristate.NewFromBool(manager.IsSupportCloudId())
 		return nil
 	})
 	if err != nil {
