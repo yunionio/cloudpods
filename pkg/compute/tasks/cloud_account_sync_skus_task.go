@@ -105,12 +105,8 @@ func (self *CloudAccountSyncSkusTask) OnInit(ctx context.Context, obj db.IStanda
 		}
 
 		if syncFunc != nil {
-			if result := syncFunc(ctx, self.GetUserCred(), &region, meta); result.IsError() {
-				self.taskFailed(ctx, account, result.AllError())
-				return
-			} else {
-				log.Infof(result.Result())
-			}
+			result := syncFunc(ctx, self.GetUserCred(), &region, meta)
+			log.Infof("Sync %s %s skus for region %s result: %s", region.Provider, res, region.Name, result.Result())
 		}
 	}
 
