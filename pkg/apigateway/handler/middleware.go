@@ -78,11 +78,11 @@ func fetchAuthInfo(ctx context.Context, r *http.Request) (mcclient.TokenCredenti
 	if len(authCookieStr) > 0 {
 		authCookie, err := jsonutils.ParseString(authCookieStr)
 		if err != nil {
-			return nil, nil, errors.Wrap(err, "Auth cookie decode")
+			return nil, nil, errors.Wrap(httperrors.ErrInputParameter, "Auth cookie decode")
 		}
 		auth, err = authCookie.GetString("session")
 		if err != nil {
-			return nil, nil, errors.Wrap(err, "authCookie.GetString session")
+			return nil, nil, errors.Wrap(httperrors.ErrInputParameter, "authCookie missing session field")
 		}
 	}
 	// if len(auth) > 0 && auth != auth1 { // hack!!! browser cache problem???
@@ -93,11 +93,11 @@ func fetchAuthInfo(ctx context.Context, r *http.Request) (mcclient.TokenCredenti
 		var err error
 		authToken, err = clientman.Decode(auth)
 		if err != nil {
-			return nil, nil, errors.Wrap(err, "clientman.GetAuthToken")
+			return nil, nil, errors.Wrap(httperrors.ErrInputParameter, "clientman.Decode auth token fail")
 		}
 		token, err = authToken.GetToken(ctx)
 		if err != nil {
-			return nil, nil, errors.Wrap(err, "authToken.GetToken")
+			return nil, nil, errors.Wrap(httperrors.ErrInputParameter, "authToken.GetToken fail")
 		}
 	}
 	if token == nil {
@@ -127,7 +127,7 @@ func FetchAuthToken(f func(context.Context, http.ResponseWriter, *http.Request))
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		ctx, err := fetchAndSetAuthContext(ctx, w, r)
 		if err != nil {
-			httperrors.InvalidCredentialError(w, "invalid token: %v", err)
+			httperrors.InvalidCredentialError(w, "No token in header: %v", err)
 			return
 		}
 		f(ctx, w, r)
