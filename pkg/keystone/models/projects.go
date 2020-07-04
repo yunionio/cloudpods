@@ -233,7 +233,17 @@ func (manager *SProjectManager) ListItemFilter(
 			}
 		}
 		subq := AssignmentManager.fetchUserProjectIdsQuery(userObj.GetId())
-		q = q.In("id", subq.SubQuery())
+		if query.Jointable != nil && *query.Jointable {
+			user := userObj.(*SUser)
+			if user.DomainId == api.DEFAULT_DOMAIN_ID {
+				q = q.Equals("domain_id", api.DEFAULT_DOMAIN_ID)
+			} else {
+				q = q.In("domain_id", []string{user.DomainId, api.DEFAULT_DOMAIN_ID})
+			}
+			q = q.NotIn("id", subq.SubQuery())
+		} else {
+			q = q.In("id", subq.SubQuery())
+		}
 	}
 
 	groupStr := query.Group
@@ -247,7 +257,17 @@ func (manager *SProjectManager) ListItemFilter(
 			}
 		}
 		subq := AssignmentManager.fetchGroupProjectIdsQuery(groupObj.GetId())
-		q = q.In("id", subq.SubQuery())
+		if query.Jointable != nil && *query.Jointable {
+			group := groupObj.(*SGroup)
+			if group.DomainId == api.DEFAULT_DOMAIN_ID {
+				q = q.Equals("domain_id", api.DEFAULT_DOMAIN_ID)
+			} else {
+				q = q.In("domain_id", []string{group.DomainId, api.DEFAULT_DOMAIN_ID})
+			}
+			q = q.NotIn("id", subq.SubQuery())
+		} else {
+			q = q.In("id", subq.SubQuery())
+		}
 	}
 
 	return q, nil
