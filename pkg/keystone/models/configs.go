@@ -82,8 +82,8 @@ type SConfigOption struct {
 
 	ResType string `width:"32" charset:"ascii" nullable:"false" default:"identity_provider" primary:"true"`
 	ResId   string `name:"domain_id" width:"64" charset:"ascii" primary:"true"`
-	Group   string `width:"255" charset:"utf8" primary:"true"`
-	Option  string `width:"255" charset:"utf8" primary:"true"`
+	Group   string `width:"191" charset:"utf8" primary:"true"`
+	Option  string `width:"191" charset:"utf8" primary:"true"`
 
 	Value jsonutils.JSONObject `nullable:"false"`
 }
