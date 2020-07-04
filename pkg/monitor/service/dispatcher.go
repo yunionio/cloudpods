@@ -36,11 +36,11 @@ func addCommonAlertDispatcher(prefix string, app *appsrv.Application) {
 }
 
 func performHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	_, query, body := fetchEnv(ctx, w, r)
+	appsrv.SendJSON(w, wrap(jsonutils.NewDict(), "subscription"))
 	SubscriptionWorkerManager.Run(func() {
-		_, query, body := fetchEnv(ctx, w, r)
 		ctx = context.WithValue(context.Background(), auth.AUTH_TOKEN, auth.AdminCredential())
 		subscriptionmodel.SubscriptionManager.PerformWrite(ctx, auth.AdminCredential(), query, body)
-		appsrv.SendJSON(w, wrap(jsonutils.NewDict(), "subscription"))
 	}, nil, nil)
 
 }

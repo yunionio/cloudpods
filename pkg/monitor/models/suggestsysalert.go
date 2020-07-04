@@ -27,7 +27,6 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
-	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -130,12 +129,7 @@ func (manager *SSuggestSysAlertManager) ListItemFilter(
 		q = q.In("provider", query.Brands)
 	}
 	if len(query.Cloudaccount) > 0 {
-		cpq := computemodels.CloudaccountManager.Query().SubQuery()
-		subcpq := cpq.Query(cpq.Field("id")).Filter(sqlchemy.OR(
-			sqlchemy.In(cpq.Field("id"), query.Cloudaccount),
-			sqlchemy.In(cpq.Field("name"), query.Cloudaccount),
-		)).SubQuery()
-		q.In("cloudaccount", subcpq)
+		q.In("cloudaccount", query.Cloudaccount)
 	}
 	if len(query.CloudEnv) > 0 {
 		q = q.Equals("cloud_env", query.CloudEnv)
@@ -526,13 +520,16 @@ func (self *SSuggestSysAlertManager) getMeterForcastCosts(ctx context.Context, u
 	}
 	session := auth.GetAdminSession(ctx, "", "")
 	param := jsonutils.NewDict()
-	param.Add(jsonutils.NewString(domainId), "domain_id")
-	param.Add(jsonutils.NewString(projectId), "project_id")
+	if len(domainId) > 0 {
+		param.Add(jsonutils.NewString(domainId), "domain_id")
+	}
+	if len(projectId) > 0 {
+		param.Add(jsonutils.NewString(projectId), "project_id")
+	}
 	meterRtn, err := modules.AmountEstimations.GetById(session, "month", param)
 	if err != nil {
 		return meterCost, err
 	}
-	log.Errorln(meterRtn.String())
 	amount, _ := meterRtn.Float("amount")
 	meterCost.Amount = amount
 	return meterCost, nil
