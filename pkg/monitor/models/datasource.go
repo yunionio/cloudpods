@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -42,6 +43,7 @@ import (
 
 var (
 	DataSourceManager *SDataSourceManager
+	compile           = regexp.MustCompile(`\w{8}(-\w{4}){3}-\w{12}`)
 )
 
 const (
@@ -333,6 +335,9 @@ func getAttributesOnMeasurement(database, tp string, output *monitor.InfluxMeasu
 	tmpDict := jsonutils.NewDict()
 	tmpArr := jsonutils.NewArray()
 	for i := range res.Values {
+		if filterTagKey(res.Values[i][0].(*jsonutils.JSONString).Value()) {
+			continue
+		}
 		tmpArr.Add(res.Values[i][0])
 	}
 	tmpDict.Add(tmpArr, res.Columns[0])
@@ -355,14 +360,45 @@ func getTagValue(database string, output *monitor.InfluxMeasurement, db *influxd
 	}
 	res := dbRtn[0][0]
 	tagValue := make(map[string][]string, 0)
+	keys := strings.Join(output.TagKey, ",")
 	for i := range res.Values {
 		val := res.Values[i][0].(*jsonutils.JSONString)
+		if !strings.Contains(keys, val.Value()) {
+			continue
+		}
 		if _, ok := tagValue[val.Value()]; !ok {
 			tagValue[val.Value()] = make([]string, 0)
 		}
 		tag := res.Values[i][1].(*jsonutils.JSONString)
+		if filterTagValue(tag.Value()) {
+			delete(tagValue, val.Value())
+			continue
+		}
 		tagValue[val.Value()] = append(tagValue[val.Value()], tag.Value())
 	}
 	output.TagValue = tagValue
+	//TagKey == TagValue.keys
+	tagK := make([]string, 0)
+	for tag, _ := range output.TagValue {
+		tagK = append(tagK, tag)
+	}
+	output.TagKey = tagK
 	return nil
+}
+
+func filterTagKey(key string) bool {
+	if strings.Contains(key, "_id") {
+		return true
+	}
+	if key == "perf_instance" {
+		return true
+	}
+	return false
+}
+
+func filterTagValue(val string) bool {
+	if compile.MatchString(val) {
+		return true
+	}
+	return false
 }
