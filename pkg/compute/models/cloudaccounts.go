@@ -1900,6 +1900,7 @@ func (account *SCloudaccount) SubmitSyncAccountTask(ctx context.Context, userCre
 	if _, ok := cloudaccountPendingSyncs[account.Id]; ok {
 		if waitChan != nil {
 			// an active cloudaccount sync task is running, return with conflict error
+			log.Errorf("an active cloudaccount sync task is running, early return with conflict error")
 			waitChan <- errors.Wrap(httperrors.ErrConflict, "cloudaccountPendingSyncs")
 		}
 		return
@@ -1918,8 +1919,9 @@ func (account *SCloudaccount) SubmitSyncAccountTask(ctx context.Context, userCre
 		if waitChan != nil {
 			if err != nil {
 				account.markEndSync(userCred)
+				err = errors.Wrap(err, "account.syncAccountStatus")
 			}
-			waitChan <- errors.Wrap(err, "account.syncAccountStatus")
+			waitChan <- err
 		} else {
 			syncCnt := 0
 			if err == nil && autoSync && account.GetEnabled() && account.EnableAutoSync {
