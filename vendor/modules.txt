@@ -1053,7 +1053,7 @@ yunion.io/x/log/hooks
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v0.0.0-20200615071345-60a252beb982
+# yunion.io/x/pkg v0.0.0-20200702065158-82d1bf2beb3a
 yunion.io/x/pkg/errors
 yunion.io/x/pkg/gotypes
 yunion.io/x/pkg/prettytable
@@ -1085,7 +1085,7 @@ yunion.io/x/pkg/util/workqueue
 yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v0.0.0-20200628063738-8d162ce8f6c8
+# yunion.io/x/sqlchemy v0.0.0-20200702064124-195445bc4b11
 yunion.io/x/sqlchemy
 # yunion.io/x/structarg v0.0.0-20200619020316-f93fbe32ffc7
 yunion.io/x/structarg
