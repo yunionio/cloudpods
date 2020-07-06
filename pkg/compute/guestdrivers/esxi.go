@@ -242,15 +242,21 @@ func (self *SESXiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gues
 
 	action, _ := config.GetString("action")
 	if action == "create" {
-		extProj, name, err := account.GetExternalProject(ctx, task.GetUserCred(), guest.ProjectId)
+		project, err := db.TenantCacheManager.FetchTenantById(ctx, guest.ProjectId)
 		if err != nil {
-			log.Errorf("failed to get external project %s from account %s(%s) error: %v", guest.ProjectId, account.Name, account.Id, err)
+			return errors.Wrapf(err, "FetchTenantById(%s)", guest.ProjectId)
 		}
+
+		projects, err := account.GetExternalProjectsByProjectIdOrName(project.Id, project.Name)
+		if err != nil {
+			return errors.Wrapf(err, "GetExternalProjectsByProjectIdOrName(%s,%s)", project.Id, project.Name)
+		}
+
+		extProj := account.GetAvailableExternalProject(project, projects)
 		if extProj != nil {
-			config.Add(jsonutils.NewString(extProj.ExternalId), "desc", "group_id")
-		}
-		if len(name) > 0 {
-			config.Add(jsonutils.NewString(name), "desc", "resource_pool")
+			config.Add(jsonutils.NewString(extProj.Name), "desc", "resource_pool")
+		} else {
+			config.Add(jsonutils.NewString(project.Name), "desc", "resource_pool")
 		}
 	}
 
