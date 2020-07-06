@@ -42,7 +42,9 @@ type SLoadbalancerListenerManager struct {
 	SLoadbalancerLogSkipper
 	db.SVirtualResourceBaseManager
 	db.SExternalizedResourceBaseManager
+
 	SLoadbalancerResourceBaseManager
+	SLoadbalancerCertificateResourceBaseManager
 }
 
 var LoadbalancerListenerManager *SLoadbalancerListenerManager
@@ -114,7 +116,8 @@ type SLoadbalancerHTTPRedirect struct {
 //  - Use certificate for tcp listener
 //  - Customize ciphers?
 type SLoadbalancerHTTPSListener struct {
-	CertificateId       string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	SLoadbalancerCertificateResourceBase
+
 	CachedCertificateId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 	TLSCipherPolicy     string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 	EnableHttp2         bool   `create:"optional" list:"user" update:"user"`
@@ -533,11 +536,13 @@ func (manager *SLoadbalancerListenerManager) FetchCustomizeColumns(
 
 	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	lbRows := manager.SLoadbalancerResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	lbcertRows := manager.SLoadbalancerCertificateResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i] = api.LoadbalancerListenerDetails{
-			VirtualResourceDetails:   virtRows[i],
-			LoadbalancerResourceInfo: lbRows[i],
+			VirtualResourceDetails:              virtRows[i],
+			LoadbalancerResourceInfo:            lbRows[i],
+			LoadbalancerCertificateResourceInfo: lbcertRows[i],
 		}
 		rows[i], _ = objs[i].(*SLoadbalancerListener).getMoreDetails(rows[i])
 	}
