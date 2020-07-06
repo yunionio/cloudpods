@@ -36,8 +36,7 @@ import (
 )
 
 type SExternalProjectManager struct {
-	db.SStatusStandaloneResourceBaseManager
-	db.SProjectizedResourceBaseManager
+	db.SVirtualResourceBaseManager
 	db.SExternalizedResourceBaseManager
 	SManagedResourceBaseManager
 }
@@ -46,7 +45,7 @@ var ExternalProjectManager *SExternalProjectManager
 
 func init() {
 	ExternalProjectManager = &SExternalProjectManager{
-		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
+		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
 			SExternalProject{},
 			"externalprojects_tbl",
 			"externalproject",
@@ -57,8 +56,7 @@ func init() {
 }
 
 type SExternalProject struct {
-	db.SStatusStandaloneResourceBase
-	db.SProjectizedResourceBase
+	db.SVirtualResourceBase
 	db.SExternalizedResourceBase
 	SManagedResourceBase
 
@@ -67,16 +65,11 @@ type SExternalProject struct {
 }
 
 func (manager *SExternalProjectManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, manager)
+	return db.IsDomainAllowList(userCred, manager)
 }
 
 func (self *SExternalProject) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
 	return false
-}
-
-func (self *SExternalProject) getCloudProviderInfo() SCloudProviderInfo {
-	provider := self.GetCloudprovider()
-	return MakeCloudProviderInfo(nil, nil, provider)
 }
 
 func (self *SExternalProject) GetExtraDetails(
@@ -97,16 +90,28 @@ func (manager *SExternalProjectManager) FetchCustomizeColumns(
 	isList bool,
 ) []api.ExternalProjectDetails {
 	rows := make([]api.ExternalProjectDetails, len(objs))
-
-	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-	projRows := manager.SProjectizedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-
+	virRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	accountIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.ExternalProjectDetails{
-			StatusStandaloneResourceDetails: stdRows[i],
-			ManagedResourceInfo:             manRows[i],
-			ProjectizedResourceInfo:         projRows[i],
+			VirtualResourceDetails: virRows[i],
+		}
+		proj := objs[i].(*SExternalProject)
+		accountIds[i] = proj.CloudaccountId
+	}
+	accounts := make(map[string]SCloudaccount)
+	err := db.FetchStandaloneObjectsByIds(CloudaccountManager, accountIds, &accounts)
+	if err != nil {
+		log.Errorf("FetchStandaloneObjectsByIds (%s) fail %s",
+			CloudaccountManager.KeywordPlural(), err)
+		return rows
+	}
+
+	for i := range rows {
+		if account, ok := accounts[accountIds[i]]; ok {
+			rows[i].Account = account.Name
+			rows[i].Brand = account.Brand
+			rows[i].Provider = account.Provider
 		}
 	}
 
@@ -171,7 +176,7 @@ func (manager *SExternalProjectManager) SyncProjects(ctx context.Context, userCr
 		}
 	}
 	for i := 0; i < len(added); i++ {
-		_, err := manager.newFromCloudProject(ctx, userCred, account, added[i])
+		_, err := manager.newFromCloudProject(ctx, userCred, account, nil, added[i])
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -207,7 +212,7 @@ func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred
 	return nil
 }
 
-func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context, userCred mcclient.TokenCredential, account *SCloudaccount, extProject cloudprovider.ICloudProject) (*SExternalProject, error) {
+func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context, userCred mcclient.TokenCredential, account *SCloudaccount, localProject *db.STenant, extProject cloudprovider.ICloudProject) (*SExternalProject, error) {
 	project := SExternalProject{}
 	project.SetModelManager(manager, &project)
 
@@ -218,7 +223,10 @@ func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context,
 	project.CloudaccountId = account.Id
 	project.DomainId = account.DomainId
 	project.ProjectId = account.ProjectId
-	if account.AutoCreateProject {
+	if localProject != nil {
+		project.DomainId = localProject.DomainId
+		project.ProjectId = localProject.Id
+	} else if account.AutoCreateProject {
 		desc := fmt.Sprintf("auto create from cloud project %s (%s)", project.Name, project.ExternalId)
 		domainId, projectId, err := getOrCreateTenant(ctx, project.Name, account.DomainId, "", desc)
 		if err != nil {
@@ -300,17 +308,13 @@ func (manager *SExternalProjectManager) ListItemFilter(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
 	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
-	}
-	q, err = manager.SProjectizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ProjectizedResourceListInput)
-	if err != nil {
-		return nil, errors.Wrap(err, "SProjectizedResourceBaseManager.ListItemFilter")
 	}
 
 	if len(query.Cloudprovider) > 0 {
@@ -351,17 +355,13 @@ func (manager *SExternalProjectManager) OrderByExtraFields(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	q, err = manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.OrderByExtraFields")
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
 	}
 	q, err = manager.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
-	}
-	q, err = manager.SProjectizedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ProjectizedResourceListInput)
-	if err != nil {
-		return nil, errors.Wrap(err, "SProjectizedResourceBaseManager.OrderByExtraFields")
 	}
 
 	return q, nil
@@ -370,15 +370,11 @@ func (manager *SExternalProjectManager) OrderByExtraFields(
 func (manager *SExternalProjectManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	q, err = manager.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
 	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraField(q, field)
-	if err == nil {
-		return q, nil
-	}
-	q, err = manager.SProjectizedResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -388,13 +384,9 @@ func (manager *SExternalProjectManager) QueryDistinctExtraField(q *sqlchemy.SQue
 
 func (manager *SExternalProjectManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential,
 	keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	q, err := manager.SVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
 	if err != nil {
-		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemExportKeys")
-	}
-	q, err = manager.SProjectizedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
-	if err != nil {
-		return nil, errors.Wrap(err, "SProjectizedResourceBaseManager.ListItemExportKeys")
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemExportKeys")
 	}
 	return q, nil
 }
