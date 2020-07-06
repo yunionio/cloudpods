@@ -13,6 +13,7 @@ require (
 	github.com/Microsoft/azure-vhd-utils v0.0.0-20181115010904-44cbada2ece3
 	github.com/RoaringBitmap/roaring v0.4.16 // indirect
 	github.com/Shopify/sarama v1.20.0 // indirect
+	github.com/Shopify/toxiproxy v2.1.4+incompatible // indirect
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
 	github.com/aliyun/alibaba-cloud-sdk-go v0.0.0-20180112035716-b5829a0278c8
 	github.com/aliyun/aliyun-oss-go-sdk v2.0.4+incompatible
@@ -22,6 +23,7 @@ require (
 	github.com/anacrolix/mmsg v0.0.0-20180808012353-5adb2c1127c0 // indirect
 	github.com/anacrolix/torrent v0.0.0-20181129073333-cc531b8c4a80
 	github.com/aokoli/goutils v1.0.1
+	github.com/apache/thrift v0.12.0 // indirect
 	github.com/aws/aws-sdk-go v1.21.4
 	github.com/baiyubin/aliyun-sts-go-sdk v0.0.0-20180326062324-cfa1a18b161f // indirect
 	github.com/beevik/etree v1.1.0 // indirect
@@ -33,10 +35,11 @@ require (
 	github.com/coredns/coredns v1.3.0
 	github.com/coreos/go-systemd v0.0.0-20190620071333-e64a0ec8b42a // indirect
 	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f // indirect
-	github.com/denisenkom/go-mssqldb v0.0.0-20190806190131-db2462fef53b // indirect
 	github.com/dnstap/golang-dnstap v0.0.0-20170829151710-2cf77a2b5e11 // indirect
+	github.com/eapache/go-resiliency v1.1.0 // indirect
+	github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21 // indirect
+	github.com/eapache/queue v1.1.0 // indirect
 	github.com/edsrzf/mmap-go v1.0.0 // indirect
-	github.com/erikstmartin/go-testdb v0.0.0-20160219214506-8d10e4a1bae5 // indirect
 	github.com/farsightsec/golang-framestream v0.0.0-20181102145529-8a0cb8ba8710 // indirect
 	github.com/fatih/color v1.7.0
 	github.com/fernet/fernet-go v0.0.0-20180830025343-9eac43b88a5e
@@ -64,15 +67,11 @@ require (
 	github.com/hako/durafmt v0.0.0-20180520121703-7b7ae1e72ead
 	github.com/huandu/xstrings v1.2.0 // indirect
 	github.com/imdario/mergo v0.3.6 // indirect
-	github.com/jinzhu/gorm v1.9.1
-	github.com/jinzhu/inflection v1.0.0 // indirect
-	github.com/jinzhu/now v1.0.1 // indirect
 	github.com/koding/websocketproxy v0.0.0-20181220232114-7ed82d81a28c
 	github.com/kr/pty v1.1.5
 	github.com/lestrrat-go/jwx v1.0.2
 	github.com/lestrrat/go-jwx v0.0.0-20180221005942-b7d4802280ae
 	github.com/lestrrat/go-pdebug v0.0.0-20180220043741-569c97477ae8 // indirect
-	github.com/lib/pq v1.2.0 // indirect
 	github.com/libvirt/libvirt-go-xml v5.2.0+incompatible
 	github.com/ma314smith/signedxml v0.0.0-20200410192636-c342a2d0ae60
 	github.com/mattn/go-runewidth v0.0.4 // indirect
@@ -94,6 +93,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/term v0.0.0-20181116001808-27bbf2edb814 // indirect
 	github.com/pquerna/otp v1.2.0
+	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a // indirect
 	github.com/serialx/hashring v0.0.0-20180504054112-49a4782e9908
 	github.com/shirou/gopsutil v2.18.10+incompatible
 	github.com/shirou/w32 v0.0.0-20160930032740-bb4de0191aa4 // indirect
