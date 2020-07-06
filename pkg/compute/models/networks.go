@@ -1630,7 +1630,8 @@ func (self *SNetwork) IsManaged() bool {
 func (self *SNetwork) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	if !data.Contains("public_scope") {
 		if self.ServerType == api.NETWORK_TYPE_GUEST && !self.IsManaged() {
-			if db.IsAdminAllowPerform(userCred, self, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
+			wire := self.GetWire()
+			if db.IsAdminAllowPerform(userCred, self, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() && wire != nil && wire.IsPublic && wire.PublicScope == string(rbacutils.ScopeSystem) {
 				self.SetShare(rbacutils.ScopeSystem)
 			} else if db.IsDomainAllowPerform(userCred, self, "public") && ownerId.GetProjectId() == userCred.GetProjectId() && consts.GetNonDefaultDomainProjects() {
 				// only if non_default_domain_projects turned on, share to domain
