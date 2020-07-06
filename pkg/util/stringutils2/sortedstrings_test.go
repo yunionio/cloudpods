@@ -15,6 +15,7 @@
 package stringutils2
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -73,4 +74,64 @@ func TestMergeStrings(t *testing.T) {
 	t.Logf("A: %s", ss1)
 	t.Logf("B: %s", ss2)
 	t.Logf("%s", m)
+}
+
+func TestSortedStringsAppend(t *testing.T) {
+	cases := []struct {
+		in   []string
+		ele  []string
+		want SSortedStrings
+	}{
+		{
+			in:   []string{"Alpha", "Bravo", "Go"},
+			ele:  []string{"Go2"},
+			want: []string{"Alpha", "Bravo", "Go", "Go2"},
+		},
+		{
+			in:   []string{"Alpha", "Bravo", "Go2"},
+			ele:  []string{"Go"},
+			want: []string{"Alpha", "Bravo", "Go", "Go2"},
+		},
+		{
+			in:   []string{"Alpha", "Bravo", "Go2"},
+			ele:  []string{"Aaaa", "Go"},
+			want: []string{"Aaaa", "Alpha", "Bravo", "Go", "Go2"},
+		},
+	}
+	for _, c := range cases {
+		got := NewSortedStrings(c.in).Append(c.ele...)
+		if !reflect.DeepEqual(c.want, got) {
+			t.Errorf("want: %s got: %s", c.want, got)
+		}
+	}
+}
+
+func TestSortedStringsRemove(t *testing.T) {
+	cases := []struct {
+		in   []string
+		ele  []string
+		want SSortedStrings
+	}{
+		{
+			in:   []string{"Alpha", "Bravo", "Go"},
+			ele:  []string{"Go", "Go2"},
+			want: []string{"Alpha", "Bravo"},
+		},
+		{
+			in:   []string{"Alpha", "Bravo", "Go2"},
+			ele:  []string{"Go"},
+			want: []string{"Alpha", "Bravo", "Go2"},
+		},
+		{
+			in:   []string{"Alpha", "Bravo", "Go", "Go2"},
+			ele:  []string{"Aaaa", "Alpha"},
+			want: []string{"Bravo", "Go", "Go2"},
+		},
+	}
+	for _, c := range cases {
+		got := NewSortedStrings(c.in).Remove(c.ele...)
+		if !reflect.DeepEqual(c.want, got) {
+			t.Errorf("want: %s got: %s", c.want, got)
+		}
+	}
 }
