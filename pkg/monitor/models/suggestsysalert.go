@@ -1,6 +1,6 @@
 // Copyright 2019 Yunion
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licens"yunion.io/x/onecloud/pkg/util/stringutils2"ed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
@@ -26,7 +26,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -124,12 +123,7 @@ func (manager *SSuggestSysAlertManager) ListItemFilter(
 		q = q.In("provider", query.Brands)
 	}
 	if len(query.Cloudaccount) > 0 {
-		cpq := computemodels.CloudaccountManager.Query().SubQuery()
-		subcpq := cpq.Query(cpq.Field("id")).Filter(sqlchemy.OR(
-			sqlchemy.In(cpq.Field("id"), query.Cloudaccount),
-			sqlchemy.In(cpq.Field("name"), query.Cloudaccount),
-		)).SubQuery()
-		q.In("cloudaccount", subcpq)
+		q.In("cloudaccount", query.Cloudaccount)
 	}
 	if len(query.CloudEnv) > 0 {
 		q = q.Equals("cloud_env", query.CloudEnv)
