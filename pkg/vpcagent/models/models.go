@@ -61,6 +61,7 @@ func (el *Network) Copy() *Network {
 type Guestnetwork struct {
 	compute_models.SGuestnetwork
 
+	// Guest could be nil for when the guest is pending_deleted
 	Guest     *Guest     `json:"-"`
 	Network   *Network   `json:"-"`
 	Elasticip *Elasticip `json:"-"`
