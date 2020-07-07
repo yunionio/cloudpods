@@ -156,7 +156,7 @@ func (manager *SCloudgroupManager) FetchCustomizeColumns(
 		for _, policy := range policies {
 			rows[i].Cloudpolicies = append(rows[i].Cloudpolicies, api.SCloudIdBaseResource{Id: policy.Id, Name: policy.Name})
 		}
-		rows[i].CloudgroupcacheCount = len(policies)
+		rows[i].CloudpolicyCount = len(policies)
 		users, _ := group.GetCloudusers()
 		for _, user := range users {
 			rows[i].Cloudusers = append(rows[i].Cloudusers, api.SCloudIdBaseResource{Id: user.Id, Name: user.Name})
