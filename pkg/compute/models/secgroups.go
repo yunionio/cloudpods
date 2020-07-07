@@ -318,16 +318,27 @@ func (manager *SSecurityGroupManager) FetchCustomizeColumns(
 		return rows
 	}
 
-	guestMaps := map[string]int{}
+	adminGuestMaps := map[string]int{}
+	systemGuestMaps := map[string]int{}
+	normalGuestMaps := map[string]int{}
 	for i := range guests {
-		if _, ok := guestMaps[guests[i].SecgrpId]; !ok {
-			guestMaps[guests[i].SecgrpId] = 0
+		if guests[i].IsSystem {
+			if _, ok := systemGuestMaps[guests[i].SecgrpId]; !ok {
+				systemGuestMaps[guests[i].SecgrpId] = 0
+			}
+			systemGuestMaps[guests[i].SecgrpId]++
+		} else {
+			if _, ok := normalGuestMaps[guests[i].SecgrpId]; !ok {
+				normalGuestMaps[guests[i].SecgrpId] = 0
+			}
+			normalGuestMaps[guests[i].SecgrpId]++
 		}
-		guestMaps[guests[i].SecgrpId]++
-		if _, ok := guestMaps[guests[i].AdminSecgrpId]; !ok {
-			guestMaps[guests[i].AdminSecgrpId] = 0
+		if len(guests[i].AdminSecgrpId) > 0 {
+			if _, ok := adminGuestMaps[guests[i].AdminSecgrpId]; !ok {
+				adminGuestMaps[guests[i].AdminSecgrpId] = 0
+			}
+			adminGuestMaps[guests[i].AdminSecgrpId]++
 		}
-		guestMaps[guests[i].AdminSecgrpId]++
 	}
 
 	guestSecgroups := []SGuestsecgroup{}
@@ -339,10 +350,10 @@ func (manager *SSecurityGroupManager) FetchCustomizeColumns(
 	}
 
 	for i := range guestSecgroups {
-		if _, ok := guestMaps[guestSecgroups[i].SecgroupId]; !ok {
-			guestMaps[guestSecgroups[i].SecgroupId] = 0
+		if _, ok := normalGuestMaps[guestSecgroups[i].SecgroupId]; !ok {
+			normalGuestMaps[guestSecgroups[i].SecgroupId] = 0
 		}
-		guestMaps[guestSecgroups[i].SecgroupId]++
+		normalGuestMaps[guestSecgroups[i].SecgroupId]++
 	}
 
 	rules := []SSecurityGroupRule{}
@@ -390,7 +401,9 @@ func (manager *SSecurityGroupManager) FetchCustomizeColumns(
 		rows[i].InRules = _inRules
 		rows[i].OutRules = _outRules
 		rows[i].CacheCnt, _ = cacheMaps[secgroupIds[i]]
-		rows[i].GuestCnt, _ = guestMaps[secgroupIds[i]]
+		rows[i].GuestCnt, _ = normalGuestMaps[secgroupIds[i]]
+		rows[i].AdminGuestCnt, _ = adminGuestMaps[secgroupIds[i]]
+		rows[i].SystemGuestCnt, _ = systemGuestMaps[secgroupIds[i]]
 	}
 
 	return rows
