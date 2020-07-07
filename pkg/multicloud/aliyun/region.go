@@ -769,8 +769,8 @@ func (region *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.I
 	return secgroup, nil
 }
 
-func (region *SRegion) GetISecurityGroupByName(vpcId string, name string) (cloudprovider.ICloudSecurityGroup, error) {
-	secgroups, total, err := region.GetSecurityGroups(vpcId, name, []string{}, 0, 0)
+func (region *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
+	secgroups, total, err := region.GetSecurityGroups(opts.VpcId, opts.Name, []string{}, 0, 0)
 	if err != nil {
 		return nil, err
 	}

@@ -15,23 +15,15 @@
 package shell
 
 import (
-	"fmt"
-
 	"yunion.io/x/onecloud/pkg/multicloud/openstack"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func init() {
 	type StorageListOptions struct {
-		REGION string `help:"Region Name"`
-		ZONE   string `help:"Zone Name"`
 	}
 	shellutils.R(&StorageListOptions{}, "storage-list", "List storages", func(cli *openstack.SRegion, args *StorageListOptions) error {
-		zone, err := cli.GetIZoneById(fmt.Sprintf("%s/%s/%s", openstack.CLOUD_PROVIDER_OPENSTACK, args.REGION, args.ZONE))
-		if err != nil {
-			return err
-		}
-		storages, err := zone.GetIStorages()
+		storages, err := cli.GetStorageTypes()
 		if err != nil {
 			return err
 		}
@@ -40,17 +32,10 @@ func init() {
 	})
 
 	type CinderServiceListOptions struct {
-		REGION string `help:"Region Name"`
-		ZONE   string `help:"Zone Name"`
 	}
 
 	shellutils.R(&CinderServiceListOptions{}, "cinder-service-list", "List cinder services", func(cli *openstack.SRegion, args *CinderServiceListOptions) error {
-		izone, err := cli.GetIZoneById(fmt.Sprintf("%s/%s/%s", openstack.CLOUD_PROVIDER_OPENSTACK, args.REGION, args.ZONE))
-		if err != nil {
-			return err
-		}
-		zone := izone.(*openstack.SZone)
-		services, err := zone.GetCinderServices()
+		services, err := cli.GetCinderServices()
 		if err != nil {
 			return err
 		}

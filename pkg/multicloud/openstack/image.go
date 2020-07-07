@@ -16,6 +16,8 @@ package openstack
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"net/url"
 	"strings"
 	"time"
@@ -24,7 +26,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/osprofile"
-	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -58,7 +59,7 @@ type SImage struct {
 	Self            string
 	MinDisk         int
 	Protected       bool
-	ID              string
+	Id              string
 	File            string
 	Checksum        string
 	OsHashAlgo      string
@@ -79,30 +80,36 @@ func (image *SImage) GetMinRamSizeMb() int {
 }
 
 func (region *SRegion) GetImages(name string, status string, imageId string) ([]SImage, error) {
-	params := url.Values{}
-	if utils.IsInStringArray(status, []string{QUEUED, SAVING, ACTIVE, KILLED, DELETED, PENDING_DELETE, DEACTIVATED, UPLOADING, IMPORTING}) {
-		params.Add("status", status)
+	query := url.Values{}
+	if len(status) > 0 {
+		query.Set("status", status)
 	}
 	if len(name) > 0 {
-		params.Add("name", name)
+		query.Set("name", name)
 	}
 	if len(imageId) > 0 {
-		params.Add("id", imageId)
+		query.Set("id", imageId)
 	}
-	url := "/v2/images?" + params.Encode()
 	images := []SImage{}
-	for len(url) > 0 {
-		_, resp, err := region.List("image", url, "", nil)
+	resource := "/v2/images"
+	for {
+		resp, err := region.imageList(resource, query)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "imageList")
 		}
-		_images := []SImage{}
-		err = resp.Unmarshal(&_images, "images")
+		part := struct {
+			Images []SImage
+			Next   string
+		}{}
+		err = resp.Unmarshal(&part)
 		if err != nil {
-			return nil, errors.Wrapf(err, `resp.Unmarshal(&_images, "images")`)
+			return nil, errors.Wrap(err, "resp.Unmarshal")
 		}
-		images = append(images, _images...)
-		url, _ = resp.GetString("next")
+		images = append(images, part.Images...)
+		if len(part.Next) == 0 {
+			break
+		}
+		resource = part.Next
 	}
 	return images, nil
 }
@@ -112,7 +119,7 @@ func (image *SImage) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (image *SImage) GetId() string {
-	return image.ID
+	return image.Id
 }
 
 func (image *SImage) GetName() string {
@@ -124,11 +131,11 @@ func (image *SImage) IsEmulated() bool {
 }
 
 func (image *SImage) GetGlobalId() string {
-	return image.ID
+	return image.Id
 }
 
 func (image *SImage) Delete(ctx context.Context) error {
-	return image.storageCache.region.DeleteImage(image.ID)
+	return image.storageCache.region.DeleteImage(image.Id)
 }
 
 func (image *SImage) GetStatus() string {
@@ -160,11 +167,11 @@ func (image *SImage) GetImageStatus() string {
 }
 
 func (image *SImage) Refresh() error {
-	new, err := image.storageCache.region.GetImage(image.ID)
+	_image, err := image.storageCache.region.GetImage(image.Id)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "GetImage")
 	}
-	return jsonutils.Update(image, new)
+	return jsonutils.Update(image, _image)
 }
 
 func (image *SImage) GetImageType() string {
@@ -243,7 +250,7 @@ func (image *SImage) GetIStoragecache() cloudprovider.ICloudStoragecache {
 }
 
 func (region *SRegion) DeleteImage(imageId string) error {
-	_, err := region.Delete("image", "/v2/images/"+imageId, "")
+	_, err := region.imageDelete("/v2/images/" + imageId)
 	return err
 }
 
@@ -266,7 +273,7 @@ func (region *SRegion) GetImageByName(name string) (*SImage, error) {
 	return &images[0], nil
 }
 
-func (region *SRegion) CreateImage(imageName string, osType string, osDist string, minDiskGb int, minRam int) (*SImage, error) {
+func (region *SRegion) CreateImage(imageName string, osType string, osDist string, minDiskGb int, minRam int, body io.Reader) (*SImage, error) {
 	params := map[string]interface{}{
 		"container_format":    "bare",
 		"disk_format":         string(qemuimg.QCOW2),
@@ -278,12 +285,21 @@ func (region *SRegion) CreateImage(imageName string, osType string, osDist strin
 		"hw_qemu_guest_agent": "yes",
 	}
 
-	_, resp, err := region.Post("image", "/v2/images", "", jsonutils.Marshal(params))
+	resp, err := region.imagePost("/v2/images", params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "imagePost")
 	}
 	image := &SImage{}
-	return image, resp.Unmarshal(image)
+	err = resp.Unmarshal(image)
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	url := fmt.Sprintf("/v2/images/%s/file", image.Id)
+	err = region.imageUpload(url, body)
+	if err != nil {
+		return nil, errors.Wrap(err, "imageUpload")
+	}
+	return image, nil
 }
 
 func (self *SImage) UEFI() bool {

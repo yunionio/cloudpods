@@ -540,9 +540,9 @@ func (region *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.I
 	return region.GetSecurityGroupDetails(secgroupId)
 }
 
-func (region *SRegion) GetISecurityGroupByName(vpcId string, name string) (cloudprovider.ICloudSecurityGroup, error) {
-	if strings.Contains(strings.ToLower(vpcId), "microsoft.classicnetwork") {
-		secgroups, err := region.GetClassicSecurityGroups(name)
+func (region *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
+	if strings.Contains(strings.ToLower(opts.VpcId), "microsoft.classicnetwork") {
+		secgroups, err := region.GetClassicSecurityGroups(opts.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -554,7 +554,7 @@ func (region *SRegion) GetISecurityGroupByName(vpcId string, name string) (cloud
 		}
 		return &secgroups[0], nil
 	}
-	secgroups, err := region.GetSecurityGroups(name)
+	secgroups, err := region.GetSecurityGroups(opts.Name)
 	if err != nil {
 		return nil, err
 	}

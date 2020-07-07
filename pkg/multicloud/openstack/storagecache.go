@@ -151,18 +151,14 @@ func (cache *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.T
 		minDiskSizeGB += 1
 	}
 
-	img, err := cache.region.CreateImage(imageName, osType, osDist, int(minDiskSizeGB), int(minRamMb))
+	img, err := cache.region.CreateImage(imageName, osType, osDist, int(minDiskSizeGB), int(minRamMb), reader)
 	if err != nil {
 		return "", err
 	}
 
 	img.storageCache = cache
 
-	_, err = cache.region.client.StreamRequest(cache.region.Name, "image", "PUT", fmt.Sprintf("/v2/images/%s/file", img.ID), "", reader)
-	if err != nil {
-		return "", err
-	}
-	return img.ID, cloudprovider.WaitStatus(img, api.CACHED_IMAGE_STATUS_READY, 15*time.Second, 3600*time.Second)
+	return img.Id, cloudprovider.WaitStatus(img, api.CACHED_IMAGE_STATUS_READY, 15*time.Second, 3600*time.Second)
 }
 
 func (cache *SStoragecache) CreateIImage(snapshoutId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
