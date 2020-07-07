@@ -68,6 +68,15 @@ func init() {
 		NAME string
 	}
 
+	shellutils.R(&CloudgroupOptions{}, "cloud-group-user-list", "List cloudgroup users", func(cli *aws.SRegion, args *CloudgroupOptions) error {
+		users, err := cli.GetClient().ListGroupUsers(args.NAME)
+		if err != nil {
+			return err
+		}
+		printList(users, 0, 0, 0, nil)
+		return nil
+	})
+
 	shellutils.R(&CloudgroupOptions{}, "cloud-group-delete", "Delete cloudgroup", func(cli *aws.SRegion, args *CloudgroupOptions) error {
 		return cli.GetClient().DeleteGroup(args.NAME)
 	})
@@ -84,6 +93,15 @@ func init() {
 			return err
 		}
 		printList(policies.Policies, 0, 0, 0, nil)
+		return nil
+	})
+
+	shellutils.R(&CloudgroupPolicyListOptions{}, "cloud-group-attached-policy-list", "List cloudgroup policies", func(cli *aws.SRegion, args *CloudgroupPolicyListOptions) error {
+		policies, err := cli.GetClient().ListAttachedGroupPolicies(args.NAME, args.Marker, args.MaxItems)
+		if err != nil {
+			return err
+		}
+		printList(policies.AttachedPolicies, 0, 0, 0, nil)
 		return nil
 	})
 

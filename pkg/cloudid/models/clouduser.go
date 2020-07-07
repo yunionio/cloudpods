@@ -77,6 +77,20 @@ type SClouduser struct {
 	Email string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"domain_optional"`
 }
 
+func (manager *SClouduserManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
+	q := manager.Query()
+	domainCnt, err := db.CalculateResourceCount(q, "domain_id")
+	if err != nil {
+		return nil, errors.Wrap(err, "CalculateResourceCount.domain_id")
+	}
+	q = manager.Query()
+	userCnt, err := db.CalculateResourceCount(q, "owner_id")
+	if err != nil {
+		return nil, errors.Wrap(err, "CalculateResourceCount.owner_id")
+	}
+	return append(domainCnt, userCnt...), nil
+}
+
 func (manager *SClouduserManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return true
 }
@@ -583,7 +597,9 @@ func (self *SClouduser) SyncCloudgroups(ctx context.Context, userCred mcclient.T
 
 	for i := 0; i < len(added); i++ {
 		var cloudgroupId string
-		_cache, err := db.FetchByExternalId(CloudgroupcacheManager, added[i].GetGlobalId())
+		_cache, err := db.FetchByExternalIdAndManagerId(CloudgroupcacheManager, added[i].GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			return q.Equals("cloudaccount_id", self.CloudaccountId)
+		})
 		if err != nil {
 			if errors.Cause(err) != sql.ErrNoRows {
 				result.AddError(errors.Wrapf(err, "FetchByExternalId(%s)", added[i].GetGlobalId()))

@@ -58,18 +58,18 @@ func (self *SCloudgroup) RemoveUser(name string) error {
 }
 
 func (self *SCloudgroup) AttachSystemPolicy(policyArn string) error {
-	return self.client.AttachGroupPolicy(self.GroupName, policyArn)
+	return self.client.AttachGroupPolicy(self.GroupName, self.client.getIamArn(policyArn))
 }
 
 func (self *SCloudgroup) DetachSystemPolicy(policyArn string) error {
-	return self.client.DetachGroupPolicy(self.GroupName, policyArn)
+	return self.client.DetachGroupPolicy(self.GroupName, self.client.getIamArn(policyArn))
 }
 
-func (self *SCloudgroup) GetICloudusers() ([]cloudprovider.IClouduser, error) {
+func (self *SAwsClient) ListGroupUsers(groupName string) ([]SClouduser, error) {
 	users := []SClouduser{}
 	marker := ""
 	for {
-		part, err := self.client.GetGroup(self.GroupName, marker, 1000)
+		part, err := self.GetGroup(groupName, marker, 1000)
 		if err != nil {
 			return nil, errors.Wrap(err, "GetGroup")
 		}
@@ -78,6 +78,14 @@ func (self *SCloudgroup) GetICloudusers() ([]cloudprovider.IClouduser, error) {
 		if len(marker) == 0 {
 			break
 		}
+	}
+	return users, nil
+}
+
+func (self *SCloudgroup) GetICloudusers() ([]cloudprovider.IClouduser, error) {
+	users, err := self.client.ListGroupUsers(self.GroupName)
+	if err != nil {
+		return nil, err
 	}
 	ret := []cloudprovider.IClouduser{}
 	for i := range users {
@@ -88,14 +96,14 @@ func (self *SCloudgroup) GetICloudusers() ([]cloudprovider.IClouduser, error) {
 }
 
 func (self *SCloudgroup) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	policies := []SPolicy{}
+	policies := []SAttachedPolicy{}
 	marker := ""
 	for {
-		part, err := self.client.ListGroupPolicies(self.GroupName, marker, 1000)
+		part, err := self.client.ListAttachedGroupPolicies(self.GroupName, marker, 1000)
 		if err != nil {
 			return nil, errors.Wrap(err, "ListGroupPolicies")
 		}
-		policies = append(policies, part.Policies...)
+		policies = append(policies, part.AttachedPolicies...)
 		marker = part.Marker
 		if len(marker) == 0 {
 			break
