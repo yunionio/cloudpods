@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"net/http"
 	"net/url"
+	"time"
 
 	"golang.org/x/net/http/httpproxy"
 
@@ -59,6 +60,7 @@ func init() {
 		),
 	}
 	CloudaccountManager.SetVirtualObject(CloudaccountManager)
+	isCloudacountSynced = false
 }
 
 type SCloudaccount struct {
@@ -276,6 +278,14 @@ func (manager *SCloudaccountManager) SyncCloudaccounts(ctx context.Context, user
 		}
 		result = account.syncCloudprovider(ctx, userCred)
 		log.Infof("sync cloudprovider for cloudaccount %s(%s) result: %s", account.Name, account.Id, result.Result())
+	}
+	isCloudacountSynced = true
+}
+
+func waitForSync() {
+	for !isCloudacountSynced {
+		log.Infof("cloudaccount not sync, wait for 10 seconds")
+		time.Sleep(time.Second * 10)
 	}
 }
 
@@ -573,13 +583,27 @@ func (self *SCloudaccount) GetCloudproviders() ([]SCloudprovider, error) {
 
 func (self *SCloudaccount) GetICloudprovider() ([]SCloudprovider, error) {
 	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
-	params := map[string]string{"cloudaccount": self.Id}
-	result, err := modules.Cloudproviders.List(s, jsonutils.Marshal(params))
-	if err != nil {
-		return nil, errors.Wrap(err, "Cloudproviders.List")
+	data := []jsonutils.JSONObject{}
+	offset := int64(0)
+	params := map[string]interface{}{
+		"cloudaccount": self.Id,
+		"scope":        "system",
+		"limit":        1024,
+	}
+	for {
+		params["offset"] = offset
+		result, err := modules.Cloudproviders.List(s, jsonutils.Marshal(params))
+		if err != nil {
+			return nil, errors.Wrap(err, "Cloudproviders.List")
+		}
+		data = append(data, result.Data...)
+		if len(data) >= result.Total {
+			break
+		}
+		offset += 1024
 	}
 	providers := []SCloudprovider{}
-	err = jsonutils.Update(&providers, result.Data)
+	err := jsonutils.Update(&providers, data)
 	if err != nil {
 		return nil, errors.Wrap(err, "jsonutils.Update")
 	}
@@ -672,6 +696,7 @@ func (manager *SCloudaccountManager) GetSupportCreateCloudgroupAccounts() ([]SCl
 }
 
 func (manager *SCloudaccountManager) SyncCloudidResources(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	waitForSync()
 	accounts, err := manager.GetCloudaccounts()
 	if err != nil {
 		log.Errorf("GetCloudaccounts error: %v", err)
