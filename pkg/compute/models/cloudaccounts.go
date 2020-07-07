@@ -2447,7 +2447,11 @@ func (self *SCloudaccount) SyncProject(ctx context.Context, userCred mcclient.To
 	}
 	iProject, err := provider.CreateIProject(projectName)
 	if err != nil {
-		return "", errors.Wrap(err, "CreateIProject")
+		if errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+			logclient.AddSimpleActionLog(self, logclient.ACT_CREATE, err, userCred, false)
+			return "", errors.Wrap(err, "CreateIProject")
+		}
+		return "", nil
 	}
 	extProj, err := ExternalProjectManager.newFromCloudProject(ctx, userCred, self, iProject)
 	if err != nil {
