@@ -481,7 +481,6 @@ func (user *SUser) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 		data := jsonutils.Marshal(input)
 		for _, k := range []string{
 			"name",
-			"enabled",
 			"displayname",
 			"email",
 			"mobile",

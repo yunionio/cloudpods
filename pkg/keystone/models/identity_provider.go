@@ -212,7 +212,13 @@ func (self *SIdentityProvider) AllowGetDetailsConfig(ctx context.Context, userCr
 }
 
 func (self *SIdentityProvider) GetDetailsConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	conf, err := GetConfigs(self, false, nil, nil)
+	sensitive := jsonutils.QueryBoolean(query, "sensitive", false)
+	if sensitive {
+		if !db.IsAdminAllowGetSpec(userCred, self, "config") {
+			return nil, httperrors.NewNotSufficientPrivilegeError("get sensitive config requires admin priviliges")
+		}
+	}
+	conf, err := GetConfigs(self, sensitive, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -859,7 +865,7 @@ func (self *SIdentityProvider) SyncOrCreateDomain(ctx context.Context, extId str
 	return domain, nil
 }
 
-func (self *SIdentityProvider) SyncOrCreateUser(ctx context.Context, extId string, extName string, domainId string, syncUserInfo func(*SUser)) (*SUser, error) {
+func (self *SIdentityProvider) SyncOrCreateUser(ctx context.Context, extId string, extName string, domainId string, enableDefault bool, syncUserInfo func(*SUser)) (*SUser, error) {
 	userId, err := IdmappingManager.RegisterIdMap(ctx, self.Id, extId, api.IdMappingEntityUser)
 	if err != nil {
 		return nil, errors.Wrap(err, "IdmappingManager.RegisterIdMap")
@@ -880,13 +886,21 @@ func (self *SIdentityProvider) SyncOrCreateUser(ctx context.Context, extId strin
 	}
 	if err == nil {
 		// update
+		log.Debugf("find user %s", extName)
 		_, err := db.Update(user, func() error {
 			if syncUserInfo != nil {
 				syncUserInfo(user)
 			}
 			user.Name = extName
 			user.DomainId = domainId
-			user.MarkUnDelete()
+			if user.Deleted {
+				user.MarkUnDelete()
+				if enableDefault {
+					user.Enabled = tristate.True
+				} else {
+					user.Enabled = tristate.False
+				}
+			}
 			return nil
 		})
 		if err != nil {
@@ -895,6 +909,11 @@ func (self *SIdentityProvider) SyncOrCreateUser(ctx context.Context, extId strin
 	} else {
 		if syncUserInfo != nil {
 			syncUserInfo(user)
+		}
+		if enableDefault {
+			user.Enabled = tristate.True
+		} else {
+			user.Enabled = tristate.False
 		}
 		user.Id = userId
 		user.Name = extName

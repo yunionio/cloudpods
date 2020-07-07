@@ -26,7 +26,7 @@ type GatewayOptions struct {
 
 	DisableModuleApiVersion bool `help:"Disable each modules default api version" default:"false"`
 
-	EnableTotp bool `help:"Enable two-factor authentication"  default:"false"`
+	EnableTotp bool `help:"Enable two-factor authentication" default:"false"`
 
 	SqlitePath string `help:"sqlite db path" default:"/etc/yunion/data/yunionapi.db"`
 
