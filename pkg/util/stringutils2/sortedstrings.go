@@ -29,6 +29,11 @@ func NewSortedStrings(strs []string) SSortedStrings {
 }
 
 func Append(ss SSortedStrings, ele ...string) SSortedStrings {
+	ss = ss.Append(ele...)
+	return ss
+}
+
+func (ss SSortedStrings) Append(ele ...string) SSortedStrings {
 	if ss == nil {
 		ss = NewSortedStrings([]string{})
 	}
@@ -38,10 +43,25 @@ func Append(ss SSortedStrings, ele ...string) SSortedStrings {
 			continue
 		}
 		ss = append(ss, e)
-		for i := len(ss) - 1; i > pos; i -= 1 {
-			ss[i] = ss[i-1]
-		}
+		copy(ss[pos+1:], ss[pos:])
 		ss[pos] = e
+	}
+	return ss
+}
+
+func (ss SSortedStrings) Remove(ele ...string) SSortedStrings {
+	if ss == nil {
+		return ss
+	}
+	for _, e := range ele {
+		pos, find := ss.Index(e)
+		if !find {
+			continue
+		}
+		if pos < len(ss)-1 {
+			copy(ss[pos:], ss[pos+1:])
+		}
+		ss = ss[:len(ss)-1]
 	}
 	return ss
 }
