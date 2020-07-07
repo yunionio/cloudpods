@@ -203,9 +203,16 @@ type SecgroupDetails struct {
 	SSecurityGroup
 
 	// 关联云主机数量
-	GuestCnt int `json:"guest_cnt"`
+	GuestCnt int `json:"guest_cnt,allowempty"`
+
+	// 关联此安全组的云主机is_system为true数量
+	SystemGuestCnt int `json:"system_guest_cnt,allowempty"`
+
+	// admin_secgrp_id为此安全组的云主机数量
+	AdminGuestCnt int `json:"admin_guest_cnt,allowempty"`
+
 	// 安全组缓存数量
-	CacheCnt int `json:"cache_cnt"`
+	CacheCnt int `json:"cache_cnt,allowempty"`
 	// 规则信息
 	Rules []SSecurityGroupRule `json:"rules"`
 	// 入方向规则信息
