@@ -1010,6 +1010,15 @@ func (self *SWire) IsManaged() bool {
 }
 
 func (model *SWire) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	if !data.Contains("public_scope") {
+		vpc := model.GetVpc()
+		if !model.IsManaged() && db.IsAdminAllowPerform(userCred, model, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() && vpc != nil && vpc.IsPublic && vpc.PublicScope == string(rbacutils.ScopeSystem) {
+			model.SetShare(rbacutils.ScopeSystem)
+		} else {
+			model.SetShare(rbacutils.ScopeNone)
+		}
+		data.(*jsonutils.JSONDict).Set("public_scope", jsonutils.NewString(model.PublicScope))
+	}
 	return model.SInfrasResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
