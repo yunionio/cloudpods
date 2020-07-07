@@ -72,7 +72,19 @@ func (self *NetworkCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		return
 	}
 
-	inet, err := iwire.CreateINetwork(network.Name, prefix.String(), network.Description)
+	opts := cloudprovider.SNetworkCreateOptions{
+		Name: network.Name,
+		Cidr: prefix.String(),
+		Desc: network.Description,
+	}
+
+	provider := wire.GetCloudprovider()
+	opts.ProjectId, err = provider.SyncProject(ctx, self.GetUserCred(), network.ProjectId)
+	if err != nil {
+		log.Errorf("failed to sync project %s for create %s network %s error: %v", network.ProjectId, provider.Provider, network.Name, err)
+	}
+
+	inet, err := iwire.CreateINetwork(&opts)
 	if err != nil {
 		self.taskFailed(ctx, network, "createinetwork", err)
 		return

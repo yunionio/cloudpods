@@ -21,9 +21,10 @@ import (
 
 func init() {
 	type VpcListOptions struct {
+		TenantId string
 	}
 	shellutils.R(&VpcListOptions{}, "vpc-list", "List vpcs", func(cli *openstack.SRegion, args *VpcListOptions) error {
-		vpcs, err := cli.GetVpcs()
+		vpcs, err := cli.GetVpcs(args.TenantId)
 		if err != nil {
 			return err
 		}
@@ -31,10 +32,10 @@ func init() {
 		return nil
 	})
 
-	type VpcShowOptions struct {
+	type VpcIdOptions struct {
 		ID string `help:"ID of vpc"`
 	}
-	shellutils.R(&VpcShowOptions{}, "vpc-show", "Show vpc", func(cli *openstack.SRegion, args *VpcShowOptions) error {
+	shellutils.R(&VpcIdOptions{}, "vpc-show", "Show vpc", func(cli *openstack.SRegion, args *VpcIdOptions) error {
 		vpc, err := cli.GetVpc(args.ID)
 		if err != nil {
 			return err
@@ -43,4 +44,21 @@ func init() {
 		return nil
 	})
 
+	shellutils.R(&VpcIdOptions{}, "vpc-delete", "Delete vpc", func(cli *openstack.SRegion, args *VpcIdOptions) error {
+		return cli.DeleteVpc(args.ID)
+	})
+
+	type VpcCreateOptions struct {
+		NAME string
+		Desc string
+	}
+
+	shellutils.R(&VpcCreateOptions{}, "vpc-create", "Create vpc", func(cli *openstack.SRegion, args *VpcCreateOptions) error {
+		vpc, err := cli.CreateVpc(args.NAME, args.Desc)
+		if err != nil {
+			return err
+		}
+		printObject(vpc)
+		return nil
+	})
 }

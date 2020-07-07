@@ -16,12 +16,12 @@ package openstack
 
 type SExternalFixedIP struct {
 	IPAddress string `json:"ip_address"`
-	SubnetID  string `json:"subnet_id"`
+	SubnetId  string `json:"subnet_id"`
 }
 type SExternalGatewayInfo struct {
 	EnableSnat       bool               `json:"enable_snat"`
 	ExtrernalFiedIps []SExternalFixedIP `json:"external_fixed_ips"`
-	NetworkID        string             `json:"network_id"`
+	NetworkId        string             `json:"network_id"`
 }
 
 type SConntrackHelper struct {
@@ -33,13 +33,13 @@ type SRouter struct {
 	ports               []SPort
 	AdminStateUp        bool                 `json:"admin_state_up"`
 	Description         string               `json:"description"`
-	FlavorID            string               `json:"flavor_id"`
-	ID                  string               `json:"id"`
+	FlavorId            string               `json:"flavor_id"`
+	Id                  string               `json:"id"`
 	Name                string               `json:"name"`
 	Routes              []SRouteEntry        `json:"routes"`
 	Status              string               `json:"status"`
-	ProjectID           string               `json:"project_id"`
-	TenantID            string               `json:"tenant_id"`
+	ProjectId           string               `json:"project_id"`
+	TenantId            string               `json:"tenant_id"`
 	Tags                []string             `json:"tags"`
 	ConntrackHelpers    []SConntrackHelper   `json:"conntrack_helpers"`
 	ExternalGatewayInfo SExternalGatewayInfo `json:"external_gateway_info"`

@@ -112,8 +112,8 @@ func (self *SWire) GetBandwidth() int {
 	return 10000
 }
 
-func (self *SWire) CreateINetwork(name string, cidr string, desc string) (cloudprovider.ICloudNetwork, error) {
-	vswitchId, err := self.zone.region.createVSwitch(self.zone.ZoneId, self.vpc.VpcId, name, cidr, desc)
+func (self *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
+	vswitchId, err := self.zone.region.createVSwitch(self.zone.ZoneId, self.vpc.VpcId, opts.Name, opts.Cidr, opts.Desc)
 	if err != nil {
 		log.Errorf("createVSwitch error %s", err)
 		return nil, err

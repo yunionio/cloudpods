@@ -102,6 +102,10 @@ func (self *SOpenStackProviderFactory) ValidateUpdateCloudaccountCredential(ctx 
 	return output, nil
 }
 
+func (self *SOpenStackProviderFactory) IsNeedForceAutoCreateProject() bool {
+	return true
+}
+
 func (self *SOpenStackProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
 	accountInfo := strings.Split(cfg.Account, "/")
 	if len(accountInfo) < 2 {
@@ -200,7 +204,7 @@ func (self *SOpenStackProvider) GetIProjects() ([]cloudprovider.ICloudProject, e
 	return self.client.GetIProjects()
 }
 
-func (self *SOpenStackProvider) CreateProject(name string) (cloudprovider.ICloudProject, error) {
+func (self *SOpenStackProvider) CreateIProject(name string) (cloudprovider.ICloudProject, error) {
 	return self.client.CreateIProject(name)
 }
 

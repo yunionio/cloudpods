@@ -56,33 +56,28 @@ type SEipAddress struct {
 	RevisionNumber    int         `json:"revision_number"`
 	ProjectId         string      `json:"project_id"`
 	PortId            string      `json:"port_id"`
-	ID                string      `json:"id"`
+	Id                string      `json:"id"`
 	QosPolicyId       string      `json:"qos_policy_id"`
 }
 
 func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
-	_, resp, err := region.Get("network", "/v2.0/floatingips/"+eipId, "", nil)
+	resource := fmt.Sprintf("/v2.0/floatingips/%s", eipId)
+	resp, err := region.vpcGet(resource)
 	if err != nil {
 		return nil, err
 	}
 	eip := &SEipAddress{region: region}
-	return eip, resp.Unmarshal(eip, "floatingip")
+	err = resp.Unmarshal(eip, "floatingip")
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return eip, nil
 }
 
 func (region *SRegion) GetEipByIp(ip string) (*SEipAddress, error) {
-	params := url.Values{}
-	if len(ip) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	params.Add("floating_ip_address", ip)
-	_, resp, err := region.List("network", "/v2.0/floatingips?"+params.Encode(), "", nil)
+	eips, err := region.GetEips(ip)
 	if err != nil {
-		return nil, err
-	}
-	eips := []SEipAddress{}
-	err = resp.Unmarshal(&eips, "floatingips")
-	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetEips")
 	}
 	if len(eips) == 1 {
 		eips[0].region = region
@@ -94,40 +89,38 @@ func (region *SRegion) GetEipByIp(ip string) (*SEipAddress, error) {
 	return nil, cloudprovider.ErrDuplicateId
 }
 
-func (region *SRegion) GetEips() ([]SEipAddress, error) {
-	url := "/v2.0/floatingips"
+func (region *SRegion) GetEips(ip string) ([]SEipAddress, error) {
+	resource := "/v2.0/floatingips"
 	eips := []SEipAddress{}
-	for len(url) > 0 {
-		_, resp, err := region.List("network", url, "", nil)
+	query := url.Values{}
+	if len(ip) > 0 {
+		query.Set("floating_ip_address", ip)
+	}
+	for {
+		part := struct {
+			Floatingips      []SEipAddress
+			FloatingipsLinks SNextLinks
+		}{}
+		resp, err := region.vpcList(resource, query)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "vpcList")
 		}
-		_eips := []SEipAddress{}
-		err = resp.Unmarshal(&_eips, "floatingips")
+		err = resp.Unmarshal(&part)
 		if err != nil {
-			return nil, errors.Wrap(err, `resp.Unmarshal(&_eips, "floatingips")`)
+			return nil, errors.Wrap(err, "resp.Unmarshal")
 		}
-		eips = append(eips, _eips...)
-		url = ""
-		if resp.Contains("floatingips_links") {
-			nextLink := []SNextLink{}
-			err = resp.Unmarshal(&nextLink, "floatingips_links")
-			if err != nil {
-				return nil, errors.Wrap(err, `resp.Unmarshal(&nextLink, "floatingips_links")`)
-			}
-			for _, next := range nextLink {
-				if next.Rel == "next" {
-					url = next.Href
-					break
-				}
-			}
+		eips = append(eips, part.Floatingips...)
+		marker := part.FloatingipsLinks.GetNextMark()
+		if len(marker) == 0 {
+			break
 		}
+		query.Set("marker", marker)
 	}
 	return eips, nil
 }
 
 func (eip *SEipAddress) GetId() string {
-	return eip.ID
+	return eip.Id
 }
 
 func (eip *SEipAddress) GetName() string {
@@ -135,7 +128,7 @@ func (eip *SEipAddress) GetName() string {
 }
 
 func (eip *SEipAddress) GetGlobalId() string {
-	return eip.ID
+	return eip.Id
 }
 
 func (eip *SEipAddress) GetStatus() string {
@@ -147,17 +140,17 @@ func (eip *SEipAddress) GetStatus() string {
 	case "ERROR":
 		return api.EIP_STATUS_UNKNOWN
 	default:
-		log.Errorf("Unknown eip %s status %s", eip.ID, eip.Status)
+		log.Errorf("Unknown eip %s status %s", eip.Id, eip.Status)
 		return api.EIP_STATUS_UNKNOWN
 	}
 }
 
 func (eip *SEipAddress) Refresh() error {
-	new, err := eip.region.GetEip(eip.ID)
+	_eip, err := eip.region.GetEip(eip.Id)
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(eip, new)
+	return jsonutils.Update(eip, _eip)
 }
 
 func (eip *SEipAddress) IsEmulated() bool {
@@ -208,7 +201,7 @@ func (eip *SEipAddress) GetExpiredAt() time.Time {
 }
 
 func (eip *SEipAddress) Delete() error {
-	return eip.region.DeleteEip(eip.ID)
+	return eip.region.DeleteEip(eip.Id)
 }
 
 func (eip *SEipAddress) GetBandwidth() int {
@@ -223,7 +216,7 @@ func (eip *SEipAddress) GetINetworkId() string {
 	}
 	for _, network := range networks {
 		if network.Contains(eip.FloatingIPAddress) {
-			return network.ID
+			return network.Id
 		}
 	}
 	log.Errorf("failed to find eip %s(%s) networkId", eip.FloatingIPAddress, eip.FloatingNetworkId)
@@ -235,11 +228,11 @@ func (eip *SEipAddress) GetInternetChargeType() string {
 }
 
 func (eip *SEipAddress) Associate(conf *cloudprovider.AssociateConfig) error {
-	return eip.region.AssociateEip(conf.InstanceId, eip.ID)
+	return eip.region.AssociateEip(conf.InstanceId, eip.Id)
 }
 
 func (eip *SEipAddress) Dissociate() error {
-	return eip.region.DisassociateEip(eip.ID)
+	return eip.region.DisassociateEip(eip.Id)
 }
 
 func (eip *SEipAddress) ChangeBandwidth(bw int) error {
@@ -250,27 +243,30 @@ func (eip *SEipAddress) GetProjectId() string {
 	return eip.ProjectId
 }
 
-func (region *SRegion) CreateEip(eip *cloudprovider.SEip) (*SEipAddress, error) {
-	network, err := region.GetNetwork(eip.NetworkExternalId)
-	if err != nil {
-		log.Errorf("failed to get subnet %s", eip.NetworkExternalId)
-		return nil, err
-	}
-	parmas := map[string]map[string]string{
-		"floatingip": {
-			"floating_network_id": network.NetworkID,
-			"subnet_id":           network.ID,
+func (region *SRegion) CreateEip(vpcId, networkId, ip string, projectId string) (*SEipAddress, error) {
+	params := map[string]map[string]string{
+		"floatingip": map[string]string{
+			"floating_network_id": vpcId,
+			"subnet_id":           networkId,
 		},
 	}
-	if len(eip.IP) > 0 {
-		parmas["floatingip"]["floating_ip_address"] = eip.IP
+	if len(projectId) > 0 {
+		params["floatingip"]["tenant_id"] = projectId
 	}
-	_, resp, err := region.PostWithProject(eip.ProjectId, "network", "/v2.0/floatingips", "", jsonutils.Marshal(parmas))
+	if len(ip) > 0 {
+		params["floatingip"]["floating_ip_address"] = ip
+	}
+	resource := "/v2.0/floatingips"
+	resp, err := region.vpcPost(resource, params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "vpcPost")
 	}
-	ieip := &SEipAddress{region: region}
-	return ieip, resp.Unmarshal(ieip, "floatingip")
+	eip := &SEipAddress{region: region}
+	err = resp.Unmarshal(eip, "floatingip")
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return eip, nil
 }
 
 func (region *SRegion) AssociateEip(instanceId, eipId string) error {
@@ -281,7 +277,7 @@ func (region *SRegion) AssociateEip(instanceId, eipId string) error {
 	for networkName, address := range instance.Addresses {
 		for i := 0; i < len(address); i++ {
 			if instance.Addresses[networkName][i].Type == "fixed" {
-				ports, err := region.GetPorts(instance.Addresses[networkName][i].MacAddr)
+				ports, err := region.GetPorts(instance.Addresses[networkName][i].MacAddr, "")
 				if err != nil {
 					return err
 				}
@@ -292,7 +288,8 @@ func (region *SRegion) AssociateEip(instanceId, eipId string) error {
 							"port_id": ports[0].ID,
 						},
 					}
-					_, _, err = region.Update("network", "/v2.0/floatingips/"+eipId, "", jsonutils.Marshal(params))
+					resource := "/v2.0/floatingips/" + eipId
+					_, err = region.vpcUpdate(resource, params)
 					return err
 				}
 
@@ -313,11 +310,12 @@ func (region *SRegion) DisassociateEip(eipId string) error {
 			"port_id": null,
 		},
 	}`))
-	_, _, err := region.Update("network", "/v2.0/floatingips/"+eipId, "", params)
+	_, err := region.vpcUpdate("/v2.0/floatingips/"+eipId, params)
 	return err
 }
 
 func (region *SRegion) DeleteEip(eipId string) error {
-	_, err := region.Delete("network", "/v2.0/floatingips/"+eipId, "")
+	resource := "/v2.0/floatingips/" + eipId
+	_, err := region.vpcDelete(resource)
 	return err
 }

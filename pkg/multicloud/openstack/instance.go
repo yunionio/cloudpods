@@ -20,10 +20,11 @@ import (
 	"net/url"
 	"time"
 
+	"gopkg.in/fatih/set.v0"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -62,7 +63,7 @@ type SPrivate struct {
 }
 
 type SecurityGroup struct {
-	ID          string
+	Id          string
 	Name        string
 	Description string
 }
@@ -73,17 +74,17 @@ type ExtraSpecs struct {
 }
 
 type Resource struct {
-	ID    string
+	Id    string
 	Links []Link
 }
 
 type Image struct {
-	ID    string
+	Id    string
 	Links []Link
 }
 
 type VolumesAttached struct {
-	ID                  string
+	Id                  string
 	DeleteOnTermination bool
 }
 
@@ -95,8 +96,7 @@ type SFault struct {
 
 type SInstance struct {
 	multicloud.SInstanceBase
-
-	host *SHost
+	host *SHypervisor
 
 	DiskConfig         string    `json:"OS-DCF:diskConfig,omitempty"`
 	AvailabilityZone   string    `json:"OS-EXT-AZ:availability_zone,omitempty"`
@@ -104,10 +104,10 @@ type SInstance struct {
 	Hostname           string    `json:"OS-EXT-SRV-ATTR:hostname,omitempty"`
 	HypervisorHostname string    `json:"OS-EXT-SRV-ATTR:hypervisor_hostname,omitempty"`
 	InstanceName       string    `json:"OS-EXT-SRV-ATTR:instance_name,omitempty"`
-	KernelID           string    `json:"OS-EXT-SRV-ATTR:kernel_id,omitempty"`
+	KernelId           string    `json:"OS-EXT-SRV-ATTR:kernel_id,omitempty"`
 	LaunchIndex        int       `json:"OS-EXT-SRV-ATTR:launch_index,omitempty"`
-	RamdiskID          string    `json:"OS-EXT-SRV-ATTR:ramdisk_id,omitempty"`
-	ReservationID      string    `json:"OS-EXT-SRV-ATTR:reservation_id,omitempty"`
+	RamdiskId          string    `json:"OS-EXT-SRV-ATTR:ramdisk_id,omitempty"`
+	ReservationId      string    `json:"OS-EXT-SRV-ATTR:reservation_id,omitempty"`
 	RootDeviceName     string    `json:"OS-EXT-SRV-ATTR:root_device_name,omitempty"`
 	UserData           string    `json:"OS-EXT-SRV-ATTR:user_data,omitempty"`
 	PowerState         int       `json:"OS-EXT-STS:power_state,omitempty"`
@@ -123,9 +123,9 @@ type SInstance struct {
 	Created                  time.Time
 	Description              string
 	Flavor                   SFlavor
-	HostID                   string
+	HostId                   string
 	HostStatus               string
-	ID                       string
+	Id                       string
 	image                    Image //有可能是字符串
 	KeyName                  string
 	Links                    []Link
@@ -137,93 +137,83 @@ type SInstance struct {
 	SecurityGroups           []SecurityGroup
 	Status                   string
 	Tags                     []string
-	TenantID                 string
+	TenantId                 string
 	TrustedImageCertificates []string
 	Updated                  time.Time
-	UserID                   string
+	UserId                   string
 	Fault                    SFault
 }
 
 func (region *SRegion) GetSecurityGroupsByInstance(instanceId string) ([]SecurityGroup, error) {
-	_, resp, err := region.Get("compute", fmt.Sprintf("/servers/%s/os-security-groups", instanceId), "", nil)
+	resource := fmt.Sprintf("/servers/%s/os-security-groups", instanceId)
+	resp, err := region.ecsGet(resource)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "ecsGet")
 	}
 	secgroups := []SecurityGroup{}
-	return secgroups, resp.Unmarshal(&secgroups, "security_groups")
+	err = resp.Unmarshal(&secgroups, "security_groups")
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return secgroups, nil
 }
 
-func (region *SRegion) GetInstances(hostName string) ([]SInstance, error) {
-	_, maxVersion, _ := region.GetVersion("compute")
-	url := "/servers/detail?all_tenants=True"
+func (region *SRegion) GetInstances(host string) ([]SInstance, error) {
 	instances := []SInstance{}
-	for len(url) > 0 {
-		_, resp, err := region.List("compute", url, maxVersion, nil)
+	resource := "/servers/detail"
+	query := url.Values{}
+	query.Set("all_tenants", "True")
+	for {
+		resp, err := region.ecsList(resource, query)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "ecsList")
 		}
-		_instances := []SInstance{}
-		err = resp.Unmarshal(&_instances, "servers")
+		part := struct {
+			Servers      []SInstance
+			ServersLinks SNextLinks
+		}{}
+		err = resp.Unmarshal(&part)
 		if err != nil {
-			return nil, errors.Wrap(err, `resp.Unmarshal(&_instances, "servers")`)
+			return nil, errors.Wrap(err, "resp.Unmarshal")
 		}
-		instances = append(instances, _instances...)
-		url = ""
-		if resp.Contains("servers_links") {
-			nextLink := []SNextLink{}
-			err = resp.Unmarshal(&nextLink, "servers_links")
-			if err != nil {
-				return nil, errors.Wrap(err, `resp.Unmarshal(&nextLink, "servers")`)
-			}
-			for _, next := range nextLink {
-				if next.Rel == "next" {
-					url = next.Href
-					break
-				}
+		for i := range part.Servers {
+			if len(host) == 0 || part.Servers[i].Host == host || part.Servers[i].HypervisorHostname == host {
+				instances = append(instances, part.Servers[i])
 			}
 		}
-	}
-	result := []SInstance{}
-	for i := 0; i < len(instances); i++ {
-		if len(hostName) == 0 || hostName == instances[i].Host {
-			result = append(result, instances[i])
+		marker := part.ServersLinks.GetNextMark()
+		if len(marker) == 0 {
+			break
 		}
+		query.Set("marker", marker)
 	}
-	return result, nil
+	return instances, nil
 }
 
 func (region *SRegion) GetInstance(instanceId string) (*SInstance, error) {
-	_, maxVersion, _ := region.GetVersion("compute")
-	_, resp, err := region.Get("compute", "/servers/"+instanceId, maxVersion, nil)
+	resource := "/servers/" + instanceId
+	resp, err := region.ecsGet(resource)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "ecsGet")
 	}
 	instance := &SInstance{}
-	return instance, resp.Unmarshal(instance, "server")
+	err = resp.Unmarshal(instance, "server")
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarsha")
+	}
+	return instance, nil
 }
 
 func (instance *SInstance) GetSecurityGroupIds() ([]string, error) {
 	secgroupIds := []string{}
-	secgroups, err := instance.host.zone.region.GetSecurityGroupsByInstance(instance.ID)
+	secgroups, err := instance.host.zone.region.GetSecurityGroupsByInstance(instance.Id)
 	if err != nil {
 		return nil, err
 	}
 	for _, secgroup := range secgroups {
-		secgroupIds = append(secgroupIds, secgroup.ID)
+		secgroupIds = append(secgroupIds, secgroup.Id)
 	}
 	return secgroupIds, nil
-}
-
-func (instance *SInstance) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-
-	instance.fetchFlavor()
-
-	priceKey := fmt.Sprintf("%s::%s", instance.host.zone.ZoneName, instance.Flavor.OriginalName)
-	data.Add(jsonutils.NewString(priceKey), "price_key")
-
-	data.Add(jsonutils.NewString(instance.host.zone.GetGlobalId()), "zone_ext_id")
-	return data
 }
 
 func (instance *SInstance) GetIHost() cloudprovider.ICloudHost {
@@ -231,7 +221,7 @@ func (instance *SInstance) GetIHost() cloudprovider.ICloudHost {
 }
 
 func (instance *SInstance) GetId() string {
-	return instance.ID
+	return instance.Id
 }
 
 func (instance *SInstance) GetName() string {
@@ -239,7 +229,7 @@ func (instance *SInstance) GetName() string {
 }
 
 func (instance *SInstance) GetGlobalId() string {
-	return instance.ID
+	return instance.Id
 }
 
 func (instance *SInstance) IsEmulated() bool {
@@ -247,8 +237,8 @@ func (instance *SInstance) IsEmulated() bool {
 }
 
 func (instance *SInstance) fetchFlavor() error {
-	if len(instance.Flavor.ID) > 0 && instance.Flavor.Vcpus == 0 {
-		flavor, err := instance.host.zone.region.GetFlavor(instance.Flavor.ID)
+	if len(instance.Flavor.Id) > 0 && instance.Flavor.Vcpus == 0 {
+		flavor, err := instance.host.zone.region.GetFlavor(instance.Flavor.Id)
 		if err != nil {
 			return err
 		}
@@ -258,7 +248,10 @@ func (instance *SInstance) fetchFlavor() error {
 }
 
 func (instance *SInstance) GetInstanceType() string {
-	instance.fetchFlavor()
+	err := instance.fetchFlavor()
+	if err != nil {
+		return ""
+	}
 	return instance.Flavor.GetName()
 }
 
@@ -266,54 +259,60 @@ func (instance *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	disks := []SDisk{}
 	hasSysDisk := false
 	for i := 0; i < len(instance.VolumesAttached); i++ {
-		disk, err := instance.host.zone.region.GetDisk(instance.VolumesAttached[i].ID)
+		disk, err := instance.host.zone.region.GetDisk(instance.VolumesAttached[i].Id)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "GetDisk(%s)", instance.VolumesAttached[i].Id)
 		}
 		disks = append(disks, *disk)
-		if disk.Bootable {
+		if disk.GetDiskType() == api.DISK_TYPE_SYS {
 			hasSysDisk = true
 		}
 	}
-	iDisks := []cloudprovider.ICloudDisk{}
+	idisks := []cloudprovider.ICloudDisk{}
 	for i := 0; i < len(disks); i++ {
-		store, err := instance.host.zone.getStorageByCategory(disks[i].VolumeType)
+		store, err := instance.host.zone.getStorageByCategory(disks[i].VolumeType, disks[i].Host)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "getStorageByCategory(%s.%s)", disks[i].Id, disks[i].VolumeType)
 		}
 		disks[i].storage = store
-		iDisks = append(iDisks, &disks[i])
+		idisks = append(idisks, &disks[i])
 	}
 
 	if !hasSysDisk {
-		nova := SNovaStorage{zone: instance.host.zone}
-		sysDisk, _ := nova.GetIDiskById(instance.ID)
-		iDisks = append([]cloudprovider.ICloudDisk{sysDisk}, iDisks...)
+		store := &SNovaStorage{zone: instance.host.zone, host: instance.host}
+		disk := &SNovaDisk{storage: store, instanceId: instance.Id, region: instance.host.zone.region}
+		idisks = append([]cloudprovider.ICloudDisk{disk}, idisks...)
 	}
 
-	return iDisks, nil
+	return idisks, nil
 }
 
 func (instance *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
-	nics := []cloudprovider.ICloudNic{}
-	for networkName, address := range instance.Addresses {
-		for i := 0; i < len(address); i++ {
-			if instance.Addresses[networkName][i].Type == "fixed" {
-				instance.Addresses[networkName][i].instance = instance
-				nics = append(nics, &instance.Addresses[networkName][i])
-			}
-		}
+	nics, err := instance.host.zone.region.GetInstancePorts(instance.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetInstancePorts")
 	}
-	return nics, nil
+	inics := []cloudprovider.ICloudNic{}
+	for i := range nics {
+		nics[i].region = instance.host.zone.region
+		inics = append(inics, &nics[i])
+	}
+	return inics, nil
 }
 
 func (instance *SInstance) GetVcpuCount() int {
-	instance.fetchFlavor()
+	err := instance.fetchFlavor()
+	if err != nil {
+		return 0
+	}
 	return instance.Flavor.Vcpus
 }
 
 func (instance *SInstance) GetVmemSizeMB() int {
-	instance.fetchFlavor()
+	err := instance.fetchFlavor()
+	if err != nil {
+		return 0
+	}
 	return instance.Flavor.RAM
 }
 
@@ -374,11 +373,11 @@ func (instance *SInstance) GetStatus() string {
 }
 
 func (instance *SInstance) Refresh() error {
-	new, err := instance.host.zone.region.GetInstance(instance.ID)
+	_instance, err := instance.host.zone.region.GetInstance(instance.Id)
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(instance, new)
+	return jsonutils.Update(instance, _instance)
 }
 
 func (instance *SInstance) UpdateVM(ctx context.Context, name string) error {
@@ -388,7 +387,8 @@ func (instance *SInstance) UpdateVM(ctx context.Context, name string) error {
 				"name": name,
 			},
 		}
-		_, _, err := instance.host.zone.region.Update("compute", "/servers/"+instance.ID, "", jsonutils.Marshal(params))
+		resource := "/servers/" + instance.Id
+		_, err := instance.host.zone.region.ecsUpdate(resource, params)
 		return err
 	}
 	return nil
@@ -399,59 +399,61 @@ func (instance *SInstance) GetHypervisor() string {
 }
 
 func (instance *SInstance) StartVM(ctx context.Context) error {
-	if err := instance.host.zone.region.StartVM(instance.ID); err != nil {
-		return err
+	err := instance.host.zone.region.StartVM(instance.Id)
+	if err != nil {
+		return errors.Wrapf(err, "StartVM(%s)", instance.Id)
 	}
 	return cloudprovider.WaitStatus(instance, api.VM_RUNNING, 10*time.Second, 8*time.Minute)
 }
 
 func (instance *SInstance) StopVM(ctx context.Context, isForce bool) error {
-	if err := instance.host.zone.region.StopVM(instance.ID, isForce); err != nil {
-		return err
+	err := instance.host.zone.region.StopVM(instance.Id, isForce)
+	if err != nil {
+		return errors.Wrapf(err, "StopVM(%s)", instance.Id)
 	}
 	return cloudprovider.WaitStatus(instance, api.VM_READY, 10*time.Second, 8*time.Minute)
 }
 
 func (region *SRegion) GetInstanceVNCUrl(instanceId string) (string, error) {
-	_, maxVersion, _ := region.GetVersion("compute")
 	params := map[string]map[string]string{
 		"remote_console": {
 			"protocol": "vnc",
 			"type":     "novnc",
 		},
 	}
-	_, resp, err := region.Post("compute", fmt.Sprintf("/servers/%s/remote-consoles", instanceId), maxVersion, jsonutils.Marshal(params))
+	resource := fmt.Sprintf("/servers/%s/remote-consoles", instanceId)
+	resp, err := region.ecsPost(resource, params)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "ecsPost")
 	}
 	return resp.GetString("remote_console", "url")
 }
 
 func (instance *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
-	url, err := instance.host.zone.region.GetInstanceVNCUrl(instance.ID)
+	url, err := instance.host.zone.region.GetInstanceVNCUrl(instance.Id)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetInstanceVNCUrl")
 	}
 	ret := jsonutils.NewDict()
 	ret.Add(jsonutils.NewString(url), "url")
 	ret.Add(jsonutils.NewString("openstack"), "protocol")
-	ret.Add(jsonutils.NewString(instance.ID), "instance_id")
+	ret.Add(jsonutils.NewString(instance.Id), "instance_id")
 	return ret, nil
 }
 
 func (instance *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
-	return instance.host.zone.region.DeployVM(instance.ID, name, password, publicKey, deleteKeypair, description)
+	return instance.host.zone.region.DeployVM(instance.Id, name, password, publicKey, deleteKeypair, description)
 }
 
 func (instance *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
-	return instance.ID, instance.host.zone.region.ReplaceSystemDisk(instance.ID, desc.ImageId, desc.Password, desc.PublicKey, desc.SysSizeGB)
+	return instance.Id, instance.host.zone.region.ReplaceSystemDisk(instance.Id, desc.ImageId, desc.Password, desc.PublicKey, desc.SysSizeGB)
 }
 
 func (instance *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
 	if (len(config.InstanceType) > 0 && instance.GetInstanceType() != config.InstanceType) || instance.GetVcpuCount() != config.Cpu || instance.GetVmemSizeMB() != config.MemoryMB {
 		flavorId, err := instance.host.zone.region.syncFlavor(config.InstanceType, config.Cpu, config.MemoryMB, 40)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "syncFlavor(%s)", config.InstanceType)
 		}
 		return instance.host.zone.region.ChangeConfig(instance, flavorId)
 	}
@@ -464,35 +466,30 @@ func (region *SRegion) ChangeConfig(instance *SInstance, flavorId string) error 
 			"flavorRef": flavorId,
 		},
 	}
-	_, maxVersion, _ := region.GetVersion("compute")
-	_, _, err := region.Post("compute", fmt.Sprintf("/servers/%s/action", instance.ID), maxVersion, jsonutils.Marshal(params))
+	resource := fmt.Sprintf("/servers/%s/action", instance.Id)
+	_, err := region.ecsPost(resource, params)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "ecsPost")
 	}
-	if err := cloudprovider.WaitStatus(instance, api.VM_SYNC_CONFIG, time.Second*3, time.Minute*4); err != nil {
-		return err
+	err = cloudprovider.WaitStatus(instance, api.VM_SYNC_CONFIG, time.Second*3, time.Minute*4)
+	if err != nil {
+		return errors.Wrap(err, "WaitStatsAfterChangeConfig")
 	}
-	return region.instanceOperation(instance.ID, "confirmResize")
+	return region.instanceOperation(instance.Id, "confirmResize")
 }
 
 func (instance *SInstance) AttachDisk(ctx context.Context, diskId string) error {
-	return instance.host.zone.region.AttachDisk(instance.ID, diskId)
+	return instance.host.zone.region.AttachDisk(instance.Id, diskId)
 }
 
 func (instance *SInstance) DetachDisk(ctx context.Context, diskId string) error {
-	return instance.host.zone.region.DetachDisk(instance.ID, diskId)
-}
-
-func (region *SRegion) CreateInstance(name string, imageId string, instanceType string, securityGroupId string,
-	zoneId string, desc string, passwd string, disks []SDisk, networkId string, ipAddr string,
-	keypair string, userData string, bc *billing.SBillingCycle) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
+	return instance.host.zone.region.DetachDisk(instance.Id, diskId)
 }
 
 func (region *SRegion) instanceOperation(instanceId, operate string) error {
-	params := jsonutils.Marshal(map[string]string{operate: ""})
-	_, maxVersion, _ := region.GetVersion("compute")
-	_, _, err := region.Post("compute", fmt.Sprintf("/servers/%s/action", instanceId), maxVersion, params)
+	params := map[string]string{operate: ""}
+	resource := fmt.Sprintf("/servers/%s/action", instanceId)
+	_, err := region.ecsPost(resource, params)
 	return err
 }
 
@@ -515,11 +512,10 @@ func (region *SRegion) StopVM(instanceId string, isForce bool) error {
 func (region *SRegion) DeleteVM(instanceId string) error {
 	instance, err := region.GetInstance(instanceId)
 	if err != nil {
-		if err == cloudprovider.ErrNotFound {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			return nil
 		}
-		log.Errorf("failed to get instance %s %v", instanceId, err)
-		return err
+		return errors.Wrapf(err, "GetInstance(%s)", instanceId)
 	}
 	status := instance.GetStatus()
 	log.Debugf("Instance status on delete is %s", status)
@@ -536,15 +532,15 @@ func (region *SRegion) DeployVM(instanceId string, name string, password string,
 				"adminPass": password,
 			},
 		}
-		_, maxVersion, _ := region.GetVersion("compute")
-		_, _, err := region.Post("compute", fmt.Sprintf("/servers/%s/action", instanceId), maxVersion, jsonutils.Marshal(params))
+		resource := fmt.Sprintf("/servers/%s/action", instanceId)
+		_, err := region.ecsPost(resource, params)
 		return err
 	}
 	return nil
 }
 
 func (instance *SInstance) DeleteVM(ctx context.Context) error {
-	return instance.host.zone.region.DeleteVM(instance.ID)
+	return instance.host.zone.region.DeleteVM(instance.Id)
 }
 
 func (region *SRegion) ReplaceSystemDisk(instanceId string, imageId string, passwd string, publicKey string, sysDiskSizeGB int) error {
@@ -565,31 +561,23 @@ func (region *SRegion) ReplaceSystemDisk(instanceId string, imageId string, pass
 	if len(passwd) > 0 {
 		params["rebuild"]["adminPass"] = passwd
 	}
-
-	_, maxVersion, _ := region.GetVersion("compute")
-	_, _, err := region.Post("compute", fmt.Sprintf("/servers/%s/action", instanceId), maxVersion, jsonutils.Marshal(params))
+	resource := fmt.Sprintf("/servers/%s/action", instanceId)
+	_, err := region.ecsPost(resource, params)
 	return err
 }
 
-func (region *SRegion) ChangeVMConfig(zoneId string, instanceId string, ncpu int, vmem int, disks []*SDisk) error {
-	return cloudprovider.ErrNotImplemented
-}
-
-func (region *SRegion) ChangeVMConfig2(zoneId string, instanceId string, instanceType string, disks []*SDisk) error {
-	return cloudprovider.ErrNotImplemented
-}
-
 func (region *SRegion) DetachDisk(instanceId string, diskId string) error {
-	_, err := region.Delete("compute", fmt.Sprintf("/servers/%s/os-volume_attachments/%s", instanceId, diskId), "")
+	resource := fmt.Sprintf("/servers/%s/os-volume_attachments/%s", instanceId, diskId)
+	_, err := region.ecsDelete(resource)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "ecsDelete")
 	}
 	status := ""
 	startTime := time.Now()
 	for time.Now().Sub(startTime) < time.Minute*10 {
 		disk, err := region.GetDisk(diskId)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "GetDisk(%s)", diskId)
 		}
 		status = disk.Status
 		log.Debugf("status %s expect %s", status, DISK_STATUS_AVAILABLE)
@@ -607,16 +595,17 @@ func (region *SRegion) AttachDisk(instanceId string, diskId string) error {
 			"volumeId": diskId,
 		},
 	}
-	_, _, err := region.Post("compute", fmt.Sprintf("/servers/%s/os-volume_attachments", instanceId), "", jsonutils.Marshal(params))
+	resource := fmt.Sprintf("/servers/%s/os-volume_attachments", instanceId)
+	_, err := region.ecsPost(resource, params)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "ecsPost")
 	}
 	status := ""
 	startTime := time.Now()
 	for time.Now().Sub(startTime) < time.Minute*10 {
 		disk, err := region.GetDisk(diskId)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "GetDisk(%s)", diskId)
 		}
 		status = disk.Status
 		log.Debugf("status %s expect %s", status, DISK_STATUS_IN_USE)
@@ -636,8 +625,8 @@ func (region *SRegion) MigrateVM(instanceId string, hostName string) error {
 		migrate.Add(jsonutils.NewString(hostName), "host")
 	}
 	params.Add(migrate, "migrate")
-	_, maxVersion, _ := region.GetVersion("compute")
-	_, _, err := region.Post("compute", fmt.Sprintf("/servers/%s/action", instanceId), maxVersion, jsonutils.Marshal(params))
+	resource := fmt.Sprintf("/servers/%s/action", instanceId)
+	_, err := region.ecsPost(resource, params)
 	if err != nil {
 		return errors.Wrapf(err, "On Requst Migrate instance:%s", instanceId)
 	}
@@ -653,8 +642,8 @@ func (region *SRegion) LiveMigrateVM(instanceId string, hostName string) error {
 		osMigrateLive.Add(jsonutils.NewString(hostName), "host")
 	}
 	params.Add(osMigrateLive, "os-migrateLive")
-	_, maxVersion, _ := region.GetVersion("compute")
-	_, _, err := region.Post("compute", fmt.Sprintf("/servers/%s/action", instanceId), maxVersion, params)
+	resource := fmt.Sprintf("/servers/%s/action", instanceId)
+	_, err := region.ecsPost(resource, params)
 	if err != nil {
 		return errors.Wrapf(err, "On Requst LiveMigrate instance:%s", instanceId)
 	}
@@ -663,8 +652,8 @@ func (region *SRegion) LiveMigrateVM(instanceId string, hostName string) error {
 
 //仅live-migration
 func (region *SRegion) ListServerMigration(instanceId string) error {
-	_, maxVersion, _ := region.GetVersion("compute")
-	_, _, err := region.Get("compute", fmt.Sprintf("/servers/%s/migrations", instanceId), maxVersion, nil)
+	resource := fmt.Sprintf("/servers/%s/migrations", instanceId)
+	_, err := region.ecsGet(resource)
 	if err != nil {
 		return errors.Wrapf(err, "ListServerMigration")
 	}
@@ -673,8 +662,8 @@ func (region *SRegion) ListServerMigration(instanceId string) error {
 
 //仅live-migration
 func (region *SRegion) DeleteMigration(instanceId string, migrationId string) error {
-	_, maxVersion, _ := region.GetVersion("compute")
-	_, err := region.Delete("compute", fmt.Sprintf("/servers/%s/migrations/%s", instanceId, migrationId), maxVersion)
+	resource := fmt.Sprintf("/servers/%s/migrations/%s", instanceId, migrationId)
+	_, err := region.ecsDelete(resource)
 	if err != nil {
 		return errors.Wrapf(err, "On Requst delete LiveMigrate:%s", migrationId)
 	}
@@ -685,8 +674,8 @@ func (region *SRegion) DeleteMigration(instanceId string, migrationId string) er
 func (region *SRegion) ForceCompleteMigration(instanceId string, migrationId string) error {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.JSONNull, "force_complete")
-	_, maxVersion, _ := region.GetVersion("compute")
-	_, _, err := region.Post("compute", fmt.Sprintf("/servers/%s/migrations/%s/action", instanceId, migrationId), maxVersion, params)
+	resource := fmt.Sprintf("/servers/%s/migrations/%s/action", instanceId, migrationId)
+	_, err := region.ecsPost(resource, params)
 	if err != nil {
 		return errors.Wrapf(err, "On Requst delete LiveMigrate:%s", migrationId)
 	}
@@ -694,14 +683,11 @@ func (region *SRegion) ForceCompleteMigration(instanceId string, migrationId str
 }
 
 func (region *SRegion) GetMigrations(instanceId string, migrationType string) (jsonutils.JSONObject, error) {
-	params := jsonutils.NewDict()
-	params.Add(jsonutils.NewString(instanceId), "instance_uuid")
-	params.Add(jsonutils.NewString(migrationType), "migration_type")
 	query := url.Values{}
 	query.Set("instance_uuid", instanceId)
 	query.Set("migration_type", migrationType)
-	_, maxVersion, _ := region.GetVersion("compute")
-	_, migrations, err := region.Get("compute", "/os-migrations?"+query.Encode(), maxVersion, nil)
+	resource := "/os-migrations"
+	migrations, err := region.ecsList(resource, query)
 	if err != nil {
 		return nil, errors.Wrapf(err, "On Get instance :%s Migration,migration_type:%s", instanceId, migrationType)
 	}
@@ -714,14 +700,15 @@ func (instance *SInstance) AssignSecurityGroup(secgroupId string) error {
 	}
 	secgroup, err := instance.host.zone.region.GetSecurityGroup(secgroupId)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "GetSecurityGroup(%s)", secgroupId)
 	}
 	params := map[string]map[string]string{
 		"addSecurityGroup": {
 			"name": secgroup.Name,
 		},
 	}
-	_, _, err = instance.host.zone.region.Post("compute", fmt.Sprintf("/servers/%s/action", instance.ID), "", jsonutils.Marshal(params))
+	resource := fmt.Sprintf("/servers/%s/action", instance.Id)
+	_, err = instance.host.zone.region.ecsDo(instance.GetProjectId(), resource, params)
 	return err
 }
 
@@ -732,36 +719,43 @@ func (instance *SInstance) RevokeSecurityGroup(secgroupId string) error {
 	}
 	secgroup, err := instance.host.zone.region.GetSecurityGroup(secgroupId)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "GetSecurityGroup(%s)", secgroupId)
 	}
 	params := map[string]map[string]string{
 		"removeSecurityGroup": {
 			"name": secgroup.Name,
 		},
 	}
-	_, _, err = instance.host.zone.region.Post("compute", fmt.Sprintf("/servers/%s/action", instance.ID), "", jsonutils.Marshal(params))
+	resource := fmt.Sprintf("/servers/%s/action", instance.Id)
+	_, err = instance.host.zone.region.ecsDo(instance.GetProjectId(), resource, params)
 	return err
 }
 
 func (instance *SInstance) SetSecurityGroups(secgroupIds []string) error {
-	secgroups, err := instance.host.zone.region.GetSecurityGroupsByInstance(instance.ID)
+	secgroups, err := instance.host.zone.region.GetSecurityGroupsByInstance(instance.Id)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "GetSecurityGroupsByInstance(%s)", instance.Id)
 	}
-	originIds := []string{}
+	local := set.New(set.ThreadSafe)
 	for _, secgroup := range secgroups {
-		if !utils.IsInStringArray(secgroup.ID, secgroupIds) {
-			if err := instance.RevokeSecurityGroup(secgroup.ID); err != nil {
-				return err
-			}
-		}
-		originIds = append(originIds, secgroup.ID)
+		local.Add(secgroup.Id)
 	}
+	newG := set.New(set.ThreadSafe)
 	for _, secgroupId := range secgroupIds {
-		if !utils.IsInStringArray(secgroupId, originIds) {
-			if err := instance.AssignSecurityGroup(secgroupId); err != nil {
-				return err
-			}
+		newG.Add(secgroupId)
+	}
+	for _, del := range set.Difference(local, newG).List() {
+		secgroupId := del.(string)
+		err := instance.RevokeSecurityGroup(secgroupId)
+		if err != nil {
+			return errors.Wrapf(err, "RevokeSecurityGroup(%s)", secgroupId)
+		}
+	}
+	for _, add := range set.Difference(newG, local).List() {
+		secgroupId := add.(string)
+		err := instance.AssignSecurityGroup(secgroupId)
+		if err != nil {
+			return errors.Wrapf(err, "AssignSecurityGroup(%s)", secgroupId)
 		}
 	}
 	return nil
@@ -807,12 +801,12 @@ func (region *SRegion) RenewInstances(instanceId []string, bc billing.SBillingCy
 }
 
 func (instance *SInstance) GetProjectId() string {
-	return instance.TenantID
+	return instance.TenantId
 }
 
 func (self *SInstance) GetError() error {
 	if self.Status == INSTANCE_STATUS_ERROR && len(self.Fault.Message) > 0 {
-		return fmt.Errorf(self.Fault.Message)
+		return errors.Error(self.Fault.Message)
 	}
 	return nil
 }
@@ -828,10 +822,12 @@ func (instance *SInstance) MigrateVM(hostId string) error {
 	}
 
 	previousHostName := instance.Host
-	if err := instance.host.zone.region.MigrateVM(instance.ID, hostName); err != nil {
+	err := instance.host.zone.region.MigrateVM(instance.Id, hostName)
+	if err != nil {
 		return errors.Wrap(err, "MigrateVm")
 	}
-	if err := cloudprovider.WaitMultiStatus(instance, []string{api.VM_SYNC_CONFIG, api.VM_READY, api.VM_UNKNOWN}, time.Second*10, time.Hour*3); err != nil {
+	err = cloudprovider.WaitMultiStatus(instance, []string{api.VM_SYNC_CONFIG, api.VM_READY, api.VM_UNKNOWN}, time.Second*10, time.Hour*3)
+	if err != nil {
 		return errors.Wrap(err, "WaitMultiStatus")
 	}
 	if instance.GetStatus() == api.VM_UNKNOWN {
@@ -843,7 +839,7 @@ func (instance *SInstance) MigrateVM(hostId string) error {
 		}
 		return nil
 	}
-	return instance.host.zone.region.instanceOperation(instance.ID, "confirmResize")
+	return instance.host.zone.region.instanceOperation(instance.Id, "confirmResize")
 }
 
 func (instance *SInstance) LiveMigrateVM(hostId string) error {
@@ -856,10 +852,12 @@ func (instance *SInstance) LiveMigrateVM(hostId string) error {
 		hostName = iHost.GetName()
 	}
 	previousHostName := instance.Host
-	if err := instance.host.zone.region.LiveMigrateVM(instance.ID, hostName); err != nil {
+	err := instance.host.zone.region.LiveMigrateVM(instance.Id, hostName)
+	if err != nil {
 		return errors.Wrap(err, "LiveMIgrateVm")
 	}
-	if err := cloudprovider.WaitMultiStatus(instance, []string{api.VM_SYNC_CONFIG, api.VM_RUNNING, api.VM_UNKNOWN}, time.Second*10, time.Hour*3); err != nil {
+	err = cloudprovider.WaitMultiStatus(instance, []string{api.VM_SYNC_CONFIG, api.VM_RUNNING, api.VM_UNKNOWN}, time.Second*10, time.Hour*3)
+	if err != nil {
 		return errors.Wrap(err, "WaitMultiStatus")
 	}
 	if instance.GetStatus() == api.VM_UNKNOWN {
@@ -871,18 +869,178 @@ func (instance *SInstance) LiveMigrateVM(hostId string) error {
 		}
 		return nil
 	}
-	return instance.host.zone.region.instanceOperation(instance.ID, "confirmResize")
+	return instance.host.zone.region.instanceOperation(instance.Id, "confirmResize")
 }
 func (instance *SInstance) GetIHostId() string {
-	iHosts, err := instance.host.zone.region.GetIHosts()
+	err := instance.host.zone.fetchHosts()
 	if err != nil {
-		log.Errorf("instance.host.zone.region.GetIHosts error:%s", err)
 		return ""
 	}
-	for _, iHost := range iHosts {
-		if iHost.GetName() == instance.Host {
-			return iHost.GetId()
+	for _, host := range instance.host.zone.hosts {
+		if instance.HypervisorHostname == host.HypervisorHostname {
+			return host.GetGlobalId()
 		}
 	}
 	return ""
+}
+
+func (region *SRegion) GetInstanceMetadata(instanceId string) (map[string]string, error) {
+	resource := fmt.Sprintf("/servers/%s/metadata", instanceId)
+	resp, err := region.ecsList(resource, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "ecsList")
+	}
+	result := struct {
+		Metadata map[string]string
+	}{}
+	err = resp.Unmarshal(&result)
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return result.Metadata, nil
+}
+
+func (zone *SZone) CreateVM(hypervisor string, opts *cloudprovider.SManagedVMCreateConfig) (*SInstance, error) {
+	region := zone.region
+	network, err := region.GetNetwork(opts.ExternalNetworkId)
+	if err != nil {
+		return nil, err
+	}
+
+	secgroups := []map[string]string{}
+	for _, secgroupId := range opts.ExternalSecgroupIds {
+		if secgroupId != SECGROUP_NOT_SUPPORT {
+			secgroups = append(secgroups, map[string]string{"name": secgroupId})
+		}
+	}
+
+	image, err := region.GetImage(opts.ExternalImageId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetImage(%s)", opts.ExternalImageId)
+	}
+
+	sysDiskSizeGB := image.Size / 1024 / 1024 / 1024
+	if opts.SysDisk.SizeGB < sysDiskSizeGB {
+		opts.SysDisk.SizeGB = sysDiskSizeGB
+	}
+
+	if opts.SysDisk.SizeGB < image.GetMinOsDiskSizeGb() {
+		opts.SysDisk.SizeGB = image.GetMinOsDiskSizeGb()
+	}
+
+	BlockDeviceMappingV2 := []map[string]interface{}{}
+
+	diskIds := []string{}
+
+	defer func() {
+		for _, diskId := range diskIds {
+			err = region.DeleteDisk(diskId)
+			if err != nil {
+				log.Errorf("clean disk %s error: %v", diskId, err)
+			}
+		}
+	}()
+
+	if opts.SysDisk.StorageType != api.STORAGE_OPENSTACK_NOVA { //新建volume
+		istorage, err := zone.GetIStorageById(opts.SysDisk.StorageExternalId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetIStorageById(%s)", opts.SysDisk.StorageExternalId)
+		}
+
+		_sysDisk, err := region.CreateDisk(opts.ExternalImageId, istorage.GetName(), "", opts.SysDisk.SizeGB, opts.SysDisk.Name, opts.ProjectId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "CreateDisk %s", opts.SysDisk.Name)
+		}
+
+		diskIds = append(diskIds, _sysDisk.GetGlobalId())
+
+		BlockDeviceMappingV2 = append(BlockDeviceMappingV2, map[string]interface{}{
+			"boot_index":            0,
+			"uuid":                  _sysDisk.GetGlobalId(),
+			"source_type":           "volume",
+			"destination_type":      "volume",
+			"delete_on_termination": true,
+		})
+	} else {
+		BlockDeviceMappingV2 = append(BlockDeviceMappingV2, map[string]interface{}{
+			"boot_index":            0,
+			"uuid":                  image.Id,
+			"source_type":           "image",
+			"destination_type":      "local",
+			"delete_on_termination": true,
+		})
+	}
+
+	var _disk *SDisk
+	for index, disk := range opts.DataDisks {
+		istorage, err := zone.GetIStorageById(disk.StorageExternalId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetIStorageById(%s)", disk.StorageExternalId)
+		}
+		_disk, err = region.CreateDisk("", istorage.GetName(), "", disk.SizeGB, disk.Name, opts.ProjectId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "CreateDisk %s", disk.Name)
+		}
+		diskIds = append(diskIds, _disk.Id)
+
+		mapping := map[string]interface{}{
+			"source_type":           "volume",
+			"destination_type":      "volume",
+			"delete_on_termination": true,
+			"boot_index":            index + 1,
+			"uuid":                  _disk.Id,
+		}
+
+		BlockDeviceMappingV2 = append(BlockDeviceMappingV2, mapping)
+	}
+
+	az := zone.ZoneName
+	if len(hypervisor) > 0 {
+		az = fmt.Sprintf("%s:%s", zone.ZoneName, hypervisor)
+	}
+
+	params := map[string]map[string]interface{}{
+		"server": {
+			"name":              opts.Name,
+			"adminPass":         opts.Password,
+			"accessIPv4":        opts.IpAddr,
+			"availability_zone": az,
+			"networks": []map[string]string{
+				{
+					"uuid":     network.NetworkId,
+					"fixed_ip": opts.IpAddr,
+				},
+			},
+			"security_groups":         secgroups,
+			"user_data":               opts.UserData,
+			"imageRef":                opts.ExternalImageId,
+			"block_device_mapping_v2": BlockDeviceMappingV2,
+		},
+	}
+
+	flavorId, err := region.syncFlavor(opts.InstanceType, opts.Cpu, opts.MemoryMB, opts.SysDisk.SizeGB)
+	if err != nil {
+		return nil, err
+	}
+	params["server"]["flavorRef"] = flavorId
+
+	if len(opts.PublicKey) > 0 {
+		keypairName, err := region.syncKeypair(opts.Name, opts.PublicKey)
+		if err != nil {
+			return nil, err
+		}
+		params["server"]["key_name"] = keypairName
+	}
+
+	resp, err := region.ecsCreate(opts.ProjectId, "/servers", params)
+	if err != nil {
+		return nil, errors.Wrap(err, "ecsCreate")
+	}
+	diskIds = []string{}
+	instance := &SInstance{}
+	err = resp.Unmarshal(instance, "server")
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return instance, nil
 }
