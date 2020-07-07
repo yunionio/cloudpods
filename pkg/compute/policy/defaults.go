@@ -241,12 +241,6 @@ var (
 				},
 				{
 					Service:  api.SERVICE_TYPE,
-					Resource: "hosts",
-					Action:   PolicyActionList,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  api.SERVICE_TYPE,
 					Resource: "vpcs",
 					Action:   PolicyActionList,
 					Result:   rbacutils.Allow,
