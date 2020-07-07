@@ -448,6 +448,8 @@ func (self *SElasticcacheSku) syncWithCloudSku(ctx context.Context, userCred mcc
 	_, err := db.Update(self, func() error {
 		self.PrepaidStatus = extSku.PrepaidStatus
 		self.PostpaidStatus = extSku.PostpaidStatus
+		self.ZoneId = extSku.ZoneId
+		self.SlaveZoneId = extSku.SlaveZoneId
 		return nil
 	})
 	return err
