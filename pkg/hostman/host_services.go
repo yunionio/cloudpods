@@ -91,6 +91,7 @@ func (host *SHostService) RunService() {
 		log.Fatalf(err.Error())
 	}
 
+	var guestChan chan struct{}
 	guestman.Init(hostInstance, options.HostOptions.ServersPath)
 	app_common.InitAuth(&options.HostOptions.CommonOptions, func() {
 		log.Infof("Auth complete!!")
@@ -100,7 +101,7 @@ func (host *SHostService) RunService() {
 		}
 
 		hostInstance.StartRegister(2, func() {
-			guestman.GetGuestManager().Bootstrap()
+			guestChan = guestman.GetGuestManager().Bootstrap()
 			// hostmetrics after guestmanager bootstrap
 			hostmetrics.Init()
 			hostmetrics.Start()
@@ -119,6 +120,7 @@ func (host *SHostService) RunService() {
 		"CleanRecycleDiskFiles", 1, 3, 0, 0, storageman.CleanRecycleDiskfiles, false)
 	cronManager.Start()
 
+	close(guestChan)
 	app_common.ServeForeverWithCleanup(app, &options.HostOptions.BaseOptions, func() {
 		hostinfo.Stop()
 		storageman.Stop()

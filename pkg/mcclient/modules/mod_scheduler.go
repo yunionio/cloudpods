@@ -205,7 +205,7 @@ func (this *SchedulerManager) HistoryShow(s *mcclient.ClientSession, id string, 
 	return modulebase.Post(this.ResourceManager, s, url, params, "history")
 }
 
-func (this *SchedulerManager) CleanCache(s *mcclient.ClientSession, hostId, sessionId string) error {
+func (this *SchedulerManager) CleanCache(s *mcclient.ClientSession, hostId, sessionId string, sync bool) error {
 	url := newSchedURL("clean-cache")
 	if len(hostId) > 0 {
 		url = fmt.Sprintf("%s/%s", url, hostId)
@@ -213,6 +213,10 @@ func (this *SchedulerManager) CleanCache(s *mcclient.ClientSession, hostId, sess
 	if len(sessionId) > 0 {
 		url = fmt.Sprintf("%s?session=%s", url, sessionId)
 	}
+	if sync {
+		url = fmt.Sprintf("%s?sync_clean=true", url)
+	}
+
 	resp, err := modulebase.RawRequest(this.ResourceManager, s, "POST", url, nil, nil)
 	if err != nil {
 		return err

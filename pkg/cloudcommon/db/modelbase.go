@@ -497,6 +497,13 @@ func (model *SModelBase) PerformAction(ctx context.Context, userCred mcclient.To
 	return nil, httperrors.NewActionNotFoundError("Action %s not found", action)
 }
 
+func (model *SModelBase) PreCheckPerformAction(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	action string, query jsonutils.JSONObject, data jsonutils.JSONObject,
+) error {
+	return nil
+}
+
 // update hooks
 func (model *SModelBase) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
 	return false

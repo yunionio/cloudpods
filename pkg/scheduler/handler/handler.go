@@ -353,6 +353,15 @@ func getSessionId(c *gin.Context) string {
 	return jsonutils.GetAnyString(query, []string{"session", "session_id"})
 }
 
+func isSyncCleanSchedCache(c *gin.Context) bool {
+	query, err := jsonutils.ParseQueryString(c.Request.URL.RawQuery)
+	if err != nil {
+		log.Warningf("not found sync clean cache  in query")
+		return false
+	}
+	return jsonutils.QueryBoolean(query, "sync_clean", false)
+}
+
 func doCleanHostCache(c *gin.Context, hostID string) {
 	sid := getSessionId(c)
 	args, err := newExpireArgsByHostIDs([]string{hostID}, sid)
@@ -365,7 +374,7 @@ func doCleanHostCache(c *gin.Context, hostID string) {
 }
 
 func doCleanHostCacheByArgs(c *gin.Context, args *api.ExpireArgs) {
-	result, err := schedman.Expire(args)
+	result, err := schedman.Expire(args, isSyncCleanSchedCache(c))
 	if err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
 		return

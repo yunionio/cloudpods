@@ -1484,6 +1484,9 @@ func (dispatcher *DBModelDispatcher) PerformAction(ctx context.Context, idStr st
 	lockman.LockObject(ctx, model)
 	defer lockman.ReleaseObject(ctx, model)
 
+	if err := model.PreCheckPerformAction(ctx, userCred, action, query, data); err != nil {
+		return nil, err
+	}
 	return objectPerformAction(dispatcher, model, reflect.ValueOf(model), ctx, userCred, action, query, data)
 }
 
