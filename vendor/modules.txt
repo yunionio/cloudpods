@@ -787,6 +787,8 @@ google.golang.org/grpc/status
 google.golang.org/grpc/tap
 # gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d
 gopkg.in/asn1-ber.v1
+# gopkg.in/fatih/set.v0 v0.2.1
+gopkg.in/fatih/set.v0
 # gopkg.in/go-playground/validator.v9 v9.29.1
 gopkg.in/go-playground/validator.v9
 # gopkg.in/inf.v0 v0.9.1
@@ -1031,5 +1033,5 @@ yunion.io/x/pkg/utils
 yunion.io/x/s3cli
 # yunion.io/x/sqlchemy v0.0.0-20200702064124-195445bc4b11
 yunion.io/x/sqlchemy
-# yunion.io/x/structarg v0.0.0-20200708124353-ea9a441ecaf8
+# yunion.io/x/structarg v0.0.0-20200720093445-9f850fa222ce
 yunion.io/x/structarg

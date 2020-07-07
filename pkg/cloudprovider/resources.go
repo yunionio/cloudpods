@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type ICloudResource interface {
@@ -70,7 +71,7 @@ type ICloudRegion interface {
 	GetIDiskById(id string) (ICloudDisk, error)
 
 	GetISecurityGroupById(secgroupId string) (ICloudSecurityGroup, error)
-	GetISecurityGroupByName(vpcId string, name string) (ICloudSecurityGroup, error)
+	GetISecurityGroupByName(opts *SecurityGroupFilterOptions) (ICloudSecurityGroup, error)
 	CreateISecurityGroup(conf *SecurityGroupCreateInput) (ICloudSecurityGroup, error)
 
 	CreateIVpc(name string, desc string, cidr string) (ICloudVpc, error)
@@ -342,7 +343,7 @@ type ICloudEIP interface {
 }
 
 type ICloudSecurityGroup interface {
-	ICloudResource
+	IVirtualResource
 
 	GetDescription() string
 	GetRules() ([]SecurityRule, error)
@@ -450,7 +451,7 @@ type ICloudWire interface {
 
 	GetINetworkById(netid string) (ICloudNetwork, error)
 
-	CreateINetwork(name string, cidr string, desc string) (ICloudNetwork, error)
+	CreateINetwork(opts *SNetworkCreateOptions) (ICloudNetwork, error)
 }
 
 type ICloudNetwork interface {
@@ -463,8 +464,11 @@ type ICloudNetwork interface {
 	GetIpMask() int8
 	GetGateway() string
 	GetServerType() string
-	// GetIsPublic() bool
-	// GetPublicScope() rbacutils.TRbacScope
+	//GetIsPublic() bool
+	// 仅私有云有用，公有云无效
+	// 1. scope = none 非共享, network仅会属于一个项目,并且私有
+	// 2. scope = system 系统共享 云账号共享会跟随云账号共享，云账号非共享,会共享到network所在域
+	GetPublicScope() rbacutils.TRbacScope
 
 	Delete() error
 

@@ -23,7 +23,7 @@ func init() {
 	type ZoneListOptions struct {
 	}
 	shellutils.R(&ZoneListOptions{}, "zone-list", "List zones", func(cli *openstack.SRegion, args *ZoneListOptions) error {
-		zones, err := cli.GetIZones()
+		zones, err := cli.GetZones()
 		if err != nil {
 			return err
 		}

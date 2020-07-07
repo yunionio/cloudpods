@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SBaseRegionDriver struct {
@@ -217,7 +218,7 @@ func (self *SBaseRegionDriver) RequestDeleteVpc(ctx context.Context, userCred mc
 	return fmt.Errorf("Not implement RequestDeleteVpc")
 }
 
-func (self *SBaseRegionDriver) RequestCacheSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, secgroup *models.SSecurityGroup, classic bool, task taskman.ITask) error {
+func (self *SBaseRegionDriver) RequestCacheSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, secgroup *models.SSecurityGroup, classic bool, remoteProjectId string, task taskman.ITask) error {
 	return fmt.Errorf("Not Implemented RequestCacheSecurityGroup")
 }
 
@@ -241,11 +242,15 @@ func (self *SBaseRegionDriver) GetDefaultSecurityGroupVpcId() string {
 	return api.NORMAL_VPC_ID
 }
 
+func (self *SBaseRegionDriver) GetSecurityGroupPublicScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeSystem
+}
+
 func (self *SBaseRegionDriver) GetSecurityGroupVpcId(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, host *models.SHost, vpc *models.SVpc, classic bool) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 }
 
-func (self *SBaseRegionDriver) RequestSyncSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, vpcId string, vpc *models.SVpc, secgroup *models.SSecurityGroup) (string, error) {
+func (self *SBaseRegionDriver) RequestSyncSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, vpcId string, vpc *models.SVpc, secgroup *models.SSecurityGroup, removeProjectId string) (string, error) {
 	return "", fmt.Errorf("Not Implemented RequestSyncSecurityGroup")
 }
 

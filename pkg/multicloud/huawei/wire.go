@@ -101,8 +101,8 @@ func (self *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, e
 华为云子网可用区，类似一个zone标签。即使指定了zone子网在整个region依然是可用。
 通过华为web控制台创建子网需要指定可用区。这里是不指定的。
 */
-func (self *SWire) CreateINetwork(name string, cidr string, desc string) (cloudprovider.ICloudNetwork, error) {
-	networkId, err := self.region.createNetwork(self.vpc.GetId(), name, cidr, desc)
+func (self *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
+	networkId, err := self.region.createNetwork(self.vpc.GetId(), opts.Name, opts.Cidr, opts.Desc)
 	if err != nil {
 		log.Errorf("createNetwork error %s", err)
 		return nil, err
