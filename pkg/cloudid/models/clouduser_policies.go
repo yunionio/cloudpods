@@ -194,18 +194,22 @@ func (manager *SClouduserPolicyManager) newFromClouduserPolicy(ctx context.Conte
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
+	account, err := user.GetCloudaccount()
+	if err != nil {
+		return errors.Wrap(err, "user.GetCloudaccount")
+	}
+
 	up := &SClouduserPolicy{}
 	up.SetModelManager(manager, up)
 	up.ClouduserId = user.Id
 
-	p, err := db.FetchByExternalId(CloudpolicyManager, iPolicy.GetGlobalId())
+	p, err := db.FetchByExternalIdAndManagerId(CloudpolicyManager, iPolicy.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.Equals("provider", account.Provider)
+	})
+
 	if err != nil {
 		if errors.Cause(err) != sql.ErrNoRows {
 			return errors.Wrapf(err, "db.FetchByExternalId(%s)", iPolicy.GetGlobalId())
-		}
-		account, err := user.GetCloudaccount()
-		if err != nil {
-			return errors.Wrap(err, "user.GetCloudaccount")
 		}
 		policy, err := CloudpolicyManager.newFromCloudpolicy(ctx, userCred, iPolicy, account.Provider)
 		if err != nil {

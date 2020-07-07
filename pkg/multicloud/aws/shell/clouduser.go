@@ -103,7 +103,7 @@ func init() {
 	}
 
 	shellutils.R(&ClouduserPolicyListOptions{}, "cloud-user-policy-list", "List clouduser policies", func(cli *aws.SRegion, args *ClouduserPolicyListOptions) error {
-		policies, err := cli.GetClient().GetClouduserPolicies(args.NAME, args.Marker, args.MaxItems)
+		policies, err := cli.GetClient().ListUserpolicies(args.NAME, args.Marker, args.MaxItems)
 		if err != nil {
 			return err
 		}
@@ -118,8 +118,8 @@ func init() {
 		PathPrefix string
 	}
 
-	shellutils.R(&ClouduserAttachedPolicyListOptions{}, "cloud-user-attachd-policy-list", "List clouduser attached policies", func(cli *aws.SRegion, args *ClouduserAttachedPolicyListOptions) error {
-		policies, err := cli.GetClient().GetAttachedPolicies(args.NAME, args.Marker, args.MaxItems, args.PathPrefix)
+	shellutils.R(&ClouduserAttachedPolicyListOptions{}, "cloud-user-attached-policy-list", "List clouduser attached policies", func(cli *aws.SRegion, args *ClouduserAttachedPolicyListOptions) error {
+		policies, err := cli.GetClient().ListAttachedUserPolicies(args.NAME, args.Marker, args.MaxItems, args.PathPrefix)
 		if err != nil {
 			return err
 		}
@@ -137,7 +137,7 @@ func init() {
 	}
 
 	shellutils.R(&PolicyListOptions{}, "cloud-policy-list", "List policies", func(cli *aws.SRegion, args *PolicyListOptions) error {
-		policies, err := cli.GetClient().GetPolicies(args.Marker, args.MaxItems, args.OnlyAttached, args.PathPrefix, args.PolicyUsageFilter, args.Scope)
+		policies, err := cli.GetClient().ListPolicies(args.Marker, args.MaxItems, args.OnlyAttached, args.PathPrefix, args.PolicyUsageFilter, args.Scope)
 		if err != nil {
 			return err
 		}

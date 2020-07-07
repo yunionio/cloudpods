@@ -164,3 +164,16 @@ func (model *SStatusDomainLevelUserResourceBase) GetExtraDetails(
 ) (apis.StatusDomainLevelUserResourceDetails, error) {
 	return apis.StatusDomainLevelUserResourceDetails{}, nil
 }
+
+func (self *SStatusDomainLevelUserResourceBase) GetOwnerId() mcclient.IIdentityProvider {
+	owner := SOwnerId{UserId: self.OwnerId}
+	return &owner
+}
+
+func (manager *SStatusDomainLevelUserResourceBaseManager) NamespaceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeUser
+}
+
+func (manager *SStatusDomainLevelUserResourceBaseManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeUser
+}
