@@ -298,6 +298,12 @@ func init() {
 		return nil
 	})
 
+	R(&options.ServerIdsOptions{}, "server-reconcile-backup", "Reconcile backup server", func(s *mcclient.ClientSession, opts *options.ServerIdsOptions) error {
+		ret := modules.Servers.BatchPerformAction(s, opts.ID, "reconcile-backup", nil)
+		printBatchResults(ret, modules.Servers.GetColumns(s))
+		return nil
+	})
+
 	R(&options.ServerIdsOptions{}, "server-create-backup", "Create backup guest", func(s *mcclient.ClientSession, opts *options.ServerIdsOptions) error {
 		ret := modules.Servers.BatchPerformAction(s, opts.ID, "create-backup", nil)
 		printBatchResults(ret, modules.Servers.GetColumns(s))

@@ -136,8 +136,11 @@ func GetCandidateManager() *data_manager.CandidateManager {
 	return schedManager.CandidateManager
 }
 
-func Expire(expireArgs *api.ExpireArgs) (*api.ExpireResult, error) {
+func Expire(expireArgs *api.ExpireArgs, trigger bool) (*api.ExpireResult, error) {
 	schedManager.ExpireManager.Add(expireArgs)
+	if trigger {
+		schedManager.ExpireManager.Trigger()
+	}
 	return &api.ExpireResult{}, nil
 }
 

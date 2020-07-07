@@ -207,7 +207,6 @@ func (manager *SHostManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
 	}
-
 	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
@@ -1032,7 +1031,7 @@ func (self *SHostManager) ClearSchedDescCache(hostId string) error {
 
 func (self *SHostManager) ClearSchedDescSessionCache(hostId, sessionId string) error {
 	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
-	return modules.SchedManager.CleanCache(s, hostId, sessionId)
+	return modules.SchedManager.CleanCache(s, hostId, sessionId, false)
 }
 
 func (self *SHost) ClearSchedDescCache() error {
@@ -1041,6 +1040,20 @@ func (self *SHost) ClearSchedDescCache() error {
 
 func (self *SHost) ClearSchedDescSessionCache(sessionId string) error {
 	return HostManager.ClearSchedDescSessionCache(self.Id, sessionId)
+}
+
+// sync clear sched desc on scheduler side
+func (self *SHostManager) SyncClearSchedDescSessionCache(hostId, sessionId string) error {
+	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
+	return modules.SchedManager.CleanCache(s, hostId, sessionId, true)
+}
+
+func (self *SHost) SyncCleanSchedDescCache() error {
+	return self.SyncClearSchedDescSessionCache("")
+}
+
+func (self *SHost) SyncClearSchedDescSessionCache(sessionId string) error {
+	return HostManager.SyncClearSchedDescSessionCache(self.Id, sessionId)
 }
 
 func (self *SHost) AllowGetDetailsSpec(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -1392,6 +1405,28 @@ func (self *SHost) GetGuestsQuery() *sqlchemy.SQuery {
 
 func (self *SHost) GetGuests() []SGuest {
 	q := self.GetGuestsQuery()
+	guests := make([]SGuest, 0)
+	err := db.FetchModelObjects(GuestManager, q, &guests)
+	if err != nil {
+		log.Errorf("GetGuests %s", err)
+		return nil
+	}
+	return guests
+}
+
+func (self *SHost) GetGuestsMasterOnThisHost() []SGuest {
+	q := self.GetGuestsQuery().IsNotEmpty("backup_host_id")
+	guests := make([]SGuest, 0)
+	err := db.FetchModelObjects(GuestManager, q, &guests)
+	if err != nil {
+		log.Errorf("GetGuests %s", err)
+		return nil
+	}
+	return guests
+}
+
+func (self *SHost) GetGuestsBackupOnThisHost() []SGuest {
+	q := GuestManager.Query().Equals("backup_host_id", self.Id)
 	guests := make([]SGuest, 0)
 	err := db.FetchModelObjects(GuestManager, q, &guests)
 	if err != nil {
@@ -4893,16 +4928,68 @@ func (host *SHost) PerformHostMaintenance(ctx context.Context, userCred mcclient
 func (host *SHost) OnHostDown(ctx context.Context, userCred mcclient.TokenCredential) {
 	log.Errorf("watched host down %s", host.Id)
 	db.OpsLog.LogEvent(host, db.ACT_HOST_DOWN, "", userCred)
+	if _, err := host.SaveCleanUpdates(func() error {
+		host.EnableHealthCheck = false
+		host.HostStatus = api.HOST_OFFLINE
+		return nil
+	}); err != nil {
+		log.Errorf("update host %s failed %s", host.Id, err)
+	}
+	host.SyncCleanSchedDescCache()
+	host.switchWithBackup(ctx, userCred)
+	host.migrateOnHostDown(ctx, userCred)
+}
+
+func (host *SHost) switchWithBackup(ctx context.Context, userCred mcclient.TokenCredential) {
+	guests := host.GetGuestsMasterOnThisHost()
+	for i := 0; i < len(guests); i++ {
+		if guests[i].isInReconcile(userCred) {
+			log.Warningf("guest %s is in reconcile", guests[i].GetName())
+			continue
+		}
+		data := jsonutils.NewDict()
+		data.Set("purge_backup", jsonutils.JSONTrue)
+		_, err := guests[i].PerformSwitchToBackup(ctx, userCred, nil, data)
+		if err != nil {
+			db.OpsLog.LogEvent(
+				&guests[i], db.ACT_SWITCH_FAILED, fmt.Sprintf("PerformSwitchToBackup on host down: %s", err), userCred,
+			)
+			logclient.AddSimpleActionLog(
+				&guests[i], logclient.ACT_SWITCH_TO_BACKUP,
+				fmt.Sprintf("PerformSwitchToBackup on host down: %s", err), userCred, false,
+			)
+		} else {
+			guests[i].SetMetadata(ctx, "origin_status", guests[i].Status, userCred)
+		}
+	}
+
+	guests2 := host.GetGuestsBackupOnThisHost()
+	for i := 0; i < len(guests2); i++ {
+		if guests2[i].isInReconcile(userCred) {
+			log.Warningf("guest %s is in reconcile", guests[i].GetName())
+			continue
+		}
+		data := jsonutils.NewDict()
+		data.Set("purge", jsonutils.JSONTrue)
+		data.Set("create", jsonutils.JSONTrue)
+		_, err := guests2[i].PerformDeleteBackup(ctx, userCred, nil, data)
+		if err != nil {
+			db.OpsLog.LogEvent(
+				&guests2[i], db.ACT_DELETE_BACKUP_FAILED, fmt.Sprintf("PerformDeleteBackup on host down: %s", err), userCred,
+			)
+			logclient.AddSimpleActionLog(
+				&guests2[i], logclient.ACT_DELETE_BACKUP,
+				fmt.Sprintf("PerformDeleteBackup on host down: %s", err), userCred, false,
+			)
+		}
+	}
+}
+
+func (host *SHost) migrateOnHostDown(ctx context.Context, userCred mcclient.TokenCredential) {
 	if host.GetMetadata("__auto_migrate_on_host_down", nil) == "enable" {
 		if err := host.MigrateSharedStorageServers(ctx, userCred); err != nil {
 			db.OpsLog.LogEvent(host, db.ACT_HOST_DOWN, fmt.Sprintf("migrate servers failed %s", err), userCred)
 		}
-	}
-	if _, err := host.SaveUpdates(func() error {
-		host.EnableHealthCheck = false
-		return nil
-	}); err != nil {
-		log.Errorf("update host %s failed %s", host.Id, err)
 	}
 }
 
