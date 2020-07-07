@@ -19,6 +19,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/modules"
 )
 
 type SLink struct {
@@ -182,6 +183,10 @@ func (self *SHuaweiClient) CreateClouduser(name, password, desc string) (*SCloud
 	user := SClouduser{client: self}
 	err = DoCreate(client.Users.Create, jsonutils.Marshal(map[string]interface{}{"user": params}), &user)
 	if err != nil {
+		ce, ok := err.(*modules.HuaweiClientError)
+		if ok && len(ce.Errorcode) > 0 && ce.Errorcode[0] == "1101" {
+			return nil, errors.Wrap(err, `IAM user name. The length is between 5 and 32. The first digit is not a number. Special characters can only contain the '_' '-' or ' '`) //https://support.huaweicloud.com/api-iam/iam_08_0015.html
+		}
 		return nil, errors.Wrap(err, "DoCreate")
 	}
 	return &user, nil

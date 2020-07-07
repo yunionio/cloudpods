@@ -239,7 +239,7 @@ func (region *SRegion) GetNatDEntryByID(id string) (SNatDEntry, error) {
 	err := DoGet(region.ecsClient.DNatRules.Get, id, map[string]string{}, &dnat)
 
 	if err != nil {
-		return SNatDEntry{}, cloudprovider.ErrNotFound
+		return SNatDEntry{}, err
 	}
 	return dnat, nil
 }
