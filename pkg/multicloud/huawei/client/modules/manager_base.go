@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
@@ -133,6 +134,34 @@ func (self *SBaseManager) _get(request requests.IRequest, responseKey string) (j
 	return self._do(request, responseKey)
 }
 
+type HuaweiClientError struct {
+	Code      int
+	Errorcode []string
+	err       error
+	Details   string
+}
+
+func (ce *HuaweiClientError) Error() string {
+	return jsonutils.Marshal(ce).String()
+}
+
+func (ce *HuaweiClientError) ParseErrorFromJsonResponse(statusCode int, body jsonutils.JSONObject) error {
+	err := body.Unmarshal(ce)
+	if err != nil {
+		ce.err = errors.Wrapf(err, "body.Unmarshal(%s)", body.String())
+		ce.Code = statusCode
+		ce.Details = body.String()
+		return ce
+	}
+	if ce.Code == 0 {
+		ce.Code = statusCode
+	}
+	if len(ce.Details) == 0 {
+		ce.Details = body.String()
+	}
+	return ce
+}
+
 func (self *SBaseManager) jsonRequest(request requests.IRequest) (http.Header, jsonutils.JSONObject, error) {
 	ctx := context.Background()
 	// hook request
@@ -162,11 +191,15 @@ func (self *SBaseManager) jsonRequest(request requests.IRequest) (http.Header, j
 		log.Debugf("url: %s", request.BuildUrl())
 	}
 
+	client := httputils.NewJsonClient(self.httpClient)
+	req := httputils.NewJsonRequest(httputils.THttpMethod(request.GetMethod()), request.BuildUrl(), jsonBody)
+	req.SetHeader(header)
+	resp := &HuaweiClientError{}
 	// 发送 request。todo: 支持debug
 	const MAX_RETRY = 3
 	retry := MAX_RETRY
 	for {
-		h, b, e := httputils.JSONRequest(self.httpClient, ctx, httputils.THttpMethod(request.GetMethod()), request.BuildUrl(), header, jsonBody, self.debug)
+		h, b, e := client.Send(ctx, req, resp, self.debug)
 		if e == nil {
 			if self.debug {
 				log.Debugf("response: %s body: %s", h, b)
@@ -175,12 +208,12 @@ func (self *SBaseManager) jsonRequest(request requests.IRequest) (http.Header, j
 		}
 
 		switch err := e.(type) {
-		case *httputils.JSONClientError:
+		case *HuaweiClientError:
 			if err.Code == 499 && retry > 0 && request.GetMethod() == "GET" {
 				retry -= 1
 				time.Sleep(time.Second * time.Duration(MAX_RETRY-retry))
 			} else if (err.Code == 404 || strings.Contains(err.Details, "could not be found") || strings.Contains(err.Details, "does not exist")) && request.GetMethod() != "POST" {
-				return h, b, cloudprovider.ErrNotFound
+				return h, b, errors.Wrap(cloudprovider.ErrNotFound, err.Error())
 			} else {
 				return h, b, e
 			}
