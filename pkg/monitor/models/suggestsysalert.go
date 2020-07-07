@@ -514,7 +514,7 @@ func (self *SSuggestSysAlertManager) getMeterForcastCosts(ctx context.Context, u
 	switch reqScope {
 	case "system":
 	case "domain":
-		domainId = userCred.GetProjectDomain()
+		domainId = userCred.GetDomainId()
 	default:
 		projectId = userCred.GetProjectId()
 	}
