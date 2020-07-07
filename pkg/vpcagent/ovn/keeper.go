@@ -307,6 +307,7 @@ func (keeper *OVNNorthboundKeeper) ClaimVpcEipgw(ctx context.Context, vpc *agent
 
 func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestnetwork *agentmodels.Guestnetwork) error {
 	var (
+		// Callers assure that guestnetwork.Guest is not nil
 		guest   = guestnetwork.Guest
 		network = guestnetwork.Network
 		vpc     = network.Vpc
@@ -517,14 +518,20 @@ func (keeper *OVNNorthboundKeeper) ClaimVpcGuestDnsRecords(ctx context.Context, 
 		has = map[string]struct{}{}
 	)
 	for _, network := range vpc.Networks {
+		hasValid := false
 		for _, guestnetwork := range network.Guestnetworks {
-			var (
-				guest = guestnetwork.Guest
-				ip    = guestnetwork.IpAddr
-			)
-			grs[guest.Name] = append(grs[guest.Name], ip)
+			if guest := guestnetwork.Guest; guest != nil {
+				var (
+					name = guest.Name
+					ip   = guestnetwork.IpAddr
+				)
+				grs[name] = append(grs[name], ip)
+				if !hasValid {
+					hasValid = true
+				}
+			}
 		}
-		if len(network.Guestnetworks) > 0 {
+		if hasValid {
 			has[network.Id] = struct{}{}
 		}
 	}
