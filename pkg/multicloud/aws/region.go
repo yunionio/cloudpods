@@ -262,35 +262,11 @@ func Build(r *request.Request) {
 }
 
 func (self *SRegion) rdsRequest(apiName string, params map[string]string, retval interface{}) error {
-	return self.client.request(RDS_SERVICE_NAME, RDS_SERVICE_ID, "2014-10-31", apiName, params, retval)
+	return self.client.request(self.RegionId, RDS_SERVICE_NAME, RDS_SERVICE_ID, "2014-10-31", apiName, params, retval)
 }
 
 func (self *SRegion) ec2Request(apiName string, params map[string]string, retval interface{}) error {
-	session, err := self.getAwsSession()
-	if err != nil {
-		return err
-	}
-	c := session.ClientConfig(EC2_SERVICE_NAME)
-	metadata := metadata.ClientInfo{
-		ServiceName:   EC2_SERVICE_NAME,
-		ServiceID:     EC2_SERVICE_ID,
-		SigningName:   c.SigningName,
-		SigningRegion: c.SigningRegion,
-		Endpoint:      c.Endpoint,
-		APIVersion:    "2016-11-15",
-	}
-
-	requestErr := aws.LogDebugWithRequestErrors
-
-	c.Config.LogLevel = &requestErr
-
-	client := client.New(*c.Config, metadata, c.Handlers)
-	client.Handlers.Sign.PushBackNamed(v4.SignRequestHandler)
-	client.Handlers.Build.PushBackNamed(buildHandler)
-	client.Handlers.Unmarshal.PushBackNamed(UnmarshalHandler)
-	client.Handlers.UnmarshalMeta.PushBackNamed(query.UnmarshalMetaHandler)
-	client.Handlers.UnmarshalError.PushBackNamed(query.UnmarshalErrorHandler)
-	return jsonRequest(client, apiName, params, retval, true)
+	return self.client.request(self.RegionId, EC2_SERVICE_NAME, EC2_SERVICE_ID, "2016-11-15", apiName, params, retval)
 }
 
 func (self *SRegion) cloudWatchRequest(apiName string, params *cloudwatch.GetMetricStatisticsInput,
