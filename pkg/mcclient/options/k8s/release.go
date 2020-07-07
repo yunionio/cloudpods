@@ -18,6 +18,7 @@ import (
 	"io/ioutil"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 )
 
 type ReleaseListOptions struct {
@@ -96,7 +97,11 @@ func (o ReleaseCreateUpdateOptions) Params() (*jsonutils.JSONDict, error) {
 		if err != nil {
 			return nil, err
 		}
-		params.Add(jsonutils.NewString(string(vals)), "values")
+		valsJson, err := jsonutils.ParseYAML(string(vals))
+		if err != nil {
+			return nil, errors.Wrap(err, "parse yaml values")
+		}
+		params.Add(valsJson, "values_json")
 	}
 	return params, nil
 }
