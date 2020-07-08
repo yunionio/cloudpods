@@ -654,7 +654,6 @@ type SCreateVMParam struct {
 	Cdrom        jsonutils.JSONObject
 	Disks        []SDiskInfo
 	Nics         []jsonutils.JSONObject
-	GroupId      string // resourcePoolId
 	ResourcePool string
 }
 
@@ -842,7 +841,7 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 		return nil, errors.Wrap(err, "object.DataCenter.Folders")
 	}
 	vmFolder := folders.VmFolder
-	resourcePool, err := self.SyncResourcePool(params.GroupId, params.ResourcePool)
+	resourcePool, err := self.SyncResourcePool(params.ResourcePool)
 	if err != nil {
 		return nil, errors.Wrap(err, "SyncResourcePool")
 	}
@@ -983,9 +982,9 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 	if err != nil {
 		return nil, errors.Wrap(err, "object.DataCenter.Folders")
 	}
-	resourcePool, err := host.GetResourcePool()
+	resourcePool, err := host.SyncResourcePool(params.ResourcePool)
 	if err != nil {
-		return nil, errors.Wrap(err, "SHost.GetResourcePool")
+		return nil, errors.Wrap(err, "SyncResourcePool")
 	}
 
 	folderref := folders.VmFolder.Reference()
@@ -1408,15 +1407,15 @@ func (host *SHost) GetCluster() (*SCluster, error) {
 	return NewCluster(host.manager, cluster, host.datacenter), nil
 }
 
-func (host *SHost) SyncResourcePool(groupId, name string) (*object.ResourcePool, error) {
+func (host *SHost) SyncResourcePool(name string) (*object.ResourcePool, error) {
 	cluster, err := host.GetCluster()
 	if err != nil {
 		log.Errorf("failed to get host %s cluster info: %v", host.GetName(), err)
 		return host.GetResourcePool()
 	}
-	pool, err := cluster.SyncResourcePool(groupId, name)
+	pool, err := cluster.SyncResourcePool(name)
 	if err != nil {
-		log.Errorf("failed to sync resourcePool(%s, %s) for cluster %s error: %v", groupId, name, cluster.GetName(), err)
+		log.Errorf("failed to sync resourcePool(%s) for cluster %s error: %v", name, cluster.GetName(), err)
 		return host.GetResourcePool()
 	}
 	return object.NewResourcePool(host.manager.client.Client, pool.Reference()), nil
