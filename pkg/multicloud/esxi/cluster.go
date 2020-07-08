@@ -92,13 +92,13 @@ func (cluster *SCluster) CreateResourcePool(name string) (*mo.ResourcePool, erro
 	return nil, errors.Wrap(cloudprovider.ErrNotFound, "AfterCreate")
 }
 
-func (cluster *SCluster) SyncResourcePool(groupId string, name string) (*mo.ResourcePool, error) {
+func (cluster *SCluster) SyncResourcePool(name string) (*mo.ResourcePool, error) {
 	pools, err := cluster.ListResourcePools()
 	if err != nil {
 		return nil, errors.Wrap(err, "ListResourcePools")
 	}
 	for i := range pools {
-		if pools[i].Self.Value == groupId || pools[i].Entity().Name == name {
+		if pools[i].Entity().Name == name {
 			return &pools[i], nil
 		}
 	}

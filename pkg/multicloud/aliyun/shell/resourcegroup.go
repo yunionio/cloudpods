@@ -32,4 +32,31 @@ func init() {
 		printList(groups, 0, 0, 0, nil)
 		return nil
 	})
+
+	type ResourceGroupShowOptions struct {
+		ID string
+	}
+
+	shellutils.R(&ResourceGroupShowOptions{}, "resource-group-show", "Show resource group", func(cli *aliyun.SRegion, args *ResourceGroupShowOptions) error {
+		group, err := cli.GetClient().GetResourceGroup(args.ID)
+		if err != nil {
+			return err
+		}
+		printObject(group)
+		return nil
+	})
+
+	type ResourceGroupCreateOptions struct {
+		NAME string
+	}
+
+	shellutils.R(&ResourceGroupCreateOptions{}, "resource-group-create", "Create resource group", func(cli *aliyun.SRegion, args *ResourceGroupCreateOptions) error {
+		group, err := cli.GetClient().CreateResourceGroup(args.NAME)
+		if err != nil {
+			return err
+		}
+		printObject(group)
+		return nil
+	})
+
 }

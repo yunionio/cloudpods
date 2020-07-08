@@ -25,8 +25,7 @@ const (
 )
 
 type ExternalProjectDetails struct {
-	apis.StatusStandaloneResourceDetails
-	apis.ProjectizedResourceInfo
+	apis.VirtualResourceDetails
 	ManagedResourceInfo
 
 	SExternalProject

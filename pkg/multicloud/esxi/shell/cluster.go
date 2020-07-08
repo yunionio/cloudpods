@@ -63,7 +63,6 @@ func init() {
 	type ClusterPoolSyncOptions struct {
 		DATACENTER string `help:"List clusters in datacenter"`
 		CLUSTER    string `help:"List cluster resource pool"`
-		GroupId    string `help:"Resource pool Id"`
 		Name       string `help:"Resource pool name"`
 	}
 
@@ -76,7 +75,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		pool, err := cluster.SyncResourcePool(args.GroupId, args.Name)
+		pool, err := cluster.SyncResourcePool(args.Name)
 		if err != nil {
 			return errors.Wrap(err, "SyncResourcePool")
 		}
