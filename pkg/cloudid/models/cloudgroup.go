@@ -768,9 +768,11 @@ func (self *SCloudgroup) attachPolicyFromCloudpolicy(ctx context.Context, userCr
 	up := &SCloudgroupPolicy{}
 	up.SetModelManager(CloudgroupPolicyManager, up)
 	up.CloudgroupId = self.Id
-	p, err := db.FetchByExternalId(CloudpolicyManager, iPolicy.GetGlobalId())
+	p, err := db.FetchByExternalIdAndManagerId(CloudpolicyManager, iPolicy.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.Equals("provider", self.Provider)
+	})
 	if err != nil {
-		return errors.Wrapf(err, "db.FetchByExternalId(%s)", iPolicy.GetGlobalId())
+		return errors.Wrapf(err, "db.FetchByExternalIdAndManagerId(%s)", iPolicy.GetGlobalId())
 	}
 	_, err = self.GetCloudpolicy(p.GetId())
 	if err != nil {

@@ -35,11 +35,11 @@ type SClouduser struct {
 }
 
 func (user *SClouduser) AttachSystemPolicy(policyArn string) error {
-	return user.client.AttachPolicy(user.UserName, policyArn)
+	return user.client.AttachPolicy(user.UserName, user.client.getIamArn(policyArn))
 }
 
-func (user *SClouduser) DetachSystemPolicy(policyId string) error {
-	return user.client.DetachPolicy(user.UserName, policyId)
+func (user *SClouduser) DetachSystemPolicy(policyArn string) error {
+	return user.client.DetachPolicy(user.UserName, user.client.getIamArn(policyArn))
 }
 
 func (user *SClouduser) GetGlobalId() string {
@@ -84,40 +84,10 @@ func (user *SClouduser) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
 	return ret, nil
 }
 
-func (self *SAwsClient) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	policies := []SPolicy{}
-	marker := ""
-	for {
-		part, err := self.GetPolicies(marker, 1000, false, "", "", "")
-		if err != nil {
-			return nil, errors.Wrap(err, "GetPolicies")
-		}
-		policies = append(policies, part.Policies...)
-		marker = part.Marker
-		if len(marker) == 0 {
-			break
-		}
-	}
-	ret := []cloudprovider.ICloudpolicy{}
-	for i := range policies {
-		ret = append(ret, &policies[i])
-	}
-	return ret, nil
-}
-
 func (user *SClouduser) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	policies := []SAttachdPolicy{}
-	marker := ""
-	for {
-		part, err := user.client.GetAttachedPolicies(user.UserName, marker, 1000, "")
-		if err != nil {
-			return nil, errors.Wrap(err, "GetAttachedPolicies")
-		}
-		policies = append(policies, part.AttachedPolicies...)
-		marker = part.Marker
-		if len(marker) == 0 {
-			break
-		}
+	policies, err := user.client.ListUserAttachedPolicies(user.UserName)
+	if err != nil {
+		return nil, errors.Wrap(err, "ListUserAttachPolicies")
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range policies {
@@ -145,12 +115,12 @@ func (user *SClouduser) Delete() error {
 			break
 		}
 	}
-	policies, err := user.GetISystemCloudpolicies()
+	policies, err := user.client.ListUserAttachedPolicies(user.UserName)
 	if err != nil {
-		return errors.Wrap(err, "GetICloudpolicies")
+		return errors.Wrap(err, "ListUserAttachPolicies")
 	}
 	for i := range policies {
-		err = user.DetachSystemPolicy(policies[i].GetGlobalId())
+		err = user.DetachSystemPolicy(policies[i].PolicyArn)
 		if err != nil {
 			return errors.Wrap(err, "DetachPolicy")
 		}
@@ -210,98 +180,6 @@ func (self *SAwsClient) DeleteClouduser(name string) error {
 	return self.iamRequest("DeleteUser", params, nil)
 }
 
-type SClouduserPolicy struct {
-	Member []string `xml:"member"`
-}
-
-type SClouduserPolicies struct {
-	PolicyNames SClouduserPolicy `xml:"PolicyNames"`
-	IsTruncated bool             `xml:"IsTruncated"`
-}
-
-func (self *SAwsClient) GetClouduserPolicies(userName string, marker string, maxItems int) (*SClouduserPolicies, error) {
-	if maxItems <= 0 || maxItems > 1000 {
-		maxItems = 1000
-	}
-	params := map[string]string{
-		"UserName": userName,
-		"MaxItems": fmt.Sprintf("%d", maxItems),
-	}
-	if len(marker) > 0 {
-		params["Marker"] = marker
-	}
-	policies := SClouduserPolicies{}
-	err := self.iamRequest("ListUserPolicies", params, &policies)
-	if err != nil {
-		return nil, errors.Wrap(err, "iamRequest.ListUserPolicies")
-	}
-	return &policies, nil
-}
-
-type SPolicy struct {
-	PolicyName       string    `xml:"PolicyName"`
-	DefaultVersionId string    `xml:"DefaultVersionId"`
-	PolicyId         string    `xml:"PolicyId"`
-	Path             string    `xml:"Path"`
-	Arn              string    `xml:"Arn"`
-	AttachmentCount  int       `xml:"AttachmentCount"`
-	CreateDate       time.Time `xml:"CreateDate"`
-	UpdateDate       time.Time `xml:"UpdateDate"`
-}
-
-func (policy *SPolicy) GetName() string {
-	return policy.PolicyName
-}
-
-func (policy *SPolicy) GetGlobalId() string {
-	return policy.Arn
-}
-
-func (policy *SPolicy) GetPolicyType() string {
-	return policy.PolicyName
-}
-
-func (policy *SPolicy) GetDescription() string {
-	return ""
-}
-
-type SPolicies struct {
-	IsTruncated bool      `xml:"IsTruncated"`
-	Marker      string    `xml:"Marker"`
-	Policies    []SPolicy `xml:"Policies>member"`
-}
-
-func (self *SAwsClient) GetPolicies(marker string, maxItems int, onlyAttached bool, pathPrefix string, policyUsageFilter string, scope string) (*SPolicies, error) {
-	if maxItems <= 0 || maxItems > 1000 {
-		maxItems = 1000
-	}
-
-	params := map[string]string{
-		"MaxItems": fmt.Sprintf("%d", maxItems),
-	}
-	if len(marker) > 0 {
-		params["Marker"] = marker
-	}
-	if onlyAttached {
-		params["OnlyAttached"] = "true"
-	}
-	if len(pathPrefix) > 0 {
-		params["PathPrefix"] = pathPrefix
-	}
-	if len(policyUsageFilter) > 0 {
-		params["PolicyUsageFilter"] = policyUsageFilter
-	}
-	if len(scope) > 0 {
-		params["Scope"] = scope
-	}
-	policies := &SPolicies{}
-	err := self.iamRequest("ListPolicies", params, policies)
-	if err != nil {
-		return nil, errors.Wrap(err, "iamRequest.ListPolicies")
-	}
-	return policies, nil
-}
-
 func (self *SAwsClient) AttachPolicy(userName string, policyArn string) error {
 	params := map[string]string{
 		"PolicyArn": policyArn,
@@ -355,7 +233,7 @@ func (self *SAwsClient) GetClouduser(name string) (*SClouduser, error) {
 	return &user.User, nil
 }
 
-func (self *SAwsClient) GetICloudusers() ([]cloudprovider.IClouduser, error) {
+func (self *SAwsClient) ListUsers() ([]SClouduser, error) {
 	users := []SClouduser{}
 	marker := ""
 	for {
@@ -369,61 +247,20 @@ func (self *SAwsClient) GetICloudusers() ([]cloudprovider.IClouduser, error) {
 		}
 		marker = part.Marker
 	}
+	return users, nil
+}
+
+func (self *SAwsClient) GetICloudusers() ([]cloudprovider.IClouduser, error) {
+	users, err := self.ListUsers()
+	if err != nil {
+		return nil, err
+	}
 	ret := []cloudprovider.IClouduser{}
 	for i := range users {
 		users[i].client = self
 		ret = append(ret, &users[i])
 	}
 	return ret, nil
-}
-
-type SAttachdPolicy struct {
-	client     *SAwsClient
-	PolicyName string `xml:"PolicyName"`
-	PolicyArn  string `xml:"PolicyArn"`
-}
-
-func (policy *SAttachdPolicy) GetGlobalId() string {
-	return policy.PolicyArn
-}
-
-func (policy *SAttachdPolicy) GetName() string {
-	return policy.PolicyName
-}
-
-func (policy *SAttachdPolicy) GetPolicyType() string {
-	return policy.PolicyName
-}
-
-func (policy *SAttachdPolicy) GetDescription() string {
-	return ""
-}
-
-type SAttachdPolicies struct {
-	Marker           string           `xml:"Marker"`
-	AttachedPolicies []SAttachdPolicy `xml:"AttachedPolicies>member"`
-}
-
-func (self *SAwsClient) GetAttachedPolicies(name string, marker string, maxItems int, pathPrefix string) (*SAttachdPolicies, error) {
-	if maxItems <= 0 || maxItems > 1000 {
-		maxItems = 1000
-	}
-	params := map[string]string{
-		"UserName": name,
-		"MaxItems": fmt.Sprintf("%d", maxItems),
-	}
-	if len(marker) > 0 {
-		params["Marker"] = marker
-	}
-	if len(pathPrefix) > 0 {
-		params["PathPrefix"] = pathPrefix
-	}
-	policies := &SAttachdPolicies{}
-	err := self.iamRequest("ListAttachedUserPolicies", params, policies)
-	if err != nil {
-		return nil, errors.Wrap(err, "iamRequest.ListAttachedUserPolicies")
-	}
-	return policies, nil
 }
 
 type LoginProfile struct {

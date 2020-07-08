@@ -507,8 +507,8 @@ func (client *SAwsClient) GetIamLoginUrl() string {
 		return ""
 	}
 
-	switch client.accessUrl {
-	case "ChinaCloud":
+	switch client.GetAccessEnv() {
+	case api.CLOUD_ACCESS_ENV_AWS_CHINA:
 		return fmt.Sprintf("https://%s.signin.amazonaws.cn/console/", identity.Account)
 	default:
 		return fmt.Sprintf("https://%s.signin.aws.amazon.com/console/", identity.Account)
