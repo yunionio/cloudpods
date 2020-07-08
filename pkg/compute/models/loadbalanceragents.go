@@ -764,7 +764,7 @@ func (lbagent *SLoadbalancerAgent) PerformHb(ctx context.Context, userCred mccli
 		lbagent.HbLastSeen = time.Now()
 		if jVer, err := data.Get("version"); err == nil {
 			if jVerStr, ok := jVer.(*jsonutils.JSONString); ok {
-				lbagent.Version = jVerStr.Value()
+				lbagent.Version, _ = jVerStr.GetString()
 			}
 		}
 		if ipV.IP != nil {

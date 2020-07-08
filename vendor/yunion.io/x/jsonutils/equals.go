@@ -14,7 +14,9 @@
 
 package jsonutils
 
-// import "yunion.io/x/pkg/gotypes"
+import (
+	"yunion.io/x/pkg/sortedmap"
+)
 
 func (dict *JSONDict) Equals(json JSONObject) bool {
 	dict2, ok := json.(*JSONDict)
@@ -24,12 +26,16 @@ func (dict *JSONDict) Equals(json JSONObject) bool {
 	if len(dict.data) != len(dict2.data) {
 		return false
 	}
-	for k, v := range dict.data {
-		v2, ok := dict2.data[k]
-		if !ok {
-			return false
-		}
-		if !v.Equals(v2) {
+	aNoB, aB, bA, bNoA := sortedmap.Split(dict.data, dict2.data)
+	if len(aNoB) > 0 || len(bNoA) > 0 {
+		return false
+	}
+	for _, k := range aB.Keys() {
+		aVal, _ := aB.Get(k)
+		bVal, _ := bA.Get(k)
+		aJson := aVal.(JSONObject)
+		bJson := bVal.(JSONObject)
+		if !aJson.Equals(bJson) {
 			return false
 		}
 	}

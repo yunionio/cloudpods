@@ -180,10 +180,10 @@ func getResourceObjLogOfAction(param logInput) []jsonutils.JSONObject {
 	list, err := mod.Logs.List(session, jsonutils.Marshal(&param))
 	if err != nil {
 		log.Errorln("get Logs err", err)
-		return jsonutils.NewArray().Value()
+		return []jsonutils.JSONObject{}
 	}
 	if list == nil || len(list.Data) == 0 {
-		return jsonutils.NewArray().Value()
+		return []jsonutils.JSONObject{}
 	}
 	return list.Data
 }

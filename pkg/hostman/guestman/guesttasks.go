@@ -184,8 +184,13 @@ func (d *SGuestDiskSyncTask) changeCdrom() {
 }
 
 func (d *SGuestDiskSyncTask) onGetBlockInfo(results *jsonutils.JSONArray) {
+	if results == nil {
+		return
+	}
+
 	var cdName string
-	for _, r := range results.Value() {
+	rs, _ := results.GetArray()
+	for _, r := range rs {
 		device, _ := r.GetString("device")
 		if regexp.MustCompile(`^ide\d+-cd\d+$`).MatchString(device) {
 			cdName = device

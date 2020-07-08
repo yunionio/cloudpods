@@ -17,6 +17,7 @@ package jsonutils
 import (
 	"reflect"
 
+	"yunion.io/x/pkg/sortedmap"
 	"yunion.io/x/pkg/utils"
 )
 
@@ -26,10 +27,11 @@ func (this *JSONDict) Copy(excludes ...string) *JSONDict {
 
 func (this *JSONDict) CopyExcludes(excludes ...string) *JSONDict {
 	dict := NewDict()
-	for k, v := range this.data {
+	for iter := sortedmap.NewIterator(this.data); iter.HasMore(); iter.Next() {
+		k, v := iter.Get()
 		exists, _ := utils.InStringArray(k, excludes)
 		if !exists {
-			dict.data[k] = v
+			dict.Set(k, v.(JSONObject))
 		}
 	}
 	return dict
@@ -37,10 +39,11 @@ func (this *JSONDict) CopyExcludes(excludes ...string) *JSONDict {
 
 func (this *JSONDict) CopyIncludes(includes ...string) *JSONDict {
 	dict := NewDict()
-	for k, v := range this.data {
+	for iter := sortedmap.NewIterator(this.data); iter.HasMore(); iter.Next() {
+		k, v := iter.Get()
 		exists, _ := utils.InStringArray(k, includes)
 		if exists {
-			dict.data[k] = v
+			dict.Set(k, v.(JSONObject))
 		}
 	}
 	return dict
