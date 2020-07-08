@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"fmt"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/reflectutils"
 )
 
@@ -329,13 +328,10 @@ type SInCondition struct {
 
 func inConditionWhereClause(t *STupleCondition, op string) string {
 	v := varConditionWhereClause(t.right)
-	if len(v) == 0 {
-		log.Warningf("The In condition on %s was invoked with an empty sequence, "+
-			"consider alternative strategies for improved performance !!!", t.left.Name())
-		return NotEquals(t.left, t.left).WhereClause()
-	} else {
+	if len(v) != 0 {
 		return tupleConditionWhereClause(t, op)
 	}
+	return "0"
 }
 
 func (t *SInCondition) WhereClause() string {

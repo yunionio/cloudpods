@@ -659,7 +659,8 @@ func (s *SKVMGuestInstance) MirrorJobStatus() MirrorJob {
 	case v := <-res:
 		if v != nil && v.Length() >= s.DiskCount() {
 			mirrorSuccCount := 0
-			for _, val := range v.Value() {
+			vs, _ := v.GetArray()
+			for _, val := range vs {
 				jobType, _ := val.GetString("type")
 				jobStatus, _ := val.GetString("status")
 				if jobType == "mirror" && jobStatus == "ready" {

@@ -174,3 +174,7 @@ func AND_Val(name string, field IQueryField, v interface{}) IQueryField {
 func INET_ATON(field IQueryField) IQueryField {
 	return NewFunctionField("", `INET_ATON(%s)`, field)
 }
+
+func TimestampAdd(name string, field IQueryField, offsetSeconds int) IQueryField {
+	return NewFunctionField(name, `TIMESTAMPADD(SECOND, `+fmt.Sprintf("%d", offsetSeconds)+`, %s)`, field)
+}

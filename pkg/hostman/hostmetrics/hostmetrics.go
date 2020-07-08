@@ -222,14 +222,17 @@ func (s *SGuestMonitorCollector) CollectReportData() (ret string) {
 
 func (s *SGuestMonitorCollector) toTelegrafReportData(data *jsonutils.JSONDict) string {
 	ret := []string{}
-	for guestId, report := range data.Value() {
+	vs, _ := data.GetMap()
+	for guestId, report := range vs {
 		var vmName, vmIp, scalingGroupId string
 		if gm, ok := s.monitors[guestId]; ok {
 			vmName = gm.Name
 			vmIp = gm.Ip
 			scalingGroupId = gm.ScalingGroupId
 		}
-		for metrics, stat := range report.(*jsonutils.JSONDict).Value() {
+
+		rs, _ := report.(*jsonutils.JSONDict).GetMap()
+		for metrics, stat := range rs {
 			tags := map[string]string{
 				"vm_id": guestId, "vm_name": vmName, "vm_ip": vmIp,
 				"is_vm": "true", "platform": "kvm",
@@ -241,7 +244,8 @@ func (s *SGuestMonitorCollector) toTelegrafReportData(data *jsonutils.JSONDict) 
 				line := s.addTelegrafLine(metrics, tags, val)
 				ret = append(ret, line)
 			} else if val, ok := stat.(*jsonutils.JSONArray); ok {
-				for _, statItem := range val.Value() {
+				ss, _ := val.GetArray()
+				for _, statItem := range ss {
 					line := s.addTelegrafLine(metrics, tags, statItem.(*jsonutils.JSONDict))
 					ret = append(ret, line)
 				}
@@ -267,7 +271,8 @@ func (s *SGuestMonitorCollector) addTelegrafLine(
 	tagStr := strings.Join(tagArr, ",")
 
 	var statArr = []string{}
-	for k, v := range stat.Value() {
+	ss, _ := stat.GetMap()
+	for k, v := range ss {
 		statArr = append(statArr, fmt.Sprintf("%s=%s", k, v.String()))
 	}
 	statStr := strings.Join(statArr, ",")
@@ -275,7 +280,8 @@ func (s *SGuestMonitorCollector) addTelegrafLine(
 }
 
 func (s *SGuestMonitorCollector) cleanedPrevData(gms map[string]*SGuestMonitor) {
-	for guestId := range s.prevReportData.Value() {
+	rs, _ := s.prevReportData.GetMap()
+	for guestId := range rs {
 		if gm, ok := gms[guestId]; !ok {
 			s.prevReportData.Remove(guestId)
 			delete(s.prevPids, guestId)
