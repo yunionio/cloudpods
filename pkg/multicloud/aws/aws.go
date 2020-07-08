@@ -404,8 +404,11 @@ func (self *SAwsClient) GetAccessEnv() string {
 	}
 }
 
-func (self *SAwsClient) request(serviceName, serviceId, apiVersion string, apiName string, params map[string]string, retval interface{}) error {
-	session, err := self.getAwsSession("")
+func (self *SAwsClient) request(regionId, serviceName, serviceId, apiVersion string, apiName string, params map[string]string, retval interface{}) error {
+	if len(regionId) == 0 {
+		regionId = self.getDefaultRegionId()
+	}
+	session, err := self.getAwsSession(regionId)
 	if err != nil {
 		return err
 	}
@@ -436,11 +439,11 @@ func (self *SAwsClient) request(serviceName, serviceId, apiVersion string, apiNa
 }
 
 func (self *SAwsClient) iamRequest(apiName string, params map[string]string, retval interface{}) error {
-	return self.request(IAM_SERVICE_NAME, IAM_SERVICE_ID, "2010-05-08", apiName, params, retval)
+	return self.request("", IAM_SERVICE_NAME, IAM_SERVICE_ID, "2010-05-08", apiName, params, retval)
 }
 
 func (self *SAwsClient) stsRequest(apiName string, params map[string]string, retval interface{}) error {
-	return self.request(STS_SERVICE_NAME, STS_SERVICE_ID, "2011-06-15", apiName, params, retval)
+	return self.request("", STS_SERVICE_NAME, STS_SERVICE_ID, "2011-06-15", apiName, params, retval)
 }
 
 func jsonRequest(cli *client.Client, apiName string, params map[string]string, retval interface{}, debug bool) error {
