@@ -2306,6 +2306,22 @@ func (self *SCloudaccount) GetExternalProjects() ([]SExternalProject, error) {
 	return projects, nil
 }
 
+func (self *SCloudaccount) GetExternalProjectsByProjectIdOrName(projectId, name string) ([]SExternalProject, error) {
+	projects := []SExternalProject{}
+	q := ExternalProjectManager.Query().Equals("cloudaccount_id", self.Id)
+	q = q.Filter(
+		sqlchemy.OR(
+			sqlchemy.Equals(q.Field("name"), name),
+			sqlchemy.Equals(q.Field("tenant_id"), projectId),
+		),
+	)
+	err := db.FetchModelObjects(ExternalProjectManager, q, &projects)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
+	}
+	return projects, nil
+}
+
 func (manager *SCloudaccountManager) queryCloudAccountByCapability(region *SCloudregion, zone *SZone, domainId string, enabled tristate.TriState, capability string) *sqlchemy.SQuery {
 	providers := CloudproviderManager.Query().SubQuery()
 	q := manager.Query()
@@ -2398,64 +2414,77 @@ func (account *SCloudaccount) GetUsages() []db.IUsage {
 	}
 }
 
-func (self *SCloudaccount) GetExternalProject(ctx context.Context, userCred mcclient.TokenCredential, id string) (*SExternalProject, string, error) {
-	projects, err := self.GetExternalProjects()
-	if err != nil {
-		return nil, "", errors.Wrap(err, "GetExternalProjects")
-	}
-	for i := range projects {
-		if projects[i].ProjectId == id && projects[i].Status == api.EXTERNAL_PROJECT_STATUS_AVAILABLE {
-			return &projects[i], projects[i].Name, nil
-		}
-	}
-
-	project, err := db.TenantCacheManager.FetchById(id)
-	if err != nil {
-		return nil, "", errors.Wrap(err, "TenantCacheManager.FetchById")
-	}
-
-	for i := range projects {
-		if projects[i].Name == project.GetName() {
-			if projects[i].Status != api.EXTERNAL_PROJECT_STATUS_AVAILABLE {
-				return nil, "", fmt.Errorf("external project %s not available", projects[i].Name)
+func (self *SCloudaccount) GetAvailableExternalProject(local *db.STenant, projects []SExternalProject) *SExternalProject {
+	var ret *SExternalProject = nil
+	for i := 0; i < len(projects); i++ {
+		if projects[i].Status == api.EXTERNAL_PROJECT_STATUS_AVAILABLE {
+			if projects[i].ProjectId == local.Id {
+				return &projects[i]
 			}
-			return &projects[i], project.GetName(), nil
+			if projects[i].Name == local.Name {
+				ret = &projects[i]
+			}
 		}
 	}
-	return nil, project.GetName(), cloudprovider.ErrNotFound
+	return ret
 }
 
-func (self *SCloudaccount) SyncProject(ctx context.Context, userCred mcclient.TokenCredential, id string) (string, error) {
-	lockman.LockRawObject(ctx, self.Id, id)
-	defer lockman.ReleaseRawObject(ctx, self.Id, id)
-
-	project, projectName, err := self.GetExternalProject(ctx, userCred, id)
-	if err == nil {
-		return project.ExternalId, nil
-	}
-	if err != cloudprovider.ErrNotFound {
-		return "", err
-	}
-
-	if len(projectName) == 0 {
-		return "", fmt.Errorf("empty project name")
-	}
+// 若本地项目映射了多个云上项目，则在云上随机找一个项目
+// 若本地项目没有映射云上任何项目，则在云上新建一个同名项目
+// 若本地项目a映射云上项目b，但b项目不可用,则看云上是否有a项目，有则直接使用,若没有则在云上创建a-1, a-2类似项目
+func (self *SCloudaccount) SyncProject(ctx context.Context, userCred mcclient.TokenCredential, projectId string) (string, error) {
+	lockman.LockRawObject(ctx, self.Id, projectId)
+	defer lockman.ReleaseRawObject(ctx, self.Id, projectId)
 
 	provider, err := self.GetProvider()
 	if err != nil {
 		return "", errors.Wrap(err, "GetProvider")
 	}
-	iProject, err := provider.CreateIProject(projectName)
+
+	if !cloudprovider.IsSupportProject(provider) {
+		return "", nil
+	}
+
+	project, err := db.TenantCacheManager.FetchTenantById(ctx, projectId)
+	if err != nil {
+		return "", errors.Wrapf(err, "FetchTenantById(%s)", projectId)
+	}
+
+	projects, err := self.GetExternalProjectsByProjectIdOrName(projectId, project.Name)
+	if err != nil {
+		return "", errors.Wrapf(err, "GetExternalProjectsByProjectIdOrName(%s,%s)", projectId, project.Name)
+	}
+
+	extProj := self.GetAvailableExternalProject(project, projects)
+	if extProj != nil {
+		return extProj.ExternalId, nil
+	}
+
+	retry := 1
+	if len(projects) > 0 {
+		retry = 10
+	}
+
+	var iProject cloudprovider.ICloudProject = nil
+	projectName := project.Name
+	for i := 0; i < retry; i++ {
+		iProject, err = provider.CreateIProject(projectName)
+		if err == nil {
+			break
+		}
+		projectName = fmt.Sprintf("%s-%d", project.Name, i)
+	}
 	if err != nil {
 		if errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
 			logclient.AddSimpleActionLog(self, logclient.ACT_CREATE, err, userCred, false)
-			return "", errors.Wrap(err, "CreateIProject")
 		}
-		return "", nil
+		return "", errors.Wrapf(err, "CreateIProject(%s)", projectName)
 	}
-	extProj, err := ExternalProjectManager.newFromCloudProject(ctx, userCred, self, iProject)
+
+	extProj, err = ExternalProjectManager.newFromCloudProject(ctx, userCred, self, project, iProject)
 	if err != nil {
 		return "", errors.Wrap(err, "newFromCloudProject")
 	}
+
 	return extProj.ExternalId, nil
 }

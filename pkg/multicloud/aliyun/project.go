@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -27,6 +28,7 @@ import (
 
 type SResourceGroup struct {
 	multicloud.SResourceBase
+	client *SAliyunClient
 
 	Status      string
 	AccountId   string
@@ -49,6 +51,14 @@ func (self *SResourceGroup) GetName() string {
 		return self.DisplayName
 	}
 	return self.Name
+}
+
+func (self *SResourceGroup) Refresh() error {
+	group, err := self.client.GetResourceGroup(self.Id)
+	if err != nil {
+		return errors.Wrap(err, "GetResourceGroup")
+	}
+	return jsonutils.Update(self, group)
 }
 
 func (self *SResourceGroup) GetStatus() string {
@@ -89,14 +99,14 @@ func (self *SAliyunClient) GetResourceGroups(pageNumber int, pageSize int) ([]SR
 }
 
 func (self *SAliyunClient) CreateIProject(name string) (cloudprovider.ICloudProject, error) {
-	project, err := self.CreateProject(name)
+	group, err := self.CreateResourceGroup(name)
 	if err != nil {
 		return nil, errors.Wrap(err, "CreateProject")
 	}
-	return project, nil
+	return group, nil
 }
 
-func (self *SAliyunClient) CreateProject(name string) (*SResourceGroup, error) {
+func (self *SAliyunClient) CreateResourceGroup(name string) (*SResourceGroup, error) {
 	params := map[string]string{
 		"DisplayName": name,
 		"Name":        name,
@@ -105,10 +115,30 @@ func (self *SAliyunClient) CreateProject(name string) (*SResourceGroup, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "CreateResourceGroup")
 	}
-	group := SResourceGroup{}
-	err = resp.Unmarshal(&group, "ResourceGroup")
+	group := &SResourceGroup{client: self}
+	err = resp.Unmarshal(group, "ResourceGroup")
 	if err != nil {
 		return nil, errors.Wrap(err, "resp.Unmarshal")
 	}
-	return &group, nil
+	err = cloudprovider.WaitStatus(group, api.EXTERNAL_PROJECT_STATUS_AVAILABLE, time.Second*5, time.Minute*3)
+	if err != nil {
+		return nil, errors.Wrap(err, "WaitStatus")
+	}
+	return group, nil
+}
+
+func (self *SAliyunClient) GetResourceGroup(id string) (*SResourceGroup, error) {
+	params := map[string]string{
+		"ResourceGroupId": id,
+	}
+	resp, err := self.rmRequest("GetResourceGroup", params)
+	if err != nil {
+		return nil, err
+	}
+	group := &SResourceGroup{client: self}
+	err = resp.Unmarshal(group, "ResourceGroup")
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return group, nil
 }
