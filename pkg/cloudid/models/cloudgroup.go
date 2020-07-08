@@ -61,7 +61,7 @@ type SCloudgroup struct {
 }
 
 func (manager *SCloudgroupManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsDomainAllowList(userCred, manager)
+	return true
 }
 
 // 权限组列表

@@ -1209,6 +1209,13 @@ func (self *SClouduser) AllowPerformChangeOwner(ctx context.Context, userCred mc
 
 // 变更子账号所属本地用户
 func (self *SClouduser) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ClouduserChangeOwnerInput) (jsonutils.JSONObject, error) {
+	if len(self.OwnerId) > 0 {
+		user, err := db.UserCacheManager.FetchUserById(ctx, self.OwnerId)
+		if err != nil || user.DomainId != self.DomainId && !userCred.HasSystemAdminPrivilege() {
+			return nil, httperrors.NewForbiddenError("Not allow to change owner")
+		}
+	}
+
 	user, err := db.UserCacheManager.FetchUserById(ctx, input.UserId)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "Not found user %s", input.UserId))
