@@ -109,7 +109,7 @@ func (user *SClouduser) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
 	groups := []SCloudgroup{}
 	page := 1
 	for {
-		part, total, err := user.client.ListGroupsForUser(fmt.Sprintf("%d", user.Uin), page, 50)
+		part, total, err := user.client.ListGroupsForUser(fmt.Sprintf("%d", user.Uin), 50, page)
 		if err != nil {
 			return nil, errors.Wrap(err, "ListGroupsForUser")
 		}
