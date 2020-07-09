@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	proxyapi "yunion.io/x/onecloud/pkg/apis/cloudcommon/proxy"
 	api "yunion.io/x/onecloud/pkg/apis/cloudid"
@@ -70,6 +71,10 @@ type SCloudaccount struct {
 	Provider    string `width:"64" charset:"ascii" list:"domain"`
 	Brand       string `width:"64" charset:"utf8" nullable:"true" list:"domain"`
 	IamLoginUrl string `width:"512" charset:"ascii"`
+}
+
+func (manager *SCloudaccountManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
+	return []db.SScopeResourceCount{}, nil
 }
 
 func (manager *SCloudaccountManager) GetICloudaccounts() ([]SCloudaccount, error) {
@@ -794,7 +799,9 @@ func (self *SCloudaccount) GetOrCreateCloudgroup(ctx context.Context, userCred m
 	}
 
 	for i := range iPolicies {
-		_, err := db.FetchByExternalId(CloudpolicyManager, iPolicies[i].GetGlobalId())
+		_, err := db.FetchByExternalIdAndManagerId(CloudpolicyManager, iPolicies[i].GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			return q.Equals("provider", self.Provider)
+		})
 		if err == nil {
 			continue
 		}
