@@ -227,6 +227,9 @@ func (s *SBaseStorage) SetStorageInfo(storageId, storageName string, conf jsonut
 	if dconf, ok := conf.(*jsonutils.JSONDict); ok {
 		s.StorageConf = dconf
 	}
+	if strings.HasPrefix(s.Path, "/opt/cloud") {
+		return nil
+	}
 	if !s.isSetStorageInfo && options.HostOptions.EnableRemoteExecutor {
 		err := s.bindMountTo(s.Path)
 		if err == nil {
@@ -245,18 +248,18 @@ func (s *SBaseStorage) bindMountTo(sPath string) error {
 	}
 	out, err = procutils.NewCommand("mkdir", "-p", sPath).Output()
 	if err != nil {
-		errors.Errorf("mkdir mount path %s failed %s", sPath, out)
+		return errors.Errorf("mkdir mount path %s failed %s", sPath, out)
 	}
 	if procutils.NewCommand("mountpoint", tempPath).Run() != nil {
 		out, err = procutils.NewRemoteCommandAsFarAsPossible("mount", "--bind", sPath, tempPath).Output()
 		if err != nil {
-			errors.Errorf("bind mount to temp path failed %s", out)
+			return errors.Errorf("bind mount to temp path failed %s", out)
 		}
 	}
 	if procutils.NewCommand("mountpoint", sPath).Run() != nil {
 		out, err = procutils.NewCommand("mount", "--bind", tempPath, sPath).Output()
 		if err != nil {
-			errors.Errorf("bind mount temp path to local image path failed %s", out)
+			return errors.Errorf("bind mount temp path to local image path failed %s", out)
 		}
 	}
 	return nil
