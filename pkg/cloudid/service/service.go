@@ -27,6 +27,7 @@ import (
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudid/models"
 	"yunion.io/x/onecloud/pkg/cloudid/options"
+	_ "yunion.io/x/onecloud/pkg/cloudid/policy"
 	_ "yunion.io/x/onecloud/pkg/cloudid/tasks"
 	_ "yunion.io/x/onecloud/pkg/multicloud/loader"
 )
