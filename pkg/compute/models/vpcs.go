@@ -1268,3 +1268,21 @@ func (vpc *SVpc) PerformPrivate(ctx context.Context, userCred mcclient.TokenCred
 	}
 	return vpc.SEnabledStatusInfrasResourceBase.PerformPrivate(ctx, userCred, query, input)
 }
+
+func (vpc *SVpc) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeDomainOwnerInput) (jsonutils.JSONObject, error) {
+	_, err := vpc.SEnabledStatusInfrasResourceBase.PerformChangeOwner(ctx, userCred, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBase.PerformChangeOwner")
+	}
+	wires := vpc.GetWires()
+	for i := range wires {
+		if wires[i].IsEmulated {
+			_, err := wires[i].PerformChangeOwner(ctx, userCred, query, input)
+			if err != nil {
+				return nil, errors.Wrap(err, "wires[i].PerformChangeOwner")
+			}
+		}
+	}
+
+	return nil, nil
+}
