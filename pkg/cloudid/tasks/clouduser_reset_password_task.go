@@ -75,6 +75,7 @@ func (self *ClouduserResetPasswordTask) OnInit(ctx context.Context, obj db.IStan
 	}
 
 	clouduser.SavePassword(password)
+	clouduser.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_AVAILABLE, "")
 	logclient.AddActionLogWithStartable(self, clouduser, logclient.ACT_RESET_PASSWORD, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
