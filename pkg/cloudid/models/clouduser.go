@@ -1253,6 +1253,19 @@ func (self *SClouduser) GetCloudgroups() ([]SCloudgroup, error) {
 	return groups, nil
 }
 
+func (self *SClouduser) GetCloudgroupPolicies() ([]SCloudpolicy, error) {
+	q := CloudpolicyManager.Query()
+	gu := CloudgroupUserManager.Query("cloudgroup_id").Equals("clouduser_id", self.Id)
+	gp := CloudgroupPolicyManager.Query("cloudpolicy_id").In("cloudgroup_id", gu.SubQuery())
+	q = q.In("id", gp.SubQuery())
+	policies := []SCloudpolicy{}
+	err := db.FetchModelObjects(CloudpolicyManager, q, &policies)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
+	}
+	return policies, nil
+}
+
 // 将本地的权限推送到云上(覆盖云上设置)
 func (self *SClouduser) SyncCloudpoliciesForCloud(ctx context.Context) (result compare.SyncResult, err error) {
 	lockman.LockObject(ctx, self)
@@ -1267,9 +1280,27 @@ func (self *SClouduser) SyncCloudpoliciesForCloud(ctx context.Context) (result c
 		return result, errors.Wrap(err, "GetISystemCloudpolicies")
 	}
 
-	dbPolicies, err := self.GetCloudpolicies()
+	var dbPolicies []SCloudpolicy
+
+	account, err := self.GetCloudaccount()
 	if err != nil {
-		return result, errors.Wrap(err, "GetCloudpolicies")
+		return result, errors.Wrap(err, "GetCloudaccount")
+	}
+
+	factory, err := account.GetProviderFactory()
+	if err != nil {
+		return result, errors.Wrap(err, "GetProviderFactory")
+	}
+	if !factory.IsSupportCreateCloudgroup() {
+		dbPolicies, err = self.GetCloudgroupPolicies()
+		if err != nil {
+			return result, errors.Wrap(err, "GetCloudgroupPolicies")
+		}
+	} else {
+		dbPolicies, err = self.GetCloudpolicies()
+		if err != nil {
+			return result, errors.Wrap(err, "GetCloudpolicies")
+		}
 	}
 
 	added := make([]SCloudpolicy, 0)
