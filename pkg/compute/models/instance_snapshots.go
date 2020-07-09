@@ -167,6 +167,7 @@ func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential,
 			Status:        snapshots[i].Status,
 			StorageType:   snapshots[i].GetStorageType(),
 		})
+		out.Size += snapshots[i].Size
 
 		if len(snapshots[i].StorageId) > 0 && out.StorageType == "" {
 			out.StorageType = snapshots[i].GetStorageType()
