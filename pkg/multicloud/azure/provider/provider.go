@@ -241,3 +241,11 @@ func (self *SAzureProvider) CreateICloudgroup(name, desc string) (cloudprovider.
 func (self *SAzureProvider) GetICloudgroupByName(name string) (cloudprovider.ICloudgroup, error) {
 	return self.client.GetICloudgroupByName(name)
 }
+
+func (self *SAzureProvider) GetEnrollmentAccounts() ([]cloudprovider.SEnrollmentAccount, error) {
+	return self.client.GetEnrollmentAccounts()
+}
+
+func (self *SAzureProvider) CreateSubscription(input cloudprovider.SubscriptionCreateInput) error {
+	return self.client.CreateSubscription(input.Name, input.EnrollmentAccountId, input.OfferType)
+}

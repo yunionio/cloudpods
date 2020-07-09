@@ -96,6 +96,7 @@ var DEFAULT_API_VERSION = map[string]string{
 	"microsoft.insights/eventtypes/management/values": "2017-03-01-preview",
 	"Microsoft.Authorization/policyDefinitions":       "2019-09-01",
 	"Microsoft.Authorization/policyAssignments":       "2019-09-01",
+	"Microsoft.Billing":                               "2018-03-01-preview",
 }
 
 var GRAPH_API_VERSION = map[string]string{
@@ -224,6 +225,21 @@ func (self *SAzureClient) Put(url string, body jsonutils.JSONObject) error {
 		return err
 	}
 	resp, err := jsonRequest(cli, "PUT", self.domain, url, self.subscriptionId, body.String(), DefaultResource)
+	if err != nil {
+		return err
+	}
+	if self.debug {
+		log.Debugf("%s", resp)
+	}
+	return nil
+}
+
+func (self *SAzureClient) POST(url string, body jsonutils.JSONObject) error {
+	cli, err := self.getDefaultClient()
+	if err != nil {
+		return err
+	}
+	resp, err := jsonRequest(cli, "POST", self.domain, url, self.subscriptionId, body.String(), DefaultResource)
 	if err != nil {
 		return err
 	}

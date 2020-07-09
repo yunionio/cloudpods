@@ -2956,3 +2956,58 @@ func (self *SCloudaccount) SyncProject(ctx context.Context, userCred mcclient.To
 
 	return extProj.ExternalId, nil
 }
+
+func (self *SCloudaccount) AllowGetDetailsEnrollmentAccounts(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsDomainAllowGetSpec(userCred, self, "enrollment-accounts")
+}
+
+// 获取Azure Enrollment Accounts
+func (self *SCloudaccount) GetDetailsEnrollmentAccounts(ctx context.Context, userCred mcclient.TokenCredential, query api.EnrollmentAccountQuery) ([]cloudprovider.SEnrollmentAccount, error) {
+	if self.Provider != api.CLOUD_PROVIDER_AZURE {
+		return nil, httperrors.NewNotSupportedError("%s not support", self.Provider)
+	}
+	provider, err := self.GetProvider()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetProvider")
+	}
+
+	result, err := provider.GetEnrollmentAccounts()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetEnrollmentAccounts")
+	}
+
+	return result, nil
+}
+
+func (self *SCloudaccount) AllowPerformCreateSubscription(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsDomainAllowPerform(userCred, self, "create-subscription")
+}
+
+// 创建Azure订阅
+func (self *SCloudaccount) PerformCreateSubscription(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SubscriptonCreateInput) (jsonutils.JSONObject, error) {
+	if self.Provider != api.CLOUD_PROVIDER_AZURE {
+		return nil, httperrors.NewNotSupportedError("%s not support create subscription")
+	}
+	if len(input.Name) == 0 {
+		return nil, httperrors.NewMissingParameterError("name")
+	}
+	if len(input.EnrollmentAccountId) == 0 {
+		return nil, httperrors.NewMissingParameterError("enrollment_account_id")
+	}
+	if len(input.OfferType) == 0 {
+		return nil, httperrors.NewMissingParameterError("offer_type")
+	}
+
+	provider, err := self.GetProvider()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetProvider")
+	}
+
+	conf := cloudprovider.SubscriptionCreateInput{
+		Name:                input.Name,
+		EnrollmentAccountId: input.EnrollmentAccountId,
+		OfferType:           input.OfferType,
+	}
+
+	return nil, provider.CreateSubscription(conf)
+}
