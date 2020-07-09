@@ -234,7 +234,7 @@ func parseConditions(conditions string) ([]*elbv2.RuleCondition, error) {
 	}
 
 	ret := []*elbv2.RuleCondition{}
-	cs := conditionArray.Value()
+	cs, _ := conditionArray.GetArray()
 	for i := range cs {
 		c, err := parseCondition(cs[i])
 		if err != nil {
@@ -253,7 +253,7 @@ func parseCondition(condition jsonutils.JSONObject) (*elbv2.RuleCondition, error
 		return nil, fmt.Errorf("parseCondition invalid condition fromat.")
 	}
 
-	dict := conditionDict.Value()
+	dict, _ := conditionDict.GetMap()
 	field, ok := dict["field"]
 	if !ok {
 		return nil, fmt.Errorf("parseCondition invalid condition, missing field: %#v", condition)
@@ -297,8 +297,9 @@ func parseHttpHeaderCondition(conditon *jsonutils.JSONDict) (*elbv2.RuleConditio
 		return nil, fmt.Errorf("parseHttpHeaderCondition missing invalid data %#v", name)
 	}
 
+	headname, _ := nameObj.GetString()
 	config := &elbv2.HttpHeaderConditionConfig{}
-	config.SetHttpHeaderName(nameObj.Value())
+	config.SetHttpHeaderName(headname)
 
 	vs, ok := values["values"]
 	if !ok {
@@ -440,14 +441,14 @@ func parseConditionStringArrayValues(values jsonutils.JSONObject) ([]*string, er
 	}
 
 	ret := []*string{}
-	vs := objs.Value()
+	vs, _ := objs.GetArray()
 	for i := range vs {
 		v, ok := vs[i].(*jsonutils.JSONString)
 		if !ok {
 			return nil, fmt.Errorf("parseConditionStringArrayValues invalid value, required string: %#v", v)
 		}
 
-		_v := v.Value()
+		_v, _ := v.GetString()
 		ret = append(ret, &_v)
 	}
 
@@ -461,7 +462,7 @@ func parseConditionDictArrayValues(values jsonutils.JSONObject) ([]*elbv2.QueryS
 	}
 
 	ret := []*elbv2.QueryStringKeyValuePair{}
-	vs := objs.Value()
+	vs, _ := objs.GetArray()
 	for i := range vs {
 		v, ok := vs[i].(*jsonutils.JSONDict)
 		if !ok {

@@ -104,7 +104,9 @@ func (rule *ScaleDown) Run(instance *monitor.SSuggestSysAlertSetting) {
 		log.Errorln(err)
 		return
 	}
-	DealAlertData(rule.GetType(), oldAlert, newAlert.Value())
+
+	na, _ := newAlert.GetArray()
+	DealAlertData(rule.GetType(), oldAlert, na)
 }
 
 func (rule *ScaleDown) getLatestAlerts(instance *monitor.SSuggestSysAlertSetting) (*jsonutils.JSONArray, error) {
@@ -205,6 +207,7 @@ func (rule *ScaleDown) getResourcesByEvalMatchsMap(evalMatchsMap map[string][]*m
 		suggestSysAlert.Problem = describeEvalResultTojson(evalMatchsMap, mappingId, mappingVal)
 		serverArr.Add(jsonutils.Marshal(suggestSysAlert))
 	}
+
 	return serverArr, nil
 }
 

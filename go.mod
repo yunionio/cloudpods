@@ -131,13 +131,13 @@ require (
 	k8s.io/cluster-bootstrap v0.17.3
 	k8s.io/kubernetes v1.16.0
 	yunion.io/x/executor v0.0.0-20200227030256-a18417815e74
-	yunion.io/x/jsonutils v0.0.0-20200701074723-fea7ff9d66b6
+	yunion.io/x/jsonutils v0.0.0-20200708073651-8fe00d01c40a
 	yunion.io/x/log v0.0.0-20200313080802-57a4ce5966b3
 	yunion.io/x/ovsdb v0.0.0-20200526071744-27bf0940cbc7
-	yunion.io/x/pkg v0.0.0-20200615071345-60a252beb982
+	yunion.io/x/pkg v0.0.0-20200708071451-a663dc94e16b
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
-	yunion.io/x/sqlchemy v0.0.0-20200608080702-9b6683aa048c
-	yunion.io/x/structarg v0.0.0-20200619020316-f93fbe32ffc7
+	yunion.io/x/sqlchemy v0.0.0-20200702064124-195445bc4b11
+	yunion.io/x/structarg v0.0.0-20200708124353-ea9a441ecaf8
 )
 
 replace (

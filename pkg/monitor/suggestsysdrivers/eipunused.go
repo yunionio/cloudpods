@@ -65,7 +65,8 @@ func (rule *EIPUnused) Run(instance *monitor.SSuggestSysAlertSetting) {
 		return
 	}
 
-	DealAlertData(rule.GetType(), oldAlert, newAlert.Value())
+	na, _ := newAlert.GetArray()
+	DealAlertData(rule.GetType(), oldAlert, na)
 }
 
 func (rule *EIPUnused) getEIPUnused(instance *monitor.SSuggestSysAlertSetting) (*jsonutils.JSONArray, error) {
