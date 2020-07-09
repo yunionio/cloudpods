@@ -343,7 +343,7 @@ func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.Toke
 	remoteVPCs := make([]cloudprovider.ICloudVpc, 0)
 	syncResult := compare.SyncResult{}
 
-	dbVPCs, err := region.GetVpcs()
+	dbVPCs, err := region.GetCloudproviderVpcs(provider.Id)
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult
