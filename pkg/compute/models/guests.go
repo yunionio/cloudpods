@@ -1015,6 +1015,7 @@ func (manager *SGuestManager) validateCreateData(
 	if len(input.InstanceSnapshotId) > 0 {
 		inputMem := input.VmemSize
 		inputCpu := input.VcpuCount
+		inputInstaceType := input.InstanceType
 		input, err = parseInstanceSnapshot(input)
 		if err != nil {
 			return nil, err
@@ -1022,6 +1023,7 @@ func (manager *SGuestManager) validateCreateData(
 		// keep input cpu mem flavor
 		input.VmemSize = inputMem
 		input.VcpuCount = inputCpu
+		input.InstanceType = inputInstaceType
 	}
 
 	resetPassword := true
