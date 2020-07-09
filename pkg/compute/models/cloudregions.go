@@ -250,6 +250,16 @@ func (self *SCloudregion) GetVpcs() ([]SVpc, error) {
 	return vpcs, nil
 }
 
+func (self *SCloudregion) GetCloudproviderVpcs(managerId string) ([]SVpc, error) {
+	vpcs := []SVpc{}
+	q := self.GetVpcQuery().Equals("manager_id", managerId)
+	err := db.FetchModelObjects(VpcManager, q, &vpcs)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
+	}
+	return vpcs, nil
+}
+
 func (self *SCloudregion) GetDriver() IRegionDriver {
 	provider := self.Provider
 	if len(provider) == 0 {
