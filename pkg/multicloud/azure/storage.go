@@ -127,7 +127,7 @@ func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 		if err != nil {
 			return nil, err
 		}
-		for i := 0; i < len(disks); i++ {
+		for j := 0; j < len(disks); j++ {
 			disk := SDisk{
 				storage: self,
 				Sku: DiskSku{
@@ -135,11 +135,11 @@ func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 					Tier: storageaccounts[i].Sku.Tier,
 				},
 				Properties: DiskProperties{
-					DiskSizeGB: disks[i].DiskSizeGB,
-					OsType:     disks[i].diskType,
+					DiskSizeGB: disks[j].DiskSizeGB,
+					OsType:     disks[j].diskType,
 				},
-				ID:   disks[i].VhdUri,
-				Name: disks[i].DiskName,
+				ID:   disks[j].VhdUri,
+				Name: disks[j].DiskName,
 			}
 			idisks = append(idisks, &disk)
 		}
