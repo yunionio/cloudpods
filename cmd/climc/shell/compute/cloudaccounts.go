@@ -1065,4 +1065,39 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type EnrollmentAccountListOptions struct {
+		ID string
+	}
+
+	R(&EnrollmentAccountListOptions{}, "cloud-account-enrollment-accounts", "Show enrollment accounts of cloudaccount", func(s *mcclient.ClientSession, opts *EnrollmentAccountListOptions) error {
+		result, e := modules.Cloudaccounts.GetSpecific(s, opts.ID, "enrollment-accounts", nil)
+		if e != nil {
+			return e
+		}
+		fmt.Println(result.PrettyString())
+		return nil
+	})
+
+	type SubscriptionCreateOptions struct {
+		ID                string `help:"Cloudaccount Id"`
+		NAME              string
+		ENROLLMENTACCOUNT string
+		OfferType         string `choices:"MS-AZR-0148P|MS-AZR-0017P" default:"MS-AZR-0017P"`
+	}
+
+	R(&SubscriptionCreateOptions{}, "cloud-account-create-subscription", "Create subscription for cloudaccount", func(s *mcclient.ClientSession, opts *SubscriptionCreateOptions) error {
+		params := map[string]string{
+			"name":                  opts.NAME,
+			"offer_type":            opts.OfferType,
+			"enrollment_account_id": opts.ENROLLMENTACCOUNT,
+		}
+		ret, e := modules.Cloudaccounts.PerformAction(s, opts.ID, "create-subscription", jsonutils.Marshal(params))
+		if e != nil {
+			return e
+		}
+		printObject(ret)
+		return nil
+	})
+
 }

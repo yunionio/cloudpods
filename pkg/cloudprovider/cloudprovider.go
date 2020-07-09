@@ -236,6 +236,9 @@ type ICloudProvider interface {
 	CreateICloudgroup(name, desc string) (ICloudgroup, error)
 	GetIClouduserByName(name string) (IClouduser, error)
 	CreateIClouduser(conf *SClouduserCreateConfig) (IClouduser, error)
+
+	GetEnrollmentAccounts() ([]SEnrollmentAccount, error)
+	CreateSubscription(SubscriptionCreateInput) error
 }
 
 func IsSupportProject(prod ICloudProvider) bool {
@@ -373,6 +376,14 @@ func (self *SBaseProvider) GetIClouduserByName(name string) (IClouduser, error) 
 
 func (self *SBaseProvider) CreateIClouduser(conf *SClouduserCreateConfig) (IClouduser, error) {
 	return nil, ErrNotImplemented
+}
+
+func (self *SBaseProvider) GetEnrollmentAccounts() ([]SEnrollmentAccount, error) {
+	return nil, ErrNotImplemented
+}
+
+func (self *SBaseProvider) CreateSubscription(SubscriptionCreateInput) error {
+	return ErrNotImplemented
 }
 
 func (self *SBaseProvider) GetCloudRegionExternalIdPrefix() string {
