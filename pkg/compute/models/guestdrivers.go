@@ -191,8 +191,8 @@ type IGuestDriver interface {
 	RequestSetAutoRenewInstance(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, autoRenew bool, task taskman.ITask) error
 	IsSupportMigrate() bool
 	IsSupportLiveMigrate() bool
-	CheckMigrate(guest *SGuest, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error
-	CheckLiveMigrate(guest *SGuest, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error
+	CheckMigrate(guest *SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput) error
+	CheckLiveMigrate(guest *SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput) error
 	RequestMigrate(ctx context.Context, guest *SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error
 	RequestLiveMigrate(ctx context.Context, guest *SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error
 }

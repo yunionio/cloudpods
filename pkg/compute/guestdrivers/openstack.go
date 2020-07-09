@@ -344,11 +344,11 @@ func (self *SOpenStackGuestDriver) IsSupportLiveMigrate() bool {
 	return true
 }
 
-func (self *SOpenStackGuestDriver) CheckMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+func (self *SOpenStackGuestDriver) CheckMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput) error {
 	return nil
 }
 
-func (self *SOpenStackGuestDriver) CheckLiveMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+func (self *SOpenStackGuestDriver) CheckLiveMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput) error {
 	return nil
 }
 

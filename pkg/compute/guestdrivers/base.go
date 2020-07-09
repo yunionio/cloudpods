@@ -367,11 +367,11 @@ func (self *SBaseGuestDriver) IsSupportLiveMigrate() bool {
 	return false
 }
 
-func (self *SBaseGuestDriver) CheckMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+func (self *SBaseGuestDriver) CheckMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput) error {
 	return httperrors.NewNotAcceptableError("Not allow for hypervisor %s", guest.GetHypervisor())
 }
 
-func (self *SBaseGuestDriver) CheckLiveMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+func (self *SBaseGuestDriver) CheckLiveMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput) error {
 	return httperrors.NewNotAcceptableError("Not allow for hypervisor %s", guest.GetHypervisor())
 }
 func (self *SBaseGuestDriver) RequestMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error {
