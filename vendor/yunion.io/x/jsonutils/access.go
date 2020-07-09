@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/sortedmap"
 	"yunion.io/x/pkg/util/timeutils"
 )
 
@@ -29,9 +30,9 @@ type JSONPair struct {
 }
 
 func NewDict(objs ...JSONPair) *JSONDict {
-	dict := JSONDict{data: make(map[string]JSONObject, len(objs))}
+	dict := JSONDict{data: sortedmap.NewSortedMapWithCapa(len(objs))}
 	for _, o := range objs {
-		dict.data[o.key] = o.val
+		dict.Set(o.key, o.val)
 	}
 	return &dict
 }
@@ -64,7 +65,7 @@ func NewBool(val bool) *JSONBool {
 }
 
 func (this *JSONDict) Set(key string, value JSONObject) {
-	this.data[key] = value
+	this.data = sortedmap.Add(this.data, key, value)
 }
 
 func (this *JSONDict) Remove(key string) bool {
@@ -86,25 +87,25 @@ func (this *JSONDict) RemoveIgnoreCase(key string) bool {
 }
 
 func (this *JSONDict) remove(key string, caseSensitive bool) bool {
-	_, rk, ok := dictGet(this.data, key, caseSensitive)
-	if ok {
-		delete(this.data, rk)
-		return true
+	exist := false
+	if !caseSensitive {
+		this.data, _, exist = sortedmap.DeleteIgnoreCase(this.data, key)
 	} else {
-		return false
+		this.data, exist = sortedmap.Delete(this.data, key)
 	}
+	return exist
 }
 
 func (this *JSONDict) Add(o JSONObject, keys ...string) error {
 	obj := this
 	for i := 0; i < len(keys); i++ {
 		if i == len(keys)-1 {
-			obj.data[keys[i]] = o
+			obj.Set(keys[i], o)
 		} else {
-			o, ok := obj.data[keys[i]]
+			o, ok := obj.data.Get(keys[i])
 			if !ok {
-				obj.data[keys[i]] = NewDict()
-				o, ok = obj.data[keys[i]]
+				obj.Set(keys[i], NewDict())
+				o, ok = obj.data.Get(keys[i])
 			}
 			if ok {
 				obj, ok = o.(*JSONDict)
@@ -117,6 +118,10 @@ func (this *JSONDict) Add(o JSONObject, keys ...string) error {
 		}
 	}
 	return nil
+}
+
+func (this *JSONArray) SetAt(idx int, obj JSONObject) {
+	this.data[idx] = obj
 }
 
 func (this *JSONArray) Add(objs ...JSONObject) {
@@ -196,30 +201,22 @@ func (this *JSONDict) GetIgnoreCases(keys ...string) (JSONObject, error) {
 	return this._get(false, keys)
 }
 
-func dictGet(dict map[string]JSONObject, key string, caseSensitive bool) (JSONObject, string, bool) {
-	if caseSensitive {
-		v, ok := dict[key]
-		return v, key, ok
-	} else {
-		for k, v := range dict {
-			if strings.EqualFold(k, key) {
-				return v, k, true
-			}
-		}
-		return nil, "", false
-	}
-}
-
 func (this *JSONDict) _get(caseSensitive bool, keys []string) (JSONObject, error) {
 	if len(keys) == 0 {
 		return this, nil
 	}
 	for i := 0; i < len(keys); i++ {
 		key := keys[i]
-		val, _, ok := dictGet(this.data, key, caseSensitive)
+		var val interface{}
+		var ok bool
+		if caseSensitive {
+			val, ok = this.data.Get(key)
+		} else {
+			val, _, ok = this.data.GetIgnoreCase(key)
+		}
 		if ok {
 			if i == len(keys)-1 {
-				return val, nil
+				return val.(JSONObject), nil
 			} else {
 				this, ok = val.(*JSONDict)
 				if !ok {
@@ -254,7 +251,13 @@ func (this *JSONDict) GetMap(keys ...string) (map[string]JSONObject, error) {
 	if !ok {
 		return nil, ErrInvalidJsonDict
 	}
-	return dict.data, nil
+	// allocate a map to hold the return map
+	ret := make(map[string]JSONObject, len(this.data))
+	for iter := sortedmap.NewIterator(dict.data); iter.HasMore(); iter.Next() {
+		k, v := iter.Get()
+		ret[k] = v.(JSONObject)
+	}
+	return ret, nil
 }
 
 func (this *JSONArray) GetAt(i int, keys ...string) (JSONObject, error) {
@@ -292,9 +295,14 @@ func (this *JSONDict) GetAt(i int, keys ...string) (JSONObject, error) {
 
 func (this *JSONArray) GetArray(keys ...string) ([]JSONObject, error) {
 	if len(keys) > 0 {
-		return make([]JSONObject, 0), ErrOutOfKeyRange // fmt.Errorf("Out of key range: %s", keys)
+		return nil, ErrOutOfKeyRange // fmt.Errorf("Out of key range: %s", keys)
 	}
-	return this.data, nil
+	// Allocate a new array to hold the return array
+	ret := make([]JSONObject, len(this.data))
+	for i := range this.data {
+		ret[i] = this.data[i]
+	}
+	return ret, nil
 }
 
 func (this *JSONDict) GetArray(keys ...string) ([]JSONObject, error) {

@@ -1078,7 +1078,11 @@ func (this *ArgumentParser) ParseYAMLFile(filepath string) error {
 }
 
 func (this *ArgumentParser) parseJSONDict(dict *jsonutils.JSONDict) error {
-	for key, obj := range dict.Value() {
+	mapJson, err := dict.GetMap()
+	if err != nil {
+		return errors.Wrap(err, "GetMap")
+	}
+	for key, obj := range mapJson {
 		if err := this.parseJSONKeyValue(key, obj); err != nil {
 			return fmt.Errorf("parse json %s: %s: %v", key, obj.String(), err)
 		}
@@ -1106,11 +1110,11 @@ func (this *ArgumentParser) parseJSONKeyValue(key string, obj jsonutils.JSONObje
 	}
 	// process multi argument
 	if arg.IsMulti() {
-		array, ok := obj.(*jsonutils.JSONArray)
-		if !ok {
-			return fmt.Errorf("%s object value is not array", key)
+		array, err := obj.GetArray()
+		if err != nil {
+			return errors.Wrap(err, "GetArray")
 		}
-		for _, item := range array.Value() {
+		for _, item := range array {
 			str, err := item.GetString()
 			if err != nil {
 				return err

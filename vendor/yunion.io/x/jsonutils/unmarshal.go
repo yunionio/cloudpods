@@ -30,6 +30,7 @@ import (
 
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/sortedmap"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/timeutils"
@@ -472,7 +473,7 @@ func (this *JSONDict) unmarshalValue(val reflect.Value) error {
 				return err
 			}
 			if objPtr == nil {
-				val.Set(reflect.ValueOf(this.data))
+				val.Set(reflect.ValueOf(this.data)) // ???
 				return nil
 			}
 			err = this.unmarshalValue(reflect.ValueOf(objPtr))
@@ -518,7 +519,9 @@ func (this *JSONDict) unmarshalMap(val reflect.Value) error {
 	if keyType.Kind() != reflect.String {
 		return ErrMapKeyMustString // fmt.Errorf("map key must be string")
 	}
-	for k, v := range this.data {
+	for iter := sortedmap.NewIterator(this.data); iter.HasMore(); iter.Next() {
+		k, vinf := iter.Get()
+		v := vinf.(JSONObject)
 		keyVal := reflect.ValueOf(k)
 		valVal := reflect.New(valType.Elem()).Elem()
 
@@ -569,7 +572,9 @@ func (this *JSONDict) unmarshalStruct(val reflect.Value) error {
 	fieldValues := reflectutils.FetchStructFieldValueSetForWrite(val)
 	keyIndexMap := fieldValues.GetStructFieldIndexesMap()
 	errs := make([]error, 0)
-	for k, v := range this.data {
+	for iter := sortedmap.NewIterator(this.data); iter.HasMore(); iter.Next() {
+		k, vinf := iter.Get()
+		v := vinf.(JSONObject)
 		err := setStructFieldAt(k, v, fieldValues, keyIndexMap, nil)
 		if err != nil {
 			// store error, not interrupt the process

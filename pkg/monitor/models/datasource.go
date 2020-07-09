@@ -335,7 +335,8 @@ func getAttributesOnMeasurement(database, tp string, output *monitor.InfluxMeasu
 	tmpDict := jsonutils.NewDict()
 	tmpArr := jsonutils.NewArray()
 	for i := range res.Values {
-		if filterTagKey(res.Values[i][0].(*jsonutils.JSONString).Value()) {
+		v, _ := res.Values[i][0].(*jsonutils.JSONString).GetString()
+		if filterTagKey(v) {
 			continue
 		}
 		tmpArr.Add(res.Values[i][0])
@@ -362,19 +363,19 @@ func getTagValue(database string, output *monitor.InfluxMeasurement, db *influxd
 	tagValue := make(map[string][]string, 0)
 	keys := strings.Join(output.TagKey, ",")
 	for i := range res.Values {
-		val := res.Values[i][0].(*jsonutils.JSONString)
-		if !strings.Contains(keys, val.Value()) {
+		val, _ := res.Values[i][0].(*jsonutils.JSONString).GetString()
+		if !strings.Contains(keys, val) {
 			continue
 		}
-		if _, ok := tagValue[val.Value()]; !ok {
-			tagValue[val.Value()] = make([]string, 0)
+		if _, ok := tagValue[val]; !ok {
+			tagValue[val] = make([]string, 0)
 		}
-		tag := res.Values[i][1].(*jsonutils.JSONString)
-		if filterTagValue(tag.Value()) {
-			delete(tagValue, val.Value())
+		tag, _ := res.Values[i][1].(*jsonutils.JSONString).GetString()
+		if filterTagValue(tag) {
+			delete(tagValue, val)
 			continue
 		}
-		tagValue[val.Value()] = append(tagValue[val.Value()], tag.Value())
+		tagValue[val] = append(tagValue[val], tag)
 	}
 	output.TagValue = tagValue
 	//TagKey == TagValue.keys

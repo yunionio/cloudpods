@@ -196,7 +196,7 @@ func (rule *ScaleDown) getResourcesByEvalMatchsMap(evalMatchsMap map[string][]*m
 		suggestSysAlert.Problem = describeEvalResultTojson(evalMatchsMap, mappingId, mappingVal)
 		serverArr.Add(jsonutils.Marshal(suggestSysAlert))
 	}
-	return serverArr.Value(), nil
+	return serverArr.GetArray()
 }
 
 func getServerFromEvalMatch(evalMatch *monitor.EvalMatch) (jsonutils.JSONObject, string, string) {
