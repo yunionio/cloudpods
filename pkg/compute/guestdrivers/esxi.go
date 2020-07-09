@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -367,4 +368,116 @@ func (self *SESXiGuestDriver) RequestAssociateEip(ctx context.Context, userCred 
 
 func (self *SESXiGuestDriver) IsSupportCdrom(guest *models.SGuest) (bool, error) {
 	return false, nil
+}
+
+func (self *SESXiGuestDriver) IsSupportMigrate() bool {
+	return true
+}
+
+func (self *SESXiGuestDriver) IsSupportLiveMigrate() bool {
+	return true
+}
+
+func (self *SESXiGuestDriver) CheckMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput) error {
+	if len(input.PreferHost) == 0 {
+		return httperrors.NewBadRequestError("esxi guest migrate require prefer_host")
+	}
+	return nil
+}
+
+func (self *SESXiGuestDriver) CheckLiveMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput) error {
+	if len(input.PreferHost) == 0 {
+		return httperrors.NewBadRequestError("esxi guest migrate require prefer_host")
+	}
+	return nil
+}
+
+func (self *SESXiGuestDriver) RequestMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iVM, err := guest.GetIVM()
+		if err != nil {
+			return nil, errors.Wrap(err, "guest.GetIVM")
+		}
+		hostID, _ := data.GetString("prefer_host_id")
+		if hostID == "" {
+			return nil, errors.Wrapf(fmt.Errorf("require hostID"), "RequestMigrate")
+		}
+		iHost, err := models.HostManager.FetchById(hostID)
+		if err != nil {
+			return nil, errors.Wrapf(err, "models.HostManager.FetchById(%s)", hostID)
+		}
+		host := iHost.(*models.SHost)
+		hostExternalId := host.ExternalId
+		if err = iVM.MigrateVM(hostExternalId); err != nil {
+			return nil, errors.Wrapf(err, "iVM.MigrateVM(%s)", hostExternalId)
+		}
+		hostExternalId = iVM.GetIHostId()
+		if hostExternalId == "" {
+			return nil, errors.Wrap(fmt.Errorf("empty hostExternalId"), "iVM.GetIHostId()")
+		}
+		iHost, err = db.FetchByExternalIdAndManagerId(models.HostManager, hostExternalId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			if host := guest.GetHost(); host != nil {
+				return q.Equals("manager_id", host.ManagerId)
+			}
+			return q
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.FetchByExternalId(models.HostManager,%s)", hostExternalId)
+		}
+		host = iHost.(*models.SHost)
+		_, err = db.Update(guest, func() error {
+			guest.HostId = host.GetId()
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "db.Update guest.hostId")
+		}
+		return nil, nil
+	})
+	return nil
+}
+
+func (self *SESXiGuestDriver) RequestLiveMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iVM, err := guest.GetIVM()
+		if err != nil {
+			return nil, errors.Wrap(err, "guest.GetIVM")
+		}
+		hostID, _ := data.GetString("prefer_host_id")
+		if hostID == "" {
+			return nil, errors.Wrapf(fmt.Errorf("require hostID"), "RequestLiveMigrate")
+		}
+		iHost, err := models.HostManager.FetchById(hostID)
+		if err != nil {
+			return nil, errors.Wrapf(err, "models.HostManager.FetchById(%s)", hostID)
+		}
+		host := iHost.(*models.SHost)
+		hostExternalId := host.ExternalId
+		if err = iVM.LiveMigrateVM(hostExternalId); err != nil {
+			return nil, errors.Wrapf(err, "iVM.LiveMigrateVM(%s)", hostExternalId)
+		}
+		hostExternalId = iVM.GetIHostId()
+		if hostExternalId == "" {
+			return nil, errors.Wrap(fmt.Errorf("empty hostExternalId"), "iVM.GetIHostId()")
+		}
+		iHost, err = db.FetchByExternalIdAndManagerId(models.HostManager, hostExternalId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			if host := guest.GetHost(); host != nil {
+				return q.Equals("manager_id", host.ManagerId)
+			}
+			return q
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.FetchByExternalId(models.HostManager,%s)", hostExternalId)
+		}
+		host = iHost.(*models.SHost)
+		_, err = db.Update(guest, func() error {
+			guest.HostId = host.GetId()
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "db.Update guest.hostId")
+		}
+		return nil, nil
+	})
+	return nil
 }

@@ -216,10 +216,6 @@ func (self *SVirtualMachine) GetIHost() cloudprovider.ICloudHost {
 	return self.ihost
 }
 
-func (self *SVirtualMachine) GetIHostId() string {
-	return ""
-}
-
 func (self *SVirtualMachine) getIHost() cloudprovider.ICloudHost {
 	vm := self.getVmObj()
 
@@ -1208,4 +1204,60 @@ func (self *SVirtualMachine) FindMinDiffKey(limit int32) int32 {
 		}
 	}
 	return limit
+}
+
+func (self *SVirtualMachine) relocate(hostId string) error {
+	var targetHs *mo.HostSystem
+	if hostId == "" {
+		return errors.Wrap(fmt.Errorf("require hostId"), "relocate")
+	}
+	ihost, err := self.manager.GetIHostById(hostId)
+	if err != nil {
+		return errors.Wrap(err, "self.manager.GetIHostById(hostId)")
+	}
+	targetHs = ihost.(*SHost).object.(*mo.HostSystem)
+	if len(targetHs.Datastore) < 1 {
+		return errors.Wrap(fmt.Errorf("target host has no datastore"), "relocate")
+	}
+	ctx := self.manager.context
+	config := types.VirtualMachineRelocateSpec{}
+	hrs := targetHs.Reference()
+	config.Host = &hrs
+	config.Datastore = &targetHs.Datastore[0]
+	task, err := self.getVmObj().Relocate(ctx, config, types.VirtualMachineMovePriorityDefaultPriority)
+	if err != nil {
+		log.Errorf("vm.Migrate %s", err)
+		return errors.Wrap(err, "SVirtualMachine Migrate")
+	}
+	err = task.Wait(ctx)
+	if err != nil {
+		log.Errorf("task.Wait %s", err)
+		return errors.Wrap(err, "task.wait")
+	}
+	return nil
+}
+
+func (self *SVirtualMachine) MigrateVM(hostId string) error {
+	return self.relocate(hostId)
+}
+
+func (self *SVirtualMachine) LiveMigrateVM(hostId string) error {
+	return self.relocate(hostId)
+}
+
+func (self *SVirtualMachine) GetIHostId() string {
+	ctx := self.manager.context
+	hs, err := self.getVmObj().HostSystem(ctx)
+	if err != nil {
+		log.Errorf("get HostSystem %s", err)
+		return ""
+	}
+	var moHost mo.HostSystem
+	err = self.manager.reference2Object(hs.Reference(), HOST_SYSTEM_PROPS, &moHost)
+	if err != nil {
+		log.Errorf("hostsystem reference2Object %s", err)
+		return ""
+	}
+	shost := NewHost(nil, &moHost, nil)
+	return shost.GetGlobalId()
 }

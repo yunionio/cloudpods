@@ -345,3 +345,13 @@ type GuestSyncFixNicsInput struct {
 	// 需要修正的IP地址列表
 	Ip []string `json:"ip"`
 }
+
+type GuestMigrateInput struct {
+	PreferHost   string `json:"prefer_host"`
+	AutoStart    bool   `json:"auto_start"`
+	IsRescueMode bool   `json:"rescue_mode"`
+}
+
+type GuestLiveMigrateInput struct {
+	PreferHost string `json:"prefer_host"`
+}

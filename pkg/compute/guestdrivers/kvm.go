@@ -553,15 +553,14 @@ func (self *SKVMGuestDriver) IsSupportLiveMigrate() bool {
 	return true
 }
 
-func (self *SKVMGuestDriver) CheckMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+func (self *SKVMGuestDriver) CheckMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput) error {
 	if len(guest.BackupHostId) > 0 {
 		return httperrors.NewBadRequestError("Guest have backup, can't migrate")
 	}
-	isRescueMode := jsonutils.QueryBoolean(data, "rescue_mode", false)
-	if !isRescueMode && guest.Status != api.VM_READY {
+	if !input.IsRescueMode && guest.Status != api.VM_READY {
 		return httperrors.NewServerStatusError("Cannot normal migrate guest in status %s, try rescue mode or server-live-migrate?", guest.Status)
 	}
-	if isRescueMode {
+	if input.IsRescueMode {
 		guestDisks := guest.GetDisks()
 		for _, guestDisk := range guestDisks {
 			if utils.IsInStringArray(
@@ -574,8 +573,7 @@ func (self *SKVMGuestDriver) CheckMigrate(guest *models.SGuest, userCred mcclien
 	if len(devices) > 0 {
 		return httperrors.NewBadRequestError("Cannot migrate with isolated devices")
 	}
-	preferHost, _ := data.GetString("prefer_host")
-	if len(preferHost) > 0 {
+	if len(input.PreferHost) > 0 {
 		if !db.IsAdminAllowPerform(userCred, guest, "assign-host") {
 			return httperrors.NewBadRequestError("Only system admin can assign host")
 		}
@@ -583,7 +581,7 @@ func (self *SKVMGuestDriver) CheckMigrate(guest *models.SGuest, userCred mcclien
 	return nil
 }
 
-func (self *SKVMGuestDriver) CheckLiveMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+func (self *SKVMGuestDriver) CheckLiveMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput) error {
 	if len(guest.BackupHostId) > 0 {
 		return httperrors.NewBadRequestError("Guest have backup, can't migrate")
 	}
@@ -599,8 +597,7 @@ func (self *SKVMGuestDriver) CheckLiveMigrate(guest *models.SGuest, userCred mcc
 		if !guest.CheckQemuVersion(guest.GetQemuVersion(userCred), "1.1.2") {
 			return httperrors.NewBadRequestError("Cannot do live migrate, too low qemu version")
 		}
-		preferHost, _ := data.GetString("prefer_host")
-		if len(preferHost) > 0 {
+		if len(input.PreferHost) > 0 {
 			if !db.IsAdminAllowPerform(userCred, guest, "assign-host") {
 				return httperrors.NewBadRequestError("Only system admin can assign host")
 			}
