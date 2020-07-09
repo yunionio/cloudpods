@@ -133,8 +133,29 @@ func (vpc *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, erro
 }
 
 func (vpc *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
-	rts := []cloudprovider.ICloudRouteTable{}
-	return rts, nil
+	err := vpc.region.fetchrouters()
+	if err != nil {
+		return nil, errors.Wrap(err, "vpc.region.fetchrouters()")
+	}
+	routeTables := []SRouteTable{}
+	for index, router := range vpc.region.routers {
+		if router.ExternalGatewayInfo.NetworkID == vpc.GetId() {
+
+			if len(router.Routes) < 1 {
+				continue
+			}
+			routeTable := SRouteTable{}
+			routeTable.entries = router.Routes
+			routeTable.router = &vpc.region.routers[index]
+			routeTable.vpc = vpc
+			routeTables = append(routeTables, routeTable)
+		}
+	}
+	ret := []cloudprovider.ICloudRouteTable{}
+	for i := range routeTables {
+		ret = append(ret, &routeTables[i])
+	}
+	return ret, nil
 }
 
 func (vpc *SVpc) fetchWires() error {

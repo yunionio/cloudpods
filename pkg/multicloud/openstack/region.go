@@ -40,6 +40,7 @@ type SRegion struct {
 	ivpcs  []cloudprovider.ICloudVpc
 
 	storageCache *SStoragecache
+	routers      []SRouter
 }
 
 func (region *SRegion) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
@@ -541,4 +542,29 @@ func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCre
 
 func (region *SRegion) GetCapabilities() []string {
 	return region.client.GetCapabilities()
+}
+
+func (region *SRegion) GetRouters() ([]SRouter, error) {
+	_, resp, err := region.Get("network", "/v2.0/routers", "", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "region.Get routes")
+	}
+	routers := []SRouter{}
+	err = resp.Unmarshal(&routers, "routers")
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return routers, nil
+}
+
+func (region *SRegion) fetchrouters() error {
+	if len(region.routers) > 0 {
+		return nil
+	}
+	routers, err := region.GetRouters()
+	if err != nil {
+		return errors.Wrap(err, "region.GetRouters()")
+	}
+	region.routers = routers
+	return nil
 }
