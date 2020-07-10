@@ -31,6 +31,15 @@ type ILockedObject interface {
 type ILockManager interface {
 	LockKey(ctx context.Context, key string)
 	UnlockKey(ctx context.Context, key string)
+
+	LockClass(ctx context.Context, manager ILockedClass, projectId string)
+	ReleaseClass(ctx context.Context, manager ILockedClass, projectId string)
+	LockObject(ctx context.Context, model ILockedObject)
+	ReleaseObject(ctx context.Context, model ILockedObject)
+	LockRawObject(ctx context.Context, resName string, resId string)
+	ReleaseRawObject(ctx context.Context, resName string, resId string)
+	LockJointObject(ctx context.Context, model ILockedObject, model2 ILockedObject)
+	ReleaseJointObject(ctx context.Context, model ILockedObject, model2 ILockedObject)
 }
 
 func getClassKey(manager ILockedClass, projectId string) string {
@@ -64,41 +73,33 @@ func Init(man ILockManager) {
 }
 
 func LockClass(ctx context.Context, manager ILockedClass, projectId string) {
-	key := getClassKey(manager, projectId)
-	_lockman.LockKey(ctx, key)
+	_lockman.LockClass(ctx, manager, projectId)
 }
 
 func ReleaseClass(ctx context.Context, manager ILockedClass, projectId string) {
-	key := getClassKey(manager, projectId)
-	_lockman.UnlockKey(ctx, key)
+	_lockman.ReleaseClass(ctx, manager, projectId)
 }
 
 func LockObject(ctx context.Context, model ILockedObject) {
-	key := getObjectKey(model)
-	_lockman.LockKey(ctx, key)
+	_lockman.LockObject(ctx, model)
 }
 
 func ReleaseObject(ctx context.Context, model ILockedObject) {
-	key := getObjectKey(model)
-	_lockman.UnlockKey(ctx, key)
+	_lockman.ReleaseObject(ctx, model)
 }
 
 func LockRawObject(ctx context.Context, resName string, resId string) {
-	key := getRawObjectKey(resName, resId)
-	_lockman.LockKey(ctx, key)
+	_lockman.LockRawObject(ctx, resName, resId)
 }
 
 func ReleaseRawObject(ctx context.Context, resName string, resId string) {
-	key := getRawObjectKey(resName, resId)
-	_lockman.UnlockKey(ctx, key)
+	_lockman.ReleaseRawObject(ctx, resName, resId)
 }
 
 func LockJointObject(ctx context.Context, model ILockedObject, model2 ILockedObject) {
-	key := getJointObjectKey(model, model2)
-	_lockman.LockKey(ctx, key)
+	_lockman.LockJointObject(ctx, model, model2)
 }
 
 func ReleaseJointObject(ctx context.Context, model ILockedObject, model2 ILockedObject) {
-	key := getJointObjectKey(model, model2)
-	_lockman.UnlockKey(ctx, key)
+	_lockman.ReleaseJointObject(ctx, model, model2)
 }
