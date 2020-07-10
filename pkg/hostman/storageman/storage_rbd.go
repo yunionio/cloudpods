@@ -758,3 +758,12 @@ func (s *SRbdStorage) CreateDiskFromSnapshot(
 	)
 	return disk.CreateFromRbdSnapshot(ctx, snapshotUrl, srcDiskId, srcPool)
 }
+
+func (s *SRbdStorage) SetStorageInfo(storageId, storageName string, conf jsonutils.JSONObject) error {
+	s.StorageId = storageId
+	s.StorageName = storageName
+	if dconf, ok := conf.(*jsonutils.JSONDict); ok {
+		s.StorageConf = dconf
+	}
+	return nil
+}
