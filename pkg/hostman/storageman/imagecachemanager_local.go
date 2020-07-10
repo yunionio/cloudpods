@@ -33,10 +33,12 @@ type SLocalImageCacheManager struct {
 	SBaseImageCacheManager
 	// limit      int
 	// isTemplate bool
+	lock lockman.ILockManager
 }
 
 func NewLocalImageCacheManager(manager IStorageManager, cachePath string, storagecacheId string) *SLocalImageCacheManager {
 	imageCacheManager := new(SLocalImageCacheManager)
+	imageCacheManager.lock = lockman.NewInMemoryLockManager()
 	imageCacheManager.storageManager = manager
 	imageCacheManager.storagecacaheId = storagecacheId
 	imageCacheManager.cachePath = cachePath
@@ -54,8 +56,8 @@ func (c *SLocalImageCacheManager) loadCache(ctx context.Context) {
 	if len(c.cachePath) == 0 {
 		return
 	}
-	lockman.LockRawObject(ctx, "LOCAL", "image-cache")
-	defer lockman.ReleaseRawObject(ctx, "LOCAL", "image-cache")
+	c.lock.LockRawObject(ctx, "LOCAL", "image-cache")
+	defer c.lock.ReleaseRawObject(ctx, "LOCAL", "image-cache")
 	files, _ := ioutil.ReadDir(c.cachePath)
 	for _, f := range files {
 		if regutils.MatchUUIDExact(f.Name()) {
@@ -72,8 +74,8 @@ func (c *SLocalImageCacheManager) LoadImageCache(imageId string) {
 }
 
 func (c *SLocalImageCacheManager) AcquireImage(ctx context.Context, imageId, zone, srcUrl, format string) IImageCache {
-	lockman.LockRawObject(ctx, "image-cache", imageId)
-	defer lockman.ReleaseRawObject(ctx, "image-cache", imageId)
+	c.lock.LockRawObject(ctx, "image-cache", imageId)
+	defer c.lock.ReleaseRawObject(ctx, "image-cache", imageId)
 
 	img, ok := c.cachedImages[imageId]
 	if !ok {
@@ -88,8 +90,8 @@ func (c *SLocalImageCacheManager) AcquireImage(ctx context.Context, imageId, zon
 }
 
 func (c *SLocalImageCacheManager) ReleaseImage(ctx context.Context, imageId string) {
-	lockman.LockRawObject(ctx, "image-cache", imageId)
-	defer lockman.ReleaseRawObject(ctx, "image-cache", imageId)
+	c.lock.LockRawObject(ctx, "image-cache", imageId)
+	defer c.lock.ReleaseRawObject(ctx, "image-cache", imageId)
 
 	if img, ok := c.cachedImages[imageId]; ok {
 		img.Release()
@@ -107,8 +109,8 @@ func (c *SLocalImageCacheManager) DeleteImageCache(ctx context.Context, data int
 }
 
 func (c *SLocalImageCacheManager) removeImage(ctx context.Context, imageId string) error {
-	lockman.LockRawObject(ctx, "image-cache", imageId)
-	defer lockman.ReleaseRawObject(ctx, "image-cache", imageId)
+	c.lock.LockRawObject(ctx, "image-cache", imageId)
+	defer c.lock.ReleaseRawObject(ctx, "image-cache", imageId)
 
 	if img, ok := c.cachedImages[imageId]; ok {
 		delete(c.cachedImages, imageId)
