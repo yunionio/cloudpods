@@ -131,7 +131,7 @@ require (
 	k8s.io/cluster-bootstrap v0.17.3
 	k8s.io/kubernetes v1.16.0
 	yunion.io/x/executor v0.0.0-20200227030256-a18417815e74
-	yunion.io/x/jsonutils v0.0.0-20200708073651-8fe00d01c40a
+	yunion.io/x/jsonutils v0.0.0-20200710080709-7ca71cdb9383
 	yunion.io/x/log v0.0.0-20200313080802-57a4ce5966b3
 	yunion.io/x/ovsdb v0.0.0-20200526071744-27bf0940cbc7
 	yunion.io/x/pkg v0.0.0-20200708071451-a663dc94e16b

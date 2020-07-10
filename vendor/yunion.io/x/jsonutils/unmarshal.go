@@ -450,6 +450,7 @@ func (this *JSONDict) unmarshalValue(val reflect.Value) error {
 	case JSONDictType:
 		dict := val.Interface().(JSONDict)
 		dict.Update(this)
+		val.Set(reflect.ValueOf(dict))
 		return nil
 	case JSONDictPtrType, JSONObjectType:
 		val.Set(reflect.ValueOf(this))
