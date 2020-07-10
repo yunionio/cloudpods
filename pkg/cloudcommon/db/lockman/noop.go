@@ -21,6 +21,7 @@ import (
 )
 
 type SNoopLockManager struct {
+	*SBaseLockManager
 }
 
 func (lockman *SNoopLockManager) LockKey(ctx context.Context, key string) {
@@ -33,5 +34,6 @@ func (lockman *SNoopLockManager) UnlockKey(ctx context.Context, key string) {
 
 func NewNoopLockManager() ILockManager {
 	lockMan := SNoopLockManager{}
+	lockMan.SBaseLockManager = NewBaseLockManger(&lockMan)
 	return &lockMan
 }
