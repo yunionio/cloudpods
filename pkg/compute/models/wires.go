@@ -366,7 +366,7 @@ func (self *SWire) syncWithCloudWire(ctx context.Context, userCred mcclient.Toke
 		log.Errorf("syncWithCloudWire error %s", err)
 	}
 
-	if provider != nil {
+	if provider != nil && !self.IsEmulated {
 		SyncCloudDomain(userCred, self, provider.GetOwnerId())
 		self.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
 	}
@@ -408,6 +408,9 @@ func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mccl
 	}
 
 	wire.IsEmulated = extWire.IsEmulated()
+	wire.DomainId = vpc.DomainId
+	wire.IsPublic = vpc.IsPublic
+	wire.PublicScope = vpc.PublicScope
 
 	err = manager.TableSpec().Insert(ctx, &wire)
 	if err != nil {
@@ -415,10 +418,10 @@ func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mccl
 		return nil, err
 	}
 
-	if provider != nil {
+	/*if provider != nil {
 		SyncCloudDomain(userCred, &wire, provider.GetOwnerId())
 		wire.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
-	}
+	}*/
 
 	db.OpsLog.LogEvent(&wire, db.ACT_CREATE, wire.GetShortDesc(ctx), userCred)
 	return &wire, nil
