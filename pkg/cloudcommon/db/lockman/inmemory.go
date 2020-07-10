@@ -135,12 +135,17 @@ func (rec *SInMemoryLockRecord) unlockContext(ctx context.Context) (needClean bo
 }
 
 type SInMemoryLockManager struct {
+	*SBaseLockManager
 	tableLock *sync.Mutex
 	lockTable map[string]*SInMemoryLockRecord
 }
 
 func NewInMemoryLockManager() ILockManager {
-	lockMan := SInMemoryLockManager{tableLock: &sync.Mutex{}, lockTable: make(map[string]*SInMemoryLockRecord)}
+	lockMan := SInMemoryLockManager{
+		tableLock: &sync.Mutex{},
+		lockTable: make(map[string]*SInMemoryLockRecord),
+	}
+	lockMan.SBaseLockManager = NewBaseLockManger(&lockMan)
 	return &lockMan
 }
 

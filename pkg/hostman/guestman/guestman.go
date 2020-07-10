@@ -502,7 +502,7 @@ func (m *SGuestManager) GuestStart(ctx context.Context, sid string, body jsonuti
 			var data *jsonutils.JSONDict
 			params, err := body.Get("params")
 			if err != nil {
-				data = params.(*jsonutils.JSONDict)
+				data, _ = params.(*jsonutils.JSONDict)
 			}
 			guest.StartGuest(ctx, data)
 			res := jsonutils.NewDict()
