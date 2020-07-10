@@ -50,6 +50,9 @@ type InstanceSnapshotDetails struct {
 	// 快照列表
 	Snapshots  []SimpleSnapshot  `json:"snapshots"`
 	Properties map[string]string `json:"properties"`
+
+	// 主机快照大小
+	Size int `json:"size"`
 }
 
 type InstanceSnapshotListInput struct {

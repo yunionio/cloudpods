@@ -610,7 +610,11 @@ func (self *SSnapshot) ValidateDeleteCondition(ctx context.Context) error {
 	if count > 0 {
 		return httperrors.NewBadRequestError("snapshot referenced by instance snapshot")
 	}
-	return self.GetRegionDriver().ValidateSnapshotDelete(ctx, self)
+	driver := self.GetRegionDriver()
+	if driver != nil {
+		return driver.ValidateSnapshotDelete(ctx, self)
+	}
+	return nil
 }
 
 func (self *SSnapshot) GetStorage() *SStorage {
@@ -625,7 +629,11 @@ func (self *SSnapshot) GetStorageType() string {
 }
 
 func (self *SSnapshot) GetRegionDriver() IRegionDriver {
-	return self.GetRegion().GetDriver()
+	cloudRegion := self.GetRegion()
+	if cloudRegion != nil {
+		return cloudRegion.GetDriver()
+	}
+	return nil
 }
 
 func (self *SSnapshot) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -637,11 +645,14 @@ func (self *SSnapshot) AllowPerformDeleted(ctx context.Context, userCred mcclien
 }
 
 func (self *SSnapshot) PerformDeleted(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	db.Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.OutOfChain = true
 		return nil
 	})
-	err := self.StartSnapshotDeleteTask(ctx, userCred, true, "")
+	if err != nil {
+		return nil, err
+	}
+	err = self.StartSnapshotDeleteTask(ctx, userCred, true, "")
 	return nil, err
 }
 
@@ -1087,20 +1098,7 @@ func (manager *SSnapshotManager) ListItemExportKeys(ctx context.Context,
 	var err error
 	q, err = manager.SVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
 	if err != nil {
-		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemExportKeys")
-	}
-
-	if keys.ContainsAny(manager.SManagedResourceBaseManager.GetExportKeys()...) {
-		q, err = manager.SManagedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
-		if err != nil {
-			return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemExportKeys")
-		}
-	}
-	if keys.ContainsAny(manager.SCloudregionResourceBaseManager.GetExportKeys()...) {
-		q, err = manager.SCloudregionResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
-		if err != nil {
-			return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemExportKeys")
-		}
+		return nil, err
 	}
 	if keys.Contains("disk") {
 		q, err = manager.SDiskResourceBaseManager.ListItemExportKeys(ctx, q, userCred, stringutils2.NewSortedStrings([]string{"disk"}))
