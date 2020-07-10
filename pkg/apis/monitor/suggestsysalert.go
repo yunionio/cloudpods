@@ -77,3 +77,8 @@ type SuggestSysAlertUpdateInput struct {
 type SuggestAlertIngoreInput struct {
 	apis.ScopedResourceCreateInput
 }
+
+type SuggestAlertProblem struct {
+	Type        string `json:"type"`
+	Description string `json:"description"`
+}

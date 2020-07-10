@@ -71,7 +71,7 @@ func (drv *LBUnused) GetLatestAlerts(rule *models.SSuggestSysRule, instance *mon
 	for _, lb := range lbs.Data {
 		lbId, _ := lb.GetString("id")
 
-		contains, problem, err := containsLbBackEndGroups(lbId)
+		contains, problems, err := containsLbBackEndGroups(lbId)
 		if err != nil {
 			log.Errorln(err)
 			continue
@@ -87,7 +87,10 @@ func (drv *LBUnused) GetLatestAlerts(rule *models.SSuggestSysRule, instance *mon
 		if *contains {
 			continue
 		}
-		problem.(*jsonutils.JSONDict).Add(jsonutils.NewString(monitor.LB_UNUSED_NLISTENER), "listener")
+		problems = append(problems, monitor.SuggestAlertProblem{
+			Type:        "listener",
+			Description: monitor.LB_UNUSED_NLISTENER,
+		})
 		suggestSysAlert, err := getSuggestSysAlertFromJson(lb, drv)
 		if err != nil {
 			return lbArr, errors.Wrap(err, "getLatestAlerts's alertData Unmarshal error")
@@ -100,7 +103,7 @@ func (drv *LBUnused) GetLatestAlerts(rule *models.SSuggestSysRule, instance *mon
 		if instance != nil {
 			suggestSysAlert.MonitorConfig = jsonutils.Marshal(instance)
 		}
-		suggestSysAlert.Problem = problem
+		suggestSysAlert.Problem = jsonutils.Marshal(problems)
 
 		lbArr = append(lbArr, jsonutils.Marshal(suggestSysAlert))
 	}
@@ -130,9 +133,10 @@ func getLbListeners(lbId string) (*bool, error) {
 	return &contains, nil
 }
 
-func containsLbBackEndGroups(lbId string) (*bool, jsonutils.JSONObject, error) {
+func containsLbBackEndGroups(lbId string) (*bool, []monitor.SuggestAlertProblem, error) {
 	contains := false
-	problem := jsonutils.NewDict()
+
+	problems := make([]monitor.SuggestAlertProblem, 0)
 	session := auth.GetAdminSession(context.Background(), "", "")
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.NewString("0"), "limit")
@@ -140,24 +144,29 @@ func containsLbBackEndGroups(lbId string) (*bool, jsonutils.JSONObject, error) {
 	query.Add(jsonutils.NewString(lbId), "loadbalancer")
 	groups, err := modules.LoadbalancerBackendGroups.List(session, query)
 	if err != nil {
-		return nil, problem, err
+		return nil, problems, err
 	}
 	for _, group := range groups.Data {
 		groupId, _ := group.GetString("id")
 		backEnds, err := containsLbBackEnd(groupId)
 		if err != nil {
-			return nil, problem, err
+			return nil, problems, err
 		}
 		if *backEnds {
-			return backEnds, problem, nil
+			return backEnds, problems, nil
 		}
 	}
 	if len(groups.Data) == 0 {
-		problem.Add(jsonutils.NewString(monitor.LB_UNUSED_NBCGROUP), "backendgroup")
+		problems = append(problems, monitor.SuggestAlertProblem{
+			Type:        "backendgroup",
+			Description: monitor.LB_UNUSED_NBCGROUP,
+		})
 	}
-	problem.Add(jsonutils.NewString(monitor.LB_UNUSED_NBC), "backend")
-
-	return &contains, problem, nil
+	problems = append(problems, monitor.SuggestAlertProblem{
+		Type:        "backend",
+		Description: monitor.LB_UNUSED_NBC,
+	})
+	return &contains, problems, nil
 }
 
 func containsLbBackEnd(groupId string) (*bool, error) {

@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -304,8 +305,22 @@ func (self *SSuggestSysRuleManager) GetPropertyRuleType(ctx context.Context, use
 	if err != nil {
 		return ret, err
 	}
+	drivers := GetSuggestSysRuleDrivers()
+	dbTypes := make(map[monitor.SuggestDriverType]string, 0)
 	for _, rule := range rules {
-		ruleArr.Add(jsonutils.NewString(rule.Type))
+		if _, ok := drivers[rule.GetType()]; !ok {
+			return nil, fmt.Errorf("have invalid rule type :%s", string(rule.GetType()))
+		}
+		dbTypes[rule.GetType()] = ""
+	}
+	if len(dbTypes) == len(drivers) {
+		return ret, nil
+	}
+	for typ, driver := range drivers {
+		if _, ok := dbTypes[typ]; ok {
+			continue
+		}
+		ruleArr.Add(jsonutils.NewString(string(driver.GetType())))
 	}
 	return ret, nil
 }
@@ -326,7 +341,19 @@ func (self *SSuggestSysRuleManager) AllowGetPropertyMeasurements(ctx context.Con
 
 func (self *SSuggestSysRuleManager) GetPropertyMeasurements(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return DataSourceManager.GetMeasurements(query, "")
+	ruleType, err := query.GetString("type")
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := monitor.FilterSuggestRuleMeasureMentMap[monitor.SuggestDriverType(ruleType)]; !ok {
+		return nil, fmt.Errorf("param type: %s is invalid", ruleType)
+	}
+	measurementFilter := getMeasurementFilter(monitor.FilterSuggestRuleMeasureMentMap[monitor.SuggestDriverType(ruleType)])
+	return DataSourceManager.GetMeasurements(query, measurementFilter, "")
+}
+
+func getMeasurementFilter(filter string) string {
+	return fmt.Sprintf(" MEASUREMENT =~ /%s.*/", filter)
 }
 
 func (self *SSuggestSysRuleManager) AllowGetPropertyMetricMeasurement(ctx context.Context,

@@ -71,7 +71,7 @@ func (self *SUnifiedMonitorManager) GetPropertyMeasurements(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	return DataSourceManager.GetMeasurements(query, filter)
+	return DataSourceManager.GetMeasurements(query, "", filter)
 }
 
 func filterByScope(ctx context.Context, scope string, data jsonutils.JSONObject) (string, error) {

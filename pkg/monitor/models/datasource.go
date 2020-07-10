@@ -15,6 +15,7 @@
 package models
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
@@ -192,7 +193,8 @@ func (self *SDataSourceManager) GetDatabases() (jsonutils.JSONObject, error) {
 	return ret, nil
 }
 
-func (self *SDataSourceManager) GetMeasurements(query jsonutils.JSONObject, filter string) (jsonutils.JSONObject,
+func (self *SDataSourceManager) GetMeasurements(query jsonutils.JSONObject,
+	measurementFilter, tagFilter string) (jsonutils.JSONObject,
 	error) {
 	ret := jsonutils.NewDict()
 	database, _ := query.GetString("database")
@@ -205,13 +207,18 @@ func (self *SDataSourceManager) GetMeasurements(query jsonutils.JSONObject, filt
 	}
 	db := influxdb.NewInfluxdb(dataSource.Url)
 	db.SetDatabase(database)
-	var q string
-	if filter != "" {
-		q = fmt.Sprintf("SHOW MEASUREMENTS ON %s WHERE %s", database, filter)
-	} else {
-		q = fmt.Sprintf("SHOW MEASUREMENTS ON %s", database)
+	var buffer bytes.Buffer
+	buffer.WriteString(" SHOW MEASUREMENTS ON ")
+	buffer.WriteString(database)
+	if len(measurementFilter) != 0 {
+		buffer.WriteString(" WITH ")
+		buffer.WriteString(measurementFilter)
 	}
-	dbRtn, err := db.Query(q)
+	if len(tagFilter) != 0 {
+		buffer.WriteString(" WHERE ")
+		buffer.WriteString(tagFilter)
+	}
+	dbRtn, err := db.Query(buffer.String())
 	if err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "SHOW MEASUREMENTS")
 	}

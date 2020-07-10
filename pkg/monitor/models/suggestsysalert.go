@@ -64,10 +64,11 @@ type SSuggestSysAlert struct {
 
 	//监控规则对应的json对象
 	RuleName      string               `list:"user" update:"user"`
-	MonitorConfig jsonutils.JSONObject `list:"user" create:"required" update:"user"`
+	MonitorConfig jsonutils.JSONObject `list:"user" update:"user"`
 	//监控规则type：Rule Type
 	Type    string               `width:"256" charset:"ascii" list:"user" update:"user"`
 	ResMeta jsonutils.JSONObject `list:"user" update:"user"`
+	//problem may have more than one ,so the problem instanceof jsonutils.jsonArray
 	Problem jsonutils.JSONObject `list:"user" update:"user"`
 	//Suggest string               `width:"256"  list:"user" update:"user"`
 	Action string `width:"256" charset:"ascii" list:"user" update:"user"`
