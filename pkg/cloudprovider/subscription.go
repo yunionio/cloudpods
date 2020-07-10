@@ -20,24 +20,13 @@ type SubscriptionCreateInput struct {
 	OfferType           string
 }
 
-type SEnrollmentAccountProperties struct {
-	// Enrollment Account 主体名称
-	PrincipalName string
-
-	// Enrollment Account 支持创建订阅类别
-	OfferTypes []string
-}
-
 type SEnrollmentAccount struct {
-	// Enrollment Account 标识Id
-	Id string
+	// Enrollment Account Id
+	Id string `json:"id"`
 
 	// Enrollment Account name
-	Name string
+	Name string `json:"name"`
 
 	// Enrollment Account 类型
-	Type string
-
-	// Enrollment Account 属性
-	Properties SEnrollmentAccountProperties
+	Type string `json:"type"`
 }
