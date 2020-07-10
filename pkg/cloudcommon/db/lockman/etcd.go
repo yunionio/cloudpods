@@ -167,6 +167,7 @@ type SLockTableIndex struct {
 }
 
 type SEtcdLockManager struct {
+	*SBaseLockManager
 	tableLock *sync.Mutex
 	lockTable map[SLockTableIndex]*SEtcdLockRecord
 
@@ -203,6 +204,7 @@ func NewEtcdLockManager(config *SEtcdLockManagerConfig) (ILockManager, error) {
 		Value:  lockman,
 		Func:   atexit.ExitHandlerFunc(lockman.destroyAtExit),
 	})
+	lockman.SBaseLockManager = NewBaseLockManger(&lockman)
 	return &lockman, nil
 }
 
