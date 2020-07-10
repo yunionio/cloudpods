@@ -3009,5 +3009,11 @@ func (self *SCloudaccount) PerformCreateSubscription(ctx context.Context, userCr
 		OfferType:           input.OfferType,
 	}
 
-	return nil, provider.CreateSubscription(conf)
+	err = provider.CreateSubscription(conf)
+	if err != nil {
+		return nil, errors.Wrap(err, "CreateSubscription")
+	}
+
+	syncRange := SSyncRange{}
+	return nil, self.StartSyncCloudProviderInfoTask(ctx, userCred, &syncRange, "")
 }

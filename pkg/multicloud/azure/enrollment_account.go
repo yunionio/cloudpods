@@ -25,15 +25,36 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
+type SEnrollmentAccountProperties struct {
+	PrincipalName string
+	OfferTypes    []string
+}
+
+type SEnrollmentAccount struct {
+	Id         string
+	Name       string
+	Type       string
+	Properties SEnrollmentAccountProperties
+}
+
 func (cli *SAzureClient) GetEnrollmentAccounts() ([]cloudprovider.SEnrollmentAccount, error) {
 	accounts := struct {
-		Value []cloudprovider.SEnrollmentAccount
+		Value []SEnrollmentAccount
 	}{}
 	err := cli.Get("providers/Microsoft.Billing/enrollmentAccounts", nil, &accounts)
 	if err != nil {
 		return nil, err
 	}
-	return accounts.Value, nil
+	eas := []cloudprovider.SEnrollmentAccount{}
+	for i := range accounts.Value {
+		ea := cloudprovider.SEnrollmentAccount{
+			Id:   accounts.Value[i].Name,
+			Name: accounts.Value[i].Properties.PrincipalName,
+			Type: accounts.Value[i].Type,
+		}
+		eas = append(eas, ea)
+	}
+	return eas, nil
 }
 
 func (cli *SAzureClient) CreateSubscription(name string, eaId string, offerType string) error {
