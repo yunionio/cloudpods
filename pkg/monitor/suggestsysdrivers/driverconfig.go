@@ -30,7 +30,14 @@ func init() {
 		NewDiskUnusedDriver(),
 		NewLBUnusedDriver(),
 		NewSnapshotUnusedDriver(),
-		NewScaleDownDriver())
+		NewScaleDownDriver(),
+		NewRdsUnreasonableDriver(),
+		NewOssUnreasonableDriver(),
+		NewRedisUnreasonableDriver(),
+		NewSecGroupRuleInServerDriver(),
+		NewOssSecAclDriver(),
+	)
+
 }
 
 func InitSuggestSysRuleCronjob() {

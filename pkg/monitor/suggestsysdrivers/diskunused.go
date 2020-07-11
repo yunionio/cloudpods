@@ -94,10 +94,13 @@ func (drv *DiskUnused) GetLatestAlerts(rule *models.SSuggestSysRule, instance *m
 			suggestSysAlert.MonitorConfig = jsonutils.Marshal(instance)
 		}
 
-		problem := jsonutils.NewDict()
-		rtnTime := fmt.Sprintf("%.1fm", time.Now().Sub(latestTime).Minutes())
-		problem.Add(jsonutils.NewString(rtnTime), "diskUnused time")
-		suggestSysAlert.Problem = problem
+		problems := []monitor.SuggestAlertProblem{
+			monitor.SuggestAlertProblem{
+				Type:        "diskUnused time",
+				Description: fmt.Sprintf("%.1fm", time.Now().Sub(latestTime).Minutes()),
+			},
+		}
+		suggestSysAlert.Problem = jsonutils.Marshal(&problems)
 		diskUnusedArr = append(diskUnusedArr, jsonutils.Marshal(suggestSysAlert))
 	}
 	return diskUnusedArr, nil

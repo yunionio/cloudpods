@@ -266,3 +266,7 @@ func ListAllResources(manager modulebase.Manager, params *jsonutils.JSONDict) ([
 	}
 	return objs, nil
 }
+
+func GenerateName(name, hint string) string {
+	return fmt.Sprintf("%s-%s", name, hint)
+}

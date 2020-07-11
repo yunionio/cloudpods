@@ -79,11 +79,14 @@ func (drv *SnapshotUnused) GetLatestAlerts(rule *models.SSuggestSysRule, setting
 		if err != nil {
 			return unusedResult, errors.Wrap(err, "get unused snapshot")
 		}
-		problem := jsonutils.NewDict()
 		updateAt, _ := snapshot.GetTime("updated_at")
-		subTime := fmt.Sprintf("%.1fm", time.Now().Sub(updateAt).Minutes())
-		problem.Add(jsonutils.NewString(subTime), "snapshotUnused time")
-		alert.Problem = problem
+		problems := []monitor.SuggestAlertProblem{
+			monitor.SuggestAlertProblem{
+				Type:        "snapshotUnused time",
+				Description: fmt.Sprintf("%.1fm", time.Now().Sub(updateAt).Minutes()),
+			},
+		}
+		alert.Problem = jsonutils.Marshal(&problems)
 		unusedResult = append(unusedResult, jsonutils.Marshal(alert))
 	}
 	return unusedResult, nil

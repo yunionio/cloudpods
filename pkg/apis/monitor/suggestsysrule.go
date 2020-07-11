@@ -27,6 +27,13 @@ const (
 
 var PROPERTY_TYPE = []string{"databases", "measurements", "metric-measurement"}
 
+var FilterSuggestRuleMeasureMentMap = map[SuggestDriverType]string{
+	SCALE_DOWN:         "vm",
+	REDIS_UNREASONABLE: "dcs",
+	RDS_UNREASONABLE:   "rds",
+	OSS_UNREASONABLE:   "oss",
+}
+
 var METRIC_ATTRI = []string{METRIC_TAG, METRIC_FIELD}
 
 type InfluxMeasurement struct {

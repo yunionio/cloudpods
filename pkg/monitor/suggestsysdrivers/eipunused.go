@@ -104,10 +104,13 @@ func (drv *EIPUnused) GetLatestAlerts(rule *models.SSuggestSysRule, instance *mo
 			suggestSysAlert.MonitorConfig = jsonutils.Marshal(instance)
 		}
 
-		problem := jsonutils.NewDict()
-		rtnTime := fmt.Sprintf("%.1fm", time.Now().Sub(latestTime).Minutes())
-		problem.Add(jsonutils.NewString(rtnTime), "eipUnused time")
-		suggestSysAlert.Problem = problem
+		problems := []monitor.SuggestAlertProblem{
+			monitor.SuggestAlertProblem{
+				Type:        "eipUnused time",
+				Description: fmt.Sprintf("%.1fm", time.Now().Sub(latestTime).Minutes()),
+			},
+		}
+		suggestSysAlert.Problem = jsonutils.Marshal(&problems)
 
 		getResourceAmount(suggestSysAlert, latestTime)
 		unused = append(unused, jsonutils.Marshal(suggestSysAlert))
