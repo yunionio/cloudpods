@@ -29,8 +29,10 @@ type ICommand interface {
 	GetProtocol() string
 	GetCommand() *exec.Cmd
 	Cleanup() error
-	GetData(string) (isShow bool, ouput string, command string)
+	Reconnect()
+	IsNeedShowInfo() bool
 	ShowInfo() string
+	Scan(d byte, send func(msg string))
 }
 
 type BaseCommand struct {
@@ -56,12 +58,20 @@ func (c BaseCommand) GetCommand() *exec.Cmd {
 	return exec.Command(c.name, c.args...)
 }
 
-func (c BaseCommand) GetData(comand string) (isShow bool, ouput string, command string) {
-	return true, "", ""
+func (c BaseCommand) Scan(byte, func(msg string)) {
+	return
+}
+
+func (c BaseCommand) IsNeedShowInfo() bool {
+	return false
 }
 
 func (c BaseCommand) ShowInfo() string {
 	return ""
+}
+
+func (c BaseCommand) Reconnect() {
+	return
 }
 
 func (c BaseCommand) Cleanup() error {
