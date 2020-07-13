@@ -146,6 +146,8 @@ const (
 
 	ACT_AUTHENTICATE = "认证登录"
 
+	ACT_HEALTH_CHECK = "健康检查"
+
 	ACT_RECYCLE_PREPAID      = "池化预付费主机"
 	ACT_UNDO_RECYCLE_PREPAID = "取消池化预付费主机"
 
