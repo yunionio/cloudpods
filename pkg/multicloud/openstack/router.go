@@ -30,6 +30,7 @@ type SConntrackHelper struct {
 	Port     int    `json:"port"`
 }
 type SRouter struct {
+	ports               []SPort
 	AdminStateUp        bool                 `json:"admin_state_up"`
 	Description         string               `json:"description"`
 	FlavorID            string               `json:"flavor_id"`
