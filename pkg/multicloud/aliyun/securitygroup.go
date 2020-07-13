@@ -16,7 +16,6 @@ package aliyun
 
 import (
 	"fmt"
-	"net"
 	"strings"
 	"time"
 
@@ -418,7 +417,7 @@ func (self *SPermission) toRule() (cloudprovider.SecurityRule, error) {
 		cidr = self.DestCidrIp
 	}
 
-	_, rule.IPNet, _ = net.ParseCIDR(cidr)
+	rule.ParseCIDR(cidr)
 
 	switch strings.ToLower(self.IpProtocol) {
 	case "tcp", "udp", "icmp":
