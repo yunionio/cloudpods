@@ -139,7 +139,7 @@ require (
 	yunion.io/x/jsonutils v0.0.0-20200710080709-7ca71cdb9383
 	yunion.io/x/log v0.0.0-20200313080802-57a4ce5966b3
 	yunion.io/x/ovsdb v0.0.0-20200526071744-27bf0940cbc7
-	yunion.io/x/pkg v0.0.0-20200708071451-a663dc94e16b
+	yunion.io/x/pkg v0.0.0-20200713121502-18154120c49b
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 	yunion.io/x/sqlchemy v0.0.0-20200702064124-195445bc4b11
 	yunion.io/x/structarg v0.0.0-20200708124353-ea9a441ecaf8

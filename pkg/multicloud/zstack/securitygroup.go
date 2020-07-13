@@ -16,7 +16,6 @@ package zstack
 
 import (
 	"fmt"
-	"net"
 	"net/url"
 	"strings"
 
@@ -116,16 +115,16 @@ func (rule *SSecurityGroupRule) toRule() (cloudprovider.SecurityRule, error) {
 			PortEnd:   rule.EndPort,
 		},
 	}
-	_, ipNet, err := net.ParseCIDR(rule.AllowedCIDR)
-	if err != nil {
-		return r, err
-	}
-	r.IPNet = ipNet
+	r.ParseCIDR(rule.AllowedCIDR)
 	if rule.Type == "Egress" {
 		r.Direction = secrules.DIR_OUT
 	}
 	if rule.Protocol != "ALL" {
 		r.Protocol = strings.ToLower(rule.Protocol)
+	}
+	err := r.ValidateRule()
+	if err != nil {
+		return r, errors.Wrap(err, "invalid rule")
 	}
 	return r, nil
 }

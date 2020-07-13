@@ -16,7 +16,6 @@ package openstack
 
 import (
 	"fmt"
-	"net"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -176,11 +175,8 @@ func (secgrouprule *SSecurityGroupRule) toRules() ([]cloudprovider.SecurityRule,
 	if len(secgrouprule.RemoteIpPrefix) == 0 {
 		secgrouprule.RemoteIpPrefix = "0.0.0.0/0"
 	}
-	_, ipnet, err := net.ParseCIDR(secgrouprule.RemoteIpPrefix)
-	if err != nil {
-		return rules, errors.Wrapf(err, "net.ParseCIDR(%s)", secgrouprule.RemoteIpPrefix)
-	}
-	rule.IPNet = ipnet
+
+	rule.ParseCIDR(secgrouprule.RemoteIpPrefix)
 	if secgrouprule.PortRangeMax > 0 && secgrouprule.PortRangeMin > 0 {
 		if secgrouprule.PortRangeMax == secgrouprule.PortRangeMin {
 			rule.Ports = []int{secgrouprule.PortRangeMax}
@@ -189,7 +185,7 @@ func (secgrouprule *SSecurityGroupRule) toRules() ([]cloudprovider.SecurityRule,
 			rule.PortEnd = secgrouprule.PortRangeMax
 		}
 	}
-	err = rule.ValidateRule()
+	err := rule.ValidateRule()
 	if err != nil && err != secrules.ErrInvalidPriority {
 		return rules, errors.Wrap(err, "rule.ValidateRule")
 	}
