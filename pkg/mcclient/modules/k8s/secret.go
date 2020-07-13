@@ -40,7 +40,7 @@ func init() {
 	modules.Register(Secrets)
 }
 
-func (m SecretManager) GetType(obj jsonutils.JSONObject) interface{} {
+func (m SecretManager) Get_Type(obj jsonutils.JSONObject) interface{} {
 	typ, _ := obj.GetString("type")
 	return typ
 }

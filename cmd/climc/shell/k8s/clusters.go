@@ -188,6 +188,19 @@ func initKubeCluster() {
 		return nil
 	})
 
+	R(&o.ClusterSyncOptions{}, cmdN("sync"), "Sync cluster k8s resources", func(s *mcclient.ClientSession, args *o.ClusterSyncOptions) error {
+		param, err := args.Params()
+		if err != nil {
+			return err
+		}
+		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "sync", param)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+
 	R(&o.IdentOptions{}, cmdN("public"), "Make cluster public", func(s *mcclient.ClientSession, args *o.IdentOptions) error {
 		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "public", nil)
 		if err != nil {
