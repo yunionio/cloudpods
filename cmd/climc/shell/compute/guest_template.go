@@ -145,6 +145,15 @@ func init() {
 		},
 	)
 
+	R(&GuestTemplateOptions{}, "server-template-inspect", "Inspect server template", func(s *mcclient.ClientSession, opts *GuestTemplateOptions) error {
+		tem, err := modules.GuestTemplate.PerformAction(s, opts.ID, "inspect", jsonutils.JSONNull)
+		if err != nil {
+			return err
+		}
+		printObject(tem)
+		return nil
+	})
+
 	type GuestTemplatePublicOptions struct {
 		ID          string `help:"ID or Name of server template"`
 		PublicScope string `help:"public scope"`
