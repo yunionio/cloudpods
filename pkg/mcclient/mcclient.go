@@ -345,6 +345,11 @@ func (this *Client) GetCommonEtcdEndpoint(token TokenCredential, region, interfa
 		return nil, errors.Errorf("current version %s not support get internal etcd endpoint", this.AuthVersion())
 	}
 
+	_, err := this.GetServiceCatalog().GetServiceURL(api.SERVICE_TYPE_ETCD, region, "", interfaceType)
+	if err != nil {
+		return nil, err
+	}
+
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(interfaceType), "interface")
 	params.Add(jsonutils.JSONTrue, "enabled")
