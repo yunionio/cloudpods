@@ -16,7 +16,6 @@ package qcloud
 
 import (
 	"fmt"
-	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -139,18 +138,6 @@ func (self *SecurityGroupPolicy) String() string {
 	return strings.Join(result, ";")
 }
 
-func parseCIDR(cidr string) (*net.IPNet, error) {
-	if strings.Index(cidr, "/") > 0 {
-		_, ipnet, err := net.ParseCIDR(cidr)
-		return ipnet, err
-	}
-	ip := net.ParseIP(cidr)
-	if ip == nil {
-		return nil, fmt.Errorf("Parse ip %s error", cidr)
-	}
-	return &net.IPNet{IP: ip, Mask: net.CIDRMask(32, 32)}, nil
-}
-
 func (self *SecurityGroupPolicy) toRules() []cloudprovider.SecurityRule {
 	result := []cloudprovider.SecurityRule{}
 	rule := cloudprovider.SecurityRule{
@@ -228,11 +215,7 @@ func (self *SecurityGroupPolicy) toRules() []cloudprovider.SecurityRule {
 		}
 		result = append(result, rules...)
 	} else if len(self.CidrBlock) > 0 {
-		ipnet, err := parseCIDR(self.CidrBlock)
-		if err != nil {
-			return nil
-		}
-		rule.IPNet = ipnet
+		rule.ParseCIDR(self.CidrBlock)
 		result = append(result, rule)
 	}
 	return result
@@ -249,11 +232,7 @@ func (self *SecurityGroupPolicy) getAddressRules(rule cloudprovider.SecurityRule
 		return nil, fmt.Errorf("failed to find address %s", addressId)
 	}
 	for _, ip := range address[0].AddressSet {
-		ipnet, err := parseCIDR(ip)
-		if err != nil {
-			return nil, nil
-		}
-		rule.IPNet = ipnet
+		rule.ParseCIDR(ip)
 		result = append(result, rule)
 	}
 	return result, nil

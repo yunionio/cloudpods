@@ -16,14 +16,12 @@ package google
 
 import (
 	"fmt"
-	"net"
 	"strconv"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 
@@ -114,14 +112,7 @@ func (firewall *SFirewall) _toRules(action secrules.TSecurityRuleAction) ([]clou
 			ipRanges = firewall.DestinationRanges
 		}
 		for _, ipRange := range ipRanges {
-			if regutils.MatchCIDR(ipRange) {
-				_, rule.IPNet, _ = net.ParseCIDR(ipRange)
-			} else {
-				rule.IPNet = &net.IPNet{
-					IP:   net.ParseIP(ipRange),
-					Mask: net.CIDRMask(32, 32),
-				}
-			}
+			rule.ParseCIDR(ipRange)
 			ports := []int{}
 			for _, port := range allow.Ports {
 				if strings.Index(port, "-") > 0 {

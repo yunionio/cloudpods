@@ -150,18 +150,8 @@ func ParseSecurityRule(pattern string) (*SecurityRule, error) {
 				return nil, ErrInvalidAction
 			}
 		} else if status == SEG_IP {
-			if regutils.MatchCIDR(seg) {
-				_, rule.IPNet, _ = net.ParseCIDR(seg)
-			} else if regutils.MatchIPAddr(seg) {
-				rule.IPNet = &net.IPNet{
-					IP:   net.ParseIP(seg),
-					Mask: net.CIDRMask(32, 32),
-				}
-			} else {
-				rule.IPNet = &net.IPNet{
-					IP:   net.IPv4zero,
-					Mask: net.CIDRMask(0, 32),
-				}
+			matched := rule.ParseCIDR(seg)
+			if !matched {
 				index--
 			}
 			status = SEG_PROTO
@@ -183,6 +173,25 @@ func ParseSecurityRule(pattern string) (*SecurityRule, error) {
 		}
 	}
 	return rule, nil
+}
+
+func (rule *SecurityRule) ParseCIDR(cidr string) bool {
+	if regutils.MatchCIDR(cidr) {
+		_, rule.IPNet, _ = net.ParseCIDR(cidr)
+		return true
+	}
+	if regutils.MatchIPAddr(cidr) {
+		rule.IPNet = &net.IPNet{
+			IP:   net.ParseIP(cidr),
+			Mask: net.CIDRMask(32, 32),
+		}
+		return true
+	}
+	rule.IPNet = &net.IPNet{
+		IP:   net.IPv4zero,
+		Mask: net.CIDRMask(0, 32),
+	}
+	return false
 }
 
 func (rule *SecurityRule) IsWildMatch() bool {

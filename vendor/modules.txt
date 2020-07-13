@@ -996,7 +996,7 @@ yunion.io/x/jsonutils
 # yunion.io/x/log v0.0.0-20200313080802-57a4ce5966b3
 yunion.io/x/log
 yunion.io/x/log/hooks
-# yunion.io/x/pkg v0.0.0-20200516092703-0a53bc9270aa
+# yunion.io/x/pkg v0.0.0-20200713121502-18154120c49b
 yunion.io/x/pkg/errors
 yunion.io/x/pkg/gotypes
 yunion.io/x/pkg/prettytable
