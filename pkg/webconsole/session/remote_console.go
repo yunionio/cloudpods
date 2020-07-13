@@ -90,14 +90,24 @@ func (info *RemoteConsoleInfo) Cleanup() error {
 	return nil
 }
 
-// GetData implements ISessionData interface
+// Connect implements ISessionData interface
 func (info *RemoteConsoleInfo) Connect() error {
 	return nil
 }
 
-// GetData implements ISessionData interface
-func (info *RemoteConsoleInfo) GetData(s string) (bool, string, string) {
-	return false, "", ""
+// IsNeedShowInfo implements ISessionData interface
+func (info *RemoteConsoleInfo) IsNeedShowInfo() bool {
+	return false
+}
+
+// Reconnect implements ISessionData interface
+func (info *RemoteConsoleInfo) Reconnect() {
+	return
+}
+
+// Scan implements ISessionData interface
+func (info *RemoteConsoleInfo) Scan(byte, func(string)) {
+	return
 }
 
 // ShowInfo implements ISessionData interface
