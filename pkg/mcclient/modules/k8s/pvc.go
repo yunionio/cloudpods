@@ -39,17 +39,17 @@ func init() {
 	modules.Register(PersistentVolumeClaims)
 }
 
-func (m PersistentVolumeClaimManager) GetVolume(obj jsonutils.JSONObject) interface{} {
+func (m PersistentVolumeClaimManager) Get_Volume(obj jsonutils.JSONObject) interface{} {
 	volume, _ := obj.GetString("volume")
 	return volume
 }
 
-func (m PersistentVolumeClaimManager) GetStorageClass(obj jsonutils.JSONObject) interface{} {
+func (m PersistentVolumeClaimManager) Get_StorageClass(obj jsonutils.JSONObject) interface{} {
 	sc, _ := obj.GetString("storageClass")
 	return sc
 }
 
-func (m PersistentVolumeClaimManager) GetMountedBy(obj jsonutils.JSONObject) interface{} {
+func (m PersistentVolumeClaimManager) Get_MountedBy(obj jsonutils.JSONObject) interface{} {
 	pods, _ := obj.GetArray("mountedBy")
 	var ret []string
 	for _, pod := range pods {

@@ -15,23 +15,31 @@
 package k8s
 
 import (
-	"yunion.io/x/jsonutils"
-
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 var (
-	RbacRoles        *RbacRoleManager
-	RbacRoleBindings *RbacRoleBindingManager
-	ServiceAccounts  *ServiceAccountManager
+	RbacRoles               *RbacRoleManager
+	RbacClusterRoles        *RbacClusterRoleManager
+	RbacRoleBindings        *RbacRoleBindingManager
+	RbacClusterRoleBindings *RbacClusterRoleBindingManager
+	ServiceAccounts         *ServiceAccountManager
 )
 
 type RbacRoleManager struct {
 	*NamespaceResourceManager
 }
 
+type RbacClusterRoleManager struct {
+	*ClusterResourceManager
+}
+
 type RbacRoleBindingManager struct {
 	*NamespaceResourceManager
+}
+
+type RbacClusterRoleBindingManager struct {
+	*ClusterResourceManager
 }
 
 type ServiceAccountManager struct {
@@ -40,25 +48,23 @@ type ServiceAccountManager struct {
 
 func init() {
 	RbacRoles = &RbacRoleManager{
-		NewNamespaceResourceManager("rbacrole", "rbacroles", NewNamespaceCols(), NewColumns("Type"))}
+		NewNamespaceResourceManager("rbacrole", "rbacroles", NewNamespaceCols(), NewColumns())}
+
+	RbacClusterRoles = &RbacClusterRoleManager{
+		NewClusterResourceManager("rbacclusterrole", "rbacclusterroles", NewClusterCols(), NewColumns())}
 
 	RbacRoleBindings = &RbacRoleBindingManager{
-		NewNamespaceResourceManager("rbacrolebinding", "rbacrolebindings", NewNamespaceCols(), NewColumns("Type"))}
+		NewNamespaceResourceManager("rbacrolebinding", "rbacrolebindings", NewNamespaceCols(), NewColumns())}
+
+	RbacClusterRoleBindings = &RbacClusterRoleBindingManager{
+		NewClusterResourceManager("rbacclusterrolebinding", "rbacclusterrolebindings", NewClusterCols(), NewColumns())}
 
 	ServiceAccounts = &ServiceAccountManager{
 		NewNamespaceResourceManager("serviceaccount", "serviceaccounts", NewNamespaceCols(), NewColumns())}
 
 	modules.Register(RbacRoles)
+	modules.Register(RbacClusterRoles)
 	modules.Register(RbacRoleBindings)
+	modules.Register(RbacClusterRoleBindings)
 	modules.Register(ServiceAccounts)
-}
-
-func (m RbacRoleManager) GetType(obj jsonutils.JSONObject) interface{} {
-	typ, _ := obj.GetString("type")
-	return typ
-}
-
-func (m RbacRoleBindingManager) GetType(obj jsonutils.JSONObject) interface{} {
-	typ, _ := obj.GetString("type")
-	return typ
 }

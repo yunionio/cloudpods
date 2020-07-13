@@ -22,8 +22,10 @@ import (
 
 func initRbac() {
 	//cmdRole := initK8sNamespaceResource("rbacrole", k8s.RbacRoles)
-	initK8sNamespaceResource("rbacrole", k8s.RbacRoles)
-	initK8sNamespaceResource("rbacrolebinding", k8s.RbacRoleBindings)
+	initK8sNamespaceResource("rbac-role", k8s.RbacRoles)
+	initK8sNamespaceResource("rbac-rolebinding", k8s.RbacRoleBindings)
+	initK8sClusterResource("rbac-clusterrole", k8s.RbacClusterRoles)
+	initK8sClusterResource("rbac-clusterrolebinding", k8s.RbacClusterRoleBindings)
 	initK8sNamespaceResource("serviceaccount", k8s.ServiceAccounts)
 	//cmdRoleN := cmdRole.CommandNameFactory
 }

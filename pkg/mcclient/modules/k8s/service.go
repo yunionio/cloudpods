@@ -38,17 +38,17 @@ func init() {
 	modules.Register(Services)
 }
 
-func (s ServiceManager) GetType(obj jsonutils.JSONObject) interface{} {
+func (s ServiceManager) Get_Type(obj jsonutils.JSONObject) interface{} {
 	typ, _ := obj.GetString("type")
 	return typ
 }
 
-func (s ServiceManager) GetClusterIP(obj jsonutils.JSONObject) interface{} {
+func (s ServiceManager) Get_ClusterIP(obj jsonutils.JSONObject) interface{} {
 	clusterIp, _ := obj.GetString("clusterIP")
 	return clusterIp
 }
 
-func (s ServiceManager) GetSelector(obj jsonutils.JSONObject) interface{} {
+func (s ServiceManager) Get_Selector(obj jsonutils.JSONObject) interface{} {
 	selectorObj, _ := obj.GetMap("selector")
 	var selectors []string
 	for k, obj := range selectorObj {
@@ -59,7 +59,7 @@ func (s ServiceManager) GetSelector(obj jsonutils.JSONObject) interface{} {
 	return selectorStr
 }
 
-func (s ServiceManager) GetPorts(obj jsonutils.JSONObject) interface{} {
+func (s ServiceManager) Get_Ports(obj jsonutils.JSONObject) interface{} {
 	var ports []string
 	var portsStr string
 	portObjs, _ := obj.GetArray("internalEndpoint", "ports")

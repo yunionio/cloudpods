@@ -46,22 +46,22 @@ func init() {
 	modules.Register(Events)
 }
 
-func (m EventManager) GetSource(obj jsonutils.JSONObject) interface{} {
+func (m EventManager) Get_Source(obj jsonutils.JSONObject) interface{} {
 	src, _ := obj.GetString("source")
 	return src
 }
 
-func (m EventManager) GetType(obj jsonutils.JSONObject) interface{} {
+func (m EventManager) Get_Type(obj jsonutils.JSONObject) interface{} {
 	typ, _ := obj.GetString("type")
 	return typ
 }
 
-func (m EventManager) GetAction(obj jsonutils.JSONObject) interface{} {
+func (m EventManager) Get_Action(obj jsonutils.JSONObject) interface{} {
 	act, _ := obj.Get("action")
 	return act
 }
 
-func (m EventManager) GetObject(obj jsonutils.JSONObject) interface{} {
+func (m EventManager) Get_Object(obj jsonutils.JSONObject) interface{} {
 	refObj, _ := obj.Get("involvedObject")
 	if refObj == nil {
 		return ""
@@ -71,7 +71,7 @@ func (m EventManager) GetObject(obj jsonutils.JSONObject) interface{} {
 	return fmt.Sprintf("%s/%s", kind, name)
 }
 
-func (m EventManager) GetMessage(obj jsonutils.JSONObject) interface{} {
+func (m EventManager) Get_Message(obj jsonutils.JSONObject) interface{} {
 	msg, _ := obj.GetString("message")
 	return msg
 }

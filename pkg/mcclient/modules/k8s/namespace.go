@@ -21,14 +21,14 @@ import (
 var Namespaces *NamespaceManager
 
 type NamespaceManager struct {
-	*MetaResourceManager
+	*ClusterResourceManager
 	statusGetter
 }
 
 func init() {
 	Namespaces = &NamespaceManager{
-		MetaResourceManager: NewMetaResourceManager("namespace", "namespaces", NewNameCols("Status"), NewClusterCols()),
-		statusGetter:        getStatus,
+		ClusterResourceManager: NewClusterResourceManager("namespace", "namespaces", NewNameCols("Status"), NewClusterCols()),
+		statusGetter:           getStatus,
 	}
 
 	modules.Register(Namespaces)
