@@ -17,7 +17,6 @@ package ucloud
 import (
 	"fmt"
 	"math/rand"
-	"net"
 	"strings"
 	"time"
 
@@ -123,15 +122,10 @@ func (self *SSecurityGroup) UcloudSecRuleToOnecloud(rule Rule) (cloudprovider.Se
 		secrule.Action = secrules.SecurityRuleDeny
 	}
 
-	_, ipNet, err := net.ParseCIDR(rule.SrcIP)
-	if err != nil {
-		return secrule, errors.Wrapf(err, "net.ParseCIDR(%s)", rule.SrcIP)
-	}
-
-	secrule.IPNet = ipNet
+	secrule.ParseCIDR(rule.SrcIP)
 	secrule.Protocol = strings.ToLower(rule.ProtocolType)
 	secrule.Direction = secrules.SecurityRuleIngress
-	err = secrule.ParsePorts(rule.DstPort)
+	err := secrule.ParsePorts(rule.DstPort)
 	if err != nil {
 		return secrule, errors.Wrapf(err, "ParsePorts(%s)", rule.DstPort)
 	}
