@@ -297,18 +297,6 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 			return
 		}
 
-		if _, ok := names[name]; ok {
-			e := httperrors.NewClientError("row %d duplicate name %s", rowIdx, name)
-			httperrors.JsonClientError(w, e)
-			return
-		} else {
-			names[name] = true
-			_, err := modules.UsersV3.Get(s, name, nil)
-			if err == nil {
-				continue
-			}
-		}
-
 		domainId, ok := domains[domain]
 		if !ok {
 			if len(domain) == 0 {
@@ -325,6 +313,18 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 
 			domainId = id
 			domains[domain] = id
+		}
+
+		if _, ok := names[name+"/"+domainId]; ok {
+			e := httperrors.NewClientError("row %d duplicate name %s", rowIdx, name)
+			httperrors.JsonClientError(w, e)
+			return
+		} else {
+			names[name+"/"+domainId] = true
+			_, err := modules.UsersV3.Get(s, name, nil)
+			if err == nil {
+				continue
+			}
 		}
 
 		user := jsonutils.NewDict()
