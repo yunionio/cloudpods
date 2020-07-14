@@ -38,17 +38,17 @@ func init() {
 	modules.Register(Pods)
 }
 
-func (m PodManager) GetIP(obj jsonutils.JSONObject) interface{} {
+func (m PodManager) Get_IP(obj jsonutils.JSONObject) interface{} {
 	ip, _ := obj.GetString("podIP")
 	return ip
 }
 
-func (m PodManager) GetRestarts(obj jsonutils.JSONObject) interface{} {
+func (m PodManager) Get_Restarts(obj jsonutils.JSONObject) interface{} {
 	count, _ := obj.Int("restartCount")
 	return count
 }
 
-func (m PodManager) GetNode(obj jsonutils.JSONObject) interface{} {
+func (m PodManager) Get_Node(obj jsonutils.JSONObject) interface{} {
 	node, _ := obj.GetString("nodeName")
 	return node
 }

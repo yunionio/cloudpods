@@ -30,7 +30,7 @@ import (
 )
 
 func getPrinterRowValue(printer k8s.ListPrinter, obj jsonutils.JSONObject, col string) interface{} {
-	getFuncName := fmt.Sprintf("Get%s", strings.Title(col))
+	getFuncName := fmt.Sprintf("Get_%s", strings.Title(col))
 	manValue := reflect.ValueOf(printer)
 	funcValue := manValue.MethodByName(getFuncName)
 	if !funcValue.IsValid() || funcValue.IsNil() {

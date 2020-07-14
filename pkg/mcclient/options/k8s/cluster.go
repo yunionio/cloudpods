@@ -172,6 +172,19 @@ type IdentOptions struct {
 	ID string `help:"ID or name of the model"`
 }
 
+type ClusterSyncOptions struct {
+	IdentOptions
+	Force bool `help:"force sync"`
+}
+
+func (o ClusterSyncOptions) Params() (*jsonutils.JSONDict, error) {
+	param := jsonutils.NewDict()
+	if o.Force {
+		param.Add(jsonutils.JSONTrue, "force")
+	}
+	return param, nil
+}
+
 type ClusterK8sVersions struct {
 	PROVIDER string `help:"cluster provider" choices:"system|onecloud"`
 }

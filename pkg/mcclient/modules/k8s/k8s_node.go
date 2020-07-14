@@ -23,12 +23,12 @@ var (
 )
 
 type K8sNodeManager struct {
-	*MetaResourceManager
+	*ClusterResourceManager
 }
 
 func init() {
 	K8sNodes = &K8sNodeManager{
-		MetaResourceManager: NewMetaResourceManager("k8s_node", "k8s_nodes", NewColumns(), NewColumns()),
+		ClusterResourceManager: NewClusterResourceManager("k8s_node", "k8s_nodes", NewColumns(), NewColumns()),
 	}
 
 	modules.Register(K8sNodes)
