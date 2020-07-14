@@ -192,6 +192,23 @@ func Brand2Hypervisor(brand string) string {
 	return hypervisor
 }
 
+func (gtm *SGuestTemplateManager) validateContent(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, content *jsonutils.JSONDict) (*computeapis.ServerCreateInput, error) {
+	input, err := GuestManager.validateCreateData(ctx, userCred, ownerId, query, content)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError(err.Error())
+	}
+	// check Image
+	imageId := input.Disks[0].ImageId
+	image, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, true)
+	if err != nil {
+		return nil, errors.Wrapf(err, "getImageInfo of '%s'", imageId)
+	}
+	if image == nil {
+		return nil, fmt.Errorf("no such image %s", imageId)
+	}
+	return input, nil
+}
+
 func (gtm *SGuestTemplateManager) validateData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -211,7 +228,7 @@ func (gtm *SGuestTemplateManager) validateData(
 	}
 	// I don't hope cinput.Content same with data["content"] will change in GuestManager.validateCreateData
 	copy := jsonutils.DeepCopy(content).(*jsonutils.JSONDict)
-	input, err := GuestManager.validateCreateData(ctx, userCred, ownerId, query, copy)
+	input, err := gtm.validateContent(ctx, userCred, ownerId, query, copy)
 	if err != nil {
 		return cinput, httperrors.NewInputParameterError(err.Error())
 	}
@@ -700,7 +717,7 @@ func (gt *SGuestTemplate) Validate(ctx context.Context, userCred mcclient.TokenC
 	}
 
 	// check networks
-	input, err := GuestManager.validateCreateData(ctx, userCred, ownerId, jsonutils.NewDict(), gt.Content.(*jsonutils.JSONDict))
+	input, err := GuestTemplateManager.validateContent(ctx, userCred, ownerId, jsonutils.NewDict(), gt.Content.(*jsonutils.JSONDict))
 	if err != nil {
 		return false, err.Error()
 	}
@@ -762,6 +779,29 @@ func (g *SGuest) PerformSaveTemplate(ctx context.Context, userCred mcclient.Toke
 	return nil, nil
 }
 
+func (gt *SGuestTemplate) AllowPerformInspect(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return gt.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, gt, "inspect")
+}
+
+func (gt *SGuestTemplate) PerformInspect(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return nil, gt.inspect(ctx, userCred)
+}
+
+func (gt *SGuestTemplate) inspect(ctx context.Context, userCred mcclient.TokenCredential) error {
+	_, err := GuestTemplateManager.validateContent(ctx, userCred, gt.GetOwnerId(), jsonutils.NewDict(), gt.Content.(*jsonutils.JSONDict))
+	if err == nil {
+		gt.updateCheckTime()
+		logclient.AddSimpleActionLog(gt, logclient.ACT_HEALTH_CHECK, "", userCred, true)
+		return nil
+	}
+	// invalid
+	gt.updateCheckTime()
+	reason := fmt.Sprintf("During the inspection, the guest template is not available: %s", err.Error())
+	gt.SetStatus(userCred, computeapis.GT_INVALID, reason)
+	logclient.AddSimpleActionLog(gt, logclient.ACT_HEALTH_CHECK, reason, userCred, false)
+	return nil
+}
+
 func (gm *SGuestTemplateManager) InspectAllTemplate(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	lastCheckTime := time.Now().Add(time.Duration(-options.Options.GuestTemplateCheckInterval) * time.Hour)
 	q := gm.Query().Equals("status", computeapis.GT_READY)
@@ -774,15 +814,6 @@ func (gm *SGuestTemplateManager) InspectAllTemplate(ctx context.Context, userCre
 		return
 	}
 	for i := range gts {
-		_, err := GuestManager.validateCreateData(ctx, userCred, gts[i].GetOwnerId(), jsonutils.NewDict(),
-			gts[i].Content.(*jsonutils.JSONDict))
-		if err == nil {
-			gts[i].updateCheckTime()
-			continue
-		}
-		// invalid
-		gts[i].updateCheckTime()
-		reason := fmt.Sprintf("During the inspection, the guest template is not available: %s", err.Error())
-		gts[i].SetStatus(userCred, computeapis.GT_INVALID, reason)
+		gts[i].inspect(ctx, userCred)
 	}
 }
