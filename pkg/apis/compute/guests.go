@@ -71,8 +71,8 @@ type ServerListInput struct {
 	// 按主机资源类型进行排序
 	// enum: shared,prepaid,dedicated
 	ResourceType string `json:"resource_type"`
-	// 返回开启主备机功能的主机
-	GetBackupGuestsOnHost *bool `json:"get_backup_guests_on_host"`
+	// 返回该宿主机上的所有虚拟机，包括备份机
+	GetAllGuestsOnHost string `json:"get_all_guests_on_host"`
 
 	// 根据宿主机 SN 过滤
 	// HostSn string `json:"host_sn"`

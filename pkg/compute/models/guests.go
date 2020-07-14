@@ -243,18 +243,14 @@ func (manager *SGuestManager) ListItemFilter(
 		q = q.In("host_id", subq.SubQuery())
 	}
 
-	hostFilter := query.Host
+	hostFilter := query.GetAllGuestsOnHost
 	if len(hostFilter) > 0 {
 		host, _ := HostManager.FetchByIdOrName(nil, hostFilter)
 		if host == nil {
 			return nil, httperrors.NewResourceNotFoundError("host %s not found", hostFilter)
 		}
-		if query.GetBackupGuestsOnHost != nil && *query.GetBackupGuestsOnHost {
-			q.Filter(sqlchemy.OR(sqlchemy.Equals(q.Field("host_id"), host.GetId()),
-				sqlchemy.Equals(q.Field("backup_host_id"), host.GetId())))
-		} else {
-			q = q.Equals("host_id", host.GetId())
-		}
+		q.Filter(sqlchemy.OR(sqlchemy.Equals(q.Field("host_id"), host.GetId()),
+			sqlchemy.Equals(q.Field("backup_host_id"), host.GetId())))
 	}
 
 	secgrpFilter := query.Secgroup
