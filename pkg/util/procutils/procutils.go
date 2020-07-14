@@ -86,7 +86,7 @@ func (c *Command) Run() error {
 	log.Debugf("Exec command: %s %v", c.path, c.args)
 	err := c.cmd.Run()
 	if err != nil {
-		log.Errorf("Execute command %q , error: %v", c, err)
+		log.Debugf("Execute command %q , error: %v", c, err)
 	}
 	return err
 }
@@ -95,7 +95,7 @@ func (c *Command) Output() ([]byte, error) {
 	log.Debugf("Exec command: %s %v", c.path, c.args)
 	output, err := c.cmd.CombinedOutput()
 	if err != nil {
-		log.Errorf("Execute command %q , error: %v , output: %s", c, err, string(output))
+		log.Debugf("Execute command %q , error: %v , output: %s", c, err, string(output))
 	}
 	return output, err
 }
