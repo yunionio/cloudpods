@@ -15,11 +15,6 @@
 package server
 
 import (
-	"os/exec"
-	"strconv"
-	"strings"
-	"time"
-
 	socketio "github.com/googollee/go-socket.io"
 	"github.com/kr/pty"
 
@@ -74,77 +69,52 @@ func (server *TTYServer) initEventHandler(s *session.SSession) {
 func initSocketHandler(so socketio.Socket, p *session.Pty) {
 	// handle read
 	go func() {
-		buf := make([]byte, 1024)
-		for {
-			if p.IsOk {
-				if p.Cmd == nil || p.Cmd.Process == nil {
-					p.IsOk = false
-				} else if p.Pty == nil {
-					p.IsOk = false
-				} else if n, err := p.Pty.Read(buf); err != nil {
-					p.IsOk = false
-				} else {
-					so.Emit(OUTPUT_EVENT, string(buf[0:n]))
-				}
-				if !p.IsOk {
-					err := p.Stop()
-					//之前有cmd命令运行，并且正常退出，认为程序是正常退出的
-					if err == nil && p.Cmd != nil {
-						so.Disconnect()
-						return
-					}
+		for !p.Exit {
+			if p.IsInShellMode() {
+				data, err := p.Read()
+				if err != nil {
+					log.Errorf("[%s] read data error: %v", so.Id(), err)
+					err = p.Stop()
 					if err != nil {
-						log.Warningf("stop tty error: %v", err)
+						log.Warningf("[%s] stop tty error: %v", so.Id(), err)
 					}
-					if info := p.Session.ShowInfo(); len(info) > 0 {
-						so.Emit(OUTPUT_EVENT, info)
-					}
+					p.Session.Reconnect()
+				} else {
+					so.Emit(OUTPUT_EVENT, string(data))
 				}
-			} else if p.Exit {
-				return
-			} else {
-				//避免goroutine死循环导致主进程卡死
-				time.Sleep(time.Microsecond * 50)
+				continue
+			}
+			if p.Session.IsNeedShowInfo() {
+				info := p.Session.ShowInfo()
+				if len(info) > 0 {
+					so.Emit(OUTPUT_EVENT, info)
+				}
 			}
 		}
 	}()
 
 	// handle write
 	so.On(INPUT_EVENT, func(data string) {
-		if !p.IsOk {
-			if data == "\r" {
-				p.Show, p.Output, p.Command = p.Session.GetData(p.Buffer)
-				so.Emit(OUTPUT_EVENT, "\r\n")
-				if len(p.Output) > 0 {
-					so.Emit(OUTPUT_EVENT, p.Output)
-				}
-				if len(p.Command) > 0 {
-					log.Infof("exec: %s", p.Command)
-					args := strings.Split(p.Command, " ")
-					cmd := exec.Command(args[0], args[1:]...)
-					cmd.Env = append(cmd.Env, "TERM=xterm-256color")
-					if _pty, err := pty.Start(cmd); err != nil {
-						so.Emit(OUTPUT_EVENT, err.Error()+"\r\n")
-						log.Errorf("exec error: %v", err)
-					} else {
-						p.Pty, p.Cmd, p.IsOk = _pty, cmd, true
-						if p.OriginSize != nil {
-							p.Resize(p.OriginSize)
-						}
+		if !p.IsInShellMode() {
+			for _, d := range []byte(data) {
+				p.Session.Scan(d, func(msg string) {
+					if len(msg) > 0 {
+						so.Emit(OUTPUT_EVENT, msg)
 					}
-				}
-				p.Buffer, data = "", ""
-			} else if data == "\u007f" {
-				//退格处理
-				if len(p.Buffer) > 0 {
-					p.Buffer = p.Buffer[:len(p.Buffer)-1]
-					data = "\b \b"
-				}
-			} else if strconv.IsPrint([]rune(data)[0]) {
-				p.Buffer += data
+				})
 			}
-			if p.Show && len(data) > 0 {
-				so.Emit(OUTPUT_EVENT, data)
+			cmd := p.Session.GetCommand()
+			if cmd != nil {
+				pty, err := pty.Start(cmd)
+				if err != nil {
+					log.Errorf("failed to start cmd: %v, error: %v", cmd, err)
+					so.Emit(OUTPUT_EVENT, err.Error()+"\r\n")
+					return
+				}
+				p.Pty, p.Cmd = pty, cmd
+				if p.OriginSize != nil {
+					p.Resize(p.OriginSize)
+				}
 			}
 		} else {
 			p.Pty.Write([]byte(data))
