@@ -108,15 +108,7 @@ type CloudgroupDetails struct {
 type CloudgroupCreateInput struct {
 	apis.StatusInfrasResourceBaseCreateInput
 
-	// 平台
-	//
-	// | 云平台   | 说明                                        |
-	// |----------|---------------------------------------------|
-	// | Google   | 支持                                        |
-	// | Aliyun   | 支持										|
-	// | Huawei   | 支持                                        |
-	// | Azure    | 支持                                        |
-	// | Qcloud   | 支持                                        |
+	// 平台, 目前支持Qcloud,Google,Azure,Aliyun,Huawei,Aws
 	Provider string `json:"provider"`
 
 	// 权限Id列表, 权限provider必须和权限组provider一致
@@ -126,84 +118,36 @@ type CloudgroupCreateInput struct {
 type CloudgroupAddUserInput struct {
 
 	// 用户Id
-	//
-	// | 云平台   | 说明                                        |
-	// |----------|---------------------------------------------|
-	// | Google   | 不支持                                      |
-	// | Aliyun   | 支持										|
-	// | Huawei   | 支持                                        |
-	// | Azure    | 支持                                        |
-	// | 腾讯云   | 支持                                        |
 	ClouduserId string `json:"clouduser_id"`
 }
 
 type CloudgroupRemoveUserInput struct {
 
 	// 用户Id
-	//
-	// | 云平台   | 说明                                        |
-	// |----------|---------------------------------------------|
-	// | Google   | 不支持                                      |
-	// | Aliyun   | 支持										|
-	// | Huawei   | 支持                                        |
-	// | Azure    | 支持                                        |
-	// | 腾讯云   | 支持                                        |
 	ClouduserId string `json:"clouduser_id"`
 }
 
 type CloudgroupAttachPolicyInput struct {
 
 	// 权限Id
-	//
-	// | 云平台   | 说明                                        |
-	// |----------|---------------------------------------------|
-	// | Google   | 不支持                                      |
-	// | Aliyun   | 支持										|
-	// | Huawei   | 支持                                        |
-	// | Azure    | 不支持                                      |
-	// | 腾讯云   | 支持                                        |
 	CloudpolicyId string `json:"cloudpolicy_id"`
 }
 
 type CloudgroupSetUsersInput struct {
 
 	// 公有云子账号Ids
-	//
-	// | 云平台   | 说明                                        |
-	// |----------|---------------------------------------------|
-	// | Google   | 支持                                        |
-	// | Aliyun   | 支持										|
-	// | Huawei   | 支持                                        |
-	// | Azure    | 支持                                        |
-	// | 腾讯云   | 支持                                        |
 	ClouduserIds []string `json:"clouduser_ids"`
 }
 
 type CloudgroupSetPoliciesInput struct {
 
 	// 权限Ids
-	//
-	// | 云平台   | 说明                                        |
-	// |----------|---------------------------------------------|
-	// | Google   | 支持                                        |
-	// | Aliyun   | 支持										|
-	// | Huawei   | 支持                                        |
-	// | Azure    | 不支持                                      |
-	// | 腾讯云   | 支持                                        |
 	CloudpolicyIds []string `json:"cloudpolicy_ids"`
 }
 
 type CloudgroupDetachPolicyInput struct {
 
 	// 权限Id
-	//
-	// | 云平台   | 说明                                        |
-	// |----------|---------------------------------------------|
-	// | Google   | 不支持                                      |
-	// | Aliyun   | 支持										|
-	// | Huawei   | 支持                                        |
-	// | Azure    | 不支持                                      |
-	// | 腾讯云   | 支持                                        |
 	CloudpolicyId string `json:"cloudpolicy_id"`
 }
 
