@@ -105,10 +105,6 @@ type ClouduserListInput struct {
 	CloudaccountResourceListInput
 	CloudproviderResourceListInput
 
-	// 通过关联用户查找公有云子账号
-	// example: cloudadmin
-	OwnerName string `json:"owner_name"`
-
 	// 过滤绑定权限的子账号
 	CloudpolicyId string `json:"cloudpolicy_id"`
 

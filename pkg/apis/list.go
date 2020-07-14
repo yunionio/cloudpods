@@ -59,11 +59,7 @@ type StatusDomainLevelUserResourceListInput struct {
 }
 
 type UserResourceListInput struct {
-	StandaloneResourceListInput
-	ScopedResourceInput
-
-	// list in admin mode
-	Admin *bool `json:"admin"`
+	StatusDomainLevelResourceListInput
 
 	// 查询指定的用户（ID或名称）拥有的资源
 	User string `json:"user"`
