@@ -116,9 +116,10 @@ func (manager *SEndpointManager) InitializeData() error {
 			})
 		}
 	}
-	if err := manager.SetInformerBackend(); err != nil {
-		log.Errorf("init informer backend error: %v", err)
-	}
+	/*
+		if err := manager.SetInformerBackend(); err != nil {
+			log.Errorf("init informer backend error: %v", err)
+		}*/
 	return nil
 }
 
@@ -591,14 +592,14 @@ func (endpoint *SEndpoint) PostCreate(ctx context.Context, userCred mcclient.Tok
 	endpoint.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	logclient.AddActionLogWithContext(ctx, endpoint, logclient.ACT_CREATE, data, userCred, true)
 	refreshDefaultClientServiceCatalog()
-	endpoint.trySetInformerBackend()
+	//endpoint.trySetInformerBackend()
 }
 
 func (endpoint *SEndpoint) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	endpoint.SStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
 	logclient.AddActionLogWithContext(ctx, endpoint, logclient.ACT_UPDATE, data, userCred, true)
 	refreshDefaultClientServiceCatalog()
-	endpoint.trySetInformerBackend()
+	//endpoint.trySetInformerBackend()
 }
 
 func (endpoint *SEndpoint) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
