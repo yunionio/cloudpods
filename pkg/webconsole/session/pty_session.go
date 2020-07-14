@@ -33,11 +33,6 @@ type Pty struct {
 	sizeCh     chan os.Signal
 	size       *pty.Winsize
 	OriginSize *pty.Winsize
-	Show       bool
-	IsOk       bool
-	Buffer     string
-	Output     string
-	Command    string
 	Exit       bool
 }
 
@@ -46,8 +41,6 @@ func NewPty(session *SSession) (p *Pty, err error) {
 	p = &Pty{
 		Session: session,
 		Cmd:     cmd,
-		Show:    true,
-		IsOk:    true,
 		Exit:    false,
 		Pty:     nil,
 	}
@@ -55,6 +48,8 @@ func NewPty(session *SSession) (p *Pty, err error) {
 	if cmd != nil {
 		p.Pty, err = pty.Start(p.Cmd)
 		if err != nil {
+			log.Errorf("start cmd error: %v", err)
+			p.Cmd = nil
 			return
 		}
 	}
@@ -63,6 +58,25 @@ func NewPty(session *SSession) (p *Pty, err error) {
 	p.startResizeMonitor()
 	signal.Notify(p.sizeCh, syscall.SIGWINCH) // Initail resize
 	return
+}
+
+func (p *Pty) IsInShellMode() bool {
+	if p.Cmd == nil || p.Cmd.Process == nil {
+		return false
+	}
+	return true
+}
+
+func (p *Pty) Read() ([]byte, error) {
+	if !p.IsInShellMode() {
+		return nil, errors.Error("not in shell mode")
+	}
+	buf := make([]byte, 1024)
+	n, err := p.Pty.Read(buf)
+	if err != nil {
+		return nil, errors.Wrap(err, "Pty.Read")
+	}
+	return buf[0:n], nil
 }
 
 func (p *Pty) startResizeMonitor() {
@@ -99,6 +113,7 @@ func (p *Pty) Stop() (err error) {
 	}()
 	defer func() {
 		if p.Cmd != nil && p.Cmd.Process != nil {
+			log.Debugf("[%s] stop cmd", p.Session.Id)
 			err := p.Cmd.Process.Signal(os.Kill)
 			if err != nil {
 				errs = append(errs, err)
@@ -109,6 +124,7 @@ func (p *Pty) Stop() (err error) {
 			if err != nil {
 				errs = append(errs, err)
 				log.Errorf("Wait command error: %v", err)
+				return
 			}
 		}
 	}()
@@ -120,8 +136,11 @@ func (p *Pty) Stop() (err error) {
 				errs = append(errs, err)
 				return
 			}
-			p.Pty = nil
 		}
+	}()
+
+	defer func() {
+		p.Cmd, p.Pty = nil, nil
 	}()
 	return
 }
