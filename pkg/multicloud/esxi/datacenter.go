@@ -211,7 +211,7 @@ func (dc *SDatacenter) fetchVms(vmRefs []types.ManagedObjectReference, all bool)
 	for i := 0; i < len(vms); i += 1 {
 		if all || !strings.HasPrefix(vms[i].Entity().Name, api.ESXI_IMAGE_CACHE_TMP_PREFIX) {
 			vmObj := NewVirtualMachine(dc.manager, &vms[i], dc)
-			if vms[i].Config.Template {
+			if vms[i].Config != nil && vms[i].Config.Template {
 				templateVMs = append(templateVMs, vmObj)
 				continue
 			}
