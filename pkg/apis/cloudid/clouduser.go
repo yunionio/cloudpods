@@ -88,7 +88,7 @@ type ClouduserCreateInput struct {
 	// | Google   | 至少需要一个初始权限                        |
 	// | Aliyun   | 支持										|
 	// | Huawei   | 不支持                                      |
-	// | Azure    | 不支持                                      |
+	// | Azure    | 支持                                        |
 	// | 腾讯云   | 支持                                        |
 	CloudpolicyIds []string `json:"cloudpolicy_ids"`
 

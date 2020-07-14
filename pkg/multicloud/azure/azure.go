@@ -97,6 +97,7 @@ var DEFAULT_API_VERSION = map[string]string{
 	"Microsoft.Authorization/policyDefinitions":       "2019-09-01",
 	"Microsoft.Authorization/policyAssignments":       "2019-09-01",
 	"Microsoft.Billing":                               "2018-03-01-preview",
+	"Microsoft.Authorization":                         "2018-01-01-preview",
 }
 
 var GRAPH_API_VERSION = map[string]string{

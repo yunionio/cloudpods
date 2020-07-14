@@ -64,7 +64,7 @@ func (manager *SStatusDomainLevelUserResourceBaseManager) FilterByOwner(q *sqlch
 	if owner != nil {
 		switch scope {
 		case rbacutils.ScopeProject, rbacutils.ScopeUser:
-			return q.Equals("owner_id", owner.GetProjectDomainId())
+			return q.Equals("owner_id", owner.GetUserId())
 		case rbacutils.ScopeDomain:
 			sq := UserCacheManager.Query("id").Equals("domain_id", owner.GetProjectDomainId())
 			q = q.Filter(

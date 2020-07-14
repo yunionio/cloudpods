@@ -246,6 +246,10 @@ func (self *SAzureProvider) GetEnrollmentAccounts() ([]cloudprovider.SEnrollment
 	return self.client.GetEnrollmentAccounts()
 }
 
+func (self *SAzureProvider) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	return self.client.GetICloudpolicies()
+}
+
 func (self *SAzureProvider) CreateSubscription(input cloudprovider.SubscriptionCreateInput) error {
 	return self.client.CreateSubscription(input.Name, input.EnrollmentAccountId, input.OfferType)
 }
