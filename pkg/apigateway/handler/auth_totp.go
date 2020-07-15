@@ -201,8 +201,35 @@ func validateTotpRecoverySecrets(s *mcclient.ClientSession, uid string, question
 	return nil
 }
 
+// 获取第一次的QR code
+func initTotpSecrets(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+	t, authToken, err := fetchAuthInfo(ctx, req)
+	if err != nil {
+		httperrors.InvalidCredentialError(w, "fetchAuthInfo fail %s", err)
+		return
+	}
+	if authToken.IsTotpInitialized() {
+		resetTotpSecrets(ctx, w, req)
+		return
+	}
+
+	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
+	code, err := doCreateUserTotpCred(s, t)
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+		return
+	}
+
+	authToken.SetTotpInitialized()
+	saveAuthCookie(w, authToken, t)
+
+	resp := jsonutils.NewDict()
+	resp.Add(jsonutils.NewString(code), "qrcode")
+	appsrv.SendJSON(w, resp)
+}
+
 // 验证OTP
-func ValidatePasscodeHandler(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+func validatePasscodeHandler(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	t, authToken, err := fetchAuthInfo(ctx, req)
 	if err != nil {
 		httperrors.InvalidCredentialError(w, "fetchAuthInfo fail %s", err)
@@ -241,7 +268,7 @@ func ValidatePasscodeHandler(ctx context.Context, w http.ResponseWriter, req *ht
 }
 
 // 验证OTP credential重置问题.如果答案正确，返回重置后的Qrcode（base64编码，png格式）。
-func ResetTotpSecrets(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+func resetTotpSecrets(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	t, _, err := fetchAuthInfo(ctx, req)
 	if err != nil {
 		httperrors.InvalidCredentialError(w, "fetchAuthInfo fail %s", err)
@@ -279,7 +306,7 @@ func ResetTotpSecrets(ctx context.Context, w http.ResponseWriter, req *http.Requ
 }
 
 // 获取OTP 重置密码问题列表。
-func ListTotpRecoveryQuestions(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+func listTotpRecoveryQuestions(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	t, _, err := fetchAuthInfo(ctx, req)
 	if err != nil {
 		httperrors.InvalidCredentialError(w, "fetchAuthInfo fail %s", err)
@@ -305,7 +332,7 @@ func ListTotpRecoveryQuestions(ctx context.Context, w http.ResponseWriter, req *
 }
 
 // 提交OTP 重置密码问题。
-func ResetTotpRecoveryQuestions(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+func resetTotpRecoveryQuestions(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	t, _, err := fetchAuthInfo(ctx, req)
 	if err != nil {
 		httperrors.InvalidCredentialError(w, "fetchAuthInfo fail %s", err)

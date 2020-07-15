@@ -19,22 +19,24 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
-func (this *Client) AuthenticateCAS(ticket string, projectId, projectName, projectDomain string, cliIp string) (TokenCredential, error) {
+func (this *Client) AuthenticateCAS(idpId string, ticket, redurectUri string, projectId, projectName, projectDomain string, cliIp string) (TokenCredential, error) {
 	aCtx := SAuthContext{
 		// CAS auth must comes from Web
 		Source: AuthSourceWeb,
 		Ip:     cliIp,
 	}
-	return this.authenticateCASWithContext(ticket, projectId, projectName, projectDomain, aCtx)
+	return this.authenticateCASWithContext(idpId, ticket, redurectUri, projectId, projectName, projectDomain, aCtx)
 }
 
-func (this *Client) authenticateCASWithContext(ticket string, projectId, projectName, projectDomain string, aCtx SAuthContext) (TokenCredential, error) {
+func (this *Client) authenticateCASWithContext(idpId string, ticket, redirectUri string, projectId, projectName, projectDomain string, aCtx SAuthContext) (TokenCredential, error) {
 	if this.AuthVersion() != "v3" {
 		return nil, httperrors.ErrNotSupported
 	}
 	input := SAuthenticationInputV3{}
+	input.Auth.Identity.Id = idpId
 	input.Auth.Identity.Methods = []string{api.AUTH_METHOD_CAS}
 	input.Auth.Identity.CASTicket.Id = ticket
+	input.Auth.Identity.CASTicket.Service = redirectUri
 	if len(projectId) > 0 {
 		input.Auth.Scope.Project.Id = projectId
 	}

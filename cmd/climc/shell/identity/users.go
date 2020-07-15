@@ -169,6 +169,9 @@ func init() {
 		SystemAccount bool `help:"is a system account?"`
 		NoWebConsole  bool `help:"allow web console access"`
 		EnableMfa     bool `help:"enable TOTP mfa"`
+
+		IdpId       string `help:"Id of identity provider to link with"`
+		IdpEntityId string `help:"Entity id of identity provider to link with"`
 	}
 	R(&UserCreateOptions{}, "user-create", "Create a user", func(s *mcclient.ClientSession, args *UserCreateOptions) error {
 		params := jsonutils.NewDict()
@@ -212,6 +215,11 @@ func init() {
 		}
 		if args.EnableMfa {
 			params.Add(jsonutils.JSONTrue, "enable_mfa")
+		}
+
+		if len(args.IdpId) > 0 {
+			params.Add(jsonutils.NewString(args.IdpId), "idp_id")
+			params.Add(jsonutils.NewString(args.IdpEntityId), "idp_entity_id")
 		}
 
 		/*if len(args.DefaultProject) > 0 {
@@ -409,4 +417,25 @@ func init() {
 		return nil
 	})
 
+	type UserLinkIdpOptions struct {
+		USER        string `help:"ID or name of user to operate" json:"-"`
+		IdpId       string `help:"Id of identity provider to link with" required:"true" json:"idp_id"`
+		IdpEntityId string `help:"Id of entity in identity provider to link with" required:"true" json:"idp_entity_id"`
+	}
+	R(&UserLinkIdpOptions{}, "user-link-idp", "Link user with an entity in the speicified identity provider", func(s *mcclient.ClientSession, args *UserLinkIdpOptions) error {
+		result, err := modules.UsersV3.PerformAction(s, args.USER, "link-idp", jsonutils.Marshal(args))
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+	R(&UserLinkIdpOptions{}, "user-unlink-idp", "Unlink user from an entity in the speicified identity provider", func(s *mcclient.ClientSession, args *UserLinkIdpOptions) error {
+		result, err := modules.UsersV3.PerformAction(s, args.USER, "unlink-idp", jsonutils.Marshal(args))
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

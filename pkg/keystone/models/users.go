@@ -447,7 +447,13 @@ func (manager *SUserManager) FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, 
 	return q
 }
 
-func (manager *SUserManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.UserCreateInput) (api.UserCreateInput, error) {
+func (manager *SUserManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input api.UserCreateInput,
+) (api.UserCreateInput, error) {
 	var err error
 	if len(input.Password) > 0 && (input.SkipPasswordComplexityCheck == nil || !*input.SkipPasswordComplexityCheck) {
 		err = validatePasswordComplexity(input.Password)
@@ -458,6 +464,17 @@ func (manager *SUserManager) ValidateCreateData(ctx context.Context, userCred mc
 	input.EnabledIdentityBaseResourceCreateInput, err = manager.SEnabledIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledIdentityBaseResourceCreateInput)
 	if err != nil {
 		return input, errors.Wrap(err, "SEnabledIdentityBaseResourceManager.ValidateCreateData")
+	}
+
+	if len(input.IdpId) > 0 {
+		_, err := IdentityProviderManager.FetchIdentityProviderById(input.IdpId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", IdentityProviderManager.Keyword(), input.IdpId)
+			} else {
+				return input, errors.Wrap(err, "IdentityProviderManager.FetchIdentityProviderById")
+			}
+		}
 	}
 
 	quota := SIdentityQuota{
@@ -571,10 +588,22 @@ func (manager *SUserManager) FetchCustomizeColumns(
 		rows[i] = userExtra(objs[i].(*SUser), rows[i])
 	}
 
-	idpRows := expandIdpAttributes(api.IdMappingEntityUser, userIds, fields)
+	idpsMaps, err := fetchIdmappings(userIds, api.IdMappingEntityUser)
+	if err != nil {
+		log.Errorf("fetchIdmappings fail %s", err)
+		return rows
+	}
 
 	for i := range rows {
-		rows[i].IdpResourceInfo = idpRows[i]
+		if idps, ok := idpsMaps[userIds[i]]; ok {
+			if len(idps) > 0 {
+				// rows[i].IdpResourceInfo = idps[0].IdpResourceInfo
+				rows[i].Idps = make([]api.IdpResourceInfo, len(idps))
+				for j := range idps {
+					rows[i].Idps[j] = idps[j].IdpResourceInfo
+				}
+			}
+		}
 	}
 
 	return rows
@@ -636,6 +665,7 @@ func (user *SUser) initLocalData(passwd string) error {
 func (user *SUser) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	user.SEnabledIdentityBaseResource.PostCreate(ctx, userCred, ownerId, query, data)
 
+	// set password
 	passwd, _ := data.GetString("password")
 	err := user.initLocalData(passwd)
 	if err != nil {
@@ -643,6 +673,19 @@ func (user *SUser) PostCreate(ctx context.Context, userCred mcclient.TokenCreden
 		return
 	}
 
+	// link idp
+	idpId, _ := data.GetString("idp_id")
+	if len(idpId) > 0 {
+		idpEntityId, _ := data.GetString("idp_entity_id")
+		if len(idpEntityId) > 0 {
+			_, err := IdmappingManager.RegisterIdMapWithId(ctx, idpId, idpEntityId, api.IdMappingEntityUser, user.Id)
+			if err != nil {
+				log.Errorf("IdmappingManager.RegisterIdMapWithId fail %s", err)
+			}
+		}
+	}
+
+	// clean user quota
 	pendingUsage := &SIdentityQuota{
 		SBaseDomainQuotaKeys: quotas.SBaseDomainQuotaKeys{DomainId: ownerId.GetProjectDomainId()},
 		User:                 1,
@@ -707,6 +750,11 @@ func (user *SUser) Delete(ctx context.Context, userCred mcclient.TokenCredential
 		if err != nil {
 			return errors.Wrap(err, "PasswordManager.delete")
 		}
+	}
+
+	err = IdmappingManager.deleteByPublicId(user.Id, api.IdMappingEntityUser)
+	if err != nil {
+		return errors.Wrap(err, "IdmappingManager.deleteByPublicId")
 	}
 
 	return user.SEnabledIdentityBaseResource.Delete(ctx, userCred)
@@ -816,22 +864,27 @@ func (manager *SUserManager) NamespaceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeDomain
 }
 
-func (user *SUser) getIdmapping() (*SIdmapping, error) {
-	return IdmappingManager.FetchEntity(user.Id, api.IdMappingEntityUser)
+func (user *SUser) getIdmappings() ([]SIdmapping, error) {
+	return IdmappingManager.FetchEntities(user.Id, api.IdMappingEntityUser)
 }
 
 func (user *SUser) IsReadOnly() bool {
-	idmap, _ := user.getIdmapping()
-	if idmap != nil {
-		return true
+	idmaps, _ := user.getIdmappings()
+	for i := range idmaps {
+		idp, _ := IdentityProviderManager.FetchIdentityProviderById(idmaps[i].IdpId)
+		if idp != nil && idp.Driver == api.IdentityDriverLDAP {
+			return true
+		}
 	}
 	return false
 }
 
 func (user *SUser) LinkedWithIdp(idpId string) bool {
-	idmap, _ := user.getIdmapping()
-	if idmap != nil && idmap.IdpId == idpId {
-		return true
+	idmaps, _ := user.getIdmappings()
+	for i := range idmaps {
+		if idmaps[i].IdpId == idpId {
+			return true
+		}
 	}
 	return false
 }
@@ -1018,4 +1071,64 @@ func (user *SUser) GetUsages() []db.IUsage {
 	return []db.IUsage{
 		&usage,
 	}
+}
+
+func (user *SUser) AllowPerformLinkIdp(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.UserLinkIdpInput,
+) bool {
+	return db.IsAdminAllowPerform(userCred, user, "link-idp")
+}
+
+// 用户和IDP的指定entityId关联
+func (user *SUser) PerformLinkIdp(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.UserLinkIdpInput,
+) (jsonutils.JSONObject, error) {
+	idp, err := IdentityProviderManager.FetchIdentityProviderById(input.IdpId)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", IdentityProviderManager.Keyword(), input.IdpId)
+		} else {
+			return nil, errors.Wrap(err, "IdentityProviderManager.FetchIdentityProviderById")
+		}
+	}
+	// check accessibility
+	if (len(idp.DomainId) > 0 && idp.DomainId != user.DomainId) || (len(idp.TargetDomainId) > 0 && idp.TargetDomainId != user.DomainId) {
+		return nil, errors.Wrap(httperrors.ErrForbidden, "identity domain not accessible")
+	} else if len(idp.DomainId) == 0 && len(idp.TargetDomainId) == 0 && idp.AutoCreateUser.IsTrue() {
+
+	}
+	_, err = IdmappingManager.RegisterIdMapWithId(ctx, input.IdpId, input.IdpEntityId, api.IdMappingEntityUser, user.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "IdmappingManager.RegisterIdMapWithId")
+	}
+	return nil, nil
+}
+
+func (user *SUser) AllowPerformUnlinkIdp(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.UserUnlinkIdpInput,
+) bool {
+	return db.IsAdminAllowPerform(userCred, user, "unlink-idp")
+}
+
+// 用户和IDP的指定entityId解除关联
+func (user *SUser) PerformUnlinkIdp(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.UserUnlinkIdpInput,
+) (jsonutils.JSONObject, error) {
+	err := IdmappingManager.deleteAny(input.IdpId, input.IdpEntityId, user.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "IdmappingManager.deleteAny")
+	}
+	return nil, nil
 }

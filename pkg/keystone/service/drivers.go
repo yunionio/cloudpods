@@ -17,6 +17,12 @@ package service
 import (
 	_ "yunion.io/x/onecloud/pkg/keystone/driver/cas"
 	_ "yunion.io/x/onecloud/pkg/keystone/driver/ldap"
+	_ "yunion.io/x/onecloud/pkg/keystone/driver/oauth2"
+	_ "yunion.io/x/onecloud/pkg/keystone/driver/oauth2/alipay"
+	_ "yunion.io/x/onecloud/pkg/keystone/driver/oauth2/dingtalk"
+	_ "yunion.io/x/onecloud/pkg/keystone/driver/oauth2/feishu"
+	_ "yunion.io/x/onecloud/pkg/keystone/driver/oauth2/qywechat"
+	_ "yunion.io/x/onecloud/pkg/keystone/driver/oauth2/wechat"
 	_ "yunion.io/x/onecloud/pkg/keystone/driver/oidc"
 	_ "yunion.io/x/onecloud/pkg/keystone/driver/saml"
 	_ "yunion.io/x/onecloud/pkg/keystone/driver/sql"

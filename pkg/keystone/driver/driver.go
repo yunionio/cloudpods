@@ -27,10 +27,14 @@ type IIdentityBackendClass interface {
 	Name() string
 	NewDriver(idpId, idpName, template, targetDomainId string, conf api.TConfigs) (IIdentityBackend, error)
 	ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, conf api.TConfigs) (api.TConfigs, error)
+	IsSso() bool
+	GetDefaultIconUri(tmpName string) string
+	ForceSyncUser() bool
 }
 
 type IIdentityBackend interface {
 	Authenticate(ctx context.Context, identity mcclient.SAuthenticationIdentity) (*api.SUserExtended, error)
+	GetSsoRedirectUri(ctx context.Context, callbackUrl, state string) (string, error)
 	Sync(ctx context.Context) error
 	Probe(ctx context.Context) error
 }

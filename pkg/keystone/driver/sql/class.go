@@ -24,6 +24,18 @@ import (
 
 type SSQLDriverClass struct{}
 
+func (self *SSQLDriverClass) IsSso() bool {
+	return false
+}
+
+func (self *SSQLDriverClass) ForceSyncUser() bool {
+	return true
+}
+
+func (self *SSQLDriverClass) GetDefaultIconUri(tmpName string) string {
+	return ""
+}
+
 func (self *SSQLDriverClass) SingletonInstance() bool {
 	return true
 }

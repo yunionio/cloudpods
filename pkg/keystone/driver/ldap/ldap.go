@@ -16,6 +16,7 @@ package ldap
 
 import (
 	"context"
+	"database/sql"
 	"strconv"
 	"strings"
 
@@ -27,6 +28,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -73,6 +75,10 @@ func (self *SLDAPDriver) prepareConfig() error {
 		self.ldapConfig = &conf
 	}
 	return nil
+}
+
+func (ldap *SLDAPDriver) GetSsoRedirectUri(ctx context.Context, callbackUrl, state string) (string, error) {
+	return "", errors.Wrap(httperrors.ErrNotSupported, "not a SSO driver")
 }
 
 func queryScope(scope string) int {
@@ -243,7 +249,7 @@ func (self *SLDAPDriver) Authenticate(ctx context.Context, ident mcclient.SAuthe
 	var userTreeDN string
 	if len(self.ldapConfig.DomainTreeDN) > 0 {
 		// import domains
-		idMap, err := models.IdmappingManager.FetchEntity(usrExt.DomainId, api.IdMappingEntityDomain)
+		idMap, err := models.IdmappingManager.FetchFirstEntity(usrExt.DomainId, api.IdMappingEntityDomain)
 		if err != nil {
 			return nil, errors.Wrap(err, "IdmappingManager.FetchEntity for domain")
 		}
@@ -259,9 +265,19 @@ func (self *SLDAPDriver) Authenticate(ctx context.Context, ident mcclient.SAuthe
 		userTreeDN = self.getUserTreeDN()
 	}
 
-	usrIdmap, err := models.IdmappingManager.FetchEntity(usrExt.Id, api.IdMappingEntityUser)
-	if err != nil {
+	usrIdmaps, err := models.IdmappingManager.FetchEntities(usrExt.Id, api.IdMappingEntityUser)
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
 		return nil, errors.Wrap(err, "IdmappingManager.FetchEntity for user")
+	}
+	var usrIdmap *models.SIdmapping
+	for i := range usrIdmaps {
+		if usrIdmaps[i].IdpId == self.IdpId {
+			usrIdmap = &usrIdmaps[i]
+			break
+		}
+	}
+	if usrIdmap == nil {
+		return nil, errors.Wrap(httperrors.ErrInvalidCredential, "user not found in identity provider")
 	}
 	username := usrIdmap.IdpEntityId
 	password := ident.Password.User.Password

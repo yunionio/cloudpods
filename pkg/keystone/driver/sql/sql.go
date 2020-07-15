@@ -41,6 +41,10 @@ func NewSQLDriver(idpId, idpName, template, targetDomainId string, conf api.TCon
 	return &drv, nil
 }
 
+func (sql *SSQLDriver) GetSsoRedirectUri(ctx context.Context, callbackUrl, state string) (string, error) {
+	return "", errors.Wrap(httperrors.ErrNotSupported, "not a SSO driver")
+}
+
 func (sql *SSQLDriver) Authenticate(ctx context.Context, ident mcclient.SAuthenticationIdentity) (*api.SUserExtended, error) {
 	usrExt, err := models.UserManager.FetchUserExtended(
 		ident.Password.User.Id,

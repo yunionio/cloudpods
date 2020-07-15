@@ -75,6 +75,14 @@ func (self *SCASDriver) prepareConfig() error {
 	return nil
 }
 
+func (cas *SCASDriver) GetSsoRedirectUri(ctx context.Context, callbackUrl, state string) (string, error) {
+	req := map[string]string{
+		"service": callbackUrl,
+	}
+	urlStr := fmt.Sprintf("%s?%s", cas.casConfig.CASServerURL, jsonutils.Marshal(req).QueryString())
+	return urlStr, nil
+}
+
 func (self *SCASDriver) request(ctx context.Context, method httputils.THttpMethod, path string) ([]byte, error) {
 	cli := httputils.GetDefaultClient()
 	urlStr := httputils.JoinPath(self.casConfig.CASServerURL, path)
@@ -114,7 +122,7 @@ serviceValidate response:
 func (self *SCASDriver) Authenticate(ctx context.Context, ident mcclient.SAuthenticationIdentity) (*api.SUserExtended, error) {
 	query := jsonutils.NewDict()
 	query.Set("ticket", jsonutils.NewString(ident.CASTicket.Id))
-	query.Set("service", jsonutils.NewString(self.casConfig.Service))
+	query.Set("service", jsonutils.NewString(ident.CASTicket.Service))
 	path := "serviceValidate?" + query.QueryString()
 	resp, err := self.request(ctx, "GET", path)
 	/*if err != nil && httputils.ErrorCode(err) == 404 {
@@ -124,7 +132,7 @@ func (self *SCASDriver) Authenticate(ctx context.Context, ident mcclient.SAuthen
 	if err != nil {
 		return nil, errors.Wrap(err, "self.request")
 	}
-	log.Debugf("%s", resp)
+	log.Debugf("CAS response: %s qs: %s", resp, query.QueryString())
 	attrs := fetchAttributes(resp)
 
 	var usrId, usrName string
@@ -150,14 +158,18 @@ func (self *SCASDriver) Authenticate(ctx context.Context, ident mcclient.SAuthen
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetIdentityProvider")
 	}
-	domain, err := idp.GetSingleDomain(ctx, api.DefaultRemoteDomainId, self.IdpName, fmt.Sprintf("cas provider %s", self.IdpName), false)
+	domain, usr, err := idp.SyncOrCreateDomainAndUser(ctx, usrId, usrName)
+	if err != nil {
+		return nil, errors.Wrap(err, "idp.SyncOrCreateDomainAndUser")
+	}
+	/*domain, err := idp.GetSingleDomain(ctx, api.DefaultRemoteDomainId, self.IdpName, fmt.Sprintf("cas provider %s", self.IdpName), false)
 	if err != nil {
 		return nil, errors.Wrap(err, "idp.GetSingleDomain")
 	}
 	usr, err := idp.SyncOrCreateUser(ctx, usrId, usrName, domain.Id, true, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "idp.SyncOrCreateUser")
-	}
+	}*/
 	extUser, err := models.UserManager.FetchUserExtended(usr.Id, "", "", "")
 	if err != nil {
 		return nil, errors.Wrap(err, "models.UserManager.FetchUserExtended")

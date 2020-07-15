@@ -15,6 +15,8 @@
 package httputils
 
 import (
+	"compress/flate"
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -424,9 +426,25 @@ func Request(client *http.Client, ctx context.Context, method THttpMethod, urlSt
 	resp, err := client.Do(req)
 	if err != nil {
 		red(err.Error())
-	}
-	if err == nil && clientTrace != nil {
-		clientTrace.EndClientTraceHeader(resp.Header)
+	} else {
+		encoding := resp.Header.Get("Content-Encoding")
+		switch encoding {
+		case "", "identity":
+			// do nothing
+		case "gzip":
+			gzipBody, err := gzip.NewReader(resp.Body)
+			if err != nil {
+				return nil, errors.Wrap(err, "gzip.NewReader")
+			}
+			resp.Body = gzipBody
+		case "deflate":
+			resp.Body = flate.NewReader(resp.Body)
+		default:
+			return nil, errors.Wrapf(errors.ErrNotSupported, "unsupported content-encoding %s", encoding)
+		}
+		if clientTrace != nil {
+			clientTrace.EndClientTraceHeader(resp.Header)
+		}
 	}
 	return resp, err
 }

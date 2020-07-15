@@ -301,6 +301,13 @@ type IdentityProviderListInput struct {
 
 	// 以同步状态过滤
 	SyncStatus []string `json:"sync_status"`
+
+	// 过滤支持SSO的认证源，如果值为all，则列出所有的全局认证源，否则可出sso为域ID的域认证源
+	// example: all
+	SsoDomain string `json:"sso"`
+
+	AutoCreateProject *bool `json:"auto_create_project"`
+	AutoCreateUser    *bool `json:"auto_create_user"`
 }
 
 type CredentialListInput struct {
@@ -365,11 +372,17 @@ type GroupUpdateInput struct {
 type IdentityProviderUpdateInput struct {
 	apis.EnabledStatusStandaloneResourceBaseUpdateInput
 
-	TargetDomainId string `json:"target_domain_id"`
+	// TargetDomainId string `json:"target_domain_id"`
 
+	// 当认证后用户加入项目不存在时是否自动创建项目
 	AutoCreateProject *bool `json:"auto_create_project"`
+	// 当认证后用户不存在时是否自动创建用户
+	AutoCreateUser *bool `json:"auto_create_user"`
 
 	SyncIntervalSeconds *int `json:"sync_interval_seconds"`
+
+	// 图标URL
+	IconUri string `json:"icon_uri"`
 }
 
 type PolicyUpdateInput struct {
@@ -427,6 +440,10 @@ type UserCreateInput struct {
 	Password string `json:"password"`
 
 	SkipPasswordComplexityCheck *bool `json:"skip_password_complexity_check"`
+
+	IdpId string `json:"idp_id"`
+
+	IdpEntityId string `json:"idp_entity_id"`
 }
 
 type ProjectCreateInput struct {
@@ -467,3 +484,10 @@ type PerformGroupRemoveUsersInput struct {
 	// 带删除用户列表（ID或名称）
 	User []string `json:"user"`
 }
+
+type UserLinkIdpInput struct {
+	IdpId       string `json:"idp_id"`
+	IdpEntityId string `json:"idp_entity_id"`
+}
+
+type UserUnlinkIdpInput UserLinkIdpInput

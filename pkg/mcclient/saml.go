@@ -19,20 +19,21 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
-func (this *Client) AuthenticateSAML(response string, projectId, projectName, projectDomain string, cliIp string) (TokenCredential, error) {
+func (this *Client) AuthenticateSAML(idpId string, response string, projectId, projectName, projectDomain string, cliIp string) (TokenCredential, error) {
 	aCtx := SAuthContext{
-		// CAS auth must comes from Web
+		// SAML 2.0 auth must comes from Web
 		Source: AuthSourceWeb,
 		Ip:     cliIp,
 	}
-	return this.authenticateSAMLWithContext(response, projectId, projectName, projectDomain, aCtx)
+	return this.authenticateSAMLWithContext(idpId, response, projectId, projectName, projectDomain, aCtx)
 }
 
-func (this *Client) authenticateSAMLWithContext(response string, projectId, projectName, projectDomain string, aCtx SAuthContext) (TokenCredential, error) {
+func (this *Client) authenticateSAMLWithContext(idpId string, response string, projectId, projectName, projectDomain string, aCtx SAuthContext) (TokenCredential, error) {
 	if this.AuthVersion() != "v3" {
 		return nil, httperrors.ErrNotSupported
 	}
 	input := SAuthenticationInputV3{}
+	input.Auth.Identity.Id = idpId
 	input.Auth.Identity.Methods = []string{api.AUTH_METHOD_SAML}
 	input.Auth.Identity.SAMLAuth.Response = response
 	if len(projectId) > 0 {

@@ -17,7 +17,9 @@ package models
 import (
 	"context"
 	"database/sql"
+	"encoding/xml"
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -37,6 +39,7 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/saml"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/samlutils/sp"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -78,23 +81,98 @@ type SIdentityProvider struct {
 
 	db.SDomainizedResourceBase `default:""`
 
-	Driver   string `width:"32" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
-	Template string `width:"32" charset:"ascii" nullable:"true" list:"admin" create:"admin_optional"`
+	Driver   string `width:"32" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
+	Template string `width:"32" charset:"ascii" nullable:"true" list:"domain" create:"domain_optional"`
 
-	TargetDomainId string `width:"64" charset:"ascii" nullable:"true" list:"admin" create:"admin_optional" update:"admin"`
+	TargetDomainId string `width:"64" charset:"ascii" nullable:"true" list:"domain" create:"admin_optional"`
 
-	AutoCreateProject tristate.TriState `default:"true" nullable:"true" list:"admin" create:"admin_optional" update:"admin"`
+	// 是否自动创建项目
+	AutoCreateProject tristate.TriState `default:"true" nullable:"true" list:"domain" create:"domain_optional" update:"domain"`
+	// 是否自动创建用户
+	AutoCreateUser tristate.TriState `nullable:"true" list:"domain" create:"domain_optional" update:"domain"`
 
-	ErrorCount int `list:"admin"`
+	ErrorCount int `list:"domain"`
 
-	SyncStatus    string    `width:"10" charset:"ascii" default:"idle" list:"admin"`
-	LastSync      time.Time `list:"admin"` // = Column(DateTime, nullable=True)
-	LastSyncEndAt time.Time `list:"admin"`
+	SyncStatus    string    `width:"10" charset:"ascii" default:"idle" list:"domain"`
+	LastSync      time.Time `list:"domain"` // = Column(DateTime, nullable=True)
+	LastSyncEndAt time.Time `list:"domain"`
 
-	SyncIntervalSeconds int `create:"admin_optional" update:"admin"`
+	SyncIntervalSeconds int `create:"domain_optional" update:"domain"`
+
+	// 认证源图标
+	IconUri string `width:"256" charset:"utf8" nullable:"true" list:"user" create:"domain_optional" update:"domain"`
+	// 是否是SSO登录方式
+	IsSso tristate.TriState `nullable:"true" list:"domain"`
+}
+
+func (manager *SIdentityProviderManager) initializeAutoCreateUser() error {
+	q := manager.Query().IsNull("auto_create_user")
+	idps := make([]SIdentityProvider, 0)
+	err := db.FetchModelObjects(manager, q, &idps)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil
+		} else {
+			return errors.Wrap(err, "FetchModelObjeccts")
+		}
+	}
+	for i := range idps {
+		drvCls := idps[i].getDriverClass()
+		_, err := db.Update(&idps[i], func() error {
+			if drvCls.ForceSyncUser() {
+				idps[i].AutoCreateUser = tristate.True
+			} else {
+				idps[i].AutoCreateUser = tristate.False
+			}
+			return nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "update auto_create_user")
+		}
+	}
+	return nil
+}
+
+func (manager *SIdentityProviderManager) initializeIcon() error {
+	q := manager.Query().IsNull("is_sso")
+	idps := make([]SIdentityProvider, 0)
+	err := db.FetchModelObjects(manager, q, &idps)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil
+		} else {
+			return errors.Wrap(err, "FetchModelObjeccts")
+		}
+	}
+	for i := range idps {
+		drvCls := idps[i].getDriverClass()
+		_, err := db.Update(&idps[i], func() error {
+			if drvCls.IsSso() {
+				idps[i].IsSso = tristate.True
+				idps[i].IconUri = drvCls.GetDefaultIconUri(idps[i].Template)
+			} else {
+				idps[i].IsSso = tristate.False
+				idps[i].IconUri = drvCls.GetDefaultIconUri(idps[i].Template)
+			}
+			return nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "update is_sso")
+		}
+	}
+	return nil
 }
 
 func (manager *SIdentityProviderManager) InitializeData() error {
+	err := manager.initializeAutoCreateUser()
+	if err != nil {
+		return errors.Wrap(err, "initializeAutoCreateUser")
+	}
+	err = manager.initializeIcon()
+	if err != nil {
+		return errors.Wrap(err, "initializeIcon")
+	}
+
 	cnt, err := manager.Query().CountWithError()
 	if err != nil {
 		return errors.Wrap(err, "CountWithError")
@@ -113,6 +191,10 @@ func (manager *SIdentityProviderManager) InitializeData() error {
 	sqldrv.Status = api.IdentityDriverStatusConnected
 	sqldrv.Driver = api.IdentityDriverSQL
 	sqldrv.Description = "Default sql identity provider"
+	sqldrv.AutoCreateUser = tristate.True
+	sqldrv.AutoCreateProject = tristate.False
+	sqldrv.IsSso = tristate.False
+	sqldrv.IconUri = ""
 	err = manager.TableSpec().Insert(context.TODO(), &sqldrv)
 	if err != nil {
 		return errors.Wrap(err, "insert default sql driver")
@@ -316,7 +398,7 @@ func (manager *SIdentityProviderManager) ValidateCreateData(
 		}
 	}
 
-	targetDomainStr := input.TargetDomain
+	targetDomainStr := input.TargetDomainId
 	if len(targetDomainStr) > 0 {
 		domain, err := DomainManager.FetchDomainByIdOrName(targetDomainStr)
 		if err != nil {
@@ -326,7 +408,7 @@ func (manager *SIdentityProviderManager) ValidateCreateData(
 				return input, httperrors.NewGeneralError(err)
 			}
 		}
-		input.TargetDomain = domain.Id
+		input.TargetDomainId = domain.Id
 
 		if domain.Id != ownerId.GetProjectDomainId() && !db.IsAdminAllowCreate(userCred, manager) {
 			return input, errors.Wrap(httperrors.ErrNotSufficientPrivilege, "require system priviliges")
@@ -353,6 +435,18 @@ func (ident *SIdentityProvider) CustomizeCreate(ctx context.Context, userCred mc
 		ident.DomainId = ownerId.GetProjectDomainId()
 		ident.TargetDomainId = ownerId.GetProjectDomainId()
 	}
+	drvCls := ident.getDriverClass()
+	if drvCls.IsSso() {
+		ident.IsSso = tristate.True
+	} else {
+		ident.IsSso = tristate.False
+	}
+	if len(ident.IconUri) == 0 {
+		ident.IconUri = drvCls.GetDefaultIconUri(ident.Template)
+	}
+	if drvCls.ForceSyncUser() {
+		ident.AutoCreateUser = tristate.True
+	}
 	return ident.SEnabledStatusStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
@@ -371,6 +465,23 @@ func (ident *SIdentityProvider) PostCreate(ctx context.Context, userCred mcclien
 	if err != nil {
 		log.Errorf("saveConfig fail %s", err)
 		return
+	}
+
+	if len(ident.TargetDomainId) == 0 && ident.AutoCreateUser.IsTrue() && ident.IsSso.IsTrue() {
+		// SSO driver need to create the target domain immediately
+		domain, err := ident.SyncOrCreateDomain(ctx, api.DefaultRemoteDomainId, ident.Name, fmt.Sprintf("%s provider %s", ident.Driver, ident.Name), false)
+		if err != nil {
+			log.Errorf("create domain fail %s", err)
+		} else {
+			// save domain_id into target_domain_id
+			_, err := db.Update(ident, func() error {
+				ident.TargetDomainId = domain.Id
+				return nil
+			})
+			if err != nil {
+				log.Errorf("save target_domain_id fail: %s", err)
+			}
+		}
 	}
 
 	submitIdpSyncTask(ctx, userCred, ident)
@@ -975,6 +1086,35 @@ func (manager *SIdentityProviderManager) ListItemFilter(
 	if len(query.SyncStatus) > 0 {
 		q = q.In("sync_status", query.SyncStatus)
 	}
+	if len(query.SsoDomain) > 0 {
+		q = q.IsTrue("is_sso")
+		if strings.EqualFold(query.SsoDomain, "all") {
+			q = q.IsNullOrEmpty("domain_id")
+		} else if len(query.SsoDomain) > 0 {
+			q = q.Filter(sqlchemy.OR(
+				sqlchemy.IsNullOrEmpty(q.Field("domain_id")),
+				sqlchemy.Equals(q.Field("domain_id"), query.SsoDomain),
+			))
+			q = q.Filter(sqlchemy.OR(
+				sqlchemy.IsNullOrEmpty(q.Field("target_domain_id")),
+				sqlchemy.Equals(q.Field("target_domain_id"), query.SsoDomain),
+			))
+		}
+	}
+	if query.AutoCreateProject != nil {
+		if *query.AutoCreateProject {
+			q = q.IsTrue("auto_create_project")
+		} else {
+			q = q.IsFalse("auto_create_project")
+		}
+	}
+	if query.AutoCreateUser != nil {
+		if *query.AutoCreateUser {
+			q = q.IsTrue("auto_create_user")
+		} else {
+			q = q.IsFalse("auto_create_user")
+		}
+	}
 	return q, nil
 }
 
@@ -1106,24 +1246,91 @@ func (idp *SIdentityProvider) TryUserJoinProject(attrConf api.SIdpAttributeOptio
 }
 
 func (idp *SIdentityProvider) AllowGetDetailsSamlMetadata(ctx context.Context, userCred mcclient.TokenCredential, query api.GetIdpSamlMetadataInput) bool {
-	return db.IsAdminAllowGetSpec(userCred, idp, "saml-metadata")
+	return db.IsDomainAllowGetSpec(userCred, idp, "saml-metadata")
 }
 
-func (idp *SIdentityProvider) GetDetailsSamlMetadata(ctx context.Context, userCred mcclient.TokenCredential, query api.GetIdpSamlMetadataInput) (jsonutils.JSONObject, error) {
+func (idp *SIdentityProvider) GetDetailsSamlMetadata(ctx context.Context, userCred mcclient.TokenCredential, query api.GetIdpSamlMetadataInput) (api.GetIdpSamlMetadataOutput, error) {
+	output := api.GetIdpSamlMetadataOutput{}
 	if !saml.IsSAMLEnabled() {
-		return nil, errors.Wrap(httperrors.ErrNotSupported, "enable SSL first")
+		return output, errors.Wrap(httperrors.ErrNotSupported, "enable SSL first")
 	}
 	if idp.Driver != api.IdentityDriverSAML {
-		return nil, errors.Wrap(httperrors.ErrNotSupported, "not a saml IDP")
+		return output, errors.Wrap(httperrors.ErrNotSupported, "not a saml IDP")
 	}
-	pretty := false
+	if len(query.RedirectUri) == 0 {
+		return output, errors.Wrap(httperrors.ErrInputParameter, "missing redirect_uri")
+	}
+
+	spInst := sp.NewSpInstance(saml.SAMLInstance(), idp.Name, nil, nil)
+	spInst.SetAssertionConsumerUri(query.RedirectUri)
+	ed := spInst.GetMetadata()
+	var xmlBytes []byte
 	if query.Pretty != nil && *query.Pretty {
-		pretty = true
+		xmlBytes, _ = xml.MarshalIndent(ed, "", "  ")
+	} else {
+		xmlBytes, _ = xml.Marshal(ed)
 	}
-	md := struct {
-		Metadata string `json:"metadata"`
-	}{
-		Metadata: saml.GetMetadata(idp.Name, pretty),
+	output.Metadata = string(xmlBytes)
+	return output, nil
+}
+
+func (idp *SIdentityProvider) AllowGetDetailsSsoRedirectUri(ctx context.Context, userCred mcclient.TokenCredential, query api.GetIdpSsoRedirectUriInput) bool {
+	return db.IsDomainAllowGetSpec(userCred, idp, "sso-redirect-uri")
+}
+
+func (idp *SIdentityProvider) GetDetailsSsoRedirectUri(ctx context.Context, userCred mcclient.TokenCredential, query api.GetIdpSsoRedirectUriInput) (api.GetIdpSsoRedirectUriOutput, error) {
+	output := api.GetIdpSsoRedirectUriOutput{}
+	conf, err := GetConfigs(idp, true, nil, nil)
+	if err != nil {
+		return output, errors.Wrap(err, "idp.GetConfig")
 	}
-	return jsonutils.Marshal(md), nil
+
+	backend, err := driver.GetDriver(idp.Driver, idp.Id, idp.Name, idp.Template, idp.TargetDomainId, conf)
+	if err != nil {
+		return output, errors.Wrap(err, "driver.GetDriver")
+	}
+
+	uri, err := backend.GetSsoRedirectUri(ctx, query.RedirectUri, query.State)
+	if err != nil {
+		return output, errors.Wrap(err, "backend.GetSsoRedirectUri")
+	}
+
+	output.Uri = uri
+	output.Driver = idp.Driver
+
+	return output, nil
+}
+
+func (idp *SIdentityProvider) SyncOrCreateDomainAndUser(ctx context.Context, extUsrId, extUsrName string) (*SDomain, *SUser, error) {
+	var (
+		domain *SDomain
+		usr    *SUser
+		err    error
+	)
+	if idp.AutoCreateUser.IsTrue() {
+		domain, err = idp.GetSingleDomain(ctx, api.DefaultRemoteDomainId, idp.Name, fmt.Sprintf("%s provider %s", idp.Driver, idp.Name), false)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "idp.GetSingleDomain")
+		}
+		usr, err = idp.SyncOrCreateUser(ctx, extUsrId, extUsrName, domain.Id, true, nil)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "idp.SyncOrCreateUser")
+		}
+	} else {
+		modelUsrId, err := IdmappingManager.FetchByIdpAndEntityId(ctx, idp.Id, extUsrId, api.IdMappingEntityUser)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, nil, errors.Wrap(httperrors.ErrUserNotFound, extUsrId)
+			} else {
+				return nil, nil, errors.Wrap(err, "IdmappingManager.FetchByIdpAndEntityId")
+			}
+		}
+		usrObj, err := UserManager.FetchById(modelUsrId)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "UserManager.FetchById")
+		}
+		usr = usrObj.(*SUser)
+		domain = usr.GetDomain()
+	}
+	return domain, usr, nil
 }

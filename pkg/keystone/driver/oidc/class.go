@@ -29,6 +29,26 @@ import (
 
 type SOIDCDriverClass struct{}
 
+func (self *SOIDCDriverClass) IsSso() bool {
+	return true
+}
+
+func (self *SOIDCDriverClass) ForceSyncUser() bool {
+	return false
+}
+
+func (self *SOIDCDriverClass) GetDefaultIconUri(tmpName string) string {
+	switch tmpName {
+	case api.IdpTemplateDex:
+		return "https://raw.githubusercontent.com/dexidp/dex/master/Documentation/logos/dex-glyph-color.png"
+	case api.IdpTemplateGithub:
+		return "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
+	case api.IdpTemplateAzureOAuth2:
+		return "https://upload.wikimedia.org/wikipedia/commons/a/a8/Microsoft_Azure_Logo.svg"
+	}
+	return "https://openid.net/wordpress-content/uploads/2011/09/OPENID_CONNECT_NEW-Logo-1024x474.jpg"
+}
+
 func (self *SOIDCDriverClass) SingletonInstance() bool {
 	return false
 }
@@ -64,6 +84,10 @@ func (self *SOIDCDriverClass) ValidateConfig(ctx context.Context, userCred mccli
 		return tconf, errors.Wrap(err, "ValidateConfig")
 	}
 	nconf := make(map[string]jsonutils.JSONObject)
+	err = confJson.Unmarshal(&nconf)
+	if err != nil {
+		return tconf, errors.Wrap(err, "Unmarshal old config")
+	}
 	err = jsonutils.Marshal(conf).Unmarshal(&nconf)
 	if err != nil {
 		return tconf, errors.Wrap(err, "Unmarshal new config")

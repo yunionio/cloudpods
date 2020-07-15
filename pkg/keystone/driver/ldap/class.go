@@ -24,6 +24,18 @@ import (
 
 type SLDAPDriverClass struct{}
 
+func (self *SLDAPDriverClass) IsSso() bool {
+	return false
+}
+
+func (self *SLDAPDriverClass) ForceSyncUser() bool {
+	return true
+}
+
+func (self *SLDAPDriverClass) GetDefaultIconUri(tmpName string) string {
+	return ""
+}
+
 func (self *SLDAPDriverClass) SingletonInstance() bool {
 	return false
 }

@@ -28,6 +28,22 @@ import (
 
 type SSAMLDriverClass struct{}
 
+func (self *SSAMLDriverClass) IsSso() bool {
+	return true
+}
+
+func (self *SSAMLDriverClass) GetDefaultIconUri(tmpName string) string {
+	switch tmpName {
+	case api.IdpTemplateAzureADSAML:
+		return "https://upload.wikimedia.org/wikipedia/commons/a/a8/Microsoft_Azure_Logo.svg"
+	}
+	return "https://www.oasis-open.org/committees/download.php/29723/draft-saml-logo-03.png"
+}
+
+func (self *SSAMLDriverClass) ForceSyncUser() bool {
+	return false
+}
+
 func (self *SSAMLDriverClass) SingletonInstance() bool {
 	return false
 }

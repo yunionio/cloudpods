@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
@@ -52,6 +53,19 @@ func init() {
 			return err
 		}
 		printObject(detail)
+		return nil
+	})
+
+	type IdentityProviderUpdateOptions struct {
+		ID string `help:"Id or name of identity provider to update" json:"-"`
+		api.IdentityProviderUpdateInput
+	}
+	R(&IdentityProviderUpdateOptions{}, "idp-update", "Update a identity provider", func(s *mcclient.ClientSession, args *IdentityProviderUpdateOptions) error {
+		resp, err := modules.IdentityProviders.Update(s, args.ID, jsonutils.Marshal(args))
+		if err != nil {
+			return err
+		}
+		printObject(resp)
 		return nil
 	})
 
@@ -525,4 +539,144 @@ func init() {
 		return nil
 	})
 
+	type IdentityProviderCreateAzureOIDCOptions struct {
+		NAME string `help:"name of identity provider" json:"-"`
+
+		api.SOIDCAzureConfigOptions
+	}
+	R(&IdentityProviderCreateAzureOIDCOptions{}, "idp-create-azure-oidc", "Create an identity provider with Azure AD OpenID Connect", func(s *mcclient.ClientSession, args *IdentityProviderCreateAzureOIDCOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.NAME), "name")
+		params.Add(jsonutils.NewString("oidc"), "driver")
+		params.Add(jsonutils.NewString(api.IdpTemplateAzureOAuth2), "template")
+
+		params.Add(jsonutils.Marshal(args), "config", "oidc")
+
+		idp, err := modules.IdentityProviders.Create(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(idp)
+		return nil
+	})
+
+	type IdentityProviderCreateAlipayOAuth2Options struct {
+		NAME    string `help:"name of identity provider"`
+		APPID   string `help:"Alipay app_id"`
+		KEYFILE string `json:"Alipay app private key file"`
+	}
+	R(&IdentityProviderCreateAlipayOAuth2Options{}, "idp-create-alipay-oauth2", "Create an identity provider with Alipay OAuth2.0", func(s *mcclient.ClientSession, args *IdentityProviderCreateAlipayOAuth2Options) error {
+		opts := api.SOAuth2IdpConfigOptions{}
+		opts.AppId = args.APPID
+		var err error
+		opts.Secret, err = fileutils2.FileGetContents(args.KEYFILE)
+		if err != nil {
+			return err
+		}
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.NAME), "name")
+		params.Add(jsonutils.NewString("oauth2"), "driver")
+		params.Add(jsonutils.NewString(api.IdpTemplateAlipay), "template")
+		params.Add(jsonutils.Marshal(opts), "config", "oauth2")
+		idp, err := modules.IdentityProviders.Create(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(idp)
+		return nil
+	})
+
+	type IdentityProviderCreateFeishuOAuth2Options struct {
+		NAME string `help:"name of identity provider"`
+
+		api.SOAuth2IdpConfigOptions
+	}
+	R(&IdentityProviderCreateFeishuOAuth2Options{}, "idp-create-feishu-oauth2", "Create an identity provider with Feishu OAuth2.0", func(s *mcclient.ClientSession, args *IdentityProviderCreateFeishuOAuth2Options) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.NAME), "name")
+		params.Add(jsonutils.NewString("oauth2"), "driver")
+		params.Add(jsonutils.NewString(api.IdpTemplateFeishu), "template")
+		params.Add(jsonutils.Marshal(args), "config", "oauth2")
+		idp, err := modules.IdentityProviders.Create(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(idp)
+		return nil
+	})
+
+	type IdentityProviderCreateDingtalkOAuth2Options struct {
+		NAME string `help:"name of identity provider"`
+
+		api.SOAuth2IdpConfigOptions
+	}
+	R(&IdentityProviderCreateDingtalkOAuth2Options{}, "idp-create-dingtalk-oauth2", "Create an identity provider with Feishu OAuth2.0", func(s *mcclient.ClientSession, args *IdentityProviderCreateDingtalkOAuth2Options) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.NAME), "name")
+		params.Add(jsonutils.NewString("oauth2"), "driver")
+		params.Add(jsonutils.NewString(api.IdpTemplateDingtalk), "template")
+		params.Add(jsonutils.Marshal(args), "config", "oauth2")
+		idp, err := modules.IdentityProviders.Create(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(idp)
+		return nil
+	})
+
+	type IdentityProviderCreateWechatOAuth2Options struct {
+		NAME string `help:"name of identity provider"`
+
+		api.SOAuth2IdpConfigOptions
+	}
+	R(&IdentityProviderCreateWechatOAuth2Options{}, "idp-create-wechat-oauth2", "Create an identity provider with Wechat OAuth2.0", func(s *mcclient.ClientSession, args *IdentityProviderCreateWechatOAuth2Options) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.NAME), "name")
+		params.Add(jsonutils.NewString("oauth2"), "driver")
+		params.Add(jsonutils.NewString(api.IdpTemplateWechat), "template")
+		params.Add(jsonutils.Marshal(args), "config", "oauth2")
+		idp, err := modules.IdentityProviders.Create(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(idp)
+		return nil
+	})
+
+	type IdentityProviderCreateQywechatOAuth2Options struct {
+		api.IdentityProviderCreateInput
+		CorpId  string `help:"corp id of qywechat"`
+		AgentId string `help:"agent id of app"`
+		Secret  string `help:"secret of qywechat"`
+	}
+	R(&IdentityProviderCreateQywechatOAuth2Options{}, "idp-create-qywechat-oauth2", "Create an identity provider with Qiye Wechat OAuth2.0", func(s *mcclient.ClientSession, args *IdentityProviderCreateQywechatOAuth2Options) error {
+		conf := api.SOAuth2IdpConfigOptions{
+			AppId:  fmt.Sprintf("%s/%s", args.CorpId, args.AgentId),
+			Secret: args.Secret,
+		}
+		params := jsonutils.Marshal(args).(*jsonutils.JSONDict)
+		params.Add(jsonutils.NewString("oauth2"), "driver")
+		params.Add(jsonutils.NewString(api.IdpTemplateQywechat), "template")
+		params.Add(jsonutils.Marshal(conf), "config", "oauth2")
+		idp, err := modules.IdentityProviders.Create(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(idp)
+		return nil
+	})
+
+	type IdpGetRedirectUriOptions struct {
+		ID string `help:"id or name of idp to query" json:"-"`
+
+		api.GetIdpSsoRedirectUriInput
+	}
+	R(&IdpGetRedirectUriOptions{}, "idp-sso-url", "Get sso url of a SSO idp", func(s *mcclient.ClientSession, args *IdpGetRedirectUriOptions) error {
+		result, err := modules.IdentityProviders.GetSpecific(s, args.ID, "sso-redirect-uri", jsonutils.Marshal(args))
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

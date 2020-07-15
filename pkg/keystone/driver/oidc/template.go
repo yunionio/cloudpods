@@ -19,6 +19,12 @@ import api "yunion.io/x/onecloud/pkg/apis/identity"
 var (
 	// map[at_hash:KgtZpGvTuIaud0SVcmmkKQ aud:example-app email:kilgore@kilgore.trout email_verified:true exp:1593434672 groups:["authors"] iat:1593348272 iss:http://127.0.0.1:5556/dex name:Kilgore Trout sub:Cg0wLTM4NS0yODA4OS0wEgRtb2Nr]
 	DexOIDCTemplate = api.SOIDCIdpConfigOptions{
+		Scopes: []string{
+			"openid",
+			"email",
+			"groups",
+			"profile",
+		},
 		SIdpAttributeOptions: api.SIdpAttributeOptions{
 			UserNameAttribute:        "name",
 			UserIdAttribute:          "sub",
@@ -42,6 +48,22 @@ var (
 		SIdpAttributeOptions: api.SIdpAttributeOptions{
 			UserIdAttribute:          "id",
 			UserNameAttribute:        "login",
+			UserEmailAttribute:       "email",
+			UserDisplaynameAttribtue: "name",
+		},
+	}
+
+	AzureADTemplate = api.SOIDCIdpConfigOptions{
+		Scopes: []string{
+			"user",
+			"profile",
+			"email",
+			"openid",
+		},
+		TimeoutSecs: 60,
+		SIdpAttributeOptions: api.SIdpAttributeOptions{
+			UserIdAttribute:          "sub",
+			UserNameAttribute:        "name",
 			UserEmailAttribute:       "email",
 			UserDisplaynameAttribtue: "name",
 		},

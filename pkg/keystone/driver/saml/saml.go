@@ -16,6 +16,7 @@ package saml
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -28,6 +29,8 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/saml"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/samlutils"
+	"yunion.io/x/onecloud/pkg/util/samlutils/sp"
 )
 
 // SAML 2.0 Service Provider Driver
@@ -76,15 +79,38 @@ func (self *SSAMLDriver) prepareConfig() error {
 	return nil
 }
 
+func (self *SSAMLDriver) GetSsoRedirectUri(ctx context.Context, callbackUrl, state string) (string, error) {
+	spLoginFunc := func(ctx context.Context, idp *sp.SSAMLIdentityProvider) (sp.SSAMLSpInitiatedLoginRequest, error) {
+		result := sp.SSAMLSpInitiatedLoginRequest{}
+		result.RequestID = samlutils.GenerateSAMLId()
+		result.RelayState = state
+		return result, nil
+	}
+	spInst := sp.NewSpInstance(saml.SAMLInstance(), self.IdpName, nil, spLoginFunc)
+	spInst.SetAssertionConsumerUri(callbackUrl)
+	err := spInst.AddIdp(self.samlConfig.EntityId, self.samlConfig.RedirectSSOUrl)
+	if err != nil {
+		return "", errors.Wrap(err, "Invalid SAMLIdentityProvider")
+	}
+	input := samlutils.SSpInitiatedLoginInput{
+		EntityID: self.samlConfig.EntityId,
+	}
+	redir, err := spInst.ProcessSpInitiatedLogin(ctx, input)
+	if err != nil {
+		return "", errors.Wrap(err, "ProcessSpInitiatedLogin")
+	}
+	return redir, nil
+}
+
 func (self *SSAMLDriver) Authenticate(ctx context.Context, ident mcclient.SAuthenticationIdentity) (*api.SUserExtended, error) {
-	// no need to base64 decode and decrypt, just unmarshal XML
-	/*_, err := samlutils.ValidateXML(ident.SAMLAuth.Response)
+	samlRespBytes, err := base64.StdEncoding.DecodeString(ident.SAMLAuth.Response)
 	if err != nil {
-		return nil, errors.Wrap(httperrors.ErrInputParameter, "ValidateXML fail on SAMLResponse")
-	}*/
-	resp, err := saml.SAMLInstance().UnmarshalResponse([]byte(ident.SAMLAuth.Response))
+		return nil, errors.Wrap(err, "base64.StdEncoding.DecodeString")
+	}
+
+	resp, err := saml.SAMLInstance().UnmarshalResponse(samlRespBytes)
 	if err != nil {
-		return nil, errors.Wrap(err, "SAMLInstance().UnmarshalResponse")
+		return nil, errors.Wrap(err, "decode SAMLResponse error")
 	}
 
 	if !resp.IsSuccess() {
@@ -113,14 +139,34 @@ func (self *SSAMLDriver) Authenticate(ctx context.Context, ident mcclient.SAuthe
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetIdentityProvider")
 	}
-	domain, err := idp.GetSingleDomain(ctx, api.DefaultRemoteDomainId, self.IdpName, fmt.Sprintf("cas provider %s", self.IdpName), false)
+
+	domain, usr, err := idp.SyncOrCreateDomainAndUser(ctx, usrId, usrName)
 	if err != nil {
-		return nil, errors.Wrap(err, "idp.GetSingleDomain")
+		return nil, errors.Wrap(err, "idp.SyncOrCreateDomainAndUser")
 	}
-	usr, err := idp.SyncOrCreateUser(ctx, usrId, usrName, domain.Id, true, nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "idp.SyncOrCreateUser")
-	}
+	/*if idp.AutoCreateUser.IsTrue() {
+		domain, err = idp.GetSingleDomain(ctx, api.DefaultRemoteDomainId, self.IdpName, fmt.Sprintf("SAML 2.0 provider %s", self.IdpName), false)
+		if err != nil {
+			return nil, errors.Wrap(err, "idp.GetSingleDomain")
+		}
+		usr, err = idp.SyncOrCreateUser(ctx, usrId, usrName, domain.Id, true, nil)
+		if err != nil {
+			return nil, errors.Wrap(err, "idp.SyncOrCreateUser")
+		}
+	} else {
+		modelUsrId, err := models.IdmappingManager.FetchByIdpAndEntityId(ctx, idp.Id, usrId, api.IdMappingEntityUser)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, errors.Wrap(httperrors.ErrUserNotFound, usrId)
+			}
+		}
+		usrObj, err := models.UserManager.FetchById(modelUsrId)
+		if err != nil {
+			return nil, errors.Wrap(err, "UserManager.FetchById")
+		}
+		usr = usrObj.(*models.SUser)
+		domain = usr.GetDomain()
+	}*/
 	extUser, err := models.UserManager.FetchUserExtended(usr.Id, "", "", "")
 	if err != nil {
 		return nil, errors.Wrap(err, "models.UserManager.FetchUserExtended")

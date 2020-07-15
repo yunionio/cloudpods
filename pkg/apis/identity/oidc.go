@@ -41,3 +41,9 @@ type SOIDCGithubConfigOptions struct {
 	ClientId     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
 }
+
+type SOIDCAzureConfigOptions struct {
+	ClientId     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+	TenantId     string `json:"tenant_id"`
+}

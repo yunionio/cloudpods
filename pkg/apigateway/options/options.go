@@ -28,6 +28,10 @@ type GatewayOptions struct {
 
 	EnableTotp bool `help:"Enable two-factor authentication" default:"true"`
 
+	SsoRedirectUrl     string `help:"SSO idp redirect URL"`
+	SsoAuthCallbackUrl string `help:"SSO idp auth callback URL"`
+	SsoLinkCallbackUrl string `help:"SSO idp link user callback URL"`
+
 	common_options.CommonOptions `"request_worker_count->default":"32"`
 }
 

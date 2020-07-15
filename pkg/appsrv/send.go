@@ -20,6 +20,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -157,4 +158,15 @@ func SendRedirect(w http.ResponseWriter, redirectUrl string) {
 	w.Header().Set("Location", redirectUrl)
 	w.WriteHeader(301)
 	w.Write([]byte{})
+}
+
+func DisableClientCache(w http.ResponseWriter) {
+	// disable client cache
+	// Expires: Tue, 03 Jul 2001 06:00:00 GMT
+	// Last-Modified: {now} GMT
+	// Cache-Control: max-age=0, no-cache, must-revalidate, proxy-revalidate
+	w.Header().Set("Expires", "Tue, 03 Jul 2001 06:00:00 GMT")
+	cacheSince := time.Now().Format(http.TimeFormat)
+	w.Header().Set("Last-Modified", cacheSince)
+	w.Header().Set("Cache-Control", "max-age=0, no-cache, must-revalidate, proxy-revalidate")
 }
