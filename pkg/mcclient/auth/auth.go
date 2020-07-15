@@ -346,6 +346,10 @@ func Init(info *AuthInfo, debug, insecure bool, certFile, keyFile string) {
 	<-done
 }
 
+func ReAuth() {
+	manager.reAuth()
+}
+
 func GetAdminSession(ctx context.Context, region string,
 	apiVersion string) *mcclient.ClientSession {
 	return GetSession(ctx, manager.adminCredential, region, apiVersion)

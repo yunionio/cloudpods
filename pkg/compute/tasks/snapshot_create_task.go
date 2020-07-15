@@ -48,8 +48,8 @@ func (self *SnapshotCreateTask) TaskFailed(ctx context.Context, snapshot *models
 
 func (self *SnapshotCreateTask) TaskComplete(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
 	snapshot.SetStatus(self.UserCred, api.SNAPSHOT_READY, "")
-	db.OpsLog.LogEvent(snapshot, db.ACT_SNAPSHOT_DONE, "", self.UserCred)
-	logclient.AddActionLogWithStartable(self, snapshot, logclient.ACT_CREATE, "", self.UserCred, true)
+	db.OpsLog.LogEvent(snapshot, db.ACT_SNAPSHOT_DONE, snapshot.GetShortDesc(ctx), self.UserCred)
+	logclient.AddActionLogWithStartable(self, snapshot, logclient.ACT_CREATE, snapshot.GetShortDesc(ctx), self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
