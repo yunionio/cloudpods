@@ -78,6 +78,11 @@ func (manager *SStatusDomainLevelUserResourceBaseManager) FilterByOwner(q *sqlch
 	return q
 }
 
+func (model *SStatusDomainLevelUserResourceBase) GetOwnerId() mcclient.IIdentityProvider {
+	owner := SOwnerId{DomainId: model.DomainId, UserId: model.OwnerId}
+	return &owner
+}
+
 func (manager *SStatusDomainLevelUserResourceBaseManager) ListItemFilter(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
