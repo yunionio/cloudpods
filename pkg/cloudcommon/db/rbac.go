@@ -43,7 +43,9 @@ func isObjectRbacAllowed(model IModel, userCred mcclient.TokenCredential, action
 	case rbacutils.ScopeSystem:
 		requireScope = rbacutils.ScopeSystem
 	case rbacutils.ScopeDomain:
-		if ownerId != nil && objOwnerId != nil && (ownerId.GetProjectDomainId() == objOwnerId.GetProjectDomainId() || objOwnerId.GetProjectDomainId() == "" || (model.IsSharable(ownerId) && action == policy.PolicyActionGet)) {
+		if ownerId != nil && objOwnerId != nil && (ownerId.GetUserId() == objOwnerId.GetUserId()) {
+			requireScope = rbacutils.ScopeUser
+		} else if ownerId != nil && objOwnerId != nil && (ownerId.GetProjectDomainId() == objOwnerId.GetProjectDomainId() || objOwnerId.GetProjectDomainId() == "" || (model.IsSharable(ownerId) && action == policy.PolicyActionGet)) {
 			requireScope = rbacutils.ScopeDomain
 		} else {
 			requireScope = rbacutils.ScopeSystem
