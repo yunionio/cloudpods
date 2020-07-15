@@ -16,6 +16,7 @@ package iproute2
 
 import (
 	"net"
+	"syscall"
 
 	"github.com/vishvananda/netlink"
 )
@@ -25,12 +26,17 @@ type Address struct {
 
 	addrBad bool
 	addrs   []*netlink.Addr
+
+	testcb func()
 }
+
+func nop() {}
 
 func NewAddress(ifname string, addresses ...string) *Address {
 	l := NewLink(ifname)
 	r := &Address{
-		Link: l,
+		Link:   l,
+		testcb: nop,
 	}
 
 	addrs := make([]*netlink.Addr, len(addresses))
@@ -76,6 +82,7 @@ func (address *Address) Exact() *Address {
 	if err != nil {
 		address.addErr(err, "Exact: AddrList")
 	}
+	address.testcb()
 	for _, oldAddr := range oldAddrs {
 		del := true
 		for _, addr := range address.addrs {
@@ -87,6 +94,13 @@ func (address *Address) Exact() *Address {
 		if del {
 			err := netlink.AddrDel(link, &oldAddr)
 			if err != nil {
+				if errno, ok := err.(syscall.Errno); ok {
+					switch errno {
+					case syscall.EADDRNOTAVAIL:
+						// "cannot assign requested address"
+						continue
+					}
+				}
 				address.addErr(err, "Exact: AddrDel %s", oldAddr)
 			}
 		}
