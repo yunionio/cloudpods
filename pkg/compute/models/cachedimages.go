@@ -175,7 +175,9 @@ func (self *SCachedimage) getStoragecacheCount() (int, error) {
 }
 
 func (self *SCachedimage) GetImage() (*cloudprovider.SImage, error) {
-	image := cloudprovider.SImage{}
+	image := cloudprovider.SImage{
+		ExternalId: self.ExternalId,
+	}
 
 	err := self.Info.Unmarshal(&image)
 	if err != nil {
