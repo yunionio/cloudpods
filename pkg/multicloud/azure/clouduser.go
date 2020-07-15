@@ -91,15 +91,36 @@ func (user *SClouduser) GetGlobalId() string {
 }
 
 func (user *SClouduser) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	return nil, cloudprovider.ErrNotSupported
+	policies, err := user.client.GetCloudpolicies(user.ObjectId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetCloudpolicies(%s)", user.ObjectId)
+	}
+	ret := []cloudprovider.ICloudpolicy{}
+	for i := range policies {
+		ret = append(ret, &policies[i])
+	}
+	return ret, nil
 }
 
 func (user *SClouduser) AttachSystemPolicy(policyId string) error {
-	return cloudprovider.ErrNotSupported
+	return user.client.AssignPolicy(user.ObjectId, policyId)
 }
 
 func (user *SClouduser) DetachSystemPolicy(policyId string) error {
-	return cloudprovider.ErrNotSupported
+	assignments, err := user.client.GetAssignments(user.ObjectId)
+	if err != nil {
+		return errors.Wrapf(err, "GetAssignments(%s)", user.ObjectId)
+	}
+	for _, assignment := range assignments {
+		role, err := user.client.GetRole(assignment.Properties.RoleDefinitionId)
+		if err != nil {
+			return errors.Wrapf(err, "GetRule(%s)", assignment.Properties.RoleDefinitionId)
+		}
+		if role.Properties.RoleName == policyId {
+			return user.client.Delete(assignment.Id)
+		}
+	}
+	return nil
 }
 
 func (user *SClouduser) IsConsoleLogin() bool {
@@ -122,6 +143,7 @@ func (user *SClouduser) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
 	}
 	ret := []cloudprovider.ICloudgroup{}
 	for i := range groups {
+		groups[i].client = user.client
 		ret = append(ret, &groups[i])
 	}
 	return ret, nil

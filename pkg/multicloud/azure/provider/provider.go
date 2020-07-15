@@ -241,3 +241,7 @@ func (self *SAzureProvider) CreateICloudgroup(name, desc string) (cloudprovider.
 func (self *SAzureProvider) GetICloudgroupByName(name string) (cloudprovider.ICloudgroup, error) {
 	return self.client.GetICloudgroupByName(name)
 }
+
+func (self *SAzureProvider) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	return self.client.GetICloudpolicies()
+}
