@@ -1352,6 +1352,10 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 		if err != nil {
 			return nil, httperrors.NewNotFoundError("failed to find %s", imageId)
 		}
+		err = self.GetDriver().ValidateImage(ctx, img)
+		if err != nil {
+			return nil, err
+		}
 		diskCat := self.CategorizeDisks()
 		if img.MinDiskMB == 0 || img.Status != imageapi.IMAGE_STATUS_ACTIVE {
 			return nil, httperrors.NewInputParameterError("invlid image")
