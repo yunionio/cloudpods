@@ -130,9 +130,8 @@ func (m *SGuestManager) VerifyExistingGuests(pendingDelete bool) {
 	params.Set("limit", jsonutils.NewInt(0))
 	params.Set("scope", jsonutils.NewString("system"))
 	params.Set("system", jsonutils.JSONTrue)
-	params.Set("host", jsonutils.NewString(m.host.GetHostId()))
 	params.Set("pending_delete", jsonutils.NewBool(pendingDelete))
-	params.Set("get_backup_guests_on_host", jsonutils.JSONTrue)
+	params.Set("get_all_guests_on_host", jsonutils.NewString(m.host.GetHostId()))
 	if len(m.CandidateServers) > 0 {
 		keys := make([]string, len(m.CandidateServers))
 		var index = 0
