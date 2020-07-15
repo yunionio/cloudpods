@@ -88,7 +88,7 @@ type ClouduserCreateInput struct {
 	// | Google   | 至少需要一个初始权限                        |
 	// | Aliyun   | 支持										|
 	// | Huawei   | 不支持                                      |
-	// | Azure    | 不支持                                      |
+	// | Azure    | 支持                                        |
 	// | 腾讯云   | 支持                                        |
 	CloudpolicyIds []string `json:"cloudpolicy_ids"`
 
@@ -104,10 +104,6 @@ type ClouduserListInput struct {
 
 	CloudaccountResourceListInput
 	CloudproviderResourceListInput
-
-	// 通过关联用户查找公有云子账号
-	// example: cloudadmin
-	OwnerName string `json:"owner_name"`
 
 	// 过滤绑定权限的子账号
 	CloudpolicyId string `json:"cloudpolicy_id"`

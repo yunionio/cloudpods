@@ -55,14 +55,22 @@ type ProjectizedResourceListInput struct {
 
 type StatusDomainLevelUserResourceListInput struct {
 	StatusDomainLevelResourceListInput
-	UserResourceListInput
+
+	// 查询指定的用户（ID或名称）拥有的资源
+	User string `json:"user"`
+	// swagger:ignore
+	// Deprecated
+	// Filter by userId
+	UserId string `json:"user_id" "yunion:deprecated-by":"user"`
 }
 
 type UserResourceListInput struct {
 	StandaloneResourceListInput
 	ScopedResourceInput
 
-	// list in admin mode
+	// swagger:ignore
+	// Is an admin call? equivalent to scope=system
+	// Deprecated
 	Admin *bool `json:"admin"`
 
 	// 查询指定的用户（ID或名称）拥有的资源

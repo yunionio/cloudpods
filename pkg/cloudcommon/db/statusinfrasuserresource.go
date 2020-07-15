@@ -60,36 +60,48 @@ func (manager *SStatusDomainLevelUserResourceBaseManager) ValidateCreateData(ctx
 	return input, nil
 }
 
+func (manager *SStatusDomainLevelUserResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	if owner != nil {
+		switch scope {
+		case rbacutils.ScopeProject, rbacutils.ScopeUser:
+			return q.Equals("owner_id", owner.GetUserId())
+		case rbacutils.ScopeDomain:
+			sq := UserCacheManager.Query("id").Equals("domain_id", owner.GetProjectDomainId())
+			q = q.Filter(
+				sqlchemy.OR(
+					sqlchemy.Equals(q.Field("domain_id"), owner.GetProjectDomainId()),
+					sqlchemy.In(q.Field("owner_id"), sq.SubQuery()),
+				),
+			)
+		}
+	}
+	return q
+}
+
 func (manager *SStatusDomainLevelUserResourceBaseManager) ListItemFilter(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
 	query apis.StatusDomainLevelUserResourceListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
+	q, err := manager.SStatusDomainLevelResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusDomainLevelResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SUserResourceBaseManager.ListItemFilter")
-	}
-
-	if ((query.Admin != nil && *query.Admin) || query.Scope == string(rbacutils.ScopeSystem)) && IsAdminAllowList(userCred, manager) {
-		user := query.User
-		if len(user) > 0 {
-			uc, _ := UserCacheManager.FetchUserByIdOrName(ctx, user)
-			if uc == nil {
-				return nil, httperrors.NewUserNotFoundError("user %s not found", user)
-			}
-			q = q.Equals("owner_id", uc.Id)
-		}
-	} else if query.Scope == string(rbacutils.ScopeDomain) && IsDomainAllowList(userCred, manager) {
-		q = q.Equals("domain_id", userCred.GetProjectDomainId())
-	} else {
-		q = q.Equals("owner_id", userCred.GetUserId())
 	}
 
 	q, err = manager.SStatusResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusResourceBaseListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStatusResourceBaseManager.ListItemFilter")
 	}
+
+	if len(query.User) > 0 {
+		uc, _ := UserCacheManager.FetchUserByIdOrName(ctx, query.User)
+		if uc == nil {
+			return nil, httperrors.NewUserNotFoundError("user %s not found", query.User)
+		}
+		q = q.Equals("owner_id", uc.Id)
+	}
+
 	return q, nil
 }
 
@@ -163,17 +175,4 @@ func (model *SStatusDomainLevelUserResourceBase) GetExtraDetails(
 	isList bool,
 ) (apis.StatusDomainLevelUserResourceDetails, error) {
 	return apis.StatusDomainLevelUserResourceDetails{}, nil
-}
-
-func (self *SStatusDomainLevelUserResourceBase) GetOwnerId() mcclient.IIdentityProvider {
-	owner := SOwnerId{UserId: self.OwnerId}
-	return &owner
-}
-
-func (manager *SStatusDomainLevelUserResourceBaseManager) NamespaceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeUser
-}
-
-func (manager *SStatusDomainLevelUserResourceBaseManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeUser
 }

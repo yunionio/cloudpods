@@ -141,12 +141,6 @@ func (manager *SClouduserManager) ListItemFilter(ctx context.Context, q *sqlchem
 		q = q.In("id", sq.SubQuery())
 	}
 
-	if len(query.OwnerName) > 0 {
-		caches := db.UserCacheManager.Query().SubQuery()
-		q = q.Join(caches, sqlchemy.Equals(caches.Field("id"), q.Field("owner_id"))).
-			Filter(sqlchemy.Equals(caches.Field("name"), query.OwnerName))
-	}
-
 	return q, nil
 }
 
@@ -426,6 +420,7 @@ func (manager *SClouduserManager) ValidateCreateData(ctx context.Context, userCr
 		return input, httperrors.NewGeneralError(errors.Wrap(err, "p.CreateIClouduser"))
 	}
 	input.ExternalId = iUser.GetGlobalId()
+	input.Name = iUser.GetName()
 
 	input.OwnerId = user.Id
 	input.DomainId = account.DomainId
@@ -1209,13 +1204,6 @@ func (self *SClouduser) AllowPerformChangeOwner(ctx context.Context, userCred mc
 
 // 变更子账号所属本地用户
 func (self *SClouduser) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ClouduserChangeOwnerInput) (jsonutils.JSONObject, error) {
-	if len(self.OwnerId) > 0 {
-		user, err := db.UserCacheManager.FetchUserById(ctx, self.OwnerId)
-		if err != nil || user.DomainId != self.DomainId && !userCred.HasSystemAdminPrivilege() {
-			return nil, httperrors.NewForbiddenError("Not allow to change owner")
-		}
-	}
-
 	user, err := db.UserCacheManager.FetchUserById(ctx, input.UserId)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "Not found user %s", input.UserId))
