@@ -708,7 +708,16 @@ func (self *SRegion) CreateSecurityGroup(vpcId string, name string, desc string)
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0087467071.html
 func (self *SRegion) delSecurityGroupRule(secGrpRuleId string) error {
-	return DoDelete(self.ecsClient.SecurityGroupRules.Delete, secGrpRuleId, nil, nil)
+	_, err := self.ecsClient.SecurityGroupRules.DeleteInContextWithSpec(nil, secGrpRuleId, "", nil, nil, "")
+	return err
+}
+
+func (self *SRegion) DeleteSecurityGroupRule(ruleId string) error {
+	return self.delSecurityGroupRule(ruleId)
+}
+
+func (self *SRegion) CreateSecurityGroupRule(secgroupId string, rule cloudprovider.SecurityRule) error {
+	return self.addSecurityGroupRules(secgroupId, rule)
 }
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0087451723.html
