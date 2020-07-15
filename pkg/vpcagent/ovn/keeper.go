@@ -114,7 +114,7 @@ func (keeper *OVNNorthboundKeeper) ClaimVpc(ctx context.Context, vpc *agentmodel
 	return keeper.cli.Must(ctx, "ClaimVpc", args)
 }
 
-func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *agentmodels.Network) error {
+func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *agentmodels.Network, mtu int) error {
 	var (
 		rpMac   = mac.HashMac(network.Id, "rp")
 		dhcpMac = mac.HashMac(network.Id, "dhcp")
@@ -146,6 +146,7 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 		mdIp, "0.0.0.0",
 		"0.0.0.0/0", network.GuestGateway,
 	}
+	mtu -= 58
 	dhcpopts := &ovnutil.DHCPOptions{
 		Cidr: fmt.Sprintf("%s/%d", network.GuestIpStart, network.GuestIpMask),
 		Options: map[string]string{
@@ -154,6 +155,7 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 			"lease_time":             fmt.Sprintf("%d", 86400),
 			"router":                 network.GuestGateway,
 			"classless_static_route": fmt.Sprintf("{%s}", strings.Join(routes, ",")),
+			"mtu":                    fmt.Sprintf("%d", mtu),
 		},
 		ExternalIds: map[string]string{
 			externalKeyOcRef: network.Id,
