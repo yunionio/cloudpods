@@ -30,6 +30,7 @@ type GuestInsertIsoTask struct {
 
 func init() {
 	taskman.RegisterTask(GuestInsertIsoTask{})
+	taskman.RegisterTask(HaGuestInsertIsoTask{})
 }
 
 func (self *GuestInsertIsoTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -90,4 +91,42 @@ func (self *GuestInsertIsoTask) OnIsoPrepareComplete(ctx context.Context, obj db
 
 func (self *GuestInsertIsoTask) OnConfigSyncComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
+}
+
+type HaGuestInsertIsoTask struct {
+	GuestInsertIsoTask
+}
+
+func (self *HaGuestInsertIsoTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	self.prepareIsoImage(ctx, obj)
+}
+
+func (self *HaGuestInsertIsoTask) prepareIsoImage(ctx context.Context, obj db.IStandaloneModel) {
+	guest := obj.(*models.SGuest)
+	imageId, _ := self.Params.GetString("image_id")
+	db.OpsLog.LogEvent(obj, db.ACT_ISO_PREPARING, imageId, self.UserCred)
+	disks := guest.GetDisks()
+	disk := disks[0].GetDisk()
+	storage := disk.GetBackupStorage()
+	storageCache := storage.GetStoragecache()
+	if storageCache != nil {
+		self.SetStage("OnBackupIsoPrepareComplete", nil)
+		storageCache.StartImageCacheTask(ctx, self.UserCred, imageId, "iso", false, self.GetTaskId())
+	} else {
+		guest.EjectIso(self.UserCred)
+		db.OpsLog.LogEvent(obj, db.ACT_ISO_PREPARE_FAIL, imageId, self.UserCred)
+		self.SetStageFailed(ctx, "host no local storage cache")
+	}
+}
+
+func (self *HaGuestInsertIsoTask) OnBackupIsoPrepareComplete(
+	ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject,
+) {
+	self.GuestInsertIsoTask.prepareIsoImage(ctx, guest)
+}
+
+func (self *HaGuestInsertIsoTask) OnBackupIsoPrepareCompleteFailed(
+	ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject,
+) {
+	self.OnIsoPrepareCompleteFailed(ctx, guest, data)
 }
