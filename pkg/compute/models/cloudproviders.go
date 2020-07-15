@@ -1128,7 +1128,8 @@ func (manager *SCloudproviderManager) ListItemFilter(
 			sqlchemy.Equals(vpcs.Field("manager_id"), providers.Field("id")),
 		))
 		if zone != nil {
-			sq = sq.Filter(sqlchemy.Equals(wires.Field("zone_id"), zone.GetId()))
+			zoneFilter := sqlchemy.OR(sqlchemy.Equals(wires.Field("zone_id"), zone.GetId()), sqlchemy.IsNullOrEmpty(wires.Field("zone_id")))
+			sq = sq.Filter(zoneFilter)
 		} else if region != nil {
 			sq = sq.Filter(sqlchemy.Equals(vpcs.Field("cloudregion_id"), region.GetId()))
 		}
