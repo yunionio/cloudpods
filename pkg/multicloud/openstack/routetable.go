@@ -35,7 +35,7 @@ func (route *SRouteEntry) GetCidr() string {
 }
 
 func (route *SRouteEntry) GetNextHopType() string {
-	return ""
+	return route.Nexthop
 }
 
 func (route *SRouteEntry) GetNextHop() string {

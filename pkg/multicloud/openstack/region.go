@@ -17,6 +17,7 @@ package openstack
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -554,6 +555,13 @@ func (region *SRegion) GetRouters() ([]SRouter, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "resp.Unmarshal")
 	}
+	for i := 0; i < len(routers); i++ {
+		ports, err := region.GetPortsByDeviceId(routers[i].ID)
+		if err != nil {
+			return nil, errors.Wrap(err, "vpc.region.GetPortsByDeviceId")
+		}
+		routers[i].ports = ports
+	}
 	return routers, nil
 }
 
@@ -567,4 +575,16 @@ func (region *SRegion) fetchrouters() error {
 	}
 	region.routers = routers
 	return nil
+}
+
+func (region *SRegion) GetPortsByDeviceId(routerId string) ([]SPort, error) {
+	query := url.Values{}
+	query.Set("device_id", routerId)
+	_, resp, err := region.Get("network", "/v2.0/ports?"+query.Encode(), "", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "region.Get routes")
+	}
+	ports := []SPort{}
+	return ports, resp.Unmarshal(&ports, "ports")
+
 }

@@ -64,6 +64,9 @@ type SVpc struct {
 	VlanTransparent       bool
 	Fescription           string
 	IsDefault             bool
+	NetworkType           string `json:"provider:network_type"`
+	PhysicalNetwork       string `json:"provider:physical_network"`
+	SegmentationId        string `json:"provider:segmentation_id"`
 }
 
 func (vpc *SVpc) GetMetadata() *jsonutils.JSONDict {
@@ -133,22 +136,27 @@ func (vpc *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, erro
 }
 
 func (vpc *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
+	if vpc.PhysicalNetwork == "public" {
+		return []cloudprovider.ICloudRouteTable{}, nil
+	}
 	err := vpc.region.fetchrouters()
 	if err != nil {
 		return nil, errors.Wrap(err, "vpc.region.fetchrouters()")
 	}
 	routeTables := []SRouteTable{}
 	for index, router := range vpc.region.routers {
-		if router.ExternalGatewayInfo.NetworkID == vpc.GetId() {
-
-			if len(router.Routes) < 1 {
-				continue
+		if len(router.Routes) < 1 {
+			continue
+		}
+		for _, port := range router.ports {
+			if port.NetworkID == vpc.GetId() {
+				routeTable := SRouteTable{}
+				routeTable.entries = router.Routes
+				routeTable.router = &vpc.region.routers[index]
+				routeTable.vpc = vpc
+				routeTables = append(routeTables, routeTable)
+				break
 			}
-			routeTable := SRouteTable{}
-			routeTable.entries = router.Routes
-			routeTable.router = &vpc.region.routers[index]
-			routeTable.vpc = vpc
-			routeTables = append(routeTables, routeTable)
 		}
 	}
 	ret := []cloudprovider.ICloudRouteTable{}
