@@ -959,8 +959,11 @@ func (self *SGuest) StartInsertIsoTask(ctx context.Context, imageId string, boot
 	if boot {
 		data.Add(jsonutils.JSONTrue, "boot")
 	}
-
-	task, err := taskman.TaskManager.NewTask(ctx, "GuestInsertIsoTask", self, userCred, data, parentTaskId, "", nil)
+	taskName := "GuestInsertIsoTask"
+	if self.BackupHostId != "" {
+		taskName = "HaGuestInsertIsoTask"
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, taskName, self, userCred, data, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}
