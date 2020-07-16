@@ -49,6 +49,7 @@ type SImage struct {
 	Status     string
 	// UpdatedAt       time.Time
 	PublicScope string
+	ExternalId  string
 }
 
 func CloudImage2Image(image ICloudImage) SImage {
