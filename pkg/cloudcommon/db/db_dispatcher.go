@@ -857,6 +857,11 @@ func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, pr
 	modelValue := reflect.ValueOf(dispatcher.modelManager)
 	params := []interface{}{ctx, userCred, query}
 
+	funcValue := modelValue.MethodByName(funcName)
+	if !funcValue.IsValid() || funcValue.IsNil() {
+		return nil, nil
+	}
+
 	if consts.IsRbacEnabled() {
 		ownerId, err := fetchOwnerId(ctx, dispatcher.modelManager, userCred, query)
 		if err != nil {
@@ -883,10 +888,6 @@ func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, pr
 		}
 	}
 
-	funcValue := modelValue.MethodByName(funcName)
-	if !funcValue.IsValid() || funcValue.IsNil() {
-		return nil, nil
-	}
 	outs, err := callFunc(funcValue, funcName, params...)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("reflect call %s fail %s", funcName, err)
