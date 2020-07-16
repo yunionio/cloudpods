@@ -275,6 +275,22 @@ func (lbagent *SLoadbalancerAgent) validateHost(ctx context.Context, userCred mc
 		if utils.IsInStringArray(guest.Hypervisor, compute_apis.PUBLIC_CLOUD_HYPERVISORS) {
 			return httperrors.NewBadRequestError("lbagent cannot be deployed on public guests")
 		}
+		if guest.Status != compute_apis.VM_RUNNING {
+			return httperrors.NewBadRequestError("server is in %q state, want %q",
+				guest.Status, compute_apis.VM_RUNNING)
+		}
+
+		// Better make this explicit in the API
+		if guest.SrcIpCheck.Bool() || guest.SrcMacCheck.Bool() {
+			sess := auth.GetSession(ctx, userCred, "", "")
+			params := jsonutils.NewDict()
+			params.Set("src_ip_check", jsonutils.JSONFalse)
+			params.Set("src_mac_check", jsonutils.JSONFalse)
+			_, err := mcclient_modules.Servers.PerformAction(sess, guest.Id, "modify-src-check", params)
+			if err != nil {
+				return errors.Wrapf(err, "turn off src check of guest %s(%s)", guest.Name, guest.Id)
+			}
+		}
 	}
 	return nil
 }
