@@ -114,6 +114,8 @@ func (lbagent *SLoadbalancerAgent) deploy(ctx context.Context, userCred mcclient
 	}
 	switch input.DeployMethod {
 	case compute_apis.DeployMethodYum:
+		fallthrough
+	default:
 		if v, ok := input.Host.GetVar("repo_base_url"); !ok || v == "" {
 			return nil, httperrors.NewBadRequestError("use yum requires valid repo_base_url")
 		}
@@ -142,8 +144,6 @@ func (lbagent *SLoadbalancerAgent) deploy(ctx context.Context, userCred mcclient
 			},
 		)
 	case compute_apis.DeployMethodCopy:
-		fallthrough
-	default:
 		// glob for rpms
 		basenames := []string{
 			"packages/telegraf",
