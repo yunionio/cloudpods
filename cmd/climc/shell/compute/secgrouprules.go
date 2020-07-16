@@ -31,6 +31,8 @@ func init() {
 		Direction    string `help:"filter Direction of rule" choices:"in|out"`
 		Protocol     string `help:"filter Protocol of rule" choices:"any|tcp|udp|icmp"`
 		Action       string `help:"filter Actin of rule" choices:"allow|deny"`
+		Ports        string `help:"filter Ports of rule"`
+		Ip           string `help:"filter cidr of rule"`
 	}
 
 	R(&SecGroupRulesListOptions{}, "secgroup-rule-list", "List all security group", func(s *mcclient.ClientSession, args *SecGroupRulesListOptions) error {

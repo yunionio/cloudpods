@@ -179,13 +179,6 @@ func (manager *SSecurityGroupRuleManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SSecurityGroupResourceBaseManager.ListItemFilter")
 	}
-	/*if defsecgroup := query.Secgroup; len(defsecgroup) > 0 {
-		if secgroup, _ := SecurityGroupManager.FetchByIdOrName(userCred, defsecgroup); secgroup != nil {
-			sql = sql.Equals("secgroup_id", secgroup.GetId())
-		} else {
-			return nil, httperrors.NewNotFoundError("Security Group %s not found", defsecgroup)
-		}
-	}*/
 	if len(query.Direction) > 0 {
 		sql = sql.Equals("direction", query.Direction)
 	}
@@ -195,7 +188,13 @@ func (manager *SSecurityGroupRuleManager) ListItemFilter(
 	if len(query.Protocol) > 0 {
 		sql = sql.Equals("protocol", query.Protocol)
 	}
-	sql = sql.GroupBy("secgroup_id")
+	if len(query.Ports) > 0 {
+		sql = sql.Equals("ports", query.Ports)
+	}
+	if len(query.Ip) > 0 {
+		sql = sql.Like("cidr", "%"+query.Ip+"%")
+	}
+
 	return sql, nil
 }
 
@@ -518,4 +517,21 @@ func (self *SSecurityGroupRule) GetOwnerId() mcclient.IIdentityProvider {
 
 func (manager *SSecurityGroupRuleManager) ResourceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeProject
+}
+
+func (manager *SSecurityGroupRuleManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SResourceBaseManager.ListItemExportKeys")
+	}
+	q, err = manager.SSecurityGroupResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSecurityGroupResourceBaseManager.ListItemExportKeys")
+	}
+	return q, nil
 }
