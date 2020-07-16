@@ -124,6 +124,30 @@ func (self *SAzureGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *mo
 	return nil
 }
 
+func (self *SAzureGuestDriver) ValidateImage(ctx context.Context, image *cloudprovider.SImage) error {
+	if len(image.ExternalId) == 0 {
+		s := auth.GetAdminSession(ctx, options.Options.Region, "")
+		result, err := modules.Images.GetSpecific(s, image.Id, "subformats", nil)
+		if err != nil {
+			return errors.Wrap(err, "get subformats")
+		}
+		subFormats := []struct {
+			Format string
+		}{}
+		err = result.Unmarshal(&subFormats)
+		if err != nil {
+			return errors.Wrap(err, "Unmarshal subformats")
+		}
+		for i := range subFormats {
+			if subFormats[i].Format == "vhd" {
+				return nil
+			}
+		}
+		return httperrors.NewResourceNotFoundError("failed to find subformat vhd for image %s, please append 'vhd' for glance options(target_image_formats)", image.Name)
+	}
+	return nil
+}
+
 func (self *SAzureGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
 	input, err := self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, input)
 	if err != nil {
@@ -137,59 +161,45 @@ func (self *SAzureGuestDriver) ValidateCreateData(ctx context.Context, userCred 
 		if err != nil {
 			return nil, errors.Wrap(err, "FetchById")
 		}
-		image := _image.(*models.SCachedimage)
-		if len(image.ExternalId) == 0 {
-			s := auth.GetAdminSession(ctx, options.Options.Region, "")
-			result, err := modules.Images.GetSpecific(s, image.Id, "subformats", nil)
-			if err != nil {
-				return nil, errors.Wrap(err, "get subformats")
-			}
-			subFormats := []struct {
-				Format string
-			}{}
-			err = result.Unmarshal(&subFormats)
-			if err != nil {
-				return nil, errors.Wrap(err, "Unmarshal subformats")
-			}
-			find := false
-			for i := range subFormats {
-				if subFormats[i].Format == "vhd" {
-					find = true
-					break
+
+		cachedimage := _image.(*models.SCachedimage)
+		image, err := cachedimage.GetImage()
+		if err != nil {
+			return nil, errors.Wrap(err, "GetImage")
+		}
+
+		err = self.ValidateImage(ctx, image)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(image.ExternalId) > 0 && len(input.InstanceType) > 0 {
+			if cachedimage.UEFI.IsFalse() {
+				if strings.HasPrefix(input.InstanceType, "Standard_M") && strings.HasSuffix(input.InstanceType, "v2") {
+					return nil, httperrors.NewNotSupportedError("Azure Mv2-series instance sku only support UEFI image")
 				}
-			}
-			if !find {
-				return nil, httperrors.NewResourceNotFoundError("failed to find subformat vhd for image %s, please append 'vhd' for glance options(target_image_formats)", image.Name)
-			}
-		} else {
-			if len(input.InstanceType) > 0 {
-				if image.UEFI.IsFalse() {
-					if strings.HasPrefix(input.InstanceType, "Standard_M") && strings.HasSuffix(input.InstanceType, "v2") {
-						return nil, httperrors.NewNotSupportedError("Azure Mv2-series instance sku only support UEFI image")
-					}
-				} else {
-					// https://docs.microsoft.com/en-us/azure/virtual-machines/windows/generation-2
-					if !(strings.HasPrefix(input.InstanceType, "Standard_B") || // B-series
-						(strings.HasPrefix(input.InstanceType, "Standard_DC") && strings.HasSuffix(input.InstanceType, "s_v2") || input.InstanceType == "Standard_DC8_v2") || // DCsv2-series
-						(strings.HasPrefix(input.InstanceType, "Standard_DS") && strings.HasSuffix(input.InstanceType, "v2")) || // DSv2-series
-						(strings.HasPrefix(input.InstanceType, "Standard_DS") && strings.HasSuffix(input.InstanceType, "s_v3")) || // Dsv3-series
-						(strings.HasPrefix(input.InstanceType, "Standard_D") && strings.HasSuffix(input.InstanceType, "as_v4")) || // Dasv4-series
-						(strings.HasPrefix(input.InstanceType, "Standard_E") && strings.HasSuffix(input.InstanceType, "s_v3")) || // Esv3-series
-						(strings.HasPrefix(input.InstanceType, "Standard_E") && strings.HasSuffix(input.InstanceType, "as_v4")) || // Easv4-series
-						(strings.HasPrefix(input.InstanceType, "Standard_F") && strings.HasSuffix(input.InstanceType, "s_v2")) || // Fsv2-series
-						(strings.HasPrefix(input.InstanceType, "Standard_GS")) || // GS-series
-						(strings.HasPrefix(input.InstanceType, "Standard_HB")) || // HB-series
-						(strings.HasPrefix(input.InstanceType, "Standard_HC")) || // HC-series
-						(strings.HasPrefix(input.InstanceType, "Standard_L") && strings.HasSuffix(input.InstanceType, "s")) || // Ls-series
-						(strings.HasPrefix(input.InstanceType, "Standard_L") && strings.HasSuffix(input.InstanceType, "s_v2")) || // Ls-series
-						(strings.HasPrefix(input.InstanceType, "Standard_M")) || // M-series
-						(strings.HasPrefix(input.InstanceType, "Standard_M") && strings.HasSuffix(input.InstanceType, "s_v2")) || // Mv2-series
-						(strings.HasPrefix(input.InstanceType, "Standard_NC") && strings.HasSuffix(input.InstanceType, "s_v2")) || // NCv2-series
-						(strings.HasPrefix(input.InstanceType, "Standard_NC") && strings.HasSuffix(input.InstanceType, "s_v3")) || // NCv3-series
-						(strings.HasPrefix(input.InstanceType, "Standard_ND")) || // ND-series
-						(strings.HasPrefix(input.InstanceType, "Standard_NV") && strings.HasSuffix(input.InstanceType, "s_v3"))) { // NVv3-series
-						return nil, httperrors.NewUnsupportOperationError("Azure UEFI image %s not support this instance sku", image.Name)
-					}
+			} else {
+				// https://docs.microsoft.com/en-us/azure/virtual-machines/windows/generation-2
+				if !(strings.HasPrefix(input.InstanceType, "Standard_B") || // B-series
+					(strings.HasPrefix(input.InstanceType, "Standard_DC") && strings.HasSuffix(input.InstanceType, "s_v2") || input.InstanceType == "Standard_DC8_v2") || // DCsv2-series
+					(strings.HasPrefix(input.InstanceType, "Standard_DS") && strings.HasSuffix(input.InstanceType, "v2")) || // DSv2-series
+					(strings.HasPrefix(input.InstanceType, "Standard_DS") && strings.HasSuffix(input.InstanceType, "s_v3")) || // Dsv3-series
+					(strings.HasPrefix(input.InstanceType, "Standard_D") && strings.HasSuffix(input.InstanceType, "as_v4")) || // Dasv4-series
+					(strings.HasPrefix(input.InstanceType, "Standard_E") && strings.HasSuffix(input.InstanceType, "s_v3")) || // Esv3-series
+					(strings.HasPrefix(input.InstanceType, "Standard_E") && strings.HasSuffix(input.InstanceType, "as_v4")) || // Easv4-series
+					(strings.HasPrefix(input.InstanceType, "Standard_F") && strings.HasSuffix(input.InstanceType, "s_v2")) || // Fsv2-series
+					(strings.HasPrefix(input.InstanceType, "Standard_GS")) || // GS-series
+					(strings.HasPrefix(input.InstanceType, "Standard_HB")) || // HB-series
+					(strings.HasPrefix(input.InstanceType, "Standard_HC")) || // HC-series
+					(strings.HasPrefix(input.InstanceType, "Standard_L") && strings.HasSuffix(input.InstanceType, "s")) || // Ls-series
+					(strings.HasPrefix(input.InstanceType, "Standard_L") && strings.HasSuffix(input.InstanceType, "s_v2")) || // Ls-series
+					(strings.HasPrefix(input.InstanceType, "Standard_M")) || // M-series
+					(strings.HasPrefix(input.InstanceType, "Standard_M") && strings.HasSuffix(input.InstanceType, "s_v2")) || // Mv2-series
+					(strings.HasPrefix(input.InstanceType, "Standard_NC") && strings.HasSuffix(input.InstanceType, "s_v2")) || // NCv2-series
+					(strings.HasPrefix(input.InstanceType, "Standard_NC") && strings.HasSuffix(input.InstanceType, "s_v3")) || // NCv3-series
+					(strings.HasPrefix(input.InstanceType, "Standard_ND")) || // ND-series
+					(strings.HasPrefix(input.InstanceType, "Standard_NV") && strings.HasSuffix(input.InstanceType, "s_v3"))) { // NVv3-series
+					return nil, httperrors.NewUnsupportOperationError("Azure UEFI image %s not support this instance sku", image.Name)
 				}
 			}
 		}

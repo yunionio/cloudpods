@@ -89,6 +89,10 @@ func (self *SBaseGuestDriver) StartDeleteGuestTask(ctx context.Context, userCred
 	return nil
 }
 
+func (self *SBaseGuestDriver) ValidateImage(ctx context.Context, image *cloudprovider.SImage) error {
+	return nil
+}
+
 func (self *SBaseGuestDriver) RequestDetachDisksFromGuestForDelete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil
