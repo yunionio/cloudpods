@@ -192,6 +192,9 @@ func (p *SLoadbalancerAgentParamsVrrp) updateBy(pp *SLoadbalancerAgentParamsVrrp
 }
 
 func (p *SLoadbalancerAgentParamsVrrp) initDefault(data *jsonutils.JSONDict) {
+	if !data.Contains("params", "vrrp", "interface") {
+		p.Interface = "eth0"
+	}
 	if !data.Contains("params", "vrrp", "advert_int") {
 		p.AdvertInt = 1
 	}
