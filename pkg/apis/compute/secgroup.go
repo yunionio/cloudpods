@@ -180,6 +180,10 @@ type SecurityGroupRuleListInput struct {
 	Action string `json:"action"`
 	// 以protocol字段过滤安全组规则
 	Protocol string `json:"protocol"`
+	// 以ports字段过滤安全组规则
+	Ports string `json:"ports"`
+	// 根据ip模糊匹配安全组规则
+	Ip string `json:"ip"`
 }
 
 type SecgroupResourceInput struct {
