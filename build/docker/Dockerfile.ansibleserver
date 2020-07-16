@@ -1,3 +1,3 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/ansibleserver-base:v3.3
+FROM registry.cn-beijing.aliyuncs.com/yunionio/ansibleserver-base:1.0.0
 
-ADD ./_output/bin/ansibleserver /opt/yunion/bin/ansibleserver
+ADD ./_output/alpine-build/bin/ansibleserver /opt/yunion/bin/ansibleserver
