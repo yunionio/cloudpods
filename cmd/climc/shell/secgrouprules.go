@@ -25,33 +25,18 @@ import (
 func init() {
 	type SecGroupRulesListOptions struct {
 		options.BaseListOptions
-		Secgroup  string `help:"Secgroup ID or Name"`
-		Direction string `help:"filter Direction of rule" choices:"in|out"`
-		Protocol  string `help:"filter Protocol of rule" choices:"any|tcp|udp|icmp"`
-		Action    string `help:"filter Actin of rule" choices:"allow|deny"`
+		Secgroup     string `help:"Secgroup ID or Name"`
+		SecgroupName string `help:"Search rules by fuzzy secgroup name"`
+		Project      string `help:"Filter rules by project"`
+		Direction    string `help:"filter Direction of rule" choices:"in|out"`
+		Protocol     string `help:"filter Protocol of rule" choices:"any|tcp|udp|icmp"`
+		Action       string `help:"filter Actin of rule" choices:"allow|deny"`
 	}
 
 	R(&SecGroupRulesListOptions{}, "secgroup-rule-list", "List all security group", func(s *mcclient.ClientSession, args *SecGroupRulesListOptions) error {
-		var params *jsonutils.JSONDict
-		{
-			var err error
-			params, err = args.BaseListOptions.Params()
-			if err != nil {
-				return err
-
-			}
-		}
-		if len(args.Secgroup) > 0 {
-			params.Add(jsonutils.NewString(args.Secgroup), "secgroup")
-		}
-		if len(args.Direction) > 0 {
-			params.Add(jsonutils.NewString(args.Direction), "direction")
-		}
-		if len(args.Protocol) > 0 {
-			params.Add(jsonutils.NewString(args.Protocol), "protocol")
-		}
-		if len(args.Action) > 0 {
-			params.Add(jsonutils.NewString(args.Action), "action")
+		params, err := options.ListStructToParams(args)
+		if err != nil {
+			return err
 		}
 		result, err := modules.SecGroupRules.List(s, params)
 		if err != nil {

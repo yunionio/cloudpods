@@ -195,6 +195,7 @@ func (manager *SSecurityGroupRuleManager) ListItemFilter(
 	if len(query.Protocol) > 0 {
 		sql = sql.Equals("protocol", query.Protocol)
 	}
+	sql = sql.GroupBy("secgroup_id")
 	return sql, nil
 }
 

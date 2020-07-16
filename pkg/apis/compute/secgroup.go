@@ -189,6 +189,11 @@ type SecgroupResourceInput struct {
 	// Deprecated
 	// filter by secgroup_id
 	SecgroupId string `json:"secgroup_id" "yunion:deprecated-by":"secgroup"`
+
+	// 模糊匹配安全组规则名称
+	SecgroupName string `json:"secgroup_name"`
+
+	apis.ProjectizedResourceInput
 }
 
 type SecgroupFilterListInput struct {
