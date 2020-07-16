@@ -209,7 +209,7 @@ func (manager *SClouduserManager) FetchCustomizeColumns(
 		rows[i].CloudpolicyCount = len(policies)
 		groups, _ := user.GetCloudgroups()
 		for _, group := range groups {
-			rows[i].Cloudgroups = append(rows[i].Cloudpolicies, api.SCloudIdBaseResource{Id: group.Id, Name: group.Name})
+			rows[i].Cloudgroups = append(rows[i].Cloudgroups, api.SCloudIdBaseResource{Id: group.Id, Name: group.Name})
 		}
 		rows[i].CloudgroupCount = len(groups)
 	}
