@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/url"
+	"reflect"
 	"sync"
 	"time"
 
@@ -136,7 +137,11 @@ func (s *SSession) Close() error {
 	if err := s.ISessionData.Cleanup(); err != nil {
 		log.Errorf("Clean up command error: %v", err)
 	}
-	Manager.Delete(s.Id)
+	if curS, ok := Manager.Load(s.GetId()); ok {
+		if reflect.DeepEqual(curS, s) {
+			Manager.Delete(s.Id)
+		}
+	}
 	return nil
 }
 
