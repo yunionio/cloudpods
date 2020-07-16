@@ -134,7 +134,9 @@ func ParseValue(val string, tp reflect.Type) (reflect.Value, error) {
 			return reflect.ValueOf(val_float), err
 		}
 	case reflect.String:
-		return reflect.ValueOf(val), nil
+		v := reflect.New(tp).Elem()
+		v.SetString(val)
+		return v, nil
 	case reflect.Ptr:
 		tpElem := tp.Elem()
 		rv, err := ParseValue(val, tpElem)
@@ -229,10 +231,10 @@ func SliceBaseType(tp reflect.Type) reflect.Type {
 }
 
 func AppendValue(value reflect.Value, val string) error {
-	tp := SliceBaseType(value.Type())
-	if tp == nil {
+	if value.Kind() != reflect.Slice {
 		return fmt.Errorf("Cannot append to non-slice type")
 	}
+	tp := value.Type().Elem()
 	val_raw, e := ParseValue(val, tp)
 	if e != nil {
 		return e

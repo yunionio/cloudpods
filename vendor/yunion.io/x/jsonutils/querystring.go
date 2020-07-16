@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/sortedmap"
 	"yunion.io/x/pkg/utils"
 )
 
@@ -157,8 +158,9 @@ func (this *JSONArray) _queryString(key string) string {
 
 func (this *JSONDict) _queryString(key string) string {
 	rets := make([]string, 0)
-	for _, k := range this.SortedKeys() {
-		v := this.data[k]
+	for iter := sortedmap.NewIterator(this.data); iter.HasMore(); iter.Next() {
+		k, vinf := iter.Get()
+		v := vinf.(JSONObject)
 		if len(key) > 0 {
 			k = key + "." + k
 		}
