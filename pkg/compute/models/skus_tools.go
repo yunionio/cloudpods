@@ -289,7 +289,7 @@ func SyncElasticCacheSkus(ctx context.Context, userCred mcclient.TokenCredential
 
 // 同步Region elasticcache sku列表.
 func SyncElasticCacheSkusByRegion(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion) error {
-	if region.GetDriver().IsSupportedElasticcache() {
+	if !region.GetDriver().IsSupportedElasticcache() {
 		notes := fmt.Sprintf("SyncElasticCacheSkusByRegion %s not support elasticcache", region.Name)
 		log.Infof(notes)
 		return nil
