@@ -152,19 +152,14 @@ func (p *SLoadbalancerAgentParamsVrrp) validatePeer(pp *SLoadbalancerAgentParams
 	if p.Priority == pp.Priority {
 		return fmt.Errorf("vrrp priority of peer lbagents must be different, got %d", p.Priority)
 	}
-	if p.VirtualRouterId != pp.VirtualRouterId {
-		return fmt.Errorf("vrrp virtual_router_id of peer lbagents must be the same: %d != %d", p.VirtualRouterId, pp.VirtualRouterId)
-	}
-	if p.AdvertInt != pp.AdvertInt {
-		return fmt.Errorf("vrrp advert_int of peer lbagents must be the same: %d != %d", p.AdvertInt, pp.AdvertInt)
-	}
-	if p.Preempt != pp.Preempt {
-		return fmt.Errorf("vrrp preempt property of peer lbagents must be the same: %v != %v", p.Preempt, pp.Preempt)
-	}
-	if p.Pass != pp.Pass {
-		return fmt.Errorf("vrrp password of peer lbagents must be the same: %q != %q", p.Pass, pp.Pass)
-	}
 	return nil
+}
+
+func (p *SLoadbalancerAgentParamsVrrp) setByPeer(pp *SLoadbalancerAgentParamsVrrp) {
+	p.VirtualRouterId = pp.VirtualRouterId
+	p.AdvertInt = pp.AdvertInt
+	p.Preempt = pp.Preempt
+	p.Pass = pp.Pass
 }
 
 func (p *SLoadbalancerAgentParamsVrrp) needsUpdatePeer(pp *SLoadbalancerAgentParamsVrrp) bool {
@@ -194,6 +189,9 @@ func (p *SLoadbalancerAgentParamsVrrp) updateBy(pp *SLoadbalancerAgentParamsVrrp
 func (p *SLoadbalancerAgentParamsVrrp) initDefault(data *jsonutils.JSONDict) {
 	if !data.Contains("params", "vrrp", "interface") {
 		p.Interface = "eth0"
+	}
+	if !data.Contains("params", "vrrp", "virtual_router_id") {
+		p.VirtualRouterId = 17
 	}
 	if !data.Contains("params", "vrrp", "advert_int") {
 		p.AdvertInt = 1
@@ -423,7 +421,6 @@ func (man *SLoadbalancerAgentManager) ValidateCreateData(ctx context.Context, us
 			return nil, httperrors.NewGeneralError(err)
 		}
 		params := paramsV.Value.(*SLoadbalancerAgentParams)
-		vrrpRouterId := params.Vrrp.VirtualRouterId
 		for i := range lbagents {
 			peerLbagent := &lbagents[i]
 			peerParams := peerLbagent.Params
@@ -431,7 +428,11 @@ func (man *SLoadbalancerAgentManager) ValidateCreateData(ctx context.Context, us
 			if err != nil {
 				return nil, httperrors.NewConflictError("conflict with lbagent %s(%s): %v", peerLbagent.Name, peerLbagent.Id, err)
 			}
+			if i == 0 {
+				params.Vrrp.setByPeer(&peerParams.Vrrp)
+			}
 		}
+		vrrpRouterId := params.Vrrp.VirtualRouterId
 		otherCluster, err := LoadbalancerClusterManager.findByVrrpRouterIdInZone(cluster.ZoneId, vrrpRouterId)
 		if err != nil {
 			return nil, err
