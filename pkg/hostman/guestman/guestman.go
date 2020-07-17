@@ -460,6 +460,8 @@ func (m *SGuestManager) GetStatus(sid string) string {
 				timeutils2.AddTimeout(1*time.Second,
 					func() { guest.SyncMirrorJobFailed("Block job missing") })
 				return GUEST_BLOCK_STREAM_FAIL
+			} else {
+				return GUEST_RUNNING
 			}
 		}
 		if guest.IsRunning() {
