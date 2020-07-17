@@ -173,7 +173,7 @@ func (self *SESXiGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mc
 	if img.ImageType != cloudprovider.CachedImageTypeSystem {
 		return desc
 	}
-	sciSubQ := models.StoragecachedimageManager.Query("storagecache_id").Equals("cachedimage_id", templateId).SubQuery()
+	sciSubQ := models.StoragecachedimageManager.Query("storagecache_id").Equals("cachedimage_id", templateId).Equals("status", api.CACHED_IMAGE_STATUS_READY).SubQuery()
 	scQ := models.StoragecacheManager.Query().In("id", sciSubQ)
 	storageCaches := make([]models.SStoragecache, 0, 1)
 	err = db.FetchModelObjects(models.StoragecacheManager, scQ, &storageCaches)
