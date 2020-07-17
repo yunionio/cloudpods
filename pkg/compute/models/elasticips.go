@@ -156,6 +156,8 @@ func (manager *SElasticipManager) ListItemFilter(
 				sq := networks.Query(networks.Field("id")).Join(wires, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id"))).
 					Filter(sqlchemy.Equals(wires.Field("zone_id"), zone.Id)).SubQuery()
 				q = q.Filter(sqlchemy.In(q.Field("network_id"), sq))
+				gns := GuestnetworkManager.Query("network_id").Equals("guest_id", guest.Id).SubQuery()
+				q = q.Filter(sqlchemy.NotIn(q.Field("network_id"), gns))
 			} else {
 				region := guest.getRegion()
 				q = q.Equals("cloudregion_id", region.Id)
