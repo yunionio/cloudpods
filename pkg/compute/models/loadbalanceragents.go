@@ -279,6 +279,7 @@ func (p *SLoadbalancerAgentParamsTelegraf) initDefault(data *jsonutils.JSONDict)
 		u, _ := auth.GetServiceURL("influxdb", baseOpts.Region, "",
 			identity_apis.EndpointInterfacePublic)
 		p.InfluxDbOutputUrl = u
+		p.InfluxDbOutputUnsafeSsl = true
 	}
 	if p.HaproxyInputInterval == 0 {
 		p.HaproxyInputInterval = 5
