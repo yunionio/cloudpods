@@ -559,7 +559,7 @@ func _managedResourceFilterByAccount(managerIdFieldName string, q *sqlchemy.SQue
 
 func managedResourceFilterByZone(q *sqlchemy.SQuery, query api.ZonalFilterListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
 	zoneList := query.ZoneList()
-	if len(zoneList) > 1 {
+	if len(query.Zones) >= 1 {
 		zoneQ := ZoneManager.Query("id")
 		zoneQ = zoneQ.Filter(sqlchemy.OR(
 			sqlchemy.In(zoneQ.Field("id"), zoneList),
