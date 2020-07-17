@@ -15,6 +15,8 @@
 package modules
 
 import (
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
 )
 
@@ -34,4 +36,9 @@ func NewEipManager(regionId string, projectId string, signer auth.Signer, debug 
 
 		ResourceKeyword: "publicips",
 	}}
+}
+
+// https://support.huaweicloud.com/api-eip/eip_api_0005.html
+func (self *SEipManager) Delete(id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return self.DeleteInContextWithSpec(self.ctx, id, "", nil, params, "")
 }
