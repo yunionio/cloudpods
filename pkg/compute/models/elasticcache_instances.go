@@ -562,7 +562,6 @@ func (manager *SElasticcacheManager) newFromCloudElasticcache(ctx context.Contex
 	instance.Engine = extInstance.GetEngine()
 	instance.EngineVersion = extInstance.GetEngineVersion()
 
-	instance.NetworkType = extInstance.GetNetworkType()
 	instance.PrivateDNS = extInstance.GetPrivateDNS()
 	instance.PrivateIpAddr = extInstance.GetPrivateIpAddr()
 	instance.PrivateConnectPort = extInstance.GetPrivateConnectPort()
@@ -573,36 +572,57 @@ func (manager *SElasticcacheManager) newFromCloudElasticcache(ctx context.Contex
 	instance.MaintainEndTime = extInstance.GetMaintainEndTime()
 	instance.AuthMode = extInstance.GetAuthMode()
 
+	var zone *SZone
 	if zoneId := extInstance.GetZoneId(); len(zoneId) > 0 {
-		zone, err := db.FetchByExternalId(ZoneManager, zoneId)
+		_zone, err := db.FetchByExternalId(ZoneManager, zoneId)
 		if err != nil {
 			return nil, errors.Wrapf(err, "newFromCloudElasticcache.FetchZoneId")
 		}
-		instance.ZoneId = zone.GetId()
+		instance.ZoneId = _zone.GetId()
+		zone = _zone.(*SZone)
 	}
 
-	if vpcId := extInstance.GetVpcId(); len(vpcId) > 0 {
-		vpc, err := db.FetchByExternalIdAndManagerId(VpcManager, vpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-			return q.Equals("manager_id", provider.Id)
-		})
+	instance.NetworkType = extInstance.GetNetworkType()
+	if instance.NetworkType == api.LB_NETWORK_TYPE_CLASSIC {
+		vpc, err := VpcManager.GetOrCreateVpcForClassicNetwork(region)
 		if err != nil {
-			return nil, errors.Wrapf(err, "newFromCloudElasticcache.FetchVpcId")
+			return nil, errors.Wrap(err, "NewVpcForClassicNetwork")
 		}
 		instance.VpcId = vpc.GetId()
-	}
 
-	if networkId := extInstance.GetNetworkId(); len(networkId) > 0 {
-		network, err := db.FetchByExternalIdAndManagerId(NetworkManager, networkId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-			wire := WireManager.Query().SubQuery()
-			vpc := VpcManager.Query().SubQuery()
-			return q.Join(wire, sqlchemy.Equals(wire.Field("id"), q.Field("wire_id"))).
-				Join(vpc, sqlchemy.Equals(vpc.Field("id"), wire.Field("vpc_id"))).
-				Filter(sqlchemy.Equals(vpc.Field("manager_id"), provider.Id))
-		})
+		wire, err := WireManager.GetOrCreateWireForClassicNetwork(vpc, zone)
 		if err != nil {
-			return nil, errors.Wrapf(err, "newFromCloudElasticcache.FetchNetworkId")
+			return nil, errors.Wrap(err, "NewWireForClassicNetwork")
+		}
+		network, err := NetworkManager.GetOrCreateClassicNetwork(wire)
+		if err != nil {
+			return nil, errors.Wrap(err, "GetOrCreateClassicNetwork")
 		}
 		instance.NetworkId = network.GetId()
+	} else {
+		if vpcId := extInstance.GetVpcId(); len(vpcId) > 0 {
+			vpc, err := db.FetchByExternalIdAndManagerId(VpcManager, vpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				return q.Equals("manager_id", provider.Id)
+			})
+			if err != nil {
+				return nil, errors.Wrapf(err, "newFromCloudElasticcache.FetchVpcId")
+			}
+			instance.VpcId = vpc.GetId()
+		}
+
+		if networkId := extInstance.GetNetworkId(); len(networkId) > 0 {
+			network, err := db.FetchByExternalIdAndManagerId(NetworkManager, networkId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				wire := WireManager.Query().SubQuery()
+				vpc := VpcManager.Query().SubQuery()
+				return q.Join(wire, sqlchemy.Equals(wire.Field("id"), q.Field("wire_id"))).
+					Join(vpc, sqlchemy.Equals(vpc.Field("id"), wire.Field("vpc_id"))).
+					Filter(sqlchemy.Equals(vpc.Field("manager_id"), provider.Id))
+			})
+			if err != nil {
+				return nil, errors.Wrapf(err, "newFromCloudElasticcache.FetchNetworkId")
+			}
+			instance.NetworkId = network.GetId()
+		}
 	}
 
 	if createdAt := extInstance.GetCreatedAt(); !createdAt.IsZero() {

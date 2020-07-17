@@ -991,7 +991,7 @@ sigs.k8s.io/yaml
 yunion.io/x/executor/apis
 yunion.io/x/executor/client
 yunion.io/x/executor/server
-# yunion.io/x/jsonutils v0.0.0-20200415132054-2bf8a5e94501
+# yunion.io/x/jsonutils v0.0.0-20200710080709-7ca71cdb9383
 yunion.io/x/jsonutils
 # yunion.io/x/log v0.0.0-20200313080802-57a4ce5966b3
 yunion.io/x/log
@@ -1000,6 +1000,7 @@ yunion.io/x/log/hooks
 yunion.io/x/pkg/errors
 yunion.io/x/pkg/gotypes
 yunion.io/x/pkg/prettytable
+yunion.io/x/pkg/sortedmap
 yunion.io/x/pkg/trace
 yunion.io/x/pkg/tristate
 yunion.io/x/pkg/util/cache
@@ -1028,7 +1029,7 @@ yunion.io/x/pkg/util/workqueue
 yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v0.0.0-20200312002602-1177cd8fbc57
+# yunion.io/x/sqlchemy v0.0.0-20200702064124-195445bc4b11
 yunion.io/x/sqlchemy
-# yunion.io/x/structarg v0.0.0-20200423163001-168d0687be7e
+# yunion.io/x/structarg v0.0.0-20200708124353-ea9a441ecaf8
 yunion.io/x/structarg
