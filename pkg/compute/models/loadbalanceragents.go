@@ -401,7 +401,8 @@ func (man *SLoadbalancerAgentManager) GetPropertyDefaultParams(ctx context.Conte
 
 func (man *SLoadbalancerAgentManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	clusterV := validators.NewModelIdOrNameValidator("cluster", "loadbalancercluster", ownerId)
-	paramsV := validators.NewStructValidator("params", &SLoadbalancerAgentParams{})
+	params := &SLoadbalancerAgentParams{}
+	paramsV := validators.NewStructValidator("params", params)
 	{
 		keyV := map[string]validators.IValidator{
 			"hb_timeout": validators.NewNonNegativeValidator("hb_timeout").Default(3600),
@@ -420,7 +421,6 @@ func (man *SLoadbalancerAgentManager) ValidateCreateData(ctx context.Context, us
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err)
 		}
-		params := paramsV.Value.(*SLoadbalancerAgentParams)
 		for i := range lbagents {
 			peerLbagent := &lbagents[i]
 			peerParams := peerLbagent.Params
