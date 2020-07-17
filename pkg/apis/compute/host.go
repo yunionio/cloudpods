@@ -164,7 +164,8 @@ type HostDetails struct {
 	CanPrepare        bool                `json:"can_prepare"`
 	PrepareFailReason string              `json:"prepare_fail_reason"`
 	// 允许开启宿主机健康检查
-	AllowHealthCheck bool `json:"allow_health_check"`
+	AllowHealthCheck      bool `json:"allow_health_check"`
+	AutoMigrateOnHostDown bool `json:"auto_migrate_on_host_down"`
 
 	// 标签
 	Metadata map[string]string `json:"metadata"`
