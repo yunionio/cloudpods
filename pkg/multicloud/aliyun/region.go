@@ -43,6 +43,8 @@ type SRegion struct {
 	RegionId  string
 	LocalName string
 
+	RegionEndpoint string
+
 	izones []cloudprovider.ICloudZone
 
 	ivpcs []cloudprovider.ICloudVpc
@@ -105,7 +107,11 @@ func (self *SRegion) ecsRequest(apiName string, params map[string]string) (jsonu
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(client, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params, self.client.debug)
+	endpoint := self.RegionEndpoint
+	if len(endpoint) == 0 {
+		endpoint = "ecs.aliyuncs.com"
+	}
+	return jsonRequest(client, endpoint, ALIYUN_API_VERSION, apiName, params, self.client.debug)
 }
 
 func (self *SRegion) rdsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
