@@ -102,6 +102,11 @@ type SLoadbalancerAgentParamsVrrp struct {
 	Pass              string
 }
 
+const (
+	lbagentVrrpDefaultVrid = 17
+	lbagentVrrpDefaultPrio = 100
+)
+
 type SLoadbalancerAgentParamsHaproxy struct {
 	GlobalLog      string
 	GlobalNbthread int `json:",omitzero"`
@@ -191,7 +196,7 @@ func (p *SLoadbalancerAgentParamsVrrp) initDefault(data *jsonutils.JSONDict) {
 		p.Interface = "eth0"
 	}
 	if !data.Contains("params", "vrrp", "virtual_router_id") {
-		p.VirtualRouterId = 17
+		p.VirtualRouterId = lbagentVrrpDefaultVrid
 	}
 	if !data.Contains("params", "vrrp", "advert_int") {
 		p.AdvertInt = 1
@@ -401,12 +406,9 @@ func (man *SLoadbalancerAgentManager) GetPropertyDefaultParams(ctx context.Conte
 
 func (man *SLoadbalancerAgentManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	clusterV := validators.NewModelIdOrNameValidator("cluster", "loadbalancercluster", ownerId)
-	params := &SLoadbalancerAgentParams{}
-	paramsV := validators.NewStructValidator("params", params)
 	{
 		keyV := map[string]validators.IValidator{
 			"hb_timeout": validators.NewNonNegativeValidator("hb_timeout").Default(3600),
-			"params":     paramsV,
 			"cluster":    clusterV,
 		}
 		for _, v := range keyV {
@@ -421,15 +423,74 @@ func (man *SLoadbalancerAgentManager) ValidateCreateData(ctx context.Context, us
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err)
 		}
+		params := &SLoadbalancerAgentParams{}
+		{
+			if len(lbagents) > 0 {
+				peerLbagent := &lbagents[0]
+				peerParams := peerLbagent.Params
+				params.Vrrp.setByPeer(&peerParams.Vrrp)
+			}
+			if len(lbagents) == 0 && !data.Contains("params", "vrrp", "virtual_router_id") {
+				otherLbagents := []SLoadbalancerAgent{}
+				q := man.Query().GroupBy("cluster_id")
+				err := db.FetchModelObjects(LoadbalancerAgentManager, q, &otherLbagents)
+				if err != nil {
+					return nil, httperrors.NewInternalServerError("fetch lbagents of other clusters: %v", err)
+				}
+				maxVrid := -1
+				for i := range otherLbagents {
+					lbagent := &otherLbagents[i]
+					if lbagent.ClusterId == cluster.Id {
+						continue
+					}
+					vrid := lbagent.Params.Vrrp.VirtualRouterId
+					if vrid > maxVrid {
+						maxVrid = vrid
+					}
+				}
+				if maxVrid > 0 && maxVrid < 255 {
+					params.Vrrp.VirtualRouterId = maxVrid + 1
+				} else {
+					params.Vrrp.VirtualRouterId = lbagentVrrpDefaultVrid
+				}
+			}
+			if !data.Contains("params", "vrrp", "priority") {
+				// a backup to all existing members
+				minPrio := 256
+				for i := range lbagents {
+					peerLbagent := &lbagents[i]
+					priority := peerLbagent.Params.Vrrp.Priority
+					if priority < minPrio {
+						minPrio = priority
+					}
+				}
+				if minPrio > 1 {
+					params.Vrrp.Priority = minPrio - 1
+				} else {
+					params.Vrrp.Priority = lbagentVrrpDefaultPrio
+				}
+			}
+			var (
+				oldVrrpParams jsonutils.JSONObject
+				err           error
+			)
+			if oldVrrpParams, err = data.Get("params", "vrrp"); err != nil {
+				oldVrrpParams = jsonutils.NewDict()
+			}
+			vrrpParams := jsonutils.Marshal(params.Vrrp).(*jsonutils.JSONDict)
+			vrrpParams.UpdateDefault(oldVrrpParams)
+			data.Add(vrrpParams, "params", "vrrp")
+			paramsV := validators.NewStructValidator("params", params)
+			if err := paramsV.Validate(data); err != nil {
+				return nil, err
+			}
+		}
 		for i := range lbagents {
 			peerLbagent := &lbagents[i]
 			peerParams := peerLbagent.Params
 			err := params.Vrrp.validatePeer(&peerParams.Vrrp)
 			if err != nil {
 				return nil, httperrors.NewConflictError("conflict with lbagent %s(%s): %v", peerLbagent.Name, peerLbagent.Id, err)
-			}
-			if i == 0 {
-				params.Vrrp.setByPeer(&peerParams.Vrrp)
 			}
 		}
 		vrrpRouterId := params.Vrrp.VirtualRouterId
