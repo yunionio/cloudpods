@@ -372,7 +372,7 @@ func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.Toke
 		localVPCs = append(localVPCs, commondb[i])
 		remoteVPCs = append(remoteVPCs, commonext[i])
 		syncResult.Update()
-		err = commondb[i].SyncGlobalVpc(ctx, userCred, provider.GetOwnerId())
+		err = commondb[i].SyncGlobalVpc(ctx, userCred, provider.GetOwnerId(), provider)
 		if err != nil {
 			log.Errorf("%s(%s) sync global vpc error: %v", commondb[i].Name, commondb[i].Id, err)
 		}
@@ -387,7 +387,7 @@ func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.Toke
 		localVPCs = append(localVPCs, *newVpc)
 		remoteVPCs = append(remoteVPCs, added[i])
 		syncResult.Add()
-		err = newVpc.SyncGlobalVpc(ctx, userCred, provider.GetOwnerId())
+		err = newVpc.SyncGlobalVpc(ctx, userCred, provider.GetOwnerId(), provider)
 		if err != nil {
 			log.Errorf("%s(%s) sync global vpc error: %v", newVpc.Name, newVpc.Id, err)
 		}
@@ -417,10 +417,11 @@ func (self *SVpc) syncRemoveCloudVpc(ctx context.Context, userCred mcclient.Toke
 	return err
 }
 
-func (self *SVpc) SyncGlobalVpc(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider) error {
+func (self *SVpc) SyncGlobalVpc(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, provider *SCloudprovider) error {
 	if len(self.GlobalvpcId) > 0 {
 		gv, _ := self.GetGlobalVpc()
 		SyncCloudDomain(userCred, gv, ownerId)
+		gv.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
 		return nil
 	}
 	region, err := self.GetRegion()
@@ -464,6 +465,7 @@ func (self *SVpc) SyncGlobalVpc(ctx context.Context, userCred mcclient.TokenCred
 				return errors.Wrap(err, "GlobalVpcManager.Insert")
 			}
 			SyncCloudDomain(userCred, gv, ownerId)
+			gv.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
 			globalvpcId = gv.Id
 		}
 		_, err = db.Update(self, func() error {
