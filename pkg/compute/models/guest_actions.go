@@ -4581,12 +4581,13 @@ func (self *SGuest) PerformSnapshotAndClone(
 		quotas.CancelPendingUsage(ctx, userCred, &pendingRegionUsage, &pendingRegionUsage, false)
 		return nil, httperrors.NewInternalServerError("create instance snapshot failed: %s", err)
 	}
+	// isnapshotshot create success, cancel pending usage
+	quotas.CancelPendingUsage(ctx, userCred, &pendingRegionUsage, &pendingRegionUsage, true)
 
 	err = self.StartInstanceSnapshotAndCloneTask(
 		ctx, userCred, newlyGuestName, &pendingUsage, &pendingRegionUsage, instanceSnapshot, data.(*jsonutils.JSONDict))
 	if err != nil {
 		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, false)
-		quotas.CancelPendingUsage(ctx, userCred, &pendingRegionUsage, &pendingRegionUsage, false)
 		return nil, err
 	}
 	return nil, nil
