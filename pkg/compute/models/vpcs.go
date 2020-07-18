@@ -1197,6 +1197,9 @@ func (manager *SVpcManager) ListItemExportKeys(ctx context.Context,
 }
 
 func (vpc *SVpc) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicDomainInput) (jsonutils.JSONObject, error) {
+	if rbacutils.String2ScopeDefault(input.Scope, rbacutils.ScopeSystem) != rbacutils.ScopeSystem {
+		return nil, httperrors.NewForbiddenError("For default vpc, only system level sharing can be set")
+	}
 	_, err := vpc.SEnabledStatusInfrasResourceBase.PerformPublic(ctx, userCred, query, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBase.PerformPublic")
@@ -1215,6 +1218,9 @@ func (vpc *SVpc) PerformPublic(ctx context.Context, userCred mcclient.TokenCrede
 }
 
 func (vpc *SVpc) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) (jsonutils.JSONObject, error) {
+	if vpc.Id == "default" {
+		return nil, httperrors.NewForbiddenError("Prohibit making default vpc private")
+	}
 	// perform private for all emulated wires
 	emptyNets := true
 	wires := vpc.GetWires()
