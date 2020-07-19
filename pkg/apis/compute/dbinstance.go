@@ -178,9 +178,15 @@ type SDBInstanceChangeConfigInput struct {
 type SDBInstanceRecoveryConfigInput struct {
 	apis.Meta
 
-	DBInstancebackup   string
-	DBInstancebackupId string            `json:"dbinstancebackup_id"`
-	Databases          map[string]string `json:"databases,allowempty"`
+	// swagger:ignore
+	DBInstancebackup string `json:"dbinstancebackup" "yunion:deprecated-by":"dbinstancebackup_id"`
+
+	// 备份Id
+	DBInstancebackupId string `json:"dbinstancebackup_id"`
+
+	// 数据库信息, 例如 {"src":"dest"} 是将备份中的src数据库恢复到目标实例的dest数据库中
+	// example: {"sdb1":"ddb1"}
+	Databases map[string]string `json:"databases,allowempty"`
 }
 
 type DBInstanceListInput struct {

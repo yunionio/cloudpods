@@ -975,6 +975,10 @@ func (self *SAliyunRegionDriver) IsSecurityGroupBelongVpc() bool {
 	return true
 }
 
+func (self *SAliyunRegionDriver) ValidateDBInstanceRecovery(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, backup *models.SDBInstanceBackup, input api.SDBInstanceRecoveryConfigInput) error {
+	return nil
+}
+
 func (self *SAliyunRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.DBInstanceCreateInput, skus []models.SDBInstanceSku, network *models.SNetwork) (api.DBInstanceCreateInput, error) {
 	if input.BillingType == billing_api.BILLING_TYPE_PREPAID && len(input.MasterInstanceId) > 0 {
 		return input, httperrors.NewInputParameterError("slave dbinstance not support prepaid billing type")
