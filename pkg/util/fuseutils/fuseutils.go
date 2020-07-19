@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -39,18 +40,21 @@ func MountFusefs(fetcherfsPath, url, tmpdir, token, mntpath string, blocksize in
 
 	// is mounted
 	if err := procutils.NewCommand("mountpoint", mntpath).Run(); err == nil {
-		procutils.NewCommand("umount", mntpath).Output()
+		out, err := procutils.NewCommand("umount", mntpath).Output()
+		if err != nil {
+			return errors.Wrapf(err, "umount %s failed: %s", mntpath, out)
+		}
 	}
 
 	if !fileutils2.Exists(tmpdir) {
-		if err := procutils.NewCommand("mkdir", "-p", tmpdir).Run(); err != nil {
-			return err
+		if out, err := procutils.NewCommand("mkdir", "-p", tmpdir).Output(); err != nil {
+			return errors.Wrapf(err, "mkdir %s failed: %s", tmpdir, out)
 		}
 	}
 
 	if !fileutils2.Exists(mntpath) {
-		if err := procutils.NewCommand("mkdir", "-p", mntpath).Run(); err != nil {
-			return err
+		if out, err := procutils.NewCommand("mkdir", "-p", mntpath).Output(); err != nil {
+			return errors.Wrapf(err, "mkdir %s failed: %s", mntpath, out)
 		}
 	}
 
@@ -61,11 +65,14 @@ func MountFusefs(fetcherfsPath, url, tmpdir, token, mntpath string, blocksize in
 
 	var cmd = []string{fetcherfsPath, "-s", "-o", opts, mntpath}
 	log.Infof("%s", strings.Join(cmd, " "))
-	err := procutils.NewRemoteCommandAsFarAsPossible(cmd[0], cmd[1:]...).Run()
+	out, err := procutils.NewRemoteCommandAsFarAsPossible(cmd[0], cmd[1:]...).Output()
 	if err != nil {
-		log.Errorf("Mount fetcherfs filed: %s", err)
-		procutils.NewCommand("umount", mntpath).Run()
-		return err
+		log.Errorf("%v Mount fetcherfs filed: %s %s", cmd, err, out)
+		out2, err2 := procutils.NewCommand("umount", mntpath).Output()
+		if err2 != nil {
+			log.Errorf("umount fetcherfs failed %s %s", err2, out2)
+		}
+		return errors.Wrapf(err, "mount fetcherfs failed: %s", out)
 	}
 
 	time.Sleep(200 * time.Millisecond)
@@ -74,6 +81,6 @@ func MountFusefs(fetcherfsPath, url, tmpdir, token, mntpath string, blocksize in
 		return nil
 	} else {
 		log.Errorln(err)
-		return err
+		return errors.Wrap(err, "failed open metaPath")
 	}
 }
