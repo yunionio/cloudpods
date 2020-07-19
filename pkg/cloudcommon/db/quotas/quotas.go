@@ -113,6 +113,17 @@ func (manager *SQuotaBaseManager) _cancelUsage(ctx context.Context, userCred mcc
 	return manager.changeUsage(ctx, userCred, usage, false)
 }
 
+func (manager *SQuotaBaseManager) addUsage(ctx context.Context, userCred mcclient.TokenCredential, usage IQuota) error {
+	LockQuota(ctx, manager, usage)
+	defer ReleaseQuota(ctx, manager, usage)
+
+	return manager._addUsage(ctx, userCred, usage)
+}
+
+func (manager *SQuotaBaseManager) _addUsage(ctx context.Context, userCred mcclient.TokenCredential, usage IQuota) error {
+	return manager.changeUsage(ctx, userCred, usage, true)
+}
+
 func (manager *SQuotaBaseManager) changeUsage(ctx context.Context, userCred mcclient.TokenCredential, usage IQuota, isAdd bool) error {
 	usages, err := manager.usageStore.GetParentQuotas(ctx, usage.GetKeys())
 	if err != nil {
