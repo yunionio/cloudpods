@@ -141,9 +141,6 @@ func (p *StoragePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 	}
 
 	h.SetCapacity(minCapacity)
-	if minCapacity <= 0 {
-		h.AppendPredicateFailMsg(predicates.ErrNoEnoughStorage)
-	}
 
 	return h.GetResult()
 }
