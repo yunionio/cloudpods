@@ -2275,6 +2275,28 @@ func (self *SHuaWeiRegionDriver) ValidateDBInstanceAccountPrivilege(ctx context.
 	return nil
 }
 
+// https://support.huaweicloud.com/api-rds/rds_09_0009.html
+func (self *SHuaWeiRegionDriver) ValidateDBInstanceRecovery(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, backup *models.SDBInstanceBackup, input api.SDBInstanceRecoveryConfigInput) error {
+	if backup.Engine == api.DBINSTANCE_TYPE_POSTGRESQL {
+		return httperrors.NewNotSupportedError("%s not support recovery", backup.Engine)
+	}
+	if backup.DBInstanceId == instance.Id && instance.Engine != api.DBINSTANCE_TYPE_SQLSERVER {
+		return httperrors.NewNotSupportedError("Huawei %s rds not support recovery from it self rds backup", instance.Engine)
+	}
+	if len(input.Databases) > 0 {
+		if instance.Engine != api.DBINSTANCE_TYPE_SQLSERVER {
+			return httperrors.NewInputParameterError("Huawei only %s engine support databases recovery", instance.Engine)
+		}
+		invalidDbs := []string{"rdsadmin", "master", "msdb", "tempdb", "model"}
+		for _, db := range input.Databases {
+			if utils.IsInStringArray(strings.ToLower(db), invalidDbs) {
+				return httperrors.NewInputParameterError("New databases name can not be one of %s", invalidDbs)
+			}
+		}
+	}
+	return nil
+}
+
 func validatorSlaveZones(ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict, optional bool) error {
 	s, err := data.GetString("slave_zones")
 	if err != nil {

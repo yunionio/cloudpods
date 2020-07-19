@@ -162,6 +162,8 @@ type IDBInstanceDriver interface {
 
 	InitDBInstanceUser(dbinstance *SDBInstance, task taskman.ITask, desc *cloudprovider.SManagedDBInstanceCreateConfig) error
 	IsDBInstanceNeedSecgroup() bool
+
+	ValidateDBInstanceRecovery(ctx context.Context, userCred mcclient.TokenCredential, instance *SDBInstance, backup *SDBInstanceBackup, input api.SDBInstanceRecoveryConfigInput) error
 }
 
 type IElasticcacheDriver interface {
