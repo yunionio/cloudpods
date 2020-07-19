@@ -60,15 +60,21 @@ func (self *DBInstanceRecoveryTask) OnInit(ctx context.Context, obj db.IStandalo
 		return
 	}
 
-	backup, err := instance.GetDBInstanceBackup(input.DBInstancebackupId)
+	_backup, err := models.DBInstanceBackupManager.FetchById(input.DBInstancebackupId)
 	if err != nil {
 		self.taskFailed(ctx, instance, errors.Wrapf(err, "instance.GetDBInstanceBackup(%s)", input.DBInstancebackupId))
 		return
 	}
 
+	backup := _backup.(*models.SDBInstanceBackup)
+	origin, _ := backup.GetDBInstance()
+
 	conf := &cloudprovider.SDBInstanceRecoveryConfig{
 		BackupId:  backup.ExternalId,
 		Databases: input.Databases,
+	}
+	if origin != nil {
+		conf.OriginDBInstanceExternalId = origin.ExternalId
 	}
 
 	err = iRds.RecoveryFromBackup(conf)
@@ -77,12 +83,14 @@ func (self *DBInstanceRecoveryTask) OnInit(ctx context.Context, obj db.IStandalo
 		return
 	}
 
-	err = cloudprovider.WaitStatus(iRds, api.DBINSTANCE_RUNNING, time.Second*10, time.Second*40)
+	err = cloudprovider.WaitStatus(iRds, api.DBINSTANCE_RUNNING, time.Second*10, time.Minute*40)
 	if err != nil {
 		self.taskFailed(ctx, instance, errors.Wrap(err, "cloudprovider.WaitStatus(running)"))
 		return
 	}
 
+	db.OpsLog.LogEvent(instance, db.ACT_RESTORE, nil, self.GetUserCred())
+	logclient.AddActionLogWithStartable(self, instance, logclient.ACT_RESTORE, backup, self.UserCred, true)
 	instance.SetStatus(self.UserCred, api.DBINSTANCE_RUNNING, "")
 	self.SetStageComplete(ctx, nil)
 }
