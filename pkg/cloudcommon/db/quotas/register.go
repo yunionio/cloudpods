@@ -87,6 +87,20 @@ func cancelUsage(ctx context.Context, userCred mcclient.TokenCredential, usage I
 	}
 }
 
+func AddUsages(ctx context.Context, userCred mcclient.TokenCredential, usages []db.IUsage) {
+	for _, usage := range usages {
+		addUsage(ctx, userCred, usage.(IQuota))
+	}
+}
+
+func addUsage(ctx context.Context, userCred mcclient.TokenCredential, usage IQuota) {
+	manager := getQuotaManager(usage)
+	err := manager.addUsage(ctx, userCred, usage)
+	if err != nil {
+		log.Errorf("cancelUsage %s fail: %s", jsonutils.Marshal(usage), err)
+	}
+}
+
 func GetQuotaCount(ctx context.Context, request IQuota, pendingKeys IQuotaKeys) (int, error) {
 	manager := getQuotaManager(request)
 	return manager.getQuotaCount(ctx, request, pendingKeys)
