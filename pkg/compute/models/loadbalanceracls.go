@@ -363,22 +363,27 @@ func (lbacl *SLoadbalancerAcl) PerformPatch(ctx context.Context, userCred mcclie
 }
 
 func (lbacl *SLoadbalancerAcl) ValidateDeleteCondition(ctx context.Context) error {
-	man := CachedLoadbalancerAclManager
-	t := man.TableSpec().Instance()
-	pdF := t.Field("pending_deleted")
+	men := []db.IModelManager{
+		LoadbalancerListenerManager,
+		CachedLoadbalancerAclManager,
+	}
+
 	lbaclId := lbacl.Id
-	n, err := t.Query().
-		Filter(sqlchemy.OR(sqlchemy.IsNull(pdF), sqlchemy.IsFalse(pdF))).
-		Equals("acl_id", lbaclId).
-		CountWithError()
-	if err != nil {
-		return httperrors.NewInternalServerError("get acl count fail %s", err)
+	for _, man := range men {
+		t := man.TableSpec().Instance()
+		pdF := t.Field("pending_deleted")
+		n, err := t.Query().
+			Filter(sqlchemy.OR(sqlchemy.IsNull(pdF), sqlchemy.IsFalse(pdF))).
+			Equals("acl_id", lbaclId).
+			CountWithError()
+		if err != nil {
+			return httperrors.NewInternalServerError("get acl count fail %s", err)
+		}
+		if n > 0 {
+			return httperrors.NewResourceBusyError("acl %s is still referred to by %d %s", lbaclId, n, man.KeywordPlural())
+		}
 	}
-	if n > 0 {
-		// return fmt.Errorf("acl %s is still referred to by %d %s",
-		// 	lbaclId, n, man.KeywordPlural())
-		return httperrors.NewResourceBusyError("acl %s is still referred to by %d %s", lbaclId, n, man.KeywordPlural())
-	}
+
 	return nil
 }
 
