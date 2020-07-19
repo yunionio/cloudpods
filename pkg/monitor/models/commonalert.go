@@ -639,7 +639,8 @@ func (alert *SCommonAlert) customizeDeleteNotis(
 
 func (alert *SCommonAlert) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	CommonAlertManager.DeleteSubscriptionAlert(alert)
-	return alert.SetStatus(userCred, monitor.ALERT_STATUS_DELETED, "")
+
+	return alert.SAlert.Delete(ctx, userCred)
 }
 
 func (self *SCommonAlertManager) GetSystemAlerts() ([]SCommonAlert, error) {
