@@ -179,8 +179,7 @@ func (manager *SVpcManager) getVpcExternalIdForClassicNetwork(regionId, cloudpro
 	return fmt.Sprintf("%s-%s", regionId, cloudproviderId)
 }
 
-func (manager *SVpcManager) GetOrCreateVpcForClassicNetwork(region *SCloudregion) (*SVpc, error) {
-	cloudprovider := region.GetCloudprovider()
+func (manager *SVpcManager) GetOrCreateVpcForClassicNetwork(cloudprovider *SCloudprovider, region *SCloudregion) (*SVpc, error) {
 	externalId := manager.getVpcExternalIdForClassicNetwork(region.Id, cloudprovider.Id)
 	_vpc, err := db.FetchByExternalIdAndManagerId(manager, externalId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 		return q.Equals("manager_id", region.ManagerId)
