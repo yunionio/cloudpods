@@ -588,7 +588,7 @@ func (manager *SElasticcacheManager) newFromCloudElasticcache(ctx context.Contex
 
 	instance.NetworkType = extInstance.GetNetworkType()
 	if instance.NetworkType == api.LB_NETWORK_TYPE_CLASSIC {
-		vpc, err := VpcManager.GetOrCreateVpcForClassicNetwork(ctx, region)
+		vpc, err := VpcManager.GetOrCreateVpcForClassicNetwork(ctx, provider, region)
 		if err != nil {
 			return nil, errors.Wrap(err, "NewVpcForClassicNetwork")
 		}
