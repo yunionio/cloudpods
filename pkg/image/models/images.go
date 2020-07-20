@@ -538,7 +538,8 @@ func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 	// if SImage belong to a guest image, pending quota will not be set.
 	if self.IsGuestImage.IsFalse() {
 		pendingUsage := SQuota{Image: 1}
-		keys := imageCreateInput2QuotaKeys(self.DiskFormat, ownerId)
+		inputDiskFormat, _ := data.GetString("disk_format")
+		keys := imageCreateInput2QuotaKeys(inputDiskFormat, ownerId)
 		pendingUsage.SetKeys(keys)
 		cancelUsage := SQuota{Image: 1}
 		keys = self.GetQuotaKeys()
