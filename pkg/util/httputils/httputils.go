@@ -147,17 +147,17 @@ type JsonResponse interface {
 }
 
 func (ce *JSONClientError) ParseErrorFromJsonResponse(statusCode int, body jsonutils.JSONObject) error {
-	err := body.Unmarshal(ce)
-	if err != nil {
-		return errors.Wrapf(err, "body.Unmarshal(%s)", body.String())
+	body.Unmarshal(ce)
+	if ce.Code == 0 {
+		ce.Code = statusCode
 	}
-	if ce.Code != 0 || len(ce.Class) > 0 || len(ce.Class) > 0 || len(ce.Details) > 0 {
-		if ce.Code == 0 {
-			ce.Code = statusCode
-		}
-		return ce
+	if len(ce.Class) == 0 {
+		ce.Class = http.StatusText(statusCode)
 	}
-	return nil
+	if len(ce.Details) == 0 {
+		ce.Details = body.String()
+	}
+	return ce
 }
 
 func NewJsonClient(client *http.Client) *JsonClient {
@@ -526,9 +526,18 @@ func (client *JsonClient) Send(ctx context.Context, req JsonReuest, response Jso
 		ce.Code = resp.StatusCode
 		ce.Details = resp.Header.Get("Location")
 		ce.Class = "redirect"
-		return resp.Header, nil, &ce
+		return resp.Header, jrbody, &ce
 	}
+
 	return resp.Header, jrbody, response.ParseErrorFromJsonResponse(resp.StatusCode, jrbody)
+}
+
+func IsRedirectError(err error) bool {
+	ce, ok := err.(*JSONClientError)
+	if ok && ce.Class == "redirect" {
+		return true
+	}
+	return false
 }
 
 func ParseResponse(resp *http.Response, err error, debug bool) (http.Header, []byte, error) {
