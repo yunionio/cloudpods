@@ -3948,6 +3948,14 @@ func (self *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCrede
 	if wire == nil {
 		return fmt.Errorf("No wire attached")
 	}
+	if self.ZoneId == "" {
+		if _, err := self.SaveUpdates(func() error {
+			self.ZoneId = wire.ZoneId
+			return nil
+		}); err != nil {
+			return errors.Wrapf(err, "set host zone_id %s by wire", wire.ZoneId)
+		}
+	}
 	hw, err := HostwireManager.FetchByHostIdAndMac(self.Id, netif.Mac)
 	if err != nil {
 		return err
