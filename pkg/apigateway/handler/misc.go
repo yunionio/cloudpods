@@ -25,6 +25,7 @@ import (
 
 	"github.com/360EntSecGroup-Skylar/excelize"
 	"golang.org/x/sync/errgroup"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -37,6 +38,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 const (
@@ -171,19 +173,23 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 	}
 
 	paramKeys := []string{}
-	for _, title := range rows[0] {
+	i1 := 0
+	i2 := 0
+	for i, title := range rows[0] {
 		switch title {
 		case HOST_MAC:
 			paramKeys = append(paramKeys, "access_mac")
 		case HOST_NAME:
 			paramKeys = append(paramKeys, "name")
 		case HOST_IPMI_ADDR, HOST_IPMI_ADDR_OPTIONAL:
+			i1 = i
 			paramKeys = append(paramKeys, "ipmi_ip_addr")
 		case HOST_IPMI_USERNAME, HOST_IPMI_USERNAME_OPTIONAL:
 			paramKeys = append(paramKeys, "ipmi_username")
 		case HOST_IPMI_PASSWORD, HOST_IPMI_PASSWORD_OPTIONAL:
 			paramKeys = append(paramKeys, "ipmi_password")
 		case HOST_MNG_IP_ADDR, HOST_MNG_IP_ADDR_OPTIONAL:
+			i2 = i
 			paramKeys = append(paramKeys, "access_ip")
 		default:
 			e := httperrors.NewInternalServerError("empty file content")
@@ -199,8 +205,23 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 		return
 	}
 
+	ips := []string{}
 	hosts := bytes.Buffer{}
 	for _, row := range rows[1:] {
+		var e *httputils.JSONClientError
+		if row[i1] == row[i2] || utils.IsInStringArray(row[i1], ips) {
+			e = httperrors.NewDuplicateIdError("ip", row[i1])
+		} else if utils.IsInStringArray(row[i2], ips) {
+			e = httperrors.NewDuplicateIdError("ip", row[i2])
+		}
+
+		if e != nil {
+			httperrors.JsonClientError(w, e)
+			return
+		} else {
+			ips = append(ips, row[i1], row[i2])
+		}
+
 		hosts.WriteString(strings.Join(row, ",") + "\n")
 	}
 
