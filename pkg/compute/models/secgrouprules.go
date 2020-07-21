@@ -123,12 +123,9 @@ func (manager *SSecurityGroupRuleManager) FetchOwnerId(ctx context.Context, data
 }
 
 func (manager *SSecurityGroupRuleManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
-	if userCred != nil {
-		sq := SecurityGroupManager.Query("id")
-		ssq := SecurityGroupManager.FilterByOwner(sq, userCred, scope)
-		return q.In("secgroup_id", ssq.SubQuery())
-	}
-	return q
+	sq := SecurityGroupManager.Query("id")
+	sq = db.SharableManagerFilterByOwner(SecurityGroupManager, sq, userCred, scope)
+	return q.In("secgroup_id", sq.SubQuery())
 }
 
 func (manager *SSecurityGroupRuleManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
