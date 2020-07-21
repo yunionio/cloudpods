@@ -142,7 +142,7 @@ require (
 	yunion.io/x/pkg v0.0.0-20200713121502-18154120c49b
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 	yunion.io/x/sqlchemy v0.0.0-20200702064124-195445bc4b11
-	yunion.io/x/structarg v0.0.0-20200708124353-ea9a441ecaf8
+	yunion.io/x/structarg v0.0.0-20200720093445-9f850fa222ce
 )
 
 replace (
