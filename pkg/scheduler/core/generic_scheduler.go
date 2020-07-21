@@ -450,17 +450,12 @@ func SelectHosts(unit *Unit, priorityList HostPriorityList) ([]*SelectedCandidat
 completed:
 	for len(priorityList) > 0 {
 		log.V(10).Debugf("PriorityList: %#v", priorityList)
-		currentPriority := unit.GetMaxSelectPriority()
 		priorityList0 := HostPriorityList{}
 		for _, it := range priorityList {
 			if count <= 0 {
 				break completed
 			}
 			hostID := it.Host
-			if !currentPriority.IsEmpty() && unit.GetSelectPriority(hostID).Less(currentPriority) {
-				priorityList0 = append(priorityList0, it)
-				continue
-			}
 			var (
 				selectedItem *SelectedCandidate
 				ok           bool
@@ -478,9 +473,6 @@ completed:
 			if unit.GetCapacity(hostID) > selectedItem.Count {
 				priorityList0 = append(priorityList0, it)
 			}
-		}
-		if !currentPriority.IsEmpty() {
-			unit.UpdateSelectPriority()
 		}
 		// sort by score
 		priorityList = priorityList0
