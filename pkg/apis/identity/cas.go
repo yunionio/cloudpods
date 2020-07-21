@@ -19,7 +19,6 @@ import "yunion.io/x/pkg/tristate"
 type SCASIdpConfigOptions struct {
 	// https://cas.example.org/cas/
 	CASServerURL string `json:"cas_server_url"`
-	Service      string `json:"service"`
 
 	// Deprecated
 	CasProjectAttribute string `json:"cas_project_attribute" "deprecated-by":"project_attribute"`

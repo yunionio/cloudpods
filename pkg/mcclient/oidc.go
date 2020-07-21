@@ -19,22 +19,22 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
-func (this *Client) AuthenticateOIDC(clientId, code, redirectUri string, projectId, projectName, projectDomain string, cliIp string) (TokenCredential, error) {
+func (this *Client) AuthenticateOIDC(idpId, code, redirectUri string, projectId, projectName, projectDomain string, cliIp string) (TokenCredential, error) {
 	aCtx := SAuthContext{
-		// CAS auth must comes from Web
+		// OpenID Connect auth must comes from Web
 		Source: AuthSourceWeb,
 		Ip:     cliIp,
 	}
-	return this.authenticateOIDCWithContext(clientId, code, redirectUri, projectId, projectName, projectDomain, aCtx)
+	return this.authenticateOIDCWithContext(idpId, code, redirectUri, projectId, projectName, projectDomain, aCtx)
 }
 
-func (this *Client) authenticateOIDCWithContext(clientId, code, redirectUri string, projectId, projectName, projectDomain string, aCtx SAuthContext) (TokenCredential, error) {
+func (this *Client) authenticateOIDCWithContext(idpId, code, redirectUri string, projectId, projectName, projectDomain string, aCtx SAuthContext) (TokenCredential, error) {
 	if this.AuthVersion() != "v3" {
 		return nil, httperrors.ErrNotSupported
 	}
 	input := SAuthenticationInputV3{}
 	input.Auth.Identity.Methods = []string{api.AUTH_METHOD_OIDC}
-	input.Auth.Identity.OIDCAuth.ClientId = clientId
+	input.Auth.Identity.Id = idpId
 	input.Auth.Identity.OIDCAuth.Code = code
 	input.Auth.Identity.OIDCAuth.RedirectUri = redirectUri
 	if len(projectId) > 0 {

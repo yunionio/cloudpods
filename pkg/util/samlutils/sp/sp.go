@@ -59,6 +59,8 @@ type SSAMLSpInstance struct {
 	assertionConsumerPath string
 	spInitiatedSSOPath    string
 
+	assertionConsumerUri string
+
 	identityProviders []*SSAMLIdentityProvider
 
 	onSAMLAssertionConsume OnSAMLAssertionConsume
@@ -93,10 +95,24 @@ func (sp *SSAMLSpInstance) AddIdpMetadata(metadata []byte) error {
 	if err != nil {
 		return errors.Wrap(err, "samlutils.ParseMetadata")
 	}
-	idp := &SSAMLIdentityProvider{desc: ed}
+	idp, err := NewSAMLIdpFromDescriptor(ed)
+	if err != nil {
+		return errors.Wrap(err, "NewSAMLIdpFromDescriptor")
+	}
 	err = idp.IsValid()
 	if err != nil {
-		return errors.Wrap(err, "SSAMLIdentityProvider")
+		return errors.Wrap(err, "Invalid SAMLIdentityProvider")
+	}
+	log.Debugf("Register Idp metadata: %s", idp.GetEntityId())
+	sp.identityProviders = append(sp.identityProviders, idp)
+	return nil
+}
+
+func (sp *SSAMLSpInstance) AddIdp(entityId, redirectSsoUrl string) error {
+	idp := NewSAMLIdp(entityId, redirectSsoUrl)
+	err := idp.IsValid()
+	if err != nil {
+		return errors.Wrap(err, "Invalid SAMLIdentityProvider")
 	}
 	log.Debugf("Register Idp metadata: %s", idp.GetEntityId())
 	sp.identityProviders = append(sp.identityProviders, idp)
@@ -117,11 +133,18 @@ func (sp *SSAMLSpInstance) AddHandlers(app *appsrv.Application, prefix string) {
 	log.Infof("SP initated SSO: %s", sp.getSpInitiatedSSOUrl())
 }
 
+func (sp *SSAMLSpInstance) SetAssertionConsumerUri(uri string) {
+	sp.assertionConsumerUri = uri
+}
+
 func (sp *SSAMLSpInstance) getMetadataUrl() string {
 	return httputils.JoinPath(sp.saml.GetEntityId(), sp.metadataPath)
 }
 
 func (sp *SSAMLSpInstance) getAssertionConsumerUrl() string {
+	if len(sp.assertionConsumerUri) > 0 {
+		return sp.assertionConsumerUri
+	}
 	return httputils.JoinPath(sp.saml.GetEntityId(), sp.assertionConsumerPath)
 }
 
@@ -130,7 +153,7 @@ func (sp *SSAMLSpInstance) getSpInitiatedSSOUrl() string {
 }
 
 func (sp *SSAMLSpInstance) metadataHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	desc := sp.getMetadata(ctx)
+	desc := sp.GetMetadata()
 	appsrv.SendXmlWithIndent(w, nil, desc, true)
 }
 
@@ -153,7 +176,7 @@ func (sp *SSAMLSpInstance) spInitiatedSSOHandler(ctx context.Context, w http.Res
 		httperrors.InputParameterError(w, "unmarshal input fail %s", err)
 		return
 	}
-	redirectUrl, err := sp.processSpInitiatedLogin(ctx, input)
+	redirectUrl, err := sp.ProcessSpInitiatedLogin(ctx, input)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
@@ -161,7 +184,7 @@ func (sp *SSAMLSpInstance) spInitiatedSSOHandler(ctx context.Context, w http.Res
 	appsrv.SendRedirect(w, redirectUrl)
 }
 
-func (sp *SSAMLSpInstance) getMetadata(ctx context.Context) samlutils.EntityDescriptor {
+func (sp *SSAMLSpInstance) GetMetadata() samlutils.EntityDescriptor {
 	input := samlutils.SSAMLSpMetadataInput{
 		EntityId:    sp.saml.GetEntityId(),
 		CertString:  sp.saml.GetCertString(),
@@ -254,7 +277,7 @@ func (sp *SSAMLSpInstance) processAssertionConsumer(ctx context.Context, w http.
 	return nil
 }
 
-func (sp *SSAMLSpInstance) processSpInitiatedLogin(ctx context.Context, input samlutils.SSpInitiatedLoginInput) (string, error) {
+func (sp *SSAMLSpInstance) ProcessSpInitiatedLogin(ctx context.Context, input samlutils.SSpInitiatedLoginInput) (string, error) {
 	idp := sp.getIdentityProvider(input.EntityID)
 	if idp == nil {
 		return "", errors.Wrapf(httperrors.ErrResourceNotFound, "issuer %s not found", input.EntityID)

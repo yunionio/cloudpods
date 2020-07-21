@@ -20,7 +20,7 @@ import (
 
 type UserDetails struct {
 	EnabledIdentityBaseResourceDetails
-	IdpResourceInfo
+	// IdpResourceInfo
 
 	SUser
 
@@ -30,6 +30,8 @@ type UserDetails struct {
 	FailedAuthCount   int       `json:"failed_auth_count"`
 	FailedAuthAt      time.Time `json:"failed_auth_at"`
 	PasswordExpiresAt time.Time `json:"password_expires_at"`
+
+	Idps []IdpResourceInfo `json:"idps"`
 
 	ExternalResourceInfo
 }

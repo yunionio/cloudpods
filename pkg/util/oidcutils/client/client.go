@@ -72,11 +72,12 @@ func (cli *SOIDCClient) FetchConfiguration(ctx context.Context, endpoint string)
 	return nil
 }
 
-func (cli *SOIDCClient) SetConfig(authUrl, tokenUrl, userinfoUrl string) {
+func (cli *SOIDCClient) SetConfig(authUrl, tokenUrl, userinfoUrl string, scopes []string) {
 	cli.config = oidcutils.SOIDCConfiguration{
 		AuthorizationEndpoint: authUrl,
 		TokenEndpoint:         tokenUrl,
 		UserinfoEndpoint:      userinfoUrl,
+		ScopesSupported:       scopes,
 	}
 }
 
@@ -141,7 +142,8 @@ func (cli *SOIDCClient) FetchToken(ctx context.Context, code string, redirUri st
 func (cli *SOIDCClient) FetchUserInfo(ctx context.Context, accessToken string) (map[string]string, error) {
 	header := http.Header{}
 	header.Set("Authorization", "Bearer "+accessToken)
-	_, body, err := httputils.JSONRequest(cli.httpclient, ctx, httputils.GET, cli.config.UserinfoEndpoint, header, nil, cli.isDebug)
+	url := cli.config.UserinfoEndpoint
+	header, body, err := httputils.JSONRequest(cli.httpclient, ctx, httputils.GET, url, header, nil, cli.isDebug)
 	if err != nil {
 		return nil, errors.Wrap(err, "request userinfo")
 	}

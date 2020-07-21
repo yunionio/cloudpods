@@ -302,7 +302,7 @@ func (manager *SGroupManager) NamespaceScope() rbacutils.TRbacScope {
 }
 
 func (group *SGroup) getIdmapping() (*SIdmapping, error) {
-	return IdmappingManager.FetchEntity(group.Id, api.IdMappingEntityGroup)
+	return IdmappingManager.FetchFirstEntity(group.Id, api.IdMappingEntityGroup)
 }
 
 func (group *SGroup) IsReadOnly() bool {

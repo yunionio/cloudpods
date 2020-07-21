@@ -28,8 +28,20 @@ import (
 
 type SCASDriverClass struct{}
 
-func (self *SCASDriverClass) SingletonInstance() bool {
+func (self *SCASDriverClass) IsSso() bool {
 	return true
+}
+
+func (self *SCASDriverClass) ForceSyncUser() bool {
+	return false
+}
+
+func (self *SCASDriverClass) GetDefaultIconUri(tmpName string) string {
+	return "https://www.apereo.org/sites/default/files/styles/project_logo/public/projects/logos/cas_max_logo_0.png"
+}
+
+func (self *SCASDriverClass) SingletonInstance() bool {
+	return false
 }
 
 func (self *SCASDriverClass) SyncMethod() string {

@@ -24,15 +24,32 @@ import (
 )
 
 type SSAMLIdentityProvider struct {
-	desc samlutils.EntityDescriptor
+	entityId       string
+	redirectSsoUrl string
+}
+
+func NewSAMLIdp(entityId, redirectSsoUrl string) *SSAMLIdentityProvider {
+	return &SSAMLIdentityProvider{
+		entityId:       entityId,
+		redirectSsoUrl: redirectSsoUrl,
+	}
+}
+
+func NewSAMLIdpFromDescriptor(desc samlutils.EntityDescriptor) (*SSAMLIdentityProvider, error) {
+	entityId := desc.EntityId
+	if desc.IDPSSODescriptor != nil {
+		return nil, errors.Wrap(httperrors.ErrInputParameter, "missing IDPSSODescriptor")
+	}
+	redirectSsoUrl := findSSOUrl(desc, samlutils.BINDING_HTTP_REDIRECT)
+	return NewSAMLIdp(entityId, redirectSsoUrl), nil
 }
 
 func (idp *SSAMLIdentityProvider) GetEntityId() string {
-	return idp.desc.EntityId
+	return idp.entityId
 }
 
-func (idp *SSAMLIdentityProvider) getSSOUrl(binding string) string {
-	for _, v := range idp.desc.IDPSSODescriptor.SingleSignOnServices {
+func findSSOUrl(desc samlutils.EntityDescriptor, binding string) string {
+	for _, v := range desc.IDPSSODescriptor.SingleSignOnServices {
 		if v.Binding == binding {
 			return v.Location
 		}
@@ -41,13 +58,10 @@ func (idp *SSAMLIdentityProvider) getSSOUrl(binding string) string {
 }
 
 func (idp *SSAMLIdentityProvider) getRedirectSSOUrl() string {
-	return idp.getSSOUrl(samlutils.BINDING_HTTP_REDIRECT)
+	return idp.redirectSsoUrl
 }
 
 func (idp *SSAMLIdentityProvider) IsValid() error {
-	if idp.desc.IDPSSODescriptor == nil {
-		return errors.Wrap(httperrors.ErrInputParameter, "missing IDPSSODescriptor")
-	}
 	if len(idp.GetEntityId()) == 0 {
 		return errors.Wrap(httperrors.ErrInputParameter, "empty EntityID")
 	}

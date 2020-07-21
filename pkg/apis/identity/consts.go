@@ -36,6 +36,7 @@ const (
 	AUTH_METHOD_CAS      = "cas"
 	AUTH_METHOD_SAML     = "saml"
 	AUTH_METHOD_OIDC     = "oidc"
+	AUTH_METHOD_OAuth2   = "oauth2"
 
 	// AUTH_METHOD_ID_PASSWORD = 1
 	// AUTH_METHOD_ID_TOKEN    = 2
@@ -59,11 +60,12 @@ const (
 	IdMappingEntityGroup  = "group"
 	IdMappingEntityDomain = "domain"
 
-	IdentityDriverSQL  = "sql"
-	IdentityDriverLDAP = "ldap"
-	IdentityDriverCAS  = "cas"
-	IdentityDriverSAML = "saml"
-	IdentityDriverOIDC = "oidc" // OpenID Connect
+	IdentityDriverSQL    = "sql"
+	IdentityDriverLDAP   = "ldap"
+	IdentityDriverCAS    = "cas"
+	IdentityDriverSAML   = "saml"
+	IdentityDriverOIDC   = "oidc"   // OpenID Connect
+	IdentityDriverOAuth2 = "oauth2" // OAuth2.0
 
 	IdentityDriverStatusConnected    = "connected"
 	IdentityDriverStatusDisconnected = "disconnected"

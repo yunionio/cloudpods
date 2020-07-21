@@ -17,8 +17,6 @@ package tokens
 import (
 	"context"
 	"database/sql"
-	"encoding/base64"
-	"encoding/xml"
 	"fmt"
 	"time"
 
@@ -105,9 +103,20 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 				return nil, errors.Wrap(err, "Query user")
 			}
 			ident.Password.User.Domain.Id = usr.DomainId
-			idmap, err := models.IdmappingManager.FetchEntity(usr.Id, api.IdMappingEntityUser)
+			idmaps, err := models.IdmappingManager.FetchEntities(usr.Id, api.IdMappingEntityUser)
 			if err != nil && err != sql.ErrNoRows {
 				return nil, errors.Wrap(err, "IdmappingManager.FetchEntity")
+			}
+			var idmap *models.SIdmapping
+			for i := range idmaps {
+				idp, err := models.IdentityProviderManager.FetchIdentityProviderById(idmaps[i].IdpId)
+				if err != nil {
+					return nil, errors.Wrap(err, "IdentityProviderManager.FetchIdentityProviderById")
+				}
+				if idp.Driver == api.IdentityDriverLDAP {
+					idmap = &idmaps[i]
+					break
+				}
 			}
 			if idmap == nil { // sql
 				idpId = api.DEFAULT_IDP_ID
@@ -128,7 +137,7 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 			if err != nil {
 				return nil, errors.Wrap(err, "DomainManager.FetchDomain")
 			}
-			mapping, err := models.IdmappingManager.FetchEntity(domain.Id, api.IdMappingEntityDomain)
+			mapping, err := models.IdmappingManager.FetchFirstEntity(domain.Id, api.IdMappingEntityDomain)
 			if err != nil {
 				return nil, errors.Wrap(err, "IdmappingManager.FetchEntity")
 			}
@@ -176,17 +185,31 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 }
 
 func authUserByCASV3(ctx context.Context, input mcclient.SAuthenticationInputV3) (*api.SUserExtended, error) {
-	idps, err := models.IdentityProviderManager.FetchEnabledProviders(api.IdentityDriverCAS)
-	if err != nil {
-		return nil, errors.Wrap(err, "models.fetchEnabledProviders")
+	var idp *models.SIdentityProvider
+	var err error
+	if len(input.Auth.Identity.Id) > 0 {
+		idp, err = models.IdentityProviderManager.FetchIdentityProviderById(input.Auth.Identity.Id)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "idp %s not found", input.Auth.Identity.Id)
+			} else {
+				return nil, errors.Wrap(err, "FetchIdentityProviderById")
+			}
+		}
+	} else {
+		idps, err := models.IdentityProviderManager.FetchEnabledProviders(api.IdentityDriverCAS)
+		if err != nil {
+			return nil, errors.Wrap(err, "models.fetchEnabledProviders")
+		}
+		if len(idps) == 0 {
+			return nil, errors.Error("No cas identity provider")
+		}
+		if len(idps) > 1 {
+			return nil, errors.Error("more than 1 cas identity providers?")
+		}
+		idp = &idps[0]
 	}
-	if len(idps) == 0 {
-		return nil, errors.Error("No cas identity provider")
-	}
-	if len(idps) > 1 {
-		return nil, errors.Error("more than 1 cas identity providers?")
-	}
-	idp := &idps[0]
+
 	conf, err := models.GetConfigs(idp, true, nil, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "idp.GetConfig")
@@ -214,35 +237,13 @@ func authUserBySAML(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 		return nil, errors.Wrap(httperrors.ErrNotSupported, "unsupported SAML backend")
 	}
 
-	idps, err := models.IdentityProviderManager.FetchEnabledProviders(api.IdentityDriverSAML)
+	idp, err := models.IdentityProviderManager.FetchIdentityProviderById(input.Auth.Identity.Id)
 	if err != nil {
-		return nil, errors.Wrap(err, "models.fetchEnabledProviders")
-	}
-
-	samlRespBytes, err := base64.StdEncoding.DecodeString(input.Auth.Identity.SAMLAuth.Response)
-	if err != nil {
-		return nil, errors.Wrap(err, "base64.StdEncoding.DecodeString")
-	}
-
-	resp, err := saml.SAMLInstance().UnmarshalResponse(samlRespBytes)
-	if err != nil {
-		return nil, errors.Wrapf(httperrors.ErrInputParameter, "decode SAMLResponse error: %s", err)
-	}
-
-	var idp *models.SIdentityProvider
-	for i := range idps {
-		conf, _ := models.GetConfigs(&idps[i], true, nil, nil)
-		if conf != nil && conf["saml"] != nil && conf["saml"]["entity_id"] != nil {
-			entityId, _ := conf["saml"]["entity_id"].GetString()
-			if entityId == resp.Issuer.Issuer {
-				idp = &idps[i]
-				break
-			}
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "idp %s not found", input.Auth.Identity.Id)
+		} else {
+			return nil, errors.Wrap(err, "FetchIdentityProviderById")
 		}
-	}
-
-	if idp == nil {
-		return nil, errors.Wrap(httperrors.ErrResourceNotFound, "No matched saml identity provider")
 	}
 
 	conf, err := models.GetConfigs(idp, true, nil, nil)
@@ -254,13 +255,6 @@ func authUserBySAML(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 	if err != nil {
 		return nil, errors.Wrap(err, "driver.GetDriver")
 	}
-
-	respXml, err := xml.Marshal(resp)
-	if err != nil {
-		return nil, errors.Wrap(err, "xml.Marshal SAML response")
-	}
-	// save to the input
-	input.Auth.Identity.SAMLAuth.Response = string(respXml)
 
 	usr, err := backend.Authenticate(ctx, input.Auth.Identity)
 	if err != nil {
@@ -275,25 +269,45 @@ func authUserBySAML(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 }
 
 func authUserByOIDC(ctx context.Context, input mcclient.SAuthenticationInputV3) (*api.SUserExtended, error) {
-	idps, err := models.IdentityProviderManager.FetchEnabledProviders(api.IdentityDriverOIDC)
+	idp, err := models.IdentityProviderManager.FetchIdentityProviderById(input.Auth.Identity.Id)
 	if err != nil {
-		return nil, errors.Wrap(err, "models.fetchEnabledProviders")
-	}
-
-	var idp *models.SIdentityProvider
-	for i := range idps {
-		conf, _ := models.GetConfigs(&idps[i], true, nil, nil)
-		if conf != nil && conf["oidc"] != nil && conf["oidc"]["client_id"] != nil {
-			clientId, _ := conf["oidc"]["client_id"].GetString()
-			if clientId == input.Auth.Identity.OIDCAuth.ClientId {
-				idp = &idps[i]
-				break
-			}
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "idp %s not found", input.Auth.Identity.Id)
+		} else {
+			return nil, errors.Wrap(err, "FetchIdentityProviderById")
 		}
 	}
 
-	if idp == nil {
-		return nil, errors.Wrap(httperrors.ErrResourceNotFound, "No matched oidc identity provider")
+	conf, err := models.GetConfigs(idp, true, nil, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "idp.GetConfig")
+	}
+
+	backend, err := driver.GetDriver(idp.Driver, idp.Id, idp.Name, idp.Template, idp.TargetDomainId, conf)
+	if err != nil {
+		return nil, errors.Wrap(err, "driver.GetDriver")
+	}
+
+	usr, err := backend.Authenticate(ctx, input.Auth.Identity)
+	if err != nil {
+		return nil, errors.Wrap(err, "Authenticate")
+	}
+
+	if idp.Status == api.IdentityDriverStatusDisconnected {
+		idp.MarkConnected(ctx, models.GetDefaultAdminCred())
+	}
+
+	return usr, nil
+}
+
+func authUserByOAuth2(ctx context.Context, input mcclient.SAuthenticationInputV3) (*api.SUserExtended, error) {
+	idp, err := models.IdentityProviderManager.FetchIdentityProviderById(input.Auth.Identity.Id)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "idp %s not found", input.Auth.Identity.Id)
+		} else {
+			return nil, errors.Wrap(err, "FetchIdentityProviderById")
+		}
 	}
 
 	conf, err := models.GetConfigs(idp, true, nil, nil)
@@ -407,6 +421,12 @@ func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 		user, err = authUserByOIDC(ctx, input)
 		if err != nil {
 			return nil, errors.Wrap(err, "authUserByOIDC")
+		}
+	case api.AUTH_METHOD_OAuth2:
+		// auth by customized OAuth2.0 provider, keystone acts as an OAuth2.0 app
+		user, err = authUserByOAuth2(ctx, input)
+		if err != nil {
+			return nil, errors.Wrap(err, "authUserByOAuth2")
 		}
 	default:
 		// auth by other methods, password, openid, saml, etc...

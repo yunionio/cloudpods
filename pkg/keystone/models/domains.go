@@ -434,7 +434,7 @@ func (domain *SDomain) Delete(ctx context.Context, userCred mcclient.TokenCreden
 }
 
 func (domain *SDomain) getIdmapping() (*SIdmapping, error) {
-	return IdmappingManager.FetchEntity(domain.Id, api.IdMappingEntityDomain)
+	return IdmappingManager.FetchFirstEntity(domain.Id, api.IdMappingEntityDomain)
 }
 
 func (domain *SDomain) IsReadOnly() bool {

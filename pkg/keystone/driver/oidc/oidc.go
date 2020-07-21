@@ -17,6 +17,7 @@ package oidc
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -64,6 +65,15 @@ func (self *SOIDCDriver) prepareConfig() error {
 			conf = DexOIDCTemplate
 		case api.IdpTemplateGithub:
 			conf = GithubOIDCTemplate
+		case api.IdpTemplateAzureOAuth2:
+			conf = AzureADTemplate
+			tenantId, _ := confJson.GetString("tenant_id")
+			if len(tenantId) == 0 {
+				tenantId = "common"
+			}
+			conf.AuthUrl = fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/", tenantId)
+			conf.TokenUrl = fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/token", tenantId)
+			conf.UserinfoUrl = "https://graph.microsoft.com/oidc/userinfo"
 		}
 		err := confJson.Unmarshal(&conf)
 		if err != nil {
@@ -87,9 +97,27 @@ func (self *SOIDCDriver) getOIDCClient(ctx context.Context) (*client.SOIDCClient
 			return nil, errors.Wrap(err, "FetchConfiguration")
 		}
 	} else {
-		cli.SetConfig(self.oidcConfig.AuthUrl, self.oidcConfig.TokenUrl, self.oidcConfig.UserinfoUrl)
+		cli.SetConfig(self.oidcConfig.AuthUrl, self.oidcConfig.TokenUrl, self.oidcConfig.UserinfoUrl, self.oidcConfig.Scopes)
 	}
+	log.Debugf("Userinfo url: %s", cli.GetConfig().UserinfoEndpoint)
 	return cli, nil
+}
+
+func (oidc *SOIDCDriver) GetSsoRedirectUri(ctx context.Context, callbackUrl, state string) (string, error) {
+	cli, err := oidc.getOIDCClient(ctx)
+	if err != nil {
+		return "", errors.Wrap(err, "getOIDCClient")
+	}
+	conf := cli.GetConfig()
+	qs := map[string]string{
+		"response_type": "code",
+		"client_id":     oidc.oidcConfig.ClientId,
+		"redirect_uri":  callbackUrl,
+		"state":         state,
+		"scope":         strings.Join(conf.ScopesSupported, " "),
+	}
+	urlstr := fmt.Sprintf("%s?%s", conf.AuthorizationEndpoint, jsonutils.Marshal(qs).QueryString())
+	return urlstr, nil
 }
 
 func (self *SOIDCDriver) Authenticate(ctx context.Context, ident mcclient.SAuthenticationIdentity) (*api.SUserExtended, error) {
@@ -99,7 +127,7 @@ func (self *SOIDCDriver) Authenticate(ctx context.Context, ident mcclient.SAuthe
 	}
 	token, err := cli.FetchToken(ctx, ident.OIDCAuth.Code, ident.OIDCAuth.RedirectUri)
 	if err != nil {
-		return nil, errors.Wrap(err, "OIDCClient.FetchToken")
+		return nil, errors.Wrapf(err, "OIDCClient.FetchToken %s", self.oidcConfig.TokenUrl)
 	}
 	userAttrs, err := cli.FetchUserInfo(ctx, token.AccessToken)
 	if err != nil {
@@ -133,14 +161,18 @@ func (self *SOIDCDriver) Authenticate(ctx context.Context, ident mcclient.SAuthe
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetIdentityProvider")
 	}
-	domain, err := idp.GetSingleDomain(ctx, api.DefaultRemoteDomainId, self.IdpName, fmt.Sprintf("cas provider %s", self.IdpName), false)
+	domain, usr, err := idp.SyncOrCreateDomainAndUser(ctx, usrId, usrName)
+	if err != nil {
+		return nil, errors.Wrap(err, "idp.SyncOrCreateDomainAndUser")
+	}
+	/*domain, err := idp.GetSingleDomain(ctx, api.DefaultRemoteDomainId, self.IdpName, fmt.Sprintf("OpenID Connect/OAuth2.0 provider %s", self.IdpName), false)
 	if err != nil {
 		return nil, errors.Wrap(err, "idp.GetSingleDomain")
 	}
 	usr, err := idp.SyncOrCreateUser(ctx, usrId, usrName, domain.Id, true, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "idp.SyncOrCreateUser")
-	}
+	}*/
 	extUser, err := models.UserManager.FetchUserExtended(usr.Id, "", "", "")
 	if err != nil {
 		return nil, errors.Wrap(err, "models.UserManager.FetchUserExtended")
