@@ -196,8 +196,6 @@ type SecgroupResourceInput struct {
 
 	// 模糊匹配安全组规则名称
 	SecgroupName string `json:"secgroup_name"`
-
-	apis.ProjectizedResourceInput
 }
 
 type SecgroupFilterListInput struct {
