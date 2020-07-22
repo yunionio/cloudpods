@@ -44,5 +44,5 @@ func NewElbHealthCheckManager(regionId string, projectId string, signer auth.Sig
 }
 
 func (self *SElbHealthCheckManager) Delete(id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return self.DeleteInContextWithSpec(self.ctx, id, "",nil, params, "")
+	return self.DeleteInContextWithSpec(self.ctx, id, "", nil, params, "")
 }
