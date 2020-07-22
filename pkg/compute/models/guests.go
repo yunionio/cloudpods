@@ -4492,6 +4492,7 @@ func (self *SGuestManager) switchBackupGuests(ctx context.Context, userCred mccl
 		log.Errorf("ReconcileBackupGuests failed fetch guests %s", err)
 		return
 	}
+	log.Infof("Guests count %d need reconcile with switch bakcup", len(guests))
 	for i := 0; i < len(guests); i++ {
 		val := guests[i].GetMetadataJson("switch_backup", userCred)
 		t, err := val.GetTime()
@@ -4530,6 +4531,7 @@ func (self *SGuestManager) createBackupGuests(ctx context.Context, userCred mccl
 		log.Errorf("ReconcileBackupGuests failed fetch guests %s", err)
 		return
 	}
+	log.Infof("Guests count %d need reconcile with create bakcup", len(guests))
 	for i := 0; i < len(guests); i++ {
 		val := guests[i].GetMetadataJson("create_backup", userCred)
 		t, err := val.GetTime()

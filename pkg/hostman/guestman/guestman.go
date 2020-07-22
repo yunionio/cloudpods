@@ -804,6 +804,11 @@ func (m *SGuestManager) CancelBlockJobs(ctx context.Context, params interface{})
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
+	status := m.GetStatus(sid)
+	if status == GUSET_STOPPED {
+		hostutils.TaskComplete(ctx, nil)
+		return nil, nil
+	}
 	defer func() {
 		if r := recover(); r != nil {
 			log.Errorf("STACK: %v \n %s", r, debug.Stack())
