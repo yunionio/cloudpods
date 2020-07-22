@@ -173,8 +173,8 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 	}
 
 	paramKeys := []string{}
-	i1 := 0
-	i2 := 0
+	i1 := -1
+	i2 := -1
 	for i, title := range rows[0] {
 		switch title {
 		case HOST_MAC:
@@ -209,17 +209,29 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 	hosts := bytes.Buffer{}
 	for _, row := range rows[1:] {
 		var e *httputils.JSONClientError
-		if row[i1] == row[i2] || utils.IsInStringArray(row[i1], ips) {
-			e = httperrors.NewDuplicateIdError("ip", row[i1])
-		} else if utils.IsInStringArray(row[i2], ips) {
-			e = httperrors.NewDuplicateIdError("ip", row[i2])
+		if i1 >= 0 && len(row[i1]) > 0 {
+			i1Ip := fmt.Sprintf("%d-%s", i1, row[i1])
+			if utils.IsInStringArray(i1Ip, ips) {
+				e = httperrors.NewDuplicateIdError("ip", row[i1])
+			} else {
+				ips = append(ips, i1Ip)
+			}
+		}
+
+		if i2 >= 0 && len(row[i2]) > 0 {
+			i2Ip := fmt.Sprintf("%d-%s", i2, row[i2])
+			if utils.IsInStringArray(i2Ip, ips) {
+				e = httperrors.NewDuplicateIdError("ip", row[i2])
+			} else {
+				ips = append(ips, i2Ip)
+			}
 		}
 
 		if e != nil {
 			httperrors.JsonClientError(w, e)
 			return
 		} else {
-			ips = append(ips, row[i1], row[i2])
+
 		}
 
 		hosts.WriteString(strings.Join(row, ",") + "\n")
