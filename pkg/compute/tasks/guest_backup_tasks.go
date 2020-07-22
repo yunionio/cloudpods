@@ -113,7 +113,7 @@ func (self *GuestSwitchToBackupTask) OnFail(ctx context.Context, guest *models.S
 func (self *GuestSwitchToBackupTask) SetSwitchFiledGuestMetadata(ctx context.Context, guest *models.SGuest) {
 	if res := guest.GetMetadata("switch_backup", self.UserCred); len(res) == 0 {
 		guest.SetMetadata(
-			ctx, "switch_backup", jsonutils.NewTimeString(time.Now().Add(time.Minute*1)), self.UserCred)
+			ctx, "switch_backup", jsonutils.NewTimeString(time.Now().Add(time.Minute*1).UTC()), self.UserCred)
 		guest.SetMetadata(ctx, "switch_backup_count", jsonutils.NewInt(1), self.UserCred)
 	} else {
 		count := guest.GetMetadataJson("switch_backup_count", self.UserCred)
@@ -125,7 +125,7 @@ func (self *GuestSwitchToBackupTask) SetSwitchFiledGuestMetadata(ctx context.Con
 		}
 
 		guest.SetMetadata(ctx, "switch_backup",
-			jsonutils.NewTimeString(time.Now().Add(time.Minute*time.Duration(dur))), self.UserCred)
+			jsonutils.NewTimeString(time.Now().Add(time.Minute*time.Duration(dur)).UTC()), self.UserCred)
 		guest.SetMetadata(ctx, "switch_backup_count", jsonutils.NewInt(cnt), self.UserCred)
 	}
 }
@@ -165,7 +165,7 @@ func (self *GuestSwitchToBackupTask) OnSwitched(ctx context.Context, guest *mode
 }
 
 func (self *GuestSwitchToBackupTask) failedStartCreateBackupTask(ctx context.Context, guest *models.SGuest) {
-	guest.SetMetadata(ctx, "create_backup", jsonutils.NewTimeString(time.Now().Add(time.Minute*1)), self.UserCred)
+	guest.SetMetadata(ctx, "create_backup", jsonutils.NewTimeString(time.Now().Add(time.Minute*1).UTC()), self.UserCred)
 	guest.SetMetadata(ctx, "create_backup_count", jsonutils.NewInt(1), self.UserCred)
 	self.OnCreatedBackup(ctx, guest, nil)
 }
@@ -420,7 +420,7 @@ func (self *GuestCreateBackupTask) TaskFailed(ctx context.Context, guest *models
 	if jsonutils.QueryBoolean(self.Params, "reconcile_backup", false) {
 		if res := guest.GetMetadata("create_backup", self.UserCred); len(res) == 0 {
 			guest.SetMetadata(
-				ctx, "create_backup", jsonutils.NewTimeString(time.Now().Add(time.Minute*1)), self.UserCred)
+				ctx, "create_backup", jsonutils.NewTimeString(time.Now().Add(time.Minute*1).UTC()), self.UserCred)
 			guest.SetMetadata(ctx, "create_backup_count", jsonutils.NewInt(1), self.UserCred)
 		} else {
 			count := guest.GetMetadataJson("create_backup_count", self.UserCred)
@@ -432,7 +432,7 @@ func (self *GuestCreateBackupTask) TaskFailed(ctx context.Context, guest *models
 			}
 
 			guest.SetMetadata(ctx, "create_backup",
-				jsonutils.NewTimeString(time.Now().Add(time.Minute*time.Duration(dur))), self.UserCred)
+				jsonutils.NewTimeString(time.Now().Add(time.Minute*time.Duration(dur)).UTC()), self.UserCred)
 			guest.SetMetadata(ctx, "create_backup_count", jsonutils.NewInt(cnt), self.UserCred)
 		}
 	}
