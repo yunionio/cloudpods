@@ -252,7 +252,7 @@ func init() {
 	}
 
 	type ImageDeleteOptions struct {
-		ID                    []string `help:"Image ID or name"`
+		ID                    []string `help:"Image ID or name" json:"-"`
 		OverridePendingDelete *bool    `help:"Delete image directly instead of pending delete" short-token:"f"`
 	}
 	R(&ImageDeleteOptions{}, "image-delete", "Delete a image", func(s *mcclient.ClientSession, args *ImageDeleteOptions) error {
