@@ -230,8 +230,6 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 		if e != nil {
 			httperrors.JsonClientError(w, e)
 			return
-		} else {
-
 		}
 
 		hosts.WriteString(strings.Join(row, ",") + "\n")
