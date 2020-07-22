@@ -2007,7 +2007,7 @@ func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerBackend(ctx context.Cont
 				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestSyncLoadbalancerBackend.GetILoadbalancerBackendById")
 			}
 
-			err = cachedlbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, iBackend, nil)
+			err = cachedlbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, iBackend, lbb.GetOwnerId())
 			if err != nil {
 				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestSyncLoadbalancerBackend.SyncWithCloudLoadbalancerBackend")
 			}
@@ -2066,7 +2066,7 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Co
 		}
 
 		if ibackend != nil {
-			if err := lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, ibackend, nil); err != nil {
+			if err := lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, ibackend, lbbg.GetOwnerId()); err != nil {
 				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerBackend.SyncWithCloudLoadbalancerBackend")
 			}
 		}
@@ -2129,7 +2129,7 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListenerRule(ctx conte
 		if err := db.SetExternalId(lbr, userCred, iListenerRule.GetGlobalId()); err != nil {
 			return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListenerRule.SetExternalId")
 		}
-		return nil, lbr.SyncWithCloudLoadbalancerListenerRule(ctx, userCred, iListenerRule, nil)
+		return nil, lbr.SyncWithCloudLoadbalancerListenerRule(ctx, userCred, iListenerRule, listener.GetOwnerId())
 	})
 	return nil
 }

@@ -15,6 +15,8 @@
 package modules
 
 import (
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
 )
 
@@ -39,4 +41,8 @@ func NewElbHealthCheckManager(regionId string, projectId string, signer auth.Sig
 
 		ResourceKeyword: "lbaas/healthmonitors",
 	}}
+}
+
+func (self *SElbHealthCheckManager) Delete(id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return self.DeleteInContextWithSpec(self.ctx, id, "", nil, params, "")
 }
