@@ -23,7 +23,7 @@ import (
 	"yunion.io/x/pkg/errors"
 )
 
-func NewDiskDev(sizeMb int64, templatePath string, uuid string, index int32, key int32, controlKey int32) *types.VirtualDisk {
+func NewDiskDev(sizeMb int64, templatePath string, uuid string, index int32, keyBase int32, controlKey int32, key int32) *types.VirtualDisk {
 	device := types.VirtualDisk{}
 
 	var backFile *types.VirtualDiskFlatVer2BackingInfo
@@ -48,7 +48,11 @@ func NewDiskDev(sizeMb int64, templatePath string, uuid string, index int32, key
 	}
 
 	device.ControllerKey = controlKey
-	device.Key = key + index
+	if key != 0 {
+		device.Key = key
+	} else {
+		device.Key = keyBase + index
+	}
 	device.UnitNumber = &index
 
 	return &device
