@@ -940,7 +940,7 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Conte
 		}
 
 		if ibackend != nil {
-			if err := lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, ibackend, nil, lb.GetCloudprovider()); err != nil {
+			if err := lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, ibackend, lbbg.GetOwnerId(), lb.GetCloudprovider()); err != nil {
 				return nil, errors.Wrap(err, "AwsRegionDriver.RequestCreateLoadbalancerBackend.SyncWithCloudLoadbalancerBackend")
 			}
 		}
@@ -1153,7 +1153,7 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerListenerRule(ctx context.
 		if err := db.SetExternalId(lbr, userCred, iListenerRule.GetGlobalId()); err != nil {
 			return nil, err
 		}
-		return nil, lbr.SyncWithCloudLoadbalancerListenerRule(ctx, userCred, iListenerRule, nil, loadbalancer.GetCloudprovider())
+		return nil, lbr.SyncWithCloudLoadbalancerListenerRule(ctx, userCred, iListenerRule, listener.GetOwnerId(), loadbalancer.GetCloudprovider())
 	})
 	return nil
 }
@@ -1381,7 +1381,7 @@ func (self *SAwsRegionDriver) RequestSyncLoadbalancerListener(ctx context.Contex
 		if err := iListener.Refresh(); err != nil {
 			return nil, errors.Wrap(err, "awsRegionDriver.RequestSyncLoadbalancerListener.Refresh")
 		}
-		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, nil, loadbalancer.GetCloudprovider())
+		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, loadbalancer.GetOwnerId(), loadbalancer.GetCloudprovider())
 	})
 	return nil
 }

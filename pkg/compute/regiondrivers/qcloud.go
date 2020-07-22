@@ -323,7 +323,7 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Co
 		}
 
 		if ibackend != nil {
-			if err := lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, ibackend, nil, lb.GetCloudprovider()); err != nil {
+			if err := lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, ibackend, lbbg.GetOwnerId(), lb.GetCloudprovider()); err != nil {
 				return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerBackend.SyncWithCloudLoadbalancerBackend")
 			}
 		}
@@ -610,7 +610,7 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 			}
 		}
 
-		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, nil, loadbalancer.GetCloudprovider())
+		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, loadbalancer.GetOwnerId(), loadbalancer.GetCloudprovider())
 	})
 	return nil
 }
@@ -704,7 +704,7 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListenerRule(ctx conte
 			return nil, errors.Wrap(err, "SQcloudRegionDriver.RequestCreateLoadbalancerListener.createLoadbalancerBackendGroup")
 		}
 
-		return nil, lbr.SyncWithCloudLoadbalancerListenerRule(ctx, userCred, iListenerRule, nil, loadbalancer.GetCloudprovider())
+		return nil, lbr.SyncWithCloudLoadbalancerListenerRule(ctx, userCred, iListenerRule, listener.GetOwnerId(), loadbalancer.GetCloudprovider())
 	})
 	return nil
 }
@@ -1124,7 +1124,7 @@ func (self *SQcloudRegionDriver) RequestSyncLoadbalancerBackend(ctx context.Cont
 				return nil, errors.Wrap(err, "qcloudRegionDriver.RequestSyncLoadbalancerBackend.Refresh")
 			}
 
-			err = cachedlbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, iBackend, nil)
+			err = cachedlbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, iBackend, lbb.GetOwnerId())
 			if err != nil {
 				return nil, errors.Wrap(err, "qcloudRegionDriver.RequestSyncLoadbalancerBackend.SyncWithCloudLoadbalancerBackend")
 			}
@@ -1350,7 +1350,7 @@ func (self *SQcloudRegionDriver) RequestSyncLoadbalancerListener(ctx context.Con
 		}
 
 		if utils.IsInStringArray(lblis.ListenerType, []string{api.LB_LISTENER_TYPE_UDP, api.LB_LISTENER_TYPE_TCP}) {
-			return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, nil, loadbalancer.GetCloudprovider())
+			return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, loadbalancer.GetOwnerId(), loadbalancer.GetCloudprovider())
 		} else {
 			// http&https listener 变更不会同步到监听规则
 			return nil, nil
