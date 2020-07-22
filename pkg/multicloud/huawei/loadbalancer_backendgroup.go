@@ -406,13 +406,13 @@ func (self *SRegion) UpdateLoadBalancerBackendGroup(backendGroupID string, group
 	ret := SElbBackendGroup{}
 	err := DoUpdate(self.ecsClient.ElbBackendGroup.Update, backendGroupID, params, &ret)
 	if err != nil {
-		return ret, err
+		return ret, errors.Wrap(err, "ElbBackendGroup.Update")
 	}
 
 	if group.HealthCheck == nil && len(ret.HealthMonitorID) > 0 {
 		err := self.DeleteLoadbalancerHealthCheck(ret.HealthMonitorID)
 		if err != nil {
-			return ret, err
+			return ret, errors.Wrap(err, "DeleteLoadbalancerHealthCheck")
 		}
 	}
 
@@ -420,12 +420,12 @@ func (self *SRegion) UpdateLoadBalancerBackendGroup(backendGroupID string, group
 		if len(ret.HealthMonitorID) == 0 {
 			_, err := self.CreateLoadBalancerHealthCheck(ret.GetId(), group.HealthCheck)
 			if err != nil {
-				return ret, err
+				return ret, errors.Wrap(err, "CreateLoadBalancerHealthCheck")
 			}
 		} else {
 			_, err := self.UpdateLoadBalancerHealthCheck(ret.HealthMonitorID, group.HealthCheck)
 			if err != nil {
-				return ret, err
+				return ret, errors.Wrap(err, "UpdateLoadBalancerHealthCheck")
 			}
 		}
 	}
