@@ -118,14 +118,6 @@ func (manager *SSecurityGroupResourceBaseManager) ListItemFilter(
 		sq := SecurityGroupManager.Query("id").Like("name", "%"+query.SecgroupName+"%")
 		q = q.In("secgroup_id", sq.SubQuery())
 	}
-	if len(query.Project) > 0 {
-		tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, query.Project)
-		if err != nil {
-			return nil, httperrors.NewResourceNotFoundError2("projects", query.Project)
-		}
-		sq := SecurityGroupManager.Query("id").Equals("tenant_id", tenant.Id)
-		q = q.In("secgroup_id", sq.SubQuery())
-	}
 	return q, nil
 }
 
