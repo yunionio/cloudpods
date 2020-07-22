@@ -719,6 +719,8 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, data *jsonuti
 	var (
 		scsiIdx = 0
 		ideIdx  = 0
+		ide1un  = 0
+		ide2un  = 1
 		index   = 0
 		ctrlKey = 0
 	)
@@ -752,13 +754,18 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, data *jsonuti
 				scsiIdx++
 			}
 		} else {
-			ctrlKey = 200 + ideIdx/2
-			index = ideIdx % 2
+			ideno := ideIdx % 2
+			if ideno == 0 {
+				index = ideIdx/2 + ide1un
+			} else {
+				index = ideIdx/2 + ide2un
+			}
+			ctrlKey = 200 + ideno
 			ideIdx += 1
 		}
 		log.Debugf("size: %d, image path: %s, uuid: %s, index: %d, ctrlKey: %d, driver: %s.", size, imagePath, uuid,
 			index, ctrlKey, driver)
-		spec := addDevSpec(NewDiskDev(size, imagePath, uuid, int32(index), 2000, int32(ctrlKey)))
+		spec := addDevSpec(NewDiskDev(size, imagePath, uuid, int32(index), 2000, int32(ctrlKey), 0))
 		spec.FileOperation = "create"
 		deviceChange = append(deviceChange, spec)
 	}

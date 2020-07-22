@@ -830,6 +830,16 @@ func (self *SVirtualMachine) FindDiskByDriver(drivers ...string) []SVirtualDisk 
 	return disks
 }
 
+func (self *SVirtualMachine) devNumWithCtrlKey(ctrlKey int32) int {
+	n := 0
+	for _, dev := range self.devs {
+		if dev.getControllerKey() == ctrlKey {
+			n++
+		}
+	}
+	return n
+}
+
 func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
 	if driver == "pvscsi" {
 		driver = "scsi"
@@ -841,29 +851,30 @@ func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid st
 	if len(devs) == 0 {
 		return self.createDriverAndDisk(ctx, sizeMb, uuid, driver)
 	}
-	ctlKey := minDevKey(devs)
-	drivers := []string{driver}
-	if driver == "scsi" {
-		drivers = append(drivers, "pvscsi")
+	numDevBelowCtrl := make([]int, len(devs))
+	for i := range numDevBelowCtrl {
+		numDevBelowCtrl[i] = self.devNumWithCtrlKey(devs[i].getKey())
 	}
-	sameDisks := self.FindDiskByDriver(drivers...)
 
+	// find the min one
+	ctrlKey := devs[0].getKey()
+	unitNumber := numDevBelowCtrl[0]
+	for i := 1; i < len(numDevBelowCtrl); i++ {
+		if numDevBelowCtrl[i] >= unitNumber {
+			continue
+		}
+		ctrlKey = devs[i].getKey()
+		unitNumber = numDevBelowCtrl[i]
+	}
 	diskKey := self.FindMinDiffKey(2000)
-	if len(sameDisks) != 0 {
-		diskKey = minDiskKey(sameDisks)
-	}
-	index := len(sameDisks)
-	if driver == "ide" {
-		ctlKey += int32(index / 2)
-	}
 
 	// By default, the virtual SCSI controller is assigned to virtual device node (z:7),
 	// so that device node is unavailable for hard disks or other devices.
-	if index >= 7 && driver == "scsi" {
-		index++
+	if unitNumber >= 7 && driver == "scsi" {
+		unitNumber++
 	}
 
-	return self.createDiskInternal(ctx, sizeMb, uuid, int32(index), diskKey, ctlKey, "", true)
+	return self.createDiskInternal(ctx, sizeMb, uuid, int32(unitNumber), diskKey, ctrlKey, "", true)
 }
 
 // createDriverAndDisk will create a driver and disk associated with the driver
@@ -893,7 +904,7 @@ func (self *SVirtualMachine) createDiskWithDeviceChange(ctx context.Context,
 	deviceChange []types.BaseVirtualDeviceConfigSpec, sizeMb int,
 	uuid string, index int32, diskKey int32, ctlKey int32, imagePath string, check bool) error {
 
-	devSpec := NewDiskDev(int64(sizeMb), imagePath, uuid, index, diskKey, ctlKey)
+	devSpec := NewDiskDev(int64(sizeMb), imagePath, uuid, index, 0, ctlKey, diskKey)
 	spec := addDevSpec(devSpec)
 	spec.FileOperation = types.VirtualDeviceConfigSpecFileOperationCreate
 	configSpec := types.VirtualMachineConfigSpec{}
