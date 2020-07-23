@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -248,6 +249,15 @@ func (model *SInfrasResourceBase) SaveSharedInfo(src apis.TOwnerSource, ctx cont
 }
 
 func (model *SInfrasResourceBase) SyncShareState(ctx context.Context, userCred mcclient.TokenCredential, shareInfo apis.SAccountShareInfo) {
+	if !consts.GetNonDefaultDomainProjects() {
+		if model.PublicSrc != string(apis.OWNER_SOURCE_LOCAL) {
+			model.SaveSharedInfo(apis.OWNER_SOURCE_CLOUD, ctx, userCred, apis.SShareInfo{
+				IsPublic:    true,
+				PublicScope: rbacutils.ScopeSystem,
+			})
+		}
+		return
+	}
 	si := shareInfo.GetDomainShareInfo()
 	if model.PublicSrc != string(apis.OWNER_SOURCE_LOCAL) {
 		model.SaveSharedInfo(apis.OWNER_SOURCE_CLOUD, ctx, userCred, si)
