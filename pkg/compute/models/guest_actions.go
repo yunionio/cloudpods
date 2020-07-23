@@ -2257,8 +2257,7 @@ func (self *SGuest) AllowPerformModifySrcCheck(ctx context.Context, userCred mcc
 
 func (self *SGuest) PerformModifySrcCheck(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
-		msg := fmt.Sprintf("Cannot change seting in status %s", self.Status)
-		return nil, httperrors.NewBadRequestError(msg)
+		return nil, httperrors.NewBadRequestError("Cannot change setting in status %s", self.Status)
 	}
 
 	argValue := func(name string, val *bool) error {
