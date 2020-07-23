@@ -293,6 +293,16 @@ func getSpecHandler(ctx context.Context, w http.ResponseWriter, r *http.Request)
 	}
 }
 
+func writeErrNoRequestKey(w http.ResponseWriter, key string) {
+	httperrors.InvalidInputError(w,
+		"No request key: %s", key)
+}
+
+func writeErrInvalidRequestHeader(w http.ResponseWriter, err error) {
+	httperrors.InvalidInputError(w,
+		"Invalid request header: %v", err)
+}
+
 func createHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, body := fetchEnv(ctx, w, r)
 	handleCreate(ctx, w, manager, nil, mergeQueryParams(params, query), body, r)
@@ -306,15 +316,13 @@ func handleCreate(ctx context.Context, w http.ResponseWriter, manager IModelDisp
 		count, _ = body.Int("count")
 		data, err = body.Get(manager.Keyword())
 		if err != nil {
-			httperrors.InvalidInputError(w,
-				fmt.Sprintf("No request key: %s", manager.Keyword()))
+			writeErrNoRequestKey(w, manager.Keyword())
 			return
 		}
 	} else {
 		data, err = manager.FetchCreateHeaderData(ctx, r.Header)
 		if err != nil {
-			httperrors.InvalidInputError(w,
-				fmt.Sprintf("In valid request header: %s", err))
+			writeErrInvalidRequestHeader(w, err)
 			return
 		}
 	}
@@ -404,8 +412,7 @@ func updateClassHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	manager, _, query, body := fetchEnv(ctx, w, r)
     data, err := body.Get(manager.KeywordPlural())
     if err != nil {
-        httperrors.InvalidInputError(w,
-                fmt.Sprintf("No request key: %s", manager.KeywordPlural()))
+        writeErrNoRequestKey(w, manager.KeywordPlural())
         return
     }
     result, err := manager.UpdateClass(ctx, tr, data)
@@ -429,8 +436,7 @@ func handleUpdate(ctx context.Context, w http.ResponseWriter, manager IModelDisp
 		if body.Contains(manager.Keyword()) {
 			data, err = body.Get(manager.Keyword())
 			if err != nil {
-				httperrors.InvalidInputError(w,
-					fmt.Sprintf("No request key: %s", manager.Keyword()))
+				writeErrNoRequestKey(w, manager.Keyword())
 				return
 			}
 		} else {
@@ -439,8 +445,7 @@ func handleUpdate(ctx context.Context, w http.ResponseWriter, manager IModelDisp
 	} else {
 		data, err = manager.FetchUpdateHeaderData(ctx, r.Header)
 		if err != nil {
-			httperrors.InvalidInputError(w,
-				fmt.Sprintf("In valid request header: %s", err))
+			writeErrInvalidRequestHeader(w, err)
 			return
 		}
 	}
@@ -468,8 +473,7 @@ func updateSpecHandler(ctx context.Context, w http.ResponseWriter, r *http.Reque
 		if body.Contains(manager.Keyword()) {
 			data, err = body.Get(manager.Keyword())
 			if err != nil {
-				httperrors.InvalidInputError(w,
-					fmt.Sprintf("No request key: %s", manager.Keyword()))
+				writeErrNoRequestKey(w, manager.Keyword())
 				return
 			}
 		} else {
@@ -478,8 +482,7 @@ func updateSpecHandler(ctx context.Context, w http.ResponseWriter, r *http.Reque
 	} else {
 		data, err = manager.FetchUpdateHeaderData(ctx, r.Header)
 		if err != nil {
-			httperrors.InvalidInputError(w,
-				fmt.Sprintf("In valid request header: %s", err))
+			writeErrInvalidRequestHeader(w, err)
 			return
 		}
 	}
@@ -499,8 +502,7 @@ func deleteClassHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	if body != nil {
 		data, err := body.Get(manager.KeywordPlural())
 		if err != nil {
-			httperrors.InvalidInputError(w,
-                fmt.Sprintf("No request key: %s", manager.KeywordPlural()))
+			writeErrNoRequestKey(w, manager.KeywordPlural())
 			return
 		}
 	}
@@ -525,8 +527,7 @@ func handleDelete(ctx context.Context, w http.ResponseWriter, manager IModelDisp
 		if body.Contains(manager.Keyword()) {
 			data, err = body.Get(manager.Keyword())
 			if err != nil {
-				httperrors.InvalidInputError(w,
-					fmt.Sprintf("No request key: %s", manager.Keyword()))
+				writeErrNoRequestKey(w, manager.Keyword())
 				return
 			}
 		} else {
@@ -559,8 +560,7 @@ func deleteSpecHandler(ctx context.Context, w http.ResponseWriter, r *http.Reque
 		if body.Contains(manager.Keyword()) {
 			data, err = body.Get(manager.Keyword())
 			if err != nil {
-				httperrors.InvalidInputError(w,
-					fmt.Sprintf("No request key: %s", manager.Keyword()))
+				writeErrNoRequestKey(w, manager.Keyword())
 				return
 			}
 		} else {
