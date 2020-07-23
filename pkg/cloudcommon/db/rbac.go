@@ -15,8 +15,6 @@
 package db
 
 import (
-	"fmt"
-
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -72,7 +70,7 @@ func isObjectRbacAllowed(model IModel, userCred mcclient.TokenCredential, action
 	if !requireScope.HigherThan(scope) {
 		return nil
 	}
-	return httperrors.NewForbiddenError(fmt.Sprintf("not enough privilege(require:%s,allow:%s:resource:%s)", requireScope, scope, resScope))
+	return httperrors.NewForbiddenError("not enough privilege (require:%s,allow:%s:resource:%s)", requireScope, scope, resScope)
 }
 
 func isJointObjectRbacAllowed(item IJointModel, userCred mcclient.TokenCredential, action string, extra ...string) error {
@@ -124,7 +122,7 @@ func isClassRbacAllowed(manager IModelManager, userCred mcclient.TokenCredential
 	if !requireScope.HigherThan(allowScope) {
 		return nil
 	}
-	return httperrors.NewForbiddenError(fmt.Sprintf("not enough privilege(require:%s,allow:%s)", requireScope, allowScope))
+	return httperrors.NewForbiddenError("not enough privilege (require:%s,allow:%s)", requireScope, allowScope)
 }
 
 type IResource interface {
