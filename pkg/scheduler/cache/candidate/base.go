@@ -31,6 +31,8 @@ import (
 	schedmodels "yunion.io/x/onecloud/pkg/scheduler/models"
 )
 
+var ErrInstanceGroupNotFound = errors.Error("InstanceGroupNotFound")
+
 type BaseHostDesc struct {
 	*computemodels.SHost
 	Region        *computemodels.SCloudregion              `json:"region"`
@@ -128,7 +130,7 @@ func (b baseHostGetter) GetFreeGroupCount(groupId string) (int, error) {
 	// Must Be
 	scg, ok := b.h.InstanceGroups[groupId]
 	if !ok {
-		return 0, fmt.Errorf("No such Group id")
+		return 0, errors.Wrap(ErrInstanceGroupNotFound, groupId)
 	}
 	free := scg.Granularity - scg.ReferCount
 	if free < 1 {
