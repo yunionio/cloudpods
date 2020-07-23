@@ -545,21 +545,23 @@ func (self *NotifyModelDispatcher) UpdateContacts(ctx context.Context, idstr str
 
 	// keep the return value same as this of the GET interface
 	ret := jsonutils.NewDict()
-	contact, err := models.ContactManager.FetchByUIDs(ctx, []string{idstr}, false)
+	contacts, err := models.ContactManager.FetchByUIDs(ctx, []string{idstr}, false)
 	if err != nil {
-		log.Errorf(err.Error())
+		log.Errorf("fetch contact %s: %v", idstr, err)
 		return ret, nil
 	}
-	if len(contact) == 0 {
+	if len(contacts) == 0 {
 		return nil, nil
 	}
-	outDetails, err := contact[0].GetExtraDetails(ctx, userCred, ret, false)
+	contact := contacts[0]
+	outDetails, err := contact.GetExtraDetails(ctx, userCred, ret, false)
 	if err != nil {
-		log.Errorf(err.Error())
+		log.Errorf("fetch contact details %s(%s): %v",
+			contact.GetName(), contact.GetId(), err)
 		return ret, nil
 	}
 	out := jsonutils.Marshal(outDetails)
-	out.(*jsonutils.JSONDict).Set("created_at", jsonutils.NewString(contact[0].CreatedAt.String()))
+	out.(*jsonutils.JSONDict).Set("created_at", jsonutils.NewString(contact.CreatedAt.String()))
 	return out, nil
 }
 
