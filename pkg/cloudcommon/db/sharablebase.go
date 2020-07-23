@@ -195,8 +195,10 @@ func SharableManagerValidateCreateData(
 				input.PublicScope = "" // string(rbacutils.ScopeNone)
 			}
 		} else {
-			input.IsPublic = nil
-			input.PublicScope = string(rbacutils.ScopeNone)
+			// if non_default_domain_projects turned off, all domain resources shared to system
+			input.IsPublic = &isPublic
+			input.PublicScope = string(rbacutils.ScopeSystem)
+			reqScope = rbacutils.ScopeSystem
 		}
 	default:
 		return input, errors.Wrap(httperrors.ErrInputParameter, "the resource is not sharable")
@@ -492,6 +494,11 @@ func SharablePerformPublic(model ISharableBaseModel, ctx context.Context, userCr
 func SharablePerformPrivate(model ISharableBaseModel, ctx context.Context, userCred mcclient.TokenCredential) error {
 	if !model.GetIsPublic() && model.GetPublicScope() == rbacutils.ScopeNone {
 		return nil
+	}
+
+	resourceScope := model.GetModelManager().ResourceScope()
+	if resourceScope == rbacutils.ScopeDomain && !consts.GetNonDefaultDomainProjects() {
+		return errors.Wrap(httperrors.ErrForbidden, "not allow to private domain resource")
 	}
 
 	requireIds := model.GetRequiredSharedDomainIds()
