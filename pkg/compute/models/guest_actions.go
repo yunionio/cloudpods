@@ -4233,11 +4233,11 @@ func (self *SGuest) PerformSyncFixNics(ctx context.Context,
 		}
 	}
 	if len(errs) > 0 {
-		return nil, httperrors.NewInvalidStatusError(errors.NewAggregate(errs).Error())
+		return nil, httperrors.NewInvalidStatusError("%v", errors.NewAggregate(errs))
 	}
 	result := self.SyncVMNics(ctx, userCred, host, vnics, iplist)
 	if result.IsError() {
-		return nil, httperrors.NewInternalServerError(result.Result())
+		return nil, httperrors.NewInternalServerError("%s", result.Result())
 	}
 	return nil, nil
 }
