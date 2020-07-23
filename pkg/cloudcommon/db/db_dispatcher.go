@@ -1535,9 +1535,8 @@ func reflectDispatcherInternal(
 	if !funcValue.IsValid() || funcValue.IsNil() {
 		funcValue = modelValue.MethodByName(generalFuncName)
 		if !funcValue.IsValid() || funcValue.IsNil() {
-			msg := fmt.Sprintf("%s %s %s not found", dispatcher.Keyword(), operator, spec)
-			log.Errorf(msg)
-			return nil, httperrors.NewActionNotFoundError(msg)
+			return nil, httperrors.NewActionNotFoundError("%s %s %s not found",
+				dispatcher.Keyword(), operator, spec)
 		} else {
 			isGeneral = true
 			funcName = generalFuncName
@@ -1572,9 +1571,8 @@ func reflectDispatcherInternal(
 		allowFuncName := "Allow" + funcName
 		allowFuncValue := modelValue.MethodByName(allowFuncName)
 		if !allowFuncValue.IsValid() || allowFuncValue.IsNil() {
-			msg := fmt.Sprintf("%s allow %s %s not found", dispatcher.Keyword(), operator, spec)
-			log.Errorf(msg)
-			return nil, httperrors.NewActionNotFoundError(msg)
+			return nil, httperrors.NewActionNotFoundError("%s allow %s %s not found",
+				dispatcher.Keyword(), operator, spec)
 		}
 
 		outs, err := callFunc(allowFuncValue, allowFuncName, params...)
