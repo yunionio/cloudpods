@@ -74,7 +74,7 @@ func (self *InstanceSnapshotAndCloneTask) finalReleasePendingUsage(ctx context.C
 	pendingRegionUsage := models.SRegionQuota{}
 	err = self.GetPendingUsage(&pendingRegionUsage, 1)
 	if err == nil && !pendingRegionUsage.IsEmpty() {
-		quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &pendingUsage, false) // failure cleanup
+		quotas.CancelPendingUsage(ctx, self.UserCred, &pendingRegionUsage, &pendingRegionUsage, false) // failure cleanup
 	}
 }
 
