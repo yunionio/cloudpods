@@ -4475,6 +4475,9 @@ func (self *SGuest) PerformSnapshotAndClone(
 		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, false)
 		quotas.CancelPendingUsage(ctx, userCred, &pendingRegionUsage, &pendingRegionUsage, false)
 		return nil, httperrors.NewInternalServerError("create instance snapshot failed: %s", err)
+	} else {
+		cancelRegionUsage := &SRegionQuota{Snapshot: snapshotUsage.Snapshot}
+		quotas.CancelPendingUsage(ctx, userCred, &pendingRegionUsage, cancelRegionUsage, true)
 	}
 
 	err = self.StartInstanceSnapshotAndCloneTask(
