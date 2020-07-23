@@ -176,6 +176,16 @@ func (manager *SSecurityGroupRuleManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SSecurityGroupResourceBaseManager.ListItemFilter")
 	}
+	if len(query.Projects) > 0 {
+		sq := SecurityGroupManager.Query("id")
+		tenants := db.TenantCacheManager.GetTenantQuery().SubQuery()
+		subq := tenants.Query(tenants.Field("id")).Filter(sqlchemy.OR(
+			sqlchemy.In(tenants.Field("id"), query.Projects),
+			sqlchemy.In(tenants.Field("name"), query.Projects),
+		)).SubQuery()
+		sq = sq.In("tenant_id", subq)
+		sql = sql.In("secgroup_id", sq.SubQuery())
+	}
 	if len(query.Direction) > 0 {
 		sql = sql.Equals("direction", query.Direction)
 	}
