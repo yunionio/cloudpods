@@ -20,7 +20,6 @@ import (
 	"net"
 	"net/http"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
@@ -77,7 +76,6 @@ func getBmPrepareScript(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	}
 	regionUrl, err := auth.GetPublicServiceURL("compute_v2", options.Options.Region, "")
 	if err != nil {
-		log.Errorln(err)
 		httperrors.InternalServerError(w, err.Error())
 		return
 	}
