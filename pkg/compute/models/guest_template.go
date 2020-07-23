@@ -582,16 +582,22 @@ func (gt *SGuestTemplate) PerformPublic(
 }
 
 func (gt *SGuestTemplate) genForbiddenError(resourceName, resourceStr, scope string) error {
-	var msg string
-	if len(resourceStr) == 0 {
-		msg = fmt.Sprintf("the %s in guest template is not a public resource", resourceName)
+	var (
+		msgFmt  string
+		msgArgs []interface{}
+	)
+	if resourceStr == "" {
+		msgFmt = "the %s in guest template is not a public resource"
+		msgArgs = []interface{}{resourceName}
 	} else {
-		msg = fmt.Sprintf("the %s '%s' in guest template is not a public resource", resourceName, resourceStr)
+		msgFmt = "the %s %q in guest template is not a public resource"
+		msgArgs = []interface{}{resourceName, resourceStr}
 	}
-	if len(scope) > 0 {
-		msg += fmt.Sprintf(" in %s scope", scope)
+	if scope != "" {
+		msgFmt += " in %s scope"
+		msgArgs = append(msgArgs, scope)
 	}
-	return httperrors.NewForbiddenError(msg)
+	return httperrors.NewForbiddenError(msgFmt, msgArgs...)
 }
 
 func (gt *SGuestTemplate) ValidateDeleteCondition(ctx context.Context) error {
