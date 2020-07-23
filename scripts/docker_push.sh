@@ -76,7 +76,19 @@ push_image() {
     sudo docker push "$tag"
 }
 
-COMPONENTS=$@
+ALL_COMPONENTS=$(ls cmd | grep -v '.*cli$' | paste -sd ' ')
+
+if [ "$#" -lt 1 ]; then
+    echo "No component is specified~"
+    echo "You can specify a component in [$ALL_COMPONENTS]"
+    echo "If you want to build all components, specify the component to: all."
+    exit
+elif [ "$#" -eq 1 ] && [ "$1" == "all" ]; then
+    echo "Build all onecloud docker images"
+    COMPONENTS=$ALL_COMPONENTS
+else
+    COMPONENTS=$@
+fi
 
 cd $SRC_DIR
 for component in $COMPONENTS; do
@@ -84,6 +96,7 @@ for component in $COMPONENTS; do
         echo "Please build image for climc"
         continue
     fi
+    echo "Start to build component: $component"
     build_bin $component
     build_bundle_libraries $component
     img_name="$REGISTRY/$component:$TAG"
