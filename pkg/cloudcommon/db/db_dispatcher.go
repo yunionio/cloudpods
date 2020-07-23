@@ -1398,7 +1398,7 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 			body, err := getItemDetails(manager, res.model, ctx, userCred, query)
 			if err != nil {
 				result.Status = 500
-				result.Data = jsonutils.NewString(err.Error())
+				result.Data = jsonutils.NewString(err.Error()) // no translation here
 			} else {
 				result.Status = 200
 				result.Data = body
