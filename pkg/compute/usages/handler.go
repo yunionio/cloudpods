@@ -97,7 +97,7 @@ func rangeObjHandler(
 		userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 		obj, err := getRangeObj(ctx, manager, userCred)
 		if err != nil {
-			httperrors.NotFoundError(w, err.Error())
+			httperrors.NotFoundError(w, "%v", err)
 			return
 		}
 		ownerId, scope, err := db.FetchUsageOwnerScope(ctx, userCred, getQuery(r))
