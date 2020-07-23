@@ -2856,7 +2856,7 @@ func (self *SHost) PostCreate(
 			return nil
 		})
 		if err != nil {
-			log.Errorln(err.Error())
+			log.Errorf("save updates: %v", err)
 		} else if len(ipmiInfo.IpAddr) > 0 {
 			self.setIpmiIp(userCred, ipmiInfo.IpAddr)
 		}
