@@ -1755,9 +1755,10 @@ func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mc
 func (self *SGuest) startDetachIsolateDevice(ctx context.Context, userCred mcclient.TokenCredential, device string) error {
 	iDev, err := IsolatedDeviceManager.FetchByIdOrName(userCred, device)
 	if err != nil {
-		msg := fmt.Sprintf("Isolated device %s not found", device)
+		msgFmt := "Isolated device %s not found"
+		msg := fmt.Sprintf(msgFmt, device)
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
-		return httperrors.NewBadRequestError(msg)
+		return httperrors.NewBadRequestError(msgFmt, device)
 	}
 	dev := iDev.(*SIsolatedDevice)
 	host := self.GetHost()
@@ -1848,9 +1849,10 @@ func (self *SGuest) startAttachIsolatedDevices(ctx context.Context, userCred mcc
 func (self *SGuest) startAttachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, device string) error {
 	iDev, err := IsolatedDeviceManager.FetchByIdOrName(userCred, device)
 	if err != nil {
-		msg := fmt.Sprintf("Isolated device %s not found", device)
+		msgFmt := "Isolated device %s not found"
+		msg := fmt.Sprintf(msgFmt, device)
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_ATTACH_ISOLATED_DEVICE, msg, userCred, false)
-		return httperrors.NewBadRequestError(msg)
+		return httperrors.NewBadRequestError(msgFmt, device)
 	}
 	dev := iDev.(*SIsolatedDevice)
 	host := self.GetHost()
@@ -2218,8 +2220,7 @@ func (self *SGuest) AllowPerformChangeBandwidth(ctx context.Context, userCred mc
 
 func (self *SGuest) PerformChangeBandwidth(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
-		msg := fmt.Sprintf("Cannot change bandwidth in status %s", self.Status)
-		return nil, httperrors.NewBadRequestError(msg)
+		return nil, httperrors.NewBadRequestError("Cannot change bandwidth in status %s", self.Status)
 	}
 
 	bandwidth, err := data.Int("bandwidth")
