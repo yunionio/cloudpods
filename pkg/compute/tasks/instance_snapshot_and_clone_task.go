@@ -50,7 +50,7 @@ func (self *InstanceSnapshotAndCloneTask) taskFailed(
 
 func (self *InstanceSnapshotAndCloneTask) taskComplete(
 	ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
-	self.finalReleasePendingUsage(ctx)
+	self.finalReleasePendingUsage(ctx, true)
 	guest := models.GuestManager.FetchGuestById(isp.GuestId)
 	guest.StartSyncstatus(ctx, self.UserCred, "")
 	db.OpsLog.LogEvent(guest, db.ACT_VM_SNAPSHOT_AND_CLONE, "", self.UserCred)
@@ -60,21 +60,21 @@ func (self *InstanceSnapshotAndCloneTask) taskComplete(
 }
 
 func (self *InstanceSnapshotAndCloneTask) SetStageFailed(ctx context.Context, reason string) {
-	self.finalReleasePendingUsage(ctx)
+	self.finalReleasePendingUsage(ctx, false)
 	self.STask.SetStageFailed(ctx, reason)
 }
 
-func (self *InstanceSnapshotAndCloneTask) finalReleasePendingUsage(ctx context.Context) {
+func (self *InstanceSnapshotAndCloneTask) finalReleasePendingUsage(ctx context.Context, success bool) {
 	pendingUsage := models.SQuota{}
 	err := self.GetPendingUsage(&pendingUsage, 0)
 	if err == nil && !pendingUsage.IsEmpty() {
-		quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &pendingUsage, false) // failure cleanup
+		quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &pendingUsage, success)
 	}
 
 	pendingRegionUsage := models.SRegionQuota{}
 	err = self.GetPendingUsage(&pendingRegionUsage, 1)
 	if err == nil && !pendingRegionUsage.IsEmpty() {
-		quotas.CancelPendingUsage(ctx, self.UserCred, &pendingRegionUsage, &pendingRegionUsage, false) // failure cleanup
+		quotas.CancelPendingUsage(ctx, self.UserCred, &pendingRegionUsage, &pendingRegionUsage, success)
 	}
 }
 
