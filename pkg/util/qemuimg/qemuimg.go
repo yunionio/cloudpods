@@ -447,7 +447,7 @@ func (img *SQemuImage) create(sizeMB int, format TImageFormat, options []string)
 	output, err := cmd.Output()
 	if err != nil {
 		log.Errorf("%v create error %s %s", args, output, err)
-		return err
+		return errors.Wrapf(err, "create image failed: %s", output)
 	}
 	return img.parse()
 }
