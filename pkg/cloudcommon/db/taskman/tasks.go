@@ -125,6 +125,13 @@ func (manager *STaskManager) PerformAction(ctx context.Context, userCred mcclien
 	return resp, nil
 }
 
+func (manager *STask) PreCheckPerformAction(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	action string, query jsonutils.JSONObject, data jsonutils.JSONObject,
+) error {
+	return nil
+}
+
 func (self *STask) GetOwnerId() mcclient.IIdentityProvider {
 	owner := db.SOwnerId{DomainId: self.UserCred.GetProjectDomainId(), Domain: self.UserCred.GetProjectDomain(),
 		ProjectId: self.UserCred.GetProjectId(), Project: self.UserCred.GetProjectName()}

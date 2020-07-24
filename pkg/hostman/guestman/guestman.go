@@ -72,6 +72,10 @@ type SGuestManager struct {
 	GuestStartWorker *appsrv.SWorkerManager
 
 	isLoaded bool
+
+	// dirty servers chan
+	dirtyServers     []*SKVMGuestInstance
+	dirtyServersChan chan struct{}
 }
 
 func NewGuestManager(host hostutils.IHost, serversPath string) *SGuestManager {
@@ -86,6 +90,8 @@ func NewGuestManager(host hostutils.IHost, serversPath string) *SGuestManager {
 	manager.StartCpusetBalancer()
 	manager.LoadExistingGuests()
 	manager.host.StartDHCPServer()
+	manager.dirtyServersChan = make(chan struct{})
+	manager.dirtyServers = make([]*SKVMGuestInstance, 0)
 	return manager
 }
 
@@ -111,7 +117,7 @@ func (m *SGuestManager) SaveServer(sid string, s *SKVMGuestInstance) {
 	m.Servers.Store(sid, s)
 }
 
-func (m *SGuestManager) Bootstrap() {
+func (m *SGuestManager) Bootstrap() chan struct{} {
 	if m.isLoaded || len(m.ServersPath) == 0 {
 		log.Errorln("Guestman bootstrap has been called!!!!!")
 	} else {
@@ -123,6 +129,7 @@ func (m *SGuestManager) Bootstrap() {
 			m.OnLoadExistingGuestsComplete()
 		}
 	}
+	return m.dirtyServersChan
 }
 
 func (m *SGuestManager) VerifyExistingGuests(pendingDelete bool) {
@@ -169,7 +176,7 @@ func (m *SGuestManager) OnVerifyExistingGuestsSucc(servers []jsonutils.JSONObjec
 	} else {
 		for id, server := range m.CandidateServers {
 			m.UnknownServers.Store(id, server)
-			go m.RequestVerifyDirtyServer(server)
+			m.dirtyServers = append(m.dirtyServers, server)
 			log.Errorf("Server %s not found on this host", server.GetName())
 			m.RemoveCandidateServer(server)
 		}
@@ -189,12 +196,24 @@ func (m *SGuestManager) OnLoadExistingGuestsComplete() {
 	log.Infof("Load existing guests complete...")
 	err := m.host.PutHostOnline()
 	if err != nil {
-		log.Errorln(err)
+		log.Fatalf("put host online failed %s", err)
 	}
+
+	go m.verifyDirtyServers()
 
 	if !options.HostOptions.EnableCpuBinding {
 		m.ClenaupCpuset()
 	}
+}
+
+func (m *SGuestManager) verifyDirtyServers() {
+	select {
+	case <-m.dirtyServersChan:
+	}
+	for i := 0; i < len(m.dirtyServers); i++ {
+		go m.RequestVerifyDirtyServer(m.dirtyServers[i])
+	}
+	m.dirtyServers = nil
 }
 
 func (m *SGuestManager) ClenaupCpuset() {
@@ -784,6 +803,11 @@ func (m *SGuestManager) CancelBlockJobs(ctx context.Context, params interface{})
 	sid, ok := params.(string)
 	if !ok {
 		return nil, hostutils.ParamsError
+	}
+	status := m.GetStatus(sid)
+	if status == GUSET_STOPPED {
+		hostutils.TaskComplete(ctx, nil)
+		return nil, nil
 	}
 	defer func() {
 		if r := recover(); r != nil {

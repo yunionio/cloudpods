@@ -63,13 +63,22 @@ func (self *StorageCacheImageTask) OnRelinquishLeastUsedCachedImageComplete(ctx 
 
 	db.OpsLog.LogEvent(storageCache, db.ACT_CACHING_IMAGE, imageId, self.UserCred)
 
-	self.SetStage("on_image_cache_complete", nil)
+	self.SetStage("OnImageCacheComplete", nil)
 
-	host, _ := storageCache.GetHost()
-	err := host.GetHostDriver().CheckAndSetCacheImage(ctx, host, storageCache, self)
+	host, err := storageCache.GetHost()
 	if err != nil {
 		errData := taskman.Error2TaskData(err)
 		self.OnImageCacheCompleteFailed(ctx, storageCache, errData)
+	} else if host != nil {
+		err := host.GetHostDriver().CheckAndSetCacheImage(ctx, host, storageCache, self)
+		if err != nil {
+			errData := taskman.Error2TaskData(err)
+			self.OnImageCacheCompleteFailed(ctx, storageCache, errData)
+		}
+	} else {
+		// host is nil, and err is nil
+		reason := jsonutils.NewString("storage cache failed get host")
+		self.OnImageCacheCompleteFailed(ctx, storageCache, reason)
 	}
 }
 
