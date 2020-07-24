@@ -16,14 +16,35 @@ package templates
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
+	t_template "text/template"
 )
 
-func CompileTEmplateFromMap(tmplt string, configMap interface{}) (string, error) {
+func CompileTemplateFromMapHtml(tmplt string, configMap interface{}) (string, error) {
 	out := new(bytes.Buffer)
-	t := template.Must(template.New("commpiled_template").Parse(tmplt))
+	t := template.Must(template.New("commpiled_template").Funcs(
+		template.FuncMap{
+			"FormateFloat": FormateFloat,
+		}).Parse(tmplt))
 	if err := t.Execute(out, configMap); err != nil {
 		return "", err
 	}
 	return out.String(), nil
+}
+
+func CompileTEmplateFromMapText(tmplt string, configMap interface{}) (string, error) {
+	out := new(bytes.Buffer)
+	t := t_template.Must(t_template.New("commpiled_template").Funcs(
+		t_template.FuncMap{
+			"FormateFloat": FormateFloat,
+		}).Parse(tmplt))
+	if err := t.Execute(out, configMap); err != nil {
+		return "", err
+	}
+	return out.String(), nil
+}
+
+func FormateFloat(f *float64) string {
+	return fmt.Sprintf("%f", *f)
 }
