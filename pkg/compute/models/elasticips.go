@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -1078,8 +1079,14 @@ func (self *SElasticip) PerformDissociate(ctx context.Context, userCred mcclient
 	}
 
 	// associate with an invalid vm
-	if !self.IsAssociated() {
+	res := self.GetAssociateResource()
+	if res == nil {
 		return nil, self.Dissociate(ctx, userCred)
+	}
+
+	err := db.IsObjectRbacAllowed(res, userCred, policy.PolicyActionGet)
+	if err != nil {
+		return nil, errors.Wrap(err, "associated resource is not accessible")
 	}
 
 	if self.Status != api.EIP_STATUS_READY {
@@ -1120,7 +1127,7 @@ func (self *SElasticip) PerformDissociate(ctx context.Context, userCred mcclient
 
 	autoDelete := jsonutils.QueryBoolean(data, "auto_delete", false)
 
-	err := self.StartEipDissociateTask(ctx, userCred, autoDelete, "")
+	err = self.StartEipDissociateTask(ctx, userCred, autoDelete, "")
 	return nil, err
 }
 
