@@ -194,7 +194,16 @@ func (self *SSubscriptionManager) isContainNotications(alert models.SCommonAlert
 func (self *SSubscriptionManager) Eval(details monitor.CommonAlertMetricDetails, alert models.SCommonAlert, points []sub.Point) (bool,
 	*monitor.EvalMatch, error) {
 	serie := self.getPointsByAlertDetail(details, alert, points)
-	reducer := cond.NewCommonAlertReducer(details.Reduce)
+	reduceCondition := monitor.Condition{
+		Type: details.Reduce,
+	}
+	if len(details.FieldOpt) != 0 {
+		reduceCondition.Operators = []string{details.FieldOpt}
+	}
+	reducer, err := cond.NewAlertReducer(&reduceCondition)
+	if err != nil {
+		return false, nil, err
+	}
 	reduceValue := reducer.Reduce(serie)
 
 	evalCond := monitor.Condition{
