@@ -23,6 +23,8 @@ const (
 	CommonAlertFieldOpt_Division = "/"
 )
 
+var CommonAlertLevels = []string{"normal", "important", "fatal"}
+
 type CommonAlertCreateInput struct {
 	CommonMetricInputQuery
 	AlertCreateInput

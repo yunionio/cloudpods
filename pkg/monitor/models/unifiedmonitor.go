@@ -276,11 +276,11 @@ func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricInputQ
 	query.Model.GroupBy = append(query.Model.GroupBy,
 		monitor.MetricQueryPart{
 			Type:   "time",
-			Params: []string{inputQuery.Interval},
+			Params: []string{"$interval"},
 		},
 		monitor.MetricQueryPart{
 			Type:   "fill",
-			Params: []string{"linear"},
+			Params: []string{"none"},
 		})
 
 	for i, sel := range query.Model.Selects {
