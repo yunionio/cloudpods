@@ -182,7 +182,7 @@ func newSchedResultByCtx(u *Unit, count int64, c Candidater) *SchedResultItem {
 		Count:             count,
 		Capacity:          u.GetCapacity(id),
 		Name:              c.Getter().Name(),
-		Score:             u.GetScore(id).String(),
+		Score:             u.GetScore(id),
 		Data:              u.GetFiltedData(id, count),
 		Candidater:        c,
 		AllocatedResource: u.GetAllocatedResource(id),
@@ -244,7 +244,7 @@ type SchedResultItem struct {
 	Count    int64                  `json:"count"`
 	Data     map[string]interface{} `json:"data"`
 	Capacity int64                  `json:"capacity"`
-	Score    string                 `json:"score"`
+	Score    Score                  `json:"score"`
 
 	CapacityDetails map[string]int64 `json:"capacity_details"`
 	ScoreDetails    string           `json:"score_details"`
