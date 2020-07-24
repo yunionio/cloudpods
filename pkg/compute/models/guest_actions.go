@@ -46,6 +46,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/userdata"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -2901,6 +2902,11 @@ func (self *SGuest) PerformDissociateEip(ctx context.Context, userCred mcclient.
 	}
 	if eip == nil {
 		return nil, httperrors.NewInvalidStatusError("No eip to dissociate")
+	}
+
+	err = db.IsObjectRbacAllowed(eip, userCred, policy.PolicyActionGet)
+	if err != nil {
+		return nil, errors.Wrap(err, "eip is not accessible")
 	}
 
 	self.SetStatus(userCred, api.VM_DISSOCIATE_EIP, "associate eip")
