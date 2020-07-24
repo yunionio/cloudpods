@@ -334,6 +334,15 @@ func (self *SCloudaccount) ValidateUpdateData(
 	return input, nil
 }
 
+func (self *SCloudaccount) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SEnabledStatusInfrasResourceBase.PostUpdate(ctx, userCred, query, data)
+	input := api.CloudaccountUpdateInput{}
+	data.Unmarshal(&input)
+	if input.Options != nil {
+		logclient.AddSimpleActionLog(self, logclient.ACT_UPDATE_BILLING_OPTIONS, input.Options, userCred, true)
+	}
+}
+
 func (scm *SCloudaccountManager) AllowPerformPrepareNets(_ context.Context, userCred mcclient.TokenCredential, _ jsonutils.JSONObject) bool {
 	return db.IsAdminAllowPerform(userCred, scm, "prepare-nets")
 }
@@ -1135,7 +1144,7 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 
 	if changed {
 		db.OpsLog.LogEvent(self, db.ACT_UPDATE, account.Account, userCred)
-		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_UPDATE, account.Account, userCred, true)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_UPDATE_CREDENTIAL, account.Account, userCred, true)
 
 		self.SetStatus(userCred, api.CLOUD_PROVIDER_INIT, "Change credential")
 		self.StartSyncCloudProviderInfoTask(ctx, userCred, nil, "")
