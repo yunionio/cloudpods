@@ -57,7 +57,7 @@ func (self *SHuaweiClient) fetchProjects() ([]SProject, error) {
 	if err == nil {
 		self.projects = projects
 	}
-	
+
 	return projects, err
 }
 
