@@ -201,4 +201,7 @@ const (
 	ACT_REMOVE_USER   = "移除用户"
 	ACT_ATTACH_POLICY = "绑定权限"
 	ACT_DETACH_POLICY = "移除权限"
+
+	ACT_UPDATE_BILLING_OPTIONS = "更新账单文件"
+	ACT_UPDATE_CREDENTIAL      = "更新账号密码"
 )
