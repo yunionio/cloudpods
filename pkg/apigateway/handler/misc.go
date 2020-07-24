@@ -25,7 +25,6 @@ import (
 
 	"github.com/360EntSecGroup-Skylar/excelize"
 	"golang.org/x/sync/errgroup"
-	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
