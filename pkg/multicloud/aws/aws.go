@@ -445,3 +445,35 @@ func cloudWatchRequest(cli *client.Client, apiName string, params *cloudwatch.Ge
 	}
 	return nil
 }
+
+func (client *SAwsClient) GetBucketCannedAcls() []string {
+	switch client.GetAccessEnv() {
+	case api.CLOUD_ACCESS_ENV_AWS_CHINA:
+		return []string{
+			string(cloudprovider.ACLPrivate),
+		}
+	default:
+		return []string{
+			string(cloudprovider.ACLPrivate),
+			string(cloudprovider.ACLAuthRead),
+			string(cloudprovider.ACLPublicRead),
+			string(cloudprovider.ACLPublicReadWrite),
+		}
+	}
+}
+
+func (client *SAwsClient) GetObjectCannedAcls() []string {
+	switch client.GetAccessEnv() {
+	case api.CLOUD_ACCESS_ENV_AWS_CHINA:
+		return []string{
+			string(cloudprovider.ACLPrivate),
+		}
+	default:
+		return []string{
+			string(cloudprovider.ACLPrivate),
+			string(cloudprovider.ACLAuthRead),
+			string(cloudprovider.ACLPublicRead),
+			string(cloudprovider.ACLPublicReadWrite),
+		}
+	}
+}

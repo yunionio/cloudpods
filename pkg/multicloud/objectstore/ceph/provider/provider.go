@@ -43,7 +43,11 @@ func (self *SCephRadosProviderFactory) GetProvider(cfg cloudprovider.ProviderCon
 	if err != nil {
 		return nil, err
 	}
-	return s3provider.NewObjectStoreProvider(self, client), nil
+	return s3provider.NewObjectStoreProvider(self, client, []string{
+		string(cloudprovider.ACLPrivate),
+		string(cloudprovider.ACLPublicRead),
+		string(cloudprovider.ACLPublicReadWrite),
+	}), nil
 }
 
 func (self *SCephRadosProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
