@@ -160,6 +160,14 @@ func (self *SCtyunProvider) GetStorageClasses(regionId string) []string {
 	}
 }
 
+func (self *SCtyunProvider) GetBucketCannedAcls(regionId string) []string {
+	return nil
+}
+
+func (self *SCtyunProvider) GetObjectCannedAcls(regionId string) []string {
+	return nil
+}
+
 func (self *SCtyunProvider) GetCloudRegionExternalIdPrefix() string {
 	return self.client.GetCloudRegionExternalIdPrefix()
 }

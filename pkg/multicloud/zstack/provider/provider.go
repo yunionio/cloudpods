@@ -150,6 +150,14 @@ func (self *SZStackProvider) GetStorageClasses(regionId string) []string {
 	return nil
 }
 
+func (self *SZStackProvider) GetBucketCannedAcls(regionId string) []string {
+	return nil
+}
+
+func (self *SZStackProvider) GetObjectCannedAcls(regionId string) []string {
+	return nil
+}
+
 func (self *SZStackProvider) GetCapabilities() []string {
 	return self.client.GetCapabilities()
 }

@@ -514,3 +514,35 @@ func (client *SAwsClient) GetIamLoginUrl() string {
 		return fmt.Sprintf("https://%s.signin.aws.amazon.com/console/", identity.Account)
 	}
 }
+
+func (client *SAwsClient) GetBucketCannedAcls() []string {
+	switch client.GetAccessEnv() {
+	case api.CLOUD_ACCESS_ENV_AWS_CHINA:
+		return []string{
+			string(cloudprovider.ACLPrivate),
+		}
+	default:
+		return []string{
+			string(cloudprovider.ACLPrivate),
+			string(cloudprovider.ACLAuthRead),
+			string(cloudprovider.ACLPublicRead),
+			string(cloudprovider.ACLPublicReadWrite),
+		}
+	}
+}
+
+func (client *SAwsClient) GetObjectCannedAcls() []string {
+	switch client.GetAccessEnv() {
+	case api.CLOUD_ACCESS_ENV_AWS_CHINA:
+		return []string{
+			string(cloudprovider.ACLPrivate),
+		}
+	default:
+		return []string{
+			string(cloudprovider.ACLPrivate),
+			string(cloudprovider.ACLAuthRead),
+			string(cloudprovider.ACLPublicRead),
+			string(cloudprovider.ACLPublicReadWrite),
+		}
+	}
+}

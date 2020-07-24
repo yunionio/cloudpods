@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -418,6 +419,16 @@ func (manager *SBucketManager) ValidateCreateData(
 	err = isValidBucketName(input.Name)
 	if err != nil {
 		return input, httperrors.NewInputParameterError("invalid bucket name %s: %s", input.Name, err)
+	}
+
+	if len(input.StorageClass) > 0 {
+		driver, err := managerV.GetProvider()
+		if err != nil {
+			return input, errors.Wrap(err, "GetProvider")
+		}
+		if !utils.IsInStringArray(input.StorageClass, driver.GetStorageClasses(cloudRegionV.Id)) {
+			return input, errors.Wrapf(httperrors.ErrInputParameter, "invalid storage class %s", input.StorageClass)
+		}
 	}
 
 	quotaKeys := fetchRegionalQuotaKeys(rbacutils.ScopeProject, ownerId, cloudRegionV, managerV)
@@ -975,14 +986,17 @@ func (bucket *SBucket) PerformUpload(
 		return nil, httperrors.NewInputParameterError("Content-Length negative %d", sizeBytes)
 	}
 	storageClass := appParams.Request.Header.Get(api.BUCKET_UPLOAD_OBJECT_STORAGECLASS_HEADER)
+	driver, err := bucket.GetDriver()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetDriver")
+	}
+	if len(storageClass) > 0 && !utils.IsInStringArray(storageClass, driver.GetStorageClasses(bucket.CloudregionId)) {
+		return nil, errors.Wrapf(httperrors.ErrInputParameter, "invalid storage class %s", storageClass)
+	}
+
 	aclStr := appParams.Request.Header.Get(api.BUCKET_UPLOAD_OBJECT_ACL_HEADER)
-	if len(aclStr) > 0 {
-		switch cloudprovider.TBucketACLType(aclStr) {
-		case cloudprovider.ACLPrivate, cloudprovider.ACLAuthRead, cloudprovider.ACLPublicRead, cloudprovider.ACLPublicReadWrite:
-			// do nothing
-		default:
-			return nil, httperrors.NewInputParameterError("invalid acl: %s", aclStr)
-		}
+	if len(aclStr) > 0 && !utils.IsInStringArray(aclStr, driver.GetObjectCannedAcls(bucket.CloudregionId)) {
+		return nil, errors.Wrapf(httperrors.ErrInputParameter, "invalid acl %s", aclStr)
 	}
 
 	inc := cloudprovider.SBucketStats{}
@@ -1060,15 +1074,23 @@ func (bucket *SBucket) PerformAcl(
 ) (jsonutils.JSONObject, error) {
 	err := input.Validate()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "ValidateInput")
+	}
+
+	provider, err := bucket.GetDriver()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetDriver")
 	}
 
 	iBucket, objects, err := bucket.processObjectsActionInput(input.BucketObjectsActionInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "processObjectsActionInput")
 	}
 
 	if len(objects) == 0 {
+		if !utils.IsInStringArray(string(input.Acl), provider.GetBucketCannedAcls(bucket.CloudregionId)) {
+			return nil, errors.Wrapf(httperrors.ErrInputParameter, "unsupported bucket canned acl %s", input.Acl)
+		}
 		err = iBucket.SetAcl(input.Acl)
 		if err != nil {
 			return nil, httperrors.NewInternalServerError("setAcl error %s", err)
@@ -1079,6 +1101,10 @@ func (bucket *SBucket) PerformAcl(
 			return nil, httperrors.NewInternalServerError("syncWithCloudBucket error %s", err)
 		}
 		return nil, nil
+	}
+
+	if !utils.IsInStringArray(string(input.Acl), provider.GetObjectCannedAcls(bucket.CloudregionId)) {
+		return nil, errors.Wrapf(httperrors.ErrInputParameter, "unsupported object canned acl %s", input.Acl)
 	}
 
 	errs := make([]error, 0)
