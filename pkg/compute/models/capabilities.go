@@ -61,6 +61,7 @@ type SCapabilities struct {
 	PublicNetworkCount          int
 	DBInstance                  map[string]map[string]map[string][]string //map[engine][engineVersion][category][]{storage_type}
 	Specs                       jsonutils.JSONObject
+	AvailableHostCount          int
 
 	StorageTypes2     map[string][]string                      `json:",allowempty"`
 	StorageTypes3     map[string]map[string]*SimpleStorageInfo `json:",allowempty"`
@@ -127,7 +128,43 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 	capa.PublicNetworkCount = publicNetworkCount
 	mans := []ISpecModelManager{HostManager, IsolatedDeviceManager}
 	capa.Specs, err = GetModelsSpecs(ctx, userCred, query.(*jsonutils.JSONDict), mans...)
+	if err != nil {
+		return capa, err
+	}
+	capa.AvailableHostCount, err = GetAvailableHostCount(userCred, query.(*jsonutils.JSONDict))
 	return capa, err
+}
+
+func GetAvailableHostCount(userCred mcclient.TokenCredential, query *jsonutils.JSONDict) (int, error) {
+	zoneStr, _ := query.GetString("zone")
+	izone, _ := ZoneManager.FetchByIdOrName(userCred, zoneStr)
+	var zoneId string
+	if izone != nil {
+		zoneId = izone.GetId()
+	}
+
+	regionStr, _ := query.GetString("region")
+	iregion, _ := CloudregionManager.FetchByIdOrName(userCred, regionStr)
+	var regionId string
+	if iregion != nil {
+		regionId = iregion.GetId()
+	}
+
+	domainId, _ := query.GetString("domain_id")
+	q := HostManager.Query().Equals("enabled", true).
+		Equals("host_status", "online").Equals("host_type", api.HOST_TYPE_HYPERVISOR)
+	if len(domainId) > 0 {
+		ownerId := &db.SOwnerId{DomainId: domainId}
+		q = HostManager.FilterByOwner(q, ownerId, rbacutils.ScopeDomain)
+	}
+	if len(zoneId) > 0 {
+		q = q.Equals("zone_id", zoneId)
+	}
+	if len(regionId) > 0 {
+		subq := ZoneManager.Query("id").Equals("cloudregion_id", regionId).SubQuery()
+		q = q.Filter(sqlchemy.In(q.Field("zone_id"), subq))
+	}
+	return q.CountWithError()
 }
 
 func getRegionZoneSubq(region *SCloudregion) *sqlchemy.SSubQuery {

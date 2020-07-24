@@ -289,7 +289,7 @@ type ServerConfigs struct {
 
 	// 虚拟机高可用(创建备机)
 	// default: false
-	// requried: false
+	// required: false
 	Backup bool `json:"backup"`
 
 	// 创建虚拟机数量

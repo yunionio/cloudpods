@@ -34,6 +34,8 @@ type SHostHealthChecker struct {
 	cli *etcd.SEtcdClient
 	// time of wait host reconnect
 	timeout time.Duration
+	// hosts chan
+	hc map[string]chan struct{}
 }
 
 func hostKey(hostId string) string {
@@ -44,7 +46,11 @@ func InitHostHealthChecker(cli *etcd.SEtcdClient, timeout int) *SHostHealthCheck
 	if hostHealthChecker != nil {
 		return hostHealthChecker
 	}
-	hostHealthChecker = &SHostHealthChecker{cli, time.Duration(timeout) * time.Second}
+	hostHealthChecker = &SHostHealthChecker{
+		cli:     cli,
+		timeout: time.Duration(timeout) * time.Second,
+		hc:      make(map[string]chan struct{}),
+	}
 	return hostHealthChecker
 }
 
@@ -70,27 +76,31 @@ func (h *SHostHealthChecker) startHealthCheck(ctx context.Context) {
 }
 
 func (h *SHostHealthChecker) startWatcher(ctx context.Context, hostId string) {
-	log.Debugf("Start watch host %s", hostId)
+	log.Infof("Start watch host %s", hostId)
 	var (
 		ch  chan struct{}
 		key = hostKey(hostId)
 	)
+
 	_, err := h.cli.Get(ctx, key)
 	if err == etcd.ErrNoSuchKey {
-		log.Errorf("No such key %s", hostId)
+		log.Warningf("No such key %s", hostId)
 		ch = make(chan struct{})
 		go func() {
 			select {
 			case <-time.NewTimer(h.timeout).C:
 				h.onHostUnhealthy(ctx, hostId)
-			case <-ch:
+			case <-h.hc[hostId]:
 				h.startWatcher(ctx, hostId)
 			case <-ctx.Done():
 				log.Infof("exit watch host %s", hostId)
 			}
 		}()
 	}
-	h.cli.Watch(ctx, key, h.onHostOnline(hostId, ch), h.onHostOffline(hostId))
+	if _, ok := h.hc[hostId]; !ok {
+		h.hc[hostId] = ch
+	}
+	h.cli.Watch(ctx, key, h.onHostOnline(hostId), h.onHostOffline(hostId))
 }
 
 func (h *SHostHealthChecker) onHostUnhealthy(ctx context.Context, hostId string) {
@@ -102,11 +112,11 @@ func (h *SHostHealthChecker) onHostUnhealthy(ctx context.Context, hostId string)
 	}
 }
 
-func (h *SHostHealthChecker) onHostOnline(hostId string, ch chan struct{}) etcd.TEtcdCreateEventFunc {
+func (h *SHostHealthChecker) onHostOnline(hostId string) etcd.TEtcdCreateEventFunc {
 	return func(key, value []byte) {
-		log.Debugf("Got host online %s", hostId)
-		if ch != nil {
-			close(ch)
+		log.Infof("Got host online %s", hostId)
+		if h.hc[hostId] != nil {
+			h.hc[hostId] <- struct{}{}
 		}
 	}
 }
@@ -114,10 +124,14 @@ func (h *SHostHealthChecker) onHostOnline(hostId string, ch chan struct{}) etcd.
 func (h *SHostHealthChecker) onHostOffline(hostId string) etcd.TEtcdModifyEventFunc {
 	return func(key, oldvalue, value []byte) {
 		log.Warningf("host %s disconnect with etcd", hostId)
-		host := HostManager.FetchHostById(hostId)
-		if host.EnableHealthCheck == true {
-			h.startWatcher(context.Background(), hostId)
-		}
+		go func() {
+			select {
+			case <-time.NewTimer(h.timeout).C:
+				h.onHostUnhealthy(context.Background(), hostId)
+			case <-h.hc[hostId]:
+				h.startWatcher(context.Background(), hostId)
+			}
+		}()
 	}
 }
 
@@ -127,6 +141,7 @@ func (h *SHostHealthChecker) WatchHost(ctx context.Context, hostId string) {
 }
 
 func (h *SHostHealthChecker) UnwatchHost(ctx context.Context, hostId string) {
-	log.Debugf("Unwatch host %s", hostId)
+	log.Infof("Unwatch host %s", hostId)
 	h.cli.Unwatch(hostKey(hostId))
+	delete(h.hc, hostId)
 }

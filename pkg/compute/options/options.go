@@ -138,6 +138,8 @@ type ComputeOptions struct {
 
 	ScheduledTaskQueueSize int `help:"the maximum number of scheduled tasks that are being executed simultaneously" default:"100"`
 
+	ReconcileGuestBackupIntervalSeconds int `help:"interval reconcile guest bakcups" default:"30"`
+
 	SCapabilityOptions
 	SASControllerOptions
 	common_options.CommonOptions

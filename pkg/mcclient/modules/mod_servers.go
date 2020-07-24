@@ -104,7 +104,7 @@ func init() {
 			"Created_at", "Group_name",
 			"Group_id", "Hypervisor", "os_type",
 			"expired_at"},
-		[]string{"Host", "Tenant", "is_system", "auto_delete_at"})}
+		[]string{"Host", "Tenant", "is_system", "auto_delete_at", "backup_host_name"})}
 
 	registerCompute(&Servers)
 }

@@ -4473,6 +4473,115 @@ func (manager *SGuestManager) DeleteExpiredPostpaidServers(ctx context.Context, 
 	}
 }
 
+func (self *SGuestManager) ReconcileBackupGuests(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	self.switchBackupGuests(ctx, userCred)
+	self.createBackupGuests(ctx, userCred)
+}
+
+func (self *SGuestManager) switchBackupGuests(ctx context.Context, userCred mcclient.TokenCredential) {
+	q := self.Query()
+	metaDataQuery := db.Metadata.Query().Startswith("id", "server::").
+		Equals("key", "switch_backup").IsNotEmpty("value").GroupBy("id")
+	metaDataQuery.AppendField(sqlchemy.SubStr("guest_id", metaDataQuery.Field("id"), len("server::")+1, 0))
+	subQ := metaDataQuery.SubQuery()
+	q = q.Join(subQ, sqlchemy.Equals(q.Field("id"), subQ.Field("guest_id")))
+
+	guests := make([]SGuest, 0)
+	err := db.FetchModelObjects(GuestManager, q, &guests)
+	if err != nil {
+		log.Errorf("ReconcileBackupGuests failed fetch guests %s", err)
+		return
+	}
+	log.Infof("Guests count %d need reconcile with switch bakcup", len(guests))
+	for i := 0; i < len(guests); i++ {
+		val := guests[i].GetMetadataJson("switch_backup", userCred)
+		t, err := val.GetTime()
+		if err != nil {
+			log.Errorf("failed get time from metadata switch_backup %s", err)
+			continue
+		}
+		if time.Now().After(t) {
+			data := jsonutils.NewDict()
+			data.Set("purge_backup", jsonutils.JSONTrue)
+			_, err := guests[i].PerformSwitchToBackup(ctx, userCred, nil, data)
+			if err != nil {
+				db.OpsLog.LogEvent(
+					&guests[i], db.ACT_SWITCH_FAILED, fmt.Sprintf("switchBackupGuests on reconcile_backup: %s", err), userCred,
+				)
+				logclient.AddSimpleActionLog(
+					&guests[i], logclient.ACT_SWITCH_TO_BACKUP,
+					fmt.Sprintf("switchBackupGuests on reconcile_backup: %s", err), userCred, false,
+				)
+			}
+		}
+	}
+}
+
+func (self *SGuestManager) createBackupGuests(ctx context.Context, userCred mcclient.TokenCredential) {
+	q := self.Query()
+	metaDataQuery := db.Metadata.Query().Startswith("id", "server::").
+		Equals("key", "create_backup").IsNotEmpty("value").GroupBy("id")
+	metaDataQuery.AppendField(sqlchemy.SubStr("guest_id", metaDataQuery.Field("id"), len("server::")+1, 0))
+	subQ := metaDataQuery.SubQuery()
+	q = q.Join(subQ, sqlchemy.Equals(q.Field("id"), subQ.Field("guest_id")))
+
+	guests := make([]SGuest, 0)
+	err := db.FetchModelObjects(GuestManager, q, &guests)
+	if err != nil {
+		log.Errorf("ReconcileBackupGuests failed fetch guests %s", err)
+		return
+	}
+	log.Infof("Guests count %d need reconcile with create bakcup", len(guests))
+	for i := 0; i < len(guests); i++ {
+		val := guests[i].GetMetadataJson("create_backup", userCred)
+		t, err := val.GetTime()
+		if err != nil {
+			log.Errorf("failed get time from metadata create_backup %s", err)
+			continue
+		}
+		if time.Now().After(t) {
+			if len(guests[i].BackupHostId) > 0 {
+				data := jsonutils.NewDict()
+				data.Set("purge", jsonutils.JSONTrue)
+				data.Set("create", jsonutils.JSONTrue)
+				_, err := guests[i].PerformDeleteBackup(ctx, userCred, nil, data)
+				if err != nil {
+					db.OpsLog.LogEvent(
+						&guests[i], db.ACT_DELETE_BACKUP_FAILED,
+						fmt.Sprintf("PerformDeleteBackup on ReconcileBackupGuests: %s", err), userCred,
+					)
+					logclient.AddSimpleActionLog(
+						&guests[i], logclient.ACT_DELETE_BACKUP,
+						fmt.Sprintf("PerformDeleteBackup on ReconcileBackupGuests: %s", err), userCred, false,
+					)
+				}
+			} else {
+				params := jsonutils.NewDict()
+				params.Set("reconcile_backup", jsonutils.JSONTrue)
+				if _, err := guests[i].StartGuestCreateBackupTask(ctx, userCred, "", params); err != nil {
+					db.OpsLog.LogEvent(
+						&guests[i], db.ACT_CREATE_BACKUP_FAILED,
+						fmt.Sprintf("StartGuestCreateBackupTask on ReconcileBackupGuests: %s", err), userCred,
+					)
+					logclient.AddSimpleActionLog(
+						&guests[i], logclient.ACT_CREATE_BACKUP,
+						fmt.Sprintf("StartGuestCreateBackupTask on ReconcileBackupGuests: %s", err), userCred, false,
+					)
+				}
+			}
+		}
+	}
+}
+
+func (self *SGuest) isInReconcile(userCred mcclient.TokenCredential) bool {
+	switchBackup := self.GetMetadata("switch_backup", userCred)
+	createBackup := self.GetMetadata("create_backup", userCred)
+	if len(switchBackup) > 0 || len(createBackup) > 0 {
+		return true
+	}
+	return false
+}
+
 func (self *SGuest) GetEip() (*SElasticip, error) {
 	return ElasticipManager.getEipForInstance(api.EIP_ASSOCIATE_TYPE_SERVER, self.Id)
 }

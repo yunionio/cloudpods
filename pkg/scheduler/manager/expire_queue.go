@@ -29,17 +29,24 @@ import (
 type ExpireManager struct {
 	expireChannel chan *api.ExpireArgs
 	stopCh        <-chan struct{}
+
+	mergeLock *sync.Mutex
 }
 
 func NewExpireManager(stopCh <-chan struct{}) *ExpireManager {
 	return &ExpireManager{
 		expireChannel: make(chan *api.ExpireArgs, o.GetOptions().ExpireQueueMaxLength),
 		stopCh:        stopCh,
+		mergeLock:     new(sync.Mutex),
 	}
 }
 
 func (e *ExpireManager) Add(expireArgs *api.ExpireArgs) {
 	e.expireChannel <- expireArgs
+}
+
+func (e *ExpireManager) Trigger() {
+	e.batchMergeExpire()
 }
 
 type expireHost struct {
@@ -56,83 +63,14 @@ func newExpireHost(id string, sid string) *expireHost {
 
 func (e *ExpireManager) Run() {
 	t := time.Tick(u.ToDuration(o.GetOptions().ExpireQueueConsumptionPeriod))
-
-	waitTimeOut := func(wg *sync.WaitGroup, timeout time.Duration) bool {
-		ch := make(chan struct{})
-		go func() {
-			wg.Wait()
-			close(ch)
-		}()
-		select {
-		case <-ch:
-			return true
-		case <-time.After(timeout):
-			return false
-		}
-	}
-
-	batchMergeExpire := func() {
-		expireRequestNumber := len(e.expireChannel)
-		// If the expireRequestNumber then return right now.
-		if expireRequestNumber <= 0 {
-			return
-		}
-		dirtyHostSets := sets.NewString()
-		dirtyBaremetalSets := sets.NewString()
-		dirtyHosts := make([]*expireHost, 0)
-		dirtyBaremetals := make([]*expireHost, 0)
-		// Merge all same host.
-		for i := 0; i < expireRequestNumber; i++ {
-			expireArgs := <-e.expireChannel
-			log.V(4).Infof("Get expireArgs from channel: %#v", expireArgs)
-			dirtyHostSets.Insert(expireArgs.DirtyHosts...)
-			for _, host := range expireArgs.DirtyHosts {
-				dirtyHosts = append(dirtyHosts, newExpireHost(host, expireArgs.SessionId))
-			}
-			dirtyBaremetalSets.Insert(expireArgs.DirtyBaremetals...)
-			for _, baremetal := range expireArgs.DirtyBaremetals {
-				dirtyBaremetals = append(dirtyBaremetals, newExpireHost(baremetal, expireArgs.SessionId))
-			}
-		}
-		log.V(4).Infof("batchMergeExpire dirtyHosts: %v, dirtyBaremetals: %v", dirtyHosts, dirtyBaremetals)
-		wg := &sync.WaitGroup{}
-		wg.Add(2)
-		go func() {
-			defer wg.Done()
-			//dirtyHosts = notInSession(dirtyHosts, "host")
-			if len(dirtyHosts) > 0 {
-				log.V(10).Debugf("CleanDirty Hosts: %v\n", dirtyHosts)
-				if _, err := schedManager.CandidateManager.Reload("host", dirtyHostSets.List()); err != nil {
-					log.Errorf("Clean dirty hosts %v: %v", dirtyHosts, err)
-				}
-				schedManager.HistoryManager.CancelCandidatesPendingUsage(dirtyHosts)
-			}
-		}()
-
-		go func() {
-			defer wg.Done()
-			//dirtyBaremetals = notInSession(dirtyBaremetals, "baremetal")
-			if len(dirtyBaremetals) > 0 {
-				log.V(10).Debugf("CleanDirty Baremetals: %v\n", dirtyBaremetals)
-				if _, err := schedManager.CandidateManager.Reload("baremetal", dirtyBaremetalSets.List()); err != nil {
-					log.Errorf("Clean dirty baremetals %v: %v", dirtyBaremetals, err)
-				}
-				schedManager.HistoryManager.CancelCandidatesPendingUsage(dirtyBaremetals)
-			}
-		}()
-		if ok := waitTimeOut(wg, u.ToDuration(o.GetOptions().ExpireQueueConsumptionTimeout)); !ok {
-			log.Errorln("time out reload data.")
-		}
-	}
-
 	// Watching the expires.
 	for {
 		select {
 		case <-t:
-			batchMergeExpire()
+			e.batchMergeExpire()
 		case <-e.stopCh:
 			// update all the expire before return
-			batchMergeExpire()
+			e.batchMergeExpire()
 			close(e.expireChannel)
 			e.expireChannel = nil
 			log.Errorln("expire manager EXIT!")
@@ -140,10 +78,80 @@ func (e *ExpireManager) Run() {
 		default:
 			// if expire number is bigger then 80 then update
 			if len(e.expireChannel) >= o.GetOptions().ExpireQueueDealLength {
-				batchMergeExpire()
+				e.batchMergeExpire()
 			} else {
 				time.Sleep(1 * time.Second)
 			}
 		}
+	}
+}
+
+func (e *ExpireManager) batchMergeExpire() {
+	e.mergeLock.Lock()
+	defer e.mergeLock.Unlock()
+	expireRequestNumber := len(e.expireChannel)
+	// If the expireRequestNumber then return right now.
+	if expireRequestNumber <= 0 {
+		return
+	}
+	dirtyHostSets := sets.NewString()
+	dirtyBaremetalSets := sets.NewString()
+	dirtyHosts := make([]*expireHost, 0)
+	dirtyBaremetals := make([]*expireHost, 0)
+	// Merge all same host.
+	for i := 0; i < expireRequestNumber; i++ {
+		expireArgs := <-e.expireChannel
+		log.V(4).Infof("Get expireArgs from channel: %#v", expireArgs)
+		dirtyHostSets.Insert(expireArgs.DirtyHosts...)
+		for _, host := range expireArgs.DirtyHosts {
+			dirtyHosts = append(dirtyHosts, newExpireHost(host, expireArgs.SessionId))
+		}
+		dirtyBaremetalSets.Insert(expireArgs.DirtyBaremetals...)
+		for _, baremetal := range expireArgs.DirtyBaremetals {
+			dirtyBaremetals = append(dirtyBaremetals, newExpireHost(baremetal, expireArgs.SessionId))
+		}
+	}
+	log.V(4).Infof("batchMergeExpire dirtyHosts: %v, dirtyBaremetals: %v", dirtyHosts, dirtyBaremetals)
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		//dirtyHosts = notInSession(dirtyHosts, "host")
+		if len(dirtyHosts) > 0 {
+			log.V(10).Debugf("CleanDirty Hosts: %v\n", dirtyHosts)
+			if _, err := schedManager.CandidateManager.Reload("host", dirtyHostSets.List()); err != nil {
+				log.Errorf("Clean dirty hosts %v: %v", dirtyHosts, err)
+			}
+			schedManager.HistoryManager.CancelCandidatesPendingUsage(dirtyHosts)
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		//dirtyBaremetals = notInSession(dirtyBaremetals, "baremetal")
+		if len(dirtyBaremetals) > 0 {
+			log.V(10).Debugf("CleanDirty Baremetals: %v\n", dirtyBaremetals)
+			if _, err := schedManager.CandidateManager.Reload("baremetal", dirtyBaremetalSets.List()); err != nil {
+				log.Errorf("Clean dirty baremetals %v: %v", dirtyBaremetals, err)
+			}
+			schedManager.HistoryManager.CancelCandidatesPendingUsage(dirtyBaremetals)
+		}
+	}()
+	if ok := e.waitTimeOut(wg, u.ToDuration(o.GetOptions().ExpireQueueConsumptionTimeout)); !ok {
+		log.Errorln("time out reload data.")
+	}
+}
+
+func (e *ExpireManager) waitTimeOut(wg *sync.WaitGroup, timeout time.Duration) bool {
+	ch := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+	select {
+	case <-ch:
+		return true
+	case <-time.After(timeout):
+		return false
 	}
 }

@@ -82,6 +82,27 @@ func (self *SGuest) GetDetailsVnc(ctx context.Context, userCred mcclient.TokenCr
 	}
 }
 
+func (self *SGuest) PreCheckPerformAction(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	action string, query jsonutils.JSONObject, data jsonutils.JSONObject,
+) error {
+	if self.Hypervisor == api.HYPERVISOR_KVM {
+		host := self.GetHost()
+		if (host.HostStatus == api.HOST_OFFLINE || !host.Enabled.Bool()) &&
+			utils.IsInStringArray(action,
+				[]string{
+					"start", "restart", "stop", "reset", "rebuild-root",
+					"change-config", "instance-snapshot", "snapshot-and-clone",
+					"attach-isolated-device", "detach-isolated-deivce",
+					"insert-iso", "eject-iso", "deploy", "create-backup",
+				}) {
+			return httperrors.NewInvalidStatusError(
+				"host status %s and enabled %v, can't do server %s", host.HostStatus, host.Enabled.Bool(), action)
+		}
+	}
+	return nil
+}
+
 func (self *SGuest) AllowPerformMonitor(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
@@ -3316,7 +3337,10 @@ func (self *SGuest) guestDisksStorageTypeIsShared() bool {
 	return true
 }
 
-func (self *SGuest) PerformCreateBackup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SGuest) PerformCreateBackup(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
 	if len(self.BackupHostId) > 0 {
 		return nil, httperrors.NewBadRequestError("Already have backup server")
 	}
@@ -3336,7 +3360,12 @@ func (self *SGuest) PerformCreateBackup(ctx context.Context, userCred mcclient.T
 	if hasSnapshot {
 		return nil, httperrors.NewBadRequestError("Cannot create backup with snapshot")
 	}
+	return self.StartGuestCreateBackupTask(ctx, userCred, "", data)
+}
 
+func (self *SGuest) StartGuestCreateBackupTask(
+	ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
 	req := self.getGuestBackupResourceRequirements(ctx, userCred)
 	keys, err := self.GetQuotaKeys()
 	if err != nil {
@@ -3350,7 +3379,7 @@ func (self *SGuest) PerformCreateBackup(ctx context.Context, userCred mcclient.T
 
 	params := data.(*jsonutils.JSONDict)
 	params.Set("guest_status", jsonutils.NewString(self.Status))
-	task, err := taskman.TaskManager.NewTask(ctx, "GuestCreateBackupTask", self, userCred, params, "", "", &req)
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestCreateBackupTask", self, userCred, params, parentTaskId, "", &req)
 	if err != nil {
 		quotas.CancelPendingUsage(ctx, userCred, &req, &req, false)
 		log.Errorln(err)
@@ -3379,6 +3408,7 @@ func (self *SGuest) PerformDeleteBackup(ctx context.Context, userCred mcclient.T
 
 	taskData := jsonutils.NewDict()
 	taskData.Set("purge", jsonutils.NewBool(jsonutils.QueryBoolean(data, "purge", false)))
+	taskData.Set("create", jsonutils.NewBool(jsonutils.QueryBoolean(data, "create", false)))
 	self.SetStatus(userCred, api.VM_DELETING_BACKUP, "delete backup server")
 	if task, err := taskman.TaskManager.NewTask(
 		ctx, "GuestDeleteBackupTask", self, userCred, taskData, "", "", nil); err != nil {
@@ -3410,6 +3440,44 @@ func (self *SGuest) StartCreateBackup(ctx context.Context, userCred mcclient.Tok
 		return err
 	} else {
 		task.ScheduleRun(nil)
+	}
+	return nil
+}
+
+func (self *SGuest) AllowPerformReconcileBackup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "reconcile-backup")
+}
+
+func (self *SGuest) PerformReconcileBackup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	switchBackup := self.GetMetadata("switch_backup", userCred)
+	createBackup := self.GetMetadata("create_backup", userCred)
+	if len(switchBackup) == 0 && len(createBackup) == 0 {
+		return nil, httperrors.NewBadRequestError("guest doesn't need reconcile backup")
+	}
+	if len(switchBackup) > 0 {
+		data := jsonutils.NewDict()
+		data.Set("purge_backup", jsonutils.JSONTrue)
+		return self.PerformSwitchToBackup(ctx, userCred, nil, data)
+	} else {
+		return nil, self.StartReconcileBackup(ctx, userCred)
+	}
+}
+
+func (self *SGuest) StartReconcileBackup(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if len(self.BackupHostId) > 0 {
+		data := jsonutils.NewDict()
+		data.Set("purge", jsonutils.JSONTrue)
+		data.Set("create", jsonutils.JSONTrue)
+		_, err := self.PerformDeleteBackup(ctx, userCred, nil, data)
+		if err != nil {
+			return err
+		}
+	} else {
+		params := jsonutils.NewDict()
+		params.Set("reconcile_backup", jsonutils.JSONTrue)
+		if _, err := self.StartGuestCreateBackupTask(ctx, userCred, "", params); err != nil {
+			return err
+		}
 	}
 	return nil
 }

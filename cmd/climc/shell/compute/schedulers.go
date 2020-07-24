@@ -111,10 +111,11 @@ func init() {
 	type SchedulerCleanCacheOptions struct {
 		HostId    string `help:"ID of host" short-token:"h"`
 		SessionId string `help:"Session id" short-token:"s"`
+		Sync      bool   `help:"Sync do clean sched cache"`
 	}
 	R(&SchedulerCleanCacheOptions{}, "scheduler-clean-cache", "Clean scheduler hosts cache",
 		func(s *mcclient.ClientSession, args *SchedulerCleanCacheOptions) error {
-			err := modules.SchedManager.CleanCache(s, args.HostId, args.SessionId)
+			err := modules.SchedManager.CleanCache(s, args.HostId, args.SessionId, args.Sync)
 			if err != nil {
 				return err
 			}
