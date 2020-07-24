@@ -204,7 +204,7 @@ func (self *SBaseManager) jsonRequest(request requests.IRequest) (http.Header, j
 
 		switch err := e.(type) {
 		case *HuaweiClientError:
-			if (err.Code == 499 || err.Code == 429 )&& retry > 0 && request.GetMethod() == "GET" {
+			if (err.Code == 499 || err.Code == 429) && retry > 0 && request.GetMethod() == "GET" {
 				retry -= 1
 				time.Sleep(3 * time.Second * time.Duration(MAX_RETRY-retry))
 			} else if (err.Code == 404 || strings.Contains(err.Details, "could not be found") || strings.Contains(err.Details, "does not exist")) && request.GetMethod() != "POST" {
