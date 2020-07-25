@@ -182,7 +182,7 @@ type CloudaccountCreateInput struct {
 
 	// 自动根据云上项目或订阅创建本地项目
 	// default: false
-	AutoCreateProject bool `json:"auto_create_project"`
+	AutoCreateProject *bool `json:"auto_create_project"`
 
 	// 额外信息,例如账单的access key
 	Options *jsonutils.JSONDict `json:"options"`

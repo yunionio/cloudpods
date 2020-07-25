@@ -240,6 +240,10 @@ func syncRegionVPCs(ctx context.Context, userCred mcclient.TokenCredential, sync
 			lockman.LockObject(ctx, &localVpcs[j])
 			defer lockman.ReleaseObject(ctx, &localVpcs[j])
 
+			if localVpcs[j].Deleted {
+				return
+			}
+
 			syncVpcWires(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
 			if localRegion.GetDriver().IsSecurityGroupBelongVpc() || localRegion.GetDriver().IsSupportClassicSecurityGroup() || j == 0 { //有vpc属性的每次都同步,支持classic的vpc也同步，否则仅同步一次
 				syncVpcSecGroup(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
@@ -310,6 +314,10 @@ func syncVpcNatgateways(ctx context.Context, userCred mcclient.TokenCredential, 
 		func() {
 			lockman.LockObject(ctx, &localNatGateways[i])
 			defer lockman.ReleaseObject(ctx, &localNatGateways[i])
+
+			if localNatGateways[i].Deleted {
+				return
+			}
 
 			syncNatGatewayEips(ctx, userCred, provider, &localNatGateways[i], remoteNatGateways[i])
 			syncNatDTable(ctx, userCred, provider, &localNatGateways[i], remoteNatGateways[i])
@@ -392,6 +400,9 @@ func syncVpcWires(ctx context.Context, userCred mcclient.TokenCredential, syncRe
 			lockman.LockObject(ctx, &localWires[i])
 			defer lockman.ReleaseObject(ctx, &localWires[i])
 
+			if localWires[i].Deleted {
+				return
+			}
 			syncWireNetworks(ctx, userCred, syncResults, provider, &localWires[i], remoteWires[i], syncRange)
 		}()
 	}
@@ -445,6 +456,10 @@ func syncZoneStorages(ctx context.Context, userCred mcclient.TokenCredential, sy
 		func() {
 			lockman.LockObject(ctx, &localStorages[i])
 			defer lockman.ReleaseObject(ctx, &localStorages[i])
+
+			if localStorages[i].Deleted {
+				return
+			}
 
 			if !isInCache(storageCachePairs, localStorages[i].StoragecacheId) && !isInCache(newCacheIds, localStorages[i].StoragecacheId) {
 				cachePair := syncStorageCaches(ctx, userCred, provider, &localStorages[i], remoteStorages[i])
@@ -530,6 +545,10 @@ func syncZoneHosts(ctx context.Context, userCred mcclient.TokenCredential, syncR
 		func() {
 			lockman.LockObject(ctx, &localHosts[i])
 			defer lockman.ReleaseObject(ctx, &localHosts[i])
+
+			if localHosts[i].Deleted {
+				return
+			}
 
 			syncMetadata(ctx, userCred, &localHosts[i], remoteHosts[i])
 			newCachePairs = syncHostStorages(ctx, userCred, syncResults, provider, &localHosts[i], remoteHosts[i], storageCachePairs)
@@ -623,6 +642,10 @@ func syncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, syncRes
 		func() {
 			lockman.LockObject(ctx, syncVMPairs[i].Local)
 			defer lockman.ReleaseObject(ctx, syncVMPairs[i].Local)
+
+			if syncVMPairs[i].Local.Deleted || syncVMPairs[i].Local.PendingDeleted {
+				return
+			}
 
 			syncVMPeripherals(ctx, userCred, syncVMPairs[i].Local, syncVMPairs[i].Remote, localHost, provider, driver)
 			// syncMetadata(ctx, userCred, syncVMPairs[i].Local, syncVMPairs[i].Remote)
@@ -773,6 +796,10 @@ func syncRegionDBInstances(ctx context.Context, userCred mcclient.TokenCredentia
 			lockman.LockObject(ctx, &localInstances[i])
 			defer lockman.ReleaseObject(ctx, &localInstances[i])
 
+			if localInstances[i].Deleted || localInstances[i].PendingDeleted {
+				return
+			}
+
 			syncDBInstanceNetwork(ctx, userCred, syncResults, &localInstances[i], remoteInstances[i])
 			syncDBInstanceParameters(ctx, userCred, syncResults, &localInstances[i], remoteInstances[i])
 			syncDBInstanceDatabases(ctx, userCred, syncResults, &localInstances[i], remoteInstances[i])
@@ -880,6 +907,10 @@ func syncDBInstanceAccounts(ctx context.Context, userCred mcclient.TokenCredenti
 			lockman.LockObject(ctx, &localAccounts[i])
 			defer lockman.ReleaseObject(ctx, &localAccounts[i])
 
+			if localAccounts[i].Deleted {
+				return
+			}
+
 			syncDBInstanceAccountPrivileges(ctx, userCred, syncResults, &localAccounts[i], remoteAccounts[i])
 
 		}()
@@ -962,6 +993,10 @@ func syncRegionNetworkInterfaces(ctx context.Context, userCred mcclient.TokenCre
 		func() {
 			lockman.LockObject(ctx, &localInterfaces[i])
 			defer lockman.ReleaseObject(ctx, &localInterfaces[i])
+
+			if localInterfaces[i].Deleted {
+				return
+			}
 
 			syncInterfaceAddresses(ctx, userCred, &localInterfaces[i], remoteInterfaces[i])
 		}()
