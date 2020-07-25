@@ -174,6 +174,8 @@ type SecurityGroupRuleListInput struct {
 	apis.ResourceBaseListInput
 	SecgroupFilterListInput
 
+	Projects []string `json:"projects"`
+
 	// 以direction字段过滤安全组规则
 	Direction string `json:"direction"`
 	// 以action字段过滤安全组规则
