@@ -35,7 +35,6 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	proxyapi "yunion.io/x/onecloud/pkg/apis/cloudcommon/proxy"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/proxy"
@@ -47,7 +46,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/multicloud/esxi/vcenter"
 	"yunion.io/x/onecloud/pkg/util/choices"
 	"yunion.io/x/onecloud/pkg/util/httputils"
@@ -343,10 +341,22 @@ func (manager *SCloudaccountManager) ValidateCreateData(
 	}
 
 	if len(input.Project) > 0 {
-		_, input.ProjectizedResourceInput, err = db.ValidateProjectizedResourceInput(ctx, input.ProjectizedResourceInput)
+		var proj *db.STenant
+		proj, input.ProjectizedResourceInput, err = db.ValidateProjectizedResourceInput(ctx, input.ProjectizedResourceInput)
 		if err != nil {
 			return input, errors.Wrap(err, "db.ValidateProjectizedResourceInput")
 		}
+		if proj.DomainId != ownerId.GetProjectDomainId() {
+			return input, httperrors.NewInputParameterError("Project %s(%s) not belong to domain %s(%s)", proj.Name, proj.Id, ownerId.GetProjectDomain(), ownerId.GetProjectDomainId())
+		}
+		if input.AutoCreateProject != nil && *input.AutoCreateProject {
+			log.Warningf("project_id and auto_create_project should not be turned on at the same time")
+		}
+		input.AutoCreateProject = nil
+	} else if input.AutoCreateProject == nil || !*input.AutoCreateProject {
+		log.Warningf("auto_create_project is off while no project_id specified")
+		createProject := true
+		input.AutoCreateProject = &createProject
 	}
 
 	if !cloudprovider.IsSupported(input.Provider) {
@@ -428,20 +438,6 @@ func (manager *SCloudaccountManager) ValidateCreateData(
 		input.SyncIntervalSeconds = options.Options.DefaultSyncIntervalSeconds
 	} else if input.SyncIntervalSeconds < options.Options.MinimalSyncIntervalSeconds {
 		input.SyncIntervalSeconds = options.Options.MinimalSyncIntervalSeconds
-	}
-
-	if !input.AutoCreateProject {
-		if userCred.GetProjectDomainId() != ownerId.GetProjectDomainId() {
-			s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
-			params := jsonutils.Marshal(map[string]string{"domain_id": ownerId.GetProjectDomainId()})
-			tenants, err := modules.Projects.List(s, params)
-			if err != nil {
-				return input, err
-			}
-			if tenants.Total == 0 {
-				return input, httperrors.NewInputParameterError("There is no projects under the domain %s", ownerId.GetProjectDomainId())
-			}
-		}
 	}
 
 	input.EnabledStatusInfrasResourceBaseCreateInput, err = manager.SEnabledStatusInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusInfrasResourceBaseCreateInput)
