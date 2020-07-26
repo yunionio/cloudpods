@@ -16,7 +16,7 @@ func LinkSetMTU(link Link, mtu int) error {
 	return ErrNotImplemented
 }
 
-func LinkSetMaster(link Link, master *Bridge) error {
+func LinkSetMain(link Link, main *Bridge) error {
 	return ErrNotImplemented
 }
 
@@ -52,11 +52,11 @@ func LinkSetVfTxRate(link Link, vf, rate int) error {
 	return ErrNotImplemented
 }
 
-func LinkSetNoMaster(link Link) error {
+func LinkSetNoMain(link Link) error {
 	return ErrNotImplemented
 }
 
-func LinkSetMasterByIndex(link Link, masterIndex int) error {
+func LinkSetMainByIndex(link Link, mainIndex int) error {
 	return ErrNotImplemented
 }
 

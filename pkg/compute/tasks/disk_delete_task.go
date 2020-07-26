@@ -102,7 +102,7 @@ func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SD
 
 	storage = disk.GetStorage()
 	if storage != nil {
-		host = storage.GetMasterHost()
+		host = storage.GetMainHost()
 	}
 
 	isPurge := false
@@ -118,30 +118,30 @@ func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SD
 			return
 		}
 		if len(disk.BackupStorageId) > 0 {
-			self.SetStage("OnMasterStorageDeleteDiskComplete", nil)
+			self.SetStage("OnMainStorageDeleteDiskComplete", nil)
 		} else {
 			self.SetStage("OnGuestDiskDeleteComplete", nil)
 		}
 		if host == nil {
-			self.OnGuestDiskDeleteCompleteFailed(ctx, disk, jsonutils.NewString("fail to find master host"))
+			self.OnGuestDiskDeleteCompleteFailed(ctx, disk, jsonutils.NewString("fail to find main host"))
 		} else if err := host.GetHostDriver().RequestDeallocateDiskOnHost(ctx, host, storage, disk, self); err != nil {
 			self.OnGuestDiskDeleteCompleteFailed(ctx, disk, jsonutils.NewString(err.Error()))
 		}
 	}
 }
 
-func (self *DiskDeleteTask) OnMasterStorageDeleteDiskComplete(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
+func (self *DiskDeleteTask) OnMainStorageDeleteDiskComplete(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
 	self.SetStage("OnGuestDiskDeleteComplete", nil)
 	storage := models.StorageManager.FetchStorageById(disk.BackupStorageId)
-	host := storage.GetMasterHost()
+	host := storage.GetMainHost()
 	if host == nil {
-		self.OnGuestDiskDeleteCompleteFailed(ctx, disk, jsonutils.NewString(fmt.Sprintf("backup storage %s fail to find master host", disk.BackupStorageId)))
+		self.OnGuestDiskDeleteCompleteFailed(ctx, disk, jsonutils.NewString(fmt.Sprintf("backup storage %s fail to find main host", disk.BackupStorageId)))
 	} else if err := host.GetHostDriver().RequestDeallocateDiskOnHost(ctx, host, storage, disk, self); err != nil {
 		self.OnGuestDiskDeleteCompleteFailed(ctx, disk, jsonutils.NewString(err.Error()))
 	}
 }
 
-func (self *DiskDeleteTask) OnMasterStorageDeleteDiskCompleteFailed(ctx context.Context, disk *models.SDisk, reason jsonutils.JSONObject) {
+func (self *DiskDeleteTask) OnMainStorageDeleteDiskCompleteFailed(ctx context.Context, disk *models.SDisk, reason jsonutils.JSONObject) {
 	self.OnGuestDiskDeleteCompleteFailed(ctx, disk, reason)
 }
 
@@ -211,7 +211,7 @@ func (self *StorageDeleteRbdDiskTask) DeleteDisk(ctx context.Context, storage *m
 	header := self.GetTaskRequestHeader()
 	url := fmt.Sprintf("/disks/%s/delete/%s", storage.Id, disksId[0])
 	body := jsonutils.NewDict()
-	host := storage.GetMasterHost()
+	host := storage.GetMainHost()
 	_, err := host.Request(ctx, self.GetUserCred(), "POST", url, header, body)
 	if err != nil {
 		log.Errorln(err)

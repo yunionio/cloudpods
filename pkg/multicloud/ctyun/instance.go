@@ -57,7 +57,7 @@ type SInstance struct {
 	SecurityGroups                   []SecurityGroup      `json:"security_groups"`
 	OSEXTAZAvailabilityZone          string               `json:"OS-EXT-AZ:availability_zone"`
 	OSExtendedVolumesVolumesAttached []Volume             `json:"os-extended-volumes:volumes_attached"`
-	MasterOrderId                    string               `json:"masterOrderId"`
+	MainOrderId                    string               `json:"mainOrderId"`
 }
 
 type InstanceDetails struct {
@@ -368,8 +368,8 @@ func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 		return nil, nil
 	}
 
-	if len(self.MasterOrderId) > 0 {
-		return self.getSecurityGroupIdsByMasterOrderId(self.MasterOrderId)
+	if len(self.MainOrderId) > 0 {
+		return self.getSecurityGroupIdsByMainOrderId(self.MainOrderId)
 	}
 
 	secgroups, err := self.host.zone.region.GetSecurityGroups("")
@@ -393,8 +393,8 @@ func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 	return ids, nil
 }
 
-func (self *SInstance) getSecurityGroupIdsByMasterOrderId(orderId string) ([]string, error) {
-	orders, err := self.host.zone.region.GetOrder(self.MasterOrderId)
+func (self *SInstance) getSecurityGroupIdsByMainOrderId(orderId string) ([]string, error) {
+	orders, err := self.host.zone.region.GetOrder(self.MainOrderId)
 	if err != nil {
 		return nil, errors.Wrap(err, "SInstance.GetSecurityGroupIds.GetOrder")
 	}

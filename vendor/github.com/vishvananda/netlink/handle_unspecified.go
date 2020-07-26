@@ -77,15 +77,15 @@ func (h *Handle) LinkSetVfTxRate(link Link, vf, rate int) error {
 	return ErrNotImplemented
 }
 
-func (h *Handle) LinkSetMaster(link Link, master *Bridge) error {
+func (h *Handle) LinkSetMain(link Link, main *Bridge) error {
 	return ErrNotImplemented
 }
 
-func (h *Handle) LinkSetNoMaster(link Link) error {
+func (h *Handle) LinkSetNoMain(link Link) error {
 	return ErrNotImplemented
 }
 
-func (h *Handle) LinkSetMasterByIndex(link Link, masterIndex int) error {
+func (h *Handle) LinkSetMainByIndex(link Link, mainIndex int) error {
 	return ErrNotImplemented
 }
 

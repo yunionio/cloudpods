@@ -22,10 +22,10 @@ var (
 	Schedtagnetworks modulebase.JointResourceManager
 )
 
-func newSchedtagJointManager(keyword, keywordPlural string, columns, adminColumns []string, slave modulebase.Manager) modulebase.JointResourceManager {
+func newSchedtagJointManager(keyword, keywordPlural string, columns, adminColumns []string, subordinate modulebase.Manager) modulebase.JointResourceManager {
 	columns = append(columns, "Schedtag_ID", "Schedtag")
 	return NewJointComputeManager(keyword, keywordPlural,
-		columns, adminColumns, &Schedtags, slave)
+		columns, adminColumns, &Schedtags, subordinate)
 }
 
 func init() {

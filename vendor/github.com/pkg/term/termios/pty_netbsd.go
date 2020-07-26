@@ -6,7 +6,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func open_pty_master() (uintptr, error) {
+func open_pty_main() (uintptr, error) {
 	fd, err := unix.Open("/dev/ptmx", unix.O_NOCTTY|unix.O_RDWR, 0666)
 	if err != nil {
 		return 0, err

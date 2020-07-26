@@ -37,7 +37,7 @@ type HostwireListInput struct {
 	Interface []string `json:"interface"`
 
 	// 是否是主网口
-	IsMaster *bool `json:"is_master"`
+	IsMain *bool `json:"is_main"`
 
 	// MAC地址
 	MacAddr []string `json:"mac_addr"`

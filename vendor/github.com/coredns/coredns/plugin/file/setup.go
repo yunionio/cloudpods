@@ -26,7 +26,7 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error("file", err)
 	}
 
-	// Add startup functions to notify the master(s).
+	// Add startup functions to notify the main(s).
 	for _, n := range zones.Names {
 		z := zones.Z[n]
 		c.OnStartup(func() error {

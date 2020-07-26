@@ -216,8 +216,8 @@ type SchedNormalResultItem struct {
 }
 
 type SchedBackupResultItem struct {
-	MasterID string `json:"master_id"`
-	SlaveID  string `json:"slave_id"`
+	MainID string `json:"main_id"`
+	SubordinateID  string `json:"subordinate_id"`
 }
 
 type SchedTestResult struct {

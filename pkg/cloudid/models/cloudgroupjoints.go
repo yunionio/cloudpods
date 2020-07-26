@@ -35,7 +35,7 @@ type SCloudgroupJointsManager struct {
 	db.SJointResourceBaseManager
 }
 
-func NewCloudgroupJointsManager(dt interface{}, tableName string, keyword string, keywordPlural string, slave db.IVirtualModelManager) SCloudgroupJointsManager {
+func NewCloudgroupJointsManager(dt interface{}, tableName string, keyword string, keywordPlural string, subordinate db.IVirtualModelManager) SCloudgroupJointsManager {
 	return SCloudgroupJointsManager{
 		SJointResourceBaseManager: db.NewJointResourceBaseManager(
 			dt,
@@ -43,7 +43,7 @@ func NewCloudgroupJointsManager(dt interface{}, tableName string, keyword string
 			keyword,
 			keywordPlural,
 			CloudgroupManager,
-			slave,
+			subordinate,
 		),
 	}
 }
@@ -63,7 +63,7 @@ func (self *SCloudgroupJointsBase) getCloudgroup() (*SCloudgroup, error) {
 	return group.(*SCloudgroup), nil
 }
 
-func (manager *SCloudgroupJointsManager) GetMasterFieldName() string {
+func (manager *SCloudgroupJointsManager) GetMainFieldName() string {
 	return "cloudgroup_id"
 }
 

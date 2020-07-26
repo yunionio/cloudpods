@@ -76,7 +76,7 @@ type SHostInfo struct {
 
 	IsolatedDeviceMan *isolated_device.IsolatedDeviceManager
 
-	MasterNic *netutils2.SNetInterface
+	MainNic *netutils2.SNetInterface
 	Nics      []*SNIC
 
 	HostId         string
@@ -280,12 +280,12 @@ func (h *SHostInfo) parseConfig() error {
 		}
 	}
 	if len(options.HostOptions.ListenInterface) > 0 {
-		h.MasterNic = netutils2.NewNetInterface(options.HostOptions.ListenInterface)
-		if len(h.MasterNic.Addr) == 0 {
-			return fmt.Errorf("Listen interface %s master not have IP", options.HostOptions.ListenInterface)
+		h.MainNic = netutils2.NewNetInterface(options.HostOptions.ListenInterface)
+		if len(h.MainNic.Addr) == 0 {
+			return fmt.Errorf("Listen interface %s main not have IP", options.HostOptions.ListenInterface)
 		}
 	} else {
-		h.MasterNic = nil
+		h.MainNic = nil
 	}
 
 	if man, err := isolated_device.NewManager(h); err != nil {
@@ -688,11 +688,11 @@ func (h *SHostInfo) detectOvsKOVersion() error {
 	return errors.Errorf("kernel module openvswitch paramters version not found, is kernel version correct ??")
 }
 
-func (h *SHostInfo) GetMasterNicIpAndMask() (string, int) {
-	log.Errorf("MasterNic %#v", h.MasterNic)
-	if h.MasterNic != nil {
-		mask, _ := h.MasterNic.Mask.Size()
-		return h.MasterNic.Addr, mask
+func (h *SHostInfo) GetMainNicIpAndMask() (string, int) {
+	log.Errorf("MainNic %#v", h.MainNic)
+	if h.MainNic != nil {
+		mask, _ := h.MainNic.Mask.Size()
+		return h.MainNic.Addr, mask
 	}
 	for _, n := range h.Nics {
 		if len(n.Ip) > 0 {
@@ -702,9 +702,9 @@ func (h *SHostInfo) GetMasterNicIpAndMask() (string, int) {
 	return "", 0
 }
 
-func (h *SHostInfo) GetMasterIp() string {
-	if h.MasterNic != nil {
-		return h.MasterNic.Addr
+func (h *SHostInfo) GetMainIp() string {
+	if h.MainNic != nil {
+		return h.MainNic.Addr
 	}
 	for _, n := range h.Nics {
 		if len(n.Ip) > 0 {
@@ -714,16 +714,16 @@ func (h *SHostInfo) GetMasterIp() string {
 	return ""
 }
 
-func (h *SHostInfo) GetMasterMac() string {
-	return h.getMasterMacWithRefresh(false)
+func (h *SHostInfo) GetMainMac() string {
+	return h.getMainMacWithRefresh(false)
 }
 
-func (h *SHostInfo) getMasterMacWithRefresh(refresh bool) string {
-	if h.MasterNic != nil {
+func (h *SHostInfo) getMainMacWithRefresh(refresh bool) string {
+	if h.MainNic != nil {
 		if refresh {
-			h.MasterNic.FetchConfig()
+			h.MainNic.FetchConfig()
 		}
-		return h.MasterNic.Mac
+		return h.MainNic.Mac
 	}
 	for _, n := range h.Nics {
 		if len(n.Ip) > 0 {
@@ -768,13 +768,13 @@ func (h *SHostInfo) onFail(reason interface{}) {
 
 // try to create network on region.
 func (h *SHostInfo) tryCreateNetworkOnWire() {
-	masterIp, mask := h.GetMasterNicIpAndMask()
-	log.Debugf("Get master ip %s and mask %d", masterIp, mask)
-	if len(masterIp) == 0 || mask == 0 {
-		h.onFail(fmt.Sprintf("master ip %s mask %d", masterIp, mask))
+	mainIp, mask := h.GetMainNicIpAndMask()
+	log.Debugf("Get main ip %s and mask %d", mainIp, mask)
+	if len(mainIp) == 0 || mask == 0 {
+		h.onFail(fmt.Sprintf("main ip %s mask %d", mainIp, mask))
 	}
 	params := jsonutils.NewDict()
-	params.Set("ip", jsonutils.NewString(masterIp))
+	params.Set("ip", jsonutils.NewString(mainIp))
 	params.Set("mask", jsonutils.NewInt(int64(mask)))
 	params.Set("is_on_premise", jsonutils.JSONTrue)
 	params.Set("server_type", jsonutils.NewString(api.NETWORK_TYPE_BAREMETAL))
@@ -795,13 +795,13 @@ func (h *SHostInfo) tryCreateNetworkOnWire() {
 }
 
 func (h *SHostInfo) fetchAccessNetworkInfo() {
-	masterIp := h.GetMasterIp()
-	if len(masterIp) == 0 {
-		h.onFail("master ip not found")
+	mainIp := h.GetMainIp()
+	if len(mainIp) == 0 {
+		h.onFail("main ip not found")
 	}
-	log.Debugf("Master ip %s to fetch wire", masterIp)
+	log.Debugf("Main ip %s to fetch wire", mainIp)
 	params := jsonutils.NewDict()
-	params.Set("ip", jsonutils.NewString(masterIp))
+	params.Set("ip", jsonutils.NewString(mainIp))
 	params.Set("is_on_premise", jsonutils.JSONTrue)
 	params.Set("scope", jsonutils.NewString("system"))
 	params.Set("limit", jsonutils.NewInt(0))
@@ -862,12 +862,12 @@ func (h *SHostInfo) getZoneInfo(zoneId string, standalone bool) {
 }
 
 func (h *SHostInfo) getHostInfo(zoneId string) {
-	masterMac := h.getMasterMacWithRefresh(true)
-	if len(masterMac) == 0 {
-		h.onFail("master mac not found")
+	mainMac := h.getMainMacWithRefresh(true)
+	if len(mainMac) == 0 {
+		h.onFail("main mac not found")
 	}
 	params := jsonutils.NewDict()
-	params.Set("any_mac", jsonutils.NewString(masterMac))
+	params.Set("any_mac", jsonutils.NewString(mainMac))
 	params.Set("scope", jsonutils.NewString("system"))
 	res, err := modules.Hosts.List(h.GetSession(), params)
 	if err != nil {
@@ -907,8 +907,8 @@ func (h *SHostInfo) fetchHostname() string {
 		if len(hn) == 0 {
 			hn = "host"
 		}
-		masterIp := h.GetMasterIp()
-		return hn + "-" + strings.Replace(masterIp, ".", "-", -1)
+		mainIp := h.GetMainIp()
+		return hn + "-" + strings.Replace(mainIp, ".", "-", -1)
 	}
 }
 
@@ -921,22 +921,22 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 		h.isInit = true
 	}
 	content := jsonutils.NewDict()
-	masterIp := h.GetMasterIp()
-	if len(masterIp) == 0 {
-		h.onFail("master ip is none")
+	mainIp := h.GetMainIp()
+	if len(mainIp) == 0 {
+		h.onFail("main ip is none")
 	}
 
 	if len(hostId) == 0 {
 		content.Set("generate_name", jsonutils.NewString(h.fetchHostname()))
 	}
-	content.Set("access_ip", jsonutils.NewString(masterIp))
-	content.Set("access_mac", jsonutils.NewString(h.GetMasterMac()))
+	content.Set("access_ip", jsonutils.NewString(mainIp))
+	content.Set("access_mac", jsonutils.NewString(h.GetMainMac()))
 	var schema = "http"
 	if options.HostOptions.EnableSsl {
 		schema = "https"
 	}
 	content.Set("manager_uri", jsonutils.NewString(fmt.Sprintf("%s://%s:%d",
-		schema, masterIp, options.HostOptions.Port)))
+		schema, mainIp, options.HostOptions.Port)))
 	content.Set("cpu_count", jsonutils.NewInt(int64(h.Cpu.cpuInfoProc.Count)))
 	if sysutils.IsHypervisor() {
 		content.Set("node_count", jsonutils.NewInt(1))
@@ -1171,7 +1171,7 @@ func (h *SHostInfo) doUploadNicInfo(nic *SNIC) {
 	content.Set("link_up", jsonutils.JSONTrue)
 	if len(nic.Ip) > 0 {
 		content.Set("ip_addr", jsonutils.NewString(nic.Ip))
-		if nic.Ip == h.GetMasterIp() {
+		if nic.Ip == h.GetMainIp() {
 			content.Set("nic_type", jsonutils.NewString(api.NIC_TYPE_ADMIN))
 		}
 		// always try to allocate from reserved pool
@@ -1499,11 +1499,11 @@ func (h *SHostInfo) setupBridges() error {
 
 func (h *SHostInfo) registerHostlocalServer() error {
 	for _, n := range h.Nics {
-		mac := h.GetMasterMac()
+		mac := h.GetMainMac()
 		if len(mac) == 0 {
 			panic("len mac == 0")
 		}
-		ip := h.GetMasterIp()
+		ip := h.GetMainIp()
 		if len(ip) == 0 {
 			panic("len ip == 0")
 		}
@@ -1569,7 +1569,7 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 		"cloudregion_id": h.CloudregionId,
 		"cloudregion":    h.Cloudregion,
 		"region":         options.HostOptions.Region,
-		"host_ip":        h.GetMasterIp(),
+		"host_ip":        h.GetMainIp(),
 		"platform":       "kvm",
 		"res_type":       "host",
 	}

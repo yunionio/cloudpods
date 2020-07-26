@@ -61,20 +61,20 @@ type SNetworkinterfacenetwork struct {
 	NetworkId          string `width:"36" charset:"ascii" nullable:"false" list:"user"`
 }
 
-func (manager *SNetworkinterfacenetworkManager) GetMasterFieldName() string {
+func (manager *SNetworkinterfacenetworkManager) GetMainFieldName() string {
 	return "networkinterface_id"
 }
 
-func (manager *SNetworkinterfacenetworkManager) GetSlaveFieldName() string {
+func (manager *SNetworkinterfacenetworkManager) GetSubordinateFieldName() string {
 	return "network_id"
 }
 
-func (joint *SNetworkinterfacenetwork) Master() db.IStandaloneModel {
-	return db.JointMaster(joint)
+func (joint *SNetworkinterfacenetwork) Main() db.IStandaloneModel {
+	return db.JointMain(joint)
 }
 
-func (joint *SNetworkinterfacenetwork) Slave() db.IStandaloneModel {
-	return db.JointSlave(joint)
+func (joint *SNetworkinterfacenetwork) Subordinate() db.IStandaloneModel {
+	return db.JointSubordinate(joint)
 }
 
 func (manager *SNetworkinterfacenetworkManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -89,7 +89,7 @@ func (manager *SNetworkinterfacenetworkManager) AllowListDescendent(ctx context.
 	return db.IsAdminAllowList(userCred, manager)
 }
 
-func (manager *SNetworkinterfacenetworkManager) AllowAttach(ctx context.Context, userCred mcclient.TokenCredential, master db.IStandaloneModel, slave db.IStandaloneModel) bool {
+func (manager *SNetworkinterfacenetworkManager) AllowAttach(ctx context.Context, userCred mcclient.TokenCredential, main db.IStandaloneModel, subordinate db.IStandaloneModel) bool {
 	return db.IsAdminAllowCreate(userCred, manager)
 }
 

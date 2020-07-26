@@ -107,9 +107,9 @@ func (self *DiskResetTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 		self.TaskFailed(ctx, disk, fmt.Errorf("Disk storage not found"))
 		return
 	}
-	host := storage.GetMasterHost()
+	host := storage.GetMainHost()
 	if host == nil {
-		self.TaskFailed(ctx, disk, fmt.Errorf("Storage master host not found"))
+		self.TaskFailed(ctx, disk, fmt.Errorf("Storage main host not found"))
 		return
 	}
 	self.RequestResetDisk(ctx, disk, host)

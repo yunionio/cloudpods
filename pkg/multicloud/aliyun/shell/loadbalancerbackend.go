@@ -32,8 +32,8 @@ func init() {
 		return nil
 	})
 
-	shellutils.R(&LoadbalancerBackendListOptions{}, "lb-master-slave-backend-list", "List loadbalanceMasterSlaveBackends", func(cli *aliyun.SRegion, args *LoadbalancerBackendListOptions) error {
-		backends, err := cli.GetLoadbalancerMasterSlaveBackends(args.GROUPID)
+	shellutils.R(&LoadbalancerBackendListOptions{}, "lb-main-subordinate-backend-list", "List loadbalanceMainSubordinateBackends", func(cli *aliyun.SRegion, args *LoadbalancerBackendListOptions) error {
+		backends, err := cli.GetLoadbalancerMainSubordinateBackends(args.GROUPID)
 		if err != nil {
 			return err
 		}

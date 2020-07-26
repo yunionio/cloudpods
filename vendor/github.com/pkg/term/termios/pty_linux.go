@@ -6,7 +6,7 @@ import (
 	"unsafe"
 )
 
-func open_pty_master() (uintptr, error) {
+func open_pty_main() (uintptr, error) {
 	return open_device("/dev/ptmx")
 }
 

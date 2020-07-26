@@ -808,10 +808,10 @@ func (guest *SGuest) SetHostId(userCred mcclient.TokenCredential, hostId string)
 	return nil
 }
 
-func (guest *SGuest) SetHostIdWithBackup(userCred mcclient.TokenCredential, master, slave string) error {
+func (guest *SGuest) SetHostIdWithBackup(userCred mcclient.TokenCredential, main, subordinate string) error {
 	diff, err := db.Update(guest, func() error {
-		guest.HostId = master
-		guest.BackupHostId = slave
+		guest.HostId = main
+		guest.BackupHostId = subordinate
 		return nil
 	})
 	if err != nil {
@@ -3750,9 +3750,9 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *j
 
 	if len(self.BackupHostId) > 0 {
 		if self.HostId == host.Id {
-			desc.Set("is_master", jsonutils.JSONTrue)
+			desc.Set("is_main", jsonutils.JSONTrue)
 		} else if self.BackupHostId == host.Id {
-			desc.Set("is_slave", jsonutils.JSONTrue)
+			desc.Set("is_subordinate", jsonutils.JSONTrue)
 		}
 	}
 	desc.Set("host_id", jsonutils.NewString(host.Id))

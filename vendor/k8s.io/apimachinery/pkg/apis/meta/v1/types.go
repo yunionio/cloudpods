@@ -889,7 +889,7 @@ type APIVersions struct {
 	// Clients can use the appropriate server address as per the CIDR that they match.
 	// In case of multiple matches, clients should use the longest matching CIDR.
 	// The server returns only those CIDRs that it thinks that the client can match.
-	// For example: the master will return an internal IP CIDR only, if the client reaches the server using an internal IP.
+	// For example: the main will return an internal IP CIDR only, if the client reaches the server using an internal IP.
 	// Server looks at X-Forwarded-For header or X-Real-Ip header or request.RemoteAddr (in that order) to get the client IP.
 	ServerAddressByClientCIDRs []ServerAddressByClientCIDR `json:"serverAddressByClientCIDRs" protobuf:"bytes,2,rep,name=serverAddressByClientCIDRs"`
 }
@@ -923,7 +923,7 @@ type APIGroup struct {
 	// Clients can use the appropriate server address as per the CIDR that they match.
 	// In case of multiple matches, clients should use the longest matching CIDR.
 	// The server returns only those CIDRs that it thinks that the client can match.
-	// For example: the master will return an internal IP CIDR only, if the client reaches the server using an internal IP.
+	// For example: the main will return an internal IP CIDR only, if the client reaches the server using an internal IP.
 	// Server looks at X-Forwarded-For header or X-Real-Ip header or request.RemoteAddr (in that order) to get the client IP.
 	// +optional
 	ServerAddressByClientCIDRs []ServerAddressByClientCIDR `json:"serverAddressByClientCIDRs,omitempty" protobuf:"bytes,4,rep,name=serverAddressByClientCIDRs"`

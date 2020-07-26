@@ -3194,11 +3194,11 @@ func (self *SGuest) PerformBlockStreamFailed(ctx context.Context, userCred mccli
 	return nil, nil
 }
 
-func (self *SGuest) AllowPerformSlaveStarted(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "slave-started")
+func (self *SGuest) AllowPerformSubordinateStarted(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "subordinate-started")
 }
 
-func (self *SGuest) PerformSlaveStarted(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SGuest) PerformSubordinateStarted(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.GetMetadata("__mirror_job_status", userCred) == "failed" {
 		if port, err := data.Int("nbd_server_port"); err != nil {
 			return nil, httperrors.NewMissingParameterError("nbd_server_port")
@@ -3241,11 +3241,11 @@ func (manager *SGuestManager) PerformDirtyServerStart(ctx context.Context, userC
 	}
 
 	if guest.HostId == hostId {
-		// master guest
+		// main guest
 		err := guest.StartGueststartTask(ctx, userCred, nil, "")
 		return nil, err
 	} else if guest.BackupHostId == hostId {
-		// slave guest
+		// subordinate guest
 		err := guest.GuestStartAndSyncToBackup(ctx, userCred, "", guest.Status)
 		return nil, err
 	}

@@ -15,9 +15,9 @@ func open_device(path string) (uintptr, error) {
 }
 
 // Pty returns a UNIX 98 pseudoterminal device.
-// Pty returns a pair of fds representing the master and slave pair.
+// Pty returns a pair of fds representing the main and subordinate pair.
 func Pty() (*os.File, *os.File, error) {
-	ptm, err := open_pty_master()
+	ptm, err := open_pty_main()
 	if err != nil {
 		return nil, nil, err
 	}

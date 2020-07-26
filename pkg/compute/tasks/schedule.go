@@ -52,7 +52,7 @@ type IScheduleTask interface {
 	OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason string)
 	// OnScheduleComplete(ctx context.Context, items []db.IStandaloneModel, data *jsonutils.JSONDict)
 	SaveScheduleResult(ctx context.Context, obj IScheduleModel, candidate *schedapi.CandidateResource)
-	SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, master, slave *schedapi.CandidateResource)
+	SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, main, subordinate *schedapi.CandidateResource)
 	OnScheduleFailed(ctx context.Context, reason string)
 }
 
@@ -81,7 +81,7 @@ func (self *SSchedTask) SaveScheduleResult(ctx context.Context, obj IScheduleMod
 	// ...
 }
 
-func (self *SSchedTask) SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, master, slave *schedapi.CandidateResource) {
+func (self *SSchedTask) SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, main, subordinate *schedapi.CandidateResource) {
 	// ...
 }
 
@@ -193,7 +193,7 @@ func onSchedulerResults(
 			onScheduleSucc(ctx, task, obj, result)
 		} else {
 			// backup schedule
-			onMasterSlaveScheduleSucc(ctx, task, obj, result, result.BackupCandidate)
+			onMainSubordinateScheduleSucc(ctx, task, obj, result, result.BackupCandidate)
 		}
 		succCount += 1
 	}
@@ -203,17 +203,17 @@ func onSchedulerResults(
 	cancelPendingUsage(ctx, task)
 }
 
-func onMasterSlaveScheduleSucc(
+func onMainSubordinateScheduleSucc(
 	ctx context.Context,
 	task IScheduleTask,
 	obj IScheduleModel,
-	master, slave *schedapi.CandidateResource,
+	main, subordinate *schedapi.CandidateResource,
 ) {
 	lockman.LockObject(ctx, obj)
 	defer lockman.ReleaseObject(ctx, obj)
-	task.SaveScheduleResultWithBackup(ctx, obj, master, slave)
-	models.HostManager.ClearSchedDescSessionCache(master.HostId, master.SessionId)
-	models.HostManager.ClearSchedDescSessionCache(slave.HostId, slave.SessionId)
+	task.SaveScheduleResultWithBackup(ctx, obj, main, subordinate)
+	models.HostManager.ClearSchedDescSessionCache(main.HostId, main.SessionId)
+	models.HostManager.ClearSchedDescSessionCache(subordinate.HostId, subordinate.SessionId)
 }
 
 func onScheduleSucc(

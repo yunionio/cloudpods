@@ -11,7 +11,7 @@ import (
 )
 
 // isNotify checks if state is a notify message and if so, will *also* check if it
-// is from one of the configured masters. If not it will not be a valid notify
+// is from one of the configured mains. If not it will not be a valid notify
 // message. If the zone z is not a secondary zone the message will also be ignored.
 func (z *Zone) isNotify(state request.Request) bool {
 	if state.Req.Opcode != dns.OpcodeNotify {

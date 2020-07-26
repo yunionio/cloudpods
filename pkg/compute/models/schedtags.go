@@ -51,7 +51,7 @@ var STRATEGY_LIST = api.STRATEGY_LIST
 
 type ISchedtagJointManager interface {
 	db.IJointModelManager
-	GetMasterIdKey(db.IJointModelManager) string
+	GetMainIdKey(db.IJointModelManager) string
 }
 
 type ISchedtagJointModel interface {
@@ -353,8 +353,8 @@ func (self *SSchedtag) AllowDeleteItem(ctx context.Context, userCred mcclient.To
 
 func (self *SSchedtag) GetObjects(objs interface{}) error {
 	q := self.GetObjectQuery()
-	masterMan := self.GetJointManager().GetMasterManager()
-	err := db.FetchModelObjects(masterMan, q, objs)
+	mainMan := self.GetJointManager().GetMainManager()
+	err := db.FetchModelObjects(mainMan, q, objs)
 	if err != nil {
 		return err
 	}
@@ -363,11 +363,11 @@ func (self *SSchedtag) GetObjects(objs interface{}) error {
 
 func (self *SSchedtag) GetObjectQuery() *sqlchemy.SQuery {
 	jointMan := self.GetJointManager()
-	masterMan := jointMan.GetMasterManager()
-	objs := masterMan.Query().SubQuery()
+	mainMan := jointMan.GetMainManager()
+	objs := mainMan.Query().SubQuery()
 	objschedtags := jointMan.Query().SubQuery()
 	q := objs.Query()
-	q = q.Join(objschedtags, sqlchemy.AND(sqlchemy.Equals(objschedtags.Field(jointMan.GetMasterIdKey(jointMan)), objs.Field("id")),
+	q = q.Join(objschedtags, sqlchemy.AND(sqlchemy.Equals(objschedtags.Field(jointMan.GetMainIdKey(jointMan)), objs.Field("id")),
 		sqlchemy.IsFalse(objschedtags.Field("deleted"))))
 	q = q.Filter(sqlchemy.IsTrue(objs.Field("enabled")))
 	q = q.Filter(sqlchemy.Equals(objschedtags.Field("schedtag_id"), self.Id))
@@ -393,7 +393,7 @@ func (self *SSchedtag) getDynamicSchedtagCount() (int, error) {
 func (self *SSchedtag) getMoreColumns(out api.SchedtagDetails) api.SchedtagDetails {
 	out.ProjectId = self.SScopedResourceBase.ProjectId
 	cnt, _ := self.GetObjectCount()
-	keyword := self.GetJointManager().GetMasterManager().Keyword()
+	keyword := self.GetJointManager().GetMainManager().Keyword()
 	switch keyword {
 	case HostManager.Keyword():
 		out.HostCount = cnt
@@ -459,7 +459,7 @@ func (self *SSchedtag) GetShortDescV2(ctx context.Context) api.SchedtagShortDesc
 
 func GetResourceJointSchedtags(obj IModelWithSchedtag) ([]ISchedtagJointModel, error) {
 	jointMan := obj.GetSchedtagJointManager()
-	q := jointMan.Query().Equals(jointMan.GetMasterIdKey(jointMan), obj.GetId())
+	q := jointMan.Query().Equals(jointMan.GetMainIdKey(jointMan), obj.GetId())
 	jointTags := make([]ISchedtagJointModel, 0)
 	rows, err := q.Rows()
 	if err != nil {
@@ -484,14 +484,14 @@ func GetResourceJointSchedtags(obj IModelWithSchedtag) ([]ISchedtagJointModel, e
 	return jointTags, nil
 }
 
-func GetSchedtags(jointMan ISchedtagJointManager, masterId string) []SSchedtag {
+func GetSchedtags(jointMan ISchedtagJointManager, mainId string) []SSchedtag {
 	tags := make([]SSchedtag, 0)
 	schedtags := SchedtagManager.Query().SubQuery()
 	objschedtags := jointMan.Query().SubQuery()
 	q := schedtags.Query()
 	q = q.Join(objschedtags, sqlchemy.AND(sqlchemy.Equals(objschedtags.Field("schedtag_id"), schedtags.Field("id")),
 		sqlchemy.IsFalse(objschedtags.Field("deleted"))))
-	q = q.Filter(sqlchemy.Equals(objschedtags.Field(jointMan.GetMasterIdKey(jointMan)), masterId))
+	q = q.Filter(sqlchemy.Equals(objschedtags.Field(jointMan.GetMainIdKey(jointMan)), mainId))
 	err := db.FetchModelObjects(SchedtagManager, q, &tags)
 	if err != nil {
 		log.Errorf("GetSchedtags error: %s", err)
@@ -543,7 +543,7 @@ func PerformSetResourceSchedtag(obj IModelWithSchedtag, ctx context.Context, use
 			if newTagObj, err := db.NewModelObject(jointMan); err != nil {
 				return nil, httperrors.NewGeneralError(err)
 			} else {
-				objectKey := jointMan.GetMasterIdKey(jointMan)
+				objectKey := jointMan.GetMainIdKey(jointMan)
 				createData := jsonutils.NewDict()
 				createData.Add(jsonutils.NewString(setTagId), "schedtag_id")
 				createData.Add(jsonutils.NewString(obj.GetId()), objectKey)

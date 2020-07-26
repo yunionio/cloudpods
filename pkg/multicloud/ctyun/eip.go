@@ -49,14 +49,14 @@ type SEip struct {
 	PortID              string  `json:"port_id"`
 	BandwidthSize       int     `json:"bandwidth_size"`
 	CreateTime          int64   `json:"create_time"`
-	MasterOrderID       string  `json:"masterOrderId"`
+	MainOrderID       string  `json:"mainOrderId"`
 	WorkOrderResourceID string  `json:"workOrderResourceId"`
 	ExpireTime          int64   `json:"expireTime"`
 	IsFreeze            int64   `json:"isFreeze"`
 }
 
 func (self *SEip) GetBillingType() string {
-	if len(self.MasterOrderID) > 0 {
+	if len(self.MainOrderID) > 0 {
 		return billing_api.BILLING_TYPE_PREPAID
 	} else {
 		return billing_api.BILLING_TYPE_POSTPAID

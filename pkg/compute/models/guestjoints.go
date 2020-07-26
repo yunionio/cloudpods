@@ -34,7 +34,7 @@ type SGuestJointsManager struct {
 	SGuestResourceBaseManager
 }
 
-func NewGuestJointsManager(dt interface{}, tableName string, keyword string, keywordPlural string, slave db.IVirtualModelManager) SGuestJointsManager {
+func NewGuestJointsManager(dt interface{}, tableName string, keyword string, keywordPlural string, subordinate db.IVirtualModelManager) SGuestJointsManager {
 	return SGuestJointsManager{
 		SVirtualJointResourceBaseManager: db.NewVirtualJointResourceBaseManager(
 			dt,
@@ -42,7 +42,7 @@ func NewGuestJointsManager(dt interface{}, tableName string, keyword string, key
 			keyword,
 			keywordPlural,
 			GuestManager,
-			slave,
+			subordinate,
 		),
 	}
 }
@@ -58,7 +58,7 @@ func (self *SGuestJointsBase) getGuest() *SGuest {
 	return guest.(*SGuest)
 }
 
-func (manager *SGuestJointsManager) GetMasterFieldName() string {
+func (manager *SGuestJointsManager) GetMainFieldName() string {
 	return "guest_id"
 }
 

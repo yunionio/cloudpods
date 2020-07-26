@@ -365,12 +365,12 @@ func (self *SHost) fetchNicInfo(debug bool) []SHostNicInfo {
 	if len(moHost.Config.Network.ConsoleVnic) > 0 {
 		vnics = append(vnics, moHost.Config.Network.ConsoleVnic...)
 	}
-	findMaster := false
+	findMain := false
 	for _, nic := range vnics {
 		mac := netutils.FormatMacAddr(nic.Spec.Mac)
 		pnic := findHostNicByMac(nicInfoList, mac)
 		if pnic != nil {
-			findMaster = true
+			findMain = true
 			pnic.IpAddr = nic.Spec.Ip.IpAddress
 			if nic.Spec.Portgroup == "Management Network" || nic.Spec.Portgroup == "Service Console" {
 				pnic.NicType = api.NIC_TYPE_ADMIN
@@ -380,8 +380,8 @@ func (self *SHost) fetchNicInfo(debug bool) []SHostNicInfo {
 		}
 	}
 
-	if !findMaster && len(nicInfoList) > 0 {
-		// no match pnic found for master nic
+	if !findMain && len(nicInfoList) > 0 {
+		// no match pnic found for main nic
 		// choose the first pnic
 		pnic := &nicInfoList[0]
 		for _, nic := range vnics {

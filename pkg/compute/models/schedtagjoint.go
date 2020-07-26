@@ -43,8 +43,8 @@ func NewSchedtagJointsManager(
 	tableName string,
 	keyword string,
 	keywordPlural string,
-	master db.IStandaloneModelManager,
-	slave db.IStandaloneModelManager,
+	main db.IStandaloneModelManager,
+	subordinate db.IStandaloneModelManager,
 ) *SSchedtagJointsManager {
 	return &SSchedtagJointsManager{
 		SJointResourceBaseManager: db.NewJointResourceBaseManager(
@@ -52,8 +52,8 @@ func NewSchedtagJointsManager(
 			tableName,
 			keyword,
 			keywordPlural,
-			master,
-			slave,
+			main,
+			subordinate,
 		),
 	}
 }
@@ -64,7 +64,7 @@ type SSchedtagJointsBase struct {
 	SchedtagId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // =Column(VARCHAR(36, charset='ascii'), nullable=False)
 }
 
-func (manager *SSchedtagJointsManager) GetMasterFieldName() string {
+func (manager *SSchedtagJointsManager) GetMainFieldName() string {
 	return "schedtag_id"
 }
 
@@ -89,7 +89,7 @@ func (man *SSchedtagJointsManager) ValidateCreateData(ctx context.Context, userC
 	if err != nil || schedtagId == "" {
 		return nil, httperrors.NewInputParameterError("schedtag_id not provide")
 	}
-	resourceType := man.GetMasterManager().KeywordPlural()
+	resourceType := man.GetMainManager().KeywordPlural()
 	if !utils.IsInStringArray(resourceType, SchedtagManager.GetResourceTypes()) {
 		return nil, httperrors.NewInputParameterError("Not support resource_type %s", resourceType)
 	}
@@ -118,11 +118,11 @@ func (man *SSchedtagJointsManager) AllowListDescendent(ctx context.Context, user
 	return db.IsAdminAllowList(userCred, man)
 }
 
-func (man *SSchedtagJointsManager) GetMasterIdKey(m db.IJointModelManager) string {
-	return fmt.Sprintf("%s_id", m.GetMasterManager().Keyword())
+func (man *SSchedtagJointsManager) GetMainIdKey(m db.IJointModelManager) string {
+	return fmt.Sprintf("%s_id", m.GetMainManager().Keyword())
 }
 
-func (man *SSchedtagJointsManager) AllowAttach(ctx context.Context, userCred mcclient.TokenCredential, master db.IStandaloneModel, slave db.IStandaloneModel) bool {
+func (man *SSchedtagJointsManager) AllowAttach(ctx context.Context, userCred mcclient.TokenCredential, main db.IStandaloneModel, subordinate db.IStandaloneModel) bool {
 	return db.IsAdminAllowCreate(userCred, man)
 }
 
@@ -142,16 +142,16 @@ func (joint *SSchedtagJointsBase) GetSchedtagId() string {
 	return joint.SchedtagId
 }
 
-func (joint *SSchedtagJointsBase) master(obj db.IJointModel) db.IStandaloneModel {
-	return db.JointMaster(obj)
+func (joint *SSchedtagJointsBase) main(obj db.IJointModel) db.IStandaloneModel {
+	return db.JointMain(obj)
 }
 
 func (joint *SSchedtagJointsBase) GetSchedtag() *SSchedtag {
-	return joint.Slave().(*SSchedtag)
+	return joint.Subordinate().(*SSchedtag)
 }
 
-func (joint *SSchedtagJointsBase) Slave() db.IStandaloneModel {
-	return db.JointSlave(joint)
+func (joint *SSchedtagJointsBase) Subordinate() db.IStandaloneModel {
+	return db.JointSubordinate(joint)
 }
 
 func (joint *SSchedtagJointsBase) GetExtraDetails(

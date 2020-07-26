@@ -57,12 +57,12 @@ type SHostschedtag struct {
 	HostId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 }
 
-func (manager *SHostschedtagManager) GetSlaveFieldName() string {
+func (manager *SHostschedtagManager) GetSubordinateFieldName() string {
 	return "host_id"
 }
 
 func (self *SHostschedtag) GetHost() *SHost {
-	return self.Master().(*SHost)
+	return self.Main().(*SHost)
 }
 
 func (self *SHostschedtag) GetHosts() ([]SHost, error) {
@@ -71,8 +71,8 @@ func (self *SHostschedtag) GetHosts() ([]SHost, error) {
 	return hosts, err
 }
 
-func (self *SHostschedtag) Master() db.IStandaloneModel {
-	return self.SSchedtagJointsBase.master(self)
+func (self *SHostschedtag) Main() db.IStandaloneModel {
+	return self.SSchedtagJointsBase.main(self)
 }
 
 func (self *SHostschedtag) GetExtraDetails(

@@ -34,10 +34,10 @@ type SAlertJointsManager struct {
 func NewAlertJointsManager(
 	dt interface{}, tableName string,
 	keyword string, keywordPlural string,
-	slave db.IStandaloneModelManager) SAlertJointsManager {
+	subordinate db.IStandaloneModelManager) SAlertJointsManager {
 	return SAlertJointsManager{
 		db.NewJointResourceBaseManager(
-			dt, tableName, keyword, keywordPlural, AlertManager, slave),
+			dt, tableName, keyword, keywordPlural, AlertManager, subordinate),
 	}
 }
 
@@ -52,7 +52,7 @@ func (b *SAlertJointsBase) getAlert() *SAlert {
 	return alert
 }
 
-func (man *SAlertJointsManager) GetMasterFieldName() string {
+func (man *SAlertJointsManager) GetMainFieldName() string {
 	return "alert_id"
 }
 

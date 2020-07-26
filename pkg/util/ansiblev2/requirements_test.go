@@ -32,7 +32,7 @@ func TestRequirementsString(t *testing.T) {
 		{
 			Name:    "java",
 			Src:     "https://github.com/geerlingguy/ansible-role-java",
-			Version: "origin/master",
+			Version: "origin/main",
 		},
 		{
 			Name:    "jenkins",

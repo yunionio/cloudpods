@@ -1652,12 +1652,12 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 			}
 		}
 
-		if len(dbinstance.MasterInstanceId) > 0 {
-			master, err := dbinstance.GetMasterInstance()
+		if len(dbinstance.MainInstanceId) > 0 {
+			main, err := dbinstance.GetMainInstance()
 			if err != nil {
-				return nil, errors.Wrap(err, "dbinstnace.GetMasterInstance()")
+				return nil, errors.Wrap(err, "dbinstnace.GetMainInstance()")
 			}
-			desc.MasterInstanceId = master.ExternalId
+			desc.MainInstanceId = main.ExternalId
 		}
 
 		log.Debugf("create dbinstance params: %s", jsonutils.Marshal(desc).String())

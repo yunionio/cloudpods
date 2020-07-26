@@ -200,11 +200,11 @@ type xlsxCellStyle struct {
 }
 
 // xlsxCellStyleXfs directly maps the cellStyleXfs element. This element
-// contains the master formatting records (xf's) which define the formatting for
-// all named cell styles in this workbook. Master formatting records reference
+// contains the main formatting records (xf's) which define the formatting for
+// all named cell styles in this workbook. Main formatting records reference
 // individual elements of formatting (e.g., number format, font definitions,
 // cell fills, etc) by specifying a zero-based index into those collections.
-// Master formatting records also specify whether to apply or ignore particular
+// Main formatting records also specify whether to apply or ignore particular
 // aspects of formatting.
 type xlsxCellStyleXfs struct {
 	Count int      `xml:"count,attr"`
@@ -232,7 +232,7 @@ type xlsxXf struct {
 }
 
 // xlsxCellXfs directly maps the cellXfs element. This element contains the
-// master formatting records (xf) which define the formatting applied to cells
+// main formatting records (xf) which define the formatting applied to cells
 // in this workbook. These records are the starting point for determining the
 // formatting for a cell. Cells in the Sheet Part reference the xf records by
 // zero-based index.
@@ -241,7 +241,7 @@ type xlsxCellXfs struct {
 	Xf    []xlsxXf `xml:"xf,omitempty"`
 }
 
-// xlsxDxfs directly maps the dxfs element. This element contains the master
+// xlsxDxfs directly maps the dxfs element. This element contains the main
 // differential formatting records (dxf's) which define formatting for all non-
 // cell formatting in this workbook. Whereas xf records fully specify a
 // particular aspect of formatting (e.g., cell borders) by referencing those

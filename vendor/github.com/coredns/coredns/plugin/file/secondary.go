@@ -7,7 +7,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-// TransferIn retrieves the zone from the masters, parses it and sets it live.
+// TransferIn retrieves the zone from the mains, parses it and sets it live.
 func (z *Zone) TransferIn() error {
 	if len(z.TransferFrom) == 0 {
 		return nil

@@ -32,7 +32,7 @@ type SHostJointsManager struct {
 	SHostResourceBaseManager
 }
 
-func NewHostJointsManager(hostIdFieldName string, dt interface{}, tableName string, keyword string, keywordPlural string, slave db.IStandaloneModelManager) SHostJointsManager {
+func NewHostJointsManager(hostIdFieldName string, dt interface{}, tableName string, keyword string, keywordPlural string, subordinate db.IStandaloneModelManager) SHostJointsManager {
 	return SHostJointsManager{
 		SJointResourceBaseManager: db.NewJointResourceBaseManager(
 			dt,
@@ -40,7 +40,7 @@ func NewHostJointsManager(hostIdFieldName string, dt interface{}, tableName stri
 			keyword,
 			keywordPlural,
 			HostManager,
-			slave,
+			subordinate,
 		),
 		SHostResourceBaseManager: SHostResourceBaseManager{
 			hostIdFieldName: hostIdFieldName,
@@ -64,7 +64,7 @@ func (manager *SHostJointsManager) AllowListDescendent(ctx context.Context, user
 	return db.IsAdminAllowList(userCred, manager)
 }
 
-func (manager *SHostJointsManager) AllowAttach(ctx context.Context, userCred mcclient.TokenCredential, master db.IStandaloneModel, slave db.IStandaloneModel) bool {
+func (manager *SHostJointsManager) AllowAttach(ctx context.Context, userCred mcclient.TokenCredential, main db.IStandaloneModel, subordinate db.IStandaloneModel) bool {
 	return db.IsAdminAllowCreate(userCred, manager)
 }
 

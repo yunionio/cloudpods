@@ -20,7 +20,7 @@ import "yunion.io/x/onecloud/pkg/util/billing"
 // https://help.aliyun.com/document_detail/60873.html?spm=a2c4g.11174283.6.715.7412dce0qSYemb
 type SCloudElasticCacheInput struct {
 	RegionId         string                 // 地域
-	InstanceType     string                 // 实例规格 redis.master.small.default
+	InstanceType     string                 // 实例规格 redis.main.small.default
 	CapacityGB       int64                  // 缓存容量 华为云此项参数必选
 	InstanceName     string                 // 实例名称
 	UserName         string                 // redis 用户名，可选

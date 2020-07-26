@@ -1996,11 +1996,11 @@ type DomainValidationOption struct {
 	//
 	//    * administrator@example.com
 	//
-	//    * hostmaster@example.com
+	//    * hostmain@example.com
 	//
-	//    * postmaster@example.com
+	//    * postmain@example.com
 	//
-	//    * webmaster@example.com
+	//    * webmain@example.com
 	//
 	// ValidationDomain is a required field
 	ValidationDomain *string `min:"1" type:"string" required:"true"`
@@ -3087,11 +3087,11 @@ type ResendValidationEmailInput struct {
 	//
 	//    * administrator@subdomain.example.com
 	//
-	//    * hostmaster@subdomain.example.com
+	//    * hostmain@subdomain.example.com
 	//
-	//    * postmaster@subdomain.example.com
+	//    * postmain@subdomain.example.com
 	//
-	//    * webmaster@subdomain.example.com
+	//    * webmain@subdomain.example.com
 	//
 	// ValidationDomain is a required field
 	ValidationDomain *string `min:"1" type:"string" required:"true"`

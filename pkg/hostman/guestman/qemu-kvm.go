@@ -311,8 +311,8 @@ func (s *SKVMGuestInstance) ImportServer(pendingDelete bool) {
 
 	if s.IsDirtyShotdown() && !pendingDelete {
 		log.Infof("Server dirty shotdown %s", s.GetName())
-		if jsonutils.QueryBoolean(s.Desc, "is_master", false) ||
-			jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
+		if jsonutils.QueryBoolean(s.Desc, "is_main", false) ||
+			jsonutils.QueryBoolean(s.Desc, "is_subordinate", false) {
 			go s.DirtyServerRequestStart()
 		} else {
 			s.StartGuest(context.Background(), jsonutils.NewDict())
@@ -330,7 +330,7 @@ func (s *SKVMGuestInstance) ImportServer(pendingDelete bool) {
 			action = "suspend"
 		}
 		log.Infof("%s is %s, pending_delete=%t", s.GetName(), action, pendingDelete)
-		if !s.IsSlave() {
+		if !s.IsSubordinate() {
 			s.SyncStatus()
 		}
 	}
@@ -459,7 +459,7 @@ func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
 
 func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
 	switch {
-	case event.Event == `"BLOCK_JOB_READY"` && s.IsMaster():
+	case event.Event == `"BLOCK_JOB_READY"` && s.IsMain():
 		if itype, ok := event.Data["type"]; ok {
 			stype, _ := itype.(string)
 			if stype == "mirror" {
@@ -511,12 +511,12 @@ func (s *SKVMGuestInstance) SyncMirrorJobFailed(reason string) {
 	}
 }
 
-func (s *SKVMGuestInstance) OnSlaveStartedWithNbdServer(nbdServerPort int64) {
+func (s *SKVMGuestInstance) OnSubordinateStartedWithNbdServer(nbdServerPort int64) {
 	params := jsonutils.NewDict()
 	params.Set("nbd_server_port", jsonutils.NewInt(nbdServerPort))
 	_, err := modules.Servers.PerformAction(
 		hostutils.GetComputeSession(context.Background()),
-		s.GetId(), "slave-started", params,
+		s.GetId(), "subordinate-started", params,
 	)
 	if err != nil {
 		log.Errorf("Server %s perform resume guest got error %s", s.GetId(), err)
@@ -538,9 +538,9 @@ func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string
 		body := jsonutils.NewDict()
 		body.Set("live_migrate_dest_port", migratePort)
 		hostutils.TaskComplete(ctx, body)
-	} else if s.IsSlave() {
+	} else if s.IsSubordinate() {
 		s.startQemuBuiltInNbdServer(ctx)
-	} else if s.IsMaster() {
+	} else if s.IsMain() {
 		s.startDiskBackupMirror(ctx)
 		if ctx != nil && len(appctx.AppContextTaskId(ctx)) > 0 {
 			s.DoResumeTask(ctx)
@@ -559,7 +559,7 @@ func (s *SKVMGuestInstance) onMonitorDisConnect(err error) {
 	log.Infof("Guest %s on Monitor Disconnect", s.Id)
 	s.CleanStartupTask()
 	s.scriptStop()
-	if !jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
+	if !jsonutils.QueryBoolean(s.Desc, "is_subordinate", false) {
 		s.SyncStatus()
 	}
 	s.clearCgroup(0)
@@ -605,7 +605,7 @@ func (s *SKVMGuestInstance) startQemuBuiltInNbdServer(ctx context.Context) {
 				hostutils.TaskComplete(ctx, res)
 			}
 		} else {
-			s.OnSlaveStartedWithNbdServer(int64(nbdServerPort))
+			s.OnSubordinateStartedWithNbdServer(int64(nbdServerPort))
 		}
 	}
 	s.Monitor.StartNbdServer(nbdServerPort, true, true, onNbdServerStarted)
@@ -621,12 +621,12 @@ func (s *SKVMGuestInstance) clearCgroup(pid int) {
 	}
 }
 
-func (s *SKVMGuestInstance) IsMaster() bool {
-	return jsonutils.QueryBoolean(s.Desc, "is_master", false)
+func (s *SKVMGuestInstance) IsMain() bool {
+	return jsonutils.QueryBoolean(s.Desc, "is_main", false)
 }
 
-func (s *SKVMGuestInstance) IsSlave() bool {
-	return jsonutils.QueryBoolean(s.Desc, "is_slave", false)
+func (s *SKVMGuestInstance) IsSubordinate() bool {
+	return jsonutils.QueryBoolean(s.Desc, "is_subordinate", false)
 }
 
 func (s *SKVMGuestInstance) DiskCount() int {
@@ -773,7 +773,7 @@ func (s *SKVMGuestInstance) SyncStatus() {
 func (s *SKVMGuestInstance) CheckBlockOrRunning(jobs int) {
 	var status = compute.VM_RUNNING
 	if jobs > 0 {
-		if s.IsMaster() {
+		if s.IsMain() {
 			mirrorStatus := s.MirrorJobStatus()
 			if mirrorStatus.InProcess() {
 				status = compute.VM_BLOCK_STREAM

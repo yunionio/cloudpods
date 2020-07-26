@@ -32,7 +32,7 @@ type SClouduserJointsManager struct {
 	SClouduserResourceBaseManager
 }
 
-func NewClouduserJointsManager(dt interface{}, tableName string, keyword string, keywordPlural string, slave db.IVirtualModelManager) SClouduserJointsManager {
+func NewClouduserJointsManager(dt interface{}, tableName string, keyword string, keywordPlural string, subordinate db.IVirtualModelManager) SClouduserJointsManager {
 	return SClouduserJointsManager{
 		SJointResourceBaseManager: db.NewJointResourceBaseManager(
 			dt,
@@ -40,7 +40,7 @@ func NewClouduserJointsManager(dt interface{}, tableName string, keyword string,
 			keyword,
 			keywordPlural,
 			ClouduserManager,
-			slave,
+			subordinate,
 		),
 	}
 }
@@ -51,7 +51,7 @@ type SClouduserJointsBase struct {
 	SClouduserResourceBase
 }
 
-func (manager *SClouduserJointsManager) GetMasterFieldName() string {
+func (manager *SClouduserJointsManager) GetMainFieldName() string {
 	return "clouduser_id"
 }
 

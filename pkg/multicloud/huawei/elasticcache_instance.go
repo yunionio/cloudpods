@@ -187,7 +187,7 @@ func (self *SElasticcache) GetArchType() string {
 	   资源规格标识。
 
 	   dcs.single_node：表示实例类型为单机
-	   dcs.master_standby：表示实例类型为主备
+	   dcs.main_standby：表示实例类型为主备
 	   dcs.cluster：表示实例类型为集群
 	*/
 	if strings.Contains(self.ResourceSpecCode, "single") {

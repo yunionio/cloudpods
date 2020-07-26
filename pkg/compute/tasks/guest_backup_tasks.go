@@ -36,24 +36,24 @@ type GuestSwitchToBackupTask struct {
 }
 
 /*
-0. ensure master guest stopped
+0. ensure main guest stopped
 1. stop backup guest
-2. switch guest master host to backup host
-3. start guest with new master
+2. switch guest main host to backup host
+3. start guest with new main
 */
 func (self *GuestSwitchToBackupTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	host := guest.GetHost()
 	self.Params.Set("is_force", jsonutils.JSONTrue)
-	self.SetStage("OnEnsureMasterGuestStoped", nil)
+	self.SetStage("OnEnsureMainGuestStoped", nil)
 	err := guest.GetDriver().RequestStopOnHost(ctx, guest, host, self)
 	if err != nil {
-		// In case of master host crash
-		self.OnEnsureMasterGuestStoped(ctx, guest, nil)
+		// In case of main host crash
+		self.OnEnsureMainGuestStoped(ctx, guest, nil)
 	}
 }
 
-func (self *GuestSwitchToBackupTask) OnEnsureMasterGuestStoped(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+func (self *GuestSwitchToBackupTask) OnEnsureMainGuestStoped(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	backupHost := models.HostManager.FetchHostById(guest.BackupHostId)
 	self.Params.Set("is_force", jsonutils.JSONTrue)
 	self.SetStage("OnBackupGuestStoped", nil)
@@ -97,7 +97,7 @@ func (self *GuestSwitchToBackupTask) OnBackupGuestStoped(ctx context.Context, gu
 	}
 }
 
-func (self *GuestSwitchToBackupTask) OnNewMasterStarted(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+func (self *GuestSwitchToBackupTask) OnNewMainStarted(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	guest.RemoveMetadata(ctx, "origin_status", self.UserCred)
 	self.OnComplete(ctx, guest, nil)
 }

@@ -1341,33 +1341,33 @@ func (self *SHost) getAttachedWires() []SWire {
 	return ret
 }
 
-func (self *SHost) GetMasterHostwire() *SHostwire {
+func (self *SHost) GetMainHostwire() *SHostwire {
 	hw := SHostwire{}
 	hw.SetModelManager(HostwireManager, &hw)
 
-	q := self.GetWiresQuery().IsTrue("is_master")
+	q := self.GetWiresQuery().IsTrue("is_main")
 	err := q.First(&hw)
 	if err != nil {
-		log.Errorf("GetMasterHostwire %s", err)
+		log.Errorf("GetMainHostwire %s", err)
 		return nil
 	}
 	return &hw
 }
 
-func (self *SHost) GetMasterWire() *SWire {
+func (self *SHost) GetMainWire() *SWire {
 	wires := WireManager.Query().SubQuery()
 	hostwires := HostwireManager.Query().SubQuery()
 	q := wires.Query()
 	q = q.Join(hostwires, sqlchemy.AND(sqlchemy.Equals(hostwires.Field("wire_id"), wires.Field("id")),
 		sqlchemy.IsFalse(hostwires.Field("deleted"))))
 	q = q.Filter(sqlchemy.Equals(hostwires.Field("host_id"), self.Id))
-	q = q.Filter(sqlchemy.IsTrue(hostwires.Field("is_master")))
+	q = q.Filter(sqlchemy.IsTrue(hostwires.Field("is_main")))
 	wire := SWire{}
 	wire.SetModelManager(WireManager, &wire)
 
 	err := q.First(&wire)
 	if err != nil {
-		log.Errorf("GetMasterWire fail %s", err)
+		log.Errorf("GetMainWire fail %s", err)
 		return nil
 	}
 	return &wire
@@ -1414,7 +1414,7 @@ func (self *SHost) GetGuests() []SGuest {
 	return guests
 }
 
-func (self *SHost) GetGuestsMasterOnThisHost() []SGuest {
+func (self *SHost) GetGuestsMainOnThisHost() []SGuest {
 	q := self.GetGuestsQuery().IsNotEmpty("backup_host_id")
 	guests := make([]SGuest, 0)
 	err := db.FetchModelObjects(GuestManager, q, &guests)
@@ -3937,7 +3937,7 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 			if len(bridge) == 0 {
 				bridge = fmt.Sprintf("br%s", sw.GetName())
 			}
-			var isMaster = netif.NicType == api.NIC_TYPE_ADMIN
+			var isMain = netif.NicType == api.NIC_TYPE_ADMIN
 			hw, err := HostwireManager.FetchByHostIdAndMac(self.Id, mac)
 			if err != nil {
 				if err != sql.ErrNoRows {
@@ -3948,7 +3948,7 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 				hw.Interface = strInterface
 				hw.HostId = self.Id
 				hw.WireId = sw.Id
-				hw.IsMaster = isMaster
+				hw.IsMain = isMain
 				hw.MacAddr = mac
 				err := HostwireManager.TableSpec().Insert(ctx, hw)
 				if err != nil {
@@ -3960,7 +3960,7 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 					hw.Interface = strInterface
 					// hw.MacAddr = mac
 					hw.WireId = sw.Id
-					hw.IsMaster = isMaster
+					hw.IsMain = isMain
 					return nil
 				})
 			}
@@ -4941,7 +4941,7 @@ func (host *SHost) OnHostDown(ctx context.Context, userCred mcclient.TokenCreden
 }
 
 func (host *SHost) switchWithBackup(ctx context.Context, userCred mcclient.TokenCredential) {
-	guests := host.GetGuestsMasterOnThisHost()
+	guests := host.GetGuestsMainOnThisHost()
 	for i := 0; i < len(guests); i++ {
 		if guests[i].isInReconcile(userCred) {
 			log.Warningf("guest %s is in reconcile", guests[i].GetName())

@@ -2150,7 +2150,7 @@ func (self *SHuaWeiRegionDriver) DealNatGatewaySpec(spec string) string {
 }
 
 func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.DBInstanceCreateInput, skus []models.SDBInstanceSku, network *models.SNetwork) (api.DBInstanceCreateInput, error) {
-	if len(input.MasterInstanceId) > 0 && input.Engine == api.DBINSTANCE_TYPE_SQLSERVER {
+	if len(input.MainInstanceId) > 0 && input.Engine == api.DBINSTANCE_TYPE_SQLSERVER {
 		return input, httperrors.NewInputParameterError("Not support create read-only dbinstance for %s", input.Engine)
 	}
 
@@ -2287,7 +2287,7 @@ func (self *SHuaWeiRegionDriver) ValidateDBInstanceRecovery(ctx context.Context,
 		if instance.Engine != api.DBINSTANCE_TYPE_SQLSERVER {
 			return httperrors.NewInputParameterError("Huawei only %s engine support databases recovery", instance.Engine)
 		}
-		invalidDbs := []string{"rdsadmin", "master", "msdb", "tempdb", "model"}
+		invalidDbs := []string{"rdsadmin", "main", "msdb", "tempdb", "model"}
 		for _, db := range input.Databases {
 			if utils.IsInStringArray(strings.ToLower(db), invalidDbs) {
 				return httperrors.NewInputParameterError("New databases name can not be one of %s", invalidDbs)
@@ -2297,14 +2297,14 @@ func (self *SHuaWeiRegionDriver) ValidateDBInstanceRecovery(ctx context.Context,
 	return nil
 }
 
-func validatorSlaveZones(ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict, optional bool) error {
-	s, err := data.GetString("slave_zones")
+func validatorSubordinateZones(ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict, optional bool) error {
+	s, err := data.GetString("subordinate_zones")
 	if err != nil {
 		if optional {
 			return nil
 		}
 
-		return fmt.Errorf("missing parameter slave_zones")
+		return fmt.Errorf("missing parameter subordinate_zones")
 	}
 
 	zones := strings.Split(s, ",")
@@ -2314,7 +2314,7 @@ func validatorSlaveZones(ownerId mcclient.IIdentityProvider, data *jsonutils.JSO
 		_data := jsonutils.NewDict()
 		_data.Add(jsonutils.NewString(zone), "zone")
 		if err := zoneV.Validate(_data); err != nil {
-			return errors.Wrap(err, "validatorSlaveZones")
+			return errors.Wrap(err, "validatorSubordinateZones")
 		} else {
 			ret = append(ret, zoneV.Model.GetId())
 		}
@@ -2338,7 +2338,7 @@ func validatorSlaveZones(ownerId mcclient.IIdentityProvider, data *jsonutils.JSO
 		}
 	}
 
-	data.Set("slave_zones", jsonutils.NewString(strings.Join(ret, ",")))
+	data.Set("subordinate_zones", jsonutils.NewString(strings.Join(ret, ",")))
 	return nil
 }
 
@@ -2411,8 +2411,8 @@ func (self *SHuaWeiRegionDriver) ValidateCreateElasticcacheData(ctx context.Cont
 		data.Set("capacity_mb", jsonutils.NewInt(int64(sku.MemorySizeMB)))
 	}
 
-	// validate slave zones
-	if err := validatorSlaveZones(ownerId, data, true); err != nil {
+	// validate subordinate zones
+	if err := validatorSubordinateZones(ownerId, data, true); err != nil {
 		return nil, err
 	}
 

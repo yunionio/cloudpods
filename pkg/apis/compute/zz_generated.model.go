@@ -300,7 +300,7 @@ type SDBInstance struct {
 	SCloudregionResourceBase
 	SDeletePreventableResourceBase
 	// 主实例Id
-	MasterInstanceId string `json:"master_instance_id"`
+	MainInstanceId string `json:"main_instance_id"`
 	// CPU数量
 	// example: 1
 	VcpuCount int `json:"vcpu_count"`
@@ -533,9 +533,9 @@ type SElasticcache struct {
 	SVpcResourceBase
 	SZoneResourceBase
 	// 备可用区
-	SlaveZones string `json:"slave_zones"`
+	SubordinateZones string `json:"subordinate_zones"`
 	// 实例规格
-	// example: redis.master.micro.default
+	// example: redis.main.micro.default
 	InstanceType string `json:"instance_type"`
 	// 容量
 	// example: 1024
@@ -650,7 +650,7 @@ type SElasticcacheSku struct {
 	SCloudregionResourceBase
 	// 区域
 	SZoneResourceBase
-	SlaveZoneId    string `json:"slave_zone_id"`
+	SubordinateZoneId    string `json:"subordinate_zone_id"`
 	InstanceSpec   string `json:"instance_spec"`
 	EngineArch     string `json:"engine_arch"`
 	LocalCategory  string `json:"local_category"`
@@ -1067,7 +1067,7 @@ type SHostwire struct {
 	// 接口名称
 	Interface string `json:"interface"`
 	// 是否是主地址
-	IsMaster bool `json:"is_master"`
+	IsMain bool `json:"is_main"`
 	// MAC地址
 	MacAddr string `json:"mac_addr"`
 	// 宿主机Id
@@ -1284,7 +1284,7 @@ type SLoadbalancerAgentParamsTelegraf struct {
 type SLoadbalancerAgentParamsVrrp struct {
 	Priority          int    `json:"priority"`
 	VirtualRouterId   int    `json:"virtual_router_id"`
-	GarpMasterRefresh int    `json:"garp_master_refresh"`
+	GarpMainRefresh int    `json:"garp_main_refresh"`
 	Preempt           bool   `json:"preempt"`
 	Interface         string `json:"interface"`
 	AdvertInt         int    `json:"advert_int"`

@@ -55,7 +55,7 @@ type SDisk struct {
 	Bootable            string       `json:"bootable"`
 	AvailabilityZone    string       `json:"availability_zone"`
 	Attachments         []Attachment `json:"attachments"`
-	MasterOrderID       string       `json:"masterOrderId"`
+	MainOrderID       string       `json:"mainOrderId"`
 	WorkOrderResourceID string       `json:"workOrderResourceId"`
 	ExpireTime          int64        `json:"expireTime"`
 	IsFreeze            int64        `json:"isFreeze"`

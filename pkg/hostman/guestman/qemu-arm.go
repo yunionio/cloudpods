@@ -216,9 +216,9 @@ func (s *SKVMGuestInstance) generateArmStartScript(data *jsonutils.JSONDict) (st
 
 		// # usb redirect
 		cmd += " -device ich9-usb-ehci1,id=usb"
-		cmd += " -device ich9-usb-uhci1,masterbus=usb.0,firstport=0,multifunction=on"
-		cmd += " -device ich9-usb-uhci2,masterbus=usb.0,firstport=2"
-		cmd += " -device ich9-usb-uhci3,masterbus=usb.0,firstport=4"
+		cmd += " -device ich9-usb-uhci1,mainbus=usb.0,firstport=0,multifunction=on"
+		cmd += " -device ich9-usb-uhci2,mainbus=usb.0,firstport=2"
+		cmd += " -device ich9-usb-uhci3,mainbus=usb.0,firstport=4"
 		cmd += " -chardev spicevmc,name=usbredir,id=usbredirchardev1"
 		cmd += " -device usb-redir,chardev=usbredirchardev1,id=usbredirdev1"
 		cmd += " -chardev spicevmc,name=usbredir,id=usbredirchardev2"
@@ -297,10 +297,10 @@ func (s *SKVMGuestInstance) generateArmStartScript(data *jsonutils.JSONDict) (st
 		migratePort := s.manager.GetFreePortByBase(LIVE_MIGRATE_PORT_BASE)
 		s.Desc.Set("live_migrate_dest_port", jsonutils.NewInt(int64(migratePort)))
 		cmd += fmt.Sprintf(" -incoming tcp:0:%d", migratePort)
-	} else if jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
+	} else if jsonutils.QueryBoolean(s.Desc, "is_subordinate", false) {
 		cmd += fmt.Sprintf(" -incoming tcp:0:%d",
 			s.manager.GetFreePortByBase(LIVE_MIGRATE_PORT_BASE))
-	} else if jsonutils.QueryBoolean(s.Desc, "is_master", false) {
+	} else if jsonutils.QueryBoolean(s.Desc, "is_main", false) {
 		cmd += " -S"
 	}
 	// cmd += fmt.Sprintf(" -D %s", path.Join(s.HomeDir(), "log"))

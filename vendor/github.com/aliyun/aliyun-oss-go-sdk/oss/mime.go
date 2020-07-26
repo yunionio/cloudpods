@@ -38,7 +38,7 @@ var extToMimeType = map[string]string{
 	".ods":           "application/vnd.oasis.opendocument.spreadsheet",
 	".ots":           "application/vnd.oasis.opendocument.spreadsheet-template",
 	".odt":           "application/vnd.oasis.opendocument.text",
-	".odm":           "application/vnd.oasis.opendocument.text-master",
+	".odm":           "application/vnd.oasis.opendocument.text-main",
 	".ott":           "application/vnd.oasis.opendocument.text-template",
 	".oth":           "application/vnd.oasis.opendocument.text-web",
 	".sxw":           "application/vnd.sun.xml.writer",

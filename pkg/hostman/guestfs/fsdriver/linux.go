@@ -542,16 +542,16 @@ func (d *sDebianLikeRootFs) DeployHostname(rootFs IDiskPartition, hn, domain str
 	return rootFs.FilePutContents("/etc/hostname", hn, false, false)
 }
 
-func getNicTeamingConfigCmds(slaves []*types.SServerNic) string {
+func getNicTeamingConfigCmds(subordinates []*types.SServerNic) string {
 	var cmds strings.Builder
 	cmds.WriteString("    bond-mode 4\n")
 	cmds.WriteString("    bond-miimon 100\n")
 	cmds.WriteString("    bond-lacp-rate 1\n")
 	cmds.WriteString("    bond-xmit_hash_policy 1\n")
-	cmds.WriteString("    bond-slaves")
-	for i := range slaves {
+	cmds.WriteString("    bond-subordinates")
+	for i := range subordinates {
 		cmds.WriteString(" ")
-		cmds.WriteString(slaves[i].Name)
+		cmds.WriteString(subordinates[i].Name)
 	}
 	cmds.WriteString("\n")
 	return cmds.String()
@@ -579,9 +579,9 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 	for i := range allNics {
 		nicDesc := allNics[i]
 		cmds.WriteString(fmt.Sprintf("auto %s\n", nicDesc.Name))
-		if nicDesc.TeamingMaster != nil {
+		if nicDesc.TeamingMain != nil {
 			cmds.WriteString(fmt.Sprintf("iface %s inet manual\n", nicDesc.Name))
-			cmds.WriteString(fmt.Sprintf("    bond-master %s\n", nicDesc.TeamingMaster.Name))
+			cmds.WriteString(fmt.Sprintf("    bond-main %s\n", nicDesc.TeamingMain.Name))
 			cmds.WriteString("\n")
 		} else if nicDesc.Virtual {
 			cmds.WriteString(fmt.Sprintf("iface %s inet static\n", nicDesc.Name))
@@ -612,14 +612,14 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 					cmds.WriteString(fmt.Sprintf("    dns-search %s\n", nicDesc.Domain))
 				}
 			}
-			if len(nicDesc.TeamingSlaves) > 0 {
-				cmds.WriteString(getNicTeamingConfigCmds(nicDesc.TeamingSlaves))
+			if len(nicDesc.TeamingSubordinates) > 0 {
+				cmds.WriteString(getNicTeamingConfigCmds(nicDesc.TeamingSubordinates))
 			}
 			cmds.WriteString("\n")
 		} else {
 			cmds.WriteString(fmt.Sprintf("iface %s inet dhcp\n", nicDesc.Name))
-			if len(nicDesc.TeamingSlaves) > 0 {
-				cmds.WriteString(getNicTeamingConfigCmds(nicDesc.TeamingSlaves))
+			if len(nicDesc.TeamingSubordinates) > 0 {
+				cmds.WriteString(getNicTeamingConfigCmds(nicDesc.TeamingSubordinates))
 			}
 			cmds.WriteString("\n")
 		}
@@ -982,10 +982,10 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 			cmds.WriteString(nicDesc.Mac)
 			cmds.WriteString("\n")
 		}
-		if nicDesc.TeamingMaster != nil {
+		if nicDesc.TeamingMain != nil {
 			cmds.WriteString("BOOTPROTO=none\n")
 			cmds.WriteString("MASTER=")
-			cmds.WriteString(nicDesc.TeamingMaster.Name)
+			cmds.WriteString(nicDesc.TeamingMain.Name)
 			cmds.WriteString("\n")
 			cmds.WriteString("SLAVE=yes\n")
 		} else if nicDesc.Virtual {

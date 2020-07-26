@@ -85,7 +85,7 @@ func convertNicConfigs(nics []*types.SServerNic) ([]*types.SServerNic, []*types.
 		if len(nics[i].Mac) == 0 {
 			continue
 		}
-		// skip team slave nics
+		// skip team subordinate nics
 		if len(nics[i].TeamWith) > 0 {
 			continue
 		}
@@ -97,23 +97,23 @@ func convertNicConfigs(nics []*types.SServerNic) ([]*types.SServerNic, []*types.
 			allNics = append(allNics, nnic)
 			continue
 		}
-		// copy nic into master and nnic
-		master := nics[i]
+		// copy nic into main and nnic
+		main := nics[i]
 		nnic := *nics[i]
 		tnic := *teamNic
 		nnic.Name = fmt.Sprintf("%s%d", NetDevPrefix, nnic.Index)
-		nnic.TeamingMaster = master
+		nnic.TeamingMain = main
 		nnic.Ip = ""
 		nnic.Gateway = ""
 		tnic.Name = fmt.Sprintf("%s%d", NetDevPrefix, tnic.Index)
-		tnic.TeamingMaster = master
+		tnic.TeamingMain = main
 		tnic.Ip = ""
 		tnic.Gateway = ""
-		master.Name = fmt.Sprintf("bond%d", len(bondNics))
-		master.TeamingSlaves = []*types.SServerNic{&nnic, &tnic}
-		master.Mac = ""
-		allNics = append(allNics, &nnic, &tnic, master)
-		bondNics = append(bondNics, master)
+		main.Name = fmt.Sprintf("bond%d", len(bondNics))
+		main.TeamingSubordinates = []*types.SServerNic{&nnic, &tnic}
+		main.Mac = ""
+		allNics = append(allNics, &nnic, &tnic, main)
+		bondNics = append(bondNics, main)
 	}
 	return allNics, bondNics
 }

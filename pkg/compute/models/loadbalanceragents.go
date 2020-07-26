@@ -95,7 +95,7 @@ type SLoadbalancerAgent struct {
 type SLoadbalancerAgentParamsVrrp struct {
 	Priority          int `json:",omitzero"`
 	VirtualRouterId   int `json:",omitzero"`
-	GarpMasterRefresh int `json:",omitzero"`
+	GarpMainRefresh int `json:",omitzero"`
 	Preempt           bool
 	Interface         string
 	AdvertInt         int `json:",omitzero"`
@@ -201,8 +201,8 @@ func (p *SLoadbalancerAgentParamsVrrp) initDefault(data *jsonutils.JSONDict) {
 	if !data.Contains("params", "vrrp", "advert_int") {
 		p.AdvertInt = 1
 	}
-	if !data.Contains("params", "vrrp", "garp_master_refresh") {
-		p.GarpMasterRefresh = 27
+	if !data.Contains("params", "vrrp", "garp_main_refresh") {
+		p.GarpMainRefresh = 27
 	}
 	if !data.Contains("params", "vrrp", "pass") {
 		p.Pass = "YunionLB"
@@ -965,7 +965,7 @@ vrrp_instance YunionLB {
 	{{- end }}
 	priority {{ .vrrp.priority }}
 	advert_int {{ .vrrp.advert_int }}
-	garp_master_refresh {{ .vrrp.garp_master_refresh }}
+	garp_main_refresh {{ .vrrp.garp_main_refresh }}
 	{{ if .vrrp.preempt -}} preempt {{- else -}} nopreempt {{- end }}
 	virtual_ipaddress {
 		{{- printf "\n" }}

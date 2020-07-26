@@ -5,13 +5,13 @@ import "C"
 
 import "syscall"
 
-func open_pty_master() (uintptr, error) {
+func open_pty_main() (uintptr, error) {
 	return open_device("/dev/ptmx")
 }
 
 func Ptsname(fd uintptr) (string, error) {
-	slavename := C.GoString(C.ptsname(C.int(fd)))
-	return slavename, nil
+	subordinatename := C.GoString(C.ptsname(C.int(fd)))
+	return subordinatename, nil
 }
 
 func grantpt(fd uintptr) error {

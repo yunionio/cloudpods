@@ -145,7 +145,7 @@ type SDBInstance struct {
 	DatabaseVersion            string
 	Settings                   SDBInstanceSetting
 	Etag                       string
-	MasterInstanceName         string
+	MainInstanceName         string
 	IpAddresses                []SDBInstanceIpAddress
 	ServerCaCert               SDBInstanceCaCert
 	InstanceType               string
@@ -230,10 +230,10 @@ func (rds *SDBInstance) GetExpiredAt() time.Time {
 	return time.Time{}
 }
 
-func (rds *SDBInstance) GetMasterInstanceId() string {
-	if len(rds.MasterInstanceName) > 0 {
-		if master := strings.Split(rds.MasterInstanceName, ":"); len(master) == 2 {
-			return fmt.Sprintf("projects/%s/instances/%s", master[0], master[1])
+func (rds *SDBInstance) GetMainInstanceId() string {
+	if len(rds.MainInstanceName) > 0 {
+		if main := strings.Split(rds.MainInstanceName, ":"); len(main) == 2 {
+			return fmt.Sprintf("projects/%s/instances/%s", main[0], main[1])
 		}
 	}
 	return ""

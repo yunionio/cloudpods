@@ -284,7 +284,7 @@ func (rds *SDBInstance) Refresh() error {
 }
 
 func (rds *SDBInstance) GetZone1Id() string {
-	return rds.GetZoneIdByRole("master")
+	return rds.GetZoneIdByRole("main")
 }
 
 func (rds *SDBInstance) GetZoneIdByRole(role string) string {
@@ -302,7 +302,7 @@ func (rds *SDBInstance) GetZoneIdByRole(role string) string {
 }
 
 func (rds *SDBInstance) GetZone2Id() string {
-	return rds.GetZoneIdByRole("slave")
+	return rds.GetZoneIdByRole("subordinate")
 }
 
 func (rds *SDBInstance) GetZone3Id() string {
@@ -451,8 +451,8 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 		params["enterprise_project_id"] = desc.ProjectId
 	}
 
-	if len(desc.MasterInstanceId) > 0 {
-		params["replica_of_id"] = desc.MasterInstanceId
+	if len(desc.MainInstanceId) > 0 {
+		params["replica_of_id"] = desc.MainInstanceId
 	}
 
 	switch desc.Category {
@@ -470,9 +470,9 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 			}
 		}
 		if len(desc.ZoneIds) == 0 {
-			for _, masterZoneId := range zoneIds {
-				for _, slaveZoneId := range zoneIds {
-					desc.ZoneIds = append(desc.ZoneIds, fmt.Sprintf("%s,%s", masterZoneId, slaveZoneId))
+			for _, mainZoneId := range zoneIds {
+				for _, subordinateZoneId := range zoneIds {
+					desc.ZoneIds = append(desc.ZoneIds, fmt.Sprintf("%s,%s", mainZoneId, subordinateZoneId))
 				}
 			}
 		}

@@ -111,7 +111,7 @@ type Config struct {
 	// instead of setting this value directly.
 	WrapTransport transport.WrapperFunc
 
-	// QPS indicates the maximum QPS to the master from this client.
+	// QPS indicates the maximum QPS to the main from this client.
 	// If it's zero, the created RESTClient will use DefaultQPS: 5
 	QPS float32
 
@@ -119,7 +119,7 @@ type Config struct {
 	// If it's zero, the created RESTClient will use DefaultBurst: 10.
 	Burst int
 
-	// Rate limiter for limiting connections to the master from this client. If present overwrites QPS/Burst
+	// Rate limiter for limiting connections to the main from this client. If present overwrites QPS/Burst
 	RateLimiter flowcontrol.RateLimiter
 
 	// The maximum length of time to wait before giving up on a server request. A value of zero means no timeout.

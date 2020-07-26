@@ -102,7 +102,7 @@ const (
 
 const (
 	ELASTIC_CACHE_ARCH_TYPE_SINGLE  = "single"  // 单副本
-	ELASTIC_CACHE_ARCH_TYPE_MASTER  = "master"  // 主备
+	ELASTIC_CACHE_ARCH_TYPE_MASTER  = "main"  // 主备
 	ELASTIC_CACHE_ARCH_TYPE_CLUSTER = "cluster" // 集群
 	ELASTIC_CACHE_ARCH_TYPE_RWSPLIT = "rwsplit" // 读写分离
 )
@@ -115,7 +115,7 @@ type ElasticcacheListInput struct {
 	ZonalFilterListBase
 
 	// 实例规格
-	// example: redis.master.micro.default
+	// example: redis.main.micro.default
 	InstanceType []string `json:"instance_type"`
 
 	// 对应Sku

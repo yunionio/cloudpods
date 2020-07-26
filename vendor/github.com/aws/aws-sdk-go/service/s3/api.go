@@ -8196,7 +8196,7 @@ type CompleteMultipartUploadOutput struct {
 	// request.
 	RequestCharged *string `location:"header" locationName:"x-amz-request-charged" type:"string" enum:"RequestCharged"`
 
-	// If present, specifies the ID of the AWS Key Management Service (KMS) master
+	// If present, specifies the ID of the AWS Key Management Service (KMS) main
 	// encryption key that was used for the object.
 	SSEKMSKeyId *string `location:"header" locationName:"x-amz-server-side-encryption-aws-kms-key-id" type:"string" sensitive:"true"`
 
@@ -8856,7 +8856,7 @@ type CopyObjectOutput struct {
 	// the encryption context key-value pairs.
 	SSEKMSEncryptionContext *string `location:"header" locationName:"x-amz-server-side-encryption-context" type:"string" sensitive:"true"`
 
-	// If present, specifies the ID of the AWS Key Management Service (KMS) master
+	// If present, specifies the ID of the AWS Key Management Service (KMS) main
 	// encryption key that was used for the object.
 	SSEKMSKeyId *string `location:"header" locationName:"x-amz-server-side-encryption-aws-kms-key-id" type:"string" sensitive:"true"`
 
@@ -9512,7 +9512,7 @@ type CreateMultipartUploadOutput struct {
 	// the encryption context key-value pairs.
 	SSEKMSEncryptionContext *string `location:"header" locationName:"x-amz-server-side-encryption-context" type:"string" sensitive:"true"`
 
-	// If present, specifies the ID of the AWS Key Management Service (KMS) master
+	// If present, specifies the ID of the AWS Key Management Service (KMS) main
 	// encryption key that was used for the object.
 	SSEKMSKeyId *string `location:"header" locationName:"x-amz-server-side-encryption-aws-kms-key-id" type:"string" sensitive:"true"`
 
@@ -13362,7 +13362,7 @@ type GetObjectOutput struct {
 	// verification of the customer-provided encryption key.
 	SSECustomerKeyMD5 *string `location:"header" locationName:"x-amz-server-side-encryption-customer-key-MD5" type:"string"`
 
-	// If present, specifies the ID of the AWS Key Management Service (KMS) master
+	// If present, specifies the ID of the AWS Key Management Service (KMS) main
 	// encryption key that was used for the object.
 	SSEKMSKeyId *string `location:"header" locationName:"x-amz-server-side-encryption-aws-kms-key-id" type:"string" sensitive:"true"`
 
@@ -14455,7 +14455,7 @@ type HeadObjectOutput struct {
 	// verification of the customer-provided encryption key.
 	SSECustomerKeyMD5 *string `location:"header" locationName:"x-amz-server-side-encryption-customer-key-MD5" type:"string"`
 
-	// If present, specifies the ID of the AWS Key Management Service (KMS) master
+	// If present, specifies the ID of the AWS Key Management Service (KMS) main
 	// encryption key that was used for the object.
 	SSEKMSKeyId *string `location:"header" locationName:"x-amz-server-side-encryption-aws-kms-key-id" type:"string" sensitive:"true"`
 
@@ -20921,7 +20921,7 @@ type PutObjectOutput struct {
 	// the encryption context key-value pairs.
 	SSEKMSEncryptionContext *string `location:"header" locationName:"x-amz-server-side-encryption-context" type:"string" sensitive:"true"`
 
-	// If present, specifies the ID of the AWS Key Management Service (KMS) master
+	// If present, specifies the ID of the AWS Key Management Service (KMS) main
 	// encryption key that was used for the object.
 	SSEKMSKeyId *string `location:"header" locationName:"x-amz-server-side-encryption-aws-kms-key-id" type:"string" sensitive:"true"`
 
@@ -22413,7 +22413,7 @@ func (s *Rule) SetTransition(v *Transition) *Rule {
 type SSEKMS struct {
 	_ struct{} `locationName:"SSE-KMS" type:"structure"`
 
-	// Specifies the ID of the AWS Key Management Service (KMS) master encryption
+	// Specifies the ID of the AWS Key Management Service (KMS) main encryption
 	// key to use for encrypting Inventory reports.
 	//
 	// KeyId is a required field
@@ -22989,9 +22989,9 @@ func (s *SelectParameters) SetOutputSerialization(v *OutputSerialization) *Selec
 type ServerSideEncryptionByDefault struct {
 	_ struct{} `type:"structure"`
 
-	// KMS master key ID to use for the default encryption. This parameter is allowed
+	// KMS main key ID to use for the default encryption. This parameter is allowed
 	// if and only if SSEAlgorithm is set to aws:kms.
-	KMSMasterKeyID *string `type:"string" sensitive:"true"`
+	KMSMainKeyID *string `type:"string" sensitive:"true"`
 
 	// Server-side encryption algorithm to use for the default encryption.
 	//
@@ -23022,9 +23022,9 @@ func (s *ServerSideEncryptionByDefault) Validate() error {
 	return nil
 }
 
-// SetKMSMasterKeyID sets the KMSMasterKeyID field's value.
-func (s *ServerSideEncryptionByDefault) SetKMSMasterKeyID(v string) *ServerSideEncryptionByDefault {
-	s.KMSMasterKeyID = &v
+// SetKMSMainKeyID sets the KMSMainKeyID field's value.
+func (s *ServerSideEncryptionByDefault) SetKMSMainKeyID(v string) *ServerSideEncryptionByDefault {
+	s.KMSMainKeyID = &v
 	return s
 }
 
@@ -23983,7 +23983,7 @@ type UploadPartCopyOutput struct {
 	// verification of the customer-provided encryption key.
 	SSECustomerKeyMD5 *string `location:"header" locationName:"x-amz-server-side-encryption-customer-key-MD5" type:"string"`
 
-	// If present, specifies the ID of the AWS Key Management Service (KMS) master
+	// If present, specifies the ID of the AWS Key Management Service (KMS) main
 	// encryption key that was used for the object.
 	SSEKMSKeyId *string `location:"header" locationName:"x-amz-server-side-encryption-aws-kms-key-id" type:"string" sensitive:"true"`
 
@@ -24241,7 +24241,7 @@ type UploadPartOutput struct {
 	// verification of the customer-provided encryption key.
 	SSECustomerKeyMD5 *string `location:"header" locationName:"x-amz-server-side-encryption-customer-key-MD5" type:"string"`
 
-	// If present, specifies the ID of the AWS Key Management Service (KMS) master
+	// If present, specifies the ID of the AWS Key Management Service (KMS) main
 	// encryption key that was used for the object.
 	SSEKMSKeyId *string `location:"header" locationName:"x-amz-server-side-encryption-aws-kms-key-id" type:"string" sensitive:"true"`
 

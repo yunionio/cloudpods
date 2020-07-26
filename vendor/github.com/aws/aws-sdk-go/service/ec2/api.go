@@ -3140,7 +3140,7 @@ func (c *EC2) CopySnapshotRequest(input *CopySnapshotInput) (req *request.Reques
 // Copies of encrypted EBS snapshots remain encrypted. Copies of unencrypted
 // snapshots remain unencrypted, unless you enable encryption for the snapshot
 // copy operation. By default, encrypted snapshot copies use the default AWS
-// Key Management Service (AWS KMS) customer master key (CMK); however, you
+// Key Management Service (AWS KMS) customer main key (CMK); however, you
 // can specify a different CMK.
 //
 // To copy an encrypted snapshot that has been shared from another account,
@@ -24287,7 +24287,7 @@ func (c *EC2) GetEbsDefaultKmsKeyIdRequest(input *GetEbsDefaultKmsKeyIdInput) (r
 
 // GetEbsDefaultKmsKeyId API operation for Amazon Elastic Compute Cloud.
 //
-// Describes the default customer master key (CMK) for EBS encryption by default
+// Describes the default customer main key (CMK) for EBS encryption by default
 // for your account in this Region. You can change the default CMK for encryption
 // by default using ModifyEbsDefaultKmsKeyId or ResetEbsDefaultKmsKeyId.
 //
@@ -25783,7 +25783,7 @@ func (c *EC2) ModifyEbsDefaultKmsKeyIdRequest(input *ModifyEbsDefaultKmsKeyIdInp
 
 // ModifyEbsDefaultKmsKeyId API operation for Amazon Elastic Compute Cloud.
 //
-// Changes the default customer master key (CMK) for EBS encryption by default
+// Changes the default customer main key (CMK) for EBS encryption by default
 // for your account in this Region.
 //
 // AWS creates a unique AWS managed CMK in each Region for use with encryption
@@ -30273,7 +30273,7 @@ func (c *EC2) ResetEbsDefaultKmsKeyIdRequest(input *ResetEbsDefaultKmsKeyIdInput
 
 // ResetEbsDefaultKmsKeyId API operation for Amazon Elastic Compute Cloud.
 //
-// Resets the default customer master key (CMK) for EBS encryption for your
+// Resets the default customer main key (CMK) for EBS encryption for your
 // account in this Region to the AWS managed CMK for EBS.
 //
 // After resetting the default CMK to the AWS managed CMK, you can continue
@@ -38195,7 +38195,7 @@ type CopyImageInput struct {
 	// in the Amazon Elastic Compute Cloud User Guide.
 	Encrypted *bool `locationName:"encrypted" type:"boolean"`
 
-	// An identifier for the AWS Key Management Service (AWS KMS) customer master
+	// An identifier for the AWS Key Management Service (AWS KMS) customer main
 	// key (CMK) to use when creating the encrypted volume. This parameter is only
 	// required if you want to use a non-default CMK; if this parameter is not specified,
 	// the default CMK for EBS is used. If a KmsKeyId is specified, the Encrypted
@@ -38368,7 +38368,7 @@ type CopySnapshotInput struct {
 	// in the Amazon Elastic Compute Cloud User Guide.
 	Encrypted *bool `locationName:"encrypted" type:"boolean"`
 
-	// The identifier of the AWS Key Management Service (AWS KMS) customer master
+	// The identifier of the AWS Key Management Service (AWS KMS) customer main
 	// key (CMK) to use for Amazon EBS encryption. If this parameter is not specified,
 	// your AWS managed CMK for EBS is used. If KmsKeyId is specified, the encrypted
 	// state must be true.
@@ -43464,7 +43464,7 @@ type CreateVolumeInput struct {
 	// This parameter is valid only for Provisioned IOPS SSD (io1) volumes.
 	Iops *int64 `type:"integer"`
 
-	// The identifier of the AWS Key Management Service (AWS KMS) customer master
+	// The identifier of the AWS Key Management Service (AWS KMS) customer main
 	// key (CMK) to use for Amazon EBS encryption. If this parameter is not specified,
 	// your AWS managed CMK for EBS is used. If KmsKeyId is specified, the encrypted
 	// state must be true.
@@ -66610,7 +66610,7 @@ type ImportImageInput struct {
 	// Valid values: xen
 	Hypervisor *string `type:"string"`
 
-	// An identifier for the AWS Key Management Service (AWS KMS) customer master
+	// An identifier for the AWS Key Management Service (AWS KMS) customer main
 	// key (CMK) to use when creating the encrypted AMI. This parameter is only
 	// required if you want to use a non-default CMK; if this parameter is not specified,
 	// the default CMK for EBS is used. If a KmsKeyId is specified, the Encrypted
@@ -66764,7 +66764,7 @@ type ImportImageOutput struct {
 	// The task ID of the import image task.
 	ImportTaskId *string `locationName:"importTaskId" type:"string"`
 
-	// The identifier for the AWS Key Management Service (AWS KMS) customer master
+	// The identifier for the AWS Key Management Service (AWS KMS) customer main
 	// key (CMK) that was used to create the encrypted AMI.
 	KmsKeyId *string `locationName:"kmsKeyId" type:"string"`
 
@@ -66901,7 +66901,7 @@ type ImportImageTask struct {
 	// The ID of the import image task.
 	ImportTaskId *string `locationName:"importTaskId" type:"string"`
 
-	// The identifier for the AWS Key Management Service (AWS KMS) customer master
+	// The identifier for the AWS Key Management Service (AWS KMS) customer main
 	// key (CMK) that was used to create the encrypted image.
 	KmsKeyId *string `locationName:"kmsKeyId" type:"string"`
 
@@ -67495,7 +67495,7 @@ type ImportSnapshotInput struct {
 	// in the Amazon Elastic Compute Cloud User Guide.
 	Encrypted *bool `type:"boolean"`
 
-	// An identifier for the AWS Key Management Service (AWS KMS) customer master
+	// An identifier for the AWS Key Management Service (AWS KMS) customer main
 	// key (CMK) to use when creating the encrypted snapshot. This parameter is
 	// only required if you want to use a non-default CMK; if this parameter is
 	// not specified, the default CMK for EBS is used. If a KmsKeyId is specified,
@@ -72271,7 +72271,7 @@ type ModifyEbsDefaultKmsKeyIdInput struct {
 	// it is UnauthorizedOperation.
 	DryRun *bool `type:"boolean"`
 
-	// The identifier of the AWS Key Management Service (AWS KMS) customer master
+	// The identifier of the AWS Key Management Service (AWS KMS) customer main
 	// key (CMK) to use for Amazon EBS encryption. If this parameter is not specified,
 	// your AWS managed CMK for EBS is used. If KmsKeyId is specified, the encrypted
 	// state must be true.
@@ -85528,7 +85528,7 @@ type Snapshot struct {
 	Encrypted *bool `locationName:"encrypted" type:"boolean"`
 
 	// The Amazon Resource Name (ARN) of the AWS Key Management Service (AWS KMS)
-	// customer master key (CMK) that was used to protect the volume encryption
+	// customer main key (CMK) that was used to protect the volume encryption
 	// key for the parent volume.
 	KmsKeyId *string `locationName:"kmsKeyId" type:"string"`
 
@@ -85948,7 +85948,7 @@ type SnapshotTaskDetail struct {
 	// The format of the disk image from which the snapshot is created.
 	Format *string `locationName:"format" type:"string"`
 
-	// The identifier for the AWS Key Management Service (AWS KMS) customer master
+	// The identifier for the AWS Key Management Service (AWS KMS) customer main
 	// key (CMK) that was used to create the encrypted snapshot.
 	KmsKeyId *string `locationName:"kmsKeyId" type:"string"`
 
@@ -91048,7 +91048,7 @@ type Volume struct {
 	Iops *int64 `locationName:"iops" type:"integer"`
 
 	// The Amazon Resource Name (ARN) of the AWS Key Management Service (AWS KMS)
-	// customer master key (CMK) that was used to protect the volume encryption
+	// customer main key (CMK) that was used to protect the volume encryption
 	// key for the volume.
 	KmsKeyId *string `locationName:"kmsKeyId" type:"string"`
 

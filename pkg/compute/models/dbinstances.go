@@ -83,7 +83,7 @@ type SDBInstance struct {
 	SDeletePreventableResourceBase
 
 	// 主实例Id
-	MasterInstanceId string `width:"128" charset:"ascii" list:"user" create:"optional"`
+	MainInstanceId string `width:"128" charset:"ascii" list:"user" create:"optional"`
 	// CPU数量
 	// example: 1
 	VcpuCount int `nullable:"false" default:"1" list:"user" create:"optional"`
@@ -192,16 +192,16 @@ func (man *SDBInstanceManager) ListItemFilter(
 		))
 	}
 
-	if len(query.MasterInstance) > 0 {
-		instObj, err := DBInstanceManager.FetchByIdOrName(userCred, query.MasterInstance)
+	if len(query.MainInstance) > 0 {
+		instObj, err := DBInstanceManager.FetchByIdOrName(userCred, query.MainInstance)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(DBInstanceManager.Keyword(), query.MasterInstance)
+				return nil, httperrors.NewResourceNotFoundError2(DBInstanceManager.Keyword(), query.MainInstance)
 			} else {
 				return nil, errors.Wrap(err, "DBInstanceManager.FetchByIdOrName")
 			}
 		}
-		q = q.Equals("master_instance_id", instObj.GetId())
+		q = q.Equals("main_instance_id", instObj.GetId())
 	}
 	if query.VcpuCount > 0 {
 		q = q.Equals("vcpu_count", query.VcpuCount)
@@ -278,14 +278,14 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerId)
 	addressV := validators.NewIPv4AddrValidator("address")
 	secgroupV := validators.NewModelIdOrNameValidator("secgroup", "secgroup", ownerId)
-	masterV := validators.NewModelIdOrNameValidator("master_instance", "dbinstance", ownerId)
+	mainV := validators.NewModelIdOrNameValidator("main_instance", "dbinstance", ownerId)
 	zone1V := validators.NewModelIdOrNameValidator("zone1", "zone", ownerId)
 	zone2V := validators.NewModelIdOrNameValidator("zone2", "zone", ownerId)
 	zone3V := validators.NewModelIdOrNameValidator("zone3", "zone", ownerId)
 	keyV := map[string]validators.IValidator{
 		"network":  networkV,
 		"address":  addressV.Optional(true),
-		"master":   masterV.ModelIdKey("master_instance_id").Optional(true),
+		"main":   mainV.ModelIdKey("main_instance_id").Optional(true),
 		"secgroup": secgroupV.Optional(true),
 		"zone1":    zone1V.ModelIdKey("zone1").Optional(true),
 		"zone2":    zone2V.ModelIdKey("zone2").Optional(true),
@@ -653,8 +653,8 @@ func (self *SDBInstance) GetSecgroup() (*SSecurityGroup, error) {
 	return secgroup.(*SSecurityGroup), nil
 }
 
-func (self *SDBInstance) GetMasterInstance() (*SDBInstance, error) {
-	instance, err := DBInstanceManager.FetchById(self.MasterInstanceId)
+func (self *SDBInstance) GetMainInstance() (*SDBInstance, error) {
+	instance, err := DBInstanceManager.FetchById(self.MainInstanceId)
 	if err != nil {
 		return nil, err
 	}
@@ -1255,31 +1255,31 @@ func (self *SDBInstance) GetDBNetwork() (*SDBInstanceNetwork, error) {
 	return nil, sql.ErrNoRows
 }
 
-func (manager *SDBInstanceManager) SyncDBInstanceMasterId(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, cloudDBInstances []cloudprovider.ICloudDBInstance) {
+func (manager *SDBInstanceManager) SyncDBInstanceMainId(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, cloudDBInstances []cloudprovider.ICloudDBInstance) {
 	for _, instance := range cloudDBInstances {
-		masterId := instance.GetMasterInstanceId()
-		if len(masterId) > 0 {
-			master, err := db.FetchByExternalIdAndManagerId(manager, masterId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		mainId := instance.GetMainInstanceId()
+		if len(mainId) > 0 {
+			main, err := db.FetchByExternalIdAndManagerId(manager, mainId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 				return q.Equals("manager_id", provider.Id)
 			})
 			if err != nil {
-				log.Errorf("failed to found master dbinstance by externalId: %s error: %v", masterId, err)
+				log.Errorf("failed to found main dbinstance by externalId: %s error: %v", mainId, err)
 				continue
 			}
-			slave, err := db.FetchByExternalIdAndManagerId(manager, instance.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			subordinate, err := db.FetchByExternalIdAndManagerId(manager, instance.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 				return q.Equals("manager_id", provider.Id)
 			})
 			if err != nil {
 				log.Errorf("failed to found local dbinstance by externalId %s error: %v", instance.GetGlobalId(), err)
 				continue
 			}
-			localInstance := slave.(*SDBInstance)
+			localInstance := subordinate.(*SDBInstance)
 			_, err = db.Update(localInstance, func() error {
-				localInstance.MasterInstanceId = master.GetId()
+				localInstance.MainInstanceId = main.GetId()
 				return nil
 			})
 			if err != nil {
-				log.Errorf("failed to update dbinstance %s(%s) master instanceId error: %v", localInstance.Name, localInstance.Id, err)
+				log.Errorf("failed to update dbinstance %s(%s) main instanceId error: %v", localInstance.Name, localInstance.Id, err)
 			}
 		}
 	}
@@ -1552,9 +1552,9 @@ func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred m
 	return nil
 }
 
-func (self *SDBInstance) GetSlaveDBInstances() ([]SDBInstance, error) {
+func (self *SDBInstance) GetSubordinateDBInstances() ([]SDBInstance, error) {
 	dbinstances := []SDBInstance{}
-	q := DBInstanceManager.Query().Equals("master_instance_id", self.Id)
+	q := DBInstanceManager.Query().Equals("main_instance_id", self.Id)
 	return dbinstances, db.FetchModelObjects(DBInstanceManager, q, &dbinstances)
 }
 

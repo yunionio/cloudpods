@@ -25,7 +25,7 @@ type SDBInstanceJointsManager struct {
 	SDBInstanceResourceBaseManager
 }
 
-func NewDBInstanceJointsManager(dt interface{}, tableName string, keyword string, keywordPlural string, slave db.IVirtualModelManager) SDBInstanceJointsManager {
+func NewDBInstanceJointsManager(dt interface{}, tableName string, keyword string, keywordPlural string, subordinate db.IVirtualModelManager) SDBInstanceJointsManager {
 	return SDBInstanceJointsManager{
 		SVirtualJointResourceBaseManager: db.NewVirtualJointResourceBaseManager(
 			dt,
@@ -33,7 +33,7 @@ func NewDBInstanceJointsManager(dt interface{}, tableName string, keyword string
 			keyword,
 			keywordPlural,
 			DBInstanceManager,
-			slave,
+			subordinate,
 		),
 	}
 }
@@ -53,6 +53,6 @@ func (self *SDBInstanceJointsBase) getDBInstance() (*SDBInstance, error) {
 	return instance.(*SDBInstance), nil
 }
 
-func (manager *SDBInstanceJointsManager) GetMasterFieldName() string {
+func (manager *SDBInstanceJointsManager) GetMainFieldName() string {
 	return "dbinstance_id"
 }

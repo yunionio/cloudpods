@@ -69,7 +69,7 @@ const (
 	//普通后端服务器组
 	LB_BACKENDGROUP_TYPE_NORMAL = "normal"
 	//主备后端服务器组
-	LB_BACKENDGROUP_TYPE_MASTER_SLAVE = "master_slave"
+	LB_BACKENDGROUP_TYPE_MASTER_SLAVE = "main_subordinate"
 )
 
 var LB_BACKENDGROUP_TYPE = choices.NewChoices(
@@ -383,8 +383,8 @@ var LB_BACKEND_TYPES = choices.NewChoices(
 
 const (
 	LB_BACKEND_ROLE_DEFAULT = "default"
-	LB_BACKEND_ROLE_MASTER  = "master"
-	LB_BACKEND_ROLE_SLAVE   = "slave"
+	LB_BACKEND_ROLE_MASTER  = "main"
+	LB_BACKEND_ROLE_SLAVE   = "subordinate"
 )
 
 var LB_BACKEND_ROLES = choices.NewChoices(

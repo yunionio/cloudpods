@@ -140,7 +140,7 @@ var (
 			"ssl_keyfile",
 			"ssl_ca_certs",
 
-			"is_slave_node",
+			"is_subordinate_node",
 			"config_sync_period_seconds",
 
 			// ############################

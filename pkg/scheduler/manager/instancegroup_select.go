@@ -51,7 +51,7 @@ type sGuestInfo struct {
 type sSchedResultItem struct {
 	*core.SchedResultItem
 	instanceGroupCapacity map[string]int64
-	masterCount           int64
+	mainCount           int64
 	backupCount           int64
 }
 
@@ -83,7 +83,7 @@ func buildHosts(result *core.SchedResultItemList, groups map[string]*models.SGro
 }
 
 // sortHost sorts the host for guest that is the backup one of the high-availability guest
-// if isBackup is true and the master one if isBackup is false.
+// if isBackup is true and the main one if isBackup is false.
 func sortHosts(hosts []*sSchedResultItem, isBackup *bool) {
 	sort.Slice(hosts, func(i, j int) bool {
 		var counti, countj int64
@@ -93,7 +93,7 @@ func sortHosts(hosts []*sSchedResultItem, isBackup *bool) {
 		case *isBackup:
 			counti, countj = hosts[i].backupCount, hosts[j].backupCount
 		default:
-			counti, countj = hosts[i].masterCount, hosts[j].masterCount
+			counti, countj = hosts[i].mainCount, hosts[j].mainCount
 		}
 		if counti == countj {
 			return hosts[i].Capacity > hosts[j].Capacity
@@ -210,30 +210,30 @@ func getBackupSchedResult(hosts []*sSchedResultItem, guestInfos, backGuestInfos 
 	nowireIds := sets.NewString()
 	storageUsed := core.NewStorageUsed()
 	isBackup := true
-	isMaster := false
+	isMain := false
 	for i := 0; i < len(guestInfos); i++ {
 		for wireid, hosts := range wireHostMap {
 			if nowireIds.Has(wireid) {
 				continue
 			}
-			masterItem := selectHost(hosts, guestInfos[i], &isMaster, true)
-			if masterItem == nil {
-				masterItem = selectHost(hosts, guestInfos[i], &isMaster, false)
-				if masterItem == nil {
+			mainItem := selectHost(hosts, guestInfos[i], &isMain, true)
+			if mainItem == nil {
+				mainItem = selectHost(hosts, guestInfos[i], &isMain, false)
+				if mainItem == nil {
 					nowireIds.Insert(wireid)
 					continue
 				}
 			}
-			// mark master used for now
-			markHostUsed(masterItem, guestInfos[i], &isMaster)
+			// mark main used for now
+			markHostUsed(mainItem, guestInfos[i], &isMain)
 			backupItem := selectHost(hosts, backGuestInfos[i], &isBackup, false)
 			if backupItem == nil {
 				nowireIds.Insert(wireid)
-				unMarkHostUsed(masterItem, guestInfos[i], &isMaster)
+				unMarkHostUsed(mainItem, guestInfos[i], &isMain)
 				continue
 			}
 			markHostUsed(backupItem, backGuestInfos[i], &isBackup)
-			canRe := masterItem.ToCandidateResource(storageUsed)
+			canRe := mainItem.ToCandidateResource(storageUsed)
 			canRe.BackupCandidate = backupItem.ToCandidateResource(storageUsed)
 			canRe.SessionId = sid
 			canRe.BackupCandidate.SessionId = sid
@@ -263,7 +263,7 @@ func markHostUsed(host *sSchedResultItem, guestInfo sGuestInfo, isBackup *bool) 
 	if *isBackup {
 		host.backupCount++
 	} else {
-		host.masterCount++
+		host.mainCount++
 	}
 }
 
@@ -280,7 +280,7 @@ func unMarkHostUsed(host *sSchedResultItem, guestInfo sGuestInfo, isBackup *bool
 	if *isBackup {
 		host.backupCount--
 	} else {
-		host.masterCount--
+		host.mainCount--
 	}
 }
 

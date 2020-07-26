@@ -32,7 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
-func FetchJointByIds(manager IJointModelManager, masterId, slaveId string, query jsonutils.JSONObject) (IJointModel, error) {
+func FetchJointByIds(manager IJointModelManager, mainId, subordinateId string, query jsonutils.JSONObject) (IJointModel, error) {
 	obj, err := NewModelObject(manager)
 	if err != nil {
 		return nil, err
@@ -42,15 +42,15 @@ func FetchJointByIds(manager IJointModelManager, masterId, slaveId string, query
 		return nil, fmt.Errorf("FetchByIds not a IJointModel")
 	}
 	q := manager.Query()
-	masterField := q.Field(manager.GetIJointModelManager().GetMasterFieldName()) // queryField(q, manager.GetMasterManager())
-	if masterField == nil {
-		return nil, fmt.Errorf("cannot find master id")
+	mainField := q.Field(manager.GetIJointModelManager().GetMainFieldName()) // queryField(q, manager.GetMainManager())
+	if mainField == nil {
+		return nil, fmt.Errorf("cannot find main id")
 	}
-	slaveField := q.Field(manager.GetIJointModelManager().GetSlaveFieldName()) // queryField(q, manager.GetSlaveManager())
-	if slaveField == nil {
-		return nil, fmt.Errorf("cannot find slave id")
+	subordinateField := q.Field(manager.GetIJointModelManager().GetSubordinateFieldName()) // queryField(q, manager.GetSubordinateManager())
+	if subordinateField == nil {
+		return nil, fmt.Errorf("cannot find subordinate id")
 	}
-	cond := sqlchemy.AND(sqlchemy.Equals(masterField, masterId), sqlchemy.Equals(slaveField, slaveId))
+	cond := sqlchemy.AND(sqlchemy.Equals(mainField, mainId), sqlchemy.Equals(subordinateField, subordinateId))
 	q = q.Filter(cond)
 	q = manager.FilterByParams(q, query)
 	count, err := q.CountWithError()

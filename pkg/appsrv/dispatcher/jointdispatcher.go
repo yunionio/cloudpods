@@ -38,68 +38,68 @@ func AddJointModelDispatcher(prefix string, app *appsrv.Application, manager IJo
 		metadata, "list_joint", tags)
 	// joint list descendent
 	app.AddHandler2("GET",
-		fmt.Sprintf("%s/%s/<master_id>/%s", prefix,
-			manager.MasterKeywordPlural(),
-			manager.SlaveKeywordPlural()),
+		fmt.Sprintf("%s/%s/<main_id>/%s", prefix,
+			manager.MainKeywordPlural(),
+			manager.SubordinateKeywordPlural()),
 		manager.Filter(jointListDescendentHandler),
 		metadata, "list_descendent", tags)
 	// joint list descendent
 	app.AddHandler2("GET",
-		fmt.Sprintf("%s/%s/<slave_id>/%s", prefix,
-			manager.SlaveKeywordPlural(),
-			manager.MasterKeywordPlural()),
+		fmt.Sprintf("%s/%s/<subordinate_id>/%s", prefix,
+			manager.SubordinateKeywordPlural(),
+			manager.MainKeywordPlural()),
 		manager.Filter(jointListDescendentHandler),
 		metadata, "list_descendent", tags)
 	// joint Get
 	app.AddHandler2("GET",
-		fmt.Sprintf("%s/%s/<master_id>/%s/<slave_id>", prefix,
-			manager.MasterKeywordPlural(),
-			manager.SlaveKeywordPlural()),
+		fmt.Sprintf("%s/%s/<main_id>/%s/<subordinate_id>", prefix,
+			manager.MainKeywordPlural(),
+			manager.SubordinateKeywordPlural()),
 		manager.Filter(jointGetHandler),
 		metadata, "get_joint", tags)
 	app.AddHandler2("GET",
-		fmt.Sprintf("%s/%s/<slave_id>/%s/<master_id>", prefix,
-			manager.SlaveKeywordPlural(),
-			manager.MasterKeywordPlural()),
+		fmt.Sprintf("%s/%s/<subordinate_id>/%s/<main_id>", prefix,
+			manager.SubordinateKeywordPlural(),
+			manager.MainKeywordPlural()),
 		manager.Filter(jointGetHandler),
 		metadata, "get_joint", tags)
 	// joint attach
 	app.AddHandler2("POST",
-		fmt.Sprintf("%s/%s/<master_id>/%s/<slave_id>", prefix,
-			manager.MasterKeywordPlural(),
-			manager.SlaveKeywordPlural()),
+		fmt.Sprintf("%s/%s/<main_id>/%s/<subordinate_id>", prefix,
+			manager.MainKeywordPlural(),
+			manager.SubordinateKeywordPlural()),
 		manager.Filter(attachHandler),
 		metadata, "attach", tags)
 	app.AddHandler2("POST",
-		fmt.Sprintf("%s/%s/<slave_id>/%s/<master_id>", prefix,
-			manager.SlaveKeywordPlural(),
-			manager.MasterKeywordPlural()),
+		fmt.Sprintf("%s/%s/<subordinate_id>/%s/<main_id>", prefix,
+			manager.SubordinateKeywordPlural(),
+			manager.MainKeywordPlural()),
 		manager.Filter(attachHandler),
 		metadata, "attach", tags)
 	// joint update
 	app.AddHandler2("PUT",
-		fmt.Sprintf("%s/%s/<master_id>/%s/<slave_id>", prefix,
-			manager.MasterKeywordPlural(),
-			manager.SlaveKeywordPlural()),
+		fmt.Sprintf("%s/%s/<main_id>/%s/<subordinate_id>", prefix,
+			manager.MainKeywordPlural(),
+			manager.SubordinateKeywordPlural()),
 		manager.Filter(updateJointHandler),
 		metadata, "update_joint", tags)
 	app.AddHandler2("PUT",
-		fmt.Sprintf("%s/%s/<slave_id>/%s/<master_id>", prefix,
-			manager.SlaveKeywordPlural(),
-			manager.MasterKeywordPlural()),
+		fmt.Sprintf("%s/%s/<subordinate_id>/%s/<main_id>", prefix,
+			manager.SubordinateKeywordPlural(),
+			manager.MainKeywordPlural()),
 		manager.Filter(updateJointHandler),
 		metadata, "update_joint", tags)
 	// detach joint
 	app.AddHandler2("DELETE",
-		fmt.Sprintf("%s/%s/<master_id>/%s/<slave_id>", prefix,
-			manager.MasterKeywordPlural(),
-			manager.SlaveKeywordPlural()),
+		fmt.Sprintf("%s/%s/<main_id>/%s/<subordinate_id>", prefix,
+			manager.MainKeywordPlural(),
+			manager.SubordinateKeywordPlural()),
 		manager.Filter(detachHandler),
 		metadata, "detach", tags)
 	app.AddHandler2("DELETE",
-		fmt.Sprintf("%s/%s/<slave_id>/%s/<master_id>", prefix,
-			manager.SlaveKeywordPlural(),
-			manager.MasterKeywordPlural()),
+		fmt.Sprintf("%s/%s/<subordinate_id>/%s/<main_id>", prefix,
+			manager.SubordinateKeywordPlural(),
+			manager.MainKeywordPlural()),
 		manager.Filter(detachHandler),
 		metadata, "detach", tags)
 }
@@ -128,10 +128,10 @@ func jointListDescendentHandler(ctx context.Context, w http.ResponseWriter, r *h
 	manager, params, query, _ := fetchJointEnv(ctx, w, r)
 	var listResult *modulebase.ListResult
 	var err error
-	if _, ok := params["<master_id>"]; ok {
-		listResult, err = manager.ListMasterDescendent(ctx, params["<master_id>"], mergeQueryParams(params, query, "<master_id>"))
-	} else if _, ok := params["<slave_id>"]; ok {
-		listResult, err = manager.ListSlaveDescendent(ctx, params["<slave_id>"], mergeQueryParams(params, query, "<slave_id>"))
+	if _, ok := params["<main_id>"]; ok {
+		listResult, err = manager.ListMainDescendent(ctx, params["<main_id>"], mergeQueryParams(params, query, "<main_id>"))
+	} else if _, ok := params["<subordinate_id>"]; ok {
+		listResult, err = manager.ListSubordinateDescendent(ctx, params["<subordinate_id>"], mergeQueryParams(params, query, "<subordinate_id>"))
 	}
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
@@ -142,7 +142,7 @@ func jointListDescendentHandler(ctx context.Context, w http.ResponseWriter, r *h
 
 func jointGetHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, _ := fetchJointEnv(ctx, w, r)
-	result, err := manager.Get(ctx, params["<master_id>"], params["<slave_id>"], mergeQueryParams(params, query, "<master_id>", "<slave_id>"))
+	result, err := manager.Get(ctx, params["<main_id>"], params["<subordinate_id>"], mergeQueryParams(params, query, "<main_id>", "<subordinate_id>"))
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
@@ -160,7 +160,7 @@ func attachHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	if data == nil {
 		data = jsonutils.NewDict()
 	}
-	result, err := manager.Attach(ctx, params["<master_id>"], params["<slave_id>"], mergeQueryParams(params, query, "<master_id>", "<slave_id>"), data)
+	result, err := manager.Attach(ctx, params["<main_id>"], params["<subordinate_id>"], mergeQueryParams(params, query, "<main_id>", "<subordinate_id>"), data)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
@@ -175,7 +175,7 @@ func updateJointHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	result, err := manager.Update(ctx, params["<master_id>"], params["<slave_id>"], mergeQueryParams(params, query, "<master_id>", "<slave_id>"), data)
+	result, err := manager.Update(ctx, params["<main_id>"], params["<subordinate_id>"], mergeQueryParams(params, query, "<main_id>", "<subordinate_id>"), data)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
@@ -189,7 +189,7 @@ func detachHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	if body != nil {
 		data, _ = body.Get(manager.Keyword())
 	}
-	result, err := manager.Detach(ctx, params["<master_id>"], params["<slave_id>"], mergeQueryParams(params, query, "<master_id>", "<slave_id>"), data)
+	result, err := manager.Detach(ctx, params["<main_id>"], params["<subordinate_id>"], mergeQueryParams(params, query, "<main_id>", "<subordinate_id>"), data)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return

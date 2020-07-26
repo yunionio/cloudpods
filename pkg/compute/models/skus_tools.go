@@ -178,16 +178,16 @@ func (self *SSkuResourcesMeta) GetElasticCacheSkusByRegionExternalId(regionExter
 		if len(sku.ZoneId) > 0 {
 			zoneId := self.getZoneIdBySuffix(zoneMaps, sku.ZoneId)
 			if len(zoneId) == 0 {
-				return nil, fmt.Errorf("invalid sku %s %s master zoneId: %s", sku.Id, sku.CloudregionId, sku.ZoneId)
+				return nil, fmt.Errorf("invalid sku %s %s main zoneId: %s", sku.Id, sku.CloudregionId, sku.ZoneId)
 			}
 			sku.ZoneId = zoneId
 		}
-		if len(sku.SlaveZoneId) > 0 {
-			zoneId := self.getZoneIdBySuffix(zoneMaps, sku.SlaveZoneId)
+		if len(sku.SubordinateZoneId) > 0 {
+			zoneId := self.getZoneIdBySuffix(zoneMaps, sku.SubordinateZoneId)
 			if len(zoneId) == 0 {
-				return nil, fmt.Errorf("invalid sku %s %s slave zoneId: %s", sku.Id, sku.CloudregionId, sku.SlaveZoneId)
+				return nil, fmt.Errorf("invalid sku %s %s subordinate zoneId: %s", sku.Id, sku.CloudregionId, sku.SubordinateZoneId)
 			}
-			sku.SlaveZoneId = zoneId
+			sku.SubordinateZoneId = zoneId
 		}
 		sku.Id = ""
 		sku.CloudregionId = regionId

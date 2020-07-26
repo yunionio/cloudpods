@@ -64,20 +64,20 @@ type SHostnetwork struct {
 	MacAddr string `width:"18" charset:"ascii" list:"domain"`
 }
 
-func (manager *SHostnetworkManager) GetMasterFieldName() string {
+func (manager *SHostnetworkManager) GetMainFieldName() string {
 	return manager.getHostIdFieldName()
 }
 
-func (manager *SHostnetworkManager) GetSlaveFieldName() string {
+func (manager *SHostnetworkManager) GetSubordinateFieldName() string {
 	return "network_id"
 }
 
-func (bn *SHostnetwork) Master() db.IStandaloneModel {
-	return db.JointMaster(bn)
+func (bn *SHostnetwork) Main() db.IStandaloneModel {
+	return db.JointMain(bn)
 }
 
-func (bn *SHostnetwork) Slave() db.IStandaloneModel {
-	return db.JointSlave(bn)
+func (bn *SHostnetwork) Subordinate() db.IStandaloneModel {
+	return db.JointSubordinate(bn)
 }
 
 func (bn *SHostnetwork) GetExtraDetails(
@@ -147,17 +147,17 @@ func (manager *SHostnetworkManager) FetchCustomizeColumns(
 }
 
 func (bn *SHostnetwork) GetHost() *SHost {
-	master, _ := HostManager.FetchById(bn.BaremetalId)
-	if master != nil {
-		return master.(*SHost)
+	main, _ := HostManager.FetchById(bn.BaremetalId)
+	if main != nil {
+		return main.(*SHost)
 	}
 	return nil
 }
 
 func (bn *SHostnetwork) GetNetwork() *SNetwork {
-	slave, _ := NetworkManager.FetchById(bn.NetworkId)
-	if slave != nil {
-		return slave.(*SNetwork)
+	subordinate, _ := NetworkManager.FetchById(bn.NetworkId)
+	if subordinate != nil {
+		return subordinate.(*SNetwork)
 	}
 	return nil
 }

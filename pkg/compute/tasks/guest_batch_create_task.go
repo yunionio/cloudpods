@@ -93,10 +93,10 @@ func (self *GuestBatchCreateTask) OnScheduleFailCallback(ctx context.Context, ob
 	self.SSchedTask.OnScheduleFailCallback(ctx, obj, reason)
 }
 
-func (self *GuestBatchCreateTask) SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, master, slave *schedapi.CandidateResource) {
+func (self *GuestBatchCreateTask) SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, main, subordinate *schedapi.CandidateResource) {
 	guest := obj.(*models.SGuest)
-	guest.SetHostIdWithBackup(self.UserCred, master.HostId, slave.HostId)
-	self.SaveScheduleResult(ctx, obj, master)
+	guest.SetHostIdWithBackup(self.UserCred, main.HostId, subordinate.HostId)
+	self.SaveScheduleResult(ctx, obj, main)
 }
 
 func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest *models.SGuest, candidate *schedapi.CandidateResource) error {

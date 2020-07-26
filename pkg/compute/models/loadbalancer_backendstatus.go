@@ -92,7 +92,7 @@ func lbGetInfluxdbByLbId(lbId string) (*influxdb.SInfluxdb, string, error) {
 			dbUrl = paramsTelegraf.InfluxDbOutputUrl
 			dbName = paramsTelegraf.InfluxDbOutputName
 			if lbagent.HaState == api.LB_HA_STATE_MASTER {
-				// prefer the one on master
+				// prefer the one on main
 				break
 			}
 		}

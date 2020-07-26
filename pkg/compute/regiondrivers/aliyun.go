@@ -201,7 +201,7 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerBackendGroupData(ctx 
 		break
 	case api.LB_BACKENDGROUP_TYPE_MASTER_SLAVE:
 		if len(backends) != 2 {
-			return nil, httperrors.NewInputParameterError("master slave backendgorup must contain two backend")
+			return nil, httperrors.NewInputParameterError("main subordinate backendgorup must contain two backend")
 		}
 	default:
 		return nil, httperrors.NewInputParameterError("Unsupport backendgorup type %s", groupType)
@@ -980,8 +980,8 @@ func (self *SAliyunRegionDriver) ValidateDBInstanceRecovery(ctx context.Context,
 }
 
 func (self *SAliyunRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.DBInstanceCreateInput, skus []models.SDBInstanceSku, network *models.SNetwork) (api.DBInstanceCreateInput, error) {
-	if input.BillingType == billing_api.BILLING_TYPE_PREPAID && len(input.MasterInstanceId) > 0 {
-		return input, httperrors.NewInputParameterError("slave dbinstance not support prepaid billing type")
+	if input.BillingType == billing_api.BILLING_TYPE_PREPAID && len(input.MainInstanceId) > 0 {
+		return input, httperrors.NewInputParameterError("subordinate dbinstance not support prepaid billing type")
 	}
 
 	wire := network.GetWire()
@@ -1005,50 +1005,50 @@ func (self *SAliyunRegionDriver) ValidateCreateDBInstanceData(ctx context.Contex
 		return input, httperrors.NewInputParameterError("failed to match any skus in the network %s(%s) zone %s(%s)", network.Name, network.Id, zone.Name, zone.Id)
 	}
 
-	var master *models.SDBInstance
-	var slaves []models.SDBInstance
+	var main *models.SDBInstance
+	var subordinates []models.SDBInstance
 	var err error
-	if len(input.MasterInstanceId) > 0 {
-		_master, _ := models.DBInstanceManager.FetchById(input.MasterInstanceId)
-		master = _master.(*models.SDBInstance)
-		slaves, err = master.GetSlaveDBInstances()
+	if len(input.MainInstanceId) > 0 {
+		_main, _ := models.DBInstanceManager.FetchById(input.MainInstanceId)
+		main = _main.(*models.SDBInstance)
+		subordinates, err = main.GetSubordinateDBInstances()
 		if err != nil {
 			return input, httperrors.NewGeneralError(err)
 		}
 
-		switch master.Engine {
+		switch main.Engine {
 		case api.DBINSTANCE_TYPE_MYSQL:
-			switch master.EngineVersion {
+			switch main.EngineVersion {
 			case "5.6":
 				break
 			case "5.7", "8.0":
-				if master.Category != api.ALIYUN_DBINSTANCE_CATEGORY_HA {
-					return input, httperrors.NewInputParameterError("Not support create readonly dbinstance for MySQL %s %s", master.EngineVersion, master.Category)
+				if main.Category != api.ALIYUN_DBINSTANCE_CATEGORY_HA {
+					return input, httperrors.NewInputParameterError("Not support create readonly dbinstance for MySQL %s %s", main.EngineVersion, main.Category)
 				}
-				if master.StorageType != api.ALIYUN_DBINSTANCE_STORAGE_TYPE_LOCAL_SSD {
-					return input, httperrors.NewInputParameterError("Not support create readonly dbinstance for MySQL %s %s with storage type %s, only support %s", master.EngineVersion, master.Category, master.StorageType, api.ALIYUN_DBINSTANCE_STORAGE_TYPE_LOCAL_SSD)
+				if main.StorageType != api.ALIYUN_DBINSTANCE_STORAGE_TYPE_LOCAL_SSD {
+					return input, httperrors.NewInputParameterError("Not support create readonly dbinstance for MySQL %s %s with storage type %s, only support %s", main.EngineVersion, main.Category, main.StorageType, api.ALIYUN_DBINSTANCE_STORAGE_TYPE_LOCAL_SSD)
 				}
 			default:
-				return input, httperrors.NewInputParameterError("Not support create readonly dbinstance for MySQL %s", master.EngineVersion)
+				return input, httperrors.NewInputParameterError("Not support create readonly dbinstance for MySQL %s", main.EngineVersion)
 			}
 		case api.DBINSTANCE_TYPE_SQLSERVER:
-			if master.Category != api.ALIYUN_DBINSTANCE_CATEGORY_ALWAYSON || master.EngineVersion != "2017_ent" {
+			if main.Category != api.ALIYUN_DBINSTANCE_CATEGORY_ALWAYSON || main.EngineVersion != "2017_ent" {
 				return input, httperrors.NewInputParameterError("SQL Server only support create readonly dbinstance for 2017_ent")
 			}
-			if len(slaves) >= 7 {
+			if len(subordinates) >= 7 {
 				return input, httperrors.NewInputParameterError("SQL Server cannot have more than seven read-only dbinstances")
 			}
 		default:
-			return input, httperrors.NewInputParameterError("Not support create readonly dbinstance which master dbinstance engine is", master.Engine)
+			return input, httperrors.NewInputParameterError("Not support create readonly dbinstance which main dbinstance engine is", main.Engine)
 		}
 	}
 
 	switch input.Engine {
 	case api.DBINSTANCE_TYPE_MYSQL:
-		if input.VmemSizeMb/1024 >= 64 && len(slaves) >= 10 {
-			return input, httperrors.NewInputParameterError("Master dbinstance memory ≥64GB, up to 10 read-only instances are allowed to be created")
-		} else if input.VmemSizeMb/1024 < 64 && len(slaves) >= 5 {
-			return input, httperrors.NewInputParameterError("Master dbinstance memory <64GB, up to 5 read-only instances are allowed to be created")
+		if input.VmemSizeMb/1024 >= 64 && len(subordinates) >= 10 {
+			return input, httperrors.NewInputParameterError("Main dbinstance memory ≥64GB, up to 10 read-only instances are allowed to be created")
+		} else if input.VmemSizeMb/1024 < 64 && len(subordinates) >= 5 {
+			return input, httperrors.NewInputParameterError("Main dbinstance memory <64GB, up to 5 read-only instances are allowed to be created")
 		}
 	case api.DBINSTANCE_TYPE_SQLSERVER:
 		if input.Category == api.ALIYUN_DBINSTANCE_CATEGORY_ALWAYSON {

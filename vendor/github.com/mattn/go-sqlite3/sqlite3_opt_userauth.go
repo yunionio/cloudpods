@@ -47,7 +47,7 @@ _sqlite3_auth_enabled(sqlite3* db)
 	int exists = -1;
 
 	sqlite3_stmt *stmt;
-	sqlite3_prepare_v2(db, "select count(type) from sqlite_master WHERE type='table' and name='sqlite_user';", -1, &stmt, NULL);
+	sqlite3_prepare_v2(db, "select count(type) from sqlite_main WHERE type='table' and name='sqlite_user';", -1, &stmt, NULL);
 
 	while ( sqlite3_step(stmt) == SQLITE_ROW) {
 		exists = sqlite3_column_int(stmt, 0);

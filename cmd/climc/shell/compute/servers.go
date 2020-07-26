@@ -285,7 +285,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.ServerSwitchToBackupOptions{}, "server-switch-to-backup", "Switch geust master to backup host", func(s *mcclient.ClientSession, opts *options.ServerSwitchToBackupOptions) error {
+	R(&options.ServerSwitchToBackupOptions{}, "server-switch-to-backup", "Switch geust main to backup host", func(s *mcclient.ClientSession, opts *options.ServerSwitchToBackupOptions) error {
 		params, err := options.StructToParams(opts)
 		if err != nil {
 			return err

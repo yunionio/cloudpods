@@ -941,9 +941,9 @@ func (self *SKVMRegionDriver) RequestDeleteSnapshot(ctx context.Context, snapsho
 }
 
 func (self *SKVMRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SnapshotCreateInput) error {
-	host := storage.GetMasterHost()
+	host := storage.GetMainHost()
 	if host == nil {
-		return fmt.Errorf("failed to get master host, maybe the host is offline")
+		return fmt.Errorf("failed to get main host, maybe the host is offline")
 	}
 	return models.GetStorageDriver(storage.StorageType).ValidateCreateSnapshotData(ctx, userCred, disk, input)
 }
@@ -1043,7 +1043,7 @@ func (self *SKVMRegionDriver) OnSnapshotDelete(ctx context.Context, snapshot *mo
 func (self *SKVMRegionDriver) RequestSyncDiskStatus(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		storage := disk.GetStorage()
-		host := storage.GetMasterHost()
+		host := storage.GetMainHost()
 		header := task.GetTaskRequestHeader()
 		url := fmt.Sprintf("%s/disks/%s/%s/status", host.ManagerUri, storage.Id, disk.Id)
 		_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "GET", url, header, nil, false)
@@ -1066,7 +1066,7 @@ func (self *SKVMRegionDriver) RequestSyncDiskStatus(ctx context.Context, userCre
 func (self *SKVMRegionDriver) RequestSyncSnapshotStatus(ctx context.Context, userCred mcclient.TokenCredential, snapshot *models.SSnapshot, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		storage := snapshot.GetStorage()
-		host := storage.GetMasterHost()
+		host := storage.GetMainHost()
 		header := task.GetTaskRequestHeader()
 		url := fmt.Sprintf("%s/snapshots/%s/%s/%s/status", host.ManagerUri, storage.Id, snapshot.DiskId, snapshot.Id)
 		_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "GET", url, header, nil, false)

@@ -33,20 +33,20 @@ func newSchedtagModelHelper(mans ...modulebase.JointResourceManager) *schedtagMo
 
 func (h *schedtagModelHelper) register() {
 	for _, man := range h.managers {
-		h.list(man.Slave, man.Slave.GetKeyword())
-		h.add(man, man.Slave.GetKeyword())
-		h.remove(man, man.Slave.GetKeyword())
-		h.setTags(man, man.Slave.GetKeyword())
+		h.list(man.Subordinate, man.Subordinate.GetKeyword())
+		h.add(man, man.Subordinate.GetKeyword())
+		h.remove(man, man.Subordinate.GetKeyword())
+		h.setTags(man, man.Subordinate.GetKeyword())
 	}
 }
 
-func (h *schedtagModelHelper) list(slave modulebase.Manager, kw string) {
+func (h *schedtagModelHelper) list(subordinate modulebase.Manager, kw string) {
 	R(
 		&options.SchedtagModelListOptions{},
 		fmt.Sprintf("schedtag-%s-list", kw),
 		fmt.Sprintf("List all scheduler tag and %s pairs", kw),
 		func(s *mcclient.ClientSession, args *options.SchedtagModelListOptions) error {
-			mod, err := modulebase.GetJointModule2(s, &modules.Schedtags, slave)
+			mod, err := modulebase.GetJointModule2(s, &modules.Schedtags, subordinate)
 			if err != nil {
 				return err
 			}
@@ -109,7 +109,7 @@ func (h *schedtagModelHelper) setTags(man modulebase.JointResourceManager, kw st
 			if err != nil {
 				return err
 			}
-			ret, err := man.Slave.PerformAction(s, args.ID, "set-schedtag", params)
+			ret, err := man.Subordinate.PerformAction(s, args.ID, "set-schedtag", params)
 			if err != nil {
 				return err
 			}

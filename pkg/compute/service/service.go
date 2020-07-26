@@ -97,7 +97,7 @@ func StartService() {
 		if err != nil {
 			log.Fatalf("etcd config for elect: %v", err)
 		}
-		electObj, err = elect.NewElect(etcdCfg, "@master-role")
+		electObj, err = elect.NewElect(etcdCfg, "@main-role")
 		if err != nil {
 			log.Fatalf("new elect instance: %v", err)
 		}
@@ -112,7 +112,7 @@ func StartService() {
 			StartHostsHealthCheck(context.Background())
 	}
 
-	if !opts.IsSlaveNode {
+	if !opts.IsSubordinateNode {
 		cron := cronman.InitCronJobManager(true, options.Options.CronJobWorkerCount)
 		cron.AddJobAtIntervals("CleanPendingDeleteServers", time.Duration(opts.PendingDeleteCheckSeconds)*time.Second, models.GuestManager.CleanPendingDeleteServers)
 		cron.AddJobAtIntervals("CleanPendingDeleteDisks", time.Duration(opts.PendingDeleteCheckSeconds)*time.Second, models.DiskManager.CleanPendingDeleteDisks)

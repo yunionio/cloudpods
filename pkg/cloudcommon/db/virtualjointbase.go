@@ -37,8 +37,8 @@ type SVirtualJointResourceBaseManager struct {
 	SJointResourceBaseManager
 }
 
-func NewVirtualJointResourceBaseManager(dt interface{}, tableName string, keyword string, keywordPlural string, master IVirtualModelManager, slave IVirtualModelManager) SVirtualJointResourceBaseManager {
-	return SVirtualJointResourceBaseManager{SJointResourceBaseManager: NewJointResourceBaseManager(dt, tableName, keyword, keywordPlural, master, slave)}
+func NewVirtualJointResourceBaseManager(dt interface{}, tableName string, keyword string, keywordPlural string, main IVirtualModelManager, subordinate IVirtualModelManager) SVirtualJointResourceBaseManager {
+	return SVirtualJointResourceBaseManager{SJointResourceBaseManager: NewJointResourceBaseManager(dt, tableName, keyword, keywordPlural, main, subordinate)}
 }
 
 func (manager *SVirtualJointResourceBaseManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -49,22 +49,22 @@ func (manager *SVirtualJointResourceBaseManager) AllowListItems(ctx context.Cont
 	// return manager.SJointResourceBaseManager.AllowListItems(ctx, userCred, query)
 }
 
-func (manager *SVirtualJointResourceBaseManager) AllowListDescendent(ctx context.Context, userCred mcclient.TokenCredential, master IStandaloneModel, query jsonutils.JSONObject) bool {
-	masterVirtual := master.(IVirtualModel)
-	if masterVirtual.IsOwner(userCred) || IsAllowList(rbacutils.ScopeSystem, userCred, manager) {
+func (manager *SVirtualJointResourceBaseManager) AllowListDescendent(ctx context.Context, userCred mcclient.TokenCredential, main IStandaloneModel, query jsonutils.JSONObject) bool {
+	mainVirtual := main.(IVirtualModel)
+	if mainVirtual.IsOwner(userCred) || IsAllowList(rbacutils.ScopeSystem, userCred, manager) {
 		return true
 	}
 	return false
 }
 
-func (manager *SVirtualJointResourceBaseManager) AllowAttach(ctx context.Context, userCred mcclient.TokenCredential, master IStandaloneModel, slave IStandaloneModel) bool {
-	masterVirtual := master.(IVirtualModel)
-	slaveVirtual := slave.(IVirtualModel)
-	if masterVirtual.GetOwnerId() == slaveVirtual.GetOwnerId() {
+func (manager *SVirtualJointResourceBaseManager) AllowAttach(ctx context.Context, userCred mcclient.TokenCredential, main IStandaloneModel, subordinate IStandaloneModel) bool {
+	mainVirtual := main.(IVirtualModel)
+	subordinateVirtual := subordinate.(IVirtualModel)
+	if mainVirtual.GetOwnerId() == subordinateVirtual.GetOwnerId() {
 		return true
 	} else {
-		slaveValue := reflect.Indirect(reflect.ValueOf(slaveVirtual))
-		val, find := reflectutils.FindStructFieldInterface(slaveValue, "IsPublic")
+		subordinateValue := reflect.Indirect(reflect.ValueOf(subordinateVirtual))
+		val, find := reflectutils.FindStructFieldInterface(subordinateValue, "IsPublic")
 		if find {
 			valBool, ok := val.(bool)
 			if ok && valBool {
@@ -76,49 +76,49 @@ func (manager *SVirtualJointResourceBaseManager) AllowAttach(ctx context.Context
 }
 
 func (self *SVirtualJointResourceBase) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	masterVirtual := self.Master().(IVirtualModel)
-	return masterVirtual.IsOwner(userCred) || IsAllowGet(rbacutils.ScopeSystem, userCred, self)
+	mainVirtual := self.Main().(IVirtualModel)
+	return mainVirtual.IsOwner(userCred) || IsAllowGet(rbacutils.ScopeSystem, userCred, self)
 }
 
 func (self *SVirtualJointResourceBase) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	masterVirtual := self.Master().(IVirtualModel)
-	return masterVirtual.IsOwner(userCred) || IsAllowUpdate(rbacutils.ScopeSystem, userCred, self)
+	mainVirtual := self.Main().(IVirtualModel)
+	return mainVirtual.IsOwner(userCred) || IsAllowUpdate(rbacutils.ScopeSystem, userCred, self)
 }
 
 func (manager *SVirtualJointResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
-		masterQ := manager.GetMasterManager().Query("id")
-		masterQ = manager.GetMasterManager().FilterByOwner(masterQ, owner, scope)
-		slaveQ := manager.GetSlaveManager().Query("id")
-		slaveQ = manager.GetSlaveManager().FilterByOwner(slaveQ, owner, scope)
+		mainQ := manager.GetMainManager().Query("id")
+		mainQ = manager.GetMainManager().FilterByOwner(mainQ, owner, scope)
+		subordinateQ := manager.GetSubordinateManager().Query("id")
+		subordinateQ = manager.GetSubordinateManager().FilterByOwner(subordinateQ, owner, scope)
 		iManager := manager.GetIJointModelManager()
-		q = q.In(iManager.GetMasterFieldName(), masterQ.SubQuery())
-		q = q.In(iManager.GetSlaveFieldName(), slaveQ.SubQuery())
+		q = q.In(iManager.GetMainFieldName(), mainQ.SubQuery())
+		q = q.In(iManager.GetSubordinateFieldName(), subordinateQ.SubQuery())
 	}
 	return q
 }
 
 func (manager *SVirtualJointResourceBaseManager) FilterBySystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	q = manager.SJointResourceBaseManager.FilterBySystemAttributes(q, userCred, query, scope)
-	masterQ := manager.GetMasterManager().Query("id")
-	masterQ = manager.GetMasterManager().FilterBySystemAttributes(masterQ, userCred, query, scope)
-	slaveQ := manager.GetSlaveManager().Query("id")
-	slaveQ = manager.GetSlaveManager().FilterBySystemAttributes(slaveQ, userCred, query, scope)
+	mainQ := manager.GetMainManager().Query("id")
+	mainQ = manager.GetMainManager().FilterBySystemAttributes(mainQ, userCred, query, scope)
+	subordinateQ := manager.GetSubordinateManager().Query("id")
+	subordinateQ = manager.GetSubordinateManager().FilterBySystemAttributes(subordinateQ, userCred, query, scope)
 	iManager := manager.GetIJointModelManager()
-	q = q.In(iManager.GetMasterFieldName(), masterQ.SubQuery())
-	q = q.In(iManager.GetSlaveFieldName(), slaveQ.SubQuery())
+	q = q.In(iManager.GetMainFieldName(), mainQ.SubQuery())
+	q = q.In(iManager.GetSubordinateFieldName(), subordinateQ.SubQuery())
 	return q
 }
 
 func (manager *SVirtualJointResourceBaseManager) FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	q = manager.SJointResourceBaseManager.FilterByHiddenSystemAttributes(q, userCred, query, scope)
-	masterQ := manager.GetMasterManager().Query("id")
-	masterQ = manager.GetMasterManager().FilterByHiddenSystemAttributes(masterQ, userCred, query, scope)
-	slaveQ := manager.GetSlaveManager().Query("id")
-	slaveQ = manager.GetSlaveManager().FilterByHiddenSystemAttributes(slaveQ, userCred, query, scope)
+	mainQ := manager.GetMainManager().Query("id")
+	mainQ = manager.GetMainManager().FilterByHiddenSystemAttributes(mainQ, userCred, query, scope)
+	subordinateQ := manager.GetSubordinateManager().Query("id")
+	subordinateQ = manager.GetSubordinateManager().FilterByHiddenSystemAttributes(subordinateQ, userCred, query, scope)
 	iManager := manager.GetIJointModelManager()
-	q = q.In(iManager.GetMasterFieldName(), masterQ.SubQuery())
-	q = q.In(iManager.GetSlaveFieldName(), slaveQ.SubQuery())
+	q = q.In(iManager.GetMainFieldName(), mainQ.SubQuery())
+	q = q.In(iManager.GetSubordinateFieldName(), subordinateQ.SubQuery())
 	return q
 }
 

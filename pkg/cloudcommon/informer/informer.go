@@ -69,8 +69,8 @@ type ModelObject struct {
 	KeywordPlural string
 	Id            string
 	IsJoint       bool
-	MasterId      string
-	SlaveId       string
+	MainId      string
+	SubordinateId       string
 }
 
 func NewModel(obj interface{}, keywordPlural, id string) *ModelObject {
@@ -81,11 +81,11 @@ func NewModel(obj interface{}, keywordPlural, id string) *ModelObject {
 	}
 }
 
-func NewJointModel(obj interface{}, keywordPlural, masterId, slaveId string) *ModelObject {
+func NewJointModel(obj interface{}, keywordPlural, mainId, subordinateId string) *ModelObject {
 	model := NewModel(obj, keywordPlural, "")
 	model.IsJoint = true
-	model.MasterId = masterId
-	model.SlaveId = slaveId
+	model.MainId = mainId
+	model.SubordinateId = subordinateId
 	return model
 }
 

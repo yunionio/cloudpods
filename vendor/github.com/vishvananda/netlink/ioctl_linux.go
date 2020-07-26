@@ -35,11 +35,11 @@ const (
 	ETH_SS_RSS_HASH_FUNCS
 )
 
-// IfreqSlave is a struct for ioctl bond manipulation syscalls.
-// It is used to assign slave to bond interface with Name.
-type IfreqSlave struct {
+// IfreqSubordinate is a struct for ioctl bond manipulation syscalls.
+// It is used to assign subordinate to bond interface with Name.
+type IfreqSubordinate struct {
 	Name  [unix.IFNAMSIZ]byte
-	Slave [unix.IFNAMSIZ]byte
+	Subordinate [unix.IFNAMSIZ]byte
 }
 
 // Ifreq is a struct for ioctl ethernet manipulation syscalls.
@@ -70,12 +70,12 @@ type ethtoolStats struct {
 	data   [1]uint64
 }
 
-// newIocltSlaveReq returns filled IfreqSlave with proper interface names
-// It is used by ioctl to assign slave to bond master
-func newIocltSlaveReq(slave, master string) *IfreqSlave {
-	ifreq := &IfreqSlave{}
-	copy(ifreq.Name[:unix.IFNAMSIZ-1], master)
-	copy(ifreq.Slave[:unix.IFNAMSIZ-1], slave)
+// newIocltSubordinateReq returns filled IfreqSubordinate with proper interface names
+// It is used by ioctl to assign subordinate to bond main
+func newIocltSubordinateReq(subordinate, main string) *IfreqSubordinate {
+	ifreq := &IfreqSubordinate{}
+	copy(ifreq.Name[:unix.IFNAMSIZ-1], main)
+	copy(ifreq.Subordinate[:unix.IFNAMSIZ-1], subordinate)
 	return ifreq
 }
 

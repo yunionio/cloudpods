@@ -123,14 +123,14 @@ func GetImageRegistries() ([]string, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "get k8s nodes")
 	}
-	masterNodes := make([]*v1.Node, 0)
+	mainNodes := make([]*v1.Node, 0)
 	for _, n := range nodes.Items {
 		if _, ok := n.Labels["node-role.kubernetes.io/master"]; ok {
-			masterNodes = append(masterNodes, &n)
+			mainNodes = append(mainNodes, &n)
 		}
 	}
-	if len(masterNodes) == 0 {
-		return nil, errors.Wrap(err, "not found master nodes")
+	if len(mainNodes) == 0 {
+		return nil, errors.Wrap(err, "not found main nodes")
 	}
 	regs := make([]string, 0)
 	getImg := func(img v1.ContainerImage) {
@@ -150,7 +150,7 @@ func GetImageRegistries() ([]string, error) {
 			regs = append(regs, imgRepo)
 		}
 	}
-	for _, n := range masterNodes {
+	for _, n := range mainNodes {
 		for _, img := range n.Status.Images {
 			getImg(img)
 		}

@@ -74,7 +74,7 @@ func init() {
 		MacAddr   string `help:"Mac address"`
 		Interface string `help:"Interface"`
 		Bridge    string `help:"Bridge"`
-		IsMaster  string `help:"Master interface" choices:"true|false"`
+		IsMain  string `help:"Main interface" choices:"true|false"`
 	}
 	R(&HostWireUpdateOptions{}, "host-wire-update", "Update host wire information", func(s *mcclient.ClientSession, args *HostWireUpdateOptions) error {
 		params := jsonutils.NewDict()
@@ -87,11 +87,11 @@ func init() {
 		if len(args.Bridge) > 0 {
 			params.Add(jsonutils.NewString(args.Bridge), "bridge")
 		}
-		if len(args.IsMaster) > 0 {
-			if args.IsMaster == "true" {
-				params.Add(jsonutils.JSONTrue, "is_master")
+		if len(args.IsMain) > 0 {
+			if args.IsMain == "true" {
+				params.Add(jsonutils.JSONTrue, "is_main")
 			} else {
-				params.Add(jsonutils.JSONFalse, "is_master")
+				params.Add(jsonutils.JSONFalse, "is_main")
 			}
 		}
 		result, err := modules.Hostwires.Update(s, args.HOST, args.WIRE, nil, params)

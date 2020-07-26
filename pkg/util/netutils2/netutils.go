@@ -368,15 +368,15 @@ func GetSecretInterfaceAddress() (string, int) {
 	return addr, SECRET_MASK_LEN
 }
 
-func (n *SNetInterface) GetSlaveAddresses() [][]string {
+func (n *SNetInterface) GetSubordinateAddresses() [][]string {
 	addrs := n.GetAddresses()
-	var slaves = make([][]string, 0)
+	var subordinates = make([][]string, 0)
 	for _, addr := range addrs {
 		if addr[0] != n.Addr {
-			slaves = append(slaves, addr)
+			subordinates = append(subordinates, addr)
 		}
 	}
-	return slaves
+	return subordinates
 }
 
 func FormatMac(macStr string) string {

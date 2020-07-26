@@ -24,9 +24,9 @@ type SOrder struct {
 	InnerOrderID       string            `json:"innerOrderId"`
 	InnerOrderItemID   string            `json:"innerOrderItemId"`
 	ProductID          string            `json:"productId"`
-	MasterOrderID      string            `json:"masterOrderId"`
+	MainOrderID      string            `json:"mainOrderId"`
 	OrderID            string            `json:"orderId"`
-	MasterResourceID   string            `json:"masterResourceId"`
+	MainResourceID   string            `json:"mainResourceId"`
 	ResourceID         string            `json:"resourceId"`
 	ServiceTag         string            `json:"serviceTag"`
 	ResourceType       string            `json:"resourceType"`
@@ -53,7 +53,7 @@ type SOrder struct {
 	CanRelease         bool              `json:"canRelease"`
 	IsChargeOff        bool              `json:"isChargeOff"`
 	IsPublicTest       int64             `json:"isPublicTest"`
-	Master             bool              `json:"master"`
+	Main             bool              `json:"main"`
 	ResourceConfigMap  ResourceConfigMap `json:"resourceConfigMap"`
 }
 
@@ -80,10 +80,10 @@ type SecurityGroupID struct {
 
 func (self *SRegion) GetOrder(orderId string) ([]SOrder, error) {
 	params := map[string]string{
-		"masterOrderId": orderId,
+		"mainOrderId": orderId,
 	}
 
-	resp, err := self.client.DoGet("/apiproxy/v3/order/queryResourceInfoByMasterOrderId", params)
+	resp, err := self.client.DoGet("/apiproxy/v3/order/queryResourceInfoByMainOrderId", params)
 	if err != nil {
 		return nil, errors.Wrap(err, "SRegion.GetOrder.DoGet")
 	}

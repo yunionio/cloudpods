@@ -37,9 +37,9 @@ type DBInstanceCreateInput struct {
 
 	// rds实例名称或Id,建议使用Id
 	// 创建只读实例时此参数必传
-	MasterInstance string `json:"master_instance"`
+	MainInstance string `json:"main_instance"`
 	// swagger:ignore
-	MasterInstanceId string
+	MainInstanceId string
 
 	// 安全组名称或Id
 	// default: default
@@ -198,7 +198,7 @@ type DBInstanceListInput struct {
 
 	ZoneResourceInput
 
-	MasterInstance string `json:"master_instance"`
+	MainInstance string `json:"main_instance"`
 
 	VcpuCount int `json:"vcpu_count"`
 

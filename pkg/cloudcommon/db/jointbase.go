@@ -40,26 +40,26 @@ type SJointResourceBase struct {
 type SJointResourceBaseManager struct {
 	SResourceBaseManager
 
-	_master IStandaloneModelManager
-	_slave  IStandaloneModelManager
+	_main IStandaloneModelManager
+	_subordinate  IStandaloneModelManager
 }
 
-func NewJointResourceBaseManager(dt interface{}, tableName string, keyword string, keywordPlural string, master IStandaloneModelManager, slave IStandaloneModelManager) SJointResourceBaseManager {
+func NewJointResourceBaseManager(dt interface{}, tableName string, keyword string, keywordPlural string, main IStandaloneModelManager, subordinate IStandaloneModelManager) SJointResourceBaseManager {
 	log.Debugf("Initialize %s", keywordPlural)
-	if master == nil {
-		msg := fmt.Sprintf("%s master is nil, retry initialization later...", keywordPlural)
+	if main == nil {
+		msg := fmt.Sprintf("%s main is nil, retry initialization later...", keywordPlural)
 		log.Errorf(msg)
 		panic(msg)
 	}
-	if slave == nil {
-		msg := fmt.Sprintf("%s slave is nil, retry initialization later...", keywordPlural)
+	if subordinate == nil {
+		msg := fmt.Sprintf("%s subordinate is nil, retry initialization later...", keywordPlural)
 		log.Errorf(msg)
 		panic(msg)
 	}
 	return SJointResourceBaseManager{
 		SResourceBaseManager: NewResourceBaseManager(dt, tableName, keyword, keywordPlural),
-		_master:              master,
-		_slave:               slave,
+		_main:              main,
+		_subordinate:               subordinate,
 	}
 }
 
@@ -67,12 +67,12 @@ func (manager *SJointResourceBaseManager) GetIJointModelManager() IJointModelMan
 	return manager.GetVirtualObject().(IJointModelManager)
 }
 
-func (manager *SJointResourceBaseManager) GetMasterManager() IStandaloneModelManager {
-	return manager._master
+func (manager *SJointResourceBaseManager) GetMainManager() IStandaloneModelManager {
+	return manager._main
 }
 
-func (manager *SJointResourceBaseManager) GetSlaveManager() IStandaloneModelManager {
-	return manager._slave
+func (manager *SJointResourceBaseManager) GetSubordinateManager() IStandaloneModelManager {
+	return manager._subordinate
 }
 
 /*
@@ -84,12 +84,12 @@ func queryField(q *sqlchemy.SQuery, manager IModelManager) sqlchemy.IQueryField 
 	return field
 }
 
-func (manager *SJointResourceBaseManager) MasterField(q *sqlchemy.SQuery) sqlchemy.IQueryField {
-	return queryField(q, manager.GetMasterManager())
+func (manager *SJointResourceBaseManager) MainField(q *sqlchemy.SQuery) sqlchemy.IQueryField {
+	return queryField(q, manager.GetMainManager())
 }
 
-func (manager *SJointResourceBaseManager) SlaveField(q *sqlchemy.SQuery) sqlchemy.IQueryField {
-	return queryField(q, manager.GetSlaveManager())
+func (manager *SJointResourceBaseManager) SubordinateField(q *sqlchemy.SQuery) sqlchemy.IQueryField {
+	return queryField(q, manager.GetSubordinateManager())
 }
 */
 
@@ -101,21 +101,21 @@ func (manager *SJointResourceBaseManager) AllowListDescendent(ctx context.Contex
 	return IsAllowList(rbacutils.ScopeSystem, userCred, manager)
 }
 
-func (manager *SJointResourceBaseManager) AllowAttach(ctx context.Context, userCred mcclient.TokenCredential, master IStandaloneModel, slave IStandaloneModel) bool {
+func (manager *SJointResourceBaseManager) AllowAttach(ctx context.Context, userCred mcclient.TokenCredential, main IStandaloneModel, subordinate IStandaloneModel) bool {
 	return IsAllowCreate(rbacutils.ScopeSystem, userCred, manager)
 }
 
 func JointModelExtra(jointModel IJointModel) (string, string) {
-	masterName, slaveName := "", ""
-	master := jointModel.Master()
-	if master != nil {
-		masterName = master.GetName()
+	mainName, subordinateName := "", ""
+	main := jointModel.Main()
+	if main != nil {
+		mainName = main.GetName()
 	}
-	slave := jointModel.Slave()
-	if slave != nil {
-		slaveName = slave.GetName()
+	subordinate := jointModel.Subordinate()
+	if subordinate != nil {
+		subordinateName = subordinate.GetName()
 	}
-	return masterName, slaveName
+	return mainName, subordinateName
 }
 
 func (joint *SJointResourceBase) GetJointModelManager() IJointModelManager {
@@ -135,37 +135,37 @@ func getFieldValue(joint IJointModel, keyword string, alias string) string {
 	return ""
 }
 
-func JointMasterID(joint IJointModel) string { // need override
-	masterMan := joint.GetJointModelManager().GetMasterManager()
-	return getFieldValue(joint, masterMan.Keyword(), masterMan.Alias())
+func JointMainID(joint IJointModel) string { // need override
+	mainMan := joint.GetJointModelManager().GetMainManager()
+	return getFieldValue(joint, mainMan.Keyword(), mainMan.Alias())
 }
 
-func JointSlaveID(joint IJointModel) string { // need override
-	slaveMan := joint.GetJointModelManager().GetSlaveManager()
-	return getFieldValue(joint, slaveMan.Keyword(), slaveMan.Alias())
+func JointSubordinateID(joint IJointModel) string { // need override
+	subordinateMan := joint.GetJointModelManager().GetSubordinateManager()
+	return getFieldValue(joint, subordinateMan.Keyword(), subordinateMan.Alias())
 }
 
-func JointMaster(joint IJointModel) IStandaloneModel { // need override
-	masterMan := joint.GetJointModelManager().GetMasterManager()
-	masterId := JointMasterID(joint)
-	//log.Debugf("MasterID: %s %s", masterId, masterMan.KeywordPlural())
-	if len(masterId) > 0 {
-		master, _ := masterMan.FetchById(masterId)
-		if master != nil {
-			return master.(IStandaloneModel)
+func JointMain(joint IJointModel) IStandaloneModel { // need override
+	mainMan := joint.GetJointModelManager().GetMainManager()
+	mainId := JointMainID(joint)
+	//log.Debugf("MainID: %s %s", mainId, mainMan.KeywordPlural())
+	if len(mainId) > 0 {
+		main, _ := mainMan.FetchById(mainId)
+		if main != nil {
+			return main.(IStandaloneModel)
 		}
 	}
 	return nil
 }
 
-func JointSlave(joint IJointModel) IStandaloneModel { // need override
-	slaveMan := joint.GetJointModelManager().GetSlaveManager()
-	slaveId := JointSlaveID(joint)
-	//log.Debugf("SlaveID: %s %s", slaveId, slaveMan.KeywordPlural())
-	if len(slaveId) > 0 {
-		slave, _ := slaveMan.FetchById(slaveId)
-		if slave != nil {
-			return slave.(IStandaloneModel)
+func JointSubordinate(joint IJointModel) IStandaloneModel { // need override
+	subordinateMan := joint.GetJointModelManager().GetSubordinateManager()
+	subordinateId := JointSubordinateID(joint)
+	//log.Debugf("SubordinateID: %s %s", subordinateId, subordinateMan.KeywordPlural())
+	if len(subordinateId) > 0 {
+		subordinate, _ := subordinateMan.FetchById(subordinateId)
+		if subordinate != nil {
+			return subordinate.(IStandaloneModel)
 		}
 	}
 	return nil
@@ -175,29 +175,29 @@ func (joint *SJointResourceBase) GetIJointModel() IJointModel {
 	return joint.GetVirtualObject().(IJointModel)
 }
 
-func (joint *SJointResourceBase) Master() IStandaloneModel {
+func (joint *SJointResourceBase) Main() IStandaloneModel {
 	return nil
 }
 
-func (joint *SJointResourceBase) Slave() IStandaloneModel {
+func (joint *SJointResourceBase) Subordinate() IStandaloneModel {
 	return nil
 }
 
 func (self *SJointResourceBase) AllowGetJointDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, item IJointModel) bool {
-	master := item.Master()
-	switch master.(type) {
+	main := item.Main()
+	switch main.(type) {
 	case IVirtualModel:
-		return master.(IVirtualModel).IsOwner(userCred) || IsAllowGet(rbacutils.ScopeSystem, userCred, master)
+		return main.(IVirtualModel).IsOwner(userCred) || IsAllowGet(rbacutils.ScopeSystem, userCred, main)
 	default: // case item implemented customized AllowGetDetails, eg hostjoints
 		return item.AllowGetDetails(ctx, userCred, query)
 	}
 }
 
 func (self *SJointResourceBase) AllowUpdateJointItem(ctx context.Context, userCred mcclient.TokenCredential, item IJointModel) bool {
-	master := item.Master()
-	switch master.(type) {
+	main := item.Main()
+	switch main.(type) {
 	case IVirtualModel:
-		return master.(IVirtualModel).IsOwner(userCred) || IsAllowUpdate(rbacutils.ScopeSystem, userCred, master)
+		return main.(IVirtualModel).IsOwner(userCred) || IsAllowUpdate(rbacutils.ScopeSystem, userCred, main)
 	default: // case item implemented customized AllowGetDetails, eg hostjoints
 		return item.AllowUpdateItem(ctx, userCred)
 	}
@@ -208,7 +208,7 @@ func (self *SJointResourceBase) AllowDetach(ctx context.Context, userCred mcclie
 }
 
 func (manager *SJointResourceBaseManager) ResourceScope() rbacutils.TRbacScope {
-	return manager.GetMasterManager().ResourceScope()
+	return manager.GetMainManager().ResourceScope()
 }
 
 func (manager *SJointResourceBaseManager) NamespaceScope() rbacutils.TRbacScope {

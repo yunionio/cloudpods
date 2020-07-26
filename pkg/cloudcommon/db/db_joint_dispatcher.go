@@ -43,24 +43,24 @@ func (dispatcher *DBJointModelDispatcher) JointModelManager() IJointModelManager
 	return dispatcher.modelManager.(IJointModelManager)
 }
 
-func (dispatcher *DBJointModelDispatcher) MasterKeywordPlural() string {
+func (dispatcher *DBJointModelDispatcher) MainKeywordPlural() string {
 	jointManager := dispatcher.JointModelManager()
 	if jointManager == nil {
 		log.Fatalf("nil jointModelManager")
 	}
-	return jointManager.GetMasterManager().KeywordPlural()
+	return jointManager.GetMainManager().KeywordPlural()
 }
 
-func (dispatcher *DBJointModelDispatcher) SlaveKeywordPlural() string {
+func (dispatcher *DBJointModelDispatcher) SubordinateKeywordPlural() string {
 	jointManager := dispatcher.JointModelManager()
 	if jointManager == nil {
 		log.Fatalf("nil jointModelManager")
 	}
-	return jointManager.GetSlaveManager().KeywordPlural()
+	return jointManager.GetSubordinateManager().KeywordPlural()
 }
 
-func (dispatcher *DBJointModelDispatcher) ListMasterDescendent(ctx context.Context, idStr string, query jsonutils.JSONObject) (*modulebase.ListResult, error) {
-	//log.Debugf("ListMasterDescendent %s %s", dispatcher.JointModelManager().GetMasterManager().Keyword(), idStr)
+func (dispatcher *DBJointModelDispatcher) ListMainDescendent(ctx context.Context, idStr string, query jsonutils.JSONObject) (*modulebase.ListResult, error) {
+	//log.Debugf("ListMainDescendent %s %s", dispatcher.JointModelManager().GetMainManager().Keyword(), idStr)
 	userCred := fetchUserCredential(ctx)
 
 	var queryDict *jsonutils.JSONDict
@@ -71,22 +71,22 @@ func (dispatcher *DBJointModelDispatcher) ListMasterDescendent(ctx context.Conte
 		}
 	}
 
-	model, err := fetchItem(dispatcher.JointModelManager().GetMasterManager(), ctx, userCred, idStr, query)
+	model, err := fetchItem(dispatcher.JointModelManager().GetMainManager(), ctx, userCred, idStr, query)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError2(dispatcher.JointModelManager().GetMasterManager().Keyword(), idStr)
+		return nil, httperrors.NewResourceNotFoundError2(dispatcher.JointModelManager().GetMainManager().Keyword(), idStr)
 	} else if err != nil {
 		return nil, err
 	}
-	queryDict.Add(jsonutils.NewString(model.GetId()), fmt.Sprintf("%s_id", dispatcher.JointModelManager().GetMasterManager().Keyword()))
-	if len(dispatcher.JointModelManager().GetMasterManager().Alias()) > 0 {
-		queryDict.Add(jsonutils.NewString(model.GetId()), fmt.Sprintf("%s_id", dispatcher.JointModelManager().GetMasterManager().Alias()))
+	queryDict.Add(jsonutils.NewString(model.GetId()), fmt.Sprintf("%s_id", dispatcher.JointModelManager().GetMainManager().Keyword()))
+	if len(dispatcher.JointModelManager().GetMainManager().Alias()) > 0 {
+		queryDict.Add(jsonutils.NewString(model.GetId()), fmt.Sprintf("%s_id", dispatcher.JointModelManager().GetMainManager().Alias()))
 	}
 
 	return dispatcher._listJoint(ctx, userCred, model.(IStandaloneModel), queryDict)
 }
 
-func (dispatcher *DBJointModelDispatcher) ListSlaveDescendent(ctx context.Context, idStr string, query jsonutils.JSONObject) (*modulebase.ListResult, error) {
-	//log.Debugf("ListSlaveDescendent %s %s", dispatcher.JointModelManager().GetMasterManager().Keyword(), idStr)
+func (dispatcher *DBJointModelDispatcher) ListSubordinateDescendent(ctx context.Context, idStr string, query jsonutils.JSONObject) (*modulebase.ListResult, error) {
+	//log.Debugf("ListSubordinateDescendent %s %s", dispatcher.JointModelManager().GetMainManager().Keyword(), idStr)
 	userCred := fetchUserCredential(ctx)
 
 	var queryDict *jsonutils.JSONDict
@@ -97,15 +97,15 @@ func (dispatcher *DBJointModelDispatcher) ListSlaveDescendent(ctx context.Contex
 		}
 	}
 
-	model, err := fetchItem(dispatcher.JointModelManager().GetSlaveManager(), ctx, userCred, idStr, query)
+	model, err := fetchItem(dispatcher.JointModelManager().GetSubordinateManager(), ctx, userCred, idStr, query)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError2(dispatcher.JointModelManager().GetSlaveManager().Keyword(), idStr)
+		return nil, httperrors.NewResourceNotFoundError2(dispatcher.JointModelManager().GetSubordinateManager().Keyword(), idStr)
 	} else if err != nil {
 		return nil, err
 	}
-	queryDict.Add(jsonutils.NewString(model.GetId()), fmt.Sprintf("%s_id", dispatcher.JointModelManager().GetSlaveManager().Keyword()))
-	if len(dispatcher.JointModelManager().GetSlaveManager().Alias()) > 0 {
-		queryDict.Add(jsonutils.NewString(model.GetId()), fmt.Sprintf("%s_id", dispatcher.JointModelManager().GetSlaveManager().Alias()))
+	queryDict.Add(jsonutils.NewString(model.GetId()), fmt.Sprintf("%s_id", dispatcher.JointModelManager().GetSubordinateManager().Keyword()))
+	if len(dispatcher.JointModelManager().GetSubordinateManager().Alias()) > 0 {
+		queryDict.Add(jsonutils.NewString(model.GetId()), fmt.Sprintf("%s_id", dispatcher.JointModelManager().GetSubordinateManager().Alias()))
 	}
 
 	return dispatcher._listJoint(ctx, userCred, model.(IStandaloneModel), queryDict)
@@ -121,19 +121,19 @@ func (dispatcher *DBJointModelDispatcher) _listJoint(ctx context.Context, userCr
 }
 
 func fetchJointItem(dispatcher *DBJointModelDispatcher, ctx context.Context, userCred mcclient.TokenCredential, id1 string, id2 string, query jsonutils.JSONObject) (IStandaloneModel, IStandaloneModel, IJointModel, error) {
-	master, err := fetchItem(dispatcher.JointModelManager().GetMasterManager(), ctx, userCred, id1, query)
+	main, err := fetchItem(dispatcher.JointModelManager().GetMainManager(), ctx, userCred, id1, query)
 	if err != nil {
 		return nil, nil, nil, httperrors.NewGeneralError(err)
 	}
-	slave, err := fetchItem(dispatcher.JointModelManager().GetSlaveManager(), ctx, userCred, id2, query)
+	subordinate, err := fetchItem(dispatcher.JointModelManager().GetSubordinateManager(), ctx, userCred, id2, query)
 	if err != nil {
 		return nil, nil, nil, httperrors.NewGeneralError(err)
 	}
-	item, err := FetchJointByIds(dispatcher.JointModelManager(), master.GetId(), slave.GetId(), query)
+	item, err := FetchJointByIds(dispatcher.JointModelManager(), main.GetId(), subordinate.GetId(), query)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return master.(IStandaloneModel), slave.(IStandaloneModel), item, nil
+	return main.(IStandaloneModel), subordinate.(IStandaloneModel), item, nil
 }
 
 func (dispatcher *DBJointModelDispatcher) Get(ctx context.Context, id1 string, id2 string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -155,17 +155,17 @@ func (dispatcher *DBJointModelDispatcher) Get(ctx context.Context, id1 string, i
 	return getItemDetails(dispatcher.JointModelManager(), item, ctx, userCred, query)
 }
 
-func attachItems(dispatcher *DBJointModelDispatcher, master IStandaloneModel, slave IStandaloneModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func attachItems(dispatcher *DBJointModelDispatcher, main IStandaloneModel, subordinate IStandaloneModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if consts.IsRbacEnabled() {
-		err := isObjectRbacAllowed(master, userCred, policy.PolicyActionPerform, "attach")
+		err := isObjectRbacAllowed(main, userCred, policy.PolicyActionPerform, "attach")
 		if err != nil {
 			return nil, err
 		}
-		err = isObjectRbacAllowed(slave, userCred, policy.PolicyActionPerform, "attach")
+		err = isObjectRbacAllowed(subordinate, userCred, policy.PolicyActionPerform, "attach")
 		if err != nil {
 			return nil, err
 		}
-	} else if !dispatcher.JointModelManager().AllowAttach(ctx, userCred, master, slave) {
+	} else if !dispatcher.JointModelManager().AllowAttach(ctx, userCred, main, subordinate) {
 		return nil, httperrors.NewForbiddenError("Not allow to attach")
 	}
 	// ownerProjId, err := fetchOwnerId(ctx, dispatcher.JointModelManager(), userCred, data)
@@ -173,59 +173,59 @@ func attachItems(dispatcher *DBJointModelDispatcher, master IStandaloneModel, sl
 	if !ok {
 		return nil, fmt.Errorf("body not a json dict")
 	}
-	dataDict.Add(jsonutils.NewString(master.GetId()), fmt.Sprintf("%s_id", dispatcher.JointModelManager().GetMasterManager().Keyword()))
-	if len(dispatcher.JointModelManager().GetMasterManager().Alias()) > 0 {
-		dataDict.Add(jsonutils.NewString(master.GetId()), fmt.Sprintf("%s_id", dispatcher.JointModelManager().GetMasterManager().Alias()))
+	dataDict.Add(jsonutils.NewString(main.GetId()), fmt.Sprintf("%s_id", dispatcher.JointModelManager().GetMainManager().Keyword()))
+	if len(dispatcher.JointModelManager().GetMainManager().Alias()) > 0 {
+		dataDict.Add(jsonutils.NewString(main.GetId()), fmt.Sprintf("%s_id", dispatcher.JointModelManager().GetMainManager().Alias()))
 	}
-	dataDict.Add(jsonutils.NewString(slave.GetId()), fmt.Sprintf("%s_id", dispatcher.JointModelManager().GetSlaveManager().Keyword()))
-	if len(dispatcher.JointModelManager().GetSlaveManager().Alias()) > 0 {
-		dataDict.Add(jsonutils.NewString(slave.GetId()), fmt.Sprintf("%s_id", dispatcher.JointModelManager().GetSlaveManager().Alias()))
+	dataDict.Add(jsonutils.NewString(subordinate.GetId()), fmt.Sprintf("%s_id", dispatcher.JointModelManager().GetSubordinateManager().Keyword()))
+	if len(dispatcher.JointModelManager().GetSubordinateManager().Alias()) > 0 {
+		dataDict.Add(jsonutils.NewString(subordinate.GetId()), fmt.Sprintf("%s_id", dispatcher.JointModelManager().GetSubordinateManager().Alias()))
 	}
 	item, err := doCreateItem(dispatcher.JointModelManager(), ctx, userCred, nil, query, data)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
 	item.PostCreate(ctx, userCred, nil, query, data)
-	OpsLog.LogAttachEvent(ctx, master, slave, userCred, jsonutils.Marshal(item))
+	OpsLog.LogAttachEvent(ctx, main, subordinate, userCred, jsonutils.Marshal(item))
 	dispatcher.modelManager.OnCreateComplete(ctx, []IModel{item}, userCred, nil, query, data)
 	return getItemDetails(dispatcher.JointModelManager(), item, ctx, userCred, query)
 }
 
 func (dispatcher *DBJointModelDispatcher) Attach(ctx context.Context, id1 string, id2 string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	master, err := fetchItem(dispatcher.JointModelManager().GetMasterManager(), ctx, userCred, id1, query)
+	main, err := fetchItem(dispatcher.JointModelManager().GetMainManager(), ctx, userCred, id1, query)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError2(dispatcher.JointModelManager().GetMasterManager().Keyword(), id1)
+			return nil, httperrors.NewResourceNotFoundError2(dispatcher.JointModelManager().GetMainManager().Keyword(), id1)
 		} else {
 			return nil, httperrors.NewGeneralError(err)
 		}
 	}
-	slave, err := fetchItem(dispatcher.JointModelManager().GetSlaveManager(), ctx, userCred, id2, query)
+	subordinate, err := fetchItem(dispatcher.JointModelManager().GetSubordinateManager(), ctx, userCred, id2, query)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError2(dispatcher.JointModelManager().GetSlaveManager().Keyword(), id2)
+			return nil, httperrors.NewResourceNotFoundError2(dispatcher.JointModelManager().GetSubordinateManager().Keyword(), id2)
 		} else {
 			return nil, httperrors.NewGeneralError(err)
 		}
 	}
 
-	_, _, joinItem, err := fetchJointItem(dispatcher, ctx, userCred, master.GetId(), slave.GetId(), query)
+	_, _, joinItem, err := fetchJointItem(dispatcher, ctx, userCred, main.GetId(), subordinate.GetId(), query)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, err
 	}
 	if joinItem != nil {
-		return nil, httperrors.NewNotAcceptableError("Object %s %s has attached %s %s", master.KeywordPlural(), master.GetId(), slave.KeywordPlural(), slave.GetId())
+		return nil, httperrors.NewNotAcceptableError("Object %s %s has attached %s %s", main.KeywordPlural(), main.GetId(), subordinate.KeywordPlural(), subordinate.GetId())
 	}
 
-	lockman.LockJointObject(ctx, master, slave)
-	defer lockman.ReleaseJointObject(ctx, master, slave)
-	return attachItems(dispatcher, master.(IStandaloneModel), slave.(IStandaloneModel), ctx, userCred, query, data)
+	lockman.LockJointObject(ctx, main, subordinate)
+	defer lockman.ReleaseJointObject(ctx, main, subordinate)
+	return attachItems(dispatcher, main.(IStandaloneModel), subordinate.(IStandaloneModel), ctx, userCred, query, data)
 }
 
 func (dispatcher *DBJointModelDispatcher) Update(ctx context.Context, id1 string, id2 string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	master, slave, item, err := fetchJointItem(dispatcher, ctx, userCred, id1, id2, query)
+	main, subordinate, item, err := fetchJointItem(dispatcher, ctx, userCred, id1, id2, query)
 	if err == sql.ErrNoRows {
 		if jsonutils.QueryBoolean(query, "auto_create", false) {
 			queryDict := query.(*jsonutils.JSONDict)
@@ -246,14 +246,14 @@ func (dispatcher *DBJointModelDispatcher) Update(ctx context.Context, id1 string
 		return nil, httperrors.NewForbiddenError("Not allow to update item")
 	}
 
-	lockman.LockJointObject(ctx, master, slave)
-	defer lockman.ReleaseJointObject(ctx, master, slave)
+	lockman.LockJointObject(ctx, main, subordinate)
+	defer lockman.ReleaseJointObject(ctx, main, subordinate)
 	return updateItem(dispatcher.JointModelManager(), item, ctx, userCred, query, data)
 }
 
 func (dispatcher *DBJointModelDispatcher) Detach(ctx context.Context, id1 string, id2 string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	master, slave, item, err := fetchJointItem(dispatcher, ctx, userCred, id1, id2, query)
+	main, subordinate, item, err := fetchJointItem(dispatcher, ctx, userCred, id1, id2, query)
 	if err == sql.ErrNoRows {
 		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), id1+"-"+id2)
 	} else if err != nil {
@@ -261,11 +261,11 @@ func (dispatcher *DBJointModelDispatcher) Detach(ctx context.Context, id1 string
 	}
 
 	if consts.IsRbacEnabled() {
-		err := isObjectRbacAllowed(master, userCred, policy.PolicyActionPerform, "detach")
+		err := isObjectRbacAllowed(main, userCred, policy.PolicyActionPerform, "detach")
 		if err != nil {
 			return nil, err
 		}
-		err = isObjectRbacAllowed(slave, userCred, policy.PolicyActionPerform, "detach")
+		err = isObjectRbacAllowed(subordinate, userCred, policy.PolicyActionPerform, "detach")
 		if err != nil {
 			return nil, err
 		}
@@ -273,12 +273,12 @@ func (dispatcher *DBJointModelDispatcher) Detach(ctx context.Context, id1 string
 		return nil, httperrors.NewForbiddenError("Not allow to attach")
 	}
 
-	lockman.LockJointObject(ctx, master, slave)
-	defer lockman.ReleaseJointObject(ctx, master, slave)
+	lockman.LockJointObject(ctx, main, subordinate)
+	defer lockman.ReleaseJointObject(ctx, main, subordinate)
 
 	obj, err := deleteItem(dispatcher.JointModelManager(), item, ctx, userCred, query, data)
 	if err == nil {
-		OpsLog.LogDetachEvent(ctx, item.Master(), item.Slave(), userCred, jsonutils.Marshal(item))
+		OpsLog.LogDetachEvent(ctx, item.Main(), item.Subordinate(), userCred, jsonutils.Marshal(item))
 	}
 	return obj, err
 }
@@ -290,7 +290,7 @@ func DetachJoint(ctx context.Context, userCred mcclient.TokenCredential, item IJ
 	}
 	err = item.Delete(ctx, userCred)
 	if err == nil {
-		OpsLog.LogDetachEvent(ctx, item.Master(), item.Slave(), userCred, item.GetShortDesc(ctx))
+		OpsLog.LogDetachEvent(ctx, item.Main(), item.Subordinate(), userCred, item.GetShortDesc(ctx))
 	}
 	return err
 }

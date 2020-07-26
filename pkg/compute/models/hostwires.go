@@ -59,7 +59,7 @@ type SHostwire struct {
 	// 接口名称
 	Interface string `width:"16" charset:"ascii" nullable:"false" list:"domain" update:"domain" create:"domain_required"`
 	// 是否是主地址
-	IsMaster bool `nullable:"true" default:"false" list:"domain" update:"domain" create:"domain_optional"`
+	IsMain bool `nullable:"true" default:"false" list:"domain" update:"domain" create:"domain_optional"`
 	// MAC地址
 	MacAddr string `width:"18" charset:"ascii" list:"domain" update:"domain" create:"domain_required"`
 
@@ -69,20 +69,20 @@ type SHostwire struct {
 	WireId string `width:"128" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
 }
 
-func (manager *SHostwireManager) GetMasterFieldName() string {
+func (manager *SHostwireManager) GetMainFieldName() string {
 	return "host_id"
 }
 
-func (manager *SHostwireManager) GetSlaveFieldName() string {
+func (manager *SHostwireManager) GetSubordinateFieldName() string {
 	return "wire_id"
 }
 
-func (joint *SHostwire) Master() db.IStandaloneModel {
-	return db.JointMaster(joint)
+func (joint *SHostwire) Main() db.IStandaloneModel {
+	return db.JointMain(joint)
 }
 
-func (joint *SHostwire) Slave() db.IStandaloneModel {
-	return db.JointSlave(joint)
+func (joint *SHostwire) Subordinate() db.IStandaloneModel {
+	return db.JointSubordinate(joint)
 }
 
 func (self *SHostwire) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.HostwireDetails, error) {
@@ -221,11 +221,11 @@ func (manager *SHostwireManager) ListItemFilter(
 	if len(query.Interface) > 0 {
 		q = q.In("interface", query.Interface)
 	}
-	if query.IsMaster != nil {
-		if *query.IsMaster {
-			q = q.IsTrue("is_master")
+	if query.IsMain != nil {
+		if *query.IsMain {
+			q = q.IsTrue("is_main")
 		} else {
-			q = q.IsFalse("is_master")
+			q = q.IsFalse("is_main")
 		}
 	}
 	if len(query.MacAddr) > 0 {

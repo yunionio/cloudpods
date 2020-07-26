@@ -11,7 +11,7 @@ const (
 
 /* Bridge Flags */
 const (
-	BRIDGE_FLAGS_MASTER = iota /* Bridge command to/from master */
+	BRIDGE_FLAGS_MASTER = iota /* Bridge command to/from main */
 	BRIDGE_FLAGS_SELF          /* Bridge command to/from lowerdev */
 )
 

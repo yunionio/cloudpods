@@ -531,14 +531,14 @@ func (config *inClusterClientConfig) Possible() bool {
 		err == nil && !fi.IsDir()
 }
 
-// BuildConfigFromFlags is a helper function that builds configs from a master
+// BuildConfigFromFlags is a helper function that builds configs from a main
 // url or a kubeconfig filepath. These are passed in as command line flags for cluster
-// components. Warnings should reflect this usage. If neither masterUrl or kubeconfigPath
+// components. Warnings should reflect this usage. If neither mainUrl or kubeconfigPath
 // are passed in we fallback to inClusterConfig. If inClusterConfig fails, we fallback
 // to the default config.
-func BuildConfigFromFlags(masterUrl, kubeconfigPath string) (*restclient.Config, error) {
-	if kubeconfigPath == "" && masterUrl == "" {
-		klog.Warningf("Neither --kubeconfig nor --master was specified.  Using the inClusterConfig.  This might not work.")
+func BuildConfigFromFlags(mainUrl, kubeconfigPath string) (*restclient.Config, error) {
+	if kubeconfigPath == "" && mainUrl == "" {
+		klog.Warningf("Neither --kubeconfig nor --main was specified.  Using the inClusterConfig.  This might not work.")
 		kubeconfig, err := restclient.InClusterConfig()
 		if err == nil {
 			return kubeconfig, nil
@@ -547,15 +547,15 @@ func BuildConfigFromFlags(masterUrl, kubeconfigPath string) (*restclient.Config,
 	}
 	return NewNonInteractiveDeferredLoadingClientConfig(
 		&ClientConfigLoadingRules{ExplicitPath: kubeconfigPath},
-		&ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: masterUrl}}).ClientConfig()
+		&ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: mainUrl}}).ClientConfig()
 }
 
-// BuildConfigFromKubeconfigGetter is a helper function that builds configs from a master
+// BuildConfigFromKubeconfigGetter is a helper function that builds configs from a main
 // url and a kubeconfigGetter.
-func BuildConfigFromKubeconfigGetter(masterUrl string, kubeconfigGetter KubeconfigGetter) (*restclient.Config, error) {
+func BuildConfigFromKubeconfigGetter(mainUrl string, kubeconfigGetter KubeconfigGetter) (*restclient.Config, error) {
 	// TODO: We do not need a DeferredLoader here. Refactor code and see if we can use DirectClientConfig here.
 	cc := NewNonInteractiveDeferredLoadingClientConfig(
 		&ClientConfigGetter{kubeconfigGetter: kubeconfigGetter},
-		&ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: masterUrl}})
+		&ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: mainUrl}})
 	return cc.ClientConfig()
 }

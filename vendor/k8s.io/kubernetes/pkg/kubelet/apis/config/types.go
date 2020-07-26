@@ -165,11 +165,11 @@ type KubeletConfiguration struct {
 	StreamingConnectionIdleTimeout metav1.Duration
 	// nodeStatusUpdateFrequency is the frequency that kubelet computes node
 	// status. If node lease feature is not enabled, it is also the frequency that
-	// kubelet posts node status to master. In that case, be cautious when
+	// kubelet posts node status to main. In that case, be cautious when
 	// changing the constant, it must work with nodeMonitorGracePeriod in nodecontroller.
 	NodeStatusUpdateFrequency metav1.Duration
 	// nodeStatusReportFrequency is the frequency that kubelet posts node
-	// status to master if node status does not change. Kubelet will ignore this
+	// status to main if node status does not change. Kubelet will ignore this
 	// frequency and post node status immediately if any change is detected. It is
 	// only used when node lease feature is enabled.
 	NodeStatusReportFrequency metav1.Duration
@@ -231,7 +231,7 @@ type KubeletConfiguration struct {
 	// maxPods is the number of pods that can run on this Kubelet.
 	MaxPods int32
 	// The CIDR to use for pod IP addresses, only used in standalone mode.
-	// In cluster mode, this is obtained from the master.
+	// In cluster mode, this is obtained from the main.
 	PodCIDR string
 	// The maximum number of processes per pod.  If -1, the kubelet defaults to the node allocatable pid capacity.
 	PodPidsLimit int64

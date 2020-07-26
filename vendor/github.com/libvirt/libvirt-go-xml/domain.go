@@ -57,13 +57,13 @@ type DomainControllerPCI struct {
 	Hole64 *DomainControllerPCIHole64 `xml:"pcihole64"`
 }
 
-type DomainControllerUSBMaster struct {
+type DomainControllerUSBMain struct {
 	StartPort uint `xml:"startport,attr"`
 }
 
 type DomainControllerUSB struct {
 	Port   *uint                      `xml:"ports,attr"`
-	Master *DomainControllerUSBMaster `xml:"master"`
+	Main *DomainControllerUSBMain `xml:"main"`
 }
 
 type DomainControllerVirtIOSerial struct {
@@ -753,8 +753,8 @@ type DomainChardevSourceSpicePort struct {
 }
 
 type DomainChardevSourceNMDM struct {
-	Master string `xml:"master,attr"`
-	Slave  string `xml:"slave,attr"`
+	Main string `xml:"main,attr"`
+	Subordinate  string `xml:"subordinate,attr"`
 }
 
 type DomainChardevTarget struct {

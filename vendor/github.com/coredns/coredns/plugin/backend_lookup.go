@@ -399,7 +399,7 @@ func SOA(b ServiceBackend, zone string, state request.Request, opt Options) ([]d
 
 	header := dns.RR_Header{Name: zone, Rrtype: dns.TypeSOA, Ttl: ttl, Class: dns.ClassINET}
 
-	Mbox := hostmaster + "."
+	Mbox := hostmain + "."
 	Ns := "ns.dns."
 	if zone[0] != '.' {
 		Mbox += zone
@@ -487,4 +487,4 @@ func isDuplicate(m map[item]struct{}, name, addr string, port uint16) bool {
 	return ok
 }
 
-const hostmaster = "hostmaster"
+const hostmain = "hostmain"

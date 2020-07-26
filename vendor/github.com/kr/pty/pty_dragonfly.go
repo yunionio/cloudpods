@@ -42,16 +42,16 @@ func open() (pty, tty *os.File, err error) {
 }
 
 func grantpt(f *os.File) error {
-	_, err := isptmaster(f.Fd())
+	_, err := isptmain(f.Fd())
 	return err
 }
 
 func unlockpt(f *os.File) error {
-	_, err := isptmaster(f.Fd())
+	_, err := isptmain(f.Fd())
 	return err
 }
 
-func isptmaster(fd uintptr) (bool, error) {
+func isptmain(fd uintptr) (bool, error) {
 	err := ioctl(fd, syscall.TIOCISPTMASTER, 0)
 	return err == nil, err
 }

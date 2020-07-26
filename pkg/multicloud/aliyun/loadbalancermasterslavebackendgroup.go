@@ -24,95 +24,95 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
-type SLoadbalancerMasterSlaveBackendGroup struct {
+type SLoadbalancerMainSubordinateBackendGroup struct {
 	lb *SLoadbalancer
 
-	MasterSlaveServerGroupId   string
-	MasterSlaveServerGroupName string
+	MainSubordinateServerGroupId   string
+	MainSubordinateServerGroupName string
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetLoadbalancerId() string {
+func (backendgroup *SLoadbalancerMainSubordinateBackendGroup) GetLoadbalancerId() string {
 	return backendgroup.lb.GetId()
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetProtocolType() string {
+func (backendgroup *SLoadbalancerMainSubordinateBackendGroup) GetProtocolType() string {
 	return ""
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetScheduler() string {
+func (backendgroup *SLoadbalancerMainSubordinateBackendGroup) GetScheduler() string {
 	return ""
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetHealthCheck() (*cloudprovider.SLoadbalancerHealthCheck, error) {
+func (backendgroup *SLoadbalancerMainSubordinateBackendGroup) GetHealthCheck() (*cloudprovider.SLoadbalancerHealthCheck, error) {
 	return nil, nil
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetStickySession() (*cloudprovider.SLoadbalancerStickySession, error) {
+func (backendgroup *SLoadbalancerMainSubordinateBackendGroup) GetStickySession() (*cloudprovider.SLoadbalancerStickySession, error) {
 	return nil, nil
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetName() string {
-	return backendgroup.MasterSlaveServerGroupName
+func (backendgroup *SLoadbalancerMainSubordinateBackendGroup) GetName() string {
+	return backendgroup.MainSubordinateServerGroupName
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetId() string {
-	return backendgroup.MasterSlaveServerGroupId
+func (backendgroup *SLoadbalancerMainSubordinateBackendGroup) GetId() string {
+	return backendgroup.MainSubordinateServerGroupId
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetGlobalId() string {
+func (backendgroup *SLoadbalancerMainSubordinateBackendGroup) GetGlobalId() string {
 	return backendgroup.GetId()
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetStatus() string {
+func (backendgroup *SLoadbalancerMainSubordinateBackendGroup) GetStatus() string {
 	return api.LB_STATUS_ENABLED
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetMetadata() *jsonutils.JSONDict {
+func (backendgroup *SLoadbalancerMainSubordinateBackendGroup) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) IsEmulated() bool {
+func (backendgroup *SLoadbalancerMainSubordinateBackendGroup) IsEmulated() bool {
 	return false
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) Refresh() error {
+func (backendgroup *SLoadbalancerMainSubordinateBackendGroup) Refresh() error {
 	return nil
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) IsDefault() bool {
+func (backendgroup *SLoadbalancerMainSubordinateBackendGroup) IsDefault() bool {
 	return false
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetType() string {
+func (backendgroup *SLoadbalancerMainSubordinateBackendGroup) GetType() string {
 	return api.LB_BACKENDGROUP_TYPE_MASTER_SLAVE
 }
 
-func (region *SRegion) GetLoadbalancerMasterSlaveBackendgroups(loadbalancerId string) ([]SLoadbalancerMasterSlaveBackendGroup, error) {
+func (region *SRegion) GetLoadbalancerMainSubordinateBackendgroups(loadbalancerId string) ([]SLoadbalancerMainSubordinateBackendGroup, error) {
 	params := map[string]string{}
 	params["RegionId"] = region.RegionId
 	params["LoadBalancerId"] = loadbalancerId
-	body, err := region.lbRequest("DescribeMasterSlaveServerGroups", params)
+	body, err := region.lbRequest("DescribeMainSubordinateServerGroups", params)
 	if err != nil {
 		return nil, err
 	}
-	backendgroups := []SLoadbalancerMasterSlaveBackendGroup{}
-	return backendgroups, body.Unmarshal(&backendgroups, "MasterSlaveServerGroups", "MasterSlaveServerGroup")
+	backendgroups := []SLoadbalancerMainSubordinateBackendGroup{}
+	return backendgroups, body.Unmarshal(&backendgroups, "MainSubordinateServerGroups", "MainSubordinateServerGroup")
 }
 
-func (region *SRegion) GetLoadbalancerMasterSlaveBackends(backendgroupId string) ([]SLoadbalancerMasterSlaveBackend, error) {
+func (region *SRegion) GetLoadbalancerMainSubordinateBackends(backendgroupId string) ([]SLoadbalancerMainSubordinateBackend, error) {
 	params := map[string]string{}
 	params["RegionId"] = region.RegionId
-	params["MasterSlaveServerGroupId"] = backendgroupId
-	body, err := region.lbRequest("DescribeMasterSlaveServerGroupAttribute", params)
+	params["MainSubordinateServerGroupId"] = backendgroupId
+	body, err := region.lbRequest("DescribeMainSubordinateServerGroupAttribute", params)
 	if err != nil {
 		return nil, err
 	}
-	backends := []SLoadbalancerMasterSlaveBackend{}
-	return backends, body.Unmarshal(&backends, "MasterSlaveBackendServers", "MasterSlaveBackendServer")
+	backends := []SLoadbalancerMainSubordinateBackend{}
+	return backends, body.Unmarshal(&backends, "MainSubordinateBackendServers", "MainSubordinateBackendServer")
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetILoadbalancerBackends() ([]cloudprovider.ICloudLoadbalancerBackend, error) {
-	backends, err := backendgroup.lb.region.GetLoadbalancerMasterSlaveBackends(backendgroup.MasterSlaveServerGroupId)
+func (backendgroup *SLoadbalancerMainSubordinateBackendGroup) GetILoadbalancerBackends() ([]cloudprovider.ICloudLoadbalancerBackend, error) {
+	backends, err := backendgroup.lb.region.GetLoadbalancerMainSubordinateBackends(backendgroup.MainSubordinateServerGroupId)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetILoadbalancerBacken
 	return ibackends, nil
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetILoadbalancerBackendById(backendId string) (cloudprovider.ICloudLoadbalancerBackend, error) {
+func (backendgroup *SLoadbalancerMainSubordinateBackendGroup) GetILoadbalancerBackendById(backendId string) (cloudprovider.ICloudLoadbalancerBackend, error) {
 	backends, err := backendgroup.GetILoadbalancerBackends()
 	if err != nil {
 		return nil, err
@@ -137,19 +137,19 @@ func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetILoadbalancerBacken
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (region *SRegion) CreateLoadbalancerMasterSlaveBackendGroup(name, loadbalancerId string, backends []cloudprovider.SLoadbalancerBackend) (*SLoadbalancerMasterSlaveBackendGroup, error) {
+func (region *SRegion) CreateLoadbalancerMainSubordinateBackendGroup(name, loadbalancerId string, backends []cloudprovider.SLoadbalancerBackend) (*SLoadbalancerMainSubordinateBackendGroup, error) {
 	params := map[string]string{}
 	params["RegionId"] = region.RegionId
-	params["MasterSlaveServerGroupName"] = name
+	params["MainSubordinateServerGroupName"] = name
 	params["LoadBalancerId"] = loadbalancerId
 	if len(backends) != 2 {
-		return nil, fmt.Errorf("master slave backendgorup must contain two backend")
+		return nil, fmt.Errorf("main subordinate backendgorup must contain two backend")
 	}
 	servers := jsonutils.NewArray()
 	for _, backend := range backends {
-		serverType := "Slave"
+		serverType := "Subordinate"
 		if backend.Index == 0 {
-			serverType = "Master"
+			serverType = "Main"
 		}
 		servers.Add(
 			jsonutils.Marshal(
@@ -161,55 +161,55 @@ func (region *SRegion) CreateLoadbalancerMasterSlaveBackendGroup(name, loadbalan
 				},
 			))
 	}
-	params["MasterSlaveBackendServers"] = servers.String()
-	body, err := region.lbRequest("CreateMasterSlaveServerGroup", params)
+	params["MainSubordinateBackendServers"] = servers.String()
+	body, err := region.lbRequest("CreateMainSubordinateServerGroup", params)
 	if err != nil {
 		return nil, err
 	}
-	groupId, err := body.GetString("MasterSlaveServerGroupId")
+	groupId, err := body.GetString("MainSubordinateServerGroupId")
 	if err != nil {
 		return nil, err
 	}
-	return region.GetLoadbalancerMasterSlaveBackendgroupById(groupId)
+	return region.GetLoadbalancerMainSubordinateBackendgroupById(groupId)
 }
 
-func (region *SRegion) GetLoadbalancerMasterSlaveBackendgroupById(groupId string) (*SLoadbalancerMasterSlaveBackendGroup, error) {
+func (region *SRegion) GetLoadbalancerMainSubordinateBackendgroupById(groupId string) (*SLoadbalancerMainSubordinateBackendGroup, error) {
 	params := map[string]string{}
 	params["RegionId"] = region.RegionId
-	params["MasterSlaveServerGroupId"] = groupId
+	params["MainSubordinateServerGroupId"] = groupId
 	params["NeedInstanceDetail"] = "true"
-	body, err := region.lbRequest("DescribeMasterSlaveServerGroupAttribute", params)
+	body, err := region.lbRequest("DescribeMainSubordinateServerGroupAttribute", params)
 	if err != nil {
 		return nil, err
 	}
-	group := &SLoadbalancerMasterSlaveBackendGroup{}
+	group := &SLoadbalancerMainSubordinateBackendGroup{}
 	return group, body.Unmarshal(group)
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) Sync(ctx context.Context, group *cloudprovider.SLoadbalancerBackendGroup) error {
+func (backendgroup *SLoadbalancerMainSubordinateBackendGroup) Sync(ctx context.Context, group *cloudprovider.SLoadbalancerBackendGroup) error {
 	return nil
 }
 
-func (region *SRegion) DeleteLoadbalancerMasterSlaveBackendgroup(groupId string) error {
+func (region *SRegion) DeleteLoadbalancerMainSubordinateBackendgroup(groupId string) error {
 	params := map[string]string{}
 	params["RegionId"] = region.RegionId
-	params["MasterSlaveServerGroupId"] = groupId
-	_, err := region.lbRequest("DeleteMasterSlaveServerGroup", params)
+	params["MainSubordinateServerGroupId"] = groupId
+	_, err := region.lbRequest("DeleteMainSubordinateServerGroup", params)
 	return err
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) Delete(ctx context.Context) error {
-	return backendgroup.lb.region.DeleteLoadbalancerMasterSlaveBackendgroup(backendgroup.MasterSlaveServerGroupId)
+func (backendgroup *SLoadbalancerMainSubordinateBackendGroup) Delete(ctx context.Context) error {
+	return backendgroup.lb.region.DeleteLoadbalancerMainSubordinateBackendgroup(backendgroup.MainSubordinateServerGroupId)
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) AddBackendServer(serverId string, weight, port int) (cloudprovider.ICloudLoadbalancerBackend, error) {
+func (backendgroup *SLoadbalancerMainSubordinateBackendGroup) AddBackendServer(serverId string, weight, port int) (cloudprovider.ICloudLoadbalancerBackend, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) RemoveBackendServer(serverId string, weight, port int) error {
+func (backendgroup *SLoadbalancerMainSubordinateBackendGroup) RemoveBackendServer(serverId string, weight, port int) error {
 	return cloudprovider.ErrNotSupported
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetProjectId() string {
+func (backendgroup *SLoadbalancerMainSubordinateBackendGroup) GetProjectId() string {
 	return ""
 }

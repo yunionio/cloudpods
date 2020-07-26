@@ -5089,7 +5089,7 @@ func (c *IAM) GenerateOrganizationsAccessReportRequest(input *GenerateOrganizati
 // unit, or account) or policies in your organization.
 //
 // To call this operation, you must be signed in using your AWS Organizations
-// master account credentials. You can use your long-term IAM user or root user
+// main account credentials. You can use your long-term IAM user or root user
 // credentials, or temporary credentials from assuming an IAM role. SCPs must
 // be enabled for your organization root. You must have the required IAM and
 // AWS Organizations permissions. For more information, see Refining Permissions
@@ -5134,18 +5134,18 @@ func (c *IAM) GenerateOrganizationsAccessReportRequest(input *GenerateOrganizati
 //    * Root – When you specify the organizations root as the entity, the
 //    resulting report lists all of the services allowed by SCPs that are attached
 //    to your root. For each service, the report includes data for all accounts
-//    in your organization except the master account, because the master account
+//    in your organization except the main account, because the main account
 //    is not limited by SCPs.
 //
 //    * OU – When you specify an organizational unit (OU) as the entity, the
 //    resulting report lists all of the services allowed by SCPs that are attached
 //    to the OU and its parents. For each service, the report includes data
-//    for all accounts in the OU or its children. This data excludes the master
-//    account, because the master account is not limited by SCPs.
+//    for all accounts in the OU or its children. This data excludes the main
+//    account, because the main account is not limited by SCPs.
 //
-//    * Master account – When you specify the master account, the resulting
-//    report lists all AWS services, because the master account is not limited
-//    by SCPs. For each service, the report includes data for only the master
+//    * Main account – When you specify the main account, the resulting
+//    report lists all AWS services, because the main account is not limited
+//    by SCPs. For each service, the report includes data for only the main
 //    account.
 //
 //    * Account – When you specify another account as the entity, the resulting
@@ -5160,8 +5160,8 @@ func (c *IAM) GenerateOrganizationsAccessReportRequest(input *GenerateOrganizati
 //    * Root – When you specify the root entity and a policy ID, the resulting
 //    report lists all of the services that are allowed by the specified SCP.
 //    For each service, the report includes data for all accounts in your organization
-//    to which the SCP applies. This data excludes the master account, because
-//    the master account is not limited by SCPs. If the SCP is not attached
+//    to which the SCP applies. This data excludes the main account, because
+//    the main account is not limited by SCPs. If the SCP is not attached
 //    to any entities in the organization, then the report will return a list
 //    of services with no data.
 //
@@ -5170,14 +5170,14 @@ func (c *IAM) GenerateOrganizationsAccessReportRequest(input *GenerateOrganizati
 //    For each service, the report includes data for all accounts in the OU
 //    or its children to which the SCP applies. This means that other accounts
 //    outside the OU that are affected by the SCP might not be included in the
-//    data. This data excludes the master account, because the master account
+//    data. This data excludes the main account, because the main account
 //    is not limited by SCPs. If the SCP is not attached to the OU or one of
 //    its children, the report will return a list of services with no data.
 //
-//    * Master account – When you specify the master account, the resulting
-//    report lists all AWS services, because the master account is not limited
+//    * Main account – When you specify the main account, the resulting
+//    report lists all AWS services, because the main account is not limited
 //    by SCPs. If you specify a policy ID in the CLI or API, the policy is ignored.
-//    For each service, the report includes data for only the master account.
+//    For each service, the report includes data for only the main account.
 //
 //    * Account – When you specify another account entity and a policy ID,
 //    the resulting report lists all of the services that are allowed by the
@@ -6598,7 +6598,7 @@ func (c *IAM) GetOrganizationsAccessReportRequest(input *GetOrganizationsAccessR
 // Depending on the parameters that you passed when you generated the report,
 // the data returned could include different information. For details, see GenerateOrganizationsAccessReport.
 //
-// To call this operation, you must be signed in to the master account in your
+// To call this operation, you must be signed in to the main account in your
 // organization. SCPs must be enabled for your organization root. You must have
 // permissions to perform this operation. For more information, see Refining
 // Permissions Using Service Last Accessed Data (https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_access-advisor.html)

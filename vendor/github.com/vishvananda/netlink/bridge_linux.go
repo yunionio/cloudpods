@@ -55,30 +55,30 @@ func (h *Handle) BridgeVlanList() (map[int32][]*nl.BridgeVlanInfo, error) {
 }
 
 // BridgeVlanAdd adds a new vlan filter entry
-// Equivalent to: `bridge vlan add dev DEV vid VID [ pvid ] [ untagged ] [ self ] [ master ]`
-func BridgeVlanAdd(link Link, vid uint16, pvid, untagged, self, master bool) error {
-	return pkgHandle.BridgeVlanAdd(link, vid, pvid, untagged, self, master)
+// Equivalent to: `bridge vlan add dev DEV vid VID [ pvid ] [ untagged ] [ self ] [ main ]`
+func BridgeVlanAdd(link Link, vid uint16, pvid, untagged, self, main bool) error {
+	return pkgHandle.BridgeVlanAdd(link, vid, pvid, untagged, self, main)
 }
 
 // BridgeVlanAdd adds a new vlan filter entry
-// Equivalent to: `bridge vlan add dev DEV vid VID [ pvid ] [ untagged ] [ self ] [ master ]`
-func (h *Handle) BridgeVlanAdd(link Link, vid uint16, pvid, untagged, self, master bool) error {
-	return h.bridgeVlanModify(unix.RTM_SETLINK, link, vid, pvid, untagged, self, master)
+// Equivalent to: `bridge vlan add dev DEV vid VID [ pvid ] [ untagged ] [ self ] [ main ]`
+func (h *Handle) BridgeVlanAdd(link Link, vid uint16, pvid, untagged, self, main bool) error {
+	return h.bridgeVlanModify(unix.RTM_SETLINK, link, vid, pvid, untagged, self, main)
 }
 
 // BridgeVlanDel adds a new vlan filter entry
-// Equivalent to: `bridge vlan del dev DEV vid VID [ pvid ] [ untagged ] [ self ] [ master ]`
-func BridgeVlanDel(link Link, vid uint16, pvid, untagged, self, master bool) error {
-	return pkgHandle.BridgeVlanDel(link, vid, pvid, untagged, self, master)
+// Equivalent to: `bridge vlan del dev DEV vid VID [ pvid ] [ untagged ] [ self ] [ main ]`
+func BridgeVlanDel(link Link, vid uint16, pvid, untagged, self, main bool) error {
+	return pkgHandle.BridgeVlanDel(link, vid, pvid, untagged, self, main)
 }
 
 // BridgeVlanDel adds a new vlan filter entry
-// Equivalent to: `bridge vlan del dev DEV vid VID [ pvid ] [ untagged ] [ self ] [ master ]`
-func (h *Handle) BridgeVlanDel(link Link, vid uint16, pvid, untagged, self, master bool) error {
-	return h.bridgeVlanModify(unix.RTM_DELLINK, link, vid, pvid, untagged, self, master)
+// Equivalent to: `bridge vlan del dev DEV vid VID [ pvid ] [ untagged ] [ self ] [ main ]`
+func (h *Handle) BridgeVlanDel(link Link, vid uint16, pvid, untagged, self, main bool) error {
+	return h.bridgeVlanModify(unix.RTM_DELLINK, link, vid, pvid, untagged, self, main)
 }
 
-func (h *Handle) bridgeVlanModify(cmd int, link Link, vid uint16, pvid, untagged, self, master bool) error {
+func (h *Handle) bridgeVlanModify(cmd int, link Link, vid uint16, pvid, untagged, self, main bool) error {
 	base := link.Attrs()
 	h.ensureIndex(base)
 	req := h.newNetlinkRequest(cmd, unix.NLM_F_ACK)
@@ -92,7 +92,7 @@ func (h *Handle) bridgeVlanModify(cmd int, link Link, vid uint16, pvid, untagged
 	if self {
 		flags |= nl.BRIDGE_FLAGS_SELF
 	}
-	if master {
+	if main {
 		flags |= nl.BRIDGE_FLAGS_MASTER
 	}
 	if flags > 0 {

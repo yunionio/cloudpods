@@ -39,7 +39,7 @@ type IBridgeDriver interface {
 	FetchConfig()
 	Setup(IBridgeDriver) error
 	SetupAddresses(net.IPMask) error
-	SetupSlaveAddresses([][]string) error
+	SetupSubordinateAddresses([][]string) error
 	SetupRoutes(routes [][]string) error
 	BringupInterface() error
 
@@ -208,7 +208,7 @@ func (d *SBaseBridgeDriver) SetupAddresses(mask net.IPMask) error {
 	if d.inter != nil {
 		ifname := d.inter.String()
 		if err := iproute2.NewAddress(ifname).Exact().Err(); err != nil {
-			return errors.Wrapf(err, "remove addresses on slave ifname: %s", ifname)
+			return errors.Wrapf(err, "remove addresses on subordinate ifname: %s", ifname)
 		}
 		if err := iproute2.NewLink(ifname).Up().Err(); err != nil {
 			return errors.Wrapf(err, "setting bridge %s ifname %s up", br, ifname)
@@ -217,11 +217,11 @@ func (d *SBaseBridgeDriver) SetupAddresses(mask net.IPMask) error {
 	return nil
 }
 
-func (d *SBaseBridgeDriver) SetupSlaveAddresses(slaveAddrs [][]string) error {
+func (d *SBaseBridgeDriver) SetupSubordinateAddresses(subordinateAddrs [][]string) error {
 	br := d.bridge.String()
-	addrs := make([]string, len(slaveAddrs))
-	for i, slaveAddr := range slaveAddrs {
-		addrs[i] = fmt.Sprintf("%s/%s", slaveAddr[0], slaveAddr[1])
+	addrs := make([]string, len(subordinateAddrs))
+	for i, subordinateAddr := range subordinateAddrs {
+		addrs[i] = fmt.Sprintf("%s/%s", subordinateAddr[0], subordinateAddr[1])
 	}
 	if err := iproute2.NewAddress(br, addrs...).Add().Err(); err != nil {
 		return errors.Wrap(err, "move secondary addresses to bridge interface")
@@ -244,10 +244,10 @@ func (d *SBaseBridgeDriver) SetupRoutes(routes [][]string) error {
 
 func (d *SBaseBridgeDriver) Setup(o IBridgeDriver) error {
 	var routes [][]string
-	var slaveAddrs [][]string
+	var subordinateAddrs [][]string
 	if d.inter != nil && len(d.inter.Addr) > 0 {
 		routes = d.inter.GetRoutes(true)
-		slaveAddrs = d.inter.GetSlaveAddresses()
+		subordinateAddrs = d.inter.GetSubordinateAddresses()
 	}
 	exist, err := o.Exists()
 	if err != nil {
@@ -273,8 +273,8 @@ func (d *SBaseBridgeDriver) Setup(o IBridgeDriver) error {
 			if err := o.SetupAddresses(d.inter.Mask); err != nil {
 				return err
 			}
-			if len(slaveAddrs) > 0 {
-				if err := o.SetupSlaveAddresses(slaveAddrs); err != nil {
+			if len(subordinateAddrs) > 0 {
+				if err := o.SetupSubordinateAddresses(subordinateAddrs); err != nil {
 					return err
 				}
 			}

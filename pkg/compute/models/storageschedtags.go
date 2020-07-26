@@ -57,12 +57,12 @@ type SStorageschedtag struct {
 	StorageId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 }
 
-func (manager *SStorageschedtagManager) GetSlaveFieldName() string {
+func (manager *SStorageschedtagManager) GetSubordinateFieldName() string {
 	return "storage_id"
 }
 
 func (s *SStorageschedtag) GetStorage() *SStorage {
-	return s.Master().(*SStorage)
+	return s.Main().(*SStorage)
 }
 
 func (s *SStorageschedtag) GetStorages() ([]SStorage, error) {
@@ -71,8 +71,8 @@ func (s *SStorageschedtag) GetStorages() ([]SStorage, error) {
 	return storages, err
 }
 
-func (joint *SStorageschedtag) Master() db.IStandaloneModel {
-	return joint.SSchedtagJointsBase.master(joint)
+func (joint *SStorageschedtag) Main() db.IStandaloneModel {
+	return joint.SSchedtagJointsBase.main(joint)
 }
 
 func (joint *SStorageschedtag) GetExtraDetails(

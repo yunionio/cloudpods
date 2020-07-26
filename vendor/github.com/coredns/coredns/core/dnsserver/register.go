@@ -43,7 +43,7 @@ func newContext(i *caddy.Instance) caddy.Context {
 type dnsContext struct {
 	keysToConfigs map[string]*Config
 
-	// configs is the master list of all site configs.
+	// configs is the main list of all site configs.
 	configs []*Config
 }
 
@@ -64,7 +64,7 @@ func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddy
 				return nil, err
 			}
 			s.Keys[ik] = za.String()
-			// Save the config to our master list, and key it for lookups.
+			// Save the config to our main list, and key it for lookups.
 			cfg := &Config{
 				Zone:        za.Zone,
 				ListenHosts: []string{""},

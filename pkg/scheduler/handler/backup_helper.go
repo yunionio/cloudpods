@@ -25,20 +25,20 @@ import (
 )
 
 func transToBackupSchedResult(
-	result *core.SchedResultItemList, preferMasterHost, preferBackupHost string, count int64, sid string,
+	result *core.SchedResultItemList, preferMainHost, preferBackupHost string, count int64, sid string,
 ) *schedapi.ScheduleOutput {
 	// clean each result sched result item's count
 	for _, item := range result.Data {
 		item.Count = 0
 	}
 
-	apiResults := newBackupSchedResult(result, preferMasterHost, preferBackupHost, count, sid)
+	apiResults := newBackupSchedResult(result, preferMainHost, preferBackupHost, count, sid)
 	return apiResults
 }
 
 func newBackupSchedResult(
 	result *core.SchedResultItemList,
-	preferMasterHost, preferBackupHost string,
+	preferMainHost, preferBackupHost string,
 	count int64,
 	sid string,
 ) *schedapi.ScheduleOutput {
@@ -48,7 +48,7 @@ func newBackupSchedResult(
 	var wireHostMap map[string]core.SchedResultItems
 	for i := 0; i < int(count); i++ {
 		log.V(10).Debugf("Select backup host from result: %s", result)
-		target, err := getSchedBackupResult(result, preferMasterHost, preferBackupHost, sid, wireHostMap, storageUsed)
+		target, err := getSchedBackupResult(result, preferMainHost, preferBackupHost, sid, wireHostMap, storageUsed)
 		if err != nil {
 			er := &schedapi.CandidateResource{Error: err.Error()}
 			apiResults = append(apiResults, er)
@@ -62,7 +62,7 @@ func newBackupSchedResult(
 
 func getSchedBackupResult(
 	result *core.SchedResultItemList,
-	preferMasterHost, preferBackupHost string,
+	preferMainHost, preferBackupHost string,
 	sid string, wireHostMap map[string]core.SchedResultItems,
 	storageUsed *core.StorageUsed,
 ) (*schedapi.CandidateResource, error) {
@@ -72,18 +72,18 @@ func getSchedBackupResult(
 		reviseWireHostMap(wireHostMap)
 	}
 
-	masterHost, backupHost := selectHosts(wireHostMap, preferMasterHost, preferBackupHost)
-	if masterHost == nil {
-		return nil, fmt.Errorf("Can't find master host %q", preferMasterHost)
+	mainHost, backupHost := selectHosts(wireHostMap, preferMainHost, preferBackupHost)
+	if mainHost == nil {
+		return nil, fmt.Errorf("Can't find main host %q", preferMainHost)
 	}
 	if backupHost == nil {
-		return nil, fmt.Errorf("Can't find backup host %q by master %q", preferBackupHost, masterHost.ID)
+		return nil, fmt.Errorf("Can't find backup host %q by main %q", preferBackupHost, mainHost.ID)
 	}
 
-	markHostUsed(masterHost)
+	markHostUsed(mainHost)
 	markHostUsed(backupHost)
 
-	ret := masterHost.ToCandidateResource(storageUsed)
+	ret := mainHost.ToCandidateResource(storageUsed)
 	ret.BackupCandidate = backupHost.ToCandidateResource(storageUsed)
 	ret.SessionId = sid
 	ret.BackupCandidate.SessionId = sid
@@ -129,18 +129,18 @@ func hostInResultItemsIndex(hostId string, hosts core.SchedResultItems) int {
 }
 
 func selectHosts(
-	wireHostMap map[string]core.SchedResultItems, preferMasterHost, preferBackupHost string,
+	wireHostMap map[string]core.SchedResultItems, preferMainHost, preferBackupHost string,
 ) (*core.SchedResultItem, *core.SchedResultItem) {
 	var scroe int64
-	var masterIdx, backupIdx int
+	var mainIdx, backupIdx int
 	var selectedWireId string
 	for wireId, hosts := range wireHostMap {
-		masterIdx, backupIdx = -1, -1
+		mainIdx, backupIdx = -1, -1
 		if len(hosts) < 2 {
 			continue
 		}
-		if len(preferMasterHost) > 0 {
-			if masterIdx = hostInResultItemsIndex(preferMasterHost, hosts); masterIdx < 0 {
+		if len(preferMainHost) > 0 {
+			if mainIdx = hostInResultItemsIndex(preferMainHost, hosts); mainIdx < 0 {
 				continue
 			}
 		}
@@ -150,17 +150,17 @@ func selectHosts(
 			}
 		}
 
-		// select master host index
-		if masterIdx < 0 {
+		// select main host index
+		if mainIdx < 0 {
 			for i := 0; i < len(hosts); i++ {
 				if hosts[i].ID != preferBackupHost {
-					masterIdx = i
+					mainIdx = i
 				}
 			}
 		}
-		if hosts[masterIdx].Capacity <= 0 {
-			if len(preferMasterHost) > 0 {
-				// in case prefer master host capacity isn't enough
+		if hosts[mainIdx].Capacity <= 0 {
+			if len(preferMainHost) > 0 {
+				// in case prefer main host capacity isn't enough
 				break
 			} else {
 				continue
@@ -170,7 +170,7 @@ func selectHosts(
 		// select backup host index
 		if backupIdx < 0 {
 			for i := 0; i < len(hosts); i++ {
-				if i != masterIdx {
+				if i != mainIdx {
 					backupIdx = i
 				}
 			}
@@ -185,7 +185,7 @@ func selectHosts(
 		}
 
 		// the highest total score wins
-		curScore := hosts[masterIdx].Capacity + hosts[backupIdx].Capacity
+		curScore := hosts[mainIdx].Capacity + hosts[backupIdx].Capacity
 		if curScore > scroe {
 			selectedWireId = wireId
 			scroe = curScore
@@ -194,5 +194,5 @@ func selectHosts(
 	if len(selectedWireId) == 0 {
 		return nil, nil
 	}
-	return wireHostMap[selectedWireId][masterIdx], wireHostMap[selectedWireId][backupIdx]
+	return wireHostMap[selectedWireId][mainIdx], wireHostMap[selectedWireId][backupIdx]
 }

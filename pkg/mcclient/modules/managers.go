@@ -55,11 +55,11 @@ func NewMonitorV2Manager(keyword, keywordPlural string, columns, adminColumns []
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
-func NewJointMonitorV2Manager(keyword, keywordPlural string, columns, adminColumns []string, master, slave modulebase.Manager) modulebase.JointResourceManager {
+func NewJointMonitorV2Manager(keyword, keywordPlural string, columns, adminColumns []string, main, subordinate modulebase.Manager) modulebase.JointResourceManager {
 	return modulebase.JointResourceManager{
 		ResourceManager: NewMonitorV2Manager(keyword, keywordPlural, columns, adminColumns),
-		Master:          master,
-		Slave:           slave}
+		Main:          main,
+		Subordinate:           subordinate}
 }
 
 func NewCloudwatcherManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
@@ -74,25 +74,25 @@ func NewNotifyManager(keyword, keywordPlural string, columns, adminColumns []str
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
-func NewJointComputeManager(keyword, keywordPlural string, columns, adminColumns []string, master, slave modulebase.Manager) modulebase.JointResourceManager {
+func NewJointComputeManager(keyword, keywordPlural string, columns, adminColumns []string, main, subordinate modulebase.Manager) modulebase.JointResourceManager {
 	return modulebase.JointResourceManager{
 		ResourceManager: NewComputeManager(keyword, keywordPlural, columns, adminColumns),
-		Master:          master,
-		Slave:           slave}
+		Main:          main,
+		Subordinate:           subordinate}
 }
 
-func NewJointCloudIdManager(keyword, keywordPlural string, columns, adminColumns []string, master, slave modulebase.Manager) modulebase.JointResourceManager {
+func NewJointCloudIdManager(keyword, keywordPlural string, columns, adminColumns []string, main, subordinate modulebase.Manager) modulebase.JointResourceManager {
 	return modulebase.JointResourceManager{
 		ResourceManager: NewCloudIdManager(keyword, keywordPlural, columns, adminColumns),
-		Master:          master,
-		Slave:           slave}
+		Main:          main,
+		Subordinate:           subordinate}
 }
 
-func NewJointMonitorManager(keyword, keywordPlural string, columns, adminColumns []string, master, slave modulebase.Manager) modulebase.JointResourceManager {
+func NewJointMonitorManager(keyword, keywordPlural string, columns, adminColumns []string, main, subordinate modulebase.Manager) modulebase.JointResourceManager {
 	return modulebase.JointResourceManager{
 		ResourceManager: NewServiceTreeManager(keyword, keywordPlural, columns, adminColumns),
-		Master:          master,
-		Slave:           slave}
+		Main:          main,
+		Subordinate:           subordinate}
 }
 
 func NewIdentityManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {

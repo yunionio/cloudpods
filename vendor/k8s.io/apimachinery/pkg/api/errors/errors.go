@@ -587,7 +587,7 @@ func IsUnexpectedServerError(err error) bool {
 	return false
 }
 
-// IsUnexpectedObjectError determines if err is due to an unexpected object from the master.
+// IsUnexpectedObjectError determines if err is due to an unexpected object from the main.
 func IsUnexpectedObjectError(err error) bool {
 	_, ok := err.(*UnexpectedObjectError)
 	return err != nil && ok

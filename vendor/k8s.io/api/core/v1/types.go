@@ -1804,7 +1804,7 @@ const (
 	// mounted inside the container won't be propagated to the host or other
 	// containers.
 	// Note that this mode is recursively applied to all mounts in the volume
-	// ("rslave" in Linux terminology).
+	// ("rsubordinate" in Linux terminology).
 	MountPropagationHostToContainer MountPropagationMode = "HostToContainer"
 	// MountPropagationBidirectional means that the volume in a container will
 	// receive new mounts from the host or other containers, and its own mounts
@@ -3851,7 +3851,7 @@ type ServiceSpec struct {
 	Selector map[string]string `json:"selector,omitempty" protobuf:"bytes,2,rep,name=selector"`
 
 	// clusterIP is the IP address of the service and is usually assigned
-	// randomly by the master. If an address is specified manually and is not in
+	// randomly by the main. If an address is specified manually and is not in
 	// use by others, it will be allocated to the service; otherwise, creation
 	// of the service will fail. This field can not be changed through updates.
 	// Valid values are "None", empty string (""), or a valid IP address. "None"
@@ -4607,7 +4607,7 @@ type Node struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// NodeList is the whole list of all Nodes which have been registered with master.
+// NodeList is the whole list of all Nodes which have been registered with main.
 type NodeList struct {
 	metav1.TypeMeta `json:",inline"`
 	// Standard list metadata.

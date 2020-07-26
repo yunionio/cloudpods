@@ -34,7 +34,7 @@ type SGroupJointsManager struct {
 	SGroupResourceBaseManager
 }
 
-func NewGroupJointsManager(dt interface{}, tableName string, keyword string, keywordPlural string, slave db.IVirtualModelManager) SGroupJointsManager {
+func NewGroupJointsManager(dt interface{}, tableName string, keyword string, keywordPlural string, subordinate db.IVirtualModelManager) SGroupJointsManager {
 	return SGroupJointsManager{
 		SVirtualJointResourceBaseManager: db.NewVirtualJointResourceBaseManager(
 			dt,
@@ -42,7 +42,7 @@ func NewGroupJointsManager(dt interface{}, tableName string, keyword string, key
 			keyword,
 			keywordPlural,
 			GroupManager,
-			slave,
+			subordinate,
 		),
 	}
 }
@@ -53,7 +53,7 @@ type SGroupJointsBase struct {
 	GroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 }
 
-func (manager *SGroupJointsManager) GetMasterFieldName() string {
+func (manager *SGroupJointsManager) GetMainFieldName() string {
 	return "group_id"
 }
 

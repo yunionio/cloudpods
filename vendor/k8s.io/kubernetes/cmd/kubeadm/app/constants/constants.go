@@ -162,7 +162,7 @@ const (
 	SchedulerUser = "system:kube-scheduler"
 	// SystemPrivilegedGroup defines the well-known group for the apiservers. This group is also superuser by default
 	// (i.e. bound to the cluster-admin ClusterRole)
-	SystemPrivilegedGroup = "system:masters"
+	SystemPrivilegedGroup = "system:mains"
 	// NodesGroup defines the well-known group for all nodes.
 	NodesGroup = "system:nodes"
 	// NodesUserPrefix defines the user name prefix as requested by the Node authorizer.
@@ -201,9 +201,9 @@ const (
 	// CertificateKeySize specifies the size of the key used to encrypt certificates on uploadcerts phase
 	CertificateKeySize = 32
 
-	// LabelNodeRoleMaster specifies that a node is a control-plane
+	// LabelNodeRoleMain specifies that a node is a control-plane
 	// This is a duplicate definition of the constant in pkg/controller/service/service_controller.go
-	LabelNodeRoleMaster = "node-role.kubernetes.io/master"
+	LabelNodeRoleMain = "node-role.kubernetes.io/master"
 
 	// AnnotationKubeadmCRISocket specifies the annotation kubeadm uses to preserve the crisocket information given to kubeadm at
 	// init/join time for use later. kubeadm annotates the node object with this information
@@ -325,7 +325,7 @@ const (
 	StaticPodAuditPolicyLogDir = "/var/log/kubernetes/audit"
 
 	// LeaseEndpointReconcilerType will select a storage based reconciler
-	// Copied from pkg/master/reconcilers to avoid pulling extra dependencies
+	// Copied from pkg/main/reconcilers to avoid pulling extra dependencies
 	// TODO: Import this constant from a consts only package, that does not pull any further dependencies.
 	LeaseEndpointReconcilerType = "lease"
 
@@ -390,13 +390,13 @@ const (
 var (
 	// ControlPlaneTaint is the taint to apply on the PodSpec for being able to run that Pod on the control-plane
 	ControlPlaneTaint = v1.Taint{
-		Key:    LabelNodeRoleMaster,
+		Key:    LabelNodeRoleMain,
 		Effect: v1.TaintEffectNoSchedule,
 	}
 
 	// ControlPlaneToleration is the toleration to apply on the PodSpec for being able to run that Pod on the control-plane
 	ControlPlaneToleration = v1.Toleration{
-		Key:    LabelNodeRoleMaster,
+		Key:    LabelNodeRoleMain,
 		Effect: v1.TaintEffectNoSchedule,
 	}
 

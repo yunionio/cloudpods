@@ -16,7 +16,7 @@ func posix_openpt(oflag int) (fd uintptr, err error) {
 	return
 }
 
-func open_pty_master() (uintptr, error) {
+func open_pty_main() (uintptr, error) {
 	return posix_openpt(syscall.O_NOCTTY|syscall.O_RDWR|syscall.O_CLOEXEC)
 }
 

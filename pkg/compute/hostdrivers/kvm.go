@@ -247,7 +247,7 @@ func (self *SKVMHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, us
 		snapshot := iSnapshot.(*models.SSnapshot)
 		snapshotStorage := models.StorageManager.FetchStorageById(snapshot.StorageId)
 		if snapshotStorage.StorageType == api.STORAGE_LOCAL {
-			snapshotHost := snapshotStorage.GetMasterHost()
+			snapshotHost := snapshotStorage.GetMainHost()
 			if options.Options.SnapshotCreateDiskProtocol == "url" {
 				content.Set("snapshot_url",
 					jsonutils.NewString(fmt.Sprintf("%s/download/snapshots/%s/%s/%s",
@@ -447,9 +447,9 @@ func (self *SKVMHostDriver) PrepareConvert(host *models.SHost, image, raid strin
 	params.Disks = disks
 	nets, _ := cmdline.FetchNetworkConfigsByJSON(data)
 	if len(nets) == 0 {
-		wire := host.GetMasterWire()
+		wire := host.GetMainWire()
 		if wire == nil {
-			return nil, fmt.Errorf("No master wire?")
+			return nil, fmt.Errorf("No main wire?")
 		}
 		net := &api.NetworkConfig{
 			Wire:       wire.GetId(),

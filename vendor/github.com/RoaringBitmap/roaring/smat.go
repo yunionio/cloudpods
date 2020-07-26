@@ -32,22 +32,22 @@ To run the smat tests for roaring...
 
 You should see output like...
 ```
-2016/09/16 13:58:35 slaves: 8, corpus: 1 (3s ago), crashers: 0, restarts: 1/0, execs: 0 (0/sec), cover: 0, uptime: 3s
-2016/09/16 13:58:38 slaves: 8, corpus: 1 (6s ago), crashers: 0, restarts: 1/0, execs: 0 (0/sec), cover: 0, uptime: 6s
-2016/09/16 13:58:41 slaves: 8, corpus: 1 (9s ago), crashers: 0, restarts: 1/44, execs: 44 (5/sec), cover: 0, uptime: 9s
-2016/09/16 13:58:44 slaves: 8, corpus: 1 (12s ago), crashers: 0, restarts: 1/45, execs: 45 (4/sec), cover: 0, uptime: 12s
-2016/09/16 13:58:47 slaves: 8, corpus: 1 (15s ago), crashers: 0, restarts: 1/46, execs: 46 (3/sec), cover: 0, uptime: 15s
-2016/09/16 13:58:50 slaves: 8, corpus: 1 (18s ago), crashers: 0, restarts: 1/47, execs: 47 (3/sec), cover: 0, uptime: 18s
-2016/09/16 13:58:53 slaves: 8, corpus: 1 (21s ago), crashers: 0, restarts: 1/63, execs: 63 (3/sec), cover: 0, uptime: 21s
-2016/09/16 13:58:56 slaves: 8, corpus: 1 (24s ago), crashers: 0, restarts: 1/65, execs: 65 (3/sec), cover: 0, uptime: 24s
-2016/09/16 13:58:59 slaves: 8, corpus: 1 (27s ago), crashers: 0, restarts: 1/66, execs: 66 (2/sec), cover: 0, uptime: 27s
-2016/09/16 13:59:02 slaves: 8, corpus: 1 (30s ago), crashers: 0, restarts: 1/67, execs: 67 (2/sec), cover: 0, uptime: 30s
-2016/09/16 13:59:05 slaves: 8, corpus: 1 (33s ago), crashers: 0, restarts: 1/83, execs: 83 (3/sec), cover: 0, uptime: 33s
-2016/09/16 13:59:08 slaves: 8, corpus: 1 (36s ago), crashers: 0, restarts: 1/84, execs: 84 (2/sec), cover: 0, uptime: 36s
-2016/09/16 13:59:11 slaves: 8, corpus: 2 (0s ago), crashers: 0, restarts: 1/85, execs: 85 (2/sec), cover: 0, uptime: 39s
-2016/09/16 13:59:14 slaves: 8, corpus: 17 (2s ago), crashers: 0, restarts: 1/86, execs: 86 (2/sec), cover: 480, uptime: 42s
-2016/09/16 13:59:17 slaves: 8, corpus: 17 (5s ago), crashers: 0, restarts: 1/66, execs: 132 (3/sec), cover: 487, uptime: 45s
-2016/09/16 13:59:20 slaves: 8, corpus: 17 (8s ago), crashers: 0, restarts: 1/440, execs: 2645 (55/sec), cover: 487, uptime: 48s
+2016/09/16 13:58:35 subordinates: 8, corpus: 1 (3s ago), crashers: 0, restarts: 1/0, execs: 0 (0/sec), cover: 0, uptime: 3s
+2016/09/16 13:58:38 subordinates: 8, corpus: 1 (6s ago), crashers: 0, restarts: 1/0, execs: 0 (0/sec), cover: 0, uptime: 6s
+2016/09/16 13:58:41 subordinates: 8, corpus: 1 (9s ago), crashers: 0, restarts: 1/44, execs: 44 (5/sec), cover: 0, uptime: 9s
+2016/09/16 13:58:44 subordinates: 8, corpus: 1 (12s ago), crashers: 0, restarts: 1/45, execs: 45 (4/sec), cover: 0, uptime: 12s
+2016/09/16 13:58:47 subordinates: 8, corpus: 1 (15s ago), crashers: 0, restarts: 1/46, execs: 46 (3/sec), cover: 0, uptime: 15s
+2016/09/16 13:58:50 subordinates: 8, corpus: 1 (18s ago), crashers: 0, restarts: 1/47, execs: 47 (3/sec), cover: 0, uptime: 18s
+2016/09/16 13:58:53 subordinates: 8, corpus: 1 (21s ago), crashers: 0, restarts: 1/63, execs: 63 (3/sec), cover: 0, uptime: 21s
+2016/09/16 13:58:56 subordinates: 8, corpus: 1 (24s ago), crashers: 0, restarts: 1/65, execs: 65 (3/sec), cover: 0, uptime: 24s
+2016/09/16 13:58:59 subordinates: 8, corpus: 1 (27s ago), crashers: 0, restarts: 1/66, execs: 66 (2/sec), cover: 0, uptime: 27s
+2016/09/16 13:59:02 subordinates: 8, corpus: 1 (30s ago), crashers: 0, restarts: 1/67, execs: 67 (2/sec), cover: 0, uptime: 30s
+2016/09/16 13:59:05 subordinates: 8, corpus: 1 (33s ago), crashers: 0, restarts: 1/83, execs: 83 (3/sec), cover: 0, uptime: 33s
+2016/09/16 13:59:08 subordinates: 8, corpus: 1 (36s ago), crashers: 0, restarts: 1/84, execs: 84 (2/sec), cover: 0, uptime: 36s
+2016/09/16 13:59:11 subordinates: 8, corpus: 2 (0s ago), crashers: 0, restarts: 1/85, execs: 85 (2/sec), cover: 0, uptime: 39s
+2016/09/16 13:59:14 subordinates: 8, corpus: 17 (2s ago), crashers: 0, restarts: 1/86, execs: 86 (2/sec), cover: 480, uptime: 42s
+2016/09/16 13:59:17 subordinates: 8, corpus: 17 (5s ago), crashers: 0, restarts: 1/66, execs: 132 (3/sec), cover: 487, uptime: 45s
+2016/09/16 13:59:20 subordinates: 8, corpus: 17 (8s ago), crashers: 0, restarts: 1/440, execs: 2645 (55/sec), cover: 487, uptime: 48s
 
 ```
 

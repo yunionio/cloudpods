@@ -50,7 +50,7 @@ type LeaderElectionConfiguration struct {
 	// by another candidate. This is only applicable if leader election is
 	// enabled.
 	LeaseDuration metav1.Duration
-	// renewDeadline is the interval between attempts by the acting master to
+	// renewDeadline is the interval between attempts by the acting main to
 	// renew a leadership slot before it stops leading. This must be less
 	// than or equal to the lease duration. This is only applicable if leader
 	// election is enabled.

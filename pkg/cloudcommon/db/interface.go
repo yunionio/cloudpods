@@ -214,16 +214,16 @@ type IJointModelManager interface {
 
 	GetIJointModelManager() IJointModelManager
 
-	GetMasterManager() IStandaloneModelManager
-	GetSlaveManager() IStandaloneModelManager
+	GetMainManager() IStandaloneModelManager
+	GetSubordinateManager() IStandaloneModelManager
 
-	GetMasterFieldName() string
-	GetSlaveFieldName() string
-	// FetchByIds(masterId string, slaveId string, query jsonutils.JSONObject) (IJointModel, error)
+	GetMainFieldName() string
+	GetSubordinateFieldName() string
+	// FetchByIds(mainId string, subordinateId string, query jsonutils.JSONObject) (IJointModel, error)
 	FilterByParams(q *sqlchemy.SQuery, params jsonutils.JSONObject) *sqlchemy.SQuery
 
 	AllowListDescendent(ctx context.Context, userCred mcclient.TokenCredential, model IStandaloneModel, query jsonutils.JSONObject) bool
-	AllowAttach(ctx context.Context, userCred mcclient.TokenCredential, master IStandaloneModel, slave IStandaloneModel) bool
+	AllowAttach(ctx context.Context, userCred mcclient.TokenCredential, main IStandaloneModel, subordinate IStandaloneModel) bool
 }
 
 type IJointModel interface {
@@ -233,8 +233,8 @@ type IJointModel interface {
 
 	GetIJointModel() IJointModel
 
-	Master() IStandaloneModel
-	Slave() IStandaloneModel
+	Main() IStandaloneModel
+	Subordinate() IStandaloneModel
 
 	AllowDetach(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool
 
