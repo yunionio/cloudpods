@@ -77,6 +77,6 @@ func (self *GuestStopTask) OnGuestStopTaskCompleteFailed(ctx context.Context, gu
 		guest.SetStatus(self.UserCred, api.VM_STOP_FAILED, reason.String())
 	}
 	db.OpsLog.LogEvent(guest, db.ACT_STOP_FAIL, reason.String(), self.UserCred)
-	self.SetStageFailed(ctx, reason.String())
+	self.SetStageFailed(ctx, reason)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_STOP, reason.String(), self.UserCred, false)
 }

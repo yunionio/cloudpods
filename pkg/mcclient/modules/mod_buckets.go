@@ -56,7 +56,7 @@ func (manager *SBucketManager) Upload(s *mcclient.ClientSession, bucketId string
 		return errors.Wrap(err, "rawRequest")
 	}
 
-	_, _, err = s.ParseJSONResponse(resp, err)
+	_, _, err = s.ParseJSONResponse("", resp, err)
 	if err != nil {
 		return err
 	}

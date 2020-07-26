@@ -40,8 +40,8 @@ func init() {
 func (self *DBInstanceAccountGrantPrivilegeTask) taskFailed(ctx context.Context, account *models.SDBInstanceAccount, err error) {
 	account.SetStatus(self.UserCred, api.DBINSTANCE_USER_AVAILABLE, err.Error())
 	db.OpsLog.LogEvent(account, db.ACT_GRANT_PRIVILEGE, err.Error(), self.GetUserCred())
-	logclient.AddActionLogWithStartable(self, account, logclient.ACT_GRANT_PRIVILEGE, err.Error(), self.UserCred, false)
-	self.SetStageFailed(ctx, err.Error())
+	logclient.AddActionLogWithStartable(self, account, logclient.ACT_GRANT_PRIVILEGE, err, self.UserCred, false)
+	self.SetStageFailed(ctx, jsonutils.Marshal(err))
 }
 
 func (self *DBInstanceAccountGrantPrivilegeTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

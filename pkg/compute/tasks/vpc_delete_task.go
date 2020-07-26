@@ -16,7 +16,6 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -37,12 +36,12 @@ func init() {
 	taskman.RegisterTask(VpcDeleteTask{})
 }
 
-func (self *VpcDeleteTask) taskFailed(ctx context.Context, vpc *models.SVpc, err error) {
+func (self *VpcDeleteTask) taskFailed(ctx context.Context, vpc *models.SVpc, err jsonutils.JSONObject) {
 	log.Errorf("vpc delete task fail: %s", err)
-	vpc.SetStatus(self.UserCred, api.VPC_STATUS_DELETE_FAILED, err.Error())
-	db.OpsLog.LogEvent(vpc, db.ACT_DELOCATE_FAIL, err.Error(), self.UserCred)
-	logclient.AddActionLogWithStartable(self, vpc, logclient.ACT_DELETE, err.Error(), self.UserCred, false)
-	self.SetStageFailed(ctx, err.Error())
+	vpc.SetStatus(self.UserCred, api.VPC_STATUS_DELETE_FAILED, err.String())
+	db.OpsLog.LogEvent(vpc, db.ACT_DELOCATE_FAIL, err, self.UserCred)
+	logclient.AddActionLogWithStartable(self, vpc, logclient.ACT_DELETE, err, self.UserCred, false)
+	self.SetStageFailed(ctx, err)
 }
 
 func (self *VpcDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
@@ -50,14 +49,14 @@ func (self *VpcDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 	vpc.SetStatus(self.UserCred, api.VPC_STATUS_DELETING, "")
 	region, err := vpc.GetRegion()
 	if err != nil {
-		self.taskFailed(ctx, vpc, errors.Wrap(err, "vpc.GetRegion"))
+		self.taskFailed(ctx, vpc, jsonutils.NewString(errors.Wrap(err, "vpc.GetRegion").Error()))
 		return
 	}
 
 	self.SetStage("OnDeleteVpcComplete", nil)
 	err = region.GetDriver().RequestDeleteVpc(ctx, self.UserCred, region, vpc, self)
 	if err != nil {
-		self.taskFailed(ctx, vpc, errors.Wrap(err, "RequestDeleteVpc"))
+		self.taskFailed(ctx, vpc, jsonutils.Marshal(err))
 		return
 	}
 }
@@ -65,7 +64,7 @@ func (self *VpcDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 func (self *VpcDeleteTask) OnDeleteVpcComplete(ctx context.Context, vpc *models.SVpc, body jsonutils.JSONObject) {
 	err := vpc.Purge(ctx, self.UserCred)
 	if err != nil {
-		self.taskFailed(ctx, vpc, errors.Wrap(err, "vpc.Purge"))
+		self.taskFailed(ctx, vpc, jsonutils.NewString(errors.Wrap(err, "vpc.Purge").Error()))
 		return
 	}
 	db.OpsLog.LogEvent(vpc, db.ACT_DELOCATING, vpc.GetShortDesc(ctx), self.UserCred)
@@ -74,5 +73,5 @@ func (self *VpcDeleteTask) OnDeleteVpcComplete(ctx context.Context, vpc *models.
 }
 
 func (self *VpcDeleteTask) OnDeleteVpcCompleteFailed(ctx context.Context, vpc *models.SVpc, reason jsonutils.JSONObject) {
-	self.taskFailed(ctx, vpc, fmt.Errorf("%s", reason))
+	self.taskFailed(ctx, vpc, reason)
 }

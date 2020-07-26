@@ -16,7 +16,6 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 
@@ -41,11 +40,10 @@ func (self *GuestPublicipToEipTask) OnInit(ctx context.Context, obj db.IStandalo
 	self.SetStage("OnEipConvertComplete", nil)
 	err := guest.GetDriver().RequestConvertPublicipToEip(ctx, self.GetUserCred(), guest, self)
 	if err != nil {
-		msg := fmt.Sprintf("RequestConvertPublicipToEip failed %s", err)
-		db.OpsLog.LogEvent(guest, db.ACT_EIP_CONVERT_FAIL, msg, self.UserCred)
-		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_EIP_CONVERT, msg, self.UserCred, false)
-		guest.SetStatus(self.GetUserCred(), api.VM_EIP_CONVERT_FAILED, msg)
-		self.SetStageFailed(ctx, msg)
+		db.OpsLog.LogEvent(guest, db.ACT_EIP_CONVERT_FAIL, err, self.UserCred)
+		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_EIP_CONVERT, err, self.UserCred, false)
+		guest.SetStatus(self.GetUserCred(), api.VM_EIP_CONVERT_FAILED, err.Error())
+		self.SetStageFailed(ctx, jsonutils.Marshal(err))
 		return
 	}
 }
@@ -59,7 +57,7 @@ func (self *GuestPublicipToEipTask) OnEipConvertComplete(ctx context.Context, gu
 func (self *GuestPublicipToEipTask) OnEipConvertCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_EIP_CONVERT, data, self.UserCred, false)
 	guest.SetStatus(self.UserCred, api.VM_EIP_CONVERT_FAILED, data.String())
-	self.SetStageFailed(ctx, data.String())
+	self.SetStageFailed(ctx, data)
 }
 
 func (self *GuestPublicipToEipTask) OnGuestSyncstatusComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -72,7 +70,7 @@ func (self *GuestPublicipToEipTask) OnGuestSyncstatusComplete(ctx context.Contex
 }
 
 func (self *GuestPublicipToEipTask) OnGuestSyncstatusCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, data.String())
+	self.SetStageFailed(ctx, data)
 }
 
 func (self *GuestPublicipToEipTask) OnGuestStartSucc(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -80,5 +78,5 @@ func (self *GuestPublicipToEipTask) OnGuestStartSucc(ctx context.Context, guest 
 }
 
 func (self *GuestPublicipToEipTask) OnGuestStartSuccFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, data.String())
+	self.SetStageFailed(ctx, data)
 }

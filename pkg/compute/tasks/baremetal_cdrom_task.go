@@ -47,16 +47,16 @@ func (self *BaremetalCdromTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 	self.SetStage("OnSyncConfigComplete", nil)
 	_, err := baremetal.BaremetalSyncRequest(ctx, "POST", url, headers, self.Params)
 	if err != nil {
-		self.OnFailure(ctx, baremetal, err.Error())
+		self.OnFailure(ctx, baremetal, jsonutils.Marshal(err))
 	}
 }
 
-func (self *BaremetalCdromTask) OnFailure(ctx context.Context, baremetal *models.SHost, reason string) {
+func (self *BaremetalCdromTask) OnFailure(ctx context.Context, baremetal *models.SHost, reason jsonutils.JSONObject) {
 	action, _ := self.Params.GetString("action")
 	if action == api.BAREMETAL_CDROM_ACTION_INSERT {
-		baremetal.SetStatus(self.UserCred, api.BAREMETAL_INSERT_FAIL, reason)
+		baremetal.SetStatus(self.UserCred, api.BAREMETAL_INSERT_FAIL, reason.String())
 	} else {
-		baremetal.SetStatus(self.UserCred, api.BAREMETAL_EJECT_FAIL, reason)
+		baremetal.SetStatus(self.UserCred, api.BAREMETAL_EJECT_FAIL, reason.String())
 	}
 	self.SetStageFailed(ctx, reason)
 }
@@ -66,6 +66,5 @@ func (self *BaremetalCdromTask) OnSyncConfigComplete(ctx context.Context, bareme
 }
 
 func (self *BaremetalCdromTask) OnSyncConfigCompleteFailed(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
-	reason, _ := body.GetString("__reason__")
-	self.OnFailure(ctx, baremetal, reason)
+	self.OnFailure(ctx, baremetal, body)
 }

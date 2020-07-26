@@ -44,7 +44,7 @@ func (self *StorageUpdateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 	if dirver != nil {
 		err := dirver.DoStorageUpdateTask(ctx, self.UserCred, storage, self)
 		if err != nil {
-			self.SetStageFailed(ctx, err.Error())
+			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		}
 	}
 	self.SetStageComplete(ctx, nil)
@@ -55,7 +55,7 @@ func (self *StorageUpdateTask) OnStorageUpdate(ctx context.Context, obj db.IStan
 }
 
 func (self *StorageUpdateTask) OnStorageUpdateFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, data.String())
+	self.SetStageFailed(ctx, data)
 }
 
 type RbdStorageUpdateTask struct {

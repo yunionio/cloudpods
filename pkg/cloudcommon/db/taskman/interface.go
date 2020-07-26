@@ -37,7 +37,7 @@ type ITask interface {
 	GetTaskRequestHeader() http.Header
 
 	SetStageComplete(ctx context.Context, data *jsonutils.JSONDict)
-	SetStageFailed(ctx context.Context, reason string)
+	SetStageFailed(ctx context.Context, reason jsonutils.JSONObject)
 
 	GetPendingUsage(quota quotas.IQuota, index int) error
 	ClearPendingUsage(index int) error

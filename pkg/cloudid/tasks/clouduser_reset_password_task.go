@@ -35,10 +35,10 @@ func init() {
 	taskman.RegisterTask(ClouduserResetPasswordTask{})
 }
 
-func (self *ClouduserResetPasswordTask) taskFailed(ctx context.Context, clouduser *models.SClouduser, err error) {
-	clouduser.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_RESET_PASSWORD_FAILED, err.Error())
+func (self *ClouduserResetPasswordTask) taskFailed(ctx context.Context, clouduser *models.SClouduser, err jsonutils.JSONObject) {
+	clouduser.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_RESET_PASSWORD_FAILED, err.String())
 	logclient.AddActionLogWithStartable(self, clouduser, logclient.ACT_RESET_PASSWORD, err, self.UserCred, false)
-	self.SetStageFailed(ctx, err.Error())
+	self.SetStageFailed(ctx, err)
 }
 
 func (self *ClouduserResetPasswordTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
@@ -47,26 +47,26 @@ func (self *ClouduserResetPasswordTask) OnInit(ctx context.Context, obj db.IStan
 
 	account, err := clouduser.GetCloudaccount()
 	if err != nil {
-		self.taskFailed(ctx, clouduser, errors.Wrap(err, "GetCloudaccount"))
+		self.taskFailed(ctx, clouduser, jsonutils.NewString(errors.Wrap(err, "GetCloudaccount").Error()))
 		return
 	}
 
 	factory, err := account.GetProviderFactory()
 	if err != nil {
-		self.taskFailed(ctx, clouduser, errors.Wrap(err, "GetProviderFactory"))
+		self.taskFailed(ctx, clouduser, jsonutils.NewString(errors.Wrap(err, "GetProviderFactory").Error()))
 		return
 	}
 
 	iUser, err := clouduser.GetIClouduser()
 	if err != nil {
-		self.taskFailed(ctx, clouduser, errors.Wrap(err, "GetIClouduser"))
+		self.taskFailed(ctx, clouduser, jsonutils.NewString(errors.Wrap(err, "GetIClouduser").Error()))
 		return
 	}
 
 	if factory.IsSupportResetClouduserPassword() {
 		err = iUser.ResetPassword(password)
 		if err != nil {
-			self.taskFailed(ctx, clouduser, errors.Wrap(err, "ResetPassword"))
+			self.taskFailed(ctx, clouduser, jsonutils.NewString(errors.Wrap(err, "ResetPassword").Error()))
 			return
 		}
 		clouduser.SyncWithClouduser(ctx, self.GetUserCred(), iUser, clouduser.CloudproviderId)

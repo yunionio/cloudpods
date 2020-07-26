@@ -38,7 +38,7 @@ func (self *GuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	guest := obj.(*models.SGuest)
 	err := guest.GetDriver().DoGuestCreateDisksTask(ctx, guest, self)
 	if err != nil {
-		self.SetStageFailed(ctx, err.Error())
+		self.SetStageFailed(ctx, jsonutils.Marshal(err))
 	}
 }
 
@@ -47,7 +47,7 @@ func (self *GuestCreateDiskTask) OnDiskPrepared(ctx context.Context, obj db.ISta
 }
 
 func (self *GuestCreateDiskTask) OnDiskPreparedFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, data.String())
+	self.SetStageFailed(ctx, data)
 }
 
 /* --------------------------------------------- */
@@ -67,7 +67,7 @@ func (self *KVMGuestCreateDiskTask) OnKvmDiskPrepared(ctx context.Context, obj d
 	var diskReady = true
 	disks, err := self.GetInputDisks()
 	if err != nil {
-		self.SetStageFailed(ctx, err.Error())
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return
 	}
 
@@ -78,11 +78,11 @@ func (self *KVMGuestCreateDiskTask) OnKvmDiskPrepared(ctx context.Context, obj d
 		}
 		iDisk, err := models.DiskManager.FetchById(diskId)
 		if err != nil {
-			self.SetStageFailed(ctx, err.Error())
+			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 			return
 		}
 		if iDisk == nil {
-			self.SetStageFailed(ctx, "Disk not found")
+			self.SetStageFailed(ctx, jsonutils.NewString("Disk not found"))
 			return
 		}
 		disk := iDisk.(*models.SDisk)
@@ -90,7 +90,7 @@ func (self *KVMGuestCreateDiskTask) OnKvmDiskPrepared(ctx context.Context, obj d
 			snapshotId := d.SnapshotId
 			err = disk.StartDiskCreateTask(ctx, self.UserCred, false, snapshotId, self.GetTaskId())
 			if err != nil {
-				self.SetStageFailed(ctx, err.Error())
+				self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 				return
 			}
 			diskReady = false
@@ -104,11 +104,11 @@ func (self *KVMGuestCreateDiskTask) OnKvmDiskPrepared(ctx context.Context, obj d
 		diskId := d.DiskId
 		iDisk, err := models.DiskManager.FetchById(diskId)
 		if err != nil {
-			self.SetStageFailed(ctx, err.Error())
+			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 			return
 		}
 		if iDisk == nil {
-			self.SetStageFailed(ctx, "Disk not found")
+			self.SetStageFailed(ctx, jsonutils.NewString("Disk not found"))
 			return
 		}
 		disk := iDisk.(*models.SDisk)
@@ -118,7 +118,7 @@ func (self *KVMGuestCreateDiskTask) OnKvmDiskPrepared(ctx context.Context, obj d
 		}
 		err = self.attachDisk(ctx, disk, d.Driver, d.Cache, d.Mountpoint)
 		if err != nil {
-			self.SetStageFailed(ctx, err.Error())
+			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 			return
 		}
 	}
@@ -128,7 +128,7 @@ func (self *KVMGuestCreateDiskTask) OnKvmDiskPrepared(ctx context.Context, obj d
 			self.SetStage("on_config_sync_complete", nil)
 			err := guest.StartSyncTask(ctx, self.UserCred, false, self.GetTaskId())
 			if err != nil {
-				self.SetStageFailed(ctx, err.Error())
+				self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 			}
 		} else {
 			self.SetStageComplete(ctx, nil)
@@ -178,7 +178,7 @@ func (self *ManagedGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStan
 func (self *ManagedGuestCreateDiskTask) OnManagedDiskPrepared(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	disks, err := self.GetInputDisks()
 	if err != nil {
-		self.SetStageFailed(ctx, err.Error())
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return
 	}
 
@@ -186,7 +186,7 @@ func (self *ManagedGuestCreateDiskTask) OnManagedDiskPrepared(ctx context.Contex
 		diskId := d.DiskId
 		iDisk, err := models.DiskManager.FetchById(diskId)
 		if err != nil {
-			self.SetStageFailed(ctx, err.Error())
+			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 			return
 		}
 		disk := iDisk.(*models.SDisk)
@@ -194,7 +194,7 @@ func (self *ManagedGuestCreateDiskTask) OnManagedDiskPrepared(ctx context.Contex
 			snapshot := d.SnapshotId
 			err = disk.StartDiskCreateTask(ctx, self.UserCred, false, snapshot, self.GetTaskId())
 			if err != nil {
-				self.SetStageFailed(ctx, err.Error())
+				self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 				return
 			}
 			return
@@ -207,31 +207,31 @@ func (self *ManagedGuestCreateDiskTask) OnManagedDiskPrepared(ctx context.Contex
 		diskId := d.DiskId
 		iDisk, err := models.DiskManager.FetchById(diskId)
 		if err != nil {
-			self.SetStageFailed(ctx, err.Error())
+			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 			return
 		}
 		disk := iDisk.(*models.SDisk)
 		if disk.Status != api.DISK_READY {
-			self.SetStageFailed(ctx, fmt.Sprintf("disk %s is not ready", disk.Id))
+			self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("disk %s is not ready(status=%s)", disk.Id, disk.Status)))
 			return
 		}
 
 		iVM, e := guest.GetIVM()
 		if e != nil {
-			self.SetStageFailed(ctx, "iVM not found")
+			self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("iVM not found: %s", e)))
 			return
 		}
 
 		err = iVM.AttachDisk(ctx, disk.GetExternalId())
 		if err != nil {
 			log.Debugf("Attach Disk %s to guest fail: %s", diskId, err)
-			self.SetStageFailed(ctx, fmt.Sprintf("Attach iDisk to guest fail error: %v", err))
+			self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("Attach iDisk to guest fail error: %v", err)))
 			return
 		}
 		err = self.attachDisk(ctx, disk, d.Driver, d.Cache, d.Mountpoint)
 		if err != nil {
 			log.Debugf("Attach Disk %s to guest fail: %s", diskId, err)
-			self.SetStageFailed(ctx, fmt.Sprintf("Attach Disk to guest fail error: %v", err))
+			self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("Attach Disk to guest fail error: %v", err)))
 			return
 		}
 		time.Sleep(time.Second * 5)
@@ -254,30 +254,30 @@ func (self *ESXiGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandal
 	guest := obj.(*models.SGuest)
 	host := guest.GetHost()
 	if host == nil {
-		self.SetStageFailed(ctx, "no valid host")
+		self.SetStageFailed(ctx, jsonutils.NewString("no valid host"))
 		return
 	}
 
 	disks, err := self.GetInputDisks()
 	if err != nil {
-		self.SetStageFailed(ctx, err.Error())
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return
 	}
 	for _, d := range disks {
 		diskId := d.DiskId
 		iDisk, err := models.DiskManager.FetchById(diskId)
 		if err != nil {
-			self.SetStageFailed(ctx, err.Error())
+			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 			return
 		}
 		disk := iDisk.(*models.SDisk)
 		if disk.Status != api.DISK_INIT {
-			self.SetStageFailed(ctx, fmt.Sprintf("Disk %s already created??", diskId))
+			self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("Disk %s already created??(status=%s)", diskId, disk.Status)))
 			return
 		}
 		ivm, err := guest.GetIVM()
 		if err != nil {
-			self.SetStageFailed(ctx, fmt.Sprintf("fail to find iVM for %s, error: %v", guest.GetName(), err))
+			self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("fail to find iVM for %s, error: %v", guest.GetName(), err)))
 			return
 		}
 		if len(d.Driver) == 0 {
@@ -286,18 +286,18 @@ func (self *ESXiGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandal
 		}
 		err = ivm.CreateDisk(ctx, disk.DiskSize, disk.Id, d.Driver)
 		if err != nil {
-			self.SetStageFailed(ctx, fmt.Sprintf("ivm.CreateDisk fail %s, error: %v", guest.GetName(), err))
+			self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("ivm.CreateDisk fail %s, error: %v", guest.GetName(), err)))
 			return
 		}
 		idisks, err := ivm.GetIDisks()
 		if err != nil {
-			self.SetStageFailed(ctx, fmt.Sprintf("ivm.GetIDisks fail %s", err))
+			self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("ivm.GetIDisks fail %s", err)))
 			return
 		}
 
 		err = self.attachDisk(ctx, disk, d.Driver, d.Cache, d.Mountpoint)
 		if err != nil {
-			self.SetStageFailed(ctx, fmt.Sprintf("self.attachDisk fail %v", err))
+			self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("self.attachDisk fail %v", err)))
 			return
 		}
 
@@ -312,7 +312,7 @@ func (self *ESXiGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandal
 			return nil
 		})
 		if err != nil {
-			self.SetStageFailed(ctx, fmt.Sprintf("disk.GetModelManager().TableSpec().Update fail %s", err))
+			self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("disk.GetModelManager().TableSpec().Update fail %s", err)))
 			return
 		}
 
@@ -349,7 +349,7 @@ func (self *GuestCreateBackupDisksTask) CreateBackups(ctx context.Context, guest
 	} else {
 		err := guestDisks[diskIndex].GetDisk().StartCreateBackupTask(ctx, self.UserCred, self.GetTaskId())
 		if err != nil {
-			self.SetStageFailed(ctx, err.Error())
+			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		}
 	}
 }

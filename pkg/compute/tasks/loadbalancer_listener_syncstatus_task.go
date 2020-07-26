@@ -36,11 +36,11 @@ func init() {
 	taskman.RegisterTask(LoadbalancerListenerSyncstatusTask{})
 }
 
-func (self *LoadbalancerListenerSyncstatusTask) taskFail(ctx context.Context, lblis *models.SLoadbalancerListener, reason string) {
-	lblis.SetStatus(self.GetUserCred(), api.LB_STATUS_UNKNOWN, reason)
+func (self *LoadbalancerListenerSyncstatusTask) taskFail(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
+	lblis.SetStatus(self.GetUserCred(), api.LB_STATUS_UNKNOWN, reason.String())
 	db.OpsLog.LogEvent(lblis, db.ACT_SYNC_STATUS, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_SYNC_STATUS, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lblis.Id, lblis.Name, api.LB_SYNC_CONF_FAILED, reason)
+	notifyclient.NotifySystemError(lblis.Id, lblis.Name, api.LB_SYNC_CONF_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -48,12 +48,12 @@ func (self *LoadbalancerListenerSyncstatusTask) OnInit(ctx context.Context, obj 
 	lblis := obj.(*models.SLoadbalancerListener)
 	region := lblis.GetRegion()
 	if region == nil {
-		self.taskFail(ctx, lblis, fmt.Sprintf("failed to find region for lblis %s", lblis.Name))
+		self.taskFail(ctx, lblis, jsonutils.NewString(fmt.Sprintf("failed to find region for lblis %s", lblis.Name)))
 		return
 	}
 	self.SetStage("OnLoadbalancerListenerSyncstatusComplete", nil)
 	if err := region.GetDriver().RequestSyncstatusLoadbalancerListener(ctx, self.GetUserCred(), lblis, self); err != nil {
-		self.taskFail(ctx, lblis, err.Error())
+		self.taskFail(ctx, lblis, jsonutils.Marshal(err))
 	}
 }
 
@@ -64,5 +64,5 @@ func (self *LoadbalancerListenerSyncstatusTask) OnLoadbalancerListenerSyncstatus
 }
 
 func (self *LoadbalancerListenerSyncstatusTask) OnLoadbalancerListenerSyncstatusCompleteFailed(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lblis, reason.String())
+	self.taskFail(ctx, lblis, reason)
 }

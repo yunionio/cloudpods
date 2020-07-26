@@ -49,7 +49,7 @@ func (self *GuestSaveImageTask) OnStopServerComplete(ctx context.Context, guest 
 	self.SetStage("OnSaveRootImageComplete", nil)
 	disks := guest.CategorizeDisks()
 	if err := disks.Root.StartDiskSaveTask(ctx, self.GetUserCred(), self.GetParams(), self.GetTaskId()); err != nil {
-		self.SetStageFailed(ctx, err.Error())
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	}
 }
 
@@ -64,8 +64,8 @@ func (self *GuestSaveImageTask) OnSaveRootImageComplete(ctx context.Context, gue
 
 func (self *GuestSaveImageTask) OnSaveRootImageCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	log.Errorf("Guest save root image failed: %s", data.PrettyString())
-	guest.SetStatus(self.GetUserCred(), api.VM_SAVE_DISK_FAILED, data.PrettyString())
-	self.SetStageFailed(ctx, data.PrettyString())
+	guest.SetStatus(self.GetUserCred(), api.VM_SAVE_DISK_FAILED, data.String())
+	self.SetStageFailed(ctx, data)
 }
 
 func (self *GuestSaveImageTask) OnStartServerComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {

@@ -57,7 +57,7 @@ func (self *DiskResetTask) TaskFailed(ctx context.Context, disk *models.SDisk, r
 	if snapshot != nil {
 		logclient.AddActionLogWithStartable(self, snapshot, logclient.ACT_RESET_DISK, reason, self.UserCred, false)
 	}
-	self.SetStageFailed(ctx, reason.Error())
+	self.SetStageFailed(ctx, jsonutils.Marshal(reason))
 	guests := disk.GetGuests()
 	if len(guests) == 1 {
 		guests[0].SetStatus(self.UserCred, api.VM_DISK_RESET_FAIL, reason.Error())
@@ -168,13 +168,13 @@ func (self *DiskCleanUpSnapshotsTask) StartCleanUpSnapshots(ctx context.Context,
 	if len(guests) == 1 {
 		host = guests[0].GetHost()
 	} else {
-		self.SetStageFailed(ctx, "Disk can't get guest")
+		self.SetStageFailed(ctx, jsonutils.NewString("Disk can't get guest"))
 		return
 	}
 	self.SetStage("OnCleanUpSnapshots", nil)
 	err := host.GetHostDriver().RequestCleanUpDiskSnapshots(ctx, host, disk, self.Params, self)
 	if err != nil {
-		self.SetStageFailed(ctx, err.Error())
+		self.SetStageFailed(ctx, jsonutils.Marshal(err))
 	}
 }
 
@@ -208,6 +208,6 @@ func (self *DiskCleanUpSnapshotsTask) OnCleanUpSnapshots(ctx context.Context, di
 }
 
 func (self *DiskCleanUpSnapshotsTask) OnCleanUpSnapshotsFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
-	db.OpsLog.LogEvent(disk, db.ACT_DISK_CLEAN_UP_SNAPSHOTS_FAIL, data.String(), self.UserCred)
-	self.SetStageFailed(ctx, data.String())
+	db.OpsLog.LogEvent(disk, db.ACT_DISK_CLEAN_UP_SNAPSHOTS_FAIL, data, self.UserCred)
+	self.SetStageFailed(ctx, data)
 }

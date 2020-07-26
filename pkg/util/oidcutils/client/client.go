@@ -110,7 +110,7 @@ func (cli *SOIDCClient) request(ctx context.Context, method httputils.THttpMetho
 	header.Set("Accept", "application/json")
 	reqbody := strings.NewReader(data.QueryString())
 	resp, err := httputils.Request(cli.httpclient, ctx, method, urlStr, header, reqbody, cli.isDebug)
-	_, body, err := httputils.ParseJSONResponse(resp, err, cli.isDebug)
+	_, body, err := httputils.ParseJSONResponse(data.QueryString(), resp, err, cli.isDebug)
 	return body, err
 }
 

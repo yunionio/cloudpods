@@ -35,11 +35,11 @@ func init() {
 	taskman.RegisterTask(NetworkSyncstatusTask{})
 }
 
-func (self *NetworkSyncstatusTask) taskFail(ctx context.Context, net *models.SNetwork, msg string) {
-	net.SetStatus(self.UserCred, api.NETWORK_STATUS_UNKNOWN, msg)
-	db.OpsLog.LogEvent(net, db.ACT_SYNC_STATUS, msg, self.GetUserCred())
-	logclient.AddActionLogWithStartable(self, net, logclient.ACT_SYNC_STATUS, msg, self.UserCred, false)
-	self.SetStageFailed(ctx, msg)
+func (self *NetworkSyncstatusTask) taskFail(ctx context.Context, net *models.SNetwork, reason jsonutils.JSONObject) {
+	net.SetStatus(self.UserCred, api.NETWORK_STATUS_UNKNOWN, reason.String())
+	db.OpsLog.LogEvent(net, db.ACT_SYNC_STATUS, reason, self.GetUserCred())
+	logclient.AddActionLogWithStartable(self, net, logclient.ACT_SYNC_STATUS, reason, self.UserCred, false)
+	self.SetStageFailed(ctx, reason)
 }
 
 func (self *NetworkSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -48,21 +48,21 @@ func (self *NetworkSyncstatusTask) OnInit(ctx context.Context, obj db.IStandalon
 	extNet, err := net.GetINetwork()
 	if err != nil {
 		msg := fmt.Sprintf("fail to find ICloudNetwork for network %s", err)
-		self.taskFail(ctx, net, msg)
+		self.taskFail(ctx, net, jsonutils.NewString(msg))
 		return
 	}
 
 	err = extNet.Refresh()
 	if err != nil {
 		msg := fmt.Sprintf("fail to refresh ICloudNetwork status %s", err)
-		self.taskFail(ctx, net, msg)
+		self.taskFail(ctx, net, jsonutils.NewString(msg))
 		return
 	}
 
 	err = net.SyncWithCloudNetwork(ctx, self.UserCred, extNet, nil, nil)
 	if err != nil {
 		msg := fmt.Sprintf("fail to sync network status %s", err)
-		self.taskFail(ctx, net, msg)
+		self.taskFail(ctx, net, jsonutils.NewString(msg))
 		return
 	}
 

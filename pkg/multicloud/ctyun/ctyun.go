@@ -200,6 +200,7 @@ func formRequest(client *SCtyunClient, method httputils.THttpMethod, apiName str
 		header.Set("platform", "3")
 	}
 
+	var reqbody string
 	ioData := strings.NewReader("")
 	if method == httputils.GET {
 		for k, v := range queries {
@@ -212,7 +213,8 @@ func formRequest(client *SCtyunClient, method httputils.THttpMethod, apiName str
 			datas.Add(k, c)
 		}
 
-		ioData = strings.NewReader(datas.Encode())
+		reqbody = datas.Encode()
+		ioData = strings.NewReader(reqbody)
 	}
 
 	header.Set("Content-Length", strconv.FormatInt(int64(ioData.Len()), 10))
@@ -233,7 +235,7 @@ func formRequest(client *SCtyunClient, method httputils.THttpMethod, apiName str
 			ioData,
 			client.debug)
 
-		_, jsonResp, err := httputils.ParseJSONResponse(resp, err, client.debug)
+		_, jsonResp, err := httputils.ParseJSONResponse(reqbody, resp, err, client.debug)
 		if err == nil {
 			if code, _ := jsonResp.Int("statusCode"); code != 800 {
 				if strings.Contains(jsonResp.String(), "NotFound") {

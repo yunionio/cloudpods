@@ -38,8 +38,8 @@ func init() {
 func (self *DBInstanceAccountDeleteTask) taskFailed(ctx context.Context, account *models.SDBInstanceAccount, err error) {
 	account.SetStatus(self.UserCred, api.DBINSTANCE_USER_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(account, db.ACT_DELETE, err.Error(), self.GetUserCred())
-	logclient.AddActionLogWithStartable(self, account, logclient.ACT_DELETE, err.Error(), self.UserCred, false)
-	self.SetStageFailed(ctx, err.Error())
+	logclient.AddActionLogWithStartable(self, account, logclient.ACT_DELETE, err, self.UserCred, false)
+	self.SetStageFailed(ctx, jsonutils.Marshal(err))
 }
 
 func (self *DBInstanceAccountDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

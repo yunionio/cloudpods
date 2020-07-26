@@ -38,7 +38,7 @@ func init() {
 	taskman.RegisterTask(GuestDetachScalingGroupTask{})
 }
 
-func (self *GuestDetachScalingGroupTask) taskFailed(ctx context.Context, sg *models.SScalingGroup, sgg *models.SScalingGroupGuest, reason string) {
+func (self *GuestDetachScalingGroupTask) taskFailed(ctx context.Context, sg *models.SScalingGroup, sgg *models.SScalingGroupGuest, reason jsonutils.JSONObject) {
 	if sg == nil {
 		return
 	}
@@ -61,7 +61,7 @@ func (self *GuestDetachScalingGroupTask) OnInit(ctx context.Context, obj db.ISta
 	guestId, _ := self.Params.GetString("guest")
 	guest := models.GuestManager.FetchGuestById(guestId)
 	if guest == nil {
-		self.taskFailed(ctx, sg, nil, "unable to FetchGuestById")
+		self.taskFailed(ctx, sg, nil, jsonutils.NewString("unable to FetchGuestById"))
 		return
 	}
 	self.SetStage("OnDetachLoadbalancerComplete", nil)
@@ -70,7 +70,7 @@ func (self *GuestDetachScalingGroupTask) OnInit(ctx context.Context, obj db.ISta
 	err := q.First(&lbBackend)
 	if err != nil {
 		if errors.Cause(err) != sql.ErrNoRows {
-			self.taskFailed(ctx, sg, nil, fmt.Sprintf("Fetch loadbalancer backend failed: %s", err.Error()))
+			self.taskFailed(ctx, sg, nil, jsonutils.NewString(fmt.Sprintf("Fetch loadbalancer backend failed: %s", err.Error())))
 			return
 		}
 		self.OnDetachLoadbalancerComplete(ctx, sg, body)
@@ -79,7 +79,7 @@ func (self *GuestDetachScalingGroupTask) OnInit(ctx context.Context, obj db.ISta
 		lbBackend.SetModelManager(models.LoadbalancerBackendManager, &lbBackend)
 		lbBackend.SetStatus(self.UserCred, api.LB_STATUS_DELETING, "")
 		if err = lbBackend.StartLoadBalancerBackendDeleteTask(ctx, self.UserCred, jsonutils.NewDict(), self.Id); err != nil {
-			self.taskFailed(ctx, sg, nil, fmt.Sprintf("Detach guest with loadbalancer group failed: %s", err))
+			self.taskFailed(ctx, sg, nil, jsonutils.NewString(fmt.Sprintf("Detach guest with loadbalancer group failed: %s", err)))
 		}
 	}
 }
@@ -93,19 +93,19 @@ func (self *GuestDetachScalingGroupTask) OnDetachLoadbalancerComplete(ctx contex
 	}
 	guest := models.GuestManager.FetchGuestById(guestId)
 	if guest == nil {
-		self.taskFailed(ctx, sg, nil, "unable to FetchGuestById")
+		self.taskFailed(ctx, sg, nil, jsonutils.NewString("unable to FetchGuestById"))
 		return
 	}
 	self.Params.Set("guest_name", jsonutils.NewString(guest.GetName()))
 	self.SetStage("OnDeleteGuestComplete", nil)
 	if err := guest.StartDeleteGuestTask(ctx, self.UserCred, self.Id, true, true, true); err != nil {
-		self.taskFailed(ctx, sg, nil, err.Error())
+		self.taskFailed(ctx, sg, nil, jsonutils.NewString(err.Error()))
 	}
 }
 
 func (self *GuestDetachScalingGroupTask) OnDetachLoadbalancerCompleteFailed(ctx context.Context, sg *models.SScalingGroup,
 	data jsonutils.JSONObject) {
-	self.taskFailed(ctx, sg, nil, "detach loadbalancer failed")
+	self.taskFailed(ctx, sg, nil, data)
 }
 
 func (self *GuestDetachScalingGroupTask) OnDeleteGuestComplete(ctx context.Context, sg *models.SScalingGroup, data jsonutils.JSONObject) {
@@ -150,5 +150,5 @@ func (s SScalingActionDesc) CheckCoolTime() bool {
 }
 
 func (self *GuestDetachScalingGroupTask) OnDeleteGuestCompleteFailed(ctx context.Context, sg *models.SScalingGroup, data jsonutils.JSONObject) {
-	self.taskFailed(ctx, sg, nil, "delete guest failed")
+	self.taskFailed(ctx, sg, nil, data)
 }

@@ -55,7 +55,7 @@ func (self *GuestSuspendTask) OnSuspendCompleteFailed(ctx context.Context, obj d
 	guest := obj.(*models.SGuest)
 	guest.SetStatus(self.UserCred, api.VM_RUNNING, "")
 	db.OpsLog.LogEvent(guest, db.ACT_STOP_FAIL, err.String(), self.UserCred)
-	self.SetStageFailed(ctx, err.String())
+	self.SetStageFailed(ctx, err)
 }
 
 func (self *GuestSuspendTask) OnSuspendGuestFail(guest *models.SGuest, reason string) {

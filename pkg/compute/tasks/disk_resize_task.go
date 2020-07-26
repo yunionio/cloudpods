@@ -60,7 +60,7 @@ func (self *DiskResizeTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 	reason := "Cannot find host for disk"
 	if host == nil || host.HostStatus != api.HOST_ONLINE {
 		self.SetDiskReady(ctx, disk, self.GetUserCred(), reason)
-		self.SetStageFailed(ctx, reason)
+		self.SetStageFailed(ctx, jsonutils.NewString(reason))
 		db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, reason, self.GetUserCred())
 		logclient.AddActionLogWithStartable(self, disk, logclient.ACT_RESIZE, reason, self.UserCred, false)
 		return
@@ -88,9 +88,9 @@ func (self *DiskResizeTask) OnStartResizeDiskSucc(ctx context.Context, disk *mod
 
 func (self *DiskResizeTask) OnStartResizeDiskFailed(ctx context.Context, disk *models.SDisk, reason error) {
 	self.SetDiskReady(ctx, disk, self.GetUserCred(), reason.Error())
-	self.SetStageFailed(ctx, reason.Error())
-	db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, reason.Error(), self.GetUserCred())
-	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_RESIZE, reason.Error(), self.UserCred, false)
+	self.SetStageFailed(ctx, jsonutils.Marshal(reason))
+	db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, reason, self.GetUserCred())
+	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_RESIZE, reason, self.UserCred, false)
 }
 
 func (self *DiskResizeTask) OnDiskResizeComplete(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
@@ -150,6 +150,6 @@ func (self *DiskResizeTask) OnDiskResized(ctx context.Context, disk *models.SDis
 func (self *DiskResizeTask) OnDiskResizeCompleteFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
 	self.SetDiskReady(ctx, disk, self.GetUserCred(), data.String())
 	db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, disk.GetShortDesc(ctx), self.UserCred)
-	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_RESIZE, data.String(), self.UserCred, false)
-	self.SetStageFailed(ctx, data.String())
+	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_RESIZE, data, self.UserCred, false)
+	self.SetStageFailed(ctx, data)
 }

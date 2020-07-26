@@ -38,7 +38,7 @@ func init() {
 
 func (self *BucketSyncstatusTask) taskFailed(ctx context.Context, bucket *models.SBucket, err error) {
 	bucket.SetStatus(self.GetUserCred(), api.BUCKET_STATUS_UNKNOWN, err.Error())
-	self.SetStageFailed(ctx, err.Error())
+	self.SetStageFailed(ctx, jsonutils.Marshal(err))
 	db.OpsLog.LogEvent(bucket, db.ACT_SYNC_STATUS, bucket.GetShortDesc(ctx), self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, bucket, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 }

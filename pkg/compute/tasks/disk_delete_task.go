@@ -44,13 +44,13 @@ func (self *DiskDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 	cnt, err := disk.GetGuestDiskCount()
 	if err != nil {
 		reason := "Disk GetGuestDiskCount fail: " + err.Error()
-		self.SetStageFailed(ctx, reason)
+		self.SetStageFailed(ctx, jsonutils.NewString(reason))
 		db.OpsLog.LogEvent(disk, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 		return
 	}
 	if cnt > 0 {
 		reason := "Disk has been attached to server"
-		self.SetStageFailed(ctx, reason)
+		self.SetStageFailed(ctx, jsonutils.NewString(reason))
 		db.OpsLog.LogEvent(disk, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 		return
 	}
@@ -179,7 +179,7 @@ func (self *DiskDeleteTask) OnGuestDiskDeleteComplete(ctx context.Context, obj d
 
 func (self *DiskDeleteTask) OnGuestDiskDeleteCompleteFailed(ctx context.Context, disk *models.SDisk, reason jsonutils.JSONObject) {
 	disk.SetStatus(self.GetUserCred(), api.DISK_DEALLOC_FAILED, reason.String())
-	self.SetStageFailed(ctx, reason.String())
+	self.SetStageFailed(ctx, reason)
 	db.OpsLog.LogEvent(disk, db.ACT_DELOCATE_FAIL, disk.GetShortDesc(ctx), self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, disk, logclient.ACT_DELOCATE, reason, self.UserCred, false)
 }

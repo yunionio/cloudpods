@@ -34,10 +34,10 @@ func init() {
 }
 
 func (self *SnapshotPolicyCacheDeleteTask) taskFailed(ctx context.Context, cache *models.SSnapshotPolicyCache,
-	err error) {
+	err jsonutils.JSONObject) {
 
-	cache.SetStatus(self.UserCred, api.SNAPSHOT_POLICY_CACHE_STATUS_DELETE_FAILED, err.Error())
-	self.SetStageFailed(ctx, err.Error())
+	cache.SetStatus(self.UserCred, api.SNAPSHOT_POLICY_CACHE_STATUS_DELETE_FAILED, err.String())
+	self.SetStageFailed(ctx, err)
 }
 
 func (self *SnapshotPolicyCacheDeleteTask) taskComplete(ctx context.Context, cache *models.SSnapshotPolicyCache) {
@@ -57,7 +57,7 @@ func (self *SnapshotPolicyCacheDeleteTask) OnInit(ctx context.Context, obj db.IS
 
 	err := cache.DeleteCloudSnapshotPolicy()
 	if err != nil {
-		self.taskFailed(ctx, cache, err)
+		self.taskFailed(ctx, cache, jsonutils.NewString(err.Error()))
 		return
 	}
 	self.taskComplete(ctx, cache)

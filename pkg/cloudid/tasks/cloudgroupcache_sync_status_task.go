@@ -35,17 +35,17 @@ func init() {
 	taskman.RegisterTask(CloudgroupcacheSyncstatusTask{})
 }
 
-func (self *CloudgroupcacheSyncstatusTask) taskFailed(ctx context.Context, cache *models.SCloudgroupcache, err error) {
-	cache.SetStatus(self.GetUserCred(), api.CLOUD_GROUP_CACHE_STATUS_UNKNOWN, err.Error())
+func (self *CloudgroupcacheSyncstatusTask) taskFailed(ctx context.Context, cache *models.SCloudgroupcache, err jsonutils.JSONObject) {
+	cache.SetStatus(self.GetUserCred(), api.CLOUD_GROUP_CACHE_STATUS_UNKNOWN, err.String())
 	logclient.AddActionLogWithStartable(self, cache, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
-	self.SetStageFailed(ctx, err.Error())
+	self.SetStageFailed(ctx, err)
 }
 
 func (self *CloudgroupcacheSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	cache := obj.(*models.SCloudgroupcache)
 	_, err := cache.GetICloudgroup()
 	if err != nil {
-		self.taskFailed(ctx, cache, errors.Wrap(err, "GetICloudgroup"))
+		self.taskFailed(ctx, cache, jsonutils.NewString(errors.Wrap(err, "GetICloudgroup").Error()))
 		return
 	}
 	self.SetStageComplete(ctx, nil)

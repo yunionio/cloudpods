@@ -49,7 +49,7 @@ func (self *BaremetalSyncConfigTask) DoSyncConfig(ctx context.Context, baremetal
 	headers := self.GetTaskRequestHeader()
 	_, err := baremetal.BaremetalSyncRequest(ctx, "POST", url, headers, nil)
 	if err != nil {
-		self.SetStageFailed(ctx, err.Error())
+		self.SetStageFailed(ctx, jsonutils.Marshal(err))
 	}
 }
 

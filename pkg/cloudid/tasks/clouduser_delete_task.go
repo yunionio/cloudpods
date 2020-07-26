@@ -36,10 +36,10 @@ func init() {
 	taskman.RegisterTask(ClouduserDeleteTask{})
 }
 
-func (self *ClouduserDeleteTask) taskFailed(ctx context.Context, clouduser *models.SClouduser, err error) {
-	clouduser.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_DELETE_FAILED, err.Error())
+func (self *ClouduserDeleteTask) taskFailed(ctx context.Context, clouduser *models.SClouduser, err jsonutils.JSONObject) {
+	clouduser.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_DELETE_FAILED, err.String())
 	logclient.AddActionLogWithStartable(self, clouduser, logclient.ACT_DELETE, err, self.UserCred, false)
-	self.SetStageFailed(ctx, err.Error())
+	self.SetStageFailed(ctx, err)
 }
 
 func (self *ClouduserDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
@@ -58,13 +58,13 @@ func (self *ClouduserDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneM
 			self.SetStageComplete(ctx, nil)
 			return
 		}
-		self.taskFailed(ctx, clouduser, errors.Wrap(err, "GetIClouduser"))
+		self.taskFailed(ctx, clouduser, jsonutils.NewString(errors.Wrap(err, "GetIClouduser").Error()))
 		return
 	}
 
 	err = iUser.Delete()
 	if err != nil {
-		self.taskFailed(ctx, clouduser, errors.Wrap(err, "user.Delete"))
+		self.taskFailed(ctx, clouduser, jsonutils.NewString(errors.Wrap(err, "user.Delete").Error()))
 		return
 	}
 	clouduser.RealDelete(ctx, self.GetUserCred())

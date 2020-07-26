@@ -73,7 +73,7 @@ func (self *HADiskCreateTask) OnDiskReady(
 
 func (self *HADiskCreateTask) OnBackupAllocateFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
 	disk.SetStatus(self.UserCred, api.DISK_BACKUP_ALLOC_FAILED, data.String())
-	self.SetStageFailed(ctx, data.String())
+	self.SetStageFailed(ctx, data)
 }
 
 func (self *HADiskCreateTask) OnSlaveDiskReady(

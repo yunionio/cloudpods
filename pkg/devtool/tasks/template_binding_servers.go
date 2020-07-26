@@ -30,7 +30,6 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 
@@ -52,7 +51,7 @@ func (self *TemplateBindingServers) OnInit(ctx context.Context, obj db.IStandalo
 	template := obj.(*models.SDevtoolTemplate)
 	_, err := template.Binding(ctx, self.UserCred, nil, self.Params)
 	if err != nil {
-		self.SetStageFailed(ctx, fmt.Sprintf("TemplateUpdate failed %s", err))
+		self.SetStageFailed(ctx, jsonutils.Marshal(err))
 	} else {
 		self.SetStageComplete(ctx, nil)
 	}

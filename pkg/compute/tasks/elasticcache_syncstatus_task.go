@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -36,9 +35,9 @@ func init() {
 	taskman.RegisterTask(ElasticcacheSyncstatusTask{})
 }
 
-func (self *ElasticcacheSyncstatusTask) taskFailed(ctx context.Context, cache *models.SElasticcache, err error) {
-	cache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_UNKNOWN, err.Error())
-	self.SetStageFailed(ctx, err.Error())
+func (self *ElasticcacheSyncstatusTask) taskFailed(ctx context.Context, cache *models.SElasticcache, err jsonutils.JSONObject) {
+	cache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_UNKNOWN, err.String())
+	self.SetStageFailed(ctx, err)
 	db.OpsLog.LogEvent(cache, db.ACT_SYNC_STATUS, cache.GetShortDesc(ctx), self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, cache, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 }
@@ -48,14 +47,14 @@ func (self *ElasticcacheSyncstatusTask) OnInit(ctx context.Context, obj db.IStan
 
 	region := cache.GetRegion()
 	if region == nil {
-		self.taskFailed(ctx, cache, fmt.Errorf("failed to found cloudregion for elasticcache %s(%s)", cache.Name, cache.Id))
+		self.taskFailed(ctx, cache, jsonutils.NewString(fmt.Sprintf("failed to found cloudregion for elasticcache %s(%s)", cache.Name, cache.Id)))
 		return
 	}
 
 	self.SetStage("OnElasticcacheSyncStatusComplete", nil)
 	err := region.GetDriver().RequestSyncElasticcacheStatus(ctx, self.GetUserCred(), cache, self)
 	if err != nil {
-		self.taskFailed(ctx, cache, errors.Wrap(err, "RequestSyncElasticcacheStatus"))
+		self.taskFailed(ctx, cache, jsonutils.Marshal(err))
 		return
 	}
 }
@@ -65,5 +64,5 @@ func (self *ElasticcacheSyncstatusTask) OnElasticcacheSyncStatusComplete(ctx con
 }
 
 func (self *ElasticcacheSyncstatusTask) OnElasticcacheSyncStatusCompleteFailed(ctx context.Context, cache *models.SElasticcache, data jsonutils.JSONObject) {
-	self.taskFailed(ctx, cache, fmt.Errorf(data.String()))
+	self.taskFailed(ctx, cache, data)
 }

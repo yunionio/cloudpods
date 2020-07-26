@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -36,9 +35,9 @@ func init() {
 	taskman.RegisterTask(SnapshotSyncstatusTask{})
 }
 
-func (self *SnapshotSyncstatusTask) taskFailed(ctx context.Context, snapshot *models.SSnapshot, err error) {
-	snapshot.SetStatus(self.GetUserCred(), api.DISK_UNKNOWN, err.Error())
-	self.SetStageFailed(ctx, err.Error())
+func (self *SnapshotSyncstatusTask) taskFailed(ctx context.Context, snapshot *models.SSnapshot, err jsonutils.JSONObject) {
+	snapshot.SetStatus(self.GetUserCred(), api.DISK_UNKNOWN, err.String())
+	self.SetStageFailed(ctx, err)
 	db.OpsLog.LogEvent(snapshot, db.ACT_SYNC_STATUS, snapshot.GetShortDesc(ctx), self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, snapshot, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 }
@@ -48,14 +47,14 @@ func (self *SnapshotSyncstatusTask) OnInit(ctx context.Context, obj db.IStandalo
 
 	region := snapshot.GetRegion()
 	if region == nil {
-		self.taskFailed(ctx, snapshot, fmt.Errorf("failed to found cloudregion for snapshot %s(%s)", snapshot.Name, snapshot.Id))
+		self.taskFailed(ctx, snapshot, jsonutils.NewString(fmt.Sprintf("failed to found cloudregion for snapshot %s(%s)", snapshot.Name, snapshot.Id)))
 		return
 	}
 
 	self.SetStage("OnSnapshotSyncStatusComplete", nil)
 	err := region.GetDriver().RequestSyncSnapshotStatus(ctx, self.GetUserCred(), snapshot, self)
 	if err != nil {
-		self.taskFailed(ctx, snapshot, errors.Wrap(err, "RequestSyncSnapshotStatus"))
+		self.taskFailed(ctx, snapshot, jsonutils.Marshal(err))
 		return
 	}
 }
@@ -65,5 +64,5 @@ func (self *SnapshotSyncstatusTask) OnSnapshotSyncStatusComplete(ctx context.Con
 }
 
 func (self *SnapshotSyncstatusTask) OnSnapshotSyncStatusCompleteFailed(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
-	self.taskFailed(ctx, snapshot, fmt.Errorf(data.String()))
+	self.taskFailed(ctx, snapshot, data)
 }

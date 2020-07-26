@@ -39,11 +39,14 @@ func init() {
 }
 
 func (self *NetworkCreateTask) taskFailed(ctx context.Context, network *models.SNetwork, event string, err error) {
-	log.Errorf("network create task fail on %s: %s", event, err)
-	network.SetStatus(self.UserCred, api.NETWORK_STATUS_FAILED, err.Error())
-	db.OpsLog.LogEvent(network, db.ACT_ALLOCATE_FAIL, err.Error(), self.UserCred)
-	logclient.AddActionLogWithStartable(self, network, logclient.ACT_CREATE, event, self.UserCred, false)
-	self.SetStageFailed(ctx, err.Error())
+	log.Errorf("network create task fail on %s: %s", event, err.Error())
+	reason := jsonutils.NewDict()
+	reason.Set("event", jsonutils.NewString(event))
+	reason.Set("reason", jsonutils.NewString(err.Error()))
+	network.SetStatus(self.UserCred, api.NETWORK_STATUS_FAILED, reason.String())
+	db.OpsLog.LogEvent(network, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
+	logclient.AddActionLogWithStartable(self, network, logclient.ACT_CREATE, reason, self.UserCred, false)
+	self.SetStageFailed(ctx, reason)
 }
 
 func (self *NetworkCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {

@@ -34,15 +34,15 @@ func init() {
 	taskman.RegisterTask(HostStorageDetachTask{})
 }
 
-func (self *HostStorageDetachTask) taskFail(ctx context.Context, host *models.SHost, reason string) {
+func (self *HostStorageDetachTask) taskFail(ctx context.Context, host *models.SHost, reason jsonutils.JSONObject) {
 	var hoststorage = new(models.SHoststorage)
 	storageId, _ := self.GetParams().GetString("storage_id")
 	err := models.HoststorageManager.Query().Equals("host_id", host.Id).Equals("storage_id", storageId).First(hoststorage)
 	if err == nil {
 		storage := hoststorage.GetStorage()
-		note := fmt.Sprintf("detach host %s failed: %s", host.Name, reason)
-		db.OpsLog.LogEvent(storage, db.ACT_DETACH_FAIL, note, self.GetUserCred())
-		logclient.AddActionLogWithContext(ctx, storage, logclient.ACT_DETACH_HOST, note, self.GetUserCred(), false)
+		// note := fmt.Sprintf("detach host %s failed: %s", host.Name, reason)
+		db.OpsLog.LogEvent(storage, db.ACT_DETACH_FAIL, reason, self.GetUserCred())
+		logclient.AddActionLogWithContext(ctx, storage, logclient.ACT_DETACH_HOST, reason, self.GetUserCred(), false)
 	}
 	self.SetStageFailed(ctx, reason)
 }
@@ -52,14 +52,14 @@ func (self *HostStorageDetachTask) OnInit(ctx context.Context, obj db.IStandalon
 	storageId, _ := self.GetParams().GetString("storage_id")
 	_storage, err := models.StorageManager.FetchById(storageId)
 	if err != nil {
-		self.taskFail(ctx, host, err.Error())
+		self.taskFail(ctx, host, jsonutils.NewString(err.Error()))
 		return
 	}
 	storage := _storage.(*models.SStorage)
 	self.SetStage("OnDetachStorageComplete", nil)
 	err = host.GetHostDriver().RequestDetachStorage(ctx, host, storage, self)
 	if err != nil {
-		self.taskFail(ctx, host, err.Error())
+		self.taskFail(ctx, host, jsonutils.Marshal(err))
 	}
 }
 
@@ -75,5 +75,5 @@ func (self *HostStorageDetachTask) OnDetachStorageComplete(ctx context.Context, 
 }
 
 func (self *HostStorageDetachTask) OnDetachStorageCompleteFailed(ctx context.Context, host *models.SHost, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, host, reason.String())
+	self.taskFail(ctx, host, reason)
 }

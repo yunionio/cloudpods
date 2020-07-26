@@ -38,9 +38,9 @@ func init() {
 	taskman.RegisterTask(CloudeventSyncTask{})
 }
 
-func (self *CloudeventSyncTask) taskFailed(ctx context.Context, cloudprovider *models.SCloudprovider, err error) {
+func (self *CloudeventSyncTask) taskFailed(ctx context.Context, cloudprovider *models.SCloudprovider, err jsonutils.JSONObject) {
 	cloudprovider.MarkEndSync(self.UserCred)
-	self.SetStageFailed(ctx, err.Error())
+	self.SetStageFailed(ctx, err)
 }
 
 func (self *CloudeventSyncTask) taskComplete(ctx context.Context, cloudprovider *models.SCloudprovider) {
@@ -53,19 +53,19 @@ func (self *CloudeventSyncTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 
 	factory, err := provider.GetProviderFactory()
 	if err != nil {
-		self.taskFailed(ctx, provider, errors.Wrap(err, "cloudprovider.GetProviderFactory"))
+		self.taskFailed(ctx, provider, jsonutils.NewString(errors.Wrap(err, "cloudprovider.GetProviderFactory").Error()))
 		return
 	}
 
 	iProvider, err := provider.GetProvider()
 	if err != nil {
-		self.taskFailed(ctx, provider, errors.Wrap(err, "cloudprovider.GetProvider"))
+		self.taskFailed(ctx, provider, jsonutils.NewString(errors.Wrap(err, "cloudprovider.GetProvider").Error()))
 		return
 	}
 
 	start, end, err := provider.GetNextTimeRange()
 	if err != nil {
-		self.taskFailed(ctx, provider, errors.Wrap(err, "provider.GetNextTimeRange"))
+		self.taskFailed(ctx, provider, jsonutils.NewString(errors.Wrap(err, "provider.GetNextTimeRange").Error()))
 		return
 	}
 
@@ -87,7 +87,7 @@ func (self *CloudeventSyncTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 					if err == cloudprovider.ErrNotSupported {
 						continue
 					}
-					self.taskFailed(ctx, provider, errors.Wrapf(err, "regions[%d].GetICloudEvents", i))
+					self.taskFailed(ctx, provider, jsonutils.NewString(errors.Wrapf(err, "regions[%d].GetICloudEvents", i).Error()))
 					return
 				}
 				events = append(events, _events...)

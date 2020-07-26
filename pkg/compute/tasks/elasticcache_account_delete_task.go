@@ -36,11 +36,11 @@ func init() {
 	taskman.RegisterTask(ElasticcacheAccountDeleteTask{})
 }
 
-func (self *ElasticcacheAccountDeleteTask) taskFail(ctx context.Context, ea *models.SElasticcacheAccount, reason string) {
-	ea.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_ACCOUNT_STATUS_DELETE_FAILED, reason)
+func (self *ElasticcacheAccountDeleteTask) taskFail(ctx context.Context, ea *models.SElasticcacheAccount, reason jsonutils.JSONObject) {
+	ea.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_ACCOUNT_STATUS_DELETE_FAILED, reason.String())
 	db.OpsLog.LogEvent(ea, db.ACT_DELETE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, ea, logclient.ACT_DELETE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(ea.Id, ea.Name, api.ELASTIC_CACHE_ACCOUNT_STATUS_DELETE_FAILED, reason)
+	notifyclient.NotifySystemError(ea.Id, ea.Name, api.ELASTIC_CACHE_ACCOUNT_STATUS_DELETE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -48,18 +48,18 @@ func (self *ElasticcacheAccountDeleteTask) OnInit(ctx context.Context, obj db.IS
 	ea := obj.(*models.SElasticcacheAccount)
 	region := ea.GetRegion()
 	if region == nil {
-		self.taskFail(ctx, ea, fmt.Sprintf("failed to find region for elastic cache account %s", ea.GetName()))
+		self.taskFail(ctx, ea, jsonutils.NewString(fmt.Sprintf("failed to find region for elastic cache account %s", ea.GetName())))
 		return
 	}
 
 	self.SetStage("OnElasticcacheAccountDeleteComplete", nil)
 	if err := region.GetDriver().RequestDeleteElasticcacheAccount(ctx, self.GetUserCred(), ea, self); err != nil {
-		self.taskFail(ctx, ea, err.Error())
+		self.taskFail(ctx, ea, jsonutils.Marshal(err))
 		return
 	} else {
 		err = db.DeleteModel(ctx, self.GetUserCred(), ea)
 		if err != nil {
-			self.taskFail(ctx, ea, err.Error())
+			self.taskFail(ctx, ea, jsonutils.NewString(err.Error()))
 			return
 		}
 

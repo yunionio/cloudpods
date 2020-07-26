@@ -103,7 +103,7 @@ func (self *DiskBatchCreateTask) GetFirstDisk() (*api.DiskConfig, error) {
 	return disks[0], nil
 }
 
-func (self *DiskBatchCreateTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason string) {
+func (self *DiskBatchCreateTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason jsonutils.JSONObject) {
 	self.SSchedTask.OnScheduleFailCallback(ctx, obj, reason)
 	disk := obj.(*models.SDisk)
 	log.Errorf("Schedule disk %s failed", disk.Name)
@@ -127,7 +127,7 @@ func (self *DiskBatchCreateTask) SaveScheduleResult(ctx context.Context, obj ISc
 	onError := func(err error) {
 		self.clearPendingUsage(ctx, disk)
 		disk.SetStatus(self.UserCred, api.DISK_ALLOC_FAILED, err.Error())
-		self.SetStageFailed(ctx, err.Error())
+		self.SetStageFailed(ctx, jsonutils.Marshal(err))
 		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
 		notifyclient.NotifySystemError(disk.Id, disk.Name, api.DISK_ALLOC_FAILED, err.Error())
 	}

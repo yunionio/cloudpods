@@ -398,18 +398,29 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 
 	taskFailed := false
 
-	data := odata
-	if data != nil {
-		taskStatus, _ := data.GetString("__status__")
-		if len(taskStatus) > 0 && taskStatus != "OK" {
-			taskFailed = true
-			if vdata, ok := data.(*jsonutils.JSONDict); ok {
-				reason, err := vdata.Get("__reason__") // only dict support Get
-				if err != nil {
-					reason = jsonutils.NewString(fmt.Sprintf("Task failed due to unknown remote errors! %s", odata))
-					vdata.Set("__reason__", reason)
+	var data jsonutils.JSONObject
+	if odata != nil {
+		switch dictdata := odata.(type) {
+		case *jsonutils.JSONDict:
+			taskStatus, _ := data.GetString("__status__")
+			if len(taskStatus) > 0 && taskStatus != "OK" {
+				taskFailed = true
+				dictdata.Set("__stage__", jsonutils.NewString(task.Stage))
+				if !dictdata.Contains("__reason__") {
+					reasonJson := dictdata.CopyExcludes("__status__", "__stage__")
+					dictdata.Set("__reason__", reasonJson)
 				}
+				/*if vdata, ok := data.(*jsonutils.JSONDict); ok {
+					reason, err := vdata.Get("__reason__") // only dict support Get
+					if err != nil {
+						reason = jsonutils.NewString(fmt.Sprintf("Task failed due to unknown remote errors! %s", odata))
+						vdata.Set("__reason__", reason)
+					}
+				}*/
 			}
+			data = dictdata
+		default:
+			data = odata
 		}
 	} else {
 		data = jsonutils.NewDict()
@@ -441,7 +452,7 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 			} else {
 				log.Errorf(msg)
 			}
-			task.SetStageFailed(ctx, msg)
+			task.SetStageFailed(ctx, jsonutils.NewString(msg))
 			task.SaveRequestContext(&ctxData)
 			return
 		}
@@ -451,16 +462,16 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 	if objManager == nil {
 		msg := fmt.Sprintf("model %s not found??? ...", task.ObjName)
 		log.Errorf(msg)
-		task.SetStageFailed(ctx, msg)
+		task.SetStageFailed(ctx, jsonutils.NewString(msg))
 		task.SaveRequestContext(&ctxData)
 		return
 	}
 	// log.Debugf("objManager: %s", objManager)
 	objResManager, ok := objManager.(db.IStandaloneModelManager)
 	if !ok {
-		msg := fmt.Sprintf("mode %s is not a resource??? ...", task.ObjName)
+		msg := fmt.Sprintf("model %s is not a resource??? ...", task.ObjName)
 		log.Errorf(msg)
-		task.SetStageFailed(ctx, msg)
+		task.SetStageFailed(ctx, jsonutils.NewString(msg))
 		task.SaveRequestContext(&ctxData)
 		return
 	}
@@ -476,7 +487,7 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 			if err != nil {
 				msg := fmt.Sprintf("fail to find %s object %s", task.ObjName, objId)
 				log.Errorf(msg)
-				task.SetStageFailed(ctx, msg)
+				task.SetStageFailed(ctx, jsonutils.NewString(msg))
 				task.SaveRequestContext(&ctxData)
 				return
 			}
@@ -493,7 +504,7 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 		if err != nil {
 			msg := fmt.Sprintf("fail to find %s object %s", task.ObjName, task.ObjId)
 			log.Errorf(msg)
-			task.SetStageFailed(ctx, msg)
+			task.SetStageFailed(ctx, jsonutils.NewString(msg))
 			task.SaveRequestContext(&ctxData)
 			return
 		}
@@ -637,18 +648,30 @@ func (self *STask) SetStageComplete(ctx context.Context, data *jsonutils.JSONDic
 	self.NotifyParentTaskComplete(ctx, data, false)
 }
 
-func (self *STask) SetStageFailed(ctx context.Context, reason string) {
+func (self *STask) SetStageFailed(ctx context.Context, reason jsonutils.JSONObject) {
 	if self.Stage == TASK_STAGE_FAILED {
 		log.Warningf("Task %s has been failed", self.TaskName)
 		return
 	}
 	log.Infof("XXX TASK %s failed: %s on stage %s", self.TaskName, reason, self.Stage)
-	prevFailed, _ := self.Params.GetString("__failed_reason")
-	if len(prevFailed) > 0 {
-		reason = prevFailed + ";" + reason
+	reasonDict := jsonutils.NewDict()
+	reasonDict.Add(jsonutils.NewString(self.Stage), "stage")
+	if reason != nil {
+		reasonDict.Add(reason, "reason")
+	}
+	reason = reasonDict
+	prevFailed, _ := self.Params.Get("__failed_reason")
+	if prevFailed != nil {
+		switch prevFailed.(type) {
+		case *jsonutils.JSONArray:
+			prevFailed.(*jsonutils.JSONArray).Add(reason)
+			reason = prevFailed
+		default:
+			reason = jsonutils.NewArray(prevFailed, reason)
+		}
 	}
 	data := jsonutils.NewDict()
-	data.Add(jsonutils.NewString(reason), "__failed_reason")
+	data.Add(reason, "__failed_reason")
 	self.SetStage(TASK_STAGE_FAILED, data)
 	self.NotifyParentTaskFailure(ctx, reason)
 }
@@ -700,10 +723,11 @@ func notifyRemoteTask(ctx context.Context, notifyUrl string, taskid string, body
 	log.Infof("Notify remote URL %s(%s) get acked: %s!", notifyUrl, taskid, body.String())
 }
 
-func (self *STask) NotifyParentTaskFailure(ctx context.Context, reason string) {
+func (self *STask) NotifyParentTaskFailure(ctx context.Context, reason jsonutils.JSONObject) {
 	body := jsonutils.NewDict()
 	body.Add(jsonutils.NewString("error"), "__status__")
-	body.Add(jsonutils.NewString(fmt.Sprintf("Subtask %s failed: %s", self.TaskName, reason)), "__reason__")
+	body.Add(jsonutils.NewString(self.TaskName), "__task_name__")
+	body.Add(reason, "__reason__")
 	self.NotifyParentTaskComplete(ctx, body, true)
 }
 

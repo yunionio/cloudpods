@@ -38,7 +38,7 @@ func init() {
 
 func (self *DBInstanceBackupSyncstatusTask) taskFailed(ctx context.Context, backup *models.SDBInstanceBackup, err error) {
 	backup.SetStatus(self.GetUserCred(), api.DBINSTANCE_BACKUP_UNKNOWN, err.Error())
-	self.SetStageFailed(ctx, err.Error())
+	self.SetStageFailed(ctx, jsonutils.Marshal(err))
 	db.OpsLog.LogEvent(backup, db.ACT_SYNC_STATUS, backup.GetShortDesc(ctx), self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, backup, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 }

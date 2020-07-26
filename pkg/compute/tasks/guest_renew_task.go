@@ -48,10 +48,10 @@ func (self *GuestRenewTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 	if err != nil {
 		msg := fmt.Sprintf("RequestRenewInstance failed %s", err)
 		log.Errorf(msg)
-		db.OpsLog.LogEvent(guest, db.ACT_REW_FAIL, msg, self.UserCred)
-		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RENEW, msg, self.UserCred, false)
+		db.OpsLog.LogEvent(guest, db.ACT_REW_FAIL, err, self.UserCred)
+		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RENEW, err, self.UserCred, false)
 		guest.SetStatus(self.GetUserCred(), api.VM_RENEW_FAILED, msg)
-		self.SetStageFailed(ctx, msg)
+		self.SetStageFailed(ctx, jsonutils.Marshal(err))
 		return
 	}
 
@@ -59,7 +59,7 @@ func (self *GuestRenewTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 	if err != nil {
 		msg := fmt.Sprintf("SaveRenewInfo fail %s", err)
 		log.Errorf(msg)
-		self.SetStageFailed(ctx, msg)
+		self.SetStageFailed(ctx, jsonutils.NewString(msg))
 		return
 	}
 
@@ -83,7 +83,7 @@ func (self *PrepaidRecycleHostRenewTask) OnInit(ctx context.Context, obj db.ISta
 	if err != nil {
 		msg := fmt.Sprintf("host.GetIHost fail %s", err)
 		log.Errorf(msg)
-		self.SetStageFailed(ctx, msg)
+		self.SetStageFailed(ctx, jsonutils.NewString(msg))
 		return
 	}
 
@@ -91,7 +91,7 @@ func (self *PrepaidRecycleHostRenewTask) OnInit(ctx context.Context, obj db.ISta
 	if err != nil {
 		msg := fmt.Sprintf("ihost.GetIVMById fail %s", err)
 		log.Errorf(msg)
-		self.SetStageFailed(ctx, msg)
+		self.SetStageFailed(ctx, jsonutils.NewString(msg))
 		return
 	}
 
@@ -101,7 +101,7 @@ func (self *PrepaidRecycleHostRenewTask) OnInit(ctx context.Context, obj db.ISta
 	if err != nil {
 		msg := fmt.Sprintf("iVM.Renew fail %s", err)
 		log.Errorf(msg)
-		self.SetStageFailed(ctx, msg)
+		self.SetStageFailed(ctx, jsonutils.NewString(msg))
 		return
 	}
 
@@ -109,7 +109,7 @@ func (self *PrepaidRecycleHostRenewTask) OnInit(ctx context.Context, obj db.ISta
 	if err != nil {
 		msg := fmt.Sprintf("refresh after renew fail %s", err)
 		log.Errorf(msg)
-		self.SetStageFailed(ctx, msg)
+		self.SetStageFailed(ctx, jsonutils.NewString(msg))
 		return
 	}
 
@@ -121,7 +121,7 @@ func (self *PrepaidRecycleHostRenewTask) OnInit(ctx context.Context, obj db.ISta
 	if err != nil {
 		msg := fmt.Sprintf("SaveRenewInfo fail %s", err)
 		log.Errorf(msg)
-		self.SetStageFailed(ctx, msg)
+		self.SetStageFailed(ctx, jsonutils.NewString(msg))
 		return
 	}
 

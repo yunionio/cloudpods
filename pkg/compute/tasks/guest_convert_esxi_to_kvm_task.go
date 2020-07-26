@@ -61,15 +61,15 @@ func (self *GuestConvertEsxiToKvmTask) OnStartSchedule(obj IScheduleModel) {
 	db.OpsLog.LogEvent(guest, db.ACT_VM_CONVERTING, "", self.UserCred)
 }
 
-func (self *GuestConvertEsxiToKvmTask) OnScheduleFailed(ctx context.Context, reason string) {
+func (self *GuestConvertEsxiToKvmTask) OnScheduleFailed(ctx context.Context, reason jsonutils.JSONObject) {
 	guest := self.GetObject().(*models.SGuest)
 	self.taskFailed(ctx, guest, reason)
 }
 
-func (self *GuestConvertEsxiToKvmTask) taskFailed(ctx context.Context, guest *models.SGuest, reason string) {
-	guest.SetStatus(self.UserCred, api.VM_CONVERT_FAILED, reason)
+func (self *GuestConvertEsxiToKvmTask) taskFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
+	guest.SetStatus(self.UserCred, api.VM_CONVERT_FAILED, reason.String())
 	targetGuest := self.getTargetGuest()
-	targetGuest.SetStatus(self.UserCred, api.VM_CONVERT_FAILED, reason)
+	targetGuest.SetStatus(self.UserCred, api.VM_CONVERT_FAILED, reason.String())
 	db.OpsLog.LogEvent(guest, db.ACT_VM_CONVERT_FAIL, reason, self.UserCred)
 	logclient.AddSimpleActionLog(guest, logclient.ACT_VM_CONVERT, reason, self.UserCred, false)
 	logclient.AddSimpleActionLog(targetGuest, logclient.ACT_VM_CONVERT, reason, self.UserCred, false)
@@ -100,17 +100,17 @@ func (self *GuestConvertEsxiToKvmTask) SaveScheduleResult(ctx context.Context, o
 	targetGuest := self.getTargetGuest()
 	esxiAccessInfo, err := self.GenerateEsxiAcceessInfo(guest)
 	if err != nil {
-		self.taskFailed(ctx, guest, fmt.Sprintf("generate esxi access info %s", err))
+		self.taskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("generate esxi access info %s", err)))
 		return
 	}
 	err = targetGuest.SetHostId(self.UserCred, target.HostId)
 	if err != nil {
-		self.taskFailed(ctx, guest, fmt.Sprintf("update guest %s", err))
+		self.taskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("update guest %s", err)))
 		return
 	}
 	err = targetGuest.SetMetadata(ctx, api.SERVER_META_CONVERT_FROM_ESXI, guest.Id, self.UserCred)
 	if err != nil {
-		self.taskFailed(ctx, guest, fmt.Sprintf("guest set metadata %s", err))
+		self.taskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("guest set metadata %s", err)))
 		return
 	}
 	host := targetGuest.GetHost()
@@ -121,13 +121,13 @@ func (self *GuestConvertEsxiToKvmTask) SaveScheduleResult(ctx context.Context, o
 	err = targetGuest.CreateDisksOnHost(ctx, self.UserCred, host, input.Disks, nil,
 		true, true, target.Disks, nil, true)
 	if err != nil {
-		self.taskFailed(ctx, guest, fmt.Sprintf("guest create disks %s", err))
+		self.taskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("guest create disks %s", err)))
 		return
 	}
 
 	self.SetStage("OnHostCreateGuest", nil)
 	if err = self.RequestHostCreateGuestFromEsxi(ctx, targetGuest, esxiAccessInfo); err != nil {
-		self.taskFailed(ctx, guest, err.Error())
+		self.taskFailed(ctx, guest, jsonutils.Marshal(err))
 		return
 	}
 	host.ClearSchedDescCache()
@@ -167,13 +167,13 @@ func (self *GuestConvertEsxiToKvmTask) OnHostCreateGuest(
 		err = disk.SetMetadata(ctx, api.DISK_META_ESXI_FLAT_FILE_PATH, esxiFlatFilePath, self.UserCred)
 		if err != nil {
 			log.Errorf("disk set metadata failed %s", err)
-			self.taskFailed(ctx, guest, err.Error())
+			self.taskFailed(ctx, guest, jsonutils.NewString(err.Error()))
 			return
 		}
 		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(ctx), self.UserCred)
 	}
 	if err := guest.ConvertNetworks(targetGuest); err != nil {
-		self.taskFailed(ctx, guest, err.Error())
+		self.taskFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
 	self.TaskComplete(ctx, guest, targetGuest)
@@ -182,7 +182,7 @@ func (self *GuestConvertEsxiToKvmTask) OnHostCreateGuest(
 func (self *GuestConvertEsxiToKvmTask) OnHostCreateGuestFailed(
 	ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject,
 ) {
-	self.taskFailed(ctx, guest, data.String())
+	self.taskFailed(ctx, guest, data)
 }
 
 func (self *GuestConvertEsxiToKvmTask) TaskComplete(ctx context.Context, guest, targetGuest *models.SGuest) {

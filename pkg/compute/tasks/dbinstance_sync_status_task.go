@@ -37,9 +37,9 @@ func init() {
 
 func (self *DBInstanceSyncStatusTask) taskFailed(ctx context.Context, dbinstance *models.SDBInstance, err error) {
 	dbinstance.SetStatus(self.UserCred, api.DBINSTANCE_UNKNOWN, err.Error())
-	db.OpsLog.LogEvent(dbinstance, db.ACT_SYNC_STATUS, err.Error(), self.GetUserCred())
-	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_SYNC_STATUS, err.Error(), self.UserCred, false)
-	self.SetStageFailed(ctx, err.Error())
+	db.OpsLog.LogEvent(dbinstance, db.ACT_SYNC_STATUS, err, self.GetUserCred())
+	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
+	self.SetStageFailed(ctx, jsonutils.Marshal(err))
 }
 
 func (self *DBInstanceSyncStatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

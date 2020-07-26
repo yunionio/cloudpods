@@ -43,10 +43,9 @@ func (self *BaremetalUnmaintenanceTask) OnInit(ctx context.Context, obj db.IStan
 	_, err := baremetal.BaremetalSyncRequest(ctx, "POST", url, headers, self.Params)
 	if err != nil {
 		if len(action) > 0 {
-			msg := fmt.Sprintf("unmaintenance error %s", err.Error())
-			logclient.AddActionLogWithStartable(self, baremetal, action, msg, self.UserCred, false)
+			logclient.AddActionLogWithStartable(self, baremetal, action, err, self.UserCred, false)
 		}
-		self.SetStageFailed(ctx, err.Error())
+		self.SetStageFailed(ctx, jsonutils.Marshal(err))
 	} else {
 		if len(action) > 0 {
 			logclient.AddActionLogWithStartable(self, baremetal, action, "", self.UserCred, true)

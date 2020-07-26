@@ -55,7 +55,7 @@ func (self *DiskSaveTask) OnInit(ctx context.Context, obj db.IStandaloneModel, d
 	if host := self.GetMasterHost(disk); host == nil {
 		reason := "Cannot find host for disk"
 		disk.SetDiskReady(ctx, self.GetUserCred(), reason)
-		self.TaskFailed(ctx, reason)
+		self.TaskFailed(ctx, jsonutils.NewString(reason))
 		db.OpsLog.LogEvent(disk, db.ACT_SAVE_FAIL, reason, self.GetUserCred())
 	} else {
 		disk.SetStatus(self.GetUserCred(), api.DISK_START_SAVE, "")
@@ -73,15 +73,15 @@ func (self *DiskSaveTask) StartBackupDisk(ctx context.Context, disk *models.SDis
 	if err := host.GetHostDriver().RequestPrepareSaveDiskOnHost(ctx, host, disk, imageId, self); err != nil {
 		log.Errorf("Backup failed: %v", err)
 		disk.SetDiskReady(ctx, self.GetUserCred(), err.Error())
-		self.TaskFailed(ctx, err.Error())
+		self.TaskFailed(ctx, jsonutils.Marshal(err))
 		db.OpsLog.LogEvent(disk, db.ACT_SAVE_FAIL, err.Error(), self.GetUserCred())
 	}
 }
 
 func (self *DiskSaveTask) OnDiskBackupCompleteFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
 	disk.SetDiskReady(ctx, self.GetUserCred(), data.String())
-	db.OpsLog.LogEvent(disk, db.ACT_SAVE_FAIL, data.String(), self.GetUserCred())
-	self.SetStageFailed(ctx, data.String())
+	db.OpsLog.LogEvent(disk, db.ACT_SAVE_FAIL, data, self.GetUserCred())
+	self.SetStageFailed(ctx, data)
 }
 
 func (self *DiskSaveTask) OnDiskBackupComplete(ctx context.Context, disk *models.SDisk, data *jsonutils.JSONDict) {
@@ -91,7 +91,7 @@ func (self *DiskSaveTask) OnDiskBackupComplete(ctx context.Context, disk *models
 	imageId, _ := self.GetParams().GetString("image_id")
 	if host := self.GetMasterHost(disk); host == nil {
 		log.Errorf("Saved disk Host mast not be nil")
-		self.TaskFailed(ctx, "Saved disk Host mast not be nil")
+		self.TaskFailed(ctx, jsonutils.NewString("Saved disk Host mast not be nil"))
 	} else {
 		if self.Params.Contains("format") {
 			format, _ := self.Params.Get("format")
@@ -99,7 +99,7 @@ func (self *DiskSaveTask) OnDiskBackupComplete(ctx context.Context, disk *models
 		}
 		if err := self.UploadDisk(ctx, host, disk, imageId, data); err != nil {
 			log.Errorf("UploadDisk failed: %v", err)
-			self.TaskFailed(ctx, err.Error())
+			self.TaskFailed(ctx, jsonutils.Marshal(err))
 		}
 		self.RefreshImageCache(ctx, imageId)
 	}
@@ -113,7 +113,7 @@ func (self *DiskSaveTask) UploadDisk(ctx context.Context, host *models.SHost, di
 	return host.GetHostDriver().RequestSaveUploadImageOnHost(ctx, host, disk, imageId, self, jsonutils.Marshal(data))
 }
 
-func (self *DiskSaveTask) TaskFailed(ctx context.Context, reason string) {
+func (self *DiskSaveTask) TaskFailed(ctx context.Context, reason jsonutils.JSONObject) {
 	self.SetStageFailed(ctx, reason)
 	if imageId, err := self.GetParams().GetString("image_id"); err != nil && len(imageId) > 0 {
 		log.Errorf("save disk task failed, set image %s killed", imageId)

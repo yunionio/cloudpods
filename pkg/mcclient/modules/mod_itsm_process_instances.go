@@ -36,7 +36,7 @@ var (
 func (self *ProcessInstanceManager) Upload(s *mcclient.ClientSession, header http.Header, body io.Reader) (jsonutils.JSONObject, error) {
 	path := fmt.Sprintf("/%s", self.URLPath())
 	resp, err := modulebase.RawRequest(self.ResourceManager, s, "POST", path, header, body)
-	_, json, err := s.ParseJSONResponse(resp, err)
+	_, json, err := s.ParseJSONResponse("", resp, err)
 	if err != nil {
 		return nil, err
 	}

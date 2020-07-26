@@ -121,5 +121,5 @@ func (self *SyncCloudusersTask) OnClouduserSyncComplete(ctx context.Context, obj
 }
 
 func (self *SyncCloudusersTask) OnClouduserSyncCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, data.String())
+	self.SetStageFailed(ctx, data)
 }

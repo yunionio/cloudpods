@@ -36,10 +36,10 @@ func init() {
 	taskman.RegisterTask(CloudgroupSyncPoliciesTask{})
 }
 
-func (self *CloudgroupSyncPoliciesTask) taskFailed(ctx context.Context, group *models.SCloudgroup, err error) {
-	group.SetStatus(self.GetUserCred(), api.CLOUD_GROUP_STATUS_SYNC_POLICIES, err.Error())
+func (self *CloudgroupSyncPoliciesTask) taskFailed(ctx context.Context, group *models.SCloudgroup, err jsonutils.JSONObject) {
+	group.SetStatus(self.GetUserCred(), api.CLOUD_GROUP_STATUS_SYNC_POLICIES, err.String())
 	logclient.AddActionLogWithStartable(self, group, logclient.ACT_SYNC_POLICIES, err, self.UserCred, false)
-	self.SetStageFailed(ctx, err.Error())
+	self.SetStageFailed(ctx, err)
 }
 
 func (self *CloudgroupSyncPoliciesTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
@@ -47,7 +47,7 @@ func (self *CloudgroupSyncPoliciesTask) OnInit(ctx context.Context, obj db.IStan
 
 	factory, err := group.GetProviderFactory()
 	if err != nil {
-		self.taskFailed(ctx, group, errors.Wrap(err, "group.GetProviderFactory"))
+		self.taskFailed(ctx, group, jsonutils.NewString(errors.Wrap(err, "group.GetProviderFactory").Error()))
 		return
 	}
 
@@ -55,7 +55,7 @@ func (self *CloudgroupSyncPoliciesTask) OnInit(ctx context.Context, obj db.IStan
 		if factory.IsSupportClouduserPolicy() {
 			users, err := group.GetCloudusers()
 			if err != nil {
-				self.taskFailed(ctx, group, errors.Wrap(err, "group.GetCloudusers"))
+				self.taskFailed(ctx, group, jsonutils.NewString(errors.Wrap(err, "group.GetCloudusers").Error()))
 				return
 			}
 			for i := range users {
@@ -67,7 +67,7 @@ func (self *CloudgroupSyncPoliciesTask) OnInit(ctx context.Context, obj db.IStan
 				log.Infof("Sync cloudpolicies for user %s(%s) result: %s", users[i].Name, users[i].Id, result.Result())
 
 				if result.AddErrCnt+result.DelErrCnt > 0 {
-					self.taskFailed(ctx, group, result.AllError())
+					self.taskFailed(ctx, group, jsonutils.NewString(result.AllError().Error()))
 					return
 				}
 			}
@@ -75,7 +75,7 @@ func (self *CloudgroupSyncPoliciesTask) OnInit(ctx context.Context, obj db.IStan
 	} else {
 		caches, err := group.GetCloudgroupcaches()
 		if err != nil {
-			self.taskFailed(ctx, group, errors.Wrap(err, "GetCloudgroupcaches"))
+			self.taskFailed(ctx, group, jsonutils.NewString(errors.Wrap(err, "GetCloudgroupcaches").Error()))
 			return
 		}
 
@@ -88,7 +88,7 @@ func (self *CloudgroupSyncPoliciesTask) OnInit(ctx context.Context, obj db.IStan
 			log.Infof("Sync cloudpolicies for group cache %s(%s) result: %s", caches[i].Name, caches[i].Id, result.Result())
 
 			if result.AddErrCnt+result.DelErrCnt > 0 {
-				self.taskFailed(ctx, group, result.AllError())
+				self.taskFailed(ctx, group, jsonutils.NewString(result.AllError().Error()))
 				return
 			}
 		}

@@ -426,12 +426,12 @@ func (self *SImage) OnJointFailed(ctx context.Context, userCred mcclient.TokenCr
 	self.unprotectImage()
 }
 
-func (self *SImage) OnSaveFailed(ctx context.Context, userCred mcclient.TokenCredential, msg string) {
+func (self *SImage) OnSaveFailed(ctx context.Context, userCred mcclient.TokenCredential, msg jsonutils.JSONObject) {
 	self.saveFailed(userCred, msg)
 	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_IMAGE_SAVE, msg, userCred, false)
 }
 
-func (self *SImage) OnSaveTaskFailed(task taskman.ITask, userCred mcclient.TokenCredential, msg string) {
+func (self *SImage) OnSaveTaskFailed(task taskman.ITask, userCred mcclient.TokenCredential, msg jsonutils.JSONObject) {
 	self.saveFailed(userCred, msg)
 	logclient.AddActionLogWithStartable(task, self, logclient.ACT_IMAGE_SAVE, msg, userCred, false)
 }
@@ -452,9 +452,9 @@ func (self *SImage) saveSuccess(userCred mcclient.TokenCredential, msg string) {
 	db.OpsLog.LogEvent(self, db.ACT_SAVE, msg, userCred)
 }
 
-func (self *SImage) saveFailed(userCred mcclient.TokenCredential, msg string) {
-	log.Errorf(msg)
-	self.SetStatus(userCred, api.IMAGE_STATUS_KILLED, msg)
+func (self *SImage) saveFailed(userCred mcclient.TokenCredential, msg jsonutils.JSONObject) {
+	log.Errorf("saveFailed: %s", msg.String())
+	self.SetStatus(userCred, api.IMAGE_STATUS_KILLED, msg.String())
 	self.unprotectImage()
 	db.OpsLog.LogEvent(self, db.ACT_SAVE_FAIL, msg, userCred)
 }
@@ -563,7 +563,7 @@ func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 
 		err := self.SaveImageFromStream(appParams.Request.Body, false)
 		if err != nil {
-			self.OnSaveFailed(ctx, userCred, fmt.Sprintf("create upload fail %s", err))
+			self.OnSaveFailed(ctx, userCred, jsonutils.NewString(fmt.Sprintf("create upload fail %s", err)))
 			return
 		}
 
@@ -616,7 +616,7 @@ func (self *SImage) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 				// otherwise, it is needed.
 				err := self.SaveImageFromStream(appParams.Request.Body, !isProbe)
 				if err != nil {
-					self.OnSaveFailed(ctx, userCred, fmt.Sprintf("update upload failed %s", err))
+					self.OnSaveFailed(ctx, userCred, jsonutils.NewString(fmt.Sprintf("update upload failed %s", err)))
 					return nil, httperrors.NewGeneralError(err)
 				}
 				self.OnSaveSuccess(ctx, userCred, "update upload success")
@@ -637,7 +637,7 @@ func (self *SImage) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 				if len(copyFrom) > 0 {
 					err := self.startImageCopyFromUrlTask(ctx, userCred, copyFrom, "")
 					if err != nil {
-						self.OnSaveFailed(ctx, userCred, fmt.Sprintf("update copy from url failed %s", err))
+						self.OnSaveFailed(ctx, userCred, jsonutils.NewString(fmt.Sprintf("update copy from url failed %s", err)))
 						return nil, httperrors.NewGeneralError(err)
 					}
 				}

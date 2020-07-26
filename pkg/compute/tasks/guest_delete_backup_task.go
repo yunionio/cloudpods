@@ -36,10 +36,10 @@ type GuestDeleteBackupTask struct {
 	SGuestBaseTask
 }
 
-func (self *GuestDeleteBackupTask) OnFail(ctx context.Context, guest *models.SGuest, reason string) {
+func (self *GuestDeleteBackupTask) OnFail(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_DELETE_BACKUP, reason, self.UserCred, false)
 	db.OpsLog.LogEvent(guest, db.ACT_DELETE_BACKUP_FAILED, reason, self.UserCred)
-	guest.SetStatus(self.UserCred, compute.VM_BACKUP_DELETE_FAILED, reason)
+	guest.SetStatus(self.UserCred, compute.VM_BACKUP_DELETE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -47,7 +47,7 @@ func (self *GuestDeleteBackupTask) OnInit(ctx context.Context, obj db.IStandalon
 	guest := obj.(*models.SGuest)
 	host := models.HostManager.FetchHostById(guest.HostId)
 	if host == nil {
-		self.OnFail(ctx, guest, "Host not found")
+		self.OnFail(ctx, guest, jsonutils.NewString("Host not found"))
 		return
 	}
 
@@ -56,7 +56,7 @@ func (self *GuestDeleteBackupTask) OnInit(ctx context.Context, obj db.IStandalon
 	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(),
 		ctx, "POST", url, self.GetTaskRequestHeader(), nil, false)
 	if err != nil {
-		self.OnFail(ctx, guest, err.Error())
+		self.OnFail(ctx, guest, jsonutils.Marshal(err))
 		return
 	}
 }
@@ -74,7 +74,7 @@ func (self *GuestDeleteBackupTask) StartDeleteBackupOnHost(ctx context.Context, 
 	self.SetStage("OnDeleteOnHost", nil)
 	if task, err := taskman.TaskManager.NewTask(
 		ctx, "GuestDeleteOnHostTask", guest, self.UserCred, taskData, self.GetId(), "", nil); err != nil {
-		self.OnFail(ctx, guest, err.Error())
+		self.OnFail(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	} else {
 		task.ScheduleRun(nil)
@@ -82,7 +82,7 @@ func (self *GuestDeleteBackupTask) StartDeleteBackupOnHost(ctx context.Context, 
 }
 
 func (self *GuestDeleteBackupTask) OnCancelBlockJobsFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.OnFail(ctx, guest, data.String())
+	self.OnFail(ctx, guest, data)
 }
 
 func (self *GuestDeleteBackupTask) OnDeleteOnHost(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -94,7 +94,7 @@ func (self *GuestDeleteBackupTask) OnDeleteOnHost(ctx context.Context, guest *mo
 		params.Set("reconcile_backup", jsonutils.JSONTrue)
 		_, err := guest.StartGuestCreateBackupTask(ctx, self.UserCred, self.GetId(), params)
 		if err != nil {
-			self.onCreateNewBackupFailed(ctx, guest, err.Error())
+			self.onCreateNewBackupFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		}
 	} else {
 		self.TaskComplete(ctx, guest, data)
@@ -108,17 +108,17 @@ func (self *GuestDeleteBackupTask) OnCreateNewBackup(ctx context.Context, guest 
 }
 
 func (self *GuestDeleteBackupTask) OnCreateNewBackupFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.onCreateNewBackupFailed(ctx, guest, data.String())
+	self.onCreateNewBackupFailed(ctx, guest, data)
 }
 
-func (self *GuestDeleteBackupTask) onCreateNewBackupFailed(ctx context.Context, guest *models.SGuest, reason string) {
+func (self *GuestDeleteBackupTask) onCreateNewBackupFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_CREATE_BACKUP, reason, self.UserCred, false)
 	db.OpsLog.LogEvent(guest, db.ACT_CREATE_BACKUP_FAILED, reason, self.UserCred)
 	self.SetStageFailed(ctx, reason)
 }
 
 func (self *GuestDeleteBackupTask) OnDeleteOnHostFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.OnFail(ctx, guest, data.String())
+	self.OnFail(ctx, guest, data)
 }
 
 func (self *GuestDeleteBackupTask) OnDeleteBackupComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {

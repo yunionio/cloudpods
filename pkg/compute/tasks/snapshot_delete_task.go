@@ -41,13 +41,13 @@ type SnapshotDeleteTask struct {
 }
 
 func (self *SnapshotDeleteTask) OnRequestSnapshotFailed(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
-	self.TaskFailed(ctx, snapshot, data.String())
+	self.TaskFailed(ctx, snapshot, data)
 }
 
 func (self *SnapshotDeleteTask) OnRequestSnapshot(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
 	err := snapshot.GetRegionDriver().OnSnapshotDelete(ctx, snapshot, self, data)
 	if err != nil {
-		self.TaskFailed(ctx, snapshot, err.Error())
+		self.TaskFailed(ctx, snapshot, jsonutils.NewString(err.Error()))
 	}
 }
 
@@ -73,7 +73,7 @@ func (self *SnapshotDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 
 	self.SetStage("OnRequestSnapshot", nil)
 	if err := regionDriver.RequestDeleteSnapshot(ctx, snapshot, self); err != nil {
-		self.TaskFailed(ctx, snapshot, err.Error())
+		self.TaskFailed(ctx, snapshot, jsonutils.Marshal(err))
 	}
 }
 
@@ -104,7 +104,7 @@ func (self *SnapshotDeleteTask) OnDeleteSnapshot(ctx context.Context, snapshot *
 }
 
 func (self *SnapshotDeleteTask) OnDeleteSnapshotFailed(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
-	self.TaskFailed(ctx, snapshot, data.String())
+	self.TaskFailed(ctx, snapshot, data)
 }
 
 func (self *SnapshotDeleteTask) OnReloadDiskSnapshot(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
@@ -115,7 +115,7 @@ func (self *SnapshotDeleteTask) OnReloadDiskSnapshot(ctx context.Context, snapsh
 
 	guest, err := snapshot.GetGuest()
 	if err != nil {
-		self.TaskFailed(ctx, snapshot, err.Error())
+		self.TaskFailed(ctx, snapshot, jsonutils.NewString(err.Error()))
 		return
 	}
 	if snapshot.FakeDeleted {
@@ -126,7 +126,7 @@ func (self *SnapshotDeleteTask) OnReloadDiskSnapshot(ctx context.Context, snapsh
 		self.SetStage("OnDeleteSnapshot", nil)
 		err = guest.GetDriver().RequestDeleteSnapshot(ctx, guest, self, params)
 		if err != nil {
-			self.TaskFailed(ctx, snapshot, err.Error())
+			self.TaskFailed(ctx, snapshot, jsonutils.Marshal(err))
 		}
 	} else {
 		self.TaskComplete(ctx, snapshot, nil)
@@ -145,7 +145,7 @@ func (self *SnapshotDeleteTask) TaskComplete(ctx context.Context, snapshot *mode
 	guest.StartSyncstatus(ctx, self.UserCred, "")
 }
 
-func (self *SnapshotDeleteTask) TaskFailed(ctx context.Context, snapshot *models.SSnapshot, reason string) {
+func (self *SnapshotDeleteTask) TaskFailed(ctx context.Context, snapshot *models.SSnapshot, reason jsonutils.JSONObject) {
 	if snapshot.Status == api.SNAPSHOT_DELETING {
 		snapshot.SetStatus(self.UserCred, api.SNAPSHOT_READY, "On SnapshotDeleteTask TaskFailed")
 	}
@@ -174,13 +174,13 @@ func (self *BatchSnapshotsDeleteTask) OnInit(ctx context.Context, obj db.IStanda
 func (self *BatchSnapshotsDeleteTask) StartStorageDeleteSnapshot(ctx context.Context, snapshot *models.SSnapshot) {
 	host := snapshot.GetHost()
 	if host == nil {
-		self.SetStageFailed(ctx, "Cannot found snapshot host")
+		self.SetStageFailed(ctx, jsonutils.NewString("Cannot found snapshot host"))
 		return
 	}
 	self.SetStage("OnStorageDeleteSnapshot", nil)
 	err := host.GetHostDriver().RequestDeleteSnapshotsWithStorage(ctx, host, snapshot, self)
 	if err != nil {
-		self.SetStageFailed(ctx, err.Error())
+		self.SetStageFailed(ctx, jsonutils.Marshal(err))
 	}
 }
 
@@ -289,5 +289,5 @@ func (self *DiskDeleteSnapshotsTask) OnSnapshotDelete(ctx context.Context, disk 
 
 func (self *DiskDeleteSnapshotsTask) OnSnapshotDeleteFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
 	log.Errorf("Delete disk snapshots failed %s", data.String())
-	self.SetStageFailed(ctx, data.String())
+	self.SetStageFailed(ctx, data)
 }

@@ -39,8 +39,8 @@ func (self *SnapshotCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 	self.DoDiskSnapshot(ctx, snapshot)
 }
 
-func (self *SnapshotCreateTask) TaskFailed(ctx context.Context, snapshot *models.SSnapshot, reason string) {
-	snapshot.SetStatus(self.UserCred, api.SNAPSHOT_FAILED, reason)
+func (self *SnapshotCreateTask) TaskFailed(ctx context.Context, snapshot *models.SSnapshot, reason jsonutils.JSONObject) {
+	snapshot.SetStatus(self.UserCred, api.SNAPSHOT_FAILED, reason.String())
 	db.OpsLog.LogEvent(snapshot, db.ACT_SNAPSHOT_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, snapshot, logclient.ACT_CREATE, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
@@ -56,7 +56,7 @@ func (self *SnapshotCreateTask) TaskComplete(ctx context.Context, snapshot *mode
 func (self *SnapshotCreateTask) DoDiskSnapshot(ctx context.Context, snapshot *models.SSnapshot) {
 	self.SetStage("OnCreateSnapshot", nil)
 	if err := snapshot.GetRegionDriver().RequestCreateSnapshot(ctx, snapshot, self); err != nil {
-		self.TaskFailed(ctx, snapshot, err.Error())
+		self.TaskFailed(ctx, snapshot, jsonutils.Marshal(err))
 	}
 }
 
@@ -65,5 +65,5 @@ func (self *SnapshotCreateTask) OnCreateSnapshot(ctx context.Context, snapshot *
 }
 
 func (self *SnapshotCreateTask) OnCreateSnapshotFailed(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
-	self.TaskFailed(ctx, snapshot, data.String())
+	self.TaskFailed(ctx, snapshot, data)
 }

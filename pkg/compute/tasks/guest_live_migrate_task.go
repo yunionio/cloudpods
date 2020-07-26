@@ -86,11 +86,11 @@ func (self *GuestMigrateTask) OnStartSchedule(obj IScheduleModel) {
 	db.OpsLog.LogEvent(guest, db.ACT_MIGRATING, "", self.UserCred)
 }
 
-func (self *GuestMigrateTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason string) {
+func (self *GuestMigrateTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason jsonutils.JSONObject) {
 	// do nothing
 }
 
-func (self *GuestMigrateTask) OnScheduleFailed(ctx context.Context, reason string) {
+func (self *GuestMigrateTask) OnScheduleFailed(ctx context.Context, reason jsonutils.JSONObject) {
 	obj := self.GetObject()
 	guest := obj.(*models.SGuest)
 	self.TaskFailed(ctx, guest, reason)
@@ -101,7 +101,7 @@ func (self *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj ISched
 	guest := obj.(*models.SGuest)
 	targetHost := models.HostManager.FetchHostById(targetHostId)
 	if targetHost == nil {
-		self.TaskFailed(ctx, guest, "target host not found?")
+		self.TaskFailed(ctx, guest, jsonutils.NewString("target host not found?"))
 		return
 	}
 	db.OpsLog.LogEvent(guest, db.ACT_MIGRATING, fmt.Sprintf("guest start migrate from host %s to %s", guest.HostId, targetHostId), self.UserCred)
@@ -138,7 +138,7 @@ func (self *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj ISched
 			err := targetStorageCache.StartImageCacheTask(
 				ctx, self.UserCred, disk.TemplateId, disk.DiskFormat, false, self.GetTaskId())
 			if err != nil {
-				self.TaskFailed(ctx, guest, err.Error())
+				self.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
 			}
 			return
 		}
@@ -157,7 +157,7 @@ func (self *GuestMigrateTask) OnCachedImageComplete(ctx context.Context, guest *
 		if targetStorageCache != nil {
 			err := targetStorageCache.StartImageCacheTask(ctx, self.UserCred, cdrom.ImageId, "iso", false, self.GetTaskId())
 			if err != nil {
-				self.TaskFailed(ctx, guest, err.Error())
+				self.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
 			}
 			return
 		}
@@ -180,7 +180,7 @@ func (self *GuestMigrateTask) OnCachedCdromComplete(ctx context.Context, guest *
 		_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST",
 			url, header, body, false)
 		if err != nil {
-			self.TaskFailed(ctx, guest, fmt.Sprintf("Prepare migrage failed: %s", err))
+			self.TaskFailed(ctx, guest, jsonutils.Marshal(err))
 			return
 		}
 	} else {
@@ -189,15 +189,15 @@ func (self *GuestMigrateTask) OnCachedCdromComplete(ctx context.Context, guest *
 }
 
 func (self *GuestMigrateTask) OnCachedCdromCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.TaskFailed(ctx, guest, data.String())
+	self.TaskFailed(ctx, guest, data)
 }
 
 func (self *GuestMigrateTask) OnCachedImageCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.TaskFailed(ctx, guest, data.String())
+	self.TaskFailed(ctx, guest, data)
 }
 
 func (self *GuestMigrateTask) OnSrcPrepareCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.TaskFailed(ctx, guest, data.String())
+	self.TaskFailed(ctx, guest, data)
 }
 
 func (self *GuestMigrateTask) OnSrcPrepareComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -225,14 +225,14 @@ func (self *GuestMigrateTask) OnSrcPrepareComplete(ctx context.Context, guest *m
 	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(),
 		ctx, "POST", url, headers, body, false)
 	if err != nil {
-		self.TaskFailed(ctx, guest, err.Error())
+		self.TaskFailed(ctx, guest, jsonutils.Marshal(err))
 	}
 }
 
 func (self *GuestMigrateTask) OnMigrateConfAndDiskCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	targetHostId, _ := self.Params.GetString("target_host_id")
 	guest.StartUndeployGuestTask(ctx, self.UserCred, "", targetHostId)
-	self.TaskFailed(ctx, guest, data.String())
+	self.TaskFailed(ctx, guest, data)
 }
 
 func (self *GuestMigrateTask) OnMigrateConfAndDiskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -271,7 +271,7 @@ func (self *GuestMigrateTask) OnUndeployOldHostSucc(ctx context.Context, guest *
 }
 
 func (self *GuestMigrateTask) OnUndeployOldHostSuccFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.TaskFailed(ctx, guest, fmt.Sprintf("Undeploy Old Guest Failed %s", data))
+	self.TaskFailed(ctx, guest, data)
 }
 
 func (self *GuestMigrateTask) OnGuestStartSucc(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -279,7 +279,7 @@ func (self *GuestMigrateTask) OnGuestStartSucc(ctx context.Context, guest *model
 }
 
 func (self *GuestMigrateTask) OnGuestStartSuccFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.TaskFailed(ctx, guest, fmt.Sprintf("Guest Start Failed %s", data))
+	self.TaskFailed(ctx, guest, data)
 }
 
 func (self *GuestMigrateTask) sharedStorageMigrateConf(ctx context.Context, guest *models.SGuest, targetHost *models.SHost) (*jsonutils.JSONDict, bool) {
@@ -321,12 +321,12 @@ func (self *GuestMigrateTask) localStorageMigrateConf(ctx context.Context,
 	targetDesc := guest.GetJsonDescAtHypervisor(ctx, targetHost)
 	jsonDisks, _ := targetDesc.Get("disks")
 	if jsonDisks == nil {
-		self.TaskFailed(ctx, guest, "Get jsonDisks error")
+		self.TaskFailed(ctx, guest, jsonutils.NewString("Get jsonDisks error"))
 		return nil, true
 	}
 	disksDesc, _ := jsonDisks.GetArray()
 	if len(disksDesc) == 0 {
-		self.TaskFailed(ctx, guest, "Get disksDesc error")
+		self.TaskFailed(ctx, guest, jsonutils.NewString("Get disksDesc error"))
 		return nil, true
 	}
 	targetStorages, _ := self.Params.GetArray("target_storages")
@@ -344,7 +344,7 @@ func (self *GuestMigrateTask) localStorageMigrateConf(ctx context.Context,
 func (self *GuestLiveMigrateTask) OnStartDestComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	liveMigrateDestPort, err := data.Get("live_migrate_dest_port")
 	if err != nil {
-		self.TaskFailed(ctx, guest, fmt.Sprintf("Get migrate port error: %s", err))
+		self.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("Get migrate port error: %s", err)))
 		return
 	}
 
@@ -365,14 +365,14 @@ func (self *GuestLiveMigrateTask) OnStartDestComplete(ctx context.Context, guest
 	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(),
 		ctx, "POST", url, headers, body, false)
 	if err != nil {
-		self.OnLiveMigrateCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		self.OnLiveMigrateCompleteFailed(ctx, guest, jsonutils.Marshal(err))
 	}
 }
 
 func (self *GuestLiveMigrateTask) OnStartDestCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	targetHostId, _ := self.Params.GetString("target_host_id")
 	guest.StartUndeployGuestTask(ctx, self.UserCred, "", targetHostId)
-	self.TaskFailed(ctx, guest, data.String())
+	self.TaskFailed(ctx, guest, data)
 }
 
 func (self *GuestMigrateTask) setGuest(ctx context.Context, guest *models.SGuest) error {
@@ -408,7 +408,7 @@ func (self *GuestMigrateTask) setGuest(ctx context.Context, guest *models.SGuest
 func (self *GuestLiveMigrateTask) OnLiveMigrateCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	targetHostId, _ := self.Params.GetString("target_host_id")
 	guest.StartUndeployGuestTask(ctx, self.UserCred, "", targetHostId)
-	self.TaskFailed(ctx, guest, data.String())
+	self.TaskFailed(ctx, guest, data)
 }
 
 func (self *GuestLiveMigrateTask) OnLiveMigrateComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -423,7 +423,7 @@ func (self *GuestLiveMigrateTask) OnLiveMigrateComplete(ctx context.Context, gue
 	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(),
 		ctx, "POST", url, headers, body, false)
 	if err != nil {
-		self.OnResumeDestGuestCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		self.OnResumeDestGuestCompleteFailed(ctx, guest, jsonutils.Marshal(err))
 	}
 }
 
@@ -432,19 +432,19 @@ func (self *GuestLiveMigrateTask) OnResumeDestGuestCompleteFailed(ctx context.Co
 	targetHostId, _ := self.Params.GetString("target_host_id")
 
 	guest.StartUndeployGuestTask(ctx, self.UserCred, "", targetHostId)
-	self.TaskFailed(ctx, guest, data.String())
+	self.TaskFailed(ctx, guest, data)
 }
 
 func (self *GuestLiveMigrateTask) OnResumeDestGuestComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	oldHostId := guest.HostId
 	err := self.setGuest(ctx, guest)
 	if err != nil {
-		self.TaskFailed(ctx, guest, err.Error())
+		self.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
 	}
 	self.SetStage("OnUndeploySrcGuestComplete", nil)
 	err = guest.StartUndeployGuestTask(ctx, self.UserCred, self.GetTaskId(), oldHostId)
 	if err != nil {
-		self.TaskFailed(ctx, guest, err.Error())
+		self.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
 	}
 }
 
@@ -470,12 +470,12 @@ func (self *GuestMigrateTask) TaskComplete(ctx context.Context, guest *models.SG
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_MIGRATE, "", self.UserCred, true)
 }
 
-func (self *GuestMigrateTask) TaskFailed(ctx context.Context, guest *models.SGuest, reason string) {
-	guest.SetStatus(self.UserCred, api.VM_MIGRATE_FAILED, reason)
+func (self *GuestMigrateTask) TaskFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
+	guest.SetStatus(self.UserCred, api.VM_MIGRATE_FAILED, reason.String())
 	db.OpsLog.LogEvent(guest, db.ACT_MIGRATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_MIGRATE, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
-	notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_MIGRATE_FAILED, reason)
+	notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_MIGRATE_FAILED, reason.String())
 }
 
 //ManagedGuestMigrateTask
@@ -515,18 +515,18 @@ func (self *ManagedGuestMigrateTask) OnGuestSyncStatus(ctx context.Context, gues
 }
 
 func (self *ManagedGuestMigrateTask) OnGuestSyncStatusFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, "Guest SyncStatus Failed")
+	self.SetStageFailed(ctx, data)
 }
 
 func (self *ManagedGuestMigrateTask) OnGuestStartSuccFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, "Guest Start Failed")
+	self.SetStageFailed(ctx, data)
 }
 
 func (self *ManagedGuestMigrateTask) OnMigrateCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	guest.SetStatus(self.UserCred, api.VM_MIGRATE_FAILED, "")
 	db.OpsLog.LogEvent(guest, db.ACT_MIGRATE_FAIL, data, self.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_MIGRATE, data, self.UserCred, false)
-	self.SetStageFailed(ctx, api.VM_MIGRATE_FAILED)
+	self.SetStageFailed(ctx, data)
 	notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_MIGRATE_FAILED, data.String())
 }
 
@@ -557,13 +557,13 @@ func (self *ManagedGuestLiveMigrateTask) OnGuestSyncStatus(ctx context.Context, 
 }
 
 func (self *ManagedGuestLiveMigrateTask) OnGuestSyncStatusFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, "Guest SyncStatus Failed")
+	self.SetStageFailed(ctx, data)
 }
 
 func (self *ManagedGuestLiveMigrateTask) OnMigrateCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	guest.SetStatus(self.UserCred, api.VM_MIGRATE_FAILED, "")
 	db.OpsLog.LogEvent(guest, db.ACT_MIGRATE_FAIL, data, self.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_MIGRATE, data, self.UserCred, false)
-	self.SetStageFailed(ctx, db.ACT_MIGRATE_FAIL)
+	self.SetStageFailed(ctx, data)
 	notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_MIGRATE_FAILED, data.String())
 }

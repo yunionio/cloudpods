@@ -52,7 +52,7 @@ func (self *TemplateUnbindingServers) OnInit(ctx context.Context, obj db.IStanda
 	template := obj.(*models.SDevtoolTemplate)
 	_, err := template.Unbinding(ctx, self.UserCred, nil, self.Params)
 	if err != nil {
-		self.SetStageFailed(ctx, fmt.Sprintf("TemplateUnBindingServers failed %s", err))
+		self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("TemplateUnBindingServers failed %s", err)))
 	} else {
 		self.SetStageComplete(ctx, nil)
 	}

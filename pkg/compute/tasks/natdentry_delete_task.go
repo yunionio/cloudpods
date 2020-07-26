@@ -16,11 +16,11 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -38,14 +38,16 @@ func init() {
 	taskman.RegisterTask(SNatDEntryDeleteTask{})
 }
 
-func (self *SNatDEntryDeleteTask) TaskFailed(ctx context.Context, dnatEntry *models.SNatDEntry, err error) {
-	dnatEntry.SetStatus(self.UserCred, api.NAT_STATUS_DELETE_FAILED, err.Error())
-	db.OpsLog.LogEvent(dnatEntry, db.ACT_DELOCATE_FAIL, err.Error(), self.UserCred)
+func (self *SNatDEntryDeleteTask) TaskFailed(ctx context.Context, dnatEntry *models.SNatDEntry, reason jsonutils.JSONObject) {
+	dnatEntry.SetStatus(self.UserCred, api.NAT_STATUS_DELETE_FAILED, reason.String())
+	db.OpsLog.LogEvent(dnatEntry, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 	natgateway, err := dnatEntry.GetNatgateway()
-	if err != nil {
-		logclient.AddActionLogWithStartable(self, natgateway, logclient.ACT_NAT_DELETE_DNAT, nil, self.UserCred, false)
+	if err == nil {
+		logclient.AddActionLogWithStartable(self, natgateway, logclient.ACT_NAT_DELETE_DNAT, reason, self.UserCred, false)
+	} else {
+		logclient.AddActionLogWithStartable(self, dnatEntry, logclient.ACT_NAT_DELETE_DNAT, reason, self.UserCred, false)
 	}
-	self.SetStageFailed(ctx, err.Error())
+	self.SetStageFailed(ctx, reason)
 }
 
 func (self *SNatDEntryDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
@@ -53,11 +55,11 @@ func (self *SNatDEntryDeleteTask) OnInit(ctx context.Context, obj db.IStandalone
 	dnatEntry.SetStatus(self.UserCred, api.NAT_STATUS_DELETING, "")
 	natgateway, err := dnatEntry.GetNatgateway()
 	if err != nil {
-		self.TaskFailed(ctx, dnatEntry, err)
+		self.TaskFailed(ctx, dnatEntry, jsonutils.NewString(err.Error()))
 	}
 	cloudNatGateway, err := dnatEntry.GetINatGateway()
 	if err != nil {
-		self.TaskFailed(ctx, dnatEntry, errors.Wrap(err, "Get NatGateway failed"))
+		self.TaskFailed(ctx, dnatEntry, jsonutils.NewString(fmt.Sprintf("Get NatGateway failed: %s", err)))
 		return
 	}
 
@@ -65,25 +67,25 @@ func (self *SNatDEntryDeleteTask) OnInit(ctx context.Context, obj db.IStandalone
 	if err == cloudprovider.ErrNotFound {
 		// already delete
 	} else if err != nil {
-		self.TaskFailed(ctx, dnatEntry, errors.Wrapf(err, "Get DNat Entry by ID '%s' failed", dnatEntry.ExternalId))
+		self.TaskFailed(ctx, dnatEntry, jsonutils.NewString(fmt.Sprintf("Get DNat Entry by ID '%s' failed", dnatEntry.ExternalId)))
 		return
 	} else if cloudNatDEntry != nil {
 		err = cloudNatDEntry.Delete()
 		if err != nil {
-			self.TaskFailed(ctx, dnatEntry, errors.Wrapf(err, "Delete DNat Entry '%s' failed", dnatEntry.ExternalId))
+			self.TaskFailed(ctx, dnatEntry, jsonutils.NewString(fmt.Sprintf("Delete DNat Entry '%s' failed: %s", dnatEntry.ExternalId, err)))
 			return
 		}
 
 		err = cloudprovider.WaitDeleted(cloudNatDEntry, 10*time.Second, 300*time.Second)
 		if err != nil {
-			self.TaskFailed(ctx, dnatEntry, err)
+			self.TaskFailed(ctx, dnatEntry, jsonutils.NewString(err.Error()))
 			return
 		}
 	}
 
 	err = dnatEntry.Purge(ctx, self.UserCred)
 	if err != nil {
-		self.TaskFailed(ctx, dnatEntry, err)
+		self.TaskFailed(ctx, dnatEntry, jsonutils.NewString(err.Error()))
 		return
 	}
 

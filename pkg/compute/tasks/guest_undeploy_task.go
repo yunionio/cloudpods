@@ -82,5 +82,5 @@ func (self *GuestUndeployTask) OnStartDeleteGuestFail(ctx context.Context, err e
 			return
 		}
 	}
-	self.SetStageFailed(ctx, err.Error())
+	self.SetStageFailed(ctx, jsonutils.Marshal(err))
 }

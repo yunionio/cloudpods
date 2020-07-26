@@ -50,5 +50,5 @@ func (self *ImageCheckTask) OnCheckComplete(ctx context.Context, obj db.IStandal
 }
 
 func (self *ImageCheckTask) OnCheckCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, data.String())
+	self.SetStageFailed(ctx, data)
 }

@@ -35,11 +35,11 @@ func init() {
 	taskman.RegisterTask(EipAssociateTask{})
 }
 
-func (self *EipAssociateTask) TaskFail(ctx context.Context, eip *models.SElasticip, msg string, vm *models.SGuest) {
-	eip.SetStatus(self.UserCred, api.EIP_STATUS_READY, msg)
+func (self *EipAssociateTask) TaskFail(ctx context.Context, eip *models.SElasticip, msg jsonutils.JSONObject, vm *models.SGuest) {
+	eip.SetStatus(self.UserCred, api.EIP_STATUS_READY, msg.String())
 	self.SetStageFailed(ctx, msg)
 	if vm != nil {
-		vm.SetStatus(self.UserCred, api.VM_ASSOCIATE_EIP_FAILED, msg)
+		vm.SetStatus(self.UserCred, api.VM_ASSOCIATE_EIP_FAILED, msg.String())
 		db.OpsLog.LogEvent(vm, db.ACT_EIP_ATTACH, msg, self.GetUserCred())
 		logclient.AddActionLogWithStartable(self, vm, logclient.ACT_EIP_ASSOCIATE, msg, self.UserCred, false)
 	}
@@ -54,20 +54,20 @@ func (self *EipAssociateTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 
 	if server == nil {
 		msg := fmt.Sprintf("fail to find server for instanceId %s", instanceId)
-		self.TaskFail(ctx, eip, msg, nil)
+		self.TaskFail(ctx, eip, jsonutils.NewString(msg), nil)
 		return
 	}
 
 	driver := server.GetDriver()
 	if driver == nil {
 		msg := fmt.Sprintf("fail to find guest driver for instanceId %s", instanceId)
-		self.TaskFail(ctx, eip, msg, nil)
+		self.TaskFail(ctx, eip, jsonutils.NewString(msg), nil)
 		return
 	}
 
 	self.SetStage("OnAssociateEipComplete", nil)
 	if err := driver.RequestAssociateEip(ctx, self.UserCred, server, eip, self); err != nil {
-		self.TaskFail(ctx, eip, err.Error(), server)
+		self.TaskFail(ctx, eip, jsonutils.Marshal(err), server)
 		return
 	}
 }
@@ -87,6 +87,6 @@ func (self *EipAssociateTask) OnAssociateEipCompleteFailed(ctx context.Context, 
 	eip := obj.(*models.SElasticip)
 	instanceId, _ := self.Params.GetString("instance_id")
 	server := models.GuestManager.FetchGuestById(instanceId)
-	self.TaskFail(ctx, eip, data.String(), server)
+	self.TaskFail(ctx, eip, data, server)
 	return
 }

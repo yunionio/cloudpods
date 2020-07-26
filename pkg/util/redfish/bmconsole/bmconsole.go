@@ -65,7 +65,11 @@ func (r *SBMCConsole) RawRequest(ctx context.Context, method httputils.THttpMeth
 	header.Set("Connection", "Close")
 	header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.12; rv:69.0) Gecko/20100101 Firefox/69.0")
 	resp, err := httputils.Request(r.client, ctx, method, urlStr, header, bytes.NewReader(body), r.isDebug)
-	hdr, rspBody, err := httputils.ParseResponse(resp, err, r.isDebug)
+	var bodyStr string
+	if body != nil {
+		bodyStr = string(body)
+	}
+	hdr, rspBody, err := httputils.ParseResponse(bodyStr, resp, err, r.isDebug)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "httputils.Request")
 	}

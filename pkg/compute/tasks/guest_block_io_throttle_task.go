@@ -86,8 +86,8 @@ func (self *GuestBlockIoThrottleTask) OnGuestSyncFailed(ctx context.Context, gue
 }
 
 func (self *GuestBlockIoThrottleTask) OnIoThrottleFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	db.OpsLog.LogEvent(guest, db.ACT_VM_IO_THROTTLE_FAIL, data.String(), self.UserCred)
-	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_VM_IO_THROTTLE, data.String(), self.UserCred, false)
+	db.OpsLog.LogEvent(guest, db.ACT_VM_IO_THROTTLE_FAIL, data, self.UserCred)
+	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_VM_IO_THROTTLE, data, self.UserCred, false)
 	guest.SetStatus(self.UserCred, api.VM_IO_THROTTLE_FAIL, data.String())
-	self.SetStageFailed(ctx, data.String())
+	self.SetStageFailed(ctx, data)
 }

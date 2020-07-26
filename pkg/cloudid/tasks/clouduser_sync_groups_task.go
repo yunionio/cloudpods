@@ -35,9 +35,9 @@ func init() {
 	taskman.RegisterTask(ClouduserSyncGroupsTask{})
 }
 
-func (self *ClouduserSyncGroupsTask) taskFailed(ctx context.Context, clouduser *models.SClouduser, err error) {
-	clouduser.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_SYNC_GROUPS_FAILED, err.Error())
-	self.SetStageFailed(ctx, err.Error())
+func (self *ClouduserSyncGroupsTask) taskFailed(ctx context.Context, clouduser *models.SClouduser, err jsonutils.JSONObject) {
+	clouduser.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_SYNC_GROUPS_FAILED, err.String())
+	self.SetStageFailed(ctx, err)
 }
 
 func (self *ClouduserSyncGroupsTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
@@ -45,54 +45,54 @@ func (self *ClouduserSyncGroupsTask) OnInit(ctx context.Context, obj db.IStandal
 
 	account, err := user.GetCloudaccount()
 	if err != nil {
-		self.taskFailed(ctx, user, errors.Wrap(err, "GetCloudaccount"))
+		self.taskFailed(ctx, user, jsonutils.NewString(errors.Wrap(err, "GetCloudaccount").Error()))
 		return
 	}
 
 	factory, err := account.GetProviderFactory()
 	if err != nil {
-		self.taskFailed(ctx, user, errors.Wrap(err, "GetCloudaccount"))
+		self.taskFailed(ctx, user, jsonutils.NewString(errors.Wrap(err, "GetCloudaccount").Error()))
 		return
 	}
 
 	if factory.IsSupportCreateCloudgroup() {
 		groups, err := user.GetCloudgroups()
 		if err != nil {
-			self.taskFailed(ctx, user, errors.Wrap(err, "GetCloudgroups"))
+			self.taskFailed(ctx, user, jsonutils.NewString(errors.Wrap(err, "GetCloudgroups").Error()))
 			return
 		}
 
 		for i := range groups {
 			cache, err := models.CloudgroupcacheManager.Register(&groups[i], account)
 			if err != nil {
-				self.taskFailed(ctx, user, errors.Wrap(err, "CloudgroupcacheManager.Register"))
+				self.taskFailed(ctx, user, jsonutils.NewString(errors.Wrap(err, "CloudgroupcacheManager.Register").Error()))
 				return
 			}
 			_, err = cache.GetOrCreateICloudgroup(ctx, self.GetUserCred())
 			if err != nil {
-				self.taskFailed(ctx, user, errors.Wrap(err, "GetOrCreateICloudgroup"))
+				self.taskFailed(ctx, user, jsonutils.NewString(errors.Wrap(err, "GetOrCreateICloudgroup").Error()))
 				return
 			}
 			result, err := cache.SyncCloudusersForCloud(ctx)
 			if err != nil {
-				self.taskFailed(ctx, user, errors.Wrap(err, "SyncCloudusersForCloud"))
+				self.taskFailed(ctx, user, jsonutils.NewString(errors.Wrap(err, "SyncCloudusersForCloud").Error()))
 				return
 			}
 			log.Infof("sync cloudusers for cache %s(%s) result: %s", cache.Name, cache.Id, result.Result())
 
 			if result.AddErrCnt+result.DelErrCnt > 0 {
-				self.taskFailed(ctx, user, result.AllError())
+				self.taskFailed(ctx, user, jsonutils.NewString(result.AllError().Error()))
 				return
 			}
 
 			result, err = cache.SyncCloudpoliciesForCloud(ctx)
 			if err != nil {
-				self.taskFailed(ctx, user, errors.Wrap(err, "SyncCloudpoliciesForCloud"))
+				self.taskFailed(ctx, user, jsonutils.NewString(errors.Wrap(err, "SyncCloudpoliciesForCloud").Error()))
 				return
 			}
 
 			if result.AddErrCnt+result.DelErrCnt > 0 {
-				self.taskFailed(ctx, user, result.AllError())
+				self.taskFailed(ctx, user, jsonutils.NewString(result.AllError().Error()))
 				return
 			}
 			log.Infof("sync cloudpolicies for cache %s(%s) result: %s", cache.Name, cache.Id, result.Result())
@@ -100,13 +100,13 @@ func (self *ClouduserSyncGroupsTask) OnInit(ctx context.Context, obj db.IStandal
 	} else if factory.IsSupportClouduserPolicy() {
 		result, err := user.SyncCloudpoliciesForCloud(ctx)
 		if err != nil {
-			self.taskFailed(ctx, user, errors.Wrap(err, "SyncCloudpoliciesForCloud"))
+			self.taskFailed(ctx, user, jsonutils.NewString(errors.Wrap(err, "SyncCloudpoliciesForCloud").Error()))
 			return
 		}
 		log.Infof("sync cloudpolicies for user %s(%s) result: %s", user.Name, user.Id, result.Result())
 
 		if result.AddErrCnt+result.DelErrCnt > 0 {
-			self.taskFailed(ctx, user, result.AllError())
+			self.taskFailed(ctx, user, jsonutils.NewString(result.AllError().Error()))
 			return
 		}
 	}

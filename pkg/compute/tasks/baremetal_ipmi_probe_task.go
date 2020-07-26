@@ -43,13 +43,13 @@ func (self *BaremetalIpmiProbeTask) OnInit(ctx context.Context, obj db.IStandalo
 	self.SetStage("OnSyncConfigComplete", nil)
 	_, err := baremetal.BaremetalSyncRequest(ctx, "POST", url, headers, self.Params)
 	if err != nil {
-		self.OnFailure(ctx, baremetal, err.Error())
+		self.OnFailure(ctx, baremetal, jsonutils.Marshal(err))
 	}
 }
 
-func (self *BaremetalIpmiProbeTask) OnFailure(ctx context.Context, baremetal *models.SHost, reason string) {
+func (self *BaremetalIpmiProbeTask) OnFailure(ctx context.Context, baremetal *models.SHost, reason jsonutils.JSONObject) {
 	logclient.AddActionLogWithStartable(self, baremetal, logclient.ACT_PROBE, reason, self.UserCred, false)
-	baremetal.SetStatus(self.UserCred, api.BAREMETAL_PROBE_FAIL, reason)
+	baremetal.SetStatus(self.UserCred, api.BAREMETAL_PROBE_FAIL, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -59,6 +59,5 @@ func (self *BaremetalIpmiProbeTask) OnSyncConfigComplete(ctx context.Context, ba
 }
 
 func (self *BaremetalIpmiProbeTask) OnSyncConfigCompleteFailed(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
-	reason, _ := body.GetString("__reason__")
-	self.OnFailure(ctx, baremetal, reason)
+	self.OnFailure(ctx, baremetal, body)
 }

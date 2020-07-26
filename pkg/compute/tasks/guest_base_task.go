@@ -17,6 +17,8 @@ package tasks
 import (
 	"context"
 
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -31,7 +33,7 @@ func (self *SGuestBaseTask) getGuest() *models.SGuest {
 	return obj.(*models.SGuest)
 }
 
-func (self *SGuestBaseTask) SetStageFailed(ctx context.Context, reason string) {
+func (self *SGuestBaseTask) SetStageFailed(ctx context.Context, reason jsonutils.JSONObject) {
 	self.finalReleasePendingUsage(ctx)
 	self.STask.SetStageFailed(ctx, reason)
 }

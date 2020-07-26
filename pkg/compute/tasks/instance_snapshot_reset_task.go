@@ -36,16 +36,16 @@ func init() {
 }
 
 func (self *InstanceSnapshotResetTask) taskFail(
-	ctx context.Context, isp *models.SInstanceSnapshot, guest *models.SGuest, reason string) {
+	ctx context.Context, isp *models.SInstanceSnapshot, guest *models.SGuest, reason jsonutils.JSONObject) {
 
 	if guest == nil {
 		guest = models.GuestManager.FetchGuestById(isp.GuestId)
 	}
-	guest.SetStatus(self.UserCred, compute.VM_SNAPSHOT_RESET_FAILED, reason)
+	guest.SetStatus(self.UserCred, compute.VM_SNAPSHOT_RESET_FAILED, reason.String())
 
 	db.OpsLog.LogEvent(guest, db.ACT_VM_RESET_SNAPSHOT_FAILED, reason, self.UserCred)
-	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_RESET, false, self.UserCred, false)
-	notifyclient.NotifySystemError(guest.GetId(), isp.Name, compute.VM_SNAPSHOT_RESET_FAILED, reason)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_RESET, reason, self.UserCred, false)
+	notifyclient.NotifySystemError(guest.GetId(), isp.Name, compute.VM_SNAPSHOT_RESET_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -82,7 +82,7 @@ func (self *InstanceSnapshotResetTask) GuestDiskResetTask(
 
 	isj, err := isp.GetInstanceSnapshotJointAt(diskIndex)
 	if err != nil {
-		self.taskFail(ctx, isp, guest, err.Error())
+		self.taskFail(ctx, isp, guest, jsonutils.NewString(err.Error()))
 		return
 	}
 
@@ -93,7 +93,7 @@ func (self *InstanceSnapshotResetTask) GuestDiskResetTask(
 	disk := disks[diskIndex].GetDisk()
 	err = disk.StartResetDisk(ctx, self.UserCred, isj.SnapshotId, false, guest, self.Id)
 	if err != nil {
-		self.taskFail(ctx, isp, guest, err.Error())
+		self.taskFail(ctx, isp, guest, jsonutils.NewString(err.Error()))
 		return
 	}
 }
@@ -105,7 +105,7 @@ func (self *InstanceSnapshotResetTask) OnDiskReset(
 
 	diskIndex, err := self.Params.Int("disk_index")
 	if err != nil {
-		self.taskFail(ctx, isp, guest, err.Error())
+		self.taskFail(ctx, isp, guest, jsonutils.NewString(err.Error()))
 		return
 	}
 	self.GuestDiskResetTask(ctx, isp, guest, int(diskIndex+1))
@@ -113,5 +113,5 @@ func (self *InstanceSnapshotResetTask) OnDiskReset(
 
 func (self *InstanceSnapshotResetTask) OnDiskResetFailed(
 	ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
-	self.taskFail(ctx, isp, nil, data.String())
+	self.taskFail(ctx, isp, nil, data)
 }
