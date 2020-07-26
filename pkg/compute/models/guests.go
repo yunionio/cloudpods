@@ -323,6 +323,19 @@ func (manager *SGuestManager) ListItemFilter(
 		if len(eip.NetworkId) > 0 {
 			sq := GuestnetworkManager.Query("guest_id").Equals("network_id", eip.NetworkId).SubQuery()
 			q = q.NotIn("id", sq)
+			if cp := eip.GetCloudprovider(); cp == nil || cp.Provider == api.CLOUD_PROVIDER_ONECLOUD {
+				gnq := GuestnetworkManager.Query().SubQuery()
+				nq := NetworkManager.Query().SubQuery()
+				wq := WireManager.Query().SubQuery()
+				vq := VpcManager.Query().SubQuery()
+				q.Join(gnq, sqlchemy.Equals(gnq.Field("guest_id"), q.Field("id")))
+				q.Join(nq, sqlchemy.Equals(nq.Field("id"), gnq.Field("network_id")))
+				q.Join(wq, sqlchemy.Equals(wq.Field("id"), nq.Field("wire_id")))
+				q.Join(vq, sqlchemy.Equals(vq.Field("id"), wq.Field("vpc_id")))
+				q.Filter(sqlchemy.IsNullOrEmpty(gnq.Field("eip_id")))
+				q.Filter(sqlchemy.NotEquals(vq.Field("id"), api.DEFAULT_VPC_ID))
+				// vpc provider thing will be handled ok below
+			}
 		}
 
 		hostTable := HostManager.Query().SubQuery()
