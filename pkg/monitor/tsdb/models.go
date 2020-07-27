@@ -103,8 +103,8 @@ func (p TimePoint) Timestamp() float64 {
 }
 
 func (p TimePoint) Values() []float64 {
-	values := make([]float64, len(p)-1)
-	for i := 0; i < len(p); i++ {
+	values := make([]float64, 0)
+	for i := 0; i < len(p)-1; i++ {
 		values = append(values, *(p[i].(*float64)))
 	}
 	return values

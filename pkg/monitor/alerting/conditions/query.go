@@ -100,7 +100,7 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 	evalMatchCount := 0
 	var matches []*monitor.EvalMatch
 
-	for idx, series := range seriesList {
+	for _, series := range seriesList {
 		reducedValue := c.Reducer.Reduce(series)
 		evalMatch := c.Evaluator.Eval(reducedValue)
 
@@ -119,8 +119,9 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 		}
 		tags := c.filterTags(series.Tags)
 		var meta *tsdb.QueryResultMeta
-		if len(metas) > idx {
-			meta = &metas[idx]
+		if len(metas) > 0 {
+			//the relation metas with series is 1 to more
+			meta = &metas[0]
 		}
 		if evalMatch {
 			matches = append(matches, &monitor.EvalMatch{

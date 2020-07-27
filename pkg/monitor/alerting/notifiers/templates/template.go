@@ -35,11 +35,11 @@ const DefaultMarkdownTemplate = `
 	{{range .Matches}}
 
 	- 指标: {{.Metric}}
-	- 当前值: {{.Value}}
+	- 当前值: {{.Value | FormateFloat}}
 
 	### 触发条件:
 
-	> {{.Condition}}
+	- {{.Condition}}
 
 	### 标签
 
@@ -61,7 +61,7 @@ const EmailMarkdownTemplate = `
 		<p>- 级别: {{.Level}}</p>
 		<p>{{range .Matches}}</p>
 		<p>- 指标: {{.Metric}}</p>
-		<p>- 当前值: {{.Value}}</p>
+		<p>- 当前值: {{.Value | FormateFloat}}</p>
 		</br><p>## 触发条件:</p>
 		<p> {{.Condition}}</p>
 		</br><p>## 标签</p>
@@ -76,9 +76,9 @@ const EmailMarkdownTemplate = `
 `
 
 func (c TemplateConfig) GenerateMarkdown() (string, error) {
-	return CompileTEmplateFromMap(DefaultMarkdownTemplate, c)
+	return CompileTEmplateFromMapText(DefaultMarkdownTemplate, c)
 }
 
 func (c TemplateConfig) GenerateEmailMarkdown() (string, error) {
-	return CompileTEmplateFromMap(EmailMarkdownTemplate, c)
+	return CompileTemplateFromMapHtml(EmailMarkdownTemplate, c)
 }

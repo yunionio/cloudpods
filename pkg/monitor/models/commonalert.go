@@ -77,6 +77,12 @@ func (man *SCommonAlertManager) ValidateCreateData(
 	if data.Name == "" {
 		return data, httperrors.NewInputParameterError("name is empty")
 	}
+	if data.Level == "" {
+		return data, httperrors.NewInputParameterError("level is empty")
+	}
+	if !utils.IsInStringArray(data.Level, monitor.CommonAlertLevels) {
+		return data, httperrors.NewInputParameterError("Invalid level format: %s", data.Level)
+	}
 	if _, err := time.ParseDuration(data.Period); err != nil {
 		return data, httperrors.NewInputParameterError("Invalid period format: %s", data.Period)
 	}
@@ -367,13 +373,18 @@ func (man *SCommonAlertManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (alert *SCommonAlert) ValidateDeleteCondition(ctx context.Context) error {
+func (alert *SCommonAlert) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	isForce, _ := data.Bool("force")
+	if isForce {
+		return isForce
+	}
 	alert_type := alert.getAlertType()
 	switch alert_type {
 	case monitor.CommonAlertSystemAlertType:
-		return httperrors.NewForbiddenError("cannot delete system alert")
+		return false
 	default:
-		return nil
+		return true
 	}
 }
 
@@ -555,6 +566,11 @@ func (alert *SCommonAlert) ValidateUpdateData(
 	data.AlertUpdateInput, err = alert.SAlert.ValidateUpdateData(ctx, userCred, query, data.AlertUpdateInput)
 	if err != nil {
 		return data, errors.Wrap(err, "SAlert.ValidateUpdateData")
+	}
+	if alert.getAlertType() == monitor.CommonAlertSystemAlertType {
+		tmp := data
+		tmp.Settings = nil
+		return tmp, nil
 	}
 	return data, nil
 }
