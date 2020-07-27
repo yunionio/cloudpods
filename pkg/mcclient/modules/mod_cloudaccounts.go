@@ -29,6 +29,7 @@ func init() {
 			"Provider", "Brand",
 			"Enable_Auto_Sync", "Sync_Interval_Seconds",
 			"Share_Mode", "is_public", "public_scope",
+			"auto_create_project",
 		},
 		[]string{})
 
