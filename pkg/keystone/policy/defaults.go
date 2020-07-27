@@ -21,11 +21,12 @@ import (
 )
 
 const (
-	PolicyActionGet    = common_policy.PolicyActionGet
-	PolicyActionList   = common_policy.PolicyActionList
-	PolicyActionCreate = common_policy.PolicyActionCreate
-	PolicyActionUpdate = common_policy.PolicyActionUpdate
-	PolicyActionDelete = common_policy.PolicyActionDelete
+	PolicyActionGet     = common_policy.PolicyActionGet
+	PolicyActionList    = common_policy.PolicyActionList
+	PolicyActionCreate  = common_policy.PolicyActionCreate
+	PolicyActionUpdate  = common_policy.PolicyActionUpdate
+	PolicyActionDelete  = common_policy.PolicyActionDelete
+	PolicyActionPerform = common_policy.PolicyActionPerform
 )
 
 var (
@@ -145,6 +146,12 @@ var (
 					Service:  api.SERVICE_TYPE,
 					Resource: "policies",
 					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "policies",
+					Action:   PolicyActionPerform,
 					Result:   rbacutils.Allow,
 				},
 			},
