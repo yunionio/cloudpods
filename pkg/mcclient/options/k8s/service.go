@@ -82,10 +82,13 @@ type ServiceListOptions struct {
 	Type string `help:"Service type" choices:"ClusterIP|LoadBalancer|NodePort|ExternalName"`
 }
 
-func (o ServiceListOptions) Params() *jsonutils.JSONDict {
-	params := o.NamespaceResourceListOptions.Params()
+func (o ServiceListOptions) Params() (*jsonutils.JSONDict, error) {
+	params, err := o.NamespaceResourceListOptions.Params()
+	if err != nil {
+		return nil, err
+	}
 	if o.Type != "" {
 		params.Add(jsonutils.NewString(o.Type), "type")
 	}
-	return params
+	return params, nil
 }

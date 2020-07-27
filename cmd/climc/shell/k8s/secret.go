@@ -31,7 +31,11 @@ func initSecret() {
 		cmdN.Do("list"),
 		"List secret resource",
 		func(s *mcclient.ClientSession, args *o.SecretListOptions) error {
-			ret, err := k8s.Secrets.List(s, args.Params())
+			params, err := args.Params()
+			if err != nil {
+				return err
+			}
+			ret, err := k8s.Secrets.List(s, params)
 			if err != nil {
 				return err
 			}

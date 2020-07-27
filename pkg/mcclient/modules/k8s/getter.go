@@ -57,10 +57,17 @@ type ageGetter struct{}
 func (g ageGetter) Get_Age(obj jsonutils.JSONObject) interface{} {
 	creationTimestamp, err := obj.GetString("creationTimestamp")
 	if err != nil {
-		log.Errorf("Get creationTimestamp error: %v", err)
+		creationTimestamp, err = obj.GetString("created_at")
+		if err != nil {
+			log.Errorf("Get creationTimestamp and created_at error: %v", err)
+			return nil
+		}
+	}
+	t, err := time.Parse(time.RFC3339, creationTimestamp)
+	if err != nil {
+		log.Errorf("parse creationTimestamp %v: %v", creationTimestamp, err)
 		return nil
 	}
-	t, _ := time.Parse(time.RFC3339, creationTimestamp)
 	dur := time.Since(t)
 	return durafmt.ParseShort(dur).String()
 }

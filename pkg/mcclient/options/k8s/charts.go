@@ -28,8 +28,11 @@ type ChartListOptions struct {
 	Type       string `help:"Chart type" choices:"internal|external"`
 }
 
-func (o ChartListOptions) Params() *jsonutils.JSONDict {
-	params := o.BaseListOptions.Params()
+func (o ChartListOptions) Params() (*jsonutils.JSONDict, error) {
+	params, err := o.BaseListOptions.Params()
+	if err != nil {
+		return nil, err
+	}
 	if len(o.Name) != 0 {
 		params.Add(jsonutils.NewString(o.Name), "name")
 	}
@@ -51,7 +54,7 @@ func (o ChartListOptions) Params() *jsonutils.JSONDict {
 	if o.Type != "" {
 		params.Add(jsonutils.NewString(o.Type), "type")
 	}
-	return params
+	return params, nil
 }
 
 type ChartGetOptions struct {

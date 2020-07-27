@@ -26,7 +26,11 @@ func initChart() {
 	}
 
 	R(&o.ChartListOptions{}, cmdN("list"), "List k8s helm global charts", func(s *mcclient.ClientSession, args *o.ChartListOptions) error {
-		charts, err := k8s.Charts.List(s, args.Params())
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+		charts, err := k8s.Charts.List(s, params)
 		if err != nil {
 			return err
 		}

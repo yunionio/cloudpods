@@ -23,12 +23,15 @@ type PVCListOptions struct {
 	Unused bool `help:"Filter unused pvc"`
 }
 
-func (o PVCListOptions) Params() *jsonutils.JSONDict {
-	params := o.NamespaceResourceListOptions.Params()
+func (o PVCListOptions) Params() (*jsonutils.JSONDict, error) {
+	params, err := o.NamespaceResourceListOptions.Params()
+	if err != nil {
+		return nil, err
+	}
 	if o.Unused {
 		params.Add(jsonutils.JSONTrue, "unused")
 	}
-	return params
+	return params, nil
 }
 
 type PVCCreateOptions struct {
