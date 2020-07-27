@@ -34,6 +34,7 @@ var (
 		"loadbalanceragents",
 		// "reservedips",
 		"policy_definitions",
+		"schedtags",
 	}
 	computeDomainResources = []string{
 		"cloudaccounts",
