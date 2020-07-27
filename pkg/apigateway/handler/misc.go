@@ -59,6 +59,12 @@ const (
 	BATCH_HOST_REGISTER_QUANTITY_LIMITATION = 1000
 )
 
+var (
+	BatchHostRegisterTemplate    = []string{HOST_MAC, HOST_NAME, HOST_IPMI_ADDR_OPTIONAL, HOST_IPMI_USERNAME_OPTIONAL, HOST_IPMI_PASSWORD_OPTIONAL}
+	BatchHostISORegisterTemplate = []string{HOST_NAME, HOST_IPMI_ADDR, HOST_IPMI_USERNAME, HOST_IPMI_PASSWORD, HOST_MNG_IP_ADDR}
+	BatchHostPXERegisterTemplate = []string{HOST_NAME, HOST_IPMI_ADDR, HOST_IPMI_USERNAME, HOST_IPMI_PASSWORD, HOST_MNG_IP_ADDR_OPTIONAL}
+)
+
 func FetchSession(ctx context.Context, r *http.Request, apiVersion string) *mcclient.ClientSession {
 	token := AppContextToken(ctx)
 	session := auth.GetSession(ctx, token, FetchRegion(r), apiVersion)
@@ -169,6 +175,25 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 	if len(rows) == 0 {
 		e := httperrors.NewGeneralError(fmt.Errorf("empty file content"))
 		httperrors.JsonClientError(w, e)
+		return
+	}
+
+	// check header line
+	titlesOk := false
+	for _, t := range [][]string{BatchHostRegisterTemplate, BatchHostISORegisterTemplate, BatchHostPXERegisterTemplate} {
+		if len(t) == len(rows[0]) {
+			for _, title := range rows[0] {
+				if !utils.IsInStringArray(title, t) {
+					break
+				}
+			}
+
+			titlesOk = true
+		}
+	}
+
+	if !titlesOk {
+		httperrors.InputParameterError(w, "template file is invalid.please check.")
 		return
 	}
 
@@ -406,21 +431,21 @@ func (mh *MiscHandler) getDownloadsHandler(ctx context.Context, w http.ResponseW
 	var content bytes.Buffer
 	switch template {
 	case "BatchHostRegister":
-		records := [][]string{{HOST_MAC, HOST_NAME, HOST_IPMI_ADDR_OPTIONAL, HOST_IPMI_USERNAME_OPTIONAL, HOST_IPMI_PASSWORD_OPTIONAL}}
+		records := [][]string{BatchHostRegisterTemplate}
 		content, err = writeXlsx("hosts", records)
 		if err != nil {
 			httperrors.InternalServerError(w, "internal server error")
 			return
 		}
 	case "BatchHostISORegister":
-		records := [][]string{{HOST_NAME, HOST_IPMI_ADDR, HOST_IPMI_USERNAME, HOST_IPMI_PASSWORD, HOST_MNG_IP_ADDR}}
+		records := [][]string{BatchHostISORegisterTemplate}
 		content, err = writeXlsx("hosts", records)
 		if err != nil {
 			httperrors.InternalServerError(w, "internal server error")
 			return
 		}
 	case "BatchHostPXERegister":
-		records := [][]string{{HOST_NAME, HOST_IPMI_ADDR, HOST_IPMI_USERNAME, HOST_IPMI_PASSWORD, HOST_MNG_IP_ADDR_OPTIONAL}}
+		records := [][]string{BatchHostPXERegisterTemplate}
 		content, err = writeXlsx("hosts", records)
 		if err != nil {
 			httperrors.InternalServerError(w, "internal server error")
