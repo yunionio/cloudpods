@@ -405,6 +405,15 @@ func (self *SSchedtag) getMoreColumns(out api.SchedtagDetails) api.SchedtagDetai
 	}
 	out.DynamicSchedtagCount, _ = self.getDynamicSchedtagCount()
 	out.SchedpolicyCount, _ = self.getSchedPoliciesCount()
+
+	// resource_count = row.host_count || row.other_count || '0'
+	if out.HostCount > 0 {
+		out.ResourceCount = out.HostCount
+	} else if out.OtherCount > 0 {
+		out.ResourceCount = out.OtherCount
+	} else {
+		out.ResourceCount = 0
+	}
 	return out
 }
 
