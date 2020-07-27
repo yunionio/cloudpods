@@ -57,6 +57,7 @@ type GuestTemplateDetails struct {
 
 	Secgroups []string `json:"secgroups"`
 	Zone      string   `json:"zone"`
+	ZoneId    string   `json:"zone_id"`
 	Brand     string   `json:"brand"`
 
 	ConfigInfo GuestTemplateConfigInfo `json:"config_info"`
@@ -71,9 +72,7 @@ type GuestTemplateListInput struct {
 }
 
 type GuestTemplateConfigInfo struct {
-	Region               string                 `json:"region"`
-	Zone                 string                 `json:"zone"`
-	Hypervisor           string                 `json:"hypervisor"`
+	Metadata             map[string]string      `json:"metadata"`
 	Secgroup             string                 `json:"secgroup"`
 	Sku                  GuestTemplateSku       `json:"sku"`
 	Disks                []GuestTemplateDisk    `json:"disks"`

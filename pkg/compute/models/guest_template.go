@@ -345,24 +345,18 @@ func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.
 		return out, err
 	}
 	configInfo := computeapis.GuestTemplateConfigInfo{}
-	if len(input.PreferRegion) != 0 {
-		region := CloudregionManager.FetchRegionById(input.PreferRegion)
-		if region != nil {
-			input.PreferRegion = region.GetName()
-		}
-		configInfo.Region = input.PreferRegion
-
-	}
 	if len(input.PreferZone) != 0 {
 		zone := ZoneManager.FetchZoneById(input.PreferZone)
 		if zone != nil {
 			input.PreferZone = zone.GetName()
 		}
+		out.ZoneId = zone.GetId()
 		out.Zone = input.PreferZone
-		configInfo.Zone = input.PreferZone
 	}
-	configInfo.Hypervisor = gt.Hypervisor
 	out.Brand = Hypervisor2Brand(gt.Hypervisor)
+
+	// metadata
+	configInfo.Metadata = input.Metadata
 
 	// sku deal
 	if len(input.InstanceType) > 0 {
