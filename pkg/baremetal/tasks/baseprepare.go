@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/baremetal/utils/ipmitool"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
+	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -55,14 +56,15 @@ func newBaremetalPrepareTask(baremetal IBaremetal, userCred mcclient.TokenCreden
 }
 
 type baremetalPrepareInfo struct {
-	sysInfo       *types.SSystemInfo
-	cpuInfo       *types.SCPUInfo
-	dmiCpuInfo    *types.SDMICPUInfo
-	memInfo       *types.SDMIMemInfo
-	nicsInfo      []*types.SNicDevInfo
-	diskInfo      []*baremetal.BaremetalStorage
-	storageDriver string
-	ipmiInfo      *types.SIPMIInfo
+	sysInfo             *types.SSystemInfo
+	cpuInfo             *types.SCPUInfo
+	dmiCpuInfo          *types.SDMICPUInfo
+	memInfo             *types.SDMIMemInfo
+	nicsInfo            []*types.SNicDevInfo
+	diskInfo            []*baremetal.BaremetalStorage
+	storageDriver       string
+	ipmiInfo            *types.SIPMIInfo
+	isolatedDevicesInfo []*isolated_device.PCIDevice
 }
 
 func (task *sBaremetalPrepareTask) GetStartTime() time.Time {
@@ -92,6 +94,10 @@ func (task *sBaremetalPrepareTask) prepareBaremetalInfo(cli *ssh.Client) (*barem
 		return nil, err
 	}
 	nicsInfo, err := getNicsInfo(cli)
+	if err != nil {
+		return nil, err
+	}
+	isolatedDevicesInfo, err := getIsolatedDevicesInfo(cli)
 	if err != nil {
 		return nil, err
 	}
@@ -140,6 +146,7 @@ func (task *sBaremetalPrepareTask) prepareBaremetalInfo(cli *ssh.Client) (*barem
 		diskInfo,
 		storageDriver,
 		ipmiInfo,
+		isolatedDevicesInfo,
 	}, nil
 }
 
@@ -392,6 +399,12 @@ func (task *sBaremetalPrepareTask) updateBmInfo(cli *ssh.Client, i *baremetalPre
 	if err := task.sendStorageInfo(size); err != nil {
 		log.Errorf("sendStorageInfo error: %v", err)
 		return errors.Wrap(err, "task.sendStorageInfo")
+	}
+	if len(i.isolatedDevicesInfo) > 0 {
+		err = task.sendIsolatedDevicesInfo(task.getClientSession(), i.isolatedDevicesInfo)
+		if err != nil {
+			return errors.Wrap(err, "send isolated devices info")
+		}
 	}
 	// XXX do not change nic order anymore
 	// for i := range nicsInfo {
@@ -654,6 +667,23 @@ func getNicsInfo(cli *ssh.Client) ([]*types.SNicDevInfo, error) {
 	return sysutils.ParseNicInfo(ret), nil
 }
 
+func getIsolatedDevicesInfo(cli *ssh.Client) ([]*isolated_device.PCIDevice, error) {
+	lines, err := cli.Run("lspci -nnmm | egrep '3D|VGA'")
+	if err != nil {
+		return nil, errors.Wrap(err, "run lspci")
+	}
+	devs := []*isolated_device.PCIDevice{}
+	for _, line := range lines {
+		if len(line) > 0 {
+			dev := isolated_device.NewPCIDevice2(line)
+			if len(dev.Addr) > 0 {
+				devs = append(devs, dev)
+			}
+		}
+	}
+	return devs, nil
+}
+
 func isIPMIEnable(cli *ssh.Client) (bool, error) {
 	ret, err := cli.Run("/usr/sbin/dmidecode -t 38")
 	if err != nil {
@@ -688,6 +718,18 @@ func (task *sBaremetalPrepareTask) sendStorageInfo(size int64) error {
 	params.Add(jsonutils.NewString(task.baremetal.GetStorageCacheId()), "storagecache_id")
 	_, err := modules.Hosts.PerformAction(task.getClientSession(), task.baremetal.GetId(), "update-storage", params)
 	return err
+}
+
+func (task *sBaremetalPrepareTask) sendIsolatedDevicesInfo(
+	session *mcclient.ClientSession, devs []*isolated_device.PCIDevice,
+) error {
+	for i := 0; i < len(devs); i++ {
+		dev := isolated_device.NewGPUHPCDevice(devs[i])
+		if err := dev.SyncDeviceInfo(session, task.baremetal.GetId()); err != nil {
+			return errors.Wrap(err, "sync device info")
+		}
+	}
+	return nil
 }
 
 func (task *sBaremetalPrepareTask) doNicWireProbe(cli *ssh.Client, nic *types.SNicDevInfo) error {

@@ -1395,7 +1395,7 @@ func (h *SHostInfo) onGetIsolatedDeviceSucc(objs []jsonutils.JSONObject) {
 
 func (h *SHostInfo) uploadIsolatedDevices() {
 	for _, dev := range h.IsolatedDeviceMan.Devices {
-		if err := dev.SyncDeviceInfo(h); err != nil {
+		if err := dev.SyncDeviceInfo(h.GetSession(), h.HostId); err != nil {
 			h.onFail(fmt.Sprintf("Sync device %s: %v", dev.String(), err))
 		}
 	}

@@ -53,11 +53,20 @@ func (self *BaremetalDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneM
 			return
 		}
 		log.Errorln(err.Error())
-		self.OnFailure(ctx, baremetal, nil)
+		self.OnFailure(ctx, baremetal, jsonutils.NewString(err.Error()))
 	}
 }
 
 func (self *BaremetalDeleteTask) OnDeleteBaremetalComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
+	// clean isolated device recoreds
+	devs := models.IsolatedDeviceManager.FindByHost(baremetal.GetId())
+	for i := 0; i < len(devs); i++ {
+		if err := devs[i].ValidateDeleteCondition(ctx); err != nil {
+			self.OnFailure(ctx, baremetal, jsonutils.NewString(err.Error()))
+			return
+		}
+		devs[i].CustomizeDelete(ctx, self.UserCred, nil, nil)
+	}
 	baremetal.RealDelete(ctx, self.UserCred)
 	self.SetStageComplete(ctx, nil)
 }
