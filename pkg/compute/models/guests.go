@@ -557,6 +557,26 @@ func (manager *SGuestManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field 
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SGuestManager) InitializeData() error {
+	guests := make([]SGuest, 0, 10)
+	q := manager.Query().Equals("hypervisor", "esxi")
+	err := db.FetchModelObjects(manager, q, &guests)
+	if err != nil {
+		return errors.Wrap(err, "db.FetchModelObjects")
+	}
+	// remove secgroup for esxi guest
+	for i := range guests {
+		if len(guests[i].SecgrpId) == 0 {
+			continue
+		}
+		db.Update(&guests[i], func() error {
+			guests[i].SecgrpId = ""
+			return nil
+		})
+	}
+	return nil
+}
+
 func (guest *SGuest) GetHypervisor() string {
 	if len(guest.Hypervisor) == 0 {
 		return api.HYPERVISOR_DEFAULT
@@ -1355,6 +1375,7 @@ func (manager *SGuestManager) validateCreateData(
 
 	maxSecgrpCount := GetDriver(hypervisor).GetMaxSecurityGroupCount()
 	if maxSecgrpCount == 0 { //esxi 不支持安全组
+		input.SecgroupId = ""
 		input.Secgroups = []string{}
 	} else if len(input.Secgroups)+1 > maxSecgrpCount {
 		return nil, httperrors.NewInputParameterError("%s shall bind up to %d security groups", hypervisor, maxSecgrpCount)
