@@ -1563,33 +1563,56 @@ func (provider *SCloudprovider) AllowGetDetailsStorageClasses(
 func (provider *SCloudprovider) GetDetailsStorageClasses(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-) (jsonutils.JSONObject, error) {
+	input api.CloudproviderGetStorageClassInput,
+) (api.CloudproviderGetStorageClassOutput, error) {
+	output := api.CloudproviderGetStorageClassOutput{}
 	driver, err := provider.GetProvider()
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("fail to get provider driver %s", err)
+		return output, httperrors.NewInternalServerError("fail to get provider driver %s", err)
 	}
-	extId := ""
-	regionStr := jsonutils.GetAnyString(query, []string{"cloudregion", "cloudregion_id"})
-	if len(regionStr) > 0 {
-		regionObj, err := CloudregionManager.FetchByIdOrName(userCred, regionStr)
+	if len(input.Cloudregion) > 0 {
+		_, input.CloudregionResourceInput, err = ValidateCloudregionResourceInput(userCred, input.CloudregionResourceInput)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudregionManager.Keyword(), regionStr)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
+			return output, errors.Wrap(err, "ValidateCloudregionResourceInput")
 		}
-		extId = regionObj.(*SCloudregion).GetExternalId()
 	}
 
-	sc := driver.GetStorageClasses(extId)
+	sc := driver.GetStorageClasses(input.Cloudregion)
 	if sc == nil {
-		return nil, httperrors.NewInternalServerError("storage classes not supported")
+		return output, httperrors.NewInternalServerError("storage classes not supported")
 	}
-	ret := jsonutils.NewDict()
-	ret.Add(jsonutils.NewStringArray(sc), "storage_classes")
-	return ret, nil
+	output.StorageClasses = sc
+	return output, nil
+}
+
+func (provider *SCloudprovider) AllowGetDetailsCannedAcls(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) bool {
+	return db.IsAdminAllowGetSpec(userCred, provider, "canned-acls")
+}
+
+func (provider *SCloudprovider) GetDetailsCannedAcls(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	input api.CloudproviderGetCannedAclInput,
+) (api.CloudproviderGetCannedAclOutput, error) {
+	output := api.CloudproviderGetCannedAclOutput{}
+	driver, err := provider.GetProvider()
+	if err != nil {
+		return output, httperrors.NewInternalServerError("fail to get provider driver %s", err)
+	}
+	if len(input.Cloudregion) > 0 {
+		_, input.CloudregionResourceInput, err = ValidateCloudregionResourceInput(userCred, input.CloudregionResourceInput)
+		if err != nil {
+			return output, errors.Wrap(err, "ValidateCloudregionResourceInput")
+		}
+	}
+
+	output.BucketCannedAcls = driver.GetBucketCannedAcls(input.Cloudregion)
+	output.ObjectCannedAcls = driver.GetObjectCannedAcls(input.Cloudregion)
+	return output, nil
 }
 
 func (provider *SCloudprovider) getAccountShareInfo() apis.SAccountShareInfo {

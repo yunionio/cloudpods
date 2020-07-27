@@ -161,6 +161,22 @@ func (self *SAliyunProvider) GetStorageClasses(regionId string) []string {
 	}
 }
 
+func (self *SAliyunProvider) GetBucketCannedAcls(regionId string) []string {
+	return []string{
+		string(cloudprovider.ACLPrivate),
+		string(cloudprovider.ACLPublicRead),
+		string(cloudprovider.ACLPublicReadWrite),
+	}
+}
+
+func (self *SAliyunProvider) GetObjectCannedAcls(regionId string) []string {
+	return []string{
+		string(cloudprovider.ACLPrivate),
+		string(cloudprovider.ACLPublicRead),
+		string(cloudprovider.ACLPublicReadWrite),
+	}
+}
+
 func (self *SAliyunProvider) GetCapabilities() []string {
 	return self.client.GetCapabilities()
 }

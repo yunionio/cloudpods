@@ -251,3 +251,23 @@ type CloudproviderUpdateInput struct {
 
 type CloudproviderCreateInput struct {
 }
+
+type CloudproviderGetStorageClassInput struct {
+	CloudregionResourceInput
+}
+
+type CloudproviderGetStorageClassOutput struct {
+	// 对象存储存储类型
+	StorageClasses []string `json:"storage_classes"`
+}
+
+type CloudproviderGetCannedAclInput struct {
+	CloudregionResourceInput
+}
+
+type CloudproviderGetCannedAclOutput struct {
+	// Bucket支持的预置ACL列表
+	BucketCannedAcls []string `json:"bucket_canned_acls"`
+	// Object支持的预置ACL列表
+	ObjectCannedAcls []string `json:"object_canned_acls"`
+}

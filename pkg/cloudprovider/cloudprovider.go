@@ -215,6 +215,8 @@ type ICloudProvider interface {
 	GetCloudRegionExternalIdPrefix() string
 
 	GetStorageClasses(regionId string) []string
+	GetBucketCannedAcls(regionId string) []string
+	GetObjectCannedAcls(regionId string) []string
 
 	GetCapabilities() []string
 	GetICloudQuotas() ([]ICloudQuota, error)
