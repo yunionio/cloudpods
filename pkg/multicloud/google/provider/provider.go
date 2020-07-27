@@ -232,6 +232,24 @@ func (self *SGoogleProvider) GetStorageClasses(regionId string) []string {
 	}
 }
 
+func (self *SGoogleProvider) GetBucketCannedAcls(regionId string) []string {
+	return []string{
+		string(cloudprovider.ACLPrivate),
+		string(cloudprovider.ACLAuthRead),
+		string(cloudprovider.ACLPublicRead),
+		string(cloudprovider.ACLPublicReadWrite),
+	}
+}
+
+func (self *SGoogleProvider) GetObjectCannedAcls(regionId string) []string {
+	return []string{
+		string(cloudprovider.ACLPrivate),
+		string(cloudprovider.ACLAuthRead),
+		string(cloudprovider.ACLPublicRead),
+		string(cloudprovider.ACLPublicReadWrite),
+	}
+}
+
 func (self *SGoogleProvider) GetCapabilities() []string {
 	return self.client.GetCapabilities()
 }

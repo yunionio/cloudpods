@@ -168,6 +168,14 @@ func (self *SAwsProvider) GetStorageClasses(regionId string) []string {
 	}
 }
 
+func (self *SAwsProvider) GetBucketCannedAcls(regionId string) []string {
+	return self.client.GetBucketCannedAcls()
+}
+
+func (self *SAwsProvider) GetObjectCannedAcls(regionId string) []string {
+	return self.client.GetObjectCannedAcls()
+}
+
 func (self *SAwsProvider) GetCloudRegionExternalIdPrefix() string {
 	return self.client.GetAccessEnv() + "/"
 }
