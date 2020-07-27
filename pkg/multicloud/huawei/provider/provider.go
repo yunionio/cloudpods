@@ -210,6 +210,24 @@ func (self *SHuaweiProvider) GetStorageClasses(regionId string) []string {
 	}
 }
 
+func (self *SHuaweiProvider) GetBucketCannedAcls(regionId string) []string {
+	return []string{
+		string(cloudprovider.ACLPrivate),
+		string(cloudprovider.ACLAuthRead),
+		string(cloudprovider.ACLPublicRead),
+		string(cloudprovider.ACLPublicReadWrite),
+	}
+}
+
+func (self *SHuaweiProvider) GetObjectCannedAcls(regionId string) []string {
+	return []string{
+		string(cloudprovider.ACLPrivate),
+		string(cloudprovider.ACLAuthRead),
+		string(cloudprovider.ACLPublicRead),
+		string(cloudprovider.ACLPublicReadWrite),
+	}
+}
+
 func (self *SHuaweiProvider) GetCapabilities() []string {
 	return self.client.GetCapabilities()
 }

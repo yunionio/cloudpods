@@ -174,6 +174,20 @@ func (self *SUcloudProvider) GetStorageClasses(regionId string) []string {
 	}
 }
 
+func (self *SUcloudProvider) GetBucketCannedAcls(regionId string) []string {
+	return []string{
+		string(cloudprovider.ACLPrivate),
+		string(cloudprovider.ACLPublicRead),
+	}
+}
+
+func (self *SUcloudProvider) GetObjectCannedAcls(regionId string) []string {
+	return []string{
+		string(cloudprovider.ACLPrivate),
+		string(cloudprovider.ACLPublicRead),
+	}
+}
+
 func (self *SUcloudProvider) GetCapabilities() []string {
 	return self.client.GetCapabilities()
 }

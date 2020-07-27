@@ -80,7 +80,9 @@ func (self *SObjectStoreProviderFactory) GetProvider(cfg cloudprovider.ProviderC
 	if err != nil {
 		return nil, err
 	}
-	return NewObjectStoreProvider(self, client), nil
+	return NewObjectStoreProvider(self, client, []string{
+		string(cloudprovider.ACLPrivate),
+	}), nil
 }
 
 func (self *SObjectStoreProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
@@ -99,13 +101,15 @@ func init() {
 
 type SObjectStoreProvider struct {
 	cloudprovider.SBaseProvider
-	client objectstore.IBucketProvider
+	client        objectstore.IBucketProvider
+	supportedAcls []string
 }
 
-func NewObjectStoreProvider(factory cloudprovider.ICloudProviderFactory, client objectstore.IBucketProvider) *SObjectStoreProvider {
+func NewObjectStoreProvider(factory cloudprovider.ICloudProviderFactory, client objectstore.IBucketProvider, acls []string) *SObjectStoreProvider {
 	return &SObjectStoreProvider{
 		SBaseProvider: cloudprovider.NewBaseProvider(factory),
 		client:        client,
+		supportedAcls: acls,
 	}
 }
 
@@ -147,6 +151,14 @@ func (self *SObjectStoreProvider) GetAccountId() string {
 
 func (self *SObjectStoreProvider) GetStorageClasses(regionId string) []string {
 	return []string{}
+}
+
+func (self *SObjectStoreProvider) GetBucketCannedAcls(regionId string) []string {
+	return self.supportedAcls
+}
+
+func (self *SObjectStoreProvider) GetObjectCannedAcls(regionId string) []string {
+	return self.supportedAcls
 }
 
 func (self *SObjectStoreProvider) GetCapabilities() []string {

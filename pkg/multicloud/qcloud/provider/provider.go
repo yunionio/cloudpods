@@ -210,6 +210,22 @@ func (self *SQcloudProvider) GetStorageClasses(regionId string) []string {
 	}
 }
 
+func (self *SQcloudProvider) GetBucketCannedAcls(regionId string) []string {
+	return []string{
+		string(cloudprovider.ACLPrivate),
+		string(cloudprovider.ACLAuthRead),
+		string(cloudprovider.ACLPublicRead),
+	}
+}
+
+func (self *SQcloudProvider) GetObjectCannedAcls(regionId string) []string {
+	return []string{
+		string(cloudprovider.ACLPrivate),
+		string(cloudprovider.ACLAuthRead),
+		string(cloudprovider.ACLPublicRead),
+	}
+}
+
 func (self *SQcloudProvider) GetCapabilities() []string {
 	return self.client.GetCapabilities()
 }

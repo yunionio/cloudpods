@@ -193,6 +193,14 @@ func (self *SESXiProvider) GetStorageClasses(regionId string) []string {
 	return nil
 }
 
+func (self *SESXiProvider) GetBucketCannedAcls(regionId string) []string {
+	return nil
+}
+
+func (self *SESXiProvider) GetObjectCannedAcls(regionId string) []string {
+	return nil
+}
+
 func (self *SESXiProvider) GetCapabilities() []string {
 	return self.client.GetCapabilities()
 }
