@@ -47,9 +47,17 @@ func (self *SProject) GetHealthStatus() string {
 }
 
 func (self *SHuaweiClient) fetchProjects() ([]SProject, error) {
+	if self.projects != nil {
+		return self.projects, nil
+	}
+
 	huawei, _ := self.newGeneralAPIClient()
 	projects := make([]SProject, 0)
 	err := doListAll(huawei.Projects.List, nil, &projects)
+	if err == nil {
+		self.projects = projects
+	}
+
 	return projects, err
 }
 
