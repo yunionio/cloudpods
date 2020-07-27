@@ -72,6 +72,7 @@ type GuestTemplateListInput struct {
 }
 
 type GuestTemplateConfigInfo struct {
+	Metadata             map[string]string      `json:"metadata"`
 	Secgroup             string                 `json:"secgroup"`
 	Sku                  GuestTemplateSku       `json:"sku"`
 	Disks                []GuestTemplateDisk    `json:"disks"`
