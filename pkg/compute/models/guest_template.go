@@ -325,6 +325,9 @@ func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.
 	}
 	out.Brand = Hypervisor2Brand(gt.Hypervisor)
 
+	// metadata
+	configInfo.Metadata = input.Metadata
+
 	// sku deal
 	if len(input.InstanceType) > 0 {
 		skuOutput := computeapis.GuestTemplateSku{}
