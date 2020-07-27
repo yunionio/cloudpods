@@ -721,7 +721,7 @@ func (self *SHost) GetHoststorages() []SHoststorage {
 	hoststorages := make([]SHoststorage, 0)
 	q := self.GetHoststoragesQuery()
 	err := db.FetchModelObjects(HoststorageManager, q, &hoststorages)
-	if err != nil {
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
 		log.Errorf("GetHoststorages error %s", err)
 		return nil
 	}
@@ -733,7 +733,9 @@ func (self *SHost) GetHoststorageOfId(storageId string) *SHoststorage {
 	hoststorage.SetModelManager(HoststorageManager, &hoststorage)
 	err := self.GetHoststoragesQuery().Equals("storage_id", storageId).First(&hoststorage)
 	if err != nil {
-		log.Errorf("GetHoststorageOfId fail %s", err)
+		if errors.Cause(err) != sql.ErrNoRows {
+			log.Errorf("GetHoststorageOfId fail %s", err)
+		}
 		return nil
 	}
 	return &hoststorage
@@ -752,7 +754,9 @@ func (self *SHost) GetHoststorageByExternalId(extId string) *SHoststorage {
 
 	err := q.First(&hoststorage)
 	if err != nil {
-		log.Errorf("GetHoststorageByExternalId fail %s", err)
+		if errors.Cause(err) != sql.ErrNoRows {
+			log.Errorf("GetHoststorageByExternalId fail %s", err)
+		}
 		return nil
 	}
 
