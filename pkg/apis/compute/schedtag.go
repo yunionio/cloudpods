@@ -86,6 +86,7 @@ type SchedtagDetails struct {
 	HostCount        int    `json:"host_count"`
 	ServerCount      int    `json:"server_count"`
 	OtherCount       int    `json:"other_count"`
+	ResourceCount    int    `json:"resource_count"`
 	JoinModelKeyword string `json:"join_model_keyword"`
 }
 
