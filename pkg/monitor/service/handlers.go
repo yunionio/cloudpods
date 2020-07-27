@@ -85,7 +85,7 @@ func InitInfluxDBSubscriptionHandlers(app *appsrv.Application, options *common_o
 	root := mux.NewRouter()
 	root.UseEncodedPath()
 
-	//addCommonAlertDispatcher("", app)
+	addCommonAlertDispatcher("", app)
 	addMiscHandlers(root)
 	root.PathPrefix("").Handler(app)
 
