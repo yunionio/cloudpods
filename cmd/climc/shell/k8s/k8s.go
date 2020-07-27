@@ -149,7 +149,11 @@ func NewK8sResourceListCmd(cmdN CmdNameFactory, manager modulebase.Manager) *Cmd
 		cmdN.Do("list"),
 		fmt.Sprintf("List k8s %s", cmdN.Kind),
 		func(s *mcclient.ClientSession, args *o.ResourceListOptions) error {
-			ret, err := manager.List(s, args.Params())
+			params, err := args.Params()
+			if err != nil {
+				return err
+			}
+			ret, err := manager.List(s, params)
 			if err != nil {
 				return err
 			}
@@ -179,7 +183,11 @@ func NewK8sNsResourceListCmd(cmdN CmdNameFactory, manager modulebase.Manager) *C
 		cmdN.Do("list"),
 		fmt.Sprintf("List k8s %s", cmdN.Kind),
 		func(s *mcclient.ClientSession, args *o.NamespaceResourceListOptions) error {
-			ret, err := manager.List(s, args.Params())
+			params, err := args.Params()
+			if err != nil {
+				return err
+			}
+			ret, err := manager.List(s, params)
 			if err != nil {
 				return err
 			}

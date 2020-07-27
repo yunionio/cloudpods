@@ -25,7 +25,10 @@ func initRelease() {
 		return resourceCmdN("release", suffix)
 	}
 	R(&o.ReleaseListOptions{}, cmdN("list"), "List k8s cluster helm releases", func(s *mcclient.ClientSession, args *o.ReleaseListOptions) error {
-		params := args.Params()
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
 		ret, err := k8s.Releases.List(s, params)
 		if err != nil {
 			return err

@@ -32,7 +32,11 @@ func initService() {
 		cmdN.Do("list"),
 		"List Services resource",
 		func(s *mcclient.ClientSession, args *o.ServiceListOptions) error {
-			ret, err := k8s.Services.List(s, args.Params())
+			params, err := args.Params()
+			if err != nil {
+				return err
+			}
+			ret, err := k8s.Services.List(s, params)
 			if err != nil {
 				return err
 			}

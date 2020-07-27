@@ -85,8 +85,14 @@ func PrintListResultTable(res *modulebase.ListResult, printer k8s.ListPrinter, s
 	total := res.Total
 	offset := res.Offset
 	limit := res.Limit
-	page := (offset / limit) + 1
-	pages := total / limit
+	var (
+		page  = 0
+		pages = 0
+	)
+	if limit != 0 {
+		page = (offset / limit) + 1
+		pages = total / limit
+	}
 	if pages*limit < total {
 		pages += 1
 	}

@@ -23,8 +23,6 @@ import (
 
 type ReleaseListOptions struct {
 	NamespaceResourceListOptions
-	Filter     string `help:"Filter, split by space"`
-	Admin      bool   `help:"Admin to show all namespace releases"`
 	Deployed   bool   `help:"Show deployed status releases"`
 	Deleted    bool   `help:"Show deleted status releases"`
 	Deleting   bool   `help:"Show deleting status releases"`
@@ -34,10 +32,10 @@ type ReleaseListOptions struct {
 	Type       string `help:"Release type" choices:"internal|external"`
 }
 
-func (o ReleaseListOptions) Params() *jsonutils.JSONDict {
-	params := o.NamespaceResourceListOptions.Params()
-	if o.Filter != "" {
-		params.Add(jsonutils.NewString(o.Filter), "filter")
+func (o ReleaseListOptions) Params() (*jsonutils.JSONDict, error) {
+	params, err := o.NamespaceResourceListOptions.Params()
+	if err != nil {
+		return nil, err
 	}
 	if o.Namespace != "" {
 		params.Add(jsonutils.NewString(o.Namespace), "namespace")
@@ -49,9 +47,6 @@ func (o ReleaseListOptions) Params() *jsonutils.JSONDict {
 		params.Add(jsonutils.NewString(o.Type), "type")
 	}
 	params.Add(jsonutils.JSONTrue, "all")
-	if o.Admin {
-		params.Add(jsonutils.JSONTrue, "admin")
-	}
 	if o.Deployed {
 		params.Add(jsonutils.JSONTrue, "deployed")
 	}
@@ -70,7 +65,7 @@ func (o ReleaseListOptions) Params() *jsonutils.JSONDict {
 	if o.Pending {
 		params.Add(jsonutils.JSONTrue, "pending")
 	}
-	return params
+	return params, nil
 }
 
 type ReleaseCreateUpdateOptions struct {

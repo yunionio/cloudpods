@@ -16,6 +16,8 @@ package k8s
 
 import (
 	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 type ClusterBaseOptions struct {
@@ -46,27 +48,19 @@ func (o ClusterResourceCreateOptions) Params() *jsonutils.JSONDict {
 }
 
 type BaseListOptions struct {
-	Limit  int    `default:"20" help:"Page limit"`
-	Offset int    `default:"0" help:"Page offset"`
-	Name   string `help:"Search by name"`
-	System *bool  `help:"Show system resource"`
+	options.BaseListOptions
+	Name string `help:"List by name"`
 }
 
-func (o BaseListOptions) Params() *jsonutils.JSONDict {
-	params := jsonutils.NewDict()
-	if o.Limit > 0 {
-		params.Add(jsonutils.NewInt(int64(o.Limit)), "limit")
-	}
-	if o.Offset > 0 {
-		params.Add(jsonutils.NewInt(int64(o.Offset)), "offset")
+func (o BaseListOptions) Params() (*jsonutils.JSONDict, error) {
+	params, err := o.BaseListOptions.Params()
+	if err != nil {
+		return nil, err
 	}
 	if o.Name != "" {
 		params.Add(jsonutils.NewString(o.Name), "name")
 	}
-	if o.System != nil {
-		params.Add(jsonutils.NewBool(*o.System), "system")
-	}
-	return params
+	return params, nil
 }
 
 type ResourceListOptions struct {
@@ -74,10 +68,13 @@ type ResourceListOptions struct {
 	BaseListOptions
 }
 
-func (o ResourceListOptions) Params() *jsonutils.JSONDict {
-	params := o.BaseListOptions.Params()
+func (o ResourceListOptions) Params() (*jsonutils.JSONDict, error) {
+	params, err := o.BaseListOptions.Params()
+	if err != nil {
+		return nil, err
+	}
 	params.Update(o.ClusterBaseOptions.Params())
-	return params
+	return params, nil
 }
 
 type ResourceGetOptions struct {
@@ -106,16 +103,19 @@ type NamespaceResourceListOptions struct {
 	AllNamespace bool   `help:"Show resource in all namespace"`
 }
 
-func (o NamespaceResourceListOptions) Params() *jsonutils.JSONDict {
-	params := o.ResourceListOptions.Params()
+func (o NamespaceResourceListOptions) Params() (*jsonutils.JSONDict, error) {
+	params, err := o.ResourceListOptions.Params()
+	if err != nil {
+		return nil, err
+	}
 	if o.AllNamespace {
 		params.Add(jsonutils.JSONTrue, "all_namespace")
-		return params
+		return params, nil
 	}
 	if o.Namespace != "" {
 		params.Add(jsonutils.NewString(o.Namespace), "namespace")
 	}
-	return params
+	return params, nil
 }
 
 type NamespaceOptions struct {
