@@ -58,7 +58,7 @@ type SSchedpolicy struct {
 	db.SStandaloneResourceBase
 	SSchedtagResourceBase
 
-	Condition string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
+	Condition string `width:"1024" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
 	Strategy  string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
 
 	Enabled tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`

@@ -105,7 +105,7 @@ type SDynamicschedtag struct {
 
 	// 动态调度标间的匹配条件
 	// example: host.sys_load > 1.5 || host.mem_used_percent > 0.7 => "high_load"
-	Condition string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"required" update:"admin"`
+	Condition string `width:"1024" charset:"ascii" nullable:"false" list:"user" create:"required" update:"admin"`
 
 	// 动态调度标签对应的调度标签
 	// SchedtagId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" update:"admin"`
