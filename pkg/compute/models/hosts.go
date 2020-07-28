@@ -5136,6 +5136,15 @@ func (host *SHost) PerformChangeOwner(ctx context.Context, userCred mcclient.Tok
 	return ret, nil
 }
 
+func (host *SHost) GetChangeOwnerRequiredDomainIds() []string {
+	requires := stringutils2.SSortedStrings{}
+	guests := host.GetGuests()
+	for i := range guests {
+		requires = stringutils2.Append(requires, guests[i].DomainId)
+	}
+	return requires
+}
+
 func GetHostQuotaKeysFromCreateInput(input api.HostCreateInput) quotas.SDomainRegionalCloudResourceKeys {
 	ownerId := &db.SOwnerId{DomainId: input.ProjectDomain}
 	var zone *SZone

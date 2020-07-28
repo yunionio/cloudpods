@@ -1024,6 +1024,15 @@ func (wire *SWire) GetChangeOwnerCandidateDomainIds() []string {
 	return db.ISharableMergeChangeOwnerCandidateDomainIds(wire, candidates...)
 }
 
+func (wire *SWire) GetChangeOwnerRequiredDomainIds() []string {
+	requires := stringutils2.SSortedStrings{}
+	networks, _ := wire.getNetworks(nil, rbacutils.ScopeNone)
+	for i := range networks {
+		requires = stringutils2.Append(requires, networks[i].DomainId)
+	}
+	return requires
+}
+
 func (wire *SWire) GetRequiredSharedDomainIds() []string {
 	networks, _ := wire.getNetworks(nil, rbacutils.ScopeNone)
 	if len(networks) == 0 {
