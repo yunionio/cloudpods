@@ -56,11 +56,11 @@ func (zone *SZone) GetName() string {
 }
 
 func (zone *SZone) GetGlobalId() string {
-	return zone.GetId()
+	return fmt.Sprintf("%s/%s", zone.region.GetGlobalId(), zone.Name)
 }
 
 func (zone *SZone) GetId() string {
-	return fmt.Sprintf("%s/%s", zone.region.GetGlobalId(), zone.Name)
+	return zone.Name
 }
 
 func (zone *SZone) GetIHostById(hostId string) (cloudprovider.ICloudHost, error) {
