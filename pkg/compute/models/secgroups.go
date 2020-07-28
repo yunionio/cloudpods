@@ -312,6 +312,14 @@ func (manager *SSecurityGroupManager) FetchCustomizeColumns(
 		sqlchemy.In(q.Field("secgrp_id"), secgroupIds),
 		sqlchemy.In(q.Field("admin_secgrp_id"), secgroupIds),
 	))
+
+	ownerId, queryScope, err := db.FetchCheckQueryOwnerScope(ctx, userCred, query, GuestManager, policy.PolicyActionList, true)
+	if err != nil {
+		log.Errorf("FetchCheckQueryOwnerScope error: %v", err)
+		return rows
+	}
+
+	q = GuestManager.FilterByOwner(q, ownerId, queryScope)
 	err = db.FetchModelObjects(GuestManager, q, &guests)
 	if err != nil {
 		log.Errorf("db.FetchModelObjects error: %v", err)
@@ -341,8 +349,11 @@ func (manager *SSecurityGroupManager) FetchCustomizeColumns(
 		}
 	}
 
+	sq := GuestManager.Query("id")
+	sq = GuestManager.FilterByOwner(sq, ownerId, queryScope)
+
 	guestSecgroups := []SGuestsecgroup{}
-	q = GuestsecgroupManager.Query().In("secgroup_id", secgroupIds)
+	q = GuestsecgroupManager.Query().In("secgroup_id", secgroupIds).In("guest_id", sq.SubQuery())
 	err = db.FetchModelObjects(GuestsecgroupManager, q, &guestSecgroups)
 	if err != nil {
 		log.Errorf("db.FetchModelObjects error: %v", err)
