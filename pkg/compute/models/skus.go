@@ -1203,6 +1203,8 @@ func (self *SServerSku) syncWithCloudSku(ctx context.Context, userCred mcclient.
 		self.ZoneId = extSku.ZoneId
 		self.PrepaidStatus = extSku.PrepaidStatus
 		self.PostpaidStatus = extSku.PostpaidStatus
+		self.SysDiskType = extSku.SysDiskType
+		self.DataDiskTypes = extSku.DataDiskTypes
 		return nil
 	})
 	return err
