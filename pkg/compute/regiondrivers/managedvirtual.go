@@ -2326,8 +2326,12 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstanceBackup(ct
 			backup.BackupSizeMb = iBackup.GetBackupSizeMb()
 			return nil
 		})
+		if err != nil {
+			return nil, errors.Wrap(err, "db.Update")
+		}
 
-		return nil, err
+		instance.SetStatus(userCred, api.DBINSTANCE_RUNNING, "")
+		return nil, nil
 	})
 	return nil
 }
