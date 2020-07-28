@@ -1671,11 +1671,13 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 		guest.setUserData(ctx, userCred, userData)
 	}
 	secgroups, _ := jsonutils.GetStringArray(data, "secgroups")
-	for _, secgroup := range secgroups {
-		gs := SGuestsecgroup{}
-		gs.SecgroupId = secgroup
-		gs.GuestId = guest.Id
-		GuestsecgroupManager.TableSpec().Insert(&gs)
+	for _, secgroupId := range secgroups {
+		if secgroupId != guest.SecgrpId {
+			gs := SGuestsecgroup{}
+			gs.SecgroupId = secgroupId
+			gs.GuestId = guest.Id
+			GuestsecgroupManager.TableSpec().Insert(&gs)
+		}
 	}
 }
 
