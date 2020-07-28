@@ -61,7 +61,7 @@ type SchedtagListInput struct {
 	apis.ScopedResourceBaseListInput
 
 	// fitler by resource_type
-	ResourceType string `json:"resource_type"`
+	ResourceType []string `json:"resource_type"`
 	// swagger:ignore
 	// Deprecated
 	// filter by type, alias for resource_type
