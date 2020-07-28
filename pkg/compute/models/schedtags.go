@@ -157,8 +157,8 @@ func (manager *SSchedtagManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SScopedResourceBaseManager.ListItemFilter")
 	}
 
-	if resType := query.ResourceType; resType != "" {
-		q = q.Equals("resource_type", resType)
+	if len(query.ResourceType) > 0 {
+		q = q.In("resource_type", query.ResourceType)
 	}
 
 	if len(query.DefaultStrategy) > 0 {
