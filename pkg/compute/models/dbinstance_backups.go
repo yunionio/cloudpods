@@ -259,11 +259,16 @@ func (self *SDBInstanceBackup) PostCreate(ctx context.Context, userCred mcclient
 }
 
 func (self *SDBInstanceBackup) StartDBInstanceBackupCreateTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
-	self.SetStatus(userCred, api.DBINSTANCE_BACKUP_CREATING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceBackupCreateTask", self, userCred, data, parentTaskId, "", nil)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "NewTask")
 	}
+	instance, err := self.GetDBInstance()
+	if err != nil {
+		return errors.Wrap(err, "GetDBInstance")
+	}
+	instance.SetStatus(userCred, api.DBINSTANCE_BACKING_UP, "")
+	self.SetStatus(userCred, api.DBINSTANCE_BACKUP_CREATING, "")
 	task.ScheduleRun(nil)
 	return nil
 }
