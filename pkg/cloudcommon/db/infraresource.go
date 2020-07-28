@@ -201,6 +201,9 @@ func (model *SInfrasResourceBase) PerformChangeOwner(
 	query jsonutils.JSONObject,
 	input apis.PerformChangeDomainOwnerInput,
 ) (jsonutils.JSONObject, error) {
+	if !consts.GetNonDefaultDomainProjects() {
+		return nil, errors.Wrap(httperrors.ErrForbidden, "not allow to change owner of domain resource if non_default_domain_projects is turned off")
+	}
 	if model.IsShared() {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "cannot change owner when shared!")
 	}

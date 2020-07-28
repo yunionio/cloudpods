@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -133,6 +134,9 @@ func (model *SDomainLevelResourceBase) AllowPerformChangeOwner(ctx context.Conte
 }
 
 func (model *SDomainLevelResourceBase) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeDomainOwnerInput) (jsonutils.JSONObject, error) {
+	if !consts.GetNonDefaultDomainProjects() {
+		return nil, errors.Wrap(httperrors.ErrForbidden, "not allow to change owner of domain resource if non_default_domain_projects is turned off")
+	}
 	if model.GetIStandaloneModel().IsShared() {
 		return nil, errors.Wrap(httperrors.ErrForbidden, "cannot change owner of shared resource")
 	}
@@ -161,6 +165,11 @@ func (model *SDomainLevelResourceBase) PerformChangeOwner(ctx context.Context, u
 	candidates := model.GetIDomainLevelModel().GetChangeOwnerCandidateDomainIds()
 	if len(candidates) > 0 && !utils.IsInStringArray(ownerId.GetProjectDomainId(), candidates) {
 		return nil, errors.Wrap(httperrors.ErrForbidden, "target domain not in change owner candidate list")
+	}
+	requires := model.GetIDomainLevelModel().GetChangeOwnerRequiredDomainIds()
+	log.Debugf("%s required domains: %s", model.Keyword(), requires)
+	if len(requires) > 0 && !utils.IsInStringArray(ownerId.GetProjectDomainId(), requires) {
+		return nil, errors.Wrap(httperrors.ErrForbidden, "target domain not in change owner required list")
 	}
 
 	if !IsAdminAllowPerform(userCred, model, "change-owner") {

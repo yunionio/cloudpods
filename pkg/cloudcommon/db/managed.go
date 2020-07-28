@@ -22,6 +22,7 @@ import (
 
 type IOwnerResourceBaseModel interface {
 	GetChangeOwnerCandidateDomainIds() []string
+	GetChangeOwnerRequiredDomainIds() []string
 }
 
 type IManagedResourceBase interface {
