@@ -407,23 +407,6 @@ func performActionHandler(ctx context.Context, w http.ResponseWriter, r *http.Re
 	// appsrv.SendJSON(w, wrapBody(result, manager.Keyword()))
 }
 
-/*
-func updateClassHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	manager, _, query, body := fetchEnv(ctx, w, r)
-    data, err := body.Get(manager.KeywordPlural())
-    if err != nil {
-        writeErrNoRequestKey(w, manager.KeywordPlural())
-        return
-    }
-    result, err := manager.UpdateClass(ctx, tr, data)
-    if err != nil {
-        httperrors.GeneralServerError(w, err)
-        return
-    }
-    appsrv.SendJSON(w, wrapBody(result, manager.KeywordPlural()))
-}
-*/
-
 func updateHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, body := fetchEnv(ctx, w, r)
 	handleUpdate(ctx, w, manager, params["<resid>"], nil, mergeQueryParams(params, query, "<resid>"), body, r)
@@ -494,26 +477,6 @@ func updateSpecHandler(ctx context.Context, w http.ResponseWriter, r *http.Reque
 	sendJSON(ctx, w, result, manager.Keyword())
 	// appsrv.SendJSON(w, wrapBody(result, manager.Keyword()))
 }
-
-/*
-func deleteClassHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	tr, manager, _, query, body := fetchEnv(ctx, w, r)
-	var data jsonutils.JSONObject
-	if body != nil {
-		data, err := body.Get(manager.KeywordPlural())
-		if err != nil {
-			writeErrNoRequestKey(w, manager.KeywordPlural())
-			return
-		}
-	}
-    result, err := manager.DeleteClass(ctx, tr, query, data)
-    if err != nil {
-        httperrors.GeneralServerError(w, err)
-        return
-    }
-    appsrv.SendJSON(w, wrapBody(result, manager.KeywordPlural()))
-}
-*/
 
 func deleteHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, body := fetchEnv(ctx, w, r)
