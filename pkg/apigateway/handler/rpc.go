@@ -41,16 +41,16 @@ func NewRPCHandlers(prefix string) *RPCHandlers {
 }
 
 func (h *RPCHandlers) AddGet(mf appsrv.MiddlewareFunc) *RPCHandlers {
-	h.AddByMethod(GET, mf, NewHP(rpcHandler, APIVer, "rpc"))
+	h.AddByMethod(GET, mf, NewHP(RpcHandler, APIVer, "rpc"))
 	return h
 }
 
 func (h *RPCHandlers) AddPost(mf appsrv.MiddlewareFunc) *RPCHandlers {
-	h.AddByMethod(POST, mf, NewHP(rpcHandler, APIVer, "rpc"))
+	h.AddByMethod(POST, mf, NewHP(RpcHandler, APIVer, "rpc"))
 	return h
 }
 
-func rpcHandler(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+func RpcHandler(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	curpath := appctx.AppContextCurrentPath(ctx)
 	var resType string
 	var resId string
