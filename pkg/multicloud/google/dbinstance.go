@@ -359,12 +359,17 @@ func (rds *SDBInstance) GetInternalConnectionStr() string {
 }
 
 func (rds *SDBInstance) GetZone1Id() string {
-	zone, err := rds.region.GetZone(rds.GceZone)
+	zones, err := rds.region.GetIZones()
 	if err != nil {
 		log.Errorf("failed to found rds %s zone %s", rds.Name, rds.GceZone)
 		return ""
 	}
-	return zone.GetGlobalId()
+	for _, zone := range zones {
+		if zone.GetId() == rds.GceZone {
+			return zone.GetGlobalId()
+		}
+	}
+	return ""
 }
 
 func (rds *SDBInstance) GetZone2Id() string {
