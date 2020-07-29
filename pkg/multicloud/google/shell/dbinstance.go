@@ -60,8 +60,9 @@ func init() {
 
 	type DBInstanceCreateOptions struct {
 		NAME            string
+		ENGINE          string
 		DATABASEVERSION string
-		BackendType     string `default:"SECOND_GEN" choices:"FIRST_GEN|SECOND_GEN|EXTERNAL"`
+		Category        string `default:"Zonal" choices:"Zonal|Regional"`
 		INSTANCE_TYPE   string
 		STORAGE_TYPE    string
 		DISK_SIZE_GB    int
@@ -71,7 +72,7 @@ func init() {
 	}
 
 	shellutils.R(&DBInstanceCreateOptions{}, "dbinstance-create", "Create dbinstance", func(cli *google.SRegion, args *DBInstanceCreateOptions) error {
-		instance, err := cli.CreateRds(args.NAME, args.DATABASEVERSION, args.BackendType, args.INSTANCE_TYPE, args.STORAGE_TYPE, args.DISK_SIZE_GB, args.VpcId, args.ZoneId, args.Password)
+		instance, err := cli.CreateRds(args.NAME, args.ENGINE, args.DATABASEVERSION, args.Category, args.INSTANCE_TYPE, args.STORAGE_TYPE, args.DISK_SIZE_GB, args.VpcId, args.ZoneId, args.Password)
 		if err != nil {
 			return err
 		}
@@ -90,12 +91,13 @@ func init() {
 	})
 
 	type DBInstanceRecoveryOptions struct {
-		RDS    string
+		NAME   string
+		TARGET string
 		BACKUP string
 	}
 
 	shellutils.R(&DBInstanceRecoveryOptions{}, "dbinstance-restore", "restore dbinstance from backup", func(cli *google.SRegion, args *DBInstanceRecoveryOptions) error {
-		return cli.RecoverFromBackup(args.RDS, args.BACKUP)
+		return cli.RecoverFromBackup(args.NAME, args.TARGET, args.BACKUP)
 	})
 
 }

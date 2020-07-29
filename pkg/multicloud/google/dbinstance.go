@@ -520,7 +520,7 @@ func (rds *SDBInstance) CreateIBackup(conf *cloudprovider.SDBInstanceBackupCreat
 	return "", nil
 }
 
-func (region *SRegion) RecoverFromBackup(instanceId string, backupId string) error {
+func (region *SRegion) RecoverFromBackup(instanceName, dest string, backupId string) error {
 	backup, err := region.GetDBInstanceBackup(backupId)
 	if err != nil {
 		return errors.Wrap(err, "GetDBInstanceBackup")
@@ -528,13 +528,23 @@ func (region *SRegion) RecoverFromBackup(instanceId string, backupId string) err
 	body := map[string]interface{}{
 		"restoreBackupContext": map[string]string{
 			"backupRunId": backup.Id,
+			"instanceId":  instanceName,
+			"project":     region.client.projectId,
 		},
 	}
-	return region.rdsDo(instanceId, "restoreBackup", nil, jsonutils.Marshal(body))
+	return region.rdsDo(dest, "restoreBackup", nil, jsonutils.Marshal(body))
 }
 
 func (rds *SDBInstance) RecoveryFromBackup(conf *cloudprovider.SDBInstanceRecoveryConfig) error {
-	return rds.region.RecoverFromBackup(rds.SelfLink, conf.BackupId)
+	instanceName := rds.Name
+	if len(conf.OriginDBInstanceExternalId) > 0 {
+		instance, err := rds.region.GetDBInstance(conf.OriginDBInstanceExternalId)
+		if err != nil {
+			return errors.Wrapf(err, "GetInstance(%s)", conf.OriginDBInstanceExternalId)
+		}
+		instanceName = instance.Name
+	}
+	return rds.region.RecoverFromBackup(instanceName, rds.SelfLink, conf.BackupId)
 }
 
 func (rds *SDBInstance) Reboot() error {
@@ -549,7 +559,7 @@ func (region *SRegion) DeleteDBInstance(id string) error {
 	return region.rdsDelete(id)
 }
 
-func (region *SRegion) CreateRds(name, databaseVersion, category, instanceType, storageType string, diskSizeGb int, vpcId, zoneId, password string) (*SDBInstance, error) {
+func (region *SRegion) CreateRds(name, engine, databaseVersion, category, instanceType, storageType string, diskSizeGb int, vpcId, zoneId, password string) (*SDBInstance, error) {
 	settings := map[string]interface{}{
 		"tier":              instanceType,
 		"storageAutoResize": true,
@@ -558,11 +568,14 @@ func (region *SRegion) CreateRds(name, databaseVersion, category, instanceType, 
 	}
 	if utils.IsInStringArray(category, []string{api.GOOGLE_DBINSTANCE_CATEGORY_REGIONAL, api.GOOGLE_DBINSTANCE_CATEGORY_ZONAL}) {
 		settings["availabilityType"] = strings.ToUpper(category)
-		settings["backupConfiguration"] = map[string]interface{}{
-			"enabled":          true,
-			"binaryLogEnabled": true,
-			"startTime":        "19:00",
+		backupConfiguration := map[string]interface{}{
+			"enabled":   true,
+			"startTime": "19:00",
 		}
+		if engine == api.DBINSTANCE_TYPE_MYSQL {
+			backupConfiguration["binaryLogEnabled"] = true
+		}
+		settings["backupConfiguration"] = backupConfiguration
 	}
 	ipConfiguration := map[string]interface{}{
 		"ipv4Enabled": true,
@@ -619,7 +632,7 @@ func (region *SRegion) CreateDBInstance(desc *cloudprovider.SManagedDBInstanceCr
 			desc.ZoneIds = append(desc.ZoneIds, "")
 		}
 		for _, zoneId := range desc.ZoneIds {
-			rds, err = region.CreateRds(desc.Name, databaseVersion, desc.Category, desc.InstanceType, desc.StorageType, desc.DiskSizeGB, desc.VpcId, zoneId, desc.Password)
+			rds, err = region.CreateRds(desc.Name, desc.Engine, databaseVersion, desc.Category, desc.InstanceType, desc.StorageType, desc.DiskSizeGB, desc.VpcId, zoneId, desc.Password)
 			if err == nil {
 				break
 			} else {
@@ -635,7 +648,7 @@ func (region *SRegion) CreateDBInstance(desc *cloudprovider.SManagedDBInstanceCr
 				desc.ZoneIds = append(desc.ZoneIds, "")
 			}
 			for _, zoneId := range spec.ZoneIds {
-				rds, err = region.CreateRds(desc.Name, databaseVersion, desc.Category, desc.InstanceType, desc.StorageType, desc.DiskSizeGB, desc.VpcId, zoneId, desc.Password)
+				rds, err = region.CreateRds(desc.Name, desc.Engine, databaseVersion, desc.Category, desc.InstanceType, desc.StorageType, desc.DiskSizeGB, desc.VpcId, zoneId, desc.Password)
 				if err == nil {
 					break
 				} else {
