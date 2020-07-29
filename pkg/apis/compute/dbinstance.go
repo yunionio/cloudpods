@@ -109,7 +109,7 @@ type DBInstanceCreateInput struct {
 	// | -----		| ------	| --- |
 	// | 华为云		|ha, single, replica| |
 	// | 阿里云		|basic, high_availability, always_on, finance||
-	// | Google		|SECOND_GEN | FIRST_GEN 目前谷歌已弃用|
+	// | Google		|Zonal, Regional | |
 	// 翻译:
 	// basic: 基础版
 	// high_availability: 高可用
@@ -118,7 +118,8 @@ type DBInstanceCreateInput struct {
 	// ha: 高可用
 	// single: 单机
 	// replica: 只读
-	// SECNOD_GEN: 第二代
+	// Zonal: 单区域
+	// Regional: 区域级
 	// required: true
 	Category string `json:"category"`
 
@@ -182,9 +183,16 @@ type SDBInstanceRecoveryConfigInput struct {
 	DBInstancebackup string `json:"dbinstancebackup" "yunion:deprecated-by":"dbinstancebackup_id"`
 
 	// 备份Id
+	//
+	//
+	// | 平台		| 支持引擎								| 说明		|
+	// | -----		| ------								| ---		|
+	// | 华为云		|MySQL, SQL Server						| 仅SQL Server支持恢复到当前实例			|
+	// | 阿里云		|MySQL, SQL Server						| MySQL要求必须开启单库单表恢复功能 并且只能是MySQL 8.0 高可用版（本地SSD盘）MySQL 5.7 高可用版（本地SSD盘）或MySQL 5.6 高可用版, MySQL仅支持恢复到当前实例|
+	// | Google		|MySQL, PostgreSQL, SQL Server			| PostgreSQL备份恢复时，要求实例不能有副本			|
 	DBInstancebackupId string `json:"dbinstancebackup_id"`
 
-	// 数据库信息, 例如 {"src":"dest"} 是将备份中的src数据库恢复到目标实例的dest数据库中
+	// 数据库信息, 例如 {"src":"dest"} 是将备份中的src数据库恢复到目标实例的dest数据库中, 阿里云此参数为必传
 	// example: {"sdb1":"ddb1"}
 	Databases map[string]string `json:"databases,allowempty"`
 }
