@@ -38,12 +38,15 @@ var METRIC_ATTRI = []string{METRIC_TAG, METRIC_FIELD}
 
 type InfluxMeasurement struct {
 	apis.Meta
-	Database    string
-	Measurement string
-	TagKey      []string
-	TagValue    map[string][]string
-	FieldKey    []string
-	Unit        []string
+	Database               string
+	Measurement            string
+	MeasurementDisplayName string
+	ResType                string
+	TagKey                 []string
+	TagValue               map[string][]string
+	FieldKey               []string
+	FieldDescriptions      map[string]MetricFieldDetail
+	Unit                   []string
 }
 
 type SuggestSysRuleListInput struct {

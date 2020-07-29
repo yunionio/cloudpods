@@ -47,5 +47,7 @@ type MetricInputQuery struct {
 	From        string        `json:"from"`
 	To          string        `json:"to"`
 	Interval    string        `json:"interval"`
+	DomainId    string        `json:"domain_id"`
+	ProjectId   string        `json:"project_id"`
 	MetricQuery []*AlertQuery `json:"metric_query"`
 }

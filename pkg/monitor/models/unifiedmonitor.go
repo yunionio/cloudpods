@@ -71,7 +71,7 @@ func (self *SUnifiedMonitorManager) GetPropertyMeasurements(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	return DataSourceManager.GetMeasurements(query, "", filter)
+	return DataSourceManager.GetMeasurementsWithDescriptionInfos(query, "", filter)
 }
 
 func filterByScope(ctx context.Context, scope string, data jsonutils.JSONObject) (string, error) {
@@ -245,7 +245,7 @@ func doQuery(query monitor.MetricInputQuery) (*mq.Metrics, error) {
 
 func (self *SUnifiedMonitorManager) ValidateInputQuery(query *monitor.AlertQuery) error {
 	if query.From == "" {
-		query.From = "30m"
+		query.From = "1h"
 	}
 	if query.Model.Interval == "" {
 		query.Model.Interval = "5m"
