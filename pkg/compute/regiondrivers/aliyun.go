@@ -976,6 +976,22 @@ func (self *SAliyunRegionDriver) IsSecurityGroupBelongVpc() bool {
 }
 
 func (self *SAliyunRegionDriver) ValidateDBInstanceRecovery(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, backup *models.SDBInstanceBackup, input api.SDBInstanceRecoveryConfigInput) error {
+	if !utils.IsInStringArray(instance.Engine, []string{api.DBINSTANCE_TYPE_MYSQL, api.DBINSTANCE_TYPE_SQLSERVER}) {
+		return httperrors.NewNotSupportedError("Aliyun %s not support recovery", instance.Engine)
+	}
+	if instance.Engine == api.DBINSTANCE_TYPE_MYSQL {
+		if backup.DBInstanceId != instance.Id {
+			return httperrors.NewUnsupportOperationError("Aliyun %s only support recover from it self backups", instance.Engine)
+		}
+		if !((utils.IsInStringArray(instance.EngineVersion, []string{"8.0", "5.7"}) &&
+			instance.StorageType == api.ALIYUN_DBINSTANCE_STORAGE_TYPE_LOCAL_SSD &&
+			instance.Category == api.ALIYUN_DBINSTANCE_CATEGORY_HA) || (instance.EngineVersion == "5.6" && instance.Category == api.ALIYUN_DBINSTANCE_CATEGORY_HA)) {
+			return httperrors.NewUnsupportOperationError("Aliyun %s only 8.0, 5.7 ha local_ssd or 5.6 ha support recovery from it self backups")
+		}
+	}
+	if len(input.Databases) == 0 {
+		return httperrors.NewMissingParameterError("databases")
+	}
 	return nil
 }
 

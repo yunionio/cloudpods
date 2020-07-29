@@ -76,6 +76,7 @@ func init() {
 
 	type DBInstanceRecoveryOptions struct {
 		ID        string
+		TARGET    string
 		BACKUP    string
 		Databases []string
 	}
@@ -95,7 +96,7 @@ func init() {
 				}
 			}
 		}
-		return cli.RecoveryDBInstanceFromBackup(args.ID, args.BACKUP, databases)
+		return cli.RecoveryDBInstanceFromBackup(args.ID, args.TARGET, args.BACKUP, databases)
 	})
 
 }
