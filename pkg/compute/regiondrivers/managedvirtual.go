@@ -1480,7 +1480,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncSecurityGroup(ctx con
 	if len(cache.ExternalId) > 0 {
 		iSecgroup, err = iRegion.GetISecurityGroupById(cache.ExternalId)
 		if err != nil {
-			if err != cloudprovider.ErrNotFound {
+			if errors.Cause(err) != cloudprovider.ErrNotFound {
 				return "", errors.Wrap(err, "iRegion.GetSecurityGroupById")
 			}
 			cache.ExternalId = ""

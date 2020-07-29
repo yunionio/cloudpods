@@ -293,6 +293,9 @@ func (region *SRegion) waitBackupCreateComplete(instanceId, jobId string) error 
 			if job.BackupStatus == "Finished" && job.BackupJobId == jobId {
 				return nil
 			}
+			if job.BackupStatus == "Failed" && job.BackupJobId == jobId {
+				return fmt.Errorf("instance %s backup job %s failed", instanceId, jobId)
+			}
 		}
 		time.Sleep(time.Second * 3)
 	}
