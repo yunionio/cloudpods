@@ -997,10 +997,13 @@ func (h *SHostInfo) updateHostMetadata(hostname string) error {
 		OnKubernetes: onK8s,
 		Hostname:     hostname,
 	}
+	if len(h.SysError) > 0 {
+		meta.SysError = jsonutils.Marshal(h.SysError).String()
+	}
+	if len(h.SysWarning) > 0 {
+		meta.SysWarn = jsonutils.Marshal(h.SysWarning).String()
+	}
 	data := meta.JSON(meta)
-	data.Set("__sys_error", jsonutils.Marshal(h.SysError))
-	data.Set("__sys_warning", jsonutils.Marshal(h.SysWarning))
-
 	_, err := modules.Hosts.SetMetadata(h.GetSession(), h.HostId, data)
 	return err
 }
