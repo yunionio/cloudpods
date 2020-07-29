@@ -23,7 +23,9 @@ var (
 func init() {
 	Wires = NewComputeManager("wire", "wires",
 		[]string{"ID", "Name", "Bandwidth", "Zone_ID",
-			"Zone", "Networks", "VPC", "VPC_ID", "public_scope"},
+			"Zone", "Networks", "VPC", "VPC_ID", "public_scope",
+			"domain_id",
+		},
 		[]string{})
 
 	registerCompute(&Wires)

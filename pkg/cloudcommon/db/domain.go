@@ -77,6 +77,10 @@ func (model *SDomainizedResourceBase) GetChangeOwnerCandidateDomainIds() []strin
 	return nil
 }
 
+func (model *SDomainizedResourceBase) GetChangeOwnerRequiredDomainIds() []string {
+	return nil
+}
+
 func ValidateCreateDomainId(domainId string) error {
 	if !consts.GetNonDefaultDomainProjects() && domainId != identity.DEFAULT_DOMAIN_ID {
 		return httperrors.NewForbiddenError("project in non-default domain is prohibited")

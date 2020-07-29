@@ -240,3 +240,12 @@ func (globalVpc *SGlobalVpc) GetRequiredSharedDomainIds() []string {
 	}
 	return db.ISharableMergeShareRequireDomainIds(requires...)
 }
+
+func (globalVpc *SGlobalVpc) GetChangeOwnerRequiredDomainIds() []string {
+	requires := stringutils2.SSortedStrings{}
+	vpcs, _ := globalVpc.GetVpcs()
+	for i := range vpcs {
+		requires = stringutils2.Append(requires, vpcs[i].DomainId)
+	}
+	return requires
+}
