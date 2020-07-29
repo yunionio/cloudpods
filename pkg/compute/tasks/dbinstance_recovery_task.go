@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -87,6 +88,13 @@ func (self *DBInstanceRecoveryTask) OnInit(ctx context.Context, obj db.IStandalo
 	if err != nil {
 		self.taskFailed(ctx, instance, errors.Wrap(err, "cloudprovider.WaitStatus(running)"))
 		return
+	}
+
+	databases, err := iRds.GetIDBInstanceDatabases()
+	if err != nil {
+		log.Errorf("failed to get dbinstance %s database error: %v", instance.Name, err)
+	} else {
+		models.DBInstanceDatabaseManager.SyncDBInstanceDatabases(ctx, self.UserCred, instance, databases)
 	}
 
 	db.OpsLog.LogEvent(instance, db.ACT_RESTORE, nil, self.GetUserCred())

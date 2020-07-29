@@ -130,7 +130,7 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 			}
 			for _, code := range []string{"404 Not Found"} {
 				if strings.Contains(err.Error(), code) {
-					return nil, cloudprovider.ErrNotFound
+					return nil, errors.Wrapf(cloudprovider.ErrNotFound, err.Error())
 				}
 			}
 			for _, code := range []string{
