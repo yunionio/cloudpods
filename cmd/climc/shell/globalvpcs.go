@@ -15,6 +15,8 @@
 package shell
 
 import (
+	"fmt"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -76,6 +78,32 @@ func init() {
 			return err
 		}
 		printObject(result)
+		return nil
+	})
+
+	R(&GlobalVpcShowOptions{}, "global-vpc-change-owner-candidate-domains", "Show candiate domains of a global vpc for changing owner", func(s *mcclient.ClientSession, args *GlobalVpcShowOptions) error {
+		result, err := modules.GlobalVpcs.GetSpecific(s, args.ID, "change-owner-candidate-domains", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type GlobalVpcChangeOwnerOptions struct {
+		ID            string `help:"ID or name of vpc" json:"-"`
+		ProjectDomain string `json:"project_domain" help:"target domain"`
+	}
+	R(&GlobalVpcChangeOwnerOptions{}, "global-vpc-change-owner", "Change owner domain of a global vpc", func(s *mcclient.ClientSession, args *GlobalVpcChangeOwnerOptions) error {
+		if len(args.ProjectDomain) == 0 {
+			return fmt.Errorf("empty project_domain")
+		}
+		params := jsonutils.Marshal(args)
+		ret, err := modules.GlobalVpcs.PerformAction(s, args.ID, "change-owner", params)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
 		return nil
 	})
 }

@@ -1483,6 +1483,15 @@ func (storage *SStorage) performChangeOwnerInternal(ctx context.Context, userCre
 	return storage.SEnabledStatusInfrasResourceBase.PerformChangeOwner(ctx, userCred, query, input)
 }
 
+func (storage *SStorage) GetChangeOwnerRequiredDomainIds() []string {
+	requires := stringutils2.SSortedStrings{}
+	disks := storage.GetDisks()
+	for i := range disks {
+		requires = stringutils2.Append(requires, disks[i].DomainId)
+	}
+	return requires
+}
+
 func (storage *SStorage) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicDomainInput) (jsonutils.JSONObject, error) {
 	// not allow to perform public for locally connected storage
 	if storage.IsLocal() {

@@ -1097,6 +1097,15 @@ func (vpc *SVpc) GetChangeOwnerCandidateDomainIds() []string {
 	return db.ISharableMergeChangeOwnerCandidateDomainIds(vpc, candidates...)
 }
 
+func (vpc *SVpc) GetChangeOwnerRequiredDomainIds() []string {
+	requires := stringutils2.SSortedStrings{}
+	wires := vpc.GetWires()
+	for i := range wires {
+		requires = stringutils2.Append(requires, wires[i].DomainId)
+	}
+	return requires
+}
+
 func (vpc *SVpc) GetRequiredSharedDomainIds() []string {
 	wires := vpc.GetWires()
 	if len(wires) == 0 {
