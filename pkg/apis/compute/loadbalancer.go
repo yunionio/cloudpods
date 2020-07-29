@@ -206,11 +206,11 @@ type LoadbalancerResourceInfo struct {
 
 type LoadbalancerResourceInput struct {
 	// 负载均衡名称
-	Loadbalancer string `json:"loadbalancer"`
+	LoadbalancerId string `json:"loadbalancer_id"`
 
 	// swagger:ignore
 	// Deprecated
-	LoadbalancerId string `json:"loadbalancer_id" "yunion:deprecated-by":"loadbalancer"`
+	Loadbalancer string `json:"loadbalancer" "yunion:deprecated-by":"loadbalancer_id"`
 }
 
 type LoadbalancerFilterListInput struct {

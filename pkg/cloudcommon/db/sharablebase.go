@@ -405,11 +405,11 @@ func SharablePerformPublic(model ISharableBaseModel, ctx context.Context, userCr
 		return errors.Wrapf(httperrors.ErrNotSupported, "cannot share %s resource to %s", resourceScope, targetScope)
 	}
 
-	if len(input.SharedProjects) > 0 && len(input.SharedDomains) > 0 {
+	if len(input.SharedProjectIds) > 0 && len(input.SharedDomainIds) > 0 {
 		return errors.Wrap(httperrors.ErrInputParameter, "cannot set shared_projects and shared_domains at the same time")
-	} else if len(input.SharedProjects) > 0 && targetScope != rbacutils.ScopeProject {
+	} else if len(input.SharedProjectIds) > 0 && targetScope != rbacutils.ScopeProject {
 		targetScope = rbacutils.ScopeProject
-	} else if len(input.SharedDomains) > 0 && targetScope != rbacutils.ScopeDomain {
+	} else if len(input.SharedDomainIds) > 0 && targetScope != rbacutils.ScopeDomain {
 		targetScope = rbacutils.ScopeDomain
 	}
 
@@ -429,11 +429,11 @@ func SharablePerformPublic(model ISharableBaseModel, ctx context.Context, userCr
 		// if len(input.SharedProjects) == 0 {
 		//	return errors.Wrap(httperrors.ErrEmptyRequest, "empty shared target project list")
 		// }
-		shareResult.SharedProjects, err = SharedResourceManager.shareToTarget(ctx, userCred, model, SharedTargetProject, input.SharedProjects, nil, nil)
+		shareResult.SharedProjectIds, err = SharedResourceManager.shareToTarget(ctx, userCred, model, SharedTargetProject, input.SharedProjectIds, nil, nil)
 		if err != nil {
 			return errors.Wrap(err, "shareToTarget")
 		}
-		if len(shareResult.SharedProjects) == 0 {
+		if len(shareResult.SharedProjectIds) == 0 {
 			targetScope = rbacutils.ScopeNone
 		}
 	case rbacutils.ScopeDomain:
@@ -447,11 +447,11 @@ func SharablePerformPublic(model ISharableBaseModel, ctx context.Context, userCr
 		if err != nil {
 			return errors.Wrap(err, "shareToTarget clean projects")
 		}
-		shareResult.SharedDomains, err = SharedResourceManager.shareToTarget(ctx, userCred, model, SharedTargetDomain, input.SharedDomains, candidateIds, requireIds)
+		shareResult.SharedDomainIds, err = SharedResourceManager.shareToTarget(ctx, userCred, model, SharedTargetDomain, input.SharedDomainIds, candidateIds, requireIds)
 		if err != nil {
 			return errors.Wrap(err, "shareToTarget add domains")
 		}
-		if len(shareResult.SharedDomains) == 0 && resourceScope == rbacutils.ScopeDomain {
+		if len(shareResult.SharedDomainIds) == 0 && resourceScope == rbacutils.ScopeDomain {
 			targetScope = rbacutils.ScopeNone
 		}
 	case rbacutils.ScopeSystem:

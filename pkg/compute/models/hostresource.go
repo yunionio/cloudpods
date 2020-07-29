@@ -42,15 +42,15 @@ type SHostResourceBaseManager struct {
 }
 
 func ValidateHostResourceInput(userCred mcclient.TokenCredential, input api.HostResourceInput) (*SHost, api.HostResourceInput, error) {
-	hostObj, err := HostManager.FetchByIdOrName(userCred, input.Host)
+	hostObj, err := HostManager.FetchByIdOrName(userCred, input.HostId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", HostManager.Keyword(), input.Host)
+			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", HostManager.Keyword(), input.HostId)
 		} else {
 			return nil, input, errors.Wrap(err, "HostManager.FetchByIdOrName")
 		}
 	}
-	input.Host = hostObj.GetId()
+	input.HostId = hostObj.GetId()
 	return hostObj.(*SHost), input, nil
 }
 
@@ -137,7 +137,7 @@ func (manager *SHostResourceBaseManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.HostFilterListInput,
 ) (*sqlchemy.SQuery, error) {
-	if len(query.Host) > 0 {
+	if len(query.HostId) > 0 {
 		hostObj, _, err := ValidateHostResourceInput(userCred, query.HostResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateHostResourceInput")

@@ -34,11 +34,11 @@ func (manager *SRegionResourceBaseManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.RegionFilterListInput,
 ) (*sqlchemy.SQuery, error) {
-	if len(query.Region) > 0 {
-		regionObj, err := RegionManager.FetchByIdOrName(userCred, query.Region)
+	if len(query.RegionId) > 0 {
+		regionObj, err := RegionManager.FetchByIdOrName(userCred, query.RegionId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(RegionManager.Keyword(), query.Region)
+				return nil, httperrors.NewResourceNotFoundError2(RegionManager.Keyword(), query.RegionId)
 			} else {
 				return nil, errors.Wrap(err, "RegionManager.FetchByIdOrName")
 			}

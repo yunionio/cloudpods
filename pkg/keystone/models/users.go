@@ -350,7 +350,7 @@ func (manager *SUserManager) ListItemFilter(
 		}
 	}
 
-	groupStr := query.Group
+	groupStr := query.GroupId
 	if len(groupStr) > 0 {
 		groupObj, err := GroupManager.FetchByIdOrName(userCred, groupStr)
 		if err != nil {
@@ -364,7 +364,7 @@ func (manager *SUserManager) ListItemFilter(
 		q = q.In("id", subq.SubQuery())
 	}
 
-	projectStr := query.Project
+	projectStr := query.ProjectId
 	if len(projectStr) > 0 {
 		project, err := ProjectManager.FetchByIdOrName(userCred, projectStr)
 		if err != nil {
@@ -378,7 +378,7 @@ func (manager *SUserManager) ListItemFilter(
 		q = q.In("id", subq.SubQuery())
 	}
 
-	roleStr := query.Role
+	roleStr := query.RoleId
 	if len(roleStr) > 0 {
 		role, err := RoleManager.FetchByIdOrName(userCred, roleStr)
 		if err != nil {

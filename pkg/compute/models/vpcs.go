@@ -625,7 +625,7 @@ func (manager *SVpcManager) ValidateCreateData(
 	query jsonutils.JSONObject,
 	input api.VpcCreateInput,
 ) (api.VpcCreateInput, error) {
-	regionId := input.Cloudregion
+	regionId := input.CloudregionId
 	if len(regionId) == 0 {
 		return input, httperrors.NewMissingParameterError("cloudregion_id")
 	}
@@ -638,10 +638,10 @@ func (manager *SVpcManager) ValidateCreateData(
 		}
 	}
 	region := regionObj.(*SCloudregion)
-	input.Cloudregion = region.Id
+	input.CloudregionId = region.Id
 	// data.Add(jsonutils.NewString(region.GetId()), "cloudregion_id")
 	if region.isManaged() {
-		managerStr := input.Cloudprovider
+		managerStr := input.CloudproviderId
 		if len(managerStr) == 0 {
 			return input, httperrors.NewMissingParameterError("manager_id")
 		}
@@ -653,7 +653,7 @@ func (manager *SVpcManager) ValidateCreateData(
 				return input, httperrors.NewGeneralError(err)
 			}
 		}
-		input.Cloudprovider = managerObj.GetId()
+		input.CloudproviderId = managerObj.GetId()
 		// data.Add(jsonutils.NewString(managerObj.GetId()), "manager_id")
 	} else {
 		input.Status = api.VPC_STATUS_AVAILABLE
@@ -1061,14 +1061,14 @@ func (self *SVpc) initWire(ctx context.Context, zone *SZone) (*SWire, error) {
 }
 
 func GetVpcQuotaKeysFromCreateInput(input api.VpcCreateInput) quotas.SDomainRegionalCloudResourceKeys {
-	ownerId := &db.SOwnerId{DomainId: input.ProjectDomain}
+	ownerId := &db.SOwnerId{DomainId: input.ProjectDomainId}
 	var region *SCloudregion
-	if len(input.Cloudregion) > 0 {
-		region = CloudregionManager.FetchRegionById(input.Cloudregion)
+	if len(input.CloudregionId) > 0 {
+		region = CloudregionManager.FetchRegionById(input.CloudregionId)
 	}
 	var provider *SCloudprovider
-	if len(input.Cloudprovider) > 0 {
-		provider = CloudproviderManager.FetchCloudproviderById(input.Cloudprovider)
+	if len(input.CloudproviderId) > 0 {
+		provider = CloudproviderManager.FetchCloudproviderById(input.CloudproviderId)
 	}
 	regionKeys := fetchRegionalQuotaKeys(rbacutils.ScopeDomain, ownerId, region, provider)
 	keys := quotas.SDomainRegionalCloudResourceKeys{}

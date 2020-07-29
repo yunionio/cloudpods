@@ -53,11 +53,11 @@ func (ps *SProxySetting) IsZero() bool {
 
 type ProxySettingResourceInput struct {
 	// 代理配置
-	ProxySetting string `json:"proxy_setting"`
+	ProxySettingId string `json:"proxy_setting_id"`
 
 	// swagger:ignore
 	// Deprecated
-	ProxySettingId string `json:"proxy_setting_id" "yunion:deprecated-by":"proxy_setting"`
+	ProxySetting string `json:"proxy_setting" "yunion:deprecated-by":"proxy_setting_id"`
 }
 
 type ProxySettingTestInput struct {

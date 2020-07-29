@@ -222,7 +222,7 @@ func (manager *SProjectManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SIdentityBaseResourceManager.ListItemFilter")
 	}
 
-	userStr := query.User
+	userStr := query.UserId
 	if len(userStr) > 0 {
 		userObj, err := UserManager.FetchById(userStr)
 		if err != nil {
@@ -246,7 +246,7 @@ func (manager *SProjectManager) ListItemFilter(
 		}
 	}
 
-	groupStr := query.Group
+	groupStr := query.GroupId
 	if len(groupStr) > 0 {
 		groupObj, err := GroupManager.FetchById(groupStr)
 		if err != nil {

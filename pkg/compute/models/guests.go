@@ -255,7 +255,7 @@ func (manager *SGuestManager) ListItemFilter(
 			sqlchemy.Equals(q.Field("backup_host_id"), host.GetId())))
 	}
 
-	secgrpFilter := query.Secgroup
+	secgrpFilter := query.SecgroupId
 	if len(secgrpFilter) > 0 {
 		var notIn = false
 		// HACK FOR NOT IN SECGROUP
@@ -409,7 +409,7 @@ func (manager *SGuestManager) ListItemFilter(
 		q = q.Filter(cond(q.Field("id"), sgq))
 	}
 
-	groupFilter := query.Group
+	groupFilter := query.GroupId
 	if len(groupFilter) != 0 {
 		groupObj, err := GroupManager.FetchByIdOrName(userCred, groupFilter)
 		if err != nil {
@@ -1340,13 +1340,13 @@ func (manager *SGuestManager) validateCreateData(
 		input.IsolatedDevices[idx] = devConfig
 	}
 
-	keypairId := input.Keypair
+	keypairId := input.KeypairId
 	if len(keypairId) > 0 {
 		keypairObj, err := KeypairManager.FetchByIdOrName(userCred, keypairId)
 		if err != nil {
 			return nil, httperrors.NewResourceNotFoundError("Keypair %s not found", keypairId)
 		}
-		input.Keypair = keypairObj.GetId()
+		input.KeypairId = keypairObj.GetId()
 	}
 
 	secGrpIds := []string{}
@@ -1414,8 +1414,8 @@ func (manager *SGuestManager) validateCreateData(
 		return nil, err
 	}
 
-	input.Project = ownerId.GetProjectId()
-	input.ProjectDomain = ownerId.GetProjectDomainId()
+	input.ProjectId = ownerId.GetProjectId()
+	input.ProjectDomainId = ownerId.GetProjectDomainId()
 	return input, nil
 }
 
@@ -5067,12 +5067,12 @@ func (self *SGuest) ToCreateInput(userCred mcclient.TokenCredential) *api.Server
 	userInput.ShutdownBehavior = genInput.ShutdownBehavior
 	userInput.IsSystem = genInput.IsSystem
 	userInput.SecgroupId = genInput.SecgroupId
-	userInput.Keypair = genInput.Keypair
+	userInput.KeypairId = genInput.KeypairId
 	userInput.EipBw = genInput.EipBw
 	userInput.EipChargeType = genInput.EipChargeType
 	// cloned server should belongs to the project creating it
-	userInput.Project = userCred.GetProjectId()
-	userInput.ProjectDomain = userCred.GetProjectDomainId()
+	userInput.ProjectId = userCred.GetProjectId()
+	userInput.ProjectDomainId = userCred.GetProjectDomainId()
 	userInput.Secgroups = []string{}
 	secgroups := self.GetSecgroups()
 	for _, secgroup := range secgroups {
@@ -5121,15 +5121,15 @@ func (self *SGuest) toCreateInput() *api.ServerCreateInput {
 	r.ServerConfigs = new(api.ServerConfigs)
 	r.Hypervisor = self.Hypervisor
 	r.InstanceType = self.InstanceType
-	r.Project = self.ProjectId
-	r.ProjectDomain = self.DomainId
+	r.ProjectId = self.ProjectId
+	r.ProjectDomainId = self.DomainId
 	r.Count = 1
 	r.Disks = self.ToDisksConfig()
 	r.Networks = self.ToNetworksConfig()
 	r.IsolatedDevices = self.ToIsolatedDevicesConfig()
 
 	if keypair := self.getKeypair(); keypair != nil {
-		r.Keypair = keypair.Id
+		r.KeypairId = keypair.Id
 	}
 	if host := self.GetHost(); host != nil {
 		r.ResourceType = host.ResourceType

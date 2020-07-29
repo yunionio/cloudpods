@@ -359,11 +359,11 @@ type ServerCreateInput struct {
 
 	// swagger:ignore
 	// Deprecated
-	KeypairId string `json:"keypair_id" "yunion:deprecated-by":"keypair"`
+	Keypair string `json:"keypair" "yunion:deprecated-by":"keypair_id"`
 
 	// 秘钥对Id
 	// required: false
-	Keypair string `json:"keypair"`
+	KeypairId string `json:"keypair_id"`
 
 	// 密码
 	// 要求: 密码长度 >= 20, 至少包含一个数字一个小写字母一个大小字母及特殊字符~`!@#$%^&*()-_=+[]{}|:';\",./<>?中的一个
@@ -511,7 +511,7 @@ type ServerCloneInput struct {
 	EipChargeType string `json:"eip_charge_type,omitempty"`
 	Eip           string `json:"eip,omitempty"`
 
-	PreferHost string `json:"prefer_host_id"`
+	PreferHostId string `json:"prefer_host_id"`
 }
 
 type ServerDeployInput struct {
@@ -530,8 +530,12 @@ type ServerDeployInput struct {
 type GuestBatchMigrateRequest struct {
 	apis.Meta
 
-	GuestIds   []string
-	PreferHost string
+	GuestIds []string `json:"guest_ids"`
+
+	PreferHostId string `json:"prefer_host_id"`
+	// Deprecated
+	// swagger:ignore
+	PreferHost string `json:"prefer_host" "yunion:deprecated-by":"prefer_host_id"`
 }
 
 type GuestBatchMigrateParams struct {

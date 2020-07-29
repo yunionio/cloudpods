@@ -41,15 +41,15 @@ type SLoadbalancerListenerResourceBaseManager struct {
 }
 
 func ValidateLoadbalancerListenerResourceInput(userCred mcclient.TokenCredential, input api.LoadbalancerListenerResourceInput) (*SLoadbalancerListener, api.LoadbalancerListenerResourceInput, error) {
-	listenerObj, err := LoadbalancerListenerManager.FetchByIdOrName(userCred, input.Listener)
+	listenerObj, err := LoadbalancerListenerManager.FetchByIdOrName(userCred, input.ListenerId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", LoadbalancerListenerManager.Keyword(), input.Listener)
+			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", LoadbalancerListenerManager.Keyword(), input.ListenerId)
 		} else {
 			return nil, input, errors.Wrap(err, "LoadbalancerListenerManager.FetchByIdOrName")
 		}
 	}
-	input.Listener = listenerObj.GetId()
+	input.ListenerId = listenerObj.GetId()
 	return listenerObj.(*SLoadbalancerListener), input, nil
 }
 
@@ -145,7 +145,7 @@ func (manager *SLoadbalancerListenerResourceBaseManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.LoadbalancerListenerFilterListInput,
 ) (*sqlchemy.SQuery, error) {
-	if len(query.Listener) > 0 {
+	if len(query.ListenerId) > 0 {
 		listenerObj, _, err := ValidateLoadbalancerListenerResourceInput(userCred, query.LoadbalancerListenerResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateLoadbalancerListenerResourceInput")

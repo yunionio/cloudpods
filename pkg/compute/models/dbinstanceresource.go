@@ -40,15 +40,15 @@ type SDBInstanceResourceBaseManager struct {
 }
 
 func ValidateDBInstanceResourceInput(userCred mcclient.TokenCredential, input api.DBInstanceResourceInput) (*SDBInstance, api.DBInstanceResourceInput, error) {
-	rdsObj, err := DBInstanceManager.FetchByIdOrName(userCred, input.DBInstance)
+	rdsObj, err := DBInstanceManager.FetchByIdOrName(userCred, input.DBInstanceId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", DBInstanceManager.Keyword(), input.DBInstance)
+			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", DBInstanceManager.Keyword(), input.DBInstanceId)
 		} else {
 			return nil, input, errors.Wrap(err, "DBInstanceManager.FetchByIdOrName")
 		}
 	}
-	input.DBInstance = rdsObj.GetId()
+	input.DBInstanceId = rdsObj.GetId()
 	return rdsObj.(*SDBInstance), input, nil
 }
 
@@ -133,7 +133,7 @@ func (manager *SDBInstanceResourceBaseManager) ListItemFilter(
 	query api.DBInstanceFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	var err error
-	if len(query.DBInstance) > 0 {
+	if len(query.DBInstanceId) > 0 {
 		var dbObj *SDBInstance
 		dbObj, _, err = ValidateDBInstanceResourceInput(userCred, query.DBInstanceResourceInput)
 		if err != nil {

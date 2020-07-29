@@ -40,15 +40,15 @@ type SDiskResourceBaseManager struct {
 }
 
 func ValidateDiskResourceInput(userCred mcclient.TokenCredential, input api.DiskResourceInput) (*SDisk, api.DiskResourceInput, error) {
-	diskObj, err := DiskManager.FetchByIdOrName(userCred, input.Disk)
+	diskObj, err := DiskManager.FetchByIdOrName(userCred, input.DiskId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", DiskManager.Keyword(), input.Disk)
+			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", DiskManager.Keyword(), input.DiskId)
 		} else {
 			return nil, input, errors.Wrap(err, "DiskManager.FetchByIdOrName")
 		}
 	}
-	input.Disk = diskObj.GetId()
+	input.DiskId = diskObj.GetId()
 	return diskObj.(*SDisk), input, nil
 }
 
@@ -139,7 +139,7 @@ func (manager *SDiskResourceBaseManager) ListItemFilter(
 	query api.DiskFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	var err error
-	if len(query.Disk) > 0 {
+	if len(query.DiskId) > 0 {
 		diskObj, _, err := ValidateDiskResourceInput(userCred, query.DiskResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateDiskResourceInput")

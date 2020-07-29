@@ -51,15 +51,15 @@ func (self *SManagedResourceBase) GetCloudproviderId() string {
 }
 
 func ValidateCloudproviderResourceInput(userCred mcclient.TokenCredential, query api.CloudproviderResourceInput) (*SCloudprovider, api.CloudproviderResourceInput, error) {
-	managerObj, err := CloudproviderManager.FetchByIdOrName(userCred, query.Cloudprovider)
+	managerObj, err := CloudproviderManager.FetchByIdOrName(userCred, query.CloudproviderId)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, query, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", CloudproviderManager.Keyword(), query.Cloudprovider)
+			return nil, query, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", CloudproviderManager.Keyword(), query.CloudproviderId)
 		} else {
 			return nil, query, errors.Wrap(err, "CloudproviderManager.FetchByIdOrName")
 		}
 	}
-	query.Cloudprovider = managerObj.GetId()
+	query.CloudproviderId = managerObj.GetId()
 	return managerObj.(*SCloudprovider), query, nil
 }
 
@@ -406,7 +406,7 @@ func (manager *SManagedResourceBaseManager) GetExportKeys() []string {
 }
 
 func _managedResourceFilterByDomain(managerIdFieldName string, q *sqlchemy.SQuery, query apis.DomainizedResourceListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
-	domainStr := query.ProjectDomain
+	domainStr := query.ProjectDomainId
 	if len(domainStr) > 0 {
 		domain, err := db.TenantCacheManager.FetchDomainByIdOrName(context.Background(), domainStr)
 		if err != nil {
@@ -496,7 +496,7 @@ func managedResourceFilterByAccount(q *sqlchemy.SQuery, input api.ManagedResourc
 }
 
 func _managedResourceFilterByAccount(managerIdFieldName string, q *sqlchemy.SQuery, input api.ManagedResourceListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
-	cloudproviderStr := input.Cloudprovider
+	cloudproviderStr := input.CloudproviderId
 	if len(cloudproviderStr) > 0 {
 		provider, err := CloudproviderManager.FetchByIdOrName(nil, cloudproviderStr)
 		if err != nil {
@@ -514,7 +514,7 @@ func _managedResourceFilterByAccount(managerIdFieldName string, q *sqlchemy.SQue
 		}
 	}
 
-	cloudaccountArr := input.Cloudaccount
+	cloudaccountArr := input.CloudaccountId
 	if len(cloudaccountArr) > 0 {
 		cpq := CloudaccountManager.Query().SubQuery()
 		subcpq := cpq.Query(cpq.Field("id")).Filter(sqlchemy.OR(
@@ -559,7 +559,7 @@ func _managedResourceFilterByAccount(managerIdFieldName string, q *sqlchemy.SQue
 
 func managedResourceFilterByZone(q *sqlchemy.SQuery, query api.ZonalFilterListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
 	zoneList := query.ZoneList()
-	if len(query.Zones) >= 1 {
+	if len(query.ZoneIds) >= 1 {
 		zoneQ := ZoneManager.Query("id")
 		zoneQ = zoneQ.Filter(sqlchemy.OR(
 			sqlchemy.In(zoneQ.Field("id"), zoneList),
@@ -572,7 +572,7 @@ func managedResourceFilterByZone(q *sqlchemy.SQuery, query api.ZonalFilterListIn
 			sq = sq.Filter(sqlchemy.In(sq.Field("zone_id"), zoneQ.SubQuery()))
 			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
 		}
-	} else if len(query.Zone) > 0 {
+	} else if len(query.ZoneId) > 0 {
 		zoneObj, _, err := ValidateZoneResourceInput(nil, query.ZoneResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateZoneResourceInput")
@@ -590,7 +590,7 @@ func managedResourceFilterByZone(q *sqlchemy.SQuery, query api.ZonalFilterListIn
 }
 
 func managedResourceFilterByRegion(q *sqlchemy.SQuery, query api.RegionalFilterListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
-	regionStr := query.Cloudregion
+	regionStr := query.CloudregionId
 	if len(regionStr) > 0 {
 		regionObj, _, err := ValidateCloudregionResourceInput(nil, query.CloudregionResourceInput)
 		if err != nil {

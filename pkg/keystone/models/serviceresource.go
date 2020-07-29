@@ -34,11 +34,11 @@ func (manager *SServiceResourceBaseManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.ServiceFilterListInput,
 ) (*sqlchemy.SQuery, error) {
-	if len(query.Service) > 0 {
-		serviceObj, err := ServiceManager.FetchByIdOrName(userCred, query.Service)
+	if len(query.ServiceId) > 0 {
+		serviceObj, err := ServiceManager.FetchByIdOrName(userCred, query.ServiceId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(ServiceManager.Keyword(), query.Service)
+				return nil, httperrors.NewResourceNotFoundError2(ServiceManager.Keyword(), query.ServiceId)
 			} else {
 				return nil, errors.Wrap(err, "ServiceManager.FetchByIdOrName")
 			}

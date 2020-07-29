@@ -40,15 +40,15 @@ type SZoneResourceBaseManager struct {
 }
 
 func ValidateZoneResourceInput(userCred mcclient.TokenCredential, query api.ZoneResourceInput) (*SZone, api.ZoneResourceInput, error) {
-	zoneObj, err := ZoneManager.FetchByIdOrName(userCred, query.Zone)
+	zoneObj, err := ZoneManager.FetchByIdOrName(userCred, query.ZoneId)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, query, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", ZoneManager.Keyword(), query.Zone)
+			return nil, query, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", ZoneManager.Keyword(), query.ZoneId)
 		} else {
 			return nil, query, errors.Wrap(err, "ZoneManager.FetchByIdOrName")
 		}
 	}
-	query.Zone = zoneObj.GetId()
+	query.ZoneId = zoneObj.GetId()
 	return zoneObj.(*SZone), query, nil
 }
 

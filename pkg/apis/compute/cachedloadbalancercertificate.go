@@ -39,11 +39,11 @@ type LoadbalancerCertificateResourceInfo struct {
 
 type LoadbalancerCertificateResourceInput struct {
 	// 证书名称或ID
-	Certificate string `json:"certificate"`
+	CertificateId string `json:"certificate_id"`
 
 	// swagger:ignore
 	// Deprecated
-	CertificateId string `json:"certificate_id" "yunion:deprecated-by":"certificate"`
+	Certificate string `json:"certificate" "yunion:deprecated-by":"certificate_id"`
 }
 
 type LoadbalancerCertificateFilterListInput struct {

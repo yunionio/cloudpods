@@ -259,7 +259,7 @@ func (manager *SElasticcacheSkuManager) ListItemFilter(
 		}
 	}
 
-	if domainStr := query.ProjectDomain; len(domainStr) > 0 {
+	if domainStr := query.ProjectDomainId; len(domainStr) > 0 {
 		domain, err := db.TenantCacheManager.FetchDomainByIdOrName(context.Background(), domainStr)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
@@ -267,9 +267,9 @@ func (manager *SElasticcacheSkuManager) ListItemFilter(
 			}
 			return nil, httperrors.NewGeneralError(err)
 		}
-		query.ProjectDomain = domain.GetId()
+		query.ProjectDomainId = domain.GetId()
 	}
-	q = listItemDomainFilter(q, query.Providers, query.ProjectDomain)
+	q = listItemDomainFilter(q, query.Providers, query.ProjectDomainId)
 
 	// 按区间查询内存, 避免0.75G这样的套餐不好过滤
 	memSizeMB := query.MemorySizeMb

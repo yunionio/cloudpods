@@ -300,7 +300,7 @@ func (self *SCloudaccount) ValidateUpdateData(
 		input.Options = optionsJson
 	}
 
-	if len(input.ProxySetting) > 0 {
+	if len(input.ProxySettingId) > 0 {
 		var proxySetting *proxy.SProxySetting
 		proxySetting, input.ProxySettingResourceInput, err = proxy.ValidateProxySettingResourceInput(userCred, input.ProxySettingResourceInput)
 		if err != nil {
@@ -360,15 +360,15 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 		return output, err
 	}
 	// validate domain
-	if len(input.ProjectDomain) > 0 {
+	if len(input.ProjectDomainId) > 0 {
 		_, input.DomainizedResourceInput, err = db.ValidateDomainizedResourceInput(ctx, input.DomainizedResourceInput)
 		if err != nil {
 			return output, err
 		}
 	}
 
-	domainId := input.ProjectDomain
-	if len(input.Project) > 0 {
+	domainId := input.ProjectDomainId
+	if len(input.ProjectId) > 0 {
 		var tenent *db.STenant
 		tenent, input.ProjectizedResourceInput, err = db.ValidateProjectizedResourceInput(ctx, input.ProjectizedResourceInput)
 		if err != nil {
@@ -514,7 +514,7 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 	}
 
 	// Find the suitable network containing the VM IP in Project 'input.Project', and if not, give the corresponding suggested network configuration in this project.
-	project := input.Project
+	project := input.ProjectId
 	nets := []*SNetwork{}
 	var allNets []SNetwork
 	if suitableWire != nil {
@@ -809,7 +809,7 @@ func (manager *SCloudaccountManager) ValidateCreateData(
 		return input, err
 	}
 
-	if len(input.Project) > 0 {
+	if len(input.ProjectId) > 0 {
 		var proj *db.STenant
 		proj, input.ProjectizedResourceInput, err = db.ValidateProjectizedResourceInput(ctx, input.ProjectizedResourceInput)
 		if err != nil {
@@ -866,8 +866,8 @@ func (manager *SCloudaccountManager) ValidateCreateData(
 
 	var proxyFunc httputils.TransportProxyFunc
 	{
-		if input.ProxySetting == "" {
-			input.ProxySetting = proxyapi.ProxySettingId_DIRECT
+		if input.ProxySettingId == "" {
+			input.ProxySettingId = proxyapi.ProxySettingId_DIRECT
 		}
 		var proxySetting *proxy.SProxySetting
 		proxySetting, input.ProxySettingResourceInput, err = proxy.ValidateProxySettingResourceInput(userCred, input.ProxySettingResourceInput)
@@ -1888,7 +1888,7 @@ func (self *SCloudaccount) PerformChangeProject(ctx context.Context, userCred mc
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "cannot change owner when shared!")
 	}
 
-	project := input.Project
+	project := input.ProjectId
 
 	tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, project)
 	if err != nil {
@@ -1913,7 +1913,7 @@ func (self *SCloudaccount) PerformChangeProject(ctx context.Context, userCred mc
 	if tenant.DomainId != self.DomainId {
 		// do change domainId
 		input2 := apis.PerformChangeDomainOwnerInput{}
-		input2.ProjectDomain = tenant.DomainId
+		input2.ProjectDomainId = tenant.DomainId
 		_, err := self.SEnabledStatusInfrasResourceBase.PerformChangeOwner(ctx, userCred, query, input2)
 		if err != nil {
 			return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBase.PerformChangeOwner")
@@ -1951,7 +1951,7 @@ func (manager *SCloudaccountManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.CloudaccountListInput,
 ) (*sqlchemy.SQuery, error) {
-	accountArr := query.Cloudaccount
+	accountArr := query.CloudaccountId
 	if len(accountArr) > 0 {
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.In(q.Field("id"), accountArr),
@@ -1979,7 +1979,7 @@ func (manager *SCloudaccountManager) ListItemFilter(
 		q = q.Equals("proxy_setting_id", proxy.GetId())
 	}
 
-	managerStr := query.Cloudprovider
+	managerStr := query.CloudproviderId
 	if len(managerStr) > 0 {
 		providerObj, err := CloudproviderManager.FetchByIdOrName(userCred, managerStr)
 		if err != nil {
@@ -2504,20 +2504,20 @@ func (account *SCloudaccount) PerformPublic(ctx context.Context, userCred mcclie
 
 	switch input.ShareMode {
 	case api.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN:
-		if len(input.SharedDomains) == 0 {
+		if len(input.SharedDomainIds) == 0 {
 			input.Scope = string(rbacutils.ScopeSystem)
 		} else {
 			input.Scope = string(rbacutils.ScopeDomain)
 			providers := account.GetCloudproviders()
 			for i := range providers {
-				if !utils.IsInStringArray(providers[i].DomainId, input.SharedDomains) && providers[i].DomainId != account.DomainId {
+				if !utils.IsInStringArray(providers[i].DomainId, input.SharedDomainIds) && providers[i].DomainId != account.DomainId {
 					log.Warningf("provider's domainId %s is outside of list of shared domains", providers[i].DomainId)
-					input.SharedDomains = append(input.SharedDomains, providers[i].DomainId)
+					input.SharedDomainIds = append(input.SharedDomainIds, providers[i].DomainId)
 				}
 			}
 		}
 	case api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM:
-		if len(input.SharedDomains) == 0 {
+		if len(input.SharedDomainIds) == 0 {
 			input.Scope = string(rbacutils.ScopeSystem)
 		} else {
 			input.Scope = string(rbacutils.ScopeDomain)

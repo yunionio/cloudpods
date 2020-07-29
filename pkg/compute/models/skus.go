@@ -759,7 +759,7 @@ func (manager *SServerSkuManager) ListItemFilter(
 		)
 	}
 
-	if domainStr := query.ProjectDomain; len(domainStr) > 0 {
+	if domainStr := query.ProjectDomainId; len(domainStr) > 0 {
 		domain, err := db.TenantCacheManager.FetchDomainByIdOrName(context.Background(), domainStr)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
@@ -767,9 +767,9 @@ func (manager *SServerSkuManager) ListItemFilter(
 			}
 			return nil, httperrors.NewGeneralError(err)
 		}
-		query.ProjectDomain = domain.GetId()
+		query.ProjectDomainId = domain.GetId()
 	}
-	q = listItemDomainFilter(q, query.Providers, query.ProjectDomain)
+	q = listItemDomainFilter(q, query.Providers, query.ProjectDomainId)
 
 	providers := query.Providers
 	if len(providers) > 0 {
@@ -794,7 +794,7 @@ func (manager *SServerSkuManager) ListItemFilter(
 		q = q.IsTrue("enabled")
 	}
 
-	zoneStr := query.Zone
+	zoneStr := query.ZoneId
 	if len(zoneStr) > 0 {
 		_zone, err := ZoneManager.FetchByIdOrName(userCred, zoneStr)
 		if err != nil {

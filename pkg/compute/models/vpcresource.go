@@ -42,15 +42,15 @@ type SVpcResourceBaseManager struct {
 }
 
 func ValidateVpcResourceInput(userCred mcclient.TokenCredential, input api.VpcResourceInput) (*SVpc, api.VpcResourceInput, error) {
-	vpcObj, err := VpcManager.FetchByIdOrName(userCred, input.Vpc)
+	vpcObj, err := VpcManager.FetchByIdOrName(userCred, input.VpcId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, input, httperrors.NewResourceNotFoundError2(VpcManager.Keyword(), input.Vpc)
+			return nil, input, httperrors.NewResourceNotFoundError2(VpcManager.Keyword(), input.VpcId)
 		} else {
 			return nil, input, errors.Wrap(err, "VpcManager.FetchByIdOrName")
 		}
 	}
-	input.Vpc = vpcObj.GetId()
+	input.VpcId = vpcObj.GetId()
 	return vpcObj.(*SVpc), input, nil
 }
 
@@ -174,7 +174,7 @@ func (manager *SVpcResourceBaseManager) ListItemFilter(
 	query api.VpcFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	var err error
-	if len(query.Vpc) > 0 {
+	if len(query.VpcId) > 0 {
 		vpcObj, _, err := ValidateVpcResourceInput(userCred, query.VpcResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateVpcResourceInput")

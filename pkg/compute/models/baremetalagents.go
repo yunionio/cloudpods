@@ -92,7 +92,7 @@ func (self *SBaremetalagent) ValidateUpdateData(ctx context.Context, userCred mc
 			return input, httperrors.NewConflictError("Conflict manager_uri %s", mangerUri)
 		}
 	}
-	if len(input.Zone) > 0 {
+	if len(input.ZoneId) > 0 {
 		_, input.ZoneResourceInput, err = ValidateZoneResourceInput(userCred, input.ZoneResourceInput)
 		if err != nil {
 			return input, errors.Wrap(err, "ValidateZoneResourceInput")
@@ -118,7 +118,7 @@ func (manager *SBaremetalagentManager) ValidateCreateData(ctx context.Context, u
 	if count > 0 {
 		return input, httperrors.NewDuplicateResourceError("Duplicate manager_uri %s", mangerUri)
 	}
-	if len(input.Zone) == 0 {
+	if len(input.ZoneId) == 0 {
 		return input, errors.Wrap(httperrors.ErrMissingParameter, "zone/zone_id")
 	}
 	_, input.ZoneResourceInput, err = ValidateZoneResourceInput(userCred, input.ZoneResourceInput)

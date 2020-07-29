@@ -190,11 +190,11 @@ type SecurityGroupRuleListInput struct {
 
 type SecgroupResourceInput struct {
 	// 过滤关联指定安全组（ID或Name）的列表结果
-	Secgroup string `json:"secgroup"`
+	SecgroupId string `json:"secgroup_id"`
 	// swagger:ignore
 	// Deprecated
 	// filter by secgroup_id
-	SecgroupId string `json:"secgroup_id" "yunion:deprecated-by":"secgroup"`
+	Secgroup string `json:"secgroup" "yunion:deprecated-by":"secgroup_id"`
 
 	// 模糊匹配安全组规则名称
 	SecgroupName string `json:"secgroup_name"`

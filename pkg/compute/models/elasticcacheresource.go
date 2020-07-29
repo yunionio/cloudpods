@@ -43,15 +43,15 @@ type SElasticcacheResourceBaseManager struct {
 }
 
 func ValidateElasticcacheResourceInput(userCred mcclient.TokenCredential, input api.ELasticcacheResourceInput) (*SElasticcache, api.ELasticcacheResourceInput, error) {
-	cacheObj, err := ElasticcacheManager.FetchByIdOrName(userCred, input.Elasticcache)
+	cacheObj, err := ElasticcacheManager.FetchByIdOrName(userCred, input.ElasticcacheId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", ElasticcacheManager.Keyword(), input.Elasticcache)
+			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", ElasticcacheManager.Keyword(), input.ElasticcacheId)
 		} else {
 			return nil, input, errors.Wrap(err, "ElasticcacheManager.FetchByIdOrName")
 		}
 	}
-	input.Elasticcache = cacheObj.GetId()
+	input.ElasticcacheId = cacheObj.GetId()
 	return cacheObj.(*SElasticcache), input, nil
 }
 
@@ -143,7 +143,7 @@ func (manager *SElasticcacheResourceBaseManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.ElasticcacheFilterListInput,
 ) (*sqlchemy.SQuery, error) {
-	if len(query.Elasticcache) > 0 {
+	if len(query.ElasticcacheId) > 0 {
 		dbObj, _, err := ValidateElasticcacheResourceInput(userCred, query.ELasticcacheResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateElasticcacheResourceInput")

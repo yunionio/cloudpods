@@ -252,7 +252,7 @@ func (manager *SHostManager) ListItemFilter(
 	}
 	// var scopeQuery *sqlchemy.SSubQuery
 
-	schedTagStr := query.Schedtag
+	schedTagStr := query.SchedtagId
 	if len(schedTagStr) > 0 {
 		schedTag, _ := SchedtagManager.FetchByIdOrName(nil, schedTagStr)
 		if schedTag == nil {
@@ -263,7 +263,7 @@ func (manager *SHostManager) ListItemFilter(
 		q = q.In("id", scopeQuery)
 	}
 
-	wireStr := query.Wire
+	wireStr := query.WireId
 	if len(wireStr) > 0 {
 		wire, _ := WireManager.FetchByIdOrName(nil, wireStr)
 		if wire == nil {
@@ -274,7 +274,7 @@ func (manager *SHostManager) ListItemFilter(
 		q = q.In("id", scopeQuery)
 	}
 
-	storageStr := query.Storage
+	storageStr := query.StorageId
 	if len(storageStr) > 0 {
 		storage, _ := StorageManager.FetchByIdOrName(nil, storageStr)
 		if storage == nil {
@@ -2991,7 +2991,7 @@ func (manager *SHostManager) ValidateCreateData(
 ) (api.HostCreateInput, error) {
 	var err error
 
-	if len(input.Zone) > 0 {
+	if len(input.ZoneId) > 0 {
 		_, input.ZoneResourceInput, err = ValidateZoneResourceInput(userCred, input.ZoneResourceInput)
 		if err != nil {
 			return input, errors.Wrap(err, "ValidateZoneResourceInput")
@@ -3003,7 +3003,7 @@ func (manager *SHostManager) ValidateCreateData(
 		noProbe = *input.NoProbe
 	}
 
-	input.HostAccessAttributes, err = manager.inputUniquenessCheck(input.HostAccessAttributes, input.Zone, "")
+	input.HostAccessAttributes, err = manager.inputUniquenessCheck(input.HostAccessAttributes, input.ZoneId, "")
 	if err != nil {
 		return input, errors.Wrap(err, "manager.inputUniquenessCheck")
 	}
@@ -3054,11 +3054,11 @@ func (manager *SHostManager) ValidateCreateData(
 		if zoneObj == nil {
 			return input, httperrors.NewInputParameterError("IPMI network has no zone???")
 		}
-		originZoneId := input.Zone
+		originZoneId := input.ZoneId
 		if len(originZoneId) > 0 && originZoneId != zoneObj.GetId() {
 			return input, httperrors.NewInputParameterError("IPMI address located in different zone than specified")
 		}
-		input.Zone = zoneObj.GetId()
+		input.ZoneId = zoneObj.GetId()
 		// data.Set("zone_id", jsonutils.NewString(zoneObj.GetId()))
 	}
 	if !noProbe {
@@ -3121,7 +3121,7 @@ func (manager *SHostManager) ValidateCreateData(
 			if zoneObj == nil {
 				return input, httperrors.NewInputParameterError("Access network has no zone???")
 			}
-			originZoneId := input.Zone // data.GetString("zone_id")
+			originZoneId := input.ZoneId // data.GetString("zone_id")
 			if len(originZoneId) > 0 && originZoneId != zoneObj.GetId() {
 				return input, httperrors.NewInputParameterError("Access address located in different zone than specified")
 			}
@@ -3137,7 +3137,7 @@ func (manager *SHostManager) ValidateCreateData(
 			}
 
 			input.AccessIp = accessIp
-			input.Zone = zoneObj.GetId()
+			input.ZoneId = zoneObj.GetId()
 			// data.Set("access_ip", jsonutils.NewString(accessIp))
 			// data.Set("zone_id", jsonutils.NewString(zoneObj.GetId()))
 		}
@@ -4447,8 +4447,8 @@ func (self *SHost) PerformConvertHypervisor(ctx context.Context, userCred mcclie
 		return nil, httperrors.NewNotAcceptableError("Convert error: %s", err.Error())
 	}
 	// admin delegate user to create system resource
-	input.ProjectDomain = ownerId.GetProjectDomainId()
-	input.Project = ownerId.GetProjectId()
+	input.ProjectDomainId = ownerId.GetProjectDomainId()
+	input.ProjectId = ownerId.GetProjectId()
 	params := input.JSON(input)
 	adminCred := auth.AdminCredential()
 	guest, err := db.DoCreate(GuestManager, ctx, adminCred, nil, params, ownerId)
@@ -5276,10 +5276,10 @@ func (host *SHost) PerformChangeOwner(ctx context.Context, userCred mcclient.Tok
 }
 
 func GetHostQuotaKeysFromCreateInput(input api.HostCreateInput) quotas.SDomainRegionalCloudResourceKeys {
-	ownerId := &db.SOwnerId{DomainId: input.ProjectDomain}
+	ownerId := &db.SOwnerId{DomainId: input.ProjectDomainId}
 	var zone *SZone
-	if len(input.Zone) > 0 {
-		zone = ZoneManager.FetchZoneById(input.Zone)
+	if len(input.ZoneId) > 0 {
+		zone = ZoneManager.FetchZoneById(input.ZoneId)
 	}
 	zoneKeys := fetchZonalQuotaKeys(rbacutils.ScopeDomain, ownerId, zone, nil)
 	keys := quotas.SDomainRegionalCloudResourceKeys{}

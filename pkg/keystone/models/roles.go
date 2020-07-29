@@ -261,7 +261,7 @@ func (manager *SRoleManager) ListItemFilter(
 	}
 
 	var projectId string
-	projectStr := query.Project
+	projectStr := query.ProjectId
 	if len(projectStr) > 0 {
 		project, err := ProjectManager.FetchProjectById(projectStr)
 		if err != nil {
@@ -274,7 +274,7 @@ func (manager *SRoleManager) ListItemFilter(
 		projectId = project.Id
 	}
 
-	userStr := query.User
+	userStr := query.UserId
 	if len(projectId) > 0 && len(userStr) > 0 {
 		userObj, err := UserManager.FetchById(userStr)
 		if err != nil {
@@ -288,7 +288,7 @@ func (manager *SRoleManager) ListItemFilter(
 		q = q.In("id", subq.SubQuery())
 	}
 
-	groupStr := query.Group
+	groupStr := query.GroupId
 	if len(projectId) > 0 && len(groupStr) > 0 {
 		groupObj, err := GroupManager.FetchById(groupStr)
 		if err != nil {

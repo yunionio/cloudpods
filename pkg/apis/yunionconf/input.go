@@ -24,18 +24,18 @@ type ParameterListInput struct {
 	NamespaceId string `json:"namespace_id"`
 
 	// 服务名称或ID
-	Service string `json:"service"`
+	ServiceId string `json:"service_id"`
 
 	// Deprecated
 	// swagger:ignore
-	ServiceId string `json:"service_id" "yunion:deprecated-by":"service"`
+	Service string `json:"service" "yunion:deprecated-by":"service_id"`
 
 	// 用户名称或ID
-	User string `json:"user"`
+	UserId string `json:"user_id"`
 
 	// Deprecated
 	// swagger:ignore
-	UserId string `json:"user_id" "yunion:deprecated-by":"user"`
+	User string `json:"user" "yunion:deprecated-by":"user_id"`
 
 	// filter by name
 	Name []string `json:"name"`

@@ -169,8 +169,8 @@ func (man *SSuggestSysRuleConfigManager) createFromDriver(ctx context.Context, s
 	ownerId := config.GetOwnerId()
 	data := monitor.SuggestSysRuleConfigCreateInput{}
 	data.Scope = string(scope)
-	data.ProjectDomain = ownerId.GetProjectDomainId()
-	data.Project = ownerId.GetProjectId()
+	data.ProjectDomainId = ownerId.GetProjectDomainId()
+	data.ProjectId = ownerId.GetProjectId()
 	// HACK parentId, ref SScopedResourceBaseManager.FetchParentId
 	parentId := man.FetchParentId(ctx, data.JSON(data))
 	if err := db.NewNameValidator(man, ownerId, name, parentId); err != nil {

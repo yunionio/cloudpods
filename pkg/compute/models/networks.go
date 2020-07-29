@@ -1825,7 +1825,7 @@ func (manager *SNetworkManager) ListItemFilter(
 		q = q.In("wire_id", sq.SubQuery()).Equals("status", api.NETWORK_STATUS_AVAILABLE)
 	}
 
-	hostStr := input.Host
+	hostStr := input.HostId
 	if len(hostStr) > 0 {
 		hostObj, err := HostManager.FetchByIdOrName(userCred, hostStr)
 		if err != nil {
@@ -1879,11 +1879,11 @@ func (manager *SNetworkManager) ListItemFilter(
 		q = q.Filter(ipCondtion)
 	}
 
-	if len(input.Schedtag) > 0 {
-		schedTag, err := SchedtagManager.FetchByIdOrName(nil, input.Schedtag)
+	if len(input.SchedtagId) > 0 {
+		schedTag, err := SchedtagManager.FetchByIdOrName(nil, input.SchedtagId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(SchedtagManager.Keyword(), input.Schedtag)
+				return nil, httperrors.NewResourceNotFoundError2(SchedtagManager.Keyword(), input.SchedtagId)
 			}
 			return nil, httperrors.NewGeneralError(err)
 		}

@@ -434,8 +434,8 @@ func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.C
 			_, err = secgroup.PerformPublic(ctx, userCred, nil,
 				apis.PerformPublicProjectInput{
 					PerformPublicDomainInput: apis.PerformPublicDomainInput{
-						Scope:         "domain",
-						SharedDomains: []string{provider.DomainId},
+						Scope:           "domain",
+						SharedDomainIds: []string{provider.DomainId},
 					},
 				})
 			if err != nil {

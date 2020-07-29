@@ -45,16 +45,16 @@ type StoragecachedimageListInput struct {
 	apis.ExternalizedResourceBaseListInput
 
 	// 以镜像缓存存储过滤
-	Storagecache string `json:"storagecache"`
+	StoragecacheId string `json:"storagecache_id"`
 	// Deprecated
 	// swagger:ignore
-	StoragecacheId string `json:"storagecache_id" "yunion:deprecated-by":"storagecache"`
+	Storagecache string `json:"storagecache" "yunion:deprecated-by":"storagecache_id"`
 
 	// 以镜像缓存过滤
-	Cachedimage string `json:"cachedimage"`
+	CachedimageId string `json:"cachedimage_id"`
 	// Deprecated
 	// swagger:ignore
-	CachedimageId string `json:"cachedimage_id" "yunion:deprecated-by":"cachedimage"`
+	Cachedimage string `json:"cachedimage" "yunion:deprecated-by":"cachedimage_id"`
 
 	// 镜像状态
 	Status []string `json:"status"`

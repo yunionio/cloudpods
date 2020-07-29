@@ -40,15 +40,15 @@ type SNetworkResourceBaseManager struct {
 }
 
 func ValidateNetworkResourceInput(userCred mcclient.TokenCredential, query api.NetworkResourceInput) (*SNetwork, api.NetworkResourceInput, error) {
-	netObj, err := NetworkManager.FetchByIdOrName(userCred, query.Network)
+	netObj, err := NetworkManager.FetchByIdOrName(userCred, query.NetworkId)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, query, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", NetworkManager.Keyword(), query.Network)
+			return nil, query, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", NetworkManager.Keyword(), query.NetworkId)
 		} else {
 			return nil, query, errors.Wrap(err, "NetworkManager.FetchByIdOrName")
 		}
 	}
-	query.Network = netObj.GetId()
+	query.NetworkId = netObj.GetId()
 	return netObj.(*SNetwork), query, nil
 }
 
@@ -147,7 +147,7 @@ func (manager *SNetworkResourceBaseManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.NetworkFilterListInput,
 ) (*sqlchemy.SQuery, error) {
-	if len(query.Network) > 0 {
+	if len(query.NetworkId) > 0 {
 		netObj, _, err := ValidateNetworkResourceInput(userCred, query.NetworkResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateNetworkResourceInput")

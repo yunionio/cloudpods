@@ -204,8 +204,8 @@ func (man *SLoadbalancerCertificateManager) ListItemFilter(
 	}
 
 	if query.Usable != nil && *query.Usable {
-		region := query.Cloudregion
-		manager := query.Cloudprovider
+		region := query.CloudregionId
+		manager := query.CloudproviderId
 
 		// 证书可用包含两类：1.本地证书内容不为空 2.公有云中已经存在，但是证书内容不完整的证书
 		if len(region) > 0 || len(manager) > 0 {
