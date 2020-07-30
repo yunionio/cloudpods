@@ -15,6 +15,10 @@
 package shell
 
 import (
+	"os"
+
+	"yunion.io/x/pkg/errors"
+
 	"yunion.io/x/onecloud/pkg/multicloud/openstack"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -57,10 +61,16 @@ func init() {
 		OsDistro      string
 		MinDiskSizeGB int
 		MinRamMb      int
+		FILE          string
 	}
 
 	shellutils.R(&ImageCreateOptions{}, "image-create", "Create image", func(cli *openstack.SRegion, args *ImageCreateOptions) error {
-		image, err := cli.CreateImage(args.NAME, args.OsType, args.OsDistro, args.MinDiskSizeGB, args.MinRamMb)
+		file, err := os.Open(args.FILE)
+		if err != nil {
+			return errors.Wrap(err, "os.Open")
+		}
+		defer file.Close()
+		image, err := cli.CreateImage(args.NAME, args.OsType, args.OsDistro, args.MinDiskSizeGB, args.MinRamMb, file)
 		if err != nil {
 			return err
 		}

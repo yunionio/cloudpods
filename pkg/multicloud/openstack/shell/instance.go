@@ -37,12 +37,31 @@ func init() {
 	type InstanceOptions struct {
 		ID string `help:"Instance ID"`
 	}
+
+	shellutils.R(&InstanceOptions{}, "instance-network-list", "List instance network", func(cli *openstack.SRegion, args *InstanceOptions) error {
+		ports, err := cli.GetInstancePorts(args.ID)
+		if err != nil {
+			return err
+		}
+		printObject(ports)
+		return nil
+	})
+
 	shellutils.R(&InstanceOptions{}, "instance-show", "Show instance", func(cli *openstack.SRegion, args *InstanceOptions) error {
 		instance, err := cli.GetInstance(args.ID)
 		if err != nil {
 			return err
 		}
 		printObject(instance)
+		return nil
+	})
+
+	shellutils.R(&InstanceOptions{}, "instance-metadata", "Show instance metadata", func(cli *openstack.SRegion, args *InstanceOptions) error {
+		metadata, err := cli.GetInstanceMetadata(args.ID)
+		if err != nil {
+			return err
+		}
+		printObject(metadata)
 		return nil
 	})
 

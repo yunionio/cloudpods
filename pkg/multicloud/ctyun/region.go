@@ -131,14 +131,14 @@ func (self *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICl
 	return self.GetSecurityGroupDetails(secgroupId)
 }
 
-func (self *SRegion) GetISecurityGroupByName(vpcId string, name string) (cloudprovider.ICloudSecurityGroup, error) {
-	segroups, err := self.GetSecurityGroups(vpcId)
+func (self *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
+	segroups, err := self.GetSecurityGroups(opts.VpcId)
 	if err != nil {
 		return nil, errors.Wrap(err, "SRegion.GetISecurityGroupByName.GetSecurityGroups")
 	}
 
 	for i := range segroups {
-		if segroups[i].Name == name {
+		if segroups[i].Name == opts.Name {
 			return &segroups[i], nil
 		}
 	}

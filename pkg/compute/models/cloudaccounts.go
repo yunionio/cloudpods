@@ -809,7 +809,17 @@ func (manager *SCloudaccountManager) ValidateCreateData(
 		return input, err
 	}
 
-	if len(input.Project) > 0 {
+	if !cloudprovider.IsSupported(input.Provider) {
+		return input, httperrors.NewInputParameterError("Unsupported provider %s", input.Provider)
+	}
+	providerDriver, _ := cloudprovider.GetProviderFactory(input.Provider)
+
+	forceAutoCreateProject := providerDriver.IsNeedForceAutoCreateProject()
+	if forceAutoCreateProject {
+		input.AutoCreateProject = &forceAutoCreateProject
+	}
+
+	if len(input.ProjectId) > 0 {
 		var proj *db.STenant
 		proj, input.ProjectizedResourceInput, err = db.ValidateProjectizedResourceInput(ctx, input.ProjectizedResourceInput)
 		if err != nil {
@@ -821,17 +831,15 @@ func (manager *SCloudaccountManager) ValidateCreateData(
 		if input.AutoCreateProject != nil && *input.AutoCreateProject {
 			log.Warningf("project_id and auto_create_project should not be turned on at the same time")
 		}
-		input.AutoCreateProject = nil
+		if !forceAutoCreateProject {
+			input.AutoCreateProject = nil
+		}
 	} else if input.AutoCreateProject == nil || !*input.AutoCreateProject {
 		log.Warningf("auto_create_project is off while no project_id specified")
 		createProject := true
 		input.AutoCreateProject = &createProject
 	}
 
-	if !cloudprovider.IsSupported(input.Provider) {
-		return input, httperrors.NewInputParameterError("Unsupported provider %s", input.Provider)
-	}
-	providerDriver, _ := cloudprovider.GetProviderFactory(input.Provider)
 	input.SCloudaccount, err = providerDriver.ValidateCreateCloudaccountData(ctx, userCred, input.SCloudaccountCredential)
 	if err != nil {
 		return input, err

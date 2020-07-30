@@ -329,8 +329,8 @@ func (region *SRegion) GetISecurityGroupById(id string) (cloudprovider.ICloudSec
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (region *SRegion) GetISecurityGroupByName(vpcId string, name string) (cloudprovider.ICloudSecurityGroup, error) {
-	ivpc, err := region.GetIVpcById(vpcId)
+func (region *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
+	ivpc, err := region.GetIVpcById(opts.VpcId)
 	if err != nil {
 		return nil, err
 	}
@@ -339,7 +339,7 @@ func (region *SRegion) GetISecurityGroupByName(vpcId string, name string) (cloud
 		return nil, errors.Wrap(err, "ivpc.GetISecurityGroups")
 	}
 	for _, secgroup := range secgroups {
-		if strings.ToLower(secgroup.GetName()) == strings.ToLower(name) {
+		if strings.ToLower(secgroup.GetName()) == strings.ToLower(opts.Name) {
 			return secgroup, nil
 		}
 	}

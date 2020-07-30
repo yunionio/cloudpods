@@ -106,7 +106,7 @@ func getDefaultGateWay(cidr string) (string, error) {
 	return startIp.String(), nil
 }
 
-func (self *SWire) CreateINetwork(name string, cidr string, desc string) (cloudprovider.ICloudNetwork, error) {
+func (self *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
 	var ZoneId string
 	if len(self.inetworks) > 0 {
 		ZoneId = self.inetworks[0].(*SNetwork).ZoneID
@@ -117,7 +117,7 @@ func (self *SWire) CreateINetwork(name string, cidr string, desc string) (cloudp
 			return nil, fmt.Errorf("SWire.CreateINetwork region %s zone is empty", self.region.GetName())
 		}
 	}
-	network, err := self.region.CreateNetwork(self.vpc.GetId(), ZoneId, name, cidr, "true")
+	network, err := self.region.CreateNetwork(self.vpc.GetId(), ZoneId, opts.Name, opts.Cidr, "true")
 	if err != nil {
 		return nil, errors.Wrap(err, "SWire.CreateINetwork.CreateNetwork")
 	}

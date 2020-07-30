@@ -100,8 +100,8 @@ func (self *SRegion) createNetwork(vpc *SVpc, subnetName string, cidr string, de
 	return &subnet, nil
 }
 
-func (self *SWire) CreateINetwork(name string, cidr string, desc string) (cloudprovider.ICloudNetwork, error) {
-	network, err := self.zone.region.createNetwork(self.vpc, name, cidr, desc)
+func (self *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
+	network, err := self.zone.region.createNetwork(self.vpc, opts.Name, opts.Cidr, opts.Desc)
 	if err != nil {
 		return nil, err
 	}
