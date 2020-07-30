@@ -568,12 +568,11 @@ func (self *SAwsRegionDriver) validateUpdateNetworkListenerData(ctx context.Cont
 
 func (self *SAwsRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lblis *models.SLoadbalancerListener, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
 	ownerId := lblis.GetOwnerId()
-	lbV := validators.NewModelIdOrNameValidator("loadbalancer", "loadbalancer", ownerId)
-	if err := lbV.Validate(data); err != nil {
-		return nil, err
+	lb := lblis.GetLoadbalancer()
+	if lb == nil {
+		return nil, httperrors.NewResourceNotFoundError("loadbalancer listener %s related listener %s not found", lblis.Id, lblis.LoadbalancerId)
 	}
 
-	lb := lbV.Model.(*models.SLoadbalancer)
 	if lb.LoadbalancerSpec == api.LB_AWS_SPEC_APPLICATION {
 		if _, err := self.validateUpdateApplicationListenerData(ctx, ownerId, lb, lblis, backendGroup, data); err != nil {
 			return nil, err
