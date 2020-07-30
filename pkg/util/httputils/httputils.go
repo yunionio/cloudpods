@@ -660,12 +660,14 @@ func ParseJSONResponse(resp *http.Response, err error, debug bool) (http.Header,
 				jrbody2 = v
 			}
 		}
-		if ecode, _ := jrbody2.GetString("code"); len(ecode) > 0 {
-			code, err := strconv.Atoi(ecode)
-			if err != nil {
-				ce.Class = ecode
-			} else {
-				ce.Code = code
+		if jrbody2 != nil {
+			if ecode, _ := jrbody2.GetString("code"); len(ecode) > 0 {
+				code, err := strconv.Atoi(ecode)
+				if err != nil {
+					ce.Class = ecode
+				} else {
+					ce.Code = code
+				}
 			}
 		}
 		if ce.Code == 0 {
