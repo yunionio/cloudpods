@@ -21,10 +21,11 @@ import (
 
 func init() {
 	type PortListOptions struct {
-		MacAddr string
+		MacAddr  string
+		DeviceId string
 	}
 	shellutils.R(&PortListOptions{}, "port-list", "List ports", func(cli *openstack.SRegion, args *PortListOptions) error {
-		ports, err := cli.GetPorts(args.MacAddr)
+		ports, err := cli.GetPorts(args.MacAddr, args.DeviceId)
 		if err != nil {
 			return err
 		}

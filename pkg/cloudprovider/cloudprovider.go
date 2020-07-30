@@ -190,6 +190,8 @@ type ICloudProviderFactory interface {
 	GetMaxCloudEventSyncDays() int
 	GetMaxCloudEventKeepDays() int
 
+	IsNeedForceAutoCreateProject() bool
+
 	IsSupportClouduser() bool
 	IsSupportClouduserPolicy() bool
 	IsSupportResetClouduserPassword() bool
@@ -481,6 +483,10 @@ func (factory *baseProviderFactory) GetMaxCloudEventSyncDays() int {
 
 func (factory *baseProviderFactory) GetMaxCloudEventKeepDays() int {
 	return 7
+}
+
+func (factory *baseProviderFactory) IsNeedForceAutoCreateProject() bool {
+	return false
 }
 
 func (factory *baseProviderFactory) IsSupportClouduser() bool {

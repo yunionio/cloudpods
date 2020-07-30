@@ -57,7 +57,7 @@ func (self *SRouteTable) GetId() string {
 }
 
 func (self *SRouteTable) GetGlobalId() string {
-	return self.router.ID
+	return self.router.Id
 }
 
 func (self *SRouteTable) GetName() string {

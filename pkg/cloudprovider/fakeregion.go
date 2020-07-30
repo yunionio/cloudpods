@@ -97,7 +97,7 @@ func (region *SFakeOnPremiseRegion) GetISecurityGroupById(id string) (ICloudSecu
 	return nil, ErrNotSupported
 }
 
-func (region *SFakeOnPremiseRegion) GetISecurityGroupByName(vpcId string, name string) (ICloudSecurityGroup, error) {
+func (region *SFakeOnPremiseRegion) GetISecurityGroupByName(opts *SecurityGroupFilterOptions) (ICloudSecurityGroup, error) {
 	return nil, ErrNotSupported
 }
 

@@ -23,7 +23,7 @@ func init() {
 	type ProjectListOptions struct {
 	}
 	shellutils.R(&ProjectListOptions{}, "project-list", "List project", func(cli *openstack.SRegion, args *ProjectListOptions) error {
-		project, err := cli.GetClient().GetIProjects()
+		project, err := cli.GetClient().GetProjects()
 		if err != nil {
 			return err
 		}

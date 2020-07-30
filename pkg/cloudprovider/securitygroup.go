@@ -24,11 +24,18 @@ import (
 
 const DEFAULT_CLOUD_RULE_ID = "default_cloud_rule_id"
 
+type SecurityGroupFilterOptions struct {
+	VpcId     string
+	Name      string
+	ProjectId string
+}
+
 type SecurityGroupCreateInput struct {
-	Name  string
-	Desc  string
-	VpcId string
-	Rules []secrules.SecurityRule
+	Name      string
+	Desc      string
+	VpcId     string
+	ProjectId string
+	Rules     []secrules.SecurityRule
 }
 
 type SecurityRule struct {

@@ -15,6 +15,8 @@
 package openstack
 
 import (
+	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/pkg/errors"
@@ -33,6 +35,25 @@ type AllocationPool struct {
 	End   string
 }
 
+type SNextLinks []SNextLink
+
+func (links SNextLinks) GetNextMark() string {
+	for _, link := range links {
+		if link.Rel == "next" && len(link.Href) > 0 {
+			href, err := url.Parse(link.Href)
+			if err != nil {
+				log.Errorf("failed parse next link %s error: %v", link.Href, err)
+				continue
+			}
+			marker := href.Query().Get("marker")
+			if len(marker) > 0 {
+				return marker
+			}
+		}
+	}
+	return ""
+}
+
 type SNextLink struct {
 	Href string
 	Rel  string
@@ -43,24 +64,24 @@ type SNetwork struct {
 
 	Name            string
 	EnableDhcp      bool
-	NetworkID       string
-	SegmentID       string
-	ProjectID       string
-	TenantID        string
+	NetworkId       string
+	SegmentId       string
+	ProjectId       string
+	TenantId        string
 	DnsNameservers  []string
 	AllocationPools []AllocationPool
 	HostRoutes      []string
 	IpVersion       int
 	GatewayIP       string
 	CIDR            string
-	ID              string
+	Id              string
 	CreatedAt       time.Time
 	Description     string
 	Ipv6AddressMode string
 	Ipv6RaMode      string
 	RevisionNumber  int
 	ServiceTypes    []string
-	SubnetpoolID    string
+	SubnetpoolId    string
 	Tags            []string
 	UpdatedAt       time.Time
 }
@@ -70,18 +91,18 @@ func (network *SNetwork) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (network *SNetwork) GetId() string {
-	return network.ID
+	return network.Id
 }
 
 func (network *SNetwork) GetName() string {
 	if len(network.Name) > 0 {
 		return network.Name
 	}
-	return network.ID
+	return network.Id
 }
 
 func (network *SNetwork) GetGlobalId() string {
-	return network.ID
+	return network.Id
 }
 
 func (network *SNetwork) IsEmulated() bool {
@@ -93,11 +114,12 @@ func (network *SNetwork) GetStatus() string {
 }
 
 func (network *SNetwork) Delete() error {
-	return network.wire.zone.region.DeleteNetwork(network.ID)
+	return network.wire.zone.region.DeleteNetwork(network.Id)
 }
 
 func (region *SRegion) DeleteNetwork(networkId string) error {
-	_, err := region.Delete("network", "/v2.0/subnets/"+networkId, "")
+	resource := fmt.Sprintf("/v2.0/subnets/%s", networkId)
+	_, err := region.vpcDelete(resource)
 	return err
 }
 
@@ -147,11 +169,14 @@ func (network *SNetwork) GetIpMask() int8 {
 }
 
 func (network *SNetwork) GetIsPublic() bool {
-	return false
+	return network.wire.vpc.Shared
 }
 
 func (network *SNetwork) GetPublicScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeProject
+	if network.wire.vpc.Shared {
+		return rbacutils.ScopeSystem
+	}
+	return rbacutils.ScopeNone
 }
 
 func (network *SNetwork) GetServerType() string {
@@ -159,63 +184,61 @@ func (network *SNetwork) GetServerType() string {
 }
 
 func (region *SRegion) GetNetwork(networkId string) (*SNetwork, error) {
-	_, resp, err := region.Get("network", "/v2.0/subnets/"+networkId, "", nil)
+	resource := fmt.Sprintf("/v2.0/subnets/%s", networkId)
+	resp, err := region.vpcGet(resource)
 	if err != nil {
 		return nil, err
 	}
-	network := SNetwork{}
-	return &network, resp.Unmarshal(&network, "subnet")
+	network := &SNetwork{}
+	err = resp.Unmarshal(network, "subnet")
+	if err != nil {
+		return nil, err
+	}
+	return network, nil
 }
 
 func (region *SRegion) GetNetworks(vpcId string) ([]SNetwork, error) {
-	url := "/v2.0/subnets"
+	resource := "/v2.0/subnets"
 	networks := []SNetwork{}
-	for len(url) > 0 {
-		_, resp, err := region.List("network", url, "", nil)
-		if err != nil {
-			return nil, err
-		}
-		_networks := []SNetwork{}
-		err = resp.Unmarshal(&_networks, "subnets")
-		if err != nil {
-			return nil, errors.Wrap(err, `resp.Unmarshal(&_networks, "subnets")`)
-		}
-		networks = append(networks, _networks...)
-		url = ""
-		if resp.Contains("subnets_links") {
-			nextLinks := []SNextLink{}
-			err = resp.Unmarshal(&nextLinks, "subnets_links")
-			if err != nil {
-				return nil, errors.Wrapf(err, "resp.Unmarshal(subnets_links)")
-			}
-			for _, next := range nextLinks {
-				if next.Rel == "next" {
-					url = next.Href
-					break
-				}
-			}
-		}
+	query := url.Values{}
+	if len(vpcId) > 0 {
+		query.Set("network_id", vpcId)
 	}
+	for {
+		resp, err := region.vpcList(resource, query)
+		if err != nil {
+			return nil, errors.Wrap(err, "vpcList")
+		}
 
-	result := []SNetwork{}
-	for i := 0; i < len(networks); i++ {
-		if len(vpcId) == 0 || vpcId == networks[i].NetworkID {
-			result = append(result, networks[i])
+		part := struct {
+			Subnets      []SNetwork
+			SubnetsLinks SNextLinks
+		}{}
+
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, errors.Wrap(err, "resp.Unmarshal")
 		}
+
+		networks = append(networks, part.Subnets...)
+		marker := part.SubnetsLinks.GetNextMark()
+		if len(marker) == 0 {
+			break
+		}
+		query.Set("marker", marker)
 	}
-	return result, nil
+	return networks, nil
 }
 
 func (network *SNetwork) Refresh() error {
-	log.Debugf("network refresh %s", network.Name)
-	new, err := network.wire.zone.region.GetNetwork(network.ID)
+	_network, err := network.wire.zone.region.GetNetwork(network.Id)
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(network, new)
+	return jsonutils.Update(network, _network)
 }
 
-func (region *SRegion) CreateNetwork(vpcId string, name string, cidr string, desc string) (string, error) {
+func (region *SRegion) CreateNetwork(vpcId string, projectId, name string, cidr string, desc string) (*SNetwork, error) {
 	params := map[string]map[string]interface{}{
 		"subnet": {
 			"name":        name,
@@ -225,13 +248,21 @@ func (region *SRegion) CreateNetwork(vpcId string, name string, cidr string, des
 			"ip_version":  4,
 		},
 	}
-	_, resp, err := region.Post("network", "/v2.0/subnets", "", jsonutils.Marshal(params))
-	if err != nil {
-		return "", err
+	if len(projectId) > 0 {
+		params["subnet"]["project_id"] = projectId
 	}
-	return resp.GetString("subnet", "id")
+	resp, err := region.vpcPost("/v2.0/subnets", params)
+	if err != nil {
+		return nil, errors.Wrap(err, "vpcPost")
+	}
+	network := &SNetwork{}
+	err = resp.Unmarshal(network, "subnet")
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return network, nil
 }
 
 func (network *SNetwork) GetProjectId() string {
-	return network.TenantID
+	return network.TenantId
 }

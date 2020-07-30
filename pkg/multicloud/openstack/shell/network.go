@@ -44,4 +44,20 @@ func init() {
 		return nil
 	})
 
+	type NetworkCreateOptions struct {
+		VPCID     string
+		NAME      string
+		CIDR      string
+		Desc      string
+		ProjectId string
+	}
+
+	shellutils.R(&NetworkCreateOptions{}, "network-create", "Create network", func(cli *openstack.SRegion, args *NetworkCreateOptions) error {
+		network, err := cli.CreateNetwork(args.VPCID, args.ProjectId, args.NAME, args.CIDR, args.Desc)
+		if err != nil {
+			return err
+		}
+		printObject(network)
+		return nil
+	})
 }

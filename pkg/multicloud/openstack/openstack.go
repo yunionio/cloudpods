@@ -19,11 +19,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -37,6 +39,14 @@ import (
 const (
 	CLOUD_PROVIDER_OPENSTACK = api.CLOUD_PROVIDER_OPENSTACK
 	OPENSTACK_DEFAULT_REGION = "RegionOne"
+
+	OPENSTACK_SERVICE_COMPUTE  = "compute"
+	OPENSTACK_SERVICE_NETWORK  = "network"
+	OPENSTACK_SERVICE_IDENTITY = "identity"
+	OPENSTACK_SERVICE_VOLUMEV3 = "volumev3"
+	OPENSTACK_SERVICE_VOLUMEV2 = "volumev2"
+	OPENSTACK_SERVICE_VOLUME   = "volume"
+	OPENSTACK_SERVICE_IMAGE    = "image"
 )
 
 type OpenstackClientConfig struct {
@@ -88,16 +98,46 @@ func (cfg *OpenstackClientConfig) Debug(debug bool) *OpenstackClientConfig {
 type SOpenStackClient struct {
 	*OpenstackClientConfig
 
-	client          *mcclient.Client
 	tokenCredential mcclient.TokenCredential
 	iregions        []cloudprovider.ICloudRegion
+
+	defaultRegionName string
+
+	projects []SProject
 }
 
 func NewOpenStackClient(cfg *OpenstackClientConfig) (*SOpenStackClient, error) {
 	cli := &SOpenStackClient{
 		OpenstackClientConfig: cfg,
 	}
+	err := cli.fetchToken()
+	if err != nil {
+		return nil, errors.Wrap(err, "fetchToken")
+	}
 	return cli, cli.fetchRegions()
+}
+
+func (cli *SOpenStackClient) getDefaultRegionName() string {
+	return cli.defaultRegionName
+}
+
+func (cli *SOpenStackClient) getProjectToken(projectId, projectName string) (mcclient.TokenCredential, error) {
+	s := cli.getDefaultSession("")
+	roleId, err := modules.RolesV3.GetId(s, "admin", jsonutils.Marshal(map[string]string{}))
+	if err != nil {
+		return nil, errors.Wrap(err, "RolesV3.GetId")
+	}
+	_, err = modules.RolesV3.PutInContexts(s, roleId, nil, []modulebase.ManagerContext{{InstanceManager: &modules.Projects, InstanceId: projectId}, {InstanceManager: &modules.UsersV3, InstanceId: s.GetUserId()}})
+	if err != nil {
+		return nil, errors.Wrap(err, "RolesV3.PutInContexts")
+	}
+
+	client := cli.getDefaultClient()
+	tokenCredential, err := client.Authenticate(cli.username, cli.password, cli.domainName, projectName, cli.projectDomain)
+	if err != nil {
+		return nil, errors.Wrap(err, "Authenticate")
+	}
+	return tokenCredential, nil
 }
 
 func (cli *SOpenStackClient) GetCloudRegionExternalIdPrefix() string {
@@ -116,138 +156,267 @@ func (cli *SOpenStackClient) GetSubAccounts() ([]cloudprovider.SSubAccount, erro
 }
 
 func (cli *SOpenStackClient) fetchRegions() error {
-	if err := cli.connect(); err != nil {
-		return err
-	}
-
 	regions := cli.tokenCredential.GetRegions()
 	cli.iregions = make([]cloudprovider.ICloudRegion, len(regions))
 	for i := 0; i < len(regions); i++ {
 		region := SRegion{client: cli, Name: regions[i]}
 		cli.iregions[i] = &region
+		cli.defaultRegionName = regions[0]
+	}
+	return nil
+}
+
+type OpenstackError struct {
+	httputils.JSONClientError
+}
+
+func (ce *OpenstackError) ParseErrorFromJsonResponse(statusCode int, body jsonutils.JSONObject) error {
+	body.Unmarshal(ce)
+	if ce.Code == 0 {
+		ce.Code = statusCode
+	}
+	if len(ce.Details) == 0 {
+		ce.Details = body.String()
+	}
+	if len(ce.Class) == 0 {
+		ce.Class = http.StatusText(statusCode)
+	}
+	if statusCode == 404 {
+		return errors.Wrap(cloudprovider.ErrNotFound, ce.Error())
+	}
+	return ce
+}
+
+type sApiVersion struct {
+	MinVersion string
+	Version    string
+}
+
+type sApiVersions struct {
+	Versions []sApiVersion
+	Version  sApiVersion
+}
+
+func (v *sApiVersions) GetMaxVersion() string {
+	maxVersion := v.Version.Version
+	for _, _version := range v.Versions {
+		if version.GT(_version.Version, maxVersion) {
+			maxVersion = _version.Version
+		}
+	}
+	return maxVersion
+}
+
+func getApiVerion(token mcclient.TokenCredential, url string, debug bool) (string, error) {
+	client := httputils.NewJsonClient(httputils.GetDefaultClient())
+	req := httputils.NewJsonRequest(httputils.THttpMethod("GET"), strings.TrimSuffix(url, token.GetTenantId()), nil)
+	header := http.Header{}
+	header.Set("X-Auth-Token", token.GetTokenString())
+	req.SetHeader(header)
+	oe := &OpenstackError{}
+	_, resp, err := client.Send(context.Background(), req, oe, debug)
+	if err != nil {
+		return "", errors.Wrap(err, "get api version")
+	}
+	versions := &sApiVersions{}
+	resp.Unmarshal(&versions)
+	return versions.GetMaxVersion(), nil
+}
+
+func (cli *SOpenStackClient) GetMaxVersion(region, service string) (string, error) {
+	serviceUrl, err := cli.tokenCredential.GetServiceURL(service, region, "", cli.endpointType)
+	if err != nil {
+		return "", errors.Wrapf(err, "GetServiceURL(%s, %s, %s)", service, region, cli.endpointType)
+	}
+	header := http.Header{}
+	header.Set("X-Auth-Token", cli.tokenCredential.GetTokenString())
+	return getApiVerion(cli.tokenCredential, serviceUrl, cli.debug)
+}
+
+func jsonReuest(token mcclient.TokenCredential, service, region, endpointType string, method httputils.THttpMethod, resource string, query url.Values, body interface{}, debug bool) (jsonutils.JSONObject, error) {
+	serviceUrl, err := token.GetServiceURL(service, region, "", endpointType)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetServiceURL(%s, %s, %s)", service, region, endpointType)
+	}
+	header := http.Header{}
+	header.Set("X-Auth-Token", token.GetTokenString())
+	apiVersion := ""
+	if !utils.IsInStringArray(service, []string{OPENSTACK_SERVICE_IMAGE, OPENSTACK_SERVICE_IDENTITY}) {
+		apiVersion, err = getApiVerion(token, serviceUrl, debug)
+		if err != nil {
+			log.Errorf("get service %s api version error: %v", service, err)
+		}
+	}
+	if len(apiVersion) > 0 {
+		switch service {
+		case OPENSTACK_SERVICE_COMPUTE:
+			header.Set("X-Openstack-Nova-API-Version", apiVersion)
+		case OPENSTACK_SERVICE_IMAGE:
+			header.Set("X-Openstack-Glance-API-Version", apiVersion)
+		case OPENSTACK_SERVICE_VOLUME, OPENSTACK_SERVICE_VOLUMEV2, OPENSTACK_SERVICE_VOLUMEV3:
+			header.Set("Openstack-API-Version", fmt.Sprintf("volume %s", apiVersion))
+		case OPENSTACK_SERVICE_NETWORK:
+			header.Set("X-Openstack-Neutron-API-Version", apiVersion)
+		case OPENSTACK_SERVICE_IDENTITY:
+			header.Set("X-Openstack-Identity-API-Version", apiVersion)
+		}
 	}
 
-	for _, region := range regions {
-		if serviceURL, err := cli.tokenCredential.GetServiceURL("compute", region, "", cli.endpointType); err != nil || len(serviceURL) == 0 {
-			for _, endpointType := range []string{"internal", "admin", "public"} {
-				if serviceURL, err := cli.tokenCredential.GetServiceURL("compute", region, "", endpointType); err == nil && len(serviceURL) > 0 {
-					cli.endpointType = endpointType
-					return nil
-				}
-			}
-		} else {
+	requestUrl := resource
+	if !strings.HasPrefix(resource, serviceUrl) {
+		requestUrl = fmt.Sprintf("%s/%s", serviceUrl, resource)
+	}
+
+	if query != nil {
+		requestUrl = fmt.Sprintf("%s?%s", requestUrl, query.Encode())
+	}
+
+	return _jsonRequest(method, requestUrl, header, body, debug)
+}
+
+func _jsonRequest(method httputils.THttpMethod, url string, header http.Header, params interface{}, debug bool) (jsonutils.JSONObject, error) {
+	client := httputils.NewJsonClient(httputils.GetDefaultClient())
+	req := httputils.NewJsonRequest(method, url, params)
+	req.SetHeader(header)
+	oe := &OpenstackError{}
+	_, resp, err := client.Send(context.Background(), req, oe, debug)
+	return resp, err
+}
+
+func (cli *SOpenStackClient) ecsRequest(region string, method httputils.THttpMethod, resource string, query url.Values, body interface{}) (jsonutils.JSONObject, error) {
+	token := cli.tokenCredential
+	if method == httputils.POST && query != nil && len(query.Get("project_id")) > 0 {
+		projectId := query.Get("project_id")
+		var err error
+		token, err = cli.getProjectTokenCredential(projectId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "getProjectTokenCredential(%s)", projectId)
+		}
+	}
+	return jsonReuest(token, OPENSTACK_SERVICE_COMPUTE, region, cli.endpointType, method, resource, query, body, cli.debug)
+}
+
+func (cli *SOpenStackClient) ecsCreate(projectId, region, resource string, body interface{}) (jsonutils.JSONObject, error) {
+	token := cli.tokenCredential
+	if len(projectId) > 0 {
+		var err error
+		token, err = cli.getProjectTokenCredential(projectId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "getProjectTokenCredential(%s)", projectId)
+		}
+	}
+	return jsonReuest(token, OPENSTACK_SERVICE_COMPUTE, region, cli.endpointType, httputils.POST, resource, nil, body, cli.debug)
+}
+
+func (cli *SOpenStackClient) ecsDo(projectId, region, resource string, body interface{}) (jsonutils.JSONObject, error) {
+	token := cli.tokenCredential
+	if len(projectId) > 0 {
+		var err error
+		token, err = cli.getProjectTokenCredential(projectId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "getProjectTokenCredential(%s)", projectId)
+		}
+	}
+	return jsonReuest(token, OPENSTACK_SERVICE_COMPUTE, region, cli.endpointType, httputils.POST, resource, nil, body, cli.debug)
+}
+
+func (cli *SOpenStackClient) iamRequest(region string, method httputils.THttpMethod, resource string, query url.Values, body interface{}) (jsonutils.JSONObject, error) {
+	return jsonReuest(cli.tokenCredential, OPENSTACK_SERVICE_IDENTITY, region, cli.endpointType, method, resource, query, body, cli.debug)
+}
+
+func (cli *SOpenStackClient) vpcRequest(region string, method httputils.THttpMethod, resource string, query url.Values, body interface{}) (jsonutils.JSONObject, error) {
+	return jsonReuest(cli.tokenCredential, OPENSTACK_SERVICE_NETWORK, region, cli.endpointType, method, resource, query, body, cli.debug)
+}
+
+func (cli *SOpenStackClient) imageRequest(region string, method httputils.THttpMethod, resource string, query url.Values, body interface{}) (jsonutils.JSONObject, error) {
+	return jsonReuest(cli.tokenCredential, OPENSTACK_SERVICE_IMAGE, region, cli.endpointType, method, resource, query, body, cli.debug)
+}
+
+func (cli *SOpenStackClient) bsRequest(region string, method httputils.THttpMethod, resource string, query url.Values, body interface{}) (jsonutils.JSONObject, error) {
+	for _, service := range []string{OPENSTACK_SERVICE_VOLUMEV3, OPENSTACK_SERVICE_VOLUMEV2, OPENSTACK_SERVICE_VOLUME} {
+		_, err := cli.tokenCredential.GetServiceURL(service, region, "", cli.endpointType)
+		if err == nil {
+			return jsonReuest(cli.tokenCredential, service, region, cli.endpointType, method, resource, query, body, cli.debug)
+		}
+	}
+	return nil, fmt.Errorf("no valid volume service endpoint")
+}
+
+func (cli *SOpenStackClient) bsCreate(projectId, region, resource string, body interface{}) (jsonutils.JSONObject, error) {
+	token := cli.tokenCredential
+	if len(projectId) > 0 {
+		var err error
+		token, err = cli.getProjectTokenCredential(projectId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "getProjectTokenCredential(%s)", projectId)
+		}
+	}
+	for _, service := range []string{OPENSTACK_SERVICE_VOLUMEV3, OPENSTACK_SERVICE_VOLUMEV2, OPENSTACK_SERVICE_VOLUME} {
+		_, err := token.GetServiceURL(service, region, "", cli.endpointType)
+		if err == nil {
+			return jsonReuest(token, service, region, cli.endpointType, httputils.POST, resource, nil, body, cli.debug)
+		}
+	}
+	return nil, fmt.Errorf("no valid volume service endpoint")
+}
+
+func (cli *SOpenStackClient) imageUpload(region, url string, body io.Reader) (*http.Response, error) {
+	header := http.Header{}
+	header.Set("Content-Type", "application/octet-stream")
+	session := cli.getDefaultSession(region)
+	return session.RawRequest(OPENSTACK_SERVICE_IMAGE, "", httputils.PUT, url, header, body)
+}
+
+func (cli *SOpenStackClient) fetchToken() error {
+	if cli.tokenCredential != nil {
+		return nil
+	}
+	var err error
+	cli.tokenCredential, err = cli.getDefaultToken()
+	if err != nil {
+		return errors.Wrap(err, "getDefaultToken")
+	}
+	return cli.checkEndpointType()
+}
+
+func (cli *SOpenStackClient) checkEndpointType() error {
+	for _, regionName := range cli.tokenCredential.GetRegions() {
+		_, err := cli.tokenCredential.GetServiceURL(OPENSTACK_SERVICE_COMPUTE, regionName, "", cli.endpointType)
+		if err == nil {
 			return nil
 		}
-	}
-	return fmt.Errorf("failed to find right endpoint type")
-}
-
-func (cli *SOpenStackClient) Request(projectId string, region, service, method string, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
-	header := http.Header{}
-	if len(microversion) > 0 {
-		header.Set("X-Openstack-Nova-API-Version", microversion)
-	}
-
-	var session *mcclient.ClientSession = nil
-	ctx := context.Background()
-	if method == "POST" && len(projectId) > 0 {
-		targetToken, err := cli.getProjectTokenCredential(projectId)
-		if err != nil {
-			log.Errorf("failed to get project %s token credential %v", projectId, err)
-		} else {
-			session = cli.client.NewSession(ctx, region, "", cli.endpointType, targetToken, "")
-		}
-	}
-	if session == nil {
-		session = cli.client.NewSession(ctx, region, "", cli.endpointType, cli.tokenCredential, "")
-	}
-
-	serviceUrl, err := session.GetServiceURL(service, "")
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "GetServiceURL(%s)", service)
-	}
-	url = strings.TrimPrefix(url, serviceUrl)
-	header, resp, err := session.JSONRequest(service, "", httputils.THttpMethod(method), url, header, body)
-	if err != nil && body != nil {
-		log.Errorf("microversion %s url: %s, params: %s", microversion, serviceUrl+url, body.PrettyString())
-	}
-	return header, resp, err
-}
-
-func (cli *SOpenStackClient) RawRequest(region, service, method string, url string, microversion string, body jsonutils.JSONObject) (*http.Response, error) {
-	header := http.Header{}
-	if len(microversion) > 0 {
-		header.Set("X-Openstack-Nova-API-Version", microversion)
-	}
-	ctx := context.Background()
-	session := cli.client.NewSession(ctx, region, "", cli.endpointType, cli.tokenCredential, "")
-	data := strings.NewReader("")
-	if body != nil {
-		data = strings.NewReader(body.String())
-	}
-	return session.RawRequest(service, "", httputils.THttpMethod(method), url, header, data)
-}
-
-func (cli *SOpenStackClient) StreamRequest(region, service, method string, url string, microversion string, body io.Reader) (*http.Response, error) {
-	header := http.Header{}
-	if len(microversion) > 0 {
-		header.Set("X-Openstack-Nova-API-Version", microversion)
-	}
-	header.Set("Content-Type", "application/octet-stream")
-	ctx := context.Background()
-	session := cli.client.NewSession(ctx, region, "", cli.endpointType, cli.tokenCredential, "")
-	return session.RawRequest(service, "", httputils.THttpMethod(method), url, header, body)
-}
-
-func (cli *SOpenStackClient) getVersion(region string, service string) (string, string, error) {
-	ctx := context.Background()
-	session := cli.client.NewSession(ctx, region, "", cli.endpointType, cli.tokenCredential, "")
-	uri, err := session.GetServiceURL(service, cli.endpointType)
-	if err != nil {
-		return "", "", err
-	}
-	url := uri
-	telnetID := cli.tokenCredential.GetTenantId()
-	if strings.Index(uri, telnetID) > 0 {
-		url = uri[0:strings.Index(uri, telnetID)]
-	}
-	_, resp, err := session.JSONRequest(url, "", "GET", "/", nil, nil)
-	if err != nil {
-		return "", "", err
-	}
-	minVersion, _ := resp.GetString("version", "min_version")
-	maxVersion, _ := resp.GetString("version", "version")
-	if resp.Contains("versions") {
-		minVersion, maxVersion = "1000.0", ""
-		versions, _ := resp.GetArray("versions")
-		for _, _version := range versions {
-			if _minVersion, _ := _version.GetString("min_version"); len(_minVersion) > 0 {
-				if version.LT(_minVersion, minVersion) {
-					minVersion = _minVersion
-				}
-			}
-			if _maxVersion, _ := _version.GetString("version"); len(_maxVersion) > 0 {
-				if version.GT(_maxVersion, maxVersion) {
-					maxVersion = _maxVersion
-				}
+		for _, endpointType := range []string{"internal", "admin", "public"} {
+			_, err = cli.tokenCredential.GetServiceURL(OPENSTACK_SERVICE_COMPUTE, regionName, "", endpointType)
+			if err == nil {
+				cli.endpointType = endpointType
+				return nil
 			}
 		}
-		if minVersion == "1000.0" {
-			minVersion, maxVersion = "", ""
-		}
 	}
-	return minVersion, maxVersion, nil
+	return errors.Errorf("failed to find right endpoint type for compute service")
 }
 
-func (cli *SOpenStackClient) connect() error {
-	cli.client = mcclient.NewClient(cli.authURL, 5, cli.debug, false, "", "")
-	cli.client.SetHttpTransportProxyFunc(cli.cpcfg.ProxyFunc)
-	tokenCredential, err := cli.client.Authenticate(cli.username, cli.password, cli.domainName, cli.project, cli.projectDomain)
-	if err != nil {
-		return err
+func (cli *SOpenStackClient) getDefaultSession(regionName string) *mcclient.ClientSession {
+	if len(regionName) == 0 {
+		regionName = cli.getDefaultRegionName()
 	}
-	cli.tokenCredential = tokenCredential
-	return nil
+	client := cli.getDefaultClient()
+	return client.NewSession(context.Background(), regionName, "", cli.endpointType, cli.tokenCredential, "")
+}
+
+func (cli *SOpenStackClient) getDefaultClient() *mcclient.Client {
+	client := mcclient.NewClient(cli.authURL, 5, cli.debug, false, "", "")
+	client.SetHttpTransportProxyFunc(cli.cpcfg.ProxyFunc)
+	return client
+}
+
+func (cli *SOpenStackClient) getDefaultToken() (mcclient.TokenCredential, error) {
+	client := cli.getDefaultClient()
+	token, err := client.Authenticate(cli.username, cli.password, cli.domainName, cli.project, cli.projectDomain)
+	if err != nil {
+		return nil, errors.Wrap(err, "Authenticate")
+	}
+	return token, nil
 }
 
 func (cli *SOpenStackClient) getProjectTokenCredential(projectId string) (mcclient.TokenCredential, error) {
@@ -255,8 +424,8 @@ func (cli *SOpenStackClient) getProjectTokenCredential(projectId string) (mcclie
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetProject(%s)", projectId)
 	}
-	region := cli.iregions[0].(*SRegion)
-	s := cli.client.NewSession(context.Background(), region.Name, "", cli.endpointType, cli.tokenCredential, "")
+
+	s := cli.getDefaultSession("")
 
 	roleId, err := modules.RolesV3.GetId(s, "admin", jsonutils.Marshal(map[string]string{}))
 	if err != nil {
@@ -267,13 +436,7 @@ func (cli *SOpenStackClient) getProjectTokenCredential(projectId string) (mcclie
 		return nil, errors.Wrap(err, "RolesV3.PutInContexts")
 	}
 
-	cli.client = mcclient.NewClient(cli.authURL, 5, cli.debug, false, "", "")
-	cli.client.SetHttpTransportProxyFunc(cli.cpcfg.ProxyFunc)
-	tokenCredential, err := cli.client.Authenticate(cli.username, cli.password, cli.domainName, project.Name, cli.projectDomain)
-	if err != nil {
-		return nil, errors.Wrap(err, "Authenticate")
-	}
-	return tokenCredential, nil
+	return cli.getProjectToken(project.Id, project.Name)
 }
 
 func (cli *SOpenStackClient) GetRegion(regionId string) *SRegion {
@@ -307,56 +470,47 @@ func (cli *SOpenStackClient) GetRegions() []SRegion {
 	return regions
 }
 
-func (cli *SOpenStackClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
-	if len(cli.iregions) > 0 {
-		region := cli.iregions[0].(*SRegion)
-		s := cli.client.NewSession(context.Background(), region.Name, "", cli.endpointType, cli.tokenCredential, "")
-		result, err := modules.Projects.List(s, jsonutils.NewDict())
-		if err != nil {
-			return nil, err
-		}
-		iprojects := []cloudprovider.ICloudProject{}
-		for i := 0; i < len(result.Data); i++ {
-			project := &SProject{}
-			if err := result.Data[i].Unmarshal(project); err != nil {
-				return nil, err
-			}
-			iprojects = append(iprojects, project)
-		}
-		return iprojects, nil
+func (cli *SOpenStackClient) fetchProjects() error {
+	var err error
+	cli.projects, err = cli.GetProjects()
+	if err != nil {
+		return errors.Wrap(err, "GetProjects")
 	}
-	return nil, cloudprovider.ErrNotImplemented
+	return nil
+}
+
+func (cli *SOpenStackClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	err := cli.fetchProjects()
+	if err != nil {
+		return nil, errors.Wrap(err, "fetchProjects")
+	}
+	iprojects := []cloudprovider.ICloudProject{}
+	for i := 0; i < len(cli.projects); i++ {
+		cli.projects[i].client = cli
+		iprojects = append(iprojects, &cli.projects[i])
+	}
+	return iprojects, nil
 }
 
 func (cli *SOpenStackClient) GetProject(id string) (*SProject, error) {
-	if len(cli.iregions) > 0 {
-		region := cli.iregions[0].(*SRegion)
-		s := cli.client.NewSession(context.Background(), region.Name, "", cli.endpointType, cli.tokenCredential, "")
-		result, err := modules.Projects.Get(s, id, jsonutils.NewDict())
-		if err != nil {
-			return nil, err
-		}
-		project := &SProject{}
-		err = result.Unmarshal(project)
-		if err != nil {
-			return nil, errors.Wrap(err, "result.Unmarshal")
-		}
-		return project, nil
+	err := cli.fetchProjects()
+	if err != nil {
+		return nil, errors.Wrap(err, "fetchProjects")
 	}
-	return nil, fmt.Errorf("no region info")
+	for i := 0; i < len(cli.projects); i++ {
+		if cli.projects[i].Id == id {
+			return &cli.projects[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (cli *SOpenStackClient) CreateIProject(name string) (cloudprovider.ICloudProject, error) {
-	if len(cli.iregions) > 0 {
-		return cli.CreateProject(name, "")
-	}
-	return nil, cloudprovider.ErrNotImplemented
+	return cli.CreateProject(name, "")
 }
 
 func (cli *SOpenStackClient) CreateProject(name, desc string) (*SProject, error) {
-	region := cli.iregions[0].(*SRegion)
-	s := cli.client.NewSession(context.Background(), region.Name, "", cli.endpointType, cli.tokenCredential, "")
-
+	s := cli.getDefaultSession("")
 	params := map[string]string{
 		"name":      name,
 		"domain_id": s.GetDomainId(),
@@ -368,7 +522,7 @@ func (cli *SOpenStackClient) CreateProject(name, desc string) (*SProject, error)
 	if err != nil {
 		return nil, errors.Wrap(err, "Projects.Create")
 	}
-	project := SProject{}
+	project := SProject{client: cli}
 	err = result.Unmarshal(&project)
 	if err != nil {
 		return nil, errors.Wrap(err, "result.Unmarshal")

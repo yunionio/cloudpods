@@ -711,7 +711,14 @@ func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclien
 	SyncCloudProject(userCred, self, syncOwnerId, extNet, vpc.ManagerId)
 
 	if provider != nil {
-		self.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
+		shareInfo := provider.getAccountShareInfo()
+		if utils.IsInStringArray(provider.Provider, api.PRIVATE_CLOUD_PROVIDERS) && extNet.GetPublicScope() == rbacutils.ScopeNone {
+			shareInfo = apis.SAccountShareInfo{
+				IsPublic:    false,
+				PublicScope: rbacutils.ScopeNone,
+			}
+		}
+		self.SyncShareState(ctx, userCred, shareInfo)
 	}
 
 	return nil
@@ -753,7 +760,14 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 	SyncCloudProject(userCred, &net, syncOwnerId, extNet, vpc.ManagerId)
 
 	if provider != nil {
-		net.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
+		shareInfo := provider.getAccountShareInfo()
+		if utils.IsInStringArray(provider.Provider, api.PRIVATE_CLOUD_PROVIDERS) && extNet.GetPublicScope() == rbacutils.ScopeNone {
+			shareInfo = apis.SAccountShareInfo{
+				IsPublic:    false,
+				PublicScope: rbacutils.ScopeNone,
+			}
+		}
+		net.SyncShareState(ctx, userCred, shareInfo)
 	}
 
 	db.OpsLog.LogEvent(&net, db.ACT_CREATE, net.GetShortDesc(ctx), userCred)

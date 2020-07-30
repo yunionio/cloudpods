@@ -21,9 +21,10 @@ import (
 
 func init() {
 	type EipListOptions struct {
+		Ip string
 	}
 	shellutils.R(&EipListOptions{}, "eip-list", "List eips", func(cli *openstack.SRegion, args *EipListOptions) error {
-		eips, err := cli.GetEips()
+		eips, err := cli.GetEips(args.Ip)
 		if err != nil {
 			return err
 		}
@@ -36,6 +37,22 @@ func init() {
 	}
 	shellutils.R(&EipDeleteOptions{}, "eip-delete", "Delete eip", func(cli *openstack.SRegion, args *EipDeleteOptions) error {
 		return cli.DeleteEip(args.ID)
+	})
+
+	type EipCreateOptions struct {
+		NETWORK  string
+		SUBNET   string
+		Ip       string
+		TenantId string
+	}
+
+	shellutils.R(&EipCreateOptions{}, "eip-create", "Create eip", func(cli *openstack.SRegion, args *EipCreateOptions) error {
+		eip, err := cli.CreateEip(args.NETWORK, args.SUBNET, args.Ip, args.TenantId)
+		if err != nil {
+			return err
+		}
+		printObject(eip)
+		return nil
 	})
 
 }

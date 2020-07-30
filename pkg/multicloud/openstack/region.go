@@ -16,12 +16,10 @@ package openstack
 
 import (
 	"fmt"
-	"net/http"
+	"io"
 	"net/url"
-	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -37,8 +35,8 @@ type SRegion struct {
 
 	Name string
 
-	izones []cloudprovider.ICloudZone
-	ivpcs  []cloudprovider.ICloudVpc
+	zones []SZone
+	vpcs  []SVpc
 
 	storageCache *SStoragecache
 	routers      []SRouter
@@ -93,26 +91,16 @@ func (region *SRegion) Refresh() error {
 	return nil
 }
 
+func (region *SRegion) GetMaxVersion(service string) (string, error) {
+	return region.client.GetMaxVersion(region.Name, service)
+}
+
 func (region *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
-	params := map[string]map[string]string{
-		"network": {
-			"name":        name,
-			"description": desc,
-		},
-	}
-	_, resp, err := region.Post("network", "/v2.0/networks", "", jsonutils.Marshal(params))
+	vpc, err := region.CreateVpc(name, desc)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "CreateVp")
 	}
-	err = region.fetchInfrastructure()
-	if err != nil {
-		return nil, err
-	}
-	vpcId, err := resp.GetString("network", "id")
-	if err != nil {
-		return nil, err
-	}
-	return region.GetIVpcById(vpcId)
+	return vpc, nil
 }
 
 func (region *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
@@ -200,30 +188,37 @@ func (region *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, 
 }
 
 func (region *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
-	return region.GetInstance(id)
+	instance, err := region.GetInstance(id)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetInstance(%s)", id)
+	}
+	return instance, nil
 }
 
 func (region *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
-	return region.GetDisk(id)
+	disk, err := region.GetDisk(id)
+	if err != nil {
+		_, err := region.GetInstance(id)
+		if err == nil {
+			return &SNovaDisk{region: region, instanceId: id}, nil
+		}
+		return nil, errors.Wrapf(err, "GetDisk(%s)", id)
+	}
+	return disk, nil
 }
 
 func (region *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
-	ivpcs, err := region.GetIVpcs()
+	vpc, err := region.GetVpc(id)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "GetVpc(%s)", id)
 	}
-	for i := 0; i < len(ivpcs); i++ {
-		if ivpcs[i].GetGlobalId() == id {
-			return ivpcs[i], nil
-		}
-	}
-	return nil, cloudprovider.ErrNotFound
+	return vpc, nil
 }
 
 func (region *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
 	izones, err := region.GetIZones()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetIZones")
 	}
 	for i := 0; i < len(izones); i++ {
 		if izones[i].GetGlobalId() == id {
@@ -234,170 +229,129 @@ func (region *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error)
 }
 
 func (region *SRegion) fetchZones() error {
-	zone := &SZone{region: region, ZoneName: region.Name, cachedHosts: map[string][]string{}}
-	_, resp, err := region.List("compute", "/os-availability-zone/detail", "", jsonutils.NewDict())
+	if len(region.zones) > 0 {
+		return nil
+	}
+	zones, err := region.GetZones()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "GetZones")
 	}
-	zones := []SZone{}
-	if err := resp.Unmarshal(&zones, "availabilityZoneInfo"); err != nil {
-		return err
-	}
+	region.zones = []SZone{}
 	for i := 0; i < len(zones); i++ {
 		if zones[i].ZoneName == "internal" {
 			continue
 		}
-		zone.cachedHosts[zones[i].ZoneName] = []string{}
-		for hostname, hostInfo := range zones[i].Hosts {
-			for k := range hostInfo {
-				if k == "nova-compute" {
-					zone.cachedHosts[zones[i].ZoneName] = append(zone.cachedHosts[zones[i].ZoneName], hostname)
-				}
-			}
-		}
-	}
-	region.izones = []cloudprovider.ICloudZone{zone}
-	return nil
-}
-
-func (region *SRegion) fetchIVpcs() error {
-	vpcs, err := region.GetVpcs()
-	if err != nil {
-		return err
-	}
-	region.ivpcs = []cloudprovider.ICloudVpc{}
-	for i := 0; i < len(vpcs); i++ {
-		vpcs[i].region = region
-		region.ivpcs = append(region.ivpcs, &vpcs[i])
+		zones[i].region = region
+		region.zones = append(region.zones, zones[i])
 	}
 	return nil
 }
 
-func (region *SRegion) fetchInfrastructure() error {
-	if len(region.izones) == 0 {
-		if err := region.fetchZones(); err != nil {
-			return err
-		}
+func (region *SRegion) fetchVpcs() error {
+	if len(region.vpcs) > 0 {
+		return nil
 	}
-	if err := region.fetchIVpcs(); err != nil {
-		return err
-	}
-	for i := 0; i < len(region.ivpcs); i++ {
-		for j := 0; j < len(region.izones); j++ {
-			zone := region.izones[j].(*SZone)
-			vpc := region.ivpcs[i].(*SVpc)
-			wire := SWire{zone: zone, vpc: vpc}
-			zone.addWire(&wire)
-			vpc.addWire(&wire)
-		}
+	var err error
+	region.vpcs, err = region.GetVpcs("")
+	if err != nil {
+		return errors.Wrap(err, "GetVpcs")
 	}
 	return nil
 }
 
-func (region *SRegion) Get(service, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
-	if strings.HasSuffix(url, "/") {
-		return nil, nil, cloudprovider.ErrNotFound
-	}
-	header, resp, err := region.client.Request("", region.Name, service, "GET", url, microversion, body)
-	if err != nil {
-		if jsonErr, ok := err.(*httputils.JSONClientError); ok {
-			if jsonErr.Code == 404 || strings.HasSuffix(jsonErr.Class, "NotFound") {
-				return nil, nil, cloudprovider.ErrNotFound
-			}
-		}
-		return nil, nil, err
-	}
-	return header, resp, nil
+func (region *SRegion) ecsList(resource string, query url.Values) (jsonutils.JSONObject, error) {
+	return region.client.ecsRequest(region.Name, httputils.GET, resource, query, nil)
 }
 
-func (region *SRegion) List(service, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
-	header, resp, err := region.client.Request("", region.Name, service, "GET", url, microversion, body)
-	if err != nil {
-		if jsonErr, ok := err.(*httputils.JSONClientError); ok {
-			if jsonErr.Code == 404 || strings.HasSuffix(jsonErr.Class, "NotFound") {
-				return nil, nil, cloudprovider.ErrNotFound
-			}
-		}
-		return nil, nil, err
-	}
-	return header, resp, nil
+func (region *SRegion) ecsGet(resource string) (jsonutils.JSONObject, error) {
+	return region.client.ecsRequest(region.Name, httputils.GET, resource, nil, nil)
 }
 
-func (region *SRegion) Post(service, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
-	return region.client.Request("", region.Name, service, "POST", url, microversion, body)
+func (region *SRegion) ecsUpdate(resource string, params interface{}) (jsonutils.JSONObject, error) {
+	return region.client.ecsRequest(region.Name, httputils.PUT, resource, nil, params)
 }
 
-func (region *SRegion) PostWithProject(projectId string, service, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
-	return region.client.Request(projectId, region.Name, service, "POST", url, microversion, body)
+func (region *SRegion) ecsPost(resource string, params interface{}) (jsonutils.JSONObject, error) {
+	return region.client.ecsRequest(region.Name, httputils.POST, resource, nil, params)
 }
 
-func (region *SRegion) Update(service, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
-	return region.client.Request("", region.Name, service, "PUT", url, microversion, body)
+func (region *SRegion) ecsDo(projectId, resource string, params interface{}) (jsonutils.JSONObject, error) {
+	return region.client.ecsDo(projectId, region.Name, resource, params)
 }
 
-func (region *SRegion) Delete(service, url string, microversion string) (*http.Response, error) {
-	return region.client.RawRequest(region.Name, service, "DELETE", url, microversion, nil)
+func (region *SRegion) ecsDelete(resource string) (jsonutils.JSONObject, error) {
+	return region.client.ecsRequest(region.Name, httputils.DELETE, resource, nil, nil)
 }
 
-func (region *SRegion) CinderList(url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
-	for _, service := range []string{"volumev3", "volumev2", "volume"} {
-		header, resp, err := region.Get(service, url, microversion, body)
-		if err == nil || !strings.Contains(err.Error(), "No such service") {
-			return header, resp, err
-		}
-		log.Debugf("failed to list %s by service %s error: %v, try another", url, service, err)
-	}
-	return nil, nil, fmt.Errorf("failed to get %s by cinder service", url)
+func (region *SRegion) ecsCreate(projectId, resource string, params interface{}) (jsonutils.JSONObject, error) {
+	return region.client.ecsCreate(projectId, region.Name, resource, params)
 }
 
-func (region *SRegion) CinderGet(url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
-	if strings.HasSuffix(url, "/") {
-		return nil, nil, cloudprovider.ErrNotFound
-	}
-	for _, service := range []string{"volumev3", "volumev2", "volume"} {
-		header, resp, err := region.Get(service, url, microversion, body)
-		if err == nil || err == cloudprovider.ErrNotFound || !strings.Contains(err.Error(), "No such service") {
-			return header, resp, err
-		}
-		log.Debugf("failed to get %s by service %s error: %v, try another", url, service, err)
-	}
-	return nil, nil, fmt.Errorf("failed to get %s by cinder service", url)
+func (region *SRegion) vpcList(resource string, query url.Values) (jsonutils.JSONObject, error) {
+	return region.client.vpcRequest(region.Name, httputils.GET, resource, query, nil)
 }
 
-func (region *SRegion) CinderCreate(projectId string, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
-	for _, service := range []string{"volumev3", "volumev2", "volume"} {
-		header, resp, err := region.PostWithProject(projectId, service, url, microversion, body)
-		if err == nil || !strings.Contains(err.Error(), "No such service") {
-			return header, resp, err
-		}
-		log.Debugf("failed to create %s by service %s error: %v, try another", url, service, err)
-	}
-	return nil, nil, fmt.Errorf("failed to create %s by cinder service", url)
+func (region *SRegion) vpcGet(resource string) (jsonutils.JSONObject, error) {
+	return region.client.vpcRequest(region.Name, httputils.GET, resource, nil, nil)
 }
 
-func (region *SRegion) CinderDelete(url string, microversion string) (*http.Response, error) {
-	if strings.HasSuffix(url, "/") {
-		return nil, cloudprovider.ErrNotFound
-	}
-	for _, service := range []string{"volumev3", "volumev2", "volume"} {
-		resp, err := region.Delete(service, url, microversion)
-		if err == nil || !strings.Contains(err.Error(), "No such service") {
-			return resp, err
-		}
-		log.Debugf("failed to delete %s by service %s error: %v, try another", url, service, err)
-	}
-	return nil, fmt.Errorf("failed to delete %s by cinder service", url)
+func (region *SRegion) vpcUpdate(resource string, params interface{}) (jsonutils.JSONObject, error) {
+	return region.client.vpcRequest(region.Name, httputils.PUT, resource, nil, params)
 }
 
-func (region *SRegion) CinderAction(url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
-	for _, service := range []string{"volumev3", "volumev2", "volume"} {
-		header, resp, err := region.Post(service, url, microversion, body)
-		if err == nil || !strings.Contains(err.Error(), "No such service") {
-			return header, resp, err
-		}
-		log.Debugf("failed to operate %s by service %s error: %v, try another", url, service, err)
-	}
-	return nil, nil, fmt.Errorf("failed to operate %s by cinder service", url)
+func (region *SRegion) vpcPost(resource string, params interface{}) (jsonutils.JSONObject, error) {
+	return region.client.vpcRequest(region.Name, httputils.POST, resource, nil, params)
+}
+
+func (region *SRegion) vpcDelete(resource string) (jsonutils.JSONObject, error) {
+	return region.client.vpcRequest(region.Name, httputils.DELETE, resource, nil, nil)
+}
+
+func (region *SRegion) imageList(resource string, query url.Values) (jsonutils.JSONObject, error) {
+	return region.client.imageRequest(region.Name, httputils.GET, resource, query, nil)
+}
+
+func (region *SRegion) imageGet(resource string) (jsonutils.JSONObject, error) {
+	return region.client.imageRequest(region.Name, httputils.GET, resource, nil, nil)
+}
+
+func (region *SRegion) imagePost(resource string, params interface{}) (jsonutils.JSONObject, error) {
+	return region.client.imageRequest(region.Name, httputils.POST, resource, nil, params)
+}
+
+func (region *SRegion) imageDelete(resource string) (jsonutils.JSONObject, error) {
+	return region.client.imageRequest(region.Name, httputils.DELETE, resource, nil, nil)
+}
+
+func (region *SRegion) imageUpload(url string, body io.Reader) error {
+	resp, err := region.client.imageUpload(region.Name, url, body)
+	_, _, err = httputils.ParseResponse("", resp, err, region.client.debug)
+	return err
+}
+
+// Block Storage
+func (region *SRegion) bsList(resource string, query url.Values) (jsonutils.JSONObject, error) {
+	return region.client.bsRequest(region.Name, httputils.GET, resource, query, nil)
+}
+
+func (region *SRegion) bsGet(resource string) (jsonutils.JSONObject, error) {
+	return region.client.bsRequest(region.Name, httputils.GET, resource, nil, nil)
+}
+
+func (region *SRegion) bsUpdate(resource string, params interface{}) (jsonutils.JSONObject, error) {
+	return region.client.bsRequest(region.Name, httputils.PUT, resource, nil, params)
+}
+
+func (region *SRegion) bsPost(resource string, params interface{}) (jsonutils.JSONObject, error) {
+	return region.client.bsRequest(region.Name, httputils.POST, resource, nil, params)
+}
+
+func (region *SRegion) bsDelete(resource string) (jsonutils.JSONObject, error) {
+	return region.client.bsRequest(region.Name, httputils.DELETE, resource, nil, nil)
+}
+
+func (region *SRegion) bsCreate(projectId, resource string, params interface{}) (jsonutils.JSONObject, error) {
+	return region.client.bsCreate(projectId, region.Name, resource, params)
 }
 
 func (region *SRegion) ProjectId() string {
@@ -405,27 +359,32 @@ func (region *SRegion) ProjectId() string {
 }
 
 func (region *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
-	if region.izones == nil {
-		if err := region.fetchInfrastructure(); err != nil {
-			return nil, err
-		}
+	err := region.fetchZones()
+	if err != nil {
+		return nil, err
 	}
-	return region.izones, nil
-}
-
-func (region *SRegion) GetVersion(service string) (string, string, error) {
-	return region.client.getVersion(region.Name, service)
+	izones := []cloudprovider.ICloudZone{}
+	for i := range region.zones {
+		izones = append(izones, &region.zones[i])
+	}
+	return izones, nil
 }
 
 func (region *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
-	if err := region.fetchInfrastructure(); err != nil {
-		return nil, err
+	err := region.fetchVpcs()
+	if err != nil {
+		return nil, errors.Wrap(err, "fetchVpcs")
 	}
-	return region.ivpcs, nil
+	ivpcs := []cloudprovider.ICloudVpc{}
+	for i := range region.vpcs {
+		region.vpcs[i].region = region
+		ivpcs = append(ivpcs, &region.vpcs[i])
+	}
+	return ivpcs, nil
 }
 
 func (region *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
-	eips, err := region.GetEips()
+	eips, err := region.GetEips("")
 	if err != nil {
 		return nil, err
 	}
@@ -438,7 +397,15 @@ func (region *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 }
 
 func (region *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
-	return region.CreateEip(eip)
+	network, err := region.GetNetwork(eip.NetworkExternalId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetNetwork(%s)", eip.NetworkExternalId)
+	}
+	ieip, err := region.CreateEip(network.NetworkId, eip.NetworkExternalId, eip.IP, eip.ProjectId)
+	if err != nil {
+		return nil, errors.Wrap(err, "CreateEip")
+	}
+	return ieip, nil
 }
 
 func (region *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) {
@@ -522,8 +489,8 @@ func (region *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.I
 	return region.GetSecurityGroup(secgroupId)
 }
 
-func (region *SRegion) GetISecurityGroupByName(vpcId string, name string) (cloudprovider.ICloudSecurityGroup, error) {
-	secgroups, err := region.GetSecurityGroups(name)
+func (region *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
+	secgroups, err := region.GetSecurityGroups(opts.ProjectId, opts.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -538,7 +505,7 @@ func (region *SRegion) GetISecurityGroupByName(vpcId string, name string) (cloud
 }
 
 func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
-	return region.CreateSecurityGroup(conf.Name, conf.Desc)
+	return region.CreateSecurityGroup(conf.ProjectId, conf.Name, conf.Desc)
 }
 
 func (region *SRegion) GetCapabilities() []string {
@@ -546,9 +513,10 @@ func (region *SRegion) GetCapabilities() []string {
 }
 
 func (region *SRegion) GetRouters() ([]SRouter, error) {
-	_, resp, err := region.Get("network", "/v2.0/routers", "", nil)
+	resource := "/v2.0/routers"
+	resp, err := region.vpcList(resource, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "region.Get routes")
+		return nil, errors.Wrap(err, "vpcList.routes")
 	}
 	routers := []SRouter{}
 	err = resp.Unmarshal(&routers, "routers")
@@ -556,7 +524,7 @@ func (region *SRegion) GetRouters() ([]SRouter, error) {
 		return nil, errors.Wrap(err, "resp.Unmarshal")
 	}
 	for i := 0; i < len(routers); i++ {
-		ports, err := region.GetPortsByDeviceId(routers[i].ID)
+		ports, err := region.GetPorts("", routers[i].Id)
 		if err != nil {
 			return nil, errors.Wrap(err, "vpc.region.GetPortsByDeviceId")
 		}
@@ -575,16 +543,4 @@ func (region *SRegion) fetchrouters() error {
 	}
 	region.routers = routers
 	return nil
-}
-
-func (region *SRegion) GetPortsByDeviceId(routerId string) ([]SPort, error) {
-	query := url.Values{}
-	query.Set("device_id", routerId)
-	_, resp, err := region.Get("network", "/v2.0/ports?"+query.Encode(), "", nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "region.Get routes")
-	}
-	ports := []SPort{}
-	return ports, resp.Unmarshal(&ports, "ports")
-
 }

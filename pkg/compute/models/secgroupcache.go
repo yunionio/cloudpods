@@ -57,7 +57,8 @@ type SSecurityGroupCache struct {
 	// SecgroupId string `width:"128" charset:"ascii" list:"user" create:"required"`
 
 	// 虚拟私有网络外部Id
-	VpcId string `width:"128" charset:"ascii" list:"user" create:"required"`
+	VpcId             string `width:"128" charset:"ascii" list:"user" create:"required"`
+	ExternalProjectId string `width:"128" charset:"ascii" list:"user" create:"optional"`
 }
 
 var SecurityGroupCacheManager *SSecurityGroupCacheManager
@@ -260,13 +261,16 @@ func (manager *SSecurityGroupCacheManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (manager *SSecurityGroupCacheManager) GetSecgroupCache(ctx context.Context, userCred mcclient.TokenCredential, secgroupId, vpcId string, regionId string, providerId string) (*SSecurityGroupCache, error) {
+func (manager *SSecurityGroupCacheManager) GetSecgroupCache(ctx context.Context, userCred mcclient.TokenCredential, secgroupId, vpcId string, regionId string, providerId string, projectId string) (*SSecurityGroupCache, error) {
 	secgroupCache := SSecurityGroupCache{}
 	query := manager.Query()
 	conds := []sqlchemy.ICondition{
 		sqlchemy.Equals(query.Field("secgroup_id"), secgroupId),
 		sqlchemy.Equals(query.Field("vpc_id"), vpcId),
 		sqlchemy.Equals(query.Field("manager_id"), providerId),
+	}
+	if len(projectId) > 0 {
+		conds = append(conds, sqlchemy.Equals(query.Field("external_project_id"), projectId))
 	}
 	_region, err := CloudregionManager.FetchById(regionId)
 	if err != nil {
@@ -290,7 +294,7 @@ func (manager *SSecurityGroupCacheManager) GetSecgroupCache(ctx context.Context,
 	return &secgroupCache, nil
 }
 
-func (manager *SSecurityGroupCacheManager) NewCache(ctx context.Context, userCred mcclient.TokenCredential, secgroupId, vpcId, regionId string, providerId string) (*SSecurityGroupCache, error) {
+func (manager *SSecurityGroupCacheManager) NewCache(ctx context.Context, userCred mcclient.TokenCredential, secgroupId, vpcId, regionId string, providerId string, projectId string) (*SSecurityGroupCache, error) {
 	lockman.LockClass(ctx, manager, userCred.GetProjectId())
 	defer lockman.ReleaseClass(ctx, manager, userCred.GetProjectId())
 
@@ -306,6 +310,7 @@ func (manager *SSecurityGroupCacheManager) NewCache(ctx context.Context, userCre
 	secgroupCache.Status = api.SECGROUP_CACHE_STATUS_CACHING
 	secgroupCache.CloudregionId = regionId
 	secgroupCache.Name = secgroup.GetName()
+	secgroupCache.ExternalProjectId = projectId
 	secgroupCache.SetModelManager(manager, secgroupCache)
 	if err := manager.TableSpec().Insert(ctx, secgroupCache); err != nil {
 		log.Errorf("insert secgroupcache error: %v", err)
@@ -314,8 +319,8 @@ func (manager *SSecurityGroupCacheManager) NewCache(ctx context.Context, userCre
 	return secgroupCache, nil
 }
 
-func (manager *SSecurityGroupCacheManager) Register(ctx context.Context, userCred mcclient.TokenCredential, secgroupId, vpcId, regionId string, providerId string) (*SSecurityGroupCache, error) {
-	secgroupCache, err := manager.GetSecgroupCache(ctx, userCred, secgroupId, vpcId, regionId, providerId)
+func (manager *SSecurityGroupCacheManager) Register(ctx context.Context, userCred mcclient.TokenCredential, secgroupId, vpcId, regionId string, providerId string, projectId string) (*SSecurityGroupCache, error) {
+	secgroupCache, err := manager.GetSecgroupCache(ctx, userCred, secgroupId, vpcId, regionId, providerId, projectId)
 	if err != nil {
 		return nil, err
 	}
@@ -324,7 +329,7 @@ func (manager *SSecurityGroupCacheManager) Register(ctx context.Context, userCre
 		return secgroupCache, nil
 	}
 
-	return manager.NewCache(ctx, userCred, secgroupId, vpcId, regionId, providerId)
+	return manager.NewCache(ctx, userCred, secgroupId, vpcId, regionId, providerId, projectId)
 }
 
 func (manager *SSecurityGroupCacheManager) getSecgroupcachesByProvider(provider *SCloudprovider, region *SCloudregion, vpcId string) ([]SSecurityGroupCache, error) {
@@ -414,6 +419,7 @@ func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.C
 			commondb[i].Status = api.SECGROUP_CACHE_STATUS_READY
 			commondb[i].Name = commonext[i].GetName()
 			commondb[i].Description = commonext[i].GetDescription()
+			commondb[i].ExternalProjectId = commonext[i].GetProjectId()
 			return nil
 		})
 		if err != nil {
@@ -442,7 +448,7 @@ func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.C
 				log.Warningf("failed to set secgroup %s(%s) project sharable", secgroup.Name, secgroup.Id)
 			}
 		}
-		cache, err := manager.NewCache(ctx, userCred, secgroup.Id, vpcId, vpc.CloudregionId, provider.Id)
+		cache, err := manager.NewCache(ctx, userCred, secgroup.Id, vpcId, vpc.CloudregionId, provider.Id, added[i].GetProjectId())
 		if err != nil {
 			syncResult.AddError(fmt.Errorf("failed to create secgroup cache for secgroup %s(%s) provider: %s: %s", secgroup.Name, secgroup.Name, provider.Name, err))
 			continue
