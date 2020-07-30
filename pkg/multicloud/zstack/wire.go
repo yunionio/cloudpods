@@ -126,8 +126,8 @@ func (wire *SWire) GetBandwidth() int {
 	return 10000
 }
 
-func (wire *SWire) CreateINetwork(name string, cidr string, desc string) (cloudprovider.ICloudNetwork, error) {
-	network, err := wire.vpc.region.CreateNetwork(name, cidr, wire.UUID, desc)
+func (wire *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
+	network, err := wire.vpc.region.CreateNetwork(opts.Name, opts.Cidr, wire.UUID, opts.Desc)
 	if err != nil {
 		return nil, err
 	}

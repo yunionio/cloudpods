@@ -15,20 +15,27 @@
 package openstack
 
 import (
+	"net/url"
+
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SProject struct {
+	client      *SOpenStackClient
 	Description string
 	Enabled     bool
-	ID          string
+	Id          string
 	Name        string
 }
 
 func (p *SProject) GetId() string {
-	return p.ID
+	return p.Id
 }
 
 func (p *SProject) GetGlobalId() string {
@@ -44,7 +51,16 @@ func (p *SProject) GetName() string {
 }
 
 func (p *SProject) GetStatus() string {
+	_, err := p.getToken()
+	if err != nil {
+		log.Errorf("get project %s token error: %v %T", p.Name, err, err)
+		return api.EXTERNAL_PROJECT_STATUS_UNKNOWN
+	}
 	return api.EXTERNAL_PROJECT_STATUS_AVAILABLE
+}
+
+func (p *SProject) getToken() (mcclient.TokenCredential, error) {
+	return p.client.getProjectToken(p.Id, p.Name)
 }
 
 func (p *SProject) IsEmulated() bool {
@@ -53,4 +69,49 @@ func (p *SProject) IsEmulated() bool {
 
 func (p *SProject) Refresh() error {
 	return nil
+}
+
+type SProjectLinks struct {
+	Next     string
+	Previous string
+	Self     string
+}
+
+func (link SProjectLinks) GetNextMark() string {
+	if len(link.Next) == 0 || link.Next == "null" {
+		return ""
+	}
+	next, err := url.Parse(link.Next)
+	if err != nil {
+		log.Errorf("parse next link %s error: %v", link.Next, err)
+		return ""
+	}
+	return next.Query().Get("marker")
+}
+
+func (cli *SOpenStackClient) GetProjects() ([]SProject, error) {
+	resource := "/v3/projects"
+	projects := []SProject{}
+	query := url.Values{}
+	for {
+		resp, err := cli.iamRequest("", httputils.GET, resource, query, nil)
+		if err != nil {
+			return nil, errors.Wrap(err, "iamRequest")
+		}
+		part := struct {
+			Projects []SProject
+			Links    SProjectLinks
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, errors.Wrap(err, "iamRequest")
+		}
+		projects = append(projects, part.Projects...)
+		marker := part.Links.GetNextMark()
+		if len(marker) == 0 {
+			break
+		}
+		query.Set("marker", marker)
+	}
+	return projects, nil
 }

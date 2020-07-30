@@ -16,12 +16,11 @@ package openstack
 
 import (
 	"fmt"
+	"net/url"
 
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/utils"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/util/version"
 )
 
 type SKeypair struct {
@@ -36,48 +35,70 @@ type SKeyPair struct {
 }
 
 func (region *SRegion) GetKeypairs() ([]SKeyPair, error) {
-	_, resp, err := region.List("compute", "/os-keypairs", "", nil)
-	if err != nil {
-		return nil, err
-	}
 	keypairs := []SKeyPair{}
-	return keypairs, resp.Unmarshal(&keypairs, "keypairs")
+	resource := "/os-keypairs"
+	query := url.Values{}
+	for {
+		resp, err := region.ecsList(resource, query)
+		if err != nil {
+			return nil, errors.Wrap(err, "ecsList")
+		}
+		part := struct {
+			Keypairs      []SKeyPair
+			KeypairsLinks SNextLinks
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, errors.Wrap(err, "resp.Unmarshal")
+		}
+		keypairs = append(keypairs, part.Keypairs...)
+		marker := part.KeypairsLinks.GetNextMark()
+		if len(marker) == 0 {
+			break
+		}
+		query.Set("marker", marker)
+	}
+	return keypairs, nil
 }
 
 func (region *SRegion) CreateKeypair(name, publicKey, Type string) (*SKeyPair, error) {
-	if len(Type) > 0 && !utils.IsInStringArray(Type, []string{"ssh", "x509"}) {
-		return nil, fmt.Errorf("only support ssh or x509 type")
-	}
 	params := map[string]map[string]string{
 		"keypair": {
 			"name":       name,
 			"public_key": publicKey,
 		},
 	}
-	_, maxVersion, _ := region.GetVersion("compute")
-	if len(Type) > 0 && version.GE(maxVersion, "2.2") {
+	if len(Type) > 0 {
 		params["keypair"]["type"] = Type
 	}
-	_, resp, err := region.Post("compute", "/os-keypairs", maxVersion, jsonutils.Marshal(params))
+	resp, err := region.ecsPost("/os-keypairs", params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "ecsPost")
 	}
 	keypair := &SKeyPair{}
-	return keypair, resp.Unmarshal(keypair)
+	err = resp.Unmarshal(keypair)
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return keypair, nil
 }
 
 func (region *SRegion) DeleteKeypair(name string) error {
-	_, err := region.Delete("compute", "/os-keypairs/"+name, "")
+	_, err := region.ecsDelete("/os-keypairs/" + name)
 	return err
 }
 
 func (region *SRegion) GetKeypair(name string) (*SKeyPair, error) {
-	_, resp, err := region.Get("compute", "/os-keypairs/"+name, "", nil)
+	resp, err := region.ecsGet("/os-keypairs/" + name)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "ecsGet")
 	}
 	keypair := &SKeyPair{}
-	return keypair, resp.Unmarshal(keypair)
+	err = resp.Unmarshal(keypair)
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return keypair, nil
 }
 
 func (region *SRegion) syncKeypair(namePrefix, publicKey string) (string, error) {

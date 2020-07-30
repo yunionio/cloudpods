@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SOpenStackRegionDriver struct {
@@ -59,6 +60,10 @@ func (self *SOpenStackRegionDriver) GetSecurityGroupRuleMinPriority() int {
 
 func (self *SOpenStackRegionDriver) IsOnlySupportAllowRules() bool {
 	return true
+}
+
+func (self *SOpenStackRegionDriver) GetSecurityGroupPublicScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeProject
 }
 
 func (self *SOpenStackRegionDriver) GetProvider() string {

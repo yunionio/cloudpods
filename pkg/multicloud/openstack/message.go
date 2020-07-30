@@ -12,20 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package multicloud
+package openstack
 
-type SHostBase struct {
-	SResourceBase
+import "net/url"
+
+type SMessage struct {
+	Id           string
+	MessageLevel string
+	EventId      string
+	ResourceType string
+	UserMessage  string
 }
 
-func (self *SHostBase) GetCpuCmtbound() float32 {
-	return 0.0
-}
-
-func (self *SHostBase) GetMemCmtbound() float32 {
-	return 0.0
-}
-
-func (self *SHostBase) GetReservedMemoryMb() int {
-	return 0
+func (region *SRegion) GetMessages(resourceId string) ([]SMessage, error) {
+	messages := []SMessage{}
+	resource := "messages"
+	query := url.Values{}
+	if len(resourceId) > 0 {
+		query.Set("resource_uuid", resourceId)
+	}
+	resp, err := region.bsList(resource, query)
+	if err != nil {
+		return nil, err
+	}
+	err = resp.Unmarshal(&messages, "messages")
+	if err != nil {
+		return nil, err
+	}
+	return messages, nil
 }

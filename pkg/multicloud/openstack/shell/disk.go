@@ -21,11 +21,9 @@ import (
 
 func init() {
 	type DiskListOptions struct {
-		Category    string `help:"Storage type for disk"`
-		BackendName string `help:"Storage backend eg:lvm, rbd"`
 	}
 	shellutils.R(&DiskListOptions{}, "disk-list", "List disks", func(cli *openstack.SRegion, args *DiskListOptions) error {
-		disks, err := cli.GetDisks(args.Category, args.BackendName)
+		disks, err := cli.GetDisks()
 		if err != nil {
 			return err
 		}

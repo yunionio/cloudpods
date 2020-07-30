@@ -93,8 +93,8 @@ func (self *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, e
 	return nil, ErrorNotFound()
 }
 
-func (self *SWire) CreateINetwork(name string, cidr string, desc string) (cloudprovider.ICloudNetwork, error) {
-	networkId, err := self.zone.region.createNetwork(self.zone.ZoneId, self.vpc.VpcId, name, cidr, desc)
+func (self *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
+	networkId, err := self.zone.region.createNetwork(self.zone.ZoneId, self.vpc.VpcId, opts.Name, opts.Cidr, opts.Desc)
 	if err != nil {
 		log.Errorf("createNetwork error %s", err)
 		return nil, err

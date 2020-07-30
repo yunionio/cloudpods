@@ -15,7 +15,6 @@
 package openstack
 
 import (
-	"fmt"
 	"net/url"
 	"strings"
 	"time"
@@ -144,7 +143,7 @@ func (port *SPort) GetICloudInterfaceAddresses() ([]cloudprovider.ICloudInterfac
 }
 
 func (region *SRegion) GetINetworkInterfaces() ([]cloudprovider.ICloudNetworkInterface, error) {
-	ports, err := region.GetPorts("")
+	ports, err := region.GetPorts("", "")
 	if err != nil {
 		return nil, err
 	}
@@ -160,49 +159,47 @@ func (region *SRegion) GetINetworkInterfaces() ([]cloudprovider.ICloudNetworkInt
 }
 
 func (region *SRegion) GetPort(portId string) (*SPort, error) {
-	_, resp, err := region.Get("network", "/v2.0/ports/"+portId, "", nil)
+	resource := "/v2.0/ports/" + portId
+	resp, err := region.vpcGet(resource)
 	if err != nil {
 		return nil, err
 	}
 	port := &SPort{}
-	return port, resp.Unmarshal(port, "port")
+	err = resp.Unmarshal(port, "port")
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return port, nil
 }
 
-func (region *SRegion) GetPorts(macAddress string) ([]SPort, error) {
-	base := fmt.Sprintf("/v2.0/ports")
-	params := url.Values{}
+func (region *SRegion) GetPorts(macAddress, deviceId string) ([]SPort, error) {
+	resource, ports := "/v2.0/ports", []SPort{}
+	query := url.Values{}
 	if len(macAddress) > 0 {
-		params.Set("mac_address", macAddress)
+		query.Set("mac_address", macAddress)
 	}
-	url := fmt.Sprintf("%s?%s", base, params.Encode())
-
-	ports := []SPort{}
-	for len(url) > 0 {
-		_, resp, err := region.List("network", url, "", nil)
-		if err != nil {
-			return nil, err
-		}
-		_ports := []SPort{}
-		err = resp.Unmarshal(&_ports, "ports")
-		if err != nil {
-			return nil, errors.Wrap(err, `resp.Unmarshal(&_ports, "ports")`)
-		}
-		ports = append(ports, _ports...)
-		url = ""
-		if resp.Contains("ports_links") {
-			nextLink := []SNextLink{}
-			err = resp.Unmarshal(&nextLink, "ports_links")
-			if err != nil {
-				return nil, errors.Wrap(err, `resp.Unmarshal(&nextLink, "ports_links")`)
-			}
-			for _, next := range nextLink {
-				if next.Rel == "next" {
-					url = next.Href
-					break
-				}
-			}
-		}
+	if len(deviceId) > 0 {
+		query.Set("device_id", deviceId)
 	}
-
+	for {
+		resp, err := region.vpcList(resource, query)
+		if err != nil {
+			return nil, errors.Wrap(err, "vpcList")
+		}
+		part := struct {
+			Ports      []SPort
+			PortsLinks SNextLinks
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, errors.Wrap(err, "resp.Unmarshal")
+		}
+		ports = append(ports, part.Ports...)
+		marker := part.PortsLinks.GetNextMark()
+		if len(marker) == 0 {
+			break
+		}
+		query.Set("marker", marker)
+	}
 	return ports, nil
 }

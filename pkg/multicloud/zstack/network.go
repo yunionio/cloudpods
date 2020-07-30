@@ -199,12 +199,11 @@ func (network *SNetwork) GetIpMask() int8 {
 }
 
 func (network *SNetwork) GetIsPublic() bool {
-	// return network.IsDefault
-	return false
+	return true
 }
 
 func (self *SNetwork) GetPublicScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeProject
+	return rbacutils.ScopeSystem
 }
 
 func (network *SNetwork) GetServerType() string {

@@ -190,6 +190,8 @@ type ICloudProviderFactory interface {
 	IsCloudeventRegional() bool
 	GetMaxCloudEventSyncDays() int
 	GetMaxCloudEventKeepDays() int
+
+	IsNeedForceAutoCreateProject() bool
 }
 
 type ICloudProvider interface {
@@ -408,6 +410,10 @@ func (factory *baseProviderFactory) GetMaxCloudEventSyncDays() int {
 
 func (factory *baseProviderFactory) GetMaxCloudEventKeepDays() int {
 	return 7
+}
+
+func (factory *baseProviderFactory) IsNeedForceAutoCreateProject() bool {
+	return false
 }
 
 type SPremiseBaseProviderFactory struct {

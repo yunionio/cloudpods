@@ -117,6 +117,7 @@ require (
 	google.golang.org/genproto v0.0.0-20191230161307-f3c370f40bfb
 	google.golang.org/grpc v1.26.0
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
+	gopkg.in/fatih/set.v0 v0.2.1
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.44.0 // indirect
 	gopkg.in/ldap.v3 v3.0.3
@@ -132,7 +133,7 @@ require (
 	yunion.io/x/pkg v0.0.0-20200713121502-18154120c49b
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 	yunion.io/x/sqlchemy v0.0.0-20200702064124-195445bc4b11
-	yunion.io/x/structarg v0.0.0-20200708124353-ea9a441ecaf8
+	yunion.io/x/structarg v0.0.0-20200720093445-9f850fa222ce
 )
 
 replace (

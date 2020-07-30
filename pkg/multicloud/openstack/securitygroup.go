@@ -16,6 +16,7 @@ package openstack
 
 import (
 	"fmt"
+	"net/url"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -37,17 +38,17 @@ const (
 type SSecurityGroupRule struct {
 	Direction       string
 	Ethertype       string
-	ID              string
+	Id              string
 	PortRangeMax    int
 	PortRangeMin    int
 	Protocol        string
-	RemoteGroupID   string
+	RemoteGroupId   string
 	RemoteIpPrefix  string
-	SecurityGroupID string
-	ProjectID       string
+	SecurityGroupId string
+	ProjectId       string
 	RevisionNumber  int
 	Tags            []string
-	TenantID        string
+	TenantId        string
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 	Description     string
@@ -58,62 +59,61 @@ type SSecurityGroup struct {
 	region *SRegion
 
 	Description        string
-	ID                 string
+	Id                 string
 	Name               string
 	SecurityGroupRules []SSecurityGroupRule
-	ProjectID          string
+	ProjectId          string
 	RevisionNumber     int
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
 	Tags               []string
-	TenantID           string
+	TenantId           string
 }
 
 func (region *SRegion) GetSecurityGroup(secgroupId string) (*SSecurityGroup, error) {
-	_, resp, err := region.Get("network", "/v2.0/security-groups/"+secgroupId, "", nil)
+	resource := "/v2.0/security-groups/" + secgroupId
+	resp, err := region.vpcGet(resource)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "vpcGet")
 	}
 	secgroup := &SSecurityGroup{region: region}
-	return secgroup, resp.Unmarshal(secgroup, "security_group")
+	err = resp.Unmarshal(secgroup, "security_group")
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return secgroup, nil
 }
 
-func (region *SRegion) GetSecurityGroups(name string) ([]SSecurityGroup, error) {
-	url := "/v2.0/security-groups"
-	if len(name) > 0 {
-		url = fmt.Sprintf("%s?name=%s", url, name)
-	}
+func (region *SRegion) GetSecurityGroups(projectId, name string) ([]SSecurityGroup, error) {
 	secgroups := []SSecurityGroup{}
-	for len(url) > 0 {
-		_, resp, err := region.List("network", url, "", nil)
-		if err != nil {
-			return nil, err
-		}
-		_secgroups := []SSecurityGroup{}
-		err = resp.Unmarshal(&_secgroups, "security_groups")
-		if err != nil {
-			return nil, errors.Wrap(err, `resp.Unmarshal(&_secgroups, "security_groups")`)
-		}
-		secgroups = append(secgroups, _secgroups...)
-		url = ""
-		if resp.Contains("security_groups_links") {
-			nextLink := []SNextLink{}
-			err = resp.Unmarshal(&nextLink, "security_groups_links")
-			if err != nil {
-				return nil, errors.Wrap(err, `resp.Unmarshal(&nextLink, "security_groups_links")`)
-			}
-			for _, next := range nextLink {
-				if next.Rel == "next" {
-					url = next.Href
-					break
-				}
-			}
-		}
+	resource := "/v2.0/security-groups"
+	query := url.Values{}
+	if len(name) > 0 {
+		query.Set("name", name)
 	}
-	for i := range secgroups {
-		secgroups[i].region = region
+	if len(projectId) > 0 {
+		query.Set("project_id", projectId)
 	}
-
+	for {
+		resp, err := region.vpcList(resource, query)
+		if err != nil {
+			return nil, errors.Wrap(err, "vpcList")
+		}
+		part := struct {
+			SecurityGroups      []SSecurityGroup
+			SecurityGroupsLinks SNextLinks
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, errors.Wrap(err, "resp.Unmarshal")
+		}
+		secgroups = append(secgroups, part.SecurityGroups...)
+		marker := part.SecurityGroupsLinks.GetNextMark()
+		if len(marker) == 0 {
+			break
+		}
+		query.Set("marker", marker)
+	}
 	return secgroups, nil
 }
 
@@ -126,11 +126,11 @@ func (secgroup *SSecurityGroup) GetVpcId() string {
 }
 
 func (secgroup *SSecurityGroup) GetId() string {
-	return secgroup.ID
+	return secgroup.Id
 }
 
 func (secgroup *SSecurityGroup) GetGlobalId() string {
-	return secgroup.ID
+	return secgroup.Id
 }
 
 func (secgroup *SSecurityGroup) GetDescription() string {
@@ -141,17 +141,17 @@ func (secgroup *SSecurityGroup) GetName() string {
 	if len(secgroup.Name) > 0 {
 		return secgroup.Name
 	}
-	return secgroup.ID
+	return secgroup.Id
 }
 
 func (secgrouprule *SSecurityGroupRule) toRules() ([]cloudprovider.SecurityRule, error) {
 	rules := []cloudprovider.SecurityRule{}
 	// 暂时忽略IPv6安全组规则,忽略远端也是安全组的规则
-	if secgrouprule.Ethertype != "IPv4" || len(secgrouprule.RemoteGroupID) > 0 {
-		return rules, fmt.Errorf("ethertype: %s remoteGroupId: %s", secgrouprule.Ethertype, secgrouprule.RemoteGroupID)
+	if secgrouprule.Ethertype != "IPv4" || len(secgrouprule.RemoteGroupId) > 0 {
+		return rules, fmt.Errorf("ethertype: %s remoteGroupId: %s", secgrouprule.Ethertype, secgrouprule.RemoteGroupId)
 	}
 	rule := cloudprovider.SecurityRule{
-		ExternalId: secgrouprule.ID,
+		ExternalId: secgrouprule.Id,
 		SecurityRule: secrules.SecurityRule{
 			Direction:   secrules.DIR_IN,
 			Action:      secrules.SecurityRuleAllow,
@@ -197,7 +197,7 @@ func (secgroup *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error)
 	for _, rule := range secgroup.SecurityGroupRules {
 		subRules, err := rule.toRules()
 		if err != nil {
-			log.Errorf("failed to convert rule %s for secgroup %s(%s) error: %v", rule.ID, secgroup.Name, secgroup.ID, err)
+			log.Errorf("failed to convert rule %s for secgroup %s(%s) error: %v", rule.Id, secgroup.Name, secgroup.Id, err)
 			continue
 		}
 		rules = append(rules, subRules...)
@@ -214,7 +214,7 @@ func (secgroup *SSecurityGroup) IsEmulated() bool {
 }
 
 func (secgroup *SSecurityGroup) Refresh() error {
-	new, err := secgroup.region.GetSecurityGroup(secgroup.ID)
+	new, err := secgroup.region.GetSecurityGroup(secgroup.Id)
 	if err != nil {
 		return err
 	}
@@ -222,7 +222,8 @@ func (secgroup *SSecurityGroup) Refresh() error {
 }
 
 func (region *SRegion) delSecurityGroupRule(ruleId string) error {
-	_, err := region.Delete("network", "/v2.0/security-group-rules/"+ruleId, "")
+	resource := "/v2.0/security-group-rules/" + ruleId
+	_, err := region.vpcDelete(resource)
 	return err
 }
 
@@ -252,9 +253,10 @@ func (region *SRegion) addSecurityGroupRules(secgroupId string, rule cloudprovid
 		for _, port := range rule.Ports {
 			params["security_group_rule"]["port_range_max"] = port
 			params["security_group_rule"]["port_range_min"] = port
-			_, _, err := region.Post("network", "/v2.0/security-group-rules", "", jsonutils.Marshal(params))
+			resource := "/v2.0/security-group-rules"
+			_, err := region.vpcPost(resource, params)
 			if err != nil {
-				return err
+				return errors.Wrap(err, "vpcPost")
 			}
 		}
 		return nil
@@ -263,36 +265,44 @@ func (region *SRegion) addSecurityGroupRules(secgroupId string, rule cloudprovid
 		params["security_group_rule"]["port_range_min"] = rule.PortStart
 		params["security_group_rule"]["port_range_max"] = rule.PortEnd
 	}
-	_, _, err := region.Post("network", "/v2.0/security-group-rules", "", jsonutils.Marshal(params))
+	_, err := region.vpcPost("/v2.0/security-group-rules", params)
 	return err
 }
 
 func (region *SRegion) DeleteSecurityGroup(secGroupId string) error {
-	_, err := region.Delete("network", "/v2.0/security-groups/"+secGroupId, "")
+	resource := "/v2.0/security-groups/" + secGroupId
+	_, err := region.vpcDelete(resource)
 	return err
 }
 
 func (secgroup *SSecurityGroup) Delete() error {
-	return secgroup.region.DeleteSecurityGroup(secgroup.ID)
+	return secgroup.region.DeleteSecurityGroup(secgroup.Id)
 }
 
-func (region *SRegion) CreateSecurityGroup(name, description string) (*SSecurityGroup, error) {
+func (region *SRegion) CreateSecurityGroup(projectId, name, description string) (*SSecurityGroup, error) {
 	params := map[string]map[string]interface{}{
 		"security_group": {
 			"name":        name,
 			"description": description,
 		},
 	}
-	_, resp, err := region.Post("network", "/v2.0/security-groups", "", jsonutils.Marshal(params))
+	if len(projectId) > 0 {
+		params["security_group"]["project_id"] = projectId
+	}
+	resp, err := region.vpcPost("/v2.0/security-groups", params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "vpcPost")
 	}
 	secgroup := &SSecurityGroup{region: region}
-	return secgroup, resp.Unmarshal(secgroup, "security_group")
+	err = resp.Unmarshal(secgroup, "security_group")
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return secgroup, nil
 }
 
 func (secgroup *SSecurityGroup) GetProjectId() string {
-	return secgroup.TenantID
+	return secgroup.TenantId
 }
 
 func (secgroup *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
@@ -303,7 +313,7 @@ func (secgroup *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDe
 		}
 	}
 	for _, r := range append(inAdds, outAdds...) {
-		err := secgroup.region.addSecurityGroupRules(secgroup.ID, r)
+		err := secgroup.region.addSecurityGroupRules(secgroup.Id, r)
 		if err != nil {
 			if jsonError, ok := err.(*httputils.JSONClientError); ok {
 				if jsonError.Class == "SecurityGroupRuleExists" {

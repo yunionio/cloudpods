@@ -74,7 +74,7 @@ func (self *SClassicWire) addNetwork(network *SClassicNetwork) {
 	}
 }
 
-func (self *SClassicWire) CreateINetwork(name string, cidr string, desc string) (cloudprovider.ICloudNetwork, error) {
+func (self *SClassicWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
 	return nil, cloudprovider.ErrNotImplemented
 	// if network, err := self.zone.region.createNetwork(self.vpc, name, cidr, desc); err != nil {
 	// 	return nil, err
