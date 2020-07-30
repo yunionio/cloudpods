@@ -199,10 +199,10 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 		return
 	}
 	changeConfigSpec := jsonutils.NewDict()
-	if addCpu != 0 {
+	if vcpuCount > 0 && addCpu != 0 {
 		changeConfigSpec.Set("add_cpu", jsonutils.NewInt(int64(addCpu)))
 	}
-	if addMem != 0 {
+	if vmemSize > 0 && addMem != 0 {
 		changeConfigSpec.Set("add_mem", jsonutils.NewInt(int64(addMem)))
 	}
 	if len(instanceType) > 0 {
