@@ -141,11 +141,11 @@ func (m *SScopedResourceBaseManager) ValidateCreateData(man IScopedResourceManag
 		allowCreate = IsAdminAllowCreate(userCred, man)
 	case rbacutils.ScopeDomain:
 		allowCreate = IsDomainAllowCreate(userCred, man)
-		input.ProjectDomain = ownerId.GetDomainId()
+		input.ProjectDomainId = ownerId.GetDomainId()
 	case rbacutils.ScopeProject:
 		allowCreate = IsProjectAllowCreate(userCred, man)
-		input.ProjectDomain = ownerId.GetDomainId()
-		input.Project = ownerId.GetProjectId()
+		input.ProjectDomainId = ownerId.GetDomainId()
+		input.ProjectId = ownerId.GetProjectId()
 	}
 	if !allowCreate {
 		return input, httperrors.NewForbiddenError("not allow create %s in scope %s", man.ResourceScope(), input.Scope)

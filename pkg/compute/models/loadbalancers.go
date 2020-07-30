@@ -278,23 +278,23 @@ func (man *SLoadbalancerManager) ValidateCreateData(
 	var err error
 
 	var region *SCloudregion
-	if len(input.Vpc) > 0 {
+	if len(input.VpcId) > 0 {
 		var vpc *SVpc
 		vpc, input.VpcResourceInput, err = ValidateVpcResourceInput(userCred, input.VpcResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateVpcResourceInput")
 		}
 		region, _ = vpc.GetRegion()
-	} else if len(input.Zone) > 0 {
+	} else if len(input.ZoneId) > 0 {
 		var zone *SZone
 		zone, input.ZoneResourceInput, err = ValidateZoneResourceInput(userCred, input.ZoneResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateZoneResourceInput")
 		}
 		region = zone.GetRegion()
-	} else if len(input.Network) > 0 {
-		if strings.IndexByte(input.Network, ',') >= 0 {
-			input.Network = strings.Split(input.Network, ",")[0]
+	} else if len(input.NetworkId) > 0 {
+		if strings.IndexByte(input.NetworkId, ',') >= 0 {
+			input.NetworkId = strings.Split(input.NetworkId, ",")[0]
 		}
 		var network *SNetwork
 		network, input.NetworkResourceInput, err = ValidateNetworkResourceInput(userCred, input.NetworkResourceInput)
@@ -308,9 +308,9 @@ func (man *SLoadbalancerManager) ValidateCreateData(
 		return nil, httperrors.NewBadRequestError("cannot find region info")
 	}
 
-	input.Cloudregion = region.GetId()
+	input.CloudregionId = region.GetId()
 
-	if len(input.Cloudprovider) > 0 {
+	if len(input.CloudproviderId) > 0 {
 		_, input.CloudproviderResourceInput, err = ValidateCloudproviderResourceInput(userCred, input.CloudproviderResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateCloudproviderResourceInput")

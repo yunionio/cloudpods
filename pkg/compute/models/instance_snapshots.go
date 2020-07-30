@@ -94,7 +94,7 @@ func (manager *SInstanceSnapshotManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
 
-	guestStr := query.Server
+	guestStr := query.ServerId
 	if len(guestStr) > 0 {
 		guestObj, err := GuestManager.FetchByIdOrName(userCred, guestStr)
 		if err != nil {
@@ -316,7 +316,7 @@ func (self *SInstanceSnapshot) ToInstanceCreateInput(
 		sourceInput.VcpuCount = serverConfig.Ncpu
 	}
 	if len(self.KeypairId) > 0 {
-		sourceInput.Keypair = self.KeypairId
+		sourceInput.KeypairId = self.KeypairId
 	}
 	if self.SecGroups != nil {
 		secGroups := make([]string, 0)

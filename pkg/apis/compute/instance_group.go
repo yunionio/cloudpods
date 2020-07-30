@@ -46,11 +46,11 @@ type InstanceGroupDetail struct {
 
 type GroupResourceInput struct {
 	// 实例组（ID或Name）
-	Group string `json:"group"`
+	GroupId string `json:"group_id"`
 	// swagger:ignore
 	// Deprecated
 	// Filter by instance group Id
-	GroupId string `json:"group_id" "yunion:deprecated-by":"group"`
+	Group string `json:"group" "yunion:deprecated-by":"group_id"`
 }
 
 type GroupFilterListInput struct {

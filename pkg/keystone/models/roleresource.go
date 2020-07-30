@@ -35,13 +35,13 @@ func (manager *SRoleResourceBaseManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.RoleFilterListInput,
 ) (*sqlchemy.SQuery, error) {
-	if len(query.Role) > 0 {
+	if len(query.RoleId) > 0 {
 		var ownerId mcclient.IIdentityProvider
-		if len(query.RoleDomain) > 0 {
-			domain, err := DomainManager.FetchDomainByIdOrName(query.RoleDomain)
+		if len(query.RoleDomainId) > 0 {
+			domain, err := DomainManager.FetchDomainByIdOrName(query.RoleDomainId)
 			if err != nil {
 				if errors.Cause(err) == sql.ErrNoRows {
-					return nil, httperrors.NewResourceNotFoundError2(DomainManager.Keyword(), query.RoleDomain)
+					return nil, httperrors.NewResourceNotFoundError2(DomainManager.Keyword(), query.RoleDomainId)
 				} else {
 					return nil, errors.Wrap(err, "DomainManager.FetchDomainByIdOrName")
 				}
@@ -54,10 +54,10 @@ func (manager *SRoleResourceBaseManager) ListItemFilter(
 		} else {
 			ownerId = userCred
 		}
-		roleObj, err := RoleManager.FetchByIdOrName(ownerId, query.Role)
+		roleObj, err := RoleManager.FetchByIdOrName(ownerId, query.RoleId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(RoleManager.Keyword(), query.Role)
+				return nil, httperrors.NewResourceNotFoundError2(RoleManager.Keyword(), query.RoleId)
 			} else {
 				return nil, errors.Wrap(err, "RoleManager.FetchByIdOrName")
 			}

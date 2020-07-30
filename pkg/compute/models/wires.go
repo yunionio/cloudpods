@@ -107,8 +107,8 @@ func (manager *SWireManager) ValidateCreateData(
 		return input, httperrors.NewOutOfRangeError("mtu must be range of 0~1000000")
 	}
 
-	if input.Vpc == "" {
-		input.Vpc = api.DEFAULT_VPC_ID
+	if input.VpcId == "" {
+		input.VpcId = api.DEFAULT_VPC_ID
 	}
 
 	var vpc *SVpc
@@ -121,7 +121,7 @@ func (manager *SWireManager) ValidateCreateData(
 		return input, httperrors.NewNotSupportedError("Currently only kvm platform supports creating wire")
 	}
 
-	if len(input.Zone) == 0 {
+	if len(input.ZoneId) == 0 {
 		return input, httperrors.NewMissingParameterError("zone")
 	}
 
@@ -882,7 +882,7 @@ func (manager *SWireManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SInfrasResourceBaseManager.ListItemFilter")
 	}
 
-	hostStr := query.Host
+	hostStr := query.HostId
 	if len(hostStr) > 0 {
 		hostObj, err := HostManager.FetchByIdOrName(userCred, hostStr)
 		if err != nil {

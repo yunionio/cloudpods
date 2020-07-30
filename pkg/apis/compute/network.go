@@ -20,11 +20,11 @@ import (
 
 type WireResourceInput struct {
 	// 二层网络(ID或Name)的资源
-	Wire string `json:"wire"`
+	WireId string `json:"wire_id"`
 	// swagger:ignore
 	// Deprecated
 	// fitler by wire id
-	WireId string `json:"wire_id" "yunion:deprecated-by":"wire"`
+	Wire string `json:"wire" "yunion:deprecated-by":"wire_id"`
 }
 
 type WireFilterListBase struct {
@@ -43,11 +43,11 @@ type WireFilterListInput struct {
 
 type NetworkResourceInput struct {
 	// IP子网（ID或Name）
-	Network string `json:"network"`
+	NetworkId string `json:"network_id"`
 	// swagger:ignore
 	// Deprecated
 	// filter by networkId
-	NetworkId string `json:"network_id" "yunion:deprecated-by":"network"`
+	Network string `json:"network" "yunion:deprecated-by":"network_id"`
 }
 
 type NetworkFilterListBase struct {

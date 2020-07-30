@@ -228,11 +228,11 @@ type HostFilterListInputBase struct {
 
 type HostResourceInput struct {
 	// 宿主机或物理机（ID或Name）
-	Host string `json:"host"`
+	HostId string `json:"host_id"`
 	// swagger:ignore
 	// Deprecated
 	// filter by host_id
-	HostId string `json:"host_id" "yunion:deprecated-by":"host"`
+	Host string `json:"host" "yunion:deprecated-by":"host_id"`
 }
 
 type HostRegisterMetadata struct {

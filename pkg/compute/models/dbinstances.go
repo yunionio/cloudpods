@@ -176,11 +176,11 @@ func (man *SDBInstanceManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
 	}
 
-	if len(query.Zone) > 0 {
-		zoneObj, err := ZoneManager.FetchByIdOrName(userCred, query.Zone)
+	if len(query.ZoneId) > 0 {
+		zoneObj, err := ZoneManager.FetchByIdOrName(userCred, query.ZoneId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), query.Zone)
+				return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), query.ZoneId)
 			} else {
 				return nil, errors.Wrap(err, "ZoneManager.FetchByIdOrName")
 			}

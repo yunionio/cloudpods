@@ -41,11 +41,11 @@ type LoadbalancerClusterResourceInfo struct {
 
 type LoadbalancerClusterResourceInput struct {
 	// 负载均衡集群ID或名称
-	Cluster string `json:"cluster"`
+	ClusterId string `json:"cluster_id"`
 
 	// swagger:ignore
 	// Deprecated
-	ClusterId string `json:"cluster_id" "yunion:deprecated-by":"cluster"`
+	Cluster string `json:"cluster" "yunion:deprecated-by":"cluster_id"`
 }
 
 type LoadbalancerClusterFilterListInput struct {

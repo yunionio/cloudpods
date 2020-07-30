@@ -43,15 +43,15 @@ type SWireResourceBaseManager struct {
 }
 
 func ValidateWireResourceInput(userCred mcclient.TokenCredential, input api.WireResourceInput) (*SWire, api.WireResourceInput, error) {
-	wireObj, err := WireManager.FetchByIdOrName(userCred, input.Wire)
+	wireObj, err := WireManager.FetchByIdOrName(userCred, input.WireId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", WireManager.Keyword(), input.Wire)
+			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", WireManager.Keyword(), input.WireId)
 		} else {
 			return nil, input, errors.Wrap(err, "WireManager.FetchByIdOrName")
 		}
 	}
-	input.Wire = wireObj.GetId()
+	input.WireId = wireObj.GetId()
 	return wireObj.(*SWire), input, nil
 }
 
@@ -159,7 +159,7 @@ func (manager *SWireResourceBaseManager) ListItemFilter(
 	query api.WireFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	var err error
-	if len(query.Wire) > 0 {
+	if len(query.WireId) > 0 {
 		wireObj, _, err := ValidateWireResourceInput(userCred, query.WireResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateWireResourceInput")

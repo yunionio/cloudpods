@@ -88,11 +88,11 @@ func (manager *SGuestTemplateResourceBaseManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.GuestTemplateFilterListInput,
 ) (*sqlchemy.SQuery, error) {
-	if len(query.GuestTemplate) > 0 {
-		guestTemplateObj, err := GuestTemplateManager.FetchByIdOrName(userCred, query.GuestTemplate)
+	if len(query.GuestTemplateId) > 0 {
+		guestTemplateObj, err := GuestTemplateManager.FetchByIdOrName(userCred, query.GuestTemplateId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(GuestTemplateManager.Keyword(), query.GuestTemplate)
+				return nil, httperrors.NewResourceNotFoundError2(GuestTemplateManager.Keyword(), query.GuestTemplateId)
 			} else {
 				return nil, errors.Wrap(err, "GuestTemplateManager.FetchByIdOrName")
 			}

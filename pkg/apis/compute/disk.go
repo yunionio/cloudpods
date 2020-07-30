@@ -62,8 +62,8 @@ func (req *DiskCreateInput) ToServerCreateInput() *ServerCreateInput {
 		},
 	}
 	input.Name = req.Name
-	input.Project = req.Project
-	input.ProjectDomain = req.ProjectDomain
+	input.ProjectId = req.ProjectId
+	input.ProjectDomainId = req.ProjectDomainId
 	return &input
 }
 
@@ -77,18 +77,18 @@ func (req *ServerCreateInput) ToDiskCreateInput() *DiskCreateInput {
 		Hypervisor:   req.Hypervisor,
 	}
 	input.Name = req.Name
-	input.Project = req.Project
-	input.ProjectDomain = req.ProjectDomain
+	input.ProjectId = req.ProjectId
+	input.ProjectDomainId = req.ProjectDomainId
 	return &input
 }
 
 type SnapshotPolicyResourceInput struct {
 	// filter disk by snapshotpolicy
-	Snapshotpolicy string `json:"snapshotpolicy"`
+	SnapshotpolicyId string `json:"snapshotpolicy_id"`
 	// swagger:ignore
 	// Deprecated
 	// filter disk by snapshotpolicy_id
-	SnapshotpolicyId string `json:"snapshotpolicy_id" "yunion:deprecated-by":"snapshotpolicy"`
+	Snapshotpolicy string `json:"snapshotpolicy" "yunion:deprecated-by":"snapshotpolicy_id"`
 }
 
 type SnapshotPolicyFilterListInput struct {
@@ -134,25 +134,28 @@ type DiskListInput struct {
 	FsFormat string `json:"fs_format"`
 
 	// 镜像
-	Template string `json:"template"`
+	ImageId string `json:"image_id"`
 	// swagger:ignore
 	// Deprecated
-	TemplateId string `json:"template_id" "yunion:deprecated-by":"template"`
+	Template string `json:"template" "yunion:deprecated-by":"image_id"`
+	// swagger:ignore
+	// Deprecated
+	TemplateId string `json:"template_id" "yunion:deprecated-by":"image_id"`
 
 	// 快照
-	Snapshot string `json:"snapshot"`
+	SnapshotId string `json:"snapshot_id"`
 	// swagger:ignore
 	// Deprecated
-	SnapshotId string `json:"snapshot_id" "yunion:deprecated-by":"snapshot"`
+	Snapshot string `json:"snapshot" "yunion:deprecated-by":"snapshot_id"`
 }
 
 type DiskResourceInput struct {
 	// 虚拟磁盘（ID或Name）
-	Disk string `json:"disk"`
+	DiskId string `json:"disk_id"`
 	// swagger:ignore
 	// Deprecated
 	// filter by disk_id
-	DiskId string `json:"disk_id" "yunion:deprecated-by":"disk"`
+	Disk string `json:"disk" "yunion:deprecated-by":"disk_id"`
 }
 
 type DiskFilterListInputBase struct {

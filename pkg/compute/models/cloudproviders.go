@@ -612,7 +612,7 @@ func (self *SCloudprovider) AllowPerformChangeProject(ctx context.Context, userC
 }
 
 func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeProjectOwnerInput) (jsonutils.JSONObject, error) {
-	project := input.Project
+	project := input.ProjectId
 
 	tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, project)
 	if err != nil {
@@ -1063,7 +1063,7 @@ func (manager *SCloudproviderManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.CloudproviderListInput,
 ) (*sqlchemy.SQuery, error) {
-	accountArr := query.Cloudaccount
+	accountArr := query.CloudaccountId
 	if len(accountArr) > 0 {
 		cpq := CloudaccountManager.Query().SubQuery()
 		subcpq := cpq.Query(cpq.Field("id")).Filter(sqlchemy.OR(
@@ -1076,11 +1076,11 @@ func (manager *SCloudproviderManager) ListItemFilter(
 	var zone *SZone
 	var region *SCloudregion
 
-	if len(query.Zone) > 0 {
-		zoneObj, err := ZoneManager.FetchByIdOrName(userCred, query.Zone)
+	if len(query.ZoneId) > 0 {
+		zoneObj, err := ZoneManager.FetchByIdOrName(userCred, query.ZoneId)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", ZoneManager.Keyword(), query.Zone)
+				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", ZoneManager.Keyword(), query.ZoneId)
 			} else {
 				return nil, errors.Wrap(err, "ZoneManager.FetchByIdOrName")
 			}
@@ -1089,11 +1089,11 @@ func (manager *SCloudproviderManager) ListItemFilter(
 		pr := CloudproviderRegionManager.Query().SubQuery()
 		sq := pr.Query(pr.Field("cloudprovider_id")).Equals("cloudregion_id", zone.CloudregionId).Distinct()
 		q = q.In("id", sq)
-	} else if len(query.Cloudregion) > 0 {
-		regionObj, err := CloudregionManager.FetchByIdOrName(userCred, query.Cloudregion)
+	} else if len(query.CloudregionId) > 0 {
+		regionObj, err := CloudregionManager.FetchByIdOrName(userCred, query.CloudregionId)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2("cloudregion", query.Cloudregion)
+				return nil, httperrors.NewResourceNotFoundError2("cloudregion", query.CloudregionId)
 			}
 			return nil, httperrors.NewGeneralError(err)
 		}
@@ -1143,7 +1143,7 @@ func (manager *SCloudproviderManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SSyncableBaseResourceManager.ListItemFilter")
 	}
 
-	managerStr := query.Cloudprovider
+	managerStr := query.CloudproviderId
 	if len(managerStr) > 0 {
 		providerObj, err := manager.FetchByIdOrName(userCred, managerStr)
 		if err != nil {
@@ -1567,14 +1567,14 @@ func (provider *SCloudprovider) GetDetailsStorageClasses(
 	if err != nil {
 		return output, httperrors.NewInternalServerError("fail to get provider driver %s", err)
 	}
-	if len(input.Cloudregion) > 0 {
+	if len(input.CloudregionId) > 0 {
 		_, input.CloudregionResourceInput, err = ValidateCloudregionResourceInput(userCred, input.CloudregionResourceInput)
 		if err != nil {
 			return output, errors.Wrap(err, "ValidateCloudregionResourceInput")
 		}
 	}
 
-	sc := driver.GetStorageClasses(input.Cloudregion)
+	sc := driver.GetStorageClasses(input.CloudregionId)
 	if sc == nil {
 		return output, httperrors.NewInternalServerError("storage classes not supported")
 	}
@@ -1600,15 +1600,15 @@ func (provider *SCloudprovider) GetDetailsCannedAcls(
 	if err != nil {
 		return output, httperrors.NewInternalServerError("fail to get provider driver %s", err)
 	}
-	if len(input.Cloudregion) > 0 {
+	if len(input.CloudregionId) > 0 {
 		_, input.CloudregionResourceInput, err = ValidateCloudregionResourceInput(userCred, input.CloudregionResourceInput)
 		if err != nil {
 			return output, errors.Wrap(err, "ValidateCloudregionResourceInput")
 		}
 	}
 
-	output.BucketCannedAcls = driver.GetBucketCannedAcls(input.Cloudregion)
-	output.ObjectCannedAcls = driver.GetObjectCannedAcls(input.Cloudregion)
+	output.BucketCannedAcls = driver.GetBucketCannedAcls(input.CloudregionId)
+	output.ObjectCannedAcls = driver.GetObjectCannedAcls(input.CloudregionId)
 	return output, nil
 }
 

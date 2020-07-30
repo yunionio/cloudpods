@@ -204,7 +204,7 @@ func (manager *SStorageManager) ValidateCreateData(
 	if !utils.IsInStringArray(input.MediumType, api.DISK_TYPES) {
 		return input, httperrors.NewInputParameterError("Invalid medium type %s", input.MediumType)
 	}
-	if len(input.Zone) == 0 {
+	if len(input.ZoneId) == 0 {
 		return input, httperrors.NewMissingParameterError("zone")
 	}
 	_, input.ZoneResourceInput, err = ValidateZoneResourceInput(userCred, input.ZoneResourceInput)
@@ -1288,11 +1288,11 @@ func (manager *SStorageManager) ListItemFilter(
 		q = q.Filter(sqlchemy.In(q.Field("storage_type"), api.STORAGE_LOCAL_TYPES))
 	}
 
-	if len(query.Schedtag) > 0 {
-		schedTag, err := SchedtagManager.FetchByIdOrName(nil, query.Schedtag)
+	if len(query.SchedtagId) > 0 {
+		schedTag, err := SchedtagManager.FetchByIdOrName(nil, query.SchedtagId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(SchedtagManager.Keyword(), query.Schedtag)
+				return nil, httperrors.NewResourceNotFoundError2(SchedtagManager.Keyword(), query.SchedtagId)
 			}
 			return nil, httperrors.NewGeneralError(err)
 		}
@@ -1563,9 +1563,9 @@ func (storage *SStorage) PerformForceDetachHost(ctx context.Context, userCred mc
 	if storage.Enabled.Bool() {
 		return nil, httperrors.NewBadRequestError("storage is enabled")
 	}
-	iHost, err := HostManager.FetchByIdOrName(userCred, input.Host)
+	iHost, err := HostManager.FetchByIdOrName(userCred, input.HostId)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewNotFoundError("host %s not found", input.Host)
+		return nil, httperrors.NewNotFoundError("host %s not found", input.HostId)
 	} else if err != nil {
 		return nil, err
 	}
@@ -1575,7 +1575,7 @@ func (storage *SStorage) PerformForceDetachHost(ctx context.Context, userCred mc
 	}
 	iHostStorage, err := db.FetchJointByIds(HoststorageManager, host.GetId(), storage.Id, nil)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewNotFoundError("host %s storage %s not found", input.Host, storage.Name)
+		return nil, httperrors.NewNotFoundError("host %s storage %s not found", input.HostId, storage.Name)
 	} else if err != nil {
 		return nil, err
 	}

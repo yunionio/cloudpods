@@ -423,7 +423,7 @@ func (manager *SClouduserManager) ValidateCreateData(ctx context.Context, userCr
 	input.Name = iUser.GetName()
 
 	input.OwnerId = user.Id
-	input.DomainId = account.DomainId
+	input.ProjectDomainId = account.DomainId
 	return input, nil
 }
 

@@ -116,7 +116,7 @@ func (manager *SSecurityGroupManager) ListItemFilter(
 		}
 		q = q.In("id", secgroupIds)
 	}
-	serverStr := input.Server
+	serverStr := input.ServerId
 	if len(serverStr) > 0 {
 		guest, _, err := ValidateGuestResourceInput(userCred, input.ServerResourceInput)
 		if err != nil {

@@ -173,7 +173,7 @@ func (manager *SDiskManager) ListItemFilter(
 		}
 	}
 
-	guestId := query.Server
+	guestId := query.ServerId
 	if len(guestId) > 0 {
 		iGuest, err := GuestManager.FetchByIdOrName(userCred, guestId)
 		if err == sql.ErrNoRows {
@@ -194,7 +194,7 @@ func (manager *SDiskManager) ListItemFilter(
 	}
 
 	// for snapshotpolicy_id
-	snapshotpolicyStr := query.Snapshotpolicy
+	snapshotpolicyStr := query.SnapshotpolicyId
 	if len(snapshotpolicyStr) > 0 {
 		snapshotpolicyObj, err := SnapshotPolicyManager.FetchByIdOrName(userCred, snapshotpolicyStr)
 		if err != nil {
@@ -225,19 +225,19 @@ func (manager *SDiskManager) ListItemFilter(
 		q = q.Equals("fs_format", query.FsFormat)
 	}
 
-	if len(query.Template) > 0 {
-		img, err := CachedimageManager.getImageInfo(ctx, userCred, query.Template, false)
+	if len(query.ImageId) > 0 {
+		img, err := CachedimageManager.getImageInfo(ctx, userCred, query.ImageId, false)
 		if err != nil {
 			return nil, errors.Wrap(err, "CachedimageManager.getImageInfo")
 		}
 		q = q.Equals("template_id", img.Id)
 	}
 
-	if len(query.Snapshot) > 0 {
-		snapObj, err := SnapshotManager.FetchByIdOrName(userCred, query.Snapshot)
+	if len(query.SnapshotId) > 0 {
+		snapObj, err := SnapshotManager.FetchByIdOrName(userCred, query.SnapshotId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(SnapshotManager.Keyword(), query.Snapshot)
+				return nil, httperrors.NewResourceNotFoundError2(SnapshotManager.Keyword(), query.SnapshotId)
 			} else {
 				return nil, errors.Wrap(err, "SnapshotManager.FetchByIdOrName")
 			}
@@ -447,8 +447,8 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 	if err != nil {
 		return nil, err
 	}
-	input.Project = ownerId.GetProjectId()
-	input.ProjectDomain = ownerId.GetProjectDomainId()
+	input.ProjectId = ownerId.GetProjectId()
+	input.ProjectDomainId = ownerId.GetProjectDomainId()
 
 	var quotaKey quotas.IQuotaKeys
 

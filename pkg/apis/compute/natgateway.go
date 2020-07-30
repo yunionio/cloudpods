@@ -85,11 +85,11 @@ type NatGatewayResourceInfo struct {
 
 type NatGatewayResourceInput struct {
 	// NAT网关ID or Name
-	Natgateway string `json:"natgateway"`
+	NatgatewayId string `json:"natgateway_id"`
 
 	// swagger:ignore
 	// Deprecated
-	NatgatewayId string `json:"natgateway_id" "yunion:deprecated-by":"natgateway"`
+	Natgateway string `json:"natgateway" "yunion:deprecated-by":"natgateway_id"`
 }
 
 type NatGatewayFilterListInput struct {

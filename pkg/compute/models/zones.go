@@ -565,12 +565,12 @@ func (manager *SZoneManager) ListItemFilter(
 		}
 	}
 
-	managerStr := query.Cloudprovider
+	managerStr := query.CloudproviderId
 	if len(managerStr) > 0 {
 		subq := CloudproviderRegionManager.QueryRelatedRegionIds(nil, managerStr)
 		q = q.In("cloudregion_id", subq)
 	}
-	accountArr := query.Cloudaccount
+	accountArr := query.CloudaccountId
 	if len(accountArr) > 0 {
 		subq := CloudproviderRegionManager.QueryRelatedRegionIds(accountArr)
 		q = q.In("cloudregion_id", subq)

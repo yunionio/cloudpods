@@ -203,8 +203,8 @@ func (self *SHoststorage) syncLocalStorageShare(ctx context.Context, userCred mc
 			}
 		} else {
 			input := apis.PerformPublicDomainInput{
-				Scope:         string(shareInfo.PublicScope),
-				SharedDomains: shareInfo.SharedDomains,
+				Scope:           string(shareInfo.PublicScope),
+				SharedDomainIds: shareInfo.SharedDomains,
 			}
 			_, err := storage.performPublicInternal(ctx, userCred, nil, input)
 			if err != nil {

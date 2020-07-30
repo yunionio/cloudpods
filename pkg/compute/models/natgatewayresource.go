@@ -40,15 +40,15 @@ type SNatgatewayResourceBaseManager struct {
 }
 
 func ValidateNatGatewayResourceInput(userCred mcclient.TokenCredential, input api.NatGatewayResourceInput) (*SNatGateway, api.NatGatewayResourceInput, error) {
-	natObj, err := NatGatewayManager.FetchByIdOrName(userCred, input.Natgateway)
+	natObj, err := NatGatewayManager.FetchByIdOrName(userCred, input.NatgatewayId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", NatGatewayManager.Keyword(), input.Natgateway)
+			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", NatGatewayManager.Keyword(), input.NatgatewayId)
 		} else {
 			return nil, input, errors.Wrap(err, "NatGatewayManager.FetchByIdOrName")
 		}
 	}
-	input.Natgateway = natObj.GetId()
+	input.NatgatewayId = natObj.GetId()
 	return natObj.(*SNatGateway), input, nil
 }
 
@@ -120,7 +120,7 @@ func (manager *SNatgatewayResourceBaseManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.NatGatewayFilterListInput,
 ) (*sqlchemy.SQuery, error) {
-	if len(query.Natgateway) > 0 {
+	if len(query.NatgatewayId) > 0 {
 		natObj, _, err := ValidateNatGatewayResourceInput(userCred, query.NatGatewayResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateNatGatewayResourceInput")

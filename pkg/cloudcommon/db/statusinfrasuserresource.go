@@ -99,10 +99,10 @@ func (manager *SStatusDomainLevelUserResourceBaseManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SStatusResourceBaseManager.ListItemFilter")
 	}
 
-	if len(query.User) > 0 {
-		uc, _ := UserCacheManager.FetchUserByIdOrName(ctx, query.User)
+	if len(query.UserId) > 0 {
+		uc, _ := UserCacheManager.FetchUserByIdOrName(ctx, query.UserId)
 		if uc == nil {
-			return nil, httperrors.NewUserNotFoundError("user %s not found", query.User)
+			return nil, httperrors.NewUserNotFoundError("user %s not found", query.UserId)
 		}
 		q = q.Equals("owner_id", uc.Id)
 	}

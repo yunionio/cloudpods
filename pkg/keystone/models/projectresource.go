@@ -36,13 +36,13 @@ func (manager *SProjectResourceBaseManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.ProjectFilterListInput,
 ) (*sqlchemy.SQuery, error) {
-	if len(query.Project) > 0 {
+	if len(query.ProjectId) > 0 {
 		var ownerId mcclient.IIdentityProvider
-		if len(query.ProjectDomain) > 0 {
-			domain, err := DomainManager.FetchDomainByIdOrName(query.ProjectDomain)
+		if len(query.ProjectDomainId) > 0 {
+			domain, err := DomainManager.FetchDomainByIdOrName(query.ProjectDomainId)
 			if err != nil {
 				if errors.Cause(err) == sql.ErrNoRows {
-					return nil, httperrors.NewResourceNotFoundError2(DomainManager.Keyword(), query.ProjectDomain)
+					return nil, httperrors.NewResourceNotFoundError2(DomainManager.Keyword(), query.ProjectDomainId)
 				} else {
 					return nil, errors.Wrap(err, "DomainManager.FetchDomainByIdOrName")
 				}
@@ -55,10 +55,10 @@ func (manager *SProjectResourceBaseManager) ListItemFilter(
 		} else {
 			ownerId = userCred
 		}
-		projObj, err := ProjectManager.FetchByIdOrName(ownerId, query.Project)
+		projObj, err := ProjectManager.FetchByIdOrName(ownerId, query.ProjectId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(ProjectManager.Keyword(), query.Project)
+				return nil, httperrors.NewResourceNotFoundError2(ProjectManager.Keyword(), query.ProjectId)
 			} else {
 				return nil, errors.Wrap(err, "ProjectManager.FetchByIdOrName")
 			}

@@ -317,21 +317,21 @@ func (manager *SExternalProjectManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
 	}
 
-	if len(query.Cloudprovider) > 0 {
-		p, err := CloudproviderManager.FetchByIdOrName(userCred, query.Cloudprovider)
+	if len(query.CloudproviderId) > 0 {
+		p, err := CloudproviderManager.FetchByIdOrName(userCred, query.CloudproviderId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2("cloudprovider", query.Cloudprovider)
+				return nil, httperrors.NewResourceNotFoundError2("cloudprovider", query.CloudproviderId)
 			}
 			return nil, httperrors.NewGeneralError(err)
 		}
 		provider := p.(*SCloudprovider)
-		query.Cloudaccount = []string{provider.CloudaccountId}
+		query.CloudaccountId = []string{provider.CloudaccountId}
 	}
 
-	if len(query.Cloudaccount) > 0 {
+	if len(query.CloudaccountId) > 0 {
 		accountIds := []string{}
-		for _, _account := range query.Cloudaccount {
+		for _, _account := range query.CloudaccountId {
 			account, err := CloudaccountManager.FetchByIdOrName(userCred, _account)
 			if err != nil {
 				if errors.Cause(err) == sql.ErrNoRows {

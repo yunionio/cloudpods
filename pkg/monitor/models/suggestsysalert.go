@@ -129,8 +129,8 @@ func (manager *SSuggestSysAlertManager) ListItemFilter(
 	if len(query.Brands) > 0 {
 		q = q.In("provider", query.Brands)
 	}
-	if len(query.Cloudaccount) > 0 {
-		q.In("cloudaccount", query.Cloudaccount)
+	if len(query.CloudaccountId) > 0 {
+		q.In("cloudaccount", query.CloudaccountId)
 	}
 	if len(query.CloudEnv) > 0 {
 		q = q.Equals("cloud_env", query.CloudEnv)
@@ -388,7 +388,7 @@ func (self *SSuggestSysAlert) PerformIgnore(ctx context.Context, userCred mcclie
 	if data.Scope == "" {
 		data.Scope = string(rbacutils.ScopeSystem)
 	}
-	config, err := self.GetSuggestConfig(rbacutils.TRbacScope(data.Scope), data.ProjectDomain, data.Project)
+	config, err := self.GetSuggestConfig(rbacutils.TRbacScope(data.Scope), data.ProjectDomainId, data.ProjectId)
 	if err != nil {
 		return nil, err
 	}

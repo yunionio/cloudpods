@@ -390,8 +390,8 @@ func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.
 	configInfo.Disks = disks
 
 	// keypair
-	if len(input.Keypair) > 0 {
-		model, err := KeypairManager.FetchByIdOrName(userCred, input.Keypair)
+	if len(input.KeypairId) > 0 {
+		model, err := KeypairManager.FetchByIdOrName(userCred, input.KeypairId)
 		if err == nil {
 			keypair := model.(*SKeypair)
 			configInfo.Keypair = keypair.GetName()
@@ -506,7 +506,7 @@ func (gt *SGuestTemplate) PerformPublic(
 
 	// check for below private resource in the guest template
 	privateResource := map[string]int{
-		"keypair":           len(input.Keypair),
+		"keypair":           len(input.KeypairId),
 		"instance group":    len(input.InstanceGroupIds),
 		"instance snapshot": len(input.InstanceSnapshotId),
 	}
@@ -634,7 +634,7 @@ func (manager *SGuestTemplateManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
 	}
-	if len(input.Vpc) > 0 {
+	if len(input.VpcId) > 0 {
 		q, err = manager.SVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, input.VpcFilterListInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")

@@ -30,7 +30,10 @@ type DomainizedResourceListInput struct {
 	DomainizedResourceInput
 
 	// 对具有域属性的资源，严格匹配域ID
-	ProjectDomains []string `json:"project_domains"`
+	ProjectDomainIds []string `json:"project_domain_ids"`
+	// Deprecated
+	// swagger:ignore
+	ProjectDomains []string `json:"project_domains" "yunion:deprecated-by":"project_domain_ids"`
 
 	// 按domain名称排序，可能值为asc|desc
 	// pattern: asc|desc
@@ -43,7 +46,10 @@ type ProjectizedResourceListInput struct {
 	ProjectizedResourceInput
 
 	// 对具有项目属性的资源，严格匹配项目ID
-	Projects []string `json:"projects"`
+	ProjectIds []string `json:"project_ids"`
+	// Deprecated
+	// swagger:ignore
+	Projects []string `json:"projects" "yunion:deprecated-by":"project_ids"`
 
 	// 按project名称排序，可能值为asc|desc
 	// pattern: asc|desc
@@ -57,11 +63,11 @@ type StatusDomainLevelUserResourceListInput struct {
 	StatusDomainLevelResourceListInput
 
 	// 查询指定的用户（ID或名称）拥有的资源
-	User string `json:"user"`
+	UserId string `json:"user_id"`
 	// swagger:ignore
 	// Deprecated
 	// Filter by userId
-	UserId string `json:"user_id" "yunion:deprecated-by":"user"`
+	User string `json:"user" "yunion:deprecated-by":"user_id"`
 }
 
 type UserResourceListInput struct {
@@ -74,11 +80,11 @@ type UserResourceListInput struct {
 	Admin *bool `json:"admin"`
 
 	// 查询指定的用户（ID或名称）拥有的资源
-	User string `json:"user"`
+	UserId string `json:"user_id"`
 	// swagger:ignore
 	// Deprecated
 	// Filter by userId
-	UserId string `json:"user_id" "yunion:deprecated-by":"user"`
+	User string `json:"user" "yunion:deprecated-by":"user_id"`
 }
 
 type ModelBaseListInput struct {

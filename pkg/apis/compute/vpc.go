@@ -86,11 +86,11 @@ type VpcUpdateInput struct {
 
 type VpcResourceInput struct {
 	// 关联VPC(ID或Name)
-	Vpc string `json:"vpc"`
+	VpcId string `json:"vpc_id"`
 	// swagger:ignore
 	// Deprecated
 	// filter by vpc Id
-	VpcId string `json:"vpc_id" "yunion:deprecated-by":"vpc"`
+	Vpc string `json:"vpc" "yunion:deprecated-by":"vpc_id"`
 
 	// Vpc外网访问模式
 	ExternalAccessMode string `json:"external_access_mode"`

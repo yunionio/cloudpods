@@ -38,11 +38,11 @@ type LoadbalancerAclResourceInfo struct {
 
 type LoadbalancerAclResourceInput struct {
 	// ACL名称或ID
-	Acl string `json:"acl"`
+	AclId string `json:"acl_id"`
 
 	// swagger:ignore
 	// Deprecated
-	AclId string `json:"acl_id" "yunion:deprecated-by":"acl"`
+	Acl string `json:"acl" "yunion:deprecated-by":"acl_id"`
 }
 
 type LoadbalancerAclFilterListInput struct {

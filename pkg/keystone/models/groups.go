@@ -93,7 +93,7 @@ func (manager *SGroupManager) ListItemFilter(
 		q = q.Equals("displayname", query.Displayname)
 	}
 
-	userIdStr := query.User
+	userIdStr := query.UserId
 	if len(userIdStr) > 0 {
 		user, err := UserManager.FetchById(userIdStr)
 		if err != nil {
@@ -107,7 +107,7 @@ func (manager *SGroupManager) ListItemFilter(
 		q = q.In("id", subq.SubQuery())
 	}
 
-	projIdStr := query.Project
+	projIdStr := query.ProjectId
 	if len(projIdStr) > 0 {
 		proj, err := ProjectManager.FetchProjectById(projIdStr)
 		if err != nil {
@@ -461,7 +461,7 @@ func (group *SGroup) PerformAddUsers(
 	input api.PerformGroupAddUsersInput,
 ) (jsonutils.JSONObject, error) {
 	users := make([]*SUser, 0)
-	for _, uid := range input.User {
+	for _, uid := range input.UserIds {
 		usr, err := UserManager.FetchByIdOrName(userCred, uid)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
@@ -497,7 +497,7 @@ func (group *SGroup) PerformRemoveUsers(
 	input api.PerformGroupRemoveUsersInput,
 ) (jsonutils.JSONObject, error) {
 	users := make([]*SUser, 0)
-	for _, uid := range input.User {
+	for _, uid := range input.UserIds {
 		usr, err := UserManager.FetchByIdOrName(userCred, uid)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {

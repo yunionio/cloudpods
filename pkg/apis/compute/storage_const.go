@@ -140,11 +140,11 @@ var (
 
 type StorageResourceInput struct {
 	// 存储（ID或Name）
-	Storage string `json:"storage"`
+	StorageId string `json:"storage_id"`
 	// swagger:ignore
 	// Deprecated
 	// filter by storage_id
-	StorageId string `json:"storage_id" "yunion:deprecated-by":"storage"`
+	Storage string `json:"storage" "yunion:deprecated-by":"storage_id"`
 }
 
 type StorageFilterListInputBase struct {

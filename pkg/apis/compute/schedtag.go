@@ -37,11 +37,11 @@ type SchedtagCreateInput struct {
 
 type SchedtagResourceInput struct {
 	// 以关联的调度标签（ID或Name）过滤列表
-	Schedtag string `json:"schedtag"`
+	SchedtagId string `json:"schedtag_id"`
 	// swagger:ignore
 	// Deprecated
 	// filter by schedtag_id
-	SchedtagId string `json:"schedtag_id" "yunion:deprecated-by":"schedtag"`
+	Schedtag string `json:"schedtag" "yunion:deprecated-by":"schedtag_id"`
 }
 
 type SchedtagFilterListInput struct {

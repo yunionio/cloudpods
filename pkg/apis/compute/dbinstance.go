@@ -331,11 +331,11 @@ type DBInstanceResourceInfo struct {
 
 type DBInstanceResourceInput struct {
 	// RDS实例(ID or Name)
-	DBInstance string `json:"dbinstance"`
+	DBInstanceId string `json:"dbinstance_id"`
 
 	// swagger:ignore
 	// Deprecated
-	DBInstanceId string `json:"dbinstance_id" "yunion:deprecated-by":"dbinstance"`
+	DBInstance string `json:"dbinstance" "yunion:deprecated-by":"dbinstance_id"`
 }
 
 type DBInstanceFilterListInputBase struct {

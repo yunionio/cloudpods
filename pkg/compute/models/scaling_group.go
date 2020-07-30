@@ -166,8 +166,8 @@ func (sgm *SScalingGroupManager) ValidateCreateData(ctx context.Context, userCre
 		if vpc == nil {
 			return input, fmt.Errorf("Get vpc of network '%s' failed", networks[i].Id)
 		}
-		if vpc.Id != input.Vpc {
-			return input, httperrors.NewInputParameterError("network '%s' not in vpc '%s'", networks[i].Id, input.Vpc)
+		if vpc.Id != input.VpcId {
+			return input, httperrors.NewInputParameterError("network '%s' not in vpc '%s'", networks[i].Id, input.VpcId)
 		}
 		input.Networks[i] = networks[i].Id
 	}
@@ -185,7 +185,7 @@ func (sgm *SScalingGroupManager) ValidateCreateData(ctx context.Context, userCre
 		return input, errors.Wrap(err, "GuestTempalteManager.FetchByIdOrName")
 	}
 	if ok, reason := guestTemplate.(*SGuestTemplate).Validate(ctx, userCred, ownerId,
-		SGuestTemplateValidate{input.Hypervisor, input.CloudregionId, input.Vpc, input.Networks}); !ok {
+		SGuestTemplateValidate{input.Hypervisor, input.CloudregionId, input.VpcId, input.Networks}); !ok {
 		return input, httperrors.NewInputParameterError("the guest template %s is not valid in cloudregion %s, "+
 			"reason: %s", idOrName, input.CloudregionId, reason)
 	}

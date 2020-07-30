@@ -262,13 +262,13 @@ func (manager *SParameterManager) ListItemFilter(
 	if db.IsAdminAllowList(userCred, manager) {
 		if id := query.NamespaceId; len(id) > 0 {
 			q = q.Equals("namespace_id", id)
-		} else if id := query.Service; len(id) > 0 {
+		} else if id := query.ServiceId; len(id) > 0 {
 			if sid, err := getServiceId(id); err != nil {
 				return q, err
 			} else {
 				q = q.Equals("namespace_id", sid).Equals("namespace", NAMESPACE_SERVICE)
 			}
-		} else if id := query.User; len(id) > 0 {
+		} else if id := query.UserId; len(id) > 0 {
 			if uid, err := getUserId(id); err != nil {
 				return q, err
 			} else {

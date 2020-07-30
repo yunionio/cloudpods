@@ -35,13 +35,13 @@ func (manager *SUserResourceBaseManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.UserFilterListInput,
 ) (*sqlchemy.SQuery, error) {
-	if len(query.User) > 0 {
+	if len(query.UserId) > 0 {
 		var ownerId mcclient.IIdentityProvider
-		if len(query.UserDomain) > 0 {
-			domain, err := DomainManager.FetchDomainByIdOrName(query.UserDomain)
+		if len(query.UserDomainId) > 0 {
+			domain, err := DomainManager.FetchDomainByIdOrName(query.UserDomainId)
 			if err != nil {
 				if errors.Cause(err) == sql.ErrNoRows {
-					return nil, httperrors.NewResourceNotFoundError2(DomainManager.Keyword(), query.UserDomain)
+					return nil, httperrors.NewResourceNotFoundError2(DomainManager.Keyword(), query.UserDomainId)
 				} else {
 					return nil, errors.Wrap(err, "DomainManager.FetchDomainByIdOrName")
 				}
@@ -54,10 +54,10 @@ func (manager *SUserResourceBaseManager) ListItemFilter(
 		} else {
 			ownerId = userCred
 		}
-		userObj, err := UserManager.FetchByIdOrName(ownerId, query.User)
+		userObj, err := UserManager.FetchByIdOrName(ownerId, query.UserId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(UserManager.Keyword(), query.User)
+				return nil, httperrors.NewResourceNotFoundError2(UserManager.Keyword(), query.UserId)
 			} else {
 				return nil, errors.Wrap(err, "UserManager.FetchByIdOrName")
 			}

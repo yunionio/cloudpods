@@ -4354,13 +4354,13 @@ func (manager *SGuestManager) PerformBatchMigrate(ctx context.Context, userCred 
 	}
 
 	var preferHostId string
-	if len(params.PreferHost) > 0 {
+	if len(params.PreferHostId) > 0 {
 		if !db.IsAdminAllowPerform(userCred, manager, "assign-host") {
 			return nil, httperrors.NewBadRequestError("Only system admin can assign host")
 		}
-		iHost, _ := HostManager.FetchByIdOrName(userCred, params.PreferHost)
+		iHost, _ := HostManager.FetchByIdOrName(userCred, params.PreferHostId)
 		if iHost == nil {
-			return nil, httperrors.NewBadRequestError("Host %s not found", params.PreferHost)
+			return nil, httperrors.NewBadRequestError("Host %s not found", params.PreferHostId)
 		}
 		host := iHost.(*SHost)
 		preferHostId = host.Id

@@ -59,7 +59,7 @@ func (manager *SUserResourceBaseManager) ListItemFilter(
 		return nil, err
 	}
 	if ((query.Admin != nil && *query.Admin) || query.Scope == string(rbacutils.ScopeSystem)) && IsAdminAllowList(userCred, manager) {
-		user := query.User
+		user := query.UserId
 		if len(user) > 0 {
 			uc, _ := UserCacheManager.FetchUserByIdOrName(ctx, user)
 			if uc == nil {

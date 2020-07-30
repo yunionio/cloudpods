@@ -111,7 +111,7 @@ func (sm *SGroupManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemFilter")
 	}
 
-	guestFilter := input.Server
+	guestFilter := input.ServerId
 	if len(guestFilter) != 0 {
 		guestObj, err := GuestManager.FetchByIdOrName(userCred, guestFilter)
 		if err != nil {

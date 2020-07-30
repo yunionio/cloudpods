@@ -70,10 +70,10 @@ func (o *SuggestRuleConfigCreateOptions) Params() (*jsonutils.JSONDict, error) {
 		input.Type = &t
 	}
 	if o.Domain != "" {
-		input.ProjectDomain = o.Domain
+		input.ProjectDomainId = o.Domain
 	}
 	if o.Project != "" {
-		input.Project = o.Project
+		input.ProjectId = o.Project
 	}
 	if o.ResourceId != "" {
 		input.ResourceId = &o.ResourceId

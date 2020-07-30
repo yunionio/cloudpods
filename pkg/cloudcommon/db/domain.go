@@ -105,11 +105,11 @@ func (manager *SDomainizedResourceBaseManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query apis.DomainizedResourceListInput,
 ) (*sqlchemy.SQuery, error) {
-	if len(query.ProjectDomains) > 0 {
+	if len(query.ProjectDomainIds) > 0 {
 		tenants := TenantCacheManager.GetDomainQuery().SubQuery()
 		subq := tenants.Query(tenants.Field("id")).Filter(sqlchemy.OR(
-			sqlchemy.In(tenants.Field("id"), query.ProjectDomains),
-			sqlchemy.In(tenants.Field("name"), query.ProjectDomains),
+			sqlchemy.In(tenants.Field("id"), query.ProjectDomainIds),
+			sqlchemy.In(tenants.Field("name"), query.ProjectDomainIds),
 		)).SubQuery()
 		q = q.In("domain_id", subq)
 	}
@@ -171,15 +171,15 @@ func (manager *SDomainizedResourceBaseManager) FetchCustomizeColumns(
 }
 
 func ValidateDomainizedResourceInput(ctx context.Context, input apis.DomainizedResourceInput) (*STenant, apis.DomainizedResourceInput, error) {
-	domain, err := DefaultDomainFetcher(ctx, input.ProjectDomain)
+	domain, err := DefaultDomainFetcher(ctx, input.ProjectDomainId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, input, httperrors.NewResourceNotFoundError2("domain", input.ProjectDomain)
+			return nil, input, httperrors.NewResourceNotFoundError2("domain", input.ProjectDomainId)
 		} else {
 			return nil, input, errors.Wrap(err, "TenantCacheManager.FetchDomainByIdOrName")
 		}
 	}
-	input.ProjectDomain = domain.GetId()
+	input.ProjectDomainId = domain.GetId()
 	return domain, input, nil
 }
 

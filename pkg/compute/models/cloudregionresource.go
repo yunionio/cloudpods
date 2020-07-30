@@ -39,15 +39,15 @@ type SCloudregionResourceBase struct {
 type SCloudregionResourceBaseManager struct{}
 
 func ValidateCloudregionResourceInput(userCred mcclient.TokenCredential, input api.CloudregionResourceInput) (*SCloudregion, api.CloudregionResourceInput, error) {
-	regionObj, err := CloudregionManager.FetchByIdOrName(userCred, input.Cloudregion)
+	regionObj, err := CloudregionManager.FetchByIdOrName(userCred, input.CloudregionId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", CloudregionManager.Keyword(), input.Cloudregion)
+			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", CloudregionManager.Keyword(), input.CloudregionId)
 		} else {
 			return nil, input, errors.Wrap(err, "CloudregionManager.FetchByIdOrName")
 		}
 	}
-	input.Cloudregion = regionObj.GetId()
+	input.CloudregionId = regionObj.GetId()
 	return regionObj.(*SCloudregion), input, nil
 }
 

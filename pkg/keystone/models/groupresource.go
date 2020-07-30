@@ -35,13 +35,13 @@ func (manager *SGroupResourceBaseManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.GroupFilterListInput,
 ) (*sqlchemy.SQuery, error) {
-	if len(query.Group) > 0 {
+	if len(query.GroupId) > 0 {
 		var ownerId mcclient.IIdentityProvider
-		if len(query.GroupDomain) > 0 {
-			domain, err := DomainManager.FetchDomainByIdOrName(query.GroupDomain)
+		if len(query.GroupDomainId) > 0 {
+			domain, err := DomainManager.FetchDomainByIdOrName(query.GroupDomainId)
 			if err != nil {
 				if errors.Cause(err) == sql.ErrNoRows {
-					return nil, httperrors.NewResourceNotFoundError2(DomainManager.Keyword(), query.GroupDomain)
+					return nil, httperrors.NewResourceNotFoundError2(DomainManager.Keyword(), query.GroupDomainId)
 				} else {
 					return nil, errors.Wrap(err, "DomainManager.FetchDomainByIdOrName")
 				}
@@ -54,10 +54,10 @@ func (manager *SGroupResourceBaseManager) ListItemFilter(
 		} else {
 			ownerId = userCred
 		}
-		groupObj, err := GroupManager.FetchByIdOrName(ownerId, query.Group)
+		groupObj, err := GroupManager.FetchByIdOrName(ownerId, query.GroupId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(GroupManager.Keyword(), query.Group)
+				return nil, httperrors.NewResourceNotFoundError2(GroupManager.Keyword(), query.GroupId)
 			} else {
 				return nil, errors.Wrap(err, "GroupManager.FetchByIdOrName")
 			}

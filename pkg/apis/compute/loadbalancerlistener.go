@@ -40,12 +40,12 @@ type LoadbalancerListenerResourceInfo struct {
 
 type LoadbalancerListenerResourceInput struct {
 	// 负载均衡监听器
-	Listener string `json:"listener"`
+	ListenerId string `json:"listener_id"`
 
 	// 负载均衡监听器ID
 	// swagger:ignore
 	// Deprecated
-	ListenerId string `json:"listener_id" "yunion:deprecated-by":"listener"`
+	Listener string `json:"listener" "yunion:deprecated-by":"listener_id"`
 }
 
 type LoadbalancerListenerFilterListInput struct {
