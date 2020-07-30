@@ -509,11 +509,6 @@ func (lblis *SLoadbalancerListener) getMoreDetails(out api.LoadbalancerListenerD
 			out.BackendGroup = lbbg.GetName()
 		}
 	}
-	if len(lblis.AclId) > 0 {
-		if acl := lblis.GetCachedLoadbalancerAcl(); acl != nil {
-			out.AclName = acl.Name
-		}
-	}
 
 	if len(lblis.CertificateId) > 0 {
 		if cert, _ := lblis.GetLoadbalancerCertificate(); cert != nil {
