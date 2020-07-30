@@ -402,7 +402,7 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 	if odata != nil {
 		switch dictdata := odata.(type) {
 		case *jsonutils.JSONDict:
-			taskStatus, _ := data.GetString("__status__")
+			taskStatus, _ := odata.GetString("__status__")
 			if len(taskStatus) > 0 && taskStatus != "OK" {
 				taskFailed = true
 				dictdata.Set("__stage__", jsonutils.NewString(task.Stage))
