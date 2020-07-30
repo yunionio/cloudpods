@@ -319,8 +319,8 @@ func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.
 		zone := ZoneManager.FetchZoneById(input.PreferZone)
 		if zone != nil {
 			input.PreferZone = zone.GetName()
+			out.ZoneId = zone.GetId()
 		}
-		out.ZoneId = zone.GetId()
 		out.Zone = input.PreferZone
 	}
 	out.Brand = Hypervisor2Brand(gt.Hypervisor)
