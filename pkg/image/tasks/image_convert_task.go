@@ -73,5 +73,5 @@ func (self *ImageConvertTask) OnConvertComplete(ctx context.Context, obj db.ISta
 }
 
 func (self *ImageConvertTask) OnConvertCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, data.String())
+	self.SetStageFailed(ctx, data)
 }

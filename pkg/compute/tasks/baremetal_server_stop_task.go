@@ -80,10 +80,10 @@ func (self *BaremetalServerStopTask) OnGuestStopTaskComplete(ctx context.Context
 
 func (self *BaremetalServerStopTask) OnGuestStopTaskCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	guest.SetStatus(self.UserCred, db.ACT_STOP_FAIL, data.String())
-	db.OpsLog.LogEvent(guest, db.ACT_STOP_FAIL, data.String(), self.UserCred)
+	db.OpsLog.LogEvent(guest, db.ACT_STOP_FAIL, data, self.UserCred)
 	baremetal := guest.GetHost()
-	baremetal.SetStatus(self.UserCred, api.BAREMETAL_READY, "")
-	self.SetStageFailed(ctx, data.String())
+	baremetal.SetStatus(self.UserCred, api.BAREMETAL_READY, data.String())
+	self.SetStageFailed(ctx, data)
 }
 
 func (self *BaremetalServerStopTask) OnStopGuestFail(ctx context.Context, guest *models.SGuest, reason string) {

@@ -38,13 +38,13 @@ func init() {
 
 func (self *DBInstanceBackupCreateTask) taskFailed(ctx context.Context, backup *models.SDBInstanceBackup, err error) {
 	backup.SetStatus(self.UserCred, api.DBINSTANCE_BACKUP_CREATE_FAILED, err.Error())
-	db.OpsLog.LogEvent(backup, db.ACT_CREATE, err.Error(), self.GetUserCred())
-	logclient.AddActionLogWithStartable(self, backup, logclient.ACT_CREATE, err.Error(), self.UserCred, false)
+	db.OpsLog.LogEvent(backup, db.ACT_CREATE, err, self.GetUserCred())
+	logclient.AddActionLogWithStartable(self, backup, logclient.ACT_CREATE, err, self.UserCred, false)
 	instance, _ := backup.GetDBInstance()
 	if instance != nil {
 		instance.SetStatus(self.UserCred, api.DBINSTANCE_BACKING_UP_FAILED, err.Error())
 	}
-	self.SetStageFailed(ctx, err.Error())
+	self.SetStageFailed(ctx, jsonutils.Marshal(err))
 }
 
 func (self *DBInstanceBackupCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

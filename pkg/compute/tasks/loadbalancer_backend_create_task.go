@@ -36,11 +36,11 @@ func init() {
 	taskman.RegisterTask(LoadbalancerBackendCreateTask{})
 }
 
-func (self *LoadbalancerBackendCreateTask) taskFail(ctx context.Context, lbb *models.SLoadbalancerBackend, reason string) {
-	lbb.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, reason)
+func (self *LoadbalancerBackendCreateTask) taskFail(ctx context.Context, lbb *models.SLoadbalancerBackend, reason jsonutils.JSONObject) {
+	lbb.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, reason.String())
 	db.OpsLog.LogEvent(lbb, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbb, logclient.ACT_CREATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lbb.Id, lbb.Name, api.LB_CREATE_FAILED, reason)
+	notifyclient.NotifySystemError(lbb.Id, lbb.Name, api.LB_CREATE_FAILED, reason.String())
 	lbbg := lbb.GetLoadbalancerBackendGroup()
 	if lbbg != nil {
 		logclient.AddActionLogWithStartable(self, lbbg, logclient.ACT_LB_ADD_BACKEND, reason, self.UserCred, false)
@@ -52,13 +52,13 @@ func (self *LoadbalancerBackendCreateTask) OnInit(ctx context.Context, obj db.IS
 	lbb := obj.(*models.SLoadbalancerBackend)
 	region := lbb.GetRegion()
 	if region == nil {
-		self.taskFail(ctx, lbb, fmt.Sprintf("failed to find region for lbb %s", lbb.Name))
+		self.taskFail(ctx, lbb, jsonutils.NewString(fmt.Sprintf("failed to find region for lbb %s", lbb.Name)))
 		return
 	}
 
 	self.SetStage("OnLoadbalancerBackendCreateComplete", nil)
 	if err := region.GetDriver().RequestCreateLoadbalancerBackend(ctx, self.GetUserCred(), lbb, self); err != nil {
-		self.taskFail(ctx, lbb, err.Error())
+		self.taskFail(ctx, lbb, jsonutils.Marshal(err))
 	}
 }
 
@@ -74,5 +74,5 @@ func (self *LoadbalancerBackendCreateTask) OnLoadbalancerBackendCreateComplete(c
 }
 
 func (self *LoadbalancerBackendCreateTask) OnLoadbalancerBackendCreateCompleteFailed(ctx context.Context, lbb *models.SLoadbalancerBackend, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lbb, reason.String())
+	self.taskFail(ctx, lbb, reason)
 }

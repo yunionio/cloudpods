@@ -38,20 +38,20 @@ func init() {
 	taskman.RegisterTask(EipDissociateTask{})
 }
 
-func (self *EipDissociateTask) TaskFail(ctx context.Context, eip *models.SElasticip, msg string, model db.IModel) {
-	eip.SetStatus(self.UserCred, api.EIP_STATUS_READY, msg)
+func (self *EipDissociateTask) TaskFail(ctx context.Context, eip *models.SElasticip, msg jsonutils.JSONObject, model db.IModel) {
+	eip.SetStatus(self.UserCred, api.EIP_STATUS_READY, msg.String())
 	self.SetStageFailed(ctx, msg)
 	var logOp string
 	if model != nil {
 		switch srv := model.(type) {
 		case *models.SGuest:
-			srv.SetStatus(self.UserCred, api.VM_DISSOCIATE_EIP_FAILED, msg)
+			srv.SetStatus(self.UserCred, api.VM_DISSOCIATE_EIP_FAILED, msg.String())
 			logOp = logclient.ACT_VM_DISSOCIATE
 		case *models.SNatGateway:
-			srv.SetStatus(self.UserCred, api.VM_DISSOCIATE_EIP_FAILED, msg)
+			srv.SetStatus(self.UserCred, api.VM_DISSOCIATE_EIP_FAILED, msg.String())
 			logOp = logclient.ACT_NATGATEWAY_DISSOCIATE
 		case *models.SLoadbalancer:
-			srv.SetStatus(self.UserCred, api.VM_DISSOCIATE_EIP_FAILED, msg)
+			srv.SetStatus(self.UserCred, api.VM_DISSOCIATE_EIP_FAILED, msg.String())
 			logOp = logclient.ACT_LOADBALANCER_DISSOCIATE
 		}
 		db.OpsLog.LogEvent(model, db.ACT_EIP_DETACH, msg, self.GetUserCred())
@@ -82,7 +82,7 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 			model = nat
 			logOp = logclient.ACT_NATGATEWAY_DISSOCIATE
 		} else {
-			self.TaskFail(ctx, eip, "unsupported associate type", nil)
+			self.TaskFail(ctx, eip, jsonutils.NewString("unsupported associate type"), nil)
 			return
 		}
 		lockman.LockObject(ctx, model)
@@ -92,14 +92,14 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 			extEip, err := eip.GetIEip()
 			if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound {
 				msg := fmt.Sprintf("fail to find iEIP for eip %s", err)
-				self.TaskFail(ctx, eip, msg, model)
+				self.TaskFail(ctx, eip, jsonutils.NewString(msg), model)
 				return
 			}
 			if err == nil && len(extEip.GetAssociationExternalId()) > 0 {
 				err = extEip.Dissociate()
 				if err != nil {
 					msg := fmt.Sprintf("fail to remote dissociate eip %s", err)
-					self.TaskFail(ctx, eip, msg, model)
+					self.TaskFail(ctx, eip, jsonutils.NewString(msg), model)
 					return
 				}
 			}
@@ -110,7 +110,7 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 				Equals("eip_id", eip.Id)
 			if err := db.FetchModelObjects(models.GuestnetworkManager, q, &guestnics); err != nil {
 				msg := errors.Wrapf(err, "fetch guest nic associated with eip %s(%s)", eip.Name, eip.Id).Error()
-				self.TaskFail(ctx, eip, msg, model)
+				self.TaskFail(ctx, eip, jsonutils.NewString(msg), model)
 				return
 			}
 			var errs []error
@@ -126,13 +126,13 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 			if len(errs) > 0 {
 				err := errors.NewAggregate(errs)
 				msg := errors.Wrapf(err, "disassociate eip %s(%s)", eip.Name, eip.Id).Error()
-				self.TaskFail(ctx, eip, msg, model)
+				self.TaskFail(ctx, eip, jsonutils.NewString(msg), model)
 			}
 		}
 
 		if err := eip.Dissociate(ctx, self.UserCred); err != nil {
 			msg := fmt.Sprintf("fail to local dissociate eip %s", err)
-			self.TaskFail(ctx, eip, msg, model)
+			self.TaskFail(ctx, eip, jsonutils.NewString(msg), model)
 			return
 		}
 

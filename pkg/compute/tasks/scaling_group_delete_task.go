@@ -38,9 +38,9 @@ func init() {
 	taskman.RegisterTask(ScalingGroupDeleteTask{})
 }
 
-func (self *ScalingGroupDeleteTask) taskFailed(ctx context.Context, sg *models.SScalingGroup, reason string) {
+func (self *ScalingGroupDeleteTask) taskFailed(ctx context.Context, sg *models.SScalingGroup, reason jsonutils.JSONObject) {
 	log.Errorf("scaling group delete task fail: %s", reason)
-	sg.SetStatus(self.UserCred, api.SG_STATUS_DELETE_FAILED, reason)
+	sg.SetStatus(self.UserCred, api.SG_STATUS_DELETE_FAILED, reason.String())
 	db.OpsLog.LogEvent(sg, db.ACT_DELETE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, sg, logclient.ACT_DELETE, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
@@ -53,7 +53,7 @@ func (self *ScalingGroupDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 	// Set all scaling policy's status as deleting
 	sps, err := sg.ScalingPolicies()
 	if err != nil {
-		self.taskFailed(ctx, sg, err.Error())
+		self.taskFailed(ctx, sg, jsonutils.NewString(err.Error()))
 		return
 	}
 	spids := make([]string, len(sps))
@@ -62,8 +62,8 @@ func (self *ScalingGroupDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 		lockman.LockObject(ctx, &sps[i])
 		err := sps[i].SetStatus(self.UserCred, api.SP_STATUS_DELETING, "delete scaling group")
 		if err != nil {
-			self.taskFailed(ctx, sg, fmt.Sprintf("set scaling policy %s as deleting status failed: %s",
-				sps[i].GetId(), err))
+			self.taskFailed(ctx, sg, jsonutils.NewString(fmt.Sprintf("set scaling policy %s as deleting status failed: %s",
+				sps[i].GetId(), err)))
 			return
 		}
 		lockman.ReleaseObject(ctx, &sps[i])
@@ -93,34 +93,34 @@ func (self *ScalingGroupDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 		time.Sleep(time.Duration(interval) * time.Second)
 	}
 	if err != nil {
-		self.taskFailed(ctx, sg, fmt.Sprintf("wait for all scaling activities finished: %s", err))
+		self.taskFailed(ctx, sg, jsonutils.NewString(fmt.Sprintf("wait for all scaling activities finished: %s", err)))
 		return
 	}
 	if !allReady {
-		self.taskFailed(ctx, sg, "some scaling activities are still in progress")
+		self.taskFailed(ctx, sg, jsonutils.NewString("some scaling activities are still in progress"))
 		return
 	}
 
 	count, err := sg.GuestNumber()
 	if err != nil {
-		self.taskFailed(ctx, sg, fmt.Sprintf("SScalingGroup.GuestNumber: %s", err))
+		self.taskFailed(ctx, sg, jsonutils.NewString(fmt.Sprintf("SScalingGroup.GuestNumber: %s", err)))
 		return
 	}
 	if count != 0 {
-		self.taskFailed(ctx, sg, fmt.Sprintf("There are some guests in ScalingGroup, please delete them firstly"))
+		self.taskFailed(ctx, sg, jsonutils.NewString(fmt.Sprintf("There are some guests in ScalingGroup, please delete them firstly")))
 		return
 	}
 
 	// delete SScalingPolicies
 	policies, err := sg.ScalingPolicies()
 	if err != nil {
-		self.taskFailed(ctx, sg, fmt.Sprintf("SScalingGroup.ScalingPolicies: %s", err.Error()))
+		self.taskFailed(ctx, sg, jsonutils.NewString(fmt.Sprintf("SScalingGroup.ScalingPolicies: %s", err.Error())))
 		return
 	}
 	for i := range policies {
 		err := policies[i].RealDelete(ctx, self.UserCred)
 		if err != nil {
-			self.taskFailed(ctx, sg, fmt.Sprintf("delete scaling group '%s' failed: %s", policies[i].GetId(), err.Error()))
+			self.taskFailed(ctx, sg, jsonutils.NewString(fmt.Sprintf("delete scaling group '%s' failed: %s", policies[i].GetId(), err.Error())))
 			return
 		}
 	}
@@ -128,18 +128,18 @@ func (self *ScalingGroupDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 	// delete SScalingAvtivities
 	activities, err := sg.Activities()
 	if err != nil {
-		self.taskFailed(ctx, sg, fmt.Sprintf("ScalingGroup.Activities: %s", err.Error()))
+		self.taskFailed(ctx, sg, jsonutils.NewString(fmt.Sprintf("ScalingGroup.Activities: %s", err.Error())))
 	}
 	for i := range activities {
 		err := activities[i].Delete(ctx, self.UserCred)
 		if err != nil {
-			self.taskFailed(ctx, sg, fmt.Sprintf("delete scaling activity '%s' failed: %s", activities[i].Id, err.Error()))
+			self.taskFailed(ctx, sg, jsonutils.NewString(fmt.Sprintf("delete scaling activity '%s' failed: %s", activities[i].Id, err.Error())))
 			return
 		}
 	}
 
 	err = sg.RealDelete(ctx, self.UserCred)
 	if err != nil {
-		self.taskFailed(ctx, sg, fmt.Sprintf("ScalingGroup.RealDelete: %s", err.Error()))
+		self.taskFailed(ctx, sg, jsonutils.NewString(fmt.Sprintf("ScalingGroup.RealDelete: %s", err.Error())))
 	}
 }

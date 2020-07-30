@@ -36,11 +36,11 @@ func init() {
 	taskman.RegisterTask(LoadbalancerBackendSyncTask{})
 }
 
-func (self *LoadbalancerBackendSyncTask) taskFail(ctx context.Context, lbb *models.SLoadbalancerBackend, reason string) {
-	lbb.SetStatus(self.GetUserCred(), api.LB_SYNC_CONF_FAILED, reason)
+func (self *LoadbalancerBackendSyncTask) taskFail(ctx context.Context, lbb *models.SLoadbalancerBackend, reason jsonutils.JSONObject) {
+	lbb.SetStatus(self.GetUserCred(), api.LB_SYNC_CONF_FAILED, reason.String())
 	db.OpsLog.LogEvent(lbb, db.ACT_SYNC_CONF, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbb, logclient.ACT_SYNC_CONF, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lbb.Id, lbb.Name, api.LB_SYNC_CONF_FAILED, reason)
+	notifyclient.NotifySystemError(lbb.Id, lbb.Name, api.LB_SYNC_CONF_FAILED, reason.String())
 	lbbg := lbb.GetLoadbalancerBackendGroup()
 	if lbbg != nil {
 		logclient.AddActionLogWithStartable(self, lbbg, logclient.ACL_LB_SYNC_BACKEND_CONF, reason, self.UserCred, false)
@@ -52,12 +52,12 @@ func (self *LoadbalancerBackendSyncTask) OnInit(ctx context.Context, obj db.ISta
 	lbb := obj.(*models.SLoadbalancerBackend)
 	region := lbb.GetRegion()
 	if region == nil {
-		self.taskFail(ctx, lbb, fmt.Sprintf("failed to find region for lbb %s", lbb.Name))
+		self.taskFail(ctx, lbb, jsonutils.NewString(fmt.Sprintf("failed to find region for lbb %s", lbb.Name)))
 		return
 	}
 	self.SetStage("OnLoadbalancerBackendCreateComplete", nil)
 	if err := region.GetDriver().RequestSyncLoadbalancerBackend(ctx, self.GetUserCred(), lbb, self); err != nil {
-		self.taskFail(ctx, lbb, err.Error())
+		self.taskFail(ctx, lbb, jsonutils.Marshal(err))
 	}
 }
 
@@ -73,5 +73,5 @@ func (self *LoadbalancerBackendSyncTask) OnLoadbalancerBackendCreateComplete(ctx
 }
 
 func (self *LoadbalancerBackendSyncTask) OnLoadbalancerBackendCreateCompleteFailed(ctx context.Context, lbb *models.SLoadbalancerBackend, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lbb, reason.String())
+	self.taskFail(ctx, lbb, reason)
 }

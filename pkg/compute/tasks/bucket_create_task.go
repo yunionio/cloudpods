@@ -36,9 +36,9 @@ func init() {
 
 func (task *BucketCreateTask) taskFailed(ctx context.Context, bucket *models.SBucket, err error) {
 	bucket.SetStatus(task.UserCred, api.BUCKET_STATUS_CREATE_FAIL, err.Error())
-	db.OpsLog.LogEvent(bucket, db.ACT_ALLOCATE_FAIL, err.Error(), task.UserCred)
-	logclient.AddActionLogWithStartable(task, bucket, logclient.ACT_ALLOCATE, err.Error(), task.UserCred, false)
-	task.SetStageFailed(ctx, err.Error())
+	db.OpsLog.LogEvent(bucket, db.ACT_ALLOCATE_FAIL, err, task.UserCred)
+	logclient.AddActionLogWithStartable(task, bucket, logclient.ACT_ALLOCATE, err, task.UserCred, false)
+	task.SetStageFailed(ctx, jsonutils.Marshal(err))
 }
 
 func (task *BucketCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {

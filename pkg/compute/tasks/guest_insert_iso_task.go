@@ -53,7 +53,7 @@ func (self *GuestInsertIsoTask) prepareIsoImage(ctx context.Context, obj db.ISta
 	} else {
 		guest.EjectIso(self.UserCred)
 		db.OpsLog.LogEvent(obj, db.ACT_ISO_PREPARE_FAIL, imageId, self.UserCred)
-		self.SetStageFailed(ctx, "host no local storage cache")
+		self.SetStageFailed(ctx, jsonutils.NewString("host no local storage cache"))
 	}
 }
 
@@ -62,14 +62,14 @@ func (self *GuestInsertIsoTask) OnIsoPrepareCompleteFailed(ctx context.Context, 
 	db.OpsLog.LogEvent(obj, db.ACT_ISO_PREPARE_FAIL, imageId, self.UserCred)
 	guest := obj.(*models.SGuest)
 	guest.EjectIso(self.UserCred)
-	self.SetStageFailed(ctx, "OnIsoPrepareCompleteFailed")
+	self.SetStageFailed(ctx, data)
 }
 
 func (self *GuestInsertIsoTask) OnIsoPrepareComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	imageId, _ := data.GetString("image_id")
 	size, err := data.Int("size")
 	if err != nil {
-		self.SetStageFailed(ctx, err.Error())
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return
 	}
 	name, _ := data.GetString("name")
@@ -115,7 +115,7 @@ func (self *HaGuestInsertIsoTask) prepareIsoImage(ctx context.Context, obj db.IS
 	} else {
 		guest.EjectIso(self.UserCred)
 		db.OpsLog.LogEvent(obj, db.ACT_ISO_PREPARE_FAIL, imageId, self.UserCred)
-		self.SetStageFailed(ctx, "host no local storage cache")
+		self.SetStageFailed(ctx, jsonutils.NewString("host no local storage cache"))
 	}
 }
 

@@ -36,11 +36,11 @@ func init() {
 	taskman.RegisterTask(ElasticcacheCreateTask{})
 }
 
-func (self *ElasticcacheCreateTask) taskFail(ctx context.Context, elasticcache *models.SElasticcache, reason string) {
-	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CREATE_FAILED, reason)
+func (self *ElasticcacheCreateTask) taskFail(ctx context.Context, elasticcache *models.SElasticcache, reason jsonutils.JSONObject) {
+	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CREATE_FAILED, reason.String())
 	db.OpsLog.LogEvent(elasticcache, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_CREATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_STATUS_CREATE_FAILED, reason)
+	notifyclient.NotifySystemError(elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_STATUS_CREATE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -48,7 +48,7 @@ func (self *ElasticcacheCreateTask) OnInit(ctx context.Context, obj db.IStandalo
 	elasticcache := obj.(*models.SElasticcache)
 	region := elasticcache.GetRegion()
 	if region == nil {
-		self.taskFail(ctx, elasticcache, fmt.Sprintf("failed to find region for elastic cache %s", elasticcache.GetName()))
+		self.taskFail(ctx, elasticcache, jsonutils.NewString(fmt.Sprintf("failed to find region for elastic cache %s", elasticcache.GetName())))
 		return
 	}
 
@@ -61,7 +61,7 @@ func (self *ElasticcacheCreateTask) OnSyncSecurityGroupComplete(ctx context.Cont
 	region := elasticcache.GetRegion()
 	self.SetStage("OnElasticcacheCreateComplete", nil)
 	if err := region.GetDriver().RequestCreateElasticcache(ctx, self.GetUserCred(), elasticcache, self); err != nil {
-		self.taskFail(ctx, elasticcache, err.Error())
+		self.taskFail(ctx, elasticcache, jsonutils.Marshal(err))
 		return
 	}
 }
@@ -73,5 +73,5 @@ func (self *ElasticcacheCreateTask) OnElasticcacheCreateComplete(ctx context.Con
 }
 
 func (self *ElasticcacheCreateTask) OnElasticcacheCreateCompleteFailed(ctx context.Context, elasticcache *models.SElasticcache, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, elasticcache, reason.String())
+	self.taskFail(ctx, elasticcache, reason)
 }

@@ -41,7 +41,7 @@ func (self *GuestDetachAllDisksTask) OnDiskDeleteComplete(ctx context.Context, o
 	guest := obj.(*models.SGuest)
 	cnt, err := guest.DiskCount()
 	if err != nil {
-		self.SetStageFailed(ctx, err.Error())
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return
 	}
 	if cnt == 0 {
@@ -65,7 +65,7 @@ func (self *GuestDetachAllDisksTask) OnDiskDeleteComplete(ctx context.Context, o
 		taskData.Add(jsonutils.JSONFalse, "keep_disk")
 		task, err := taskman.TaskManager.NewTask(ctx, "GuestDetachDiskTask", guest, self.UserCred, taskData, self.GetTaskId(), "", nil)
 		if err != nil {
-			self.SetStageFailed(ctx, err.Error())
+			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		} else {
 			task.ScheduleRun(nil)
 		}

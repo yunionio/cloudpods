@@ -36,11 +36,11 @@ func init() {
 	taskman.RegisterTask(ElasticcacheChangeSpecTask{})
 }
 
-func (self *ElasticcacheChangeSpecTask) taskFail(ctx context.Context, ec *models.SElasticcache, reason string) {
-	ec.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason)
+func (self *ElasticcacheChangeSpecTask) taskFail(ctx context.Context, ec *models.SElasticcache, reason jsonutils.JSONObject) {
+	ec.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason.String())
 	db.OpsLog.LogEvent(ec, db.ACT_CHANGE_FLAVOR, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, ec, logclient.ACT_VM_CHANGE_FLAVOR, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(ec.Id, ec.Name, api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason)
+	notifyclient.NotifySystemError(ec.Id, ec.Name, api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -48,13 +48,13 @@ func (self *ElasticcacheChangeSpecTask) OnInit(ctx context.Context, obj db.IStan
 	elasticcache := obj.(*models.SElasticcache)
 	region := elasticcache.GetRegion()
 	if region == nil {
-		self.taskFail(ctx, elasticcache, fmt.Sprintf("failed to find region for elastic cache %s", elasticcache.GetName()))
+		self.taskFail(ctx, elasticcache, jsonutils.NewString(fmt.Sprintf("failed to find region for elastic cache %s", elasticcache.GetName())))
 		return
 	}
 
 	self.SetStage("OnElasticcacheChangeSpecComplete", nil)
 	if err := region.GetDriver().RequestElasticcacheChangeSpec(ctx, self.GetUserCred(), elasticcache, self); err != nil {
-		self.OnElasticcacheChangeSpecCompleteFailed(ctx, elasticcache, err.Error())
+		self.OnElasticcacheChangeSpecCompleteFailed(ctx, elasticcache, jsonutils.Marshal(err))
 		return
 	}
 
@@ -68,6 +68,6 @@ func (self *ElasticcacheChangeSpecTask) OnElasticcacheChangeSpecComplete(ctx con
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *ElasticcacheChangeSpecTask) OnElasticcacheChangeSpecCompleteFailed(ctx context.Context, elasticcache *models.SElasticcache, reason string) {
+func (self *ElasticcacheChangeSpecTask) OnElasticcacheChangeSpecCompleteFailed(ctx context.Context, elasticcache *models.SElasticcache, reason jsonutils.JSONObject) {
 	self.taskFail(ctx, elasticcache, reason)
 }

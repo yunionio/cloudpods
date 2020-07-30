@@ -35,8 +35,8 @@ func init() {
 	taskman.RegisterTask(VpcSyncstatusTask{})
 }
 
-func (self *VpcSyncstatusTask) taskFail(ctx context.Context, vpc *models.SVpc, msg string) {
-	vpc.SetStatus(self.UserCred, api.VPC_STATUS_UNKNOWN, msg)
+func (self *VpcSyncstatusTask) taskFail(ctx context.Context, vpc *models.SVpc, msg jsonutils.JSONObject) {
+	vpc.SetStatus(self.UserCred, api.VPC_STATUS_UNKNOWN, msg.String())
 	db.OpsLog.LogEvent(vpc, db.ACT_SYNC_STATUS, msg, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, vpc, logclient.ACT_SYNC_STATUS, msg, self.UserCred, false)
 	self.SetStageFailed(ctx, msg)
@@ -48,21 +48,21 @@ func (self *VpcSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 	extVpc, err := vpc.GetIVpc()
 	if err != nil {
 		msg := fmt.Sprintf("fail to find ICloudVpc for vpc %s", err)
-		self.taskFail(ctx, vpc, msg)
+		self.taskFail(ctx, vpc, jsonutils.NewString(msg))
 		return
 	}
 
 	err = extVpc.Refresh()
 	if err != nil {
 		msg := fmt.Sprintf("fail to refresh ICloudVpc status %s", err)
-		self.taskFail(ctx, vpc, msg)
+		self.taskFail(ctx, vpc, jsonutils.NewString(msg))
 		return
 	}
 
 	err = vpc.SyncWithCloudVpc(ctx, self.UserCred, extVpc, nil)
 	if err != nil {
 		msg := fmt.Sprintf("fail to sync vpc status %s", err)
-		self.taskFail(ctx, vpc, msg)
+		self.taskFail(ctx, vpc, jsonutils.NewString(msg))
 		return
 	}
 

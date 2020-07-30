@@ -36,11 +36,11 @@ func init() {
 	taskman.RegisterTask(ElasticcacheAclCreateTask{})
 }
 
-func (self *ElasticcacheAclCreateTask) taskFail(ctx context.Context, ea *models.SElasticcacheAcl, reason string) {
-	ea.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_ACL_STATUS_CREATE_FAILED, reason)
+func (self *ElasticcacheAclCreateTask) taskFail(ctx context.Context, ea *models.SElasticcacheAcl, reason jsonutils.JSONObject) {
+	ea.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_ACL_STATUS_CREATE_FAILED, reason.String())
 	db.OpsLog.LogEvent(ea, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, ea, logclient.ACT_CREATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(ea.Id, ea.Name, api.ELASTIC_CACHE_ACL_STATUS_CREATE_FAILED, reason)
+	notifyclient.NotifySystemError(ea.Id, ea.Name, api.ELASTIC_CACHE_ACL_STATUS_CREATE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -48,13 +48,13 @@ func (self *ElasticcacheAclCreateTask) OnInit(ctx context.Context, obj db.IStand
 	ea := obj.(*models.SElasticcacheAcl)
 	region := ea.GetRegion()
 	if region == nil {
-		self.taskFail(ctx, ea, fmt.Sprintf("failed to find region for elastic cache backup %s", ea.GetName()))
+		self.taskFail(ctx, ea, jsonutils.NewString(fmt.Sprintf("failed to find region for elastic cache backup %s", ea.GetName())))
 		return
 	}
 
 	self.SetStage("OnElasticcacheAclCreateComplete", nil)
 	if err := region.GetDriver().RequestCreateElasticcacheAcl(ctx, self.GetUserCred(), ea, self); err != nil {
-		self.taskFail(ctx, ea, err.Error())
+		self.taskFail(ctx, ea, jsonutils.Marshal(err))
 		return
 	}
 }
@@ -65,5 +65,5 @@ func (self *ElasticcacheAclCreateTask) OnElasticcacheAclCreateComplete(ctx conte
 }
 
 func (self *ElasticcacheAclCreateTask) OnElasticcacheAclCreateCompleteFailed(ctx context.Context, ea *models.SElasticcacheAcl, data jsonutils.JSONObject) {
-	self.taskFail(ctx, ea, data.String())
+	self.taskFail(ctx, ea, data)
 }

@@ -285,7 +285,7 @@ func (self *GuestDeleteTask) OnFailed(ctx context.Context, guest *models.SGuest,
 	guest.SetStatus(self.UserCred, api.VM_DELETE_FAIL, err.String())
 	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_DELOCATE, err, self.UserCred, false)
-	self.SetStageFailed(ctx, err.String())
+	self.SetStageFailed(ctx, err)
 }
 
 func (self *GuestDeleteTask) OnGuestDeleteCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {

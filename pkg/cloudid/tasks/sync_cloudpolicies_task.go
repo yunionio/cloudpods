@@ -34,8 +34,8 @@ func init() {
 	taskman.RegisterTask(SyncCloudIdResourcesTask{})
 }
 
-func (self *SyncCloudIdResourcesTask) taskFailed(ctx context.Context, cloudaccount *models.SCloudaccount, err error) {
-	self.SetStageFailed(ctx, err.Error())
+func (self *SyncCloudIdResourcesTask) taskFailed(ctx context.Context, cloudaccount *models.SCloudaccount, err jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, err)
 }
 
 func (self *SyncCloudIdResourcesTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
@@ -43,7 +43,7 @@ func (self *SyncCloudIdResourcesTask) OnInit(ctx context.Context, obj db.IStanda
 
 	provider, err := account.GetProvider()
 	if err != nil {
-		self.taskFailed(ctx, account, errors.Wrap(err, "GetProvider"))
+		self.taskFailed(ctx, account, jsonutils.NewString(errors.Wrap(err, "GetProvider").Error()))
 		return
 	}
 
@@ -73,5 +73,5 @@ func (self *SyncCloudIdResourcesTask) OnSyncCloudusersComplete(ctx context.Conte
 }
 
 func (self *SyncCloudIdResourcesTask) OnClouduserSyncCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, data.String())
+	self.SetStageFailed(ctx, data)
 }

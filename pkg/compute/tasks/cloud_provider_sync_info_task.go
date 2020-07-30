@@ -58,11 +58,6 @@ func getAction(params *jsonutils.JSONDict) string {
 	return action
 }
 
-func taskFail(ctx context.Context, task *CloudProviderSyncInfoTask, provider *models.SCloudprovider, reason string) {
-	logclient.AddActionLogWithStartable(task, provider, getAction(task.Params), reason, task.UserCred, false)
-	task.SetStageFailed(ctx, reason)
-}
-
 func (self *CloudProviderSyncInfoTask) GetSyncRange() models.SSyncRange {
 	syncRange := models.SSyncRange{}
 	syncRangeJson, _ := self.Params.Get("sync_range")

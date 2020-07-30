@@ -84,7 +84,7 @@ func (self *GuestBatchCreateTask) OnInit(ctx context.Context, objs []db.IStandal
 	StartScheduleObjects(ctx, self, objs)
 }
 
-func (self *GuestBatchCreateTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason string) {
+func (self *GuestBatchCreateTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	if guest.DisableDelete.IsTrue() {
 		guest.SetDisableDelete(self.UserCred, false)
@@ -276,9 +276,9 @@ func (self *GuestBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IS
 	if err != nil {
 		self.clearPendingUsage(ctx, guest)
 		db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
-		logclient.AddActionLogWithStartable(self, obj, logclient.ACT_ALLOCATE, err.Error(), self.GetUserCred(), false)
+		logclient.AddActionLogWithStartable(self, obj, logclient.ACT_ALLOCATE, err, self.GetUserCred(), false)
 		notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_CREATE_FAILED, err.Error())
-		self.SetStageFailed(ctx, err.Error())
+		self.SetStageFailed(ctx, jsonutils.Marshal(err))
 	}
 }
 

@@ -38,7 +38,7 @@ func (self *HostGuestsMigrateTask) OnInit(ctx context.Context, obj db.IStandalon
 	guests := make([]*api.GuestBatchMigrateParams, 0)
 	err := self.Params.Unmarshal(&guests, "guests")
 	if err != nil {
-		self.SetStageFailed(ctx, err.Error())
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return
 	}
 	preferHostId, _ := self.Params.GetString("prefer_host_id")
@@ -73,7 +73,7 @@ func (self *HostGuestsMigrateTask) OnInit(ctx context.Context, obj db.IStandalon
 	}
 	if !guestMigrating {
 		if jsonutils.QueryBoolean(self.Params, "some_guest_migrate_failed", false) {
-			self.SetStageFailed(ctx, "some guest migrate failed")
+			self.SetStageFailed(ctx, jsonutils.NewString("some guest migrate failed"))
 		} else {
 			self.SetStageComplete(ctx, nil)
 		}

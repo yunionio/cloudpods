@@ -35,8 +35,8 @@ func init() {
 	taskman.RegisterTask(LoadbalancerBackendDeleteTask{})
 }
 
-func (self *LoadbalancerBackendDeleteTask) taskFail(ctx context.Context, lbb *models.SLoadbalancerBackend, reason string) {
-	lbb.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, reason)
+func (self *LoadbalancerBackendDeleteTask) taskFail(ctx context.Context, lbb *models.SLoadbalancerBackend, reason jsonutils.JSONObject) {
+	lbb.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, reason.String())
 	db.OpsLog.LogEvent(lbb, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbb, logclient.ACT_DELOCATE, reason, self.UserCred, false)
 	lbbg := lbb.GetLoadbalancerBackendGroup()
@@ -50,12 +50,12 @@ func (self *LoadbalancerBackendDeleteTask) OnInit(ctx context.Context, obj db.IS
 	lbb := obj.(*models.SLoadbalancerBackend)
 	region := lbb.GetRegion()
 	if region == nil {
-		self.taskFail(ctx, lbb, fmt.Sprintf("failed to find region for lbb %s", lbb.Name))
+		self.taskFail(ctx, lbb, jsonutils.NewString(fmt.Sprintf("failed to find region for lbb %s", lbb.Name)))
 		return
 	}
 	self.SetStage("OnLoadbalancerBackendDeleteComplete", nil)
 	if err := region.GetDriver().RequestDeleteLoadbalancerBackend(ctx, self.GetUserCred(), lbb, self); err != nil {
-		self.taskFail(ctx, lbb, err.Error())
+		self.taskFail(ctx, lbb, jsonutils.Marshal(err))
 	}
 }
 
@@ -71,5 +71,5 @@ func (self *LoadbalancerBackendDeleteTask) OnLoadbalancerBackendDeleteComplete(c
 }
 
 func (self *LoadbalancerBackendDeleteTask) OnLoadbalancerBackendDeleteCompleteFailed(ctx context.Context, lbb *models.SLoadbalancerBackend, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lbb, reason.String())
+	self.taskFail(ctx, lbb, reason)
 }

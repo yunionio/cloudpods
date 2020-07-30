@@ -36,11 +36,11 @@ func init() {
 	taskman.RegisterTask(LoadbalancerAclSyncTask{})
 }
 
-func (self *LoadbalancerAclSyncTask) taskFail(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, reason string) {
-	lbacl.SetStatus(self.GetUserCred(), api.LB_SYNC_CONF_FAILED, reason)
+func (self *LoadbalancerAclSyncTask) taskFail(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, reason jsonutils.JSONObject) {
+	lbacl.SetStatus(self.GetUserCred(), api.LB_SYNC_CONF_FAILED, reason.String())
 	db.OpsLog.LogEvent(lbacl, db.ACT_SYNC_CONF, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_SYNC_CONF, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lbacl.Id, lbacl.Name, api.LB_SYNC_CONF_FAILED, reason)
+	notifyclient.NotifySystemError(lbacl.Id, lbacl.Name, api.LB_SYNC_CONF_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -48,12 +48,12 @@ func (self *LoadbalancerAclSyncTask) OnInit(ctx context.Context, obj db.IStandal
 	lbacl := obj.(*models.SCachedLoadbalancerAcl)
 	region := lbacl.GetRegion()
 	if region == nil {
-		self.taskFail(ctx, lbacl, fmt.Sprintf("failed to find region for lbacl %s", lbacl.Name))
+		self.taskFail(ctx, lbacl, jsonutils.NewString(fmt.Sprintf("failed to find region for lbacl %s", lbacl.Name)))
 		return
 	}
 	self.SetStage("OnLoadbalancerAclSyncComplete", nil)
 	if err := region.GetDriver().RequestSyncLoadbalancerAcl(ctx, self.GetUserCred(), lbacl, self); err != nil {
-		self.taskFail(ctx, lbacl, err.Error())
+		self.taskFail(ctx, lbacl, jsonutils.Marshal(err))
 	}
 }
 
@@ -65,5 +65,5 @@ func (self *LoadbalancerAclSyncTask) OnLoadbalancerAclSyncComplete(ctx context.C
 }
 
 func (self *LoadbalancerAclSyncTask) OnLoadbalancerAclSyncCompleteFailed(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lbacl, reason.String())
+	self.taskFail(ctx, lbacl, reason)
 }

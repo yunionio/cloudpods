@@ -34,9 +34,9 @@ func init() {
 	taskman.RegisterTask(ClouduserSyncstatusTask{})
 }
 
-func (self *ClouduserSyncstatusTask) taskFailed(ctx context.Context, clouduser *models.SClouduser, err error) {
-	clouduser.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_UNKNOWN, err.Error())
-	self.SetStageFailed(ctx, err.Error())
+func (self *ClouduserSyncstatusTask) taskFailed(ctx context.Context, clouduser *models.SClouduser, err jsonutils.JSONObject) {
+	clouduser.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_UNKNOWN, err.String())
+	self.SetStageFailed(ctx, err)
 }
 
 func (self *ClouduserSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
@@ -44,7 +44,7 @@ func (self *ClouduserSyncstatusTask) OnInit(ctx context.Context, obj db.IStandal
 
 	_, err := clouduser.GetIClouduser()
 	if err != nil {
-		self.taskFailed(ctx, clouduser, errors.Wrap(err, "GetIClouduser"))
+		self.taskFailed(ctx, clouduser, jsonutils.NewString(errors.Wrap(err, "GetIClouduser").Error()))
 		return
 	}
 

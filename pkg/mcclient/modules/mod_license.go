@@ -36,7 +36,7 @@ var (
 func (this *LicenseManager) Upload(s *mcclient.ClientSession, header http.Header, body io.Reader) (jsonutils.JSONObject, error) {
 	path := fmt.Sprintf("/%s", this.URLPath())
 	resp, err := modulebase.RawRequest(this.ResourceManager, s, "POST", path, header, body)
-	_, json, err := s.ParseJSONResponse(resp, err)
+	_, json, err := s.ParseJSONResponse("", resp, err)
 	if err != nil {
 		return nil, err
 	}

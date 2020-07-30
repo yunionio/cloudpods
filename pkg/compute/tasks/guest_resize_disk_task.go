@@ -46,14 +46,14 @@ func (task *GuestResizeDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 
 	diskObj, err := models.DiskManager.FetchById(diskId)
 	if err != nil {
-		task.OnTaskFailed(ctx, guest, err.Error())
+		task.OnTaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
 
 	pendingUsage := models.SQuota{}
 	err = task.GetPendingUsage(&pendingUsage, 0)
 	if err != nil {
-		task.OnTaskFailed(ctx, guest, err.Error())
+		task.OnTaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
 
@@ -62,9 +62,9 @@ func (task *GuestResizeDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	diskObj.(*models.SDisk).StartDiskResizeTask(ctx, task.UserCred, sizeMb, task.GetId(), &pendingUsage)
 }
 
-func (task *GuestResizeDiskTask) OnTaskFailed(ctx context.Context, guest *models.SGuest, reason string) {
+func (task *GuestResizeDiskTask) OnTaskFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
 	log.Errorf("GuestResizeDiskTask fail: %s", reason)
-	guest.SetStatus(task.UserCred, api.VM_RESIZE_DISK_FAILED, reason)
+	guest.SetStatus(task.UserCred, api.VM_RESIZE_DISK_FAILED, reason.String())
 	db.OpsLog.LogEvent(guest, db.ACT_RESIZE_FAIL, reason, task.UserCred)
 	logclient.AddActionLogWithStartable(task, guest, logclient.ACT_RESIZE, reason, task.UserCred, false)
 	task.SetStageFailed(ctx, reason)
@@ -84,7 +84,7 @@ func (task *GuestResizeDiskTask) OnDiskResizeComplete(ctx context.Context, obj d
 
 func (task *GuestResizeDiskTask) OnDiskResizeCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	task.OnTaskFailed(ctx, guest, data.String())
+	task.OnTaskFailed(ctx, guest, data)
 }
 
 func (task *GuestResizeDiskTask) TaskComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -93,5 +93,5 @@ func (task *GuestResizeDiskTask) TaskComplete(ctx context.Context, obj db.IStand
 }
 
 func (task *GuestResizeDiskTask) TaskCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	task.SetStageFailed(ctx, data.String())
+	task.SetStageFailed(ctx, data)
 }

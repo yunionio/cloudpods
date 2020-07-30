@@ -87,7 +87,7 @@ func (self *SCASDriver) request(ctx context.Context, method httputils.THttpMetho
 	cli := httputils.GetDefaultClient()
 	urlStr := httputils.JoinPath(self.casConfig.CASServerURL, path)
 	resp, err := httputils.Request(cli, ctx, method, urlStr, nil, nil, self.isDebug)
-	_, body, err := httputils.ParseResponse(resp, err, self.isDebug)
+	_, body, err := httputils.ParseResponse("", resp, err, self.isDebug)
 	return body, err
 }
 

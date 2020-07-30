@@ -41,12 +41,12 @@ func (self *GuestAttachDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	diskId, _ := self.Params.GetString("disk_id")
 	objDisk, err := models.DiskManager.FetchById(diskId)
 	if err != nil {
-		self.OnTaskFail(ctx, guest, nil, err)
+		self.OnTaskFail(ctx, guest, nil, jsonutils.NewString(err.Error()))
 		return
 	}
 	disk := objDisk.(*models.SDisk)
 	if disk == nil {
-		self.OnTaskFail(ctx, guest, nil, fmt.Errorf("Connot find disk %s", diskId))
+		self.OnTaskFail(ctx, guest, nil, jsonutils.NewString(fmt.Sprintf("Connot find disk %s", diskId)))
 		return
 	}
 
@@ -56,7 +56,7 @@ func (self *GuestAttachDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 
 	err = guest.AttachDisk(ctx, disk, self.UserCred, driver, cache, mountpoint)
 	if err != nil {
-		self.OnTaskFail(ctx, guest, nil, err)
+		self.OnTaskFail(ctx, guest, nil, jsonutils.NewString(err.Error()))
 		return
 	}
 	disk.SetStatus(self.UserCred, api.DISK_ATTACHING, "Disk attach")
@@ -68,12 +68,12 @@ func (self *GuestAttachDiskTask) OnSyncConfigComplete(ctx context.Context, guest
 	diskId, _ := self.Params.GetString("disk_id")
 	objDisk, err := models.DiskManager.FetchById(diskId)
 	if err != nil {
-		self.OnTaskFail(ctx, guest, nil, err)
+		self.OnTaskFail(ctx, guest, nil, jsonutils.NewString(err.Error()))
 		return
 	}
 	disk := objDisk.(*models.SDisk)
 	if disk == nil {
-		self.OnTaskFail(ctx, guest, nil, fmt.Errorf("Connot find disk %s", diskId))
+		self.OnTaskFail(ctx, guest, nil, jsonutils.NewString(fmt.Sprintf("Connot find disk %s", diskId)))
 		return
 	}
 	disk.SetDiskReady(ctx, self.UserCred, "")
@@ -86,22 +86,22 @@ func (self *GuestAttachDiskTask) OnSyncConfigCompleteFailed(ctx context.Context,
 	diskId, _ := self.Params.GetString("disk_id")
 	objDisk, err := models.DiskManager.FetchById(diskId)
 	if err != nil {
-		self.OnTaskFail(ctx, guest, nil, err)
+		self.OnTaskFail(ctx, guest, nil, jsonutils.NewString(err.Error()))
 		return
 	}
 	disk := objDisk.(*models.SDisk)
 	db.OpsLog.LogEvent(disk, db.ACT_ATTACH, reason.String(), self.UserCred)
 	disk.SetStatus(self.UserCred, api.DISK_READY, "")
 	guest.DetachDisk(ctx, disk, self.UserCred)
-	self.OnTaskFail(ctx, guest, disk, fmt.Errorf(reason.String()))
+	self.OnTaskFail(ctx, guest, disk, reason)
 }
 
-func (self *GuestAttachDiskTask) OnTaskFail(ctx context.Context, guest *models.SGuest, disk *models.SDisk, err error) {
+func (self *GuestAttachDiskTask) OnTaskFail(ctx context.Context, guest *models.SGuest, disk *models.SDisk, err jsonutils.JSONObject) {
 	if disk != nil {
 		disk.SetStatus(self.UserCred, api.DISK_READY, "")
 	}
-	guest.SetStatus(self.UserCred, api.VM_ATTACH_DISK_FAILED, err.Error())
-	self.SetStageFailed(ctx, err.Error())
-	log.Errorf("Guest %s GuestAttachDiskTask failed %s", guest.Name, err.Error())
-	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_ATTACH_DISK, err.Error(), self.UserCred, false)
+	guest.SetStatus(self.UserCred, api.VM_ATTACH_DISK_FAILED, err.String())
+	self.SetStageFailed(ctx, err)
+	log.Errorf("Guest %s GuestAttachDiskTask failed %s", guest.Name, err.String())
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_ATTACH_DISK, err, self.UserCred, false)
 }

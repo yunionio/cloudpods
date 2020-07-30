@@ -35,9 +35,9 @@ func init() {
 	taskman.RegisterTask(ClouduserSyncPoliciesTask{})
 }
 
-func (self *ClouduserSyncPoliciesTask) taskFailed(ctx context.Context, clouduser *models.SClouduser, err error) {
-	clouduser.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_SYNC_POLICIES_FAILED, err.Error())
-	self.SetStageFailed(ctx, err.Error())
+func (self *ClouduserSyncPoliciesTask) taskFailed(ctx context.Context, clouduser *models.SClouduser, err jsonutils.JSONObject) {
+	clouduser.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_SYNC_POLICIES_FAILED, err.String())
+	self.SetStageFailed(ctx, err)
 }
 
 func (self *ClouduserSyncPoliciesTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
@@ -45,26 +45,26 @@ func (self *ClouduserSyncPoliciesTask) OnInit(ctx context.Context, obj db.IStand
 
 	account, err := user.GetCloudaccount()
 	if err != nil {
-		self.taskFailed(ctx, user, errors.Wrap(err, "GetCloudaccount"))
+		self.taskFailed(ctx, user, jsonutils.NewString(errors.Wrap(err, "GetCloudaccount").Error()))
 		return
 	}
 
 	factory, err := account.GetProviderFactory()
 	if err != nil {
-		self.taskFailed(ctx, user, errors.Wrap(err, "account.GetProviderFactory"))
+		self.taskFailed(ctx, user, jsonutils.NewString(errors.Wrap(err, "account.GetProviderFactory").Error()))
 		return
 	}
 
 	if factory.IsSupportClouduserPolicy() {
 		result, err := user.SyncCloudpoliciesForCloud(ctx)
 		if err != nil {
-			self.taskFailed(ctx, user, errors.Wrap(err, "SyncCloudpoliciesForCloud"))
+			self.taskFailed(ctx, user, jsonutils.NewString(errors.Wrap(err, "SyncCloudpoliciesForCloud").Error()))
 			return
 		}
 		log.Infof("sync cloudpolicies for user %s(%s) result: %s", user.Name, user.Id, result.Result())
 
 		if result.AddErrCnt+result.DelErrCnt > 0 {
-			self.taskFailed(ctx, user, result.AllError())
+			self.taskFailed(ctx, user, jsonutils.NewString(result.AllError().Error()))
 			return
 		}
 	}

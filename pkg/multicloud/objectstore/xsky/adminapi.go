@@ -87,7 +87,11 @@ func (api *SXskyAdminApi) jsonRequest(ctx context.Context, method httputils.THtt
 	}
 	resp, err := api.client.Do(req)
 
-	return httputils.ParseJSONResponse(resp, err, api.debug)
+	var bodyStr string
+	if body != nil {
+		bodyStr = body.String()
+	}
+	return httputils.ParseJSONResponse(bodyStr, resp, err, api.debug)
 }
 
 type sLoginResponse struct {

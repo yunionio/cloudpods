@@ -18,8 +18,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
@@ -43,15 +41,10 @@ func (self *GuestDetachDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	diskId, _ := self.Params.GetString("disk_id")
 	objDisk, err := models.DiskManager.FetchById(diskId)
 	if err != nil {
-		self.OnTaskFail(ctx, guest, nil, err)
+		self.OnTaskFail(ctx, guest, nil, jsonutils.NewString(err.Error()))
 		return
 	}
 	disk := objDisk.(*models.SDisk)
-	if disk == nil {
-		self.OnTaskFail(ctx, guest, nil, fmt.Errorf("Connot find disk %s", diskId))
-		return
-	}
-
 	guestdisks := disk.GetGuestdisks()
 	if len(guestdisks) > 0 {
 		guestdisk := guestdisks[0]
@@ -83,19 +76,15 @@ func (self *GuestDetachDiskTask) OnDetachDiskComplete(ctx context.Context, guest
 	diskId, _ := self.Params.GetString("disk_id")
 	objDisk, err := models.DiskManager.FetchById(diskId)
 	if err != nil {
-		self.OnTaskFail(ctx, guest, nil, err)
+		self.OnTaskFail(ctx, guest, nil, jsonutils.NewString(err.Error()))
 		return
 	}
 	disk := objDisk.(*models.SDisk)
-	if disk == nil {
-		self.OnTaskFail(ctx, guest, nil, fmt.Errorf("Connot find disk %s", diskId))
-		return
-	}
 	// detach disk and snapshotpolicy if hypervisor is kvm
 	if guest.Hypervisor == api.HYPERVISOR_KVM {
 		err := disk.DetachAllSnapshotpolicies(ctx, self.UserCred)
 		if err != nil {
-			self.OnTaskFail(ctx, guest, nil, fmt.Errorf("detach all snapshotpolicies failed: %s", err.Error()))
+			self.OnTaskFail(ctx, guest, nil, jsonutils.NewString(fmt.Sprintf("detach all snapshotpolicies failed: %s", err.Error())))
 			return
 		}
 	}
@@ -113,7 +102,7 @@ func (self *GuestDetachDiskTask) OnDetachDiskComplete(ctx context.Context, guest
 			db.OpsLog.LogEvent(disk, db.ACT_DELETE, "", self.UserCred)
 			err := guest.GetDriver().RequestDeleteDetachedDisk(ctx, disk, self, purge)
 			if err != nil {
-				self.OnTaskFail(ctx, guest, disk, err)
+				self.OnTaskFail(ctx, guest, disk, jsonutils.Marshal(err))
 			}
 			return
 		}
@@ -130,7 +119,7 @@ func (self *GuestDetachDiskTask) OnDetachDiskCompleteFailed(ctx context.Context,
 	objDisk, err := models.DiskManager.FetchById(diskId)
 	if err != nil {
 		log.Warningf("failed to fetch disk by id %s error: %v", diskId, err)
-		self.OnTaskFail(ctx, guest, nil, errors.New(reason.String()))
+		self.OnTaskFail(ctx, guest, nil, reason)
 		return
 	}
 	disk := objDisk.(*models.SDisk)
@@ -140,17 +129,17 @@ func (self *GuestDetachDiskTask) OnDetachDiskCompleteFailed(ctx context.Context,
 	if err != nil {
 		log.Warningf("recover attach disk %s(%s) for guest %s(%s) error: %v", disk.Name, disk.Id, guest.Name, guest.Id, err)
 	}
-	self.OnTaskFail(ctx, guest, nil, errors.New(reason.String()))
+	self.OnTaskFail(ctx, guest, nil, reason)
 }
 
-func (self *GuestDetachDiskTask) OnTaskFail(ctx context.Context, guest *models.SGuest, disk *models.SDisk, err error) {
+func (self *GuestDetachDiskTask) OnTaskFail(ctx context.Context, guest *models.SGuest, disk *models.SDisk, err jsonutils.JSONObject) {
 	if disk != nil {
 		disk.SetStatus(self.UserCred, api.DISK_READY, "")
 	}
-	guest.SetStatus(self.UserCred, api.VM_DETACH_DISK_FAILED, err.Error())
-	self.SetStageFailed(ctx, err.Error())
-	log.Errorf("Guest %s GuestDetachDiskTask failed %s", guest.Id, err.Error())
-	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_DETACH_DISK, err.Error(), self.UserCred, false)
+	guest.SetStatus(self.UserCred, api.VM_DETACH_DISK_FAILED, err.String())
+	self.SetStageFailed(ctx, err)
+	log.Errorf("Guest %s GuestDetachDiskTask failed %s", guest.Id, err.String())
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_DETACH_DISK, err, self.UserCred, false)
 }
 
 func (self *GuestDetachDiskTask) OnDiskDeleteComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

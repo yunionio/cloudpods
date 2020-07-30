@@ -37,9 +37,9 @@ func init() {
 
 func (self *DBInstanceChangeConfigTask) taskFailed(ctx context.Context, dbinstance *models.SDBInstance, err error) {
 	dbinstance.SetStatus(self.UserCred, api.DBINSTANCE_CHANGE_CONFIG_FAILED, err.Error())
-	db.OpsLog.LogEvent(dbinstance, db.ACT_CHANGE_CONFIG, err.Error(), self.GetUserCred())
-	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_CHANGE_CONFIG, err.Error(), self.UserCred, false)
-	self.SetStageFailed(ctx, err.Error())
+	db.OpsLog.LogEvent(dbinstance, db.ACT_CHANGE_CONFIG, err, self.GetUserCred())
+	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_CHANGE_CONFIG, err, self.UserCred, false)
+	self.SetStageFailed(ctx, jsonutils.Marshal(err))
 }
 
 func (self *DBInstanceChangeConfigTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -70,5 +70,5 @@ func (self *DBInstanceChangeConfigTask) OnSyncDBInstanceStatusComplete(ctx conte
 }
 
 func (self *DBInstanceChangeConfigTask) OnSyncDBInstanceStatusCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, data.String())
+	self.SetStageFailed(ctx, data)
 }

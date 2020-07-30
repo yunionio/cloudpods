@@ -16,7 +16,6 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 
@@ -81,7 +80,7 @@ func (self *GuestStartTask) OnStartCompleteFailed(ctx context.Context, obj db.IS
 	guest.SetStatus(self.UserCred, api.VM_START_FAILED, err.String())
 	db.OpsLog.LogEvent(guest, db.ACT_START_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_START, err, self.UserCred, false)
-	self.SetStageFailed(ctx, err.String())
+	self.SetStageFailed(ctx, err)
 }
 
 func (self *GuestStartTask) taskComplete(ctx context.Context, guest *models.SGuest) {
@@ -101,7 +100,7 @@ func (self *GuestSchedStartTask) OnInit(ctx context.Context, obj db.IStandaloneM
 func (self *GuestSchedStartTask) StartScheduler(ctx context.Context, guest *models.SGuest) {
 	host := guest.GetHost()
 	if guestsMem := host.GetRunningGuestMemorySize(); guestsMem < 0 {
-		self.TaskFailed(ctx, guest, "Guest Start Failed: Can't Get Host Guests Memory")
+		self.TaskFailed(ctx, guest, jsonutils.NewString("Guest Start Failed: Can't Get Host Guests Memory"))
 	} else {
 		if float32(guestsMem+guest.VmemSize) > host.GetVirtualMemorySize() {
 			self.ScheduleFailed(ctx, guest)
@@ -122,7 +121,7 @@ func (self *GuestSchedStartTask) OnGuestMigrate(ctx context.Context, guest *mode
 }
 
 func (self *GuestSchedStartTask) OnGuestMigrateFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.TaskFailed(ctx, guest, fmt.Sprintf("OnGuestMigrateFailed %s", data))
+	self.TaskFailed(ctx, guest, data)
 }
 
 func (self *GuestSchedStartTask) ScheduleSucc(ctx context.Context, guest *models.SGuest) {
@@ -130,9 +129,9 @@ func (self *GuestSchedStartTask) ScheduleSucc(ctx context.Context, guest *models
 	guest.GuestNonSchedStartTask(ctx, self.UserCred, nil, "")
 }
 
-func (self *GuestSchedStartTask) TaskFailed(ctx context.Context, guest *models.SGuest, reason string) {
+func (self *GuestSchedStartTask) TaskFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
 	self.SetStageFailed(ctx, reason)
-	guest.SetStatus(self.UserCred, api.VM_START_FAILED, reason)
+	guest.SetStatus(self.UserCred, api.VM_START_FAILED, reason.String())
 	db.OpsLog.LogEvent(guest, db.ACT_START_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(
 		self, guest, logclient.ACT_VM_START, reason, self.UserCred, false)

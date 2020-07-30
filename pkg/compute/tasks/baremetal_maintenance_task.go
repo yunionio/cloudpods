@@ -73,7 +73,7 @@ func (self *BaremetalMaintenanceTask) OnEnterMaintenantModeSucc(ctx context.Cont
 }
 
 func (self *BaremetalMaintenanceTask) OnEnterMaintenantModeSuccFailed(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, body.String())
+	self.SetStageFailed(ctx, body)
 	baremetal.StartSyncstatus(ctx, self.UserCred, "")
 	guest := baremetal.GetBaremetalServer()
 	if guest != nil {
@@ -81,6 +81,6 @@ func (self *BaremetalMaintenanceTask) OnEnterMaintenantModeSuccFailed(ctx contex
 	}
 	action := self.Action()
 	if len(action) > 0 {
-		logclient.AddActionLogWithStartable(self, baremetal, action, body.String(), self.UserCred, false)
+		logclient.AddActionLogWithStartable(self, baremetal, action, body, self.UserCred, false)
 	}
 }

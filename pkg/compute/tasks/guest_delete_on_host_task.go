@@ -38,12 +38,12 @@ func (self *GuestDeleteOnHostTask) OnInit(ctx context.Context, obj db.IStandalon
 	guest := obj.(*models.SGuest)
 	hostId, err := self.Params.GetString("host_id")
 	if err != nil {
-		self.OnFail(ctx, guest, "Missing param host id")
+		self.OnFail(ctx, guest, jsonutils.NewString("Missing param host_id"))
 		return
 	}
 	host := models.HostManager.FetchHostById(hostId)
 	if host == nil {
-		self.OnFail(ctx, guest, "Host is nil")
+		self.OnFail(ctx, guest, jsonutils.NewString("Host is nil"))
 		return
 	}
 
@@ -68,7 +68,7 @@ func (self *GuestDeleteOnHostTask) OnStopGuest(ctx context.Context, guest *model
 }
 
 func (self *GuestDeleteOnHostTask) OnUnDeployGuestFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.OnFail(ctx, guest, data.String())
+	self.OnFail(ctx, guest, data)
 }
 
 func (self *GuestDeleteOnHostTask) OnUnDeployGuest(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -79,7 +79,7 @@ func (self *GuestDeleteOnHostTask) OnUnDeployGuest(ctx context.Context, guest *m
 			return nil
 		})
 		if err != nil {
-			self.OnFail(ctx, guest, err.Error())
+			self.OnFail(ctx, guest, jsonutils.NewString(err.Error()))
 			return
 		}
 		guestdisks := guest.GetDisks()
@@ -90,7 +90,7 @@ func (self *GuestDeleteOnHostTask) OnUnDeployGuest(ctx context.Context, guest *m
 				return nil
 			})
 			if err != nil {
-				self.OnFail(ctx, guest, err.Error())
+				self.OnFail(ctx, guest, jsonutils.NewString(err.Error()))
 				return
 			}
 		}
@@ -105,7 +105,7 @@ func (self *GuestDeleteOnHostTask) OnSync(ctx context.Context, guest *models.SGu
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *GuestDeleteOnHostTask) OnFail(ctx context.Context, guest *models.SGuest, reason string) {
+func (self *GuestDeleteOnHostTask) OnFail(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
 	hostId, _ := self.Params.GetString("host_id")
 	if guest.BackupHostId == hostId {
 		logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_DELETE_BACKUP, "GuestDeleteOnHost", self.UserCred, false)
@@ -113,7 +113,7 @@ func (self *GuestDeleteOnHostTask) OnFail(ctx context.Context, guest *models.SGu
 	}
 	failedStatus, _ := self.Params.GetString("failed_status")
 	if len(failedStatus) > 0 {
-		guest.SetStatus(self.UserCred, failedStatus, reason)
+		guest.SetStatus(self.UserCred, failedStatus, reason.String())
 	}
 	self.SetStageFailed(ctx, reason)
 }

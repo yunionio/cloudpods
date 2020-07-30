@@ -54,13 +54,13 @@ func onLoadbalancerListenerCreateComplete(ctx context.Context, lblis *models.SLo
 func onHuaweiLoadbalancerListenerCreateComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject, self *LoadbalancerListenerCreateTask) {
 	lbbg := lblis.GetLoadbalancerBackendGroup()
 	if lbbg == nil {
-		self.taskFail(ctx, lblis, "huawei loadbalancer listener releated backend group not found")
+		self.taskFail(ctx, lblis, jsonutils.NewString("huawei loadbalancer listener releated backend group not found"))
 		return
 	}
 
 	groupParams, err := lbbg.GetHuaweiBackendGroupParams(lblis, nil)
 	if err != nil {
-		self.taskFail(ctx, lblis, err.Error())
+		self.taskFail(ctx, lblis, jsonutils.NewString(err.Error()))
 		return
 	}
 
@@ -68,7 +68,7 @@ func onHuaweiLoadbalancerListenerCreateComplete(ctx context.Context, lblis *mode
 	params.Set("listenerId", jsonutils.NewString(lblis.GetId()))
 	group, err := models.HuaweiCachedLbbgManager.GetCachedBackendGroupByAssociateId(lblis.GetId())
 	if err != nil && err != sql.ErrNoRows {
-		self.taskFail(ctx, lblis, err.Error())
+		self.taskFail(ctx, lblis, jsonutils.NewString(err.Error()))
 		return
 	}
 
@@ -76,12 +76,12 @@ func onHuaweiLoadbalancerListenerCreateComplete(ctx context.Context, lblis *mode
 		// 服务器组存在
 		ilbbg, err := group.GetICloudLoadbalancerBackendGroup()
 		if err != nil {
-			self.taskFail(ctx, lblis, err.Error())
+			self.taskFail(ctx, lblis, jsonutils.NewString(err.Error()))
 			return
 		}
 		// 服务器组已经存在，直接同步即可
 		if err := ilbbg.Sync(ctx, groupParams); err != nil {
-			self.taskFail(ctx, lblis, err.Error())
+			self.taskFail(ctx, lblis, jsonutils.NewString(err.Error()))
 			return
 		} else {
 			if _, err := db.UpdateWithLock(ctx, group, func() error {
@@ -89,7 +89,7 @@ func onHuaweiLoadbalancerListenerCreateComplete(ctx context.Context, lblis *mode
 				group.AssociatedType = api.LB_ASSOCIATE_TYPE_LISTENER
 				return nil
 			}); err != nil {
-				self.taskFail(ctx, lblis, err.Error())
+				self.taskFail(ctx, lblis, jsonutils.NewString(err.Error()))
 				return
 			}
 
@@ -102,11 +102,11 @@ func onHuaweiLoadbalancerListenerCreateComplete(ctx context.Context, lblis *mode
 	}
 }
 
-func (self *LoadbalancerListenerCreateTask) taskFail(ctx context.Context, lblis *models.SLoadbalancerListener, reason string) {
-	lblis.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, reason)
+func (self *LoadbalancerListenerCreateTask) taskFail(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
+	lblis.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, reason.String())
 	db.OpsLog.LogEvent(lblis, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_CREATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lblis.Id, lblis.Name, api.LB_CREATE_FAILED, reason)
+	notifyclient.NotifySystemError(lblis.Id, lblis.Name, api.LB_CREATE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -114,12 +114,12 @@ func (self *LoadbalancerListenerCreateTask) OnInit(ctx context.Context, obj db.I
 	lblis := obj.(*models.SLoadbalancerListener)
 	region := lblis.GetRegion()
 	if region == nil {
-		self.taskFail(ctx, lblis, fmt.Sprintf("failed to find region for lblis %s", lblis.Name))
+		self.taskFail(ctx, lblis, jsonutils.NewString(fmt.Sprintf("failed to find region for lblis %s", lblis.Name)))
 		return
 	}
 	self.SetStage("OnLoadbalancerListenerCreateComplete", nil)
 	if err := region.GetDriver().RequestCreateLoadbalancerListener(ctx, self.GetUserCred(), lblis, self); err != nil {
-		self.taskFail(ctx, lblis, err.Error())
+		self.taskFail(ctx, lblis, jsonutils.Marshal(err))
 	}
 }
 
@@ -133,7 +133,7 @@ func (self *LoadbalancerListenerCreateTask) OnPrepareLoadbalancerBackendgroup(ct
 
 func (self *LoadbalancerListenerCreateTask) OnPrepareLoadbalancerBackendgroupFailed(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
 	lblis.SetStatus(self.GetUserCred(), api.LB_STATUS_DISABLED, "")
-	self.taskFail(ctx, lblis, reason.String())
+	self.taskFail(ctx, lblis, reason)
 }
 
 func (self *LoadbalancerListenerCreateTask) OnLoadbalancerListenerCreateComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject) {
@@ -142,7 +142,7 @@ func (self *LoadbalancerListenerCreateTask) OnLoadbalancerListenerCreateComplete
 }
 
 func (self *LoadbalancerListenerCreateTask) OnLoadbalancerListenerCreateCompleteFailed(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lblis, reason.String())
+	self.taskFail(ctx, lblis, reason)
 }
 
 func (self *LoadbalancerListenerCreateTask) OnLoadbalancerListenerStartComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject) {
@@ -152,5 +152,5 @@ func (self *LoadbalancerListenerCreateTask) OnLoadbalancerListenerStartComplete(
 
 func (self *LoadbalancerListenerCreateTask) OnLoadbalancerListenerStartCompleteFailed(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
 	lblis.SetStatus(self.GetUserCred(), api.LB_STATUS_DISABLED, reason.String())
-	self.SetStageFailed(ctx, reason.String())
+	self.SetStageFailed(ctx, reason)
 }

@@ -36,10 +36,10 @@ func init() {
 	taskman.RegisterTask(CloudgroupDeleteTask{})
 }
 
-func (self *CloudgroupDeleteTask) taskFailed(ctx context.Context, group *models.SCloudgroup, err error) {
-	group.SetStatus(self.GetUserCred(), api.CLOUD_GROUP_STATUS_DELETE_FAILED, err.Error())
+func (self *CloudgroupDeleteTask) taskFailed(ctx context.Context, group *models.SCloudgroup, err jsonutils.JSONObject) {
+	group.SetStatus(self.GetUserCred(), api.CLOUD_GROUP_STATUS_DELETE_FAILED, err.String())
 	logclient.AddActionLogWithStartable(self, group, logclient.ACT_DELETE, err, self.UserCred, false)
-	self.SetStageFailed(ctx, err.Error())
+	self.SetStageFailed(ctx, err)
 }
 
 func (self *CloudgroupDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
@@ -47,20 +47,20 @@ func (self *CloudgroupDeleteTask) OnInit(ctx context.Context, obj db.IStandalone
 
 	caches, err := group.GetCloudgroupcaches()
 	if err != nil {
-		self.taskFailed(ctx, group, errors.Wrap(err, "GetCloudgroupcaches"))
+		self.taskFailed(ctx, group, jsonutils.NewString(errors.Wrap(err, "GetCloudgroupcaches").Error()))
 		return
 	}
 
 	for i := range caches {
 		iGroup, err := caches[i].GetICloudgroup()
 		if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound {
-			self.taskFailed(ctx, group, errors.Wrap(err, "caches[i].GetICloudgroup"))
+			self.taskFailed(ctx, group, jsonutils.NewString(errors.Wrap(err, "caches[i].GetICloudgroup").Error()))
 			return
 		}
 		if err == nil {
 			err = iGroup.Delete()
 			if err != nil {
-				self.taskFailed(ctx, group, errors.Wrap(err, "iGroup.Delete"))
+				self.taskFailed(ctx, group, jsonutils.NewString(errors.Wrap(err, "iGroup.Delete").Error()))
 				return
 			}
 		}
@@ -69,7 +69,7 @@ func (self *CloudgroupDeleteTask) OnInit(ctx context.Context, obj db.IStandalone
 
 	cnt, err := group.GetCloudgroupcacheCount()
 	if err != nil {
-		self.taskFailed(ctx, group, errors.Wrap(err, "GetCloudgroupcacheCount"))
+		self.taskFailed(ctx, group, jsonutils.NewString(errors.Wrap(err, "GetCloudgroupcacheCount").Error()))
 		return
 	}
 	if cnt == 0 {

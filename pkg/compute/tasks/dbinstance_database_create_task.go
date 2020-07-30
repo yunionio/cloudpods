@@ -39,9 +39,9 @@ func init() {
 
 func (self *DBInstanceDatabaseCreateTask) taskFailed(ctx context.Context, database *models.SDBInstanceDatabase, err error) {
 	database.SetStatus(self.UserCred, api.DBINSTANCE_DATABASE_CREATE_FAILE, err.Error())
-	db.OpsLog.LogEvent(database, db.ACT_CREATE, err.Error(), self.GetUserCred())
-	logclient.AddActionLogWithStartable(self, database, logclient.ACT_CREATE, err.Error(), self.UserCred, false)
-	self.SetStageFailed(ctx, err.Error())
+	db.OpsLog.LogEvent(database, db.ACT_CREATE, err, self.GetUserCred())
+	logclient.AddActionLogWithStartable(self, database, logclient.ACT_CREATE, err, self.UserCred, false)
+	self.SetStageFailed(ctx, jsonutils.Marshal(err))
 }
 
 func (self *DBInstanceDatabaseCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

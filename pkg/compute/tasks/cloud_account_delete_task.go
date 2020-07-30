@@ -53,7 +53,7 @@ func (self *CloudAccountDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 		if err != nil {
 			// very unlikely
 			account.SetStatus(self.UserCred, api.CLOUD_PROVIDER_DELETE_FAILED, err.Error())
-			self.SetStageFailed(ctx, err.Error())
+			self.SetStageFailed(ctx, jsonutils.Marshal(err))
 			return
 		}
 	}
@@ -73,7 +73,7 @@ func (self *CloudAccountDeleteTask) OnAllCloudProviderDeleteCompleteFailed(ctx c
 	account := obj.(*models.SCloudaccount)
 
 	account.SetStatus(self.UserCred, api.CLOUD_PROVIDER_DELETE_FAILED, body.String())
-	self.SetStageFailed(ctx, body.String())
+	self.SetStageFailed(ctx, body)
 
 	logclient.AddActionLogWithStartable(self, account, logclient.ACT_DELETE, body, self.UserCred, false)
 }

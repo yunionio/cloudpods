@@ -60,7 +60,7 @@ func (self *BaremetalConvertHypervisorTask) OnInit(ctx context.Context, obj db.I
 	paramsDict := params.(*jsonutils.JSONDict)
 	input, err := cmdline.FetchServerCreateInputByJSON(paramsDict)
 	if err != nil {
-		self.SetStageFailed(ctx, err.Error())
+		self.SetStageFailed(ctx, jsonutils.Marshal(err))
 		return
 	}
 	input.ParentTaskId = self.GetTaskId()
@@ -74,7 +74,7 @@ func (self *BaremetalConvertHypervisorTask) OnGuestDeployComplete(ctx context.Co
 	hypervisor := self.getHypervisor()
 	driver := models.GetHostDriver(hypervisor)
 	if driver == nil {
-		self.SetStageFailed(ctx, fmt.Sprintf("Get Host Driver error %s", hypervisor))
+		self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("Get Host Driver error %s", hypervisor)))
 	}
 	err := driver.FinishConvert(self.UserCred, baremetal, guest, driver.GetHostType())
 	if err != nil {
@@ -105,5 +105,5 @@ func (self *BaremetalConvertHypervisorTask) OnGuestDeleteComplete(ctx context.Co
 }
 
 func (self *BaremetalConvertHypervisorTask) OnFailedSyncstatusComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, "convert failed")
+	self.SetStageFailed(ctx, body)
 }

@@ -55,7 +55,7 @@ func (self *GuestResumeTask) OnResumeCompleteFailed(ctx context.Context, obj db.
 	guest := obj.(*models.SGuest)
 	guest.SetStatus(self.UserCred, api.VM_SUSPEND, "")
 	db.OpsLog.LogEvent(guest, db.ACT_RESUME_FAIL, err.String(), self.UserCred)
-	self.SetStageFailed(ctx, err.String())
+	self.SetStageFailed(ctx, err)
 }
 
 func (self *GuestResumeTask) OnResumeGuestFail(guest *models.SGuest, reason string) {

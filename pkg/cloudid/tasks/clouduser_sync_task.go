@@ -34,9 +34,9 @@ func init() {
 	taskman.RegisterTask(ClouduserSyncTask{})
 }
 
-func (self *ClouduserSyncTask) taskFailed(ctx context.Context, clouduser *models.SClouduser, err error) {
-	clouduser.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_SYNC_FAILED, err.Error())
-	self.SetStageFailed(ctx, err.Error())
+func (self *ClouduserSyncTask) taskFailed(ctx context.Context, clouduser *models.SClouduser, err jsonutils.JSONObject) {
+	clouduser.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_SYNC_FAILED, err.String())
+	self.SetStageFailed(ctx, err)
 }
 
 func (self *ClouduserSyncTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
@@ -49,12 +49,12 @@ func (self *ClouduserSyncTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 func (self *ClouduserSyncTask) OnSyncCloudpoliciesComplete(ctx context.Context, user *models.SClouduser, body jsonutils.JSONObject) {
 	account, err := user.GetCloudaccount()
 	if err != nil {
-		self.taskFailed(ctx, user, errors.Wrap(err, "user.GetCloudaccount"))
+		self.taskFailed(ctx, user, jsonutils.NewString(errors.Wrap(err, "user.GetCloudaccount").Error()))
 		return
 	}
 	factory, err := account.GetProviderFactory()
 	if err != nil {
-		self.taskFailed(ctx, user, errors.Wrap(err, "GetProviderFactory"))
+		self.taskFailed(ctx, user, jsonutils.NewString(errors.Wrap(err, "GetProviderFactory").Error()))
 		return
 	}
 
@@ -69,7 +69,7 @@ func (self *ClouduserSyncTask) OnSyncCloudpoliciesComplete(ctx context.Context, 
 }
 
 func (self *ClouduserSyncTask) OnSyncCloudpoliciesCompleteFailed(ctx context.Context, user *models.SClouduser, data jsonutils.JSONObject) {
-	self.taskFailed(ctx, user, errors.Error(data.String()))
+	self.taskFailed(ctx, user, data)
 }
 
 func (self *ClouduserSyncTask) OnSyncCloudgroupsComplete(ctx context.Context, user *models.SClouduser, body jsonutils.JSONObject) {
@@ -78,5 +78,5 @@ func (self *ClouduserSyncTask) OnSyncCloudgroupsComplete(ctx context.Context, us
 }
 
 func (self *ClouduserSyncTask) OnSyncCloudgroupsCompleteFailed(ctx context.Context, user *models.SClouduser, data jsonutils.JSONObject) {
-	self.taskFailed(ctx, user, errors.Error(data.String()))
+	self.taskFailed(ctx, user, data)
 }

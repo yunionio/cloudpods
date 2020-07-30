@@ -163,7 +163,7 @@ func JSONRequest(client *http.Client, ctx context.Context, method httputils.THtt
 	header.Set("Content-Length", strconv.FormatInt(int64(len(bodystr)), 10))
 	header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := httputils.Request(client, ctx, method, urlStr, header, jbody, debug)
-	return httputils.ParseJSONResponse(resp, err, debug)
+	return httputils.ParseJSONResponse(bodystr, resp, err, debug)
 }
 
 func (db *SInfluxdb) SetDatabase(dbName string) error {

@@ -16,7 +16,6 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 
@@ -42,11 +41,11 @@ func (self *GuestSetAutoRenewTask) OnInit(ctx context.Context, obj db.IStandalon
 	autoRenew, _ := self.GetParams().Bool("auto_renew")
 	err := guest.GetDriver().RequestSetAutoRenewInstance(ctx, self.UserCred, guest, autoRenew, self)
 	if err != nil {
-		msg := fmt.Sprintf("RequestSetAutoRenewInstance failed %s", err)
-		db.OpsLog.LogEvent(guest, db.ACT_SET_AUTO_RENEW_FAIL, msg, self.UserCred)
-		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_SET_AUTO_RENEW, msg, self.UserCred, false)
-		guest.SetStatus(self.GetUserCred(), api.VM_SET_AUTO_RENEW_FAILED, msg)
-		self.SetStageFailed(ctx, msg)
+		// msg := fmt.Sprintf("RequestSetAutoRenewInstance failed %s", err)
+		db.OpsLog.LogEvent(guest, db.ACT_SET_AUTO_RENEW_FAIL, err, self.UserCred)
+		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_SET_AUTO_RENEW, err, self.UserCred, false)
+		guest.SetStatus(self.GetUserCred(), api.VM_SET_AUTO_RENEW_FAILED, err.Error())
+		self.SetStageFailed(ctx, jsonutils.Marshal(err))
 		return
 	}
 }
@@ -60,7 +59,7 @@ func (self *GuestSetAutoRenewTask) OnSetAutoRenewComplete(ctx context.Context, g
 func (self *GuestSetAutoRenewTask) OnSetAutoRenewCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_SET_AUTO_RENEW, data, self.UserCred, false)
 	guest.SetStatus(self.GetUserCred(), api.VM_SET_AUTO_RENEW_FAILED, data.String())
-	self.SetStageFailed(ctx, data.String())
+	self.SetStageFailed(ctx, data)
 }
 
 func (self *GuestSetAutoRenewTask) OnGuestSyncstatusComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -68,5 +67,5 @@ func (self *GuestSetAutoRenewTask) OnGuestSyncstatusComplete(ctx context.Context
 }
 
 func (self *GuestSetAutoRenewTask) OnGuestSyncstatusCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, data.String())
+	self.SetStageFailed(ctx, data)
 }

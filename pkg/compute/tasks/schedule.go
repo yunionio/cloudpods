@@ -46,14 +46,14 @@ type IScheduleTask interface {
 	GetSchedParams() (*schedapi.ScheduleInput, error)
 	GetPendingUsage(quota quotas.IQuota, index int) error
 	SetStage(stageName string, data *jsonutils.JSONDict) error
-	SetStageFailed(ctx context.Context, reason string)
+	SetStageFailed(ctx context.Context, reason jsonutils.JSONObject)
 
 	OnStartSchedule(obj IScheduleModel)
-	OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason string)
+	OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason jsonutils.JSONObject)
 	// OnScheduleComplete(ctx context.Context, items []db.IStandaloneModel, data *jsonutils.JSONDict)
 	SaveScheduleResult(ctx context.Context, obj IScheduleModel, candidate *schedapi.CandidateResource)
 	SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, master, slave *schedapi.CandidateResource)
-	OnScheduleFailed(ctx context.Context, reason string)
+	OnScheduleFailed(ctx context.Context, reason jsonutils.JSONObject)
 }
 
 type SSchedTask struct {
@@ -66,11 +66,11 @@ func (self *SSchedTask) OnStartSchedule(obj IScheduleModel) {
 	obj.SetStatus(self.GetUserCred(), api.VM_SCHEDULE, "")
 }
 
-func (self *SSchedTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason string) {
-	obj.SetStatus(self.GetUserCred(), api.VM_SCHEDULE_FAILED, reason)
+func (self *SSchedTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason jsonutils.JSONObject) {
+	obj.SetStatus(self.GetUserCred(), api.VM_SCHEDULE_FAILED, reason.String())
 	db.OpsLog.LogEvent(obj, db.ACT_ALLOCATE_FAIL, reason, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, obj, logclient.ACT_ALLOCATE, reason, self.GetUserCred(), false)
-	notifyclient.NotifySystemError(obj.GetId(), obj.GetName(), api.VM_SCHEDULE_FAILED, reason)
+	notifyclient.NotifySystemError(obj.GetId(), obj.GetName(), api.VM_SCHEDULE_FAILED, reason.String())
 }
 
 func (self *SSchedTask) OnScheduleComplete(ctx context.Context, items []db.IStandaloneModel, data *jsonutils.JSONDict) {
@@ -85,7 +85,7 @@ func (self *SSchedTask) SaveScheduleResultWithBackup(ctx context.Context, obj IS
 	// ...
 }
 
-func (self *SSchedTask) OnScheduleFailed(ctx context.Context, reason string) {
+func (self *SSchedTask) OnScheduleFailed(ctx context.Context, reason jsonutils.JSONObject) {
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -110,7 +110,7 @@ func doScheduleObjects(
 ) {
 	schedInput, err := task.GetSchedParams()
 	if err != nil {
-		onSchedulerRequestFail(ctx, task, objs, fmt.Sprintf("Scheduler fail: %s", err))
+		onSchedulerRequestFail(ctx, task, objs, jsonutils.NewString(fmt.Sprintf("GetSchedParams fail: %s", err)))
 		return
 	}
 	//schedInput = models.ApplySchedPolicies(schedInput)
@@ -132,7 +132,7 @@ func doScheduleObjects(
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 	output, err := modules.SchedManager.DoSchedule(s, schedInput, len(objs))
 	if err != nil {
-		onSchedulerRequestFail(ctx, task, objs, fmt.Sprintf("Scheduler fail: %s", err))
+		onSchedulerRequestFail(ctx, task, objs, jsonutils.Marshal(err))
 		return
 	}
 	onSchedulerResults(ctx, task, objs, output.Candidates)
@@ -147,12 +147,12 @@ func onSchedulerRequestFail(
 	ctx context.Context,
 	task IScheduleTask,
 	objs []IScheduleModel,
-	reason string,
+	reason jsonutils.JSONObject,
 ) {
 	for _, obj := range objs {
 		onObjScheduleFail(ctx, task, obj, reason)
 	}
-	task.OnScheduleFailed(ctx, fmt.Sprintf("Schedule failed: %s", reason))
+	task.OnScheduleFailed(ctx, reason)
 	cancelPendingUsage(ctx, task)
 }
 
@@ -160,14 +160,15 @@ func onObjScheduleFail(
 	ctx context.Context,
 	task IScheduleTask,
 	obj IScheduleModel,
-	msg string,
+	msg jsonutils.JSONObject,
 ) {
 	lockman.LockObject(ctx, obj)
 	defer lockman.ReleaseObject(ctx, obj)
 
-	reason := "No matching resources"
-	if len(msg) > 0 {
-		reason = fmt.Sprintf("%s: %s", reason, msg)
+	var reason jsonutils.JSONObject
+	reason = jsonutils.NewString("No matching resources")
+	if msg != nil {
+		reason = jsonutils.NewArray(reason, msg)
 	}
 	task.OnScheduleFailCallback(ctx, obj, reason)
 }
@@ -184,7 +185,7 @@ func onSchedulerResults(
 		result := results[idx]
 
 		if len(result.Error) != 0 {
-			onObjScheduleFail(ctx, task, obj, fmt.Sprintf("%s", result.Error))
+			onObjScheduleFail(ctx, task, obj, jsonutils.NewString(result.Error))
 			continue
 		}
 
@@ -198,7 +199,7 @@ func onSchedulerResults(
 		succCount += 1
 	}
 	if succCount == 0 {
-		task.OnScheduleFailed(ctx, "Schedule failed")
+		task.OnScheduleFailed(ctx, jsonutils.NewString("Schedule failed"))
 	}
 	cancelPendingUsage(ctx, task)
 }

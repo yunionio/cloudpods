@@ -41,8 +41,8 @@ func init() {
 func (self *CloudAccountSyncSkusTask) taskFailed(ctx context.Context, account *models.SCloudaccount, err error) {
 	account.SetStatus(self.UserCred, api.CLOUD_PROVIDER_SYNC_STATUS_ERROR, err.Error())
 	db.OpsLog.LogEvent(account, db.ACT_SYNC_CLOUD_SKUS, err.Error(), self.GetUserCred())
-	logclient.AddActionLogWithStartable(self, account, logclient.ACT_CLOUD_SYNC, err.Error(), self.UserCred, false)
-	self.SetStageFailed(ctx, err.Error())
+	logclient.AddActionLogWithStartable(self, account, logclient.ACT_CLOUD_SYNC, err, self.UserCred, false)
+	self.SetStageFailed(ctx, jsonutils.Marshal(err))
 }
 
 func (self *CloudAccountSyncSkusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
