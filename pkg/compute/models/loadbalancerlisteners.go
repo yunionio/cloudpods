@@ -44,6 +44,7 @@ type SLoadbalancerListenerManager struct {
 	db.SExternalizedResourceBaseManager
 
 	SLoadbalancerResourceBaseManager
+	SLoadbalancerAclResourceBaseManager
 	SLoadbalancerCertificateResourceBaseManager
 }
 
@@ -144,10 +145,10 @@ type SLoadbalancerListener struct {
 	BackendConnectTimeout int `nullable:"true" list:"user" create:"optional" update:"user"` // 后端连接超时时间
 	BackendIdleTimeout    int `nullable:"true" list:"user" create:"optional" update:"user"` // 后端连接空闲时间
 
-	AclStatus   string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
-	AclType     string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
-	AclId       string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
-	CachedAclId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	AclStatus                    string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	AclType                      string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	SLoadbalancerAclResourceBase `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	CachedAclId                  string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 
 	SLoadbalancerRateLimiter
 
@@ -536,12 +537,14 @@ func (manager *SLoadbalancerListenerManager) FetchCustomizeColumns(
 
 	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	lbRows := manager.SLoadbalancerResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	lbaclRows := manager.SLoadbalancerAclResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	lbcertRows := manager.SLoadbalancerCertificateResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i] = api.LoadbalancerListenerDetails{
 			VirtualResourceDetails:              virtRows[i],
 			LoadbalancerResourceInfo:            lbRows[i],
+			LoadbalancerAclResourceInfo:         lbaclRows[i],
 			LoadbalancerCertificateResourceInfo: lbcertRows[i],
 		}
 		rows[i], _ = objs[i].(*SLoadbalancerListener).getMoreDetails(rows[i])
