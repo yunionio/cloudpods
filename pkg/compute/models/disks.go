@@ -495,7 +495,9 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 			input.Hypervisor,
 		)
 	} else {
-		diskConfig.Backend = api.STORAGE_LOCAL
+		if len(diskConfig.Backend) == 0 {
+			diskConfig.Backend = api.STORAGE_LOCAL
+		}
 		serverInput, err := ValidateScheduleCreateData(ctx, userCred, input.ToServerCreateInput(), input.Hypervisor)
 		if err != nil {
 			return nil, err
