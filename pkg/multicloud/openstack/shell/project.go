@@ -45,4 +45,12 @@ func init() {
 		return nil
 	})
 
+	type ProjectIdOption struct {
+		ID string
+	}
+
+	shellutils.R(&ProjectIdOption{}, "project-delete", "Delete project", func(cli *openstack.SRegion, args *ProjectIdOption) error {
+		return cli.GetClient().DeleteProject(args.ID)
+	})
+
 }

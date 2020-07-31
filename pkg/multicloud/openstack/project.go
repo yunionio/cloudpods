@@ -15,6 +15,7 @@
 package openstack
 
 import (
+	"fmt"
 	"net/url"
 
 	"yunion.io/x/jsonutils"
@@ -51,6 +52,9 @@ func (p *SProject) GetName() string {
 }
 
 func (p *SProject) GetStatus() string {
+	if !p.Enabled {
+		return api.EXTERNAL_PROJECT_STATUS_UNKNOWN
+	}
 	_, err := p.getToken()
 	if err != nil {
 		log.Errorf("get project %s token error: %v %T", p.Name, err, err)
@@ -114,4 +118,10 @@ func (cli *SOpenStackClient) GetProjects() ([]SProject, error) {
 		query.Set("marker", marker)
 	}
 	return projects, nil
+}
+
+func (cli *SOpenStackClient) DeleteProject(projectId string) error {
+	resource := fmt.Sprintf("/v3/projects/%s", projectId)
+	_, err := cli.iamRequest(cli.getDefaultRegionName(), httputils.DELETE, resource, nil, nil)
+	return err
 }
