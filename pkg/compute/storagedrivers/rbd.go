@@ -211,6 +211,9 @@ func (self *SRbdStorageDriver) RequestCreateSnapshot(ctx context.Context, snapsh
 func (self *SRbdStorageDriver) RequestDeleteSnapshot(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask) error {
 	storage := snapshot.GetStorage()
 	host := storage.GetMasterHost()
+	if host == nil {
+		return errors.Errorf("storage %s can't get master host", storage.Id)
+	}
 	url := fmt.Sprintf("%s/disks/%s/delete-snapshot/%s", host.ManagerUri, storage.Id, snapshot.DiskId)
 	header := task.GetTaskRequestHeader()
 	params := jsonutils.NewDict()
