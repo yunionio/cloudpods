@@ -1176,15 +1176,17 @@ func syncOnPremiseCloudProviderInfo(
 		}
 	}
 
-	log.Debugf("storageCachePairs count %d", len(storageCachePairs))
-	for i := range storageCachePairs {
-		// alway sync on-premise cached images
-		// if storageCachePairs[i].isNew || syncRange.DeepSync {
-		result := storageCachePairs[i].syncCloudImages(ctx, userCred)
-		syncResults.Add(StoragecachedimageManager, result)
-		msg := result.Result()
-		log.Infof("syncCloudImages result: %s", msg)
-		// }
+	if cloudprovider.IsSupportCompute(driver) {
+		log.Debugf("storageCachePairs count %d", len(storageCachePairs))
+		for i := range storageCachePairs {
+			// alway sync on-premise cached images
+			// if storageCachePairs[i].isNew || syncRange.DeepSync {
+			result := storageCachePairs[i].syncCloudImages(ctx, userCred)
+			syncResults.Add(StoragecachedimageManager, result)
+			msg := result.Result()
+			log.Infof("syncCloudImages result: %s", msg)
+			// }
+		}
 	}
 
 	return nil
