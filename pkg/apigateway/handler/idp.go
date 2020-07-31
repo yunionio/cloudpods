@@ -39,7 +39,24 @@ import (
 )
 
 func getSsoCallbackUrl() string {
+	if options.Options.SsoRedirectUrl == "" {
+		return httputils.JoinPath(options.Options.ApiServer, "api/v1/auth/ssologin")
+	}
 	return options.Options.SsoRedirectUrl
+}
+
+func getSsoAuthCallbackUrl() string {
+	if options.Options.SsoAuthCallbackUrl == "" {
+		return httputils.JoinPath(options.Options.ApiServer, "auth")
+	}
+	return options.Options.SsoAuthCallbackUrl
+}
+
+func getSsoLinkCallbackUrl() string {
+	if options.Options.SsoLinkCallbackUrl == "" {
+		return httputils.JoinPath(options.Options.ApiServer, "user")
+	}
+	return options.Options.SsoLinkCallbackUrl
 }
 
 func (h *AuthHandlers) getIdpSsoRedirectUri(ctx context.Context, w http.ResponseWriter, req *http.Request) {
@@ -141,7 +158,7 @@ func (h *AuthHandlers) handleSsoLogin(ctx context.Context, w http.ResponseWriter
 	if len(idpLinkUser) > 0 {
 		// link with existing user
 		err := linkWithExistingUser(ctx, req, idpId, idpLinkUser, body)
-		referer := options.Options.SsoLinkCallbackUrl
+		referer := getSsoLinkCallbackUrl()
 		refererUrl, _ := url.Parse(referer)
 		if refererUrl == nil {
 			refererUrl, _ = url.Parse(idpReferer)
@@ -154,7 +171,7 @@ func (h *AuthHandlers) handleSsoLogin(ctx context.Context, w http.ResponseWriter
 		appsrv.SendRedirect(w, redirUrl)
 	} else {
 		// ordinary login
-		referer := options.Options.SsoAuthCallbackUrl
+		referer := getSsoAuthCallbackUrl()
 		refererUrl, _ := url.Parse(referer)
 		if refererUrl == nil {
 			refererUrl, _ = url.Parse(idpReferer)

@@ -31,6 +31,7 @@ type GatewayOptions struct {
 	SsoRedirectUrl     string `help:"SSO idp redirect URL"`
 	SsoAuthCallbackUrl string `help:"SSO idp auth callback URL"`
 	SsoLinkCallbackUrl string `help:"SSO idp link user callback URL"`
+	LoginCallbackParam string `help:"Redirect callback parameter name after successful login"`
 
 	common_options.CommonOptions `"request_worker_count->default":"32"`
 }
