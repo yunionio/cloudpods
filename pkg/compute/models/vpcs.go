@@ -222,6 +222,16 @@ func (self *SVpc) getNetworkQuery() *sqlchemy.SQuery {
 	return q
 }
 
+func (self *SVpc) GetNetworks() ([]SNetwork, error) {
+	q := self.getNetworkQuery()
+	nets := make([]SNetwork, 0, 5)
+	err := db.FetchModelObjects(NetworkManager, q, &nets)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
+	}
+	return nets, nil
+}
+
 func (self *SVpc) GetNetworkCount() (int, error) {
 	q := self.getNetworkQuery()
 	return q.CountWithError()
