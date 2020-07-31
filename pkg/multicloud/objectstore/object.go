@@ -52,7 +52,7 @@ func (o *SObject) GetAcl() cloudprovider.TBucketACLType {
 			}
 		}
 		log.Errorf("o.bucket.client.GetObjectAcl error %s", err)
-		return acl
+		return cloudprovider.ACLPrivate
 	}
 	return acl
 }
@@ -61,7 +61,8 @@ func (o *SObject) SetAcl(aclStr cloudprovider.TBucketACLType) error {
 	err := o.bucket.client.SetObjectAcl(o.bucket.Name, o.Key, aclStr)
 	if err != nil {
 		if strings.Contains(err.Error(), "not implemented") {
-			return cloudprovider.ErrNotImplemented
+			// ignore not implemented error
+			return nil // cloudprovider.ErrNotImplemented
 		} else {
 			return errors.Wrap(err, "o.bucket.client.SetObjectAcl")
 		}
