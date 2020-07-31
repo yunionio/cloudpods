@@ -309,7 +309,7 @@ func (manager *SWireManager) SyncWires(ctx context.Context, userCred mcclient.To
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudWire(ctx, userCred, commonext[i], provider)
+		err = commondb[i].syncWithCloudWire(ctx, userCred, commonext[i], vpc, provider)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -353,12 +353,18 @@ func (self *SWire) syncRemoveCloudWire(ctx context.Context, userCred mcclient.To
 	return err
 }
 
-func (self *SWire) syncWithCloudWire(ctx context.Context, userCred mcclient.TokenCredential, extWire cloudprovider.ICloudWire, provider *SCloudprovider) error {
+func (self *SWire) syncWithCloudWire(ctx context.Context, userCred mcclient.TokenCredential, extWire cloudprovider.ICloudWire, vpc *SVpc, provider *SCloudprovider) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		// self.Name = extWire.GetName()
 		self.Bandwidth = extWire.GetBandwidth() // 10G
 
 		self.IsEmulated = extWire.IsEmulated()
+
+		if self.IsEmulated {
+			self.DomainId = vpc.DomainId
+			self.IsPublic = vpc.IsPublic
+			self.PublicScope = vpc.PublicScope
+		}
 
 		return nil
 	})
@@ -408,6 +414,7 @@ func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mccl
 	}
 
 	wire.IsEmulated = extWire.IsEmulated()
+
 	wire.DomainId = vpc.DomainId
 	wire.IsPublic = vpc.IsPublic
 	wire.PublicScope = vpc.PublicScope
@@ -418,10 +425,10 @@ func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mccl
 		return nil, err
 	}
 
-	/*if provider != nil {
+	if provider != nil && !wire.IsEmulated {
 		SyncCloudDomain(userCred, &wire, provider.GetOwnerId())
 		wire.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
-	}*/
+	}
 
 	db.OpsLog.LogEvent(&wire, db.ACT_CREATE, wire.GetShortDesc(ctx), userCred)
 	return &wire, nil
