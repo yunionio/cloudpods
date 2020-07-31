@@ -49,12 +49,6 @@ var (
 				},
 				{
 					Service:  api.SERVICE_TYPE,
-					Resource: "metadatas",
-					Action:   PolicyActionList,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  api.SERVICE_TYPE,
 					Resource: "cloudregions",
 					Action:   PolicyActionList,
 					Result:   rbacutils.Allow,
