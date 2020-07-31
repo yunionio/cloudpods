@@ -114,6 +114,10 @@ func (self *SOpenStackGuestDriver) IsNeedInjectPasswordByCloudInit(desc *cloudpr
 	return true
 }
 
+func (self *SOpenStackGuestDriver) IsWindowsUserDataTypeNeedEncode() bool {
+	return true
+}
+
 func (self *SOpenStackGuestDriver) IsNeedRestartForResetLoginInfo() bool {
 	return false
 }
