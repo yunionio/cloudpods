@@ -29,6 +29,11 @@ var (
 					Action:   PolicyActionPerform,
 					Result:   rbacutils.Allow,
 				},
+				{
+					Resource: "metadatas",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
 			},
 		},
 		{
