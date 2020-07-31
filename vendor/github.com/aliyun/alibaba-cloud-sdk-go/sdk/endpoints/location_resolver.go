@@ -16,6 +16,7 @@ package endpoints
 import (
 	"encoding/json"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
+	"sync"
 	"time"
 )
 
@@ -23,8 +24,26 @@ const (
 	EndpointCacheExpireTime = 3600 //Seconds
 )
 
-var lastClearTimePerProduct map[string]int64 = make(map[string]int64)
-var endpointCache map[string]string = make(map[string]string)
+type Cache struct {
+	sync.RWMutex
+	cache map[string]interface{}
+}
+
+func (c Cache) Get(k string) (v interface{}) {
+	c.RLock()
+	v = c.cache[k]
+	c.RUnlock()
+	return
+}
+
+func (c Cache) Set(k string, v interface{}) {
+	c.Lock()
+	c.cache[k] = v
+	c.Unlock()
+}
+
+var lastClearTimePerProduct = Cache{cache: make(map[string]interface{})}
+var endpointCache = Cache{cache: make(map[string]interface{})}
 
 type LocationResolver struct {
 }
@@ -37,30 +56,31 @@ func (resolver *LocationResolver) TryResolve(param *ResolveParam) (endpoint stri
 
 	//get from cache
 	cacheKey := param.Product + "#" + param.RegionId
-	if endpointCache != nil && len(endpointCache[cacheKey]) > 0 && !CheckCacheIsExpire(cacheKey) {
-		endpoint = endpointCache[cacheKey]
+	if endpointCache.cache != nil && len(endpointCache.Get(cacheKey).(string)) > 0 && !CheckCacheIsExpire(cacheKey) {
+		endpoint = endpointCache.Get(cacheKey).(string)
 		support = true
 		return
 	}
 
 	//get from remote
 	getEndpointRequest := requests.NewCommonRequest()
+
 	getEndpointRequest.Product = "Location"
 	getEndpointRequest.Version = "2015-06-12"
 	getEndpointRequest.ApiName = "DescribeEndpoints"
-	getEndpointRequest.Domain = "location.aliyuncs.com"
+	getEndpointRequest.Domain = "location-readonly.aliyuncs.com"
 	getEndpointRequest.Method = "GET"
+	getEndpointRequest.Scheme = requests.HTTPS
 
 	getEndpointRequest.QueryParams["Id"] = param.RegionId
 	getEndpointRequest.QueryParams["ServiceCode"] = param.LocationProduct
-	if len(param.LocationEndpoint) > 0 {
-		getEndpointRequest.QueryParams["Type"] = param.LocationEndpoint
+	if len(param.LocationEndpointType) > 0 {
+		getEndpointRequest.QueryParams["Type"] = param.LocationEndpointType
 	} else {
 		getEndpointRequest.QueryParams["Type"] = "openAPI"
 	}
 
 	response, err := param.CommonApi(getEndpointRequest)
-	//{"Endpoints":{"Endpoint":[{"Protocols":{"Protocols":["HTTP","HTTPS"]},"Type":"openAPI","Namespace":"26842","Id":"cn-hangzhou","SerivceCode":"apigateway","Endpoint":"apigateway.cn-hangzhou.aliyuncs.com"}]},"RequestId":"3287538B-19A0-4550-9995-143C5EDBD955","Success":true}
 	var getEndpointResponse GetEndpointResponse
 	if !response.IsSuccess() {
 		support = false
@@ -78,8 +98,8 @@ func (resolver *LocationResolver) TryResolve(param *ResolveParam) (endpoint stri
 	}
 	if len(getEndpointResponse.Endpoints.Endpoint[0].Endpoint) > 0 {
 		endpoint = getEndpointResponse.Endpoints.Endpoint[0].Endpoint
-		endpointCache[cacheKey] = endpoint
-		lastClearTimePerProduct[cacheKey] = time.Now().Unix()
+		endpointCache.Set(cacheKey, endpoint)
+		lastClearTimePerProduct.Set(cacheKey, time.Now().Unix())
 		support = true
 		return
 	}
@@ -89,10 +109,10 @@ func (resolver *LocationResolver) TryResolve(param *ResolveParam) (endpoint stri
 }
 
 func CheckCacheIsExpire(cacheKey string) bool {
-	lastClearTime := lastClearTimePerProduct[cacheKey]
+	lastClearTime := lastClearTimePerProduct.Get(cacheKey).(int64)
 	if lastClearTime <= 0 {
 		lastClearTime = time.Now().Unix()
-		lastClearTimePerProduct[cacheKey] = lastClearTime
+		lastClearTimePerProduct.Set(cacheKey, lastClearTime)
 	}
 
 	now := time.Now().Unix()

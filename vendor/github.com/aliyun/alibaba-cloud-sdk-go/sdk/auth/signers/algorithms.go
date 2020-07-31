@@ -58,6 +58,6 @@ func Sha256WithRsa(source, secret string) string {
 	}
 
 	signedString := base64.StdEncoding.EncodeToString(signature)
-	fmt.Printf("Encoded: %v\n", signedString)
+	//fmt.Printf("Encoded: %v\n", signedString)
 	return signedString
 }

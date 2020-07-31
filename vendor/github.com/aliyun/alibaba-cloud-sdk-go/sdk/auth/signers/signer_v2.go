@@ -19,14 +19,14 @@ import (
 )
 
 type SignerV2 struct {
-	credential *credentials.KeyPairCredential
+	credential *credentials.RsaKeyPairCredential
 }
 
 func (signer *SignerV2) GetExtraParam() map[string]string {
 	return nil
 }
 
-func NewSignerV2(credential *credentials.KeyPairCredential) (*SignerV2, error) {
+func NewSignerV2(credential *credentials.RsaKeyPairCredential) (*SignerV2, error) {
 	return &SignerV2{
 		credential: credential,
 	}, nil
@@ -44,8 +44,8 @@ func (*SignerV2) GetVersion() string {
 	return "1.0"
 }
 
-func (signer *SignerV2) GetAccessKeyId() string {
-	return signer.credential.PublicKeyId
+func (signer *SignerV2) GetAccessKeyId() (accessKeyId string, err error) {
+	return signer.credential.PublicKeyId, err
 }
 
 func (signer *SignerV2) Sign(stringToSign, secretSuffix string) string {
