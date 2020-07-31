@@ -622,7 +622,7 @@ func getNetworkCountByFilter(region *SCloudregion, zone *SZone, domainId string,
 	}
 	vpcs := vpcQuery.SubQuery()*/
 
-	wireQuery := WireManager.Query()
+	wireQuery := WireManager.Query().Equals("vpc_id", api.DEFAULT_VPC_ID)
 	if len(domainId) > 0 {
 		ownerId := &db.SOwnerId{DomainId: domainId}
 		wireQuery = WireManager.FilterByOwner(wireQuery, ownerId, rbacutils.ScopeDomain)
