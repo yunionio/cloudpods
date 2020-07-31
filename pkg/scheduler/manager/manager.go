@@ -96,7 +96,7 @@ func (sm *SchedulerManager) start() {
 	}
 }
 
-func (sm *SchedulerManager) schedule(info *api.SchedInfo) (*ScheduleResult, error) {
+func (sm *SchedulerManager) schedule(info *api.SchedInfo) (*core.ScheduleResult, error) {
 	log.V(10).Infof("SchedulerManager do schedule, input: %#v", info)
 	task, err := sm.TaskManager.AddTask(sm, info)
 	if err != nil {
@@ -121,7 +121,7 @@ func NewSessionID() string {
 
 // Schedule process the request data that is scheduled for dispatch and complements
 // the session information.
-func Schedule(info *api.SchedInfo) (*ScheduleResult, error) {
+func Schedule(info *api.SchedInfo) (*core.ScheduleResult, error) {
 	if len(info.SessionId) == 0 {
 		info.SessionId = NewSessionID()
 	}

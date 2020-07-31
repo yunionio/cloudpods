@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
@@ -33,6 +34,8 @@ import (
 const (
 	PriorityStep int = 1
 )
+
+var ErrInstanceGroupNotFound = errors.Error("InstanceGroupNotFound")
 
 type FailedCandidate struct {
 	Stage     string

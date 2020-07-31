@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package manager
+package core
 
 import (
 	"fmt"
@@ -20,13 +20,40 @@ import (
 	"yunion.io/x/log"
 
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
-	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
-	"yunion.io/x/onecloud/pkg/scheduler/core"
-	schedmodels "yunion.io/x/onecloud/pkg/scheduler/models"
 )
 
-func transToSchedResult(result *core.SchedResultItemList, schedInfo *api.SchedInfo) *schedapi.ScheduleOutput {
+func ResultHelp(result *SchedResultItemList, schedInfo *api.SchedInfo) *ScheduleResult {
+	out := new(ScheduleResult)
+	out.Result = transToSchedResult(result, schedInfo)
+	return out
+}
+
+func ResultHelpForForcast(result *SchedResultItemList, _ *api.SchedInfo) *ScheduleResult {
+	out := new(ScheduleResult)
+	out.ForecastResult = transToSchedForecastResult(result)
+	return out
+}
+
+func ResultHelpForTest(result *SchedResultItemList, schedInfo *api.SchedInfo) *ScheduleResult {
+	out := new(ScheduleResult)
+	out.TestResult = transToSchedTestResult(result, schedInfo.SuggestionLimit)
+	return out
+}
+
+type IResultHelper interface {
+	ResultHelp(result *SchedResultItemList, schedInfo *api.SchedInfo) *ScheduleResult
+}
+
+// ResultHelperFunc type is an adapter to allwo the use of ordinary functions as a ResultHelper.
+// If f is a function with the appropriate signature, ResultHelperFunc(f) is a ResultHelper that calls f.
+type SResultHelperFunc func(result *SchedResultItemList, schedInfo *api.SchedInfo) *ScheduleResult
+
+func (r SResultHelperFunc) ResultHelp(result *SchedResultItemList, schedInfo *api.SchedInfo) *ScheduleResult {
+	return r(result, schedInfo)
+}
+
+func transToSchedResult(result *SchedResultItemList, schedInfo *api.SchedInfo) *schedapi.ScheduleOutput {
 	if schedInfo.Backup || len(schedInfo.InstanceGroupsDetail) > 0 {
 		return transToInstanceGroupSchedResult(result, schedInfo)
 	} else {
@@ -34,24 +61,10 @@ func transToSchedResult(result *core.SchedResultItemList, schedInfo *api.SchedIn
 	}
 }
 
-func setSchedPendingUsage(driver computemodels.IGuestDriver, req *api.SchedInfo, resp *schedapi.ScheduleOutput) error {
-	if req.IsSuggestion || IsDriverSkipScheduleDirtyMark(driver) || req.SkipDirtyMarkHost() {
-		return nil
-	}
-	for _, item := range resp.Candidates {
-		schedmodels.HostPendingUsageManager.AddPendingUsage(req, item)
-	}
-	return nil
-}
-
-func IsDriverSkipScheduleDirtyMark(driver computemodels.IGuestDriver) bool {
-	return !(driver.DoScheduleCPUFilter() && driver.DoScheduleMemoryFilter() && driver.DoScheduleStorageFilter())
-}
-
-func transToRegionSchedResult(result core.SchedResultItems, count int64, sid string) *schedapi.ScheduleOutput {
+func transToRegionSchedResult(result SchedResultItems, count int64, sid string) *schedapi.ScheduleOutput {
 	apiResults := make([]*schedapi.CandidateResource, 0)
 	succCount := 0
-	storageUsed := core.NewStorageUsed()
+	storageUsed := NewStorageUsed()
 	for _, nr := range result {
 		for {
 			if nr.Count <= 0 {
@@ -79,7 +92,7 @@ func transToRegionSchedResult(result core.SchedResultItems, count int64, sid str
 	}
 }
 
-func hostInResultItemsIndex(hostId string, hosts core.SchedResultItems) int {
+func hostInResultItemsIndex(hostId string, hosts SchedResultItems) int {
 	for i := 0; i < len(hosts); i++ {
 		if hosts[i].ID == hostId {
 			return i
@@ -88,7 +101,7 @@ func hostInResultItemsIndex(hostId string, hosts core.SchedResultItems) int {
 	return -1
 }
 
-func transToSchedTestResult(result *core.SchedResultItemList, limit int64) interface{} {
+func transToSchedTestResult(result *SchedResultItemList, limit int64) interface{} {
 	return &api.SchedTestResult{
 		Data:   result.Data,
 		Total:  int64(result.Data.Len()),
@@ -97,7 +110,7 @@ func transToSchedTestResult(result *core.SchedResultItemList, limit int64) inter
 	}
 }
 
-func transToSchedForecastResult(result *core.SchedResultItemList) interface{} {
+func transToSchedForecastResult(result *SchedResultItemList) interface{} {
 	unit := result.Unit
 	schedData := unit.SchedData()
 	reqCount := int64(schedData.Count)
@@ -118,13 +131,13 @@ func transToSchedForecastResult(result *core.SchedResultItemList) interface{} {
 		}
 	}
 
-	logIndex := func(item *core.SchedResultItem) string {
+	logIndex := func(item *SchedResultItem) string {
 		getter := item.Candidater.Getter()
 		name := getter.Name()
 		id := getter.Id()
 		return fmt.Sprintf("%s:%s", name, id)
 	}
-	addInfos := func(logs core.SchedLogList, item *core.SchedResultItem) {
+	addInfos := func(logs SchedLogList, item *SchedResultItem) {
 		for preName, cnt := range item.CapacityDetails {
 			if cnt > 0 {
 				continue
@@ -145,7 +158,7 @@ func transToSchedForecastResult(result *core.SchedResultItemList) interface{} {
 		}
 	}
 
-	items := make(core.SchedResultItems, 0)
+	items := make(SchedResultItems, 0)
 	for _, item := range result.Data {
 		hostType := item.Candidater.Getter().HostType()
 		if schedData.Hypervisor == hostType {

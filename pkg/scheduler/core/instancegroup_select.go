@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package manager
+package core
 
 import (
 	"fmt"
@@ -26,12 +26,10 @@ import (
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
-	"yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
-	"yunion.io/x/onecloud/pkg/scheduler/core"
 	"yunion.io/x/onecloud/pkg/scheduler/core/score"
 )
 
-func transToInstanceGroupSchedResult(result *core.SchedResultItemList, schedInfo *api.SchedInfo) *schedapi.ScheduleOutput {
+func transToInstanceGroupSchedResult(result *SchedResultItemList, schedInfo *api.SchedInfo) *schedapi.ScheduleOutput {
 	for _, item := range result.Data {
 		item.Count = 0
 	}
@@ -50,7 +48,7 @@ type sGuestInfo struct {
 }
 
 type sSchedResultItem struct {
-	*core.SchedResultItem
+	*SchedResultItem
 	instanceGroupCapacity map[string]int64
 	masterCount           int64
 	backupCount           int64
@@ -69,7 +67,7 @@ func (item *sSchedResultItem) minInstanceGroupCapacity(groupSet map[string]*mode
 	return mincapa
 }
 
-func buildHosts(result *core.SchedResultItemList, groups map[string]*models.SGroup) []*sSchedResultItem {
+func buildHosts(result *SchedResultItemList, groups map[string]*models.SGroup) []*sSchedResultItem {
 	hosts := make([]*sSchedResultItem, result.Data.Len())
 	for i := 0; i < len(result.Data); i++ {
 		getter := result.Data[i].Candidater.Getter()
@@ -77,7 +75,7 @@ func buildHosts(result *core.SchedResultItemList, groups map[string]*models.SGro
 		for id, group := range groups {
 			c, err := getter.GetFreeGroupCount(id)
 			if err != nil {
-				if errors.Cause(err) == candidate.ErrInstanceGroupNotFound {
+				if errors.Cause(err) == ErrInstanceGroupNotFound {
 					igCapacity[id] = int64(group.Granularity)
 				} else {
 					igCapacity[id] = 0
@@ -124,7 +122,7 @@ func sortHosts(hosts []*sSchedResultItem, guestInfo *sGuestInfo, isBackup *bool)
 
 // scoreNormalization compare the value of s1 and s2.
 // If s1 is less than s2, return 1, 0 which means s2 is better than s1.
-func scoreNormalization(s1, s2 core.Score) (int64, int64) {
+func scoreNormalization(s1, s2 Score) (int64, int64) {
 	sb1, sb2 := s1.ScoreBucket, s2.ScoreBucket
 	preferLess := score.PreferLess(sb1, sb2)
 	avoidLess := score.AvoidLess(sb1, sb2)
@@ -213,7 +211,8 @@ func hostsIndex(hostId string, hosts []*sSchedResultItem) int {
 // getBackupSchedResult return the ScheduleOutput for guest without backup
 func getSchedResult(hosts []*sSchedResultItem, guestInfos []sGuestInfo, sid string) *schedapi.ScheduleOutput {
 	apiResults := make([]*schedapi.CandidateResource, 0)
-	storageUsed := core.NewStorageUsed()
+	storageUsed :=
+		NewStorageUsed()
 	var i int = 0
 	for ; i < len(guestInfos); i++ {
 		host := selectHost(hosts, guestInfos[i], nil, true)
@@ -244,7 +243,7 @@ func getBackupSchedResult(hosts []*sSchedResultItem, guestInfos, backGuestInfos 
 	wireHostMap := buildWireHosts(hosts)
 	apiResults := make([]*schedapi.CandidateResource, 0, len(guestInfos))
 	nowireIds := sets.NewString()
-	storageUsed := core.NewStorageUsed()
+	storageUsed := NewStorageUsed()
 	isBackup := true
 	isMaster := false
 	for i := 0; i < len(guestInfos); i++ {
