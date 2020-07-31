@@ -33,7 +33,7 @@ import (
 
 type SLoadbalancerAclResourceBase struct {
 	// 本地Acl ID
-	AclId string `width:"128" charset:"ascii" nullable:"false" create:"required"  index:"true" list:"user" json:"acl_id"`
+	AclId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 }
 
 type SLoadbalancerAclResourceBaseManager struct{}

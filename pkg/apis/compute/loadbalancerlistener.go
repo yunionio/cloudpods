@@ -19,11 +19,12 @@ import "yunion.io/x/onecloud/pkg/apis"
 type LoadbalancerListenerDetails struct {
 	apis.VirtualResourceDetails
 	LoadbalancerResourceInfo
+	LoadbalancerAclResourceInfo
+	LoadbalancerCertificateResourceInfo
 
 	SLoadbalancerListener
 
 	BackendGroup        string `json:"backend_group"`
-	AclName             string `json:"acl_name"`
 	CertificateName     string `json:"certificate_name"`
 	OriginCertificateId string `json:"origin_certificate_id"`
 }

@@ -33,7 +33,7 @@ import (
 
 type SLoadbalancerCertificateResourceBase struct {
 	// 本地负载均衡证书ID
-	CertificateId string `width:"36" charset:"ascii" nullable:"false" create:"required"  index:"true" list:"user" json:"certificate_id"`
+	CertificateId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 }
 
 type SLoadbalancerCertificateResourceBaseManager struct{}
