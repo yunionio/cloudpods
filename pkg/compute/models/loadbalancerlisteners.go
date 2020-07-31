@@ -42,7 +42,10 @@ type SLoadbalancerListenerManager struct {
 	SLoadbalancerLogSkipper
 	db.SVirtualResourceBaseManager
 	db.SExternalizedResourceBaseManager
+
 	SLoadbalancerResourceBaseManager
+	SLoadbalancerAclResourceBaseManager
+	SLoadbalancerCertificateResourceBaseManager
 }
 
 var LoadbalancerListenerManager *SLoadbalancerListenerManager
@@ -114,7 +117,8 @@ type SLoadbalancerHTTPRedirect struct {
 //  - Use certificate for tcp listener
 //  - Customize ciphers?
 type SLoadbalancerHTTPSListener struct {
-	CertificateId       string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	SLoadbalancerCertificateResourceBase
+
 	CachedCertificateId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 	TLSCipherPolicy     string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 	EnableHttp2         bool   `create:"optional" list:"user" update:"user"`
@@ -141,10 +145,10 @@ type SLoadbalancerListener struct {
 	BackendConnectTimeout int `nullable:"true" list:"user" create:"optional" update:"user"` // 后端连接超时时间
 	BackendIdleTimeout    int `nullable:"true" list:"user" create:"optional" update:"user"` // 后端连接空闲时间
 
-	AclStatus   string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
-	AclType     string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
-	AclId       string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
-	CachedAclId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	AclStatus                    string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	AclType                      string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	SLoadbalancerAclResourceBase `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	CachedAclId                  string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 
 	SLoadbalancerRateLimiter
 
@@ -505,11 +509,6 @@ func (lblis *SLoadbalancerListener) getMoreDetails(out api.LoadbalancerListenerD
 			out.BackendGroup = lbbg.GetName()
 		}
 	}
-	if len(lblis.AclId) > 0 {
-		if acl := lblis.GetCachedLoadbalancerAcl(); acl != nil {
-			out.AclName = acl.Name
-		}
-	}
 
 	if len(lblis.CertificateId) > 0 {
 		if cert, _ := lblis.GetLoadbalancerCertificate(); cert != nil {
@@ -533,11 +532,15 @@ func (manager *SLoadbalancerListenerManager) FetchCustomizeColumns(
 
 	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	lbRows := manager.SLoadbalancerResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	lbaclRows := manager.SLoadbalancerAclResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	lbcertRows := manager.SLoadbalancerCertificateResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i] = api.LoadbalancerListenerDetails{
-			VirtualResourceDetails:   virtRows[i],
-			LoadbalancerResourceInfo: lbRows[i],
+			VirtualResourceDetails:              virtRows[i],
+			LoadbalancerResourceInfo:            lbRows[i],
+			LoadbalancerAclResourceInfo:         lbaclRows[i],
+			LoadbalancerCertificateResourceInfo: lbcertRows[i],
 		}
 		rows[i], _ = objs[i].(*SLoadbalancerListener).getMoreDetails(rows[i])
 	}
