@@ -30,6 +30,7 @@ import (
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager/sku"
 	schedmodels "yunion.io/x/onecloud/pkg/scheduler/models"
 )
 
@@ -122,6 +123,11 @@ func (b baseHostGetter) HostType() string {
 
 func (b baseHostGetter) HostSchedtags() []computemodels.SSchedtag {
 	return b.h.HostSchedtags
+}
+
+func (b baseHostGetter) Sku(instanceType string) *sku.ServerSku {
+	zone := b.Zone()
+	return sku.GetByZone(instanceType, zone.GetId())
 }
 
 func (b baseHostGetter) Storages() []*api.CandidateStorage {
