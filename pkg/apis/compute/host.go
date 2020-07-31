@@ -175,6 +175,11 @@ type HostDetails struct {
 	// isolated device count
 	IsolatedDeviceCount int
 
+	// host init warnning
+	SysWarn string `json:"sys_warn"`
+	// host init error info
+	SysError string `json:"sys_error"`
+
 	// 标签
 	Metadata map[string]string `json:"metadata"`
 }
@@ -240,6 +245,8 @@ type HostRegisterMetadata struct {
 
 	OnKubernetes bool   `json:"on_kubernetes"`
 	Hostname     string `json:"hostname"`
+	SysError     string `json:"sys_error,allowempty"`
+	SysWarn      string `json:"sys_warn,allowempty"`
 }
 
 type HostAccessAttributes struct {
