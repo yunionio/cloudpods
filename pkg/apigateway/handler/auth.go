@@ -72,6 +72,9 @@ func (h *AuthHandlers) AddMethods() {
 		NewHP(h.getIdpSsoRedirectUri, "sso", "redirect", "<idp_id>"),
 		NewHP(h.listTotpRecoveryQuestions, "recovery"),
 		NewHP(h.handleSsoLogin, "ssologin"),
+		NewHP(handleOIDCAuth, "oidc", "auth"),
+		NewHP(handleOIDCConfiguration, "oidc", ".well-known", "openid-configuration"),
+		NewHP(handleOIDCJWKeys, "oidc", "keys"),
 	)
 	h.AddByMethod(POST, nil,
 		NewHP(h.initTotpSecrets, "initcredential"),
@@ -81,6 +84,7 @@ func (h *AuthHandlers) AddMethods() {
 		NewHP(h.postLoginHandler, "login"),
 		NewHP(h.postLogoutHandler, "logout"),
 		NewHP(h.handleSsoLogin, "ssologin"),
+		NewHP(handleOIDCToken, "oidc", "token"),
 	)
 
 	// auth middleware handler
@@ -91,6 +95,7 @@ func (h *AuthHandlers) AddMethods() {
 		NewHP(h.getResources, "scoped_resources"),
 		NewHP(fetchIdpBasicConfig, "idp", "<idp_id>", "info"),
 		NewHP(fetchIdpSAMLMetadata, "idp", "<idp_id>", "saml-metadata"),
+		NewHP(handleOIDCUserInfo, "oidc", "user"),
 	)
 	h.AddByMethod(POST, FetchAuthToken,
 		NewHP(h.resetUserPassword, "password"),
@@ -188,7 +193,6 @@ func (h *AuthHandlers) getRegions(ctx context.Context, w http.ResponseWriter, re
 }
 
 func (h *AuthHandlers) getUser(ctx context.Context, w http.ResponseWriter, req *http.Request) {
-
 	data, err := getUserInfo(ctx, req)
 	if err != nil {
 		httperrors.NotFoundError(w, err.Error())

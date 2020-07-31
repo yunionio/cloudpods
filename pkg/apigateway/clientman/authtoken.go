@@ -27,6 +27,8 @@ import (
 
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jwe"
+	"github.com/lestrrat-go/jwx/jwk"
+	"github.com/lestrrat-go/jwx/jwt"
 	"github.com/pquerna/otp/totp"
 
 	"yunion.io/x/jsonutils"
@@ -86,10 +88,10 @@ func (t SAuthToken) encodeBytes() []byte {
 	return msg.Bytes()
 }
 
-func (t SAuthToken) encode() string {
+func (t SAuthToken) Encode() string {
 	encBytes := t.encodeBytes()
 	if privateKey != nil {
-		return encryptString(encBytes)
+		return EncryptString(encBytes)
 	} else {
 		return compressString(encBytes)
 	}
@@ -99,7 +101,7 @@ func Decode(t string) (*SAuthToken, error) {
 	var tBytes []byte
 	var err error
 	if privateKey != nil {
-		tBytes, err = decryptString(t)
+		tBytes, err = DecryptString(t)
 		if err != nil {
 			return nil, errors.Wrap(err, "decryptString")
 		}
@@ -147,7 +149,7 @@ func compressString(in []byte) string {
 	return base64.URLEncoding.EncodeToString(buf.Bytes())
 }
 
-func encryptString(in []byte) string {
+func EncryptString(in []byte) string {
 	enc, _ := jwe.Encrypt(in, jwa.RSA1_5, &privateKey.PublicKey, jwa.A128GCM, jwa.Deflate)
 	return string(enc)
 }
@@ -167,7 +169,7 @@ func decompressString(in string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func decryptString(in string) ([]byte, error) {
+func DecryptString(in string) ([]byte, error) {
 	return jwe.Decrypt([]byte(in), jwa.RSA1_5, privateKey)
 }
 
@@ -176,7 +178,7 @@ func (t SAuthToken) GetToken(ctx context.Context) (mcclient.TokenCredential, err
 }
 
 func (t SAuthToken) GetAuthCookie(token mcclient.TokenCredential) string {
-	sid := t.encode()
+	sid := t.Encode()
 	info := jsonutils.NewDict()
 	info.Add(jsonutils.NewTimeString(token.GetExpires()), "exp")
 	info.Add(jsonutils.NewString(sid), "session")
@@ -257,4 +259,29 @@ func (t *SAuthToken) VerifyTotpPasscode(s *mcclient.ClientSession, uid, passcode
 
 	t.updateRetryCount()
 	return errors.Wrap(httperrors.ErrInvalidCredential, "invalid passcode")
+}
+
+func SignJWT(t jwt.Token) (string, error) {
+	jwkKey, err := jwk.New(privateKey)
+	if err != nil {
+		return "", errors.Wrap(err, "jwk.New")
+	}
+	signed, err := jwt.Sign(t, jwa.RS256, jwkKey)
+	if err != nil {
+		return "", errors.Wrap(err, "jwt.Sign")
+	}
+	return string(signed), nil
+}
+
+func GetJWKs(ctx context.Context) (jsonutils.JSONObject, error) {
+	key := jsonutils.NewDict()
+	key.Set("use", jsonutils.NewString("sig"))
+	key.Set("kty", jsonutils.NewString("RSA"))
+	key.Set("alg", jsonutils.NewString("RS256"))
+	key.Set("e", jsonutils.NewString("AQAB"))
+	key.Set("n", jsonutils.NewString(base64.URLEncoding.EncodeToString(privateKey.PublicKey.N.Bytes())))
+
+	ret := jsonutils.NewDict()
+	ret.Set("keys", jsonutils.NewArray(key))
+	return ret, nil
 }

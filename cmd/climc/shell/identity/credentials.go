@@ -237,6 +237,90 @@ func init() {
 		return nil
 	})
 
+	type OIDCCredentialOptions struct {
+		User          string `help:"User"`
+		UserDomain    string `help:"domain of user"`
+		Project       string `help:"Project"`
+		ProjectDomain string `help:"domain of user"`
+	}
+
+	type OIDCCredentialCreateOptions struct {
+		RedirectUri string `help:"redirect URL"`
+		OIDCCredentialOptions
+	}
+	R(&OIDCCredentialCreateOptions{}, "credential-create-oidc", "Create OpenID Connection Credential", func(s *mcclient.ClientSession, args *OIDCCredentialCreateOptions) error {
+		var uid string
+		var pid string
+		var err error
+		if len(args.User) > 0 {
+			uid, err = modules.UsersV3.FetchId(s, args.User, args.UserDomain)
+			if err != nil {
+				return err
+			}
+		}
+		if len(args.Project) > 0 {
+			pid, err = modules.Projects.FetchId(s, args.Project, args.ProjectDomain)
+			if err != nil {
+				return err
+			}
+		}
+		secret, err := modules.Credentials.CreateOIDCSecret(s, uid, pid, args.RedirectUri)
+		if err != nil {
+			return err
+		}
+		printObject(jsonutils.Marshal(&secret))
+		return nil
+	})
+
+	R(&OIDCCredentialOptions{}, "credential-get-oidc", "Get OpenID Connect credential for user and project", func(s *mcclient.ClientSession, args *OIDCCredentialOptions) error {
+		var uid string
+		var err error
+		if len(args.User) > 0 {
+			uid, err = modules.UsersV3.FetchId(s, args.User, args.UserDomain)
+			if err != nil {
+				return err
+			}
+		}
+		var pid string
+		if len(args.Project) > 0 {
+			pid, err = modules.Projects.FetchId(s, args.Project, args.ProjectDomain)
+			if err != nil {
+				return err
+			}
+		}
+		secrets, err := modules.Credentials.GetOIDCSecret(s, uid, pid)
+		if err != nil {
+			return err
+		}
+		result := modulebase.ListResult{}
+		result.Data = make([]jsonutils.JSONObject, len(secrets))
+		for i := range secrets {
+			result.Data[i] = jsonutils.Marshal(secrets[i])
+		}
+		printList(&result, nil)
+		return nil
+	})
+
+	R(&OIDCCredentialOptions{}, "credential-remove-oidc", "Remove OpenID Connect credential for user and project", func(s *mcclient.ClientSession, args *OIDCCredentialOptions) error {
+		uid, err := modules.UsersV3.FetchId(s, args.User, args.UserDomain)
+		if err != nil {
+			return err
+		}
+		var pid string
+		if len(args.Project) > 0 {
+			pid, err = modules.Projects.FetchId(s, args.Project, args.ProjectDomain)
+			if err != nil {
+				return err
+			}
+		}
+		err = modules.Credentials.RemoveOIDCSecrets(s, uid, pid)
+		if err != nil {
+			return err
+		}
+		fmt.Println("success")
+		return nil
+	})
+
 	type CredentialDeleteOptions struct {
 		ID string `help:"ID of credentail"`
 	}

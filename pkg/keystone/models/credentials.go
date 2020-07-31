@@ -223,7 +223,7 @@ func (self *SCredential) getBlob() []byte {
 }
 
 func (self *SCredential) GetAccessKeySecret() (*api.SAccessKeySecretBlob, error) {
-	if self.Type == api.ACCESS_SECRET_TYPE {
+	if self.Type == api.ACCESS_SECRET_TYPE || self.Type == api.OIDC_CREDENTIAL_TYPE {
 		blobJson, err := jsonutils.Parse(self.getBlob())
 		if err != nil {
 			return nil, errors.Wrap(err, "jsonutils.Parse")

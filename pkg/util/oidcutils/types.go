@@ -70,7 +70,7 @@ type SOIDCConfiguration struct {
 	UiLocalesSupported []string `json:"ui_locales_supported"`
 }
 
-type SOIDCAccessTokebReqest struct {
+type SOIDCAccessTokenRequest struct {
 	// grant_type
 	// REQUIRED.  Value MUST be set to "authorization_code".
 	GrantType string `json:"grant_type"`
@@ -98,4 +98,18 @@ type SOIDCAccessTokenResponse struct {
 	RefreshToken string `json:"refresh_token"`
 	ExpiresIn    int    `json:"expires_in"`
 	IdToken      string `json:"id_token"`
+}
+
+const (
+	OIDC_RESPONSE_TYPE_CODE = "code"
+	OIDC_REQUEST_GRANT_TYPE = "authorization_code"
+	OIDC_BEARER_TOKEN_TYPE  = "Bearer"
+)
+
+type SOIDCAuthRequest struct {
+	ResponseType string `json:"response_type"`
+	ClientId     string `json:"client_id"`
+	RedirectUri  string `json:"redirect_uri"`
+	State        string `json:"state"`
+	Scope        string `json:"scope"`
 }

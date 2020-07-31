@@ -50,14 +50,14 @@ func Base64UrlDecode(str string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(str)
 }
 
-/*func getAuthToken(r *http.Request) string {
+func getAuthToken(r *http.Request) string {
 	auth := r.Header.Get(constants.AUTH_HEADER)
 	if len(auth) > 0 && auth[:len(constants.AUTH_PREFIX)] == constants.AUTH_PREFIX {
 		return auth[len(constants.AUTH_PREFIX):]
 	} else {
 		return ""
 	}
-}*/
+}
 
 func getAuthCookie(r *http.Request) string {
 	return getCookie(r, constants.YUNION_AUTH_COOKIE)
@@ -73,16 +73,18 @@ func fetchAuthInfo(ctx context.Context, r *http.Request) (mcclient.TokenCredenti
 
 	// no more use Auth header
 	// auth1 := getAuthToken(r)
-	auth := "" // getAuthToken(r)
-	authCookieStr := getAuthCookie(r)
-	if len(authCookieStr) > 0 {
-		authCookie, err := jsonutils.ParseString(authCookieStr)
-		if err != nil {
-			return nil, nil, errors.Wrap(httperrors.ErrInputParameter, "Auth cookie decode")
-		}
-		auth, err = authCookie.GetString("session")
-		if err != nil {
-			return nil, nil, errors.Wrap(httperrors.ErrInputParameter, "authCookie missing session field")
+	auth := getAuthToken(r)
+	if len(auth) == 0 {
+		authCookieStr := getAuthCookie(r)
+		if len(authCookieStr) > 0 {
+			authCookie, err := jsonutils.ParseString(authCookieStr)
+			if err != nil {
+				return nil, nil, errors.Wrap(httperrors.ErrInputParameter, "Auth cookie decode")
+			}
+			auth, err = authCookie.GetString("session")
+			if err != nil {
+				return nil, nil, errors.Wrap(httperrors.ErrInputParameter, "authCookie missing session field")
+			}
 		}
 	}
 	// if len(auth) > 0 && auth != auth1 { // hack!!! browser cache problem???

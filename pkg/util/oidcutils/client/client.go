@@ -115,8 +115,8 @@ func (cli *SOIDCClient) request(ctx context.Context, method httputils.THttpMetho
 }
 
 func (cli *SOIDCClient) FetchToken(ctx context.Context, code string, redirUri string) (*oidcutils.SOIDCAccessTokenResponse, error) {
-	req := oidcutils.SOIDCAccessTokebReqest{
-		GrantType:   "authorization_code",
+	req := oidcutils.SOIDCAccessTokenRequest{
+		GrantType:   oidcutils.OIDC_REQUEST_GRANT_TYPE,
 		Code:        code,
 		RedirectUri: redirUri,
 		ClientId:    cli.clientId,
