@@ -4970,7 +4970,7 @@ func (host *SHost) switchWithBackup(ctx context.Context, userCred mcclient.Token
 	guests2 := host.GetGuestsBackupOnThisHost()
 	for i := 0; i < len(guests2); i++ {
 		if guests2[i].isInReconcile(userCred) {
-			log.Warningf("guest %s is in reconcile", guests[i].GetName())
+			log.Warningf("guest %s is in reconcile", guests2[i].GetName())
 			continue
 		}
 		data := jsonutils.NewDict()
