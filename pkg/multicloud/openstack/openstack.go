@@ -30,8 +30,6 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/version"
 )
@@ -122,19 +120,15 @@ func (cli *SOpenStackClient) getDefaultRegionName() string {
 }
 
 func (cli *SOpenStackClient) getProjectToken(projectId, projectName string) (mcclient.TokenCredential, error) {
-	s := cli.getDefaultSession("")
-	roleId, err := modules.RolesV3.GetId(s, "admin", jsonutils.Marshal(map[string]string{}))
-	if err != nil {
-		return nil, errors.Wrap(err, "RolesV3.GetId")
-	}
-	_, err = modules.RolesV3.PutInContexts(s, roleId, nil, []modulebase.ManagerContext{{InstanceManager: &modules.Projects, InstanceId: projectId}, {InstanceManager: &modules.UsersV3, InstanceId: s.GetUserId()}})
-	if err != nil {
-		return nil, errors.Wrap(err, "RolesV3.PutInContexts")
-	}
-
 	client := cli.getDefaultClient()
 	tokenCredential, err := client.Authenticate(cli.username, cli.password, cli.domainName, projectName, cli.projectDomain)
 	if err != nil {
+		e, ok := err.(*httputils.JSONClientError)
+		if ok {
+			// 避免有泄漏密码的风险
+			e.Request.Body = nil
+			return nil, errors.Wrap(e, "Authenticate")
+		}
 		return nil, errors.Wrap(err, "Authenticate")
 	}
 	return tokenCredential, nil
@@ -424,18 +418,6 @@ func (cli *SOpenStackClient) getProjectTokenCredential(projectId string) (mcclie
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetProject(%s)", projectId)
 	}
-
-	s := cli.getDefaultSession("")
-
-	roleId, err := modules.RolesV3.GetId(s, "admin", jsonutils.Marshal(map[string]string{}))
-	if err != nil {
-		return nil, errors.Wrap(err, "RolesV3.GetId")
-	}
-	_, err = modules.RolesV3.PutInContexts(s, roleId, nil, []modulebase.ManagerContext{{InstanceManager: &modules.Projects, InstanceId: project.GetId()}, {InstanceManager: &modules.UsersV3, InstanceId: s.GetUserId()}})
-	if err != nil {
-		return nil, errors.Wrap(err, "RolesV3.PutInContexts")
-	}
-
 	return cli.getProjectToken(project.Id, project.Name)
 }
 
@@ -510,22 +492,26 @@ func (cli *SOpenStackClient) CreateIProject(name string) (cloudprovider.ICloudPr
 }
 
 func (cli *SOpenStackClient) CreateProject(name, desc string) (*SProject, error) {
-	s := cli.getDefaultSession("")
-	params := map[string]string{
-		"name":      name,
-		"domain_id": s.GetDomainId(),
+	params := map[string]interface{}{
+		"project": map[string]interface{}{
+			"name":        name,
+			"domain_id":   cli.tokenCredential.GetProjectDomainId(),
+			"enabled":     true,
+			"description": desc,
+		},
 	}
-	if len(desc) > 0 {
-		params["description"] = desc
-	}
-	result, err := modules.Projects.Create(s, jsonutils.Marshal(params))
+	resp, err := cli.iamRequest(cli.getDefaultRegionName(), httputils.POST, "/v3/projects", nil, params)
 	if err != nil {
-		return nil, errors.Wrap(err, "Projects.Create")
+		return nil, errors.Wrap(err, "iamRequest")
 	}
 	project := SProject{client: cli}
-	err = result.Unmarshal(&project)
+	err = resp.Unmarshal(&project, "project")
 	if err != nil {
 		return nil, errors.Wrap(err, "result.Unmarshal")
+	}
+	err = cli.AssignRoleToUserOnProject(cli.tokenCredential.GetUserId(), project.Id, "admin")
+	if err != nil {
+		return nil, errors.Wrap(err, "AssignRoleToUserOnProject")
 	}
 	return &project, nil
 }
