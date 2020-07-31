@@ -1459,12 +1459,12 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 		}
 	}
 	{
-		nets := manager.getAllNetworks(wire.Id, "")
-		if nets == nil {
-			return input, httperrors.NewInternalServerError("query all networks fail")
+		nets, err := vpc.GetNetworks()
+		if err != nil {
+			return input, httperrors.NewInternalServerError("fail to GetNetworks of vpc: %v", err)
 		}
 		if isOverlapNetworks(nets, ipStart, ipEnd) {
-			return input, httperrors.NewInputParameterError("Conflict address space with existing networks")
+			return input, httperrors.NewInputParameterError("Conflict address space with existing networks in vpc %q", vpc.GetName())
 		}
 	}
 
