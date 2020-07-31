@@ -28,6 +28,7 @@ import (
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core/score"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager/sku"
 	schedmodels "yunion.io/x/onecloud/pkg/scheduler/models"
 )
 
@@ -74,6 +75,7 @@ type CandidatePropertyGetter interface {
 	Region() *computemodels.SCloudregion
 	HostType() string
 	HostSchedtags() []computemodels.SSchedtag
+	Sku(string) *sku.ServerSku
 	Storages() []*api.CandidateStorage
 	Networks() []*api.CandidateNetwork
 	OvnCapable() bool
