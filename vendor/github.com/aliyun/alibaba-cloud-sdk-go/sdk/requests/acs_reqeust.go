@@ -59,6 +59,7 @@ type AcsRequest interface {
 	GetPort() string
 	GetRegionId() string
 	GetUrl() string
+	GetQueries() string
 	GetHeaders() map[string]string
 	GetQueryParams() map[string]string
 	GetFormParams() map[string]string
@@ -72,10 +73,15 @@ type AcsRequest interface {
 	GetLocationServiceCode() string
 	GetLocationEndpointType() string
 
+	SetStringToSign(stringToSign string)
+	GetStringToSign() string
+
 	SetDomain(domain string)
 	SetContent(content []byte)
+	SetScheme(scheme string)
+	BuildUrl() string
+	BuildQueries() string
 
-	GetQueries() string
 	addHeaderParam(key, value string)
 	addQueryParam(key, value string)
 	addFormParam(key, value string)
@@ -90,8 +96,9 @@ type baseRequest struct {
 	Port     string
 	RegionId string
 
-	product    string
-	version    string
+	product string
+	version string
+
 	actionName string
 
 	AcceptFormat string
@@ -105,6 +112,8 @@ type baseRequest struct {
 	locationEndpointType string
 
 	queries string
+
+	stringToSign string
 }
 
 func (request *baseRequest) GetQueryParams() map[string]string {
@@ -163,6 +172,10 @@ func (request *baseRequest) GetScheme() string {
 	return request.Scheme
 }
 
+func (request *baseRequest) SetScheme(scheme string) {
+	request.Scheme = scheme
+}
+
 func (request *baseRequest) GetMethod() string {
 	return request.Method
 }
@@ -196,15 +209,24 @@ func (request *baseRequest) GetContentType() (contentType string, contains bool)
 	return
 }
 
+func (request *baseRequest) SetStringToSign(stringToSign string) {
+	request.stringToSign = stringToSign
+}
+
+func (request *baseRequest) GetStringToSign() string {
+	return request.stringToSign
+}
+
 func defaultBaseRequest() (request *baseRequest) {
 	request = &baseRequest{
-		Scheme:       HTTP,
+		Scheme:       "",
 		AcceptFormat: "JSON",
 		Method:       GET,
 		QueryParams:  make(map[string]string),
 		Headers: map[string]string{
 			"x-sdk-client":      "golang/1.0.0",
 			"x-sdk-invoke-type": "normal",
+			"Accept-Encoding": "identity",
 		},
 		FormParams: make(map[string]string),
 	}
@@ -279,8 +301,8 @@ func addParam(request AcsRequest, position, name, value string) (err error) {
 		case Body:
 			request.addFormParam(name, value)
 		default:
-			errMsg := fmt.Sprintf(errors.UnsupportedParamPositionMessage, position)
-			err = errors.NewClientError(errors.UnsupportedParamPositionCode, errMsg, nil)
+			errMsg := fmt.Sprintf(errors.UnsupportedParamPositionErrorMessage, position)
+			err = errors.NewClientError(errors.UnsupportedParamPositionErrorCode, errMsg, nil)
 		}
 	}
 	return

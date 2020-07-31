@@ -31,22 +31,16 @@ const (
 	defaultDurationSeconds = 3600
 )
 
-type SignerStsAssumeRole struct {
+type RamRoleArnSigner struct {
 	*credentialUpdater
 	roleSessionName   string
-	sessionCredential *sessionCredential
-	credential        *credentials.StsAssumeRoleCredential
+	sessionCredential *SessionCredential
+	credential        *credentials.RamRoleArnCredential
 	commonApi         func(request *requests.CommonRequest, signer interface{}) (response *responses.CommonResponse, err error)
 }
 
-type sessionCredential struct {
-	accessKeyId     string
-	accessKeySecret string
-	securityToken   string
-}
-
-func NewSignerStsAssumeRole(credential *credentials.StsAssumeRoleCredential, commonApi func(request *requests.CommonRequest, signer interface{}) (response *responses.CommonResponse, err error)) (signer *SignerStsAssumeRole, err error) {
-	signer = &SignerStsAssumeRole{
+func NewRamRoleArnSigner(credential *credentials.RamRoleArnCredential, commonApi func(request *requests.CommonRequest, signer interface{}) (response *responses.CommonResponse, err error)) (signer *RamRoleArnSigner, err error) {
+	signer = &RamRoleArnSigner{
 		credential: credential,
 		commonApi:  commonApi,
 	}
@@ -64,10 +58,10 @@ func NewSignerStsAssumeRole(credential *credentials.StsAssumeRoleCredential, com
 		signer.roleSessionName = "aliyun-go-sdk-" + strconv.FormatInt(time.Now().UnixNano()/1000, 10)
 	}
 	if credential.RoleSessionExpiration > 0 {
-		if credential.RoleSessionExpiration > 900 && credential.RoleSessionExpiration < 3600 {
+		if credential.RoleSessionExpiration >= 900 && credential.RoleSessionExpiration <= 3600 {
 			signer.credentialExpiration = credential.RoleSessionExpiration
 		} else {
-			err = errors.NewClientError(errors.InvalidParamCode, "Assume Role session duration should be in the range of 15min - 1Hr", nil)
+			err = errors.NewClientError(errors.InvalidParamErrorCode, "Assume Role session duration should be in the range of 15min - 1Hr", nil)
 		}
 	} else {
 		signer.credentialExpiration = defaultDurationSeconds
@@ -75,44 +69,44 @@ func NewSignerStsAssumeRole(credential *credentials.StsAssumeRoleCredential, com
 	return
 }
 
-func (*SignerStsAssumeRole) GetName() string {
+func (*RamRoleArnSigner) GetName() string {
 	return "HMAC-SHA1"
 }
 
-func (*SignerStsAssumeRole) GetType() string {
+func (*RamRoleArnSigner) GetType() string {
 	return ""
 }
 
-func (*SignerStsAssumeRole) GetVersion() string {
+func (*RamRoleArnSigner) GetVersion() string {
 	return "1.0"
 }
 
-func (signer *SignerStsAssumeRole) GetAccessKeyId() string {
+func (signer *RamRoleArnSigner) GetAccessKeyId() (accessKeyId string, err error) {
 	if signer.sessionCredential == nil || signer.needUpdateCredential() {
-		signer.updateCredential()
+		err = signer.updateCredential()
 	}
-	if signer.sessionCredential == nil || len(signer.sessionCredential.accessKeyId) <= 0 {
-		return ""
+	if err != nil && (signer.sessionCredential == nil || len(signer.sessionCredential.AccessKeyId) <= 0) {
+		return "", err
 	}
-	return signer.sessionCredential.accessKeyId
+	return signer.sessionCredential.AccessKeyId, nil
 }
 
-func (signer *SignerStsAssumeRole) GetExtraParam() map[string]string {
+func (signer *RamRoleArnSigner) GetExtraParam() map[string]string {
 	if signer.sessionCredential == nil || signer.needUpdateCredential() {
 		signer.updateCredential()
 	}
-	if signer.sessionCredential == nil || len(signer.sessionCredential.securityToken) <= 0 {
+	if signer.sessionCredential == nil || len(signer.sessionCredential.StsToken) <= 0 {
 		return make(map[string]string)
 	}
-	return map[string]string{"SecurityToken": signer.sessionCredential.securityToken}
+	return map[string]string{"SecurityToken": signer.sessionCredential.StsToken}
 }
 
-func (signer *SignerStsAssumeRole) Sign(stringToSign, secretSuffix string) string {
-	secret := signer.sessionCredential.accessKeySecret + secretSuffix
+func (signer *RamRoleArnSigner) Sign(stringToSign, secretSuffix string) string {
+	secret := signer.sessionCredential.AccessKeySecret + secretSuffix
 	return ShaHmac1(stringToSign, secret)
 }
 
-func (signer *SignerStsAssumeRole) buildCommonRequest() (request *requests.CommonRequest, err error) {
+func (signer *RamRoleArnSigner) buildCommonRequest() (request *requests.CommonRequest, err error) {
 	request = requests.NewCommonRequest()
 	request.Product = "Sts"
 	request.Version = "2015-04-01"
@@ -124,22 +118,19 @@ func (signer *SignerStsAssumeRole) buildCommonRequest() (request *requests.Commo
 	return
 }
 
-func (signerStsAssumeRole *SignerStsAssumeRole) refreshApi(request *requests.CommonRequest) (response *responses.CommonResponse, err error) {
-	credential := &credentials.BaseCredential{
-		AccessKeyId:     signerStsAssumeRole.credential.AccessKeyId,
-		AccessKeySecret: signerStsAssumeRole.credential.AccessKeySecret,
+func (signer *RamRoleArnSigner) refreshApi(request *requests.CommonRequest) (response *responses.CommonResponse, err error) {
+	credential := &credentials.AccessKeyCredential{
+		AccessKeyId:     signer.credential.AccessKeyId,
+		AccessKeySecret: signer.credential.AccessKeySecret,
 	}
-	signerV1, err := NewSignerV1(credential)
-	return signerStsAssumeRole.commonApi(request, signerV1)
+	signerV1, err := NewAccessKeySigner(credential)
+	return signer.commonApi(request, signerV1)
 }
 
-func (signer *SignerStsAssumeRole) refreshCredential(response *responses.CommonResponse) (err error) {
+func (signer *RamRoleArnSigner) refreshCredential(response *responses.CommonResponse) (err error) {
 	if response.GetHttpStatus() != http.StatusOK {
-		message := "refresh session token failed, message = " + response.GetHttpContentString()
-		err = errors.NewServerError(response.GetHttpStatus(), response.GetOriginHttpResponse().Status, message)
-		if signer.sessionCredential == nil {
-			panic(err)
-		}
+		message := "refresh session token failed"
+		err = errors.NewServerError(response.GetHttpStatus(), response.GetHttpContentString(), message)
 		return
 	}
 	var data interface{}
@@ -164,18 +155,20 @@ func (signer *SignerStsAssumeRole) refreshCredential(response *responses.CommonR
 		return
 	}
 	if accessKeyId == nil || accessKeySecret == nil || securityToken == nil {
-		if signer.sessionCredential == nil {
-			panic("refresh session token failed, accessKeyId, accessKeySecret or securityToken is null")
-		}
+		return
 	}
-	signer.sessionCredential = &sessionCredential{
-		accessKeyId:     accessKeyId.(string),
-		accessKeySecret: accessKeySecret.(string),
-		securityToken:   securityToken.(string),
+	signer.sessionCredential = &SessionCredential{
+		AccessKeyId:     accessKeyId.(string),
+		AccessKeySecret: accessKeySecret.(string),
+		StsToken:        securityToken.(string),
 	}
 	return
 }
 
-func (signer *SignerStsAssumeRole) Shutdown() {
+func (signer *RamRoleArnSigner) GetSessionCredential() *SessionCredential {
+	return signer.sessionCredential
+}
+
+func (signer *RamRoleArnSigner) Shutdown() {
 
 }

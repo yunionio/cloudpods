@@ -20,23 +20,29 @@ const (
 	DefaultClientErrorStatus = 400
 	DefaultClientErrorCode   = "SDK.ClientError"
 
-	UnsupportedCredentialCode    = "SDK.UnsupportedCredential"
-	UnsupportedCredentialMessage = "Specified credential (type = %s) is not supported, please check"
+	UnsupportedCredentialErrorCode    = "SDK.UnsupportedCredential"
+	UnsupportedCredentialErrorMessage = "Specified credential (type = %s) is not supported, please check"
 
-	CanNotResolveEndpointCode    = "SDK.CanNotResolveEndpoint"
-	CanNotResolveEndpointMessage = "Can not resolve endpoint(param = %s), please check the user guide\n %s"
+	CanNotResolveEndpointErrorCode    = "SDK.CanNotResolveEndpoint"
+	CanNotResolveEndpointErrorMessage = "Can not resolve endpoint(param = %s), please check your accessKey with secret, and read the user guide\n %s"
 
-	UnsupportedParamPositionCode    = "SDK.UnsupportedParamPosition"
-	UnsupportedParamPositionMessage = "Specified param position (%s) is not supported, please upgrade sdk and retry"
+	UnsupportedParamPositionErrorCode    = "SDK.UnsupportedParamPosition"
+	UnsupportedParamPositionErrorMessage = "Specified param position (%s) is not supported, please upgrade sdk and retry"
 
 	AsyncFunctionNotEnabledCode    = "SDK.AsyncFunctionNotEnabled"
 	AsyncFunctionNotEnabledMessage = "Async function is not enabled in client, please invoke 'client.EnableAsync' function"
 
-	UnknownRequestTypeCode    = "SDK.UnknownRequestType"
-	UnknownRequestTypeMessage = "Unknown Request Type: %s"
+	UnknownRequestTypeErrorCode    = "SDK.UnknownRequestType"
+	UnknownRequestTypeErrorMessage = "Unknown Request Type: %s"
 
-	MissingParamCode = "SDK.MissingParam"
-	InvalidParamCode = "SDK.InvalidParam"
+	MissingParamErrorCode = "SDK.MissingParam"
+	InvalidParamErrorCode = "SDK.InvalidParam"
+
+	JsonUnmarshalErrorCode    = "SDK.JsonUnmarshalError"
+	JsonUnmarshalErrorMessage = "Failed to unmarshal response, but you can get the data via response.GetHttpStatusCode() and response.GetHttpContentString()"
+
+	TimeoutErrorCode    = "SDK.TimeoutError"
+	TimeoutErrorMessage = "The request timed out %s times(%s for retry), perhaps we should have the threshold raised a little?"
 )
 
 type ClientError struct {
@@ -54,11 +60,11 @@ func NewClientError(errorCode, message string, originErr error) Error {
 }
 
 func (err *ClientError) Error() string {
+	clientErrMsg := fmt.Sprintf("[%s] %s", err.errorCode, err.message)
 	if err.originError != nil {
-		return err.originError.Error()
+		return clientErrMsg + "\ncaused by:\n" + err.originError.Error()
 	}
-
-	return fmt.Sprintf("[%s] %s", err.errorCode, err.message)
+	return clientErrMsg
 }
 
 func (err *ClientError) OriginError() error {
@@ -79,4 +85,8 @@ func (err *ClientError) ErrorCode() string {
 
 func (err *ClientError) Message() string {
 	return err.message
+}
+
+func (err *ClientError) String() string {
+	return err.Error()
 }
