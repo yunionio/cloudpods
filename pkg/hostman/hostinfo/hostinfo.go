@@ -1309,14 +1309,9 @@ func (h *SHostInfo) deployAdminAuthorizedKeys() {
 	}
 
 	sshDir := path.Join("/root", ".ssh")
-	if _, err := os.Stat(sshDir); err != nil {
-		if os.IsNotExist(err) {
-			if err := os.MkdirAll(sshDir, 0755); err != nil {
-				onErr("Create ssh dir %s: %v", sshDir, err)
-			}
-		} else {
-			onErr("Stat %s dir: %v", sshDir, err)
-		}
+	output, err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", sshDir).Output()
+	if err != nil {
+		onErr("mkdir .ssh failed %s %s", output, err)
 	}
 
 	query := jsonutils.NewDict()
@@ -1332,15 +1327,23 @@ func (h *SHostInfo) deployAdminAuthorizedKeys() {
 	adminPublicKey, _ := keys.GetString("public_key")
 	pubKeys := &deployapi.SSHKeys{AdminPublicKey: adminPublicKey}
 
+	var oldKeys string
 	authFile := path.Join(sshDir, "authorized_keys")
-	oldKeysBytes, _ := fileutils2.FileGetContents(authFile)
-	oldKeys := string(oldKeysBytes)
-	newKeys := fsdriver.MergeAuthorizedKeys(oldKeys, pubKeys)
-	if err := fileutils2.FilePutContents(authFile, newKeys, false); err != nil {
-		onErr("Write public keys: %v", err)
+	if procutils.NewRemoteCommandAsFarAsPossible("test", "-f", authFile).Run() == nil {
+		output, err := procutils.NewRemoteCommandAsFarAsPossible("cat", authFile).Output()
+		if err != nil {
+			onErr("cat auth file %s %s", output, err)
+		}
+		oldKeys = string(output)
 	}
-	if err := os.Chmod(authFile, 0644); err != nil {
-		onErr("Chmod %s to 0644: %v", authFile, err)
+	newKeys := fsdriver.MergeAuthorizedKeys(oldKeys, pubKeys)
+	if output, err := procutils.NewRemoteCommandAsFarAsPossible(
+		"sh", "-c", fmt.Sprintf("echo '%s' > %s", newKeys, authFile)).Output(); err != nil {
+		onErr("write public keys: %s %s", output, err)
+	}
+	if output, err := procutils.NewRemoteCommandAsFarAsPossible(
+		"chmod", "0644", authFile).Output(); err != nil {
+		onErr("chmod failed %s %s", output, err)
 	}
 	h.onSucc()
 }
