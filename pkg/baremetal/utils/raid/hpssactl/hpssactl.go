@@ -249,11 +249,17 @@ func (adapter *HPSARaidAdaptor) buildRaid(level string, devs []*baremetal.Bareme
 			return fmt.Errorf("getLastArray: %v", err)
 		}
 		cmds := []string{}
-		for _, sz := range conf.Size[1:] {
+		restSize := conf.Size[1:]
+		for idx, sz := range restSize {
+			isLast := idx == len(restSize)-1
+			sizeStr := fmt.Sprintf("size=%d", sz)
+			if isLast {
+				sizeStr = "size=max"
+			}
 			args = []string{"controller", fmt.Sprintf("slot=%d", adapter.index),
 				"array", array, "create", "type=ld",
 				fmt.Sprintf("raid=%s", level),
-				fmt.Sprintf("size=%d", sz),
+				sizeStr,
 			}
 			args = append(args, params...)
 			cmds = append(cmds, GetCommand(args...))
