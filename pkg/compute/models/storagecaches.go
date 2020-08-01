@@ -599,6 +599,7 @@ func (cache *SStoragecache) SyncCloudImages(
 
 	syncResult := compare.SyncResult{}
 
+	log.Debugln("localCachedImages started")
 	localCachedImages := cache.getCachedImages()
 	log.Debugf("localCachedImages %d", len(localCachedImages))
 
