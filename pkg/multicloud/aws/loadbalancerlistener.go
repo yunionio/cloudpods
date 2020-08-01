@@ -60,7 +60,8 @@ func (self *SElbListener) GetId() string {
 }
 
 func (self *SElbListener) GetName() string {
-	return self.ListenerArn
+	segs := strings.Split(self.ListenerArn, "/")
+	return segs[len(segs)-1]
 }
 
 func (self *SElbListener) GetGlobalId() string {
