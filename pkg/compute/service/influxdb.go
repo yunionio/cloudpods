@@ -22,7 +22,6 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/compute/options"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 )
@@ -30,7 +29,7 @@ import (
 func setInfluxdbRetentionPolicy() error {
 	setF := func() error {
 		urls, err := auth.GetServiceURLs("influxdb", options.Options.Region, "", "")
-		if err != nil && errors.Cause(err) == httperrors.ErrNotFound {
+		if err != nil {
 			auth.ReAuth()
 		}
 		if err != nil {
