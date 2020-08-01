@@ -40,7 +40,7 @@ func (self *ElasticcacheAccountResetPasswordTask) taskFail(ctx context.Context, 
 	ea.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason)
 	ec, err := db.FetchById(models.ElasticcacheManager, ea.ElasticcacheId)
 	if err == nil {
-		ec.(*models.SElasticcache).SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason.String())
+		ec.(*models.SElasticcache).SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason)
 		logclient.AddActionLogWithStartable(self, ec, logclient.ACT_RESET_PASSWORD, reason, self.UserCred, false)
 	}
 	db.OpsLog.LogEvent(ea, db.ACT_RESET_PASSWORD, reason, self.UserCred)
