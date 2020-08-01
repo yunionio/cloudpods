@@ -680,7 +680,7 @@ func (alert *SCommonAlert) AllowPerformSetScope(ctx context.Context, userCred mc
 }
 
 func (alert *SCommonAlert) PerformSetScope(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return CommonAlertManager.PerformSetScope(ctx, alert, userCred, data)
+	return db.PerformSetScope(ctx, alert, userCred, data)
 }
 
 func (manager *SCommonAlertManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
