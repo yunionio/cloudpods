@@ -125,7 +125,9 @@ func (d *SKVMGuestDisk) Connect() bool {
 	if pathType == LVM_PATH {
 		d.setupLVMS()
 	} else if pathType == PATH_TYPE_UNKNOWN {
-		if hasLVM, err := d.setupLVMS(); !hasLVM && err == nil {
+		hasLVM, err := d.setupLVMS()
+		// no lvm partition found and has partitions
+		if !hasLVM && err == nil && len(d.partitions) > 0 {
 			d.cacheNonLVMImagePath()
 		}
 	}
