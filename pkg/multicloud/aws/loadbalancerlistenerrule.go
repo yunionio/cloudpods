@@ -80,7 +80,8 @@ func (self *SElbListenerRule) GetId() string {
 }
 
 func (self *SElbListenerRule) GetName() string {
-	return self.RuleArn
+	segs := strings.Split(self.RuleArn, "/")
+	return segs[len(segs)-1]
 }
 
 func (self *SElbListenerRule) GetGlobalId() string {
