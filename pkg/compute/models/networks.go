@@ -116,6 +116,10 @@ type SNetwork struct {
 	AllocPolicy string `width:"16" charset:"ascii" nullable:"true" get:"user" update:"user" create:"optional"`
 
 	AllocTimoutSeconds int `default:"0" nullable:"true" get:"admin"`
+
+	// 该网段是否用于自动分配IP地址，如果为false，则用户需要明确选择该网段，才会使用该网段分配IP，
+	// 如果为true，则用户不指定网段时，则自动从该值为true的网络中选择一个分配地址
+	IsAutoAlloc tristate.TriState `nullable:"true" list:"user" get:"user" update:"user" create:"optional"`
 }
 
 func (manager *SNetworkManager) GetContextManagers() [][]db.IModelManager {
@@ -1957,6 +1961,26 @@ func (manager *SNetworkManager) ListItemFilter(
 		q = q.In("alloc_policy", input.AllocPolicy)
 	}
 
+	if input.IsAutoAlloc != nil {
+		if *input.IsAutoAlloc {
+			q = q.IsTrue("is_auto_alloc")
+		} else {
+			q = q.IsFalse("is_auto_alloc")
+		}
+	}
+
+	if input.IsClassic != nil {
+		subq := manager.Query("id")
+		wires := WireManager.Query("id", "vpc_id").SubQuery()
+		subq = subq.Join(wires, sqlchemy.Equals(wires.Field("id"), subq.Field("wire_id")))
+		if *input.IsClassic {
+			subq = subq.Filter(sqlchemy.Equals(wires.Field("vpc_id"), api.DEFAULT_VPC_ID))
+		} else {
+			subq = subq.Filter(sqlchemy.NotEquals(wires.Field("vpc_id"), api.DEFAULT_VPC_ID))
+		}
+		q = q.In("id", subq.SubQuery())
+	}
+
 	return q, nil
 }
 
@@ -2021,6 +2045,16 @@ func (manager *SNetworkManager) InitializeData() error {
 			db.Update(&n, func() error {
 				if ifnameHintNew != "" {
 					n.IfnameHint = ifnameHintNew
+				}
+				return nil
+			})
+		}
+		if n.IsAutoAlloc.IsNone() {
+			db.Update(&n, func() error {
+				if n.IsPublic {
+					n.IsAutoAlloc = tristate.True
+				} else {
+					n.IsAutoAlloc = tristate.False
 				}
 				return nil
 			})
@@ -2232,6 +2266,7 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	// network.UserId = self.UserId
 	network.IsSystem = self.IsSystem
 	network.Description = self.Description
+	network.IsAutoAlloc = self.IsAutoAlloc
 
 	err = NetworkManager.TableSpec().Insert(ctx, network)
 	if err != nil {

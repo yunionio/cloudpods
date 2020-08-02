@@ -776,7 +776,7 @@ func (h *SHostInfo) tryCreateNetworkOnWire() {
 	params := jsonutils.NewDict()
 	params.Set("ip", jsonutils.NewString(masterIp))
 	params.Set("mask", jsonutils.NewInt(int64(mask)))
-	params.Set("is_on_premise", jsonutils.JSONTrue)
+	params.Set("is_classic", jsonutils.JSONTrue)
 	params.Set("server_type", jsonutils.NewString(api.NETWORK_TYPE_BAREMETAL))
 	ret, err := modules.Networks.PerformClassAction(
 		hostutils.GetComputeSession(context.Background()),
@@ -802,7 +802,7 @@ func (h *SHostInfo) fetchAccessNetworkInfo() {
 	log.Debugf("Master ip %s to fetch wire", masterIp)
 	params := jsonutils.NewDict()
 	params.Set("ip", jsonutils.NewString(masterIp))
-	params.Set("is_on_premise", jsonutils.JSONTrue)
+	params.Set("is_classic", jsonutils.JSONTrue)
 	params.Set("scope", jsonutils.NewString("system"))
 	params.Set("limit", jsonutils.NewInt(0))
 	// use default vpc
@@ -1142,7 +1142,7 @@ func (h *SHostInfo) uploadNetworkInfo() {
 			if len(nic.Network) == 0 {
 				kwargs := jsonutils.NewDict()
 				kwargs.Set("ip", jsonutils.NewString(nic.Ip))
-				kwargs.Set("is_on_premise", jsonutils.JSONTrue)
+				kwargs.Set("is_classic", jsonutils.JSONTrue)
 				kwargs.Set("scope", jsonutils.NewString("system"))
 				kwargs.Set("limit", jsonutils.NewInt(0))
 

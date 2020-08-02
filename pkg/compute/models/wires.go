@@ -642,6 +642,17 @@ func (self *SWire) getGatewayNetworkQuery(ownerId mcclient.IIdentityProvider, sc
 	return q
 }
 
+func (self *SWire) getAutoAllocNetworks(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope) ([]SNetwork, error) {
+	q := self.getGatewayNetworkQuery(ownerId, scope)
+	q = q.IsTrue("is_auto_alloc")
+	nets := make([]SNetwork, 0)
+	err := db.FetchModelObjects(NetworkManager, q, &nets)
+	if err != nil {
+		return nil, err
+	}
+	return nets, nil
+}
+
 func (self *SWire) getPublicNetworks(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope) ([]SNetwork, error) {
 	q := self.getGatewayNetworkQuery(ownerId, scope)
 	q = q.IsTrue("is_public")
@@ -672,8 +683,8 @@ func (self *SWire) GetCandidatePrivateNetwork(ownerId mcclient.IIdentityProvider
 	return ChooseCandidateNetworks(nets, isExit, serverTypes), nil
 }
 
-func (self *SWire) GetCandidatePublicNetwork(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope, isExit bool, serverTypes []string) (*SNetwork, error) {
-	nets, err := self.getPublicNetworks(ownerId, scope)
+func (self *SWire) GetCandidateAutoAllocNetwork(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope, isExit bool, serverTypes []string) (*SNetwork, error) {
+	nets, err := self.getAutoAllocNetworks(ownerId, scope)
 	if err != nil {
 		return nil, err
 	}

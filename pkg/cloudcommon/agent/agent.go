@@ -201,7 +201,7 @@ func (agent *SBaseAgent) getZoneByIP(session *mcclient.ClientSession) (jsonutils
 		return nil, err
 	}
 	params.Add(jsonutils.NewString(listenIP.String()), "ip")
-	params.Add(jsonutils.JSONTrue, "is_on_premise")
+	params.Add(jsonutils.JSONTrue, "is_classic")
 	params.Add(jsonutils.NewString("system"), "scope")
 	networks, err := modules.Networks.List(session, params)
 	if err != nil {
