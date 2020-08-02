@@ -609,5 +609,5 @@ func (s *SSchedtag) AllowPerformSetScope(ctx context.Context, userCred mcclient.
 }
 
 func (s *SSchedtag) PerformSetScope(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return SchedtagManager.PerformSetScope(ctx, s, userCred, data)
+	return db.PerformSetScope(ctx, s, userCred, data)
 }
