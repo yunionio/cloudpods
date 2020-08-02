@@ -17,6 +17,7 @@ package objectstore
 import (
 	"net/url"
 	"os"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -504,7 +505,12 @@ func (cli *SObjectStoreClient) SetIBucketAcl(name string, cannedAcl cloudprovide
 	acl := s3cli.CannedAcl(cli.ownerId, cli.ownerName, string(cannedAcl))
 	err := cli.client.SetBucketAcl(name, acl)
 	if err != nil {
-		return errors.Wrap(err, "SetBucketAcl")
+		if strings.Contains(err.Error(), "not implemented") {
+			// ignore not implemented error
+			return nil // cloudprovider.ErrNotImplemented
+		} else {
+			return errors.Wrap(err, "SetBucketAcl")
+		}
 	}
 	return nil
 }
