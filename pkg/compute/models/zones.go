@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -139,7 +140,7 @@ func (zone *SZone) getStorageCount() (int, error) {
 }
 
 func (zone *SZone) getNetworkCount() (int, error) {
-	return getNetworkCount(nil, zone, "")
+	return getNetworkCount(nil, rbacutils.ScopeSystem, nil, zone)
 }
 
 func (manager *SZoneManager) FetchCustomizeColumns(
