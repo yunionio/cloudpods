@@ -61,7 +61,7 @@ func SetHTTPRedirectLocationHeader(w http.ResponseWriter, location string) {
 	w.Header().Set("Location", location)
 }
 
-func HTTPError(ctx context.Context, w http.ResponseWriter, msg string, statusCode int, class string, error httputils.Error) {
+func HTTPError(ctx context.Context, w http.ResponseWriter, msg string, statusCode int, class string, err httputils.Error) {
 	if statusCode >= 300 && statusCode <= 400 {
 		SetHTTPRedirectLocationHeader(w, msg)
 	}
@@ -69,16 +69,27 @@ func HTTPError(ctx context.Context, w http.ResponseWriter, msg string, statusCod
 	// 需要在调用w.WriteHeader方法之前，设置header才能生效
 	SendHTTPErrorHeader(w, statusCode)
 
+	var (
+		langv   = ctx.Value(ctxLangKey)
+		lang    language.Tag
+		details string
+	)
+	if langv != nil {
+		lang = langv.(language.Tag)
+	} else {
+		lang = language.English
+	}
+	a := make([]interface{}, len(err.Fields))
+	for i := range err.Fields {
+		a[i] = err.Fields[i]
+	}
+	details = P(lang, err.Id, a...)
 	body := jsonutils.NewDict()
 	body.Add(jsonutils.NewInt(int64(statusCode)), "code")
-	body.Add(jsonutils.NewString(msg), "details")
 	body.Add(jsonutils.NewString(class), "class")
-	err := jsonutils.NewDict()
-	err.Add(jsonutils.NewString(error.Id), "id")
-	err.Add(jsonutils.NewStringArray(error.Fields), "fields")
-	body.Add(err, "data")
+	body.Add(jsonutils.NewString(details), "details")
 	w.Write([]byte(body.String()))
-	log.Errorf("Send error %s", err)
+	log.Errorf("Send error %s", details)
 	if statusCode >= 500 {
 		debug.PrintStack()
 	}
