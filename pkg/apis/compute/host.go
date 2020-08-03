@@ -141,7 +141,7 @@ type HostDetails struct {
 	NonsystemGuests int `json:"nonsystem_guests"`
 	// 运行中云主机数量
 	// example: 2
-	RunningGuests int `json:"running_geusts"`
+	RunningGuests int `json:"running_guests"`
 	// CPU超分率
 	CpuCommitRate float64 `json:"cpu_commit_rate"`
 	// 内存超分率
