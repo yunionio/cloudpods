@@ -615,20 +615,6 @@ func getNetworkCountByFilter(region *SCloudregion, zone *SZone, domainId string,
 		region = zone.GetRegion()
 	}
 
-	/*vpcQuery := VpcManager.Query()
-	if len(domainId) > 0 {
-		ownerId := &db.SOwnerId{DomainId: domainId}
-		vpcQuery = VpcManager.FilterByOwner(vpcQuery, ownerId, rbacutils.ScopeDomain)
-	}
-	vpcs := vpcQuery.SubQuery()*/
-
-	wireQuery := WireManager.Query().Equals("vpc_id", api.DEFAULT_VPC_ID)
-	if len(domainId) > 0 {
-		ownerId := &db.SOwnerId{DomainId: domainId}
-		wireQuery = WireManager.FilterByOwner(wireQuery, ownerId, rbacutils.ScopeDomain)
-	}
-	wires := wireQuery.SubQuery()
-
 	networks := NetworkManager.Query().SubQuery()
 
 	q := networks.Query()
@@ -639,9 +625,11 @@ func getNetworkCountByFilter(region *SCloudregion, zone *SZone, domainId string,
 			q = q.IsFalse("is_public")
 		}
 	}
-	q = q.Join(wires, sqlchemy.Equals(networks.Field("wire_id"), wires.Field("id")))
 
-	if region != nil {
+	if zone != nil && !utils.IsInStringArray(region.Provider, api.REGIONAL_NETWORK_PROVIDERS) {
+		wires := WireManager.Query("id").Equals("zone_id", zone.Id)
+		q = q.In("wire_id", wires.SubQuery())
+	} else if region != nil {
 		if utils.IsInStringArray(region.Provider, api.REGIONAL_NETWORK_PROVIDERS) {
 			wires := WireManager.Query().SubQuery()
 			vpcs := VpcManager.Query().SubQuery()
@@ -651,28 +639,14 @@ func getNetworkCountByFilter(region *SCloudregion, zone *SZone, domainId string,
 			q = q.Filter(sqlchemy.In(q.Field("wire_id"), subq))
 		} else {
 			subq := getRegionZoneSubq(region)
-			q = q.Filter(sqlchemy.In(wires.Field("zone_id"), subq))
+			wires := WireManager.Query("id").In("zone_id", subq)
+			q = q.In("wire_id", wires.SubQuery())
 		}
 	}
-	if zone != nil && !utils.IsInStringArray(region.Provider, api.REGIONAL_NETWORK_PROVIDERS) {
-		q = q.Filter(sqlchemy.Equals(wires.Field("zone_id"), zone.Id))
-	}
+
 	if len(domainId) > 0 {
 		ownerId := &db.SOwnerId{DomainId: domainId}
 		q = NetworkManager.FilterByOwner(q, ownerId, rbacutils.ScopeDomain)
-		/*subq := getDomainManagerSubq(domainId)
-		q = q.Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id")))
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.In(vpcs.Field("manager_id"), subq),
-			sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")),
-		))
-		if isPublic.Bool() {
-			q = q.Filter(sqlchemy.OR(
-				sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeSystem),
-				sqlchemy.AND(
-					sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeDomain),
-					sqlchemy.Equals(q.Field("domain_id"), domainId))))
-		}*/
 	}
 	if len(serverType) > 0 {
 		q = q.Filter(sqlchemy.Equals(networks.Field("server_type"), serverType))
