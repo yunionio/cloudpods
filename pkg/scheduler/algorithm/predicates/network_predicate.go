@@ -192,8 +192,8 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 					})
 				}*/
 			} else {
-				if !n.IsPublic {
-					appendError(FailReason{Reason: fmt.Sprintf("Network %s is private", n.Name), Type: NetworkPrivate})
+				if n.IsAutoAlloc.IsFalse() {
+					appendError(FailReason{Reason: fmt.Sprintf("Network %s is not auto alloc", n.Name), Type: NetworkPrivate})
 				} /*else if rbacutils.TRbacScope(n.PublicScope) == rbacutils.ScopeDomain {
 					netDomain := n.DomainId
 					reqDomain := domain

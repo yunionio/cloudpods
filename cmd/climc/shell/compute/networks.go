@@ -40,6 +40,9 @@ func init() {
 		ServerType string   `help:"search networks belongs to a ServerType" choices:"baremetal|container|eip|guest|ipmi|pxe"`
 		Schedtag   string   `help:"filter networks by schedtag"`
 
+		IsAutoAlloc *bool `help:"search network with is_auto_alloc"`
+		IsClassic   *bool `help:"search classic on-premise network"`
+
 		Status string `help:"filter by network status"`
 	}
 	R(&NetworkListOptions{}, "network-list", "List networks", func(s *mcclient.ClientSession, opts *NetworkListOptions) error {
@@ -79,6 +82,7 @@ func init() {
 		VlanId      int64  `help:"Vlan ID" default:"1"`
 		ExternalId  string `help:"External ID"`
 		AllocPolicy string `help:"Address allocation policy" choices:"none|stepdown|stepup|random"`
+		IsAutoAlloc *bool  `help:"Add network into auto-allocation pool" negative:"no_auto_alloc"`
 	}
 	R(&NetworkUpdateOptions{}, "network-update", "Update network", func(s *mcclient.ClientSession, args *NetworkUpdateOptions) error {
 		params := jsonutils.NewDict()
@@ -132,6 +136,9 @@ func init() {
 		}
 		if len(args.AllocPolicy) > 0 {
 			params.Add(jsonutils.NewString(args.AllocPolicy), "alloc_policy")
+		}
+		if args.IsAutoAlloc != nil {
+			params.Add(jsonutils.NewBool(*args.IsAutoAlloc), "is_auto_alloc")
 		}
 		if params.Size() == 0 {
 			return InvalidUpdateError()
@@ -228,6 +235,7 @@ func init() {
 		IfnameHint  string `help:"Hint for ifname generation"`
 		AllocPolicy string `help:"Address allocation policy" choices:"none|stepdown|stepup|random"`
 		ServerType  string `help:"Server type" choices:"baremetal|container|eip|guest|ipmi|pxe"`
+		IsAutoAlloc *bool  `help:"Auto allocation IP pool"`
 		Desc        string `help:"Description" metavar:"DESCRIPTION"`
 	}
 	R(&NetworkCreateOptions{}, "network-create", "Create a virtual network", func(s *mcclient.ClientSession, args *NetworkCreateOptions) error {
@@ -253,6 +261,9 @@ func init() {
 		}
 		if len(args.Desc) > 0 {
 			params.Add(jsonutils.NewString(args.Desc), "description")
+		}
+		if args.IsAutoAlloc != nil {
+			params.Add(jsonutils.NewBool(*args.IsAutoAlloc), "is_auto_alloc")
 		}
 		net, e := modules.Networks.CreateInContext(s, params, &modules.Wires, args.WIRE)
 		if e != nil {

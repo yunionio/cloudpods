@@ -110,6 +110,10 @@ type NetworkListInput struct {
 	ServerType []string `json:"server_type"`
 	// 分配策略
 	AllocPolicy []string `json:"alloc_policy"`
+	// 是否加入自动分配地址池
+	IsAutoAlloc *bool `json:"is_auto_alloc"`
+	// 是否为基础网络（underlay）
+	IsClassic *bool `json:"is_classic"`
 }
 
 type NetworkResourceInfoBase struct {
@@ -177,6 +181,9 @@ type NetworkCreateInput struct {
 	// enum: guest,baremetal,pxe,ipmi
 	// default: guest
 	ServerType string `json:"server_type"`
+
+	// 是否加入自动分配地址池
+	IsAutoAlloc *bool `json:"is_auto_alloc"`
 }
 
 type NetworkDetails struct {
@@ -299,4 +306,7 @@ type NetworkUpdateInput struct {
 
 	// 分配策略
 	AllocPolicy string `json:"alloc_policy"`
+
+	// 是否加入自动分配地址池
+	IsAutoAlloc *bool `json:"is_auto_alloc"`
 }

@@ -271,7 +271,7 @@ func (req *dhcpRequest) findNetworkConf(session *mcclient.ClientSession, filterU
 			"filter.3")
 		params.Add(jsonutils.JSONTrue, "filter_any")
 	}
-	params.Add(jsonutils.JSONTrue, "is_on_premise")
+	params.Add(jsonutils.JSONTrue, "is_classic")
 	params.Add(jsonutils.NewString("system"), "scope")
 	ret, err := modules.Networks.List(session, params)
 	if err != nil {

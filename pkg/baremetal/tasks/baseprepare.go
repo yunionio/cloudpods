@@ -560,7 +560,7 @@ func (task *sBaremetalPrepareTask) getIPMIIPConfig(ipAddr string) (*ipmiIPConfig
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(ipAddr), "ip")
 	params.Add(jsonutils.NewString("system"), "scope")
-	params.Add(jsonutils.JSONTrue, "is_on_premise")
+	params.Add(jsonutils.JSONTrue, "is_classic")
 	listRet, err := modules.Networks.List(task.getClientSession(), params)
 	if err != nil {
 		return nil, err

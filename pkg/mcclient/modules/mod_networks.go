@@ -27,7 +27,7 @@ func init() {
 			"wire_id", "wire", "is_public", "public_scope", "exit", "Ports",
 			"vnics", "guest_gateway",
 			"group_vnics", "bm_vnics", "reserve_vnics", "lb_vnics",
-			"server_type", "Status"},
+			"server_type", "Status", "is_auto_alloc"},
 		[]string{})
 
 	registerCompute(&Networks)

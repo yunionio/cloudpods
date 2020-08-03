@@ -378,7 +378,7 @@ func (m *SBaremetalManager) checkNetworkFromIp(ip string) (string, error) {
 	params := jsonutils.NewDict()
 	params.Set("ip", jsonutils.NewString(ip))
 	params.Set("scope", jsonutils.NewString("system"))
-	params.Set("is_on_premise", jsonutils.JSONTrue)
+	params.Set("is_classic", jsonutils.JSONTrue)
 	res, err := modules.Networks.List(m.GetClientSession(), params)
 	if err != nil {
 		return "", fmt.Errorf("Fetch network by ip %s failed: %s", ip, err)
@@ -1041,7 +1041,7 @@ func (b *SBaremetalInstance) findAccessNetwork(accessIp string) (*types.SNetwork
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(accessIp), "ip")
 	params.Add(jsonutils.NewString("system"), "scope")
-	params.Add(jsonutils.JSONTrue, "is_on_premise")
+	params.Add(jsonutils.JSONTrue, "is_classic")
 	session := b.manager.GetClientSession()
 	ret, err := modules.Networks.List(session, params)
 	if err != nil {
