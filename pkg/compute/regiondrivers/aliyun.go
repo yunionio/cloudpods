@@ -986,7 +986,7 @@ func (self *SAliyunRegionDriver) ValidateDBInstanceRecovery(ctx context.Context,
 		if !((utils.IsInStringArray(instance.EngineVersion, []string{"8.0", "5.7"}) &&
 			instance.StorageType == api.ALIYUN_DBINSTANCE_STORAGE_TYPE_LOCAL_SSD &&
 			instance.Category == api.ALIYUN_DBINSTANCE_CATEGORY_HA) || (instance.EngineVersion == "5.6" && instance.Category == api.ALIYUN_DBINSTANCE_CATEGORY_HA)) {
-			return httperrors.NewUnsupportOperationError("Aliyun %s only 8.0, 5.7 ha local_ssd or 5.6 ha support recovery from it self backups")
+			return httperrors.NewUnsupportOperationError("Aliyun %s only 8.0 and 5.7 high_availability local_ssd or 5.6 high_availability support recovery from it self backups", instance.Engine)
 		}
 	}
 	if len(input.Databases) == 0 {
