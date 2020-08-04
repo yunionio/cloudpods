@@ -70,6 +70,9 @@ type IdentityProviderCreateInput struct {
 	// 模板名称
 	Template string `json:"template" ignore:"true"`
 
+	// 归属域
+	OwnerDomainId string `json:"owner_domain_id"`
+
 	// 默认导入用户和组的域
 	TargetDomainId string `json:"target_domain_id"`
 	// swagger:ignore

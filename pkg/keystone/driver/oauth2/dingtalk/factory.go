@@ -37,6 +37,10 @@ func (drv SDingtalkDriverFactory) IdpAttributeOptions() api.SIdpAttributeOptions
 	}
 }
 
+func (drv SDingtalkDriverFactory) ValidateConfig(conf api.SOAuth2IdpConfigOptions) error {
+	return nil
+}
+
 func init() {
 	oauth2.Register(&SDingtalkDriverFactory{})
 }

@@ -16,11 +16,13 @@ package saml
 
 import (
 	"context"
+	"net/url"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/driver/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -60,18 +62,44 @@ func (self *SSAMLDriverClass) Name() string {
 	return api.IdentityDriverSAML
 }
 
-func (self *SSAMLDriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, tconf api.TConfigs) (api.TConfigs, error) {
+func (self *SSAMLDriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, template string, tconf api.TConfigs) (api.TConfigs, error) {
 	conf := api.SSAMLIdpConfigOptions{}
 	confJson := jsonutils.Marshal(tconf[api.IdentityDriverSAML])
 	err := confJson.Unmarshal(&conf)
 	if err != nil {
 		return tconf, errors.Wrap(err, "unmarshal config")
 	}
+	switch template {
+	case api.IdpTemplateAzureADSAML:
+		if tid, ok := tconf[api.IdentityDriverSAML]["tenant_id"]; !ok || tid == nil {
+			return tconf, errors.Wrap(httperrors.ErrInputParameter, "empty tenant_id")
+		} else {
+			tidStr, _ := tid.GetString()
+			if len(tidStr) == 0 {
+				return tconf, errors.Wrap(httperrors.ErrInputParameter, "empty tenant_id")
+			}
+		}
+	default:
+		if len(conf.EntityId) == 0 {
+			return tconf, errors.Wrap(httperrors.ErrInputParameter, "empty entity_id")
+		}
+		if len(conf.RedirectSSOUrl) == 0 {
+			return tconf, errors.Wrap(httperrors.ErrInputParameter, "empty redirect_sso_url")
+		}
+		_, err = url.Parse(conf.RedirectSSOUrl)
+		if err != nil {
+			return tconf, errors.Wrap(httperrors.ErrInputParameter, "invalid redirect_sso_url")
+		}
+	}
 	conf.SIdpAttributeOptions, err = utils.ValidateConfig(conf.SIdpAttributeOptions, userCred)
 	if err != nil {
 		return tconf, errors.Wrap(err, "ValidateConfig")
 	}
 	nconf := make(map[string]jsonutils.JSONObject)
+	err = confJson.Unmarshal(&nconf)
+	if err != nil {
+		return tconf, errors.Wrap(err, "Unmarshal old config")
+	}
 	err = jsonutils.Marshal(conf).Unmarshal(&nconf)
 	if err != nil {
 		return tconf, errors.Wrap(err, "Unmarshal new config")

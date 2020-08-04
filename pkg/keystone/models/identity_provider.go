@@ -332,7 +332,7 @@ func (ident *SIdentityProvider) PerformConfig(ctx context.Context, userCred mccl
 	}
 
 	var err error
-	input.Config, err = ident.getDriverClass().ValidateConfig(ctx, userCred, input.Config)
+	input.Config, err = ident.getDriverClass().ValidateConfig(ctx, userCred, ident.Template, input.Config)
 	if err != nil {
 		return nil, errors.Wrap(err, "ValidateConfig")
 	}
@@ -398,6 +398,22 @@ func (manager *SIdentityProviderManager) ValidateCreateData(
 		}
 	}
 
+	ownerDomainStr := input.OwnerDomainId
+	if len(ownerDomainStr) > 0 {
+		domain, err := DomainManager.FetchDomainByIdOrName(ownerDomainStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return input, httperrors.NewResourceNotFoundError2(DomainManager.Keyword(), ownerDomainStr)
+			} else {
+				return input, httperrors.NewGeneralError(err)
+			}
+		}
+		input.OwnerDomainId = domain.Id
+		if domain.Id != ownerId.GetProjectDomainId() && !db.IsAdminAllowCreate(userCred, manager) {
+			return input, errors.Wrap(httperrors.ErrNotSufficientPrivilege, "require system priviliges to specify owner_domain_id")
+		}
+	}
+
 	targetDomainStr := input.TargetDomainId
 	if len(targetDomainStr) > 0 {
 		domain, err := DomainManager.FetchDomainByIdOrName(targetDomainStr)
@@ -411,12 +427,16 @@ func (manager *SIdentityProviderManager) ValidateCreateData(
 		input.TargetDomainId = domain.Id
 
 		if domain.Id != ownerId.GetProjectDomainId() && !db.IsAdminAllowCreate(userCred, manager) {
-			return input, errors.Wrap(httperrors.ErrNotSufficientPrivilege, "require system priviliges")
+			return input, errors.Wrap(httperrors.ErrNotSufficientPrivilege, "require system priviliges to specify target_domain_id")
+		}
+
+		if len(input.OwnerDomainId) > 0 && input.OwnerDomainId != input.TargetDomainId {
+			return input, errors.Wrap(httperrors.ErrInputParameter, "inconsistent owner_domain_id and target_domain_id")
 		}
 	}
 
 	var err error
-	input.Config, err = drvCls.ValidateConfig(ctx, userCred, input.Config)
+	input.Config, err = drvCls.ValidateConfig(ctx, userCred, input.Template, input.Config)
 	if err != nil {
 		return input, errors.Wrap(err, "ValidateConfig")
 	}
@@ -434,6 +454,12 @@ func (ident *SIdentityProvider) CustomizeCreate(ctx context.Context, userCred mc
 	if !db.IsAdminAllowCreate(userCred, ident.GetModelManager()) {
 		ident.DomainId = ownerId.GetProjectDomainId()
 		ident.TargetDomainId = ownerId.GetProjectDomainId()
+	} else {
+		ownerDomainId, _ := data.GetString("owner_domain_id")
+		if len(ownerDomainId) > 0 {
+			ident.DomainId = ownerDomainId
+			ident.TargetDomainId = ownerDomainId
+		}
 	}
 	drvCls := ident.getDriverClass()
 	if drvCls.IsSso() {

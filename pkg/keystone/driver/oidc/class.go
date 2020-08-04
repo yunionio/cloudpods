@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/driver/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -65,18 +66,35 @@ func (self *SOIDCDriverClass) Name() string {
 	return api.IdentityDriverOIDC
 }
 
-func (self *SOIDCDriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, tconf api.TConfigs) (api.TConfigs, error) {
+func (self *SOIDCDriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, template string, tconf api.TConfigs) (api.TConfigs, error) {
 	conf := api.SOIDCIdpConfigOptions{}
 	confJson := jsonutils.Marshal(tconf[api.IdentityDriverOIDC])
 	err := confJson.Unmarshal(&conf)
 	if err != nil {
 		return tconf, errors.Wrap(err, "unmarshal config")
 	}
-	cli := client.NewOIDCClient(conf.ClientId, conf.ClientSecret, 30, false)
+	switch template {
+	case api.IdpTemplateAzureOAuth2:
+		if tid, ok := tconf[api.IdentityDriverOIDC]["tenant_id"]; !ok || tid == nil {
+			return tconf, errors.Wrap(httperrors.ErrInputParameter, "empty tenant_id")
+		} else {
+			tidStr, _ := tid.GetString()
+			if len(tidStr) == 0 {
+				return tconf, errors.Wrap(httperrors.ErrInputParameter, "empty tenant_id")
+			}
+		}
+	}
+	if len(conf.ClientId) == 0 {
+		return tconf, errors.Wrap(httperrors.ErrInputParameter, "empty client_id")
+	}
+	if len(conf.ClientSecret) == 0 {
+		return tconf, errors.Wrap(httperrors.ErrInputParameter, "empty client_secret")
+	}
 	if len(conf.Endpoint) > 0 {
+		cli := client.NewOIDCClient(conf.ClientId, conf.ClientSecret, 30, false)
 		err := cli.FetchConfiguration(ctx, conf.Endpoint)
 		if err != nil {
-			return tconf, errors.Wrapf(err, "invaoid endpoint %s", conf.Endpoint)
+			return tconf, errors.Wrapf(err, "invalid endpoint %s", conf.Endpoint)
 		}
 	}
 	conf.SIdpAttributeOptions, err = utils.ValidateConfig(conf.SIdpAttributeOptions, userCred)

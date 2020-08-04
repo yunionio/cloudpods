@@ -39,6 +39,10 @@ func (drv SFeishuDriverFactory) IdpAttributeOptions() api.SIdpAttributeOptions {
 	}
 }
 
+func (drv SFeishuDriverFactory) ValidateConfig(conf api.SOAuth2IdpConfigOptions) error {
+	return nil
+}
+
 func init() {
 	oauth2.Register(&SFeishuDriverFactory{})
 }

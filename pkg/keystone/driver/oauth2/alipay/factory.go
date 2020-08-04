@@ -37,6 +37,10 @@ func (drv SAlipayDriverFactory) IdpAttributeOptions() api.SIdpAttributeOptions {
 	}
 }
 
+func (drv SAlipayDriverFactory) ValidateConfig(conf api.SOAuth2IdpConfigOptions) error {
+	return nil
+}
+
 func init() {
 	oauth2.Register(&SAlipayDriverFactory{})
 }
