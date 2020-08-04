@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -890,7 +891,7 @@ func (self *SCloudregion) GetDetailsCapability(ctx context.Context, userCred mcc
 }
 
 func (self *SCloudregion) GetNetworkCount() (int, error) {
-	return getNetworkCount(self, nil, "")
+	return getNetworkCount(nil, rbacutils.ScopeSystem, self, nil)
 }
 
 func (self *SCloudregion) getMinNicCount() int {
