@@ -1383,7 +1383,7 @@ func (h *SHostInfo) deployAdminAuthorizedKeys() {
 	}
 
 	query := jsonutils.NewDict()
-	query.Add(jsonutils.NewString("system"), "scope")
+	query.Set("admin", jsonutils.JSONTrue)
 	ret, err := modules.Sshkeypairs.List(h.GetSession(), query)
 	if err != nil {
 		onErr("Get admin sshkey: %v", err)
