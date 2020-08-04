@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/oidcutils"
 	"yunion.io/x/onecloud/pkg/util/oidcutils/client"
 )
 
@@ -109,12 +110,12 @@ func (oidc *SOIDCDriver) GetSsoRedirectUri(ctx context.Context, callbackUrl, sta
 		return "", errors.Wrap(err, "getOIDCClient")
 	}
 	conf := cli.GetConfig()
-	qs := map[string]string{
-		"response_type": "code",
-		"client_id":     oidc.oidcConfig.ClientId,
-		"redirect_uri":  callbackUrl,
-		"state":         state,
-		"scope":         strings.Join(conf.ScopesSupported, " "),
+	qs := oidcutils.SOIDCAuthRequest{
+		ResponseType: oidcutils.OIDC_RESPONSE_TYPE_CODE,
+		ClientId:     oidc.oidcConfig.ClientId,
+		RedirectUri:  callbackUrl,
+		State:        state,
+		Scope:        strings.Join(conf.ScopesSupported, " "),
 	}
 	urlstr := fmt.Sprintf("%s?%s", conf.AuthorizationEndpoint, jsonutils.Marshal(qs).QueryString())
 	return urlstr, nil

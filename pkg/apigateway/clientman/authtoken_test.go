@@ -31,7 +31,7 @@ func TestEncoeDecode(t *testing.T) {
 	setPrivateKey(key)
 	et := token.encodeBytes()
 	plainEt := compressString(et)
-	encEt := encryptString(et)
+	encEt := EncryptString(et)
 	t.Logf("origin token: %s", token.token)
 	t.Logf("plain token: %s (%d)", plainEt, len(plainEt))
 	t.Logf("encrypt token: %s (%d)", encEt, len(encEt))
@@ -40,7 +40,7 @@ func TestEncoeDecode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decompressString fail %s", err)
 	}
-	decBytes2, err := decryptString(encEt)
+	decBytes2, err := DecryptString(encEt)
 	if err != nil {
 		t.Fatalf("decryptString fail %s", err)
 	}
