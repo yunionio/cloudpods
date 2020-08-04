@@ -1126,7 +1126,7 @@ func (user *SUser) PerformUnlinkIdp(
 	query jsonutils.JSONObject,
 	input api.UserUnlinkIdpInput,
 ) (jsonutils.JSONObject, error) {
-	err := IdmappingManager.deleteAny(input.IdpId, input.IdpEntityId, user.Id)
+	err := IdmappingManager.deleteAny(input.IdpId, api.IdMappingEntityUser, user.Id)
 	if err != nil {
 		return nil, errors.Wrap(err, "IdmappingManager.deleteAny")
 	}
