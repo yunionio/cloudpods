@@ -14,6 +14,8 @@
 
 package cloudprovider
 
+import "yunion.io/x/jsonutils"
+
 type SClouduserCreateConfig struct {
 	Name              string
 	Desc              string
@@ -22,4 +24,16 @@ type SClouduserCreateConfig struct {
 	Email             string
 	MobilePhone       string
 	ExternalPolicyIds []string
+}
+
+type SCloudpolicyPermission struct {
+	Name     string
+	Action   string
+	Category string
+}
+
+type SCloudpolicyCreateOptions struct {
+	Name     string
+	Desc     string
+	Document *jsonutils.JSONDict
 }

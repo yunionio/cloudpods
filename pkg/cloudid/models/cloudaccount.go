@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -41,6 +42,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 // +onecloud:swagger-gen-ignore
@@ -50,6 +52,7 @@ type SCloudaccountManager struct {
 
 var CloudaccountManager *SCloudaccountManager
 var isCloudacountSynced bool
+var providersForSystemPolicySynced []string
 
 func init() {
 	CloudaccountManager = &SCloudaccountManager{
@@ -62,6 +65,7 @@ func init() {
 	}
 	CloudaccountManager.SetVirtualObject(CloudaccountManager)
 	isCloudacountSynced = false
+	providersForSystemPolicySynced = []string{}
 }
 
 type SCloudaccount struct {
@@ -146,7 +150,7 @@ func (manager *SCloudaccountManager) syncCloudaccounts(ctx context.Context, user
 	for i := 0; i < len(removed); i++ {
 		err = removed[i].syncRemoveCloudaccount(ctx, userCred)
 		if err != nil {
-			result.AddError(err)
+			result.DeleteError(err)
 			continue
 		}
 		result.Delete()
@@ -273,24 +277,20 @@ func (manager *SCloudaccountManager) SyncCloudaccounts(ctx context.Context, user
 		lockman.LockObject(ctx, &localAccounts[i])
 		defer lockman.ReleaseObject(ctx, &localAccounts[i])
 
-		factory, err := account.GetProviderFactory()
-		if err != nil {
-			log.Errorf("GetProviderFactory: %v", err)
-			continue
-		}
-		if !factory.IsClouduserBelongCloudprovider() {
-			continue
-		}
 		result = account.syncCloudprovider(ctx, userCred)
-		log.Infof("sync cloudprovider for cloudaccount %s(%s) result: %s", account.Name, account.Id, result.Result())
+		log.Debugf("sync cloudprovider for cloudaccount %s(%s) result: %s", account.Name, account.Id, result.Result())
 	}
 	isCloudacountSynced = true
 }
 
 func waitForSync() {
+	now := time.Now()
 	for !isCloudacountSynced {
 		log.Infof("cloudaccount not sync, wait for 10 seconds")
 		time.Sleep(time.Second * 10)
+		if time.Now().Sub(now) > time.Minute*3 {
+			break
+		}
 	}
 }
 
@@ -395,7 +395,7 @@ func (self *SCloudaccount) GetProviderFactory() (cloudprovider.ICloudProviderFac
 
 func (account *SCloudDelegate) GetProvider() (cloudprovider.ICloudProvider, error) {
 	if !account.Enabled {
-		return nil, errors.Errorf("Cloud account %s is not enabled", account.Name)
+		log.Warningf("Cloud account %s is disabled", account.Name)
 	}
 
 	accessUrl := account.getAccessUrl()
@@ -446,12 +446,9 @@ func (self *SCloudaccount) getCloudusers() ([]SClouduser, error) {
 	return users, nil
 }
 
-func (self *SCloudaccount) GetCloudusersByProviderId(cloudproviderId string) ([]SClouduser, error) {
+func (self *SCloudaccount) GetCloudusers() ([]SClouduser, error) {
 	users := []SClouduser{}
 	q := ClouduserManager.Query().Equals("status", api.CLOUD_USER_STATUS_AVAILABLE).Equals("cloudaccount_id", self.Id)
-	if len(cloudproviderId) > 0 {
-		q = q.Equals("cloudprovider_id", cloudproviderId)
-	}
 	err := db.FetchModelObjects(ClouduserManager, q, &users)
 	if err != nil {
 		return nil, errors.Wrap(err, "db.FetchModelObjects")
@@ -459,9 +456,9 @@ func (self *SCloudaccount) GetCloudusersByProviderId(cloudproviderId string) ([]
 	return users, nil
 }
 
-func (self *SCloudaccount) SyncCloudusers(ctx context.Context, userCred mcclient.TokenCredential, cloudproviderId string, iUsers []cloudprovider.IClouduser) ([]SClouduser, []cloudprovider.IClouduser, compare.SyncResult) {
+func (self *SCloudaccount) SyncCloudusers(ctx context.Context, userCred mcclient.TokenCredential, iUsers []cloudprovider.IClouduser) ([]SClouduser, []cloudprovider.IClouduser, compare.SyncResult) {
 	result := compare.SyncResult{}
-	dbUsers, err := self.GetCloudusersByProviderId(cloudproviderId)
+	dbUsers, err := self.GetCloudusers()
 	if err != nil {
 		result.Error(errors.Wrap(err, "GetCloudusersByProviderId"))
 		return nil, nil, result
@@ -485,7 +482,7 @@ func (self *SCloudaccount) SyncCloudusers(ctx context.Context, userCred mcclient
 		if len(removed[i].ExternalId) > 0 {
 			err = removed[i].RealDelete(ctx, userCred)
 			if err != nil {
-				result.AddError(err)
+				result.DeleteError(err)
 				continue
 			}
 			result.Delete()
@@ -493,7 +490,7 @@ func (self *SCloudaccount) SyncCloudusers(ctx context.Context, userCred mcclient
 	}
 
 	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].SyncWithClouduser(ctx, userCred, commonext[i], cloudproviderId)
+		err = commondb[i].SyncWithClouduser(ctx, userCred, commonext[i])
 		if err != nil {
 			result.UpdateError(err)
 			continue
@@ -504,7 +501,7 @@ func (self *SCloudaccount) SyncCloudusers(ctx context.Context, userCred mcclient
 	}
 
 	for i := 0; i < len(added); i++ {
-		user, err := ClouduserManager.newFromClouduser(ctx, userCred, added[i], self.Id, cloudproviderId)
+		user, err := self.newClouduser(ctx, userCred, added[i])
 		if err != nil {
 			result.AddError(err)
 			continue
@@ -517,6 +514,30 @@ func (self *SCloudaccount) SyncCloudusers(ctx context.Context, userCred mcclient
 	return localUsers, remoteUsers, result
 }
 
+func (self *SCloudaccount) newClouduser(ctx context.Context, userCred mcclient.TokenCredential, iUser cloudprovider.IClouduser) (*SClouduser, error) {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
+	user := &SClouduser{}
+	user.SetModelManager(ClouduserManager, user)
+	user.Name = iUser.GetName()
+	user.ExternalId = iUser.GetGlobalId()
+	user.Status = api.CLOUD_USER_STATUS_AVAILABLE
+	user.CloudaccountId = self.Id
+	user.DomainId = self.DomainId
+	switch iUser.IsConsoleLogin() {
+	case true:
+		user.IsConsoleLogin = tristate.True
+	case false:
+		user.IsConsoleLogin = tristate.False
+	}
+	err := ClouduserManager.TableSpec().Insert(ctx, user)
+	if err != nil {
+		return nil, errors.Wrap(err, "Insert")
+	}
+	return user, nil
+}
+
 func (self *SCloudaccount) GetCloudpolicies() ([]SCloudpolicy, error) {
 	q := CloudpolicyManager.Query().Equals("provider", self.Provider)
 	policies := []SCloudpolicy{}
@@ -527,12 +548,182 @@ func (self *SCloudaccount) GetCloudpolicies() ([]SCloudpolicy, error) {
 	return policies, nil
 }
 
-func (self *SCloudaccount) SyncCloudpolicies(ctx context.Context, userCred mcclient.TokenCredential, iPolicies []cloudprovider.ICloudpolicy) compare.SyncResult {
-	result := compare.SyncResult{}
-	dbPolicies, err := self.GetCloudpolicies()
+func (self *SCloudaccount) GetSystemCloudpolicies() ([]SCloudpolicy, error) {
+	q := CloudpolicyManager.Query().Equals("provider", self.Provider).Equals("policy_type", api.CLOUD_POLICY_TYPE_SYSTEM)
+	policies := []SCloudpolicy{}
+	err := db.FetchModelObjects(CloudpolicyManager, q, &policies)
 	if err != nil {
-		result.Error(errors.Wrap(err, "GetCloudpolicies"))
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
+	}
+	return policies, nil
+}
+
+func (self *SCloudaccount) GetCustomCloudpolicies() ([]SCloudpolicy, error) {
+	q := CloudpolicyManager.Query().Equals("provider", self.Provider).Equals("policy_type", api.CLOUD_POLICY_TYPE_CUSTOM).Equals("domain_id", self.DomainId)
+	policies := []SCloudpolicy{}
+	err := db.FetchModelObjects(CloudpolicyManager, q, &policies)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
+	}
+	return policies, nil
+}
+
+func (self *SCloudaccount) GetCloudpolicycaches(policyIds []string, cloudproviderId string) ([]SCloudpolicycache, error) {
+	q := CloudpolicycacheManager.Query().Equals("cloudaccount_id", self.Id)
+	if len(policyIds) > 0 {
+		q = q.In("cloudpolicy_id", policyIds)
+	}
+	if len(cloudproviderId) > 0 {
+		q = q.Equals("cloudprovider_id", cloudproviderId)
+	}
+	caches := []SCloudpolicycache{}
+	err := db.FetchModelObjects(CloudpolicycacheManager, q, &caches)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
+	}
+	return caches, nil
+}
+
+func (self *SCloudaccount) SyncCustomCloudpoliciesFromCloud(ctx context.Context, userCred mcclient.TokenCredential) error {
+	factory, err := self.GetProviderFactory()
+	if err != nil {
+		return errors.Wrapf(err, "GetProviderFactory")
+	}
+	if factory.IsCloudpolicyWithSubscription() {
+		providers, err := self.GetCloudproviders()
+		if err != nil {
+			return errors.Wrapf(err, "GetCloudproviders")
+		}
+		for i := range providers {
+			err = providers[i].SyncCustomCloudpoliciesFromCloud(ctx, userCred)
+			if err != nil {
+				return errors.Wrapf(err, "SyncCustomCloudpoliciesFromCloud for cloudprovider %s(%s)", providers[i].Provider, providers[i].Name)
+			}
+		}
+		return nil
+	}
+
+	provider, err := self.GetProvider()
+	if err != nil {
+		return errors.Wrapf(err, "GetProvider")
+	}
+
+	policies, err := provider.GetICustomCloudpolicies()
+	if err != nil {
+		return errors.Wrapf(err, "GetICustomCloudpolicies for account %s(%s)", self.Name, self.Provider)
+	}
+	result := self.SyncCustomCloudpoliciesToLocal(ctx, userCred, policies, "")
+	log.Infof("Sync %s custom policies for account %s result: %s", self.Provider, self.Name, result.Result())
+	return nil
+}
+
+func (self *SCloudaccount) SyncCustomCloudpoliciesToLocal(ctx context.Context, userCred mcclient.TokenCredential, iPolicies []cloudprovider.ICloudpolicy, cloudproviderId string) compare.SyncResult {
+	result := compare.SyncResult{}
+
+	dbCaches, err := self.GetCloudpolicycaches(nil, cloudproviderId)
+	if err != nil {
+		result.Error(errors.Wrap(err, "GetCloudpolicycaches"))
 		return result
+	}
+	removed := make([]SCloudpolicycache, 0)
+	commondb := make([]SCloudpolicycache, 0)
+	commonext := make([]cloudprovider.ICloudpolicy, 0)
+	added := make([]cloudprovider.ICloudpolicy, 0)
+	err = compare.CompareSets(dbCaches, iPolicies, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		result.Error(errors.Wrap(err, "compare.CompareSets"))
+		return result
+	}
+
+	for i := 0; i < len(removed); i++ {
+		err = removed[i].Delete(ctx, userCred)
+		if err != nil {
+			result.DeleteError(err)
+			continue
+		}
+		result.Delete()
+	}
+
+	for i := 0; i < len(added); i++ {
+		policy, err := self.newCustomPolicy(ctx, userCred, added[i])
+		if err != nil {
+			result.AddError(err)
+			continue
+		}
+		err = policy.newCloudpolicycache(ctx, userCred, added[i], self.Id, cloudproviderId)
+		if err != nil {
+			result.AddError(errors.Wrap(err, "newCloudpolicycache"))
+			continue
+		}
+		result.Add()
+	}
+
+	return result
+}
+
+func (self *SCloudaccount) newCustomPolicy(ctx context.Context, userCred mcclient.TokenCredential, iPolicy cloudprovider.ICloudpolicy) (*SCloudpolicy, error) {
+	policies, err := self.GetCustomCloudpolicies()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetCustomCloudpolicies")
+	}
+	document, err := iPolicy.GetDocument()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetDocument")
+	}
+	for i := range policies {
+		if policies[i].Document != nil && policies[i].Document.Equals(document) {
+			return &policies[i], nil
+		}
+	}
+	policy, err := self.newCloudpolicy(ctx, userCred, iPolicy, api.CLOUD_POLICY_TYPE_CUSTOM)
+	if err != nil {
+		return nil, errors.Wrap(err, "newFromCloudpolicy")
+	}
+	return policy, nil
+}
+
+func (self *SCloudaccount) GetCloudaccountByProvider(provider string) ([]SCloudaccount, error) {
+	accounts := []SCloudaccount{}
+	q := CloudaccountManager.Query().Equals("provider", provider)
+	err := db.FetchModelObjects(CloudaccountManager, q, &accounts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return accounts, nil
+}
+
+func (self *SCloudaccount) SyncSystemCloudpoliciesFromCloud(ctx context.Context, userCred mcclient.TokenCredential) error {
+	accounts, err := self.GetCloudaccountByProvider(self.Provider)
+	if err != nil {
+		return errors.Wrapf(err, "GetCloudaccountByProvider")
+	}
+	iPolicies := []cloudprovider.ICloudpolicy{}
+	policyMaps := map[string]bool{}
+	for i := range accounts {
+		provider, err := accounts[i].GetProvider()
+		if err != nil {
+			return errors.Wrapf(err, "GetProvider for account %s(%s)", accounts[i].Name, accounts[i].Provider)
+		}
+		policies, err := provider.GetISystemCloudpolicies()
+		if err != nil {
+			return errors.Wrapf(err, "GetISystemCloudpolicies for account %s(%s)", accounts[i].Name, accounts[i].Provider)
+		}
+		for i := range policies {
+			_, ok := policyMaps[policies[i].GetGlobalId()]
+			if !ok {
+				policyMaps[policies[i].GetGlobalId()] = true
+				iPolicies = append(iPolicies, policies[i])
+			}
+		}
+	}
+	return self.syncSystemCloudpoliciesFromCloud(ctx, userCred, iPolicies)
+}
+
+func (self *SCloudaccount) syncSystemCloudpoliciesFromCloud(ctx context.Context, userCred mcclient.TokenCredential, iPolicies []cloudprovider.ICloudpolicy) error {
+	result := compare.SyncResult{}
+	dbPolicies, err := self.GetSystemCloudpolicies()
+	if err != nil {
+		return errors.Wrapf(err, "GetSystemCloudpolicies")
 	}
 
 	removed := make([]SCloudpolicy, 0)
@@ -542,14 +733,13 @@ func (self *SCloudaccount) SyncCloudpolicies(ctx context.Context, userCred mccli
 
 	err = compare.CompareSets(dbPolicies, iPolicies, &removed, &commondb, &commonext, &added)
 	if err != nil {
-		result.Error(errors.Wrap(err, "compare.CompareSets"))
-		return result
+		return errors.Wrapf(err, "compare.CompareSets")
 	}
 
 	for i := 0; i < len(removed); i++ {
-		err = removed[i].Delete(ctx, userCred)
+		err = removed[i].syncRemove(ctx, userCred)
 		if err != nil {
-			result.AddError(err)
+			result.DeleteError(err)
 			continue
 		}
 		result.Delete()
@@ -565,7 +755,7 @@ func (self *SCloudaccount) SyncCloudpolicies(ctx context.Context, userCred mccli
 	}
 
 	for i := 0; i < len(added); i++ {
-		_, err := CloudpolicyManager.newFromCloudpolicy(ctx, userCred, added[i], self.Provider)
+		_, err := self.newCloudpolicy(ctx, userCred, added[i], api.CLOUD_POLICY_TYPE_SYSTEM)
 		if err != nil {
 			result.AddError(err)
 			continue
@@ -573,7 +763,37 @@ func (self *SCloudaccount) SyncCloudpolicies(ctx context.Context, userCred mccli
 		result.Add()
 	}
 
-	return result
+	if !utils.IsInStringArray(self.Provider, providersForSystemPolicySynced) {
+		providersForSystemPolicySynced = append(providersForSystemPolicySynced, self.Provider)
+	}
+
+	log.Infof("Sync %s system policies result: %s", self.Provider, result.Result())
+	return nil
+}
+
+func (self *SCloudaccount) newCloudpolicy(ctx context.Context, userCred mcclient.TokenCredential, iPolicy cloudprovider.ICloudpolicy, policyType string) (*SCloudpolicy, error) {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
+	policy := &SCloudpolicy{}
+	policy.SetModelManager(CloudpolicyManager, policy)
+	var err error
+	policy.Document, err = iPolicy.GetDocument()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDocument")
+	}
+	policy.Name = iPolicy.GetName()
+	policy.Status = api.CLOUD_POLICY_STATUS_AVAILABLE
+	policy.PolicyType = policyType
+	if policy.PolicyType == api.CLOUD_POLICY_TYPE_SYSTEM {
+		policy.IsPublic = true
+	} else {
+		policy.DomainId = self.DomainId
+	}
+	policy.Provider = self.Provider
+	policy.ExternalId = iPolicy.GetGlobalId()
+	policy.Description = iPolicy.GetDescription()
+	return policy, CloudpolicyManager.TableSpec().Insert(ctx, policy)
 }
 
 func (self *SCloudaccount) GetCloudproviders() ([]SCloudprovider, error) {
@@ -642,7 +862,7 @@ func (self *SCloudaccount) syncCloudprovider(ctx context.Context, userCred mccli
 	}
 
 	for i := 0; i < len(removed); i++ {
-		err = removed[i].syncRemoveClouduser(ctx, userCred)
+		err = removed[i].Delete(ctx, userCred)
 		if err != nil {
 			result.AddError(err)
 			continue
@@ -700,14 +920,61 @@ func (manager *SCloudaccountManager) GetSupportCreateCloudgroupAccounts() ([]SCl
 	return accounts, nil
 }
 
+func (manager *SCloudaccountManager) GetSupportCloudIdAccounts() ([]SCloudaccount, error) {
+	accounts := []SCloudaccount{}
+	q := manager.Query().In("provider", cloudprovider.GetSupportCloudIdProvider())
+	err := db.FetchModelObjects(manager, q, &accounts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return accounts, nil
+}
+
+func (manager *SCloudaccountManager) SyncCloudidSystemPolicies(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	accounts, err := manager.GetSupportCloudIdAccounts()
+	if err != nil {
+		log.Errorf("GetSupportCloudIdAccounts error: %v", err)
+		return
+	}
+	providers := []string{}
+	for i := range accounts {
+		if isStart && utils.IsInStringArray(accounts[i].Provider, providersForSystemPolicySynced) {
+			continue
+		}
+		if utils.IsInStringArray(accounts[i].Provider, providers) {
+			continue
+		}
+		err = accounts[i].StartSystemCloudpolicySyncTask(ctx, userCred, "")
+		if err != nil {
+			log.Errorf("StartSystemCloudpolicySyncTask for account %s(%s) error: %v", accounts[i].Name, accounts[i].Provider, err)
+			continue
+		}
+		providers = append(providers, accounts[i].Provider)
+	}
+}
+
+func (self *SCloudaccount) StartSystemCloudpolicySyncTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	params := jsonutils.NewDict()
+	task, err := taskman.TaskManager.NewTask(ctx, "SystemCloudpolicySyncTask", self, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
 func (manager *SCloudaccountManager) SyncCloudidResources(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	waitForSync()
-	accounts, err := manager.GetCloudaccounts()
+	accounts, err := manager.GetSupportCloudIdAccounts()
 	if err != nil {
-		log.Errorf("GetCloudaccounts error: %v", err)
+		log.Errorf("GetSupportCloudIdAccounts error: %v", err)
 		return
 	}
 	for i := range accounts {
+		if !utils.IsInStringArray(accounts[i].Provider, providersForSystemPolicySynced) {
+			log.Warningf("%s system policies not syncing, sync for next loop", accounts[i].Provider)
+			continue
+		}
 		err = accounts[i].StartSyncCloudIdResourcesTask(ctx, userCred, "")
 		if err != nil {
 			log.Errorf("StartSyncCloudIdResourcesTask for account %s(%s) error: %v", accounts[i].Name, accounts[i].Provider, err)
@@ -725,13 +992,12 @@ func (self *SCloudaccount) StartSyncCloudIdResourcesTask(ctx context.Context, us
 	return nil
 }
 
-func (self *SCloudaccount) SyncCloudgroupcaches(ctx context.Context, userCred mcclient.TokenCredential, iGroups []cloudprovider.ICloudgroup) compare.SyncResult {
+func (self *SCloudaccount) SyncCloudgroupcaches(ctx context.Context, userCred mcclient.TokenCredential, iGroups []cloudprovider.ICloudgroup) error {
 	result := compare.SyncResult{}
 
 	dbCaches, err := self.GetCloudgroupcaches()
 	if err != nil {
-		result.Error(errors.Wrap(err, "GetCloudgroupcaches"))
-		return result
+		return errors.Wrapf(err, "GetCloudgroupcaches")
 	}
 
 	removed := make([]SCloudgroupcache, 0)
@@ -741,8 +1007,7 @@ func (self *SCloudaccount) SyncCloudgroupcaches(ctx context.Context, userCred mc
 
 	err = compare.CompareSets(dbCaches, iGroups, &removed, &commondb, &commonext, &added)
 	if err != nil {
-		result.Error(errors.Wrap(err, "compare.CompareSets"))
-		return result
+		return errors.Wrapf(err, "compare.CompareSets")
 	}
 
 	for i := 0; i < len(removed); i++ {
@@ -757,7 +1022,7 @@ func (self *SCloudaccount) SyncCloudgroupcaches(ctx context.Context, userCred mc
 	}
 
 	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].syncWithCloudgrup(ctx, userCred, commonext[i])
+		err = commondb[i].syncWithCloudgroupcache(ctx, userCred, commonext[i])
 		if err != nil {
 			result.UpdateError(err)
 			continue
@@ -773,7 +1038,9 @@ func (self *SCloudaccount) SyncCloudgroupcaches(ctx context.Context, userCred mc
 		}
 		result.Add()
 	}
-	return result
+
+	log.Infof("Sync groups for %s(%s) result: %s", self.Name, self.Provider, result.Result())
+	return nil
 }
 
 func (self *SCloudaccount) newCloudgroup(ctx context.Context, userCred mcclient.TokenCredential, iGroup cloudprovider.ICloudgroup) (*SCloudgroupcache, error) {
@@ -788,33 +1055,55 @@ func (self *SCloudaccount) newCloudgroup(ctx context.Context, userCred mcclient.
 	return cache, nil
 }
 
+func (self *SCloudaccount) GetSystemPolicyByExternalId(id string) (*SCloudpolicy, error) {
+	policies := []SCloudpolicy{}
+	q := CloudpolicyManager.Query().Equals("external_id", id).Equals("provider", self.Provider)
+	err := db.FetchModelObjects(CloudpolicyManager, q, &policies)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	if len(policies) == 0 {
+		return nil, errors.Wrapf(sql.ErrNoRows, "search by external id %s", id)
+	}
+	if len(policies) > 1 {
+		return nil, errors.Wrapf(sqlchemy.ErrDuplicateEntry, "%d policy find by external id %s", len(policies), id)
+	}
+	return &policies[0], nil
+}
+
+func (self *SCloudaccount) GetCustomPolicyByExternalId(id string) (*SCloudpolicy, error) {
+	policies := []SCloudpolicy{}
+	sq := CloudpolicycacheManager.Query("cloudpolicy_id").Equals("cloudaccount_id", self.Id).Equals("external_id", id)
+	q := CloudpolicyManager.Query().In("id", sq.SubQuery())
+	err := db.FetchModelObjects(CloudpolicyManager, q, &policies)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	if len(policies) == 0 {
+		return nil, errors.Wrapf(sql.ErrNoRows, "search by external id %s", id)
+	}
+	if len(policies) > 1 {
+		return nil, errors.Wrapf(sqlchemy.ErrDuplicateEntry, "%d policy find by external id %s", len(policies), id)
+	}
+	return &policies[0], nil
+}
+
 func (self *SCloudaccount) GetOrCreateCloudgroup(ctx context.Context, userCred mcclient.TokenCredential, iGroup cloudprovider.ICloudgroup) (*SCloudgroup, error) {
 	groups, err := self.GetCloudgroups()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetCloudgroups")
 	}
-	iPolicies, err := iGroup.GetISystemCloudpolicies()
+	system, err := iGroup.GetISystemCloudpolicies()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetICloudpolicies")
 	}
-
-	for i := range iPolicies {
-		_, err := db.FetchByExternalIdAndManagerId(CloudpolicyManager, iPolicies[i].GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-			return q.Equals("provider", self.Provider)
-		})
-		if err == nil {
-			continue
-		}
-		if errors.Cause(err) != sql.ErrNoRows {
-			return nil, errors.Wrapf(err, "db.FetchByExternalId(%s)", iPolicies[i].GetGlobalId())
-		}
-		_, err = CloudpolicyManager.newFromCloudpolicy(ctx, userCred, iPolicies[i], self.Provider)
-		if err != nil {
-			return nil, errors.Wrap(err, "newFromCloudpolicy")
-		}
+	custom, err := iGroup.GetICustomCloudpolicies()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetICustomCloudpolicies")
 	}
+
 	for i := range groups {
-		isEqual, err := groups[i].IsEqual(iPolicies)
+		isEqual, err := groups[i].IsEqual(system, custom)
 		if err != nil {
 			return nil, errors.Wrap(err, "IsEqual")
 		}
@@ -822,15 +1111,236 @@ func (self *SCloudaccount) GetOrCreateCloudgroup(ctx context.Context, userCred m
 			return &groups[i], nil
 		}
 	}
+	policyIds := []string{}
+	for i := range system {
+		policy, err := self.GetSystemPolicyByExternalId(system[i].GetGlobalId())
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetSystemPolicyByExternalId")
+		}
+		if !utils.IsInStringArray(policy.Id, policyIds) {
+			policyIds = append(policyIds, policy.Id)
+		}
+	}
+	for i := range custom {
+		policy, err := self.GetCustomPolicyByExternalId(custom[i].GetGlobalId())
+		if err != nil {
+			return nil, errors.Wrap(err, "GetCustomPolicyByExternalId")
+		}
+		if !utils.IsInStringArray(policy.Id, policyIds) {
+			policyIds = append(policyIds, policy.Id)
+		}
+	}
 	group, err := CloudgroupManager.newCloudgroup(ctx, userCred, iGroup, self.Provider, self.DomainId)
 	if err != nil {
 		return nil, errors.Wrap(err, "newCloudgroup")
 	}
-	for i := range iPolicies {
-		err = group.attachPolicyFromCloudpolicy(ctx, userCred, iPolicies[i])
-		if err != nil {
-			return nil, errors.Wrap(err, "attachPolicyFromCloudpolicy")
-		}
+	for _, policyId := range policyIds {
+		group.attachPolicy(policyId)
 	}
 	return group, nil
+}
+
+func (self *SCloudaccount) getOrCacheCustomCloudpolicy(ctx context.Context, providerId, policyId string) error {
+	cache, err := CloudpolicycacheManager.Register(ctx, self.Id, providerId, policyId)
+	if err != nil {
+		return errors.Wrapf(err, "Register")
+	}
+	return cache.cacheCustomCloudpolicy()
+}
+
+func (self *SCloudaccount) SyncCustomCloudpoliciesForCloud(ctx context.Context, userCred mcclient.TokenCredential, clouduser *SClouduser) error {
+	factory, err := self.GetProviderFactory()
+	if err != nil {
+		return errors.Wrap(err, "GetProviderFactory")
+	}
+
+	if factory.IsClouduserpolicyWithSubscription() {
+		providers, err := self.GetCloudproviders()
+		if err != nil {
+			return errors.Wrap(err, "GetCloudproviders")
+		}
+		for i := range providers {
+			err = providers[i].SyncCustomCloudpoliciesForCloud(ctx, clouduser)
+			if err != nil {
+				return errors.Wrapf(err, "SyncSystemCloudpoliciesForCloud for cloudprovider %s", providers[i].Name)
+			}
+		}
+		return nil
+	}
+
+	policyIds := []string{}
+	policies, err := clouduser.GetCustomCloudpolicies("")
+	if err != nil {
+		return errors.Wrap(err, "GetSystemCloudpolicies")
+	}
+	for i := range policies {
+		err = self.getOrCacheCustomCloudpolicy(ctx, "", policies[i].Id)
+		if err != nil {
+			return errors.Wrapf(err, "getOrCacheCloudpolicy %s(%s) for account %s", policies[i].Name, policies[i].Provider, self.Name)
+		}
+		policyIds = append(policyIds, policies[i].Id)
+	}
+
+	if !factory.IsSupportCreateCloudgroup() {
+		policies, err = clouduser.GetCustomCloudgroupPolicies()
+		if err != nil {
+			return errors.Wrap(err, "GetSystemCloudgroupPolicies")
+		}
+		for i := range policies {
+			err = self.getOrCacheCustomCloudpolicy(ctx, "", policies[i].Id)
+			if err != nil {
+				return errors.Wrapf(err, "getOrCacheCloudpolicy %s(%s) for account %s", policies[i].Name, policies[i].Provider, self.Name)
+			}
+			policyIds = append(policyIds, policies[i].Id)
+		}
+	}
+
+	dbCaches, err := self.GetCloudpolicycaches(policyIds, "")
+	if err != nil {
+		return errors.Wrapf(err, "GetCloudpolicycaches")
+	}
+
+	iUser, err := clouduser.GetIClouduser()
+	if err != nil {
+		return errors.Wrapf(err, "GetIClouduser")
+	}
+
+	iPolicies, err := iUser.GetICustomCloudpolicies()
+	if err != nil {
+		return errors.Wrap(err, "GetISystemCloudpolicies")
+	}
+
+	added := make([]SCloudpolicycache, 0)
+	commondb := make([]SCloudpolicycache, 0)
+	commonext := make([]cloudprovider.ICloudpolicy, 0)
+	removed := make([]cloudprovider.ICloudpolicy, 0)
+
+	err = compare.CompareSets(dbCaches, iPolicies, &added, &commondb, &commonext, &removed)
+	if err != nil {
+		return errors.Wrap(err, "compare.CompareSets")
+	}
+
+	result := compare.SyncResult{}
+	for i := 0; i < len(removed); i++ {
+		err = iUser.DetachCustomPolicy(removed[i].GetGlobalId())
+		if err != nil {
+			result.DeleteError(err)
+			logclient.AddSimpleActionLog(self, logclient.ACT_DETACH_POLICY, err, userCred, false)
+			continue
+		}
+		result.Delete()
+	}
+
+	result.UpdateCnt = len(commondb)
+
+	for i := 0; i < len(added); i++ {
+		err = iUser.AttachCustomPolicy(added[i].ExternalId)
+		if err != nil {
+			result.AddError(err)
+			logclient.AddSimpleActionLog(self, logclient.ACT_DETACH_POLICY, err, userCred, false)
+			continue
+		}
+		result.Add()
+	}
+
+	if result.IsError() {
+		return result.AllError()
+	}
+
+	log.Infof("Sync %s(%s) custom policies for user %s result: %s", self.Name, self.Provider, clouduser.Name, result.Result())
+	return nil
+}
+
+func (self *SCloudaccount) SyncSystemCloudpoliciesForCloud(ctx context.Context, userCred mcclient.TokenCredential, clouduser *SClouduser) error {
+	factory, err := self.GetProviderFactory()
+	if err != nil {
+		return errors.Wrap(err, "GetProviderFactory")
+	}
+
+	if factory.IsClouduserpolicyWithSubscription() {
+		providers, err := self.GetCloudproviders()
+		if err != nil {
+			return errors.Wrap(err, "GetCloudproviders")
+		}
+		for i := range providers {
+			err = providers[i].SyncSystemCloudpoliciesForCloud(ctx, clouduser)
+			if err != nil {
+				return errors.Wrapf(err, "SyncSystemCloudpoliciesForCloud for cloudprovider %s", providers[i].Name)
+			}
+		}
+		return nil
+	}
+
+	dbPolicies, err := clouduser.GetSystemCloudpolicies("")
+	if err != nil {
+		return errors.Wrap(err, "GetSystemCloudpolicies")
+	}
+
+	if !factory.IsSupportCreateCloudgroup() {
+		policyMaps := map[string]SCloudpolicy{}
+		for i := range dbPolicies {
+			policyMaps[dbPolicies[i].Id] = dbPolicies[i]
+		}
+		policies, err := clouduser.GetSystemCloudgroupPolicies()
+		if err != nil {
+			return errors.Wrap(err, "GetSystemCloudgroupPolicies")
+		}
+		for i := range policies {
+			_, ok := policyMaps[policies[i].Id]
+			if !ok {
+				policyMaps[policies[i].Id] = policies[i]
+				dbPolicies = append(dbPolicies, policies[i])
+			}
+		}
+	}
+
+	iUser, err := clouduser.GetIClouduser()
+	if err != nil {
+		return errors.Wrapf(err, "GetIClouduser")
+	}
+
+	iPolicies, err := iUser.GetISystemCloudpolicies()
+	if err != nil {
+		return errors.Wrap(err, "GetISystemCloudpolicies")
+	}
+
+	added := make([]SCloudpolicy, 0)
+	commondb := make([]SCloudpolicy, 0)
+	commonext := make([]cloudprovider.ICloudpolicy, 0)
+	removed := make([]cloudprovider.ICloudpolicy, 0)
+
+	err = compare.CompareSets(dbPolicies, iPolicies, &added, &commondb, &commonext, &removed)
+	if err != nil {
+		return errors.Wrap(err, "compare.CompareSets")
+	}
+
+	result := compare.SyncResult{}
+	for i := 0; i < len(removed); i++ {
+		err = iUser.DetachSystemPolicy(removed[i].GetGlobalId())
+		if err != nil {
+			result.DeleteError(err)
+			logclient.AddSimpleActionLog(self, logclient.ACT_DETACH_POLICY, err, userCred, false)
+			continue
+		}
+		result.Delete()
+	}
+
+	result.UpdateCnt = len(commondb)
+
+	for i := 0; i < len(added); i++ {
+		err = iUser.AttachSystemPolicy(added[i].ExternalId)
+		if err != nil {
+			result.AddError(err)
+			logclient.AddSimpleActionLog(self, logclient.ACT_ATTACH_POLICY, err, userCred, false)
+			continue
+		}
+		result.Add()
+	}
+
+	if result.IsError() {
+		return result.AllError()
+	}
+
+	log.Infof("Sync %s(%s) system policies for user %s result: %s", self.Name, self.Provider, clouduser.Name, result.Result())
+	return nil
 }

@@ -69,7 +69,7 @@ func init() {
 		Name     string
 	}
 
-	shellutils.R(&RoleListOptions{}, "role-list", "List role", func(cli *huawei.SRegion, args *RoleListOptions) error {
+	shellutils.R(&RoleListOptions{}, "cloud-policy-list", "List role", func(cli *huawei.SRegion, args *RoleListOptions) error {
 		roles, err := cli.GetClient().GetRoles(args.DomainId, args.Name)
 		if err != nil {
 			return err
@@ -86,5 +86,4 @@ func init() {
 	shellutils.R(&ClouduserResetPassword{}, "cloud-user-reset-password", "Reset clouduser password", func(cli *huawei.SRegion, args *ClouduserResetPassword) error {
 		return cli.GetClient().ResetClouduserPassword(args.ID, args.PASSWORD)
 	})
-
 }

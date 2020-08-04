@@ -18,9 +18,10 @@ import (
 	"context"
 	"database/sql"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/compare"
 
-	api "yunion.io/x/onecloud/pkg/apis/cloudid"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudid/options"
@@ -56,20 +57,6 @@ type SCloudprovider struct {
 	CloudaccountId string `width:"36" charset:"ascii" nullable:"false" list:"user"`
 }
 
-func (self *SCloudprovider) syncRemoveClouduser(ctx context.Context, userCred mcclient.TokenCredential) error {
-	users, err := self.getCloudusers()
-	if err != nil {
-		return errors.Wrap(err, "getCloudusers")
-	}
-	for i := range users {
-		err = users[i].RealDelete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "RealDelete user %s(%s)", users[i].Name, users[i].Id)
-		}
-	}
-	return self.Delete(ctx, userCred)
-}
-
 func (manager *SCloudproviderManager) newFromRegionProvider(ctx context.Context, userCred mcclient.TokenCredential, provider SCloudprovider) error {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
@@ -89,10 +76,6 @@ func (self SCloudprovider) GetGlobalId() string {
 }
 
 func (self SCloudprovider) GetExternalId() string {
-	return self.Id
-}
-
-func (self SCloudprovider) GetCloudproviderId() string {
 	return self.Id
 }
 
@@ -147,22 +130,199 @@ func (self *SCloudprovider) GetProviderFactory() (cloudprovider.ICloudProviderFa
 	return cloudprovider.GetProviderFactory(self.Provider)
 }
 
-func (self *SCloudprovider) getCloudusers() ([]SClouduser, error) {
-	users := []SClouduser{}
-	q := ClouduserManager.Query().Equals("cloudprovider_id", self.Id)
-	err := db.FetchModelObjects(ClouduserManager, q, &users)
+func (self *SCloudprovider) SyncCustomCloudpoliciesForCloud(ctx context.Context, clouduser *SClouduser) error {
+	account, err := self.GetCloudaccount()
 	if err != nil {
-		return nil, errors.Wrap(err, "db.FetchModelObjects")
+		return errors.Wrap(err, "GetCloudaccount")
 	}
-	return users, nil
+
+	factory, err := self.GetProviderFactory()
+	if err != nil {
+		return errors.Wrapf(err, "GetProviderFactory")
+	}
+
+	policyIds := []string{}
+	policies, err := clouduser.GetCustomCloudpolicies("")
+	if err != nil {
+		return errors.Wrap(err, "GetSystemCloudpolicies")
+	}
+	for i := range policies {
+		err = account.getOrCacheCustomCloudpolicy(ctx, self.Id, policies[i].Id)
+		if err != nil {
+			return errors.Wrapf(err, "getOrCacheCloudpolicy %s(%s) for cloudprovider %s", policies[i].Name, policies[i].Provider, self.Name)
+		}
+		policyIds = append(policyIds, policies[i].Id)
+	}
+
+	if !factory.IsSupportCreateCloudgroup() {
+		policies, err = clouduser.GetCustomCloudgroupPolicies()
+		if err != nil {
+			return errors.Wrap(err, "GetSystemCloudgroupPolicies")
+		}
+		for i := range policies {
+			err = account.getOrCacheCustomCloudpolicy(ctx, self.Id, policies[i].Id)
+			if err != nil {
+				return errors.Wrapf(err, "getOrCacheCloudpolicy %s(%s) for cloudprovider %s", policies[i].Name, policies[i].Provider, self.Name)
+			}
+			policyIds = append(policyIds, policies[i].Id)
+		}
+	}
+
+	dbCaches, err := account.GetCloudpolicycaches(policyIds, self.Id)
+	if err != nil {
+		return errors.Wrapf(err, "GetCloudpolicycaches")
+	}
+
+	provider, err := self.GetProvider()
+	if err != nil {
+		return errors.Wrapf(err, "GetProvider")
+	}
+
+	iUser, err := provider.GetIClouduserByName(clouduser.Name)
+	if err != nil {
+		return errors.Wrapf(err, "GetIClouduser")
+	}
+
+	iPolicies, err := iUser.GetICustomCloudpolicies()
+	if err != nil {
+		return errors.Wrap(err, "GetISystemCloudpolicies")
+	}
+
+	added := make([]SCloudpolicycache, 0)
+	commondb := make([]SCloudpolicycache, 0)
+	commonext := make([]cloudprovider.ICloudpolicy, 0)
+	removed := make([]cloudprovider.ICloudpolicy, 0)
+
+	err = compare.CompareSets(dbCaches, iPolicies, &added, &commondb, &commonext, &removed)
+	if err != nil {
+		return errors.Wrap(err, "compare.CompareSets")
+	}
+
+	result := compare.SyncResult{}
+	for i := 0; i < len(removed); i++ {
+		err = iUser.DetachCustomPolicy(removed[i].GetGlobalId())
+		if err != nil {
+			result.DeleteError(err)
+			continue
+		}
+		result.Delete()
+	}
+
+	result.UpdateCnt = len(commondb)
+
+	for i := 0; i < len(added); i++ {
+		err = iUser.AttachCustomPolicy(added[i].ExternalId)
+		if err != nil {
+			result.AddError(err)
+			continue
+		}
+		result.Add()
+	}
+
+	log.Infof("Sync %s(%s) custom policies for user %s result: %s", self.Name, self.Provider, clouduser.Name, result.Result())
+	return nil
 }
 
-func (self *SCloudprovider) getAvailableUsers(cloudproviderId string) ([]SClouduser, error) {
-	users := []SClouduser{}
-	q := ClouduserManager.Query().Equals("status", api.CLOUD_USER_STATUS_AVAILABLE).Equals("cloudprovider_id", self.Id)
-	err := db.FetchModelObjects(ClouduserManager, q, &users)
+func (self *SCloudprovider) SyncSystemCloudpoliciesForCloud(ctx context.Context, clouduser *SClouduser) error {
+	dbPolicies, err := clouduser.GetSystemCloudpolicies(self.Id)
 	if err != nil {
-		return nil, errors.Wrap(err, "db.FetchModelObjects")
+		return errors.Wrap(err, "GetSystemCloudpolicies")
 	}
-	return users, nil
+	factory, err := self.GetProviderFactory()
+	if err != nil {
+		return errors.Wrap(err, "GetProviderFactory")
+	}
+	if !factory.IsSupportCreateCloudgroup() {
+		policyMaps := map[string]SCloudpolicy{}
+		for i := range dbPolicies {
+			policyMaps[dbPolicies[i].Id] = dbPolicies[i]
+		}
+		policies, err := clouduser.GetSystemCloudgroupPolicies()
+		if err != nil {
+			return errors.Wrap(err, "GetSystemCloudgroupPolicies")
+		}
+		for i := range policies {
+			_, ok := policyMaps[policies[i].Id]
+			if !ok {
+				policyMaps[policies[i].Id] = policies[i]
+				dbPolicies = append(dbPolicies, policies[i])
+			}
+		}
+	}
+	provider, err := self.GetProvider()
+	if err != nil {
+		return errors.Wrapf(err, "GetProvider")
+	}
+	iUser, err := provider.GetIClouduserByName(clouduser.Name)
+	if err != nil {
+		return errors.Wrapf(err, "GetIClouduserByName(%s)", clouduser.Name)
+	}
+
+	iPolicies, err := iUser.GetISystemCloudpolicies()
+	if err != nil {
+		return errors.Wrap(err, "GetISystemCloudpolicies")
+	}
+
+	added := make([]SCloudpolicy, 0)
+	commondb := make([]SCloudpolicy, 0)
+	commonext := make([]cloudprovider.ICloudpolicy, 0)
+	removed := make([]cloudprovider.ICloudpolicy, 0)
+
+	err = compare.CompareSets(dbPolicies, iPolicies, &added, &commondb, &commonext, &removed)
+	if err != nil {
+		return errors.Wrap(err, "compare.CompareSets")
+	}
+
+	result := compare.SyncResult{}
+	for i := 0; i < len(removed); i++ {
+		err = iUser.DetachSystemPolicy(removed[i].GetGlobalId())
+		if err != nil {
+			result.DeleteError(err)
+			continue
+		}
+		result.Delete()
+	}
+
+	result.UpdateCnt = len(commondb)
+
+	for i := 0; i < len(added); i++ {
+		err = iUser.AttachSystemPolicy(added[i].ExternalId)
+		if err != nil {
+			result.AddError(err)
+			continue
+		}
+		result.Add()
+	}
+
+	log.Infof("Sync %s(%s) system policies for user %s in provider %s result: %s", self.Name, self.Provider, clouduser.Name, self.Name, result.Result())
+	return nil
+}
+
+func (self *SCloudprovider) GetCloudaccount() (*SCloudaccount, error) {
+	account, err := CloudaccountManager.FetchById(self.CloudaccountId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "FetchById(%s)", self.CloudaccountId)
+	}
+	return account.(*SCloudaccount), nil
+}
+
+func (self *SCloudprovider) SyncCustomCloudpoliciesFromCloud(ctx context.Context, userCred mcclient.TokenCredential) error {
+	provider, err := self.GetProvider()
+	if err != nil {
+		return errors.Wrapf(err, "GetProvider")
+	}
+
+	account, err := self.GetCloudaccount()
+	if err != nil {
+		return errors.Wrapf(err, "GetCloudaccount")
+	}
+
+	policies, err := provider.GetICustomCloudpolicies()
+	if err != nil {
+		return errors.Wrapf(err, "GetICustomCloudpolicies for account %s(%s)", self.Name, self.Provider)
+	}
+
+	result := account.SyncCustomCloudpoliciesToLocal(ctx, userCred, policies, self.Id)
+	log.Infof("Sync %s custom policies for cloudprovider %s result: %s", self.Provider, self.Name, result.Result())
+	return nil
 }

@@ -50,6 +50,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.CloudgroupManager,
 		models.CloudgroupcacheManager,
 		models.CloudpolicyManager,
+		models.CloudpolicycacheManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

@@ -35,6 +35,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -99,24 +100,38 @@ func (self *SGoogleClient) SetIamPlicy(policy *SIamPolicy) error {
 	return nil
 }
 
-type SClouduserRole struct {
-	role string
+func (self *SGoogleClient) CreateICloudpolicy(opts *cloudprovider.SCloudpolicyCreateOptions) (cloudprovider.ICloudpolicy, error) {
+	permission := struct {
+		IncludedPermissions []string
+	}{}
+	err := opts.Document.Unmarshal(&permission)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Document.Unmarshal(")
+	}
+	return self.CreateRole(permission.IncludedPermissions, opts.Name, opts.Desc)
 }
 
-func (role *SClouduserRole) GetDescription() string {
-	return ""
-}
-
-func (role *SClouduserRole) GetName() string {
-	return role.role
-}
-
-func (role *SClouduserRole) GetPolicyType() string {
-	return role.role
-}
-
-func (role *SClouduserRole) GetGlobalId() string {
-	return role.role
+func (self *SGoogleClient) CreateRole(permissions []string, name, desc string) (*SRole, error) {
+	resource := fmt.Sprintf("projects/%s/roles", self.projectId)
+	params := map[string]interface{}{
+		"roleId": strings.ReplaceAll(stringutils.UUID4(), "-", "_"),
+		"role": map[string]interface{}{
+			"title":               name,
+			"description":         desc,
+			"includedPermissions": permissions,
+			"stage":               "GA",
+		},
+	}
+	resp, err := self.iamPost(resource, nil, jsonutils.Marshal(params))
+	if err != nil {
+		return nil, errors.Wrap(err, "managerPost")
+	}
+	role := SRole{client: self}
+	err = resp.Unmarshal(&role)
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return &role, nil
 }
 
 type SClouduser struct {
@@ -126,23 +141,40 @@ type SClouduser struct {
 }
 
 func (self *SGoogleClient) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	roles, err := self.GetRoles()
+	roles, err := self.GetRoles("")
 	if err != nil {
 		return nil, errors.Wrap(err, "GetRoles")
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range roles {
+		roles[i].client = self
+		ret = append(ret, &roles[i])
+	}
+	return ret, nil
+}
+
+func (self *SGoogleClient) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	roles, err := self.GetRoles(self.projectId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRoles for project %s", self.projectId)
+	}
+	ret := []cloudprovider.ICloudpolicy{}
+	for i := range roles {
+		roles[i].client = self
 		ret = append(ret, &roles[i])
 	}
 	return ret, nil
 }
 
 type SRole struct {
-	Name        string
-	Title       string
-	Description string
-	Stage       string
-	Etag        string
+	client *SGoogleClient
+
+	Name                string
+	Title               string
+	Description         string
+	IncludedPermissions []string
+	Stage               string
+	Etag                string
 }
 
 func (role *SRole) GetName() string {
@@ -157,14 +189,50 @@ func (role *SRole) GetDescription() string {
 	return role.Description
 }
 
-func (role *SRole) GetPolicyType() string {
-	return "System"
+func (role *SRole) UpdateDocument(document *jsonutils.JSONDict) error {
+	permissions := struct {
+		IncludedPermissions []string
+	}{}
+	err := document.Unmarshal(&permissions)
+	if err != nil {
+		return errors.Wrapf(err, "document.Unmarshal")
+	}
+	return role.client.UpdateRole(role.Name, permissions.IncludedPermissions)
+}
+
+func (role *SRole) Delete() error {
+	return role.client.DeleteRole(role.Name)
+}
+
+func (role *SRole) GetDocument() (*jsonutils.JSONDict, error) {
+	permissions := jsonutils.Marshal(role.IncludedPermissions)
+	result := jsonutils.NewDict()
+	result.Add(permissions, "includedPermissions")
+	return result, nil
+}
+
+func (self *SGoogleClient) GetRole(roleId string) (*SRole, error) {
+	role := &SRole{}
+	resp, err := self.iamGet(roleId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "iamGet(%s)", roleId)
+	}
+	err = resp.Unmarshal(role)
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return role, nil
 }
 
 // https://cloud.google.com/iam/docs/reference/rest/v1/roles/list
-func (self *SGoogleClient) GetRoles() ([]SRole, error) {
+func (self *SGoogleClient) GetRoles(projectId string) ([]SRole, error) {
 	roles := []SRole{}
-	err := self.iamListAll("roles", nil, &roles)
+	params := map[string]string{"view": "FULL"}
+	resource := "roles"
+	if len(projectId) > 0 {
+		resource = fmt.Sprintf("projects/%s/roles", projectId)
+	}
+	err := self.iamListAll(resource, params, &roles)
 	if err != nil {
 		return nil, errors.Wrap(err, "iamListAll.roles")
 	}
@@ -185,8 +253,28 @@ func (user *SClouduser) IsConsoleLogin() bool {
 
 func (user *SClouduser) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	ret := []cloudprovider.ICloudpolicy{}
-	for _, role := range user.Roles {
-		ret = append(ret, &SClouduserRole{role: role})
+	for _, roleStr := range user.Roles {
+		if strings.HasPrefix(roleStr, "roles/") {
+			role, err := user.policy.client.GetRole(roleStr)
+			if err != nil {
+				return nil, errors.Wrap(err, "GetRole")
+			}
+			ret = append(ret, role)
+		}
+	}
+	return ret, nil
+}
+
+func (user *SClouduser) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	ret := []cloudprovider.ICloudpolicy{}
+	for _, roleStr := range user.Roles {
+		if strings.HasPrefix(roleStr, "projects/") {
+			role, err := user.policy.client.GetRole(roleStr)
+			if err != nil {
+				return nil, errors.Wrap(err, "GetRole")
+			}
+			ret = append(ret, role)
+		}
 	}
 	return ret, nil
 }
@@ -217,6 +305,10 @@ func (policy *SIamPolicy) AttachPolicy(user string, roles []string) error {
 }
 
 func (user *SClouduser) AttachSystemPolicy(role string) error {
+	return user.policy.AttachPolicy(user.Name, []string{role})
+}
+
+func (user *SClouduser) AttachCustomPolicy(role string) error {
 	return user.policy.AttachPolicy(user.Name, []string{role})
 }
 
@@ -269,10 +361,14 @@ func (client *SGoogleClient) GetIClouduserByName(name string) (cloudprovider.ICl
 			return users[i], nil
 		}
 	}
-	return nil, cloudprovider.ErrNotFound
+	return &SClouduser{policy: policy, Name: name, Roles: []string{}}, nil
 }
 
 func (user *SClouduser) DetachSystemPolicy(role string) error {
+	return user.policy.DetachPolicy(user.Name, role)
+}
+
+func (user *SClouduser) DetachCustomPolicy(role string) error {
 	return user.policy.DetachPolicy(user.Name, role)
 }
 
@@ -339,4 +435,19 @@ func (policy *SIamPolicy) GetICloudusers() ([]cloudprovider.IClouduser, error) {
 		cloudusers = append(cloudusers, users[i])
 	}
 	return cloudusers, nil
+}
+
+func (self *SGoogleClient) DeleteRole(id string) error {
+	return self.iamDelete(id, nil)
+}
+
+func (self *SGoogleClient) UpdateRole(id string, permissions []string) error {
+	query := map[string]string{
+		"updateMask": "includedPermissions",
+	}
+	params := map[string]interface{}{
+		"includedPermissions": permissions,
+	}
+	_, err := self.iamPatch(id, query, jsonutils.Marshal(params))
+	return err
 }

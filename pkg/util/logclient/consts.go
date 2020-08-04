@@ -197,6 +197,7 @@ const (
 	ACT_SAVE_TO_TEMPLATE = "保存为模版"
 
 	ACT_SYNC_POLICIES = "同步权限"
+	ACT_SYNC_USERS    = "同步用户"
 	ACT_ADD_USER      = "添加用户"
 	ACT_REMOVE_USER   = "移除用户"
 	ACT_ATTACH_POLICY = "绑定权限"

@@ -35,10 +35,10 @@ func init() {
 	taskman.RegisterTask(ClouduserResetPasswordTask{})
 }
 
-func (self *ClouduserResetPasswordTask) taskFailed(ctx context.Context, clouduser *models.SClouduser, err jsonutils.JSONObject) {
-	clouduser.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_RESET_PASSWORD_FAILED, err.String())
+func (self *ClouduserResetPasswordTask) taskFailed(ctx context.Context, clouduser *models.SClouduser, err error) {
+	clouduser.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_RESET_PASSWORD_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, clouduser, logclient.ACT_RESET_PASSWORD, err, self.UserCred, false)
-	self.SetStageFailed(ctx, err)
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *ClouduserResetPasswordTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
@@ -47,29 +47,29 @@ func (self *ClouduserResetPasswordTask) OnInit(ctx context.Context, obj db.IStan
 
 	account, err := clouduser.GetCloudaccount()
 	if err != nil {
-		self.taskFailed(ctx, clouduser, jsonutils.NewString(errors.Wrap(err, "GetCloudaccount").Error()))
+		self.taskFailed(ctx, clouduser, errors.Wrap(err, "GetCloudaccount"))
 		return
 	}
 
 	factory, err := account.GetProviderFactory()
 	if err != nil {
-		self.taskFailed(ctx, clouduser, jsonutils.NewString(errors.Wrap(err, "GetProviderFactory").Error()))
+		self.taskFailed(ctx, clouduser, errors.Wrap(err, "GetProviderFactory"))
 		return
 	}
 
 	iUser, err := clouduser.GetIClouduser()
 	if err != nil {
-		self.taskFailed(ctx, clouduser, jsonutils.NewString(errors.Wrap(err, "GetIClouduser").Error()))
+		self.taskFailed(ctx, clouduser, errors.Wrap(err, "GetIClouduser"))
 		return
 	}
 
 	if factory.IsSupportResetClouduserPassword() {
 		err = iUser.ResetPassword(password)
 		if err != nil {
-			self.taskFailed(ctx, clouduser, jsonutils.NewString(errors.Wrap(err, "ResetPassword").Error()))
+			self.taskFailed(ctx, clouduser, errors.Wrap(err, "ResetPassword"))
 			return
 		}
-		clouduser.SyncWithClouduser(ctx, self.GetUserCred(), iUser, clouduser.CloudproviderId)
+		clouduser.SyncWithClouduser(ctx, self.GetUserCred(), iUser)
 	} else {
 		password = ""
 	}

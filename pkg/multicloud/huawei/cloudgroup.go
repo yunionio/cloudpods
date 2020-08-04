@@ -70,7 +70,15 @@ func (group *SCloudgroup) DetachSystemPolicy(roleId string) error {
 	return group.client.DetachGroupRole(group.Id, roleId)
 }
 
+func (group *SCloudgroup) DetachCustomPolicy(roleId string) error {
+	return group.client.DetachGroupRole(group.Id, roleId)
+}
+
 func (group *SCloudgroup) AttachSystemPolicy(roleId string) error {
+	return group.client.AttachGroupRole(group.Id, roleId)
+}
+
+func (group *SCloudgroup) AttachCustomPolicy(roleId string) error {
 	return group.client.AttachGroupRole(group.Id, roleId)
 }
 
@@ -84,6 +92,10 @@ func (group *SCloudgroup) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolic
 		ret = append(ret, &roles[i])
 	}
 	return ret, nil
+}
+
+func (group *SCloudgroup) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	return []cloudprovider.ICloudpolicy{}, nil
 }
 
 func (group *SCloudgroup) GetICloudusers() ([]cloudprovider.IClouduser, error) {

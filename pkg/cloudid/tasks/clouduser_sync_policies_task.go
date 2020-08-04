@@ -18,7 +18,6 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/cloudid"
@@ -35,9 +34,9 @@ func init() {
 	taskman.RegisterTask(ClouduserSyncPoliciesTask{})
 }
 
-func (self *ClouduserSyncPoliciesTask) taskFailed(ctx context.Context, clouduser *models.SClouduser, err jsonutils.JSONObject) {
-	clouduser.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_SYNC_POLICIES_FAILED, err.String())
-	self.SetStageFailed(ctx, err)
+func (self *ClouduserSyncPoliciesTask) taskFailed(ctx context.Context, clouduser *models.SClouduser, err error) {
+	clouduser.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_SYNC_POLICIES_FAILED, err.Error())
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *ClouduserSyncPoliciesTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
@@ -45,26 +44,26 @@ func (self *ClouduserSyncPoliciesTask) OnInit(ctx context.Context, obj db.IStand
 
 	account, err := user.GetCloudaccount()
 	if err != nil {
-		self.taskFailed(ctx, user, jsonutils.NewString(errors.Wrap(err, "GetCloudaccount").Error()))
+		self.taskFailed(ctx, user, errors.Wrap(err, "GetCloudaccount"))
 		return
 	}
 
 	factory, err := account.GetProviderFactory()
 	if err != nil {
-		self.taskFailed(ctx, user, jsonutils.NewString(errors.Wrap(err, "account.GetProviderFactory").Error()))
+		self.taskFailed(ctx, user, errors.Wrap(err, "account.GetProviderFactory"))
 		return
 	}
 
 	if factory.IsSupportClouduserPolicy() {
-		result, err := user.SyncCloudpoliciesForCloud(ctx)
+		err := user.SyncSystemCloudpoliciesForCloud(ctx, self.GetUserCred())
 		if err != nil {
-			self.taskFailed(ctx, user, jsonutils.NewString(errors.Wrap(err, "SyncCloudpoliciesForCloud").Error()))
+			self.taskFailed(ctx, user, errors.Wrap(err, "SyncSystemCloudpoliciesForCloud"))
 			return
 		}
-		log.Infof("sync cloudpolicies for user %s(%s) result: %s", user.Name, user.Id, result.Result())
 
-		if result.AddErrCnt+result.DelErrCnt > 0 {
-			self.taskFailed(ctx, user, jsonutils.NewString(result.AllError().Error()))
+		err = user.SyncCustomCloudpoliciesForCloud(ctx, self.GetUserCred())
+		if err != nil {
+			self.taskFailed(ctx, user, errors.Wrap(err, "SyncCustomCloudpoliciesForCloud"))
 			return
 		}
 	}

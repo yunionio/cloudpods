@@ -264,8 +264,31 @@ func (self *SGoogleClient) managerPost(resource string, params map[string]string
 	return jsonRequest(self.client, "POST", GOOGLE_MANAGER_DOMAIN, GOOGLE_MANAGER_API_VERSION, resource, params, body, self.debug)
 }
 
+func (self *SGoogleClient) iamPost(resource string, params map[string]string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return jsonRequest(self.client, "POST", GOOGLE_IAM_DOMAIN, GOOGLE_IAM_API_VERSION, resource, params, body, self.debug)
+}
+
 func (self *SGoogleClient) iamList(resource string, params map[string]string) (jsonutils.JSONObject, error) {
 	return jsonRequest(self.client, "GET", GOOGLE_IAM_DOMAIN, GOOGLE_IAM_API_VERSION, resource, params, nil, self.debug)
+}
+
+func (self *SGoogleClient) iamGet(resource string) (jsonutils.JSONObject, error) {
+	return jsonRequest(self.client, "GET", GOOGLE_IAM_DOMAIN, GOOGLE_IAM_API_VERSION, resource, nil, nil, self.debug)
+}
+
+func (self *SGoogleClient) iamPatch(resource string, params map[string]string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return jsonRequest(self.client, "PATCH", GOOGLE_IAM_DOMAIN, GOOGLE_IAM_API_VERSION, resource, params, body, self.debug)
+}
+
+func (self *SGoogleClient) iamDelete(id string, retval interface{}) error {
+	resp, err := jsonRequest(self.client, "DELETE", GOOGLE_IAM_DOMAIN, GOOGLE_IAM_API_VERSION, id, nil, nil, self.debug)
+	if err != nil {
+		return err
+	}
+	if retval != nil {
+		return resp.Unmarshal(retval)
+	}
+	return nil
 }
 
 func (self *SGoogleClient) iamListAll(resource string, params map[string]string, retval interface{}) error {

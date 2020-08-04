@@ -15,6 +15,7 @@
 package huawei
 
 import (
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -32,6 +33,7 @@ type SRole struct {
 	UpdatedTime   string
 	CreatedTime   string
 	Links         SLink
+	Policy        jsonutils.JSONDict
 }
 
 func (role *SRole) GetName() string {
@@ -50,7 +52,19 @@ func (role *SRole) GetGlobalId() string {
 	return role.Id
 }
 
-func (self *SHuaweiClient) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+func (role *SRole) UpdateDocument(document *jsonutils.JSONDict) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (role *SRole) GetDocument() (*jsonutils.JSONDict, error) {
+	return &role.Policy, nil
+}
+
+func (role *SRole) Delete() error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SHuaweiClient) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	roles, err := self.GetRoles("", "")
 	if err != nil {
 		return nil, errors.Wrap(err, "GetRoles")

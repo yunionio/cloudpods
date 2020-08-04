@@ -92,7 +92,6 @@ func (manager *SClouduserResourceBaseManager) FetchCustomizeColumns(
 		if user, ok := users[userIds[i]]; ok {
 			rows[i].Clouduser = user.Name
 			accountIds[i] = user.CloudaccountId
-			providerIds[i] = user.CloudproviderId
 		}
 	}
 	accountMaps, err := db.FetchIdNameMap2(CloudaccountManager, accountIds)

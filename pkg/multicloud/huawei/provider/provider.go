@@ -52,7 +52,7 @@ func (self *SHuaweiProviderFactory) GetMaxCloudEventKeepDays() int {
 	return 7
 }
 
-func (self *SHuaweiProviderFactory) IsSupportClouduser() bool {
+func (self *SHuaweiProviderFactory) IsSupportCloudIdService() bool {
 	return true
 }
 
@@ -253,7 +253,11 @@ func (self *SHuaweiProvider) CreateICloudgroup(name, desc string) (cloudprovider
 }
 
 func (self *SHuaweiProvider) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	return self.client.GetICloudpolicies()
+	return self.client.GetISystemCloudpolicies()
+}
+
+func (self *SHuaweiProvider) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	return []cloudprovider.ICloudpolicy{}, nil
 }
 
 func (self *SHuaweiProvider) GetIClouduserByName(name string) (cloudprovider.IClouduser, error) {

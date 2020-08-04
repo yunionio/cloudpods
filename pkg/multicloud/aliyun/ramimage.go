@@ -58,7 +58,7 @@ func (self *SAliyunClient) EnableImageImport() error {
 		if err != cloudprovider.ErrNotFound {
 			return err
 		}
-		_, err = self.createRole(AliyunECSImageImportRole,
+		_, err = self.CreateRole(AliyunECSImageImportRole,
 			AliyunECSImageImportRoleDocument,
 			"Allow Import External Image from OSS")
 		if err != nil {
@@ -80,7 +80,7 @@ func (self *SAliyunClient) EnableImageImport() error {
 		return err
 	}
 
-	policies, err := self.ListPolicies("", AliyunECSImageImportRole)
+	policies, err := self.ListPoliciesForRole(AliyunECSImageImportRole)
 	if err != nil {
 		return err
 	}
@@ -91,7 +91,7 @@ func (self *SAliyunClient) EnableImageImport() error {
 		}
 	}
 
-	err = self.attachPolicy2Role(AliyunECSImageImportRolePolicyType, AliyunECSImageImportRolePolicy, AliyunECSImageImportRole)
+	err = self.AttachPolicy2Role(AliyunECSImageImportRolePolicyType, AliyunECSImageImportRolePolicy, AliyunECSImageImportRole)
 	if err != nil {
 		return err
 	}
@@ -102,6 +102,21 @@ func (self *SAliyunClient) EnableImageImport() error {
 const (
 	AliyunECSImageExportRole         = "AliyunECSImageExportDefaultRole"
 	AliyunECSImageExportRoleDocument = `{
+   "Statement": [
+     {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+         "Service": [
+           "ecs.aliyuncs.com"
+         ]
+       }
+     }
+   ],
+   "Version": "1"
+}`
+
+	AliyunEmptyRoleDocument = `{
    "Statement": [
      {
        "Action": "sts:AssumeRole",
@@ -144,7 +159,7 @@ func (self *SAliyunClient) EnableImageExport() error {
 		if err != cloudprovider.ErrNotFound {
 			return err
 		}
-		_, err = self.createRole(AliyunECSImageExportRole,
+		_, err = self.CreateRole(AliyunECSImageExportRole,
 			AliyunECSImageExportRoleDocument,
 			"Allow Export Import to OSS")
 		if err != nil {
@@ -166,7 +181,7 @@ func (self *SAliyunClient) EnableImageExport() error {
 		return err
 	}
 
-	policies, err := self.ListPolicies("", AliyunECSImageExportRole)
+	policies, err := self.ListPoliciesForRole(AliyunECSImageExportRole)
 	if err != nil {
 		return err
 	}
@@ -177,7 +192,7 @@ func (self *SAliyunClient) EnableImageExport() error {
 		}
 	}
 
-	err = self.attachPolicy2Role(AliyunECSImageExportRolePolicyType, AliyunECSImageExportRolePolicy, AliyunECSImageExportRole)
+	err = self.AttachPolicy2Role(AliyunECSImageExportRolePolicyType, AliyunECSImageExportRolePolicy, AliyunECSImageExportRole)
 	if err != nil {
 		return err
 	}

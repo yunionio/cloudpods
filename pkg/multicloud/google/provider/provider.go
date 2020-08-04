@@ -53,7 +53,15 @@ func (self *SGoogleProviderFactory) IsClouduserSupportPassword() bool {
 	return false
 }
 
-func (factory *SGoogleProviderFactory) IsSupportClouduser() bool {
+func (factory *SGoogleProviderFactory) IsCloudpolicyWithSubscription() bool {
+	return true
+}
+
+func (factory *SGoogleProviderFactory) IsClouduserpolicyWithSubscription() bool {
+	return true
+}
+
+func (factory *SGoogleProviderFactory) IsSupportCloudIdService() bool {
 	return true
 }
 
@@ -270,10 +278,18 @@ func (self *SGoogleProvider) GetISystemCloudpolicies() ([]cloudprovider.ICloudpo
 	return self.client.GetISystemCloudpolicies()
 }
 
+func (self *SGoogleProvider) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	return self.client.GetICustomCloudpolicies()
+}
+
 func (self *SGoogleProvider) CreateIClouduser(conf *cloudprovider.SClouduserCreateConfig) (cloudprovider.IClouduser, error) {
 	return self.client.CreateIClouduser(conf)
 }
 
 func (self *SGoogleProvider) GetIClouduserByName(name string) (cloudprovider.IClouduser, error) {
 	return self.client.GetIClouduserByName(name)
+}
+
+func (self *SGoogleProvider) CreateICloudpolicy(opts *cloudprovider.SCloudpolicyCreateOptions) (cloudprovider.ICloudpolicy, error) {
+	return self.client.CreateICloudpolicy(opts)
 }

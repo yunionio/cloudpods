@@ -16,6 +16,7 @@ package aws
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	sdk "github.com/aws/aws-sdk-go/aws"
@@ -49,6 +50,9 @@ const (
 	AWS_INTERNATIONAL_DEFAULT_REGION = "us-west-1"
 	AWS_CHINA_DEFAULT_REGION         = "cn-north-1"
 	AWS_API_VERSION                  = "2018-10-10"
+
+	AWS_GLOBAL_ARN_PREFIX = "arn:aws:iam::aws:policy/"
+	AWS_CHINA_ARN_PREFIX  = "arn:aws-cn:iam::aws:policy/"
 )
 
 var (
@@ -111,6 +115,24 @@ func NewAwsClient(cfg *AwsClientConfig) (*SAwsClient, error) {
 		log.Debugf("ownerId: %s ownerName: %s", client.ownerId, client.ownerName)
 	}
 	return &client, nil
+}
+
+func (cli *SAwsClient) getIamArn(arn string) string {
+	switch cli.GetAccessEnv() {
+	case api.CLOUD_ACCESS_ENV_AWS_GLOBAL:
+		return AWS_GLOBAL_ARN_PREFIX + arn
+	default:
+		return AWS_CHINA_ARN_PREFIX + arn
+	}
+}
+
+func (cli *SAwsClient) getIamCommonArn(arn string) string {
+	switch cli.GetAccessEnv() {
+	case api.CLOUD_ACCESS_ENV_AWS_GLOBAL:
+		return strings.TrimPrefix(arn, AWS_GLOBAL_ARN_PREFIX)
+	default:
+		return strings.TrimPrefix(arn, AWS_CHINA_ARN_PREFIX)
+	}
 }
 
 func GetDefaultRegionId(accessUrl string) string {

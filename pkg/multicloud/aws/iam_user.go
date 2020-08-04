@@ -24,8 +24,15 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
-type SClouduser struct {
-	client           *SAwsClient
+type SUsers struct {
+	Users       []SUser `xml:"Users>member"`
+	IsTruncated bool    `xml:"IsTruncated"`
+	Marker      string  `xml:"Marker"`
+}
+
+type SUser struct {
+	client *SAwsClient
+
 	UserId           string    `xml:"UserId"`
 	Path             string    `xml:"Path"`
 	UserName         string    `xml:"UserName"`
@@ -34,120 +41,159 @@ type SClouduser struct {
 	PasswordLastUsed time.Time `xml:"PasswordLastUsed"`
 }
 
-func (user *SClouduser) AttachSystemPolicy(policyArn string) error {
-	return user.client.AttachPolicy(user.UserName, user.client.getIamArn(policyArn))
+func (user *SUser) AttachSystemPolicy(policyArn string) error {
+	return user.client.AttachUserPolicy(user.UserName, user.client.getIamArn(policyArn))
 }
 
-func (user *SClouduser) DetachSystemPolicy(policyArn string) error {
-	return user.client.DetachPolicy(user.UserName, user.client.getIamArn(policyArn))
+func (user *SUser) AttachCustomPolicy(policyArn string) error {
+	return user.client.AttachUserPolicy(user.UserName, user.client.getIamArn(policyArn))
 }
 
-func (user *SClouduser) GetGlobalId() string {
+func (user *SUser) DetachSystemPolicy(policyArn string) error {
+	return user.client.DetachUserPolicy(user.UserName, user.client.getIamArn(policyArn))
+}
+
+func (user *SUser) DetachCustomPolicy(policyArn string) error {
+	return user.client.DetachUserPolicy(user.UserName, user.client.getIamArn(policyArn))
+}
+
+func (user *SUser) GetGlobalId() string {
 	return user.UserId
 }
 
-func (user *SClouduser) GetName() string {
+func (user *SUser) GetName() string {
 	return user.UserName
 }
 
-func (user *SClouduser) ResetPassword(password string) error {
-	return user.client.ResetClouduserPassword(user.UserName, password)
+func (user *SUser) ResetPassword(password string) error {
+	return user.client.ResetUserPassword(user.UserName, password)
 }
 
-func (user *SClouduser) IsConsoleLogin() bool {
+func (user *SUser) IsConsoleLogin() bool {
 	_, err := user.client.GetLoginProfile(user.UserName)
-	if err == cloudprovider.ErrNotFound {
+	if errors.Cause(err) == cloudprovider.ErrNotFound {
 		return false
 	}
 	return true
 }
 
-func (user *SClouduser) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
-	groups := []SCloudgroup{}
-	marker := ""
+func (user *SUser) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
+	return []cloudprovider.ICloudgroup{}, nil
+}
+
+func (self *SUser) ListPolicies() ([]SAttachedPolicy, error) {
+	policies := []SAttachedPolicy{}
+	offset := ""
 	for {
-		part, err := user.client.ListGroupsForUser(user.UserName, marker, 1000)
+		part, err := self.client.ListAttachedUserPolicies(self.UserName, offset, 1000, "")
+		if err != nil {
+			return nil, errors.Wrap(err, "ListAttachedUserPolicies")
+		}
+		for i := range part.AttachedPolicies {
+			part.AttachedPolicies[i].client = self.client
+			policies = append(policies, part.AttachedPolicies[i])
+		}
+		offset = part.Marker
+		if len(offset) == 0 || !part.IsTruncated {
+			break
+		}
+	}
+	return policies, nil
+}
+
+func (self *SUser) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	policies, err := self.ListPolicies()
+	if err != nil {
+		return nil, errors.Wrapf(err, "ListPolicies")
+	}
+	customMaps, err := self.client.GetCustomPolicyMaps()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetCustomPolicyMaps")
+	}
+	ret := []cloudprovider.ICloudpolicy{}
+	for i := range policies {
+		_, ok := customMaps[policies[i].PolicyName]
+		if !ok {
+			ret = append(ret, &policies[i])
+		}
+	}
+	return ret, nil
+}
+
+func (self *SUser) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	policies, err := self.ListPolicies()
+	if err != nil {
+		return nil, errors.Wrapf(err, "ListPolicies")
+	}
+	customMaps, err := self.client.GetCustomPolicyMaps()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetCustomPolicyMaps")
+	}
+	ret := []cloudprovider.ICloudpolicy{}
+	for i := range policies {
+		_, ok := customMaps[policies[i].PolicyName]
+		if ok {
+			ret = append(ret, &policies[i])
+		}
+	}
+	return ret, nil
+}
+
+func (user *SUser) ListGroups() ([]SGroup, error) {
+	groups := []SGroup{}
+	offset := ""
+	for {
+		part, err := user.client.ListGroupsForUser(user.UserName, offset, 1000)
 		if err != nil {
 			return nil, errors.Wrap(err, "ListGroupsForUser")
 		}
 		groups = append(groups, part.Groups...)
-		marker = part.Marker
-		if len(marker) == 0 {
+		offset = part.Marker
+		if len(offset) == 0 || !part.IsTruncated {
 			break
 		}
 	}
-	ret := []cloudprovider.ICloudgroup{}
-	for i := range groups {
-		groups[i].client = user.client
-		ret = append(ret, &groups[i])
-	}
-	return ret, nil
+	return groups, nil
 }
 
-func (user *SClouduser) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	policies, err := user.client.ListUserAttachedPolicies(user.UserName)
+func (user *SUser) Delete() error {
+	groups, err := user.ListGroups()
 	if err != nil {
-		return nil, errors.Wrap(err, "ListUserAttachPolicies")
+		return errors.Wrapf(err, "ListGroups")
 	}
-	ret := []cloudprovider.ICloudpolicy{}
-	for i := range policies {
-		policies[i].client = user.client
-		ret = append(ret, &policies[i])
-	}
-	return ret, nil
-}
-
-func (user *SClouduser) Delete() error {
-	marker := ""
-	for {
-		groups, err := user.client.ListGroupsForUser(user.UserName, marker, 1000)
+	for _, group := range groups {
+		err = user.client.RemoveUserFromGroup(group.GroupName, user.UserName)
 		if err != nil {
-			return errors.Wrap(err, "ListGroupsForUser")
-		}
-		for _, group := range groups.Groups {
-			err = user.client.RemoveUserFromGroup(group.GroupName, user.UserName)
-			if err != nil {
-				return errors.Wrap(err, "RemoveUserFromGroup")
-			}
-		}
-		marker = groups.Marker
-		if len(marker) == 0 {
-			break
+			return errors.Wrap(err, "RemoveUserFromGroup")
 		}
 	}
-	policies, err := user.client.ListUserAttachedPolicies(user.UserName)
+	policies, err := user.ListPolicies()
 	if err != nil {
-		return errors.Wrap(err, "ListUserAttachPolicies")
+		return errors.Wrapf(err, "ListPolicies")
 	}
-	for i := range policies {
-		err = user.DetachSystemPolicy(policies[i].PolicyArn)
+	for _, policy := range policies {
+		err = user.client.DetachUserPolicy(user.UserName, policy.PolicyArn)
 		if err != nil {
 			return errors.Wrap(err, "DetachPolicy")
 		}
 	}
-	return user.client.DeleteClouduser(user.UserName)
+	return user.client.DeleteUser(user.UserName)
 }
 
-type SCloudusers struct {
-	Users       []SClouduser `xml:"Users>member"`
-	IsTruncated bool         `xml:"IsTruncated"`
-	Marker      string       `xml:"Marker"`
-}
-
-func (self *SAwsClient) GetCloudusers(marker string, maxItems int, pathPrefix string) (*SCloudusers, error) {
-	if maxItems <= 0 || maxItems > 1000 {
-		maxItems = 1000
+func (self *SAwsClient) ListUsers(offset string, limit int, pathPrefix string) (*SUsers, error) {
+	if limit <= 0 || limit > 1000 {
+		limit = 1000
 	}
 	params := map[string]string{
-		"MaxItems": fmt.Sprintf("%d", maxItems),
+		"MaxItems": fmt.Sprintf("%d", limit),
 	}
-	if len(marker) > 0 {
-		params["Marker"] = marker
+	if len(offset) > 0 {
+		params["Marker"] = offset
 	}
 	if len(pathPrefix) > 0 {
 		params["PathPrefix"] = pathPrefix
 	}
-	users := &SCloudusers{}
+	users := &SUsers{}
 	err := self.iamRequest("ListUsers", params, users)
 	if err != nil {
 		return nil, errors.Wrap(err, "iamRequest.ListUsers")
@@ -155,7 +201,7 @@ func (self *SAwsClient) GetCloudusers(marker string, maxItems int, pathPrefix st
 	return users, nil
 }
 
-func (self *SAwsClient) CreateClouduser(path string, username string) (*SClouduser, error) {
+func (self *SAwsClient) CreateUser(path string, username string) (*SUser, error) {
 	params := map[string]string{
 		"UserName": username,
 	}
@@ -163,7 +209,7 @@ func (self *SAwsClient) CreateClouduser(path string, username string) (*SCloudus
 		params["Path"] = path
 	}
 	user := struct {
-		User SClouduser `xml:"User"`
+		User SUser `xml:"User"`
 	}{}
 	err := self.iamRequest("CreateUser", params, &user)
 	if err != nil {
@@ -173,14 +219,14 @@ func (self *SAwsClient) CreateClouduser(path string, username string) (*SCloudus
 	return &user.User, nil
 }
 
-func (self *SAwsClient) DeleteClouduser(name string) error {
+func (self *SAwsClient) DeleteUser(name string) error {
 	params := map[string]string{
 		"UserName": name,
 	}
 	return self.iamRequest("DeleteUser", params, nil)
 }
 
-func (self *SAwsClient) AttachPolicy(userName string, policyArn string) error {
+func (self *SAwsClient) AttachUserPolicy(userName string, policyArn string) error {
 	params := map[string]string{
 		"PolicyArn": policyArn,
 		"UserName":  userName,
@@ -188,7 +234,7 @@ func (self *SAwsClient) AttachPolicy(userName string, policyArn string) error {
 	return self.iamRequest("AttachUserPolicy", params, nil)
 }
 
-func (self *SAwsClient) DetachPolicy(userName string, policyArn string) error {
+func (self *SAwsClient) DetachUserPolicy(userName string, policyArn string) error {
 	params := map[string]string{
 		"PolicyArn": policyArn,
 		"UserName":  userName,
@@ -201,9 +247,9 @@ func (self *SAwsClient) DetachPolicy(userName string, policyArn string) error {
 }
 
 func (self *SAwsClient) CreateIClouduser(conf *cloudprovider.SClouduserCreateConfig) (cloudprovider.IClouduser, error) {
-	user, err := self.CreateClouduser("", conf.Name)
+	user, err := self.CreateUser("", conf.Name)
 	if err != nil {
-		return nil, errors.Wrap(err, "CreateClouduser")
+		return nil, errors.Wrap(err, "CreateUser")
 	}
 	if len(conf.Password) > 0 {
 		_, err := self.CreateLoginProfile(conf.Name, conf.Password)
@@ -215,12 +261,12 @@ func (self *SAwsClient) CreateIClouduser(conf *cloudprovider.SClouduserCreateCon
 }
 
 func (self *SAwsClient) GetIClouduserByName(name string) (cloudprovider.IClouduser, error) {
-	return self.GetClouduser(name)
+	return self.GetUser(name)
 }
 
-func (self *SAwsClient) GetClouduser(name string) (*SClouduser, error) {
+func (self *SAwsClient) GetUser(name string) (*SUser, error) {
 	user := struct {
-		User SClouduser `xml:"User"`
+		User SUser `xml:"User"`
 	}{}
 	params := map[string]string{
 		"UserName": name,
@@ -233,32 +279,22 @@ func (self *SAwsClient) GetClouduser(name string) (*SClouduser, error) {
 	return &user.User, nil
 }
 
-func (self *SAwsClient) ListUsers() ([]SClouduser, error) {
-	users := []SClouduser{}
-	marker := ""
+func (self *SAwsClient) GetICloudusers() ([]cloudprovider.IClouduser, error) {
+	ret := []cloudprovider.IClouduser{}
+	offset := ""
 	for {
-		part, err := self.GetCloudusers(marker, 1000, "")
+		part, err := self.ListUsers(offset, 1000, "")
 		if err != nil {
-			return nil, errors.Wrap(err, "GetCloudusers")
+			return nil, errors.Wrap(err, "ListUsers")
 		}
-		users = append(users, part.Users...)
-		if !part.IsTruncated {
+		for i := range part.Users {
+			part.Users[i].client = self
+			ret = append(ret, &part.Users[i])
+		}
+		offset = part.Marker
+		if len(offset) == 0 || !part.IsTruncated {
 			break
 		}
-		marker = part.Marker
-	}
-	return users, nil
-}
-
-func (self *SAwsClient) GetICloudusers() ([]cloudprovider.IClouduser, error) {
-	users, err := self.ListUsers()
-	if err != nil {
-		return nil, err
-	}
-	ret := []cloudprovider.IClouduser{}
-	for i := range users {
-		users[i].client = self
-		ret = append(ret, &users[i])
 	}
 	return ret, nil
 }
@@ -311,7 +347,7 @@ func (self *SAwsClient) UpdateLoginProfile(name, password string) error {
 	return self.iamRequest("UpdateLoginProfile", params, nil)
 }
 
-func (self *SAwsClient) ResetClouduserPassword(name, password string) error {
+func (self *SAwsClient) ResetUserPassword(name, password string) error {
 	_, err := self.GetLoginProfile(name)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
@@ -323,18 +359,18 @@ func (self *SAwsClient) ResetClouduserPassword(name, password string) error {
 	return self.UpdateLoginProfile(name, password)
 }
 
-func (self *SAwsClient) ListGroupsForUser(name string, marker string, maxItems int) (*SCloudgroups, error) {
-	if maxItems < 1 || maxItems > 1000 {
-		maxItems = 1000
+func (self *SAwsClient) ListGroupsForUser(name string, offset string, limit int) (*SGroups, error) {
+	if limit < 1 || limit > 1000 {
+		limit = 1000
 	}
 	params := map[string]string{
 		"UserName": name,
-		"MaxItems": fmt.Sprintf("%d", maxItems),
+		"MaxItems": fmt.Sprintf("%d", limit),
 	}
-	if len(marker) > 0 {
-		params["Marker"] = marker
+	if len(offset) > 0 {
+		params["Marker"] = offset
 	}
-	groups := &SCloudgroups{}
+	groups := &SGroups{}
 	err := self.iamRequest("ListGroupsForUser", params, groups)
 	if err != nil {
 		return nil, errors.Wrap(err, "ListGroupsForUser")

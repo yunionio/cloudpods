@@ -38,12 +38,6 @@ func init() {
 	taskman.RegisterTask(SyncCloudusersTask{})
 }
 
-type IProvider interface {
-	GetProvider() (cloudprovider.ICloudProvider, error)
-	GetName() string
-	GetCloudproviderId() string
-}
-
 func (self *SyncCloudusersTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	account := obj.(*models.SCloudaccount)
 	self.SetStage("OnClouduserSyncComplete", nil)
@@ -52,57 +46,105 @@ func (self *SyncCloudusersTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 		if err != nil {
 			return nil, errors.Wrap(err, "account.GetProviderFactory")
 		}
-		if !factory.IsSupportClouduser() {
+		if !factory.IsSupportCloudIdService() {
 			return nil, nil
 		}
-		iProviders := []IProvider{account}
-		if factory.IsClouduserBelongCloudprovider() {
-			iProviders = []IProvider{}
-			providers, err := account.GetCloudproviders()
-			if err != nil {
-				return nil, errors.Wrap(err, "GetCloudproviders")
-			}
-			for i := range providers {
-				iProviders = append(iProviders, &providers[i])
-			}
+		provider, err := account.GetProvider()
+		if err != nil {
+			return nil, errors.Wrap(err, "GetProvider")
 		}
-		for i := range iProviders {
-			provider, err := iProviders[i].GetProvider()
-			if err != nil {
-				return nil, errors.Wrap(err, "GetProvider")
-			}
-			iUsers, err := provider.GetICloudusers()
-			if err != nil {
-				return nil, errors.Wrap(err, "provider.GetICloudusers")
-			}
-			localUsers, remoteUsers, result := account.SyncCloudusers(ctx, self.UserCred, iProviders[i].GetCloudproviderId(), iUsers)
-			msg := fmt.Sprintf("SyncCloudusers for account %s(%s) result: %s", iProviders[i].GetName(), account.Provider, result.Result())
-			log.Infof(msg)
+		iUsers, err := provider.GetICloudusers()
+		if err != nil {
+			return nil, errors.Wrap(err, "provider.GetICloudusers")
+		}
+		localUsers, remoteUsers, result := account.SyncCloudusers(ctx, self.UserCred, iUsers)
+		msg := fmt.Sprintf("SyncCloudusers for account %s(%s) result: %s", account.Name, account.Provider, result.Result())
+		log.Infof(msg)
 
-			for i := 0; i < len(localUsers); i += 1 {
-				func() {
-					// lock clouduser
-					lockman.LockObject(ctx, &localUsers[i])
-					defer lockman.ReleaseObject(ctx, &localUsers[i])
+		for i := 0; i < len(localUsers); i += 1 {
+			func() {
+				// lock clouduser
+				lockman.LockObject(ctx, &localUsers[i])
+				defer lockman.ReleaseObject(ctx, &localUsers[i])
 
-					syncClouduserPolicies(ctx, self.GetUserCred(), &localUsers[i], remoteUsers[i])
-					syncClouduserGroups(ctx, self.GetUserCred(), &localUsers[i], remoteUsers[i])
-				}()
-			}
+				syncClouduserPolicies(ctx, self.GetUserCred(), &localUsers[i], remoteUsers[i])
+				syncClouduserGroups(ctx, self.GetUserCred(), &localUsers[i], remoteUsers[i])
+			}()
 		}
 		return nil, nil
 	})
 }
 
 func syncClouduserPolicies(ctx context.Context, userCred mcclient.TokenCredential, localUser *models.SClouduser, remoteUser cloudprovider.IClouduser) {
-	iPolicies, err := remoteUser.GetISystemCloudpolicies()
+	account, err := localUser.GetCloudaccount()
 	if err != nil {
-		log.Errorf("failed to get user %s policies error: %v", remoteUser.GetName(), err)
+		log.Errorf("failed to get user %s cloud account error: %v", remoteUser.GetName(), err)
 		return
 	}
-	result := localUser.SyncCloudpolicies(ctx, userCred, iPolicies)
-	msg := fmt.Sprintf("SyncCloudpolicies for user %s(%s) result: %s", localUser.Name, localUser.Id, result.Result())
-	log.Infof(msg)
+	factory, err := account.GetProviderFactory()
+	if err != nil {
+		log.Errorf("failed to get user %s cloud account error: %v", remoteUser.GetName(), err)
+		return
+	}
+	if factory.IsClouduserpolicyWithSubscription() {
+		providers, err := account.GetCloudproviders()
+		if err != nil {
+			log.Errorf("failed get cloudproviders for account %s error: %v", account.Name, err)
+			return
+		}
+		for i := range providers {
+			iProvider, err := providers[i].GetProvider()
+			if err != nil {
+				log.Errorf("failed to get provider for cloudprovider %s error: %v", providers[i].Name, err)
+				continue
+			}
+			iUser, err := iProvider.GetIClouduserByName(remoteUser.GetName())
+			if err != nil {
+				log.Errorf("failed to get clouduser %s for cloudprovider %s error: %v", remoteUser.GetName(), providers[i].Name, err)
+				continue
+			}
+			iPolicies, err := iUser.GetISystemCloudpolicies()
+			if err != nil {
+				log.Errorf("failed to get user %s policies error: %v", remoteUser.GetName(), err)
+				continue
+			}
+			result := localUser.SyncSystemCloudpolicies(ctx, userCred, iPolicies, providers[i].Id)
+			msg := fmt.Sprintf("SyncSystemCloudpolicies for user %s(%s) in subscription %s(%s) result: %s", localUser.Name, localUser.Id, providers[i].Name, providers[i].Id, result.Result())
+			log.Infof(msg)
+
+			iPolicies, err = remoteUser.GetICustomCloudpolicies()
+			if err != nil {
+				if errors.Cause(err) != cloudprovider.ErrNotImplemented {
+					log.Errorf("failed to get user %s custom policies error: %v", remoteUser.GetName(), err)
+					return
+				}
+				return
+			}
+			result = localUser.SyncCustomCloudpolicies(ctx, userCred, iPolicies, "")
+			msg = fmt.Sprintf("SyncCustomCloudpolicies for user %s(%s) result: %s", localUser.Name, localUser.Id, result.Result())
+			log.Infof(msg)
+		}
+	} else {
+		iPolicies, err := remoteUser.GetISystemCloudpolicies()
+		if err != nil {
+			log.Errorf("failed to get user %s policies error: %v", remoteUser.GetName(), err)
+			return
+		}
+		result := localUser.SyncSystemCloudpolicies(ctx, userCred, iPolicies, "")
+		msg := fmt.Sprintf("SyncSystemCloudpolicies for user %s(%s) result: %s", localUser.Name, localUser.Id, result.Result())
+		log.Infof(msg)
+		iPolicies, err = remoteUser.GetICustomCloudpolicies()
+		if err != nil {
+			if errors.Cause(err) != cloudprovider.ErrNotImplemented {
+				log.Errorf("failed to get user %s custom policies error: %v", remoteUser.GetName(), err)
+				return
+			}
+			return
+		}
+		result = localUser.SyncCustomCloudpolicies(ctx, userCred, iPolicies, "")
+		msg = fmt.Sprintf("SyncCustomCloudpolicies for user %s(%s) result: %s", localUser.Name, localUser.Id, result.Result())
+		log.Infof(msg)
+	}
 }
 
 func syncClouduserGroups(ctx context.Context, userCred mcclient.TokenCredential, localUser *models.SClouduser, remoteUser cloudprovider.IClouduser) {

@@ -407,8 +407,10 @@ func _baseJsonRequest(client *common.Client, req tchttp.Request, resp qcloudResp
 				break
 			}
 		}
-		if strings.Contains(err.Error(), "Code=ResourceNotFound") {
-			return nil, cloudprovider.ErrNotFound
+		for _, code := range []string{"InvalidParameter.RoleNotExist", "Code=ResourceNotFound"} {
+			if strings.Contains(err.Error(), code) {
+				return nil, errors.Wrap(cloudprovider.ErrNotFound, err.Error())
+			}
 		}
 		if strings.Contains(err.Error(), "Code=UnsupportedRegion") {
 			return nil, cloudprovider.ErrNotSupported

@@ -43,7 +43,7 @@ func (self *SAliyunProviderFactory) IsCloudeventRegional() bool {
 	return true
 }
 
-func (self *SAliyunProviderFactory) IsSupportClouduser() bool {
+func (self *SAliyunProviderFactory) IsSupportCloudIdService() bool {
 	return true
 }
 
@@ -219,4 +219,12 @@ func (self *SAliyunProvider) CreateICloudgroup(name, desc string) (cloudprovider
 
 func (self *SAliyunProvider) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	return self.client.GetISystemCloudpolicies()
+}
+
+func (self *SAliyunProvider) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	return self.client.GetICustomCloudpolicies()
+}
+
+func (self *SAliyunProvider) CreateICloudpolicy(opts *cloudprovider.SCloudpolicyCreateOptions) (cloudprovider.ICloudpolicy, error) {
+	return self.client.CreateICloudpolicy(opts)
 }

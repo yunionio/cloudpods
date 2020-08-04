@@ -192,12 +192,14 @@ type ICloudProviderFactory interface {
 
 	IsNeedForceAutoCreateProject() bool
 
-	IsSupportClouduser() bool
+	IsCloudpolicyWithSubscription() bool     // 自定义权限属于订阅级别资源
+	IsClouduserpolicyWithSubscription() bool // 绑定用户权限需要指定订阅
+
+	IsSupportCloudIdService() bool
 	IsSupportClouduserPolicy() bool
 	IsSupportResetClouduserPassword() bool
 	GetClouduserMinPolicyCount() int
 	IsClouduserNeedInitPolicy() bool
-	IsClouduserBelongCloudprovider() bool
 	IsSupportCreateCloudgroup() bool
 }
 
@@ -234,11 +236,14 @@ type ICloudProvider interface {
 	IsClouduserSupportPassword() bool
 	GetICloudusers() ([]IClouduser, error)
 	GetISystemCloudpolicies() ([]ICloudpolicy, error)
+	GetICustomCloudpolicies() ([]ICloudpolicy, error)
 	GetICloudgroups() ([]ICloudgroup, error)
 	GetICloudgroupByName(name string) (ICloudgroup, error)
 	CreateICloudgroup(name, desc string) (ICloudgroup, error)
 	GetIClouduserByName(name string) (IClouduser, error)
 	CreateIClouduser(conf *SClouduserCreateConfig) (IClouduser, error)
+
+	CreateICloudpolicy(opts *SCloudpolicyCreateOptions) (ICloudpolicy, error)
 
 	GetEnrollmentAccounts() ([]SEnrollmentAccount, error)
 	CreateSubscription(SubscriptionCreateInput) error
@@ -372,11 +377,19 @@ func (self *SBaseProvider) GetISystemCloudpolicies() ([]ICloudpolicy, error) {
 	return nil, ErrNotImplemented
 }
 
+func (self *SBaseProvider) GetICustomCloudpolicies() ([]ICloudpolicy, error) {
+	return nil, ErrNotImplemented
+}
+
 func (self *SBaseProvider) GetIClouduserByName(name string) (IClouduser, error) {
 	return nil, ErrNotImplemented
 }
 
 func (self *SBaseProvider) CreateIClouduser(conf *SClouduserCreateConfig) (IClouduser, error) {
+	return nil, ErrNotImplemented
+}
+
+func (self *SBaseProvider) CreateICloudpolicy(opts *SCloudpolicyCreateOptions) (ICloudpolicy, error) {
 	return nil, ErrNotImplemented
 }
 
@@ -440,6 +453,26 @@ func GetOnPremiseProviders() []string {
 	return providers
 }
 
+func GetSupportCloudIdProvider() []string {
+	providers := []string{}
+	for p, d := range providerTable {
+		if d.IsSupportCloudIdService() {
+			providers = append(providers, p)
+		}
+	}
+	return providers
+}
+
+func GetClouduserpolicyWithSubscriptionProviders() []string {
+	providers := []string{}
+	for p, d := range providerTable {
+		if d.IsClouduserpolicyWithSubscription() {
+			providers = append(providers, p)
+		}
+	}
+	return providers
+}
+
 func GetProviderCloudEnv(provider string) string {
 	p, err := GetProviderFactory(provider)
 	if err != nil {
@@ -489,7 +522,15 @@ func (factory *baseProviderFactory) IsNeedForceAutoCreateProject() bool {
 	return false
 }
 
-func (factory *baseProviderFactory) IsSupportClouduser() bool {
+func (factory *baseProviderFactory) IsCloudpolicyWithSubscription() bool {
+	return false
+}
+
+func (factory *baseProviderFactory) IsClouduserpolicyWithSubscription() bool {
+	return false
+}
+
+func (factory *baseProviderFactory) IsSupportCloudIdService() bool {
 	return false
 }
 
@@ -511,10 +552,6 @@ func (factory *baseProviderFactory) GetClouduserMinPolicyCount() int {
 }
 
 func (factory *baseProviderFactory) IsSupportCreateCloudgroup() bool {
-	return false
-}
-
-func (factory *baseProviderFactory) IsClouduserBelongCloudprovider() bool {
 	return false
 }
 

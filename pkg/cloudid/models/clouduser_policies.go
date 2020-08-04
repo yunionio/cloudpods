@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -24,7 +23,6 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/cloudid"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -35,6 +33,7 @@ import (
 type SClouduserPolicyManager struct {
 	SClouduserJointsManager
 
+	SCloudproviderResourceBaseManager
 	SCloudpolicyResourceBaseManager
 }
 
@@ -52,7 +51,7 @@ func init() {
 			),
 		}
 		ClouduserPolicyManager.SetVirtualObject(ClouduserPolicyManager)
-		ClouduserPolicyManager.TableSpec().AddIndex(true, "clouduser_id", "cloudpolicy_id")
+		ClouduserPolicyManager.TableSpec().AddIndex(false, "clouduser_id", "cloudpolicy_id")
 	})
 
 }
@@ -60,6 +59,7 @@ func init() {
 type SClouduserPolicy struct {
 	SClouduserJointsBase
 
+	SCloudproviderResourceBase
 	SCloudpolicyResourceBase
 }
 
@@ -182,35 +182,20 @@ func (manager *SClouduserPolicyManager) ListItemExportKeys(ctx context.Context,
 	return q, nil
 }
 
-func (manager *SClouduserPolicyManager) newFromClouduserPolicy(ctx context.Context, userCred mcclient.TokenCredential, iPolicy cloudprovider.ICloudpolicy, user *SClouduser) error {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
-
-	account, err := user.GetCloudaccount()
+func (manager *SClouduserPolicyManager) InitializeData() error {
+	sq := CloudaccountManager.Query("id").In("provider", cloudprovider.GetClouduserpolicyWithSubscriptionProviders())
+	ssq := ClouduserManager.Query("id").In("cloudaccount_id", sq.SubQuery())
+	q := manager.Query().IsNullOrEmpty("cloudprovider_id").In("clouduser_id", ssq.SubQuery())
+	ugs := []SClouduserPolicy{}
+	err := db.FetchModelObjects(manager, q, &ugs)
 	if err != nil {
-		return errors.Wrap(err, "user.GetCloudaccount")
+		return errors.Wrap(err, "db.FetchModelObjects")
 	}
-
-	up := &SClouduserPolicy{}
-	up.SetModelManager(manager, up)
-	up.ClouduserId = user.Id
-
-	p, err := db.FetchByExternalIdAndManagerId(CloudpolicyManager, iPolicy.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-		return q.Equals("provider", account.Provider)
-	})
-
-	if err != nil {
-		if errors.Cause(err) != sql.ErrNoRows {
-			return errors.Wrapf(err, "db.FetchByExternalId(%s)", iPolicy.GetGlobalId())
-		}
-		policy, err := CloudpolicyManager.newFromCloudpolicy(ctx, userCred, iPolicy, account.Provider)
+	for i := range ugs {
+		err = ugs[i].Delete(context.Background(), nil)
 		if err != nil {
-			return errors.Wrap(err, "newFromCloudpolicy")
+			return errors.Wrapf(err, "Delete clouduserpolicy user: %s policy %s", ugs[i].ClouduserId, ugs[i].CloudpolicyId)
 		}
-		up.CloudpolicyId = policy.Id
-	} else {
-		up.CloudpolicyId = p.GetId()
 	}
-
-	return manager.TableSpec().Insert(ctx, up)
+	return nil
 }

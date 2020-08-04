@@ -43,7 +43,7 @@ func (self *SAwsProviderFactory) IsSupportPrepaidResources() bool {
 	return false
 }
 
-func (self *SAwsProviderFactory) IsSupportClouduser() bool {
+func (self *SAwsProviderFactory) IsSupportCloudIdService() bool {
 	return true
 }
 
@@ -205,9 +205,17 @@ func (self *SAwsProvider) CreateICloudgroup(name, desc string) (cloudprovider.IC
 }
 
 func (self *SAwsProvider) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	return self.client.GetICloudpolicies()
+	return self.client.GetISystemCloudpolicies()
+}
+
+func (self *SAwsProvider) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	return self.client.GetISystemCloudpolicies()
 }
 
 func (self *SAwsProvider) GetIClouduserByName(name string) (cloudprovider.IClouduser, error) {
 	return self.client.GetIClouduserByName(name)
+}
+
+func (self *SAwsProvider) CreateICloudpolicy(opts *cloudprovider.SCloudpolicyCreateOptions) (cloudprovider.ICloudpolicy, error) {
+	return self.client.CreateICloudpolicy(opts)
 }

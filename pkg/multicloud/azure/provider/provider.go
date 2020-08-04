@@ -62,7 +62,7 @@ func (self *SAzureProviderFactory) IsSupportPrepaidResources() bool {
 	return false
 }
 
-func (self *SAzureProviderFactory) IsSupportClouduser() bool {
+func (self *SAzureProviderFactory) IsSupportCloudIdService() bool {
 	return true
 }
 

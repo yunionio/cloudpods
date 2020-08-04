@@ -20,14 +20,13 @@ import (
 )
 
 func init() {
-
 	type CloudgroupListOptions struct {
-		Marker     string
-		MaxItems   int
+		Offset     string
+		Limit      int
 		PathPrefix string
 	}
 	shellutils.R(&CloudgroupListOptions{}, "cloud-group-list", "List cloudgroups", func(cli *aws.SRegion, args *CloudgroupListOptions) error {
-		groups, err := cli.GetClient().ListGroups(args.Marker, args.MaxItems, args.PathPrefix)
+		groups, err := cli.GetClient().ListGroups(args.Offset, args.Limit, args.PathPrefix)
 		if err != nil {
 			return err
 		}
@@ -50,13 +49,13 @@ func init() {
 	})
 
 	type CloudgroupShowOptions struct {
-		NAME     string
-		Marker   string
-		MaxItems int
+		NAME   string
+		Offset string
+		Limit  int
 	}
 
 	shellutils.R(&CloudgroupShowOptions{}, "cloud-group-show", "Show cloudgroup details", func(cli *aws.SRegion, args *CloudgroupShowOptions) error {
-		group, err := cli.GetClient().GetGroup(args.NAME, args.Marker, args.MaxItems)
+		group, err := cli.GetClient().GetGroup(args.NAME, args.Offset, args.Limit)
 		if err != nil {
 			return err
 		}
@@ -82,13 +81,13 @@ func init() {
 	})
 
 	type CloudgroupPolicyListOptions struct {
-		NAME     string
-		Marker   string
-		MaxItems int
+		NAME   string
+		Offset string
+		Limit  int
 	}
 
 	shellutils.R(&CloudgroupPolicyListOptions{}, "cloud-group-policy-list", "List cloudgroup policies", func(cli *aws.SRegion, args *CloudgroupPolicyListOptions) error {
-		policies, err := cli.GetClient().ListGroupPolicies(args.NAME, args.Marker, args.MaxItems)
+		policies, err := cli.GetClient().ListGroupPolicies(args.NAME, args.Offset, args.Limit)
 		if err != nil {
 			return err
 		}
@@ -97,7 +96,7 @@ func init() {
 	})
 
 	shellutils.R(&CloudgroupPolicyListOptions{}, "cloud-group-attached-policy-list", "List cloudgroup policies", func(cli *aws.SRegion, args *CloudgroupPolicyListOptions) error {
-		policies, err := cli.GetClient().ListAttachedGroupPolicies(args.NAME, args.Marker, args.MaxItems)
+		policies, err := cli.GetClient().ListAttachedGroupPolicies(args.NAME, args.Offset, args.Limit)
 		if err != nil {
 			return err
 		}

@@ -61,7 +61,23 @@ func (group *SCloudgroup) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolic
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range policies {
-		ret = append(ret, &policies[i])
+		if policies[i].Properties.Type == "BuiltInRole" {
+			ret = append(ret, &policies[i])
+		}
+	}
+	return ret, nil
+}
+
+func (group *SCloudgroup) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	policies, err := group.client.GetCloudpolicies(group.ObjectId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetCloudpolicies(%s)", group.ObjectId)
+	}
+	ret := []cloudprovider.ICloudpolicy{}
+	for i := range policies {
+		if policies[i].Properties.Type != "BuiltInRole" {
+			ret = append(ret, &policies[i])
+		}
 	}
 	return ret, nil
 }
@@ -88,7 +104,11 @@ func (group *SCloudgroup) RemoveUser(name string) error {
 }
 
 func (group *SCloudgroup) AttachSystemPolicy(policyId string) error {
-	return group.client.AssignPolicy(group.ObjectId, policyId)
+	return group.client.AssignPolicy(group.ObjectId, policyId, "")
+}
+
+func (group *SCloudgroup) AttachCustomPolicy(policyId string) error {
+	return group.client.AssignPolicy(group.ObjectId, policyId, "")
 }
 
 func (group *SCloudgroup) DetachSystemPolicy(policyId string) error {
@@ -106,6 +126,10 @@ func (group *SCloudgroup) DetachSystemPolicy(policyId string) error {
 		}
 	}
 	return nil
+}
+
+func (group *SCloudgroup) DetachCustomPolicy(policyId string) error {
+	return group.DetachSystemPolicy(policyId)
 }
 
 func (group *SCloudgroup) Delete() error {

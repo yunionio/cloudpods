@@ -121,8 +121,9 @@ func init() {
 	})
 
 	type ClouduserPolicyOptions struct {
-		ID             string `help:"Clouduser Id"`
-		CLOUDPOLICY_ID string `help:"cloudpolicy Id"`
+		ID              string `help:"Clouduser Id"`
+		CLOUDPOLICY_ID  string `help:"cloudpolicy Id"`
+		CloudproviderId string `help:"cloudprovider Id"`
 	}
 
 	R(&ClouduserPolicyOptions{}, "cloud-user-attach-policy", "Attach policy for cloud user", func(s *mcclient.ClientSession, opts *ClouduserPolicyOptions) error {

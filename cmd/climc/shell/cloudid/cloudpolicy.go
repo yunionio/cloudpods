@@ -16,6 +16,7 @@ package cloudid
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -26,8 +27,10 @@ func init() {
 	type CloudpolicyListOptions struct {
 		options.BaseListOptions
 
-		ClouduserId  string `json:"clouduser_id"`
-		CloudgroupId string `json:"cloudgroup_id"`
+		CloudproviderId string `json:"cloudprovider_id"`
+		ClouduserId     string `json:"clouduser_id"`
+		CloudgroupId    string `json:"cloudgroup_id"`
+		PolicyType      string `help:"Filter cloudpolicy by policy type" choices:"system|custom"`
 	}
 	R(&CloudpolicyListOptions{}, "cloud-policy-list", "List cloud policies", func(s *mcclient.ClientSession, opts *CloudpolicyListOptions) error {
 		params, err := options.ListStructToParams(opts)
@@ -46,8 +49,35 @@ func init() {
 		ID string `help:"Cloudpolicy Id"`
 	}
 
-	R(&CloudpolicyIdOptions{}, "cloud-policy-show", "Sow cloud policiy details", func(s *mcclient.ClientSession, opts *CloudpolicyIdOptions) error {
+	R(&CloudpolicyIdOptions{}, "cloud-policy-show", "Show cloud policiy details", func(s *mcclient.ClientSession, opts *CloudpolicyIdOptions) error {
 		result, err := modules.Cloudpolicies.Get(s, opts.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&CloudpolicyIdOptions{}, "cloud-policy-syncstatus", "Sync cloud policiy status", func(s *mcclient.ClientSession, opts *CloudpolicyIdOptions) error {
+		result, err := modules.Cloudpolicies.PerformAction(s, opts.ID, "syncstatus", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&CloudpolicyIdOptions{}, "cloud-policy-lock", "Lock cloud policiy", func(s *mcclient.ClientSession, opts *CloudpolicyIdOptions) error {
+		result, err := modules.Cloudpolicies.PerformAction(s, opts.ID, "lock", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&CloudpolicyIdOptions{}, "cloud-policy-unlock", "Unlock cloud policiy", func(s *mcclient.ClientSession, opts *CloudpolicyIdOptions) error {
+		result, err := modules.Cloudpolicies.PerformAction(s, opts.ID, "unlock", nil)
 		if err != nil {
 			return err
 		}
@@ -78,4 +108,29 @@ func init() {
 		return nil
 	})
 
+	type CloudpolicyUpdateOption struct {
+		ID             string
+		Name           string
+		Description    string
+		PolicyDocument string
+	}
+
+	R(&CloudpolicyUpdateOption{}, "cloud-policy-update", "Revoke cloud policiy from group", func(s *mcclient.ClientSession, opts *CloudpolicyUpdateOption) error {
+		params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
+		if len(opts.PolicyDocument) > 0 {
+			document, err := jsonutils.Parse([]byte(opts.PolicyDocument))
+			if err != nil {
+				return errors.Wrapf(err, "invalid policy document")
+			}
+			params.Remove("policy_document")
+			params.Remove("id")
+			params.Add(document, "document")
+		}
+		result, err := modules.Cloudpolicies.Update(s, opts.ID, params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

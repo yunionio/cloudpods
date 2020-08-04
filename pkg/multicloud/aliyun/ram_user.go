@@ -24,7 +24,17 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
-type SClouduser struct {
+type sUsers struct {
+	User []SUser
+}
+
+type SUsers struct {
+	Users       sUsers
+	Marker      string
+	IsTruncated bool
+}
+
+type SUser struct {
 	client *SAliyunClient
 
 	Comments    string
@@ -36,22 +46,22 @@ type SClouduser struct {
 	UserName    string
 }
 
-func (user *SClouduser) GetGlobalId() string {
+func (user *SUser) GetGlobalId() string {
 	if len(user.UserId) > 0 {
 		return user.UserId
 	}
-	u, err := user.client.GetClouduser(user.UserName)
+	u, err := user.client.GetUser(user.UserName)
 	if err != nil {
 		return ""
 	}
 	return u.UserId
 }
 
-func (user *SClouduser) GetName() string {
+func (user *SUser) GetName() string {
 	return user.UserName
 }
 
-func (user *SClouduser) Delete() error {
+func (user *SUser) Delete() error {
 	groups, err := user.client.ListGroupsForUser(user.UserName)
 	if err != nil {
 		return errors.Wrap(err, "ListGroupsForUser")
@@ -75,24 +85,15 @@ func (user *SClouduser) Delete() error {
 	return user.client.DeleteClouduser(user.UserName)
 }
 
-func (user *SClouduser) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
-	groups, err := user.client.ListGroupsForUser(user.UserName)
-	if err != nil {
-		return nil, errors.Wrap(err, "ListGroupsForUser")
-	}
-	iGroups := []cloudprovider.ICloudgroup{}
-	for i := range groups {
-		groups[i].client = user.client
-		iGroups = append(iGroups, &groups[i])
-	}
-	return iGroups, nil
+func (user *SUser) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
+	return []cloudprovider.ICloudgroup{}, nil
 }
 
-func (user *SClouduser) UpdatePassword(password string) error {
+func (user *SUser) UpdatePassword(password string) error {
 	return user.client.UpdateLoginProfile(user.UserName, password)
 }
 
-func (user *SClouduser) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+func (user *SUser) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	policies, err := user.client.ListPoliciesForUser(user.UserName)
 	if err != nil {
 		return nil, errors.Wrap(err, "ListPoliciesForUser")
@@ -100,13 +101,29 @@ func (user *SClouduser) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy,
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range policies {
 		if policies[i].PolicyType == "System" {
+			policies[i].client = user.client
 			ret = append(ret, &policies[i])
 		}
 	}
 	return ret, nil
 }
 
-func (user *SClouduser) IsConsoleLogin() bool {
+func (user *SUser) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	policies, err := user.client.ListPoliciesForUser(user.UserName)
+	if err != nil {
+		return nil, errors.Wrap(err, "ListPoliciesForUser")
+	}
+	ret := []cloudprovider.ICloudpolicy{}
+	for i := range policies {
+		if policies[i].PolicyType == "Custom" {
+			policies[i].client = user.client
+			ret = append(ret, &policies[i])
+		}
+	}
+	return ret, nil
+}
+
+func (user *SUser) IsConsoleLogin() bool {
 	_, err := user.client.GetLoginProfile(user.UserName)
 	if errors.Cause(err) == cloudprovider.ErrNotFound {
 		return false
@@ -114,16 +131,24 @@ func (user *SClouduser) IsConsoleLogin() bool {
 	return true
 }
 
-func (user *SClouduser) ResetPassword(password string) error {
+func (user *SUser) ResetPassword(password string) error {
 	return user.client.ResetClouduserPassword(user.UserName, password)
 }
 
-func (user *SClouduser) AttachSystemPolicy(policyName string) error {
-	return user.client.AttachPolicyToUser(policyName, "System", user.UserName)
+func (user *SUser) AttachSystemPolicy(policyName string) error {
+	return user.client.AttachPolicyToUser(policyName, POLICY_TYPE_SYSTEM, user.UserName)
 }
 
-func (user *SClouduser) DetachSystemPolicy(policyName string) error {
-	return user.client.DetachPolicyFromUser(policyName, "System", user.UserName)
+func (user *SUser) AttachCustomPolicy(policyName string) error {
+	return user.client.AttachPolicyToUser(policyName, POLICY_TYPE_CUSTOM, user.UserName)
+}
+
+func (user *SUser) DetachSystemPolicy(policyName string) error {
+	return user.client.DetachPolicyFromUser(policyName, POLICY_TYPE_SYSTEM, user.UserName)
+}
+
+func (user *SUser) DetachCustomPolicy(policyName string) error {
+	return user.client.DetachPolicyFromUser(policyName, POLICY_TYPE_CUSTOM, user.UserName)
 }
 
 func (self *SAliyunClient) DeleteClouduser(name string) error {
@@ -134,7 +159,7 @@ func (self *SAliyunClient) DeleteClouduser(name string) error {
 	return err
 }
 
-func (self *SAliyunClient) CreateClouduser(name, phone, email, comments string) (*SClouduser, error) {
+func (self *SAliyunClient) CreateUser(name, phone, email, comments string) (*SUser, error) {
 	params := map[string]string{
 		"UserName":    name,
 		"DisplayName": name,
@@ -153,7 +178,7 @@ func (self *SAliyunClient) CreateClouduser(name, phone, email, comments string) 
 		return nil, errors.Wrap(err, "ramRequest.CreateUser")
 	}
 
-	user := &SClouduser{client: self}
+	user := &SUser{client: self}
 	err = resp.Unmarshal(user, "User")
 	if err != nil {
 		return nil, errors.Wrap(err, "resp.Unmarshal")
@@ -161,31 +186,30 @@ func (self *SAliyunClient) CreateClouduser(name, phone, email, comments string) 
 	return user, nil
 }
 
-func (self *SAliyunClient) GetCloudusers(marker string, maxItems int) ([]SClouduser, string, error) {
+func (self *SAliyunClient) ListUsers(offset string, limit int) (*SUsers, error) {
 	params := map[string]string{}
-	if len(marker) > 0 {
-		params["Marker"] = marker
+	if len(offset) > 0 {
+		params["Marker"] = offset
 	}
-	if maxItems > 0 {
-		params["MaxItems"] = fmt.Sprintf("%d", maxItems)
+	if limit > 0 {
+		params["MaxItems"] = fmt.Sprintf("%d", limit)
 	}
 	resp, err := self.ramRequest("ListUsers", params)
 	if err != nil {
-		return nil, "", errors.Wrap(err, "ramRequest.ListUsers")
+		return nil, errors.Wrap(err, "ramRequest.ListUsers")
 	}
-	users := []SClouduser{}
-	err = resp.Unmarshal(&users, "Users", "User")
+	users := &SUsers{}
+	err = resp.Unmarshal(users)
 	if err != nil {
-		return nil, "", errors.Wrap(err, "resp.Unmarshal")
+		return nil, errors.Wrap(err, "resp.Unmarshal")
 	}
-	marker, _ = resp.GetString("Marker")
-	return users, marker, nil
+	return users, nil
 }
 
 func (self *SAliyunClient) CreateIClouduser(conf *cloudprovider.SClouduserCreateConfig) (cloudprovider.IClouduser, error) {
-	user, err := self.CreateClouduser(conf.Name, conf.MobilePhone, conf.Email, conf.Desc)
+	user, err := self.CreateUser(conf.Name, conf.MobilePhone, conf.Email, conf.Desc)
 	if err != nil {
-		return nil, errors.Wrap(err, "CreateClouduser")
+		return nil, errors.Wrap(err, "CreateUser")
 	}
 	if len(conf.Password) > 0 {
 		_, err := self.CreateLoginProfile(conf.Name, conf.Password)
@@ -203,29 +227,26 @@ func (self *SAliyunClient) CreateIClouduser(conf *cloudprovider.SClouduserCreate
 }
 
 func (self *SAliyunClient) GetICloudusers() ([]cloudprovider.IClouduser, error) {
-	var (
-		ret    []cloudprovider.IClouduser
-		users  []SClouduser
-		marker string
-		err    error
-	)
+	ret := []cloudprovider.IClouduser{}
+	offset := ""
 	for {
-		users, marker, err = self.GetCloudusers(marker, 100)
+		part, err := self.ListUsers(offset, 100)
 		if err != nil {
 			return nil, errors.Wrap(err, "GetCloudusers")
 		}
-		for i := range users {
-			users[i].client = self
-			ret = append(ret, &users[i])
+		for i := range part.Users.User {
+			part.Users.User[i].client = self
+			ret = append(ret, &part.Users.User[i])
 		}
-		if len(marker) == 0 || len(users) == 0 {
+		offset = part.Marker
+		if len(offset) == 0 || !part.IsTruncated {
 			break
 		}
 	}
 	return ret, nil
 }
 
-func (self *SAliyunClient) GetClouduser(name string) (*SClouduser, error) {
+func (self *SAliyunClient) GetUser(name string) (*SUser, error) {
 	params := map[string]string{
 		"UserName": name,
 	}
@@ -233,7 +254,7 @@ func (self *SAliyunClient) GetClouduser(name string) (*SClouduser, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "ramRequest.CreateUser")
 	}
-	user := &SClouduser{client: self}
+	user := &SUser{client: self}
 	err = resp.Unmarshal(user, "User")
 	if err != nil {
 		return nil, errors.Wrap(err, "resp.Unmarshal")
@@ -242,7 +263,7 @@ func (self *SAliyunClient) GetClouduser(name string) (*SClouduser, error) {
 }
 
 func (self *SAliyunClient) GetIClouduserByName(name string) (cloudprovider.IClouduser, error) {
-	return self.GetClouduser(name)
+	return self.GetUser(name)
 }
 
 type SLoginProfile struct {
@@ -332,7 +353,7 @@ func (self *SAliyunClient) GetIamLoginUrl() string {
 }
 
 // https://help.aliyun.com/document_detail/28707.html?spm=a2c4g.11186623.6.752.f4466bbfVy5j0s
-func (self *SAliyunClient) ListGroupsForUser(user string) ([]SCloudgroup, error) {
+func (self *SAliyunClient) ListGroupsForUser(user string) ([]SGroup, error) {
 	params := map[string]string{
 		"UserName": user,
 	}
@@ -340,7 +361,7 @@ func (self *SAliyunClient) ListGroupsForUser(user string) ([]SCloudgroup, error)
 	if err != nil {
 		return nil, errors.Wrap(err, "ListGroupsForUser")
 	}
-	groups := []SCloudgroup{}
+	groups := []SGroup{}
 	err = resp.Unmarshal(&groups, "Groups", "Group")
 	if err != nil {
 		return nil, errors.Wrap(err, "resp.Unmarshal")
