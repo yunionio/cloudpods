@@ -42,8 +42,14 @@ type SOIDCGithubConfigOptions struct {
 	ClientSecret string `json:"client_secret"`
 }
 
+const (
+	AZURE_CLOUD_ENV_CHINA  = "china"
+	AZURE_CLOUD_ENV_GLOBAL = "global"
+)
+
 type SOIDCAzureConfigOptions struct {
 	ClientId     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
 	TenantId     string `json:"tenant_id"`
+	CloudEnv     string `json:"cloud_env"`
 }
