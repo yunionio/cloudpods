@@ -615,8 +615,6 @@ func (client *JsonClient) Send(ctx context.Context, req JsonRequest, response Js
 			ce.Details = fmt.Sprintf("jsonutils.Parse(%s) error: %v", string(rbody), err)
 			return resp.Header, nil, ce
 		}
-	} else {
-		jrbody = jsonutils.NewDict()
 	}
 
 	if resp.StatusCode < 300 {
@@ -722,8 +720,6 @@ func ParseJSONResponse(reqBody string, resp *http.Response, err error, debug boo
 			// ignore the error
 			fmt.Fprintf(os.Stderr, "parsing json failed: %s", err)
 		}
-	} else {
-		jrbody = jsonutils.NewDict()
 	}
 
 	if resp.StatusCode < 300 {
