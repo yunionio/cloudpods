@@ -45,6 +45,8 @@ const (
 	OPENSTACK_SERVICE_VOLUMEV2 = "volumev2"
 	OPENSTACK_SERVICE_VOLUME   = "volume"
 	OPENSTACK_SERVICE_IMAGE    = "image"
+
+	ErrNoEndpoint = errors.Error("no valid endpoint")
 )
 
 type OpenstackClientConfig struct {
@@ -256,12 +258,20 @@ func jsonReuest(token mcclient.TokenCredential, service, region, endpointType st
 		}
 	}
 
-	requestUrl := resource
-	if !strings.HasPrefix(resource, serviceUrl) {
-		requestUrl = fmt.Sprintf("%s/%s", serviceUrl, resource)
+	if service == OPENSTACK_SERVICE_IDENTITY {
+		if strings.HasSuffix(serviceUrl, "/v3/") {
+			serviceUrl = strings.TrimSuffix(serviceUrl, "/v3/")
+		} else if strings.HasSuffix(serviceUrl, "/v3") {
+			serviceUrl = strings.TrimSuffix(serviceUrl, "/v3")
+		}
 	}
 
-	if query != nil {
+	requestUrl := resource
+	if !strings.HasPrefix(resource, serviceUrl) {
+		requestUrl = fmt.Sprintf("%s/%s", strings.TrimSuffix(serviceUrl, "/"), strings.TrimPrefix(resource, "/"))
+	}
+
+	if query != nil && len(query) > 0 {
 		requestUrl = fmt.Sprintf("%s?%s", requestUrl, query.Encode())
 	}
 
@@ -333,7 +343,7 @@ func (cli *SOpenStackClient) bsRequest(region string, method httputils.THttpMeth
 			return jsonReuest(cli.tokenCredential, service, region, cli.endpointType, method, resource, query, body, cli.debug)
 		}
 	}
-	return nil, fmt.Errorf("no valid volume service endpoint")
+	return nil, errors.Wrap(ErrNoEndpoint, "cinder service")
 }
 
 func (cli *SOpenStackClient) bsCreate(projectId, region, resource string, body interface{}) (jsonutils.JSONObject, error) {
@@ -351,7 +361,7 @@ func (cli *SOpenStackClient) bsCreate(projectId, region, resource string, body i
 			return jsonReuest(token, service, region, cli.endpointType, httputils.POST, resource, nil, body, cli.debug)
 		}
 	}
-	return nil, fmt.Errorf("no valid volume service endpoint")
+	return nil, errors.Wrap(ErrNoEndpoint, "cinder service")
 }
 
 func (cli *SOpenStackClient) imageUpload(region, url string, body io.Reader) (*http.Response, error) {
