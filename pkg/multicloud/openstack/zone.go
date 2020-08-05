@@ -112,7 +112,7 @@ func (zone *SZone) getStorageByCategory(category, host string) (*SStorage, error
 
 func (zone *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	storages, err := zone.region.GetStorageTypes()
-	if err != nil {
+	if err != nil && errors.Cause(err) != ErrNoEndpoint {
 		return nil, errors.Wrap(err, "GetStorageTypes")
 	}
 	istorages := []cloudprovider.ICloudStorage{}
