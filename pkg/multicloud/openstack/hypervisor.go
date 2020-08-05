@@ -100,7 +100,7 @@ func (host *SHypervisor) GetIWires() ([]cloudprovider.ICloudWire, error) {
 func (host *SHypervisor) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	istorages := []cloudprovider.ICloudStorage{}
 	storages, err := host.zone.region.GetStorageTypes()
-	if err != nil {
+	if err != nil && errors.Cause(err) != ErrNoEndpoint {
 		return nil, errors.Wrap(err, "GetStorageTypes")
 	}
 	for i := range storages {
