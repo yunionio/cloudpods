@@ -72,9 +72,17 @@ func (self *SOIDCDriver) prepareConfig() error {
 			if len(tenantId) == 0 {
 				tenantId = "common"
 			}
-			conf.AuthUrl = fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/", tenantId)
-			conf.TokenUrl = fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/token", tenantId)
-			conf.UserinfoUrl = "https://graph.microsoft.com/oidc/userinfo"
+			cloudEnv, _ := confJson.GetString("cloud_env")
+			loginUrl := "https://login.microsoftonline.com"
+			graphUrl := "https://graph.microsoft.com"
+			switch cloudEnv {
+			case api.AZURE_CLOUD_ENV_CHINA:
+				loginUrl = "https://login.partner.microsoftonline.cn"
+				graphUrl = "https://microsoftgraph.chinacloudapi.cn"
+			}
+			conf.AuthUrl = fmt.Sprintf("%s/%s/oauth2/v2.0/", loginUrl, tenantId)
+			conf.TokenUrl = fmt.Sprintf("%s/%s/oauth2/v2.0/token", loginUrl, tenantId)
+			conf.UserinfoUrl = fmt.Sprintf("%s/oidc/userinfo", graphUrl)
 		}
 		err := confJson.Unmarshal(&conf)
 		if err != nil {
