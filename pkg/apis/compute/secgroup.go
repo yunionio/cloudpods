@@ -248,3 +248,12 @@ type GuestsecgroupDetails struct {
 	// 安全组名称
 	Secgroup string `json:"secgroup"`
 }
+
+type SecgroupMergeInput struct {
+	// 安全组id列表
+	SecgroupIds []string `json:"secgroup_ids"`
+
+	// swagger:ignore
+	// Deprecated
+	Secgroups []string `json:"secgroup" "yunion:deprecated-by":"secgroup_ids"`
+}

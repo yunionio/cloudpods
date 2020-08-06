@@ -555,8 +555,12 @@ type ServerSecGroupOptions struct {
 }
 
 type ServerSecGroupsOptions struct {
-	ID     string   `help:"ID or Name of server" metavar:"Guest" json:"-"`
-	Secgrp []string `help:"Ids of Security Groups" metavar:"Security Groups" positional:"true"`
+	ID          string   `help:"ID or Name of server" metavar:"Guest" json:"-"`
+	SecgroupIds []string `help:"Ids of Security Groups" metavar:"Security Groups" positional:"true"`
+}
+
+func (opts *ServerSecGroupsOptions) Parmas() jsonutils.JSONObject {
+	return jsonutils.Marshal(map[string][]string{"secgroup_ids": opts.SecgroupIds})
 }
 
 type ServerModifySrcCheckOptions struct {

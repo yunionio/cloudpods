@@ -25,6 +25,8 @@ import (
 	"time"
 	"unicode"
 
+	"gopkg.in/fatih/set.v0"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -1075,61 +1077,63 @@ func (self *SGuest) AllowPerformAddSecgroup(ctx context.Context, userCred mcclie
 	return self.IsOwner(userCred)
 }
 
-func (self *SGuest) PerformAddSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+// 绑定多个安全组
+func (self *SGuest) PerformAddSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.GuestAddSecgroupInput) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING, api.VM_SUSPEND}) {
-		return nil, httperrors.NewInputParameterError("Cannot assign security rules in status %s", self.Status)
+		return nil, httperrors.NewInputParameterError("Cannot add security groups in status %s", self.Status)
 	}
 
 	maxCount := self.GetDriver().GetMaxSecurityGroupCount()
 	if maxCount == 0 {
-		return nil, httperrors.NewUnsupportOperationError("Cannot assign security group for this guest %s", self.Name)
+		return nil, httperrors.NewUnsupportOperationError("Cannot add security groups for hypervisor %s", self.Hypervisor)
 	}
 
-	secgrpJsonArray := jsonutils.GetArrayOfPrefix(data, "secgrp")
-	if len(secgrpJsonArray) == 0 {
-		return nil, httperrors.NewInputParameterError("Missing secgrp.0 secgrp.1 ... parameters")
+	if len(input.SecgroupIds) == 0 {
+		return nil, httperrors.NewMissingParameterError("secgroup_ids")
 	}
 
-	originSecgroups := self.GetSecgroups()
-	if len(originSecgroups)+len(secgrpJsonArray) > maxCount {
+	secgroups, err := self.GetSecgroups()
+	if err != nil {
+		return nil, httperrors.NewGeneralError(errors.Wrap(err, "GetSecgroups"))
+	}
+	if len(secgroups)+len(input.SecgroupIds) > maxCount {
 		return nil, httperrors.NewUnsupportOperationError("guest %s band to up to %d security groups", self.Name, maxCount)
 	}
 
-	originSecgroupIds := []string{}
-	for _, secgroup := range originSecgroups {
-		originSecgroupIds = append(originSecgroupIds, secgroup.Id)
+	secgroupIds := []string{}
+	for _, secgroup := range secgroups {
+		secgroupIds = append(secgroupIds, secgroup.Id)
 	}
 
-	newSecgroups := []*SSecurityGroup{}
-	newSecgroupNames := []string{}
-	for idx := 0; idx < len(secgrpJsonArray); idx++ {
-		secgroupId, _ := secgrpJsonArray[idx].GetString()
+	secgroupNames := []string{}
+	for _, secgroupId := range input.SecgroupIds {
 		secgrp, err := SecurityGroupManager.FetchByIdOrName(userCred, secgroupId)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewInputParameterError("failed to find secgroup %s for params %s", secgroupId, fmt.Sprintf("secgrp.%d", idx))
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("secgroup", secgroupId)
 			}
-			return nil, httperrors.NewGeneralError(err)
+			return nil, httperrors.NewGeneralError(errors.Wrapf(err, "SecurityGroupManager.FetchByIdOrName(%s)", secgroupId))
 		}
 
-		if err := SecurityGroupManager.ValidateName(secgrp.GetName()); err != nil {
+		err = SecurityGroupManager.ValidateName(secgrp.GetName())
+		if err != nil {
 			return nil, httperrors.NewInputParameterError("The secgroup name %s does not meet the requirements, please change the name", secgrp.GetName())
 		}
 
-		if utils.IsInStringArray(secgrp.GetId(), originSecgroupIds) {
+		if utils.IsInStringArray(secgrp.GetId(), secgroupIds) {
 			return nil, httperrors.NewInputParameterError("security group %s has already been assigned to guest %s", secgrp.GetName(), self.Name)
 		}
-		newSecgroups = append(newSecgroups, secgrp.(*SSecurityGroup))
-		newSecgroupNames = append(newSecgroupNames, secgrp.GetName())
+		secgroupIds = append(secgroupIds, secgrp.GetId())
+		secgroupNames = append(secgroupNames, secgrp.GetName())
 	}
 
-	for _, secgroup := range newSecgroups {
-		if _, err := GuestsecgroupManager.newGuestSecgroup(ctx, userCred, self, secgroup); err != nil {
-			return nil, httperrors.NewInputParameterError(err.Error())
-		}
+	err = self.saveSecgroups(ctx, userCred, secgroupIds)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(errors.Wrap(err, "saveSecgroups"))
 	}
 
-	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_ASSIGNSECGROUP, fmt.Sprintf("secgroups: %s", strings.Join(newSecgroupNames, ",")), userCred, true)
+	notes := map[string][]string{"secgroups": secgroupNames}
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_ASSIGNSECGROUP, notes, userCred, true)
 	return nil, self.StartSyncTask(ctx, userCred, true, "")
 }
 
@@ -1148,101 +1152,93 @@ func (self *SGuest) saveDefaultSecgroupId(userCred mcclient.TokenCredential, sec
 			return nil
 		})
 		if err != nil {
-			log.Errorf("saveDefaultSecgroupId fail %s", err)
-			return err
+			return errors.Wrap(err, "db.Update")
 		}
 		db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
 	}
 	return nil
 }
 
-func (self *SGuest) revokeSecgroup(ctx context.Context, userCred mcclient.TokenCredential, secgroup *SSecurityGroup) error {
-	if secgroup == nil {
-		return fmt.Errorf("failed to revoke null secgroup")
-	}
-	if self.SecgrpId != secgroup.Id {
-		return GuestsecgroupManager.DeleteGuestSecgroup(ctx, userCred, self, secgroup)
-	}
-	secgroups := self.GetSecgroups()
-	if len(secgroups) <= 1 {
-		return self.saveDefaultSecgroupId(userCred, "default")
-	}
-	for _, _secgroup := range secgroups {
-		// 从guestsecgroups中移除一个安全组，并将guest的 secgroupId 设为此安全组ID
-		if _secgroup.Id != secgroup.Id {
-			err := GuestsecgroupManager.DeleteGuestSecgroup(ctx, userCred, self, &_secgroup)
-			if err != nil {
-				return err
-			}
-			return self.saveDefaultSecgroupId(userCred, _secgroup.Id)
-		}
-	}
-	return nil
-}
-
-func (self *SGuest) PerformRevokeSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SGuest) PerformRevokeSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.GuestRevokeSecgroupInput) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING, api.VM_SUSPEND}) {
-		return nil, httperrors.NewInputParameterError("Cannot revoke security rules in status %s", self.Status)
+		return nil, httperrors.NewInputParameterError("Cannot revoke security groups in status %s", self.Status)
 	}
 
-	revokeSecgroups := []*SSecurityGroup{}
-	secgrpJsonArray := jsonutils.GetArrayOfPrefix(data, "secgrp")
-	originSecgroups := self.GetSecgroups()
-	originSecgroupIds := []string{}
-	for _, originSecgroup := range originSecgroups {
-		originSecgroupIds = append(originSecgroupIds, originSecgroup.Id)
+	if len(input.SecgroupIds) == 0 {
+		return nil, nil
 	}
 
-	if len(secgrpJsonArray) == 0 {
-		revokeSecgroups = append(revokeSecgroups, self.getSecgroup())
+	secgroups, err := self.GetSecgroups()
+	if err != nil {
+		return nil, httperrors.NewGeneralError(errors.Wrap(err, "GetSecgroups"))
+	}
+	secgroupMaps := map[string]string{}
+	for _, secgroup := range secgroups {
+		secgroupMaps[secgroup.Id] = secgroup.Name
 	}
 
-	revokeSecgroupNames := []string{}
-	for idx := 0; idx < len(secgrpJsonArray); idx++ {
-		secgroupId, _ := secgrpJsonArray[idx].GetString()
+	secgroupNames := []string{}
+	for _, secgroupId := range input.SecgroupIds {
 		secgrp, err := SecurityGroupManager.FetchByIdOrName(userCred, secgroupId)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewInputParameterError("failed to find secgroup %s for params %s", secgroupId, fmt.Sprintf("secgrp.%d", idx))
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("secgroup", secgroupId)
 			}
-			return nil, httperrors.NewGeneralError(err)
+			return nil, httperrors.NewGeneralError(errors.Wrapf(err, "SecurityGroupManager.FetchByIdOrName(%s)", secgroupId))
 		}
-		if !utils.IsInStringArray(secgrp.GetId(), originSecgroupIds) {
+		_, ok := secgroupMaps[secgrp.GetId()]
+		if !ok {
 			return nil, httperrors.NewInputParameterError("security group %s not assigned to guest %s", secgrp.GetName(), self.Name)
 		}
-		revokeSecgroups = append(revokeSecgroups, secgrp.(*SSecurityGroup))
-		revokeSecgroupNames = append(revokeSecgroupNames, secgrp.GetName())
+		delete(secgroupMaps, secgrp.GetId())
+		secgroupNames = append(secgroupNames, secgrp.GetName())
 	}
 
-	for _, secgroup := range revokeSecgroups {
-		if err := self.revokeSecgroup(ctx, userCred, secgroup); err != nil {
-			return nil, err
-		}
+	secgrpIds := []string{}
+	for secgroupId := range secgroupMaps {
+		secgrpIds = append(secgrpIds, secgroupId)
 	}
-	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_REVOKESECGROUP, fmt.Sprintf("secgroups: %s", strings.Join(revokeSecgroupNames, ",")), userCred, true)
+
+	err = self.saveSecgroups(ctx, userCred, secgrpIds)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(errors.Wrap(err, "saveSecgroups"))
+	}
+
+	notes := map[string][]string{"secgroups": secgroupNames}
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_REVOKESECGROUP, notes, userCred, true)
 	return nil, self.StartSyncTask(ctx, userCred, true, "")
 }
 
-func (self *SGuest) PerformAssignSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+// +onecloud:swagger-gen-ignore
+func (self *SGuest) PerformAssignSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.GuestAssignSecgroupInput) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING, api.VM_SUSPEND}) {
 		return nil, httperrors.NewInputParameterError("Cannot assign security rules in status %s", self.Status)
 	}
-	secgrpV := validators.NewModelIdOrNameValidator("secgrp", "secgroup", userCred)
-	if err := secgrpV.Validate(data.(*jsonutils.JSONDict)); err != nil {
+
+	if len(input.SecgroupId) == 0 {
+		return nil, httperrors.NewMissingParameterError("secgroup_id")
+	}
+
+	secgroup, err := SecurityGroupManager.FetchByIdOrName(userCred, input.SecgroupId)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError2("secgroup", input.SecgroupId)
+		}
+		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "SecurityGroupManager.FetchByIdOrName(%s)", input.SecgroupId))
+	}
+
+	err = SecurityGroupManager.ValidateName(secgroup.GetName())
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("The secgroup name %s does not meet the requirements, please change the name", secgroup.GetName())
+	}
+
+	err = self.saveDefaultSecgroupId(userCred, secgroup.GetId())
+	if err != nil {
 		return nil, err
 	}
 
-	err := SecurityGroupManager.ValidateName(secgrpV.Model.GetName())
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("The secgroup name %s does not meet the requirements, please change the name", secgrpV.Model.GetName())
-	}
-
-	err = self.saveDefaultSecgroupId(userCred, secgrpV.Model.GetId())
-	if err != nil {
-		return nil, err
-	}
-
-	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_ASSIGNSECGROUP, fmt.Sprintf("secgroup: %s", secgrpV.Model.GetName()), userCred, true)
+	notes := map[string]string{"name": secgroup.GetName(), "id": secgroup.GetId()}
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_ASSIGNSECGROUP, notes, userCred, true)
 	return nil, self.StartSyncTask(ctx, userCred, true, "")
 }
 
@@ -1250,61 +1246,110 @@ func (self *SGuest) AllowPerformSetSecgroup(ctx context.Context, userCred mcclie
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "set-secgroup")
 }
 
-func (self *SGuest) PerformSetSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+// 全量覆盖安全组
+func (self *SGuest) PerformSetSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.GuestSetSecgroupInput) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING, api.VM_SUSPEND}) {
-		return nil, httperrors.NewInputParameterError("Cannot assign security rules in status %s", self.Status)
+		return nil, httperrors.NewInputParameterError("Cannot set security rules in status %s", self.Status)
 	}
-	secgrpJsonArray := jsonutils.GetArrayOfPrefix(data, "secgrp")
-	if len(secgrpJsonArray) == 0 {
-		return nil, httperrors.NewInputParameterError("Missing secgrp.0 secgrp.1 ... parameters")
+	if len(input.SecgroupIds) == 0 {
+		return nil, httperrors.NewMissingParameterError("secgroup_ids")
 	}
 
 	maxCount := self.GetDriver().GetMaxSecurityGroupCount()
 	if maxCount == 0 {
-		return nil, httperrors.NewUnsupportOperationError("Cannot assign security group for this guest %s", self.Name)
+		return nil, httperrors.NewUnsupportOperationError("Cannot set security group for this guest %s", self.Name)
 	}
 
-	if len(secgrpJsonArray) > maxCount {
+	if len(input.SecgroupIds) > maxCount {
 		return nil, httperrors.NewUnsupportOperationError("guest %s band to up to %d security groups", self.Name, maxCount)
 	}
 
-	setSecgroups := []*SSecurityGroup{}
-	setSecgroupNames := []string{}
-	for idx := 0; idx < len(secgrpJsonArray); idx++ {
-		secgroupId, _ := secgrpJsonArray[idx].GetString()
+	secgroupIds := []string{}
+	secgroupNames := []string{}
+	for _, secgroupId := range input.SecgroupIds {
 		secgrp, err := SecurityGroupManager.FetchByIdOrName(userCred, secgroupId)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewInputParameterError("failed to find secgroup %s for params %s", secgroupId, fmt.Sprintf("secgrp.%d", idx))
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("secgroup", secgroupId)
 			}
-			return nil, httperrors.NewGeneralError(err)
+			return nil, httperrors.NewGeneralError(errors.Wrapf(err, "FetchByIdOrName(%s)", secgroupId))
 		}
 
-		if err := SecurityGroupManager.ValidateName(secgrp.GetName()); err != nil {
+		err = SecurityGroupManager.ValidateName(secgrp.GetName())
+		if err != nil {
 			return nil, httperrors.NewInputParameterError("The secgroup name %s does not meet the requirements, please change the name", secgrp.GetName())
 		}
 
-		setSecgroups = append(setSecgroups, secgrp.(*SSecurityGroup))
-		setSecgroupNames = append(setSecgroupNames, secgrp.GetName())
+		if !utils.IsInStringArray(secgrp.GetId(), secgroupIds) {
+			secgroupIds = append(secgroupIds, secgrp.GetId())
+			secgroupNames = append(secgroupNames, secgrp.GetName())
+		}
 	}
 
-	err := self.RevokeAllSecgroups(ctx, userCred)
+	err := self.saveSecgroups(ctx, userCred, secgroupIds)
 	if err != nil {
-		return nil, err
+		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "saveSecgroups"))
 	}
 
-	for i := 0; i < len(setSecgroups); i++ {
-		if i == 0 {
-			err = self.saveDefaultSecgroupId(userCred, setSecgroups[i].Id)
-		} else {
-			_, err = GuestsecgroupManager.newGuestSecgroup(ctx, userCred, self, setSecgroups[i])
-		}
-		if err != nil {
-			return nil, httperrors.NewInputParameterError(err.Error())
+	notes := map[string][]string{"secgroups": secgroupNames}
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_SETSECGROUP, notes, userCred, true)
+	return nil, self.StartSyncTask(ctx, userCred, true, "")
+}
+
+func (self *SGuest) GetGuestSecgroups() ([]SGuestsecgroup, error) {
+	gss := []SGuestsecgroup{}
+	q := GuestsecgroupManager.Query().Equals("guest_id", self.Id)
+	err := db.FetchModelObjects(GuestsecgroupManager, q, &gss)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return gss, nil
+}
+
+func (self *SGuest) saveSecgroups(ctx context.Context, userCred mcclient.TokenCredential, secgroupIds []string) error {
+	if len(secgroupIds) == 0 {
+		return self.RevokeAllSecgroups(ctx, userCred)
+	}
+	oldIds := set.New(set.ThreadSafe)
+	newIds := set.New(set.ThreadSafe)
+	gss, err := self.GetGuestSecgroups()
+	if err != nil {
+		return errors.Wrapf(err, "GetGuestSecgroups")
+	}
+	secgroupMaps := map[string]SGuestsecgroup{}
+	for i := range gss {
+		oldIds.Add(gss[i].SecgroupId)
+		secgroupMaps[gss[i].SecgroupId] = gss[i]
+	}
+	for i := 1; i < len(secgroupIds); i++ {
+		newIds.Add(secgroupIds[i])
+	}
+	for _, removed := range set.Difference(oldIds, newIds).List() {
+		id := removed.(string)
+		gs, ok := secgroupMaps[id]
+		if ok {
+			err = gs.Delete(ctx, userCred)
+			if err != nil {
+				return errors.Wrapf(err, "Delete guest secgroup for guest %s secgroup %s", self.Name, id)
+			}
 		}
 	}
-	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_SETSECGROUP, fmt.Sprintf("secgroups: %s", strings.Join(setSecgroupNames, ",")), userCred, true)
-	return nil, self.StartSyncTask(ctx, userCred, true, "")
+	for _, added := range set.Difference(newIds, oldIds).List() {
+		id := added.(string)
+		err = self.newGuestSecgroup(ctx, id)
+		if err != nil {
+			return errors.Wrapf(err, "New guest secgroup for guest %s with secgroup %s", self.Name, id)
+		}
+	}
+	return self.saveDefaultSecgroupId(userCred, secgroupIds[0])
+}
+
+func (self *SGuest) newGuestSecgroup(ctx context.Context, secgroupId string) error {
+	gs := &SGuestsecgroup{}
+	gs.SetModelManager(GuestsecgroupManager, gs)
+	gs.GuestId = self.Id
+	gs.SecgroupId = secgroupId
+	return GuestsecgroupManager.TableSpec().Insert(ctx, gs)
 }
 
 func (self *SGuest) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -2541,14 +2586,17 @@ func (self *SGuest) StartChangeConfigTask(ctx context.Context, userCred mcclient
 }
 
 func (self *SGuest) RevokeAllSecgroups(ctx context.Context, userCred mcclient.TokenCredential) error {
-	err := GuestsecgroupManager.DeleteGuestSecgroup(ctx, userCred, self, nil)
+	gss, err := self.GetGuestSecgroups()
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "GetGuestSecgroups")
 	}
-	if secgroup := self.getSecgroup(); secgroup != nil {
-		return self.revokeSecgroup(ctx, userCred, secgroup)
+	for i := range gss {
+		err = gss[i].Delete(ctx, userCred)
+		if err != nil {
+			return errors.Wrap(err, "Delete")
+		}
 	}
-	return nil
+	return self.saveDefaultSecgroupId(userCred, api.SECGROUP_DEFAULT_ID)
 }
 
 func (self *SGuest) DoPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {

@@ -690,18 +690,20 @@ func (self *SSecurityGroup) AllowPerformMerge(ctx context.Context, userCred mccl
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "merge")
 }
 
-func (self *SSecurityGroup) PerformMerge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	secgroupIds := jsonutils.GetQueryStringArray(data, "secgroups")
-	if len(secgroupIds) == 0 {
-		return nil, httperrors.NewMissingParameterError("secgroups")
+func (self *SSecurityGroup) PerformMerge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SecgroupMergeInput) (jsonutils.JSONObject, error) {
+	if len(input.SecgroupIds) == 0 {
+		return nil, httperrors.NewMissingParameterError("secgroup_ids")
 	}
 	inAllowList := self.GetInAllowList()
 	outAllowList := self.GetOutAllowList()
 	secgroups := []*SSecurityGroup{}
-	for _, secgroupId := range secgroupIds {
+	for _, secgroupId := range input.SecgroupIds {
 		_secgroup, err := SecurityGroupManager.FetchByIdOrName(userCred, secgroupId)
 		if err != nil {
-			return nil, httperrors.NewResourceNotFoundError("failed to find secgroup %s error: %v", secgroupId, err)
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("secgroup", secgroupId)
+			}
+			return nil, httperrors.NewGeneralError(err)
 		}
 		secgroup := _secgroup.(*SSecurityGroup)
 		secgroup.SetModelManager(SecurityGroupManager, secgroup)
@@ -718,12 +720,14 @@ func (self *SSecurityGroup) PerformMerge(ctx context.Context, userCred mcclient.
 
 	for i := 0; i < len(secgroups); i++ {
 		secgroup := secgroups[i]
-		if err := self.migrateSecurityGroupCache(secgroup); err != nil {
-			return nil, err
+		err := self.mergeSecurityGroupCache(secgroup)
+		if err != nil {
+			return nil, httperrors.NewGeneralError(errors.Wrapf(err, "mergeSecurityGroupCache"))
 		}
 
-		if err := self.migrateGuestSecurityGroup(secgroup); err != nil {
-			return nil, err
+		err = self.mergeGuestSecurityGroup(ctx, userCred, secgroup)
+		if err != nil {
+			return nil, httperrors.NewGeneralError(errors.Wrapf(err, "mergeGuestSecurityGroup"))
 		}
 		secgroup.RealDelete(ctx, userCred)
 	}
@@ -754,12 +758,10 @@ func (self *SSecurityGroup) getSecurityGroupRuleSet() secrules.SecurityGroupRule
 	return srs
 }
 
-func (self *SSecurityGroup) migrateSecurityGroupCache(secgroup *SSecurityGroup) error {
-	caches := []SSecurityGroupCache{}
-	q := SecurityGroupCacheManager.Query().Equals("secgroup_id", secgroup.Id)
-	err := db.FetchModelObjects(SecurityGroupCacheManager, q, &caches)
+func (self *SSecurityGroup) mergeSecurityGroupCache(secgroup *SSecurityGroup) error {
+	caches, err := secgroup.GetSecurityGroupCaches()
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "GetSecurityGroupCaches")
 	}
 	for i := 0; i < len(caches); i++ {
 		cache := caches[i]
@@ -768,46 +770,37 @@ func (self *SSecurityGroup) migrateSecurityGroupCache(secgroup *SSecurityGroup) 
 			return nil
 		})
 		if err != nil {
-			return err
+			return errors.Wrap(err, "db.Update")
 		}
 	}
 	return nil
 }
 
-func (self *SSecurityGroup) migrateGuestSecurityGroup(secgroup *SSecurityGroup) error {
-	guests := secgroup.GetGuests()
+func (self *SSecurityGroup) mergeGuestSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, fade *SSecurityGroup) error {
+	guests := fade.GetGuests()
 	for i := 0; i < len(guests); i++ {
-		guest := guests[i]
-		_, err := db.Update(&guest, func() error {
-			if guest.SecgrpId == secgroup.Id {
-				guest.SecgrpId = self.Id
-			}
-			if guest.AdminSecgrpId == secgroup.Id {
-				guest.AdminSecgrpId = self.Id
-			}
-			return nil
-		})
+		secgroups, err := guests[i].GetSecgroups()
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "GetSecgroups for guest %s(%s)", guests[i].Name, guests[i].Id)
+		}
+		secgroupIds := []string{}
+		for i := range secgroups {
+			if secgroups[i].Id == fade.Id {
+				continue
+			}
+			if utils.IsInStringArray(secgroups[i].Id, secgroupIds) {
+				continue
+			}
+			secgroupIds = append(secgroupIds, secgroups[i].Id)
+		}
+		if !utils.IsInStringArray(self.Id, secgroupIds) {
+			secgroupIds = append(secgroupIds, self.Id)
+		}
+		err = guests[i].saveSecgroups(ctx, userCred, secgroupIds)
+		if err != nil {
+			return errors.Wrap(err, "saveSecgroups")
 		}
 	}
-
-	guestsecgroups, err := GuestsecgroupManager.GetGuestSecgroups(nil, secgroup)
-	if err != nil {
-		return err
-	}
-
-	for i := 0; i < len(guestsecgroups); i++ {
-		guestsecgroup := guestsecgroups[i]
-		_, err := db.Update(&guestsecgroup, func() error {
-			guestsecgroup.SecgroupId = self.Id
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -1024,14 +1017,15 @@ func (self *SSecurityGroup) ValidateDeleteCondition(ctx context.Context) error {
 	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (self *SSecurityGroup) GetSecurityGroupCaches() []SSecurityGroupCache {
+func (self *SSecurityGroup) GetSecurityGroupCaches() ([]SSecurityGroupCache, error) {
 	caches := []SSecurityGroupCache{}
 	q := SecurityGroupCacheManager.Query()
 	q = q.Filter(sqlchemy.Equals(q.Field("secgroup_id"), self.Id))
-	if err := db.FetchModelObjects(SecurityGroupCacheManager, q, &caches); err != nil {
-		log.Errorf("get secgroupcache for secgroup %s error: %v", self.Name, err)
+	err := db.FetchModelObjects(SecurityGroupCacheManager, q, &caches)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
 	}
-	return caches
+	return caches, nil
 }
 
 func (self *SSecurityGroup) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
