@@ -109,6 +109,14 @@ type MsgReq struct {
 	Content *MsgContent `json:"content,omitempty"`
 }
 
+type BatchMsgReq struct {
+	DepartMentIds []string    `json:"department_ids"`
+	OpenIds       []string    `json:"open_ids"`
+	UserIds       []string    `json:"user_ids"`
+	MsgType       string      `json:"msg_type,omitempty"`
+	Content       *MsgContent `json:"content,omitempty"`
+}
+
 type MsgContent struct {
 	Text     string   `json:"text"`
 	ImageKey string   `json:"image_key"`
@@ -238,6 +246,19 @@ type MsgResp struct {
 
 type MsgRespData struct {
 	MessageId string `json:"message_id"`
+}
+
+type BatchMsgResp struct {
+	CommonResp
+
+	Data BatchMsgRespData
+}
+
+type BatchMsgRespData struct {
+	MessageId            string   `json:"message_id"`
+	InvalidDepartmentIds string   `json:"invalid_department_ids"`
+	InvalidOpenIds       []string `json:"invalid_open_ids"`
+	InvalidUserIds       []string `json:"invalid_user_ids"`
 }
 
 type UserIDResp struct {
