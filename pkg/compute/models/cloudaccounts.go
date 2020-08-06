@@ -819,7 +819,7 @@ func (manager *SCloudaccountManager) ValidateCreateData(
 		input.AutoCreateProject = &forceAutoCreateProject
 	}
 
-	if len(input.ProjectId) > 0 {
+	if len(input.Project) > 0 {
 		var proj *db.STenant
 		proj, input.ProjectizedResourceInput, err = db.ValidateProjectizedResourceInput(ctx, input.ProjectizedResourceInput)
 		if err != nil {
