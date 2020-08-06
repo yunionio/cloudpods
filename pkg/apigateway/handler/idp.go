@@ -16,6 +16,7 @@ package handler
 
 import (
 	"context"
+	"encoding/base64"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -75,7 +76,11 @@ func (h *AuthHandlers) getIdpSsoRedirectUri(ctx context.Context, w http.Response
 
 	referer := req.Header.Get(http.CanonicalHeaderKey("referer"))
 
-	state := utils.GenRequestId(16)
+	if query == nil {
+		query = jsonutils.NewDict()
+	}
+	query.(*jsonutils.JSONDict).Set("idp_nonce", jsonutils.NewString(utils.GenRequestId(4)))
+	state := base64.URLEncoding.EncodeToString([]byte(query.String()))
 	redirectUri := getSsoCallbackUrl()
 	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
 	input := api.GetIdpSsoRedirectUriInput{
@@ -125,6 +130,10 @@ func (h *AuthHandlers) handleSsoLogin(ctx context.Context, w http.ResponseWriter
 		clearCookie(w, k, "")
 	}
 
+	idpStateQsBytes, _ := base64.URLEncoding.DecodeString(idpState)
+	idpStateQs, _ := jsonutils.Parse(idpStateQsBytes)
+	log.Debugf("state query sting: %s", idpStateQs)
+
 	var body jsonutils.JSONObject
 	var err error
 	switch req.Method {
@@ -166,7 +175,7 @@ func (h *AuthHandlers) handleSsoLogin(ctx context.Context, w http.ResponseWriter
 		if err != nil {
 			log.Debugf("error: %s", err)
 		}
-		redirUrl := generateRedirectUrl(refererUrl, err, "", "")
+		redirUrl := generateRedirectUrl(refererUrl, idpStateQs, err, "", "")
 		// success, do redirect
 		appsrv.SendRedirect(w, redirUrl)
 	} else {
@@ -187,18 +196,19 @@ func (h *AuthHandlers) handleSsoLogin(ctx context.Context, w http.ResponseWriter
 			}
 			log.Debugf("error: %s", err)
 		}
-		redirUrl := generateRedirectUrl(refererUrl, err, idpId, idpUserId)
+		redirUrl := generateRedirectUrl(refererUrl, idpStateQs, err, idpId, idpUserId)
 		appsrv.SendRedirect(w, redirUrl)
 	}
 }
 
-func generateRedirectUrl(originUrl *url.URL, err error, idpId, idpUserId string) string {
+func generateRedirectUrl(originUrl *url.URL, stateQs jsonutils.JSONObject, err error, idpId, idpUserId string) string {
 	var qs jsonutils.JSONObject
 	if len(originUrl.RawQuery) > 0 {
 		qs, _ = jsonutils.ParseQueryString(originUrl.RawQuery)
 	} else {
 		qs = jsonutils.NewDict()
 	}
+	qs.(*jsonutils.JSONDict).Update(stateQs)
 	if err != nil {
 		var errCls, errDetails string
 		switch je := err.(type) {
