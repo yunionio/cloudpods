@@ -16,11 +16,13 @@ package cas
 
 import (
 	"context"
+	"net/url"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/driver/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -56,18 +58,29 @@ func (self *SCASDriverClass) Name() string {
 	return api.IdentityDriverCAS
 }
 
-func (self *SCASDriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, tconf api.TConfigs) (api.TConfigs, error) {
+func (self *SCASDriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, template string, tconf api.TConfigs) (api.TConfigs, error) {
 	conf := api.SCASIdpConfigOptions{}
 	confJson := jsonutils.Marshal(tconf[api.IdentityDriverCAS])
 	err := confJson.Unmarshal(&conf)
 	if err != nil {
 		return tconf, errors.Wrap(err, "unmarshal config")
 	}
+	if len(conf.CASServerURL) == 0 {
+		return tconf, errors.Wrap(httperrors.ErrInputParameter, "empty cas_server_url")
+	}
+	_, err = url.Parse(conf.CASServerURL)
+	if err != nil {
+		return tconf, errors.Wrap(httperrors.ErrInputParameter, "invalid cas_server_url")
+	}
 	conf.SIdpAttributeOptions, err = utils.ValidateConfig(conf.SIdpAttributeOptions, userCred)
 	if err != nil {
 		return tconf, errors.Wrap(err, "ValidateConfig")
 	}
 	nconf := make(map[string]jsonutils.JSONObject)
+	err = confJson.Unmarshal(&nconf)
+	if err != nil {
+		return tconf, errors.Wrap(err, "Unmarshal old config")
+	}
 	err = jsonutils.Marshal(conf).Unmarshal(&nconf)
 	if err != nil {
 		return tconf, errors.Wrap(err, "Unmarshal new config")

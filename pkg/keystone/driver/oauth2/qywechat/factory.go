@@ -15,7 +15,10 @@
 package qywechat
 
 import (
+	"yunion.io/x/pkg/errors"
+
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/driver/oauth2"
 )
 
@@ -37,6 +40,20 @@ func (drv SQywxDriverFactory) IdpAttributeOptions() api.SIdpAttributeOptions {
 		UserEmailAttribute:       "email",
 		UserMobileAttribute:      "mobile",
 	}
+}
+
+func (drv SQywxDriverFactory) ValidateConfig(conf api.SOAuth2IdpConfigOptions) error {
+	cid, aid, err := splitAppId(conf.AppId)
+	if err != nil {
+		return err
+	}
+	if len(cid) == 0 {
+		return errors.Wrap(httperrors.ErrInputParameter, "empty corp_id")
+	}
+	if len(aid) == 0 {
+		return errors.Wrap(httperrors.ErrInputParameter, "empty agent_id")
+	}
+	return nil
 }
 
 func init() {

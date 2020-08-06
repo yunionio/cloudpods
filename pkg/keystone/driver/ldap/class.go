@@ -52,7 +52,7 @@ func (self *SLDAPDriverClass) Name() string {
 	return api.IdentityDriverLDAP
 }
 
-func (self *SLDAPDriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, conf api.TConfigs) (api.TConfigs, error) {
+func (self *SLDAPDriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, template string, conf api.TConfigs) (api.TConfigs, error) {
 	return conf, nil
 }
 

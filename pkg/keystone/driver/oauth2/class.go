@@ -17,7 +17,11 @@ package oauth2
 import (
 	"context"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -64,7 +68,37 @@ func (self *SOAuth2DriverClass) Name() string {
 	return api.IdentityDriverOAuth2
 }
 
-func (self *SOAuth2DriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, tconf api.TConfigs) (api.TConfigs, error) {
+func (self *SOAuth2DriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, template string, tconf api.TConfigs) (api.TConfigs, error) {
+	conf := api.SOAuth2IdpConfigOptions{}
+	confJson := jsonutils.Marshal(tconf[api.IdentityDriverOAuth2])
+	err := confJson.Unmarshal(&conf)
+	if err != nil {
+		return tconf, errors.Wrap(err, "unmarshal config")
+	}
+	if len(conf.AppId) == 0 {
+		return tconf, errors.Wrap(httperrors.ErrInputParameter, "empty app_id")
+	}
+	if len(conf.Secret) == 0 {
+		return tconf, errors.Wrap(httperrors.ErrInputParameter, "empty secret")
+	}
+	factory := findDriverFactory(template)
+	if factory == nil {
+		return nil, errors.Wrapf(httperrors.ErrNotSupported, "template %s not supported", template)
+	}
+	err = factory.ValidateConfig(conf)
+	if err != nil {
+		return nil, errors.Wrap(err, "factory.ValidateConfig")
+	}
+	nconf := make(map[string]jsonutils.JSONObject)
+	err = confJson.Unmarshal(&nconf)
+	if err != nil {
+		return tconf, errors.Wrap(err, "Unmarshal old config")
+	}
+	err = jsonutils.Marshal(conf).Unmarshal(&nconf)
+	if err != nil {
+		return tconf, errors.Wrap(err, "Unmarshal new config")
+	}
+	tconf[api.IdentityDriverOAuth2] = nconf
 	return tconf, nil
 }
 

@@ -24,6 +24,7 @@ type IOAuth2DriverFactory interface {
 	NewDriver(appId string, secret string) IOAuth2Driver
 	TemplateName() string
 	IdpAttributeOptions() api.SIdpAttributeOptions
+	ValidateConfig(conf api.SOAuth2IdpConfigOptions) error
 }
 
 type IOAuth2Driver interface {

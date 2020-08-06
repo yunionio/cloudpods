@@ -37,6 +37,10 @@ func (drv SWechatDriverFactory) IdpAttributeOptions() api.SIdpAttributeOptions {
 	}
 }
 
+func (drv SWechatDriverFactory) ValidateConfig(conf api.SOAuth2IdpConfigOptions) error {
+	return nil
+}
+
 func init() {
 	oauth2.Register(&SWechatDriverFactory{})
 }

@@ -48,7 +48,7 @@ const (
 func splitAppId(appId string) (corpId, agentId string, err error) {
 	slash := strings.LastIndexByte(appId, '/')
 	if slash < 0 {
-		err = errors.Wrap(httperrors.ErrInputParameter, "invalid qywx appid")
+		err = errors.Wrap(httperrors.ErrInputParameter, "invalid qywx appid, in the format of corp_id/agent_id")
 		return
 	} else {
 		corpId = appId[:slash]

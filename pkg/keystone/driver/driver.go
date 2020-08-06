@@ -26,7 +26,7 @@ type IIdentityBackendClass interface {
 	SyncMethod() string
 	Name() string
 	NewDriver(idpId, idpName, template, targetDomainId string, conf api.TConfigs) (IIdentityBackend, error)
-	ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, conf api.TConfigs) (api.TConfigs, error)
+	ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, template string, conf api.TConfigs) (api.TConfigs, error)
 	IsSso() bool
 	GetDefaultIconUri(tmpName string) string
 	ForceSyncUser() bool
