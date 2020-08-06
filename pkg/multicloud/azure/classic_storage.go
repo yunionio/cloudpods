@@ -62,7 +62,7 @@ func (self *SClassicStorage) GetGlobalId() string {
 }
 
 func (self *SClassicStorage) IsEmulated() bool {
-	return false
+	return true
 }
 
 func (self *SClassicStorage) GetIZone() cloudprovider.ICloudZone {
