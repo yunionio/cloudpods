@@ -19,6 +19,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -102,7 +103,7 @@ func (cli *SOIDCClient) FetchJWKS(ctx context.Context) error {
 }
 
 func (cli *SOIDCClient) request(ctx context.Context, method httputils.THttpMethod, urlStr string, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	secret := fmt.Sprintf("%s:%s", cli.clientId, cli.secret)
+	secret := fmt.Sprintf("%s:%s", url.QueryEscape(cli.clientId), url.QueryEscape(cli.secret))
 	b64Secret := base64.StdEncoding.EncodeToString([]byte(secret))
 	header := http.Header{}
 	header.Set("Authorization", fmt.Sprintf("Basic %s", b64Secret))

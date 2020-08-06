@@ -20,6 +20,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -27,6 +28,7 @@ import (
 	"github.com/lestrrat-go/jwx/jwt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 
@@ -45,6 +47,13 @@ import (
 const (
 	OIDC_CODE_EXPIRE_SECONDS = 300
 )
+
+func getLoginCallbackParam() string {
+	if options.Options.LoginCallbackParam == "" {
+		return "rf"
+	}
+	return options.Options.LoginCallbackParam
+}
 
 func addQuery(urlstr string, qs jsonutils.JSONObject) string {
 	qsPos := strings.LastIndexByte(urlstr, '?')
@@ -65,8 +74,8 @@ func handleOIDCAuth(ctx context.Context, w http.ResponseWriter, req *http.Reques
 	if err != nil {
 		// redirect to login page
 		qs := jsonutils.NewDict()
-		qs.Set("path", jsonutils.NewString(req.URL.String()))
-		loginUrl := addQuery(options.Options.SsoAuthCallbackUrl, qs)
+		qs.Set(getLoginCallbackParam(), jsonutils.NewString(req.URL.String()))
+		loginUrl := addQuery(getSsoAuthCallbackUrl(), qs)
 		appsrv.SendRedirect(w, loginUrl)
 		return
 	}
@@ -181,6 +190,7 @@ func validateOIDCToken(ctx context.Context, req *http.Request) (oidcutils.SOIDCA
 	if err != nil {
 		return tokenResp, errors.Wrap(err, "Fetch Body")
 	}
+	log.Debugf("validateOIDCToken body: %s", string(bodyBytes))
 	bodyJson, err := jsonutils.ParseQueryString(string(bodyBytes))
 	if err != nil {
 		return tokenResp, errors.Wrap(err, "Decode body form data")
@@ -207,6 +217,7 @@ func validateOIDCToken(ctx context.Context, req *http.Request) (oidcutils.SOIDCA
 	}
 
 	authStr := req.Header.Get("Authorization")
+	log.Debugf("Authorization: %s", authStr)
 	authParts := strings.Split(string(authStr), " ")
 	if len(authParts) != 2 {
 		return tokenResp, errors.Wrap(httperrors.ErrInvalidCredential, "illegal authorization header")
@@ -218,31 +229,32 @@ func validateOIDCToken(ctx context.Context, req *http.Request) (oidcutils.SOIDCA
 	if err != nil {
 		return tokenResp, errors.Wrap(err, "Decode Authorization Header")
 	}
+	log.Debugf("Authorization basic: %s", string(authBytes))
 	authParts = strings.Split(string(authBytes), ":")
 	if len(authParts) != 2 {
 		return tokenResp, errors.Wrap(httperrors.ErrInvalidCredential, "illegal authorization header")
 	}
-	if authParts[0] != authReq.ClientId {
-		return tokenResp, errors.Wrap(httperrors.ErrInvalidCredential, "mismatch client id")
-	}
+	clientId, _ := url.QueryUnescape(authParts[0])
+	clientSecret, _ := url.QueryUnescape(authParts[1])
+	log.Debugf("clientId %s clientSecret: %s authReq.ClientId %s", clientId, clientSecret, authReq.ClientId)
 
-	oidcSecret, err := fetchOIDCCredential(ctx, req, authReq.ClientId)
+	oidcSecret, err := fetchOIDCCredential(ctx, req, clientId)
 	if err != nil {
 		return tokenResp, errors.Wrap(err, "fetchOIDCCredential")
 	}
 	if oidcSecret.RedirectUri != authReq.RedirectUri {
 		return tokenResp, errors.Wrap(httperrors.ErrInvalidCredential, "redirect uri not match")
 	}
-	if oidcSecret.Secret != authParts[1] {
+	if oidcSecret.Secret != clientSecret {
 		return tokenResp, errors.Wrap(httperrors.ErrInvalidCredential, "client secret not match")
 	}
 
-	token, err := auth.Client().AuthenticateByAccessKey(authParts[0], authParts[1], codeInfo.Ip.String())
+	token, err := auth.Client().AuthenticateByAccessKey(clientId, clientSecret, codeInfo.Ip.String())
 	if err != nil {
 		return tokenResp, errors.Wrap(err, "invalid client_id/client_secret")
 	}
 
-	tokenResp = token2AccessTokenResponse(token, authParts[0])
+	tokenResp = token2AccessTokenResponse(token, clientId)
 	return tokenResp, nil
 }
 
