@@ -59,7 +59,7 @@ type ZstackClientConfig struct {
 
 func NewZstackClientConfig(authURL, username, password string) *ZstackClientConfig {
 	cfg := &ZstackClientConfig{
-		authURL:  authURL,
+		authURL:  strings.TrimSuffix(authURL, "/"),
 		username: username,
 		password: password,
 	}
