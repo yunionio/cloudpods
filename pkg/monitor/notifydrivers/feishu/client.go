@@ -33,6 +33,8 @@ const (
 	ApiChatList = "https://open.feishu.cn/open-apis/chat/v4/list"
 	// 机器人发送消息
 	ApiRobotSendMessage = "https://open.feishu.cn/open-apis/message/v4/send/"
+	// 批量发送消息
+	ApiRobotBatchSendMessage = "https://open.feishu.cn/open-apis/message/v4/batch_send/"
 	// 使用手机号或邮箱获取用户ID
 	ApiFetchUserID = "https://open.feishu.cn/open-apis/user/v1/batch_get_id"
 	// 使用 webhook 机器人发送消息
@@ -203,5 +205,13 @@ func SendWebhookRobotMessage(hook string, msg WebhookRobotMsgReq) (*WebhookRobot
 	if !resp.Ok {
 		return resp, fmt.Errorf("response error, msg: %s", resp.Error)
 	}
+	return resp, err
+}
+
+// BatchSendMessage batch send messages. Doc: https://open.feishu.cn/document/ukTMukTMukTM/ucDO1EjL3gTNx4yN4UTM
+func (t *Tenant) BatchSendMessage(msg BatchMsgReq) (*BatchMsgResp, error) {
+	body := jsonutils.Marshal(msg)
+	resp := new(BatchMsgResp)
+	err := t.post(ApiRobotBatchSendMessage, body, resp)
 	return resp, err
 }
