@@ -20,6 +20,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -90,6 +91,10 @@ func (h *MiscHandler) Bind(app *appsrv.Application) {
 	app.AddHandler3(uploader)
 	app.AddHandler(GET, prefix+"downloads/<template_id>", FetchAuthToken(h.getDownloadsHandler))
 	app.AddHandler(POST, prefix+"piuploads", FetchAuthToken(h.postPIUploads)) // itsm process instances upload api
+	imageUploader := uploadHandlerInfo("POST", prefix+"/imageutils/upload", FetchAuthToken(imageUploadHandler))
+	app.AddHandler3(imageUploader)
+	s3upload := uploadHandlerInfo(POST, prefix+"s3uploads", FetchAuthToken(h.postS3UploadHandler))
+	app.AddHandler3(s3upload)
 }
 
 func UploadHandlerInfo(method, prefix string, handler func(context.Context, http.ResponseWriter, *http.Request)) *appsrv.SHandlerInfo {
@@ -507,6 +512,61 @@ func (mh *MiscHandler) postPIUploads(ctx context.Context, w http.ResponseWriter,
 	}
 
 	appsrv.SendJSON(w, resp)
+}
+
+func (mh *MiscHandler) postS3UploadHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	reader, e := r.MultipartReader()
+	if e != nil {
+		log.Debugf("postS3UploadHandler.MultipartReader %s", e)
+		httperrors.InvalidInputError(w, "invalid form")
+		return
+	}
+
+	p, f, e := readImageForm(reader)
+	if e != nil {
+		log.Debugf("postS3UploadHandler.readImageForm %s", e)
+		httperrors.InvalidInputError(w, "invalid form")
+		return
+	}
+
+	bucket_id, ok := p["bucket_id"]
+	if !ok {
+		httperrors.MissingParameterError(w, "bucket_id")
+		return
+	}
+
+	key, ok := p["key"]
+	if !ok {
+		httperrors.MissingParameterError(w, "key")
+		return
+	}
+
+	_content_length, ok := p["content_length"]
+	if !ok {
+		httperrors.MissingParameterError(w, "content_length")
+		return
+	}
+
+	content_length, e := strconv.ParseInt(_content_length, 10, 64)
+	if e != nil {
+		httperrors.InvalidInputError(w, "invalid content_length %s", _content_length)
+		return
+	}
+
+	storage_class, _ := p["storage_class"]
+	acl, _ := p["acl"]
+
+	token := AppContextToken(ctx)
+	s := auth.GetSession(ctx, token, FetchRegion(r), "")
+
+	meta := http.Header{}
+	meta.Set("Content-Type", "application/octet-stream")
+	e = modules.Buckets.Upload(s, bucket_id, key, f, content_length, storage_class, acl, meta)
+	if e != nil {
+		httperrors.GeneralServerError(w, e)
+		return
+	}
+	appsrv.SendJSON(w, jsonutils.NewDict())
 }
 
 func writeCsv(records [][]string) (bytes.Buffer, error) {
