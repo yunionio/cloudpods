@@ -113,7 +113,11 @@ type K8sAppCreateFromFileOptions struct {
 }
 
 func (o K8sAppCreateFromFileOptions) Params() (*jsonutils.JSONDict, error) {
-	params := o.NamespaceResourceGetOptions.Params()
+	ret, err := o.NamespaceResourceGetOptions.Params()
+	if err != nil {
+		return nil, err
+	}
+	params := ret.(*jsonutils.JSONDict)
 	params.Add(jsonutils.NewString(o.NAME), "name")
 	content, err := ioutil.ReadFile(o.FILE)
 	if err != nil {

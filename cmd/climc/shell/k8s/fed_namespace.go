@@ -19,9 +19,14 @@ import (
 	options "yunion.io/x/onecloud/pkg/mcclient/options/k8s"
 )
 
-func initNamespace() {
-	initK8sClusterResource("namespace", k8s.Namespaces)
+func init() {
+	cmd := newFedResourceCmd(k8s.FederatedNamespaces)
 
-	cmd := NewK8sResourceCmd(k8s.Namespaces)
-	cmd.Create(new(options.NamespaceCreateOptions))
+	cmd.List(new(options.FedNamespaceListOptions)).
+		Show(new(options.IdentOptions)).
+		Create(new(options.FedNamespaceCreateOptions)).
+		Delete(new(options.IdentOptions)).
+		AttachCluster(new(options.FedResourceJointClusterAttachOptions)).
+		DetachCluster(new(options.FedResourceJointClusterDetachOptions)).
+		SyncCluster(new(options.FedResourceJointClusterDetachOptions))
 }

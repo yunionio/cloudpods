@@ -15,13 +15,22 @@
 package k8s
 
 import (
-	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
-	options "yunion.io/x/onecloud/pkg/mcclient/options/k8s"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
-func initNamespace() {
-	initK8sClusterResource("namespace", k8s.Namespaces)
+var FederatedRoleBindings *FederatedRoleBindingManager
 
-	cmd := NewK8sResourceCmd(k8s.Namespaces)
-	cmd.Create(new(options.NamespaceCreateOptions))
+func init() {
+	FederatedRoleBindings = NewFederatedRoleBindingManager()
+	modules.Register(FederatedRoleBindings)
+}
+
+type FederatedRoleBindingManager struct {
+	*FederatedNamespaceResourceManager
+}
+
+func NewFederatedRoleBindingManager() *FederatedRoleBindingManager {
+	return &FederatedRoleBindingManager{
+		FederatedNamespaceResourceManager: NewFederatedNamespaceResourceManager("federatedrolebinding", "federatedrolebindings"),
+	}
 }
