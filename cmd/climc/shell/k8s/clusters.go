@@ -26,38 +26,15 @@ import (
 
 func initKubeCluster() {
 	cmdN := func(action string) string {
-		return fmt.Sprintf("kubecluster-%s", action)
+		return fmt.Sprintf("k8s-cluster-%s", action)
 	}
-	R(&o.ClusterListOptions{}, cmdN("list"), "List k8s clusters", func(s *mcclient.ClientSession, args *o.ClusterListOptions) error {
-		result, err := k8s.KubeClusters.List(s, args.Params())
-		if err != nil {
-			return err
-		}
-		printList(result, k8s.KubeClusters.GetColumns(s))
-		return nil
-	})
-
-	R(&o.IdentOptions{}, cmdN("show"), "Show details of a cluster", func(s *mcclient.ClientSession, args *o.IdentOptions) error {
-		result, err := k8s.KubeClusters.Get(s, args.ID, nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&o.KubeClusterCreateOptions{}, cmdN("create"), "Create k8s cluster", func(s *mcclient.ClientSession, args *o.KubeClusterCreateOptions) error {
-		params, err := args.Params()
-		if err != nil {
-			return err
-		}
-		cluster, err := k8s.KubeClusters.Create(s, params)
-		if err != nil {
-			return err
-		}
-		printObject(cluster)
-		return nil
-	})
+	cmd := NewK8sResourceCmd(k8s.KubeClusters).SetKeyword("cluster")
+	cmd.List(new(o.ClusterListOptions))
+	cmd.Show(new(o.IdentOptions))
+	cmd.Create(new(o.KubeClusterCreateOptions))
+	cmd.Get("api-resources", new(o.IdentOptions))
+	cmd.Get("cluster-users", new(o.IdentOptions))
+	cmd.Get("cluster-user-groups", new(o.IdentOptions))
 
 	R(&o.KubeClusterImportOptions{}, cmdN("import"), "Import k8s cluster", func(s *mcclient.ClientSession, args *o.KubeClusterImportOptions) error {
 		params, err := args.Params()
@@ -194,24 +171,6 @@ func initKubeCluster() {
 			return err
 		}
 		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "sync", param)
-		if err != nil {
-			return err
-		}
-		printObject(ret)
-		return nil
-	})
-
-	R(&o.IdentOptions{}, cmdN("public"), "Make cluster public", func(s *mcclient.ClientSession, args *o.IdentOptions) error {
-		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "public", nil)
-		if err != nil {
-			return err
-		}
-		printObject(ret)
-		return nil
-	})
-
-	R(&o.IdentOptions{}, cmdN("private"), "Make cluster private", func(s *mcclient.ClientSession, args *o.IdentOptions) error {
-		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "private", nil)
 		if err != nil {
 			return err
 		}

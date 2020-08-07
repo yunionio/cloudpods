@@ -219,7 +219,11 @@ func NewK8sNsResourceGetCmd(cmdN CmdNameFactory, manager modulebase.Manager) *Cm
 		cmdN.Do("show"),
 		fmt.Sprintf("Show k8s %s", cmdN.Kind),
 		func(s *mcclient.ClientSession, args *o.NamespaceResourceGetOptions) error {
-			ret, err := manager.Get(s, args.NAME, args.Params())
+			params, err := args.Params()
+			if err != nil {
+				return err
+			}
+			ret, err := manager.Get(s, args.NAME, params)
 			if err != nil {
 				return err
 			}
@@ -235,7 +239,11 @@ func NewK8sNsResourceGetRawCmd(cmdN CmdNameFactory, manager k8s.IClusterResource
 		cmdN.Do("show-raw"),
 		fmt.Sprintf("Show k8s %s raw data", cmdN.Kind),
 		func(s *mcclient.ClientSession, args *o.NamespaceResourceGetOptions) error {
-			ret, err := manager.GetRaw(s, args.NAME, args.Params())
+			params, err := args.Params()
+			if err != nil {
+				return err
+			}
+			ret, err := manager.GetRaw(s, args.NAME, params.(*jsonutils.JSONDict))
 			if err != nil {
 				return err
 			}
@@ -251,7 +259,11 @@ func NewK8sResourceEditRawCmd(cmdN CmdNameFactory, manager k8s.IClusterResourceM
 		cmdN.Do("edit-raw"),
 		fmt.Sprintf("Edit and update k8s %s raw data", cmdN.Kind),
 		func(s *mcclient.ClientSession, args *o.NamespaceResourceGetOptions) error {
-			rawData, err := manager.GetRaw(s, args.NAME, args.Params())
+			params, err := args.Params()
+			if err != nil {
+				return err
+			}
+			rawData, err := manager.GetRaw(s, args.NAME, params.(*jsonutils.JSONDict))
 			if err != nil {
 				return err
 			}
@@ -286,7 +298,11 @@ func NewK8sResourceEditRawCmd(cmdN CmdNameFactory, manager k8s.IClusterResourceM
 			if err != nil {
 				return err
 			}
-			if _, err := manager.UpdateRaw(s, args.NAME, args.Params(), body.(*jsonutils.JSONDict)); err != nil {
+			params, err = args.Params()
+			if err != nil {
+				return err
+			}
+			if _, err := manager.UpdateRaw(s, args.NAME, params.(*jsonutils.JSONDict), body.(*jsonutils.JSONDict)); err != nil {
 				return err
 			}
 			return nil
@@ -313,7 +329,11 @@ func NewK8sNsResourceDeleteCmd(cmdN CmdNameFactory, manager modulebase.Manager) 
 		cmdN.Do("delete"),
 		fmt.Sprintf("Delete k8s %s", cmdN.Kind),
 		func(s *mcclient.ClientSession, args *o.NamespaceResourceDeleteOptions) error {
-			ret := manager.BatchDelete(s, args.NAME, args.Params())
+			params, err := args.Params()
+			if err != nil {
+				return err
+			}
+			ret := manager.BatchDelete(s, args.NAME, params)
 			printBatchResults(ret, manager.GetColumns(s))
 			return nil
 		},

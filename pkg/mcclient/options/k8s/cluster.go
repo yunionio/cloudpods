@@ -27,15 +27,25 @@ import (
 
 type ClusterListOptions struct {
 	options.BaseListOptions
+	// federated resource keyword, e.g: federatednamespace
+	FederatedKeyword    string `json:"federated_keyword"`
+	FederatedResourceId string `json:"federated_resource_id"`
+	FederatedUsed       *bool  `json:"-"`
+	FederatedUnused     *bool  `json:"-"`
 }
 
-func (o ClusterListOptions) Params() *jsonutils.JSONDict {
-	o.Details = options.Bool(true)
-	params, err := o.BaseListOptions.Params()
+func (o *ClusterListOptions) Params() (jsonutils.JSONObject, error) {
+	params, err := options.ListStructToParams(o)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return params
+	if o.FederatedUnused != nil {
+		params.Add(jsonutils.JSONFalse, "federated_used")
+	}
+	if o.FederatedUsed != nil {
+		params.Add(jsonutils.JSONTrue, "federated_used")
+	}
+	return params, nil
 }
 
 type AddMachineOptions struct {
@@ -62,11 +72,6 @@ type KubeClusterCreateOptions struct {
 	ImageRepoInsecure bool   `help:"Image repostiory is insecure"`
 
 	AddMachineOptions
-}
-
-type KubeClusterImportOptions struct {
-	NAME       string `help:"Name of cluster"`
-	KUBECONFIG string `help:"Cluster kubeconfig file path"`
 }
 
 func parseMachineDesc(desc string, disk string, netConf string, ncpu int, memorySize string, hypervisor string) (*MachineCreateOptions, error) {
@@ -111,7 +116,7 @@ func parseMachineDesc(desc string, disk string, netConf string, ncpu int, memory
 	return mo, nil
 }
 
-func (o KubeClusterCreateOptions) Params() (*jsonutils.JSONDict, error) {
+func (o KubeClusterCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(o.NAME), "name")
 	if o.ClusterType != "" {
@@ -154,7 +159,13 @@ func (o KubeClusterCreateOptions) Params() (*jsonutils.JSONDict, error) {
 	return params, nil
 }
 
-func (o KubeClusterImportOptions) Params() (*jsonutils.JSONDict, error) {
+type KubeClusterImportOptions struct {
+	NAME       string `help:"Name of cluster"`
+	KUBECONFIG string `help:"Cluster kubeconfig file path"`
+	Distro     string `help:"Kubernetes distribution, e.g. openshift"`
+}
+
+func (o KubeClusterImportOptions) Params() (jsonutils.JSONObject, error) {
 	kubeconfig, err := ioutil.ReadFile(o.KUBECONFIG)
 	if err != nil {
 		return nil, fmt.Errorf("Read kube config %q error: %v", o.KUBECONFIG, err)
@@ -162,14 +173,28 @@ func (o KubeClusterImportOptions) Params() (*jsonutils.JSONDict, error) {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(o.NAME), "name")
 	params.Add(jsonutils.NewString("import"), "mode")
-	params.Add(jsonutils.NewString(string(kubeconfig)), "kubeconfig")
 	params.Add(jsonutils.NewString("external"), "provider")
 	params.Add(jsonutils.NewString("unknown"), "resource_type")
+
+	importData := jsonutils.NewDict()
+	importData.Add(jsonutils.NewString(string(kubeconfig)), "kubeconfig")
+	if o.Distro != "" {
+		importData.Add(jsonutils.NewString(o.Distro), "distribution")
+	}
+	params.Add(importData, "import_data")
 	return params, nil
 }
 
 type IdentOptions struct {
 	ID string `help:"ID or name of the model"`
+}
+
+func (o IdentOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
+func (o IdentOptions) GetId() string {
+	return o.ID
 }
 
 type ClusterSyncOptions struct {

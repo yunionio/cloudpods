@@ -32,11 +32,12 @@ type ReleaseListOptions struct {
 	Type       string `help:"Release type" choices:"internal|external"`
 }
 
-func (o ReleaseListOptions) Params() (*jsonutils.JSONDict, error) {
-	params, err := o.NamespaceResourceListOptions.Params()
+func (o ReleaseListOptions) Params() (jsonutils.JSONObject, error) {
+	ret, err := o.NamespaceResourceListOptions.Params()
 	if err != nil {
 		return nil, err
 	}
+	params := ret.(*jsonutils.JSONDict)
 	if o.Namespace != "" {
 		params.Add(jsonutils.NewString(o.Namespace), "namespace")
 	}
