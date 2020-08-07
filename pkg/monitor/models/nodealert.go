@@ -136,6 +136,9 @@ func (man *SNodeAlertManager) genName(ownerId mcclient.IIdentityProvider, resTyp
 	if err != nil {
 		return "", err
 	}
+	if name != nameHint {
+		return "", httperrors.NewDuplicateNameError(man.Keyword(), metric)
+	}
 	return name, nil
 }
 
