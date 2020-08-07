@@ -1194,15 +1194,18 @@ func fetchAttributes(attrs map[string][]string, key string) []string {
 }
 
 func (idp *SIdentityProvider) TryUserJoinProject(attrConf api.SIdpAttributeOptions, ctx context.Context, usr *SUser, domainId string, attrs map[string][]string) {
+	if idp.AutoCreateUser.IsFalse() {
+		return
+	}
 	// update user attributes
 	_, err := db.Update(usr, func() error {
-		if v, ok := attrs[attrConf.UserDisplaynameAttribtue]; ok && len(v) > 0 {
+		if v, ok := attrs[attrConf.UserDisplaynameAttribtue]; ok && len(v) > 0 && len(v[0]) > 0 {
 			usr.Displayname = v[0]
 		}
-		if v, ok := attrs[attrConf.UserEmailAttribute]; ok && len(v) > 0 {
+		if v, ok := attrs[attrConf.UserEmailAttribute]; ok && len(v) > 0 && len(v[0]) > 0 {
 			usr.Email = v[0]
 		}
-		if v, ok := attrs[attrConf.UserMobileAttribute]; ok && len(v) > 0 {
+		if v, ok := attrs[attrConf.UserMobileAttribute]; ok && len(v) > 0 && len(v[0]) > 0 {
 			usr.Mobile = v[0]
 		}
 		return nil
