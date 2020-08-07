@@ -71,6 +71,7 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 		return nil, ErrEmptyAuth
 	}
 	if len(ident.Password.User.Name) > 0 && len(ident.Password.User.Id) == 0 && len(ident.Password.User.Domain.Id) == 0 && len(ident.Password.User.Domain.Name) == 0 {
+		// no use domain specified, try to find use domain
 		users := models.UserManager.Query().SubQuery()
 		idMappings := models.IdmappingManager.Query().SubQuery()
 		q := users.Query()
@@ -103,25 +104,16 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 				return nil, errors.Wrap(err, "Query user")
 			}
 			ident.Password.User.Domain.Id = usr.DomainId
-			idmaps, err := models.IdmappingManager.FetchEntities(usr.Id, api.IdMappingEntityUser)
-			if err != nil && err != sql.ErrNoRows {
-				return nil, errors.Wrap(err, "IdmappingManager.FetchEntity")
+			idps, err := models.IdentityProviderManager.FetchIdentityProvidersByUserId(usr.Id, api.PASSWORD_PROTECTED_IDPS)
+			if err != nil {
+				return nil, errors.Wrap(err, "IdentityProviderManager.FetchIdentityProvidersByUserId")
 			}
-			var idmap *models.SIdmapping
-			for i := range idmaps {
-				idp, err := models.IdentityProviderManager.FetchIdentityProviderById(idmaps[i].IdpId)
-				if err != nil {
-					return nil, errors.Wrap(err, "IdentityProviderManager.FetchIdentityProviderById")
-				}
-				if idp.Driver == api.IdentityDriverLDAP {
-					idmap = &idmaps[i]
-					break
-				}
-			}
-			if idmap == nil { // sql
+			if len(idps) == 0 {
 				idpId = api.DEFAULT_IDP_ID
+			} else if len(idps) == 1 {
+				idpId = idps[0].Id
 			} else {
-				idpId = idmap.IdpId
+				return nil, sqlchemy.ErrDuplicateEntry
 			}
 		}
 	} else {
@@ -144,7 +136,17 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 			idpId = mapping.IdpId
 		} else {
 			// user exists, query user's idp
-			idpId = usrExt.IdpId
+			idps, err := models.IdentityProviderManager.FetchIdentityProvidersByUserId(usrExt.Id, api.PASSWORD_PROTECTED_IDPS)
+			if err != nil {
+				return nil, errors.Wrap(err, "IdentityProviderManager.FetchIdentityProvidersByUserId")
+			}
+			if len(idps) == 0 {
+				idpId = api.DEFAULT_IDP_ID
+			} else if len(idps) == 1 {
+				idpId = idps[0].Id
+			} else {
+				return nil, sqlchemy.ErrDuplicateEntry
+			}
 		}
 	}
 
@@ -429,7 +431,7 @@ func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 			return nil, errors.Wrap(err, "authUserByOAuth2")
 		}
 	default:
-		// auth by other methods, password, openid, saml, etc...
+		// auth by other methods, e.g. password , etc...
 		user, err = authUserByIdentityV3(ctx, input)
 		if err != nil {
 			return nil, errors.Wrap(err, "authUserByIdentityV3")

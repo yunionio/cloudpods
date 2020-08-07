@@ -151,7 +151,7 @@ func (manager *SIdmappingManager) FetchEntities(idStr string, entType string) ([
 	q := manager.Query().Equals("public_id", idStr).Equals("entity_type", entType)
 	idMaps := make([]SIdmapping, 0)
 	err := db.FetchModelObjects(manager, q, &idMaps)
-	if err != nil {
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
 		return nil, errors.Wrap(err, "FetchModelObjects")
 	} else {
 		return idMaps, nil

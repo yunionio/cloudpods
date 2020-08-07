@@ -116,7 +116,7 @@ func (manager *SUserManager) InitializeData() error {
 		}
 		name := extUser.LocalName
 		if len(name) == 0 {
-			name = extUser.IdpName
+			name = extUser.DomainName
 		}
 		var desc, email, mobile, dispName string
 		if users[i].Extra != nil {
@@ -233,7 +233,7 @@ func (manager *SUserManager) FetchUserExtended(userId, userName, domainId, domai
 	// nonlocalUsers := NonlocalUserManager.Query().SubQuery()
 	users := UserManager.Query().SubQuery()
 	domains := DomainManager.Query().SubQuery()
-	idmappings := IdmappingManager.Query().SubQuery()
+	// idmappings := IdmappingManager.Query().SubQuery()
 
 	q := users.Query(
 		users.Field("id"),
@@ -251,13 +251,13 @@ func (manager *SUserManager) FetchUserExtended(userId, userName, domainId, domai
 		localUsers.Field("name", "local_name"),
 		domains.Field("name", "domain_name"),
 		domains.Field("enabled", "domain_enabled"),
-		idmappings.Field("domain_id", "idp_id"),
-		idmappings.Field("local_id", "idp_name"),
+		// idmappings.Field("domain_id", "idp_id"),
+		// idmappings.Field("local_id", "idp_name"),
 	)
 
 	q = q.Join(domains, sqlchemy.Equals(users.Field("domain_id"), domains.Field("id")))
 	q = q.LeftJoin(localUsers, sqlchemy.Equals(localUsers.Field("user_id"), users.Field("id")))
-	q = q.LeftJoin(idmappings, sqlchemy.Equals(users.Field("id"), idmappings.Field("public_id")))
+	// q = q.LeftJoin(idmappings, sqlchemy.Equals(users.Field("id"), idmappings.Field("public_id")))
 
 	if len(userId) > 0 {
 		q = q.Filter(sqlchemy.Equals(users.Field("id"), userId))
@@ -279,7 +279,8 @@ func (manager *SUserManager) FetchUserExtended(userId, userName, domainId, domai
 		return nil, err
 	}
 
-	if len(extUser.IdpName) > 0 {
+	idMaps, err := IdmappingManager.FetchEntities(extUser.Id, api.IdMappingEntityUser)
+	if len(idMaps) > 0 {
 		extUser.IsLocal = false
 	} else {
 		extUser.IsLocal = true

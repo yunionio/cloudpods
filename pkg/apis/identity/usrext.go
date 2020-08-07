@@ -36,6 +36,6 @@ type SUserExtended struct {
 	DomainName    string
 	DomainEnabled bool
 	IsLocal       bool
-	IdpId         string
-	IdpName       string
+	// IdpId         string
+	// IdpName       string
 }
