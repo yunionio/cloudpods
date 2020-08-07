@@ -113,7 +113,7 @@ func (manager *SIdentityProviderManager) initializeAutoCreateUser() error {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil
 		} else {
-			return errors.Wrap(err, "FetchModelObjeccts")
+			return errors.Wrap(err, "FetchModelObjects")
 		}
 	}
 	for i := range idps {
@@ -141,7 +141,7 @@ func (manager *SIdentityProviderManager) initializeIcon() error {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil
 		} else {
-			return errors.Wrap(err, "FetchModelObjeccts")
+			return errors.Wrap(err, "FetchModelObjects")
 		}
 	}
 	for i := range idps {
@@ -1359,4 +1359,21 @@ func (idp *SIdentityProvider) SyncOrCreateDomainAndUser(ctx context.Context, ext
 		domain = usr.GetDomain()
 	}
 	return domain, usr, nil
+}
+
+func (manager *SIdentityProviderManager) FetchIdentityProvidersByUserId(uid string, drivers []string) ([]SIdentityProvider, error) {
+	idps := make([]SIdentityProvider, 0)
+	idmappings := IdmappingManager.Query().SubQuery()
+	q := manager.Query()
+	q = q.Join(idmappings, sqlchemy.Equals(q.Field("id"), idmappings.Field("domain_id")))
+	q = q.Filter(sqlchemy.Equals(idmappings.Field("entity_type"), api.IdMappingEntityUser))
+	q = q.Filter(sqlchemy.Equals(idmappings.Field("public_id"), uid))
+	if len(drivers) > 0 {
+		q = q.Filter(sqlchemy.In(q.Field("driver"), drivers))
+	}
+	err := db.FetchModelObjects(manager, q, &idps)
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	return idps, nil
 }

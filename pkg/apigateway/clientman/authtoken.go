@@ -182,9 +182,12 @@ func (t SAuthToken) GetAuthCookie(token mcclient.TokenCredential) string {
 	info := jsonutils.NewDict()
 	info.Add(jsonutils.NewTimeString(token.GetExpires()), "exp")
 	info.Add(jsonutils.NewString(sid), "session")
+	info.Add(jsonutils.NewBool(t.verifyTotp), "totp_verified")                // 用户totp验证通过
 	info.Add(jsonutils.NewBool(t.initTotp), "totp_init")                      // 是否初始化TOTP密钥
 	info.Add(jsonutils.NewBool(t.enableTotp), "totp_on")                      // 用户totp 开启状态。 True（已开启）|False(未开启)
 	info.Add(jsonutils.NewBool(options.Options.EnableTotp), "system_totp_on") // 全局totp 开启状态。 True（已开启）|False(未开启)
+	info.Add(jsonutils.NewString(token.GetUserId()), "user_id")
+	info.Add(jsonutils.NewString(token.GetUserName()), "user")
 	return info.String()
 }
 
