@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -227,7 +228,7 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090617.html
 func (self *SRegion) GetSecurityGroups(vpcId string, name string) ([]SSecurityGroup, error) {
 	querys := map[string]string{}
-	if len(vpcId) > 0 {
+	if len(vpcId) > 0 && !utils.IsInStringArray(vpcId, []string{"default", api.NORMAL_VPC_ID}) { // vpc_id = default or normal 时报错 '{"code":"VPC.0601","message":"Query security groups error vpcId is invalid."}'
 		querys["vpc_id"] = vpcId
 	}
 
