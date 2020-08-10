@@ -103,7 +103,7 @@ func (p *SKVMGuestDiskPartition) MountPartReadOnly() bool {
 
 func (p *SKVMGuestDiskPartition) Mount() bool {
 	if len(p.fs) == 0 || utils.IsInStringArray(p.fs, []string{"swap", "btrfs"}) {
-		log.Errorf("Mount fs failed: %s", p.fs)
+		log.Errorf("Mount fs failed: unsupport fs %s on %s", p.fs, p.partDev)
 		return false
 	}
 	err := p.fsck()
@@ -127,6 +127,7 @@ func (p *SKVMGuestDiskPartition) Mount() bool {
 			p.readonly = true
 		}
 	}
+	log.Infof("mount fs %s on %s success", p.fs, p.partDev)
 	return true
 }
 
@@ -154,7 +155,20 @@ func (p *SKVMGuestDiskPartition) mount(readonly bool) error {
 		cmds = append(cmds, "-o", opt)
 	}
 	cmds = append(cmds, p.partDev, p.mountPath)
-	_, err := procutils.NewCommand(cmds[0], cmds[1:]...).Run()
+	var err error
+	if fsType == "xfs" {
+		uuids := fileutils2.GetDevUuid(p.partDev)
+		uuid := uuids["UUID"]
+		if len(uuid) > 0 {
+			LockXfsPartition(uuid)
+			defer func() {
+				if err != nil {
+					UnlockXfsPartition(uuid)
+				}
+			}()
+		}
+	}
+	_, err = procutils.NewCommand(cmds[0], cmds[1:]...).Run()
 	return err
 }
 
@@ -217,6 +231,13 @@ func (p *SKVMGuestDiskPartition) Umount() bool {
 			tries += 1
 			_, err := procutils.NewCommand("umount", p.mountPath).Run()
 			if err == nil {
+				if p.fs == "xfs" {
+					uuids := fileutils2.GetDevUuid(p.partDev)
+					uuid := uuids["UUID"]
+					if len(uuid) > 0 {
+						UnlockXfsPartition(uuid)
+					}
+				}
 				procutils.NewCommand("blockdev", "--flushbufs", p.partDev).Run()
 				os.Remove(p.mountPath)
 				return true
