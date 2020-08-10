@@ -141,17 +141,13 @@ func (ce *HuaweiClientError) Error() string {
 }
 
 func (ce *HuaweiClientError) ParseErrorFromJsonResponse(statusCode int, body jsonutils.JSONObject) error {
-	err := body.Unmarshal(ce)
-	if err != nil {
-		ce.err = errors.Wrapf(err, "body.Unmarshal(%s)", body.String())
-		ce.Code = statusCode
-		ce.Details = body.String()
-		return ce
+	if body != nil {
+		body.Unmarshal(ce)
 	}
 	if ce.Code == 0 {
 		ce.Code = statusCode
 	}
-	if len(ce.Details) == 0 {
+	if len(ce.Details) == 0 && body != nil {
 		ce.Details = body.String()
 	}
 	return ce
@@ -182,10 +178,6 @@ func (self *SBaseManager) jsonRequest(request requests.IRequest) (http.Header, j
 		}
 	}
 
-	if self.debug {
-		log.Debugf("url: %s", request.BuildUrl())
-	}
-
 	client := httputils.NewJsonClient(self.httpClient)
 	req := httputils.NewJsonRequest(httputils.THttpMethod(request.GetMethod()), request.BuildUrl(), jsonBody)
 	req.SetHeader(header)
@@ -196,11 +188,10 @@ func (self *SBaseManager) jsonRequest(request requests.IRequest) (http.Header, j
 	for {
 		h, b, e := client.Send(ctx, req, resp, self.debug)
 		if e == nil {
-			if self.debug {
-				log.Debugf("response: %s body: %s", h, b)
-			}
-			return h, b, e
+			return h, b, nil
 		}
+
+		log.Errorf("[%s] %s body: %v error: %v", req.GetHttpMethod(), req.GetUrl(), jsonBody, e)
 
 		switch err := e.(type) {
 		case *HuaweiClientError:

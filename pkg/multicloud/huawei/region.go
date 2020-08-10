@@ -537,16 +537,19 @@ func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreat
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090608.html
 func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
-	params := jsonutils.NewDict()
-	vpcObj := jsonutils.NewDict()
-	vpcObj.Add(jsonutils.NewString(name), "name")
-	vpcObj.Add(jsonutils.NewString(cidr), "cidr")
-	params.Add(vpcObj, "vpc")
+	return self.CreateVpc(name, cidr, desc)
+}
 
-	vpc := SVpc{}
-	err := DoCreate(self.ecsClient.Vpcs.Create, params, &vpc)
-	vpc.region = self
-	return &vpc, err
+func (self *SRegion) CreateVpc(name, cidr, desc string) (*SVpc, error) {
+	params := map[string]interface{}{
+		"vpc": map[string]string{
+			"name":        name,
+			"cidr":        cidr,
+			"description": desc,
+		},
+	}
+	vpc := &SVpc{region: self}
+	return vpc, DoCreate(self.ecsClient.Vpcs.Create, jsonutils.Marshal(params), vpc)
 }
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090596.html
