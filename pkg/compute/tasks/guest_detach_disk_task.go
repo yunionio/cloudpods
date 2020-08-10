@@ -88,7 +88,7 @@ func (self *GuestDetachDiskTask) OnDetachDiskComplete(ctx context.Context, guest
 			return
 		}
 	}
-	models.StartResourceSyncStatusTask(ctx, self.GetUserCred(), disk, "DiskSyncstatusTask", "")
+	disk.SetStatus(self.UserCred, api.DISK_READY, "on detach disk complete")
 	keepDisk := jsonutils.QueryBoolean(self.Params, "keep_disk", true)
 	host := guest.GetHost()
 	purge := false
