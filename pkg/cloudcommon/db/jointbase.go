@@ -107,11 +107,11 @@ func (manager *SJointResourceBaseManager) AllowAttach(ctx context.Context, userC
 
 func JointModelExtra(jointModel IJointModel) (string, string) {
 	masterName, slaveName := "", ""
-	master := jointModel.Master()
+	master := JointMaster(jointModel)
 	if master != nil {
 		masterName = master.GetName()
 	}
-	slave := jointModel.Slave()
+	slave := JointSlave(jointModel)
 	if slave != nil {
 		slaveName = slave.GetName()
 	}
@@ -175,16 +175,8 @@ func (joint *SJointResourceBase) GetIJointModel() IJointModel {
 	return joint.GetVirtualObject().(IJointModel)
 }
 
-func (joint *SJointResourceBase) Master() IStandaloneModel {
-	return nil
-}
-
-func (joint *SJointResourceBase) Slave() IStandaloneModel {
-	return nil
-}
-
 func (self *SJointResourceBase) AllowGetJointDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, item IJointModel) bool {
-	master := item.Master()
+	master := JointMaster(item)
 	switch master.(type) {
 	case IVirtualModel:
 		return master.(IVirtualModel).IsOwner(userCred) || IsAllowGet(rbacutils.ScopeSystem, userCred, master)
@@ -194,7 +186,7 @@ func (self *SJointResourceBase) AllowGetJointDetails(ctx context.Context, userCr
 }
 
 func (self *SJointResourceBase) AllowUpdateJointItem(ctx context.Context, userCred mcclient.TokenCredential, item IJointModel) bool {
-	master := item.Master()
+	master := JointMaster(item)
 	switch master.(type) {
 	case IVirtualModel:
 		return master.(IVirtualModel).IsOwner(userCred) || IsAllowUpdate(rbacutils.ScopeSystem, userCred, master)

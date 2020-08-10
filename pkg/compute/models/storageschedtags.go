@@ -61,20 +61,6 @@ func (manager *SStorageschedtagManager) GetSlaveFieldName() string {
 	return "storage_id"
 }
 
-func (s *SStorageschedtag) GetStorage() *SStorage {
-	return s.Master().(*SStorage)
-}
-
-func (s *SStorageschedtag) GetStorages() ([]SStorage, error) {
-	storages := []SStorage{}
-	err := s.GetSchedtag().GetObjects(&storages)
-	return storages, err
-}
-
-func (joint *SStorageschedtag) Master() db.IStandaloneModel {
-	return joint.SSchedtagJointsBase.master(joint)
-}
-
 func (joint *SStorageschedtag) GetExtraDetails(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

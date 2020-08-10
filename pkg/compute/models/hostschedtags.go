@@ -61,20 +61,6 @@ func (manager *SHostschedtagManager) GetSlaveFieldName() string {
 	return "host_id"
 }
 
-func (self *SHostschedtag) GetHost() *SHost {
-	return self.Master().(*SHost)
-}
-
-func (self *SHostschedtag) GetHosts() ([]SHost, error) {
-	hosts := []SHost{}
-	err := self.GetSchedtag().GetObjects(&hosts)
-	return hosts, err
-}
-
-func (self *SHostschedtag) Master() db.IStandaloneModel {
-	return self.SSchedtagJointsBase.master(self)
-}
-
 func (self *SHostschedtag) GetExtraDetails(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

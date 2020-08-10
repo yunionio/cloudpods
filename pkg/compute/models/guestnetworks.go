@@ -108,14 +108,6 @@ func (manager *SGuestnetworkManager) GetSlaveFieldName() string {
 	return "network_id"
 }
 
-func (joint *SGuestnetwork) Master() db.IStandaloneModel {
-	return db.JointMaster(joint)
-}
-
-func (joint *SGuestnetwork) Slave() db.IStandaloneModel {
-	return db.JointSlave(joint)
-}
-
 func (self *SGuestnetwork) GetExtraDetails(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

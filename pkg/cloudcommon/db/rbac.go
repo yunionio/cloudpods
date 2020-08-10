@@ -76,8 +76,8 @@ func isObjectRbacAllowed(model IModel, userCred mcclient.TokenCredential, action
 }
 
 func isJointObjectRbacAllowed(item IJointModel, userCred mcclient.TokenCredential, action string, extra ...string) error {
-	err1 := isObjectRbacAllowed(item.Master(), userCred, action, extra...)
-	err2 := isObjectRbacAllowed(item.Slave(), userCred, action, extra...)
+	err1 := isObjectRbacAllowed(JointMaster(item), userCred, action, extra...)
+	err2 := isObjectRbacAllowed(JointSlave(item), userCred, action, extra...)
 	if err1 == nil || err2 == nil {
 		return nil
 	}

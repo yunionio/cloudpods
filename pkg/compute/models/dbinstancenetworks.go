@@ -65,14 +65,6 @@ func (manager *SDBInstanceNetworkManager) GetSlaveFieldName() string {
 	return "network_id"
 }
 
-func (joint *SDBInstanceNetwork) Master() db.IStandaloneModel {
-	return db.JointMaster(joint)
-}
-
-func (joint *SDBInstanceNetwork) Slave() db.IStandaloneModel {
-	return db.JointSlave(joint)
-}
-
 func (self *SDBInstanceNetwork) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return db.DetachJoint(ctx, userCred, self)
 }

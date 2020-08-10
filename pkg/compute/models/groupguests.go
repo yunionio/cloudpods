@@ -62,14 +62,6 @@ func (manager *SGroupguestManager) GetSlaveFieldName() string {
 	return "guest_id"
 }
 
-func (joint *SGroupguest) Master() db.IStandaloneModel {
-	return db.JointMaster(joint)
-}
-
-func (joint *SGroupguest) Slave() db.IStandaloneModel {
-	return db.JointSlave(joint)
-}
-
 func (self *SGroupguest) GetExtraDetails(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

@@ -61,20 +61,6 @@ func (manager *SNetworkschedtagManager) GetSlaveFieldName() string {
 	return "network_id"
 }
 
-func (s *SNetworkschedtag) GetNetwork() *SNetwork {
-	return s.Master().(*SNetwork)
-}
-
-func (s *SNetworkschedtag) GetNetworks() ([]SNetwork, error) {
-	nets := []SNetwork{}
-	err := s.GetSchedtag().GetObjects(&nets)
-	return nets, err
-}
-
-func (s *SNetworkschedtag) Master() db.IStandaloneModel {
-	return s.SSchedtagJointsBase.master(s)
-}
-
 func (s *SNetworkschedtag) GetExtraDetails(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

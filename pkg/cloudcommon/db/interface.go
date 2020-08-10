@@ -233,9 +233,6 @@ type IJointModel interface {
 
 	GetIJointModel() IJointModel
 
-	Master() IStandaloneModel
-	Slave() IStandaloneModel
-
 	AllowDetach(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool
 
 	Detach(ctx context.Context, userCred mcclient.TokenCredential) error

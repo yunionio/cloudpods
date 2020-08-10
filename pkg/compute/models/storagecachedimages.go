@@ -90,14 +90,6 @@ func (manager *SStoragecachedimageManager) GetSlaveFieldName() string {
 	return "cachedimage_id"
 }
 
-func (joint *SStoragecachedimage) Master() db.IStandaloneModel {
-	return db.JointMaster(joint)
-}
-
-func (joint *SStoragecachedimage) Slave() db.IStandaloneModel {
-	return db.JointSlave(joint)
-}
-
 func (self *SStoragecachedimageManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return db.IsAdminAllowList(userCred, self)
 }

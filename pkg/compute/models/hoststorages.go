@@ -83,14 +83,6 @@ func (manager *SHoststorageManager) GetSlaveFieldName() string {
 	return "storage_id"
 }
 
-func (joint *SHoststorage) Master() db.IStandaloneModel {
-	return db.JointMaster(joint)
-}
-
-func (joint *SHoststorage) Slave() db.IStandaloneModel {
-	return db.JointSlave(joint)
-}
-
 func (self *SHoststorage) GetExtraDetails(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

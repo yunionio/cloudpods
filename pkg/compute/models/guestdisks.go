@@ -107,14 +107,6 @@ func (self *SGuestdisk) ValidateUpdateData(ctx context.Context, userCred mcclien
 	return input, nil
 }
 
-func (joint *SGuestdisk) Master() db.IStandaloneModel {
-	return db.JointMaster(joint)
-}
-
-func (joint *SGuestdisk) Slave() db.IStandaloneModel {
-	return db.JointSlave(joint)
-}
-
 func (self *SGuestdisk) GetExtraDetails(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

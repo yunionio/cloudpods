@@ -90,14 +90,6 @@ func (self *SClouduserPolicy) ValidateUpdateData(ctx context.Context, userCred m
 	return nil, httperrors.NewNotSupportedError("Not Supported")
 }
 
-func (joint *SClouduserPolicy) Master() db.IStandaloneModel {
-	return db.JointMaster(joint)
-}
-
-func (joint *SClouduserPolicy) Slave() db.IStandaloneModel {
-	return db.JointSlave(joint)
-}
-
 // 获取公有云用户权限详情
 func (self *SClouduserPolicy) GetExtraDetails(
 	ctx context.Context,
