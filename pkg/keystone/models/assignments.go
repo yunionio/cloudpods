@@ -173,7 +173,7 @@ func (manager *SAssignmentManager) fetchUserProjectRoleIdsQuery(userId, projId s
 	subq2 = subq2.Filter(sqlchemy.Equals(usergroups.Field("user_id"), userId))
 	subq2 = subq2.Filter(sqlchemy.IsFalse(assigns.Field("inherited")))
 
-	return sqlchemy.Union(subq, subq2).Query()
+	return sqlchemy.Union(subq, subq2).Query().Distinct()
 }
 
 func (manager *SAssignmentManager) fetchGroupProjectRoleIdsQuery(groupId, projId string) *sqlchemy.SQuery {
@@ -182,7 +182,7 @@ func (manager *SAssignmentManager) fetchGroupProjectRoleIdsQuery(groupId, projId
 	subq = subq.Equals("actor_id", groupId)
 	subq = subq.Equals("target_id", projId)
 	subq = subq.IsFalse("inherited")
-	return subq
+	return subq.Distinct()
 }
 
 func (manager *SAssignmentManager) fetchGroupProjectIdsQuery(groupId string) *sqlchemy.SQuery {
@@ -190,7 +190,7 @@ func (manager *SAssignmentManager) fetchGroupProjectIdsQuery(groupId string) *sq
 	q = q.Equals("type", api.AssignmentGroupProject)
 	q = q.Equals("actor_id", groupId)
 	q = q.IsFalse("inherited")
-	return q
+	return q.Distinct()
 }
 
 func (manager *SAssignmentManager) fetchProjectGroupIdsQuery(projId string) *sqlchemy.SQuery {
@@ -198,7 +198,7 @@ func (manager *SAssignmentManager) fetchProjectGroupIdsQuery(projId string) *sql
 	q = q.Equals("type", api.AssignmentGroupProject)
 	q = q.Equals("target_id", projId)
 	q = q.IsFalse("inherited")
-	return q
+	return q.Distinct()
 }
 
 func (manager *SAssignmentManager) fetchUserProjectIdsQuery(userId string) *sqlchemy.SQuery {
@@ -219,7 +219,7 @@ func (manager *SAssignmentManager) fetchUserProjectIdsQuery(userId string) *sqlc
 	q2 = q2.Filter(sqlchemy.IsFalse(assigns.Field("inherited")))
 
 	union := sqlchemy.Union(q1, q2)
-	return union.Query()
+	return union.Query().Distinct()
 }
 
 func (manager *SAssignmentManager) fetchProjectUserIdsQuery(projId string) *sqlchemy.SQuery {
@@ -240,7 +240,7 @@ func (manager *SAssignmentManager) fetchProjectUserIdsQuery(projId string) *sqlc
 	q2 = q2.Filter(sqlchemy.IsFalse(assigns.Field("inherited")))
 
 	union := sqlchemy.Union(q1, q2)
-	return union.Query()
+	return union.Query().Distinct()
 }
 
 func (manager *SAssignmentManager) ProjectAddUser(ctx context.Context, userCred mcclient.TokenCredential, project *SProject, user *SUser, role *SRole) error {
