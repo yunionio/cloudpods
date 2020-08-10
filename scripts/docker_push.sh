@@ -76,7 +76,7 @@ push_image() {
     docker push "$tag"
 }
 
-ALL_COMPONENTS=$(ls cmd | grep -v '.*cli$' | paste -sd ' ')
+ALL_COMPONENTS=$(ls cmd | grep -v '.*cli$' | xargs)
 
 if [ "$#" -lt 1 ]; then
     echo "No component is specified~"
