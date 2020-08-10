@@ -167,11 +167,13 @@ type OpenstackError struct {
 }
 
 func (ce *OpenstackError) ParseErrorFromJsonResponse(statusCode int, body jsonutils.JSONObject) error {
-	body.Unmarshal(ce)
+	if body != nil {
+		body.Unmarshal(ce)
+	}
 	if ce.Code == 0 {
 		ce.Code = statusCode
 	}
-	if len(ce.Details) == 0 {
+	if len(ce.Details) == 0 && body != nil {
 		ce.Details = body.String()
 	}
 	if len(ce.Class) == 0 {
