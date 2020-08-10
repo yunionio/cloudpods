@@ -142,18 +142,6 @@ func (joint *SSchedtagJointsBase) GetSchedtagId() string {
 	return joint.SchedtagId
 }
 
-func (joint *SSchedtagJointsBase) master(obj db.IJointModel) db.IStandaloneModel {
-	return db.JointMaster(obj)
-}
-
-func (joint *SSchedtagJointsBase) GetSchedtag() *SSchedtag {
-	return joint.Slave().(*SSchedtag)
-}
-
-func (joint *SSchedtagJointsBase) Slave() db.IStandaloneModel {
-	return db.JointSlave(joint)
-}
-
 func (joint *SSchedtagJointsBase) GetExtraDetails(
 	obj db.IJointModel,
 	ctx context.Context,

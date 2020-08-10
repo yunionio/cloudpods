@@ -94,14 +94,6 @@ func (manager *SCloudproviderregionManager) GetSlaveFieldName() string {
 	return "cloudregion_id"
 }
 
-func (joint *SCloudproviderregion) Master() db.IStandaloneModel {
-	return db.JointMaster(joint)
-}
-
-func (joint *SCloudproviderregion) Slave() db.IStandaloneModel {
-	return db.JointSlave(joint)
-}
-
 func (self *SCloudproviderregion) GetProvider() *SCloudprovider {
 	providerObj, err := CloudproviderManager.FetchById(self.CloudproviderId)
 	if err != nil {

@@ -278,7 +278,7 @@ func (dispatcher *DBJointModelDispatcher) Detach(ctx context.Context, id1 string
 
 	obj, err := deleteItem(dispatcher.JointModelManager(), item, ctx, userCred, query, data)
 	if err == nil {
-		OpsLog.LogDetachEvent(ctx, item.Master(), item.Slave(), userCred, jsonutils.Marshal(item))
+		OpsLog.LogDetachEvent(ctx, JointMaster(item), JointSlave(item), userCred, jsonutils.Marshal(item))
 	}
 	return obj, err
 }
@@ -290,7 +290,7 @@ func DetachJoint(ctx context.Context, userCred mcclient.TokenCredential, item IJ
 	}
 	err = item.Delete(ctx, userCred)
 	if err == nil {
-		OpsLog.LogDetachEvent(ctx, item.Master(), item.Slave(), userCred, item.GetShortDesc(ctx))
+		OpsLog.LogDetachEvent(ctx, JointMaster(item), JointSlave(item), userCred, item.GetShortDesc(ctx))
 	}
 	return err
 }

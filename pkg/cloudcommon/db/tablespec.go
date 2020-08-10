@@ -70,8 +70,8 @@ func (ts *sTableSpec) newInformerModel(dt interface{}) (*informer.ModelObject, e
 	}
 	jointObj, isJoint := obj.(IJointModel)
 	if isJoint {
-		mObj := jointObj.Master()
-		sObj := jointObj.Slave()
+		mObj := JointMaster(jointObj)
+		sObj := JointSlave(jointObj)
 		return informer.NewJointModel(jointObj, jointObj.KeywordPlural(), mObj.GetId(), sObj.GetId()), nil
 	}
 	return informer.NewModel(obj, obj.KeywordPlural(), obj.GetId()), nil

@@ -72,14 +72,6 @@ func (manager *SHostnetworkManager) GetSlaveFieldName() string {
 	return "network_id"
 }
 
-func (bn *SHostnetwork) Master() db.IStandaloneModel {
-	return db.JointMaster(bn)
-}
-
-func (bn *SHostnetwork) Slave() db.IStandaloneModel {
-	return db.JointSlave(bn)
-}
-
 func (bn *SHostnetwork) GetExtraDetails(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

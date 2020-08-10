@@ -170,14 +170,6 @@ func (joint *SAlertnotification) DoSave(ctx context.Context, userCred mcclient.T
 	return nil
 }
 
-func (joint *SAlertnotification) Master() db.IStandaloneModel {
-	return db.JointMaster(joint)
-}
-
-func (joint *SAlertnotification) Slave() db.IStandaloneModel {
-	return db.JointSlave(joint)
-}
-
 func (joint *SAlertnotification) GetNotification() (*SNotification, error) {
 	noti, err := NotificationManager.GetNotification(joint.NotificationId)
 	if err != nil {

@@ -1583,7 +1583,7 @@ func (storage *SStorage) PerformForceDetachHost(ctx context.Context, userCred mc
 	hostStorage.SetModelManager(HoststorageManager, hostStorage)
 	err = hostStorage.Delete(ctx, userCred)
 	if err == nil {
-		db.OpsLog.LogDetachEvent(ctx, hostStorage.Master(), hostStorage.Slave(), userCred, jsonutils.NewString("force detach"))
+		db.OpsLog.LogDetachEvent(ctx, db.JointMaster(hostStorage), db.JointSlave(hostStorage), userCred, jsonutils.NewString("force detach"))
 	}
 	return nil, err
 }

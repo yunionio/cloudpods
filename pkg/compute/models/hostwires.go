@@ -77,14 +77,6 @@ func (manager *SHostwireManager) GetSlaveFieldName() string {
 	return "wire_id"
 }
 
-func (joint *SHostwire) Master() db.IStandaloneModel {
-	return db.JointMaster(joint)
-}
-
-func (joint *SHostwire) Slave() db.IStandaloneModel {
-	return db.JointSlave(joint)
-}
-
 func (self *SHostwire) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.HostwireDetails, error) {
 	return api.HostwireDetails{}, nil
 }

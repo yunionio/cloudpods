@@ -69,14 +69,6 @@ func (manager *SNetworkinterfacenetworkManager) GetSlaveFieldName() string {
 	return "network_id"
 }
 
-func (joint *SNetworkinterfacenetwork) Master() db.IStandaloneModel {
-	return db.JointMaster(joint)
-}
-
-func (joint *SNetworkinterfacenetwork) Slave() db.IStandaloneModel {
-	return db.JointSlave(joint)
-}
-
 func (manager *SNetworkinterfacenetworkManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return db.IsAdminAllowList(userCred, manager)
 }

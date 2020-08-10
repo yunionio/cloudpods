@@ -67,14 +67,6 @@ func (manager *SGroupnetworkManager) GetSlaveFieldName() string {
 	return "network_id"
 }
 
-func (joint *SGroupnetwork) Master() db.IStandaloneModel {
-	return db.JointMaster(joint)
-}
-
-func (joint *SGroupnetwork) Slave() db.IStandaloneModel {
-	return db.JointSlave(joint)
-}
-
 func (self *SGroupnetwork) GetExtraDetails(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
