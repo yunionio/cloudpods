@@ -85,6 +85,8 @@ type SHostInfo struct {
 	Cloudregion    string
 	CloudregionId  string
 	ZoneManagerUri string
+	Project_domain string
+	Domain_id      string
 
 	FullName   string
 	SysError   map[string]string
@@ -878,8 +880,21 @@ func (h *SHostInfo) getHostInfo(zoneId string) {
 	} else {
 		host := res.Data[0]
 		id, _ := host.GetString("id")
+		h.getDomainInfo(id)
+
 		h.updateHostRecord(id)
 	}
+}
+
+func (h *SHostInfo) getDomainInfo(hostId string) {
+	host, err := modules.Hosts.GetById(h.GetSession(), hostId, jsonutils.NewDict())
+	if err != nil {
+		h.onFail(err)
+	}
+	domain_id, _ := host.GetString("domain_id")
+	project_domain, _ := host.GetString("project_domain")
+	h.Domain_id = domain_id
+	h.Project_domain = project_domain
 }
 
 func (h *SHostInfo) setHostname(name string) {
@@ -1574,10 +1589,13 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 		"zone":           h.Zone,
 		"cloudregion_id": h.CloudregionId,
 		"cloudregion":    h.Cloudregion,
+		"domain_id":      h.Domain_id,
+		"project_domain": h.Project_domain,
 		"region":         options.HostOptions.Region,
 		"host_ip":        h.GetMasterIp(),
-		"platform":       "kvm",
-		"res_type":       "host",
+		//"platform":       "kvm",
+		"brand":    "OneCloud",
+		"res_type": "host",
 	}
 	conf["nics"] = h.getNicsTelegrafConf()
 	urls, _ := catalog.GetServiceURLs("kafka", options.HostOptions.Region, "", defaultEndpointType)
