@@ -16,9 +16,10 @@ package sqlchemy
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
+
+	"yunion.io/x/log"
 )
 
 type IFunction interface {
@@ -27,14 +28,16 @@ type IFunction interface {
 
 type SFunctionFieldBase struct {
 	IFunction
-	alias  string
+	alias string
 }
 
 func (ff *SFunctionFieldBase) Reference() string {
 	if len(ff.alias) == 0 {
-		log.Fatalf("reference a function field without alias! %s", ff.expression())
+		log.Warningf("reference a function field without alias! %s", ff.expression())
+		return ff.expression()
+	} else {
+		return fmt.Sprintf("`%s`", ff.alias)
 	}
-	return fmt.Sprintf("`%s`", ff.alias)
 }
 
 func (ff *SFunctionFieldBase) Expression() string {
