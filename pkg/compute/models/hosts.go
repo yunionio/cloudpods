@@ -2364,12 +2364,13 @@ type HostStat struct {
 }
 
 type HostsCountStat struct {
-	StorageSize   int64
-	Count         int64
-	Memory        int64
-	MemoryVirtual float64
-	CPU           int64
-	CPUVirtual    float64
+	StorageSize    int64
+	Count          int64
+	Memory         int64
+	MemoryVirtual  float64
+	MemoryReserved int64
+	CPU            int64
+	CPUVirtual     float64
 }
 
 func (manager *SHostManager) calculateCount(q *sqlchemy.SQuery) HostsCountStat {
@@ -2387,6 +2388,7 @@ func (manager *SHostManager) calculateCount(q *sqlchemy.SQuery) HostsCountStat {
 		tCnt   int64   = 0
 		tMem   int64   = 0
 		tVmem  float64 = 0.0
+		rMem   int64   = 0
 		tCPU   int64   = 0
 		tVCPU  float64 = 0.0
 	)
@@ -2413,16 +2415,18 @@ func (manager *SHostManager) calculateCount(q *sqlchemy.SQuery) HostsCountStat {
 		if stat.CpuCmtbound <= 0.0 {
 			stat.CpuCmtbound = options.Options.DefaultCPUOvercommitBound
 		}
+		rMem += int64(stat.MemReserved)
 		tVmem += float64(float32(aMem) * stat.MemCmtbound)
 		tVCPU += float64(float32(aCpu) * stat.CpuCmtbound)
 	}
 	return HostsCountStat{
-		StorageSize:   tStore,
-		Count:         tCnt,
-		Memory:        tMem,
-		MemoryVirtual: tVmem,
-		CPU:           tCPU,
-		CPUVirtual:    tVCPU,
+		StorageSize:    tStore,
+		Count:          tCnt,
+		Memory:         tMem,
+		MemoryVirtual:  tVmem,
+		MemoryReserved: rMem,
+		CPU:            tCPU,
+		CPUVirtual:     tVCPU,
 	}
 }
 

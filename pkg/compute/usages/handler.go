@@ -690,6 +690,7 @@ func hostUsage(
 	count[fmt.Sprintf("%s.cpu", prefix)] = result.CPU
 	count[fmt.Sprintf("%s.memory.virtual", prefix)] = result.MemoryVirtual
 	count[fmt.Sprintf("%s.cpu.virtual", prefix)] = result.CPUVirtual
+	count[fmt.Sprintf("%s.memory.reserved")] = result.MemoryReserved
 
 	return count
 }
