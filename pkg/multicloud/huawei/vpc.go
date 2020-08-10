@@ -225,6 +225,18 @@ func (self *SRegion) getVpc(vpcId string) (*SVpc, error) {
 }
 
 func (self *SRegion) DeleteVpc(vpcId string) error {
+	if vpcId != "default" {
+		secgroups, err := self.GetSecurityGroups(vpcId, "")
+		if err != nil {
+			return errors.Wrap(err, "GetSecurityGroups")
+		}
+		for _, secgroup := range secgroups {
+			err = self.DeleteSecurityGroup(secgroup.ID)
+			if err != nil {
+				return errors.Wrapf(err, "DeleteSecurityGroup(%s)", secgroup.ID)
+			}
+		}
+	}
 	return DoDelete(self.ecsClient.Vpcs.Delete, vpcId, nil, nil)
 }
 
