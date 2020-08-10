@@ -951,8 +951,6 @@ func (manager *SStorageManager) totalCapacityQ(
 		q = RangeObjectsFilter(q, rangeObjs, nil, storages.Field("zone_id"), storages.Field("manager_id"), nil, storages.Field("id"))
 	}
 
-	q = q.Distinct()
-
 	if storageOwnership {
 		switch scope {
 		case rbacutils.ScopeSystem:
