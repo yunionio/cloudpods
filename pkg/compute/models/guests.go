@@ -2193,15 +2193,20 @@ func (self *SGuest) IsWindows() bool {
 	}
 }
 
-func (self *SGuest) getSecgroupJson() []jsonutils.JSONObject {
-	secgroups := []jsonutils.JSONObject{}
-	for _, secGrp := range self.GetSecgroups() {
-		secgroups = append(secgroups, secGrp.getDesc())
+func (self *SGuest) getSecgroupJson() ([]jsonutils.JSONObject, error) {
+	objs := []jsonutils.JSONObject{}
+
+	secgroups, err := self.GetSecgroups()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetSecgroups")
 	}
-	return secgroups
+	for _, secGrp := range secgroups {
+		objs = append(objs, secGrp.getDesc())
+	}
+	return objs, nil
 }
 
-func (self *SGuest) GetSecgroups() []SSecurityGroup {
+func (self *SGuest) GetSecgroups() ([]SSecurityGroup, error) {
 	secgrpQuery := SecurityGroupManager.Query()
 	secgrpQuery.Filter(
 		sqlchemy.OR(
@@ -2210,11 +2215,11 @@ func (self *SGuest) GetSecgroups() []SSecurityGroup {
 		),
 	)
 	secgroups := []SSecurityGroup{}
-	if err := db.FetchModelObjects(SecurityGroupManager, secgrpQuery, &secgroups); err != nil {
-		log.Errorf("Get security group error: %v", err)
-		return nil
+	err := db.FetchModelObjects(SecurityGroupManager, secgrpQuery, &secgroups)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
 	}
-	return secgroups
+	return secgroups, nil
 }
 
 func (self *SGuest) getSecgroup() *SSecurityGroup {
@@ -2268,7 +2273,7 @@ func (self *SGuest) getSecurityRules() string {
 
 //获取多个安全组规则，优先级降序排序
 func (self *SGuest) getSecurityGroupsRules() string {
-	secgroups := self.GetSecgroups()
+	secgroups, _ := self.GetSecgroups()
 	secgroupids := []string{}
 	for _, secgroup := range secgroups {
 		secgroupids = append(secgroupids, secgroup.Id)
@@ -3860,7 +3865,8 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *j
 		desc.Add(jsonutils.NewString(secGrp.Name), "secgroup")
 	}
 
-	if secgroups := self.getSecgroupJson(); len(secgroups) > 0 {
+	secgroups, _ := self.getSecgroupJson()
+	if secgroups != nil {
 		desc.Add(jsonutils.NewArray(secgroups...), "secgroups")
 	}
 
@@ -4696,92 +4702,32 @@ func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCreden
 	return result
 }
 
-func (self *SGuest) getSecgroupExternalIds(provider *SCloudprovider) []string {
-	secgroups := self.GetSecgroups()
-	secgroupids := []string{}
-	for i := 0; i < len(secgroups); i++ {
-		secgroupids = append(secgroupids, secgroups[i].Id)
+func (self *SGuest) getSecgroupsBySecgroupExternalIds(externalIds []string) ([]SSecurityGroup, error) {
+	host := self.GetHost()
+	if host == nil {
+		return nil, errors.Error("not found host for guest")
 	}
-	q := SecurityGroupCacheManager.Query().Equals("manager_id", provider.Id)
-	q = q.Filter(sqlchemy.In(q.Field("secgroup_id"), secgroupids))
-	secgroupcaches := []SSecurityGroupCache{}
-	if err := db.FetchModelObjects(SecurityGroupCacheManager, q, &secgroupcaches); err != nil {
-		log.Errorf("failed to fetch secgroupcaches for provider %s error: %v", provider.Name, err)
-		return nil
-	}
-	externalIds := []string{}
-	for i := 0; i < len(secgroupcaches); i++ {
-		externalIds = append(externalIds, secgroupcaches[i].ExternalId)
-	}
-	return externalIds
-}
-
-func (self *SGuest) getSecgroupByCache(provider *SCloudprovider, externalId string) (*SSecurityGroup, error) {
-	q := SecurityGroupCacheManager.Query().Equals("manager_id", provider.Id).Equals("external_id", externalId)
-	cache := SSecurityGroupCache{}
-	cache.SetModelManager(SecurityGroupCacheManager, &cache)
-	count, err := q.CountWithError()
+	sq := SecurityGroupCacheManager.Query("secgroup_id").In("external_id", externalIds).Equals("manager_id", host.ManagerId)
+	q := SecurityGroupManager.Query().In("id", sq.SubQuery())
+	secgroups := []SSecurityGroup{}
+	err := db.FetchModelObjects(SecurityGroupManager, q, &secgroups)
 	if err != nil {
-		return nil, fmt.Errorf("getSecgroupByCache fail %s", err)
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
 	}
-	if count == 0 {
-		return nil, fmt.Errorf("failed find secgroup cache from provider %s externalId %s", provider.Name, externalId)
-	}
-	if count > 1 {
-		return nil, fmt.Errorf("duplicate secgroup cache for provider %s externalId %s", provider.Name, externalId)
-	}
-	if err := q.First(&cache); err != nil {
-		return nil, err
-	}
-	return cache.GetSecgroup()
+	return secgroups, nil
 }
 
-func (self *SGuest) SyncVMSecgroups(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, secgroupIds []string) compare.SyncResult {
-	syncResult := compare.SyncResult{}
-
-	secgroupExternalIds := self.getSecgroupExternalIds(provider)
-
-	_secgroupIds := []string{}
-	for _, secgroupId := range secgroupIds {
-		secgroup, err := self.getSecgroupByCache(provider, secgroupId)
-		if err != nil {
-			syncResult.AddError(err)
-			continue
-		}
-		_secgroupIds = append(_secgroupIds, secgroup.Id)
-		if !utils.IsInStringArray(secgroupId, secgroupExternalIds) {
-			if len(self.SecgrpId) == 0 {
-				_, err := db.Update(self, func() error {
-					self.SecgrpId = secgroup.Id
-					return nil
-				})
-				if err != nil {
-					log.Errorf("update guest secgroup error: %v", err)
-					syncResult.AddError(err)
-				}
-			} else {
-				if _, err := GuestsecgroupManager.newGuestSecgroup(ctx, userCred, self, secgroup); err != nil {
-					log.Errorf("failed to bind secgroup %s for guest %s error: %v", secgroup.Name, self.Name, err)
-					syncResult.AddError(err)
-				}
-			}
-			syncResult.Add()
-		}
+func (self *SGuest) SyncVMSecgroups(ctx context.Context, userCred mcclient.TokenCredential, externalIds []string) error {
+	secgroups, err := self.getSecgroupsBySecgroupExternalIds(externalIds)
+	if err != nil {
+		return errors.Wrap(err, "getSecgroupsBySecgroupExternalIds")
+	}
+	secgroupIds := []string{}
+	for _, secgroup := range secgroups {
+		secgroupIds = append(secgroupIds, secgroup.Id)
 	}
 
-	//移除公有云未关联的安全组
-	secgroups := self.GetSecgroups()
-	for i := 0; i < len(secgroups); i++ {
-		if !utils.IsInStringArray(secgroups[i].Id, _secgroupIds) {
-			err := self.revokeSecgroup(ctx, userCred, &secgroups[i])
-			if err != nil {
-				log.Errorf("revoke secgroup %s(%s) error: %v", secgroups[i].Name, secgroups[i].Id, err)
-				continue
-			}
-			syncResult.Delete()
-		}
-	}
-	return syncResult
+	return self.saveSecgroups(ctx, userCred, secgroupIds)
 }
 
 func (self *SGuest) GetIVM() (cloudprovider.ICloudVM, error) {
@@ -5074,7 +5020,7 @@ func (self *SGuest) ToCreateInput(userCred mcclient.TokenCredential) *api.Server
 	userInput.ProjectId = userCred.GetProjectId()
 	userInput.ProjectDomainId = userCred.GetProjectDomainId()
 	userInput.Secgroups = []string{}
-	secgroups := self.GetSecgroups()
+	secgroups, _ := self.GetSecgroups()
 	for _, secgroup := range secgroups {
 		userInput.Secgroups = append(userInput.Secgroups, secgroup.Id)
 	}

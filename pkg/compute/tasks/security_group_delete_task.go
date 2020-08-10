@@ -51,7 +51,12 @@ func (self *SecurityGroupDeleteTask) OnInit(ctx context.Context, obj db.IStandal
 
 func (self *SecurityGroupDeleteTask) OnSecurityGroupUncacheComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	secgroup := obj.(*models.SSecurityGroup)
-	secgroupCaches := secgroup.GetSecurityGroupCaches()
+	secgroupCaches, err := secgroup.GetSecurityGroupCaches()
+	if err != nil {
+		secgroup.SetStatus(self.UserCred, api.SECGROUP_STATUS_READY, "")
+		self.SetStageFailed(ctx, jsonutils.Marshal(err))
+		return
+	}
 	errCount := self.getErrorCount()
 	if len(secgroupCaches) == int(errCount) {
 		if errCount == 0 {

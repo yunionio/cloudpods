@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -25,7 +24,6 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -56,7 +54,6 @@ type SGuestsecgroup struct {
 	SGuestJointsBase
 
 	SSecurityGroupResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	// SecgroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 }
 
 func (manager *SGuestsecgroupManager) GetSlaveFieldName() string {
@@ -72,63 +69,6 @@ func (self *SGuestsecgroup) getSecgroup() *SSecurityGroup {
 	secgroup := secgrp.(*SSecurityGroup)
 	secgroup.SetModelManager(SecurityGroupManager, secgroup)
 	return secgroup
-}
-
-func (manager *SGuestsecgroupManager) newGuestSecgroup(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, secgroup *SSecurityGroup) (*SGuestsecgroup, error) {
-	q := manager.Query()
-	q = q.Equals("guest_id", guest.Id).Equals("secgroup_id", secgroup.Id)
-	count, err := q.CountWithError()
-	if err != nil {
-		return nil, err
-	}
-	if count > 0 {
-		return nil, fmt.Errorf("security group %s has already been assigned to guest %s", secgroup.Name, guest.Name)
-	}
-
-	gs := SGuestsecgroup{}
-	gs.SecgroupId = secgroup.Id
-	gs.SetModelManager(manager, &gs)
-	gs.GuestId = guest.Id
-
-	lockman.LockObject(ctx, secgroup)
-	defer lockman.ReleaseObject(ctx, secgroup)
-
-	return &gs, manager.TableSpec().Insert(ctx, &gs)
-}
-
-func (manager *SGuestsecgroupManager) GetGuestSecgroups(guest *SGuest, secgroup *SSecurityGroup) ([]SGuestsecgroup, error) {
-	guestsecgroups := []SGuestsecgroup{}
-	q := manager.Query()
-	if guest != nil {
-		q = q.Equals("guest_id", guest.Id)
-	}
-	if secgroup != nil {
-		q = q.Equals("secgroup_id", secgroup.Id)
-	}
-	if err := db.FetchModelObjects(manager, q, &guestsecgroups); err != nil {
-		return nil, err
-	}
-	return guestsecgroups, nil
-}
-
-func (manager *SGuestsecgroupManager) DeleteGuestSecgroup(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, secgroup *SSecurityGroup) error {
-	gss := []SGuestsecgroup{}
-	q := manager.Query()
-	if guest != nil {
-		q = q.Equals("guest_id", guest.Id)
-	}
-	if secgroup != nil {
-		q = q.Equals("secgroup_id", secgroup.Id)
-	}
-	if err := db.FetchModelObjects(manager, q, &gss); err != nil {
-		return err
-	}
-	for _, gs := range gss {
-		if err := gs.Delete(ctx, userCred); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (self *SGuestsecgroup) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

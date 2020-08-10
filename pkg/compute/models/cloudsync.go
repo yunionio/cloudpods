@@ -740,14 +740,7 @@ func syncVMSecgroups(ctx context.Context, userCred mcclient.TokenCredential, pro
 		// log.Errorf(msg)
 		return errors.Wrap(err, "remoteVM.GetSecurityGroupIds")
 	}
-	result := localVM.SyncVMSecgroups(ctx, userCred, provider, secgroupIds)
-	msg := result.Result()
-	log.Infof("SyncVMSecgroups for VM %s result: %s", localVM.Name, msg)
-	if result.IsError() {
-		return result.AllError()
-	}
-	// db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
-	return nil
+	return localVM.SyncVMSecgroups(ctx, userCred, secgroupIds)
 }
 
 func syncSkusFromPrivateCloud(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, remoteRegion cloudprovider.ICloudRegion) {
