@@ -58,10 +58,14 @@ type SCapabilities struct {
 	MaxDataDiskCount            int
 	SchedPolicySupport          bool
 	Usable                      bool
-	PublicNetworkCount          int
-	DBInstance                  map[string]map[string]map[string][]string //map[engine][engineVersion][category][]{storage_type}
-	Specs                       jsonutils.JSONObject
-	AvailableHostCount          int
+
+	// Deprecated
+	PublicNetworkCount int
+
+	AutoAllocNetworkCount int
+	DBInstance            map[string]map[string]map[string][]string //map[engine][engineVersion][category][]{storage_type}
+	Specs                 jsonutils.JSONObject
+	AvailableHostCount    int
 
 	StorageTypes2     map[string][]string                      `json:",allowempty"`
 	StorageTypes3     map[string]map[string]*SimpleStorageInfo `json:",allowempty"`
@@ -128,8 +132,9 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 	}
 	var err error
 	serverType := jsonutils.GetAnyString(query, []string{"host_type", "server_type"})
-	publicNetworkCount, _ := getAutoAllocNetworkCount(ownerId, scope, region, zone, serverType)
-	capa.PublicNetworkCount = publicNetworkCount
+	autoAllocNetworkCount, _ := getAutoAllocNetworkCount(ownerId, scope, region, zone, serverType)
+	capa.PublicNetworkCount = autoAllocNetworkCount
+	capa.AutoAllocNetworkCount = autoAllocNetworkCount
 	mans := []ISpecModelManager{HostManager, IsolatedDeviceManager}
 	capa.Specs, err = GetModelsSpecs(ctx, userCred, query.(*jsonutils.JSONDict), mans...)
 	if err != nil {
