@@ -26,7 +26,6 @@ import (
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type NetworkSchedtagPredicate struct {
@@ -136,7 +135,6 @@ func (p *NetworkSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candi
 				Type:   NetworkTypeMatch,
 			}
 		}
-		schedData := u.SchedData()
 		if net.Private {
 			if network.IsPublic {
 				return &FailReason{
@@ -144,28 +142,11 @@ func (p *NetworkSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candi
 					Type:   NetworkPublic,
 				}
 			}
-			if network.ProjectId != schedData.Project && !utils.IsInStringArray(schedData.Project, network.GetSharedProjects()) {
-				return &FailReason{
-					Reason: fmt.Sprintf("Network project %s + %v not owner by %s", network.ProjectId, network.GetSharedProjects(), schedData.Project),
-					Type:   NetworkOwner,
-				}
-			}
 		} else {
-			if !network.IsPublic {
+			if network.IsAutoAlloc.IsFalse() {
 				return &FailReason{
-					fmt.Sprintf("Network %s is private", network.Name),
+					fmt.Sprintf("Network %s is not auto alloc", network.Name),
 					NetworkPrivate,
-				}
-			}
-			if rbacutils.TRbacScope(network.PublicScope) == rbacutils.ScopeDomain {
-				// domain-wide share
-				netDomain := network.DomainId
-				reqDomain := net.Domain
-				if !(netDomain == reqDomain || utils.IsInStringArray(reqDomain, network.GetSharedDomains())) {
-					return &FailReason{
-						fmt.Sprintf("Network %s domain scope %s not owner by %s", network.Name, netDomain, reqDomain),
-						NetworkDomain,
-					}
 				}
 			}
 		}
