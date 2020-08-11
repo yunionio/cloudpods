@@ -54,6 +54,7 @@ type ImageOptionalOptions struct {
 	Hypervisor         []string `help:"Prefer hypervisor type" choices:"kvm|esxi|baremetal|container|openstack|ctyun"`
 	DiskDriver         string   `help:"Perfer disk driver" choices:"virtio|scsi|pvscsi|ide|sata"`
 	NetDriver          string   `help:"Preferred network driver" choices:"virtio|e1000|vmxnet3"`
+	DisableUsbKbd      bool     `help:"Disable usb keyboard on this image(for hypervisor kvm)"`
 }
 
 func addImageOptionalOptions(s *mcclient.ClientSession, params *jsonutils.JSONDict, args ImageOptionalOptions) error {
@@ -130,6 +131,9 @@ func addImageOptionalOptions(s *mcclient.ClientSession, params *jsonutils.JSONDi
 	}
 	if len(args.Hypervisor) > 0 {
 		params.Add(jsonutils.NewString(strings.Join(args.Hypervisor, ",")), "properties", "hypervisor")
+	}
+	if args.DisableUsbKbd {
+		params.Add(jsonutils.NewString("true"), "properties", "disable_usb_kbd")
 	}
 	return nil
 }

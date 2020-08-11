@@ -48,6 +48,7 @@ const (
 	IMAGE_IS_READONLY         = "is_readonly"
 	IMAGE_PARTITION_TYPE      = "partition_type"
 	IMAGE_INSTALLED_CLOUDINIT = "installed_cloud_init"
+	IMAGE_DISABLE_USB_KBD     = "disable_usb_kbd"
 
 	IMAGE_STATUS_UPDATING = "updating"
 )

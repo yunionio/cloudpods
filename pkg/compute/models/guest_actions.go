@@ -3056,6 +3056,13 @@ func (self *SGuest) PerformSetQemuParams(ctx context.Context, userCred mcclient.
 			return nil, err
 		}
 	}
+	usbKbd, err := data.GetString("disable_usb_kbd")
+	if err == nil {
+		err = self.SetMetadata(ctx, "disable_usb_kbd", usbKbd, userCred)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return nil, nil
 }
 
