@@ -471,7 +471,8 @@ type ServerCreateInput struct {
 
 	// swagger:ignore
 	OsType string `json:"os_type"`
-
+	// swagger:ignore
+	DisableUsbKbd bool `json:"disable_usb_kbd"`
 	// swagger:ignore
 	OsProfile jsonutils.JSONObject `json:"__os_profile__"`
 	// swagger:ignore

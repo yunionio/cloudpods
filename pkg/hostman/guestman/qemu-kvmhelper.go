@@ -79,6 +79,11 @@ func (s *SKVMGuestInstance) getOsname() string {
 	return osName
 }
 
+func (s *SKVMGuestInstance) disableUsbKbd() bool {
+	val, _ := s.Desc.GetString("metadata", "disable_usb_kbd")
+	return val == "true"
+}
+
 func (s *SKVMGuestInstance) getOsDistribution() string {
 	osDis, _ := s.Desc.GetString("metadata", "os_distribution")
 	return osDis
@@ -499,7 +504,7 @@ func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (stri
 
 	cmd += " -device virtio-serial"
 	cmd += " -usb"
-	if !utils.IsInStringArray(s.getOsDistribution(), []string{OS_NAME_OPENWRT, OS_NAME_CIRROS}) {
+	if !utils.IsInStringArray(s.getOsDistribution(), []string{OS_NAME_OPENWRT, OS_NAME_CIRROS}) && !s.disableUsbKbd() {
 		cmd += " -device usb-kbd"
 	}
 	// # if osname == self.OS_NAME_ANDROID:
