@@ -148,7 +148,12 @@ func (host *SHypervisor) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (c
 }
 
 func (host *SHypervisor) GetEnabled() bool {
-	return true
+	switch host.Status {
+	case "enabled", "":
+		return true
+	default:
+		return false
+	}
 }
 
 func (host *SHypervisor) GetAccessIp() string {
@@ -266,9 +271,6 @@ func (host *SHypervisor) GetHostType() string {
 }
 
 func (host *SHypervisor) GetHostStatus() string {
-	if host.Status == "disabled" {
-		return api.HOST_OFFLINE
-	}
 	switch host.State {
 	case "up", "":
 		return api.HOST_ONLINE
@@ -282,12 +284,7 @@ func (host *SHypervisor) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface,
 }
 
 func (host *SHypervisor) GetIsMaintenance() bool {
-	switch host.Status {
-	case "enabled", "":
-		return false
-	default:
-		return true
-	}
+	return false
 }
 
 func (host *SHypervisor) GetVersion() string {
