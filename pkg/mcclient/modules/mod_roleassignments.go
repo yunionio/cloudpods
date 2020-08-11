@@ -63,6 +63,48 @@ func (this *projectRoles) json() jsonutils.JSONObject {
 	return obj
 }
 
+type sRole struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type sGroupRole struct {
+	Id    string  `json:"id"`
+	Name  string  `json:"name"`
+	Roles []sRole `json:"roles"`
+}
+
+type sProjectGroupRole struct {
+	Id     string       `json:"id"`
+	Name   string       `json:"name"`
+	Groups []sGroupRole `json:"groups"`
+}
+
+func (pgr *sProjectGroupRole) add(groupId, groupName, roleId, roleName string) {
+	groupIdx := -1
+	for i := range pgr.Groups {
+		if pgr.Groups[i].Id == groupId {
+			groupIdx = i
+			break
+		}
+	}
+	if groupIdx < 0 {
+		groupIdx = len(pgr.Groups)
+		pgr.Groups = append(pgr.Groups, sGroupRole{
+			Id:   groupId,
+			Name: groupName,
+		})
+	}
+	pgr.Groups[groupIdx].add(roleId, roleName)
+}
+
+func (gr *sGroupRole) add(roleId, roleName string) {
+	gr.Roles = append(gr.Roles, sRole{
+		Id:   roleId,
+		Name: roleName,
+	})
+}
+
 var (
 	RoleAssignments RoleAssignmentManagerV3
 )
@@ -192,24 +234,37 @@ func (this *RoleAssignmentManagerV3) GetProjectRole(s *mcclient.ClientSession, i
 		return jsonutils.JSONNull, err
 	}
 
-	projects := make(map[string]*projectRoles)
+	projects := make([]sProjectGroupRole, 0)
 	for _, roleAssign := range result.Data {
 		roleId, _ := roleAssign.GetString("role", "id")
 		roleName, _ := roleAssign.GetString("role", "name")
 		projectId, _ := roleAssign.GetString("scope", "project", "id")
 		projectName, _ := roleAssign.GetString("scope", "project", "name")
-		_, ok := projects[projectId]
+		groupId, _ := roleAssign.GetString("group", "id")
+		groupName, _ := roleAssign.GetString("group", "name")
 
-		if ok {
-			projects[projectId].add(roleId, roleName)
-		} else {
-			projects[projectId] = newProjectRoles(projectId, projectName, roleId, roleName, "")
+		projIdx := -1
+		for i := range projects {
+			if projects[i].Id == projectId {
+				projIdx = i
+				break
+			}
 		}
+
+		if projIdx < 0 {
+			projIdx = len(projects)
+			projects = append(projects, sProjectGroupRole{
+				Id:   projectId,
+				Name: projectName,
+			})
+		}
+
+		projects[projIdx].add(groupId, groupName, roleId, roleName)
 	}
 
 	projJson := jsonutils.NewArray()
 	for _, proj := range projects {
-		projJson.Add(proj.json())
+		projJson.Add(jsonutils.Marshal(proj))
 	}
 	data.Add(projJson, "data")
 	data.Add(jsonutils.NewInt(int64(len(projects))), "total")
