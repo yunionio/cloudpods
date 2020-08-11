@@ -74,7 +74,11 @@ func handleOIDCAuth(ctx context.Context, w http.ResponseWriter, req *http.Reques
 	if err != nil {
 		// redirect to login page
 		qs := jsonutils.NewDict()
-		qs.Set(getLoginCallbackParam(), jsonutils.NewString(req.URL.String()))
+		oUrl := req.URL.String()
+		if !strings.HasPrefix(oUrl, "http") {
+			oUrl = httputils.JoinPath(options.Options.ApiServer, oUrl)
+		}
+		qs.Set(getLoginCallbackParam(), jsonutils.NewString(oUrl))
 		loginUrl := addQuery(getSsoAuthCallbackUrl(), qs)
 		appsrv.SendRedirect(w, loginUrl)
 		return
