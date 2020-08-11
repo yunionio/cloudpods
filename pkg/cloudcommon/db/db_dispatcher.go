@@ -1474,7 +1474,7 @@ func (dispatcher *DBModelDispatcher) PerformClassAction(ctx context.Context, act
 
 func (dispatcher *DBModelDispatcher) PerformAction(ctx context.Context, idStr string, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idStr, query)
+	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idStr, nil)
 	if err == sql.ErrNoRows {
 		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), idStr)
 	} else if err != nil {
@@ -1663,7 +1663,7 @@ func (dispatcher *DBModelDispatcher) FetchUpdateHeaderData(ctx context.Context, 
 
 func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, query jsonutils.JSONObject, data jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idStr, query)
+	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idStr, nil)
 	if err == sql.ErrNoRows {
 		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), idStr)
 	} else if err != nil {
@@ -1696,7 +1696,7 @@ func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, q
 
 func (dispatcher *DBModelDispatcher) UpdateSpec(ctx context.Context, idStr string, spec string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idStr, query)
+	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idStr, nil)
 	if err == sql.ErrNoRows {
 		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), idStr)
 	} else if err != nil {
@@ -1766,7 +1766,7 @@ func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCr
 
 func (dispatcher *DBModelDispatcher) Delete(ctx context.Context, idstr string, query jsonutils.JSONObject, data jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idstr, query)
+	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idstr, nil)
 	if err == sql.ErrNoRows {
 		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), idstr)
 	} else if err != nil {
@@ -1800,7 +1800,7 @@ func (dispatcher *DBModelDispatcher) Delete(ctx context.Context, idstr string, q
 
 func (dispatcher *DBModelDispatcher) DeleteSpec(ctx context.Context, idstr string, spec string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idstr, query)
+	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idstr, nil)
 	if err == sql.ErrNoRows {
 		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), idstr)
 	} else if err != nil {
