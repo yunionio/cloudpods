@@ -1152,6 +1152,7 @@ func init() {
 		ID               string `help:"ID or name of VM"`
 		DisableIsaSerial string `help:"disable isa serial device" choices:"true|false"`
 		DisablePvpanic   string `help:"disable pvpanic device" choices:"true|false"`
+		DisableUsbKbd    string `help:"disable usb kbd" choices:"true|false"`
 	}
 
 	R(&ServerQemuParams{}, "server-set-qemu-params", "config qemu params", func(s *mcclient.ClientSession,
@@ -1162,6 +1163,9 @@ func init() {
 		}
 		if len(opts.DisablePvpanic) > 0 {
 			params.Set("disable_pvpanic", jsonutils.NewString(opts.DisablePvpanic))
+		}
+		if len(opts.DisableUsbKbd) > 0 {
+			params.Set("disable_usb_kbd", jsonutils.NewString(opts.DisableUsbKbd))
 		}
 		result, err := modules.Servers.PerformAction(s, opts.ID, "set-qemu-params", params)
 		if err != nil {
