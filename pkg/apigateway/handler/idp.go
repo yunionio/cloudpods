@@ -60,6 +60,13 @@ func getSsoLinkCallbackUrl() string {
 	return options.Options.SsoLinkCallbackUrl
 }
 
+func getSsoUserNotFoundCallbackUrl() string {
+	if options.Options.SsoUserNotFoundCallbackUrl == "" {
+		return getSsoAuthCallbackUrl()
+	}
+	return options.Options.SsoUserNotFoundCallbackUrl
+}
+
 func (h *AuthHandlers) getIdpSsoRedirectUri(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	params := appctx.AppContextParams(ctx)
 	idpId := params["<idp_id>"]
@@ -164,41 +171,38 @@ func (h *AuthHandlers) handleSsoLogin(ctx context.Context, w http.ResponseWriter
 
 	appsrv.DisableClientCache(w)
 
+	var referer string
+	var idpUserId string
 	if len(idpLinkUser) > 0 {
 		// link with existing user
-		err := linkWithExistingUser(ctx, req, idpId, idpLinkUser, body)
-		referer := getSsoLinkCallbackUrl()
-		refererUrl, _ := url.Parse(referer)
-		if refererUrl == nil {
-			refererUrl, _ = url.Parse(idpReferer)
-		}
-		if err != nil {
-			log.Debugf("error: %s", err)
-		}
-		redirUrl := generateRedirectUrl(refererUrl, idpStateQs, err, "", "")
-		// success, do redirect
-		appsrv.SendRedirect(w, redirUrl)
+		err = linkWithExistingUser(ctx, req, idpId, idpLinkUser, body)
+		referer = getSsoLinkCallbackUrl()
 	} else {
 		// ordinary login
-		referer := getSsoAuthCallbackUrl()
-		refererUrl, _ := url.Parse(referer)
-		if refererUrl == nil {
-			refererUrl, _ = url.Parse(idpReferer)
-		}
-		var idpUserId string
 		err = h.doLogin(ctx, w, req, body)
 		if err != nil {
 			if errors.Cause(err) == httperrors.ErrUserNotFound {
 				idpUserId = findExtUserId(err.Error())
 				if len(idpUserId) == 0 {
 					err = httputils.NewJsonClientError(400, string(httperrors.ErrInputParameter), "empty external user id")
+				} else {
+					referer = getSsoUserNotFoundCallbackUrl()
 				}
 			}
-			log.Debugf("error: %s", err)
 		}
-		redirUrl := generateRedirectUrl(refererUrl, idpStateQs, err, idpId, idpUserId)
-		appsrv.SendRedirect(w, redirUrl)
+		if referer == "" {
+			referer = getSsoAuthCallbackUrl()
+		}
 	}
+	refererUrl, _ := url.Parse(referer)
+	if refererUrl == nil {
+		refererUrl, _ = url.Parse(idpReferer)
+	}
+	if err != nil {
+		log.Debugf("error: %s refererUrl: %s", err, refererUrl)
+	}
+	redirUrl := generateRedirectUrl(refererUrl, idpStateQs, err, idpId, idpUserId)
+	appsrv.SendRedirect(w, redirUrl)
 }
 
 func generateRedirectUrl(originUrl *url.URL, stateQs jsonutils.JSONObject, err error, idpId, idpUserId string) string {
@@ -224,7 +228,7 @@ func generateRedirectUrl(originUrl *url.URL, stateQs jsonutils.JSONObject, err e
 		qs.(*jsonutils.JSONDict).Add(jsonutils.NewString("error"), "result")
 		if len(idpUserId) > 0 {
 			qs.(*jsonutils.JSONDict).Add(jsonutils.NewString(idpId), "idp_id")
-			qs.(*jsonutils.JSONDict).Add(jsonutils.NewString(idpUserId), "idp_user_id")
+			qs.(*jsonutils.JSONDict).Add(jsonutils.NewString(idpUserId), "idp_entity_id")
 		}
 	} else {
 		qs.(*jsonutils.JSONDict).Add(jsonutils.NewString("success"), "result")
