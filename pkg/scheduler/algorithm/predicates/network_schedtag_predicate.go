@@ -15,12 +15,9 @@
 package predicates
 
 import (
-	"fmt"
 	"sort"
 
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/util/netutils"
-	"yunion.io/x/pkg/utils"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
@@ -96,78 +93,7 @@ func (p *NetworkSchedtagPredicate) IsResourceMatchInput(input ISchedtagCustomer,
 func (p *NetworkSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) core.PredicateFailureReason {
 	network := res.(*api.CandidateNetwork)
 	net := input.(*netW)
-	if net.Network != "" {
-		if network.Id != net.Network && network.Name != net.Network {
-			return &FailReason{
-				Reason: fmt.Sprintf("Network name %s != (%s:%s)", net.Network, network.Name, network.Id),
-				Type:   NetworkMatch,
-			}
-		}
-	}
-	if net.Wire != "" {
-		if network.WireId != net.Wire {
-			return &FailReason{
-				Reason: fmt.Sprintf("Wire %s != %s", net.Wire, network.WireId),
-				Type:   NetworkWire,
-			}
-		}
-	}
-
-	freeCnt := c.Getter().GetFreePort(network.GetId())
-	if freeCnt <= 0 {
-		return &FailReason{
-			Reason: fmt.Sprintf("Network %s no free address", network.GetName()),
-			Type:   NetworkFreeCount,
-		}
-	}
-
-	if net.Network == "" {
-		if network.Provider == computeapi.CLOUD_PROVIDER_ONECLOUD {
-			return &FailReason{
-				Reason: fmt.Sprintf("Network %s is from onecloud vpc %s", network.Name, network.VpcId),
-				Type:   NetworkTypeMatch,
-			}
-		}
-		netTypes := p.GetNetworkTypes(net.NetType)
-		if !utils.IsInStringArray(network.ServerType, netTypes) {
-			return &FailReason{
-				Reason: fmt.Sprintf("Network %s type %s not in %v", network.Name, network.ServerType, netTypes),
-				Type:   NetworkTypeMatch,
-			}
-		}
-		if net.Private {
-			if network.IsPublic {
-				return &FailReason{
-					Reason: fmt.Sprintf("Network %s is public", network.Name),
-					Type:   NetworkPublic,
-				}
-			}
-		} else {
-			if network.IsAutoAlloc.IsFalse() {
-				return &FailReason{
-					fmt.Sprintf("Network %s is not auto alloc", network.Name),
-					NetworkPrivate,
-				}
-			}
-		}
-	}
-
-	if len(net.Address) > 0 {
-		ipAddr, err := netutils.NewIPV4Addr(net.Address)
-		if err != nil {
-			return &FailReason{
-				fmt.Sprintf("Invalid ip address %s: %v", net.Address, err),
-				NetworkRange,
-			}
-		}
-		if !network.GetIPRange().Contains(ipAddr) {
-			return &FailReason{
-				fmt.Sprintf("Address %s not in range", net.Address),
-				NetworkRange,
-			}
-		}
-	}
-	return nil
+	return IsNetworkAvailable(c, u.SchedData(), net.NetworkConfig, network, p.GetNetworkTypes(net.NetType))
 }
 
 func (p *NetworkSchedtagPredicate) GetNetworkTypes(specifyType string) []string {

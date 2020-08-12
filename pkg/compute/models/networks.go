@@ -2070,6 +2070,11 @@ func (self *SNetwork) ValidateUpdateCondition(ctx context.Context) error {
 	return self.SSharableVirtualResourceBase.ValidateUpdateCondition(ctx)
 }
 
+func (self *SNetwork) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query, data jsonutils.JSONObject) {
+	self.SSharableVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
+	self.ClearSchedDescCache()
+}
+
 func (self *SNetwork) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return db.IsAdminAllowPerform(userCred, self, "purge")
 }

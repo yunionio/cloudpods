@@ -426,8 +426,10 @@ func (b *BaseHostDesc) fillOnecloudVpcNetworks() error {
 	}
 	for i := range rows {
 		row := &rows[i]
+		net := &row.SNetwork
+		net.SetModelManager(computemodels.NetworkManager, net)
 		candidateNet := &api.CandidateNetwork{
-			SNetwork: &row.SNetwork,
+			SNetwork: net,
 			VpcId:    row.VpcId,
 			Provider: row.Provider,
 		}

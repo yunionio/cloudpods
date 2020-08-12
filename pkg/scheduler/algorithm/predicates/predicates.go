@@ -55,6 +55,10 @@ func (b *BasePredicate) PreExecute(unit *core.Unit, candis []core.Candidater) (b
 	return true, nil
 }
 
+func (b *BasePredicate) GetHypervisorDriver(u *core.Unit) models.IGuestDriver {
+	return models.GetDriver(u.GetHypervisor())
+}
+
 type PredicateHelper struct {
 	predicate      core.FitPredicate
 	predicateFails []core.PredicateFailureReason
