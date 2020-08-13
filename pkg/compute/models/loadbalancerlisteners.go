@@ -458,7 +458,7 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 func (lblis *SLoadbalancerListener) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	lblis.SVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
 
-	if account := lblis.GetCloudaccount(); account != nil && account.IsPublicCloud.IsTrue() {
+	if account := lblis.GetCloudaccount(); account != nil && !account.IsOnPremise {
 		lblis.StartLoadBalancerListenerSyncTask(ctx, userCred, data, "")
 	}
 }
@@ -783,6 +783,29 @@ func (lblis *SLoadbalancerListener) GetQcloudLoadbalancerListenerParams() (*clou
 	return listener, nil
 }
 
+func (lblis *SLoadbalancerListener) GetOpenstackLoadbalancerListenerParams() (*cloudprovider.SLoadbalancerListener, error) {
+	listener, err := lblis.GetLoadbalancerListenerParams()
+	if err != nil {
+		return nil, err
+	}
+
+	if backendgroup := lblis.GetLoadbalancerBackendGroup(); backendgroup != nil {
+		cachedLbbg, err := OpenstackCachedLbbgManager.GetCachedBackendGroupByAssociateId(lblis.GetId())
+		if err != nil {
+			if errors.Cause(err) != sql.ErrNoRows {
+				return nil, errors.Wrap(err, "loadbalancerListener.GetCachedBackendGroupByAssociateId")
+			} else {
+				log.Debugf("loadbalancerListener.GetCachedBackendGroupByAssociateId %s not found", lblis.GetId())
+			}
+		} else {
+			listener.BackendGroupID = cachedLbbg.ExternalId
+			listener.BackendGroupType = backendgroup.Type
+		}
+	}
+
+	return listener, nil
+}
+
 func (lblis *SLoadbalancerListener) GetLoadbalancerCertificate() (*SCachedLoadbalancerCertificate, error) {
 	if len(lblis.CachedCertificateId) == 0 {
 		return nil, nil
@@ -1089,6 +1112,20 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 				}
 			}
 		}
+	case api.CLOUD_PROVIDER_OPENSTACK:
+		if len(groupId) > 0 {
+			group, err := db.FetchByExternalIdAndManagerId(OpenstackCachedLbbgManager, groupId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				return q.Equals("manager_id", lb.ManagerId)
+			})
+			if err != nil {
+				if errors.Cause(err) == sql.ErrNoRows {
+					lblis.BackendGroupId = ""
+				}
+				log.Errorf("Fetch openstack loadbalancer backendgroup by external id %s failed: %s", groupId, err)
+			} else {
+				lblis.BackendGroupId = group.(*SOpenstackCachedLbbg).BackendGroupId
+			}
+		}
 	default:
 		if len(lblis.BackendGroupId) == 0 && len(groupId) == 0 {
 			lblis.BackendGroupId = lb.BackendGroupId
@@ -1158,6 +1195,31 @@ func (lblis *SLoadbalancerListener) updateCachedLoadbalancerBackendGroupAssociat
 					if err != nil {
 						return errors.Wrap(err, "LoadbalancerListener.updateCachedLoadbalancerBackendGroupAssociate.qcloud")
 					}
+				}
+			}
+		}
+	case api.CLOUD_PROVIDER_OPENSTACK:
+		_group, err := db.FetchByExternalIdAndManagerId(OpenstackCachedLbbgManager, exteralLbbgId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			return q.Equals("manager_id", managerId)
+		})
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				lblis.BackendGroupId = ""
+			} else {
+				return fmt.Errorf("Fetch openstack loadbalancer backendgroup by external id %s failed: %s", exteralLbbgId, err)
+			}
+		}
+
+		if _group != nil {
+			group := _group.(*SOpenstackCachedLbbg)
+			if group.AssociatedId != lblis.Id {
+				_, err := db.UpdateWithLock(ctx, group, func() error {
+					group.AssociatedId = lblis.Id
+					group.AssociatedType = api.LB_ASSOCIATE_TYPE_LISTENER
+					return nil
+				})
+				if err != nil {
+					return errors.Wrap(err, "LoadbalancerListener.updateCachedLoadbalancerBackendGroupAssociate.openstack")
 				}
 			}
 		}

@@ -41,10 +41,15 @@ type AwsLoadbalancerLoadbalancerBackendGroupCreateTask struct {
 	LoadbalancerLoadbalancerBackendGroupCreateTask
 }
 
+type OpenstackLoadbalancerLoadbalancerBackendGroupCreateTask struct {
+	LoadbalancerLoadbalancerBackendGroupCreateTask
+}
+
 func init() {
 	taskman.RegisterTask(LoadbalancerLoadbalancerBackendGroupCreateTask{})
 	taskman.RegisterTask(HuaweiLoadbalancerLoadbalancerBackendGroupCreateTask{})
 	taskman.RegisterTask(AwsLoadbalancerLoadbalancerBackendGroupCreateTask{})
+	taskman.RegisterTask(OpenstackLoadbalancerLoadbalancerBackendGroupCreateTask{})
 }
 
 func (self *LoadbalancerLoadbalancerBackendGroupCreateTask) taskFail(ctx context.Context, lbacl *models.SLoadbalancerBackendGroup, reason jsonutils.JSONObject) {
@@ -128,6 +133,34 @@ func (self *AwsLoadbalancerLoadbalancerBackendGroupCreateTask) OnInit(ctx contex
 	listenerId, _ := self.GetParams().GetString("listener_id")
 	if len(listenerId) == 0 {
 		self.taskFail(ctx, lbbg, jsonutils.NewString(fmt.Sprintf("CreateLoadbalancerBackendGroup listener id should not be emtpy")))
+		return
+	}
+
+	self.SetStage("OnLoadbalancerBackendGroupCreateComplete", nil)
+	if err := region.GetDriver().RequestCreateLoadbalancerBackendGroup(ctx, self.GetUserCred(), lbbg, backends, self); err != nil {
+		self.taskFail(ctx, lbbg, jsonutils.Marshal(err))
+	}
+}
+
+func (self *OpenstackLoadbalancerLoadbalancerBackendGroupCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	lbbg := obj.(*models.SLoadbalancerBackendGroup)
+	region := lbbg.GetRegion()
+	if region == nil {
+		self.taskFail(ctx, lbbg, jsonutils.NewString(fmt.Sprintf("failed to find region for lb backendgroup %s", lbbg.Name)))
+		return
+	}
+
+	backends, err := lbbg.GetBackendsParams()
+	if err != nil {
+		self.taskFail(ctx, lbbg, jsonutils.Marshal(err))
+		return
+	}
+
+	// 必须指定listenerId或ruleId
+	listenerId, _ := self.GetParams().GetString("listenerId")
+	ruleId, _ := self.GetParams().GetString("ruleId")
+	if len(listenerId) == 0 && len(ruleId) == 0 {
+		self.taskFail(ctx, lbbg, jsonutils.NewString(fmt.Sprintf("CreateLoadbalancerBackendGroup listener/rule id should not be emtpy")))
 		return
 	}
 

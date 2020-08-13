@@ -358,6 +358,9 @@ func (man *SCachedLoadbalancerAclManager) GetOrCreateCachedAcl(ctx context.Conte
 	if lblis.GetProviderName() == api.CLOUD_PROVIDER_HUAWEI {
 		listenerId = lblis.Id
 	}
+	if lblis.GetProviderName() == api.CLOUD_PROVIDER_OPENSTACK {
+		listenerId = lblis.Id
+	}
 
 	region := lblis.GetRegion()
 	if region == nil {

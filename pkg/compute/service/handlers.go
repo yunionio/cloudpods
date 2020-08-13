@@ -150,6 +150,8 @@ func InitHandlers(app *appsrv.Application) {
 		models.AwsCachedLbbgManager,
 		models.QcloudCachedLbManager,
 		models.QcloudCachedLbbgManager,
+		models.OpenstackCachedLbManager,
+		models.OpenstackCachedLbbgManager,
 		models.RouteTableManager,
 
 		models.SchedpolicyManager,

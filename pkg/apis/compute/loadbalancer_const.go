@@ -140,11 +140,12 @@ var LB_NETWORK_TYPES = choices.NewChoices(
 
 // TODO https_direct sni
 const (
-	LB_LISTENER_TYPE_TCP     = "tcp"
-	LB_LISTENER_TYPE_UDP     = "udp"
-	LB_LISTENER_TYPE_TCP_UDP = "tcp_udp"
-	LB_LISTENER_TYPE_HTTP    = "http"
-	LB_LISTENER_TYPE_HTTPS   = "https"
+	LB_LISTENER_TYPE_TCP              = "tcp"
+	LB_LISTENER_TYPE_UDP              = "udp"
+	LB_LISTENER_TYPE_TCP_UDP          = "tcp_udp"
+	LB_LISTENER_TYPE_HTTP             = "http"
+	LB_LISTENER_TYPE_HTTPS            = "https"
+	LB_LISTENER_TYPE_TERMINATED_HTTPS = "terminated_https"
 )
 
 var LB_LISTENER_TYPES = choices.NewChoices(
@@ -234,6 +235,7 @@ var LB_STICKY_SESSION_TYPES = choices.NewChoices(
 
 // TODO maybe https check when field need comes ;)
 const (
+	LB_HEALTH_CHECK_PING  = "ping"
 	LB_HEALTH_CHECK_TCP   = "tcp"
 	LB_HEALTH_CHECK_UDP   = "udp"
 	LB_HEALTH_CHECK_HTTP  = "http"

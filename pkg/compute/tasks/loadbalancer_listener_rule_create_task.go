@@ -42,6 +42,8 @@ func getOnPrepareLoadbalancerBackendgroupFunc(provider string) func(ctx context.
 		return onHuaiweiPrepareLoadbalancerBackendgroup
 	case api.CLOUD_PROVIDER_AWS:
 		return onAwsPrepareLoadbalancerBackendgroup
+	case api.CLOUD_PROVIDER_OPENSTACK:
+		return onOpenstackPrepareLoadbalancerBackendgroup
 	default:
 		return onPrepareLoadbalancerBackendgroup
 	}
@@ -144,6 +146,59 @@ func onAwsPrepareLoadbalancerBackendgroup(ctx context.Context, region *models.SC
 		// 服务器组不存在
 		self.SetStage("OnCreateLoadbalancerListenerRule", nil)
 		lbbg.StartAwsLoadBalancerBackendGroupCreateTask(ctx, self.GetUserCred(), paramsObj, self.GetTaskId())
+	}
+}
+
+func onOpenstackPrepareLoadbalancerBackendgroup(ctx context.Context, region *models.SCloudregion, lbr *models.SLoadbalancerListenerRule, data jsonutils.JSONObject, self *LoadbalancerListenerRuleCreateTask) {
+	lbbg := lbr.GetLoadbalancerBackendGroup()
+	if lbbg == nil {
+		self.taskFail(ctx, lbr, jsonutils.NewString("openstack loadbalancer listener rule releated backend group not found"))
+		return
+	}
+
+	lblis := lbr.GetLoadbalancerListener()
+	if lblis == nil {
+		self.taskFail(ctx, lbr, jsonutils.NewString("openstack loadbalancer listener rule releated listener not found"))
+		return
+	}
+
+	params := jsonutils.NewDict()
+	params.Set("ruleId", jsonutils.NewString(lbr.GetId()))
+	group, _ := models.OpenstackCachedLbbgManager.GetCachedBackendGroupByAssociateId(lbr.GetId())
+	if group != nil {
+		ilbbg, err := group.GetICloudLoadbalancerBackendGroup()
+		if err != nil {
+			self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
+			return
+		}
+
+		groupParams, err := lbbg.GetOpenstackBackendGroupParams(lblis, lbr)
+		if err != nil {
+			self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
+			return
+		}
+		groupParams.ListenerID = ""
+		// 服务器组已经存在，直接同步即可
+		if err := ilbbg.Sync(ctx, groupParams); err != nil {
+			self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
+			return
+		} else {
+			group.SetModelManager(models.OpenstackCachedLbbgManager, group)
+			if _, err := db.UpdateWithLock(ctx, group, func() error {
+				group.AssociatedId = lbr.GetId()
+				group.AssociatedType = api.LB_ASSOCIATE_TYPE_RULE
+				return nil
+			}); err != nil {
+				self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
+				return
+			}
+
+			self.OnCreateLoadbalancerListenerRule(ctx, lbr, data)
+		}
+	} else {
+		// 服务器组不存在
+		self.SetStage("OnCreateLoadbalancerListenerRule", nil)
+		lbbg.StartOpenstackLoadBalancerBackendGroupCreateTask(ctx, self.GetUserCred(), params, self.GetTaskId())
 	}
 }
 
