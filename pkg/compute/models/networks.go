@@ -1584,6 +1584,12 @@ func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 		}
 	}
 
+	if input.IsAutoAlloc != nil && *input.IsAutoAlloc {
+		if self.ServerType != api.NETWORK_TYPE_GUEST {
+			return input, httperrors.NewInputParameterError("network server_type %s not support auto alloc", self.ServerType)
+		}
+	}
+
 	return input, nil
 }
 
@@ -2051,7 +2057,7 @@ func (manager *SNetworkManager) InitializeData() error {
 		}
 		if n.IsAutoAlloc.IsNone() {
 			db.Update(&n, func() error {
-				if n.IsPublic {
+				if n.IsPublic && n.ServerType == api.NETWORK_TYPE_GUEST {
 					n.IsAutoAlloc = tristate.True
 				} else {
 					n.IsAutoAlloc = tristate.False
