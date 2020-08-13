@@ -16,10 +16,8 @@ package predicates
 
 import (
 	"fmt"
-	"sync"
 
 	"yunion.io/x/pkg/util/netutils"
-	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
@@ -36,7 +34,6 @@ import (
 type NetworkPredicate struct {
 	BasePredicate
 	plugin.BasePlugin
-	SelectedNetworks sync.Map
 }
 
 func (p *NetworkPredicate) Name() string {
@@ -56,12 +53,15 @@ func (p *NetworkPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool,
 	return true, nil
 }
 
-func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
-	h := NewPredicateHelper(p, u, c)
+func IsNetworksAvailable(c core.Candidater, data *api.SchedInfo, req *computeapi.NetworkConfig, networks []*api.CandidateNetwork, netTypes []string) (int, []core.PredicateFailureReason) {
+	var fullErrMsgs []core.PredicateFailureReason
+	var freeCnt int
 
-	getter := c.Getter()
-	ovnCapable := getter.OvnCapable()
-	networks := getter.Networks()
+	if len(networks) == 0 {
+		return 0, []core.PredicateFailureReason{FailReason{Reason: ErrNoAvailableNetwork}}
+	}
+
+	ovnCapable := c.Getter().OvnCapable()
 	ovnNetworks := []*api.CandidateNetwork{}
 	for i := len(networks) - 1; i >= 0; i -= 1 {
 		net := networks[i]
@@ -71,28 +71,110 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 		}
 	}
 
-	d := u.SchedData()
-
-	isMigrate := func() bool {
-		return len(d.HostId) > 0
+	checkNets := func(tmpNets []*api.CandidateNetwork) {
+		for _, n := range tmpNets {
+			if errMsg := IsNetworkAvailable(c, data, req, n, netTypes); errMsg != nil {
+				fullErrMsgs = append(fullErrMsgs, errMsg)
+			} else {
+				freeCnt = freeCnt + c.Getter().GetFreePort(n.GetId())
+			}
+		}
 	}
 
-	counterOfNetwork := func(u *core.Unit, n *models.SNetwork, r int) core.Counter {
-		counter := u.CounterManager.GetOrCreate("net:"+n.Id, func() core.Counter {
-			return core.NewNormalCounter(int64(getter.GetFreePort(n.Id) - r))
+	checkNets(networks)
+
+	if ovnCapable {
+		checkNets(ovnNetworks)
+	}
+
+	if freeCnt <= 0 {
+		return freeCnt, fullErrMsgs
+	}
+	if freeCnt < data.Count {
+		fullErrMsgs = append(fullErrMsgs, FailReason{
+			Reason: fmt.Sprintf("total random ports not enough, free: %d, required: %d", freeCnt, data.Count),
+			Type:   NetworkFreeCount,
 		})
-
-		u.SharedResourceManager.Add(n.GetId(), counter)
-		return counter
 	}
+	return freeCnt, nil
+}
+
+func IsNetworkAvailable(
+	c core.Candidater, data *api.SchedInfo,
+	req *computeapi.NetworkConfig, n *api.CandidateNetwork,
+	netTypes []string,
+) core.PredicateFailureReason {
+	address := req.Address
+	private := req.Private
+	exit := req.Exit
+	wire := req.Wire
 
 	isMatchServerType := func(network *models.SNetwork) bool {
-		if d.Hypervisor == computeapi.HYPERVISOR_BAREMETAL {
-			return network.ServerType == computeapi.NETWORK_TYPE_BAREMETAL
+		return utils.IsInStringArray(network.ServerType, netTypes)
+	}
+
+	isMigrate := func() bool {
+		return len(data.HostId) > 0
+	}
+
+	if !isMatchServerType(n.SNetwork) {
+		return FailReason{
+			Reason: fmt.Sprintf("Network %s type %s match", n.Name, n.ServerType),
+			Type:   NetworkTypeMatch,
 		}
-		return sets.NewString(
-			"", computeapi.NETWORK_TYPE_GUEST,
-			computeapi.NETWORK_TYPE_CONTAINER).Has(network.ServerType)
+	}
+
+	if n.IsExitNetwork() != exit {
+		return FailReason{Reason: ErrExitIsNotMatch}
+	}
+
+	if !(c.Getter().GetFreePort(n.GetId()) > 0 || isMigrate()) {
+		return FailReason{
+			Reason: fmt.Sprintf("%v(%v): ports use up", n.Name, n.Id),
+			Type:   NetworkPort,
+		}
+	}
+
+	if wire != "" && !utils.HasPrefix(wire, n.WireId) && !utils.HasPrefix(wire, n.GetWire().GetName()) {
+		return FailReason{
+			Reason: fmt.Sprintf("Wire %s != %s", wire, n.WireId),
+			Type:   NetworkWire,
+		}
+	}
+
+	if n.IsPublic && n.PublicScope == string(rbacutils.ScopeSystem) {
+		// system-wide share
+	} else if n.IsPublic && n.PublicScope == string(rbacutils.ScopeDomain) && (n.DomainId == data.Domain || utils.IsInStringArray(data.Domain, n.GetSharedDomains())) {
+		// domain-wide share
+	} else if n.PublicScope == string(rbacutils.ScopeProject) && utils.IsInStringArray(data.Project, n.GetSharedProjects()) {
+		// project-wide share
+	} else if n.ProjectId == data.Project {
+		// owner
+	} else {
+		return FailReason{
+			Reason: fmt.Sprintf("Network %s not accessible", n.Name),
+			Type:   NetworkOwnership,
+		}
+	}
+
+	if private && n.IsPublic {
+		return FailReason{
+			Reason: fmt.Sprintf("Network %s is public", n.Name),
+			Type:   NetworkPublic,
+		}
+	}
+
+	if req.Network != "" {
+		if !(req.Network == n.GetId() || req.Network == n.GetName()) {
+			return FailReason{
+				Reason: fmt.Sprintf("%v(%v): id/name not matched", n.Name, n.Id),
+				Type:   NetworkMatch,
+			}
+		}
+	}
+
+	if req.Network == "" && n.IsAutoAlloc.IsFalse() {
+		return FailReason{Reason: fmt.Sprintf("Network %s is not auto alloc", n.Name), Type: NetworkPrivate}
 	}
 
 	checkAddress := func(addr string, net *models.SNetwork) error {
@@ -109,221 +191,36 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 		return nil
 	}
 
-	checkNetCount := func(net *models.SNetwork, reqCount int) (core.Counter, core.PredicateFailureReason) {
-		counter := counterOfNetwork(u, net, 0)
-		if counter.GetCount() < int64(reqCount) {
-			return nil, FailReason{
-				Reason: fmt.Sprintf("%s: ports not enough, free: %d, required: %d", net.Name, counter.GetCount(), d.Count),
-				Type:   NetworkFreeCount,
-			}
-		}
-		return counter, nil
+	if err := checkAddress(address, n.SNetwork); err != nil {
+		return FailReason{Reason: err.Error(), Type: NetworkRange}
 	}
 
-	isRandomNetworkAvailable := func(address, domain string, private bool, exit bool, wire string, counters core.MultiCounter) []core.PredicateFailureReason {
-		var fullErrMsgs []core.PredicateFailureReason
-		found := false
+	return nil
+}
 
-		if len(networks) == 0 {
-			fullErrMsgs = append(fullErrMsgs, &FailReason{
-				Reason: "Not found random available networks",
-				Type:   NetworkMatch,
-			})
-			return fullErrMsgs
-		}
-
-		for _, n := range networks {
-			errMsgs := []core.PredicateFailureReason{}
-			appendError := func(msg core.PredicateFailureReason) {
-				errMsgs = append(errMsgs, msg)
-			}
-
-			if !isMatchServerType(n.SNetwork) {
-				appendError(FailReason{
-					Reason: fmt.Sprintf("Network %s type %s match", n.Name, n.ServerType),
-					Type:   NetworkTypeMatch,
-				})
-			}
-
-			if n.IsExitNetwork() != exit {
-				appendError(FailReason{Reason: ErrExitIsNotMatch})
-			}
-
-			if !(c.Getter().GetFreePort(n.GetId()) > 0 || isMigrate()) {
-				appendError(FailReason{
-					Reason: fmt.Sprintf("%v(%v): ports use up", n.Name, n.Id),
-					Type:   NetworkPort,
-				})
-			}
-
-			if wire != "" && !utils.HasPrefix(wire, n.WireId) && !utils.HasPrefix(wire, n.GetWire().GetName()) {
-				appendError(FailReason{
-					Reason: fmt.Sprintf("Wire %s != %s", wire, n.WireId),
-					Type:   NetworkWire,
-				})
-			}
-
-			schedData := u.SchedData()
-			if n.IsPublic && n.PublicScope == string(rbacutils.ScopeSystem) {
-				// system-wide share
-			} else if n.IsPublic && n.PublicScope == string(rbacutils.ScopeDomain) && (n.DomainId == schedData.Domain || utils.IsInStringArray(schedData.Domain, n.GetSharedDomains())) {
-				// domain-wide share
-			} else if n.PublicScope == string(rbacutils.ScopeProject) && utils.IsInStringArray(schedData.Project, n.GetSharedProjects()) {
-				// project-wide share
-			} else if n.ProjectId == schedData.Project {
-				// owner
-			} else {
-				appendError(FailReason{
-					Reason: fmt.Sprintf("Network %s not accessible", n.Name),
-					Type:   NetworkOwnership,
-				})
-			}
-
-			if private {
-				if n.IsPublic {
-					appendError(FailReason{
-						Reason: fmt.Sprintf("Network %s is public", n.Name),
-						Type:   NetworkPublic,
-					})
-				} /*else if n.ProjectId != schedData.Project && utils.IsInStringArray(schedData.Project, n.GetSharedProjects()) {
-					appendError(FailReason{
-						Reason: fmt.Sprintf("Network project %s + %v not owner by %s", n.ProjectId, n.GetSharedProjects(), schedData.Project),
-						Type:   NetworkOwner,
-					})
-				}*/
-			} else {
-				if n.IsAutoAlloc.IsFalse() {
-					appendError(FailReason{Reason: fmt.Sprintf("Network %s is not auto alloc", n.Name), Type: NetworkPrivate})
-				} /*else if rbacutils.TRbacScope(n.PublicScope) == rbacutils.ScopeDomain {
-					netDomain := n.DomainId
-					reqDomain := domain
-					if netDomain != reqDomain {
-						appendError(FailReason{Reason: fmt.Sprintf("Network %s domain scope %s not owner by %s", n.Name, netDomain, reqDomain), Type: NetworkDomain})
-					}
-				}*/
-			}
-
-			if err := checkAddress(address, n.SNetwork); err != nil {
-				appendError(FailReason{Reason: err.Error(), Type: NetworkRange})
-			}
-
-			if len(errMsgs) == 0 {
-				// add resource
-				counter := counterOfNetwork(u, n.SNetwork, 0)
-				p.SelectedNetworks.Store(n.GetId(), counter.GetCount())
-				counters.Add(counter)
-				found = true
-			} else {
-				fullErrMsgs = append(fullErrMsgs, errMsgs...)
-			}
-		}
-
-		if counters.GetCount() < int64(d.Count) {
-			found = false
-			fullErrMsgs = append(fullErrMsgs, FailReason{
-				Reason: fmt.Sprintf("total random ports not enough, free: %d, required: %d", counters.GetCount(), d.Count),
-				Type:   NetworkFreeCount,
-			})
-		}
-
-		if !found {
-			return fullErrMsgs
-		}
-
-		return nil
+func (p *NetworkPredicate) GetNetworkTypes(u *core.Unit, specifyType string) []string {
+	netTypes := p.GetHypervisorDriver(u).GetRandomNetworkTypes()
+	if len(specifyType) > 0 {
+		netTypes = []string{specifyType}
 	}
+	return netTypes
+}
 
-	filterByRandomNetwork := func() {
-		counters := core.NewCounters()
-		if errMsg := isRandomNetworkAvailable("", u.SchedData().Domain, false, false, "", counters); len(errMsg) != 0 {
-			h.ExcludeByErrors(errMsg)
+func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
+	h := NewPredicateHelper(p, u, c)
+
+	getter := c.Getter()
+	networks := getter.Networks()
+	d := u.SchedData()
+
+	for _, reqNet := range d.Networks {
+		netTypes := p.GetNetworkTypes(u, reqNet.NetType)
+		freePortCnt, errs := IsNetworksAvailable(c, d, reqNet, networks, netTypes)
+		if len(errs) > 0 {
+			h.ExcludeByErrors(errs)
+			return h.GetResult()
 		}
-		h.SetCapacityCounter(counters)
-	}
-
-	isNetworkAvaliable := func(n *computeapi.NetworkConfig, counters *core.MinCounters, networks []*api.CandidateNetwork) []core.PredicateFailureReason {
-		errMsgs := make([]core.PredicateFailureReason, 0)
-		if len(networks) == 0 {
-			errMsgs = append(errMsgs, &FailReason{
-				Reason: ErrNoAvailableNetwork,
-				Type:   NetworkMatch,
-			})
-			return errMsgs
-		}
-		for _, net := range networks {
-			if !(n.Network == net.GetId() || n.Network == net.GetName()) {
-				errMsgs = append(errMsgs, &FailReason{
-					Reason: fmt.Sprintf("%v(%v): id/name not matched", net.Name, net.Id),
-					Type:   NetworkMatch,
-				})
-				continue
-			}
-			if !(c.Getter().GetFreePort(net.GetId()) > 0 || isMigrate()) {
-				errMsgs = append(errMsgs, &FailReason{
-					Reason: fmt.Sprintf("%v(%v): ports use up", net.Name, net.Id),
-					Type:   NetworkPort,
-				})
-				continue
-			}
-			counter, err := checkNetCount(net.SNetwork, d.Count)
-			if err != nil {
-				errMsgs = append(errMsgs, err)
-				continue
-			}
-			p.SelectedNetworks.Store(net.Id, counter.GetCount())
-			counters.Add(counter)
-			return nil
-		}
-
-		return errMsgs
-	}
-
-	filterBySpecifiedNetworks := func() {
-		counters := core.NewMinCounters()
-		var errMsgs []core.PredicateFailureReason
-
-		for _, n := range d.Networks {
-			if len(networks) == 0 && len(ovnNetworks) == 0 {
-				errMsgs = append(errMsgs, FailReason{
-					Reason: ErrNoAvailableNetwork,
-				})
-				continue
-			}
-			if n.Network == "" {
-				counters0 := core.NewCounters()
-				retMsg := isRandomNetworkAvailable(n.Address, n.Domain, n.Private, n.Exit, n.Wire, counters0)
-				counters.Add(counters0)
-				errMsgs = append(errMsgs, retMsg...)
-				continue
-			}
-
-			var availCheckErrs []core.PredicateFailureReason
-			if errMsg := isNetworkAvaliable(n, counters, networks); len(errMsg) == 0 {
-				continue
-			} else {
-				availCheckErrs = append(availCheckErrs, errMsg...)
-			}
-			if ovnCapable {
-				if errMsg := isNetworkAvaliable(n, counters, ovnNetworks); len(errMsg) == 0 {
-					continue
-				} else {
-					availCheckErrs = append(availCheckErrs, errMsg...)
-				}
-			}
-			errMsgs = append(errMsgs, availCheckErrs...)
-		}
-
-		if len(errMsgs) > 0 {
-			h.ExcludeByErrors(errMsgs)
-		} else {
-			h.SetCapacityCounter(counters)
-		}
-	}
-
-	if len(d.Networks) == 0 {
-		filterByRandomNetwork()
-	} else {
-		filterBySpecifiedNetworks()
+		h.SetCapacity(int64(freePortCnt))
 	}
 
 	return h.GetResult()
