@@ -256,14 +256,9 @@ func (t *SAuthToken) getTokenV3(
 	token.Token.User.Name = user.Name
 	token.Token.User.Domain.Id = user.DomainId
 	token.Token.User.Domain.Name = user.DomainName
-	if user.IsLocal {
-		lastPass, err := models.PasswordManager.FetchLastPassword(user.LocalId)
-		if err != nil {
-			return nil, errors.Wrap(err, "FetchLastPassword")
-		}
-		if lastPass != nil && !lastPass.ExpiresAt.IsZero() {
-			token.Token.User.PasswordExpiresAt = lastPass.ExpiresAt
-		}
+	lastPass, _ := models.PasswordManager.FetchLastPassword(user.LocalId)
+	if lastPass != nil && !lastPass.ExpiresAt.IsZero() {
+		token.Token.User.PasswordExpiresAt = lastPass.ExpiresAt
 	}
 	token.Token.User.Displayname = user.Displayname
 	token.Token.User.Email = user.Email

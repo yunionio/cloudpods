@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"time"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -71,29 +73,17 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 		return nil, ErrEmptyAuth
 	}
 	if len(ident.Password.User.Name) > 0 && len(ident.Password.User.Id) == 0 && len(ident.Password.User.Domain.Id) == 0 && len(ident.Password.User.Domain.Name) == 0 {
-		// no use domain specified, try to find use domain
-		users := models.UserManager.Query().SubQuery()
-		idMappings := models.IdmappingManager.Query().SubQuery()
-		q := users.Query()
-		q = q.LeftJoin(idMappings, sqlchemy.Equals(idMappings.Field("public_id"), users.Field("id")))
-		q = q.Filter(sqlchemy.Equals(users.Field("name"), ident.Password.User.Name))
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.IsNull(idMappings.Field("domain_id")),
-			sqlchemy.In(idMappings.Field("domain_id"), models.IdentityProviderManager.FetchPasswordProtectedIdpIdsQuery()),
-		))
+		// no user domain specified, try to find user domain
+		q := models.UserManager.Query().Equals("name", ident.Password.User.Name).IsTrue("enabled")
 		usrCnt, err := q.CountWithError()
 		if err != nil {
 			return nil, errors.Wrap(err, "Query user by name")
 		}
 		if usrCnt > 1 {
+			log.Errorf("find %d user with name %s", usrCnt, ident.Password.User.Name)
 			return nil, sqlchemy.ErrDuplicateEntry
 		} else if usrCnt == 0 {
-			/*idp, err := models.IdentityProviderManager.GetAutoCreateUserProvider()
-			if err != nil {
-				return nil, errors.Wrap(err, "IdentityProviderManager.GetAutoCreateUserProvider")
-			}
-			idpId = idp.Id
-			*/
+			log.Errorf("find no user with name %s", ident.Password.User.Name)
 			return nil, sqlchemy.ErrEmptyQuery
 		} else {
 			// userCnt == 1
@@ -108,11 +98,13 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 			if err != nil {
 				return nil, errors.Wrap(err, "IdentityProviderManager.FetchIdentityProvidersByUserId")
 			}
+			log.Debugf("user %s idps: %s", ident.Password.User.Name, jsonutils.Marshal(idps))
 			if len(idps) == 0 {
 				idpId = api.DEFAULT_IDP_ID
 			} else if len(idps) == 1 {
 				idpId = idps[0].Id
 			} else {
+				log.Errorf("find %d password idps for user %s", len(idps), ident.Password.User.Name)
 				return nil, sqlchemy.ErrDuplicateEntry
 			}
 		}

@@ -276,24 +276,14 @@ func (manager *SUserManager) FetchUserExtended(userId, userName, domainId, domai
 	extUser := api.SUserExtended{}
 	err := q.First(&extUser)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "query")
 	}
 
-	idMaps, err := IdmappingManager.FetchEntities(extUser.Id, api.IdMappingEntityUser)
-	if len(idMaps) > 0 {
-		extUser.IsLocal = false
-	} else {
-		extUser.IsLocal = true
-	}
 	return &extUser, nil
 }
 
 func VerifyPassword(user *api.SUserExtended, passwd string) error {
-	if user.IsLocal {
-		return localUserVerifyPassword(user, passwd)
-	} else {
-		return fmt.Errorf("not implemented")
-	}
+	return localUserVerifyPassword(user, passwd)
 }
 
 func localUserVerifyPassword(user *api.SUserExtended, passwd string) error {
