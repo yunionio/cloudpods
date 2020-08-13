@@ -650,15 +650,19 @@ func (manager *SCloudaccountManager) fetchEsxiZoneIds() ([]string, error) {
 // The suggested network mask is 24 and the gateway is x.x.x.1.
 // The suggests network is the smallest network segment that meets the above conditions.
 func (manager *SCloudaccountManager) suggestHostNetworks(ips []netutils.IPV4Addr) []api.CASimpleNetConf {
+	if len(ips) == 0 {
+		return nil
+	}
 	sort.Slice(ips, func(i, j int) bool {
 		return ips[i] < ips[j]
 	})
 	var (
-		mask       int8 = 24
-		consequent []netutils.IPV4Addr
-		ret        []api.CASimpleNetConf
+		mask        int8 = 24
+		lastnetAddr netutils.IPV4Addr
+		consequent  []netutils.IPV4Addr
+		ret         []api.CASimpleNetConf
 	)
-	lastnetAddr, _ := netutils.NewIPV4Addr("0.0.0.0")
+	lastnetAddr = ips[0].NetAddr(mask)
 	consequent = []netutils.IPV4Addr{ips[0]}
 	for i := 1; i < len(ips); i++ {
 		ip := ips[i]
