@@ -352,7 +352,7 @@ func (m *SBaremetalManager) RegisterBaremetal(ctx context.Context, userCred mccl
 		bmId, err = registerTask.UpdateBaremetal()
 	}
 	if err != nil {
-		input.responseErr(httperrors.NewInternalServerError(err.Error()))
+		input.responseErr(httperrors.NewInternalServerError("%v", err))
 		return
 	}
 

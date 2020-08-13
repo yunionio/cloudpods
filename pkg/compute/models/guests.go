@@ -939,7 +939,7 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 	if vcpuCount > 0 || vmemSize > 0 {
 		quota, err := self.checkUpdateQuota(ctx, userCred, vcpuCount, vmemSize)
 		if err != nil {
-			return nil, httperrors.NewOutOfQuotaError(err.Error())
+			return nil, httperrors.NewOutOfQuotaError("%v", err)
 		}
 		if !quota.IsEmpty() {
 			data.Add(jsonutils.Marshal(quota), "pending_usage")

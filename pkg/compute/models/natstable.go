@@ -168,7 +168,7 @@ func (man *SNatSEntryManager) ValidateCreateData(ctx context.Context, userCred m
 		//check sourceCidr and convert to netutils.IPV4Range
 		sourceIPV4Range, err := newIPv4RangeFromCIDR(input.SourceCidr)
 		if err != nil {
-			return nil, httperrors.NewInputParameterError(err.Error())
+			return nil, httperrors.NewInputParameterError("%v", err)
 		}
 		// get natgateway
 		model, err := man.FetchById(input.NatgatewayId)
@@ -194,7 +194,7 @@ func (man *SNatSEntryManager) ValidateCreateData(ctx context.Context, userCred m
 	} else {
 		network, err := man.checkNetWorkId(input.NetworkId)
 		if err != nil {
-			return nil, httperrors.NewInputParameterError(err.Error())
+			return nil, httperrors.NewInputParameterError("%v", err)
 		}
 		data.Add(jsonutils.NewString(network.GetExternalId()), "network_ext_id")
 	}

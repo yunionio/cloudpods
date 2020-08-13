@@ -582,7 +582,7 @@ func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCr
 			})
 			if err != nil {
 				log.Errorf("update keypair fail: %s", err)
-				return nil, httperrors.NewInternalServerError(err.Error())
+				return nil, httperrors.NewInternalServerError("%v", err)
 			}
 
 			db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
@@ -615,7 +615,7 @@ func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCr
 
 	deployStatus, err := self.GetDriver().GetDeployStatus()
 	if err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+		return nil, httperrors.NewInputParameterError("%v", err)
 	}
 
 	if utils.IsInStringArray(self.Status, deployStatus) {
@@ -1427,7 +1427,7 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 
 	rebuildStatus, err := self.GetDriver().GetRebuildRootStatus()
 	if err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+		return nil, httperrors.NewInputParameterError("%v", err)
 	}
 
 	if !self.GetDriver().IsRebuildRootSupportChangeImage() && len(imageId) > 0 {
@@ -1569,7 +1569,7 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 		diskInfo, err := parseDiskInfo(ctx, userCred, diskDefArray[diskIdx])
 		if err != nil {
 			logclient.AddActionLogWithContext(ctx, self, logclient.ACT_CREATE, err.Error(), userCred, false)
-			return nil, httperrors.NewBadRequestError(err.Error())
+			return nil, httperrors.NewBadRequestError("%v", err)
 		}
 		if len(diskInfo.Backend) == 0 {
 			diskInfo.Backend = self.getDefaultStorageType()
@@ -1609,7 +1609,7 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 	err = quotas.CheckSetPendingQuota(ctx, userCred, pendingUsage)
 	if err != nil {
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_CREATE, err.Error(), userCred, false)
-		return nil, httperrors.NewOutOfQuotaError(err.Error())
+		return nil, httperrors.NewOutOfQuotaError("%v", err)
 	}
 
 	lockman.LockObject(ctx, host)
@@ -1619,7 +1619,7 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		quotas.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage, false)
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_CREATE, err.Error(), userCred, false)
-		return nil, httperrors.NewBadRequestError(err.Error())
+		return nil, httperrors.NewBadRequestError("%v", err)
 	}
 	err = self.StartGuestCreateDiskTask(ctx, userCred, disksConf, "")
 	return nil, err
@@ -2062,7 +2062,7 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 			if err2 != nil {
 				log.Errorf("recover detached network fail %s", err2)
 			}
-			return nil, httperrors.NewBadRequestError(err.Error())
+			return nil, httperrors.NewBadRequestError("%v", err)
 		}
 
 		return ngn, nil
@@ -2188,7 +2188,7 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 	pendingUsage.SetKeys(keys)
 	err = quotas.CheckSetPendingQuota(ctx, userCred, pendingUsage)
 	if err != nil {
-		return nil, httperrors.NewOutOfQuotaError(err.Error())
+		return nil, httperrors.NewOutOfQuotaError("%v", err)
 	}
 	host := self.GetHost()
 	defer host.ClearSchedDescCache()
@@ -2197,7 +2197,7 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 		logclient.AddSimpleActionLog(self, logclient.ACT_ATTACH_NETWORK, input.Nets[i], userCred, err == nil)
 		if err != nil {
 			quotas.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage, false)
-			return nil, httperrors.NewBadRequestError(err.Error())
+			return nil, httperrors.NewBadRequestError("%v", err)
 		}
 	}
 
@@ -2319,7 +2319,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 
 	changeStatus, err := self.GetDriver().GetChangeConfigStatus(self)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+		return nil, httperrors.NewInputParameterError("%v", err)
 	}
 	if !utils.IsInStringArray(self.Status, changeStatus) {
 		return nil, httperrors.NewInvalidStatusError("Cannot change config in %s", self.Status)
@@ -2463,7 +2463,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 					}
 					err = self.ValidateResizeDisk(disk, storage)
 					if err != nil {
-						return nil, httperrors.NewUnsupportOperationError(err.Error())
+						return nil, httperrors.NewUnsupportOperationError("%v", err)
 					}
 					if !storage.IsEmulated && storage.GetFreeCapacity() < int64(addDisk) {
 						return nil, httperrors.NewInsufficientResourceError("Not enough free space")
@@ -2793,7 +2793,7 @@ func (self *SGuest) PerformSendkeys(ctx context.Context, userCred mcclient.Token
 	}
 	err = self.VerifySendKeys(keys)
 	if err != nil {
-		return nil, httperrors.NewBadRequestError(err.Error())
+		return nil, httperrors.NewBadRequestError("%v", err)
 	}
 	cmd := fmt.Sprintf("sendkey %s", keys)
 	duration, err := data.Int("duration")
@@ -3435,7 +3435,7 @@ func (self *SGuest) StartGuestCreateBackupTask(
 	req.SetKeys(keys)
 	err = quotas.CheckSetPendingQuota(ctx, userCred, &req)
 	if err != nil {
-		return nil, httperrors.NewOutOfQuotaError(err.Error())
+		return nil, httperrors.NewOutOfQuotaError("%v", err)
 	}
 
 	params := data.(*jsonutils.JSONDict)
@@ -4425,7 +4425,7 @@ func (manager *SGuestManager) PerformBatchMigrate(ctx context.Context, userCred 
 	q := GuestManager.Query().In("id", params.GuestIds)
 	err = db.FetchModelObjects(GuestManager, q, &guests)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError(err.Error())
+		return nil, httperrors.NewInternalServerError("%v", err)
 	}
 	if len(guests) != len(params.GuestIds) {
 		return nil, httperrors.NewBadRequestError("Check input guests is exist")
@@ -4530,7 +4530,7 @@ func (self *SGuest) validateCreateInstanceSnapshot(
 		if storage := disks[i].GetDisk().GetStorage(); utils.IsInStringArray(storage.StorageType, api.FIEL_STORAGE) {
 			count, err := SnapshotManager.GetDiskManualSnapshotCount(disks[i].DiskId)
 			if err != nil {
-				return nil, httperrors.NewInternalServerError(err.Error())
+				return nil, httperrors.NewInternalServerError("%v", err)
 			}
 			if count >= options.Options.DefaultMaxManualSnapshotCount {
 				return nil, httperrors.NewBadRequestError("guests disk %d snapshot full, can't take anymore", i)

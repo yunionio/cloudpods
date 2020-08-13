@@ -56,7 +56,7 @@ func NewHTTPReverseProxy(ef *SEndpointFactory, m RequestManipulator) *SReversePr
 func (p *SReverseProxy) ServeHTTP(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	endpoint, err := p.generator(ctx, r)
 	if err != nil {
-		httperrors.InternalServerError(w, err.Error())
+		httperrors.InternalServerError(w, "%v", err)
 		return
 	}
 	remoteUrl, err := url.Parse(endpoint)

@@ -1165,7 +1165,7 @@ func _doCreateItem(
 
 	err = jsonutils.CheckRequiredFields(dataDict, createRequireFields(manager, userCred))
 	if err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+		return nil, httperrors.NewInputParameterError("%v", err)
 	}
 	model, err := NewModelObject(manager)
 	if err != nil {
@@ -1741,7 +1741,7 @@ func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCr
 	err = CustomizeDelete(model, ctx, userCred, query, data)
 	if err != nil {
 		log.Errorf("customize delete error: %s", err)
-		return nil, httperrors.NewNotAcceptableError(err.Error())
+		return nil, httperrors.NewNotAcceptableError("%v", err)
 	}
 
 	details, err := getItemDetails(manager, model, ctx, userCred, query)

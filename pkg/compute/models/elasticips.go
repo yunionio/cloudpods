@@ -1345,7 +1345,7 @@ func (self *SElasticip) PerformChangeBandwidth(ctx context.Context, userCred mcc
 		}
 
 		if err := factory.ValidateChangeBandwidth(self.AssociateId, bandwidth); err != nil {
-			return nil, httperrors.NewInputParameterError(err.Error())
+			return nil, httperrors.NewInputParameterError("%v", err)
 		}
 	}
 

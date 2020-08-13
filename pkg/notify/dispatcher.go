@@ -686,7 +686,7 @@ func DeleteItem(model db.IModel, ctx context.Context, userCred mcclient.TokenCre
 	err = db.CustomizeDelete(model, ctx, userCred, query, data)
 	if err != nil {
 		log.Errorf("customize delete error: %s", err)
-		return httperrors.NewNotAcceptableError(err.Error())
+		return httperrors.NewNotAcceptableError("%v", err)
 	}
 	model.PreDelete(ctx, userCred)
 	err = model.Delete(ctx, userCred)

@@ -3977,13 +3977,13 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 	if netif.NicType == api.NIC_TYPE_ADMIN {
 		err := self.setAccessMac(userCred, netif.Mac)
 		if err != nil {
-			return httperrors.NewBadRequestError(err.Error())
+			return httperrors.NewBadRequestError("%v", err)
 		}
 	}
 	if len(ipAddr) > 0 {
 		err = self.EnableNetif(ctx, userCred, netif, "", ipAddr, "", "", reserve, requireDesignatedIp)
 		if err != nil {
-			return httperrors.NewBadRequestError(err.Error())
+			return httperrors.NewBadRequestError("%v", err)
 		}
 	}
 	return nil
@@ -4014,7 +4014,7 @@ func (self *SHost) PerformEnableNetif(ctx context.Context, userCred mcclient.Tok
 	requireDesignatedIp := jsonutils.QueryBoolean(data, "require_designated_ip", false)
 	err := self.EnableNetif(ctx, userCred, netif, network, ipAddr, allocDir, netType, reserve, requireDesignatedIp)
 	if err != nil {
-		return nil, httperrors.NewBadRequestError(err.Error())
+		return nil, httperrors.NewBadRequestError("%v", err)
 	}
 	return nil, nil
 }
@@ -4121,7 +4121,7 @@ func (self *SHost) PerformDisableNetif(ctx context.Context, userCred mcclient.To
 	reserve := jsonutils.QueryBoolean(data, "reserve", false)
 	err := self.DisableNetif(ctx, userCred, netif, reserve)
 	if err != nil {
-		return nil, httperrors.NewBadRequestError(err.Error())
+		return nil, httperrors.NewBadRequestError("%v", err)
 	}
 	return nil, nil
 }
@@ -4510,7 +4510,7 @@ func (self *SHost) PerformUndoConvert(ctx context.Context, userCred mcclient.Tok
 	}
 	err := driver.PrepareUnconvert(self)
 	if err != nil {
-		return nil, httperrors.NewNotAcceptableError(err.Error())
+		return nil, httperrors.NewNotAcceptableError("%v", err)
 	}
 	guests := self.GetGuests()
 	if len(guests) > 1 {

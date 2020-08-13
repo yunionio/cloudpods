@@ -511,7 +511,7 @@ func (project *SProject) PerformJoin(
 ) (jsonutils.JSONObject, error) {
 	err := input.Validate()
 	if err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+		return nil, httperrors.NewInputParameterError("%v", err)
 	}
 
 	roleNames := make([]string, 0)
@@ -597,7 +597,7 @@ func (project *SProject) PerformLeave(
 ) (jsonutils.JSONObject, error) {
 	err := input.Validate()
 	if err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+		return nil, httperrors.NewInputParameterError("%v", err)
 	}
 
 	for i := range input.UserRoles {

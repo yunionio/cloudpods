@@ -234,7 +234,7 @@ func (spm *SScalingPolicyManager) ValidateCreateData(ctx context.Context, userCr
 	}
 	input, err = trigger.ValidateCreateData(input)
 	if err != nil {
-		return input, httperrors.NewInputParameterError(err.Error())
+		return input, httperrors.NewInputParameterError("%v", err)
 	}
 	return input, err
 }

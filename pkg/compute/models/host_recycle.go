@@ -73,7 +73,7 @@ func (self *SGuest) PerformPrepaidRecycle(ctx context.Context, userCred mcclient
 	}
 	err := self.CanPerformPrepaidRecycle()
 	if err != nil {
-		return nil, httperrors.NewInvalidStatusError(err.Error())
+		return nil, httperrors.NewInvalidStatusError("%v", err)
 	}
 
 	return self.DoPerformPrepaidRecycle(ctx, userCred, jsonutils.QueryBoolean(data, "auto_delete", false))

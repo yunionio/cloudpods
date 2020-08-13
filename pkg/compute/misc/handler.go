@@ -76,7 +76,7 @@ func getBmPrepareScript(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	}
 	regionUrl, err := auth.GetPublicServiceURL("compute_v2", options.Options.Region, "")
 	if err != nil {
-		httperrors.InternalServerError(w, err.Error())
+		httperrors.InternalServerError(w, "%v", err)
 		return
 	}
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)

@@ -195,7 +195,7 @@ func Brand2Hypervisor(brand string) string {
 func (gtm *SGuestTemplateManager) validateContent(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, content *jsonutils.JSONDict) (*computeapis.ServerCreateInput, error) {
 	input, err := GuestManager.validateCreateData(ctx, userCred, ownerId, query, content)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+		return nil, httperrors.NewInputParameterError("%v", err)
 	}
 	// check Image
 	imageId := input.Disks[0].ImageId
@@ -230,7 +230,7 @@ func (gtm *SGuestTemplateManager) validateData(
 	copy := jsonutils.DeepCopy(content).(*jsonutils.JSONDict)
 	input, err := gtm.validateContent(ctx, userCred, ownerId, query, copy)
 	if err != nil {
-		return cinput, httperrors.NewInputParameterError(err.Error())
+		return cinput, httperrors.NewInputParameterError("%v", err)
 	}
 	log.Debugf("data: %#v", input)
 	// fill field

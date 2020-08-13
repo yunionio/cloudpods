@@ -192,7 +192,7 @@ func (manager *SSnapshotPolicyManager) ValidateCreateData(ctx context.Context, u
 	}
 	input.RepeatWeekdays, err = validate.DaysCheck(input.RepeatWeekdays, 1, 7)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+		return nil, httperrors.NewInputParameterError("%v", err)
 	}
 
 	if len(input.TimePoints) == 0 {
@@ -203,7 +203,7 @@ func (manager *SSnapshotPolicyManager) ValidateCreateData(ctx context.Context, u
 	}
 	input.TimePoints, err = validate.DaysCheck(input.TimePoints, 0, 23)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+		return nil, httperrors.NewInputParameterError("%v", err)
 	}
 
 	internalInput := manager.sSnapshotPolicyCreateInputToInternal(input)
@@ -275,7 +275,7 @@ func (sp *SSnapshotPolicy) UpdateParamCheck(input *api.SSnapshotPolicyCreateInpu
 	if input.RepeatWeekdays != nil && len(input.RepeatWeekdays) != 0 {
 		input.RepeatWeekdays, err = validate.DaysCheck(input.RepeatWeekdays, 1, 7)
 		if err != nil {
-			return httperrors.NewInputParameterError(err.Error())
+			return httperrors.NewInputParameterError("%v", err)
 		}
 		if sp.RepeatWeekdays != SnapshotPolicyManager.RepeatWeekdaysParseIntArray(input.RepeatWeekdays) {
 			updateNum++
@@ -285,7 +285,7 @@ func (sp *SSnapshotPolicy) UpdateParamCheck(input *api.SSnapshotPolicyCreateInpu
 	if input.TimePoints != nil && len(input.TimePoints) != 0 {
 		input.TimePoints, err = validate.DaysCheck(input.TimePoints, 0, 23)
 		if err != nil {
-			return httperrors.NewInputParameterError(err.Error())
+			return httperrors.NewInputParameterError("%v", err)
 		}
 		if sp.TimePoints != SnapshotPolicyManager.TimePointsParseIntArray(input.TimePoints) {
 			updateNum++
