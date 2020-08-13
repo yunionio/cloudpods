@@ -1229,7 +1229,7 @@ func SyncCloudProject(userCred mcclient.TokenCredential, model db.IVirtualModel,
 		extProject, err := ExternalProjectManager.GetProject(extProjectId, managerId)
 		if err != nil {
 			log.Errorf("sync project for %s %s error: %v", model.Keyword(), model.GetName(), err)
-		} else {
+		} else if len(extProject.ProjectId) > 0 {
 			newOwnerId = extProject.GetOwnerId()
 		}
 	}
