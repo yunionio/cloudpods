@@ -35,7 +35,7 @@ type LoadbalancerAclResourceInput struct {
 
 	// swagger:ignore
 	// Deprecated
-	Acl string `json:"acl" "yunion:deprecated-by":"acl_id"`
+	Acl string `json:"acl" yunion-deprecated-by:"acl_id"`
 }
 
 type LoadbalancerAclFilterListInput struct {

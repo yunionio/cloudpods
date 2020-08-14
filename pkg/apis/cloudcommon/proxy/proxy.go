@@ -57,7 +57,7 @@ type ProxySettingResourceInput struct {
 
 	// swagger:ignore
 	// Deprecated
-	ProxySettingId string `json:"proxy_setting_id" "yunion:deprecated-by":"proxy_setting"`
+	ProxySettingId string `json:"proxy_setting_id" yunion-deprecated-by:"proxy_setting"`
 }
 
 type ProxySettingTestInput struct {

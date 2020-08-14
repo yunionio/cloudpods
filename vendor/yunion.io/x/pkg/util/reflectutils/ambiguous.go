@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	TAG_AMBIGUOUS_PREFIX  = "yunion:ambiguous-prefix"
-	TAG_DEPRECATED_BY     = "yunion:deprecated-by"
+	TAG_AMBIGUOUS_PREFIX  = "yunion-ambiguous-prefix"
+	TAG_DEPRECATED_BY     = "yunion-deprecated-by"
 	TAG_OLD_DEPRECATED_BY = "deprecated-by"
 )
 

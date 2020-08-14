@@ -285,7 +285,7 @@ type ServerConfigs struct {
 	// swagger:ignore
 	// Deprecated
 	// alias for InstanceType
-	Sku string `json:"sku" "yunion:deprecated-by":"instance_type"`
+	Sku string `json:"sku" yunion-deprecated-by:"instance_type"`
 
 	// 虚拟机高可用(创建备机)
 	// default: false
@@ -359,7 +359,7 @@ type ServerCreateInput struct {
 
 	// swagger:ignore
 	// Deprecated
-	KeypairId string `json:"keypair_id" "yunion:deprecated-by":"keypair"`
+	KeypairId string `json:"keypair_id" yunion-deprecated-by:"keypair"`
 
 	// 秘钥对Id
 	// required: false
