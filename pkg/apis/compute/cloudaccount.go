@@ -66,7 +66,7 @@ type CloudenvResourceListInput struct {
 	Providers []string `json:"providers"`
 	// swagger:ignore
 	// Deprecated
-	Provider []string `json:"provider" "yunion:deprecated-by":"providers"`
+	Provider []string `json:"provider" yunion-deprecated-by:"providers"`
 
 	// 列出指定云平台品牌的资源，一般来说brand和provider相同，除了以上支持的provider之外，还支持以下band
 	//
@@ -77,7 +77,7 @@ type CloudenvResourceListInput struct {
 	Brands []string `json:"brands"`
 	// swagger:ignore
 	// Deprecated
-	Brand []string `json:"brand" "yunion:deprecated-by":"brands"`
+	Brand []string `json:"brand" yunion-deprecated-by:"brands"`
 
 	// 列出指定云环境的资源，支持云环境如下：
 	//
@@ -227,7 +227,7 @@ type CloudaccountListInput struct {
 	// 代理
 	ProxySetting string `json:"proxy_setting"`
 	// swagger:ignore
-	ProxySettingId string `json:"proxy_setting_id" "yunion:deprecated-by":"proxy_setting"`
+	ProxySettingId string `json:"proxy_setting_id" yunion-deprecated-by:"proxy_setting"`
 }
 
 type ProviderProject struct {

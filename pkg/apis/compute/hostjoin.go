@@ -21,7 +21,7 @@ type HostJointResourceDetailsBase struct {
 	Host string `json:"host"`
 	// 裸金属服务器名称
 	// Deprecated
-	Baremetal string `json:"baremetal" "yunion:deprecated-by":"host"`
+	Baremetal string `json:"baremetal" yunion-deprecated-by:"host"`
 }
 
 type HostJointResourceDetails struct {

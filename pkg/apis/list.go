@@ -50,7 +50,7 @@ type ProjectizedResourceListInput struct {
 	OrderByProject string `json:"order_by_project"`
 	// swagger:ignore
 	// Deprecated
-	OrderByTenant string `json:"order_by_tenant" "yunion:deprecated-by":"order_by_project"`
+	OrderByTenant string `json:"order_by_tenant" yunion-deprecated-by:"order_by_project"`
 }
 
 type UserResourceListInput struct {
@@ -59,7 +59,7 @@ type UserResourceListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// Filter by userId
-	UserId string `json:"user_id" "yunion:deprecated-by":"user"`
+	UserId string `json:"user_id" yunion-deprecated-by:"user"`
 }
 
 type ModelBaseListInput struct {

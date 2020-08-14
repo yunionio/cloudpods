@@ -28,14 +28,14 @@ type ParameterListInput struct {
 
 	// Deprecated
 	// swagger:ignore
-	ServiceId string `json:"service_id" "yunion:deprecated-by":"service"`
+	ServiceId string `json:"service_id" yunion-deprecated-by:"service"`
 
 	// 用户名称或ID
 	User string `json:"user"`
 
 	// Deprecated
 	// swagger:ignore
-	UserId string `json:"user_id" "yunion:deprecated-by":"user"`
+	UserId string `json:"user_id" yunion-deprecated-by:"user"`
 
 	// filter by name
 	Name []string `json:"name"`
