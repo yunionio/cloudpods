@@ -50,7 +50,7 @@ type GroupResourceInput struct {
 	// swagger:ignore
 	// Deprecated
 	// Filter by instance group Id
-	Group string `json:"group" "yunion:deprecated-by":"group_id"`
+	Group string `json:"group" yunion-deprecated-by:"group_id"`
 }
 
 type GroupFilterListInput struct {

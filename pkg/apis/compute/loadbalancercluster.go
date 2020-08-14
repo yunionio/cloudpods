@@ -45,7 +45,7 @@ type LoadbalancerClusterResourceInput struct {
 
 	// swagger:ignore
 	// Deprecated
-	Cluster string `json:"cluster" "yunion:deprecated-by":"cluster_id"`
+	Cluster string `json:"cluster" yunion-deprecated-by:"cluster_id"`
 }
 
 type LoadbalancerClusterFilterListInput struct {

@@ -48,13 +48,13 @@ type StoragecachedimageListInput struct {
 	StoragecacheId string `json:"storagecache_id"`
 	// Deprecated
 	// swagger:ignore
-	Storagecache string `json:"storagecache" "yunion:deprecated-by":"storagecache_id"`
+	Storagecache string `json:"storagecache" yunion-deprecated-by:"storagecache_id"`
 
 	// 以镜像缓存过滤
 	CachedimageId string `json:"cachedimage_id"`
 	// Deprecated
 	// swagger:ignore
-	Cachedimage string `json:"cachedimage" "yunion:deprecated-by":"cachedimage_id"`
+	Cachedimage string `json:"cachedimage" yunion-deprecated-by:"cachedimage_id"`
 
 	// 镜像状态
 	Status []string `json:"status"`

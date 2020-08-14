@@ -102,7 +102,7 @@ func CheckRequiredFields(data JSONObject, fields []string) error {
 	for _, f := range fields {
 		jsonVal, ok := jsonMap[f]
 		if !ok {
-			return errors.Wrap(ErrMisingInputField, f)
+			return errors.Wrap(ErrMissingInputField, f)
 		}
 		if jsonVal == JSONNull {
 			return errors.Wrap(ErrNilInputField, f)

@@ -180,7 +180,7 @@ type SDBInstanceRecoveryConfigInput struct {
 	apis.Meta
 
 	// swagger:ignore
-	DBInstancebackup string `json:"dbinstancebackup" "yunion:deprecated-by":"dbinstancebackup_id"`
+	DBInstancebackup string `json:"dbinstancebackup" yunion-deprecated-by:"dbinstancebackup_id"`
 
 	// 备份Id
 	//
@@ -335,7 +335,7 @@ type DBInstanceResourceInput struct {
 
 	// swagger:ignore
 	// Deprecated
-	DBInstance string `json:"dbinstance" "yunion:deprecated-by":"dbinstance_id"`
+	DBInstance string `json:"dbinstance" yunion-deprecated-by:"dbinstance_id"`
 }
 
 type DBInstanceFilterListInputBase struct {

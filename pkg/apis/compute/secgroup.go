@@ -194,7 +194,7 @@ type SecgroupResourceInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by secgroup_id
-	Secgroup string `json:"secgroup" "yunion:deprecated-by":"secgroup_id"`
+	Secgroup string `json:"secgroup" yunion-deprecated-by:"secgroup_id"`
 
 	// 模糊匹配安全组规则名称
 	SecgroupName string `json:"secgroup_name"`
@@ -255,5 +255,5 @@ type SecgroupMergeInput struct {
 
 	// swagger:ignore
 	// Deprecated
-	Secgroups []string `json:"secgroup" "yunion:deprecated-by":"secgroup_ids"`
+	Secgroups []string `json:"secgroup" yunion-deprecated-by:"secgroup_ids"`
 }

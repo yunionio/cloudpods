@@ -53,7 +53,7 @@ type ELasticcacheResourceInput struct {
 
 	// swagger:ignore
 	// Deprecated
-	Elasticcache string `json:"elasticcache" "yunion:deprecated-by":"elasticcache_id"`
+	Elasticcache string `json:"elasticcache" yunion-deprecated-by:"elasticcache_id"`
 }
 
 type ElasticcacheFilterListInput struct {

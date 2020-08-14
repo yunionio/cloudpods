@@ -285,7 +285,7 @@ type ServerConfigs struct {
 	// swagger:ignore
 	// Deprecated
 	// alias for InstanceType
-	Sku string `json:"sku" "yunion:deprecated-by":"instance_type"`
+	Sku string `json:"sku" yunion-deprecated-by:"instance_type"`
 
 	// 虚拟机高可用(创建备机)
 	// default: false
@@ -359,7 +359,7 @@ type ServerCreateInput struct {
 
 	// swagger:ignore
 	// Deprecated
-	Keypair string `json:"keypair" "yunion:deprecated-by":"keypair_id"`
+	Keypair string `json:"keypair" yunion-deprecated-by:"keypair_id"`
 
 	// 秘钥对Id
 	// required: false
@@ -536,7 +536,7 @@ type GuestBatchMigrateRequest struct {
 	PreferHostId string `json:"prefer_host_id"`
 	// Deprecated
 	// swagger:ignore
-	PreferHost string `json:"prefer_host" "yunion:deprecated-by":"prefer_host_id"`
+	PreferHost string `json:"prefer_host" yunion-deprecated-by:"prefer_host_id"`
 }
 
 type GuestBatchMigrateParams struct {

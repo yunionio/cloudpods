@@ -39,7 +39,7 @@ type LoadbalancerBackendGroupResourceInput struct {
 
 	// swagger:ignore
 	// Deprecated
-	BackendGroup string `json:"backend_group" "yunion:deprecated-by":"backend_group_id"`
+	BackendGroup string `json:"backend_group" yunion-deprecated-by:"backend_group_id"`
 }
 
 type LoadbalancerBackendGroupFilterListInput struct {

@@ -162,7 +162,7 @@ type ClouduserResourceListInput struct {
 	Clouduser string `json:"clouduser"`
 
 	// swagger:ignore
-	ClouduserId string `json:"clouduser_id" "yunion:deprecated-by":"clouduser"`
+	ClouduserId string `json:"clouduser_id" yunion-deprecated-by:"clouduser"`
 }
 
 type ClouduserResourceDetails struct {

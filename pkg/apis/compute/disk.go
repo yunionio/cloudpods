@@ -88,7 +88,7 @@ type SnapshotPolicyResourceInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter disk by snapshotpolicy_id
-	Snapshotpolicy string `json:"snapshotpolicy" "yunion:deprecated-by":"snapshotpolicy_id"`
+	Snapshotpolicy string `json:"snapshotpolicy" yunion-deprecated-by:"snapshotpolicy_id"`
 }
 
 type SnapshotPolicyFilterListInput struct {
@@ -113,7 +113,7 @@ type DiskListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by disk type
-	Type string `json:"type" "yunion:deprecated-by":"disk_type"`
+	Type string `json:"type" yunion-deprecated-by:"disk_type"`
 	// 过滤指定disk_type的磁盘列表，可能的值为：sys, data, swap. volume
 	//
 	// | disk_type值 | 说明 |
@@ -137,16 +137,16 @@ type DiskListInput struct {
 	ImageId string `json:"image_id"`
 	// swagger:ignore
 	// Deprecated
-	Template string `json:"template" "yunion:deprecated-by":"image_id"`
+	Template string `json:"template" yunion-deprecated-by:"image_id"`
 	// swagger:ignore
 	// Deprecated
-	TemplateId string `json:"template_id" "yunion:deprecated-by":"image_id"`
+	TemplateId string `json:"template_id" yunion-deprecated-by:"image_id"`
 
 	// 快照
 	SnapshotId string `json:"snapshot_id"`
 	// swagger:ignore
 	// Deprecated
-	Snapshot string `json:"snapshot" "yunion:deprecated-by":"snapshot_id"`
+	Snapshot string `json:"snapshot" yunion-deprecated-by:"snapshot_id"`
 }
 
 type DiskResourceInput struct {
@@ -155,7 +155,7 @@ type DiskResourceInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by disk_id
-	Disk string `json:"disk" "yunion:deprecated-by":"disk_id"`
+	Disk string `json:"disk" yunion-deprecated-by:"disk_id"`
 }
 
 type DiskFilterListInputBase struct {

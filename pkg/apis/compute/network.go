@@ -24,7 +24,7 @@ type WireResourceInput struct {
 	// swagger:ignore
 	// Deprecated
 	// fitler by wire id
-	Wire string `json:"wire" "yunion:deprecated-by":"wire_id"`
+	Wire string `json:"wire" yunion-deprecated-by:"wire_id"`
 }
 
 type WireFilterListBase struct {
@@ -47,7 +47,7 @@ type NetworkResourceInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by networkId
-	Network string `json:"network" "yunion:deprecated-by":"network_id"`
+	Network string `json:"network" yunion-deprecated-by:"network_id"`
 }
 
 type NetworkFilterListBase struct {

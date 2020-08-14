@@ -33,7 +33,7 @@ type DomainizedResourceListInput struct {
 	ProjectDomainIds []string `json:"project_domain_ids"`
 	// Deprecated
 	// swagger:ignore
-	ProjectDomains []string `json:"project_domains" "yunion:deprecated-by":"project_domain_ids"`
+	ProjectDomains []string `json:"project_domains" yunion-deprecated-by:"project_domain_ids"`
 
 	// 按domain名称排序，可能值为asc|desc
 	// pattern: asc|desc
@@ -49,14 +49,14 @@ type ProjectizedResourceListInput struct {
 	ProjectIds []string `json:"project_ids"`
 	// Deprecated
 	// swagger:ignore
-	Projects []string `json:"projects" "yunion:deprecated-by":"project_ids"`
+	Projects []string `json:"projects" yunion-deprecated-by:"project_ids"`
 
 	// 按project名称排序，可能值为asc|desc
 	// pattern: asc|desc
 	OrderByProject string `json:"order_by_project"`
 	// swagger:ignore
 	// Deprecated
-	OrderByTenant string `json:"order_by_tenant" "yunion:deprecated-by":"order_by_project"`
+	OrderByTenant string `json:"order_by_tenant" yunion-deprecated-by:"order_by_project"`
 }
 
 type StatusDomainLevelUserResourceListInput struct {
@@ -67,7 +67,7 @@ type StatusDomainLevelUserResourceListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// Filter by userId
-	User string `json:"user" "yunion:deprecated-by":"user_id"`
+	User string `json:"user" yunion-deprecated-by:"user_id"`
 }
 
 type UserResourceListInput struct {
@@ -84,7 +84,7 @@ type UserResourceListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// Filter by userId
-	User string `json:"user" "yunion:deprecated-by":"user_id"`
+	User string `json:"user" yunion-deprecated-by:"user_id"`
 }
 
 type ModelBaseListInput struct {

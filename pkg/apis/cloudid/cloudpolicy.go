@@ -56,7 +56,7 @@ type CloudpolicyResourceListInput struct {
 	Cloudpolicy string `json:"cloudpolicy"`
 
 	// swagger:ignore
-	CloudpolicyId string `json:"cloudpolicy_id" "yunion:deprecated-by":"cloudpolicy"`
+	CloudpolicyId string `json:"cloudpolicy_id" yunion-deprecated-by:"cloudpolicy"`
 }
 
 type CloudpolicyResourceDetails struct {
