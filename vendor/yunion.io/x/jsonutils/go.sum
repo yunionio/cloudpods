@@ -28,6 +28,7 @@ golang.org/x/sys v0.0.0-20190222072716-a9d3bda3a223/go.mod h1:STP8DvDyc/dI5b8T5h
 golang.org/x/sys v0.0.0-20190412213103-97732733099d/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20190422165155-953cdadca894 h1:Cz4ceDQGXuKRnVBDTS23GTn/pU5OE2C0WrNTOYK1Uuc=
 golang.org/x/sys v0.0.0-20190422165155-953cdadca894/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/text v0.3.0 h1:g61tztE5qeGQ89tm6NTjjM9VPIm088od1l6aSorWRWg=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
@@ -39,3 +40,7 @@ yunion.io/x/pkg v0.0.0-20200302034534-fdf44d54b070 h1:rKnYgtvMHKmzPEUTkyNjyKOG7w
 yunion.io/x/pkg v0.0.0-20200302034534-fdf44d54b070/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=
 yunion.io/x/pkg v0.0.0-20200708071451-a663dc94e16b h1:wwPzH8iMRYjtaSM2pBN7nOqeZxR4XW5wdz2VE1KH/Ug=
 yunion.io/x/pkg v0.0.0-20200708071451-a663dc94e16b/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=
+yunion.io/x/pkg v0.0.0-20200713121502-18154120c49b h1:Ov/eKwwNeQje7SggkopExzcCW/GfaUouvXkcY6RUEcM=
+yunion.io/x/pkg v0.0.0-20200713121502-18154120c49b/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=
+yunion.io/x/pkg v0.0.0-20200814072949-4f1b541857d6 h1:UarEDTBGkgcgc+nc+PZ75uo9M9+jiOGd5P2B90TxDNw=
+yunion.io/x/pkg v0.0.0-20200814072949-4f1b541857d6/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=

@@ -21,15 +21,15 @@ type DomainizedResourceInput struct {
 
 	// swagger:ignore
 	// Deprecated
-	Domain string `json:"domain" "yunion:deprecated-by":"project_domain"`
+	Domain string `json:"domain" yunion-deprecated-by:"project_domain"`
 	// swagger:ignore
 	// Deprecated
 	// Project domain Id filter, alias for project_domain
-	ProjectDomainId string `json:"project_domain_id" "yunion:deprecated-by":"project_domain"`
+	ProjectDomainId string `json:"project_domain_id" yunion-deprecated-by:"project_domain"`
 	// swagger:ignore
 	// Deprecated
 	// Domain Id filter, alias for project_domain
-	DomainId string `json:"domain_id" "yunion:deprecated-by":"project_domain"`
+	DomainId string `json:"domain_id" yunion-deprecated-by:"project_domain"`
 }
 
 type ProjectizedResourceInput struct {
@@ -39,15 +39,15 @@ type ProjectizedResourceInput struct {
 	// swagger:ignore
 	// Deprecated
 	// Filter by project_id, alias for project
-	ProjectId string `json:"project_id" "yunion:deprecated-by":"project"`
+	ProjectId string `json:"project_id" yunion-deprecated-by:"project"`
 	// swagger:ignore
 	// Deprecated
 	// Filter by tenant ID or Name, alias for project
-	Tenant string `json:"tenant" "yunion:deprecated-by":"project"`
+	Tenant string `json:"tenant" yunion-deprecated-by:"project"`
 	// swagger:ignore
 	// Deprecated
 	// Filter by tenant_id, alias for project
-	TenantId string `json:"tenant_id" "yunion:deprecated-by":"project"`
+	TenantId string `json:"tenant_id" yunion-deprecated-by:"project"`
 }
 
 type DomainizedResourceCreateInput struct {
