@@ -44,55 +44,12 @@ func (n *SNetInterface) GetAddresses() [][]string {
 	return r
 }
 
-func (n *SNetInterface) GetGatewayRoutes() [][]string {
-	return n.getRoutes(true)
-}
-
 func (n *SNetInterface) GetRouteSpecs() []iproute2.RouteSpec {
 	routespecs, err := iproute2.NewRoute(n.name).List4()
 	if err != nil {
 		return nil
 	}
 	return routespecs
-}
-
-func (n *SNetInterface) GetGatewayRouteSpecs() []iproute2.RouteSpec {
-	routespecs, err := iproute2.NewRoute(n.name).List4()
-	if err != nil {
-		return nil
-	}
-	for j := len(routespecs) - 1; j >= 0; j-- {
-		routespec := &routespecs[j]
-		if masklen, _ := routespec.Dst.Mask.Size(); masklen != 0 {
-			routespecs = append(routespecs[:j], routespecs[j+1:]...)
-		}
-	}
-	return routespecs
-}
-
-func (n *SNetInterface) getRoutes(gwOnly bool) [][]string {
-	routespecs := n.GetRouteSpecs()
-
-	var res [][]string
-	for i := range routespecs {
-		r := &routespecs[i]
-		ok := true
-		if masklen, _ := r.Dst.Mask.Size(); gwOnly && masklen != 0 {
-			ok = false
-		}
-		if ok {
-			gwStr := ""
-			if len(r.Gw) > 0 {
-				gwStr = r.Gw.String()
-			}
-			res = append(res, []string{
-				r.Dst.IP.String(),
-				gwStr,
-				net.IP(r.Dst.Mask).String(),
-			})
-		}
-	}
-	return res
 }
 
 func DefaultSrcIpDev() (srcIp net.IP, ifname string, err error) {
