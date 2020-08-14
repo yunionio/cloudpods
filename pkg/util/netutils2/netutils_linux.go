@@ -48,15 +48,20 @@ func (n *SNetInterface) GetGatewayRoutes() [][]string {
 	return n.getRoutes(true)
 }
 
-func (n *SNetInterface) getRoutes(gwOnly bool) [][]string {
-	rs, err := iproute2.NewRoute(n.name).List4()
+func (n *SNetInterface) GetRouteSpecs() []iproute2.RouteSpec {
+	routespecs, err := iproute2.NewRoute(n.name).List4()
 	if err != nil {
 		return nil
 	}
+	return routespecs
+}
 
-	res := [][]string{}
-	for i := range rs {
-		r := &rs[i]
+func (n *SNetInterface) getRoutes(gwOnly bool) [][]string {
+	routespecs := n.GetRouteSpecs()
+
+	var res [][]string
+	for i := range routespecs {
+		r := &routespecs[i]
 		ok := true
 		if masklen, _ := r.Dst.Mask.Size(); gwOnly && masklen != 0 {
 			ok = false
