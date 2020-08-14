@@ -1062,6 +1062,11 @@ func (self *SVpc) initWire(ctx context.Context, zone *SZone) (*SWire, error) {
 	wire.ZoneId = zone.Id
 	wire.IsEmulated = true
 	wire.Name = fmt.Sprintf("vpc-%s", self.Name)
+
+	wire.DomainId = self.DomainId
+	wire.IsPublic = self.IsPublic
+	wire.PublicScope = self.PublicScope
+
 	wire.SetModelManager(WireManager, wire)
 	err := WireManager.TableSpec().Insert(ctx, wire)
 	if err != nil {
@@ -1216,7 +1221,7 @@ func (manager *SVpcManager) ListItemExportKeys(ctx context.Context,
 }
 
 func (vpc *SVpc) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicDomainInput) (jsonutils.JSONObject, error) {
-	if rbacutils.String2ScopeDefault(input.Scope, rbacutils.ScopeSystem) != rbacutils.ScopeSystem {
+	if vpc.Id == api.DEFAULT_VPC_ID && rbacutils.String2ScopeDefault(input.Scope, rbacutils.ScopeSystem) != rbacutils.ScopeSystem {
 		return nil, httperrors.NewForbiddenError("For default vpc, only system level sharing can be set")
 	}
 	_, err := vpc.SEnabledStatusInfrasResourceBase.PerformPublic(ctx, userCred, query, input)
