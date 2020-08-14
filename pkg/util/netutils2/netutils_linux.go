@@ -56,6 +56,20 @@ func (n *SNetInterface) GetRouteSpecs() []iproute2.RouteSpec {
 	return routespecs
 }
 
+func (n *SNetInterface) GetGatewayRouteSpecs() []iproute2.RouteSpec {
+	routespecs, err := iproute2.NewRoute(n.name).List4()
+	if err != nil {
+		return nil
+	}
+	for j := len(routespecs) - 1; j >= 0; j-- {
+		routespec := &routespecs[j]
+		if masklen, _ := routespec.Dst.Mask.Size(); masklen != 0 {
+			routespecs = append(routespecs[:j], routespecs[j+1:]...)
+		}
+	}
+	return routespecs
+}
+
 func (n *SNetInterface) getRoutes(gwOnly bool) [][]string {
 	routespecs := n.GetRouteSpecs()
 
