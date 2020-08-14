@@ -207,7 +207,7 @@ func (route *Route) DelByIPNet(ipnet *net.IPNet) *Route {
 	return route
 }
 
-func RouteGetByDst(dstStr string) ([]netlink.Route, error) {
+func RouteGetByDst(dstStr string) ([]RouteSpec, error) {
 	dstIp := net.ParseIP(dstStr)
 	routes, err := netlink.RouteGet(dstIp)
 	return routes, err
