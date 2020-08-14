@@ -23,12 +23,16 @@ package hostimage
 import "C"
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"os"
 	"sync"
 	"sync/atomic"
 	"unsafe"
+
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 )
 
 var qemuBlkCache sync.Map
@@ -112,7 +116,7 @@ type IImage interface {
 	Close()
 
 	// If return number < 0 indicate read failed
-	Read(offset, count int64) ([]byte, int64)
+	Read(offset, count int64) ([]byte, error)
 
 	// Get image file length, not file actual length, it's image virtual size
 	Length() int64
@@ -142,8 +146,13 @@ func (img *SQcow2Image) Load(imagePath string, readonly bool) error {
 	}
 }
 
-func (img *SQcow2Image) Read(offset, count int64) ([]byte, int64) {
-	return img.fd.ReadQcow2(offset, count)
+func (img *SQcow2Image) Read(offset, count int64) ([]byte, error) {
+	buf, ret := img.fd.ReadQcow2(offset, count)
+	if ret >= 0 {
+		return buf[:ret], nil
+	} else {
+		return nil, errors.Errorf("failed read data %d", ret)
+	}
 }
 
 func (img *SQcow2Image) Close() {
@@ -176,20 +185,18 @@ func (f *SFile) Load(imagePath string, readonly bool) error {
 	return fmt.Errorf("File don't support load")
 }
 
-func (f *SFile) Read(offset, count int64) ([]byte, int64) {
-	buf := make([]byte, count)
-	var readCount int64 = 0
-	for readCount < count {
-		cnt, err := f.fd.Read(buf[readCount:])
-		readCount += int64(cnt)
-		if err == io.EOF {
-			return buf[0:readCount], readCount
-		}
-		if err != nil {
-			return nil, -1
-		}
+func (f *SFile) Read(offset, count int64) ([]byte, error) {
+	if _, err := f.fd.Seek(offset, io.SeekStart); err != nil {
+		log.Errorf("seek file %s", err)
+		return nil, errors.Wrap(err, "seek")
 	}
-	return buf, readCount
+	buf := make([]byte, count)
+	r := bufio.NewReader(f.fd)
+	n, err := r.Read(buf)
+	if err != nil {
+		return nil, errors.Wrap(err, "read")
+	}
+	return buf[:n], nil
 }
 
 func (f *SFile) Close() {
