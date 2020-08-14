@@ -45,10 +45,10 @@ func (n *SNetInterface) GetAddresses() [][]string {
 }
 
 func (n *SNetInterface) GetGatewayRoutes() [][]string {
-	return n.GetRoutes(true)
+	return n.getRoutes(true)
 }
 
-func (n *SNetInterface) GetRoutes(gwOnly bool) [][]string {
+func (n *SNetInterface) getRoutes(gwOnly bool) [][]string {
 	rs, err := iproute2.NewRoute(n.name).List4()
 	if err != nil {
 		return nil
