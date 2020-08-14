@@ -44,32 +44,12 @@ func (n *SNetInterface) GetAddresses() [][]string {
 	return r
 }
 
-func (n *SNetInterface) GetRoutes(gwOnly bool) [][]string {
-	rs, err := iproute2.NewRoute(n.name).List4()
+func (n *SNetInterface) GetRouteSpecs() []iproute2.RouteSpec {
+	routespecs, err := iproute2.NewRoute(n.name).List4()
 	if err != nil {
 		return nil
 	}
-
-	res := [][]string{}
-	for i := range rs {
-		r := &rs[i]
-		ok := true
-		if masklen, _ := r.Dst.Mask.Size(); gwOnly && masklen != 0 {
-			ok = false
-		}
-		if ok {
-			gwStr := ""
-			if len(r.Gw) > 0 {
-				gwStr = r.Gw.String()
-			}
-			res = append(res, []string{
-				r.Dst.IP.String(),
-				gwStr,
-				net.IP(r.Dst.Mask).String(),
-			})
-		}
-	}
-	return res
+	return routespecs
 }
 
 func DefaultSrcIpDev() (srcIp net.IP, ifname string, err error) {

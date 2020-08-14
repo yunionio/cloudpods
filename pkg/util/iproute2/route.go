@@ -26,6 +26,8 @@ const (
 	errBadIP = errors.Error("bad ip")
 )
 
+type RouteSpec = netlink.Route
+
 type Route struct {
 	*Link
 }
@@ -46,7 +48,7 @@ func (route *Route) link() (link netlink.Link, ok bool) {
 	return
 }
 
-func (route *Route) List4() ([]netlink.Route, error) {
+func (route *Route) List4() ([]RouteSpec, error) {
 	link, ok := route.link()
 	if !ok {
 		return nil, route.Err()
@@ -70,22 +72,13 @@ func (route *Route) List4() ([]netlink.Route, error) {
 }
 
 func (route *Route) AddByIPNet(ipnet *net.IPNet, gw net.IP) *Route {
-	link, ok := route.link()
-	if !ok {
-		return route
-	}
-
-	r := &netlink.Route{
-		LinkIndex: link.Attrs().Index,
-		Dst:       ipnet,
+	r := RouteSpec{
+		Dst: ipnet,
 	}
 	if len(gw) > 0 {
 		r.Gw = gw
 	}
-	if err := netlink.RouteReplace(r); err != nil {
-		route.addErr(err, "RouteReplace %s", r.String())
-	}
-	return route
+	return route.AddByRouteSpec(r)
 }
 
 func (route *Route) AddByCidr(cidr string, gwStr string) *Route {
@@ -96,6 +89,19 @@ func (route *Route) AddByCidr(cidr string, gwStr string) *Route {
 	}
 
 	return route.AddByIPNet(dst, gw)
+}
+
+func (route *Route) AddByRouteSpec(r RouteSpec) *Route {
+	link, ok := route.link()
+	if !ok {
+		return route
+	}
+
+	r.LinkIndex = link.Attrs().Index
+	if err := netlink.RouteReplace(&r); err != nil {
+		route.addErr(err, "RouteReplace %s", r.String())
+	}
+	return route
 }
 
 func (route *Route) parseCidr(cidr, gwStr string) (dst *net.IPNet, gw net.IP, err error) {
@@ -201,7 +207,7 @@ func (route *Route) DelByIPNet(ipnet *net.IPNet) *Route {
 	return route
 }
 
-func RouteGetByDst(dstStr string) ([]netlink.Route, error) {
+func RouteGetByDst(dstStr string) ([]RouteSpec, error) {
 	dstIp := net.ParseIP(dstStr)
 	routes, err := netlink.RouteGet(dstIp)
 	return routes, err
