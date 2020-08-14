@@ -210,7 +210,7 @@ type LoadbalancerResourceInput struct {
 
 	// swagger:ignore
 	// Deprecated
-	Loadbalancer string `json:"loadbalancer" "yunion:deprecated-by":"loadbalancer_id"`
+	Loadbalancer string `json:"loadbalancer" yunion-deprecated-by:"loadbalancer_id"`
 }
 
 type LoadbalancerFilterListInput struct {

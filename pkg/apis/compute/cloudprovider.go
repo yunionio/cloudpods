@@ -147,15 +147,15 @@ type CloudproviderResourceInput struct {
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	Manager string `json:"manager" "yunion:deprecated-by":"cloudprovider_id"`
+	Manager string `json:"manager" yunion-deprecated-by:"cloudprovider_id"`
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	ManagerId string `json:"manager_id" "yunion:deprecated-by":"cloudprovider_id"`
+	ManagerId string `json:"manager_id" yunion-deprecated-by:"cloudprovider_id"`
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	Cloudprovider string `json:"cloudprovider" "yunion:deprecated-by":"cloudprovider_id"`
+	Cloudprovider string `json:"cloudprovider" yunion-deprecated-by:"cloudprovider_id"`
 }
 
 type ManagedResourceListInput struct {
@@ -169,15 +169,15 @@ type ManagedResourceListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	Cloudaccount []string `json:"cloudaccount" "yunion:deprecated-by":"cloudaccount_id"`
+	Cloudaccount []string `json:"cloudaccount" yunion-deprecated-by:"cloudaccount_id"`
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	Account []string `json:"account" "yunion:deprecated-by":"cloudaccount_id"`
+	Account []string `json:"account" yunion-deprecated-by:"cloudaccount_id"`
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	AccountId []string `json:"account_id" "yunion:deprecated-by":"cloudaccount_id"`
+	AccountId []string `json:"account_id" yunion-deprecated-by:"cloudaccount_id"`
 
 	// 过滤资源，是否为非OneCloud内置私有云管理的资源
 	// default: false

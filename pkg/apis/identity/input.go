@@ -49,22 +49,22 @@ type ProjectFilterListInput struct {
 	ProjectDomainId string `json:"project_domain_id"`
 	// swagger:ignore
 	// Deprecated
-	ProjectDomain string `json:"project_domain" "yunion:deprecated-by":"project_domain_id"`
+	ProjectDomain string `json:"project_domain" yunion-deprecated-by:"project_domain_id"`
 
 	// 以项目（ID或Name）过滤列表结果
 	ProjectId string `json:"project_id"`
 	// swagger:ignore
 	// Deprecated
 	// filter by project_id
-	Project string `json:"project" "yunion:deprecated-by":"project_id"`
+	Project string `json:"project" yunion-deprecated-by:"project_id"`
 	// swagger:ignore
 	// Deprecated
 	// filter by tenant
-	Tenant string `json:"tenant" "yunion:deprecated-by":"project_id"`
+	Tenant string `json:"tenant" yunion-deprecated-by:"project_id"`
 	// swagger:ignore
 	// Deprecated
 	// filter by tenant_id
-	TenantId string `json:"tenant_id" "yunion:deprecated-by":"project_id"`
+	TenantId string `json:"tenant_id" yunion-deprecated-by:"project_id"`
 }
 
 type UserFilterListInput struct {
@@ -72,14 +72,14 @@ type UserFilterListInput struct {
 	UserDomainId string `json:"user_domain_id"`
 	// swagger:ignore
 	// Deprecated
-	UserDomain string `json:"user_domain" "yunion:deprecated-by":"user_domain_id"`
+	UserDomain string `json:"user_domain" yunion-deprecated-by:"user_domain_id"`
 
 	// filter by user
 	UserId string `json:"user_id"`
 	// swagger:ignore
 	// Deprecated
 	// filter by user_id
-	User string `json:"user" "yunion:deprecated-by":"user_id"`
+	User string `json:"user" yunion-deprecated-by:"user_id"`
 }
 
 type GroupFilterListInput struct {
@@ -87,14 +87,14 @@ type GroupFilterListInput struct {
 	GroupDomainId string `json:"group_domain_id"`
 	// swagger:ignore
 	// Deprecated
-	GroupDomain string `json:"group_domain" "yunion:deprecated-by":"group_domain_id"`
+	GroupDomain string `json:"group_domain" yunion-deprecated-by:"group_domain_id"`
 
 	// filter by group
 	GroupId string `json:"group_id"`
 	// swagger:ignore
 	// Deprecated
 	// filter by group_id
-	Group string `json:"group" "yunion:deprecated-by":"group_id"`
+	Group string `json:"group" yunion-deprecated-by:"group_id"`
 }
 
 type RoleFilterListInput struct {
@@ -102,14 +102,14 @@ type RoleFilterListInput struct {
 	RoleDomainId string `json:"role_domain_id"`
 	// swagger:ignore
 	// Deprecated
-	RoleDomain string `json:"role_domain" "yunion:deprecated-by":"role_domain_id"`
+	RoleDomain string `json:"role_domain" yunion-deprecated-by:"role_domain_id"`
 
 	// filter by role
 	RoleId string `json:"role_id"`
 	// swagger:ignore
 	// Deprecated
 	// filter by role_id
-	Role string `json:"role" "yunion:deprecated-by":"role_id"`
+	Role string `json:"role" yunion-deprecated-by:"role_id"`
 }
 
 type ServiceFilterListInput struct {
@@ -121,7 +121,7 @@ type ServiceFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by service_id
-	Service string `json:"service" "yunion:deprecated-by":"service_id"`
+	Service string `json:"service" yunion-deprecated-by:"service_id"`
 
 	// 以服务名称排序
 	OrderByService string `json:"order_by_service"`
@@ -334,7 +334,7 @@ type RegionFilterListInput struct {
 	RegionId string `json:"region_id"`
 	// swagger:ignore
 	// Deprecated
-	Region string `json:"region" "yunion:deprecated-by":"region_id"`
+	Region string `json:"region" yunion-deprecated-by:"region_id"`
 }
 
 type RegionListInput struct {
@@ -480,7 +480,7 @@ type PerformGroupAddUsersInput struct {
 	UserIds []string `json:"user_ids"`
 	// Deprecated
 	// swagger:ignore
-	User []string `json:"user" "yunion:deprecated-by":"user_ids"`
+	User []string `json:"user" yunion-deprecated-by:"user_ids"`
 }
 
 type PerformGroupRemoveUsersInput struct {
@@ -488,7 +488,7 @@ type PerformGroupRemoveUsersInput struct {
 	UserIds []string `json:"user_ids"`
 	// Deprecated
 	// swagger:ignore
-	User []string `json:"user" "yunion:deprecated-by":"user_ids"`
+	User []string `json:"user" yunion-deprecated-by:"user_ids"`
 }
 
 type UserLinkIdpInput struct {

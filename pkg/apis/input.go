@@ -21,15 +21,15 @@ type DomainizedResourceInput struct {
 
 	// swagger:ignore
 	// Deprecated
-	Domain string `json:"domain" "yunion:deprecated-by":"project_domain_id"`
+	Domain string `json:"domain" yunion-deprecated-by:"project_domain_id"`
 	// swagger:ignore
 	// Deprecated
 	// Project domain Id filter, alias for project_domain
-	ProjectDomain string `json:"project_domain" "yunion:deprecated-by":"project_domain_id"`
+	ProjectDomain string `json:"project_domain" yunion-deprecated-by:"project_domain_id"`
 	// swagger:ignore
 	// Deprecated
 	// Domain Id filter, alias for project_domain
-	DomainId string `json:"domain_id" "yunion:deprecated-by":"project_domain_id"`
+	DomainId string `json:"domain_id" yunion-deprecated-by:"project_domain_id"`
 }
 
 type ProjectizedResourceInput struct {
@@ -39,15 +39,15 @@ type ProjectizedResourceInput struct {
 	// swagger:ignore
 	// Deprecated
 	// Filter by project_id, alias for project
-	Project string `json:"project" "yunion:deprecated-by":"project_id"`
+	Project string `json:"project" yunion-deprecated-by:"project_id"`
 	// swagger:ignore
 	// Deprecated
 	// Filter by tenant ID or Name, alias for project
-	Tenant string `json:"tenant" "yunion:deprecated-by":"project_id"`
+	Tenant string `json:"tenant" yunion-deprecated-by:"project_id"`
 	// swagger:ignore
 	// Deprecated
 	// Filter by tenant_id, alias for project
-	TenantId string `json:"tenant_id" "yunion:deprecated-by":"project_id"`
+	TenantId string `json:"tenant_id" yunion-deprecated-by:"project_id"`
 }
 
 type DomainizedResourceCreateInput struct {
@@ -214,7 +214,7 @@ type PerformPublicDomainInput struct {
 	SharedDomainIds []string `json:"shared_domain_ids"`
 	// Deprecated
 	// swagger:ignore
-	SharedDomains []string `json:"shared_domains" "yunion:deprecated-by":"shared_domain_ids"`
+	SharedDomains []string `json:"shared_domains" yunion-deprecated-by:"shared_domain_ids"`
 }
 
 type PerformPublicProjectInput struct {
@@ -224,7 +224,7 @@ type PerformPublicProjectInput struct {
 	SharedProjectIds []string `json:"shared_project_ids"`
 	// Deprecated
 	// swagger:ignore
-	SharedProjects []string `json:"shared_projects" "yunion:deprecated-by":"shared_project_ids"`
+	SharedProjects []string `json:"shared_projects" yunion-deprecated-by:"shared_project_ids"`
 }
 
 type PerformPrivateInput struct {
@@ -249,7 +249,7 @@ type StorageForceDetachHostInput struct {
 	HostId string `json:"host_id"`
 	// Deprecated
 	// swagger:ignore
-	Host string `json:"host" "yunion:deprecated-by":"host_id"`
+	Host string `json:"host" yunion-deprecated-by:"host_id"`
 }
 
 type InfrasResourceBaseCreateInput struct {

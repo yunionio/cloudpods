@@ -144,7 +144,7 @@ type GuestTemplateFilterListInput struct {
 	GuestTemplateId string `json:"guest_template_id"`
 	// swagger:ignore
 	// Deprecated
-	GuestTemplate string `json:"guest_template" "yunion:deprecated-by":"guest_template_id"`
+	GuestTemplate string `json:"guest_template" yunion-deprecated-by:"guest_template_id"`
 }
 
 type ServiceCatalogListInput struct {

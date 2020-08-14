@@ -41,7 +41,7 @@ type SchedtagResourceInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by schedtag_id
-	Schedtag string `json:"schedtag" "yunion:deprecated-by":"schedtag_id"`
+	Schedtag string `json:"schedtag" yunion-deprecated-by:"schedtag_id"`
 }
 
 type SchedtagFilterListInput struct {
@@ -65,7 +65,7 @@ type SchedtagListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by type, alias for resource_type
-	Type string `json:"type" "yunion:deprecated-by":"resource_type"`
+	Type string `json:"type" yunion-deprecated-by:"resource_type"`
 
 	DefaultStrategy []string `json:"default_strategy"`
 }

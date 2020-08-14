@@ -237,7 +237,7 @@ type HostResourceInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by host_id
-	Host string `json:"host" "yunion:deprecated-by":"host_id"`
+	Host string `json:"host" yunion-deprecated-by:"host_id"`
 }
 
 type HostRegisterMetadata struct {

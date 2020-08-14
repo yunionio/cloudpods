@@ -42,7 +42,7 @@ type GlobalVpcResourceInput struct {
 
 	// swagger:ignore
 	// Deprecated
-	Globalvpc string `json:"globalvpc" "yunion:deprecated-by":"globalvpc_id"`
+	Globalvpc string `json:"globalvpc" yunion-deprecated-by:"globalvpc_id"`
 }
 
 type GlobalVpcResourceListInput struct {
