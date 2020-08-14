@@ -192,6 +192,10 @@ const (
 		Token for negative value, applicable to boolean values
 	*/
 	TAG_NEGATIVE_TOKEN = "negative"
+	/*
+	   Token for ignore
+	*/
+	TAG_IGNORE = "ignore"
 )
 
 func (this *ArgumentParser) addStructArgument(prefix string, tpVal reflect.Value) error {
@@ -226,6 +230,10 @@ func (this *ArgumentParser) addArgument(prefix string, fv reflect.Value, info *r
 	tagMap := info.Tags
 	if _, ok := tagMap[reflectutils.TAG_DEPRECATED_BY]; ok {
 		// deprecated field, ignore
+		return nil
+	}
+	if val, ok := tagMap[TAG_IGNORE]; ok && val == "true" {
+		// ignore field
 		return nil
 	}
 	help := tagMap[TAG_HELP]
@@ -507,7 +515,7 @@ func (this *SingleArgument) ShortToken() string {
 }
 
 func (this *SingleArgument) NegativeToken() string {
-	return this.negaToken
+	return strings.ReplaceAll(this.negaToken, "_", "-")
 }
 
 func (this *SingleArgument) String() string {

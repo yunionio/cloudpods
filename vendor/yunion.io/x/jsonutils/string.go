@@ -2,6 +2,7 @@ package jsonutils
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -18,7 +19,7 @@ func (this *JSONInt) String() string {
 }
 
 func (this *JSONFloat) String() string {
-	return fmt.Sprintf("%f", this.data)
+	return strconv.FormatFloat(this.data, 'g', -1, 64)
 }
 
 func (this *JSONBool) String() string {

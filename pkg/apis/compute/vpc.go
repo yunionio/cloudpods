@@ -90,7 +90,7 @@ type VpcResourceInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by vpc Id
-	VpcId string `json:"vpc_id" "yunion:deprecated-by":"vpc"`
+	VpcId string `json:"vpc_id" yunion-deprecated-by:"vpc"`
 
 	// Vpc外网访问模式
 	ExternalAccessMode string `json:"external_access_mode"`

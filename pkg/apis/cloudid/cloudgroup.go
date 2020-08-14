@@ -37,7 +37,7 @@ type CloudgroupJointsListInput struct {
 	// 根据公有云用户组过滤资源
 	Cloudgroup string `json:"cloudgroup"`
 	// swagger:ignore
-	CloudgroupId string `json:"cloudgroup_id" "yunion:deprecated-by":"cloudgroup"`
+	CloudgroupId string `json:"cloudgroup_id" yunion-deprecated-by:"cloudgroup"`
 }
 
 type CloudgroupJointBaseUpdateInput struct {

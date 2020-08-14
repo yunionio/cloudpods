@@ -28,13 +28,13 @@ type ServerListInput struct {
 
 	HostFilterListInput
 
-	NetworkFilterListInput `"yunion:ambiguous-prefix":"vpc_"`
+	NetworkFilterListInput `yunion-ambiguous-prefix:"vpc_"`
 
 	billing.BillingResourceListInput
 
 	GroupFilterListInput
 	SecgroupFilterListInput
-	//DiskFilterListInput `"yunion:ambiguous-prefix":"storage_"`
+	//DiskFilterListInput `yunion-ambiguous-prefix:"storage_"`
 	ScalingGroupFilterListInput
 
 	// 只列出裸金属主机
@@ -64,7 +64,7 @@ type ServerListInput struct {
 	// 列出可以挂载磁盘的主机
 	AttachableServersForDisk string `json:"attachable_servers_for_disk"`
 	// Deprecated:列出可以挂载磁盘的主机
-	Disk string `json:"disk" "yunion:deprecated-by":"attachable_servers_for_disk"`
+	Disk string `json:"disk" yunion-deprecated-by:"attachable_servers_for_disk"`
 
 	// 按主机资源类型进行排序
 	// enum: shared,prepaid,dedicated
@@ -285,15 +285,15 @@ type ServerResourceInput struct {
 	// swagger:ignore
 	// Deprecated
 	// Filter by guest Id
-	ServerId string `json:"server_id" "yunion:deprecated-by":"server"`
+	ServerId string `json:"server_id" yunion-deprecated-by:"server"`
 	// swagger:ignore
 	// Deprecated
 	// Filter by guest Id
-	Guest string `json:"guest" "yunion:deprecated-by":"server"`
+	Guest string `json:"guest" yunion-deprecated-by:"server"`
 	// swagger:ignore
 	// Deprecated
 	// Filter by guest Id
-	GuestId string `json:"guest_id" "yunion:deprecated-by":"server"`
+	GuestId string `json:"guest_id" yunion-deprecated-by:"server"`
 }
 
 type ServerFilterListInput struct {

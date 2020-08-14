@@ -22,7 +22,7 @@ type CloudaccountResourceListInput struct {
 	Provider []string `json:"provider"`
 
 	// swagger:ignore
-	CloudaccountId string `json:"cloudaccount_id" "yunion:deprecated-by":"cloudaccount"`
+	CloudaccountId string `json:"cloudaccount_id" yunion-deprecated-by:"cloudaccount"`
 }
 
 type CloudproviderResourceListInput struct {
@@ -30,7 +30,7 @@ type CloudproviderResourceListInput struct {
 	Cloudprovider string `json:"cloudprovider"`
 
 	// swagger:ignore
-	CloudproviderId string `json:"cloudprovider_id" "yunion:deprecated-by":"cloudprovider"`
+	CloudproviderId string `json:"cloudprovider_id" yunion-deprecated-by:"cloudprovider"`
 }
 
 type CloudaccountResourceDetails struct {

@@ -18,43 +18,59 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"yunion.io/x/log"
 )
 
-type SFunctionField struct {
-	fields   []IQueryField
-	function string
-	alias    string
+type IFunction interface {
+	expression() string
 }
 
-func (ff *SFunctionField) Expression() string {
-	fieldRefs := make([]interface{}, 0)
-	for _, f := range ff.fields {
-		fieldRefs = append(fieldRefs, f.Reference())
+type SFunctionFieldBase struct {
+	IFunction
+	alias string
+}
+
+func (ff *SFunctionFieldBase) Reference() string {
+	if len(ff.alias) == 0 {
+		log.Warningf("reference a function field without alias! %s", ff.expression())
+		return ff.expression()
+	} else {
+		return fmt.Sprintf("`%s`", ff.alias)
 	}
-	return fmt.Sprintf("%s AS `%s`", fmt.Sprintf(ff.function, fieldRefs...), ff.Name())
 }
 
-func (ff *SFunctionField) Name() string {
-	return ff.alias
+func (ff *SFunctionFieldBase) Expression() string {
+	if len(ff.alias) > 0 {
+		// add alias
+		return fmt.Sprintf("%s AS `%s`", ff.expression(), ff.alias)
+	} else {
+		// no alias
+		return ff.expression()
+	}
 }
 
-func (ff *SFunctionField) Reference() string {
-	return ff.alias
+func (ff *SFunctionFieldBase) Name() string {
+	if len(ff.alias) > 0 {
+		return ff.alias
+	} else {
+		return ff.expression()
+	}
 }
 
-func (ff *SFunctionField) Label(label string) IQueryField {
+func (ff *SFunctionFieldBase) Label(label string) IQueryField {
 	if len(label) > 0 && label != ff.alias {
 		ff.alias = label
 	}
 	return ff
 }
 
-type SFunctionFieldWithoutAlias struct {
+type SExprFunction struct {
 	fields   []IQueryField
 	function string
 }
 
-func (ff *SFunctionFieldWithoutAlias) Expression() string {
+func (ff *SExprFunction) expression() string {
 	fieldRefs := make([]interface{}, 0)
 	for _, f := range ff.fields {
 		fieldRefs = append(fieldRefs, f.Reference())
@@ -62,26 +78,14 @@ func (ff *SFunctionFieldWithoutAlias) Expression() string {
 	return fmt.Sprintf(ff.function, fieldRefs...)
 }
 
-func (ff *SFunctionFieldWithoutAlias) Name() string {
-	return ff.Expression()
-}
-
-func (ff *SFunctionFieldWithoutAlias) Reference() string {
-	return ff.Expression()
-}
-
-func (ff *SFunctionFieldWithoutAlias) Label(label string) IQueryField {
-	if len(label) > 0 {
-		return &SFunctionField{ff.fields, ff.function, label}
-	}
-	return ff
-}
-
 func NewFunctionField(name string, funcexp string, fields ...IQueryField) IQueryField {
-	if len(name) > 0 {
-		return &SFunctionField{function: funcexp, alias: name, fields: fields}
-	} else {
-		return &SFunctionFieldWithoutAlias{fields: fields, function: funcexp}
+	funcBase := &SExprFunction{
+		fields:   fields,
+		function: funcexp,
+	}
+	return &SFunctionFieldBase{
+		IFunction: funcBase,
+		alias:     name,
 	}
 }
 

@@ -73,7 +73,7 @@ type IdentityProviderCreateInput struct {
 	TargetDomain string `json:"target_domain"`
 	// swagger:ignore
 	// Deprecated
-	TargetDomainId string `json:"target_domain_id" "yunion:deprecated-by":"target_domain"`
+	TargetDomainId string `json:"target_domain_id" yunion-deprecated-by:"target_domain"`
 
 	// 新建域的时候是否自动新建第一个项目
 	AutoCreateProject *bool `json:"auto_create_project"`
