@@ -1142,10 +1142,15 @@ func (manager *SServerSkuManager) newFromCloudSku(ctx context.Context, userCred 
 	sku.Status = api.SkuStatusReady
 	sku.constructSku(extSku)
 
-	sku.Name = extSku.GetName()
+	var err error
+	sku.Name, err = db.GenerateName(manager, userCred, extSku.GetName())
+	if err != nil {
+		return errors.Wrap(err, "db.GenerateName")
+	}
+
 	sku.CloudregionId = api.DEFAULT_REGION_ID
 	sku.SetModelManager(manager, sku)
-	err := manager.TableSpec().Insert(sku)
+	err = manager.TableSpec().Insert(sku)
 	if err != nil {
 		return errors.Wrapf(err, "newFromCloudSku.Insert")
 	}
