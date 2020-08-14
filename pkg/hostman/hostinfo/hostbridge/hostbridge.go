@@ -245,7 +245,7 @@ func (d *SBaseBridgeDriver) Setup(o IBridgeDriver) error {
 	var routes []iproute2.RouteSpec
 	var slaveAddrs [][]string
 	if d.inter != nil && len(d.inter.Addr) > 0 {
-		routes = d.inter.GetGatewayRouteSpecs()
+		routes = d.inter.GetRouteSpecs()
 		slaveAddrs = d.inter.GetSlaveAddresses()
 	}
 	exist, err := o.Exists()
