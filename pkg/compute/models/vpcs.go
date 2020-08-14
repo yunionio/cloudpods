@@ -29,6 +29,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -1024,6 +1025,11 @@ func (self *SVpc) initWire(ctx context.Context, zone *SZone) (*SWire, error) {
 	wire.ZoneId = zone.Id
 	wire.IsEmulated = true
 	wire.Name = fmt.Sprintf("vpc-%s", self.Name)
+
+	wire.DomainId = self.DomainId
+	wire.IsPublic = self.IsPublic
+	wire.PublicScope = self.PublicScope
+
 	wire.SetModelManager(WireManager, wire)
 	err := WireManager.TableSpec().Insert(wire)
 	if err != nil {
@@ -1175,4 +1181,101 @@ func (manager *SVpcManager) ListItemExportKeys(ctx context.Context,
 	}
 
 	return q, nil
+}
+
+func (vpc *SVpc) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicDomainInput) (jsonutils.JSONObject, error) {
+	if vpc.Id == api.DEFAULT_VPC_ID && rbacutils.String2ScopeDefault(input.Scope, rbacutils.ScopeSystem) != rbacutils.ScopeSystem {
+		return nil, httperrors.NewForbiddenError("For default vpc, only system level sharing can be set")
+	}
+	_, err := vpc.SEnabledStatusInfrasResourceBase.PerformPublic(ctx, userCred, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBase.PerformPublic")
+	}
+	// perform public for all emulated wires
+	wires := vpc.GetWires()
+	for i := range wires {
+		if wires[i].IsEmulated {
+			_, err := wires[i].PerformPublic(ctx, userCred, query, input)
+			if err != nil {
+				return nil, errors.Wrap(err, "wire.PerformPublic")
+			}
+		}
+	}
+	return nil, nil
+}
+
+func (vpc *SVpc) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) (jsonutils.JSONObject, error) {
+	if vpc.Id == "default" {
+		return nil, httperrors.NewForbiddenError("Prohibit making default vpc private")
+	}
+	// perform private for all emulated wires
+	emptyNets := true
+	wires := vpc.GetWires()
+	for i := range wires {
+		if wires[i].DomainId == vpc.DomainId {
+			nets, _ := wires[i].getNetworks(nil, rbacutils.ScopeNone)
+			for j := range nets {
+				if nets[j].DomainId != vpc.DomainId {
+					emptyNets = false
+					break
+				}
+			}
+			if !emptyNets {
+				break
+			}
+		} else {
+			emptyNets = false
+			break
+		}
+	}
+	if emptyNets {
+		for i := range wires {
+			nets, _ := wires[i].getNetworks(nil, rbacutils.ScopeNone)
+			netfail := false
+			for j := range nets {
+				if nets[j].IsPublic && nets[j].GetPublicScope().HigherEqual(rbacutils.ScopeDomain) {
+					var err error
+					if consts.GetNonDefaultDomainProjects() {
+						netinput := apis.PerformPublicProjectInput{}
+						netinput.Scope = string(rbacutils.ScopeDomain)
+						_, err = nets[j].PerformPublic(ctx, userCred, nil, netinput)
+					} else {
+						_, err = nets[j].PerformPrivate(ctx, userCred, nil, input)
+					}
+					if err != nil {
+						log.Errorf("nets[j].PerformPublic fail %s", err)
+						netfail = true
+						break
+					}
+				}
+			}
+			if netfail {
+				break
+			}
+			_, err := wires[i].PerformPrivate(ctx, userCred, query, input)
+			if err != nil {
+				log.Errorf("wires[i].PerformPrivate fail %s", err)
+				break
+			}
+		}
+	}
+	return vpc.SEnabledStatusInfrasResourceBase.PerformPrivate(ctx, userCred, query, input)
+}
+
+func (vpc *SVpc) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeDomainOwnerInput) (jsonutils.JSONObject, error) {
+	_, err := vpc.SEnabledStatusInfrasResourceBase.PerformChangeOwner(ctx, userCred, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBase.PerformChangeOwner")
+	}
+	wires := vpc.GetWires()
+	for i := range wires {
+		if wires[i].IsEmulated {
+			_, err := wires[i].PerformChangeOwner(ctx, userCred, query, input)
+			if err != nil {
+				return nil, errors.Wrap(err, "wires[i].PerformChangeOwner")
+			}
+		}
+	}
+
+	return nil, nil
 }
