@@ -71,6 +71,21 @@ func TestSCloudaccount_suggestHostNetworks(t *testing.T) {
 				},
 			},
 		},
+		{
+			[]string{
+				"10.155.50.103",
+				"10.155.50.101",
+				"10.155.50.102",
+			},
+			[]api.CASimpleNetConf{
+				{
+					GuestIpStart: "10.155.50.101",
+					GuestIpEnd:   "10.155.50.103",
+					GuestIpMask:  24,
+					GuestGateway: "10.155.50.1",
+				},
+			},
+		},
 	}
 	for _, c := range cases {
 		ins := make([]netutils.IPV4Addr, len(c.in))
