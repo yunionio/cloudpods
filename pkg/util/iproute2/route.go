@@ -48,7 +48,7 @@ func (route *Route) link() (link netlink.Link, ok bool) {
 	return
 }
 
-func (route *Route) List4() ([]netlink.Route, error) {
+func (route *Route) List4() ([]RouteSpec, error) {
 	link, ok := route.link()
 	if !ok {
 		return nil, route.Err()
