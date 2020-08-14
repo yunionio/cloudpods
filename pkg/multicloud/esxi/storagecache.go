@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -77,14 +78,30 @@ func (self *SDatastoreImageCache) GetPath() string {
 
 func (self *SDatastoreImageCache) GetIImages() ([]cloudprovider.ICloudImage, error) {
 	ctx := context.Background()
+	ret := make([]cloudprovider.ICloudImage, 0, 2)
+
+	// get vm template with only one disk
+	tems, err := self.host.GetTemplateVMs()
+	if err != nil {
+		log.Errorf("fail to get templateVMs of host '%s' in SDatastoreImageCache.GetIImages", self.host.GetName())
+		return ret, nil
+	}
+	for _, tem := range tems {
+		// for now, add vm template with only one disk as cachedimage
+		if len(tem.vdisks) != 1 {
+			continue
+		}
+		ret = append(ret, NewVMTemplate(tem, self))
+	}
 
 	files, err := self.datastore.ListDir(ctx, IMAGE_CACHE_DIR_NAME)
+	if errors.Cause(err) == errors.ErrNotFound {
+		return ret, nil
+	}
 	if err != nil {
 		log.Errorf("GetIImages ListDir fail %s", err)
 		return nil, err
 	}
-
-	ret := make([]cloudprovider.ICloudImage, 0)
 
 	validFilenames := make(map[string]bool)
 
@@ -117,20 +134,6 @@ func (self *SDatastoreImageCache) GetIImages() ([]cloudprovider.ICloudImage, err
 			log.Debugf("delete invalid vmdk file %s!!!", files[i].Name)
 			self.datastore.Delete(ctx, path.Join(IMAGE_CACHE_DIR_NAME, files[i].Name))
 		}
-	}
-
-	// get vm template with only one disk
-	tems, err := self.host.GetTemplateVMs()
-	if err != nil {
-		log.Errorf("fail to get templateVMs of host '%s' in SDatastoreImageCache.GetIImages", self.host.GetName())
-		return ret, nil
-	}
-	for _, tem := range tems {
-		// for now, add vm template with only one disk as cachedimage
-		if len(tem.vdisks) != 1 {
-			continue
-		}
-		ret = append(ret, NewVMTemplate(tem, self))
 	}
 
 	return ret, nil
