@@ -822,16 +822,17 @@ func (manager *SNetworkManager) GetOnPremiseNetworkOfIP(ipAddr string, serverTyp
 
 func (manager *SNetworkManager) allNetworksQ(providers []string, brands []string, cloudEnv string, rangeObjs []db.IStandaloneModel) *sqlchemy.SQuery {
 	networks := manager.Query().SubQuery()
-	hostwires := HostwireManager.Query().SubQuery()
-	hosts := HostManager.Query().SubQuery()
+	wires := WireManager.Query().SubQuery()
+	vpcs := VpcManager.Query().SubQuery()
+
 	q := networks.Query(networks.Field("id"))
-	q = q.Join(hostwires, sqlchemy.Equals(hostwires.Field("wire_id"), networks.Field("wire_id")))
-	q = q.Join(hosts, sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")))
-	q = q.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
-	q = q.Filter(sqlchemy.OR(
-		sqlchemy.Equals(hosts.Field("host_type"), api.HOST_TYPE_BAREMETAL),
-		sqlchemy.Equals(hosts.Field("host_status"), api.HOST_ONLINE)))
-	return AttachUsageQuery(q, hosts, nil, nil, providers, brands, cloudEnv, rangeObjs)
+	q = q.Join(wires, sqlchemy.Equals(q.Field("wire_id"), wires.Field("id")))
+	q = q.Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id")))
+
+	q = CloudProviderFilter(q, vpcs.Field("manager_id"), providers, brands, cloudEnv)
+	q = RangeObjectsFilter(q, rangeObjs, vpcs.Field("cloudregion_id"), wires.Field("zone_id"), vpcs.Field("manager_id"), nil, nil)
+
+	return q
 }
 
 func (manager *SNetworkManager) totalPortCountQ(
