@@ -499,7 +499,7 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 	}
 
 	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", ownerId)
-	if region.Provider == api.CLOUD_PROVIDER_ONECLOUD {
+	if region.GetDriver().IsSupportLoadbalancerListenerRuleRedirect() {
 		// backend group can be empty if you support redirect in rule
 		backendGroupV.Optional(true)
 	}
@@ -822,6 +822,28 @@ func (lbr *SLoadbalancerListenerRule) updateCachedLoadbalancerBackendGroupAssoci
 				})
 				if err != nil {
 					return errors.Wrap(err, "LoadbalancerListener.updateCachedLoadbalancerBackendGroupAssociate.qcloud")
+				}
+			}
+		}
+	case api.CLOUD_PROVIDER_OPENSTACK:
+		_group, err := db.FetchByExternalId(OpenstackCachedLbbgManager, exteralLbbgId)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				lbr.BackendGroupId = ""
+			}
+			return fmt.Errorf("Fetch openstack loadbalancer backendgroup by external id %s failed: %s", exteralLbbgId, err)
+		}
+
+		if _group != nil {
+			group := _group.(*SOpenstackCachedLbbg)
+			if group.AssociatedId != lbr.Id {
+				_, err := db.UpdateWithLock(ctx, group, func() error {
+					group.AssociatedId = lbr.Id
+					group.AssociatedType = api.LB_ASSOCIATE_TYPE_RULE
+					return nil
+				})
+				if err != nil {
+					return errors.Wrap(err, "LoadbalancerListener.updateCachedLoadbalancerBackendGroupAssociate.openstack")
 				}
 			}
 		}

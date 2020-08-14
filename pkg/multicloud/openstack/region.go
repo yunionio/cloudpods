@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -43,7 +44,15 @@ type SRegion struct {
 }
 
 func (region *SRegion) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	backendGroups := []cloudprovider.ICloudLoadbalancerBackendGroup{}
+	pools, err := region.GetLoadbalancerPools()
+	if err != nil {
+		return backendGroups, errors.Wrap(err, "region.GetLoadbalancerPools()")
+	}
+	for i := 0; i < len(pools); i++ {
+		backendGroups = append(backendGroups, &pools[i])
+	}
+	return backendGroups, nil
 }
 
 func (region *SRegion) GetClient() *SOpenStackClient {
@@ -354,6 +363,28 @@ func (region *SRegion) bsCreate(projectId, resource string, params interface{}) 
 	return region.client.bsCreate(projectId, region.Name, resource, params)
 }
 
+//loadbalancer
+
+func (region *SRegion) lbList(resource string, query url.Values) (jsonutils.JSONObject, error) {
+	return region.client.lbRequest(region.Name, httputils.GET, resource, query, nil)
+}
+
+func (region *SRegion) lbGet(resource string) (jsonutils.JSONObject, error) {
+	return region.client.lbRequest(region.Name, httputils.GET, resource, nil, nil)
+}
+
+func (region *SRegion) lbUpdate(resource string, params interface{}) (jsonutils.JSONObject, error) {
+	return region.client.lbRequest(region.Name, httputils.PUT, resource, nil, params)
+}
+
+func (region *SRegion) lbPost(resource string, params interface{}) (jsonutils.JSONObject, error) {
+	return region.client.lbRequest(region.Name, httputils.POST, resource, nil, params)
+}
+
+func (region *SRegion) lbDelete(resource string) (jsonutils.JSONObject, error) {
+	return region.client.lbRequest(region.Name, httputils.DELETE, resource, nil, nil)
+}
+
 func (region *SRegion) ProjectId() string {
 	return region.client.tokenCredential.GetProjectId()
 }
@@ -413,15 +444,27 @@ func (region *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error
 }
 
 func (region *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	loadbalancers := []cloudprovider.ICloudLoadbalancer{}
+	sloadbalancers, err := region.GetLoadbalancers()
+	if err != nil {
+		return nil, errors.Wrap(err, "region.GetLoadbalancers()")
+	}
+	for i := 0; i < len(sloadbalancers); i++ {
+		loadbalancers = append(loadbalancers, &sloadbalancers[i])
+	}
+	return loadbalancers, nil
 }
 
 func (region *SRegion) GetILoadBalancerById(loadbalancerId string) (cloudprovider.ICloudLoadbalancer, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	sloadbalancer, err := region.GetLoadbalancerbyId(loadbalancerId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "region.GetLoadbalancerbyId(%s)", loadbalancerId)
+	}
+	return sloadbalancer, nil
 }
 
 func (region *SRegion) GetILoadBalancerAclById(aclId string) (cloudprovider.ICloudLoadbalancerAcl, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return region.GetLoadbalancerAclDetail(aclId)
 }
 
 func (region *SRegion) GetILoadBalancerCertificateById(certId string) (cloudprovider.ICloudLoadbalancerCertificate, error) {
@@ -433,7 +476,15 @@ func (region *SRegion) CreateILoadBalancerCertificate(cert *cloudprovider.SLoadb
 }
 
 func (region *SRegion) GetILoadBalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	iloadbalancerAcls := []cloudprovider.ICloudLoadbalancerAcl{}
+	acls, err := region.GetLoadBalancerAcls()
+	if err != nil {
+		return nil, errors.Wrap(err, "region.GetLoadBalancerAcls")
+	}
+	for i := 0; i < len(acls); i++ {
+		iloadbalancerAcls = append(iloadbalancerAcls, &acls[i])
+	}
+	return iloadbalancerAcls, nil
 }
 
 func (region *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
@@ -441,11 +492,26 @@ func (region *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoa
 }
 
 func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	sloadbalancer, err := region.CreateLoadBalancer(loadbalancer)
+	if err != nil {
+		return nil, errors.Wrap(err, "region.CreateLoadBalancer")
+	}
+	return sloadbalancer, nil
 }
 
 func (region *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (cloudprovider.ICloudLoadbalancerAcl, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	sacl, err := region.CreateLoadBalancerAcl(acl)
+	if err != nil {
+		return nil, errors.Wrap(err, "region.CreateLoadBalancerAcl(acl)")
+	}
+	err = cloudprovider.WaitMultiStatus(sacl.listener, []string{api.LB_STATUS_ENABLED, api.LB_STATUS_UNKNOWN}, 10*time.Second, 8*time.Minute)
+	if err != nil {
+		return nil, errors.Wrap(err, "cloudprovider.WaitMultiStatus")
+	}
+	if sacl.listener.GetStatus() == api.LB_STATUS_UNKNOWN {
+		return nil, errors.Wrap(fmt.Errorf("status error"), "check status")
+	}
+	return sacl, nil
 }
 
 func (region *SRegion) GetISkus() ([]cloudprovider.ICloudSku, error) {

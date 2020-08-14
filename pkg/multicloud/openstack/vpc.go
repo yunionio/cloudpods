@@ -62,7 +62,7 @@ type SVpc struct {
 	VlanTransparent       bool
 	Fescription           string
 	IsDefault             bool
-	NetworkType           string `json:"provider:network_type"`
+	NetworkType           string `json:"provider:network_type"` // flat, vlan, vxlan, or gre ...
 	PhysicalNetwork       string `json:"provider:physical_network"`
 	SegmentationId        string `json:"provider:segmentation_id"`
 }

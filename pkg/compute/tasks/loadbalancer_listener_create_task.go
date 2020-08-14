@@ -41,6 +41,8 @@ func getOnLoadbalancerListenerCreateCompleteFunc(provider string) func(ctx conte
 	switch provider {
 	case api.CLOUD_PROVIDER_HUAWEI:
 		return onHuaweiLoadbalancerListenerCreateComplete
+	case api.CLOUD_PROVIDER_OPENSTACK:
+		return onOpenstackLoadbalancerListenerCreateComplete
 	default:
 		return onLoadbalancerListenerCreateComplete
 	}
@@ -99,6 +101,57 @@ func onHuaweiLoadbalancerListenerCreateComplete(ctx context.Context, lblis *mode
 		// 服务器组不存在
 		self.SetStage("OnPrepareLoadbalancerBackendgroup", nil)
 		lbbg.StartHuaweiLoadBalancerBackendGroupCreateTask(ctx, self.GetUserCred(), params, self.GetTaskId())
+	}
+}
+
+func onOpenstackLoadbalancerListenerCreateComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject, self *LoadbalancerListenerCreateTask) {
+	lbbg := lblis.GetLoadbalancerBackendGroup()
+	if lbbg == nil {
+		self.taskFail(ctx, lblis, jsonutils.NewString("openstack loadbalancer listener releated backend group not found"))
+		return
+	}
+
+	groupParams, err := lbbg.GetOpenstackBackendGroupParams(lblis, nil)
+	if err != nil {
+		self.taskFail(ctx, lblis, jsonutils.NewString(err.Error()))
+		return
+	}
+
+	params := jsonutils.NewDict()
+	params.Set("listenerId", jsonutils.NewString(lblis.GetId()))
+	group, err := models.OpenstackCachedLbbgManager.GetCachedBackendGroupByAssociateId(lblis.GetId())
+	if err != nil && err != sql.ErrNoRows {
+		self.taskFail(ctx, lblis, jsonutils.NewString(err.Error()))
+		return
+	}
+
+	if group != nil {
+		// 服务器组存在
+		ilbbg, err := group.GetICloudLoadbalancerBackendGroup()
+		if err != nil {
+			self.taskFail(ctx, lblis, jsonutils.NewString(err.Error()))
+			return
+		}
+		// 服务器组已经存在，直接同步即可
+		if err := ilbbg.Sync(ctx, groupParams); err != nil {
+			self.taskFail(ctx, lblis, jsonutils.NewString(err.Error()))
+			return
+		} else {
+			if _, err := db.UpdateWithLock(ctx, group, func() error {
+				group.AssociatedId = lblis.GetId()
+				group.AssociatedType = api.LB_ASSOCIATE_TYPE_LISTENER
+				return nil
+			}); err != nil {
+				self.taskFail(ctx, lblis, jsonutils.NewString(err.Error()))
+				return
+			}
+
+			self.OnPrepareLoadbalancerBackendgroup(ctx, lblis, data)
+		}
+	} else {
+		// 服务器组不存在
+		self.SetStage("OnPrepareLoadbalancerBackendgroup", nil)
+		lbbg.StartOpenstackLoadBalancerBackendGroupCreateTask(ctx, self.GetUserCred(), params, self.GetTaskId())
 	}
 }
 

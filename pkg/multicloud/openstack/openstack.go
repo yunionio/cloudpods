@@ -38,13 +38,14 @@ const (
 	CLOUD_PROVIDER_OPENSTACK = api.CLOUD_PROVIDER_OPENSTACK
 	OPENSTACK_DEFAULT_REGION = "RegionOne"
 
-	OPENSTACK_SERVICE_COMPUTE  = "compute"
-	OPENSTACK_SERVICE_NETWORK  = "network"
-	OPENSTACK_SERVICE_IDENTITY = "identity"
-	OPENSTACK_SERVICE_VOLUMEV3 = "volumev3"
-	OPENSTACK_SERVICE_VOLUMEV2 = "volumev2"
-	OPENSTACK_SERVICE_VOLUME   = "volume"
-	OPENSTACK_SERVICE_IMAGE    = "image"
+	OPENSTACK_SERVICE_COMPUTE      = "compute"
+	OPENSTACK_SERVICE_NETWORK      = "network"
+	OPENSTACK_SERVICE_IDENTITY     = "identity"
+	OPENSTACK_SERVICE_VOLUMEV3     = "volumev3"
+	OPENSTACK_SERVICE_VOLUMEV2     = "volumev2"
+	OPENSTACK_SERVICE_VOLUME       = "volume"
+	OPENSTACK_SERVICE_IMAGE        = "image"
+	OPENSTACK_SERVICE_LOADBALANCER = "load-balancer"
 
 	ErrNoEndpoint = errors.Error("no valid endpoint")
 )
@@ -373,6 +374,10 @@ func (cli *SOpenStackClient) imageUpload(region, url string, body io.Reader) (*h
 	return session.RawRequest(OPENSTACK_SERVICE_IMAGE, "", httputils.PUT, url, header, body)
 }
 
+func (cli *SOpenStackClient) lbRequest(region string, method httputils.THttpMethod, resource string, query url.Values, body interface{}) (jsonutils.JSONObject, error) {
+	return jsonReuest(cli.tokenCredential, OPENSTACK_SERVICE_LOADBALANCER, region, cli.endpointType, method, resource, query, body, cli.debug)
+}
+
 func (cli *SOpenStackClient) fetchToken() error {
 	if cli.tokenCredential != nil {
 		return nil
@@ -533,7 +538,7 @@ func (self *SOpenStackClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_PROJECT,
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
 		cloudprovider.CLOUD_CAPABILITY_NETWORK,
-		// cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
+		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
 		// cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
 		// cloudprovider.CLOUD_CAPABILITY_RDS,
 		// cloudprovider.CLOUD_CAPABILITY_CACHE,

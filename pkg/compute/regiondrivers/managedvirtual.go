@@ -108,6 +108,10 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerBacken
 	return data, nil
 }
 
+func (self *SManagedVirtualizationRegionDriver) IsSupportLoadbalancerListenerRuleRedirect() bool {
+	return false
+}
+
 func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
 	return data, nil
 }

@@ -274,6 +274,10 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerBackendData(ctx context.
 	return data, nil
 }
 
+func (self *SKVMRegionDriver) IsSupportLoadbalancerListenerRuleRedirect() bool {
+	return true
+}
+
 func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
 	var (
 		listenerV = validators.NewModelIdOrNameValidator("listener", "loadbalancerlistener", ownerId)

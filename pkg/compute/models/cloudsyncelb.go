@@ -339,3 +339,48 @@ func syncQcloudLoadbalancerBackends(ctx context.Context, userCred mcclient.Token
 		return
 	}
 }
+
+// openstack elb sync
+func SyncOpenstackLoadbalancerBackendgroups(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localLoadbalancer *SLoadbalancer, remoteLoadbalancer cloudprovider.ICloudLoadbalancer, syncRange *SSyncRange) {
+	remoteBackendgroups, err := remoteLoadbalancer.GetILoadBalancerBackendGroups()
+	if err != nil {
+		msg := fmt.Sprintf("GetILoadBalancerBackendGroups for loadbalancer %s failed %s", localLoadbalancer.Name, err)
+		log.Errorln(msg)
+		return
+	}
+	localLbbgs, remoteLbbgs, result := OpenstackCachedLbbgManager.SyncLoadbalancerBackendgroups(ctx, userCred, provider, localLoadbalancer, remoteBackendgroups, syncRange)
+
+	syncResults.Add(HuaweiCachedLbbgManager, result)
+
+	msg := result.Result()
+	log.Infof("SyncLoadbalancerBackendgroups for loadbalancer %s result: %s", localLoadbalancer.Name, msg)
+	if result.IsError() {
+		return
+	}
+	for i := 0; i < len(localLbbgs); i++ {
+		func() {
+			lockman.LockObject(ctx, &localLbbgs[i])
+			defer lockman.ReleaseObject(ctx, &localLbbgs[i])
+
+			syncOpenstackLoadbalancerBackends(ctx, userCred, syncResults, provider, &localLbbgs[i], remoteLbbgs[i], syncRange)
+		}()
+	}
+}
+
+func syncOpenstackLoadbalancerBackends(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localLbbg *SOpenstackCachedLbbg, remoteLbbg cloudprovider.ICloudLoadbalancerBackendGroup, syncRange *SSyncRange) {
+	remoteLbbs, err := remoteLbbg.GetILoadbalancerBackends()
+	if err != nil {
+		msg := fmt.Sprintf("GetILoadbalancerBackends for lbbg %s failed %s", localLbbg.Name, err)
+		log.Errorln(msg)
+		return
+	}
+	result := OpenstackCachedLbManager.SyncLoadbalancerBackends(ctx, userCred, provider, localLbbg, remoteLbbs, syncRange)
+
+	syncResults.Add(LoadbalancerBackendManager, result)
+
+	msg := result.Result()
+	log.Infof("SyncLoadbalancerBackends for LoadbalancerBackendgroup %s result: %s", localLbbg.Name, msg)
+	if result.IsError() {
+		return
+	}
+}

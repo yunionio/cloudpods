@@ -304,6 +304,16 @@ func (region *SRegion) AssociateEip(instanceId, eipId string) error {
 	return fmt.Errorf("failed to found instnace %s nics for binding eip", instanceId)
 }
 
+func (region *SRegion) AssociateEipWithPortId(portid, eipId string) error {
+	params := map[string]map[string]string{
+		"floatingip": {
+			"port_id": portid,
+		},
+	}
+	_, err := region.vpcUpdate("/v2.0/floatingips/"+eipId, jsonutils.Marshal(params))
+	return err
+}
+
 func (region *SRegion) DisassociateEip(eipId string) error {
 	params, _ := jsonutils.Parse([]byte(`{
 		"floatingip": {
