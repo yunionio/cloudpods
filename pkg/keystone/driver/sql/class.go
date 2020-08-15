@@ -52,7 +52,7 @@ func (self *SSQLDriverClass) Name() string {
 	return api.IdentityDriverSQL
 }
 
-func (self *SSQLDriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, template string, conf api.TConfigs) (api.TConfigs, error) {
+func (self *SSQLDriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, template string, conf api.TConfigs, idpId, domainId string) (api.TConfigs, error) {
 	return conf, nil
 }
 

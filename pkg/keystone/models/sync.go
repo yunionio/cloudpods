@@ -55,7 +55,7 @@ func syncIdentityProvider(ctx context.Context, userCred mcclient.TokenCredential
 	}
 
 	if !idp.NeedSync() {
-		log.Debugf("IDP %s no need to sync", idp.Name)
+		// log.Debugf("IDP %s no need to sync", idp.Name)
 		return nil
 	}
 

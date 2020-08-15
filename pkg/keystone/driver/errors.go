@@ -14,8 +14,16 @@
 
 package driver
 
-import "yunion.io/x/pkg/errors"
+import (
+	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/httperrors"
+)
 
 const (
 	ErrNoSuchDriver = errors.Error("no such driver")
 )
+
+func init() {
+	httperrors.RegisterErrorHttpCode(ErrNoSuchDriver, 400)
+}

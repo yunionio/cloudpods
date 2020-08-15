@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/driver/utils"
+	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/oidcutils/client"
 )
@@ -66,7 +67,7 @@ func (self *SOIDCDriverClass) Name() string {
 	return api.IdentityDriverOIDC
 }
 
-func (self *SOIDCDriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, template string, tconf api.TConfigs) (api.TConfigs, error) {
+func (self *SOIDCDriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, template string, tconf api.TConfigs, idpId, domainId string) (api.TConfigs, error) {
 	conf := api.SOIDCIdpConfigOptions{}
 	confJson := jsonutils.Marshal(tconf[api.IdentityDriverOIDC])
 	err := confJson.Unmarshal(&conf)
@@ -96,6 +97,14 @@ func (self *SOIDCDriverClass) ValidateConfig(ctx context.Context, userCred mccli
 		if err != nil {
 			return tconf, errors.Wrapf(err, "invalid endpoint %s", conf.Endpoint)
 		}
+	}
+	// validate uniqueness
+	unique, err := models.IdentityProviderManager.CheckUniqueness(idpId, domainId, api.IdentityDriverOIDC, template, api.IdentityDriverOIDC, "client_id", jsonutils.NewString(conf.ClientId))
+	if err != nil {
+		return tconf, errors.Wrap(err, "IdentityProviderManager.CheckUniqueness")
+	}
+	if !unique {
+		return tconf, errors.Wrapf(httperrors.ErrDuplicateResource, "client_id %s has been registered", conf.ClientId)
 	}
 	conf.SIdpAttributeOptions, err = utils.ValidateConfig(conf.SIdpAttributeOptions, userCred)
 	if err != nil {
