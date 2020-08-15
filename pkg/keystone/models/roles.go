@@ -188,9 +188,9 @@ func (role *SRole) IsSystemRole() bool {
 }
 
 func (role *SRole) ValidateDeleteCondition(ctx context.Context) error {
-	if role.IsShared() {
-		return httperrors.NewInvalidStatusError("cannot delete shared role")
-	}
+	// if role.IsShared() {
+	// 	return httperrors.NewInvalidStatusError("cannot delete shared role")
+	// }
 	if role.IsSystemRole() {
 		return httperrors.NewForbiddenError("cannot delete system role")
 	}

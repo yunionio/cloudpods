@@ -263,9 +263,9 @@ func (policy *SPolicy) Delete(ctx context.Context, userCred mcclient.TokenCreden
 }
 
 func (policy *SPolicy) ValidateDeleteCondition(ctx context.Context) error {
-	if policy.IsShared() {
-		return httperrors.NewInvalidStatusError("cannot delete shared policy")
-	}
+	// if policy.IsShared() {
+	// 	return httperrors.NewInvalidStatusError("cannot delete shared policy")
+	// }
 	if policy.Enabled.IsTrue() {
 		return httperrors.NewInvalidStatusError("cannot delete enabled policy")
 	}
