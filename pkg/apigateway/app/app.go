@@ -16,6 +16,7 @@ package app
 
 import (
 	"yunion.io/x/onecloud/pkg/apigateway/handler"
+	"yunion.io/x/onecloud/pkg/apis/cloudid"
 	"yunion.io/x/onecloud/pkg/appsrv"
 )
 
@@ -29,6 +30,7 @@ type Application struct {
 	CSRFResourceHandler  handler.IHandler
 	RPCHandler           handler.IHandler
 	InfluxdbProxyHandler handler.IHandler
+	CloudIdSAMLHandler   handler.IHandler
 }
 
 func NewApp(app *appsrv.Application) *Application {
@@ -66,11 +68,14 @@ func (app *Application) InitHandlers() *Application {
 
 	app.InfluxdbProxyHandler = handler.NewInfluxdbProxyHandler("/query")
 
+	app.CloudIdSAMLHandler = handler.NewProxyHandlerWithService(cloudid.SAML_IDP_PREFIX, cloudid.SERVICE_TYPE)
+
 	return app
 }
 
 func (app *Application) Bind() {
 	for _, h := range []handler.IHandler{
+		app.CloudIdSAMLHandler,
 		app.InfluxdbProxyHandler,
 		app.MiscHandler,
 		app.AuthHandler,

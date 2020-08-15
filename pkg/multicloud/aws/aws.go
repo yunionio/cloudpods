@@ -568,3 +568,12 @@ func (client *SAwsClient) GetObjectCannedAcls() []string {
 		}
 	}
 }
+
+func (client *SAwsClient) GetSamlEntityId() string {
+	switch client.accessUrl {
+	case AWS_CHINA_CLOUDENV:
+		return cloudprovider.SAML_ENTITY_ID_AWS_CN
+	default:
+		return cloudprovider.SAML_ENTITY_ID_AWS
+	}
+}

@@ -31,7 +31,6 @@ import (
 	"yunion.io/x/onecloud/pkg/apigateway/options"
 	policytool "yunion.io/x/onecloud/pkg/apigateway/policy"
 	"yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -46,11 +45,7 @@ import (
 )
 
 func AppContextToken(ctx context.Context) mcclient.TokenCredential {
-	val := ctx.Value(appctx.AppContextKey(constants.AUTH_TOKEN))
-	if val == nil {
-		return nil
-	}
-	return val.(mcclient.TokenCredential)
+	return auth.FetchUserCredential(ctx, nil)
 }
 
 type AuthHandlers struct {
@@ -72,6 +67,7 @@ func (h *AuthHandlers) AddMethods() {
 		NewHP(h.getIdpSsoRedirectUri, "sso", "redirect", "<idp_id>"),
 		NewHP(h.listTotpRecoveryQuestions, "recovery"),
 		NewHP(h.handleSsoLogin, "ssologin"),
+		// oidc auth
 		NewHP(handleOIDCAuth, "oidc", "auth"),
 		NewHP(handleOIDCConfiguration, "oidc", ".well-known", "openid-configuration"),
 		NewHP(handleOIDCJWKeys, "oidc", "keys"),
@@ -95,6 +91,7 @@ func (h *AuthHandlers) AddMethods() {
 		NewHP(h.getResources, "scoped_resources"),
 		NewHP(fetchIdpBasicConfig, "idp", "<idp_id>", "info"),
 		NewHP(fetchIdpSAMLMetadata, "idp", "<idp_id>", "saml-metadata"),
+		// oidc
 		NewHP(handleOIDCUserInfo, "oidc", "user"),
 	)
 	h.AddByMethod(POST, FetchAuthToken,

@@ -28,10 +28,10 @@ import (
 type BaseOptions struct {
 	Help       bool   `help:"Show help"`
 	Debug      bool   `help:"debug mode"`
-	AccessUrl  string `help:"Access key" default:"$AWS_ACCESS_URL" choices:"ChinaCloud|InternationalCloud"`
-	AccessKey  string `help:"Access key" default:"$AWS_ACCESS_KEY"`
-	Secret     string `help:"Secret" default:"$AWS_SECRET"`
-	RegionId   string `help:"RegionId" default:"$AWS_REGION"`
+	AccessUrl  string `help:"Access key" default:"$AWS_ACCESS_URL" choices:"ChinaCloud|InternationalCloud" metavar:"AWS_ACCESS_URL"`
+	AccessKey  string `help:"Access key" default:"$AWS_ACCESS_KEY" metavar:"AWS_ACCESS_KEY"`
+	Secret     string `help:"Secret" default:"$AWS_SECRET" metavar:"AWS_SECRET"`
+	RegionId   string `help:"RegionId" default:"$AWS_REGION" metavar:"AWS_REGION"`
 	SUBCOMMAND string `help:"awscli subcommand" subcommand:"true"`
 }
 

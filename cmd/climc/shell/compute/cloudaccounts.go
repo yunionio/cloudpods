@@ -1168,4 +1168,12 @@ func init() {
 		return nil
 	})
 
+	R(&CloudaccountShowOptions{}, "cloud-account-saml", "Get saml info details of a cloud account", func(s *mcclient.ClientSession, args *CloudaccountShowOptions) error {
+		result, err := modules.Cloudaccounts.GetSpecific(s, args.ID, "saml", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

@@ -17,7 +17,6 @@ package constants
 const (
 	AUTH_PREFIX        = "Bearer "
 	AUTH_HEADER        = "Authorization"
-	AUTH_TOKEN         = "AUTH_TOKEN"
 	YUNION_AUTH_COOKIE = "yunionauth"
 	REGION_COOKIE      = "region"
 )

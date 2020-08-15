@@ -39,7 +39,7 @@ func performHandler(ctx context.Context, w http.ResponseWriter, r *http.Request)
 	_, query, body := fetchEnv(ctx, w, r)
 	appsrv.SendJSON(w, wrap(jsonutils.NewDict(), "subscription"))
 	SubscriptionWorkerManager.Run(func() {
-		ctx = context.WithValue(context.Background(), auth.AUTH_TOKEN, auth.AdminCredential())
+		ctx = context.WithValue(context.Background(), appctx.APP_CONTEXT_KEY_AUTH_TOKEN, auth.AdminCredential())
 		subscriptionmodel.SubscriptionManager.PerformWrite(ctx, auth.AdminCredential(), query, body)
 	}, nil, nil)
 

@@ -25,6 +25,8 @@ type SCloudIdOptions struct {
 	CloudaccountSyncIntervalMinutes  int `help:"frequency to sync region cloudaccount task" default:"3"`
 	SystemPoliciesSyncIntervalHours  int `help:"frequency to sync region cloudaccount task" default:"24"`
 	CloudIdResourceSyncIntervalHours int `help:"frequency to sync region cloudpolicy task" default:"3"`
+
+	CloudSAMLMetadataPath string `help:"path to store SAML sp metadata file of cloud providers" default:"/opt/yunion/"`
 }
 
 var (

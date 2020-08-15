@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<EntityDescriptor xmlns="urn:oasis:names:tc:SAML:2.0:metadata" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" xmlns:saml="urn:oasis:names:tc:SAML:2.0:AssertionConsumerService" entityID="cloud.tencent.com" validUntil="2059-08-15T06:24:31Z">
+  <SPSSODescriptor WantAssertionsSigned="true" protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
+    <KeyDescriptor use="signing">
+      <ds:KeyInfo>
+        <ds:X509Data>
+          <ds:X509Certificate>MIIEWzCCA0OgAwIBAgIJAP2Wa/iz6Zn+MA0GCSqGSIb3DQEBBQUAMIHDMQswCQYDVQQGEwJDTjESMBAGA1UECAwJZ3Vhbmdkb25nMREwDwYDVQQHDAhzaGVuemhlbjE2MDQGA1UECgwtVGVuY2VudCBUZWNobm9sb2d5IChTaGVuemhlbikgQ29tcGFueSBMaW1pdGVkMRYwFAYDVQQLDA1UZW5jZW50IENsb3VkMRowGAYDVQQDDBFjbG91ZC50ZW5jZW50LmNvbTEhMB8GCSqGSIb3DQEJARYScWNsb3VkQHRlbmNlbnQuY29tMB4XDTE4MDgxNTA2MjQzMVoXDTE5MDgxNTA2MjQzMVowgcMxCzAJBgNVBAYTAkNOMRIwEAYDVQQIDAlndWFuZ2RvbmcxETAPBgNVBAcMCHNoZW56aGVuMTYwNAYDVQQKDC1UZW5jZW50IFRlY2hub2xvZ3kgKFNoZW56aGVuKSBDb21wYW55IExpbWl0ZWQxFjAUBgNVBAsMDVRlbmNlbnQgQ2xvdWQxGjAYBgNVBAMMEWNsb3VkLnRlbmNlbnQuY29tMSEwHwYJKoZIhvcNAQkBFhJxY2xvdWRAdGVuY2VudC5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC7z2KMtR6GS4IzwfFYLSULCrKrr6iUVRlxUhn0y/CjpWXGg31nwvXYmJZaCwjUlorTd3pYDmStmd4xoL3xrGFnqX0xqKw7S+vbB9wo5tSHww15vkiYPanjsgeaiXihBBB6jvsV8+4iuVk8JA3x990/0wic/ZuKIhCI4mLCaQYLXbsYopUPQ5p+dwkCY9pYxP+zjOQathA0cjzKyzp9io2pcH2vtj7RzM+j4sLTsTC+OGfh7k9LQO5/fswQTQKr1B4tmtI8Cq7pUP0Fud1YLjMpod/NRVv1/xIF6cJFP8QARfmC45FPjHToORiXVUV8hii8l4EkXw2bAQO+wqodXJaZAgMBAAGjUDBOMB0GA1UdDgQWBBQ6e8nFUT7oKF+LbOYFH200WR5I0zAfBgNVHSMEGDAWgBQ6e8nFUT7oKF+LbOYFH200WR5I0zAMBgNVHRMEBTADAQH/MA0GCSqGSIb3DQEBBQUAA4IBAQBAIaZDjgCLkWq6fFpp/ViwdEBtLbKNNx2K28z91kTZNE+lepYagqWQIPpTGo69GmO9Qdf/mkspY3Y80Q3MpUO09V3gsiqXQBHD5ZfyRHwmqDjDudLA1SGzMjMT+48XuMq4fdonO1o5fyDh/My9w1LuRZzWw5ZE0JEpKgXq1ynQYz0uEip7KrUVUNoAS2n9jT8APfs16M4p5VRpIYlugnBwR9P2bZba+9fR/SPTa7FX4S8sU649wGPR+49uvic2kwc8FP6AXGurJZhd7mZ44j58q0M/LXm/6wiyUslZ/I0uGhxmRav0cTQz4T1dXKdh2pJZBwz8yMv2P6fuxcFlUeR6</ds:X509Certificate>
+        </ds:X509Data>
+      </ds:KeyInfo>
+    </KeyDescriptor>
+    <NameIDFormat>urn:oasis:names:tc:SAML:2.0:nameid-format:transient</NameIDFormat>
+    <NameIDFormat>urn:oasis:names:tc:SAML:2.0:nameid-format:entity</NameIDFormat>
+    <NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress</NameIDFormat>
+    <NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified</NameIDFormat>
+    <NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:WindowsDomainQualifiedName</NameIDFormat>
+    <AssertionConsumerService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="https://cloud.tencent.com/login/saml" index="1" isDefault="true"/>
+    <AttributeConsumingService index="1">
+      <ServiceName xml:lang="en"/>
+      <RequestedAttribute FriendlyName="RoleEntitlement" Name="https://cloud.tencent.com/SAML/Attributes/Role" isRequired="true"/>
+      <RequestedAttribute FriendlyName="RoleSessionName" Name="https://cloud.tencent.com/SAML/Attributes/RoleSessionName" isRequired="true"/>
+    </AttributeConsumingService>
+  </SPSSODescriptor>
+  <Organization>
+    <OrganizationName xml:lang="en">Tencent Cloud Services, Inc.</OrganizationName>
+    <OrganizationDisplayName xml:lang="en">Tencent Cloud</OrganizationDisplayName>
+    <OrganizationURL xml:lang="en">https://cloud.tencent.com</OrganizationURL>
+  </Organization>
+</EntityDescriptor>

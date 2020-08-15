@@ -18,5 +18,6 @@ import "yunion.io/x/onecloud/pkg/apis"
 
 const (
 	SERVICE_TYPE    = apis.SERVICE_TYPE_CLOUDID
+	SAML_IDP_PREFIX = "/saml/idp"
 	SERVICE_VERSION = ""
 )

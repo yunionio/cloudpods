@@ -263,3 +263,11 @@ func (self *SHuaweiProvider) GetICustomCloudpolicies() ([]cloudprovider.ICloudpo
 func (self *SHuaweiProvider) GetIClouduserByName(name string) (cloudprovider.IClouduser, error) {
 	return self.client.GetIClouduserByName(name)
 }
+
+func (self *SHuaweiProvider) GetSamlEntityId() string {
+	return cloudprovider.SAML_ENTITY_ID_HUAWEI_CLOUD
+}
+
+func (self *SHuaweiProvider) GetSamlSpInitiatedLoginUrl(idpName string) string {
+	return self.client.GetSamlSpInitiatedLoginUrl(idpName)
+}

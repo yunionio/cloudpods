@@ -121,7 +121,7 @@ func fetchAndSetAuthContext(ctx context.Context, w http.ResponseWriter, r *http.
 	}
 	// no more send auth header, save auth info in cookie
 	// setAuthHeader(w, authHeader)
-	ctx = context.WithValue(ctx, appctx.AppContextKey(constants.AUTH_TOKEN), token)
+	ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_AUTH_TOKEN, token)
 	return ctx, nil
 }
 

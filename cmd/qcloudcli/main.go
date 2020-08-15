@@ -28,10 +28,10 @@ import (
 type BaseOptions struct {
 	Debug      bool   `help:"debug mode"`
 	Help       bool   `help:"Show help"`
-	AppID      string `help:"AppID" default:"$QCLOUD_APPID"`
-	SecretID   string `help:"Secret" default:"$QCLOUD_SECRET_ID"`
-	SecretKey  string `help:"Access key" default:"$QCLOUD_SECRET_KEY"`
-	RegionId   string `help:"RegionId" default:"$QCLOUD_REGION"`
+	AppID      string `help:"AppID" default:"$QCLOUD_APPID" metavar:"QCLOUD_APPID"`
+	SecretID   string `help:"Secret" default:"$QCLOUD_SECRET_ID" metavar:"QCLOUD_SECRET_ID"`
+	SecretKey  string `help:"Access key" default:"$QCLOUD_SECRET_KEY" metavar:"QCLOUD_SECRET_KEY"`
+	RegionId   string `help:"RegionId" default:"$QCLOUD_REGION" metavar:"QCLOUD_REGION"`
 	SUBCOMMAND string `help:"azurecli subcommand" subcommand:"true"`
 }
 

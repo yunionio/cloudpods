@@ -911,3 +911,20 @@ func (self *SGoogleClient) GetCapabilities() []string {
 	}
 	return caps
 }
+
+func (self *SGoogleClient) GetSamlSpInitiatedLoginUrl(idpName string) string {
+	// GOOGLE只支持一个IDP, 可以将organization名字存储在idpName里，避免因为权限不足，无法获取organization名称
+	if len(idpName) == 0 {
+		orgs, _ := self.ListOrganizations()
+		if len(orgs) != 1 {
+			log.Warningf("Organization count %d != 1, require assign the service account to ONE organization with organization viewer/admin role", len(orgs))
+		} else {
+			idpName = orgs[0].DisplayName
+		}
+	}
+	if len(idpName) == 0 {
+		log.Errorf("no valid organization name for this GCP account")
+		return ""
+	}
+	return fmt.Sprintf("https://www.google.com/a/%s/ServiceLogin?continue=https://console.cloud.google.com", idpName)
+}

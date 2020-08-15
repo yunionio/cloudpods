@@ -228,3 +228,11 @@ func (self *SAliyunProvider) GetICustomCloudpolicies() ([]cloudprovider.ICloudpo
 func (self *SAliyunProvider) CreateICloudpolicy(opts *cloudprovider.SCloudpolicyCreateOptions) (cloudprovider.ICloudpolicy, error) {
 	return self.client.CreateICloudpolicy(opts)
 }
+
+func (self *SAliyunProvider) GetSamlEntityId() string {
+	return cloudprovider.SAML_ENTITY_ID_ALIYUN_ROLE
+}
+
+func (self *SAliyunProvider) GetSamlSpInitiatedLoginUrl(idpName string) string {
+	return ""
+}

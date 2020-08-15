@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<EntityDescriptor xmlns="urn:oasis:names:tc:SAML:2.0:metadata" xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" entityID="urn:alibaba:cloudcomputing">
+    <SPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol" WantAssertionsSigned="true">
+        <KeyDescriptor use="signing">
+            <ds:KeyInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+                <ds:X509Data>
+                    <ds:X509Certificate>MIIDXjCCAkagAwIBAgIEXHToLjANBgkqhkiG9w0BAQsFADBwMQswCQYDVQQGEwJDTjERMA8GA1UE
+                        CBMISGFuZ3pob3UxKTAnBgNVBAsTIEFsaWJhYmEgQ2xvdWQgQ29tcHV0aW5nIENvLiBMdGQuMSMw
+                        IQYDVQQDExp1cm46YWxpYmFiYTpjbG91ZGNvbXB1dGluZzAgFw0xOTAyMjYwNzE4MDZaGA8yMTE5
+                        MDIwMjA3MTgwNlowcDELMAkGA1UEBhMCQ04xETAPBgNVBAgTCEhhbmd6aG91MSkwJwYDVQQLEyBB
+                        bGliYWJhIENsb3VkIENvbXB1dGluZyBDby4gTHRkLjEjMCEGA1UEAxMadXJuOmFsaWJhYmE6Y2xv
+                        dWRjb21wdXRpbmcwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDDjD53ZENEHoYNXAOf
+                        OIbVBJhj7SCWKmdjnbnxq8WAFWEeZtS6hZLPpWh1z7b0NjJkvCf5oFVqBJYbbW5kEKV+9CpV6VHZ
+                        qOXmsIRlkvZB+Wnc3SduwiiiUR9JojSPxVQvSf4WLT+HDASlrBztuRV2vHj9utLbvy+6bgVBqF8g
+                        emL9Pcif1robDH8HlqUcADXLAt18E4MbToldVoHjpFc6fAKUXujWH5feAL8g0CKlmf/JVlHLEtu4
+                        vKPxBQ8sgkysk6EnrjXl6Q4a4t+vbPG5uczA1ouTkDupMCRlaWHIHaJL/AoDGabn8sVXdaVJUKC5
+                        54FNkRznBhRQll+Nuc2rAgMBAAEwDQYJKoZIhvcNAQELBQADggEBAE8k4S4HvOglthJwF3aMQXGi
+                        LKW6Becs9SljA0/5VtZQDrDf2By/1BIMvWfZ/dFnO+MylDLVdS6XWvWat/DW0fOGxU4s1WNfshX7
+                        DJDGR2G1XgtGoDZEYIDahUp5katAPypCkY57fGZlI0d3nq46/2qT/Zpne+pFE3DI/x8klZMniniw
+                        YjNXbG96y/M4DYi1J7RR8mLIfVvz5o1SMGT4Ta2p/USE2M9F6O7/zc2j62dQgXiYa9OONo31RiXR
+                        TmvGEUNuQoBZhVrFIvOnNjIfFT7Xd3CUowwJKP1floserrx4B5jScRAi9yK3x2a2lhfc+PksXfTs
+                        aqIr5TQL4OorLEE=</ds:X509Certificate>
+                </ds:X509Data>
+            </ds:KeyInfo>
+        </KeyDescriptor>
+        <NameIDFormat>urn:oasis:names:tc:SAML:2.0:nameid-format:transient</NameIDFormat>
+        <NameIDFormat>urn:oasis:names:tc:SAML:2.0:nameid-format:persistent</NameIDFormat>
+        <NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress</NameIDFormat>
+        <NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified</NameIDFormat>
+        <NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:X509SubjectName</NameIDFormat>
+        <NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:WindowsDomainQualifiedName</NameIDFormat>
+        <NameIDFormat>urn:oasis:names:tc:SAML:2.0:nameid-format:kerberos</NameIDFormat>
+        <NameIDFormat>urn:oasis:names:tc:SAML:2.0:nameid-format:entity</NameIDFormat>
+        <AssertionConsumerService index="1" isDefault="true" Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="https://signin.aliyun.com/saml-role/sso"/>
+        <AttributeConsumingService index="1">
+            <ServiceName xml:lang="en">Alibaba Cloud Console Single Sign-On</ServiceName>
+            <RequestedAttribute isRequired="true" Name="https://www.aliyun.com/SAML-Role/Attributes/Role" FriendlyName="RoleEntitlement"/>
+            <RequestedAttribute isRequired="true" Name="https://www.aliyun.com/SAML-Role/Attributes/RoleSessionName" FriendlyName="RoleSessionName"/>
+            <RequestedAttribute isRequired="false" Name="https://www.aliyun.com/SAML-Role/Attributes/SessionDuration" FriendlyName="SessionDuration"/>
+        </AttributeConsumingService>
+    </SPSSODescriptor>
+    <Organization>
+        <OrganizationName xml:lang="en">Alibaba Cloud Computing Co. Ltd.</OrganizationName>
+        <OrganizationDisplayName xml:lang="en">AlibabaCloud</OrganizationDisplayName>
+        <OrganizationURL xml:lang="en">https://www.aliyun.com</OrganizationURL>
+    </Organization>
+</EntityDescriptor>

@@ -37,4 +37,5 @@ const (
 	SERVICE_TYPE_SERVICETREE       = "servicetree"
 	SERVICE_TYPE_LOG               = "log"
 	SERVICE_TYPE_REGION            = "compute"
+	SERVICE_TYPE_INFLUXDB          = "influxdb"
 )

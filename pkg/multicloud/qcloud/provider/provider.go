@@ -265,3 +265,11 @@ func (self *SQcloudProvider) GetIClouduserByName(name string) (cloudprovider.ICl
 func (self *SQcloudProvider) CreateICloudpolicy(opts *cloudprovider.SCloudpolicyCreateOptions) (cloudprovider.ICloudpolicy, error) {
 	return self.client.CreateICloudpolicy(opts)
 }
+
+func (self *SQcloudProvider) GetSamlEntityId() string {
+	return cloudprovider.SAML_ENTITY_ID_QCLOUD
+}
+
+func (self *SQcloudProvider) GetSamlSpInitiatedLoginUrl(idpName string) string {
+	return self.client.GetSamlSpInitiatedLoginUrl(idpName)
+}

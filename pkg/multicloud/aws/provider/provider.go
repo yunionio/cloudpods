@@ -219,3 +219,11 @@ func (self *SAwsProvider) GetIClouduserByName(name string) (cloudprovider.ICloud
 func (self *SAwsProvider) CreateICloudpolicy(opts *cloudprovider.SCloudpolicyCreateOptions) (cloudprovider.ICloudpolicy, error) {
 	return self.client.CreateICloudpolicy(opts)
 }
+
+func (self *SAwsProvider) GetSamlEntityId() string {
+	return self.client.GetSamlEntityId()
+}
+
+func (self *SAwsProvider) GetSamlSpInitiatedLoginUrl(idpName string) string {
+	return ""
+}
