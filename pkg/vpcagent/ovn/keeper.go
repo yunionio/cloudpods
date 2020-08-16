@@ -89,13 +89,18 @@ func (keeper *OVNNorthboundKeeper) ClaimVpc(ctx context.Context, vpc *agentmodel
 	}
 	irows := []types.IRow{vpcLr}
 
+	var (
+		hasDistgw = vpcHasDistgw(vpc)
+		hasEipgw  = vpcHasEipgw(vpc)
+	)
+
 	// distgw
 	var (
 		vpcHostLs *ovn_nb.LogicalSwitch
 		vpcRhp    *ovn_nb.LogicalRouterPort
 		vpcHrp    *ovn_nb.LogicalSwitchPort
 	)
-	if vpcHasDistgw(vpc) {
+	if hasDistgw {
 		vpcHostLs = &ovn_nb.LogicalSwitch{
 			Name: vpcHostLsName(vpc.Id),
 		}
@@ -125,7 +130,7 @@ func (keeper *OVNNorthboundKeeper) ClaimVpc(ctx context.Context, vpc *agentmodel
 		vpcRep   *ovn_nb.LogicalRouterPort
 		vpcErp   *ovn_nb.LogicalSwitchPort
 	)
-	if vpcHasEipgw(vpc) {
+	if hasEipgw {
 		vpcEipLs = &ovn_nb.LogicalSwitch{
 			Name: vpcEipLsName(vpc.Id),
 		}
@@ -154,14 +159,14 @@ func (keeper *OVNNorthboundKeeper) ClaimVpc(ctx context.Context, vpc *agentmodel
 		return nil
 	}
 	args = append(args, ovnCreateArgs(vpcLr, vpcLr.Name)...)
-	if vpcHasDistgw(vpc) {
+	if hasDistgw {
 		args = append(args, ovnCreateArgs(vpcHostLs, vpcHostLs.Name)...)
 		args = append(args, ovnCreateArgs(vpcRhp, vpcRhp.Name)...)
 		args = append(args, ovnCreateArgs(vpcHrp, vpcHrp.Name)...)
 		args = append(args, "--", "add", "Logical_Switch", vpcHostLs.Name, "ports", "@"+vpcHrp.Name)
 		args = append(args, "--", "add", "Logical_Router", vpcLr.Name, "ports", "@"+vpcRhp.Name)
 	}
-	if vpcHasEipgw(vpc) {
+	if hasEipgw {
 		args = append(args, ovnCreateArgs(vpcEipLs, vpcEipLs.Name)...)
 		args = append(args, ovnCreateArgs(vpcRep, vpcRep.Name)...)
 		args = append(args, ovnCreateArgs(vpcErp, vpcErp.Name)...)
