@@ -71,6 +71,10 @@ func DumpOVNNorthbound(ctx context.Context, cli *ovnutil.OvnNbCtl) (*OVNNorthbou
 	return keeper, nil
 }
 
+func ptr(s string) *string {
+	return &s
+}
+
 func ovnCreateArgs(irow types.IRow, idRef string) []string {
 	args := append([]string{
 		"--", "--id=@" + idRef, "create", irow.OvsdbTableName(),
@@ -89,13 +93,85 @@ func (keeper *OVNNorthboundKeeper) ClaimVpc(ctx context.Context, vpc *agentmodel
 	}
 	irows := []types.IRow{vpcLr}
 
+	var (
+		hasDistgw = vpcHasDistgw(vpc)
+		hasEipgw  = vpcHasEipgw(vpc)
+	)
+
+	var (
+		vpcExtLr           *ovn_nb.LogicalRouter
+		vpcExtLs           *ovn_nb.LogicalSwitch
+		vpcR1extp          *ovn_nb.LogicalRouterPort
+		vpcExtr1p          *ovn_nb.LogicalSwitchPort
+		vpcR2extp          *ovn_nb.LogicalRouterPort
+		vpcExtr2p          *ovn_nb.LogicalSwitchPort
+		vpcDefaultRoute    *ovn_nb.LogicalRouterStaticRoute
+		vpcExtDefaultRoute *ovn_nb.LogicalRouterStaticRoute
+	)
+	if hasDistgw || hasEipgw {
+		vpcExtLr = &ovn_nb.LogicalRouter{
+			Name: vpcExtLrName(vpc.Id),
+		}
+		vpcExtLs = &ovn_nb.LogicalSwitch{
+			Name: vpcExtLsName(vpc.Id),
+		}
+		vpcR1extp = &ovn_nb.LogicalRouterPort{
+			Name:     vpcR1extpName(vpc.Id),
+			Mac:      apis.VpcInterExtMac1,
+			Networks: []string{fmt.Sprintf("%s/%d", apis.VpcInterExtIP1(), apis.VpcInterExtMask)},
+		}
+		vpcExtr1p = &ovn_nb.LogicalSwitchPort{
+			Name:      vpcExtr1pName(vpc.Id),
+			Type:      "router",
+			Addresses: []string{"router"},
+			Options: map[string]string{
+				"router-port": vpcR1extpName(vpc.Id),
+			},
+		}
+		vpcR2extp = &ovn_nb.LogicalRouterPort{
+			Name:     vpcR2extpName(vpc.Id),
+			Mac:      apis.VpcInterExtMac2,
+			Networks: []string{fmt.Sprintf("%s/%d", apis.VpcInterExtIP2(), apis.VpcInterExtMask)},
+		}
+		vpcExtr2p = &ovn_nb.LogicalSwitchPort{
+			Name:      vpcExtr2pName(vpc.Id),
+			Type:      "router",
+			Addresses: []string{"router"},
+			Options: map[string]string{
+				"router-port": vpcR2extpName(vpc.Id),
+			},
+		}
+		vpcDefaultRoute = &ovn_nb.LogicalRouterStaticRoute{
+			Policy:     ptr("dst-ip"),
+			IpPrefix:   "0.0.0.0/0",
+			Nexthop:    apis.VpcInterExtIP2().String(),
+			OutputPort: ptr(vpcR1extpName(vpc.Id)),
+		}
+		vpcExtDefaultRoute = &ovn_nb.LogicalRouterStaticRoute{
+			Policy:     ptr("dst-ip"),
+			IpPrefix:   "0.0.0.0/0",
+			Nexthop:    apis.VpcInterExtIP1().String(),
+			OutputPort: ptr(vpcR2extpName(vpc.Id)),
+		}
+		irows = append(irows,
+			vpcExtLr,
+			vpcExtLs,
+			vpcR1extp,
+			vpcExtr1p,
+			vpcR2extp,
+			vpcExtr2p,
+			vpcDefaultRoute,
+			vpcExtDefaultRoute,
+		)
+	}
+
 	// distgw
 	var (
 		vpcHostLs *ovn_nb.LogicalSwitch
 		vpcRhp    *ovn_nb.LogicalRouterPort
 		vpcHrp    *ovn_nb.LogicalSwitchPort
 	)
-	if vpcHasDistgw(vpc) {
+	if hasDistgw {
 		vpcHostLs = &ovn_nb.LogicalSwitch{
 			Name: vpcHostLsName(vpc.Id),
 		}
@@ -125,7 +201,7 @@ func (keeper *OVNNorthboundKeeper) ClaimVpc(ctx context.Context, vpc *agentmodel
 		vpcRep   *ovn_nb.LogicalRouterPort
 		vpcErp   *ovn_nb.LogicalSwitchPort
 	)
-	if vpcHasEipgw(vpc) {
+	if hasEipgw {
 		vpcEipLs = &ovn_nb.LogicalSwitch{
 			Name: vpcEipLsName(vpc.Id),
 		}
@@ -154,19 +230,35 @@ func (keeper *OVNNorthboundKeeper) ClaimVpc(ctx context.Context, vpc *agentmodel
 		return nil
 	}
 	args = append(args, ovnCreateArgs(vpcLr, vpcLr.Name)...)
-	if vpcHasDistgw(vpc) {
+	if hasDistgw || hasEipgw {
+		args = append(args, ovnCreateArgs(vpcExtLr, vpcExtLr.Name)...)
+		args = append(args, ovnCreateArgs(vpcExtLs, vpcExtLs.Name)...)
+		args = append(args, ovnCreateArgs(vpcR1extp, vpcR1extp.Name)...)
+		args = append(args, ovnCreateArgs(vpcExtr1p, vpcExtr1p.Name)...)
+		args = append(args, ovnCreateArgs(vpcR2extp, vpcR2extp.Name)...)
+		args = append(args, ovnCreateArgs(vpcExtr2p, vpcExtr2p.Name)...)
+		args = append(args, ovnCreateArgs(vpcDefaultRoute, "vpcDefaultRoute")...)
+		args = append(args, ovnCreateArgs(vpcExtDefaultRoute, "vpcExtDefaultRoute")...)
+		args = append(args, "--", "add", "Logical_Router", vpcLrName(vpc.Id), "static_routes", "@vpcDefaultRoute")
+		args = append(args, "--", "add", "Logical_Router", vpcExtLrName(vpc.Id), "static_routes", "@vpcExtDefaultRoute")
+		args = append(args, "--", "add", "Logical_Switch", vpcExtLs.Name, "ports", "@"+vpcExtr1p.Name)
+		args = append(args, "--", "add", "Logical_Router", vpcLr.Name, "ports", "@"+vpcR1extp.Name)
+		args = append(args, "--", "add", "Logical_Switch", vpcExtLs.Name, "ports", "@"+vpcExtr2p.Name)
+		args = append(args, "--", "add", "Logical_Router", vpcExtLr.Name, "ports", "@"+vpcR2extp.Name)
+	}
+	if hasDistgw {
 		args = append(args, ovnCreateArgs(vpcHostLs, vpcHostLs.Name)...)
 		args = append(args, ovnCreateArgs(vpcRhp, vpcRhp.Name)...)
 		args = append(args, ovnCreateArgs(vpcHrp, vpcHrp.Name)...)
 		args = append(args, "--", "add", "Logical_Switch", vpcHostLs.Name, "ports", "@"+vpcHrp.Name)
-		args = append(args, "--", "add", "Logical_Router", vpcLr.Name, "ports", "@"+vpcRhp.Name)
+		args = append(args, "--", "add", "Logical_Router", vpcExtLr.Name, "ports", "@"+vpcRhp.Name)
 	}
-	if vpcHasEipgw(vpc) {
+	if hasEipgw {
 		args = append(args, ovnCreateArgs(vpcEipLs, vpcEipLs.Name)...)
 		args = append(args, ovnCreateArgs(vpcRep, vpcRep.Name)...)
 		args = append(args, ovnCreateArgs(vpcErp, vpcErp.Name)...)
 		args = append(args, "--", "add", "Logical_Switch", vpcEipLs.Name, "ports", "@"+vpcErp.Name)
-		args = append(args, "--", "add", "Logical_Router", vpcLr.Name, "ports", "@"+vpcRep.Name)
+		args = append(args, "--", "add", "Logical_Router", vpcExtLr.Name, "ports", "@"+vpcRep.Name)
 	}
 	return keeper.cli.Must(ctx, "ClaimVpc", args)
 }
@@ -392,9 +484,6 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 	)
 	{
 		gnrDefaultPolicy := "src-ip"
-		ptr := func(s string) *string {
-			return &s
-		}
 		if eip != nil && vpcHasEipgw(vpc) {
 			gnrDefault = &ovn_nb.LogicalRouterStaticRoute{
 				Policy:     &gnrDefaultPolicy,
@@ -492,7 +581,7 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 	args = append(args, "--", "add", "Logical_Switch", netLsName(guestnetwork.NetworkId), "ports", "@"+gnp.Name)
 	if gnrDefault != nil {
 		args = append(args, ovnCreateArgs(gnrDefault, "gnrDefault")...)
-		args = append(args, "--", "add", "Logical_Router", vpcLrName(vpc.Id), "static_routes", "@gnrDefault")
+		args = append(args, "--", "add", "Logical_Router", vpcExtLrName(vpc.Id), "static_routes", "@gnrDefault")
 	}
 	for i, acl := range acls {
 		ref := fmt.Sprintf("acl%d", i)
