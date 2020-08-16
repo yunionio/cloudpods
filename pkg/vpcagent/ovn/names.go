@@ -8,6 +8,31 @@ func vpcLrName(vpcId string) string {
 	return fmt.Sprintf("vpc-r/%s", vpcId)
 }
 
+// ext
+func vpcExtLrName(vpcId string) string {
+	return fmt.Sprintf("vpc-ext-r/%s", vpcId)
+}
+
+func vpcExtLsName(vpcId string) string {
+	return fmt.Sprintf("vpc-ext/%s", vpcId)
+}
+
+func vpcR1extpName(vpcId string) string {
+	return fmt.Sprintf("vpc-r1ext/%s", vpcId)
+}
+
+func vpcExtr1pName(vpcId string) string {
+	return fmt.Sprintf("vpc-extr1/%s", vpcId)
+}
+
+func vpcR2extpName(vpcId string) string {
+	return fmt.Sprintf("vpc-r2ext/%s", vpcId)
+}
+
+func vpcExtr2pName(vpcId string) string {
+	return fmt.Sprintf("vpc-extr2/%s", vpcId)
+}
+
 // distgw
 func vpcHostLsName(vpcId string) string {
 	return fmt.Sprintf("vpc-h/%s", vpcId)

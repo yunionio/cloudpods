@@ -33,6 +33,34 @@ var (
 )
 
 const (
+	sVpcInterCidr    = "100.65.0.0/17"
+	sVpcInterExtCidr = "100.65.0.0/30"
+	VpcInterExtMask  = 30
+	sVpcInterExtIP1  = "100.65.0.1"
+	sVpcInterExtIP2  = "100.65.0.2"
+	VpcInterExtMac1  = "ee:ee:ee:ee:ee:f0"
+	VpcInterExtMac2  = "ee:ee:ee:ee:ee:f1"
+)
+
+var (
+	vpcInterCidr   netutils.IPV4Prefix
+	vpcInterExtIP1 netutils.IPV4Addr
+	vpcInterExtIP2 netutils.IPV4Addr
+)
+
+func VpcInterCidr() netutils.IPV4Prefix {
+	return vpcInterCidr
+}
+
+func VpcInterExtIP1() netutils.IPV4Addr {
+	return vpcInterExtIP1
+}
+
+func VpcInterExtIP2() netutils.IPV4Addr {
+	return vpcInterExtIP2
+}
+
+const (
 	sVpcMappedCidr      = "100.64.0.0/17"
 	VpcMappedIPMask     = 17
 	sVpcMappedGatewayIP = "100.64.0.1"
@@ -91,6 +119,10 @@ func init() {
 		}
 		return v
 	}
+
+	vpcInterCidr = mp(netutils.NewIPV4Prefix(sVpcInterCidr))
+	vpcInterExtIP1 = mi(netutils.NewIPV4Addr(sVpcInterExtIP1))
+	vpcInterExtIP2 = mi(netutils.NewIPV4Addr(sVpcInterExtIP2))
 
 	vpcMappedCidr = mp(netutils.NewIPV4Prefix(sVpcMappedCidr))
 	vpcMappedGatewayIP = mi(netutils.NewIPV4Addr(sVpcMappedGatewayIP))
