@@ -89,20 +89,22 @@ type SConfigOption struct {
 }
 
 func (manager *SConfigOptionManager) fetchConfigs(model db.IModel, groups []string, options []string) (TConfigOptions, error) {
-	q := manager.Query().Equals("res_type", model.Keyword()).Equals("domain_id", model.GetId())
+	return manager.fetchConfigs2(model.Keyword(), model.GetId(), groups, options)
+}
+
+func (manager *SConfigOptionManager) fetchConfigs2(resType string, resId string, groups []string, options []string) (TConfigOptions, error) {
+	q := manager.Query()
+	if len(resType) > 0 {
+		q = q.Equals("res_type", resType)
+	}
+	if len(resId) > 0 {
+		q = q.Equals("domain_id", resId)
+	}
 	if len(groups) > 0 {
-		if len(groups) == 1 {
-			q = q.Equals("group", groups[0])
-		} else {
-			q = q.In("group", groups)
-		}
+		q = q.In("group", groups)
 	}
 	if len(options) > 0 {
-		if len(options) == 1 {
-			q = q.Equals("option", options[0])
-		} else {
-			q = q.In("option", options)
-		}
+		q = q.In("option", options)
 	}
 	opts := make(TConfigOptions, 0)
 	err := db.FetchModelObjects(manager, q, &opts)

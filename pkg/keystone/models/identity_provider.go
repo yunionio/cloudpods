@@ -332,7 +332,7 @@ func (ident *SIdentityProvider) PerformConfig(ctx context.Context, userCred mccl
 	}
 
 	var err error
-	input.Config, err = ident.getDriverClass().ValidateConfig(ctx, userCred, ident.Template, input.Config)
+	input.Config, err = ident.getDriverClass().ValidateConfig(ctx, userCred, ident.Template, input.Config, ident.Id, ident.DomainId)
 	if err != nil {
 		return nil, errors.Wrap(err, "ValidateConfig")
 	}
@@ -412,6 +412,8 @@ func (manager *SIdentityProviderManager) ValidateCreateData(
 		if domain.Id != ownerId.GetProjectDomainId() && !db.IsAdminAllowCreate(userCred, manager) {
 			return input, errors.Wrap(httperrors.ErrNotSufficientPrivilege, "require system priviliges to specify owner_domain_id")
 		}
+	} else if !db.IsAdminAllowCreate(userCred, manager) {
+		input.OwnerDomainId = ownerId.GetProjectDomainId()
 	}
 
 	targetDomainStr := input.TargetDomainId
@@ -433,10 +435,12 @@ func (manager *SIdentityProviderManager) ValidateCreateData(
 		if len(input.OwnerDomainId) > 0 && input.OwnerDomainId != input.TargetDomainId {
 			return input, errors.Wrap(httperrors.ErrInputParameter, "inconsistent owner_domain_id and target_domain_id")
 		}
+	} else if !db.IsAdminAllowCreate(userCred, manager) {
+		input.TargetDomainId = ownerId.GetProjectDomainId()
 	}
 
 	var err error
-	input.Config, err = drvCls.ValidateConfig(ctx, userCred, input.Template, input.Config)
+	input.Config, err = drvCls.ValidateConfig(ctx, userCred, input.Template, input.Config, "", input.OwnerDomainId)
 	if err != nil {
 		return input, errors.Wrap(err, "ValidateConfig")
 	}
@@ -1379,4 +1383,41 @@ func (manager *SIdentityProviderManager) FetchIdentityProvidersByUserId(uid stri
 		return nil, errors.Wrap(err, "FetchModelObjects")
 	}
 	return idps, nil
+}
+
+func (manager *SIdentityProviderManager) CheckUniqueness(extIdpId string, domainId string, driver string, template string, group string, option string, value jsonutils.JSONObject) (bool, error) {
+	configs := WhitelistedConfigManager.Query().SubQuery()
+	q := manager.Query()
+	if len(group) > 0 {
+		q = q.Join(configs, sqlchemy.AND(
+			sqlchemy.Equals(configs.Field("res_type"), manager.Keyword()),
+			sqlchemy.Equals(configs.Field("domain_id"), q.Field("id")),
+		))
+	}
+	if len(domainId) == 0 {
+		q = q.IsNullOrEmpty("domain_id")
+	} else {
+		q = q.Equals("domain_id", domainId)
+	}
+	q = q.Equals("driver", driver)
+	if len(template) > 0 {
+		q = q.Equals("template", template)
+	}
+	if len(group) > 0 {
+		q = q.Filter(sqlchemy.Equals(configs.Field("group"), group))
+		if len(option) > 0 {
+			q = q.Filter(sqlchemy.Equals(configs.Field("option"), option))
+		}
+		if value != nil {
+			q = q.Filter(sqlchemy.Equals(configs.Field("value"), value.String()))
+		}
+	}
+	if len(extIdpId) > 0 {
+		q = q.Filter(sqlchemy.NotEquals(q.Field("id"), extIdpId))
+	}
+	cnt, err := q.CountWithError()
+	if err != nil {
+		return false, errors.Wrap(err, "CountWithError")
+	}
+	return cnt == 0, nil
 }

@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/driver/utils"
+	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -58,7 +59,7 @@ func (self *SCASDriverClass) Name() string {
 	return api.IdentityDriverCAS
 }
 
-func (self *SCASDriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, template string, tconf api.TConfigs) (api.TConfigs, error) {
+func (self *SCASDriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, template string, tconf api.TConfigs, idpId, domainId string) (api.TConfigs, error) {
 	conf := api.SCASIdpConfigOptions{}
 	confJson := jsonutils.Marshal(tconf[api.IdentityDriverCAS])
 	err := confJson.Unmarshal(&conf)
@@ -71,6 +72,14 @@ func (self *SCASDriverClass) ValidateConfig(ctx context.Context, userCred mcclie
 	_, err = url.Parse(conf.CASServerURL)
 	if err != nil {
 		return tconf, errors.Wrap(httperrors.ErrInputParameter, "invalid cas_server_url")
+	}
+	// validate uniqueness
+	unique, err := models.IdentityProviderManager.CheckUniqueness(idpId, domainId, api.IdentityDriverCAS, template, api.IdentityDriverCAS, "cas_server_url", jsonutils.NewString(conf.CASServerURL))
+	if err != nil {
+		return tconf, errors.Wrap(err, "IdentityProviderManager.CheckUniqueness")
+	}
+	if !unique {
+		return tconf, errors.Wrapf(httperrors.ErrDuplicateResource, "cas_server_url %s has been registered", conf.CASServerURL)
 	}
 	conf.SIdpAttributeOptions, err = utils.ValidateConfig(conf.SIdpAttributeOptions, userCred)
 	if err != nil {

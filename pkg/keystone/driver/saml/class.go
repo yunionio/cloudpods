@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/driver/utils"
+	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -62,7 +63,7 @@ func (self *SSAMLDriverClass) Name() string {
 	return api.IdentityDriverSAML
 }
 
-func (self *SSAMLDriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, template string, tconf api.TConfigs) (api.TConfigs, error) {
+func (self *SSAMLDriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, template string, tconf api.TConfigs, idpId, domainId string) (api.TConfigs, error) {
 	conf := api.SSAMLIdpConfigOptions{}
 	confJson := jsonutils.Marshal(tconf[api.IdentityDriverSAML])
 	err := confJson.Unmarshal(&conf)
@@ -78,6 +79,23 @@ func (self *SSAMLDriverClass) ValidateConfig(ctx context.Context, userCred mccli
 			if len(tidStr) == 0 {
 				return tconf, errors.Wrap(httperrors.ErrInputParameter, "empty tenant_id")
 			}
+			// validate uniqueness
+			unique, err := models.IdentityProviderManager.CheckUniqueness(idpId, domainId, api.IdentityDriverSAML, template, api.IdentityDriverSAML, "tenant_id", jsonutils.NewString(tidStr))
+			if err != nil {
+				return tconf, errors.Wrap(err, "IdentityProviderManager.CheckUniqueness")
+			}
+			if !unique {
+				return tconf, errors.Wrapf(httperrors.ErrDuplicateResource, "tenant_id %s has been registered", tidStr)
+			}
+		}
+	case api.IdpTemplateSAMLTest:
+		// validate uniqueness
+		unique, err := models.IdentityProviderManager.CheckUniqueness(idpId, domainId, api.IdentityDriverSAML, template, "", "", nil)
+		if err != nil {
+			return tconf, errors.Wrap(err, "IdentityProviderManager.CheckUniqueness")
+		}
+		if !unique {
+			return tconf, errors.Wrap(httperrors.ErrDuplicateResource, "SAMLTest has been registered")
 		}
 	default:
 		if len(conf.EntityId) == 0 {
@@ -89,6 +107,14 @@ func (self *SSAMLDriverClass) ValidateConfig(ctx context.Context, userCred mccli
 		_, err = url.Parse(conf.RedirectSSOUrl)
 		if err != nil {
 			return tconf, errors.Wrap(httperrors.ErrInputParameter, "invalid redirect_sso_url")
+		}
+		// validate uniqueness
+		unique, err := models.IdentityProviderManager.CheckUniqueness(idpId, domainId, api.IdentityDriverSAML, template, api.IdentityDriverSAML, "entity_id", jsonutils.NewString(conf.EntityId))
+		if err != nil {
+			return tconf, errors.Wrap(err, "IdentityProviderManager.CheckUniqueness")
+		}
+		if !unique {
+			return tconf, errors.Wrapf(httperrors.ErrDuplicateResource, "entity_id %s has been registered", conf.EntityId)
 		}
 	}
 	conf.SIdpAttributeOptions, err = utils.ValidateConfig(conf.SIdpAttributeOptions, userCred)

@@ -23,6 +23,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
+	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -68,7 +69,7 @@ func (self *SOAuth2DriverClass) Name() string {
 	return api.IdentityDriverOAuth2
 }
 
-func (self *SOAuth2DriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, template string, tconf api.TConfigs) (api.TConfigs, error) {
+func (self *SOAuth2DriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, template string, tconf api.TConfigs, idpId, domainId string) (api.TConfigs, error) {
 	conf := api.SOAuth2IdpConfigOptions{}
 	confJson := jsonutils.Marshal(tconf[api.IdentityDriverOAuth2])
 	err := confJson.Unmarshal(&conf)
@@ -80,6 +81,14 @@ func (self *SOAuth2DriverClass) ValidateConfig(ctx context.Context, userCred mcc
 	}
 	if len(conf.Secret) == 0 {
 		return tconf, errors.Wrap(httperrors.ErrInputParameter, "empty secret")
+	}
+	// validate uniqueness
+	unique, err := models.IdentityProviderManager.CheckUniqueness(idpId, domainId, api.IdentityDriverOAuth2, template, api.IdentityDriverOAuth2, "app_id", jsonutils.NewString(conf.AppId))
+	if err != nil {
+		return tconf, errors.Wrap(err, "IdentityProviderManager.CheckUniqueness")
+	}
+	if !unique {
+		return tconf, errors.Wrapf(httperrors.ErrDuplicateResource, "app_id %s has been registered", conf.AppId)
 	}
 	factory := findDriverFactory(template)
 	if factory == nil {
