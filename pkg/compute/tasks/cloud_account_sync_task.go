@@ -23,10 +23,12 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -105,6 +107,28 @@ func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncReady(ctx context.Contex
 		return
 	}
 
+	if syncRange.FullSync && cloudprovider.IsSupportDnsZone(driver) {
+		dnsZones, err := driver.GetICloudDnsZones()
+		if err != nil {
+			log.Errorf("failed to get dns zones for account %s error: %v", cloudaccount.Name, err)
+		} else {
+			localZones, remoteZones, result := cloudaccount.SyncDnsZones(ctx, self.GetUserCred(), dnsZones)
+			log.Infof("Sync dns zones for cloudaccount %s result: %s", cloudaccount.GetName(), result.Result())
+			for i := 0; i < len(localZones); i++ {
+				func() {
+					lockman.LockObject(ctx, &localZones[i])
+					defer lockman.ReleaseObject(ctx, &localZones[i])
+
+					if localZones[i].Deleted {
+						return
+					}
+
+					syncDnsRecordSets(ctx, self.GetUserCred(), cloudaccount, &localZones[i], remoteZones[i])
+				}()
+			}
+		}
+	}
+
 	cloudproviders := cloudaccount.GetEnabledCloudproviders()
 
 	if len(cloudproviders) > 0 {
@@ -115,6 +139,11 @@ func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncReady(ctx context.Contex
 	} else {
 		self.OnCloudaccountSyncComplete(ctx, obj, nil)
 	}
+}
+
+func syncDnsRecordSets(ctx context.Context, userCred mcclient.TokenCredential, account *models.SCloudaccount, localDnsZone *models.SDnsZone, remoteDnsZone cloudprovider.ICloudDnsZone) {
+	result := localDnsZone.SyncDnsRecordSets(ctx, userCred, account.Provider, remoteDnsZone)
+	log.Infof("Sync dns records for dns zone %s result: %s", localDnsZone.GetName(), result.Result())
 }
 
 func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

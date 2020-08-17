@@ -116,12 +116,12 @@ func (spm *SScalingPolicyManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fi
 	return spm.SScalingGroupResourceBaseManager.QueryDistinctExtraField(q, field)
 }
 
-func (spm *SScalingPolicyManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
-	return spm.SScalingGroupResourceBaseManager.FetchParentId(ctx, data)
+func (spm *SScalingPolicyManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
+	return spm.SScalingGroupResourceBaseManager.FetchUniqValues(ctx, data)
 }
 
-func (spm *SScalingPolicyManager) FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery {
-	return spm.SScalingGroupResourceBaseManager.FilterByParentId(q, parentId)
+func (spm *SScalingPolicyManager) FilterByUniqValues(q *sqlchemy.SQuery, values jsonutils.JSONObject) *sqlchemy.SQuery {
+	return spm.SScalingGroupResourceBaseManager.FilterByUniqValues(q, values)
 }
 
 func (spm *SScalingPolicyManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery,

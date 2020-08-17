@@ -3777,7 +3777,7 @@ func (self *SHost) PerformInitialize(
 	if err != nil || self.GetBaremetalServer() != nil {
 		return nil, nil
 	}
-	err = db.NewNameValidator(GuestManager, userCred, name, "")
+	err = db.NewNameValidator(GuestManager, userCred, name, nil)
 	if err != nil {
 		return nil, err
 	}

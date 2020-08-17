@@ -223,20 +223,6 @@ func (manager *SDBInstanceResourceBaseManager) GetOrderByFields(query api.DBInst
 	return fields
 }
 
-/*
-func (manager *SDBInstanceResourceBaseManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
-	parentId, _ := data.GetString("dbinstance_id")
-	return parentId
-}
-
-func (manager *SDBInstanceResourceBaseManager) FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery {
-	if len(parentId) > 0 {
-		q = q.Equals("dbinstance_id", parentId)
-	}
-	return q
-}
-*/
-
 func (manager *SDBInstanceResourceBaseManager) ListItemExportKeys(ctx context.Context,
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,

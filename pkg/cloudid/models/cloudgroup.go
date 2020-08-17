@@ -108,14 +108,15 @@ func (manager *SCloudgroupManager) ListItemFilter(ctx context.Context, q *sqlche
 	return q, nil
 }
 
-func (manager *SCloudgroupManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
+func (manager *SCloudgroupManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
 	provider, _ := data.GetString("provider")
-	return provider
+	return jsonutils.Marshal(map[string]string{"provider": provider})
 }
 
-func (manager *SCloudgroupManager) FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery {
-	if len(parentId) > 0 {
-		return q.Equals("provider", parentId)
+func (manager *SCloudgroupManager) FilterByUniqValues(q *sqlchemy.SQuery, values jsonutils.JSONObject) *sqlchemy.SQuery {
+	provider, _ := values.GetString("provider")
+	if len(provider) > 0 {
+		q = q.Equals("provider", provider)
 	}
 	return q
 }

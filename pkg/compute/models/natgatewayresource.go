@@ -207,20 +207,6 @@ func (manager *SNatgatewayResourceBaseManager) GetOrderByFields(query api.NatGat
 	return fields
 }
 
-/*
-func (manager *SNatgatewayResourceBaseManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
-	parentId, _ := data.GetString("nategateway_id")
-	return parentId
-}
-
-func (manager *SNatgatewayResourceBaseManager) FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery {
-	if len(parentId) > 0 {
-		q = q.Equals("nategateway_id", parentId)
-	}
-	return q
-}
-*/
-
 func (self *SNatgatewayResourceBase) GetChangeOwnerCandidateDomainIds() []string {
 	nat, _ := self.GetNatgateway()
 	if nat != nil {

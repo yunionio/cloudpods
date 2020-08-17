@@ -1375,13 +1375,16 @@ func (self *SCloudprovider) RealDelete(ctx context.Context, userCred mcclient.To
 	} {
 		err = manager.purgeAll(ctx, userCred, self.Id)
 		if err != nil {
-			log.Errorf("%s purgeall failed %s", manager.Keyword(), err)
-			return err
+			return errors.Wrapf(err, "purge %s", manager.Keyword())
 		}
 		log.Debugf("%s purgeall success!", manager.Keyword())
 	}
 
 	CloudproviderCapabilityManager.removeCapabilities(ctx, userCred, self.Id)
+	err = DnsZoneCacheManager.removeCaches(ctx, userCred, self.Id)
+	if err != nil {
+		return errors.Wrapf(err, "remove dns caches")
+	}
 
 	return self.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
 }

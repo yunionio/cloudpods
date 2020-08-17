@@ -106,6 +106,10 @@ func (manager *SModelBaseManager) ValidateName(name string) error {
 	return nil
 }
 
+func (manager *SModelBaseManager) EnableGenerateName() bool {
+	return true
+}
+
 func (model *SModelBase) MarkDeletePreventionOn() {
 	return
 }
@@ -196,7 +200,7 @@ func (manager *SModelBaseManager) FilterByHiddenSystemAttributes(q *sqlchemy.SQu
 	return q
 }
 
-func (manager *SModelBaseManager) FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery {
+func (manager *SModelBaseManager) FilterByUniqValues(q *sqlchemy.SQuery, uniqValues jsonutils.JSONObject) *sqlchemy.SQuery {
 	return q
 }
 
@@ -308,8 +312,8 @@ func (manager *SModelBaseManager) FetchOwnerId(ctx context.Context, data jsonuti
 	return nil, nil
 }
 
-func (manager *SModelBaseManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
-	return ""
+func (manager *SModelBaseManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
+	return nil
 }
 
 func (manager *SModelBaseManager) NamespaceScope() rbacutils.TRbacScope {
@@ -569,8 +573,8 @@ func (model *SModelBase) GetOwnerId() mcclient.IIdentityProvider {
 	return nil
 }
 
-func (model *SModelBase) GetParentId() string {
-	return ""
+func (model *SModelBase) GetUniqValues() jsonutils.JSONObject {
+	return nil
 }
 
 func (model *SModelBase) IsSharable(ownerId mcclient.IIdentityProvider) bool {

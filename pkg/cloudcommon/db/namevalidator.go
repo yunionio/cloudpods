@@ -18,18 +18,21 @@ import (
 	"fmt"
 	"regexp"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/stringutils"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
-func isNameUnique(manager IModelManager, ownerId mcclient.IIdentityProvider, name string, parentId string) (bool, error) {
+func isNameUnique(manager IModelManager, ownerId mcclient.IIdentityProvider, name string, uniqValues jsonutils.JSONObject) (bool, error) {
 	q := manager.Query()
 	q = manager.FilterByName(q, name)
 	q = manager.FilterByOwner(q, ownerId, manager.NamespaceScope())
 	q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
-	q = manager.FilterByParentId(q, parentId)
+	if uniqValues != nil {
+		q = manager.FilterByUniqValues(q, uniqValues)
+	}
 	cnt, err := q.CountWithError()
 	if err != nil {
 		return false, err
@@ -37,12 +40,12 @@ func isNameUnique(manager IModelManager, ownerId mcclient.IIdentityProvider, nam
 	return cnt == 0, nil
 }
 
-func NewNameValidator(manager IModelManager, ownerId mcclient.IIdentityProvider, name string, parentId string) error {
+func NewNameValidator(manager IModelManager, ownerId mcclient.IIdentityProvider, name string, uniqValues jsonutils.JSONObject) error {
 	err := manager.ValidateName(name)
 	if err != nil {
 		return err
 	}
-	uniq, err := isNameUnique(manager, ownerId, name, parentId)
+	uniq, err := isNameUnique(manager, ownerId, name, uniqValues)
 	if err != nil {
 		return err
 	}
@@ -59,7 +62,9 @@ func isAlterNameUnique(model IModel, name string) (bool, error) {
 	q = manager.FilterByOwner(q, model.GetOwnerId(), manager.NamespaceScope())
 	q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
 	q = manager.FilterByNotId(q, model.GetId())
-	q = manager.FilterByParentId(q, model.GetParentId())
+	if uniqValues := model.GetUniqValues(); uniqValues != nil {
+		q = manager.FilterByUniqValues(q, uniqValues)
+	}
 	cnt, err := q.CountWithError()
 	if err != nil {
 		return false, err
@@ -99,7 +104,7 @@ func GenerateName2(manager IModelManager, ownerId mcclient.IIdentityProvider, hi
 		var uniq bool
 		var err error
 		if model == nil {
-			uniq, err = isNameUnique(manager, ownerId, name, "")
+			uniq, err = isNameUnique(manager, ownerId, name, nil)
 		} else {
 			uniq, err = isAlterNameUnique(model, name)
 		}

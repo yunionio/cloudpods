@@ -319,14 +319,15 @@ func (rip *SReservedip) IsExpired() bool {
 	return false
 }
 
-func (manager *SReservedipManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
-	parentId, _ := data.GetString("network_id")
-	return parentId
+func (manager *SReservedipManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
+	networkId, _ := data.GetString("network_id")
+	return jsonutils.Marshal(map[string]string{"network_id": networkId})
 }
 
-func (manager *SReservedipManager) FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery {
-	if len(parentId) > 0 {
-		q = q.Equals("network_id", parentId)
+func (manager *SReservedipManager) FilterByUniqValues(q *sqlchemy.SQuery, values jsonutils.JSONObject) *sqlchemy.SQuery {
+	networkId, _ := values.GetString("network_id")
+	if len(networkId) > 0 {
+		q = q.Equals("network_id", networkId)
 	}
 	return q
 }

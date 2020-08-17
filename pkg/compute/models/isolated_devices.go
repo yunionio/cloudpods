@@ -780,14 +780,15 @@ func (manager *SIsolatedDeviceManager) GetDevsOnHost(hostId string, model string
 	return devs, nil
 }
 
-func (manager *SIsolatedDeviceManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
-	parentId, _ := data.GetString("host_id")
-	return parentId
+func (manager *SIsolatedDeviceManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
+	hostId, _ := data.GetString("host_id")
+	return jsonutils.Marshal(map[string]string{"host_id": hostId})
 }
 
-func (manager *SIsolatedDeviceManager) FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery {
-	if len(parentId) > 0 {
-		q = q.Equals("host_id", parentId)
+func (manager *SIsolatedDeviceManager) FilterByUniqValues(q *sqlchemy.SQuery, values jsonutils.JSONObject) *sqlchemy.SQuery {
+	hostId, _ := values.GetString("host_id")
+	if len(hostId) > 0 {
+		q = q.Equals("host_id", hostId)
 	}
 	return q
 }

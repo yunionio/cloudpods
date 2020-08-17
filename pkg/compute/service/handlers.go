@@ -90,6 +90,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.ScalingGroupNetworkManager,
 
 		models.ScheduledTaskLabelManager,
+		models.DnsRecordSetTrafficPolicyManager,
 	} {
 		db.RegisterModelManager(manager)
 	}
@@ -188,6 +189,11 @@ func InitHandlers(app *appsrv.Application) {
 
 		models.ScheduledTaskManager,
 		models.ScheduledTaskActivityManager,
+
+		models.DnsZoneManager,
+		models.DnsZoneCacheManager,
+		models.DnsRecordSetManager,
+		models.DnsTrafficPolicyManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
@@ -212,6 +218,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.NetworkinterfacenetworkManager,
 		models.SnapshotPolicyDiskManager,
 		models.InstanceSnapshotJointManager,
+		models.DnsZoneVpcManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewJointModelHandler(manager)

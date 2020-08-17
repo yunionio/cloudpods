@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
@@ -3035,4 +3036,77 @@ func (self *SCloudaccount) PerformCreateSubscription(ctx context.Context, userCr
 
 	syncRange := SSyncRange{}
 	return nil, self.StartSyncCloudProviderInfoTask(ctx, userCred, &syncRange, "")
+}
+
+func (self *SCloudaccount) GetDnsZoneCaches() ([]SDnsZoneCache, error) {
+	caches := []SDnsZoneCache{}
+	q := DnsZoneCacheManager.Query().Equals("cloudaccount_id", self.Id)
+	err := db.FetchModelObjects(DnsZoneCacheManager, q, &caches)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return caches, nil
+}
+
+func (self *SCloudaccount) SyncDnsZones(ctx context.Context, userCred mcclient.TokenCredential, dnsZones []cloudprovider.ICloudDnsZone) ([]SDnsZone, []cloudprovider.ICloudDnsZone, compare.SyncResult) {
+	lockman.LockRawObject(ctx, self.Keyword(), fmt.Sprintf("%s-dnszone", self.Id))
+	defer lockman.ReleaseRawObject(ctx, self.Keyword(), fmt.Sprintf("%s-dnszone", self.Id))
+
+	result := compare.SyncResult{}
+
+	localZones := []SDnsZone{}
+	remoteZones := []cloudprovider.ICloudDnsZone{}
+
+	dbZones, err := self.GetDnsZoneCaches()
+	if err != nil {
+		result.Error(errors.Wrapf(err, "GetDnsZoneCaches"))
+		return nil, nil, result
+	}
+
+	removed := make([]SDnsZoneCache, 0)
+	commondb := make([]SDnsZoneCache, 0)
+	commonext := make([]cloudprovider.ICloudDnsZone, 0)
+	added := make([]cloudprovider.ICloudDnsZone, 0)
+
+	err = compare.CompareSets(dbZones, dnsZones, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		result.Error(err)
+		return nil, nil, result
+	}
+
+	for i := 0; i < len(removed); i += 1 {
+		if len(removed[i].ExternalId) > 0 {
+			err = removed[i].syncRemove(ctx, userCred)
+			if err != nil {
+				result.DeleteError(err)
+				continue
+			}
+			result.Delete()
+		}
+	}
+
+	for i := 0; i < len(commondb); i += 1 {
+		err = commondb[i].SyncWithCloudDnsZone(ctx, userCred, commonext[i])
+		if err != nil {
+			result.UpdateError(errors.Wrapf(err, "SyncWithCloudDnsZone"))
+			continue
+		}
+
+		result.Update()
+	}
+
+	for i := 0; i < len(added); i += 1 {
+		dnsZone, isNew, err := DnsZoneManager.newFromCloudDnsZone(ctx, userCred, added[i], self)
+		if err != nil {
+			result.AddError(err)
+			continue
+		}
+		if isNew {
+			localZones = append(localZones, *dnsZone)
+			remoteZones = append(remoteZones, added[i])
+		}
+		result.Add()
+	}
+
+	return localZones, remoteZones, result
 }

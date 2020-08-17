@@ -172,6 +172,12 @@ func wssRequest(client *common.Client, apiName string, params map[string]string,
 	return _phpJsonRequest(client, &wssJsonResponse{}, domain, "/v2/index.php", "", apiName, params, debug)
 }
 
+// dnspod 解析服务
+func cnsRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+	domain := "cns.api.qcloud.com"
+	return _phpJsonRequest(client, &wssJsonResponse{}, domain, "/v2/index.php", "", apiName, params, debug)
+}
+
 // 2017版API
 func vpc2017Request(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
 	domain := "vpc.api.qcloud.com"
@@ -511,6 +517,14 @@ func (client *SQcloudClient) wssRequest(apiName string, params map[string]string
 	return wssRequest(cli, apiName, params, client.debug)
 }
 
+func (client *SQcloudClient) cnsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := client.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	return cnsRequest(cli, apiName, params, client.debug)
+}
+
 func (client *SQcloudClient) vpc2017Request(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	cli, err := client.getDefaultClient()
 	if err != nil {
@@ -811,6 +825,7 @@ func (self *SQcloudClient) GetCapabilities() []string {
 		// cloudprovider.CLOUD_CAPABILITY_CACHE,
 		cloudprovider.CLOUD_CAPABILITY_EVENT,
 		cloudprovider.CLOUD_CAPABILITY_CLOUDID,
+		cloudprovider.CLOUD_CAPABILITY_DNSZONE,
 	}
 	return caps
 }
