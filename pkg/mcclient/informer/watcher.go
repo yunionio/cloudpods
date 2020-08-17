@@ -26,15 +26,17 @@ import (
 )
 
 type SWatchManager struct {
-	client       *mcclient.Client
-	watchBackend informer.IWatcher
+	client        *mcclient.Client
+	region        string
+	interfaceType string
+	watchBackend  informer.IWatcher
 }
 
-func NewWatchManagerBySession(session *mcclient.ClientSession, onKeepaliveFailure func()) (*SWatchManager, error) {
-	return NewWatchManager(session.GetClient(), session.GetToken(), session.GetRegion(), session.GetEndpointType(), onKeepaliveFailure)
+func NewWatchManagerBySession(session *mcclient.ClientSession) (*SWatchManager, error) {
+	return NewWatchManager(session.GetClient(), session.GetToken(), session.GetRegion(), session.GetEndpointType())
 }
 
-func NewWatchManager(client *mcclient.Client, token mcclient.TokenCredential, region, interfaceType string, onKeepaliveFailure func()) (*SWatchManager, error) {
+func NewWatchManager(client *mcclient.Client, token mcclient.TokenCredential, region, interfaceType string) (*SWatchManager, error) {
 	endpoint, err := client.GetCommonEtcdEndpoint(token, region, interfaceType)
 	if err != nil {
 		return nil, errors.Wrap(err, "get common etcd endpoint")
@@ -54,13 +56,15 @@ func NewWatchManager(client *mcclient.Client, token mcclient.TokenCredential, re
 		opt.EtcdEnabldSsl = true
 		opt.TLSConfig = tlsCfg
 	}
-	be, err := informer.NewEtcdBackend(opt, onKeepaliveFailure)
+	be, err := informer.NewEtcdBackendForClient(opt)
 	if err != nil {
 		return nil, errors.Wrap(err, "new etcd informer backend")
 	}
 	man := &SWatchManager{
-		client:       client,
-		watchBackend: be,
+		client:        client,
+		region:        region,
+		interfaceType: interfaceType,
+		watchBackend:  be,
 	}
 	return man, nil
 }
@@ -87,11 +91,12 @@ type sWatcher struct {
 	eventHandler    EventHandler
 }
 
-func (man *SWatchManager) For(resourceManager IResourceManager) IWatcher {
-	return &sWatcher{
+func (man *SWatchManager) For(resMan IResourceManager) IWatcher {
+	watcher := &sWatcher{
 		manager:         man,
-		resourceManager: resourceManager,
+		resourceManager: resMan,
 	}
+	return watcher
 }
 
 func (w *sWatcher) AddEventHandler(ctx context.Context, handler EventHandler) error {
@@ -100,8 +105,8 @@ func (w *sWatcher) AddEventHandler(ctx context.Context, handler EventHandler) er
 	return w.manager.watch(w.ctx, w.resourceManager, w.eventHandler)
 }
 
-func (man *SWatchManager) watch(ctx context.Context, resourceManager IResourceManager, handler informer.ResourceEventHandler) error {
-	return man.watchBackend.Watch(ctx, resourceManager.KeyString(), handler)
+func (man *SWatchManager) watch(ctx context.Context, resMan IResourceManager, handler informer.ResourceEventHandler) error {
+	return man.watchBackend.Watch(ctx, resMan.KeyString(), handler)
 }
 
 func (w *sWatcher) wrapEventHandler(handler EventHandler) informer.ResourceEventHandler {

@@ -40,7 +40,7 @@ type IEtcdModelManager interface {
 	Save(ctx context.Context, model IEtcdModel) error
 	Delete(ctx context.Context, model IEtcdModel) error
 	Session(ctx context.Context, model IEtcdModel) error
-	Watch(ctx context.Context, onCreate etcd.TEtcdCreateEventFunc, onModify etcd.TEtcdModifyEventFunc)
+	Watch(ctx context.Context, onCreate etcd.TEtcdCreateEventFunc, onModify etcd.TEtcdModifyEventFunc, onDelete etcd.TEtcdDeleteEventFunc)
 
 	CustomizeHandlerInfo(handler *appsrv.SHandlerInfo)
 	FetchCreateHeaderData(ctx context.Context, header http.Header) (jsonutils.JSONObject, error)

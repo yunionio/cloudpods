@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/mvcc/mvccpb"
 	"google.golang.org/grpc"
 
 	"yunion.io/x/log"
@@ -161,7 +162,7 @@ func (cli *SEtcdClient) startSession() error {
 		for {
 			if _, ok := <-ch; !ok {
 				cli.leaseLiving = false
-				log.Errorf("fail to keepalive sessoin")
+				log.Errorf("fail to keepalive session")
 				if cli.onKeepaliveFailure != nil {
 					cli.onKeepaliveFailure()
 				}
@@ -281,8 +282,9 @@ func (cli *SEtcdClient) List(ctx context.Context, prefix string) ([]SEtcdKeyValu
 	return ret, nil
 }
 
-type TEtcdCreateEventFunc func(key, value []byte)
-type TEtcdModifyEventFunc func(key, oldvalue, value []byte)
+type TEtcdCreateEventFunc func(ctx context.Context, key, value []byte)
+type TEtcdModifyEventFunc func(ctx context.Context, key, oldvalue, value []byte)
+type TEtcdDeleteEventFunc func(ctx context.Context, key []byte)
 
 type SEtcdWatcher struct {
 	watcher clientv3.Watcher
@@ -294,7 +296,12 @@ func (w *SEtcdWatcher) Cancel() {
 	w.cancel()
 }
 
-func (cli *SEtcdClient) Watch(ctx context.Context, prefix string, onCreate TEtcdCreateEventFunc, onModify TEtcdModifyEventFunc) error {
+func (cli *SEtcdClient) Watch(
+	ctx context.Context, prefix string,
+	onCreate TEtcdCreateEventFunc,
+	onModify TEtcdModifyEventFunc,
+	onDelete TEtcdDeleteEventFunc,
+) error {
 	_, ok := cli.watchers[prefix]
 	if ok {
 		return errors.Errorf("watch prefix %s already registered", prefix)
@@ -314,10 +321,18 @@ func (cli *SEtcdClient) Watch(ctx context.Context, prefix string, onCreate TEtcd
 	go func() {
 		for wresp := range rch {
 			for _, ev := range wresp.Events {
+				key := ev.Kv.Key[len(cli.namespace):]
 				if ev.PrevKv == nil {
-					onCreate(ev.Kv.Key[len(cli.namespace):], ev.Kv.Value)
+					onCreate(nctx, key, ev.Kv.Value)
 				} else {
-					onModify(ev.Kv.Key[len(cli.namespace):], ev.PrevKv.Value, ev.Kv.Value)
+					switch ev.Type {
+					case mvccpb.PUT:
+						onModify(nctx, key, ev.PrevKv.Value, ev.Kv.Value)
+					case mvccpb.DELETE:
+						if onDelete != nil {
+							onDelete(nctx, key)
+						}
+					}
 				}
 			}
 		}

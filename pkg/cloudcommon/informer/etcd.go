@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -27,7 +28,8 @@ import (
 )
 
 const (
-	EtcdInformerPrefix = "/onecloud/informer"
+	EtcdInformerPrefix     = "/onecloud/informer"
+	EtcdInformerClientsKey = "@clients"
 
 	EventTypeCreate = "CREATE"
 	EventTypeUpdate = "UPDATE"
@@ -63,7 +65,7 @@ type EtcdBackend struct {
 	leaseTTL int64
 }
 
-func NewEtcdBackend(opt *etcd.SEtcdOptions, onKeepaliveFailure func()) (*EtcdBackend, error) {
+func newEtcdBackend(opt *etcd.SEtcdOptions, onKeepaliveFailure func()) (*EtcdBackend, error) {
 	opt.EtcdNamspace = EtcdInformerPrefix
 	be := new(EtcdBackend)
 	be.leaseTTL = int64(opt.EtcdLeaseExpireSeconds)
@@ -76,6 +78,31 @@ func NewEtcdBackend(opt *etcd.SEtcdOptions, onKeepaliveFailure func()) (*EtcdBac
 	}
 	be.client = cli
 	return be, nil
+}
+
+func NewEtcdBackend(opt *etcd.SEtcdOptions, onKeepaliveFailure func()) (*EtcdBackend, error) {
+	be, err := newEtcdBackend(opt, onKeepaliveFailure)
+	if err != nil {
+		return nil, err
+	}
+	ctx := context.Background()
+	be.initClientResources(ctx)
+	be.StartClientWatch(ctx)
+	return be, nil
+}
+
+func (b *EtcdBackend) initClientResources(ctx context.Context) error {
+	pairs, err := b.client.List(ctx, "/")
+	if err != nil {
+		return errors.Wrap(err, "list all client resources")
+	}
+	for _, pair := range pairs {
+		keywordPlural, err := b.getClientWatchResource([]byte(pair.Key))
+		if err == nil && len(keywordPlural) != 0 {
+			AddWatchedResources(keywordPlural)
+		}
+	}
+	return nil
 }
 
 func (b *EtcdBackend) getObjectKey(obj *ModelObject) string {
@@ -126,59 +153,88 @@ func (b *EtcdBackend) Delete(ctx context.Context, obj *ModelObject) error {
 }
 
 func (b *EtcdBackend) put(ctx context.Context, key, val string) error {
-	return b.client.PutWithLease(ctx, key, val, b.leaseTTL)
+	return b.PutWithLease(ctx, key, val, b.leaseTTL)
+}
+
+func (b *EtcdBackend) PutWithLease(ctx context.Context, key, val string, ttlSeconds int64) error {
+	return b.client.PutWithLease(ctx, key, val, ttlSeconds)
 }
 
 func (b *EtcdBackend) onKeepaliveFailure() {
 	if err := b.client.RestartSession(); err != nil {
 		log.Errorf("restart etcd session error: %v", err)
+		return
+	}
+	b.StartClientWatch(context.Background())
+}
+
+func (b *EtcdBackend) StartClientWatch(ctx context.Context) {
+	b.client.Unwatch("/")
+	b.client.Watch(ctx, "/", b.onClientResourceCreate, b.onClientResourceUpdate, b.onClientResourceDelete)
+}
+
+func (b *EtcdBackend) isClientsKey(key []byte) bool {
+	return strings.Contains(string(key), EtcdInformerClientsKey)
+}
+
+func (b *EtcdBackend) getClientWatchResource(key []byte) (string, error) {
+	// key is like: /servers/@clients/default-climc-5d4c8d49f6-p6l68
+	keyPath := string(key)
+	parts := strings.Split(keyPath, "/")
+	if len(parts) != 4 {
+		return "", errors.Errorf("invalid client resource key: %v", parts)
+	}
+	if parts[2] != EtcdInformerClientsKey {
+		return "", errors.Errorf("key %s not contains %s", keyPath, EtcdInformerClientsKey)
+	}
+	return parts[1], nil
+}
+
+func (b *EtcdBackend) onClientResourceAdd(key []byte) {
+	if !b.isClientsKey(key) {
+		return
+	}
+	keywordPlural, err := b.getClientWatchResource(key)
+	if err != nil {
+		log.Errorf("get client watch resource error: %v", err)
+		return
+	}
+	AddWatchedResources(keywordPlural)
+}
+
+func (b *EtcdBackend) onClientResourceCreate(ctx context.Context, key, value []byte) {
+	b.onClientResourceAdd(key)
+}
+
+func (b *EtcdBackend) onClientResourceUpdate(ctx context.Context, key, oldvalue, value []byte) {
+	b.onClientResourceAdd(key)
+}
+
+func (b *EtcdBackend) shouldDeleteWatchedResource(ctx context.Context, keywordPlural string) bool {
+	// clientsKey is like: /servers/@clients
+	clientsKey := fmt.Sprintf("/%s/%s", keywordPlural, EtcdInformerClientsKey)
+	pairs, err := b.client.List(ctx, clientsKey)
+	if err != nil {
+		log.Errorf("list clientsKey %s error: %v", err)
+		return false
+	}
+	return len(pairs) == 0
+}
+
+func (b *EtcdBackend) onClientResourceDelete(ctx context.Context, key []byte) {
+	if !b.isClientsKey(key) {
+		return
+	}
+	keywordPlural, err := b.getClientWatchResource(key)
+	if err != nil {
+		log.Errorf("get client watch resource keywordPlural error: %v", err)
+		return
+	}
+	if b.shouldDeleteWatchedResource(ctx, keywordPlural) {
+		DeleteWatchedResources(keywordPlural)
 	}
 }
 
 func (b *EtcdBackend) getWatchKey(key string) string {
 	return filepath.Join("/", key)
-}
-
-func (b *EtcdBackend) Watch(ctx context.Context, key string, handler ResourceEventHandler) error {
-	return b.client.Watch(ctx, b.getWatchKey(key), b.onCreate(handler), b.onModify(handler))
-}
-
-func (b *EtcdBackend) Unwatch(key string) {
-	b.client.Unwatch(b.getWatchKey(key))
-}
-
-func (b *EtcdBackend) onCreate(handler ResourceEventHandler) etcd.TEtcdCreateEventFunc {
-	return func(key, value []byte) {
-		b.processEvent(handler, string(key), value)
-	}
-}
-
-func (b *EtcdBackend) onModify(handler ResourceEventHandler) etcd.TEtcdModifyEventFunc {
-	return func(key, _, value []byte) {
-		// not care about oldvalue, so ignore it
-		b.processEvent(handler, string(key), value)
-	}
-}
-
-func (b *EtcdBackend) processEvent(handler ResourceEventHandler, key string, value []byte) {
-	if len(value) == 0 {
-		// object already deleted by lease out of ttl
-		return
-	}
-	mObj, err := newModelObjectFromValue(value)
-	if err != nil {
-		log.Errorf("new %s model objecd from value error: %v", key, err)
-		return
-	}
-	eType := mObj.EventType
-	switch eType {
-	case EventTypeCreate:
-		handler.OnAdd(mObj.Object)
-	case EventTypeUpdate:
-		handler.OnUpdate(mObj.OldObject, mObj.Object)
-	case EventTypeDelete:
-		handler.OnDelete(mObj.Object)
-	default:
-		log.Errorf("Invalid event type: %s, mObj: %#v", eType, mObj)
-	}
 }

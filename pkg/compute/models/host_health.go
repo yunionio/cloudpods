@@ -100,7 +100,7 @@ func (h *SHostHealthChecker) startWatcher(ctx context.Context, hostId string) {
 	if _, ok := h.hc[hostId]; !ok {
 		h.hc[hostId] = ch
 	}
-	h.cli.Watch(ctx, key, h.onHostOnline(hostId), h.onHostOffline(hostId))
+	h.cli.Watch(ctx, key, h.onHostOnline(ctx, hostId), h.onHostOffline(ctx, hostId), h.onHostOfflineDeleted(ctx, hostId))
 }
 
 func (h *SHostHealthChecker) onHostUnhealthy(ctx context.Context, hostId string) {
@@ -112,8 +112,8 @@ func (h *SHostHealthChecker) onHostUnhealthy(ctx context.Context, hostId string)
 	}
 }
 
-func (h *SHostHealthChecker) onHostOnline(hostId string) etcd.TEtcdCreateEventFunc {
-	return func(key, value []byte) {
+func (h *SHostHealthChecker) onHostOnline(ctx context.Context, hostId string) etcd.TEtcdCreateEventFunc {
+	return func(ctx context.Context, key, value []byte) {
 		log.Infof("Got host online %s", hostId)
 		if h.hc[hostId] != nil {
 			h.hc[hostId] <- struct{}{}
@@ -121,17 +121,27 @@ func (h *SHostHealthChecker) onHostOnline(hostId string) etcd.TEtcdCreateEventFu
 	}
 }
 
-func (h *SHostHealthChecker) onHostOffline(hostId string) etcd.TEtcdModifyEventFunc {
-	return func(key, oldvalue, value []byte) {
-		log.Warningf("host %s disconnect with etcd", hostId)
-		go func() {
-			select {
-			case <-time.NewTimer(h.timeout).C:
-				h.onHostUnhealthy(context.Background(), hostId)
-			case <-h.hc[hostId]:
-				h.startWatcher(context.Background(), hostId)
-			}
-		}()
+func (h *SHostHealthChecker) processHostOffline(ctx context.Context, hostId string) {
+	log.Warningf("host %s disconnect with etcd", hostId)
+	go func() {
+		select {
+		case <-time.NewTimer(h.timeout).C:
+			h.onHostUnhealthy(ctx, hostId)
+		case <-h.hc[hostId]:
+			h.startWatcher(ctx, hostId)
+		}
+	}()
+}
+
+func (h *SHostHealthChecker) onHostOffline(ctx context.Context, hostId string) etcd.TEtcdModifyEventFunc {
+	return func(ctx context.Context, key, oldvalue, value []byte) {
+		h.processHostOffline(ctx, hostId)
+	}
+}
+
+func (h *SHostHealthChecker) onHostOfflineDeleted(ctx context.Context, hostId string) etcd.TEtcdDeleteEventFunc {
+	return func(ctx context.Context, key []byte) {
+		h.processHostOffline(ctx, hostId)
 	}
 }
 
