@@ -337,11 +337,26 @@ func (man *SDnsRecordManager) ValidateCreateData(
 	query jsonutils.JSONObject,
 	data *jsonutils.JSONDict,
 ) (*jsonutils.JSONDict, error) {
-	_, err := man.validateModelData(ctx, data, true)
+	var err error
+
+	input := apis.AdminSharableVirtualResourceBaseCreateInput{}
+	err = data.Unmarshal(&input)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal AdminSharableVirtualResourceBaseCreateInput")
+	}
+
+	input, err = man.SAdminSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SAdminSharableVirtualResourceBaseManager.ValidateCreateData")
+	}
+
+	data.Update(jsonutils.Marshal(input))
+
+	_, err = man.validateModelData(ctx, data, true)
 	if err != nil {
 		return nil, err
 	}
-	return man.SAdminSharableVirtualResourceBaseManager.ValidateCreateData(man, data)
+	return man.SAdminSharableVirtualResourceBaseManager.ValidateRecordsData(man, data)
 }
 
 func (man *SDnsRecordManager) QueryDns(projectId, name string) *SDnsRecord {
