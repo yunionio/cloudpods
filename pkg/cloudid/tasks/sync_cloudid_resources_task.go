@@ -18,12 +18,12 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudid/models"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SyncCloudIdResourcesTask struct {
@@ -34,8 +34,8 @@ func init() {
 	taskman.RegisterTask(SyncCloudIdResourcesTask{})
 }
 
-func (self *SyncCloudIdResourcesTask) taskFailed(ctx context.Context, cloudaccount *models.SCloudaccount, err jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, err)
+func (self *SyncCloudIdResourcesTask) taskFailed(ctx context.Context, cloudaccount *models.SCloudaccount, err error) {
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *SyncCloudIdResourcesTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
@@ -43,24 +43,26 @@ func (self *SyncCloudIdResourcesTask) OnInit(ctx context.Context, obj db.IStanda
 
 	provider, err := account.GetProvider()
 	if err != nil {
-		self.taskFailed(ctx, account, jsonutils.NewString(errors.Wrap(err, "GetProvider").Error()))
+		self.taskFailed(ctx, account, errors.Wrap(err, "GetProvider"))
 		return
 	}
 
-	policy, err := provider.GetISystemCloudpolicies()
+	err = account.SyncCustomCloudpoliciesFromCloud(ctx, self.GetUserCred())
 	if err != nil {
-		log.Errorf("GetISystemCloudpolicies for %s(%s) failed: %v", account.Name, account.Provider, err)
-	} else {
-		result := account.SyncCloudpolicies(ctx, self.GetUserCred(), policy)
-		log.Infof("Sync policies for %s(%s) result: %s", account.Name, account.Provider, result.Result())
+		self.taskFailed(ctx, account, errors.Wrapf(err, "SyncCustomCloudpoliciesFromCloud"))
+		return
 	}
 
 	groups, err := provider.GetICloudgroups()
+	if err != nil && (errors.Cause(err) != cloudprovider.ErrNotSupported && errors.Cause(err) != cloudprovider.ErrNotImplemented) {
+		self.taskFailed(ctx, account, errors.Wrapf(err, "GetICloudgroups"))
+		return
+	}
+
+	err = account.SyncCloudgroupcaches(ctx, self.GetUserCred(), groups)
 	if err != nil {
-		log.Errorf("GetICloudgroups for %s(%s) failed: %v", account.Name, account.Provider, err)
-	} else {
-		result := account.SyncCloudgroupcaches(ctx, self.GetUserCred(), groups)
-		log.Infof("Sync groups for %s(%s) result: %s", account.Name, account.Provider, result.Result())
+		self.taskFailed(ctx, account, errors.Wrapf(err, "SyncCloudgroupcaches"))
+		return
 	}
 
 	self.SetStage("OnSyncCloudusersComplete", nil)

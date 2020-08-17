@@ -128,7 +128,7 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 					return nil, err
 				}
 			}
-			for _, code := range []string{"404 Not Found"} {
+			for _, code := range []string{"404 Not Found", "EntityNotExist.Role", "EntityNotExist.Group"} {
 				if strings.Contains(err.Error(), code) {
 					return nil, errors.Wrapf(cloudprovider.ErrNotFound, err.Error())
 				}

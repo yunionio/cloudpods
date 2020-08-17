@@ -25,11 +25,19 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
+type SPermission struct {
+	Actions        []string
+	NotActions     []string
+	DataActions    []string
+	NotDataActions []string
+}
+
 type SRoleProperties struct {
 	RoleName         string
 	Type             string
 	Description      string
 	AssignableScopes []string
+	Permissions      []SPermission
 }
 
 type SCloudpolicy struct {
@@ -49,6 +57,18 @@ func (role *SCloudpolicy) GetGlobalId() string {
 
 func (role *SCloudpolicy) GetDescription() string {
 	return role.Properties.Description
+}
+
+func (role *SCloudpolicy) UpdateDocument(document *jsonutils.JSONDict) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (role *SCloudpolicy) GetDocument() (*jsonutils.JSONDict, error) {
+	return jsonutils.Marshal(role.Properties).(*jsonutils.JSONDict), nil
+}
+
+func (role *SCloudpolicy) Delete() error {
+	return cloudprovider.ErrNotImplemented
 }
 
 func (cli *SAzureClient) GetRoles(name string) ([]SCloudpolicy, error) {
@@ -84,7 +104,7 @@ func (cli *SAzureClient) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, erro
 	return ret, nil
 }
 
-func (cli *SAzureClient) AssignPolicy(objectId, roleName string) error {
+func (cli *SAzureClient) AssignPolicy(objectId, roleName, subscriptionId string) error {
 	roles, err := cli.GetRoles(roleName)
 	if err != nil {
 		return errors.Wrapf(err, "GetRoles(%s)", roleName)
@@ -101,14 +121,21 @@ func (cli *SAzureClient) AssignPolicy(objectId, roleName string) error {
 			"principalId":      objectId,
 		},
 	}
-
-	subscriptionId, err := cli.getDefaultSubscriptionId()
-	if err != nil {
-		return errors.Wrap(err, "getDefaultSubscriptionId")
+	subscriptionIds := []string{subscriptionId}
+	if len(subscriptionId) == 0 {
+		subscriptionIds = []string{}
+		for _, subscription := range cli.subscriptions {
+			subscriptionIds = append(subscriptionIds, subscription.SubscriptionId)
+		}
 	}
-
-	resource := fmt.Sprintf("subscriptions/%s/providers/Microsoft.Authorization/roleAssignments/%s", subscriptionId, stringutils.UUID4())
-	return cli.Put(resource, jsonutils.Marshal(body))
+	for _, subscriptionId := range subscriptionIds {
+		resource := fmt.Sprintf("subscriptions/%s/providers/Microsoft.Authorization/roleAssignments/%s", subscriptionId, stringutils.UUID4())
+		err = cli.Put(resource, jsonutils.Marshal(body))
+		if err != nil {
+			return errors.Wrapf(err, "AssignPolicy %s for subscription %s", roleName, subscriptionId)
+		}
+	}
+	return nil
 }
 
 type SAssignmentProperties struct {

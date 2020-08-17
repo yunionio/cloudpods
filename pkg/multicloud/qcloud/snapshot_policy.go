@@ -30,7 +30,7 @@ const (
 	UNKOWN = "ISOLATED"
 )
 
-type SPolicy struct {
+type SSnapshotDatePolicy struct {
 	DayOfWeek []int
 	Hour      []int
 }
@@ -42,7 +42,7 @@ type SSnapshotPolicy struct {
 	AutoSnapshotPolicyId    string
 	AutoSnapshotPolicyState string
 	RetentionDays           int
-	Policy                  []SPolicy
+	Policy                  []SSnapshotDatePolicy
 	Activated               bool `json:"IsActivated"`
 	IsPermanent             bool
 }

@@ -36,10 +36,10 @@ func init() {
 	taskman.RegisterTask(CloudgroupcacheDeleteTask{})
 }
 
-func (self *CloudgroupcacheDeleteTask) taskFailed(ctx context.Context, cache *models.SCloudgroupcache, err jsonutils.JSONObject) {
-	cache.SetStatus(self.GetUserCred(), api.CLOUD_GROUP_STATUS_DELETE_FAILED, err.String())
+func (self *CloudgroupcacheDeleteTask) taskFailed(ctx context.Context, cache *models.SCloudgroupcache, err error) {
+	cache.SetStatus(self.GetUserCred(), api.CLOUD_GROUP_STATUS_DELETE_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, cache, logclient.ACT_DELETE, err, self.UserCred, false)
-	self.SetStageFailed(ctx, err)
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *CloudgroupcacheDeleteTask) taskComplete(ctx context.Context, cache *models.SCloudgroupcache) {
@@ -60,12 +60,12 @@ func (self *CloudgroupcacheDeleteTask) OnInit(ctx context.Context, obj db.IStand
 			self.taskComplete(ctx, cache)
 			return
 		}
-		self.taskFailed(ctx, cache, jsonutils.NewString(errors.Wrap(err, "GetICloudgroup").Error()))
+		self.taskFailed(ctx, cache, errors.Wrap(err, "GetICloudgroup"))
 		return
 	}
 	err = iGroup.Delete()
 	if err != nil {
-		self.taskFailed(ctx, cache, jsonutils.NewString(errors.Wrap(err, "iGroup.Delete").Error()))
+		self.taskFailed(ctx, cache, errors.Wrap(err, "iGroup.Delete"))
 		return
 	}
 	self.taskComplete(ctx, cache)

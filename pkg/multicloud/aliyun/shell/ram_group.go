@@ -35,12 +35,12 @@ func init() {
 	})
 
 	type CloudgroupListOptions struct {
-		Marker   string
-		MaxItems int
+		Offset string
+		Limit  int
 	}
 
 	shellutils.R(&CloudgroupListOptions{}, "cloud-group-list", "List Cloud groups", func(cli *aliyun.SRegion, args *CloudgroupListOptions) error {
-		groups, err := cli.GetClient().GetCloudgroups(args.Marker, args.MaxItems)
+		groups, err := cli.GetClient().ListGroups(args.Offset, args.Limit)
 		if err != nil {
 			return err
 		}
@@ -57,12 +57,12 @@ func init() {
 	})
 
 	type GroupExtListOptions struct {
-		GROUP    string
-		Marker   string
-		MaxItems int
+		GROUP  string
+		Offset string
+		Limit  int
 	}
 	shellutils.R(&GroupExtListOptions{}, "cloud-group-user-list", "List Cloud group users", func(cli *aliyun.SRegion, args *GroupExtListOptions) error {
-		users, err := cli.GetClient().ListGroupUsers(args.GROUP, args.Marker, args.MaxItems)
+		users, err := cli.GetClient().ListUsersForGroup(args.GROUP, args.Offset, args.Limit)
 		if err != nil {
 			return err
 		}
@@ -84,7 +84,7 @@ func init() {
 	})
 
 	shellutils.R(&GroupExtListOptions{}, "cloud-group-policy-list", "List Cloud group policies", func(cli *aliyun.SRegion, args *GroupExtListOptions) error {
-		policies, err := cli.GetClient().ListGroupPolicies(args.GROUP)
+		policies, err := cli.GetClient().ListPoliciesForGroup(args.GROUP)
 		if err != nil {
 			return err
 		}
@@ -99,11 +99,11 @@ func init() {
 	}
 
 	shellutils.R(&GroupPolicyOptions{}, "cloud-group-attach-policy", "Attach policy for group", func(cli *aliyun.SRegion, args *GroupPolicyOptions) error {
-		return cli.GetClient().AttachGroupPolicy(args.GROUP, args.POLICY, args.PolicyType)
+		return cli.GetClient().AttachPolicyToGroup(args.PolicyType, args.POLICY, args.GROUP)
 	})
 
 	shellutils.R(&GroupPolicyOptions{}, "cloud-group-detach-policy", "Detach policy from group", func(cli *aliyun.SRegion, args *GroupPolicyOptions) error {
-		return cli.GetClient().DetachPolicyFromGroup(args.GROUP, args.POLICY, args.PolicyType)
+		return cli.GetClient().DetachPolicyFromGroup(args.PolicyType, args.POLICY, args.GROUP)
 	})
 
 }

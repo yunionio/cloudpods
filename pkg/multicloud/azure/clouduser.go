@@ -97,13 +97,41 @@ func (user *SClouduser) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy,
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range policies {
-		ret = append(ret, &policies[i])
+		if policies[i].Properties.Type == "BuiltInRole" {
+			ret = append(ret, &policies[i])
+		}
+	}
+	return ret, nil
+}
+
+func (user *SClouduser) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	policies, err := user.client.GetCloudpolicies(user.ObjectId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetCloudpolicies(%s)", user.ObjectId)
+	}
+	ret := []cloudprovider.ICloudpolicy{}
+	for i := range policies {
+		if policies[i].Properties.Type != "BuiltInRole" {
+			ret = append(ret, &policies[i])
+		}
 	}
 	return ret, nil
 }
 
 func (user *SClouduser) AttachSystemPolicy(policyId string) error {
-	return user.client.AssignPolicy(user.ObjectId, policyId)
+	subscriptionId, err := user.client.getDefaultSubscriptionId()
+	if err != nil {
+		return errors.Wrapf(err, "getDefaultSubscriptionId")
+	}
+	return user.client.AssignPolicy(user.ObjectId, policyId, subscriptionId)
+}
+
+func (user *SClouduser) AttachCustomPolicy(policyId string) error {
+	subscriptionId, err := user.client.getDefaultSubscriptionId()
+	if err != nil {
+		return errors.Wrapf(err, "getDefaultSubscriptionId")
+	}
+	return user.client.AssignPolicy(user.ObjectId, policyId, subscriptionId)
 }
 
 func (user *SClouduser) DetachSystemPolicy(policyId string) error {
@@ -121,6 +149,10 @@ func (user *SClouduser) DetachSystemPolicy(policyId string) error {
 		}
 	}
 	return nil
+}
+
+func (user *SClouduser) DetachCustomPolicy(policyId string) error {
+	return user.DetachSystemPolicy(policyId)
 }
 
 func (user *SClouduser) IsConsoleLogin() bool {

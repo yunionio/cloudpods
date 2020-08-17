@@ -53,7 +53,7 @@ func (self *SQcloudProviderFactory) GetMaxCloudEventKeepDays() int {
 	return 30
 }
 
-func (self *SQcloudProviderFactory) IsSupportClouduser() bool {
+func (self *SQcloudProviderFactory) IsSupportCloudIdService() bool {
 	return true
 }
 
@@ -254,6 +254,14 @@ func (self *SQcloudProvider) GetISystemCloudpolicies() ([]cloudprovider.ICloudpo
 	return self.client.GetISystemCloudpolicies()
 }
 
+func (self *SQcloudProvider) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	return self.client.GetICustomCloudpolicies()
+}
+
 func (self *SQcloudProvider) GetIClouduserByName(name string) (cloudprovider.IClouduser, error) {
 	return self.client.GetIClouduserByName(name)
+}
+
+func (self *SQcloudProvider) CreateICloudpolicy(opts *cloudprovider.SCloudpolicyCreateOptions) (cloudprovider.ICloudpolicy, error) {
+	return self.client.CreateICloudpolicy(opts)
 }

@@ -17,11 +17,13 @@ package cloudid
 import "yunion.io/x/onecloud/pkg/apis"
 
 const (
-	CLOUD_GROUP_STATUS_AVAILABLE     = "available"     // 可用
-	CLOUD_GROUP_STATUS_DELETING      = "deleting"      // 删除中
-	CLOUD_GROUP_STATUS_DELETE_FAILED = "delete_failed" // 删除失败
-	CLOUD_GROUP_STATUS_SYNC_POLICIES = "sync_policies" // 同步权限中
-	CLOUD_GROUP_STATUS_SYNC_USERS    = "sync_users"    // 同步用户中
+	CLOUD_GROUP_STATUS_AVAILABLE            = "available"            // 可用
+	CLOUD_GROUP_STATUS_DELETING             = "deleting"             // 删除中
+	CLOUD_GROUP_STATUS_DELETE_FAILED        = "delete_failed"        // 删除失败
+	CLOUD_GROUP_STATUS_SYNC_POLICIES        = "sync_policies"        // 同步权限中
+	CLOUD_GROUP_STATUS_SYNC_POLICIES_FAILED = "sync_policies_failed" // 同步权限失败
+	CLOUD_GROUP_STATUS_SYNC_USERS           = "sync_users"           // 同步用户中
+	CLOUD_GROUP_STATUS_SYNC_USERS_FAILED    = "sync_users_failed"    // 同步用户失败
 )
 
 type CloudgroupJointResourceDetails struct {

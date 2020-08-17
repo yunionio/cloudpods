@@ -33,12 +33,13 @@ func init() {
 	})
 
 	type CloudpolicyAssignOption struct {
-		OBJECT string
-		ROLE   string
+		OBJECT         string
+		ROLE           string
+		SubscriptionId string
 	}
 
 	shellutils.R(&CloudpolicyAssignOption{}, "cloud-policy-assign-object", "Assign cloudpolicy for object", func(cli *azure.SRegion, args *CloudpolicyAssignOption) error {
-		return cli.GetClient().AssignPolicy(args.OBJECT, args.ROLE)
+		return cli.GetClient().AssignPolicy(args.OBJECT, args.ROLE, args.SubscriptionId)
 	})
 
 	type AssignmentListOption struct {

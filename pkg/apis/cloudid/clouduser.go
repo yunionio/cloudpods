@@ -38,26 +38,11 @@ type ClouduserCreateInput struct {
 	apis.StatusDomainLevelUserResourceCreateInput
 	apis.StatusBaseResourceCreateInput
 
-	// 云订阅ID
-	//
-	// | 云平台   | 说明                                        |
-	// |----------|---------------------------------------------|
-	// | Google   | 必填                                        |
-	// | Aliyun   | 为空										|
-	// | Huawei   | 为空                                        |
-	// | Azure    | 为空                                        |
-	// | 腾讯云   | 为空                                        |
+	// 云订阅ID, 若此参数为空, 则cloudpolicy_ids的权限会绑定到此账号的所有订阅, 若不为空则cloudpolicy_ids仅绑定的指定的订阅
+	// 此参数仅对Google,Azure生效
 	CloudproviderId string `json:"cloudprovider_id"`
 	// 云账号ID
 	// Azure云账号需要有User administrator权限，否则删操作会出现Insufficient privileges to complete the operation错误信息
-	//
-	// | 云平台   | 说明                                        |
-	// |----------|---------------------------------------------|
-	// | Google   | 为空                                        |
-	// | Aliyun   | 必填										|
-	// | Huawei   | 必填                                        |
-	// | Azure    | 必填										|
-	// | 腾讯云   | 必填                                        |
 	CloudaccountId string `json:"cloudaccount_id"`
 
 	// 用户密码, 若is_console_login = true时, 此参数不传时会生成12位随机密码
@@ -103,13 +88,24 @@ type ClouduserListInput struct {
 	apis.StatusDomainLevelUserResourceListInput
 
 	CloudaccountResourceListInput
-	CloudproviderResourceListInput
 
 	// 过滤绑定权限的子账号
 	CloudpolicyId string `json:"cloudpolicy_id"`
 
 	// 过滤属于指定权限组的子账号
 	CloudgroupId string `json:"cloudgroup_id"`
+}
+
+type ClouduserpolicyDetails struct {
+	// 权限Id
+	Id string `json:"id"`
+	// 权限名称
+	Name string `json:"name"`
+
+	// 子订阅Id
+	CloudproviderId string `json:"cloudprovider_id"`
+	// 子订阅名称
+	Manager string `json:"manager"`
 }
 
 type ClouduserDetails struct {
@@ -125,8 +121,8 @@ type ClouduserDetails struct {
 	// 权限组数量
 	CloudgroupCount int `json:"cloudgroup_count"`
 
-	Cloudgroups   []SCloudIdBaseResource `json:"cloudgroups"`
-	Cloudpolicies []SCloudIdBaseResource `json:"cloudpolicies"`
+	Cloudgroups   []SCloudIdBaseResource   `json:"cloudgroups"`
+	Cloudpolicies []ClouduserpolicyDetails `json:"cloudpolicies"`
 }
 
 type ClouduserJointResourceDetails struct {
@@ -177,6 +173,8 @@ type ClouduserResourceDetails struct {
 }
 
 type ClouduserAttachPolicyInput struct {
+	// 订阅Id, 向云账号赋予某个订阅的权限, 目前仅Google,Azure平台此参数生效
+	CloudproviderId string `json:"cloudprovider_id"`
 
 	// 权限Id
 	//
@@ -185,12 +183,15 @@ type ClouduserAttachPolicyInput struct {
 	// | Google   | 支持                                        |
 	// | Aliyun   | 支持										|
 	// | Huawei   | 不支持                                      |
-	// | Azure    | 不支持                                      |
+	// | Azure    | 支持                                        |
 	// | 腾讯云   | 支持                                        |
 	CloudpolicyId string `json:"cloudpolicy_id"`
 }
 
 type ClouduserSetPoliciesInput struct {
+	// 订阅Id, 设置云账号赋予某个订阅的权限, 目前仅Google,Azure平台此参数生效
+	CloudproviderId string `json:"cloudprovider_id"`
+
 	// 权限Ids
 	CloudpolicyIds []string `json:"cloudpolicy_ids"`
 }
@@ -212,7 +213,8 @@ type ClouduserLeaveGroupInput struct {
 }
 
 type ClouduserDetachPolicyInput struct {
-
+	// 订阅Id, 解绑云账号赋予某个订阅的权限, 目前仅Google,Azure平台此参数生效
+	CloudproviderId string `json:"cloudprovider_id"`
 	// 权限Id
 	//
 	// | 云平台   | 说明                                        |

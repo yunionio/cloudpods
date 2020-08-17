@@ -22,11 +22,11 @@ import (
 func init() {
 	type CloudgroupListOptions struct {
 		Keyword string
-		Page    int
-		Rp      int
+		Offset  int
+		Limit   int
 	}
 	shellutils.R(&CloudgroupListOptions{}, "cloud-group-list", "List cloudgroups", func(cli *qcloud.SRegion, args *CloudgroupListOptions) error {
-		groups, _, err := cli.GetClient().ListGroups(args.Keyword, args.Page, args.Rp)
+		groups, _, err := cli.GetClient().ListGroups(args.Keyword, args.Offset, args.Limit)
 		if err != nil {
 			return err
 		}
@@ -67,11 +67,11 @@ func init() {
 
 	type CloudgroupUserListOptions struct {
 		GROUPID int
-		Page    int
-		Rp      int
+		Offset  int
+		Limit   int
 	}
 	shellutils.R(&CloudgroupUserListOptions{}, "cloud-group-user-list", "List cloudgroup users", func(cli *qcloud.SRegion, args *CloudgroupUserListOptions) error {
-		users, _, err := cli.GetClient().ListGroupUsers(args.GROUPID, args.Page, args.Rp)
+		users, _, err := cli.GetClient().ListGroupUsers(args.GROUPID, args.Offset, args.Limit)
 		if err != nil {
 			return err
 		}

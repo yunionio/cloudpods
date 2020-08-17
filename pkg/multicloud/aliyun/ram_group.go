@@ -24,7 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
-type SCloudgroup struct {
+type SGroup struct {
 	client *SAliyunClient
 
 	Comments    string
@@ -33,135 +33,153 @@ type SCloudgroup struct {
 	UpdateDate  time.Time
 }
 
-func (group *SCloudgroup) GetName() string {
-	return group.GroupName
+type sGroups struct {
+	Group []SGroup
 }
 
-func (group *SCloudgroup) GetDescription() string {
-	return group.Comments
+type SGroups struct {
+	Groups      sGroups
+	Marker      string
+	IsTruncated bool
 }
 
-func (group *SCloudgroup) GetGlobalId() string {
-	return group.GroupName
+func (self *SGroup) GetName() string {
+	return self.GroupName
 }
 
-func (group *SCloudgroup) AddUser(name string) error {
-	return group.client.AddUserToGroup(group.GroupName, name)
+func (self *SGroup) GetGlobalId() string {
+	return self.GroupName
 }
 
-func (group *SCloudgroup) RemoveUser(name string) error {
-	return group.client.RemoveUserFromGroup(group.GroupName, name)
+func (self *SGroup) GetDescription() string {
+	return self.Comments
 }
 
-func (group *SCloudgroup) AttachSystemPolicy(policyName string) error {
-	return group.client.AttachGroupPolicy(group.GroupName, policyName, "System")
-}
-
-func (group *SCloudgroup) DetachSystemPolicy(policyName string) error {
-	return group.client.DetachPolicyFromGroup(group.GroupName, policyName, "System")
-}
-
-func (group *SCloudgroup) Delete() error {
-	users, err := group.GetICloudusers()
-	if err != nil {
-		return errors.Wrap(err, "GetICloudusers")
-	}
-	for i := range users {
-		err = group.client.RemoveUserFromGroup(group.GroupName, users[i].GetName())
-		if err != nil {
-			return errors.Wrapf(err, "RemoveUserFromGroup(%s)", users[i].GetName())
-		}
-	}
-	policies, err := group.client.ListGroupPolicies(group.GroupName)
-	if err != nil {
-		return errors.Wrap(err, "GetICloudpolicies")
-	}
-	for i := range policies {
-		err = group.client.DetachPolicyFromGroup(group.GroupName, policies[i].GetName(), policies[i].PolicyType)
-		if err != nil {
-			return errors.Wrapf(err, "DetachPolicyFromGroup(%s)", policies[i].GetName())
-		}
-	}
-	return group.client.DeleteGroup(group.GroupName)
-}
-
-func (group *SCloudgroup) GetICloudusers() ([]cloudprovider.IClouduser, error) {
-	users := []SClouduser{}
-	marker := ""
+func (self *SGroup) GetICloudusers() ([]cloudprovider.IClouduser, error) {
+	ret := []cloudprovider.IClouduser{}
+	offset := ""
 	for {
-		part, err := group.client.ListGroupUsers(group.GroupName, marker, 100)
+		part, err := self.client.ListUsersForGroup(self.GroupName, offset, 1000)
 		if err != nil {
-			return nil, errors.Wrap(err, "ListGroupUsers")
+			return nil, errors.Wrapf(err, "ListUsersForGroup")
 		}
-		users = append(users, part.Users.User...)
-		marker = part.Marker
-		if len(marker) == 0 {
+		for i := range part.Users.User {
+			part.Users.User[i].client = self.client
+			ret = append(ret, &part.Users.User[i])
+		}
+		offset = part.Marker
+		if len(offset) == 0 || !part.IsTruncated {
 			break
 		}
-	}
-	ret := []cloudprovider.IClouduser{}
-	for i := range users {
-		users[i].client = group.client
-		ret = append(ret, &users[i])
 	}
 	return ret, nil
 }
 
-func (group *SCloudgroup) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	policies, err := group.client.ListGroupPolicies(group.GroupName)
+func (self *SGroup) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	policies, err := self.client.ListPoliciesForGroup(self.GroupName)
 	if err != nil {
-		return nil, errors.Wrap(err, "ListGroupPolicie")
+		return nil, errors.Wrapf(err, "ListPoliciesForGroup")
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range policies {
-		if policies[i].PolicyType == "System" {
+		if policies[i].PolicyType == POLICY_TYPE_SYSTEM {
+			policies[i].client = self.client
 			ret = append(ret, &policies[i])
 		}
 	}
 	return ret, nil
 }
 
-type Cloudgroups struct {
-	Group []SCloudgroup
-}
-
-type SCloudgroups struct {
-	Groups      Cloudgroups
-	Marker      string
-	IsTruncated bool
-}
-
-func (self *SAliyunClient) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
-	groups := []SCloudgroup{}
-	marker := ""
-	for {
-		part, err := self.GetCloudgroups(marker, 100)
-		if err != nil {
-			return nil, errors.Wrap(err, "GetCloudgroups")
-		}
-		groups = append(groups, part.Groups.Group...)
-		marker = part.Marker
-		if len(marker) == 0 {
-			break
-		}
+func (self *SGroup) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	policies, err := self.client.ListPoliciesForGroup(self.GroupName)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ListPoliciesForGroup")
 	}
-	ret := []cloudprovider.ICloudgroup{}
-	for i := range groups {
-		groups[i].client = self
-		ret = append(ret, &groups[i])
+	ret := []cloudprovider.ICloudpolicy{}
+	for i := range policies {
+		if policies[i].PolicyType == POLICY_TYPE_CUSTOM {
+			policies[i].client = self.client
+			ret = append(ret, &policies[i])
+		}
 	}
 	return ret, nil
 }
 
-func (self *SAliyunClient) GetCloudgroups(marker string, maxItems int) (*SCloudgroups, error) {
-	params := map[string]string{}
-	if len(marker) > 0 {
-		params["Marker"] = marker
+func (self *SGroup) AddUser(name string) error {
+	return self.client.AddUserToGroup(self.GroupName, name)
+}
+
+func (self *SGroup) RemoveUser(name string) error {
+	return self.client.RemoveUserFromGroup(self.GroupName, name)
+}
+
+func (self *SGroup) AttachSystemPolicy(policyName string) error {
+	return self.client.AttachPolicyToGroup(POLICY_TYPE_SYSTEM, policyName, self.GroupName)
+}
+
+func (self *SGroup) AttachCustomPolicy(policyName string) error {
+	return self.client.AttachPolicyToGroup(POLICY_TYPE_CUSTOM, policyName, self.GroupName)
+}
+
+func (self *SGroup) DetachSystemPolicy(policyName string) error {
+	return self.client.DetachPolicyFromGroup(POLICY_TYPE_SYSTEM, policyName, self.GroupName)
+}
+
+func (self *SGroup) DetachCustomPolicy(policyName string) error {
+	return self.client.DetachPolicyFromGroup(POLICY_TYPE_CUSTOM, policyName, self.GroupName)
+}
+
+func (self *SGroup) Delete() error {
+	return self.client.DeleteGroup(self.GroupName)
+}
+
+func (self *SAliyunClient) GetICloudgroupByName(name string) (cloudprovider.ICloudgroup, error) {
+	group, err := self.GetGroup(name)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetGroup(%s)", name)
 	}
-	if maxItems > 0 {
-		params["MaxItems"] = fmt.Sprintf("%d", maxItems)
+	return group, nil
+}
+
+func (self *SAliyunClient) CreateICloudgroup(name string, desc string) (cloudprovider.ICloudgroup, error) {
+	group, err := self.CreateGroup(name, desc)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateGroup")
 	}
-	groups := SCloudgroups{}
+	return group, nil
+}
+
+func (self *SAliyunClient) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
+	ret := []cloudprovider.ICloudgroup{}
+	offset := ""
+	for {
+		part, err := self.ListGroups(offset, 100)
+		if err != nil {
+			return nil, errors.Wrap(err, "ListGroups")
+		}
+		for i := range part.Groups.Group {
+			part.Groups.Group[i].client = self
+			ret = append(ret, &part.Groups.Group[i])
+		}
+		offset = part.Marker
+		if len(offset) == 0 || !part.IsTruncated {
+			break
+		}
+	}
+	return ret, nil
+}
+
+func (self *SAliyunClient) ListGroups(offset string, limit int) (*SGroups, error) {
+	if limit < 1 || limit > 1000 {
+		limit = 1000
+	}
+	params := map[string]string{
+		"MaxItems": fmt.Sprintf("%d", limit),
+	}
+	if len(offset) > 0 {
+		params["Marker"] = offset
+	}
+	groups := SGroups{}
 	resp, err := self.ramRequest("ListGroups", params)
 	if err != nil {
 		return nil, errors.Wrap(err, "ramRequest.ListGroups")
@@ -174,7 +192,7 @@ func (self *SAliyunClient) GetCloudgroups(marker string, maxItems int) (*SCloudg
 }
 
 // https://help.aliyun.com/document_detail/28732.html?spm=a2c4g.11186623.6.777.580735b2m2xUh8
-func (self *SAliyunClient) ListGroupPolicies(groupName string) ([]SPolicy, error) {
+func (self *SAliyunClient) ListPoliciesForGroup(groupName string) ([]SPolicy, error) {
 	params := map[string]string{
 		"GroupName": groupName,
 	}
@@ -190,31 +208,22 @@ func (self *SAliyunClient) ListGroupPolicies(groupName string) ([]SPolicy, error
 	return policies, nil
 }
 
-type Cloudusers struct {
-	User []SClouduser
-}
-
-type SCloudusers struct {
-	Users       Cloudusers
-	Marker      string
-	IsTruncated bool
-}
-
-func (self *SAliyunClient) ListGroupUsers(groupName string, marker string, maxItems int) (*SCloudusers, error) {
+func (self *SAliyunClient) ListUsersForGroup(groupName string, offset string, limit int) (*SUsers, error) {
+	if limit < 1 || limit > 1000 {
+		limit = 1000
+	}
 	params := map[string]string{
 		"GroupName": groupName,
+		"MaxItems":  fmt.Sprintf("%d", limit),
 	}
-	if len(marker) > 0 {
-		params["Marker"] = marker
-	}
-	if maxItems > 0 {
-		params["MaxItems"] = fmt.Sprintf("%d", maxItems)
+	if len(offset) > 0 {
+		params["Marker"] = offset
 	}
 	resp, err := self.ramRequest("ListUsersForGroup", params)
 	if err != nil {
 		return nil, errors.Wrap(err, "ramRequest.ListUserForGroup")
 	}
-	users := &SCloudusers{}
+	users := &SUsers{}
 	err = resp.Unmarshal(users)
 	if err != nil {
 		return nil, errors.Wrap(err, "resp.Unmarshal")
@@ -230,7 +239,7 @@ func (self *SAliyunClient) DeleteGroup(groupName string) error {
 	return err
 }
 
-func (self *SAliyunClient) CreateGroup(groupName, comments string) (*SCloudgroup, error) {
+func (self *SAliyunClient) CreateGroup(groupName, comments string) (*SGroup, error) {
 	params := map[string]string{
 		"GroupName": groupName,
 	}
@@ -241,7 +250,7 @@ func (self *SAliyunClient) CreateGroup(groupName, comments string) (*SCloudgroup
 	if err != nil {
 		return nil, errors.Wrap(err, "ramRequest.CreateGroup")
 	}
-	group := &SCloudgroup{client: self}
+	group := &SGroup{client: self}
 	err = resp.Unmarshal(group, "Group")
 	if err != nil {
 		return nil, errors.Wrap(err, "resp.Unmarshal")
@@ -249,7 +258,7 @@ func (self *SAliyunClient) CreateGroup(groupName, comments string) (*SCloudgroup
 	return group, nil
 }
 
-func (self *SAliyunClient) GetGroup(groupName string) (*SCloudgroup, error) {
+func (self *SAliyunClient) GetGroup(groupName string) (*SGroup, error) {
 	params := map[string]string{
 		"GroupName": groupName,
 	}
@@ -257,16 +266,12 @@ func (self *SAliyunClient) GetGroup(groupName string) (*SCloudgroup, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "GetGroup")
 	}
-	group := &SCloudgroup{client: self}
+	group := &SGroup{client: self}
 	err = resp.Unmarshal(group, "Group")
 	if err != nil {
 		return nil, errors.Wrap(err, "resp.Unmarshal")
 	}
 	return group, nil
-}
-
-func (self *SAliyunClient) GetICloudgroupByName(name string) (cloudprovider.ICloudgroup, error) {
-	return self.GetGroup(name)
 }
 
 func (self *SAliyunClient) RemoveUserFromGroup(groupName, userName string) error {
@@ -281,7 +286,7 @@ func (self *SAliyunClient) RemoveUserFromGroup(groupName, userName string) error
 	return nil
 }
 
-func (self *SAliyunClient) DetachPolicyFromGroup(groupName, policyName, policyType string) error {
+func (self *SAliyunClient) DetachPolicyFromGroup(policyType, policyName, groupName string) error {
 	params := map[string]string{
 		"GroupName":  groupName,
 		"PolicyName": policyName,
@@ -292,10 +297,6 @@ func (self *SAliyunClient) DetachPolicyFromGroup(groupName, policyName, policyTy
 		return errors.Wrap(err, "DetachPolicyFromGroup")
 	}
 	return nil
-}
-
-func (self *SAliyunClient) CreateICloudgroup(name string, desc string) (cloudprovider.ICloudgroup, error) {
-	return self.CreateGroup(name, desc)
 }
 
 func (self *SAliyunClient) AddUserToGroup(groupName, userName string) error {
@@ -310,7 +311,7 @@ func (self *SAliyunClient) AddUserToGroup(groupName, userName string) error {
 	return nil
 }
 
-func (self *SAliyunClient) AttachGroupPolicy(groupName, policyName, policyType string) error {
+func (self *SAliyunClient) AttachPolicyToGroup(policyType, policyName, groupName string) error {
 	params := map[string]string{
 		"GroupName":  groupName,
 		"PolicyName": policyName,

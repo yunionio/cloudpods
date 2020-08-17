@@ -175,7 +175,7 @@ func (manager *SCloudgroupManager) ValidateCreateData(ctx context.Context, userC
 	if err != nil {
 		return input, errors.Wrap(err, "cloudprovider.GetProviderFactory")
 	}
-	if !factory.IsSupportClouduser() {
+	if !factory.IsSupportCloudIdService() {
 		return input, httperrors.NewUnsupportOperationError("Unsupport cloudgroup for %s", input.Provider)
 	}
 	for _, cloudpolicyId := range input.CloudpolicyIds {
@@ -310,6 +310,26 @@ func (self *SCloudgroup) GetCloudgroupcaches() ([]SCloudgroupcache, error) {
 func (self *SCloudgroup) GetCloudpolicies() ([]SCloudpolicy, error) {
 	policies := []SCloudpolicy{}
 	q := self.GetCloudpolicyQuery()
+	err := db.FetchModelObjects(CloudpolicyManager, q, &policies)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
+	}
+	return policies, nil
+}
+
+func (self *SCloudgroup) GetSystemCloudpolicies() ([]SCloudpolicy, error) {
+	policies := []SCloudpolicy{}
+	q := self.GetCloudpolicyQuery().Equals("policy_type", api.CLOUD_POLICY_TYPE_SYSTEM)
+	err := db.FetchModelObjects(CloudpolicyManager, q, &policies)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
+	}
+	return policies, nil
+}
+
+func (self *SCloudgroup) GetCustomCloudpolicies() ([]SCloudpolicy, error) {
+	policies := []SCloudpolicy{}
+	q := self.GetCloudpolicyQuery().Equals("policy_type", api.CLOUD_POLICY_TYPE_CUSTOM)
 	err := db.FetchModelObjects(CloudpolicyManager, q, &policies)
 	if err != nil {
 		return nil, errors.Wrap(err, "db.FetchModelObjects")
@@ -459,7 +479,7 @@ func (self *SCloudgroup) AllowPerformSyncstatus(ctx context.Context, userCred mc
 	return db.IsDomainAllowPerform(userCred, self, "syncstatus")
 }
 
-// 同步权限组状态
+// 恢复权限组状态
 func (self *SCloudgroup) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudgroupSyncstatusInput) (jsonutils.JSONObject, error) {
 	self.SetStatus(userCred, api.CLOUD_USER_STATUS_AVAILABLE, "syncstatus")
 	return nil, nil
@@ -618,6 +638,10 @@ func (self *SCloudgroup) PerformSetPolicies(ctx context.Context, userCred mcclie
 			return nil, httperrors.NewGeneralError(err)
 		}
 		policy := _policy.(*SCloudpolicy)
+		err = policy.ValidateUse()
+		if err != nil {
+			return nil, err
+		}
 		if policy.Provider != self.Provider {
 			return nil, httperrors.NewConflictError("policy %s(%s) and group not with same provider", policy.Name, policy.Id)
 		}
@@ -685,6 +709,10 @@ func (self *SCloudgroup) PerformAttachPolicy(ctx context.Context, userCred mccli
 		return nil, httperrors.NewGeneralError(err)
 	}
 	policy := _policy.(*SCloudpolicy)
+	err = policy.ValidateUse()
+	if err != nil {
+		return nil, err
+	}
 	if policy.Provider != self.Provider {
 		return nil, httperrors.NewDuplicateResourceError("group and policy not with same provider")
 	}
@@ -747,8 +775,8 @@ func (self *SCloudgroup) attachPolicy(policyId string) error {
 	return CloudgroupPolicyManager.TableSpec().Insert(context.Background(), gp)
 }
 
-func (self *SCloudgroup) IsEqual(iPolicies []cloudprovider.ICloudpolicy) (bool, error) {
-	dbPolicies, err := self.GetCloudpolicies()
+func (self *SCloudgroup) IsEqual(system, custom []cloudprovider.ICloudpolicy) (bool, error) {
+	dbSystem, err := self.GetSystemCloudpolicies()
 	if err != nil {
 		return false, errors.Wrap(err, "GetCloudpolicies")
 	}
@@ -757,30 +785,31 @@ func (self *SCloudgroup) IsEqual(iPolicies []cloudprovider.ICloudpolicy) (bool, 
 	commondb := make([]SCloudpolicy, 0)
 	commonext := make([]cloudprovider.ICloudpolicy, 0)
 	added := make([]cloudprovider.ICloudpolicy, 0)
-	err = compare.CompareSets(dbPolicies, iPolicies, &removed, &commondb, &commonext, &added)
+	err = compare.CompareSets(dbSystem, system, &removed, &commondb, &commonext, &added)
 	if err != nil {
 		return false, errors.Wrap(err, "CompareSets")
 	}
-	return len(removed)+len(added) == 0, nil
-}
-
-func (self *SCloudgroup) attachPolicyFromCloudpolicy(ctx context.Context, userCred mcclient.TokenCredential, iPolicy cloudprovider.ICloudpolicy) error {
-	up := &SCloudgroupPolicy{}
-	up.SetModelManager(CloudgroupPolicyManager, up)
-	up.CloudgroupId = self.Id
-	p, err := db.FetchByExternalIdAndManagerId(CloudpolicyManager, iPolicy.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-		return q.Equals("provider", self.Provider)
-	})
-	if err != nil {
-		return errors.Wrapf(err, "db.FetchByExternalIdAndManagerId(%s)", iPolicy.GetGlobalId())
+	if len(removed)+len(added) != 0 {
+		return false, nil
 	}
-	_, err = self.GetCloudpolicy(p.GetId())
+	dbCustom, err := self.GetCustomCloudpolicies()
 	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
-			up.CloudpolicyId = p.GetId()
-			return CloudgroupPolicyManager.TableSpec().Insert(ctx, up)
-		}
-		return errors.Wrapf(err, "GetCloudpolicy(%s)", p.GetId())
+		return false, errors.Wrapf(err, "GetCustomCloudpolicies")
 	}
-	return nil
+	if len(custom) != len(dbCustom) {
+		return false, nil
+	}
+	local := set.New(set.ThreadSafe)
+	for _, l := range dbCustom {
+		local.Add(l.Document)
+	}
+	remote := set.New(set.ThreadSafe)
+	for _, r := range custom {
+		doc, _ := r.GetDocument()
+		remote.Add(doc)
+	}
+	if local.IsEqual(remote) {
+		return true, nil
+	}
+	return false, nil
 }

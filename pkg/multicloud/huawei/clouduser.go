@@ -55,11 +55,23 @@ func (user *SClouduser) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy,
 	return []cloudprovider.ICloudpolicy{}, nil
 }
 
+func (user *SClouduser) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	return []cloudprovider.ICloudpolicy{}, nil
+}
+
 func (user *SClouduser) AttachSystemPolicy(policyType string) error {
 	return cloudprovider.ErrNotSupported
 }
 
+func (user *SClouduser) AttachCustomPolicy(policyType string) error {
+	return cloudprovider.ErrNotSupported
+}
+
 func (user *SClouduser) DetachSystemPolicy(policyId string) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (user *SClouduser) DetachCustomPolicy(policyId string) error {
 	return cloudprovider.ErrNotSupported
 }
 

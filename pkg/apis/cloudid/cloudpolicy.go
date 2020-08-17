@@ -14,17 +14,25 @@
 
 package cloudid
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 const (
-	CLOUD_POLICY_STATUS_AVAILABLE = "available"
+	CLOUD_POLICY_STATUS_AVAILABLE     = "available"
+	CLOUD_POLICY_STATUS_SYNCING       = "syncing"
+	CLOUD_POLICY_STATUS_SYNC_FAILE    = "sync_failed"
+	CLOUD_POLICY_STATUS_DELETING      = "deleting"
+	CLOUD_POLICY_STATUS_DELETE_FAILED = "delete_failed"
 
 	CLOUD_POLICY_TYPE_SYSTEM = "system"
 	CLOUD_POLICY_TYPE_CUSTOM = "custom"
 )
 
 type CloudpolicyListInput struct {
-	apis.StatusStandaloneResourceListInput
+	apis.StatusInfrasResourceBaseListInput
 
 	// 根据平台过滤
 	Provider []string `json:"provider"`
@@ -34,21 +42,33 @@ type CloudpolicyListInput struct {
 
 	// 根据权限组过滤权限
 	CloudgroupId string `json:"cloudgroup_id"`
+
+	// 根据订阅过滤权限
+	CloudproviderId string `json:"cloudprovider_id"`
+
+	// 权限类型
+	//
+	//
+	// | 类型    |  说明				|
+	// |---------| ------------			|
+	// | system  |  过滤系统权限		|
+	// | custom  |  过滤自定义权限      |
+	PolicyType string `json:"policy_type"`
 }
 
 type CloudpolicyDetails struct {
-	apis.StatusStandaloneResourceDetails
+	apis.StatusInfrasResourceBaseDetails
 	SCloudpolicy
 }
 
 type CloudpolicyCreateInput struct {
-	apis.StatusStandaloneResourceCreateInput
+	apis.StatusInfrasResourceBaseCreateInput
 
-	// 云账号Id
-	CloudaccountId string `json:"cloudaccount_id"`
+	// 平台
+	Provider string `json:"provider"`
 
-	// 权限类型
-	PolicyType string `json:"policy_type"`
+	// 策略详情
+	Document *jsonutils.JSONDict `json:"document"`
 }
 
 type CloudpolicyResourceListInput struct {
@@ -65,6 +85,12 @@ type CloudpolicyResourceDetails struct {
 }
 
 type CloudpolicyUpdateInput struct {
+	apis.StatusInfrasResourceBaseUpdateInput
+
+	Document *jsonutils.JSONDict `json:"document"`
+
+	// swagger:ignore
+	OriginDocument *jsonutils.JSONDict `json:"origin_document"`
 }
 
 type CloudpolicyAssignGroupInput struct {
@@ -77,4 +103,10 @@ type CloudpolicyRevokeGroupInput struct {
 
 	// 权限组Id
 	CloudgroupId string `json:"cloudgroup_id"`
+}
+
+type CloudpolicyLockInput struct {
+}
+
+type CloudpolicyUnLockInput struct {
 }

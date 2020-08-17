@@ -39,7 +39,7 @@ func init() {
 	})
 
 	shellutils.R(&ClouduserOptions{}, "cloud-user-show", "Show clouduser", func(cli *qcloud.SRegion, args *ClouduserOptions) error {
-		user, err := cli.GetClient().GetClouduser(args.USER)
+		user, err := cli.GetClient().GetUser(args.USER)
 		if err != nil {
 			return err
 		}
@@ -55,7 +55,7 @@ func init() {
 	}
 
 	shellutils.R(&ClouduserCreateOptions{}, "cloud-user-create", "Create clouduser", func(cli *qcloud.SRegion, args *ClouduserCreateOptions) error {
-		user, err := cli.GetClient().CreateClouduser(args.NAME, args.Password, args.Desc, args.ConsoleLogin)
+		user, err := cli.GetClient().AddUser(args.NAME, args.Password, args.Desc, args.ConsoleLogin)
 		if err != nil {
 			return err
 		}
@@ -69,65 +69,36 @@ func init() {
 	}
 
 	shellutils.R(&ClouduserPolicyOptions{}, "cloud-user-attach-policy", "Attach policy for clouduser", func(cli *qcloud.SRegion, args *ClouduserPolicyOptions) error {
-		return cli.GetClient().AttachPolicy(args.UIN, args.POLICY_ID)
+		return cli.GetClient().AttachUserPolicy(args.UIN, args.POLICY_ID)
 	})
 
 	shellutils.R(&ClouduserPolicyOptions{}, "cloud-user-detach-policy", "Detach policy from clouduser", func(cli *qcloud.SRegion, args *ClouduserPolicyOptions) error {
-		return cli.GetClient().DetachPolicy(args.UIN, args.POLICY_ID)
+		return cli.GetClient().DetachUserPolicy(args.UIN, args.POLICY_ID)
 	})
 
 	type ClouduserPolicyListOptions struct {
-		UIN  string
-		Page int
-		Rp   int
+		UIN    string
+		Offset int
+		Limit  int
 	}
 
 	shellutils.R(&ClouduserPolicyListOptions{}, "cloud-user-policy-list", "List policy from clouduser", func(cli *qcloud.SRegion, args *ClouduserPolicyListOptions) error {
-		policies, _, err := cli.GetClient().ListAttachedUserPolicies(args.UIN, args.Page, args.Rp)
+		policies, _, err := cli.GetClient().ListAttachedUserPolicies(args.UIN, args.Offset, args.Limit)
 		if err != nil {
 			return err
 		}
 		printList(policies, 0, 0, 0, nil)
-		return nil
-	})
-
-	type CloudpolicyListOption struct {
-		Keyword string
-		Scope   string `choices:"QCS|Local"`
-		Page    int
-		Rp      int
-	}
-
-	shellutils.R(&CloudpolicyListOption{}, "cloud-policy-list", "List cloudpolicy", func(cli *qcloud.SRegion, args *CloudpolicyListOption) error {
-		policies, _, err := cli.GetClient().ListPolicies(args.Keyword, args.Scope, args.Page, args.Rp)
-		if err != nil {
-			return err
-		}
-		printList(policies, 0, 0, 0, nil)
-		return nil
-	})
-
-	type CloudpolicyShowOption struct {
-		POLICY_ID string
-	}
-
-	shellutils.R(&CloudpolicyShowOption{}, "cloud-policy-show", "Show cloudpolicy", func(cli *qcloud.SRegion, args *CloudpolicyShowOption) error {
-		policy, err := cli.GetClient().GetPolicy(args.POLICY_ID)
-		if err != nil {
-			return err
-		}
-		printObject(policy)
 		return nil
 	})
 
 	type ClouduserGroupListOptions struct {
-		UIN  string
-		Page int
-		Rp   int
+		UIN    int
+		Offset int
+		Limit  int
 	}
 
 	shellutils.R(&ClouduserGroupListOptions{}, "cloud-user-group-list", "List clouduser groups", func(cli *qcloud.SRegion, args *ClouduserGroupListOptions) error {
-		groups, _, err := cli.GetClient().ListGroupsForUser(args.UIN, args.Rp, args.Page)
+		groups, _, err := cli.GetClient().ListGroupsForUser(args.UIN, args.Offset, args.Limit)
 		if err != nil {
 			return err
 		}

@@ -59,7 +59,7 @@ func init() {
 		GROUP_ID string
 	}
 
-	shellutils.R(&GroupRoleListOptions{}, "group-role-list", "List role", func(cli *huawei.SRegion, args *GroupRoleListOptions) error {
+	shellutils.R(&GroupRoleListOptions{}, "cloud-group-policy-list", "List role", func(cli *huawei.SRegion, args *GroupRoleListOptions) error {
 		roles, err := cli.GetClient().GetGroupRoles(args.GROUP_ID)
 		if err != nil {
 			return err
@@ -72,7 +72,7 @@ func init() {
 		GROUP_ID string
 	}
 
-	shellutils.R(&GroupUserListOptions{}, "group-user-list", "List user", func(cli *huawei.SRegion, args *GroupUserListOptions) error {
+	shellutils.R(&GroupUserListOptions{}, "cloud-group-user-list", "List user", func(cli *huawei.SRegion, args *GroupUserListOptions) error {
 		users, err := cli.GetClient().GetGroupUsers(args.GROUP_ID)
 		if err != nil {
 			return err

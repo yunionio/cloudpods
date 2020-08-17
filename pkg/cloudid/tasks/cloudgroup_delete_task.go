@@ -36,10 +36,10 @@ func init() {
 	taskman.RegisterTask(CloudgroupDeleteTask{})
 }
 
-func (self *CloudgroupDeleteTask) taskFailed(ctx context.Context, group *models.SCloudgroup, err jsonutils.JSONObject) {
-	group.SetStatus(self.GetUserCred(), api.CLOUD_GROUP_STATUS_DELETE_FAILED, err.String())
+func (self *CloudgroupDeleteTask) taskFailed(ctx context.Context, group *models.SCloudgroup, err error) {
+	group.SetStatus(self.GetUserCred(), api.CLOUD_GROUP_STATUS_DELETE_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, group, logclient.ACT_DELETE, err, self.UserCred, false)
-	self.SetStageFailed(ctx, err)
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *CloudgroupDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
@@ -47,36 +47,67 @@ func (self *CloudgroupDeleteTask) OnInit(ctx context.Context, obj db.IStandalone
 
 	caches, err := group.GetCloudgroupcaches()
 	if err != nil {
-		self.taskFailed(ctx, group, jsonutils.NewString(errors.Wrap(err, "GetCloudgroupcaches").Error()))
+		self.taskFailed(ctx, group, errors.Wrap(err, "GetCloudgroupcaches"))
 		return
 	}
 
 	for i := range caches {
 		iGroup, err := caches[i].GetICloudgroup()
-		if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound {
-			self.taskFailed(ctx, group, jsonutils.NewString(errors.Wrap(err, "caches[i].GetICloudgroup").Error()))
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				continue
+			}
+			self.taskFailed(ctx, group, errors.Wrap(err, "caches[i].GetICloudgroup"))
 			return
 		}
-		if err == nil {
-			err = iGroup.Delete()
+		users, err := iGroup.GetICloudusers()
+		if err != nil {
+			self.taskFailed(ctx, group, errors.Wrap(err, "GetICloudusers"))
+			return
+		}
+		for i := range users {
+			err = iGroup.RemoveUser(users[i].GetName())
 			if err != nil {
-				self.taskFailed(ctx, group, jsonutils.NewString(errors.Wrap(err, "iGroup.Delete").Error()))
+				self.taskFailed(ctx, group, errors.Wrapf(err, "RemoveUser(%s)", users[i].GetName()))
 				return
 			}
+		}
+		policies, err := iGroup.GetISystemCloudpolicies()
+		if err != nil {
+			self.taskFailed(ctx, group, errors.Wrapf(err, "GetISystemCloudpolicies"))
+			return
+		}
+		for i := range policies {
+			err = iGroup.DetachSystemPolicy(policies[i].GetGlobalId())
+			if err != nil {
+				self.taskFailed(ctx, group, errors.Wrapf(err, "DetachSystemPolicy(%s)", policies[i].GetName()))
+				return
+			}
+		}
+
+		policies, err = iGroup.GetICustomCloudpolicies()
+		if err != nil {
+			self.taskFailed(ctx, group, errors.Wrapf(err, "GetICustomCloudpolicies"))
+			return
+		}
+
+		for i := range policies {
+			err = iGroup.DetachCustomPolicy(policies[i].GetGlobalId())
+			if err != nil {
+				self.taskFailed(ctx, group, errors.Wrapf(err, "DetachCustomPolicy(%s)", policies[i].GetName()))
+				return
+			}
+		}
+
+		err = iGroup.Delete()
+		if err != nil {
+			self.taskFailed(ctx, group, errors.Wrap(err, "iGroup.Delete"))
+			return
 		}
 		caches[i].RealDelete(ctx, self.GetUserCred())
 	}
 
-	cnt, err := group.GetCloudgroupcacheCount()
-	if err != nil {
-		self.taskFailed(ctx, group, jsonutils.NewString(errors.Wrap(err, "GetCloudgroupcacheCount").Error()))
-		return
-	}
-	if cnt == 0 {
-		group.RealDelete(ctx, self.GetUserCred())
-		logclient.AddActionLogWithStartable(self, group, logclient.ACT_DELETE, nil, self.UserCred, true)
-		self.SetStageComplete(ctx, nil)
-		return
-	}
+	logclient.AddActionLogWithStartable(self, group, logclient.ACT_DELETE, nil, self.UserCred, true)
+	group.RealDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }
