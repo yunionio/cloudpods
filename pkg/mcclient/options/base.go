@@ -330,9 +330,36 @@ func (o *ScopedResourceListOptions) Params() (*jsonutils.JSONDict, error) {
 type BaseUpdateOptions struct {
 	ID   string `help:"ID or Name of resource to update"`
 	Name string `help:"Name of resource to update"`
-	Desc string `metavar:"<DESCRIPTION>" help:"Description"`
+	Desc string `metavar:"<DESCRIPTION>" help:"Description" json:"description"`
 }
 
 func (opts *BaseUpdateOptions) GetId() string {
 	return opts.ID
+}
+
+type BasePublicOptions struct {
+	ID            string   `help:"ID or name of resource" json:"-"`
+	Scope         string   `help:"sharing scope" choices:"system|domain"`
+	SharedDomains []string `help:"share to domains"`
+}
+
+func (opts *BasePublicOptions) GetId() string {
+	return opts.ID
+}
+
+func (opts *BasePublicOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
+	params.Remove("id")
+	return params, nil
+}
+
+type BaseCreateOptions struct {
+	NAME string `help:"Resource Name"`
+	Desc string `metavar:"<DESCRIPTION>" help:"Description" json:"description"`
+}
+
+type EnabledStatusCreateOptions struct {
+	BaseCreateOptions
+	Status  string
+	Enabled *bool `help:"turn on enabled flag"`
 }

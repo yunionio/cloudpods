@@ -279,6 +279,9 @@ const (
 
 	ACT_FLUSH_INSTANCE      = "flush_instance"
 	ACT_FLUSH_INSTANCE_FAIL = "flush_instance_fail"
+
+	ACT_SYNC_VPCS        = "sync_vpcs"
+	ACT_SYNC_RECORD_SETS = "sync_record_sets"
 )
 
 type SOpsLogManager struct {

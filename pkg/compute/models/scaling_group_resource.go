@@ -113,14 +113,15 @@ func (manager *SScalingGroupResourceBaseManager) QueryDistinctExtraField(q *sqlc
 	return q, httperrors.ErrNotFound
 }
 
-func (manager *SScalingGroupResourceBaseManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
+func (manager *SScalingGroupResourceBaseManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
 	parentId, _ := data.GetString("scaling_group_id")
-	return parentId
+	return jsonutils.Marshal(map[string]string{"scaling_group_id": parentId})
 }
 
-func (manager *SScalingGroupResourceBaseManager) FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery {
-	if len(parentId) > 0 {
-		q = q.Equals("scaling_group_id", parentId)
+func (manager *SScalingGroupResourceBaseManager) FilterByUniqValues(q *sqlchemy.SQuery, values jsonutils.JSONObject) *sqlchemy.SQuery {
+	scalingGroupId, _ := values.GetString("scaling_group_id")
+	if len(scalingGroupId) > 0 {
+		q = q.Equals("scaling_group_id", scalingGroupId)
 	}
 	return q
 }

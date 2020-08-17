@@ -16,11 +16,8 @@ package db
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/utils"
@@ -42,23 +39,30 @@ type SScopedResourceBase struct {
 	SProjectizedResourceBase
 }
 
-func (m *SScopedResourceBaseManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
+type sUniqValues struct {
+	Scope   string
+	Project string
+	Domain  string
+}
+
+func (m *SScopedResourceBaseManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
 	parentScope := rbacutils.ScopeSystem
 	scope, _ := data.GetString("scope")
 	if scope != "" {
 		parentScope = rbacutils.TRbacScope(scope)
 	}
+	uniqValues := sUniqValues{}
 	switch parentScope {
 	case rbacutils.ScopeSystem:
-		return string(rbacutils.ScopeSystem)
+		uniqValues.Scope = scope
 	case rbacutils.ScopeDomain:
 		domain, _ := data.GetString("project_domain")
-		return fmt.Sprintf("domain:%s", domain)
+		uniqValues.Domain = domain
 	case rbacutils.ScopeProject:
 		project, _ := data.GetString("project")
-		return fmt.Sprintf("project:%s", project)
+		uniqValues.Project = project
 	}
-	return ""
+	return jsonutils.Marshal(uniqValues)
 }
 
 func (m *SScopedResourceBaseManager) FilterByScope(q *sqlchemy.SQuery, scope rbacutils.TRbacScope, scopeResId string) *sqlchemy.SQuery {
@@ -82,22 +86,16 @@ func (m *SScopedResourceBaseManager) FilterByScope(q *sqlchemy.SQuery, scope rba
 	return q
 }
 
-func (m *SScopedResourceBaseManager) FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery {
-	if parentId == "" {
-		return q
+func (m *SScopedResourceBaseManager) FilterByUniqValues(q *sqlchemy.SQuery, values jsonutils.JSONObject) *sqlchemy.SQuery {
+	uniqValues := &sUniqValues{}
+	values.Unmarshal(uniqValues)
+	if len(uniqValues.Domain) > 0 {
+		return m.FilterByScope(q, rbacutils.TRbacScope(uniqValues.Scope), uniqValues.Domain)
+	} else if len(uniqValues.Project) > 0 {
+		return m.FilterByScope(q, rbacutils.TRbacScope(uniqValues.Scope), uniqValues.Project)
+	} else {
+		return m.FilterByScope(q, rbacutils.TRbacScope(uniqValues.Scope), "")
 	}
-	// TODO: use structure data represents parentId
-	parts := strings.Split(parentId, ":")
-	if len(parts) == 0 {
-		log.Errorf("invalid parentId %q", parentId)
-		return q
-	}
-	scope := rbacutils.TRbacScope(parts[0])
-	var pid string
-	if len(parts) == 2 {
-		pid = parts[1]
-	}
-	return m.FilterByScope(q, scope, pid)
 }
 
 func (m *SScopedResourceBase) IsOwner(userCred mcclient.TokenCredential) bool {

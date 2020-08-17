@@ -72,6 +72,8 @@ type SDomainQuota struct {
 	Cloudaccount int `default:"-1" allow_zero:"true" json:"cloudaccount"`
 
 	Globalvpc int `default:"-1" allow_zero:"true" json:"globalvpc"`
+
+	DnsZone int `default:"-1" allow_zero:"true" json:"dns_zone"`
 }
 
 func (self *SDomainQuota) GetKeys() quotas.IQuotaKeys {
@@ -101,6 +103,7 @@ func (self *SDomainQuota) FetchSystemQuota() {
 	}
 	self.Globalvpc = defaultValue(options.Options.DefaultGlobalvpcQuota)
 	self.Cloudaccount = defaultValue(options.Options.DefaultCloudaccountQuota)
+	self.DnsZone = defaultValue(options.Options.DefaultDnsZoneQuota)
 }
 
 func (self *SDomainQuota) FetchUsage(ctx context.Context) error {
@@ -111,6 +114,7 @@ func (self *SDomainQuota) FetchUsage(ctx context.Context) error {
 
 	self.Globalvpc = GlobalVpcManager.totalCount(scope, ownerId)
 	self.Cloudaccount = CloudaccountManager.totalCount(scope, ownerId)
+	self.DnsZone = DnsZoneManager.totalCount(scope, ownerId)
 
 	return nil
 }
@@ -122,6 +126,9 @@ func (self *SDomainQuota) ResetNegative() {
 	if self.Cloudaccount < 0 {
 		self.Cloudaccount = 0
 	}
+	if self.DnsZone < 0 {
+		self.DnsZone = 0
+	}
 }
 
 func (self *SDomainQuota) IsEmpty() bool {
@@ -131,6 +138,9 @@ func (self *SDomainQuota) IsEmpty() bool {
 	if self.Cloudaccount > 0 {
 		return false
 	}
+	if self.DnsZone > 0 {
+		return false
+	}
 	return true
 }
 
@@ -138,12 +148,14 @@ func (self *SDomainQuota) Add(quota quotas.IQuota) {
 	squota := quota.(*SDomainQuota)
 	self.Globalvpc = self.Globalvpc + quotas.NonNegative(squota.Globalvpc)
 	self.Cloudaccount = self.Cloudaccount + quotas.NonNegative(squota.Cloudaccount)
+	self.DnsZone = self.DnsZone + quotas.NonNegative(squota.DnsZone)
 }
 
 func (self *SDomainQuota) Sub(quota quotas.IQuota) {
 	squota := quota.(*SDomainQuota)
 	self.Globalvpc = nonNegative(self.Globalvpc - squota.Globalvpc)
 	self.Cloudaccount = nonNegative(self.Cloudaccount - squota.Cloudaccount)
+	self.DnsZone = nonNegative(self.DnsZone - squota.DnsZone)
 }
 
 func (self *SDomainQuota) Allocable(request quotas.IQuota) int {
@@ -155,6 +167,9 @@ func (self *SDomainQuota) Allocable(request quotas.IQuota) int {
 	if self.Cloudaccount >= 0 && squota.Cloudaccount > 0 && (cnt < 0 || cnt > self.Cloudaccount/squota.Cloudaccount) {
 		cnt = self.Cloudaccount / squota.Cloudaccount
 	}
+	if self.DnsZone >= 0 && squota.DnsZone > 0 && (cnt < 0 || cnt > self.DnsZone/squota.DnsZone) {
+		cnt = self.DnsZone / squota.DnsZone
+	}
 	return cnt
 }
 
@@ -165,6 +180,9 @@ func (self *SDomainQuota) Update(quota quotas.IQuota) {
 	}
 	if squota.Cloudaccount > 0 {
 		self.Cloudaccount = squota.Cloudaccount
+	}
+	if squota.DnsZone > 0 {
+		self.DnsZone = squota.DnsZone
 	}
 }
 
@@ -178,6 +196,9 @@ func (used *SDomainQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) err
 	if quotas.Exceed(used.Cloudaccount, sreq.Cloudaccount, squota.Cloudaccount) {
 		err.Add("cloudaccount", squota.Cloudaccount, used.Cloudaccount, sreq.Cloudaccount)
 	}
+	if quotas.Exceed(used.DnsZone, sreq.DnsZone, squota.DnsZone) {
+		err.Add("dns_zone", squota.DnsZone, used.DnsZone, sreq.DnsZone)
+	}
 	if err.IsError() {
 		return err
 	} else {
@@ -189,5 +210,6 @@ func (self *SDomainQuota) ToJSON(prefix string) jsonutils.JSONObject {
 	ret := jsonutils.NewDict()
 	ret.Add(jsonutils.NewInt(int64(self.Globalvpc)), keyName(prefix, "globalvpc"))
 	ret.Add(jsonutils.NewInt(int64(self.Cloudaccount)), keyName(prefix, "cloudaccount"))
+	ret.Add(jsonutils.NewInt(int64(self.DnsZone)), keyName(prefix, "dns_zone"))
 	return ret
 }

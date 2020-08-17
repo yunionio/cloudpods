@@ -117,6 +117,23 @@ func (self *SVpc) GetNatgatewayCount() (int, error) {
 	return self.getNatgatewayQuery().CountWithError()
 }
 
+func (self *SVpc) GetDnsZones() ([]SDnsZone, error) {
+	sq := DnsZoneVpcManager.Query("dns_zone_id").Equals("vpc_id", self.Id)
+	q := DnsZoneManager.Query().In("id", sq.SubQuery())
+	dnsZones := []SDnsZone{}
+	err := db.FetchModelObjects(DnsZoneManager, q, &dnsZones)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return dnsZones, nil
+}
+
+func (self *SVpc) GetDnsZoneCount() (int, error) {
+	sq := DnsZoneVpcManager.Query("dns_zone_id").Equals("vpc_id", self.Id)
+	q := DnsZoneManager.Query().In("id", sq.SubQuery())
+	return q.CountWithError()
+}
+
 func (self *SVpc) GetNatgateways() ([]SNatGateway, error) {
 	nats := []SNatGateway{}
 	err := db.FetchModelObjects(NatGatewayManager, self.getNatgatewayQuery(), &nats)
@@ -261,6 +278,7 @@ func (self *SVpc) getMoreDetails(out api.VpcDetails) api.VpcDetails {
 	out.NetworkCount, _ = self.GetNetworkCount()
 	out.RoutetableCount, _ = self.GetRouteTableCount()
 	out.NatgatewayCount, _ = self.GetNatgatewayCount()
+	out.DnsZoneCount, _ = self.GetDnsZoneCount()
 	return out
 }
 
@@ -811,6 +829,17 @@ func (self *SVpc) RealDelete(ctx context.Context, userCred mcclient.TokenCredent
 		}
 	}
 
+	dnsZones, err := self.GetDnsZones()
+	if err != nil {
+		return errors.Wrapf(err, "self.GetDnsZones")
+	}
+	for i := range dnsZones {
+		err = dnsZones[i].RemoveVpc(ctx, self.Id)
+		if err != nil {
+			return errors.Wrapf(err, "remove vpc from dns zone %s", dnsZones[i].Id)
+		}
+	}
+
 	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
 }
 
@@ -908,6 +937,18 @@ func (manager *SVpcManager) ListItemFilter(
 	q, err = manager.SGlobalVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, query.GlobalVpcResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SGlobalVpcResourceBaseManager.ListItemFilter")
+	}
+
+	if len(query.DnsZoneId) > 0 {
+		dnsZone, err := DnsZoneManager.FetchByIdOrName(userCred, query.DnsZoneId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("dns_zone", query.DnsZoneId)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		sq := DnsZoneVpcManager.Query("vpc_id").Equals("dns_zone_id", dnsZone.GetId())
+		q = q.In("id", sq.SubQuery())
 	}
 
 	usable := (query.Usable != nil && *query.Usable)

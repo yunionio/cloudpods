@@ -98,24 +98,25 @@ func (v SecurityGroupRuleSet) Less(i, j int) bool {
 	return false
 }
 
-func (manager *SSecurityGroupRuleManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
-	parentId, _ := data.GetString("secgroup_id")
-	return parentId
+func (manager *SSecurityGroupRuleManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
+	secgroupId, _ := data.GetString("secgroup_id")
+	return jsonutils.Marshal(map[string]string{"secgroup_id": secgroupId})
 }
 
-func (manager *SSecurityGroupRuleManager) FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery {
-	if len(parentId) > 0 {
-		q = q.Equals("secgroup_id", parentId)
+func (manager *SSecurityGroupRuleManager) FilterByUniqValues(q *sqlchemy.SQuery, values jsonutils.JSONObject) *sqlchemy.SQuery {
+	secgroupId, _ := values.GetString("secgroup_id")
+	if len(secgroupId) > 0 {
+		q = q.Equals("secgroup_id", secgroupId)
 	}
 	return q
 }
 
 func (manager *SSecurityGroupRuleManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
-	parentId := manager.FetchParentId(ctx, data)
-	if len(parentId) > 0 {
-		secgroup, err := db.FetchById(SecurityGroupManager, parentId)
+	secgroupId, _ := data.GetString("secgroup_id")
+	if len(secgroupId) > 0 {
+		secgroup, err := db.FetchById(SecurityGroupManager, secgroupId)
 		if err != nil {
-			return nil, errors.Wrapf(err, "db.FetchById(SecurityGroupManager, %s)", parentId)
+			return nil, errors.Wrapf(err, "db.FetchById(SecurityGroupManager, %s)", secgroupId)
 		}
 		return secgroup.(*SSecurityGroup).GetOwnerId(), nil
 	}

@@ -97,11 +97,11 @@ func (manager *SDBInstanceAccountManager) AllowListItems(ctx context.Context, us
 }
 
 func (manager *SDBInstanceAccountManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
-	parentId := manager.FetchParentId(ctx, data)
-	if len(parentId) > 0 {
-		instance, err := db.FetchById(DBInstanceManager, parentId)
+	dbinstanceId, _ := data.GetString("dbinstance_id")
+	if len(dbinstanceId) > 0 {
+		instance, err := db.FetchById(DBInstanceManager, dbinstanceId)
 		if err != nil {
-			return nil, errors.Wrapf(err, "db.FetchById(DBInstanceManager, %s)", parentId)
+			return nil, errors.Wrapf(err, "db.FetchById(DBInstanceManager, %s)", dbinstanceId)
 		}
 		return instance.(*SDBInstance).GetOwnerId(), nil
 	}
@@ -264,14 +264,15 @@ func (manager *SDBInstanceAccountManager) QueryDistinctExtraField(q *sqlchemy.SQ
 	return q, httperrors.ErrNotFound
 }
 
-func (manager *SDBInstanceAccountManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
-	parentId, _ := data.GetString("dbinstance_id")
-	return parentId
+func (manager *SDBInstanceAccountManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
+	dbinstanceId, _ := data.GetString("dbinstance_id")
+	return jsonutils.Marshal(map[string]string{"dbinstance_id": dbinstanceId})
 }
 
-func (manager *SDBInstanceAccountManager) FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery {
-	if len(parentId) > 0 {
-		q = q.Equals("dbinstance_id", parentId)
+func (manager *SDBInstanceAccountManager) FilterByUniqValues(q *sqlchemy.SQuery, values jsonutils.JSONObject) *sqlchemy.SQuery {
+	dbinstanceId, _ := values.GetString("dbinstance_id")
+	if len(dbinstanceId) > 0 {
+		q = q.Equals("dbinstance_id", dbinstanceId)
 	}
 	return q
 }

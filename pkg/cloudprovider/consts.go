@@ -50,6 +50,7 @@ const (
 	CLOUD_CAPABILITY_CACHE        = "cache"
 	CLOUD_CAPABILITY_EVENT        = "event"
 	CLOUD_CAPABILITY_CLOUDID      = "cloudid"
+	CLOUD_CAPABILITY_DNSZONE      = "dnszone"
 )
 
 const (
