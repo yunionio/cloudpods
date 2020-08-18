@@ -75,6 +75,27 @@ type SharableVirtualResourceCreateInput struct {
 	SharableResourceBaseCreateInput
 }
 
+type AdminSharableVirtualResourceBaseCreateInput struct {
+	SharableVirtualResourceCreateInput
+
+	// 记录
+	Records string `json:"records"`
+}
+
+type StatusDomainLevelUserResourceCreateInput struct {
+	StatusDomainLevelResourceCreateInput
+
+	// 本地用户Id，若为空则使用当前用户Id作为此参数值
+	OwnerId string `json:"owner_id"`
+}
+
+type UserResourceCreateInput struct {
+	StandaloneResourceCreateInput
+
+	// 本地用户Id，若为空则使用当前用户Id作为此参数值
+	OwnerId string `json:"owner_id"`
+}
+
 type VirtualResourceCreateInput struct {
 	StatusStandaloneResourceCreateInput
 	ProjectizedResourceCreateInput
