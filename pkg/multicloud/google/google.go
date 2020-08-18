@@ -762,60 +762,82 @@ func rawRequest(client *http.Client, method httputils.THttpMethod, domain, apiVe
 	return httputils.Request(client, context.Background(), method, resource, header, body, debug)
 }
 
+/*
+  "error": {
+    "code": 400,
+    "message": "Request contains an invalid argument.",
+    "status": "INVALID_ARGUMENT",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.cloudresourcemanager.v1.ProjectIamPolicyError",
+        "type": "SOLO_MUST_INVITE_OWNERS",
+        "member": "user:test",
+        "role": "roles/owner"
+      }
+    ]
+  }
+*/
+
 type gError struct {
-	Code int
-	err  error
+	ErrorInfo struct {
+		Code    int
+		Message string
+		Status  string
+		Details jsonutils.JSONObject
+	} `json:"error"`
+	Class string
 }
 
 func (g *gError) Error() string {
-	return g.err.Error()
+	return jsonutils.Marshal(g).String()
 }
 
-func _jsonRequest(client *http.Client, method httputils.THttpMethod, url string, body jsonutils.JSONObject, debug bool) (jsonutils.JSONObject, error) {
-	var (
-		retry bool                 = false
-		err   error                = nil
-		data  jsonutils.JSONObject = nil
-	)
+func (g *gError) ParseErrorFromJsonResponse(statusCode int, body jsonutils.JSONObject) error {
+	if body != nil {
+		body.Unmarshal(g)
+	}
+	if g.ErrorInfo.Code == 0 {
+		g.ErrorInfo.Code = statusCode
+	}
+	if g.ErrorInfo.Details == nil {
+		g.ErrorInfo.Details = body
+	}
+	if len(g.Class) == 0 {
+		g.Class = http.StatusText(statusCode)
+	}
+	if statusCode == 404 {
+		return errors.Wrap(cloudprovider.ErrNotFound, g.Error())
+	}
+	return g
+}
+
+func _jsonRequest(cli *http.Client, method httputils.THttpMethod, url string, body jsonutils.JSONObject, debug bool) (jsonutils.JSONObject, error) {
+	client := httputils.NewJsonClient(cli)
+	req := httputils.NewJsonRequest(method, url, body)
+	var ge gError
 	for i := 0; i < MAX_RETRY; i++ {
-		_, data, err = httputils.JSONRequest(client, context.Background(), method, url, nil, body, debug)
-		if err != nil {
-			if body != nil {
-				log.Errorf("%s %s params: %s error: %v", method, url, body.PrettyString(), err)
-			} else {
-				log.Errorf("%s %s error: %v", method, url, err)
-			}
-			for _, msg := range []string{
-				"EOF",
-				"i/o timeout",
-				"TLS handshake timeout",
-				"connection reset by peer",
-			} {
-				if strings.Index(err.Error(), msg) >= 0 {
-					retry = true
-					break
-				}
-			}
-			if !retry {
-				break
+		_, data, err := client.Send(context.Background(), req, &ge, debug)
+		if err == nil {
+			return data, nil
+		}
+		if body != nil {
+			log.Errorf("%s %s params: %s error: %v", method, url, body.PrettyString(), err)
+		} else {
+			log.Errorf("%s %s error: %v", method, url, err)
+		}
+		for _, msg := range []string{
+			"EOF",
+			"i/o timeout",
+			"TLS handshake timeout",
+			"connection reset by peer",
+		} {
+			if strings.Index(err.Error(), msg) >= 0 {
+				continue
 			}
 		}
-		if !retry {
-			break
-		}
+		return nil, &ge
 	}
-	if err != nil {
-		ge := &gError{err: err}
-		e, ok := err.(*httputils.JSONClientError)
-		if ok {
-			if e.Code == 404 {
-				return nil, cloudprovider.ErrNotFound
-			}
-			ge.Code = e.Code
-		}
-		return nil, ge
-	}
-	return data, nil
+	return nil, &ge
 }
 
 func (self *SGoogleClient) GetRegion(regionId string) *SRegion {

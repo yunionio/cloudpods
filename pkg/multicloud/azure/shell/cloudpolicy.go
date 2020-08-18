@@ -21,10 +21,11 @@ import (
 
 func init() {
 	type CloudpolicyListOptions struct {
-		Name string
+		Name       string
+		PolicyType string `choices:"CustomRole|BuiltInRole"`
 	}
 	shellutils.R(&CloudpolicyListOptions{}, "cloud-policy-list", "List cloudpolicies", func(cli *azure.SRegion, args *CloudpolicyListOptions) error {
-		roles, err := cli.GetClient().GetRoles(args.Name)
+		roles, err := cli.GetClient().GetRoles(args.Name, args.PolicyType)
 		if err != nil {
 			return err
 		}

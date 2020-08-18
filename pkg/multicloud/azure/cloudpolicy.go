@@ -17,6 +17,7 @@ package azure
 import (
 	"fmt"
 	"net/url"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -71,15 +72,22 @@ func (role *SCloudpolicy) Delete() error {
 	return cloudprovider.ErrNotImplemented
 }
 
-func (cli *SAzureClient) GetRoles(name string) ([]SCloudpolicy, error) {
+func (cli *SAzureClient) GetRoles(name, policyType string) ([]SCloudpolicy, error) {
 	ret := []SCloudpolicy{}
 	subscriptionId, err := cli.getDefaultSubscriptionId()
 	if err != nil {
 		return nil, errors.Wrap(err, "getDefaultSubscriptionId")
 	}
 	params := url.Values{}
+	filter := []string{}
 	if len(name) > 0 {
-		params.Set("$filter", fmt.Sprintf("roleName eq '%s'", name))
+		filter = append(filter, fmt.Sprintf("roleName eq '%s'", name))
+	}
+	if len(policyType) > 0 {
+		filter = append(filter, fmt.Sprintf("Type eq '%s'", policyType))
+	}
+	if len(filter) > 0 {
+		params.Set("$filter", strings.Join(filter, " and "))
 	}
 	resource := "providers/Microsoft.Authorization/roleDefinitions"
 	if len(params) > 0 {
@@ -92,8 +100,20 @@ func (cli *SAzureClient) GetRoles(name string) ([]SCloudpolicy, error) {
 	return ret, nil
 }
 
-func (cli *SAzureClient) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	roles, err := cli.GetRoles("")
+func (cli *SAzureClient) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	roles, err := cli.GetRoles("", "BuiltInRole")
+	if err != nil {
+		return nil, errors.Wrap(err, "GetRoles")
+	}
+	ret := []cloudprovider.ICloudpolicy{}
+	for i := range roles {
+		ret = append(ret, &roles[i])
+	}
+	return ret, nil
+}
+
+func (cli *SAzureClient) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	roles, err := cli.GetRoles("", "CustomRole")
 	if err != nil {
 		return nil, errors.Wrap(err, "GetRoles")
 	}
@@ -105,7 +125,7 @@ func (cli *SAzureClient) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, erro
 }
 
 func (cli *SAzureClient) AssignPolicy(objectId, roleName, subscriptionId string) error {
-	roles, err := cli.GetRoles(roleName)
+	roles, err := cli.GetRoles(roleName, "")
 	if err != nil {
 		return errors.Wrapf(err, "GetRoles(%s)", roleName)
 	}

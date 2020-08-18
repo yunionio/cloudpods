@@ -606,7 +606,7 @@ func (region *SRegion) CreateRds(name, engine, databaseVersion, category, instan
 	rds := SDBInstance{region: region}
 	err := region.rdsInsert("instances", jsonutils.Marshal(body), &rds)
 	if err != nil {
-		if e, ok := errors.Cause(err).(*gError); ok && e.Code == 409 { //The instance or operation is not in an appropriate state to handle the request
+		if e, ok := errors.Cause(err).(*gError); ok && e.ErrorInfo.Code == 409 { //The instance or operation is not in an appropriate state to handle the request
 			return nil, fmt.Errorf("the name %s is unavailable because it was used recently", name)
 		}
 		return nil, errors.Wrap(err, "rdsInsert")
