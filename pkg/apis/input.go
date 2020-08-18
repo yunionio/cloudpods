@@ -75,6 +75,13 @@ type SharableVirtualResourceCreateInput struct {
 	SharableResourceBaseCreateInput
 }
 
+type AdminSharableVirtualResourceBaseCreateInput struct {
+	SharableVirtualResourceCreateInput
+
+	// 记录
+	Records string `json:"records"`
+}
+
 type StatusDomainLevelUserResourceCreateInput struct {
 	StatusDomainLevelResourceCreateInput
 
