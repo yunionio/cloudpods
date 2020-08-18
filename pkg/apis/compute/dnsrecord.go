@@ -14,5 +14,11 @@
 
 package compute
 
+import "yunion.io/x/onecloud/pkg/apis"
+
+type DnsRecordCreateInput struct {
+	apis.AdminSharableVirtualResourceBaseCreateInput
+}
+
 type DnsRecordUpdateInput struct {
 }

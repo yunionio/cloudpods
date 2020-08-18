@@ -51,7 +51,22 @@ func (manager *SAdminSharableVirtualResourceBaseManager) GetIAdminSharableVirtua
 	return manager.GetVirtualObject().(IAdminSharableVirtualModelManager)
 }
 
-func (manager *SAdminSharableVirtualResourceBaseManager) ValidateCreateData(man IAdminSharableVirtualModelManager, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SAdminSharableVirtualResourceBaseManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input apis.AdminSharableVirtualResourceBaseCreateInput,
+) (apis.AdminSharableVirtualResourceBaseCreateInput, error) {
+	var err error
+	input.SharableVirtualResourceCreateInput, err = manager.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.SharableVirtualResourceCreateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ValidateCreateData")
+	}
+	return input, nil
+}
+
+func (manager *SAdminSharableVirtualResourceBaseManager) ValidateRecordsData(man IAdminSharableVirtualModelManager, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	records, err := man.ParseInputInfo(data)
 	if err != nil {
 		return nil, err
