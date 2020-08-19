@@ -30,12 +30,32 @@ type AlertListOptions struct {
 	options.BaseListOptions
 }
 
+func (o AlertListOptions) Params() (jsonutils.JSONObject, error) {
+	return o.BaseListOptions.Params()
+}
+
 type AlertShowOptions struct {
 	ID string `help:"ID or name of the alert" json:"-"`
 }
 
+func (o AlertShowOptions) GetId() string {
+	return o.ID
+}
+
+func (o AlertShowOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
 type AlertDeleteOptions struct {
 	ID []string `help:"ID of alert to delete"`
+}
+
+func (o AlertDeleteOptions) GetIds() []string {
+	return o.ID
+}
+
+func (o AlertDeleteOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
 }
 
 type AlertTestRunOptions struct {
@@ -46,6 +66,24 @@ type AlertTestRunOptions struct {
 type AlertPauseOptions struct {
 	ID      string `help:"ID of alert to delete"`
 	UnPause bool   `help:"Unpause alert"`
+}
+
+func (o AlertPauseOptions) GetId() string {
+	return o.ID
+}
+
+func (o AlertPauseOptions) Params() (jsonutils.JSONObject, error) {
+	data := new(monitor.AlertPauseInput)
+	if o.UnPause {
+		data.Paused = false
+	} else {
+		data.Paused = true
+	}
+	return data.JSON(data), nil
+}
+
+func (o AlertPauseOptions) Description() string {
+	return "Pause or unpause alert"
 }
 
 type AlertConditionOptions struct {
@@ -116,7 +154,7 @@ type AlertCreateOptions struct {
 	Level     string `help:"Alert level"`
 }
 
-func (opt AlertCreateOptions) Params() (*monitor2.AlertConfig, error) {
+func (opt AlertCreateOptions) Params() (jsonutils.JSONObject, error) {
 	input, err := monitor2.NewAlertConfig(opt.NAME, opt.Frequency, opt.Enabled)
 	if err != nil {
 		return nil, err
@@ -127,7 +165,8 @@ func (opt AlertCreateOptions) Params() (*monitor2.AlertConfig, error) {
 	}
 	input.NoDataState(opt.NoDataState)
 	input.ExecutionErrorState(opt.ExecutionErrorState)
-	return input, nil
+	ret := input.ToAlertCreateInput()
+	return ret.JSON(ret), nil
 }
 
 type AlertUpdateOptions struct {
@@ -137,7 +176,11 @@ type AlertUpdateOptions struct {
 	AlertStatesOptions
 }
 
-func (opt AlertUpdateOptions) Params() (*monitor.AlertUpdateInput, error) {
+func (opt AlertUpdateOptions) GetId() string {
+	return opt.ID
+}
+
+func (opt AlertUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	input := new(monitor.AlertUpdateInput)
 	if opt.Name != "" {
 		input.Name = opt.Name
@@ -152,7 +195,7 @@ func (opt AlertUpdateOptions) Params() (*monitor.AlertUpdateInput, error) {
 	}
 	input.NoDataState = opt.NoDataState
 	input.ExecutionErrorState = opt.ExecutionErrorState
-	return input, nil
+	return input.JSON(input), nil
 }
 
 type AlertNotificationAttachOptions struct {
