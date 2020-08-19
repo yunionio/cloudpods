@@ -65,15 +65,18 @@ func readImageForm(r *multipart.Reader) (map[string]string, *multipart.Part, err
 }
 
 func imageUploadHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	const (
+		invalidForm = "invalid form"
+	)
 	reader, e := r.MultipartReader()
 	if e != nil {
-		httperrors.InvalidInputError(w, "无效的表单")
+		httperrors.InvalidInputError(ctx, w, invalidForm)
 		return
 	}
 
 	p, f, e := readImageForm(reader)
 	if e != nil {
-		httperrors.InvalidInputError(w, "无效的表单")
+		httperrors.InvalidInputError(ctx, w, invalidForm)
 		return
 	}
 
@@ -81,19 +84,19 @@ func imageUploadHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 
 	name, ok := p["name"]
 	if !ok {
-		httperrors.InvalidInputError(w, "缺少镜像名称")
+		httperrors.InvalidInputError(ctx, w, "missing image name")
 		return
 	}
 	params.Add(jsonutils.NewString(name), "name")
 
 	_imageSize, ok := p["image_size"]
 	if !ok {
-		httperrors.InvalidInputError(w, "缺少文件信息")
+		httperrors.InvalidInputError(ctx, w, "missing image size")
 		return
 	}
 	imageSize, e := strconv.ParseInt(_imageSize, 10, 64)
 	if e != nil {
-		httperrors.InvalidInputError(w, "文件信息错误")
+		httperrors.InvalidInputError(ctx, w, "invalid image size")
 		return
 	}
 
@@ -110,7 +113,7 @@ func imageUploadHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 
 	res, e := modules.Images.Upload(s, params, f, imageSize)
 	if e != nil {
-		httperrors.GeneralServerError(w, e)
+		httperrors.GeneralServerError(ctx, w, e)
 		return
 	} else {
 		appsrv.SendJSON(w, res)
