@@ -898,7 +898,7 @@ func (self *SGuest) insertIso(imageId string) bool {
 	return cdrom.insertIso(imageId)
 }
 
-func (self *SGuest) InsertIsoSucc(imageId string, path string, size int, name string) bool {
+func (self *SGuest) InsertIsoSucc(imageId string, path string, size int64, name string) bool {
 	cdrom := self.getCdrom(false)
 	return cdrom.insertIsoSucc(imageId, path, size, name)
 }
