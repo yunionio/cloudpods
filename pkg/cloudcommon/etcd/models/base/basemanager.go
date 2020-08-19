@@ -234,7 +234,8 @@ func (manager *SEtcdBaseModelManager) Delete(ctx context.Context, model IEtcdMod
 func (manager *SEtcdBaseModelManager) Watch(ctx context.Context,
 	onCreate etcd.TEtcdCreateEventFunc,
 	onModify etcd.TEtcdModifyEventFunc,
+	onDelete etcd.TEtcdDeleteEventFunc,
 ) {
 	prefix := manager.managerKey()
-	etcd.Default().Watch(ctx, prefix, onCreate, onModify)
+	etcd.Default().Watch(ctx, prefix, onCreate, onModify, onDelete)
 }

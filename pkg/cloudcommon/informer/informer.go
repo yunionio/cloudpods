@@ -37,11 +37,6 @@ type IInformerBackend interface {
 	Delete(ctx context.Context, obj *ModelObject) error
 }
 
-type IWatcher interface {
-	Watch(ctx context.Context, key string, handler ResourceEventHandler) error
-	Unwatch(key string)
-}
-
 func Init(be IInformerBackend) {
 	if defaultBackend != nil {
 		log.Fatalf("informer backend %q already init", be.GetType())
@@ -89,26 +84,33 @@ func NewJointModel(obj interface{}, keywordPlural, masterId, slaveId string) *Mo
 	return model
 }
 
+func isResourceWatched(keywordPlural string) bool {
+	return GetWatchResources().Has(keywordPlural)
+}
+
 func Create(ctx context.Context, obj *ModelObject) error {
+	if !isResourceWatched(obj.KeywordPlural) {
+		return nil
+	}
 	return run(func(be IInformerBackend) error {
 		return be.Create(ctx, obj)
 	})
 }
 
 func Update(ctx context.Context, obj *ModelObject, oldObj *jsonutils.JSONDict) error {
+	if !isResourceWatched(obj.KeywordPlural) {
+		return nil
+	}
 	return run(func(be IInformerBackend) error {
 		return be.Update(ctx, obj, oldObj)
 	})
 }
 
 func Delete(ctx context.Context, obj *ModelObject) error {
+	if !isResourceWatched(obj.KeywordPlural) {
+		return nil
+	}
 	return run(func(be IInformerBackend) error {
 		return be.Delete(ctx, obj)
 	})
-}
-
-type ResourceEventHandler interface {
-	OnAdd(obj *jsonutils.JSONDict)
-	OnUpdate(oldObj, newObj *jsonutils.JSONDict)
-	OnDelete(obj *jsonutils.JSONDict)
 }

@@ -54,7 +54,7 @@ func init() {
 	}
 
 	R(&WatchOptions{}, "watch", "Watch resources", func(s *mcclient.ClientSession, opts *WatchOptions) error {
-		watchMan, err := informer.NewWatchManagerBySession(s, nil)
+		watchMan, err := informer.NewWatchManagerBySession(s)
 		if err != nil {
 			return err
 		}
