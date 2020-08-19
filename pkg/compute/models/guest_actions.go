@@ -4600,7 +4600,7 @@ func (self *SGuest) PerformInstanceSnapshotReset(
 ) (jsonutils.JSONObject, error) {
 
 	if self.Status != api.VM_READY {
-		return nil, httperrors.NewInvalidStatusError("guest can't do snapshot in status ", self.Status)
+		return nil, httperrors.NewInvalidStatusError("guest can't do snapshot in status %s", self.Status)
 	}
 
 	dataDict := data.(*jsonutils.JSONDict)

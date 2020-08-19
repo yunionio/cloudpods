@@ -767,7 +767,7 @@ func (self *SAliyunRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx cont
 			supportRegions = append(supportRegions, "Aliyun/"+region)
 		}
 		if !utils.IsInStringArray(cloudregion.ExternalId, supportRegions) {
-			return nil, httperrors.NewUnsupportOperationError("cloudregion %s(%d) not support %s scheduler", cloudregion.Name, cloudregion.Id, scheduler)
+			return nil, httperrors.NewUnsupportOperationError("cloudregion %s(%s) not support %s scheduler", cloudregion.Name, cloudregion.Id, scheduler)
 		}
 	}
 
@@ -1055,7 +1055,7 @@ func (self *SAliyunRegionDriver) ValidateCreateDBInstanceData(ctx context.Contex
 				return input, httperrors.NewInputParameterError("SQL Server cannot have more than seven read-only dbinstances")
 			}
 		default:
-			return input, httperrors.NewInputParameterError("Not support create readonly dbinstance which master dbinstance engine is", master.Engine)
+			return input, httperrors.NewInputParameterError("Not support create readonly dbinstance with master dbinstance engine %s", master.Engine)
 		}
 	}
 
@@ -1074,7 +1074,7 @@ func (self *SAliyunRegionDriver) ValidateCreateDBInstanceData(ctx context.Contex
 				return input, httperrors.NewGeneralError(err)
 			}
 			if count < 2 {
-				return input, httperrors.NewInputParameterError("At least two networks are required under vpc %s(%s) whith aliyun %s(%s)", vpc.Name, vpc.Id, input.Engine, input.Category)
+				return input, httperrors.NewInputParameterError("At least two networks are required under vpc %s(%s) with aliyun %s(%s)", vpc.Name, vpc.Id, input.Engine, input.Category)
 			}
 		}
 	}

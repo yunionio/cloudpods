@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	errMappedIpExhausted = errors.Error("mapped ip exhaused")
+	errMappedIpExhausted = errors.Error("mapped ip exhausted")
 
 	LOCK_CLASS_guestnetworks_mapped_addr = "guestnetworks-mapped-addr"
 	LOCK_OBJ_guestnetworks_mapped_addr   = "the-addr"
