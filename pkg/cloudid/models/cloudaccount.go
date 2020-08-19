@@ -1057,7 +1057,7 @@ func (self *SCloudaccount) newCloudgroup(ctx context.Context, userCred mcclient.
 
 func (self *SCloudaccount) GetSystemPolicyByExternalId(id string) (*SCloudpolicy, error) {
 	policies := []SCloudpolicy{}
-	q := CloudpolicyManager.Query().Equals("external_id", id).Equals("provider", self.Provider)
+	q := CloudpolicyManager.Query().Equals("external_id", id).Equals("provider", self.Provider).Equals("policy_type", api.CLOUD_POLICY_TYPE_SYSTEM)
 	err := db.FetchModelObjects(CloudpolicyManager, q, &policies)
 	if err != nil {
 		return nil, errors.Wrapf(err, "db.FetchModelObjects")
@@ -1162,7 +1162,7 @@ func (self *SCloudaccount) SyncCustomCloudpoliciesForCloud(ctx context.Context, 
 		for i := range providers {
 			err = providers[i].SyncCustomCloudpoliciesForCloud(ctx, clouduser)
 			if err != nil {
-				return errors.Wrapf(err, "SyncSystemCloudpoliciesForCloud for cloudprovider %s", providers[i].Name)
+				return errors.Wrapf(err, "SyncCustomCloudpoliciesForCloud for cloudprovider %s", providers[i].Name)
 			}
 		}
 		return nil
@@ -1171,7 +1171,7 @@ func (self *SCloudaccount) SyncCustomCloudpoliciesForCloud(ctx context.Context, 
 	policyIds := []string{}
 	policies, err := clouduser.GetCustomCloudpolicies("")
 	if err != nil {
-		return errors.Wrap(err, "GetSystemCloudpolicies")
+		return errors.Wrap(err, "GetCustomCloudpolicies")
 	}
 	for i := range policies {
 		err = self.getOrCacheCustomCloudpolicy(ctx, "", policies[i].Id)
@@ -1184,7 +1184,7 @@ func (self *SCloudaccount) SyncCustomCloudpoliciesForCloud(ctx context.Context, 
 	if !factory.IsSupportCreateCloudgroup() {
 		policies, err = clouduser.GetCustomCloudgroupPolicies()
 		if err != nil {
-			return errors.Wrap(err, "GetSystemCloudgroupPolicies")
+			return errors.Wrap(err, "GetCustomCloudgroupPolicies")
 		}
 		for i := range policies {
 			err = self.getOrCacheCustomCloudpolicy(ctx, "", policies[i].Id)
@@ -1195,9 +1195,12 @@ func (self *SCloudaccount) SyncCustomCloudpoliciesForCloud(ctx context.Context, 
 		}
 	}
 
-	dbCaches, err := self.GetCloudpolicycaches(policyIds, "")
-	if err != nil {
-		return errors.Wrapf(err, "GetCloudpolicycaches")
+	dbCaches := []SCloudpolicycache{}
+	if len(policyIds) > 0 {
+		dbCaches, err = self.GetCloudpolicycaches(policyIds, "")
+		if err != nil {
+			return errors.Wrapf(err, "GetCloudpolicycaches")
+		}
 	}
 
 	iUser, err := clouduser.GetIClouduser()
@@ -1207,7 +1210,7 @@ func (self *SCloudaccount) SyncCustomCloudpoliciesForCloud(ctx context.Context, 
 
 	iPolicies, err := iUser.GetICustomCloudpolicies()
 	if err != nil {
-		return errors.Wrap(err, "GetISystemCloudpolicies")
+		return errors.Wrap(err, "GetICustomCloudpolicies")
 	}
 
 	added := make([]SCloudpolicycache, 0)

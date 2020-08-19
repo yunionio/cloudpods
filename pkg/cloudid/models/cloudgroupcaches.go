@@ -285,6 +285,10 @@ func (self *SCloudgroupcache) GetOrCreateICloudgroup(ctx context.Context, userCr
 	if err != nil {
 		return nil, errors.Wrapf(err, "SyncCustomCloudpoliciesForCloud")
 	}
+	err = self.SyncCloudusersForCloud(ctx, userCred)
+	if err != nil {
+		return nil, errors.Wrapf(err, "SyncCloudusersForCloud")
+	}
 	return iGroup, nil
 }
 

@@ -168,9 +168,12 @@ func (self *SCloudprovider) SyncCustomCloudpoliciesForCloud(ctx context.Context,
 		}
 	}
 
-	dbCaches, err := account.GetCloudpolicycaches(policyIds, self.Id)
-	if err != nil {
-		return errors.Wrapf(err, "GetCloudpolicycaches")
+	dbCaches := []SCloudpolicycache{}
+	if len(policyIds) > 0 {
+		dbCaches, err = account.GetCloudpolicycaches(policyIds, self.Id)
+		if err != nil {
+			return errors.Wrapf(err, "GetCloudpolicycaches")
+		}
 	}
 
 	provider, err := self.GetProvider()

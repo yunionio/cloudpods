@@ -64,7 +64,27 @@ func (user *SUser) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, erro
 }
 
 func (user *SUser) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	policies := []SPolicy{}
+	offset := 1
+	for {
+		part, total, err := user.client.ListAttachedUserPolicies(user.GetGlobalId(), offset, 50)
+		if err != nil {
+			return nil, errors.Wrap(err, "GetClouduserPolicy")
+		}
+		policies = append(policies, part...)
+		if len(policies) >= total {
+			break
+		}
+		offset += 1
+	}
+	ret := []cloudprovider.ICloudpolicy{}
+	for i := range policies {
+		if policies[i].PolicyType != "QCS" {
+			policies[i].client = user.client
+			ret = append(ret, &policies[i])
+		}
+	}
+	return ret, nil
 }
 
 func (user *SUser) AttachSystemPolicy(policyId string) error {

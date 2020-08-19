@@ -209,7 +209,7 @@ func (self *SAwsProvider) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolic
 }
 
 func (self *SAwsProvider) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	return self.client.GetISystemCloudpolicies()
+	return self.client.GetICustomCloudpolicies()
 }
 
 func (self *SAwsProvider) GetIClouduserByName(name string) (cloudprovider.IClouduser, error) {
