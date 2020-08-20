@@ -112,4 +112,5 @@ type SOIDCAuthRequest struct {
 	RedirectUri  string `json:"redirect_uri"`
 	State        string `json:"state"`
 	Scope        string `json:"scope"`
+	// Nonce        string `json:"nonce"`
 }

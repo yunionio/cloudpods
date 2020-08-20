@@ -55,10 +55,9 @@ var (
 
 	AzureADTemplate = api.SOIDCIdpConfigOptions{
 		Scopes: []string{
-			"user",
+			"openid",
 			"profile",
 			"email",
-			"openid",
 		},
 		TimeoutSecs: 60,
 		SIdpAttributeOptions: api.SIdpAttributeOptions{

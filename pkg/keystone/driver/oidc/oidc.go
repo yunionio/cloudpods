@@ -80,7 +80,7 @@ func (self *SOIDCDriver) prepareConfig() error {
 				loginUrl = "https://login.partner.microsoftonline.cn"
 				graphUrl = "https://microsoftgraph.chinacloudapi.cn"
 			}
-			conf.AuthUrl = fmt.Sprintf("%s/%s/oauth2/v2.0/", loginUrl, tenantId)
+			conf.AuthUrl = fmt.Sprintf("%s/%s/oauth2/v2.0/authorize", loginUrl, tenantId)
 			conf.TokenUrl = fmt.Sprintf("%s/%s/oauth2/v2.0/token", loginUrl, tenantId)
 			conf.UserinfoUrl = fmt.Sprintf("%s/oidc/userinfo", graphUrl)
 		}
