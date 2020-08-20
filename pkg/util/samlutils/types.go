@@ -249,7 +249,7 @@ type SIdpRedirectLoginInput struct {
 
 type SIdpInitiatedLoginInput struct {
 	EntityID string `json:"EntityID"`
-	State    string `json:"State"`
+	IdpId    string `json:"IdpId"`
 }
 
 type Issuer struct {

@@ -29,12 +29,12 @@ import (
 type BaseOptions struct {
 	Help           bool   `help:"Show help"`
 	Debug          bool   `help:"debug mode"`
-	DirectoryID    string `help:"Azure account Directory ID/Tenant ID" default:"$AZURE_DIRECTORY_ID"`
-	SubscriptionID string `help:"Azure account subscription ID" default:"$AZURE_SUBSCRIPTION_ID"`
-	ApplicationID  string `help:"Azure application ID" default:"$AZURE_APPLICATION_ID"`
-	ApplicationKey string `help:"Azure application key" default:"$AZURE_APPLICATION_KEY"`
-	RegionId       string `help:"RegionId" default:"$AZURE_REGION_ID"`
-	CloudEnv       string `help:"Cloud Environment" default:"$AZURE_CLOUD_ENV" choices:"AzureGermanCloud|AzureChinaCloud|AzureUSGovernmentCloud|AzurePublicCloud"`
+	DirectoryID    string `help:"Azure account Directory ID/Tenant ID" default:"$AZURE_DIRECTORY_ID" metavar:"AZURE_DIRECTORY_ID"`
+	SubscriptionID string `help:"Azure account subscription ID" default:"$AZURE_SUBSCRIPTION_ID" metavar:"AZURE_SUBSCRIPTION_ID"`
+	ApplicationID  string `help:"Azure application ID" default:"$AZURE_APPLICATION_ID" metavar:"AZURE_APPLICATION_ID"`
+	ApplicationKey string `help:"Azure application key" default:"$AZURE_APPLICATION_KEY" metavar:"AZURE_APPLICATION_KEY"`
+	RegionId       string `help:"RegionId" default:"$AZURE_REGION_ID" metavar:"AZURE_REGION_ID"`
+	CloudEnv       string `help:"Cloud Environment" default:"$AZURE_CLOUD_ENV" choices:"AzureGermanCloud|AzureChinaCloud|AzureUSGovernmentCloud|AzurePublicCloud" metavar:"AZURE_CLOUD_ENV"`
 	SUBCOMMAND     string `help:"azurecli subcommand" subcommand:"true"`
 }
 

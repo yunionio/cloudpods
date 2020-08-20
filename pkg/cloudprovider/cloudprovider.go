@@ -247,6 +247,9 @@ type ICloudProvider interface {
 
 	GetEnrollmentAccounts() ([]SEnrollmentAccount, error)
 	CreateSubscription(SubscriptionCreateInput) error
+
+	GetSamlEntityId() string
+	GetSamlSpInitiatedLoginUrl(idpName string) string
 }
 
 func IsSupportProject(prod ICloudProvider) bool {
@@ -407,6 +410,14 @@ func (self *SBaseProvider) GetCloudRegionExternalIdPrefix() string {
 
 func (self *SBaseProvider) CreateIProject(name string) (ICloudProject, error) {
 	return nil, ErrNotImplemented
+}
+
+func (self *SBaseProvider) GetSamlEntityId() string {
+	return ""
+}
+
+func (self *SBaseProvider) GetSamlSpInitiatedLoginUrl(idpName string) string {
+	return ""
 }
 
 func NewBaseProvider(factory ICloudProviderFactory) SBaseProvider {

@@ -786,6 +786,12 @@ func ParseJSONResponse(reqBody string, resp *http.Response, err error, debug boo
 	}
 }
 
-func JoinPath(ep string, path string) string {
-	return strings.TrimRight(ep, "/") + "/" + strings.TrimLeft(path, "/")
+func JoinPath(ep string, paths ...string) string {
+	buf := strings.Builder{}
+	buf.WriteString(strings.TrimRight(ep, "/"))
+	for _, path := range paths {
+		buf.WriteByte('/')
+		buf.WriteString(strings.Trim(path, "/"))
+	}
+	return buf.String()
 }

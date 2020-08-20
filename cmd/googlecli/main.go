@@ -32,12 +32,12 @@ import (
 type BaseOptions struct {
 	Debug        bool   `help:"debug mode"`
 	Help         bool   `help:"Show help"`
-	AuthFile     string `help:"google cloud auth json file path" default:"$GOOGLE_AUTH_FILE"`
-	ClientEmail  string `help:"Client email" default:"$GOOGLE_CLIENT_EMAIL"`
-	ProjectID    string `help:"Project ID" default:"$GOOGLE_PROJECT_ID"`
-	PrivateKeyID string `help:"Private Key ID" default:"$GOOGLE_PRIVATE_KEY_ID"`
-	PrivateKey   string `help:"Private Key" default:"$GOOGLE_PRIVATE_KEY"`
-	RegionID     string `help:"RegionID" default:"$GOOGLE_REGION"`
+	AuthFile     string `help:"google cloud auth json file path" default:"$GOOGLE_AUTH_FILE" metavar:"GOOGLE_AUTH_FILE"`
+	ClientEmail  string `help:"Client email" default:"$GOOGLE_CLIENT_EMAIL" metavar:"GOOGLE_CLIENT_EMAIL"`
+	ProjectID    string `help:"Project ID" default:"$GOOGLE_PROJECT_ID" metavar:"GOOGLE_PROJECT_ID"`
+	PrivateKeyID string `help:"Private Key ID" default:"$GOOGLE_PRIVATE_KEY_ID" metavar:"GOOGLE_PRIVATE_KEY_ID"`
+	PrivateKey   string `help:"Private Key" default:"$GOOGLE_PRIVATE_KEY" metavar:"GOOGLE_PRIVATE_KEY"`
+	RegionID     string `help:"RegionID" default:"$GOOGLE_REGION" metavar:"GOOGLE_REGION"`
 	SUBCOMMAND   string `help:"googlecli subcommand" subcommand:"true"`
 }
 

@@ -814,3 +814,7 @@ func (self *SQcloudClient) GetCapabilities() []string {
 	}
 	return caps
 }
+
+func (self *SQcloudClient) GetSamlSpInitiatedLoginUrl(idpName string) string {
+	return fmt.Sprintf("https://cloud.tencent.com/login/forwardIdp/%s/%s", self.ownerName, idpName)
+}

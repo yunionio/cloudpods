@@ -25,15 +25,20 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/samlutils"
 )
 
-type OnSpInitiatedLogin func(ctx context.Context, sp *SSAMLServiceProvider) samlutils.SSAMLSpInitiatedLoginData
-type OnIdpInitiatedLogin func(ctx context.Context, sp *SSAMLServiceProvider, state string) samlutils.SSAMLIdpInitiatedLoginData
-type OnLogout func(ctx context.Context) string
+const (
+	IDP_ID_KEY = "<idp_id>"
+)
+
+type OnSpInitiatedLogin func(ctx context.Context, idpId string, sp *SSAMLServiceProvider) (samlutils.SSAMLSpInitiatedLoginData, error)
+type OnIdpInitiatedLogin func(ctx context.Context, sp *SSAMLServiceProvider, IdpId string) (samlutils.SSAMLIdpInitiatedLoginData, error)
+type OnLogout func(ctx context.Context, idpId string) string
 
 type SSAMLIdpInstance struct {
 	saml *samlutils.SSAMLInstance
@@ -61,20 +66,28 @@ func NewIdpInstance(saml *samlutils.SSAMLInstance, spLoginFunc OnSpInitiatedLogi
 	}
 }
 
-func (idp *SSAMLIdpInstance) AddHandlers(app *appsrv.Application, prefix string) {
-	idp.metadataPath = httputils.JoinPath(prefix, "metadata")
-	idp.redirectLoginPath = httputils.JoinPath(prefix, "redirect/login")
-	idp.redirectLogoutPath = httputils.JoinPath(prefix, "redirect/logout")
+func (idp *SSAMLIdpInstance) AddHandlers(app *appsrv.Application, prefix string, middleware appsrv.TMiddleware) {
+	idp.metadataPath = httputils.JoinPath(prefix, "metadata/"+IDP_ID_KEY)
+	idp.redirectLoginPath = httputils.JoinPath(prefix, "redirect/login/"+IDP_ID_KEY)
+	idp.redirectLogoutPath = httputils.JoinPath(prefix, "redirect/logout/"+IDP_ID_KEY)
 	idp.idpInitiatedSSOPath = httputils.JoinPath(prefix, "sso")
 
 	app.AddHandler("GET", idp.metadataPath, idp.metadataHandler)
-	app.AddHandler("GET", idp.redirectLoginPath, idp.redirectLoginHandler)
-	app.AddHandler("GET", idp.redirectLogoutPath, idp.redirectLogoutHandler)
+	handler := idp.redirectLoginHandler
+	if middleware != nil {
+		handler = middleware(handler)
+	}
+	app.AddHandler("GET", idp.redirectLoginPath, handler)
+	handler = idp.redirectLogoutHandler
+	if middleware != nil {
+		handler = middleware(handler)
+	}
+	app.AddHandler("GET", idp.redirectLogoutPath, handler)
 	app.AddHandler("GET", idp.idpInitiatedSSOPath, idp.idpInitiatedSSOHandler)
 
-	log.Infof("IDP metadata: %s", idp.getMetadataUrl())
-	log.Infof("IDP redirect login: %s", idp.getRedirectLoginUrl())
-	log.Infof("IDP redirect logout: %s", idp.getRedirectLogoutUrl())
+	log.Infof("IDP metadata: %s", idp.getMetadataUrl(IDP_ID_KEY))
+	log.Infof("IDP redirect login: %s", idp.getRedirectLoginUrl(IDP_ID_KEY))
+	log.Infof("IDP redirect logout: %s", idp.getRedirectLogoutUrl(IDP_ID_KEY))
 	log.Infof("IDP initated SSO: %s", idp.getIdpInitiatedSSOUrl())
 }
 
@@ -109,16 +122,16 @@ func (idp *SSAMLIdpInstance) AddSPMetadata(metadata []byte) error {
 	return nil
 }
 
-func (idp *SSAMLIdpInstance) getMetadataUrl() string {
-	return httputils.JoinPath(idp.saml.GetEntityId(), idp.metadataPath)
+func (idp *SSAMLIdpInstance) getMetadataUrl(idpId string) string {
+	return strings.Replace(httputils.JoinPath(idp.saml.GetEntityId(), idp.metadataPath), IDP_ID_KEY, idpId, 1)
 }
 
-func (idp *SSAMLIdpInstance) getRedirectLoginUrl() string {
-	return httputils.JoinPath(idp.saml.GetEntityId(), idp.redirectLoginPath)
+func (idp *SSAMLIdpInstance) getRedirectLoginUrl(idpId string) string {
+	return strings.Replace(httputils.JoinPath(idp.saml.GetEntityId(), idp.redirectLoginPath), IDP_ID_KEY, idpId, 1)
 }
 
-func (idp *SSAMLIdpInstance) getRedirectLogoutUrl() string {
-	return httputils.JoinPath(idp.saml.GetEntityId(), idp.redirectLogoutPath)
+func (idp *SSAMLIdpInstance) getRedirectLogoutUrl(idpId string) string {
+	return strings.Replace(httputils.JoinPath(idp.saml.GetEntityId(), idp.redirectLogoutPath), IDP_ID_KEY, idpId, 1)
 }
 
 func (idp *SSAMLIdpInstance) getIdpInitiatedSSOUrl() string {
@@ -126,12 +139,15 @@ func (idp *SSAMLIdpInstance) getIdpInitiatedSSOUrl() string {
 }
 
 func (idp *SSAMLIdpInstance) metadataHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	desc := idp.getMetadata(ctx)
+	params := appctx.AppContextParams(ctx)
+	idpId := params[IDP_ID_KEY]
+	desc := idp.getMetadata(idpId)
 	appsrv.SendXmlWithIndent(w, nil, desc, true)
 }
 
 func (idp *SSAMLIdpInstance) redirectLoginHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	_, query, _ := appsrv.FetchEnv(ctx, w, r)
+	params, query, _ := appsrv.FetchEnv(ctx, w, r)
+	idpId := params[IDP_ID_KEY]
 	input := samlutils.SIdpRedirectLoginInput{}
 	err := query.Unmarshal(&input)
 	if err != nil {
@@ -139,7 +155,7 @@ func (idp *SSAMLIdpInstance) redirectLoginHandler(ctx context.Context, w http.Re
 		return
 	}
 	log.Debugf("recv input %s", input)
-	respHtml, err := idp.processLoginRequest(ctx, input)
+	respHtml, err := idp.processLoginRequest(ctx, idpId, input)
 	if err != nil {
 		httperrors.InputParameterError(w, "parse parameter error %s", err)
 		return
@@ -148,8 +164,10 @@ func (idp *SSAMLIdpInstance) redirectLoginHandler(ctx context.Context, w http.Re
 }
 
 func (idp *SSAMLIdpInstance) redirectLogoutHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	params := appctx.AppContextParams(ctx)
+	idpId := params[IDP_ID_KEY]
 	log.Debugf("logout: %s", r.Header)
-	html := idp.onLogout(ctx)
+	html := idp.onLogout(ctx, idpId)
 	appsrv.SendHTML(w, html)
 }
 
@@ -169,17 +187,17 @@ func (idp *SSAMLIdpInstance) idpInitiatedSSOHandler(ctx context.Context, w http.
 	appsrv.SendHTML(w, respHtml)
 }
 
-func (idp *SSAMLIdpInstance) getMetadata(ctx context.Context) samlutils.EntityDescriptor {
+func (idp *SSAMLIdpInstance) getMetadata(idpId string) samlutils.EntityDescriptor {
 	input := samlutils.SSAMLIdpMetadataInput{
 		EntityId:          idp.saml.GetEntityId(),
 		CertString:        idp.saml.GetCertString(),
-		RedirectLoginUrl:  idp.getRedirectLoginUrl(),
-		RedirectLogoutUrl: idp.getRedirectLogoutUrl(),
+		RedirectLoginUrl:  idp.getRedirectLoginUrl(idpId),
+		RedirectLogoutUrl: idp.getRedirectLogoutUrl(idpId),
 	}
 	return samlutils.NewIdpMetadata(input)
 }
 
-func (idp *SSAMLIdpInstance) processLoginRequest(ctx context.Context, input samlutils.SIdpRedirectLoginInput) (string, error) {
+func (idp *SSAMLIdpInstance) processLoginRequest(ctx context.Context, idpId string, input samlutils.SIdpRedirectLoginInput) (string, error) {
 	plainText, err := samlutils.SAMLDecode(input.SAMLRequest)
 	if err != nil {
 		return "", errors.Wrap(err, "samlutils.SAMLDecode")
@@ -198,15 +216,15 @@ func (idp *SSAMLIdpInstance) processLoginRequest(ctx context.Context, input saml
 		return "", errors.Wrapf(httperrors.ErrResourceNotFound, "issuer %s not found", authReq.Issuer.Issuer)
 	}
 
-	if len(authReq.Destination) > 0 && authReq.Destination != idp.getRedirectLoginUrl() {
-		return "", errors.Wrapf(httperrors.ErrInputParameter, "Destination not match: get %s want %s", authReq.Destination, idp.getRedirectLoginUrl())
+	if len(authReq.Destination) > 0 && authReq.Destination != idp.getRedirectLoginUrl(idpId) {
+		return "", errors.Wrapf(httperrors.ErrInputParameter, "Destination not match: get %s want %s", authReq.Destination, idp.getRedirectLoginUrl(idpId))
 	}
 
 	if authReq.AssertionConsumerServiceURL != sp.GetPostAssertionConsumerServiceUrl() {
 		return "", errors.Wrapf(httperrors.ErrInputParameter, "AssertionConsumerServiceURL not match: get %s want %s", authReq.AssertionConsumerServiceURL, sp.GetPostAssertionConsumerServiceUrl())
 	}
 
-	resp, err := idp.getLoginResponse(ctx, authReq, sp)
+	resp, err := idp.getLoginResponse(ctx, authReq, idpId, sp)
 	if err != nil {
 		return "", errors.Wrap(err, "getLoginResponse")
 	}
@@ -255,8 +273,11 @@ func (idp *SSAMLIdpInstance) getServiceProvider(eId string) *SSAMLServiceProvide
 	return nil
 }
 
-func (idp *SSAMLIdpInstance) getLoginResponse(ctx context.Context, req samlutils.AuthnRequest, sp *SSAMLServiceProvider) (*samlutils.Response, error) {
-	data := idp.onSpInitiatedLogin(ctx, sp)
+func (idp *SSAMLIdpInstance) getLoginResponse(ctx context.Context, req samlutils.AuthnRequest, idpId string, sp *SSAMLServiceProvider) (*samlutils.Response, error) {
+	data, err := idp.onSpInitiatedLogin(ctx, idpId, sp)
+	if err != nil {
+		return nil, errors.Wrap(err, "idp.onSpInitiatedLogin")
+	}
 	input := samlutils.SSAMLResponseInput{
 		IssuerCertString:            idp.saml.GetCertString(),
 		IssuerEntityId:              idp.saml.GetEntityId(),
@@ -274,15 +295,10 @@ func (idp *SSAMLIdpInstance) processIdpInitiatedLogin(ctx context.Context, input
 	if sp == nil {
 		return "", errors.Wrapf(httperrors.ErrResourceNotFound, "issuer %s not found", input.EntityID)
 	}
-	var state []byte
-	if len(input.State) > 0 {
-		var err error
-		state, err = samlutils.SAMLDecode(input.State)
-		if err != nil {
-			return "", errors.Wrapf(httperrors.ErrInputParameter, "invalid state %s: %s", input.State, err)
-		}
+	data, err := idp.onIdpInitiatedLogin(ctx, sp, input.IdpId)
+	if err != nil {
+		return "", errors.Wrap(err, "idp.onIdpInitiatedLogin")
 	}
-	data := idp.onIdpInitiatedLogin(ctx, sp, string(state))
 	respInput := samlutils.SSAMLResponseInput{
 		IssuerCertString:            idp.saml.GetCertString(),
 		IssuerEntityId:              idp.saml.GetEntityId(),

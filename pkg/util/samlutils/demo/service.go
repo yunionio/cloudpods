@@ -22,6 +22,7 @@ import (
 	"os"
 	"strings"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/structarg"
@@ -41,6 +42,7 @@ type Options struct {
 	Key     string   `help:"certificate private key file"`
 	Port    int      `help:"listening port"`
 	Entity  string   `help:"SAML entityID"`
+	IdpId   string   `help:"IDP ID"`
 	SpMeta  []string `help:"ServiceProvider metadata filename"`
 	IdpMeta []string `help:"IdentityProvider metadata filename"`
 }
@@ -105,7 +107,7 @@ func prepareServer() error {
 		return errors.Wrap(err, "NewSAMLInstance")
 	}
 
-	spFunc := func(ctx context.Context, sp *idp.SSAMLServiceProvider) samlutils.SSAMLSpInitiatedLoginData {
+	spFunc := func(ctx context.Context, idpId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLSpInitiatedLoginData, error) {
 		log.Debugf("Recive SP initiated Login: %s", sp.GetEntityId())
 		data := samlutils.SSAMLSpInitiatedLoginData{}
 		switch sp.GetEntityId() {
@@ -219,10 +221,10 @@ func prepareServer() error {
 				})
 			}
 		}
-		return data
+		return data, nil
 	}
 
-	idpFunc := func(ctx context.Context, sp *idp.SSAMLServiceProvider, state string) samlutils.SSAMLIdpInitiatedLoginData {
+	idpFunc := func(ctx context.Context, sp *idp.SSAMLServiceProvider, idpId string) (samlutils.SSAMLIdpInitiatedLoginData, error) {
 		log.Debugf("Recive IDP initiated Login: %s", sp.GetEntityId())
 		data := samlutils.SSAMLIdpInitiatedLoginData{}
 		switch sp.GetEntityId() {
@@ -333,10 +335,10 @@ func prepareServer() error {
 			}
 			data.RelayState = "https://console.cloud.tencent.com/"
 		}
-		return data
+		return data, nil
 	}
 
-	logoutFunc := func(ctx context.Context) string {
+	logoutFunc := func(ctx context.Context, idpId string) string {
 		return fmt.Sprintf(`<!DOCTYPE html><html lang="zh_CN"><head><meta charset="utf-8"><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body><h1>成功退出登录，<a href="%s">重新登录</a></h1></body></html>`, httputils.JoinPath(options.Entity, "SAML/idp"))
 	}
 
@@ -347,7 +349,7 @@ func prepareServer() error {
 			return errors.Wrapf(err, "AddSPMetadataFile %s", spMetaFile)
 		}
 	}
-	idpInst.AddHandlers(app, "SAML/idp")
+	idpInst.AddHandlers(app, "SAML/idp", nil)
 	idpInst.SetHtmlTemplate(`<!DOCTYPE html><html lang="zh_CN"><head><meta charset="utf-8"><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body><h1>正在跳转到云控制台，请等待。。。</h1>$FORM$</body></html>`)
 
 	app.AddHandler("GET", "SAML/idp", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -377,7 +379,11 @@ func prepareServer() error {
 				entityID: "cloud.tencent.com",
 			},
 		} {
-			htmlBuf.WriteString(fmt.Sprintf(`<li><a href="%s?EntityID=%s">%s (IDP-Initiated)</a></li>`, idpInitUrl, url.QueryEscape(v.entityID), v.name))
+			query := samlutils.SIdpInitiatedLoginInput{
+				EntityID: v.entityID,
+				IdpId:    options.IdpId,
+			}
+			htmlBuf.WriteString(fmt.Sprintf(`<li><a href="%s?%s">%s (IDP-Initiated)</a></li>`, idpInitUrl, jsonutils.Marshal(query).QueryString(), v.name))
 		}
 
 		for _, v := range []struct {

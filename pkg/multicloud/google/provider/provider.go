@@ -293,3 +293,11 @@ func (self *SGoogleProvider) GetIClouduserByName(name string) (cloudprovider.ICl
 func (self *SGoogleProvider) CreateICloudpolicy(opts *cloudprovider.SCloudpolicyCreateOptions) (cloudprovider.ICloudpolicy, error) {
 	return self.client.CreateICloudpolicy(opts)
 }
+
+func (self *SGoogleProvider) GetSamlEntityId() string {
+	return cloudprovider.SAML_ENTITY_ID_GOOGLE
+}
+
+func (self *SGoogleProvider) GetSamlSpInitiatedLoginUrl(idpName string) string {
+	return self.client.GetSamlSpInitiatedLoginUrl(idpName)
+}
