@@ -35,7 +35,10 @@ type BaseEventListOptions struct {
 	Action     []string `help:"Log action"`
 
 	User    string `help:"filter by operator user"`
-	Project string `help:"filter by owner project"`
+	Project string `help:"filter by operator user's project"`
+
+	OwnerProjectIds []string `help:"filter by owner project ids"`
+	OwnerDomainIds  []string `help:"filter by owner domain ids"`
 
 	PagingMarker string `help:"marker for pagination"`
 }
@@ -106,6 +109,12 @@ func doEventList(man modulebase.ResourceManager, s *mcclient.ClientSession, args
 	}
 	if len(args.Scope) > 0 {
 		params.Add(jsonutils.NewString(args.Scope), "scope")
+	}
+	if len(args.OwnerProjectIds) > 0 {
+		params.Add(jsonutils.NewStringArray(args.OwnerProjectIds), "owner_project_ids")
+	}
+	if len(args.OwnerDomainIds) > 0 {
+		params.Add(jsonutils.NewStringArray(args.OwnerDomainIds), "owner_domain_ids")
 	}
 	if len(args.PagingMarker) > 0 {
 		params.Add(jsonutils.NewString(args.PagingMarker), "paging_marker")
