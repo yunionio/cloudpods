@@ -16,6 +16,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strconv"
 	"strings"
@@ -460,28 +461,7 @@ func (manager *SOpsLogManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 ) (*sqlchemy.SQuery, error) {
-	/*userStrs := jsonutils.GetQueryStringArray(query, "user")
-	if len(userStrs) > 0 {
-		for i := range userStrs {
-			usrObj, err := DefaultUserFetcher(ctx, userStrs[i])
-			if err != nil {
-				if err == sql.ErrNoRows {
-					return nil, httperrors.NewResourceNotFoundError2("user", userStrs[i])
-				} else if err == sqlchemy.ErrDuplicateEntry {
-					return nil, httperrors.NewDuplicateNameError("user", userStrs[i])
-				} else {
-					return nil, httperrors.NewGeneralError(err)
-				}
-			}
-			userStrs[i] = usrObj.GetId()
-		}
-		if len(userStrs) == 1 {
-			q = q.Filter(sqlchemy.Equals(q.Field("user_id"), userStrs[0]))
-		} else {
-			q = q.Filter(sqlchemy.In(q.Field("user_id"), userStrs))
-		}
-	}
-	projStrs := jsonutils.GetQueryStringArray(query, "project")
+	projStrs := jsonutils.GetQueryStringArray(query, "owner_project_ids")
 	if len(projStrs) > 0 {
 		for i := range projStrs {
 			projObj, err := DefaultProjectFetcher(ctx, projStrs[i])
@@ -494,12 +474,23 @@ func (manager *SOpsLogManager) ListItemFilter(
 			}
 			projStrs[i] = projObj.GetId()
 		}
-		if len(projStrs) == 1 {
-			q = q.Filter(sqlchemy.Equals(q.Field("owner_tenant_id"), projStrs[0]))
-		} else {
-			q = q.Filter(sqlchemy.In(q.Field("owner_tenant_id"), projStrs))
+		q = q.Filter(sqlchemy.In(q.Field("owner_tenant_id"), projStrs))
+	}
+	domainStrs := jsonutils.GetQueryStringArray(query, "owner_domain_ids")
+	if len(domainStrs) > 0 {
+		for i := range domainStrs {
+			domainObj, err := DefaultDomainFetcher(ctx, domainStrs[i])
+			if err != nil {
+				if err == sql.ErrNoRows {
+					return nil, httperrors.NewResourceNotFoundError2("domain", domainStrs[i])
+				} else {
+					return nil, httperrors.NewGeneralError(err)
+				}
+			}
+			domainStrs[i] = domainObj.GetId()
 		}
-	}*/
+		q = q.Filter(sqlchemy.In(q.Field("owner_domain_id"), domainStrs))
+	}
 	objTypes := jsonutils.GetQueryStringArray(query, "obj_type")
 	if len(objTypes) > 0 {
 		if len(objTypes) == 1 {
