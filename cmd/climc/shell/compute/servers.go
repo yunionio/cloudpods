@@ -27,8 +27,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -38,36 +38,58 @@ import (
 )
 
 func init() {
+	cmd := shell.NewResourceCmd(&modules.Servers)
+	cmd.List(new(options.ServerListOptions))
+	cmd.Show(new(options.ServerShowOptions))
+	cmd.BatchDeleteWithParam(new(options.ServerDeleteOptions))
+	cmd.BatchPerform("cancel-delete", new(options.ServerCancelDeleteOptions))
+	cmd.BatchPut(new(options.ServerUpdateOptions))
+	cmd.GetMetadata(new(options.ServerIdOptions))
+	cmd.Perform("clone", new(options.ServerCloneOptions))
+	cmd.BatchPerform("start", new(options.ServerIdsOptions))
+	cmd.BatchPerform("syncstatus", new(options.ServerIdsOptions))
+	cmd.BatchPerform("sync", new(options.ServerIdsOptions))
+	cmd.Perform("switch-to-backup", new(options.ServerSwitchToBackupOptions))
+	cmd.BatchPerform("reconcile-backup", new(options.ServerIdsOptions))
+	cmd.BatchPerform("create-backup", new(options.ServerIdsOptions))
+	cmd.Perform("delete-backup", new(options.ServerDeleteBackupOptions))
+	cmd.BatchPerform("stop", new(options.ServerStopOptions))
+	cmd.BatchPerform("suspend", new(options.ServerIdsOptions))
+	cmd.BatchPerform("resume", new(options.ServerIdsOptions))
+	cmd.BatchPerform("reset", new(options.ServerResetOptions))
+	cmd.BatchPerform("restart", new(options.ServerRestartOptions))
+	cmd.BatchPerform("purge", new(options.ServerIdsOptions))
+	cmd.Perform("migrate", new(options.ServerMigrateOptions))
+	cmd.Perform("live-migrate", new(options.ServerLiveMigrateOptions))
+	cmd.Perform("modify-src-check", new(options.ServerModifySrcCheckOptions))
+	cmd.Perform("set-secgroup", new(options.ServerSecGroupsOptions))
+	cmd.Perform("add-secgroup", new(options.ServerSecGroupsOptions))
+	cmd.Perform("assign-secgroup", new(options.ServerSecGroupOptions))
+	cmd.Perform("assign-admin-secgroup", new(options.ServerSecGroupOptions))
+	cmd.Perform("revoke-secgroup", new(options.ServerSecGroupOptions))
+	cmd.Perform("revoke-admin-secgroup", new(options.ServerIdOptions))
+	cmd.Perform("save-image", new(options.ServerSaveImageOptions))
+	cmd.Perform("save-guest-image", new(options.ServerSaveGuestImageOptions))
+	cmd.Perform("change-owner", new(options.ServerChangeOwnerOptions))
+	cmd.Perform("rebuild-root", new(options.ServerRebuildRootOptions))
+	cmd.Perform("change-config", new(options.ServerChangeConfigOptions))
+	cmd.Perform("ejectiso", new(options.ServerIdOptions))
+	cmd.Perform("sendkeys", new(options.ServerSendKeyOptions))
+	cmd.Perform("deploy", new(options.ServerDeployOptions))
+	cmd.Perform("associate-eip", new(options.ServerAssociateEipOptions))
+	cmd.Perform("dissociate-eip", new(options.ServerDissociateEipOptions))
+	cmd.Perform("renew", new(options.ServerRenewOptions))
+	cmd.Perform("io-throttle", new(options.ServerIoThrottle))
+	cmd.Perform("publicip-to-eip", new(options.ServerPublicipToEip))
+	cmd.Perform("set-auto-renew", new(options.ServerSetAutoRenew))
+	cmd.Perform("save-template", new(options.ServerSaveImageOptions))
 
-	R(&options.ServerListOptions{}, "server-list", "List virtual servers", func(s *mcclient.ClientSession, opts *options.ServerListOptions) error {
-		params, err := options.ListStructToParams(opts)
-		if err != nil {
-			return err
-		}
-		result, err := modules.Servers.List(s, params)
-		if err != nil {
-			return err
-		}
-		if len(opts.ExportFile) > 0 {
-			exportList(result, opts.ExportFile, opts.ExportKeys, opts.ExportTexts, modules.Servers.GetColumns(s))
-		} else {
-			printList(result, modules.Servers.GetColumns(s))
-		}
-		return nil
-	})
-
-	R(&options.ServerShowOptions{}, "server-show", "Show details of a server", func(s *mcclient.ClientSession, opts *options.ServerShowOptions) error {
-		params, err := options.StructToParams(opts)
-		if err != nil {
-			return err
-		}
-		result, err := modules.Servers.Get(s, opts.ID, params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
+	cmd.Get("vnc", new(options.ServerIdOptions))
+	cmd.Get("desc", new(options.ServerIdOptions))
+	cmd.Get("status", new(options.ServerIdOptions))
+	cmd.Get("iso", new(options.ServerIdOptions))
+	cmd.Get("create-params", new(options.ServerIdOptions))
+	cmd.Get("change-owner-candidate-domains", new(options.ServerChangeOwnerCandidateDomainsOptions))
 
 	type ServerTaskShowOptions struct {
 		ID       string `help:"ID or name of server" json:"-"`
@@ -96,15 +118,6 @@ func init() {
 		listResult := modulebase.ListResult{}
 		listResult.Data = tasks
 		printList(&listResult, nil)
-		return nil
-	})
-
-	R(&options.ServerIdOptions{}, "server-metadata", "Show metadata of a server", func(s *mcclient.ClientSession, opts *options.ServerIdOptions) error {
-		result, err := modules.Servers.GetMetadata(s, opts.ID, nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
 		return nil
 	})
 
@@ -234,16 +247,6 @@ func init() {
 		return nil
 	})
 
-	R(&options.ServerCloneOptions{}, "server-clone", "Clone a server", func(s *mcclient.ClientSession, opts *options.ServerCloneOptions) error {
-		params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
-		res, err := modules.Servers.PerformAction(s, opts.SOURCE, "clone", params)
-		if err != nil {
-			return err
-		}
-		printObject(res)
-		return nil
-	})
-
 	R(&options.ServerLoginInfoOptions{}, "server-logininfo", "Get login info of a server", func(s *mcclient.ClientSession, opts *options.ServerLoginInfoOptions) error {
 		srvid, e := modules.Servers.GetId(s, opts.ID, nil)
 		if e != nil {
@@ -267,294 +270,6 @@ func init() {
 		return nil
 	})
 
-	R(&options.ServerIdsOptions{}, "server-start", "Start servers", func(s *mcclient.ClientSession, opts *options.ServerIdsOptions) error {
-		ret := modules.Servers.BatchPerformAction(s, opts.ID, "start", nil)
-		printBatchResults(ret, modules.Servers.GetColumns(s))
-		return nil
-	})
-
-	R(&options.ServerIdsOptions{}, "server-syncstatus", "Sync servers status", func(s *mcclient.ClientSession, opts *options.ServerIdsOptions) error {
-		ret := modules.Servers.BatchPerformAction(s, opts.ID, "syncstatus", nil)
-		printBatchResults(ret, modules.Servers.GetColumns(s))
-		return nil
-	})
-
-	R(&options.ServerIdsOptions{}, "server-sync", "Sync servers configurations", func(s *mcclient.ClientSession, opts *options.ServerIdsOptions) error {
-		ret := modules.Servers.BatchPerformAction(s, opts.ID, "sync", nil)
-		printBatchResults(ret, modules.Servers.GetColumns(s))
-		return nil
-	})
-
-	R(&options.ServerSwitchToBackupOptions{}, "server-switch-to-backup", "Switch geust master to backup host", func(s *mcclient.ClientSession, opts *options.ServerSwitchToBackupOptions) error {
-		params, err := options.StructToParams(opts)
-		if err != nil {
-			return err
-		}
-		ret, err := modules.Servers.PerformAction(s, opts.ID, "switch-to-backup", params)
-		if err != nil {
-			return err
-		}
-		printObject(ret)
-		return nil
-	})
-
-	R(&options.ServerIdsOptions{}, "server-reconcile-backup", "Reconcile backup server", func(s *mcclient.ClientSession, opts *options.ServerIdsOptions) error {
-		ret := modules.Servers.BatchPerformAction(s, opts.ID, "reconcile-backup", nil)
-		printBatchResults(ret, modules.Servers.GetColumns(s))
-		return nil
-	})
-
-	R(&options.ServerIdsOptions{}, "server-create-backup", "Create backup guest", func(s *mcclient.ClientSession, opts *options.ServerIdsOptions) error {
-		ret := modules.Servers.BatchPerformAction(s, opts.ID, "create-backup", nil)
-		printBatchResults(ret, modules.Servers.GetColumns(s))
-		return nil
-	})
-
-	R(&options.ServerDeleteBackupOptions{}, "server-delete-backup", "Guest delete backup", func(s *mcclient.ClientSession, opts *options.ServerDeleteBackupOptions) error {
-		params, err := options.StructToParams(opts)
-		if err != nil {
-			return err
-		}
-		ret, err := modules.Servers.PerformAction(s, opts.ID, "delete-backup", params)
-		if err != nil {
-			return err
-		}
-		printObject(ret)
-		return nil
-	})
-
-	R(&options.ServerStopOptions{}, "server-stop", "Stop servers", func(s *mcclient.ClientSession, opts *options.ServerStopOptions) error {
-		params, err := options.StructToParams(opts)
-		if err != nil {
-			return err
-		}
-		ret := modules.Servers.BatchPerformAction(s, opts.ID, "stop", params)
-		printBatchResults(ret, modules.Servers.GetColumns(s))
-		return nil
-	})
-
-	R(&options.ServerIdsOptions{}, "server-suspend", "Suspend servers", func(s *mcclient.ClientSession, opts *options.ServerIdsOptions) error {
-		ret := modules.Servers.BatchPerformAction(s, opts.ID, "suspend", nil)
-		printBatchResults(ret, modules.Servers.GetColumns(s))
-		return nil
-	})
-
-	R(&options.ServerIdsOptions{}, "server-resume", "Resume servers", func(s *mcclient.ClientSession,
-		opts *options.ServerIdsOptions) error {
-		ret := modules.Servers.BatchPerformAction(s, opts.ID, "resume", nil)
-		printBatchResults(ret, modules.Servers.GetColumns(s))
-		return nil
-	})
-
-	R(&options.ServerMigrateOptions{}, "server-migrate", "Migrate server", func(s *mcclient.ClientSession, opts *options.ServerMigrateOptions) error {
-		params, err := options.StructToParams(opts)
-		if err != nil {
-			return err
-		}
-		ret, err := modules.Servers.PerformAction(s, opts.ID, "migrate", params)
-		if err != nil {
-			return err
-		}
-		printObject(ret)
-		return nil
-	})
-
-	R(&options.ServerLiveMigrateOptions{}, "server-live-migrate", "Migrate server", func(s *mcclient.ClientSession, opts *options.ServerLiveMigrateOptions) error {
-		params, err := options.StructToParams(opts)
-		if err != nil {
-			return err
-		}
-		ret, err := modules.Servers.PerformAction(s, opts.ID, "live-migrate", params)
-		if err != nil {
-			return err
-		}
-		printObject(ret)
-		return nil
-	})
-
-	R(&options.ServerResetOptions{}, "server-reset", "Reset servers", func(s *mcclient.ClientSession, opts *options.ServerResetOptions) error {
-		params, err := options.StructToParams(opts)
-		if err != nil {
-			return err
-		}
-		ret := modules.Servers.BatchPerformAction(s, opts.ID, "reset", params)
-		printBatchResults(ret, modules.Servers.GetColumns(s))
-		return nil
-	})
-
-	R(&options.ServerRestartOptions{}, "server-restart", "Restart servers", func(s *mcclient.ClientSession, opts *options.ServerRestartOptions) error {
-		params, err := options.StructToParams(opts)
-		if err != nil {
-			return err
-		}
-		ret := modules.Servers.BatchPerformAction(s, opts.ID, "restart", params)
-		printBatchResults(ret, modules.Servers.GetColumns(s))
-		return nil
-	})
-
-	R(&options.ServerIdsOptions{}, "server-purge", "Purge obsolete servers", func(s *mcclient.ClientSession, opts *options.ServerIdsOptions) error {
-		ret := modules.Servers.BatchPerformAction(s, opts.ID, "purge", nil)
-		printBatchResults(ret, modules.Servers.GetColumns(s))
-		return nil
-	})
-
-	R(&options.ServerDeleteOptions{}, "server-delete", "Delete servers", func(s *mcclient.ClientSession, opts *options.ServerDeleteOptions) error {
-		params, err := options.StructToParams(opts)
-		if err != nil {
-			return err
-		}
-		ret := modules.Servers.BatchDeleteWithParam(s, opts.ID, params, nil)
-		printBatchResults(ret, modules.Servers.GetColumns(s))
-		return nil
-	})
-
-	R(&options.ServerIdsOptions{}, "server-cancel-delete", "Cancel pending delete servers", func(s *mcclient.ClientSession, opts *options.ServerIdsOptions) error {
-		ret := modules.Servers.BatchPerformAction(s, opts.ID, "cancel-delete", nil)
-		printBatchResults(ret, modules.Servers.GetColumns(s))
-		return nil
-	})
-
-	R(&options.ServerIdOptions{}, "server-vnc", "Show vnc info of server", func(s *mcclient.ClientSession, opts *options.ServerIdOptions) error {
-		ret, e := modules.Servers.GetSpecific(s, opts.ID, "vnc", nil)
-		if e != nil {
-			return e
-		}
-		printObject(ret)
-		return nil
-	})
-
-	R(&options.ServerIdOptions{}, "server-desc", "Show desc info of server", func(s *mcclient.ClientSession, opts *options.ServerIdOptions) error {
-		ret, e := modules.Servers.GetSpecific(s, opts.ID, "desc", nil)
-		if e != nil {
-			return e
-		}
-		printObject(ret)
-		return nil
-	})
-
-	R(&options.ServerIdOptions{}, "server-status", "Show status of server", func(s *mcclient.ClientSession, opts *options.ServerIdOptions) error {
-		ret, e := modules.Servers.GetSpecific(s, opts.ID, "status", nil)
-		if e != nil {
-			return e
-		}
-		printObject(ret)
-		return nil
-	})
-
-	R(&options.ServerUpdateOptions{}, "server-update", "Update servers", func(s *mcclient.ClientSession, opts *options.ServerUpdateOptions) error {
-		params, err := opts.Params()
-		if err != nil {
-			return err
-		}
-		if params.Size() == 0 {
-			return InvalidUpdateError()
-		}
-		result := modules.Servers.BatchPut(s, opts.ID, params)
-		printBatchResults(result, modules.Servers.GetColumns(s))
-		return nil
-	})
-
-	R(&options.ServerSendKeyOptions{}, "server-send-keys", "Send keys to server", func(s *mcclient.ClientSession, opts *options.ServerSendKeyOptions) error {
-		params, err := options.StructToParams(opts)
-		if err != nil {
-			return err
-		}
-		srv, err := modules.Servers.PerformAction(s, opts.ID, "sendkeys", params)
-		if err != nil {
-			return err
-		}
-		printObject(srv)
-		return nil
-	})
-
-	R(&options.ServerDeployOptions{}, "server-deploy", "Deploy hostname and keypair to a stopped virtual server", func(s *mcclient.ClientSession, opts *options.ServerDeployOptions) error {
-		params, err := opts.Params()
-		if err != nil {
-			return err
-		}
-		srv, e := modules.Servers.PerformAction(s, opts.ID, "deploy", params.JSON(params))
-		if e != nil {
-			return e
-		}
-		printObject(srv)
-		return nil
-	})
-
-	R(&options.ServerModifySrcCheckOptions{}, "server-modify-src-check", "Modify src ip, mac check settings", func(s *mcclient.ClientSession, opts *options.ServerModifySrcCheckOptions) error {
-		params, err := options.StructToParams(opts)
-		if err != nil {
-			return err
-		}
-		srv, err := modules.Servers.PerformAction(s, opts.ID, "modify-src-check", params)
-		if err != nil {
-			return err
-		}
-		printObject(srv)
-		return nil
-	})
-
-	R(&options.ServerSecGroupsOptions{}, "server-set-secgroup", "Set security groups to a VM", func(s *mcclient.ClientSession, opts *options.ServerSecGroupsOptions) error {
-		srv, err := modules.Servers.PerformAction(s, opts.ID, "set-secgroup", opts.Parmas())
-		if err != nil {
-			return err
-		}
-		printObject(srv)
-		return nil
-	})
-
-	R(&options.ServerSecGroupsOptions{}, "server-add-secgroup", "Add security group to a VM", func(s *mcclient.ClientSession, opts *options.ServerSecGroupsOptions) error {
-		srv, err := modules.Servers.PerformAction(s, opts.ID, "add-secgroup", opts.Parmas())
-		if err != nil {
-			return err
-		}
-		printObject(srv)
-		return nil
-	})
-
-	R(&options.ServerSecGroupOptions{}, "server-assign-secgroup", "Assign security group to a VM", func(s *mcclient.ClientSession, opts *options.ServerSecGroupOptions) error {
-		params, err := options.StructToParams(opts)
-		if err != nil {
-			return err
-		}
-		srv, e := modules.Servers.PerformAction(s, opts.ID, "assign-secgroup", params)
-		if e != nil {
-			return e
-		}
-		printObject(srv)
-		return nil
-	})
-
-	R(&options.ServerSecGroupOptions{}, "server-assign-admin-secgroup", "Assign administrative security group to a VM", func(s *mcclient.ClientSession, opts *options.ServerSecGroupOptions) error {
-		params, err := options.StructToParams(opts)
-		if err != nil {
-			return err
-		}
-		srv, e := modules.Servers.PerformAction(s, opts.ID, "assign-admin-secgroup", params)
-		if e != nil {
-			return e
-		}
-		printObject(srv)
-		return nil
-	})
-
-	R(&options.ServerSecGroupsOptions{}, "server-revoke-secgroup", "Revoke security group from VM", func(s *mcclient.ClientSession, opts *options.ServerSecGroupsOptions) error {
-		srv, err := modules.Servers.PerformAction(s, opts.ID, "revoke-secgroup", opts.Parmas())
-		if err != nil {
-			return err
-		}
-		printObject(srv)
-		return nil
-	})
-
-	R(&options.ServerIdOptions{}, "server-revoke-admin-secgroup", "Assign administrative security group to a VM", func(s *mcclient.ClientSession, opts *options.ServerIdOptions) error {
-		srv, e := modules.Servers.PerformAction(s, opts.ID, "revoke-admin-secgroup", nil)
-		if e != nil {
-			return e
-		}
-		printObject(srv)
-		return nil
-	})
-
 	R(&options.ServerMonitorOptions{}, "server-monitor", "Send commands to qemu monitor", func(s *mcclient.ClientSession, opts *options.ServerMonitorOptions) error {
 		params, err := options.StructToParams(opts)
 		if err != nil {
@@ -569,101 +284,6 @@ func init() {
 			return err
 		}
 		fmt.Println(result)
-		return nil
-	})
-
-	R(&options.ServerSaveImageOptions{}, "server-save-image", "Save root disk to new image and upload to glance.", func(s *mcclient.ClientSession, opts *options.ServerSaveImageOptions) error {
-		params, err := options.StructToParams(opts)
-		if err != nil {
-			return err
-		}
-		srv, err := modules.Servers.PerformAction(s, opts.ID, "save-image", params)
-		if err != nil {
-			return err
-		}
-		printObject(srv)
-		return nil
-	})
-
-	R(&options.ServerSaveGuestImageOptions{}, "server-save-guest-image",
-		"save root disk and data disks to new images and upload to glance.", func(s *mcclient.ClientSession,
-			opts *options.ServerSaveGuestImageOptions) error {
-
-			params, err := options.StructToParams(opts)
-			if err != nil {
-				return err
-			}
-			srv, err := modules.Servers.PerformAction(s, opts.ID, "save-guest-image", params)
-			if err != nil {
-				return err
-			}
-			printObject(srv)
-			return nil
-		},
-	)
-
-	type ServerChangeOwnerOptions struct {
-		ID      string `help:"Server to change owner" json:"-"`
-		PROJECT string `help:"Project ID or change" json:"tenant"`
-	}
-	R(&ServerChangeOwnerOptions{}, "server-change-owner", "Change owner porject of a server", func(s *mcclient.ClientSession, opts *ServerChangeOwnerOptions) error {
-		params, err := options.StructToParams(opts)
-		if err != nil {
-			return err
-		}
-		srv, err := modules.Servers.PerformAction(s, opts.ID, "change-owner", params)
-		if err != nil {
-			return err
-		}
-		printObject(srv)
-		return nil
-	})
-
-	R(&options.ServerRebuildRootOptions{}, "server-rebuild-root", "Rebuild VM root image with new template", func(s *mcclient.ClientSession, opts *options.ServerRebuildRootOptions) error {
-		params, err := options.StructToParams(opts)
-		if err != nil {
-			return err
-		}
-
-		if opts.NoAccountInit != nil && *opts.NoAccountInit {
-			params.Add(jsonutils.JSONFalse, "reset_password")
-		}
-
-		srv, err := modules.Servers.PerformAction(s, opts.ID, "rebuild-root", params)
-		if err != nil {
-			return err
-		}
-		printObject(srv)
-		return nil
-	})
-
-	R(&options.ServerChangeConfigOptions{}, "server-change-config", "Change configuration of VM", func(s *mcclient.ClientSession, opts *options.ServerChangeConfigOptions) error {
-		params, err := options.StructToParams(opts)
-		if len(opts.Disk) > 0 {
-			params.Remove("disk.0")
-			disksConf := make([]*compute.DiskConfig, 0)
-			for i, d := range opts.Disk {
-				// params.Set(key, value)
-				diskConfig, err := cmdline.ParseDiskConfig(d, i+1)
-				if err != nil {
-					return err
-				}
-				disksConf = append(disksConf, diskConfig)
-			}
-			params.Set("disks", jsonutils.Marshal(disksConf))
-		}
-
-		if err != nil {
-			return err
-		}
-		if params.Size() == 0 {
-			return InvalidUpdateError()
-		}
-		srv, err := modules.Servers.PerformAction(s, opts.ID, "change-config", params)
-		if err != nil {
-			return err
-		}
-		printObject(srv)
 		return nil
 	})
 
@@ -702,56 +322,6 @@ func init() {
 		result, err := modules.Servers.PerformAction(s, opts.ID, "insertiso", params)
 		if err != nil {
 			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&options.ServerIdOptions{}, "server-eject-iso", "Eject iso from servers' cdrom", func(s *mcclient.ClientSession, opts *options.ServerIdOptions) error {
-		result, err := modules.Servers.PerformAction(s, opts.ID, "ejectiso", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&options.ServerIdOptions{}, "server-iso", "Show server's mounting ISO information", func(s *mcclient.ClientSession, opts *options.ServerIdOptions) error {
-		results, err := modules.Servers.GetSpecific(s, opts.ID, "iso", nil)
-		if err != nil {
-			return err
-		}
-		printObject(results)
-		return nil
-	})
-
-	type ServerAssociateEipOptions struct {
-		ID  string `help:"ID or name of server"`
-		EIP string `help:"ID or name of EIP to associate"`
-	}
-	R(&ServerAssociateEipOptions{}, "server-associate-eip", "Associate a server and an eip", func(s *mcclient.ClientSession, args *ServerAssociateEipOptions) error {
-		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(args.EIP), "eip")
-		results, err := modules.Servers.PerformAction(s, args.ID, "associate-eip", params)
-		if err != nil {
-			return err
-		}
-		printObject(results)
-		return nil
-	})
-
-	type ServerDissociateEipOptions struct {
-		ID         string `help:"ID or name of server" json:"-"`
-		AutoDelete bool   `help:"automatically delete the dissociate EIP" json:"auto_delete,omitfalse"`
-	}
-	R(&ServerDissociateEipOptions{}, "server-dissociate-eip", "Dissociate an eip from a server", func(s *mcclient.ClientSession, args *ServerDissociateEipOptions) error {
-		params, err := options.StructToParams(args)
-		if err != nil {
-			return err
-		}
-		result, err := modules.Servers.PerformAction(s, args.ID, "dissociate-eip", params)
-		if err != nil {
-			return nil
 		}
 		printObject(result)
 		return nil
@@ -807,26 +377,7 @@ func init() {
 		return nil
 	})
 
-	type ServerRenewOptions struct {
-		ID       string `help:"ID or name of server to renew"`
-		DURATION string `help:"Duration of renew, ADMIN only command"`
-	}
-	R(&ServerRenewOptions{}, "server-renew", "Renew a server", func(s *mcclient.ClientSession, args *ServerRenewOptions) error {
-		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(args.DURATION), "duration")
-		result, err := modules.Servers.PerformAction(s, args.ID, "renew", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	type ServerPrepaidRecycleOptions struct {
-		ID         string `help:"ID or name of server to recycle"`
-		AutoDelete bool   `help:"after joining the pool, remove the server automatically"`
-	}
-	R(&ServerPrepaidRecycleOptions{}, "server-enable-recycle", "Put a prepaid server into recycle pool, so that it can be shared", func(s *mcclient.ClientSession, args *ServerPrepaidRecycleOptions) error {
+	R(&options.ServerPrepaidRecycleOptions{}, "server-enable-recycle", "Put a prepaid server into recycle pool, so that it can be shared", func(s *mcclient.ClientSession, args *options.ServerPrepaidRecycleOptions) error {
 		params := jsonutils.NewDict()
 		if args.AutoDelete {
 			params.Add(jsonutils.JSONTrue, "auto_delete")
@@ -839,7 +390,7 @@ func init() {
 		return nil
 	})
 
-	R(&ServerPrepaidRecycleOptions{}, "server-disable-recycle", "Pull a prepaid server from recycle pool, so that it will not be shared anymore", func(s *mcclient.ClientSession, args *ServerPrepaidRecycleOptions) error {
+	R(&options.ServerPrepaidRecycleOptions{}, "server-disable-recycle", "Pull a prepaid server from recycle pool, so that it will not be shared anymore", func(s *mcclient.ClientSession, args *options.ServerPrepaidRecycleOptions) error {
 		params := jsonutils.NewDict()
 		result, err := modules.Servers.PerformAction(s, args.ID, "undo-prepaid-recycle", params)
 		if err != nil {
@@ -1016,15 +567,6 @@ func init() {
 		return nil
 	})
 
-	R(&options.ServerIdOptions{}, "server-create-params", "Show server create params", func(s *mcclient.ClientSession, opts *options.ServerIdOptions) error {
-		ret, e := modules.Servers.GetSpecific(s, opts.ID, "create-params", nil)
-		if e != nil {
-			return e
-		}
-		printObject(ret)
-		return nil
-	})
-
 	type ServerExportVirtInstallCommand struct {
 		ID            string   `help:"Server Id" json:"-"`
 		LibvirtBridge string   `help:"Libvirt default bridge" json:"libvirt_bridge"`
@@ -1079,21 +621,6 @@ func init() {
 	R(&ServerResizeDiskOptions{}, "server-resize-disk", "Resize attached disk of a server", func(s *mcclient.ClientSession, args *ServerResizeDiskOptions) error {
 		params := jsonutils.Marshal(args)
 		result, err := modules.Servers.PerformAction(s, args.Server, "resize-disk", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	type ServerIoThrottle struct {
-		ID   string `help:"ID or name of VM" json:"-"`
-		BPS  int    `help:"bps(MB) of throttle" json:"bps"`
-		IOPS int    `help:"iops of throttle" json:"iops"`
-	}
-	R(&ServerIoThrottle{}, "server-io-throttle", "Guest io set throttle", func(s *mcclient.ClientSession, opts *ServerIoThrottle) error {
-		params := jsonutils.Marshal(opts)
-		result, err := modules.Servers.PerformAction(s, opts.ID, "io-throttle", params)
 		if err != nil {
 			return err
 		}
@@ -1305,38 +832,6 @@ func init() {
 		return nil
 	})
 
-	type ServerPublicipToEip struct {
-		ID        string `help:"ID or name of VM" json:"-"`
-		AutoStart bool   `help:"Auto start new guest"`
-	}
-
-	R(&ServerPublicipToEip{}, "server-publicip-to-eip", "Convert PublicIp to Eip for server", func(s *mcclient.ClientSession, opts *ServerPublicipToEip) error {
-		params := jsonutils.NewDict()
-		params.Set("auto_start", jsonutils.NewBool(opts.AutoStart))
-		result, err := modules.Servers.PerformAction(s, opts.ID, "publicip-to-eip", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	type ServerSetAutoRenew struct {
-		ID        string `help:"ID or name of VM" json:"-"`
-		AutoRenew bool   `help:"Set server auto renew or manual renew"`
-	}
-
-	R(&ServerSetAutoRenew{}, "server-set-auto-renew", "Set autorenew for server", func(s *mcclient.ClientSession, opts *ServerSetAutoRenew) error {
-		params := jsonutils.NewDict()
-		params.Set("auto_renew", jsonutils.NewBool(opts.AutoRenew))
-		result, err := modules.Servers.PerformAction(s, opts.ID, "set-auto-renew", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
 	R(&options.ServerConvertToKvmOptions{}, "server-convert-to-kvm", "Convert esxi server to kvm", func(s *mcclient.ClientSession, opts *options.ServerConvertToKvmOptions) error {
 		params := jsonutils.Marshal(opts)
 		dict := params.(*jsonutils.JSONDict)
@@ -1348,31 +843,4 @@ func init() {
 		printObject(result)
 		return nil
 	})
-
-	R(&options.ServerShowOptions{}, "server-change-owner-candidate-domains", "Get change owner candidate domain list", func(s *mcclient.ClientSession, args *options.ServerShowOptions) error {
-		result, err := modules.Servers.GetSpecific(s, args.ID, "change-owner-candidate-domains", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	type ServerSaveTemplateOptions struct {
-		ID           string `help:"The ID or Name of server"`
-		TemplateName string `help:"The name of guest template"`
-	}
-
-	R(&ServerSaveTemplateOptions{}, "server-save-template", "Save Guest Template of this Server",
-		func(s *mcclient.ClientSession, args *ServerSaveTemplateOptions) error {
-			dict := jsonutils.NewDict()
-			dict.Set("name", jsonutils.NewString(args.TemplateName))
-			result, err := modules.Servers.PerformAction(s, args.ID, "save-template", dict)
-			if err != nil {
-				return err
-			}
-			printObject(result)
-			return nil
-		},
-	)
 }

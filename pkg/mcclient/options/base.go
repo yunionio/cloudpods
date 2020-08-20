@@ -303,6 +303,18 @@ func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
 	return params, nil
 }
 
+func (o *BaseListOptions) GetExportFile() string {
+	return o.ExportFile
+}
+
+func (o *BaseListOptions) GetExportKeys() string {
+	return o.ExportKeys
+}
+
+func (o *BaseListOptions) GetExportTexts() string {
+	return o.ExportTexts
+}
+
 type ScopedResourceListOptions struct {
 	BelongScope string `help:"Filter by resource belong scope" choices:"system|domain|project"`
 }

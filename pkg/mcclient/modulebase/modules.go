@@ -143,6 +143,12 @@ type Manager interface {
 	BatchDeleteInContextsWithParam(session *mcclient.ClientSession, idlist []string, query jsonutils.JSONObject, body jsonutils.JSONObject, ctxs []ManagerContext) []SubmitResult
 }
 
+type IResourceManager interface {
+	Manager
+	GetMetadata(session *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
+	SetMetadata(session *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
+}
+
 type JointManager interface {
 	IBaseManager
 	MasterManager() Manager
