@@ -16,11 +16,10 @@ package policy
 
 import (
 	"context"
-	"runtime/debug"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -28,13 +27,14 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis"
-	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/cloudcommon/syncman/watcher"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/hashcache"
+	"yunion.io/x/onecloud/pkg/util/nopanic"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -55,8 +55,6 @@ type PolicyFetchFunc func(ctx context.Context) (map[rbacutils.TRbacScope][]rbacu
 var (
 	PolicyManager        *SPolicyManager
 	DefaultPolicyFetcher PolicyFetchFunc
-
-	syncWorkerManager *appsrv.SWorkerManager
 )
 
 func init() {
@@ -64,16 +62,14 @@ func init() {
 		lock: &sync.Mutex{},
 	}
 	DefaultPolicyFetcher = remotePolicyFetcher
-
-	// no need to queue many sync tasks
-	syncWorkerManager = appsrv.NewWorkerManagerIgnoreOverflow("sync_policy_worker", 1, 2, true, true)
 }
 
 type SPolicyManager struct {
+	watcher.SInformerSyncManager
+
 	// policies        map[rbacutils.TRbacScope]map[string]*rbacutils.SRbacPolicy
 	policies        map[rbacutils.TRbacScope][]rbacutils.SPolicyInfo
 	defaultPolicies map[rbacutils.TRbacScope][]*rbacutils.SRbacPolicy
-	lastSync        time.Time
 
 	failedRetryInterval time.Duration
 	refreshInterval     time.Duration
@@ -173,8 +169,9 @@ func remotePolicyFetcher(ctx context.Context) (map[rbacutils.TRbacScope][]rbacut
 
 func (manager *SPolicyManager) start(refreshInterval time.Duration, retryInterval time.Duration) {
 	log.Infof("PolicyManager start to fetch policies ...")
-	manager.refreshInterval = refreshInterval
 	manager.failedRetryInterval = retryInterval
+	manager.refreshInterval = refreshInterval
+	manager.InitSync(manager)
 	if len(predefinedDefaultPolicies) > 0 {
 		policiesMap := make(map[rbacutils.TRbacScope][]*rbacutils.SRbacPolicy)
 		for i := range predefinedDefaultPolicies {
@@ -190,60 +187,54 @@ func (manager *SPolicyManager) start(refreshInterval time.Duration, retryInterva
 		// log.Debugf("%#v", manager.defaultPolicies)
 	}
 
-	manager.cache = hashcache.NewCache(2048, manager.refreshInterval/2)
+	manager.cache = hashcache.NewCache(2048, refreshInterval/2)
 
-	manager.syncByInterval()
-}
+	defaultFetcherFuncAddr := reflect.ValueOf(DefaultPolicyFetcher).Pointer()
+	remoteFetcherFuncAddr := reflect.ValueOf(remotePolicyFetcher).Pointer()
+	log.Debugf("DefaultPolicyFetcher: %x RemotePolicyFetcher: %x", defaultFetcherFuncAddr, remoteFetcherFuncAddr)
+	if defaultFetcherFuncAddr == remoteFetcherFuncAddr {
+		// remote fetcher, so start watcher
+		manager.StartWatching(&modules.Policies)
+	}
 
-func (manager *SPolicyManager) syncByInterval() {
-	syncWorkerManager.Run(manager.syncByInterval_, nil, nil)
-}
-
-func (manager *SPolicyManager) syncByInterval_() {
-	err := manager.doSync()
-	var interval time.Duration
+	err := manager.FirstSync()
 	if err != nil {
-		interval = manager.failedRetryInterval
-	} else {
-		interval = manager.refreshInterval
-	}
-	time.AfterFunc(interval, manager.syncByInterval)
-}
-
-var syncOnce int32
-
-func (manager *SPolicyManager) SyncOnce() {
-	if atomic.CompareAndSwapInt32(&syncOnce, 0, 1) {
-		syncWorkerManager.Run(func() {
-			atomic.StoreInt32(&syncOnce, 0)
-			manager.doSync()
-		}, nil, nil)
+		log.Errorf("PolicyManager first sync fail %s", err)
 	}
 }
 
-func (manager *SPolicyManager) doSync() error {
-	defer func() {
-		if r := recover(); r != nil {
-			log.Errorf("policyManager doSync error %s", r)
-			debug.PrintStack()
+func (manager *SPolicyManager) DoSync(first bool) (time.Duration, error) {
+	var err error
+
+	nopanic.Run(func() {
+		var policies map[rbacutils.TRbacScope][]rbacutils.SPolicyInfo
+		policies, err = DefaultPolicyFetcher(context.Background())
+		if err == nil {
+			manager.lock.Lock()
+			defer manager.lock.Unlock()
+			manager.policies = policies
+			manager.cache.Invalidate()
+		} else {
+			log.Errorf("sync rbac policy failed: %s", err)
 		}
-	}()
+	})
 
-	policies, err := DefaultPolicyFetcher(context.Background())
+	var nextInterval time.Duration
 	if err != nil {
-		log.Errorf("sync rbac policy failed: %s", err)
-		return errors.Wrap(err, "DefaultPolicyFetcher")
+		nextInterval = manager.failedRetryInterval
+	} else {
+		nextInterval = manager.refreshInterval
 	}
 
-	manager.lock.Lock()
-	defer manager.lock.Unlock()
+	return nextInterval, err
+}
 
-	manager.policies = policies
+func (manager *SPolicyManager) NeedSync(dat *jsonutils.JSONDict) bool {
+	return true
+}
 
-	manager.lastSync = time.Now()
-	manager.cache.Invalidate()
-
-	return nil
+func (manager *SPolicyManager) Name() string {
+	return "PolicyManager"
 }
 
 func queryKey(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) string {

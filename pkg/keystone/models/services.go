@@ -26,6 +26,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -68,6 +69,8 @@ type SService struct {
 	Type    string              `width:"255" charset:"utf8" list:"admin" create:"admin_required"`
 	Enabled tristate.TriState   `nullable:"false" default:"true" list:"admin" update:"admin" create:"admin_optional"`
 	Extra   *jsonutils.JSONDict `nullable:"true" list:"admin"`
+
+	ConfigVersion int `list:"admin" nullable:"false" default:"0"`
 }
 
 func (manager *SServiceManager) InitializeData() error {
@@ -200,6 +203,14 @@ func (service *SService) PerformConfig(ctx context.Context, userCred mcclient.To
 	}
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("saveConfig fail %s", err)
+	}
+	diff := SService{ConfigVersion: 1}
+	err = ServiceManager.TableSpec().Increment(ctx, diff, service)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("update config version fail %s", err)
+	}
+	if service.Type == api.SERVICE_TYPE || service.Type == consts.COMMON_SERVICE {
+		options.OptionManager.SyncOnce()
 	}
 	return service.GetDetailsConfig(ctx, userCred, query)
 }

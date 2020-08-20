@@ -16,12 +16,16 @@ package options
 
 import (
 	"reflect"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/cloudcommon/syncman/watcher"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 const (
@@ -31,6 +35,8 @@ const (
 type TOptionsChangeFunc func(oldOpts, newOpts interface{}) bool
 
 type SOptionManager struct {
+	watcher.SInformerSyncManager
+
 	serviceType    string
 	serviceVersion string
 
@@ -38,9 +44,9 @@ type SOptionManager struct {
 
 	session IServiceConfigSession
 
-	refreshInterval time.Duration
-
 	onOptionsChange TOptionsChangeFunc
+
+	refreshInterval time.Duration
 }
 
 var (
@@ -63,10 +69,17 @@ func StartOptionManagerWithSessionDriver(options interface{}, refreshSeconds int
 		serviceVersion:  serviceVersion,
 		options:         options,
 		session:         session,
-		refreshInterval: refreshInterval,
 		onOptionsChange: onChange,
+		refreshInterval: refreshInterval,
 	}
-	OptionManager.firstSync()
+
+	OptionManager.InitSync(OptionManager)
+
+	OptionManager.FirstSync()
+
+	if session.IsRemote() {
+		OptionManager.StartWatching(&modules.ServicesV3)
+	}
 }
 
 func (manager *SOptionManager) newOptions() interface{} {
@@ -100,7 +113,7 @@ func optionsEquals(newOpts interface{}, oldOpts interface{}) bool {
 	return true
 }
 
-func (manager *SOptionManager) doSync(first bool) {
+func (manager *SOptionManager) DoSync(first bool) (time.Duration, error) {
 	newOpts := manager.newOptions()
 	copyOptions(newOpts, manager.options)
 	merged := manager.session.Merge(newOpts, manager.serviceType, manager.serviceVersion)
@@ -113,14 +126,17 @@ func (manager *SOptionManager) doSync(first bool) {
 		copyOptions(manager.options, newOpts)
 		manager.session.Upload()
 	}
+	return manager.refreshInterval, nil
 }
 
-func (manager *SOptionManager) firstSync() {
-	manager.doSync(true)
-	time.AfterFunc(manager.refreshInterval, manager.sync)
+func (manager *SOptionManager) NeedSync(dat *jsonutils.JSONDict) bool {
+	serviceType, _ := dat.GetString("type")
+	if strings.HasPrefix(serviceType, manager.serviceType) || serviceType == consts.COMMON_SERVICE {
+		return true
+	}
+	return false
 }
 
-func (manager *SOptionManager) sync() {
-	manager.doSync(false)
-	time.AfterFunc(manager.refreshInterval, manager.sync)
+func (manager *SOptionManager) Name() string {
+	return "ServiceConfigManager"
 }

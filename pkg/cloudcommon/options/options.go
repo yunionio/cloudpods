@@ -70,10 +70,10 @@ type BaseOptions struct {
 
 	EnableRbac                       bool `help:"Switch on Role-based Access Control" default:"true"`
 	RbacDebug                        bool `help:"turn on rbac debug log" default:"false"`
-	RbacPolicySyncPeriodSeconds      int  `help:"policy sync interval in seconds, default 5 minutes" default:"300"`
+	RbacPolicySyncPeriodSeconds      int  `help:"policy sync interval in seconds, default 30 minutes" default:"1800"`
 	RbacPolicySyncFailedRetrySeconds int  `help:"seconds to wait after a failed sync, default 30 seconds" default:"30"`
 
-	ConfigSyncPeriodSeconds int `help:"service config sync interval in seconds, default 300 seconds/5 minutes" default:"300"`
+	ConfigSyncPeriodSeconds int `help:"service config sync interval in seconds, default 30 minutes" default:"1800"`
 
 	IsSlaveNode        bool `help:"Slave mode"`
 	CronJobWorkerCount int  `help:"Cron job worker count" default:"4"`
@@ -128,6 +128,7 @@ type DBOptions struct {
 	LockmanMethod string `help:"method for lock synchronization" choices:"inmemory|etcd" default:"inmemory"`
 
 	EtcdOptions
+
 	EtcdLockPrefix string `help:"prefix of etcd lock records" default:"/onecloud/lockman"`
 	EtcdLockTTL    int    `help:"ttl of etcd lock records" default:"5"`
 }

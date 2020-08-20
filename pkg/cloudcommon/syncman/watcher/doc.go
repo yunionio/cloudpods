@@ -12,27 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package identity
-
-import "yunion.io/x/onecloud/pkg/apis"
-
-type EndpointDetails struct {
-	apis.StandaloneResourceDetails
-	SEndpoint
-	CertificateDetails
-
-	// 服务名称,例如keystone, glance, region等
-	ServiceName string `json:"service_name"`
-
-	// 服务类型,例如identity, image, compute等
-	ServiceType string `json:"service_type"`
-}
-
-type CertificateDetails struct {
-	apis.SCertificateResourceBase
-	CertName string `json:"cert_name"`
-	CertId   string `json:"cert_id"`
-
-	CaCertificate string `json:"ca_certificate"`
-	CaPrivateKey  string `json:"ca_private_key"`
-}
+package watcher // import "yunion.io/x/onecloud/pkg/cloudcommon/syncman/watcher"

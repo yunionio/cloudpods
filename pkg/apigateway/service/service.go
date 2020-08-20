@@ -19,7 +19,6 @@ import (
 	"os"
 	"strconv"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/apigateway/app"
@@ -29,7 +28,6 @@ import (
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 func StartService() {
@@ -55,9 +53,9 @@ func StartService() {
 	serviceApp := app.NewApp(app_common.InitApp(baseOpts, false))
 	serviceApp.InitHandlers().Bind()
 
-	mods, jmods := modulebase.GetRegisterdModules()
-	log.Infof("Modules: %s", jsonutils.Marshal(mods).PrettyString())
-	log.Infof("Modules: %s", jsonutils.Marshal(jmods).PrettyString())
+	// mods, jmods := modulebase.GetRegisterdModules()
+	// log.Infof("Modules: %s", jsonutils.Marshal(mods).PrettyString())
+	// log.Infof("Modules: %s", jsonutils.Marshal(jmods).PrettyString())
 
 	listenAddr := net.JoinHostPort(options.Options.Address, strconv.Itoa(options.Options.Port))
 	if opts.EnableSsl {

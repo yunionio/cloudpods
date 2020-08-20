@@ -43,8 +43,8 @@ type ITableSpec interface {
 	SyncSQL() []string
 	DropForeignKeySQL() []string
 	AddIndex(unique bool, cols ...string) bool
-	Increment(diff interface{}, target interface{}) error
-	Decrement(diff interface{}, target interface{}) error
+	Increment(ctx context.Context, diff interface{}, target interface{}) error
+	Decrement(ctx context.Context, diff interface{}, target interface{}) error
 }
 
 type sTableSpec struct {
@@ -126,6 +126,26 @@ func (ts *sTableSpec) Update(ctx context.Context, dt interface{}, doUpdate func(
 		ts.informUpdate(ctx, dt, oldObj.(*jsonutils.JSONDict))
 	}
 	return diffs, nil
+}
+
+func (ts *sTableSpec) Increment(ctx context.Context, diff, target interface{}) error {
+	oldObj := jsonutils.Marshal(target)
+	err := ts.STableSpec.Increment(diff, target)
+	if err != nil {
+		return errors.Wrap(err, "Increment")
+	}
+	ts.informUpdate(ctx, target, oldObj.(*jsonutils.JSONDict))
+	return nil
+}
+
+func (ts *sTableSpec) Decrement(ctx context.Context, diff, target interface{}) error {
+	oldObj := jsonutils.Marshal(target)
+	err := ts.STableSpec.Decrement(diff, target)
+	if err != nil {
+		return err
+	}
+	ts.informUpdate(ctx, target, oldObj.(*jsonutils.JSONDict))
+	return nil
 }
 
 func (ts *sTableSpec) inform(ctx context.Context, dt interface{}, f func(ctx context.Context, obj *informer.ModelObject) error) {

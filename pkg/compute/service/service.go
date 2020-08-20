@@ -79,10 +79,7 @@ func StartService() {
 
 	options.InitNameSyncResources()
 
-	err := setInfluxdbRetentionPolicy()
-	if err != nil {
-		log.Errorf("setInfluxdbRetentionPolicy fail: %s", err)
-	}
+	setInfluxdbRetentionPolicy()
 
 	models.InitSyncWorkers(options.Options.CloudSyncWorkerCount)
 
