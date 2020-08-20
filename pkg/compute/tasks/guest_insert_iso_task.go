@@ -75,7 +75,7 @@ func (self *GuestInsertIsoTask) OnIsoPrepareComplete(ctx context.Context, obj db
 	name, _ := data.GetString("name")
 	path, _ := data.GetString("path")
 	guest := obj.(*models.SGuest)
-	if guest.InsertIsoSucc(imageId, path, int(size), name) {
+	if guest.InsertIsoSucc(imageId, path, size, name) {
 		db.OpsLog.LogEvent(guest, db.ACT_ISO_ATTACH, guest.GetDetailsIso(self.UserCred), self.UserCred)
 		if guest.GetDriver().NeedRequestGuestHotAddIso(ctx, guest) {
 			self.SetStage("OnConfigSyncComplete", nil)

@@ -51,7 +51,7 @@ type SGuestcdrom struct {
 	ImageId       string    `width:"36" charset:"ascii" nullable:"true"`  // Column(VARCHAR(36, charset='ascii'), nullable=True)
 	Name          string    `width:"64" charset:"ascii" nullable:"true"`  // Column(VARCHAR(64, charset='ascii'), nullable=True)
 	Path          string    `width:"256" charset:"ascii" nullable:"true"` // Column(VARCHAR(256, charset='ascii'), nullable=True)
-	Size          int       `nullable:"false" default:"0"`                // = Column(Integer, nullable=False, default=0)
+	Size          int64     `nullable:"false" default:"0"`                // = Column(Integer, nullable=False, default=0)
 	UpdatedAt     time.Time `nullable:"false" updated_at:"true" nullable:"false"`
 	UpdateVersion int       `default:"0" nullable:"false" auto_version:"true"`
 }
@@ -75,7 +75,7 @@ func (self *SGuestcdrom) insertIso(imageId string) bool {
 	}
 }
 
-func (self *SGuestcdrom) insertIsoSucc(imageId string, path string, size int, name string) bool {
+func (self *SGuestcdrom) insertIsoSucc(imageId string, path string, size int64, name string) bool {
 	if self.ImageId == imageId {
 		_, err := db.Update(self, func() error {
 			self.Name = name
