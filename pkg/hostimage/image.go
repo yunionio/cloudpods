@@ -157,6 +157,7 @@ func (img *SQcow2Image) Read(offset, count int64) ([]byte, error) {
 
 func (img *SQcow2Image) Close() {
 	img.fd.CloseQcow2()
+	qemuBlkCache.Delete(img.fd.imagePath)
 }
 
 func (img *SQcow2Image) Length() int64 {
@@ -182,7 +183,7 @@ func (f *SFile) Open(imagePath string, readonly bool) error {
 }
 
 func (f *SFile) Load(imagePath string, readonly bool) error {
-	return fmt.Errorf("File don't support load")
+	return nil
 }
 
 func (f *SFile) Read(offset, count int64) ([]byte, error) {

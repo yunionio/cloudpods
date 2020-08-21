@@ -163,6 +163,7 @@ func closeImage(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	err = f.Load(imagePath, true)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
+		return
 	}
 	f.Close()
 	w.WriteHeader(http.StatusOK)
