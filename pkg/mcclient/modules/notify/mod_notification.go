@@ -15,9 +15,9 @@
 package notify
 
 import (
-	"fmt"
-
+	"github.com/golang-plus/errors"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
@@ -39,26 +39,54 @@ type SNotifyMessage struct {
 	Broadcast   bool            `json:"broadcast,omitempty"`
 }
 
+type SNotifyV2Message struct {
+	ReceiverIds []string `json:"receiver_ids"`
+	ContactType string   `json:"contact_type"`
+	Topic       string   `json:"topic"`
+	Priority    string   `json:"priority"`
+	Message     string   `json:"message"`
+}
+
 type NotificationManager struct {
 	modulebase.ResourceManager
 }
 
 func (manager *NotificationManager) Send(s *mcclient.ClientSession, msg SNotifyMessage) error {
-	params := jsonutils.Marshal(&msg)
-	body := jsonutils.NewDict()
-	body.Add(params, manager.Keyword)
+	receiverIds := make([]string, 0, len(msg.Uid))
+	if len(msg.Gid) > 0 {
+		// fetch uid
+		uidSet := sets.NewString()
+		for _, gid := range msg.Gid {
+			users, err := modules.Groups.GetUsers(s, gid, nil)
+			if err != nil {
+				return errors.Wrapf(err, "Groups.GetUsers for group %q", gid)
+			}
+			for i := range users.Data {
+				id, _ := users.Data[i].GetString("id")
+				uidSet.Insert(id)
+			}
+		}
+		for _, uid := range uidSet.UnsortedList() {
+			receiverIds = append(receiverIds, uid)
+		}
+	}
+	receiverIds = append(receiverIds, msg.Uid...)
 
-	path := fmt.Sprintf("/%s?uname=true", manager.ContextPath(nil))
-	_, err := modulebase.Post(manager.ResourceManager, s, path, body, manager.KeywordPlural)
+	v2msg := SNotifyV2Message{
+		ReceiverIds: receiverIds,
+		ContactType: string(msg.ContactType),
+		Topic:       msg.Topic,
+		Priority:    string(msg.Priority),
+		Message:     msg.Msg,
+	}
+	params := jsonutils.Marshal(&v2msg)
+
+	_, err := manager.Create(s, params)
 	return err
 }
 
 func init() {
 	Notifications = NotificationManager{
-		modules.NewNotifyManager("notification", "notifications",
-			[]string{"id", "uid", "contact_type", "topic", "priority", "msg", "received_at", "send_by", "status", "create_at", "update_at", "delete_at", "create_by", "update_by", "delete_by", "is_deleted", "broadcast", "remark"},
-			[]string{}),
+		modules.Notification,
 	}
-
-	modules.Register(&Notifications)
 }
