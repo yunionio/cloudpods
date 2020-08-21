@@ -3,6 +3,7 @@ module yunion.io/x/onecloud
 go 1.12
 
 require (
+	bazil.org/fuse v0.0.0-20180421153158-65cc252bf669
 	cloud.google.com/go/storage v1.5.0
 	github.com/360EntSecGroup-Skylar/excelize v1.4.0
 	github.com/Azure/azure-sdk-for-go v36.1.0+incompatible
@@ -67,6 +68,7 @@ require (
 	github.com/hako/durafmt v0.0.0-20180520121703-7b7ae1e72ead
 	github.com/huandu/xstrings v1.2.0 // indirect
 	github.com/imdario/mergo v0.3.6 // indirect
+	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/koding/websocketproxy v0.0.0-20181220232114-7ed82d81a28c
 	github.com/kr/pty v1.1.5
 	github.com/lestrrat-go/jwx v1.0.2
@@ -95,6 +97,7 @@ require (
 	github.com/pquerna/otp v1.2.0
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a // indirect
 	github.com/serialx/hashring v0.0.0-20180504054112-49a4782e9908
+	github.com/sevlyar/go-daemon v0.1.5
 	github.com/shirou/gopsutil v2.18.10+incompatible
 	github.com/shirou/w32 v0.0.0-20160930032740-bb4de0191aa4 // indirect
 	github.com/skip2/go-qrcode v0.0.0-20190110000554-dc11ecdae0a9
@@ -141,7 +144,7 @@ require (
 	yunion.io/x/ovsdb v0.0.0-20200526071744-27bf0940cbc7
 	yunion.io/x/pkg v0.0.0-20200814072949-4f1b541857d6
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
-	yunion.io/x/sqlchemy v0.0.0-20200814052348-164f1f20f8a6
+	yunion.io/x/sqlchemy v0.0.0-20200820050957-1542f05b9fcd
 	yunion.io/x/structarg v0.0.0-20200720093445-9f850fa222ce
 )
 
