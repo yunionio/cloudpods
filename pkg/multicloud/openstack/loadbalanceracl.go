@@ -113,7 +113,7 @@ func (acl *SLoadbalancerAcl) Delete() error {
 func (region *SRegion) GetLoadbalancerAclDetail(aclId string) (*SLoadbalancerAcl, error) {
 	listener, err := region.GetLoadbalancerListenerbyId(aclId)
 	if err != nil {
-		return nil, errors.Wrapf(err, "region.GetLoadbalancerListenerbyId(s)", aclId)
+		return nil, errors.Wrapf(err, "region.GetLoadbalancerListenerbyId(%s)", aclId)
 	}
 	acl := SLoadbalancerAcl{}
 	acl.listener = listener
@@ -151,7 +151,7 @@ func (region *SRegion) CreateLoadBalancerAcl(acl *cloudprovider.SLoadbalancerAcc
 	}
 	sacl, err := region.GetLoadbalancerAclDetail(acl.ListenerId)
 	if err != nil {
-		return nil, errors.Wrapf(err, "region.GetLoadbalancerAclDetail(s)", acl.ListenerId)
+		return nil, errors.Wrapf(err, "region.GetLoadbalancerAclDetail(%s)", acl.ListenerId)
 	}
 	// ensure listener status
 	err = waitLbResStatus(sacl.listener, 10*time.Second, 8*time.Minute)

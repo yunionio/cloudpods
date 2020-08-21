@@ -422,7 +422,7 @@ func (region *SRegion) UpdateLoadBalancerPool(poolId string, group *cloudprovide
 	}
 	_, err := region.lbUpdate(fmt.Sprintf("/v2/lbaas/pools/%s", poolId), jsonutils.Marshal(params))
 	if err != nil {
-		return errors.Wrapf(err, `region.lbUpdate(fmt.Sprintf("/v2/lbaas/pools/%s", poolId), jsonutils.Marshal(params))`)
+		return errors.Wrap(err, `region.lbUpdate(fmt.Sprintf("/v2/lbaas/pools/%s", poolId), jsonutils.Marshal(params))`)
 	}
 	return nil
 }
@@ -556,7 +556,7 @@ func (pool *SLoadbalancerPool) AddBackendServer(serverId string, weight, port in
 	}
 	smemeber, err := pool.region.CreateLoadbalancerMember(pool.ID, serverId, weight, port)
 	if err != nil {
-		return nil, errors.Wrapf(err, `CreateLoadbalancerMember(%s,%s,%s,%s)`, pool.ID, serverId, weight, port)
+		return nil, errors.Wrapf(err, `CreateLoadbalancerMember(%s,%s,%d,%d)`, pool.ID, serverId, weight, port)
 	}
 	err = waitLbResStatus(smemeber, 10*time.Second, 8*time.Minute)
 	if err != nil {
