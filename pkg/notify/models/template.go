@@ -152,16 +152,42 @@ func (tm *STemplateManager) InitializeData() error {
 		return err
 	}
 	for _, template := range templates {
-		if !utils.IsInStringArray(template.TemplateType, ForceInitType) {
-			q := tm.Query().Equals("contact_type", template.ContactType).Equals("topic", template.Topic).Equals("template_type", template.TemplateType)
-			count, _ := q.CountWithError()
-			if count > 0 {
-				continue
+		q := tm.Query().Equals("contact_type", template.ContactType).Equals("topic", template.Topic).Equals("template_type", template.TemplateType)
+		count, _ := q.CountWithError()
+		if count > 0 && !utils.IsInStringArray(template.ContactType, ForceInitType) {
+			continue
+		}
+		if count == 0 {
+			err := tm.TableSpec().Insert(context.TODO(), &template)
+			if err != nil {
+				return errors.Wrap(err, "sqlchemy.TableSpec.Insert")
+			}
+			continue
+		}
+		oldTemplates := make([]STemplate, 0, 1)
+		err := db.FetchModelObjects(tm, q, &oldTemplates)
+		if err != nil {
+			return errors.Wrap(err, "db.FetchModelObjects")
+		}
+		// delete addtion
+		var (
+			ctx      = context.Background()
+			userCred = auth.AdminCredential()
+		)
+		for i := 1; i < len(oldTemplates); i++ {
+			err := oldTemplates[i].Delete(ctx, userCred)
+			if err != nil {
+				return errors.Wrap(err, "STemplate.Delete")
 			}
 		}
-		err := tm.TableSpec().InsertOrUpdate(context.TODO(), &template)
+		// update
+		oldTemplate := &oldTemplates[0]
+		_, err = db.Update(oldTemplate, func() error {
+			oldTemplate.Content = template.Content
+			return nil
+		})
 		if err != nil {
-			return errors.Wrap(err, "sqlchemy.TableSpec.InsertOrUpdate")
+			return errors.Wrap(err, "db.Update")
 		}
 	}
 	return nil

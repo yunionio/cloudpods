@@ -598,7 +598,10 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 	if err != nil {
 		log.Errorf("PullCache: %v", err)
 	}
+	log.Infof("enabledContactTypes: %v", input.EnabledContactTypes)
+	log.Infof("before set EnabledContactTypes: %#v", r)
 	err = r.SetEnabledContactTypes(input.EnabledContactTypes)
+	log.Infof("after set EnabledContactTypes: %#v", r)
 	if len(input.Email) != 0 {
 		r.VerifiedEmail = tristate.False
 		for _, c := range r.subContactCache {
@@ -663,7 +666,7 @@ func (r *SReceiver) PerformTriggerVerify(ctx context.Context, userCred mcclient.
 	if !utils.IsInStringArray(input.ContactType, []string{api.EMAIL, api.MOBILE}) {
 		return nil, httperrors.NewInputParameterError("not support such contact type %q", input.ContactType)
 	}
-	v, err := VerificationManager.Create(ctx, r.Id, input.ContactType)
+	_, err := VerificationManager.Create(ctx, r.Id, input.ContactType)
 	if err == ErrVerifyFrequently {
 		return nil, httperrors.NewForbiddenError("Send verify message too frequently, please try again later")
 	}
@@ -678,9 +681,7 @@ func (r *SReceiver) PerformTriggerVerify(ctx context.Context, userCred mcclient.
 	} else {
 		task.ScheduleRun(nil)
 	}
-	ret := jsonutils.NewDict()
-	ret.Set("token", jsonutils.NewString(v.Token))
-	return ret, nil
+	return nil, nil
 }
 
 func (r *SReceiver) AllowPerformVerify(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {

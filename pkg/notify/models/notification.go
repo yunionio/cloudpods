@@ -31,7 +31,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	notifyv2 "yunion.io/x/onecloud/pkg/notify"
 	"yunion.io/x/onecloud/pkg/notify/oldmodels"
 	"yunion.io/x/onecloud/pkg/notify/options"
@@ -141,8 +140,12 @@ func (nm *SNotificationManager) FetchCustomizeColumns(
 
 	resRows := nm.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
+	var err error
 	for i := range rows {
-		rows[i], _ = objs[i].(*SNotification).getMoreDetails(ctx, query, rows[i])
+		rows[i], err = objs[i].(*SNotification).getMoreDetails(ctx, query, rows[i])
+		if err != nil {
+			log.Errorf("Notification.getMoreDetails: %v", err)
+		}
 		rows[i].StatusStandaloneResourceDetails = resRows[i]
 	}
 
@@ -170,12 +173,13 @@ func (n *SNotification) ReceiverNotificationsNotOK() ([]SReceiverNotification, e
 
 func (n *SNotification) ReceiveDetails() ([]api.ReceiveDetail, error) {
 	subRQ := ReceiverManager.Query("id", "name").SubQuery()
-	q := ReceiverNotificationManager.Query().Equals("notification_id", n.Id)
+	q := ReceiverNotificationManager.Query("receiver_id", "notification_id", "contact", "send_at", "send_by", "status", "failed_reason").Equals("notification_id", n.Id)
 	q.AppendField(subRQ.Field("name", "receiver_name"))
 	q = q.Join(subRQ, sqlchemy.Equals(q.Field("receiver_id"), subRQ.Field("id")))
 	ret := make([]api.ReceiveDetail, 0, 2)
 	err := q.All(&ret)
-	if err != nil {
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		log.Errorf("SQuery.All: %v", err)
 		return nil, err
 	}
 	return ret, nil
@@ -226,11 +230,11 @@ func (nm *SNotificationManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient
 	}
 	switch scope {
 	case rbacutils.ScopeDomain:
-		subRq := ReceiverManager.Query("id").Equals("domain_id", owner.GetDomainId).SubQuery()
+		subRq := ReceiverManager.Query("id").Equals("domain_id", owner.GetDomainId()).SubQuery()
 		subRNq := ReceiverNotificationManager.Query("notification_id").Join(subRq, sqlchemy.Equals(q.Field("receiver_id"), subRq.Field("id"))).SubQuery()
 		q = q.Join(subRNq, sqlchemy.Equals(q.Field("id"), subRNq.Field("notification_id")))
 	case rbacutils.ScopeProject, rbacutils.ScopeUser:
-		subq := ReceiverNotificationManager.Query("notification_id").Equals("receiver_id", owner.GetUserId).SubQuery()
+		subq := ReceiverNotificationManager.Query("notification_id").Equals("receiver_id", owner.GetUserId()).SubQuery()
 		q = q.Join(subq, sqlchemy.Equals(q.Field("id"), subq.Field("notification_id")))
 	}
 	return q
@@ -289,7 +293,7 @@ func (self *SNotificationManager) InitializeData() error {
 
 	// get min received_at
 	var minReceivedAt time.Time
-	sqlStr = fmt.Sprint(
+	sqlStr = fmt.Sprintf(
 		"select min(received_at) as min_received_at from (select received_at from %s where received_at > '%s' and contact_type = 'webconsole' group by cluster_id order by received_at desc limit %d) as cluster",
 		oldmodels.NotificationManager.TableSpec().Name(),
 		limitTimeStr,
@@ -302,7 +306,6 @@ func (self *SNotificationManager) InitializeData() error {
 	log.Infof("minReceivedAt: %s", minReceivedAt)
 
 	ctx := context.Background()
-	userCred := auth.AdminCredential()
 	q := oldmodels.NotificationManager.Query().Equals("contact_type", api.WEBCONSOLE).GT("received_at", minReceivedAt).NotEquals("status", NOTIFY_REMOVED)
 	n := q.Count()
 	log.Infof("total %d notifications to sync", n)
@@ -383,7 +386,7 @@ func (self *SNotificationManager) InitializeData() error {
 
 // 通知消息列表
 func (nm *SNotificationManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.NotificationListInput) (*sqlchemy.SQuery, error) {
-	q, err := nm.ListItemFilter(ctx, q, userCred, input)
+	q, err := nm.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StandaloneResourceListInput)
 	if err != nil {
 		return nil, err
 	}

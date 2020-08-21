@@ -30,10 +30,10 @@ func (self *VerificationSendTask) taskFailed(ctx context.Context, receiver *mode
 
 func (self *VerificationSendTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	receiver := obj.(*models.SReceiver)
-	contactType, _ := body.GetString("contact_type")
+	contactType, _ := self.Params.GetString("contact_type")
 	verification, err := models.VerificationManager.Get(receiver.GetId(), contactType)
 	if err != nil {
-		self.taskFailed(ctx, receiver, fmt.Sprintf("VerificationManager.Get: %s", err.Error()))
+		self.taskFailed(ctx, receiver, fmt.Sprintf("VerificationManager.Get for receiver_id %q and contact_type %q: %s", receiver.GetId(), contactType, err.Error()))
 		return
 	}
 	contact, err := receiver.GetContact(contactType)

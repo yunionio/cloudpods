@@ -26,14 +26,14 @@ import (
 )
 
 type SVerificationManager struct {
-	db.SResourceBaseManager
+	db.SStandaloneResourceBaseManager
 }
 
 var VerificationManager *SVerificationManager
 
 func init() {
 	VerificationManager = &SVerificationManager{
-		SResourceBaseManager: db.NewResourceBaseManager(
+		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
 			SVerification{},
 			"verification_tbl",
 			"verification",
@@ -45,7 +45,7 @@ func init() {
 
 // +onecloud:swagger-gen-ignore
 type SVerification struct {
-	db.SResourceBase
+	db.SStandaloneResourceBase
 
 	ReceiverId  string `width:"128" nullable:"false"`
 	ContactType string `width:"16" nullable:"false"`
@@ -91,9 +91,10 @@ func (vm *SVerificationManager) Create(ctx context.Context, receiverId, contactT
 func (vm *SVerificationManager) Get(receiverId, contactType string) (*SVerification, error) {
 	q := vm.Query().Equals("receiver_id", receiverId).Equals("contact_type", contactType)
 	var verification SVerification
-	err := q.First(&q)
+	err := q.First(&verification)
 	if err != nil {
 		return nil, err
 	}
+	verification.SetModelManager(vm, &verification)
 	return &verification, nil
 }
