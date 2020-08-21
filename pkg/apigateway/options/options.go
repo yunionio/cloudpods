@@ -35,6 +35,8 @@ type GatewayOptions struct {
 
 	SsoUserNotFoundCallbackUrl string `help:"failure callback URL when SSO idp link user not found"`
 
+	ReturnFullDomainList bool `default:"true" help:"return domain list for get_regions API"`
+
 	common_options.CommonOptions `"request_worker_count->default":"32"`
 }
 
