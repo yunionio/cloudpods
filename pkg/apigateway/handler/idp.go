@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -27,6 +28,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apigateway/constants"
 	"yunion.io/x/onecloud/pkg/apigateway/options"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/appctx"
@@ -68,17 +70,20 @@ func getSsoUserNotFoundCallbackUrl() string {
 }
 
 func (h *AuthHandlers) getIdpSsoRedirectUri(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+	expires := time.Now().Add(time.Minute * 5)
 	params := appctx.AppContextParams(ctx)
 	idpId := params["<idp_id>"]
 	query, _ := jsonutils.ParseQueryString(req.URL.RawQuery)
 	var linkuser string
 	if query != nil && query.Contains("linkuser") {
-		t, _, _ := fetchAuthInfo(ctx, req)
+		t, authToken, _ := fetchAuthInfo(ctx, req)
 		if t == nil {
 			httperrors.InvalidCredentialError(w, "invalid credential")
 			return
 		}
 		linkuser = t.GetUserId()
+		authCookie := authToken.GetAuthCookie(t)
+		saveCookie(w, constants.YUNION_AUTH_COOKIE, authCookie, "", expires, true)
 	}
 
 	referer := req.Header.Get(http.CanonicalHeaderKey("referer"))
@@ -101,7 +106,6 @@ func (h *AuthHandlers) getIdpSsoRedirectUri(ctx context.Context, w http.Response
 	}
 	redirUrl, _ := resp.GetString("uri")
 	idpDriver, _ := resp.GetString("driver")
-	expires := time.Now().Add(time.Minute * 5)
 	saveCookie(w, "idp_id", idpId, "", expires, true)
 	saveCookie(w, "idp_state", state, "", expires, true)
 	saveCookie(w, "idp_driver", idpDriver, "", expires, true)
@@ -128,13 +132,27 @@ func (h *AuthHandlers) handleSsoLogin(ctx context.Context, w http.ResponseWriter
 	idpState := getCookie(req, "idp_state")
 	idpReferer := getCookie(req, "idp_referer")
 	idpLinkUser := getCookie(req, "idp_link_user")
-	if len(idpId) == 0 || len(idpDriver) == 0 || len(idpState) == 0 || len(idpReferer) == 0 {
-		httperrors.TimeoutError(w, "session expires")
-		return
-	}
 
 	for _, k := range []string{"idp_id", "idp_driver", "idp_state", "idp_referer", "idp_link_user"} {
 		clearCookie(w, k, "")
+	}
+
+	missing := make([]string, 0)
+	if len(idpId) == 0 {
+		missing = append(missing, "idp_id")
+	}
+	if len(idpDriver) == 0 {
+		missing = append(missing, "idp_driver")
+	}
+	if len(idpState) == 0 {
+		missing = append(missing, "idp_state")
+	}
+	if len(idpReferer) == 0 {
+		missing = append(missing, "idp_referer")
+	}
+	if len(missing) > 0 {
+		httperrors.TimeoutError(w, "session expires, missing %s", strings.Join(missing, ","))
+		return
 	}
 
 	idpStateQsBytes, _ := base64.URLEncoding.DecodeString(idpState)
