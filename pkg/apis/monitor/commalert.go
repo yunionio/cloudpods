@@ -106,7 +106,8 @@ type CommonAlertMetricDetails struct {
 	Reduce                 string `json:"reduce"`
 	DB                     string `json:"db"`
 	Measurement            string `json:"measurement"`
-	MeasurementDisplayName string
+	MeasurementDisplayName string `json:"measurement_display_name"`
+	ResType                string `json:"res_type"`
 	Field                  string `json:"field"`
 	Groupby                string `json:"groupby"`
 	FieldDescription       MetricFieldDetail

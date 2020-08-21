@@ -6,7 +6,8 @@ var MetricDescriptions = `
 		"measurement": {
 			"name": "cpu",
 			"display_name": "CPU usage",
-			"database":"telegraf"
+			"database":"telegraf",
+			"res_type":"host"
 		},
 		"metric_fields": [
 			{
@@ -60,7 +61,8 @@ var MetricDescriptions = `
 		"measurement": {
 			"name": "disk",
 			"display_name": "Disk usage",
-			"database":"telegraf"
+			"database":"telegraf",
+			"res_type":"host"
 		},
 		"metric_fields": [
 			{
@@ -71,7 +73,7 @@ var MetricDescriptions = `
 			{
 				"name":"inodes_free",
 				"display_name":"Available inode",
-				"unit":"byte"
+				"unit":"count"
 			},
 			{
 				"name":"inodes_total",
@@ -104,7 +106,8 @@ var MetricDescriptions = `
 		"measurement": {
 			"name": "diskio",
 			"display_name": "Disk traffic and timing",
-			"database":"telegraf"
+			"database":"telegraf",
+			"res_type":"host"
 		},
 		"metric_fields": [
 			{
@@ -173,7 +176,8 @@ var MetricDescriptions = `
 		"measurement": {
 			"name": "mem",
 			"display_name": "Memory",
-			"database":"telegraf"	
+			"database":"telegraf",
+			"res_type":"host"
 		},
 		"metric_fields": [
 			{
@@ -237,7 +241,8 @@ var MetricDescriptions = `
 		"measurement": {
 			"name": "net",
 			"display_name": "Network interface and protocol usage",
-			"database":"telegraf"
+			"database":"telegraf",
+			"res_type":"host"
 		},
 		"metric_fields": [
 			{

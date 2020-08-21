@@ -167,8 +167,10 @@ type ResultLogEntry struct {
 type EvalMatch struct {
 	Condition string            `json:"condition"`
 	Value     *float64          `json:"value"`
+	ValueStr  string            `json:"value_str"`
 	Metric    string            `json:"metric"`
 	Tags      map[string]string `json:"tags"`
+	Unit      string            `json:"unit"`
 }
 
 type AlertTestRunOutput struct {

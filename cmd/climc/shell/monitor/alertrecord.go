@@ -7,8 +7,7 @@ import (
 )
 
 func init() {
-	cmd := shell.NewResourceCmd(modules.MetricManager)
-	cmd.List(new(options.MonitorMetricListOptions))
-	cmd.Update(new(options.MetricUpdateOptions))
-	cmd.Show(new(options.MetricShowOptions))
+	cmd := shell.NewResourceCmd(modules.AlertRecordManager)
+	cmd.List(new(options.AlertRecordListOptions))
+	cmd.Show(new(options.AlertRecordShowOptions))
 }

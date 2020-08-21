@@ -60,6 +60,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.SuggestSysRuleConfigManager,
 		models.MetricMeasurementManager,
 		models.MetricFieldManager,
+		models.AlertRecordManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

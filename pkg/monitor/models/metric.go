@@ -438,7 +438,7 @@ func (manager *SMetricMeasurementManager) initJsonMetricInfo(ctx context.Context
 
 func (manager *SMetricMeasurementManager) initMetrics(ctx context.Context, metrics []monitor.MetricCreateInput) (err error) {
 	measurementGroup, _ := errgroup.WithContext(ctx)
-	count := 1
+	count := 0
 	for mIndex, _ := range metrics {
 
 		measurementTmp := metrics[mIndex]
@@ -453,7 +453,7 @@ func (manager *SMetricMeasurementManager) initMetrics(ctx context.Context, metri
 			if err != nil {
 				return err
 			}
-			count = 1
+			count = 0
 		}
 	}
 	err = measurementGroup.Wait()

@@ -16,7 +16,6 @@ package templates
 
 import (
 	"bytes"
-	"fmt"
 	"html/template"
 	t_template "text/template"
 )
@@ -25,7 +24,8 @@ func CompileTemplateFromMapHtml(tmplt string, configMap interface{}) (string, er
 	out := new(bytes.Buffer)
 	t := template.Must(template.New("commpiled_template").Funcs(
 		template.FuncMap{
-			"FormateFloat": FormateFloat,
+			"GetValFromMap": GetValFromMap,
+			"Inc":           Inc,
 		}).Parse(tmplt))
 	if err := t.Execute(out, configMap); err != nil {
 		return "", err
@@ -37,7 +37,8 @@ func CompileTEmplateFromMapText(tmplt string, configMap interface{}) (string, er
 	out := new(bytes.Buffer)
 	t := t_template.Must(t_template.New("commpiled_template").Funcs(
 		t_template.FuncMap{
-			"FormateFloat": FormateFloat,
+			"GetValFromMap": GetValFromMap,
+			"Inc":           Inc,
 		}).Parse(tmplt))
 	if err := t.Execute(out, configMap); err != nil {
 		return "", err
@@ -45,6 +46,10 @@ func CompileTEmplateFromMapText(tmplt string, configMap interface{}) (string, er
 	return out.String(), nil
 }
 
-func FormateFloat(f *float64) string {
-	return fmt.Sprintf("%f", *f)
+func GetValFromMap(valMap map[string]string, key string) string {
+	return valMap[key]
+}
+
+func Inc(i int) int {
+	return i + 1
 }

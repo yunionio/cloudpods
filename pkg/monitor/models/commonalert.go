@@ -443,56 +443,66 @@ func (alert *SCommonAlert) getCommonAlertMetricDetails(out *monitor.CommonAlertD
 	if len(setting.Conditions) == 0 {
 		return nil
 	}
-	fieldOpt := alert.getFieldOpt()
+
 	out.CommonAlertMetricDetails = make([]*monitor.CommonAlertMetricDetails, len(setting.Conditions))
 	for i, cond := range setting.Conditions {
-		metricDetails := new(monitor.CommonAlertMetricDetails)
-		cmp := ""
-		switch cond.Evaluator.Type {
-		case "gt":
-			cmp = ">="
-		case "lt":
-			cmp = "<="
-		}
-		metricDetails.Comparator = cmp
-		metricDetails.Threshold = cond.Evaluator.Params[0]
-		metricDetails.Reduce = cond.Reducer.Type
-
-		if fieldOpt != "" {
-			metricDetails.FieldOpt = strings.Split(fieldOpt, "+")[i]
-		}
-		q := cond.Query
-		measurement := q.Model.Measurement
-		field := ""
-		for i, sel := range q.Model.Selects {
-			if i == 0 {
-				field = sel[0].Params[0]
-				continue
-			}
-			if metricDetails.FieldOpt != "" {
-				field = fmt.Sprintf("%s%s%s", field, metricDetails.FieldOpt, sel[0].Params[0])
-			}
-		}
-		//field := q.Model.Selects[0][0].Params[0]
-		db := q.Model.Database
-		var groupby string
-		for _, grb := range q.Model.GroupBy {
-			if grb.Type == "tag" {
-				groupby = grb.Params[0]
-				break
-			}
-		}
-		metricDetails.Measurement = measurement
-		metricDetails.Field = field
-		metricDetails.DB = db
-		metricDetails.Groupby = groupby
-
-		//fill measurement\field desciption info
-		alert.getMetricDescriptionDetails(metricDetails)
-
+		metricDetails := alert.GetCommonAlertMetricDetailsFromAlertCondition(i, cond)
 		out.CommonAlertMetricDetails[i] = metricDetails
 	}
 	return nil
+}
+
+func (alert *SCommonAlert) GetCommonAlertMetricDetailsFromAlertCondition(index int,
+	cond monitor.AlertCondition) *monitor.
+	CommonAlertMetricDetails {
+	fieldOpt := alert.getFieldOpt()
+	metricDetails := new(monitor.CommonAlertMetricDetails)
+	cmp := ""
+	switch cond.Evaluator.Type {
+	case "gt":
+		cmp = ">="
+	case "lt":
+		cmp = "<="
+	}
+	metricDetails.Comparator = cmp
+	metricDetails.Threshold = cond.Evaluator.Params[0]
+	metricDetails.Reduce = cond.Reducer.Type
+
+	if fieldOpt != "" {
+		metricDetails.FieldOpt = strings.Split(fieldOpt, "+")[index]
+	}
+	q := cond.Query
+	measurement := q.Model.Measurement
+	field := ""
+	for i, sel := range q.Model.Selects {
+		if i == 0 {
+			field = sel[0].Params[0]
+			continue
+		}
+		if metricDetails.FieldOpt != "" {
+			field = fmt.Sprintf("%s%s%s", field, metricDetails.FieldOpt, sel[0].Params[0])
+		}
+	}
+	//field := q.Model.Selects[0][0].Params[0]
+	db := q.Model.Database
+	var groupby string
+	for _, grb := range q.Model.GroupBy {
+		if grb.Type == "tag" {
+			groupby = grb.Params[0]
+			break
+		}
+	}
+	metricDetails.Measurement = measurement
+	metricDetails.Field = field
+	metricDetails.DB = db
+	metricDetails.Groupby = groupby
+
+	//fill measurement\field desciption info
+	alert.getMetricDescriptionDetails(metricDetails)
+	if metricDetails.FieldOpt == "/" {
+		metricDetails.FieldDescription.Unit = ""
+	}
+	return metricDetails
 }
 
 func (alert *SCommonAlert) getMetricDescriptionDetails(metricDetails *monitor.CommonAlertMetricDetails) {
@@ -503,6 +513,9 @@ func (alert *SCommonAlert) getMetricDescriptionDetails(metricDetails *monitor.Co
 	}
 	if len(influxdbMeasurements[0].MeasurementDisplayName) != 0 {
 		metricDetails.MeasurementDisplayName = influxdbMeasurements[0].MeasurementDisplayName
+	}
+	if len(influxdbMeasurements[0].ResType) != 0 {
+		metricDetails.ResType = influxdbMeasurements[0].ResType
 	}
 	fields := make([]string, 0)
 	if len(metricDetails.FieldOpt) != 0 {

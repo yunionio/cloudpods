@@ -13,15 +13,12 @@ var (
 	}
 
 	MEASUREMENT_TAG_KEYWORD = map[string]string{
-		"cpu":       "host",
-		"disk":      "device",
-		"mem":       "host",
-		"net":       "host",
-		"netstat":   "host",
-		"vm_cpu":    "vm_name",
-		"vm_diskio": "vm_name",
-		"vm_mem":    "vm_name",
-		"vm_netio":  "vm_name",
+		"host":         "host",
+		"guest":        "vm_name",
+		"redis":        "redis_name",
+		"rds":          "rds_name",
+		"oss":          "oss_name",
+		"cloudaccount": "cloudaccount_name",
 	}
 	AlertReduceFunc = map[string]string{
 		"avg":          "average value",

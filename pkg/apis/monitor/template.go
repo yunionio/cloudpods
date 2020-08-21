@@ -31,4 +31,5 @@ type NotificationTemplateConfig struct {
 	Priority    string `json:"priority"`
 	Level       string `json:"level"`
 	IsRecovery  bool   `json:"is_recovery"`
+	WebUrl      string `json:"web_url"`
 }

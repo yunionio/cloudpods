@@ -223,6 +223,7 @@ func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred m
 	}
 
 	setSerieRowName(&rtn.Series, groupByTag)
+	fillSerieTags(&rtn.Series)
 	return jsonutils.Marshal(rtn), nil
 }
 
@@ -316,15 +317,20 @@ func setSerieRowName(series *tsdb.TimeSeriesSlice, groupTag []string) {
 			}
 			continue
 		}
-
-		//sep measurement set RowName by spe param
 		measurement := strings.Split(serie.Name, ".")[0]
-		if key, ok := monitor.MEASUREMENT_TAG_KEYWORD[measurement]; ok {
-			serie.RawName = serie.Tags[key]
-			(*series)[i] = serie
-			continue
+		//sep measurement set RowName by spe param
+		userCred := auth.AdminCredential()
+		listInput := new(monitor.MetricListInput)
+		listInput.Measurement.Names = []string{measurement}
+		measurements, _ := MetricMeasurementManager.getMeasurementByName(userCred, *listInput)
+		if len(measurements) != 0 {
+			if key, ok := monitor.MEASUREMENT_TAG_KEYWORD[measurements[0].ResType]; ok {
+				serie.RawName = fmt.Sprintf("%d: %s", index, serie.Tags[key])
+				(*series)[i] = serie
+				index++
+				continue
+			}
 		}
-
 		//other condition set RowName
 		for key, val := range serie.Tags {
 			if strings.Contains(key, "id") {
@@ -341,4 +347,16 @@ func setSerieRowName(series *tsdb.TimeSeriesSlice, groupTag []string) {
 		}
 	}
 
+}
+
+func fillSerieTags(series *tsdb.TimeSeriesSlice) {
+	for i, serie := range *series {
+		for _, tag := range []string{"brand", "platform", "hypervisor"} {
+			if val, ok := serie.Tags[tag]; ok {
+				serie.Tags["brand"] = val
+				break
+			}
+		}
+		(*series)[i] = serie
+	}
 }
