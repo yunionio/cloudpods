@@ -47,16 +47,13 @@
 	  				</td>
 	  			</tr>
 	  			<tr>
-	  				<td style="padding-bottom: 10px;">请点击下面的链接，完成用户邮箱的激活：</td>
-	  			</tr>
-	  			<tr>
-                    <td style="padding-bottom: 30px;"><a href="{{.link}}">{{.link}}</a></td>
+                    <td style="padding-bottom: 10px;">您正在验证邮箱，请在验证码输入框中输入：{{.code}}，已完成验证。</td>
 	  			</tr>
 	  		</table>
   		</td>
   	</tr>
   	<tr style="width: 96%;">
-		<td colspan="2" style="border-top: 1px dashed #ccc; color: #333; font-size: 12px; padding-bottom: 10px; font-weight: 100;">*为了确保您的帐号安全，该链接仅48小时内访问有效，请勿直接回复此邮件。</td>
+        <td colspan="2" style="border-top: 1px dashed #ccc; color: #333; font-size: 12px; padding-bottom: 10px; font-weight: 100;">如非本人操作，请及时登录平台并修改密码以保证账户的安全</td>
 	</tr>
 	<tr>
 		<td colspan="2" style="background: #333; text-align: right; padding-right: 20px; font-size: 12px; color: #fff; height: 50px;">版权所有 © {{.copyright}} 保留一切权利</td>
