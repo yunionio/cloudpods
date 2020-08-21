@@ -606,7 +606,10 @@ func (s *SGuestResumeTask) onStartRunning() {
 	s.OnResumeSyncMetadataInfo()
 	s.optimizeOom()
 	s.doBlockIoThrottle()
-	timeutils2.AddTimeout(time.Second*5, s.SetCgroup)
+	if !options.HostOptions.DisableSetCgroup {
+		timeutils2.AddTimeout(time.Second*5, s.SetCgroup)
+	}
+
 	disksIdx := s.GetNeedMergeBackingFileDiskIndexs()
 	if len(disksIdx) > 0 {
 		s.startStreamDisks(disksIdx)

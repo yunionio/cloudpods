@@ -165,6 +165,11 @@ func (h *SHostInfo) Init() error {
 	if err := h.detectHostInfo(); err != nil {
 		return err
 	}
+	if err := hostbridge.Prepare(options.HostOptions.BridgeDriver); err != nil {
+		log.Errorln(err)
+		return err
+	}
+
 	return nil
 }
 
@@ -336,13 +341,10 @@ func (h *SHostInfo) prepareEnv() error {
 	if err != nil {
 		log.Errorf("modprobe error: %s", output)
 	}
-	if !cgrouputils.Init() {
-		return fmt.Errorf("Cannot initialize control group subsystem")
-	}
-
-	if err := hostbridge.Prepare(options.HostOptions.BridgeDriver); err != nil {
-		log.Errorln(err)
-		return err
+	if !options.HostOptions.DisableSetCgroup {
+		if !cgrouputils.Init() {
+			return fmt.Errorf("Cannot initialize control group subsystem")
+		}
 	}
 
 	// err = h.resetIptables()
@@ -399,6 +401,7 @@ func (h *SHostInfo) detectHostInfo() error {
 
 	h.detectStorageSystem()
 
+	system_service.Init()
 	if options.HostOptions.CheckSystemServices {
 		if err := h.checkSystemServices(); err != nil {
 			return err
@@ -605,6 +608,24 @@ func (h *SHostInfo) detectOsDist() {
 	log.Infof("DetectOsDist %s %s", h.sysinfo.OsDistribution, h.sysinfo.OsVersion)
 	if len(h.sysinfo.OsDistribution) == 0 {
 		log.Errorln("Failed to detect distribution info")
+		content, err := procutils.NewRemoteCommandAsFarAsPossible("cat", "/etc/os-release").Output()
+		if err != nil {
+			log.Errorln(err)
+		}
+		for _, line := range strings.Split(string(content), "\n") {
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, "ID=") {
+				h.sysinfo.OsDistribution = line[3:]
+				continue
+			}
+			if strings.HasPrefix(line, "VERSION=") {
+				h.sysinfo.OsVersion = strings.Trim(line[8:], "\"")
+				continue
+			}
+		}
+	}
+	if utils.IsInStringArray(h.sysinfo.OsDistribution, []string{"uos", "debian", "ubuntu"}) {
+		system_service.SetOpenvswitchName("openvswitch-switch")
 	}
 }
 

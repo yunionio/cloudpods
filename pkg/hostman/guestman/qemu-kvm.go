@@ -616,7 +616,7 @@ func (s *SKVMGuestInstance) clearCgroup(pid int) {
 		pid = s.cgroupPid
 	}
 	log.Infof("cgroup destroy %d", pid)
-	if pid > 0 {
+	if pid > 0 && !options.HostOptions.DisableSetCgroup {
 		cgrouputils.CgroupDestroy(strconv.Itoa(pid))
 	}
 }

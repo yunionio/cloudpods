@@ -246,7 +246,9 @@ func (m *SGuestManager) StartCpusetBalancer() {
 }
 
 func (m *SGuestManager) cpusetBalance() {
-	cgrouputils.RebalanceProcesses(nil)
+	if !options.HostOptions.DisableSetCgroup {
+		cgrouputils.RebalanceProcesses(nil)
+	}
 }
 
 func (m *SGuestManager) IsGuestDir(f os.FileInfo) bool {
@@ -836,8 +838,9 @@ func (m *SGuestManager) ExitGuestCleanup() {
 		guest.ExitCleanup(false)
 		return true
 	})
-
-	cgrouputils.CgroupCleanAll()
+	if !options.HostOptions.DisableSetCgroup {
+		cgrouputils.CgroupCleanAll()
+	}
 }
 
 func (m *SGuestManager) GetHost() hostutils.IHost {
