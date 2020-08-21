@@ -252,7 +252,7 @@ func (member *SLoadbalancerMember) SyncConf(ctx context.Context, port, weight in
 	}
 	err = member.region.UpdateLoadBalancerMemberWtight(member.poolID, member.ID, weight)
 	if err != nil {
-		return errors.Wrapf(err, "member.region.UpdateLoadBalancerMemberWtight(%s,%s,%s)", member.poolID, member.ID, weight)
+		return errors.Wrapf(err, "member.region.UpdateLoadBalancerMemberWtight(%s,%s,%d)", member.poolID, member.ID, weight)
 	}
 	err = waitLbResStatus(member, 10*time.Second, 8*time.Minute)
 	if err != nil {

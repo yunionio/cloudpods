@@ -371,7 +371,7 @@ func (lb *SLoadbalancer) GetLoadbalancerSpec() string {
 func (lb *SLoadbalancer) GetChargeType() string {
 	eip, err := lb.GetIEIP()
 	if err != nil {
-		log.Errorf("lb.GetIEIP():", err)
+		log.Errorf("lb.GetIEIP():%s", err)
 	}
 	if err != nil {
 		return eip.GetInternetChargeType()
