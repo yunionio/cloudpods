@@ -16,9 +16,11 @@ package shell
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
@@ -26,17 +28,30 @@ import (
 
 type ResourceCmd struct {
 	manager modulebase.IBaseManager
+	keyword string
 	prefix  string
 }
 
 func NewResourceCmd(manager modulebase.IBaseManager) *ResourceCmd {
 	return &ResourceCmd{
 		manager: manager,
+		keyword: manager.GetKeyword(),
 	}
 }
 
 func (cmd *ResourceCmd) SetPrefix(prefix string) *ResourceCmd {
 	cmd.prefix = prefix
+	return cmd
+}
+
+func (cmd *ResourceCmd) WithKeyword(keyword string) *ResourceCmd {
+	return cmd.SetKeyword(keyword)
+}
+
+func (cmd *ResourceCmd) SetKeyword(keyword string) *ResourceCmd {
+	if len(keyword) > 0 {
+		cmd.keyword = keyword
+	}
 	return cmd
 }
 
@@ -65,8 +80,7 @@ func (cmd ResourceCmd) runWithDesc(action, desc string, args interface{}, callba
 	if prefix != "" {
 		prefix = cmd.prefix + "-"
 	}
-	keyword := man.GetKeyword()
-	descKeyword := keyword
+	descKeyword := man.GetKeyword()
 	if _, ok := args.(IListOpt); ok {
 		descKeyword = man.KeyString()
 	}
@@ -77,7 +91,7 @@ func (cmd ResourceCmd) runWithDesc(action, desc string, args interface{}, callba
 	if ok {
 		desc = descArgs.Description()
 	}
-	R(args, fmt.Sprintf("%s%s-%s", prefix, keyword, action), desc, callback)
+	R(args, fmt.Sprintf("%s%s-%s", prefix, cmd.keyword, action), desc, callback)
 }
 
 func (cmd ResourceCmd) run(action string, args interface{}, callback interface{}) {
@@ -156,6 +170,81 @@ func (cmd ResourceCmd) Show(args IShowOpt) {
 		return nil
 	}
 	cmd.runWithDesc("show", fmt.Sprintf("Show details of a %s", man.GetKeyword()), args, callback)
+}
+
+type IGetActionOpt interface {
+	IOpt
+	IIdOpt
+}
+
+type TCustomAction string
+
+const (
+	CustomActionGet = TCustomAction("Get")
+	CustomActionDo  = TCustomAction("Do")
+)
+
+func (cmd ResourceCmd) Custom(action TCustomAction, funcname string, args IGetActionOpt) {
+	man := cmd.manager
+	callback := func(s *mcclient.ClientSession, args IGetActionOpt) error {
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+		mod := man.(modulebase.Manager)
+		modvalue := reflect.ValueOf(mod)
+		funcvalue := modvalue.MethodByName(string(action) + utils.Kebab2Camel(funcname, "-"))
+		if !funcvalue.IsValid() || funcvalue.IsNil() {
+			return fmt.Errorf("funcname %s not found", funcname)
+		}
+		callParams := make([]reflect.Value, 0)
+		callParams = append(callParams, reflect.ValueOf(s))
+		if len(args.GetId()) > 0 {
+			callParams = append(callParams, reflect.ValueOf(args.GetId()))
+		}
+		if params == nil {
+			params = jsonutils.NewDict()
+		}
+		callParams = append(callParams, reflect.ValueOf(params))
+		retValue := funcvalue.Call(callParams)
+		retobj := retValue[0]
+		reterr := retValue[1]
+		if reterr.IsNil() {
+			v, ok := retobj.Interface().(jsonutils.JSONObject)
+			if ok {
+				printObject(v)
+				return nil
+			}
+		}
+		v, ok := reterr.Interface().(error)
+		if ok {
+			return v
+		}
+		return nil
+	}
+	cmd.runWithDesc(funcname, fmt.Sprintf("Get %s of a %s", funcname, man.GetKeyword()), args, callback)
+}
+
+type IDeleteOpt interface {
+	IOpt
+	IIdOpt
+}
+
+func (cmd ResourceCmd) Delete(args IDeleteOpt) {
+	man := cmd.manager
+	callback := func(s *mcclient.ClientSession, args IDeleteOpt) error {
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+		ret, err := man.(modulebase.Manager).Delete(s, args.GetId(), params)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	}
+	cmd.runWithDesc("delete", fmt.Sprintf("Delete %s", man.GetKeyword()), args, callback)
 }
 
 type IWithDescOpt interface {

@@ -51,6 +51,10 @@ func (self *SAwsProviderFactory) IsSupportCreateCloudgroup() bool {
 	return true
 }
 
+func (factory *SAwsProviderFactory) IsSystemCloudpolicyUnified() bool {
+	return false
+}
+
 func (self *SAwsProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {
