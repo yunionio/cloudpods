@@ -214,7 +214,7 @@ func (self *SGoogleProvider) GetAccountId() string {
 	return self.client.GetAccountId()
 }
 
-func (self *SGoogleProvider) GetIamLoginUlr() string {
+func (self *SGoogleProvider) GetIamLoginUrl() string {
 	return "https://console.cloud.google.com"
 }
 

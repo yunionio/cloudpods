@@ -201,6 +201,8 @@ type ICloudProviderFactory interface {
 	GetClouduserMinPolicyCount() int
 	IsClouduserNeedInitPolicy() bool
 	IsSupportCreateCloudgroup() bool
+
+	IsSystemCloudpolicyUnified() bool // 国内国外权限是否一致
 }
 
 type ICloudProvider interface {
@@ -564,6 +566,10 @@ func (factory *baseProviderFactory) GetClouduserMinPolicyCount() int {
 
 func (factory *baseProviderFactory) IsSupportCreateCloudgroup() bool {
 	return false
+}
+
+func (factory *baseProviderFactory) IsSystemCloudpolicyUnified() bool {
+	return true
 }
 
 type SPremiseBaseProviderFactory struct {

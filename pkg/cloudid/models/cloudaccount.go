@@ -693,27 +693,43 @@ func (self *SCloudaccount) GetCloudaccountByProvider(provider string) ([]SClouda
 }
 
 func (self *SCloudaccount) SyncSystemCloudpoliciesFromCloud(ctx context.Context, userCred mcclient.TokenCredential) error {
-	accounts, err := self.GetCloudaccountByProvider(self.Provider)
+	factory, err := self.GetProviderFactory()
 	if err != nil {
-		return errors.Wrapf(err, "GetCloudaccountByProvider")
+		return errors.Wrapf(err, "GetProviderFactory")
 	}
 	iPolicies := []cloudprovider.ICloudpolicy{}
-	policyMaps := map[string]bool{}
-	for i := range accounts {
-		provider, err := accounts[i].GetProvider()
+	if !factory.IsSystemCloudpolicyUnified() {
+		accounts, err := self.GetCloudaccountByProvider(self.Provider)
 		if err != nil {
-			return errors.Wrapf(err, "GetProvider for account %s(%s)", accounts[i].Name, accounts[i].Provider)
+			return errors.Wrapf(err, "GetCloudaccountByProvider")
 		}
-		policies, err := provider.GetISystemCloudpolicies()
-		if err != nil {
-			return errors.Wrapf(err, "GetISystemCloudpolicies for account %s(%s)", accounts[i].Name, accounts[i].Provider)
-		}
-		for i := range policies {
-			_, ok := policyMaps[policies[i].GetGlobalId()]
-			if !ok {
-				policyMaps[policies[i].GetGlobalId()] = true
-				iPolicies = append(iPolicies, policies[i])
+		policyMaps := map[string]bool{}
+		for i := range accounts {
+			provider, err := accounts[i].GetProvider()
+			if err != nil {
+				return errors.Wrapf(err, "GetProvider for account %s(%s)", accounts[i].Name, accounts[i].Provider)
 			}
+			policies, err := provider.GetISystemCloudpolicies()
+			if err != nil {
+				return errors.Wrapf(err, "GetISystemCloudpolicies for account %s(%s)", accounts[i].Name, accounts[i].Provider)
+			}
+			log.Debugf("Get %d System cloudpolicy from account %s(%s)", len(policies), accounts[i].Name, accounts[i].Provider)
+			for i := range policies {
+				_, ok := policyMaps[policies[i].GetGlobalId()]
+				if !ok {
+					policyMaps[policies[i].GetGlobalId()] = true
+					iPolicies = append(iPolicies, policies[i])
+				}
+			}
+		}
+	} else {
+		provider, err := self.GetProvider()
+		if err != nil {
+			return errors.Wrapf(err, "GetProvider for account %s(%s)", self.Name, self.Provider)
+		}
+		iPolicies, err = provider.GetISystemCloudpolicies()
+		if err != nil {
+			return errors.Wrapf(err, "GetISystemCloudpolicies for account %s(%s)", self.Name, self.Provider)
 		}
 	}
 	return self.syncSystemCloudpoliciesFromCloud(ctx, userCred, iPolicies)
@@ -942,6 +958,11 @@ func (manager *SCloudaccountManager) SyncCloudidSystemPolicies(ctx context.Conte
 			continue
 		}
 		if utils.IsInStringArray(accounts[i].Provider, providers) {
+			continue
+		}
+		_, err := accounts[i].GetProvider() // 检查账号是否可以正常连接
+		if err != nil {
+			log.Errorf("GetProvider for account %s(%s) error: %v", accounts[i].Name, accounts[i].Provider, err)
 			continue
 		}
 		err = accounts[i].StartSystemCloudpolicySyncTask(ctx, userCred, "")
