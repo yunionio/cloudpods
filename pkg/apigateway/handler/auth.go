@@ -130,31 +130,36 @@ func (h *AuthHandlers) GetRegionsResponse(ctx context.Context, w http.ResponseWr
 	if len(regions) == 0 {
 		return nil, errors.Error("region is empty")
 	}
-	regionsJson := jsonutils.NewStringArray(regions)
-	s := auth.GetAdminSession(ctx, regions[0], "")
-	filters := jsonutils.NewDict()
-	if len(currentDomain) > 0 {
-		filters.Add(jsonutils.NewString(currentDomain), "id")
-	}
-	filters.Add(jsonutils.NewInt(1000), "limit")
-	result, e := modules.Domains.List(s, filters)
-	if e != nil {
-		return nil, errors.Wrap(e, "list domain")
-	}
-	domains := jsonutils.NewArray()
-	for _, d := range result.Data {
-		dn, e := d.Get("name")
-		if e == nil {
-			if status, err := d.Bool("enabled"); err == nil && status {
-				domains.Add(dn)
-			}
-		}
-	}
+
 	resp := jsonutils.NewDict()
-	resp.Add(domains, "domains")
+	regionsJson := jsonutils.NewStringArray(regions)
 	resp.Add(regionsJson, "regions")
 
-	filters = jsonutils.NewDict()
+	s := auth.GetAdminSession(ctx, regions[0], "")
+
+	if options.Options.ReturnFullDomainList {
+		filters := jsonutils.NewDict()
+		if len(currentDomain) > 0 {
+			filters.Add(jsonutils.NewString(currentDomain), "id")
+		}
+		filters.Add(jsonutils.NewInt(1000), "limit")
+		result, e := modules.Domains.List(s, filters)
+		if e != nil {
+			return nil, errors.Wrap(e, "list domain")
+		}
+		domains := jsonutils.NewArray()
+		for _, d := range result.Data {
+			dn, e := d.Get("name")
+			if e == nil {
+				if status, err := d.Bool("enabled"); err == nil && status {
+					domains.Add(dn)
+				}
+			}
+		}
+		resp.Add(domains, "domains")
+	}
+
+	filters := jsonutils.NewDict()
 	filters.Add(jsonutils.JSONTrue, "enabled")
 	if len(currentDomain) == 0 {
 		currentDomain = "all"
