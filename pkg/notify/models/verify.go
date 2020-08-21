@@ -17,11 +17,12 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"math/rand"
 	"time"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/notify/options"
-	"yunion.io/x/onecloud/pkg/notify/utils"
 	"yunion.io/x/pkg/errors"
 )
 
@@ -54,6 +55,12 @@ type SVerification struct {
 
 var ErrVerifyFrequently = errors.Error("Send validation messages too frequently")
 
+func (vm *SVerificationManager) generateVerifyToken() string {
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+	token := fmt.Sprintf("%06v", rnd.Int31n(1000000))
+	return token
+}
+
 func (vm *SVerificationManager) Create(ctx context.Context, receiverId, contactType string) (*SVerification, error) {
 	// try to reuse
 	ret, err := vm.Get(receiverId, contactType)
@@ -64,7 +71,7 @@ func (vm *SVerificationManager) Create(ctx context.Context, receiverId, contactT
 		ret = &SVerification{
 			ReceiverId:  receiverId,
 			ContactType: contactType,
-			Token:       utils.GenerateVerifyToken(),
+			Token:       vm.generateVerifyToken(),
 		}
 		err := vm.TableSpec().Insert(ctx, ret)
 		if err != nil {
@@ -76,7 +83,7 @@ func (vm *SVerificationManager) Create(ctx context.Context, receiverId, contactT
 			return nil, ErrVerifyFrequently
 		}
 		_, err := db.Update(ret, func() error {
-			ret.Token = utils.GenerateVerifyToken()
+			ret.Token = vm.generateVerifyToken()
 			ret.CreatedAt = now
 			ret.UpdatedAt = now
 			return nil
