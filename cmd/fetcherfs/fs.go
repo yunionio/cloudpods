@@ -18,6 +18,8 @@ import (
 	"github.com/pkg/errors"
 
 	"yunion.io/x/log"
+
+	"yunion.io/x/onecloud/pkg/util/bitmap"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -29,7 +31,7 @@ type FetcherFs struct {
 	receivedSize int64
 	blockCount   int64
 	fetchedCount int64
-	blockBitMap  *BitMap
+	blockBitMap  *bitmap.BitMap
 	readLock     sync.Mutex
 
 	localFile *os.File
@@ -101,7 +103,7 @@ func (fs *FetcherFs) fetchMetaInfo() error {
 		if fs.size%fs.blocksize > 0 {
 			fs.blockCount += 1
 		}
-		fs.blockBitMap = NewBitMap(fs.blockCount)
+		fs.blockBitMap = bitmap.NewBitMap(fs.blockCount)
 	} else {
 		return errors.Errorf("not found Content-Length")
 	}
@@ -216,21 +218,6 @@ func (fs *FetcherFs) doFetchData(idx int64) error {
 	if len(buf) != int(end-start+1) {
 		return errors.Wrap(err, "written local file")
 	}
-
-	// written, err := io.Copy(fs.localFile, lz4Reader)
-	// if err != nil {
-	// 	return errors.Wrap(err, "written local file")
-	// }
-
-	// if written != (end - start + 1) {
-	// 	// TODO log fatal
-	// 	return errors.Errorf("bad response, written size %d is not expected", written)
-	// }
-
-	// _, err = fs.localFile.Seek(start, io.SeekStart)
-	// if err != nil {
-	// 	return errors.Wrap(err, "seek start")
-	// }
 
 	written, err := fs.localFile.WriteAt(buf, start)
 	if err != nil {

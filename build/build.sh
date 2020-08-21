@@ -13,6 +13,7 @@ SRC_BUILD=$ROOT_DIR/build
 OUTPUT_DIR=$ROOT_DIR/_output/rpms
 
 PKG=$1
+BIN_PATH=${2:-/opt/yunion/bin}
 
 if [ -z "$PKG" ]; then
     echo "Usage: $0 <package>"
@@ -90,9 +91,9 @@ $DESCRIPTION
 %build
 
 %install
-install -D -m 0755 $BIN \$RPM_BUILD_ROOT/opt/yunion/bin/$PKG
+install -D -m 0755 $BIN \$RPM_BUILD_ROOT$BIN_PATH/$PKG
 for bin in $EXTRA_BINS; do
-  install -D -m 0755 $SRC_BIN/\$bin \$RPM_BUILD_ROOT/opt/yunion/bin/\$bin
+  install -D -m 0755 $SRC_BIN/\$bin \$RPM_BUILD_ROOT$BIN_PATH/\$bin
 done
 if [ -d $ROOT/root ]; then
   rsync -a $ROOT/root/ \$RPM_BUILD_ROOT
@@ -124,8 +125,8 @@ getent passwd %{owner} >/dev/null || /usr/sbin/useradd -r -s /sbin/nologin -d %{
 
 %files
 %doc
-/opt/yunion/bin/$PKG
-$(for b in $EXTRA_BINS; do echo /opt/yunion/bin/$b; done)
+$BIN_PATH/$PKG
+$(for b in $EXTRA_BINS; do echo $BIN_PATH/$b; done)
 " > $SPEC_FILE
 
 if [ -d $ROOT/root/ ]; then

@@ -20,7 +20,7 @@ type Dir struct{}
 
 func (Dir) Attr(ctx context.Context, a *fuse.Attr) error {
 	a.Inode = 1
-	a.Mode = os.ModeDir | 0o755
+	a.Mode = os.ModeDir | 0755
 	return nil
 }
 
@@ -42,10 +42,6 @@ var (
 		{Inode: 2, Name: CONTENT_FILE_NAME, Type: fuse.DT_File},
 		{Inode: 3, Name: META_FILE_NAME, Type: fuse.DT_File},
 	}
-
-	// dir     *Dir
-	// content *Content
-	// meta    *Meta
 )
 
 // Content implements both Node and Handle for the content file.
@@ -57,7 +53,7 @@ func NewContent() *Content {
 
 func (Content) Attr(ctx context.Context, a *fuse.Attr) error {
 	a.Inode = 2
-	a.Mode = 0o444
+	a.Mode = 0444
 	a.Size = uint64(fetcherFs.GetSize())
 	a.BlockSize = uint32(opt.Blocksize) * 1024 * 1024
 	return nil
@@ -91,7 +87,7 @@ func NewMeta() *Meta {
 
 func (Meta) Attr(ctx context.Context, a *fuse.Attr) error {
 	a.Inode = 3
-	a.Mode = 0o444
+	a.Mode = 0444
 	a.Size = uint64(len(fetcherFs.GetMeta()))
 	return nil
 }
