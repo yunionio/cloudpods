@@ -1,4 +1,3 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v0.1
+FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v0.2
 
-ADD ./_output/bin/logger /opt/yunion/bin/logger
-
+ADD ./_output/alpine-build/bin/logger /opt/yunion/bin/logger

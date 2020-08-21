@@ -1,4 +1,4 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v0.1
+FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v0.2
 
 COPY ./build/region/root/opt/ /opt/
-ADD ./_output/bin/region /opt/yunion/bin/region
+ADD ./_output/alpine-build/bin/region /opt/yunion/bin/region

@@ -1,0 +1,16 @@
+FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v0.2
+
+MAINTAINER "Yaoqi Wan <wanyaoqi@yunionyun.com>"
+
+RUN apk update && \
+    apk add --no-cache tzdata ca-certificates qemu-img && \
+    rm -rf /var/cache/apk/*
+
+RUN cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+
+ENV TZ Asia/Shanghai
+
+# add executable file torrent
+# make cmd/torrent
+RUN mkdir -p /opt/yunion/bin
+ADD ./_output/alpine-build/bin/torrent /opt/yunion/bin/torrent

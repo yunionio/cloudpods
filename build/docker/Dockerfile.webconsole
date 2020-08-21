@@ -1,3 +1,3 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/webconsole-base:latest
+FROM registry.cn-beijing.aliyuncs.com/yunionio/webconsole-base:v0.2
 
-ADD ./_output/bin/webconsole /opt/yunion/bin/webconsole
+ADD ./_output/alpine-build/bin/webconsole /opt/yunion/bin/webconsole
