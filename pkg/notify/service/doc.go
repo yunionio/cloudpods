@@ -12,4 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package _interface // import "yunion.io/x/onecloud/pkg/notify/interface"
+package service // import "yunion.io/x/onecloud/pkg/notify/service"

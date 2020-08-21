@@ -45,9 +45,27 @@ message ValidateConfigReply {
     string msg = 2;
 }
 
+message BatchSendParams {
+    repeated string Contacts = 1;
+    string Title = 2;
+    string Message = 3;
+    string Priority = 4;
+    string RemoteTemplate = 5;
+}
+
+message FailedRecord {
+    string Contact = 1;
+    string Reason = 2;
+}
+
+message BatchSendReply {
+    repeated FailedRecord FailedRecords = 1;
+}
+
 service SendAgent {
     rpc Send(SendParams) returns (Empty);
     rpc UpdateConfig(UpdateConfigParams) returns (Empty);
     rpc ValidateConfig(UpdateConfigParams) returns (ValidateConfigReply);
     rpc UseridByMobile(UseridByMobileParams) returns (UseridByMobileReply);
+    rpc BatchSend (BatchSendParams) returns (BatchSendReply);
 }

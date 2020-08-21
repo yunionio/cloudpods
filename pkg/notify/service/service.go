@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package notify
+package service
 
 import (
-	"context"
 	"os"
 	"time"
 
@@ -29,12 +28,11 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
-	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/notify/cache"
 	"yunion.io/x/onecloud/pkg/notify/models"
 	"yunion.io/x/onecloud/pkg/notify/options"
 	_ "yunion.io/x/onecloud/pkg/notify/policy"
 	"yunion.io/x/onecloud/pkg/notify/rpc"
+	_ "yunion.io/x/onecloud/pkg/notify/tasks"
 )
 
 func StartService() {
@@ -60,9 +58,6 @@ func StartService() {
 	db.EnsureAppInitSyncDB(applicaion, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
 
-	// init cache
-	cache.RegistUserCredCacheUpdater()
-
 	// init notify service
 	models.NotifyService = rpc.NewSRpcService(opts.SocketFileDir, models.ConfigManager, models.TemplateManager)
 	models.NotifyService.InitAll()
@@ -73,10 +68,7 @@ func StartService() {
 	cron.AddJobAtIntervals("UpdateServices", time.Duration(opts.UpdateInterval)*time.Minute, models.NotifyService.UpdateServices)
 
 	// wrapped func to resend notifications
-	resend := func(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-		models.ReSend(opts.ReSendScope)
-	}
-	cron.AddJobAtIntervals("ReSendNotifications", time.Duration(opts.ReSendScope)*time.Second, resend)
+	cron.AddJobAtIntervals("ReSendNotifications", time.Duration(opts.ReSendScope)*time.Second, models.NotificationManager.ReSend)
 	cron.Start()
 
 	app.ServeForever(applicaion, baseOpts)

@@ -32,7 +32,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	_interface "yunion.io/x/onecloud/pkg/notify/interface"
+	notifyv2 "yunion.io/x/onecloud/pkg/notify"
 	"yunion.io/x/onecloud/pkg/notify/models"
 	"yunion.io/x/onecloud/pkg/notify/rpc/apis"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -49,13 +49,13 @@ const (
 type SRpcService struct {
 	SendServices  *ServiceMap
 	socketFileDir string
-	configStore   _interface.IServiceConfigStore
-	templateStore _interface.ITemplateStore
+	configStore   notifyv2.IServiceConfigStore
+	templateStore notifyv2.ITemplateStore
 }
 
 // NewSRpcService create a SRpcService
-func NewSRpcService(socketFileDir string, configStore _interface.IServiceConfigStore,
-	tempalteStore _interface.ITemplateStore) *SRpcService {
+func NewSRpcService(socketFileDir string, configStore notifyv2.IServiceConfigStore,
+	tempalteStore notifyv2.ITemplateStore) *SRpcService {
 	return &SRpcService{
 		SendServices:  NewServiceMap(),
 		socketFileDir: socketFileDir,
@@ -129,10 +129,36 @@ func (self *SRpcService) Send(ctx context.Context, contactType, contact, topic, 
 	return nil
 }
 
+func (self *SRpcService) BatchSend(ctx context.Context, contacts []string, contactType, topic, message, priority string) ([]*apis.FailedRecord, error) {
+	args, err := self.templateStore.NotifyFilter(contactType, topic, message)
+	if err != nil {
+		return nil, errors.Wrap(err, "templateStore.NotifyFilter")
+	}
+
+	batchSendParams := apis.BatchSendParams{
+		Contacts:       contacts,
+		Title:          args.Title,
+		Message:        args.Message,
+		Priority:       args.Priority,
+		RemoteTemplate: args.RemoteTemplate,
+	}
+
+	f := func(service *apis.SendNotificationClient) (interface{}, error) {
+		return service.BatchSend(ctx, &batchSendParams)
+	}
+
+	ret, err := self.execute(ctx, f, contactType)
+	if err != nil {
+		return nil, errors.Wrapf(err, "contactType '%s'", contactType)
+	}
+	reply := ret.(*apis.BatchSendReply)
+	return reply.FailedRecords, nil
+}
+
 // RestartService can restart remote rpc server and pass config info.
 // This function should be call immediately after init notify server firstly
 // This function should be call immediately after accept the request about changing config.
-func (self *SRpcService) RestartService(ctx context.Context, config _interface.SConfig, serviceName string) {
+func (self *SRpcService) RestartService(ctx context.Context, config notifyv2.SConfig, serviceName string) {
 	_, err := self.restartWithConfig(ctx, serviceName, config)
 	if err != nil {
 		log.Debugf("restart service failed: %s", err)

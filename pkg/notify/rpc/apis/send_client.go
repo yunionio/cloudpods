@@ -58,3 +58,9 @@ func (c *SendNotificationClient) UseridByMobile(ctx context.Context, in *UseridB
 	defer cancel()
 	return c.sendAgentClient.UseridByMobile(ctx, in, opts...)
 }
+
+func (c *SendNotificationClient) BatchSend(ctx context.Context, in *BatchSendParams, opts ...grpc.CallOption) (*BatchSendReply, error) {
+	ctx, cancel := context.WithTimeout(ctx, c.CallTimeout)
+	defer cancel()
+	return c.sendAgentClient.BatchSend(ctx, in, opts...)
+}

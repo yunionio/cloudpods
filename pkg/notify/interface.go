@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package _interface
+package notify
 
 import (
 	"context"
@@ -28,6 +28,7 @@ type INotifyService interface {
 	RestartService(ctx context.Context, config SConfig, serviceName string)
 	Send(ctx context.Context, contactType, contact, topic, msg, priority string) error
 	ContactByMobile(ctx context.Context, mobile, serviceName string) (string, error)
+	BatchSend(ctx context.Context, contacts []string, contactType, topic, message, priority string) ([]*apis.FailedRecord, error)
 	ValidateConfig(ctx context.Context, cType string, configs map[string]string) (isValid bool, message string, err error)
 }
 

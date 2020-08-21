@@ -15,7 +15,6 @@
 package utils
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"math/rand"
@@ -44,19 +43,10 @@ func FetchOwnerId(ctx context.Context, manager db.IModelManager, userCred mcclie
 	return ownerId, nil
 }
 
-func GenerateMobileToken() string {
+func GenerateVerifyToken() string {
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	token := fmt.Sprintf("%06v", rnd.Int31n(1000000))
 	return token
-}
-
-func GenerateEmailToken(tokenLen int) string {
-	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
-	token := new(bytes.Buffer)
-	for token.Len() < tokenLen {
-		token.WriteString(fmt.Sprintf("%x", rnd.Int31()))
-	}
-	return token.String()[:tokenLen]
 }
 
 func JsonArrayToStringArray(src []jsonutils.JSONObject) []string {

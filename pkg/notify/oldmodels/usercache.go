@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cache
+package oldmodels
 
 import (
 	"context"
@@ -42,7 +42,7 @@ var UserCacheManager *SUserCacheManager
 func init() {
 	dbUserCacheManager := db.SUserCacheManager{
 		SKeystoneCacheObjectManager: db.NewKeystoneCacheObjectManager(
-			db.SUser{}, "users_cache_tbl", "user", "users"),
+			db.SUser{}, "users_cache_tbl", "olduser", "oldusers"),
 	}
 	UserCacheManager = &SUserCacheManager{
 		dbUserCacheManager,

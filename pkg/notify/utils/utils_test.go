@@ -18,15 +18,8 @@ import (
 	"testing"
 )
 
-func TestGenEmailToken(t *testing.T) {
-	s := GenerateEmailToken(32)
-	if len(s) != 32 {
-		t.Error("email token length should be 32")
-	}
-}
-
-func TestGenMobileToke(t *testing.T) {
-	s := GenerateMobileToken()
+func TestGenerateVerifyToke(t *testing.T) {
+	s := GenerateVerifyToken()
 	if len(s) != 6 {
 		t.Errorf("mobile token length should be 6")
 	}

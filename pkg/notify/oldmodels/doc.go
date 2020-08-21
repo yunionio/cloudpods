@@ -12,14 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package notify
-
-import "yunion.io/x/onecloud/pkg/apis"
-
-type ContactDetails struct {
-	apis.ResourceBaseDetails
-
-	UID     string `json:"uid"`
-	Name    string `json:"name"`
-	Details string `json:"details"`
-}
+package oldmodels // import "yunion.io/x/onecloud/pkg/notify/oldmodels"

@@ -205,4 +205,8 @@ const (
 
 	ACT_UPDATE_BILLING_OPTIONS = "更新账单文件"
 	ACT_UPDATE_CREDENTIAL      = "更新账号密码"
+
+	ACT_PULL_SUBCONTACT   = "拉取联系方式"
+	ACT_SEND_NOTIFICATION = "发送通知消息"
+	ACT_SEND_VERIFICATION = "发送验证消息"
 )

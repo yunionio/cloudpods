@@ -27,8 +27,10 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -40,31 +42,29 @@ import (
 )
 
 type STemplateManager struct {
-	SStandaloneResourceBaseManager
+	db.SStandaloneResourceBaseManager
 }
 
 var TemplateManager *STemplateManager
 
 func init() {
 	TemplateManager = &STemplateManager{
-		SStandaloneResourceBaseManager: NewStandaloneResourceBaseManager(
+		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
 			STemplate{},
-			"notify_t_template",
+			"template_tbl",
 			"notifytemplate",
 			"notifytemplates",
 		),
 	}
+	TemplateManager.SetVirtualObject(TemplateManager)
 }
 
 const (
-	TEMPLATE_TYPE_TITLE   = "title"
-	TEMPLATE_TYPE_CONTENT = "content"
-	TEMPLATE_TYPE_REMOTE  = "remote"
-	CONTACTTYPE_ALL       = "all"
+	CONTACTTYPE_ALL = "all"
 )
 
 type STemplate struct {
-	SStandaloneResourceBase
+	db.SStandaloneResourceBase
 
 	ContactType string `width:"16" nullable:"false" create:"required" update:"user" list:"user"`
 	Topic       string `width:"20" nullable:"false" create:"required" update:"user" list:"user"`
@@ -72,20 +72,17 @@ type STemplate struct {
 	// title | content | remote
 	TemplateType string `width:"10" nullable:"false" create:"required" update:"user" list:"user"`
 	Content      string `length:"text" nullable:"false" create:"required" get:"user" list:"user" update:"user"`
+	Example      string `nullable:"false" created:"required" get:"user" list:"user" update:"user"`
 }
 
 const (
 	verifyUrlPath = "/email-verification/id/{0}/token/{1}?region=%s"
+	templatePath  = "/opt/yunion/share/template"
 )
 
 func (tm *STemplateManager) GetEmailUrl() string {
-	if len(options.Options.ApiServer) > 0 {
-		return httputils.JoinPath(options.Options.ApiServer, fmt.Sprintf(verifyUrlPath, options.Options.Region))
-	}
-	return options.Options.VerifyEmailUrl
+	return httputils.JoinPath(options.Options.ApiServer, fmt.Sprintf(verifyUrlPath, options.Options.Region))
 }
-
-var templatePath = "/opt/yunion/share/template"
 
 func (tm *STemplateManager) defaultTemplate() ([]STemplate, error) {
 	templates := make([]STemplate, 0, 4)
@@ -143,16 +140,24 @@ func (tm *STemplateManager) GetCompanyInfo(ctx context.Context) (SCompanyInfo, e
 	return info, nil
 }
 
+var (
+	ForceInitType = []string{
+		api.EMAIL,
+	}
+)
+
 func (tm *STemplateManager) InitializeData() error {
 	templates, err := tm.defaultTemplate()
 	if err != nil {
 		return err
 	}
 	for _, template := range templates {
-		q := tm.Query().Equals("contact_type", template.ContactType).Equals("topic", template.Topic).Equals("template_type", template.TemplateType)
-		count, _ := q.CountWithError()
-		if count > 0 {
-			continue
+		if !utils.IsInStringArray(template.TemplateType, ForceInitType) {
+			q := tm.Query().Equals("contact_type", template.ContactType).Equals("topic", template.Topic).Equals("template_type", template.TemplateType)
+			count, _ := q.CountWithError()
+			if count > 0 {
+				continue
+			}
 		}
 		err := tm.TableSpec().InsertOrUpdate(context.TODO(), &template)
 		if err != nil {
@@ -182,19 +187,19 @@ func (tm *STemplateManager) NotifyFilter(contactType, topic, msg string) (params
 	for _, template := range templates {
 		var title, content string
 		switch template.TemplateType {
-		case TEMPLATE_TYPE_TITLE:
+		case api.TEMPLATE_TYPE_TITLE:
 			title, err = template.Execute(msg)
 			if err != nil {
 				return
 			}
 			params.Title = title
-		case TEMPLATE_TYPE_CONTENT:
+		case api.TEMPLATE_TYPE_CONTENT:
 			content, err = template.Execute(msg)
 			if err != nil {
 				return
 			}
 			params.Message = content
-		case TEMPLATE_TYPE_REMOTE:
+		case api.TEMPLATE_TYPE_REMOTE:
 			params.RemoteTemplate = template.Content
 			params.Message = msg
 		default:
@@ -223,29 +228,64 @@ func (tm *STemplate) Execute(str string) (string, error) {
 	return buffer.String(), nil
 }
 
-func (manager *STemplateManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential,
-	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-
-	ty, _ := data.GetString("template_type")
-	if ty != TEMPLATE_TYPE_TITLE && ty != TEMPLATE_TYPE_CONTENT && ty != TEMPLATE_TYPE_REMOTE {
-		return nil, httperrors.NewInputParameterError("no such support for tempalte type %s", ty)
+func (tm *STemplateManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.TemplateCreateInput) (api.TemplateCreateInput, error) {
+	if utils.IsInStringArray(input.TemplateType, []string{
+		api.TEMPLATE_TYPE_CONTENT, api.TEMPLATE_TYPE_REMOTE, api.TEMPLATE_TYPE_TITLE,
+	}) {
+		return input, httperrors.NewInputParameterError("no such support for tempalte type %s", input.TemplateType)
 	}
-	return data, nil
+	if err := tm.validate(input.Content, input.Example); err != nil {
+		return input, httperrors.NewInputParameterError(err.Error())
+	}
+	if len(input.Name) == 0 {
+		input.Name = fmt.Sprintf("%s-%s-%s", input.ContactType, input.Topic, input.TemplateType)
+	}
+	return input, nil
 }
 
-func (self *STemplateManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	queryDict := query.(*jsonutils.JSONDict)
-	if queryDict.Contains("topic") {
-		val, _ := queryDict.GetString("topic")
-		q = q.Equals("topic", val)
+func (tm *STemplateManager) validate(template string, example string) error {
+	// check example availability
+	tem, err := ptem.New("tmp").Parse(template)
+	if err != nil {
+		return errors.Wrap(err, "invalid template")
 	}
-	if queryDict.Contains("template_type") {
-		val, _ := queryDict.GetString("template_type")
-		q = q.Equals("template_type", val)
+	var buffer bytes.Buffer
+	tmpMap := make(map[string]interface{})
+	err = json.Unmarshal([]byte(example), &tmpMap)
+	if err != nil {
+		return errors.Wrap(err, "invalid example")
 	}
-	if queryDict.Contains("contact_type") {
-		val, _ := queryDict.GetString("contact_type")
-		q = q.Equals("contact_type", val)
+	err = tem.Execute(&buffer, tmpMap)
+	if err != nil {
+		return errors.Wrap(err, "invalid example")
+	}
+	return nil
+}
+
+func (tm *STemplateManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.TemplateListInput) (*sqlchemy.SQuery, error) {
+	q, err := tm.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StandaloneResourceListInput)
+	if err != nil {
+		return nil, err
+	}
+	if len(input.Topic) > 0 {
+		q = q.Equals("topic", input.Topic)
+	}
+	if len(input.TemplateType) > 0 {
+		q = q.Equals("template_type", input.TemplateType)
+	}
+	if len(input.ContactType) > 0 {
+		q = q.Equals("contact_type", input.ContactType)
 	}
 	return q, nil
+}
+
+func (t *STemplate) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.TemplateUpdateInput) (api.TemplateUpdateInput, error) {
+	if err := TemplateManager.validate(input.Content, input.Example); err != nil {
+		return input, httperrors.NewInputParameterError(err.Error())
+	}
+	return input, nil
+}
+
+func (t *STemplate) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.TemplateDetails, error) {
+	return api.TemplateDetails{}, nil
 }
