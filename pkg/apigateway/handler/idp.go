@@ -241,6 +241,10 @@ func generateRedirectUrl(originUrl *url.URL, stateQs jsonutils.JSONObject, err e
 			errCls = errors.Cause(err).Error()
 			errDetails = err.Error()
 		}
+		msgLen := 100
+		if len(errDetails) > msgLen {
+			errDetails = errDetails[:msgLen] + "..."
+		}
 		qs.(*jsonutils.JSONDict).Add(jsonutils.NewString(errCls), "error_class")
 		qs.(*jsonutils.JSONDict).Add(jsonutils.NewString(errDetails), "error_details")
 		qs.(*jsonutils.JSONDict).Add(jsonutils.NewString("error"), "result")
