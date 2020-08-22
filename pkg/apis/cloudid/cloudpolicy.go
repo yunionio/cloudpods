@@ -54,6 +54,9 @@ type CloudpolicyListInput struct {
 	// | system  |  过滤系统权限		|
 	// | custom  |  过滤自定义权限      |
 	PolicyType string `json:"policy_type"`
+
+	// 是否显示Locked的权限
+	Locked *bool `json:"locked"`
 }
 
 type CloudpolicyDetails struct {

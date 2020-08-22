@@ -22,7 +22,7 @@ var (
 
 func init() {
 	Cloudpolicies = NewCloudIdManager("cloudpolicy", "cloudpolicies",
-		[]string{},
+		[]string{"id", "name", "description", "domain_id", "domain", "public_scope", "policy_type", "status", "locked"},
 		[]string{})
 
 	register(&Cloudpolicies)
