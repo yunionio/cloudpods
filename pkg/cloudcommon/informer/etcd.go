@@ -215,7 +215,7 @@ func (b *EtcdBackend) shouldDeleteWatchedResource(ctx context.Context, keywordPl
 	clientsKey := fmt.Sprintf("/%s/%s", keywordPlural, EtcdInformerClientsKey)
 	pairs, err := b.client.List(ctx, clientsKey)
 	if err != nil {
-		log.Errorf("list clientsKey %s error: %v", err)
+		log.Errorf("list clientsKey %s error: %v", clientsKey, err)
 		return false
 	}
 	return len(pairs) == 0

@@ -411,11 +411,11 @@ func GetAdaptiveTimeoutClient() *http.Client {
 var defaultHttpClient *http.Client
 
 func init() {
-	defaultHttpClient = GetClient(true, time.Second*15)
+	defaultHttpClient = GetDefaultClient()
 }
 
 func GetDefaultClient() *http.Client {
-	return defaultHttpClient
+	return GetClient(true, time.Second*15)
 }
 
 func Request(client *http.Client, ctx context.Context, method THttpMethod, urlStr string, header http.Header, body io.Reader, debug bool) (*http.Response, error) {
