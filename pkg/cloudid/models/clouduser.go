@@ -97,6 +97,18 @@ func (manager *SClouduserManager) GetIVirtualModelManager() db.IVirtualModelMana
 	return manager.GetVirtualObject().(db.IVirtualModelManager)
 }
 
+func (manager *SClouduserManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
+	accountId, _ := data.GetString("cloudaccount_id")
+	return accountId
+}
+
+func (manager *SClouduserManager) FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery {
+	if len(parentId) > 0 {
+		q = q.Equals("cloudaccount_id", parentId)
+	}
+	return q
+}
+
 // 公有云用户列表
 func (manager *SClouduserManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ClouduserListInput) (*sqlchemy.SQuery, error) {
 	var err error
