@@ -147,6 +147,10 @@ func (manager *SCloudpolicyManager) ListItemFilter(ctx context.Context, q *sqlch
 		q = q.In("id", sq.SubQuery())
 	}
 
+	if query.Locked == nil || !*query.Locked {
+		q = q.IsFalse("locked")
+	}
+
 	return q, nil
 }
 
