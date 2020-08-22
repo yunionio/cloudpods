@@ -18,8 +18,10 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -313,6 +315,14 @@ func init() {
 		IDP string `help:"identity provider name or ID"`
 	}
 	R(&IdentityProviderConfigEditOptions{}, "idp-config-edit", "Edit config yaml of an identity provider", func(s *mcclient.ClientSession, args *IdentityProviderConfigEditOptions) error {
+		idp, err := modules.IdentityProviders.Get(s, args.IDP, nil)
+		if err != nil {
+			return err
+		}
+		enabled, _ := idp.GetString("enabled")
+		if enabled != "false" {
+			return errors.Wrap(httperrors.ErrInvalidStatus, "idp must be disabled")
+		}
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.JSONTrue, "sensitive")
 		conf, err := modules.IdentityProviders.GetSpecific(s, args.IDP, "config", params)
@@ -518,18 +528,28 @@ func init() {
 		return nil
 	})
 
+	type IdentityProviderCreateCommonOptions struct {
+		TargetDomainId    string `help:"target domain id"`
+		AutoCreateProject bool   `help:"create project if no project presents" negative:"no-auto-create-project"`
+		AutoCreateUser    bool   `help:"create user if no user presents" negative:"no-auto-create-user"`
+	}
+
 	type IdentityProviderCreateGithubOIDCOptions struct {
-		NAME string `help:"name of identity provider" json:"-"`
+		NAME string `help:"name of identity provider" json:"name"`
 
 		api.SOIDCGithubConfigOptions
+
+		IdentityProviderCreateCommonOptions
 	}
 	R(&IdentityProviderCreateGithubOIDCOptions{}, "idp-create-github-oidc", "Create an identity provider with Github OpenID Connect", func(s *mcclient.ClientSession, args *IdentityProviderCreateGithubOIDCOptions) error {
 		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(args.NAME), "name")
+		// params.Add(jsonutils.NewString(args.NAME), "name")
 		params.Add(jsonutils.NewString("oidc"), "driver")
 		params.Add(jsonutils.NewString(api.IdpTemplateGithub), "template")
 
-		params.Add(jsonutils.Marshal(args), "config", "oidc")
+		params.Update(jsonutils.Marshal(args))
+
+		params.Add(jsonutils.Marshal(args.SOIDCGithubConfigOptions), "config", "oidc")
 
 		idp, err := modules.IdentityProviders.Create(s, params)
 		if err != nil {
@@ -540,9 +560,11 @@ func init() {
 	})
 
 	type IdentityProviderCreateAzureOIDCOptions struct {
-		NAME string `help:"name of identity provider" json:"-"`
+		NAME string `help:"name of identity provider" json:"name"`
 
 		api.SOIDCAzureConfigOptions
+
+		IdentityProviderCreateCommonOptions
 	}
 	R(&IdentityProviderCreateAzureOIDCOptions{}, "idp-create-azure-oidc", "Create an identity provider with Azure AD OpenID Connect", func(s *mcclient.ClientSession, args *IdentityProviderCreateAzureOIDCOptions) error {
 		params := jsonutils.NewDict()
@@ -550,7 +572,9 @@ func init() {
 		params.Add(jsonutils.NewString("oidc"), "driver")
 		params.Add(jsonutils.NewString(api.IdpTemplateAzureOAuth2), "template")
 
-		params.Add(jsonutils.Marshal(args), "config", "oidc")
+		params.Update(jsonutils.Marshal(args))
+
+		params.Add(jsonutils.Marshal(args.SOIDCAzureConfigOptions), "config", "oidc")
 
 		idp, err := modules.IdentityProviders.Create(s, params)
 		if err != nil {
@@ -587,16 +611,19 @@ func init() {
 	})
 
 	type IdentityProviderCreateFeishuOAuth2Options struct {
-		NAME string `help:"name of identity provider"`
+		NAME string `help:"name of identity provider" json:"name"`
 
 		api.SOAuth2IdpConfigOptions
+
+		IdentityProviderCreateCommonOptions
 	}
 	R(&IdentityProviderCreateFeishuOAuth2Options{}, "idp-create-feishu-oauth2", "Create an identity provider with Feishu OAuth2.0", func(s *mcclient.ClientSession, args *IdentityProviderCreateFeishuOAuth2Options) error {
 		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(args.NAME), "name")
+		// params.Add(jsonutils.NewString(args.NAME), "name")
 		params.Add(jsonutils.NewString("oauth2"), "driver")
 		params.Add(jsonutils.NewString(api.IdpTemplateFeishu), "template")
-		params.Add(jsonutils.Marshal(args), "config", "oauth2")
+		params.Update(jsonutils.Marshal(args))
+		params.Add(jsonutils.Marshal(args.SOAuth2IdpConfigOptions), "config", "oauth2")
 		idp, err := modules.IdentityProviders.Create(s, params)
 		if err != nil {
 			return err

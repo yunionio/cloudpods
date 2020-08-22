@@ -33,5 +33,7 @@ type UserDetails struct {
 
 	Idps []IdpResourceInfo `json:"idps"`
 
+	IsLocal bool `json:"is_local"`
+
 	ExternalResourceInfo
 }

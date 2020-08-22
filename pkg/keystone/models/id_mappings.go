@@ -197,10 +197,17 @@ func (manager *SIdmappingManager) deleteAny(idpId string, entityType string, pub
 	return nil
 }
 
-func (manager *SIdmappingManager) FetchPublicIdsExcludes(idpId string, entityType string, excludes []string) ([]string, error) {
+func (manager *SIdmappingManager) FetchPublicIdsExcludesQuery(idpId string, entityType string, excludes []string) *sqlchemy.SQuery {
 	q := manager.Query("public_id").Equals("domain_id", idpId)
 	q = q.Equals("entity_type", entityType)
-	q = q.NotIn("public_id", excludes)
+	if len(excludes) > 0 {
+		q = q.NotIn("public_id", excludes)
+	}
+	return q
+}
+
+func (manager *SIdmappingManager) FetchPublicIdsExcludes(idpId string, entityType string, excludes []string) ([]string, error) {
+	q := manager.FetchPublicIdsExcludesQuery(idpId, entityType, excludes)
 	rows, err := q.Rows()
 	if err != nil && err != sql.ErrNoRows {
 		return nil, errors.Wrap(err, "q.Rows")
