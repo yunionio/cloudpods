@@ -279,6 +279,10 @@ func (manager *SUserManager) FetchUserExtended(userId, userName, domainId, domai
 		return nil, errors.Wrap(err, "query")
 	}
 
+	if extUser.LocalId > 0 {
+		extUser.IsLocal = true
+	}
+
 	return &extUser, nil
 }
 
@@ -380,6 +384,19 @@ func (manager *SUserManager) ListItemFilter(
 			}
 		}
 		subq := AssignmentManager.fetchRoleUserIdsQuery(role.GetId())
+		q = q.In("id", subq.SubQuery())
+	}
+
+	if len(query.IdpId) > 0 {
+		idpObj, err := IdentityProviderManager.FetchByIdOrName(userCred, query.IdpId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", IdentityProviderManager.Keyword(), query.IdpId)
+			} else {
+				return nil, errors.Wrap(err, "IdentityProviderManager.FetchByIdOrName")
+			}
+		}
+		subq := IdmappingManager.FetchPublicIdsExcludesQuery(idpObj.GetId(), api.IdMappingEntityUser, nil)
 		q = q.In("id", subq.SubQuery())
 	}
 
@@ -486,13 +503,13 @@ func (user *SUser) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 			return input, httperrors.NewForbiddenError("cannot alter sysadmin user name")
 		}
 	}
-	if user.IsReadOnly() {
+	if !user.IsLocal() {
 		data := jsonutils.Marshal(input)
 		for _, k := range []string{
 			"name",
-			"displayname",
-			"email",
-			"mobile",
+			// "displayname",
+			// "email",
+			// "mobile",
 			"password",
 		} {
 			if data.Contains(k) {
@@ -505,6 +522,9 @@ func (user *SUser) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 		usrExt, err := UserManager.FetchUserExtended(user.Id, "", "", "")
 		if err != nil {
 			return input, errors.Wrap(err, "UserManager.FetchUserExtended")
+		}
+		if !usrExt.IsLocal {
+			return input, errors.Wrap(httperrors.ErrForbidden, "cannot update password for non-local user")
 		}
 		skipHistoryCheck := false
 		if user.IsSystemAccount.Bool() {
@@ -624,6 +644,9 @@ func userExtra(user *SUser, out api.UserDetails) api.UserDetails {
 		if localPass != nil && !localPass.ExpiresAt.IsZero() {
 			out.PasswordExpiresAt = localPass.ExpiresAt
 		}
+		out.IsLocal = true
+	} else {
+		out.IsLocal = false
 	}
 
 	external, update, _ := user.getExternalResources()
@@ -703,17 +726,29 @@ func (user *SUser) PostUpdate(ctx context.Context, userCred mcclient.TokenCreden
 }
 
 func (user *SUser) ValidateDeleteCondition(ctx context.Context) error {
-	if user.IsAdminUser() {
-		return httperrors.NewForbiddenError("cannot delete system user")
+	idMappings, err := user.getIdmappings()
+	if err != nil {
+		return errors.Wrap(err, "getIdmappings")
 	}
-	if user.IsReadOnly() {
-		return httperrors.NewForbiddenError("readonly")
+	if !user.IsLocal() && len(idMappings) > 0 {
+		return httperrors.NewForbiddenError("cannot delete non-local user")
 	}
+	err = user.ValidatePurgeCondition(ctx)
+	if err != nil {
+		return errors.Wrap(err, "ValidatePurgeCondition")
+	}
+	return user.SIdentityBaseResource.ValidateDeleteCondition(ctx)
+}
+
+func (user *SUser) ValidatePurgeCondition(ctx context.Context) error {
 	external, _, _ := user.getExternalResources()
 	if len(external) > 0 {
 		return httperrors.NewNotEmptyError("user contains external resources")
 	}
-	return user.SIdentityBaseResource.ValidateDeleteCondition(ctx)
+	if user.IsAdminUser() {
+		return httperrors.NewForbiddenError("cannot delete system user")
+	}
+	return nil
 }
 
 func (user *SUser) getExternalResources() (map[string]int, time.Time, error) {
@@ -859,13 +894,10 @@ func (user *SUser) getIdmappings() ([]SIdmapping, error) {
 	return IdmappingManager.FetchEntities(user.Id, api.IdMappingEntityUser)
 }
 
-func (user *SUser) IsReadOnly() bool {
-	idmaps, _ := user.getIdmappings()
-	for i := range idmaps {
-		idp, _ := IdentityProviderManager.FetchIdentityProviderById(idmaps[i].IdpId)
-		if idp != nil && idp.Driver == api.IdentityDriverLDAP {
-			return true
-		}
+func (user *SUser) IsLocal() bool {
+	usr, _ := LocalUserManager.fetchLocalUser(user.Id, user.DomainId, 0)
+	if usr != nil {
+		return true
 	}
 	return false
 }

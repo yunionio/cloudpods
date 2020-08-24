@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -646,32 +647,36 @@ func (self *SIdentityProvider) ValidateUpdateData(ctx context.Context, userCred 
 
 func (self *SIdentityProvider) GetUserCount() (int, error) {
 	if self.Driver == api.IdentityDriverSQL {
-		return self.getLocalUserCount()
+		return getSQLUserCount()
 	} else {
-		return self.getNonlocalUserCount()
+		return self.getLinkedUserCount()
 	}
 }
 
-func (self *SIdentityProvider) getNonlocalUserCount() (int, error) {
-	return self.getNonlocalUserQuery().CountWithError()
+func (self *SIdentityProvider) getLinkedUserCount() (int, error) {
+	return self.getLinkedUserQuery().CountWithError()
 }
 
-func (self *SIdentityProvider) getNonlocalUserQuery() *sqlchemy.SQuery {
-	users := UserManager.Query().SubQuery()
+func (self *SIdentityProvider) getLinkedUserQuery() *sqlchemy.SQuery {
+	return self.getLinkedEntityQuery(UserManager, api.IdMappingEntityUser)
+}
+
+func (self *SIdentityProvider) getLinkedEntityQuery(manager db.IStandaloneModelManager, typeStr string) *sqlchemy.SQuery {
+	users := manager.Query().SubQuery()
 	idmaps := IdmappingManager.Query().SubQuery()
 
 	q := users.Query()
 	q = q.LeftJoin(idmaps, sqlchemy.AND(
 		sqlchemy.Equals(users.Field("id"), idmaps.Field("public_id")),
-		sqlchemy.Equals(idmaps.Field("entity_type"), api.IdMappingEntityUser),
+		sqlchemy.Equals(idmaps.Field("entity_type"), typeStr),
 	))
 	q = q.Filter(sqlchemy.Equals(idmaps.Field("domain_id"), self.Id))
 
 	return q
 }
 
-func (self *SIdentityProvider) getNonlocalUsers() ([]SUser, error) {
-	q := self.getNonlocalUserQuery()
+func (self *SIdentityProvider) getLinkedUsers() ([]SUser, error) {
+	q := self.getLinkedUserQuery()
 	users := make([]SUser, 0)
 	err := db.FetchModelObjects(UserManager, q, &users)
 	if err != nil && err != sql.ErrNoRows {
@@ -680,40 +685,54 @@ func (self *SIdentityProvider) getNonlocalUsers() ([]SUser, error) {
 	return users, nil
 }
 
-func (self *SIdentityProvider) getLocalUserCount() (int, error) {
-	subq := IdmappingManager.Query("public_id").Equals("entity_type", api.IdMappingEntityUser)
-	q := UserManager.Query().NotIn("id", subq.SubQuery())
-	return q.CountWithError()
+func getSQLEntityQuery(manager db.IStandaloneModelManager, typeStr string) *sqlchemy.SQuery {
+	subq := IdmappingManager.Query("public_id")
+	subq = subq.Equals("entity_type", typeStr)
+	return manager.Query().NotIn("id", subq.SubQuery())
+}
+
+func getSQLUserQuery() *sqlchemy.SQuery {
+	return getSQLEntityQuery(UserManager, api.IdMappingEntityUser)
+}
+
+func getSQLUserCount() (int, error) {
+	return getSQLUserQuery().CountWithError()
+}
+
+func getSQLGroupQuery() *sqlchemy.SQuery {
+	return getSQLEntityQuery(GroupManager, api.IdMappingEntityGroup)
+}
+
+func getSQLGroupCount() (int, error) {
+	return getSQLGroupQuery().CountWithError()
+}
+
+func getSQLDomainQuery() *sqlchemy.SQuery {
+	return getSQLEntityQuery(DomainManager, api.IdMappingEntityDomain).NotEquals("id", api.KeystoneDomainRoot)
+}
+
+func getSQLDomainCount() (int, error) {
+	return getSQLDomainQuery().CountWithError()
 }
 
 func (self *SIdentityProvider) GetGroupCount() (int, error) {
 	if self.Driver == api.IdentityDriverSQL {
-		return self.getLocalGroupCount()
+		return getSQLGroupCount()
 	} else {
-		return self.getNonlocalGroupCount()
+		return self.getLinkedGroupCount()
 	}
 }
 
-func (self *SIdentityProvider) getNonlocalGroupCount() (int, error) {
-	return self.getNonlocalGroupQuery().CountWithError()
+func (self *SIdentityProvider) getLinkedGroupCount() (int, error) {
+	return self.getLinkedGroupQuery().CountWithError()
 }
 
-func (self *SIdentityProvider) getNonlocalGroupQuery() *sqlchemy.SQuery {
-	groups := GroupManager.Query().SubQuery()
-	idmaps := IdmappingManager.Query().SubQuery()
-
-	q := groups.Query()
-	q = q.LeftJoin(idmaps, sqlchemy.AND(
-		sqlchemy.Equals(groups.Field("id"), idmaps.Field("public_id")),
-		sqlchemy.Equals(idmaps.Field("entity_type"), api.IdMappingEntityGroup),
-	))
-	q = q.Filter(sqlchemy.Equals(idmaps.Field("domain_id"), self.Id))
-
-	return q
+func (self *SIdentityProvider) getLinkedGroupQuery() *sqlchemy.SQuery {
+	return self.getLinkedEntityQuery(GroupManager, api.IdMappingEntityGroup)
 }
 
-func (self *SIdentityProvider) getNonlocalGroups() ([]SGroup, error) {
-	q := self.getNonlocalGroupQuery()
+func (self *SIdentityProvider) getLinkedGroups() ([]SGroup, error) {
+	q := self.getLinkedGroupQuery()
 	groups := make([]SGroup, 0)
 	err := db.FetchModelObjects(GroupManager, q, &groups)
 	if err != nil && err != sql.ErrNoRows {
@@ -722,56 +741,30 @@ func (self *SIdentityProvider) getNonlocalGroups() ([]SGroup, error) {
 	return groups, nil
 }
 
-func (self *SIdentityProvider) getLocalGroupCount() (int, error) {
-	subq := IdmappingManager.Query("public_id").Equals("entity_type", api.IdMappingEntityGroup)
-	q := GroupManager.Query().NotIn("id", subq.SubQuery())
-	return q.CountWithError()
-}
-
 func (self *SIdentityProvider) GetDomainCount() (int, error) {
 	if self.Driver == api.IdentityDriverSQL {
-		return self.getLocalDomainCount()
+		return getSQLDomainCount()
 	} else {
-		return self.getNonlocalDomainCount()
+		return self.getLinkedDomainCount()
 	}
 }
 
 func (self *SIdentityProvider) getDomainQuery() *sqlchemy.SQuery {
 	if self.Driver == api.IdentityDriverSQL {
-		return self.getLocalDomainQuery()
+		return getSQLDomainQuery()
 	} else {
-		return self.getNonlocalDomainQuery()
+		return self.getLinkedDomainQuery()
 	}
 }
 
-func (self *SIdentityProvider) getNonlocalDomainCount() (int, error) {
-	q := self.getNonlocalDomainQuery()
+func (self *SIdentityProvider) getLinkedDomainCount() (int, error) {
+	q := self.getLinkedDomainQuery()
 	return q.CountWithError()
 }
 
-func (self *SIdentityProvider) getNonlocalDomainQuery() *sqlchemy.SQuery {
-	domains := DomainManager.Query().SubQuery()
-	idmaps := IdmappingManager.Query().SubQuery()
-
-	q := domains.Query()
-	q = q.Join(idmaps, sqlchemy.AND(
-		sqlchemy.Equals(domains.Field("id"), idmaps.Field("public_id")),
-		sqlchemy.Equals(idmaps.Field("entity_type"), api.IdMappingEntityDomain),
-	))
-	q = q.Filter(sqlchemy.NotEquals(domains.Field("id"), api.KeystoneDomainRoot))
-	q = q.Filter(sqlchemy.Equals(idmaps.Field("domain_id"), self.Id))
-
-	return q
-}
-
-func (self *SIdentityProvider) getLocalDomainCount() (int, error) {
-	q := self.getLocalDomainQuery()
-	return q.CountWithError()
-}
-
-func (self *SIdentityProvider) getLocalDomainQuery() *sqlchemy.SQuery {
-	subq := IdmappingManager.Query("public_id").Equals("entity_type", api.IdMappingEntityDomain)
-	q := DomainManager.Query().NotIn("id", subq.SubQuery()).NotEquals("id", api.KeystoneDomainRoot)
+func (self *SIdentityProvider) getLinkedDomainQuery() *sqlchemy.SQuery {
+	q := self.getLinkedEntityQuery(DomainManager, api.IdMappingEntityDomain)
+	q = q.NotEquals("id", api.KeystoneDomainRoot)
 	return q
 }
 
@@ -800,20 +793,22 @@ func (self *SIdentityProvider) ValidateDeleteCondition(ctx context.Context) erro
 	if self.Enabled.IsTrue() {
 		return httperrors.NewInvalidStatusError("cannot delete enabled idp")
 	}
-	prjCnt, err := self.GetProjectCount()
-	if err != nil {
-		return httperrors.NewGeneralError(err)
-	}
-	if prjCnt > 0 {
-		return httperrors.NewConflictError("identity provider with projects")
-	}
-	domains, err := self.getDomains()
-	if err != nil {
-		return httperrors.NewGeneralError(err)
-	}
-	for i := range domains {
-		if domains[i].Enabled.IsTrue() {
-			return httperrors.NewInvalidStatusError("domain %s should be disabled", domains[i].Name)
+	if self.Driver == api.IdentityDriverLDAP || self.AutoCreateUser.IsTrue() {
+		prjCnt, err := self.GetProjectCount()
+		if err != nil {
+			return httperrors.NewGeneralError(err)
+		}
+		if prjCnt > 0 {
+			return httperrors.NewConflictError("identity provider with projects")
+		}
+		domains, err := self.getLinkedDomains()
+		if err != nil {
+			return httperrors.NewGeneralError(err)
+		}
+		for i := range domains {
+			if domains[i].Enabled.IsTrue() {
+				return httperrors.NewInvalidStatusError("enabled domain %s cannot be deleted", domains[i].Name)
+			}
 		}
 	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
@@ -826,8 +821,8 @@ func (self *SIdentityProvider) ValidateUpdateCondition(ctx context.Context) erro
 	return self.SEnabledStatusStandaloneResourceBase.ValidateUpdateCondition(ctx)
 }
 
-func (self *SIdentityProvider) getDomains() ([]SDomain, error) {
-	q := self.getDomainQuery()
+func (self *SIdentityProvider) getLinkedDomains() ([]SDomain, error) {
+	q := self.getLinkedDomainQuery()
 	domains := make([]SDomain, 0)
 	err := db.FetchModelObjects(DomainManager, q, &domains)
 	if err != nil && err != sql.ErrNoRows {
@@ -848,9 +843,16 @@ func (ident *SIdentityProvider) deleteConfigs(ctx context.Context, userCred mccl
 	return nil
 }
 
+func (self *SIdentityProvider) isSsoIdp() bool {
+	if self.Driver == api.IdentityDriverLDAP || self.Driver == api.IdentityDriverSQL {
+		return false
+	}
+	return true
+}
+
 func (self *SIdentityProvider) Purge(ctx context.Context, userCred mcclient.TokenCredential) error {
 	// delete users
-	users, err := self.getNonlocalUsers()
+	users, err := self.getLinkedUsers()
 	if err != nil {
 		return errors.Wrap(err, "getNonlocalUsers")
 	}
@@ -859,17 +861,23 @@ func (self *SIdentityProvider) Purge(ctx context.Context, userCred mcclient.Toke
 		if err != nil {
 			return errors.Wrap(err, "users[i].UnlinkIdp")
 		}
-		err = users[i].ValidateDeleteCondition(ctx)
+		if self.isSsoIdp() && self.AutoCreateUser.IsFalse() {
+			continue
+		}
+		err = users[i].ValidatePurgeCondition(ctx)
 		if err != nil {
-			return errors.Wrap(err, "users[i].ValidateDeleteCondition")
+			db.OpsLog.LogEvent(&users[i], db.ACT_DELETE_FAIL, err, userCred)
+			log.Errorf("users %s ValidatePurgeCondition fail %s", users[i].Name, err)
+			continue
 		}
 		err = users[i].Delete(ctx, userCred)
 		if err != nil {
+			db.OpsLog.LogEvent(&users[i], db.ACT_DELETE_FAIL, err, userCred)
 			return errors.Wrap(err, "delete users[i]")
 		}
 	}
 	// delete groups
-	groups, err := self.getNonlocalGroups()
+	groups, err := self.getLinkedGroups()
 	if err != nil {
 		return errors.Wrap(err, "getNonlocalGroups")
 	}
@@ -878,32 +886,47 @@ func (self *SIdentityProvider) Purge(ctx context.Context, userCred mcclient.Toke
 		if err != nil {
 			return errors.Wrap(err, "groups[i].UnlinkIdp")
 		}
+		if self.isSsoIdp() && self.AutoCreateUser.IsFalse() {
+			continue
+		}
 		err = groups[i].ValidateDeleteCondition(ctx)
 		if err != nil {
-			return errors.Wrap(err, "groups[i].ValidateDeleteCondition")
+			db.OpsLog.LogEvent(&groups[i], db.ACT_DELETE_FAIL, err, userCred)
+			log.Errorf("group %s ValidateDeleteCondition fail %s", groups[i].Name, err)
+			continue
 		}
 		err = groups[i].Delete(ctx, userCred)
 		if err != nil {
+			db.OpsLog.LogEvent(&groups[i], db.ACT_DELETE_FAIL, err, userCred)
 			return errors.Wrap(err, "delete groups[i]")
 		}
 	}
 	// delete domains
-	domains, err := self.getDomains()
+	domains, err := self.getLinkedDomains()
 	if err != nil {
 		return errors.Wrap(err, "getDomains")
 	}
 	for i := range domains {
-		err = domains[i].ValidatePurgeCondition(ctx)
-		if err != nil {
-			return errors.Wrap(err, "domain.ValidatePurgeCondition")
-		}
-		err = domains[i].UnlinkIdp(self.Id)
-		if err != nil {
-			return errors.Wrap(err, "domains[i].UnlinkIdp")
-		}
-		err = domains[i].Delete(ctx, userCred)
-		if err != nil {
-			return errors.Wrap(err, "delete domain")
+		if self.isSsoIdp() && self.AutoCreateUser.IsFalse() {
+			err = domains[i].UnlinkIdp(self.Id)
+			if err != nil {
+				return errors.Wrap(err, "domains[i].UnlinkIdp")
+			}
+		} else {
+			err = domains[i].ValidatePurgeCondition(ctx)
+			if err != nil {
+				db.OpsLog.LogEvent(&domains[i], db.ACT_DELETE_FAIL, err, userCred)
+				return errors.Wrap(err, "domain.ValidatePurgeCondition")
+			}
+			err = domains[i].UnlinkIdp(self.Id)
+			if err != nil {
+				return errors.Wrap(err, "domains[i].UnlinkIdp")
+			}
+			err = domains[i].Delete(ctx, userCred)
+			if err != nil {
+				db.OpsLog.LogEvent(&domains[i], db.ACT_DELETE_FAIL, err, userCred)
+				return errors.Wrap(err, "delete domain")
+			}
 		}
 	}
 	err = self.deleteConfigs(ctx, userCred)
@@ -1203,13 +1226,13 @@ func (idp *SIdentityProvider) TryUserJoinProject(attrConf api.SIdpAttributeOptio
 	}
 	// update user attributes
 	_, err := db.Update(usr, func() error {
-		if v, ok := attrs[attrConf.UserDisplaynameAttribtue]; ok && len(v) > 0 && len(v[0]) > 0 {
+		if v, ok := attrs[attrConf.UserDisplaynameAttribtue]; ok && len(v) > 0 && len(v[0]) > 0 && len(usr.Displayname) == 0 {
 			usr.Displayname = v[0]
 		}
-		if v, ok := attrs[attrConf.UserEmailAttribute]; ok && len(v) > 0 && len(v[0]) > 0 {
+		if v, ok := attrs[attrConf.UserEmailAttribute]; ok && len(v) > 0 && len(v[0]) > 0 && len(usr.Email) == 0 {
 			usr.Email = v[0]
 		}
-		if v, ok := attrs[attrConf.UserMobileAttribute]; ok && len(v) > 0 && len(v[0]) > 0 {
+		if v, ok := attrs[attrConf.UserMobileAttribute]; ok && len(v) > 0 && len(v[0]) > 0 && len(usr.Mobile) == 0 {
 			usr.Mobile = v[0]
 		}
 		return nil
@@ -1420,4 +1443,40 @@ func (manager *SIdentityProviderManager) CheckUniqueness(extIdpId string, domain
 		return false, errors.Wrap(err, "CountWithError")
 	}
 	return cnt == 0, nil
+}
+
+func (idp *SIdentityProvider) PerformDisable(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.PerformDisableInput,
+) (jsonutils.JSONObject, error) {
+	if idp.Driver == api.IdentityDriverLDAP || idp.AutoCreateUser.IsTrue() {
+		domains, _ := idp.getLinkedDomains()
+		for i := range domains {
+			db.Update(&domains[i], func() error {
+				domains[i].Enabled = tristate.False
+				return nil
+			})
+		}
+	}
+	return idp.SEnabledStatusStandaloneResourceBase.PerformDisable(ctx, userCred, query, input)
+}
+
+func (idp *SIdentityProvider) PerformEnable(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.PerformEnableInput,
+) (jsonutils.JSONObject, error) {
+	if idp.Driver == api.IdentityDriverLDAP || idp.AutoCreateUser.IsTrue() {
+		domains, _ := idp.getLinkedDomains()
+		for i := range domains {
+			db.Update(&domains[i], func() error {
+				domains[i].Enabled = tristate.True
+				return nil
+			})
+		}
+	}
+	return idp.SEnabledStatusStandaloneResourceBase.PerformEnable(ctx, userCred, query, input)
 }

@@ -25,6 +25,7 @@ import (
 func init() {
 	type DomainListOptions struct {
 		options.BaseListOptions
+		IdpId string `help:"filter by idp_id"`
 	}
 	R(&DomainListOptions{}, "domain-list", "List domains", func(s *mcclient.ClientSession, args *DomainListOptions) error {
 		params, err := options.ListStructToParams(args)

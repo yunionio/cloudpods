@@ -28,6 +28,7 @@ func init() {
 		options.BaseListOptions
 		Name          string `help:"Filter by name"`
 		OrderByDomain string `help:"order by domain name" choices:"asc|desc"`
+		IdpId         string `help:"filter by idp_id"`
 	}
 	R(&GroupListOptions{}, "group-list", "List groups", func(s *mcclient.ClientSession, args *GroupListOptions) error {
 		params, err := options.ListStructToParams(args)
