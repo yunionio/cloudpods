@@ -73,6 +73,9 @@ type SClouduser struct {
 	MobilePhone string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"domain_optional"`
 	// 邮箱地址
 	Email string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"domain_optional"`
+
+	// 项目Id
+	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" nullable:"false" index:"true" list:"user" json:"tenant_id"`
 }
 
 func (manager *SClouduserManager) EnableGenerateName() bool {
@@ -90,7 +93,12 @@ func (manager *SClouduserManager) GetResourceCount() ([]db.SScopeResourceCount, 
 	if err != nil {
 		return nil, errors.Wrap(err, "CalculateResourceCount.owner_id")
 	}
-	return append(domainCnt, userCnt...), nil
+	q = manager.Query()
+	projectCnt, err := db.CalculateResourceCount(q, "project_id")
+	if err != nil {
+		return nil, errors.Wrapf(err, "CalculateResourceCount.project_id")
+	}
+	return append(domainCnt, append(userCnt, projectCnt...)...), nil
 }
 
 func (manager *SClouduserManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -362,12 +370,17 @@ func (manager *SClouduserManager) ValidateCreateData(ctx context.Context, userCr
 	if err != nil {
 		return input, err
 	}
-	user, err := db.UserCacheManager.FetchUserById(ctx, input.OwnerId)
-	if err != nil {
-		return input, errors.Wrap(err, "FetchUserById")
+
+	if len(input.Name) == 0 && len(input.OwnerId) == 0 {
+		return input, httperrors.NewMissingParameterError("missing name or owner_id")
 	}
 
 	if len(input.Name) == 0 {
+		user, err := db.UserCacheManager.FetchUserById(ctx, input.OwnerId)
+		if err != nil {
+			return input, errors.Wrap(err, "FetchUserById")
+		}
+		input.OwnerId = user.Id
 		input.Name = user.Name
 	}
 
@@ -467,7 +480,6 @@ func (manager *SClouduserManager) ValidateCreateData(ctx context.Context, userCr
 	input.ExternalId = iUser.GetGlobalId()
 	input.Name = iUser.GetName()
 
-	input.OwnerId = user.Id
 	input.ProjectDomainId = account.DomainId
 	return input, nil
 }
