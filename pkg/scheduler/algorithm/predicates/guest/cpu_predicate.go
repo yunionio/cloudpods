@@ -15,6 +15,7 @@
 package guest
 
 import (
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
@@ -53,6 +54,13 @@ func (f *CPUPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.Pr
 
 	useRsvd := h.UseReserved()
 	getter := c.Getter()
+	if d.OsArch == compute.CPU_ARCH_ARM {
+		host := getter.Host()
+		if !host.IsArmHost() {
+			h.Exclude(predicates.ErrHostCpuArchitectureNotMatch)
+			return h.GetResult()
+		}
+	}
 	freeCPUCount := getter.FreeCPUCount(useRsvd)
 	reqCPUCount := int64(d.Ncpu)
 	if freeCPUCount < reqCPUCount {

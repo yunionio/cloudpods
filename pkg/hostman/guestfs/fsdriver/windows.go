@@ -98,7 +98,7 @@ func (w *SWindowsRootFs) GetReleaseInfo(IDiskPartition) *deployapi.ReleaseInfo {
 	if tool.CheckPath() {
 		distro := tool.GetProductName()
 		version := tool.GetVersion()
-		arch := tool.GetArch()
+		arch := tool.GetArch(hostCpuArch)
 		lan := tool.GetInstallLanguage()
 		return &deployapi.ReleaseInfo{
 			Distro:   distro,

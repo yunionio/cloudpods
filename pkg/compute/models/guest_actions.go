@@ -195,6 +195,15 @@ func (self *SGuest) PerformSaveImage(ctx context.Context, userCred mcclient.Toke
 			osType = "Linux"
 		}
 		properties.Add(jsonutils.NewString(osType), "os_type")
+		if self.OsArch == api.CPU_ARCH_ARM {
+			var osArch string
+			if osArch = self.GetMetadata("os_arch", nil); len(osArch) == 0 {
+				host := self.GetHost()
+				osArch = host.CpuArchitecture
+			}
+			properties.Add(jsonutils.NewString(osArch), "os_arch")
+			kwargs.Set("os_arch", jsonutils.NewString(self.OsArch))
+		}
 		kwargs.Add(properties, "properties")
 		kwargs.Add(jsonutils.NewBool(restart), "restart")
 
@@ -261,8 +270,16 @@ func (self *SGuest) PerformSaveGuestImage(ctx context.Context, userCred mcclient
 		osType = "Linux"
 	}
 	properties.Add(jsonutils.NewString(osType), "os_type")
+	if self.OsArch == api.CPU_ARCH_ARM {
+		var osArch string
+		if osArch = self.GetMetadata("os_arch", nil); len(osArch) == 0 {
+			host := self.GetHost()
+			osArch = host.CpuArchitecture
+		}
+		properties.Add(jsonutils.NewString(osArch), "os_arch")
+		kwargs.Set("os_arch", jsonutils.NewString(self.OsArch))
+	}
 	kwargs.Add(properties, "properties")
-
 	kwargs.Add(images, "images")
 
 	s := auth.GetSession(ctx, userCred, options.Options.Region, "")

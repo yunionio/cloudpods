@@ -134,6 +134,8 @@ type SImage struct {
 	IsGuestImage tristate.TriState `nullable:"false" default:"false" create:"optional" list:"user"`
 	// 是否是数据盘镜像
 	IsData tristate.TriState `nullable:"false" default:"false" create:"optional" list:"user"`
+	// 操作系统CPU架构
+	OsArch string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	// image copy from url, save origin checksum before probe
 	// 从镜像时长导入的镜像校验和

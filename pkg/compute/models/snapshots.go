@@ -72,6 +72,7 @@ type SSnapshot struct {
 	DiskType    string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	// 操作系统类型
 	OsType string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	OsArch string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	// create disk from snapshot, snapshot as disk backing file
 	RefCount int `nullable:"false" default:"0" list:"user"`
@@ -346,6 +347,7 @@ func (manager *SSnapshotManager) ValidateCreateData(
 	input.DiskId = disk.Id
 	input.DiskType = disk.DiskType
 	input.Size = disk.DiskSize
+	input.OsArch = disk.OsArch
 
 	storage := disk.GetStorage()
 	if len(disk.ExternalId) == 0 {

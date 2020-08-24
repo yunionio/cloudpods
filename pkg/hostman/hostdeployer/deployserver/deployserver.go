@@ -376,7 +376,9 @@ func (s *SDeployService) InitService() {
 	if err := s.PrepareEnv(); err != nil {
 		log.Fatalln(err)
 	}
-	fsdriver.Init(DeployOption.PrivatePrefixes)
+	if err := fsdriver.Init(DeployOption.PrivatePrefixes); err != nil {
+		log.Fatalln(err)
+	}
 	s.O = &DeployOption.BaseOptions
 	if len(DeployOption.DeployServerSocketPath) == 0 {
 		log.Fatalf("missing deploy server socket path")
