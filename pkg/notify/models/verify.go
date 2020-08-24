@@ -21,9 +21,10 @@ import (
 	"math/rand"
 	"time"
 
+	"yunion.io/x/pkg/errors"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/notify/options"
-	"yunion.io/x/pkg/errors"
 )
 
 type SVerificationManager struct {

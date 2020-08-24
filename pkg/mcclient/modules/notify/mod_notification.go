@@ -15,8 +15,8 @@
 package notify
 
 import (
-	"github.com/golang-plus/errors"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
