@@ -37,6 +37,7 @@ const (
 type ClouduserCreateInput struct {
 	apis.StatusDomainLevelUserResourceCreateInput
 	apis.StatusBaseResourceCreateInput
+	apis.ProjectizedResourceInput
 
 	// 云订阅ID, 若此参数为空, 则cloudpolicy_ids的权限会绑定到此账号的所有订阅, 若不为空则cloudpolicy_ids仅绑定的指定的订阅
 	// 此参数仅对Google,Azure生效
