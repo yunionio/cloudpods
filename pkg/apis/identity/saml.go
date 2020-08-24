@@ -42,4 +42,36 @@ type SSAMLTestIdpConfigOptions struct {
 
 type SSAMLAzureADConfigOptions struct {
 	TenantId string `json:"tenant_id"`
+
+	SIdpAttributeOptions
+}
+
+func (a *SIdpAttributeOptions) Update(a2 SIdpAttributeOptions) {
+	if len(a2.UserNameAttribute) > 0 {
+		a.UserNameAttribute = a2.UserNameAttribute
+	}
+	if len(a2.UserIdAttribute) > 0 {
+		a.UserIdAttribute = a2.UserIdAttribute
+	}
+	if len(a2.UserDisplaynameAttribtue) > 0 {
+		a.UserDisplaynameAttribtue = a2.UserDisplaynameAttribtue
+	}
+	if len(a2.UserEmailAttribute) > 0 {
+		a.UserEmailAttribute = a2.UserEmailAttribute
+	}
+	if len(a2.UserMobileAttribute) > 0 {
+		a.UserMobileAttribute = a2.UserMobileAttribute
+	}
+	if len(a2.ProjectAttribute) > 0 {
+		a.ProjectAttribute = a2.ProjectAttribute
+	}
+	if len(a2.RolesAttribute) > 0 {
+		a.RolesAttribute = a2.RolesAttribute
+	}
+	if len(a2.DefaultProjectId) > 0 {
+		a.DefaultProjectId = a2.DefaultProjectId
+	}
+	if len(a2.DefaultRoleId) > 0 {
+		a.DefaultRoleId = a2.DefaultRoleId
+	}
 }

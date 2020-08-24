@@ -18,4 +18,6 @@ package identity
 type SOAuth2IdpConfigOptions struct {
 	AppId  string `json:"app_id"`
 	Secret string `json:"secret"`
+
+	SIdpAttributeOptions
 }
