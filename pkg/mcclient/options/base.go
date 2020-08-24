@@ -238,6 +238,10 @@ type BaseListOptions struct {
 	OrderByTag string `help:"Order results by tag values, composed by a tag key and order, e.g user:部门:ASC"`
 }
 
+func (opts *BaseListOptions) GetContextId() string {
+	return ""
+}
+
 func (opts *BaseListOptions) addTag(prefix, tag string, idx int, params *jsonutils.JSONDict) error {
 	tagInfo := strings.Split(tag, "=")
 	if len(tagInfo) > 2 {
@@ -321,4 +325,14 @@ type ScopedResourceListOptions struct {
 
 func (o *ScopedResourceListOptions) Params() (*jsonutils.JSONDict, error) {
 	return optionsStructToParams(o)
+}
+
+type BaseUpdateOptions struct {
+	ID   string `help:"ID or Name of resource to update"`
+	Name string `help:"Name of resource to update"`
+	Desc string `metavar:"<DESCRIPTION>" help:"Description"`
+}
+
+func (opts *BaseUpdateOptions) GetId() string {
+	return opts.ID
 }
