@@ -15,9 +15,9 @@
 package fuseutils
 
 import (
-	"fmt"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -58,12 +58,14 @@ func MountFusefs(fetcherfsPath, url, tmpdir, token, mntpath string, blocksize in
 		}
 	}
 
-	var opts = fmt.Sprintf("url=%s", url)
-	opts += fmt.Sprintf(",tmpdir=%s", tmpdir)
-	opts += fmt.Sprintf(",token=%s", token)
-	opts += fmt.Sprintf(",blocksize=%d", blocksize)
-
-	var cmd = []string{fetcherfsPath, "-s", "-o", opts, mntpath}
+	var cmd = []string{
+		fetcherfsPath,
+		"--url", url,
+		"--token", token,
+		"--tmpdir", tmpdir,
+		"--blocksize", strconv.Itoa(blocksize),
+		"--mount-point", mntpath,
+	}
 	log.Infof("%s", strings.Join(cmd, " "))
 	out, err := procutils.NewRemoteCommandAsFarAsPossible(cmd[0], cmd[1:]...).Output()
 	if err != nil {
@@ -75,9 +77,13 @@ func MountFusefs(fetcherfsPath, url, tmpdir, token, mntpath string, blocksize in
 		return errors.Wrapf(err, "mount fetcherfs failed: %s", out)
 	}
 
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 	if f, err := os.OpenFile(metaPath, os.O_RDONLY, 0644); err == nil {
 		f.Close()
+		out2, err2 := procutils.NewCommand("umount", mntpath).Output()
+		if err2 != nil {
+			log.Errorf("umount fetcherfs failed %s %s", err2, out2)
+		}
 		return nil
 	} else {
 		log.Errorln(err)

@@ -44,7 +44,14 @@ type SHostImageOptions struct {
 	CommonConfigFile  string   `help:"common config file for container"`
 }
 
-var HostImageOptions SHostImageOptions
+var (
+	HostImageOptions   SHostImageOptions
+	streamingWorkerMan *appsrv.SWorkerManager
+)
+
+func init() {
+	streamingWorkerMan = appsrv.NewWorkerManager("streaming_worker", 20, 1024, false)
+}
 
 func StartService() {
 	consts.SetServiceType("host-image")
@@ -68,8 +75,11 @@ func StartService() {
 }
 
 func initHandlers(app *appsrv.Application, prefix string) {
-	app.AddHandler("GET", fmt.Sprintf("%s/disks/<sid>", prefix), auth.Authenticate(getImage))
-	app.AddHandler("GET", fmt.Sprintf("%s/snapshots/<diskId>/<sid>", prefix), auth.Authenticate(getImage))
+	app.AddHandler("GET", fmt.Sprintf("%s/disks/<sid>", prefix), auth.Authenticate(getImage)).
+		SetProcessNoTimeout().SetWorkerManager(streamingWorkerMan)
+	app.AddHandler("GET", fmt.Sprintf("%s/snapshots/<diskId>/<sid>", prefix), auth.Authenticate(getImage)).
+		SetProcessNoTimeout().SetWorkerManager(streamingWorkerMan)
+
 	app.AddHandler("HEAD", fmt.Sprintf("%s/disks/<sid>", prefix), auth.Authenticate(getImageMeta))
 	app.AddHandler("HEAD", fmt.Sprintf("%s/snapshots/<diskId>/<sid>", prefix), auth.Authenticate(getImageMeta))
 	app.AddHandler("POST", fmt.Sprintf("%s/disks/<sid>", prefix), auth.Authenticate(closeImage))
@@ -153,6 +163,7 @@ func closeImage(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	err = f.Load(imagePath, true)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
+		return
 	}
 	f.Close()
 	w.WriteHeader(http.StatusOK)
@@ -228,9 +239,9 @@ func startStream(w http.ResponseWriter, f IImage, startPos, endPos, rateLimit in
 		if endPos-startPos < CHUNK_SIZE {
 			readSize = endPos - startPos + 1
 		}
-		buf, total := f.Read(startPos, readSize)
-		if total < 0 {
-			log.Errorf("Read image error: %d", total)
+		buf, err := f.Read(startPos, readSize)
+		if err != nil {
+			log.Errorf("Read image error: %s", err)
 			goto fail
 		}
 		startPos += readSize

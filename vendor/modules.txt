@@ -1,3 +1,7 @@
+# bazil.org/fuse v0.0.0-20180421153158-65cc252bf669
+bazil.org/fuse
+bazil.org/fuse/fs
+bazil.org/fuse/fuseutil
 # cloud.google.com/go v0.50.0
 cloud.google.com/go
 cloud.google.com/go/compute/metadata
@@ -378,6 +382,8 @@ github.com/jstemmer/go-junit-report/formatter
 github.com/jstemmer/go-junit-report/parser
 # github.com/jtolds/gls v4.20.0+incompatible
 github.com/jtolds/gls
+# github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0
+github.com/kardianos/osext
 # github.com/koding/websocketproxy v0.0.0-20181220232114-7ed82d81a28c
 github.com/koding/websocketproxy
 # github.com/konsorten/go-windows-terminal-sequences v1.0.1
@@ -527,6 +533,8 @@ github.com/ryszard/goskiplist/skiplist
 github.com/satori/go.uuid
 # github.com/serialx/hashring v0.0.0-20180504054112-49a4782e9908
 github.com/serialx/hashring
+# github.com/sevlyar/go-daemon v0.1.5
+github.com/sevlyar/go-daemon
 # github.com/shirou/gopsutil v2.18.10+incompatible
 github.com/shirou/gopsutil/cpu
 github.com/shirou/gopsutil/host
@@ -1081,7 +1089,7 @@ yunion.io/x/pkg/util/workqueue
 yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v0.0.0-20200814052348-164f1f20f8a6
+# yunion.io/x/sqlchemy v0.0.0-20200820050957-1542f05b9fcd
 yunion.io/x/sqlchemy
 # yunion.io/x/structarg v0.0.0-20200720093445-9f850fa222ce
 yunion.io/x/structarg
