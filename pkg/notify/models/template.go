@@ -255,13 +255,15 @@ func (tm *STemplate) Execute(str string) (string, error) {
 }
 
 func (tm *STemplateManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.TemplateCreateInput) (api.TemplateCreateInput, error) {
-	if utils.IsInStringArray(input.TemplateType, []string{
+	if !utils.IsInStringArray(input.TemplateType, []string{
 		api.TEMPLATE_TYPE_CONTENT, api.TEMPLATE_TYPE_REMOTE, api.TEMPLATE_TYPE_TITLE,
 	}) {
 		return input, httperrors.NewInputParameterError("no such support for tempalte type %s", input.TemplateType)
 	}
-	if err := tm.validate(input.Content, input.Example); err != nil {
-		return input, httperrors.NewInputParameterError(err.Error())
+	if input.TemplateType != api.TEMPLATE_TYPE_REMOTE {
+		if err := tm.validate(input.Content, input.Example); err != nil {
+			return input, httperrors.NewInputParameterError(err.Error())
+		}
 	}
 	if len(input.Name) == 0 {
 		input.Name = fmt.Sprintf("%s-%s-%s", input.ContactType, input.Topic, input.TemplateType)
@@ -306,6 +308,9 @@ func (tm *STemplateManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 }
 
 func (t *STemplate) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.TemplateUpdateInput) (api.TemplateUpdateInput, error) {
+	if t.TemplateType == api.TEMPLATE_TYPE_REMOTE {
+		return input, nil
+	}
 	if err := TemplateManager.validate(input.Content, input.Example); err != nil {
 		return input, httperrors.NewInputParameterError(err.Error())
 	}
