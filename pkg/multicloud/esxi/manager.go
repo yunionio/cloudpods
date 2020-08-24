@@ -31,10 +31,12 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
+	"golang.org/x/sync/errgroup"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -596,4 +598,84 @@ func (cli *SESXiClient) MoveDisk(ctx context.Context, src, dst string, isForce b
 		return errors.Wrap(err, "MoveVirtualDisk")
 	}
 	return task.Wait(ctx)
+}
+
+var (
+	SIMPLE_HOST_PROPS = []string{"name", "config.network", "vm"}
+	SIMPLE_VM_PROPS   = []string{"name", "guest.net", "config.template"}
+)
+
+type SSimpleVM struct {
+	Name string
+	IPs  []string
+}
+
+func (cli *SESXiClient) HostVmIPs(ctx context.Context) (map[string]string, []SSimpleVM, error) {
+	var hosts []mo.HostSystem
+	err := cli.scanAllMObjects(SIMPLE_HOST_PROPS, &hosts)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "scanAllMObjects")
+	}
+	group, ctx := errgroup.WithContext(ctx)
+	collection := make([][]SSimpleVM, len(hosts))
+	for i := range hosts {
+		j := i
+		group.Go(func() error {
+			vmIps, err := cli.vmIPs(&hosts[j])
+			if err != nil {
+				return err
+			}
+			collection[j] = vmIps
+			return nil
+		})
+	}
+
+	hostIps := make(map[string]string, len(hosts))
+	for i := range hosts {
+		// find ip
+		host := &SHost{SManagedObject: newManagedObject(cli, &hosts[i], nil)}
+		ip := host.GetAccessIp()
+		hostIps[host.GetName()] = ip
+	}
+	err = group.Wait()
+	if err != nil {
+		return nil, nil, err
+	}
+	// length
+	length := 0
+	for i := range collection {
+		length += len(collection[i])
+	}
+	svms := make([]SSimpleVM, 0, length)
+	for i := range collection {
+		for j := range collection[i] {
+			svms = append(svms, collection[i][j])
+		}
+	}
+	return hostIps, svms, nil
+}
+
+func (cli *SESXiClient) vmIPs(host *mo.HostSystem) ([]SSimpleVM, error) {
+	var vms []mo.VirtualMachine
+	err := cli.references2Objects(host.Vm, VM_PROPS, &vms)
+	if err != nil {
+		return nil, errors.Wrap(err, "references2Objects")
+	}
+	ret := make([]SSimpleVM, 0, len(vms))
+	for i := range vms {
+		vm := vms[i]
+		if vm.Config.Template {
+			continue
+		}
+		guestIps := make([]string, 0)
+		for _, net := range vm.Guest.Net {
+			for _, ip := range net.IpAddress {
+				if regutils.MatchIP4Addr(ip) {
+					guestIps = append(guestIps, ip)
+				}
+			}
+		}
+		ret = append(ret, SSimpleVM{vm.Name, guestIps})
+	}
+	return ret, nil
 }
