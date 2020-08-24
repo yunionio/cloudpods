@@ -92,14 +92,14 @@ type SReceiver struct {
 	Mobile string `width:"16" nullable:"false" create:"optional" update:"user" get:"user" list:"admin"`
 
 	// swagger:ignore
-	EnabledEmail tristate.TriState `nullable:"false" default:"false"`
+	EnabledEmail tristate.TriState `nullable:"false" default:"false" update:"user"`
 	// swagger:ignore
-	VerifiedEmail tristate.TriState `nullable:"false" default:"false"`
+	VerifiedEmail tristate.TriState `nullable:"false" default:"false" update:"user"`
 
 	// swagger:ignore
-	EnabledMobile tristate.TriState `nullable:"false" default:"false"`
+	EnabledMobile tristate.TriState `nullable:"false" default:"false" update:"user"`
 	// swagger:ignore
-	VerifiedMobile tristate.TriState `nullable:"false" default:"false"`
+	VerifiedMobile tristate.TriState `nullable:"false" default:"false" update:"user"`
 
 	// swagger:ignore
 	subContactCache map[string]*SSubContact `json:"-"`
@@ -598,10 +598,7 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 	if err != nil {
 		log.Errorf("PullCache: %v", err)
 	}
-	log.Infof("enabledContactTypes: %v", input.EnabledContactTypes)
-	log.Infof("before set EnabledContactTypes: %#v", r)
 	err = r.SetEnabledContactTypes(input.EnabledContactTypes)
-	log.Infof("after set EnabledContactTypes: %#v", r)
 	if len(input.Email) != 0 {
 		r.VerifiedEmail = tristate.False
 		for _, c := range r.subContactCache {
@@ -621,6 +618,10 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 	err = r.PushCache(ctx)
 	if err != nil {
 		log.Errorf("PushCache: %v", err)
+	}
+	err = ReceiverManager.TableSpec().InsertOrUpdate(ctx, r)
+	if err != nil {
+		log.Errorf("InsertOrUpdate: %v", err)
 	}
 }
 
