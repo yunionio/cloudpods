@@ -84,9 +84,11 @@ func (ms Vpcs) joinNetworks(subEntries Networks) bool {
 	for subId, subEntry := range subEntries {
 		wire := subEntry.Wire
 		if wire == nil {
-			// ensured by vpcs.joinWires
+			// let it go.  By the time the subnet has externalId or
+			// managerId set, we will not receive updates from them
+			// anymore
 			log.Warningf("network %s(%s) has no wire", subEntry.Name, subEntry.Id)
-			correct = false
+			delete(subEntries, subId)
 			continue
 		}
 		id := wire.VpcId
