@@ -22,17 +22,16 @@ type NotifyOption struct {
 	common_options.CommonOptions
 	common_options.DBOptions
 
-	DingtalkEnabled bool   `help:"Enable dingtalk"`
-	SocketFileDir   string `help:"Socket file directory" default:"/etc/yunion/notify"`
-	UpdateInterval  int    `help:"Update send services interval(unit:min)" default:"30"`
-	// VerifyEmailUrlPath string `help:"url of verify email" json:"verify_email_url_path"`
+	SocketFileDir  string `help:"Socket file directory" default:"/etc/yunion/socket"`
+	UpdateInterval int    `help:"Update send services interval(unit:min)" default:"30"`
 
-	// Deprecated
-	VerifyEmailUrl string `help:"url of verify email" json:"verify_email_url"`
-
-	ReSendScope int `help:"Resend all messages that have not been sent successfully within ReSendScope seconds" default:"30"`
+	ReSendScope  int `help:"Resend all messages that have not been sent successfully within ReSendScope seconds" default:"60"`
+	MaxSendTimes int `help:"Resend all messages whose sendTimes less than MaxSendTimes" default:"2"`
 
 	InitNotificationScope int `help:"initialize data of notification with in InitNotificationScope hours" default:"100"`
+	MaxSyncNotification   int `help:"The max number of notification sync from old data source" default:"1000"`
+
+	VerifyExpireInterval int `help:"expire interval of verify message; minutes" default:"5"`
 }
 
 var Options NotifyOption

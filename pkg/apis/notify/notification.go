@@ -15,18 +15,62 @@
 package notify
 
 import (
-	"yunion.io/x/jsonutils"
+	"time"
 
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
-type NotificationDetails struct {
-	apis.ResourceBaseDetails
+type NotificationCreateInput struct {
+	apis.StatusStandaloneResourceCreateInput
 
-	UserList jsonutils.JSONObject `json:"user_list"`
+	// description: ids or names of receiver
+	// required: false
+	// example: {"adfb720ccdd34c638346ea4fa7a713a8", "zhangsan"}
+	Receivers []string `json:"receivers"`
+	// description: direct contact, admin privileges required
+	// required: false
+	Contacts []string `json:"contacts"`
+	// description: contact type
+	// required: ture
+	// example: email
+	ContactType string `json:"contact_type"`
+	// description: notification topic
+	// required: true
+	// example: IMAGE_ACTIVE
+	Topic string `json:"topic"`
+	// description: notification priority
+	// required: false
+	// enum: fatal,important,nomal
+	// example: normal
+	Priority string `json:"priority"`
+	// description: message content or jsonobject
+	// required: ture
+	Message string `json:"message"`
+}
+
+type ReceiveDetail struct {
+	ReceiverId   string    `json:"receiver_id"`
+	ReceiverName string    `json:"receiver_name"`
+	Contact      string    `json:"contact"`
+	SendAt       time.Time `json:"sendAt"`
+	SendBy       string    `json:"send_by"`
+	Status       string    `json:"status"`
+	FailedReason string    `json:"failed_reason"`
+}
+
+type NotificationDetails struct {
+	apis.StatusStandaloneResourceDetails
+
+	SNotification
+
+	Title          string          `json:"title"`
+	Content        string          `json:"content"`
+	ReceiveDetails []ReceiveDetail `json:"receive_details"`
 }
 
 type NotificationListInput struct {
-	Scope       string `json:"scope"`
-	ContactType string `json:"contact_type"`
+	apis.StatusStandaloneResourceListInput
+
+	ContactType string
+	ReceiverId  string
 }

@@ -74,6 +74,14 @@ func NewNotifyManager(keyword, keywordPlural string, columns, adminColumns []str
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
+func NewNotifyv2Manager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
+	return modulebase.ResourceManager{
+		BaseManager:   *modulebase.NewBaseManager(apis.SERVICE_TYPE_NOTIFY, "", "v2", columns, adminColumns),
+		Keyword:       keyword,
+		KeywordPlural: keywordPlural,
+	}
+}
+
 func NewJointComputeManager(keyword, keywordPlural string, columns, adminColumns []string, master, slave modulebase.Manager) modulebase.JointResourceManager {
 	return modulebase.JointResourceManager{
 		ResourceManager: NewComputeManager(keyword, keywordPlural, columns, adminColumns),

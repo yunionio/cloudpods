@@ -32,7 +32,7 @@ import (
 	_ "yunion.io/x/onecloud/cmd/climc/shell/meter"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/misc"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/monitor"
-	_ "yunion.io/x/onecloud/cmd/climc/shell/notify"
+	_ "yunion.io/x/onecloud/cmd/climc/shell/notifyv2"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/servicetree"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/yunionconf"
 )
