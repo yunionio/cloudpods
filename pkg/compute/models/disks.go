@@ -532,7 +532,7 @@ func (manager *SDiskManager) validateDiskOnStorage(diskConfig *api.DiskConfig, s
 	if host := storage.GetMasterHost(); host != nil {
 		//公有云磁盘大小检查。
 		if err := host.GetHostDriver().ValidateDiskSize(storage, diskConfig.SizeMb>>10); err != nil {
-			return httperrors.NewInputParameterError(err.Error())
+			return httperrors.NewInputParameterError("%v", err)
 		}
 	}
 	hoststorages := HoststorageManager.Query().SubQuery()
@@ -916,7 +916,7 @@ func (disk *SDisk) doResize(ctx context.Context, userCred mcclient.TokenCredenti
 	}
 	if host := storage.GetMasterHost(); host != nil {
 		if err := host.GetHostDriver().ValidateDiskSize(storage, sizeMb>>10); err != nil {
-			return httperrors.NewInputParameterError(err.Error())
+			return httperrors.NewInputParameterError("%v", err)
 		}
 	}
 	if int64(addDisk) > storage.GetFreeCapacity() && !storage.IsEmulated {
@@ -924,7 +924,7 @@ func (disk *SDisk) doResize(ctx context.Context, userCred mcclient.TokenCredenti
 	}
 	if guest != nil {
 		if err := guest.ValidateResizeDisk(disk, storage); err != nil {
-			return httperrors.NewInputParameterError(err.Error())
+			return httperrors.NewInputParameterError("%v", err)
 		}
 	}
 	pendingUsage := SQuota{Storage: int(addDisk)}

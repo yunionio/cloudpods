@@ -37,7 +37,7 @@ func AddScopeResourceCountHandler(prefix string, app *appsrv.Application) {
 func getAllScopeResourceCountsHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	cnt, err := getAllScopeResourceCounts()
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	appsrv.SendJSON(w, jsonutils.Marshal(cnt))

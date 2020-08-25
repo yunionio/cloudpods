@@ -36,12 +36,12 @@ func capaHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 	query, err := jsonutils.ParseQueryString(r.URL.RawQuery)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	capa, err := models.GetCapabilities(ctx, userCred, query, nil, nil)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	appsrv.SendJSON(w, jsonutils.Marshal(capa))

@@ -188,7 +188,7 @@ func (h *AuthHandlers) GetRegionsResponse(ctx context.Context, w http.ResponseWr
 func (h *AuthHandlers) getRegions(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	resp, err := h.GetRegionsResponse(ctx, w, req)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	appsrv.SendJSON(w, resp)
@@ -197,7 +197,7 @@ func (h *AuthHandlers) getRegions(ctx context.Context, w http.ResponseWriter, re
 func (h *AuthHandlers) getUser(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	data, err := getUserInfo(ctx, req)
 	if err != nil {
-		httperrors.NotFoundError(w, err.Error())
+		httperrors.NotFoundError(ctx, w, err.Error())
 		return
 	}
 	body := jsonutils.NewDict()
@@ -470,12 +470,12 @@ type PreLoginFunc func(ctx context.Context, req *http.Request, uname string, bod
 func (h *AuthHandlers) postLoginHandler(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	body, err := appsrv.FetchJSON(req)
 	if err != nil {
-		httperrors.InvalidInputError(w, "fetch json for request: %v", err)
+		httperrors.InvalidInputError(ctx, w, "fetch json for request: %v", err)
 		return
 	}
 	err = h.doLogin(ctx, w, req, body)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	// normal
@@ -928,7 +928,7 @@ func (h *AuthHandlers) getPermissionDetails(ctx context.Context, w http.Response
 
 	_, query, body := appsrv.FetchEnv(ctx, w, req)
 	if body == nil {
-		httperrors.InvalidInputError(w, "body is empty")
+		httperrors.InvalidInputError(ctx, w, "body is empty")
 		return
 	}
 	var name string
@@ -937,7 +937,7 @@ func (h *AuthHandlers) getPermissionDetails(ctx context.Context, w http.Response
 	}
 	result, err := policy.ExplainRpc(ctx, t, body, name)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 
@@ -957,18 +957,18 @@ func (h *AuthHandlers) getResources(ctx context.Context, w http.ResponseWriter, 
 func (h *AuthHandlers) doCreatePolicies(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	t := AppContextToken(ctx)
 	// if !utils.IsInStringArray("admin", t.GetRoles()) || t.GetProjectName() != "system" {
-	// 	httperrors.ForbiddenError(w, "not allow to create policy")
+	// 	httperrors.ForbiddenError(ctx, w, "not allow to create policy")
 	// 	return
 	// }
 	_, _, body := appsrv.FetchEnv(ctx, w, req)
 	if body == nil {
-		httperrors.InvalidInputError(w, "body is empty")
+		httperrors.InvalidInputError(ctx, w, "body is empty")
 		return
 	}
 	s := auth.GetSession(ctx, t, FetchRegion(req), "")
 	result, err := policytool.PolicyCreate(s, body)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	appsrv.SendJSON(w, result)
@@ -977,18 +977,18 @@ func (h *AuthHandlers) doCreatePolicies(ctx context.Context, w http.ResponseWrit
 func (h *AuthHandlers) doPatchPolicy(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	t := AppContextToken(ctx)
 	// if !utils.IsInStringArray("admin", t.GetRoles()) || t.GetProjectName() != "system" {
-	// 	httperrors.ForbiddenError(w, "not allow to create policy")
+	// 	httperrors.ForbiddenError(ctx, w, "not allow to create policy")
 	// 	return
 	// }
 	params, _, body := appsrv.FetchEnv(ctx, w, req)
 	if body == nil {
-		httperrors.InvalidInputError(w, "request body is empty")
+		httperrors.InvalidInputError(ctx, w, "request body is empty")
 		return
 	}
 	s := auth.GetSession(ctx, t, FetchRegion(req), "")
 	result, err := policytool.PolicyPatch(s, params["<policy_id>"], body)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	appsrv.SendJSON(w, result)
@@ -997,7 +997,7 @@ func (h *AuthHandlers) doPatchPolicy(ctx context.Context, w http.ResponseWriter,
 func (h *AuthHandlers) doDeletePolicies(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	t := AppContextToken(ctx)
 	// if !utils.IsInStringArray("admin", t.GetRoles()) || t.GetProjectName() != "system" {
-	// 	httperrors.ForbiddenError(w, "not allow to create policy")
+	// 	httperrors.ForbiddenError(ctx, w, "not allow to create policy")
 	// 	return
 	// }
 	_, query, _ := appsrv.FetchEnv(ctx, w, req)
@@ -1005,7 +1005,7 @@ func (h *AuthHandlers) doDeletePolicies(ctx context.Context, w http.ResponseWrit
 
 	idlist, e := query.GetArray("id")
 	if e != nil || len(idlist) == 0 {
-		httperrors.InvalidInputError(w, "missing id")
+		httperrors.InvalidInputError(ctx, w, "missing id")
 		return
 	}
 	idStrList := jsonutils.JSONArray2StringArray(idlist)
@@ -1040,19 +1040,19 @@ func (h *AuthHandlers) doDeletePolicies(ctx context.Context, w http.ResponseWrit
 func (h *AuthHandlers) resetUserPassword(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	t, authToken, err := fetchAuthInfo(ctx, req)
 	if err != nil {
-		httperrors.InvalidCredentialError(w, "fetchAuthInfo fail: %s", err)
+		httperrors.InvalidCredentialError(ctx, w, "fetchAuthInfo fail: %s", err)
 		return
 	}
 
 	_, _, body := appsrv.FetchEnv(ctx, w, req)
 	if body == nil {
-		httperrors.InvalidInputError(w, "body is empty")
+		httperrors.InvalidInputError(ctx, w, "body is empty")
 		return
 	}
 
 	user, err := fetchUserInfoFromToken(ctx, req, t)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 
@@ -1062,13 +1062,13 @@ func (h *AuthHandlers) resetUserPassword(ctx context.Context, w http.ResponseWri
 	passcode, _ := body.GetString("passcode")
 
 	if newPwd != confirmPwd {
-		httperrors.InputParameterError(w, "new password mismatch")
+		httperrors.InputParameterError(ctx, w, "new password mismatch")
 		return
 	}
 
 	// 1.验证原密码正确，且idp_driver为空
 	if isIdpUser(user) {
-		httperrors.ForbiddenError(w, "not support reset user password")
+		httperrors.ForbiddenError(ctx, w, "not support reset user password")
 		return
 	}
 
@@ -1078,11 +1078,11 @@ func (h *AuthHandlers) resetUserPassword(ctx context.Context, w http.ResponseWri
 		switch httperr := err.(type) {
 		case *httputils.JSONClientError:
 			if httperr.Code == 409 {
-				httperrors.GeneralServerError(w, err)
+				httperrors.GeneralServerError(ctx, w, err)
 				return
 			}
 		}
-		httperrors.InputParameterError(w, "密码错误")
+		httperrors.InputParameterError(ctx, w, "密码错误")
 		return
 	}
 
@@ -1091,7 +1091,7 @@ func (h *AuthHandlers) resetUserPassword(ctx context.Context, w http.ResponseWri
 	if isMfaEnabled(user) {
 		err = authToken.VerifyTotpPasscode(s, t.GetUserId(), passcode)
 		if err != nil {
-			httperrors.InputParameterError(w, "invalid passcode")
+			httperrors.InputParameterError(ctx, w, "invalid passcode")
 			return
 		}
 	}
@@ -1101,7 +1101,7 @@ func (h *AuthHandlers) resetUserPassword(ctx context.Context, w http.ResponseWri
 	params.Set("password", jsonutils.NewString(newPwd))
 	_, err = modules.UsersV3.Patch(s, t.GetUserId(), params)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 

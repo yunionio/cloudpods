@@ -15,6 +15,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 
 	"yunion.io/x/jsonutils"
@@ -32,20 +33,22 @@ func NewConnectionServer() *ConnectionServer {
 }
 
 func (s *ConnectionServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	ctx := context.Background()
+	ctx = httperrors.WithRequestLang(ctx, req)
 	query, err := jsonutils.ParseQueryString(req.URL.RawQuery)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	log.Debugf("[connection] Get query: %v", query)
 	accessToken, _ := query.GetString("access_token")
 	if accessToken == "" {
-		httperrors.BadRequestError(w, "Empty access_token")
+		httperrors.BadRequestError(ctx, w, "Empty access_token")
 		return
 	}
 	sessionObj, ok := session.Manager.Get(accessToken)
 	if !ok {
-		httperrors.NotFoundError(w, "session not found")
+		httperrors.NotFoundError(ctx, w, "session not found")
 		return
 	}
 	var srv http.Handler
@@ -59,7 +62,7 @@ func (s *ConnectionServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		srv, err = NewTTYServer(sessionObj)
 	}
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	srv.ServeHTTP(w, req)

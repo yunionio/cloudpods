@@ -570,7 +570,7 @@ func (self *SAwsRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context
 	ownerId := lblis.GetOwnerId()
 	lb := lblis.GetLoadbalancer()
 	if lb == nil {
-		return nil, httperrors.NewResourceNotFoundError("loadbalancer listener %s related listener %s not found", lblis.Id, lblis.LoadbalancerId)
+		return nil, httperrors.NewResourceNotFoundError("loadbalancer listener %s related loadbalancer %s not found", lblis.Id, lblis.LoadbalancerId)
 	}
 
 	if lb.LoadbalancerSpec == api.LB_AWS_SPEC_APPLICATION {

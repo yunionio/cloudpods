@@ -37,3 +37,6 @@ GTAGS
 pkg/generated
 
 *.orig
+
+# gotext extracted
+out.gotext.json

@@ -141,7 +141,7 @@ func (man *SNatDEntryManager) ValidateCreateData(ctx context.Context, userCred m
 	// check ip + port
 	eip, err := man.checkIPPort(input)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+		return nil, httperrors.NewInputParameterError("%v", err)
 	}
 
 	// check that eip is suitable

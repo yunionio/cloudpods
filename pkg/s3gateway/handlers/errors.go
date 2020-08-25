@@ -92,9 +92,9 @@ func OutOfRangeError(ctx context.Context, msg string) s3cli.ErrorResponse {
 func SendGeneralError(ctx context.Context, w http.ResponseWriter, err error) {
 	switch e := err.(type) {
 	case s3cli.ErrorResponse:
-		SendError(w, e)
+		SendError(ctx, w, e)
 	case *s3cli.ErrorResponse:
-		SendError(w, *e)
+		SendError(ctx, w, *e)
 	default:
 		var eresp s3cli.ErrorResponse
 		cause := errors.Cause(err)
@@ -124,11 +124,11 @@ func SendGeneralError(ctx context.Context, w http.ResponseWriter, err error) {
 		default:
 			eresp = ServerError(ctx, err.Error())
 		}
-		SendError(w, eresp)
+		SendError(ctx, w, eresp)
 	}
 }
 
-func SendError(w http.ResponseWriter, resp s3cli.ErrorResponse) {
+func SendError(ctx context.Context, w http.ResponseWriter, resp s3cli.ErrorResponse) {
 	w.WriteHeader(resp.StatusCode)
 
 	log.Errorf("SendError: %s", resp)

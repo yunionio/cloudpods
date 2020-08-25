@@ -41,7 +41,7 @@ func ReportGeneralUsage(ctx context.Context, w http.ResponseWriter, r *http.Requ
 
 	ownerId, scope, err := db.FetchUsageOwnerScope(ctx, userCred, query)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 

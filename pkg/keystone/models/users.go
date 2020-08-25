@@ -951,7 +951,7 @@ func (user *SUser) PerformJoin(
 func joinProjects(ident db.IModel, isUser bool, ctx context.Context, userCred mcclient.TokenCredential, input api.SJoinProjectsInput) error {
 	err := input.Validate()
 	if err != nil {
-		return httperrors.NewInputParameterError(err.Error())
+		return httperrors.NewInputParameterError("%v", err)
 	}
 
 	projects := make([]*SProject, 0)

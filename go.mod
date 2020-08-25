@@ -120,6 +120,7 @@ require (
 	golang.org/x/oauth2 v0.0.0-20191202225959-858c2ad4c8b6
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/sys v0.0.0-20191228213918-04cbcbbfeed8
+	golang.org/x/text v0.3.3
 	golang.org/x/tools v0.0.0-20200515220128-d3bf790afa53 // indirect
 	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20191008142428-8d021180e987

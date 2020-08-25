@@ -1165,7 +1165,7 @@ func _doCreateItem(
 
 	err = jsonutils.CheckRequiredFields(dataDict, createRequireFields(manager, userCred))
 	if err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+		return nil, httperrors.NewInputParameterError("%v", err)
 	}
 	model, err := NewModelObject(manager)
 	if err != nil {
@@ -1398,7 +1398,7 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 			body, err := getItemDetails(manager, res.model, ctx, userCred, query)
 			if err != nil {
 				result.Status = 500
-				result.Data = jsonutils.NewString(err.Error())
+				result.Data = jsonutils.NewString(err.Error()) // no translation here
 			} else {
 				result.Status = 200
 				result.Data = body
@@ -1535,9 +1535,8 @@ func reflectDispatcherInternal(
 	if !funcValue.IsValid() || funcValue.IsNil() {
 		funcValue = modelValue.MethodByName(generalFuncName)
 		if !funcValue.IsValid() || funcValue.IsNil() {
-			msg := fmt.Sprintf("%s %s %s not found", dispatcher.Keyword(), operator, spec)
-			log.Errorf(msg)
-			return nil, httperrors.NewActionNotFoundError(msg)
+			return nil, httperrors.NewActionNotFoundError("%s %s %s not found",
+				dispatcher.Keyword(), operator, spec)
 		} else {
 			isGeneral = true
 			funcName = generalFuncName
@@ -1572,9 +1571,8 @@ func reflectDispatcherInternal(
 		allowFuncName := "Allow" + funcName
 		allowFuncValue := modelValue.MethodByName(allowFuncName)
 		if !allowFuncValue.IsValid() || allowFuncValue.IsNil() {
-			msg := fmt.Sprintf("%s allow %s %s not found", dispatcher.Keyword(), operator, spec)
-			log.Errorf(msg)
-			return nil, httperrors.NewActionNotFoundError(msg)
+			return nil, httperrors.NewActionNotFoundError("%s allow %s %s not found",
+				dispatcher.Keyword(), operator, spec)
 		}
 
 		outs, err := callFunc(allowFuncValue, allowFuncName, params...)
@@ -1741,7 +1739,7 @@ func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCr
 	err = CustomizeDelete(model, ctx, userCred, query, data)
 	if err != nil {
 		log.Errorf("customize delete error: %s", err)
-		return nil, httperrors.NewNotAcceptableError(err.Error())
+		return nil, httperrors.NewNotAcceptableError("%v", err)
 	}
 
 	details, err := getItemDetails(manager, model, ctx, userCred, query)

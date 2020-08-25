@@ -939,7 +939,7 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 	if vcpuCount > 0 || vmemSize > 0 {
 		quota, err := self.checkUpdateQuota(ctx, userCred, vcpuCount, vmemSize)
 		if err != nil {
-			return nil, httperrors.NewOutOfQuotaError(err.Error())
+			return nil, httperrors.NewOutOfQuotaError("%v", err)
 		}
 		if !quota.IsEmpty() {
 			data.Add(jsonutils.Marshal(quota), "pending_usage")
@@ -3553,7 +3553,7 @@ func (self *SGuest) LeaveAllGroups(ctx context.Context, userCred mcclient.TokenC
 	q := GroupguestManager.Query()
 	err := q.Filter(sqlchemy.Equals(q.Field("guest_id"), self.Id)).All(&groupGuests)
 	if err != nil {
-		log.Errorln(err.Error())
+		log.Errorf("query by guest_id %s: %v", self.Id, err)
 		return
 	}
 	for _, gg := range groupGuests {
@@ -3563,7 +3563,7 @@ func (self *SGuest) LeaveAllGroups(ctx context.Context, userCred mcclient.TokenC
 		gq := GroupManager.Query()
 		err := gq.Filter(sqlchemy.Equals(gq.Field("id"), gg.GroupId)).First(&group)
 		if err != nil {
-			log.Errorln(err.Error())
+			log.Errorf("get by group id %s: %v", gg.GroupId, err)
 			return
 		}
 		group.SetModelManager(GroupManager, &group)

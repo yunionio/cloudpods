@@ -111,11 +111,11 @@ func newInvalidIntChoiceError(key string, choices []int64, choice int64) error {
 }
 
 func newStringTooShortError(key string, got, want int) error {
-	return newError(ERR_INVALID_LENGTH, "%q too short, got %d, min %s", key, got, want)
+	return newError(ERR_INVALID_LENGTH, "%q too short, got %d, min %d", key, got, want)
 }
 
 func newStringTooLongError(key string, got, want int) error {
-	return newError(ERR_INVALID_LENGTH, "%q too long, got %d, max %s", key, got, want)
+	return newError(ERR_INVALID_LENGTH, "%q too long, got %d, max %d", key, got, want)
 }
 
 func newNotInRangeError(key string, value, lower, upper int64) error {

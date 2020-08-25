@@ -205,7 +205,7 @@ func validateTotpRecoverySecrets(s *mcclient.ClientSession, uid string, question
 func initTotpSecrets(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	t, authToken, err := fetchAuthInfo(ctx, req)
 	if err != nil {
-		httperrors.InvalidCredentialError(w, "fetchAuthInfo fail %s", err)
+		httperrors.InvalidCredentialError(ctx, w, "fetchAuthInfo fail %s", err)
 		return
 	}
 	if authToken.IsTotpInitialized() {
@@ -216,7 +216,7 @@ func initTotpSecrets(ctx context.Context, w http.ResponseWriter, req *http.Reque
 	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
 	code, err := doCreateUserTotpCred(s, t)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 
@@ -232,25 +232,25 @@ func initTotpSecrets(ctx context.Context, w http.ResponseWriter, req *http.Reque
 func validatePasscodeHandler(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	t, authToken, err := fetchAuthInfo(ctx, req)
 	if err != nil {
-		httperrors.InvalidCredentialError(w, "fetchAuthInfo fail %s", err)
+		httperrors.InvalidCredentialError(ctx, w, "fetchAuthInfo fail %s", err)
 		return
 	}
 
 	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
 	_, _, body := appsrv.FetchEnv(ctx, w, req)
 	if body == nil {
-		httperrors.InvalidInputError(w, "body is empty")
+		httperrors.InvalidInputError(ctx, w, "body is empty")
 		return
 	}
 
 	passcode, err := body.GetString("passcode")
 	if err != nil {
-		httperrors.MissingParameterError(w, "passcode")
+		httperrors.MissingParameterError(ctx, w, "passcode")
 		return
 	}
 
 	if len(passcode) != 6 {
-		httperrors.InputParameterError(w, "passcode is a 6-digits string")
+		httperrors.InputParameterError(ctx, w, "passcode is a 6-digits string")
 		return
 	}
 
@@ -260,7 +260,7 @@ func validatePasscodeHandler(ctx context.Context, w http.ResponseWriter, req *ht
 
 	if err != nil {
 		log.Warningf("VerifyTotpPasscode %s", err.Error())
-		httperrors.InvalidCredentialError(w, "invalid passcode: %v", err)
+		httperrors.InvalidCredentialError(ctx, w, "invalid passcode: %v", err)
 		return
 	}
 
@@ -271,32 +271,32 @@ func validatePasscodeHandler(ctx context.Context, w http.ResponseWriter, req *ht
 func resetTotpSecrets(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	t, _, err := fetchAuthInfo(ctx, req)
 	if err != nil {
-		httperrors.InvalidCredentialError(w, "fetchAuthInfo fail %s", err)
+		httperrors.InvalidCredentialError(ctx, w, "fetchAuthInfo fail %s", err)
 		return
 	}
 
 	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
 	_, _, body := appsrv.FetchEnv(ctx, w, req)
 	if body == nil {
-		httperrors.InvalidInputError(w, "body is empty")
+		httperrors.InvalidInputError(ctx, w, "body is empty")
 		return
 	}
 
 	uid := t.GetUserId()
 	if len(uid) == 0 {
-		httperrors.ConflictError(w, "uid is empty")
+		httperrors.ConflictError(ctx, w, "uid is empty")
 		return
 	}
 
 	err = validateTotpRecoverySecrets(s, uid, body)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 
 	code, err := resetUserTotpCred(s, t)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 
@@ -309,7 +309,7 @@ func resetTotpSecrets(ctx context.Context, w http.ResponseWriter, req *http.Requ
 func listTotpRecoveryQuestions(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	t, _, err := fetchAuthInfo(ctx, req)
 	if err != nil {
-		httperrors.InvalidCredentialError(w, "fetchAuthInfo fail %s", err)
+		httperrors.InvalidCredentialError(ctx, w, "fetchAuthInfo fail %s", err)
 		return
 	}
 
@@ -318,7 +318,7 @@ func listTotpRecoveryQuestions(ctx context.Context, w http.ResponseWriter, req *
 	ss, err := modules.Credentials.GetRecoverySecrets(s, t.GetUserId())
 	if len(ss) == 0 {
 		log.Errorf("ListTotpRecoveryQuestions %s", err.Error())
-		httperrors.NotFoundError(w, "no revocery questions.")
+		httperrors.NotFoundError(ctx, w, "no revocery questions.")
 		return
 	}
 
@@ -335,27 +335,27 @@ func listTotpRecoveryQuestions(ctx context.Context, w http.ResponseWriter, req *
 func resetTotpRecoveryQuestions(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	t, _, err := fetchAuthInfo(ctx, req)
 	if err != nil {
-		httperrors.InvalidCredentialError(w, "fetchAuthInfo fail %s", err)
+		httperrors.InvalidCredentialError(ctx, w, "fetchAuthInfo fail %s", err)
 		return
 	}
 
 	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
 	_, _, body := appsrv.FetchEnv(ctx, w, req)
 	if body == nil {
-		httperrors.InvalidInputError(w, "body is empty")
+		httperrors.InvalidInputError(ctx, w, "body is empty")
 		return
 	}
 
 	questions := make([]modules.SRecoverySecret, 0)
 	err = body.Unmarshal(&questions)
 	if err != nil {
-		httperrors.InvalidInputError(w, "unmarshal questions: %v", err)
+		httperrors.InvalidInputError(ctx, w, "unmarshal questions: %v", err)
 		return
 	}
 
 	err = setTotpRecoverySecrets(s, t.GetUserId(), questions)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 

@@ -137,7 +137,7 @@ func (f *ResourceHandlers) AddDelete(mf appsrv.MiddlewareFunc) *ResourceHandlers
 	return f
 }
 
-func fetchIdList(query jsonutils.JSONObject, w http.ResponseWriter) []string {
+func fetchIdList(ctx context.Context, query jsonutils.JSONObject, w http.ResponseWriter) []string {
 	idlist, e := query.GetArray("id")
 	if e == nil && len(idlist) > 0 {
 		queryDict := query.(*jsonutils.JSONDict)
@@ -146,7 +146,7 @@ func fetchIdList(query jsonutils.JSONObject, w http.ResponseWriter) []string {
 		return jsonutils.JSONArray2StringArray(idlist)
 	} else {
 		log.Debugf("Cannot find idlist in query: %s", query)
-		httperrors.InvalidInputError(w, "No idlist found")
+		httperrors.InvalidInputError(ctx, w, "No idlist found")
 		return nil
 	}
 }
@@ -157,20 +157,20 @@ func fetchIdList(query jsonutils.JSONObject, w http.ResponseWriter) []string {
 func (f *ResourceHandlers) listHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	req := newRequest(ctx, w, r)
 	if req.Error() != nil {
-		httperrors.GeneralServerError(w, req.Error())
+		httperrors.GeneralServerError(ctx, w, req.Error())
 		return
 	}
 	jmod, _ := modulebase.GetJointModule(req.Session(), req.ResName())
 	if jmod != nil {
-		f.doList(req.Session(), jmod, req.Query(), w, r)
+		f.doList(ctx, req.Session(), jmod, req.Query(), w, r)
 	} else {
 		if err := req.WithMod1().Error(); err != nil {
-			httperrors.GeneralServerError(w, err)
+			httperrors.GeneralServerError(ctx, w, err)
 			return
 		}
 		batchGet, err := req.Query().Bool("batchGet")
 		if err == nil && batchGet {
-			idlist := fetchIdList(req.Query(), w)
+			idlist := fetchIdList(ctx, req.Query(), w)
 			if idlist == nil {
 				return
 			}
@@ -182,12 +182,12 @@ func (f *ResourceHandlers) listHandler(ctx context.Context, w http.ResponseWrite
 			ret := req.Mod1().BatchGet(req.Session(), idlist, req.Query())
 			appsrv.SendJSON(w, modulebase.ListResult2JSON(modulebase.SubmitResults2ListResult(ret)))
 		} else {
-			f.doList(req.Session(), req.Mod1(), req.Query(), w, r)
+			f.doList(ctx, req.Session(), req.Mod1(), req.Query(), w, r)
 		}
 	}
 }
 
-func (f *ResourceHandlers) doList(session *mcclient.ClientSession, module modulebase.IBaseManager, query jsonutils.JSONObject, w http.ResponseWriter, r *http.Request) {
+func (f *ResourceHandlers) doList(ctx context.Context, session *mcclient.ClientSession, module modulebase.IBaseManager, query jsonutils.JSONObject, w http.ResponseWriter, r *http.Request) {
 	var exportKeys []string
 	var exportTexts []string
 	exportFormat, _ := query.GetString("export")
@@ -201,13 +201,13 @@ func (f *ResourceHandlers) doList(session *mcclient.ClientSession, module module
 			exportTexts = strings.Split(exportTextStr, ",")
 		}
 		if len(exportKeys) == 0 {
-			httperrors.InvalidInputError(w, "missing export keys")
+			httperrors.InvalidInputError(ctx, w, "missing export keys")
 			return
 		} else if len(exportKeys) != len(exportTexts) {
 			if len(exportTexts) == 0 {
 				exportTexts = exportKeys
 			} else {
-				httperrors.InvalidInputError(w, "inconsistent export keys and texts")
+				httperrors.InvalidInputError(ctx, w, "inconsistent export keys and texts")
 				return
 			}
 		}
@@ -219,7 +219,7 @@ func (f *ResourceHandlers) doList(session *mcclient.ClientSession, module module
 
 	ret, e := module.List(session, query)
 	if e != nil {
-		httperrors.GeneralServerError(w, e)
+		httperrors.GeneralServerError(ctx, w, e)
 	} else if len(exportFormat) > 0 {
 		w.Header().Set("Content-Description", "File Transfer")
 		w.Header().Set("Content-Transfer-Encoding", "binary")
@@ -236,12 +236,12 @@ func (f *ResourceHandlers) doList(session *mcclient.ClientSession, module module
 func (f *ResourceHandlers) getHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	req := newRequest(ctx, w, r).WithMod1()
 	if err := req.Error(); err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	obj, e := req.Mod1().Get(req.Session(), req.ResID(), req.Query())
 	if e != nil {
-		httperrors.GeneralServerError(w, e)
+		httperrors.GeneralServerError(ctx, w, e)
 	} else {
 		appsrv.SendJSON(w, obj)
 	}
@@ -255,7 +255,7 @@ func (f *ResourceHandlers) getHandler(ctx context.Context, w http.ResponseWriter
 func (f *ResourceHandlers) getSpecHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	req := newRequest(ctx, w, r).WithMod1()
 	if err := req.Error(); err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	session := req.Session()
@@ -272,14 +272,14 @@ func (f *ResourceHandlers) getSpecHandler(ctx context.Context, w http.ResponseWr
 			ret, e = module2.ListInContext(session, query, module, req.ResID())
 		}
 		if e != nil {
-			httperrors.GeneralServerError(w, e)
+			httperrors.GeneralServerError(ctx, w, e)
 		} else {
 			appsrv.SendJSON(w, modulebase.ListResult2JSON(ret))
 		}
 	} else {
 		obj, e := module.GetSpecific(session, req.ResID(), req.Spec(), query)
 		if e != nil {
-			httperrors.GeneralServerError(w, e)
+			httperrors.GeneralServerError(ctx, w, e)
 		} else {
 			appsrv.SendJSON(w, obj)
 		}
@@ -291,7 +291,7 @@ func (f *ResourceHandlers) getSpecHandler(ctx context.Context, w http.ResponseWr
 func (f *ResourceHandlers) getJointHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	req := newRequest(ctx, w, r).WithMod1().WithMod2()
 	if err := req.Error(); err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 
@@ -301,12 +301,12 @@ func (f *ResourceHandlers) getJointHandler(ctx context.Context, w http.ResponseW
 
 	jmod, e := modulebase.GetJointModule2(session, module, module2)
 	if e != nil {
-		httperrors.NotFoundError(w, fmt.Sprintf("resource %s-%s not exist", req.ResName(), req.ResName2()))
+		httperrors.NotFoundError(ctx, w, fmt.Sprintf("resource %s-%s not exist", req.ResName(), req.ResName2()))
 		return
 	}
 	obj, e := jmod.Get(session, req.ResID(), req.ResID2(), req.Query())
 	if e != nil {
-		httperrors.GeneralServerError(w, e)
+		httperrors.GeneralServerError(ctx, w, e)
 	} else {
 		appsrv.SendJSON(w, obj)
 	}
@@ -317,7 +317,7 @@ func (f *ResourceHandlers) getJointHandler(ctx context.Context, w http.ResponseW
 func (f *ResourceHandlers) listInContextsHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	req := newRequest(ctx, w, r).WithMod1().WithMod2().WithMod3()
 	if err := req.Error(); err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	module := req.Mod1()
@@ -330,7 +330,7 @@ func (f *ResourceHandlers) listInContextsHandler(ctx context.Context, w http.Res
 		{InstanceManager: module2, InstanceId: req.ResID2()},
 	})
 	if e != nil {
-		httperrors.GeneralServerError(w, e)
+		httperrors.GeneralServerError(ctx, w, e)
 	} else {
 		appsrv.SendJSON(w, modulebase.ListResult2JSON(obj))
 	}
@@ -342,7 +342,7 @@ func (f *ResourceHandlers) listInContextsHandler(ctx context.Context, w http.Res
 func (f *ResourceHandlers) createHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	req := newRequest(ctx, w, r).WithMod1()
 	if err := req.Error(); err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	module := req.Mod1()
@@ -353,7 +353,7 @@ func (f *ResourceHandlers) createHandler(ctx context.Context, w http.ResponseWri
 	if e == nil && count > 1 {
 		bodyDict, ok := body.(*jsonutils.JSONDict)
 		if !ok {
-			httperrors.GeneralServerError(w, fmt.Errorf("Fail to decode body"))
+			httperrors.GeneralServerError(ctx, w, fmt.Errorf("Fail to decode body"))
 		} else {
 			nbody := bodyDict.Copy("__count__")
 			ret := module.BatchCreate(session, nbody, int(count))
@@ -363,7 +363,7 @@ func (f *ResourceHandlers) createHandler(ctx context.Context, w http.ResponseWri
 	} else {
 		obj, e := module.Create(session, body)
 		if e != nil {
-			httperrors.GeneralServerError(w, e)
+			httperrors.GeneralServerError(ctx, w, e)
 		} else {
 			appsrv.SendJSON(w, obj)
 		}
@@ -375,7 +375,7 @@ func (f *ResourceHandlers) createHandler(ctx context.Context, w http.ResponseWri
 func (f *ResourceHandlers) batchPerformActionHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	req := newRequest(ctx, w, r).WithMod1()
 	if err := req.Error(); err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	module := req.Mod1()
@@ -385,7 +385,7 @@ func (f *ResourceHandlers) batchPerformActionHandler(ctx context.Context, w http
 
 	if idlist, e := query.GetArray("id"); e != nil || len(idlist) == 0 {
 		if obj, e := module.PerformClassAction(session, req.Action(), body); e != nil {
-			httperrors.GeneralServerError(w, e)
+			httperrors.GeneralServerError(ctx, w, e)
 		} else {
 			appsrv.SendJSON(w, obj)
 		}
@@ -403,7 +403,7 @@ func (f *ResourceHandlers) batchPerformActionHandler(ctx context.Context, w http
 func (f *ResourceHandlers) performActionHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	req := newRequest(ctx, w, r).WithMod1()
 	if err := req.Error(); err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	module := req.Mod1()
@@ -415,14 +415,14 @@ func (f *ResourceHandlers) performActionHandler(ctx context.Context, w http.Resp
 	var idlist []string
 	if module2, e := modulebase.GetModule(session, req.Action()); e == nil {
 		if jmod, e := modulebase.GetJointModule2(session, module, module2); e == nil {
-			if idlist = fetchIdList(query, w); idlist == nil {
+			if idlist = fetchIdList(ctx, query, w); idlist == nil {
 				return
 			}
 			ret := jmod.BatchAttach(session, req.ResID(), idlist, body)
 			w.WriteHeader(207)
 			appsrv.SendJSON(w, modulebase.SubmitResults2JSON(ret))
 		} else if jmod, e := modulebase.GetJointModule2(session, module2, module); e == nil {
-			if idlist = fetchIdList(query, w); idlist == nil {
+			if idlist = fetchIdList(ctx, query, w); idlist == nil {
 				return
 			}
 			ret := jmod.BatchAttach2(session, req.ResID(), idlist, body)
@@ -430,14 +430,14 @@ func (f *ResourceHandlers) performActionHandler(ctx context.Context, w http.Resp
 			appsrv.SendJSON(w, modulebase.SubmitResults2JSON(ret))
 		} else {
 			if obj, e = module2.CreateInContext(session, body, module, req.ResID()); e != nil {
-				httperrors.GeneralServerError(w, e)
+				httperrors.GeneralServerError(ctx, w, e)
 			} else {
 				appsrv.SendJSON(w, obj)
 			}
 		}
 	} else {
 		if obj, e = module.PerformAction(session, req.ResID(), req.Action(), body); e != nil {
-			httperrors.GeneralServerError(w, e)
+			httperrors.GeneralServerError(ctx, w, e)
 		} else {
 			appsrv.SendJSON(w, obj)
 		}
@@ -449,7 +449,7 @@ func (f *ResourceHandlers) performActionHandler(ctx context.Context, w http.Resp
 func (f *ResourceHandlers) attachHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	req := newRequest(ctx, w, r).WithMod1().WithMod2()
 	if err := req.Error(); err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	module := req.Mod1()
@@ -459,12 +459,12 @@ func (f *ResourceHandlers) attachHandler(ctx context.Context, w http.ResponseWri
 
 	jmod, e := modulebase.GetJointModule2(session, module, module2)
 	if e != nil {
-		httperrors.NotFoundError(w, fmt.Sprintf("resource %s-%s not exists", req.ResName(), req.ResName2()))
+		httperrors.NotFoundError(ctx, w, fmt.Sprintf("resource %s-%s not exists", req.ResName(), req.ResName2()))
 		return
 	}
 	obj, e := jmod.Attach(session, req.ResID(), req.ResID2(), body)
 	if e != nil {
-		httperrors.GeneralServerError(w, e)
+		httperrors.GeneralServerError(ctx, w, e)
 	} else {
 		appsrv.SendJSON(w, obj)
 	}
@@ -475,7 +475,7 @@ func (f *ResourceHandlers) attachHandler(ctx context.Context, w http.ResponseWri
 func (f *ResourceHandlers) batchUpdateHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	req := newRequest(ctx, w, r).WithMod1()
 	if err := req.Error(); err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 
@@ -483,7 +483,7 @@ func (f *ResourceHandlers) batchUpdateHandler(ctx context.Context, w http.Respon
 	query := req.Query()
 	body := req.Body()
 
-	idlist := fetchIdList(query, w)
+	idlist := fetchIdList(ctx, query, w)
 	if idlist == nil {
 		return
 	}
@@ -498,7 +498,7 @@ func (f *ResourceHandlers) batchUpdateHandler(ctx context.Context, w http.Respon
 func (f *ResourceHandlers) batchPatchHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	req := newRequest(ctx, w, r).WithMod1()
 	if err := req.Error(); err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 
@@ -506,7 +506,7 @@ func (f *ResourceHandlers) batchPatchHandler(ctx context.Context, w http.Respons
 	query := req.Query()
 	body := req.Body()
 
-	idlist := fetchIdList(query, w)
+	idlist := fetchIdList(ctx, query, w)
 	if idlist == nil {
 		return
 	}
@@ -521,7 +521,7 @@ func (f *ResourceHandlers) batchPatchHandler(ctx context.Context, w http.Respons
 func (f *ResourceHandlers) updateHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	req := newRequest(ctx, w, r).WithMod1()
 	if err := req.Error(); err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 
@@ -530,7 +530,7 @@ func (f *ResourceHandlers) updateHandler(ctx context.Context, w http.ResponseWri
 
 	obj, e := module.Update(req.Session(), req.ResID(), body)
 	if e != nil {
-		httperrors.GeneralServerError(w, e)
+		httperrors.GeneralServerError(ctx, w, e)
 	} else {
 		appsrv.SendJSON(w, obj)
 	}
@@ -541,7 +541,7 @@ func (f *ResourceHandlers) updateHandler(ctx context.Context, w http.ResponseWri
 func (f *ResourceHandlers) patchHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	req := newRequest(ctx, w, r).WithMod1()
 	if err := req.Error(); err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 
@@ -550,7 +550,7 @@ func (f *ResourceHandlers) patchHandler(ctx context.Context, w http.ResponseWrit
 
 	obj, e := module.Patch(req.Session(), req.ResID(), body)
 	if e != nil {
-		httperrors.GeneralServerError(w, e)
+		httperrors.GeneralServerError(ctx, w, e)
 	} else {
 		appsrv.SendJSON(w, obj)
 	}
@@ -562,7 +562,7 @@ func (f *ResourceHandlers) patchHandler(ctx context.Context, w http.ResponseWrit
 func (f *ResourceHandlers) updateJointHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	req := newRequest(ctx, w, r).WithMod1().WithMod2()
 	if err := req.Error(); err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	session := req.Session()
@@ -578,7 +578,7 @@ func (f *ResourceHandlers) updateJointHandler(ctx context.Context, w http.Respon
 		obj, e = module2.PutInContext(session, req.ResID2(), body, module, req.ResID())
 	}
 	if e != nil {
-		httperrors.GeneralServerError(w, e)
+		httperrors.GeneralServerError(ctx, w, e)
 	} else {
 		appsrv.SendJSON(w, obj)
 	}
@@ -587,7 +587,7 @@ func (f *ResourceHandlers) updateJointHandler(ctx context.Context, w http.Respon
 func (f *ResourceHandlers) patchJointHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	req := newRequest(ctx, w, r).WithMod1().WithMod2()
 	if err := req.Error(); err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	session := req.Session()
@@ -603,7 +603,7 @@ func (f *ResourceHandlers) patchJointHandler(ctx context.Context, w http.Respons
 		obj, e = module2.PatchInContext(session, req.ResID2(), body, module, req.ResID())
 	}
 	if e != nil {
-		httperrors.GeneralServerError(w, e)
+		httperrors.GeneralServerError(ctx, w, e)
 	} else {
 		appsrv.SendJSON(w, obj)
 	}
@@ -616,7 +616,7 @@ func (f *ResourceHandlers) patchJointHandler(ctx context.Context, w http.Respons
 func (f *ResourceHandlers) batchUpdateJointHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	req := newRequest(ctx, w, r).WithMod1()
 	if err := req.Error(); err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	session := req.Session()
@@ -629,7 +629,7 @@ func (f *ResourceHandlers) batchUpdateJointHandler(ctx context.Context, w http.R
 		spec := req.ResName2()
 		obj, e := module.PutSpecific(session, req.ResID(), spec, query, body)
 		if e != nil {
-			httperrors.GeneralServerError(w, e)
+			httperrors.GeneralServerError(ctx, w, e)
 		} else {
 			appsrv.SendJSON(w, obj)
 		}
@@ -638,16 +638,16 @@ func (f *ResourceHandlers) batchUpdateJointHandler(ctx context.Context, w http.R
 
 	req = req.WithMod2()
 	if err := req.Error(); err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	module2 := req.Mod2()
 	jmod, e := modulebase.GetJointModule2(session, module, module2)
 	if e != nil { // update joint
-		httperrors.GeneralServerError(w, e)
+		httperrors.GeneralServerError(ctx, w, e)
 		return
 	}
-	idlist := fetchIdList(query, w)
+	idlist := fetchIdList(ctx, query, w)
 	ret := jmod.BatchUpdate(session, req.ResID(), idlist, query, body)
 	w.WriteHeader(207)
 	appsrv.SendJSON(w, modulebase.SubmitResults2JSON(ret))
@@ -658,7 +658,7 @@ func (f *ResourceHandlers) batchUpdateJointHandler(ctx context.Context, w http.R
 func (f *ResourceHandlers) updateInContextsHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	req := newRequest(ctx, w, r).WithMod1().WithMod2().WithMod3()
 	if err := req.Error(); err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 
@@ -667,7 +667,7 @@ func (f *ResourceHandlers) updateInContextsHandler(ctx context.Context, w http.R
 		{InstanceManager: req.Mod2(), InstanceId: req.ResID2()},
 	})
 	if e != nil {
-		httperrors.GeneralServerError(w, e)
+		httperrors.GeneralServerError(ctx, w, e)
 	} else {
 		appsrv.SendJSON(w, obj)
 	}
@@ -676,7 +676,7 @@ func (f *ResourceHandlers) updateInContextsHandler(ctx context.Context, w http.R
 func (f *ResourceHandlers) patchInContextsHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	req := newRequest(ctx, w, r).WithMod1().WithMod2().WithMod3()
 	if err := req.Error(); err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	module := req.Mod1()
@@ -690,7 +690,7 @@ func (f *ResourceHandlers) patchInContextsHandler(ctx context.Context, w http.Re
 		{InstanceManager: module2, InstanceId: req.ResID2()},
 	})
 	if e != nil {
-		httperrors.GeneralServerError(w, e)
+		httperrors.GeneralServerError(ctx, w, e)
 	} else {
 		appsrv.SendJSON(w, obj)
 	}
@@ -701,11 +701,11 @@ func (f *ResourceHandlers) patchInContextsHandler(ctx context.Context, w http.Re
 func (f *ResourceHandlers) batchDeleteHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	req := newRequest(ctx, w, r).WithMod1()
 	if err := req.Error(); err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 
-	idlist := fetchIdList(req.Query(), w)
+	idlist := fetchIdList(ctx, req.Query(), w)
 	if idlist == nil {
 		return
 	}
@@ -719,12 +719,12 @@ func (f *ResourceHandlers) batchDeleteHandler(ctx context.Context, w http.Respon
 func (f *ResourceHandlers) deleteHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	req := newRequest(ctx, w, r).WithMod1()
 	if err := req.Error(); err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	obj, e := req.Mod1().DeleteWithParam(req.Session(), req.ResID(), req.Query(), req.Body())
 	if e != nil {
-		httperrors.GeneralServerError(w, e)
+		httperrors.GeneralServerError(ctx, w, e)
 	} else {
 		appsrv.SendJSON(w, obj)
 	}
@@ -735,10 +735,10 @@ func (f *ResourceHandlers) deleteHandler(ctx context.Context, w http.ResponseWri
 func (f *ResourceHandlers) batchDetachHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	req := newRequest(ctx, w, r).WithMod1().WithMod2()
 	if err := req.Error(); err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
-	idlist := fetchIdList(req.Query(), w)
+	idlist := fetchIdList(ctx, req.Query(), w)
 	if idlist == nil {
 		return
 	}
@@ -767,7 +767,7 @@ func (f *ResourceHandlers) batchDetachHandler(ctx context.Context, w http.Respon
 func (f *ResourceHandlers) detachHandle(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	req := newRequest(ctx, w, r).WithMod1().WithMod2()
 	if err := req.Error(); err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	session := req.Session()
@@ -782,7 +782,7 @@ func (f *ResourceHandlers) detachHandle(ctx context.Context, w http.ResponseWrit
 		obj, e = module2.DeleteInContextWithParam(session, req.ResID2(), req.Query(), req.Body(), module, req.ResID())
 	}
 	if e != nil {
-		httperrors.GeneralServerError(w, e)
+		httperrors.GeneralServerError(ctx, w, e)
 	} else {
 		appsrv.SendJSON(w, obj)
 	}
@@ -793,7 +793,7 @@ func (f *ResourceHandlers) detachHandle(ctx context.Context, w http.ResponseWrit
 func (f *ResourceHandlers) deleteInContextsHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	req := newRequest(ctx, w, r).WithMod1().WithMod2().WithMod3()
 	if err := req.Error(); err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	session := req.Session()
@@ -808,7 +808,7 @@ func (f *ResourceHandlers) deleteInContextsHandler(ctx context.Context, w http.R
 		{InstanceManager: module2, InstanceId: req.ResID2()},
 	})
 	if e != nil {
-		httperrors.GeneralServerError(w, e)
+		httperrors.GeneralServerError(ctx, w, e)
 	} else {
 		appsrv.SendJSON(w, obj)
 	}

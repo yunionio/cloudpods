@@ -195,7 +195,7 @@ func Brand2Hypervisor(brand string) string {
 func (gtm *SGuestTemplateManager) validateContent(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, content *jsonutils.JSONDict) (*computeapis.ServerCreateInput, error) {
 	input, err := GuestManager.validateCreateData(ctx, userCred, ownerId, query, content)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+		return nil, httperrors.NewInputParameterError("%v", err)
 	}
 	// check Image
 	imageId := input.Disks[0].ImageId
@@ -230,7 +230,7 @@ func (gtm *SGuestTemplateManager) validateData(
 	copy := jsonutils.DeepCopy(content).(*jsonutils.JSONDict)
 	input, err := gtm.validateContent(ctx, userCred, ownerId, query, copy)
 	if err != nil {
-		return cinput, httperrors.NewInputParameterError(err.Error())
+		return cinput, httperrors.NewInputParameterError("%v", err)
 	}
 	log.Debugf("data: %#v", input)
 	// fill field
@@ -582,16 +582,22 @@ func (gt *SGuestTemplate) PerformPublic(
 }
 
 func (gt *SGuestTemplate) genForbiddenError(resourceName, resourceStr, scope string) error {
-	var msg string
-	if len(resourceStr) == 0 {
-		msg = fmt.Sprintf("the %s in guest template is not a public resource", resourceName)
+	var (
+		msgFmt  string
+		msgArgs []interface{}
+	)
+	if resourceStr == "" {
+		msgFmt = "the %s in guest template is not a public resource"
+		msgArgs = []interface{}{resourceName}
 	} else {
-		msg = fmt.Sprintf("the %s '%s' in guest template is not a public resource", resourceName, resourceStr)
+		msgFmt = "the %s %q in guest template is not a public resource"
+		msgArgs = []interface{}{resourceName, resourceStr}
 	}
-	if len(scope) > 0 {
-		msg += fmt.Sprintf(" in %s scope", scope)
+	if scope != "" {
+		msgFmt += " in %s scope"
+		msgArgs = append(msgArgs, scope)
 	}
-	return httperrors.NewForbiddenError(msg)
+	return httperrors.NewForbiddenError(msgFmt, msgArgs...)
 }
 
 func (gt *SGuestTemplate) ValidateDeleteCondition(ctx context.Context) error {

@@ -52,7 +52,7 @@ func AuthenticateWithDelayDecision(f appsrv.FilterHandler, delayDecision bool) a
 		if len(tokenStr) == 0 {
 			log.Errorf("no auth_token found! delayDecision=%v", delayDecision)
 			if !delayDecision {
-				httperrors.UnauthorizedError(w, "Unauthorized")
+				httperrors.UnauthorizedError(ctx, w, "Unauthorized")
 				return
 			}
 			token = &GuestToken
@@ -62,7 +62,7 @@ func AuthenticateWithDelayDecision(f appsrv.FilterHandler, delayDecision bool) a
 			if err != nil {
 				log.Errorf("Verify token failed: %s", err)
 				if !delayDecision {
-					httperrors.UnauthorizedError(w, "InvalidToken")
+					httperrors.UnauthorizedError(ctx, w, "InvalidToken")
 					return
 				}
 			}

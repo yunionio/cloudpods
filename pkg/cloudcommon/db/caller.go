@@ -16,7 +16,6 @@ package db
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 
 	"yunion.io/x/jsonutils"
@@ -109,7 +108,7 @@ func callObject(modelVal reflect.Value, fName string, inputs ...interface{}) ([]
 
 func callFunc(funcVal reflect.Value, fName string, inputs ...interface{}) ([]reflect.Value, error) {
 	if !funcVal.IsValid() || funcVal.IsNil() {
-		return nil, httperrors.NewActionNotFoundError(fmt.Sprintf("%s method not found", fName))
+		return nil, httperrors.NewActionNotFoundError("%s method not found", fName)
 	}
 	funcType := funcVal.Type()
 	paramLen := funcType.NumIn()

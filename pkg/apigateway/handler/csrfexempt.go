@@ -47,18 +47,18 @@ func (h *CSRFResourceHandler) Bind(app *appsrv.Application) {
 func getAdminSession(ctx context.Context, apiVer string, region string, w http.ResponseWriter) *mcclient.ClientSession {
 	adminToken := auth.AdminCredential()
 	if adminToken == nil {
-		httperrors.NotFoundError(w, "get admin credential is nil")
+		httperrors.NotFoundError(ctx, w, "get admin credential is nil")
 		return nil
 	}
 	regions := adminToken.GetRegions()
 	log.Infof("CSRF regions: %v", regions)
 	if len(regions) == 0 {
-		httperrors.NotFoundError(w, "no usable regions, please contact admin")
+		httperrors.NotFoundError(ctx, w, "no usable regions, please contact admin")
 		return nil
 	}
 	ret, _ := sets.InArray(region, regions)
 	if !ret {
-		httperrors.NotFoundError(w, "illegal region %s, please contact admin", region)
+		httperrors.NotFoundError(ctx, w, "illegal region %s, please contact admin", region)
 	}
 	s := auth.GetAdminSession(ctx, region, apiVer)
 	return s
@@ -71,7 +71,7 @@ func fetchEnv3Csrf(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	}
 	module3, e := modulebase.GetModule(session, params[ResName3])
 	if e != nil || module == nil {
-		httperrors.NotFoundError(w, fmt.Sprintf("resource %s not found", params[ResName3]))
+		httperrors.NotFoundError(ctx, w, fmt.Sprintf("resource %s not found", params[ResName3]))
 		return nil, nil, nil, nil, nil, nil, nil
 	}
 	return module, module2, module3, session, params, query, body
@@ -84,7 +84,7 @@ func fetchEnv2Csrf(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	}
 	module2, e := modulebase.GetModule(session, params[ResName2])
 	if e != nil || module == nil {
-		httperrors.NotFoundError(w, fmt.Sprintf("resource %s not found", params[ResName2]))
+		httperrors.NotFoundError(ctx, w, fmt.Sprintf("resource %s not found", params[ResName2]))
 		return nil, nil, nil, nil, nil, nil
 	}
 	return module, module2, session, params, query, body
@@ -94,7 +94,7 @@ func fetchEnvCsrf(ctx context.Context, w http.ResponseWriter, r *http.Request) (
 	session, params, query, body := fetchEnvCsrf0(ctx, w, r)
 	module, e := modulebase.GetModule(session, params[ResName])
 	if e != nil || module == nil {
-		httperrors.NotFoundError(w, fmt.Sprintf("resource %s not found", params[ResName]))
+		httperrors.NotFoundError(ctx, w, fmt.Sprintf("resource %s not found", params[ResName]))
 		return nil, nil, nil, nil, nil
 	}
 	return module, session, params, query, body
@@ -105,7 +105,7 @@ func fetchEnvCsrf0(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	region := r.URL.Query().Get("region")
 	log.Println("csrf region from url:", region)
 	if len(region) < 1 {
-		httperrors.NotFoundError(w, fmt.Sprintf("region %s is empty", region))
+		httperrors.NotFoundError(ctx, w, fmt.Sprintf("region %s is empty", region))
 		return nil, nil, nil, nil
 	}
 	log.Infof("csrf region from url: %s", region)
@@ -135,7 +135,7 @@ func getHandlerCsrf(ctx context.Context, w http.ResponseWriter, r *http.Request)
 	}
 	obj, e := module.Get(session, params[ResID], query)
 	if e != nil {
-		httperrors.GeneralServerError(w, e)
+		httperrors.GeneralServerError(ctx, w, e)
 	} else {
 		appsrv.SendJSON(w, obj)
 	}

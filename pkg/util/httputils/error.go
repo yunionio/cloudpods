@@ -36,7 +36,7 @@ func errorMessage(msgFmt string, params ...interface{}) (string, Error) {
 	}
 
 	err := Error{
-		Id:     msgFmtToTmpl(msgFmt),
+		Id:     msgFmt,
 		Fields: fields,
 	}
 

@@ -145,7 +145,7 @@ func doOIDCAuth(ctx context.Context, req *http.Request, query jsonutils.JSONObje
 func handleOIDCToken(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	resp, err := validateOIDCToken(ctx, req)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	appsrv.SendJSON(w, jsonutils.Marshal(resp))
@@ -327,7 +327,7 @@ func handleOIDCConfiguration(ctx context.Context, w http.ResponseWriter, req *ht
 func handleOIDCJWKeys(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	keyJson, err := clientman.GetJWKs(ctx)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	appsrv.SendJSON(w, keyJson)
@@ -336,7 +336,7 @@ func handleOIDCJWKeys(ctx context.Context, w http.ResponseWriter, req *http.Requ
 func handleOIDCUserInfo(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	data, err := getUserInfo(ctx, req)
 	if err != nil {
-		httperrors.NotFoundError(w, err.Error())
+		httperrors.NotFoundError(ctx, w, "%v", err)
 		return
 	}
 	appsrv.SendJSON(w, data)

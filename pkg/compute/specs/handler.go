@@ -61,7 +61,7 @@ func processFilter(handleFunc specHandleFunc) appsrv.FilterHandler {
 		userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 		query, err := jsonutils.ParseQueryString(r.URL.RawQuery)
 		if err != nil {
-			httperrors.GeneralServerError(w, err)
+			httperrors.GeneralServerError(ctx, w, err)
 			return
 		}
 		params := appctx.AppContextParams(ctx)
@@ -70,7 +70,7 @@ func processFilter(handleFunc specHandleFunc) appsrv.FilterHandler {
 		}
 		spec, err := handleFunc(ctx, userCred, query.(*jsonutils.JSONDict))
 		if err != nil {
-			httperrors.GeneralServerError(w, err)
+			httperrors.GeneralServerError(ctx, w, err)
 			return
 		}
 		ret := jsonutils.NewDict()

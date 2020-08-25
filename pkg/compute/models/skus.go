@@ -363,12 +363,12 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context, userCred 
 		// 格式 ecs.g1.c1m1
 		input.Name, err = genInstanceType(input.InstanceTypeFamily, input.CpuCoreCount, input.MemorySizeMB)
 		if err != nil {
-			return nil, httperrors.NewInputParameterError(err.Error())
+			return nil, httperrors.NewInputParameterError("%v", err)
 		}
 		q := self.Query().Equals("name", input.Name)
 		count, err := q.CountWithError()
 		if err != nil {
-			return nil, httperrors.NewGeneralError(fmt.Errorf("checkout server sku name duplicate error: %v", err))
+			return nil, httperrors.NewInternalServerError("checkout server sku name duplicate error: %v", err)
 		}
 		if count > 0 {
 			return nil, httperrors.NewDuplicateResourceError("Duplicate sku %s", input.Name)

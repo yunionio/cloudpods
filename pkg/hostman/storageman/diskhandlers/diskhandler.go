@@ -93,17 +93,17 @@ func performImageCache(
 
 	disk, err := body.Get("disk")
 	if err != nil {
-		httperrors.MissingParameterError(w, "disk")
+		httperrors.MissingParameterError(ctx, w, "disk")
 		return
 	}
 	scId, err := disk.GetString("storagecache_id")
 	if err != nil {
-		httperrors.MissingParameterError(w, "disk")
+		httperrors.MissingParameterError(ctx, w, "disk")
 		return
 	}
 	storagecache := storageman.GetManager().GetStoragecacheById(scId)
 	if storagecache == nil {
-		httperrors.NotFoundError(w, "Storagecache %s not found", scId)
+		httperrors.NotFoundError(ctx, w, "Storagecache %s not found", scId)
 		return
 	}
 

@@ -620,13 +620,13 @@ func (self *SSecurityGroup) PerformAddRule(ctx context.Context, userCred mcclien
 		PortEnd:   -1,
 	}
 	if err := rule.ParsePorts(secgrouprule.Ports); err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+		return nil, httperrors.NewInputParameterError("%v", err)
 	}
 	if err := rule.ValidateRule(); err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+		return nil, httperrors.NewInputParameterError("%v", err)
 	}
 	if err := SecurityGroupRuleManager.TableSpec().Insert(ctx, secgrouprule); err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+		return nil, httperrors.NewInputParameterError("%v", err)
 	}
 	self.DoSync(ctx, userCred)
 	return nil, nil
