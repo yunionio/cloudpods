@@ -105,7 +105,9 @@ func (self *SLDAPDriver) syncDomains(ctx context.Context, cli *ldaputils.SLDAPCl
 	domainIds := make([]string, 0)
 	for i := range entries {
 		domainInfo := self.entry2Domain(entries[i])
-		if !domainInfo.isValid() {
+		err := domainInfo.isValid()
+		if err != nil {
+			log.Errorf("invalid domainInfo: %s, skip", err)
 			continue
 		}
 		domain, err := self.syncDomainInfo(ctx, domainInfo)
@@ -179,11 +181,14 @@ func (self *SLDAPDriver) syncUsers(ctx context.Context, cli *ldaputils.SLDAPClie
 	if err != nil {
 		return nil, errors.Wrap(err, "searchLDAP")
 	}
+	log.Debugf("syncUsers: ldapSearch entries: %s", entries)
 	userIds := make([]string, 0)
 	userIdMap := make(map[string]string)
 	for i := range entries {
 		userInfo := self.entry2User(entries[i])
-		if !userInfo.isValid() {
+		err := userInfo.isValid()
+		if err != nil {
+			log.Debugf("userInfo is invalid: %s, skip", err)
 			continue
 		}
 		userId, err := self.syncUserDB(ctx, userInfo, domainId)
@@ -267,7 +272,9 @@ func (self *SLDAPDriver) syncGroups(ctx context.Context, cli *ldaputils.SLDAPCli
 	groupIds := make([]string, 0)
 	for i := range entries {
 		groupInfo := self.entry2Group(entries[i])
-		if !groupInfo.isValid() {
+		err := groupInfo.isValid()
+		if err != nil {
+			log.Errorf("invalid group info: %s, skip", err)
 			continue
 		}
 		groupId, err := self.syncGroupDB(ctx, groupInfo, domainId, userIdMap)
