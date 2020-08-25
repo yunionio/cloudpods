@@ -20,6 +20,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -30,20 +31,41 @@ func init() {
 		TOPIC       string   `help:"Topic"`
 		Priority    string   `help:"Priority"`
 		MESSAGE     string   `help:"Message"`
+		Oldsdk      bool     `help:"Old sdk"`
 	}
 	R(&NotificationCreateInput{}, "notify-send", "Send a notify message", func(s *mcclient.ClientSession, args *NotificationCreateInput) error {
-		input := api.NotificationCreateInput{
-			Receivers:   args.Receivers,
-			ContactType: args.ContactType,
-			Topic:       args.TOPIC,
-			Priority:    args.Priority,
-			Message:     args.MESSAGE,
+		var (
+			ret jsonutils.JSONObject
+			err error
+		)
+		if args.Oldsdk {
+			msg := notify.SNotifyMessage{
+				Uid:         args.Receivers,
+				ContactType: notify.TNotifyChannel(args.ContactType),
+				Topic:       args.TOPIC,
+				Priority:    notify.TNotifyPriority(args.Priority),
+				Msg:         args.MESSAGE,
+				Remark:      "",
+				Broadcast:   false,
+			}
+			err = notify.Notifications.Send(s, msg)
+			if err != nil {
+				return err
+			}
+		} else {
+			input := api.NotificationCreateInput{
+				Receivers:   args.Receivers,
+				ContactType: args.ContactType,
+				Topic:       args.TOPIC,
+				Priority:    args.Priority,
+				Message:     args.MESSAGE,
+			}
+			ret, err = modules.Notification.Create(s, jsonutils.Marshal(input))
+			if err != nil {
+				return err
+			}
+			printObject(ret)
 		}
-		ret, err := modules.Notification.Create(s, jsonutils.Marshal(input))
-		if err != nil {
-			return err
-		}
-		printObject(ret)
 		return nil
 	})
 	type NotificationInput struct {
