@@ -178,19 +178,19 @@ func (manager *SWireResourceBaseManager) ListItemFilter(
 		region := &SCloudregion{}
 		firstZone := query.FirstZone()
 		sq := ZoneManager.Query().SubQuery()
-		q := CloudregionManager.Query()
-		q = q.Join(sq, sqlchemy.Equals(sq.Field("cloudregion_id"), q.Field("id"))).Filter(sqlchemy.OR(
+		regionQ := CloudregionManager.Query()
+		regionQ = regionQ.Join(sq, sqlchemy.Equals(sq.Field("cloudregion_id"), regionQ.Field("id"))).Filter(sqlchemy.OR(
 			sqlchemy.Equals(sq.Field("id"), firstZone),
 			sqlchemy.Equals(sq.Field("name"), firstZone),
 		))
-		count, err := q.CountWithError()
+		count, err := regionQ.CountWithError()
 		if err != nil {
 			return nil, errors.Wrap(err, "CountWithError")
 		}
 		if count < 1 {
 			return nil, httperrors.NewResourceNotFoundError2("zone", firstZone)
 		}
-		err = q.First(region)
+		err = regionQ.First(region)
 		if err != nil {
 			return nil, errors.Wrap(err, "q.First")
 		}

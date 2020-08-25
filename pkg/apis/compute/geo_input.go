@@ -75,7 +75,7 @@ func (input ZonalFilterListBase) ZoneList() []string {
 	if len(input.ZoneId) > 0 {
 		zones = append(zones, input.ZoneId)
 	}
-	return input.ZoneIds
+	return zones
 }
 
 func (input ZonalFilterListBase) FirstZone() string {

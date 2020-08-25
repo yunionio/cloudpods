@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -26,172 +27,21 @@ import (
 )
 
 func init() {
-	type NetworkListOptions struct {
-		options.BaseListOptions
 
-		Ip         string   `help:"search networks that contain this IP"`
-		Zone       []string `help:"search networks in zones"`
-		Wire       string   `help:"search networks belongs to a wire" json:"-"`
-		Host       string   `help:"search networks attached to a host"`
-		Vpc        string   `help:"search networks belongs to a VPC"`
-		Region     string   `help:"search networks belongs to a CloudRegion" json:"cloudregion"`
-		City       string   `help:"search networks belongs to a city"`
-		Usable     *bool    `help:"search usable networks"`
-		ServerType string   `help:"search networks belongs to a ServerType" choices:"baremetal|container|eip|guest|ipmi|pxe"`
-		Schedtag   string   `help:"filter networks by schedtag"`
-
-		IsAutoAlloc *bool `help:"search network with is_auto_alloc"`
-		IsClassic   *bool `help:"search classic on-premise network"`
-
-		Status string `help:"filter by network status"`
-	}
-	R(&NetworkListOptions{}, "network-list", "List networks", func(s *mcclient.ClientSession, opts *NetworkListOptions) error {
-		params, err := options.ListStructToParams(opts)
-		if err != nil {
-			return err
-		}
-		var result *modulebase.ListResult
-		if len(opts.Wire) > 0 {
-			result, err = modules.Networks.ListInContext(s, params, &modules.Wires, opts.Wire)
-		} else {
-			result, err = modules.Networks.List(s, params)
-		}
-		if err != nil {
-			return err
-		}
-		if len(opts.ExportFile) > 0 {
-			exportList(result, opts.ExportFile, opts.ExportKeys, opts.ExportTexts, modules.Networks.GetColumns(s))
-		} else {
-			printList(result, modules.Networks.GetColumns(s))
-		}
-		return nil
-	})
-
-	type NetworkUpdateOptions struct {
-		ID          string `help:"ID or Name of zone to update"`
-		Name        string `help:"Name of zone"`
-		Desc        string `metavar:"<DESCRIPTION>" help:"Description"`
-		ServerType  string `help:"server type," choices:"baremetal|container|eip|guest|ipmi|pxe"`
-		StartIp     string `help:"Start ip"`
-		EndIp       string `help:"end ip"`
-		NetMask     int64  `help:"Netmask"`
-		Gateway     string `help:"IP of gateway"`
-		Dns         string `help:"IP of DNS server"`
-		Domain      string `help:"Domain"`
-		Dhcp        string `help:"DHCP server IP"`
-		VlanId      int64  `help:"Vlan ID" default:"1"`
-		ExternalId  string `help:"External ID"`
-		AllocPolicy string `help:"Address allocation policy" choices:"none|stepdown|stepup|random"`
-		IsAutoAlloc *bool  `help:"Add network into auto-allocation pool" negative:"no_auto_alloc"`
-	}
-	R(&NetworkUpdateOptions{}, "network-update", "Update network", func(s *mcclient.ClientSession, args *NetworkUpdateOptions) error {
-		params := jsonutils.NewDict()
-		if len(args.Name) > 0 {
-			params.Add(jsonutils.NewString(args.Name), "name")
-		}
-		if len(args.Desc) > 0 {
-			params.Add(jsonutils.NewString(args.Desc), "description")
-		}
-		if len(args.ServerType) > 0 {
-			params.Add(jsonutils.NewString(args.ServerType), "server_type")
-		}
-		if len(args.StartIp) > 0 {
-			params.Add(jsonutils.NewString(args.StartIp), "guest_ip_start")
-		}
-		if len(args.EndIp) > 0 {
-			params.Add(jsonutils.NewString(args.EndIp), "guest_ip_end")
-		}
-		if args.NetMask > 0 {
-			params.Add(jsonutils.NewInt(args.NetMask), "guest_ip_mask")
-		}
-		if len(args.Gateway) > 0 {
-			params.Add(jsonutils.NewString(args.Gateway), "guest_gateway")
-		}
-		if len(args.Dns) > 0 {
-			if args.Dns == "none" {
-				params.Add(jsonutils.NewString(""), "guest_dns")
-			} else {
-				params.Add(jsonutils.NewString(args.Dns), "guest_dns")
-			}
-		}
-		if len(args.Domain) > 0 {
-			if args.Domain == "none" {
-				params.Add(jsonutils.NewString(""), "guest_domain")
-			} else {
-				params.Add(jsonutils.NewString(args.Domain), "guest_domain")
-			}
-		}
-		if len(args.Dhcp) > 0 {
-			if args.Dhcp == "none" {
-				params.Add(jsonutils.NewString(""), "guest_dhcp")
-			} else {
-				params.Add(jsonutils.NewString(args.Dhcp), "guest_dhcp")
-			}
-		}
-		if args.VlanId > 0 {
-			params.Add(jsonutils.NewInt(args.VlanId), "vlan_id")
-		}
-		if len(args.ExternalId) > 0 {
-			params.Add(jsonutils.NewString(args.ExternalId), "external_id")
-		}
-		if len(args.AllocPolicy) > 0 {
-			params.Add(jsonutils.NewString(args.AllocPolicy), "alloc_policy")
-		}
-		if args.IsAutoAlloc != nil {
-			params.Add(jsonutils.NewBool(*args.IsAutoAlloc), "is_auto_alloc")
-		}
-		if params.Size() == 0 {
-			return InvalidUpdateError()
-		}
-		result, err := modules.Networks.Update(s, args.ID, params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	type NetworkIdOptions struct {
-		ID string `help:"ID or Name of the zone to show"`
-	}
-	R(&NetworkIdOptions{}, "network-show", "Show network details", func(s *mcclient.ClientSession, args *NetworkIdOptions) error {
-		result, err := modules.Networks.Get(s, args.ID, nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&NetworkIdOptions{}, "network-metadata", "Show metadata of a network", func(s *mcclient.ClientSession, args *NetworkIdOptions) error {
-		result, err := modules.Networks.GetMetadata(s, args.ID, nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&NetworkIdOptions{}, "network-private", "Make a network private", func(s *mcclient.ClientSession, args *NetworkIdOptions) error {
-		result, err := modules.Networks.PerformAction(s, args.ID, "private", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&NetworkIdOptions{}, "network-syncstatus", "Sync network status", func(s *mcclient.ClientSession, args *NetworkIdOptions) error {
-		result, err := modules.Networks.PerformAction(s, args.ID, "syncstatus", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
+	cmd := shell.NewResourceCmd(&modules.Networks).WithContextManager(&modules.Wires)
+	cmd.List(&options.NetworkListOptions{})
+	cmd.Update(&options.NetworkUpdateOptions{})
+	cmd.Show(&options.NetworkIdOptions{})
+	cmd.Delete(&options.NetworkIdOptions{})
+	cmd.GetMetadata(&options.NetworkIdOptions{})
+	cmd.Perform("private", &options.NetworkIdOptions{})
+	cmd.Perform("syncstatus", &options.NetworkIdOptions{})
+	cmd.Perform("sync", &options.NetworkIdOptions{})
+	cmd.Perform("purge", &options.NetworkIdOptions{})
+	cmd.Get("change-owner-candidate-domains", &options.NetworkIdOptions{})
 
 	type NetworkShareOptions struct {
-		NetworkIdOptions
+		ID             string   `help:"ID or Name of the zone to show"`
 		Scope          string   `help:"sharing scope" choices:"system|domain|project"`
 		SharedProjects []string `help:"Share to prjects"`
 		SharedDomains  []string `help:"share to domains"`
@@ -199,24 +49,6 @@ func init() {
 	R(&NetworkShareOptions{}, "network-public", "Make a network public", func(s *mcclient.ClientSession, args *NetworkShareOptions) error {
 		params := jsonutils.Marshal(args)
 		result, err := modules.Networks.PerformAction(s, args.ID, "public", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&NetworkIdOptions{}, "network-delete", "Delete a network", func(s *mcclient.ClientSession, args *NetworkIdOptions) error {
-		result, err := modules.Networks.Delete(s, args.ID, nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&NetworkIdOptions{}, "network-purge", "Purge a managed network, not delete the remote entity", func(s *mcclient.ClientSession, args *NetworkIdOptions) error {
-		result, err := modules.Networks.PerformAction(s, args.ID, "purge", nil)
 		if err != nil {
 			return err
 		}
@@ -386,18 +218,6 @@ func init() {
 		return nil
 	})
 
-	type NetworkSyncOptions struct {
-		NETWORK string `help:"id or name of network to sync"`
-	}
-	R(&NetworkSyncOptions{}, "network-sync", "Sync network status", func(s *mcclient.ClientSession, args *NetworkSyncOptions) error {
-		result, err := modules.Networks.PerformAction(s, args.NETWORK, "sync", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
 	type NetworkStatusOptions struct {
 		NETWORK string `help:"id or name of network to sync" json:"-"`
 		STATUS  string `help:"status of network" choices:"available|unavailable" json:"status"`
@@ -406,15 +226,6 @@ func init() {
 	R(&NetworkStatusOptions{}, "network-status", "Set on-premise network status", func(s *mcclient.ClientSession, args *NetworkStatusOptions) error {
 		params := jsonutils.Marshal(args)
 		result, err := modules.Networks.PerformAction(s, args.NETWORK, "status", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&NetworkIdOptions{}, "network-change-owner-candidate-domains", "Show candiate domains of a network for changing owner", func(s *mcclient.ClientSession, args *NetworkIdOptions) error {
-		result, err := modules.Networks.GetSpecific(s, args.ID, "change-owner-candidate-domains", nil)
 		if err != nil {
 			return err
 		}

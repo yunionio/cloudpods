@@ -27,7 +27,9 @@ import (
 )
 
 type ResourceCmd struct {
-	manager modulebase.IBaseManager
+	manager        modulebase.IBaseManager
+	contextManager modulebase.IBaseManager
+
 	keyword string
 	prefix  string
 }
@@ -41,6 +43,11 @@ func NewResourceCmd(manager modulebase.IBaseManager) *ResourceCmd {
 
 func (cmd *ResourceCmd) SetPrefix(prefix string) *ResourceCmd {
 	cmd.prefix = prefix
+	return cmd
+}
+
+func (cmd *ResourceCmd) WithContextManager(manager modulebase.IBaseManager) *ResourceCmd {
+	cmd.contextManager = manager
 	return cmd
 }
 
@@ -61,10 +68,7 @@ type IOpt interface {
 
 type IListOpt interface {
 	IOpt
-}
-
-type IListExportFileOpt interface {
-	IListOpt
+	GetContextId() string
 	GetExportFile() string
 	GetExportKeys() string
 	GetExportTexts() string
@@ -105,19 +109,23 @@ func (cmd ResourceCmd) List(args IListOpt) {
 		if err != nil {
 			return err
 		}
-		result, err := man.List(s, params)
-		if err != nil {
-			return err
-		}
-		exportArgs, isExportArgs := args.(IListExportFileOpt)
-		if isExportArgs {
-			if len(exportArgs.GetExportFile()) > 0 {
-				ExportList(result, exportArgs.GetExportFile(), exportArgs.GetExportKeys(), exportArgs.GetExportTexts(), man.GetColumns(s))
-				return nil
-			} else {
-				printList(result, man.GetColumns(s))
-				return nil
+		var result *modulebase.ListResult
+		contextId := args.GetContextId()
+		if cmd.contextManager != nil && len(contextId) > 0 {
+			result, err = man.(modulebase.Manager).ListInContext(s, params, cmd.contextManager.(modulebase.Manager), contextId)
+			if err != nil {
+				return err
 			}
+		} else {
+			result, err = man.List(s, params)
+			if err != nil {
+				return err
+			}
+		}
+		exportFile := args.GetExportFile()
+		if len(exportFile) > 0 {
+			ExportList(result, exportFile, args.GetExportKeys(), args.GetExportTexts(), man.GetColumns(s))
+			return nil
 		}
 		printList(result, man.GetColumns(s))
 		return nil
