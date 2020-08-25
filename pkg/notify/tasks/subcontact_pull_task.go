@@ -54,6 +54,7 @@ func (self *SubcontactPullTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 	// pull contacts
 	receiver := obj.(*models.SReceiver)
 	if len(receiver.Mobile) == 0 {
+		self.SetStageComplete(ctx, nil)
 		return
 	}
 	enabledContactTypes, _ := receiver.GetEnabledContactTypes()
@@ -77,8 +78,10 @@ func (self *SubcontactPullTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 	if err != nil {
 		reason := fmt.Sprintf("PushCache: %v", err)
 		self.taskFailed(ctx, receiver, reason)
+		return
 	}
 	// success
 	receiver.SetStatus(self.UserCred, apis.RECEIVER_STATUS_READY, "")
 	logclient.AddActionLogWithContext(ctx, receiver, logclient.ACT_PULL_SUBCONTACT, "", self.UserCred, true)
+	self.SetStageComplete(ctx, nil)
 }

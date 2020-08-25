@@ -72,4 +72,5 @@ func (self *VerificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		return
 	}
 	logclient.AddActionLogWithContext(ctx, receiver, logclient.ACT_SEND_VERIFICATION, "", self.UserCred, true)
+	self.SetStageComplete(ctx, nil)
 }

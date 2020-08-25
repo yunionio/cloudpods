@@ -39,6 +39,7 @@ func (self *NotificationSendTask) taskFailed(ctx context.Context, notification *
 func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	notification := obj.(*models.SNotification)
 	if notification.Status == apis.NOTIFICATION_STATUS_OK {
+		self.SetStageComplete(ctx, nil)
 		return
 	}
 	rns, err := notification.ReceiverNotificationsNotOK()
@@ -143,4 +144,5 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 	log.Infof("successfully send notification %q", notification.GetId())
 	notification.SetStatus(self.UserCred, apis.NOTIFICATION_STATUS_OK, "")
 	logclient.AddActionLogWithContext(ctx, notification, logclient.ACT_SEND_NOTIFICATION, "", self.UserCred, true)
+	self.SetStageComplete(ctx, nil)
 }
