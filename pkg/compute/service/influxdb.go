@@ -16,49 +16,45 @@ package service
 
 import (
 	"fmt"
-	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 )
 
-func setInfluxdbRetentionPolicy() error {
-	setF := func() error {
-		urls, err := auth.GetServiceURLs("influxdb", options.Options.Region, "", "")
-		if err != nil {
-			auth.ReAuth()
-		}
-		if err != nil {
-			return errors.Wrap(err, "get influxdb service urls")
-		}
-		log.Infof("get influxdb service urls: %v", urls)
-		for _, url := range urls {
-			err = setInfluxdbRetentionPolicyForUrl(url)
-			if err != nil {
-				return errors.Wrapf(err, "set retention policy for url %q", url)
-			}
-		}
-		return nil
+type sInfluxdbEndpointListener struct {
+	done map[string]bool
+}
+
+func (listener *sInfluxdbEndpointListener) OnServiceCatalogChange(catalog mcclient.IServiceCatalog) {
+	urls, err := auth.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.Region, "", "")
+	if err != nil {
+		log.Debugf("sInfluxdbEndpointListener: no influxdb endpoints found, retry later...")
+		return
 	}
-
-	go func() {
-		for {
-			err := setF()
-			if err == nil {
-				log.Infof("setInfluxdbRetentionPolicy completed")
-				return
-			}
-			retryInternal := 1 * time.Minute
-			log.Errorf("setInfluxdbRetentionPolicy error: %v, retry after %s", err, retryInternal)
-			time.Sleep(retryInternal)
+	for _, url := range urls {
+		if done, ok := listener.done[url]; ok && done {
+			continue
 		}
-	}()
+		err = setInfluxdbRetentionPolicyForUrl(url)
+		if err != nil {
+			log.Errorf("set retention policy for url %q fail %s", url, err)
+		} else {
+			listener.done[url] = true
+		}
+	}
+}
 
-	return nil
+func setInfluxdbRetentionPolicy() {
+	listener := &sInfluxdbEndpointListener{
+		done: make(map[string]bool),
+	}
+	auth.RegisterCatalogListener(listener)
 }
 
 func setInfluxdbRetentionPolicyForUrl(url string) error {

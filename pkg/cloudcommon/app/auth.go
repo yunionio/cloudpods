@@ -21,12 +21,14 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 func InitAuth(options *common_options.CommonOptions, authComplete auth.AuthCompletedCallback) {
@@ -75,11 +77,18 @@ func InitAuth(options *common_options.CommonOptions, authComplete auth.AuthCompl
 	}
 	notifyclient.FetchNotifyAdminRecipients(context.Background(), options.Region, users, groups)
 
-	authComplete()
+	if authComplete != nil {
+		authComplete()
+	}
 
 	consts.SetTenantCacheExpireSeconds(options.TenantCacheExpireSeconds)
 
 	InitBaseAuth(&options.BaseOptions)
+
+	watcher := newEndpointChangeManager()
+	watcher.StartWatching(&modules.EndpointsV3)
+
+	startEtcdEndpointPuller()
 }
 
 func InitBaseAuth(options *common_options.BaseOptions) {
@@ -96,4 +105,18 @@ func InitBaseAuth(options *common_options.BaseOptions) {
 func FetchEtcdServiceInfo() (*identity.EndpointDetails, error) {
 	s := auth.GetAdminSession(context.Background(), "", "")
 	return s.GetCommonEtcdEndpoint()
+}
+
+func startEtcdEndpointPuller() {
+	retryInterval := 60
+	etecdUrl, err := auth.GetServiceURL(apis.SERVICE_TYPE_ETCD, consts.GetRegion(), "", "")
+	if err != nil {
+		log.Errorf("[etcd] GetServiceURL fail %s, retry after %d seconds", err, retryInterval)
+	} else if len(etecdUrl) == 0 {
+		log.Errorf("[etcd] no service url found, retry after %d seconds", retryInterval)
+	} else {
+		return
+	}
+	auth.ReAuth()
+	time.AfterFunc(time.Second*time.Duration(retryInterval), startEtcdEndpointPuller)
 }

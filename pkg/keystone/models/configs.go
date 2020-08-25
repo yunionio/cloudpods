@@ -425,6 +425,10 @@ func (s *dbServiceConfigSession) Upload() {
 	uploadConfig(s.service, s.config)
 }
 
+func (s *dbServiceConfigSession) IsRemote() bool {
+	return false
+}
+
 func uploadConfig(service *SService, config jsonutils.JSONObject) {
 	nconf := jsonutils.NewDict()
 	nconf.Add(config, "default")

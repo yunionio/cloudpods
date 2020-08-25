@@ -28,7 +28,9 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
@@ -39,8 +41,11 @@ type Client struct {
 	timeout int
 	debug   bool
 
-	httpconn       *http.Client
-	serviceCatalog IServiceCatalog
+	httpconn        *http.Client
+	_serviceCatalog IServiceCatalog
+
+	catalogListeners []IServiceCatalogChangeListener
+	listenerWorker   *appsrv.SWorkerManager
 }
 
 func NewClient(authUrl string, timeout int, debug bool, insecure bool, certFile, keyFile string) *Client {
@@ -75,6 +80,8 @@ func NewClient(authUrl string, timeout int, debug bool, insecure bool, certFile,
 			}, // 不自动处理重定向请求
 		},
 	}
+
+	client.listenerWorker = appsrv.NewWorkerManager("client_catalog_listener_worker", 1, 2048, false)
 	return &client
 }
 
@@ -101,14 +108,6 @@ func (this *Client) AuthVersion() string {
 	} else {
 		return ""
 	}
-}
-
-func (this *Client) SetServiceCatalog(catalog IServiceCatalog) {
-	this.serviceCatalog = catalog
-}
-
-func (this *Client) GetServiceCatalog() IServiceCatalog {
-	return this.serviceCatalog
 }
 
 func (this *Client) NewAuthTokenCredential() TokenCredential {
@@ -259,7 +258,7 @@ func (this *Client) unmarshalV3Token(rbody jsonutils.JSONObject, tokenId string)
 	if cata == nil || cata.Len() == 0 {
 		log.Warningf("No service catalog avaiable")
 	} else {
-		this.serviceCatalog = cata
+		this.SetServiceCatalog(cata)
 	}
 	return
 }
@@ -276,7 +275,7 @@ func (this *Client) unmarshalV2Token(rbody jsonutils.JSONObject) (cred TokenCred
 		if cata == nil || cata.Len() == 0 {
 			log.Warningf("No srvice catalog avaiable")
 		} else {
-			this.serviceCatalog = cata
+			this.SetServiceCatalog(cata)
 		}
 		return
 	}
@@ -345,7 +344,7 @@ func (this *Client) GetCommonEtcdEndpoint(token TokenCredential, region, interfa
 		return nil, errors.Errorf("current version %s not support get internal etcd endpoint", this.AuthVersion())
 	}
 
-	_, err := this.GetServiceCatalog().GetServiceURL(api.SERVICE_TYPE_ETCD, region, "", interfaceType)
+	_, err := this.GetServiceCatalog().GetServiceURL(apis.SERVICE_TYPE_ETCD, region, "", interfaceType)
 	if err != nil {
 		return nil, err
 	}
@@ -353,7 +352,7 @@ func (this *Client) GetCommonEtcdEndpoint(token TokenCredential, region, interfa
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(interfaceType), "interface")
 	params.Add(jsonutils.JSONTrue, "enabled")
-	params.Add(jsonutils.NewString(api.SERVICE_TYPE_ETCD), "service")
+	params.Add(jsonutils.NewString(apis.SERVICE_TYPE_ETCD), "service")
 	params.Add(jsonutils.JSONTrue, "details")
 	params.Add(jsonutils.NewString(region), "region")
 
@@ -367,10 +366,10 @@ func (this *Client) GetCommonEtcdEndpoint(token TokenCredential, region, interfa
 		return nil, errors.Wrap(err, "get endpoints response")
 	}
 	if len(rets) == 0 {
-		return nil, errors.Wrapf(httperrors.ErrNotFound, "not found service %s %s endpoint", api.SERVICE_TYPE_ETCD, interfaceType)
+		return nil, errors.Wrapf(httperrors.ErrNotFound, "not found service %s %s endpoint", apis.SERVICE_TYPE_ETCD, interfaceType)
 	}
 	if len(rets) > 1 {
-		return nil, errors.Errorf("fond %d duplicate serivce %s %s endpoint", len(rets), api.SERVICE_TYPE_ETCD, interfaceType)
+		return nil, errors.Errorf("fond %d duplicate serivce %s %s endpoint", len(rets), apis.SERVICE_TYPE_ETCD, interfaceType)
 	}
 	endpoint := new(api.EndpointDetails)
 	if err := rets[0].Unmarshal(endpoint); err != nil {
@@ -391,11 +390,11 @@ func (this *Client) GetCommonEtcdTLSConfig(endpoint *api.EndpointDetails) (*tls.
 
 func (this *Client) NewSession(ctx context.Context, region, zone, endpointType string, token TokenCredential, apiVersion string) *ClientSession {
 	cata := token.GetServiceCatalog()
-	if this.serviceCatalog == nil {
+	if this.GetServiceCatalog() == nil {
 		if cata == nil || cata.Len() == 0 {
 			log.Warningf("Missing service catalog in token")
 		} else {
-			this.serviceCatalog = cata
+			this.SetServiceCatalog(cata)
 		}
 	}
 	if ctx == nil {

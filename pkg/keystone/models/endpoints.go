@@ -146,7 +146,7 @@ func (manager *SEndpointManager) IsEtcdInformerBackend(ep *SEndpoint) bool {
 	if svc == nil {
 		return false
 	}
-	if svc.GetName() != api.SERVICE_TYPE_ETCD {
+	if svc.GetName() != apis.SERVICE_TYPE_ETCD {
 		return false
 	}
 	epType := manager.getSessionEndpointType()
@@ -177,7 +177,7 @@ func (manager *SEndpointManager) fetchInformerEndpoint() (*SEndpoint, error) {
 		sqlchemy.IsTrue(endpoints.Field("enabled"))))
 	q = q.Filter(sqlchemy.AND(
 		sqlchemy.IsTrue(services.Field("enabled")),
-		sqlchemy.Equals(services.Field("type"), api.SERVICE_TYPE_ETCD)))
+		sqlchemy.Equals(services.Field("type"), apis.SERVICE_TYPE_ETCD)))
 
 	informerEp := new(SEndpoint)
 	if err := q.First(informerEp); err != nil {

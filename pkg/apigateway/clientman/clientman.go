@@ -20,22 +20,10 @@ import (
 	"github.com/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apigateway/options"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 func InitClient() error {
-	info := auth.NewAuthInfo(options.Options.AuthURL,
-		options.Options.AdminDomain,
-		options.Options.AdminUser,
-		options.Options.AdminPassword,
-		options.Options.AdminProject,
-		options.Options.AdminProjectDomain,
-	)
-
-	auth.Init(info, options.Options.DebugClient, true,
-		options.Options.SslCertfile, options.Options.SslKeyfile)
-
 	if options.Options.EnableSsl {
 		privData, err := ioutil.ReadFile(options.Options.SslKeyfile)
 		if err != nil {

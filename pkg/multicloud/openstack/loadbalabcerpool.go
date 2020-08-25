@@ -422,7 +422,7 @@ func (region *SRegion) UpdateLoadBalancerPool(poolId string, group *cloudprovide
 	}
 	_, err := region.lbUpdate(fmt.Sprintf("/v2/lbaas/pools/%s", poolId), jsonutils.Marshal(params))
 	if err != nil {
-		return errors.Wrap(err, `region.lbUpdate(fmt.Sprintf("/v2/lbaas/pools/%s", poolId), jsonutils.Marshal(params))`)
+		return errors.Wrapf(err, `region.lbUpdate("/v2/lbaas/pools/%s", jsonutils.Marshal(params))`, poolId)
 	}
 	return nil
 }

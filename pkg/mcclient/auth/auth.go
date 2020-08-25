@@ -22,17 +22,19 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/cache"
 
 	"yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/cloudcommon/syncman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 var (
-	manager            *authManager
-	defaultTimeout     int       = 600 // maybe time.Duration better
-	defaultCacheCount  int64     = 100000
-	initCh             chan bool = make(chan bool)
+	manager           *authManager
+	defaultTimeout    int   = 600 // maybe time.Duration better
+	defaultCacheCount int64 = 100000
+	// initCh             chan bool = make(chan bool)
 	globalEndpointType string
 )
 
@@ -134,6 +136,8 @@ func (c *TokenCacheVerify) Verify(ctx context.Context, cli *mcclient.Client, adm
 }
 
 type authManager struct {
+	syncman.SSyncManager
+
 	client           *mcclient.Client
 	info             *AuthInfo
 	adminCredential  mcclient.TokenCredential
@@ -142,12 +146,14 @@ type authManager struct {
 }
 
 func newAuthManager(cli *mcclient.Client, info *AuthInfo) *authManager {
-	return &authManager{
+	authm := &authManager{
 		client:           cli,
 		info:             info,
 		tokenCacheVerify: NewTokenCacheVerify(),
 		accessKeyCache:   newAccessKeyCache(),
 	}
+	authm.InitSync(authm)
+	return authm
 }
 
 func (a *authManager) verifyRequest(req http.Request, virtualHost bool) (mcclient.TokenCredential, error) {
@@ -190,19 +196,25 @@ func (a *authManager) authAdmin() error {
 	}
 }
 
-func (a *authManager) reAuth() {
-	redoSleepTime := 60 * time.Second
-	for {
-		err := a.authAdmin()
-		if err == nil {
-			break
-		}
-		log.Errorf("Reauth failed: %s, try it again after %v", err, redoSleepTime)
-		time.Sleep(redoSleepTime)
+func (a *authManager) DoSync(first bool) (time.Duration, error) {
+	err := a.authAdmin()
+	if err != nil {
+		return time.Minute, errors.Wrap(err, "authAdmin")
+	} else {
+		return a.adminCredential.GetExpires().Sub(time.Now()) / 2, nil
 	}
-	expire := a.adminCredential.GetExpires()
-	duration := expire.Sub(time.Now())
-	time.AfterFunc(time.Duration(duration.Nanoseconds()/2), a.reAuth)
+}
+
+func (a *authManager) NeedSync(dat *jsonutils.JSONDict) bool {
+	return true
+}
+
+func (a *authManager) Name() string {
+	return "AuthManager"
+}
+
+func (a *authManager) reAuth() {
+	a.SyncOnce()
 }
 
 func (a *authManager) GetServiceURL(service, region, zone, endpointType string) (string, error) {
@@ -235,19 +247,6 @@ func (a *authManager) isAuthed() bool {
 		return false
 	}
 	return true
-}
-
-func (a *authManager) init() error {
-	if err := a.authAdmin(); err != nil {
-		initCh <- false
-		log.Fatalf("Auth manager init err: %v", err)
-	}
-	log.Infof("Get token: %v", a.getTokenString())
-	expire := a.adminCredential.GetExpires()
-	duration := expire.Sub(time.Now())
-	time.AfterFunc(time.Duration(duration.Nanoseconds()/2), a.reAuth)
-	initCh <- true
-	return nil
 }
 
 func GetCatalogData(serviceTypes []string, region string) jsonutils.JSONObject {
@@ -290,6 +289,7 @@ func AdminCredential() mcclient.TokenCredential {
 	return manager.adminCredential
 }
 
+// Deprecated
 func AdminSession(ctx context.Context, region, zone, endpointType, apiVersion string) *mcclient.ClientSession {
 	cli := Client()
 	if cli == nil {
@@ -301,45 +301,31 @@ func AdminSession(ctx context.Context, region, zone, endpointType, apiVersion st
 	return cli.NewSession(ctx, region, zone, endpointType, AdminCredential(), apiVersion)
 }
 
+// Deprecated
 func AdminSessionWithInternal(ctx context.Context, region, zone, apiVersion string) *mcclient.ClientSession {
 	return AdminSession(ctx, region, zone, "internal", apiVersion)
 }
 
+// Deprecated
 func AdminSessionWithPublic(ctx context.Context, region, zone, apiVersion string) *mcclient.ClientSession {
 	return AdminSession(ctx, region, zone, "public", apiVersion)
 }
 
 type AuthCompletedCallback func()
 
-func (callback *AuthCompletedCallback) Run() {
-	f := *callback
-	for {
-		initOk := <-initCh
-		if initOk && manager.isAuthed() {
-			log.V(10).Infof("Auth completed, run callback: %v", *callback)
-			f()
-			return
-		}
-		log.Warningf("Auth manager not ready, check it again...")
-	}
-}
-
 func AsyncInit(info *AuthInfo, debug, insecure bool, certFile, keyFile string, callback AuthCompletedCallback) {
 	cli := mcclient.NewClient(info.AuthUrl, defaultTimeout, debug, insecure, certFile, keyFile)
 	manager = newAuthManager(cli, info)
-	go manager.init()
-	if callback != nil {
-		go callback.Run()
+	err := manager.FirstSync()
+	if err != nil {
+		log.Fatalf("Auth manager init err: %v", err)
+	} else if callback != nil {
+		callback()
 	}
 }
 
 func Init(info *AuthInfo, debug, insecure bool, certFile, keyFile string) {
-	done := make(chan bool, 1)
-	f := func() {
-		done <- true
-	}
-	AsyncInit(info, debug, insecure, certFile, keyFile, f)
-	<-done
+	AsyncInit(info, debug, insecure, certFile, keyFile, nil)
 }
 
 func ReAuth() {
@@ -392,4 +378,8 @@ func InitFromClientSession(session *mcclient.ClientSession) {
 	}
 
 	SetEndpointType(session.GetEndpointType())
+}
+
+func RegisterCatalogListener(listener mcclient.IServiceCatalogChangeListener) {
+	manager.client.RegisterCatalogListener(listener)
 }

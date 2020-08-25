@@ -59,6 +59,7 @@ func getServiceConfig(s *mcclient.ClientSession, serviceId string) (jsonutils.JS
 type IServiceConfigSession interface {
 	Merge(opts interface{}, serviceType string, serviceVersion string) bool
 	Upload()
+	IsRemote() bool
 }
 
 type mcclientServiceConfigSession struct {
@@ -123,4 +124,8 @@ func (s *mcclientServiceConfigSession) Upload() {
 			log.Errorf("fail to save config: %s", err)
 		}
 	}
+}
+
+func (s *mcclientServiceConfigSession) IsRemote() bool {
+	return true
 }

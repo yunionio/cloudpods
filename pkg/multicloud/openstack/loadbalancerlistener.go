@@ -587,7 +587,7 @@ func (listener *SLoadbalancerListener) GetILoadbalancerListenerRules() ([]cloudp
 func (region *SRegion) DeleteLoadbalancerListener(listenerId string) error {
 	_, err := region.lbDelete(fmt.Sprintf("/v2/lbaas/listeners/%s", listenerId))
 	if err != nil {
-		return errors.Wrapf(err, "region.lbDelete(fmt.Sprintf(/v2/lbaas/listeners/%s))", listenerId)
+		return errors.Wrapf(err, `region.lbDelete("/v2/lbaas/listeners/%s")`, listenerId)
 	}
 	return nil
 }
