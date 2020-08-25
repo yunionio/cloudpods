@@ -40,7 +40,7 @@ type SNotifyMessage struct {
 }
 
 type SNotifyV2Message struct {
-	ReceiverIds []string `json:"receiver_ids"`
+	Receivers   []string `json:"receivers"`
 	ContactType string   `json:"contact_type"`
 	Topic       string   `json:"topic"`
 	Priority    string   `json:"priority"`
@@ -73,7 +73,7 @@ func (manager *NotificationManager) Send(s *mcclient.ClientSession, msg SNotifyM
 	receiverIds = append(receiverIds, msg.Uid...)
 
 	v2msg := SNotifyV2Message{
-		ReceiverIds: receiverIds,
+		Receivers:   receiverIds,
 		ContactType: string(msg.ContactType),
 		Topic:       msg.Topic,
 		Priority:    string(msg.Priority),
