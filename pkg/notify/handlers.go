@@ -65,7 +65,7 @@ func middleware(f appsrv.FilterHandler) appsrv.FilterHandler {
 			if uid, ok := params["<uid>"]; ok {
 				userDetail, err := utils.GetUserByIDOrName(ctx, uid)
 				if err != nil {
-					httperrors.NotFoundError(w, "Uid or Uname Not Found")
+					httperrors.NotFoundError(ctx, w, "Uid or Uname Not Found")
 					return
 				}
 				log.Debugf("find userDetail, id: %s, name: %s", userDetail.Id, userDetail.Name)
@@ -197,31 +197,31 @@ func templateUpdateHandler(ctx context.Context, w http.ResponseWriter, r *http.R
 	manager, params, query, body := fetchEnv(ctx, w, r)
 	data, err := body.GetArray(manager.Keyword(), manager.KeywordPlural())
 	if err != nil {
-		httperrors.GeneralServerError(w, httperrors.NewInputParameterError("need %s and %s",
+		httperrors.GeneralServerError(ctx, w, httperrors.NewInputParameterError("need %s and %s",
 			manager.Keyword(), manager.KeywordPlural()))
 		return
 	}
 	ctype := params["<ctype>"]
 	if len(ctype) == 0 {
-		httperrors.InputParameterError(w, "ctype of template should not be empty")
+		httperrors.InputParameterError(ctx, w, "ctype of template should not be empty")
 	}
 	err = manager.UpdateTemplate(ctx, ctype, mergeQueryParams(params, query), data)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 	}
 }
 
 func deleteTemplateHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, _, query, body := fetchEnv(ctx, w, r)
 	if !body.Contains("contact_type") {
-		httperrors.InputParameterError(w, "miss contact_type")
+		httperrors.InputParameterError(ctx, w, "miss contact_type")
 		return
 	}
 	ctype, _ := body.GetString("contact_type")
 	topic, _ := body.GetString("topic")
 	err := manager.DeleteTemplate(ctx, query, ctype, topic)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 	}
 }
 
@@ -229,7 +229,7 @@ func configDeleteHandler(ctx context.Context, w http.ResponseWriter, r *http.Req
 	manager, params, _, _ := fetchEnv(ctx, w, r)
 	err := manager.DeleteConfig(ctx, params)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 	}
 }
 
@@ -237,7 +237,7 @@ func configGetHandler(ctx context.Context, w http.ResponseWriter, r *http.Reques
 	manager, params, query, _ := fetchEnv(ctx, w, r)
 	ret, err := manager.GetConfig(ctx, params, query)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	appsrv.SendJSON(w, ret)
@@ -247,12 +247,12 @@ func configUpdateHandler(ctx context.Context, w http.ResponseWriter, r *http.Req
 	manager, _, _, body := fetchEnv(ctx, w, r)
 	body, err := body.Get(models.ConfigManager.Keyword())
 	if err != nil {
-		httperrors.GeneralServerError(w, httperrors.NewInputParameterError("need config or configs"))
+		httperrors.GeneralServerError(ctx, w, httperrors.NewInputParameterError("need config or configs"))
 		return
 	}
 	err = manager.UpdateConfig(ctx, body)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 	}
 }
 
@@ -260,12 +260,12 @@ func configValidateHandler(ctx context.Context, w http.ResponseWriter, r *http.R
 	manager, params, _, body := fetchEnv(ctx, w, r)
 	body, err := body.Get(models.ConfigManager.Keyword())
 	if err != nil {
-		httperrors.GeneralServerError(w, httperrors.NewInputParameterError("need config"))
+		httperrors.GeneralServerError(ctx, w, httperrors.NewInputParameterError("need config"))
 	}
 	ctype := params["<type>"]
 	err = manager.ValidateConfig(ctx, ctype, body)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 }
@@ -274,16 +274,16 @@ func notificationHandler(ctx context.Context, w http.ResponseWriter, r *http.Req
 	manager, _, _, body := fetchEnv(ctx, w, r)
 	data, err := body.Get(manager.Keyword())
 	if err != nil {
-		httperrors.BadRequestError(w, "request body should contain %s", manager.Keyword())
+		httperrors.BadRequestError(ctx, w, "request body should contain %s", manager.Keyword())
 		return
 	}
 	if !data.Contains("gid") && !data.Contains("uid") {
-		httperrors.MissingParameterError(w, "gid | uid")
+		httperrors.MissingParameterError(ctx, w, "gid | uid")
 		return
 	}
 	_, err = manager.CreateNotification(ctx, data)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 }
@@ -293,7 +293,7 @@ func verifyHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	manager, params, query, _ := fetchEnv(ctx, w, r)
 	err := manager.Verify(ctx, params, query)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 	}
 }
 
@@ -305,7 +305,7 @@ func contactUpdateHandler(ctx context.Context, w http.ResponseWriter, r *http.Re
 	data, err := body.GetArray(manager.Keyword(), manager.KeywordPlural())
 	if err != nil {
 		log.Errorf("body: %s, err: %s\n", body.String(), err)
-		httperrors.GeneralServerError(w, httperrors.NewInputParameterError("need %s and %s",
+		httperrors.GeneralServerError(ctx, w, httperrors.NewInputParameterError("need %s and %s",
 			manager.Keyword(), manager.KeywordPlural()))
 		return
 	}
@@ -317,7 +317,7 @@ func contactUpdateHandler(ctx context.Context, w http.ResponseWriter, r *http.Re
 	out, err := manager.UpdateContacts(ctx, uid, mergeQueryParams(params, query), data, pullCtypes, nil)
 	if err != nil {
 		log.Errorf(err.Error())
-		httperrors.BadRequestError(w, "")
+		httperrors.BadRequestError(ctx, w, "")
 		return
 	}
 	if out == nil {
@@ -335,7 +335,7 @@ func deleteContactHandler(ctx context.Context, w http.ResponseWriter, r *http.Re
 	if body != nil {
 		data, err = body.GetArray(manager.KeywordPlural())
 		if err != nil {
-			httperrors.BadRequestError(w, "request body should have %s", manager.KeywordPlural())
+			httperrors.BadRequestError(ctx, w, "request body should have %s", manager.KeywordPlural())
 			return
 		}
 	}
@@ -343,7 +343,7 @@ func deleteContactHandler(ctx context.Context, w http.ResponseWriter, r *http.Re
 
 	if err != nil {
 		log.Errorf("delete contact of %s failed, error: %s", data, err)
-		httperrors.GeneralServerError(w, errors.Error("delete failed"))
+		httperrors.GeneralServerError(ctx, w, errors.Error("delete failed"))
 	}
 }
 
@@ -352,13 +352,13 @@ func verifyTriggerHandler(ctx context.Context, w http.ResponseWriter, r *http.Re
 	manager, params, _, body := fetchEnv(ctx, w, r)
 	data, err := body.Get(models.ContactManager.Keyword())
 	if err != nil {
-		httperrors.BadRequestError(w, "request body should have %s", manager.Keyword())
+		httperrors.BadRequestError(ctx, w, "request body should have %s", manager.Keyword())
 		return
 	}
 	ret, err := manager.VerifyTrigger(ctx, params, data)
 	if err != nil {
 		log.Errorf("verifyTrigger failed beacause %s", err)
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	appsrv.SendJSON(w, ret)
@@ -369,7 +369,7 @@ func listHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, _ := fetchEnv(ctx, w, r)
 	listResult, err := manager.List(ctx, mergeQueryParams(params, query), nil)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	appsrv.SendJSON(w, modulebase.ListResult2JSONWithKey(listResult, manager.KeywordPlural()))
@@ -379,7 +379,7 @@ func getHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, _ := fetchEnv(ctx, w, r)
 	listResult, err := manager.List(ctx, mergeQueryParams(params, query), nil)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	var data jsonutils.JSONObject
@@ -407,14 +407,14 @@ func keyStoneUserListHandler(ctx context.Context, w http.ResponseWriter, r *http
 	users, err := modules.UsersV3.List(s, query)
 	if err != nil {
 		log.Errorf("keystone list error: %s", err)
-		httperrors.InternalServerError(w, err.Error())
+		httperrors.InternalServerError(ctx, w, err.Error())
 		return
 	}
 	q := models.ContactManager.Query("uid").GroupBy("uid")
 	row, err := q.Rows()
 	if err != nil {
 		log.Errorf("get contact's uid error: %s", err)
-		httperrors.InternalServerError(w, err.Error())
+		httperrors.InternalServerError(ctx, w, err.Error())
 		return
 	}
 	defer row.Close()

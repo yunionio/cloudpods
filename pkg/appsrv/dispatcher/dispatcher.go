@@ -203,7 +203,7 @@ func listHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 func handleList(ctx context.Context, w http.ResponseWriter, manager IModelDispatchHandler, ctxIds []SResourceContext, query jsonutils.JSONObject) {
 	listResult, err := manager.List(ctx, query, ctxIds)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	appsrv.SendJSON(w, modulebase.ListResult2JSONWithKey(listResult, manager.KeywordPlural()))
@@ -272,7 +272,7 @@ func getHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	result, err := manager.Get(ctx, params["<resid>"], mergeQueryParams(params, query, "<resid>"), false)
 	if err != nil {
 		e := httperrors.NewGeneralError(err)
-		httperrors.JsonClientError(w, e)
+		httperrors.JsonClientError(ctx, w, e)
 		return
 	}
 	if result != nil {
@@ -285,7 +285,7 @@ func getSpecHandler(ctx context.Context, w http.ResponseWriter, r *http.Request)
 	result, err := manager.GetSpecific(ctx, params["<resid>"], params["<spec>"], mergeQueryParams(params, query, "<resid>", "<spec>"))
 	if err != nil {
 		e := httperrors.NewGeneralError(err)
-		httperrors.JsonClientError(w, e)
+		httperrors.JsonClientError(ctx, w, e)
 		return
 	}
 	if result != nil {
@@ -293,13 +293,15 @@ func getSpecHandler(ctx context.Context, w http.ResponseWriter, r *http.Request)
 	}
 }
 
-func writeErrNoRequestKey(w http.ResponseWriter, key string) {
-	httperrors.InvalidInputError(w,
+func writeErrNoRequestKey(ctx context.Context, w http.ResponseWriter, r *http.Request, key string) {
+	ctx = httperrors.WithRequestLang(ctx, r)
+	httperrors.InvalidInputError(ctx, w,
 		"No request key: %s", key)
 }
 
-func writeErrInvalidRequestHeader(w http.ResponseWriter, err error) {
-	httperrors.InvalidInputError(w,
+func writeErrInvalidRequestHeader(ctx context.Context, w http.ResponseWriter, r *http.Request, err error) {
+	ctx = httperrors.WithRequestLang(ctx, r)
+	httperrors.InvalidInputError(ctx, w,
 		"Invalid request header: %v", err)
 }
 
@@ -316,27 +318,27 @@ func handleCreate(ctx context.Context, w http.ResponseWriter, manager IModelDisp
 		count, _ = body.Int("count")
 		data, err = body.Get(manager.Keyword())
 		if err != nil {
-			writeErrNoRequestKey(w, manager.Keyword())
+			writeErrNoRequestKey(ctx, w, r, manager.Keyword())
 			return
 		}
 	} else {
 		data, err = manager.FetchCreateHeaderData(ctx, r.Header)
 		if err != nil {
-			writeErrInvalidRequestHeader(w, err)
+			writeErrInvalidRequestHeader(ctx, w, r, err)
 			return
 		}
 	}
 	if count <= 1 {
 		result, err := manager.Create(ctx, query, data, ctxIds)
 		if err != nil {
-			httperrors.GeneralServerError(w, err)
+			httperrors.GeneralServerError(ctx, w, err)
 			return
 		}
 		appsrv.SendJSON(w, wrapBody(result, manager.Keyword()))
 	} else {
 		results, err := manager.BatchCreate(ctx, query, data, int(count), ctxIds)
 		if err != nil {
-			httperrors.GeneralServerError(w, err)
+			httperrors.GeneralServerError(ctx, w, err)
 			return
 		}
 		ret := jsonutils.NewArray()
@@ -373,7 +375,7 @@ func performClassActionHandler(ctx context.Context, w http.ResponseWriter, r *ht
 	}
 	results, err := manager.PerformClassAction(ctx, params["<action>"], mergeQueryParams(params, query, "<action>"), data)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	if results == nil {
@@ -400,7 +402,7 @@ func performActionHandler(ctx context.Context, w http.ResponseWriter, r *http.Re
 	}
 	result, err := manager.PerformAction(ctx, params["<resid>"], params["<action>"], mergeQueryParams(params, query, "<resid>", "<action>"), data)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	sendJSON(ctx, w, result, manager.Keyword())
@@ -419,7 +421,7 @@ func handleUpdate(ctx context.Context, w http.ResponseWriter, manager IModelDisp
 		if body.Contains(manager.Keyword()) {
 			data, err = body.Get(manager.Keyword())
 			if err != nil {
-				writeErrNoRequestKey(w, manager.Keyword())
+				writeErrNoRequestKey(ctx, w, r, manager.Keyword())
 				return
 			}
 		} else {
@@ -428,13 +430,13 @@ func handleUpdate(ctx context.Context, w http.ResponseWriter, manager IModelDisp
 	} else {
 		data, err = manager.FetchUpdateHeaderData(ctx, r.Header)
 		if err != nil {
-			writeErrInvalidRequestHeader(w, err)
+			writeErrInvalidRequestHeader(ctx, w, r, err)
 			return
 		}
 	}
 	result, err := manager.Update(ctx, resId, query, data, ctxIds)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	sendJSON(ctx, w, result, manager.Keyword())
@@ -456,7 +458,7 @@ func updateSpecHandler(ctx context.Context, w http.ResponseWriter, r *http.Reque
 		if body.Contains(manager.Keyword()) {
 			data, err = body.Get(manager.Keyword())
 			if err != nil {
-				writeErrNoRequestKey(w, manager.Keyword())
+				writeErrNoRequestKey(ctx, w, r, manager.Keyword())
 				return
 			}
 		} else {
@@ -465,13 +467,13 @@ func updateSpecHandler(ctx context.Context, w http.ResponseWriter, r *http.Reque
 	} else {
 		data, err = manager.FetchUpdateHeaderData(ctx, r.Header)
 		if err != nil {
-			writeErrInvalidRequestHeader(w, err)
+			writeErrInvalidRequestHeader(ctx, w, r, err)
 			return
 		}
 	}
 	result, err := manager.UpdateSpec(ctx, params["<resid>"], params["<spec>"], mergeQueryParams(params, query, "<resid>", "<spec>"), data)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	sendJSON(ctx, w, result, manager.Keyword())
@@ -490,7 +492,7 @@ func handleDelete(ctx context.Context, w http.ResponseWriter, manager IModelDisp
 		if body.Contains(manager.Keyword()) {
 			data, err = body.Get(manager.Keyword())
 			if err != nil {
-				writeErrNoRequestKey(w, manager.Keyword())
+				writeErrNoRequestKey(ctx, w, r, manager.Keyword())
 				return
 			}
 		} else {
@@ -501,7 +503,7 @@ func handleDelete(ctx context.Context, w http.ResponseWriter, manager IModelDisp
 	}
 	result, err := manager.Delete(ctx, resId, query, data, ctxIds)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	sendJSON(ctx, w, result, manager.Keyword())
@@ -523,7 +525,7 @@ func deleteSpecHandler(ctx context.Context, w http.ResponseWriter, r *http.Reque
 		if body.Contains(manager.Keyword()) {
 			data, err = body.Get(manager.Keyword())
 			if err != nil {
-				writeErrNoRequestKey(w, manager.Keyword())
+				writeErrNoRequestKey(ctx, w, r, manager.Keyword())
 				return
 			}
 		} else {
@@ -534,7 +536,7 @@ func deleteSpecHandler(ctx context.Context, w http.ResponseWriter, r *http.Reque
 	}
 	result, err := manager.DeleteSpec(ctx, params["<resid>"], params["<spec>"], mergeQueryParams(params, query, "<resid>", "<spec>"), data)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	sendJSON(ctx, w, result, manager.Keyword())

@@ -55,13 +55,13 @@ func authenticateTokensV2(ctx context.Context, w http.ResponseWriter, r *http.Re
 	input := mcclient.SAuthenticationInputV2{}
 	err := body.Unmarshal(&input)
 	if err != nil {
-		httperrors.InvalidInputError(w, "unrecognized input %s", err)
+		httperrors.InvalidInputError(ctx, w, "unrecognized input %s", err)
 		return
 	}
 	input.Auth.Context = FetchAuthContext(input.Auth.Context, r)
 	token, err := AuthenticateV2(ctx, input)
 	if token == nil {
-		httperrors.UnauthorizedError(w, "unauthorized %s", err)
+		httperrors.UnauthorizedError(ctx, w, "unauthorized %s", err)
 		return
 	}
 	appsrv.SendJSON(w, jsonutils.Marshal(token))
@@ -72,13 +72,13 @@ func authenticateTokensV2(ctx context.Context, w http.ResponseWriter, r *http.Re
 func authenticateTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	_, _, body := appsrv.FetchEnv(ctx, w, r)
 	if body == nil {
-		httperrors.InvalidInputError(w, "fail to decode request body")
+		httperrors.InvalidInputError(ctx, w, "fail to decode request body")
 		return
 	}
 	input := mcclient.SAuthenticationInputV3{}
 	err := body.Unmarshal(&input)
 	if err != nil {
-		httperrors.InvalidInputError(w, "unrecognized input %s", err)
+		httperrors.InvalidInputError(ctx, w, "unrecognized input %s", err)
 		return
 	}
 	input.Auth.Context = FetchAuthContext(input.Auth.Context, r)
@@ -86,16 +86,16 @@ func authenticateTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Re
 	if err != nil {
 		switch errors.Cause(err) {
 		case sqlchemy.ErrDuplicateEntry:
-			httperrors.ConflictError(w, "duplicate username")
+			httperrors.ConflictError(ctx, w, "duplicate username")
 		case httperrors.ErrTooManyAttempts, httperrors.ErrUserNotFound:
-			httperrors.GeneralServerError(w, err)
+			httperrors.GeneralServerError(ctx, w, err)
 		default:
-			httperrors.UnauthorizedError(w, "unauthorized %s", err)
+			httperrors.UnauthorizedError(ctx, w, "unauthorized %s", err)
 		}
 		return
 	}
 	if token == nil {
-		httperrors.UnauthorizedError(w, "user not found or not enabled")
+		httperrors.UnauthorizedError(ctx, w, "user not found or not enabled")
 		return
 	}
 	w.Header().Set(api.AUTH_SUBJECT_TOKEN_HEADER, token.Id)
@@ -126,27 +126,27 @@ func verifyTokensV2(ctx context.Context, w http.ResponseWriter, r *http.Request)
 	tokenStr := params["<token>"]
 	token, err := verifyCommon(ctx, w, tokenStr)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	user, err := models.UserManager.FetchUserExtended(token.UserId, "", "", "")
 	if err != nil {
-		httperrors.InvalidCredentialError(w, "invalid user")
+		httperrors.InvalidCredentialError(ctx, w, "invalid user")
 		return
 	}
 	project, err := models.ProjectManager.FetchProject(token.ProjectId, "", "", "")
 	if err != nil {
-		httperrors.InvalidCredentialError(w, "invalid project")
+		httperrors.InvalidCredentialError(ctx, w, "invalid project")
 		return
 	}
 	projExt, err := project.FetchExtend()
 	if err != nil {
-		httperrors.InvalidCredentialError(w, "invalid project")
+		httperrors.InvalidCredentialError(ctx, w, "invalid project")
 		return
 	}
 	v2token, err := token.getTokenV2(ctx, user, projExt)
 	if err != nil {
-		httperrors.InternalServerError(w, "internal server error %s", err)
+		httperrors.InternalServerError(ctx, w, "internal server error %s", err)
 		return
 	}
 	ret := jsonutils.NewDict()
@@ -174,13 +174,13 @@ func verifyTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Request)
 	tokenStr := r.Header.Get(api.AUTH_SUBJECT_TOKEN_HEADER)
 	token, err := verifyCommon(ctx, w, tokenStr)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 
 	user, err := models.UserManager.FetchUserExtended(token.UserId, "", "", "")
 	if err != nil {
-		httperrors.InvalidCredentialError(w, "invalid user")
+		httperrors.InvalidCredentialError(ctx, w, "invalid user")
 		return
 	}
 	var projExt *models.SProjectExtended
@@ -188,25 +188,25 @@ func verifyTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Request)
 	if len(token.ProjectId) > 0 {
 		project, err := models.ProjectManager.FetchProject(token.ProjectId, "", "", "")
 		if err != nil {
-			httperrors.InvalidCredentialError(w, "invalid project")
+			httperrors.InvalidCredentialError(ctx, w, "invalid project")
 			return
 		}
 		projExt, err = project.FetchExtend()
 		if err != nil {
-			httperrors.InvalidCredentialError(w, "invalid project")
+			httperrors.InvalidCredentialError(ctx, w, "invalid project")
 			return
 		}
 	} else if len(token.DomainId) > 0 {
 		domain, err = models.DomainManager.FetchDomainById(token.DomainId)
 		if err != nil {
-			httperrors.InvalidCredentialError(w, "invalid domain")
+			httperrors.InvalidCredentialError(ctx, w, "invalid domain")
 			return
 		}
 	}
 
 	v3token, err := token.getTokenV3(ctx, user, projExt, domain, api.SAccessKeySecretInfo{})
 	if err != nil {
-		httperrors.InternalServerError(w, "internal server error %s", err)
+		httperrors.InternalServerError(ctx, w, "internal server error %s", err)
 		return
 	}
 	w.Header().Set(api.AUTH_SUBJECT_TOKEN_HEADER, v3token.Id)

@@ -89,12 +89,12 @@ func (h *K8sResourceHandler) fetchEnv(ctx context.Context, req *http.Request) (*
 func (h *K8sResourceHandler) Get(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	env, err := h.fetchEnv(ctx, req)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	detail, err := k8s.RawResource.Get(env.session, env.kind, env.namespace, env.name, env.cluster)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	appsrv.SendJSON(w, detail)
@@ -103,12 +103,12 @@ func (h *K8sResourceHandler) Get(ctx context.Context, w http.ResponseWriter, req
 func (h *K8sResourceHandler) GetYAML(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	env, err := h.fetchEnv(ctx, req)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	detail, err := k8s.RawResource.GetYAML(env.session, env.kind, env.namespace, env.name, env.cluster)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	appsrv.Send(w, string(detail))
@@ -117,17 +117,17 @@ func (h *K8sResourceHandler) GetYAML(ctx context.Context, w http.ResponseWriter,
 func (h *K8sResourceHandler) Put(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	env, err := h.fetchEnv(ctx, req)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	data, err := appsrv.FetchJSON(req)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	err = k8s.RawResource.Put(env.session, env.kind, env.namespace, env.name, data, env.cluster)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -136,11 +136,11 @@ func (h *K8sResourceHandler) Put(ctx context.Context, w http.ResponseWriter, req
 func (h *K8sResourceHandler) Delete(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	env, err := h.fetchEnv(ctx, req)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	if err := k8s.RawResource.Delete(env.session, env.kind, env.namespace, env.name, env.cluster); err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	w.WriteHeader(http.StatusOK)

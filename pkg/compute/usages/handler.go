@@ -97,12 +97,12 @@ func rangeObjHandler(
 		userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 		obj, err := getRangeObj(ctx, manager, userCred)
 		if err != nil {
-			httperrors.NotFoundError(w, "%v", err)
+			httperrors.NotFoundError(ctx, w, "%v", err)
 			return
 		}
 		ownerId, scope, err := db.FetchUsageOwnerScope(ctx, userCred, getQuery(r))
 		if err != nil {
-			httperrors.GeneralServerError(w, err)
+			httperrors.GeneralServerError(ctx, w, err)
 			return
 		}
 		isOwner := false
@@ -123,7 +123,7 @@ func rangeObjHandler(
 		}
 		usage, err := reporter(scope, ownerId, isOwner, rangeObjs, hostTypes, providers, brands, cloudEnv, includeSystem)
 		if err != nil {
-			httperrors.GeneralServerError(w, err)
+			httperrors.GeneralServerError(ctx, w, err)
 			return
 		}
 		response(w, usage)

@@ -78,7 +78,7 @@ func (h *AuthHandlers) getIdpSsoRedirectUri(ctx context.Context, w http.Response
 	if query != nil && query.Contains("linkuser") {
 		t, authToken, _ := fetchAuthInfo(ctx, req)
 		if t == nil {
-			httperrors.InvalidCredentialError(w, "invalid credential")
+			httperrors.InvalidCredentialError(ctx, w, "invalid credential")
 			return
 		}
 		linkuser = t.GetUserId()
@@ -101,7 +101,7 @@ func (h *AuthHandlers) getIdpSsoRedirectUri(ctx context.Context, w http.Response
 	}
 	resp, err := modules.IdentityProviders.GetSpecific(s, idpId, "sso-redirect-uri", jsonutils.Marshal(input))
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	redirUrl, _ := resp.GetString("uri")
@@ -151,7 +151,7 @@ func (h *AuthHandlers) handleSsoLogin(ctx context.Context, w http.ResponseWriter
 		missing = append(missing, "idp_referer")
 	}
 	if len(missing) > 0 {
-		httperrors.TimeoutError(w, "session expires, missing %s", strings.Join(missing, ","))
+		httperrors.TimeoutError(ctx, w, "session expires, missing %s", strings.Join(missing, ","))
 		return
 	}
 
@@ -165,21 +165,21 @@ func (h *AuthHandlers) handleSsoLogin(ctx context.Context, w http.ResponseWriter
 	case "GET":
 		body, err = jsonutils.ParseQueryString(req.URL.RawQuery)
 		if err != nil {
-			httperrors.InputParameterError(w, "parse query string error: %s", err)
+			httperrors.InputParameterError(ctx, w, "parse query string error: %s", err)
 			return
 		}
 	case "POST":
 		formData, err := appsrv.Fetch(req)
 		if err != nil {
-			httperrors.InputParameterError(w, "fetch formdata error: %s", err)
+			httperrors.InputParameterError(ctx, w, "fetch formdata error: %s", err)
 		}
 		body, err = jsonutils.ParseQueryString(string(formData))
 		if err != nil {
-			httperrors.InputParameterError(w, "parse form data error: %s", err)
+			httperrors.InputParameterError(ctx, w, "parse form data error: %s", err)
 			return
 		}
 	default:
-		httperrors.InputParameterError(w, "invalid request")
+		httperrors.InputParameterError(ctx, w, "invalid request")
 		return
 	}
 
@@ -357,7 +357,7 @@ func handleUnlinkIdp(ctx context.Context, w http.ResponseWriter, req *http.Reque
 
 	body, err := appsrv.FetchJSON(req)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 
@@ -365,7 +365,7 @@ func handleUnlinkIdp(ctx context.Context, w http.ResponseWriter, req *http.Reque
 	idpEntityId, _ := body.GetString("idp_entity_id")
 
 	if len(idpId) == 0 || len(idpEntityId) == 0 {
-		httperrors.InputParameterError(w, "empty idp_id or idp_entity_id")
+		httperrors.InputParameterError(ctx, w, "empty idp_id or idp_entity_id")
 		return
 	}
 
@@ -376,7 +376,7 @@ func handleUnlinkIdp(ctx context.Context, w http.ResponseWriter, req *http.Reque
 	}
 	_, err = modules.UsersV3.PerformAction(s, t.GetUserId(), "unlink-idp", jsonutils.Marshal(input))
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	appsrv.Send(w, "")
@@ -388,7 +388,7 @@ func fetchIdpBasicConfig(ctx context.Context, w http.ResponseWriter, req *http.R
 	idpId := params["<idp_id>"]
 	info, err := getIdpBasicConfig(s, idpId)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	appsrv.SendJSON(w, info)
@@ -426,7 +426,7 @@ func fetchIdpSAMLMetadata(ctx context.Context, w http.ResponseWriter, req *http.
 	query.Set("redirect_uri", jsonutils.NewString(getSsoCallbackUrl()))
 	md, err := modules.IdentityProviders.GetSpecific(s, idpId, "saml-metadata", query)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	appsrv.SendJSON(w, md)

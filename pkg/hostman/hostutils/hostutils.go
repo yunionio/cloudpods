@@ -153,7 +153,7 @@ func Response(ctx context.Context, w http.ResponseWriter, res interface{}) {
 	case jsonutils.JSONObject:
 		appsrv.SendJSON(w, res.(jsonutils.JSONObject))
 	case error:
-		httperrors.GeneralServerError(w, res.(error))
+		httperrors.GeneralServerError(ctx, w, res.(error))
 	default:
 		appsrv.SendStruct(w, res)
 	}

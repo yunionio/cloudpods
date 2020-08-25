@@ -42,7 +42,7 @@ func emailConfigDeleteHandler(ctx context.Context, w http.ResponseWriter, r *htt
 	}
 	err := manager.DeleteConfig(ctx, params)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 	}
 }
 
@@ -53,7 +53,7 @@ func emailConfigGetHandler(ctx context.Context, w http.ResponseWriter, r *http.R
 	}
 	ret, err := manager.GetConfig(ctx, params, query)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 	}
 	data, _ := ret.Get("config")
 	dataDict := data.(*jsonutils.JSONDict)
@@ -70,7 +70,7 @@ func emailConfigUpdateHandler(ctx context.Context, w http.ResponseWriter, r *htt
 	newBody.Add(body, EMAIL)
 	err := manager.UpdateConfig(ctx, newBody)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 	}
 	data := jsonutils.NewDict()
 	data.Add(jsonutils.NewInt(200), "code")
@@ -89,7 +89,7 @@ func smsConfigDeleteHandler(ctx context.Context, w http.ResponseWriter, r *http.
 	}
 	err := manager.DeleteConfig(ctx, params)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 	}
 }
 
@@ -100,7 +100,7 @@ func smsConfigGetHandler(ctx context.Context, w http.ResponseWriter, r *http.Req
 	}
 	ret, err := manager.GetConfig(ctx, params, query)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 	}
 	// modify
 	data, _ := ret.Get("config")
@@ -116,7 +116,7 @@ func smsConfigUpdateHandler(ctx context.Context, w http.ResponseWriter, r *http.
 	newBody.Add(body, SMS)
 	err := manager.UpdateConfig(ctx, newBody)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 	}
 	data := jsonutils.NewDict()
 	data.Add(jsonutils.NewInt(200), "code")

@@ -445,7 +445,7 @@ func roleAssignmentHandler(ctx context.Context, w http.ResponseWriter, r *http.R
 
 	results, total, err := AssignmentManager.FetchAll(userId, groupId, roleId, domainId, projectId, includeNames, effective, includeSub, includeSystem, includePolicies, int(limit), int(offset))
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	body := jsonutils.NewDict()

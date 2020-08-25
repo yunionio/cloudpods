@@ -129,7 +129,7 @@ func FetchAuthToken(f func(context.Context, http.ResponseWriter, *http.Request))
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		ctx, err := fetchAndSetAuthContext(ctx, w, r)
 		if err != nil {
-			httperrors.InvalidCredentialError(w, "No token in header: %v", err)
+			httperrors.InvalidCredentialError(ctx, w, "No token in header: %v", err)
 			return
 		}
 		f(ctx, w, r)

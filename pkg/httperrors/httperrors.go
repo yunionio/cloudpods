@@ -61,7 +61,7 @@ func SetHTTPRedirectLocationHeader(w http.ResponseWriter, location string) {
 	w.Header().Set("Location", location)
 }
 
-func HTTPError(w http.ResponseWriter, msg string, statusCode int, class string, error httputils.Error) {
+func HTTPError(ctx context.Context, w http.ResponseWriter, msg string, statusCode int, class string, error httputils.Error) {
 	if statusCode >= 300 && statusCode <= 400 {
 		SetHTTPRedirectLocationHeader(w, msg)
 	}
@@ -84,95 +84,95 @@ func HTTPError(w http.ResponseWriter, msg string, statusCode int, class string, 
 	}
 }
 
-func JsonClientError(w http.ResponseWriter, e *httputils.JSONClientError) {
-	HTTPError(w, e.Details, e.Code, e.Class, e.Data)
+func JsonClientError(ctx context.Context, w http.ResponseWriter, e *httputils.JSONClientError) {
+	HTTPError(ctx, w, e.Details, e.Code, e.Class, e.Data)
 }
 
-func GeneralServerError(w http.ResponseWriter, e error) {
+func GeneralServerError(ctx context.Context, w http.ResponseWriter, e error) {
 	je := NewGeneralError(e)
-	JsonClientError(w, je)
+	JsonClientError(ctx, w, je)
 }
 
-func BadRequestError(w http.ResponseWriter, msg string, params ...interface{}) {
-	JsonClientError(w, NewBadRequestError(msg, params...))
+func BadRequestError(ctx context.Context, w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(ctx, w, NewBadRequestError(msg, params...))
 }
 
-func PaymentError(w http.ResponseWriter, msg string, params ...interface{}) {
-	JsonClientError(w, NewPaymentError(msg, params...))
+func PaymentError(ctx context.Context, w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(ctx, w, NewPaymentError(msg, params...))
 }
 
-func UnauthorizedError(w http.ResponseWriter, msg string, params ...interface{}) {
-	JsonClientError(w, NewUnauthorizedError(msg, params...))
+func UnauthorizedError(ctx context.Context, w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(ctx, w, NewUnauthorizedError(msg, params...))
 }
 
-func InvalidCredentialError(w http.ResponseWriter, msg string, params ...interface{}) {
-	JsonClientError(w, NewInvalidCredentialError(msg, params...))
+func InvalidCredentialError(ctx context.Context, w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(ctx, w, NewInvalidCredentialError(msg, params...))
 }
 
-func ForbiddenError(w http.ResponseWriter, msg string, params ...interface{}) {
-	JsonClientError(w, NewForbiddenError(msg, params...))
+func ForbiddenError(ctx context.Context, w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(ctx, w, NewForbiddenError(msg, params...))
 }
 
-func NotFoundError(w http.ResponseWriter, msg string, params ...interface{}) {
-	JsonClientError(w, NewNotFoundError(msg, params...))
+func NotFoundError(ctx context.Context, w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(ctx, w, NewNotFoundError(msg, params...))
 }
 
-func NotImplementedError(w http.ResponseWriter, msg string, params ...interface{}) {
-	JsonClientError(w, NewNotImplementedError(msg, params...))
+func NotImplementedError(ctx context.Context, w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(ctx, w, NewNotImplementedError(msg, params...))
 }
 
-func NotAcceptableError(w http.ResponseWriter, msg string, params ...interface{}) {
-	JsonClientError(w, NewNotAcceptableError(msg, params...))
+func NotAcceptableError(ctx context.Context, w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(ctx, w, NewNotAcceptableError(msg, params...))
 }
 
-func InvalidInputError(w http.ResponseWriter, msg string, params ...interface{}) {
-	JsonClientError(w, NewInputParameterError(msg, params...))
+func InvalidInputError(ctx context.Context, w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(ctx, w, NewInputParameterError(msg, params...))
 }
 
-func InputParameterError(w http.ResponseWriter, msg string, params ...interface{}) {
-	JsonClientError(w, NewInputParameterError(msg, params...))
+func InputParameterError(ctx context.Context, w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(ctx, w, NewInputParameterError(msg, params...))
 }
 
-func MissingParameterError(w http.ResponseWriter, param string) {
-	JsonClientError(w, NewMissingParameterError(param))
+func MissingParameterError(ctx context.Context, w http.ResponseWriter, param string) {
+	JsonClientError(ctx, w, NewMissingParameterError(param))
 }
 
-func ConflictError(w http.ResponseWriter, msg string, params ...interface{}) {
-	JsonClientError(w, NewConflictError(msg, params...))
+func ConflictError(ctx context.Context, w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(ctx, w, NewConflictError(msg, params...))
 }
 
-func InternalServerError(w http.ResponseWriter, msg string, params ...interface{}) {
-	JsonClientError(w, NewInternalServerError(msg, params...))
+func InternalServerError(ctx context.Context, w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(ctx, w, NewInternalServerError(msg, params...))
 }
 
-func BadGatewayError(w http.ResponseWriter, msg string, params ...interface{}) {
-	JsonClientError(w, NewBadGatewayError(msg, params...))
+func BadGatewayError(ctx context.Context, w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(ctx, w, NewBadGatewayError(msg, params...))
 }
 
-func TenantNotFoundError(w http.ResponseWriter, msg string, params ...interface{}) {
-	JsonClientError(w, NewTenantNotFoundError(msg, params...))
+func TenantNotFoundError(ctx context.Context, w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(ctx, w, NewTenantNotFoundError(msg, params...))
 }
 
-func OutOfQuotaError(w http.ResponseWriter, msg string, params ...interface{}) {
-	JsonClientError(w, NewOutOfQuotaError(msg, params...))
+func OutOfQuotaError(ctx context.Context, w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(ctx, w, NewOutOfQuotaError(msg, params...))
 }
 
-func NotSufficientPrivilegeError(w http.ResponseWriter, msg string, params ...interface{}) {
-	JsonClientError(w, NewNotSufficientPrivilegeError(msg, params...))
+func NotSufficientPrivilegeError(ctx context.Context, w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(ctx, w, NewNotSufficientPrivilegeError(msg, params...))
 }
 
-func ResourceNotFoundError(w http.ResponseWriter, msg string, params ...interface{}) {
-	JsonClientError(w, NewResourceNotFoundError(msg, params...))
+func ResourceNotFoundError(ctx context.Context, w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(ctx, w, NewResourceNotFoundError(msg, params...))
 }
 
-func TimeoutError(w http.ResponseWriter, msg string, params ...interface{}) {
-	JsonClientError(w, NewTimeoutError(msg, params...))
+func TimeoutError(ctx context.Context, w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(ctx, w, NewTimeoutError(msg, params...))
 }
 
-func ProtectedResourceError(w http.ResponseWriter, msg string, params ...interface{}) {
-	JsonClientError(w, NewProtectedResourceError(msg, params...))
+func ProtectedResourceError(ctx context.Context, w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(ctx, w, NewProtectedResourceError(msg, params...))
 }
 
-func NoProjectError(w http.ResponseWriter, msg string, params ...interface{}) {
-	JsonClientError(w, NewNoProjectError(msg, params...))
+func NoProjectError(ctx context.Context, w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(ctx, w, NewNoProjectError(msg, params...))
 }

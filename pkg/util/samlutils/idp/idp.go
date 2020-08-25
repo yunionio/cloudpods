@@ -151,13 +151,13 @@ func (idp *SSAMLIdpInstance) redirectLoginHandler(ctx context.Context, w http.Re
 	input := samlutils.SIdpRedirectLoginInput{}
 	err := query.Unmarshal(&input)
 	if err != nil {
-		httperrors.InputParameterError(w, "query.Unmarshal error %s", err)
+		httperrors.InputParameterError(ctx, w, "query.Unmarshal error %s", err)
 		return
 	}
 	log.Debugf("recv input %s", input)
 	respHtml, err := idp.processLoginRequest(ctx, idpId, input)
 	if err != nil {
-		httperrors.InputParameterError(w, "parse parameter error %s", err)
+		httperrors.InputParameterError(ctx, w, "parse parameter error %s", err)
 		return
 	}
 	appsrv.SendHTML(w, respHtml)
@@ -176,12 +176,12 @@ func (idp *SSAMLIdpInstance) idpInitiatedSSOHandler(ctx context.Context, w http.
 	input := samlutils.SIdpInitiatedLoginInput{}
 	err := query.Unmarshal(&input)
 	if err != nil {
-		httperrors.InputParameterError(w, "unmarshal input fail %s", err)
+		httperrors.InputParameterError(ctx, w, "unmarshal input fail %s", err)
 		return
 	}
 	respHtml, err := idp.processIdpInitiatedLogin(ctx, input)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	appsrv.SendHTML(w, respHtml)

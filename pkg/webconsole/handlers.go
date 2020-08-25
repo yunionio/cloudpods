@@ -134,12 +134,12 @@ func handleK8sCommand(
 ) {
 	env, err := fetchK8sEnv(ctx, w, r)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 
 	cmd := cmdFactory(env)
-	handleCommandSession(cmd, w)
+	handleCommandSession(ctx, cmd, w)
 }
 
 func handleK8sShell(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -154,86 +154,86 @@ func handleSshShell(ctx context.Context, w http.ResponseWriter, r *http.Request)
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 	env, err := fetchCloudEnv(ctx, w, r)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	cmd, err := command.NewSSHtoolSolCommand(ctx, userCred, env.Params["<ip>"], env.Body)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
-	handleCommandSession(cmd, w)
+	handleCommandSession(ctx, cmd, w)
 }
 
 func handleBaremetalShell(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	env, err := fetchCloudEnv(ctx, w, r)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	hostId := env.Params["<id>"]
 	ret, err := modules.Hosts.GetSpecific(env.ClientSessin, hostId, "ipmi", nil)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	info := command.IpmiInfo{}
 	err = ret.Unmarshal(&info)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	cmd, err := command.NewIpmitoolSolCommand(&info)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
-	handleCommandSession(cmd, w)
+	handleCommandSession(ctx, cmd, w)
 }
 
 func handleServerRemoteConsole(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	env, err := fetchCloudEnv(ctx, w, r)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	srvId := env.Params["<id>"]
 	info, err := session.NewRemoteConsoleInfoByCloud(env.ClientSessin, srvId)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	switch info.Protocol {
 	case session.ALIYUN, session.QCLOUD, session.OPENSTACK, session.VMRC, session.ZSTACK, session.CTYUN:
-		responsePublicCloudConsole(info, w)
+		responsePublicCloudConsole(ctx, info, w)
 	case session.VNC, session.SPICE, session.WMKS:
-		handleDataSession(info, w, url.Values{"password": {info.GetPassword()}}, true)
+		handleDataSession(ctx, info, w, url.Values{"password": {info.GetPassword()}}, true)
 	default:
-		httperrors.NotAcceptableError(w, "Unspported remote console protocol: %s", info.Protocol)
+		httperrors.NotAcceptableError(ctx, w, "Unspported remote console protocol: %s", info.Protocol)
 	}
 }
 
-func responsePublicCloudConsole(info *session.RemoteConsoleInfo, w http.ResponseWriter) {
+func responsePublicCloudConsole(ctx context.Context, info *session.RemoteConsoleInfo, w http.ResponseWriter) {
 	data := jsonutils.NewDict()
 	params, err := info.GetConnectParams()
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	data.Add(jsonutils.NewString(params), "connect_params")
 	sendJSON(w, data)
 }
 
-func handleDataSession(sData session.ISessionData, w http.ResponseWriter, connParams url.Values, b64Encode bool) {
+func handleDataSession(ctx context.Context, sData session.ISessionData, w http.ResponseWriter, connParams url.Values, b64Encode bool) {
 	s, err := session.Manager.Save(sData)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	data := jsonutils.NewDict()
 	params, err := s.GetConnectParams(connParams)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	if b64Encode {
@@ -244,8 +244,8 @@ func handleDataSession(sData session.ISessionData, w http.ResponseWriter, connPa
 	sendJSON(w, data)
 }
 
-func handleCommandSession(cmd command.ICommand, w http.ResponseWriter) {
-	handleDataSession(session.WrapCommandSession(cmd), w, nil, false)
+func handleCommandSession(ctx context.Context, cmd command.ICommand, w http.ResponseWriter) {
+	handleDataSession(ctx, session.WrapCommandSession(cmd), w, nil, false)
 }
 
 func sendJSON(w http.ResponseWriter, body jsonutils.JSONObject) {

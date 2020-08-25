@@ -112,7 +112,7 @@ func (mh *MiscHandler) PostUploads(ctx context.Context, w http.ResponseWriter, r
 	var maxMemory int64 = 10 << 20
 	e := req.ParseMultipartForm(maxMemory)
 	if e != nil {
-		httperrors.InvalidInputError(w, "invalid form")
+		httperrors.InvalidInputError(ctx, w, "invalid form")
 		return
 	}
 
@@ -121,7 +121,7 @@ func (mh *MiscHandler) PostUploads(ctx context.Context, w http.ResponseWriter, r
 	actions, ok := params["action"]
 	if !ok || len(actions) == 0 || len(actions[0]) == 0 {
 		err := httperrors.NewInputParameterError("Missing parameter %s", "action")
-		httperrors.JsonClientError(w, err)
+		httperrors.JsonClientError(ctx, w, err)
 		return
 	}
 
@@ -136,7 +136,7 @@ func (mh *MiscHandler) PostUploads(ctx context.Context, w http.ResponseWriter, r
 		return
 	default:
 		err := httperrors.NewInputParameterError("Unsupported action %s", actions[0])
-		httperrors.JsonClientError(w, err)
+		httperrors.JsonClientError(ctx, w, err)
 		return
 	}
 }
@@ -147,7 +147,7 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 	hostfiles, ok := files["hosts"]
 	if !ok || len(hostfiles) == 0 || hostfiles[0] == nil {
 		e := httperrors.NewInputParameterError("Missing parameter %s", "hosts")
-		httperrors.JsonClientError(w, e)
+		httperrors.JsonClientError(ctx, w, e)
 		return
 	}
 
@@ -155,7 +155,7 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 	contentType := fileHeader.Get("Content-Type")
 	if contentType != "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" {
 		e := httperrors.NewInputParameterError("Wrong content type %s, required application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", contentType)
-		httperrors.JsonClientError(w, e)
+		httperrors.JsonClientError(ctx, w, e)
 		return
 	}
 
@@ -164,7 +164,7 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 	if err != nil {
 		log.Errorf(err.Error())
 		e := httperrors.NewInternalServerError("can't open file")
-		httperrors.JsonClientError(w, e)
+		httperrors.JsonClientError(ctx, w, e)
 		return
 	}
 
@@ -172,14 +172,14 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 	if err != nil {
 		log.Errorf(err.Error())
 		e := httperrors.NewInternalServerError("can't parse file")
-		httperrors.JsonClientError(w, e)
+		httperrors.JsonClientError(ctx, w, e)
 		return
 	}
 
 	rows := xlsx.GetRows("hosts")
 	if len(rows) == 0 {
 		e := httperrors.NewGeneralError(fmt.Errorf("empty file content"))
-		httperrors.JsonClientError(w, e)
+		httperrors.JsonClientError(ctx, w, e)
 		return
 	}
 
@@ -198,7 +198,7 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 	}
 
 	if !titlesOk {
-		httperrors.InputParameterError(w, "template file is invalid.please check.")
+		httperrors.InputParameterError(ctx, w, "template file is invalid.please check.")
 		return
 	}
 
@@ -223,7 +223,7 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 			paramKeys = append(paramKeys, "access_ip")
 		default:
 			e := httperrors.NewInternalServerError("empty file content")
-			httperrors.JsonClientError(w, e)
+			httperrors.JsonClientError(ctx, w, e)
 			return
 		}
 	}
@@ -231,7 +231,7 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 	// skipped header row
 	if len(rows) > BATCH_HOST_REGISTER_QUANTITY_LIMITATION {
 		e := httperrors.NewInputParameterError(fmt.Sprintf("beyond limitation. excel file rows must less than %d", BATCH_HOST_REGISTER_QUANTITY_LIMITATION))
-		httperrors.JsonClientError(w, e)
+		httperrors.JsonClientError(ctx, w, e)
 		return
 	}
 
@@ -258,7 +258,7 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 		}
 
 		if e != nil {
-			httperrors.JsonClientError(w, e)
+			httperrors.JsonClientError(ctx, w, e)
 			return
 		}
 
@@ -279,7 +279,7 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 	submitResult, err := modules.Hosts.BatchRegister(s, paramKeys, params)
 	if err != nil {
 		e := httperrors.NewGeneralError(err)
-		httperrors.JsonClientError(w, e)
+		httperrors.JsonClientError(ctx, w, e)
 		return
 	}
 
@@ -295,7 +295,7 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 	userfiles, ok := files["users"]
 	if !ok || len(userfiles) == 0 || userfiles[0] == nil {
 		e := httperrors.NewInputParameterError("Missing parameter %s", "users")
-		httperrors.JsonClientError(w, e)
+		httperrors.JsonClientError(ctx, w, e)
 		return
 	}
 
@@ -303,7 +303,7 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 	contentType := fileHeader.Get("Content-Type")
 	if contentType != "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" {
 		e := httperrors.NewInputParameterError("Wrong content type %s, required application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", contentType)
-		httperrors.JsonClientError(w, e)
+		httperrors.JsonClientError(ctx, w, e)
 		return
 	}
 
@@ -312,7 +312,7 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 	if err != nil {
 		log.Errorf(err.Error())
 		e := httperrors.NewInternalServerError("can't open file")
-		httperrors.JsonClientError(w, e)
+		httperrors.JsonClientError(ctx, w, e)
 		return
 	}
 
@@ -320,7 +320,7 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 	if err != nil {
 		log.Errorf(err.Error())
 		e := httperrors.NewInternalServerError("can't parse file")
-		httperrors.JsonClientError(w, e)
+		httperrors.JsonClientError(ctx, w, e)
 		return
 	}
 
@@ -328,11 +328,11 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 	rows := xlsx.GetRows("users")
 	if len(rows) <= 1 {
 		e := httperrors.NewInputParameterError("empty file")
-		httperrors.JsonClientError(w, e)
+		httperrors.JsonClientError(ctx, w, e)
 		return
 	} else if len(rows) > BATCH_USER_REGISTER_QUANTITY_LIMITATION {
 		e := httperrors.NewInputParameterError(fmt.Sprintf("beyond limitation.excel file rows must less than %d", BATCH_USER_REGISTER_QUANTITY_LIMITATION))
-		httperrors.JsonClientError(w, e)
+		httperrors.JsonClientError(ctx, w, e)
 		return
 	}
 
@@ -354,7 +354,7 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 
 		if len(name) == 0 {
 			e := httperrors.NewClientError("row %d name is empty", rowIdx)
-			httperrors.JsonClientError(w, e)
+			httperrors.JsonClientError(ctx, w, e)
 			return
 		}
 
@@ -362,13 +362,13 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 		if !ok {
 			if len(domain) == 0 {
 				e := httperrors.NewClientError("row %d domain is empty", rowIdx)
-				httperrors.JsonClientError(w, e)
+				httperrors.JsonClientError(ctx, w, e)
 				return
 			}
 
 			id, err := modules.Domains.GetId(adminS, domain, nil)
 			if err != nil {
-				httperrors.JsonClientError(w, httperrors.NewGeneralError(err))
+				httperrors.JsonClientError(ctx, w, httperrors.NewGeneralError(err))
 				return
 			}
 
@@ -378,7 +378,7 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 
 		if _, ok := names[name+"/"+domainId]; ok {
 			e := httperrors.NewClientError("row %d duplicate name %s", rowIdx, name)
-			httperrors.JsonClientError(w, e)
+			httperrors.JsonClientError(ctx, w, e)
 			return
 		} else {
 			names[name+"/"+domainId] = true
@@ -417,7 +417,7 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 
 	if err := userG.Wait(); err != nil {
 		e := httperrors.NewGeneralError(err)
-		httperrors.GeneralServerError(w, e)
+		httperrors.GeneralServerError(ctx, w, e)
 		return
 	}
 
@@ -428,7 +428,7 @@ func (mh *MiscHandler) getDownloadsHandler(ctx context.Context, w http.ResponseW
 	params := appctx.AppContextParams(ctx)
 	template, ok := params["<template_id>"]
 	if !ok || len(template) == 0 {
-		httperrors.InvalidInputError(w, "not found")
+		httperrors.InvalidInputError(ctx, w, "not found")
 		return
 	}
 
@@ -439,28 +439,28 @@ func (mh *MiscHandler) getDownloadsHandler(ctx context.Context, w http.ResponseW
 		records := [][]string{BatchHostRegisterTemplate}
 		content, err = writeXlsx("hosts", records)
 		if err != nil {
-			httperrors.InternalServerError(w, "internal server error")
+			httperrors.InternalServerError(ctx, w, "internal server error")
 			return
 		}
 	case "BatchHostISORegister":
 		records := [][]string{BatchHostISORegisterTemplate}
 		content, err = writeXlsx("hosts", records)
 		if err != nil {
-			httperrors.InternalServerError(w, "internal server error")
+			httperrors.InternalServerError(ctx, w, "internal server error")
 			return
 		}
 	case "BatchHostPXERegister":
 		records := [][]string{BatchHostPXERegisterTemplate}
 		content, err = writeXlsx("hosts", records)
 		if err != nil {
-			httperrors.InternalServerError(w, "internal server error")
+			httperrors.InternalServerError(ctx, w, "internal server error")
 			return
 		}
 	case "BatchUserRegister":
 		records := [][]string{{"*用户名（user）", "用户密码（password）", "*部门/域（domain）", "*是否登录控制台（allow_web_console：true、false）"}}
 		content, err = writeXlsx("users", records)
 		if err != nil {
-			httperrors.InternalServerError(w, "internal server error")
+			httperrors.InternalServerError(ctx, w, "internal server error")
 			return
 		}
 	case "BatchProjectRegister":
@@ -474,11 +474,11 @@ func (mh *MiscHandler) getDownloadsHandler(ctx context.Context, w http.ResponseW
 		records := [][]string{titles}
 		content, err = writeXlsx("projects", records)
 		if err != nil {
-			httperrors.InternalServerError(w, "internal server error")
+			httperrors.InternalServerError(ctx, w, "internal server error")
 			return
 		}
 	default:
-		httperrors.InputParameterError(w, "template not found %s", template)
+		httperrors.InputParameterError(ctx, w, "template not found %s", template)
 		return
 	}
 
@@ -492,12 +492,12 @@ func (mh *MiscHandler) postPIUploads(ctx context.Context, w http.ResponseWriter,
 	// 5 MB
 	var maxMemory int64 = 5 << 20
 	if req.ContentLength > maxMemory {
-		httperrors.InvalidInputError(w, "request body is too large.")
+		httperrors.InvalidInputError(ctx, w, "request body is too large.")
 		return
 	}
 
 	if !strings.Contains(req.Header.Get("Content-Type"), "multipart/form-data") {
-		httperrors.InvalidInputError(w, "invalid multipart form")
+		httperrors.InvalidInputError(ctx, w, "invalid multipart form")
 		return
 	}
 
@@ -507,7 +507,7 @@ func (mh *MiscHandler) postPIUploads(ctx context.Context, w http.ResponseWriter,
 	header.Set("Content-Length", req.Header.Get("Content-Length"))
 	resp, err := modules.ProcessInstance.Upload(s, header, req.Body)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 
@@ -518,38 +518,38 @@ func (mh *MiscHandler) postS3UploadHandler(ctx context.Context, w http.ResponseW
 	reader, e := r.MultipartReader()
 	if e != nil {
 		log.Debugf("postS3UploadHandler.MultipartReader %s", e)
-		httperrors.InvalidInputError(w, "invalid form")
+		httperrors.InvalidInputError(ctx, w, "invalid form")
 		return
 	}
 
 	p, f, e := readImageForm(reader)
 	if e != nil {
 		log.Debugf("postS3UploadHandler.readImageForm %s", e)
-		httperrors.InvalidInputError(w, "invalid form")
+		httperrors.InvalidInputError(ctx, w, "invalid form")
 		return
 	}
 
 	bucket_id, ok := p["bucket_id"]
 	if !ok {
-		httperrors.MissingParameterError(w, "bucket_id")
+		httperrors.MissingParameterError(ctx, w, "bucket_id")
 		return
 	}
 
 	key, ok := p["key"]
 	if !ok {
-		httperrors.MissingParameterError(w, "key")
+		httperrors.MissingParameterError(ctx, w, "key")
 		return
 	}
 
 	_content_length, ok := p["content_length"]
 	if !ok {
-		httperrors.MissingParameterError(w, "content_length")
+		httperrors.MissingParameterError(ctx, w, "content_length")
 		return
 	}
 
 	content_length, e := strconv.ParseInt(_content_length, 10, 64)
 	if e != nil {
-		httperrors.InvalidInputError(w, "invalid content_length %s", _content_length)
+		httperrors.InvalidInputError(ctx, w, "invalid content_length %s", _content_length)
 		return
 	}
 
@@ -563,7 +563,7 @@ func (mh *MiscHandler) postS3UploadHandler(ctx context.Context, w http.ResponseW
 	meta.Set("Content-Type", "application/octet-stream")
 	e = modules.Buckets.Upload(s, bucket_id, key, f, content_length, storage_class, acl, meta)
 	if e != nil {
-		httperrors.GeneralServerError(w, e)
+		httperrors.GeneralServerError(ctx, w, e)
 		return
 	}
 	appsrv.SendJSON(w, jsonutils.NewDict())

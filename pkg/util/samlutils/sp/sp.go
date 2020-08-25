@@ -163,7 +163,7 @@ func (sp *SSAMLSpInstance) assertionConsumeHandler(ctx context.Context, w http.R
 
 	err := sp.processAssertionConsumer(ctx, w, samlResponse, relayState)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 }
@@ -173,12 +173,12 @@ func (sp *SSAMLSpInstance) spInitiatedSSOHandler(ctx context.Context, w http.Res
 	input := samlutils.SSpInitiatedLoginInput{}
 	err := query.Unmarshal(&input)
 	if err != nil {
-		httperrors.InputParameterError(w, "unmarshal input fail %s", err)
+		httperrors.InputParameterError(ctx, w, "unmarshal input fail %s", err)
 		return
 	}
 	redirectUrl, err := sp.ProcessSpInitiatedLogin(ctx, input)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	appsrv.SendRedirect(w, redirectUrl)

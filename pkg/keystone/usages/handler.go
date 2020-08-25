@@ -74,7 +74,7 @@ func ReportGeneralUsage(ctx context.Context, w http.ResponseWriter, r *http.Requ
 
 	// if !isAdmin && !isProject {
 	if !isAdmin {
-		httperrors.ForbiddenError(w, "not allow to get usage")
+		httperrors.ForbiddenError(ctx, w, "not allow to get usage")
 		return
 	}
 

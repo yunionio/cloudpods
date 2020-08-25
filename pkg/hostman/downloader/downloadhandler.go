@@ -85,7 +85,7 @@ func download(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	case "images":
 		hand := NewImageCacheDownloadProvider(w, compress, rateLimit, id)
 		if !fileutils2.Exists(hand.downloadFilePath()) {
-			httperrors.NotFoundError(w, "Image cache %s not found", id)
+			httperrors.NotFoundError(ctx, w, "Image cache %s not found", id)
 		} else {
 			if err := hand.Start(); err != nil {
 				hostutils.Response(ctx, w, err)
@@ -94,7 +94,7 @@ func download(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	case "servers":
 		hand := NewGuestDownloadProvider(w, compress, rateLimit, id)
 		if !fileutils2.Exists(hand.fullPath()) {
-			httperrors.NotFoundError(w, "Guest %s not found", id)
+			httperrors.NotFoundError(ctx, w, "Guest %s not found", id)
 		} else {
 			if err := hand.Start(); err != nil {
 				hostutils.Response(ctx, w, err)

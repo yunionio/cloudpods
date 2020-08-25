@@ -40,7 +40,7 @@ func InitHandlers(app *appsrv.Application) {
 }
 
 var defaultHandler = func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	httperrors.NotImplementedError(w, "")
+	httperrors.NotImplementedError(ctx, w, "")
 	return
 }
 
@@ -72,7 +72,7 @@ func uploadHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	_, _, body := appsrv.FetchEnv(ctx, w, r)
 	disk, err := body.Get("disk")
 	if err != nil {
-		httperrors.MissingParameterError(w, "miss disk")
+		httperrors.MissingParameterError(ctx, w, "miss disk")
 		return
 	}
 	hostutils.DelayTask(ctx, esxi.EsxiAgent.AgentStorage.SaveToGlance, disk)
@@ -84,7 +84,7 @@ func deployHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	_, _, body := appsrv.FetchEnv(ctx, w, r)
 	disk, err := body.Get("disk")
 	if err != nil {
-		httperrors.MissingParameterError(w, "miss disk")
+		httperrors.MissingParameterError(ctx, w, "miss disk")
 		return
 	}
 	hostutils.DelayTask(ctx, esxi.EsxiAgent.AgentStorage.AgentDeployGuest, disk)
@@ -99,7 +99,7 @@ func deleteHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 		if disk != nil {
 			_, err := disk.Delete(ctx, nil)
 			if err != nil {
-				httperrors.GeneralServerError(w, err)
+				httperrors.GeneralServerError(ctx, w, err)
 				return
 			}
 			hostutils.ResponseOk(ctx, w)
@@ -113,7 +113,7 @@ func deleteHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 func createHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	disk, diskInfo, err := diskAndDiskInfo(ctx, w, r)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	hostutils.DelayTask(ctx, esxi.EsxiAgent.AgentStorage.CreateDiskByDiskInfo,
@@ -125,7 +125,7 @@ func savePrepareHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	taskId := ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID).(string)
 	disk, diskInfo, err := diskAndDiskInfo(ctx, w, r)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	hostutils.DelayTask(ctx, disk.PrepareSaveToGlance, storageman.PrepareSaveToGlanceParams{
@@ -138,7 +138,7 @@ func savePrepareHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 func resizeHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	disk, diskInfo, err := diskAndDiskInfo(ctx, w, r)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	hostutils.DelayTask(ctx, disk.Resize, diskInfo)
@@ -151,17 +151,17 @@ func fetchHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	diskId := params["<disk_id>"]
 	disk := esxi.EsxiAgent.AgentStorage.GetDiskById(diskId)
 	if disk != nil {
-		httperrors.GeneralServerError(w, httperrors.NewDuplicateResourceError("disk '%s'", diskId))
+		httperrors.GeneralServerError(ctx, w, httperrors.NewDuplicateResourceError("disk '%s'", diskId))
 		return
 	}
 	disk := esxi.EsxiAgent.AgentStorage.CreateDisk(diskId)
 	diskInfo, err := body.Get("disk")
 	if err != nil {
-		httperrors.InputParameterError(w, "miss disk")
+		httperrors.InputParameterError(ctx, w, "miss disk")
 	}
 	url, err := diskInfo.GetString("url")
 	if err != nil {
-		httperrors.InputParameterError(w, "miss disk.url")
+		httperrors.InputParameterError(ctx, w, "miss disk.url")
 	}
 	hostutils.DelayTask(ctx, disk.CreateFromUrl)
 	hostutils.ResponseOk(ctx, w)

@@ -261,7 +261,7 @@ func (ctx *Context) ResponseJson(obj jsonutils.JSONObject) {
 }
 
 func (ctx *Context) ResponseError(err error) {
-	httperrors.GeneralServerError(ctx.writer, err)
+	httperrors.GeneralServerError(ctx, ctx.writer, err)
 }
 
 func (ctx *Context) Request() *http.Request {
