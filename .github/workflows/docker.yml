@@ -210,7 +210,7 @@ jobs:
         registry: registry.cn-beijing.aliyuncs.com
         snapshot: true
         dockerfile: build/docker/Dockerfile.cloudevent
-
+ 
     - name: Image cloudid
       uses: elgohr/Publish-Docker-Github-Action@master
       with:
