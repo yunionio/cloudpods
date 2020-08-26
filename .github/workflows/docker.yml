@@ -32,6 +32,7 @@ jobs:
         sudo apt-get install librados-dev librbd-dev # baremetal-agent needs this
         make cmd/baremetal-agent && ./scripts/bundle_libraries.sh _output/bin/bundles/baremetal-agent _output/bin/baremetal-agent
         make docker-alpine-build F='-j4 cmd/host cmd/vpcagent cmd/region-dns make cmd/apigateway cmd/climc cmd/keystone make cmd/logger cmd/region cmd/scheduler cmd/webconsole make cmd/yunionconf cmd/glance cmd/torrent cmd/s3gateway make cmd/ansibleserver cmd/cloudnet cmd/notify make cmd/host-deployer make cmd/cloudevent cmd/devtool cmd/cloudid make cmd/*cli make cmd/esxi-agent'
+
     - name: Image region
       uses: elgohr/Publish-Docker-Github-Action@master
       with:
@@ -201,7 +202,7 @@ jobs:
         registry: registry.cn-beijing.aliyuncs.com
         snapshot: true
         dockerfile: build/docker/Dockerfile.cloudevent
-
+ 
     - name: Image cloudid
       uses: elgohr/Publish-Docker-Github-Action@master
       with:
