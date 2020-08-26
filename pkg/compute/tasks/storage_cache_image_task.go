@@ -16,7 +16,6 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 
@@ -63,13 +62,22 @@ func (self *StorageCacheImageTask) OnRelinquishLeastUsedCachedImageComplete(ctx 
 
 	db.OpsLog.LogEvent(storageCache, db.ACT_CACHING_IMAGE, imageId, self.UserCred)
 
-	self.SetStage("on_image_cache_complete", nil)
+	self.SetStage("OnImageCacheComplete", nil)
 
-	host, _ := storageCache.GetHost()
-	err := host.GetHostDriver().CheckAndSetCacheImage(ctx, host, storageCache, self)
+	host, err := storageCache.GetHost()
 	if err != nil {
 		errData := taskman.Error2TaskData(err)
 		self.OnImageCacheCompleteFailed(ctx, storageCache, errData)
+	} else if host != nil {
+		err := host.GetHostDriver().CheckAndSetCacheImage(ctx, host, storageCache, self)
+		if err != nil {
+			errData := taskman.Error2TaskData(err)
+			self.OnImageCacheCompleteFailed(ctx, storageCache, errData)
+		}
+	} else {
+		// host is nil, and err is nil
+		reason := jsonutils.NewString("storage cache failed get host")
+		self.OnImageCacheCompleteFailed(ctx, storageCache, reason)
 	}
 }
 
@@ -82,25 +90,24 @@ func (self *StorageCacheImageTask) OnImageCacheCompleteFailed(ctx context.Contex
 	storageCache := obj.(*models.SStoragecache)
 	imageId, _ := self.Params.GetString("image_id")
 	scimg := models.StoragecachedimageManager.Register(ctx, self.UserCred, storageCache.Id, imageId, "")
-	err := fmt.Errorf(data.String())
 	extImgId, _ := data.GetString("image_id")
-	self.OnCacheFailed(ctx, storageCache, imageId, scimg, err, extImgId)
+	self.OnCacheFailed(ctx, storageCache, imageId, scimg, data, extImgId)
 }
 
-func (self *StorageCacheImageTask) OnCacheFailed(ctx context.Context, cache *models.SStoragecache, imageId string, scimg *models.SStoragecachedimage, err error, extImgId string) {
-	scimg.SetStatus(self.UserCred, api.CACHED_IMAGE_STATUS_CACHE_FAILED, err.Error())
+func (self *StorageCacheImageTask) OnCacheFailed(ctx context.Context, cache *models.SStoragecache, imageId string, scimg *models.SStoragecachedimage, reason jsonutils.JSONObject, extImgId string) {
+	scimg.SetStatus(self.UserCred, api.CACHED_IMAGE_STATUS_CACHE_FAILED, reason.String())
 	if len(extImgId) > 0 && scimg.ExternalId != extImgId {
 		scimg.SetExternalId(extImgId)
 	}
 	body := jsonutils.NewDict()
-	body.Add(jsonutils.NewString(err.Error()), "reason")
+	body.Add(reason, "reason")
 	body.Add(jsonutils.NewString(imageId), "image_id")
 	db.OpsLog.LogEvent(cache, db.ACT_CACHE_IMAGE_FAIL, body, self.UserCred)
 	ci := scimg.GetCachedimage()
 	if ci != nil {
 		logclient.AddActionLogWithStartable(self, ci, logclient.ACT_CACHED_IMAGE, body, self.UserCred, false)
 	}
-	self.SetStageFailed(ctx, err.Error())
+	self.SetStageFailed(ctx, body)
 }
 
 func (self *StorageCacheImageTask) OnCacheSucc(ctx context.Context, cache *models.SStoragecache, data *jsonutils.JSONDict) {

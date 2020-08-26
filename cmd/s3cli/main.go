@@ -32,10 +32,10 @@ import (
 type BaseOptions struct {
 	Debug      bool   `help:"debug mode"`
 	Help       bool   `help:"Show help"`
-	AccessUrl  string `help:"Access url" default:"$S3_ACCESS_URL"`
-	AccessKey  string `help:"Access key" default:"$S3_ACCESS_KEY"`
-	Secret     string `help:"Secret" default:"$S3_SECRET"`
-	Backend    string `help:"Backend driver" default:"$S3_BACKEND"`
+	AccessUrl  string `help:"Access url" default:"$S3_ACCESS_URL" metavar:"S3_ACCESS_URL"`
+	AccessKey  string `help:"Access key" default:"$S3_ACCESS_KEY" metavar:"S3_ACCESS_KEY"`
+	Secret     string `help:"Secret" default:"$S3_SECRET" metavar:"S3_SECRET"`
+	Backend    string `help:"Backend driver" default:"$S3_BACKEND" metavar:"S3_BACKEND"`
 	SUBCOMMAND string `help:"s3cli subcommand" subcommand:"true"`
 }
 
@@ -94,11 +94,23 @@ func newClient(options *BaseOptions) (cloudprovider.ICloudRegion, error) {
 	}
 
 	if options.Backend == api.CLOUD_PROVIDER_CEPH {
-		return ceph.NewCephRados("", "", options.AccessUrl, options.AccessKey, options.Secret, options.Debug)
+		return ceph.NewCephRados(
+			objectstore.NewObjectStoreClientConfig(
+				options.AccessUrl, options.AccessKey, options.Secret,
+			).Debug(options.Debug),
+		)
 	} else if options.Backend == api.CLOUD_PROVIDER_XSKY {
-		return xsky.NewXskyClient("", "", options.AccessUrl, options.AccessKey, options.Secret, options.Debug)
+		return xsky.NewXskyClient(
+			objectstore.NewObjectStoreClientConfig(
+				options.AccessUrl, options.AccessKey, options.Secret,
+			).Debug(options.Debug),
+		)
 	}
-	return objectstore.NewObjectStoreClient("", "", options.AccessUrl, options.AccessKey, options.Secret, options.Debug)
+	return objectstore.NewObjectStoreClient(
+		objectstore.NewObjectStoreClientConfig(
+			options.AccessUrl, options.AccessKey, options.Secret,
+		).Debug(options.Debug),
+	)
 }
 
 func main() {

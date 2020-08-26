@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type NetworkCreateTask struct {
@@ -38,10 +39,14 @@ func init() {
 }
 
 func (self *NetworkCreateTask) taskFailed(ctx context.Context, network *models.SNetwork, event string, err error) {
-	log.Errorf("network create task fail on %s: %s", event, err)
-	network.SetStatus(self.UserCred, api.NETWORK_STATUS_FAILED, err.Error())
-	db.OpsLog.LogEvent(network, db.ACT_ALLOCATE_FAIL, err.Error(), self.UserCred)
-	self.SetStageFailed(ctx, err.Error())
+	log.Errorf("network create task fail on %s: %s", event, err.Error())
+	reason := jsonutils.NewDict()
+	reason.Set("event", jsonutils.NewString(event))
+	reason.Set("reason", jsonutils.NewString(err.Error()))
+	network.SetStatus(self.UserCred, api.NETWORK_STATUS_FAILED, reason.String())
+	db.OpsLog.LogEvent(network, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
+	logclient.AddActionLogWithStartable(self, network, logclient.ACT_CREATE, reason, self.UserCred, false)
+	self.SetStageFailed(ctx, reason)
 }
 
 func (self *NetworkCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
@@ -67,7 +72,19 @@ func (self *NetworkCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		return
 	}
 
-	inet, err := iwire.CreateINetwork(network.Name, prefix.String(), network.Description)
+	opts := cloudprovider.SNetworkCreateOptions{
+		Name: network.Name,
+		Cidr: prefix.String(),
+		Desc: network.Description,
+	}
+
+	provider := wire.GetCloudprovider()
+	opts.ProjectId, err = provider.SyncProject(ctx, self.GetUserCred(), network.ProjectId)
+	if err != nil {
+		log.Errorf("failed to sync project %s for create %s network %s error: %v", network.ProjectId, provider.Provider, network.Name, err)
+	}
+
+	inet, err := iwire.CreateINetwork(&opts)
 	if err != nil {
 		self.taskFailed(ctx, network, "createinetwork", err)
 		return
@@ -80,7 +97,7 @@ func (self *NetworkCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		return
 	}
 
-	err = network.SyncWithCloudNetwork(ctx, self.UserCred, inet, nil)
+	err = network.SyncWithCloudNetwork(ctx, self.UserCred, inet, nil, nil)
 
 	if err != nil {
 		self.taskFailed(ctx, network, "SyncWithCloudNetwork", err)
@@ -88,6 +105,6 @@ func (self *NetworkCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 	}
 
 	network.ClearSchedDescCache()
-
+	logclient.AddActionLogWithStartable(self, network, logclient.ACT_CREATE, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }

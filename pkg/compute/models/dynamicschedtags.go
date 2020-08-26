@@ -21,14 +21,17 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/conditionparser"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type IDynamicResourceManager interface {
@@ -42,6 +45,7 @@ type IDynamicResource interface {
 
 type SDynamicschedtagManager struct {
 	db.SStandaloneResourceBaseManager
+	SSchedtagResourceBaseManager
 
 	StandaloneResourcesManager map[string]IDynamicResourceManager
 	VirtualResourcesManager    map[string]IDynamicResourceManager
@@ -97,31 +101,16 @@ func (man *SDynamicschedtagManager) InitializeData() error {
 //
 type SDynamicschedtag struct {
 	db.SStandaloneResourceBase
+	SSchedtagResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" update:"admin"`
 
-	Condition  string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"required" update:"admin"`
-	SchedtagId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" update:"admin"`
+	// 动态调度标间的匹配条件
+	// example: host.sys_load > 1.5 || host.mem_used_percent > 0.7 => "high_load"
+	Condition string `width:"1024" charset:"ascii" nullable:"false" list:"user" create:"required" update:"admin"`
+
+	// 动态调度标签对应的调度标签
+	// SchedtagId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" update:"admin"`
 
 	Enabled tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
-}
-
-func (self *SDynamicschedtagManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, self)
-}
-
-func (self *SDynamicschedtagManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SDynamicschedtag) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SDynamicschedtag) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SDynamicschedtag) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
 }
 
 func validateDynamicSchedtagInputData(data *jsonutils.JSONDict, create bool) error {
@@ -178,42 +167,50 @@ func (self *SDynamicschedtag) ValidateUpdateData(ctx context.Context, userCred m
 		return nil, err
 	}
 
-	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
-}
-
-func (self *SDynamicschedtag) GetSchedtag() *SSchedtag {
-	return self.getSchedtag()
-}
-
-func (self *SDynamicschedtag) getSchedtag() *SSchedtag {
-	obj, err := SchedtagManager.FetchById(self.SchedtagId)
+	input := apis.StandaloneResourceBaseUpdateInput{}
+	err = data.Unmarshal(&input)
 	if err != nil {
-		log.Errorf("fail to fetch sched tag by id %s", err)
-		return nil
+		return nil, errors.Wrap(err, "Unmarshal")
 	}
-	return obj.(*SSchedtag)
-}
-
-func (self *SDynamicschedtag) getMoreColumns(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	schedtag := self.getSchedtag()
-	if schedtag != nil {
-		extra.Add(jsonutils.NewString(schedtag.GetName()), "schedtag")
-		extra.Add(jsonutils.NewString(schedtag.ResourceType), "resource_type")
-	}
-	return extra
-}
-
-func (self *SDynamicschedtag) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreColumns(extra)
-}
-
-func (self *SDynamicschedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+	input, err = self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
 	}
-	return self.getMoreColumns(extra), nil
+	data.Update(jsonutils.Marshal(input))
+
+	return data, nil
+}
+
+func (self *SDynamicschedtag) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.DynamicschedtagDetails, error) {
+	return api.DynamicschedtagDetails{}, nil
+}
+
+func (manager *SDynamicschedtagManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.DynamicschedtagDetails {
+	rows := make([]api.DynamicschedtagDetails, len(objs))
+
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	tagRows := manager.SSchedtagResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.DynamicschedtagDetails{
+			StandaloneResourceDetails: stdRows[i],
+			SchedtagResourceInfo:      tagRows[i],
+		}
+	}
+
+	return rows
 }
 
 func (manager *SDynamicschedtagManager) GetEnabledDynamicSchedtagsByResource(resType string) []SDynamicschedtag {
@@ -271,7 +268,7 @@ func (self *SDynamicschedtag) PerformEvaluate(ctx context.Context, userCred mccl
 
 	log.V(10).Debugf("Dynamicschedtag evaluate input: %s", params.PrettyString())
 
-	meet, err := conditionparser.Eval(self.Condition, params)
+	meet, err := conditionparser.EvalBool(self.Condition, params)
 	if err != nil {
 		return nil, err
 	}
@@ -301,4 +298,69 @@ func FetchDynamicResourceObject(man IDynamicResourceManager, userCred mcclient.T
 		return nil, httperrors.NewGeneralError(fmt.Errorf("%s %s not implement IDynamicResource", obj.Keyword(), obj.GetName()))
 	}
 	return res, nil
+}
+
+// 动态调度标签列表
+func (manager *SDynamicschedtagManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.DynamicschedtagListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SSchedtagResourceBaseManager.ListItemFilter(ctx, q, userCred, input.SchedtagFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSchedtagResourceBaseManager.ListItemFilter")
+	}
+
+	if input.Enabled != nil {
+		if *input.Enabled {
+			q = q.IsTrue("enabled")
+		} else {
+			q = q.IsFalse("enabled")
+		}
+	}
+
+	return q, nil
+}
+
+func (manager *SDynamicschedtagManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.DynamicschedtagListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+
+	q, err = manager.SSchedtagResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.SchedtagFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSchedtagResourceBaseManager.OrderByExtraFields(")
+	}
+
+	return q, nil
+}
+
+func (manager *SDynamicschedtagManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SSchedtagResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }

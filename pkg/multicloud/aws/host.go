@@ -31,15 +31,15 @@ type SHost struct {
 }
 
 func (self *SHost) GetId() string {
-	return fmt.Sprintf("%s-%s", self.zone.region.client.providerId, self.zone.GetId())
+	return fmt.Sprintf("%s-%s", self.zone.region.client.cpcfg.Id, self.zone.GetId())
 }
 
 func (self *SHost) GetName() string {
-	return fmt.Sprintf("%s-%s", self.zone.region.client.providerName, self.zone.GetId())
+	return fmt.Sprintf("%s-%s", self.zone.region.client.cpcfg.Name, self.zone.GetId())
 }
 
 func (self *SHost) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s", self.zone.region.client.providerId, self.zone.GetId())
+	return fmt.Sprintf("%s-%s", self.zone.region.client.cpcfg.Id, self.zone.GetId())
 }
 
 func (self *SHost) GetStatus() string {

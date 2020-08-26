@@ -41,7 +41,7 @@ func ReportGeneralUsage(ctx context.Context, w http.ResponseWriter, r *http.Requ
 
 	ownerId, scope, err := db.FetchUsageOwnerScope(ctx, userCred, query)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 
@@ -49,15 +49,21 @@ func ReportGeneralUsage(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	if scope == rbacutils.ScopeSystem {
 		adminUsage := models.ImageManager.Usage(rbacutils.ScopeSystem, ownerId, "all")
 		usages.Update(jsonutils.Marshal(adminUsage))
+		adminUsage = models.GuestImageManager.Usage(rbacutils.ScopeSystem, ownerId, "all")
+		usages.Update(jsonutils.Marshal(adminUsage))
 	}
 
 	if scope.HigherEqual(rbacutils.ScopeDomain) {
 		domainUsage := models.ImageManager.Usage(rbacutils.ScopeDomain, ownerId, "domain")
 		usages.Update(jsonutils.Marshal(domainUsage))
+		domainUsage = models.GuestImageManager.Usage(rbacutils.ScopeDomain, ownerId, "domain")
+		usages.Update(jsonutils.Marshal(domainUsage))
 	}
 
 	if scope.HigherEqual(rbacutils.ScopeProject) {
 		projectUsage := models.ImageManager.Usage(rbacutils.ScopeProject, ownerId, "")
+		usages.Update(jsonutils.Marshal(projectUsage))
+		projectUsage = models.GuestImageManager.Usage(rbacutils.ScopeProject, ownerId, "")
 		usages.Update(jsonutils.Marshal(projectUsage))
 	}
 

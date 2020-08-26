@@ -42,6 +42,7 @@ type SImage struct {
 	Platform  string `json:"platform"`
 	Name      string `json:"name"`
 	OSBit     int64  `json:"osBit"`
+	OSVersion string `json:"osVersion"`
 	MinRAM    int64  `json:"minRam"`
 	MinDisk   int64  `json:"minDisk"`
 	ImageType string `json:"imageType"`
@@ -98,7 +99,7 @@ func (self *SImage) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SImage) Delete(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	return cloudprovider.ErrNotSupported
 }
 
 func (self *SImage) GetIStoragecache() cloudprovider.ICloudStoragecache {
@@ -135,7 +136,7 @@ func (self *SImage) GetOsDist() string {
 }
 
 func (self *SImage) GetOsVersion() string {
-	return imagetools.NormalizeImageInfo(self.Name, "", "", "", "").OsVersion
+	return imagetools.NormalizeImageInfo(self.OSVersion, "", "", self.Platform, "").OsVersion
 }
 
 func (self *SImage) GetOsArch() string {
@@ -201,4 +202,8 @@ func (self *SRegion) GetImage(imageId string) (*SImage, error) {
 	}
 
 	return nil, errors.Wrap(cloudprovider.ErrNotFound, "SRegion.GetImage")
+}
+
+func (self *SImage) UEFI() bool {
+	return false
 }

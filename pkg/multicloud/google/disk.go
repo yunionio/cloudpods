@@ -25,11 +25,13 @@ import (
 	billing "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SDisk struct {
 	storage *SStorage
 	SResourceBase
+	multicloud.SDisk
 
 	Id                     string
 	CreationTimestamp      time.Time
@@ -43,6 +45,7 @@ type SDisk struct {
 	LabelFingerprint       string
 	PhysicalBlockSizeBytes string
 	ResourcePolicies       []string
+	Users                  []string
 	Kind                   string
 	autoDelete             bool
 	boot                   bool
@@ -108,7 +111,7 @@ func (disk *SDisk) GetIStorageId() string {
 }
 
 func (disk *SDisk) GetDiskFormat() string {
-	return ""
+	return "raw"
 }
 
 func (disk *SDisk) GetDiskSizeMB() int {
@@ -116,6 +119,9 @@ func (disk *SDisk) GetDiskSizeMB() int {
 }
 
 func (disk *SDisk) GetIsAutoDelete() bool {
+	if len(disk.Users) == 0 {
+		return false
+	}
 	return disk.autoDelete
 }
 
@@ -124,7 +130,7 @@ func (disk *SDisk) GetTemplateId() string {
 }
 
 func (disk *SDisk) GetDiskType() string {
-	if disk.index == 0 || disk.boot {
+	if disk.boot && len(disk.Users) > 0 {
 		return api.DISK_TYPE_SYS
 	}
 	return api.DISK_TYPE_DATA
@@ -155,11 +161,16 @@ func (disk *SDisk) GetAccessPath() string {
 }
 
 func (disk *SDisk) Delete(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	return disk.storage.zone.region.Delete(disk.SelfLink)
 }
 
 func (disk *SDisk) CreateISnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudSnapshot, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	snapshot, err := disk.storage.zone.region.CreateSnapshot(disk.SelfLink, name, desc)
+	if err != nil {
+		return nil, err
+	}
+	snapshot.region = disk.storage.zone.region
+	return snapshot, nil
 }
 
 func (disk *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
@@ -189,15 +200,15 @@ func (disk *SDisk) GetExtSnapshotPolicyIds() ([]string, error) {
 }
 
 func (disk *SDisk) Resize(ctx context.Context, newSizeMB int64) error {
-	return cloudprovider.ErrNotImplemented
+	return disk.storage.zone.region.ResizeDisk(disk.SelfLink, int(newSizeMB>>10))
 }
 
 func (disk *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
+	return "", cloudprovider.ErrNotSupported
 }
 
 func (disk *SDisk) Rebuild(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	return cloudprovider.ErrNotSupported
 }
 
 func (disk *SDisk) GetBillingType() string {
@@ -214,4 +225,48 @@ func (disk *SDisk) GetExpiredAt() time.Time {
 
 func (disk *SDisk) GetProjectId() string {
 	return disk.storage.zone.region.GetProjectId()
+}
+
+func (region *SRegion) CreateDisk(name string, sizeGb int, zone string, storageType string, image string, desc string) (*SDisk, error) {
+	if !strings.HasPrefix(storageType, GOOGLE_COMPUTE_DOMAIN) {
+		storageType = fmt.Sprintf("projects/%s/zones/%s/diskTypes/%s", region.GetProjectId(), zone, storageType)
+	}
+	body := map[string]interface{}{
+		"name":        name,
+		"description": desc,
+		// https://www.googleapis.com/compute/v1/projects/my-project-15390453537169/zones/us-west2-c/diskTypes/pd-standard
+		// projects/my-project-15390453537169/zones/us-west2-c/diskTypes/pd-standard
+		"type": storageType,
+	}
+	if len(image) > 0 {
+		body["sourceImage"] = image
+	} else {
+		body["sizeGb"] = sizeGb
+	}
+	disk := &SDisk{}
+	resource := fmt.Sprintf("zones/%s/disks", zone)
+	err := region.Insert(resource, jsonutils.Marshal(body), disk)
+	if err != nil {
+		return nil, err
+	}
+	return disk, nil
+}
+
+func (region *SRegion) ResizeDisk(id string, sizeGb int) error {
+	body := map[string]int{
+		"sizeGb": sizeGb,
+	}
+	return region.Do(id, "resize", nil, jsonutils.Marshal(body))
+}
+
+func (region *SRegion) CreateSnapshot(diskId string, name string, desc string) (*SSnapshot, error) {
+	body := map[string]string{
+		"name":        name,
+		"description": desc,
+	}
+	err := region.Do(diskId, "createSnapshot", nil, jsonutils.Marshal(body))
+	if err != nil {
+		return nil, err
+	}
+	return region.GetSnapshot(fmt.Sprintf("projects/%s/global/snapshots/%s", region.GetProjectId(), name))
 }

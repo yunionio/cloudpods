@@ -16,13 +16,13 @@ package netutils
 
 import (
 	"fmt"
+	"math/bits"
 	"math/rand"
 	"net"
 	"strconv"
 	"strings"
 
-	"github.com/pkg/errors"
-
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
 )
 
@@ -321,11 +321,10 @@ func (ar IPV4AddrRange) equals(ar2 IPV4AddrRange) bool {
 }
 
 func Masklen2Mask(maskLen int8) IPV4Addr {
-	var mask uint32 = 0
-	for i := 0; i < int(maskLen); i += 1 {
-		mask |= 1 << uint(31-i)
+	if maskLen < 0 {
+		panic("negative masklen")
 	}
-	return IPV4Addr(mask)
+	return IPV4Addr(^(uint32(1<<(32-uint8(maskLen))) - 1))
 }
 
 type IPV4Prefix struct {
@@ -350,14 +349,7 @@ func (pref *IPV4Prefix) Equals(pref1 *IPV4Prefix) bool {
 }
 
 func Mask2Len(mask IPV4Addr) int8 {
-	var maskLen int8 = 0
-	for {
-		if (mask & (1 << uint(31-maskLen))) == 0 {
-			break
-		}
-		maskLen += 1
-	}
-	return maskLen
+	return int8(bits.LeadingZeros32(^uint32(mask)))
 }
 
 func ParsePrefix(prefix string) (IPV4Addr, int8, error) {

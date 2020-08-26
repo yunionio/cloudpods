@@ -36,11 +36,11 @@ func init() {
 	taskman.RegisterTask(LoadbalancerBackendGroupDeleteTask{})
 }
 
-func (self *LoadbalancerBackendGroupDeleteTask) taskFail(ctx context.Context, lbbg *models.SLoadbalancerBackendGroup, reason string) {
-	lbbg.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, reason)
+func (self *LoadbalancerBackendGroupDeleteTask) taskFail(ctx context.Context, lbbg *models.SLoadbalancerBackendGroup, reason jsonutils.JSONObject) {
+	lbbg.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, reason.String())
 	db.OpsLog.LogEvent(lbbg, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbbg, logclient.ACT_DELOCATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lbbg.Id, lbbg.Name, api.LB_STATUS_DELETE_FAILED, reason)
+	notifyclient.NotifySystemError(lbbg.Id, lbbg.Name, api.LB_STATUS_DELETE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -48,12 +48,12 @@ func (self *LoadbalancerBackendGroupDeleteTask) OnInit(ctx context.Context, obj 
 	lbbg := obj.(*models.SLoadbalancerBackendGroup)
 	region := lbbg.GetRegion()
 	if region == nil {
-		self.taskFail(ctx, lbbg, fmt.Sprintf("failed to find region for lb %s", lbbg.Name))
+		self.taskFail(ctx, lbbg, jsonutils.NewString(fmt.Sprintf("failed to find region for lb %s", lbbg.Name)))
 		return
 	}
 	self.SetStage("OnLoadbalancerBackendGroupDeleteComplete", nil)
 	if err := region.GetDriver().RequestDeleteLoadbalancerBackendGroup(ctx, self.GetUserCred(), lbbg, self); err != nil {
-		self.taskFail(ctx, lbbg, err.Error())
+		self.taskFail(ctx, lbbg, jsonutils.Marshal(err))
 	}
 }
 
@@ -65,5 +65,5 @@ func (self *LoadbalancerBackendGroupDeleteTask) OnLoadbalancerBackendGroupDelete
 }
 
 func (self *LoadbalancerBackendGroupDeleteTask) OnLoadbalancerBackendGroupDeleteCompleteFailed(ctx context.Context, lbbg *models.SLoadbalancerBackendGroup, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lbbg, reason.String())
+	self.taskFail(ctx, lbbg, reason)
 }

@@ -15,9 +15,9 @@
 package main
 
 import (
-	"yunion.io/x/onecloud/pkg/notify"
+	"yunion.io/x/onecloud/pkg/notify/service"
 )
 
 func main() {
-	notify.StartService()
+	service.StartService()
 }

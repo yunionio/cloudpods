@@ -15,11 +15,13 @@
 package qcloud
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -189,7 +191,10 @@ func (self *SLBBackend) GetProjectId() string {
 	return ""
 }
 
-func (self *SLBBackend) SyncConf(port, weight int) error {
+func (self *SLBBackend) SyncConf(ctx context.Context, port, weight int) error {
+	lockman.LockRawObject(ctx, "qcloud.SLBBackend.SyncConf", self.group.lb.region.client.ownerId)
+	defer lockman.ReleaseRawObject(ctx, "qcloud.SLBBackend.SyncConf", self.group.lb.region.client.ownerId)
+
 	err := self.group.UpdateBackendServer(self.InstanceID, self.Weight, self.Port, weight, port)
 	if err != nil {
 		return err

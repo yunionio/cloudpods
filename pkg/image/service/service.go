@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/image/models"
 	"yunion.io/x/onecloud/pkg/image/options"
+	_ "yunion.io/x/onecloud/pkg/image/policy"
 	_ "yunion.io/x/onecloud/pkg/image/tasks"
 	"yunion.io/x/onecloud/pkg/image/torrent"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -93,10 +94,7 @@ func StartService() {
 
 	db.EnsureAppInitSyncDB(app, dbOpts, models.InitDB)
 
-	err := app_common.MergeServiceConfig(opts, api.SERVICE_TYPE, api.SERVICE_VERSION)
-	if err != nil {
-		log.Fatalf("[MERGE CONFIG] Fail to merge service config %s", err)
-	}
+	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
 
 	go models.CheckImages()
 

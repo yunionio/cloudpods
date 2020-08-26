@@ -36,11 +36,11 @@ func init() {
 	taskman.RegisterTask(ElasticcacheParameterUpdateTask{})
 }
 
-func (self *ElasticcacheParameterUpdateTask) taskFail(ctx context.Context, ep *models.SElasticcacheParameter, reason string) {
-	ep.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_PARAMETER_STATUS_UPDATE_FAILED, reason)
+func (self *ElasticcacheParameterUpdateTask) taskFail(ctx context.Context, ep *models.SElasticcacheParameter, reason jsonutils.JSONObject) {
+	ep.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_PARAMETER_STATUS_UPDATE_FAILED, reason.String())
 	db.OpsLog.LogEvent(ep, db.ACT_UPDATE, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, ep, logclient.ACT_UPDATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(ep.Id, ep.Name, api.ELASTIC_CACHE_PARAMETER_STATUS_UPDATE_FAILED, reason)
+	notifyclient.NotifySystemError(ep.Id, ep.Name, api.ELASTIC_CACHE_PARAMETER_STATUS_UPDATE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -48,19 +48,19 @@ func (self *ElasticcacheParameterUpdateTask) OnInit(ctx context.Context, obj db.
 	ep := obj.(*models.SElasticcacheParameter)
 	region := ep.GetRegion()
 	if region == nil {
-		self.taskFail(ctx, ep, fmt.Sprintf("failed to find region for elastic cache parameter %s", ep.GetName()))
+		self.taskFail(ctx, ep, jsonutils.NewString(fmt.Sprintf("failed to find region for elastic cache parameter %s", ep.GetName())))
 		return
 	}
 
 	iec, err := db.FetchById(models.ElasticcacheManager, ep.ElasticcacheId)
 	if err != nil {
-		self.taskFail(ctx, ep, fmt.Sprintf("failed to find elastic instance for  parameter %s", ep.GetName()))
+		self.taskFail(ctx, ep, jsonutils.NewString(fmt.Sprintf("failed to find elastic instance for  parameter %s", ep.GetName())))
 		return
 	}
 
 	self.SetStage("OnElasticcacheParameterUpdateComplete", nil)
 	if err := region.GetDriver().RequestElasticcacheUpdateInstanceParameters(ctx, self.GetUserCred(), iec.(*models.SElasticcache), self); err != nil {
-		self.OnElasticcacheParameterUpdateCompleteFailed(ctx, ep, err.Error())
+		self.OnElasticcacheParameterUpdateCompleteFailed(ctx, ep, jsonutils.Marshal(err))
 		return
 	}
 
@@ -72,6 +72,6 @@ func (self *ElasticcacheParameterUpdateTask) OnElasticcacheParameterUpdateComple
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *ElasticcacheParameterUpdateTask) OnElasticcacheParameterUpdateCompleteFailed(ctx context.Context, ep *models.SElasticcacheParameter, reason string) {
+func (self *ElasticcacheParameterUpdateTask) OnElasticcacheParameterUpdateCompleteFailed(ctx context.Context, ep *models.SElasticcacheParameter, reason jsonutils.JSONObject) {
 	self.taskFail(ctx, ep, reason)
 }

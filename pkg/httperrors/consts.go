@@ -34,6 +34,7 @@ const (
 
 	ErrServerStatus  = errors.Error("ServerStatusError")
 	ErrInvalidStatus = errors.ErrInvalidStatus
+	ErrInvalidFormat = errors.Error("InvalidFormatError")
 
 	ErrInputParameter   = errors.Error("InputParameterError")
 	ErrWeakPassword     = errors.Error("WeakPasswordError")
@@ -79,6 +80,13 @@ const (
 	ErrNoBalancePermission = errors.Error("NoBalancePermission")
 
 	ErrTooLarge = errors.Error("TooLargeEntity")
+
+	ErrTooManyAttempts = errors.Error("TooManyFailedAttempts")
+	ErrTooManyRequests = errors.Error("TooManyRequests")
+
+	ErrUnsupportedProtocol = errors.Error("UnsupportedProtocol")
+
+	ErrPolicyDefinition = errors.Error("PolicyDefinitionError")
 )
 
 var (
@@ -105,6 +113,7 @@ var (
 
 		ErrServerStatus:  400,
 		ErrInvalidStatus: 400,
+		ErrInvalidFormat: 400,
 
 		ErrInputParameter:   400,
 		ErrWeakPassword:     400,
@@ -147,6 +156,11 @@ var (
 		ErrNoProject:         403,
 
 		ErrTooLarge: 413,
+
+		ErrTooManyAttempts: 429,
+		ErrTooManyRequests: 429,
+
+		ErrPolicyDefinition: 409,
 	}
 )
 

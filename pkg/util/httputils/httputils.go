@@ -15,6 +15,9 @@
 package httputils
 
 import (
+	"bytes"
+	"compress/flate"
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -36,6 +39,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/trace"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/appctx"
 )
@@ -52,6 +56,10 @@ const (
 	PATCH  = THttpMethod("PATCH")
 	DELETE = THttpMethod("DELETE")
 	OPTION = THttpMethod("OPTION")
+
+	IdleConnTimeout       = 60
+	TLSHandshakeTimeout   = 10
+	ResponseHeaderTimeout = 30
 )
 
 var (
@@ -62,19 +70,153 @@ var (
 )
 
 type Error struct {
-	Id     string
-	Fields []string
+	Id     string   `json:"id"`
+	Fields []string `json:"fields"`
 }
 
 type JSONClientError struct {
-	Code    int
-	Class   string
-	Details string
-	Data    Error
+	Request struct {
+		Method  string               `json:"method"`
+		Url     string               `json:"url"`
+		Body    jsonutils.JSONObject `json:"body"`
+		Headers map[string]string    `json:"headers"`
+	} `json:"request"`
+
+	Code    int    `json:"code"`
+	Class   string `json:"class"`
+	Details string `json:"details"`
+	Data    Error  `json:"data"`
+}
+
+// body might have been consumed, so body is provided separately
+func newJsonClientErrorFromRequest(req *http.Request, body string) *JSONClientError {
+	return newJsonClientErrorFromRequest2(req.Method, req.URL.String(), req.Header, body)
+}
+
+func newJsonClientErrorFromRequest2(method string, urlStr string, hdrs http.Header, body string) *JSONClientError {
+	jce := &JSONClientError{}
+
+	jce.Request.Method = strings.ToUpper(method)
+	jce.Request.Url = urlStr
+	jce.Request.Headers = make(map[string]string)
+	excludeHdrs := []string{}
+	authHdrs := []string{
+		http.CanonicalHeaderKey("authorization"),
+		http.CanonicalHeaderKey("x-auth-token"),
+		http.CanonicalHeaderKey("x-subject-token"),
+	}
+	switch jce.Request.Method {
+	case "PUT", "POST", "PATCH":
+		contType := hdrs.Get(http.CanonicalHeaderKey("content-type"))
+		if strings.Contains(contType, "json") {
+			jce.Request.Body, _ = jsonutils.ParseString(body)
+		} else if strings.Contains(contType, "xml") ||
+			strings.Contains(contType, "x-www-form-urlencoded") {
+			jce.Request.Body = jsonutils.NewString(body)
+		}
+	default:
+		excludeHdrs = append(excludeHdrs, http.CanonicalHeaderKey("content-type"), http.CanonicalHeaderKey("content-length"))
+	}
+	for h := range hdrs {
+		ch := http.CanonicalHeaderKey(h)
+		if utils.IsInStringArray(ch, excludeHdrs) {
+			continue
+		}
+		if utils.IsInStringArray(ch, authHdrs) {
+			jce.Request.Headers[ch] = "*"
+		} else {
+			jce.Request.Headers[ch] = hdrs.Get(ch)
+		}
+	}
+
+	return jce
 }
 
 type JSONClientErrorMsg struct {
 	Error *JSONClientError
+}
+
+type JsonClient struct {
+	client *http.Client
+}
+
+type JsonRequest interface {
+	GetHttpMethod() THttpMethod
+	GetRequestBody() jsonutils.JSONObject
+	GetUrl() string
+	SetHttpMethod(method THttpMethod)
+	GetHeader() http.Header
+	SetHeader(header http.Header)
+}
+
+type JsonBaseRequest struct {
+	httpMethod THttpMethod
+	url        string
+	params     interface{}
+	header     http.Header
+}
+
+func (req *JsonBaseRequest) GetHttpMethod() THttpMethod {
+	return req.httpMethod
+}
+
+func (req *JsonBaseRequest) GetRequestBody() jsonutils.JSONObject {
+	if req.params != nil {
+		return jsonutils.Marshal(req.params)
+	}
+	return nil
+}
+
+func (req *JsonBaseRequest) GetUrl() string {
+	return req.url
+}
+
+func (req *JsonBaseRequest) SetHttpMethod(method THttpMethod) {
+	req.httpMethod = method
+}
+
+func (req *JsonBaseRequest) GetHeader() http.Header {
+	return req.header
+}
+
+func (req *JsonBaseRequest) SetHeader(header http.Header) {
+	for k, values := range header {
+		req.header.Del(k)
+		for _, v := range values {
+			req.header.Add(k, v)
+		}
+	}
+}
+
+func NewJsonRequest(method THttpMethod, url string, params interface{}) *JsonBaseRequest {
+	return &JsonBaseRequest{
+		httpMethod: method,
+		url:        url,
+		params:     params,
+		header:     http.Header{"Content-Type": []string{"application/json"}},
+	}
+}
+
+type JsonResponse interface {
+	ParseErrorFromJsonResponse(statusCode int, body jsonutils.JSONObject) error
+}
+
+func (ce *JSONClientError) ParseErrorFromJsonResponse(statusCode int, body jsonutils.JSONObject) error {
+	body.Unmarshal(ce)
+	if ce.Code == 0 {
+		ce.Code = statusCode
+	}
+	if len(ce.Class) == 0 {
+		ce.Class = http.StatusText(statusCode)
+	}
+	if len(ce.Details) == 0 {
+		ce.Details = body.String()
+	}
+	return ce
+}
+
+func NewJsonClient(client *http.Client) *JsonClient {
+	return &JsonClient{client: client}
 }
 
 func (e *JSONClientError) Error() string {
@@ -142,44 +284,168 @@ func GetAddrPort(urlStr string) (string, int, error) {
 	}
 }
 
-func GetTransport(insecure bool, timeout time.Duration) *http.Transport {
-	return &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		DialContext: (&net.Dialer{
-			Timeout:   timeout,
-			KeepAlive: timeout,
-		}).DialContext,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-		TLSClientConfig:       &tls.Config{InsecureSkipVerify: insecure},
-		DisableCompression:    true,
+func GetTransport(insecure bool) *http.Transport {
+	return getTransport(insecure, false)
+}
+
+func adptiveDial(ctx context.Context, network, addr string) (net.Conn, error) {
+	conn, err := net.DialTimeout(network, addr, 10*time.Second)
+	if err != nil {
+		return nil, err
 	}
+	return getConnDelegate(conn, 10*time.Second, 20*time.Second), nil
+}
+
+func getTransport(insecure bool, adaptive bool) *http.Transport {
+	tr := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		// 一个空闲连接保持连接的时间
+		// IdleConnTimeout is the maximum amount of time an idle
+		// (keep-alive) connection will remain idle before closing
+		// itself.
+		// Zero means no limit.
+		IdleConnTimeout: IdleConnTimeout * time.Second,
+		// 建立TCP连接后，等待TLS握手的超时时间
+		// TLSHandshakeTimeout specifies the maximum amount of time waiting to
+		// wait for a TLS handshake. Zero means no timeout.
+		TLSHandshakeTimeout: TLSHandshakeTimeout * time.Second,
+		// 发送请求后，等待服务端http响应的超时时间
+		// ResponseHeaderTimeout, if non-zero, specifies the amount of
+		// time to wait for a server's response headers after fully
+		// writing the request (including its body, if any). This
+		// time does not include the time to read the response body.
+		ResponseHeaderTimeout: ResponseHeaderTimeout * time.Second,
+		// 当请求携带Expect: 100-continue时，等待服务端100响应的超时时间
+		// ExpectContinueTimeout, if non-zero, specifies the amount of
+		// time to wait for a server's first response headers after fully
+		// writing the request headers if the request has an
+		// "Expect: 100-continue" header. Zero means no timeout and
+		// causes the body to be sent immediately, without
+		// waiting for the server to approve.
+		// This time does not include the time to send the request header.
+		ExpectContinueTimeout: 5 * time.Second,
+		TLSClientConfig:       &tls.Config{InsecureSkipVerify: insecure},
+	}
+	if adaptive {
+		tr.DialContext = adptiveDial
+	} else {
+		tr.DialContext = (&net.Dialer{
+			// 建立TCP连接超时时间
+			// Timeout is the maximum amount of time a dial will wait for
+			// a connect to complete. If Deadline is also set, it may fail
+			// earlier.
+			//
+			// The default is no timeout.
+			//
+			// When using TCP and dialing a host name with multiple IP
+			// addresses, the timeout may be divided between them.
+			//
+			// With or without a timeout, the operating system may impose
+			// its own earlier timeout. For instance, TCP timeouts are
+			// often around 3 minutes.
+			Timeout: 10 * time.Second,
+			//
+			// KeepAlive specifies the interval between keep-alive
+			// probes for an active network connection.
+			// If zero, keep-alive probes are sent with a default value
+			// (currently 15 seconds), if supported by the protocol and operating
+			// system. Network protocols or operating systems that do
+			// not support keep-alives ignore this field.
+			// If negative, keep-alive probes are disabled.
+			KeepAlive: 5 * time.Second, // send keep-alive probe every 5 seconds
+		}).DialContext
+	}
+	return tr
 }
 
 func GetClient(insecure bool, timeout time.Duration) *http.Client {
-	tr := GetTransport(insecure, timeout)
+	adaptive := false
+	if timeout == 0 {
+		adaptive = true
+	}
+	tr := getTransport(insecure, adaptive)
 	return &http.Client{
 		Transport: tr,
-		Timeout:   timeout,
+		// 一个完整http request的超时时间
+		// Timeout specifies a time limit for requests made by this
+		// Client. The timeout includes connection time, any
+		// redirects, and reading the response body. The timer remains
+		// running after Get, Head, Post, or Do return and will
+		// interrupt reading of the Response.Body.
+		//
+		// A Timeout of zero means no timeout.
+		//
+		// The Client cancels requests to the underlying Transport
+		// as if the Request's Context ended.
+		//
+		// For compatibility, the Client will also use the deprecated
+		// CancelRequest method on Transport if found. New
+		// RoundTripper implementations should use the Request's Context
+		// for cancellation instead of implementing CancelRequest.
+		Timeout: timeout,
 	}
+}
+
+type TransportProxyFunc func(*http.Request) (*url.URL, error)
+
+func SetClientProxyFunc(
+	client *http.Client,
+	proxyFunc TransportProxyFunc,
+) bool {
+	set := false
+	if transport, ok := client.Transport.(*http.Transport); ok {
+		transport.Proxy = proxyFunc
+		set = true
+	}
+	return set
 }
 
 func GetTimeoutClient(timeout time.Duration) *http.Client {
 	return GetClient(true, timeout)
 }
 
+func GetAdaptiveTimeoutClient() *http.Client {
+	return GetClient(true, 0)
+}
+
 var defaultHttpClient *http.Client
 
 func init() {
-	defaultHttpClient = GetClient(true, time.Second*15)
+	defaultHttpClient = GetDefaultClient()
 }
 
 func GetDefaultClient() *http.Client {
-	return defaultHttpClient
+	return GetClient(true, time.Second*15)
 }
 
 func Request(client *http.Client, ctx context.Context, method THttpMethod, urlStr string, header http.Header, body io.Reader, debug bool) (*http.Response, error) {
+	req, resp, err := requestInternal(client, ctx, method, urlStr, header, body, debug)
+	if err != nil {
+		var reqBody string
+		if bodySeeker, ok := body.(io.ReadSeeker); ok {
+			bodySeeker.Seek(0, io.SeekStart)
+			reqBodyBytes, _ := ioutil.ReadAll(bodySeeker)
+			if reqBodyBytes != nil {
+				reqBody = string(reqBodyBytes)
+			}
+		}
+		if req == nil {
+			ce := newJsonClientErrorFromRequest2(string(method), urlStr, header, reqBody)
+			ce.Class = string(errors.ErrClient)
+			ce.Details = err.Error()
+			ce.Code = 499
+			return nil, ce
+		}
+		ce := newJsonClientErrorFromRequest(req, reqBody)
+		ce.Class = string(errors.ErrClient)
+		ce.Details = err.Error()
+		ce.Code = 499
+		return nil, ce
+	}
+	return resp, nil
+}
+
+func requestInternal(client *http.Client, ctx context.Context, method THttpMethod, urlStr string, header http.Header, body io.Reader, debug bool) (*http.Request, *http.Response, error) {
 	if client == nil {
 		client = defaultHttpClient
 	}
@@ -191,7 +457,7 @@ func Request(client *http.Client, ctx context.Context, method THttpMethod, urlSt
 	if !ctxData.Trace.IsZero() {
 		addr, port, err := GetAddrPort(urlStr)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		clientTrace = trace.StartClientTrace(&ctxData.Trace, addr, port, ctxData.ServiceName)
 		clientTrace.AddClientRequestHeader(header)
@@ -201,7 +467,7 @@ func Request(client *http.Client, ctx context.Context, method THttpMethod, urlSt
 	}
 	req, err := http.NewRequest(string(method), urlStr, body)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	req.Header.Set("User-Agent", USER_AGENT)
 	req.Header.Set("Accept", "*/*")
@@ -240,11 +506,28 @@ func Request(client *http.Client, ctx context.Context, method THttpMethod, urlSt
 	resp, err := client.Do(req)
 	if err != nil {
 		red(err.Error())
+		return req, nil, err
 	}
-	if err == nil && clientTrace != nil {
+	encoding := resp.Header.Get("Content-Encoding")
+	switch encoding {
+	case "", "identity":
+		// do nothing
+	case "gzip":
+		gzipBody, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return req, nil, errors.Wrap(err, "gzip.NewReader")
+		}
+		resp.Body = gzipBody
+	case "deflate":
+		resp.Body = flate.NewReader(resp.Body)
+	default:
+		return req, nil, errors.Wrapf(errors.ErrNotSupported, "unsupported content-encoding %s", encoding)
+	}
+	if clientTrace != nil {
 		clientTrace.EndClientTraceHeader(resp.Header)
 	}
-	return resp, err
+
+	return req, resp, nil
 }
 
 func JSONRequest(client *http.Client, ctx context.Context, method THttpMethod, urlStr string, header http.Header, body jsonutils.JSONObject, debug bool) (http.Header, jsonutils.JSONObject, error) {
@@ -259,7 +542,7 @@ func JSONRequest(client *http.Client, ctx context.Context, method THttpMethod, u
 	header.Set("Content-Length", strconv.FormatInt(int64(len(bodystr)), 10))
 	header.Set("Content-Type", "application/json")
 	resp, err := Request(client, ctx, method, urlStr, header, jbody, debug)
-	return ParseJSONResponse(resp, err, debug)
+	return ParseJSONResponse(bodystr, resp, err, debug)
 }
 
 // closeResponse close non nil response with any response Body.
@@ -282,12 +565,16 @@ func CloseResponse(resp *http.Response) {
 	}
 }
 
-func ParseResponse(resp *http.Response, err error, debug bool) (http.Header, []byte, error) {
+func (client *JsonClient) Send(ctx context.Context, req JsonRequest, response JsonResponse, debug bool) (http.Header, jsonutils.JSONObject, error) {
+	var bodystr string
+	body := req.GetRequestBody()
+	if !gotypes.IsNil(body) {
+		bodystr = body.String()
+	}
+	jbody := strings.NewReader(bodystr)
+	resp, err := Request(client.client, ctx, req.GetHttpMethod(), req.GetUrl(), req.GetHeader(), jbody, debug)
 	if err != nil {
-		ce := JSONClientError{}
-		ce.Code = 499
-		ce.Details = err.Error()
-		return nil, nil, &ce
+		return nil, nil, err
 	}
 	defer CloseResponse(resp)
 	if debug {
@@ -300,64 +587,33 @@ func ParseResponse(resp *http.Response, err error, debug bool) (http.Header, []b
 			red(string(dump))
 		}
 	}
-	rbody, err := ioutil.ReadAll(resp.Body)
-	if debug {
-		fmt.Fprintf(os.Stderr, "Response body: %s\n", string(rbody))
-	}
-	if err != nil {
-		return nil, nil, fmt.Errorf("Fail to read body: %s", err)
-	}
-	if resp.StatusCode < 300 {
-		return resp.Header, rbody, nil
-	} else if resp.StatusCode >= 300 && resp.StatusCode < 400 {
-		ce := JSONClientError{}
-		ce.Code = resp.StatusCode
-		ce.Details = resp.Header.Get("Location")
-		ce.Class = "redirect"
-		return nil, nil, &ce
-	} else {
-		ce := JSONClientError{}
-		ce.Code = resp.StatusCode
-		ce.Details = resp.Status
-		if len(rbody) > 0 {
-			ce.Details = string(rbody)
-		}
-		return nil, nil, &ce
-	}
-}
 
-func ParseJSONResponse(resp *http.Response, err error, debug bool) (http.Header, jsonutils.JSONObject, error) {
-	if err != nil {
-		ce := JSONClientError{}
-		ce.Code = 499
-		ce.Details = err.Error()
-		return nil, nil, &ce
-	}
-	defer CloseResponse(resp)
-	if debug {
-		dump, _ := httputil.DumpResponse(resp, false)
-		if resp.StatusCode < 300 {
-			green(string(dump))
-		} else if resp.StatusCode < 400 {
-			yellow(string(dump))
-		} else {
-			red(string(dump))
-		}
-	}
 	rbody, err := ioutil.ReadAll(resp.Body)
-	if debug {
+	if err != nil {
+		ce := newJsonClientErrorFromRequest(resp.Request, bodystr)
+		ce.Code = resp.StatusCode
+		ce.Class = string(errors.ErrClient)
+		ce.Details = fmt.Sprintf("Fail to read body: %v", err)
+		return resp.Header, nil, ce
+	} else if debug {
 		fmt.Fprintf(os.Stderr, "Response body: %s\n", string(rbody))
 	}
-	if err != nil {
-		return nil, nil, fmt.Errorf("Fail to read body: %s", err)
-	}
+
+	rbody = bytes.TrimSpace(rbody)
 
 	var jrbody jsonutils.JSONObject = nil
-	if len(rbody) > 0 && string(rbody[0]) == "{" {
+	if len(rbody) > 0 && (rbody[0] == '{' || rbody[0] == '[') {
 		var err error
 		jrbody, err = jsonutils.Parse(rbody)
-		if err != nil && debug {
-			fmt.Fprintf(os.Stderr, "parsing json failed: %s", err)
+		if err != nil {
+			if debug {
+				fmt.Fprintf(os.Stderr, "parsing json %s failed: %v", string(rbody), err)
+			}
+			ce := newJsonClientErrorFromRequest(resp.Request, bodystr)
+			ce.Code = resp.StatusCode
+			ce.Class = string(errors.ErrServer)
+			ce.Details = fmt.Sprintf("jsonutils.Parse(%s) error: %v", string(rbody), err)
+			return resp.Header, nil, ce
 		}
 	}
 
@@ -368,9 +624,114 @@ func ParseJSONResponse(resp *http.Response, err error, debug bool) (http.Header,
 		ce.Code = resp.StatusCode
 		ce.Details = resp.Header.Get("Location")
 		ce.Class = "redirect"
-		return nil, nil, &ce
+		return resp.Header, jrbody, &ce
+	}
+
+	return resp.Header, jrbody, response.ParseErrorFromJsonResponse(resp.StatusCode, jrbody)
+}
+
+func IsRedirectError(err error) bool {
+	ce, ok := err.(*JSONClientError)
+	if ok && ce.Class == "redirect" {
+		return true
+	}
+	return false
+}
+
+func ParseResponse(reqBody string, resp *http.Response, err error, debug bool) (http.Header, []byte, error) {
+	if err != nil {
+		return nil, nil, err
+	}
+	defer CloseResponse(resp)
+	if debug {
+		dump, _ := httputil.DumpResponse(resp, false)
+		if resp.StatusCode < 300 {
+			green(string(dump))
+		} else if resp.StatusCode < 400 {
+			yellow(string(dump))
+		} else {
+			red(string(dump))
+		}
+	}
+	rbody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		ce := newJsonClientErrorFromRequest(resp.Request, reqBody)
+		ce.Code = 499
+		ce.Details = fmt.Sprintf("Fail to read body: %s", err)
+		ce.Class = string(errors.ErrClient)
+		return resp.Header, nil, ce
+	} else if debug {
+		fmt.Fprintf(os.Stderr, "Response body: %s\n", string(rbody))
+	}
+
+	if resp.StatusCode < 300 {
+		return resp.Header, rbody, nil
+	} else if resp.StatusCode >= 300 && resp.StatusCode < 400 {
+		ce := newJsonClientErrorFromRequest(resp.Request, reqBody)
+		ce.Code = resp.StatusCode
+		ce.Details = resp.Header.Get("Location")
+		ce.Class = "redirect"
+		return resp.Header, rbody, ce
 	} else {
-		ce := JSONClientError{}
+		ce := newJsonClientErrorFromRequest(resp.Request, reqBody)
+		ce.Code = resp.StatusCode
+		ce.Details = resp.Status
+		if len(rbody) > 0 {
+			ce.Details = string(rbody)
+		}
+		return nil, nil, ce
+	}
+}
+
+func ParseJSONResponse(reqBody string, resp *http.Response, err error, debug bool) (http.Header, jsonutils.JSONObject, error) {
+	if err != nil {
+		return nil, nil, err
+	}
+	defer CloseResponse(resp)
+	if debug {
+		dump, _ := httputil.DumpResponse(resp, false)
+		if resp.StatusCode < 300 {
+			green(string(dump))
+		} else if resp.StatusCode < 400 {
+			yellow(string(dump))
+		} else {
+			red(string(dump))
+		}
+	}
+
+	rbody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		ce := newJsonClientErrorFromRequest(resp.Request, reqBody)
+		ce.Code = 499
+		ce.Class = string(errors.ErrClient)
+		ce.Details = fmt.Sprintf("Fail to read body: %s", err)
+		return resp.Header, nil, ce
+	} else if debug {
+		fmt.Fprintf(os.Stderr, "Response body: %s\n", string(rbody))
+	}
+
+	rbody = bytes.TrimSpace(rbody)
+
+	var jrbody jsonutils.JSONObject = nil
+	if len(rbody) > 0 && (rbody[0] == '{' || rbody[0] == '[') {
+		var err error
+		jrbody, err = jsonutils.Parse(rbody)
+		if err != nil && debug {
+			// ignore the error
+			fmt.Fprintf(os.Stderr, "parsing json failed: %s", err)
+		}
+	}
+
+	if resp.StatusCode < 300 {
+		return resp.Header, jrbody, nil
+	} else if resp.StatusCode >= 300 && resp.StatusCode < 400 {
+		ce := newJsonClientErrorFromRequest(resp.Request, reqBody)
+		ce.Code = resp.StatusCode
+		ce.Details = resp.Header.Get("Location")
+		ce.Class = "redirect"
+		return resp.Header, jrbody, ce
+	} else {
+		ce := newJsonClientErrorFromRequest(resp.Request, reqBody)
 
 		if jrbody == nil {
 			ce.Code = resp.StatusCode
@@ -378,21 +739,21 @@ func ParseJSONResponse(resp *http.Response, err error, debug bool) (http.Header,
 			if len(rbody) > 0 {
 				ce.Details = string(rbody)
 			}
-			return nil, nil, &ce
+			return nil, nil, ce
 		}
 
-		err = jrbody.Unmarshal(&ce)
+		err = jrbody.Unmarshal(ce)
 		if len(ce.Class) > 0 && ce.Code >= 400 && len(ce.Details) > 0 {
-			return nil, nil, &ce
+			return nil, nil, ce
 		}
 
 		jrbody1, err := jrbody.GetMap()
 		if err != nil {
-			err = jrbody.Unmarshal(&ce)
+			err = jrbody.Unmarshal(ce)
 			if err != nil {
 				ce.Details = err.Error()
 			}
-			return nil, nil, &ce
+			return nil, nil, ce
 		}
 		var jrbody2 jsonutils.JSONObject
 		if len(jrbody1) > 1 {
@@ -402,12 +763,14 @@ func ParseJSONResponse(resp *http.Response, err error, debug bool) (http.Header,
 				jrbody2 = v
 			}
 		}
-		if ecode, _ := jrbody2.GetString("code"); len(ecode) > 0 {
-			code, err := strconv.Atoi(ecode)
-			if err != nil {
-				ce.Class = ecode
-			} else {
-				ce.Code = code
+		if jrbody2 != nil {
+			if ecode, _ := jrbody2.GetString("code"); len(ecode) > 0 {
+				code, err := strconv.Atoi(ecode)
+				if err != nil {
+					ce.Class = ecode
+				} else {
+					ce.Code = code
+				}
 			}
 		}
 		if ce.Code == 0 {
@@ -419,10 +782,16 @@ func ParseJSONResponse(resp *http.Response, err error, debug bool) (http.Header,
 		if eclass := jsonutils.GetAnyString(jrbody2, []string{"title", "type", "error_code"}); len(eclass) > 0 {
 			ce.Class = eclass
 		}
-		return nil, nil, &ce
+		return nil, nil, ce
 	}
 }
 
-func JoinPath(ep string, path string) string {
-	return strings.TrimRight(ep, "/") + "/" + strings.TrimLeft(path, "/")
+func JoinPath(ep string, paths ...string) string {
+	buf := strings.Builder{}
+	buf.WriteString(strings.TrimRight(ep, "/"))
+	for _, path := range paths {
+		buf.WriteByte('/')
+		buf.WriteString(strings.Trim(path, "/"))
+	}
+	return buf.String()
 }

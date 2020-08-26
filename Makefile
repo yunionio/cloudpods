@@ -10,7 +10,7 @@ BUILD_SCRIPT := $(ROOT_DIR)/build/build.sh
 ifeq ($(ONECLOUD_CI_BUILD),)
 	GIT_COMMIT := $(shell git rev-parse --short HEAD)
 	GIT_BRANCH := $(shell git name-rev --name-only HEAD)
-	GIT_VERSION := $(shell git describe --tags --abbrev=14 $(GIT_COMMIT)^{commit})
+	GIT_VERSION := $(shell git describe --always --tags --abbrev=14 $(GIT_COMMIT)^{commit})
 	GIT_TREE_STATE := $(shell s=`git status --porcelain 2>/dev/null`; if [ -z "$$s" ]; then echo "clean"; else echo "dirty"; fi)
 	BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 else
@@ -51,6 +51,7 @@ ifdef LIBQEMUIO_PATH
 		X_CGO_LDFLAGS := ${CGO_LDFLAGS_ENV} -laio -lqemuio -lpthread  -L ${LIBQEMUIO_PATH}/src
 endif
 
+export GOOS ?= linux
 export GO111MODULE:=on
 export CGO_CFLAGS = ${X_CGO_CFLAGS}
 export CGO_LDFLAGS = ${X_CGO_LDFLAGS}
@@ -75,13 +76,16 @@ install: prepare_dir
 
 
 gencopyright:
-	@sh scripts/gencopyright.sh pkg cmd
+	@bash scripts/gencopyright.sh pkg cmd
 
 test:
 	@go test $(GO_BUILD_FLAGS) $(shell go list ./... | egrep -v 'host-image|hostimage')
 
 vet:
 	go vet ./...
+
+cmd/esxi-agent: prepare_dir
+	CGO_ENABLED=0 $(GO_BUILD) -o $(BIN_DIR)/$(shell basename $@) $(REPO_PREFIX)/$@
 
 cmd/%: prepare_dir
 	$(GO_BUILD) -o $(BIN_DIR)/$(shell basename $@) $(REPO_PREFIX)/$@
@@ -159,9 +163,15 @@ goimports-check:
 	fi
 .PHONY: goimports-check
 
+vet-check:
+	./scripts/vet.sh gen
+	./scripts/vet.sh chk
+.PHONY: vet-check
+
 check: fmt-check
 check: gendocgo-check
 check: goimports-check
+check: vet-check
 .PHONY: check
 
 
@@ -184,48 +194,84 @@ dep:
 	@$(MAKE) mod
 
 mod:
-	go get $(patsubst %,%@master,$(shell GO111MODULE=on go mod edit -print  | sed -n -e 's|.*\(yunion.io/x/[a-z].*\) v.*|\1|p'))
+	go get -d $(patsubst %,%@master,$(shell GO111MODULE=on go mod edit -print  | sed -n -e 's|.*\(yunion.io/x/[a-z].*\) v.*|\1|p'))
 	go mod tidy
 	go mod vendor -v
 
 
-DOCKER_BUILD_IMAGE_VERSION?=latest
+DOCKER_CENTOS_BUILD_IMAGE?=registry.cn-beijing.aliyuncs.com/yunionio/centos-build:1.1-1
 
-define dockerBuildCmd
+define dockerCentOSBuildCmd
+set -o xtrace
 set -o errexit
 set -o pipefail
-cd /home/build/onecloud
+cd /root/onecloud
 export GOFLAGS=-mod=vendor
 make $(1)
+chown -R $(shell id -u):$(shell id -g) _output
 endef
 
-docker-build: export dockerBuildCmd:=$(call dockerBuildCmd,$(F))
-docker-build:
-	echo "$$dockerBuildCmd"
+docker-centos-build: export dockerCentOSBuildCmd:=$(call dockerCentOSBuildCmd,$(F))
+docker-centos-build:
 	docker rm --force onecloud-ci-build &>/dev/null || true
 	docker run \
-		--name onecloud-ci-build \
+		--name onecloud-docker-centos-build \
 		--rm \
-		--volume $(CURDIR):/home/build/onecloud \
-		yunionio/onecloud-ci:$(DOCKER_BUILD_IMAGE_VERSION) \
-		/bin/bash -c "$$dockerBuildCmd"
+		--volume $(CURDIR):/root/onecloud \
+		--volume $(CURDIR)/_output/_cache:/root/.cache \
+		$(DOCKER_CENTOS_BUILD_IMAGE) \
+		/bin/bash -c "$$dockerCentOSBuildCmd"
 	chown -R $$(id -u):$$(id -g) _output
 	ls -lh _output/bin
 
 # NOTE we need a way to stop and remove the container started by docker-build.
 # No --tty, --stop-signal won't work
-docker-build-stop:
-	docker stop --time 0 onecloud-ci-build || true
+docker-centos-build-stop:
+	docker stop --time 0 onecloud-docker-centos-build || true
 
-.PHONY: docker-build
-.PHONY: docker-build-stop
+.PHONY: docker-centos-build
+.PHONY: docker-centos-build-stop
+
+DOCKER_ALPINE_BUILD_IMAGE?=registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-3
+
+define dockerAlpineBuildCmd
+set -o xtrace
+set -o errexit
+set -o pipefail
+cd /root/go/src/yunion.io/x/onecloud
+export GOFLAGS=-mod=vendor
+make $(1)
+chown -R $(shell id -u):$(shell id -g) _output
+endef
+
+docker-alpine-build: export dockerAlpineBuildCmd:=$(call dockerAlpineBuildCmd,$(F))
+docker-alpine-build:
+	docker rm --force onecloud-docker-alpine-build &>/dev/null || true
+	docker run --rm \
+		--name onecloud-docker-alpine-build \
+		-v $(CURDIR):/root/go/src/yunion.io/x/onecloud \
+		-v $(CURDIR)/_output/alpine-build:/root/go/src/yunion.io/x/onecloud/_output \
+		-v $(CURDIR)/_output/alpine-build/_cache:/root/.cache \
+		$(DOCKER_ALPINE_BUILD_IMAGE) \
+		/bin/sh -c "$$dockerAlpineBuildCmd"
+	ls -lh _output/alpine-build/bin
+
+docker-alpine-build-stop:
+	docker stop --time 0 onecloud-docker-alpine-build || true
+
+.PHONY: docker-alpine-build
+.PHONY: docker-alpine-build-stop
 
 define helpText
 Build with docker
 
-	make docker-build F='-j4'
-	make docker-build F='-j4 cmd/region cmd/climc'
-	make docker-build-stop
+	make docker-centos-build F='-j4'
+	make docker-centos-build F='-j4 cmd/region cmd/climc'
+	make docker-centos-build-stop
+
+	make docker-alpine-build F='-j4'
+	make docker-alpine-build F='-j4 cmd/host cmd/host-deployer'
+	make docker-alpine-build-stop
 
 Tidy up go modules and vendor directory
 
@@ -236,11 +282,13 @@ help: export helpText:=$(helpText)
 help:
 	@echo "$$helpText"
 
+.PHONY: help
+
 gen-model-api-check:
 	which model-api-gen || (GO111MODULE=off go get -u yunion.io/x/code-generator/cmd/model-api-gen)
 
 gen-model-api: gen-model-api-check
-	./scripts/codegen.py model-api
+	$(ROOT_DIR)/scripts/codegen.py model-api
 
 gen-swagger-check:
 	which swagger || (GO111MODULE=off go get -u github.com/go-swagger/go-swagger/cmd/swagger)
@@ -248,8 +296,27 @@ gen-swagger-check:
 	which swagger-serve || (GO111MODULE=off go get -u yunion.io/x/code-generator/cmd/swagger-serve)
 
 gen-swagger: gen-swagger-check
-	./scripts/codegen.py swagger-code
-	./scripts/codegen.py swagger-yaml
+	$(ROOT_DIR)/scripts/codegen.py swagger-code
+	$(ROOT_DIR)/scripts/codegen.py swagger-yaml
 
-swagger-serve: gen-swagger
-	./scripts/codegen.py swagger-serve
+swagger-serve-only:
+	$(ROOT_DIR)/scripts/codegen.py swagger-serve
+
+swagger-serve: gen-model-api gen-swagger swagger-serve-only
+
+swagger-site: gen-model-api gen-swagger
+	$(ROOT_DIR)/scripts/codegen.py swagger-site
+
+.PHONY: gen-model-api-check gen-model-api gen-swagger-check gen-swagger swagger-serve swagger-site
+
+REGISTRY ?= "registry.cn-beijing.aliyuncs.com/yunionio"
+VERSION ?= $(shell git describe --exact-match 2> /dev/null || \
+                git describe --match=$(git rev-parse --short=8 HEAD) --always --dirty --abbrev=8)
+
+image:
+	TAG=$(VERSION) REGISTRY=$(REGISTRY) $(ROOT_DIR)/scripts/docker_push.sh $(filter-out $@,$(MAKECMDGOALS))
+
+.PHONY: image
+
+%:
+	@:

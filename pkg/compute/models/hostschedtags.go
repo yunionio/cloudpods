@@ -18,13 +18,19 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SHostschedtagManager struct {
 	*SSchedtagJointsManager
+	SHostResourceBaseManager
 }
 
 var HostschedtagManager *SHostschedtagManager
@@ -55,26 +61,47 @@ func (manager *SHostschedtagManager) GetSlaveFieldName() string {
 	return "host_id"
 }
 
-func (self *SHostschedtag) GetHost() *SHost {
-	return self.Master().(*SHost)
+func (self *SHostschedtag) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.HostschedtagDetails, error) {
+	return api.HostschedtagDetails{}, nil
 }
 
-func (self *SHostschedtag) GetHosts() ([]SHost, error) {
-	hosts := []SHost{}
-	err := self.GetSchedtag().GetObjects(&hosts)
-	return hosts, err
-}
+func (manager *SHostschedtagManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.HostschedtagDetails {
+	rows := make([]api.HostschedtagDetails, len(objs))
 
-func (self *SHostschedtag) Master() db.IStandaloneModel {
-	return self.SSchedtagJointsBase.master(self)
-}
+	schedRows := manager.SSchedtagJointsManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	hostIds := make([]string, len(rows))
+	for i := range rows {
+		rows[i] = api.HostschedtagDetails{
+			SchedtagJointResourceDetails: schedRows[i],
+		}
+		hostIds[i] = objs[i].(*SHostschedtag).HostId
+	}
 
-func (self *SHostschedtag) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	return self.SSchedtagJointsBase.getCustomizeColumns(self, ctx, userCred, query)
-}
+	hostIdMaps, err := db.FetchIdNameMap2(HostManager, hostIds)
+	if err != nil {
+		log.Errorf("FetchIdNameMap2 hostIds fail %s", err)
+		return rows
+	}
 
-func (self *SHostschedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	return self.SSchedtagJointsBase.getExtraDetails(self, ctx, userCred, query)
+	for i := range rows {
+		if name, ok := hostIdMaps[hostIds[i]]; ok {
+			rows[i].Host = name
+		}
+	}
+
+	return rows
 }
 
 func (self *SHostschedtag) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -83,4 +110,44 @@ func (self *SHostschedtag) Delete(ctx context.Context, userCred mcclient.TokenCr
 
 func (self *SHostschedtag) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return self.SSchedtagJointsBase.detach(self, ctx, userCred)
+}
+
+func (manager *SHostschedtagManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.HostschedtagListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SSchedtagJointsManager.ListItemFilter(ctx, q, userCred, query.SchedtagJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSchedtagJointsManager.ListItemFilter")
+	}
+	q, err = manager.SHostResourceBaseManager.ListItemFilter(ctx, q, userCred, query.HostFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHostResourceBaseManager.ListItemFilter")
+	}
+
+	return q, nil
+}
+
+func (manager *SHostschedtagManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.HostschedtagListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SSchedtagJointsManager.OrderByExtraFields(ctx, q, userCred, query.SchedtagJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSchedtagJointsManager.OrderByExtraFields")
+	}
+	q, err = manager.SHostResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.HostFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHostResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
 }

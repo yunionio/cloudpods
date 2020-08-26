@@ -33,15 +33,20 @@ type SStoragecache struct {
 }
 
 func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
+	img, err := self.region.GetImage(image.ExternalId)
+	if err == nil {
+		return img.GetGlobalId(), nil
+	}
+
+	return "", cloudprovider.ErrNotSupported
 }
 
 func GetBucketName(regionId string, imageId string) string {
@@ -72,15 +77,15 @@ func (self *SStoragecache) fetchImages() error {
 }
 
 func (self *SStoragecache) GetId() string {
-	return fmt.Sprintf("%s-%s", self.region.client.providerId, self.region.GetId())
+	return fmt.Sprintf("%s-%s", self.region.client.cpcfg.Id, self.region.GetId())
 }
 
 func (self *SStoragecache) GetName() string {
-	return fmt.Sprintf("%s-%s", self.region.client.providerName, self.region.GetId())
+	return fmt.Sprintf("%s-%s", self.region.client.cpcfg.Name, self.region.GetId())
 }
 
 func (self *SStoragecache) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s", self.region.client.providerId, self.region.GetGlobalId())
+	return fmt.Sprintf("%s-%s", self.region.client.cpcfg.Id, self.region.GetGlobalId())
 }
 
 func (self *SStoragecache) GetStatus() string {

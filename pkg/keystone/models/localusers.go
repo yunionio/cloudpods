@@ -15,6 +15,7 @@
 package models
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
@@ -25,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
+// +onecloud:swagger-gen-ignore
 type SLocalUserManager struct {
 	db.SResourceBaseManager
 }
@@ -113,7 +115,7 @@ func (manager *SLocalUserManager) register(userId string, domainId string, name 
 	localUser.DomainId = domainId
 	localUser.Name = name
 
-	err = manager.TableSpec().Insert(localUser)
+	err = manager.TableSpec().Insert(context.TODO(), localUser)
 	if err != nil {
 		return nil, errors.Wrap(err, "Insert")
 	}

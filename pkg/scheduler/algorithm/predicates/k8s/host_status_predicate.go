@@ -43,7 +43,7 @@ func (p *HostStatusPredicate) Execute(cli *kubernetes.Clientset, pod *v1.Pod, no
 		return false, fmt.Errorf("Host status is %s", host.Status)
 	}
 
-	if !host.Enabled {
+	if !host.GetEnabled() {
 		return false, fmt.Errorf("Host is disabled")
 	}
 	return true, nil

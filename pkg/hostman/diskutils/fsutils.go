@@ -162,7 +162,7 @@ func ResizeDiskFs(diskPath string, sizeMb int) error {
 		}
 		log.Infof("gdisk: %s %s", stdoutPut, stderrOutPut)
 		if err = proc.Wait(); err != nil {
-			if status, succ := procutils.GetExitStatus(err); succ {
+			if status, succ := proc.GetExitStatus(err); succ {
 				if status != 1 {
 					return err
 				}
@@ -279,7 +279,7 @@ func FsckExtFs(fpath string) bool {
 	} else {
 		err = cmd.Wait()
 		if err != nil {
-			if status, ok := procutils.GetExitStatus(err); ok {
+			if status, ok := cmd.GetExitStatus(err); ok {
 				if status < 4 {
 					return true
 				}
@@ -303,7 +303,7 @@ func FsckXfsFs(fpath string) bool {
 
 func Mkpartition(imagePath, fsFormat string) error {
 	var (
-		parted    = "/sbin/parted"
+		parted    = "parted"
 		labelType = "gpt"
 		diskType  = fileutils2.FsFormatToDiskType(fsFormat)
 	)
@@ -352,7 +352,7 @@ func FormatPartition(path, fs, uuid string) error {
 	// #case fs == "ntfs":
 	// #    cmd = []string{"/sbin/mkfs.ntfs"}
 	case fs == "xfs":
-		cmd = []string{"/sbin/mkfs.xfs", "-f", "-m", "crc=0", "-i", "projid32bit=0", "-n", "ftype=0"}
+		cmd = []string{"mkfs.xfs", "-f", "-m", "crc=0", "-i", "projid32bit=0", "-n", "ftype=0"}
 		cmdUuid = []string{"xfs_admin", "-U", uuid}
 	}
 

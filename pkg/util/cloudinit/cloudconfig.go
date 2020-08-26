@@ -34,15 +34,21 @@ import (
  */
 
 type TSudoPolicy string
+type TSshPwauth string
 
 const (
-	CLOUD_CONFIG_HEADER = "#cloud-config\n"
-	CLOUD_SHELL_HEADER  = "#!/usr/bin/env bash\n"
+	CLOUD_CONFIG_HEADER      = "#cloud-config\n"
+	CLOUD_SHELL_HEADER       = "#!/usr/bin/env bash\n"
+	CLOUD_POWER_SHELL_HEADER = "#ps1\n"
 
 	USER_SUDO_NOPASSWD = TSudoPolicy("sudo_nopasswd")
 	USER_SUDO          = TSudoPolicy("sudo")
 	USER_SUDO_DENY     = TSudoPolicy("sudo_deny")
 	USER_SUDO_NONE     = TSudoPolicy("")
+
+	SSH_PASSWORD_AUTH_ON        = TSshPwauth("true")
+	SSH_PASSWORD_AUTH_OFF       = TSshPwauth("false")
+	SSH_PASSWORD_AUTH_UNCHANGED = TSshPwauth("unchanged")
 )
 
 type SWriteFile struct {
@@ -55,7 +61,7 @@ type SWriteFile struct {
 
 type SUser struct {
 	Name              string
-	Passwd            string
+	PlainTextPasswd   string
 	HashedPasswd      string
 	LockPasswd        bool
 	SshAuthorizedKeys []string
@@ -74,7 +80,7 @@ type SCloudConfig struct {
 	Packages    []string
 	PhoneHome   *SPhoneHome
 	DisableRoot int
-	SshPwauth   int
+	SshPwauth   TSshPwauth
 }
 
 func NewWriteFile(path string, content string, perm string, owner string, isBase64 bool) SWriteFile {
@@ -161,7 +167,7 @@ func (u *SUser) Password(passwd string) *SUser {
 		if err != nil {
 			log.Errorf("GeneratePassword error %s", err)
 		} else {
-			u.Passwd = hash
+			u.PlainTextPasswd = passwd
 			u.HashedPasswd = hash
 		}
 		u.LockPasswd = false
@@ -169,12 +175,24 @@ func (u *SUser) Password(passwd string) *SUser {
 	return u
 }
 
+func (u *SUser) PowerShellScripts() []string {
+	shells := []string{}
+	shells = append(shells, fmt.Sprintf(`New-LocalUser -Name "%s" -Description "A New Local Account Created By PowerShell" -NoPassword`, u.Name))
+	shells = append(shells, fmt.Sprintf(`Add-LocalGroupMember -Group "Administrators" -Member "%s"`, u.Name))
+	if len(u.PlainTextPasswd) > 0 {
+		shells = append(shells, fmt.Sprintf(`net user "%s" "%s"`, u.Name, u.PlainTextPasswd))
+	}
+	// enable需要再设置密码之后，否则会出现Enable-LocalUser : Unable to update the password. The value provided for the new password does not meet the length, complexity, or history requirements of the domain
+	shells = append(shells, fmt.Sprintf(`Enable-LocalUser "%s"`, u.Name))
+	return shells
+}
+
 func (u *SUser) ShellScripts() []string {
 	shells := []string{}
 
 	shells = append(shells, fmt.Sprintf("useradd -m %s || true", u.Name))
-	if len(u.Passwd) > 0 {
-		shells = append(shells, fmt.Sprintf("usermod -p '%s' %s", u.Passwd, u.Name))
+	if len(u.HashedPasswd) > 0 {
+		shells = append(shells, fmt.Sprintf("usermod -p '%s' %s", u.HashedPasswd, u.Name))
 	}
 
 	home := "/" + u.Name
@@ -216,6 +234,11 @@ func (conf *SCloudConfig) UserDataScript() string {
 	}
 	shells = append(shells, conf.Runcmd...)
 
+	// 允许密码及root登录(谷歌云镜像默认会禁止root及密码登录)
+	shells = append(shells, `sed -i "s/.*PermitRootLogin.*/PermitRootLogin yes/g" /etc/ssh/sshd_config`)
+	shells = append(shells, `sed -i 's/.*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config`)
+	shells = append(shells, `systemctl restart sshd`)
+
 	for _, pkg := range conf.Packages {
 		shells = append(shells, "which yum &>/dev/null && yum install -y "+pkg)
 		shells = append(shells, "which apt-get &>/dev/null && apt-get install -y "+pkg)
@@ -224,6 +247,25 @@ func (conf *SCloudConfig) UserDataScript() string {
 		shells = append(shells, wf.ShellScripts()...)
 	}
 	return CLOUD_SHELL_HEADER + strings.Join(shells, "\n")
+}
+
+func (conf *SCloudConfig) UserDataPowerShell() string {
+	shells := []string{}
+	for _, u := range conf.Users {
+		shells = append(shells, u.PowerShellScripts()...)
+	}
+	shells = append(shells, conf.Runcmd...)
+
+	return CLOUD_POWER_SHELL_HEADER + strings.Join(shells, "\n")
+}
+
+func (conf *SCloudConfig) UserDataEc2() string {
+	shells := []string{}
+	for _, u := range conf.Users {
+		shells = append(shells, u.PowerShellScripts()...)
+	}
+	shells = append(shells, conf.Runcmd...)
+	return "<powershell>\n" + strings.Join(shells, "\n") + "\n</powershell>"
 }
 
 func (conf *SCloudConfig) UserDataBase64() string {
@@ -281,8 +323,8 @@ func (conf *SCloudConfig) MergeUser(u SUser) {
 	for i := 0; i < len(conf.Users); i += 1 {
 		if u.Name == conf.Users[i].Name {
 			// replace conf user password with input
-			if len(u.Passwd) > 0 {
-				conf.Users[i].Passwd = u.Passwd
+			if len(u.PlainTextPasswd) > 0 {
+				conf.Users[i].PlainTextPasswd = u.PlainTextPasswd
 				conf.Users[i].HashedPasswd = u.HashedPasswd
 				conf.Users[i].LockPasswd = u.LockPasswd
 			}

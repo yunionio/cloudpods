@@ -28,9 +28,9 @@ import (
 type BaseOptions struct {
 	Debug      bool   `help:"debug mode"`
 	Help       bool   `help:"Show help"`
-	AccessKey  string `help:"Access key" default:"$ALIYUN_ACCESS_KEY"`
-	Secret     string `help:"Secret" default:"$ALIYUN_SECRET"`
-	RegionId   string `help:"RegionId" default:"$ALIYUN_REGION"`
+	AccessKey  string `help:"Access key" default:"$ALIYUN_ACCESS_KEY" metavar:"ALIYUN_ACCESS_KEY"`
+	Secret     string `help:"Secret" default:"$ALIYUN_SECRET" metavar:"ALIYUN_SECRET"`
+	RegionId   string `help:"RegionId" default:"$ALIYUN_REGION" metavar:"ALIYUN_REGION"`
 	SUBCOMMAND string `help:"aliyuncli subcommand" subcommand:"true"`
 }
 
@@ -84,7 +84,11 @@ func newClient(options *BaseOptions) (*aliyun.SRegion, error) {
 		return nil, fmt.Errorf("Missing secret")
 	}
 
-	cli, err := aliyun.NewAliyunClient("", "", options.AccessKey, options.Secret, options.Debug)
+	cli, err := aliyun.NewAliyunClient(
+		aliyun.NewAliyunClientConfig(
+			options.AccessKey, options.Secret,
+		).Debug(options.Debug),
+	)
 	if err != nil {
 		return nil, err
 	}

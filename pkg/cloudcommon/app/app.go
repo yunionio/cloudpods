@@ -28,6 +28,7 @@ import (
 
 func InitApp(options *common_options.BaseOptions, dbAccess bool) *appsrv.Application {
 	// cache := appsrv.NewCache(options.AuthTokenCacheSize)
+	log.Infof("RequestWorkerCount: %d", options.RequestWorkerCount)
 	app := appsrv.NewApplication(options.ApplicationID, options.RequestWorkerCount, dbAccess)
 	app.CORSAllowHosts(options.CorsHosts)
 

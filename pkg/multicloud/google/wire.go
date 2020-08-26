@@ -38,8 +38,13 @@ func (wire *SWire) GetName() string {
 	return wire.vpc.GetName()
 }
 
-func (wire *SWire) CreateINetwork(name string, cidr string, desc string) (cloudprovider.ICloudNetwork, error) {
-	return nil, cloudprovider.ErrNotImplemented
+func (wire *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
+	network, err := wire.vpc.region.CreateNetwork(opts.Name, wire.vpc.globalnetwork.SelfLink, opts.Cidr, opts.Desc)
+	if err != nil {
+		return nil, err
+	}
+	network.wire = wire
+	return network, nil
 }
 
 func (wire *SWire) GetIVpc() cloudprovider.ICloudVpc {

@@ -17,37 +17,32 @@ package models
 import (
 	"database/sql"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
-func expandIdpAttributes(rows []*jsonutils.JSONDict, objs []db.IModel, fields stringutils2.SSortedStrings, entType string) []*jsonutils.JSONDict {
+func expandIdpAttributes(entType string, idList []string, fields stringutils2.SSortedStrings) []api.IdpResourceInfo {
+	rows := make([]api.IdpResourceInfo, len(idList))
 	if len(fields) == 0 || fields.Contains("idp_id") || fields.Contains("idp") || fields.Contains("idp_entity_id") || fields.Contains("idp_driver") {
-		log.Debugf("objs %d", len(objs))
-		idList := make([]string, len(objs))
-		for i := range objs {
-			idList[i] = objs[i].GetId()
-		}
 		idps, err := fetchIdmappings(idList, entType)
 		if err == nil && idps != nil {
-			for i := range rows {
-				if idp, ok := idps[objs[i].GetId()]; ok {
+			for i := range idList {
+				if idp, ok := idps[idList[i]]; ok {
 					if len(fields) == 0 || fields.Contains("idp_id") {
-						rows[i].Set("idp_id", jsonutils.NewString(idp.IdpId))
+						rows[i].IdpId = idp[0].IdpId
 					}
 					if len(fields) == 0 || fields.Contains("idp") {
-						rows[i].Set("idp", jsonutils.NewString(idp.IdpName))
+						rows[i].Idp = idp[0].Idp
 					}
 					if len(fields) == 0 || fields.Contains("idp_entity_id") {
-						rows[i].Set("idp_entity_id", jsonutils.NewString(idp.EntityId))
+						rows[i].IdpEntityId = idp[0].IdpEntityId
 					}
 					if len(fields) == 0 || fields.Contains("idp_driver") {
-						rows[i].Set("idp_driver", jsonutils.NewString(idp.Driver))
+						rows[i].IdpDriver = idp[0].IdpDriver
 					}
 				}
 			}
@@ -59,21 +54,18 @@ func expandIdpAttributes(rows []*jsonutils.JSONDict, objs []db.IModel, fields st
 }
 
 type sIdpInfo struct {
-	IdpId    string
-	IdpName  string
-	EntityId string
-	Driver   string
+	api.IdpResourceInfo
 	PublicId string
 }
 
-func fetchIdmappings(idList []string, resType string) (map[string]sIdpInfo, error) {
+func fetchIdmappings(idList []string, resType string) (map[string][]sIdpInfo, error) {
 	idmappings := IdmappingManager.Query().SubQuery()
 	idps := IdentityProviderManager.Query().SubQuery()
 
 	q := idmappings.Query(idmappings.Field("domain_id", "idp_id"),
-		idmappings.Field("local_id", "entity_id"),
-		idps.Field("name", "idp_name"),
-		idps.Field("driver"),
+		idmappings.Field("local_id", "idp_entity_id"),
+		idps.Field("name", "idp"),
+		idps.Field("driver", "idp_driver"),
 		idmappings.Field("public_id"),
 	)
 	q = q.Join(idps, sqlchemy.Equals(idps.Field("id"), idmappings.Field("domain_id")))
@@ -86,9 +78,13 @@ func fetchIdmappings(idList []string, resType string) (map[string]sIdpInfo, erro
 		return nil, errors.Wrap(err, "query")
 	}
 
-	ret := make(map[string]sIdpInfo)
+	ret := make(map[string][]sIdpInfo)
 	for i := range idpInfos {
-		ret[idpInfos[i].PublicId] = idpInfos[i]
+		if idpList, ok := ret[idpInfos[i].PublicId]; ok {
+			ret[idpInfos[i].PublicId] = append(idpList, idpInfos[i])
+		} else {
+			ret[idpInfos[i].PublicId] = []sIdpInfo{idpInfos[i]}
+		}
 	}
 	return ret, nil
 }

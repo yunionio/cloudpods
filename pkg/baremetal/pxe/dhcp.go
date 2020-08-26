@@ -271,7 +271,8 @@ func (req *dhcpRequest) findNetworkConf(session *mcclient.ClientSession, filterU
 			"filter.3")
 		params.Add(jsonutils.JSONTrue, "filter_any")
 	}
-	params.Add(jsonutils.JSONTrue, "is_on_premise")
+	params.Add(jsonutils.JSONTrue, "is_classic")
+	params.Add(jsonutils.NewString("system"), "scope")
 	ret, err := modules.Networks.List(session, params)
 	if err != nil {
 		return nil, err
@@ -299,6 +300,7 @@ func (req *dhcpRequest) findNetworkConf(session *mcclient.ClientSession, filterU
 func (req *dhcpRequest) findBaremetalsByUuid(session *mcclient.ClientSession) (*modulebase.ListResult, error) {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(req.ClientGuid), "uuid")
+	params.Add(jsonutils.NewString("system"), "scope")
 	ret, err := modules.Hosts.List(session, params)
 	if err != nil {
 		return nil, err
@@ -312,6 +314,7 @@ func (req *dhcpRequest) findBaremetalsByUuid(session *mcclient.ClientSession) (*
 func (req *dhcpRequest) findBaremetalsOfAnyMac(session *mcclient.ClientSession, isBaremetal bool) (*modulebase.ListResult, error) {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(req.ClientMac.String()), "any_mac")
+	params.Add(jsonutils.NewString("system"), "scope")
 	if isBaremetal {
 		params.Add(jsonutils.JSONTrue, "is_baremetal")
 	} else {

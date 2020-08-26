@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -47,6 +48,8 @@ type SZone struct {
 
 	instanceTypes []string
 	refreshTime   time.Time
+	localstorages []string
+	cloudstorages []string
 
 	Zone      string
 	ZoneName  string
@@ -139,22 +142,27 @@ func (self *SZone) fetchStorages() error {
 	if err != nil {
 		return err
 	}
-	storageTypes := []string{}
+	self.cloudstorages = []string{}
 	for _, diskConfig := range diskConfigSet {
-		if !utils.IsInStringArray(strings.ToUpper(diskConfig.DiskType), storageTypes) {
-			storageTypes = append(storageTypes, strings.ToUpper(diskConfig.DiskType))
+		if !utils.IsInStringArray(strings.ToUpper(diskConfig.DiskType), self.cloudstorages) {
+			self.cloudstorages = append(self.cloudstorages, strings.ToUpper(diskConfig.DiskType))
 			storage := SStorage{zone: self, storageType: diskConfig.DiskType, available: diskConfig.Available}
 			self.istorages = append(self.istorages, &storage)
 		}
 	}
 	for _, storageType := range []string{"CLOUD_PREMIUM", "CLOUD_SSD", "CLOUD_BASIC"} {
-		if !utils.IsInStringArray(storageType, storageTypes) {
+		if !utils.IsInStringArray(storageType, self.cloudstorages) {
+			self.cloudstorages = append(self.cloudstorages, storageType)
 			storage := SStorage{zone: self, storageType: storageType, available: false}
 			self.istorages = append(self.istorages, &storage)
 		}
 	}
-	for _, localstorageType := range []string{"LOCAL_BASIC", "LOCAL_SSD"} {
-		storage := SLocalStorage{zone: self, storageType: localstorageType, available: self.region.GetId() == "ap-hongkong"} //仅有香港本地存储可用
+	self.localstorages, err = self.region.GetZoneLocalStorages(self.Zone)
+	if err != nil {
+		log.Errorf("falied to fetch local storage for zone %s", self.Zone)
+	}
+	for _, localstorageType := range self.localstorages {
+		storage := SLocalStorage{zone: self, storageType: localstorageType, available: true}
 		self.istorages = append(self.istorages, &storage)
 	}
 	return nil
@@ -168,14 +176,26 @@ func (self *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 }
 
 func (self *SZone) getLocalStorageByCategory(category string) (*SLocalStorage, error) {
-	if utils.IsInStringArray(strings.ToLower(category), []string{"local_basic", "local_ssd"}) {
+	if len(self.localstorages) == 0 {
+		err := self.fetchStorages()
+		if err != nil {
+			return nil, errors.Wrap(err, "fetchStorages")
+		}
+	}
+	if utils.IsInStringArray(strings.ToUpper(category), self.localstorages) {
 		return &SLocalStorage{zone: self, storageType: strings.ToUpper(category)}, nil
 	}
 	return nil, fmt.Errorf("No such storage %s", category)
 }
 
 func (self *SZone) validateStorageType(category string) error {
-	if utils.IsInStringArray(strings.ToLower(category), []string{"local_basic", "local_ssd", "cloud_basic", "cloud_ssd", "cloud_premium"}) {
+	if len(self.localstorages) == 0 || len(self.cloudstorages) == 0 {
+		err := self.fetchStorages()
+		if err != nil {
+			return errors.Wrap(err, "fetchStorages")
+		}
+	}
+	if utils.IsInStringArray(strings.ToUpper(category), self.localstorages) || utils.IsInStringArray(strings.ToUpper(category), self.cloudstorages) {
 		return nil
 	}
 	return fmt.Errorf("No such storage %s", category)
@@ -187,7 +207,7 @@ func (self *SZone) getStorageByCategory(category string) (*SStorage, error) {
 		return nil, err
 	}
 	for i := 0; i < len(storages); i++ {
-		if utils.IsInStringArray(storages[i].GetStorageType(), []string{"local_basic", "local_ssd"}) {
+		if utils.IsInStringArray(storages[i].GetStorageType(), self.localstorages) {
 			continue
 			//return &SStorage{zone: self, storageType: strings.ToUpper(storages[i].GetStorageType())}, nil
 		}

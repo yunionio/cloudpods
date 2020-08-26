@@ -56,7 +56,7 @@ type ServerConfig struct {
 	Project string `json:"project_id"`
 	Domain  string `json:"domain_id"`
 
-	// DEPRECATED
+	// Deprecated
 	Metadata       map[string]string `json:"__meta__"`
 	ForGuests      []*ForGuest       `json:"for_guests"`
 	GroupRelations []*GroupRelation  `json:"group_releations"`
@@ -77,6 +77,9 @@ type ScheduleInput struct {
 	LiveMigrate  bool   `json:"live_migrate"`
 	CpuDesc      string `json:"cpu_desc"`
 	CpuMicrocode string `json:"cpu_microcode"`
+	CpuMode      string `json:"cpu_mode"`
+
+	PendingUsages []jsonutils.JSONObject
 }
 
 func (input ScheduleInput) ToConditionInput() *jsonutils.JSONDict {
@@ -89,6 +92,17 @@ func (input ScheduleInput) ToConditionInput() *jsonutils.JSONDict {
 type CandidateDisk struct {
 	Index      int      `json:"index"`
 	StorageIds []string `json:"storage_ids"`
+}
+
+type CandidateDiskV2 struct {
+	Index    int                 `json:"index"`
+	Storages []*CandidateStorage `json:"storages"`
+}
+
+type CandidateStorage struct {
+	Id           string
+	Name         string
+	FreeCapacity int64
 }
 
 type CandidateNet struct {

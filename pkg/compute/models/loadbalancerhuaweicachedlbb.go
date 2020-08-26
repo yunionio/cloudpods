@@ -19,18 +19,20 @@ import (
 	"database/sql"
 	"fmt"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
+// +onecloud:swagger-gen-ignore
 type SHuaweiCachedLbManager struct {
 	SLoadbalancerLogSkipper
 	db.SVirtualResourceBaseManager
@@ -62,10 +64,6 @@ type SHuaweiCachedLb struct {
 	CachedBackendGroupId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 }
 
-func (lbb *SHuaweiCachedLb) GetCustomizeColumns(context.Context, mcclient.TokenCredential, jsonutils.JSONObject) *jsonutils.JSONDict {
-	return nil
-}
-
 func (man *SHuaweiCachedLbManager) GetBackendsByLocalBackendId(backendId string) ([]SHuaweiCachedLb, error) {
 	loadbalancerBackends := []SHuaweiCachedLb{}
 	q := man.Query().IsFalse("pending_deleted").Equals("backend_id", backendId)
@@ -95,7 +93,7 @@ func (man *SHuaweiCachedLbManager) CreateHuaweiCachedLb(ctx context.Context, use
 		return nil, err
 	}
 
-	err = man.TableSpec().Insert(cachedlbb)
+	err = man.TableSpec().Insert(ctx, cachedlbb)
 
 	if err != nil {
 		return nil, err
@@ -200,7 +198,10 @@ func (lbb *SHuaweiCachedLb) syncRemoveCloudLoadbalancerBackend(ctx context.Conte
 func (lbb *SHuaweiCachedLb) constructFieldsFromCloudLoadbalancerBackend(extLoadbalancerBackend cloudprovider.ICloudLoadbalancerBackend) error {
 	lbb.Status = extLoadbalancerBackend.GetStatus()
 
-	instance, err := db.FetchByExternalId(GuestManager, extLoadbalancerBackend.GetBackendId())
+	instance, err := db.FetchByExternalIdAndManagerId(GuestManager, extLoadbalancerBackend.GetBackendId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		sq := HostManager.Query().SubQuery()
+		return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("host_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), lbb.ManagerId))
+	})
 	if err != nil {
 		return err
 	}
@@ -275,7 +276,7 @@ func (man *SHuaweiCachedLbManager) newFromCloudLoadbalancerBackend(ctx context.C
 		return nil, err
 	}
 
-	err = man.TableSpec().Insert(lbb)
+	err = man.TableSpec().Insert(ctx, lbb)
 
 	if err != nil {
 		return nil, err
@@ -289,10 +290,19 @@ func (man *SHuaweiCachedLbManager) newFromCloudLoadbalancerBackend(ctx context.C
 }
 
 func newLocalBackendFromCloudLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, loadbalancerBackendgroup *SLoadbalancerBackendGroup, extLoadbalancerBackend cloudprovider.ICloudLoadbalancerBackend, syncOwnerId mcclient.IIdentityProvider) (*SLoadbalancerBackend, error) {
-	instance, err := db.FetchByExternalId(GuestManager, extLoadbalancerBackend.GetBackendId())
-	if err != nil {
-		return nil, err
+	lbbgRegion := loadbalancerBackendgroup.GetRegion()
+	if lbbgRegion == nil {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "loadbalancerBackendgroup is not attached to any region")
 	}
+	lbbgProvider := loadbalancerBackendgroup.GetCloudprovider()
+	if lbbgProvider == nil {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "loadbalancerBackendgroup is not attached to any cloudprovider")
+	}
+
+	instance, err := db.FetchByExternalIdAndManagerId(GuestManager, extLoadbalancerBackend.GetBackendId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		sq := HostManager.Query().SubQuery()
+		return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("host_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), lbbgProvider.Id))
+	})
 
 	guest := instance.(*SGuest)
 	//address, err := LoadbalancerBackendManager.GetGuestAddress(guest)
@@ -301,9 +311,19 @@ func newLocalBackendFromCloudLoadbalancerBackend(ctx context.Context, userCred m
 	//}
 
 	man := LoadbalancerBackendManager
-	q := man.Query().IsFalse("pending_deleted").Equals("backend_group_id", loadbalancerBackendgroup.Id).Equals("cloudregion_id", loadbalancerBackendgroup.CloudregionId)
-	q = q.Equals("manager_id", loadbalancerBackendgroup.ManagerId).Equals("weight", extLoadbalancerBackend.GetWeight()).Equals("port", extLoadbalancerBackend.GetPort())
+	q := man.Query().IsFalse("pending_deleted")
+	q = q.Equals("weight", extLoadbalancerBackend.GetWeight()).Equals("port", extLoadbalancerBackend.GetPort())
 	q = q.Equals("backend_id", guest.Id)
+
+	query := api.LoadbalancerBackendListInput{}
+	query.CloudregionId = lbbgRegion.Id
+	query.BackendGroupId = loadbalancerBackendgroup.Id
+	query.CloudproviderId = lbbgProvider.Id
+	q, err = man.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, errors.Wrap(err, "newLocalBackend.ListItemFilter")
+	}
+
 	//q = q.Equals("address", address)
 	lbbs := []SLoadbalancerBackend{}
 	err = db.FetchModelObjects(man, q, &lbbs)
@@ -320,8 +340,8 @@ func newLocalBackendFromCloudLoadbalancerBackend(ctx context.Context, userCred m
 		lbb.BackendGroupId = loadbalancerBackendgroup.Id
 		lbb.ExternalId = ""
 
-		lbb.CloudregionId = loadbalancerBackendgroup.CloudregionId
-		lbb.ManagerId = loadbalancerBackendgroup.ManagerId
+		// lbb.CloudregionId = loadbalancerBackendgroup.CloudregionId
+		// lbb.ManagerId = loadbalancerBackendgroup.ManagerId
 
 		baseName := extLoadbalancerBackend.GetName()
 		if len(baseName) == 0 {
@@ -334,17 +354,17 @@ func newLocalBackendFromCloudLoadbalancerBackend(ctx context.Context, userCred m
 		}
 		lbb.Name = newName
 
-		if err := lbb.constructFieldsFromCloudLoadbalancerBackend(extLoadbalancerBackend); err != nil {
+		if err := lbb.constructFieldsFromCloudLoadbalancerBackend(extLoadbalancerBackend, lbbgProvider.Id); err != nil {
 			return nil, err
 		}
 
-		err = man.TableSpec().Insert(lbb)
+		err = man.TableSpec().Insert(ctx, lbb)
 
 		if err != nil {
 			return nil, err
 		}
 
-		SyncCloudProject(userCred, lbb, syncOwnerId, extLoadbalancerBackend, loadbalancerBackendgroup.ManagerId)
+		SyncCloudProject(userCred, lbb, syncOwnerId, extLoadbalancerBackend, lbbgProvider.Id)
 
 		db.OpsLog.LogEvent(lbb, db.ACT_CREATE, lbb.GetShortDesc(ctx), userCred)
 		return lbb, nil

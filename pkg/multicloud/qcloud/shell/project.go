@@ -23,11 +23,26 @@ func init() {
 	type ProjectListOptions struct {
 	}
 	shellutils.R(&ProjectListOptions{}, "project-list", "List project", func(cli *qcloud.SRegion, args *ProjectListOptions) error {
-		project, err := cli.GetClient().GetIProjects()
+		projects, err := cli.GetClient().GetProjects()
 		if err != nil {
 			return err
 		}
-		printList(project, 0, 0, 0, nil)
+		printList(projects, 0, 0, 0, nil)
 		return nil
 	})
+
+	type ProjectCreateOptions struct {
+		NAME string
+		Desc string
+	}
+
+	shellutils.R(&ProjectCreateOptions{}, "project-create", "Create project", func(cli *qcloud.SRegion, args *ProjectCreateOptions) error {
+		project, err := cli.GetClient().CreateProject(args.NAME, args.Desc)
+		if err != nil {
+			return err
+		}
+		printObject(project)
+		return nil
+	})
+
 }

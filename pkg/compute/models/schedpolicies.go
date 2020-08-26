@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -30,10 +31,12 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/conditionparser"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SSchedpolicyManager struct {
 	db.SStandaloneResourceBaseManager
+	SSchedtagResourceBaseManager
 }
 
 var SchedpolicyManager *SSchedpolicyManager
@@ -53,10 +56,10 @@ func init() {
 // sched policy is called before calling scheduler, add additional preferences for schedtags
 type SSchedpolicy struct {
 	db.SStandaloneResourceBase
+	SSchedtagResourceBase
 
-	Condition  string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
-	SchedtagId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
-	Strategy   string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
+	Condition string `width:"1024" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
+	Strategy  string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
 
 	Enabled tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
 }
@@ -77,26 +80,6 @@ func validateSchedpolicyInputData(data *jsonutils.JSONDict, create bool) error {
 	}
 
 	return nil
-}
-
-func (self *SSchedpolicyManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, self)
-}
-
-func (self *SSchedpolicyManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SSchedpolicy) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SSchedpolicy) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SSchedpolicy) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
 }
 
 func (manager *SSchedpolicyManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -124,7 +107,18 @@ func (self *SSchedpolicy) ValidateUpdateData(ctx context.Context, userCred mccli
 		return nil, err
 	}
 
-	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	input := apis.StandaloneResourceBaseUpdateInput{}
+	err = data.Unmarshal(&input)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal")
+	}
+	input, err = self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
+	}
+	data.Update(jsonutils.Marshal(input))
+
+	return data, nil
 }
 
 func (self *SSchedpolicy) getSchedtag() *SSchedtag {
@@ -136,26 +130,30 @@ func (self *SSchedpolicy) getSchedtag() *SSchedtag {
 	return obj.(*SSchedtag)
 }
 
-func (self *SSchedpolicy) getMoreColumns(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	schedtag := self.getSchedtag()
-	if schedtag != nil {
-		extra.Add(jsonutils.NewString(schedtag.GetName()), "schedtag")
-		extra.Add(jsonutils.NewString(schedtag.ResourceType), "resource_type")
-	}
-	return extra
+func (self *SSchedpolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.SchedpolicyDetails, error) {
+	return api.SchedpolicyDetails{}, nil
 }
 
-func (self *SSchedpolicy) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreColumns(extra)
-}
+func (manager *SSchedpolicyManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.SchedpolicyDetails {
+	rows := make([]api.SchedpolicyDetails, len(objs))
 
-func (self *SSchedpolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	tagRows := manager.SSchedtagResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = api.SchedpolicyDetails{
+			StandaloneResourceDetails: stdRows[i],
+			SchedtagResourceInfo:      tagRows[i],
+		}
 	}
-	return self.getMoreColumns(extra), nil
+
+	return rows
 }
 
 func (manager *SSchedpolicyManager) getAllEnabledPoliciesByResource(resType string) []SSchedpolicy {
@@ -208,7 +206,7 @@ func (self *SSchedpolicy) PerformEvaluate(ctx context.Context, userCred mcclient
 
 	log.V(10).Debugf("Schedpolicy evaluate input: %s", params.PrettyString())
 
-	meet, err := conditionparser.Eval(self.Condition, params)
+	meet, err := conditionparser.EvalBool(self.Condition, params)
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +224,7 @@ func matchResourceSchedPolicy(
 	policy SSchedpolicy,
 	input *jsonutils.JSONDict,
 ) bool {
-	meet, err := conditionparser.Eval(policy.Condition, input)
+	meet, err := conditionparser.EvalBool(policy.Condition, input)
 	if err != nil {
 		log.Errorf("Eval Condition %s error: %v", policy.Condition, err)
 		return false
@@ -316,4 +314,71 @@ func ApplySchedPolicies(input *schedapi.ScheduleInput) *schedapi.ScheduleInput {
 	input.ServerConfig.ServerConfigs = config
 
 	return input
+}
+
+// 动态调度策略列表
+func (manager *SSchedpolicyManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.SchedpolicyListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SSchedtagResourceBaseManager.ListItemFilter(ctx, q, userCred, input.SchedtagFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSchedtagResourceBaseManager.ListItemFilter")
+	}
+
+	if len(input.Strategy) > 0 {
+		q = q.In("strategy", input.Strategy)
+	}
+	if input.Enabled != nil {
+		if *input.Enabled {
+			q = q.IsTrue("enabled")
+		} else {
+			q = q.IsFalse("enabled")
+		}
+	}
+
+	return q, nil
+}
+
+func (manager *SSchedpolicyManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.SchedpolicyListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SSchedtagResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.SchedtagFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSchedtagResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SSchedpolicyManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SSchedtagResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }

@@ -50,7 +50,7 @@ func performImageCache(
 
 	disk, err := body.Get("disk")
 	if err != nil {
-		httperrors.MissingParameterError(w, "disk")
+		httperrors.MissingParameterError(ctx, w, "disk")
 		return
 	}
 

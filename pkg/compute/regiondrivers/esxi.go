@@ -39,7 +39,7 @@ func (self *SEsxiRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_VMWARE
 }
 
-func (self *SEsxiRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SEsxiRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return nil, httperrors.NewUnsupportOperationError("%s does not support creating loadbalancer", self.GetProvider())
 }
 
@@ -51,6 +51,6 @@ func (self *SEsxiRegionDriver) ValidateCreateLoadbalancerCertificateData(ctx con
 	return nil, httperrors.NewNotImplementedError("%s does not support creating loadbalancer certificate", self.GetProvider())
 }
 
-func (self *SEsxiRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SSnapshotCreateInput) error {
+func (self *SEsxiRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SnapshotCreateInput) error {
 	return fmt.Errorf("%s does not support creating snapshot", self.GetProvider())
 }

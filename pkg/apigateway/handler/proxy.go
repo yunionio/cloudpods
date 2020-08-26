@@ -19,21 +19,39 @@ import (
 	"net/http"
 	"net/url"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/proxy"
 )
 
 type InfluxdbProxyHandler struct {
-	prefix string
+	prefix      string
+	serviceName string
 }
 
 func NewInfluxdbProxyHandler(prefix string) *InfluxdbProxyHandler {
-	return &InfluxdbProxyHandler{prefix: prefix}
+	return NewProxyHandlerWithService(prefix, apis.SERVICE_TYPE_INFLUXDB)
+}
+
+func NewProxyHandlerWithService(prefix string, serviceName string) *InfluxdbProxyHandler {
+	return &InfluxdbProxyHandler{
+		prefix:      prefix,
+		serviceName: serviceName,
+	}
+}
+
+func requestManipulator(ctx context.Context, r *http.Request) (*http.Request, error) {
+	r.Header.Del("Cookie")
+	token := AppContextToken(ctx)
+	if token != nil {
+		r.Header.Set("X-Auth-Token", token.GetTokenString())
+	}
+	return r, nil
 }
 
 func (h *InfluxdbProxyHandler) Bind(app *appsrv.Application) {
-	app.AddReverseProxyHandler(h.prefix, fetchReverseEndpoint("influxdb"))
+	app.AddReverseProxyHandler(h.prefix, fetchReverseEndpoint(h.serviceName), requestManipulator)
 }
 
 func getEndpointSchemeHost(endpoint string) (string, error) {
@@ -49,7 +67,7 @@ func getEndpointSchemeHost(endpoint string) (string, error) {
 }
 
 func fetchReverseEndpoint(serviceName string) *proxy.SEndpointFactory {
-	f := func(ctx context.Context, w http.ResponseWriter, r *http.Request) (string, error) {
+	f := func(ctx context.Context, r *http.Request) (string, error) {
 		endpointType := "internalURL"
 		session := auth.GetAdminSession(ctx, FetchRegion(r), "")
 		ep, err := session.GetServiceURL(serviceName, endpointType)

@@ -20,8 +20,10 @@ import (
 	"net/http"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/regutils"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/workmanager"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
@@ -32,7 +34,9 @@ import (
 )
 
 var (
-	keyWords    = []string{"disks"}
+	keyWords         = []string{"disks"}
+	snapshotKeywords = []string{"snapshots"}
+
 	actionFuncs = map[string]actionFunc{
 		"create":            diskCreate,
 		"delete":            diskDelete,
@@ -66,7 +70,17 @@ func AddDiskHandler(prefix string, app *appsrv.Application) {
 		app.AddHandler("POST",
 			fmt.Sprintf("%s/%s/<storageId>/<action>/<diskId>", prefix, keyWord),
 			auth.Authenticate(perfomrDiskActions))
+		app.AddHandler("GET",
+			fmt.Sprintf("%s/%s/<storageId>/<diskId>/status", prefix, keyWord),
+			auth.Authenticate(getDiskStatus))
 	}
+	for _, keyWord := range snapshotKeywords {
+		app.AddHandler("GET",
+			fmt.Sprintf("%s/%s/<storageId>/<diskId>/<snapshotId>/status", prefix, keyWord),
+			auth.Authenticate(getSnapshotStatus),
+		)
+	}
+
 }
 
 func performImageCache(
@@ -79,17 +93,17 @@ func performImageCache(
 
 	disk, err := body.Get("disk")
 	if err != nil {
-		httperrors.MissingParameterError(w, "disk")
+		httperrors.MissingParameterError(ctx, w, "disk")
 		return
 	}
 	scId, err := disk.GetString("storagecache_id")
 	if err != nil {
-		httperrors.MissingParameterError(w, "disk")
+		httperrors.MissingParameterError(ctx, w, "disk")
 		return
 	}
 	storagecache := storageman.GetManager().GetStoragecacheById(scId)
 	if storagecache == nil {
-		httperrors.NotFoundError(w, "Storagecache %s not found", scId)
+		httperrors.NotFoundError(ctx, w, "Storagecache %s not found", scId)
 		return
 	}
 
@@ -111,6 +125,59 @@ func perfetchImageCache(ctx context.Context, w http.ResponseWriter, r *http.Requ
 func deleteImageCache(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	performImageCache(ctx, w, r, "delete")
 
+}
+
+func getDiskStatus(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	params, _, _ := appsrv.FetchEnv(ctx, w, r)
+	var (
+		storageId = params["<storageId>"]
+		diskId    = params["<diskId>"]
+	)
+
+	storage := storageman.GetManager().GetStorage(storageId)
+	if storage == nil {
+		hostutils.Response(ctx, w, httperrors.NewNotFoundError("Storage %s not found", storageId))
+		return
+	}
+	ret := jsonutils.NewDict()
+	disk := storage.GetDiskById(diskId)
+	if disk == nil {
+		ret.Set("status", jsonutils.NewString(compute.DISK_NOT_EXIST))
+	} else {
+		// Note: the statuses of disk on host are either exist or not exist
+		ret.Set("status", jsonutils.NewString(compute.DISK_EXIST))
+	}
+	hostutils.Response(ctx, w, ret)
+}
+
+func getSnapshotStatus(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	params, _, _ := appsrv.FetchEnv(ctx, w, r)
+	var (
+		storageId  = params["<storageId>"]
+		diskId     = params["<diskId>"]
+		snapshotId = params["<snapshotId>"]
+	)
+
+	storage := storageman.GetManager().GetStorage(storageId)
+	if storage == nil {
+		hostutils.Response(ctx, w, httperrors.NewNotFoundError("Storage %s not found", storageId))
+		return
+	}
+
+	var (
+		ret    = jsonutils.NewDict()
+		status string
+	)
+	if exist, err := storage.IsSnapshotExist(diskId, snapshotId); exist {
+		status = compute.SNAPSHOT_EXIST
+	} else if !exist && err == nil {
+		status = compute.SNAPSHOT_NOT_EXIST
+	} else {
+		log.Errorf("fetch snapshot exist failed %s", err)
+		status = compute.SNAPSHOT_UNKNOWN
+	}
+	ret.Set("status", jsonutils.NewString(status))
+	hostutils.Response(ctx, w, ret)
 }
 
 func saveToGlance(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -175,7 +242,12 @@ func diskCreate(ctx context.Context, storage storageman.IStorage, diskId string,
 		return nil, httperrors.NewMissingParameterError("disk")
 	}
 	hostutils.DelayTask(ctx, storage.CreateDiskByDiskinfo,
-		&storageman.SDiskCreateByDiskinfo{diskId, disk, diskInfo, storage})
+		&storageman.SDiskCreateByDiskinfo{
+			DiskId:   diskId,
+			Disk:     disk,
+			DiskInfo: diskInfo,
+			Storage:  storage,
+		})
 	return nil, nil
 }
 
@@ -217,7 +289,10 @@ func diskReset(ctx context.Context, storage storageman.IStorage, diskId string, 
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("snapshot_id")
 	}
-	hostutils.DelayTask(ctx, disk.ResetFromSnapshot, &storageman.SDiskReset{snapshotId, body})
+	hostutils.DelayTask(ctx, disk.ResetFromSnapshot, &storageman.SDiskReset{
+		SnapshotId: snapshotId,
+		Input:      body,
+	})
 	return nil, nil
 }
 
@@ -248,6 +323,9 @@ func diskCleanupSnapshots(ctx context.Context, storage storageman.IStorage, disk
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("delete_snapshots")
 	}
-	hostutils.DelayTask(ctx, disk.CleanupSnapshots, &storageman.SDiskCleanupSnapshots{convertSnapshots, deleteSnapshots})
+	hostutils.DelayTask(ctx, disk.CleanupSnapshots, &storageman.SDiskCleanupSnapshots{
+		ConvertSnapshots: convertSnapshots,
+		DeleteSnapshots:  deleteSnapshots,
+	})
 	return nil, nil
 }

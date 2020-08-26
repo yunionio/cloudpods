@@ -24,17 +24,24 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SResourceBase struct {
 	SModelBase
 
-	CreatedAt     time.Time `nullable:"false" created_at:"true" index:"true" get:"user" list:"user"`
-	UpdatedAt     time.Time `nullable:"false" updated_at:"true" list:"user"`
-	UpdateVersion int       `default:"0" nullable:"false" auto_version:"true" list:"user"`
-	DeletedAt     time.Time ``
-	Deleted       bool      `nullable:"false" default:"false"`
+	// 资源创建时间
+	CreatedAt time.Time `nullable:"false" created_at:"true" index:"true" get:"user" list:"user" json:"created_at"`
+	// 资源更新时间
+	UpdatedAt time.Time `nullable:"false" updated_at:"true" list:"user" json:"updated_at"`
+	// 资源被更新次数
+	UpdateVersion int `default:"0" nullable:"false" auto_version:"true" list:"user" json:"update_version"`
+	// 资源删除时间
+	DeletedAt time.Time `json:"deleted_at" list:"admin"`
+	// 资源是否被删除
+	Deleted bool `nullable:"false" default:"false" json:"deleted" list:"admin"`
 }
 
 type SResourceBaseManager struct {
@@ -74,28 +81,6 @@ func (model *SResourceBase) GetIResourceModel() IResourceModel {
 	return model.GetVirtualObject().(IResourceModel)
 }
 
-/*func (model *SResourceBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := model.SModelBase.GetCustomizeColumns(ctx, userCred, query)
-	canDelete := CanDelete(model, ctx)
-	if canDelete {
-		extra.Add(jsonutils.JSONTrue, "can_delete")
-	} else {
-		extra.Add(jsonutils.JSONFalse, "can_delete")
-	}
-	return extra
-}
-
-func (model *SResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := model.SModelBase.GetExtraDetails(ctx, userCred, query)
-	canDelete := CanDelete(model, ctx)
-	if canDelete {
-		extra.Add(jsonutils.JSONTrue, "can_delete")
-	} else {
-		extra.Add(jsonutils.JSONFalse, "can_delete")
-	}
-	return extra
-}*/
-
 func (model *SResourceBase) MarkDelete() error {
 	model.Deleted = true
 	model.DeletedAt = timeutils.UtcNow()
@@ -117,6 +102,86 @@ func (manager *SResourceBaseManager) ValidateCreateData(ctx context.Context, use
 	input.ModelBaseCreateInput, err = manager.SModelBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.ModelBaseCreateInput)
 	if err != nil {
 		return input, errors.Wrap(err, "SModelBaseManager.ValidateCreateData")
+	}
+	return input, nil
+}
+
+func (manager *SResourceBaseManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query apis.ResourceBaseListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SModelBaseManager.ListItemFilter(ctx, q, userCred, query.ModelBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SModelBaseManager.ListItemFilter")
+	}
+	return q, nil
+}
+
+func (manager *SResourceBaseManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query apis.ResourceBaseListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SModelBaseManager.OrderByExtraFields(ctx, q, userCred, query.ModelBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SModelBaseManager.ListItemFilter")
+	}
+	return q, nil
+}
+
+func (manager *SResourceBaseManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SModelBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
+}
+
+func (model *SResourceBase) GetUpdateVersion() int {
+	return model.UpdateVersion
+}
+
+func (model *SResourceBase) GetUpdatedAt() time.Time {
+	return model.UpdatedAt
+}
+
+func (model *SResourceBase) GetDeleted() bool {
+	return model.Deleted
+}
+
+func (manager *SResourceBaseManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []apis.ResourceBaseDetails {
+	ret := make([]apis.ResourceBaseDetails, len(objs))
+	upperRet := manager.SModelBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range objs {
+		ret[i] = apis.ResourceBaseDetails{
+			ModelBaseDetails: upperRet[i],
+		}
+	}
+	return ret
+}
+
+func (model *SResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (apis.ResourceBaseDetails, error) {
+	return apis.ResourceBaseDetails{}, nil
+}
+
+func (model *SResourceBase) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.ResourceBaseUpdateInput) (apis.ResourceBaseUpdateInput, error) {
+	var err error
+	input.ModelBaseUpdateInput, err = model.SModelBase.ValidateUpdateData(ctx, userCred, query, input.ModelBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SModelBase.ValidateUpdateData")
 	}
 	return input, nil
 }

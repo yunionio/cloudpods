@@ -18,11 +18,15 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SRegionManager struct {
@@ -96,23 +100,32 @@ func (region *SRegion) ValidateDeleteCondition(ctx context.Context) error {
 	return region.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (region *SRegion) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := region.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return regionExtra(region, extra)
+func (region *SRegion) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.RegionDetails, error) {
+	return api.RegionDetails{}, nil
 }
 
-func (region *SRegion) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := region.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
+func (manager *SRegionManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.RegionDetails {
+	rows := make([]api.RegionDetails, len(objs))
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = api.RegionDetails{
+			StandaloneResourceDetails: stdRows[i],
+		}
+		rows[i] = regionExtra(objs[i].(*SRegion), rows[i])
 	}
-	return regionExtra(region, extra), nil
+	return rows
 }
 
-func regionExtra(region *SRegion, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	epCnt, _ := region.GetEndpointCount()
-	extra.Add(jsonutils.NewInt(int64(epCnt)), "endpoint_count")
-	return extra
+func regionExtra(region *SRegion, out api.RegionDetails) api.RegionDetails {
+	out.EndpointCount, _ = region.GetEndpointCount()
+	return out
 }
 
 func (manager *SRegionManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -145,4 +158,45 @@ func (region *SRegion) CustomizeCreate(ctx context.Context, userCred mcclient.To
 	idStr, _ := data.GetString("id")
 	region.Id = idStr
 	return nil
+}
+
+// 区域列表
+func (manager *SRegionManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.RegionListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+	}
+	return q, nil
+}
+
+func (manager *SRegionManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.RegionListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SRegionManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }

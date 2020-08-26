@@ -304,13 +304,16 @@ func (a byAttachedTime) Less(i, j int) bool {
 }
 
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	disks, total, err := self.host.zone.region.GetDisks(self.InstanceId, "", "", nil, 0, 50)
-	if err != nil {
-		log.Errorf("fetchDisks fail %s", err)
-		return nil, err
-	}
-	if total > len(disks) {
-		disks, _, err = self.host.zone.region.GetDisks(self.InstanceId, "", "", nil, 0, total)
+	disks := []SDisk{}
+	for {
+		part, total, err := self.host.zone.region.GetDisks(self.InstanceId, "", "", nil, len(disks), 50)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetDisks for %s", self.InstanceId)
+		}
+		disks = append(disks, part...)
+		if len(disks) >= total {
+			break
+		}
 	}
 
 	sort.Sort(byAttachedTime(disks))
@@ -493,16 +496,16 @@ func (self *SInstance) DeployVM(ctx context.Context, name string, username strin
 	return self.host.zone.region.DeployVM(self.InstanceId, name, password, keypairName, deleteKeypair, description)
 }
 
-func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
+func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
 	keypair := ""
-	if len(publicKey) > 0 {
+	if len(desc.PublicKey) > 0 {
 		var err error
-		keypair, err = self.host.zone.region.syncKeypair(publicKey)
+		keypair, err = self.host.zone.region.syncKeypair(desc.PublicKey)
 		if err != nil {
 			return "", err
 		}
 	}
-	diskId, err := self.host.zone.region.ReplaceSystemDisk(self.InstanceId, imageId, passwd, keypair, sysSizeGB)
+	diskId, err := self.host.zone.region.ReplaceSystemDisk(self.InstanceId, desc.ImageId, desc.Password, keypair, desc.SysSizeGB)
 	if err != nil {
 		return "", err
 	}
@@ -545,7 +548,7 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 
 func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, securityGroupId string,
 	zoneId string, desc string, passwd string, disks []SDisk, vSwitchId string, ipAddr string,
-	keypair string, userData string, bc *billing.SBillingCycle) (string, error) {
+	keypair string, userData string, bc *billing.SBillingCycle, projectId string) (string, error) {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
 	params["ImageId"] = imageId
@@ -562,6 +565,10 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 		params["Password"] = passwd
 	} else {
 		params["PasswordInherit"] = "True"
+	}
+
+	if len(projectId) > 0 {
+		params["ResourceGroupId"] = projectId
 	}
 	//{"Code":"InvalidSystemDiskCategory.ValueNotSupported","HostId":"ecs.aliyuncs.com","Message":"The specified parameter 'SystemDisk.Category' is not support IoOptimized Instance. Valid Values: cloud_efficiency;cloud_ssd. ","RequestId":"9C9A4E99-5196-42A2-80B6-4762F8F75C90"}
 	params["IoOptimized"] = "optimized"
@@ -612,7 +619,12 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 		if err != nil {
 			return "", err
 		}
-		params["AutoRenew"] = "False"
+		if bc.AutoRenew {
+			params["AutoRenew"] = "true"
+			params["AutoRenewPeriod"] = "1"
+		} else {
+			params["AutoRenew"] = "False"
+		}
 	} else {
 		params["InstanceChargeType"] = "PostPaid"
 		params["SpotStrategy"] = "NoSpot"
@@ -899,6 +911,9 @@ func (self *SRegion) AttachDisk(instanceId string, diskId string) error {
 }
 
 func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
+	if len(self.EipAddress.IpAddress) > 0 {
+		return self.host.zone.region.GetEip(self.EipAddress.AllocationId)
+	}
 	if len(self.PublicIpAddress.IpAddress) > 0 {
 		eip := SEipAddress{}
 		eip.region = self.host.zone.region
@@ -911,11 +926,8 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 		eip.Bandwidth = self.InternetMaxBandwidthOut
 		eip.InternetChargeType = self.InternetChargeType
 		return &eip, nil
-	} else if len(self.EipAddress.IpAddress) > 0 {
-		return self.host.zone.region.GetEip(self.EipAddress.AllocationId)
-	} else {
-		return nil, nil
 	}
+	return nil, nil
 }
 
 func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
@@ -980,9 +992,74 @@ func (region *SRegion) RenewInstance(instanceId string, bc billing.SBillingCycle
 }
 
 func (self *SInstance) GetProjectId() string {
-	return ""
+	return self.ResourceGroupId
 }
 
 func (self *SInstance) GetError() error {
 	return nil
+}
+
+func (region *SRegion) ConvertPublicIpToEip(instanceId string) error {
+	params := make(map[string]string)
+	params["InstanceId"] = instanceId
+	params["RegionId"] = region.RegionId
+	_, err := region.ecsRequest("ConvertNatPublicIpToEip", params)
+	return err
+}
+
+func (self *SInstance) ConvertPublicIpToEip() error {
+	return self.host.zone.region.ConvertPublicIpToEip(self.InstanceId)
+}
+
+func (region *SRegion) SetInstanceAutoRenew(instanceId string, autoRenew bool) error {
+	params := make(map[string]string)
+	params["InstanceId"] = instanceId
+	params["RegionId"] = region.RegionId
+	if autoRenew {
+		params["RenewalStatus"] = "AutoRenewal"
+		params["Duration"] = "1"
+	} else {
+		params["RenewalStatus"] = "Normal"
+	}
+	_, err := region.ecsRequest("ModifyInstanceAutoRenewAttribute", params)
+	return err
+}
+
+type SAutoRenewAttr struct {
+	Duration         int
+	AutoRenewEnabled bool
+	RenewalStatus    string
+	PeriodUnit       string
+}
+
+func (region *SRegion) GetInstanceAutoRenewAttribute(instanceId string) (*SAutoRenewAttr, error) {
+	params := make(map[string]string)
+	params["InstanceId"] = instanceId
+	params["RegionId"] = region.RegionId
+	resp, err := region.ecsRequest("DescribeInstanceAutoRenewAttribute", params)
+	if err != nil {
+		return nil, errors.Wrap(err, "DescribeInstanceAutoRenewAttribute")
+	}
+	attr := []SAutoRenewAttr{}
+	err = resp.Unmarshal(&attr, "InstanceRenewAttributes", "InstanceRenewAttribute")
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	if len(attr) == 1 {
+		return &attr[0], nil
+	}
+	return nil, fmt.Errorf("get %d auto renew info", len(attr))
+}
+
+func (self *SInstance) IsAutoRenew() bool {
+	attr, err := self.host.zone.region.GetInstanceAutoRenewAttribute(self.InstanceId)
+	if err != nil {
+		log.Errorf("failed to get instance %s auto renew info", self.InstanceId)
+		return false
+	}
+	return attr.AutoRenewEnabled
+}
+
+func (self *SInstance) SetAutoRenew(autoRenew bool) error {
+	return self.host.zone.region.SetInstanceAutoRenew(self.InstanceId, autoRenew)
 }

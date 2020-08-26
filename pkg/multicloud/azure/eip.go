@@ -25,6 +25,7 @@ import (
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type PublicIPAddressSku struct {
@@ -50,6 +51,7 @@ type PublicIPAddressPropertiesFormat struct {
 
 type SEipAddress struct {
 	region *SRegion
+	multicloud.SEipBase
 
 	ID         string
 	Name       string
@@ -59,7 +61,7 @@ type SEipAddress struct {
 	Sku        *PublicIPAddressSku
 }
 
-func (region *SRegion) AllocateEIP(eipName string) (*SEipAddress, error) {
+func (region *SRegion) AllocateEIP(eipName, projectId string) (*SEipAddress, error) {
 	eip := SEipAddress{
 		region:   region,
 		Location: region.Name,
@@ -70,7 +72,7 @@ func (region *SRegion) AllocateEIP(eipName string) (*SEipAddress, error) {
 		},
 		Type: "Microsoft.Network/publicIPAddresses",
 	}
-	err := region.client.Create(jsonutils.Marshal(eip), &eip)
+	err := region.client.CreateWithResourceGroup(projectId, jsonutils.Marshal(eip), &eip)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +80,7 @@ func (region *SRegion) AllocateEIP(eipName string) (*SEipAddress, error) {
 }
 
 func (region *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
-	return region.AllocateEIP(eip.Name)
+	return region.AllocateEIP(eip.Name, eip.ProjectId)
 }
 
 func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
@@ -86,8 +88,8 @@ func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
 	return &eip, region.client.Get(eipId, []string{}, &eip)
 }
 
-func (self *SEipAddress) Associate(instanceId string) error {
-	return self.region.AssociateEip(self.ID, instanceId)
+func (self *SEipAddress) Associate(conf *cloudprovider.AssociateConfig) error {
+	return self.region.AssociateEip(self.ID, conf.InstanceId)
 }
 
 func (region *SRegion) AssociateEip(eipId string, instanceId string) error {

@@ -93,9 +93,8 @@ const (
 	VM_SNAPSHOT_RESET_FAILED     = "snapshot_reset_failed"
 	VM_SNAPSHOT_AND_CLONE_FAILED = "clone_from_snapshot_failed"
 
-	VM_SYNCING_STATUS = "syncing"
-	VM_SYNC_CONFIG    = "sync_config"
-	VM_SYNC_FAIL      = "sync_fail"
+	VM_SYNC_CONFIG = "sync_config"
+	VM_SYNC_FAIL   = "sync_fail"
 
 	VM_START_RESIZE_DISK  = "start_resize_disk"
 	VM_RESIZE_DISK        = "resize_disk"
@@ -115,6 +114,14 @@ const (
 	VM_DISSOCIATE_EIP        = "dissociate_eip"
 	VM_DISSOCIATE_EIP_FAILED = "dissociate_eip_failed"
 
+	// 公网IP转换Eip中(EIP转换中)
+	VM_START_EIP_CONVERT  = "start_eip_convert"
+	VM_EIP_CONVERT_FAILED = "eip_convert_failed"
+
+	// 设置自动续费
+	VM_SET_AUTO_RENEW        = "set_auto_renew"
+	VM_SET_AUTO_RENEW_FAILED = "set_auto_renew_failed"
+
 	VM_REMOVE_STATEFILE = "remove_state"
 
 	VM_IO_THROTTLE      = "io_throttle"
@@ -124,6 +131,14 @@ const (
 
 	VM_IMPORT        = "import"
 	VM_IMPORT_FAILED = "import_fail"
+
+	VM_CONVERT        = "convert"
+	VM_CONVERTING     = "converting"
+	VM_CONVERT_FAILED = "convert_failed"
+	VM_CONVERTED      = "converted"
+
+	VM_TEMPLATE_SAVING      = "tempalte_saving"
+	VM_TEMPLATE_SAVE_FAILED = "template_save_failed"
 
 	SHUTDOWN_STOP      = "stop"
 	SHUTDOWN_TERMINATE = "terminate"
@@ -150,7 +165,12 @@ const (
 	HYPERVISOR_DEFAULT = HYPERVISOR_KVM
 )
 
-var VM_RUNNING_STATUS = []string{VM_START_START, VM_STARTING, VM_RUNNING, VM_BLOCK_STREAM}
+const (
+	CPU_MODE_QEMU = "qemu"
+	CPU_MODE_HOST = "host"
+)
+
+var VM_RUNNING_STATUS = []string{VM_START_START, VM_STARTING, VM_RUNNING, VM_BLOCK_STREAM, VM_BLOCK_STREAM_FAIL}
 var VM_CREATING_STATUS = []string{VM_CREATE_NETWORK, VM_CREATE_DISK, VM_START_DEPLOY, VM_DEPLOYING}
 
 var HYPERVISORS = []string{
@@ -229,9 +249,10 @@ var HOSTTYPE_HYPERVISOR = map[string]string{
 }
 
 const (
-	VM_AWS_DEFAULT_LOGIN_USER    = "ec2user"
-	VM_AZURE_DEFAULT_LOGIN_USER  = "toor"
-	VM_ZSTACK_DEFAULT_LOGIN_USER = "root"
+	VM_AWS_DEFAULT_LOGIN_USER         = "ec2user"
+	VM_AWS_DEFAULT_WINDOWS_LOGIN_USER = "Administrator"
+	VM_AZURE_DEFAULT_LOGIN_USER       = "toor"
+	VM_ZSTACK_DEFAULT_LOGIN_USER      = "root"
 
 	VM_METADATA_APP_TAGS            = "app_tags"
 	VM_METADATA_CREATE_PARAMS       = "create_params"

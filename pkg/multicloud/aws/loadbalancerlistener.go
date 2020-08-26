@@ -15,6 +15,7 @@
 package aws
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -59,7 +60,8 @@ func (self *SElbListener) GetId() string {
 }
 
 func (self *SElbListener) GetName() string {
-	return self.ListenerArn
+	segs := strings.Split(self.ListenerArn, "/")
+	return segs[len(segs)-1]
 }
 
 func (self *SElbListener) GetGlobalId() string {
@@ -449,11 +451,11 @@ func (self *SElbListener) Stop() error {
 	return cloudprovider.ErrNotSupported
 }
 
-func (self *SElbListener) Sync(listener *cloudprovider.SLoadbalancerListener) error {
+func (self *SElbListener) Sync(ctx context.Context, listener *cloudprovider.SLoadbalancerListener) error {
 	return self.region.SyncElbListener(self, listener)
 }
 
-func (self *SElbListener) Delete() error {
+func (self *SElbListener) Delete(ctx context.Context) error {
 	return self.region.DeleteElbListener(self.GetId())
 }
 
@@ -691,7 +693,16 @@ func (self *SRegion) SyncElbListener(listener *SElbListener, config *cloudprovid
 
 	_, err = client.ModifyListener(params)
 	if err != nil {
-		return err
+		if strings.Contains(err.Error(), "CertificateNotFound") {
+			// aws 比较诡异，证书能查询到，但是如果立即创建会报错，这里只能等待一会重试
+			time.Sleep(10 * time.Second)
+			_, err = client.ModifyListener(params)
+			if err != nil {
+				return errors.Wrap(err, "SRegion.SyncElbListener.ModifyListener.Retry")
+			}
+		}
+
+		return errors.Wrap(err, "SRegion.SyncElbListener.ModifyListener")
 	}
 
 	hc := &cloudprovider.SLoadbalancerHealthCheck{

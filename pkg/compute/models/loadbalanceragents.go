@@ -25,22 +25,26 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	identity_apis "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SLoadbalancerAgentManager struct {
 	SLoadbalancerLogSkipper
 	db.SStandaloneResourceBaseManager
+	SLoadbalancerClusterResourceBaseManager
 }
 
 var LoadbalancerAgentManager *SLoadbalancerAgentManager
@@ -67,6 +71,7 @@ func init() {
 //
 type SLoadbalancerAgent struct {
 	db.SStandaloneResourceBase
+	SLoadbalancerClusterResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 
 	Version    string                    `width:"64" nullable:"true" list:"admin" update:"admin"`
 	IP         string                    `width:"32" nullable:"true" list:"admin" update:"admin"`
@@ -84,32 +89,38 @@ type SLoadbalancerAgent struct {
 	LoadbalancerCertificates  time.Time `nullable:"true" list:"admin" update:"admin"`
 
 	Deployment *SLoadbalancerAgentDeployment `create:"optional" list:"admin" get:"admin"`
-	ClusterId  string                        `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	// ClusterId  string                        `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 }
 
 type SLoadbalancerAgentParamsVrrp struct {
-	Priority          int
-	VirtualRouterId   int
-	GarpMasterRefresh int
+	Priority          int `json:",omitzero"`
+	VirtualRouterId   int `json:",omitzero"`
+	GarpMasterRefresh int `json:",omitzero"`
 	Preempt           bool
 	Interface         string
-	AdvertInt         int
+	AdvertInt         int `json:",omitzero"`
 	Pass              string
 }
 
+const (
+	lbagentVrrpDefaultVrid = 17
+	lbagentVrrpDefaultPrio = 100
+)
+
 type SLoadbalancerAgentParamsHaproxy struct {
 	GlobalLog      string
-	GlobalNbthread int
+	GlobalNbthread int `json:",omitzero"`
 	LogHttp        bool
 	LogTcp         bool
 	LogNormal      bool
+	TuneHttpMaxhdr int `json:",omitzero"`
 }
 
 type SLoadbalancerAgentParamsTelegraf struct {
 	InfluxDbOutputUrl       string
 	InfluxDbOutputName      string
 	InfluxDbOutputUnsafeSsl bool
-	HaproxyInputInterval    int
+	HaproxyInputInterval    int `json:",omitzero"`
 }
 
 type SLoadbalancerAgentParams struct {
@@ -136,6 +147,9 @@ func (p *SLoadbalancerAgentParamsVrrp) Validate(data *jsonutils.JSONDict) error 
 	if p.VirtualRouterId < 1 || p.VirtualRouterId > 255 {
 		return httperrors.NewInputParameterError("invalid vrrp virtual_router_id %d: want [1,255]", p.VirtualRouterId)
 	}
+	if p.AdvertInt < 1 || p.AdvertInt > 255 {
+		return httperrors.NewInputParameterError("invalid vrrp advert_int %d: want [1,255]", p.AdvertInt)
+	}
 	return nil
 }
 
@@ -143,21 +157,22 @@ func (p *SLoadbalancerAgentParamsVrrp) validatePeer(pp *SLoadbalancerAgentParams
 	if p.Priority == pp.Priority {
 		return fmt.Errorf("vrrp priority of peer lbagents must be different, got %d", p.Priority)
 	}
-	if p.VirtualRouterId != pp.VirtualRouterId {
-		return fmt.Errorf("vrrp virtual_router_id of peer lbagents must be the same: %d != %d", p.VirtualRouterId, pp.VirtualRouterId)
-	}
-	if p.Preempt != pp.Preempt {
-		return fmt.Errorf("vrrp preempt property of peer lbagents must be the same: %v != %v", p.Preempt, pp.Preempt)
-	}
-	if p.Pass != pp.Pass {
-		return fmt.Errorf("vrrp password of peer lbagents must be the same: %q != %q", p.Pass, pp.Pass)
-	}
 	return nil
+}
+
+func (p *SLoadbalancerAgentParamsVrrp) setByPeer(pp *SLoadbalancerAgentParamsVrrp) {
+	p.VirtualRouterId = pp.VirtualRouterId
+	p.AdvertInt = pp.AdvertInt
+	p.Preempt = pp.Preempt
+	p.Pass = pp.Pass
 }
 
 func (p *SLoadbalancerAgentParamsVrrp) needsUpdatePeer(pp *SLoadbalancerAgentParamsVrrp) bool {
 	// properties no need to check: Priority
 	if p.VirtualRouterId != pp.VirtualRouterId {
+		return true
+	}
+	if p.AdvertInt != pp.AdvertInt {
 		return true
 	}
 	if p.Preempt != pp.Preempt {
@@ -171,11 +186,18 @@ func (p *SLoadbalancerAgentParamsVrrp) needsUpdatePeer(pp *SLoadbalancerAgentPar
 
 func (p *SLoadbalancerAgentParamsVrrp) updateBy(pp *SLoadbalancerAgentParamsVrrp) {
 	p.VirtualRouterId = pp.VirtualRouterId
+	p.AdvertInt = pp.AdvertInt
 	p.Preempt = pp.Preempt
 	p.Pass = pp.Pass
 }
 
 func (p *SLoadbalancerAgentParamsVrrp) initDefault(data *jsonutils.JSONDict) {
+	if !data.Contains("params", "vrrp", "interface") {
+		p.Interface = "eth0"
+	}
+	if !data.Contains("params", "vrrp", "virtual_router_id") {
+		p.VirtualRouterId = lbagentVrrpDefaultVrid
+	}
 	if !data.Contains("params", "vrrp", "advert_int") {
 		p.AdvertInt = 1
 	}
@@ -195,7 +217,21 @@ func (p *SLoadbalancerAgentParamsHaproxy) Validate(data *jsonutils.JSONDict) err
 		// This is a limit imposed by haproxy and arch word size
 		p.GlobalNbthread = 64
 	}
+	if p.TuneHttpMaxhdr < 0 {
+		p.TuneHttpMaxhdr = 0
+	}
+	if p.TuneHttpMaxhdr > 32767 {
+		p.TuneHttpMaxhdr = 32767
+	}
 	return nil
+}
+
+func (p *SLoadbalancerAgentParamsHaproxy) needsUpdatePeer(pp *SLoadbalancerAgentParamsHaproxy) bool {
+	return *p != *pp
+}
+
+func (p *SLoadbalancerAgentParamsHaproxy) updateBy(pp *SLoadbalancerAgentParamsHaproxy) {
+	*p = *pp
 }
 
 func (p *SLoadbalancerAgentParamsHaproxy) initDefault(data *jsonutils.JSONDict) {
@@ -229,11 +265,21 @@ func (p *SLoadbalancerAgentParamsTelegraf) Validate(data *jsonutils.JSONDict) er
 	return nil
 }
 
+func (p *SLoadbalancerAgentParamsTelegraf) needsUpdatePeer(pp *SLoadbalancerAgentParamsTelegraf) bool {
+	return *p != *pp
+}
+
+func (p *SLoadbalancerAgentParamsTelegraf) updateBy(pp *SLoadbalancerAgentParamsTelegraf) {
+	*p = *pp
+}
+
 func (p *SLoadbalancerAgentParamsTelegraf) initDefault(data *jsonutils.JSONDict) {
 	if p.InfluxDbOutputUrl == "" {
 		baseOpts := &options.Options
-		u, _ := auth.GetServiceURL("influxdb", baseOpts.Region, "", "")
+		u, _ := auth.GetServiceURL("influxdb", baseOpts.Region, "",
+			identity_apis.EndpointInterfacePublic)
 		p.InfluxDbOutputUrl = u
+		p.InfluxDbOutputUnsafeSsl = true
 	}
 	if p.HaproxyInputInterval == 0 {
 		p.HaproxyInputInterval = 5
@@ -294,6 +340,27 @@ func (p *SLoadbalancerAgentParams) Validate(data *jsonutils.JSONDict) error {
 	return nil
 }
 
+func (p *SLoadbalancerAgentParams) needsUpdatePeer(pp *SLoadbalancerAgentParams) bool {
+	if p.KeepalivedConfTmpl != pp.KeepalivedConfTmpl ||
+		p.HaproxyConfTmpl != pp.HaproxyConfTmpl ||
+		p.TelegrafConfTmpl != pp.TelegrafConfTmpl {
+		return true
+	}
+	return p.Vrrp.needsUpdatePeer(&pp.Vrrp) ||
+		p.Haproxy.needsUpdatePeer(&pp.Haproxy) ||
+		p.Telegraf.needsUpdatePeer(&pp.Telegraf)
+}
+
+func (p *SLoadbalancerAgentParams) updateBy(pp *SLoadbalancerAgentParams) {
+	p.KeepalivedConfTmpl = pp.KeepalivedConfTmpl
+	p.HaproxyConfTmpl = pp.HaproxyConfTmpl
+	p.TelegrafConfTmpl = pp.TelegrafConfTmpl
+
+	p.Vrrp.updateBy(&pp.Vrrp)
+	p.Haproxy.updateBy(&pp.Haproxy)
+	p.Telegraf.updateBy(&pp.Telegraf)
+}
+
 func (p *SLoadbalancerAgentParams) String() string {
 	return jsonutils.Marshal(p).String()
 }
@@ -305,33 +372,44 @@ func (p *SLoadbalancerAgentParams) IsZero() bool {
 	return false
 }
 
-func (self *SLoadbalancerAgentManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, self)
+func (man *SLoadbalancerAgentManager) AllowGetPropertyDefaultParams(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowGetSpec(userCred, man, "default-params")
 }
 
-func (self *SLoadbalancerAgentManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
+func (man *SLoadbalancerAgentManager) GetPropertyDefaultParams(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	params := SLoadbalancerAgentParams{}
+	params.initDefault(jsonutils.NewDict())
 
-func (self *SLoadbalancerAgent) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
+	{
+		clusterV := validators.NewModelIdOrNameValidator("cluster", "loadbalancercluster", userCred)
+		clusterV.Optional(true)
+		if err := clusterV.Validate(query.(*jsonutils.JSONDict)); err != nil {
+			return nil, err
+		}
+		if clusterV.Model != nil {
+			cluster := clusterV.Model.(*SLoadbalancerCluster)
+			lbagents, err := LoadbalancerClusterManager.getLoadbalancerAgents(cluster.Id)
+			if err != nil {
+				return nil, httperrors.NewGeneralError(err)
+			}
+			if len(lbagents) > 0 {
+				lbagent := lbagents[0]
+				params.updateBy(lbagent.Params)
+			}
+		}
+	}
 
-func (self *SLoadbalancerAgent) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SLoadbalancerAgent) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
+	paramsObj := jsonutils.Marshal(params)
+	r := jsonutils.NewDict()
+	r.Set("params", paramsObj)
+	return r, nil
 }
 
 func (man *SLoadbalancerAgentManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	clusterV := validators.NewModelIdOrNameValidator("cluster", "loadbalancercluster", ownerId)
-	paramsV := validators.NewStructValidator("params", &SLoadbalancerAgentParams{})
 	{
 		keyV := map[string]validators.IValidator{
 			"hb_timeout": validators.NewNonNegativeValidator("hb_timeout").Default(3600),
-			"params":     paramsV,
 			"cluster":    clusterV,
 		}
 		for _, v := range keyV {
@@ -346,8 +424,68 @@ func (man *SLoadbalancerAgentManager) ValidateCreateData(ctx context.Context, us
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err)
 		}
-		params := paramsV.Value.(*SLoadbalancerAgentParams)
-		vrrpRouterId := params.Vrrp.VirtualRouterId
+		params := &SLoadbalancerAgentParams{}
+		{
+			if len(lbagents) > 0 {
+				peerLbagent := &lbagents[0]
+				peerParams := peerLbagent.Params
+				params.Vrrp.setByPeer(&peerParams.Vrrp)
+			}
+			if len(lbagents) == 0 && !data.Contains("params", "vrrp", "virtual_router_id") {
+				otherLbagents := []SLoadbalancerAgent{}
+				q := man.Query().GroupBy("cluster_id")
+				err := db.FetchModelObjects(LoadbalancerAgentManager, q, &otherLbagents)
+				if err != nil {
+					return nil, httperrors.NewInternalServerError("fetch lbagents of other clusters: %v", err)
+				}
+				maxVrid := -1
+				for i := range otherLbagents {
+					lbagent := &otherLbagents[i]
+					if lbagent.ClusterId == cluster.Id {
+						continue
+					}
+					vrid := lbagent.Params.Vrrp.VirtualRouterId
+					if vrid > maxVrid {
+						maxVrid = vrid
+					}
+				}
+				if maxVrid > 0 && maxVrid < 255 {
+					params.Vrrp.VirtualRouterId = maxVrid + 1
+				} else {
+					params.Vrrp.VirtualRouterId = lbagentVrrpDefaultVrid
+				}
+			}
+			if !data.Contains("params", "vrrp", "priority") {
+				// a backup to all existing members
+				minPrio := 256
+				for i := range lbagents {
+					peerLbagent := &lbagents[i]
+					priority := peerLbagent.Params.Vrrp.Priority
+					if priority < minPrio {
+						minPrio = priority
+					}
+				}
+				if minPrio > 1 {
+					params.Vrrp.Priority = minPrio - 1
+				} else {
+					params.Vrrp.Priority = lbagentVrrpDefaultPrio
+				}
+			}
+			var (
+				oldVrrpParams jsonutils.JSONObject
+				err           error
+			)
+			if oldVrrpParams, err = data.Get("params", "vrrp"); err != nil {
+				oldVrrpParams = jsonutils.NewDict()
+			}
+			vrrpParams := jsonutils.Marshal(params.Vrrp).(*jsonutils.JSONDict)
+			vrrpParams.UpdateDefault(oldVrrpParams)
+			data.Add(vrrpParams, "params", "vrrp")
+			paramsV := validators.NewStructValidator("params", params)
+			if err := paramsV.Validate(data); err != nil {
+				return nil, err
+			}
+		}
 		for i := range lbagents {
 			peerLbagent := &lbagents[i]
 			peerParams := peerLbagent.Params
@@ -356,6 +494,7 @@ func (man *SLoadbalancerAgentManager) ValidateCreateData(ctx context.Context, us
 				return nil, httperrors.NewConflictError("conflict with lbagent %s(%s): %v", peerLbagent.Name, peerLbagent.Id, err)
 			}
 		}
+		vrrpRouterId := params.Vrrp.VirtualRouterId
 		otherCluster, err := LoadbalancerClusterManager.findByVrrpRouterIdInZone(cluster.ZoneId, vrrpRouterId)
 		if err != nil {
 			return nil, err
@@ -379,19 +518,68 @@ func (man *SLoadbalancerAgentManager) ValidateCreateData(ctx context.Context, us
 	return data, nil
 }
 
-func (man *SLoadbalancerAgentManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+// 负载均衡Agent列表
+func (man *SLoadbalancerAgentManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.LoadbalancerAgentListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
-	data := query.(*jsonutils.JSONDict)
-	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "cluster", ModelKeyword: "loadbalancercluster", OwnerId: userCred},
-	})
+	q, err = man.SLoadbalancerClusterResourceBaseManager.ListItemFilter(ctx, q, userCred, query.LoadbalancerClusterFilterListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SLoadbalancerClusterResourceBaseManager.ListItemFilter")
 	}
+
+	if len(query.Version) > 0 {
+		q = q.In("version", query.Version)
+	}
+	if len(query.IP) > 0 {
+		q = q.In("ip", query.IP)
+	}
+	if len(query.HaState) > 0 {
+		q = q.In("ha_state", query.HaState)
+	}
+
 	return q, nil
+}
+
+func (man *SLoadbalancerAgentManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.LoadbalancerAgentListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = man.SLoadbalancerClusterResourceBaseManager.ListItemFilter(ctx, q, userCred, query.LoadbalancerClusterFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SLoadbalancerClusterResourceBaseManager.ListItemFilter")
+	}
+
+	return q, nil
+}
+
+func (man *SLoadbalancerAgentManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = man.SLoadbalancerClusterResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (man *SLoadbalancerAgentManager) CleanPendingDeleteLoadbalancers(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
@@ -424,9 +612,11 @@ func (man *SLoadbalancerAgentManager) CleanPendingDeleteLoadbalancers(ctx contex
 	}
 	agentsData := jsonutils.Marshal(&agents).(*jsonutils.JSONArray)
 	for fieldName, man := range men {
-		keyPlural := man.KeywordPlural()
-		now := time.Now()
-		minT := now
+		var (
+			keyPlural = man.KeywordPlural()
+			now       = time.Now()
+			minT      = now
+		)
 		if len(agents) > 0 {
 			// find min updated_at seen by these active agents
 			for i := 0; i < agentsData.Length(); i++ {
@@ -455,17 +645,13 @@ func (man *SLoadbalancerAgentManager) CleanPendingDeleteLoadbalancers(ctx contex
 				continue
 			}
 			defer rows.Close()
-			m, err := db.NewModelObject(man)
-			if err != nil {
-				log.Errorf("%s: new model object failed: %s", keyPlural, err)
-				continue
-			}
-			mInitValue := reflect.Indirect(reflect.ValueOf(m))
-			m, _ = db.NewModelObject(man)
 			for rows.Next() {
-				reflect.Indirect(reflect.ValueOf(m)).Set(mInitValue)
-				err := q.Row2Struct(rows, m)
+				m, err := db.NewModelObject(man)
 				if err != nil {
+					log.Errorf("%s: new model object failed: %s", keyPlural, err)
+					continue
+				}
+				if err := q.Row2Struct(rows, m); err != nil {
 					log.Errorf("%s: Row2Struct: %s", keyPlural, err)
 					continue
 				}
@@ -497,6 +683,9 @@ func (man *SLoadbalancerAgentManager) CleanPendingDeleteLoadbalancers(ctx contex
 }
 
 func (lbagent *SLoadbalancerAgent) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	if data.Contains("cluster_id") {
+		data.Remove("cluster_id")
+	}
 	{
 		keyV := map[string]validators.IValidator{
 			"hb_timeout": validators.NewNonNegativeValidator("hb_timeout").Optional(true),
@@ -538,29 +727,39 @@ func (lbagent *SLoadbalancerAgent) ValidateUpdateData(ctx context.Context, userC
 	return data, nil
 }
 
-func (lbagent *SLoadbalancerAgent) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := lbagent.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	{
-		m, err := LoadbalancerClusterManager.FetchById(lbagent.ClusterId)
-		if err != nil {
-			log.Errorf("loadbalancer agent %s(%s): fetch cluster (%s) error: %s",
-				lbagent.Name, lbagent.Id, lbagent.ClusterId, err)
-		} else {
-			lbcluster := m.(*SLoadbalancerCluster)
-			extra.Set("cluster", jsonutils.NewString(lbcluster.GetName()))
-			zoneInfo := lbcluster.SZoneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-			extra.Update(zoneInfo)
+func (lbagent *SLoadbalancerAgent) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.LoadbalancerAgentDetails, error) {
+	return api.LoadbalancerAgentDetails{}, nil
+}
+
+func (manager *SLoadbalancerAgentManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.LoadbalancerAgentDetails {
+	rows := make([]api.LoadbalancerAgentDetails, len(objs))
+
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	clusterRows := manager.SLoadbalancerClusterResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.LoadbalancerAgentDetails{
+			StandaloneResourceDetails:       stdRows[i],
+			LoadbalancerClusterResourceInfo: clusterRows[i],
 		}
 	}
-	return extra
+
+	return rows
 }
 
-func (lbagent *SLoadbalancerAgent) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra := lbagent.GetCustomizeColumns(ctx, userCred, query)
-	return extra, nil
-}
-
-func (manager *SLoadbalancerAgentManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+/*func (manager *SLoadbalancerAgentManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
 	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
@@ -575,6 +774,27 @@ func (manager *SLoadbalancerAgentManager) QueryDistinctExtraField(q *sqlchemy.SQ
 	default:
 		return q, httperrors.NewBadRequestError("unsupport field %s", field)
 	}
+	return q, nil
+}*/
+
+func (manager *SLoadbalancerAgentManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SLoadbalancerClusterResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SLoadbalancerClusterResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SLoadbalancerClusterResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
 	return q, nil
 }
 
@@ -606,11 +826,11 @@ func (lbagent *SLoadbalancerAgent) PerformHb(ctx context.Context, userCred mccli
 			}
 		}
 	}
-	diff, err := lbagent.GetModelManager().TableSpec().Update(lbagent, func() error {
+	diff, err := lbagent.GetModelManager().TableSpec().Update(ctx, lbagent, func() error {
 		lbagent.HbLastSeen = time.Now()
 		if jVer, err := data.Get("version"); err == nil {
 			if jVerStr, ok := jVer.(*jsonutils.JSONString); ok {
-				lbagent.Version = jVerStr.Value()
+				lbagent.Version, _ = jVerStr.GetString()
 			}
 		}
 		if ipV.IP != nil {
@@ -699,7 +919,7 @@ func (lbagent *SLoadbalancerAgent) PerformParamsPatch(ctx context.Context, userC
 		}
 		db.OpsLog.LogEvent(lbagent, db.ACT_UPDATE, diff, userCred)
 	}
-	if oldParams.Vrrp.needsUpdatePeer(&params.Vrrp) {
+	if oldParams.needsUpdatePeer(&params) {
 		lbagents, err := LoadbalancerClusterManager.getLoadbalancerAgents(lbagent.ClusterId)
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err)
@@ -709,7 +929,7 @@ func (lbagent *SLoadbalancerAgent) PerformParamsPatch(ctx context.Context, userC
 			peerLbagent := &lbagents[i]
 			if lbagent.Id != peerLbagent.Id {
 				diff, err := db.Update(peerLbagent, func() error {
-					peerLbagent.Params.Vrrp.updateBy(&params.Vrrp)
+					peerLbagent.Params.updateBy(&params)
 					return nil
 				})
 				if err != nil {
@@ -759,6 +979,7 @@ global
 	maxconn 20480
 	tune.ssl.default-dh-param 2048
 	{{- println }}
+	{{- if .haproxy.tune_http_maxhdr }}	tune.http.maxhdr {{ println .haproxy.tune_http_maxhdr }} {{- end }}
 	{{- if .haproxy.global_stats_socket }}	{{ println .haproxy.global_stats_socket }} {{- end }}
 	{{- if .haproxy.global_nbthread }}	nbthread {{ println .haproxy.global_nbthread }} {{- end }}
 	{{- if .haproxy.global_log }}	{{ println .haproxy.global_log }} {{- end }}

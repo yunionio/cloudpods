@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/log"
 
+	identity_apis "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -80,7 +81,7 @@ func SeedTorrent(torrentpath string, imageId, format string) error {
 }
 
 func seedTorrent(torrentpath string, imageId, format string) error {
-	url, err := auth.GetServiceURL("image", options.Options.Region, "", "public")
+	url, err := auth.GetServiceURL("image", options.Options.Region, "", identity_apis.EndpointInterfacePublic)
 	if err != nil {
 		return err
 	}

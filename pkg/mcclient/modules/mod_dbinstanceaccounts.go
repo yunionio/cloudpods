@@ -15,13 +15,12 @@
 package modules
 
 import (
-	"fmt"
-
 	"github.com/pkg/errors"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
@@ -52,7 +51,7 @@ func (this *SDBInstanceAccountManager) GetLoginInfo(s *mcclient.ClientSession, i
 	}
 
 	if len(account.Secret) == 0 {
-		return nil, fmt.Errorf("No login secret found")
+		return nil, httperrors.NewNotFoundError("No login secret found")
 	}
 
 	password, err := utils.DescryptAESBase64(account.Id, account.Secret)

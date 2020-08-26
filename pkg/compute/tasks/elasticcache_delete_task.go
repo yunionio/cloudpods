@@ -36,11 +36,11 @@ func init() {
 	taskman.RegisterTask(ElasticcacheDeleteTask{})
 }
 
-func (self *ElasticcacheDeleteTask) taskFail(ctx context.Context, elasticcache *models.SElasticcache, reason string) {
-	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RELEASE_FAILED, reason)
+func (self *ElasticcacheDeleteTask) taskFail(ctx context.Context, elasticcache *models.SElasticcache, reason jsonutils.JSONObject) {
+	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RELEASE_FAILED, reason.String())
 	db.OpsLog.LogEvent(elasticcache, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_DELETE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_STATUS_RELEASE_FAILED, reason)
+	notifyclient.NotifySystemError(elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_STATUS_RELEASE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -48,18 +48,19 @@ func (self *ElasticcacheDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 	ec := obj.(*models.SElasticcache)
 	region := ec.GetRegion()
 	if region == nil {
-		self.taskFail(ctx, ec, fmt.Sprintf("failed to find region for elastic cache %s", ec.GetName()))
+		self.taskFail(ctx, ec, jsonutils.NewString(fmt.Sprintf("failed to find region for elastic cache %s", ec.GetName())))
 		return
 	}
 
 	self.SetStage("OnElasticcacheDeleteComplete", nil)
 	if err := region.GetDriver().RequestDeleteElasticcache(ctx, self.GetUserCred(), ec, self); err != nil {
-		self.taskFail(ctx, ec, err.Error())
+		self.taskFail(ctx, ec, jsonutils.Marshal(err))
 		return
 	} else {
 		ec.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RELEASED, "")
 		// delete related resources
 		ec.DeleteSubResources(ctx, self.UserCred)
+		ec.SVirtualResourceBase.Delete(ctx, self.UserCred)
 		logclient.AddActionLogWithStartable(self, ec, logclient.ACT_DELETE, "", self.UserCred, true)
 		self.SetStageComplete(ctx, nil)
 	}

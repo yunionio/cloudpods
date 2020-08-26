@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -28,18 +28,6 @@ import (
 
 type ZoneState struct {
 	Available bool
-}
-
-const (
-	HYPERVISORS_VERSION = "2.28"
-)
-
-type SCapabilities struct {
-}
-
-type SPool struct {
-	Name         string
-	Capabilities SCapabilities
 }
 
 type HostState struct {
@@ -51,16 +39,9 @@ type HostState struct {
 type SZone struct {
 	region *SRegion
 
-	iwires    []cloudprovider.ICloudWire
-	istorages []cloudprovider.ICloudStorage
-
 	ZoneName string
 
-	cachedHosts map[string][]string
-
-	schedulerPools []SPool
-
-	Hosts map[string]map[string]HostState
+	hosts []SHypervisor
 }
 
 func (zone *SZone) GetMetadata() *jsonutils.JSONDict {
@@ -97,150 +78,129 @@ func (zone *SZone) GetIRegion() cloudprovider.ICloudRegion {
 }
 
 func (zone *SZone) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return zone.iwires, nil
-}
-
-func (zone *SZone) fetchSchedulerStatsPool() error {
-	zone.schedulerPools = []SPool{}
-	for _, service := range []string{"volumev3", "volumev2", "volume"} {
-		_, resp, err := zone.region.List(service, "/scheduler-stats/get_pools", "", nil)
-		if err == nil {
-			if err := resp.Unmarshal(&zone.schedulerPools, "pools"); err != nil {
-				return err
-			}
-			return nil
-		}
-		log.Warningf("failed to get scheduler-stats pool by service %s error: %v, try another", service, err)
-	}
-	return fmt.Errorf("failed to find scheduler-stats pool by cinder service")
-}
-
-func (zone *SZone) getSchedulerStatsPool() ([]SPool, error) {
-	if len(zone.schedulerPools) == 0 {
-		return zone.schedulerPools, zone.fetchSchedulerStatsPool()
-	}
-	return zone.schedulerPools, nil
-}
-
-func (zone *SZone) getStorageByCategory(category string) (*SStorage, error) {
-	storages, err := zone.GetIStorages()
+	err := zone.region.fetchVpcs()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "fetchVpcs")
 	}
-	for i := 0; i < len(storages); i++ {
-		storage := storages[i].(*SStorage)
-		if strings.ToLower(storage.Name) == strings.ToLower(category) {
-			return storage, nil
-		}
+	iwires := []cloudprovider.ICloudWire{}
+	for i := range zone.region.vpcs {
+		wire := &SWire{zone: zone, vpc: &zone.region.vpcs[i]}
+		iwires = append(iwires, wire)
 	}
-	return nil, fmt.Errorf("No such storage %s", category)
+	return iwires, nil
 }
 
-func (zone *SZone) addWire(wire *SWire) {
-	if zone.iwires == nil {
-		zone.iwires = []cloudprovider.ICloudWire{}
+func (zone *SZone) getStorageByCategory(category, host string) (*SStorage, error) {
+	storages, err := zone.region.GetStorageTypes()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetStorageTypes")
 	}
-	zone.iwires = append(zone.iwires, wire)
-}
-
-func (zone *SZone) fetchStorages() error {
-	zone.istorages = []cloudprovider.ICloudStorage{}
-
-	for _, service := range []string{"volumev3", "volumev2", "volume"} {
-		_, resp, err := zone.region.List(service, "/types", "", nil)
-		if err == nil {
-			storages := []SStorage{}
-			if err := resp.Unmarshal(&storages, "volume_types"); err != nil {
-				return err
-			}
-			for i := 0; i < len(storages); i++ {
-				storages[i].zone = zone
-				zone.istorages = append(zone.istorages, &storages[i])
-			}
-			return nil
+	for i := range storages {
+		if storages[i].Name == category || storages[i].ExtraSpecs.VolumeBackendName == category {
+			storages[i].zone = zone
+			return &storages[i], nil
 		}
-		log.Debugf("failed to get volume types by service %s error: %v, try another", service, err)
 	}
-	return fmt.Errorf("failed to find storage types by cinder service")
+	for i := range storages {
+		if strings.HasSuffix(host, "#"+storages[i].Name) || strings.HasSuffix(host, "#"+storages[i].ExtraSpecs.VolumeBackendName) {
+			storages[i].zone = zone
+			return &storages[i], nil
+		}
+	}
+	return nil, fmt.Errorf("No such storage [%s]", category)
 }
 
 func (zone *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	if zone.istorages == nil {
-		zone.fetchStorages()
+	storages, err := zone.region.GetStorageTypes()
+	if err != nil && errors.Cause(err) != ErrNoEndpoint {
+		return nil, errors.Wrap(err, "GetStorageTypes")
 	}
-	return zone.istorages, nil
+	istorages := []cloudprovider.ICloudStorage{}
+	for i := range storages {
+		storages[i].zone = zone
+		istorages = append(istorages, &storages[i])
+	}
+	err = zone.fetchHosts()
+	if err != nil {
+		return nil, errors.Wrap(err, "fetchHosts")
+	}
+	for i := range zone.hosts {
+		nova := &SNovaStorage{host: &zone.hosts[i], zone: zone}
+		istorages = append(istorages, nova)
+	}
+	return istorages, nil
 }
 
 func (zone *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	if zone.istorages == nil {
-		zone.fetchStorages()
+	istorages, err := zone.GetIStorages()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIStorages")
 	}
-	for i := 0; i < len(zone.istorages); i++ {
-		if zone.istorages[i].GetGlobalId() == id {
-			return zone.istorages[i], nil
+	for i := 0; i < len(istorages); i++ {
+		if istorages[i].GetGlobalId() == id {
+			return istorages[i], nil
 		}
 	}
 	return nil, cloudprovider.ErrNotFound
 }
 
-type SOsHost struct {
-	Zone     string
-	HostName string
-	Service  string
+func (zone *SZone) fetchHosts() error {
+	if len(zone.hosts) > 0 {
+		return nil
+	}
+
+	zone.hosts = []SHypervisor{}
+	hypervisors, err := zone.region.GetHypervisors()
+	if err != nil {
+		return errors.Wrap(err, "GetHypervisors")
+	}
+	for i := range hypervisors {
+		hypervisor := strings.ToLower(hypervisors[i].HypervisorType)
+		// 过滤vmware的机器
+		if strings.Index(hypervisor, "vmware") != -1 {
+			continue
+		}
+		zone.hosts = append(zone.hosts, hypervisors[i])
+	}
+	return nil
+
 }
 
 func (zone *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {
-	ihosts := []cloudprovider.ICloudHost{}
-	hosts := []SHost{}
-
-	// 尽可能的优先使用 os-hypervisor, 里面的信息更全些, 实在不行再使用 os-host
-	_, resp, err := zone.region.List("compute", "/os-hypervisors/detail", "", nil)
-	if err == nil {
-		if err := resp.Unmarshal(&hosts, "hypervisors"); err != nil {
-			return nil, err
-		}
-		for i := 0; i < len(hosts); i++ {
-			// 过滤vmware的机器
-			hypervisor := strings.ToLower(hosts[i].HypervisorType)
-			if strings.Index(hypervisor, "vmware") != -1 {
-				continue
-			}
-			hosts[i].zone = zone
-			ihosts = append(ihosts, &hosts[i])
-		}
-		return ihosts, nil
-	}
-	_, resp, err = zone.region.List("compute", "/os-hosts", "", nil)
+	err := zone.fetchHosts()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "fetchHosts")
 	}
-
-	_hosts := []SOsHost{}
-
-	if err := resp.Unmarshal(&_hosts, "hosts"); err != nil {
-		return nil, err
-	}
-	for i := 0; i < len(_hosts); i++ {
-		if _hosts[i].Service == "compute" {
-			host := SHost{HostName: _hosts[i].HostName, Zone: _hosts[i].Zone, zone: zone}
-			ihosts = append(ihosts, &host)
-		}
+	ihosts := []cloudprovider.ICloudHost{}
+	for i := range zone.hosts {
+		zone.hosts[i].zone = zone
+		ihosts = append(ihosts, &zone.hosts[i])
 	}
 	return ihosts, nil
 }
 
 func (zone *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
-	host := &SHost{zone: zone}
-	_, resp, err := zone.region.Get("compute", "/os-hypervisors/"+id, "", nil)
-	if err == nil {
-		return host, resp.Unmarshal(&host, "hypervisor")
-	}
-
-	host.HostName = id
-	host.Resource = []map[string]SResource{}
-	_, resp, err = zone.region.Get("compute", "/os-hosts/"+id, "", nil)
+	ihosts, err := zone.GetIHosts()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetIHosts")
 	}
-	return host, resp.Unmarshal(&(host.Resource), "host")
+	for i := range ihosts {
+		if ihosts[i].GetGlobalId() == id {
+			return ihosts[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (region *SRegion) GetZones() ([]SZone, error) {
+	zones := []SZone{}
+	resp, err := region.ecsList("os-availability-zone/detail", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "ecsList.os-availability-zone")
+	}
+	err = resp.Unmarshal(&zones, "availabilityZoneInfo")
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return zones, nil
 }

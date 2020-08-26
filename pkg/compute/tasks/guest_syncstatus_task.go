@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -67,9 +68,10 @@ func (self *GuestSyncstatusTask) OnGetStatusSucc(ctx context.Context, guest *mod
 	default:
 		statusStr = api.VM_UNKNOWN
 	}
-	statusData := jsonutils.NewDict()
-	statusData.Add(jsonutils.NewString(statusStr), "status")
-	guest.PerformStatus(ctx, self.UserCred, nil, statusData)
+	input := apis.PerformStatusInput{
+		Status: statusStr,
+	}
+	guest.PerformStatus(ctx, self.UserCred, nil, input)
 	self.SetStageComplete(ctx, nil)
 	// logclient.AddActionLog(guest, logclient.ACT_VM_SYNC_STATUS, "", self.UserCred, true)
 }

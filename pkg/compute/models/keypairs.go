@@ -20,28 +20,29 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SKeypairManager struct {
-	db.SStandaloneResourceBaseManager
+	db.SUserResourceBaseManager
 }
 
 var KeypairManager *SKeypairManager
 
 func init() {
 	KeypairManager = &SKeypairManager{
-		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
+		SUserResourceBaseManager: db.NewUserResourceBaseManager(
 			SKeypair{},
 			"keypairs_tbl",
 			"keypair",
@@ -52,151 +53,136 @@ func init() {
 }
 
 type SKeypair struct {
-	db.SStandaloneResourceBase
+	db.SUserResourceBase
 
-	Scheme      string `width:"12" charset:"ascii" nullable:"true" list:"user" create:"required"`    // Column(VARCHAR(length=12, charset='ascii'), nullable=True, default='RSA')
-	Fingerprint string `width:"48" charset:"ascii" nullable:"false" list:"user" create:"required"`   // Column(VARCHAR(length=48, charset='ascii'), nullable=False)
-	PrivateKey  string `width:"2048" charset:"ascii" nullable:"true" create:"optional"`              // Column(VARCHAR(length=2048, charset='ascii'), nullable=False)
-	PublicKey   string `width:"1024" charset:"ascii" nullable:"false" list:"user" create:"required"` // Column(VARCHAR(length=1024, charset='ascii'), nullable=False)
-	OwnerId     string `width:"128" charset:"ascii" index:"true" nullable:"false" create:"required"` // Column(VARCHAR(length=36, charset='ascii'), index=True, nullable=False)
+	// 加密类型
+	// example: RSA
+	Scheme string `width:"12" charset:"ascii" nullable:"true" list:"user" create:"required"`
+	// 指纹信息
+	// example: 1d:3a:83:4a:a1:f3:75:97:ec:d1:ef:f8:3f:a7:5d:9e
+	Fingerprint string `width:"48" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	// 私钥
+	PrivateKey string `width:"2048" charset:"ascii" nullable:"true" create:"optional"`
+	// 公钥
+	PublicKey string `width:"1024" charset:"ascii" nullable:"false" list:"user" create:"required"`
 }
 
-func (manager *SKeypairManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+// 列出ssh密钥对
+func (manager *SKeypairManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.KeypairListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SUserResourceBaseManager.ListItemFilter(ctx, q, userCred, query.UserResourceListInput)
 	if err != nil {
 		return nil, err
 	}
-	if jsonutils.QueryBoolean(query, "admin", false) && db.IsAdminAllowList(userCred, manager) {
-		user, _ := query.GetString("user")
-		if len(user) > 0 {
-			uc, _ := db.UserCacheManager.FetchUserByIdOrName(ctx, user)
-			if uc == nil {
-				return nil, httperrors.NewUserNotFoundError("user %s not found", user)
-			}
-			q = q.Equals("owner_id", uc.Id)
-		}
-	} else {
-		q = q.Equals("owner_id", userCred.GetUserId())
+
+	if len(query.Scheme) > 0 {
+		q = q.In("scheme", query.Scheme)
+	}
+	if len(query.Fingerprint) > 0 {
+		q = q.In("fingerprint", query.Fingerprint)
+	}
+
+	return q, nil
+}
+
+func (manager *SKeypairManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.KeypairListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SUserResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.UserResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SUserResourceBaseManager.OrderByExtraFields")
 	}
 	return q, nil
 }
 
-func (manager *SKeypairManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
-func (self *SKeypair) IsOwner(userCred mcclient.TokenCredential) bool {
-	return self.OwnerId == userCred.GetUserId()
-}
-
-func (self *SKeypair) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SKeypair) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	extra.Add(jsonutils.NewInt(int64(len(self.PrivateKey))), "private_key_len")
-
-	guestCnt, err := self.GetLinkedGuestsCount()
+func (manager *SKeypairManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SUserResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
-		extra.Add(jsonutils.NewInt(int64(guestCnt)), "linked_guest_count")
+		return q, nil
 	}
-
-	return extra
+	return q, httperrors.ErrNotFound
 }
 
-func (self *SKeypair) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
-	}
-	extra.Add(jsonutils.NewInt(int64(len(self.PrivateKey))), "private_key_len")
+func (self *SKeypair) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.KeypairDetails, error) {
+	return api.KeypairDetails{}, nil
+}
 
-	guestCnt, err := self.GetLinkedGuestsCount()
-	if err != nil {
-		return nil, httperrors.NewInternalServerError("GetLinkedGuestsCount fail %s", err)
-	}
-	extra.Add(jsonutils.NewInt(int64(guestCnt)), "linked_guest_count")
-
-	if db.IsAdminAllowGet(userCred, self) {
-		extra.Add(jsonutils.NewString(self.OwnerId), "owner_id")
-		uc, _ := db.UserCacheManager.FetchUserById(ctx, self.OwnerId)
-		if uc != nil {
-			extra.Add(jsonutils.NewString(uc.Name), "owner_name")
+func (manager *SKeypairManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.KeypairDetails {
+	rows := make([]api.KeypairDetails, len(objs))
+	userRows := manager.SUserResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		keypair := objs[i].(*SKeypair)
+		rows[i] = api.KeypairDetails{
+			UserResourceDetails: userRows[i],
+			PrivateKeyLen:       len(keypair.PrivateKey),
 		}
+		rows[i].LinkedGuestCount, _ = keypair.GetLinkedGuestsCount()
 	}
-	return extra, nil
-}
 
-func (manager *SKeypairManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return true
-}
-
-func (self *SKeypair) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SKeypair) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowDelete(userCred, self)
+	return rows
 }
 
 func (self *SKeypair) GetLinkedGuestsCount() (int, error) {
 	return GuestManager.Query().Equals("keypair_id", self.Id).CountWithError()
 }
 
-func (manager *SKeypairManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	publicKey, _ := data.GetString("public_key")
-	if len(publicKey) == 0 {
-		scheme, _ := data.GetString("scheme")
-		if len(scheme) > 0 {
-			if !utils.IsInStringArray(scheme, []string{"RSA", "DSA"}) {
-				return nil, httperrors.NewInputParameterError("Unsupported scheme %s", scheme)
-			}
-		} else {
-			scheme = "RSA"
+func (manager *SKeypairManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.KeypairCreateInput) (api.KeypairCreateInput, error) {
+	if len(input.PublicKey) == 0 {
+		if len(input.Scheme) == 0 {
+			input.Scheme = api.KEYPAIRE_SCHEME_RSA
 		}
-		var privKey, pubKey string
+		if !utils.IsInStringArray(input.Scheme, api.KEYPAIR_SCHEMAS) {
+			return input, httperrors.NewInputParameterError("Unsupported scheme %s", input.Scheme)
+		}
+
 		var err error
-		if scheme == "RSA" {
-			privKey, pubKey, err = seclib2.GenerateRSASSHKeypair()
+		if input.Scheme == api.KEYPAIRE_SCHEME_RSA {
+			input.PrivateKey, input.PublicKey, err = seclib2.GenerateRSASSHKeypair()
 		} else {
-			privKey, pubKey, err = seclib2.GenerateDSASSHKeypair()
+			input.PrivateKey, input.PublicKey, err = seclib2.GenerateDSASSHKeypair()
 		}
 		if err != nil {
-			log.Errorf("fail to generate ssh keypair %s", err)
-			return nil, httperrors.NewGeneralError(err)
+			return input, httperrors.NewGeneralError(errors.Wrapf(err, "Generate%sSSHKeypair", input.Scheme))
 		}
-		publicKey = pubKey
-		data.Set("public_key", jsonutils.NewString(pubKey))
-		data.Set("private_key", jsonutils.NewString(privKey))
 	}
-	pubKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(publicKey))
+	pubKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(input.PublicKey))
 	if err != nil {
-		log.Errorf("invalid public key %s", err)
-		return nil, httperrors.NewInputParameterError("invalid public")
+		return input, httperrors.NewInputParameterError("invalid public error: %v", err)
 	}
 
 	// 只允许上传RSA格式密钥。PS: AWS只支持RSA格式。
-	scheme := seclib2.GetPublicKeyScheme(pubKey)
-	if scheme != "RSA" {
-		return nil, httperrors.NewInputParameterError("Unsupported scheme %s", scheme)
+	input.Scheme = seclib2.GetPublicKeyScheme(pubKey)
+	if input.Scheme != api.KEYPAIRE_SCHEME_RSA {
+		return input, httperrors.NewInputParameterError("Unsupported scheme %s", input.Scheme)
 	}
 
-	data.Set("fingerprint", jsonutils.NewString(ssh.FingerprintLegacyMD5(pubKey)))
-	data.Set("scheme", jsonutils.NewString(scheme))
-	data.Set("owner_id", jsonutils.NewString(userCred.GetUserId()))
-
-	input := apis.StandaloneResourceCreateInput{}
-	err = data.Unmarshal(&input)
+	input.Fingerprint = ssh.FingerprintLegacyMD5(pubKey)
+	input.UserResourceCreateInput, err = manager.SUserResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.UserResourceCreateInput)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal StandaloneRes  ourceCreateInput fail %s", err)
+		return input, err
 	}
-	input, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
-	if err != nil {
-		return nil, err
-	}
-	data.Update(jsonutils.Marshal(input))
-	return data, nil
+	return input, nil
 }
 
 func (self *SKeypair) ValidateDeleteCondition(ctx context.Context) error {
@@ -226,19 +212,6 @@ func (manager *SKeypairManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient
 	return q
 }
 
-func (self *SKeypair) GetOwnerId() mcclient.IIdentityProvider {
-	owner := db.SOwnerId{UserId: self.OwnerId}
-	return &owner
-}
-
-func (manager *SKeypairManager) FetchByName(userCred mcclient.IIdentityProvider, idStr string) (db.IModel, error) {
-	return db.FetchByName(manager, userCred, idStr)
-}
-
-func (manager *SKeypairManager) FetchByIdOrName(userCred mcclient.IIdentityProvider, idStr string) (db.IModel, error) {
-	return db.FetchByIdOrName(manager, userCred, idStr)
-}
-
 func (keypair *SKeypair) AllowGetDetailsPrivatekey(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return keypair.OwnerId == userCred.GetUserId()
 }
@@ -261,16 +234,4 @@ func (keypair *SKeypair) GetDetailsPrivatekey(ctx context.Context, userCred mccl
 		logclient.AddActionLogWithContext(ctx, keypair, logclient.ACT_FETCH, nil, userCred, true)
 	}
 	return retval, nil
-}
-
-func (manager *SKeypairManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
-	return db.FetchUserInfo(ctx, data)
-}
-
-func (manager *SKeypairManager) NamespaceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeUser
-}
-
-func (manager *SKeypairManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeUser
 }

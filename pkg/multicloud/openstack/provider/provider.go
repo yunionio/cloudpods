@@ -102,16 +102,31 @@ func (self *SOpenStackProviderFactory) ValidateUpdateCloudaccountCredential(ctx 
 	return output, nil
 }
 
-func (self *SOpenStackProviderFactory) GetProvider(providerId, providerName, url, account, password string) (cloudprovider.ICloudProvider, error) {
-	accountInfo := strings.Split(account, "/")
+func (self *SOpenStackProviderFactory) IsNeedForceAutoCreateProject() bool {
+	return true
+}
+
+func (self *SOpenStackProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
+	accountInfo := strings.Split(cfg.Account, "/")
 	if len(accountInfo) < 2 {
-		return nil, fmt.Errorf("Missing username or project name %s", account)
+		return nil, fmt.Errorf("Missing username or project name %s", cfg.Account)
 	}
 	project, username, endpointType, domainName, projectDomainName := accountInfo[0], accountInfo[1], "internal", "Default", "Default"
 	if len(accountInfo) == 3 {
 		domainName, projectDomainName = accountInfo[2], accountInfo[2]
 	}
-	client, err := openstack.NewOpenStackClient(providerId, providerName, url, username, password, project, endpointType, domainName, projectDomainName, false)
+	client, err := openstack.NewOpenStackClient(
+		openstack.NewOpenstackClientConfig(
+			cfg.URL,
+			username,
+			cfg.Secret,
+			project,
+			projectDomainName,
+		).
+			DomainName(domainName).
+			EndpointType(endpointType).
+			CloudproviderConfig(cfg),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -189,6 +204,22 @@ func (self *SOpenStackProvider) GetIProjects() ([]cloudprovider.ICloudProject, e
 	return self.client.GetIProjects()
 }
 
+func (self *SOpenStackProvider) CreateIProject(name string) (cloudprovider.ICloudProject, error) {
+	return self.client.CreateIProject(name)
+}
+
 func (self *SOpenStackProvider) GetStorageClasses(regionId string) []string {
 	return nil
+}
+
+func (self *SOpenStackProvider) GetBucketCannedAcls(regionId string) []string {
+	return nil
+}
+
+func (self *SOpenStackProvider) GetObjectCannedAcls(regionId string) []string {
+	return nil
+}
+
+func (self *SOpenStackProvider) GetCapabilities() []string {
+	return self.client.GetCapabilities()
 }

@@ -23,7 +23,7 @@ type LoadbalancerCreateOptions struct {
 	ChargeType       string `choices:"traffic|bandwidth"`
 	Bandwidth        int
 	Zone             string
-	Cluster          string
+	Cluster          string `json:"cluster_id"`
 	Manager          string
 }
 
@@ -35,6 +35,7 @@ type LoadbalancerUpdateOptions struct {
 	ID   string `json:"-"`
 	Name string
 
+	Cluster      string `json:"cluster_id"`
 	BackendGroup string
 }
 
@@ -55,7 +56,7 @@ type LoadbalancerListOptions struct {
 	BackendGroup string
 	Cloudregion  string
 	Zone         string
-	Cluster      string
+	Cluster      string `json:"cluster_id"`
 }
 
 type LoadbalancerActionStatusOptions struct {

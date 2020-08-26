@@ -18,14 +18,8 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
 
-	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
-	commonOptions "yunion.io/x/onecloud/pkg/cloudcommon/options"
-	"yunion.io/x/onecloud/pkg/compute/options"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -41,6 +35,7 @@ func init() {
 
 	ZoneUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(ZoneQuota,
+			rbacutils.ScopeDomain,
 			"zone_quota_usage_tbl",
 			"zone_quota_usage",
 			"zone_quota_usages",
@@ -48,6 +43,7 @@ func init() {
 	}
 	ZonePendingUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(ZoneQuota,
+			rbacutils.ScopeDomain,
 			"zone_quota_pending_usage_tbl",
 			"zone_quota_pending_usage",
 			"zone_quota_pending_usages",
@@ -55,6 +51,7 @@ func init() {
 	}
 	ZoneQuotaManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaBaseManager(ZoneQuota,
+			rbacutils.ScopeDomain,
 			"zone_quota_tbl",
 			ZonePendingUsageManager,
 			ZoneUsageManager,
@@ -70,7 +67,7 @@ type SZoneQuota struct {
 
 	quotas.SZonalCloudResourceKeys
 
-	Loadbalancer int `default:"-1" allow_zero:"true"`
+	// Loadbalancer int `default:"-1" allow_zero:"true"`
 }
 
 func (self *SZoneQuota) GetKeys() quotas.IQuotaKeys {
@@ -82,7 +79,7 @@ func (self *SZoneQuota) SetKeys(keys quotas.IQuotaKeys) {
 }
 
 func (self *SZoneQuota) FetchSystemQuota() {
-	keys := self.SBaseQuotaKeys
+	/*keys := self.SBaseQuotaKeys
 	base := 0
 	switch options.Options.DefaultQuotaValue {
 	case commonOptions.DefaultQuotaUnlimit:
@@ -106,12 +103,12 @@ func (self *SZoneQuota) FetchSystemQuota() {
 		} else {
 			return def * base
 		}
-	}
-	self.Loadbalancer = defaultValue(options.Options.DefaultLoadbalancerQuota)
+	}*/
+	// self.Loadbalancer = defaultValue(options.Options.DefaultLoadbalancerQuota)
 }
 
 func (self *SZoneQuota) FetchUsage(ctx context.Context) error {
-	keys := self.SZonalCloudResourceKeys
+	/*keys := self.SZonalCloudResourceKeys
 
 	scope := keys.Scope()
 	ownerId := keys.OwnerId()
@@ -154,47 +151,51 @@ func (self *SZoneQuota) FetchUsage(ctx context.Context) error {
 	}
 
 	self.Loadbalancer, _ = LoadbalancerManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, keys.CloudEnv)
-
+	*/
 	return nil
 }
 
 func (self *SZoneQuota) ResetNegative() {
-	if self.Loadbalancer < 0 {
+	/*if self.Loadbalancer < 0 {
 		self.Loadbalancer = 0
-	}
+	}*/
 }
 
 func (self *SZoneQuota) IsEmpty() bool {
-	if self.Loadbalancer > 0 {
+	/*if self.Loadbalancer > 0 {
 		return false
-	}
+	}*/
 	return true
 }
 
 func (self *SZoneQuota) Add(quota quotas.IQuota) {
-	squota := quota.(*SZoneQuota)
-	self.Loadbalancer = self.Loadbalancer + quotas.NonNegative(squota.Loadbalancer)
+	// squota := quota.(*SZoneQuota)
+	// self.Loadbalancer = self.Loadbalancer + quotas.NonNegative(squota.Loadbalancer)
 }
 
 func (self *SZoneQuota) Sub(quota quotas.IQuota) {
-	squota := quota.(*SZoneQuota)
-	self.Loadbalancer = nonNegative(self.Loadbalancer - squota.Loadbalancer)
+	// squota := quota.(*SZoneQuota)
+	// self.Loadbalancer = nonNegative(self.Loadbalancer - squota.Loadbalancer)
+}
+
+func (self *SZoneQuota) Allocable(request quotas.IQuota) int {
+	return -1
 }
 
 func (self *SZoneQuota) Update(quota quotas.IQuota) {
-	squota := quota.(*SZoneQuota)
-	if squota.Loadbalancer > 0 {
-		self.Loadbalancer = squota.Loadbalancer
-	}
+	// squota := quota.(*SZoneQuota)
+	// if squota.Loadbalancer > 0 {
+	// 	self.Loadbalancer = squota.Loadbalancer
+	// }
 }
 
 func (used *SZoneQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
 	err := quotas.NewOutOfQuotaError()
-	sreq := request.(*SZoneQuota)
+	/*sreq := request.(*SZoneQuota)
 	squota := quota.(*SZoneQuota)
 	if quotas.Exceed(used.Loadbalancer, sreq.Loadbalancer, squota.Loadbalancer) {
 		err.Add("loadbalancer", squota.Loadbalancer, used.Loadbalancer, sreq.Loadbalancer)
-	}
+	}*/
 	if err.IsError() {
 		return err
 	} else {
@@ -204,6 +205,6 @@ func (used *SZoneQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error
 
 func (self *SZoneQuota) ToJSON(prefix string) jsonutils.JSONObject {
 	ret := jsonutils.NewDict()
-	ret.Add(jsonutils.NewInt(int64(self.Loadbalancer)), keyName(prefix, "loadbalancer"))
+	// ret.Add(jsonutils.NewInt(int64(self.Loadbalancer)), keyName(prefix, "loadbalancer"))
 	return ret
 }

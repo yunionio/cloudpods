@@ -15,6 +15,7 @@
 package aliyun
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -104,7 +105,7 @@ func (backend *SLoadbalancerBackend) GetProjectId() string {
 	return ""
 }
 
-func (backend *SLoadbalancerBackend) SyncConf(port, weight int) error {
+func (backend *SLoadbalancerBackend) SyncConf(ctx context.Context, port, weight int) error {
 	err := backend.lbbg.lb.region.RemoveBackendVServer(backend.lbbg.lb.LoadBalancerId, backend.lbbg.VServerGroupId, backend.ServerId, backend.Port)
 	if err != nil {
 		return err

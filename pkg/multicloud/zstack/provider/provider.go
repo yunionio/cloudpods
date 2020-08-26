@@ -76,8 +76,12 @@ func (self *SZStackProviderFactory) ValidateUpdateCloudaccountCredential(ctx con
 	return output, nil
 }
 
-func (self *SZStackProviderFactory) GetProvider(providerId, providerName, url, username, password string) (cloudprovider.ICloudProvider, error) {
-	client, err := zstack.NewZStackClient(providerId, providerName, url, username, password, false)
+func (self *SZStackProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
+	client, err := zstack.NewZStackClient(
+		zstack.NewZstackClientConfig(
+			cfg.URL, cfg.Account, cfg.Secret,
+		).CloudproviderConfig(cfg),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -144,4 +148,16 @@ func (self *SZStackProvider) GetIProjects() ([]cloudprovider.ICloudProject, erro
 
 func (self *SZStackProvider) GetStorageClasses(regionId string) []string {
 	return nil
+}
+
+func (self *SZStackProvider) GetBucketCannedAcls(regionId string) []string {
+	return nil
+}
+
+func (self *SZStackProvider) GetObjectCannedAcls(regionId string) []string {
+	return nil
+}
+
+func (self *SZStackProvider) GetCapabilities() []string {
+	return self.client.GetCapabilities()
 }

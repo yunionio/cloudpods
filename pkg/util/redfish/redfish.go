@@ -78,7 +78,11 @@ func (r *SBaseRedfishClient) GetHost() string {
 		log.Errorf("urlParse %s fail %s", r.endpoint, err)
 		return ""
 	}
-	return parts.Hostname()
+	ports := parts.Port()
+	if len(ports) == 0 {
+		return parts.Hostname()
+	}
+	return parts.Hostname() + ":" + parts.Port()
 }
 
 func (r *SBaseRedfishClient) GetUsername() string {
@@ -421,32 +425,36 @@ func (r *SBaseRedfishClient) GetSystemInfo(ctx context.Context) (string, SSystem
 		sysInfo.ResetTypeSupported[i] = resetTypeStr
 	}
 
-	nicListPath, _ := resp.GetString("EthernetInterfaces", "@odata.id")
-	nicListInfo, err := r.Get(ctx, nicListPath)
+	nicListPath, err := resp.GetString("EthernetInterfaces", "@odata.id")
 	if err != nil {
-		return path, sysInfo, errors.Wrap(err, "Get EthernetInterfaces fail")
-	}
-	nicList, _ := nicListInfo.GetArray("Members")
-	if len(nicList) > 0 {
-		sysInfo.EthernetNICs = make([]string, len(nicList))
-		for i := range nicList {
-			nicPath, _ := nicList[i].GetString("@odata.id")
-			nicInfo, err := r.Get(ctx, nicPath)
-			if err != nil {
-				return path, sysInfo, errors.Wrapf(err, "Get EthernetInterface[%d] error", i)
-			}
-			var macAddr string
-			for _, key := range []string{
-				"MacAddress",
-				"MACAddress",
-				"PermanentMACAddress",
-			} {
-				macAddr, _ = nicInfo.GetString(key)
-				if len(macAddr) > 0 {
-					break
+		log.Warningf("no EthernetInterfaces info")
+	} else {
+		nicListInfo, err := r.Get(ctx, nicListPath)
+		if err != nil {
+			return path, sysInfo, errors.Wrap(err, "Get EthernetInterfaces fail")
+		}
+		nicList, _ := nicListInfo.GetArray("Members")
+		if len(nicList) > 0 {
+			sysInfo.EthernetNICs = make([]string, len(nicList))
+			for i := range nicList {
+				nicPath, _ := nicList[i].GetString("@odata.id")
+				nicInfo, err := r.Get(ctx, nicPath)
+				if err != nil {
+					return path, sysInfo, errors.Wrapf(err, "Get EthernetInterface[%d] error", i)
 				}
+				var macAddr string
+				for _, key := range []string{
+					"MacAddress",
+					"MACAddress",
+					"PermanentMACAddress",
+				} {
+					macAddr, _ = nicInfo.GetString(key)
+					if len(macAddr) > 0 {
+						break
+					}
+				}
+				sysInfo.EthernetNICs[i] = netutils.FormatMacAddr(macAddr)
 			}
-			sysInfo.EthernetNICs[i] = netutils.FormatMacAddr(macAddr)
 		}
 	}
 
@@ -535,10 +543,15 @@ func (r *SBaseRedfishClient) readLogs(ctx context.Context, path string, subsys s
 	for {
 		resp, err := r.Get(ctx, path)
 		if err != nil {
-			if httputils.ErrorCode(err) == 404 {
-				break
-			}
-			return nil, errors.Wrap(err, path)
+			log.Errorf("Get %s fail %s", path, err)
+			break
+			// if httputils.ErrorCode(err) == 404 {
+			// 	break
+			// }
+			// return nil, errors.Wrap(err, path)
+		}
+		if r.IsDebug {
+			log.Debugf("readLogs %s", resp.PrettyString())
 		}
 		tmpEvents := make([]SEvent, 0)
 		err = resp.Unmarshal(&tmpEvents, r.IRedfishDriver().LogItemsKey())

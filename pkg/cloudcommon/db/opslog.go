@@ -24,14 +24,18 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 const (
@@ -48,6 +52,9 @@ const (
 	ACT_ATTACH_FAIL = "attach_fail"
 	ACT_DETACH_FAIL = "detach_fail"
 	ACT_DELETE_FAIL = "delete_fail"
+
+	ACT_PUBLIC  = "public"
+	ACT_PRIVATE = "private"
 
 	ACT_SYNC_UPDATE = "sync_update"
 	ACT_SYNC_CREATE = "sync_create"
@@ -83,6 +90,10 @@ const (
 	ACT_MIGRATING    = "migrating"
 	ACT_MIGRATE      = "migrate"
 	ACT_MIGRATE_FAIL = "migrate_fail"
+
+	ACT_VM_CONVERT      = "vm_convert"
+	ACT_VM_CONVERTING   = "vm_converting"
+	ACT_VM_CONVERT_FAIL = "vm_convert_fail"
 
 	ACT_SPLIT = "net_split"
 	ACT_MERGE = "net_merge"
@@ -139,6 +150,9 @@ const (
 	ACT_BACKUP_ALLOCATE_FAIL = "backup_alloc_fail"
 	ACT_REW_FAIL             = "renew_fail"
 
+	ACT_SET_AUTO_RENEW      = "set_auto_renew"
+	ACT_SET_AUTO_RENEW_FAIL = "set_auto_renew_fail"
+
 	ACT_DELOCATING    = "delocating"
 	ACT_DELOCATE      = "delocate"
 	ACT_DELOCATE_FAIL = "delocate_fail"
@@ -175,6 +189,7 @@ const (
 
 	ACT_CHANGE_OWNER = "change_owner"
 	ACT_SYNC_OWNER   = "sync_owner"
+	ACT_SYNC_SHARE   = "sync_share"
 
 	ACT_RESERVE_IP = "reserve_ip"
 	ACT_RELEASE_IP = "release_ip"
@@ -206,6 +221,7 @@ const (
 
 	ACT_SYNC_CLOUD_DISK          = "sync_cloud_disk"
 	ACT_SYNC_CLOUD_SERVER        = "sync_cloud_server"
+	ACT_SYNC_CLOUD_SKUS          = "sync_cloud_skus"
 	ACT_SYNC_CLOUD_EIP           = "sync_cloud_eip"
 	ACT_SYNC_CLOUD_PROJECT       = "sync_cloud_project"
 	ACT_SYNC_CLOUD_ELASTIC_CACHE = "sync_cloud_elastic_cache"
@@ -227,7 +243,10 @@ const (
 	ACT_GUEST_SAVE_GUEST_IMAGE            = "guest_save_guest_image"
 	ACT_GUEST_SAVE_GUEST_IMAGE_FAIL       = "guest_save_guest_image_fail"
 
+	ACT_GUEST_SRC_CHECK = "guest_src_check"
+
 	ACT_CHANGE_BANDWIDTH = "eip_change_bandwidth"
+	ACT_EIP_CONVERT_FAIL = "eip_convert_fail"
 
 	ACT_RENEW = "renew"
 
@@ -242,6 +261,7 @@ const (
 	ACT_GUEST_CREATE_FROM_IMPORT_FAIL    = "guest_create_from_import_fail"
 	ACT_GUEST_PANICKED                   = "guest_panicked"
 	ACT_HOST_MAINTENANCE                 = "host_maintenance"
+	ACT_HOST_DOWN                        = "host_down"
 
 	ACT_UPLOAD_OBJECT = "upload_obj"
 	ACT_DELETE_OBJECT = "delete_obj"
@@ -273,7 +293,7 @@ type SOpsLog struct {
 	ObjId   string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"` //  = Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
 	ObjName string `width:"128" charset:"utf8" nullable:"false" list:"user" create:"required"`               //= Column(VARCHAR(128, charset='utf8'), nullable=False)
 	Action  string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"required"`                //= Column(VARCHAR(32, charset='ascii'), nullable=False)
-	Notes   string `width:"2048" charset:"utf8" list:"user" create:"required"`                               // = Column(VARCHAR(2048, charset='utf8'))
+	Notes   string `charset:"utf8" list:"user" create:"required"`
 
 	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" list:"user" create:"required" index:"true"` // = Column(VARCHAR(ID_LENGTH, charset='ascii'))
 	Project   string `name:"tenant" width:"128" charset:"utf8" list:"user" create:"required"`                  // tenant    = Column(VARCHAR(128, charset='utf8'))
@@ -326,6 +346,14 @@ func (opslog *SOpsLog) GetName() string {
 	return fmt.Sprintf("%s-%s", opslog.ObjType, opslog.Action)
 }
 
+func (opslog *SOpsLog) GetUpdatedAt() time.Time {
+	return opslog.OpsTime
+}
+
+func (opslog *SOpsLog) GetUpdateVersion() int {
+	return 1
+}
+
 func (opslog *SOpsLog) GetModelManager() IModelManager {
 	return OpsLog
 }
@@ -346,24 +374,28 @@ func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes inter
 			return
 		}
 	}
-	opslog := SOpsLog{}
-	opslog.ObjType = model.Keyword()
-	opslog.ObjId = model.GetId()
-	opslog.ObjName = model.GetName()
-	opslog.Action = action
-	opslog.Notes = stringutils.Interface2String(notes)
-	opslog.ProjectId = userCred.GetProjectId()
-	opslog.Project = userCred.GetProjectName()
-	opslog.ProjectDomainId = userCred.GetProjectDomainId()
-	opslog.ProjectDomain = userCred.GetProjectDomain()
-	opslog.UserId = userCred.GetUserId()
-	opslog.User = userCred.GetUserName()
-	opslog.DomainId = userCred.GetDomainId()
-	opslog.Domain = userCred.GetDomainName()
-	opslog.Roles = strings.Join(userCred.GetRoles(), ",")
-	opslog.OpsTime = time.Now().UTC()
+	opslog := &SOpsLog{
+		OpsTime: time.Now().UTC(),
+		ObjType: model.Keyword(),
+		ObjId:   model.GetId(),
+		ObjName: model.GetName(),
+		Action:  action,
+		Notes:   stringutils.Interface2String(notes),
 
-	if virtualModel, ok := model.(IVirtualModel); ok && virtualModel != nil {
+		ProjectId:       userCred.GetProjectId(),
+		Project:         userCred.GetProjectName(),
+		ProjectDomainId: userCred.GetProjectDomainId(),
+		ProjectDomain:   userCred.GetProjectDomain(),
+
+		UserId:   userCred.GetUserId(),
+		User:     userCred.GetUserName(),
+		DomainId: userCred.GetDomainId(),
+		Domain:   userCred.GetDomainName(),
+		Roles:    strings.Join(userCred.GetRoles(), ","),
+	}
+	opslog.SetModelManager(OpsLog, opslog)
+
+	if virtualModel, ok := model.(IVirtualModel); ok {
 		ownerId := virtualModel.GetOwnerId()
 		if ownerId != nil {
 			opslog.OwnerProjectId = ownerId.GetProjectId()
@@ -371,7 +403,7 @@ func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes inter
 		}
 	}
 
-	err := manager.TableSpec().Insert(&opslog)
+	err := manager.TableSpec().Insert(context.Background(), opslog)
 	if err != nil {
 		log.Errorf("fail to insert opslog: %s", err)
 	}
@@ -426,32 +458,17 @@ func (manager *SOpsLogManager) LogDetachEvent(ctx context.Context, m1, m2 IModel
 	manager.logJoinEvent(ctx, m1, m2, ACT_DETACH, userCred, notes)
 }
 
-func (manager *SOpsLogManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	userStrs := jsonutils.GetQueryStringArray(query, "user")
-	if len(userStrs) > 0 {
-		for i := range userStrs {
-			usrObj, err := UserCacheManager.FetchUserByIdOrName(ctx, userStrs[i])
-			if err != nil {
-				if err == sql.ErrNoRows {
-					return nil, httperrors.NewResourceNotFoundError2("user", userStrs[i])
-				} else if err == sqlchemy.ErrDuplicateEntry {
-					return nil, httperrors.NewDuplicateNameError("user", userStrs[i])
-				} else {
-					return nil, httperrors.NewGeneralError(err)
-				}
-			}
-			userStrs[i] = usrObj.GetId()
-		}
-		if len(userStrs) == 1 {
-			q = q.Filter(sqlchemy.Equals(q.Field("user_id"), userStrs[0]))
-		} else {
-			q = q.Filter(sqlchemy.In(q.Field("user_id"), userStrs))
-		}
-	}
-	projStrs := jsonutils.GetQueryStringArray(query, "project")
+// 操作日志列表
+func (manager *SOpsLogManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) (*sqlchemy.SQuery, error) {
+	projStrs := jsonutils.GetQueryStringArray(query, "owner_project_ids")
 	if len(projStrs) > 0 {
 		for i := range projStrs {
-			projObj, err := TenantCacheManager.FetchTenantByIdOrName(ctx, projStrs[i])
+			projObj, err := DefaultProjectFetcher(ctx, projStrs[i])
 			if err != nil {
 				if err == sql.ErrNoRows {
 					return nil, httperrors.NewResourceNotFoundError2("project", projStrs[i])
@@ -461,11 +478,22 @@ func (manager *SOpsLogManager) ListItemFilter(ctx context.Context, q *sqlchemy.S
 			}
 			projStrs[i] = projObj.GetId()
 		}
-		if len(projStrs) == 1 {
-			q = q.Filter(sqlchemy.Equals(q.Field("owner_tenant_id"), projStrs[0]))
-		} else {
-			q = q.Filter(sqlchemy.In(q.Field("owner_tenant_id"), projStrs))
+		q = q.Filter(sqlchemy.In(q.Field("owner_tenant_id"), projStrs))
+	}
+	domainStrs := jsonutils.GetQueryStringArray(query, "owner_domain_ids")
+	if len(domainStrs) > 0 {
+		for i := range domainStrs {
+			domainObj, err := DefaultDomainFetcher(ctx, domainStrs[i])
+			if err != nil {
+				if err == sql.ErrNoRows {
+					return nil, httperrors.NewResourceNotFoundError2("domain", domainStrs[i])
+				} else {
+					return nil, httperrors.NewGeneralError(err)
+				}
+			}
+			domainStrs[i] = domainObj.GetId()
 		}
+		q = q.Filter(sqlchemy.In(q.Field("owner_domain_id"), domainStrs))
 	}
 	objTypes := jsonutils.GetQueryStringArray(query, "obj_type")
 	if len(objTypes) > 0 {
@@ -528,9 +556,10 @@ func (manager *SOpsLogManager) ListItemFilter(ctx context.Context, q *sqlchemy.S
 
 func (manager *SOpsLogManager) SyncOwner(m IModel, former *STenant, userCred mcclient.TokenCredential) {
 	notes := jsonutils.NewDict()
-	notes.Add(jsonutils.NewString(former.GetDomain()), "former_domain_id")
-	notes.Add(jsonutils.NewString(former.GetId()), "former_project_id")
-	notes.Add(jsonutils.NewString(former.GetName()), "former_project")
+	notes.Add(jsonutils.NewString(former.GetProjectDomainId()), "former_domain_id")
+	notes.Add(jsonutils.NewString(former.GetProjectDomain()), "former_domain")
+	notes.Add(jsonutils.NewString(former.GetProjectId()), "former_project_id")
+	notes.Add(jsonutils.NewString(former.GetProjectName()), "former_project")
 	manager.LogEvent(m, ACT_CHANGE_OWNER, notes, userCred)
 }
 
@@ -581,39 +610,36 @@ func (self *SOpsLogManager) FilterByName(q *sqlchemy.SQuery, name string) *sqlch
 func (self *SOpsLogManager) FilterByOwner(q *sqlchemy.SQuery, ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	if ownerId != nil {
 		switch scope {
+		case rbacutils.ScopeUser:
+			if len(ownerId.GetUserId()) > 0 {
+				q = q.Filter(sqlchemy.Equals(q.Field("user_id"), ownerId.GetUserId()))
+			}
 		case rbacutils.ScopeProject:
 			if len(ownerId.GetProjectId()) > 0 {
-				q = q.Filter(sqlchemy.OR(
-					sqlchemy.Equals(q.Field("owner_tenant_id"), ownerId.GetProjectId()),
-					sqlchemy.Equals(q.Field("tenant_id"), ownerId.GetProjectId()),
-				))
+				q = q.Filter(sqlchemy.Equals(q.Field("tenant_id"), ownerId.GetProjectId()))
 			}
 		case rbacutils.ScopeDomain:
 			if len(ownerId.GetProjectDomainId()) > 0 {
-				q = q.Filter(sqlchemy.OR(
-					sqlchemy.Equals(q.Field("owner_domain_id"), ownerId.GetProjectDomainId()),
-					sqlchemy.Equals(q.Field("domain_id"), ownerId.GetProjectDomainId()),
-				))
+				q = q.Filter(sqlchemy.Equals(q.Field("domain_id"), ownerId.GetProjectDomainId()))
 			}
+		default:
+			// systemScope, no filter
 		}
-		/* if len(ownerId.GetProjectId()) > 0 {
-			q = q.Filter(sqlchemy.OR(
-				sqlchemy.Equals(q.Field("owner_tenant_id"), ownerId.GetProjectId()),
-				sqlchemy.Equals(q.Field("tenant_id"), ownerId.GetProjectId()),
-			))
-		} else if len(ownerId.GetProjectDomainId()) > 0 {
-			q = q.Filter(sqlchemy.OR(
-				sqlchemy.Equals(q.Field("owner_domain_id"), ownerId.GetProjectDomainId()),
-				sqlchemy.Equals(q.Field("domain_id"), ownerId.GetProjectDomainId()),
-			))
-		}
-		*/
 	}
 	return q
 }
 
 func (self *SOpsLog) GetOwnerId() mcclient.IIdentityProvider {
-	owner := SOwnerId{DomainId: self.OwnerDomainId, ProjectId: self.OwnerProjectId}
+	owner := SOwnerId{
+		Domain:       self.ProjectDomain,
+		DomainId:     self.ProjectDomainId,
+		Project:      self.Project,
+		ProjectId:    self.ProjectId,
+		User:         self.User,
+		UserId:       self.UserId,
+		UserDomain:   self.Domain,
+		UserDomainId: self.DomainId,
+	}
 	return &owner
 }
 
@@ -622,13 +648,91 @@ func (self *SOpsLog) IsSharable(reqCred mcclient.IIdentityProvider) bool {
 }
 
 func (manager *SOpsLogManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeProject
+	return rbacutils.ScopeUser
 }
 
 func (manager *SOpsLogManager) GetPagingConfig() *SPagingConfig {
 	return &SPagingConfig{
 		Order:        sqlchemy.SQL_ORDER_DESC,
-		MarkerField:  "id",
+		MarkerFields: []string{"id"},
 		DefaultLimit: 20,
 	}
+}
+
+func (manager *SOpsLogManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	ownerId := SOwnerId{}
+	err := data.Unmarshal(&ownerId)
+	if err != nil {
+		return nil, errors.Wrap(err, "data.Unmarshal")
+	}
+	if ownerId.IsValid() {
+		return &ownerId, nil
+	}
+	return FetchUserInfo(ctx, data)
+}
+
+func (manager *SOpsLogManager) ValidateCreateData(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	data apis.OpsLogCreateInput,
+) (apis.OpsLogCreateInput, error) {
+	return data, nil
+}
+
+func (log *SOpsLog) CustomizeCreate(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject) error {
+	log.User = ownerId.GetUserName()
+	log.UserId = ownerId.GetUserId()
+	log.Domain = ownerId.GetDomainName()
+	log.DomainId = ownerId.GetDomainId()
+	log.Project = ownerId.GetProjectName()
+	log.ProjectId = ownerId.GetProjectId()
+	log.ProjectDomain = ownerId.GetProjectDomain()
+	log.ProjectDomainId = ownerId.GetProjectDomainId()
+	return log.SModelBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+}
+
+func (manager *SOpsLogManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []apis.OpsLogDetails {
+	rows := make([]apis.OpsLogDetails, len(objs))
+
+	projectIds := make([]string, len(rows))
+	domainIds := make([]string, len(rows))
+	for i := range rows {
+		var base *SOpsLog
+		err := reflectutils.FindAnonymouStructPointer(objs[i], &base)
+		if err != nil {
+			log.Errorf("Cannot find OpsLog in %#v: %s", objs[i], err)
+		} else {
+			if len(base.OwnerProjectId) > 0 {
+				projectIds[i] = base.OwnerProjectId
+			} else if len(base.OwnerDomainId) > 0 {
+				domainIds[i] = base.OwnerDomainId
+			}
+		}
+	}
+
+	projects := DefaultProjectsFetcher(ctx, projectIds, false)
+	domains := DefaultProjectsFetcher(ctx, domainIds, true)
+
+	for i := range rows {
+		if project, ok := projects[projectIds[i]]; ok {
+			rows[i].OwnerProject = project.Name
+			rows[i].OwnerDomain = project.Domain
+		} else if domain, ok := domains[domainIds[i]]; ok {
+			rows[i].OwnerDomain = domain.Name
+		}
+	}
+
+	return rows
 }

@@ -47,27 +47,27 @@ type ResourceManager struct {
 	idFieldName   string
 }
 
-func (this *ResourceManager) GetKeyword() string {
+func (this ResourceManager) GetKeyword() string {
 	return this.Keyword
 }
 
-func (this *ResourceManager) KeyString() string {
+func (this ResourceManager) KeyString() string {
 	return this.KeywordPlural
 }
 
-func (this *ResourceManager) Version() string {
+func (this ResourceManager) Version() string {
 	return this.version
 }
 
-func (this *ResourceManager) ServiceType() string {
+func (this ResourceManager) ServiceType() string {
 	return this.serviceType
 }
 
-func (this *ResourceManager) EndpointType() string {
+func (this ResourceManager) EndpointType() string {
 	return this.endpointType
 }
 
-func (this *ResourceManager) URLPath() string {
+func (this ResourceManager) URLPath() string {
 	return strings.Replace(this.KeywordPlural, ":", "/", -1)
 }
 
@@ -299,7 +299,7 @@ func (this *ResourceManager) HeadInContexts(session *mcclient.ClientSession, id 
 	return this.filterSingleResult(session, result, params)
 }
 
-func (this *ResourceManager) params2Body(s *mcclient.ClientSession, params jsonutils.JSONObject) *jsonutils.JSONDict {
+func (this *ResourceManager) params2Body(s *mcclient.ClientSession, params jsonutils.JSONObject, key string) *jsonutils.JSONDict {
 	body := jsonutils.NewDict()
 	if params != nil {
 		if this.enableFilter && this.writeFilter != nil {
@@ -310,7 +310,7 @@ func (this *ResourceManager) params2Body(s *mcclient.ClientSession, params jsonu
 				log.Warningf("writeFilter fail %s: %s", params, err)
 			}
 		}
-		body.Add(params, this.Keyword)
+		body.Add(params, key)
 	}
 	return body
 }
@@ -325,7 +325,7 @@ func (this *ResourceManager) CreateInContext(session *mcclient.ClientSession, pa
 
 func (this *ResourceManager) CreateInContexts(session *mcclient.ClientSession, params jsonutils.JSONObject, ctxs []ManagerContext) (jsonutils.JSONObject, error) {
 	path := fmt.Sprintf("/%s", this.ContextPath(ctxs))
-	result, err := this._post(session, path, this.params2Body(session, params), this.Keyword)
+	result, err := this._post(session, path, this.params2Body(session, params, this.Keyword), this.Keyword)
 	if err != nil {
 		return nil, err
 	}
@@ -342,13 +342,20 @@ func (this *ResourceManager) BatchCreateInContext(session *mcclient.ClientSessio
 
 func (this *ResourceManager) BatchCreateInContexts(session *mcclient.ClientSession, params jsonutils.JSONObject, count int, ctxs []ManagerContext) []SubmitResult {
 	path := fmt.Sprintf("/%s", this.ContextPath(ctxs))
-	body := this.params2Body(session, params)
+	body := this.params2Body(session, params, this.Keyword)
 	body.Add(jsonutils.NewInt(int64(count)), "count")
 	ret := make([]SubmitResult, count)
 	respbody, err := this._post(session, path, body, this.KeywordPlural)
 	if err != nil {
-		for i := 0; i < count; i++ {
-			ret[i] = SubmitResult{Status: 500, Data: jsonutils.NewString(err.Error())}
+		jsonErr, ok := err.(*httputils.JSONClientError)
+		if ok {
+			for i := 0; i < count; i++ {
+				ret[i] = SubmitResult{Status: jsonErr.Code, Data: jsonutils.Marshal(jsonErr)}
+			}
+		} else {
+			for i := 0; i < count; i++ {
+				ret[i] = SubmitResult{Status: 500, Data: jsonutils.NewString(err.Error())}
+			}
 		}
 		return ret
 	}
@@ -374,7 +381,7 @@ func (this *ResourceManager) BatchCreateInContexts(session *mcclient.ClientSessi
 					dat = val
 				}
 			}
-			idstr, _ := json.GetString(this.getIdFieldName())
+			idstr, _ := dat.GetString(this.getIdFieldName())
 			ret[i] = SubmitResult{Status: int(code), Id: idstr, Data: dat}
 		}
 	}
@@ -395,7 +402,33 @@ func (this *ResourceManager) PutInContext(session *mcclient.ClientSession, id st
 
 func (this *ResourceManager) PutInContexts(session *mcclient.ClientSession, id string, params jsonutils.JSONObject, ctxs []ManagerContext) (jsonutils.JSONObject, error) {
 	path := fmt.Sprintf("/%s/%s", this.ContextPath(ctxs), url.PathEscape(id))
-	result, err := this._put(session, path, this.params2Body(session, params), this.Keyword)
+	result, err := this._put(session, path, this.params2Body(session, params, this.Keyword), this.Keyword)
+	if err != nil {
+		return nil, err
+	}
+	return this.filterSingleResult(session, result, nil)
+}
+
+func (this *ResourceManager) PutSpecific(session *mcclient.ClientSession, id string, spec string, query, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return this.PutSpecificInContexts(session, id, spec, query, body, nil)
+}
+
+func (this *ResourceManager) PutSpecificInContext(session *mcclient.ClientSession, id string, spec string, query, body jsonutils.JSONObject, ctx Manager, ctxid string) (jsonutils.JSONObject, error) {
+	return this.PutSpecificInContexts(session, id, spec, query, body, []ManagerContext{{ctx, ctxid}})
+}
+
+func (this *ResourceManager) PutSpecificInContexts(session *mcclient.ClientSession, id string, spec string, query, body jsonutils.JSONObject, ctxs []ManagerContext) (jsonutils.JSONObject, error) {
+	path := fmt.Sprintf("/%s/%s/%s", this.ContextPath(ctxs), url.PathEscape(id), url.PathEscape(spec))
+	if query != nil {
+		qs := query.QueryString()
+		if len(qs) > 0 {
+			path = fmt.Sprintf("%s?%s", path, qs)
+		}
+	}
+	if body != nil {
+		body = this.params2Body(session, body, this.Keyword)
+	}
+	result, err := this._put(session, path, body, this.Keyword)
 	if err != nil {
 		return nil, err
 	}
@@ -430,7 +463,7 @@ func (this *ResourceManager) PatchInContext(session *mcclient.ClientSession, id 
 
 func (this *ResourceManager) PatchInContexts(session *mcclient.ClientSession, id string, params jsonutils.JSONObject, ctxs []ManagerContext) (jsonutils.JSONObject, error) {
 	path := fmt.Sprintf("/%s/%s", this.ContextPath(ctxs), url.PathEscape(id))
-	result, err := this._patch(session, path, this.params2Body(session, params), this.Keyword)
+	result, err := this._patch(session, path, this.params2Body(session, params, this.Keyword), this.Keyword)
 	if err != nil {
 		return nil, err
 	}
@@ -461,7 +494,7 @@ func (this *ResourceManager) PerformActionInContext(session *mcclient.ClientSess
 
 func (this *ResourceManager) PerformActionInContexts(session *mcclient.ClientSession, id string, action string, params jsonutils.JSONObject, ctxs []ManagerContext) (jsonutils.JSONObject, error) {
 	path := fmt.Sprintf("/%s/%s/%s", this.ContextPath(ctxs), url.PathEscape(id), url.PathEscape(action))
-	result, err := this._post(session, path, this.params2Body(session, params), this.Keyword)
+	result, err := this._post(session, path, this.params2Body(session, params, this.Keyword), this.Keyword)
 	if err != nil {
 		return nil, err
 	}
@@ -474,7 +507,7 @@ func (this *ResourceManager) PerformClassAction(session *mcclient.ClientSession,
 
 func (this *ResourceManager) PerformClassActionInContexts(session *mcclient.ClientSession, action string, params jsonutils.JSONObject, ctxs []ManagerContext) (jsonutils.JSONObject, error) {
 	path := fmt.Sprintf("/%s/%s", this.ContextPath(ctxs), url.PathEscape(action))
-	return this._post(session, path, params, this.KeywordPlural)
+	return this._post(session, path, this.params2Body(session, params, this.KeywordPlural), this.KeywordPlural)
 }
 
 func (this *ResourceManager) BatchPerformClassAction(session *mcclient.ClientSession, action string, batchParams []jsonutils.JSONObject) []SubmitResult {
@@ -534,7 +567,7 @@ func (this *ResourceManager) deleteInContexts(session *mcclient.ClientSession, i
 		}
 	}
 	if body != nil {
-		body = this.params2Body(session, body)
+		body = this.params2Body(session, body, this.Keyword)
 	}
 	result, err := this._delete(session, path, body, this.Keyword)
 	if err != nil {

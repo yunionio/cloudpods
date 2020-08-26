@@ -30,21 +30,17 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
-type IUsage interface {
-	FetchUsage(ctx context.Context) error
-	IsEmpty() bool
-}
-
 type IModelManager interface {
 	lockman.ILockedClass
 	object.IObject
 
+	IsStandaloneManager() bool
 	GetContextManagers() [][]IModelManager
 
 	GetIModelManager() IModelManager
 
 	// Table() *sqlchemy.STable
-	TableSpec() *sqlchemy.STableSpec
+	TableSpec() ITableSpec
 
 	// Keyword() string
 	KeywordPlural() string
@@ -61,12 +57,14 @@ type IModelManager interface {
 	// ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error)
 	CustomizeFilterList(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*CustomizeListFilters, error)
 	ExtraSearchConditions(ctx context.Context, q *sqlchemy.SQuery, like string) []sqlchemy.ICondition
-	GetExportExtraKeys(ctx context.Context, query jsonutils.JSONObject, rowMap map[string]string) *jsonutils.JSONDict
-	ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error)
-	OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error)
+	GetExportExtraKeys(ctx context.Context, keys stringutils2.SSortedStrings, rowMap map[string]string) *jsonutils.JSONDict
+	ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error)
+	// OrderByExtraFields dynmically called by dispatcher
+	// OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error)
 
 	// fetch hook
 	Query(val ...string) *sqlchemy.SQuery
+	RawQuery(val ...string) *sqlchemy.SQuery
 
 	FilterById(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery
 	FilterByNotId(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery
@@ -90,7 +88,9 @@ type IModelManager interface {
 	// ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
 	OnCreateComplete(ctx context.Context, items []IModel, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject)
 	BatchPreValidate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider,
-		query jsonutils.JSONObject, data *jsonutils.JSONDict, count int) (func(), error)
+		query jsonutils.JSONObject, data *jsonutils.JSONDict, count int) error
+
+	OnCreateFailed(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error
 
 	// allow perform action
 	AllowPerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) bool
@@ -111,7 +111,8 @@ type IModelManager interface {
 	GetSkipLog(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool
 
 	// list extend colums hook
-	FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict
+	// FetchCustomizeColumns dynamically called by dispatcher
+	// FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []interface{}, fields stringutils2.SSortedStrings, isList bool) []*jsonutils.JSONDict
 
 	// fetch owner Id from query when create resource
 	FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error)
@@ -121,6 +122,7 @@ type IModelManager interface {
 	NamespaceScope() rbacutils.TRbacScope
 	ResourceScope() rbacutils.TRbacScope
 
+	// 如果error为非空，说明没有匹配的field，如果为空，说明匹配上了
 	QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error)
 
 	GetPagingConfig() *SPagingConfig
@@ -131,6 +133,9 @@ type IModel interface {
 	object.IObject
 
 	GetName() string
+	GetUpdateVersion() int
+	GetUpdatedAt() time.Time
+	GetDeleted() bool
 
 	KeywordPlural() string
 
@@ -142,7 +147,7 @@ type IModel interface {
 	GetShortDesc(ctx context.Context) *jsonutils.JSONDict
 
 	// list hooks
-	GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict
+	//GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict
 
 	// get hooks
 	AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool
@@ -157,6 +162,7 @@ type IModel interface {
 	// allow perform action
 	AllowPerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) bool
 	PerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error)
+	PreCheckPerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) error
 
 	// update hooks
 	ValidateUpdateCondition(ctx context.Context) error
@@ -227,14 +233,15 @@ type IJointModel interface {
 
 	GetIJointModel() IJointModel
 
-	Master() IStandaloneModel
-	Slave() IStandaloneModel
-
 	AllowDetach(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool
 
 	Detach(ctx context.Context, userCred mcclient.TokenCredential) error
 	AllowGetJointDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, item IJointModel) bool
 	AllowUpdateJointItem(ctx context.Context, userCred mcclient.TokenCredential, item IJointModel) bool
+}
+
+type IMetadataBaseModelManager interface {
+	GetMetadataHiddenKeys() []string
 }
 
 type IStandaloneModelManager interface {
@@ -247,6 +254,8 @@ type IStandaloneModelManager interface {
 	// IsNewNameUnique(name string, projectId string) bool
 
 	// FetchByExternalId(idStr string) (IStandaloneModel, error)
+
+	IMetadataBaseModelManager
 }
 
 type IStandaloneModel interface {
@@ -254,26 +263,74 @@ type IStandaloneModel interface {
 	// IsAlterNameUnique(name string, projectId string) bool
 	// GetExternalId() string
 
+	StandaloneModelManager() IStandaloneModelManager
+
 	GetIStandaloneModel() IStandaloneModel
 	ClearSchedDescCache() error
+
+	GetMetadata(key string, userCred mcclient.TokenCredential) string
+	GetMetadataJson(key string, userCred mcclient.TokenCredential) jsonutils.JSONObject
+	SetMetadata(ctx context.Context, key string, value interface{}, userCred mcclient.TokenCredential) error
+	SetAllMetadata(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error
+	SetUserMetadataValues(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error
+	SetUserMetadataAll(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error
+	SetCloudMetadataAll(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error
+	RemoveMetadata(ctx context.Context, key string, userCred mcclient.TokenCredential) error
+	RemoveAllMetadata(ctx context.Context, userCred mcclient.TokenCredential) error
+	GetAllMetadata(userCred mcclient.TokenCredential) (map[string]string, error)
+
+	IsShared() bool
 }
 
-type IMetadataModel interface {
+type IDomainLevelModelManager interface {
+	IStandaloneModelManager
+
+	GetIDomainLevelModelManager() IDomainLevelModelManager
+	GetResourceCount() ([]SScopeResourceCount, error)
+}
+
+type IDomainLevelModel interface {
 	IStandaloneModel
 
-	GetAllMetadata(userCred mcclient.TokenCredential) (map[string]string, error)
-	GetMetadataHideKeys() []string
+	IsOwner(userCred mcclient.TokenCredential) bool
+
+	SyncCloudDomainId(userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider)
+
+	GetIDomainLevelModel() IDomainLevelModel
+
+	IOwnerResourceBaseModel
+}
+
+type IInfrasModelManager interface {
+	IDomainLevelModelManager
+
+	GetIInfrasModelManager() IInfrasModelManager
+}
+
+type IInfrasModel interface {
+	IDomainLevelModel
+	ISharableBase
+
+	GetIInfrasModel() IInfrasModel
 }
 
 type IVirtualModelManager interface {
 	IStandaloneModelManager
 
 	GetIVirtualModelManager() IVirtualModelManager
-	GetResourceCount() ([]SProjectResourceCount, error)
+	GetResourceCount() ([]SScopeResourceCount, error)
+}
+
+type IUserModelManager interface {
+	IStandaloneModelManager
+
+	GetIUserModelManager() IUserModelManager
+	GetResourceCount() ([]SScopeResourceCount, error)
 }
 
 type IVirtualModel interface {
 	IStandaloneModel
+	IPendingDeletable
 
 	IsOwner(userCred mcclient.TokenCredential) bool
 	// IsAdmin(userCred mcclient.TokenCredential) bool
@@ -281,6 +338,8 @@ type IVirtualModel interface {
 	SyncCloudProjectId(userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider)
 
 	GetIVirtualModel() IVirtualModel
+
+	IOwnerResourceBaseModel
 }
 
 type ISharableVirtualModelManager interface {
@@ -291,6 +350,7 @@ type ISharableVirtualModelManager interface {
 
 type ISharableVirtualModel interface {
 	IVirtualModel
+	ISharableBase
 
 	GetISharableVirtualModel() ISharableVirtualModel
 	GetSharedProjects() []string
@@ -311,4 +371,19 @@ type IAdminSharableVirtualModel interface {
 	GetInfo() []string
 
 	GetIAdminSharableVirtualModel() IAdminSharableVirtualModel
+}
+
+type IStatusStandaloneModel interface {
+	IStandaloneModel
+	IStatusBase
+}
+
+type IStatusDomainLevelModel interface {
+	IDomainLevelModel
+	IStatusBase
+}
+
+type IStatusInfrasModel interface {
+	IInfrasModel
+	IStatusBase
 }

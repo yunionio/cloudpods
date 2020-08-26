@@ -56,7 +56,7 @@ func (manager *SBucketManager) Upload(s *mcclient.ClientSession, bucketId string
 		return errors.Wrap(err, "rawRequest")
 	}
 
-	_, _, err = s.ParseJSONResponse(resp, err)
+	_, _, err = s.ParseJSONResponse("", resp, err)
 	if err != nil {
 		return err
 	}
@@ -73,7 +73,7 @@ func init() {
 		NewComputeManager("bucket", "buckets",
 			[]string{"ID", "Name", "Storage_Class",
 				"Status", "location", "acl",
-				"region", "manager_id",
+				"region", "manager_id", "public_scope",
 			},
 			[]string{}),
 	}

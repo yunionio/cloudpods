@@ -163,24 +163,28 @@ func (r *SRemoteFile) fetch(preChksum string) bool {
 
 // retry download
 func (r *SRemoteFile) download(getData bool, preChksum string) bool {
-	result := r.downloadInternal(getData, preChksum)
-	if !result && len(r.downloadUrl) > 0 {
+	if getData {
+		// fetch image headers and set resource properties
+		if !r.downloadInternal(false, preChksum) {
+			log.Errorf("fetch image properties failed")
+		}
+	}
+	if r.downloadInternal(getData, preChksum) {
+		return true
+	} else {
 		log.Errorf("download from cached url %s failed, try direct download from %s ...", r.downloadUrl, r.url)
 		r.downloadUrl = ""
-		result = r.downloadInternal(getData, preChksum)
+		if getData {
+			// fetch image headers and set resource properties
+			if !r.downloadInternal(false, preChksum) {
+				log.Errorf("fetch image properties failed")
+			}
+		}
+		return r.downloadInternal(getData, preChksum)
 	}
-	return result
 }
 
 func (r *SRemoteFile) downloadInternal(getData bool, preChksum string) bool {
-	os.Remove(r.tmpPath)
-	fi, err := os.Create(r.tmpPath)
-	if err != nil {
-		log.Errorln(err)
-		return false
-	}
-	defer fi.Close()
-
 	var header = http.Header{}
 	header.Set("X-Auth-Token", auth.GetTokenString())
 	if len(preChksum) > 0 {
@@ -212,6 +216,14 @@ func (r *SRemoteFile) downloadInternal(getData bool, preChksum string) bool {
 		defer resp.Body.Close()
 		if resp.StatusCode < 300 {
 			if getData {
+				os.Remove(r.tmpPath)
+				fi, err := os.Create(r.tmpPath)
+				if err != nil {
+					log.Errorln(err)
+					return false
+				}
+				defer fi.Close()
+
 				var reader = resp.Body
 
 				if r.compress {
@@ -224,7 +236,7 @@ func (r *SRemoteFile) downloadInternal(getData bool, preChksum string) bool {
 					reader = zlibRC
 				}
 
-				_, err := io.Copy(fi, reader)
+				_, err = io.Copy(fi, reader)
 				if err != nil {
 					log.Errorln(err)
 					return false
@@ -233,8 +245,10 @@ func (r *SRemoteFile) downloadInternal(getData bool, preChksum string) bool {
 			r.setProperties(resp.Header)
 			return true
 		} else if resp.StatusCode == 304 {
-			if err := os.Remove(r.tmpPath); err != nil {
-				log.Errorf("Fail to remove file %s", r.tmpPath)
+			if fileutils2.Exists(r.tmpPath) {
+				if err := os.Remove(r.tmpPath); err != nil {
+					log.Errorf("Fail to remove file %s", r.tmpPath)
+				}
 			}
 			return true
 		} else {

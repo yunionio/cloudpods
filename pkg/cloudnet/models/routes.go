@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	api "yunion.io/x/onecloud/pkg/apis/cloudnet"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -114,8 +115,14 @@ func (man *SRouteManager) ValidateCreateData(ctx context.Context, userCred mccli
 	return data, nil
 }
 
+// 虚拟路由器路由列表
 func (man *SRouteManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	input := apis.StandaloneResourceListInput{}
+	err := query.Unmarshal(&input)
+	if err != nil {
+		return nil, err
+	}
+	q, err = man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input)
 	if err != nil {
 		return nil, err
 	}
@@ -130,10 +137,13 @@ func (man *SRouteManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery
 	return q, nil
 }
 
-func (route *SRoute) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if _, err := route.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data); err != nil {
-		return nil, err
+func (route *SRoute) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.RouteUpdateInput) (api.RouteUpdateInput, error) {
+	var err error
+	input.StandaloneResourceBaseUpdateInput, err = route.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StandaloneResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
 	}
+	data := jsonutils.Marshal(input).(*jsonutils.JSONDict)
 	vs := []validators.IValidator{
 		validators.NewIPv4PrefixValidator("network"),
 		validators.NewIPv4AddrValidator("gateway"),
@@ -141,10 +151,10 @@ func (route *SRoute) ValidateUpdateData(ctx context.Context, userCred mcclient.T
 	for _, v := range vs {
 		v.Optional(true)
 		if err := v.Validate(data); err != nil {
-			return nil, err
+			return input, err
 		}
 	}
-	return nil, nil
+	return input, nil
 }
 
 func (man *SRouteManager) removeByIface(ctx context.Context, userCred mcclient.TokenCredential, iface *SIface) error {

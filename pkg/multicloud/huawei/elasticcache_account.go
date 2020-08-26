@@ -69,12 +69,22 @@ func (self *SElasticcacheAccount) ResetPassword(input cloudprovider.SCloudElasti
 		return fmt.Errorf("elasticcacheAccount.ResetPassword.input OldPassword should not be empty")
 	}
 
+	type ResetPasswordResult struct {
+		Result  string `json:"result"`
+		Message string `json:"message"`
+	}
+
+	result := ResetPasswordResult{}
 	params := jsonutils.NewDict()
 	params.Set("old_password", jsonutils.NewString(*input.OldPassword))
 	params.Set("new_password", jsonutils.NewString(input.NewPassword))
-	err := DoUpdateWithSpec(self.cacheDB.region.ecsClient.Elasticcache.UpdateInContextWithSpec, self.cacheDB.GetId(), "password", params)
+	err := DoUpdateWithSpec2(self.cacheDB.region.ecsClient.Elasticcache.UpdateInContextWithSpec, self.cacheDB.GetId(), "password", params, &result)
 	if err != nil {
 		return errors.Wrap(err, "elasticcacheAccount.ResetPassword")
+	}
+
+	if result.Result != "success" {
+		return errors.Wrap(fmt.Errorf(result.Message), "elasticcacheAccount.ResetPassword")
 	}
 
 	return nil

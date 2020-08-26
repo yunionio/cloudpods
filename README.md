@@ -1,7 +1,7 @@
 # Yunion OneCloud
 
 [![CircleCI](https://circleci.com/gh/yunionio/onecloud.svg?style=svg)](https://circleci.com/gh/yunionio/onecloud) 
-[![Build Status](https://travis-ci.com/yunionio/onecloud.svg?branch=master)](https://travis-ci.org/yunionio/onecloud) 
+[![Build Status](https://travis-ci.com/yunionio/onecloud.svg?branch=master)](https://travis-ci.com/yunionio/onecloud/branches) 
 [![Go Report Card](https://goreportcard.com/badge/github.com/yunionio/onecloud)](https://goreportcard.com/report/github.com/yunionio/onecloud) 
 
 ### [README in Chinese](./README-CN.md)
@@ -40,11 +40,11 @@ Please refers to [install & deployment](https://docs.yunion.io/docs/setup/) (cur
 
 - [Yunion OneCloud Documents](https://docs.yunion.io/)
 
-- [Swagger API](https://docs.yunion.cn/api/)
+- [Swagger API](https://docs.yunion.cn/apiv2/)
 
 ## Architecture
 
-![architecture](./docs/architecture.png)
+![architecture](./docs/architecture.svg)
 
 ## Contribution
 

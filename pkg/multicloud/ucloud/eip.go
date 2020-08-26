@@ -25,6 +25,7 @@ import (
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 const (
@@ -35,6 +36,7 @@ const (
 // https://docs.ucloud.cn/api/unet-api/describe_eip
 type SEip struct {
 	region *SRegion
+	multicloud.SEipBase
 
 	BandwidthMb       int               `json:"Bandwidth"`
 	BandwidthType     int               `json:"BandwidthType"`
@@ -196,8 +198,8 @@ func (self *SEip) Delete() error {
 	return self.region.DeallocateEIP(self.GetId())
 }
 
-func (self *SEip) Associate(instanceId string) error {
-	return self.region.AssociateEip(self.GetId(), instanceId)
+func (self *SEip) Associate(conf *cloudprovider.AssociateConfig) error {
+	return self.region.AssociateEip(self.GetId(), conf.InstanceId)
 }
 
 func (self *SEip) Dissociate() error {

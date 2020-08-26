@@ -19,16 +19,23 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SSchedtagJointsManager struct {
 	db.SJointResourceBaseManager
+	SSchedtagResourceBaseManager
 }
 
 func NewSchedtagJointsManager(
@@ -135,29 +142,55 @@ func (joint *SSchedtagJointsBase) GetSchedtagId() string {
 	return joint.SchedtagId
 }
 
-func (joint *SSchedtagJointsBase) master(obj db.IJointModel) db.IStandaloneModel {
-	return db.JointMaster(obj)
+func (joint *SSchedtagJointsBase) GetExtraDetails(
+	obj db.IJointModel,
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.SchedtagJointResourceDetails, error) {
+	return api.SchedtagJointResourceDetails{}, nil
 }
 
-func (joint *SSchedtagJointsBase) GetSchedtag() *SSchedtag {
-	return joint.Slave().(*SSchedtag)
-}
+func (manager *SSchedtagJointsManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.SchedtagJointResourceDetails {
+	rows := make([]api.SchedtagJointResourceDetails, len(objs))
 
-func (joint *SSchedtagJointsBase) Slave() db.IStandaloneModel {
-	return db.JointSlave(joint)
-}
+	jointRows := manager.SJointResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
-func (joint *SSchedtagJointsBase) getCustomizeColumns(obj db.IJointModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := joint.SJointResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return db.JointModelExtra(obj, extra)
-}
-
-func (joint *SSchedtagJointsBase) getExtraDetails(obj db.IJointModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := joint.SJointResourceBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
+	tagIds := make([]string, len(rows))
+	for i := range rows {
+		rows[i] = api.SchedtagJointResourceDetails{
+			JointResourceBaseDetails: jointRows[i],
+		}
+		var base *SSchedtagJointsBase
+		reflectutils.FindAnonymouStructPointer(objs[i], &base)
+		if base != nil && len(base.SchedtagId) > 0 {
+			tagIds[i] = base.SchedtagId
+		}
 	}
-	return db.JointModelExtra(obj, extra), nil
+
+	tags := make(map[string]SSchedtag)
+	err := db.FetchStandaloneObjectsByIds(SchedtagManager, tagIds, &tags)
+	if err != nil {
+		log.Errorf("FetchStandaloneObjectsByIds fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if schedtag, ok := tags[tagIds[i]]; ok {
+			rows[i].Schedtag = schedtag.Name
+			rows[i].ResourceType = schedtag.ResourceType
+		}
+	}
+
+	return rows
 }
 
 func (joint *SSchedtagJointsBase) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -174,4 +207,44 @@ func (joint *SSchedtagJointsBase) Detach(ctx context.Context, userCred mcclient.
 
 func (joint *SSchedtagJointsBase) detach(obj db.IJointModel, ctx context.Context, userCred mcclient.TokenCredential) error {
 	return db.DetachJoint(ctx, userCred, obj)
+}
+
+func (manager *SSchedtagJointsManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.SchedtagJointsListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SJointResourceBaseManager.ListItemFilter(ctx, q, userCred, query.JointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SJointResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SSchedtagResourceBaseManager.ListItemFilter(ctx, q, userCred, query.SchedtagFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSchedtagResourceBaseManager.ListItemFilter")
+	}
+
+	return q, nil
+}
+
+func (manager *SSchedtagJointsManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.SchedtagJointsListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SJointResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.JointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SJointResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SSchedtagResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.SchedtagFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSchedtagResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
 }

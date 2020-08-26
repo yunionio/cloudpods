@@ -688,7 +688,7 @@ func (adapter *MegaRaidAdaptor) storcliIsJBODEnabled() bool {
 		line = strings.ToLower(line)
 		if strings.HasPrefix(line, "jbod") {
 			data := strings.Split(line, " ")
-			if strings.TrimSpace(data[1]) == "on" {
+			if strings.TrimSpace(data[len(data)-1]) == "on" {
 				return true
 			}
 			return false

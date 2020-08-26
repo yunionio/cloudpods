@@ -16,15 +16,12 @@ package db
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/stringutils"
-	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -33,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type UUIDGenerator func() string
@@ -44,12 +42,17 @@ var (
 type SStandaloneResourceBase struct {
 	SResourceBase
 
-	Id   string `width:"128" charset:"ascii" primary:"true" list:"user"`
-	Name string `width:"128" charset:"utf8" nullable:"false" index:"true" list:"user" update:"user" create:"required"`
+	// 资源UUID
+	Id string `width:"128" charset:"ascii" primary:"true" list:"user" json:"id"`
+	// 资源名称
+	Name string `width:"128" charset:"utf8" nullable:"false" index:"true" list:"user" update:"user" create:"required" json:"name"`
 
-	Description string `width:"256" charset:"utf8" get:"user" list:"user" update:"user" create:"optional"`
+	// 资源描述信息
+	Description string `width:"256" charset:"utf8" get:"user" list:"user" update:"user" create:"optional" json:"description"`
 
-	IsEmulated bool `nullable:"false" default:"false" list:"admin" create:"admin_optional"`
+	// 是否是模拟资源, 部分从公有云上同步的资源并不真实存在, 例如宿主机
+	// list 接口默认不会返回这类资源，除非显示指定 is_emulate=true 过滤参数
+	IsEmulated bool `nullable:"false" default:"false" list:"admin" create:"admin_optional" json:"is_emulated"`
 }
 
 func (model *SStandaloneResourceBase) BeforeInsert() {
@@ -60,12 +63,45 @@ func (model *SStandaloneResourceBase) BeforeInsert() {
 
 type SStandaloneResourceBaseManager struct {
 	SResourceBaseManager
+	SMetadataResourceBaseModelManager
+
 	NameRequireAscii bool
 	NameLength       int
 }
 
-func NewStandaloneResourceBaseManager(dt interface{}, tableName string, keyword string, keywordPlural string) SStandaloneResourceBaseManager {
-	return SStandaloneResourceBaseManager{SResourceBaseManager: NewResourceBaseManager(dt, tableName, keyword, keywordPlural)}
+func NewStandaloneResourceBaseManager(
+	dt interface{},
+	tableName string,
+	keyword string,
+	keywordPlural string,
+) SStandaloneResourceBaseManager {
+	return SStandaloneResourceBaseManager{
+		SResourceBaseManager: NewResourceBaseManager(dt, tableName, keyword, keywordPlural),
+	}
+}
+
+func (manager *SStandaloneResourceBaseManager) IsStandaloneManager() bool {
+	return true
+}
+
+func (self *SStandaloneResourceBaseManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return IsAdminAllowList(userCred, self)
+}
+
+func (self *SStandaloneResourceBaseManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return IsAdminAllowCreate(userCred, self)
+}
+
+func (self *SStandaloneResourceBase) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return IsAdminAllowGet(userCred, self)
+}
+
+func (self *SStandaloneResourceBase) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	return IsAdminAllowUpdate(userCred, self)
+}
+
+func (self *SStandaloneResourceBase) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return IsAdminAllowDelete(userCred, self)
 }
 
 func (manager *SStandaloneResourceBaseManager) GetIStandaloneModelManager() IStandaloneModelManager {
@@ -131,70 +167,56 @@ func (manager *SStandaloneResourceBaseManager) FetchByIdOrName(userCred mcclient
 	return FetchByIdOrName(manager.GetIStandaloneModelManager(), userCred, idStr)
 }
 
-func (manager *SStandaloneResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	input := &apis.StandaloneResourceListInput{}
-	err := query.Unmarshal(input)
+func (manager *SStandaloneResourceBaseManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input apis.StandaloneResourceListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SResourceBaseManager.ListItemFilter(ctx, q, userCred, input.ResourceBaseListInput)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("invalid input error: %v", err)
+		return q, errors.Wrap(err, "SResourceBaseManager.ListItemFilte")
 	}
 
-	return manager.ListItemFilterV2(ctx, q, userCred, input)
+	// show_emulated is handled by FilterByHiddenSystemAttributes
+
+	if len(input.Names) > 0 {
+		q = q.In("name", input.Names)
+	}
+
+	if len(input.Ids) > 0 {
+		q = q.In("id", input.Ids)
+	}
+
+	q = manager.SMetadataResourceBaseModelManager.ListItemFilter(manager.GetIModelManager(), q, input.MetadataResourceListInput)
+
+	return q, nil
 }
 
-func (manager *SStandaloneResourceBaseManager) ListItemFilterV2(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input *apis.StandaloneResourceListInput) (*sqlchemy.SQuery, error) {
-	q, err := manager.SResourceBaseManager.ListItemFilterV2(ctx, q, userCred, &input.ModelBaseListInput)
+func (manager *SStandaloneResourceBaseManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	q, err := manager.SMetadataResourceBaseModelManager.QueryDistinctExtraField(manager.GetIModelManager(), q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SStandaloneResourceBaseManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input apis.StandaloneResourceListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.ResourceBaseListInput)
 	if err != nil {
-		return q, err
+		return nil, errors.Wrap(err, "SResourceBaseManager.OrderByExtraFields")
 	}
 
-	tags := map[string][]string{}
-	for _, tag := range input.Tags {
-		if _, ok := tags[tag.Key]; !ok {
-			tags[tag.Key] = []string{}
-		}
-		if len(tag.Value) > 0 && !utils.IsInStringArray(tag.Value, tags[tag.Key]) {
-			tags[tag.Key] = append(tags[tag.Key], tag.Value)
-		}
-	}
-
-	if len(tags) > 0 {
-		metadataView := Metadata.Query()
-		idx := 0
-		for key, values := range tags {
-			if idx == 0 {
-				metadataView = metadataView.Equals("key", key)
-				if len(values) > 0 {
-					metadataView = metadataView.In("value", values)
-				}
-			} else {
-				subMetataView := Metadata.Query().Equals("key", key)
-				if len(values) > 0 {
-					subMetataView = subMetataView.In("value", values)
-				}
-				sq := subMetataView.SubQuery()
-				metadataView.Join(sq, sqlchemy.Equals(metadataView.Field("id"), sq.Field("id")))
-			}
-			idx++
-		}
-		metadatas := metadataView.SubQuery()
-		fieldName := fmt.Sprintf("%s_id", manager.Keyword())
-		metadataSQ := metadatas.Query(
-			sqlchemy.REPLACE(fieldName, metadatas.Field("id"), manager.Keyword()+"::", ""),
-		)
-		sq := metadataSQ.Filter(sqlchemy.Like(metadatas.Field("id"), manager.Keyword()+"::%")).Distinct()
-		q = q.Filter(sqlchemy.In(q.Field("id"), sq))
-	}
-
-	if input.WithoutUserMeta {
-		metadatas := Metadata.Query().SubQuery()
-		fieldName := fmt.Sprintf("%s_id", manager.Keyword())
-		metadataSQ := metadatas.Query(
-			sqlchemy.REPLACE(fieldName, metadatas.Field("id"), manager.Keyword()+"::", ""),
-		)
-		sq := metadataSQ.Filter(sqlchemy.Like(metadatas.Field("key"), USER_TAG_PREFIX+"%")).Distinct()
-
-		q.Filter(sqlchemy.NotIn(q.Field("id"), sq))
-	}
+	q = manager.SMetadataResourceBaseModelManager.OrderByExtraFields(manager.GetIModelManager(), q, input.MetadataResourceListInput)
 
 	return q, nil
 }
@@ -280,111 +302,94 @@ func (model *SStandaloneResourceBase) AllowGetDetailsMetadata(ctx context.Contex
 	return IsAllowGetSpec(rbacutils.ScopeSystem, userCred, model, "metadata")
 }
 
-func (model *SStandaloneResourceBase) GetDetailsMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	fields := jsonutils.GetQueryStringArray(query, "field")
-	val, err := Metadata.GetAll(model, fields, userCred)
+// 获取资源标签（元数据）
+func (model *SStandaloneResourceBase) GetDetailsMetadata(ctx context.Context, userCred mcclient.TokenCredential, input apis.GetMetadataInput) (apis.GetMetadataOutput, error) {
+	val, err := Metadata.GetAll(model, input.Field, userCred)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Metadata.GetAll")
 	}
-	return jsonutils.Marshal(val), nil
+	return val, nil
 }
 
 func (model *SStandaloneResourceBase) AllowPerformMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return IsAllowPerform(rbacutils.ScopeSystem, userCred, model, "metadata")
 }
 
-func (model *SStandaloneResourceBase) PerformMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	dict, ok := data.(*jsonutils.JSONDict)
-	if !ok {
-		return nil, httperrors.NewInputParameterError("input data not key value dict")
-	}
-	dictMap, err := dict.GetMap()
-	if err != nil {
-		return nil, err
-	}
+// +onecloud:swagger-gen-ignore
+func (model *SStandaloneResourceBase) PerformMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformMetadataInput) (jsonutils.JSONObject, error) {
 	dictStore := make(map[string]interface{})
-	for k, v := range dictMap {
+	for k, v := range input {
 		// 已双下滑线开头的metadata是系统内置，普通用户不可添加，只能查看
 		if strings.HasPrefix(k, SYS_TAG_PREFIX) && (userCred == nil || !IsAllowPerform(rbacutils.ScopeSystem, userCred, model, "metadata")) {
 			return nil, httperrors.NewForbiddenError("not allow to set system key, please remove the underscore at the beginning")
 		}
-		dictStore[k], _ = v.GetString()
+		dictStore[k] = v
 	}
-	err = model.SetAllMetadata(ctx, dictStore, userCred)
-	return nil, err
+	err := model.SetAllMetadata(ctx, dictStore, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "SetAllMetadata")
+	}
+	return nil, nil
 }
 
 func (model *SStandaloneResourceBase) AllowPerformUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return IsAllowPerform(rbacutils.ScopeSystem, userCred, model, "user-metadata")
 }
 
-func (model *SStandaloneResourceBase) PerformUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	dict, ok := data.(*jsonutils.JSONDict)
-	if !ok {
-		return nil, httperrors.NewInputParameterError("input data not key value dict")
-	}
-	dictMap, err := dict.GetMap()
-	if err != nil {
-		return nil, err
-	}
+// 更新资源的用户标签
+// +onecloud:swagger-gen-ignore
+func (model *SStandaloneResourceBase) PerformUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformUserMetadataInput) (jsonutils.JSONObject, error) {
 	dictStore := make(map[string]interface{})
-	for k, v := range dictMap {
-		dictStore[USER_TAG_PREFIX+k], _ = v.GetString()
+	for k, v := range input {
+		dictStore[USER_TAG_PREFIX+k] = v
 	}
-	err = model.SetUserMetadataValues(ctx, dictStore, userCred)
-	return nil, err
+	err := model.SetUserMetadataValues(ctx, dictStore, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "SetUserMetadataValues")
+	}
+	return nil, nil
 }
 
 func (model *SStandaloneResourceBase) AllowPerformSetUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return IsAllowPerform(rbacutils.ScopeSystem, userCred, model, "set-user-metadata")
 }
 
-func (model *SStandaloneResourceBase) PerformSetUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	dict, ok := data.(*jsonutils.JSONDict)
-	if !ok {
-		return nil, httperrors.NewInputParameterError("input data not key value dict")
-	}
-	dictMap, err := dict.GetMap()
-	if err != nil {
-		return nil, err
-	}
+// 全量替换资源的所有用户标签
+func (model *SStandaloneResourceBase) PerformSetUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformSetUserMetadataInput) (jsonutils.JSONObject, error) {
 	dictStore := make(map[string]interface{})
-	for k, v := range dictMap {
-		dictStore[USER_TAG_PREFIX+k], _ = v.GetString()
-	}
-	err = model.SetUserMetadataAll(ctx, dictStore, userCred)
-	return nil, err
-}
-
-func (model *SStandaloneResourceBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := model.SResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	withMeta, _ := query.GetString("with_meta")
-	if utils.ToBool(withMeta) {
-		jsonMeta, err := Metadata.GetAll(model, nil, userCred)
-		if err == nil {
-			extra.Add(jsonutils.Marshal(jsonMeta), "metadata")
-		} else {
-			log.Errorf("metadata GetAll fail: %s", err)
+	for k, v := range input {
+		if len(k) > 64-len(USER_TAG_PREFIX) {
+			return nil, httperrors.NewInputParameterError("input key too long > %d", 64-len(USER_TAG_PREFIX))
 		}
+		if len(v) > 65535 {
+			return nil, httperrors.NewInputParameterError("input value too long > %d", 65535)
+		}
+		dictStore[USER_TAG_PREFIX+k] = v
 	}
-	return extra
+	err := model.SetUserMetadataAll(ctx, dictStore, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "SetUserMetadataAll")
+	}
+	return nil, nil
 }
 
 func (model *SStandaloneResourceBase) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	model.SResourceBase.PostUpdate(ctx, userCred, query, data)
 
-	jsonMeta, _ := data.Get("__meta__")
-	if jsonMeta != nil {
-		model.PerformMetadata(ctx, userCred, nil, jsonMeta)
+	meta := make(map[string]string)
+	err := data.Unmarshal(&meta, "__meta__")
+	if err == nil {
+		model.PerformMetadata(ctx, userCred, nil, meta)
 	}
 }
 
 func (model *SStandaloneResourceBase) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	model.SResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
-	jsonMeta, _ := data.Get("__meta__")
-	if jsonMeta != nil {
-		model.PerformMetadata(ctx, userCred, nil, jsonMeta)
+	meta := make(map[string]string)
+	err := data.Unmarshal(&meta, "__meta__")
+	if err == nil {
+		model.PerformMetadata(ctx, userCred, nil, meta)
 	}
 }
 
@@ -424,25 +429,84 @@ func (manager *SStandaloneResourceBaseManager) ValidateCreateData(ctx context.Co
 	if err != nil {
 		return input, errors.Wrap(err, "SResourceBaseManager.ValidateCreateData")
 	}
+	input.Name = strings.TrimSpace(input.Name)
+	if strings.ContainsAny(input.Name, "\n\r\t") {
+		return input, errors.Wrap(httperrors.ErrInputParameter, "name should not contains any \\n\\r\\t")
+	}
 	return input, nil
 }
 
-/*
-func (model SStandaloneResourceBase) GetExternalId() string {
-	return model.ExternalId
+func (model *SStandaloneResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (apis.StandaloneResourceDetails, error) {
+	return apis.StandaloneResourceDetails{}, nil
 }
 
-func (model *SStandaloneResourceBase) SetExternalId(userCred mcclient.TokenCredential, idstr string) error {
-	if model.ExternalId != idstr {
-		diff, err := Update(model, func() error {
-			model.ExternalId = idstr
-			return nil
-		})
-		if err == nil {
-			OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
+func (manager *SStandaloneResourceBaseManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []apis.StandaloneResourceDetails {
+	ret := make([]apis.StandaloneResourceDetails, len(objs))
+	upperRet := manager.SResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	metaRet := manager.SMetadataResourceBaseModelManager.FetchCustomizeColumns(manager.GetIModelManager(), userCred, objs, fields)
+	for i := range objs {
+		ret[i] = apis.StandaloneResourceDetails{
+			ResourceBaseDetails:  upperRet[i],
+			MetadataResourceInfo: metaRet[i],
 		}
-		return err
 	}
+	return ret
+}
+
+func (manager *SStandaloneResourceBaseManager) GetMetadataHiddenKeys() []string {
 	return nil
 }
-*/
+
+func (manager *SStandaloneResourceBaseManager) GetExportExtraKeys(ctx context.Context, keys stringutils2.SSortedStrings, rowMap map[string]string) *jsonutils.JSONDict {
+	res := manager.SResourceBaseManager.GetExportExtraKeys(ctx, keys, rowMap)
+
+	metaRes := manager.SMetadataResourceBaseModelManager.GetExportExtraKeys(keys, rowMap)
+	if metaRes.Length() > 0 {
+		res.Update(metaRes)
+	}
+
+	return res
+}
+
+func (manager *SStandaloneResourceBaseManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SResourceBaseManager.ListItemExportKeys")
+	}
+
+	q = manager.SMetadataResourceBaseModelManager.ListItemExportKeys(manager.GetIModelManager(), q, keys)
+
+	return q, nil
+}
+
+func (model *SStandaloneResourceBase) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.StandaloneResourceBaseUpdateInput) (apis.StandaloneResourceBaseUpdateInput, error) {
+	var err error
+	input.ResourceBaseUpdateInput, err = model.SResourceBase.ValidateUpdateData(ctx, userCred, query, input.ResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SModelBase.ValidateUpdateData")
+	}
+
+	if len(input.Name) > 0 {
+		input.Name = strings.TrimSpace(input.Name)
+		if strings.ContainsAny(input.Name, "\n\r\t") {
+			return input, errors.Wrap(httperrors.ErrInputParameter, "name should not contains any \\n\\r\\t")
+		}
+		err = alterNameValidator(model.GetIStandaloneModel(), input.Name)
+		if err != nil {
+			return input, errors.Wrap(err, "alterNameValidator")
+		}
+	}
+	return input, nil
+}
+
+func (model *SStandaloneResourceBase) IsShared() bool {
+	return false
+}

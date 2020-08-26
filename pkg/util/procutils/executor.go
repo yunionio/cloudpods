@@ -67,17 +67,13 @@ type defaultExecutor struct{}
 
 func (e *defaultExecutor) Command(name string, args ...string) Cmd {
 	cmd := exec.Command(name, args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setsid: true,
-	}
+	cmdSetSid(cmd)
 	return &defaultCmd{cmd}
 }
 
 func (e *defaultExecutor) CommandContext(ctx context.Context, name string, args ...string) Cmd {
 	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setsid: true,
-	}
+	cmdSetSid(cmd)
 	return &defaultCmd{cmd}
 }
 

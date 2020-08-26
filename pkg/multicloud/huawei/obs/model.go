@@ -1,16 +1,14 @@
-// Copyright 2019 Yunion
+// Copyright 2019 Huawei Technologies Co.,Ltd.
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+// this file except in compliance with the License.  You may obtain a copy of the
+// License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+// http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing, software distributed
+// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations under the License.
 
 package obs
 
@@ -292,9 +290,10 @@ type grantObs struct {
 }
 
 type AccessControlPolicy struct {
-	XMLName xml.Name `xml:"AccessControlPolicy"`
-	Owner   Owner    `xml:"Owner"`
-	Grants  []Grant  `xml:"AccessControlList>Grant"`
+	XMLName   xml.Name `xml:"AccessControlPolicy"`
+	Owner     Owner    `xml:"Owner"`
+	Grants    []Grant  `xml:"AccessControlList>Grant"`
+	Delivered string   `xml:"Delivered,omitempty"`
 }
 
 type accessControlPolicyObs struct {
@@ -326,7 +325,7 @@ type SetBucketPolicyInput struct {
 
 type GetBucketPolicyOutput struct {
 	BaseModel
-	Policy string
+	Policy string `json:"body"`
 }
 
 type CorsRule struct {
@@ -426,6 +425,36 @@ type GetBucketMetadataInput struct {
 	Bucket        string
 	Origin        string
 	RequestHeader string
+}
+
+type SetObjectMetadataInput struct {
+	Bucket                  string
+	Key                     string
+	VersionId               string
+	MetadataDirective       MetadataDirectiveType
+	CacheControl            string
+	ContentDisposition      string
+	ContentEncoding         string
+	ContentLanguage         string
+	ContentType             string
+	Expires                 string
+	WebsiteRedirectLocation string
+	StorageClass            StorageClassType
+	Metadata                map[string]string
+}
+
+type SetObjectMetadataOutput struct {
+	BaseModel
+	MetadataDirective       MetadataDirectiveType
+	CacheControl            string
+	ContentDisposition      string
+	ContentEncoding         string
+	ContentLanguage         string
+	ContentType             string
+	Expires                 string
+	WebsiteRedirectLocation string
+	StorageClass            StorageClassType
+	Metadata                map[string]string
 }
 
 type GetBucketMetadataOutput struct {
@@ -786,7 +815,7 @@ type CopyObjectInput struct {
 	ContentType                 string
 	Expires                     string
 	MetadataDirective           MetadataDirectiveType
-	successActionRedirect       string
+	SuccessActionRedirect       string
 }
 
 type CopyObjectOutput struct {

@@ -43,7 +43,7 @@ func InspurProfile() IPMIProfile {
 
 func LenovoProfile() IPMIProfile {
 	return IPMIProfile{
-		LanChannel: []int{8},
+		LanChannel: []int{1, 8},
 		RootName:   "root",
 		RootId:     2,
 	}
@@ -51,7 +51,7 @@ func LenovoProfile() IPMIProfile {
 
 func HpProfile() IPMIProfile {
 	return IPMIProfile{
-		LanChannel: []int{2},
+		LanChannel: []int{1, 2},
 		RootName:   "root",
 		RootId:     1,
 	}

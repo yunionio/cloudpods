@@ -36,7 +36,7 @@ func StartService() {
 		log.Infof("Auth complete!!")
 	})
 
-	err := etcd.InitDefaultEtcdClient(&opts.SEtcdOptions)
+	err := etcd.InitDefaultEtcdClient(&opts.SEtcdOptions, nil)
 	if err != nil {
 		log.Fatalf("init etcd fail: %s", err)
 		return

@@ -41,7 +41,7 @@ const (
 	OS_NAME_ANDROID = "Android"
 	OS_NAME_VMWARE  = "VMWare"
 	OS_NAME_CIRROS  = "Cirros"
-	OS_NAME_OPENWRT = "OpenWRT"
+	OS_NAME_OPENWRT = "OpenWrt"
 
 	MODE_READLINE = "readline"
 	MODE_CONTROL  = "control"
@@ -77,6 +77,11 @@ func (s *SKVMGuestInstance) getOsname() string {
 		return OS_NAME_LINUX
 	}
 	return osName
+}
+
+func (s *SKVMGuestInstance) disableUsbKbd() bool {
+	val, _ := s.Desc.GetString("metadata", "disable_usb_kbd")
+	return val == "true"
 }
 
 func (s *SKVMGuestInstance) getOsDistribution() string {
@@ -255,12 +260,16 @@ func (s *SKVMGuestInstance) getNicDeviceModel(name string) string {
 }
 
 func (s *SKVMGuestInstance) getNicAddr(index int) int {
-	var diskCnt = 10
+	var pciBase = 10
 	disks, _ := s.Desc.GetArray("disks")
 	if len(disks) > 10 {
-		diskCnt = 20
+		pciBase = 20
 	}
-	return s.GetDiskAddr(diskCnt + index)
+	isolatedDevices, _ := s.Desc.GetArray("isolated_devices")
+	if len(isolatedDevices) > 0 {
+		pciBase += 10
+	}
+	return s.GetDiskAddr(pciBase + index)
 }
 
 func (s *SKVMGuestInstance) getVnicDesc(nic jsonutils.JSONObject) string {
@@ -342,7 +351,7 @@ func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (stri
 		cmd += fmt.Sprintf("%s %s\n", downscript, ifname)
 	}
 
-	if options.HostOptions.HugepagesOption == "native" {
+	if s.manager.host.IsHugepagesEnabled() {
 		cmd += fmt.Sprintf("mkdir -p /dev/hugepages/%s\n", uuid)
 		cmd += fmt.Sprintf("mount -t hugetlbfs -o size=%dM hugetlbfs-%s /dev/hugepages/%s\n",
 			mem, uuid, uuid)
@@ -362,7 +371,7 @@ func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (stri
 		cmd += d.GetDiskSetupScripts(int(diskIndex))
 	}
 
-	cmd += fmt.Sprintf("STATE_FILE=`ls -d %s* | head -n 1`\n", s.getStateFilePathRootPrefix())
+	// cmd += fmt.Sprintf("STATE_FILE=`ls -d %s* | head -n 1`\n", s.getStateFilePathRootPrefix())
 	cmd += fmt.Sprintf("PID_FILE=%s\n", s.GetPidFilePath())
 
 	var qemuCmd = qemutils.GetQemu(qemuVersion)
@@ -371,23 +380,23 @@ func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (stri
 	}
 
 	cmd += fmt.Sprintf("DEFAULT_QEMU_CMD='%s'\n", qemuCmd)
-	cmd += "if [ -n \"$STATE_FILE\" ]; then\n"
-	cmd += "    QEMU_VER=`echo $STATE_FILE" +
-		` | grep -o '_[[:digit:]]\+\.[[:digit:]]\+.*'` + "`\n"
-	cmd += "    QEMU_CMD=\"qemu-system-x86_64\"\n"
-	cmd += "    QEMU_LOCAL_PATH=\"/usr/local/bin/$QEMU_CMD\"\n"
-	cmd += "    QEMU_LOCAL_PATH_VER=\"/usr/local/qemu-$QEMU_VER/bin/$QEMU_CMD\"\n"
-	cmd += "    QEMU_BIN_PATH=\"/usr/bin/$QEMU_CMD\"\n"
-	cmd += "    if [ -f \"$QEMU_LOCAL_PATH_VER\" ]; then\n"
-	cmd += "        QEMU_CMD=$QEMU_LOCAL_PATH_VER\n"
-	cmd += "    elif [ -f \"$QEMU_LOCAL_PATH\" ]; then\n"
-	cmd += "        QEMU_CMD=$QEMU_LOCAL_PATH\n"
-	cmd += "    elif [ -f \"$QEMU_BIN_PATH\" ]; then\n"
-	cmd += "        QEMU_CMD=$QEMU_BIN_PATH\n"
-	cmd += "    fi\n"
-	cmd += "else\n"
-	cmd += "    QEMU_CMD=$DEFAULT_QEMU_CMD\n"
-	cmd += "fi\n"
+	// cmd += "if [ -n \"$STATE_FILE\" ]; then\n"
+	// cmd += "    QEMU_VER=`echo $STATE_FILE" +
+	// 	` | grep -o '_[[:digit:]]\+\.[[:digit:]]\+.*'` + "`\n"
+	// cmd += "    QEMU_CMD=\"qemu-system-x86_64\"\n"
+	// cmd += "    QEMU_LOCAL_PATH=\"/usr/local/bin/$QEMU_CMD\"\n"
+	// cmd += "    QEMU_LOCAL_PATH_VER=\"/usr/local/qemu-$QEMU_VER/bin/$QEMU_CMD\"\n"
+	// cmd += "    QEMU_BIN_PATH=\"/usr/bin/$QEMU_CMD\"\n"
+	// cmd += "    if [ -f \"$QEMU_LOCAL_PATH_VER\" ]; then\n"
+	// cmd += "        QEMU_CMD=$QEMU_LOCAL_PATH_VER\n"
+	// cmd += "    elif [ -f \"$QEMU_LOCAL_PATH\" ]; then\n"
+	// cmd += "        QEMU_CMD=$QEMU_LOCAL_PATH\n"
+	// cmd += "    elif [ -f \"$QEMU_BIN_PATH\" ]; then\n"
+	// cmd += "        QEMU_CMD=$QEMU_BIN_PATH\n"
+	// cmd += "    fi\n"
+	// cmd += "else\n"
+	cmd += "QEMU_CMD=$DEFAULT_QEMU_CMD\n"
+	// cmd += "fi\n"
 	cmd += "function nic_speed() {\n"
 	cmd += "    $QEMU_CMD "
 
@@ -460,12 +469,16 @@ func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (stri
 	// #cmd += fmt.Sprintf(" -uuid %s", self.desc["uuid"])
 	cmd += fmt.Sprintf(" -m %dM,slots=4,maxmem=262144M", mem)
 
-	if options.HostOptions.HugepagesOption == "native" {
+	if s.manager.host.IsHugepagesEnabled() {
 		cmd += fmt.Sprintf(" -mem-prealloc -mem-path %s", fmt.Sprintf("/dev/hugepages/%s", uuid))
 	}
 
 	bootOrder, _ := s.Desc.GetString("boot_order")
 	cmd += fmt.Sprintf(" -boot order=%s", bootOrder)
+	cdrom, _ := s.Desc.Get("cdrom")
+	if cdrom != nil && cdrom.Contains("path") {
+		cmd += ",menu=on"
+	}
 
 	if s.getBios() == "UEFI" {
 		cmd += fmt.Sprintf(" -bios %s", options.HostOptions.OvmfPath)
@@ -491,7 +504,7 @@ func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (stri
 
 	cmd += " -device virtio-serial"
 	cmd += " -usb"
-	if !utils.IsInStringArray(s.getOsDistribution(), []string{OS_NAME_OPENWRT, OS_NAME_CIRROS}) {
+	if !utils.IsInStringArray(s.getOsDistribution(), []string{OS_NAME_OPENWRT, OS_NAME_CIRROS}) && !s.disableUsbKbd() {
 		cmd += " -device usb-kbd"
 	}
 	// # if osname == self.OS_NAME_ANDROID:
@@ -560,7 +573,6 @@ func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (stri
 		cmd += " -drive id=ide0-cd0,media=cdrom,if=none"
 	}
 
-	cdrom, _ := s.Desc.Get("cdrom")
 	if cdrom != nil && cdrom.Contains("path") {
 		cdromPath, _ := cdrom.GetString("path")
 		if len(cdromPath) > 0 {
@@ -628,13 +640,13 @@ func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (stri
 	}
 
 	cmd += "\"\n"
-	cmd += "if [ ! -z \"$STATE_FILE\" ] && [ -d \"$STATE_FILE\" ] && [ -f \"$STATE_FILE/content\" ]; then\n"
-	cmd += "    $CMD --incoming \"exec: cat $STATE_FILE/content\"\n"
-	cmd += "elif [ ! -z \"$STATE_FILE\" ] && [ -f $STATE_FILE ]; then\n"
-	cmd += "    $CMD --incoming \"exec: cat $STATE_FILE\"\n"
-	cmd += "else\n"
-	cmd += "    $CMD\n"
-	cmd += "fi\n"
+	// cmd += "if [ ! -z \"$STATE_FILE\" ] && [ -d \"$STATE_FILE\" ] && [ -f \"$STATE_FILE/content\" ]; then\n"
+	// cmd += "    $CMD --incoming \"exec: cat $STATE_FILE/content\"\n"
+	// cmd += "elif [ ! -z \"$STATE_FILE\" ] && [ -f $STATE_FILE ]; then\n"
+	// cmd += "    $CMD --incoming \"exec: cat $STATE_FILE\"\n"
+	// cmd += "else\n"
+	cmd += "$CMD\n"
+	// cmd += "fi\n"
 
 	return cmd, nil
 }
@@ -669,7 +681,7 @@ func (s *SKVMGuestInstance) generateStopScript(data *jsonutils.JSONDict) string 
 	cmd += "  rm -f $PID_FILE\n"
 	cmd += "fi\n"
 
-	if options.HostOptions.HugepagesOption == "native" {
+	if s.manager.host.IsHugepagesEnabled() {
 		cmd += fmt.Sprintf("if [ -d /dev/hugepages/%s ]; then\n", uuid)
 		cmd += fmt.Sprintf("  umount /dev/hugepages/%s\n", uuid)
 		cmd += fmt.Sprintf("  rm -rf /dev/hugepages/%s\n", uuid)

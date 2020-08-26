@@ -246,7 +246,7 @@ func (self *SRegion) GetVSwitchAttributes(idstr string) (*SVSwitch, error) {
 		log.Errorf("DescribeVSwitchAttributes fail %s", err)
 		return nil, err
 	}
-	if self.client.Debug {
+	if self.client.debug {
 		log.Debugf("%s", body.PrettyString())
 	}
 	switches := SVSwitch{}
@@ -273,5 +273,5 @@ func (vsw *SVSwitch) dissociateWithSNAT() error {
 }
 
 func (self *SVSwitch) GetProjectId() string {
-	return ""
+	return self.ResourceGroupId
 }

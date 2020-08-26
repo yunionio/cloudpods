@@ -29,16 +29,18 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SDBInstanceAccountManager struct {
 	db.SStatusStandaloneResourceBaseManager
+	db.SExternalizedResourceBaseManager
+	SDBInstanceResourceBaseManager
 }
 
 var DBInstanceAccountManager *SDBInstanceAccountManager
@@ -59,8 +61,13 @@ type SDBInstanceAccount struct {
 	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 
-	Secret       string `width:"256" charset:"ascii" nullable:"false" list:"domain" create:"optional"`
-	DBInstanceId string `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
+	SDBInstanceResourceBase `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
+
+	// 数据库密码
+	Secret string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+
+	// RDS实例Id
+	// DBInstanceId string `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
 }
 
 func (manager *SDBInstanceAccountManager) GetContextManagers() [][]db.IModelManager {
@@ -98,7 +105,7 @@ func (manager *SDBInstanceAccountManager) FetchOwnerId(ctx context.Context, data
 		}
 		return instance.(*SDBInstance).GetOwnerId(), nil
 	}
-	return nil, nil
+	return db.FetchProjectInfo(ctx, data)
 }
 
 func (manager *SDBInstanceAccountManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
@@ -132,54 +139,129 @@ func (self *SDBInstanceAccount) AllowDeleteItem(ctx context.Context, userCred mc
 	return db.IsAdminAllowDelete(userCred, self)
 }
 
-func (self *SDBInstanceAccount) getPrivilegesDetails() (*jsonutils.JSONArray, error) {
-	result := jsonutils.NewArray()
+func (self *SDBInstanceAccount) getPrivilegesDetails() ([]api.DBInstancePrivilege, error) {
+	out := []api.DBInstancePrivilege{}
 	privileges, err := self.GetDBInstancePrivileges()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetDBInstancePrivileges")
 	}
 	for _, privilege := range privileges {
-		detail, err := privilege.GetDetailedJson()
+		detail, err := privilege.GetPrivilege()
 		if err != nil {
 			return nil, errors.Wrap(err, "GetDetailedJson")
 		}
-		result.Add(detail)
+		out = append(out, detail)
 	}
-	return result, nil
+	return out, nil
 }
 
-func (self *SDBInstanceAccount) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	extra, _ = self.getMoreDetails(ctx, userCred, extra)
-	return extra
-}
-
-func (self *SDBInstanceAccount) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, extra *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SDBInstanceAccount) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, out api.DBInstanceAccountDetails) (api.DBInstanceAccountDetails, error) {
 	privileges, err := self.getPrivilegesDetails()
 	if err != nil {
-		return extra, err
+		return out, err
 	}
-	extra.Add(privileges, "dbinstanceprivileges")
-	return extra, nil
+	out.DBInstanceprivileges = privileges
+	return out, nil
 }
 
-func (self *SDBInstanceAccount) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
-	}
-	return self.getMoreDetails(ctx, userCred, extra)
+func (self *SDBInstanceAccount) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.DBInstanceAccountDetails, error) {
+	return api.DBInstanceAccountDetails{}, nil
 }
 
-func (manager *SDBInstanceAccountManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
-	if err != nil {
-		return nil, err
+func (manager *SDBInstanceAccountManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.DBInstanceAccountDetails {
+	rows := make([]api.DBInstanceAccountDetails, len(objs))
+	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	dbRows := manager.SDBInstanceResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	dbinstanceIds := make([]string, len(objs))
+	for i := range rows {
+		rows[i] = api.DBInstanceAccountDetails{
+			StatusStandaloneResourceDetails: stdRows[i],
+			DBInstanceResourceInfo:          dbRows[i],
+		}
+		account := objs[i].(*SDBInstanceAccount)
+		rows[i], _ = account.getMoreDetails(ctx, userCred, rows[i])
+		dbinstanceIds[i] = account.DBInstanceId
 	}
-	data := query.(*jsonutils.JSONDict)
-	return validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "dbinstance", ModelKeyword: "dbinstance", OwnerId: userCred},
-	})
+
+	dbinstances := make(map[string]SDBInstance)
+	err := db.FetchStandaloneObjectsByIds(DBInstanceManager, dbinstanceIds, &dbinstances)
+	if err != nil {
+		log.Errorf("FetchStandaloneObjectsByIds fail: %v", err)
+		return rows
+	}
+
+	virObjs := make([]interface{}, len(objs))
+	for i := range rows {
+		if dbinstance, ok := dbinstances[dbinstanceIds[i]]; ok {
+			virObjs[i] = &dbinstance
+			rows[i].ProjectId = dbinstance.ProjectId
+		}
+	}
+
+	projRows := DBInstanceManager.SProjectizedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, virObjs, stringutils2.SSortedStrings{}, isList)
+	for i := range rows {
+		rows[i].ProjectizedResourceInfo = projRows[i]
+	}
+
+	return rows
+}
+
+// RDS账号列表
+func (manager *SDBInstanceAccountManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DBInstanceAccountListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SDBInstanceResourceBaseManager.ListItemFilter(ctx, q, userCred, query.DBInstanceFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDBInstanceResourceBaseManager.ListItemFilter")
+	}
+	return q, nil
+}
+
+func (manager *SDBInstanceAccountManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DBInstanceAccountListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SDBInstanceResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.DBInstanceFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDBInstanceResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (manager *SDBInstanceAccountManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SDBInstanceResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
 }
 
 func (manager *SDBInstanceAccountManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
@@ -194,17 +276,7 @@ func (manager *SDBInstanceAccountManager) FilterByParentId(q *sqlchemy.SQuery, p
 	return q
 }
 
-func (manager *SDBInstanceAccountManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	input := &api.SDBInstanceAccountCreateInput{}
-	instanceV := validators.NewModelIdOrNameValidator("dbinstance", "dbinstance", userCred)
-	err := instanceV.Validate(data)
-	if err != nil {
-		return nil, err
-	}
-	err = data.Unmarshal(input)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("Unmarshal input params error: %v", err)
-	}
+func (manager *SDBInstanceAccountManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.DBInstanceAccountCreateInput) (*jsonutils.JSONDict, error) {
 	if len(input.Password) > 0 {
 		if !seclib2.MeetComplxity(input.Password) {
 			return nil, httperrors.NewWeakPasswordError()
@@ -212,7 +284,25 @@ func (manager *SDBInstanceAccountManager) ValidateCreateData(ctx context.Context
 	} else {
 		input.Password = seclib2.RandomPassword2(12)
 	}
-	instance := instanceV.Model.(*SDBInstance)
+
+	for _, instance := range []string{input.DBInstance, input.DBInstanceId} {
+		if len(instance) > 0 {
+			input.DBInstance = instance
+			break
+		}
+	}
+	if len(input.DBInstance) == 0 {
+		return nil, httperrors.NewMissingParameterError("dbinstance")
+	}
+	_instance, err := DBInstanceManager.FetchByIdOrName(userCred, input.DBInstance)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError("failed to found dbinstance %s", input.DBInstance)
+		}
+		return nil, httperrors.NewGeneralError(errors.Wrap(err, "DBInstanceManager.FetchByIdOrName"))
+	}
+	instance := _instance.(*SDBInstance)
+	input.DBInstanceId = instance.Id
 	if instance.Status != api.DBINSTANCE_RUNNING {
 		return nil, httperrors.NewInputParameterError("DBInstance %s(%s) status is %s require status is %s", instance.Name, instance.Id, instance.Status, api.DBINSTANCE_RUNNING)
 	}
@@ -231,6 +321,12 @@ func (manager *SDBInstanceAccountManager) ValidateCreateData(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
+
+	input.StatusStandaloneResourceCreateInput, err = manager.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusStandaloneResourceCreateInput)
+	if err != nil {
+		return nil, err
+	}
+
 	return input.JSON(input), nil
 }
 
@@ -257,7 +353,7 @@ func (self *SDBInstanceAccount) GetPassword() (string, error) {
 
 func (self *SDBInstanceAccount) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
-	input := &api.SDBInstanceAccountCreateInput{}
+	input := &api.DBInstanceAccountCreateInput{}
 	data.Unmarshal(input)
 	self.savePassword(input.Password)
 	self.StartDBInstanceAccountCreateTask(ctx, userCred, data.(*jsonutils.JSONDict), "")
@@ -271,14 +367,6 @@ func (self *SDBInstanceAccount) StartDBInstanceAccountCreateTask(ctx context.Con
 	}
 	task.ScheduleRun(nil)
 	return nil
-}
-
-func (self *SDBInstanceAccount) GetDBInstance() (*SDBInstance, error) {
-	instance, err := DBInstanceManager.FetchById(self.DBInstanceId)
-	if err != nil {
-		return nil, err
-	}
-	return instance.(*SDBInstance), nil
 }
 
 func (self *SDBInstanceAccount) AllowPerformGrantPrivilege(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -593,7 +681,7 @@ func (manager *SDBInstanceAccountManager) newFromCloudDBInstanceAccount(ctx cont
 	account.Status = extAccount.GetStatus()
 	account.ExternalId = extAccount.GetGlobalId()
 
-	err := manager.TableSpec().Insert(&account)
+	err := manager.TableSpec().Insert(ctx, &account)
 	if err != nil {
 		return nil, errors.Wrapf(err, "newFromCloudDBInstanceAccount.Insert")
 	}
@@ -621,4 +709,24 @@ func (self *SDBInstanceAccount) StartDBInstanceAccountDeleteTask(ctx context.Con
 	}
 	task.ScheduleRun(nil)
 	return nil
+}
+
+func (manager *SDBInstanceAccountManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SDBInstanceResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SDBInstanceResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SDBInstanceResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	return q, nil
 }

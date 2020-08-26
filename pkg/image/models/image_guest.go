@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -29,6 +30,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -39,6 +41,8 @@ import (
 	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SGuestImageManager struct {
@@ -75,7 +79,7 @@ func (manager *SGuestImageManager) ValidateCreateData(ctx context.Context, userC
 
 	pendingUsage := SQuota{Image: int(imageNum)}
 	data.Set("disk_format", jsonutils.NewString("qcow2"))
-	keys := imageCreateInput2QuotaKeys(data, ownerId)
+	keys := imageCreateInput2QuotaKeys("qcow2", ownerId)
 	pendingUsage.SetKeys(keys)
 	if err := quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
 
@@ -87,7 +91,7 @@ func (manager *SGuestImageManager) ValidateCreateData(ctx context.Context, userC
 func (gi *SGuestImage) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 
-	err := gi.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	err := gi.SSharableVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 	if err != nil {
 		return err
 	}
@@ -99,6 +103,8 @@ func (gi *SGuestImage) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 
 	kwargs := data.(*jsonutils.JSONDict)
+	// get image number
+	imageNumber, _ := kwargs.Int("image_number")
 	// deal public params
 	kwargs.Remove("size")
 	kwargs.Remove("image_number")
@@ -108,9 +114,8 @@ func (gi *SGuestImage) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 	}
 	images, _ := kwargs.GetArray("images")
 	kwargs.Remove("images")
-	kwargs.Add(jsonutils.NewString(gi.Id), "guest_image_id")
+	// kwargs.Add(jsonutils.NewString(gi.Id), "guest_image_id")
 
-	imageIds := jsonutils.NewArray()
 	suc := true
 
 	// HACK
@@ -124,6 +129,7 @@ func (gi *SGuestImage) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 			tmp, _ := image.Get(key)
 			params.Add(tmp, key)
 		}
+		params.Add(jsonutils.JSONTrue, "is_guest_image")
 		if i == len(images)-1 {
 			params.Add(jsonutils.NewString(fmt.Sprintf("%s-%s", gi.Name, "root")), "generate_name")
 		} else {
@@ -132,7 +138,6 @@ func (gi *SGuestImage) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 		}
 		model, err := db.DoCreate(ImageManager, ctx, userCred, query, params, ownerId)
 		if err != nil {
-			imageIds.Add(jsonutils.NewString(""))
 			suc = false
 			break
 		} else {
@@ -142,23 +147,23 @@ func (gi *SGuestImage) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 
 				model.PostCreate(ctx, userCred, ownerId, query, data)
 			}()
-			imageIds.Add(jsonutils.NewString(model.GetId()))
+			_, err := GuestImageJointManager.CreateGuestImageJoint(ctx, gi.Id, model.GetId())
+			if err != nil {
+				model.(*SImage).OnJointFailed(ctx, userCred)
+			}
 		}
 	}
 
-	imageNumber, _ := data.Int("image_number")
 	pendingUsage := SQuota{Image: int(imageNumber)}
-	keys := imageCreateInput2QuotaKeys(data, ownerId)
+	keys := imageCreateInput2QuotaKeys("qcow2", ownerId)
 	pendingUsage.SetKeys(keys)
-	quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
+	quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, true)
 
 	if !suc {
 		gi.SetStatus(userCred, api.IMAGE_STATUS_KILLED, "create subimage failed")
 	}
 
-	// HACK
-	tmp := query.(*jsonutils.JSONDict)
-	tmp.Add(imageIds, "image_ids")
+	gi.SetStatus(userCred, api.IMAGE_STATUS_SAVING, "")
 }
 
 func (gi *SGuestImage) ValidateDeleteCondition(ctx context.Context) error {
@@ -182,7 +187,7 @@ func (gi *SGuestImage) RealDelete(ctx context.Context, userCred mcclient.TokenCr
 	for i := range guestJoints {
 		guestJoints[i].Delete(ctx, userCred)
 	}
-	return gi.SVirtualResourceBase.Delete(ctx, userCred)
+	return gi.SSharableVirtualResourceBase.Delete(ctx, userCred)
 }
 
 func (gi *SGuestImage) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential,
@@ -256,7 +261,7 @@ func (gi *SGuestImage) DoCancelPendingDelete(ctx context.Context, userCred mccli
 			return errors.Wrapf(err, "subimage %s cancel delete error", subImages[i].GetId())
 		}
 	}
-	err = gi.SVirtualResourceBase.DoCancelPendingDelete(ctx, userCred)
+	err = gi.SSharableVirtualResourceBase.DoCancelPendingDelete(ctx, userCred)
 	if err != nil {
 		return err
 	}
@@ -267,86 +272,103 @@ func (gi *SGuestImage) DoCancelPendingDelete(ctx context.Context, userCred mccli
 	return errors.Wrap(err, "guest image cancel delete error")
 }
 
-type sPair struct {
-	ID         string
-	Name       string
-	MinDiskMB  int32
-	DiskFormat string
-	Size       int64
-	Status     string
-}
-
 func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
-	extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	out api.GuestImageDetails) api.GuestImageDetails {
 
 	if self.Status != api.IMAGE_STATUS_ACTIVE {
 		self.checkStatus(ctx, userCred)
-		extra.Add(jsonutils.NewString(self.Status), "status")
+		out.Status = self.Status
 	}
 	images, err := GuestImageJointManager.GetImagesByGuestImageId(self.Id)
 	if err != nil {
-		return extra
+		return out
 	}
 	var size int64 = 0
 	if len(images) == 0 {
-		extra.Add(jsonutils.NewInt(size), "size")
-		return extra
+		out.Size = size
+		return out
 	}
-	dataImages := make([]sPair, 0, len(images)-1)
-	var rootImage sPair
+	dataImages := make([]api.SubImageInfo, 0, len(images)-1)
+	var rootImage api.SubImageInfo
 	for i := range images {
 		image := images[i]
+		out.ImageIds = append(out.ImageIds, image.Id)
 		size += image.Size
 		if !image.IsData.IsTrue() {
-			rootImage = sPair{image.Id, images[i].Name, image.MinDiskMB, image.DiskFormat, image.Size, image.Status}
-			extra.Add(jsonutils.NewInt(int64(image.MinRamMB)), "min_ram_mb")
-			extra.Add(jsonutils.NewString(image.DiskFormat), "disk_format")
+			rootImage = api.SubImageInfo{
+				ID:         image.Id,
+				Name:       image.Name,
+				MinDiskMB:  image.MinDiskMB,
+				DiskFormat: image.DiskFormat,
+				Size:       image.Size,
+				Status:     image.Status,
+				CreatedAt:  image.CreatedAt,
+			}
+			out.MinRamMb = image.MinRamMB
+			out.DiskFormat = image.DiskFormat
 			continue
 		}
-		dataImages = append(dataImages, sPair{image.Id, image.Name, image.MinDiskMB, image.DiskFormat, image.Size,
-			image.Status})
+		dataImages = append(dataImages, api.SubImageInfo{
+			ID:         image.Id,
+			Name:       image.Name,
+			MinDiskMB:  image.MinDiskMB,
+			DiskFormat: image.DiskFormat,
+			Size:       image.Size,
+			Status:     image.Status,
+			CreatedAt:  image.CreatedAt,
+		})
 	}
 	// make sure that the sort of dataimage is fixed
 	sort.Slice(dataImages, func(i, j int) bool {
 		return dataImages[i].Name < dataImages[j].Name
 	})
-	extra.Add(jsonutils.NewInt(size), "size")
-	extra.Add(jsonutils.Marshal(rootImage), "root_image")
-	extra.Add(jsonutils.Marshal(dataImages), "data_images")
+	out.Size = size
+	out.RootImage = rootImage
+	out.DataImages = dataImages
 	// properties of root image
-	properties, _ := ImagePropertyManager.GetProperties(rootImage.ID)
+	properties, err := ImagePropertyManager.GetProperties(rootImage.ID)
 	if err != nil {
-		return extra
+		return out
 	}
 	propJson := jsonutils.NewDict()
 	for k, v := range properties {
 		propJson.Add(jsonutils.NewString(v), k)
 	}
-	extra.Add(propJson, "properties")
-	return extra
+	out.Properties = propJson
+	out.DisableDelete = self.Protected.Bool()
+	return out
 }
 
-func (self *SGuestImage) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) *jsonutils.JSONDict {
-
-	extra := self.SSharableVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreDetails(ctx, userCred, query, extra)
+func (self *SGuestImage) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.GuestImageDetails, error) {
+	return api.GuestImageDetails{}, nil
 }
 
-func (self *SGuestImage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+func (manager *SGuestImageManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.GuestImageDetails {
+	rows := make([]api.GuestImageDetails, len(objs))
 
-	extra, err := self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
-	}
-	if query.Contains("image_ids") {
-		imageIds, _ := query.Get("image_ids")
-		extra.Add(imageIds, "image_ids")
-		return extra, nil
+	virtRows := manager.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.GuestImageDetails{
+			SharableVirtualResourceDetails: virtRows[i],
+		}
+		guestImage := objs[i].(*SGuestImage)
+		rows[i] = guestImage.getMoreDetails(ctx, userCred, query, rows[i])
 	}
 
-	return self.getMoreDetails(ctx, userCred, query, extra), nil
+	return rows
 }
 
 func (self *SGuestImage) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
@@ -505,34 +527,111 @@ func (self *SGuestImageManager) CleanPendingDeleteImages(ctx context.Context, us
 	}
 }
 
-func (self *SGuestImage) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-
+func (self *SGuestImage) PerformPublic(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.PerformPublicProjectInput,
+) (jsonutils.JSONObject, error) {
 	images, err := GuestImageJointManager.GetImagesByGuestImageId(self.Id)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to fetch subimages of guest image")
 	}
 	for i := range images {
-		_, err := images[i].PerformPublic(ctx, userCred, query, data)
+		_, err := images[i].PerformPublic(ctx, userCred, query, input)
 		if err != nil {
 			return nil, errors.Wrapf(err, "fail to public subimage %s", images[i].GetId())
 		}
 	}
-	return self.SSharableVirtualResourceBase.PerformPublic(ctx, userCred, query, data)
+	return self.SSharableVirtualResourceBase.PerformPublic(ctx, userCred, query, input)
 }
 
-func (self *SGuestImage) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-
+func (self *SGuestImage) PerformPrivate(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.PerformPrivateInput,
+) (jsonutils.JSONObject, error) {
 	images, err := GuestImageJointManager.GetImagesByGuestImageId(self.Id)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to fetch subimages of guest image")
 	}
 	for i := range images {
-		_, err := images[i].PerformPrivate(ctx, userCred, query, data)
+		_, err := images[i].PerformPrivate(ctx, userCred, query, input)
 		if err != nil {
 			return nil, errors.Wrapf(err, "fail to private subimage %s", images[i].GetId())
 		}
 	}
-	return self.SSharableVirtualResourceBase.PerformPrivate(ctx, userCred, query, data)
+	return self.SSharableVirtualResourceBase.PerformPrivate(ctx, userCred, query, input)
+}
+
+// 主机镜像列表
+func (manager *SGuestImageManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.GuestImageListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.SharableVirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
+	}
+	if query.Protected != nil {
+		if *query.Protected {
+			q = q.IsTrue("protected")
+		} else {
+			q = q.IsFalse("protected")
+		}
+	}
+	return q, nil
+}
+
+func (manager *SGuestImageManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.GuestImageListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SSharableVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.SharableVirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (manager *SGuestImageManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SSharableVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SGuestImageManager) Usage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, prefix string) map[string]int64 {
+	usages := make(map[string]int64)
+	count := ImageManager.count(scope, ownerId, api.IMAGE_STATUS_ACTIVE, tristate.False, false, tristate.True)
+	expandUsageCount(usages, prefix, "guest_image", "", count)
+	sq := manager.Query()
+	switch scope {
+	case rbacutils.ScopeSystem:
+		// do nothing
+	case rbacutils.ScopeDomain:
+		sq = sq.Equals("domain_id", ownerId.GetProjectDomainId())
+	case rbacutils.ScopeProject:
+		sq = sq.Equals("tenant_id", ownerId.GetProjectId())
+	}
+	cnt, _ := sq.CountWithError()
+	key := []string{}
+	if len(prefix) > 0 {
+		key = append(key, prefix)
+	}
+	key = append(key, "guest_image", "count")
+
+	usages[strings.Join(key, ".")] = int64(cnt)
+
+	return usages
 }

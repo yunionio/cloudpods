@@ -94,7 +94,7 @@ func (self *SRegion) GetSNATEntries(tableId string, offset, limit int) ([]SSNATT
 		return nil, 0, err
 	}
 
-	if self.client.Debug {
+	if self.client.debug {
 		log.Debugf("%s", body.PrettyString())
 	}
 
@@ -120,7 +120,7 @@ func (self *SRegion) GetSNATEntry(tableID, SNATEntryID string) (SSNATTableEntry,
 		return SSNATTableEntry{}, err
 	}
 
-	if self.client.Debug {
+	if self.client.debug {
 		log.Debugf("%s", body.PrettyString())
 	}
 

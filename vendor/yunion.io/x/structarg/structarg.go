@@ -27,6 +27,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/utils"
@@ -44,6 +45,7 @@ type Argument interface {
 	Token() string
 	AliasToken() string
 	ShortToken() string
+	NegativeToken() string
 	MetaVar() string
 	IsPositional() bool
 	IsRequired() bool
@@ -53,7 +55,7 @@ type Argument interface {
 	String() string
 	SetValue(val string) error
 	Reset()
-	DoAction() error
+	DoAction(nega bool) error
 	Validate() error
 	SetDefault()
 	IsSet() bool
@@ -63,6 +65,7 @@ type SingleArgument struct {
 	token      string
 	aliasToken string
 	shortToken string
+	negaToken  string
 	metavar    string
 	positional bool
 	required   bool
@@ -104,9 +107,12 @@ type ArgumentParser struct {
 func NewArgumentParser(target interface{}, prog, desc, epilog string) (*ArgumentParser, error) {
 	parser := ArgumentParser{prog: prog, description: desc,
 		epilog: epilog, target: target}
-	target_type := reflect.TypeOf(target).Elem()
-	target_value := reflect.ValueOf(target).Elem()
-	e := parser.addStructArgument("", target_type, target_value)
+	targetValue := reflect.ValueOf(target)
+	if targetValue.Kind() != reflect.Ptr {
+		return nil, fmt.Errorf("target must be a pointer")
+	}
+	targetValue = targetValue.Elem()
+	e := parser.addStructArgument("", targetValue)
 	if e != nil {
 		return nil, e
 	}
@@ -182,37 +188,54 @@ const (
 		Alias name of argument
 	*/
 	TAG_ALIAS = "alias"
+	/*
+		Token for negative value, applicable to boolean values
+	*/
+	TAG_NEGATIVE_TOKEN = "negative"
+	/*
+	   Token for ignore
+	*/
+	TAG_IGNORE = "ignore"
 )
 
-func (this *ArgumentParser) addStructArgument(prefix string, tp reflect.Type, val reflect.Value) error {
-	for i := 0; i < tp.NumField(); i++ {
-		v := val.Field(i)
-		if !v.CanSet() {
-			continue
-		}
-		f := tp.Field(i)
-		if f.Type.Kind() == reflect.Struct {
-			p := prefix
-			if !f.Anonymous {
-				p += f.Name + "-"
+func (this *ArgumentParser) addStructArgument(prefix string, tpVal reflect.Value) error {
+	sets := reflectutils.FetchAllStructFieldValueSetForWrite(tpVal)
+	for i := range sets {
+		if sets[i].Value.Kind() == reflect.Struct && sets[i].Value.Type() != gotypes.TimeType {
+			tagMap := sets[i].Info.Tags
+			if _, ok := tagMap[reflectutils.TAG_DEPRECATED_BY]; ok {
+				// deprecated field, ignore
+				return nil
 			}
-			e := this.addStructArgument(p, f.Type, v)
-			if e != nil {
-				return e
+			token, ok := tagMap[TAG_TOKEN]
+			if !ok {
+				token = sets[i].Info.MarshalName()
+			}
+			token = prefix + token + "-"
+			err := this.addStructArgument(token, sets[i].Value)
+			if err != nil {
+				return errors.Wrap(err, "addStructArgument")
 			}
 		} else {
-			e := this.addArgument(prefix, f, v)
-			if e != nil {
-				return e
+			err := this.addArgument(prefix, sets[i].Value, sets[i].Info)
+			if err != nil {
+				return errors.Wrap(err, "addArgument")
 			}
 		}
 	}
 	return nil
 }
 
-func (this *ArgumentParser) addArgument(prefix string, f reflect.StructField, v reflect.Value) error {
-	info := reflectutils.ParseStructFieldJsonInfo(f)
+func (this *ArgumentParser) addArgument(prefix string, fv reflect.Value, info *reflectutils.SStructFieldInfo) error {
 	tagMap := info.Tags
+	if _, ok := tagMap[reflectutils.TAG_DEPRECATED_BY]; ok {
+		// deprecated field, ignore
+		return nil
+	}
+	if val, ok := tagMap[TAG_IGNORE]; ok && val == "true" {
+		// ignore field
+		return nil
+	}
 	help := tagMap[TAG_HELP]
 	token, ok := tagMap[TAG_TOKEN]
 	if !ok {
@@ -221,6 +244,7 @@ func (this *ArgumentParser) addArgument(prefix string, f reflect.StructField, v 
 	token = prefix + token
 	shorttoken := tagMap[TAG_SHORT_TOKEN]
 	alias := tagMap[TAG_ALIAS]
+	negative := tagMap[TAG_NEGATIVE_TOKEN]
 	metavar := tagMap[TAG_METAVAR]
 	defval := tagMap[TAG_DEFAULT]
 	if len(defval) > 0 {
@@ -234,22 +258,20 @@ func (this *ArgumentParser) addArgument(prefix string, f reflect.StructField, v 
 			}
 		}
 	}
+	if len(negative) > 0 && !valueIsBool(fv) {
+		return fmt.Errorf("negative token is applicable to boolean option ONLY")
+	}
 	use_default := true
 	if len(defval) == 0 {
 		use_default = false
 	}
-	choices_str := tagMap[TAG_CHOICES]
-	choices := make([]string, 0)
-	if len(choices_str) > 0 {
-		for _, s := range strings.Split(choices_str, "|") {
-			if len(s) > 0 {
-				choices = append(choices, s)
-			}
-		}
+	var choices []string
+	if choices_str, ok := tagMap[TAG_CHOICES]; ok {
+		choices = strings.Split(choices_str, "|")
 	}
 	// heuristic guessing "positional"
 	var positional bool
-	if f.Name == strings.ToUpper(f.Name) {
+	if info.FieldName == strings.ToUpper(info.FieldName) {
 		positional = true
 	} else {
 		positional = false
@@ -292,7 +314,7 @@ func (this *ArgumentParser) addArgument(prefix string, f reflect.StructField, v 
 	}
 	var defval_t reflect.Value
 	if use_default {
-		defval_t, err = gotypes.ParseValue(defval, f.Type)
+		defval_t, err = gotypes.ParseValue(defval, fv.Type())
 		if err != nil {
 			return err
 		}
@@ -301,20 +323,21 @@ func (this *ArgumentParser) addArgument(prefix string, f reflect.StructField, v 
 		positional = true
 	}
 	var arg Argument = nil
-	ovalue := reflect.New(v.Type()).Elem()
-	ovalue.Set(v)
+	ovalue := reflect.New(fv.Type()).Elem()
+	ovalue.Set(fv)
 	sarg := SingleArgument{
 		token:      token,
 		shortToken: shorttoken,
+		aliasToken: alias,
+		negaToken:  negative,
 		positional: positional,
 		required:   required,
 		metavar:    metavar,
 		help:       help,
 		choices:    choices,
 		useDefault: use_default,
-		aliasToken: alias,
 		defValue:   defval_t,
-		value:      v,
+		value:      fv,
 		ovalue:     ovalue,
 		parser:     this,
 	}
@@ -322,7 +345,7 @@ func (this *ArgumentParser) addArgument(prefix string, f reflect.StructField, v 
 	if subcommand {
 		arg = &SubcommandArgument{SingleArgument: sarg,
 			subcommands: make(map[string]SubcommandArgumentData)}
-	} else if f.Type.Kind() == reflect.Array || f.Type.Kind() == reflect.Slice {
+	} else if fv.Kind() == reflect.Array || fv.Kind() == reflect.Slice || fv.Kind() == reflect.Map {
 		var min, max int64
 		var err error
 		nargs := tagMap[TAG_NARGS]
@@ -413,13 +436,19 @@ func (this *ArgumentParser) Options() interface{} {
 	return this.target
 }
 
-func (this *SingleArgument) valueIsBool() bool {
-	rv := this.value
+func valueIsBool(rv reflect.Value) bool {
 	if rv.Kind() == reflect.Bool {
 		return true
 	}
 
 	if rv.Kind() == reflect.Ptr && rv.Type().Elem().Kind() == reflect.Bool {
+		return true
+	}
+	return false
+}
+
+func valueIsMap(rv reflect.Value) bool {
+	if rv.Kind() == reflect.Map {
 		return true
 	}
 	return false
@@ -438,7 +467,7 @@ func (this *SingleArgument) defaultBoolValue() bool {
 }
 
 func (this *SingleArgument) NeedData() bool {
-	if this.valueIsBool() {
+	if valueIsBool(this.value) {
 		return false
 	} else {
 		return true
@@ -467,6 +496,9 @@ func (this *SingleArgument) AllToken() string {
 	if len(this.ShortToken()) != 0 {
 		ret = fmt.Sprintf("%s|-%s", ret, this.ShortToken())
 	}
+	if len(this.NegativeToken()) != 0 {
+		ret = fmt.Sprintf("%s/--%s", ret, this.NegativeToken())
+	}
 	return ret
 }
 
@@ -480,6 +512,10 @@ func (this *SingleArgument) AliasToken() string {
 
 func (this *SingleArgument) ShortToken() string {
 	return this.shortToken
+}
+
+func (this *SingleArgument) NegativeToken() string {
+	return strings.ReplaceAll(this.negaToken, "_", "-")
 }
 
 func (this *SingleArgument) String() string {
@@ -535,6 +571,10 @@ func (this *SingleArgument) InChoices(val string) bool {
 	}
 }
 
+func (this *SingleArgument) Choices() []string {
+	return this.choices
+}
+
 func (this *SingleArgument) SetValue(val string) error {
 	if !this.InChoices(val) {
 		return this.choicesErr(val)
@@ -566,11 +606,13 @@ func (this *SingleArgument) Reset() {
 	this.isSet = false
 }
 
-func (this *SingleArgument) DoAction() error {
-	if this.valueIsBool() {
+func (this *SingleArgument) DoAction(nega bool) error {
+	if valueIsBool(this.value) {
 		var v bool
 		if this.useDefault {
 			v = !this.defaultBoolValue()
+		} else if nega {
+			v = false
 		} else {
 			v = true
 		}
@@ -601,7 +643,37 @@ func (this *MultiArgument) IsMulti() bool {
 	return true
 }
 
+func (this *MultiArgument) setKeyValue(val string) error {
+	pos := strings.IndexByte(val, '=')
+	var key, value string
+	if pos >= 0 {
+		key = val[:pos]
+		value = val[pos+1:]
+	} else {
+		key = val
+	}
+	keyType := this.value.Type().Key()
+	keyValue, err := gotypes.ParseValue(key, keyType)
+	if err != nil {
+		return errors.Wrapf(err, "ParseValue for key %s", key)
+	}
+	valType := this.value.Type().Elem()
+	valValue, err := gotypes.ParseValue(value, valType)
+	if err != nil {
+		return errors.Wrapf(err, "ParseValue for value %s", value)
+	}
+	if this.value.Len() == 0 {
+		this.value.Set(reflect.MakeMap(this.value.Type()))
+	}
+	this.value.SetMapIndex(keyValue, valValue)
+	this.isSet = true
+	return nil
+}
+
 func (this *MultiArgument) SetValue(val string) error {
+	if valueIsMap(this.value) {
+		return this.setKeyValue(val)
+	}
 	if !this.InChoices(val) {
 		return this.choicesErr(val)
 	}
@@ -773,28 +845,38 @@ func tokenMatch(argToken, input string, exactMatch bool) bool {
 	}
 }
 
-func (this *ArgumentParser) findOptionalArgument(token string, exactMatch bool) Argument {
+func (this *ArgumentParser) findOptionalArgument(token string, exactMatch bool) (Argument, bool) {
 	var match_arg Argument = nil
 	match_len := -1
+	negative := false
 	for _, arg := range this.optArgs {
 		if tokenMatch(arg.Token(), token, exactMatch) {
 			if match_len < 0 || match_len > len(arg.Token()) {
 				match_len = len(arg.Token())
 				match_arg = arg
+				negative = false
 			}
 		} else if tokenMatch(arg.ShortToken(), token, exactMatch) {
 			if match_len < 0 || match_len > len(arg.ShortToken()) {
 				match_len = len(arg.ShortToken())
 				match_arg = arg
+				negative = false
 			}
 		} else if tokenMatch(arg.AliasToken(), token, exactMatch) {
 			if match_len < 0 || match_len > len(arg.AliasToken()) {
 				match_len = len(arg.AliasToken())
 				match_arg = arg
+				negative = false
+			}
+		} else if tokenMatch(arg.NegativeToken(), token, exactMatch) {
+			if match_len < 0 || match_len > len(arg.AliasToken()) {
+				match_len = len(arg.AliasToken())
+				match_arg = arg
+				negative = true
 			}
 		}
 	}
-	return match_arg
+	return match_arg, negative
 }
 
 func validateArgs(args []Argument) error {
@@ -834,9 +916,8 @@ func (this *ArgumentParser) ParseArgs(args []string, ignore_unknown bool) error 
 }
 
 func (this *ArgumentParser) ParseArgs2(args []string, ignore_unknown bool, setDefaults bool) error {
-	var pos_idx int = 0
-	var arg Argument = nil
-	var err error = nil
+	var pos_idx int
+	var err error
 	var argStr string
 
 	this.reset()
@@ -844,7 +925,7 @@ func (this *ArgumentParser) ParseArgs2(args []string, ignore_unknown bool, setDe
 	for i := 0; i < len(args) && err == nil; i++ {
 		argStr = args[i]
 		if strings.HasPrefix(argStr, "-") {
-			arg = this.findOptionalArgument(strings.TrimLeft(argStr, "-"), false)
+			arg, nega := this.findOptionalArgument(strings.TrimLeft(argStr, "-"), false)
 			if arg != nil {
 				if arg.NeedData() {
 					if i+1 < len(args) {
@@ -858,7 +939,7 @@ func (this *ArgumentParser) ParseArgs2(args []string, ignore_unknown bool, setDe
 						break
 					}
 				} else {
-					err = arg.DoAction()
+					err = arg.DoAction(nega)
 					if err != nil {
 						break
 					}
@@ -882,7 +963,7 @@ func (this *ArgumentParser) ParseArgs2(args []string, ignore_unknown bool, setDe
 					break
 				}
 			} else {
-				arg = this.posArgs[pos_idx]
+				arg := this.posArgs[pos_idx]
 				pos_idx += 1
 				err = arg.SetValue(argStr)
 				if err != nil {
@@ -918,8 +999,12 @@ func isQuoted(str string) bool {
 }
 
 func (this *ArgumentParser) parseKeyValue(key, value string) error {
-	arg := this.findOptionalArgument(key, true)
+	arg, nega := this.findOptionalArgument(key, true)
 	if arg != nil {
+		if nega {
+			log.Warningf("Ignore negative token when parse %s=%v", key, value)
+			return nil
+		}
 		if arg.IsSet() {
 			return nil
 		}
@@ -1001,7 +1086,11 @@ func (this *ArgumentParser) ParseYAMLFile(filepath string) error {
 }
 
 func (this *ArgumentParser) parseJSONDict(dict *jsonutils.JSONDict) error {
-	for key, obj := range dict.Value() {
+	mapJson, err := dict.GetMap()
+	if err != nil {
+		return errors.Wrap(err, "GetMap")
+	}
+	for key, obj := range mapJson {
 		if err := this.parseJSONKeyValue(key, obj); err != nil {
 			return fmt.Errorf("parse json %s: %s: %v", key, obj.String(), err)
 		}
@@ -1015,9 +1104,13 @@ func keyToToken(key string) string {
 
 func (this *ArgumentParser) parseJSONKeyValue(key string, obj jsonutils.JSONObject) error {
 	token := keyToToken(key)
-	arg := this.findOptionalArgument(token, true)
+	arg, nega := this.findOptionalArgument(token, true)
 	if arg == nil {
 		log.Warningf("Cannot find argument %s", token)
+		return nil
+	}
+	if nega {
+		log.Warningf("Ignore negative token when parse JSONKeyValue %s", token)
 		return nil
 	}
 	if arg.IsSet() {
@@ -1025,11 +1118,11 @@ func (this *ArgumentParser) parseJSONKeyValue(key string, obj jsonutils.JSONObje
 	}
 	// process multi argument
 	if arg.IsMulti() {
-		array, ok := obj.(*jsonutils.JSONArray)
-		if !ok {
-			return fmt.Errorf("%s object value is not array", key)
+		array, err := obj.GetArray()
+		if err != nil {
+			return errors.Wrap(err, "GetArray")
 		}
-		for _, item := range array.Value() {
+		for _, item := range array {
 			str, err := item.GetString()
 			if err != nil {
 				return err

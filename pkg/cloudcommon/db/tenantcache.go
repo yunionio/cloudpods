@@ -21,20 +21,28 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
+)
+
+var (
+	DefaultProjectFetcher  func(ctx context.Context, id string) (*STenant, error)
+	DefaultDomainFetcher   func(ctx context.Context, id string) (*STenant, error)
+	DefaultProjectsFetcher func(ctx context.Context, idList []string, isDomain bool) map[string]STenant
+	DefaultDomainQuery     func(fields ...string) *sqlchemy.SQuery
+	DefaultProjectQuery    func(fields ...string) *sqlchemy.SQuery
 )
 
 type STenantCacheManager struct {
@@ -49,6 +57,10 @@ func NewTenant(idStr string, name string, domainId string, domainName string) ST
 	return STenant{SKeystoneCacheObject: NewKeystoneCacheObject(idStr, name, domainId, domainName)}
 }
 
+func NewDomain(idStr, name string) STenant {
+	return NewTenant(idStr, name, identityapi.KeystoneDomainRoot, identityapi.KeystoneDomainRoot)
+}
+
 func (tenant *STenant) GetModelManager() IModelManager {
 	return TenantCacheManager
 }
@@ -60,14 +72,20 @@ func init() {
 	// log.Debugf("Initialize tenant cache manager %s %s", TenantCacheManager.KeywordPlural(), TenantCacheManager)
 
 	TenantCacheManager.SetVirtualObject(TenantCacheManager)
+
+	DefaultProjectFetcher = TenantCacheManager.FetchTenantByIdOrName
+	DefaultDomainFetcher = TenantCacheManager.FetchDomainByIdOrName
+	DefaultProjectsFetcher = fetchProjects
+	DefaultDomainQuery = TenantCacheManager.GetDomainQuery
+	DefaultProjectQuery = TenantCacheManager.GetTenantQuery
 }
 
 func RegistUserCredCacheUpdater() {
 	auth.RegisterAuthHook(onAuthCompleteUpdateCache)
 }
 
-func onAuthCompleteUpdateCache(userCred mcclient.TokenCredential) {
-	TenantCacheManager.updateTenantCache(userCred)
+func onAuthCompleteUpdateCache(ctx context.Context, userCred mcclient.TokenCredential) {
+	TenantCacheManager.updateTenantCache(ctx, userCred)
 	UserCacheManager.updateUserCache(userCred)
 }
 
@@ -91,31 +109,43 @@ func (manager *STenantCacheManager) InitializeData() error {
 	return nil
 }
 
-func (manager *STenantCacheManager) updateTenantCache(userCred mcclient.TokenCredential) {
-	manager.Save(context.Background(), userCred.GetProjectId(), userCred.GetProjectName(),
+func (manager *STenantCacheManager) updateTenantCache(ctx context.Context, userCred mcclient.TokenCredential) {
+	manager.Save(ctx, userCred.GetProjectId(), userCred.GetProjectName(),
 		userCred.GetProjectDomainId(), userCred.GetProjectDomain())
 }
 
+func (manager *STenantCacheManager) GetTenantQuery(fields ...string) *sqlchemy.SQuery {
+	return manager.Query(fields...).NotEquals("domain_id", identityapi.KeystoneDomainRoot)
+}
+
+func (manager *STenantCacheManager) GetDomainQuery(fields ...string) *sqlchemy.SQuery {
+	return manager.Query(fields...).Equals("domain_id", identityapi.KeystoneDomainRoot)
+}
+
 func (manager *STenantCacheManager) fetchTenant(ctx context.Context, idStr string, isDomain bool, noExpireCheck bool, filter func(q *sqlchemy.SQuery) *sqlchemy.SQuery) (*STenant, error) {
-	q := manager.Query()
+	var q *sqlchemy.SQuery
 	if isDomain {
-		q = q.Equals("domain_id", identityapi.KeystoneDomainRoot)
+		q = manager.GetDomainQuery()
 	} else {
-		q = q.NotEquals("domain_id", identityapi.KeystoneDomainRoot)
+		q = manager.GetTenantQuery()
 	}
 	q = filter(q)
-	tobj, err := NewModelObject(manager)
+	caches := []STenant{}
+	err := FetchModelObjects(manager, q, &caches)
 	if err != nil {
-		return nil, errors.Wrap(err, "NewModelObject")
+		return nil, errors.Wrap(err, "FetchModelObjects")
 	}
-	err = q.First(tobj)
-	if err != nil && err != sql.ErrNoRows {
-		return nil, errors.Wrap(err, "query")
-	} else if tobj != nil {
-		tenant := tobj.(*STenant)
-		if noExpireCheck || !tenant.IsExpired() {
-			return tenant, nil
+	normal := []STenant{}
+	for _, cache := range caches {
+		if noExpireCheck || !cache.IsExpired() {
+			normal = append(normal, cache)
 		}
+	}
+	if len(normal) > 1 {
+		return nil, errors.Wrapf(httperrors.ErrDuplicateName, "duplicate tenant/domain name (%d)", len(normal))
+	}
+	if len(normal) == 1 {
+		return &normal[0], nil
 	}
 	if isDomain {
 		return manager.fetchDomainFromKeystone(ctx, idStr)
@@ -174,8 +204,13 @@ func (manager *STenantCacheManager) fetchTenantFromKeystone(ctx context.Context,
 		log.Debugf("fetch empty tenant!!!!\n%s", debug.Stack())
 		return nil, fmt.Errorf("Empty idStr")
 	}
+
+	// It is to query all domain's project.
+	query := jsonutils.NewDict()
+	query.Set("scope", jsonutils.NewString("system"))
+
 	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
-	tenant, err := modules.Projects.GetById(s, idStr, nil)
+	tenant, err := modules.Projects.GetById(s, idStr, query)
 	if err != nil {
 		if je, ok := err.(*httputils.JSONClientError); ok && je.Code == 404 {
 			return nil, sql.ErrNoRows
@@ -226,7 +261,7 @@ func (manager *STenantCacheManager) FetchDomainByName(ctx context.Context, idStr
 
 func (manager *STenantCacheManager) fetchDomainFromKeystone(ctx context.Context, idStr string) (*STenant, error) {
 	if len(idStr) == 0 {
-		log.Debugf("fetch empty tenant!!!!\n%s", debug.Stack())
+		log.Debugf("fetch empty domain!!!!\n%s", debug.Stack())
 		return nil, fmt.Errorf("Empty idStr")
 	}
 	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
@@ -298,7 +333,7 @@ func (manager *STenantCacheManager) Save(ctx context.Context, idStr string, name
 		obj.Domain = domain
 		obj.DomainId = domainId
 		obj.LastCheck = now
-		err = manager.TableSpec().InsertOrUpdate(obj)
+		err = manager.TableSpec().InsertOrUpdate(ctx, obj)
 		if err != nil {
 			return nil, errors.Wrap(err, "InsertOrUpdate")
 		} else {
@@ -318,7 +353,7 @@ func (manager *STenantCacheManager) Save(ctx context.Context, idStr string, name
 	}, nil
 }*/
 
-func (tenant *STenant) GetDomain() string {
+/*func (tenant *STenant) GetDomain() string {
 	if len(tenant.Domain) == 0 {
 		return identityapi.DEFAULT_DOMAIN_NAME
 	}
@@ -330,7 +365,7 @@ func (tenant *STenant) GetDomainId() string {
 		return identityapi.DEFAULT_DOMAIN_ID
 	}
 	return tenant.DomainId
-}
+}*/
 
 func (manager *STenantCacheManager) findFirstProjectOfDomain(domainId string) (*STenant, error) {
 	q := manager.Query().Equals("domain_id", domainId)
@@ -343,14 +378,14 @@ func (manager *STenantCacheManager) findFirstProjectOfDomain(domainId string) (*
 	return &tenant, nil
 }
 
-func (manager *STenantCacheManager) fetchDomainTenantsFromKeystone(domainId string) error {
+func (manager *STenantCacheManager) fetchDomainTenantsFromKeystone(ctx context.Context, domainId string) error {
 	if len(domainId) == 0 {
 		log.Debugf("fetch empty domain!!!!")
 		debug.PrintStack()
 		return fmt.Errorf("Empty domainId")
 	}
 
-	s := auth.GetAdminSession(context.Background(), consts.GetRegion(), "v1")
+	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
 	params := jsonutils.Marshal(map[string]string{"domain_id": domainId})
 	tenants, err := modules.Projects.List(s, params)
 	if err != nil {
@@ -361,7 +396,7 @@ func (manager *STenantCacheManager) fetchDomainTenantsFromKeystone(domainId stri
 		tenantName, _ := tenant.GetString("name")
 		domainId, _ := tenant.GetString("domain_id")
 		domainName, _ := tenant.GetString("project_domain")
-		_, err = manager.Save(context.Background(), tenantId, tenantName, domainId, domainName)
+		_, err = manager.Save(ctx, tenantId, tenantName, domainId, domainName)
 		if err != nil {
 			return err
 		}
@@ -369,11 +404,11 @@ func (manager *STenantCacheManager) fetchDomainTenantsFromKeystone(domainId stri
 	return nil
 }
 
-func (manager *STenantCacheManager) FindFirstProjectOfDomain(domainId string) (*STenant, error) {
+func (manager *STenantCacheManager) FindFirstProjectOfDomain(ctx context.Context, domainId string) (*STenant, error) {
 	tenant, err := manager.findFirstProjectOfDomain(domainId)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			err = manager.fetchDomainTenantsFromKeystone(domainId)
+			err = manager.fetchDomainTenantsFromKeystone(ctx, domainId)
 			if err != nil {
 				return nil, errors.Wrap(err, "fetchDomainTenantsFromKeystone")
 			}
@@ -382,4 +417,68 @@ func (manager *STenantCacheManager) FindFirstProjectOfDomain(domainId string) (*
 		return nil, errors.Wrap(err, "findFirstProjectOfDomain.queryFirst")
 	}
 	return tenant, nil
+}
+
+func (tenant *STenant) GetProjectId() string {
+	if tenant.IsDomain() {
+		return ""
+	} else {
+		return tenant.Id
+	}
+}
+
+func (tenant *STenant) GetTenantId() string {
+	return tenant.GetProjectId()
+}
+
+func (tenant *STenant) GetProjectDomainId() string {
+	if tenant.IsDomain() {
+		return tenant.Id
+	} else {
+		return tenant.DomainId
+	}
+}
+
+func (tenant *STenant) GetTenantName() string {
+	return tenant.GetProjectName()
+}
+
+func (tenant *STenant) GetProjectName() string {
+	if tenant.IsDomain() {
+		return ""
+	} else {
+		return tenant.Name
+	}
+}
+
+func (tenant *STenant) GetProjectDomain() string {
+	if tenant.IsDomain() {
+		return tenant.Name
+	} else {
+		return tenant.Domain
+	}
+}
+
+func (tenant *STenant) GetUserId() string {
+	return ""
+}
+
+func (tenant *STenant) GetUserName() string {
+	return ""
+}
+
+func (tenant *STenant) GetDomainId() string {
+	return ""
+}
+
+func (tenant *STenant) GetDomainName() string {
+	return ""
+}
+
+func (tenant *STenant) IsDomain() bool {
+	if tenant.DomainId == identityapi.KeystoneDomainRoot {
+		return true
+	} else {
+		return false
+	}
 }

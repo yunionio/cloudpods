@@ -36,11 +36,11 @@ func init() {
 	taskman.RegisterTask(LoadbalancerListenerStopTask{})
 }
 
-func (self *LoadbalancerListenerStopTask) taskFail(ctx context.Context, lblis *models.SLoadbalancerListener, reason string) {
-	lblis.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, reason)
+func (self *LoadbalancerListenerStopTask) taskFail(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
+	lblis.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, reason.String())
 	db.OpsLog.LogEvent(lblis, db.ACT_DISABLE, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_DISABLE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lblis.Id, lblis.Name, api.LB_STATUS_ENABLED, reason)
+	notifyclient.NotifySystemError(lblis.Id, lblis.Name, api.LB_STATUS_ENABLED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -48,12 +48,12 @@ func (self *LoadbalancerListenerStopTask) OnInit(ctx context.Context, obj db.ISt
 	lblis := obj.(*models.SLoadbalancerListener)
 	region := lblis.GetRegion()
 	if region == nil {
-		self.taskFail(ctx, lblis, fmt.Sprintf("failed to find region for lblis %s", lblis.Name))
+		self.taskFail(ctx, lblis, jsonutils.NewString(fmt.Sprintf("failed to find region for lblis %s", lblis.Name)))
 		return
 	}
 	self.SetStage("OnLoadbalancerListenerStopComplete", nil)
 	if err := region.GetDriver().RequestStopLoadbalancerListener(ctx, self.GetUserCred(), lblis, self); err != nil {
-		self.taskFail(ctx, lblis, err.Error())
+		self.taskFail(ctx, lblis, jsonutils.Marshal(err))
 	}
 }
 
@@ -65,5 +65,5 @@ func (self *LoadbalancerListenerStopTask) OnLoadbalancerListenerStopComplete(ctx
 }
 
 func (self *LoadbalancerListenerStopTask) OnLoadbalancerListenerStopCompleteFailed(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lblis, reason.String())
+	self.taskFail(ctx, lblis, reason)
 }

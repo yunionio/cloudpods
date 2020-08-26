@@ -36,10 +36,10 @@ type GuestDeleteBackupTask struct {
 	SGuestBaseTask
 }
 
-func (self *GuestDeleteBackupTask) OnFail(ctx context.Context, guest *models.SGuest, reason string) {
+func (self *GuestDeleteBackupTask) OnFail(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_DELETE_BACKUP, reason, self.UserCred, false)
 	db.OpsLog.LogEvent(guest, db.ACT_DELETE_BACKUP_FAILED, reason, self.UserCred)
-	guest.SetStatus(self.UserCred, compute.VM_BACKUP_DELETE_FAILED, reason)
+	guest.SetStatus(self.UserCred, compute.VM_BACKUP_DELETE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -47,7 +47,7 @@ func (self *GuestDeleteBackupTask) OnInit(ctx context.Context, obj db.IStandalon
 	guest := obj.(*models.SGuest)
 	host := models.HostManager.FetchHostById(guest.HostId)
 	if host == nil {
-		self.OnFail(ctx, guest, "Host not found")
+		self.OnFail(ctx, guest, jsonutils.NewString("Host not found"))
 		return
 	}
 
@@ -56,7 +56,7 @@ func (self *GuestDeleteBackupTask) OnInit(ctx context.Context, obj db.IStandalon
 	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(),
 		ctx, "POST", url, self.GetTaskRequestHeader(), nil, false)
 	if err != nil {
-		self.OnFail(ctx, guest, err.Error())
+		self.OnFail(ctx, guest, jsonutils.Marshal(err))
 		return
 	}
 }
@@ -70,16 +70,63 @@ func (self *GuestDeleteBackupTask) StartDeleteBackupOnHost(ctx context.Context, 
 	taskData.Set("purge", jsonutils.NewBool(jsonutils.QueryBoolean(self.Params, "purge", false)))
 	taskData.Set("host_id", jsonutils.NewString(guest.BackupHostId))
 	taskData.Set("failed_status", jsonutils.NewString(compute.VM_BACKUP_DELETE_FAILED))
+
+	self.SetStage("OnDeleteOnHost", nil)
 	if task, err := taskman.TaskManager.NewTask(
-		ctx, "GuestDeleteOnHostTask", guest, self.UserCred, taskData, "", "", nil); err != nil {
-		self.OnFail(ctx, guest, err.Error())
+		ctx, "GuestDeleteOnHostTask", guest, self.UserCred, taskData, self.GetId(), "", nil); err != nil {
+		self.OnFail(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	} else {
 		task.ScheduleRun(nil)
-		self.SetStageComplete(ctx, nil)
 	}
 }
 
 func (self *GuestDeleteBackupTask) OnCancelBlockJobsFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.OnFail(ctx, guest, data.String())
+	self.OnFail(ctx, guest, data)
+}
+
+func (self *GuestDeleteBackupTask) OnDeleteOnHost(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	if jsonutils.QueryBoolean(self.Params, "create", false) {
+		self.OnDeleteBackupComplete(ctx, guest, data)
+		self.SetStage("OnCreateNewBackup", nil)
+
+		params := jsonutils.NewDict()
+		params.Set("reconcile_backup", jsonutils.JSONTrue)
+		_, err := guest.StartGuestCreateBackupTask(ctx, self.UserCred, self.GetId(), params)
+		if err != nil {
+			self.onCreateNewBackupFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		}
+	} else {
+		self.TaskComplete(ctx, guest, data)
+	}
+}
+
+func (self *GuestDeleteBackupTask) OnCreateNewBackup(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_CREATE_BACKUP, "", self.UserCred, false)
+	db.OpsLog.LogEvent(guest, db.ACT_CREATE_BACKUP, "", self.UserCred)
+	self.SetStageComplete(ctx, nil)
+}
+
+func (self *GuestDeleteBackupTask) OnCreateNewBackupFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.onCreateNewBackupFailed(ctx, guest, data)
+}
+
+func (self *GuestDeleteBackupTask) onCreateNewBackupFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
+	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_CREATE_BACKUP, reason, self.UserCred, false)
+	db.OpsLog.LogEvent(guest, db.ACT_CREATE_BACKUP_FAILED, reason, self.UserCred)
+	self.SetStageFailed(ctx, reason)
+}
+
+func (self *GuestDeleteBackupTask) OnDeleteOnHostFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.OnFail(ctx, guest, data)
+}
+
+func (self *GuestDeleteBackupTask) OnDeleteBackupComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_DELETE_BACKUP, "", self.UserCred, true)
+	db.OpsLog.LogEvent(guest, db.ACT_DELETE_BACKUP, "", self.UserCred)
+}
+
+func (self *GuestDeleteBackupTask) TaskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.OnDeleteBackupComplete(ctx, guest, data)
+	self.SetStageComplete(ctx, nil)
 }

@@ -35,42 +35,60 @@ func NewResourceManager(keyword, keywordPlural string, columns, adminColumns *Co
 	return &ResourceManager{man}
 }
 
-type ClusterResourceManager struct {
+func (m ResourceManager) GetBaseManager() modulebase.ResourceManager {
+	return *m.ResourceManager
+}
+
+type IClusterResourceManager interface {
+	modulebase.Manager
+	GetRaw(s *mcclient.ClientSession, id string, params *jsonutils.JSONDict) (jsonutils.JSONObject, error)
+	UpdateRaw(s *mcclient.ClientSession, id string, query, body *jsonutils.JSONDict) (jsonutils.JSONObject, error)
+}
+
+type clusterResourceManager struct {
 	*ResourceManager
 }
 
-func NewClusterResourceManager(keyword, keywordPlural string, columns, adminColumns *Columns) *ClusterResourceManager {
+func newClusterResourceManager(keyword, keywordPlural string, columns, adminColumns *Columns) *clusterResourceManager {
 	newAdminCols := NewClusterCols(adminColumns.Array()...)
 	man := NewResourceManager(keyword, keywordPlural, columns, newAdminCols)
-	return &ClusterResourceManager{man}
+	return &clusterResourceManager{man}
 }
 
-func (man ClusterResourceManager) GetCluster(obj jsonutils.JSONObject) interface{} {
+func (man clusterResourceManager) Get_Cluster(obj jsonutils.JSONObject) interface{} {
 	cluster, _ := obj.GetString("cluster")
 	return cluster
 }
 
-type MetaResourceManager struct {
-	*ClusterResourceManager
+func (man clusterResourceManager) GetRaw(s *mcclient.ClientSession, id string, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
+	return man.GetSpecific(s, id, "rawdata", params)
+}
+
+func (man clusterResourceManager) UpdateRaw(s *mcclient.ClientSession, id string, query, rawdata *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
+	return man.PutSpecific(s, id, "rawdata", query, rawdata)
+}
+
+type ClusterResourceManager struct {
+	*clusterResourceManager
 	nameGetter
 	ageGetter
 	labelGetter
 }
 
-func NewMetaResourceManager(kw, kwp string, columns, adminColumns *Columns) *MetaResourceManager {
+func NewClusterResourceManager(kw, kwp string, columns, adminColumns *Columns) *ClusterResourceManager {
 	newCols := NewMetaCols(columns.Array()...)
-	man := NewClusterResourceManager(kw, kwp, newCols, adminColumns)
-	return &MetaResourceManager{man, getName, getAge, getLabel}
+	man := newClusterResourceManager(kw, kwp, newCols, adminColumns)
+	return &ClusterResourceManager{man, getName, getAge, getLabel}
 }
 
 type NamespaceResourceManager struct {
-	*MetaResourceManager
+	*ClusterResourceManager
 	namespaceGetter
 }
 
 func NewNamespaceResourceManager(kw, kwp string, columns, adminColumns *Columns) *NamespaceResourceManager {
 	newCols := NewNamespaceCols(columns.Array()...)
-	man := NewMetaResourceManager(kw, kwp, newCols, adminColumns)
+	man := NewClusterResourceManager(kw, kwp, newCols, adminColumns)
 	return &NamespaceResourceManager{man, getNamespace}
 }
 
@@ -104,7 +122,7 @@ func (c Columns) Array() []string {
 }
 
 func NewNameCols(col ...string) *Columns {
-	return NewColumns("Name").Add(col...)
+	return NewColumns("Name", "Id").Add(col...)
 }
 
 func NewMetaCols(col ...string) *Columns {
@@ -120,7 +138,7 @@ func NewClusterCols(col ...string) *Columns {
 }
 
 func NewResourceCols(col ...string) *Columns {
-	return NewNameCols("Id").Add(col...)
+	return NewNameCols("ID").Add(col...)
 }
 
 type ListPrinter interface {

@@ -15,12 +15,14 @@
 package qcloud
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -37,7 +39,10 @@ type SLBListenerRule struct {
 }
 
 // https://cloud.tencent.com/document/api/214/30688
-func (self *SLBListenerRule) Delete() error {
+func (self *SLBListenerRule) Delete(ctx context.Context) error {
+	lockman.LockRawObject(ctx, "qcloud.SLBListenerRule.Delete", self.listener.lb.region.client.ownerId)
+	defer lockman.ReleaseRawObject(ctx, "qcloud.SLBListenerRule.Delete", self.listener.lb.region.client.ownerId)
+
 	_, err := self.listener.lb.region.DeleteLBListenerRule(self.listener.lb.GetId(), self.listener.GetId(), self.GetId())
 	if err != nil {
 		return err

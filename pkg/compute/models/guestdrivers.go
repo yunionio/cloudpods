@@ -58,6 +58,7 @@ type IGuestDriver interface {
 
 	GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, host *SHost) jsonutils.JSONObject
 
+	ValidateImage(ctx context.Context, image *cloudprovider.SImage) error
 	ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *api.ServerCreateInput) (*api.ServerCreateInput, error)
 
 	ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
@@ -66,7 +67,7 @@ type IGuestDriver interface {
 
 	PrepareDiskRaidConfig(userCred mcclient.TokenCredential, host *SHost, params []*api.BaremetalDiskConfig, disks []*api.DiskConfig) ([]*api.DiskConfig, error)
 
-	GetNamedNetworkConfiguration(guest *SGuest, userCred mcclient.TokenCredential, host *SHost, netConfig *api.NetworkConfig) (*SNetwork, []SNicConfig, api.IPAllocationDirection)
+	GetNamedNetworkConfiguration(guest *SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *api.NetworkConfig) (*SNetwork, []SNicConfig, api.IPAllocationDirection, bool)
 
 	Attach2RandomNetwork(guest *SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *api.NetworkConfig, pendingUsage quotas.IQuota) ([]SGuestnetwork, error)
 	GetRandomNetworkTypes() []string
@@ -88,6 +89,7 @@ type IGuestDriver interface {
 
 	RequestDeployGuestOnHost(ctx context.Context, guest *SGuest, host *SHost, task taskman.ITask) error
 	RemoteDeployGuestForCreate(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, host *SHost, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error)
+	RemoteActionAfterGuestCreated(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, host *SHost, iVM cloudprovider.ICloudVM, desc *cloudprovider.SManagedVMCreateConfig)
 	RemoteDeployGuestForDeploy(ctx context.Context, guest *SGuest, ihost cloudprovider.ICloudHost, task taskman.ITask, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error)
 	RemoteDeployGuestForRebuildRoot(ctx context.Context, guest *SGuest, ihost cloudprovider.ICloudHost, task taskman.ITask, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error)
 	GetGuestInitialStateAfterCreate() string
@@ -132,12 +134,13 @@ type IGuestDriver interface {
 	GetDetachDiskStatus() ([]string, error)
 	GetAttachDiskStatus() ([]string, error)
 	GetRebuildRootStatus() ([]string, error)
-	GetChangeConfigStatus() ([]string, error)
+	GetChangeConfigStatus(guest *SGuest) ([]string, error)
 	GetDeployStatus() ([]string, error)
 	ValidateResizeDisk(guest *SGuest, disk *SDisk, storage *SStorage) error
 	CanKeepDetachDisk() bool
 	IsNeedRestartForResetLoginInfo() bool
 	IsRebuildRootSupportChangeImage() bool
+	IsRebuildRootSupportChangeUEFI() bool
 
 	RequestDeleteDetachedDisk(ctx context.Context, disk *SDisk, task taskman.ITask, isPurge bool) error
 	StartGuestDetachdiskTask(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, params *jsonutils.JSONDict, parentTaskId string) error
@@ -177,9 +180,22 @@ type IGuestDriver interface {
 
 	IsNeedInjectPasswordByCloudInit(desc *cloudprovider.SManagedVMCreateConfig) bool
 	GetUserDataType() string
+	GetWindowsUserDataType() string
+	IsWindowsUserDataTypeNeedEncode() bool
 	CancelExpireTime(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest) error
 
 	IsSupportCdrom(guest *SGuest) (bool, error)
+	IsSupportPublicipToEip() bool
+	RequestConvertPublicipToEip(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, task taskman.ITask) error
+
+	IsSupportSetAutoRenew() bool
+	RequestSetAutoRenewInstance(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, autoRenew bool, task taskman.ITask) error
+	IsSupportMigrate() bool
+	IsSupportLiveMigrate() bool
+	CheckMigrate(guest *SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput) error
+	CheckLiveMigrate(guest *SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput) error
+	RequestMigrate(ctx context.Context, guest *SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error
+	RequestLiveMigrate(ctx context.Context, guest *SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error
 }
 
 var guestDrivers map[string]IGuestDriver
@@ -199,4 +215,14 @@ func GetDriver(hypervisor string) IGuestDriver {
 	} else {
 		panic(fmt.Sprintf("Unsupported hypervisor %q", hypervisor))
 	}
+}
+
+func GetNotSupportAutoRenewHypervisors() []string {
+	hypervisors := []string{}
+	for hypervisor, driver := range guestDrivers {
+		if !driver.IsSupportSetAutoRenew() {
+			hypervisors = append(hypervisors, hypervisor)
+		}
+	}
+	return hypervisors
 }

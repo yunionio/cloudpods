@@ -41,6 +41,8 @@ const (
 	APP_CONTEXT_KEY_START_TIME      = AppContextKey("starttime")
 
 	APP_CONTEXT_KEY_HOST_ID = AppContextKey("hostid")
+
+	APP_CONTEXT_KEY_AUTH_TOKEN = AppContextKey("X_AUTH_TOKEN")
 )
 
 func AppContextServiceName(ctx context.Context) string {

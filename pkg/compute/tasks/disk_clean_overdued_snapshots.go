@@ -43,13 +43,13 @@ func (self *DiskCleanOverduedSnapshots) OnInit(ctx context.Context, obj db.IStan
 	spId, _ := self.Params.GetString("snapshotpolicy_id")
 	sp, _ := models.SnapshotPolicyManager.FetchSnapshotPolicyById(spId)
 	if sp == nil {
-		self.SetStageFailed(ctx, "missing snapshot policy ???")
+		self.SetStageFailed(ctx, jsonutils.NewString("missing snapshot policy ???"))
 		return
 	}
 
 	now, err := self.Params.GetTime("start_time")
 	if err != nil {
-		self.SetStageFailed(ctx, "failed to get start time")
+		self.SetStageFailed(ctx, jsonutils.NewString("failed to get start time"))
 		return
 	}
 
@@ -71,7 +71,7 @@ func (self *DiskCleanOverduedSnapshots) OnInit(ctx context.Context, obj db.IStan
 		snapCount, err = models.SnapshotManager.Query().Equals("fake_deleted", false).Equals("disk_id", disk.Id).
 			Equals("created_by", compute.SNAPSHOT_AUTO).LT("created_at", t).CountWithError()
 		if err != nil {
-			self.SetStageFailed(ctx, err.Error())
+			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 			return
 		}
 		cleanOverdueSnapshots = snapCount > 0
@@ -86,13 +86,13 @@ func (self *DiskCleanOverduedSnapshots) OnInit(ctx context.Context, obj db.IStan
 	err = models.SnapshotManager.Query().Equals("disk_id", disk.Id).
 		Equals("created_by", compute.SNAPSHOT_AUTO).Equals("fake_deleted", false).Asc("created_at").First(snapshot)
 	if err != nil {
-		self.SetStageFailed(ctx, err.Error())
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return
 	}
 	snapshot.SetModelManager(models.SnapshotManager, snapshot)
 	err = snapshot.StartSnapshotDeleteTask(ctx, self.UserCred, false, self.Id)
 	if err != nil {
-		self.SetStageFailed(ctx, err.Error())
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return
 	}
 }
@@ -104,7 +104,7 @@ type SnapshotCleanupTask struct {
 func (self *SnapshotCleanupTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	now, err := self.Params.GetTime("tick")
 	if err != nil {
-		self.SetStageFailed(ctx, "failed get tick")
+		self.SetStageFailed(ctx, jsonutils.NewString("failed get tick"))
 		return
 	}
 	var snapshots = make([]models.SSnapshot, 0)
@@ -116,7 +116,7 @@ func (self *SnapshotCleanupTask) OnInit(ctx context.Context, obj db.IStandaloneM
 		self.SetStageComplete(ctx, nil)
 		return
 	} else if err != nil {
-		self.SetStageFailed(ctx, fmt.Sprintf("failed get snapshot %s", err))
+		self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("failed get snapshot %s", err)))
 		return
 	}
 	self.StartSnapshotsDelete(ctx, snapshots)
@@ -145,7 +145,7 @@ func (self *SnapshotCleanupTask) OnDeleteSnapshot(ctx context.Context, obj db.IS
 	var snapshots = make([]models.SSnapshot, 0)
 	err := self.Params.Unmarshal(&snapshots, "snapshots")
 	if err != nil {
-		self.SetStageFailed(ctx, err.Error())
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return
 	}
 	if len(snapshots) > 0 {

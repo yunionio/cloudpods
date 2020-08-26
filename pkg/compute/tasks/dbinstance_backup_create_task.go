@@ -38,9 +38,13 @@ func init() {
 
 func (self *DBInstanceBackupCreateTask) taskFailed(ctx context.Context, backup *models.SDBInstanceBackup, err error) {
 	backup.SetStatus(self.UserCred, api.DBINSTANCE_BACKUP_CREATE_FAILED, err.Error())
-	db.OpsLog.LogEvent(backup, db.ACT_CREATE, err.Error(), self.GetUserCred())
-	logclient.AddActionLogWithStartable(self, backup, logclient.ACT_CREATE, err.Error(), self.UserCred, false)
-	self.SetStageFailed(ctx, err.Error())
+	db.OpsLog.LogEvent(backup, db.ACT_CREATE, err, self.GetUserCred())
+	logclient.AddActionLogWithStartable(self, backup, logclient.ACT_CREATE, err, self.UserCred, false)
+	instance, _ := backup.GetDBInstance()
+	if instance != nil {
+		instance.SetStatus(self.UserCred, api.DBINSTANCE_BACKING_UP_FAILED, err.Error())
+	}
+	self.SetStageFailed(ctx, jsonutils.Marshal(err))
 }
 
 func (self *DBInstanceBackupCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -56,7 +60,11 @@ func (self *DBInstanceBackupCreateTask) CreateDBInstanceBackup(ctx context.Conte
 	}
 
 	self.SetStage("OnCreateDBInstanceBackupComplete", nil)
-	instance.GetRegion().GetDriver().RequestCreateDBInstanceBackup(ctx, self.UserCred, instance, backup, self)
+	err = instance.GetRegion().GetDriver().RequestCreateDBInstanceBackup(ctx, self.UserCred, instance, backup, self)
+	if err != nil {
+		self.taskFailed(ctx, backup, errors.Wrap(err, "RequestCreateDBInstanceBackup"))
+		return
+	}
 }
 
 func (self *DBInstanceBackupCreateTask) OnCreateDBInstanceBackupComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

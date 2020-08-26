@@ -16,14 +16,23 @@ package modules
 
 import (
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/requests"
 )
 
 type SNatGatewayManager struct {
 	SResourceManager
 }
 
+type sProjectHook struct {
+	projectId string
+}
+
+func (self *sProjectHook) Process(request requests.IRequest) {
+	request.AddHeaderParam("X-Project-Id", self.projectId)
+}
+
 func NewNatGatewayManager(regionId string, projectId string, signer auth.Signer, debug bool) *SNatGatewayManager {
-	return &SNatGatewayManager{SResourceManager: SResourceManager{
+	man := &SNatGatewayManager{SResourceManager: SResourceManager{
 		SBaseManager:  NewBaseManager(signer, debug),
 		ServiceName:   ServiceNameNAT,
 		Region:        regionId,
@@ -34,4 +43,8 @@ func NewNatGatewayManager(regionId string, projectId string, signer auth.Signer,
 
 		ResourceKeyword: "nat_gateways",
 	}}
+	if len(projectId) > 0 {
+		man.requestHook = &sProjectHook{projectId}
+	}
+	return man
 }

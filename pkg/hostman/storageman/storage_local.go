@@ -77,6 +77,10 @@ func (s *SLocalStorage) GetSnapshotPathByIds(diskId, snapshotId string) string {
 	return path.Join(s.GetSnapshotDir(), diskId+options.HostOptions.SnapshotDirSuffix, snapshotId)
 }
 
+func (s *SLocalStorage) IsSnapshotExist(diskId, snapshotId string) (bool, error) {
+	return fileutils2.Exists(s.GetSnapshotPathByIds(diskId, snapshotId)), nil
+}
+
 func (s *SLocalStorage) GetComposedName() string {
 	return fmt.Sprintf("host_%s_%s_storage_%d", s.Manager.host.GetMasterIp(), s.StorageType(), s.Index)
 }
@@ -142,17 +146,32 @@ func (s *SLocalStorage) CreateDisk(diskId string) IDisk {
 	return disk
 }
 
-func (s *SLocalStorage) Accessible() bool {
-	if !fileutils2.Exists(s.Path) {
-		if err := procutils.NewCommand("mkdir", "-p", s.Path).Run(); err != nil {
-			log.Errorln(err)
+func (s *SLocalStorage) Accessible() error {
+	var c = make(chan error)
+	go func() {
+		if !fileutils2.Exists(s.Path) {
+			if err := procutils.NewCommand("mkdir", "-p", s.Path).Run(); err != nil {
+				c <- err
+				return
+			}
 		}
+		if !fileutils2.IsDir(s.Path) {
+			c <- fmt.Errorf("path %s isn't directory", s.Path)
+		}
+		if !fileutils2.Writable(s.Path) {
+			c <- fmt.Errorf("dir %s not writable", s.Path)
+		}
+		c <- nil
+	}()
+	var err error
+	select {
+	case err = <-c:
+		break
+	case <-time.After(time.Second * 10):
+		err = ErrStorageTimeout
 	}
-	if fileutils2.IsDir(s.Path) && fileutils2.Writable(s.Path) {
-		return true
-	} else {
-		return false
-	}
+	return err
+
 }
 
 func (s *SLocalStorage) DeleteDiskfile(diskpath string) error {
@@ -323,86 +342,83 @@ func (s *SLocalStorage) DeleteSnapshots(ctx context.Context, params interface{})
 
 func (s *SLocalStorage) DestinationPrepareMigrate(
 	ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string,
-	desc, disksBackingFile, srcSnapshots jsonutils.JSONObject, rebaseDisks bool) error {
-	disks, _ := desc.GetArray("disks")
-	for i, diskinfo := range disks {
-		var (
-			diskId, _    = diskinfo.GetString("disk_id")
-			snapshots, _ = srcSnapshots.GetArray(diskId)
-			disk         = s.CreateDisk(diskId)
-		)
+	disksBackingFile, srcSnapshots jsonutils.JSONObject, rebaseDisks bool, diskinfo jsonutils.JSONObject) error {
+	var (
+		diskId, _    = diskinfo.GetString("disk_id")
+		snapshots, _ = srcSnapshots.GetArray(diskId)
+		disk         = s.CreateDisk(diskId)
+	)
 
-		if disk == nil {
-			return fmt.Errorf(
-				"Storage %s create disk %s failed", s.GetId(), diskId)
-		}
+	if disk == nil {
+		return fmt.Errorf(
+			"Storage %s create disk %s failed", s.GetId(), diskId)
+	}
 
-		templateId, _ := diskinfo.GetString("template_id")
-		// prepare disk snapshot dir
-		if len(snapshots) > 0 && !fileutils2.Exists(disk.GetSnapshotDir()) {
-			_, err := procutils.NewCommand("mkdir", "-p", disk.GetSnapshotDir()).Output()
-			if err != nil {
-				return err
-			}
+	templateId, _ := diskinfo.GetString("template_id")
+	// prepare disk snapshot dir
+	if len(snapshots) > 0 && !fileutils2.Exists(disk.GetSnapshotDir()) {
+		_, err := procutils.NewCommand("mkdir", "-p", disk.GetSnapshotDir()).Output()
+		if err != nil {
+			return err
 		}
+	}
 
-		// create snapshots form remote url
-		var (
-			diskStorageId, _ = diskinfo.GetString("storage_id")
-			baseImagePath    string
-		)
-		for i, snapshotId := range snapshots {
-			snapId, _ := snapshotId.GetString()
-			snapshotUrl := fmt.Sprintf("%s/%s/%s/%s",
-				snapshotsUri, diskStorageId, diskId, snapId)
-			snapshotPath := path.Join(disk.GetSnapshotDir(), snapId)
-			log.Infof("Disk %s snapshot %s url: %s", diskId, snapId, snapshotUrl)
-			if err := s.CreateSnapshotFormUrl(ctx, snapshotUrl, diskId, snapshotPath); err != nil {
-				return errors.Wrap(err, "create from snapshot url failed")
-			}
-			baseImagePath = snapshotPath
-			if i == 0 && len(templateId) > 0 {
-				templatePath := path.Join(storageManager.LocalStorageImagecacheManager.GetPath(), templateId)
-				if err := doRebaseDisk(snapshotPath, templatePath); err != nil {
-					return err
-				}
-			} else if rebaseDisks {
-				if err := doRebaseDisk(snapshotPath, baseImagePath); err != nil {
-					return err
-				}
-			}
+	// create snapshots form remote url
+	var (
+		diskStorageId, _ = diskinfo.GetString("storage_id")
+		baseImagePath    string
+	)
+	for i, snapshotId := range snapshots {
+		snapId, _ := snapshotId.GetString()
+		snapshotUrl := fmt.Sprintf("%s/%s/%s/%s",
+			snapshotsUri, diskStorageId, diskId, snapId)
+		snapshotPath := path.Join(disk.GetSnapshotDir(), snapId)
+		log.Infof("Disk %s snapshot %s url: %s", diskId, snapId, snapshotUrl)
+		if err := s.CreateSnapshotFormUrl(ctx, snapshotUrl, diskId, snapshotPath); err != nil {
+			return errors.Wrap(err, "create from snapshot url failed")
 		}
-
-		if liveMigrate {
-			// create local disk
-			backingFile, _ := disksBackingFile.GetString(diskId)
-			size, _ := diskinfo.Int("size")
-			_, err := disk.CreateRaw(ctx, int(size), "qcow2", "", false, "", backingFile)
-			if err != nil {
-				log.Errorln(err)
-				return err
-			}
-		} else {
-			// download disk form remote url
-			diskUrl := fmt.Sprintf("%s/%s/%s", disksUri, diskStorageId, diskId)
-			if err := disk.CreateFromUrl(ctx, diskUrl, 0); err != nil {
-				log.Errorln(err)
-				return err
-			}
-		}
-		if rebaseDisks && len(templateId) > 0 && len(baseImagePath) == 0 {
+		if i == 0 && len(templateId) > 0 {
 			templatePath := path.Join(storageManager.LocalStorageImagecacheManager.GetPath(), templateId)
-			if err := doRebaseDisk(disk.GetPath(), templatePath); err != nil {
+			if err := doRebaseDisk(snapshotPath, templatePath); err != nil {
 				return err
 			}
 		} else if rebaseDisks && len(baseImagePath) > 0 {
-			if err := doRebaseDisk(disk.GetPath(), baseImagePath); err != nil {
+			if err := doRebaseDisk(snapshotPath, baseImagePath); err != nil {
 				return err
 			}
 		}
-		diskDesc, _ := disks[i].(*jsonutils.JSONDict)
-		diskDesc.Set("path", jsonutils.NewString(disk.GetPath()))
+		baseImagePath = snapshotPath
 	}
+
+	if liveMigrate {
+		// create local disk
+		backingFile, _ := disksBackingFile.GetString(diskId)
+		size, _ := diskinfo.Int("size")
+		_, err := disk.CreateRaw(ctx, int(size), "qcow2", "", false, "", backingFile)
+		if err != nil {
+			log.Errorln(err)
+			return err
+		}
+	} else {
+		// download disk form remote url
+		diskUrl := fmt.Sprintf("%s/%s/%s", disksUri, diskStorageId, diskId)
+		if err := disk.CreateFromUrl(ctx, diskUrl, 0); err != nil {
+			log.Errorln(err)
+			return err
+		}
+	}
+	if rebaseDisks && len(templateId) > 0 && len(baseImagePath) == 0 {
+		templatePath := path.Join(storageManager.LocalStorageImagecacheManager.GetPath(), templateId)
+		if err := doRebaseDisk(disk.GetPath(), templatePath); err != nil {
+			return err
+		}
+	} else if rebaseDisks && len(baseImagePath) > 0 {
+		if err := doRebaseDisk(disk.GetPath(), baseImagePath); err != nil {
+			return err
+		}
+	}
+	diskDesc, _ := diskinfo.(*jsonutils.JSONDict)
+	diskDesc.Set("path", jsonutils.NewString(disk.GetPath()))
 	return nil
 }
 

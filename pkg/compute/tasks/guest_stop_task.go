@@ -50,31 +50,12 @@ func (self *GuestStopTask) stopGuest(ctx context.Context, guest *models.SGuest) 
 	if !self.IsSubtask() {
 		guest.SetStatus(self.UserCred, api.VM_STOPPING, "")
 	}
-	self.SetStage("OnMasterStopTaskComplete", nil)
+	self.SetStage("OnGuestStopTaskComplete", nil)
 	err := guest.GetDriver().RequestStopOnHost(ctx, guest, host, self)
 	if err != nil {
 		log.Errorf("RequestStopOnHost fail %s", err)
 		self.OnGuestStopTaskCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 	}
-}
-
-func (self *GuestStopTask) OnMasterStopTaskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	if len(guest.BackupHostId) > 0 {
-		host := models.HostManager.FetchHostById(guest.BackupHostId)
-		self.SetStage("OnGuestStopTaskComplete", nil)
-		err := guest.GetDriver().RequestStopOnHost(ctx, guest, host, self)
-		if err != nil {
-			log.Errorf("RequestStopOnHost fail %s", err)
-			self.OnGuestStopTaskCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
-		}
-	} else {
-		self.OnGuestStopTaskComplete(ctx, guest, data)
-	}
-}
-
-func (self *GuestStopTask) OnMasterStopTaskCompleteFailed(ctx context.Context, obj db.IStandaloneModel, reason jsonutils.JSONObject) {
-	guest := obj.(*models.SGuest)
-	self.OnGuestStopTaskCompleteFailed(ctx, guest, reason)
 }
 
 func (self *GuestStopTask) OnGuestStopTaskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -96,6 +77,6 @@ func (self *GuestStopTask) OnGuestStopTaskCompleteFailed(ctx context.Context, gu
 		guest.SetStatus(self.UserCred, api.VM_STOP_FAILED, reason.String())
 	}
 	db.OpsLog.LogEvent(guest, db.ACT_STOP_FAIL, reason.String(), self.UserCred)
-	self.SetStageFailed(ctx, reason.String())
+	self.SetStageFailed(ctx, reason)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_STOP, reason.String(), self.UserCred, false)
 }

@@ -35,11 +35,11 @@ func init() {
 	taskman.RegisterTask(SnapshotPolicyDeleteTask{})
 }
 
-func (self *SnapshotPolicyDeleteTask) taskFail(ctx context.Context, sp *models.SSnapshotPolicy, reason string) {
-	sp.SetStatus(self.GetUserCred(), api.SNAPSHOT_POLICY_DELETE_FAILED, reason)
+func (self *SnapshotPolicyDeleteTask) taskFail(ctx context.Context, sp *models.SSnapshotPolicy, reason jsonutils.JSONObject) {
+	sp.SetStatus(self.GetUserCred(), api.SNAPSHOT_POLICY_DELETE_FAILED, reason.String())
 	db.OpsLog.LogEvent(sp, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, sp, logclient.ACT_DELOCATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(sp.Id, sp.Name, api.SNAPSHOT_POLICY_DELETE_FAILED, reason)
+	notifyclient.NotifySystemError(sp.Id, sp.Name, api.SNAPSHOT_POLICY_DELETE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -47,7 +47,7 @@ func (self *SnapshotPolicyDeleteTask) OnInit(ctx context.Context, obj db.IStanda
 	sp := obj.(*models.SSnapshotPolicy)
 	err := models.SnapshotPolicyCacheManager.DeleteCloudSnapshotPolices(ctx, self.UserCred, sp.GetId())
 	if err != nil {
-		self.taskFail(ctx, sp, err.Error())
+		self.taskFail(ctx, sp, jsonutils.NewString(err.Error()))
 		return
 	}
 	self.OnSnapshotPolicyDeleteComplete(ctx, sp, data)
@@ -61,5 +61,5 @@ func (self *SnapshotPolicyDeleteTask) OnSnapshotPolicyDeleteComplete(ctx context
 }
 
 func (self *SnapshotPolicyDeleteTask) OnSnapshotPolicyDeleteCompleteFailed(ctx context.Context, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) {
-	self.taskFail(ctx, sp, data.String())
+	self.taskFail(ctx, sp, data)
 }

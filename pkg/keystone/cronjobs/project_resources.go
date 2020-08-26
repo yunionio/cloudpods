@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/keystone/models"
@@ -45,16 +46,16 @@ type sServiceEndpoints struct {
 	external  string
 }
 
-func FetchProjectResourceCount(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	//log.Debugf("FetchProjectResourceCount")
+func FetchScopeResourceCount(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	log.Debugf("FetchScopeResourceCount")
 	eps, err := models.EndpointManager.FetchAll()
 	if err != nil {
 		return
 	}
 	serviceTbl := make(map[string]*sServiceEndpoints)
 	for _, ep := range eps {
-		if ep.ServiceType == api.SERVICE_TYPE {
-			// skip self
+		if ep.ServiceType == apis.SERVICE_TYPE_KEYSTONE || ep.ServiceType == apis.SERVICE_TYPE_OFFLINE_CLOUDMETA {
+			// skip self and offline cloudmeta
 			continue
 		}
 		key := fmt.Sprintf("%s-%s", ep.RegionId, ep.ServiceId)
@@ -81,11 +82,10 @@ func FetchProjectResourceCount(ctx context.Context, userCred mcclient.TokenCrede
 		if url == "" {
 			url = ep.external
 		}
-		url = httputils.JoinPath(url, "project-resources")
+		url = httputils.JoinPath(url, "scope-resources")
 		tk, _ := tokens.GetDefaultToken()
 		hdr := http.Header{}
 		hdr.Add("X-Auth-Token", tk)
-		// log.Debugf("request %s", url)
 		_, ret, err := httputils.JSONRequest(
 			httputils.GetDefaultClient(),
 			ctx, "GET",
@@ -106,49 +106,68 @@ func FetchProjectResourceCount(ctx context.Context, userCred mcclient.TokenCrede
 		if _, ok := serviceBlackList[srvId]; ok {
 			delete(serviceBlackList, srvId)
 		}
-		projectResCounts := make(map[string][]db.SProjectResourceCount)
+		projectResCounts := make(map[string][]db.SScopeResourceCount)
 		err = ret.Unmarshal(&projectResCounts)
 		if err != nil {
 			continue
 		}
-		syncProjectResourceCount(ep.regionId, ep.serviceId, projectResCounts)
+		syncScopeResourceCount(ctx, ep.regionId, ep.serviceId, projectResCounts)
 	}
 }
 
-func syncProjectResourceCount(regionId string, serviceId string, projResCnt map[string][]db.SProjectResourceCount) {
+func syncScopeResourceCount(ctx context.Context, regionId string, serviceId string, projResCnt map[string][]db.SScopeResourceCount) {
 	projList := make([]string, 0)
+	domainList := []string{}
+	ownerList := []string{}
 	for res, resCnts := range projResCnt {
 		for i := range resCnts {
-			if resCnts[i].TenantId == "" {
+			if len(resCnts[i].TenantId) == 0 && len(resCnts[i].DomainId) == 0 && len(resCnts[i].OwnerId) == 0 {
 				continue
 			}
 
-			projRes := models.SProjectResource{}
-			projRes.ProjectId = resCnts[i].TenantId
-			projRes.RegionId = regionId
-			projRes.ServiceId = serviceId
-			projRes.Resource = res
-			projRes.Count = resCnts[i].ResCount
+			scopeRes := models.SScopeResource{
+				DomainId:  resCnts[i].DomainId,
+				ProjectId: resCnts[i].TenantId,
+				OwnerId:   resCnts[i].OwnerId,
+			}
+			scopeRes.RegionId = regionId
+			scopeRes.ServiceId = serviceId
+			scopeRes.Resource = res
+			scopeRes.Count = resCnts[i].ResCount
 
-			projList = append(projList, resCnts[i].TenantId)
+			if len(scopeRes.ProjectId) > 0 {
+				projList = append(projList, scopeRes.ProjectId)
+			}
+			if len(scopeRes.DomainId) > 0 {
+				domainList = append(domainList, scopeRes.DomainId)
+			}
+			if len(scopeRes.OwnerId) > 0 {
+				ownerList = append(ownerList, scopeRes.OwnerId)
+			}
 
-			err := models.ProjectResourceManager.TableSpec().InsertOrUpdate(&projRes)
+			err := models.ScopeResourceManager.TableSpec().InsertOrUpdate(ctx, &scopeRes)
 			if err != nil {
 				log.Errorf("table insert error %s", err)
 			}
 		}
 
-		q := models.ProjectResourceManager.Query()
+		q := models.ScopeResourceManager.Query()
 		if len(projList) > 0 {
 			q = q.NotIn("project_id", projList)
+		}
+		if len(domainList) > 0 {
+			q = q.NotIn("domain_id", domainList)
+		}
+		if len(ownerList) > 0 {
+			q = q.NotIn("owner_id", ownerList)
 		}
 		q = q.Equals("region_id", regionId)
 		q = q.Equals("service_id", serviceId)
 		q = q.Equals("resource", res)
 		q = q.NotEquals("count", 0)
 
-		emptySets := make([]models.SProjectResource, 0)
-		err := db.FetchModelObjects(models.ProjectResourceManager, q, &emptySets)
+		emptySets := make([]models.SScopeResource, 0)
+		err := db.FetchModelObjects(models.ScopeResourceManager, q, &emptySets)
 		if err != nil {
 			log.Errorf("db.FetchModelObjects %s", err)
 		}

@@ -35,16 +35,47 @@ func init() {
 		return nil
 	})
 
-	type DiskShowOptions struct {
+	type DiskIdOptions struct {
 		ID string
 	}
-	shellutils.R(&DiskShowOptions{}, "disk-show", "Show disk", func(cli *google.SRegion, args *DiskShowOptions) error {
+	shellutils.R(&DiskIdOptions{}, "disk-show", "Show disk", func(cli *google.SRegion, args *DiskIdOptions) error {
 		disk, err := cli.GetDisk(args.ID)
 		if err != nil {
 			return err
 		}
 		printObject(disk)
 		return nil
+	})
+
+	shellutils.R(&DiskIdOptions{}, "disk-delete", "Delete disk", func(cli *google.SRegion, args *DiskIdOptions) error {
+		return cli.Delete(args.ID)
+	})
+
+	type DiskCreateOptions struct {
+		NAME         string
+		Desc         string
+		ZONE         string
+		SIZE_GB      int
+		Image        string
+		STORAGE_TYPE string `choices:"pd-standard|pd-ssd"`
+	}
+
+	shellutils.R(&DiskCreateOptions{}, "disk-create", "Create disks", func(cli *google.SRegion, args *DiskCreateOptions) error {
+		disk, err := cli.CreateDisk(args.NAME, args.SIZE_GB, args.ZONE, args.STORAGE_TYPE, args.Image, args.Desc)
+		if err != nil {
+			return err
+		}
+		printObject(disk)
+		return nil
+	})
+
+	type DiskResizeOptions struct {
+		ID      string
+		SIZE_GB int
+	}
+
+	shellutils.R(&DiskResizeOptions{}, "disk-resize", "Resize disk", func(cli *google.SRegion, args *DiskResizeOptions) error {
+		return cli.ResizeDisk(args.ID, args.SIZE_GB)
 	})
 
 	type RegionDiskListOptions struct {

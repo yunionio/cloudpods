@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -77,10 +78,18 @@ func (self *SAwsGuestDriver) IsNeedInjectPasswordByCloudInit(desc *cloudprovider
 	return true
 }
 
+func (self *SAwsGuestDriver) IsWindowsUserDataTypeNeedEncode() bool {
+	return true
+}
+
+func (self *SAwsGuestDriver) GetWindowsUserDataType() string {
+	return cloudprovider.CLOUD_EC2
+}
+
 func (self *SAwsGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
 	// return fetchAwsUserName(desc)
 	if desc.OsType == "Windows" {
-		return "Administrator"
+		return api.VM_AWS_DEFAULT_WINDOWS_LOGIN_USER
 	}
 
 	return api.VM_AWS_DEFAULT_LOGIN_USER
@@ -96,10 +105,11 @@ func (self *SAwsGuestDriver) GetProvider() string {
 
 func (self *SAwsGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
 	keys := models.SComputeResourceKeys{}
-	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
+	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_PUBLIC_CLOUD
 	keys.Provider = api.CLOUD_PROVIDER_AWS
-	// ignore brand
+	keys.Brand = api.CLOUD_PROVIDER_AWS
+	keys.Hypervisor = api.HYPERVISOR_AWS
 	return keys
 }
 
@@ -137,7 +147,7 @@ func (self *SAwsGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
-func (self *SAwsGuestDriver) GetChangeConfigStatus() ([]string, error) {
+func (self *SAwsGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 
@@ -146,6 +156,23 @@ func (self *SAwsGuestDriver) GetDeployStatus() ([]string, error) {
 }
 
 func (self *SAwsGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+	if len(input.Eip) > 0 || input.EipBw > 0 {
+		// 未明确指定network时，由调度器进行调度，跳过support_eip检查
+		if len(input.Networks) > 0 && len(input.Networks[0].Network) > 0 {
+			inetwork, err := db.FetchByIdOrName(models.NetworkManager, userCred, input.Networks[0].Network)
+			if err != nil {
+				return nil, errors.Wrap(err, "SAwsGuestDriver.ValidateCreateData.Networks.FetchByIdOrName")
+			}
+
+			support_eip := inetwork.(*models.SNetwork).GetMetadataJson("ext:support_eip", nil)
+			if support_eip != nil {
+				if ok, _ := support_eip.Bool(); !ok {
+					return nil, httperrors.NewInputParameterError("network %s associated route table has no internet gateway attached.", inetwork.GetName())
+				}
+			}
+		}
+	}
+
 	return self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, input)
 }
 
@@ -186,7 +213,13 @@ func (self *SAwsGuestDriver) RequestAssociateEip(ctx context.Context, userCred m
 			return nil, fmt.Errorf("SAwsGuestDriver.RequestAssociateEip fail to find iEIP for eip %s", err)
 		}
 
-		err = extEip.Associate(server.ExternalId)
+		conf := &cloudprovider.AssociateConfig{
+			InstanceId:    server.ExternalId,
+			Bandwidth:     eip.Bandwidth,
+			AssociateType: api.EIP_ASSOCIATE_TYPE_SERVER,
+		}
+
+		err = extEip.Associate(conf)
 		if err != nil {
 			return nil, fmt.Errorf("SAwsGuestDriver.RequestAssociateEip fail to remote associate EIP %s", err)
 		}

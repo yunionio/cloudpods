@@ -20,18 +20,38 @@ import (
 
 type GatewayOptions struct {
 	DefaultRegion string `help:"Use default region while region not specific in api request"`
+	CookieDomain  string `help:"specific yunionauth cookie domain" default:""`
 
 	Timeout int `help:"Timeout in seconds, default is 300" default:"300"`
 
 	DisableModuleApiVersion bool `help:"Disable each modules default api version" default:"false"`
 
-	EnableTotp bool `help:"Enable two-factor authentication"  default:"false"`
+	EnableTotp bool `help:"Enable two-factor authentication" default:"true"`
 
-	SqlitePath string `help:"sqlite db path" default:"/etc/yunion/data/yunionapi.db"`
+	SsoRedirectUrl     string `help:"SSO idp redirect URL"`
+	SsoAuthCallbackUrl string `help:"SSO idp auth callback URL"`
+	SsoLinkCallbackUrl string `help:"SSO idp link user callback URL"`
+	LoginCallbackParam string `help:"Redirect callback parameter name after successful login"`
 
-	common_options.CommonOptions
+	SsoUserNotFoundCallbackUrl string `help:"failure callback URL when SSO idp link user not found"`
+
+	ReturnFullDomainList bool `default:"true" help:"return domain list for get_regions API"`
+
+	common_options.CommonOptions `"request_worker_count->default":"32"`
 }
 
 var (
-	Options GatewayOptions
+	Options *GatewayOptions
 )
+
+func OnOptionsChange(oldO, newO interface{}) bool {
+	oldOpts := oldO.(*GatewayOptions)
+	newOpts := newO.(*GatewayOptions)
+
+	changed := false
+	if common_options.OnCommonOptionsChange(&oldOpts.CommonOptions, &newOpts.CommonOptions) {
+		changed = true
+	}
+
+	return changed
+}

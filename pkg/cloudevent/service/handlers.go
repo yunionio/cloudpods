@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/proxy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudevent/models"
 )
@@ -47,7 +48,6 @@ func InitHandlers(app *appsrv.Application) {
 		taskman.TaskObjectManager,
 		db.UserCacheManager,
 		db.TenantCacheManager,
-		db.UserCacheManager,
 		models.CloudproviderManager,
 	} {
 		db.RegisterModelManager(manager)
@@ -55,6 +55,7 @@ func InitHandlers(app *appsrv.Application) {
 
 	for _, manager := range []db.IModelManager{
 		db.OpsLog,
+		proxy.ProxySettingManager,
 		models.CloudeventManager,
 	} {
 		db.RegisterModelManager(manager)

@@ -39,9 +39,9 @@ func init() {
 
 func (self *DBInstanceDatabaseCreateTask) taskFailed(ctx context.Context, database *models.SDBInstanceDatabase, err error) {
 	database.SetStatus(self.UserCred, api.DBINSTANCE_DATABASE_CREATE_FAILE, err.Error())
-	db.OpsLog.LogEvent(database, db.ACT_CREATE, err.Error(), self.GetUserCred())
-	logclient.AddActionLogWithStartable(self, database, logclient.ACT_CREATE, err.Error(), self.UserCred, false)
-	self.SetStageFailed(ctx, err.Error())
+	db.OpsLog.LogEvent(database, db.ACT_CREATE, err, self.GetUserCred())
+	logclient.AddActionLogWithStartable(self, database, logclient.ACT_CREATE, err, self.UserCred, false)
+	self.SetStageFailed(ctx, jsonutils.Marshal(err))
 }
 
 func (self *DBInstanceDatabaseCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -74,7 +74,36 @@ func (self *DBInstanceDatabaseCreateTask) CreateDBInstanceDatabase(ctx context.C
 		return
 	}
 
-	input := api.SDBInstanceDatabaseCreateInput{}
+	iDatabases, err := iRds.GetIDBInstanceDatabases()
+	if err != nil {
+		msg := fmt.Sprintf("failed to found databases from cloud dbinstance error: %v", err)
+		db.OpsLog.LogEvent(database, db.ACT_CREATE, msg, self.GetUserCred())
+		logclient.AddActionLogWithStartable(self, database, logclient.ACT_CREATE, msg, self.UserCred, false)
+		database.SetStatus(self.UserCred, api.DBINSTANCE_UNKNOWN, "")
+		self.SetStageComplete(ctx, nil)
+		return
+	}
+
+	var iDatabase cloudprovider.ICloudDBInstanceDatabase = nil
+	for i := range iDatabases {
+		if iDatabases[i].GetName() == database.Name {
+			iDatabase = iDatabases[i]
+			break
+		}
+	}
+
+	if iDatabase == nil {
+		msg := fmt.Sprintf("failed to found database %s from cloud dbinstance", database.Name)
+		db.OpsLog.LogEvent(database, db.ACT_CREATE, msg, self.GetUserCred())
+		logclient.AddActionLogWithStartable(self, database, logclient.ACT_CREATE, msg, self.UserCred, false)
+		database.SetStatus(self.UserCred, api.DBINSTANCE_UNKNOWN, "")
+		self.SetStageComplete(ctx, nil)
+		return
+	}
+
+	db.SetExternalId(database, self.UserCred, iDatabase.GetGlobalId())
+
+	input := api.DBInstanceDatabaseCreateInput{}
 	self.GetParams().Unmarshal(&input)
 	if len(input.Accounts) == 0 {
 		database.SetStatus(self.UserCred, api.DBINSTANCE_DATABASE_RUNNING, "")
@@ -117,7 +146,7 @@ func (self *DBInstanceDatabaseCreateTask) CreateDBInstanceDatabase(ctx context.C
 			DBInstanceaccountId:  account.DBInstanceaccountId,
 			DBInstancedatabaseId: database.Id,
 		}
-		models.DBInstancePrivilegeManager.TableSpec().Insert(&privilege)
+		models.DBInstancePrivilegeManager.TableSpec().Insert(ctx, &privilege)
 		logclient.AddActionLogWithStartable(self, database, logclient.ACT_GRANT_PRIVILEGE, account, self.UserCred, true)
 	}
 	database.SetStatus(self.UserCred, api.DBINSTANCE_DATABASE_RUNNING, "")

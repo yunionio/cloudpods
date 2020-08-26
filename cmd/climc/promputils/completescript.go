@@ -75,33 +75,3 @@ _climc(){
     do
         line="${arr[$i]}"
         allopts[count]=${line%s`
-
-const ZSH_COMPLETE_SCRIPT_2 = `%"#"*}
-        subopts[count]=${line#*"#"}
-        ((count++))
-    done
-    _arguments \
-            '1: :->commands'\
-            '*: :->options'
-
-    case $state in 
-        commands)
-        _arguments '1:Comm:(${allopts[*]})'
-        ;;
-        *)
-            item=1
-            for key in ${allopts[*]}
-            do
-                case $words[2] in
-                    $key)
-                    compadd "$@"` + "`echo $subopts[item]`" + `
-                    ;;
-                    *)
-                    ;;
-                esac
-                ((item++))
-            done
-    esac    
-}
-_climc "$@"
-`

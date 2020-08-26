@@ -16,7 +16,9 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -26,14 +28,14 @@ import (
 
 type iTask interface {
 	taskman.ITask
-	TaskFailed(ctx context.Context, nat models.INatHelper, err error)
+	TaskFailed(ctx context.Context, nat models.INatHelper, err jsonutils.JSONObject)
 }
 
 func NatToBindIPStage(ctx context.Context, task iTask, nat models.INatHelper) {
 	nat.SetStatus(task.GetUserCred(), api.NAT_STATUS_ALLOCATE, "")
 	natgateway, err := nat.GetNatgateway()
 	if err != nil {
-		task.TaskFailed(ctx, nat, errors.Wrap(err, "fetch natgateway failed"))
+		task.TaskFailed(ctx, nat, jsonutils.NewString(fmt.Sprintf("fetch natgateway failed: %s", err)))
 		return
 	}
 	task.SetStage("OnBindIPComplete", nil)
@@ -44,7 +46,7 @@ func NatToBindIPStage(ctx context.Context, task iTask, nat models.INatHelper) {
 
 	eipId, _ := task.GetParams().GetString("eip_id")
 	if err := natgateway.GetRegion().GetDriver().RequestBindIPToNatgateway(ctx, task, natgateway, eipId); err != nil {
-		task.TaskFailed(ctx, nat, err)
+		task.TaskFailed(ctx, nat, jsonutils.Marshal(err))
 		return
 	}
 }

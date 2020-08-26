@@ -15,6 +15,7 @@
 package qcloud
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -23,6 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -88,12 +90,14 @@ func (self *SLBListener) GetBackendServerPort() int {
 
 // https://cloud.tencent.com/document/product/214/30691
 func (self *SLBListener) CreateILoadBalancerListenerRule(rule *cloudprovider.SLoadbalancerListenerRule) (cloudprovider.ICloudLoadbalancerListenerRule, error) {
+	hc := getListenerRuleHealthCheck(rule)
 	requestId, err := self.lb.region.CreateLoadbalancerListenerRule(self.lb.GetId(),
 		self.GetId(),
 		rule.Domain,
 		rule.Path,
-		&self.Scheduler,
-		&self.SessionExpireTime)
+		rule.Scheduler,
+		rule.StickySessionCookieTimeout,
+		hc)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +146,10 @@ func (self *SLBListener) Stop() error {
 }
 
 // https://cloud.tencent.com/document/product/214/30677
-func (self *SLBListener) Sync(listener *cloudprovider.SLoadbalancerListener) error {
+func (self *SLBListener) Sync(ctx context.Context, listener *cloudprovider.SLoadbalancerListener) error {
+	lockman.LockRawObject(ctx, "qcloud.SLBListener.Sync", self.lb.region.client.ownerId)
+	defer lockman.ReleaseRawObject(ctx, "qcloud.SLBListener.Sync", self.lb.region.client.ownerId)
+
 	hc := getHealthCheck(listener)
 	cert := getCertificate(listener)
 	requestId, err := self.lb.region.UpdateLoadbalancerListener(
@@ -161,7 +168,10 @@ func (self *SLBListener) Sync(listener *cloudprovider.SLoadbalancerListener) err
 	return self.lb.region.WaitLBTaskSuccess(requestId, 5*time.Second, 60*time.Second)
 }
 
-func (self *SLBListener) Delete() error {
+func (self *SLBListener) Delete(ctx context.Context) error {
+	lockman.LockRawObject(ctx, "qcloud.SLBListener.Delete", self.lb.region.client.ownerId)
+	defer lockman.ReleaseRawObject(ctx, "qcloud.SLBListener.Delete", self.lb.region.client.ownerId)
+
 	requestId, err := self.lb.region.DeleteLoadbalancerListener(self.lb.Forward, self.lb.GetId(), self.GetId())
 	if err != nil {
 		return err
@@ -515,7 +525,7 @@ func (self *SRegion) GetLoadbalancerListeners(lbid string, t LB_TYPE, protocol s
 }
 
 //  返回requestID
-func (self *SRegion) CreateLoadbalancerListenerRule(lbid string, listenerId string, domain string, url string, scheduler *string, sessionExpireTime *int) (string, error) {
+func (self *SRegion) CreateLoadbalancerListenerRule(lbid string, listenerId string, domain string, url string, scheduler string, sessionExpireTime int, hc *healthCheck) (string, error) {
 	if len(lbid) == 0 {
 		return "", fmt.Errorf("loadbalancer id should not be empty")
 	}
@@ -527,12 +537,19 @@ func (self *SRegion) CreateLoadbalancerListenerRule(lbid string, listenerId stri
 		"Rules.0.Url":    url,
 	}
 
-	if scheduler != nil && len(*scheduler) > 0 {
-		params["Rules.0.Scheduler"] = *scheduler
-	}
+	params["Rules.0.Scheduler"] = scheduler
+	params["Rules.0.SessionExpireTime"] = strconv.Itoa(sessionExpireTime)
 
-	if sessionExpireTime != nil {
-		params["Rules.0.SessionExpireTime"] = strconv.Itoa(*sessionExpireTime)
+	// health check
+	params["Rules.0.HealthCheck.HealthSwitch"] = strconv.Itoa(hc.HealthSwitch)
+	params["Rules.0.HealthCheck.IntervalTime"] = strconv.Itoa(hc.IntervalTime)
+	params["Rules.0.HealthCheck.HealthNum"] = strconv.Itoa(hc.HealthNum)
+	params["Rules.0.HealthCheck.UnHealthNum"] = strconv.Itoa(hc.UnHealthNum)
+	if hc.HTTPCode > 0 {
+		params["Rules.0.HealthCheck.HttpCode"] = strconv.Itoa(hc.HTTPCode)
+		params["Rules.0.HealthCheck.HttpCheckPath"] = hc.HTTPCheckPath
+		params["Rules.0.HealthCheck.HttpCheckDomain"] = hc.HTTPCheckDomain
+		params["Rules.0.HealthCheck.HttpCheckMethod"] = hc.HTTPCheckMethod
 	}
 
 	resp, err := self.clbRequest("CreateRule", params)
@@ -588,6 +605,10 @@ func (self *SRegion) deleteClassicLoadbalancerListener(lbid string, listenerId s
 
 //  返回requestID
 func (self *SRegion) DeleteLoadbalancerListener(t LB_TYPE, lbid string, listenerId string) (string, error) {
+	ctx := context.Background()
+	lockman.LockRawObject(ctx, "qcloud.SRegion.DeleteLoadbalancerListener", self.client.ownerId)
+	defer lockman.ReleaseRawObject(ctx, "qcloud.SRegion.DeleteLoadbalancerListener", self.client.ownerId)
+
 	if len(lbid) == 0 {
 		return "", fmt.Errorf("loadbalancer id should not be empty")
 	}
@@ -692,6 +713,37 @@ func getHealthCheck(listener *cloudprovider.SLoadbalancerListener) *healthCheck 
 			hc.HTTPCheckMethod = "HEAD" // todo: add column HttpCheckMethod in model
 			hc.HTTPCheckDomain = listener.HealthCheckDomain
 			hc.HTTPCheckPath = listener.HealthCheckURI
+		}
+	} else {
+		hc = &healthCheck{
+			HealthSwitch: 0,
+			UnHealthNum:  3,
+			IntervalTime: 5,
+			HealthNum:    3,
+			TimeOut:      2,
+		}
+	}
+
+	return hc
+}
+
+func getListenerRuleHealthCheck(rule *cloudprovider.SLoadbalancerListenerRule) *healthCheck {
+	var hc *healthCheck
+	if rule.HealthCheck == api.LB_BOOL_ON {
+		hc = &healthCheck{
+			HealthSwitch: 1,
+			UnHealthNum:  rule.HealthCheckFail,
+			IntervalTime: rule.HealthCheckInterval,
+			HealthNum:    rule.HealthCheckRise,
+			TimeOut:      rule.HealthCheckTimeout,
+		}
+
+		httpCode := onecloudHealthCodeToQcloud(rule.HealthCheckHttpCode)
+		if httpCode > 0 {
+			hc.HTTPCode = httpCode
+			hc.HTTPCheckMethod = "HEAD" // todo: add column HttpCheckMethod in model
+			hc.HTTPCheckDomain = rule.HealthCheckDomain
+			hc.HTTPCheckPath = rule.HealthCheckURI
 		}
 	} else {
 		hc = &healthCheck{

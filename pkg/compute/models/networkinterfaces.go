@@ -27,18 +27,23 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SNetworkInterfaceManager struct {
-	db.SStatusStandaloneResourceBaseManager
+	db.SStatusInfrasResourceBaseManager
+	db.SExternalizedResourceBaseManager
+	SManagedResourceBaseManager
+	SCloudregionResourceBaseManager
 }
 
 var NetworkInterfaceManager *SNetworkInterfaceManager
 
 func init() {
 	NetworkInterfaceManager = &SNetworkInterfaceManager{
-		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
+		SStatusInfrasResourceBaseManager: db.NewStatusInfrasResourceBaseManager(
 			SNetworkInterface{},
 			"networkinterfaces_tbl",
 			"networkinterface",
@@ -49,14 +54,17 @@ func init() {
 }
 
 type SNetworkInterface struct {
-	db.SStatusStandaloneResourceBase
+	db.SStatusInfrasResourceBase
 	db.SExternalizedResourceBase
 	SManagedResourceBase
 	SCloudregionResourceBase
 
-	Mac           string `width:"36" charset:"ascii" list:"user"`
+	// MAC地址
+	Mac string `width:"36" charset:"ascii" list:"user"`
+	// 绑定资源类型
 	AssociateType string `width:"36" charset:"ascii" list:"user" nullable:"true" create:"optional"`
-	AssociateId   string `width:"36" charset:"ascii" list:"user"`
+	// 绑定资源Id
+	AssociateId string `width:"36" charset:"ascii" list:"user"`
 }
 
 func (manager *SNetworkInterfaceManager) GetContextManagers() [][]db.IModelManager {
@@ -65,69 +73,144 @@ func (manager *SNetworkInterfaceManager) GetContextManagers() [][]db.IModelManag
 	}
 }
 
-func (self *SNetworkInterfaceManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, self)
-}
-
-func (self *SNetworkInterfaceManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SNetworkInterface) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SNetworkInterface) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SNetworkInterface) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
-}
-
-func (manager *SNetworkInterfaceManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+// 虚拟网卡列表
+func (manager *SNetworkInterfaceManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.NetworkInterfaceListInput,
+) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = managedResourceFilterByAccount(q, query, "", nil)
+
+	q, err = manager.SStatusInfrasResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusInfrasResourceBaseListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SStatusInfrasResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
 	}
 
-	q = managedResourceFilterByCloudType(q, query, "", nil)
-
-	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
-	if err != nil {
-		return nil, err
+	if len(query.Mac) > 0 {
+		q = q.In("mac", query.Mac)
+	}
+	if len(query.AssociateType) > 0 {
+		q = q.In("associate_type", query.AssociateType)
+	}
+	if len(query.AssociateId) > 0 {
+		q = q.In("associate_id", query.AssociateId)
 	}
 
-	return q, err
+	return q, nil
 }
 
-func (self *SNetworkInterface) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	accountInfo := self.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if accountInfo != nil {
-		extra.Update(accountInfo)
+func (manager *SNetworkInterfaceManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.NetworkInterfaceListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStatusInfrasResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusInfrasResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusInfrasResourceBaseManager.OrderByExtraFields")
 	}
-	regionInfo := self.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if regionInfo != nil {
-		extra.Update(regionInfo)
+	q, err = manager.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
 	}
+	q, err = manager.SCloudregionResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SNetworkInterfaceManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStatusInfrasResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SCloudregionResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
+}
+
+func (self *SNetworkInterface) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.NetworkInterfaceDetails, error) {
+	return api.NetworkInterfaceDetails{}, nil
+}
+
+func (self *SNetworkInterface) getMoreDetails(out api.NetworkInterfaceDetails) (api.NetworkInterfaceDetails, error) {
 	networks, err := self.GetNetworks()
 	if err != nil {
 		log.Errorf("failed to get network for networkinterface %s(%s) error: %v", self.Name, self.Id, err)
-		return extra
+		return out, nil
 	}
-	networkArray := jsonutils.NewArray()
+	out.Networks = []api.NetworkInterfaceNetworkInfo{}
 	for _, network := range networks {
-		detail, err := network.GetDetailJson()
+		_network, err := network.GetNetwork()
 		if err != nil {
-			log.Errorf("failed to get networkinterface network %s detail error: %v", network.IpAddr, err)
-			return extra
+			return out, err
 		}
-		networkArray.Add(detail)
+		out.Networks = append(out.Networks, api.NetworkInterfaceNetworkInfo{
+			NetworkId:          network.NetworkId,
+			IpAddr:             network.IpAddr,
+			Primary:            network.Primary,
+			NetworkinterfaceId: network.NetworkinterfaceId,
+			Network:            _network.Name,
+		})
 	}
-	extra.Add(networkArray, "networks")
-	return extra
+	return out, nil
+}
+
+func (manager *SNetworkInterfaceManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.NetworkInterfaceDetails {
+	rows := make([]api.NetworkInterfaceDetails, len(objs))
+
+	stdRows := manager.SStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	regRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.NetworkInterfaceDetails{
+			StatusInfrasResourceBaseDetails: stdRows[i],
+			ManagedResourceInfo:             manRows[i],
+			CloudregionResourceInfo:         regRows[i],
+		}
+		rows[i], _ = objs[i].(*SNetworkInterface).getMoreDetails(rows[i])
+	}
+
+	return rows
 }
 
 func (manager *SNetworkInterfaceManager) getNetworkInterfacesByProviderId(providerId string) ([]SNetworkInterface, error) {
@@ -221,6 +304,8 @@ func (self *SNetworkInterface) SyncWithCloudNetworkInterface(ctx context.Context
 	if err != nil {
 		return err
 	}
+
+	SyncCloudDomain(userCred, self, provider.GetOwnerId())
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
 }
@@ -228,7 +313,10 @@ func (self *SNetworkInterface) SyncWithCloudNetworkInterface(ctx context.Context
 func (self *SNetworkInterface) Associate(associateId string) error {
 	switch self.AssociateType {
 	case api.NETWORK_INTERFACE_ASSOCIATE_TYPE_SERVER:
-		guest, err := db.FetchByExternalId(GuestManager, associateId)
+		guest, err := db.FetchByExternalIdAndManagerId(GuestManager, associateId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			sq := HostManager.Query().SubQuery()
+			return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("host_id"))).Filter(sqlchemy.Equals(q.Field("manager_id"), self.ManagerId))
+		})
 		if err != nil {
 			return errors.Wrapf(err, "failed to get guest for networkinterface %s associateId %s", self.Name, associateId)
 		}
@@ -262,10 +350,12 @@ func (manager *SNetworkInterfaceManager) newFromCloudNetworkInterface(ctx contex
 		}
 	}
 
-	err = manager.TableSpec().Insert(&networkinterface)
+	err = manager.TableSpec().Insert(ctx, &networkinterface)
 	if err != nil {
 		return nil, errors.Wrap(err, "TableSpec().Insert(&networkinterface)")
 	}
+
+	SyncCloudDomain(userCred, &networkinterface, provider.GetOwnerId())
 
 	db.OpsLog.LogEvent(&networkinterface, db.ACT_CREATE, networkinterface.GetShortDesc(ctx), userCred)
 
@@ -280,4 +370,33 @@ func (self *SNetworkInterface) GetNetworks() ([]SNetworkinterfacenetwork, error)
 		return nil, err
 	}
 	return networks, nil
+}
+
+func (manager *SNetworkInterfaceManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStatusInfrasResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusInfrasResourceBaseManager.ListItemExportKeys")
+	}
+
+	if keys.ContainsAny(manager.SManagedResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SManagedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	if keys.ContainsAny(manager.SCloudregionResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SCloudregionResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	return q, nil
 }

@@ -15,6 +15,7 @@
 package models
 
 import (
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -28,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
+// +onecloud:swagger-gen-ignore
 type SPasswordManager struct {
 	db.SResourceBaseManager
 }
@@ -112,12 +114,12 @@ func validatePasswordComplexity(password string) error {
 	return nil
 }
 
-func (manager *SPasswordManager) validatePassword(localUserId int, password string) error {
+func (manager *SPasswordManager) validatePassword(localUserId int, password string, skipHistoryCheck bool) error {
 	err := validatePasswordComplexity(password)
 	if err != nil {
 		return errors.Wrap(err, "validatePasswordComplexity")
 	}
-	if o.Options.PasswordUniqueHistoryCheck > 0 {
+	if !skipHistoryCheck && o.Options.PasswordUniqueHistoryCheck > 0 {
 		shaPass := shaPassword(password)
 		histPasses, err := manager.fetchByLocaluserId(localUserId)
 		if err != nil {
@@ -137,17 +139,19 @@ func (manager *SPasswordManager) savePassword(localUserId int, password string, 
 	if err != nil {
 		return errors.Wrap(err, "seclib2.BcryptPassword")
 	}
-	rec := SPassword{}
-	rec.LocalUserId = localUserId
-	rec.PasswordHash = hash
-	rec.Password = shaPassword(password)
+	rec := &SPassword{
+		LocalUserId:  localUserId,
+		PasswordHash: hash,
+		Password:     shaPassword(password),
+	}
+	rec.SetModelManager(PasswordManager, rec)
 	now := time.Now()
 	rec.CreatedAtInt = now.UnixNano() / 1000
 	if o.Options.PasswordExpirationSeconds > 0 && !isSystemAccount {
 		rec.ExpiresAt = now.Add(time.Second * time.Duration(o.Options.PasswordExpirationSeconds))
 		rec.ExpiresAtInt = rec.ExpiresAt.UnixNano() / 1000
 	}
-	err = manager.TableSpec().Insert(&rec)
+	err = manager.TableSpec().Insert(context.TODO(), rec)
 	if err != nil {
 		return errors.Wrap(err, "Insert")
 	}

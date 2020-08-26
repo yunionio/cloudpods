@@ -94,6 +94,10 @@ func NewMissingParameterError(paramName string) *httputils.JSONClientError {
 	return httputils.NewJsonClientError(httpErrorCode[ErrMissingParameter], string(ErrMissingParameter), msg, paramName)
 }
 
+func NewPolicyDefinitionError(msg string, params ...interface{}) *httputils.JSONClientError {
+	return httputils.NewJsonClientError(httpErrorCode[ErrPolicyDefinition], string(ErrPolicyDefinition), msg, params...)
+}
+
 func NewInsufficientResourceError(msg string, params ...interface{}) *httputils.JSONClientError {
 	return httputils.NewJsonClientError(httpErrorCode[ErrInsufficientResource], string(ErrInsufficientResource), msg, params...)
 }
@@ -197,9 +201,9 @@ func NewClientError(msg string, params ...interface{}) *httputils.JSONClientErro
 }
 
 func NewUnclassifiedError(msg string, params ...interface{}) *httputils.JSONClientError {
-	return httputils.NewJsonClientError(httpErrorCode[errors.ErrUnclassified], string(errors.ErrUnclassified), msg, params)
+	return httputils.NewJsonClientError(httpErrorCode[errors.ErrUnclassified], string(errors.ErrUnclassified), msg, params...)
 }
 
 func NewTooLargeEntityError(msg string, params ...interface{}) *httputils.JSONClientError {
-	return httputils.NewJsonClientError(httpErrorCode[ErrTooLarge], string(ErrTooLarge), msg, params)
+	return httputils.NewJsonClientError(httpErrorCode[ErrTooLarge], string(ErrTooLarge), msg, params...)
 }

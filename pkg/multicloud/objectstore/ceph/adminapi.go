@@ -49,8 +49,9 @@ func newCephAdminApi(ak, sk, ep string, debug bool, adminPath string) *SCephAdmi
 		accessKey: ak,
 		secret:    sk,
 		endpoint:  ep,
-		client:    httputils.GetDefaultClient(),
-		debug:     debug,
+		// ceph use no timeout client so as to download/upload large files
+		client: httputils.GetAdaptiveTimeoutClient(),
+		debug:  debug,
 	}
 }
 
@@ -60,6 +61,10 @@ func getJsonBodyReader(body jsonutils.JSONObject) io.Reader {
 		reqBody = strings.NewReader(body.String())
 	}
 	return reqBody
+}
+
+func (api *SCephAdminApi) httpClient() *http.Client {
+	return api.client
 }
 
 func (api *SCephAdminApi) jsonRequest(ctx context.Context, method httputils.THttpMethod, path string, hdr http.Header, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
@@ -80,7 +85,11 @@ func (api *SCephAdminApi) jsonRequest(ctx context.Context, method httputils.THtt
 
 	resp, err := api.client.Do(newReq)
 
-	return httputils.ParseJSONResponse(resp, err, api.debug)
+	var bodyStr string
+	if body != nil {
+		bodyStr = body.String()
+	}
+	return httputils.ParseJSONResponse(bodyStr, resp, err, api.debug)
 }
 
 func (api *SCephAdminApi) GetUsage(ctx context.Context, uid string) (jsonutils.JSONObject, error) {

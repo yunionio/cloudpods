@@ -16,18 +16,18 @@ package qcloud
 
 import (
 	"fmt"
-	"net"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SecurityGroupPolicy struct {
@@ -61,6 +61,7 @@ type SecurityGroupPolicySet struct {
 }
 
 type SSecurityGroup struct {
+	multicloud.SSecurityGroup
 	region                 *SRegion
 	SecurityGroupId        string    //		安全组实例ID，例如：sg-ohuuioma。
 	SecurityGroupName      string    //		安全组名称，可任意命名，但不得超过60个字符。
@@ -69,25 +70,6 @@ type SSecurityGroup struct {
 	IsDefault              bool      // 	是否是默认安全组，默认安全组不支持删除。
 	CreatedTime            time.Time // 	安全组创建时间。
 	SecurityGroupPolicySet SecurityGroupPolicySet
-}
-
-type SecurityGroupRuleSet []SecurityGroupPolicy
-
-func (v SecurityGroupRuleSet) Len() int {
-	return len(v)
-}
-
-func (v SecurityGroupRuleSet) Swap(i, j int) {
-	v[i], v[j] = v[j], v[i]
-}
-
-func (v SecurityGroupRuleSet) Less(i, j int) bool {
-	if v[i].PolicyIndex < v[j].PolicyIndex {
-		return true
-	} else if v[i].PolicyIndex == v[j].PolicyIndex {
-		return strings.Compare(v[i].String(), v[j].String()) <= 0
-	}
-	return false
 }
 
 func (self *SRegion) GetSecurityGroups(vpcId string, name string, offset int, limit int) ([]SSecurityGroup, int, error) {
@@ -156,27 +138,19 @@ func (self *SecurityGroupPolicy) String() string {
 	return strings.Join(result, ";")
 }
 
-func parseCIDR(cidr string) (*net.IPNet, error) {
-	if strings.Index(cidr, "/") > 0 {
-		_, ipnet, err := net.ParseCIDR(cidr)
-		return ipnet, err
-	}
-	ip := net.ParseIP(cidr)
-	if ip == nil {
-		return nil, fmt.Errorf("Parse ip %s error", cidr)
-	}
-	return &net.IPNet{IP: ip, Mask: net.CIDRMask(32, 32)}, nil
-}
-
-func (self *SecurityGroupPolicy) toRules() []secrules.SecurityRule {
-	result := []secrules.SecurityRule{}
-	rule := secrules.SecurityRule{
-		Action:    secrules.SecurityRuleAllow,
-		Protocol:  secrules.PROTO_ANY,
-		Direction: secrules.TSecurityRuleDirection(self.direction),
-		Ports:     []int{},
-		PortStart: -1,
-		PortEnd:   -1,
+func (self *SecurityGroupPolicy) toRules() []cloudprovider.SecurityRule {
+	result := []cloudprovider.SecurityRule{}
+	rule := cloudprovider.SecurityRule{
+		ExternalId: fmt.Sprintf("%d", self.PolicyIndex),
+		SecurityRule: secrules.SecurityRule{
+			Action:    secrules.SecurityRuleAllow,
+			Protocol:  secrules.PROTO_ANY,
+			Direction: secrules.TSecurityRuleDirection(self.direction),
+			Priority:  self.PolicyIndex,
+			Ports:     []int{},
+			PortStart: -1,
+			PortEnd:   -1,
+		},
 	}
 	if len(self.SecurityGroupId) != 0 {
 		//安全组关联安全组的规则忽略
@@ -241,18 +215,14 @@ func (self *SecurityGroupPolicy) toRules() []secrules.SecurityRule {
 		}
 		result = append(result, rules...)
 	} else if len(self.CidrBlock) > 0 {
-		ipnet, err := parseCIDR(self.CidrBlock)
-		if err != nil {
-			return nil
-		}
-		rule.IPNet = ipnet
+		rule.ParseCIDR(self.CidrBlock)
 		result = append(result, rule)
 	}
 	return result
 }
 
-func (self *SecurityGroupPolicy) getAddressRules(rule secrules.SecurityRule, addressId string) ([]secrules.SecurityRule, error) {
-	result := []secrules.SecurityRule{}
+func (self *SecurityGroupPolicy) getAddressRules(rule cloudprovider.SecurityRule, addressId string) ([]cloudprovider.SecurityRule, error) {
+	result := []cloudprovider.SecurityRule{}
 	address, total, err := self.region.AddressList(addressId, "", 0, 1)
 	if err != nil {
 		log.Errorf("Get AddressList %s failed %v", self.AddressTemplate.AddressId, err)
@@ -262,17 +232,13 @@ func (self *SecurityGroupPolicy) getAddressRules(rule secrules.SecurityRule, add
 		return nil, fmt.Errorf("failed to find address %s", addressId)
 	}
 	for _, ip := range address[0].AddressSet {
-		ipnet, err := parseCIDR(ip)
-		if err != nil {
-			return nil, nil
-		}
-		rule.IPNet = ipnet
+		rule.ParseCIDR(ip)
 		result = append(result, rule)
 	}
 	return result, nil
 }
 
-func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
+func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
 	secgroup, err := self.region.GetSecurityGroupDetails(self.SecurityGroupId)
 	if err != nil {
 		return nil, err
@@ -289,26 +255,11 @@ func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
 	for i := 0; i < len(originRules); i++ {
 		originRules[i].region = self.region
 	}
-	sort.Sort(SecurityGroupRuleSet(originRules))
-	rules := []secrules.SecurityRule{}
-	priority := 100
+	rules := []cloudprovider.SecurityRule{}
 	for _, rule := range originRules {
 		subRules := rule.toRules()
-		for i := 0; i < len(subRules); i++ {
-			subRules[i].Priority = priority
-		}
-		if len(subRules) > 0 {
-			priority--
-		}
 		rules = append(rules, subRules...)
 	}
-	// 腾讯云若出方向规则默认是拒绝所有流量
-	defaultDenyRule, err := secrules.ParseSecurityRule("out:deny any")
-	if err != nil {
-		return nil, err
-	}
-	defaultDenyRule.Priority = 1
-	rules = append(rules, *defaultDenyRule)
 	return rules, nil
 }
 
@@ -321,36 +272,61 @@ func (self *SSecurityGroup) IsEmulated() bool {
 }
 
 func (self *SSecurityGroup) Refresh() error {
-	if new, err := self.region.GetSecurityGroupDetails(self.SecurityGroupId); err != nil {
+	group, err := self.region.GetSecurityGroupDetails(self.SecurityGroupId)
+	if err != nil {
 		return err
-	} else {
-		return jsonutils.Update(self, new)
 	}
+	return jsonutils.Update(self, group)
 }
 
-func (self *SSecurityGroup) SyncRules(rules []secrules.SecurityRule) error {
-	_, err := self.region.syncSecgroupRules(self.SecurityGroupId, rules)
-	return err
+func (self *SSecurityGroup) deleteRules(rules []cloudprovider.SecurityRule, direction string) error {
+	ids := []string{}
+	for _, r := range rules {
+		ids = append(ids, r.ExternalId)
+	}
+	if len(ids) > 0 {
+		err := self.region.DeleteRules(self.SecurityGroupId, direction, ids)
+		if err != nil {
+			return errors.Wrapf(err, "deleteRules(%s)", ids)
+		}
+	}
+	return nil
 }
 
-func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
-	if len(secgroupId) > 0 {
-		_, err := self.GetSecurityGroupDetails(secgroupId)
+func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
+	rules := append(common, append(inAdds, outAdds...)...)
+	return self.region.syncSecgroupRules(self.SecurityGroupId, rules)
+}
+
+func (self *SRegion) syncSecgroupRules(secgroupid string, rules []cloudprovider.SecurityRule) error {
+	err := self.deleteAllRules(secgroupid)
+	if err != nil {
+		return errors.Wrap(err, "deleteAllRules")
+	}
+	egressIndex, ingressIndex := -1, -1
+	for _, rule := range rules {
+		policyIndex := 0
+		switch rule.Direction {
+		case secrules.DIR_IN:
+			ingressIndex++
+			policyIndex = ingressIndex
+		case secrules.DIR_OUT:
+			egressIndex++
+			policyIndex = egressIndex
+		default:
+			return fmt.Errorf("Unknown rule direction %v for secgroup %s", rule, secgroupid)
+		}
+
+		//为什么不一次创建完成?
+		//答: 因为如果只有入方向安全组规则，创建时会提示缺少出方向规则。
+		//为什么不分两次，一次创建入方向规则，一次创建出方向规则?
+		//答: 因为这样就不能设置优先级了，一次性创建的出或入方向的优先级必须一样。
+		err := self.AddRule(secgroupid, policyIndex, rule)
 		if err != nil {
-			if err != cloudprovider.ErrNotFound {
-				return "", err
-			}
-			secgroupId = ""
+			return errors.Wrap(err, "AddRule")
 		}
 	}
-	if len(secgroupId) == 0 {
-		secgroup, err := self.CreateSecurityGroup(name, desc)
-		if err != nil {
-			return "", err
-		}
-		secgroupId = secgroup.SecurityGroupId
-	}
-	return self.syncSecgroupRules(secgroupId, rules)
+	return nil
 }
 
 func (self *SRegion) deleteAllRules(secgroupid string) error {
@@ -359,7 +335,19 @@ func (self *SRegion) deleteAllRules(secgroupid string) error {
 	return err
 }
 
-func (self *SRegion) addRule(secgroupId string, policyIndex int, rule *secrules.SecurityRule) error {
+func (self *SRegion) DeleteRules(secgroupId, direction string, ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	params := map[string]string{"SecurityGroupId": secgroupId}
+	for idx, id := range ids {
+		params[fmt.Sprintf("SecurityGroupPolicySet.%s.%d.PolicyIndex", direction, idx)] = id
+	}
+	_, err := self.vpcRequest("DeleteSecurityGroupPolicies", params)
+	return err
+}
+
+func (self *SRegion) AddRule(secgroupId string, policyIndex int, rule cloudprovider.SecurityRule) error {
 	params := map[string]string{}
 	params["SecurityGroupId"] = secgroupId
 	direction := "Egress"
@@ -402,47 +390,6 @@ func (self *SRegion) addRule(secgroupId string, policyIndex int, rule *secrules.
 		return err
 	}
 	return nil
-}
-
-func (self *SRegion) syncSecgroupRules(secgroupid string, rules []secrules.SecurityRule) (string, error) {
-	if err := self.deleteAllRules(secgroupid); err != nil {
-		return "", err
-	}
-	egressIndex, ingressIndex := -1, -1
-	for _, rule := range rules {
-		policyIndex := 0
-		switch rule.Direction {
-		case secrules.DIR_IN:
-			ingressIndex++
-			policyIndex = ingressIndex
-		case secrules.DIR_OUT:
-			egressIndex++
-			policyIndex = egressIndex
-		default:
-			return "", fmt.Errorf("Unknown rule direction %v for secgroup %s", rule, secgroupid)
-		}
-
-		//为什么不一次创建完成?
-		//答: 因为如果只有入方向安全组规则，创建时会提示缺少出方向规则。
-		//为什么不分两次，一次创建入方向规则，一次创建出方向规则?
-		//答: 因为这样就不能设置优先级了，一次性创建的出或入方向的优先级必须一样。
-		err := self.addRule(secgroupid, policyIndex, &rule)
-		if err != nil {
-			return "", err
-		}
-	}
-
-	// 需要在云上加上优先级最低的 allow any 规则, 和本地语义保持一致
-	egressIndex++
-	rule, err := secrules.ParseSecurityRule("out:allow any")
-	if err != nil {
-		return "", err
-	}
-	err = self.addRule(secgroupid, egressIndex, rule)
-	if err != nil {
-		return "", err
-	}
-	return secgroupid, nil
 }
 
 func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup, error) {
@@ -558,10 +505,13 @@ func (self *SRegion) CreateSecurityGroup(name, description string) (*SSecurityGr
 		params["GroupDescription"] = "Customize Create"
 	}
 	secgroup := SSecurityGroup{region: self}
-	if body, err := self.vpcRequest("CreateSecurityGroup", params); err != nil {
-		return nil, err
-	} else if err := body.Unmarshal(&secgroup, "SecurityGroup"); err != nil {
-		return nil, err
+	body, err := self.vpcRequest("CreateSecurityGroup", params)
+	if err != nil {
+		return nil, errors.Wrap(err, "CreateSecurityGroup")
+	}
+	err = body.Unmarshal(&secgroup, "SecurityGroup")
+	if err != nil {
+		return nil, errors.Wrap(err, "body.Unmarshal")
 	}
 	return &secgroup, nil
 }

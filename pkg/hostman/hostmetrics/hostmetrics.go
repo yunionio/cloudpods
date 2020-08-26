@@ -189,6 +189,10 @@ func (s *SGuestMonitorCollector) GetGuests() map[string]*SGuestMonitor {
 					return true
 				}
 			}
+			gm.ScalingGroupId, _ = guest.Desc.GetString("scaling_group_id")
+			gm.Tenant, _ = guest.Desc.GetString("tenant")
+			gm.TenantId, _ = guest.Desc.GetString("tenant_id")
+
 			gms[guestId] = gm
 		}
 		return true
@@ -221,22 +225,38 @@ func (s *SGuestMonitorCollector) CollectReportData() (ret string) {
 
 func (s *SGuestMonitorCollector) toTelegrafReportData(data *jsonutils.JSONDict) string {
 	ret := []string{}
-	for guestId, report := range data.Value() {
-		var vmName, vmIp string
+	vs, _ := data.GetMap()
+	for guestId, report := range vs {
+		var vmName, vmIp, scalingGroupId, tenant, tenantId string
 		if gm, ok := s.monitors[guestId]; ok {
 			vmName = gm.Name
 			vmIp = gm.Ip
+			scalingGroupId = gm.ScalingGroupId
+			tenant = gm.Tenant
+			tenantId = gm.TenantId
 		}
-		for metrics, stat := range report.(*jsonutils.JSONDict).Value() {
+
+		rs, _ := report.(*jsonutils.JSONDict).GetMap()
+		for metrics, stat := range rs {
 			tags := map[string]string{
 				"vm_id": guestId, "vm_name": vmName, "vm_ip": vmIp,
-				"is_vm": "true", "platform": "kvm",
+				"is_vm": "true", "brand": "OneCloud",
+			}
+			if len(scalingGroupId) > 0 {
+				tags["vm_scaling_group_id"] = scalingGroupId
+			}
+			if len(tenant) > 0 {
+				tags["tenant"] = tenant
+			}
+			if len(tenantId) > 0 {
+				tags["tenant_id"] = tenantId
 			}
 			if val, ok := stat.(*jsonutils.JSONDict); ok {
 				line := s.addTelegrafLine(metrics, tags, val)
 				ret = append(ret, line)
 			} else if val, ok := stat.(*jsonutils.JSONArray); ok {
-				for _, statItem := range val.Value() {
+				ss, _ := val.GetArray()
+				for _, statItem := range ss {
 					line := s.addTelegrafLine(metrics, tags, statItem.(*jsonutils.JSONDict))
 					ret = append(ret, line)
 				}
@@ -262,7 +282,8 @@ func (s *SGuestMonitorCollector) addTelegrafLine(
 	tagStr := strings.Join(tagArr, ",")
 
 	var statArr = []string{}
-	for k, v := range stat.Value() {
+	ss, _ := stat.GetMap()
+	for k, v := range ss {
 		statArr = append(statArr, fmt.Sprintf("%s=%s", k, v.String()))
 	}
 	statStr := strings.Join(statArr, ",")
@@ -270,7 +291,8 @@ func (s *SGuestMonitorCollector) addTelegrafLine(
 }
 
 func (s *SGuestMonitorCollector) cleanedPrevData(gms map[string]*SGuestMonitor) {
-	for guestId := range s.prevReportData.Value() {
+	rs, _ := s.prevReportData.GetMap()
+	for guestId := range rs {
 		if gm, ok := gms[guestId]; !ok {
 			s.prevReportData.Remove(guestId)
 			delete(s.prevPids, guestId)
@@ -382,13 +404,16 @@ func (s *SGuestMonitorCollector) addNetio(curInfo, prevInfo jsonutils.JSONObject
 }
 
 type SGuestMonitor struct {
-	Name    string
-	Id      string
-	Pid     int
-	Nics    []jsonutils.JSONObject
-	CpuCnt  int
-	Ip      string
-	Process *process.Process
+	Name           string
+	Id             string
+	Pid            int
+	Nics           []jsonutils.JSONObject
+	CpuCnt         int
+	Ip             string
+	Process        *process.Process
+	ScalingGroupId string
+	Tenant         string
+	TenantId       string
 }
 
 func NewGuestMonitor(name, id string, pid int, nics []jsonutils.JSONObject, cpuCount int,
@@ -401,7 +426,7 @@ func NewGuestMonitor(name, id string, pid int, nics []jsonutils.JSONObject, cpuC
 	if err != nil {
 		return nil, err
 	}
-	return &SGuestMonitor{name, id, pid, nics, cpuCount, ip, proc}, nil
+	return &SGuestMonitor{name, id, pid, nics, cpuCount, ip, proc, "", "", ""}, nil
 }
 
 func (m *SGuestMonitor) UpdateVmName(name string) {
@@ -473,7 +498,7 @@ func (m *SGuestMonitor) Netio() jsonutils.JSONObject {
 }
 
 func (m *SGuestMonitor) Cpu() jsonutils.JSONObject {
-	percent, _ := m.Process.CPUPercent()
+	percent, _ := m.Process.Percent(time.Millisecond * 100)
 	cpuTimes, _ := m.Process.Times()
 	ret := jsonutils.NewDict()
 	ret.Set("usage_active", jsonutils.NewFloat(percent))
@@ -507,6 +532,7 @@ func (m *SGuestMonitor) Diskio() jsonutils.JSONObject {
 
 func (m *SGuestMonitor) Mem() jsonutils.JSONObject {
 	mem, err := m.Process.MemoryInfo()
+	used_percent, _ := m.Process.MemoryPercent()
 	if err != nil {
 		log.Errorln(err)
 		return nil
@@ -514,5 +540,6 @@ func (m *SGuestMonitor) Mem() jsonutils.JSONObject {
 	ret := jsonutils.NewDict()
 	ret.Set("rss", jsonutils.NewInt(int64(mem.RSS)))
 	ret.Set("vms", jsonutils.NewInt(int64(mem.VMS)))
+	ret.Set("used_percent", jsonutils.NewFloat(float64(used_percent)))
 	return ret
 }

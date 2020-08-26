@@ -52,6 +52,7 @@ type SManagedDBInstanceCreateConfig struct {
 	MasterInstanceId string
 	Password         string
 	Username         string
+	ProjectId        string
 
 	BillingCycle *billing.SBillingCycle
 }
@@ -87,6 +88,7 @@ type SDBInstanceBackupCreateConfig struct {
 }
 
 type SDBInstanceRecoveryConfig struct {
-	BackupId  string
-	Databases map[string]string
+	BackupId                   string
+	Databases                  map[string]string
+	OriginDBInstanceExternalId string
 }

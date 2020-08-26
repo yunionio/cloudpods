@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -30,6 +31,8 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SchedStrategyType string
@@ -107,6 +110,10 @@ func (manager *SSchedtagManager) InitializeData() error {
 	return nil
 }
 
+func (manager *SSchedtagManager) NamespaceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeSystem
+}
+
 func (manager *SSchedtagManager) BindJointManagers(ms map[db.IModelManager]ISchedtagJointManager) {
 	for m, schedtagM := range ms {
 		manager.jointsManager[m.KeywordPlural()] = schedtagM
@@ -133,11 +140,67 @@ func (manager *SSchedtagManager) AllowListItems(ctx context.Context, userCred mc
 	return true
 }
 
-func (manager *SSchedtagManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	if resType := jsonutils.GetAnyString(query, []string{"type", "resource_type"}); resType != "" {
-		q = q.Equals("resource_type", resType)
+// 调度标签列表
+func (manager *SSchedtagManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.SchedtagListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
-	return manager.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err = manager.SScopedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ScopedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SScopedResourceBaseManager.ListItemFilter")
+	}
+
+	if len(query.ResourceType) > 0 {
+		q = q.In("resource_type", query.ResourceType)
+	}
+
+	if len(query.DefaultStrategy) > 0 {
+		q = q.In("default_strategy", query.DefaultStrategy)
+	}
+
+	return q, nil
+}
+
+func (manager *SSchedtagManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.SchedtagListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SScopedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ScopedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SScopedResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SSchedtagManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SScopedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (self *SSchedtag) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -187,39 +250,33 @@ func validateDefaultStrategy(defStrategy string) error {
 	return nil
 }
 
-func (manager *SSchedtagManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	defStrategy, _ := data.GetString("default_strategy")
-	if len(defStrategy) > 0 {
-		err := validateDefaultStrategy(defStrategy)
+func (manager *SSchedtagManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.SchedtagCreateInput) (*jsonutils.JSONDict, error) {
+	if len(input.DefaultStrategy) > 0 {
+		err := validateDefaultStrategy(input.DefaultStrategy)
 		if err != nil {
 			return nil, err
 		}
 	}
 	// set resourceType to hosts if not provided by client
-	resourceType, _ := data.GetString("resource_type")
-	if resourceType == "" {
-		resourceType = HostManager.KeywordPlural()
-		data.Set("resource_type", jsonutils.NewString(resourceType))
+	if input.ResourceType == "" {
+		input.ResourceType = HostManager.KeywordPlural()
 	}
-	if !utils.IsInStringArray(resourceType, manager.GetResourceTypes()) {
-		return nil, httperrors.NewInputParameterError("Not support resource_type %s", resourceType)
+	if !utils.IsInStringArray(input.ResourceType, manager.GetResourceTypes()) {
+		return nil, httperrors.NewInputParameterError("Not support resource_type %s", input.ResourceType)
 	}
-	data, err := manager.SScopedResourceBaseManager.ValidateCreateData(manager, ctx, userCred, ownerId, query, data)
+
+	var err error
+	input.ScopedResourceCreateInput, err = manager.SScopedResourceBaseManager.ValidateCreateData(manager, ctx, userCred, ownerId, query, input.ScopedResourceCreateInput)
 	if err != nil {
 		return nil, err
 	}
 
-	input := apis.StandaloneResourceCreateInput{}
-	err = data.Unmarshal(&input)
-	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
-	}
-	input, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	input.StandaloneResourceCreateInput, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StandaloneResourceCreateInput)
 	if err != nil {
 		return nil, err
 	}
-	data.Update(jsonutils.Marshal(input))
-	return data, nil
+
+	return input.JSON(input), nil
 }
 
 func (manager *SSchedtagManager) GetResourceSchedtags(resType string) ([]SSchedtag, error) {
@@ -246,7 +303,18 @@ func (self *SSchedtag) ValidateUpdateData(ctx context.Context, userCred mcclient
 			return nil, err
 		}
 	}
-	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	input := apis.StandaloneResourceBaseUpdateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal")
+	}
+	input, err = self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
+	}
+	data.Update(jsonutils.Marshal(input))
+
+	return data, nil
 }
 
 func (self *SSchedtag) ValidateDeleteCondition(ctx context.Context) error {
@@ -322,28 +390,63 @@ func (self *SSchedtag) getDynamicSchedtagCount() (int, error) {
 	return DynamicschedtagManager.Query().Equals("schedtag_id", self.Id).CountWithError()
 }
 
-func (self *SSchedtag) getMoreColumns(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	extra = self.SScopedResourceBase.GetMoreColumns(extra)
+func (self *SSchedtag) getMoreColumns(out api.SchedtagDetails) api.SchedtagDetails {
+	out.ProjectId = self.SScopedResourceBase.ProjectId
 	cnt, _ := self.GetObjectCount()
-	extra.Add(jsonutils.NewInt(int64(cnt)), fmt.Sprintf("%s_count", self.GetJointManager().GetMasterManager().Keyword()))
-	cnt, _ = self.getDynamicSchedtagCount()
-	extra.Add(jsonutils.NewInt(int64(cnt)), "dynamic_schedtag_count")
-	cnt, _ = self.getSchedPoliciesCount()
-	extra.Add(jsonutils.NewInt(int64(cnt)), "schedpolicy_count")
-	return extra
-}
-
-func (self *SSchedtag) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreColumns(extra)
-}
-
-func (self *SSchedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
+	keyword := self.GetJointManager().GetMasterManager().Keyword()
+	switch keyword {
+	case HostManager.Keyword():
+		out.HostCount = cnt
+	case GuestManager.Keyword():
+		out.ServerCount = cnt
+	default:
+		out.OtherCount = cnt
+		out.JoinModelKeyword = keyword
 	}
-	return self.getMoreColumns(extra), nil
+	out.DynamicSchedtagCount, _ = self.getDynamicSchedtagCount()
+	out.SchedpolicyCount, _ = self.getSchedPoliciesCount()
+
+	// resource_count = row.host_count || row.other_count || '0'
+	if out.HostCount > 0 {
+		out.ResourceCount = out.HostCount
+	} else if out.OtherCount > 0 {
+		out.ResourceCount = out.OtherCount
+	} else {
+		out.ResourceCount = 0
+	}
+	return out
+}
+
+func (self *SSchedtag) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.SchedtagDetails, error) {
+	return api.SchedtagDetails{}, nil
+}
+
+func (manager *SSchedtagManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.SchedtagDetails {
+	rows := make([]api.SchedtagDetails, len(objs))
+
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	scopedRows := manager.SScopedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = api.SchedtagDetails{
+			StandaloneResourceDetails: stdRows[i],
+			ScopedResourceBaseInfo:    scopedRows[i],
+		}
+		rows[i] = objs[i].(*SSchedtag).getMoreColumns(rows[i])
+	}
+
+	return rows
 }
 
 /*func (self *SSchedtag) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -356,8 +459,8 @@ func (self *SSchedtag) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	return desc
 }
 
-func (self *SSchedtag) GetShortDescV2(ctx context.Context) *api.SchedtagShortDescDetails {
-	desc := &api.SchedtagShortDescDetails{}
+func (self *SSchedtag) GetShortDescV2(ctx context.Context) api.SchedtagShortDescDetails {
+	desc := api.SchedtagShortDescDetails{}
 	desc.StandaloneResourceShortDescDetail = self.SStandaloneResourceBase.GetShortDescV2(ctx)
 	desc.Default = self.DefaultStrategy
 	return desc
@@ -456,7 +559,7 @@ func PerformSetResourceSchedtag(obj IModelWithSchedtag, ctx context.Context, use
 				if err := createData.Unmarshal(newTagObj); err != nil {
 					return nil, httperrors.NewGeneralError(fmt.Errorf("Create %s joint schedtag error: %v", jointMan.Keyword(), err))
 				}
-				if err := newTagObj.GetModelManager().TableSpec().Insert(newTagObj); err != nil {
+				if err := newTagObj.GetModelManager().TableSpec().Insert(ctx, newTagObj); err != nil {
 					return nil, httperrors.NewGeneralError(err)
 				}
 			}
@@ -495,7 +598,7 @@ func GetSchedtagsDetailsToResourceV2(obj IModelWithSchedtag, ctx context.Context
 	if schedtags != nil && len(schedtags) > 0 {
 		for i := 0; i < len(schedtags); i += 1 {
 			desc := schedtags[i].GetShortDescV2(ctx)
-			info = append(info, *desc)
+			info = append(info, desc)
 		}
 	}
 	return info
@@ -506,5 +609,5 @@ func (s *SSchedtag) AllowPerformSetScope(ctx context.Context, userCred mcclient.
 }
 
 func (s *SSchedtag) PerformSetScope(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return SchedtagManager.PerformSetScope(ctx, s, userCred, data)
+	return db.PerformSetScope(ctx, s, userCred, data)
 }

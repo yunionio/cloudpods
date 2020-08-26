@@ -863,10 +863,6 @@ func (b *SStorageAccount) GetStats() cloudprovider.SBucketStats {
 	return stats
 }
 
-func (b *SStorageAccount) GetIObjects(prefix string, isRecursive bool) ([]cloudprovider.ICloudObject, error) {
-	return cloudprovider.GetIObjects(b, prefix, isRecursive)
-}
-
 func getBlobRefMeta(blob *storage.Blob) http.Header {
 	meta := http.Header{}
 	for k, v := range blob.Metadata {
@@ -1078,7 +1074,7 @@ func partIndex2BlockId(partIndex int) string {
 	return base64.URLEncoding.EncodeToString([]byte(strconv.FormatInt(int64(partIndex), 10)))
 }
 
-func (b *SStorageAccount) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, input io.Reader, partSize int64) (string, error) {
+func (b *SStorageAccount) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, input io.Reader, partSize int64, offset, totalSize int64) (string, error) {
 	containerName, blob, err := splitKeyAndBlob(key)
 	if err != nil {
 		return "", errors.Wrap(err, "splitKey")

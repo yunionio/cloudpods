@@ -20,6 +20,15 @@ type LoadbalancerListenerRuleCreateOptions struct {
 	BackendGroup string
 	Domain       string
 	Path         string
+
+	HTTPRequestRate       *int
+	HTTPRequestRatePerSrc *int
+
+	Redirect       *string `choices:"off|raw"`
+	RedirectCode   *int    `choices:"301|302|307"`
+	RedirectScheme *string `json:",allowempty" choices:"http|https|"`
+	RedirectHost   *string `json:",allowempty"`
+	RedirectPath   *string `json:",allowempty"`
 }
 
 type LoadbalancerListenerRuleListOptions struct {
@@ -29,6 +38,12 @@ type LoadbalancerListenerRuleListOptions struct {
 	Listener     string
 	Domain       string
 	Path         string
+
+	Redirect       *string `choices:"off|raw"`
+	RedirectCode   *int    `choices:"301|302|307"`
+	RedirectScheme *string `choices:"http|https|" json:",allowempty"`
+	RedirectHost   *string `json:",allowempty"`
+	RedirectPath   *string `json:",allowempty"`
 }
 
 type LoadbalancerListenerRuleUpdateOptions struct {
@@ -36,6 +51,15 @@ type LoadbalancerListenerRuleUpdateOptions struct {
 	Name string
 
 	BackendGroup string
+
+	HTTPRequestRate       *int
+	HTTPRequestRatePerSrc *int
+
+	Redirect       *string `choices:"off|raw"`
+	RedirectCode   *int    `choices:"301|302|307"`
+	RedirectScheme *string `choices:"http|https|" json:",allowempty"`
+	RedirectHost   *string `json:",allowempty"`
+	RedirectPath   *string `json:",allowempty"`
 }
 
 type LoadbalancerListenerRuleGetOptions struct {

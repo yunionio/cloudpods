@@ -60,7 +60,7 @@ func GetStringArray(o JSONObject, key ...string) ([]string, error) {
 }
 
 func NewTimeString(tm time.Time) *JSONString {
-	return NewString(tm.Format("2006-01-02T15:04:05Z"))
+	return NewString(tm.UTC().Format("2006-01-02T15:04:05Z"))
 }
 
 func GetQueryStringArray(query JSONObject, key string) []string {
@@ -102,7 +102,7 @@ func CheckRequiredFields(data JSONObject, fields []string) error {
 	for _, f := range fields {
 		jsonVal, ok := jsonMap[f]
 		if !ok {
-			return errors.Wrap(ErrMisingInputField, f)
+			return errors.Wrap(ErrMissingInputField, f)
 		}
 		if jsonVal == JSONNull {
 			return errors.Wrap(ErrNilInputField, f)

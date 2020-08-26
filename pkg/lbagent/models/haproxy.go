@@ -26,7 +26,9 @@ import (
 
 	"yunion.io/x/log"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	agentutils "yunion.io/x/onecloud/pkg/lbagent/utils"
+	"yunion.io/x/onecloud/pkg/mcclient/models"
 )
 
 var haproxyConfigErrNop = errors.New("nop haproxy config snippet")
@@ -193,10 +195,15 @@ func (b *LoadbalancerCorpus) genHaproxyConfigCommon(lb *Loadbalancer, listener *
 	{
 		agentHaproxyParams := opts.AgentModel.Params.Haproxy
 		if agentHaproxyParams.GlobalLog != "" {
-			if listener.ListenerType == "http" && agentHaproxyParams.LogHttp {
-				data["log"] = true
-			} else if listener.ListenerType == "tcp" && agentHaproxyParams.LogTcp {
-				data["log"] = true
+			switch listener.ListenerType {
+			case "http", "https":
+				if agentHaproxyParams.LogHttp {
+					data["log"] = true
+				}
+			case "tcp":
+				if agentHaproxyParams.LogTcp {
+					data["log"] = true
+				}
 			}
 		}
 	}
@@ -278,14 +285,18 @@ func (b *LoadbalancerCorpus) genHaproxyConfigBackend(data map[string]interface{}
 		stickyCookie := ""
 		switch listener.StickySessionType {
 		case "insert":
-			stickyCookie = "cookie SERVERID insert indirect nocache"
+			cookie := listener.StickySessionCookie
+			if cookie == "" {
+				cookie = "SERVERID"
+			}
+			stickyCookie = fmt.Sprintf("cookie %s insert indirect nocache", cookie)
 			if maxIdle := listener.StickySessionCookieTimeout; maxIdle > 0 {
 				stickyCookie += fmt.Sprintf(" maxidle %ds", maxIdle)
 			}
 		case "server":
 			cookie := listener.StickySessionCookie
 			if cookie != "" {
-				stickyCookie = fmt.Sprintf("cookie %q rewrite nocache", cookie)
+				stickyCookie = fmt.Sprintf("cookie %q rewrite", cookie)
 			}
 		}
 		if stickyCookie != "" {
@@ -321,6 +332,11 @@ func (b *LoadbalancerCorpus) genHaproxyConfigBackend(data map[string]interface{}
 				serverLine += " " + sendProxy
 			} else {
 				// nothing to do
+			}
+			if backend.Ssl == "on" {
+				serverLine += " ssl"
+				serverLine += " verify none"
+				serverLine += " check-ssl"
 			}
 			serverLines = append(serverLines, serverLine)
 		}
@@ -387,13 +403,32 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttpRate(data map[string]interface{
 	return nil
 }
 
-func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *LoadbalancerListener, opts *AgentParams) error {
-	lb := listener.loadbalancer
-	rules := listener.rules.OrderedEnabledList()
-	data := b.genHaproxyConfigCommon(lb, listener, opts)
-	ruleBackendIdGen := func(id string) string {
-		return fmt.Sprintf("backends_rule-%s", id)
+func (b *LoadbalancerCorpus) haproxyRedirectLine(r *models.LoadbalancerHTTPRedirect, listenerType string) string {
+	var (
+		code   = r.RedirectCode
+		scheme = r.RedirectScheme
+		host   = r.RedirectHost
+		path   = r.RedirectPath
+	)
+	if scheme == "" {
+		scheme = strings.ToLower(listenerType)
 	}
+	if host == "" {
+		host = "%[req.hdr(host)]"
+	}
+	if path == "" {
+		path = "%[capture.req.uri]"
+	}
+	line := fmt.Sprintf("http-request redirect code %d location %s://%s%s", code, scheme, host, path)
+	return line
+}
+
+func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *LoadbalancerListener, opts *AgentParams) error {
+	var (
+		lb = listener.loadbalancer
+	)
+
+	data := b.genHaproxyConfigCommon(lb, listener, opts)
 	{
 		// NOTE add X-Real-IP if needed
 		//
@@ -402,30 +437,58 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *L
 		data["xforwardedfor"] = listener.XForwardedFor
 		data["gzip"] = listener.Gzip
 	}
-	{ // use_backend rule.Id if xx
-		ruleLines := []string{}
+
+	var (
+		rules     = listener.rules.OrderedEnabledList()
+		ruleLines = []string{}
+		backends  = []interface{}{}
+
+		ruleBackendIdGen = func(id string) string {
+			return fmt.Sprintf("backends_rule-%s", id)
+		}
+	)
+	{ // dispatch
 		for _, rule := range rules {
-			ruleLine := fmt.Sprintf("use_backend %s", ruleBackendIdGen(rule.Id))
+			sufCond := ""
 			if rule.Domain != "" || rule.Path != "" {
-				ruleLine += " if"
+				sufCond += " if"
 				if rule.Domain != "" {
-					ruleLine += fmt.Sprintf(" { hdr_dom(host) %q }", rule.Domain)
+					sufCond += fmt.Sprintf(" { hdr_dom(host) %q }", rule.Domain)
 				}
 				if rule.Path != "" {
-					ruleLine += fmt.Sprintf(" { path_beg %q }", rule.Path)
+					sufCond += fmt.Sprintf(" { path_beg %q }", rule.Path)
 				}
 			}
-			ruleLines = append(ruleLines, ruleLine)
+			if rule.Redirect == computeapi.LB_REDIRECT_OFF {
+				// use_backend rule.Id if xx
+				ruleLine := fmt.Sprintf("use_backend %s", ruleBackendIdGen(rule.Id))
+				ruleLines = append(ruleLines, ruleLine+sufCond)
+				continue
+			} else if rule.Redirect == computeapi.LB_REDIRECT_RAW {
+				// http-request redirect ... if xx
+				ruleLine := b.haproxyRedirectLine(&rule.LoadbalancerHTTPRedirect, listener.ListenerType)
+				ruleLines = append(ruleLines, ruleLine+sufCond)
+			} else {
+				return haproxyConfigErrNop
+			}
+		}
+		// default is a raw redirect
+		if listener.Redirect == computeapi.LB_REDIRECT_RAW {
+			ruleLines = append(ruleLines,
+				b.haproxyRedirectLine(&listener.LoadbalancerHTTPRedirect, listener.ListenerType),
+			)
 		}
 		data["rules"] = ruleLines
 	}
-	{
-		backends := []interface{}{}
+	{ // those with backend group
 		// rules backend group
 		for _, rule := range rules {
 			// NOTE dup is ok
 			if rule.BackendGroupId == "" {
 				// just in case
+				continue
+			}
+			if rule.Redirect != computeapi.LB_REDIRECT_OFF {
 				continue
 			}
 			backendGroup := lb.backendGroups[rule.BackendGroupId]
@@ -444,7 +507,7 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *L
 			backends = append(backends, backendData)
 		}
 		// default backend group
-		if listener.BackendGroupId != "" {
+		if listener.Redirect == computeapi.LB_REDIRECT_OFF && listener.BackendGroupId != "" {
 			backendGroup := lb.backendGroups[listener.BackendGroupId]
 			backendData := map[string]interface{}{
 				"comment": fmt.Sprintf("listener %s(%s) default backendGroup %s(%s)",
@@ -461,11 +524,11 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *L
 			backends = append(backends, backendData)
 			data["default_backend"] = backendData
 		}
-		if len(backends) == 0 {
-			// no backendgroup specified, nothing to serve
-			return haproxyConfigErrNop
-		}
 		data["backends"] = backends
+	}
+	if len(ruleLines) == 0 && len(backends) == 0 {
+		// nothing to serve
+		return haproxyConfigErrNop
 	}
 	err := haproxyConfigTmpl.ExecuteTemplate(buf, "httpListen", data)
 	return err
@@ -519,7 +582,6 @@ frontend {{ .id }}
 	{{- println }}
 	{{- if .log }}	{{ println "option httplog clf" }} {{- end }}
 	{{- if .acl }}	{{ println .acl }} {{- end}}
-	{{- range .rate_rules }}	{{ println . }} {{- end }}
 	{{- if .client_request_timeout }}	timeout http-request {{ println .client_request_timeout }} {{- end}}
 	{{- if .client_idle_timeout }}	timeout http-keep-alive {{ println .client_idle_timeout }} {{- end}}
 	{{- if .xforwardedfor }}	{{ println "option forwardfor" }} {{- end}}

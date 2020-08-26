@@ -17,6 +17,7 @@ package tasks
 import (
 	"context"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
@@ -31,10 +32,18 @@ func ClearTaskPendingUsage(ctx context.Context, task taskman.ITask) error {
 	err := task.GetPendingUsage(&pendingUsage, index)
 	if err != nil {
 		log.Errorf("GetPendingUsage fail %s", err)
-		return errors.Wrap(err, "task.GetPendingUsage")
+		// ignore error
+		// return errors.Wrap(err, "task.GetPendingUsage")
+		return nil
 	}
 
-	err = quotas.CancelPendingUsage(ctx, task.GetUserCred(), &pendingUsage, &pendingUsage)
+	log.Debugf("ClearTaskPendingUsage %s", jsonutils.Marshal(pendingUsage))
+
+	if pendingUsage.IsEmpty() {
+		return nil
+	}
+
+	err = quotas.CancelPendingUsage(ctx, task.GetUserCred(), &pendingUsage, &pendingUsage, false)
 	if err != nil {
 		return errors.Wrap(err, "models.QuotaManager.CancelPendingUsage")
 	}
@@ -55,10 +64,16 @@ func ClearTaskPendingRegionUsage(ctx context.Context, task taskman.ITask) error 
 	err := task.GetPendingUsage(&pendingUsage, index)
 	if err != nil {
 		log.Errorf("GetPendingUsage fail %s", err)
-		return errors.Wrap(err, "task.GetPendingUsage")
+		// ignore error
+		// return errors.Wrap(err, "task.GetPendingUsage")
+		return nil
 	}
 
-	err = quotas.CancelPendingUsage(ctx, task.GetUserCred(), &pendingUsage, &pendingUsage)
+	if pendingUsage.IsEmpty() {
+		return nil
+	}
+
+	err = quotas.CancelPendingUsage(ctx, task.GetUserCred(), &pendingUsage, &pendingUsage, false)
 	if err != nil {
 		return errors.Wrap(err, "models.QuotaManager.CancelPendingUsage")
 	}

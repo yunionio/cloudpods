@@ -29,7 +29,7 @@ func init() {
 		NewIdentityV3Manager("identity_provider",
 			"identity_providers",
 			[]string{},
-			[]string{"ID", "Name", "Driver", "Template", "Enabled", "Status", "Sync_Status", "Error_count", "Sync_Interval_Seconds"}),
+			[]string{"ID", "Name", "Driver", "Template", "auto_create_user", "Enabled", "Status", "Sync_Status", "Error_count", "Sync_Interval_Seconds", "target_domain_id"}),
 	}
 
 	register(&IdentityProviders)

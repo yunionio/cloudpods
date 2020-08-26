@@ -26,6 +26,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type TInternetChargeType string
@@ -69,6 +70,7 @@ const (
 
 type SEipAddress struct {
 	region *SRegion
+	multicloud.SEipBase
 
 	AllocationId string
 
@@ -85,8 +87,9 @@ type SEipAddress struct {
 
 	OperationLocks string
 
-	ChargeType  TChargeType
-	ExpiredTime time.Time
+	ChargeType      TChargeType
+	ExpiredTime     time.Time
+	ResourceGroupId string
 }
 
 func (self *SEipAddress) GetId() string {
@@ -203,9 +206,9 @@ func (self *SEipAddress) GetInternetChargeType() string {
 	}
 }
 
-func (self *SEipAddress) Associate(instanceId string) error {
+func (self *SEipAddress) Associate(conf *cloudprovider.AssociateConfig) error {
 	err := cloudprovider.Wait(20*time.Second, 60*time.Second, func() (bool, error) {
-		err := self.region.AssociateEip(self.AllocationId, instanceId)
+		err := self.region.AssociateEip(self.AllocationId, conf.InstanceId)
 		if err != nil {
 			if isError(err, "IncorrectInstanceStatus") {
 				return false, nil
@@ -284,13 +287,16 @@ func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
 	return &eips[0], nil
 }
 
-func (region *SRegion) AllocateEIP(bwMbps int, chargeType TInternetChargeType) (*SEipAddress, error) {
+func (region *SRegion) AllocateEIP(bwMbps int, chargeType TInternetChargeType, projectId string) (*SEipAddress, error) {
 	params := make(map[string]string)
 
 	params["Bandwidth"] = fmt.Sprintf("%d", bwMbps)
 	params["InternetChargeType"] = string(chargeType)
 	params["InstanceChargeType"] = "PostPaid"
 	params["ClientToken"] = utils.GenRequestId(20)
+	if len(projectId) > 0 {
+		params["ResourceGroupId"] = projectId
+	}
 
 	body, err := region.ecsRequest("AllocateEipAddress", params)
 	if err != nil {
@@ -315,7 +321,7 @@ func (region *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudE
 	case api.EIP_CHARGE_TYPE_BY_BANDWIDTH:
 		ctype = InternetChargeByBandwidth
 	}
-	return region.AllocateEIP(eip.BandwidthMbps, ctype)
+	return region.AllocateEIP(eip.BandwidthMbps, ctype, eip.ProjectId)
 }
 
 func (region *SRegion) DeallocateEIP(eipId string) error {
@@ -376,5 +382,5 @@ func (region *SRegion) UpdateEipBandwidth(eipId string, bw int) error {
 }
 
 func (self *SEipAddress) GetProjectId() string {
-	return ""
+	return self.ResourceGroupId
 }

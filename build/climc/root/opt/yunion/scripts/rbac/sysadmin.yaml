@@ -1,0 +1,8 @@
+# rbac for sysadmin
+projects:
+  - system
+roles:
+  - admin
+scope: system
+policy:
+  '*': allow

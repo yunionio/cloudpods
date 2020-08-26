@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/tokens"
@@ -34,7 +35,8 @@ func InitHandlers(app *appsrv.Application) {
 	// add version handler with API_VERSION prefix
 	app.AddDefaultHandler("GET", API_VERSION+"/version", appsrv.VersionHandler, "version")
 
-	// quotas.AddQuotaHandler(models.QuotaManager, API_VERSION, app)
+	quotas.AddQuotaHandler(&models.IdentityQuotaManager.SQuotaBaseManager, API_VERSION, app)
+
 	usages.AddUsageHandler(API_VERSION, app)
 	taskman.AddTaskHandler(API_VERSION, app)
 
@@ -61,7 +63,13 @@ func InitHandlers(app *appsrv.Application) {
 
 		models.FernetKeyManager,
 
-		models.ProjectResourceManager,
+		models.ScopeResourceManager,
+
+		db.SharedResourceManager,
+
+		models.IdentityQuotaManager,
+		models.IdentityUsageManager,
+		models.IdentityPendingUsageManager,
 	} {
 		db.RegisterModelManager(manager)
 	}
@@ -80,6 +88,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.PolicyManager,
 		models.CredentialManager,
 		models.IdentityProviderManager,
+		models.ServiceCertificateManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

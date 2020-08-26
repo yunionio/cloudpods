@@ -28,10 +28,10 @@ import (
 type BaseOptions struct {
 	Debug      bool   `help:"debug mode"`
 	Help       bool   `help:"Show help"`
-	AuthURL    string `help:"Auth URL" default:"$ZSTACK_AUTH_URL"`
-	Username   string `help:"Username" default:"$ZSTACK_USERNAME"`
-	Password   string `help:"Password" default:"$ZSTACK_PASSWORD"`
-	RegionID   string `help:"RegionId" default:"$ZSTACK_REGION_ID"`
+	AuthURL    string `help:"Auth URL" default:"$ZSTACK_AUTH_URL" metavar:"ZSTACK_AUTH_URL"`
+	Username   string `help:"Username" default:"$ZSTACK_USERNAME" metavar:"ZSTACK_USERNAME"`
+	Password   string `help:"Password" default:"$ZSTACK_PASSWORD" metavar:"ZSTACK_PASSWORD"`
+	RegionID   string `help:"RegionId" default:"$ZSTACK_REGION_ID" metavar:"ZSTACK_REGION_ID"`
 	SUBCOMMAND string `help:"zstackcli subcommand" subcommand:"true"`
 }
 
@@ -89,7 +89,13 @@ func newClient(options *BaseOptions) (*zstack.SRegion, error) {
 		return nil, fmt.Errorf("Missing Password")
 	}
 
-	cli, err := zstack.NewZStackClient("", "", options.AuthURL, options.Username, options.Password, options.Debug)
+	cli, err := zstack.NewZStackClient(
+		zstack.NewZstackClientConfig(
+			options.AuthURL,
+			options.Username,
+			options.Password,
+		).Debug(options.Debug),
+	)
 	if err != nil {
 		return nil, err
 	}

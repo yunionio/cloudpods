@@ -21,26 +21,30 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SBaremetalagentManager struct {
 	db.SStandaloneResourceBaseManager
+	SZoneResourceBaseManager
 }
 
 type SBaremetalagent struct {
 	db.SStandaloneResourceBase
+	SZoneResourceBase `width:"128" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"`
 
 	Status     string `width:"36" charset:"ascii" nullable:"false" default:"disable" list:"user" create:"optional"`
 	AccessIp   string `width:"16" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"`
 	ManagerUri string `width:"256" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_required"`
-	ZoneId     string `width:"128" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"`
+	// ZoneId     string `width:"128" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"`
 
 	AgentType string `width:"32" charset:"ascii" nullable:"true" default:"baremetal" list:"admin" update:"admin" create:"admin_optional"`
 
@@ -61,26 +65,6 @@ func init() {
 	BaremetalagentManager.SetVirtualObject(BaremetalagentManager)
 }
 
-func (self *SBaremetalagentManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, self)
-}
-
-func (self *SBaremetalagentManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SBaremetalagent) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SBaremetalagent) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SBaremetalagent) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
-}
-
 func (self *SBaremetalagent) ValidateDeleteCondition(ctx context.Context) error {
 	if self.Status == api.BAREMETAL_AGENT_ENABLED {
 		return fmt.Errorf("Cannot delete in status %s", self.Status)
@@ -95,41 +79,57 @@ func (self *SBaremetalagent) ValidateDeleteCondition(ctx context.Context) error 
 	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (self *SBaremetalagent) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	mangerUri, err := data.GetString("manager_uri")
-	if err == nil {
+func (self *SBaremetalagent) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.BaremetalagentUpdateInput) (api.BaremetalagentUpdateInput, error) {
+	var err error
+	mangerUri := input.ManagerUri
+	if len(mangerUri) > 0 {
 		count, err := BaremetalagentManager.Query().Equals("manager_uri", mangerUri).
 			NotEquals("id", self.Id).CountWithError()
 		if err != nil {
-			return nil, httperrors.NewInternalServerError("check agent uniqness fail %s", err)
+			return input, httperrors.NewInternalServerError("check agent uniqness fail %s", err)
 		}
 		if count > 0 {
-			return nil, httperrors.NewConflictError("Conflict manager_uri %s", mangerUri)
+			return input, httperrors.NewConflictError("Conflict manager_uri %s", mangerUri)
 		}
 	}
-	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	if len(input.ZoneId) > 0 {
+		_, input.ZoneResourceInput, err = ValidateZoneResourceInput(userCred, input.ZoneResourceInput)
+		if err != nil {
+			return input, errors.Wrap(err, "ValidateZoneResourceInput")
+		}
+	}
+	input.StandaloneResourceBaseUpdateInput, err = self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StandaloneResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
+	}
+	return input, nil
 }
 
-func (manager *SBaremetalagentManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	mangerUri, _ := data.GetString("manager_uri")
+func (manager *SBaremetalagentManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.BaremetalagentCreateInput) (api.BaremetalagentCreateInput, error) {
+	var err error
+	mangerUri := input.ManagerUri
+	if len(mangerUri) == 0 {
+		return input, errors.Wrap(httperrors.ErrMissingParameter, "manager_uri")
+	}
 	count, err := manager.Query().Equals("manager_uri", mangerUri).CountWithError()
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("check agent uniqness fail %s", err)
+		return input, httperrors.NewInternalServerError("check agent uniqness fail %s", err)
 	}
 	if count > 0 {
-		return nil, httperrors.NewDuplicateResourceError("Duplicate manager_uri %s", mangerUri)
+		return input, httperrors.NewDuplicateResourceError("Duplicate manager_uri %s", mangerUri)
 	}
-	input := apis.StandaloneResourceCreateInput{}
-	err = data.Unmarshal(&input)
+	if len(input.ZoneId) == 0 {
+		return input, errors.Wrap(httperrors.ErrMissingParameter, "zone/zone_id")
+	}
+	_, input.ZoneResourceInput, err = ValidateZoneResourceInput(userCred, input.ZoneResourceInput)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
+		return input, errors.Wrap(err, "ValidateZoneResourceInput")
 	}
-	input, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	input.StandaloneResourceCreateInput, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StandaloneResourceCreateInput)
 	if err != nil {
-		return nil, err
+		return input, errors.Wrap(err, "SStandaloneResourceBaseManager.ValidateCreateData")
 	}
-	data.Update(jsonutils.Marshal(input))
-	return data, nil
+	return input, nil
 }
 
 func (self *SBaremetalagent) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -199,25 +199,28 @@ func (self *SBaremetalagent) GetZone() *SZone {
 	return nil
 }
 
-func (self *SBaremetalagent) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	zone := self.GetZone()
-	if zone != nil {
-		extra.Set("zone", jsonutils.NewString(zone.GetName()))
-	}
-	return extra
+func (self *SBaremetalagent) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.BaremetalagentDetails, error) {
+	return api.BaremetalagentDetails{}, nil
 }
 
-func (self *SBaremetalagent) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreDetails(ctx, extra)
-}
-
-func (self *SBaremetalagent) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
+func (manager *SBaremetalagentManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.BaremetalagentDetails {
+	rows := make([]api.BaremetalagentDetails, len(objs))
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	zoneRows := manager.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = api.BaremetalagentDetails{
+			StandaloneResourceDetails: stdRows[i],
+			ZoneResourceInfo:          zoneRows[i],
+		}
 	}
-	return self.getMoreDetails(ctx, extra), nil
+	return rows
 }
 
 func (manager *SBaremetalagentManager) GetAgent(agentType api.TAgentType, zoneId string) *SBaremetalagent {
@@ -273,4 +276,78 @@ func (agent *SBaremetalagent) setStoragecacheId(cacheId string) error {
 		return nil
 	})
 	return err
+}
+
+// 管理代理服务列表
+func (manager *SBaremetalagentManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.BaremetalagentListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SZoneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ZonalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemFilter")
+	}
+	if len(query.Status) > 0 {
+		q = q.In("status", query.Status)
+	}
+	if len(query.AccessIp) > 0 {
+		q = q.In("access_ip", query.AccessIp)
+	}
+	if len(query.AgentType) > 0 {
+		q = q.In("agent_type", query.AgentType)
+	}
+	return q, nil
+}
+
+func (manager *SBaremetalagentManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SZoneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SBaremetalagentManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.BaremetalagentListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SZoneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ZonalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SZoneResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (manager *SBaremetalagentManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SZoneResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SZoneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	return q, nil
 }

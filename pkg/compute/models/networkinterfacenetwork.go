@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -57,7 +58,7 @@ type SNetworkinterfacenetwork struct {
 	Primary            bool   `nullable:"false" list:"user"`
 	IpAddr             string `width:"16" charset:"ascii" nullable:"false" list:"user"`
 	NetworkinterfaceId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
-	NetworkId          string `width:"36" charset:"ascii" nullable:"false" list:"admin"`
+	NetworkId          string `width:"36" charset:"ascii" nullable:"false" list:"user"`
 }
 
 func (manager *SNetworkinterfacenetworkManager) GetMasterFieldName() string {
@@ -66,14 +67,6 @@ func (manager *SNetworkinterfacenetworkManager) GetMasterFieldName() string {
 
 func (manager *SNetworkinterfacenetworkManager) GetSlaveFieldName() string {
 	return "network_id"
-}
-
-func (joint *SNetworkinterfacenetwork) Master() db.IStandaloneModel {
-	return db.JointMaster(joint)
-}
-
-func (joint *SNetworkinterfacenetwork) Slave() db.IStandaloneModel {
-	return db.JointSlave(joint)
 }
 
 func (manager *SNetworkinterfacenetworkManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -182,7 +175,13 @@ func (manager *SNetworkinterfacenetworkManager) newFromCloudInterfaceAddress(ctx
 	address.SetModelManager(manager, &address)
 
 	networkId := ext.GetINetworkId()
-	_network, err := db.FetchByExternalId(NetworkManager, networkId)
+	_network, err := db.FetchByExternalIdAndManagerId(NetworkManager, networkId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		wire := WireManager.Query().SubQuery()
+		vpc := VpcManager.Query().SubQuery()
+		return q.Join(wire, sqlchemy.Equals(wire.Field("id"), q.Field("wire_id"))).
+			Join(vpc, sqlchemy.Equals(vpc.Field("id"), wire.Field("vpc_id"))).
+			Filter(sqlchemy.Equals(vpc.Field("manager_id"), networkinterface.ManagerId))
+	})
 	if err != nil {
 		return errors.Wrapf(err, "newFromCloudInterfaceAddress.FetchByExternalId(%s)", networkId)
 	}
@@ -199,7 +198,7 @@ func (manager *SNetworkinterfacenetworkManager) newFromCloudInterfaceAddress(ctx
 
 	address.NetworkId = network.Id
 
-	err = manager.TableSpec().Insert(&address)
+	err = manager.TableSpec().Insert(ctx, &address)
 	if err != nil {
 		return errors.Wrap(err, "TableSpec().Insert(&address)")
 	}

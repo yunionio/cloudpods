@@ -170,12 +170,11 @@ func init() {
 		if err != nil {
 			return err
 		}
-		ctx := context.Background()
-		path, err := dsObj.MakeDir(ctx, args.DIR)
+		err = dsObj.MakeDir(args.DIR)
 		if err != nil {
 			return err
 		}
-		fmt.Println("Make dir success", path)
+		fmt.Println("Make dir success")
 		return nil
 	})
 

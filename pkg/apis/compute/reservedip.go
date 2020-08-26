@@ -14,6 +14,10 @@
 
 package compute
 
+import (
+	"yunion.io/x/onecloud/pkg/apis"
+)
+
 const (
 	RESERVEDIP_TABLE          = "reservedips_tbl"
 	RESERVEDIP_RESOURCE_TYPE  = "reservedip"
@@ -23,3 +27,27 @@ const (
 	RESERVEDIP_STATUS_OFFLINE = "offline"
 	RESERVEDIP_STATUS_UNKNOWN = "unknown"
 )
+
+type ReservedipListInput struct {
+	apis.ResourceBaseListInput
+
+	NetworkFilterListInput
+
+	// list all reserved ips, including expired ones
+	All *bool `json:"all"`
+
+	// ip_addr
+	IpAddr []string `json:"ip_addr"`
+	// 状态
+	Status []string `json:"status"`
+}
+
+type ReservedipDetails struct {
+	apis.ResourceBaseDetails
+	NetworkResourceInfo
+
+	SReservedip
+
+	// 是否过期
+	Expired bool `json:"expired"`
+}

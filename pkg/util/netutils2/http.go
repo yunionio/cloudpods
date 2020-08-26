@@ -20,16 +20,21 @@ import (
 )
 
 func GetHttpRequestIp(r *http.Request) string {
-	ipStr := r.Header.Get("X-Real-Ip")
-	if len(ipStr) == 0 {
-		ipStr = r.Header.Get("X-Forwarded-For")
-		if len(ipStr) == 0 {
-			ipStr = r.RemoteAddr
-			colonPos := strings.Index(ipStr, ":")
-			if colonPos > 0 {
-				ipStr = ipStr[:colonPos]
-			}
+	ipStr := r.Header.Get("X-Forwarded-For")
+	if len(ipStr) > 0 {
+		ipList := strings.Split(ipStr, ",")
+		if len(ipList) > 0 {
+			return ipList[0]
 		}
+	}
+	ipStr = r.Header.Get("X-Real-Ip")
+	if len(ipStr) > 0 {
+		return ipStr
+	}
+	ipStr = r.RemoteAddr
+	colonPos := strings.Index(ipStr, ":")
+	if colonPos > 0 {
+		ipStr = ipStr[:colonPos]
 	}
 	return ipStr
 }

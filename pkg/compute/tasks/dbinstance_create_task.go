@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -37,9 +38,9 @@ func init() {
 
 func (self *DBInstanceCreateTask) taskFailed(ctx context.Context, dbinstance *models.SDBInstance, err error) {
 	dbinstance.SetStatus(self.UserCred, api.DBINSTANCE_CREATE_FAILED, err.Error())
-	db.OpsLog.LogEvent(dbinstance, db.ACT_CREATE, err.Error(), self.GetUserCred())
-	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_CREATE, err.Error(), self.UserCred, false)
-	self.SetStageFailed(ctx, err.Error())
+	db.OpsLog.LogEvent(dbinstance, db.ACT_CREATE, err, self.GetUserCred())
+	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_CREATE, err, self.UserCred, false)
+	self.SetStageFailed(ctx, jsonutils.Marshal(err))
 }
 
 func (self *DBInstanceCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -61,8 +62,37 @@ func (self *DBInstanceCreateTask) OnCreateDBInstanceComplete(ctx context.Context
 	dbinstance := obj.(*models.SDBInstance)
 	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_CREATE, nil, self.UserCred, true)
 
+	accounts, err := dbinstance.GetDBInstanceAccounts()
+	if err != nil {
+		log.Errorf("failed to get dbinstance %s account error: %v", dbinstance.Name, err)
+	}
+
+	if len(accounts) > 0 {
+		iRds, err := dbinstance.GetIDBInstance()
+		if err != nil {
+			log.Errorf("failed to found dbinstance %s error: %v", dbinstance.Name, err)
+		} else {
+			iAccounts, err := iRds.GetIDBInstanceAccounts()
+			if err != nil {
+				log.Errorf("failed to get accounts from cloud dbinstance %s error: %v", dbinstance.Name, err)
+			}
+			externalIds := map[string]string{}
+			for _, iAccount := range iAccounts {
+				externalIds[iAccount.GetName()] = iAccount.GetGlobalId()
+			}
+			for i := range accounts {
+				externalId, ok := externalIds[accounts[i].Name]
+				if !ok {
+					log.Errorf("failed to get dbinstance account %s from cloud dbinstance for set externalId", accounts[i].Name)
+				} else {
+					db.SetExternalId(&accounts[i], self.UserCred, externalId)
+				}
+			}
+		}
+	}
+
 	self.SetStage("OnSyncDBInstanceStatusComplete", nil)
-	dbinstance.StartDBInstanceSyncStatusTask(ctx, self.UserCred, nil, self.GetTaskId())
+	models.StartResourceSyncStatusTask(ctx, self.UserCred, dbinstance, "DBInstanceSyncStatusTask", self.GetTaskId())
 }
 
 func (self *DBInstanceCreateTask) OnCreateDBInstanceCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -75,5 +105,5 @@ func (self *DBInstanceCreateTask) OnSyncDBInstanceStatusComplete(ctx context.Con
 }
 
 func (self *DBInstanceCreateTask) OnSyncDBInstanceStatusCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, data.String())
+	self.SetStageFailed(ctx, data)
 }

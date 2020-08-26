@@ -60,7 +60,7 @@ func (self *SBaseGuestDriver) OnGuestCreateTaskComplete(ctx context.Context, gue
 	if len(duration) > 0 {
 		bc, err := billing.ParseBillingCycle(duration)
 		if err == nil && guest.ExpiredAt.IsZero() {
-			guest.SaveRenewInfo(ctx, task.GetUserCred(), &bc, nil)
+			guest.SaveRenewInfo(ctx, task.GetUserCred(), &bc, nil, "")
 		}
 		if jsonutils.QueryBoolean(task.GetParams(), "auto_prepaid_recycle", false) {
 			err := guest.CanPerformPrepaidRecycle()
@@ -86,6 +86,10 @@ func (self *SBaseGuestDriver) StartDeleteGuestTask(ctx context.Context, userCred
 		return err
 	}
 	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SBaseGuestDriver) ValidateImage(ctx context.Context, image *cloudprovider.SImage) error {
 	return nil
 }
 
@@ -128,7 +132,11 @@ func (self *SBaseGuestDriver) IsRebuildRootSupportChangeImage() bool {
 	return true
 }
 
-func (self *SBaseGuestDriver) GetChangeConfigStatus() ([]string, error) {
+func (self *SBaseGuestDriver) IsRebuildRootSupportChangeUEFI() bool {
+	return true
+}
+
+func (self *SBaseGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
 	return []string{}, fmt.Errorf("This Guest driver dose not implement GetChangeConfigStatus")
 }
 
@@ -251,7 +259,7 @@ func (self *SBaseGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) 
 }
 
 func (self *SBaseGuestDriver) IsSupportPostpaidExpire() bool {
-	return false
+	return true
 }
 
 func (self *SBaseGuestDriver) RequestRenewInstance(guest *models.SGuest, bc billing.SBillingCycle) (time.Time, error) {
@@ -267,11 +275,15 @@ func (self *SBaseGuestDriver) RequestAssociateEip(ctx context.Context, userCred 
 }
 
 func (self *SBaseGuestDriver) NeedStopForChangeSpec(guest *models.SGuest, cpuChanged, memChanged bool) bool {
-	return true
+	return false
 }
 
 func (self *SBaseGuestDriver) RemoteDeployGuestForCreate(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error) {
 	return nil, cloudprovider.ErrNotSupported
+}
+
+func (self *SBaseGuestDriver) RemoteActionAfterGuestCreated(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, ivm cloudprovider.ICloudVM, desc *cloudprovider.SManagedVMCreateConfig) {
+	return
 }
 
 func (self *SBaseGuestDriver) RemoteDeployGuestForDeploy(ctx context.Context, guest *models.SGuest, ihost cloudprovider.ICloudHost, task taskman.ITask, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error) {
@@ -291,6 +303,14 @@ func (self *SBaseGuestDriver) GetGuestInitialStateAfterRebuild() string {
 }
 
 func (self *SBaseGuestDriver) IsNeedInjectPasswordByCloudInit(desc *cloudprovider.SManagedVMCreateConfig) bool {
+	return false
+}
+
+func (self *SBaseGuestDriver) GetWindowsUserDataType() string {
+	return cloudprovider.CLOUD_POWER_SHELL
+}
+
+func (self *SBaseGuestDriver) IsWindowsUserDataTypeNeedEncode() bool {
 	return false
 }
 
@@ -324,6 +344,44 @@ func (self *SBaseGuestDriver) RequestSyncSecgroupsOnHost(ctx context.Context, gu
 
 func (self *SBaseGuestDriver) CancelExpireTime(
 	ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
+	return guest.CancelExpireTime(ctx, userCred)
+}
 
-	return httperrors.NewBadRequestError("unsupport cancel expire time")
+func (self *SBaseGuestDriver) IsSupportPublicipToEip() bool {
+	return false
+}
+
+func (self *SBaseGuestDriver) RequestConvertPublicipToEip(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestConvertPublicipToEip")
+}
+
+func (self *SBaseGuestDriver) IsSupportSetAutoRenew() bool {
+	return false
+}
+
+func (self *SBaseGuestDriver) RequestSetAutoRenewInstance(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, autoRenew bool, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestSetAutoRenewInstance")
+}
+
+func (self *SBaseGuestDriver) IsSupportMigrate() bool {
+	return false
+}
+
+func (self *SBaseGuestDriver) IsSupportLiveMigrate() bool {
+	return false
+}
+
+func (self *SBaseGuestDriver) CheckMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput) error {
+	return httperrors.NewNotAcceptableError("Not allow for hypervisor %s", guest.GetHypervisor())
+}
+
+func (self *SBaseGuestDriver) CheckLiveMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput) error {
+	return httperrors.NewNotAcceptableError("Not allow for hypervisor %s", guest.GetHypervisor())
+}
+func (self *SBaseGuestDriver) RequestMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestMigrate")
+}
+
+func (self *SBaseGuestDriver) RequestLiveMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestLiveMigrate")
 }

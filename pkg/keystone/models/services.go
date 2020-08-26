@@ -24,10 +24,13 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SServiceManager struct {
@@ -66,6 +69,8 @@ type SService struct {
 	Type    string              `width:"255" charset:"utf8" list:"admin" create:"admin_required"`
 	Enabled tristate.TriState   `nullable:"false" default:"true" list:"admin" update:"admin" create:"admin_optional"`
 	Extra   *jsonutils.JSONDict `nullable:"true" list:"admin"`
+
+	ConfigVersion int `list:"admin" nullable:"false" default:"0"`
 }
 
 func (manager *SServiceManager) InitializeData() error {
@@ -107,23 +112,35 @@ func (service *SService) ValidateDeleteCondition(ctx context.Context) error {
 	return service.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (service *SService) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := service.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return serviceExtra(service, extra)
-}
+func (manager *SServiceManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.ServiceDetails {
+	rows := make([]api.ServiceDetails, len(objs))
 
-func (service *SService) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := service.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.ServiceDetails{
+			StandaloneResourceDetails: stdRows[i],
+		}
+		rows[i].EndpointCount, _ = objs[i].(*SService).GetEndpointCount()
 	}
-	return serviceExtra(service, extra), nil
+
+	return rows
 }
 
-func serviceExtra(service *SService, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	epCnt, _ := service.GetEndpointCount()
-	extra.Add(jsonutils.NewInt(int64(epCnt)), "endpoint_count")
-	return extra
+func (service *SService) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.ServiceDetails, error) {
+	return api.ServiceDetails{}, nil
 }
 
 func (service *SService) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -146,7 +163,15 @@ func (service *SService) AllowGetDetailsConfig(ctx context.Context, userCred mcc
 }
 
 func (service *SService) GetDetailsConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	conf, err := GetConfigs(service, false)
+	var whiteList, blackList map[string][]string
+	if service.isCommonService() {
+		// whitelist common options
+		whiteList = api.CommonWhitelistOptionMap
+	} else {
+		// blacklist common options
+		blackList = api.CommonWhitelistOptionMap
+	}
+	conf, err := GetConfigs(service, false, whiteList, blackList)
 	if err != nil {
 		return nil, err
 	}
@@ -155,20 +180,37 @@ func (service *SService) GetDetailsConfig(ctx context.Context, userCred mcclient
 	return result, nil
 }
 
-func (service *SService) AllowPerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
+func (service *SService) AllowPerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.PerformConfigInput) bool {
 	return db.IsAdminAllowUpdateSpec(userCred, service, "config")
 }
 
-func (service *SService) PerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
-	action, _ := data.GetString("action")
-	opts := api.TConfigs{}
-	err := data.Unmarshal(&opts, "config")
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("invalid input data")
+func (service *SService) isCommonService() bool {
+	if service.Type == consts.COMMON_SERVICE {
+		return true
+	} else {
+		return false
 	}
-	err = saveConfigs(action, service, opts, api.BlacklistOptionMap, nil)
+}
+
+func (service *SService) PerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.PerformConfigInput) (jsonutils.JSONObject, error) {
+	var err error
+	action := input.Action
+	opts := input.Config
+	if service.isCommonService() {
+		err = saveConfigs(userCred, action, service, opts, api.CommonWhitelistOptionMap, nil, nil)
+	} else {
+		err = saveConfigs(userCred, action, service, opts, nil, api.ServiceBlacklistOptionMap, nil)
+	}
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("saveConfig fail %s", err)
+	}
+	diff := SService{ConfigVersion: 1}
+	err = ServiceManager.TableSpec().Increment(ctx, diff, service)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("update config version fail %s", err)
+	}
+	if service.Type == api.SERVICE_TYPE || service.Type == consts.COMMON_SERVICE {
+		options.OptionManager.SyncOnce()
 	}
 	return service.GetDetailsConfig(ctx, userCred, query)
 }
@@ -193,4 +235,55 @@ func (manager *SServiceManager) fetchServiceByType(typeStr string) (*SService, e
 		return nil, errors.Wrap(err, "q.First")
 	}
 	return srvObj.(*SService), nil
+}
+
+// 服务列表
+func (manager *SServiceManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ServiceListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+	}
+	if len(query.Type) > 0 {
+		q = q.In("type", query.Type)
+	}
+	if query.Enabled != nil {
+		if *query.Enabled {
+			q = q.IsTrue("enabled")
+		} else {
+			q = q.IsFalse("enabled")
+		}
+	}
+	return q, nil
+}
+
+func (manager *SServiceManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.RegionListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SServiceManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }

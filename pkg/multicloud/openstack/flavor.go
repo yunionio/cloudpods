@@ -16,6 +16,7 @@ package openstack
 
 import (
 	"fmt"
+	"net/url"
 
 	"github.com/pkg/errors"
 
@@ -29,7 +30,7 @@ type SFlavor struct {
 	multicloud.SServerSku
 	region *SRegion
 
-	ID           string
+	Id           string
 	Disk         int
 	Ephemeral    int
 	ExtraSpecs   ExtraSpecs
@@ -41,44 +42,45 @@ type SFlavor struct {
 }
 
 func (region *SRegion) GetFlavors() ([]SFlavor, error) {
-	url := "/flavors/detail"
+	resource := "/flavors/detail"
 	flavors := []SFlavor{}
-	for len(url) > 0 {
-		_, resp, err := region.List("compute", url, "", nil)
+	query := url.Values{}
+	for {
+		resp, err := region.ecsList(resource, query)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "ecsList")
 		}
-		_flavors := []SFlavor{}
-		err = resp.Unmarshal(&_flavors, "flavors")
+		part := struct {
+			Flavors      []SFlavor
+			FlavorsLinks SNextLinks
+		}{}
+		err = resp.Unmarshal(&part)
 		if err != nil {
-			return nil, errors.Wrap(err, `resp.Unmarshal(&_flavors, "flavors")`)
+			return nil, errors.Wrap(err, "resp.Unmarshal")
 		}
-		flavors = append(flavors, _flavors...)
-		url = ""
-		if resp.Contains("flavors_links") {
-			nextLink := []SNextLink{}
-			err = resp.Unmarshal(&nextLink, "flavors_links")
-			if err != nil {
-				return nil, errors.Wrap(err, `resp.Unmarshal(&nextLink, "flavors_links")`)
-			}
-			for _, next := range nextLink {
-				if next.Rel == "next" {
-					url = next.Href
-					break
-				}
-			}
+		flavors = append(flavors, part.Flavors...)
+
+		marker := part.FlavorsLinks.GetNextMark()
+		if len(marker) == 0 {
+			break
 		}
+		query.Set("marker", marker)
 	}
 	return flavors, nil
 }
 
 func (region *SRegion) GetFlavor(flavorId string) (*SFlavor, error) {
-	_, resp, err := region.Get("compute", "/flavors/"+flavorId, "", nil)
+	resource := fmt.Sprintf("/flavors/%s", flavorId)
+	resp, err := region.ecsGet(resource)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "ecsGet")
 	}
 	flavor := &SFlavor{region: region}
-	return flavor, resp.Unmarshal(flavor, "flavor")
+	err = resp.Unmarshal(flavor, "flavor")
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return flavor, nil
 }
 
 func (region *SRegion) SyncFlavor(name string, cpu, memoryMb, diskGB int) (string, error) {
@@ -90,30 +92,32 @@ func (region *SRegion) syncFlavor(name string, cpu, memoryMb, diskGB int) (strin
 	if err != nil {
 		return "", err
 	}
-	if len(name) > 0 {
-		for _, flavor := range flavors {
-			flavorName := flavor.GetName()
-			if flavorName == name {
-				return flavor.ID, nil
-			}
-		}
-		flavor, err := region.CreateFlavor(name, cpu, memoryMb, 40)
-		if err != nil {
-			return "", errors.Wrap(err, "region.CreateClavor()")
-		}
-		return flavor.ID, nil
-	}
 
 	if cpu == 0 && memoryMb == 0 {
 		return "", fmt.Errorf("failed to find instance type %s", name)
 	}
 
+	match := false
 	for _, flavor := range flavors {
-		if flavor.GetCpuCoreCount() == cpu && flavor.GetMemorySizeMB() == memoryMb {
-			return flavor.ID, nil
+		flavorName := flavor.GetName()
+		if (len(name) == 0 || flavorName == name || flavorName == fmt.Sprintf("%s-%d", name, diskGB)) && flavor.GetCpuCoreCount() == cpu && flavor.GetMemorySizeMB() == memoryMb {
+			if diskGB <= flavor.GetSysDiskMaxSizeGB() {
+				return flavor.Id, nil
+			}
+			match = true
 		}
 	}
-	return "", fmt.Errorf("failed to find right flavor(name: %s cpu: %d memory: %d)", name, cpu, memoryMb)
+	if len(name) == 0 {
+		name = fmt.Sprintf("ecs.g1.c%dm%d", cpu, memoryMb/1024)
+	}
+	if match {
+		name = fmt.Sprintf("%s-%d", name, diskGB)
+	}
+	flavor, err := region.CreateFlavor(name, cpu, memoryMb, diskGB)
+	if err != nil {
+		return "", errors.Wrap(err, "CreateFlavor")
+	}
+	return flavor.Id, nil
 }
 
 func (region *SRegion) CreateISku(name string, vCpu int, memoryMb int) error {
@@ -122,7 +126,7 @@ func (region *SRegion) CreateISku(name string, vCpu int, memoryMb int) error {
 }
 
 func (region *SRegion) CreateFlavor(name string, cpu int, memoryMb int, diskGB int) (*SFlavor, error) {
-	if diskGB < 30 {
+	if diskGB <= 0 {
 		diskGB = 30
 	}
 	params := map[string]map[string]interface{}{
@@ -133,21 +137,25 @@ func (region *SRegion) CreateFlavor(name string, cpu int, memoryMb int, diskGB i
 			"disk":  diskGB,
 		},
 	}
-	_, resp, err := region.Post("compute", "/flavors", "", jsonutils.Marshal(params))
+	resp, err := region.ecsPost("/flavors", params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "ecsPost")
 	}
 	flavor := &SFlavor{region: region}
-	return flavor, resp.Unmarshal(flavor, "flavor")
+	err = resp.Unmarshal(flavor, "flavor")
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return flavor, nil
 }
 
 func (region *SRegion) DeleteFlavor(flavorId string) error {
-	_, err := region.Delete("compute", "/flavors/"+flavorId, "")
+	_, err := region.ecsDelete("/flavors/" + flavorId)
 	return err
 }
 
 func (flavor *SFlavor) Delete() error {
-	return flavor.region.DeleteFlavor(flavor.ID)
+	return flavor.region.DeleteFlavor(flavor.Id)
 }
 
 func (flavor *SFlavor) GetMetadata() *jsonutils.JSONDict {
@@ -159,11 +167,11 @@ func (flavor *SFlavor) IsEmulated() bool {
 }
 
 func (flavor *SFlavor) Refresh() error {
-	new, err := flavor.region.GetFlavor(flavor.ID)
+	_flavor, err := flavor.region.GetFlavor(flavor.Id)
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(flavor, new)
+	return jsonutils.Update(flavor, _flavor)
 }
 
 func (flavor *SFlavor) GetName() string {
@@ -174,11 +182,11 @@ func (flavor *SFlavor) GetName() string {
 }
 
 func (flavor *SFlavor) GetId() string {
-	return flavor.ID
+	return flavor.Id
 }
 
 func (flavor *SFlavor) GetGlobalId() string {
-	return flavor.ID
+	return flavor.Id
 }
 
 func (flavor *SFlavor) GetInstanceTypeFamily() string {

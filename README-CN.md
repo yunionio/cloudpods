@@ -41,7 +41,7 @@
 
 ## 架构
 
-![architecture](./docs/architecture.png)
+![architecture](./docs/architecture.svg)
 
 
 ## 贡献

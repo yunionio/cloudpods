@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/bitmap"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 	"yunion.io/x/onecloud/pkg/util/validate"
 )
 
@@ -51,9 +52,9 @@ type SSnapshotPolicy struct {
 	RetentionDays int `nullable:"false" list:"user" get:"user" create:"required"`
 
 	// 1~7, 1 is Monday
-	RepeatWeekdays uint8 `charset:"utf8" create:"required"`
+	RepeatWeekdays uint8 `charset:"utf8" create:"required" list:"user" get:"user"`
 	// 0~23
-	TimePoints  uint32            `charset:"utf8" create:"required"`
+	TimePoints  uint32            `charset:"utf8" create:"required" list:"user" get:"user"`
 	IsActivated tristate.TriState `list:"user" get:"user" create:"optional" default:"true"`
 }
 
@@ -88,6 +89,27 @@ func (manager *SSnapshotPolicyManager) ValidateListConditions(ctx context.Contex
 		query.Add(jsonutils.NewInt(int64(manager.RepeatWeekdaysParseIntArray(input.RepeatWeekdays))), "time_points")
 	}
 	return query, nil
+}
+
+func (manager *SSnapshotPolicyManager) CustomizeFilterList(ctx context.Context, q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*db.CustomizeListFilters, error) {
+	filters := db.NewCustomizeListFilters()
+	filters.Append(func(item jsonutils.JSONObject) (bool, error) {
+		itemDict, ok := item.(*jsonutils.JSONDict)
+		if !ok {
+			return false, nil
+		}
+		if days, err := itemDict.Int("repeat_weekdays"); err == nil {
+			newDays := manager.RepeatWeekdaysToIntArray(uint8(days))
+			itemDict.Set("repeat_weekdays", jsonutils.Marshal(newDays))
+		}
+		if tpoints, err := itemDict.Int("time_points"); err == nil {
+			newPoints := manager.TimePointsToIntArray(uint32(tpoints))
+			itemDict.Set("time_points", jsonutils.Marshal(newPoints))
+		}
+		return true, nil
+	})
+	return filters, nil
 }
 
 func (sp *SSnapshotPolicy) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
@@ -170,7 +192,7 @@ func (manager *SSnapshotPolicyManager) ValidateCreateData(ctx context.Context, u
 	}
 	input.RepeatWeekdays, err = validate.DaysCheck(input.RepeatWeekdays, 1, 7)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+		return nil, httperrors.NewInputParameterError("%v", err)
 	}
 
 	if len(input.TimePoints) == 0 {
@@ -181,12 +203,20 @@ func (manager *SSnapshotPolicyManager) ValidateCreateData(ctx context.Context, u
 	}
 	input.TimePoints, err = validate.DaysCheck(input.TimePoints, 0, 23)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+		return nil, httperrors.NewInputParameterError("%v", err)
 	}
 
 	internalInput := manager.sSnapshotPolicyCreateInputToInternal(input)
 	data = internalInput.JSON(internalInput)
 	return data, nil
+}
+
+func (manager *SSnapshotPolicyManager) OnCreateComplete(ctx context.Context, items []db.IModel,
+	userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	for i := range items {
+		sp := items[i].(*SSnapshotPolicy)
+		sp.SetStatus(userCred, api.SNAPSHOT_POLICY_READY, "create complete")
+	}
 }
 
 // ==================================================== update =========================================================
@@ -245,7 +275,7 @@ func (sp *SSnapshotPolicy) UpdateParamCheck(input *api.SSnapshotPolicyCreateInpu
 	if input.RepeatWeekdays != nil && len(input.RepeatWeekdays) != 0 {
 		input.RepeatWeekdays, err = validate.DaysCheck(input.RepeatWeekdays, 1, 7)
 		if err != nil {
-			return httperrors.NewInputParameterError(err.Error())
+			return httperrors.NewInputParameterError("%v", err)
 		}
 		if sp.RepeatWeekdays != SnapshotPolicyManager.RepeatWeekdaysParseIntArray(input.RepeatWeekdays) {
 			updateNum++
@@ -255,7 +285,7 @@ func (sp *SSnapshotPolicy) UpdateParamCheck(input *api.SSnapshotPolicyCreateInpu
 	if input.TimePoints != nil && len(input.TimePoints) != 0 {
 		input.TimePoints, err = validate.DaysCheck(input.TimePoints, 0, 23)
 		if err != nil {
-			return httperrors.NewInputParameterError(err.Error())
+			return httperrors.NewInputParameterError("%v", err)
 		}
 		if sp.TimePoints != SnapshotPolicyManager.TimePointsParseIntArray(input.TimePoints) {
 			updateNum++
@@ -278,9 +308,7 @@ func (sp *SSnapshotPolicy) DetachAfterDelete(ctx context.Context, userCred mccli
 	return nil
 }
 
-func (sp *SSnapshotPolicy) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.
-	JSONObject, data jsonutils.JSONObject) error {
-
+func (sp *SSnapshotPolicy) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	// check if sp bind to some disks
 	sds, err := SnapshotPolicyDiskManager.FetchAllBySnapshotpolicyID(ctx, userCred, sp.GetId())
 	if err != nil {
@@ -305,37 +333,46 @@ func (sp *SSnapshotPolicy) StartSnapshotPolicyDeleteTask(ctx context.Context, us
 	return nil
 }
 
-func (sp *SSnapshotPolicy) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extraDict := sp.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	ret, _ := sp.getMoreDetails(ctx, userCred, extraDict)
-	return ret
+func (manager *SSnapshotPolicyManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.SnapshotPolicyDetails {
+	rows := make([]api.SnapshotPolicyDetails, len(objs))
+
+	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.SnapshotPolicyDetails{
+			VirtualResourceDetails: virtRows[i],
+		}
+		rows[i] = objs[i].(*SSnapshotPolicy).getMoreDetails(rows[i])
+	}
+
+	return rows
 }
 
-func (sp *SSnapshotPolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extraDict, err := sp.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
-	}
-	return sp.getMoreDetails(ctx, userCred, extraDict)
+func (sp *SSnapshotPolicy) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.SnapshotPolicyDetails, error) {
+	return api.SnapshotPolicyDetails{}, nil
 }
 
-func (sp *SSnapshotPolicy) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	extraDict *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (sp *SSnapshotPolicy) getMoreDetails(out api.SnapshotPolicyDetails) api.SnapshotPolicyDetails {
+	out.RepeatWeekdays = SnapshotPolicyManager.RepeatWeekdaysToIntArray(sp.RepeatWeekdays)
+	out.TimePoints = SnapshotPolicyManager.TimePointsToIntArray(sp.TimePoints)
+	out.BindingDiskCount, _ = SnapshotPolicyDiskManager.FetchDiskCountBySPID(sp.Id)
+	return out
+}
 
-	ret := extraDict
-	// more
-	weekdays := SnapshotPolicyManager.RepeatWeekdaysToIntArray(sp.RepeatWeekdays)
-	timePoints := SnapshotPolicyManager.TimePointsToIntArray(sp.TimePoints)
-	ret.Add(jsonutils.Marshal(weekdays), "repeat_weekdays")
-	ret.Add(jsonutils.Marshal(timePoints), "time_points")
-	count, err := SnapshotPolicyDiskManager.FetchDiskCountBySPID(sp.Id)
-	if err != nil {
-		return ret, err
-	}
-	ret.Add(jsonutils.NewInt(int64(count)), "binding_disk_count")
-	return ret, nil
+func (sp *SSnapshotPolicy) GetCloudproviderId() string {
+	return ""
 }
 
 // ==================================================== sync ===========================================================
@@ -474,7 +511,7 @@ func (manager *SSnapshotPolicyManager) allNewFromCloudSnapshotPolicy(
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
-			syncMetadata(ctx, userCred, local, added[i])
+			syncVirtualResourceMetadata(ctx, userCred, local, added[i])
 			syncResult.Add()
 		}
 	}
@@ -544,7 +581,7 @@ func (manager *SSnapshotPolicyManager) newFromCloudSnapshotPolicy(
 		snapshotPolicyTmp.Name = newName
 		snapshotPolicyTmp.Status = ext.GetStatus()
 
-		err = manager.TableSpec().Insert(&snapshotPolicyTmp)
+		err = manager.TableSpec().Insert(ctx, &snapshotPolicyTmp)
 		if err != nil {
 			log.Errorf("newFromCloudEip fail %s", err)
 			return nil, err
@@ -665,8 +702,7 @@ func (manager *SSnapshotPolicyManager) sSnapshotPolicyCreateInputToInternal(inpu
 	return &ret
 }
 
-func (manager *SSnapshotPolicyManager) sSnapshotPolicyCreateInputFromInternal(input *api.
-	SSnapshotPolicyCreateInternalInput) *api.SSnapshotPolicyCreateInput {
+func (manager *SSnapshotPolicyManager) sSnapshotPolicyCreateInputFromInternal(input *api.SSnapshotPolicyCreateInternalInput) *api.SSnapshotPolicyCreateInput {
 	return nil
 }
 
@@ -836,4 +872,52 @@ func (sp *SSnapshotPolicy) PerformUnbindDisks(ctx context.Context, userCred mccl
 		}
 	}
 	return nil, nil
+}
+
+// 快照策略列表
+func (manager *SSnapshotPolicyManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.SnapshotPolicyListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
+	}
+	if input.IsActivated != nil {
+		if *input.IsActivated {
+			q = q.IsTrue("is_activated")
+		} else {
+			q = q.IsFalse("is_activated")
+		}
+	}
+	return q, nil
+}
+
+func (manager *SSnapshotPolicyManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.SnapshotPolicyListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SSnapshotPolicyManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }

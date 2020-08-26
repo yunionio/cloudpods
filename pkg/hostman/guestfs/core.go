@@ -96,6 +96,11 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 		return ret, nil
 	}
 
+	if deployInfo.IsInit {
+		if err = rootfs.CleanNetworkScripts(partition); err != nil {
+			return nil, errors.Wrap(err, "Clean network scripts")
+		}
+	}
 	if len(deployInfo.Deploys) > 0 {
 		if err = rootfs.DeployFiles(deployInfo.Deploys); err != nil {
 			return nil, fmt.Errorf("DeployFiles: %v", err)
@@ -125,8 +130,12 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 	}
 
 	if len(deployInfo.Password) > 0 {
-		if account := rootfs.GetLoginAccount(partition,
-			deployInfo.DefaultRootUser, deployInfo.WindowsDefaultAdminUser); len(account) > 0 {
+		account, err := rootfs.GetLoginAccount(partition, deployInfo.LoginAccount,
+			deployInfo.DefaultRootUser, deployInfo.WindowsDefaultAdminUser)
+		if err != nil {
+			return nil, errors.Wrap(err, "get login account")
+		}
+		if len(account) > 0 {
 			if err = rootfs.DeployPublicKey(partition, account, deployInfo.PublicKey); err != nil {
 				return nil, fmt.Errorf("DeployPublicKey: %v", err)
 			}
@@ -181,13 +190,13 @@ func DeployGuestFs(
 }
 
 func IsPartitionReadonly(rootfs fsdriver.IDiskPartition) bool {
-	log.Infof("Test if read-only fs ...")
 	var filename = fmt.Sprintf("/.%f", rand.Float32())
 	if err := rootfs.FilePutContents(filename, fmt.Sprintf("%f", rand.Float32()), false, false); err == nil {
 		rootfs.Remove(filename, false)
+		log.Infof("File system %s is not readonly", rootfs.GetMountPath())
 		return false
 	} else {
-		log.Errorf("File system is readonly: %s", err)
+		log.Errorf("File system %s is readonly: %s", rootfs.GetMountPath(), err)
 		return true
 	}
 }

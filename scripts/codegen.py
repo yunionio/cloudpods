@@ -35,13 +35,15 @@ def run_swagger_gen(input_dirs, out_pkg):
     return run_generator('swagger-gen', input_dirs, out_pkg)
 
 
-def run_swagger_serve(output_dir):
+def run_swagger_serve(output_dir, serve=False):
     def is_swagger_yaml(file):
         return file.endswith('.yaml') and file.startswith('swagger')
     yamls = [pjoin(output_dir, x) for x in os.listdir(output_dir) if is_swagger_yaml(x)]
     cmd = ['swagger-serve', 'generate']
     cmd.extend(['-i', ','.join(yamls), '-o', output_dir])
-    cmd.append('--serve')
+    if serve:
+        cmd.extend(['-p', "40900"])
+        cmd.append('--serve')
     run_cmd(cmd)
 
 
@@ -54,6 +56,8 @@ def run_swagger_yaml(svc, swagger_pkg_dir, output_dir):
     cmd.extend(["-o", pjoin(output_dir, "swagger_%s.yaml" % svc)])
     run_cmd(cmd)
 
+def remove_prefix(text, prefix):
+    return text[text.startswith(prefix) and len(prefix):]
 
 class FuncDispatcher(object):
 
@@ -69,7 +73,7 @@ class FuncDispatcher(object):
             func = getattr(self, attr)
             if not callable(func):
                 continue
-            svc = attr.lstrip('gen_')
+            svc = remove_prefix(attr, 'gen_')
             gen_dict[svc] = func
         self.gen_dict = gen_dict
 
@@ -123,19 +127,16 @@ class ModelAPI(FuncDispatcher):
 
     def gen_cloudcommon(self):
         self.run(pkg=["cloudcommon", "db"])
-
-    def gen_cloudprovider(self):
+        self.run(pkg=["cloudcommon", "db", "proxy"], out=["cloudcommon", "proxy"])
         self.run_same("cloudprovider")
-
-    def gen_compute(self):
-        self.run_model("compute")
-
-    def gen_image(self):
-        self.run_model("image")
-
-    def gen_identity(self):
         self.run(pkg=["keystone", "models"], out=["identity"])
+        self.run_model("compute")
+        self.run_model("image")
+        self.run_model("cloudid")
+        self.run_model("notify")
 
+    def gen_monitor(self):
+        self.run(pkg=["monitor", "models"], out=["monitor"])
 
 class SwaggerCode(FuncDispatcher):
 
@@ -165,11 +166,19 @@ class SwaggerCode(FuncDispatcher):
         self.run("keystone", pkg=["tokens", "models"], out="identity")
 
     def gen_compute(self):
-        self.run_svc("compute", pkg=["models"])
+        self.run("compute", pkg=["models"], out="compute")
 
     def gen_image(self):
-        self.run_svc("image", pkg=["models"])
+        self.run("image", pkg=["models"], out="image")
 
+    def gen_cloudid(self):
+        self.run("cloudid", pkg=["models"], out="cloudid")
+
+    def gen_monitor(self):
+        self.run("monitor", pkg=["models"], out="monitor")
+
+    def gen_notify(self):
+        self.run("notify", pkg=["models"], out="notify")
 
 class SwaggerYAML(FuncDispatcher):
 
@@ -194,6 +203,14 @@ class SwaggerYAML(FuncDispatcher):
     def gen_image(self):
         self.run("image")
 
+    def gen_cloudid(self):
+        self.run("cloudid")
+
+    def gen_monitor(self):
+        self.run("monitor")
+
+    def gen_notify(self):
+        self.run("notify")
 
 class SwaggerServe(object):
 
@@ -202,7 +219,21 @@ class SwaggerServe(object):
 
     def get_parser(self, subparsers):
         parser = subparsers.add_parser(
-                "swagger-serve", help="generate swagger web site")
+                "swagger-serve", help="generate swagger web site and serve")
+        parser.set_defaults(func=self.run)
+
+    def run(self, opt):
+        run_swagger_serve(self.output_dir, serve=True)
+
+
+class SwaggerSite(object):
+
+    def __init__(self, output_dir):
+        self.output_dir = output_dir
+
+    def get_parser(self, subparsers):
+        parser = subparsers.add_parser(
+                "swagger-site", help="generate swagger web site")
         parser.set_defaults(func=self.run)
 
     def run(self, opt):
@@ -225,12 +256,13 @@ if __name__ == "__main__":
     swagger_yaml = SwaggerYAML(SWAGGER_PKG, OUTPUT_SWAGGER_DIR)
     swagger_code = SwaggerCode(PKG_ONECLOUD, PKG_SWAGGER)
     swagger_serve = SwaggerServe(OUTPUT_SWAGGER_DIR)
+    swagger_site = SwaggerSite(OUTPUT_SWAGGER_DIR)
 
     parser = argparse.ArgumentParser(description="Code generate helper.")
     subparsers = parser.add_subparsers(dest='cmd')
     subparsers.required = True
 
-    for cmd in [model_api, swagger_code, swagger_yaml, swagger_serve]:
+    for cmd in [model_api, swagger_code, swagger_yaml, swagger_serve, swagger_site]:
         cmd.get_parser(subparsers)
 
     if len(sys.argv) == 1:

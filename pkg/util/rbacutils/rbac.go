@@ -18,10 +18,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 )
 
@@ -90,11 +89,14 @@ func (s1 TRbacScope) HigherThan(s2 TRbacScope) bool {
 
 type SRbacPolicy struct {
 	// condition, when the policy takes effects
-	Condition string // deprecated
+	// Deprecated
+	Condition string
 
 	DomainId string
 
-	IsPublic bool
+	IsPublic        bool
+	PublicScope     TRbacScope
+	SharedDomainIds []string
 
 	Projects []string
 	Roles    []string
@@ -102,8 +104,10 @@ type SRbacPolicy struct {
 	Auth     bool // whether needs authentication
 
 	// scope, the scope of the policy, system/domain/project
-	Scope   TRbacScope
-	IsAdmin bool // deprecated, is_admin=true means system scope, is_admin=false means project scope
+	Scope TRbacScope
+	// Deprecated
+	// is_admin=true means scope=system, is_admin=false means scope=project
+	IsAdmin bool
 
 	// rules, the exact rules
 	Rules []SRbacRule
@@ -224,47 +228,28 @@ func (policy *SRbacPolicy) GetMatchRule(service string, resource string, action 
 	return GetMatchRule(policy.Rules, service, resource, action, extra...)
 }
 
+var (
+	ShowMatchRuleDebug = false
+)
+
 func GetMatchRule(rules []SRbacRule, service string, resource string, action string, extra ...string) *SRbacRule {
 	maxMatchCnt := 0
 	minWeight := 1000000
 	var matchRule *SRbacRule
 	for i := 0; i < len(rules); i += 1 {
 		match, matchCnt, weight := rules[i].match(service, resource, action, extra...)
+		if match && ShowMatchRuleDebug {
+			log.Debugf("rule %s match cnt %d weight %d", rules[i], matchCnt, weight)
+		}
 		if match && (maxMatchCnt < matchCnt ||
 			(maxMatchCnt == matchCnt && minWeight > weight) ||
-			(maxMatchCnt == matchCnt && minWeight == weight && matchRule.looserThan(&rules[i]))) {
+			(maxMatchCnt == matchCnt && minWeight == weight && matchRule.stricterThan(&rules[i]))) {
 			maxMatchCnt = matchCnt
 			minWeight = weight
 			matchRule = &rules[i]
 		}
 	}
 	return matchRule
-}
-
-func CompactRules(rules []SRbacRule) []SRbacRule {
-	if len(rules) == 0 {
-		return nil
-	}
-	/*output := make([]SRbacRule, 1)
-	output[0] = rules[0]
-	for i := 1; i < len(rules); i += 1 {
-		isContains := false
-		for j := 0; j < len(output); j += 1 {
-			if output[j].contains(&rules[i]) {
-				isContains = true
-				break
-			}
-			if rules[i].contains(&output[j]) {
-				output[j] = rules[i]
-				isContains = true
-				break
-			}
-		}
-		if !isContains {
-			output = append(output, rules[i])
-		}
-	}*/
-	return reduceRules(rules)
 }
 
 var (
@@ -416,7 +401,7 @@ func decode(rules jsonutils.JSONObject, decodeRule SRbacRule, level int) ([]SRba
 		}
 		return rules, nil
 	default:
-		return nil, errors.WithMessage(ErrUnsuportRuleData, rules.String())
+		return nil, errors.Wrap(ErrUnsuportRuleData, rules.String())
 	}
 }
 
@@ -578,10 +563,49 @@ type IRbacIdentity interface {
 	GetProjectName() string
 	GetRoles() []string
 	GetLoginIp() string
+	GetTokenString() string
 }
 
 func (policy *SRbacPolicy) IsSystemWidePolicy() bool {
-	return len(policy.Roles) == 0 && len(policy.Projects) == 0
+	return (len(policy.DomainId) == 0 || (policy.IsPublic && policy.PublicScope == ScopeSystem)) && len(policy.Roles) == 0 && len(policy.Projects) == 0
+}
+
+func (policy *SRbacPolicy) MatchDomain(domainId string) bool {
+	if len(policy.DomainId) == 0 || len(domainId) == 0 {
+		return true
+	}
+	if policy.DomainId == domainId {
+		return true
+	}
+	if policy.IsPublic {
+		if policy.PublicScope == ScopeSystem {
+			return true
+		}
+		if contains(policy.SharedDomainIds, domainId) {
+			return true
+		}
+	}
+	return false
+}
+
+func (policy *SRbacPolicy) MatchProject(projectName string) bool {
+	if len(policy.Projects) == 0 || len(projectName) == 0 {
+		return true
+	}
+	if contains(policy.Projects, projectName) {
+		return true
+	}
+	return false
+}
+
+func (policy *SRbacPolicy) MatchRoles(roleNames []string) bool {
+	if len(policy.Roles) == 0 {
+		return true
+	}
+	if intersect(policy.Roles, roleNames) {
+		return true
+	}
+	return false
 }
 
 // check whether policy maches a userCred
@@ -593,22 +617,25 @@ func (policy *SRbacPolicy) Match(userCred IRbacIdentity) (bool, int) {
 	if !policy.Auth && len(policy.Roles) == 0 && len(policy.Projects) == 0 && len(policy.Ips) == 0 {
 		return true, 1
 	}
-	if userCred == nil {
+	if userCred == nil || len(userCred.GetTokenString()) == 0 {
 		return false, 0
 	}
 	weight := 0
-	if policy.IsPublic || len(policy.DomainId) == 0 || policy.DomainId == userCred.GetProjectDomainId() {
+	if policy.MatchDomain(userCred.GetProjectDomainId()) {
 		if len(policy.DomainId) > 0 {
-			weight += 10
+			if policy.DomainId == userCred.GetProjectDomainId() {
+				weight += 30 // exact domain match
+			} else if len(policy.SharedDomainIds) > 0 {
+				weight += 20 // shared domain match
+			} else {
+				weight += 10 // else, system scope match
+			}
 		}
-		if !policy.IsPublic {
-			weight += 10
-		}
-		if len(policy.Roles) == 0 || intersect(policy.Roles, userCred.GetRoles()) {
+		if policy.MatchRoles(userCred.GetRoles()) {
 			if len(policy.Roles) != 0 {
 				weight += 100
 			}
-			if len(policy.Projects) == 0 || contains(policy.Projects, userCred.GetProjectName()) {
+			if policy.MatchProject(userCred.GetProjectName()) {
 				if len(policy.Projects) > 0 {
 					weight += 1000
 				}
@@ -624,11 +651,38 @@ func (policy *SRbacPolicy) Match(userCred IRbacIdentity) (bool, int) {
 	return false, 0
 }
 
-func (policy *SRbacPolicy) MatchRole(roleName string) bool {
-	if len(policy.Roles) == 0 || contains(policy.Roles, roleName) {
-		return true
+type sSimpleRbacIdentity struct {
+	domainId    string
+	projectName string
+	roleNames   []string
+}
+
+func (id sSimpleRbacIdentity) GetProjectDomainId() string {
+	return id.domainId
+}
+
+func (id sSimpleRbacIdentity) GetRoles() []string {
+	return id.roleNames
+}
+
+func (id sSimpleRbacIdentity) GetProjectName() string {
+	return id.projectName
+}
+
+func (id sSimpleRbacIdentity) GetLoginIp() string {
+	return ""
+}
+
+func (id sSimpleRbacIdentity) GetTokenString() string {
+	return "faketoken"
+}
+
+func NewRbacIdentity(domainId, projectName string, roleNames []string) IRbacIdentity {
+	return sSimpleRbacIdentity{
+		domainId:    domainId,
+		projectName: projectName,
+		roleNames:   roleNames,
 	}
-	return false
 }
 
 func String2Scope(str string) TRbacScope {

@@ -22,23 +22,46 @@ type SSortedStrings []string
 
 func NewSortedStrings(strs []string) SSortedStrings {
 	if strs == nil {
-		return nil
+		return SSortedStrings{}
 	}
 	sort.Strings(strs)
 	return SSortedStrings(strs)
 }
 
 func Append(ss SSortedStrings, ele ...string) SSortedStrings {
+	ss = ss.Append(ele...)
+	return ss
+}
+
+func (ss SSortedStrings) Append(ele ...string) SSortedStrings {
+	if ss == nil {
+		ss = NewSortedStrings([]string{})
+	}
 	for _, e := range ele {
 		pos, find := ss.Index(e)
 		if find {
 			continue
 		}
 		ss = append(ss, e)
-		for i := len(ss) - 1; i > pos; i -= 1 {
-			ss[i] = ss[i-1]
-		}
+		copy(ss[pos+1:], ss[pos:])
 		ss[pos] = e
+	}
+	return ss
+}
+
+func (ss SSortedStrings) Remove(ele ...string) SSortedStrings {
+	if ss == nil {
+		return ss
+	}
+	for _, e := range ele {
+		pos, find := ss.Index(e)
+		if !find {
+			continue
+		}
+		if pos < len(ss)-1 {
+			copy(ss[pos:], ss[pos+1:])
+		}
+		ss = ss[:len(ss)-1]
 	}
 	return ss
 }
@@ -155,6 +178,24 @@ func Merge(a, b SSortedStrings) SSortedStrings {
 	}
 	if j < len(b) {
 		ret = append(ret, b[j:]...)
+	}
+	return SSortedStrings(ret)
+}
+
+func Intersect(a, b SSortedStrings) SSortedStrings {
+	ret := make([]string, 0)
+	i := 0
+	j := 0
+	for i < len(a) && j < len(b) {
+		if a[i] == b[j] {
+			ret = append(ret, a[i])
+			i += 1
+			j += 1
+		} else if a[i] < b[j] {
+			i += 1
+		} else if a[i] > b[j] {
+			j += 1
+		}
 	}
 	return SSortedStrings(ret)
 }

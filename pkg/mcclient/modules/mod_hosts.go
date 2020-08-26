@@ -16,7 +16,6 @@ package modules
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -43,7 +42,7 @@ func (this *HostManager) GetLoginInfo(s *mcclient.ClientSession, id string, para
 	ret := jsonutils.NewDict()
 	login_key, e := data.GetString("password")
 	if e != nil {
-		return nil, fmt.Errorf("No ssh password: %s", e)
+		return nil, httperrors.NewNotFoundError("No ssh password: %s", e)
 	}
 	passwd, e := utils.DescryptAESBase64(id, login_key)
 	if e != nil {
@@ -89,10 +88,9 @@ func (this *HostManager) GetIpmiInfo(s *mcclient.ClientSession, id string, param
 	return ret, nil
 }
 
-func parseHosts(data string) ([]jsonutils.JSONObject, string) {
-	msg := ""
+func parseHosts(titles []string, data string) []*jsonutils.JSONDict {
 	hosts := strings.Split(data, "\n")
-	ret := []jsonutils.JSONObject{}
+	ret := []*jsonutils.JSONDict{}
 	for i, host := range hosts {
 		host = strings.TrimSpace(host)
 		if len(host) == 0 {
@@ -101,65 +99,43 @@ func parseHosts(data string) ([]jsonutils.JSONObject, string) {
 		}
 
 		fields := strings.Split(host, ",")
-		if len(fields) != 5 {
-			msg += fmt.Sprintf("第%d行： %s (格式不正确)\n", i, host)
-			continue
-		}
-
-		// mac address check
-		if match, err := regexp.MatchString(MACAddressPattern, fields[0]); err != nil || !match {
-			msg += fmt.Sprintf("第%d行： %s (Mac地址格式不正确)\n", i, host)
-			continue
-		}
-
-		// name check
-		if len(fields[1]) == 0 {
-			msg += fmt.Sprintf("第%d行： %s (名称不能为空)\n", i, host)
-		}
 
 		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(fields[0]), "access_mac")
-		params.Add(jsonutils.NewString(fields[1]), "name")
 		params.Add(jsonutils.NewString("baremetal"), "host_type")
 
-		if len(fields[2]) > 0 {
-			params.Add(jsonutils.NewString(fields[2]), "ipmi_ip_addr")
-		}
-
-		if len(fields[3]) > 0 {
-			params.Add(jsonutils.NewString(fields[3]), "ipmi_username")
-		}
-
-		if len(fields[4]) > 0 {
-			params.Add(jsonutils.NewString(fields[4]), "ipmi_password")
+		for i := range fields {
+			field := fields[i]
+			if len(field) > 0 {
+				params.Add(jsonutils.NewString(field), titles[i])
+			}
 		}
 
 		ret = append(ret, params)
 	}
 
-	return ret, msg
+	return ret
 }
 
-func (this *HostManager) DoBatchRegister(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (this *HostManager) BatchRegister(s *mcclient.ClientSession, titles []string, params jsonutils.JSONObject) ([]modulebase.SubmitResult, error) {
 	data, err := params.GetString("hosts")
 	if err != nil {
 		return nil, err
 	}
+	input := params.(*jsonutils.JSONDict)
+	input.Remove("hosts")
 
-	hosts, msg := parseHosts(data)
-	if len(msg) > 0 {
-		return nil, httperrors.NewInputParameterError(msg)
-	}
+	hosts := parseHosts(titles, data)
 
 	results := make(chan modulebase.SubmitResult, len(hosts))
 	for _, host := range hosts {
+		host.Update(input)
 		go func(data jsonutils.JSONObject) {
 			ret, e := this.Create(s, data)
 			id, _ := data.GetString("access_mac")
 			if e != nil {
 				ecls, ok := e.(*httputils.JSONClientError)
 				if ok {
-					results <- modulebase.SubmitResult{Status: ecls.Code, Id: id, Data: jsonutils.NewString(ecls.Details)}
+					results <- modulebase.SubmitResult{Status: ecls.Code, Id: id, Data: jsonutils.Marshal(ecls)}
 				} else {
 					results <- modulebase.SubmitResult{Status: 400, Id: id, Data: jsonutils.NewString(e.Error())}
 				}
@@ -175,7 +151,12 @@ func (this *HostManager) DoBatchRegister(s *mcclient.ClientSession, params jsonu
 	}
 	close(results)
 
-	return modulebase.SubmitResults2JSON(ret), nil
+	return ret, nil
+}
+
+func (this *HostManager) DoBatchRegister(s *mcclient.ClientSession, params jsonutils.JSONObject) ([]modulebase.SubmitResult, error) {
+	titles := []string{"access_mac", "name", "ipmi_ip_addr", "ipmi_username", "ipmi_password"}
+	return this.BatchRegister(s, titles, params)
 }
 
 var (
@@ -199,6 +180,8 @@ func init() {
 			"host_type", "version", "schedtags",
 			"storage_size",
 			"expired_at",
+			"domain_id", "project_domain",
+			"public_scope",
 		},
 		[]string{})}
 	registerCompute(&Hosts)

@@ -15,9 +15,11 @@
 package system_service
 
 import (
+	"fmt"
+
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 type ISystemService interface {
@@ -31,6 +33,7 @@ type ISystemService interface {
 	SetConf(interface{})
 	GetConf() interface{}
 	BgReload(kwargs map[string]interface{})
+	BgReloadConf(kwargs map[string]interface{})
 	Enable() error
 	Disable() error
 	Reload(kwargs map[string]interface{}) error
@@ -42,15 +45,16 @@ var serviceMap map[string]ISystemService
 
 func Init() {
 	serviceMap = map[string]ISystemService{
-		"ntpd":          NewNtpdService(),
-		"telegraf":      NewTelegrafService(),
-		"host_sdnagent": NewHostSdnagentService(),
-		"openvswitch":   NewOpenvswitchService(),
-		"fluentbit":     NewFluentbitService(),
-		"kube_agent":    NewKubeAgentService(),
-		"lxcfs":         NewLxcfsService(),
-		"docker":        NewDockerService(),
-		"host-deployer": NewHostDeployerService(),
+		"ntpd":           NewNtpdService(),
+		"telegraf":       NewTelegrafService(),
+		"host_sdnagent":  NewHostSdnagentService(),
+		"openvswitch":    NewOpenvswitchService(),
+		"ovn-controller": NewOvnControllerService(),
+		"fluentbit":      NewFluentbitService(),
+		"kube_agent":     NewKubeAgentService(),
+		"lxcfs":          NewLxcfsService(),
+		"docker":         NewDockerService(),
+		"host-deployer":  NewHostDeployerService(),
 	}
 }
 
@@ -81,19 +85,31 @@ func NewBaseSystemService(name string, urls interface{}) *SBaseSystemService {
 }
 
 func (s *SBaseSystemService) reload(conf, conFile string) error {
-	oldConf, err := fileutils2.FileGetContents(conFile)
-	if err != nil {
+	if ok, err := s.reloadConf(conf, conFile); err != nil {
 		return err
+	} else if ok {
+		return s.Start(false)
+	} else {
+		return nil
 	}
+}
+
+func (s *SBaseSystemService) reloadConf(conf, conFile string) (bool, error) {
+	output, _ := procutils.NewRemoteCommandAsFarAsPossible("cat", conFile).Output()
+	oldConf := string(output)
 	if conf != oldConf {
 		log.Infof("Reload service %s ...", s.name)
-		err := fileutils2.FilePutContents(conFile, conf, false)
+		err := procutils.NewRemoteCommandAsFarAsPossible("rm", "-f", conFile).Run()
 		if err != nil {
-			return err
+			return false, err
 		}
-		return s.Start(false)
+		err = procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", fmt.Sprintf("echo '%s' > %s", conf, conFile)).Run()
+		if err != nil {
+			return false, err
+		}
+		return true, nil
 	}
-	return nil
+	return false, nil
 }
 
 func (s *SBaseSystemService) IsInstalled() bool {
@@ -151,4 +167,8 @@ func (s *SBaseSystemService) Enable() error {
 
 func (s *SBaseSystemService) Disable() error {
 	return s.manager.Disable(s.name)
+}
+
+func (s *SBaseSystemService) BgReloadConf(kwargs map[string]interface{}) {
+	go s.reloadConf(s.GetConfig(kwargs), s.GetConfigFile())
 }

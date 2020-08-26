@@ -15,8 +15,6 @@
 package db
 
 import (
-	"fmt"
-
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -43,20 +41,22 @@ func isObjectRbacAllowed(model IModel, userCred mcclient.TokenCredential, action
 	case rbacutils.ScopeSystem:
 		requireScope = rbacutils.ScopeSystem
 	case rbacutils.ScopeDomain:
-		if ownerId != nil && objOwnerId != nil && (ownerId.GetProjectDomainId() == objOwnerId.GetProjectDomainId() || (model.IsSharable(ownerId) && action == policy.PolicyActionGet)) {
+		if ownerId != nil && objOwnerId != nil && (ownerId.GetUserId() == objOwnerId.GetUserId() && action == policy.PolicyActionGet) {
+			requireScope = rbacutils.ScopeUser
+		} else if ownerId != nil && objOwnerId != nil && (ownerId.GetProjectDomainId() == objOwnerId.GetProjectDomainId() || objOwnerId.GetProjectDomainId() == "" || (model.IsSharable(ownerId) && action == policy.PolicyActionGet)) {
 			requireScope = rbacutils.ScopeDomain
 		} else {
 			requireScope = rbacutils.ScopeSystem
 		}
 	case rbacutils.ScopeUser:
-		if ownerId != nil && objOwnerId != nil && (ownerId.GetUserId() == objOwnerId.GetUserId() || (model.IsSharable(ownerId) && action == policy.PolicyActionGet)) {
+		if ownerId != nil && objOwnerId != nil && (ownerId.GetUserId() == objOwnerId.GetUserId() || objOwnerId.GetUserId() == "" || (model.IsSharable(ownerId) && action == policy.PolicyActionGet)) {
 			requireScope = rbacutils.ScopeUser
 		} else {
 			requireScope = rbacutils.ScopeSystem
 		}
 	default:
 		// objOwnerId should not be nil
-		if ownerId != nil && objOwnerId != nil && (ownerId.GetProjectId() == objOwnerId.GetProjectId() || (model.IsSharable(ownerId) && action == policy.PolicyActionGet)) {
+		if ownerId != nil && objOwnerId != nil && (ownerId.GetProjectId() == objOwnerId.GetProjectId() || objOwnerId.GetProjectId() == "" || (model.IsSharable(ownerId) && action == policy.PolicyActionGet)) {
 			requireScope = rbacutils.ScopeProject
 		} else if ownerId != nil && objOwnerId != nil && ownerId.GetProjectDomainId() == objOwnerId.GetProjectDomainId() {
 			requireScope = rbacutils.ScopeDomain
@@ -70,12 +70,12 @@ func isObjectRbacAllowed(model IModel, userCred mcclient.TokenCredential, action
 	if !requireScope.HigherThan(scope) {
 		return nil
 	}
-	return httperrors.NewForbiddenError(fmt.Sprintf("not enough privillege(require:%s,allow:%s)", requireScope, scope))
+	return httperrors.NewForbiddenError("not enough privilege (require:%s,allow:%s:resource:%s)", requireScope, scope, resScope)
 }
 
 func isJointObjectRbacAllowed(item IJointModel, userCred mcclient.TokenCredential, action string, extra ...string) error {
-	err1 := isObjectRbacAllowed(item.Master(), userCred, action, extra...)
-	err2 := isObjectRbacAllowed(item.Slave(), userCred, action, extra...)
+	err1 := isObjectRbacAllowed(JointMaster(item), userCred, action, extra...)
+	err2 := isObjectRbacAllowed(JointSlave(item), userCred, action, extra...)
 	if err1 == nil || err2 == nil {
 		return nil
 	}
@@ -122,7 +122,7 @@ func isClassRbacAllowed(manager IModelManager, userCred mcclient.TokenCredential
 	if !requireScope.HigherThan(allowScope) {
 		return nil
 	}
-	return httperrors.NewForbiddenError(fmt.Sprintf("not enough privilege(require:%s,allow:%s)", requireScope, allowScope))
+	return httperrors.NewForbiddenError("not enough privilege (require:%s,allow:%s)", requireScope, allowScope)
 }
 
 type IResource interface {

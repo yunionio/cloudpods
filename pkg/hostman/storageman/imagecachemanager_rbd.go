@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build linux
+// +build linux,cgo
 
 package storageman
 
@@ -20,12 +20,12 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 )
 
@@ -51,8 +51,7 @@ func NewRbdImageCacheManager(manager IStorageManager, cachePath string, storage 
 		imageCacheManager.Pool, imageCacheManager.Prefix = cachePath, "image_cache_"
 	}
 	imageCacheManager.cachedImages = make(map[string]IImageCache, 0)
-	imageCacheManager.mutex = new(sync.Mutex)
-	imageCacheManager.loadCache()
+	imageCacheManager.loadCache(context.Background())
 	return imageCacheManager
 }
 
@@ -71,9 +70,9 @@ func init() {
 	registerimageCacheManagerFactory(&SRbdImageCacheManagerFactory{})
 }
 
-func (c *SRbdImageCacheManager) loadCache() {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+func (c *SRbdImageCacheManager) loadCache(ctx context.Context) {
+	lockman.LockRawObject(ctx, "RBD", "image-cache")
+	defer lockman.ReleaseRawObject(ctx, "RBD", "image-cache")
 	storage := c.storage.(*SRbdStorage)
 
 	images, err := storage.listImages(c.Pool)
@@ -143,8 +142,8 @@ func (c *SRbdImageCacheManager) DeleteImageCache(ctx context.Context, data inter
 }
 
 func (c *SRbdImageCacheManager) removeImage(ctx context.Context, imageId string) error {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+	lockman.LockRawObject(ctx, "image-cache", imageId)
+	defer lockman.ReleaseRawObject(ctx, "image-cache", imageId)
 
 	if img, ok := c.cachedImages[imageId]; ok {
 		delete(c.cachedImages, imageId)
@@ -154,8 +153,8 @@ func (c *SRbdImageCacheManager) removeImage(ctx context.Context, imageId string)
 }
 
 func (c *SRbdImageCacheManager) AcquireImage(ctx context.Context, imageId, zone, srcUrl, format string) IImageCache {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+	lockman.LockRawObject(ctx, "image-cache", imageId)
+	defer lockman.ReleaseRawObject(ctx, "image-cache", imageId)
 
 	img, ok := c.cachedImages[imageId]
 	if !ok {
@@ -168,9 +167,9 @@ func (c *SRbdImageCacheManager) AcquireImage(ctx context.Context, imageId, zone,
 	return nil
 }
 
-func (c *SRbdImageCacheManager) ReleaseImage(imageId string) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+func (c *SRbdImageCacheManager) ReleaseImage(ctx context.Context, imageId string) {
+	lockman.LockRawObject(ctx, "image-cache", imageId)
+	defer lockman.ReleaseRawObject(ctx, "image-cache", imageId)
 	if img, ok := c.cachedImages[imageId]; ok {
 		img.Release()
 	}

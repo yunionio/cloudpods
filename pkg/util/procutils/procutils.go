@@ -31,7 +31,8 @@ type Command struct {
 	path string
 	args []string
 
-	cmd Cmd
+	cmd       Cmd
+	remoteCmd bool
 }
 
 func NewCommand(name string, args ...string) *Command {
@@ -53,9 +54,19 @@ func NewCommandContext(ctx context.Context, name string, args ...string) *Comman
 // exec remote command as far as possible
 func NewRemoteCommandAsFarAsPossible(name string, args ...string) *Command {
 	return &Command{
-		path: name,
-		args: args,
-		cmd:  execInstance.Command(name, args...),
+		path:      name,
+		args:      args,
+		cmd:       execInstance.Command(name, args...),
+		remoteCmd: true,
+	}
+}
+
+func NewRemoteCommandContextAsFarAsPossible(ctx context.Context, name string, args ...string) *Command {
+	return &Command{
+		path:      name,
+		args:      args,
+		cmd:       execInstance.CommandContext(ctx, name, args...),
+		remoteCmd: true,
 	}
 }
 
@@ -75,7 +86,7 @@ func (c *Command) Run() error {
 	log.Debugf("Exec command: %s %v", c.path, c.args)
 	err := c.cmd.Run()
 	if err != nil {
-		log.Errorf("Execute command %q , error: %v", c, err)
+		log.Debugf("Execute command %q , error: %v", c, err)
 	}
 	return err
 }
@@ -84,12 +95,13 @@ func (c *Command) Output() ([]byte, error) {
 	log.Debugf("Exec command: %s %v", c.path, c.args)
 	output, err := c.cmd.CombinedOutput()
 	if err != nil {
-		log.Errorf("Execute command %q , error: %v , output: %s", c, err, string(output))
+		log.Debugf("Execute command %q , error: %v , output: %s", c, err, string(output))
 	}
 	return output, err
 }
 
 func (c *Command) Start() error {
+	log.Debugf("Exec command: %s %v", c.path, c.args)
 	return c.cmd.Start()
 }
 
@@ -107,6 +119,10 @@ func (c *Command) Kill() error {
 	return c.cmd.Kill()
 }
 
-func GetExitStatus(err error) (int, bool) {
-	return execInstance.GetExitStatus(err)
+func (c *Command) GetExitStatus(err error) (int, bool) {
+	if c.remoteCmd {
+		return _remoteExecutor.GetExitStatus(err)
+	} else {
+		return localExecutor.GetExitStatus(err)
+	}
 }

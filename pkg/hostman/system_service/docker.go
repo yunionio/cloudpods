@@ -44,3 +44,7 @@ func (s *SDocker) Reload(kwargs map[string]interface{}) error {
 func (s *SDocker) BgReload(kwargs map[string]interface{}) {
 	go s.Reload(kwargs)
 }
+
+func (s *SDocker) BgReloadConf(kwargs map[string]interface{}) {
+	go s.reloadConf(s.GetConfig(kwargs), s.GetConfigFile())
+}

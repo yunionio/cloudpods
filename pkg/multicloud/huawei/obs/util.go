@@ -1,16 +1,14 @@
-// Copyright 2019 Yunion
+// Copyright 2019 Huawei Technologies Co.,Ltd.
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+// this file except in compliance with the License.  You may obtain a copy of the
+// License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+// http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing, software distributed
+// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations under the License.
 
 package obs
 
@@ -85,19 +83,28 @@ func FormatUtcToRfc1123(t time.Time) string {
 
 func Md5(value []byte) []byte {
 	m := md5.New()
-	m.Write(value)
+	_, err := m.Write(value)
+	if err != nil {
+		doLog(LEVEL_WARN, "MD5 failed to write with reason: %v", err)
+	}
 	return m.Sum(nil)
 }
 
 func HmacSha1(key, value []byte) []byte {
 	mac := hmac.New(sha1.New, key)
-	mac.Write(value)
+	_, err := mac.Write(value)
+	if err != nil {
+		doLog(LEVEL_WARN, "HmacSha1 failed to write with reason: %v", err)
+	}
 	return mac.Sum(nil)
 }
 
 func HmacSha256(key, value []byte) []byte {
 	mac := hmac.New(sha256.New, key)
-	mac.Write(value)
+	_, err := mac.Write(value)
+	if err != nil {
+		doLog(LEVEL_WARN, "HmacSha256 failed to write with reason: %v", err)
+	}
 	return mac.Sum(nil)
 }
 
@@ -119,7 +126,10 @@ func Base64Md5(value []byte) string {
 
 func Sha256Hash(value []byte) []byte {
 	hash := sha256.New()
-	hash.Write(value)
+	_, err := hash.Write(value)
+	if err != nil {
+		doLog(LEVEL_WARN, "Sha256Hash failed to write with reason: %v", err)
+	}
 	return hash.Sum(nil)
 }
 
@@ -151,6 +161,17 @@ func UrlDecode(value string) (string, error) {
 		return ret, nil
 	}
 	return "", err
+}
+
+func UrlDecodeWithoutError(value string) string {
+	ret, err := UrlDecode(value)
+	if err == nil {
+		return ret
+	}
+	if isErrorLogEnabled() {
+		doLog(LEVEL_ERROR, "Url decode error: %v", err)
+	}
+	return ""
 }
 
 func IsIP(value string) bool {
@@ -243,6 +264,59 @@ func getIsObs(isTemporary bool, querys []string, headers map[string][]string) bo
 	return isObs
 }
 
+func isPathStyle(headers map[string][]string, bucketName string) bool {
+	if receviedHost, ok := headers[HEADER_HOST]; ok && len(receviedHost) > 0 && !strings.HasPrefix(receviedHost[0], bucketName+".") {
+		return true
+	}
+	return false
+}
+
+func GetV2Authorization(ak, sk, method, bucketName, objectKey, queryUrl string, headers map[string][]string) (ret map[string]string) {
+
+	if strings.HasPrefix(queryUrl, "?") {
+		queryUrl = queryUrl[1:]
+	}
+
+	method = strings.ToUpper(method)
+
+	querys := strings.Split(queryUrl, "&")
+	querysResult := make([]string, 0)
+	for _, value := range querys {
+		if value != "=" && len(value) != 0 {
+			querysResult = append(querysResult, value)
+		}
+	}
+	params := make(map[string]string)
+
+	for _, value := range querysResult {
+		kv := strings.Split(value, "=")
+		length := len(kv)
+		if length == 1 {
+			key := UrlDecodeWithoutError(kv[0])
+			params[key] = ""
+		} else if length >= 2 {
+			key := UrlDecodeWithoutError(kv[0])
+			vals := make([]string, 0, length-1)
+			for i := 1; i < length; i++ {
+				val := UrlDecodeWithoutError(kv[i])
+				vals = append(vals, val)
+			}
+			params[key] = strings.Join(vals, "=")
+		}
+	}
+	headers = copyHeaders(headers)
+	pathStyle := isPathStyle(headers, bucketName)
+	conf := &config{securityProvider: &securityProvider{ak: ak, sk: sk},
+		urlHolder: &urlHolder{scheme: "https", host: "dummy", port: 443},
+		pathStyle: pathStyle}
+	conf.signature = SignatureObs
+	_, canonicalizedURL := conf.formatUrls(bucketName, objectKey, params, false)
+	ret = v2Auth(ak, sk, method, canonicalizedURL, headers, true)
+	v2HashPrefix := OBS_HASH_PREFIX
+	ret[HEADER_AUTH_CAMEL] = fmt.Sprintf("%s %s:%s", v2HashPrefix, ak, ret["Signature"])
+	return
+}
+
 func GetAuthorization(ak, sk, method, bucketName, objectKey, queryUrl string, headers map[string][]string) (ret map[string]string) {
 
 	if strings.HasPrefix(queryUrl, "?") {
@@ -264,13 +338,13 @@ func GetAuthorization(ak, sk, method, bucketName, objectKey, queryUrl string, he
 		kv := strings.Split(value, "=")
 		length := len(kv)
 		if length == 1 {
-			key, _ := UrlDecode(kv[0])
+			key := UrlDecodeWithoutError(kv[0])
 			params[key] = ""
 		} else if length >= 2 {
-			key, _ := UrlDecode(kv[0])
+			key := UrlDecodeWithoutError(kv[0])
 			vals := make([]string, 0, length-1)
 			for i := 1; i < length; i++ {
-				val, _ := UrlDecode(kv[i])
+				val := UrlDecodeWithoutError(kv[i])
 				vals = append(vals, val)
 			}
 			params[key] = strings.Join(vals, "=")
@@ -302,31 +376,38 @@ func GetAuthorization(ak, sk, method, bucketName, objectKey, queryUrl string, he
 
 	if isTemporary {
 		return getTemporaryAuthorization(ak, sk, method, bucketName, objectKey, signature, conf, params, headers, isObs)
-	} else {
-		signature, region, signedHeaders := parseHeaders(headers)
-		if signature == "v4" {
-			conf.signature = SignatureV4
-			requestUrl, canonicalizedUrl := conf.formatUrls(bucketName, objectKey, params, false)
-			parsedRequestUrl, _ := url.Parse(requestUrl)
-			headerKeys := strings.Split(signedHeaders, ";")
-			_headers := make(map[string][]string, len(headerKeys))
-			for _, headerKey := range headerKeys {
-				_headers[headerKey] = headers[headerKey]
-			}
-			ret = v4Auth(ak, sk, region, method, canonicalizedUrl, parsedRequestUrl.RawQuery, _headers)
-			ret[HEADER_AUTH_CAMEL] = fmt.Sprintf("%s Credential=%s,SignedHeaders=%s,Signature=%s", V4_HASH_PREFIX, ret["Credential"], ret["SignedHeaders"], ret["Signature"])
-		} else if signature == "v2" {
-			conf.signature = SignatureV2
-			_, canonicalizedUrl := conf.formatUrls(bucketName, objectKey, params, false)
-			ret = v2Auth(ak, sk, method, canonicalizedUrl, headers, isObs)
-			v2HashPrefix := V2_HASH_PREFIX
-			if isObs {
-				v2HashPrefix = OBS_HASH_PREFIX
-			}
-			ret[HEADER_AUTH_CAMEL] = fmt.Sprintf("%s %s:%s", v2HashPrefix, ak, ret["Signature"])
-		}
-		return
 	}
+	signature, region, signedHeaders := parseHeaders(headers)
+	if signature == "v4" {
+		conf.signature = SignatureV4
+		requestUrl, canonicalizedUrl := conf.formatUrls(bucketName, objectKey, params, false)
+		parsedRequestUrl, _err := url.Parse(requestUrl)
+		if _err != nil {
+			doLog(LEVEL_WARN, "Failed to parse requestUrl with reason: %v", _err)
+			return nil
+		}
+		headerKeys := strings.Split(signedHeaders, ";")
+		_headers := make(map[string][]string, len(headerKeys))
+		for _, headerKey := range headerKeys {
+			_headers[headerKey] = headers[headerKey]
+		}
+		ret = v4Auth(ak, sk, region, method, canonicalizedUrl, parsedRequestUrl.RawQuery, _headers)
+		ret[HEADER_AUTH_CAMEL] = fmt.Sprintf("%s Credential=%s,SignedHeaders=%s,Signature=%s", V4_HASH_PREFIX, ret["Credential"], ret["SignedHeaders"], ret["Signature"])
+	} else if signature == "v2" {
+		if isObs {
+			conf.signature = SignatureObs
+		} else {
+			conf.signature = SignatureV2
+		}
+		_, canonicalizedUrl := conf.formatUrls(bucketName, objectKey, params, false)
+		ret = v2Auth(ak, sk, method, canonicalizedUrl, headers, isObs)
+		v2HashPrefix := V2_HASH_PREFIX
+		if isObs {
+			v2HashPrefix = OBS_HASH_PREFIX
+		}
+		ret[HEADER_AUTH_CAMEL] = fmt.Sprintf("%s %s:%s", v2HashPrefix, ak, ret["Signature"])
+	}
+	return
 
 }
 
@@ -347,7 +428,7 @@ func getTemporaryAuthorization(ak, sk, method, bucketName, objectKey, signature 
 			credential = params[strings.ToLower(PARAM_CREDENTIAL_AMZ_CAMEL)]
 		}
 
-		_credential, _ := UrlDecode(credential)
+		_credential := UrlDecodeWithoutError(credential)
 
 		regions := regionRegex.FindStringSubmatch(_credential)
 		var region string
@@ -386,11 +467,19 @@ func getTemporaryAuthorization(ak, sk, method, bucketName, objectKey, signature 
 		ret[PARAM_SIGNEDHEADERS_AMZ_CAMEL] = signedHeaders
 
 		requestUrl, canonicalizedUrl := conf.formatUrls(bucketName, objectKey, params, false)
-		parsedRequestUrl, _ := url.Parse(requestUrl)
+		parsedRequestUrl, _err := url.Parse(requestUrl)
+		if _err != nil {
+			doLog(LEVEL_WARN, "Failed to parse requestUrl with reason: %v", _err)
+			return nil
+		}
 		stringToSign := getV4StringToSign(method, canonicalizedUrl, parsedRequestUrl.RawQuery, scope, longDate, UNSIGNED_PAYLOAD, strings.Split(signedHeaders, ";"), headers)
 		ret[PARAM_SIGNATURE_AMZ_CAMEL] = UrlEncode(getSignature(stringToSign, sk, region, shortDate), false)
 	} else if signature == "v2" {
-		conf.signature = SignatureV2
+		if isObs {
+			conf.signature = SignatureObs
+		} else {
+			conf.signature = SignatureV2
+		}
 		_, canonicalizedUrl := conf.formatUrls(bucketName, objectKey, params, false)
 		expires, ok := params["Expires"]
 		if !ok {

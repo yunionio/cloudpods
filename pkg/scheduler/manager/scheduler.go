@@ -33,13 +33,14 @@ func candidatesByProvider(provider CandidatesProvider, schedData *api.SchedInfo)
 	var err error
 
 	candidateManager := provider.CandidateManager()
-	if len(schedData.Candidates) > 0 {
-		hosts, err = candidateManager.GetCandidatesByIds(provider.CandidateType(), schedData.Candidates)
+	if len(schedData.PreferCandidates) >= schedData.RequiredCandidates {
+		hosts, err = candidateManager.GetCandidatesByIds(provider.CandidateType(), schedData.PreferCandidates)
 	} else {
 		args := data_manager.CandidateGetArgs{
 			ResType:   provider.CandidateType(),
 			ZoneID:    schedData.PreferZone,
 			RegionID:  schedData.PreferRegion,
+			ManagerID: schedData.PreferManager,
 			HostTypes: schedData.GetCandidateHostTypes(),
 		}
 		hosts, err = candidateManager.GetCandidates(args)
@@ -150,12 +151,6 @@ func (s *BaseScheduler) Unit() *core.Unit {
 func (s *BaseScheduler) BeforePredicate() error {
 	return nil
 }
-
-//func (s *BaseScheduler) DirtySelectedCandidates(scs []*core.SelectedCandidate) {
-//for _, sc := range scs {
-//s.CandidateManager().SetCandidateDirty(sc)
-//}
-//}
 
 // GuestScheduler for guest type schedule
 type GuestScheduler struct {

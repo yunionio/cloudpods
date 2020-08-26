@@ -44,8 +44,8 @@ func Resolve(param *ResolveParam) (endpoint string, err error) {
 	}
 
 	// not support
-	errorMsg := fmt.Sprintf(errors.CanNotResolveEndpointMessage, param, ResolveEndpointUserGuideLink)
-	err = errors.NewClientError(errors.CanNotResolveEndpointCode, errorMsg, nil)
+	errorMsg := fmt.Sprintf(errors.CanNotResolveEndpointErrorMessage, param, ResolveEndpointUserGuideLink)
+	err = errors.NewClientError(errors.CanNotResolveEndpointErrorCode, errorMsg, nil)
 	return
 }
 
@@ -53,20 +53,22 @@ func getAllResolvers() []Resolver {
 	once.Do(func() {
 		resolvers = []Resolver{
 			&SimpleHostResolver{},
+			&MappingResolver{},
 			&LocationResolver{},
-			&LocalXmlResolver{},
+			&LocalRegionalResolver{},
+			&LocalGlobalResolver{},
 		}
 	})
 	return resolvers
 }
 
 type ResolveParam struct {
-	Domain           string
-	Product          string
-	RegionId         string
-	LocationProduct  string
-	LocationEndpoint string
-	CommonApi        func(request *requests.CommonRequest) (response *responses.CommonResponse, err error) `json:"-"`
+	Domain               string
+	Product              string
+	RegionId             string
+	LocationProduct      string
+	LocationEndpointType string
+	CommonApi            func(request *requests.CommonRequest) (response *responses.CommonResponse, err error) `json:"-"`
 }
 
 func (param *ResolveParam) String() string {

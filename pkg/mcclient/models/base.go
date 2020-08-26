@@ -54,7 +54,6 @@ type StandaloneResource struct {
 
 	Id          string
 	Name        string
-	ExternalId  string
 	Description string
 	IsEmulated  bool
 }
@@ -69,7 +68,7 @@ type StatusStandaloneResource struct {
 	Status string
 }
 
-type EnabledStatusStandaloneResourceBase struct {
+type EnabledStatusStandaloneResource struct {
 	StatusStandaloneResource
 
 	Enabled bool
@@ -84,10 +83,6 @@ type VirtualResource struct {
 	PendingDeleted   bool
 }
 
-type ManagedResource struct {
-	ManagerId string
-}
-
 func (r *VirtualResource) GetPendingDeleted() bool {
 	return r.PendingDeleted
 }
@@ -96,4 +91,12 @@ type SharableVirtualResource struct {
 	VirtualResource
 
 	IsPublic bool
+}
+
+type ManagedResource struct {
+	ManagerId string
+}
+
+type ExternalizedResource struct {
+	ExternalId string
 }

@@ -26,13 +26,17 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SReservedipManager struct {
 	db.SResourceBaseManager
+	SNetworkResourceBaseManager
 }
 
 var ReservedipManager *SReservedipManager
@@ -51,16 +55,25 @@ func init() {
 
 type SReservedip struct {
 	db.SResourceBase
+	SNetworkResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user"`
 
-	Id        int64  `primary:"true" auto_increment:"true" list:"admin"`        // = Column(BigInteger, primary_key=True)
-	NetworkId string `width:"36" charset:"ascii" nullable:"false" list:"admin"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
-	IpAddr    string `width:"16" charset:"ascii" list:"admin"`                  // Column(VARCHAR(16, charset='ascii'))
+	// 自增Id
+	Id int64 `primary:"true" auto_increment:"true" list:"user"`
 
-	Notes string `width:"512" charset:"utf8" nullable:"true" list:"admin" update:"admin"` // ]Column(VARCHAR(512, charset='utf8'), nullable=True)
+	// IP子网Id
+	// NetworkId string `width:"36" charset:"ascii" nullable:"false" list:"user"`
 
-	ExpiredAt time.Time `nullable:"true" list:"admin"`
+	// IP地址
+	IpAddr string `width:"16" charset:"ascii" list:"user"`
 
-	Status string `width:"12" charset:"ascii" nullable:"false" default:"unknown" list:"admin" create:"admin_optional" update:"admin"`
+	// 预留原因或描述
+	Notes string `width:"512" charset:"utf8" nullable:"true" list:"user" update:"user"`
+
+	// 过期时间
+	ExpiredAt time.Time `nullable:"true" list:"user"`
+
+	// 状态
+	Status string `width:"12" charset:"ascii" nullable:"false" default:"unknown" list:"user" create:"optional" update:"user"`
 }
 
 func (manager *SReservedipManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -96,11 +109,29 @@ func (manager *SReservedipManager) ReserveIPWithDurationAndStatus(userCred mccli
 	if duration > 0 {
 		expiredAt = time.Now().UTC().Add(duration)
 	}
-	rip := SReservedip{NetworkId: network.Id, IpAddr: ip, Notes: notes, ExpiredAt: expiredAt, Status: status}
-	err := manager.TableSpec().Insert(&rip)
-	if err != nil {
-		log.Errorf("ReserveIP fail: %s", err)
-		return err
+	rip := manager.getReservedIP(network, ip)
+	if rip == nil {
+		rip := SReservedip{IpAddr: ip, Notes: notes, ExpiredAt: expiredAt, Status: status}
+		rip.NetworkId = network.Id
+		err := manager.TableSpec().Insert(context.TODO(), &rip)
+		if err != nil {
+			log.Errorf("ReserveIP fail: %s", err)
+			return errors.Wrap(err, "Insert")
+		}
+	} else if rip.IsExpired() {
+		_, err := db.Update(rip, func() error {
+			rip.Notes = notes
+			rip.ExpiredAt = expiredAt
+			if len(status) > 0 {
+				rip.Status = status
+			}
+			return nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "Update")
+		}
+	} else {
+		return errors.Wrapf(httperrors.ErrConflict, "Address %s has been reserved", ip)
 	}
 	db.OpsLog.LogEvent(network, db.ACT_RESERVE_IP, ip, userCred)
 	return nil
@@ -166,42 +197,103 @@ func (self *SReservedip) Release(ctx context.Context, userCred mcclient.TokenCre
 	return err
 }
 
-func (self *SReservedip) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	net := self.GetNetwork()
-	if net != nil {
-		extra.Add(jsonutils.NewString(net.Name), "network")
-	}
-	if self.IsExpired() {
-		extra.Add(jsonutils.JSONTrue, "expired")
-	} else {
-		extra.Add(jsonutils.JSONFalse, "expired")
-	}
-	return extra
+func (self *SReservedip) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ReservedipDetails, error) {
+	return api.ReservedipDetails{}, nil
 }
 
-func (manager *SReservedipManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
-	if err != nil {
-		log.Errorf("ListItemFilter %s", err)
-		return nil, err
+func (manager *SReservedipManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.ReservedipDetails {
+	rows := make([]api.ReservedipDetails, len(objs))
+
+	resRows := manager.SResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	netRows := manager.SNetworkResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.ReservedipDetails{
+			ResourceBaseDetails: resRows[i],
+			NetworkResourceInfo: netRows[i],
+		}
+		rows[i].Expired = objs[i].(*SReservedip).IsExpired()
 	}
-	isAll := jsonutils.QueryBoolean(query, "all", false)
-	if !isAll {
+
+	return rows
+}
+
+// 预留IP地址列表
+func (manager *SReservedipManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ReservedipListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SNetworkResourceBaseManager.ListItemFilter(ctx, q, userCred, query.NetworkFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.ListItemFilter")
+	}
+
+	if query.All == nil || *query.All == false {
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.IsNullOrEmpty(q.Field("expired_at")),
 			sqlchemy.GT(q.Field("expired_at"), time.Now().UTC()),
 		))
 	}
-	network, _ := query.GetString("network")
-	if len(network) > 0 {
-		netObj, _ := NetworkManager.FetchByIdOrName(userCred, network)
-		if netObj == nil {
-			return nil, httperrors.NewResourceNotFoundError("network %s not found", network)
-		}
-		q = q.Equals("network_id", netObj.GetId())
+
+	if len(query.IpAddr) > 0 {
+		q = q.In("ip_addr", query.IpAddr)
 	}
+	if len(query.Status) > 0 {
+		q = q.In("status", query.Status)
+	}
+
 	return q, nil
+}
+
+func (manager *SReservedipManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ReservedipListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SResourceBaseManager.OrderByExtraFields")
+	}
+
+	q, err = manager.SNetworkResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.NetworkFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SReservedipManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SNetworkResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (rip *SReservedip) GetId() string {
@@ -225,4 +317,66 @@ func (rip *SReservedip) IsExpired() bool {
 		return true
 	}
 	return false
+}
+
+func (manager *SReservedipManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
+	parentId, _ := data.GetString("network_id")
+	return parentId
+}
+
+func (manager *SReservedipManager) FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery {
+	if len(parentId) > 0 {
+		q = q.Equals("network_id", parentId)
+	}
+	return q
+}
+
+func (manager *SReservedipManager) NamespaceScope() rbacutils.TRbacScope {
+	if consts.IsDomainizedNamespace() {
+		return rbacutils.ScopeDomain
+	} else {
+		return rbacutils.ScopeSystem
+	}
+}
+
+func (manager *SReservedipManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeProject
+}
+
+func (manager *SReservedipManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	if owner != nil {
+		switch scope {
+		case rbacutils.ScopeProject, rbacutils.ScopeDomain:
+			netsQ := NetworkManager.Query("id")
+			netsQ = NetworkManager.FilterByOwner(netsQ, owner, scope)
+			netsSQ := netsQ.SubQuery()
+			q = q.Join(netsSQ, sqlchemy.Equals(q.Field("network_id"), netsSQ.Field("id")))
+		}
+	}
+	return q
+}
+
+func (manager *SReservedipManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	return db.FetchProjectInfo(ctx, data)
+}
+
+func (rip *SReservedip) GetOwnerId() mcclient.IIdentityProvider {
+	network := rip.GetNetwork()
+	if network != nil {
+		return network.GetOwnerId()
+	}
+	return nil
+}
+
+func (manager *SReservedipManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, err
+	}
+	return manager.SNetworkResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
 }

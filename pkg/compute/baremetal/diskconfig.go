@@ -549,7 +549,7 @@ func GetDiskSpecV2(storages []*BaremetalStorage) api.DiskDriverSpec {
 		if len(driverStorages) == 0 {
 			continue
 		}
-		spec[driver] = getSpec(storages)
+		spec[driver] = getSpec(driverStorages)
 	}
 	return spec
 }

@@ -21,7 +21,6 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -36,12 +35,15 @@ import (
 
 type SSHtoolSol struct {
 	*BaseCommand
-	IP       string
-	Port     int
-	Username string
-	reTry    int
-	showInfo string
-	keyFile  string
+	IP           string
+	Port         int
+	username     string
+	password     string
+	failed       int
+	showInfo     string
+	keyFile      string
+	buffer       []byte
+	needShowInfo bool
 }
 
 func getCommand(ctx context.Context, userCred mcclient.TokenCredential, ip string, port int) (string, *BaseCommand, error) {
@@ -80,6 +82,7 @@ func getCommand(ctx context.Context, userCred mcclient.TokenCredential, ip strin
 	cmd.AppendArgs("-o", "GlobalKnownHostsFile=/dev/null")
 	cmd.AppendArgs("-o", "UserKnownHostsFile=/dev/null")
 	cmd.AppendArgs("-o", "PasswordAuthentication=no")
+	cmd.AppendArgs("-o", "BatchMode=yes") // 强制禁止密码登录
 	cmd.AppendArgs("-p", fmt.Sprintf("%d", port))
 	cmd.AppendArgs(fmt.Sprintf("%s@%s", ansible.PUBLIC_CLOUD_ANSIBLE_USER, ip))
 	return filename, cmd, nil
@@ -94,7 +97,7 @@ func NewSSHtoolSolCommand(ctx context.Context, userCred mcclient.TokenCredential
 	}
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", ip, port), time.Second*2)
 	if err != nil {
-		return nil, fmt.Errorf("IPAddress %s:%d not accessable", ip, port)
+		return nil, fmt.Errorf("IPAddress %s:%d not accessible", ip, port)
 	}
 	defer conn.Close()
 
@@ -104,19 +107,33 @@ func NewSSHtoolSolCommand(ctx context.Context, userCred mcclient.TokenCredential
 	}
 
 	return &SSHtoolSol{
-		BaseCommand: cmd,
-		IP:          ip,
-		Port:        port,
-		Username:    "",
-		reTry:       0,
-		showInfo:    fmt.Sprintf("%s login: ", ip),
-		keyFile:     keyFile,
+		BaseCommand:  cmd,
+		IP:           ip,
+		Port:         port,
+		username:     "",
+		failed:       0,
+		showInfo:     fmt.Sprintf("%s login: ", ip),
+		keyFile:      keyFile,
+		buffer:       []byte{},
+		needShowInfo: true,
 	}, nil
 }
 
 func (c *SSHtoolSol) GetCommand() *exec.Cmd {
 	if c.BaseCommand != nil {
 		cmd := c.BaseCommand.GetCommand()
+		cmd.Env = append(cmd.Env, "TERM=xterm-256color")
+		return cmd
+	}
+	if len(c.username) > 0 && len(c.password) > 0 {
+		args := []string{
+			o.Options.SshpassToolPath, "-p", c.password,
+			o.Options.SshToolPath, "-p", fmt.Sprintf("%d", c.Port), fmt.Sprintf("%s@%s", c.username, c.IP),
+			"-oGlobalKnownHostsFile=/dev/null", "-oUserKnownHostsFile=/dev/null", "-oStrictHostKeyChecking=no",
+			"-oPreferredAuthentications=password", "-oPubkeyAuthentication=no", //密码登录时,避免搜寻秘钥登录
+			"-oNumberOfPasswordPrompts=1",
+		}
+		cmd := exec.Command(args[0], args[1:]...)
 		cmd.Env = append(cmd.Env, "TERM=xterm-256color")
 		return cmd
 	}
@@ -144,32 +161,52 @@ func (c *SSHtoolSol) Connect() error {
 	return nil
 }
 
-func (c *SSHtoolSol) GetData(data string) (isShow bool, ouput string, command string) {
-	if len(c.Username) == 0 {
-		if len(data) == 0 {
-			//用户名不能为空
-			return true, c.showInfo, ""
+func (c *SSHtoolSol) Scan(d byte, send func(msg string)) {
+	switch d {
+	case '\r': // 换行
+		send("\r\n")
+		if len(c.username) == 0 {
+			c.username = string(c.buffer)
+			c.needShowInfo = true
+		} else if len(c.password) == 0 {
+			c.password = string(c.buffer)
 		}
-		c.Username = data
-		return false, "Password:", ""
+		c.buffer = []byte{}
+	case '\u007f': // 退格
+		if len(c.buffer) > 1 {
+			c.buffer = c.buffer[:len(c.buffer)-1]
+		}
+		send("\b \b")
+	default:
+		c.buffer = append(c.buffer, d)
+		if len(c.username) == 0 {
+			send(string(d))
+		}
 	}
-	args := []string{
-		o.Options.SshpassToolPath, "-p", data,
-		o.Options.SshToolPath, "-p", fmt.Sprintf("%d", c.Port), fmt.Sprintf("%s@%s", c.Username, c.IP),
-		"-oGlobalKnownHostsFile=/dev/null", "-oUserKnownHostsFile=/dev/null", "-oStrictHostKeyChecking=no",
-		"-oPreferredAuthentications=password", "-oPubkeyAuthentication=no", //密码登录时,避免搜寻秘钥登录
-	}
-	return true, "", strings.Join(args, " ")
+	return
+}
+
+func (c *SSHtoolSol) Reconnect() {
+	c.needShowInfo, c.username, c.password = true, "", ""
+}
+
+func (c *SSHtoolSol) IsNeedShowInfo() bool {
+	return c.needShowInfo
 }
 
 func (c *SSHtoolSol) ShowInfo() string {
-	c.Username = ""
-	c.reTry++
-	if c.reTry == 3 {
-		c.reTry = 0
-		//清屏
-		time.Sleep(1 * time.Second)
-		return "\033c " + c.showInfo
+	c.BaseCommand = nil
+	c.needShowInfo = false
+	if len(c.username) == 0 {
+		if c.failed >= 3 {
+			c.failed = 0
+			return "\033c " + c.showInfo // 清屏
+		}
+		c.failed++
+		return c.showInfo
 	}
-	return c.showInfo
+	if len(c.password) == 0 {
+		return "Password:"
+	}
+	return ""
 }

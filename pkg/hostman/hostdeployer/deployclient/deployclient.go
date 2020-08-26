@@ -103,3 +103,27 @@ func (c *DeployClient) ProbeImageInfo(ctx context.Context, in *deployapi.ProbeIm
 	client := deployapi.NewDeployAgentClient(conn)
 	return client.ProbeImageInfo(ctx, in, opts...)
 }
+
+func (c *DeployClient) ConnectEsxiDisks(
+	ctx context.Context, in *deployapi.ConnectEsxiDisksParams, opts ...grpc.CallOption,
+) (*deployapi.EsxiDisksConnectionInfo, error) {
+	conn, err := grcpDialWithUnixSocket(ctx, c.socketPath)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	client := deployapi.NewDeployAgentClient(conn)
+	return client.ConnectEsxiDisks(ctx, in, opts...)
+}
+
+func (c *DeployClient) DisconnectEsxiDisks(
+	ctx context.Context, in *deployapi.EsxiDisksConnectionInfo, opts ...grpc.CallOption,
+) (*deployapi.Empty, error) {
+	conn, err := grcpDialWithUnixSocket(ctx, c.socketPath)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	client := deployapi.NewDeployAgentClient(conn)
+	return client.DisconnectEsxiDisks(ctx, in, opts...)
+}

@@ -24,8 +24,6 @@ import (
 	"regexp"
 	"strings"
 
-	"golang.org/x/sys/unix"
-
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -239,10 +237,6 @@ func (hf HostsFile) String() string {
 		}
 	}
 	return ret
-}
-
-func Writable(path string) bool {
-	return unix.Access(path, unix.W_OK) == nil
 }
 
 func FsFormatToDiskType(fsFormat string) string {

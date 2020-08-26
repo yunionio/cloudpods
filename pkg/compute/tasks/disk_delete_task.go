@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type DiskDeleteTask struct {
@@ -43,18 +44,19 @@ func (self *DiskDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 	cnt, err := disk.GetGuestDiskCount()
 	if err != nil {
 		reason := "Disk GetGuestDiskCount fail: " + err.Error()
-		self.SetStageFailed(ctx, reason)
+		self.SetStageFailed(ctx, jsonutils.NewString(reason))
 		db.OpsLog.LogEvent(disk, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 		return
 	}
 	if cnt > 0 {
 		reason := "Disk has been attached to server"
-		self.SetStageFailed(ctx, reason)
+		self.SetStageFailed(ctx, jsonutils.NewString(reason))
 		db.OpsLog.LogEvent(disk, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 		return
 	}
 	if jsonutils.QueryBoolean(self.Params, "delete_snapshots", false) {
-
+		self.SetStage("OnDiskSnapshotDelete", nil)
+		self.StartDeleteDiskSnapshots(ctx, disk)
 	} else {
 		self.OnDeleteSnapshots(ctx, disk)
 	}
@@ -68,13 +70,23 @@ func (self *DiskDeleteTask) OnDeleteSnapshots(ctx context.Context, disk *models.
 			self.SetStageComplete(ctx, nil)
 			return
 		}
-		if jsonutils.QueryBoolean(self.Params, "delete_sanpshots", false) {
-			disk.SetMetadata(ctx, "__delete_snapshots_on_delete", "true", self.UserCred)
-		}
 		self.startPendingDeleteDisk(ctx, disk)
 	} else {
 		self.startDeleteDisk(ctx, disk)
 	}
+}
+
+func (self *DiskDeleteTask) StartDeleteDiskSnapshots(ctx context.Context, disk *models.SDisk) {
+	disk.DeleteSnapshots(ctx, self.UserCred, self.GetId())
+}
+
+func (self *DiskDeleteTask) OnDiskSnapshotDelete(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
+	self.OnDeleteSnapshots(ctx, disk)
+}
+
+func (self *DiskDeleteTask) OnDiskSnapshotDeleteFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
+	log.Errorf("Delete disk snapshots failed %s", data.String())
+	self.OnGuestDiskDeleteCompleteFailed(ctx, disk, data)
 }
 
 func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SDisk) {
@@ -89,32 +101,39 @@ func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SD
 	)
 
 	storage = disk.GetStorage()
-	if storage != nil {
-		host = storage.GetMasterHost()
+	if storage == nil { // dirty data
+		self.OnGuestDiskDeleteComplete(ctx, disk, nil)
+		return
 	}
 
+	host = storage.GetMasterHost()
+
 	isPurge := false
-	if (host == nil || !host.Enabled) && jsonutils.QueryBoolean(self.Params, "purge", false) {
+	if (host == nil || !host.GetEnabled()) && jsonutils.QueryBoolean(self.Params, "purge", false) {
 		isPurge = true
 	}
 	disk.SetStatus(self.UserCred, api.DISK_DEALLOC, "")
 	if isPurge {
 		self.OnGuestDiskDeleteComplete(ctx, disk, nil)
+		return
+	}
+	if isNeed, _ := disk.IsNeedWaitSnapshotsDeleted(); isNeed { // for kvm rbd disk
+		self.OnGuestDiskDeleteComplete(ctx, disk, nil)
+		return
+	}
+	if len(disk.BackupStorageId) > 0 {
+		self.SetStage("OnMasterStorageDeleteDiskComplete", nil)
 	} else {
-		if isNeed, _ := disk.IsNeedWaitSnapshotsDeleted(); isNeed {
-			self.OnGuestDiskDeleteComplete(ctx, disk, nil)
-			return
-		}
-		if len(disk.BackupStorageId) > 0 {
-			self.SetStage("OnMasterStorageDeleteDiskComplete", nil)
-		} else {
-			self.SetStage("OnGuestDiskDeleteComplete", nil)
-		}
-		if host == nil {
-			self.OnGuestDiskDeleteCompleteFailed(ctx, disk, jsonutils.NewString("fail to find master host"))
-		} else if err := host.GetHostDriver().RequestDeallocateDiskOnHost(ctx, host, storage, disk, self); err != nil {
-			self.OnGuestDiskDeleteCompleteFailed(ctx, disk, jsonutils.NewString(err.Error()))
-		}
+		self.SetStage("OnGuestDiskDeleteComplete", nil)
+	}
+	if host == nil {
+		self.OnGuestDiskDeleteCompleteFailed(ctx, disk, jsonutils.NewString("fail to find master host"))
+		return
+	}
+	err := host.GetHostDriver().RequestDeallocateDiskOnHost(ctx, host, storage, disk, self)
+	if err != nil {
+		self.OnGuestDiskDeleteCompleteFailed(ctx, disk, jsonutils.NewString(err.Error()))
+		return
 	}
 }
 
@@ -167,8 +186,9 @@ func (self *DiskDeleteTask) OnGuestDiskDeleteComplete(ctx context.Context, obj d
 
 func (self *DiskDeleteTask) OnGuestDiskDeleteCompleteFailed(ctx context.Context, disk *models.SDisk, reason jsonutils.JSONObject) {
 	disk.SetStatus(self.GetUserCred(), api.DISK_DEALLOC_FAILED, reason.String())
-	self.SetStageFailed(ctx, reason.String())
+	self.SetStageFailed(ctx, reason)
 	db.OpsLog.LogEvent(disk, db.ACT_DELOCATE_FAIL, disk.GetShortDesc(ctx), self.GetUserCred())
+	logclient.AddActionLogWithContext(ctx, disk, logclient.ACT_DELOCATE, reason, self.UserCred, false)
 }
 
 type StorageDeleteRbdDiskTask struct {

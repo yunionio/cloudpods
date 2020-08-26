@@ -15,13 +15,13 @@
 package modules
 
 import (
-	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
@@ -50,7 +50,7 @@ func (this *ServerManager) GetLoginInfo(s *mcclient.ClientSession, id string, pa
 
 	loginKey, e := data.GetString("metadata", "login_key")
 	if e != nil {
-		return nil, fmt.Errorf("No login key: %s", e)
+		return nil, httperrors.NewNotFoundError("No login key: %s", e)
 	}
 
 	if len(loginKey) > 0 {
@@ -104,7 +104,7 @@ func init() {
 			"Created_at", "Group_name",
 			"Group_id", "Hypervisor", "os_type",
 			"expired_at"},
-		[]string{"Host", "Tenant", "is_system", "auto_delete_at"})}
+		[]string{"Host", "Tenant", "is_system", "auto_delete_at", "backup_host_name"})}
 
 	registerCompute(&Servers)
 }

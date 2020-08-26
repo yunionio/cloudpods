@@ -19,9 +19,10 @@ import (
 	"fmt"
 	"time"
 
-	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/logger"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -79,19 +80,28 @@ func (manager *SBaremetalEventManager) ResourceScope() rbacutils.TRbacScope {
 func (manager *SBaremetalEventManager) GetPagingConfig() *db.SPagingConfig {
 	return &db.SPagingConfig{
 		Order:        sqlchemy.SQL_ORDER_DESC,
-		MarkerField:  "id",
+		MarkerFields: []string{"id"},
 		DefaultLimit: 20,
 	}
 }
 
-func (manager *SBaremetalEventManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	since, _ := query.GetTime("since")
-	if !since.IsZero() {
-		q = q.GT("created", since)
+// 物理机日志列表
+func (manager *SBaremetalEventManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.BaremetalEventListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SModelBaseManager.ListItemFilter(ctx, q, userCred, query.ModelBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SModelBaseManager.ListItemFilter")
 	}
-	until, _ := query.GetTime("until")
-	if !until.IsZero() {
-		q = q.LE("created", until)
+
+	if !query.Since.IsZero() {
+		q = q.GT("created", query.Since)
+	}
+	if !query.Until.IsZero() {
+		q = q.LE("created", query.Until)
 	}
 	return q, nil
 }

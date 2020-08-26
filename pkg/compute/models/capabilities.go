@@ -29,6 +29,8 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -40,13 +42,15 @@ type SCapabilities struct {
 	DisabledBrands              []string `json:",allowempty"`
 	ComputeEngineBrands         []string `json:",allowempty"`
 	DisabledComputeEngineBrands []string `json:",allowempty"`
+	CloudIdBrands               []string `json:",allowempty"`
+	DisabledCloudIdBrands       []string `json:",allowempty"`
 	NetworkManageBrands         []string `json:",allowempty"`
 	DisabledNetworkManageBrands []string `json:",allowempty"`
 	ObjectStorageBrands         []string `json:",allowempty"`
 	DisabledObjectStorageBrands []string `json:",allowempty"`
 	ResourceTypes               []string `json:",allowempty"`
-	StorageTypes                []string `json:",allowempty"`
-	DataStorageTypes            []string `json:",allowempty"`
+	StorageTypes                []string `json:",allowempty"` // going to remove on 2.14
+	DataStorageTypes            []string `json:",allowempty"` // going to remove on 2.14
 	GPUModels                   []string `json:",allowempty"`
 	MinNicCount                 int
 	MaxNicCount                 int
@@ -54,13 +58,24 @@ type SCapabilities struct {
 	MaxDataDiskCount            int
 	SchedPolicySupport          bool
 	Usable                      bool
-	PublicNetworkCount          int
-	DBInstance                  map[string]map[string]map[string][]string //map[engine][engineVersion][category][]{storage_type}
-	Specs                       jsonutils.JSONObject
+
+	// Deprecated
+	PublicNetworkCount int
+
+	AutoAllocNetworkCount int
+	DBInstance            map[string]map[string]map[string][]string //map[engine][engineVersion][category][]{storage_type}
+	Specs                 jsonutils.JSONObject
+	AvailableHostCount    int
+
+	StorageTypes2     map[string][]string                      `json:",allowempty"`
+	StorageTypes3     map[string]map[string]*SimpleStorageInfo `json:",allowempty"`
+	DataStorageTypes2 map[string][]string                      `json:",allowempty"`
+	DataStorageTypes3 map[string]map[string]*SimpleStorageInfo `json:",allowempty"`
 }
 
 func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, region *SCloudregion, zone *SZone) (SCapabilities, error) {
 	capa := SCapabilities{}
+	var ownerId mcclient.IIdentityProvider
 	scopeStr := jsonutils.GetAnyString(query, []string{"scope"})
 	scope := rbacutils.String2Scope(scopeStr)
 	var domainId string
@@ -74,8 +89,11 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 			return capa, httperrors.NewGeneralError(err)
 		}
 		domainId = domain.GetId()
+		ownerId = &db.SOwnerId{DomainId: domainId}
+		scope = rbacutils.ScopeDomain
 	} else {
 		domainId = userCred.GetProjectDomainId()
+		ownerId = userCred
 	}
 	if scope == rbacutils.ScopeSystem {
 		result := policy.PolicyManager.Allow(scope, userCred, consts.GetServiceType(), "capabilities", policy.PolicyActionList)
@@ -88,8 +106,10 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 	getBrands(region, zone, domainId, &capa)
 	// capa.Brands, capa.ComputeEngineBrands, capa.NetworkManageBrands, capa.ObjectStorageBrands = a, c, n, o
 	capa.ResourceTypes = getResourceTypes(region, zone, domainId)
-	capa.StorageTypes = getStorageTypes(region, zone, true, domainId)
-	capa.DataStorageTypes = getStorageTypes(region, zone, false, domainId)
+	s1, d1, s2, s3, d2, d3 := getStorageTypes(region, zone, domainId)
+	capa.StorageTypes, capa.DataStorageTypes = s1, d1
+	capa.StorageTypes2, capa.StorageTypes3 = s2, s3
+	capa.DataStorageTypes2, capa.DataStorageTypes3 = d2, d3
 	capa.GPUModels = getGPUs(region, zone, domainId)
 	capa.SchedPolicySupport = isSchedPolicySupported(region, zone)
 	capa.MinNicCount = getMinNicCount(region, zone)
@@ -97,7 +117,7 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 	capa.MinDataDiskCount = getMinDataDiskCount(region, zone)
 	capa.MaxDataDiskCount = getMaxDataDiskCount(region, zone)
 	capa.DBInstance = getDBInstanceInfo(region, zone)
-	capa.Usable = isUsable(region, zone, domainId)
+	capa.Usable = isUsable(ownerId, scope, region, zone)
 	if query == nil {
 		query = jsonutils.NewDict()
 	}
@@ -112,22 +132,62 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 	}
 	var err error
 	serverType := jsonutils.GetAnyString(query, []string{"host_type", "server_type"})
-	publicNetworkCount, _ := getNetworkPublicCount(region, zone, domainId, serverType)
-	capa.PublicNetworkCount = publicNetworkCount
+	autoAllocNetworkCount, _ := getAutoAllocNetworkCount(ownerId, scope, region, zone, serverType)
+	capa.PublicNetworkCount = autoAllocNetworkCount
+	capa.AutoAllocNetworkCount = autoAllocNetworkCount
 	mans := []ISpecModelManager{HostManager, IsolatedDeviceManager}
 	capa.Specs, err = GetModelsSpecs(ctx, userCred, query.(*jsonutils.JSONDict), mans...)
+	if err != nil {
+		return capa, err
+	}
+	capa.AvailableHostCount, err = GetAvailableHostCount(userCred, query.(*jsonutils.JSONDict))
 	return capa, err
+}
+
+func GetAvailableHostCount(userCred mcclient.TokenCredential, query *jsonutils.JSONDict) (int, error) {
+	zoneStr, _ := query.GetString("zone")
+	izone, _ := ZoneManager.FetchByIdOrName(userCred, zoneStr)
+	var zoneId string
+	if izone != nil {
+		zoneId = izone.GetId()
+	}
+
+	regionStr, _ := query.GetString("region")
+	iregion, _ := CloudregionManager.FetchByIdOrName(userCred, regionStr)
+	var regionId string
+	if iregion != nil {
+		regionId = iregion.GetId()
+	}
+
+	domainId, _ := query.GetString("domain_id")
+	q := HostManager.Query().Equals("enabled", true).
+		Equals("host_status", "online").Equals("host_type", api.HOST_TYPE_HYPERVISOR)
+	if len(domainId) > 0 {
+		ownerId := &db.SOwnerId{DomainId: domainId}
+		q = HostManager.FilterByOwner(q, ownerId, rbacutils.ScopeDomain)
+	}
+	if len(zoneId) > 0 {
+		q = q.Equals("zone_id", zoneId)
+	}
+	if len(regionId) > 0 {
+		subq := ZoneManager.Query("id").Equals("cloudregion_id", regionId).SubQuery()
+		q = q.Filter(sqlchemy.In(q.Field("zone_id"), subq))
+	}
+	return q.CountWithError()
 }
 
 func getRegionZoneSubq(region *SCloudregion) *sqlchemy.SSubQuery {
 	return ZoneManager.Query("id").Equals("cloudregion_id", region.GetId()).SubQuery()
 }
 
-func getDomainManagerSubq(domainId string) *sqlchemy.SSubQuery {
-	providers := CloudproviderManager.Query().SubQuery()
-	accounts := CloudaccountManager.Query().SubQuery()
+func domainManagerFieldFilter(domainId, field string) *sqlchemy.SSubQuery {
+	accounts := CloudaccountManager.Query("id")
+	accounts = CloudaccountManager.filterByDomainId(accounts, domainId)
+	accounts = accounts.Equals("status", api.CLOUD_PROVIDER_CONNECTED)
+	accounts = accounts.IsTrue("enabled")
 
-	q := providers.Query(providers.Field("id"))
+	q := CloudproviderManager.Query(field).In("cloudaccount_id", accounts.SubQuery())
+	/*q := providers.Query(providers.Field(field))
 	q = q.Join(accounts, sqlchemy.Equals(accounts.Field("id"), providers.Field("cloudaccount_id")))
 	q = q.Filter(sqlchemy.OR(
 		sqlchemy.AND(
@@ -141,9 +201,17 @@ func getDomainManagerSubq(domainId string) *sqlchemy.SSubQuery {
 		),
 	))
 	q = q.Filter(sqlchemy.Equals(accounts.Field("status"), api.CLOUD_PROVIDER_CONNECTED))
-	q = q.Filter(sqlchemy.IsTrue(accounts.Field("enabled")))
+	q = q.Filter(sqlchemy.IsTrue(accounts.Field("enabled")))*/
 
 	return q.SubQuery()
+}
+
+/*func getDomainManagerSubq(domainId string) *sqlchemy.SSubQuery {
+	return domainManagerFieldFilter(domainId, "id")
+}*/
+
+func getDomainManagerProviderSubq(domainId string) *sqlchemy.SSubQuery {
+	return domainManagerFieldFilter(domainId, "provider")
 }
 
 func getDBInstanceInfo(region *SCloudregion, zone *SZone) map[string]map[string]map[string][]string {
@@ -189,116 +257,25 @@ func getDBInstanceInfo(region *SCloudregion, zone *SZone) map[string]map[string]
 
 // set all brands, compute engine brands, network manage brands, object storage brands
 func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabilities) {
-	q := CloudaccountManager.Query()
-	providers := CloudproviderManager.Query().SubQuery()
-	q = q.Join(providers, sqlchemy.Equals(q.Field("id"), providers.Field("cloudaccount_id")))
-	if zone != nil {
-		region = zone.GetRegion()
-	}
-	if region != nil {
-		providerregions := CloudproviderRegionManager.Query().SubQuery()
-		q = q.Join(providerregions, sqlchemy.Equals(providers.Field("id"), providerregions.Field("cloudprovider_id")))
-		q = q.Filter(sqlchemy.Equals(providerregions.Field("cloudregion_id"), region.Id))
-	}
-	if len(domainId) > 0 {
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.AND(
-				sqlchemy.Equals(q.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN),
-				sqlchemy.Equals(q.Field("domain_id"), domainId),
-			),
-			sqlchemy.Equals(q.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM),
-			sqlchemy.AND(
-				sqlchemy.Equals(q.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN),
-				sqlchemy.Equals(providers.Field("domain_id"), domainId),
-			),
-		))
-	}
-	cloudAccounts := make([]SCloudaccount, 0)
-	err := q.All(&cloudAccounts)
-	if err != nil {
-		log.Errorf("get brands failed %s", err)
-		return
-	}
+	capa.Brands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, "")
+	capa.ComputeEngineBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_COMPUTE)
+	capa.NetworkManageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_NETWORK)
+	capa.ObjectStorageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE)
+	capa.CloudIdBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_CLOUDID)
 
-	enabledBrandAccountMap := make(map[string]*SCloudaccount, 0)
-	disabledBrandAccountMap := make(map[string]*SCloudaccount, 0)
-	for i := 0; i < len(cloudAccounts); i++ {
-		if _, ok := enabledBrandAccountMap[cloudAccounts[i].Brand]; ok {
-			continue
-		} else if _, ok := disabledBrandAccountMap[cloudAccounts[i].Brand]; ok {
-			if cloudAccounts[i].Enabled {
-				delete(disabledBrandAccountMap, cloudAccounts[i].Brand)
-				enabledBrandAccountMap[cloudAccounts[i].Brand] = &cloudAccounts[i]
-			}
-			continue
-		} else {
-			if cloudAccounts[i].Enabled {
-				enabledBrandAccountMap[cloudAccounts[i].Brand] = &cloudAccounts[i]
-			} else {
-				disabledBrandAccountMap[cloudAccounts[i].Brand] = &cloudAccounts[i]
-			}
-		}
+	if utils.IsInStringArray(api.HYPERVISOR_KVM, capa.Hypervisors) || utils.IsInStringArray(api.HYPERVISOR_BAREMETAL, capa.Hypervisors) {
+		capa.Brands = append(capa.Brands, api.ONECLOUD_BRAND_ONECLOUD)
+		capa.ComputeEngineBrands = append(capa.ComputeEngineBrands, api.ONECLOUD_BRAND_ONECLOUD)
 	}
-	b, c, n, o := getBrandsFromBrandAccountMap(enabledBrandAccountMap, capa.Hypervisors, true)
-	capa.Brands, capa.ComputeEngineBrands, capa.NetworkManageBrands, capa.ObjectStorageBrands = b, c, n, o
-	b, c, n, o = getBrandsFromBrandAccountMap(disabledBrandAccountMap, capa.Hypervisors, false)
-	capa.DisabledBrands, capa.DisabledComputeEngineBrands, capa.DisabledNetworkManageBrands, capa.DisabledObjectStorageBrands = b, c, n, o
+	capa.NetworkManageBrands = append(capa.NetworkManageBrands, api.ONECLOUD_BRAND_ONECLOUD)
+
+	capa.DisabledBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, "")
+	capa.DisabledComputeEngineBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_COMPUTE)
+	capa.DisabledNetworkManageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_NETWORK)
+	capa.DisabledObjectStorageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE)
+	capa.DisabledCloudIdBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_CLOUDID)
+
 	return
-}
-
-func getBrandsFromBrandAccountMap(bam map[string]*SCloudaccount, hypervisors []string, enabled bool,
-) ([]string, []string, []string, []string) {
-	var (
-		brands              []string = make([]string, 0)
-		computeEngineBrands []string
-		networkManageBrands []string
-		objectStorageBrands []string
-	)
-	for brand, cloudAccount := range bam {
-		brands = append(brands, brand)
-		factory, err := cloudAccount.GetProviderFactory()
-		if err != nil {
-			log.Errorln(err)
-			continue
-		}
-		if factory.IsSupportComputeEngine() {
-			if computeEngineBrands == nil {
-				computeEngineBrands = make([]string, 0)
-			}
-			computeEngineBrands = append(computeEngineBrands, brand)
-		}
-		if factory.IsSupportNetworkManage() {
-			if networkManageBrands == nil {
-				networkManageBrands = make([]string, 0)
-			}
-			networkManageBrands = append(networkManageBrands, brand)
-		}
-		if factory.IsSupportObjectStorage() {
-			if objectStorageBrands == nil {
-				objectStorageBrands = make([]string, 0)
-			}
-			objectStorageBrands = append(objectStorageBrands, brand)
-		}
-	}
-
-	if enabled {
-		for _, hyper := range api.ONECLOUD_HYPERVISORS {
-			if utils.IsInStringArray(hyper, hypervisors) {
-				brands = append(brands, api.CLOUD_PROVIDER_ONECLOUD)
-				if computeEngineBrands == nil {
-					computeEngineBrands = make([]string, 0)
-				}
-				computeEngineBrands = append(computeEngineBrands, api.CLOUD_PROVIDER_ONECLOUD)
-				if networkManageBrands == nil {
-					networkManageBrands = make([]string, 0)
-				}
-				networkManageBrands = append(networkManageBrands, api.CLOUD_PROVIDER_ONECLOUD)
-				break
-			}
-		}
-	}
-
-	return brands, computeEngineBrands, networkManageBrands, objectStorageBrands
 }
 
 func getHypervisors(region *SCloudregion, zone *SZone, domainId string) []string {
@@ -311,11 +288,13 @@ func getHypervisors(region *SCloudregion, zone *SZone, domainId string) []string
 		q = q.Equals("zone_id", zone.Id)
 	}
 	if len(domainId) > 0 {
-		subq := getDomainManagerSubq(domainId)
+		ownerId := &db.SOwnerId{DomainId: domainId}
+		q = HostManager.FilterByOwner(q, ownerId, rbacutils.ScopeDomain)
+		/*subq := getDomainManagerSubq(domainId)
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.In(q.Field("manager_id"), subq),
 			sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
-		))
+		))*/
 	}
 	q = q.IsNotEmpty("host_type").IsNotNull("host_type")
 	// q = q.Equals("host_status", HOST_ONLINE)
@@ -351,11 +330,13 @@ func getResourceTypes(region *SCloudregion, zone *SZone, domainId string) []stri
 		q = q.Equals("zone_id", zone.Id)
 	}
 	if len(domainId) > 0 {
-		subq := getDomainManagerSubq(domainId)
+		ownerId := &db.SOwnerId{DomainId: domainId}
+		q = HostManager.FilterByOwner(q, ownerId, rbacutils.ScopeDomain)
+		/*subq := getDomainManagerSubq(domainId)
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.In(q.Field("manager_id"), subq),
 			sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
-		))
+		))*/
 	}
 	q = q.IsNotEmpty("resource_type").IsNotNull("resource_type")
 	q = q.IsTrue("enabled")
@@ -379,12 +360,82 @@ func getResourceTypes(region *SCloudregion, zone *SZone, domainId string) []stri
 	return resourceTypes
 }
 
-func getStorageTypes(region *SCloudregion, zone *SZone, isSysDisk bool, domainId string) []string {
-	storages := StorageManager.Query().SubQuery()
-	hostStorages := HoststorageManager.Query().SubQuery()
-	hosts := HostManager.Query().SubQuery()
+type StorageInfo struct {
+	Id              string
+	Name            string
+	VirtualCapacity int64
+	Capacity        int64
+	Reserved        sql.NullInt64
+	StorageType     string
+	MediumType      string
+	Cmtbound        sql.NullFloat64
+	UsedCapacity    sql.NullInt64
+	WasteCapacity   sql.NullInt64
+	FreeCapacity    int64
+	IsSysDiskStore  bool
+	HostType        string
+}
 
-	q := storages.Query(storages.Field("storage_type"), storages.Field("medium_type"))
+type sStorage struct {
+	Id   string
+	Name string
+}
+
+type SimpleStorageInfo struct {
+	Storages []sStorage
+
+	VirtualCapacity int64
+	Capacity        int64
+	Reserved        int64
+	UsedCapacity    int64
+	WasteCapacity   int64
+	FreeCapacity    int64
+	IsSysDiskStore  bool
+}
+
+func getStorageTypes(
+	region *SCloudregion, zone *SZone, domainId string,
+) (
+	[]string, []string,
+	map[string][]string, map[string]map[string]*SimpleStorageInfo,
+	map[string][]string, map[string]map[string]*SimpleStorageInfo,
+) {
+	storages := StorageManager.Query().SubQuery()
+	disks1 := DiskManager.Query().SubQuery()
+	usedDisk := disks1.Query(
+		disks1.Field("storage_id"),
+		sqlchemy.SUM("used_capacity", disks1.Field("disk_size")),
+	).Equals("status", api.DISK_READY).GroupBy("storage_id").SubQuery()
+	disks2 := DiskManager.Query().SubQuery()
+	failedDisk := disks2.Query(
+		disks2.Field("storage_id"),
+		sqlchemy.SUM("waste_capacity", disks2.Field("disk_size")),
+	).NotEquals("status", api.DISK_READY).GroupBy("storage_id").SubQuery()
+
+	hostStorages := HoststorageManager.Query().SubQuery()
+	hostQuery := HostManager.Query()
+	if len(domainId) > 0 {
+		ownerId := &db.SOwnerId{DomainId: domainId}
+		hostQuery = HostManager.FilterByOwner(hostQuery, ownerId, rbacutils.ScopeDomain)
+	}
+	hosts := hostQuery.SubQuery()
+
+	q := storages.Query(
+		storages.Field("id"),
+		storages.Field("name"),
+		storages.Field("capacity"),
+		storages.Field("reserved"),
+		storages.Field("storage_type"),
+		storages.Field("medium_type"),
+		storages.Field("cmtbound"),
+		usedDisk.Field("used_capacity"),
+		failedDisk.Field("waste_capacity"),
+		storages.Field("is_sys_disk_store"),
+		hosts.Field("host_type"),
+	)
+	q = q.LeftJoin(usedDisk, sqlchemy.Equals(usedDisk.Field("storage_id"), storages.Field("id")))
+	q = q.LeftJoin(failedDisk, sqlchemy.Equals(failedDisk.Field("storage_id"), storages.Field("id")))
+
 	q = q.Join(hostStorages, sqlchemy.Equals(
 		hostStorages.Field("storage_id"),
 		storages.Field("id"),
@@ -401,11 +452,8 @@ func getStorageTypes(region *SCloudregion, zone *SZone, isSysDisk bool, domainId
 		q = q.Filter(sqlchemy.Equals(storages.Field("zone_id"), zone.Id))
 	}
 	if len(domainId) > 0 {
-		subq := getDomainManagerSubq(domainId)
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.In(hosts.Field("manager_id"), subq),
-			sqlchemy.IsNullOrEmpty(hosts.Field("manager_id")),
-		))
+		ownerId := &db.SOwnerId{DomainId: domainId}
+		q = StorageManager.FilterByOwner(q, ownerId, rbacutils.ScopeDomain)
 	}
 	q = q.Filter(sqlchemy.Equals(hosts.Field("resource_type"), api.HostResourceTypeShared))
 	q = q.Filter(sqlchemy.IsNotEmpty(storages.Field("storage_type")))
@@ -414,30 +462,119 @@ func getStorageTypes(region *SCloudregion, zone *SZone, isSysDisk bool, domainId
 	q = q.Filter(sqlchemy.IsNotNull(storages.Field("medium_type")))
 	q = q.Filter(sqlchemy.In(storages.Field("status"), []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE}))
 	q = q.Filter(sqlchemy.IsTrue(storages.Field("enabled")))
-	if isSysDisk {
-		q = q.Filter(sqlchemy.IsTrue(storages.Field("is_sys_disk_store")))
-	}
 	q = q.Filter(sqlchemy.NotEquals(hosts.Field("host_type"), api.HOST_TYPE_BAREMETAL))
-	q = q.Distinct()
 	rows, err := q.Rows()
 	if err != nil {
-		return nil
+		log.Errorf("get storage types failed %s", err)
+		return nil, nil, nil, nil, nil, nil
 	}
 	defer rows.Close()
-	storageTypes := make([]string, 0)
+
+	var (
+		sysStorageTypes           = make([]string, 0)
+		allStorageTypes           = make([]string, 0)
+		storageInfos              = make(map[string]*SimpleStorageInfo)
+		sysHypervisorStorageTypes = make(map[string][]string)
+		allHypervisorStorageTypes = make(map[string][]string)
+		sysHypervisorStorageInfos = make(map[string]map[string]*SimpleStorageInfo)
+		allHypervisorStorageInfos = make(map[string]map[string]*SimpleStorageInfo)
+
+		setStorageTypes = func(storageHypervisor, storageType string, hypervisorStorageTypes map[string][]string) {
+			sts, ok := hypervisorStorageTypes[storageHypervisor]
+			if !ok {
+				sts = make([]string, 0)
+			}
+			sts = append(sts, storageType)
+			hypervisorStorageTypes[storageHypervisor] = sts
+		}
+		addStorageInfo = func(storage *StorageInfo, simpleStorage *SimpleStorageInfo) {
+			simpleStorage.VirtualCapacity += storage.VirtualCapacity
+			simpleStorage.FreeCapacity += storage.FreeCapacity
+			simpleStorage.Reserved += storage.Reserved.Int64
+			simpleStorage.Capacity += storage.Capacity
+			simpleStorage.WasteCapacity += storage.WasteCapacity.Int64
+			simpleStorage.UsedCapacity += storage.UsedCapacity.Int64
+			simpleStorage.Storages = append(simpleStorage.Storages, sStorage{Id: storage.Id, Name: storage.Name})
+		}
+		setStorageInfos = func(storageHypervisor, storageType string, storage *StorageInfo,
+			hypervisorStorageInfos map[string]map[string]*SimpleStorageInfo) bool {
+			var notFound bool
+			sfs, ok := hypervisorStorageInfos[storageHypervisor]
+			if !ok {
+				sfs = make(map[string]*SimpleStorageInfo)
+				notFound = true
+			}
+			simpleStorage, ok := sfs[storageType]
+			if !ok {
+				notFound = true
+				simpleStorage = &SimpleStorageInfo{Storages: []sStorage{}}
+			}
+			if !utils.IsInStringArray(storageHypervisor, api.PUBLIC_CLOUD_HYPERVISORS) {
+				addStorageInfo(storage, simpleStorage)
+				sfs[storageType] = simpleStorage
+				hypervisorStorageInfos[storageHypervisor] = sfs
+			}
+			return notFound
+		}
+	)
+
 	for rows.Next() {
-		var storageType, mediumType string
-		rows.Scan(&storageType, &mediumType)
-		if len(storageType) > 0 && len(mediumType) > 0 {
-			storageTypes = append(storageTypes, fmt.Sprintf("%s/%s", storageType, mediumType))
+		var storage StorageInfo
+		err := rows.Scan(
+			&storage.Id, &storage.Name,
+			&storage.Capacity, &storage.Reserved,
+			&storage.StorageType, &storage.MediumType,
+			&storage.Cmtbound, &storage.UsedCapacity,
+			&storage.WasteCapacity, &storage.IsSysDiskStore,
+			&storage.HostType,
+		)
+		if err != nil {
+			log.Errorf("Scan storage rows %s", err)
+			return nil, nil, nil, nil, nil, nil
+		}
+		storageHypervisor := api.HOSTTYPE_HYPERVISOR[storage.HostType]
+		if len(storage.StorageType) > 0 && len(storage.MediumType) > 0 {
+			storageType := fmt.Sprintf("%s/%s", storage.StorageType, storage.MediumType)
+			simpleStorage, ok := storageInfos[storageType]
+			if !ok {
+				simpleStorage = &SimpleStorageInfo{Storages: []sStorage{}}
+				if storage.IsSysDiskStore {
+					sysStorageTypes = append(sysStorageTypes, storageType)
+				}
+				allStorageTypes = append(allStorageTypes, storageType)
+			}
+			if storage.Cmtbound.Float64 == 0 {
+				storage.Cmtbound.Float64 = float64(options.Options.DefaultStorageOvercommitBound)
+			}
+			storage.VirtualCapacity = int64(float64(storage.Capacity-storage.Reserved.Int64) * storage.Cmtbound.Float64)
+			storage.FreeCapacity = storage.VirtualCapacity - storage.UsedCapacity.Int64 - storage.WasteCapacity.Int64
+			addStorageInfo(&storage, simpleStorage)
+			storageInfos[storageType] = simpleStorage
+
+			// set hypervisor storage types and infos
+			if storage.IsSysDiskStore {
+				if setStorageInfos(storageHypervisor, storageType, &storage, sysHypervisorStorageInfos) {
+					setStorageTypes(storageHypervisor, storageType, sysHypervisorStorageTypes)
+				}
+			}
+			if setStorageInfos(storageHypervisor, storageType, &storage, allHypervisorStorageInfos) {
+				setStorageTypes(storageHypervisor, storageType, allHypervisorStorageTypes)
+			}
 		}
 	}
-	return storageTypes
+	return sysStorageTypes, allStorageTypes,
+		sysHypervisorStorageTypes, sysHypervisorStorageInfos,
+		allHypervisorStorageTypes, allHypervisorStorageInfos
 }
 
 func getGPUs(region *SCloudregion, zone *SZone, domainId string) []string {
 	devices := IsolatedDeviceManager.Query().SubQuery()
-	hosts := HostManager.Query().SubQuery()
+	hostQuery := HostManager.Query()
+	if len(domainId) > 0 {
+		ownerId := &db.SOwnerId{DomainId: domainId}
+		hostQuery = StorageManager.FilterByOwner(hostQuery, ownerId, rbacutils.ScopeDomain)
+	}
+	hosts := hostQuery.SubQuery()
 
 	q := devices.Query(devices.Field("model"))
 	if region != nil {
@@ -449,13 +586,13 @@ func getGPUs(region *SCloudregion, zone *SZone, domainId string) []string {
 		q = q.Join(hosts, sqlchemy.Equals(devices.Field("host_id"), hosts.Field("id")))
 		q = q.Filter(sqlchemy.Equals(hosts.Field("zone_id"), zone.Id))
 	}
-	if len(domainId) > 0 {
+	/*if len(domainId) > 0 {
 		subq := getDomainManagerSubq(domainId)
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.In(hosts.Field("manager_id"), subq),
 			sqlchemy.IsNullOrEmpty(hosts.Field("manager_id")),
 		))
-	}
+	}*/
 	q = q.Distinct()
 
 	rows, err := q.Rows()
@@ -474,34 +611,27 @@ func getGPUs(region *SCloudregion, zone *SZone, domainId string) []string {
 	return gpus
 }
 
-func getNetworkCount(region *SCloudregion, zone *SZone, domainId string) (int, error) {
-	return getNetworkCountByFilter(region, zone, domainId, tristate.None, "")
+func getNetworkCount(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope, region *SCloudregion, zone *SZone) (int, error) {
+	return getNetworkCountByFilter(ownerId, scope, region, zone, tristate.None, "")
 }
 
-func getNetworkPublicCount(region *SCloudregion, zone *SZone, domainId, serverType string) (int, error) {
-	return getNetworkCountByFilter(region, zone, domainId, tristate.True, serverType)
+func getAutoAllocNetworkCount(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope, region *SCloudregion, zone *SZone, serverType string) (int, error) {
+	return getNetworkCountByFilter(ownerId, scope, region, zone, tristate.True, serverType)
 }
 
-func getNetworkCountByFilter(region *SCloudregion, zone *SZone, domainId string, isPublic tristate.TriState, serverType string) (int, error) {
+func getNetworkCountByFilter(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope, region *SCloudregion, zone *SZone, isAutoAlloc tristate.TriState, serverType string) (int, error) {
 	if zone != nil && region == nil {
 		region = zone.GetRegion()
 	}
 
-	vpcs := VpcManager.Query().SubQuery()
-	wires := WireManager.Query().SubQuery()
 	networks := NetworkManager.Query().SubQuery()
 
 	q := networks.Query()
-	if !isPublic.IsNone() {
-		if isPublic.IsTrue() {
-			q = q.IsTrue("is_public")
-		} else {
-			q = q.IsFalse("is_public")
-		}
-	}
-	q = q.Join(wires, sqlchemy.Equals(networks.Field("wire_id"), wires.Field("id")))
 
-	if region != nil {
+	if zone != nil && !utils.IsInStringArray(region.Provider, api.REGIONAL_NETWORK_PROVIDERS) {
+		wires := WireManager.Query("id").Equals("zone_id", zone.Id)
+		q = q.In("wire_id", wires.SubQuery())
+	} else if region != nil {
 		if utils.IsInStringArray(region.Provider, api.REGIONAL_NETWORK_PROVIDERS) {
 			wires := WireManager.Query().SubQuery()
 			vpcs := VpcManager.Query().SubQuery()
@@ -511,25 +641,17 @@ func getNetworkCountByFilter(region *SCloudregion, zone *SZone, domainId string,
 			q = q.Filter(sqlchemy.In(q.Field("wire_id"), subq))
 		} else {
 			subq := getRegionZoneSubq(region)
-			q = q.Filter(sqlchemy.In(wires.Field("zone_id"), subq))
+			wires := WireManager.Query("id").In("zone_id", subq)
+			q = q.In("wire_id", wires.SubQuery())
 		}
 	}
-	if zone != nil && !utils.IsInStringArray(region.Provider, api.REGIONAL_NETWORK_PROVIDERS) {
-		q = q.Filter(sqlchemy.Equals(wires.Field("zone_id"), zone.Id))
-	}
-	if len(domainId) > 0 {
-		subq := getDomainManagerSubq(domainId)
-		q = q.Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id")))
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.In(vpcs.Field("manager_id"), subq),
-			sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")),
-		))
-		if isPublic.Bool() {
-			q = q.Filter(sqlchemy.OR(
-				sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeSystem),
-				sqlchemy.AND(
-					sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeDomain),
-					sqlchemy.Equals(q.Field("domain_id"), domainId))))
+
+	q = NetworkManager.FilterByOwner(q, ownerId, scope)
+	if !isAutoAlloc.IsNone() {
+		if isAutoAlloc.IsTrue() {
+			q = q.IsTrue("is_auto_alloc")
+		} else {
+			q = q.IsFalse("is_auto_alloc")
 		}
 	}
 	if len(serverType) > 0 {
@@ -584,8 +706,8 @@ func getMaxDataDiskCount(region *SCloudregion, zone *SZone) int {
 	return 0
 }
 
-func isUsable(region *SCloudregion, zone *SZone, domainId string) bool {
-	cnt, err := getNetworkCount(region, zone, domainId)
+func isUsable(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope, region *SCloudregion, zone *SZone) bool {
+	cnt, err := getNetworkCount(ownerId, scope, region, zone)
 	if err != nil {
 		return false
 	}

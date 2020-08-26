@@ -23,11 +23,13 @@ import (
 	"github.com/golang-plus/uuid"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 )
 
+// +onecloud:swagger-gen-ignore
 type SIdmappingManager struct {
 	db.SResourceBaseManager
 }
@@ -60,10 +62,18 @@ func init() {
 type SIdmapping struct {
 	db.SResourceBase
 
-	PublicId    string `width:"64" charset:"ascii" nullable:"false" primary:"true"`
-	IdpId       string `name:"domain_id" width:"64" charset:"ascii" nullable:"false" index:"true"`
-	IdpEntityId string `name:"local_id" width:"128" charset:"utf8" nullable:"false"`
+	PublicId    string `width:"64" charset:"ascii" nullable:"false" primary:"false"`
+	IdpId       string `name:"domain_id" width:"64" charset:"ascii" nullable:"false" primary:"true"`
+	IdpEntityId string `name:"local_id" width:"128" charset:"utf8" nullable:"false" primary:"true"`
 	EntityType  string `width:"10" charset:"ascii" nullable:"false"`
+}
+
+func getIdmapKey(idpId string, entityId string, entityType string) string {
+	return fmt.Sprintf("%s-%s-%s", entityType, idpId, entityId)
+}
+
+func filterByIdpAndEntityId(q *sqlchemy.SQuery, idpId string, entityId string, entityType string) *sqlchemy.SQuery {
+	return q.Equals("domain_id", idpId).Equals("local_id", entityId).Equals("entity_type", entityType)
 }
 
 func (manager *SIdmappingManager) RegisterIdMap(ctx context.Context, idpId string, entityId string, entityType string) (string, error) {
@@ -71,11 +81,11 @@ func (manager *SIdmappingManager) RegisterIdMap(ctx context.Context, idpId strin
 }
 
 func (manager *SIdmappingManager) RegisterIdMapWithId(ctx context.Context, idpId string, entityId string, entityType string, publicId string) (string, error) {
-	key := fmt.Sprintf("%s-%s-%s", entityType, idpId, entityId)
+	key := getIdmapKey(idpId, entityId, entityType)
 	lockman.LockRawObject(ctx, manager.Keyword(), key)
 	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), key)
 
-	q := manager.RawQuery().Equals("domain_id", idpId).Equals("local_id", entityId).Equals("entity_type", entityType)
+	q := filterByIdpAndEntityId(manager.RawQuery(), idpId, entityId, entityType)
 
 	mapping := SIdmapping{}
 	mapping.SetModelManager(manager, &mapping)
@@ -94,13 +104,19 @@ func (manager *SIdmappingManager) RegisterIdMapWithId(ctx context.Context, idpId
 		mapping.IdpEntityId = entityId
 		mapping.EntityType = entityType
 
-		err = manager.TableSpec().InsertOrUpdate(&mapping)
+		err = manager.TableSpec().InsertOrUpdate(ctx, &mapping)
 		if err != nil {
 			return "", errors.Wrap(err, "Insert")
 		}
 	} else {
 		if mapping.Deleted {
+			if len(publicId) == 0 {
+				u1, _ := uuid.NewV4()
+				u2, _ := uuid.NewV4()
+				publicId = u1.Format(uuid.StyleWithoutDash) + u2.Format(uuid.StyleWithoutDash)
+			}
 			_, err = db.Update(&mapping, func() error {
+				mapping.PublicId = publicId
 				mapping.Deleted = false
 				mapping.DeletedAt = time.Time{}
 				return nil
@@ -114,7 +130,35 @@ func (manager *SIdmappingManager) RegisterIdMapWithId(ctx context.Context, idpId
 	return mapping.PublicId, nil
 }
 
-func (manager *SIdmappingManager) FetchEntity(idStr string, entType string) (*SIdmapping, error) {
+func (manager *SIdmappingManager) FetchByIdpAndEntityId(ctx context.Context, idpId string, entityId string, entityType string) (string, error) {
+	key := getIdmapKey(idpId, entityId, entityType)
+	lockman.LockRawObject(ctx, manager.Keyword(), key)
+	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), key)
+
+	q := filterByIdpAndEntityId(manager.Query(), idpId, entityId, entityType)
+
+	mapping := SIdmapping{}
+	mapping.SetModelManager(manager, &mapping)
+	err := q.First(&mapping)
+	if err != nil {
+		return "", err
+	} else {
+		return mapping.PublicId, nil
+	}
+}
+
+func (manager *SIdmappingManager) FetchEntities(idStr string, entType string) ([]SIdmapping, error) {
+	q := manager.Query().Equals("public_id", idStr).Equals("entity_type", entType)
+	idMaps := make([]SIdmapping, 0)
+	err := db.FetchModelObjects(manager, q, &idMaps)
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	} else {
+		return idMaps, nil
+	}
+}
+
+func (manager *SIdmappingManager) FetchFirstEntity(idStr string, entType string) (*SIdmapping, error) {
 	q := manager.Query().Equals("public_id", idStr).Equals("entity_type", entType)
 	idMap := SIdmapping{}
 	idMap.SetModelManager(manager, &idMap)
@@ -153,10 +197,17 @@ func (manager *SIdmappingManager) deleteAny(idpId string, entityType string, pub
 	return nil
 }
 
-func (manager *SIdmappingManager) FetchPublicIdsExcludes(idpId string, entityType string, excludes []string) ([]string, error) {
+func (manager *SIdmappingManager) FetchPublicIdsExcludesQuery(idpId string, entityType string, excludes []string) *sqlchemy.SQuery {
 	q := manager.Query("public_id").Equals("domain_id", idpId)
 	q = q.Equals("entity_type", entityType)
-	q = q.NotIn("public_id", excludes)
+	if len(excludes) > 0 {
+		q = q.NotIn("public_id", excludes)
+	}
+	return q
+}
+
+func (manager *SIdmappingManager) FetchPublicIdsExcludes(idpId string, entityType string, excludes []string) ([]string, error) {
+	q := manager.FetchPublicIdsExcludesQuery(idpId, entityType, excludes)
 	rows, err := q.Rows()
 	if err != nil && err != sql.ErrNoRows {
 		return nil, errors.Wrap(err, "q.Rows")
@@ -175,4 +226,24 @@ func (manager *SIdmappingManager) FetchPublicIdsExcludes(idpId string, entityTyp
 		ret = append(ret, idStr)
 	}
 	return ret, nil
+}
+
+func (manager *SIdmappingManager) deleteByPublicId(publicId string, entityType string) error {
+	idmappings, err := manager.FetchEntities(publicId, entityType)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil
+		} else {
+			return errors.Wrap(err, "manager.FetchEntities")
+		}
+	}
+	for i := range idmappings {
+		_, err = db.Update(&idmappings[i], func() error {
+			return idmappings[i].MarkDelete()
+		})
+		if err != nil {
+			return errors.Wrap(err, "markdelete")
+		}
+	}
+	return nil
 }

@@ -1,0 +1,101 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package identity
+
+import (
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
+)
+
+func init() {
+	type RoleAssignmentsOptions struct {
+		Effective     bool   `help:"Include role assignment of group members"`
+		System        bool   `help:"Include system user account"`
+		Policy        bool   `help:"Show matched policies"`
+		Domain        string `help:"Role assignments for domain"`
+		User          string `help:"For user"`
+		UserDomain    string `help:"Domain for user"`
+		Group         string `help:"For group"`
+		GroupDomain   string `help:"Domain for group"`
+		Project       string `help:"Role assignments for project"`
+		ProjectDomain string `help:"Domain for project"`
+		Role          string `help:"Role assignments for role"`
+		RoleDomain    string `help:"Domain for role"`
+		Limit         int64  `help:"maximal returned number of rows"`
+		Offset        int64  `help:"offset index of returned results"`
+	}
+	R(&RoleAssignmentsOptions{}, "role-assignments", "List all role assignments", func(s *mcclient.ClientSession, args *RoleAssignmentsOptions) error {
+		query := jsonutils.NewDict()
+		query.Add(jsonutils.JSONNull, "include_names")
+		if args.Effective {
+			query.Add(jsonutils.JSONNull, "effective")
+		}
+		if args.System {
+			query.Add(jsonutils.JSONNull, "include_system")
+		}
+		if args.Policy {
+			query.Add(jsonutils.JSONNull, "include_policies")
+		}
+		if len(args.Domain) > 0 {
+			domainId, err := modules.Domains.GetId(s, args.Domain, nil)
+			if err != nil {
+				return err
+			}
+			query.Add(jsonutils.NewString(domainId), "scope", "domain", "id")
+		}
+		if len(args.Project) > 0 {
+			pid, err := getProjectId(s, args.Project, args.ProjectDomain)
+			if err != nil {
+				return err
+			}
+			query.Add(jsonutils.NewString(pid), "scope", "project", "id")
+		}
+		if len(args.User) > 0 {
+			uid, err := getUserId(s, args.User, args.UserDomain)
+			if err != nil {
+				return err
+			}
+			query.Add(jsonutils.NewString(uid), "user", "id")
+		}
+		if len(args.Group) > 0 {
+			gid, err := getGroupId(s, args.Group, args.GroupDomain)
+			if err != nil {
+				return err
+			}
+			query.Add(jsonutils.NewString(gid), "group", "id")
+		}
+		if len(args.Role) > 0 {
+			rid, err := getRoleId(s, args.Role, args.RoleDomain)
+			if err != nil {
+				return err
+			}
+			query.Add(jsonutils.NewString(rid), "role", "id")
+		}
+		if args.Limit > 0 {
+			query.Add(jsonutils.NewInt(args.Limit), "limit")
+		}
+		if args.Offset > 0 {
+			query.Add(jsonutils.NewInt(args.Offset), "offset")
+		}
+		result, err := modules.RoleAssignments.List(s, query)
+		if err != nil {
+			return err
+		}
+		printList(result, modules.RoleAssignments.GetColumns(s))
+		return nil
+	})
+}

@@ -142,7 +142,7 @@ type iDracComponenct struct {
 }
 
 type iDracAttribute struct {
-	Name  string `json:"Name""`
+	Name  string `json:"Name"`
 	Value string `json:"Value"`
 }
 
@@ -253,9 +253,22 @@ func (r *SIDracRefishApi) fetchExportConfig(ctx context.Context, target string) 
 	if err != nil {
 		return nil, errors.Wrap(err, "GetResource")
 	}
-	urlPath, err := manager.GetString("Actions", "Oem", "OemManager.v1_1_0#OemManager.ExportSystemConfiguration", "target")
+	oemJson, err := manager.GetMap("Actions", "Oem")
 	if err != nil {
-		return nil, errors.Wrap(err, "OemManager.v1_1_0#OemManager.ExportSystemConfiguration")
+		return nil, errors.Wrap(err, "GetMap Actions Oem")
+	}
+	var urlPath string
+	for k, conf := range oemJson {
+		if strings.HasSuffix(k, "OemManager.ExportSystemConfiguration") {
+			urlPath, err = conf.GetString("target")
+			if err != nil {
+				return nil, errors.Wrap(err, "find OemManager.ExportSystemConfiguration target")
+			}
+			break
+		}
+	}
+	if len(urlPath) == 0 {
+		return nil, errors.Wrap(httperrors.ErrNotFound, "Key OemManager.ExportSystemConfiguration not found")
 	}
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString("JSON"), "ExportFormat")
@@ -299,9 +312,22 @@ func (r *SIDracRefishApi) doImportConfig(ctx context.Context, conf iDRACConfig) 
 	if err != nil {
 		return errors.Wrap(err, "GetResource")
 	}
-	urlPath, err := manager.GetString("Actions", "Oem", "OemManager.v1_1_0#OemManager.ImportSystemConfiguration", "target")
+	oemJson, err := manager.GetMap("Actions", "Oem")
 	if err != nil {
-		return errors.Wrap(err, "OemManager.v1_1_0#OemManager.ImportSystemConfiguration")
+		return errors.Wrap(err, "GetMap Actions Oem")
+	}
+	var urlPath string
+	for k, conf := range oemJson {
+		if strings.HasSuffix(k, "OemManager.ImportSystemConfiguration") {
+			urlPath, err = conf.GetString("target")
+			if err != nil {
+				return errors.Wrap(err, "OemManager.ImportSystemConfiguration target")
+			}
+			break
+		}
+	}
+	if len(urlPath) == 0 {
+		return errors.Wrap(httperrors.ErrNotFound, "Key OemManager.ImportSystemConfiguration not found")
 	}
 	payload := jsonutils.NewDict()
 	payload.Add(jsonutils.NewString(conf.toXml()), "ImportBuffer")

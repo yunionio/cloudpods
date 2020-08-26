@@ -19,7 +19,6 @@ import (
 	"os"
 	"strconv"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/apigateway/app"
@@ -29,11 +28,11 @@ import (
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 func StartService() {
-	opts := &options.Options
+	options.Options = &options.GatewayOptions{}
+	opts := options.Options
 	baseOpts := &opts.BaseOptions
 	commonOpts := &opts.CommonOptions
 	common_options.ParseOptions(opts, os.Args, "apigateway.conf", api.SERVICE_TYPE)
@@ -41,25 +40,22 @@ func StartService() {
 		log.Infof("Auth complete.")
 	})
 
-	err := app_common.MergeServiceConfig(opts, api.SERVICE_TYPE, api.SERVICE_VERSION)
-	if err != nil {
-		log.Fatalf("[MERGE CONFIG] Fail to merge service config %s", err)
-	}
+	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
 
 	if opts.DisableModuleApiVersion {
 		mcclient.DisableApiVersionByModule()
 	}
 
-	if err := clientman.InitClient(opts.SqlitePath); err != nil {
+	if err := clientman.InitClient(); err != nil {
 		log.Fatalf("Init client token manager: %v", err)
 	}
 
 	serviceApp := app.NewApp(app_common.InitApp(baseOpts, false))
 	serviceApp.InitHandlers().Bind()
 
-	mods, jmods := modulebase.GetRegisterdModules()
-	log.Infof("Modules: %s", jsonutils.Marshal(mods).PrettyString())
-	log.Infof("Modules: %s", jsonutils.Marshal(jmods).PrettyString())
+	// mods, jmods := modulebase.GetRegisterdModules()
+	// log.Infof("Modules: %s", jsonutils.Marshal(mods).PrettyString())
+	// log.Infof("Modules: %s", jsonutils.Marshal(jmods).PrettyString())
 
 	listenAddr := net.JoinHostPort(options.Options.Address, strconv.Itoa(options.Options.Port))
 	if opts.EnableSsl {

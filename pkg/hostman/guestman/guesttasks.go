@@ -25,6 +25,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -145,11 +146,12 @@ type SGuestDiskSyncTask struct {
 	addDisks []jsonutils.JSONObject
 	cdrom    *string
 
-	callback func(...error)
+	callback      func(...error)
+	checkeDrivers []string
 }
 
 func NewGuestDiskSyncTask(guest *SKVMGuestInstance, delDisks, addDisks []jsonutils.JSONObject, cdrom *string) *SGuestDiskSyncTask {
-	return &SGuestDiskSyncTask{guest, delDisks, addDisks, cdrom, nil}
+	return &SGuestDiskSyncTask{guest, delDisks, addDisks, cdrom, nil, nil}
 }
 
 func (d *SGuestDiskSyncTask) Start(callback func(...error)) {
@@ -182,8 +184,13 @@ func (d *SGuestDiskSyncTask) changeCdrom() {
 }
 
 func (d *SGuestDiskSyncTask) onGetBlockInfo(results *jsonutils.JSONArray) {
+	if results == nil {
+		return
+	}
+
 	var cdName string
-	for _, r := range results.Value() {
+	rs, _ := results.GetArray()
+	for _, r := range rs {
 		device, _ := r.GetString("device")
 		if regexp.MustCompile(`^ide\d+-cd\d+$`).MatchString(device) {
 			cdName = device
@@ -223,7 +230,43 @@ func (d *SGuestDiskSyncTask) onRemoveDiskSucc(results string) {
 	d.syncDisksConf()
 }
 
+func (d *SGuestDiskSyncTask) checkDiskDriver(disk jsonutils.JSONObject) {
+	if d.checkeDrivers == nil {
+		d.checkeDrivers = make([]string, 0)
+	}
+	driver, _ := disk.GetString("driver")
+	log.Debugf("sync disk driver: %s", driver)
+	if driver == DISK_DRIVER_SCSI {
+		if utils.IsInStringArray(DISK_DRIVER_SCSI, d.checkeDrivers) {
+			d.startAddDisk(disk)
+		} else {
+			cb := func(ret string) { d.checkScsiDriver(ret, disk) }
+			d.guest.Monitor.HumanMonitorCommand("info pci", cb)
+		}
+	} else {
+		d.startAddDisk(disk)
+	}
+}
+
+func (d *SGuestDiskSyncTask) checkScsiDriver(ret string, disk jsonutils.JSONObject) {
+	if strings.Contains(ret, "SCSI controller") {
+		d.checkeDrivers = append(d.checkeDrivers, DISK_DRIVER_SCSI)
+		d.startAddDisk(disk)
+	} else {
+		cb := func(ret string) {
+			log.Infof("Add scsi controller %s", ret)
+			d.checkeDrivers = append(d.checkeDrivers, DISK_DRIVER_SCSI)
+			d.startAddDisk(disk)
+		}
+		d.guest.Monitor.DeviceAdd("virtio-scsi-pci", map[string]interface{}{"id": "scsi"}, cb)
+	}
+}
+
 func (d *SGuestDiskSyncTask) addDisk(disk jsonutils.JSONObject) {
+	d.checkDiskDriver(disk)
+}
+
+func (d *SGuestDiskSyncTask) startAddDisk(disk jsonutils.JSONObject) {
 	diskPath, _ := disk.GetString("path")
 	iDisk := storageman.GetManager().GetDiskByPath(diskPath)
 	if iDisk == nil {
@@ -307,23 +350,96 @@ func (n *SGuestNetworkSyncTask) syncNetworkConf() {
 		nic := n.delNics[len(n.delNics)-1]
 		n.delNics = n.delNics[:len(n.delNics)-1]
 		n.removeNic(nic)
-		return
 	} else if len(n.addNics) > 0 {
 		nic := n.addNics[len(n.addNics)-1]
 		n.addNics = n.addNics[:len(n.addNics)-1]
 		n.addNic(nic)
-		return
 	} else {
-		n.callback()
+		n.callback(n.errors...)
 	}
 }
 
 func (n *SGuestNetworkSyncTask) removeNic(nic jsonutils.JSONObject) {
-	// pass not implement
+	ifname, _ := nic.GetString("ifname")
+	callback := func(res string) {
+		if len(res) > 0 {
+			log.Errorf("netdev del failed %s", res)
+			n.errors = append(n.errors, fmt.Errorf("netdev del failed %s", res))
+			n.syncNetworkConf()
+		} else {
+			n.onNetdevDel(nic)
+		}
+	}
+	n.guest.Monitor.NetdevDel(ifname, callback)
+}
+
+func (n *SGuestNetworkSyncTask) onNetdevDel(nic jsonutils.JSONObject) {
+	downScript := n.guest.getNicDownScriptPath(nic)
+	output, err := procutils.NewCommand("sh", downScript).Output()
+	if err != nil {
+		log.Errorf("script down nic failed %s", output)
+		n.errors = append(n.errors, err)
+	}
+	n.syncNetworkConf()
 }
 
 func (n *SGuestNetworkSyncTask) addNic(nic jsonutils.JSONObject) {
-	// pass not implement
+	if err := n.guest.generateNicScripts(nic); err != nil {
+		log.Errorln(err)
+		n.errors = append(n.errors, err)
+		n.syncNetworkConf()
+		return
+	}
+	upscript := n.guest.getNicUpScriptPath(nic)
+	downscript := n.guest.getNicDownScriptPath(nic)
+	ifname, _ := nic.GetString("ifname")
+	params := map[string]string{
+		"ifname": ifname, "script": upscript, "downscript": downscript,
+		"vhost": "on", "vhostforce": "off",
+	}
+	netType := "tap"
+
+	callback := func(res string) {
+		if len(res) > 0 {
+			log.Errorf("netdev add failed %s", res)
+			n.errors = append(n.errors, fmt.Errorf("netdev add failed %s", res))
+			n.syncNetworkConf()
+		} else {
+			n.onNetdevAdd(nic)
+		}
+	}
+
+	n.guest.Monitor.NetdevAdd(ifname, netType, params, callback)
+}
+
+func (n *SGuestNetworkSyncTask) onNetdevAdd(nic jsonutils.JSONObject) {
+	index, _ := nic.Int("index")
+	ifname, _ := nic.GetString("ifname")
+	mac, _ := nic.GetString("mac")
+	driver, _ := nic.GetString("driver")
+	dev := n.guest.getNicDeviceModel(driver)
+	addr := n.guest.getNicAddr(int(index))
+	params := map[string]interface{}{
+		"id":     fmt.Sprintf("netdev-%s", ifname),
+		"netdev": ifname,
+		"addr":   fmt.Sprintf("0x%x", addr),
+		"mac":    mac,
+		"bus":    "pci.0",
+	}
+	callback := func(res string) {
+		if len(res) > 0 {
+			log.Errorf("device add failed %s", res)
+			n.errors = append(n.errors, fmt.Errorf("device add failed %s", res))
+			n.syncNetworkConf()
+		} else {
+			n.onDeviceAdd(nic)
+		}
+	}
+	n.guest.Monitor.DeviceAdd(dev, params, callback)
+}
+
+func (n *SGuestNetworkSyncTask) onDeviceAdd(nic jsonutils.JSONObject) {
+	n.syncNetworkConf()
 }
 
 func NewGuestNetworkSyncTask(guest *SKVMGuestInstance, delNics, addNics []jsonutils.JSONObject) *SGuestNetworkSyncTask {
@@ -528,7 +644,7 @@ func (s *SGuestResumeTask) onStreamComplete(disksIdx []int) {
 		// if disks idx length == 0 indicate merge backing template
 		s.SyncStatus()
 	} else {
-		s.streamDisksComplete(s.ctx)
+		s.streamDisksComplete(context.Background())
 	}
 }
 
@@ -978,9 +1094,6 @@ func (s *SDriveMirrorTask) startMirror(res string) {
 	}
 	disks, _ := s.Desc.GetArray("disks")
 	if s.index < len(disks) {
-		if s.index >= 1 { // data disk
-			s.syncMode = "none"
-		}
 		target := fmt.Sprintf("%s:exportname=drive_%d", s.nbdUri, s.index)
 		s.Monitor.DriveMirror(s.startMirror, fmt.Sprintf("drive_%d", s.index),
 			target, s.syncMode, true)

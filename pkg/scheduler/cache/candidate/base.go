@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -30,11 +31,14 @@ import (
 	schedmodels "yunion.io/x/onecloud/pkg/scheduler/models"
 )
 
+var ErrInstanceGroupNotFound = errors.Error("InstanceGroupNotFound")
+
 type BaseHostDesc struct {
 	*computemodels.SHost
 	Region        *computemodels.SCloudregion              `json:"region"`
 	Zone          *computemodels.SZone                     `json:"zone"`
 	Cloudprovider *computemodels.SCloudprovider            `json:"cloudprovider"`
+	Cloudaccount  *computemodels.SCloudaccount             `json:"cloudaccount"`
 	Networks      []*api.CandidateNetwork                  `json:"networks"`
 	NetInterfaces map[string][]computemodels.SNetInterface `json:"net_interfaces"`
 	Storages      []*api.CandidateStorage                  `json:"storages"`
@@ -44,6 +48,9 @@ type BaseHostDesc struct {
 
 	InstanceGroups map[string]*api.CandidateGroup `json:"instance_groups"`
 	IpmiInfo       types.SIPMIInfo                `json:"ipmi_info"`
+
+	SharedDomains []string               `json:"shared_domains"`
+	PendingUsage  map[string]interface{} `json:"pending_usage"`
 }
 
 type baseHostGetter struct {
@@ -75,7 +82,8 @@ func (b baseHostGetter) Cloudprovider() *computemodels.SCloudprovider {
 }
 
 func (b baseHostGetter) IsPublic() bool {
-	provider := b.Cloudprovider()
+	return b.h.IsPublic
+	/*provider := b.Cloudprovider()
 	if provider == nil {
 		return false
 	}
@@ -83,15 +91,19 @@ func (b baseHostGetter) IsPublic() bool {
 	if account == nil {
 		return false
 	}
-	return account.ShareMode == computeapi.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM
+	return account.ShareMode == computeapi.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM*/
 }
 
 func (b baseHostGetter) DomainId() string {
-	provider := b.Cloudprovider()
-	if provider == nil {
-		return ""
-	}
-	return provider.DomainId
+	return b.h.DomainId
+}
+
+func (b baseHostGetter) PublicScope() string {
+	return b.h.PublicScope
+}
+
+func (b baseHostGetter) SharedDomains() []string {
+	return b.h.SharedDomains
 }
 
 func (b baseHostGetter) Region() *computemodels.SCloudregion {
@@ -118,7 +130,7 @@ func (b baseHostGetter) GetFreeGroupCount(groupId string) (int, error) {
 	// Must Be
 	scg, ok := b.h.InstanceGroups[groupId]
 	if !ok {
-		return 0, fmt.Errorf("No such Group id")
+		return 0, errors.Wrap(ErrInstanceGroupNotFound, groupId)
 	}
 	free := scg.Granularity - scg.ReferCount
 	if free < 1 {
@@ -133,6 +145,10 @@ func (b baseHostGetter) GetFreeGroupCount(groupId string) (int, error) {
 
 func (b baseHostGetter) Networks() []*api.CandidateNetwork {
 	return b.h.Networks
+}
+
+func (b baseHostGetter) OvnCapable() bool {
+	return false
 }
 
 func (b baseHostGetter) ResourceType() string {
@@ -152,7 +168,7 @@ func (b baseHostGetter) HostStatus() string {
 }
 
 func (b baseHostGetter) Enabled() bool {
-	return b.h.Enabled
+	return b.h.GetEnabled()
 }
 
 func (b baseHostGetter) ProjectGuests() map[string]int64 {
@@ -197,6 +213,10 @@ func (b baseHostGetter) GetIpmiInfo() types.SIPMIInfo {
 	return b.h.IpmiInfo
 }
 
+func (b baseHostGetter) GetQuotaKeys(s *api.SchedInfo) computemodels.SComputeResourceKeys {
+	return b.h.getQuotaKeys(s)
+}
+
 func reviseResourceType(resType string) string {
 	if resType == "" {
 		return computeapi.HostResourceTypeDefault
@@ -216,6 +236,9 @@ func newBaseHostDesc(host *computemodels.SHost) (*BaseHostDesc, error) {
 
 	if err := desc.fillNetworks(host); err != nil {
 		return nil, fmt.Errorf("Fill networks error: %v", err)
+	}
+	if err := desc.fillOnecloudVpcNetworks(); err != nil {
+		return nil, fmt.Errorf("Fill onecloud vpc networks error: %v", err)
 	}
 
 	if err := desc.fillZone(host); err != nil {
@@ -245,6 +268,9 @@ func newBaseHostDesc(host *computemodels.SHost) (*BaseHostDesc, error) {
 	if err := desc.fillIpmiInfo(host); err != nil {
 		return nil, fmt.Errorf("Fill ipmi info error: %v", err)
 	}
+
+	desc.fillSharedDomains()
+	desc.PendingUsage = desc.GetPendingUsage().ToMap()
 
 	return desc, nil
 }
@@ -292,6 +318,9 @@ func (b BaseHostDesc) GetResourceType() string {
 
 func (b *BaseHostDesc) fillCloudProvider(host *computemodels.SHost) error {
 	b.Cloudprovider = host.GetCloudprovider()
+	if b.Cloudprovider != nil {
+		b.Cloudaccount = b.Cloudprovider.GetCloudaccount()
+	}
 	return nil
 }
 
@@ -320,6 +349,11 @@ func (b *BaseHostDesc) fillResidentTenants(host *computemodels.SHost) error {
 
 func (b *BaseHostDesc) fillSchedtags() error {
 	b.HostSchedtags = b.SHost.GetSchedtags()
+	return nil
+}
+
+func (b *BaseHostDesc) fillSharedDomains() error {
+	b.SharedDomains = b.SHost.GetSharedDomains()
 	return nil
 }
 
@@ -360,6 +394,47 @@ func (b *BaseHostDesc) fillNetworks(host *computemodels.SHost) error {
 	}
 	b.NetInterfaces = netifIndexs
 
+	return nil
+}
+
+func (b *BaseHostDesc) fillOnecloudVpcNetworks() error {
+	nets := computemodels.NetworkManager.Query()
+	wires := computemodels.WireManager.Query().SubQuery()
+	vpcs := computemodels.VpcManager.Query().SubQuery()
+	regions := computemodels.CloudregionManager.Query().SubQuery()
+	q := nets.AppendField(nets.QueryFields()...)
+	q = q.AppendField(
+		vpcs.Field("id", "vpc_id"),
+		regions.Field("provider"),
+	)
+	q = q.Join(wires, sqlchemy.Equals(wires.Field("id"), nets.Field("wire_id")))
+	q = q.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+	q = q.Join(regions, sqlchemy.Equals(regions.Field("id"), vpcs.Field("cloudregion_id")))
+	q = q.Filter(sqlchemy.AND(
+		sqlchemy.Equals(regions.Field("provider"), computeapi.CLOUD_PROVIDER_ONECLOUD),
+		sqlchemy.NOT(sqlchemy.Equals(vpcs.Field("id"), computeapi.DEFAULT_VPC_ID)),
+	))
+
+	type Row struct {
+		computemodels.SNetwork
+		VpcId    string
+		Provider string
+	}
+	rows := []Row{}
+	if err := q.All(&rows); err != nil {
+		return errors.Wrap(err, "query onecloud vpc networks")
+	}
+	for i := range rows {
+		row := &rows[i]
+		net := &row.SNetwork
+		net.SetModelManager(computemodels.NetworkManager, net)
+		candidateNet := &api.CandidateNetwork{
+			SNetwork: net,
+			VpcId:    row.VpcId,
+			Provider: row.Provider,
+		}
+		b.Networks = append(b.Networks, candidateNet)
+	}
 	return nil
 }
 
@@ -404,7 +479,7 @@ func (b *BaseHostDesc) fillIpmiInfo(host *computemodels.SHost) error {
 }
 
 func (h *BaseHostDesc) GetEnableStatus() string {
-	if h.Enabled {
+	if h.GetEnabled() {
 		return "enable"
 	}
 	return "disable"
@@ -415,6 +490,29 @@ func (h *BaseHostDesc) GetHostType() string {
 		return api.HostTypeBaremetal
 	}
 	return h.HostType
+}
+
+func (h *BaseHostDesc) getQuotaKeys(s *api.SchedInfo) computemodels.SComputeResourceKeys {
+	computeKeys := computemodels.SComputeResourceKeys{}
+	computeKeys.DomainId = s.Domain
+	computeKeys.ProjectId = s.Project
+	if h.Cloudprovider != nil {
+		computeKeys.Provider = h.Cloudaccount.Provider
+		computeKeys.Brand = h.Cloudaccount.Brand
+		computeKeys.CloudEnv = h.Cloudaccount.GetCloudEnv()
+		computeKeys.AccountId = h.Cloudaccount.Id
+		computeKeys.ManagerId = h.Cloudprovider.Id
+	} else {
+		computeKeys.Provider = computeapi.CLOUD_PROVIDER_ONECLOUD
+		computeKeys.Brand = computeapi.ONECLOUD_BRAND_ONECLOUD
+		computeKeys.CloudEnv = computeapi.CLOUD_ENV_ON_PREMISE
+		computeKeys.AccountId = ""
+		computeKeys.ManagerId = ""
+	}
+	computeKeys.RegionId = h.Region.Id
+	computeKeys.ZoneId = h.Zone.Id
+	computeKeys.Hypervisor = computeapi.HOSTTYPE_HYPERVISOR[h.HostType]
+	return computeKeys
 }
 
 func HostsResidentTenantStats(hostIDs []string) (map[string]map[string]interface{}, error) {

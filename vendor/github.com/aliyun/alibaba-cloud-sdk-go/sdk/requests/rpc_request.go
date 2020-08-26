@@ -42,15 +42,20 @@ func (request *RpcRequest) GetBodyReader() io.Reader {
 	}
 }
 
-func (request *RpcRequest) GetQueries() string {
-	if request.queries == "" {
-		request.queries = "/?" + utils.GetUrlFormedMap(request.QueryParams)
-	}
+func (request *RpcRequest) BuildQueries() string {
+	request.queries = "/?" + utils.GetUrlFormedMap(request.QueryParams)
 	return request.queries
 }
 
+func (request *RpcRequest) GetQueries() string {
+	return request.queries
+}
+
+func (request *RpcRequest) BuildUrl() string {
+	return strings.ToLower(request.Scheme) + "://" + request.Domain + ":" + request.Port + request.BuildQueries()
+}
+
 func (request *RpcRequest) GetUrl() string {
-	//return strings.ToLower(request.Scheme) + "://" + request.Domain + ":" + request.Port + request.GetQueries()
 	return strings.ToLower(request.Scheme) + "://" + request.Domain + request.GetQueries()
 }
 

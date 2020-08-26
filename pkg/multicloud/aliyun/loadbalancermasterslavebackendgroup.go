@@ -15,6 +15,7 @@
 package aliyun
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -185,7 +186,7 @@ func (region *SRegion) GetLoadbalancerMasterSlaveBackendgroupById(groupId string
 	return group, body.Unmarshal(group)
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) Sync(group *cloudprovider.SLoadbalancerBackendGroup) error {
+func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) Sync(ctx context.Context, group *cloudprovider.SLoadbalancerBackendGroup) error {
 	return nil
 }
 
@@ -197,7 +198,7 @@ func (region *SRegion) DeleteLoadbalancerMasterSlaveBackendgroup(groupId string)
 	return err
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) Delete() error {
+func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) Delete(ctx context.Context) error {
 	return backendgroup.lb.region.DeleteLoadbalancerMasterSlaveBackendgroup(backendgroup.MasterSlaveServerGroupId)
 }
 

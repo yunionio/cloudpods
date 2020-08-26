@@ -155,7 +155,7 @@ func (config *SEtcdLockManagerConfig) validate() error {
 	config.LockPrefix = strings.TrimSpace(config.LockPrefix)
 	config.LockPrefix = strings.TrimRight(config.LockPrefix, "/")
 	if config.LockPrefix == "" {
-		config.LockPrefix = "/"
+		return fmt.Errorf("empty etcd lock prefix")
 	}
 
 	return nil
@@ -167,6 +167,7 @@ type SLockTableIndex struct {
 }
 
 type SEtcdLockManager struct {
+	*SBaseLockManager
 	tableLock *sync.Mutex
 	lockTable map[SLockTableIndex]*SEtcdLockRecord
 
@@ -203,6 +204,7 @@ func NewEtcdLockManager(config *SEtcdLockManagerConfig) (ILockManager, error) {
 		Value:  lockman,
 		Func:   atexit.ExitHandlerFunc(lockman.destroyAtExit),
 	})
+	lockman.SBaseLockManager = NewBaseLockManger(&lockman)
 	return &lockman, nil
 }
 

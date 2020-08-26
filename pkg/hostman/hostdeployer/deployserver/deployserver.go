@@ -16,17 +16,22 @@ package deployserver
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"os"
+	"regexp"
+	"runtime/debug"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc"
 
 	execlient "yunion.io/x/executor/client"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/stringutils"
 
+	comapi "yunion.io/x/onecloud/pkg/apis/compute"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
 	"yunion.io/x/onecloud/pkg/hostman/diskutils"
@@ -40,24 +45,40 @@ import (
 	"yunion.io/x/onecloud/pkg/util/winutils"
 )
 
+const CENTOS_VGNAME = "centos"
+
 type DeployerServer struct{}
 
 func (*DeployerServer) DeployGuestFs(ctx context.Context, req *deployapi.DeployParams,
-) (*deployapi.DeployGuestFsResponse, error) {
+) (res *deployapi.DeployGuestFsResponse, err error) {
+	// There will be some occasional unknown panic, so temporarily capture panic here.
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorf("DeployGuestFs: %s", r)
+			debug.PrintStack()
+			msg := "panic: "
+			if str, ok := r.(fmt.Stringer); ok {
+				msg += str.String()
+			}
+			res, err = nil, errors.Error(msg)
+		}
+	}()
 	log.Infof("Deploy guest fs on %s", req.DiskPath)
-	var kvmDisk = diskutils.NewKVMGuestDisk(req.DiskPath)
-	defer kvmDisk.Disconnect()
-	if !kvmDisk.Connect() {
-		log.Infof("Failed to connect kvm disk")
+	var disk = diskutils.GetIDisk(req)
+	if len(req.GuestDesc.Hypervisor) == 0 {
+		req.GuestDesc.Hypervisor = comapi.HYPERVISOR_KVM
+	}
+	defer disk.Disconnect()
+	if !disk.Connect() {
+		log.Infof("Failed to connect %s disk", req.GuestDesc.Hypervisor)
 		return new(deployapi.DeployGuestFsResponse), nil
 	}
-
-	root := kvmDisk.MountKvmRootfs()
+	root := disk.MountRootfs()
 	if root == nil {
-		log.Infof("Failed mounting rootfs for kvm disk")
+		log.Infof("Failed mounting rootfs for %s disk", req.GuestDesc.Hypervisor)
 		return new(deployapi.DeployGuestFsResponse), nil
 	}
-	defer kvmDisk.UmountKvmRootfs(root)
+	defer disk.UmountRootfs(root)
 
 	ret, err := guestfs.DoDeployGuestFs(root, req.GuestDesc, req.DeployInfo)
 	if err != nil {
@@ -75,7 +96,7 @@ func (*DeployerServer) ResizeFs(ctx context.Context, req *deployapi.ResizeFsPara
 	disk := diskutils.NewKVMGuestDisk(req.DiskPath)
 	defer disk.Disconnect()
 	if !disk.Connect() {
-		return new(deployapi.Empty), errors.New("resize fs disk connect failed")
+		return new(deployapi.Empty), errors.Error("resize fs disk connect failed")
 	}
 
 	root := disk.MountKvmRootfs()
@@ -166,7 +187,7 @@ func (*DeployerServer) ProbeImageInfo(ctx context.Context, req *deployapi.ProbeI
 	defer kvmDisk.Disconnect()
 	if !kvmDisk.Connect() {
 		log.Infof("Failed to connect kvm disk")
-		return new(deployapi.ImageInfo), errors.New("Disk connector failed to connect image")
+		return new(deployapi.ImageInfo), errors.Error("Disk connector failed to connect image")
 	}
 
 	// Fsck is executed during mount
@@ -180,8 +201,66 @@ func (*DeployerServer) ProbeImageInfo(ctx context.Context, req *deployapi.ProbeI
 	return imageInfo, nil
 }
 
+var connectedEsxiDisks = map[string]*diskutils.VDDKDisk{}
+
+func (*DeployerServer) ConnectEsxiDisks(
+	ctx context.Context, req *deployapi.ConnectEsxiDisksParams,
+) (*deployapi.EsxiDisksConnectionInfo, error) {
+	log.Infof("Connect esxi disks ...")
+	var (
+		err          error
+		flatFilePath string
+		ret          = new(deployapi.EsxiDisksConnectionInfo)
+	)
+	ret.Disks = make([]*deployapi.EsxiDiskInfo, len(req.AccessInfo))
+	for i := 0; i < len(req.AccessInfo); i++ {
+		disk := diskutils.NewVDDKDisk(req.VddkInfo, req.AccessInfo[i].DiskPath)
+		flatFilePath, err = disk.ConnectBlockDevice()
+		if err != nil {
+			err = errors.Wrapf(err, "disk %s connect block device", req.AccessInfo[i].DiskPath)
+			break
+		}
+		connectedEsxiDisks[flatFilePath] = disk
+		ret.Disks[i] = &deployapi.EsxiDiskInfo{DiskPath: flatFilePath}
+	}
+	if err != nil {
+		for i := 0; i < len(req.AccessInfo); i++ {
+			if disk, ok := connectedEsxiDisks[req.AccessInfo[i].DiskPath]; ok {
+				if e := disk.DisconnectBlockDevice(); e != nil {
+					log.Errorf("disconnect disk %s: %s", req.AccessInfo[i].DiskPath, e)
+				} else {
+					delete(connectedEsxiDisks, req.AccessInfo[i].DiskPath)
+				}
+			}
+		}
+		return ret, err
+	}
+	return ret, nil
+}
+
+func (*DeployerServer) DisconnectEsxiDisks(
+	ctx context.Context, req *deployapi.EsxiDisksConnectionInfo,
+) (*deployapi.Empty, error) {
+	log.Infof("Disconnect esxi disks ...")
+	for i := 0; i < len(req.Disks); i++ {
+		if disk, ok := connectedEsxiDisks[req.Disks[i].DiskPath]; ok {
+			if e := disk.DisconnectBlockDevice(); e != nil {
+				return new(deployapi.Empty), errors.Wrapf(e, "disconnect disk %s", req.Disks[i].DiskPath)
+			} else {
+				delete(connectedEsxiDisks, req.Disks[i].DiskPath)
+			}
+		} else {
+			log.Warningf("esxi disk %s not connected", req.Disks[i].DiskPath)
+			continue
+		}
+	}
+	return new(deployapi.Empty), nil
+}
+
 type SDeployService struct {
 	*service.SServiceBase
+
+	grpcServer *grpc.Server
 }
 
 func NewDeployService() *SDeployService {
@@ -191,8 +270,8 @@ func NewDeployService() *SDeployService {
 }
 
 func (s *SDeployService) RunService() {
-	grpcServer := grpc.NewServer()
-	deployapi.RegisterDeployAgentServer(grpcServer, &DeployerServer{})
+	s.grpcServer = grpc.NewServer()
+	deployapi.RegisterDeployAgentServer(s.grpcServer, &DeployerServer{})
 	if fileutils2.Exists(DeployOption.DeployServerSocketPath) {
 		if conn, err := net.Dial("unix", DeployOption.DeployServerSocketPath); err == nil {
 			conn.Close()
@@ -209,7 +288,7 @@ func (s *SDeployService) RunService() {
 	}
 	defer listener.Close()
 	log.Infof("Init net listener on %s succ", DeployOption.DeployServerSocketPath)
-	grpcServer.Serve(listener)
+	s.grpcServer.Serve(listener)
 }
 
 func (s *SDeployService) FixPathEnv() error {
@@ -228,11 +307,11 @@ func (s *SDeployService) PrepareEnv() error {
 	if err := s.FixPathEnv(); err != nil {
 		return err
 	}
-	output, err := procutils.NewCommand("rmmod", "nbd").Output()
+	output, err := procutils.NewRemoteCommandAsFarAsPossible("rmmod", "nbd").Output()
 	if err != nil {
 		log.Errorf("rmmod error: %s", output)
 	}
-	output, err = procutils.NewCommand("modprobe", "nbd", "max_part=16").Output()
+	output, err = procutils.NewRemoteCommandAsFarAsPossible("modprobe", "nbd", "max_part=16").Output()
 	if err != nil {
 		return fmt.Errorf("Failed to activate nbd device: %s", output)
 	}
@@ -249,12 +328,39 @@ func (s *SDeployService) PrepareEnv() error {
 	}
 
 	if !winutils.CheckTool(DeployOption.ChntpwPath) {
-		log.Errorf("Failed to find chntpw tool")
+		if winutils.CheckTool("/usr/bin/chntpw.static") {
+			winutils.SetChntpwPath("/usr/bin/chntpw.static")
+		} else {
+			log.Errorf("Failed to find chntpw tool")
+		}
+	} else {
+		winutils.SetChntpwPath(DeployOption.ChntpwPath)
 	}
 
 	output, err = procutils.NewCommand("pvscan").Output()
 	if err != nil {
 		log.Errorf("Failed exec lvm command pvscan: %s", output)
+	}
+	output, err = procutils.NewCommand("vgdisplay").Output()
+	if err == nil {
+		re := regexp.MustCompile(`\s+`)
+		for _, line := range strings.Split(string(output), "\n") {
+			s := strings.TrimSpace(line)
+			if strings.HasPrefix(s, "VG Name") {
+				data := re.Split(s, -1)
+				if len(data) == 3 {
+					vgName := data[2]
+					if vgName == CENTOS_VGNAME {
+						vgNewName := stringutils.UUID4()
+						output, err := procutils.NewCommand("vgrename", vgName, vgNewName).Output()
+						if err != nil {
+							log.Errorf("vg rename failed %s %s", err, output)
+						}
+						log.Infof("vg name %s rename to %s success", vgName, vgNewName)
+					}
+				}
+			}
+		}
 	}
 	return nil
 }
@@ -275,8 +381,20 @@ func (s *SDeployService) InitService() {
 	if len(DeployOption.DeployServerSocketPath) == 0 {
 		log.Fatalf("missing deploy server socket path")
 	}
-	// TODO implentment func onExit
-	s.SignalTrap(nil)
+	s.SignalTrap(func() {
+		for {
+			if len(connectedEsxiDisks) > 0 {
+				log.Warningf("Waiting for esxi disks %d disconnect !!!", len(connectedEsxiDisks))
+				time.Sleep(time.Second * 1)
+			} else {
+				if s.grpcServer != nil {
+					s.grpcServer.Stop()
+				} else {
+					os.Exit(0)
+				}
+			}
+		}
+	})
 }
 
 func (s *SDeployService) OnExitService() {}

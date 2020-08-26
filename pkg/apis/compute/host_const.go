@@ -110,6 +110,7 @@ var HOST_TYPES = []string{
 	HOST_TYPE_UCLOUD,
 	HOST_TYPE_ZSTACK,
 	HOST_TYPE_CTYUN,
+	HOST_TYPE_GOOGLE,
 }
 
 var NIC_TYPES = []string{NIC_TYPE_IPMI, NIC_TYPE_ADMIN}
@@ -121,4 +122,10 @@ const (
 const (
 	BOOT_MODE_PXE = "pxe"
 	BOOT_MODE_ISO = "iso"
+)
+
+const (
+	HOST_HEALTH_PREFIX         = "/onecloud/kvm/host/health"
+	HOST_HEALTH_STATUS_RUNNING = "running"
+	HOST_HEALTH_LOCK_PREFIX    = "host-health"
 )

@@ -24,6 +24,7 @@ import (
 
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
+	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
 
 	"yunion.io/x/jsonutils"
@@ -32,17 +33,22 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	cloudtypes "yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 
 var VIRTUAL_MACHINE_PROPS = []string{"name", "parent", "runtime", "summary", "config", "guest", "resourcePool", "layoutEx"}
 
 type SVirtualMachine struct {
+	multicloud.SInstanceBase
 	SManagedObject
 
 	vnics  []SVirtualNIC
@@ -156,11 +162,18 @@ func (self *SVirtualMachine) DeployVM(ctx context.Context, name string, username
 	return cloudprovider.ErrNotImplemented
 }
 
-func (self *SVirtualMachine) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
+func (self *SVirtualMachine) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 }
 
-func (self *SVirtualMachine) rebuildDisk(ctx context.Context, disk *SVirtualDisk) error {
+func (self *SVirtualMachine) DoRebuildRoot(ctx context.Context, imagePath string, uuid string) error {
+	if len(self.vdisks) == 0 {
+		return errors.ErrNotFound
+	}
+	return self.rebuildDisk(ctx, &self.vdisks[0], imagePath)
+}
+
+func (self *SVirtualMachine) rebuildDisk(ctx context.Context, disk *SVirtualDisk, imagePath string) error {
 	uuid := disk.GetId()
 	sizeMb := disk.GetDiskSizeMB()
 	index := disk.index
@@ -171,7 +184,7 @@ func (self *SVirtualMachine) rebuildDisk(ctx context.Context, disk *SVirtualDisk
 	if err != nil {
 		return err
 	}
-	return self.createDiskInternal(ctx, sizeMb, uuid, int32(index), diskKey, ctlKey)
+	return self.createDiskInternal(ctx, sizeMb, uuid, int32(index), diskKey, ctlKey, imagePath, false)
 }
 
 func (self *SVirtualMachine) UpdateVM(ctx context.Context, name string) error {
@@ -201,10 +214,6 @@ func (self *SVirtualMachine) GetIHost() cloudprovider.ICloudHost {
 		self.ihost = self.getIHost()
 	}
 	return self.ihost
-}
-
-func (self *SVirtualMachine) GetIHostId() string {
-	return ""
 }
 
 func (self *SVirtualMachine) getIHost() cloudprovider.ICloudHost {
@@ -322,7 +331,28 @@ func (self *SVirtualMachine) GetOSType() string {
 
 func (self *SVirtualMachine) GetOSName() string {
 	if osInfo, ok := GuestOsInfo[self.GetGuestId()]; ok {
-		return string(osInfo.OsDistribution)
+		return osInfo.OsDistribution
+	}
+	return ""
+}
+
+func (self *SVirtualMachine) GetOSVersion() string {
+	if osInfo, ok := GuestOsInfo[self.GetGuestId()]; ok {
+		return osInfo.OsVersion
+	}
+	return ""
+}
+
+func (self *SVirtualMachine) GetOsArch() string {
+	if osInfo, ok := GuestOsInfo[self.GetGuestId()]; ok {
+		return string(osInfo.OsArch)
+	}
+	return ""
+}
+
+func (self *SVirtualMachine) GetOsDistribution() string {
+	if osInfo, ok := GuestOsInfo[self.GetGuestId()]; ok {
+		return osInfo.OsDistribution
 	}
 	return ""
 }
@@ -478,6 +508,13 @@ func (self *SVirtualMachine) shutdownVM(ctx context.Context) error {
 
 func (self *SVirtualMachine) doDelete(ctx context.Context) error {
 	vm := self.getVmObj()
+	// detach all disks first
+	for i := range self.vdisks {
+		err := self.doDetachAndDeleteDisk(ctx, &self.vdisks[i])
+		if err != nil {
+			return errors.Wrap(err, "doDetachAndDeteteDisk")
+		}
+	}
 
 	task, err := vm.Destroy(ctx)
 	if err != nil {
@@ -502,13 +539,6 @@ func (self *SVirtualMachine) DeleteVM(ctx context.Context) error {
 	err := self.CheckFileInfo(ctx)
 	if err != nil {
 		return self.doUnregister(ctx)
-	}
-	for i := 0; i < len(self.vdisks); i += 1 {
-		err := self.doDetachAndDeleteDisk(ctx, &self.vdisks[i])
-		if err != nil {
-			log.Errorf("self.doDetachAndDeleteDisk(ctx, &self.vdisks[i]) fail %s", err)
-			return err
-		}
 	}
 	return self.doDelete(ctx)
 }
@@ -542,7 +572,6 @@ func (self *SVirtualMachine) doDetachDisk(ctx context.Context, vdisk *SVirtualDi
 	if !remove {
 		return nil
 	}
-
 	return vdisk.Delete(ctx)
 }
 
@@ -715,6 +744,10 @@ func (self *SVirtualMachine) fetchHardwareInfo() error {
 		vdev := NewVirtualDevice(self, dev, 0)
 		self.devs[vdev.getKey()] = vdev
 	}
+	// sort disk based on index
+	sort.Slice(self.vdisks, func(i, j int) bool {
+		return self.vdisks[i].GetIndex() < self.vdisks[j].GetIndex()
+	})
 	return nil
 }
 
@@ -759,7 +792,7 @@ func (self *SVirtualMachine) GetVGADevice() string {
 var (
 	driverTable = map[string][]string{
 		"sata":   {"ahci"},
-		"scsi":   {"lsilogic", "lsilogicsas", "buslogic"},
+		"scsi":   {"parascsi", "lsilogic", "lsilogicsas", "buslogic"},
 		"pvscsi": {"parascsi"},
 		"ide":    {"ide"},
 	}
@@ -795,10 +828,10 @@ func minDiskKey(devs []SVirtualDisk) int32 {
 	return minKey
 }
 
-func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
+func (self *SVirtualMachine) FindController(ctx context.Context, driver string) ([]SVirtualDevice, error) {
 	aliasDrivers, ok := driverTable[driver]
 	if !ok {
-		return fmt.Errorf("Unsupported disk driver %s", driver)
+		return nil, fmt.Errorf("Unsupported disk driver %s", driver)
 	}
 	var devs []SVirtualDevice
 	for _, alias := range aliasDrivers {
@@ -807,34 +840,98 @@ func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid st
 			break
 		}
 	}
-	if len(devs) == 0 {
-		return fmt.Errorf("Driver %s not found", driver)
-	}
-	ctlKey := minDevKey(devs)
-	sameDisks := make([]SVirtualDisk, 0)
-	for i := 0; i < len(self.vdisks); i += 1 {
-		if self.vdisks[i].GetDriver() == driver {
-			sameDisks = append(sameDisks, self.vdisks[i])
-		}
-	}
-	var diskKey int32 = 2000
-	if len(sameDisks) == 0 {
-		diskKey = minDiskKey(sameDisks)
-	}
-	index := len(sameDisks)
-	if driver == "ide" {
-		ctlKey += int32(index / 2)
-	}
-
-	return self.createDiskInternal(ctx, sizeMb, uuid, int32(index), diskKey, ctlKey)
+	return devs, nil
 }
 
-func (self *SVirtualMachine) createDiskInternal(ctx context.Context, sizeMb int, uuid string, index int32, diskKey int32, ctlKey int32) error {
-	devSpec := NewDiskDev(int64(sizeMb), "", uuid, index, diskKey, ctlKey)
+func (self *SVirtualMachine) FindDiskByDriver(drivers ...string) []SVirtualDisk {
+	disks := make([]SVirtualDisk, 0)
+	for i := range self.vdisks {
+		if utils.IsInStringArray(self.vdisks[i].GetDriver(), drivers) {
+			disks = append(disks, self.vdisks[i])
+		}
+	}
+	return disks
+}
+
+func (self *SVirtualMachine) devNumWithCtrlKey(ctrlKey int32) int {
+	n := 0
+	for _, dev := range self.devs {
+		if dev.getControllerKey() == ctrlKey {
+			n++
+		}
+	}
+	return n
+}
+
+func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
+	if driver == "pvscsi" {
+		driver = "scsi"
+	}
+	devs, err := self.FindController(ctx, driver)
+	if err != nil {
+		return err
+	}
+	if len(devs) == 0 {
+		return self.createDriverAndDisk(ctx, sizeMb, uuid, driver)
+	}
+	numDevBelowCtrl := make([]int, len(devs))
+	for i := range numDevBelowCtrl {
+		numDevBelowCtrl[i] = self.devNumWithCtrlKey(devs[i].getKey())
+	}
+
+	// find the min one
+	ctrlKey := devs[0].getKey()
+	unitNumber := numDevBelowCtrl[0]
+	for i := 1; i < len(numDevBelowCtrl); i++ {
+		if numDevBelowCtrl[i] >= unitNumber {
+			continue
+		}
+		ctrlKey = devs[i].getKey()
+		unitNumber = numDevBelowCtrl[i]
+	}
+	diskKey := self.FindMinDiffKey(2000)
+
+	// By default, the virtual SCSI controller is assigned to virtual device node (z:7),
+	// so that device node is unavailable for hard disks or other devices.
+	if unitNumber >= 7 && driver == "scsi" {
+		unitNumber++
+	}
+
+	return self.createDiskInternal(ctx, sizeMb, uuid, int32(unitNumber), diskKey, ctrlKey, "", true)
+}
+
+// createDriverAndDisk will create a driver and disk associated with the driver
+func (self *SVirtualMachine) createDriverAndDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
+	if driver != "scsi" && driver != "pvscsi" {
+		return fmt.Errorf("Driver %s is not supported", driver)
+	}
+
+	deviceChange := make([]types.BaseVirtualDeviceConfigSpec, 0, 2)
+
+	// find a suitable key for scsi or pvscsi driver
+	scsiKey := self.FindMinDiffKey(1000)
+	deviceChange = append(deviceChange, addDevSpec(NewSCSIDev(scsiKey, 100, driver)))
+
+	// find a suitable key for disk
+	diskKey := self.FindMinDiffKey(2000)
+
+	if diskKey == scsiKey {
+		// unarrivelable
+		log.Errorf("there is no suitable key between 1000 and 2000???!")
+	}
+
+	return self.createDiskWithDeviceChange(ctx, deviceChange, sizeMb, uuid, 0, diskKey, scsiKey, "", true)
+}
+
+func (self *SVirtualMachine) createDiskWithDeviceChange(ctx context.Context,
+	deviceChange []types.BaseVirtualDeviceConfigSpec, sizeMb int,
+	uuid string, index int32, diskKey int32, ctlKey int32, imagePath string, check bool) error {
+
+	devSpec := NewDiskDev(int64(sizeMb), imagePath, uuid, index, 0, ctlKey, diskKey)
 	spec := addDevSpec(devSpec)
 	spec.FileOperation = types.VirtualDeviceConfigSpecFileOperationCreate
 	configSpec := types.VirtualMachineConfigSpec{}
-	configSpec.DeviceChange = []types.BaseVirtualDeviceConfigSpec{spec}
+	configSpec.DeviceChange = append(deviceChange, spec)
 
 	vmObj := self.getVmObj()
 
@@ -845,6 +942,9 @@ func (self *SVirtualMachine) createDiskInternal(ctx context.Context, sizeMb int,
 	err = task.Wait(ctx)
 	if err != nil {
 		return err
+	}
+	if !check {
+		return nil
 	}
 	oldDiskCnt := len(self.vdisks)
 	maxTries := 60
@@ -858,11 +958,24 @@ func (self *SVirtualMachine) createDiskInternal(ctx context.Context, sizeMb int,
 	return cloudprovider.ErrTimeout
 }
 
+func (self *SVirtualMachine) createDiskInternal(ctx context.Context, sizeMb int, uuid string, index int32,
+	diskKey int32, ctlKey int32, imagePath string, check bool) error {
+
+	return self.createDiskWithDeviceChange(ctx, nil, sizeMb, uuid, index, diskKey, ctlKey, imagePath, check)
+}
+
 func (self *SVirtualMachine) Renew(bc billing.SBillingCycle) error {
 	return cloudprovider.ErrNotSupported
 }
 
 func (self *SVirtualMachine) GetProjectId() string {
+	pool, err := self.getResourcePool()
+	if err != nil {
+		return ""
+	}
+	if pool != nil {
+		return pool.GetId()
+	}
 	return ""
 }
 
@@ -905,4 +1018,257 @@ func (self *SVirtualMachine) CheckFileInfo(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (self *SVirtualMachine) DoRename(ctx context.Context, name string) error {
+	task, err := self.getVmObj().Rename(ctx, name)
+	if err != nil {
+		return errors.Wrap(err, "object.VirtualMachine.Rename")
+	}
+	return task.Wait(ctx)
+}
+
+func (self *SVirtualMachine) GetMoid() string {
+	return self.getVirtualMachine().Self.Value
+}
+
+func (self *SVirtualMachine) GetToolsVersion() string {
+	return self.getVirtualMachine().Guest.ToolsVersion
+}
+
+func (self *SVirtualMachine) DoCustomize(ctx context.Context, params jsonutils.JSONObject) error {
+	spec := new(types.CustomizationSpec)
+
+	ipSettings := new(types.CustomizationGlobalIPSettings)
+	domain := "local"
+	if params.Contains("domain") {
+		domain, _ = params.GetString("domain")
+	}
+	ipSettings.DnsSuffixList = []string{domain}
+
+	// deal nics
+	nics, _ := params.GetArray("nics")
+	serverNics := make([]cloudtypes.SServerNic, len(nics))
+	for i := range nics {
+		var nicType cloudtypes.SServerNic
+		nics[i].Unmarshal(&nicType)
+		serverNics[i] = nicType
+	}
+
+	// find dnsServerList
+	for i := range serverNics {
+		dnsList := netutils2.GetNicDns(&serverNics[i])
+		if len(dnsList) != 0 {
+			ipSettings.DnsServerList = dnsList
+		}
+	}
+	spec.GlobalIPSettings = *ipSettings
+
+	maps := make([]types.CustomizationAdapterMapping, 0, len(nics))
+	for _, nic := range serverNics {
+		conf := types.CustomizationAdapterMapping{}
+		conf.MacAddress = nic.Mac
+		if len(conf.MacAddress) == 0 {
+			conf.MacAddress = "9e:46:27:21:a2:b2"
+		}
+
+		conf.Adapter = types.CustomizationIPSettings{}
+		fixedIp := new(types.CustomizationFixedIp)
+		fixedIp.IpAddress = nic.Ip
+		if len(fixedIp.IpAddress) == 0 {
+			fixedIp.IpAddress = "10.168.26.23"
+		}
+		conf.Adapter.Ip = fixedIp
+		maskLen := nic.Masklen
+		if maskLen == 0 {
+			maskLen = 24
+		}
+		mask := netutils2.Netlen2Mask(maskLen)
+		conf.Adapter.SubnetMask = mask
+
+		if len(nic.Gateway) != 0 {
+			conf.Adapter.Gateway = []string{nic.Gateway}
+		}
+		dnsList := netutils2.GetNicDns(&nic)
+		if len(dnsList) != 0 {
+			conf.Adapter.DnsServerList = dnsList
+			dns := nic.Domain
+			if len(dns) == 0 {
+				dns = "local"
+			}
+			conf.Adapter.DnsDomain = dns
+		}
+		maps = append(maps, conf)
+	}
+	spec.NicSettingMap = maps
+
+	var (
+		osName = "Linux"
+		name   = "yunionhost"
+	)
+	if params.Contains("os_name") {
+		osName, _ = params.GetString("os_name")
+	}
+	if params.Contains("name") {
+		name, _ = params.GetString("name")
+	}
+	if osName == "Linux" {
+		linuxPrep := types.CustomizationLinuxPrep{
+			HostName: &types.CustomizationFixedName{Name: name},
+			Domain:   domain,
+			TimeZone: "Asia/Shanghai",
+		}
+		spec.Identity = &linuxPrep
+	} else {
+		sysPrep := types.CustomizationSysprep{
+			GuiUnattended: types.CustomizationGuiUnattended{
+				TimeZone:  210,
+				AutoLogon: false,
+			},
+			UserData: types.CustomizationUserData{
+				FullName:  "Administrator",
+				OrgName:   "Yunion",
+				ProductId: "",
+				ComputerName: &types.CustomizationFixedName{
+					Name: name,
+				},
+			},
+			Identification: types.CustomizationIdentification{},
+		}
+		spec.Identity = &sysPrep
+	}
+	task, err := self.getVmObj().Customize(ctx, *spec)
+	if err != nil {
+		return errors.Wrap(err, "object.VirtualMachine.Customize")
+	}
+	return task.Wait(ctx)
+}
+
+func (self *SVirtualMachine) ExportTemplate(ctx context.Context, idx int, diskPath string) error {
+	lease, err := self.getVmObj().Export(ctx)
+	if err != nil {
+		return errors.Wrap(err, "esxi.SVirtualMachine.DoExportTemplate")
+	}
+	info, err := lease.Wait(ctx, nil)
+	if err != nil {
+		return errors.Wrap(err, "lease.Wait")
+	}
+
+	u := lease.StartUpdater(ctx, info)
+	defer u.Done()
+
+	if idx >= len(info.Items) {
+		return errors.Error(fmt.Sprintf("No such Device whose index is %d", idx))
+	}
+
+	lr := newLeaseLogger("download vmdk", 5)
+	lr.Log()
+	defer lr.End()
+	log.Debugf("download to %s start...", diskPath)
+	err = lease.DownloadFile(ctx, diskPath, info.Items[idx], soap.Download{Progress: lr})
+	if err != nil {
+		return errors.Wrap(err, "lease.DownloadFile")
+	}
+
+	err = lease.Complete(ctx)
+	if err != nil {
+		return errors.Wrap(err, "lease.Complete")
+	}
+	log.Debugf("download to %s finish", diskPath)
+	return nil
+}
+
+func (self *SVirtualMachine) GetSerialOutput(port int) (string, error) {
+	return "", cloudprovider.ErrNotImplemented
+}
+
+func (self *SVirtualMachine) ConvertPublicIpToEip() error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (self *SVirtualMachine) IsAutoRenew() bool {
+	return false
+}
+
+func (self *SVirtualMachine) SetAutoRenew(autoRenew bool) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (self *SVirtualMachine) FindMinDiffKey(limit int32) int32 {
+	if self.devs == nil {
+		self.fetchHardwareInfo()
+	}
+	devKeys := make([]int32, 0, len(self.devs))
+	for key := range self.devs {
+		devKeys = append(devKeys, key)
+	}
+	sort.Slice(devKeys, func(i int, j int) bool {
+		return devKeys[i] < devKeys[j]
+	})
+	for _, key := range devKeys {
+		switch {
+		case key < limit:
+		case key == limit:
+			limit += 1
+		case key > limit:
+			return limit
+		}
+	}
+	return limit
+}
+
+func (self *SVirtualMachine) relocate(hostId string) error {
+	var targetHs *mo.HostSystem
+	if hostId == "" {
+		return errors.Wrap(fmt.Errorf("require hostId"), "relocate")
+	}
+	ihost, err := self.manager.GetIHostById(hostId)
+	if err != nil {
+		return errors.Wrap(err, "self.manager.GetIHostById(hostId)")
+	}
+	targetHs = ihost.(*SHost).object.(*mo.HostSystem)
+	if len(targetHs.Datastore) < 1 {
+		return errors.Wrap(fmt.Errorf("target host has no datastore"), "relocate")
+	}
+	ctx := self.manager.context
+	config := types.VirtualMachineRelocateSpec{}
+	hrs := targetHs.Reference()
+	config.Host = &hrs
+	config.Datastore = &targetHs.Datastore[0]
+	task, err := self.getVmObj().Relocate(ctx, config, types.VirtualMachineMovePriorityDefaultPriority)
+	if err != nil {
+		log.Errorf("vm.Migrate %s", err)
+		return errors.Wrap(err, "SVirtualMachine Migrate")
+	}
+	err = task.Wait(ctx)
+	if err != nil {
+		log.Errorf("task.Wait %s", err)
+		return errors.Wrap(err, "task.wait")
+	}
+	return nil
+}
+
+func (self *SVirtualMachine) MigrateVM(hostId string) error {
+	return self.relocate(hostId)
+}
+
+func (self *SVirtualMachine) LiveMigrateVM(hostId string) error {
+	return self.relocate(hostId)
+}
+
+func (self *SVirtualMachine) GetIHostId() string {
+	ctx := self.manager.context
+	hs, err := self.getVmObj().HostSystem(ctx)
+	if err != nil {
+		log.Errorf("get HostSystem %s", err)
+		return ""
+	}
+	var moHost mo.HostSystem
+	err = self.manager.reference2Object(hs.Reference(), HOST_SYSTEM_PROPS, &moHost)
+	if err != nil {
+		log.Errorf("hostsystem reference2Object %s", err)
+		return ""
+	}
+	shost := NewHost(nil, &moHost, nil)
+	return shost.GetGlobalId()
 }

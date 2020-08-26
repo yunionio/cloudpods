@@ -37,11 +37,14 @@ import (
 	"yunion.io/x/onecloud/pkg/util/choices"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 // SElasticcache.Account
 type SElasticcacheAccountManager struct {
 	db.SStatusStandaloneResourceBaseManager
+	db.SExternalizedResourceBaseManager
+	SElasticcacheResourceBaseManager
 }
 
 var ElasticcacheAccountManager *SElasticcacheAccountManager
@@ -62,7 +65,9 @@ type SElasticcacheAccount struct {
 	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 
-	ElasticcacheId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"` // elastic cache instance id
+	SElasticcacheResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
+
+	// ElasticcacheId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"` // elastic cache instance id
 
 	AccountType      string `width:"16" charset:"ascii" nullable:"false" list:"user" update:"user" create:"optional"` // 账号类型 normal |admin
 	AccountPrivilege string `width:"16" charset:"ascii" nullable:"false" list:"user" update:"user" create:"optional"` // 账号权限 read | write | repl（复制, 复制权限支持读写，且开放SYNC/PSYNC命令）
@@ -174,7 +179,7 @@ func (manager *SElasticcacheAccountManager) newFromCloudElasticcacheAccount(ctx 
 	account.AccountType = extAccount.GetAccountType()
 	account.AccountPrivilege = extAccount.GetAccountPrivilege()
 
-	err := manager.TableSpec().Insert(&account)
+	err := manager.TableSpec().Insert(ctx, &account)
 	if err != nil {
 		return nil, errors.Wrapf(err, "newFromCloudElasticcacheAccount.Insert")
 	}
@@ -232,6 +237,12 @@ func (manager *SElasticcacheAccountManager) ValidateCreateData(ctx context.Conte
 		return nil, err
 	}
 	data.Update(jsonutils.Marshal(input))
+
+	passwd, _ := data.GetString("password")
+	if reset, _ := data.Bool("reset_password"); reset && len(passwd) == 0 {
+		passwd = seclib2.RandomPassword2(12)
+		data.Set("password", jsonutils.NewString(passwd))
+	}
 
 	return region.GetDriver().ValidateCreateElasticcacheAccountData(ctx, userCred, ownerId, data)
 }
@@ -382,29 +393,18 @@ func (self *SElasticcacheAccount) Delete(ctx context.Context, userCred mcclient.
 	return nil
 }
 
-func (self *SElasticcacheAccount) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	_ec, err := db.FetchById(ElasticcacheManager, self.ElasticcacheId)
-	if err != nil {
-		return nil, err
-	}
-
-	ec := _ec.(*SElasticcache)
-	provider, err := ec.GetDriver()
-	if err != nil {
-		return nil, fmt.Errorf("No cloudprovider for elastic cache %s: %s", ec.Name, err)
-	}
-	region := self.GetRegion()
-	if region == nil {
-		return nil, fmt.Errorf("failed to find region for elastic cache %s", self.Name)
-	}
-	return provider.GetIRegionById(region.ExternalId)
-}
-
 func (self *SElasticcacheAccount) AllowPerformResetPassword(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return db.IsAdminAllowPerform(userCred, self, "reset_password")
 }
 
 func (self *SElasticcacheAccount) ValidatorResetPasswordData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if reset, _ := data.Bool("reset_password"); reset {
+		if _, err := data.GetString("password"); err != nil {
+			randomPasswd := seclib2.RandomPassword2(12)
+			data.(*jsonutils.JSONDict).Set("password", jsonutils.NewString(randomPasswd))
+		}
+	}
+
 	passwd, err := data.GetString("password")
 	if err == nil && !seclib2.MeetComplxity(passwd) {
 		return nil, httperrors.NewWeakPasswordError()
@@ -437,6 +437,153 @@ func (self *SElasticcacheAccount) StartResetPasswordTask(ctx context.Context, us
 	return nil
 }
 
+func (self *SElasticcacheAccount) AllowGetDetailsLoginInfo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowGetSpec(userCred, self, "login-info")
+}
+
+func (self *SElasticcacheAccount) GetDetailsLoginInfo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	ret := jsonutils.NewDict()
+	ret.Add(jsonutils.NewString(self.Name), "username")
+	ret.Add(jsonutils.NewString(self.Password), "password")
+	return ret, nil
+}
+
 func (self *SElasticcacheAccount) ValidatePurgeCondition(ctx context.Context) error {
 	return nil
+}
+
+// 弹性缓存账号列表
+func (manager *SElasticcacheAccountManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.ElasticcacheAccountListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, input.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SElasticcacheResourceBaseManager.ListItemFilter(ctx, q, userCred, input.ElasticcacheFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SElasticcacheResourceBaseManager.ListItemFilter")
+	}
+
+	if len(input.AccountType) > 0 {
+		q = q.In("account_type", input.AccountType)
+	}
+	if len(input.AccountPrivilege) > 0 {
+		q = q.In("account_privilege", input.AccountPrivilege)
+	}
+
+	return q, nil
+}
+
+func (manager *SElasticcacheAccountManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.ElasticcacheAccountListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.StatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SElasticcacheResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.ElasticcacheFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SElasticcacheResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (manager *SElasticcacheAccountManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SElasticcacheResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
+func (self *SElasticcacheAccount) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.ElasticcacheAccountDetails, error) {
+	return api.ElasticcacheAccountDetails{}, nil
+}
+
+func (manager *SElasticcacheAccountManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.ElasticcacheAccountDetails {
+	rows := make([]api.ElasticcacheAccountDetails, len(objs))
+
+	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	cacheRows := manager.SElasticcacheResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	cacheIds := make([]string, len(objs))
+	for i := range rows {
+		rows[i] = api.ElasticcacheAccountDetails{
+			StatusStandaloneResourceDetails: stdRows[i],
+			ElasticcacheResourceInfo:        cacheRows[i],
+		}
+		account := objs[i].(*SElasticcacheAccount)
+		cacheIds[i] = account.ElasticcacheId
+	}
+
+	caches := make(map[string]SElasticcache)
+	err := db.FetchStandaloneObjectsByIds(ElasticcacheManager, cacheIds, &caches)
+	if err != nil {
+		log.Errorf("FetchStandaloneObjectsByIds fail: %v", err)
+		return rows
+	}
+
+	virObjs := make([]interface{}, len(objs))
+	for i := range rows {
+		if cache, ok := caches[cacheIds[i]]; ok {
+			virObjs[i] = &cache
+			rows[i].ProjectId = cache.ProjectId
+		}
+	}
+
+	projRows := ElasticcacheManager.SProjectizedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, virObjs, fields, isList)
+	for i := range rows {
+		rows[i].ProjectizedResourceInfo = projRows[i]
+	}
+
+	return rows
+}
+
+func (manager *SElasticcacheAccountManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SElasticcacheResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SElasticcacheResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SElasticcacheResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	return q, nil
 }

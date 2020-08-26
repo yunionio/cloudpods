@@ -30,15 +30,15 @@ type SStorage struct {
 }
 
 func (self *SStorage) GetId() string {
-	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.providerId, self.zone.GetId(), self.storageType)
+	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.cpcfg.Id, self.zone.GetId(), self.storageType)
 }
 
 func (self *SStorage) GetName() string {
-	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.providerName, self.zone.GetId(), self.storageType)
+	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.cpcfg.Name, self.zone.GetId(), self.storageType)
 }
 
 func (self *SStorage) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.providerId, self.zone.GetGlobalId(), self.storageType)
+	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.cpcfg.Id, self.zone.GetGlobalId(), self.storageType)
 }
 
 func (self *SStorage) GetStatus() string {
@@ -116,13 +116,13 @@ func (self *SStorage) GetEnabled() bool {
 	return true
 }
 
-func (self *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
+func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
 	diskType := "DataDisk"
 	switch self.storageType {
 	case api.STORAGE_UCLOUD_CLOUD_SSD:
 		diskType = "SSDDataDisk"
 	}
-	diskId, err := self.zone.region.CreateDisk(self.zone.GetId(), diskType, name, sizeGb)
+	diskId, err := self.zone.region.CreateDisk(self.zone.GetId(), diskType, conf.Name, conf.SizeGb)
 	if err != nil {
 		return nil, err
 	}

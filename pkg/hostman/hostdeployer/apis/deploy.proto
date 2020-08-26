@@ -10,6 +10,8 @@ message GuestDesc {
   repeated Nic nics = 4;
   repeated Nic nics_standby = 5;
   repeated Disk disks = 6;
+
+  string Hypervisor = 7;
 }
 
 message Disk {
@@ -31,7 +33,6 @@ message Disk {
   string mountpoint = 16;
   string dev = 17;
 }
-
 
 message Nic {
   string mac = 1;
@@ -62,6 +63,14 @@ message Nic {
   string name = 26;
 }
 
+message VDDKConInfo {
+  string host = 1;
+  int32 port = 2;
+  string user = 3;
+  string passwd = 4;
+  string vmref = 5;
+}
+
 message DeployInfo {
   SSHKeys public_key = 1;
   repeated DeployContent deploys = 2;
@@ -71,6 +80,7 @@ message DeployInfo {
   bool default_root_user = 6;
   bool windows_default_admin_user = 7;
   bool enable_cloud_init = 8;
+  string login_account = 9;
 }
 
 message SSHKeys {
@@ -103,6 +113,7 @@ message DeployParams {
   string disk_path = 1;
   GuestDesc guest_desc = 2;
   DeployInfo deploy_info = 3;
+  VDDKConInfo vddk_info = 4;
 }
 
 message ResizeFsParams {
@@ -146,10 +157,25 @@ message ImageInfo {
   bool is_installed_cloud_init = 7;
 }
 
+message EsxiDiskInfo {
+  string disk_path = 1;
+}
+
+message ConnectEsxiDisksParams {
+  VDDKConInfo vddk_info = 1;
+  repeated EsxiDiskInfo access_info = 2;
+}
+
+message EsxiDisksConnectionInfo {
+  repeated EsxiDiskInfo disks = 1;
+}
+
 service DeployAgent {
   rpc DeployGuestFs (DeployParams) returns (DeployGuestFsResponse);
   rpc ResizeFs (ResizeFsParams) returns (Empty);
   rpc FormatFs (FormatFsParams) returns (Empty);
   rpc SaveToGlance (SaveToGlanceParams) returns (SaveToGlanceResponse);
   rpc ProbeImageInfo(ProbeImageInfoPramas) returns (ImageInfo);
+  rpc ConnectEsxiDisks(ConnectEsxiDisksParams) returns (EsxiDisksConnectionInfo);
+  rpc DisconnectEsxiDisks(EsxiDisksConnectionInfo) returns (Empty);
 }

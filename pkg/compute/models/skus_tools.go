@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	v "yunion.io/x/pkg/util/version"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -39,225 +40,172 @@ server: 虚拟机
 elasticcache: 弹性缓存(redis&memcached)
 */
 type SSkuResourcesMeta struct {
-	region            *SCloudregion
-	caches            map[string][]jsonutils.JSONObject
-	regionalSkuCaches map[string]map[string][]jsonutils.JSONObject
-	zoneCaches        map[string]*SZone
-	regionCaches      map[string]*SCloudregion
-
-	Server       string
-	ElasticCache string
-	DBInstance   string `json:"dbinstance"`
+	DBInstanceBase   string `json:"dbinstance_base"`
+	ServerBase       string `json:"server_base"`
+	ElasticCacheBase string `json:"elastic_cache_base"`
 }
 
-func (self *SSkuResourcesMeta) GetServerSkus(region *SCloudregion) ([]SServerSku, error) {
-	self.SetRegionFilter(region)
+func (self *SSkuResourcesMeta) getZoneIdBySuffix(zoneMaps map[string]string, suffix string) string {
+	for externalId, id := range zoneMaps {
+		if strings.HasSuffix(externalId, suffix) {
+			return id
+		}
+	}
+	return ""
+}
 
-	result := []SServerSku{}
-	objs, err := self.get(self.Server)
+func (self *SSkuResourcesMeta) GetDBInstanceSkusByRegionExternalId(regionExternalId string) ([]SDBInstanceSku, error) {
+	regionId, zoneMaps, err := self.GetRegionIdAndZoneMaps(regionExternalId)
 	if err != nil {
-		return nil, errors.Wrap(err, "self.get")
+		return nil, errors.Wrap(err, "GetRegionIdAndZoneMaps")
 	}
-	for _, obj := range objs {
-		sku := SServerSku{}
-		err = obj.Unmarshal(&sku)
-		if err != nil {
-			return nil, errors.Wrap(err, "obj.Unmarshal")
-		}
-
-		// provider must not be empty
-		if len(sku.Provider) == 0 {
-			log.Debugf("source sku error: provider should not be empty. %#v", sku)
-			continue
-		}
-
-		// 处理数据
-		sku.Id = ""
-
-		r, err := self.fetchRegion(sku.CloudregionId)
-		if err != nil {
-			return nil, errors.Wrap(err, "SkuResourcesMeta.GetServerSkus.fetchRegion")
-		}
-		sku.CloudregionId = r.GetId()
-
-		if len(sku.ZoneId) > 0 {
-			zone, err := self.fetchZone(sku.ZoneId)
-			if err != nil {
-				return nil, errors.Wrap(err, "SkuResourcesMeta.GetServerSkus.fetchZone")
-			}
-
-			sku.ZoneId = zone.GetId()
-		}
-
-		result = append(result, sku)
-	}
-	return result, nil
-}
-
-func (self *SSkuResourcesMeta) GetDBInstanceSkusByRegion(regionId string) ([]SDBInstanceSku, error) {
 	result := []SDBInstanceSku{}
-	objs, err := self.getSkusByRegion(self.DBInstance, regionId)
+	objs, err := self.getSkusByRegion(self.DBInstanceBase, regionExternalId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "getSkusByRegion")
 	}
 	for _, obj := range objs {
 		sku := SDBInstanceSku{}
+		sku.SetModelManager(DBInstanceSkuManager, &sku)
 		err = obj.Unmarshal(&sku)
 		if err != nil {
 			return nil, errors.Wrapf(err, "obj.Unmarshal")
 		}
+		if len(sku.Zone1) > 0 {
+			zoneId := self.getZoneIdBySuffix(zoneMaps, sku.Zone1) // Huawei rds sku zone1 maybe is cn-north-4f
+			if len(zoneId) == 0 {
+				log.Errorf("invalid sku %s(%s) %s zone1: %s", sku.Name, sku.Id, sku.CloudregionId, sku.Zone1)
+				continue
+			}
+			sku.Zone1 = zoneId
+		}
+
+		if len(sku.Zone2) > 0 {
+			zoneId := self.getZoneIdBySuffix(zoneMaps, sku.Zone2)
+			if len(zoneId) == 0 {
+				log.Errorf("invalid sku %s(%s) %s zone2: %s", sku.Name, sku.Id, sku.CloudregionId, sku.Zone2)
+				continue
+			}
+			sku.Zone2 = zoneId
+		}
+
+		if len(sku.Zone3) > 0 {
+			zoneId := self.getZoneIdBySuffix(zoneMaps, sku.Zone3)
+			if len(zoneId) == 0 {
+				log.Errorf("invalid sku %s(%s) %s zone3: %s", sku.Name, sku.Id, sku.CloudregionId, sku.Zone3)
+				continue
+			}
+			sku.Zone3 = zoneId
+		}
+
+		sku.Id = ""
+		sku.CloudregionId = regionId
+
 		result = append(result, sku)
 	}
 	return result, nil
 }
 
-func (self *SSkuResourcesMeta) GetElasticCacheSkus() ([]SElasticcacheSku, error) {
-	result := []SElasticcacheSku{}
-	objs, err := self.get(self.ElasticCache)
+func (self *SSkuResourcesMeta) getCloudregion(regionExternalId string) (*SCloudregion, error) {
+	region, err := db.FetchByExternalId(CloudregionManager, regionExternalId)
 	if err != nil {
-		return nil, errors.Wrap(err, "self.get(self.ElasticCache)")
+		return nil, errors.Wrapf(err, "db.FetchByExternalId(%s)", regionExternalId)
+	}
+	return region.(*SCloudregion), nil
+}
+
+func (self *SSkuResourcesMeta) GetRegionIdAndZoneMaps(regionExternalId string) (string, map[string]string, error) {
+	region, err := self.getCloudregion(regionExternalId)
+	if err != nil {
+		return "", nil, errors.Wrap(err, "getCloudregion")
+	}
+	zones, err := region.GetZones()
+	if err != nil {
+		return "", nil, errors.Wrap(err, "GetZones")
+	}
+	zoneMaps := map[string]string{}
+	for _, zone := range zones {
+		zoneMaps[zone.ExternalId] = zone.Id
+	}
+	return region.Id, zoneMaps, nil
+}
+
+func (self *SSkuResourcesMeta) GetServerSkusByRegionExternalId(regionExternalId string) ([]SServerSku, error) {
+	regionId, zoneMaps, err := self.GetRegionIdAndZoneMaps(regionExternalId)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetRegionIdAndZoneMaps")
+	}
+	result := []SServerSku{}
+	objs, err := self.getSkusByRegion(self.ServerBase, regionExternalId)
+	if err != nil {
+		return nil, errors.Wrap(err, "getSkusByRegion")
+	}
+	for _, obj := range objs {
+		sku := SServerSku{}
+		sku.SetModelManager(ElasticcacheSkuManager, &sku)
+		err = obj.Unmarshal(&sku)
+		if err != nil {
+			return nil, errors.Wrapf(err, "obj.Unmarshal")
+		}
+		if len(sku.ZoneId) > 0 {
+			zoneId := self.getZoneIdBySuffix(zoneMaps, sku.ZoneId)
+			if len(zoneId) == 0 {
+				return nil, fmt.Errorf("invalid sku %s %s zoneId: %s", sku.Id, sku.CloudregionId, sku.ZoneId)
+			}
+			sku.ZoneId = zoneId
+		}
+		sku.Id = ""
+		sku.CloudregionId = regionId
+		result = append(result, sku)
+	}
+	return result, nil
+}
+
+func (self *SSkuResourcesMeta) GetElasticCacheSkusByRegionExternalId(regionExternalId string) ([]SElasticcacheSku, error) {
+	regionId, zoneMaps, err := self.GetRegionIdAndZoneMaps(regionExternalId)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetRegionIdAndZoneMaps")
+	}
+	result := []SElasticcacheSku{}
+	objs, err := self.getSkusByRegion(self.ElasticCacheBase, regionExternalId)
+	if err != nil {
+		return nil, errors.Wrap(err, "getSkusByRegion")
 	}
 	for _, obj := range objs {
 		sku := SElasticcacheSku{}
+		sku.SetModelManager(ElasticcacheSkuManager, &sku)
 		err = obj.Unmarshal(&sku)
 		if err != nil {
-			return nil, errors.Wrap(err, "obj.Unmarshal")
+			return nil, errors.Wrapf(err, "obj.Unmarshal")
 		}
-		// 处理数据
-		sku.Id = ""
-
-		r, err := self.fetchRegion(sku.CloudregionId)
-		if err != nil {
-			return nil, errors.Wrap(err, "SkuResourcesMeta.GetElasticCacheSkus.fetchRegion")
-		}
-		sku.CloudregionId = r.GetId()
-
 		if len(sku.ZoneId) > 0 {
-			zone, err := self.fetchZone(sku.ZoneId)
-			if err != nil {
-				return nil, errors.Wrap(err, "SkuResourcesMeta.GetElasticCacheSkus.MasterZone")
+			zoneId := self.getZoneIdBySuffix(zoneMaps, sku.ZoneId)
+			if len(zoneId) == 0 {
+				return nil, fmt.Errorf("invalid sku %s %s master zoneId: %s", sku.Id, sku.CloudregionId, sku.ZoneId)
 			}
-
-			sku.ZoneId = zone.GetId()
+			sku.ZoneId = zoneId
 		}
-
 		if len(sku.SlaveZoneId) > 0 {
-			zone, err := self.fetchZone(sku.SlaveZoneId)
-			if err != nil {
-				return nil, errors.Wrap(err, "SkuResourcesMeta.GetElasticCacheSkus.SlaveZone")
+			zoneId := self.getZoneIdBySuffix(zoneMaps, sku.SlaveZoneId)
+			if len(zoneId) == 0 {
+				return nil, fmt.Errorf("invalid sku %s %s slave zoneId: %s", sku.Id, sku.CloudregionId, sku.SlaveZoneId)
 			}
-
-			sku.SlaveZoneId = zone.GetId()
+			sku.SlaveZoneId = zoneId
 		}
+		sku.Id = ""
+		sku.CloudregionId = regionId
 		result = append(result, sku)
 	}
-
 	return result, nil
 }
 
-func (self *SSkuResourcesMeta) fetchZone(zoneExternalId string) (*SZone, error) {
-	if self.zoneCaches == nil {
-		self.zoneCaches = map[string]*SZone{}
-	}
-
-	if z, ok := self.zoneCaches[zoneExternalId]; ok {
-		return z, nil
-	}
-
-	_zone, err := db.FetchByExternalId(ZoneManager, zoneExternalId)
+func (self *SSkuResourcesMeta) getSkusByRegion(base string, region string) ([]jsonutils.JSONObject, error) {
+	url := fmt.Sprintf("%s/%s.json", base, region)
+	items, err := self._get(url)
 	if err != nil {
-		return nil, errors.Wrap(err, "SkuResourcesMeta.fetchZone.FetchByExternalId")
+		return nil, errors.Wrap(err, "getSkusByRegion.get")
 	}
-
-	z := _zone.(*SZone)
-	self.zoneCaches[zoneExternalId] = z
-	return z, nil
-}
-
-func (self *SSkuResourcesMeta) fetchRegion(regionExternalId string) (*SCloudregion, error) {
-	if self.regionCaches == nil {
-		self.regionCaches = map[string]*SCloudregion{}
-	}
-
-	if r, ok := self.regionCaches[regionExternalId]; ok {
-		return r, nil
-	}
-
-	_region, err := db.FetchByExternalId(CloudregionManager, regionExternalId)
-	if err != nil {
-		return nil, errors.Wrap(err, "SkuResourcesMeta.fetchRegion.FetchByExternalId")
-	}
-
-	r := _region.(*SCloudregion)
-	self.regionCaches[regionExternalId] = r
-	return r, nil
-}
-
-func (self *SSkuResourcesMeta) SetRegionFilter(region *SCloudregion) {
-	self.region = region
-}
-
-func (self *SSkuResourcesMeta) filterByRegion(items []jsonutils.JSONObject) []jsonutils.JSONObject {
-	if self.region == nil {
-		return items
-	}
-
-	ret := []jsonutils.JSONObject{}
-	for i := range items {
-		item := items[i]
-		regionId, _ := item.GetString("cloudregion_id")
-		if self.region.GetExternalId() != strings.TrimSpace(regionId) {
-			continue
-		}
-
-		ret = append(ret, item)
-	}
-
-	return ret
-}
-
-func (self *SSkuResourcesMeta) get(url string) ([]jsonutils.JSONObject, error) {
-	if self.caches == nil {
-		self.caches = map[string][]jsonutils.JSONObject{}
-	}
-
-	if items, ok := self.caches[url]; !ok || len(items) == 0 {
-		items, err := self._get(url)
-		if err != nil {
-			return nil, errors.Wrap(err, "SkuResourcesMeta.get")
-		}
-
-		self.caches[url] = items
-	}
-
-	items := self.caches[url]
-	return self.filterByRegion(items), nil
-}
-
-func (self *SSkuResourcesMeta) getSkusByRegion(url string, region string) ([]jsonutils.JSONObject, error) {
-	items, err := self.get(url)
-	if err != nil {
-		return nil, err
-	}
-
-	if self.regionalSkuCaches == nil {
-		self.regionalSkuCaches = map[string]map[string][]jsonutils.JSONObject{}
-		self.regionalSkuCaches[url] = map[string][]jsonutils.JSONObject{}
-		for i := range items {
-			cloudregion, _ := items[i].GetString("cloudregion_id")
-			if len(cloudregion) > 0 {
-				if _, ok := self.regionalSkuCaches[url][cloudregion]; !ok {
-					self.regionalSkuCaches[url][cloudregion] = []jsonutils.JSONObject{}
-				}
-				self.regionalSkuCaches[url][cloudregion] = append(self.regionalSkuCaches[url][cloudregion], items[i])
-			}
-		}
-	}
-
-	if skus, ok := self.regionalSkuCaches[url][region]; ok {
-		return skus, nil
-	}
-	return []jsonutils.JSONObject{}, nil
+	return items, nil
 }
 
 func (self *SSkuResourcesMeta) _get(url string) ([]jsonutils.JSONObject, error) {
@@ -269,6 +217,9 @@ func (self *SSkuResourcesMeta) _get(url string) ([]jsonutils.JSONObject, error) 
 	if err != nil {
 		return nil, fmt.Errorf("SkuResourcesMeta.get.NewRequest %s", err)
 	}
+
+	userAgent := "vendor/yunion-OneCloud@" + v.Get().GitVersion
+	req.Header.Set("User-Agent", userAgent)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -290,7 +241,7 @@ func (self *SSkuResourcesMeta) _get(url string) ([]jsonutils.JSONObject, error) 
 	var ret []jsonutils.JSONObject
 	err = jsonContent.Unmarshal(&ret)
 	if err != nil {
-		return nil, fmt.Errorf("SkuResourcesMeta.get.Unmarshal %s", err)
+		return nil, fmt.Errorf("SkuResourcesMeta.get.Unmarshal %s content: %s url: %s", err, jsonContent, url)
 	}
 
 	return ret, nil
@@ -318,34 +269,44 @@ func SyncElasticCacheSkus(ctx context.Context, userCred mcclient.TokenCredential
 		}
 	}
 
-	meta, err := fetchSkuResourcesMeta()
+	meta, err := FetchSkuResourcesMeta()
 	if err != nil {
-		log.Errorf("SyncElasticCacheSkus.fetchSkuResourcesMeta %s", err)
+		log.Errorf("SyncElasticCacheSkus.FetchSkuResourcesMeta %s", err)
 		return
 	}
 
 	cloudregions := fetchSkuSyncCloudregions()
 	for i := range cloudregions {
 		region := &cloudregions[i]
-		meta.SetRegionFilter(region)
-		result := ElasticcacheSkuManager.syncElasticcacheSkus(ctx, userCred, region, meta)
-		notes := fmt.Sprintf("syncElasticCacheSkusByRegion %s result: %s", region.Name, result.Result())
-		log.Infof(notes)
+
+		if region.GetDriver().IsSupportedElasticcache() {
+			result := ElasticcacheSkuManager.SyncElasticcacheSkus(ctx, userCred, region, meta)
+			notes := fmt.Sprintf("SyncElasticCacheSkusByRegion %s result: %s", region.Name, result.Result())
+			log.Infof(notes)
+		} else {
+			notes := fmt.Sprintf("SyncElasticCacheSkusByRegion %s not support elasticcache", region.Name)
+			log.Infof(notes)
+		}
 	}
 }
 
 // 同步Region elasticcache sku列表.
-func syncElasticCacheSkusByRegion(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion) {
-	meta, err := fetchSkuResourcesMeta()
-	if err != nil {
-		log.Errorf("syncElasticCacheSkusByRegion.fetchSkuResourcesMeta %s", err)
-		return
+func SyncElasticCacheSkusByRegion(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion) error {
+	if !region.GetDriver().IsSupportedElasticcache() {
+		notes := fmt.Sprintf("SyncElasticCacheSkusByRegion %s not support elasticcache", region.Name)
+		log.Infof(notes)
+		return nil
 	}
 
-	meta.SetRegionFilter(region)
-	result := ElasticcacheSkuManager.syncElasticcacheSkus(ctx, userCred, region, meta)
-	notes := fmt.Sprintf("syncElasticCacheSkusByRegion %s result: %s", region.Name, result.Result())
+	meta, err := FetchSkuResourcesMeta()
+	if err != nil {
+		return errors.Wrap(err, "SyncElasticCacheSkusByRegion.FetchSkuResourcesMeta")
+	}
+
+	result := ElasticcacheSkuManager.SyncElasticcacheSkus(ctx, userCred, region, meta)
+	notes := fmt.Sprintf("SyncElasticCacheSkusByRegion %s result: %s", region.Name, result.Result())
 	log.Infof(notes)
+	return nil
 }
 
 // 全量同步sku列表.
@@ -362,17 +323,16 @@ func SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, isSt
 		}
 	}
 
-	meta, err := fetchSkuResourcesMeta()
+	meta, err := FetchSkuResourcesMeta()
 	if err != nil {
-		log.Errorf("SyncServerSkus.fetchSkuResourcesMeta %s", err)
+		log.Errorf("SyncServerSkus.FetchSkuResourcesMeta %s", err)
 		return
 	}
 
 	cloudregions := fetchSkuSyncCloudregions()
 	for i := range cloudregions {
 		region := &cloudregions[i]
-		meta.SetRegionFilter(region)
-		result := ServerSkuManager.syncServerSkus(ctx, userCred, region, meta)
+		result := ServerSkuManager.SyncServerSkus(ctx, userCred, region, meta)
 		notes := fmt.Sprintf("SyncServerSkusByRegion %s result: %s", region.Name, result.Result())
 		log.Infof(notes)
 	}
@@ -383,19 +343,19 @@ func SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, isSt
 }
 
 // 同步指定region sku列表
-func syncServerSkusByRegion(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion) error {
-	meta, err := fetchSkuResourcesMeta()
+func SyncServerSkusByRegion(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion) error {
+	meta, err := FetchSkuResourcesMeta()
 	if err != nil {
-		return errors.Wrap(err, "syncServerSkusByRegion.fetchSkuResourcesMeta")
+		return errors.Wrap(err, "SyncServerSkusByRegion.FetchSkuResourcesMeta")
 	}
 
-	result := ServerSkuManager.syncServerSkus(ctx, userCred, region, meta)
-	notes := fmt.Sprintf("syncServerSkusByRegion %s result: %s", region.Name, result.Result())
+	result := ServerSkuManager.SyncServerSkus(ctx, userCred, region, meta)
+	notes := fmt.Sprintf("SyncServerSkusByRegion %s result: %s", region.Name, result.Result())
 	log.Infof(notes)
 	return nil
 }
 
-func fetchSkuResourcesMeta() (*SSkuResourcesMeta, error) {
+func FetchSkuResourcesMeta() (*SSkuResourcesMeta, error) {
 	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
 	meta, err := modules.OfflineCloudmeta.GetSkuSourcesMeta(s)
 	if err != nil {

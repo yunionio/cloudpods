@@ -14,10 +14,12 @@
 
 package image
 
+import "yunion.io/x/onecloud/pkg/apis"
+
 type TImageType string
 
 const (
-	SERVICE_TYPE    = "image"
+	SERVICE_TYPE    = apis.SERVICE_TYPE_IMAGE
 	SERVICE_VERSION = ""
 
 	// https://docs.openstack.org/glance/pike/user/statuses.html
@@ -48,6 +50,7 @@ const (
 	IMAGE_IS_READONLY         = "is_readonly"
 	IMAGE_PARTITION_TYPE      = "partition_type"
 	IMAGE_INSTALLED_CLOUDINIT = "installed_cloud_init"
+	IMAGE_DISABLE_USB_KBD     = "disable_usb_kbd"
 
 	IMAGE_STATUS_UPDATING = "updating"
 )

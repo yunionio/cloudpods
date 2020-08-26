@@ -15,6 +15,7 @@
 package models
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"path/filepath"
@@ -30,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
+// +onecloud:swagger-gen-ignore
 type SFernetKeyManager struct {
 	db.SModelBaseManager
 }
@@ -139,7 +141,7 @@ func (manager *SFernetKeyManager) setupKeys(keyType string, repoDir string) ([]*
 			Index: i,
 			Key:   fkey.Encode(),
 		}
-		err := manager.TableSpec().Insert(&key)
+		err := manager.TableSpec().Insert(context.TODO(), &key)
 		if err != nil {
 			return nil, errors.Wrap(err, "insertFernetKeys")
 		}

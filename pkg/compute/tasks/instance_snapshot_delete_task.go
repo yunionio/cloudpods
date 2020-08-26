@@ -35,7 +35,7 @@ func init() {
 }
 
 func (self *InstanceSnapshotDeleteTask) taskFail(
-	ctx context.Context, isp *models.SInstanceSnapshot, reason string) {
+	ctx context.Context, isp *models.SInstanceSnapshot, reason jsonutils.JSONObject) {
 
 	isp.SetStatus(self.UserCred, compute.INSTANCE_SNAPSHOT_DELETE_FAILED, "on delete failed")
 	db.OpsLog.LogEvent(isp, db.ACT_DELETE_FAIL, reason, self.UserCred)
@@ -63,7 +63,7 @@ func (self *InstanceSnapshotDeleteTask) StartSnapshotDelete(
 
 	snapshots, err := isp.GetSnapshots()
 	if err != nil {
-		self.taskFail(ctx, isp, err.Error())
+		self.taskFail(ctx, isp, jsonutils.NewString(err.Error()))
 		return
 	}
 	if len(snapshots) == 0 {
@@ -76,7 +76,7 @@ func (self *InstanceSnapshotDeleteTask) StartSnapshotDelete(
 	self.SetStage("OnSnapshotDelete", params)
 	err = snapshots[0].StartSnapshotDeleteTask(ctx, self.UserCred, false, self.Id)
 	if err != nil {
-		self.taskFail(ctx, isp, err.Error())
+		self.taskFail(ctx, isp, jsonutils.NewString(err.Error()))
 		return
 	}
 }
@@ -89,13 +89,13 @@ func (self *InstanceSnapshotDeleteTask) OnSnapshotDelete(
 	err := models.InstanceSnapshotJointManager.Query().
 		Equals("instance_snapshot_id", isp.Id).Equals("snapshot_id", snapshotId).First(isjp)
 	if err != nil {
-		self.taskFail(ctx, isp, err.Error())
+		self.taskFail(ctx, isp, jsonutils.NewString(err.Error()))
 		return
 	}
 	isjp.SetModelManager(models.InstanceSnapshotJointManager, isjp)
 	err = isjp.Delete(ctx, self.UserCred)
 	if err != nil {
-		self.taskFail(ctx, isp, err.Error())
+		self.taskFail(ctx, isp, jsonutils.NewString(err.Error()))
 		return
 	}
 	self.StartSnapshotDelete(ctx, isp)
@@ -104,5 +104,5 @@ func (self *InstanceSnapshotDeleteTask) OnSnapshotDelete(
 func (self *InstanceSnapshotDeleteTask) OnSnapshotDeleteFailed(
 	ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
 
-	self.taskFail(ctx, isp, data.String())
+	self.taskFail(ctx, isp, data)
 }

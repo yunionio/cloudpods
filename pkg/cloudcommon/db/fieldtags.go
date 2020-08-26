@@ -70,16 +70,19 @@ func allowOptional(manager IResource, userCred mcclient.TokenCredential, action 
  *  update: user | domain | admin
  *
  */
-func listFields(manager IModelManager, userCred mcclient.TokenCredential) []string {
-	ret := make([]string, 0)
+func listFields(manager IModelManager, userCred mcclient.TokenCredential) ([]string, []string) {
+	includes := make([]string, 0)
+	excludes := make([]string, 0)
 	for _, col := range manager.TableSpec().Columns() {
 		tags := col.Tags()
 		list, _ := tags["list"]
 		if allowAction(manager, userCred, list, IsAllowList) {
-			ret = append(ret, col.Name())
+			includes = append(includes, col.Name())
+		} else {
+			excludes = append(excludes, col.Name())
 		}
 	}
-	return ret
+	return includes, excludes
 }
 
 func searchFields(manager IModelManager, userCred mcclient.TokenCredential) stringutils2.SSortedStrings {
@@ -96,17 +99,20 @@ func searchFields(manager IModelManager, userCred mcclient.TokenCredential) stri
 	return stringutils2.SSortedStrings(ret)
 }
 
-func GetDetailFields(manager IModelManager, userCred mcclient.TokenCredential) []string {
-	ret := make([]string, 0)
+func GetDetailFields(manager IModelManager, userCred mcclient.TokenCredential) ([]string, []string) {
+	includes := make([]string, 0)
+	excludes := make([]string, 0)
 	for _, col := range manager.TableSpec().Columns() {
 		tags := col.Tags()
 		list := tags["list"]
 		get := tags["get"]
 		if allowAction(manager, userCred, list, IsAllowGet) || allowAction(manager, userCred, get, IsAllowGet) {
-			ret = append(ret, col.Name())
+			includes = append(includes, col.Name())
+		} else {
+			excludes = append(excludes, col.Name())
 		}
 	}
-	return ret
+	return includes, excludes
 }
 
 func createRequireFields(manager IModelManager, userCred mcclient.TokenCredential) []string {

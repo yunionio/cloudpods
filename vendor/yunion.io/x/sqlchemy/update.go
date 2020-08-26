@@ -105,19 +105,13 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (UpdateDiffs, error) {
 		nf, _ := fields.GetInterface(k)
 		if c.IsPrimary() {
 			if !gotypes.IsNil(of) && !c.IsZero(of) {
-				primaries[k] = of
+				primaries[k] = c.ConvertFromValue(of)
 			} else if c.IsText() {
 				primaries[k] = ""
 			} else {
 				return nil, ErrEmptyPrimaryKey
 			}
 			continue
-		}
-		if !gotypes.IsNil(of) {
-			if c.IsPrimary() && !c.IsZero(of) { // skip update primary key
-				primaries[k] = of
-				continue
-			}
 		}
 		nc, ok := c.(*SIntegerColumn)
 		if ok && nc.IsAutoVersion {

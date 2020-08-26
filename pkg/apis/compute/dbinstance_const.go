@@ -16,18 +16,20 @@ package compute
 
 const (
 	//实例状态
-	DBINSTANCE_DEPLOYING      = "deploying"  //部署中
-	DBINSTANCE_RUNNING        = "running"    //运行中
-	DBINSTANCE_REBOOTING      = "rebooting"  //重启中
-	DBINSTANCE_MIGRATING      = "migrating"  //迁移中
-	DBINSTANCE_BACKING_UP     = "backing_up" //备份中
-	DBINSTANCE_RESTORING      = "restoring"  //备份恢复中
-	DBINSTANCE_RESTORE_FAILED = "restore_failed"
-	DBINSTANCE_IMPORTING      = "importing"     //数据导入中
-	DBINSTANCE_CLONING        = "cloning"       //克隆中
-	DBINSTANCE_DELETING       = "deleting"      //删除中
-	DBINSTANCE_DELETE_FAILED  = "delete_failed" //删除失败
-	DBINSTANCE_UNKNOWN        = "unknown"
+	DBINSTANCE_DEPLOYING         = "deploying"         //部署中
+	DBINSTANCE_RUNNING           = "running"           //运行中
+	DBINSTANCE_REBOOTING         = "rebooting"         //重启中
+	DBINSTANCE_MIGRATING         = "migrating"         //迁移中
+	DBINSTANCE_BACKING_UP        = "backing_up"        //备份中
+	DBINSTANCE_BACKING_UP_FAILED = "backing_up_failed" //备份失败
+	DBINSTANCE_RESTORING         = "restoring"         //备份恢复中
+	DBINSTANCE_RESTORE_FAILED    = "restore_failed"
+	DBINSTANCE_IMPORTING         = "importing"     //数据导入中
+	DBINSTANCE_CLONING           = "cloning"       //克隆中
+	DBINSTANCE_DELETING          = "deleting"      //删除中
+	DBINSTANCE_DELETE_FAILED     = "delete_failed" //删除失败
+	DBINSTANCE_MAINTENANCE       = "maintenance"   //维护中
+	DBINSTANCE_UNKNOWN           = "unknown"
 
 	DBINSTANCE_CHANGE_CONFIG        = "change_config"        //调整配置
 	DBINSTANCE_CHANGE_CONFIG_FAILED = "change_config_failed" //调整配置失败
@@ -35,7 +37,7 @@ const (
 	DBINSTANCE_RENEWING     = "renewing"     //续费中
 	DBINSTANCE_RENEW_FAILED = "renew_failed" //续费失败
 
-	DBINSTANCE_SYNC_STATUS = "sync_status" //同步状态
+	DBINSTANCE_SYNC_CONFIG = "sync_config" //同步配置
 
 	DBINSTANCE_REBOOT_FAILED = "reboot_failed" //重启失败
 	DBINSTANCE_CREATE_FAILED = "create_failed" //创建失败
@@ -102,16 +104,20 @@ const (
 	HUAWEI_DBINSTANCE_CATEGORY_SINGLE  = "single"  //单机
 	HUAWEI_DBINSTANCE_CATEGORY_REPLICA = "replica" //只读
 
+	//谷歌云实例类型
+	GOOGLE_DBINSTANCE_CATEGORY_REGIONAL = "Regional" // 高可用性（区域级）
+	GOOGLE_DBINSTANCE_CATEGORY_ZONAL    = "Zonal"    // 单个地区
+
 	//阿里云存储类型
 	ALIYUN_DBINSTANCE_STORAGE_TYPE_LOCAL_SSD  = "local_ssd"  //本地盘SSD盘
 	ALIYUN_DBINSTANCE_STORAGE_TYPE_CLOUD_ESSD = "cloud_essd" //ESSD云盘
 	ALIYUN_DBINSTANCE_STORAGE_TYPE_CLOUD_SSD  = "cloud_ssd"  //SSD云盘
 
 	//华为云存储类型
-	HUAWEI_DBINSTANCE_STORAGE_TYPE_SSD  = "SSD"  //超高IO云硬盘
-	HUAWEI_DBINSTANCE_STORAGE_TYPE_SAS  = "SAS"  //高IO云硬盘
-	HUAWEI_DBINSTANCE_STORAGE_TYPE_SATA = "SATA" //普通IO云硬盘
-
+	HUAWEI_DBINSTANCE_STORAGE_TYPE_ULTRAHIGH    = "ULTRAHIGH" //超高IO云硬盘
+	HUAWEI_DBINSTANCE_STORAGE_TYPE_ULTRAHIGHPRO = "ULTRAHIGHPRO"
+	HUAWEI_DBINSTANCE_STORAGE_TYPE_COMMON       = "COMMON"
+	HUAWEI_DBINSTANCE_STORAGE_TYPE_HIGH         = "HIGH"
 )
 
 var (

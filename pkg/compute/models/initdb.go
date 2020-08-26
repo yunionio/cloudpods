@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/proxy"
 )
 
 func InitDB() error {
@@ -27,6 +28,9 @@ func InitDB() error {
 		 * initialization order matters, do not change the order
 		 */
 		db.TenantCacheManager,
+		db.Metadata,
+
+		proxy.ProxySettingManager,
 
 		QuotaManager,
 
@@ -38,7 +42,9 @@ func InitDB() error {
 		WireManager,
 		StorageManager,
 		SecurityGroupManager,
+		SecurityGroupCacheManager,
 		NetworkManager,
+		GuestManager,
 		LoadbalancerCertificateManager,
 		LoadbalancerAclManager,
 		LoadbalancerManager,
@@ -51,6 +57,9 @@ func InitDB() error {
 		DynamicschedtagManager,
 		ServerSkuManager,
 		ElasticcacheSkuManager,
+
+		ScheduledTaskActivityManager,
+		ExternalProjectManager,
 	} {
 		err := manager.InitializeData()
 		if err != nil {

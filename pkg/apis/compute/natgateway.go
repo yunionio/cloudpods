@@ -14,6 +14,10 @@
 
 package compute
 
+import (
+	"yunion.io/x/onecloud/pkg/apis"
+)
+
 const (
 	NAT_STAUTS_AVAILABLE     = "available"     //可用
 	NAT_STATUS_ALLOCATE      = "allocate"      //创建中
@@ -33,3 +37,77 @@ const (
 	QCLOUD_NAT_SPEC_MIDDLE = "middle"
 	QCLOUD_NAT_SPEC_LARGE  = "large"
 )
+
+type NatGetewayListInput struct {
+	apis.StatusInfrasResourceBaseListInput
+	apis.ExternalizedResourceBaseListInput
+
+	VpcFilterListInput
+	RegionalFilterListInput
+	ManagedResourceListInput
+}
+
+type NatEntryListInput struct {
+	apis.StatusInfrasResourceBaseListInput
+	apis.ExternalizedResourceBaseListInput
+	NatGatewayFilterListInput
+	ManagedResourceListInput
+}
+
+type NatDEntryListInput struct {
+	NatEntryListInput
+
+	ExternalIP   []string `json:"external_ip"`
+	ExternalPort []int    `json:"external_port"`
+
+	InternalIP   []string `json:"internal_ip"`
+	InternalPort []int    `json:"internal_port"`
+	IpProtocol   []string `json:"ip_protocol"`
+}
+
+type NatSEntryListInput struct {
+	NatEntryListInput
+	NetworkFilterListBase
+
+	IP         []string `json:"ip"`
+	SourceCIDR []string `json:"source_cidr"`
+}
+
+type NatGatewayResourceInfo struct {
+	// NAT网关名称
+	Natgateway string `json:"natgateway"`
+
+	// 归属VPC ID
+	VpcId string `json:"vpc_id"`
+
+	VpcResourceInfo
+}
+
+type NatGatewayResourceInput struct {
+	// NAT网关ID or Name
+	NatgatewayId string `json:"natgateway_id"`
+
+	// swagger:ignore
+	// Deprecated
+	Natgateway string `json:"natgateway" yunion-deprecated-by:"natgateway_id"`
+}
+
+type NatGatewayFilterListInput struct {
+	NatGatewayResourceInput
+
+	// 以NAT网关名字排序
+	OrderByNatgateway string `json:"order_by_natgateway"`
+
+	VpcFilterListInput
+}
+
+type NatEntryDetails struct {
+	apis.StatusInfrasResourceBaseDetails
+	NatGatewayResourceInfo
+
+	// NAT ENTRY的真实名称？？
+	RealName string `json:"real_name"`
+}
+
+type NatGatewaySyncstatusInput struct {
+}

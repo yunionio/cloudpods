@@ -15,6 +15,7 @@
 package sqlchemy
 
 import (
+	"fmt"
 	"reflect"
 
 	"yunion.io/x/pkg/gotypes"
@@ -41,50 +42,55 @@ func structField2ColumnSpec(field *reflectutils.SStructFieldValue) IColumnSpec {
 
 func getFiledTypeCol(fieldType reflect.Type, fieldname string, tagmap map[string]string, isPointer bool) IColumnSpec {
 	switch fieldType {
-	case gotypes.StringType:
-		col := NewTextColumn(fieldname, tagmap, isPointer)
-		return &col
-	case gotypes.IntType, gotypes.Int32Type:
-		tagmap[TAG_WIDTH] = "11"
-		col := NewIntegerColumn(fieldname, "INT", false, tagmap, isPointer)
-		return &col
-	case gotypes.Int8Type:
-		tagmap[TAG_WIDTH] = "4"
-		col := NewIntegerColumn(fieldname, "TINYINT", false, tagmap, isPointer)
-		return &col
-	case gotypes.Int16Type:
-		tagmap[TAG_WIDTH] = "6"
-		col := NewIntegerColumn(fieldname, "SMALLINT", false, tagmap, isPointer)
-		return &col
-	case gotypes.Int64Type:
-		tagmap[TAG_WIDTH] = "20"
-		col := NewIntegerColumn(fieldname, "BIGINT", false, tagmap, isPointer)
-		return &col
-	case gotypes.UintType, gotypes.Uint32Type:
-		tagmap[TAG_WIDTH] = "11"
-		col := NewIntegerColumn(fieldname, "INT", true, tagmap, isPointer)
-		return &col
-	case gotypes.Uint8Type:
-		tagmap[TAG_WIDTH] = "4"
-		col := NewIntegerColumn(fieldname, "TINYINT", true, tagmap, isPointer)
-		return &col
-	case gotypes.Uint16Type:
-		tagmap[TAG_WIDTH] = "6"
-		col := NewIntegerColumn(fieldname, "SMALLINT", true, tagmap, isPointer)
-		return &col
-	case gotypes.Uint64Type:
-		tagmap[TAG_WIDTH] = "20"
-		col := NewIntegerColumn(fieldname, "BIGINT", true, tagmap, isPointer)
-		return &col
-	case gotypes.BoolType:
-		tagmap[TAG_WIDTH] = "1"
-		col := NewBooleanColumn(fieldname, tagmap, isPointer)
-		return &col
 	case tristate.TriStateType:
 		tagmap[TAG_WIDTH] = "1"
 		col := NewTristateColumn(fieldname, tagmap, isPointer)
 		return &col
-	case gotypes.Float32Type, gotypes.Float64Type:
+	case gotypes.TimeType:
+		col := NewDateTimeColumn(fieldname, tagmap, isPointer)
+		return &col
+	}
+	switch fieldType.Kind() {
+	case reflect.String:
+		col := NewTextColumn(fieldname, tagmap, isPointer)
+		return &col
+	case reflect.Int, reflect.Int32:
+		tagmap[TAG_WIDTH] = "11"
+		col := NewIntegerColumn(fieldname, "INT", false, tagmap, isPointer)
+		return &col
+	case reflect.Int8:
+		tagmap[TAG_WIDTH] = "4"
+		col := NewIntegerColumn(fieldname, "TINYINT", false, tagmap, isPointer)
+		return &col
+	case reflect.Int16:
+		tagmap[TAG_WIDTH] = "6"
+		col := NewIntegerColumn(fieldname, "SMALLINT", false, tagmap, isPointer)
+		return &col
+	case reflect.Int64:
+		tagmap[TAG_WIDTH] = "20"
+		col := NewIntegerColumn(fieldname, "BIGINT", false, tagmap, isPointer)
+		return &col
+	case reflect.Uint, reflect.Uint32:
+		tagmap[TAG_WIDTH] = "11"
+		col := NewIntegerColumn(fieldname, "INT", true, tagmap, isPointer)
+		return &col
+	case reflect.Uint8:
+		tagmap[TAG_WIDTH] = "4"
+		col := NewIntegerColumn(fieldname, "TINYINT", true, tagmap, isPointer)
+		return &col
+	case reflect.Uint16:
+		tagmap[TAG_WIDTH] = "6"
+		col := NewIntegerColumn(fieldname, "SMALLINT", true, tagmap, isPointer)
+		return &col
+	case reflect.Uint64:
+		tagmap[TAG_WIDTH] = "20"
+		col := NewIntegerColumn(fieldname, "BIGINT", true, tagmap, isPointer)
+		return &col
+	case reflect.Bool:
+		tagmap[TAG_WIDTH] = "1"
+		col := NewBooleanColumn(fieldname, tagmap, isPointer)
+		return &col
+	case reflect.Float32, reflect.Float64:
 		if _, ok := tagmap[TAG_WIDTH]; ok {
 			col := NewDecimalColumn(fieldname, tagmap, isPointer)
 			return &col
@@ -96,23 +102,26 @@ func getFiledTypeCol(fieldType reflect.Type, fieldname string, tagmap map[string
 			col := NewFloatColumn(fieldname, colType, tagmap, isPointer)
 			return &col
 		}
-	case gotypes.TimeType:
-		col := NewDateTimeColumn(fieldname, tagmap, isPointer)
+	}
+	if fieldType.Implements(gotypes.ISerializableType) {
+		col := NewCompoundColumn(fieldname, tagmap, isPointer)
 		return &col
-	default:
-		if fieldType.Implements(gotypes.ISerializableType) {
-			col := NewCompoundColumn(fieldname, tagmap, isPointer)
-			return &col
-		}
 	}
 	return nil
 }
 
 func struct2TableSpec(sv reflect.Value, table *STableSpec) {
 	fields := reflectutils.FetchStructFieldValueSet(sv)
+	autoIncCnt := 0
 	for i := 0; i < len(fields); i += 1 {
 		column := structField2ColumnSpec(&fields[i])
 		if column != nil {
+			if intC, ok := column.(*SIntegerColumn); ok && intC.IsAutoIncrement {
+				autoIncCnt += 1
+				if autoIncCnt > 1 {
+					panic(fmt.Sprintf("Table %s contains multiple autoincremental columns!!", table.name))
+				}
+			}
 			if column.IsIndex() {
 				table.AddIndex(column.IsUnique(), column.Name())
 			}

@@ -53,7 +53,7 @@ func (vpc *SVpc) GetStatus() string {
 }
 
 func (vpc *SVpc) Delete() error {
-	return cloudprovider.ErrNotSupported
+	return vpc.region.Delete(vpc.globalnetwork.SelfLink)
 }
 
 func (vpc *SVpc) GetCidrBlock() string {
@@ -82,8 +82,8 @@ func (vpc *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, erro
 		return nil, errors.Wrap(err, "GetFirewalls")
 	}
 	isecgroups := []cloudprovider.ICloudSecurityGroup{}
-	tags := []string{}
 	allInstance := false
+	tags := []string{}
 	for _, firewall := range firewalls {
 		if len(firewall.TargetServiceAccounts) > 0 {
 			secgroup := &SSecurityGroup{vpc: vpc, ServiceAccount: firewall.TargetServiceAccounts[0]}

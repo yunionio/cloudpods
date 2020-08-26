@@ -58,10 +58,10 @@ func (self *SBaremetalGuestDriver) GetProvider() string {
 
 func (self *SBaremetalGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
 	keys := models.SComputeResourceKeys{}
-	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
+	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_ON_PREMISE
 	keys.Provider = api.CLOUD_PROVIDER_ONECLOUD
-	// ignore brand
+	keys.Brand = api.ONECLOUD_BRAND_ONECLOUD
 	keys.Hypervisor = api.HYPERVISOR_BAREMETAL
 	return keys
 }
@@ -115,7 +115,7 @@ func (self *SBaremetalGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_ADMIN}, nil
 }
 
-func (self *SBaremetalGuestDriver) GetChangeConfigStatus() ([]string, error) {
+func (self *SBaremetalGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
 	return nil, httperrors.NewUnsupportOperationError("Cannot change config for baremtal")
 }
 
@@ -127,7 +127,7 @@ func (self *SBaremetalGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk
 	return httperrors.NewUnsupportOperationError("Cannot resize disk for baremtal")
 }
 
-func (self *SBaremetalGuestDriver) GetNamedNetworkConfiguration(guest *models.SGuest, userCred mcclient.TokenCredential, host *models.SHost, netConfig *api.NetworkConfig) (*models.SNetwork, []models.SNicConfig, api.IPAllocationDirection) {
+func (self *SBaremetalGuestDriver) GetNamedNetworkConfiguration(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *api.NetworkConfig) (*models.SNetwork, []models.SNicConfig, api.IPAllocationDirection, bool) {
 	netifs, net := host.GetNetinterfacesWithIdAndCredential(netConfig.Network, userCred, netConfig.Reserved)
 	if netifs != nil {
 		nicCnt := 1
@@ -136,7 +136,8 @@ func (self *SBaremetalGuestDriver) GetNamedNetworkConfiguration(guest *models.SG
 		}
 		if len(netifs) < nicCnt {
 			if netConfig.RequireTeaming {
-				return net, nil, ""
+				log.Errorf("not enough network interfaces, want %d got %d", nicCnt, len(netifs))
+				return net, nil, "", false
 			}
 			nicCnt = len(netifs)
 		}
@@ -149,9 +150,17 @@ func (self *SBaremetalGuestDriver) GetNamedNetworkConfiguration(guest *models.SG
 			}
 			nicConfs = append(nicConfs, nicConf)
 		}
-		return net, nicConfs, api.IPAllocationStepup
+		reuseAddr := false
+		hn := host.GetAttach2Network(netConfig.Network)
+		if hn != nil && netConfig.Address == "" && options.Options.BaremetalServerReuseHostIp {
+			// try to reuse host network IP address
+			netConfig.Address = hn.IpAddr
+			reuseAddr = true
+		}
+
+		return net, nicConfs, api.IPAllocationStepup, reuseAddr
 	}
-	return net, nil, ""
+	return net, nil, "", false
 }
 
 func (self *SBaremetalGuestDriver) GetRandomNetworkTypes() []string {
@@ -184,16 +193,16 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 		}
 		var net *models.SNetwork
 		if netConfig.Private {
-			net, _ = wire.GetCandidatePrivateNetwork(userCred, netConfig.Exit, netTypes)
+			net, _ = wire.GetCandidatePrivateNetwork(userCred, models.NetworkManager.AllowScope(userCred), netConfig.Exit, netTypes)
 		} else {
-			net, _ = wire.GetCandidatePublicNetwork(netConfig.Exit, netTypes)
+			net, _ = wire.GetCandidateAutoAllocNetwork(userCred, models.NetworkManager.AllowScope(userCred), netConfig.Exit, netTypes)
 		}
 		if net != nil {
 			netsAvaiable = append(netsAvaiable, *net)
-			if _, exist := netifIndexs[net.Id]; !exist {
-				netifIndexs[net.Id] = make([]models.SNetInterface, 0)
+			if _, exist := netifIndexs[net.WireId]; !exist {
+				netifIndexs[net.WireId] = make([]models.SNetInterface, 0)
 			}
-			netifIndexs[net.Id] = append(netifIndexs[net.Id], netifs[idx])
+			netifIndexs[net.WireId] = append(netifIndexs[net.WireId], netifs[idx])
 		}
 	}
 	if len(netsAvaiable) == 0 {
@@ -201,7 +210,7 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 	}
 	net := models.ChooseCandidateNetworks(netsAvaiable, netConfig.Exit, netTypes)
 	if net != nil {
-		netifs := netifIndexs[net.Id]
+		netifs := netifIndexs[net.WireId]
 		nicConfs := make([]models.SNicConfig, 0)
 		nicCnt := 1
 		if netConfig.RequireTeaming || netConfig.TryTeaming {
@@ -221,7 +230,15 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 			}
 			nicConfs = append(nicConfs, nicConf)
 		}
-		return guest.Attach2Network(ctx, userCred, net, pendingUsage, "", netConfig.Driver, netConfig.BwLimit, netConfig.Vip, false, api.IPAllocationStepup, false, nicConfs)
+		address := ""
+		reuseAddr := false
+		hn := host.GetAttach2Network(net.Id)
+		if hn != nil && options.Options.BaremetalServerReuseHostIp {
+			// try to reuse host network IP address
+			address = hn.IpAddr
+			reuseAddr = true
+		}
+		return guest.Attach2Network(ctx, userCred, net, pendingUsage, address, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, false, api.IPAllocationStepup, false, reuseAddr, nicConfs)
 	}
 	return nil, fmt.Errorf("No appropriate host virtual network...")
 }
@@ -299,7 +316,7 @@ func (self *SBaremetalGuestDriver) RequestStopGuestForDelete(ctx context.Context
 	guestStatus, _ := task.GetParams().GetString("guest_status")
 	overridePendingDelete := jsonutils.QueryBoolean(task.GetParams(), "override_pending_delete", false)
 	purge := jsonutils.QueryBoolean(task.GetParams(), "purge", false)
-	if host != nil && host.Enabled &&
+	if host != nil && host.GetEnabled() &&
 		(guestStatus == api.VM_RUNNING || strings.Index(guestStatus, "stop") >= 0) &&
 		options.Options.EnablePendingDelete &&
 		!guest.PendingDeleted &&
@@ -307,7 +324,7 @@ func (self *SBaremetalGuestDriver) RequestStopGuestForDelete(ctx context.Context
 		!purge {
 		return guest.StartGuestStopTask(ctx, task.GetUserCred(), true, task.GetTaskId())
 	}
-	if host != nil && !host.Enabled && !purge {
+	if host != nil && !host.GetEnabled() && !purge {
 		return fmt.Errorf("fail to contact baremetal")
 	}
 	task.ScheduleRun(nil)
@@ -351,12 +368,7 @@ func (self *SBaremetalGuestDriver) RequestSyncstatusOnHost(ctx context.Context, 
 }
 
 func (self *SBaremetalGuestDriver) StartGuestSyncstatusTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "BaremetalServerSyncStatusTask", guest, userCred, nil, parentTaskId, "", nil)
-	if err != nil {
-		return err
-	}
-	task.ScheduleRun(nil)
-	return nil
+	return models.StartResourceSyncStatusTask(ctx, userCred, guest, "BaremetalServerSyncStatusTask", parentTaskId)
 }
 
 func (self *SBaremetalGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {

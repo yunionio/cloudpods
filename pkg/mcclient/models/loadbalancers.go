@@ -21,6 +21,7 @@ import (
 type Loadbalancer struct {
 	VirtualResource
 	ManagedResource
+	ExternalizedResource
 
 	EgressMbps  int
 	Address     string
@@ -62,9 +63,17 @@ type LoadbalancerHTTPRateLimiter struct {
 	HTTPRequestRatePerSrc int
 }
 
+type LoadbalancerHTTPRedirect struct {
+	Redirect       string
+	RedirectCode   int
+	RedirectScheme string
+	RedirectHost   string
+	RedirectPath   string
+}
 type LoadbalancerListener struct {
 	VirtualResource
 	ManagedResource
+	ExternalizedResource
 
 	CloudregionId  string
 	LoadbalancerId string
@@ -109,11 +118,13 @@ type LoadbalancerListener struct {
 	LoadbalancerHTTPSListener
 
 	LoadbalancerHTTPRateLimiter
+	LoadbalancerHTTPRedirect
 }
 
 type LoadbalancerListenerRule struct {
 	VirtualResource
 	ManagedResource
+	ExternalizedResource
 
 	CloudregionId  string
 	ListenerId     string
@@ -123,11 +134,13 @@ type LoadbalancerListenerRule struct {
 	Path   string
 
 	LoadbalancerHTTPRateLimiter
+	LoadbalancerHTTPRedirect
 }
 
 type LoadbalancerBackendGroup struct {
 	VirtualResource
 	ManagedResource
+	ExternalizedResource
 
 	Type           string
 	LoadbalancerId string
@@ -137,6 +150,7 @@ type LoadbalancerBackendGroup struct {
 type LoadbalancerBackend struct {
 	VirtualResource
 	ManagedResource
+	ExternalizedResource
 
 	CloudregionId  string
 	BackendGroupId string
@@ -148,6 +162,7 @@ type LoadbalancerBackend struct {
 	Port           int
 
 	SendProxy string
+	Ssl       string
 }
 
 type LoadbalancerAclEntry struct {
@@ -158,6 +173,7 @@ type LoadbalancerAclEntries []*LoadbalancerAclEntry
 type LoadbalancerAcl struct {
 	SharableVirtualResource
 	ManagedResource
+	ExternalizedResource
 
 	AclEntries    *LoadbalancerAclEntries
 	CloudregionId string
@@ -166,6 +182,7 @@ type LoadbalancerAcl struct {
 type LoadbalancerCertificate struct {
 	VirtualResource
 	ManagedResource
+	ExternalizedResource
 
 	Certificate string
 	PrivateKey  string
@@ -224,6 +241,7 @@ type LoadbalancerAgentParamsHaproxy struct {
 	LogHttp        bool
 	LogTcp         bool
 	LogNormal      bool
+	TuneHttpMaxhdr int
 }
 
 type LoadbalancerAgentParamsTelegraf struct {

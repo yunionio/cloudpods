@@ -1,0 +1,12 @@
+FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v0.2
+
+MAINTAINER "Yousong Zhou <zhouyousong@yunionyun.com>"
+
+# openssh-client, for ansible ssh connection
+# git, ca-certificates, for fetching ansible roles
+RUN set -x \
+	&& apk update \
+	&& apk add openssh-client \
+	&& apk add ansible \
+	&& apk add tzdata git ca-certificates \
+	&& rm -rf /var/cache/apk/*

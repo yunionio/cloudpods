@@ -16,21 +16,23 @@ package models
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 const (
@@ -54,6 +56,7 @@ var VENDOR_ID_MAP = api.VENDOR_ID_MAP
 
 type SIsolatedDeviceManager struct {
 	db.SStandaloneResourceBaseManager
+	SHostResourceBaseManager
 }
 
 var IsolatedDeviceManager *SIsolatedDeviceManager
@@ -72,23 +75,34 @@ func init() {
 
 type SIsolatedDevice struct {
 	db.SStandaloneResourceBase
+	SHostResourceBase `width:"36" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required"`
 
-	// name = Column(VARCHAR(16, charset='utf8'), nullable=True, default='', server_default='') # not used
-
-	HostId string `width:"36" charset:"ascii" nullable:"false" default:"" index:"true" list:"admin" create:"admin_required"` // Column(VARCHAR(36, charset='ascii'), nullable=False, default='', server_default='', index=True)
+	// 宿主机Id
+	// HostId string `width:"36" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required"`
 
 	// # PCI / GPU-HPC / GPU-VGA / USB / NIC
-	DevType string `width:"16" charset:"ascii" nullable:"false" default:"" index:"true" list:"admin" create:"admin_required" update:"admin"` // Column(VARCHAR(16, charset='ascii'), nullable=False, default='', server_default='', index=True)
+	// 设备类型
+	DevType string `width:"16" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required" update:"domain"`
 
 	// # Specific device name read from lspci command, e.g. `Tesla K40m` ...
-	Model string `width:"32" charset:"ascii" nullable:"false" default:"" index:"true" list:"admin" create:"admin_required" update:"admin"` // Column(VARCHAR(32, charset='ascii'), nullable=False, default='', server_default='', index=True)
+	Model string `width:"32" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required" update:"domain"`
 
-	GuestId string `width:"36" charset:"ascii" nullable:"true" index:"true" list:"admin"` // Column(VARCHAR(36, charset='ascii'), nullable=True, index=True)
+	// 云主机Id
+	GuestId string `width:"36" charset:"ascii" nullable:"true" index:"true" list:"domain"`
 
 	// # pci address of `Bus:Device.Function` format, or usb bus address of `bus.addr`
-	Addr string `width:"16" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
+	Addr string `width:"16" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 
-	VendorDeviceId string `width:"16" charset:"ascii" nullable:"true" list:"admin" create:"admin_optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
+	VendorDeviceId string `width:"16" charset:"ascii" nullable:"true" list:"domain" create:"domain_optional"`
+
+	// reserved memory size for isolated device, default 8G
+	ReservedMemory int `nullable:"true" default:"8192" list:"domain" update:"domain" create:"domain_optional"`
+
+	// reserved cpu count for isolated device, default 8
+	ReservedCpu int `nullable:"true" default:"8" list:"domain" update:"domain" create:"domain_optional"`
+
+	// reserved storage size for isolated device, default 100G
+	ReservedStorage int `nullable:"true" default:"102400" list:"domain" update:"domain" create:"domain_optional"`
 }
 
 func (manager *SIsolatedDeviceManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -108,88 +122,140 @@ func (manager *SIsolatedDeviceManager) AllowCreateItem(ctx context.Context, user
 	return db.IsAdminAllowCreate(userCred, manager)
 }
 
-func (manager *SIsolatedDeviceManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	hostId, _ := data.GetString("host_id")
-	host := HostManager.FetchHostById(hostId)
-	if host == nil {
-		return nil, httperrors.NewNotFoundError("Host %s not found", hostId)
+func (manager *SIsolatedDeviceManager) ValidateCreateData(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input api.IsolatedDeviceCreateInput,
+) (api.IsolatedDeviceCreateInput, error) {
+	var err error
+	var host *SHost
+	host, input.HostResourceInput, err = ValidateHostResourceInput(userCred, input.HostResourceInput)
+	if err != nil {
+		return input, errors.Wrap(err, "ValidateHostResourceInput")
 	}
-	if name, _ := data.GetString("name"); len(name) == 0 {
-		name = fmt.Sprintf("dev_%s_%d", host.GetName(), time.Now().UnixNano())
-		data.Set("name", jsonutils.NewString(name))
+	if len(input.Name) == 0 {
+		input.Name = fmt.Sprintf("dev_%s_%d", host.GetName(), time.Now().UnixNano())
 	}
 
-	input := apis.StandaloneResourceCreateInput{}
-	err := data.Unmarshal(&input)
+	input.StandaloneResourceCreateInput, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StandaloneResourceCreateInput)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal StandaloneRes  ourceCreateInput fail %s", err)
+		return input, errors.Wrap(err, "SStandaloneResourceBaseManager.ValidateCreateData")
 	}
-	input, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
-	if err != nil {
-		return nil, err
+
+	if input.ReservedCpu != nil && *input.ReservedCpu < 0 {
+		return input, httperrors.NewInputParameterError("reserved cpu must >= 0")
 	}
-	data.Update(jsonutils.Marshal(input))
-	return data, nil
+	if input.ReservedMemory != nil && *input.ReservedMemory < 0 {
+		return input, httperrors.NewInputParameterError("reserved memory must >= 0")
+	}
+	if input.ReservedStorage != nil && *input.ReservedStorage < 0 {
+		return input, httperrors.NewInputParameterError("reserved storage must >= 0")
+	}
+	return input, nil
 }
 
 func (self *SIsolatedDevice) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
 	return db.IsAdminAllowUpdate(userCred, self)
 }
 
-func (manager *SIsolatedDeviceManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+func (self *SIsolatedDevice) ValidateUpdateData(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, input api.IsolatedDeviceUpdateInput,
+) (api.IsolatedDeviceUpdateInput, error) {
+	var err error
+	input.StandaloneResourceBaseUpdateInput, err = self.SStandaloneResourceBase.ValidateUpdateData(
+		ctx, userCred, query, input.StandaloneResourceBaseUpdateInput)
 	if err != nil {
-		return nil, err
+		return input, err
+	}
+	if input.ReservedCpu != nil && *input.ReservedCpu < 0 {
+		return input, httperrors.NewInputParameterError("reserved cpu must >= 0")
+	}
+	if input.ReservedMemory != nil && *input.ReservedMemory < 0 {
+		return input, httperrors.NewInputParameterError("reserved memory must >= 0")
+	}
+	if input.ReservedStorage != nil && *input.ReservedStorage < 0 {
+		return input, httperrors.NewInputParameterError("reserved storage must >= 0")
+	}
+	return input, nil
+}
+
+func (self *SIsolatedDevice) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	HostManager.ClearSchedDescCache(self.HostId)
+}
+
+// 直通设备（GPU等）列表
+func (manager *SIsolatedDeviceManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.IsolatedDeviceListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SHostResourceBaseManager.ListItemFilter(ctx, q, userCred, query.HostFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHostResourceBaseManager.ListItemFilter")
 	}
 
-	q, err = managedResourceFilterByDomain(q, query, "host_id", func() *sqlchemy.SQuery {
-		return HostManager.Query("id")
-	})
-
-	if jsonutils.QueryBoolean(query, "gpu", false) {
+	if query.Gpu != nil && *query.Gpu {
 		q = q.Startswith("dev_type", "GPU")
 	}
-	if jsonutils.QueryBoolean(query, "usb", false) {
+	if query.Usb != nil && *query.Usb {
 		q = q.Equals("dev_type", "USB")
 	}
-	hostStr, _ := query.GetString("host")
-	var sq *sqlchemy.SSubQuery
-	if len(hostStr) > 0 {
-		hosts := HostManager.Query().SubQuery()
-		sq = hosts.Query(hosts.Field("id")).Filter(sqlchemy.OR(
-			sqlchemy.Equals(hosts.Field("id"), hostStr),
-			sqlchemy.Equals(hosts.Field("name"), hostStr))).SubQuery()
-	}
-	if sq != nil {
-		q = q.Filter(sqlchemy.In(q.Field("host_id"), sq))
-	}
-	if jsonutils.QueryBoolean(query, "unused", false) {
+	if query.Unused != nil && *query.Unused {
 		q = q.IsEmpty("guest_id")
 	}
-	regionStr := jsonutils.GetAnyString(query, []string{"region", "region_id"})
-	if len(regionStr) > 0 {
-		region, err := CloudregionManager.FetchByIdOrName(nil, regionStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudregionManager.Keyword(), regionStr)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-		hosts := HostManager.Query().SubQuery()
-		subq := ZoneManager.Query("id").Equals("cloudregion_id", region.GetId()).SubQuery()
-		q.Join(hosts, sqlchemy.Equals(q.Field("host_id"), hosts.Field("id"))).Filter(sqlchemy.In(hosts.Field("zone_id"), subq))
+
+	if len(query.DevType) > 0 {
+		q = q.In("dev_type", query.DevType)
 	}
-	zoneStr := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
-	if len(zoneStr) > 0 {
-		zone, _ := ZoneManager.FetchByIdOrName(nil, zoneStr)
-		if zone == nil {
-			return nil, httperrors.NewResourceNotFoundError("Zone %s not found", zoneStr)
-		}
-		hosts := HostManager.Query().SubQuery()
-		sq := hosts.Query(hosts.Field("id")).Filter(sqlchemy.Equals(hosts.Field("zone_id"), zone.GetId()))
-		q = q.Filter(sqlchemy.In(q.Field("host_id"), sq))
+	if len(query.Model) > 0 {
+		q = q.In("model", query.Model)
+	}
+	if len(query.Addr) > 0 {
+		q = q.In("addr", query.Addr)
+	}
+	if len(query.VendorDeviceId) > 0 {
+		q = q.In("vendor_device_id", query.VendorDeviceId)
+	}
+
+	return q, nil
+}
+
+func (manager *SIsolatedDeviceManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.IsolatedDeviceListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SHostResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.HostFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHostResourceBaseManager.OrderByExtraFields")
 	}
 	return q, nil
+}
+
+func (manager *SIsolatedDeviceManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SHostResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
 }
 
 /*
@@ -201,20 +267,18 @@ func (self *SIsolatedDevice) AllowDeleteItem(ctx context.Context, userCred mccli
 	return userCred.IsSystemAdmin()
 } */
 
-func (manager *SIsolatedDeviceManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+func (manager *SIsolatedDeviceManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = manager.SModelBaseManager.ListItemExportKeys(ctx, q, userCred, query)
+	q, err = manager.SStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
 	if err != nil {
 		return nil, err
 	}
-	exportKeys, _ := query.GetString("export_keys")
-	keys := strings.Split(exportKeys, ",")
-	if utils.IsInStringArray("guest", keys) {
+	if keys.Contains("guest") {
 		guestNameQuery := GuestManager.Query("name", "id").SubQuery()
 		q.LeftJoin(guestNameQuery, sqlchemy.Equals(q.Field("guest_id"), guestNameQuery.Field("id")))
 		q.AppendField(guestNameQuery.Field("name", "guest"))
 	}
-	if utils.IsInStringArray("host", keys) {
+	if keys.Contains("host") {
 		hostNameQuery := HostManager.Query("name", "id").SubQuery()
 		q.LeftJoin(hostNameQuery, sqlchemy.Equals(q.Field("host_id"), hostNameQuery.Field("id")))
 		q.AppendField(hostNameQuery.Field("name", "host"))
@@ -222,8 +286,8 @@ func (manager *SIsolatedDeviceManager) ListItemExportKeys(ctx context.Context, q
 	return q, nil
 }
 
-func (manager *SIsolatedDeviceManager) GetExportExtraKeys(ctx context.Context, query jsonutils.JSONObject, rowMap map[string]string) *jsonutils.JSONDict {
-	res := manager.SStandaloneResourceBaseManager.GetExportExtraKeys(ctx, query, rowMap)
+func (manager *SIsolatedDeviceManager) GetExportExtraKeys(ctx context.Context, keys stringutils2.SSortedStrings, rowMap map[string]string) *jsonutils.JSONDict {
+	res := manager.SStandaloneResourceBaseManager.GetExportExtraKeys(ctx, keys, rowMap)
 	if guest, ok := rowMap["guest"]; ok && len(guest) > 0 {
 		res.Set("guest", jsonutils.NewString(guest))
 	}
@@ -537,7 +601,7 @@ func (self *SIsolatedDevice) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 			return nil
 		}
 		host := self.getHost()
-		if host.Status != api.BAREMETAL_RUNNING || !host.Enabled {
+		if host.Status != api.BAREMETAL_RUNNING || !host.GetEnabled() {
 			return nil
 		}
 	}
@@ -589,32 +653,46 @@ func (self *SIsolatedDevice) getGuest() *SGuest {
 	return nil
 }
 
-func (self *SIsolatedDevice) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	host := self.getHost()
-	if host != nil {
-		extra.Add(jsonutils.NewString(host.Name), "host")
-	}
-	guest := self.getGuest()
-	if guest != nil {
-		extra.Add(jsonutils.NewString(guest.Name), "guest")
-		extra.Add(jsonutils.NewString(guest.Status), "guest_status")
-	}
-	return extra
+func (self *SIsolatedDevice) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.IsolateDeviceDetails, error) {
+	return api.IsolateDeviceDetails{}, nil
 }
 
-func (self *SIsolatedDevice) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (manager *SIsolatedDeviceManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.IsolateDeviceDetails {
+	rows := make([]api.IsolateDeviceDetails, len(objs))
+
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	hostRows := manager.SHostResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	guestIds := make([]string, len(rows))
+	for i := range rows {
+		rows[i] = api.IsolateDeviceDetails{
+			StandaloneResourceDetails: stdRows[i],
+			HostResourceInfo:          hostRows[i],
+		}
+		guestIds[i] = objs[i].(*SIsolatedDevice).GuestId
+	}
+
+	guests := make(map[string]SGuest)
+	err := db.FetchStandaloneObjectsByIds(GuestManager, guestIds, &guests)
 	if err != nil {
-		return nil, err
+		log.Errorf("db.FetchStandaloneObjectsByIds fail %s", err)
+		return rows
 	}
-	extra = self.getMoreDetails(extra)
-	return extra, nil
-}
 
-func (self *SIsolatedDevice) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	extra = self.getMoreDetails(extra)
-	return extra
+	for i := range rows {
+		if guest, ok := guests[guestIds[i]]; ok {
+			rows[i].Guest = guest.Name
+			rows[i].GuestStatus = guest.Status
+		}
+	}
+
+	return rows
 }
 
 func (self *SIsolatedDevice) ClearSchedDescCache() error {
@@ -695,4 +773,53 @@ func (manager *SIsolatedDeviceManager) GetDevsOnHost(hostId string, model string
 		return nil, nil
 	}
 	return devs, nil
+}
+
+func (manager *SIsolatedDeviceManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
+	parentId, _ := data.GetString("host_id")
+	return parentId
+}
+
+func (manager *SIsolatedDeviceManager) FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery {
+	if len(parentId) > 0 {
+		q = q.Equals("host_id", parentId)
+	}
+	return q
+}
+
+func (manager *SIsolatedDeviceManager) NamespaceScope() rbacutils.TRbacScope {
+	if consts.IsDomainizedNamespace() {
+		return rbacutils.ScopeDomain
+	} else {
+		return rbacutils.ScopeSystem
+	}
+}
+
+func (manager *SIsolatedDeviceManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeDomain
+}
+
+func (manager *SIsolatedDeviceManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	if owner != nil {
+		switch scope {
+		case rbacutils.ScopeProject, rbacutils.ScopeDomain:
+			hostsQ := HostManager.Query("id")
+			hostsQ = HostManager.FilterByOwner(hostsQ, owner, scope)
+			hosts := hostsQ.SubQuery()
+			q = q.Join(hosts, sqlchemy.Equals(q.Field("host_id"), hosts.Field("id")))
+		}
+	}
+	return q
+}
+
+func (manager *SIsolatedDeviceManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	return db.FetchDomainInfo(ctx, data)
+}
+
+func (model *SIsolatedDevice) GetOwnerId() mcclient.IIdentityProvider {
+	host := model.getHost()
+	if host != nil {
+		return host.GetOwnerId()
+	}
+	return nil
 }

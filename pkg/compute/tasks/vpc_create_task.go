@@ -16,15 +16,14 @@ package tasks
 
 import (
 	"context"
-	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -37,48 +36,36 @@ func init() {
 	taskman.RegisterTask(VpcCreateTask{})
 }
 
-func (self *VpcCreateTask) TaskFailed(ctx context.Context, vpc *models.SVpc, err error) {
+func (self *VpcCreateTask) TaskFailed(ctx context.Context, vpc *models.SVpc, err jsonutils.JSONObject) {
 	log.Errorf("vpc create task fail: %s", err)
-	vpc.SetStatus(self.UserCred, api.VPC_STATUS_FAILED, err.Error())
-	db.OpsLog.LogEvent(vpc, db.ACT_ALLOCATE_FAIL, err.Error(), self.UserCred)
-	logclient.AddActionLogWithStartable(self, vpc, logclient.ACT_ALLOCATE, err.Error(), self.UserCred, false)
-	self.SetStageFailed(ctx, err.Error())
+	vpc.SetStatus(self.UserCred, api.VPC_STATUS_FAILED, err.String())
+	db.OpsLog.LogEvent(vpc, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
+	logclient.AddActionLogWithStartable(self, vpc, logclient.ACT_ALLOCATE, err, self.UserCred, false)
+	self.SetStageFailed(ctx, err)
 }
 
 func (self *VpcCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	vpc := obj.(*models.SVpc)
 	vpc.SetStatus(self.UserCred, api.VPC_STATUS_PENDING, "")
 
-	iregion, err := vpc.GetIRegion()
+	region, err := vpc.GetRegion()
 	if err != nil {
-		self.TaskFailed(ctx, vpc, err)
+		self.TaskFailed(ctx, vpc, jsonutils.NewString(errors.Wrap(err, "vpc.GetRegion").Error()))
 		return
 	}
-	ivpc, err := iregion.CreateIVpc(vpc.Name, vpc.Description, vpc.CidrBlock)
+	self.SetStage("OnCreateVpcComplete", nil)
+	err = region.GetDriver().RequestCreateVpc(ctx, self.UserCred, region, vpc, self)
 	if err != nil {
-		self.TaskFailed(ctx, vpc, err)
+		self.TaskFailed(ctx, vpc, jsonutils.Marshal(err))
 		return
 	}
-	db.SetExternalId(vpc, self.UserCred, ivpc.GetGlobalId())
+}
 
-	err = cloudprovider.WaitStatus(ivpc, api.VPC_STATUS_AVAILABLE, 10*time.Second, 300*time.Second)
-	if err != nil {
-		self.TaskFailed(ctx, vpc, err)
-		return
-	}
-
-	err = vpc.SyncWithCloudVpc(ctx, self.UserCred, ivpc)
-	if err != nil {
-		self.TaskFailed(ctx, vpc, err)
-		return
-	}
-
-	err = vpc.SyncRemoteWires(ctx, self.UserCred)
-	if err != nil {
-		self.TaskFailed(ctx, vpc, err)
-		return
-	}
-
+func (self *VpcCreateTask) OnCreateVpcComplete(ctx context.Context, vpc *models.SVpc, data jsonutils.JSONObject) {
 	logclient.AddActionLogWithStartable(self, vpc, logclient.ACT_ALLOCATE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *VpcCreateTask) OnCreateVpcCompleteFailed(ctx context.Context, vpc *models.SVpc, data jsonutils.JSONObject) {
+	self.TaskFailed(ctx, vpc, data)
 }

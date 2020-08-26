@@ -18,13 +18,19 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SNetworkschedtagManager struct {
 	*SSchedtagJointsManager
+	SNetworkResourceBaseManager
 }
 
 var NetworkschedtagManager *SNetworkschedtagManager
@@ -55,26 +61,47 @@ func (manager *SNetworkschedtagManager) GetSlaveFieldName() string {
 	return "network_id"
 }
 
-func (s *SNetworkschedtag) GetNetwork() *SNetwork {
-	return s.Master().(*SNetwork)
+func (s *SNetworkschedtag) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.NetworkschedtagDetails, error) {
+	return api.NetworkschedtagDetails{}, nil
 }
 
-func (s *SNetworkschedtag) GetNetworks() ([]SNetwork, error) {
-	nets := []SNetwork{}
-	err := s.GetSchedtag().GetObjects(&nets)
-	return nets, err
-}
+func (manager *SNetworkschedtagManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.NetworkschedtagDetails {
+	rows := make([]api.NetworkschedtagDetails, len(objs))
 
-func (s *SNetworkschedtag) Master() db.IStandaloneModel {
-	return s.SSchedtagJointsBase.master(s)
-}
+	schedRows := manager.SSchedtagJointsManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	netIds := make([]string, len(rows))
+	for i := range rows {
+		rows[i] = api.NetworkschedtagDetails{
+			SchedtagJointResourceDetails: schedRows[i],
+		}
+		netIds[i] = objs[i].(*SNetworkschedtag).NetworkId
+	}
 
-func (s *SNetworkschedtag) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	return s.SSchedtagJointsBase.getCustomizeColumns(s, ctx, userCred, query)
-}
+	netIdMaps, err := db.FetchIdNameMap2(NetworkManager, netIds)
+	if err != nil {
+		log.Errorf("FetchIdNameMap2 netIds fail %s", err)
+		return rows
+	}
 
-func (s *SNetworkschedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	return s.SSchedtagJointsBase.getExtraDetails(s, ctx, userCred, query)
+	for i := range rows {
+		if name, ok := netIdMaps[netIds[i]]; ok {
+			rows[i].Network = name
+		}
+	}
+
+	return rows
 }
 
 func (s *SNetworkschedtag) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -83,4 +110,44 @@ func (s *SNetworkschedtag) Delete(ctx context.Context, userCred mcclient.TokenCr
 
 func (s *SNetworkschedtag) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return s.SSchedtagJointsBase.detach(s, ctx, userCred)
+}
+
+func (manager *SNetworkschedtagManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.NetworkschedtagListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SSchedtagJointsManager.ListItemFilter(ctx, q, userCred, query.SchedtagJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSchedtagJointsManager.ListItemFilter")
+	}
+	q, err = manager.SNetworkResourceBaseManager.ListItemFilter(ctx, q, userCred, query.NetworkFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.ListItemFilter")
+	}
+
+	return q, nil
+}
+
+func (manager *SNetworkschedtagManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.NetworkschedtagListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SSchedtagJointsManager.OrderByExtraFields(ctx, q, userCred, query.SchedtagJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSchedtagJointsManager.OrderByExtraFields")
+	}
+	q, err = manager.SNetworkResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.NetworkFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
 }

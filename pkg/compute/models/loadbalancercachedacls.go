@@ -33,11 +33,16 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-ignore
 type SCachedLoadbalancerAclManager struct {
 	SLoadbalancerLogSkipper
 	db.SSharableVirtualResourceBaseManager
+	SManagedResourceBaseManager
+	SCloudregionResourceBaseManager
+	SLoadbalancerAclResourceBaseManager
 }
 
 var CachedLoadbalancerAclManager *SCachedLoadbalancerAclManager
@@ -60,9 +65,9 @@ type SCachedLoadbalancerAcl struct {
 	db.SExternalizedResourceBase
 	SManagedResourceBase
 	SCloudregionResourceBase
+	SLoadbalancerAclResourceBase
 
-	AclId      string `width:"128" charset:"ascii" nullable:"false" index:"true" list:"user" create:"required"` // 本地ACL ID
-	ListenerId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`                // huawei only
+	ListenerId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"` // huawei only
 }
 
 func (lbacl *SCachedLoadbalancerAcl) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -74,7 +79,17 @@ func (lbacl *SCachedLoadbalancerAcl) ValidateUpdateData(ctx context.Context, use
 	if err != nil {
 		return nil, err
 	}
-	return lbacl.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	input := apis.SharableVirtualResourceBaseUpdateInput{}
+	err = data.Unmarshal(&input)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal")
+	}
+	input, err = lbacl.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBase.ValidateUpdateData")
+	}
+	data.Update(jsonutils.Marshal(input))
+	return data, nil
 }
 
 func (lbacl *SCachedLoadbalancerAcl) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -202,22 +217,38 @@ func (lbacl *SCachedLoadbalancerAcl) GetListener() (*SLoadbalancerListener, erro
 	return listener.(*SLoadbalancerListener), nil
 }
 
-func (lbacl *SCachedLoadbalancerAcl) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := lbacl.SSharableVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	providerInfo := lbacl.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if providerInfo != nil {
-		extra.Update(providerInfo)
-	}
-	regionInfo := lbacl.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if regionInfo != nil {
-		extra.Update(regionInfo)
-	}
-	return extra
+func (lbacl *SCachedLoadbalancerAcl) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.CachedLoadbalancerAclDetails, error) {
+	return api.CachedLoadbalancerAclDetails{}, nil
 }
 
-func (lbacl *SCachedLoadbalancerAcl) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra := lbacl.GetCustomizeColumns(ctx, userCred, query)
-	return extra, nil
+func (man *SCachedLoadbalancerAclManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.CachedLoadbalancerAclDetails {
+	rows := make([]api.CachedLoadbalancerAclDetails, len(objs))
+
+	virtRows := man.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	manRows := man.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	regionRows := man.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.CachedLoadbalancerAclDetails{
+			SharableVirtualResourceDetails: virtRows[i],
+			ManagedResourceInfo:            manRows[i],
+			CloudregionResourceInfo:        regionRows[i],
+		}
+	}
+
+	return rows
 }
 
 func (lbacl *SCachedLoadbalancerAcl) AllowPerformPatch(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
@@ -293,7 +324,10 @@ func (acl *SCachedLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Cont
 		} else {
 			ext_listener_id := extAcl.GetAclListenerID()
 			if len(ext_listener_id) > 0 {
-				ilistener, err := db.FetchByExternalId(LoadbalancerListenerManager, ext_listener_id)
+				ilistener, err := db.FetchByExternalIdAndManagerId(LoadbalancerListenerManager, ext_listener_id, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+					sq := LoadbalancerManager.Query().SubQuery()
+					return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("loadbalancer_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), acl.ManagerId))
+				})
 				if err != nil {
 					return errors.Wrap(err, "cacheLoadbalancerAcl.sync.FetchByExternalId")
 				}
@@ -324,11 +358,18 @@ func (man *SCachedLoadbalancerAclManager) GetOrCreateCachedAcl(ctx context.Conte
 	if lblis.GetProviderName() == api.CLOUD_PROVIDER_HUAWEI {
 		listenerId = lblis.Id
 	}
+	if lblis.GetProviderName() == api.CLOUD_PROVIDER_OPENSTACK {
+		listenerId = lblis.Id
+	}
 
-	lbacl, err := man.getLoadbalancerAclByRegion(provider, lblis.CloudregionId, acl.Id, listenerId)
+	region := lblis.GetRegion()
+	if region == nil {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "Loadbalancer listenser is not attached region")
+	}
+	lbacl, err := man.getLoadbalancerAclByRegion(provider, region.Id, acl.Id, listenerId)
 	if err == nil {
 		if lbacl.Id != acl.Id {
-			_, err := man.TableSpec().Update(&lbacl, func() error {
+			_, err := man.TableSpec().Update(ctx, &lbacl, func() error {
 				lbacl.Name = acl.Name
 				lbacl.AclId = acl.Id
 				return nil
@@ -346,15 +387,15 @@ func (man *SCachedLoadbalancerAclManager) GetOrCreateCachedAcl(ctx context.Conte
 	}
 
 	lbacl = SCachedLoadbalancerAcl{}
-	lbacl.ManagerId = lblis.ManagerId
-	lbacl.CloudregionId = lblis.CloudregionId
+	lbacl.ManagerId = provider.Id
+	lbacl.CloudregionId = region.Id
 	lbacl.ProjectId = lblis.ProjectId
 	lbacl.ProjectSrc = lblis.ProjectSrc
 	lbacl.Name = acl.Name
 	lbacl.AclId = acl.Id
 	lbacl.ListenerId = listenerId
 
-	err = man.TableSpec().Insert(&lbacl)
+	err = man.TableSpec().Insert(ctx, &lbacl)
 	if err != nil {
 		return nil, err
 	}
@@ -478,8 +519,8 @@ func (man *SCachedLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx contex
 		// usercread
 		localAcl.DomainId = userCred.GetProjectDomainId()
 		localAcl.ProjectId = userCred.GetProjectId()
-		localAcl.ProjectSrc = string(db.PROJECT_SOURCE_CLOUD)
-		err := LoadbalancerAclManager.TableSpec().Insert(&localAcl)
+		localAcl.ProjectSrc = string(apis.OWNER_SOURCE_CLOUD)
+		err := LoadbalancerAclManager.TableSpec().Insert(ctx, &localAcl)
 		if err != nil {
 			return nil, errors.Wrap(err, "cachedLoadbalancerAclManager.new.InsertAcl")
 		}
@@ -494,7 +535,7 @@ func (man *SCachedLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx contex
 		acl.AclId = localAcl.GetId()
 	}
 
-	err = man.TableSpec().Insert(&acl)
+	err = man.TableSpec().Insert(ctx, &acl)
 	if err != nil {
 		log.Errorf("newFromCloudLoadbalancerAcl fail %s", err)
 		return nil, errors.Wrap(err, "cachedLoadbalancerAclManager.new.InsertCachedAcl")
@@ -510,4 +551,117 @@ func (man *SCachedLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx contex
 func (manager *SCachedLoadbalancerAclManager) InitializeData() error {
 	// todo: sync old data from acls
 	return nil
+}
+
+func (manager *SCachedLoadbalancerAclManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.CachedLoadbalancerAclListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.SharableVirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = manager.SLoadbalancerAclResourceBaseManager.ListItemFilter(ctx, q, userCred, query.LoadbalancerAclFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SLoadbalancerAclResourceBaseManager.ListItemFilter")
+	}
+
+	return q, nil
+}
+
+func (manager *SCachedLoadbalancerAclManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.CachedLoadbalancerAclListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SSharableVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.SharableVirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SCloudregionResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SLoadbalancerAclResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.LoadbalancerAclFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SLoadbalancerAclResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SCachedLoadbalancerAclManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SSharableVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SCloudregionResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SLoadbalancerAclResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SCachedLoadbalancerAclManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SSharableVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SManagedResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SManagedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	if keys.ContainsAny(manager.SCloudregionResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SCloudregionResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	if keys.ContainsAny(manager.SLoadbalancerAclResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SLoadbalancerAclResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SLoadbalancerAclResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	return q, nil
 }

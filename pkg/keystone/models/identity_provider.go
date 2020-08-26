@@ -17,7 +17,9 @@ package models
 import (
 	"context"
 	"database/sql"
+	"encoding/xml"
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -35,12 +37,16 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/options"
+	"yunion.io/x/onecloud/pkg/keystone/saml"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/samlutils/sp"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SIdentityProviderManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
+	db.SDomainizedResourceBaseManager
 }
 
 var (
@@ -74,23 +80,100 @@ desc identity_provider;
 type SIdentityProvider struct {
 	db.SEnabledStatusStandaloneResourceBase
 
-	Driver   string `width:"32" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
-	Template string `width:"32" charset:"ascii" nullable:"true" list:"admin" create:"admin_optional"`
+	db.SDomainizedResourceBase `default:""`
 
-	TargetDomainId string `width:"64" charset:"ascii" nullable:"true" list:"admin" create:"admin_optional" update:"admin"`
+	Driver   string `width:"32" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
+	Template string `width:"32" charset:"ascii" nullable:"true" list:"domain" create:"domain_optional"`
 
-	AutoCreateProject tristate.TriState `default:"true" nullable:"true" list:"admin" create:"admin_optional" update:"admin"`
+	TargetDomainId string `width:"64" charset:"ascii" nullable:"true" list:"domain" create:"admin_optional"`
 
-	ErrorCount int `list:"admin"`
+	// 是否自动创建项目
+	AutoCreateProject tristate.TriState `default:"true" nullable:"true" list:"domain" create:"domain_optional" update:"domain"`
+	// 是否自动创建用户
+	AutoCreateUser tristate.TriState `nullable:"true" list:"domain" create:"domain_optional" update:"domain"`
 
-	SyncStatus    string    `width:"10" charset:"ascii" default:"idle" list:"admin"`
-	LastSync      time.Time `list:"admin"` // = Column(DateTime, nullable=True)
-	LastSyncEndAt time.Time `list:"admin"`
+	ErrorCount int `list:"domain"`
 
-	SyncIntervalSeconds int `create:"admin_optional" update:"admin"`
+	SyncStatus    string    `width:"10" charset:"ascii" default:"idle" list:"domain"`
+	LastSync      time.Time `list:"domain"` // = Column(DateTime, nullable=True)
+	LastSyncEndAt time.Time `list:"domain"`
+
+	SyncIntervalSeconds int `create:"domain_optional" update:"domain"`
+
+	// 认证源图标
+	IconUri string `width:"256" charset:"utf8" nullable:"true" list:"user" create:"domain_optional" update:"domain"`
+	// 是否是SSO登录方式
+	IsSso tristate.TriState `nullable:"true" list:"domain"`
+}
+
+func (manager *SIdentityProviderManager) initializeAutoCreateUser() error {
+	q := manager.Query().IsNull("auto_create_user")
+	idps := make([]SIdentityProvider, 0)
+	err := db.FetchModelObjects(manager, q, &idps)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil
+		} else {
+			return errors.Wrap(err, "FetchModelObjects")
+		}
+	}
+	for i := range idps {
+		drvCls := idps[i].getDriverClass()
+		_, err := db.Update(&idps[i], func() error {
+			if drvCls.ForceSyncUser() {
+				idps[i].AutoCreateUser = tristate.True
+			} else {
+				idps[i].AutoCreateUser = tristate.False
+			}
+			return nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "update auto_create_user")
+		}
+	}
+	return nil
+}
+
+func (manager *SIdentityProviderManager) initializeIcon() error {
+	q := manager.Query().IsNull("is_sso")
+	idps := make([]SIdentityProvider, 0)
+	err := db.FetchModelObjects(manager, q, &idps)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil
+		} else {
+			return errors.Wrap(err, "FetchModelObjects")
+		}
+	}
+	for i := range idps {
+		drvCls := idps[i].getDriverClass()
+		_, err := db.Update(&idps[i], func() error {
+			if drvCls.IsSso() {
+				idps[i].IsSso = tristate.True
+				idps[i].IconUri = drvCls.GetDefaultIconUri(idps[i].Template)
+			} else {
+				idps[i].IsSso = tristate.False
+				idps[i].IconUri = drvCls.GetDefaultIconUri(idps[i].Template)
+			}
+			return nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "update is_sso")
+		}
+	}
+	return nil
 }
 
 func (manager *SIdentityProviderManager) InitializeData() error {
+	err := manager.initializeAutoCreateUser()
+	if err != nil {
+		return errors.Wrap(err, "initializeAutoCreateUser")
+	}
+	err = manager.initializeIcon()
+	if err != nil {
+		return errors.Wrap(err, "initializeIcon")
+	}
+
 	cnt, err := manager.Query().CountWithError()
 	if err != nil {
 		return errors.Wrap(err, "CountWithError")
@@ -105,11 +188,15 @@ func (manager *SIdentityProviderManager) InitializeData() error {
 	sqldrv.SetModelManager(manager, &sqldrv)
 	sqldrv.Id = api.DEFAULT_IDP_ID
 	sqldrv.Name = api.IdentityDriverSQL
-	sqldrv.Enabled = true
+	sqldrv.SetEnabled(true)
 	sqldrv.Status = api.IdentityDriverStatusConnected
 	sqldrv.Driver = api.IdentityDriverSQL
 	sqldrv.Description = "Default sql identity provider"
-	err = manager.TableSpec().Insert(&sqldrv)
+	sqldrv.AutoCreateUser = tristate.True
+	sqldrv.AutoCreateProject = tristate.False
+	sqldrv.IsSso = tristate.False
+	sqldrv.IconUri = ""
+	err = manager.TableSpec().Insert(context.TODO(), &sqldrv)
 	if err != nil {
 		return errors.Wrap(err, "insert default sql driver")
 	}
@@ -137,11 +224,11 @@ func (manager *SIdentityProviderManager) InitializeData() error {
 		drv.SetModelManager(manager, &drv)
 		drv.Id = domains[i].Id // identical ID with domain, for backward compatibility
 		drv.Name = domains[i].Name
-		drv.Enabled = domains[i].Enabled.Bool()
+		drv.SetEnabled(domains[i].Enabled.Bool())
 		drv.Status = api.IdentityDriverStatusDisconnected
 		drv.Driver = driver
 		drv.Description = domains[i].Description
-		err = manager.TableSpec().Insert(&drv)
+		err = manager.TableSpec().Insert(context.TODO(), &drv)
 		if err != nil {
 			return errors.Wrap(err, "insert driver")
 		}
@@ -176,25 +263,35 @@ func (ident *SIdentityProvider) SetSyncStatus(ctx context.Context, userCred mccl
 }
 
 func (ident *SIdentityProvider) MarkConnected(ctx context.Context, userCred mcclient.TokenCredential) error {
-	_, err := db.UpdateWithLock(ctx, ident, func() error {
-		ident.ErrorCount = 0
-		return nil
-	})
-	if err != nil {
-		return err
+	if ident.ErrorCount > 0 {
+		_, err := db.UpdateWithLock(ctx, ident, func() error {
+			ident.ErrorCount = 0
+			return nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "UpdateWithLock")
+		}
 	}
-	return ident.SetStatus(userCred, api.IdentityDriverStatusConnected, "")
+	if ident.Status != api.IdentityDriverStatusConnected {
+		logclient.AddSimpleActionLog(ident, logclient.ACT_ENABLE, nil, userCred, true)
+		return ident.SetStatus(userCred, api.IdentityDriverStatusConnected, "")
+	}
+	return nil
 }
 
-func (ident *SIdentityProvider) MarkDisconnected(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (ident *SIdentityProvider) MarkDisconnected(ctx context.Context, userCred mcclient.TokenCredential, reason error) error {
 	_, err := db.UpdateWithLock(ctx, ident, func() error {
 		ident.ErrorCount = ident.ErrorCount + 1
 		return nil
 	})
 	if err != nil {
-		return err
+		return errors.Wrap(err, "UpdateWithLock")
 	}
-	return ident.SetStatus(userCred, api.IdentityDriverStatusDisconnected, "")
+	logclient.AddSimpleActionLog(ident, logclient.ACT_DISABLE, reason.Error(), userCred, false)
+	if ident.Status != api.IdentityDriverStatusDisconnected {
+		return ident.SetStatus(userCred, api.IdentityDriverStatusDisconnected, reason.Error())
+	}
+	return nil
 }
 
 func (self *SIdentityProvider) AllowGetDetailsConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -202,7 +299,13 @@ func (self *SIdentityProvider) AllowGetDetailsConfig(ctx context.Context, userCr
 }
 
 func (self *SIdentityProvider) GetDetailsConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	conf, err := GetConfigs(self, false)
+	sensitive := jsonutils.QueryBoolean(query, "sensitive", false)
+	if sensitive {
+		if !db.IsAdminAllowGetSpec(userCred, self, "config") {
+			return nil, httperrors.NewNotSufficientPrivilegeError("get sensitive config requires admin priviliges")
+		}
+	}
+	conf, err := GetConfigs(self, sensitive, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -211,28 +314,37 @@ func (self *SIdentityProvider) GetDetailsConfig(ctx context.Context, userCred mc
 	return result, nil
 }
 
-func (ident *SIdentityProvider) AllowPerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
+func (ident *SIdentityProvider) getDriverClass() driver.IIdentityBackendClass {
+	return driver.GetDriverClass(ident.Driver)
+}
+
+// 配置认证源
+func (ident *SIdentityProvider) AllowPerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.PerformConfigInput) bool {
 	return db.IsAdminAllowUpdateSpec(userCred, ident, "config")
 }
 
-func (ident *SIdentityProvider) PerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
-	if ident.Status == api.IdentityDriverStatusConnected && ident.Enabled {
+// 配置认证源
+func (ident *SIdentityProvider) PerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.PerformConfigInput) (jsonutils.JSONObject, error) {
+	if ident.Status == api.IdentityDriverStatusConnected && ident.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("cannot update config when enabled and connected")
 	}
 	if ident.SyncStatus != api.IdentitySyncStatusIdle {
 		return nil, httperrors.NewInvalidStatusError("cannot update config when not idle")
 	}
-	opts := api.TConfigs{}
-	err := data.Unmarshal(&opts, "config")
+
+	var err error
+	input.Config, err = ident.getDriverClass().ValidateConfig(ctx, userCred, ident.Template, input.Config, ident.Id, ident.DomainId)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("invalid input data")
+		return nil, errors.Wrap(err, "ValidateConfig")
 	}
-	action, _ := data.GetString("action")
-	err = saveConfigs(action, ident, opts, nil, api.SensitiveDomainConfigMap)
+
+	opts := input.Config
+	action := input.Action
+	err = saveConfigs(userCred, action, ident, opts, nil, nil, api.SensitiveDomainConfigMap)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("saveConfig fail %s", err)
 	}
-	ident.MarkDisconnected(ctx, userCred)
+	ident.MarkDisconnected(ctx, userCred, fmt.Errorf("change config"))
 	submitIdpSyncTask(ctx, userCred, ident)
 	return ident.GetDetailsConfig(ctx, userCred, query)
 }
@@ -241,78 +353,131 @@ func (manager *SIdentityProviderManager) getDriveInstanceCount(drvName string) (
 	return manager.Query().Equals("driver", drvName).CountWithError()
 }
 
-func (manager *SIdentityProviderManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SIdentityProviderManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input api.IdentityProviderCreateInput,
+) (api.IdentityProviderCreateInput, error) {
 	var drvName string
 
-	template, _ := data.GetString("template")
+	template := input.Template
 	if len(template) > 0 {
 		if _, ok := api.IdpTemplateDriver[template]; !ok {
-			return nil, httperrors.NewInputParameterError("invalid template")
+			return input, httperrors.NewInputParameterError("invalid template")
 		}
 		drvName = api.IdpTemplateDriver[template]
-		data.Set("driver", jsonutils.NewString(drvName))
+		input.Driver = drvName
 	} else {
-		drvName, _ = data.GetString("driver")
+		drvName = input.Driver
 		if len(drvName) == 0 {
-			return nil, httperrors.NewInputParameterError("missing driver")
+			return input, httperrors.NewInputParameterError("missing driver")
 		}
 	}
 
 	drvCls := driver.GetDriverClass(drvName)
 	if drvCls == nil {
-		return nil, httperrors.NewInputParameterError("driver %s not supported", drvName)
+		return input, httperrors.NewInputParameterError("driver %s not supported", drvName)
 	}
 
 	if drvCls.SingletonInstance() {
 		cnt, err := manager.getDriveInstanceCount(drvName)
 		if err != nil {
-			return nil, httperrors.NewGeneralError(err)
+			return input, httperrors.NewGeneralError(err)
 		}
 		if cnt >= 1 {
-			return nil, httperrors.NewConflictError("driver %s already exists", drvName)
+			return input, httperrors.NewConflictError("driver %s already exists", drvName)
 		}
 	}
 
-	if data.Contains("sync_interval_seconds") {
-		secs, _ := data.Int("sync_interval_seconds")
+	if input.SyncIntervalSeconds != nil {
+		secs := *input.SyncIntervalSeconds
 		if secs < api.MinimalSyncIntervalSeconds {
-			data.Set("sync_interval_seconds", jsonutils.NewInt(int64(api.MinimalSyncIntervalSeconds)))
+			secs = api.MinimalSyncIntervalSeconds
+			input.SyncIntervalSeconds = &secs
 		}
 	}
 
-	targetDomainStr, _ := data.GetString("target_domain")
-	if len(targetDomainStr) > 0 {
-		domain, err := DomainManager.FetchDomainById(targetDomainStr)
+	ownerDomainStr := input.OwnerDomainId
+	if len(ownerDomainStr) > 0 {
+		domain, err := DomainManager.FetchDomainByIdOrName(ownerDomainStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(DomainManager.Keyword(), targetDomainStr)
+				return input, httperrors.NewResourceNotFoundError2(DomainManager.Keyword(), ownerDomainStr)
 			} else {
-				return nil, httperrors.NewGeneralError(err)
+				return input, httperrors.NewGeneralError(err)
 			}
 		}
-		data.Set("target_domain_id", jsonutils.NewString(domain.Id))
+		input.OwnerDomainId = domain.Id
+		if domain.Id != ownerId.GetProjectDomainId() && !db.IsAdminAllowCreate(userCred, manager) {
+			return input, errors.Wrap(httperrors.ErrNotSufficientPrivilege, "require system priviliges to specify owner_domain_id")
+		}
+	} else if !db.IsAdminAllowCreate(userCred, manager) {
+		input.OwnerDomainId = ownerId.GetProjectDomainId()
 	}
 
-	opts := api.TConfigs{}
-	err := data.Unmarshal(&opts, "config")
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("parse config error: %s", err)
+	targetDomainStr := input.TargetDomainId
+	if len(targetDomainStr) > 0 {
+		domain, err := DomainManager.FetchDomainByIdOrName(targetDomainStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return input, httperrors.NewResourceNotFoundError2(DomainManager.Keyword(), targetDomainStr)
+			} else {
+				return input, httperrors.NewGeneralError(err)
+			}
+		}
+		input.TargetDomainId = domain.Id
+
+		if domain.Id != ownerId.GetProjectDomainId() && !db.IsAdminAllowCreate(userCred, manager) {
+			return input, errors.Wrap(httperrors.ErrNotSufficientPrivilege, "require system priviliges to specify target_domain_id")
+		}
+
+		if len(input.OwnerDomainId) > 0 && input.OwnerDomainId != input.TargetDomainId {
+			return input, errors.Wrap(httperrors.ErrInputParameter, "inconsistent owner_domain_id and target_domain_id")
+		}
+	} else if !db.IsAdminAllowCreate(userCred, manager) {
+		input.TargetDomainId = ownerId.GetProjectDomainId()
 	}
-	input := apis.EnabledStatusStandaloneResourceCreateInput{}
-	err = data.Unmarshal(&input)
+
+	var err error
+	input.Config, err = drvCls.ValidateConfig(ctx, userCred, input.Template, input.Config, "", input.OwnerDomainId)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
+		return input, errors.Wrap(err, "ValidateConfig")
 	}
-	input, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+
+	input.EnabledStatusStandaloneResourceCreateInput, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusStandaloneResourceCreateInput)
 	if err != nil {
-		return nil, err
+		return input, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData")
 	}
-	data.Update(jsonutils.Marshal(input))
-	return data, nil
+
+	return input, nil
 }
 
 func (ident *SIdentityProvider) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	ident.Enabled = true
+	ident.SetEnabled(true)
+	if !db.IsAdminAllowCreate(userCred, ident.GetModelManager()) {
+		ident.DomainId = ownerId.GetProjectDomainId()
+		ident.TargetDomainId = ownerId.GetProjectDomainId()
+	} else {
+		ownerDomainId, _ := data.GetString("owner_domain_id")
+		if len(ownerDomainId) > 0 {
+			ident.DomainId = ownerDomainId
+			ident.TargetDomainId = ownerDomainId
+		}
+	}
+	drvCls := ident.getDriverClass()
+	if drvCls.IsSso() {
+		ident.IsSso = tristate.True
+	} else {
+		ident.IsSso = tristate.False
+	}
+	if len(ident.IconUri) == 0 {
+		ident.IconUri = drvCls.GetDefaultIconUri(ident.Template)
+	}
+	if drvCls.ForceSyncUser() {
+		ident.AutoCreateUser = tristate.True
+	}
 	return ident.SEnabledStatusStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
@@ -327,10 +492,27 @@ func (ident *SIdentityProvider) PostCreate(ctx context.Context, userCred mcclien
 		log.Errorf("parse config error %s", err)
 		return
 	}
-	err = saveConfigs("", ident, opts, nil, api.SensitiveDomainConfigMap)
+	err = saveConfigs(userCred, "", ident, opts, nil, nil, api.SensitiveDomainConfigMap)
 	if err != nil {
 		log.Errorf("saveConfig fail %s", err)
 		return
+	}
+
+	if len(ident.TargetDomainId) == 0 && ident.AutoCreateUser.IsTrue() && ident.IsSso.IsTrue() {
+		// SSO driver need to create the target domain immediately
+		domain, err := ident.SyncOrCreateDomain(ctx, api.DefaultRemoteDomainId, ident.Name, fmt.Sprintf("%s provider %s", ident.Driver, ident.Name), false)
+		if err != nil {
+			log.Errorf("create domain fail %s", err)
+		} else {
+			// save domain_id into target_domain_id
+			_, err := db.Update(ident, func() error {
+				ident.TargetDomainId = domain.Id
+				return nil
+			})
+			if err != nil {
+				log.Errorf("save target_domain_id fail: %s", err)
+			}
+		}
 	}
 
 	submitIdpSyncTask(ctx, userCred, ident)
@@ -388,8 +570,9 @@ func (self *SIdentityProvider) AllowPerformSync(ctx context.Context, userCred mc
 	return db.IsAdminAllowPerform(userCred, self, "sync")
 }
 
+// 手动同步认证源
 func (self *SIdentityProvider) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !self.Enabled {
+	if !self.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("Account disabled")
 	}
 	if self.CanSync() {
@@ -398,141 +581,190 @@ func (self *SIdentityProvider) PerformSync(ctx context.Context, userCred mcclien
 	return nil, nil
 }
 
-func (self *SIdentityProvider) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SEnabledStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreDetails(extra)
+func (self *SIdentityProvider) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.IdentityProviderDetails, error) {
+	return api.IdentityProviderDetails{}, nil
 }
 
-func (self *SIdentityProvider) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
+func (manager *SIdentityProviderManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.IdentityProviderDetails {
+	rows := make([]api.IdentityProviderDetails, len(objs))
+
+	stdRows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	domainRows := manager.SDomainizedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i].EnabledStatusStandaloneResourceDetails = stdRows[i]
+		rows[i].DomainizedResourceInfo = domainRows[i]
+		rows[i] = objs[i].(*SIdentityProvider).getMoreDetails(rows[i])
 	}
-	return self.getMoreDetails(extra), nil
+
+	return rows
 }
 
-func (self *SIdentityProvider) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	extra = db.FetchModelExtraCountProperties(self, extra)
-	extra.Set("sync_interval_seconds", jsonutils.NewInt(int64(self.getSyncIntervalSeconds())))
+func (self *SIdentityProvider) getMoreDetails(out api.IdentityProviderDetails) api.IdentityProviderDetails {
+	out.RoleCount, _ = self.GetRoleCount()
+	out.UserCount, _ = self.GetUserCount()
+	out.PolicyCount, _ = self.GetPolicyCount()
+	out.DomainCount, _ = self.GetDomainCount()
+	out.ProjectCount, _ = self.GetProjectCount()
+	out.GroupCount, _ = self.GetGroupCount()
+	out.SyncIntervalSeconds = self.getSyncIntervalSeconds()
 	if len(self.TargetDomainId) > 0 {
 		domain, _ := DomainManager.FetchDomainById(self.TargetDomainId)
 		if domain != nil {
-			extra.Set("target_domain", jsonutils.NewString(domain.Name))
+			out.TargetDomain = domain.Name
 		}
 	}
-	return extra
+	return out
 }
 
-func (self *SIdentityProvider) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if data.Contains("sync_interval_seconds") {
-		secs, _ := data.Int("sync_interval_seconds")
+func (self *SIdentityProvider) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.IdentityProviderUpdateInput) (api.IdentityProviderUpdateInput, error) {
+	if input.SyncIntervalSeconds != nil {
+		secs := *input.SyncIntervalSeconds
 		if secs < api.MinimalSyncIntervalSeconds {
-			data.Set("sync_interval_seconds", jsonutils.NewInt(int64(api.MinimalSyncIntervalSeconds)))
+			secs = api.MinimalSyncIntervalSeconds
+			input.SyncIntervalSeconds = &secs
 		}
 	}
-	return self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	var err error
+	input.EnabledStatusStandaloneResourceBaseUpdateInput, err = self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.EnabledStatusStandaloneResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SEnabledStatusStandaloneResourceBase.ValidateUpdateData")
+	}
+
+	return input, nil
 }
 
 func (self *SIdentityProvider) GetUserCount() (int, error) {
 	if self.Driver == api.IdentityDriverSQL {
-		return self.getLocalUserCount()
+		return getSQLUserCount()
 	} else {
-		return self.getNonlocalUserCount()
+		return self.getLinkedUserCount()
 	}
 }
 
-func (self *SIdentityProvider) getNonlocalUserCount() (int, error) {
-	users := UserManager.Query().SubQuery()
+func (self *SIdentityProvider) getLinkedUserCount() (int, error) {
+	return self.getLinkedUserQuery().CountWithError()
+}
+
+func (self *SIdentityProvider) getLinkedUserQuery() *sqlchemy.SQuery {
+	return self.getLinkedEntityQuery(UserManager, api.IdMappingEntityUser)
+}
+
+func (self *SIdentityProvider) getLinkedEntityQuery(manager db.IStandaloneModelManager, typeStr string) *sqlchemy.SQuery {
+	users := manager.Query().SubQuery()
 	idmaps := IdmappingManager.Query().SubQuery()
 
 	q := users.Query()
 	q = q.LeftJoin(idmaps, sqlchemy.AND(
 		sqlchemy.Equals(users.Field("id"), idmaps.Field("public_id")),
-		sqlchemy.Equals(idmaps.Field("entity_type"), api.IdMappingEntityUser),
+		sqlchemy.Equals(idmaps.Field("entity_type"), typeStr),
 	))
-	q = q.Filter(sqlchemy.Equals(idmaps.Field("domain_id"), self.Id))
-
-	return q.CountWithError()
-}
-
-func (self *SIdentityProvider) getLocalUserCount() (int, error) {
-	subq := IdmappingManager.Query("public_id").Equals("entity_type", api.IdMappingEntityUser)
-	q := UserManager.Query().NotIn("id", subq.SubQuery())
-	return q.CountWithError()
-}
-
-func (self *SIdentityProvider) GetGroupCount() (int, error) {
-	if self.Driver == api.IdentityDriverSQL {
-		return self.getLocalGroupCount()
-	} else {
-		return self.getNonlocalGroupCount()
-	}
-}
-
-func (self *SIdentityProvider) getNonlocalGroupCount() (int, error) {
-	groups := GroupManager.Query().SubQuery()
-	idmaps := IdmappingManager.Query().SubQuery()
-
-	q := groups.Query()
-	q = q.LeftJoin(idmaps, sqlchemy.AND(
-		sqlchemy.Equals(groups.Field("id"), idmaps.Field("public_id")),
-		sqlchemy.Equals(idmaps.Field("entity_type"), api.IdMappingEntityGroup),
-	))
-	q = q.Filter(sqlchemy.Equals(idmaps.Field("domain_id"), self.Id))
-
-	return q.CountWithError()
-}
-
-func (self *SIdentityProvider) getLocalGroupCount() (int, error) {
-	subq := IdmappingManager.Query("public_id").Equals("entity_type", api.IdMappingEntityGroup)
-	q := GroupManager.Query().NotIn("id", subq.SubQuery())
-	return q.CountWithError()
-}
-
-func (self *SIdentityProvider) GetDomainCount() (int, error) {
-	if self.Driver == api.IdentityDriverSQL {
-		return self.getLocalDomainCount()
-	} else {
-		return self.getNonlocalDomainCount()
-	}
-}
-
-func (self *SIdentityProvider) getDomainQuery() *sqlchemy.SQuery {
-	if self.Driver == api.IdentityDriverSQL {
-		return self.getLocalDomainQuery()
-	} else {
-		return self.getNonlocalDomainQuery()
-	}
-}
-
-func (self *SIdentityProvider) getNonlocalDomainCount() (int, error) {
-	q := self.getNonlocalDomainQuery()
-	return q.CountWithError()
-}
-
-func (self *SIdentityProvider) getNonlocalDomainQuery() *sqlchemy.SQuery {
-	domains := DomainManager.Query().SubQuery()
-	idmaps := IdmappingManager.Query().SubQuery()
-
-	q := domains.Query()
-	q = q.Join(idmaps, sqlchemy.AND(
-		sqlchemy.Equals(domains.Field("id"), idmaps.Field("public_id")),
-		sqlchemy.Equals(idmaps.Field("entity_type"), api.IdMappingEntityDomain),
-	))
-	q = q.Filter(sqlchemy.NotEquals(domains.Field("id"), api.KeystoneDomainRoot))
 	q = q.Filter(sqlchemy.Equals(idmaps.Field("domain_id"), self.Id))
 
 	return q
 }
 
-func (self *SIdentityProvider) getLocalDomainCount() (int, error) {
-	q := self.getLocalDomainQuery()
+func (self *SIdentityProvider) getLinkedUsers() ([]SUser, error) {
+	q := self.getLinkedUserQuery()
+	users := make([]SUser, 0)
+	err := db.FetchModelObjects(UserManager, q, &users)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	return users, nil
+}
+
+func getSQLEntityQuery(manager db.IStandaloneModelManager, typeStr string) *sqlchemy.SQuery {
+	subq := IdmappingManager.Query("public_id")
+	subq = subq.Equals("entity_type", typeStr)
+	return manager.Query().NotIn("id", subq.SubQuery())
+}
+
+func getSQLUserQuery() *sqlchemy.SQuery {
+	return getSQLEntityQuery(UserManager, api.IdMappingEntityUser)
+}
+
+func getSQLUserCount() (int, error) {
+	return getSQLUserQuery().CountWithError()
+}
+
+func getSQLGroupQuery() *sqlchemy.SQuery {
+	return getSQLEntityQuery(GroupManager, api.IdMappingEntityGroup)
+}
+
+func getSQLGroupCount() (int, error) {
+	return getSQLGroupQuery().CountWithError()
+}
+
+func getSQLDomainQuery() *sqlchemy.SQuery {
+	return getSQLEntityQuery(DomainManager, api.IdMappingEntityDomain).NotEquals("id", api.KeystoneDomainRoot)
+}
+
+func getSQLDomainCount() (int, error) {
+	return getSQLDomainQuery().CountWithError()
+}
+
+func (self *SIdentityProvider) GetGroupCount() (int, error) {
+	if self.Driver == api.IdentityDriverSQL {
+		return getSQLGroupCount()
+	} else {
+		return self.getLinkedGroupCount()
+	}
+}
+
+func (self *SIdentityProvider) getLinkedGroupCount() (int, error) {
+	return self.getLinkedGroupQuery().CountWithError()
+}
+
+func (self *SIdentityProvider) getLinkedGroupQuery() *sqlchemy.SQuery {
+	return self.getLinkedEntityQuery(GroupManager, api.IdMappingEntityGroup)
+}
+
+func (self *SIdentityProvider) getLinkedGroups() ([]SGroup, error) {
+	q := self.getLinkedGroupQuery()
+	groups := make([]SGroup, 0)
+	err := db.FetchModelObjects(GroupManager, q, &groups)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	return groups, nil
+}
+
+func (self *SIdentityProvider) GetDomainCount() (int, error) {
+	if self.Driver == api.IdentityDriverSQL {
+		return getSQLDomainCount()
+	} else {
+		return self.getLinkedDomainCount()
+	}
+}
+
+func (self *SIdentityProvider) getDomainQuery() *sqlchemy.SQuery {
+	if self.Driver == api.IdentityDriverSQL {
+		return getSQLDomainQuery()
+	} else {
+		return self.getLinkedDomainQuery()
+	}
+}
+
+func (self *SIdentityProvider) getLinkedDomainCount() (int, error) {
+	q := self.getLinkedDomainQuery()
 	return q.CountWithError()
 }
 
-func (self *SIdentityProvider) getLocalDomainQuery() *sqlchemy.SQuery {
-	subq := IdmappingManager.Query("public_id").Equals("entity_type", api.IdMappingEntityDomain)
-	q := DomainManager.Query().NotIn("id", subq.SubQuery()).NotEquals("id", api.KeystoneDomainRoot)
+func (self *SIdentityProvider) getLinkedDomainQuery() *sqlchemy.SQuery {
+	q := self.getLinkedEntityQuery(DomainManager, api.IdMappingEntityDomain)
+	q = q.NotEquals("id", api.KeystoneDomainRoot)
 	return q
 }
 
@@ -558,20 +790,25 @@ func (self *SIdentityProvider) ValidateDeleteCondition(ctx context.Context) erro
 	if self.Driver == api.IdentityDriverSQL {
 		return httperrors.NewForbiddenError("cannot delete default SQL identity provider")
 	}
-	prjCnt, err := self.GetProjectCount()
-	if err != nil {
-		return httperrors.NewGeneralError(err)
+	if self.Enabled.IsTrue() {
+		return httperrors.NewInvalidStatusError("cannot delete enabled idp")
 	}
-	if prjCnt > 0 {
-		return httperrors.NewConflictError("identity provider with projects")
-	}
-	domains, err := self.getDomains()
-	if err != nil {
-		return httperrors.NewGeneralError(err)
-	}
-	for i := range domains {
-		if domains[i].Enabled.IsTrue() {
-			return httperrors.NewInvalidStatusError("domain %s should be disabled", domains[i].Name)
+	if self.Driver == api.IdentityDriverLDAP || self.AutoCreateUser.IsTrue() {
+		prjCnt, err := self.GetProjectCount()
+		if err != nil {
+			return httperrors.NewGeneralError(err)
+		}
+		if prjCnt > 0 {
+			return httperrors.NewConflictError("identity provider with projects")
+		}
+		domains, err := self.getLinkedDomains()
+		if err != nil {
+			return httperrors.NewGeneralError(err)
+		}
+		for i := range domains {
+			if domains[i].Enabled.IsTrue() {
+				return httperrors.NewInvalidStatusError("enabled domain %s cannot be deleted", domains[i].Name)
+			}
 		}
 	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
@@ -584,8 +821,8 @@ func (self *SIdentityProvider) ValidateUpdateCondition(ctx context.Context) erro
 	return self.SEnabledStatusStandaloneResourceBase.ValidateUpdateCondition(ctx)
 }
 
-func (self *SIdentityProvider) getDomains() ([]SDomain, error) {
-	q := self.getDomainQuery()
+func (self *SIdentityProvider) getLinkedDomains() ([]SDomain, error) {
+	q := self.getLinkedDomainQuery()
 	domains := make([]SDomain, 0)
 	err := db.FetchModelObjects(DomainManager, q, &domains)
 	if err != nil && err != sql.ErrNoRows {
@@ -606,23 +843,90 @@ func (ident *SIdentityProvider) deleteConfigs(ctx context.Context, userCred mccl
 	return nil
 }
 
+func (self *SIdentityProvider) isSsoIdp() bool {
+	if self.Driver == api.IdentityDriverLDAP || self.Driver == api.IdentityDriverSQL {
+		return false
+	}
+	return true
+}
+
 func (self *SIdentityProvider) Purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	domains, err := self.getDomains()
+	// delete users
+	users, err := self.getLinkedUsers()
+	if err != nil {
+		return errors.Wrap(err, "getNonlocalUsers")
+	}
+	for i := range users {
+		err = users[i].UnlinkIdp(self.Id)
+		if err != nil {
+			return errors.Wrap(err, "users[i].UnlinkIdp")
+		}
+		if self.isSsoIdp() && self.AutoCreateUser.IsFalse() {
+			continue
+		}
+		err = users[i].ValidatePurgeCondition(ctx)
+		if err != nil {
+			db.OpsLog.LogEvent(&users[i], db.ACT_DELETE_FAIL, err, userCred)
+			log.Errorf("users %s ValidatePurgeCondition fail %s", users[i].Name, err)
+			continue
+		}
+		err = users[i].Delete(ctx, userCred)
+		if err != nil {
+			db.OpsLog.LogEvent(&users[i], db.ACT_DELETE_FAIL, err, userCred)
+			return errors.Wrap(err, "delete users[i]")
+		}
+	}
+	// delete groups
+	groups, err := self.getLinkedGroups()
+	if err != nil {
+		return errors.Wrap(err, "getNonlocalGroups")
+	}
+	for i := range groups {
+		err = groups[i].UnlinkIdp(self.Id)
+		if err != nil {
+			return errors.Wrap(err, "groups[i].UnlinkIdp")
+		}
+		if self.isSsoIdp() && self.AutoCreateUser.IsFalse() {
+			continue
+		}
+		err = groups[i].ValidateDeleteCondition(ctx)
+		if err != nil {
+			db.OpsLog.LogEvent(&groups[i], db.ACT_DELETE_FAIL, err, userCred)
+			log.Errorf("group %s ValidateDeleteCondition fail %s", groups[i].Name, err)
+			continue
+		}
+		err = groups[i].Delete(ctx, userCred)
+		if err != nil {
+			db.OpsLog.LogEvent(&groups[i], db.ACT_DELETE_FAIL, err, userCred)
+			return errors.Wrap(err, "delete groups[i]")
+		}
+	}
+	// delete domains
+	domains, err := self.getLinkedDomains()
 	if err != nil {
 		return errors.Wrap(err, "getDomains")
 	}
 	for i := range domains {
-		err = domains[i].ValidatePurgeCondition(ctx)
-		if err != nil {
-			return errors.Wrap(err, "domain.ValidatePurgeCondition")
-		}
-		err = domains[i].UnlinkIdp(self.Id)
-		if err != nil {
-			return errors.Wrap(err, "domains[i].UnlinkIdp")
-		}
-		err = domains[i].Delete(ctx, userCred)
-		if err != nil {
-			return errors.Wrap(err, "delete domain")
+		if self.isSsoIdp() && self.AutoCreateUser.IsFalse() {
+			err = domains[i].UnlinkIdp(self.Id)
+			if err != nil {
+				return errors.Wrap(err, "domains[i].UnlinkIdp")
+			}
+		} else {
+			err = domains[i].ValidatePurgeCondition(ctx)
+			if err != nil {
+				db.OpsLog.LogEvent(&domains[i], db.ACT_DELETE_FAIL, err, userCred)
+				return errors.Wrap(err, "domain.ValidatePurgeCondition")
+			}
+			err = domains[i].UnlinkIdp(self.Id)
+			if err != nil {
+				return errors.Wrap(err, "domains[i].UnlinkIdp")
+			}
+			err = domains[i].Delete(ctx, userCred)
+			if err != nil {
+				db.OpsLog.LogEvent(&domains[i], db.ACT_DELETE_FAIL, err, userCred)
+				return errors.Wrap(err, "delete domain")
+			}
 		}
 	}
 	err = self.deleteConfigs(ctx, userCred)
@@ -660,7 +964,7 @@ func (self *SIdentityProvider) startDeleteIdentityProviderTask(ctx context.Conte
 	return nil
 }
 
-func (self *SIdentityProvider) GetSingleDomain(ctx context.Context, extId string, extName string, extDesc string) (*SDomain, error) {
+func (self *SIdentityProvider) GetSingleDomain(ctx context.Context, extId string, extName string, extDesc string, createDefaultProject bool) (*SDomain, error) {
 	if len(self.TargetDomainId) > 0 {
 		targetDomain, err := DomainManager.FetchDomainById(self.TargetDomainId)
 		if err != nil && err != sql.ErrNoRows {
@@ -672,10 +976,10 @@ func (self *SIdentityProvider) GetSingleDomain(ctx context.Context, extId string
 			return targetDomain, nil
 		}
 	}
-	return self.SyncOrCreateDomain(ctx, extId, extName, extDesc)
+	return self.SyncOrCreateDomain(ctx, extId, extName, extDesc, createDefaultProject)
 }
 
-func (self *SIdentityProvider) SyncOrCreateDomain(ctx context.Context, extId string, extName string, extDesc string) (*SDomain, error) {
+func (self *SIdentityProvider) SyncOrCreateDomain(ctx context.Context, extId string, extName string, extDesc string, createDefaultProject bool) (*SDomain, error) {
 	domainId, err := IdmappingManager.RegisterIdMap(ctx, self.Id, extId, api.IdMappingEntityDomain)
 	if err != nil {
 		return nil, errors.Wrap(err, "IdmappingManager.RegisterIdMap")
@@ -718,36 +1022,27 @@ func (self *SIdentityProvider) SyncOrCreateDomain(ctx context.Context, extId str
 	domain.IsDomain = tristate.True
 	domain.DomainId = api.KeystoneDomainRoot
 	domain.Description = fmt.Sprintf("domain for %s", extDesc)
-	err = DomainManager.TableSpec().Insert(domain)
+	err = DomainManager.TableSpec().Insert(ctx, domain)
 	if err != nil {
 		return nil, errors.Wrap(err, "insert")
 	}
 
-	if self.AutoCreateProject.IsTrue() && consts.GetNonDefaultDomainProjects() {
-		project := &SProject{}
-		project.SetModelManager(ProjectManager, project)
-		projectName := NormalizeProjectName(fmt.Sprintf("%s_default_project", extName))
-		newName, err := db.GenerateName(ProjectManager, nil, projectName)
+	if self.AutoCreateProject.IsTrue() && consts.GetNonDefaultDomainProjects() && createDefaultProject {
+		_, err := ProjectManager.NewProject(ctx,
+			fmt.Sprintf("%s_default_project", extName),
+			fmt.Sprintf("Default project for domain %s", extName),
+			domain.Id,
+		)
 		if err != nil {
-			// ignore the error
-			log.Errorf("db.GenerateName error %s for default domain project %s", err, projectName)
-			newName = projectName
-		}
-		project.Name = newName
-		project.DomainId = domain.Id
-		project.Description = fmt.Sprintf("Default project for domain %s", extName)
-		project.IsDomain = tristate.False
-		project.ParentId = domain.Id
-		err = ProjectManager.TableSpec().Insert(project)
-		if err != nil {
-			log.Errorf("ProjectManager.Insert fail %s", err)
+			log.Errorf("ProjectManager.NewProject fail %s", err)
 		}
 	}
 
 	return domain, nil
 }
 
-func (self *SIdentityProvider) SyncOrCreateUser(ctx context.Context, extId string, extName string, domainId string, syncUserInfo func(*SUser)) (*SUser, error) {
+func (self *SIdentityProvider) SyncOrCreateUser(ctx context.Context, extId string, extName string, domainId string, enableDefault bool, syncUserInfo func(*SUser)) (*SUser, error) {
+	log.Debugf("SyncOrCreateUser extId: %s extName: %s", extId, extName)
 	userId, err := IdmappingManager.RegisterIdMap(ctx, self.Id, extId, api.IdMappingEntityUser)
 	if err != nil {
 		return nil, errors.Wrap(err, "IdmappingManager.RegisterIdMap")
@@ -768,13 +1063,21 @@ func (self *SIdentityProvider) SyncOrCreateUser(ctx context.Context, extId strin
 	}
 	if err == nil {
 		// update
+		log.Debugf("find user %s", extName)
 		_, err := db.Update(user, func() error {
 			if syncUserInfo != nil {
 				syncUserInfo(user)
 			}
 			user.Name = extName
 			user.DomainId = domainId
-			user.MarkUnDelete()
+			if user.Deleted {
+				user.MarkUnDelete()
+				if enableDefault {
+					user.Enabled = tristate.True
+				} else {
+					user.Enabled = tristate.False
+				}
+			}
 			return nil
 		})
 		if err != nil {
@@ -784,10 +1087,15 @@ func (self *SIdentityProvider) SyncOrCreateUser(ctx context.Context, extId strin
 		if syncUserInfo != nil {
 			syncUserInfo(user)
 		}
+		if enableDefault {
+			user.Enabled = tristate.True
+		} else {
+			user.Enabled = tristate.False
+		}
 		user.Id = userId
 		user.Name = extName
 		user.DomainId = domainId
-		err = UserManager.TableSpec().Insert(user)
+		err = UserManager.TableSpec().Insert(ctx, user)
 		if err != nil {
 			return nil, errors.Wrap(err, "Insert")
 		}
@@ -806,4 +1114,370 @@ func (manager *SIdentityProviderManager) FetchIdentityProviderById(idstr string)
 func (manager *SIdentityProviderManager) FetchPasswordProtectedIdpIdsQuery() *sqlchemy.SSubQuery {
 	q := manager.Query("id").In("driver", api.PASSWORD_PROTECTED_IDPS)
 	return q.SubQuery()
+}
+
+func (manager *SIdentityProviderManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.IdentityProviderListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SDomainizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.DomainizedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDomainizedResourceBaseManager.ListItemFilter")
+	}
+	if len(query.Driver) > 0 {
+		q = q.In("driver", query.Driver)
+	}
+	if len(query.Template) > 0 {
+		q = q.In("template", query.Template)
+	}
+	if len(query.SyncStatus) > 0 {
+		q = q.In("sync_status", query.SyncStatus)
+	}
+	if len(query.SsoDomain) > 0 {
+		q = q.IsTrue("is_sso")
+		if strings.EqualFold(query.SsoDomain, "all") {
+			q = q.IsNullOrEmpty("domain_id")
+		} else if len(query.SsoDomain) > 0 {
+			q = q.Filter(sqlchemy.OR(
+				sqlchemy.IsNullOrEmpty(q.Field("domain_id")),
+				sqlchemy.Equals(q.Field("domain_id"), query.SsoDomain),
+			))
+			q = q.Filter(sqlchemy.OR(
+				sqlchemy.IsNullOrEmpty(q.Field("target_domain_id")),
+				sqlchemy.Equals(q.Field("target_domain_id"), query.SsoDomain),
+			))
+		}
+	}
+	if query.AutoCreateProject != nil {
+		if *query.AutoCreateProject {
+			q = q.IsTrue("auto_create_project")
+		} else {
+			q = q.IsFalse("auto_create_project")
+		}
+	}
+	if query.AutoCreateUser != nil {
+		if *query.AutoCreateUser {
+			q = q.IsTrue("auto_create_user")
+		} else {
+			q = q.IsFalse("auto_create_user")
+		}
+	}
+	return q, nil
+}
+
+func (manager *SIdentityProviderManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.IdentityProviderListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SDomainizedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.DomainizedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDomainizedResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SIdentityProviderManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SDomainizedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
+}
+
+func fetchAttribute(attrs map[string][]string, key string) string {
+	if v, ok := attrs[key]; ok && len(v) > 0 {
+		return v[0]
+	}
+	return ""
+}
+
+func fetchAttributes(attrs map[string][]string, key string) []string {
+	if v, ok := attrs[key]; ok && len(v) > 0 {
+		return v
+	}
+	return nil
+}
+
+func (idp *SIdentityProvider) TryUserJoinProject(attrConf api.SIdpAttributeOptions, ctx context.Context, usr *SUser, domainId string, attrs map[string][]string) {
+	if idp.AutoCreateUser.IsFalse() {
+		return
+	}
+	// update user attributes
+	_, err := db.Update(usr, func() error {
+		if v, ok := attrs[attrConf.UserDisplaynameAttribtue]; ok && len(v) > 0 && len(v[0]) > 0 && len(usr.Displayname) == 0 {
+			usr.Displayname = v[0]
+		}
+		if v, ok := attrs[attrConf.UserEmailAttribute]; ok && len(v) > 0 && len(v[0]) > 0 && len(usr.Email) == 0 {
+			usr.Email = v[0]
+		}
+		if v, ok := attrs[attrConf.UserMobileAttribute]; ok && len(v) > 0 && len(v[0]) > 0 && len(usr.Mobile) == 0 {
+			usr.Mobile = v[0]
+		}
+		return nil
+	})
+	if err != nil {
+		log.Errorf("update user attributes fail %s", err)
+	}
+
+	var targetProject *SProject
+	log.Debugf("userTryJoinProject resp %s proj %s", attrs, attrConf.ProjectAttribute)
+	if !consts.GetNonDefaultDomainProjects() {
+		// if non-default-domain-project is disabled, place new project in default domain
+		domainId = api.DEFAULT_DOMAIN_ID
+	}
+	if len(attrConf.ProjectAttribute) > 0 {
+		projName := fetchAttribute(attrs, attrConf.ProjectAttribute)
+		if len(projName) > 0 {
+			targetProject, err = ProjectManager.FetchProject("", projName, domainId, "")
+			if err != nil {
+				log.Errorf("fetch project %s fail %s", projName, err)
+				if errors.Cause(err) == sql.ErrNoRows && idp.AutoCreateProject.IsTrue() {
+					targetProject, err = ProjectManager.NewProject(ctx, projName, fmt.Sprintf("auto create project for idp %s", idp.Name), domainId)
+					if err != nil {
+						log.Errorf("auto create project %s fail %s", projName, err)
+					}
+				}
+			}
+		}
+	}
+	if targetProject == nil && len(attrConf.DefaultProjectId) > 0 {
+		targetProject, err = ProjectManager.FetchProjectById(attrConf.DefaultProjectId)
+		if err != nil {
+			log.Errorf("fetch default project %s fail %s", attrConf.DefaultProjectId, err)
+		}
+	}
+	if targetProject != nil {
+		// put user in project
+		targetRoles := make([]*SRole, 0)
+		if len(attrConf.RolesAttribute) > 0 {
+			roleNames := fetchAttributes(attrs, attrConf.RolesAttribute)
+			for _, roleName := range roleNames {
+				if len(roleName) > 0 {
+					targetRole, err := RoleManager.FetchRole("", roleName, domainId, "")
+					if err != nil {
+						log.Errorf("fetch role %s fail %s", roleName, err)
+					} else {
+						targetRoles = append(targetRoles, targetRole)
+					}
+				}
+			}
+		}
+		if len(targetRoles) == 0 && len(attrConf.DefaultRoleId) > 0 {
+			targetRole, err := RoleManager.FetchRoleById(attrConf.DefaultRoleId)
+			if err != nil {
+				log.Errorf("fetch default role %s fail %s", attrConf.DefaultRoleId, err)
+			} else {
+				targetRoles = append(targetRoles, targetRole)
+			}
+		}
+		for _, targetRole := range targetRoles {
+			err = AssignmentManager.ProjectAddUser(ctx, GetDefaultAdminCred(), targetProject, usr, targetRole)
+			if err != nil {
+				log.Errorf("CAS user %s join project %s with role %s fail %s", usr.Name, targetProject.Name, targetRole.Name, err)
+			}
+		}
+	}
+}
+
+func (idp *SIdentityProvider) AllowGetDetailsSamlMetadata(ctx context.Context, userCred mcclient.TokenCredential, query api.GetIdpSamlMetadataInput) bool {
+	return db.IsDomainAllowGetSpec(userCred, idp, "saml-metadata")
+}
+
+func (idp *SIdentityProvider) GetDetailsSamlMetadata(ctx context.Context, userCred mcclient.TokenCredential, query api.GetIdpSamlMetadataInput) (api.GetIdpSamlMetadataOutput, error) {
+	output := api.GetIdpSamlMetadataOutput{}
+	if !saml.IsSAMLEnabled() {
+		return output, errors.Wrap(httperrors.ErrNotSupported, "enable SSL first")
+	}
+	if idp.Driver != api.IdentityDriverSAML {
+		return output, errors.Wrap(httperrors.ErrNotSupported, "not a saml IDP")
+	}
+	if len(query.RedirectUri) == 0 {
+		return output, errors.Wrap(httperrors.ErrInputParameter, "missing redirect_uri")
+	}
+
+	spInst := sp.NewSpInstance(saml.SAMLInstance(), idp.Name, nil, nil)
+	spInst.SetAssertionConsumerUri(query.RedirectUri)
+	ed := spInst.GetMetadata()
+	var xmlBytes []byte
+	if query.Pretty != nil && *query.Pretty {
+		xmlBytes, _ = xml.MarshalIndent(ed, "", "  ")
+	} else {
+		xmlBytes, _ = xml.Marshal(ed)
+	}
+	output.Metadata = string(xmlBytes)
+	return output, nil
+}
+
+func (idp *SIdentityProvider) AllowGetDetailsSsoRedirectUri(ctx context.Context, userCred mcclient.TokenCredential, query api.GetIdpSsoRedirectUriInput) bool {
+	return db.IsDomainAllowGetSpec(userCred, idp, "sso-redirect-uri")
+}
+
+func (idp *SIdentityProvider) GetDetailsSsoRedirectUri(ctx context.Context, userCred mcclient.TokenCredential, query api.GetIdpSsoRedirectUriInput) (api.GetIdpSsoRedirectUriOutput, error) {
+	output := api.GetIdpSsoRedirectUriOutput{}
+	conf, err := GetConfigs(idp, true, nil, nil)
+	if err != nil {
+		return output, errors.Wrap(err, "idp.GetConfig")
+	}
+
+	backend, err := driver.GetDriver(idp.Driver, idp.Id, idp.Name, idp.Template, idp.TargetDomainId, conf)
+	if err != nil {
+		return output, errors.Wrap(err, "driver.GetDriver")
+	}
+
+	uri, err := backend.GetSsoRedirectUri(ctx, query.RedirectUri, query.State)
+	if err != nil {
+		return output, errors.Wrap(err, "backend.GetSsoRedirectUri")
+	}
+
+	output.Uri = uri
+	output.Driver = idp.Driver
+
+	return output, nil
+}
+
+func (idp *SIdentityProvider) SyncOrCreateDomainAndUser(ctx context.Context, extUsrId, extUsrName string) (*SDomain, *SUser, error) {
+	var (
+		domain *SDomain
+		usr    *SUser
+		err    error
+	)
+	if idp.AutoCreateUser.IsTrue() {
+		domain, err = idp.GetSingleDomain(ctx, api.DefaultRemoteDomainId, idp.Name, fmt.Sprintf("%s provider %s", idp.Driver, idp.Name), false)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "idp.GetSingleDomain")
+		}
+		usr, err = idp.SyncOrCreateUser(ctx, extUsrId, extUsrName, domain.Id, true, nil)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "idp.SyncOrCreateUser")
+		}
+	} else {
+		modelUsrId, err := IdmappingManager.FetchByIdpAndEntityId(ctx, idp.Id, extUsrId, api.IdMappingEntityUser)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, nil, errors.Wrap(httperrors.ErrUserNotFound, extUsrId)
+			} else {
+				return nil, nil, errors.Wrap(err, "IdmappingManager.FetchByIdpAndEntityId")
+			}
+		}
+		usrObj, err := UserManager.FetchById(modelUsrId)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "UserManager.FetchById")
+		}
+		usr = usrObj.(*SUser)
+		domain = usr.GetDomain()
+	}
+	return domain, usr, nil
+}
+
+func (manager *SIdentityProviderManager) FetchIdentityProvidersByUserId(uid string, drivers []string) ([]SIdentityProvider, error) {
+	idps := make([]SIdentityProvider, 0)
+	idmappings := IdmappingManager.Query().SubQuery()
+	q := manager.Query()
+	q = q.Join(idmappings, sqlchemy.Equals(q.Field("id"), idmappings.Field("domain_id")))
+	q = q.Filter(sqlchemy.Equals(idmappings.Field("entity_type"), api.IdMappingEntityUser))
+	q = q.Filter(sqlchemy.Equals(idmappings.Field("public_id"), uid))
+	if len(drivers) > 0 {
+		q = q.Filter(sqlchemy.In(q.Field("driver"), drivers))
+	}
+	err := db.FetchModelObjects(manager, q, &idps)
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	return idps, nil
+}
+
+func (manager *SIdentityProviderManager) CheckUniqueness(extIdpId string, domainId string, driver string, template string, group string, option string, value jsonutils.JSONObject) (bool, error) {
+	configs := WhitelistedConfigManager.Query().SubQuery()
+	q := manager.Query()
+	if len(group) > 0 {
+		q = q.Join(configs, sqlchemy.AND(
+			sqlchemy.Equals(configs.Field("res_type"), manager.Keyword()),
+			sqlchemy.Equals(configs.Field("domain_id"), q.Field("id")),
+		))
+	}
+	if len(domainId) == 0 {
+		q = q.IsNullOrEmpty("domain_id")
+	} else {
+		q = q.Equals("domain_id", domainId)
+	}
+	q = q.Equals("driver", driver)
+	if len(template) > 0 {
+		q = q.Equals("template", template)
+	}
+	if len(group) > 0 {
+		q = q.Filter(sqlchemy.Equals(configs.Field("group"), group))
+		if len(option) > 0 {
+			q = q.Filter(sqlchemy.Equals(configs.Field("option"), option))
+		}
+		if value != nil {
+			q = q.Filter(sqlchemy.Equals(configs.Field("value"), value.String()))
+		}
+	}
+	if len(extIdpId) > 0 {
+		q = q.Filter(sqlchemy.NotEquals(q.Field("id"), extIdpId))
+	}
+	cnt, err := q.CountWithError()
+	if err != nil {
+		return false, errors.Wrap(err, "CountWithError")
+	}
+	return cnt == 0, nil
+}
+
+func (idp *SIdentityProvider) PerformDisable(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.PerformDisableInput,
+) (jsonutils.JSONObject, error) {
+	if idp.Driver == api.IdentityDriverLDAP || idp.AutoCreateUser.IsTrue() {
+		domains, _ := idp.getLinkedDomains()
+		for i := range domains {
+			db.Update(&domains[i], func() error {
+				domains[i].Enabled = tristate.False
+				return nil
+			})
+		}
+	}
+	return idp.SEnabledStatusStandaloneResourceBase.PerformDisable(ctx, userCred, query, input)
+}
+
+func (idp *SIdentityProvider) PerformEnable(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.PerformEnableInput,
+) (jsonutils.JSONObject, error) {
+	if idp.Driver == api.IdentityDriverLDAP || idp.AutoCreateUser.IsTrue() {
+		domains, _ := idp.getLinkedDomains()
+		for i := range domains {
+			db.Update(&domains[i], func() error {
+				domains[i].Enabled = tristate.True
+				return nil
+			})
+		}
+	}
+	return idp.SEnabledStatusStandaloneResourceBase.PerformEnable(ctx, userCred, query, input)
 }

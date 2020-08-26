@@ -27,10 +27,10 @@ import (
 
 type BaseOptions struct {
 	Help       bool   `help:"Show help"`
-	Host       string `help:"Host IP or NAME" default:"$VMWARE_HOST"`
-	Port       int    `help:"Service port" default:"$VMWARE_PORT"`
-	Account    string `help:"VCenter or ESXi Account" default:"$VMWARE_ACCOUNT"`
-	Password   string `help:"Password" default:"$VMWARE_PASSWORD"`
+	Host       string `help:"Host IP or NAME" default:"$VMWARE_HOST" metavar:"VMWARE_HOST"`
+	Port       int    `help:"Service port" default:"$VMWARE_PORT" metavar:"VMWARE_PORT"`
+	Account    string `help:"VCenter or ESXi Account" default:"$VMWARE_ACCOUNT" metavar:"VMWARE_ACCOUNT"`
+	Password   string `help:"Password" default:"$VMWARE_PASSWORD" metavar:"VMWARE_PASSWORD"`
 	SUBCOMMAND string `help:"aliyuncli subcommand" subcommand:"true"`
 }
 
@@ -88,7 +88,14 @@ func newClient(options *BaseOptions) (*esxi.SESXiClient, error) {
 		return nil, fmt.Errorf("Missing password")
 	}
 
-	return esxi.NewESXiClient2("", "", options.Host, options.Port, options.Account, options.Password, false)
+	return esxi.NewESXiClient2(
+		esxi.NewESXiClientConfig(
+			options.Host,
+			options.Port,
+			options.Account,
+			options.Password,
+		),
+	)
 }
 
 func main() {

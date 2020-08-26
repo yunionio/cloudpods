@@ -35,11 +35,14 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rand"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SLoadbalancerBackendGroupManager struct {
 	SLoadbalancerLogSkipper
 	db.SVirtualResourceBaseManager
+	db.SExternalizedResourceBaseManager
+	SLoadbalancerResourceBaseManager
 }
 
 var LoadbalancerBackendGroupManager *SLoadbalancerBackendGroupManager
@@ -60,11 +63,11 @@ type SLoadbalancerBackendGroup struct {
 	db.SVirtualResourceBase
 	db.SExternalizedResourceBase
 
-	SManagedResourceBase
-	SCloudregionResourceBase
+	SLoadbalancerResourceBase `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
-	Type           string `width:"36" charset:"ascii" nullable:"false" list:"user" default:"normal" create:"optional"`
-	LoadbalancerId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	Type string `width:"36" charset:"ascii" nullable:"false" list:"user" default:"normal" create:"optional"`
+
+	//LoadbalancerId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 }
 
 func (man *SLoadbalancerBackendGroupManager) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
@@ -75,13 +78,30 @@ func (man *SLoadbalancerBackendGroupManager) pendingDeleteSubs(ctx context.Conte
 	}
 }
 
-func (man *SLoadbalancerBackendGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+// 负载均衡后端服务器组列表
+func (man *SLoadbalancerBackendGroupManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.LoadbalancerBackendGroupListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
+
+	q, err = man.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = man.SLoadbalancerResourceBaseManager.ListItemFilter(ctx, q, userCred, query.LoadbalancerFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SLoadbalancerResourceBaseManager.ListItemFilter")
+	}
+
 	// userProjId := userCred.GetProjectId()
-	data := query.(*jsonutils.JSONDict)
+	/*data := jsonutils.Marshal(query).(*jsonutils.JSONDict)
 	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
 		{Key: "loadbalancer", ModelKeyword: "loadbalancer", OwnerId: userCred},
 		{Key: "cloudregion", ModelKeyword: "cloudregion", OwnerId: userCred},
@@ -89,16 +109,65 @@ func (man *SLoadbalancerBackendGroupManager) ListItemFilter(ctx context.Context,
 	})
 	if err != nil {
 		return nil, err
-	}
+	}*/
 
-	if noRef, _ := data.Bool("no_ref"); noRef {
+	if query.NoRef != nil && *query.NoRef {
 		q, err = man.FilterZeroRefBackendGroup(q)
 		if err != nil {
 			log.Errorf("SLoadbalancerBackendGroupManager ListItemFilter %s", err)
 			return nil, httperrors.NewInternalServerError("query backend group releated resource failed.")
 		}
 	}
+
+	if len(query.Type) > 0 {
+		q = q.In("type", query.Type)
+	}
+
 	return q, nil
+}
+
+func (man *SLoadbalancerBackendGroupManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.LoadbalancerBackendGroupListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = man.SLoadbalancerResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.LoadbalancerFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SLoadbalancerResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (man *SLoadbalancerBackendGroupManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = man.SLoadbalancerResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
+}
+
+func (man *SLoadbalancerBackendGroupManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	lbV := validators.NewModelIdOrNameValidator("loadbalancer", "loadbalancer", nil)
+	err := lbV.Validate(data.(*jsonutils.JSONDict))
+	if err == nil {
+		return lbV.Model.GetOwnerId(), nil
+	}
+	return man.SVirtualResourceBaseManager.FetchOwnerId(ctx, data)
 }
 
 func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -119,10 +188,12 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 	}
 	data.Update(jsonutils.Marshal(input))
 
-	lb := lbV.Model.(*SLoadbalancer)
-	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
-	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
-	backends := []cloudprovider.SLoadbalancerBackend{}
+	var (
+		lb          = lbV.Model.(*SLoadbalancer)
+		lbRegion    = lb.GetRegion()
+		lbIsManaged = lb.IsManaged()
+		backends    = []cloudprovider.SLoadbalancerBackend{}
+	)
 	if data.Contains("backends") {
 		if err := data.Unmarshal(&backends, "backends"); err != nil {
 			return nil, err
@@ -140,6 +211,8 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 			if len(backends[i].ID) == 0 {
 				return nil, httperrors.NewMissingParameterError("Missing backend id")
 			}
+
+			var backendRegion *SCloudregion
 
 			switch backends[i].BackendType {
 			case api.LB_BACKEND_GUEST:
@@ -166,6 +239,7 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 					return nil, err
 				}
 				backends[i].Address = address
+				backendRegion = host.GetRegion()
 			case api.LB_BACKEND_HOST:
 				if !db.IsAdminAllowCreate(userCred, man) {
 					return nil, httperrors.NewForbiddenError("only sysadmin can specify host as backend")
@@ -182,8 +256,12 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 				backends[i].Name = host.Name
 				backends[i].ExternalID = host.ExternalId
 				backends[i].Address = host.AccessIp
+				backendRegion = host.GetRegion()
 			default:
 				return nil, httperrors.NewInputParameterError("unexpected backend type %s", backends[i].BackendType)
+			}
+			if lbIsManaged && backendRegion.Id != lbRegion.Id {
+				return nil, httperrors.NewInputParameterError("region of backend %d does not match that of lb's", i)
 			}
 		}
 	}
@@ -385,27 +463,36 @@ func (lbbg *SLoadbalancerBackendGroup) ValidatePurgeCondition(ctx context.Contex
 	return nil
 }
 
-func (lbbg *SLoadbalancerBackendGroup) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := lbbg.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	{
-		lb, err := LoadbalancerManager.FetchById(lbbg.LoadbalancerId)
-		if err != nil {
-			log.Errorf("loadbalancer backend group %s(%s): fetch loadbalancer (%s) error: %s",
-				lbbg.Name, lbbg.Id, lbbg.LoadbalancerId, err)
-		} else {
-			extra.Set("loadbalancer", jsonutils.NewString(lb.GetName()))
-		}
-	}
-	regionInfo := lbbg.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if regionInfo != nil {
-		extra.Update(regionInfo)
-	}
-	return extra
+func (lbbg *SLoadbalancerBackendGroup) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.LoadbalancerBackendGroupDetails, error) {
+	return api.LoadbalancerBackendGroupDetails{}, nil
 }
 
-func (lbbg *SLoadbalancerBackendGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra := lbbg.GetCustomizeColumns(ctx, userCred, query)
-	return extra, nil
+func (man *SLoadbalancerBackendGroupManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.LoadbalancerBackendGroupDetails {
+	rows := make([]api.LoadbalancerBackendGroupDetails, len(objs))
+
+	virtRows := man.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	lbRows := man.SLoadbalancerResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.LoadbalancerBackendGroupDetails{
+			VirtualResourceDetails:   virtRows[i],
+			LoadbalancerResourceInfo: lbRows[i],
+		}
+	}
+
+	return rows
 }
 
 func (lbbg *SLoadbalancerBackendGroup) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -441,6 +528,15 @@ func (lbbg *SLoadbalancerBackendGroup) StartHuaweiLoadBalancerBackendGroupCreate
 
 func (lbbg *SLoadbalancerBackendGroup) StartAwsLoadBalancerBackendGroupCreateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "AwsLoadbalancerLoadbalancerBackendGroupCreateTask", lbbg, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (lbbg *SLoadbalancerBackendGroup) StartOpenstackLoadBalancerBackendGroupCreateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "OpenstackLoadbalancerLoadbalancerBackendGroupCreateTask", lbbg, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}
@@ -607,6 +703,17 @@ func (lbbg *SLoadbalancerBackendGroup) GetHuaweiCachedlbbg() ([]SHuaweiCachedLbb
 	return ret, nil
 }
 
+func (lbbg *SLoadbalancerBackendGroup) GetQcloudCachedlbbg() ([]SQcloudCachedLbbg, error) {
+	ret := []SQcloudCachedLbbg{}
+	q := QcloudCachedLbbgManager.Query().Equals("backend_group_id", lbbg.GetId())
+	err := db.FetchModelObjects(QcloudCachedLbbgManager, q, &ret)
+	if err != nil {
+		return nil, errors.Wrap(err, "loadbalancerBackendGroup.GetQcloudCachedlbbg")
+	}
+
+	return ret, nil
+}
+
 func (lbbg *SLoadbalancerBackendGroup) GetAwsBackendGroupParams(lblis *SLoadbalancerListener, lbr *SLoadbalancerListenerRule) (*cloudprovider.SLoadbalancerBackendGroup, error) {
 	ret, err := lbbg.GetBackendGroupParams()
 	if err != nil {
@@ -643,6 +750,67 @@ func (lbbg *SLoadbalancerBackendGroup) GetAwsBackendGroupParams(lblis *SLoadbala
 	ret.Scheduler = lblis.Scheduler
 	ret.HealthCheck = healthCheck
 	ret.Name = fmt.Sprintf("%s-%s", ret.Name, rand.String(4))
+
+	return ret, nil
+}
+
+func (lbbg *SLoadbalancerBackendGroup) GetQcloudBackendGroupParams(lblis *SLoadbalancerListener, lbr *SLoadbalancerListenerRule) (*cloudprovider.SLoadbalancerBackendGroup, error) {
+	ret, err := lbbg.GetBackendGroupParams()
+	if err != nil {
+		return ret, err
+	}
+
+	if lbr != nil {
+		ret.ListenerID = lbr.GetExternalId()
+	} else {
+		ret.ListenerID = lblis.GetExternalId()
+	}
+
+	return ret, nil
+}
+
+func (lbbg *SLoadbalancerBackendGroup) GetOpenstackBackendGroupParams(lblis *SLoadbalancerListener, lbr *SLoadbalancerListenerRule) (*cloudprovider.SLoadbalancerBackendGroup, error) {
+	ret, err := lbbg.GetBackendGroupParams()
+	if err != nil {
+		return nil, errors.Wrap(err, "lbbg.GetBackendGroupParams()")
+	}
+
+	var stickySession *cloudprovider.SLoadbalancerStickySession
+	if lblis.StickySession == api.LB_BOOL_ON {
+		stickySession = &cloudprovider.SLoadbalancerStickySession{
+			StickySession:              lblis.StickySession,
+			StickySessionCookie:        lblis.StickySessionCookie,
+			StickySessionType:          lblis.StickySessionType,
+			StickySessionCookieTimeout: lblis.StickySessionCookieTimeout,
+		}
+	}
+
+	var healthCheck *cloudprovider.SLoadbalancerHealthCheck
+	if lblis.HealthCheck == api.LB_BOOL_ON {
+		healthCheck = &cloudprovider.SLoadbalancerHealthCheck{
+			HealthCheckType:     lblis.HealthCheckType,
+			HealthCheckReq:      lblis.HealthCheckReq,
+			HealthCheckExp:      lblis.HealthCheckExp,
+			HealthCheck:         lblis.HealthCheck,
+			HealthCheckTimeout:  lblis.HealthCheckTimeout,
+			HealthCheckDomain:   lblis.HealthCheckDomain,
+			HealthCheckHttpCode: lblis.HealthCheckHttpCode,
+			HealthCheckURI:      lblis.HealthCheckURI,
+			HealthCheckInterval: lblis.HealthCheckInterval,
+			HealthCheckRise:     lblis.HealthCheckRise,
+			HealthCheckFail:     lblis.HealthCheckFall,
+		}
+	}
+
+	if lbr != nil {
+		ret.ListenerID = lbr.GetExternalId()
+	} else {
+		ret.ListenerID = lblis.GetExternalId()
+	}
+	ret.ListenType = lblis.ListenerType
+	ret.Scheduler = lblis.Scheduler
+	ret.StickySession = stickySession
+	ret.HealthCheck = healthCheck
 
 	return ret, nil
 }
@@ -762,7 +930,7 @@ func (man *SLoadbalancerBackendGroupManager) SyncLoadbalancerBackendgroups(ctx c
 		}
 	}
 	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].SyncWithCloudLoadbalancerBackendgroup(ctx, userCred, lb, commonext[i], provider.GetOwnerId())
+		err = commondb[i].SyncWithCloudLoadbalancerBackendgroup(ctx, userCred, lb, commonext[i], provider.GetOwnerId(), provider)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -773,7 +941,7 @@ func (man *SLoadbalancerBackendGroupManager) SyncLoadbalancerBackendgroups(ctx c
 		}
 	}
 	for i := 0; i < len(added); i++ {
-		new, err := man.newFromCloudLoadbalancerBackendgroup(ctx, userCred, lb, added[i], syncOwnerId)
+		new, err := man.newFromCloudLoadbalancerBackendgroup(ctx, userCred, lb, added[i], syncOwnerId, provider)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -809,7 +977,14 @@ func (lbbg *SLoadbalancerBackendGroup) syncRemoveCloudLoadbalancerBackendgroup(c
 	return err
 }
 
-func (lbbg *SLoadbalancerBackendGroup) SyncWithCloudLoadbalancerBackendgroup(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup, syncOwnerId mcclient.IIdentityProvider) error {
+func (lbbg *SLoadbalancerBackendGroup) SyncWithCloudLoadbalancerBackendgroup(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	lb *SLoadbalancer,
+	extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup,
+	syncOwnerId mcclient.IIdentityProvider,
+	provider *SCloudprovider,
+) error {
 	diff, err := db.UpdateWithLock(ctx, lbbg, func() error {
 		lbbg.Type = extLoadbalancerBackendgroup.GetType()
 		lbbg.Status = extLoadbalancerBackendgroup.GetStatus()
@@ -820,7 +995,7 @@ func (lbbg *SLoadbalancerBackendGroup) SyncWithCloudLoadbalancerBackendgroup(ctx
 	}
 	db.OpsLog.LogSyncUpdate(lbbg, diff, userCred)
 
-	SyncCloudProject(userCred, lbbg, syncOwnerId, extLoadbalancerBackendgroup, lb.ManagerId)
+	SyncCloudProject(userCred, lbbg, syncOwnerId, extLoadbalancerBackendgroup, provider.Id)
 
 	if extLoadbalancerBackendgroup.IsDefault() {
 		diff, err := db.UpdateWithLock(ctx, lb, func() error {
@@ -837,15 +1012,22 @@ func (lbbg *SLoadbalancerBackendGroup) SyncWithCloudLoadbalancerBackendgroup(ctx
 	return err
 }
 
-func (man *SLoadbalancerBackendGroupManager) newFromCloudLoadbalancerBackendgroup(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup, syncOwnerId mcclient.IIdentityProvider) (*SLoadbalancerBackendGroup, error) {
+func (man *SLoadbalancerBackendGroupManager) newFromCloudLoadbalancerBackendgroup(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	lb *SLoadbalancer,
+	extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup,
+	syncOwnerId mcclient.IIdentityProvider,
+	provider *SCloudprovider,
+) (*SLoadbalancerBackendGroup, error) {
 	lbbg := &SLoadbalancerBackendGroup{}
 	lbbg.SetModelManager(man, lbbg)
 
 	lbbg.LoadbalancerId = lb.Id
 	lbbg.ExternalId = extLoadbalancerBackendgroup.GetGlobalId()
 
-	lbbg.CloudregionId = lb.CloudregionId
-	lbbg.ManagerId = lb.ManagerId
+	// lbbg.CloudregionId = lb.CloudregionId
+	// lbbg.ManagerId = lb.ManagerId
 
 	/*lbbg.constructFieldsFromCloudBackendgroup(lb, extLoadbalancerBackendgroup)
 	if lbbg.GetProviderName() != CLOUD_PROVIDER_QCLOUD || len(lbbg.Name) == 0 {
@@ -861,12 +1043,12 @@ func (man *SLoadbalancerBackendGroupManager) newFromCloudLoadbalancerBackendgrou
 
 	lbbg.Type = extLoadbalancerBackendgroup.GetType()
 	lbbg.Status = extLoadbalancerBackendgroup.GetStatus()
-	err = man.TableSpec().Insert(lbbg)
+	err = man.TableSpec().Insert(ctx, lbbg)
 	if err != nil {
 		return nil, err
 	}
 
-	SyncCloudProject(userCred, lbbg, syncOwnerId, extLoadbalancerBackendgroup, lb.ManagerId)
+	SyncCloudProject(userCred, lbbg, syncOwnerId, extLoadbalancerBackendgroup, provider.Id)
 
 	db.OpsLog.LogEvent(lbbg, db.ACT_CREATE, lbbg.GetShortDesc(ctx), userCred)
 
@@ -903,12 +1085,29 @@ func (man *SLoadbalancerBackendGroupManager) initBackendGroupType() error {
 }
 
 func (man *SLoadbalancerBackendGroupManager) InitializeData() error {
-	if err := man.initBackendGroupType(); err != nil {
-		return err
+	q := man.Query().IsNullOrEmpty("loadbalancer_id")
+	lbbgs := make([]SLoadbalancerBackendGroup, 0)
+	err := db.FetchModelObjects(man, q, &lbbgs)
+	if err != nil {
+		return errors.Wrap(err, "SLoadbalancerBackendGroupManager.InitializeData")
 	}
-	return man.initBackendGroupRegion()
+
+	for i := range lbbgs {
+		lbbg := lbbgs[i]
+		_, err = db.UpdateWithLock(context.Background(), &lbbg, func() error {
+			lbbg.MarkDelete()
+			return nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "SLoadbalancerBackendGroupManager.InitializeData.MarkDelete")
+		}
+	}
+
+	log.Debugf("SLoadbalancerBackendGroupManager.InitializeData removed %d invalid loadbalancer backendgroup.", len(lbbgs))
+	return nil
 }
 
+/*
 func (manager *SLoadbalancerBackendGroupManager) initBackendGroupRegion() error {
 	groups := []SLoadbalancerBackendGroup{}
 	q := manager.Query()
@@ -930,9 +1129,31 @@ func (manager *SLoadbalancerBackendGroupManager) initBackendGroupRegion() error 
 		}
 	}
 	return nil
+}*/
+
+func (manager *SLoadbalancerBackendGroupManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
+	virts := manager.Query().IsFalse("pending_deleted")
+	return db.CalculateResourceCount(virts, "tenant_id")
 }
 
-func (manager *SLoadbalancerBackendGroupManager) GetResourceCount() ([]db.SProjectResourceCount, error) {
-	virts := manager.Query().IsFalse("pending_deleted")
-	return db.CalculateProjectResourceCount(virts)
+func (manager *SLoadbalancerBackendGroupManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemExportKeys")
+	}
+
+	if keys.ContainsAny(manager.SLoadbalancerResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SLoadbalancerResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SLoadbalancerResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	return q, nil
 }

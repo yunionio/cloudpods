@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/sqlchemy"
@@ -27,12 +28,16 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SLoadbalancernetworkManager struct {
 	db.SVirtualJointResourceBaseManager
+	SLoadbalancerResourceBaseManager
+	SNetworkResourceBaseManager
 }
 
 var LoadbalancernetworkManager *SLoadbalancernetworkManager
@@ -56,9 +61,9 @@ func init() {
 type SLoadbalancerNetwork struct {
 	db.SVirtualJointResourceBase
 
-	LoadbalancerId string `width:"36" charset:"ascii" nullable:"false" list:"admin"`
-	NetworkId      string `width:"36" charset:"ascii" nullable:"false" list:"admin"`
-	IpAddr         string `width:"16" charset:"ascii" list:"admin"`
+	LoadbalancerId string `width:"36" charset:"ascii" nullable:"false" list:"user"`
+	NetworkId      string `width:"36" charset:"ascii" nullable:"false" list:"user"`
+	IpAddr         string `width:"16" charset:"ascii" list:"user"`
 }
 
 func (manager *SLoadbalancernetworkManager) GetMasterFieldName() string {
@@ -116,7 +121,7 @@ func (m *SLoadbalancernetworkManager) NewLoadbalancerNetwork(ctx context.Context
 		return nil, err
 	}
 	ln.IpAddr = ipAddr
-	err = m.TableSpec().Insert(ln)
+	err = m.TableSpec().Insert(ctx, ln)
 	if err != nil {
 		// NOTE no need to free ipAddr as GetFreeIP has no side effect
 		return nil, err
@@ -152,7 +157,7 @@ func (m *SLoadbalancernetworkManager) DeleteLoadbalancerNetwork(ctx context.Cont
 }
 
 func (m *SLoadbalancernetworkManager) syncLoadbalancerNetwork(ctx context.Context, userCred mcclient.TokenCredential, req *SLoadbalancerNetworkRequestData) error {
-	_network, err := db.FetchByExternalId(NetworkManager, req.NetworkId)
+	_network, err := db.FetchById(NetworkManager, req.NetworkId)
 	if err != nil {
 		return err
 	}
@@ -174,7 +179,7 @@ func (m *SLoadbalancernetworkManager) syncLoadbalancerNetwork(ctx context.Contex
 	}
 	if len(lns) == 0 {
 		ln := &SLoadbalancerNetwork{LoadbalancerId: req.Loadbalancer.Id, NetworkId: req.NetworkId, IpAddr: req.Address}
-		return m.TableSpec().Insert(ln)
+		return m.TableSpec().Insert(ctx, ln)
 	}
 	for i := 0; i < len(lns); i++ {
 		if i == 0 {
@@ -198,24 +203,64 @@ func (ln *SLoadbalancerNetwork) Delete(ctx context.Context, userCred mcclient.To
 	return db.DeleteModel(ctx, userCred, ln)
 }
 
-// Master implements db.IJointModel interface
-func (ln *SLoadbalancerNetwork) Master() db.IStandaloneModel {
-	return db.JointMaster(ln)
-}
-
-// Slave implements db.IJointModel interface
-func (ln *SLoadbalancerNetwork) Slave() db.IStandaloneModel {
-	return db.JointSlave(ln)
-}
-
 // Detach implements db.IJointModel interface
 func (ln *SLoadbalancerNetwork) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return db.DetachJoint(ctx, userCred, ln)
 }
 
-func (ln *SLoadbalancerNetwork) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := jsonutils.NewDict()
-	return db.JointModelExtra(ln, extra)
+func (ln *SLoadbalancerNetwork) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.LoadbalancernetworkDetails, error) {
+	return api.LoadbalancernetworkDetails{}, nil
+}
+
+func (manager *SLoadbalancernetworkManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.LoadbalancernetworkDetails {
+	rows := make([]api.LoadbalancernetworkDetails, len(objs))
+
+	jointRows := manager.SVirtualJointResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	lbIds := make([]string, len(rows))
+	netIds := make([]string, len(rows))
+
+	for i := range rows {
+		rows[i] = api.LoadbalancernetworkDetails{
+			VirtualJointResourceBaseDetails: jointRows[i],
+		}
+		lbIds[i] = objs[i].(*SLoadbalancerNetwork).LoadbalancerId
+		netIds[i] = objs[i].(*SLoadbalancerNetwork).NetworkId
+	}
+
+	lbIdMaps, err := db.FetchIdNameMap2(LoadbalancerManager, lbIds)
+	if err != nil {
+		log.Errorf("db.FetchIdNameMap2 for lbIds fail %s", err)
+		return rows
+	}
+	netIdMaps, err := db.FetchIdNameMap2(NetworkManager, netIds)
+	if err != nil {
+		log.Errorf("db.FetchIdNameMap2 for netIds fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if name, ok := lbIdMaps[lbIds[i]]; ok {
+			rows[i].Loadbalancer = name
+		}
+		if name, ok := netIdMaps[netIds[i]]; ok {
+			rows[i].Network = name
+		}
+	}
+
+	return rows
 }
 
 func totalLBNicCount(
@@ -238,7 +283,107 @@ func totalLBNicCount(
 	case rbacutils.ScopeProject:
 		q = q.Filter(sqlchemy.Equals(lbs.Field("tenant_id"), ownerId.GetProjectId()))
 	}
-	q = rangeObjectsFilter(q, rangeObjs, nil, lbs.Field("zone_id"), lbs.Field("manager_id"))
+	q = RangeObjectsFilter(q, rangeObjs, nil, lbs.Field("zone_id"), lbs.Field("manager_id"), nil, nil)
 	q = CloudProviderFilter(q, lbs.Field("manager_id"), providers, brands, cloudEnv)
 	return q.CountWithError()
+}
+
+func (manager *SLoadbalancernetworkManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.LoadbalancernetworkListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualJointResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualJointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualJointResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SLoadbalancerResourceBaseManager.ListItemFilter(ctx, q, userCred, query.LoadbalancerFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SLoadbalancerResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SNetworkResourceBaseManager.ListItemFilter(ctx, q, userCred, query.NetworkFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.ListItemFilter")
+	}
+
+	if len(query.IpAddr) > 0 {
+		q = q.In("ip_addr", query.IpAddr)
+	}
+
+	return q, nil
+}
+
+func (manager *SLoadbalancernetworkManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.LoadbalancernetworkListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualJointResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualJointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualJointResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SLoadbalancerResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.LoadbalancerFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SLoadbalancerResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SNetworkResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.NetworkFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SLoadbalancernetworkManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualJointResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SLoadbalancerResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SNetworkResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SLoadbalancernetworkManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualJointResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualJointResourceBaseManager.ListItemExportKeys")
+	}
+
+	if keys.ContainsAny(manager.SLoadbalancerResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SLoadbalancerResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SLoadbalancerResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	if keys.ContainsAny(manager.SNetworkResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SNetworkResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SNetworkResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	return q, nil
 }

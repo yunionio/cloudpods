@@ -37,18 +37,18 @@ func init() {
 	modules.Register(Charts)
 }
 
-func (m ChartManager) GetRepoWithName(obj jsonutils.JSONObject) interface{} {
+func (m ChartManager) Get_RepoWithName(obj jsonutils.JSONObject) interface{} {
 	repo, _ := obj.GetString("repo")
 	name, _ := obj.GetString("chart", "name")
 	return fmt.Sprintf("%s/%s", repo, name)
 }
 
-func (m ChartManager) GetVersion(obj jsonutils.JSONObject) interface{} {
+func (m ChartManager) Get_Version(obj jsonutils.JSONObject) interface{} {
 	version, _ := obj.GetString("chart", "version")
 	return version
 }
 
-func (m ChartManager) GetDescription(obj jsonutils.JSONObject) interface{} {
+func (m ChartManager) Get_Description(obj jsonutils.JSONObject) interface{} {
 	desc, _ := obj.GetString("chart", "description")
 	return desc
 }

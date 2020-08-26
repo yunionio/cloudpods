@@ -87,16 +87,13 @@ func (self *SVpc) fetchNetworks() error {
 
 // 华为云安全组可以被同region的VPC使用
 func (self *SVpc) fetchSecurityGroups() error {
-	// todo： vpc 和 安全组的关联关系还需要进一步确认。
 	secgroups, err := self.region.GetSecurityGroups("", "")
 	if err != nil {
 		return err
 	}
 
 	self.secgroups = make([]cloudprovider.ICloudSecurityGroup, len(secgroups))
-	// 这里已经填充了vpc。 所以是不是不需要在GetSecurityGroups方法中填充vpc和region了？
 	for i := 0; i < len(secgroups); i++ {
-		secgroups[i].vpc = self
 		self.secgroups[i] = &secgroups[i]
 	}
 	return nil
@@ -206,7 +203,7 @@ func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) 
 }
 
 func (self *SVpc) GetINatGateways() ([]cloudprovider.ICloudNatGateway, error) {
-	nats, err := self.region.GetNatGateways(self.GetId())
+	nats, err := self.region.GetNatGateways(self.GetId(), "")
 	if err != nil {
 		return nil, err
 	}
@@ -228,6 +225,18 @@ func (self *SRegion) getVpc(vpcId string) (*SVpc, error) {
 }
 
 func (self *SRegion) DeleteVpc(vpcId string) error {
+	if vpcId != "default" {
+		secgroups, err := self.GetSecurityGroups(vpcId, "")
+		if err != nil {
+			return errors.Wrap(err, "GetSecurityGroups")
+		}
+		for _, secgroup := range secgroups {
+			err = self.DeleteSecurityGroup(secgroup.ID)
+			if err != nil {
+				return errors.Wrapf(err, "DeleteSecurityGroup(%s)", secgroup.ID)
+			}
+		}
+	}
 	return DoDelete(self.ecsClient.Vpcs.Delete, vpcId, nil, nil)
 }
 

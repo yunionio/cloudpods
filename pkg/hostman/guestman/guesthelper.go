@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
+	"yunion.io/x/onecloud/pkg/multicloud/esxi/vcenter"
 )
 
 type SBaseParms struct {
@@ -37,14 +38,15 @@ type SSrcPrepareMigrate struct {
 }
 
 type SDestPrepareMigrate struct {
-	Sid             string
-	ServerUrl       string
-	QemuVersion     string
-	SnapshotsUri    string
-	DisksUri        string
-	TargetStorageId string
-	LiveMigrate     bool
-	RebaseDisks     bool
+	Sid          string
+	ServerUrl    string
+	QemuVersion  string
+	SnapshotsUri string
+	DisksUri     string
+	// TargetStorageId string
+	TargetStorageIds []string
+	LiveMigrate      bool
+	RebaseDisks      bool
 
 	Desc             jsonutils.JSONObject
 	DisksBackingFile jsonutils.JSONObject
@@ -110,4 +112,16 @@ type SGuestIoThrottle struct {
 	Sid  string
 	BPS  int64
 	IOPS int64
+}
+
+type SGuestCreateFromEsxi struct {
+	Sid            string
+	GuestDesc      *jsonutils.JSONDict
+	EsxiAccessInfo SEsxiAccessInfo
+}
+
+type SEsxiAccessInfo struct {
+	Datastore  vcenter.SVCenterAccessInfo
+	HostIp     string
+	GuestExtId string
 }

@@ -21,6 +21,7 @@ import (
 	"crypto/sha512"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -46,18 +47,41 @@ var (
 	SkipEsxi bool = true
 )
 
-type SZStackClient struct {
-	providerID   string
-	providerName string
-	username     string
-	password     string
-	authURL      string
+type ZstackClientConfig struct {
+	cpcfg cloudprovider.ProviderConfig
 
-	sessionID string
-
-	iregions []cloudprovider.ICloudRegion
+	authURL  string
+	username string
+	password string
 
 	debug bool
+}
+
+func NewZstackClientConfig(authURL, username, password string) *ZstackClientConfig {
+	cfg := &ZstackClientConfig{
+		authURL:  strings.TrimSuffix(authURL, "/"),
+		username: username,
+		password: password,
+	}
+	return cfg
+}
+
+func (cfg *ZstackClientConfig) CloudproviderConfig(cpcfg cloudprovider.ProviderConfig) *ZstackClientConfig {
+	cfg.cpcfg = cpcfg
+	return cfg
+}
+
+func (cfg *ZstackClientConfig) Debug(debug bool) *ZstackClientConfig {
+	cfg.debug = debug
+	return cfg
+}
+
+type SZStackClient struct {
+	*ZstackClientConfig
+
+	httpClient *http.Client
+
+	iregions []cloudprovider.ICloudRegion
 }
 
 func getTime() string {
@@ -78,14 +102,11 @@ func getSignUrl(uri string) (string, error) {
 	return strings.TrimPrefix(u.Path, "/zstack"), nil
 }
 
-func NewZStackClient(providerID string, providerName string, authURL string, username string, password string, isDebug bool) (*SZStackClient, error) {
+func NewZStackClient(cfg *ZstackClientConfig) (*SZStackClient, error) {
+	httpClient := cfg.cpcfg.HttpClient()
 	cli := &SZStackClient{
-		providerID:   providerID,
-		providerName: providerName,
-		authURL:      authURL,
-		username:     username,
-		password:     password,
-		debug:        isDebug,
+		ZstackClientConfig: cfg,
+		httpClient:         httpClient,
 	}
 	if err := cli.connect(); err != nil {
 		return nil, err
@@ -95,13 +116,13 @@ func NewZStackClient(providerID string, providerName string, authURL string, use
 }
 
 func (cli *SZStackClient) GetCloudRegionExternalIdPrefix() string {
-	return fmt.Sprintf("%s/%s", CLOUD_PROVIDER_ZSTACK, cli.providerID)
+	return fmt.Sprintf("%s/%s", CLOUD_PROVIDER_ZSTACK, cli.cpcfg.Id)
 }
 
 func (cli *SZStackClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	subAccount := cloudprovider.SSubAccount{
 		Account:      cli.username,
-		Name:         cli.providerName,
+		Name:         cli.cpcfg.Name,
 		HealthStatus: api.CLOUD_PROVIDER_HEALTH_NORMAL,
 	}
 	return []cloudprovider.SSubAccount{subAccount}, nil
@@ -134,7 +155,6 @@ func (cli *SZStackClient) testAccessKey() error {
 }
 
 func (cli *SZStackClient) connect() error {
-	client := httputils.GetDefaultClient()
 	header := http.Header{}
 	header.Add("Content-Type", "application/json")
 	authURL := cli.authURL + "/zstack/v1/accounts/login"
@@ -144,7 +164,7 @@ func (cli *SZStackClient) connect() error {
 			"password":    fmt.Sprintf("%x", sha512.Sum512([]byte(cli.password))),
 		},
 	})
-	_, _, err := httputils.JSONRequest(client, context.Background(), "PUT", authURL, header, body, cli.debug)
+	_, _, err := httputils.JSONRequest(cli.httpClient, context.Background(), "PUT", authURL, header, body, cli.debug)
 	if err != nil {
 		err = cli.testAccessKey()
 		if err == nil {
@@ -177,10 +197,6 @@ func (cli *SZStackClient) listAll(resource string, params url.Values, retVal int
 }
 
 func (cli *SZStackClient) sign(uri, method string, header http.Header) error {
-	if len(cli.sessionID) > 0 {
-		header.Set("Authorization", "OAuth "+cli.sessionID)
-		return nil
-	}
 	url, err := getSignUrl(uri)
 	if err != nil {
 		return errors.Wrap(err, "sign.getSignUrl")
@@ -194,7 +210,6 @@ func (cli *SZStackClient) sign(uri, method string, header http.Header) error {
 }
 
 func (cli *SZStackClient) _list(resource string, start int, limit int, params url.Values) (jsonutils.JSONObject, error) {
-	client := httputils.GetDefaultClient()
 	header := http.Header{}
 	if params == nil {
 		params = url.Values{}
@@ -210,7 +225,7 @@ func (cli *SZStackClient) _list(resource string, start int, limit int, params ur
 	if err != nil {
 		return nil, err
 	}
-	_, resp, err := httputils.JSONRequest(client, context.Background(), "GET", requestURL, header, nil, cli.debug)
+	_, resp, err := httputils.JSONRequest(cli.httpClient, context.Background(), "GET", requestURL, header, nil, cli.debug)
 	if err != nil {
 		return nil, errors.Wrapf(err, fmt.Sprintf("GET %s params: %s", resource, params))
 	}
@@ -234,20 +249,19 @@ func (cli *SZStackClient) delete(resource, resourceId, deleteMode string) error 
 }
 
 func (cli *SZStackClient) _delete(resource, resourceId, deleteMode string) (jsonutils.JSONObject, error) {
-	client := httputils.GetDefaultClient()
 	header := http.Header{}
 	requestURL := cli.getDeleteURL(resource, resourceId, deleteMode)
 	err := cli.sign(requestURL, "DELETE", header)
 	if err != nil {
 		return nil, err
 	}
-	_, resp, err := httputils.JSONRequest(client, context.Background(), "DELETE", requestURL, header, nil, cli.debug)
+	_, resp, err := httputils.JSONRequest(cli.httpClient, context.Background(), "DELETE", requestURL, header, nil, cli.debug)
 	if err != nil {
 		return nil, errors.Wrapf(err, fmt.Sprintf("DELETE %s %s %s", resource, resourceId, deleteMode))
 	}
 	if resp.Contains("location") {
 		location, _ := resp.GetString("location")
-		return cli.wait(client, header, "delete", requestURL, jsonutils.NewDict(), location)
+		return cli.wait(header, "delete", requestURL, jsonutils.NewDict(), location)
 	}
 	return resp, nil
 }
@@ -271,20 +285,19 @@ func (cli *SZStackClient) put(resource, resourceId string, params jsonutils.JSON
 }
 
 func (cli *SZStackClient) _put(resource, resourceId string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	client := httputils.GetDefaultClient()
 	header := http.Header{}
 	requestURL := cli.getURL(resource, resourceId, "actions")
 	err := cli.sign(requestURL, "PUT", header)
 	if err != nil {
 		return nil, err
 	}
-	_, resp, err := httputils.JSONRequest(client, context.Background(), "PUT", requestURL, header, params, cli.debug)
+	_, resp, err := httputils.JSONRequest(cli.httpClient, context.Background(), "PUT", requestURL, header, params, cli.debug)
 	if err != nil {
 		return nil, err
 	}
 	if resp.Contains("location") {
 		location, _ := resp.GetString("location")
-		return cli.wait(client, header, "update", requestURL, params, location)
+		return cli.wait(header, "update", requestURL, params, location)
 	}
 	return resp, nil
 }
@@ -310,12 +323,53 @@ func (cli *SZStackClient) getResource(resource, resourceId string, retval interf
 	return cloudprovider.ErrDuplicateId
 }
 
+func (cli *SZStackClient) getMonitor(resource string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+
+	return cli._getMonitor(resource, params)
+}
+
+func (cli *SZStackClient) _getMonitor(resource string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	header := http.Header{}
+	requestURL := cli.getPostURL(resource)
+	paramDict := params.(*jsonutils.JSONDict)
+	if paramDict.Size() > 0 {
+		values := url.Values{}
+		for _, key := range paramDict.SortedKeys() {
+			value, _ := paramDict.GetString(key)
+			values.Add(key, value)
+		}
+		requestURL += fmt.Sprintf("?%s", values.Encode())
+	}
+	var resp jsonutils.JSONObject
+	startTime := time.Now()
+	for time.Now().Sub(startTime) < time.Minute*5 {
+		err := cli.sign(requestURL, "GET", header)
+		if err != nil {
+			return nil, err
+		}
+		_, resp, err = cli.jsonRequest(context.TODO(), "GET", requestURL, header, nil)
+		if err != nil {
+			if strings.Contains(err.Error(), "exceeded while awaiting headers") {
+				time.Sleep(time.Second * 5)
+				continue
+			}
+			return nil, errors.Wrapf(err, fmt.Sprintf("GET %s %s", resource, params))
+		}
+		break
+	}
+
+	if resp.Contains("location") {
+		location, _ := resp.GetString("location")
+		return cli.wait(header, "get", requestURL, jsonutils.NewDict(), location)
+	}
+	return resp, nil
+}
+
 func (cli *SZStackClient) get(resource, resourceId string, spec string) (jsonutils.JSONObject, error) {
 	return cli._get(resource, resourceId, spec)
 }
 
 func (cli *SZStackClient) _get(resource, resourceId string, spec string) (jsonutils.JSONObject, error) {
-	client := httputils.GetDefaultClient()
 	header := http.Header{}
 	requestURL := cli.getURL(resource, resourceId, spec)
 	var resp jsonutils.JSONObject
@@ -325,7 +379,7 @@ func (cli *SZStackClient) _get(resource, resourceId string, spec string) (jsonut
 		if err != nil {
 			return nil, err
 		}
-		_, resp, err = httputils.JSONRequest(client, context.Background(), "GET", requestURL, header, nil, cli.debug)
+		_, resp, err = cli.jsonRequest(context.TODO(), "GET", requestURL, header, nil)
 		if err != nil {
 			if strings.Contains(err.Error(), "exceeded while awaiting headers") {
 				time.Sleep(time.Second * 5)
@@ -338,7 +392,7 @@ func (cli *SZStackClient) _get(resource, resourceId string, spec string) (jsonut
 
 	if resp.Contains("location") {
 		location, _ := resp.GetString("location")
-		return cli.wait(client, header, "get", requestURL, jsonutils.NewDict(), location)
+		return cli.wait(header, "get", requestURL, jsonutils.NewDict(), location)
 	}
 	return resp, nil
 }
@@ -358,15 +412,25 @@ func (cli *SZStackClient) post(resource string, params jsonutils.JSONObject) (js
 	return cli._post(resource, params)
 }
 
-func (cli *SZStackClient) wait(client *http.Client, header http.Header, action string, requestURL string, params jsonutils.JSONObject, location string) (jsonutils.JSONObject, error) {
+func (cli *SZStackClient) request(ctx context.Context, method httputils.THttpMethod, urlStr string, header http.Header, body io.Reader) (*http.Response, error) {
+	resp, err := httputils.Request(cli.httpClient, ctx, method, urlStr, header, body, cli.debug)
+	return resp, err
+}
+
+func (cli *SZStackClient) jsonRequest(ctx context.Context, method httputils.THttpMethod, urlStr string, header http.Header, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
+	hdr, data, err := httputils.JSONRequest(cli.httpClient, ctx, method, urlStr, header, body, cli.debug)
+	return hdr, data, err
+}
+
+func (cli *SZStackClient) wait(header http.Header, action string, requestURL string, params jsonutils.JSONObject, location string) (jsonutils.JSONObject, error) {
 	startTime := time.Now()
 	timeout := time.Minute * 30
 	for {
-		resp, err := httputils.Request(client, context.Background(), "GET", location, header, nil, cli.debug)
+		resp, err := cli.request(context.TODO(), "GET", location, header, nil)
 		if err != nil {
 			return nil, errors.Wrap(err, fmt.Sprintf("wait location %s", location))
 		}
-		_, result, err := httputils.ParseJSONResponse(resp, err, cli.debug)
+		_, result, err := httputils.ParseJSONResponse("", resp, err, cli.debug)
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return nil, cloudprovider.ErrNotFound
@@ -386,20 +450,19 @@ func (cli *SZStackClient) wait(client *http.Client, header http.Header, action s
 }
 
 func (cli *SZStackClient) _post(resource string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	client := httputils.GetDefaultClient()
 	header := http.Header{}
 	requestURL := cli.getPostURL(resource)
 	err := cli.sign(requestURL, "POST", header)
 	if err != nil {
 		return nil, err
 	}
-	_, resp, err := httputils.JSONRequest(client, context.Background(), "POST", requestURL, header, params, cli.debug)
+	_, resp, err := cli.jsonRequest(context.TODO(), "POST", requestURL, header, params)
 	if err != nil {
 		return nil, errors.Wrapf(err, fmt.Sprintf("POST %s %s", resource, params.String()))
 	}
 	if resp.Contains("location") {
 		location, _ := resp.GetString("location")
-		return cli.wait(client, header, "create", requestURL, params, location)
+		return cli.wait(header, "create", requestURL, params, location)
 	}
 	return resp, nil
 }
@@ -432,4 +495,18 @@ func (cli *SZStackClient) GetRegions() []SRegion {
 
 func (cli *SZStackClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
 	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SZStackClient) GetCapabilities() []string {
+	caps := []string{
+		// cloudprovider.CLOUD_CAPABILITY_PROJECT,
+		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
+		cloudprovider.CLOUD_CAPABILITY_NETWORK,
+		// cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
+		// cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
+		// cloudprovider.CLOUD_CAPABILITY_RDS,
+		// cloudprovider.CLOUD_CAPABILITY_CACHE,
+		// cloudprovider.CLOUD_CAPABILITY_EVENT,
+	}
+	return caps
 }

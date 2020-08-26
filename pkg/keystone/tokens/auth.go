@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"time"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -29,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/options"
+	"yunion.io/x/onecloud/pkg/keystone/saml"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/s3auth"
 )
@@ -70,28 +73,17 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 		return nil, ErrEmptyAuth
 	}
 	if len(ident.Password.User.Name) > 0 && len(ident.Password.User.Id) == 0 && len(ident.Password.User.Domain.Id) == 0 && len(ident.Password.User.Domain.Name) == 0 {
-		users := models.UserManager.Query().SubQuery()
-		idMappings := models.IdmappingManager.Query().SubQuery()
-		q := users.Query()
-		q = q.LeftJoin(idMappings, sqlchemy.Equals(idMappings.Field("public_id"), users.Field("id")))
-		q = q.Filter(sqlchemy.Equals(users.Field("name"), ident.Password.User.Name))
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.IsNull(idMappings.Field("domain_id")),
-			sqlchemy.In(idMappings.Field("domain_id"), models.IdentityProviderManager.FetchPasswordProtectedIdpIdsQuery()),
-		))
+		// no user domain specified, try to find user domain
+		q := models.UserManager.Query().Equals("name", ident.Password.User.Name).IsTrue("enabled")
 		usrCnt, err := q.CountWithError()
 		if err != nil {
 			return nil, errors.Wrap(err, "Query user by name")
 		}
 		if usrCnt > 1 {
+			log.Errorf("find %d user with name %s", usrCnt, ident.Password.User.Name)
 			return nil, sqlchemy.ErrDuplicateEntry
 		} else if usrCnt == 0 {
-			/*idp, err := models.IdentityProviderManager.GetAutoCreateUserProvider()
-			if err != nil {
-				return nil, errors.Wrap(err, "IdentityProviderManager.GetAutoCreateUserProvider")
-			}
-			idpId = idp.Id
-			*/
+			log.Errorf("find no user with name %s", ident.Password.User.Name)
 			return nil, sqlchemy.ErrEmptyQuery
 		} else {
 			// userCnt == 1
@@ -102,14 +94,18 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 				return nil, errors.Wrap(err, "Query user")
 			}
 			ident.Password.User.Domain.Id = usr.DomainId
-			idmap, err := models.IdmappingManager.FetchEntity(usr.Id, api.IdMappingEntityUser)
-			if err != nil && err != sql.ErrNoRows {
-				return nil, errors.Wrap(err, "IdmappingManager.FetchEntity")
+			idps, err := models.IdentityProviderManager.FetchIdentityProvidersByUserId(usr.Id, api.PASSWORD_PROTECTED_IDPS)
+			if err != nil {
+				return nil, errors.Wrap(err, "IdentityProviderManager.FetchIdentityProvidersByUserId")
 			}
-			if idmap == nil { // sql
+			log.Debugf("user %s idps: %s", ident.Password.User.Name, jsonutils.Marshal(idps))
+			if len(idps) == 0 {
 				idpId = api.DEFAULT_IDP_ID
+			} else if len(idps) == 1 {
+				idpId = idps[0].Id
 			} else {
-				idpId = idmap.IdpId
+				log.Errorf("find %d password idps for user %s", len(idps), ident.Password.User.Name)
+				return nil, sqlchemy.ErrDuplicateEntry
 			}
 		}
 	} else {
@@ -125,14 +121,24 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 			if err != nil {
 				return nil, errors.Wrap(err, "DomainManager.FetchDomain")
 			}
-			mapping, err := models.IdmappingManager.FetchEntity(domain.Id, api.IdMappingEntityDomain)
+			mapping, err := models.IdmappingManager.FetchFirstEntity(domain.Id, api.IdMappingEntityDomain)
 			if err != nil {
 				return nil, errors.Wrap(err, "IdmappingManager.FetchEntity")
 			}
 			idpId = mapping.IdpId
 		} else {
 			// user exists, query user's idp
-			idpId = usrExt.IdpId
+			idps, err := models.IdentityProviderManager.FetchIdentityProvidersByUserId(usrExt.Id, api.PASSWORD_PROTECTED_IDPS)
+			if err != nil {
+				return nil, errors.Wrap(err, "IdentityProviderManager.FetchIdentityProvidersByUserId")
+			}
+			if len(idps) == 0 {
+				idpId = api.DEFAULT_IDP_ID
+			} else if len(idps) == 1 {
+				idpId = idps[0].Id
+			} else {
+				return nil, sqlchemy.ErrDuplicateEntry
+			}
 		}
 	}
 
@@ -150,12 +156,12 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 		return nil, errors.Error(fmt.Sprintf("invalid idp status %s", idp.Status))
 	}
 
-	conf, err := models.GetConfigs(idp, true)
+	conf, err := models.GetConfigs(idp, true, nil, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetConfig")
 	}
 
-	backend, err := driver.GetDriver(idp.Driver, idp.Id, idp.Name, idp.Template, idp.TargetDomainId, idp.AutoCreateProject.Bool(), conf)
+	backend, err := driver.GetDriver(idp.Driver, idp.Id, idp.Name, idp.Template, idp.TargetDomainId, conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "driver.GetDriver")
 	}
@@ -173,23 +179,137 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 }
 
 func authUserByCASV3(ctx context.Context, input mcclient.SAuthenticationInputV3) (*api.SUserExtended, error) {
-	idps, err := models.IdentityProviderManager.FetchEnabledProviders(api.IdentityDriverCAS)
-	if err != nil {
-		return nil, errors.Wrap(err, "models.fetchEnabledProviders")
+	var idp *models.SIdentityProvider
+	var err error
+	if len(input.Auth.Identity.Id) > 0 {
+		idp, err = models.IdentityProviderManager.FetchIdentityProviderById(input.Auth.Identity.Id)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "idp %s not found", input.Auth.Identity.Id)
+			} else {
+				return nil, errors.Wrap(err, "FetchIdentityProviderById")
+			}
+		}
+	} else {
+		idps, err := models.IdentityProviderManager.FetchEnabledProviders(api.IdentityDriverCAS)
+		if err != nil {
+			return nil, errors.Wrap(err, "models.fetchEnabledProviders")
+		}
+		if len(idps) == 0 {
+			return nil, errors.Error("No cas identity provider")
+		}
+		if len(idps) > 1 {
+			return nil, errors.Error("more than 1 cas identity providers?")
+		}
+		idp = &idps[0]
 	}
-	if len(idps) == 0 {
-		return nil, errors.Error("No cas identity provider")
-	}
-	if len(idps) > 1 {
-		return nil, errors.Error("more than 1 cas identity providers?")
-	}
-	idp := &idps[0]
-	conf, err := models.GetConfigs(idp, true)
+
+	conf, err := models.GetConfigs(idp, true, nil, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "idp.GetConfig")
 	}
 
-	backend, err := driver.GetDriver(idp.Driver, idp.Id, idp.Name, idp.Template, idp.TargetDomainId, idp.AutoCreateProject.Bool(), conf)
+	backend, err := driver.GetDriver(idp.Driver, idp.Id, idp.Name, idp.Template, idp.TargetDomainId, conf)
+	if err != nil {
+		return nil, errors.Wrap(err, "driver.GetDriver")
+	}
+
+	usr, err := backend.Authenticate(ctx, input.Auth.Identity)
+	if err != nil {
+		return nil, errors.Wrap(err, "Authenticate")
+	}
+
+	if idp.Status == api.IdentityDriverStatusDisconnected {
+		idp.MarkConnected(ctx, models.GetDefaultAdminCred())
+	}
+
+	return usr, nil
+}
+
+func authUserBySAML(ctx context.Context, input mcclient.SAuthenticationInputV3) (*api.SUserExtended, error) {
+	if !saml.IsSAMLEnabled() {
+		return nil, errors.Wrap(httperrors.ErrNotSupported, "unsupported SAML backend")
+	}
+
+	idp, err := models.IdentityProviderManager.FetchIdentityProviderById(input.Auth.Identity.Id)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "idp %s not found", input.Auth.Identity.Id)
+		} else {
+			return nil, errors.Wrap(err, "FetchIdentityProviderById")
+		}
+	}
+
+	conf, err := models.GetConfigs(idp, true, nil, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "idp.GetConfig")
+	}
+
+	backend, err := driver.GetDriver(idp.Driver, idp.Id, idp.Name, idp.Template, idp.TargetDomainId, conf)
+	if err != nil {
+		return nil, errors.Wrap(err, "driver.GetDriver")
+	}
+
+	usr, err := backend.Authenticate(ctx, input.Auth.Identity)
+	if err != nil {
+		return nil, errors.Wrap(err, "Authenticate")
+	}
+
+	if idp.Status == api.IdentityDriverStatusDisconnected {
+		idp.MarkConnected(ctx, models.GetDefaultAdminCred())
+	}
+
+	return usr, nil
+}
+
+func authUserByOIDC(ctx context.Context, input mcclient.SAuthenticationInputV3) (*api.SUserExtended, error) {
+	idp, err := models.IdentityProviderManager.FetchIdentityProviderById(input.Auth.Identity.Id)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "idp %s not found", input.Auth.Identity.Id)
+		} else {
+			return nil, errors.Wrap(err, "FetchIdentityProviderById")
+		}
+	}
+
+	conf, err := models.GetConfigs(idp, true, nil, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "idp.GetConfig")
+	}
+
+	backend, err := driver.GetDriver(idp.Driver, idp.Id, idp.Name, idp.Template, idp.TargetDomainId, conf)
+	if err != nil {
+		return nil, errors.Wrap(err, "driver.GetDriver")
+	}
+
+	usr, err := backend.Authenticate(ctx, input.Auth.Identity)
+	if err != nil {
+		return nil, errors.Wrap(err, "Authenticate")
+	}
+
+	if idp.Status == api.IdentityDriverStatusDisconnected {
+		idp.MarkConnected(ctx, models.GetDefaultAdminCred())
+	}
+
+	return usr, nil
+}
+
+func authUserByOAuth2(ctx context.Context, input mcclient.SAuthenticationInputV3) (*api.SUserExtended, error) {
+	idp, err := models.IdentityProviderManager.FetchIdentityProviderById(input.Auth.Identity.Id)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "idp %s not found", input.Auth.Identity.Id)
+		} else {
+			return nil, errors.Wrap(err, "FetchIdentityProviderById")
+		}
+	}
+
+	conf, err := models.GetConfigs(idp, true, nil, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "idp.GetConfig")
+	}
+
+	backend, err := driver.GetDriver(idp.Driver, idp.Id, idp.Name, idp.Template, idp.TargetDomainId, conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "driver.GetDriver")
 	}
@@ -253,8 +373,10 @@ func authUserByAccessKeyV3(ctx context.Context, input mcclient.SAuthenticationIn
 // +onecloud:swagger-gen-route-tag=authentication
 // +onecloud:swagger-gen-param-body-index=1
 // +onecloud:swagger-gen-resp-index=0
+// +onecloud:swagger-gen-resp-header=X-Subject-Token
+// +onecloud:swagger-gen-resp-header=验证成功的keystone V3 token
 
-// keystone keystone v3认证API
+// keystone v3认证API
 func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) (*mcclient.TokenCredentialV3, error) {
 	var akskInfo api.SAccessKeySecretInfo
 	var user *api.SUserExtended
@@ -282,8 +404,26 @@ func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 		if err != nil {
 			return nil, errors.Wrap(err, "authUserByCASV3")
 		}
+	case api.AUTH_METHOD_SAML:
+		// auth by SAML 2.0 IDP, keystone acts as a SAML SP
+		user, err = authUserBySAML(ctx, input)
+		if err != nil {
+			return nil, errors.Wrap(err, "authUserBySAML")
+		}
+	case api.AUTH_METHOD_OIDC:
+		// auth by OpenID Connect, keystone acts as an OpenID Connect client
+		user, err = authUserByOIDC(ctx, input)
+		if err != nil {
+			return nil, errors.Wrap(err, "authUserByOIDC")
+		}
+	case api.AUTH_METHOD_OAuth2:
+		// auth by customized OAuth2.0 provider, keystone acts as an OAuth2.0 app
+		user, err = authUserByOAuth2(ctx, input)
+		if err != nil {
+			return nil, errors.Wrap(err, "authUserByOAuth2")
+		}
 	default:
-		// auth by other methods, password, openid, saml, etc...
+		// auth by other methods, e.g. password , etc...
 		user, err = authUserByIdentityV3(ctx, input)
 		if err != nil {
 			return nil, errors.Wrap(err, "authUserByIdentityV3")
@@ -353,6 +493,10 @@ func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 	return tokenV3, nil
 }
 
+type SAuthenticateV2ResponseBody struct {
+	Access mcclient.TokenCredentialV2 `json:"access"`
+}
+
 // +onecloud:swagger-gen-route-method=POST
 // +onecloud:swagger-gen-route-path=/v2.0/tokens
 // +onecloud:swagger-gen-route-tag=authentication
@@ -360,7 +504,18 @@ func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 // +onecloud:swagger-gen-resp-index=0
 
 // keystone v2 认证接口，通过用户名/密码或者 token 认证
-func AuthenticateV2(ctx context.Context, input mcclient.SAuthenticationInputV2) (*mcclient.TokenCredentialV2, error) {
+func AuthenticateV2(ctx context.Context, input mcclient.SAuthenticationInputV2) (*SAuthenticateV2ResponseBody, error) {
+	token, err := _authenticateV2(ctx, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "_authenticateV2")
+	}
+	body := SAuthenticateV2ResponseBody{
+		Access: *token,
+	}
+	return &body, nil
+}
+
+func _authenticateV2(ctx context.Context, input mcclient.SAuthenticationInputV2) (*mcclient.TokenCredentialV2, error) {
 	var user *api.SUserExtended
 	var err error
 	var method string

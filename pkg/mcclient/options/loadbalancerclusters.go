@@ -17,7 +17,7 @@ package options
 type LoadbalancerClusterCreateOptions struct {
 	NAME string
 
-	Zone string
+	Zone string `required:"true"`
 	Wire string
 }
 

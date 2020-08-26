@@ -20,7 +20,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/tristate"
-	"yunion.io/x/pkg/util/secrules"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
@@ -50,6 +49,8 @@ type IBillingResource interface {
 	GetBillingType() string
 	GetCreatedAt() time.Time
 	GetExpiredAt() time.Time
+	SetAutoRenew(autoRenew bool) error
+	IsAutoRenew() bool
 }
 
 type ICloudRegion interface {
@@ -70,7 +71,7 @@ type ICloudRegion interface {
 	GetIDiskById(id string) (ICloudDisk, error)
 
 	GetISecurityGroupById(secgroupId string) (ICloudSecurityGroup, error)
-	GetISecurityGroupByName(vpcId string, name string) (ICloudSecurityGroup, error)
+	GetISecurityGroupByName(opts *SecurityGroupFilterOptions) (ICloudSecurityGroup, error)
 	CreateISecurityGroup(conf *SecurityGroupCreateInput) (ICloudSecurityGroup, error)
 
 	CreateIVpc(name string, desc string, cidr string) (ICloudVpc, error)
@@ -136,6 +137,10 @@ type ICloudRegion interface {
 	GetProvider() string
 
 	GetICloudEvents(start time.Time, end time.Time, withReadEvent bool) ([]ICloudEvent, error) //获取公有云操作日志接口
+
+	GetCapabilities() []string
+
+	GetICloudQuotas() ([]ICloudQuota, error)
 }
 
 type ICloudZone interface {
@@ -167,6 +172,7 @@ type ICloudImage interface {
 	GetMinRamSizeMb() int
 	GetImageFormat() string
 	GetCreatedAt() time.Time
+	UEFI() bool
 }
 
 type ICloudStoragecache interface {
@@ -198,7 +204,7 @@ type ICloudStorage interface {
 	GetStorageConf() jsonutils.JSONObject
 	GetEnabled() bool
 
-	CreateIDisk(name string, sizeGb int, desc string) (ICloudDisk, error)
+	CreateIDisk(conf *DiskCreateConfig) (ICloudDisk, error)
 
 	GetIDiskById(idStr string) (ICloudDisk, error)
 
@@ -247,6 +253,8 @@ type ICloudVM interface {
 	IBillingResource
 	IVirtualResource
 
+	ConvertPublicIpToEip() error
+
 	GetIHost() ICloudHost
 	GetIHostId() string
 
@@ -257,6 +265,8 @@ type ICloudVM interface {
 
 	// GetStatus() string
 	// GetRemoteStatus() string
+
+	GetSerialOutput(port int) (string, error) // 目前仅谷歌云windows机器会使用到此接口
 
 	GetVcpuCount() int
 	GetVmemSizeMB() int //MB
@@ -285,7 +295,7 @@ type ICloudVM interface {
 
 	UpdateUserData(userData string) error
 
-	RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error)
+	RebuildRoot(ctx context.Context, config *SManagedVMRebuildRootConfig) (string, error)
 
 	DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error
 
@@ -299,12 +309,16 @@ type ICloudVM interface {
 
 	Renew(bc billing.SBillingCycle) error
 
+	MigrateVM(hostid string) error
+	LiveMigrateVM(hostid string) error
+
 	GetError() error
 }
 
 type ICloudNic interface {
 	GetIP() string
 	GetMAC() string
+	InClassicNetwork() bool
 	GetDriver() string
 	GetINetwork() ICloudNetwork
 }
@@ -325,20 +339,20 @@ type ICloudEIP interface {
 
 	Delete() error
 
-	Associate(instanceId string) error
+	Associate(conf *AssociateConfig) error
 	Dissociate() error
 
 	ChangeBandwidth(bw int) error
 }
 
 type ICloudSecurityGroup interface {
-	ICloudResource
+	IVirtualResource
 
 	GetDescription() string
-	GetRules() ([]secrules.SecurityRule, error)
+	GetRules() ([]SecurityRule, error)
 	GetVpcId() string
 
-	SyncRules(rules []secrules.SecurityRule) error
+	SyncRules(common, inAdds, outAdds, inDels, outDels []SecurityRule) error
 	Delete() error
 }
 
@@ -440,7 +454,7 @@ type ICloudWire interface {
 
 	GetINetworkById(netid string) (ICloudNetwork, error)
 
-	CreateINetwork(name string, cidr string, desc string) (ICloudNetwork, error)
+	CreateINetwork(opts *SNetworkCreateOptions) (ICloudNetwork, error)
 }
 
 type ICloudNetwork interface {
@@ -453,7 +467,10 @@ type ICloudNetwork interface {
 	GetIpMask() int8
 	GetGateway() string
 	GetServerType() string
-	GetIsPublic() bool
+	//GetIsPublic() bool
+	// 仅私有云有用，公有云无效
+	// 1. scope = none 非共享, network仅会属于一个项目,并且私有
+	// 2. scope = system 系统共享 云账号共享会跟随云账号共享，云账号非共享,会共享到network所在域
 	GetPublicScope() rbacutils.TRbacScope
 
 	Delete() error
@@ -487,7 +504,7 @@ type ICloudLoadbalancer interface {
 
 	GetIEIP() (ICloudEIP, error)
 
-	Delete() error
+	Delete(ctx context.Context) error
 
 	Start() error
 	Stop() error
@@ -498,7 +515,7 @@ type ICloudLoadbalancer interface {
 	CreateILoadBalancerBackendGroup(group *SLoadbalancerBackendGroup) (ICloudLoadbalancerBackendGroup, error)
 	GetILoadBalancerBackendGroupById(groupId string) (ICloudLoadbalancerBackendGroup, error)
 
-	CreateILoadBalancerListener(listener *SLoadbalancerListener) (ICloudLoadbalancerListener, error)
+	CreateILoadBalancerListener(ctx context.Context, listener *SLoadbalancerListener) (ICloudLoadbalancerListener, error)
 	GetILoadBalancerListenerById(listenerId string) (ICloudLoadbalancerListener, error)
 }
 
@@ -548,9 +565,9 @@ type ICloudLoadbalancerListener interface {
 
 	Start() error
 	Stop() error
-	Sync(listener *SLoadbalancerListener) error
+	Sync(ctx context.Context, listener *SLoadbalancerListener) error
 
-	Delete() error
+	Delete(ctx context.Context) error
 }
 
 type ICloudLoadbalancerListenerRule interface {
@@ -562,7 +579,7 @@ type ICloudLoadbalancerListenerRule interface {
 	GetCondition() string
 	GetBackendGroupId() string
 
-	Delete() error
+	Delete(ctx context.Context) error
 }
 
 type ICloudLoadbalancerBackendGroup interface {
@@ -580,8 +597,8 @@ type ICloudLoadbalancerBackendGroup interface {
 	AddBackendServer(serverId string, weight int, port int) (ICloudLoadbalancerBackend, error)
 	RemoveBackendServer(serverId string, weight int, port int) error
 
-	Delete() error
-	Sync(group *SLoadbalancerBackendGroup) error
+	Delete(ctx context.Context) error
+	Sync(ctx context.Context, group *SLoadbalancerBackendGroup) error
 }
 
 type ICloudLoadbalancerBackend interface {
@@ -592,7 +609,7 @@ type ICloudLoadbalancerBackend interface {
 	GetBackendType() string
 	GetBackendRole() string
 	GetBackendId() string
-	SyncConf(port, weight int) error
+	SyncConf(ctx context.Context, port, weight int) error
 }
 
 type ICloudLoadbalancerCertificate interface {
@@ -747,7 +764,9 @@ type ICloudDBInstance interface {
 
 	GetConnectionStr() string
 	GetInternalConnectionStr() string
-	GetIZoneId() string
+	GetZone1Id() string
+	GetZone2Id() string
+	GetZone3Id() string
 	GetIVpcId() string
 
 	GetDBNetwork() (*SDBInstanceNetwork, error)
@@ -931,4 +950,67 @@ type ICloudEvent interface {
 	IsSuccess() bool
 
 	GetCreatedAt() time.Time
+}
+
+type ICloudQuota interface {
+	GetGlobalId() string
+	GetDesc() string
+	GetQuotaType() string
+	GetMaxQuotaCount() int
+	GetCurrentQuotaUsedCount() int
+}
+
+// 公有云子账号
+type IClouduser interface {
+	GetGlobalId() string
+	GetName() string
+
+	GetICloudgroups() ([]ICloudgroup, error)
+
+	GetISystemCloudpolicies() ([]ICloudpolicy, error)
+	GetICustomCloudpolicies() ([]ICloudpolicy, error)
+
+	AttachSystemPolicy(policyName string) error
+	DetachSystemPolicy(policyName string) error
+
+	AttachCustomPolicy(policyName string) error
+	DetachCustomPolicy(policyName string) error
+
+	Delete() error
+
+	ResetPassword(password string) error
+	IsConsoleLogin() bool
+}
+
+// 公有云子账号权限
+type ICloudpolicy interface {
+	GetGlobalId() string
+	GetName() string
+	GetDescription() string
+
+	GetDocument() (*jsonutils.JSONDict, error)
+	UpdateDocument(*jsonutils.JSONDict) error
+
+	Delete() error
+}
+
+// 公有云用户组
+type ICloudgroup interface {
+	GetGlobalId() string
+	GetName() string
+	GetDescription() string
+	GetISystemCloudpolicies() ([]ICloudpolicy, error)
+	GetICustomCloudpolicies() ([]ICloudpolicy, error)
+	GetICloudusers() ([]IClouduser, error)
+
+	AddUser(name string) error
+	RemoveUser(name string) error
+
+	AttachSystemPolicy(policyName string) error
+	DetachSystemPolicy(policyName string) error
+
+	AttachCustomPolicy(policyName string) error
+	DetachCustomPolicy(policyName string) error
+
+	Delete() error
 }

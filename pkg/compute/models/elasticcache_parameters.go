@@ -31,11 +31,14 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 // SElasticcache.Parameter
 type SElasticcacheParameterManager struct {
 	db.SStandaloneResourceBaseManager
+	db.SExternalizedResourceBaseManager
+	SElasticcacheResourceBaseManager
 }
 
 var ElasticcacheParameterManager *SElasticcacheParameterManager
@@ -55,14 +58,24 @@ func init() {
 type SElasticcacheParameter struct {
 	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
+	SElasticcacheResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
 
-	ElasticcacheId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"` // elastic cache instance id
+	// ElasticcacheId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"` // elastic cache instance id
 
-	Key          string `width:"64" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
-	Value        string `width:"256" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
-	ValueRange   string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional"` // 校验代码，参数的可选范围。
-	Modifiable   bool   `nullable:"true" list:"user" create:"optional"`                             // True（可修改）   False（不可修改）
-	ForceRestart bool   `nullable:"true" list:"user" create:"optional"`                             // True（重启生效） False（无需重启，提交后即生效）
+	// Parameter KEY
+	Key string `width:"64" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
+
+	// Parameter Value
+	Value string `width:"256" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
+
+	// 校验代码，参数的可选范围。
+	ValueRange string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+
+	// True（可修改）   False（不可修改）
+	Modifiable bool `nullable:"true" list:"user" create:"optional"`
+
+	// True（重启生效） False（无需重启，提交后即生效）
+	ForceRestart bool `nullable:"true" list:"user" create:"optional"`
 }
 
 func (manager *SElasticcacheParameterManager) SyncElasticcacheParameters(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticcache, cloudElasticcacheParameters []cloudprovider.ICloudElasticcacheParameter) compare.SyncResult {
@@ -162,7 +175,7 @@ func (manager *SElasticcacheParameterManager) newFromCloudElasticcacheParameter(
 	parameter.ForceRestart = extParameter.GetForceRestart()
 	parameter.Description = extParameter.GetDescription()
 
-	err := manager.TableSpec().Insert(&parameter)
+	err := manager.TableSpec().Insert(ctx, &parameter)
 	if err != nil {
 		return nil, errors.Wrapf(err, "newFromCloudElasticcacheParameter.Insert")
 	}
@@ -234,4 +247,123 @@ func (self *SElasticcacheParameter) StartUpdateElasticcacheParameterTask(ctx con
 
 func (self *SElasticcacheParameter) ValidatePurgeCondition(ctx context.Context) error {
 	return nil
+}
+
+// 列出弹性缓存参数
+func (manager *SElasticcacheParameterManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.ElasticcacheParameterListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, input.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SElasticcacheResourceBaseManager.ListItemFilter(ctx, q, userCred, input.ElasticcacheFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SElasticcacheResourceBaseManager.ListItemFilter")
+	}
+
+	if len(input.Key) > 0 {
+		q = q.In("key", input.Key)
+	}
+	if len(input.Value) > 0 {
+		q = q.In("value", input.Value)
+	}
+
+	return q, nil
+}
+
+func (manager *SElasticcacheParameterManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.ElasticcacheParameterListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+
+	q, err = manager.SElasticcacheResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.ElasticcacheFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SElasticcacheResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SElasticcacheParameterManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SElasticcacheResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
+}
+
+func (self *SElasticcacheParameter) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.ElasticcacheParameterDetails, error) {
+	return api.ElasticcacheParameterDetails{}, nil
+}
+
+func (manager *SElasticcacheParameterManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.ElasticcacheParameterDetails {
+	rows := make([]api.ElasticcacheParameterDetails, len(objs))
+
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	cacheRows := manager.SElasticcacheResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.ElasticcacheParameterDetails{
+			StandaloneResourceDetails: stdRows[i],
+			ElasticcacheResourceInfo:  cacheRows[i],
+		}
+	}
+
+	return rows
+}
+
+func (manager *SElasticcacheParameterManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SElasticcacheResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SElasticcacheResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SElasticcacheResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	return q, nil
 }

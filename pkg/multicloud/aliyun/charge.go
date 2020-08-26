@@ -27,7 +27,7 @@ func convertChargeType(ct TChargeType) string {
 	case PostPaidInstanceChargeType, PostPaidDBInstanceChargeType:
 		return api.BILLING_TYPE_POSTPAID
 	default:
-		return api.BILLING_TYPE_PREPAID
+		return ""
 	}
 }
 

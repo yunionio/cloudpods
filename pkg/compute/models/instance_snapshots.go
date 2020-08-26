@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -25,7 +24,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis/compute"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -33,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 func init() {
@@ -50,14 +50,24 @@ func init() {
 type SInstanceSnapshot struct {
 	db.SVirtualResourceBase
 
-	GuestId        string               `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
-	ServerConfig   jsonutils.JSONObject `nullable:"true" list:"user"`
+	// 云主机Id
+	GuestId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
+	// 云主机配置
+	ServerConfig jsonutils.JSONObject `nullable:"true" list:"user"`
+	// 云主机标签
 	ServerMetadata jsonutils.JSONObject `nullable:"true" list:"user"`
-	AutoDelete     bool                 `default:"false" update:"user" list:"user"`
-	RefCount       int                  `default:"0" list:"user"`
-	SecGroups      jsonutils.JSONObject `nullable:"true" list:"user"`
-	KeypairId      string               `width:"36" charset:"ascii" nullable:"true" list:"user"`
-	OsType         string               `width:"36" charset:"ascii" nullable:"true" list:"user"`
+	// 是否自动删除
+	AutoDelete bool `default:"false" update:"user" list:"user"`
+	// 引用次数
+	RefCount int `default:"0" list:"user"`
+	// 安全组
+	SecGroups jsonutils.JSONObject `nullable:"true" list:"user"`
+	// 秘钥Id
+	KeypairId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
+	// 操作系统类型
+	OsType string `width:"36" charset:"ascii" nullable:"true" list:"user"`
+	// 套餐名称
+	InstanceType string `width:"64" charset:"utf8" nullable:"true" list:"user" create:"optional"`
 }
 
 type SInstanceSnapshotManager struct {
@@ -72,72 +82,132 @@ func (manager *SInstanceSnapshotManager) AllowCreateItem(
 	return false
 }
 
-func (manager *SInstanceSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	queryDict, ok := query.(*jsonutils.JSONDict)
-	if !ok {
-		return nil, fmt.Errorf("invalid querystring format")
+// 主机快照列表
+func (manager *SInstanceSnapshotManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.InstanceSnapshotListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
-	if guestId, _ := queryDict.GetString("guest_id"); len(guestId) > 0 {
-		q = q.Equals("guest_id", guestId)
+
+	guestStr := query.ServerId
+	if len(guestStr) > 0 {
+		guestObj, err := GuestManager.FetchByIdOrName(userCred, guestStr)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("guests", guestStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		q = q.Equals("guest_id", guestObj.GetId())
 	}
+
+	if len(query.OsType) > 0 {
+		q = q.In("os_type", query.OsType)
+	}
+
 	return q, nil
+}
+
+func (manager *SInstanceSnapshotManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.InstanceSnapshotListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SInstanceSnapshotManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (self *SInstanceSnapshot) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
 	return false
 }
 
-func (self *SInstanceSnapshot) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	extra = self.getMoreDetails(userCred, extra)
-	return extra
-}
-
-func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential, out api.InstanceSnapshotDetails) api.InstanceSnapshotDetails {
 	if guest := GuestManager.FetchGuestById(self.GuestId); guest != nil {
-		extra.Set("guest_status", jsonutils.NewString(guest.Status))
-		extra.Set("guest", jsonutils.NewString(guest.Name))
+		out.Guest = guest.Name
+		out.GuestStatus = guest.Status
 	}
 	var osType string
 	snapshots, _ := self.GetSnapshots()
-	snapshotsDesc := jsonutils.NewArray()
+	out.Snapshots = []api.SimpleSnapshot{}
 	for i := 0; i < len(snapshots); i++ {
-		if snapshots[i].DiskType == compute.DISK_TYPE_SYS {
+		if snapshots[i].DiskType == api.DISK_TYPE_SYS {
 			osType = snapshots[i].OsType
 		}
-		jsonDict := jsonutils.Marshal(&snapshots[i]).(*jsonutils.JSONDict)
-		metaFields := db.GetDetailFields(SnapshotManager, userCred)
-		jsonDict = jsonDict.CopyIncludes(metaFields...)
-		if len(snapshots[i].StorageId) > 0 {
-			storage := snapshots[i].GetStorage()
-			if storage != nil {
-				jsonDict.Set("storage_type", jsonutils.NewString(storage.StorageType))
-			}
+		out.Snapshots = append(out.Snapshots, api.SimpleSnapshot{
+			Id:            snapshots[i].Id,
+			Name:          snapshots[i].Name,
+			StorageId:     snapshots[i].StorageId,
+			DiskType:      snapshots[i].DiskType,
+			CloudregionId: snapshots[i].CloudregionId,
+			Size:          snapshots[i].Size,
+			Status:        snapshots[i].Status,
+			StorageType:   snapshots[i].GetStorageType(),
+		})
+		out.Size += snapshots[i].Size
+
+		if len(snapshots[i].StorageId) > 0 && out.StorageType == "" {
+			out.StorageType = snapshots[i].GetStorageType()
 		}
-		snapshotsDesc.Add(jsonDict)
 	}
-	extra.Set("snapshots", snapshotsDesc)
 	if len(osType) > 0 {
-		properties := jsonutils.NewDict()
-		properties.Set("os_type", jsonutils.NewString(osType))
-		extra.Set("properties", properties)
+		out.Properties = map[string]string{"os_type": osType}
 	}
-	return extra
+	return out
 }
 
-func (self *SInstanceSnapshot) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
+func (self *SInstanceSnapshot) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.InstanceSnapshotDetails, error) {
+	return api.InstanceSnapshotDetails{}, nil
+}
+
+func (manager *SInstanceSnapshotManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.InstanceSnapshotDetails {
+	rows := make([]api.InstanceSnapshotDetails, len(objs))
+
+	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.InstanceSnapshotDetails{
+			VirtualResourceDetails: virtRows[i],
+		}
+		rows[i] = objs[i].(*SInstanceSnapshot).getMoreDetails(userCred, rows[i])
 	}
-	extra = self.getMoreDetails(userCred, extra)
-	return extra, nil
+
+	return rows
 }
 
 func (self *SInstanceSnapshot) StartCreateInstanceSnapshotTask(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
-	ownerId mcclient.IIdentityProvider,
 	pendingUsage quotas.IQuota,
 	parentTaskId string,
 ) error {
@@ -151,13 +221,13 @@ func (self *SInstanceSnapshot) StartCreateInstanceSnapshotTask(
 }
 
 func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(
-	ctx context.Context, ownerId mcclient.IIdentityProvider, guest *SGuest, name string, autoDelete bool,
+	ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, name string, autoDelete bool,
 ) (*SInstanceSnapshot, error) {
 	instanceSnapshot := &SInstanceSnapshot{}
 	instanceSnapshot.SetModelManager(manager, instanceSnapshot)
 	instanceSnapshot.Name = name
-	instanceSnapshot.ProjectId = ownerId.GetProjectId()
-	instanceSnapshot.DomainId = ownerId.GetProjectDomainId()
+	instanceSnapshot.ProjectId = userCred.GetProjectId()
+	instanceSnapshot.DomainId = userCred.GetProjectDomainId()
 	instanceSnapshot.GuestId = guest.Id
 	instanceSnapshot.AutoDelete = autoDelete
 	guestSchedInput := guest.ToSchedDesc()
@@ -204,7 +274,7 @@ func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(
 	if osVersion := guest.GetMetadata("os_version", nil); len(osVersion) > 0 {
 		serverMetadata.Set("os_version", jsonutils.NewString(osVersion))
 	}
-	secs := guest.GetSecgroups()
+	secs, _ := guest.GetSecgroups()
 	if len(secs) > 0 {
 		secIds := make([]string, len(secs))
 		for i := 0; i < len(secs); i++ {
@@ -214,7 +284,8 @@ func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(
 	}
 	instanceSnapshot.OsType = guest.OsType
 	instanceSnapshot.ServerMetadata = serverMetadata
-	err := manager.TableSpec().Insert(instanceSnapshot)
+	instanceSnapshot.InstanceType = guest.InstanceType
+	err := manager.TableSpec().Insert(ctx, instanceSnapshot)
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +293,7 @@ func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(
 }
 
 func (self *SInstanceSnapshot) ToInstanceCreateInput(
-	sourceInput *compute.ServerCreateInput) (*compute.ServerCreateInput, error) {
+	sourceInput *api.ServerCreateInput) (*api.ServerCreateInput, error) {
 
 	serverConfig := new(schedapi.ServerConfig)
 	if err := self.ServerConfig.Unmarshal(serverConfig); err != nil {
@@ -259,7 +330,8 @@ func (self *SInstanceSnapshot) ToInstanceCreateInput(
 		sourceInput.Secgroups = inputSecgs
 	}
 	sourceInput.OsType = self.OsType
-	// sourceInput.Networks = serverConfig.Networks
+	sourceInput.InstanceType = self.InstanceType
+	sourceInput.Networks = serverConfig.Networks
 	return sourceInput, nil
 }
 
@@ -287,7 +359,7 @@ func (self *SInstanceSnapshot) GetInstanceSnapshotJointAt(diskIndex int) (*SInst
 }
 
 func (self *SInstanceSnapshot) ValidateDeleteCondition(ctx context.Context) error {
-	if self.Status == compute.INSTANCE_SNAPSHOT_START_DELETE {
+	if self.Status == api.INSTANCE_SNAPSHOT_START_DELETE {
 		return httperrors.NewBadRequestError("can't delete snapshot in deleting")
 	}
 	return nil
@@ -309,7 +381,7 @@ func (self *SInstanceSnapshot) StartInstanceSnapshotDeleteTask(
 		log.Errorf("%s", err)
 		return err
 	}
-	self.SetStatus(userCred, compute.INSTANCE_SNAPSHOT_START_DELETE, "InstanceSnapshotDeleteTask")
+	self.SetStatus(userCred, api.INSTANCE_SNAPSHOT_START_DELETE, "InstanceSnapshotDeleteTask")
 	task.ScheduleRun(nil)
 	return nil
 }

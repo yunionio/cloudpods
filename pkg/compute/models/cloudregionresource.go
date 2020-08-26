@@ -16,15 +16,39 @@ package models
 
 import (
 	"context"
+	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/reflectutils"
+	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SCloudregionResourceBase struct {
-	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"user" default:"default" create:"optional"`
+	// 归属区域ID
+	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"user" default:"default" create:"optional" json:"cloudregion_id"`
+}
+
+type SCloudregionResourceBaseManager struct{}
+
+func ValidateCloudregionResourceInput(userCred mcclient.TokenCredential, input api.CloudregionResourceInput) (*SCloudregion, api.CloudregionResourceInput, error) {
+	regionObj, err := CloudregionManager.FetchByIdOrName(userCred, input.CloudregionId)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", CloudregionManager.Keyword(), input.CloudregionId)
+		} else {
+			return nil, input, errors.Wrap(err, "CloudregionManager.FetchByIdOrName")
+		}
+	}
+	input.CloudregionId = regionObj.GetId()
+	return regionObj.(*SCloudregion), input, nil
 }
 
 func (self *SCloudregionResourceBase) GetRegion() *SCloudregion {
@@ -36,18 +60,119 @@ func (self *SCloudregionResourceBase) GetRegion() *SCloudregion {
 	return region.(*SCloudregion)
 }
 
-func (self *SCloudregionResourceBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	region := self.GetRegion()
-	if region == nil {
-		return nil
+func (self *SCloudregionResourceBase) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) api.CloudregionResourceInfo {
+	return api.CloudregionResourceInfo{}
+}
+
+func (manager *SCloudregionResourceBaseManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.CloudregionResourceInfo {
+	rows := make([]api.CloudregionResourceInfo, len(objs))
+	regionIds := make([]string, len(objs))
+	for i := range objs {
+		var base *SCloudregionResourceBase
+		err := reflectutils.FindAnonymouStructPointer(objs[i], &base)
+		if err != nil {
+			log.Errorf("Cannot find SCloudregionResourceBase in %#v: %s", objs[i], err)
+		} else if base != nil && len(base.CloudregionId) > 0 {
+			regionIds[i] = base.CloudregionId
+		}
 	}
-	info := map[string]string{
-		"region":    region.GetName(),
-		"region_id": region.GetId(),
+	regions := make(map[string]SCloudregion)
+	err := db.FetchStandaloneObjectsByIds(CloudregionManager, regionIds, regions)
+	if err != nil {
+		log.Errorf("FetchStandaloneObjectsByIds fail %s", err)
+		return rows
 	}
-	if len(region.ExternalId) > 0 {
-		info["region_external_id"] = region.ExternalId
-		info["region_ext_id"] = fetchExternalId(region.ExternalId)
+	for i := range rows {
+		if region, ok := regions[regionIds[i]]; ok {
+			rows[i] = region.GetRegionInfo()
+		} else {
+			rows[i] = api.CloudregionResourceInfo{}
+		}
 	}
-	return jsonutils.Marshal(info).(*jsonutils.JSONDict)
+	return rows
+}
+
+func (manager *SCloudregionResourceBaseManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.RegionalFilterListInput,
+) (*sqlchemy.SQuery, error) {
+	return managedResourceFilterByRegion(q, query, "", nil)
+}
+
+func (manager *SCloudregionResourceBaseManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.RegionalFilterListInput,
+) (*sqlchemy.SQuery, error) {
+	q, orders, fields := manager.GetOrderBySubQuery(q, userCred, query)
+	if len(orders) > 0 {
+		q = db.OrderByFields(q, orders, fields)
+	}
+	return q, nil
+}
+
+func (manager *SCloudregionResourceBaseManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	if field == "region" {
+		regionQuery := CloudregionManager.Query("name", "id").Distinct().SubQuery()
+		q.AppendField(regionQuery.Field("name", field))
+		q = q.Join(regionQuery, sqlchemy.Equals(q.Field("cloudregion_id"), regionQuery.Field("id")))
+		q.GroupBy(regionQuery.Field("name"))
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SCloudregionResourceBaseManager) GetOrderBySubQuery(
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.RegionalFilterListInput,
+) (*sqlchemy.SQuery, []string, []sqlchemy.IQueryField) {
+	regionQ := CloudregionManager.Query("id", "name", "city")
+	var orders []string
+	var fields []sqlchemy.IQueryField
+	if db.NeedOrderQuery(manager.GetOrderByFields(query)) {
+		subq := regionQ.SubQuery()
+		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("cloudregion_id"), subq.Field("id")))
+		orders = append(orders, query.OrderByRegion, query.OrderByCity)
+		fields = append(fields, subq.Field("name"), subq.Field("city"))
+	}
+	return q, orders, fields
+}
+
+func (manager *SCloudregionResourceBaseManager) GetOrderByFields(query api.RegionalFilterListInput) []string {
+	return []string{query.OrderByRegion, query.OrderByCity}
+}
+
+func (manager *SCloudregionResourceBaseManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	if keys.ContainsAny(manager.GetExportKeys()...) {
+		regionsQ := CloudregionManager.Query("id", "name").SubQuery()
+		q = q.LeftJoin(regionsQ, sqlchemy.Equals(q.Field("cloudregion_id"), regionsQ.Field("id")))
+		if keys.Contains("region") {
+			q = q.AppendField(regionsQ.Field("name", "region"))
+		}
+	}
+	return q, nil
+}
+
+func (manager *SCloudregionResourceBaseManager) GetExportKeys() []string {
+	return []string{"region"}
 }

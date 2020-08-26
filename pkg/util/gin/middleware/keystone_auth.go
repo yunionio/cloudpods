@@ -45,7 +45,7 @@ func KeystoneTokenVerifyMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		_, err := auth.Verify(token)
+		_, err := auth.Verify(c, token)
 		if err != nil {
 			c.AbortWithError(http.StatusUnauthorized, err)
 			return

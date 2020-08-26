@@ -34,6 +34,10 @@ func (self *SInstanceNic) GetMAC() string {
 	return ip.ToMac("00:16:")
 }
 
+func (self *SInstanceNic) InClassicNetwork() bool {
+	return false
+}
+
 func (self *SInstanceNic) GetDriver() string {
 	return "virtio"
 }

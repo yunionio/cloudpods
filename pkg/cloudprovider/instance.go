@@ -15,7 +15,7 @@
 package cloudprovider
 
 import (
-	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/osprofile"
@@ -34,8 +34,11 @@ type SDiskInfo struct {
 }
 
 const (
-	CLOUD_SHELL  = "cloud-shell"
-	CLOUD_CONFIG = "cloud-config"
+	CLOUD_SHELL                 = "cloud-shell"
+	CLOUD_SHELL_WITHOUT_ENCRYPT = "cloud-shell-without-encrypt"
+	CLOUD_CONFIG                = "cloud-config"
+	CLOUD_POWER_SHELL           = "powershell"
+	CLOUD_EC2                   = "ec2"
 )
 
 type SManagedVMCreateConfig struct {
@@ -59,6 +62,7 @@ type SManagedVMCreateConfig struct {
 	Account             string
 	Password            string
 	UserData            string
+	ProjectId           string
 
 	BillingCycle *billing.SBillingCycle
 }
@@ -69,6 +73,15 @@ type SManagedVMChangeConfig struct {
 	InstanceType string
 }
 
+type SManagedVMRebuildRootConfig struct {
+	Account   string
+	Password  string
+	ImageId   string
+	PublicKey string
+	SysSizeGB int
+	OsType    string
+}
+
 func (vmConfig *SManagedVMCreateConfig) GetConfig(config *jsonutils.JSONDict) error {
 	if err := config.Unmarshal(vmConfig, "desc"); err != nil {
 		return err
@@ -77,7 +90,7 @@ func (vmConfig *SManagedVMCreateConfig) GetConfig(config *jsonutils.JSONDict) er
 		vmConfig.PublicKey = publicKey
 	}
 	//目前所写的userData格式仅支持Linux
-	if vmConfig.OsType == osprofile.OS_TYPE_LINUX {
+	if strings.ToLower(vmConfig.OsType) == strings.ToLower(osprofile.OS_TYPE_LINUX) {
 		adminPublicKey, _ := config.GetString("admin_public_key")
 		projectPublicKey, _ := config.GetString("project_public_key")
 		oUserData, _ := config.GetString("user_data")
@@ -105,7 +118,7 @@ func generateUserData(adminPublicKey, projectPublicKey, oUserData string) string
 
 	cloudConfig := cloudinit.SCloudConfig{
 		DisableRoot: 0,
-		SshPwauth:   1,
+		SshPwauth:   cloudinit.SSH_PASSWORD_AUTH_ON,
 
 		Users: []cloudinit.SUser{
 			ansibleUser,
@@ -120,9 +133,6 @@ func generateUserData(adminPublicKey, projectPublicKey, oUserData string) string
 }
 
 func (vmConfig *SManagedVMCreateConfig) InjectPasswordByCloudInit() error {
-	if vmConfig.OsType != osprofile.OS_TYPE_LINUX {
-		return fmt.Errorf("Only support inject Linux password, current osType is %s", vmConfig.OsType)
-	}
 	loginUser := cloudinit.NewUser(vmConfig.Account)
 	loginUser.SudoPolicy(cloudinit.USER_SUDO_NOPASSWD)
 	if len(vmConfig.PublicKey) > 0 {
@@ -134,7 +144,7 @@ func (vmConfig *SManagedVMCreateConfig) InjectPasswordByCloudInit() error {
 
 	cloudconfig := cloudinit.SCloudConfig{
 		DisableRoot: 0,
-		SshPwauth:   1,
+		SshPwauth:   cloudinit.SSH_PASSWORD_AUTH_ON,
 		Users: []cloudinit.SUser{
 			loginUser,
 		},

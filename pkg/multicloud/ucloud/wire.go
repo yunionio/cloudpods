@@ -94,8 +94,8 @@ func (self *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, e
 }
 
 // https://docs.ucloud.cn/api/vpc2.0-api/create_subnet
-func (self *SWire) CreateINetwork(name string, cidr string, desc string) (cloudprovider.ICloudNetwork, error) {
-	return self.region.CreateNetwork(self.vpc.GetId(), name, cidr, desc)
+func (self *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
+	return self.region.CreateNetwork(self.vpc.GetId(), opts.Name, opts.Cidr, opts.Desc)
 }
 
 func (self *SWire) addNetwork(network *SNetwork) {

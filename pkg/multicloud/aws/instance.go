@@ -404,50 +404,82 @@ func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
 	return self.host.zone.region.UpdateVM(self.InstanceId, name)
 }
 
-func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
+func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
 	udata, err := self.GetUserData()
 	if err != nil {
 		return "", err
 	}
 
-	var cloudconfig *cloudinit.SCloudConfig
-	if len(udata) == 0 {
-		cloudconfig = &cloudinit.SCloudConfig{}
-	} else {
-		cloudconfig, err = cloudinit.ParseUserDataBase64(udata)
-		if err != nil {
-			log.Debugf("RebuildRoot invalid instance user data %s", udata)
-			return "", fmt.Errorf("RebuildRoot invalid instance user data %s", err)
-		}
-	}
-
-	keypairName := self.KeyPairName
-	loginUser := cloudinit.NewUser(api.VM_AWS_DEFAULT_LOGIN_USER)
-	loginUser.SudoPolicy(cloudinit.USER_SUDO_NOPASSWD)
-	if len(publicKey) > 0 {
-		loginUser.SshKey(publicKey)
-		cloudconfig.MergeUser(loginUser)
-		keypairName, err = self.host.zone.region.syncKeypair(publicKey)
-		if err != nil {
-			return "", fmt.Errorf("RebuildRoot.syncKeypair %s", err)
-		}
-	} else if len(passwd) > 0 {
-		loginUser.Password(passwd)
-		cloudconfig.MergeUser(loginUser)
-	}
-
 	// compare sysSizeGB
-	image, err := self.host.zone.region.GetImage(imageId)
+	image, err := self.host.zone.region.GetImage(desc.ImageId)
 	if err != nil {
 		return "", err
 	} else {
 		minSizeGB := image.GetMinOsDiskSizeGb()
-		if minSizeGB > sysSizeGB {
-			sysSizeGB = minSizeGB
+		if minSizeGB > desc.SysSizeGB {
+			desc.SysSizeGB = minSizeGB
 		}
 	}
 
-	diskId, err := self.host.zone.region.ReplaceSystemDisk(ctx, self.InstanceId, imageId, sysSizeGB, keypairName, cloudconfig.UserDataBase64())
+	// upload keypair
+	keypairName := self.KeyPairName
+	if len(desc.PublicKey) > 0 {
+		keypairName, err = self.host.zone.region.syncKeypair(desc.PublicKey)
+		if err != nil {
+			return "", fmt.Errorf("RebuildRoot.syncKeypair %s", err)
+		}
+	}
+
+	userdata := ""
+	srcOsType := strings.ToLower(self.GetOSType())
+	destOsType := strings.ToLower(image.GetOsType())
+	winOS := strings.ToLower(osprofile.OS_TYPE_WINDOWS)
+
+	cloudconfig := &cloudinit.SCloudConfig{}
+	if srcOsType != winOS && len(udata) > 0 {
+		_cloudconfig, err := cloudinit.ParseUserDataBase64(udata)
+		if err != nil {
+			// 忽略无效的用户数据
+			log.Debugf("RebuildRoot invalid instance user data %s", udata)
+		} else {
+			cloudconfig = _cloudconfig
+		}
+	}
+
+	if (srcOsType != winOS && destOsType != winOS) || (srcOsType == winOS && destOsType != winOS) {
+		// linux/windows to linux
+		loginUser := cloudinit.NewUser(api.VM_AWS_DEFAULT_LOGIN_USER)
+		loginUser.SudoPolicy(cloudinit.USER_SUDO_NOPASSWD)
+		if len(desc.PublicKey) > 0 {
+			loginUser.SshKey(desc.PublicKey)
+			cloudconfig.MergeUser(loginUser)
+		} else if len(desc.Password) > 0 {
+			cloudconfig.SshPwauth = cloudinit.SSH_PASSWORD_AUTH_ON
+			loginUser.Password(desc.Password)
+			cloudconfig.MergeUser(loginUser)
+		}
+
+		userdata = cloudconfig.UserDataBase64()
+	} else {
+		// linux/windows to windows
+		data := ""
+		if len(desc.Password) > 0 {
+			cloudconfig.SshPwauth = cloudinit.SSH_PASSWORD_AUTH_ON
+			loginUser := cloudinit.NewUser(api.VM_AWS_DEFAULT_WINDOWS_LOGIN_USER)
+			loginUser.SudoPolicy(cloudinit.USER_SUDO_NOPASSWD)
+			loginUser.Password(desc.Password)
+			cloudconfig.MergeUser(loginUser)
+			data = fmt.Sprintf("<powershell>%s</powershell>", cloudconfig.UserDataPowerShell())
+		} else {
+			if len(udata) > 0 {
+				data = fmt.Sprintf("<powershell>%s</powershell>", udata)
+			}
+		}
+
+		userdata = base64.StdEncoding.EncodeToString([]byte(data))
+	}
+
+	diskId, err := self.host.zone.region.ReplaceSystemDisk(ctx, self.InstanceId, desc.ImageId, desc.SysSizeGB, keypairName, userdata)
 	if err != nil {
 		return "", err
 	}
@@ -928,12 +960,17 @@ func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, i
 	}
 	log.Debugf("ReplaceSystemDisk replace root disk %s", rootDisk.DiskId)
 
+	subnetId := ""
+	if len(instance.VpcAttributes.NetworkId) > 0 {
+		subnetId = instance.VpcAttributes.NetworkId
+	}
+
 	// create tmp server
 	tempName := fmt.Sprintf("__tmp_%s", instance.GetName())
 	_id, err := self.CreateInstance(tempName,
 		imageId,
 		instance.InstanceType,
-		"",
+		subnetId,
 		"",
 		instance.ZoneId,
 		instance.Description,
@@ -985,7 +1022,11 @@ func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, i
 	self.ec2Client.WaitUntilInstanceStopped(&ec2.DescribeInstancesInput{InstanceIds: []*string{&instanceId}})
 	self.ec2Client.WaitUntilVolumeInUse(&ec2.DescribeVolumesInput{VolumeIds: []*string{&tempInstance.Disks[0]}})
 
-	err = instance.UpdateUserData(userdata)
+	userdataText, err := base64.StdEncoding.DecodeString(userdata)
+	if err != nil {
+		return "", errors.Wrap(err, "SRegion.ReplaceSystemDisk.DecodeString")
+	}
+	err = instance.UpdateUserData(string(userdataText))
 	if err != nil {
 		log.Debugf("ReplaceSystemDisk update user data %s", err)
 		return "", fmt.Errorf("ReplaceSystemDisk update user data failed")

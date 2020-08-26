@@ -43,7 +43,7 @@ func (self *SClassicWire) GetGlobalId() string {
 }
 
 func (self *SClassicWire) GetName() string {
-	return fmt.Sprintf("%s-%s-classic", self.zone.region.client.providerName, self.vpc.GetName())
+	return fmt.Sprintf("%s-%s-classic", self.zone.region.client.cpcfg.Name, self.vpc.GetName())
 }
 
 func (self *SClassicWire) IsEmulated() bool {
@@ -74,7 +74,7 @@ func (self *SClassicWire) addNetwork(network *SClassicNetwork) {
 	}
 }
 
-func (self *SClassicWire) CreateINetwork(name string, cidr string, desc string) (cloudprovider.ICloudNetwork, error) {
+func (self *SClassicWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
 	return nil, cloudprovider.ErrNotImplemented
 	// if network, err := self.zone.region.createNetwork(self.vpc, name, cidr, desc); err != nil {
 	// 	return nil, err

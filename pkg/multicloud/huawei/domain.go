@@ -14,8 +14,6 @@
 
 package huawei
 
-import "yunion.io/x/onecloud/pkg/multicloud/huawei/client"
-
 // https://support.huaweicloud.com/api-iam/zh-cn_topic_0057845574.html
 // 租户列表
 type SDomain struct {
@@ -29,7 +27,7 @@ type SDomain struct {
 }
 
 func (self *SHuaweiClient) GetDomains() ([]SDomain, error) {
-	huawei, _ := client.NewClientWithAccessKey("", "", self.accessKey, self.secret, self.debug)
+	huawei, _ := self.newGeneralAPIClient()
 	domains := make([]SDomain, 0)
 	err := doListAll(huawei.Domains.List, nil, &domains)
 	return domains, err

@@ -237,7 +237,7 @@ func anyToSockaddr(fd int, rsa *RawSockaddrAny) (Sockaddr, error) {
 				break
 			}
 		}
-		bytes := (*[10000]byte)(unsafe.Pointer(&pp.Path[0]))[0:n]
+		bytes := (*[len(pp.Path)]byte)(unsafe.Pointer(&pp.Path[0]))[0:n]
 		sa.Name = string(bytes)
 		return sa, nil
 
@@ -576,8 +576,6 @@ func Futimes(fd int, tv []Timeval) error {
 	}
 	return futimes(fd, (*[2]Timeval)(unsafe.Pointer(&tv[0])))
 }
-
-//sys	fcntl(fd int, cmd int, arg int) (val int, err error)
 
 //sys   poll(fds *PollFd, nfds int, timeout int) (n int, err error)
 

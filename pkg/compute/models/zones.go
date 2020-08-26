@@ -20,11 +20,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -32,10 +32,14 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SZoneManager struct {
 	db.SStatusStandaloneResourceBaseManager
+	db.SExternalizedResourceBaseManager
+	SCloudregionResourceBaseManager
 }
 
 var ZoneManager *SZoneManager
@@ -56,14 +60,15 @@ func init() {
 type SZone struct {
 	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
+	SCloudregionResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`
 
-	Location string `width:"256" charset:"utf8" get:"user" list:"user" update:"admin"` // = Column(VARCHAR(256, charset='utf8'))
-	Contacts string `width:"256" charset:"utf8" get:"user" update:"admin"`             // = Column(VARCHAR(256, charset='utf8'))
-	NameCn   string `width:"256" charset:"utf8"`                                       // = Column(VARCHAR(256, charset='utf8'))
-	// status = Column(VARCHAR(36, charset='ascii'), nullable=False, default=ZONE_DISABLE)
-	ManagerUri string `width:"256" charset:"ascii" list:"admin" update:"admin"` // = Column(VARCHAR(256, charset='ascii'), nullable=True)
-	// admin_id = Column(VARCHAR(36, charset='ascii'), nullable=False)
-	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`
+	Location   string `width:"256" charset:"utf8" get:"user" list:"user" update:"admin"`
+	Contacts   string `width:"256" charset:"utf8" get:"user" update:"admin"`
+	NameCn     string `width:"256" charset:"utf8"`
+	ManagerUri string `width:"256" charset:"ascii" list:"admin" update:"admin"`
+
+	// 区域Id
+	// CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`
 }
 
 func (manager *SZoneManager) GetContextManagers() [][]db.IModelManager {
@@ -72,29 +77,13 @@ func (manager *SZoneManager) GetContextManagers() [][]db.IModelManager {
 	}
 }
 
-func (self *SZoneManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SZone) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SZone) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SZone) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
-}
-
 func (manager *SZoneManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return true
 }
 
 func (zone *SZone) ValidateDeleteCondition(ctx context.Context) error {
 	usage := zone.GeneralUsage()
-	if !usage.isEmpty() {
+	if !usage.IsEmpty() {
 		return httperrors.NewNotEmptyError("not empty zone")
 	}
 	return zone.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
@@ -104,34 +93,8 @@ func (manager *SZoneManager) Count() (int, error) {
 	return manager.Query().CountWithError()
 }
 
-type ZoneGeneralUsage struct {
-	Hosts             int
-	HostsEnabled      int
-	Baremetals        int
-	BaremetalsEnabled int
-	Wires             int
-	Networks          int
-	Storages          int
-}
-
-func (usage *ZoneGeneralUsage) isEmpty() bool {
-	if usage.Hosts > 0 {
-		return false
-	}
-	if usage.Wires > 0 {
-		return false
-	}
-	if usage.Networks > 0 {
-		return false
-	}
-	if usage.Storages > 0 {
-		return false
-	}
-	return true
-}
-
-func (zone *SZone) GeneralUsage() ZoneGeneralUsage {
-	usage := ZoneGeneralUsage{}
+func (zone *SZone) GeneralUsage() api.ZoneGeneralUsage {
+	usage := api.ZoneGeneralUsage{}
 	usage.Hosts, _ = zone.HostCount("", "", tristate.None, "", tristate.None)
 	usage.HostsEnabled, _ = zone.HostCount("", "", tristate.True, "", tristate.None)
 	usage.Baremetals, _ = zone.HostCount("", "", tristate.None, "", tristate.True)
@@ -177,31 +140,40 @@ func (zone *SZone) getStorageCount() (int, error) {
 }
 
 func (zone *SZone) getNetworkCount() (int, error) {
-	return getNetworkCount(nil, zone, "")
+	return getNetworkCount(nil, rbacutils.ScopeSystem, nil, zone)
 }
 
-func zoneExtra(zone *SZone, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	usage := zone.GeneralUsage()
-	extra.Update(jsonutils.Marshal(usage))
-	region := zone.GetRegion()
-	if region != nil {
-		extra.Add(jsonutils.NewString(region.Name), "cloudregion")
-		extra.Add(jsonutils.NewString(region.Provider), "provider")
+func (manager *SZoneManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.ZoneDetails {
+	rows := make([]api.ZoneDetails, len(objs))
+
+	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	regRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.ZoneDetails{
+			StatusStandaloneResourceDetails: stdRows[i],
+			CloudregionResourceInfo:         regRows[i],
+		}
+		zone := objs[i].(*SZone)
+		rows[i].ZoneGeneralUsage = zone.GeneralUsage()
+		rows[i].CloudenvResourceInfo = zone.GetRegion().GetRegionCloudenvInfo()
 	}
-	return extra
+	return rows
 }
 
-func (zone *SZone) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := zone.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return zoneExtra(zone, extra)
+func (zone *SZone) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ZoneDetails, error) {
+	return api.ZoneDetails{}, nil
 }
 
-func (zone *SZone) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := zone.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
-	}
-	return zoneExtra(zone, extra), nil
+func (zone *SZone) GetCloudproviderId() string {
+	return ""
 }
 
 func (zone *SZone) GetCloudRegionId() string {
@@ -212,16 +184,6 @@ func (zone *SZone) GetCloudRegionId() string {
 	}
 }
 
-func (manager *SZoneManager) GetZonesByRegion(region *SCloudregion) ([]SZone, error) {
-	zones := make([]SZone, 0)
-	q := manager.Query().Equals("cloudregion_id", region.Id)
-	err := db.FetchModelObjects(manager, q, &zones)
-	if err != nil {
-		return nil, err
-	}
-	return zones, nil
-}
-
 func (manager *SZoneManager) SyncZones(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, zones []cloudprovider.ICloudZone) ([]SZone, []cloudprovider.ICloudZone, compare.SyncResult) {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
@@ -230,7 +192,7 @@ func (manager *SZoneManager) SyncZones(ctx context.Context, userCred mcclient.To
 	remoteZones := make([]cloudprovider.ICloudZone, 0)
 	syncResult := compare.SyncResult{}
 
-	dbZones, err := manager.GetZonesByRegion(region)
+	dbZones, err := region.GetZones()
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult
@@ -329,7 +291,7 @@ func (manager *SZoneManager) newFromCloudZone(ctx context.Context, userCred mccl
 
 	zone.CloudregionId = region.Id
 
-	err = manager.TableSpec().Insert(&zone)
+	err = manager.TableSpec().Insert(ctx, &zone)
 	if err != nil {
 		log.Errorf("newFromCloudZone fail %s", err)
 		return nil, err
@@ -523,26 +485,36 @@ func NetworkUsableZoneQueries(field sqlchemy.IQueryField, usableNet, usableVpc b
 	return iconditions
 }
 
-func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+// 可用区列表
+func (manager *SZoneManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ZoneListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
 	}
 
-	cloudEnvStr, _ := query.GetString("cloud_env")
-	if cloudEnvStr == api.CLOUD_ENV_PRIVATE_CLOUD || jsonutils.QueryBoolean(query, "is_private", false) || jsonutils.QueryBoolean(query, "private", false) || jsonutils.QueryBoolean(query, "private_cloud", false) {
+	cloudEnvStr := query.CloudEnv
+	if cloudEnvStr == api.CLOUD_ENV_PRIVATE_CLOUD {
 		regions := CloudregionManager.Query().SubQuery()
 		subq := regions.Query(regions.Field("id"))
 		subq = subq.Filter(sqlchemy.In(regions.Field("provider"), cloudprovider.GetPrivateProviders()))
 		q = q.In("cloudregion_id", subq.SubQuery())
 	}
-	if cloudEnvStr == api.CLOUD_ENV_PUBLIC_CLOUD || jsonutils.QueryBoolean(query, "is_public", false) || jsonutils.QueryBoolean(query, "public", false) || jsonutils.QueryBoolean(query, "public_cloud", false) {
+	if cloudEnvStr == api.CLOUD_ENV_PUBLIC_CLOUD {
 		regions := CloudregionManager.Query().SubQuery()
 		subq := regions.Query(regions.Field("id"))
 		subq = subq.Filter(sqlchemy.In(regions.Field("provider"), cloudprovider.GetPublicProviders()))
 		q = q.In("cloudregion_id", subq.SubQuery())
 	}
-	if cloudEnvStr == api.CLOUD_ENV_ON_PREMISE || jsonutils.QueryBoolean(query, "is_on_premise", false) {
+	if cloudEnvStr == api.CLOUD_ENV_ON_PREMISE {
 		regions := CloudregionManager.Query().SubQuery()
 		subq := regions.Query(regions.Field("id"))
 		subq = subq.Filter(sqlchemy.OR(
@@ -561,56 +533,112 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		))
 		q = q.In("cloudregion_id", subq.SubQuery())
 	}
-	if jsonutils.QueryBoolean(query, "is_managed", false) {
-		q = q.IsNotEmpty("external_id")
+	if query.IsManaged != nil {
+		if *query.IsManaged {
+			q = q.IsNotEmpty("external_id")
+		} else {
+			q = q.IsNullOrEmpty("external_id")
+		}
 	}
 
-	domainId, err := db.FetchQueryDomain(ctx, userCred, query)
+	data := jsonutils.Marshal(query.DomainizedResourceListInput)
+	domainId, err := db.FetchQueryDomain(ctx, userCred, data)
 	if len(domainId) > 0 {
 		q = q.In("cloudregion_id", getCloudRegionIdByDomainId(domainId))
 	}
 
-	if jsonutils.QueryBoolean(query, "usable", false) || jsonutils.QueryBoolean(query, "usable_vpc", false) {
-		usableNet := jsonutils.QueryBoolean(query, "usable", false)
-		usableVpc := jsonutils.QueryBoolean(query, "usable_vpc",
-			false)
+	usableNet := (query.Usable != nil && *query.Usable)
+	usableVpc := (query.UsableVpc != nil && *query.UsableVpc)
+	if usableNet || usableVpc {
 		iconditions := NetworkUsableZoneQueries(q.Field("id"), usableNet, usableVpc)
 		q = q.Filter(sqlchemy.OR(iconditions...))
 		q = q.Equals("status", api.ZONE_ENABLE)
+
+		service := query.Service
+		switch service {
+		case ElasticcacheManager.KeywordPlural():
+			q2 := ElasticcacheSkuManager.Query("zone_id").Distinct()
+			statusFilter := sqlchemy.OR(sqlchemy.Equals(q2.Field("prepaid_status"), api.SkuStatusAvailable), sqlchemy.Equals(q2.Field("postpaid_status"), api.SkuStatusAvailable))
+			skusSQ := q2.Filter(statusFilter).SubQuery()
+			q = q.In("id", skusSQ)
+		default:
+			break
+		}
 	}
 
-	managerStr, _ := query.GetString("manager")
+	managerStr := query.CloudproviderId
 	if len(managerStr) > 0 {
-		subq := CloudproviderRegionManager.QueryRelatedRegionIds("", managerStr)
+		subq := CloudproviderRegionManager.QueryRelatedRegionIds(nil, managerStr)
 		q = q.In("cloudregion_id", subq)
 	}
-	accountStr, _ := query.GetString("account")
-	if len(accountStr) > 0 {
-		subq := CloudproviderRegionManager.QueryRelatedRegionIds(accountStr)
+	accountArr := query.CloudaccountId
+	if len(accountArr) > 0 {
+		subq := CloudproviderRegionManager.QueryRelatedRegionIds(accountArr)
 		q = q.In("cloudregion_id", subq)
 	}
 
-	providerStrs := jsonutils.GetQueryStringArray(query, "provider")
+	providerStrs := query.Providers
 	if len(providerStrs) > 0 {
-		query.(*jsonutils.JSONDict).Remove("provider")
 		subq := queryCloudregionIdsByProviders("provider", providerStrs)
 		q = q.In("cloudregion_id", subq.SubQuery())
 	}
 
-	brandStrs := jsonutils.GetQueryStringArray(query, "brand")
+	brandStrs := query.Brands
 	if len(brandStrs) > 0 {
-		query.(*jsonutils.JSONDict).Remove("brand")
 		subq := queryCloudregionIdsByProviders("brand", brandStrs)
 		q = q.In("cloudregion_id", subq.SubQuery())
 	}
 
-	city, _ := query.GetString("city")
-	if len(city) > 0 {
-		subq := CloudregionManager.Query("id").Equals("city", city).SubQuery()
-		q = q.In("cloudregion_id", subq)
+	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "", nil)
+
+	if len(query.Location) > 0 {
+		q = q.In("location", query.Location)
+	}
+	if len(query.Contacts) > 0 {
+		q = q.In("contacts", query.Contacts)
 	}
 
 	return q, nil
+}
+
+func (manager *SZoneManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ZoneListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SCloudregionResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SZoneManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	if field == "zone" {
+		q = q.AppendField(q.Field("name").Label("zone"))
+		q = q.GroupBy(q.Field("name"))
+		return q, nil
+	}
+	q, err = manager.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SCloudregionResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (self *SZone) AllowGetDetailsCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -658,34 +686,31 @@ func (self *SZone) getMaxDataDiskCount() int {
 	return options.Options.MaxDataDiskCount
 }
 
-func (manager *SZoneManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	regionStr := jsonutils.GetAnyString(data, []string{"region", "region_id", "cloudregion", "cloudregion_id"})
-	var regionId string
-	if len(regionStr) > 0 {
-		regionObj, err := CloudregionManager.FetchByIdOrName(nil, regionStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError("Region %s not found", regionStr)
-			} else {
-				return nil, httperrors.NewInternalServerError("Query region %s fail %s", regionStr, err)
-			}
+func (manager *SZoneManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ZoneCreateInput) (*jsonutils.JSONDict, error) {
+	for _, cloudregion := range []string{input.Cloudregion, input.Region, input.RegionId, input.CloudregionId, "default"} {
+		if len(cloudregion) > 0 {
+			input.Cloudregion = cloudregion
+			break
 		}
-		regionId = regionObj.GetId()
-	} else {
-		regionId = "default"
 	}
-	data.Add(jsonutils.NewString(regionId), "cloudregion_id")
-	data.Set("status", jsonutils.NewString(api.ZONE_ENABLE))
-
-	input := apis.StatusStandaloneResourceCreateInput{}
-	err := data.Unmarshal(&input)
+	_region, err := CloudregionManager.FetchByIdOrName(nil, input.Cloudregion)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal StatusStandaloneResourceCreateInput fail %s", err)
+		if err != sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError("failed to found cloudregion %s", input.Cloudregion)
+		}
+		return nil, httperrors.NewGeneralError(err)
 	}
-	input, err = manager.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	region := _region.(*SCloudregion)
+	input.CloudregionId = region.Id
+	input.Status = api.ZONE_ENABLE
+	if region.Provider != api.CLOUD_PROVIDER_ONECLOUD {
+		return nil, httperrors.NewNotSupportedError("not support create %s zone", region.Provider)
+	}
+
+	input.StatusStandaloneResourceCreateInput, err = manager.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusStandaloneResourceCreateInput)
 	if err != nil {
 		return nil, err
 	}
-	data.Update(jsonutils.Marshal(input))
-	return data, nil
+
+	return input.JSON(input), nil
 }

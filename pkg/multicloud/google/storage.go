@@ -29,11 +29,9 @@ type SStorage struct {
 	SResourceBase
 
 	CreationTimestamp time.Time
-	Name              string
 	Description       string
 	ValidDiskSize     string
 	Zone              string
-	SelfLink          string
 	DefaultDiskSizeGb string
 	Kind              string
 }
@@ -122,11 +120,21 @@ func (storage *SStorage) GetEnabled() bool {
 }
 
 func (storage *SStorage) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
-	return nil, cloudprovider.ErrNotFound
+	disk, err := storage.zone.region.GetDisk(id)
+	if err != nil {
+		return nil, err
+	}
+	disk.storage = storage
+	return disk, nil
 }
 
-func (storage *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
-	return nil, cloudprovider.ErrNotImplemented
+func (storage *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
+	disk, err := storage.zone.region.CreateDisk(conf.Name, conf.SizeGb, storage.zone.Name, storage.Name, "", conf.Desc)
+	if err != nil {
+		return nil, err
+	}
+	disk.storage = storage
+	return disk, nil
 }
 
 func (storage *SStorage) GetMountPoint() string {
@@ -134,5 +142,5 @@ func (storage *SStorage) GetMountPoint() string {
 }
 
 func (storage *SStorage) IsSysDiskStore() bool {
-	return storage.Name != api.STORAGE_GOOGLE_LOCAL_STORAGE
+	return storage.Name != api.STORAGE_GOOGLE_LOCAL_SSD
 }

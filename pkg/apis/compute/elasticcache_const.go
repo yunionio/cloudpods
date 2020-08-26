@@ -14,6 +14,10 @@
 
 package compute
 
+import (
+	"yunion.io/x/onecloud/pkg/apis"
+)
+
 const (
 	ELASTIC_CACHE_STATUS_RUNNING               = "running"               //（正常）
 	ELASTIC_CACHE_STATUS_RESTARTING            = "restarting"            //（重启中）
@@ -102,3 +106,107 @@ const (
 	ELASTIC_CACHE_ARCH_TYPE_CLUSTER = "cluster" // 集群
 	ELASTIC_CACHE_ARCH_TYPE_RWSPLIT = "rwsplit" // 读写分离
 )
+
+type ElasticcacheListInput struct {
+	apis.VirtualResourceListInput
+	apis.ExternalizedResourceBaseListInput
+	apis.DeletePreventableResourceBaseListInput
+	VpcFilterListInput
+	ZonalFilterListBase
+
+	// 实例规格
+	// example: redis.master.micro.default
+	InstanceType []string `json:"instance_type"`
+
+	// 对应Sku
+	LocalCategory []string `json:"local_category"`
+
+	// 类型
+	// single（单副本） | double（双副本) | readone (单可读) | readthree （3可读） | readfive（5只读）
+	NodeType []string `json:"node_type"`
+
+	// 后端存储引擎
+	// Redis | Memcache
+	// example: redis
+	Engine []string `json:"engine"`
+
+	// 后端存储引擎版本
+	// example: 4.0
+	EngineVersion []string `json:"engine_version"`
+
+	// 网络类型, CLASSIC（经典网络）  VPC（专有网络）
+	// example: CLASSIC
+	NetworkType []string `json:"network_type"`
+
+	NetworkFilterListBase
+
+	//  内网DNS
+	PrivateDNS []string `json:"private_dns"`
+
+	//  内网IP地址
+	PrivateIpAddr []string `json:"private_ip_addr"`
+
+	// 内网访问端口
+	PrivateConnectPort []int `json:"private_connect_port"`
+
+	// 公网DNS
+	PublicDNS []string `json:"public_dns"`
+
+	// 公网IP地址
+	PublicIpAddr []string `json:"public_ip_addr"`
+
+	// 外网访问端口
+	PublicConnectPort []int `json:"public_connect_port"`
+
+	// 访问密码？ on （开启密码）|off （免密码访问）
+	AuthMode []string `json:"auth_mode"`
+}
+
+type ElasticcacheAccountListInput struct {
+	apis.StatusStandaloneResourceListInput
+	apis.ExternalizedResourceBaseListInput
+
+	ElasticcacheFilterListInput
+
+	// 账号类型 normal |admin
+	AccountType []string `json:"account_type"`
+
+	// 账号权限 read | write | repl（复制, 复制权限支持读写，且开放SYNC/PSYNC命令）
+	AccountPrivilege []string `json:"account_privilege"`
+}
+
+type ElasticcacheAclListInput struct {
+	apis.StandaloneResourceListInput
+	apis.ExternalizedResourceBaseListInput
+
+	ElasticcacheFilterListInput
+
+	// Ip地址白名单列表
+	IpList string `json:"ip_list"`
+}
+
+type ElasticcacheBackupListInput struct {
+	apis.StatusStandaloneResourceListInput
+	apis.ExternalizedResourceBaseListInput
+
+	ElasticcacheFilterListInput
+
+	// 备份类型, 全量|增量额
+	BackupType []string `json:"backup_type"`
+
+	// 备份模式，自动|手动
+	BackupMode []string `json:"backup_mode"`
+}
+
+type ElasticcacheParameterListInput struct {
+	apis.StandaloneResourceListInput
+	apis.ExternalizedResourceBaseListInput
+
+	ElasticcacheFilterListInput
+
+	// 参数名称
+	Key []string `json:"key"`
+
+	// 参数值
+	Value []string `json:"value"`
+}

@@ -29,10 +29,11 @@ import (
 )
 
 type Session struct {
-	privateKey string
-	playbook   string
-	inventory  string
-	files      map[string][]byte
+	privateKey   string
+	playbook     string
+	inventory    string
+	requirements string
+	files        map[string][]byte
 
 	outputWriter io.Writer
 	stateMux     *sync.Mutex
@@ -60,6 +61,11 @@ func (sess *Session) Playbook(s string) *Session {
 
 func (sess *Session) Inventory(s string) *Session {
 	sess.inventory = s
+	return sess
+}
+
+func (sess *Session) Requirements(s string) *Session {
+	sess.requirements = s
 	return sess
 }
 
@@ -143,6 +149,17 @@ func (sess *Session) Run(ctx context.Context) (err error) {
 		}
 	}
 
+	// write out requirements
+	var requirements string
+	if len(sess.requirements) > 0 {
+		requirements = filepath.Join(tmpdir, "requirements.yml")
+		err = ioutil.WriteFile(requirements, []byte(sess.requirements), os.FileMode(0600))
+		if err != nil {
+			err = errors.WithMessagef(err, "writing requirements %s", requirements)
+			return
+		}
+	}
+
 	// write out files
 	for name, content := range sess.files {
 		path := filepath.Join(tmpdir, name)
@@ -167,6 +184,29 @@ func (sess *Session) Run(ctx context.Context) (err error) {
 		}
 	}()
 
+	// install required roles
+	if len(requirements) > 0 {
+		args := []string{
+			"install", "-r", requirements,
+		}
+		cmd := exec.CommandContext(ctx, "ansible-galaxy", args...)
+		stdout, _ := cmd.StdoutPipe()
+		stderr, _ := cmd.StderrPipe()
+		if err1 := cmd.Start(); err1 != nil {
+			errs = append(errs, errors.WithMessage(err1, "start ansible-galaxy install roles"))
+			return
+		}
+		// Mix stdout, stderr
+		if sess.outputWriter != nil {
+			go io.Copy(sess.outputWriter, stdout)
+			go io.Copy(sess.outputWriter, stderr)
+		}
+		if err1 := cmd.Wait(); err1 != nil {
+			errs = append(errs, errors.WithMessage(err1, "wait ansible-galaxy install roles"))
+		}
+	}
+
+	// run playbook
 	{
 		args := []string{
 			"--inventory", inventory,

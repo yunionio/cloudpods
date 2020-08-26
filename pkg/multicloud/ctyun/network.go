@@ -15,6 +15,10 @@
 package ctyun
 
 import (
+	"fmt"
+	"strconv"
+	"time"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -115,9 +119,9 @@ func (self *SNetwork) GetIpMask() int8 {
 
 func (self *SNetwork) GetGateway() string {
 	pref, _ := netutils.NewIPV4Prefix(self.CIDR)
-	endIp := pref.Address.BroadcastAddr(pref.MaskLen) // 255
-	endIp = endIp.StepDown()                          // 254
-	return endIp.String()
+	startIp := pref.Address.NetAddr(pref.MaskLen) // 0
+	startIp = startIp.StepUp()                    // 1
+	return startIp.String()
 }
 
 func (self *SNetwork) GetServerType() string {
@@ -133,7 +137,7 @@ func (self *SNetwork) GetPublicScope() rbacutils.TRbacScope {
 }
 
 func (self *SNetwork) Delete() error {
-	return cloudprovider.ErrNotImplemented
+	return self.vpc.region.DeleteNetwork(self.vpc.GetId(), self.GetId())
 }
 
 func (self *SNetwork) GetAllocTimeoutSeconds() int {
@@ -177,7 +181,7 @@ func (self *SRegion) GetNetwroks(vpcId string) ([]SNetwork, error) {
 	return networks, err
 }
 
-func (self *SRegion) GetNetwork(subnetId string) (*SNetwork, error) {
+func (self *SRegion) getNetwork(subnetId string) (*SNetwork, error) {
 	querys := map[string]string{
 		"subnetId": subnetId,
 		"regionId": self.GetId(),
@@ -185,13 +189,22 @@ func (self *SRegion) GetNetwork(subnetId string) (*SNetwork, error) {
 
 	resp, err := self.client.DoGet("/apiproxy/v3/querySubnetDetail", querys)
 	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetNetwork.DoGet")
+		return nil, errors.Wrap(err, "SRegion.getNetwork.DoGet")
 	}
 
 	network := &SNetwork{}
 	err = resp.Unmarshal(network, "returnObj")
 	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetNetwork.Unmarshal")
+		return nil, errors.Wrap(err, "SRegion.getNetwork.Unmarshal")
+	}
+
+	return network, nil
+}
+
+func (self *SRegion) GetNetwork(subnetId string) (*SNetwork, error) {
+	network, err := self.getNetwork(subnetId)
+	if err != nil {
+		return nil, errors.Wrap(err, "SRegion.GetNetwork.getNetwork")
 	}
 
 	vpc, err := self.GetVpc(network.VpcID)
@@ -209,13 +222,18 @@ func (self *SRegion) GetNetwork(subnetId string) (*SNetwork, error) {
 	return network, err
 }
 
-func (self *SRegion) CreateNetwork(vpcId, zoneId, name, cidr, gatewayIp, dhcpEnable string) (*SNetwork, error) {
+func (self *SRegion) CreateNetwork(vpcId, zoneId, name, cidr, dhcpEnable string) (*SNetwork, error) {
+	gateway, err := getDefaultGateWay(cidr)
+	if err != nil {
+		return nil, err
+	}
+
 	networkParams := jsonutils.NewDict()
 	networkParams.Set("regionId", jsonutils.NewString(self.GetId()))
 	networkParams.Set("zoneId", jsonutils.NewString(zoneId))
 	networkParams.Set("name", jsonutils.NewString(name))
 	networkParams.Set("cidr", jsonutils.NewString(cidr))
-	networkParams.Set("gatewayIp", jsonutils.NewString(gatewayIp))
+	networkParams.Set("gatewayIp", jsonutils.NewString(gateway))
 	networkParams.Set("dhcpEnable", jsonutils.NewString(dhcpEnable))
 	networkParams.Set("vpcId", jsonutils.NewString(vpcId))
 	// DNS地址，如果主机需要访问公网就需要填写该值，不填写就不能使用DNS解析
@@ -226,16 +244,53 @@ func (self *SRegion) CreateNetwork(vpcId, zoneId, name, cidr, gatewayIp, dhcpEna
 		"jsonStr": networkParams,
 	}
 
-	network := &SNetwork{}
 	resp, err := self.client.DoPost("/apiproxy/v3/createSubnet", params)
 	if err != nil {
 		return nil, errors.Wrap(err, "SRegion.CreateNetwork.DoPost")
 	}
 
-	err = resp.Unmarshal(network, "returnObj")
+	netId, err := resp.GetString("returnObj", "id")
 	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.CreateNetwork.Unmarshal")
+		return nil, errors.Wrap(err, "SRegion.CreateNetwork.GetString")
 	}
 
-	return network, err
+	err = cloudprovider.WaitCreated(10*time.Second, 180*time.Second, func() bool {
+		network, err := self.getNetwork(netId)
+		if err != nil {
+			log.Debugf("SRegion.CreateNetwork.getNetwork")
+			return false
+		}
+
+		if len(network.VpcID) == 0 {
+			return false
+		} else {
+			return true
+		}
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "SRegion.CreateNetwork.GetVpc")
+	}
+
+	return self.GetNetwork(netId)
+}
+
+func (self *SRegion) DeleteNetwork(vpcId, subnetId string) error {
+	params := map[string]jsonutils.JSONObject{
+		"regionId": jsonutils.NewString(self.GetId()),
+		"vpcId":    jsonutils.NewString(vpcId),
+		"subnetId": jsonutils.NewString(subnetId),
+	}
+
+	resp, err := self.client.DoPost("/apiproxy/v3/deleteSubnet", params)
+	if err != nil {
+		return errors.Wrap(err, "SRegion.DeleteNetwork.DoPost")
+	}
+
+	var statusCode int
+	err = resp.Unmarshal(&statusCode, "statusCode")
+	if statusCode != 800 {
+		return errors.Wrap(fmt.Errorf(strconv.Itoa(statusCode)), "SRegion.DeleteNetwork.Failed")
+	}
+
+	return nil
 }

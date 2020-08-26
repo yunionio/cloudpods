@@ -41,7 +41,7 @@ func (vpc *SVpc) GetId() string {
 }
 
 func (vpc *SVpc) GetName() string {
-	return fmt.Sprintf("%s-VPC", vpc.region.client.providerName)
+	return fmt.Sprintf("%s-VPC", vpc.region.client.cpcfg.Name)
 }
 
 func (vpc *SVpc) GetGlobalId() string {

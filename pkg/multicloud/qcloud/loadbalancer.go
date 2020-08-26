@@ -15,6 +15,7 @@
 package qcloud
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -25,6 +26,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
@@ -83,7 +85,10 @@ func (self *SLoadbalancer) GetEgressMbps() int {
 }
 
 // https://cloud.tencent.com/document/product/214/30689
-func (self *SLoadbalancer) Delete() error {
+func (self *SLoadbalancer) Delete(ctx context.Context) error {
+	lockman.LockRawObject(ctx, "qcloud.SLoadbalancer.Delete", self.region.client.ownerId)
+	defer lockman.ReleaseRawObject(ctx, "qcloud.SLoadbalancer.Delete", self.region.client.ownerId)
+
 	if self.Forward == LB_TYPE_APPLICATION {
 		_, err := self.region.DeleteLoadbalancer(self.GetId())
 		if err != nil {
@@ -132,7 +137,7 @@ func (self *SLoadbalancer) GetILoadBalancerBackendGroupById(groupId string) (clo
 func onecloudHealthCodeToQcloud(codes string) int {
 	qcode := 0
 	for i, code := range HTTP_CODES {
-		if strings.Contains(code, codes) {
+		if strings.Contains(codes, code) {
 			// 按位或然后再赋值qcode
 			qcode |= 1 << uint(i)
 		}
@@ -144,7 +149,10 @@ func onecloudHealthCodeToQcloud(codes string) int {
 // https://cloud.tencent.com/document/product/214/30693
 // todo:  1.限制比较多必须加参数校验 2.Onecloud 不支持双向证书可能存在兼容性问题
 // 应用型负载均衡 传统型不支持设置SNI
-func (self *SLoadbalancer) CreateILoadBalancerListener(listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
+func (self *SLoadbalancer) CreateILoadBalancerListener(ctx context.Context, listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
+	lockman.LockRawObject(ctx, "qcloud.SLoadbalancer.CreateILoadBalancerListener", self.region.client.ownerId)
+	defer lockman.ReleaseRawObject(ctx, "qcloud.SLoadbalancer.CreateILoadBalancerListener", self.region.client.ownerId)
+
 	sniSwitch := 0
 	hc := getHealthCheck(listener)
 	cert := getCertificate(listener)
@@ -311,6 +319,11 @@ func (self *SLoadbalancer) GetILoadBalancerListeners() ([]cloudprovider.ICloudLo
 }
 
 func (self *SLoadbalancer) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
+	if self.Forward == LB_TYPE_CLASSIC {
+		bg := SLBBackendGroup{lb: self}
+		return []cloudprovider.ICloudLoadbalancerBackendGroup{&bg}, nil
+	}
+
 	listeners, err := self.GetLoadbalancerListeners("")
 	if err != nil {
 		return nil, err

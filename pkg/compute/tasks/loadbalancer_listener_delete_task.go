@@ -36,11 +36,11 @@ func init() {
 	taskman.RegisterTask(LoadbalancerListenerDeleteTask{})
 }
 
-func (self *LoadbalancerListenerDeleteTask) taskFail(ctx context.Context, lblis *models.SLoadbalancerListener, reason string) {
-	lblis.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, reason)
+func (self *LoadbalancerListenerDeleteTask) taskFail(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
+	lblis.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, reason.String())
 	db.OpsLog.LogEvent(lblis, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_DELOCATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lblis.Id, lblis.Name, api.LB_STATUS_DELETE_FAILED, reason)
+	notifyclient.NotifySystemError(lblis.Id, lblis.Name, api.LB_STATUS_DELETE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -48,12 +48,12 @@ func (self *LoadbalancerListenerDeleteTask) OnInit(ctx context.Context, obj db.I
 	lblis := obj.(*models.SLoadbalancerListener)
 	region := lblis.GetRegion()
 	if region == nil {
-		self.taskFail(ctx, lblis, fmt.Sprintf("failed to find region for lblis %s", lblis.Name))
+		self.taskFail(ctx, lblis, jsonutils.NewString(fmt.Sprintf("failed to find region for lblis %s", lblis.Name)))
 		return
 	}
 	self.SetStage("OnLoadbalancerListenerDeleteComplete", nil)
 	if err := region.GetDriver().RequestDeleteLoadbalancerListener(ctx, self.GetUserCred(), lblis, self); err != nil {
-		self.taskFail(ctx, lblis, err.Error())
+		self.taskFail(ctx, lblis, jsonutils.Marshal(err))
 	}
 }
 
@@ -65,5 +65,5 @@ func (self *LoadbalancerListenerDeleteTask) OnLoadbalancerListenerDeleteComplete
 }
 
 func (self *LoadbalancerListenerDeleteTask) OnLoadbalancerListenerDeleteCompleteFailed(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lblis, reason.String())
+	self.taskFail(ctx, lblis, reason)
 }

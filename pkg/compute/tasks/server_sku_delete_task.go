@@ -37,12 +37,11 @@ func init() {
 	taskman.RegisterTask(ServerSkuDeleteTask{})
 }
 
-func (self *ServerSkuDeleteTask) taskFail(ctx context.Context, sku *models.SServerSku, msg string) {
-	sku.SetStatus(self.UserCred, api.SkuStatusDeleteFailed, msg)
+func (self *ServerSkuDeleteTask) taskFail(ctx context.Context, sku *models.SServerSku, msg jsonutils.JSONObject) {
+	sku.SetStatus(self.UserCred, api.SkuStatusDeleteFailed, msg.String())
 	db.OpsLog.LogEvent(sku, db.ACT_DELOCATE, msg, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, sku, logclient.ACT_DELETE, msg, self.UserCred, false)
 	self.SetStageFailed(ctx, msg)
-	return
 }
 
 func (self *ServerSkuDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -51,7 +50,7 @@ func (self *ServerSkuDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	if !jsonutils.QueryBoolean(self.Params, "purge", false) {
 		cloudproviders, err := sku.GetPrivateCloudproviders()
 		if err != nil {
-			self.taskFail(ctx, sku, err.Error())
+			self.taskFail(ctx, sku, jsonutils.NewString(err.Error()))
 			return
 		}
 
@@ -83,7 +82,7 @@ func (self *ServerSkuDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	err := sku.RealDelete(ctx, self.UserCred)
 	if err != nil {
 		err = errors.Wrapf(err, "sku.RealDelete")
-		self.taskFail(ctx, sku, err.Error())
+		self.taskFail(ctx, sku, jsonutils.NewString(err.Error()))
 		return
 	}
 

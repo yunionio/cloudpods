@@ -53,7 +53,7 @@ func (self *HostImportLibvirtServersTask) RequestHostPrepareImport(
 	header := self.GetTaskRequestHeader()
 	if _, err := host.Request(ctx, self.UserCred, "POST",
 		"/servers/prepare-import-from-libvirt", header, self.Params); err != nil {
-		self.TaskFailed(ctx, host, err.Error())
+		self.TaskFailed(ctx, host, jsonutils.Marshal(err))
 	}
 }
 
@@ -70,13 +70,13 @@ func (self *HostImportLibvirtServersTask) OnRequestHostPrepareImport(
 
 	serversMatched, _ := body.Get("servers_matched")
 	if serversMatched == nil {
-		self.TaskFailed(ctx, host, "No matched server found")
+		self.TaskFailed(ctx, host, jsonutils.NewString("No matched server found"))
 		return
 	}
 
 	guestsDesc := []compute.SImportGuestDesc{}
 	if err := serversMatched.Unmarshal(&guestsDesc); err != nil {
-		self.TaskFailed(ctx, host, fmt.Sprintf("Unmarshal matched servers failed: %s", err))
+		self.TaskFailed(ctx, host, jsonutils.NewString(fmt.Sprintf("Unmarshal matched servers failed: %s", err)))
 		return
 	}
 	self.StartImportServers(ctx, host, guestsDesc)
@@ -183,7 +183,7 @@ func (self *HostImportLibvirtServersTask) CreateImportedLibvirtGuestOnHost(
 }
 
 func (self *HostImportLibvirtServersTask) TaskFailed(
-	ctx context.Context, host *models.SHost, reason string,
+	ctx context.Context, host *models.SHost, reason jsonutils.JSONObject,
 ) {
 	self.SetStageFailed(ctx, reason)
 	db.OpsLog.LogEvent(host, db.ACT_HOST_IMPORT_LIBVIRT_SERVERS_FAIL, reason, self.UserCred)
@@ -201,13 +201,13 @@ func (self *CreateImportedLibvirtGuestTask) OnInit(
 	guest := obj.(*models.SGuest)
 	disksPath, err := body.GetMap("disks_path")
 	if err != nil {
-		self.TaskFailed(ctx, guest, "guest create on host no disk access path feedback")
+		self.TaskFailed(ctx, guest, jsonutils.NewString("guest create on host no disk access path feedback"))
 	}
 	guestDisks := guest.GetDisks()
 	for i := 0; i < len(guestDisks); i++ {
 		disk := guestDisks[i].GetDisk()
 		if accessPath, ok := disksPath[disk.Id]; !ok {
-			self.TaskFailed(ctx, guest, fmt.Sprintf("Guest missing disk %s access path", disk.Id))
+			self.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("Guest missing disk %s access path", disk.Id)))
 			return
 		} else {
 			_, err := db.Update(disk, func() error {
@@ -218,7 +218,7 @@ func (self *CreateImportedLibvirtGuestTask) OnInit(
 				return nil
 			})
 			if err != nil {
-				self.TaskFailed(ctx, guest, fmt.Sprintf("Guest set disk access path error %s", err))
+				self.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("Guest set disk access path error %s", err)))
 				return
 			}
 		}
@@ -240,19 +240,19 @@ func (self *CreateImportedLibvirtGuestTask) OnGuestSync(
 func (self *CreateImportedLibvirtGuestTask) OnGuestSyncFailed(
 	ctx context.Context, guest *models.SGuest, body jsonutils.JSONObject,
 ) {
-	self.TaskFailed(ctx, guest, body.String())
+	self.TaskFailed(ctx, guest, body)
 }
 
 func (self *CreateImportedLibvirtGuestTask) OnInitFailed(
 	ctx context.Context, guest *models.SGuest, body jsonutils.JSONObject,
 ) {
-	self.TaskFailed(ctx, guest, body.String())
+	self.TaskFailed(ctx, guest, body)
 }
 
 func (self *CreateImportedLibvirtGuestTask) TaskFailed(
-	ctx context.Context, guest *models.SGuest, reason string,
+	ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject,
 ) {
-	guest.SetStatus(self.UserCred, compute.VM_IMPORT_FAILED, reason)
+	guest.SetStatus(self.UserCred, compute.VM_IMPORT_FAILED, reason.String())
 	db.OpsLog.LogEvent(guest, db.ACT_GUEST_CREATE_FROM_IMPORT_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest,
 		logclient.ACT_GUEST_CREATE_FROM_IMPORT, reason, self.UserCred, false)

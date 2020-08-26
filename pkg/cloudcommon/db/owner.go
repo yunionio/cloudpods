@@ -15,15 +15,15 @@
 package db
 
 type SOwnerId struct {
-	Domain    string
-	DomainId  string
-	Project   string
-	ProjectId string
+	Domain    string `json:"project_domain"`
+	DomainId  string `json:"project_domain_id"`
+	Project   string `json:"tenant"`
+	ProjectId string `json:"tenant_id"`
 
-	User         string
-	UserId       string
-	UserDomain   string
-	UserDomainId string
+	User         string `json:"user"`
+	UserId       string `json:"user_id"`
+	UserDomain   string `json:"domain"`
+	UserDomainId string `json:"domain_id"`
 }
 
 func (o *SOwnerId) GetProjectId() string {
@@ -64,4 +64,14 @@ func (o *SOwnerId) GetDomainId() string {
 
 func (o *SOwnerId) GetDomainName() string {
 	return o.UserDomain
+}
+
+func (ownerId SOwnerId) IsValid() bool {
+	if len(ownerId.User) > 0 && len(ownerId.UserId) > 0 &&
+		len(ownerId.UserDomain) > 0 && len(ownerId.UserDomainId) > 0 &&
+		len(ownerId.Project) > 0 && len(ownerId.ProjectId) > 0 &&
+		len(ownerId.Domain) > 0 && len(ownerId.DomainId) > 0 {
+		return true
+	}
+	return false
 }

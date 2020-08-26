@@ -24,7 +24,7 @@ func TestNormalizeProjectName(t *testing.T) {
 		Want string
 	}{
 		{"分公司1", "fengongsi1"},
-		{"集团/分公司/项目A", "jituanfengongsixiangmuA"},
+		{"集团/分公司/项目A", "jituan-fengongsi-xiangmua"},
 	}
 	for _, c := range cases {
 		got := NormalizeProjectName(c.In)

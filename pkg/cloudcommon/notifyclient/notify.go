@@ -141,6 +141,7 @@ func NotifyNormal(recipientId []string, isGroup bool, event string, data jsonuti
 		notify.NotifyByEmail,
 		notify.NotifyByDingTalk,
 		notify.NotifyByWebConsole,
+		notify.NotifyByFeishu,
 	} {
 		RawNotify(recipientId, isGroup,
 			c,
@@ -155,6 +156,7 @@ func NotifyImportant(recipientId []string, isGroup bool, event string, data json
 		notify.NotifyByDingTalk,
 		notify.NotifyByMobile,
 		notify.NotifyByWebConsole,
+		notify.NotifyByFeishu,
 	} {
 		RawNotify(recipientId, isGroup,
 			c,
@@ -169,6 +171,7 @@ func NotifyCritical(recipientId []string, isGroup bool, event string, data jsonu
 		notify.NotifyByDingTalk,
 		notify.NotifyByMobile,
 		notify.NotifyByWebConsole,
+		notify.NotifyByFeishu,
 	} {
 		RawNotify(recipientId, isGroup,
 			c,

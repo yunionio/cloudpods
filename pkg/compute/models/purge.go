@@ -22,10 +22,12 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type IPurgeableManager interface {
@@ -78,7 +80,7 @@ func (host *SHost) purge(ctx context.Context, userCred mcclient.TokenCredential)
 	lockman.LockObject(ctx, host)
 	defer lockman.ReleaseObject(ctx, host)
 
-	_, err := host.PerformDisable(ctx, userCred, nil, nil)
+	_, err := host.PerformDisable(ctx, userCred, nil, apis.PerformDisableInput{})
 	if err != nil {
 		return err
 	}
@@ -92,7 +94,7 @@ func (host *SHost) purge(ctx context.Context, userCred mcclient.TokenCredential)
 	}
 
 	// clean all disks on locally attached storages
-	storages := host._getAttachedStorages(tristate.None, tristate.None, api.STORAGE_LOCAL)
+	storages := host._getAttachedStorages(tristate.None, tristate.None, api.HOST_STORAGE_LOCAL_TYPES)
 	for i := range storages {
 		err := storages[i].purgeDisks(ctx, userCred)
 		if err != nil {
@@ -216,7 +218,7 @@ func (lbacl *SCachedLoadbalancerAcl) purge(ctx context.Context, userCred mcclien
 
 func (manager *SLoadbalancerBackendGroupManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
 	lbbgs := make([]SLoadbalancerBackendGroup, 0)
-	err := fetchByManagerId(manager, providerId, &lbbgs)
+	err := fetchByLbVpcManagerId(manager, providerId, &lbbgs)
 	if err != nil {
 		return err
 	}
@@ -938,7 +940,7 @@ func (net *SNetwork) purge(ctx context.Context, userCred mcclient.TokenCredentia
 }
 
 func (wire *SWire) purgeNetworks(ctx context.Context, userCred mcclient.TokenCredential) error {
-	nets, err := wire.getNetworks()
+	nets, err := wire.getNetworks(nil, rbacutils.ScopeNone)
 	if err != nil {
 		return err
 	}
@@ -1030,20 +1032,6 @@ func (manager *SCloudproviderregionManager) purgeAll(ctx context.Context, userCr
 	}
 	for i := range cprs {
 		err = cprs[i].Detach(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (manager *SExternalProjectManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	projs, err := manager.getProjectsByProviderId(providerId)
-	if err != nil {
-		return err
-	}
-	for i := range projs {
-		err = projs[i].Delete(ctx, userCred)
 		if err != nil {
 			return err
 		}
@@ -1184,7 +1172,7 @@ func (nat *SNatGateway) purge(ctx context.Context, userCred mcclient.TokenCreden
 	return nat.Delete(ctx, userCred)
 }
 
-func (manager *SNatGetewayManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+func (manager *SNatGatewayManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
 	nats, err := manager.getNatgatewaysByProviderId(providerId)
 	if err != nil {
 		return err
@@ -1623,6 +1611,84 @@ func (manager *SSecurityGroupCacheManager) purgeAll(ctx context.Context, userCre
 	}
 	for i := range caches {
 		err := caches[i].purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (quota *SCloudproviderQuota) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, quota)
+	defer lockman.ReleaseObject(ctx, quota)
+
+	err := quota.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return err
+	}
+
+	return quota.Delete(ctx, userCred)
+}
+
+func (manager *SCloudproviderQuotaManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	quotas := []SCloudproviderQuota{}
+	err := fetchByManagerId(manager, providerId, &quotas)
+	if err != nil {
+		return err
+	}
+	for i := range quotas {
+		err := quotas[i].purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (assignment *SPolicyAssignment) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, assignment)
+	defer lockman.ReleaseObject(ctx, assignment)
+
+	err := assignment.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "assignment.ValidateDeleteCondition(%s(%s))", assignment.Name, assignment.Id)
+	}
+
+	return assignment.Delete(ctx, userCred)
+}
+
+func (definition *SPolicyDefinition) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, definition)
+	defer lockman.ReleaseObject(ctx, definition)
+
+	assignments, err := definition.GetPolicyAssignments()
+	if err != nil {
+		return errors.Wrap(err, "definition.GetPolicyAssignments")
+	}
+
+	for i := range assignments {
+		err = assignments[i].purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = definition.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return err
+	}
+
+	return definition.Delete(ctx, userCred)
+}
+
+func (manager *SPolicyDefinitionManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	definitions := []SPolicyDefinition{}
+	err := fetchByManagerId(manager, providerId, &definitions)
+	if err != nil {
+		return err
+	}
+	for i := range definitions {
+		err := definitions[i].purge(ctx, userCred)
 		if err != nil {
 			return err
 		}

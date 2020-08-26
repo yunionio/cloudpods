@@ -29,10 +29,10 @@ type BaseOptions struct {
 	Help  bool `help:"Show help" default:"false"`
 	Debug bool `help:"Show debug" default:"false"`
 
-	AccessKey  string `help:"Access key" default:"$UCLOUD_ACCESS_KEY"`
-	Secret     string `help:"Secret" default:"$UCLOUD_SECRET"`
-	RegionId   string `help:"RegionId" default:"$UCLOUD_REGION"`
-	ProjectId  string `help:"ProjectId" default:"$UCLOUD_PROJECT"`
+	AccessKey  string `help:"Access key" default:"$UCLOUD_ACCESS_KEY" metavar:"UCLOUD_ACCESS_KEY"`
+	Secret     string `help:"Secret" default:"$UCLOUD_SECRET" metavar:"UCLOUD_SECRET"`
+	RegionId   string `help:"RegionId" default:"$UCLOUD_REGION" metavar:"UCLOUD_REGION"`
+	ProjectId  string `help:"ProjectId" default:"$UCLOUD_PROJECT" metavar:"UCLOUD_PROJECT"`
 	SUBCOMMAND string `help:"ucloudcli subcommand" subcommand:"true"`
 }
 
@@ -86,11 +86,12 @@ func newClient(options *BaseOptions) (*ucloud.SRegion, error) {
 		return nil, fmt.Errorf("Missing secret")
 	}
 
-	cli, err := ucloud.NewUcloudClient("", "",
-		options.AccessKey,
-		options.Secret,
-		options.ProjectId,
-		options.Debug)
+	cli, err := ucloud.NewUcloudClient(
+		ucloud.NewUcloudClientConfig(
+			options.AccessKey,
+			options.Secret,
+		).ProjectId(options.ProjectId).Debug(options.Debug),
+	)
 	if err != nil {
 		return nil, err
 	}

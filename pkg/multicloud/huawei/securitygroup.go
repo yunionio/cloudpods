@@ -27,10 +27,15 @@ https://support.huaweicloud.com/usermanual-vpc/zh-cn_topic_0073379079.html
 
 import (
 	"net"
-	"sort"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
+	"yunion.io/x/pkg/utils"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SecurityGroupRule struct {
@@ -58,8 +63,8 @@ type SecurityGroupRuleDetail struct {
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090615.html
 type SSecurityGroup struct {
+	multicloud.SSecurityGroup
 	region *SRegion
-	vpc    *SVpc // 安全组对应的vpc可能为空
 
 	ID                  string              `json:"id"`
 	Name                string              `json:"name"`
@@ -84,57 +89,12 @@ func compatibleSecurityGroupRule(r SecurityGroupRule) bool {
 	return true
 }
 
-// 将安全组规则全部转换为等价的allow规则
-func SecurityRuleSetToAllowSet(srs secrules.SecurityRuleSet) secrules.SecurityRuleSet {
-	inRuleSet := secrules.SecurityRuleSet{}
-	outRuleSet := secrules.SecurityRuleSet{}
-
-	for _, rule := range srs {
-		if rule.Direction == secrules.SecurityRuleIngress {
-			inRuleSet = append(inRuleSet, rule)
-		}
-
-		if rule.Direction == secrules.SecurityRuleEgress {
-			outRuleSet = append(outRuleSet, rule)
-		}
-	}
-
-	sort.Sort(inRuleSet)
-	sort.Sort(outRuleSet)
-
-	inRuleSet = inRuleSet.AllowList()
-	// out方向空规则默认全部放行
-	if outRuleSet.Len() == 0 {
-		_, ipNet, _ := net.ParseCIDR("0.0.0.0/0")
-		outRuleSet = append(outRuleSet, secrules.SecurityRule{
-			Priority:  0,
-			Action:    secrules.SecurityRuleAllow,
-			IPNet:     ipNet,
-			Protocol:  secrules.PROTO_ANY,
-			Direction: secrules.SecurityRuleEgress,
-			PortStart: -1,
-			PortEnd:   -1,
-		})
-	}
-	outRuleSet = outRuleSet.AllowList()
-
-	ret := secrules.SecurityRuleSet{}
-	ret = append(ret, inRuleSet...)
-	ret = append(ret, outRuleSet...)
-	return ret
-}
-
 func (self *SSecurityGroup) GetId() string {
 	return self.ID
 }
 
 func (self *SSecurityGroup) GetVpcId() string {
-	// 无vpc关联的安全组统一返回normal
-	if len(self.VpcID) == 0 {
-		return "normal"
-	}
-
-	return self.VpcID
+	return api.NORMAL_VPC_ID
 }
 
 func (self *SSecurityGroup) GetName() string {
@@ -177,14 +137,14 @@ func (self *SSecurityGroup) GetDescription() string {
 }
 
 // todo: 这里需要优化查询太多了
-func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
-	rules := make([]secrules.SecurityRule, 0)
+func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
+	rules := make([]cloudprovider.SecurityRule, 0)
 	for _, r := range self.SecurityGroupRules {
 		if !compatibleSecurityGroupRule(r) {
 			continue
 		}
 
-		rule, err := self.GetSecurityRule(r.ID, false)
+		rule, err := self.GetSecurityRule(r.ID)
 		if err != nil {
 			return rules, err
 		}
@@ -195,30 +155,11 @@ func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
 	return rules, nil
 }
 
-func (self *SSecurityGroup) GetRulesWithExtId() ([]secrules.SecurityRule, error) {
-	rules := make([]secrules.SecurityRule, 0)
-	for _, r := range self.SecurityGroupRules {
-		if !compatibleSecurityGroupRule(r) {
-			continue
-		}
-
-		rule, err := self.GetSecurityRule(r.ID, true)
-		if err != nil {
-			return rules, err
-		}
-
-		rules = append(rules, rule)
-	}
-
-	return rules, nil
-}
-
-// withRuleId.
-func (self *SSecurityGroup) GetSecurityRule(ruleId string, withRuleId bool) (secrules.SecurityRule, error) {
+func (self *SSecurityGroup) GetSecurityRule(ruleId string) (cloudprovider.SecurityRule, error) {
 	remoteRule := SecurityGroupRuleDetail{}
 	err := DoGet(self.region.ecsClient.SecurityGroupRules.Get, ruleId, nil, &remoteRule)
 	if err != nil {
-		return secrules.SecurityRule{}, err
+		return cloudprovider.SecurityRule{}, err
 	}
 
 	var direction secrules.TSecurityRuleDirection
@@ -251,27 +192,22 @@ func (self *SSecurityGroup) GetSecurityRule(ruleId string, withRuleId bool) (sec
 	}
 
 	if err != nil {
-		return secrules.SecurityRule{}, err
+		return cloudprovider.SecurityRule{}, err
 	}
 
-	// withRuleId.将ruleId附加到description字段。该hook有特殊目的，仅在同步安全组时使用。
-	desc := ""
-	if withRuleId {
-		desc = ruleId
-	} else {
-		desc = remoteRule.Description
-	}
-
-	rule := secrules.SecurityRule{
-		Priority:    1,
-		Action:      secrules.SecurityRuleAllow,
-		IPNet:       ipNet,
-		Protocol:    protocol,
-		Direction:   direction,
-		PortStart:   portStart,
-		PortEnd:     portEnd,
-		Ports:       nil,
-		Description: desc,
+	rule := cloudprovider.SecurityRule{
+		ExternalId: ruleId,
+		SecurityRule: secrules.SecurityRule{
+			Priority:    1,
+			Action:      secrules.SecurityRuleAllow,
+			IPNet:       ipNet,
+			Protocol:    protocol,
+			Direction:   direction,
+			PortStart:   portStart,
+			PortEnd:     portEnd,
+			Ports:       nil,
+			Description: remoteRule.Description,
+		},
 	}
 
 	err = rule.ValidateRule()
@@ -286,17 +222,13 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 	}
 
 	securitygroup.region = self
-	if len(securitygroup.VpcID) > 0 && securitygroup.VpcID != "default" {
-		securitygroup.vpc, err = self.getVpc(securitygroup.VpcID)
-	}
-
 	return &securitygroup, err
 }
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090617.html
 func (self *SRegion) GetSecurityGroups(vpcId string, name string) ([]SSecurityGroup, error) {
 	querys := map[string]string{}
-	if len(vpcId) > 0 {
+	if len(vpcId) > 0 && !utils.IsInStringArray(vpcId, []string{"default", api.NORMAL_VPC_ID}) { // vpc_id = default or normal 时报错 '{"code":"VPC.0601","message":"Query security groups error vpcId is invalid."}'
 		querys["vpc_id"] = vpcId
 	}
 
@@ -306,27 +238,10 @@ func (self *SRegion) GetSecurityGroups(vpcId string, name string) ([]SSecurityGr
 		return nil, err
 	}
 
-	vpcCache := map[string]*SVpc{}
+	// security 中的vpc字段只是一个标识，实际可以跨vpc使用
 	for i := range securitygroups {
 		securitygroup := &securitygroups[i]
 		securitygroup.region = self
-		// 未绑定VPC的安全组
-		// todo:确认 vpc_id  = default的安全组有什么含义？
-		if len(securitygroup.VpcID) == 0 || securitygroup.VpcID == "default" {
-			continue
-		}
-
-		if vpc, exists := vpcCache[securitygroup.VpcID]; exists {
-			securitygroup.vpc = vpc
-		} else {
-			vpc, err := self.getVpc(securitygroup.VpcID)
-			if err != nil {
-				return nil, err
-			}
-
-			vpcCache[securitygroup.VpcID] = vpc
-			securitygroup.vpc = vpc
-		}
 	}
 
 	result := []SSecurityGroup{}
@@ -347,7 +262,18 @@ func (self *SSecurityGroup) Delete() error {
 	return self.region.DeleteSecurityGroup(self.ID)
 }
 
-func (self *SSecurityGroup) SyncRules(rules []secrules.SecurityRule) error {
-	rules = SecurityRuleSetToAllowSet(rules)
-	return self.region.syncSecgroupRules(self.ID, rules)
+func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
+	for _, r := range append(inDels, outDels...) {
+		err := self.region.delSecurityGroupRule(r.ExternalId)
+		if err != nil {
+			return errors.Wrapf(err, "delSecurityGroupRule(%s %s)", r.ExternalId, r.String())
+		}
+	}
+	for _, r := range append(inAdds, outAdds...) {
+		err := self.region.addSecurityGroupRules(self.ID, r)
+		if err != nil {
+			return errors.Wrapf(err, "addSecurityGroupRule(%d %s)", r.Priority, r.String())
+		}
+	}
+	return nil
 }

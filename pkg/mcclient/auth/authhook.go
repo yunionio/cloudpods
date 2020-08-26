@@ -14,9 +14,13 @@
 
 package auth
 
-import "yunion.io/x/onecloud/pkg/mcclient"
+import (
+	"context"
 
-type TAuthHook func(userCred mcclient.TokenCredential)
+	"yunion.io/x/onecloud/pkg/mcclient"
+)
+
+type TAuthHook func(ctx context.Context, userCred mcclient.TokenCredential)
 
 var (
 	authHooks = make([]TAuthHook, 0)
@@ -26,8 +30,8 @@ func RegisterAuthHook(hook TAuthHook) {
 	authHooks = append(authHooks, hook)
 }
 
-func callbackAuthhooks(userCred mcclient.TokenCredential) {
+func callbackAuthhooks(ctx context.Context, userCred mcclient.TokenCredential) {
 	for i := range authHooks {
-		authHooks[i](userCred)
+		authHooks[i](ctx, userCred)
 	}
 }

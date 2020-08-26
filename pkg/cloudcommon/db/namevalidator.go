@@ -16,6 +16,7 @@ package db
 
 import (
 	"fmt"
+	"regexp"
 
 	"yunion.io/x/pkg/util/stringutils"
 
@@ -46,7 +47,7 @@ func NewNameValidator(manager IModelManager, ownerId mcclient.IIdentityProvider,
 		return err
 	}
 	if !uniq {
-		return httperrors.NewDuplicateNameError("name", name)
+		return httperrors.NewDuplicateNameError(manager.Keyword(), name)
 	}
 	return nil
 }
@@ -111,4 +112,30 @@ func GenerateName2(manager IModelManager, ownerId mcclient.IIdentityProvider, hi
 		name = fmt.Sprintf(pattern, baseIndex)
 		baseIndex += 1
 	}
+}
+
+var (
+	dnsNameREG = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
+)
+
+type SDnsNameValidatorManager struct{}
+
+func (manager *SDnsNameValidatorManager) ValidateName(name string) error {
+	if dnsNameREG.MatchString(name) {
+		return nil
+	}
+	return httperrors.NewInputParameterError("name starts with letter, and contains letter, number and - only")
+}
+
+var (
+	hostNameREG = regexp.MustCompile(`^[a-z$][a-z0-9-${}.]*$`)
+)
+
+type SHostNameValidatorManager struct{}
+
+func (manager *SHostNameValidatorManager) ValidateName(name string) error {
+	if hostNameREG.MatchString(name) {
+		return nil
+	}
+	return httperrors.NewInputParameterError("name starts with letter, and contains letter, number and - only")
 }

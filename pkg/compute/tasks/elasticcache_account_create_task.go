@@ -36,11 +36,11 @@ func init() {
 	taskman.RegisterTask(ElasticcacheAccountCreateTask{})
 }
 
-func (self *ElasticcacheAccountCreateTask) taskFail(ctx context.Context, elasticcache *models.SElasticcacheAccount, reason string) {
-	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_ACCOUNT_STATUS_CREATE_FAILED, reason)
+func (self *ElasticcacheAccountCreateTask) taskFail(ctx context.Context, elasticcache *models.SElasticcacheAccount, reason jsonutils.JSONObject) {
+	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_ACCOUNT_STATUS_CREATE_FAILED, reason.String())
 	db.OpsLog.LogEvent(elasticcache, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_CREATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_ACCOUNT_STATUS_CREATE_FAILED, reason)
+	notifyclient.NotifySystemError(elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_ACCOUNT_STATUS_CREATE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -48,13 +48,13 @@ func (self *ElasticcacheAccountCreateTask) OnInit(ctx context.Context, obj db.IS
 	ea := obj.(*models.SElasticcacheAccount)
 	region := ea.GetRegion()
 	if region == nil {
-		self.taskFail(ctx, ea, fmt.Sprintf("failed to find region for elastic cache account %s", ea.GetName()))
+		self.taskFail(ctx, ea, jsonutils.NewString(fmt.Sprintf("failed to find region for elastic cache account %s", ea.GetName())))
 		return
 	}
 
 	self.SetStage("OnElasticcacheAccountCreateComplete", nil)
 	if err := region.GetDriver().RequestCreateElasticcacheAccount(ctx, self.GetUserCred(), ea, self); err != nil {
-		self.taskFail(ctx, ea, err.Error())
+		self.taskFail(ctx, ea, jsonutils.Marshal(err))
 		return
 	}
 }
@@ -65,5 +65,5 @@ func (self *ElasticcacheAccountCreateTask) OnElasticcacheAccountCreateComplete(c
 }
 
 func (self *ElasticcacheAccountCreateTask) OnElasticcacheAccountCreateCompleteFailed(ctx context.Context, ea *models.SElasticcacheAccount, data jsonutils.JSONObject) {
-	self.taskFail(ctx, ea, data.String())
+	self.taskFail(ctx, ea, data)
 }

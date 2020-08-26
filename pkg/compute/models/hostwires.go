@@ -18,15 +18,20 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SHostwireManager struct {
 	SHostJointsManager
+	SWireResourceBaseManager
 }
 
 var HostwireManager *SHostwireManager
@@ -35,6 +40,7 @@ func init() {
 	db.InitManager(func() {
 		HostwireManager = &SHostwireManager{
 			SHostJointsManager: NewHostJointsManager(
+				"host_id",
 				SHostwire{},
 				"hostwires_tbl",
 				"hostwire",
@@ -49,13 +55,18 @@ func init() {
 type SHostwire struct {
 	SHostJointsBase
 
-	Bridge    string `width:"16" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"` // Column(VARCHAR(16, charset='ascii'), nullable=False)
-	Interface string `width:"16" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"` // Column(VARCHAR(16, charset='ascii'), nullable=False)
-	IsMaster  bool   `nullable:"true" default:"false" list:"admin" update:"admin" create:"admin_optional"`             // Column(Boolean, nullable=True, default=False)
-	MacAddr   string `width:"18" charset:"ascii" list:"admin" update:"admin" create:"admin_required"`                  // Column(VARCHAR(18, charset='ascii'))
+	Bridge string `width:"16" charset:"ascii" nullable:"false" list:"domain" update:"domain" create:"domain_required"`
+	// 接口名称
+	Interface string `width:"16" charset:"ascii" nullable:"false" list:"domain" update:"domain" create:"domain_required"`
+	// 是否是主地址
+	IsMaster bool `nullable:"true" default:"false" list:"domain" update:"domain" create:"domain_optional"`
+	// MAC地址
+	MacAddr string `width:"18" charset:"ascii" list:"domain" update:"domain" create:"domain_required"`
 
-	HostId string `width:"128" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // = Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
-	WireId string `width:"128" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
+	// 宿主机Id
+	HostId string `width:"128" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
+	// 二层网络Id
+	WireId string `width:"128" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
 }
 
 func (manager *SHostwireManager) GetMasterFieldName() string {
@@ -66,27 +77,45 @@ func (manager *SHostwireManager) GetSlaveFieldName() string {
 	return "wire_id"
 }
 
-func (joint *SHostwire) Master() db.IStandaloneModel {
-	return db.JointMaster(joint)
+func (self *SHostwire) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.HostwireDetails, error) {
+	return api.HostwireDetails{}, nil
 }
 
-func (joint *SHostwire) Slave() db.IStandaloneModel {
-	return db.JointSlave(joint)
-}
+func (manager *SHostwireManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.HostwireDetails {
+	rows := make([]api.HostwireDetails, len(objs))
 
-func (self *SHostwire) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SHostJointsBase.GetCustomizeColumns(ctx, userCred, query)
-	extra = db.JointModelExtra(self, extra)
-	return self.getExtraDetails(extra)
-}
+	hostRows := manager.SHostJointsManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	wireIds := make([]string, len(rows))
 
-func (self *SHostwire) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SHostJointsBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
+	for i := range rows {
+		rows[i] = api.HostwireDetails{
+			HostJointResourceDetails: hostRows[i],
+		}
+		wireIds[i] = objs[i].(*SHostwire).WireId
 	}
-	extra = db.JointModelExtra(self, extra)
-	return self.getExtraDetails(extra), nil
+
+	wires := make(map[string]SWire)
+	err := db.FetchStandaloneObjectsByIds(WireManager, wireIds, &wires)
+	if err != nil {
+		log.Errorf("db.FetchStandaloneObjectsByIds fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if wire, ok := wires[wireIds[i]]; ok {
+			rows[i].Wire = wire.Name
+			rows[i].Bandwidth = wire.Bandwidth
+		}
+	}
+
+	return rows
 }
 
 func (hw *SHostwire) GetWire() *SWire {
@@ -103,14 +132,6 @@ func (hw *SHostwire) GetHost() *SHost {
 		return host.(*SHost)
 	}
 	return nil
-}
-
-func (hw *SHostwire) getExtraDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	wire := hw.GetWire()
-	if wire != nil {
-		extra.Add(jsonutils.NewInt(int64(wire.Bandwidth)), "bandwidth")
-	}
-	return extra
 }
 
 func (self *SHostwire) GetGuestnicsCount() (int, error) {
@@ -167,4 +188,82 @@ func (manager *SHostwireManager) FetchByHostIdAndMac(hostId string, mac string) 
 		return nil, err
 	}
 	return hw.(*SHostwire), nil
+}
+
+func (manager *SHostwireManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.HostwireListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SHostJointsManager.ListItemFilter(ctx, q, userCred, query.HostJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHostResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SWireResourceBaseManager.ListItemFilter(ctx, q, userCred, query.WireFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SWireResourceBaseManager.ListItemFilter")
+	}
+
+	if len(query.Bridge) > 0 {
+		q = q.In("bridge", query.Bridge)
+	}
+	if len(query.Interface) > 0 {
+		q = q.In("interface", query.Interface)
+	}
+	if query.IsMaster != nil {
+		if *query.IsMaster {
+			q = q.IsTrue("is_master")
+		} else {
+			q = q.IsFalse("is_master")
+		}
+	}
+	if len(query.MacAddr) > 0 {
+		q = q.In("mac_addr", query.MacAddr)
+	}
+
+	return q, nil
+}
+
+func (manager *SHostwireManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.HostwireListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SHostJointsManager.OrderByExtraFields(ctx, q, userCred, query.HostJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHostResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SWireResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.WireFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SWireResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SHostwireManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SHostJointsManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHostJointsManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SWireResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SWireResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SWireResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	return q, nil
 }

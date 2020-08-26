@@ -19,9 +19,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/timeutils"
-	"yunion.io/x/sqlchemy" // "yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/yunionconf"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
@@ -242,17 +244,31 @@ func (manager *SParameterManager) FilterByName(q *sqlchemy.SQuery, name string) 
 	return q.Equals("name", name)
 }
 
-func (manager *SParameterManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+// 配置参数列表
+func (manager *SParameterManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ParameterListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SResourceBaseManager.ListItemFilter")
+	}
+	if len(query.Name) > 0 {
+		q = q.In("name", query.Name)
+	}
 	if db.IsAdminAllowList(userCred, manager) {
-		if id, _ := query.GetString("namespace_id"); len(id) > 0 {
+		if id := query.NamespaceId; len(id) > 0 {
 			q = q.Equals("namespace_id", id)
-		} else if id := jsonutils.GetAnyString(query, []string{"service", "service_id"}); len(id) > 0 {
+		} else if id := query.ServiceId; len(id) > 0 {
 			if sid, err := getServiceId(id); err != nil {
 				return q, err
 			} else {
 				q = q.Equals("namespace_id", sid).Equals("namespace", NAMESPACE_SERVICE)
 			}
-		} else if id := jsonutils.GetAnyString(query, []string{"user", "user_id"}); len(id) > 0 {
+		} else if id := query.UserId; len(id) > 0 {
 			if uid, err := getUserId(id); err != nil {
 				return q, err
 			} else {
@@ -266,9 +282,35 @@ func (manager *SParameterManager) ListItemFilter(ctx context.Context, q *sqlchem
 				q = q.Equals("namespace_id", userCred.GetUserId()).Equals("namespace", NAMESPACE_USER)
 			}
 		} */
-
 	}
 	return q, nil
+}
+
+func (manager *SParameterManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ParameterListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SResourceBaseManager.OrderByExtraFielda")
+	}
+
+	return q, nil
+}
+
+func (manager *SParameterManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (model *SParameter) IsOwner(userCred mcclient.TokenCredential) bool {
@@ -332,4 +374,8 @@ func (model *SParameter) GetOwnerId() mcclient.IIdentityProvider {
 
 	owner := db.SOwnerId{UserId: model.NamespaceId}
 	return &owner
+}
+
+func (manager *SParameterManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	return db.FetchUserInfo(ctx, data)
 }

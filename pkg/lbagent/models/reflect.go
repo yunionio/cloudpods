@@ -100,17 +100,19 @@ func GetModels(opts *GetModelsOptions) error {
 		return newTime, nil
 	}
 
+	isManaged := false
 	listOptions := options.BaseListOptions{
 		Admin:   options.Bool(true),
 		Details: options.Bool(true),
 		Filter: []string{
 			minUpdatedAtFilter(minUpdatedAt), // order matters, filter.0
-			"manager_id.isnullorempty()",     // len(manager_id) > 0 is for pubcloud objects
+			// "manager_id.isnullorempty()",     // len(manager_id) > 0 is for pubcloud objects
 		},
-		OrderBy: []string{"updated_at", "id"},
-		Order:   "asc",
-		Limit:   options.Int(opts.BatchListSize),
-		Offset:  options.Int(0),
+		OrderBy:   []string{"updated_at", "id"},
+		Order:     "asc",
+		IsManaged: &isManaged,
+		Limit:     options.Int(opts.BatchListSize),
+		Offset:    options.Int(0),
 	}
 	if !minUpdatedAt.Equal(PseudoZeroTime) {
 		// Only fetching pending deletes when we are doing incremental fetch

@@ -58,11 +58,11 @@ func (self *SZStackGuestDriver) GetProvider() string {
 
 func (self *SZStackGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
 	keys := models.SComputeResourceKeys{}
-	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
+	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_PRIVATE_CLOUD
 	keys.Provider = api.CLOUD_PROVIDER_ZSTACK
 	keys.Brand = brand
-	// ignore hypervisor
+	keys.Hypervisor = api.HYPERVISOR_ZSTACK
 	return keys
 }
 
@@ -101,7 +101,7 @@ func (self *SZStackGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 
-func (self *SZStackGuestDriver) GetChangeConfigStatus() ([]string, error) {
+func (self *SZStackGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
@@ -154,6 +154,10 @@ func (self *SZStackGuestDriver) GetUserDataType() string {
 	return cloudprovider.CLOUD_SHELL
 }
 
+func (self *SZStackGuestDriver) IsWindowsUserDataTypeNeedEncode() bool {
+	return true
+}
+
 func (self *SZStackGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
 	userName := "root"
 	if desc.OsType == "Windows" {
@@ -168,13 +172,4 @@ func (self *SZStackGuestDriver) AllowReconfigGuest() bool {
 
 func (self *SZStackGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) bool {
 	return false
-}
-
-func (self *SZStackGuestDriver) IsSupportPostpaidExpire() bool {
-	return true
-}
-
-func (self *SZStackGuestDriver) CancelExpireTime(
-	ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
-	return guest.CancelExpireTime(ctx, userCred)
 }

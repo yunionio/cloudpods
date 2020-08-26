@@ -39,6 +39,7 @@ func init() {
 
 	ProjectUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(ProjectQuota,
+			rbacutils.ScopeProject,
 			"project_quota_usage_tbl",
 			"project_quota_usage",
 			"project_quota_usages",
@@ -46,6 +47,7 @@ func init() {
 	}
 	ProjectPendingUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(ProjectQuota,
+			rbacutils.ScopeProject,
 			"project_quota_pending_usage_tbl",
 			"project_quota_pending_usage",
 			"project_quota_pending_usages",
@@ -53,6 +55,7 @@ func init() {
 	}
 	ProjectQuotaManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaBaseManager(ProjectQuota,
+			rbacutils.ScopeProject,
 			"project_quota_tbl",
 			ProjectPendingUsageManager,
 			ProjectUsageManager,
@@ -66,21 +69,21 @@ func init() {
 type SProjectQuota struct {
 	quotas.SQuotaBase
 
-	quotas.SBaseQuotaKeys
+	quotas.SBaseProjectQuotaKeys
 
-	Secgroup int `default:"-1" allow_zero:"true"`
+	Secgroup int `default:"-1" allow_zero:"true" json:"secgroup"`
 }
 
 func (self *SProjectQuota) GetKeys() quotas.IQuotaKeys {
-	return self.SBaseQuotaKeys
+	return self.SBaseProjectQuotaKeys
 }
 
 func (self *SProjectQuota) SetKeys(keys quotas.IQuotaKeys) {
-	self.SBaseQuotaKeys = keys.(quotas.SBaseQuotaKeys)
+	self.SBaseProjectQuotaKeys = keys.(quotas.SBaseProjectQuotaKeys)
 }
 
 func (self *SProjectQuota) FetchSystemQuota() {
-	keys := self.SBaseQuotaKeys
+	keys := self.SBaseProjectQuotaKeys
 	base := 0
 	switch options.Options.DefaultQuotaValue {
 	case commonOptions.DefaultQuotaUnlimit:
@@ -109,7 +112,7 @@ func (self *SProjectQuota) FetchSystemQuota() {
 }
 
 func (self *SProjectQuota) FetchUsage(ctx context.Context) error {
-	regionKeys := self.SBaseQuotaKeys
+	regionKeys := self.SBaseProjectQuotaKeys
 
 	scope := regionKeys.Scope()
 	ownerId := regionKeys.OwnerId()
@@ -139,6 +142,15 @@ func (self *SProjectQuota) Add(quota quotas.IQuota) {
 func (self *SProjectQuota) Sub(quota quotas.IQuota) {
 	squota := quota.(*SProjectQuota)
 	self.Secgroup = nonNegative(self.Secgroup - squota.Secgroup)
+}
+
+func (self *SProjectQuota) Allocable(request quotas.IQuota) int {
+	squota := request.(*SProjectQuota)
+	cnt := -1
+	if self.Secgroup >= 0 && squota.Secgroup > 0 && (cnt < 0 || cnt > self.Secgroup/squota.Secgroup) {
+		cnt = self.Secgroup / squota.Secgroup
+	}
+	return cnt
 }
 
 func (self *SProjectQuota) Update(quota quotas.IQuota) {

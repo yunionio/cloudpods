@@ -63,37 +63,48 @@ func (p *SHostPingTask) Start() {
 	var (
 		div    = 1
 		hostId = Instance().GetHostId()
+		err    error
 	)
 	for {
-		time.Sleep(time.Duration(p.interval/div) * time.Second)
 		if !p.running {
 			return
 		}
-		res, err := modules.Hosts.PerformAction(hostutils.GetComputeSession(context.Background()),
-			hostId, "ping", nil)
-		if err != nil {
-			log.Errorln(err)
+		if err = p.ping(div, hostId); err != nil {
+			log.Errorf("host ping failed %s", err)
 			div = 3
 		} else {
-			name, err := res.GetString("name")
-			if err != nil {
-				Instance().setHostname(name)
-			}
-			catalog, err := res.Get("catalog")
-			if err == nil {
-				cl := make(mcclient.KeystoneServiceCatalogV3, 0)
-				err = catalog.Unmarshal(&cl)
-				if err != nil {
-					log.Errorln(err)
-					continue
-				}
+			div = 1
+		}
 
-				Instance().OnCatalogChanged(cl)
-			} else {
+		time.Sleep(time.Duration(p.interval/div) * time.Second)
+	}
+}
+
+func (p *SHostPingTask) ping(div int, hostId string) error {
+	res, err := modules.Hosts.PerformAction(hostutils.GetComputeSession(context.Background()),
+		hostId, "ping", nil)
+	if err != nil {
+		return err
+	} else {
+		name, err := res.GetString("name")
+		if err != nil {
+			Instance().setHostname(name)
+		}
+		catalog, err := res.Get("catalog")
+		if err == nil {
+			cl := make(mcclient.KeystoneServiceCatalogV3, 0)
+			err = catalog.Unmarshal(&cl)
+			if err != nil {
 				log.Errorln(err)
+				return nil
 			}
+
+			Instance().OnCatalogChanged(cl)
+		} else {
+			log.Errorln(err)
 		}
 	}
+	return nil
 }
 
 func (p *SHostPingTask) Stop() {

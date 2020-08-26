@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
+	"strings"
 	"syscall"
 
 	"yunion.io/x/jsonutils"
@@ -27,8 +29,8 @@ import (
 
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/iproute2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
-	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 type IBridgeDriver interface {
@@ -38,7 +40,7 @@ type IBridgeDriver interface {
 	Setup(IBridgeDriver) error
 	SetupAddresses(net.IPMask) error
 	SetupSlaveAddresses([][]string) error
-	SetupRoutes(routes [][]string) error
+	SetupRoutes([]iproute2.RouteSpec) error
 	BringupInterface() error
 
 	Exists() (bool, error)
@@ -48,6 +50,7 @@ type IBridgeDriver interface {
 	SetupBridgeDev() error
 	SetupInterface() error
 	PersistentMac() error
+	DisableDHCPClient() (bool, error)
 
 	GenerateIfupScripts(scriptPath string, nic jsonutils.JSONObject) error
 	GenerateIfdownScripts(scriptPath string, nic jsonutils.JSONObject) error
@@ -103,11 +106,13 @@ func (d *SBaseBridgeDriver) BringupInterface() error {
 		infs = append(infs, d.inter)
 	}
 	for _, inf := range infs {
-		cmd := []string{"ifconfig", inf.String(), "up"}
+		l := iproute2.NewLink(inf.String())
+		l.Up()
 		if options.HostOptions.TunnelPaddingBytes > 0 {
-			cmd = append(cmd, "mtu", fmt.Sprintf("%d", options.HostOptions.TunnelPaddingBytes))
+			mtu := int(1500 + options.HostOptions.TunnelPaddingBytes)
+			l.MTU(mtu)
 		}
-		if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output(); err != nil {
+		if err := l.Err(); err != nil {
 			return err
 		}
 	}
@@ -115,11 +120,6 @@ func (d *SBaseBridgeDriver) BringupInterface() error {
 }
 
 func (d *SBaseBridgeDriver) ConfirmToConfig() (bool, error) {
-	output, err := procutils.NewCommand("ifconfig").Output()
-	if err != nil {
-		return false, errors.Wrapf(err, "exec ifconfig %s", output)
-	}
-
 	exist, err := d.drv.Exists()
 	if err != nil {
 		return false, err
@@ -178,67 +178,74 @@ func (d *SBaseBridgeDriver) ConfirmToConfig() (bool, error) {
 }
 
 func (d *SBaseBridgeDriver) SetupAddresses(mask net.IPMask) error {
-	var addr string
-	if len(d.ip) == 0 {
-		addr, mask = netutils2.GetSecretInterfaceAddress()
-	} else {
-		addr = d.ip
+	br := d.bridge.String()
+	{
+		var (
+			addr    string
+			masklen int
+		)
+		if len(d.ip) == 0 {
+			addr, masklen = netutils2.GetSecretInterfaceAddress()
+		} else {
+			addr = d.ip
+			masklen, _ = mask.Size()
+		}
+		addrStr := fmt.Sprintf("%s/%d", addr, masklen)
+		if err := iproute2.NewAddress(br, addrStr).Exact().Err(); err != nil {
+			return errors.Wrapf(err, "set bridge %s address", br)
+		}
 	}
-	cmd := []string{"ifconfig", d.bridge.String(), addr, "netmask", netutils2.NetBytes2Mask(mask)}
-	if options.HostOptions.TunnelPaddingBytes > 0 {
-		cmd = append(cmd, "mtu", fmt.Sprintf("%d", options.HostOptions.TunnelPaddingBytes+1500))
-	}
-	if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output(); err != nil {
-		log.Errorln(err)
-		return fmt.Errorf("Failed to bring up bridge %s", d.bridge)
+	{
+		brLink := iproute2.NewLink(br).Up()
+		if options.HostOptions.TunnelPaddingBytes > 0 {
+			mtu := 1500 + int(options.HostOptions.TunnelPaddingBytes)
+			brLink.MTU(mtu)
+		}
+		if err := brLink.Err(); err != nil {
+			return errors.Wrapf(err, "setting bridge %s up", br)
+		}
 	}
 	if d.inter != nil {
-		if _, err := procutils.NewCommand("ifconfig", d.inter.String(), "0", "up").Output(); err != nil {
-			log.Errorln(err)
-			return fmt.Errorf("Failed to bring up interface %s", d.inter)
+		ifname := d.inter.String()
+		if err := iproute2.NewAddress(ifname).Exact().Err(); err != nil {
+			return errors.Wrapf(err, "remove addresses on slave ifname: %s", ifname)
+		}
+		if err := iproute2.NewLink(ifname).Up().Err(); err != nil {
+			return errors.Wrapf(err, "setting bridge %s ifname %s up", br, ifname)
 		}
 	}
 	return nil
 }
 
 func (d *SBaseBridgeDriver) SetupSlaveAddresses(slaveAddrs [][]string) error {
-	for _, slaveAddr := range slaveAddrs {
-		cmd := []string{"ip", "address", "del",
-			fmt.Sprintf("%s/%s", slaveAddr[0], slaveAddr[1]), "dev", d.inter.String()}
-		if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output(); err != nil {
-			log.Errorf("Failed to remove slave address from interface %s: %s", d.inter, err)
-		}
-
-		cmd = []string{"ip", "address", "add",
-			fmt.Sprintf("%s/%s", slaveAddr[0], slaveAddr[1]), "dev", d.bridge.String()}
-		if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output(); err != nil {
-			return fmt.Errorf("Failed to remove slave address from interface %s: %s", d.bridge, err)
-		}
+	br := d.bridge.String()
+	addrs := make([]string, len(slaveAddrs))
+	for i, slaveAddr := range slaveAddrs {
+		addrs[i] = fmt.Sprintf("%s/%s", slaveAddr[0], slaveAddr[1])
+	}
+	if err := iproute2.NewAddress(br, addrs...).Add().Err(); err != nil {
+		return errors.Wrap(err, "move secondary addresses to bridge interface")
 	}
 	return nil
 }
 
-func (d *SBaseBridgeDriver) SetupRoutes(routes [][]string) error {
-	for _, r := range routes {
-		var cmd []string
-		if r[2] == "0.0.0.0" {
-			cmd = []string{"route", "add", "default", "gw", r[1], "dev", d.bridge.String()}
-		} else {
-			cmd = []string{"route", "add", "-net", r[0], "netmask", r[2], "gw", r[1], "dev", d.bridge.String()}
-		}
-		if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output(); err != nil {
-			log.Errorln(err)
-			return fmt.Errorf("Failed to add slave address to bridge %s", d.bridge)
-		}
+func (d *SBaseBridgeDriver) SetupRoutes(routespecs []iproute2.RouteSpec) error {
+	br := d.bridge.String()
+	r := iproute2.NewRoute(br)
+	for _, routespec := range routespecs {
+		r.AddByRouteSpec(routespec)
+	}
+	if err := r.Err(); err != nil {
+		return errors.Wrapf(err, "set routes on %s", br)
 	}
 	return nil
 }
 
 func (d *SBaseBridgeDriver) Setup(o IBridgeDriver) error {
-	var routes [][]string
+	var routes []iproute2.RouteSpec
 	var slaveAddrs [][]string
 	if d.inter != nil && len(d.inter.Addr) > 0 {
-		routes = d.inter.GetRoutes(true)
+		routes = d.inter.GetRouteSpecs()
 		slaveAddrs = d.inter.GetSlaveAddresses()
 	}
 	exist, err := o.Exists()
@@ -322,28 +329,57 @@ func (d *SBaseBridgeDriver) WarmupConfig() error {
 	return nil
 }
 
+func (d *SBaseBridgeDriver) DisableDHCPClient() (bool, error) {
+	if d.inter != nil {
+		filename := fmt.Sprintf("/var/run/dhclient-%s.pid", d.inter.String())
+		if !fileutils2.Exists(filename) {
+			return false, nil
+		}
+		s, err := fileutils2.FileGetContents(filename)
+		if err != nil {
+			return false, errors.Wrap(err, "get dhclient pid")
+		}
+		pid, err := strconv.Atoi(strings.TrimSpace(s))
+		if err != nil {
+			return false, errors.Wrap(err, "convert pid str to int")
+		}
+		if fileutils2.Exists(fmt.Sprintf("/proc/%d/cmdline", pid)) {
+			cmdline, err := fileutils2.FileGetContents(fmt.Sprintf("/proc/%d/cmdline", pid))
+			if err != nil {
+				return false, errors.Wrap(err, "get proc cmdline")
+			}
+			if strings.Contains(cmdline, "dhclient") {
+				// kill process
+				p, _ := os.FindProcess(pid)
+				return true, p.Kill()
+			}
+		}
+	}
+	return false, nil
+}
+
 func NewDriver(bridgeDriver, bridge, inter, ip string) (IBridgeDriver, error) {
-	if bridgeDriver == "openvswitch" {
+	if bridgeDriver == DRV_OPEN_VSWITCH {
 		return NewOVSBridgeDriver(bridge, inter, ip)
-	} else if bridgeDriver == "linux_bridge" {
+	} else if bridgeDriver == DRV_LINUX_BRIDGE {
 		return NewLinuxBridgeDeriver(bridge, inter, ip)
 	}
 	return nil, fmt.Errorf("Dirver %s not found", bridgeDriver)
 }
 
 func Prepare(bridgeDriver string) error {
-	if bridgeDriver == "openvswitch" {
+	if bridgeDriver == DRV_OPEN_VSWITCH {
 		return OVSPrepare()
-	} else if bridgeDriver == "linux_bridge" {
+	} else if bridgeDriver == DRV_LINUX_BRIDGE {
 		return LinuxBridgePrepare()
 	}
 	return fmt.Errorf("Dirver %s not found", bridgeDriver)
 }
 
 func CleanDeletedPorts(bridgeDriver string) {
-	if bridgeDriver == "openvswitch" {
+	if bridgeDriver == DRV_OPEN_VSWITCH {
 		cleanOvsBridge()
-	} else if bridgeDriver == "linux_bridge" {
+	} else if bridgeDriver == DRV_LINUX_BRIDGE {
 		cleanLinuxBridge()
 	}
 }

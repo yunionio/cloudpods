@@ -58,7 +58,7 @@ func (self *StorageUncacheImageTask) OnInit(ctx context.Context, obj db.IStandal
 
 	host, err := storageCache.GetHost()
 	if err != nil {
-		self.OnTaskFailed(ctx, storageCache, fmt.Sprintf("fail to get host %s", err))
+		self.OnTaskFailed(ctx, storageCache, jsonutils.NewString(fmt.Sprintf("fail to get host %s", err)))
 		return
 	}
 
@@ -72,13 +72,13 @@ func (self *StorageUncacheImageTask) OnInit(ctx context.Context, obj db.IStandal
 	err = host.GetHostDriver().RequestUncacheImage(ctx, host, storageCache, self)
 
 	if err != nil {
-		self.OnTaskFailed(ctx, storageCache, fmt.Sprintf("fail to uncache image %s", err))
+		self.OnTaskFailed(ctx, storageCache, jsonutils.Marshal(err))
 	}
 }
 
-func (self *StorageUncacheImageTask) OnTaskFailed(ctx context.Context, storageCache *models.SStoragecache, reason string) {
+func (self *StorageUncacheImageTask) OnTaskFailed(ctx context.Context, storageCache *models.SStoragecache, reason jsonutils.JSONObject) {
 	body := jsonutils.NewDict()
-	body.Add(jsonutils.NewString(reason), "reason")
+	body.Add(reason, "reason")
 	imageId, _ := self.Params.GetString("image_id")
 	body.Add(jsonutils.NewString(imageId), "image_id")
 
@@ -86,13 +86,13 @@ func (self *StorageUncacheImageTask) OnTaskFailed(ctx context.Context, storageCa
 
 	logclient.AddActionLogWithStartable(self, storageCache, logclient.ACT_UNCACHED_IMAGE, body, self.UserCred, false)
 
-	self.SetStageFailed(ctx, reason)
+	self.SetStageFailed(ctx, body)
 }
 
 func (self *StorageUncacheImageTask) OnImageUncacheCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	storageCache := obj.(*models.SStoragecache)
 
-	self.OnTaskFailed(ctx, storageCache, data.String())
+	self.OnTaskFailed(ctx, storageCache, data)
 }
 
 func (self *StorageUncacheImageTask) OnImageUncacheComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

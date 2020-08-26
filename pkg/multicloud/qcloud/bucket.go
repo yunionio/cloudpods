@@ -135,7 +135,7 @@ func (b *SBucket) SetAcl(aclStr cloudprovider.TBucketACLType) error {
 }
 
 func (b *SBucket) getFullName() string {
-	return fmt.Sprintf("%s-%s", b.Name, b.region.client.AppID)
+	return fmt.Sprintf("%s-%s", b.Name, b.region.client.appId)
 }
 
 func (b *SBucket) getBucketUrlHost() string {
@@ -163,10 +163,6 @@ func (b *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
 func (b *SBucket) GetStats() cloudprovider.SBucketStats {
 	stats, _ := cloudprovider.GetIBucketStats(b)
 	return stats
-}
-
-func (b *SBucket) GetIObjects(prefix string, isRecursive bool) ([]cloudprovider.ICloudObject, error) {
-	return cloudprovider.GetIObjects(b, prefix, isRecursive)
 }
 
 func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, maxCount int) (cloudprovider.SListObjectResult, error) {
@@ -324,7 +320,7 @@ func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, cannedAcl 
 	return result.UploadID, nil
 }
 
-func (b *SBucket) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, input io.Reader, partSize int64) (string, error) {
+func (b *SBucket) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, input io.Reader, partSize int64, offset, totalSize int64) (string, error) {
 	coscli, err := b.region.GetCosClient(b)
 	if err != nil {
 		return "", errors.Wrap(err, "GetCosClient")
@@ -397,8 +393,8 @@ func (b *SBucket) GetTempUrl(method string, key string, expire time.Duration) (s
 		return "", errors.Wrap(err, "GetCosClient")
 	}
 	url, err := coscli.Object.GetPresignedURL(context.Background(), method, key,
-		b.region.client.SecretID,
-		b.region.client.SecretKey,
+		b.region.client.secretId,
+		b.region.client.secretKey,
 		expire, nil)
 	if err != nil {
 		return "", errors.Wrap(err, "coscli.Object.GetPresignedURL")

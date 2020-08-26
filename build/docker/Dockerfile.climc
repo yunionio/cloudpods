@@ -1,16 +1,5 @@
-FROM frolvlad/alpine-glibc:glibc-2.28
+FROM registry.cn-beijing.aliyuncs.com/yunionio/climc-base:20200820
 
-MAINTAINER "Zexi Li <lizexi@yunionyun.com>"
+ADD ./build/climc/root/opt /opt
 
-ENV TZ Asia/Shanghai
-
-RUN apk add --no-cache bash bash-completion tzdata && \
-    rm -rf /var/cache/apk/*
-
-RUN cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
-
-ENV PATH="/opt/yunion/bin:${PATH}"
-
-RUN mkdir -p /opt/yunion/bin
-
-ADD ./_output/bin/climc /opt/yunion/bin/climc
+ADD ./_output/alpine-build/bin/climc ./_output/alpine-build/bin/*cli /opt/yunion/bin/climc

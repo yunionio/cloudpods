@@ -34,11 +34,29 @@ func init() {
 		return nil
 	})
 
-	type EipShowOptions struct {
+	type EipIdOptions struct {
 		ID string
 	}
-	shellutils.R(&EipShowOptions{}, "eip-show", "Show eip", func(cli *google.SRegion, args *EipShowOptions) error {
+	shellutils.R(&EipIdOptions{}, "eip-show", "Show eip", func(cli *google.SRegion, args *EipIdOptions) error {
 		eip, err := cli.GetEip(args.ID)
+		if err != nil {
+			return err
+		}
+		printObject(eip)
+		return nil
+	})
+
+	shellutils.R(&EipIdOptions{}, "eip-delete", "Delete eip", func(cli *google.SRegion, args *EipIdOptions) error {
+		return cli.Delete(args.ID)
+	})
+
+	type EipCreateOptions struct {
+		NAME string
+		Desc string
+	}
+
+	shellutils.R(&EipCreateOptions{}, "eip-create", "Create eip", func(cli *google.SRegion, args *EipCreateOptions) error {
+		eip, err := cli.CreateEip(args.NAME, args.Desc)
 		if err != nil {
 			return err
 		}

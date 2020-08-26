@@ -18,7 +18,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -26,8 +26,6 @@ import (
 type SWire struct {
 	zone *SZone
 	vpc  *SVpc
-
-	inetworks []cloudprovider.ICloudNetwork
 }
 
 func (wire *SWire) GetMetadata() *jsonutils.JSONDict {
@@ -70,14 +68,13 @@ func (wire *SWire) GetBandwidth() int {
 	return 10000
 }
 
-func (wire *SWire) CreateINetwork(name string, cidr string, desc string) (cloudprovider.ICloudNetwork, error) {
-	networkId, err := wire.zone.region.CreateNetwork(wire.vpc.ID, name, cidr, desc)
+func (wire *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
+	network, err := wire.zone.region.CreateNetwork(wire.vpc.Id, opts.ProjectId, opts.Name, opts.Cidr, opts.Desc)
 	if err != nil {
-		log.Errorf("CreateNetwork error %s", err)
-		return nil, err
+		return nil, errors.Wrap(err, "CreateNetwork")
 	}
-	wire.inetworks = nil
-	return wire.GetINetworkById(networkId)
+	network.wire = wire
+	return network, nil
 }
 
 func (wire *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, error) {
@@ -94,27 +91,14 @@ func (wire *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, e
 }
 
 func (wire *SWire) GetINetworks() ([]cloudprovider.ICloudNetwork, error) {
-	if wire.inetworks == nil {
-		err := wire.vpc.fetchNetworks()
-		if err != nil {
-			return nil, err
-		}
+	networks, err := wire.vpc.region.GetNetworks(wire.vpc.Id)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetNetworks(%s)", wire.vpc.Id)
 	}
-	return wire.inetworks, nil
-}
-
-func (wire *SWire) addNetwork(network *SNetwork) {
-	if wire.inetworks == nil {
-		wire.inetworks = []cloudprovider.ICloudNetwork{}
+	inetworks := []cloudprovider.ICloudNetwork{}
+	for i := range networks {
+		networks[i].wire = wire
+		inetworks = append(inetworks, &networks[i])
 	}
-	find := false
-	for i := 0; i < len(wire.inetworks); i++ {
-		if wire.inetworks[i].GetGlobalId() == network.GetGlobalId() {
-			find = true
-			break
-		}
-	}
-	if !find {
-		wire.inetworks = append(wire.inetworks, network)
-	}
+	return inetworks, nil
 }

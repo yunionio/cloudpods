@@ -66,7 +66,7 @@ func storageVerifyMountPoint(ctx context.Context, w http.ResponseWriter, r *http
 		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("mount_point"))
 		return
 	}
-	output, err := procutils.NewCommand("mountpoint", mountPoint).Output()
+	output, err := procutils.NewRemoteCommandAsFarAsPossible("mountpoint", mountPoint).Output()
 	if err == nil {
 		appsrv.SendStruct(w, map[string]interface{}{"is_mount_point": true})
 	} else {
@@ -113,7 +113,9 @@ func storageAttach(ctx context.Context, body jsonutils.JSONObject) (interface{},
 	storageName, _ := body.GetString("name")
 	storageConf, _ := body.Get("storage_conf")
 	storage.SetStoragecacheId(storagecacheId)
-	storage.SetStorageInfo(storageId, storageName, storageConf)
+	if err := storage.SetStorageInfo(storageId, storageName, storageConf); err != nil {
+		return nil, err
+	}
 	resp, err := storage.SyncStorageInfo()
 	if err != nil {
 		return nil, err
@@ -160,7 +162,9 @@ func storageUpdate(ctx context.Context, body jsonutils.JSONObject) (interface{},
 		return nil, httperrors.NewNotFoundError("Storage %s not found", storageId)
 	}
 	storageName, _ := ret.GetString("storage")
-	storage.SetStorageInfo(storageId, storageName, storageConf)
+	if err := storage.SetStorageInfo(storageId, storageName, storageConf); err != nil {
+		return nil, err
+	}
 	mountPoint, _ := ret.GetString("mount_point")
 	storage.SetPath(mountPoint)
 	return nil, nil

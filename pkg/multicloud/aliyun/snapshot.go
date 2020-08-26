@@ -40,14 +40,15 @@ const (
 type SSnapshot struct {
 	region *SRegion
 
-	Progress       string
-	SnapshotId     string
-	SnapshotName   string
-	SourceDiskId   string
-	SourceDiskSize int32
-	SourceDiskType string
-	Status         SnapshotStatusType
-	Usage          string
+	Progress        string
+	SnapshotId      string
+	SnapshotName    string
+	SourceDiskId    string
+	SourceDiskSize  int32
+	SourceDiskType  string
+	Status          SnapshotStatusType
+	Usage           string
+	ResourceGroupId string
 }
 
 func (self *SSnapshot) GetId() string {
@@ -200,7 +201,7 @@ func (self *SRegion) DeleteSnapshot(snapshotId string) error {
 }
 
 func (self *SSnapshot) GetProjectId() string {
-	return ""
+	return self.ResourceGroupId
 }
 
 // If snapshot linked images can't be delete

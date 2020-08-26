@@ -20,7 +20,6 @@ import (
 	"net"
 	"net/http"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
@@ -44,22 +43,26 @@ func addHandler(method, prefix string, f appsrv.FilterHandler, app *appsrv.Appli
 }
 
 func getBmAgentUrl(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	ipAddr, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		httperrors.NewInternalServerError("Parse remote ip error %s", err)
-		return
+	var err error
+	ipAddr := r.URL.Query().Get("ssh_ip")
+	if len(ipAddr) == 0 {
+		ipAddr, _, err = net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			httperrors.NewInternalServerError("Parse remote ip error %s", err)
+			return
+		}
 	}
 
 	n, _ := models.NetworkManager.GetOnPremiseNetworkOfIP(ipAddr, "", tristate.None)
 	if n == nil {
-		httperrors.NotFoundError(w, "Network not found")
+		httperrors.NotFoundError(ctx, w, "Network not found")
 		return
 	}
 
 	zoneId := n.GetWire().ZoneId
 	bmAgent := models.BaremetalagentManager.GetAgent(compute.AgentTypeBaremetal, zoneId)
 	if bmAgent == nil {
-		httperrors.InternalServerError(w, "Baremetal agent not found")
+		httperrors.InternalServerError(ctx, w, "Baremetal agent not found")
 		return
 	}
 
@@ -68,13 +71,12 @@ func getBmAgentUrl(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 
 func getBmPrepareScript(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	if len(options.Options.BaremetalPreparePackageUrl) == 0 {
-		httperrors.NotAcceptableError(w, "Baremetal package not prepared")
+		httperrors.NotAcceptableError(ctx, w, "Baremetal package not prepared")
 		return
 	}
-	regionUrl, err := auth.GetServiceURL("compute_v2", options.Options.Region, "", "")
+	regionUrl, err := auth.GetPublicServiceURL("compute_v2", options.Options.Region, "")
 	if err != nil {
-		log.Errorln(err)
-		httperrors.InternalServerError(w, err.Error())
+		httperrors.InternalServerError(ctx, w, "%v", err)
 		return
 	}
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)

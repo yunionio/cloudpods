@@ -25,7 +25,7 @@ func NewCloudnetManager(keyword, keywordPlural string, columns, adminColumns []s
 }
 
 var (
-	registerV2 = func(mod modulebase.BaseManagerInterface) {
+	registerV2 = func(mod modulebase.IBaseManager) {
 		modulebase.Register("v2", mod)
 	}
 )

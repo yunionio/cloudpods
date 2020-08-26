@@ -15,6 +15,7 @@
 package options
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"strconv"
@@ -29,6 +30,8 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 )
 
+var ErrEmtptyUpdate = errors.New("No valid update data")
+
 type ServerListOptions struct {
 	Zone               string `help:"Zone ID or Name"`
 	Wire               string `help:"Wire ID or Name"`
@@ -39,27 +42,46 @@ type ServerListOptions struct {
 	Gpu                *bool  `help:"Show gpu servers"`
 	Secgroup           string `help:"Secgroup ID or Name"`
 	AdminSecgroup      string `help:"AdminSecgroup ID or Name"`
-	Hypervisor         string `help:"Show server of hypervisor" choices:"kvm|esxi|container|baremetal|aliyun|azure|aws|huawei|ucloud|zstack|openstack"`
+	Hypervisor         string `help:"Show server of hypervisor" choices:"kvm|esxi|container|baremetal|aliyun|azure|aws|huawei|ucloud|zstack|openstack|google|ctyun"`
 	Region             string `help:"Show servers in cloudregion"`
 	WithEip            *bool  `help:"Show Servers with EIP"`
 	WithoutEip         *bool  `help:"Show Servers without EIP"`
 	OsType             string `help:"OS Type" choices:"linux|windows|vmware"`
-	OrderByDisk        string `help:"Order by disk size" choices:"asc|desc"`
-	OrderByHost        string `help:"Order by host name" choices:"asc|desc"`
 	Vpc                string `help:"Vpc id or name"`
 	UsableServerForEip string `help:"Eip id or name"`
 	WithoutUserMeta    *bool  `help:"Show Servers without user metadata"`
 	Group              string `help:"Instance Group ID or Name"`
+	HostSn             string `help:"Host SN"`
+
+	OrderByDisk    string `help:"Order by disk size" choices:"asc|desc"`
+	OrderByHost    string `help:"Order by host name" choices:"asc|desc"`
+	OrderByNetwork string `help:"Order by network name" choices:"asc|desc"`
 
 	ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated"`
 
 	BillingType string `help:"billing type" choices:"postpaid|prepaid"`
 
+	ScalingGroup string `help:"ScalingGroup's id or name'"`
+
 	BaseListOptions
+
+	VpcProvider string `help:"filter by vpc's provider" json:"vpc_provider"`
+}
+
+func (o *ServerListOptions) Params() (jsonutils.JSONObject, error) {
+	return ListStructToParams(o)
 }
 
 type ServerIdOptions struct {
 	ID string `help:"ID or name of the server" json:"-"`
+}
+
+func (o *ServerIdOptions) GetId() string {
+	return o.ID
+}
+
+func (o *ServerIdOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
 }
 
 type ServerLoginInfoOptions struct {
@@ -67,13 +89,42 @@ type ServerLoginInfoOptions struct {
 	Key string `help:"File name of private key, if password is encrypted by key"`
 }
 
+type ServerSSHLoginOptions struct {
+	ServerLoginInfoOptions
+	Host     string `help:"IP address or hostname of the server"`
+	Port     int    `help:"SSH service port" default:"22"`
+	User     string `help:"SSH login user"`
+	Password string `help:"SSH password"`
+}
+
+type ServerConvertToKvmOptions struct {
+	ServerIdOptions
+	PreferHost string `help:"Perfer host id or name" json:"prefer_host"`
+}
+
 type ServerIdsOptions struct {
 	ID []string `help:"ID of servers to operate" metavar:"SERVER" json:"-"`
+}
+
+func (o *ServerIdsOptions) GetIds() []string {
+	return o.ID
+}
+
+func (o *ServerIdsOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
 }
 
 type ServerDeleteBackupOptions struct {
 	ID    string `help:"ID of the server" json:"-"`
 	Purge *bool  `help:"Purge Guest Backup" json:"purge"`
+}
+
+func (o *ServerDeleteBackupOptions) GetId() string {
+	return o.ID
+}
+
+func (o *ServerDeleteBackupOptions) Params() (jsonutils.JSONObject, error) {
+	return StructToParams(o)
 }
 
 type ServerSwitchToBackupOptions struct {
@@ -82,9 +133,37 @@ type ServerSwitchToBackupOptions struct {
 	DeleteBackup *bool  `help:"Delete Guest Backup" json:"delete_backup"`
 }
 
+func (o *ServerSwitchToBackupOptions) GetId() string {
+	return o.ID
+}
+
+func (o *ServerSwitchToBackupOptions) Params() (jsonutils.JSONObject, error) {
+	return StructToParams(o)
+}
+
+func (o *ServerSwitchToBackupOptions) Description() string {
+	return "Switch geust master to backup host"
+}
+
 type ServerShowOptions struct {
 	ID       string `help:"ID or name of the server" json:"-"`
 	WithMeta *bool  `help:"With meta data"`
+}
+
+func (o *ServerShowOptions) Params() (jsonutils.JSONObject, error) {
+	return StructToParams(o)
+}
+
+func (o *ServerShowOptions) GetId() string {
+	return o.ID
+}
+
+type ServerChangeOwnerCandidateDomainsOptions struct {
+	ServerShowOptions
+}
+
+func (o *ServerChangeOwnerCandidateDomainsOptions) Description() string {
+	return "Get change owner candidate domain list"
 }
 
 func ParseServerDeployInfo(info string) (*computeapi.DeployConfig, error) {
@@ -123,15 +202,17 @@ func ParseServerDeployInfoList(list []string) ([]*computeapi.DeployConfig, error
 }
 
 type ServerConfigs struct {
+	Manager    string `help:"Preferred cloudprovider where virtual server should bd created" json:"prefer_manager"`
 	Region     string `help:"Preferred region where virtual server should be created" json:"prefer_region"`
 	Zone       string `help:"Preferred zone where virtual server should be created" json:"prefer_zone"`
 	Wire       string `help:"Preferred wire where virtual server should be created" json:"prefer_wire"`
 	Host       string `help:"Preferred host where virtual server should be created" json:"prefer_host"`
 	BackupHost string `help:"Perfered host where virtual backup server should be created"`
 
-	Hypervisor   string `help:"Hypervisor type" choices:"kvm|esxi|baremetal|container|aliyun|azure|qcloud|aws|huawei|openstack|ucloud|zstack"`
-	ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated"`
-	Backup       bool   `help:"Create server with backup server"`
+	Hypervisor                   string `help:"Hypervisor type" choices:"kvm|esxi|baremetal|container|aliyun|azure|qcloud|aws|huawei|openstack|ucloud|zstack|google|ctyun"`
+	ResourceType                 string `help:"Resource type" choices:"shared|prepaid|dedicated"`
+	Backup                       bool   `help:"Create server with backup server"`
+	AutoSwitchToBackupOnHostDown bool   `help:"Auto switch to backup server on host down"`
 
 	Schedtag       []string `help:"Schedule policy, key = aggregate name, value = require|exclude|prefer|avoid" metavar:"<KEY:VALUE>"`
 	Disk           []string `help:"Disk descriptions" nargs:"+"`
@@ -147,6 +228,7 @@ type ServerConfigs struct {
 
 func (o ServerConfigs) Data() (*computeapi.ServerConfigs, error) {
 	data := &computeapi.ServerConfigs{
+		PreferManager:    o.Manager,
 		PreferRegion:     o.Region,
 		PreferZone:       o.Zone,
 		PreferWire:       o.Wire,
@@ -232,6 +314,18 @@ type ServerCloneOptions struct {
 	Eip           string `help:"associate with an existing EIP when server is created" json:"eip,omitempty"`
 }
 
+func (o *ServerCloneOptions) GetId() string {
+	return o.SOURCE
+}
+
+func (o *ServerCloneOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
+}
+
+func (o *ServerCloneOptions) Description() string {
+	return "Clone a server"
+}
+
 type ServerCreateFromInstanceSnapshot struct {
 	InstaceSnapshotId string `help:"Instace snapshot id or name"`
 	NAME              string `help:"Name of newly server" json:"name"`
@@ -256,6 +350,7 @@ type ServerCreateOptionalOptions struct {
 
 	Keypair          string   `help:"SSH Keypair"`
 	Password         string   `help:"Default user password"`
+	LoginAccount     string   `help:"Guest login account"`
 	Iso              string   `help:"ISO image ID" metavar:"IMAGE_ID" json:"cdrom"`
 	VcpuCount        int      `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>" json:"vcpu_count" token:"ncpu"`
 	InstanceType     string   `help:"instance flavor"`
@@ -280,7 +375,8 @@ type ServerCreateOptionalOptions struct {
 
 	OsType string `help:"os type, e.g. Linux, Windows, etc."`
 
-	Duration string `help:"valid duration of the server, e.g. 1H, 1D, 1W, 1M, 1Y, ADMIN ONLY option"`
+	Duration  string `help:"valid duration of the server, e.g. 1H, 1D, 1W, 1M, 1Y, ADMIN ONLY option"`
+	AutoRenew bool   `help:"auto renew for prepaid server"`
 
 	AutoPrepaidRecycle bool `help:"automatically enable prepaid recycling after server is created successfully" json:"auto_prepaid_recycle,omitfalse"`
 
@@ -355,6 +451,7 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 		VcpuCount:          opts.VcpuCount,
 		KeypairId:          opts.Keypair,
 		Password:           opts.Password,
+		LoginAccount:       opts.LoginAccount,
 		Cdrom:              opts.Iso,
 		Vga:                opts.Vga,
 		Vdi:                opts.Vdi,
@@ -362,6 +459,7 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 		ShutdownBehavior:   opts.ShutdownBehavior,
 		AutoStart:          opts.AutoStart,
 		Duration:           opts.Duration,
+		AutoRenew:          opts.AutoRenew,
 		AutoPrepaidRecycle: opts.AutoPrepaidRecycle,
 		EipBw:              opts.EipBw,
 		EipChargeType:      opts.EipChargeType,
@@ -447,21 +545,29 @@ type ServerStopOptions struct {
 	Force *bool    `help:"Stop server forcefully" json:"is_force"`
 }
 
-type ServerUpdateOptions struct {
-	ID               []string `help:"IDs or Names of servers to update" json:"-"`
-	Name             string   `help:"New name to change"`
-	Vmem             string   `help:"Memory size" json:"vmem_size"`
-	Ncpu             *int     `help:"CPU count" json:"vcpu_count"`
-	Vga              string   `help:"VGA driver" choices:"std|vmware|cirrus|qxl"`
-	Vdi              string   `help:"VDI protocol" choices:"vnc|spice"`
-	Bios             string   `help:"BIOS" choices:"BIOS|UEFI"`
-	Desc             string   `help:"Description" json:"description"`
-	Boot             string   `help:"Boot device" choices:"disk|cdrom"`
-	Delete           string   `help:"Lock server to prevent from deleting" choices:"enable|disable" json:"-"`
-	ShutdownBehavior string   `help:"Behavior after VM server shutdown" choices:"stop|terminate"`
+func (o *ServerStopOptions) GetIds() []string {
+	return o.ID
 }
 
-func (opts *ServerUpdateOptions) Params() (*jsonutils.JSONDict, error) {
+func (o *ServerStopOptions) Params() (jsonutils.JSONObject, error) {
+	return StructToParams(o)
+}
+
+type ServerUpdateOptions struct {
+	ServerIdsOptions
+	Name             string `help:"New name to change"`
+	Vmem             string `help:"Memory size" json:"vmem_size"`
+	Ncpu             *int   `help:"CPU count" json:"vcpu_count"`
+	Vga              string `help:"VGA driver" choices:"std|vmware|cirrus|qxl"`
+	Vdi              string `help:"VDI protocol" choices:"vnc|spice"`
+	Bios             string `help:"BIOS" choices:"BIOS|UEFI"`
+	Desc             string `help:"Description" json:"description"`
+	Boot             string `help:"Boot device" choices:"disk|cdrom"`
+	Delete           string `help:"Lock server to prevent from deleting" choices:"enable|disable" json:"-"`
+	ShutdownBehavior string `help:"Behavior after VM server shutdown" choices:"stop|terminate"`
+}
+
+func (opts *ServerUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	params, err := optionsStructToParams(opts)
 	if err != nil {
 		return nil, err
@@ -481,17 +587,32 @@ func (opts *ServerUpdateOptions) Params() (*jsonutils.JSONDict, error) {
 			params.Set("disable_delete", jsonutils.JSONFalse)
 		}
 	}
+	if params.Size() == 0 {
+		return nil, ErrEmtptyUpdate
+	}
 	return params, nil
 }
 
 type ServerDeleteOptions struct {
-	ID                    []string `help:"ID of servers to operate" metavar:"SERVER" json:"-"`
-	OverridePendingDelete *bool    `help:"Delete server directly instead of pending delete" short-token:"f"`
-	DeleteSnapshots       *bool    `help:"Delete server snapshots"`
+	ServerIdsOptions
+	OverridePendingDelete *bool `help:"Delete server directly instead of pending delete" short-token:"f"`
+	DeleteSnapshots       *bool `help:"Delete server snapshots"`
+}
+
+func (o *ServerDeleteOptions) QueryParams() (jsonutils.JSONObject, error) {
+	return StructToParams(o)
+}
+
+type ServerCancelDeleteOptions struct {
+	ServerIdsOptions
+}
+
+func (o *ServerCancelDeleteOptions) Description() string {
+	return "Cancel pending delete servers"
 }
 
 type ServerDeployOptions struct {
-	ID            string   `help:"ID or Name of server" json:"-"`
+	ServerIdOptions
 	Keypair       string   `help:"ssh Keypair used for login" json:"-"`
 	DeleteKeypair *bool    `help:"Remove ssh Keypairs" json:"-"`
 	Deploy        []string `help:"Specify deploy files in virtual server file system" json:"-"`
@@ -500,7 +621,7 @@ type ServerDeployOptions struct {
 	AutoStart     *bool    `help:"Auto start server after deployed"`
 }
 
-func (opts *ServerDeployOptions) Params() (*computeapi.ServerDeployInput, error) {
+func (opts *ServerDeployOptions) Params() (jsonutils.JSONObject, error) {
 	params := new(computeapi.ServerDeployInput)
 	{
 		if opts.DeleteKeypair != nil {
@@ -519,7 +640,11 @@ func (opts *ServerDeployOptions) Params() (*computeapi.ServerDeployInput, error)
 		}
 		params.DeployConfigs = deployInfos
 	}
-	return params, nil
+	return params.JSON(params), nil
+}
+
+func (opts *ServerDeployOptions) Description() string {
+	return "Deploy hostname and keypair to a stopped virtual server"
 }
 
 type ServerSecGroupOptions struct {
@@ -527,15 +652,61 @@ type ServerSecGroupOptions struct {
 	Secgrp string `help:"ID of Security Group" metavar:"Security Group" positional:"true"`
 }
 
+func (o *ServerSecGroupOptions) GetId() string {
+	return o.ID
+}
+
+func (o *ServerSecGroupOptions) Params() (jsonutils.JSONObject, error) {
+	return StructToParams(o)
+}
+
 type ServerSecGroupsOptions struct {
-	ID     string   `help:"ID or Name of server" metavar:"Guest" json:"-"`
-	Secgrp []string `help:"Ids of Security Groups" metavar:"Security Groups" positional:"true"`
+	ID          string   `help:"ID or Name of server" metavar:"Guest" json:"-"`
+	SecgroupIds []string `help:"Ids of Security Groups" metavar:"Security Groups" positional:"true"`
+}
+
+func (o *ServerSecGroupsOptions) GetId() string {
+	return o.ID
+}
+
+func (opts *ServerSecGroupsOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(map[string][]string{"secgroup_ids": opts.SecgroupIds}), nil
+}
+
+type ServerModifySrcCheckOptions struct {
+	ID          string `help:"ID or Name of server" metavar:"Guest" json:"-"`
+	SrcIpCheck  string `help:"Turn on/off src ip check" choices:"on|off"`
+	SrcMacCheck string `help:"Turn on/off src mac check" choices:"on|off"`
+}
+
+func (o *ServerModifySrcCheckOptions) GetId() string {
+	return o.ID
+}
+
+func (o *ServerModifySrcCheckOptions) Params() (jsonutils.JSONObject, error) {
+	return StructToParams(o)
+}
+
+func (o *ServerModifySrcCheckOptions) Description() string {
+	return "Modify src ip, mac check settings"
 }
 
 type ServerSendKeyOptions struct {
 	ID   string `help:"ID or Name of server" metavar:"Guest" json:"-"`
 	KEYS string `help:"Special keys to send, eg. ctrl, alt, f12, shift, etc, separated by \"-\""`
 	Hold *uint  `help:"Hold key for specified milliseconds" json:"duration"`
+}
+
+func (o *ServerSendKeyOptions) GetId() string {
+	return o.ID
+}
+
+func (o *ServerSendKeyOptions) Params() (jsonutils.JSONObject, error) {
+	return StructToParams(o)
+}
+
+func (o *ServerSendKeyOptions) Description() string {
+	return "Send keys to server"
 }
 
 type ServerMonitorOptions struct {
@@ -546,7 +717,7 @@ type ServerMonitorOptions struct {
 }
 
 type ServerSaveImageOptions struct {
-	ID        string `help:"ID or name of server" json:"-"`
+	ServerIdOptions
 	IMAGE     string `help:"Image name" json:"name"`
 	Public    *bool  `help:"Make the image public available" json:"is_public"`
 	Format    string `help:"image format" choices:"vmdk|qcow2"`
@@ -554,10 +725,39 @@ type ServerSaveImageOptions struct {
 	AutoStart *bool  `help:"Auto start server after image saved"`
 }
 
+func (o *ServerSaveImageOptions) Params() (jsonutils.JSONObject, error) {
+	return StructToParams(o)
+}
+
+func (o *ServerSaveImageOptions) Description() string {
+	return "Save root disk to new image and upload to glance."
+}
+
 type ServerSaveGuestImageOptions struct {
-	ID        string `help:"ID or name of server" json:"-"`
+	ServerIdOptions
 	IMAGE     string `help:"Image name" json:"name"`
 	AutoStart *bool  `help:"Auto start server after image saved"`
+}
+
+func (o *ServerSaveGuestImageOptions) Params() (jsonutils.JSONObject, error) {
+	return StructToParams(o)
+}
+
+func (o *ServerSaveGuestImageOptions) Description() string {
+	return "Save root disk and data disks to new images and upload to glance."
+}
+
+type ServerChangeOwnerOptions struct {
+	ID      string `help:"Server to change owner" json:"-"`
+	PROJECT string `help:"Project ID or change" json:"tenant"`
+}
+
+func (o *ServerChangeOwnerOptions) GetId() string {
+	return o.ID
+}
+
+func (o *ServerChangeOwnerOptions) Params() (jsonutils.JSONObject, error) {
+	return StructToParams(o)
 }
 
 type ServerRebuildRootOptions struct {
@@ -570,8 +770,27 @@ type ServerRebuildRootOptions struct {
 	AllDisks      *bool  `help:"Rebuild all disks including data disks"`
 }
 
+func (o *ServerRebuildRootOptions) GetId() string {
+	return o.ID
+}
+
+func (o *ServerRebuildRootOptions) Params() (jsonutils.JSONObject, error) {
+	params, err := StructToParams(o)
+	if err != nil {
+		return nil, err
+	}
+	if o.NoAccountInit != nil && *o.NoAccountInit {
+		params.Add(jsonutils.JSONFalse, "reset_password")
+	}
+	return params, nil
+}
+
+func (o *ServerRebuildRootOptions) Description() string {
+	return "Rebuild VM root image with new template"
+}
+
 type ServerChangeConfigOptions struct {
-	ID        string   `help:"Server to rebuild root" json:"-"`
+	ServerIdOptions
 	VcpuCount *int     `help:"New number of Virtual CPU cores" json:"vcpu_count" token:"ncpu"`
 	VmemSize  string   `help:"New memory size" json:"vmem_size" token:"vmem"`
 	Disk      []string `help:"Data disk description, from the 1st data disk to the last one, empty string if no change for this data disk"`
@@ -579,9 +798,48 @@ type ServerChangeConfigOptions struct {
 	InstanceType string `help:"Instance Type, e.g. S2.SMALL2 for qcloud"`
 }
 
+func (o *ServerChangeConfigOptions) Params() (jsonutils.JSONObject, error) {
+	params, err := StructToParams(o)
+	if err != nil {
+		return nil, err
+	}
+	if len(o.Disk) > 0 {
+		params.Remove("disk.0")
+		disksConf := make([]*computeapi.DiskConfig, 0)
+		for i, d := range o.Disk {
+			// params.Set(key, value)
+			diskConfig, err := cmdline.ParseDiskConfig(d, i+1)
+			if err != nil {
+				return nil, err
+			}
+			disksConf = append(disksConf, diskConfig)
+		}
+		params.Set("disks", jsonutils.Marshal(disksConf))
+	}
+	if err != nil {
+		return nil, err
+	}
+	if params.Size() == 0 {
+		return nil, ErrEmtptyUpdate
+	}
+	return params, nil
+}
+
+func (o *ServerChangeConfigOptions) Description() string {
+	return "Change configuration of VM"
+}
+
 type ServerResetOptions struct {
 	ID   []string `help:"ID of servers to operate" metavar:"SERVER" json:"-"`
 	Hard *bool    `help:"Hard reset or not; default soft" json:"is_hard"`
+}
+
+func (o *ServerResetOptions) GetIds() []string {
+	return o.ID
+}
+
+func (o *ServerResetOptions) Params() (jsonutils.JSONObject, error) {
+	return StructToParams(o)
 }
 
 type ServerRestartOptions struct {
@@ -589,13 +847,27 @@ type ServerRestartOptions struct {
 	IsForce *bool    `help:"Force reset or not; default false" json:"is_force"`
 }
 
+func (o *ServerRestartOptions) GetIds() []string {
+	return o.ID
+}
+
+func (o *ServerRestartOptions) Params() (jsonutils.JSONObject, error) {
+	return StructToParams(o)
+}
+
 type ServerMigrateOptions struct {
 	ID         string `help:"ID of server" json:"-"`
 	PreferHost string `help:"Server migration prefer host id or name" json:"prefer_host"`
 	AutoStart  *bool  `help:"Server auto start after migrate" json:"auto_start"`
-	RescueMode *bool  `help:"Migrate server in rescue mode,
-					  all disk must store in shared storage;
-					  default false" json:"rescue_mode"`
+	RescueMode *bool  `help:"Migrate server in rescue mode, all disks must reside on shared storage" json:"rescue_mode"`
+}
+
+func (o *ServerMigrateOptions) GetId() string {
+	return o.ID
+}
+
+func (o *ServerMigrateOptions) Params() (jsonutils.JSONObject, error) {
+	return StructToParams(o)
 }
 
 type ServerLiveMigrateOptions struct {
@@ -603,12 +875,20 @@ type ServerLiveMigrateOptions struct {
 	PreferHost string `help:"Server migration prefer host id or name" json:"prefer_host"`
 }
 
-type ServerMetadataOptions struct {
-	ID   string   `help:"ID or name of server" json:"-"`
+func (o *ServerLiveMigrateOptions) GetId() string {
+	return o.ID
+}
+
+func (o *ServerLiveMigrateOptions) Params() (jsonutils.JSONObject, error) {
+	return StructToParams(o)
+}
+
+type ResourceMetadataOptions struct {
+	ID   string   `help:"ID or name of resources" json:"-"`
 	TAGS []string `help:"Tags info, eg: hypervisor=aliyun、os_type=Linux、os_version"`
 }
 
-func (opts *ServerMetadataOptions) Params() (*jsonutils.JSONDict, error) {
+func (opts *ResourceMetadataOptions) Params() (*jsonutils.JSONDict, error) {
 	params := jsonutils.NewDict()
 	for _, tag := range opts.TAGS {
 		info := strings.Split(tag, "=")
@@ -653,4 +933,119 @@ func (opts *ServerBatchMetadataOptions) Params() (*jsonutils.JSONDict, error) {
 	}
 	params.Add(metadata, "metadata")
 	return params, nil
+}
+
+type ServerAssociateEipOptions struct {
+	ServerIdOptions
+	EIP string `help:"ID or name of EIP to associate"`
+}
+
+func (o *ServerAssociateEipOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(o.EIP), "eip")
+	return params, nil
+}
+
+func (o *ServerAssociateEipOptions) Description() string {
+	return "Associate a server and an eip"
+}
+
+type ServerDissociateEipOptions struct {
+	ServerIdOptions
+	AutoDelete bool `help:"automatically delete the dissociate EIP" json:"auto_delete,omitfalse"`
+}
+
+func (o *ServerDissociateEipOptions) Params() (jsonutils.JSONObject, error) {
+	return StructToParams(o)
+}
+
+func (o *ServerDissociateEipOptions) Description() string {
+	return "Dissociate an eip from a server"
+}
+
+type ServerRenewOptions struct {
+	ID       string `help:"ID or name of server to renew"`
+	DURATION string `help:"Duration of renew, ADMIN only command"`
+}
+
+func (o *ServerRenewOptions) GetId() string {
+	return o.ID
+}
+
+func (o *ServerRenewOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(o.DURATION), "duration")
+	return params, nil
+}
+
+type ServerPrepaidRecycleOptions struct {
+	ServerIdOptions
+	AutoDelete bool `help:"after joining the pool, remove the server automatically"`
+}
+
+func (o *ServerPrepaidRecycleOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	if o.AutoDelete {
+		params.Add(jsonutils.JSONTrue, "auto_delete")
+	}
+	return params, nil
+}
+
+type ServerIoThrottle struct {
+	ServerIdOptions
+	BPS  int `help:"bps(MB) of throttle" json:"bps"`
+	IOPS int `help:"iops of throttle" json:"iops"`
+}
+
+func (o *ServerIoThrottle) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
+}
+
+func (o *ServerIoThrottle) Description() string {
+	return "Guest io set throttle"
+}
+
+type ServerPublicipToEip struct {
+	ServerIdOptions
+	AutoStart bool `help:"Auto start new guest"`
+}
+
+func (o *ServerPublicipToEip) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	params.Set("auto_start", jsonutils.NewBool(o.AutoStart))
+	return params, nil
+}
+
+func (o *ServerPublicipToEip) Description() string {
+	return "Convert PublicIp to Eip for server"
+}
+
+type ServerSetAutoRenew struct {
+	ServerIdOptions
+	AutoRenew bool `help:"Set server auto renew or manual renew"`
+}
+
+func (o *ServerSetAutoRenew) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	params.Set("auto_renew", jsonutils.NewBool(o.AutoRenew))
+	return params, nil
+}
+
+func (o *ServerSetAutoRenew) Description() string {
+	return "Set autorenew for server"
+}
+
+type ServerSaveTemplateOptions struct {
+	ServerIdOptions
+	TemplateName string `help:"The name of guest template"`
+}
+
+func (o *ServerSaveTemplateOptions) Params() (jsonutils.JSONObject, error) {
+	dict := jsonutils.NewDict()
+	dict.Set("name", jsonutils.NewString(o.TemplateName))
+	return dict, nil
+}
+
+func (o *ServerSaveTemplateOptions) Description() string {
+	return "Save Guest Template of this Server"
 }

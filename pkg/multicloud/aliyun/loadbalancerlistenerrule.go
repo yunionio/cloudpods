@@ -15,10 +15,12 @@
 package aliyun
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -47,7 +49,7 @@ func (lbr *SLoadbalancerListenerRule) GetGlobalId() string {
 }
 
 func (lbr *SLoadbalancerListenerRule) GetStatus() string {
-	return ""
+	return api.LB_STATUS_ENABLED
 }
 
 func (lbr *SLoadbalancerListenerRule) GetMetadata() *jsonutils.JSONDict {
@@ -116,7 +118,7 @@ func (region *SRegion) GetLoadbalancerListenerRules(loadbalancerId string, liste
 	return rules, body.Unmarshal(&rules, "Rules", "Rule")
 }
 
-func (lbr *SLoadbalancerListenerRule) Delete() error {
+func (lbr *SLoadbalancerListenerRule) Delete(ctx context.Context) error {
 	if lbr.httpListener != nil {
 		return lbr.httpListener.lb.region.DeleteLoadbalancerListenerRule(lbr.RuleId)
 	}

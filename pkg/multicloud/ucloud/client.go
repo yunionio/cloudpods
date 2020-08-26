@@ -174,7 +174,7 @@ func jsonRequest(client *SUcloudClient, params SParams) (jsonutils.JSONObject, e
 			UCLOUD_API_HOST,
 			nil,
 			BuildParams(params, client.accessKeySecret),
-			client.Debug)
+			client.debug)
 
 		if err == nil {
 			return parseUcloudResponse(params, resp)

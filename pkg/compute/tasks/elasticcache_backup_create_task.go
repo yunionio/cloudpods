@@ -36,11 +36,11 @@ func init() {
 	taskman.RegisterTask(ElasticcacheBackupCreateTask{})
 }
 
-func (self *ElasticcacheBackupCreateTask) taskFail(ctx context.Context, elasticcache *models.SElasticcacheBackup, reason string) {
-	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CREATE_FAILED, reason)
+func (self *ElasticcacheBackupCreateTask) taskFail(ctx context.Context, elasticcache *models.SElasticcacheBackup, reason jsonutils.JSONObject) {
+	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CREATE_FAILED, reason.String())
 	db.OpsLog.LogEvent(elasticcache, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_CREATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_STATUS_CREATE_FAILED, reason)
+	notifyclient.NotifySystemError(elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_STATUS_CREATE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -48,13 +48,13 @@ func (self *ElasticcacheBackupCreateTask) OnInit(ctx context.Context, obj db.ISt
 	eb := obj.(*models.SElasticcacheBackup)
 	region := eb.GetRegion()
 	if region == nil {
-		self.taskFail(ctx, eb, fmt.Sprintf("failed to find region for elastic cache backup %s", eb.GetName()))
+		self.taskFail(ctx, eb, jsonutils.NewString(fmt.Sprintf("failed to find region for elastic cache backup %s", eb.GetName())))
 		return
 	}
 
 	self.SetStage("OnElasticcacheBackupCreateComplete", nil)
 	if err := region.GetDriver().RequestCreateElasticcacheBackup(ctx, self.GetUserCred(), eb, self); err != nil {
-		self.taskFail(ctx, eb, err.Error())
+		self.taskFail(ctx, eb, jsonutils.Marshal(err))
 		return
 	}
 }
@@ -65,5 +65,5 @@ func (self *ElasticcacheBackupCreateTask) OnElasticcacheBackupCreateComplete(ctx
 }
 
 func (self *ElasticcacheBackupCreateTask) OnElasticcacheBackupCreateCompleteFailed(ctx context.Context, eb *models.SElasticcacheBackup, data jsonutils.JSONObject) {
-	self.taskFail(ctx, eb, data.String())
+	self.taskFail(ctx, eb, data)
 }

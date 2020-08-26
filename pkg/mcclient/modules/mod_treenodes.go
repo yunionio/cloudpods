@@ -58,7 +58,7 @@ func (this *TreenodeManager) GetNodeIDByLabels(s *mcclient.ClientSession, labels
 }
 
 func init() {
-	TreeNodes = TreenodeManager{NewMonitorManager("tree_node", "tree_nodes",
+	TreeNodes = TreenodeManager{NewServiceTreeManager("tree_node", "tree_nodes",
 		[]string{"id", "name", "pid", "order_no", "level", "group", "status", "project_id", "project_type", "create_way", "remark"},
 		[]string{})}
 

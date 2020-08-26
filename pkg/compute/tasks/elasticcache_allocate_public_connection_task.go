@@ -36,11 +36,11 @@ func init() {
 	taskman.RegisterTask(ElasticcacheAllocatePublicConnectionTask{})
 }
 
-func (self *ElasticcacheAllocatePublicConnectionTask) taskFail(ctx context.Context, elasticcache *models.SElasticcache, reason string) {
-	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGING, reason)
+func (self *ElasticcacheAllocatePublicConnectionTask) taskFail(ctx context.Context, elasticcache *models.SElasticcache, reason jsonutils.JSONObject) {
+	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGING, reason.String())
 	db.OpsLog.LogEvent(elasticcache, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_ALLOCATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason)
+	notifyclient.NotifySystemError(elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -48,13 +48,13 @@ func (self *ElasticcacheAllocatePublicConnectionTask) OnInit(ctx context.Context
 	elasticcache := obj.(*models.SElasticcache)
 	region := elasticcache.GetRegion()
 	if region == nil {
-		self.taskFail(ctx, elasticcache, fmt.Sprintf("failed to find region for elastic cache %s", elasticcache.GetName()))
+		self.taskFail(ctx, elasticcache, jsonutils.NewString(fmt.Sprintf("failed to find region for elastic cache %s", elasticcache.GetName())))
 		return
 	}
 
 	self.SetStage("OnElasticcacheAllocatePublicConnectionComplete", nil)
 	if err := region.GetDriver().RequestElasticcacheAllocatePublicConnection(ctx, self.GetUserCred(), elasticcache, self); err != nil {
-		self.OnElasticcacheAllocatePublicConnectionCompleteFailed(ctx, elasticcache, err.Error())
+		self.OnElasticcacheAllocatePublicConnectionCompleteFailed(ctx, elasticcache, jsonutils.Marshal(err))
 		return
 	}
 
@@ -68,6 +68,6 @@ func (self *ElasticcacheAllocatePublicConnectionTask) OnElasticcacheAllocatePubl
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *ElasticcacheAllocatePublicConnectionTask) OnElasticcacheAllocatePublicConnectionCompleteFailed(ctx context.Context, elasticcache *models.SElasticcache, reason string) {
+func (self *ElasticcacheAllocatePublicConnectionTask) OnElasticcacheAllocatePublicConnectionCompleteFailed(ctx context.Context, elasticcache *models.SElasticcache, reason jsonutils.JSONObject) {
 	self.taskFail(ctx, elasticcache, reason)
 }

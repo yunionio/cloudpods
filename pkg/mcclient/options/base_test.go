@@ -142,6 +142,26 @@ func TestOptionsStructToParams(t *testing.T) {
 		}
 		testSs(t, cases)
 	})
+	t.Run("string ptr", func(t *testing.T) {
+		type s struct {
+			String *string `json:",allowempty"`
+		}
+		cases := []*S{
+			{
+				In:   &s{},
+				Want: `{}`,
+			},
+			{
+				In:   &s{String("")},
+				Want: `{"string": ""}`,
+			},
+			{
+				In:   &s{String("holy")},
+				Want: `{string: "holy"}`,
+			},
+		}
+		testSs(t, cases)
+	})
 	t.Run("string slice", func(t *testing.T) {
 		type s struct {
 			StringSlice []string
@@ -227,11 +247,8 @@ func TestBaseListOptions(t *testing.T) {
 		}
 		for _, f := range []string{"details"} {
 			got, err := params.Bool(f)
-			if err != nil {
-				t.Fatalf("getting %s field failed: %s", f, err)
-			}
-			if !got {
-				t.Errorf("expecting %s=true, got false", f)
+			if got {
+				t.Fatalf("pending_delete=all should not imply details=true: %v", err)
 			}
 		}
 	})

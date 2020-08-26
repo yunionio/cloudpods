@@ -19,16 +19,19 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
@@ -38,8 +41,11 @@ type Client struct {
 	timeout int
 	debug   bool
 
-	httpconn       *http.Client
-	serviceCatalog IServiceCatalog
+	httpconn        *http.Client
+	_serviceCatalog IServiceCatalog
+
+	catalogListeners []IServiceCatalogChangeListener
+	listenerWorker   *appsrv.SWorkerManager
 }
 
 func NewClient(authUrl string, timeout int, debug bool, insecure bool, certFile, keyFile string) *Client {
@@ -58,14 +64,11 @@ func NewClient(authUrl string, timeout int, debug bool, insecure bool, certFile,
 	}
 	tlsConf.InsecureSkipVerify = insecure
 
-	tr := &http.Transport{
-		TLSClientConfig: tlsConf,
-		DialContext: (&net.Dialer{
-			Timeout: 5 * time.Second,
-		}).DialContext,
-		IdleConnTimeout:     5 * time.Second,
-		TLSHandshakeTimeout: 10 * time.Second,
-	}
+	tr := httputils.GetTransport(insecure)
+	tr.TLSClientConfig = tlsConf
+	tr.IdleConnTimeout = 5 * time.Second
+	tr.TLSHandshakeTimeout = 10 * time.Second
+	tr.ResponseHeaderTimeout = 0
 
 	client := Client{authUrl: authUrl,
 		timeout: timeout,
@@ -77,6 +80,8 @@ func NewClient(authUrl string, timeout int, debug bool, insecure bool, certFile,
 			}, // 不自动处理重定向请求
 		},
 	}
+
+	client.listenerWorker = appsrv.NewWorkerManager("client_catalog_listener_worker", 1, 2048, false)
 	return &client
 }
 
@@ -84,8 +89,16 @@ func (this *Client) HttpClient() *http.Client {
 	return this.httpconn
 }
 
+func (this *Client) SetHttpTransportProxyFunc(proxyFunc httputils.TransportProxyFunc) {
+	httputils.SetClientProxyFunc(this.httpconn, proxyFunc)
+}
+
 func (this *Client) SetDebug(debug bool) {
 	this.debug = debug
+}
+
+func (this *Client) GetDebug() bool {
+	return this.debug
 }
 
 func (this *Client) AuthVersion() string {
@@ -95,14 +108,6 @@ func (this *Client) AuthVersion() string {
 	} else {
 		return ""
 	}
-}
-
-func (this *Client) SetServiceCatalog(catalog IServiceCatalog) {
-	this.serviceCatalog = catalog
-}
-
-func (this *Client) GetServiceCatalog() IServiceCatalog {
-	return this.serviceCatalog
 }
 
 func (this *Client) NewAuthTokenCredential() TokenCredential {
@@ -253,7 +258,7 @@ func (this *Client) unmarshalV3Token(rbody jsonutils.JSONObject, tokenId string)
 	if cata == nil || cata.Len() == 0 {
 		log.Warningf("No service catalog avaiable")
 	} else {
-		this.serviceCatalog = cata
+		this.SetServiceCatalog(cata)
 	}
 	return
 }
@@ -270,7 +275,7 @@ func (this *Client) unmarshalV2Token(rbody jsonutils.JSONObject) (cred TokenCred
 		if cata == nil || cata.Len() == 0 {
 			log.Warningf("No srvice catalog avaiable")
 		} else {
-			this.serviceCatalog = cata
+			this.SetServiceCatalog(cata)
 		}
 		return
 	}
@@ -311,6 +316,17 @@ func (this *Client) SetTenant(tenantId, tenantName, tenantDomain string, token T
 	return this.SetProject(tenantId, tenantName, tenantDomain, token)
 }
 
+func (this *Client) AuthenticateToken(token string, projName, projDomain string, source string) (TokenCredential, error) {
+	aCtx := SAuthContext{
+		Source: source,
+	}
+	if this.AuthVersion() == "v3" {
+		return this._authV3("", "", "", "", projName, projDomain, token, aCtx)
+	} else {
+		return this._authV2("", "", "", projName, token, aCtx)
+	}
+}
+
 func (this *Client) SetProject(tenantId, tenantName, tenantDomain string, token TokenCredential) (TokenCredential, error) {
 	aCtx := SAuthContext{
 		Source: token.GetLoginSource(),
@@ -323,26 +339,76 @@ func (this *Client) SetProject(tenantId, tenantName, tenantDomain string, token 
 	}
 }
 
+func (this *Client) GetCommonEtcdEndpoint(token TokenCredential, region, interfaceType string) (*api.EndpointDetails, error) {
+	if this.AuthVersion() != "v3" {
+		return nil, errors.Errorf("current version %s not support get internal etcd endpoint", this.AuthVersion())
+	}
+
+	_, err := this.GetServiceCatalog().GetServiceURL(apis.SERVICE_TYPE_ETCD, region, "", interfaceType)
+	if err != nil {
+		return nil, err
+	}
+
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(interfaceType), "interface")
+	params.Add(jsonutils.JSONTrue, "enabled")
+	params.Add(jsonutils.NewString(apis.SERVICE_TYPE_ETCD), "service")
+	params.Add(jsonutils.JSONTrue, "details")
+	params.Add(jsonutils.NewString(region), "region")
+
+	epUrl := "/endpoints?" + params.QueryString()
+	_, rbody, err := this.jsonRequest(context.Background(), this.authUrl, token.GetTokenString(), httputils.GET, epUrl, nil, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "get internal etcd endpoint")
+	}
+	rets, err := rbody.GetArray("endpoints")
+	if err != nil {
+		return nil, errors.Wrap(err, "get endpoints response")
+	}
+	if len(rets) == 0 {
+		return nil, errors.Wrapf(httperrors.ErrNotFound, "not found service %s %s endpoint", apis.SERVICE_TYPE_ETCD, interfaceType)
+	}
+	if len(rets) > 1 {
+		return nil, errors.Errorf("fond %d duplicate serivce %s %s endpoint", len(rets), apis.SERVICE_TYPE_ETCD, interfaceType)
+	}
+	endpoint := new(api.EndpointDetails)
+	if err := rets[0].Unmarshal(endpoint); err != nil {
+		return nil, errors.Wrap(err, "unmarshal endpoint")
+	}
+	return endpoint, nil
+}
+
+func (this *Client) GetCommonEtcdTLSConfig(endpoint *api.EndpointDetails) (*tls.Config, error) {
+	if endpoint.CertId == "" {
+		return nil, nil
+	}
+	caData := []byte(endpoint.CaCertificate)
+	certData := []byte(endpoint.Certificate)
+	keyData := []byte(endpoint.PrivateKey)
+	return seclib2.InitTLSConfigByData(caData, certData, keyData)
+}
+
 func (this *Client) NewSession(ctx context.Context, region, zone, endpointType string, token TokenCredential, apiVersion string) *ClientSession {
 	cata := token.GetServiceCatalog()
-	if this.serviceCatalog == nil {
+	if this.GetServiceCatalog() == nil {
 		if cata == nil || cata.Len() == 0 {
 			log.Warningf("Missing service catalog in token")
 		} else {
-			this.serviceCatalog = cata
+			this.SetServiceCatalog(cata)
 		}
 	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	return &ClientSession{
-		ctx:               ctx,
-		client:            this,
-		region:            region,
-		zone:              zone,
-		endpointType:      endpointType,
-		token:             token,
-		defaultApiVersion: apiVersion,
-		Header:            http.Header{},
+		ctx:                 ctx,
+		client:              this,
+		region:              region,
+		zone:                zone,
+		endpointType:        endpointType,
+		token:               token,
+		defaultApiVersion:   apiVersion,
+		Header:              http.Header{},
+		customizeServiceUrl: map[string]string{},
 	}
 }

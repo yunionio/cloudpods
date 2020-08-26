@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -62,14 +63,6 @@ type SDBInstanceNetwork struct {
 
 func (manager *SDBInstanceNetworkManager) GetSlaveFieldName() string {
 	return "network_id"
-}
-
-func (joint *SDBInstanceNetwork) Master() db.IStandaloneModel {
-	return db.JointMaster(joint)
-}
-
-func (joint *SDBInstanceNetwork) Slave() db.IStandaloneModel {
-	return db.JointSlave(joint)
 }
 
 func (self *SDBInstanceNetwork) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -122,7 +115,7 @@ func (m *SDBInstanceNetworkManager) NewDBInstanceNetwork(ctx context.Context, us
 		return nil, err
 	}
 	in.IpAddr = ipAddr
-	err = m.TableSpec().Insert(in)
+	err = m.TableSpec().Insert(ctx, in)
 	if err != nil {
 		// NOTE no need to free ipAddr as GetFreeIP has no side effect
 		return nil, err
@@ -132,6 +125,9 @@ func (m *SDBInstanceNetworkManager) NewDBInstanceNetwork(ctx context.Context, us
 
 func (manager *SDBInstanceNetworkManager) SyncDBInstanceNetwork(ctx context.Context, userCred mcclient.TokenCredential, dbinstance *SDBInstance, network *cloudprovider.SDBInstanceNetwork) compare.SyncResult {
 	result := compare.SyncResult{}
+	if network == nil {
+		return result
+	}
 
 	dbNetwork, err := dbinstance.GetDBNetwork()
 	if err != nil && err != sql.ErrNoRows {
@@ -159,9 +155,15 @@ func (manager *SDBInstanceNetworkManager) SyncDBInstanceNetwork(ctx context.Cont
 
 func (self *SDBInstanceNetwork) syncWithCloudDBNetwork(ctx context.Context, userCred mcclient.TokenCredential, dbinstance *SDBInstance, network *cloudprovider.SDBInstanceNetwork) error {
 	_, err := db.UpdateWithLock(ctx, self, func() error {
-		_localnetwork, err := db.FetchByExternalId(NetworkManager, network.NetworkId)
+		_localnetwork, err := db.FetchByExternalIdAndManagerId(NetworkManager, network.NetworkId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			wire := WireManager.Query().SubQuery()
+			vpc := VpcManager.Query().SubQuery()
+			return q.Join(wire, sqlchemy.Equals(wire.Field("id"), q.Field("wire_id"))).
+				Join(vpc, sqlchemy.Equals(vpc.Field("id"), wire.Field("vpc_id"))).
+				Filter(sqlchemy.Equals(vpc.Field("manager_id"), dbinstance.ManagerId))
+		})
 		if err != nil {
-			return errors.Wrapf(err, "FetchByExternalId")
+			return errors.Wrapf(err, "FetchByExternalIdAndManagerId")
 		}
 		localnetwork := _localnetwork.(*SNetwork)
 		self.NetworkId = localnetwork.Id
@@ -191,9 +193,15 @@ func (manager *SDBInstanceNetworkManager) newFromCloudDBNetwork(ctx context.Cont
 	dbNetwork.SetModelManager(manager, &dbNetwork)
 
 	dbNetwork.DBInstanceId = dbinstance.Id
-	_localnetwork, err := db.FetchByExternalId(NetworkManager, network.NetworkId)
+	_localnetwork, err := db.FetchByExternalIdAndManagerId(NetworkManager, network.NetworkId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		wire := WireManager.Query().SubQuery()
+		vpc := VpcManager.Query().SubQuery()
+		return q.Join(wire, sqlchemy.Equals(wire.Field("id"), q.Field("wire_id"))).
+			Join(vpc, sqlchemy.Equals(vpc.Field("id"), wire.Field("vpc_id"))).
+			Filter(sqlchemy.Equals(vpc.Field("manager_id"), dbinstance.ManagerId))
+	})
 	if err != nil {
-		return errors.Wrapf(err, "newFromCloudDBNetwork.FetchByExternalId")
+		return errors.Wrapf(err, "newFromCloudDBNetwork.FetchByExternalIdAndManagerId")
 	}
 
 	localnetwork := _localnetwork.(*SNetwork)
@@ -207,7 +215,7 @@ func (manager *SDBInstanceNetworkManager) newFromCloudDBNetwork(ctx context.Cont
 	dbNetwork.NetworkId = localnetwork.Id
 	dbNetwork.IpAddr = network.IP
 
-	err = manager.TableSpec().Insert(&dbNetwork)
+	err = manager.TableSpec().Insert(ctx, &dbNetwork)
 	if err != nil {
 		return errors.Wrapf(err, "newFromCloudDBNetwork.Insert")
 	}

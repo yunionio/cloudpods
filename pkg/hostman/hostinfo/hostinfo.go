@@ -17,7 +17,6 @@ package hostinfo
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -28,6 +27,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/vishvananda/netlink"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -35,7 +35,9 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
+	"yunion.io/x/onecloud/pkg/hostman/host_health"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -47,6 +49,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/k8s/tokens"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
@@ -67,6 +70,10 @@ type SHostInfo struct {
 	Mem     *SMemory
 	sysinfo *SSysInfo
 
+	isInit          bool
+	enableHugePages bool
+	onHostDown      string
+
 	IsolatedDeviceMan *isolated_device.IsolatedDeviceManager
 
 	MasterNic *netutils2.SNetInterface
@@ -78,8 +85,12 @@ type SHostInfo struct {
 	Cloudregion    string
 	CloudregionId  string
 	ZoneManagerUri string
+	Project_domain string
+	Domain_id      string
 
-	FullName string
+	FullName   string
+	SysError   map[string]string
+	SysWarning map[string]string
 }
 
 func (h *SHostInfo) GetIsolatedDeviceManager() *isolated_device.IsolatedDeviceManager {
@@ -91,6 +102,14 @@ func (h *SHostInfo) GetBridgeDev(bridge string) hostbridge.IBridgeDriver {
 		if bridge == n.Bridge {
 			return n.BridgeDev
 		}
+	}
+	if bridge == options.HostOptions.OvnIntegrationBridge {
+		drv, err := hostbridge.NewOVSBridgeDriverByName(bridge)
+		if err != nil {
+			log.Errorf("create ovn bridge driver: %v", err)
+			return nil
+		}
+		return drv
 	}
 	return nil
 }
@@ -124,6 +143,10 @@ func (h *SHostInfo) IsNestedVirtualization() bool {
 	return utils.IsInStringArray("hypervisor", h.Cpu.cpuFeatures)
 }
 
+func (h *SHostInfo) IsHugepagesEnabled() bool {
+	return h.enableHugePages || options.HostOptions.HugepagesOption == "native"
+}
+
 func (h *SHostInfo) Init() error {
 	if err := h.prepareEnv(); err != nil {
 		return err
@@ -132,6 +155,12 @@ func (h *SHostInfo) Init() error {
 	if err := h.parseConfig(); err != nil {
 		return err
 	}
+	if HasOvnSupport() {
+		if err := h.setupOvnChassis(); err != nil {
+			return err
+		}
+	}
+
 	log.Infof("Start detectHostInfo")
 	if err := h.detectHostInfo(); err != nil {
 		return err
@@ -139,49 +168,82 @@ func (h *SHostInfo) Init() error {
 	return nil
 }
 
+func (h *SHostInfo) setupOvnChassis() error {
+	opts := &options.HostOptions
+	if opts.BridgeDriver != hostbridge.DRV_OPEN_VSWITCH {
+		return nil
+	}
+	log.Infof("Start setting up ovn chassis")
+	oh := NewOvnHelper(h)
+	if err := oh.Init(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (h *SHostInfo) generateLocalNetworkConfig() (string, error) {
-	output, err := procutils.NewCommand("ip", "route", "get", "1").Output()
+	netIp, dev, err := netutils2.DefaultSrcIpDev()
 	if err != nil {
-		return "", errors.Wrap(err, "ip route get")
+		return "", errors.Wrap(err, "find default source address & device")
 	}
-	lines := strings.Split(string(output), "\n")
-	if len(lines) == 0 {
-		return "", fmt.Errorf("can't find local ip address")
-	}
-	fields := strings.Fields(lines[0])
-	if len(fields) != 7 {
-		return "", fmt.Errorf("failed to parse output %v", lines)
-	}
-	ip := fields[len(fields)-1]
-	log.Infof("found ip address %s", ip)
-	netIp := net.ParseIP(strings.TrimSpace(ip))
-	if netIp == nil {
-		return "", fmt.Errorf("failed to parse found ip address %s", ip)
-	}
-	if netIp.To4() == nil {
-		return "", fmt.Errorf("not support ipv6 address %s", ip)
-	}
-	dev := fields[len(fields)-3]
-	log.Infof("found net dev %s", dev)
-	_, err = net.InterfaceByName(dev)
-	if err != nil {
-		return "", errors.Wrap(err, "interface by name")
-	}
-	// not a physical device
-	if !fileutils2.Exists(path.Join("/sys/class/net", dev, "device")) {
-		return "", errors.Errorf("found dev %s not a physical device", dev)
-	}
-	bridgeName := "br"
-	index := 0
-	for {
-		if _, err := net.InterfaceByName(bridgeName + strconv.Itoa(index)); err != nil {
-			bridgeName = bridgeName + strconv.Itoa(index)
-			break
+	log.Infof("Find dev: %s ip: %s", dev, netIp)
+
+	var bridgeName string
+	// test if dev is bridge
+	if err := procutils.NewCommand("ovs-vsctl", "br-exists", dev).Run(); err == nil {
+		portStr, err := procutils.NewCommand("ovs-vsctl", "list-ports", dev).Output()
+		if err != nil {
+			return "", errors.Wrap(err, "list port")
 		}
-		index += 1
+		ports := strings.Split(string(portStr), "\n")
+
+		devs := []string{}
+		for i := 0; i < len(ports); i++ {
+			portName := strings.TrimSpace(ports[i])
+			if len(portName) > 0 {
+				lk, err := netlink.LinkByName(portName)
+				if err != nil {
+					log.Errorf("netlink.LinkByName %s failed %s", portName, err)
+					continue
+				} else {
+					log.Infof("port %s link type %s", portName, lk.Type())
+					if !utils.IsInStringArray(lk.Type(), []string{"veth", "tun"}) {
+						devs = append(devs, portName)
+					}
+				}
+			}
+		}
+		if len(devs) != 1 {
+			return "", fmt.Errorf("list ports of br got %v", dev)
+		}
+		bridgeName = dev
+		dev = devs[0]
+	} else {
+		log.Errorf("br-exists %s get error %s", dev, err)
+
+		// test if dev is port of bridge
+		output, err := procutils.NewCommand("ovs-vsctl", "port-to-br", dev).Output()
+		if err != nil && !strings.Contains(string(output), "no port named") {
+			return "", errors.Wrapf(err, "port to br failed %s", output)
+		} else if err == nil {
+			bridgeName = strings.TrimSpace(string(output))
+		}
 	}
-	log.Infof("new bridge name %s", bridgeName)
-	return fmt.Sprintf("%s/%s/%s", dev, bridgeName, ip), nil
+
+	if len(bridgeName) == 0 {
+		bridgeName = "br"
+		index := 0
+		for {
+			if _, err := net.InterfaceByName(bridgeName + strconv.Itoa(index)); err != nil {
+				bridgeName = bridgeName + strconv.Itoa(index)
+				break
+			}
+			index += 1
+		}
+	}
+
+	log.Infof("bridge name %s", bridgeName)
+	return fmt.Sprintf("%s/%s/%s", dev, bridgeName, netIp), nil
 }
 
 func (h *SHostInfo) parseConfig() error {
@@ -195,6 +257,7 @@ func (h *SHostInfo) parseConfig() error {
 		if err != nil {
 			return err
 		}
+		log.Infof("Generate network config %s", netConf)
 		options.HostOptions.Networks = []string{netConf}
 		if len(options.HostOptions.Config) > 0 {
 			if err = fileutils2.FilePutContents(
@@ -249,15 +312,6 @@ func (h *SHostInfo) prepareEnv() error {
 		return fmt.Errorf("Failed to create path %s", options.HostOptions.ServersPath)
 	}
 
-	if len(qemutils.GetQemu("")) == 0 {
-		return fmt.Errorf("Qemu not installed")
-	}
-
-	_, err = procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemu(""), "-version").Output()
-	if err != nil {
-		return fmt.Errorf("Qemu/Kvm not installed")
-	}
-
 	_, err = procutils.NewCommand("ethtool", "-h").Output()
 	if err != nil {
 		return fmt.Errorf("Ethtool not installed")
@@ -274,11 +328,11 @@ func (h *SHostInfo) prepareEnv() error {
 		ioParams["queue/iosched/quantum"] = "32"
 	}
 	fileutils2.ChangeAllBlkdevsParams(ioParams)
-	_, err = procutils.NewCommand("modprobe", "tun").Output()
+	_, err = procutils.NewRemoteCommandAsFarAsPossible("modprobe", "tun").Output()
 	if err != nil {
 		return fmt.Errorf("Failed to activate tun/tap device")
 	}
-	output, err := procutils.NewCommand("modprobe", "vhost_net").Output()
+	output, err := procutils.NewRemoteCommandAsFarAsPossible("modprobe", "vhost_net").Output()
 	if err != nil {
 		log.Errorf("modprobe error: %s", output)
 	}
@@ -339,11 +393,11 @@ func (h *SHostInfo) detectHostInfo() error {
 	h.detectKvmModuleSupport()
 	h.detectNestSupport()
 
-	if err := h.detectiveSyssoftwareInfo(); err != nil {
+	if err := h.detectSyssoftwareInfo(); err != nil {
 		return err
 	}
 
-	h.detectiveStorageSystem()
+	h.detectStorageSystem()
 
 	if options.HostOptions.CheckSystemServices {
 		if err := h.checkSystemServices(); err != nil {
@@ -354,25 +408,34 @@ func (h *SHostInfo) detectHostInfo() error {
 }
 
 func (h *SHostInfo) checkSystemServices() error {
-	for _, srv := range []string{"ntpd"} {
-		srvinst := system_service.GetService(srv)
-		if !srvinst.IsInstalled() {
-			return fmt.Errorf("Service %s not installed", srv)
-		}
-	}
-
-	for _, srv := range []string{"host_sdnagent", "host-deployer", "telegraf"} {
-		srvinst := system_service.GetService(srv)
+	funcEn := func(srv string, srvinst system_service.ISystemService) {
 		if !srvinst.IsInstalled() {
 			log.Warningf("Service %s not installed", srv)
 		} else if !srvinst.IsActive() {
 			srvinst.Start(false)
 		}
 	}
+	for _, srv := range []string{"ntpd"} {
+		srvinst := system_service.GetService(srv)
+		funcEn(srv, srvinst)
+	}
+
+	svcs := os.Getenv("HOST_SYSTEM_SERVICES_OFF")
+	for _, srv := range []string{"host_sdnagent", "host-deployer", "telegraf"} {
+		srvinst := system_service.GetService(srv)
+		if strings.Contains(svcs, srv) {
+			if srvinst.IsActive() || srvinst.IsEnabled() {
+				srvinst.Stop(true)
+			}
+		} else {
+			funcEn(srv, srvinst)
+		}
+	}
+
 	return nil
 }
 
-func (h *SHostInfo) detectiveStorageSystem() {
+func (h *SHostInfo) detectStorageSystem() {
 	var stype = api.DISK_TYPE_ROTATE
 	if options.HostOptions.DiskIsSsd {
 		stype = api.DISK_TYPE_SSD
@@ -382,12 +445,12 @@ func (h *SHostInfo) detectiveStorageSystem() {
 
 func (h *SHostInfo) fixPathEnv() error {
 	var paths = []string{
+		"/usr/bin", // usr bin at first for host container deploy
+		"/usr/sbin",
 		"/usr/local/sbin",
 		"/usr/local/bin",
 		"/sbin",
 		"/bin",
-		"/usr/sbin",
-		"/usr/bin",
 	}
 	return os.Setenv("PATH", strings.Join(paths, ":"))
 }
@@ -421,34 +484,51 @@ func (h *SHostInfo) GetMemory() (int, error) {
 	return h.Mem.Total, nil // - options.reserved_memory
 }
 
+func (h *SHostInfo) getCurrentHugepageNr() (int64, error) {
+	nrStr, err := fileutils2.FileGetContents("/proc/sys/vm/nr_hugepages")
+	if err != nil {
+		return 0, errors.Wrap(err, "file get content nr hugepages")
+	}
+	nr, err := strconv.Atoi(strings.TrimSpace(nrStr))
+	if err != nil {
+		return 0, errors.Wrap(err, "nr str atoi")
+	}
+	return int64(nr), nil
+}
+
 func (h *SHostInfo) EnableNativeHugepages() error {
-	content, err := ioutil.ReadFile("/proc/sys/vm/nr_hugepages")
+	kv := map[string]string{
+		"/sys/kernel/mm/transparent_hugepage/enabled": "never",
+		"/sys/kernel/mm/transparent_hugepage/defrag":  "never",
+	}
+	for k, v := range kv {
+		sysutils.SetSysConfig(k, v)
+	}
+	nr, err := h.getCurrentHugepageNr()
 	if err != nil {
 		return err
 	}
-	if string(content) == "0\n" {
-		kv := map[string]string{
-			"/sys/kernel/mm/transparent_hugepage/enabled": "never",
-			"/sys/kernel/mm/transparent_hugepage/defrag":  "never",
-		}
-		for k, v := range kv {
-			sysutils.SetSysConfig(k, v)
-		}
-		mem, err := h.GetMemory()
+	mem, err := h.GetMemory()
+	if err != nil {
+		return err
+	}
+	mem -= h.getReservedMem()
+	desiredNr := int64(mem/h.Mem.GetHugepagesizeMb() + 1)
+	if nr < desiredNr {
+		err = timeutils2.CommandWithTimeout(1, "sh", "-c",
+			fmt.Sprintf("echo %d > /proc/sys/vm/nr_hugepages", desiredNr)).Run()
 		if err != nil {
 			return err
 		}
-		preAllocPagesNum := mem/h.Mem.GetHugepagesizeMb() + 1
-		err = timeutils2.CommandWithTimeout(1, "sh", "-c", fmt.Sprintf("echo %d > /proc/sys/vm/nr_hugepages", preAllocPagesNum)).Run()
-		if err != nil {
-			log.Errorln(err)
-			_, err = procutils.NewCommand("sh", "-c", "echo 0 > /proc/sys/vm/nr_hugepages").Output()
-			if err != nil {
-				log.Warningln(err)
-			}
-			return fmt.Errorf("Failed to set native hugepages, " +
-				"the system might have run out of contiguous memory, fall back to 0")
-		}
+	}
+	currentNr, err := h.getCurrentHugepageNr()
+	if err != nil {
+		return err
+	}
+	if currentNr < desiredNr {
+		err = timeutils2.CommandWithTimeout(1, "sh", "-c",
+			fmt.Sprintf("echo %d > /proc/sys/vm/nr_hugepages", nr)).Run()
+		return fmt.Errorf("no enough memory to resize hugepage, current nr %d, desired nr %d", currentNr, desiredNr)
 	}
 	return nil
 }
@@ -502,32 +582,33 @@ func (h *SHostInfo) detectNestSupport() {
 	}
 }
 
-func (h *SHostInfo) detectiveOsDist() {
-	files, err := procutils.NewCommand("sh", "-c", "ls /etc/*elease").Output()
+func (h *SHostInfo) detectOsDist() {
+	files, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", "ls /etc/*elease").Output()
 	if err != nil {
 		log.Errorln(err)
 		return
 	}
 	re := regexp.MustCompile(`(.+) release ([\d.]+)[^(]*(?:\((.+)\))?`)
 	for _, file := range strings.Split(string(files), "\n") {
-		content, err := fileutils2.FileGetContents(file)
+		content, err := procutils.NewRemoteCommandAsFarAsPossible("cat", file).Output()
 		if err != nil {
+			log.Errorln(err)
 			continue
 		}
-		m := re.FindStringSubmatch(content)
+		m := re.FindStringSubmatch(string(content))
 		if len(m) == 4 {
 			h.sysinfo.OsDistribution = m[1]
 			h.sysinfo.OsVersion = m[2]
 			break
 		}
 	}
-	log.Infof("DetectiveOsDist %s %s", h.sysinfo.OsDistribution, h.sysinfo.OsVersion)
+	log.Infof("DetectOsDist %s %s", h.sysinfo.OsDistribution, h.sysinfo.OsVersion)
 	if len(h.sysinfo.OsDistribution) == 0 {
 		log.Errorln("Failed to detect distribution info")
 	}
 }
 
-func (h *SHostInfo) detectiveKernelVersion() {
+func (h *SHostInfo) detectKernelVersion() {
 	out, err := procutils.NewCommand("uname", "-r").Output()
 	if err != nil {
 		log.Errorln(err)
@@ -535,17 +616,29 @@ func (h *SHostInfo) detectiveKernelVersion() {
 	h.sysinfo.KernelVersion = strings.TrimSpace(string(out))
 }
 
-func (h *SHostInfo) detectiveSyssoftwareInfo() error {
-	h.detectiveOsDist()
-	h.detectiveKernelVersion()
-	if err := h.detectiveQemuVersion(); err != nil {
-		return err
+func (h *SHostInfo) detectSyssoftwareInfo() error {
+	h.detectOsDist()
+	h.detectKernelVersion()
+	if err := h.detectQemuVersion(); err != nil {
+		h.SysError["qemu"] = err.Error()
 	}
-	h.detectiveOvsVersion()
+	h.detectOvsVersion()
+	if err := h.detectOvsKOVersion(); err != nil {
+		h.SysError["openvswitch"] = err.Error()
+	}
 	return nil
 }
 
-func (h *SHostInfo) detectiveQemuVersion() error {
+func (h *SHostInfo) detectQemuVersion() error {
+	if len(qemutils.GetQemu("")) == 0 {
+		return fmt.Errorf("Qemu not installed")
+	}
+
+	out, err := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemu(""), "-version").Output()
+	if err != nil {
+		return errors.Errorf("exec qemu version failed %s", out)
+	}
+
 	cmd := qemutils.GetQemu(options.HostOptions.DefaultQemuVersion)
 	version, err := procutils.NewRemoteCommandAsFarAsPossible(cmd, "--version").Output()
 	if err != nil {
@@ -565,7 +658,7 @@ func (h *SHostInfo) detectiveQemuVersion() error {
 	return nil
 }
 
-func (h *SHostInfo) detectiveOvsVersion() {
+func (h *SHostInfo) detectOvsVersion() {
 	version, err := procutils.NewCommand("ovs-vsctl", "--version").Output()
 	if err != nil {
 		log.Errorln(err)
@@ -580,6 +673,21 @@ func (h *SHostInfo) detectiveOvsVersion() {
 			log.Errorln("Failed to detect ovs version")
 		}
 	}
+}
+
+func (h *SHostInfo) detectOvsKOVersion() error {
+	output, err := procutils.NewRemoteCommandAsFarAsPossible("modinfo", "openvswitch").Output()
+	if err != nil {
+		return errors.Errorf("modinfo openvswitch failed %s", output)
+	}
+	lines := strings.Split(string(output), "\n")
+	for i := 0; i < len(lines); i++ {
+		if strings.HasPrefix(lines[i], "version:") {
+			log.Infof("kernel module openvswitch %s", lines[i])
+			return nil
+		}
+	}
+	return errors.Errorf("kernel module openvswitch paramters version not found, is kernel version correct ??")
 }
 
 func (h *SHostInfo) GetMasterNicIpAndMask() (string, int) {
@@ -670,20 +778,20 @@ func (h *SHostInfo) tryCreateNetworkOnWire() {
 	params := jsonutils.NewDict()
 	params.Set("ip", jsonutils.NewString(masterIp))
 	params.Set("mask", jsonutils.NewInt(int64(mask)))
-	params.Set("is_on_premise", jsonutils.JSONTrue)
+	params.Set("is_classic", jsonutils.JSONTrue)
 	params.Set("server_type", jsonutils.NewString(api.NETWORK_TYPE_BAREMETAL))
 	ret, err := modules.Networks.PerformClassAction(
 		hostutils.GetComputeSession(context.Background()),
 		"try-create-network", params)
 	if err != nil {
-		h.onFail(fmt.Sprintf("try create network get error %s", err))
+		h.onFail(fmt.Sprintf("try create network: %v", err))
 	}
 	if !jsonutils.QueryBoolean(ret, "find_matched", false) {
-		h.onFail(fmt.Sprintf("try create network get error %s", err))
+		h.onFail("try create network: find_matched == false")
 	}
 	wireId, err := ret.GetString("wire_id")
 	if err != nil {
-		h.onFail(fmt.Sprintf("try create network get error %s", err))
+		h.onFail(fmt.Sprintf("try create network: get wire_id: %v", err))
 	}
 	h.onGetWireId(wireId)
 }
@@ -696,8 +804,11 @@ func (h *SHostInfo) fetchAccessNetworkInfo() {
 	log.Debugf("Master ip %s to fetch wire", masterIp)
 	params := jsonutils.NewDict()
 	params.Set("ip", jsonutils.NewString(masterIp))
-	params.Set("is_on_premise", jsonutils.JSONTrue)
+	params.Set("is_classic", jsonutils.JSONTrue)
+	params.Set("scope", jsonutils.NewString("system"))
 	params.Set("limit", jsonutils.NewInt(0))
+	// use default vpc
+	params.Set("vpc", jsonutils.NewString(api.DEFAULT_VPC_ID))
 
 	res, err := modules.Networks.List(h.GetSession(), params)
 	if err != nil {
@@ -759,6 +870,7 @@ func (h *SHostInfo) getHostInfo(zoneId string) {
 	}
 	params := jsonutils.NewDict()
 	params.Set("any_mac", jsonutils.NewString(masterMac))
+	params.Set("scope", jsonutils.NewString("system"))
 	res, err := modules.Hosts.List(h.GetSession(), params)
 	if err != nil {
 		h.onFail(err)
@@ -767,11 +879,22 @@ func (h *SHostInfo) getHostInfo(zoneId string) {
 		h.updateHostRecord("")
 	} else {
 		host := res.Data[0]
-		name, _ := host.GetString("name")
 		id, _ := host.GetString("id")
-		h.setHostname(name)
+		h.getDomainInfo(id)
+
 		h.updateHostRecord(id)
 	}
+}
+
+func (h *SHostInfo) getDomainInfo(hostId string) {
+	host, err := modules.Hosts.GetById(h.GetSession(), hostId, jsonutils.NewDict())
+	if err != nil {
+		h.onFail(err)
+	}
+	domain_id, _ := host.GetString("domain_id")
+	project_domain, _ := host.GetString("project_domain")
+	h.Domain_id = domain_id
+	h.Project_domain = project_domain
 }
 
 func (h *SHostInfo) setHostname(name string) {
@@ -809,9 +932,8 @@ func (h *SHostInfo) getSysInfo() *SSysInfo {
 }
 
 func (h *SHostInfo) updateHostRecord(hostId string) {
-	var isInit bool
 	if len(hostId) == 0 {
-		isInit = true
+		h.isInit = true
 	}
 	content := jsonutils.NewDict()
 	masterIp := h.GetMasterIp()
@@ -820,7 +942,7 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 	}
 
 	if len(hostId) == 0 {
-		content.Set("name", jsonutils.NewString(h.fetchHostname()))
+		content.Set("generate_name", jsonutils.NewString(h.fetchHostname()))
 	}
 	content.Set("access_ip", jsonutils.NewString(masterIp))
 	content.Set("access_mac", jsonutils.NewString(h.GetMasterMac()))
@@ -848,6 +970,9 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 		h.onFail(err)
 	}
 	content.Set("mem_size", jsonutils.NewInt(int64(memTotal)))
+	if len(hostId) == 0 {
+		content.Set("mem_reserved", jsonutils.NewInt(int64(h.getReservedMem())))
+	}
 	content.Set("storage_driver", jsonutils.NewString(api.DISK_DRIVER_LINUX))
 	content.Set("storage_type", jsonutils.NewString(h.sysinfo.StorageType))
 	content.Set("storage_size", jsonutils.NewInt(int64(storageman.GetManager().GetTotalCapacity())))
@@ -864,11 +989,12 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 	}
 	content.Set("__meta__", jsonutils.Marshal(h.getSysInfo()))
 	content.Set("version", jsonutils.NewString(version.GetShortString()))
+	content.Set("ovn_version", jsonutils.NewString(MustGetOvnVersion()))
 
 	var (
 		res jsonutils.JSONObject
 	)
-	if !isInit {
+	if !h.isInit {
 		res, err = modules.Hosts.Update(h.GetSession(), hostId, content)
 	} else {
 		res, err = modules.Hosts.CreateInContext(h.GetSession(), content, &modules.Zones, h.ZoneId)
@@ -880,10 +1006,52 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 	}
 }
 
+func (h *SHostInfo) updateHostMetadata(hostname string) error {
+	onK8s, _ := tokens.IsInsideKubernetesCluster()
+	meta := api.HostRegisterMetadata{
+		OnKubernetes: onK8s,
+		Hostname:     hostname,
+	}
+	if len(h.SysError) > 0 {
+		meta.SysError = jsonutils.Marshal(h.SysError).String()
+	}
+	if len(h.SysWarning) > 0 {
+		meta.SysWarn = jsonutils.Marshal(h.SysWarning).String()
+	}
+	data := meta.JSON(meta)
+	_, err := modules.Hosts.SetMetadata(h.GetSession(), h.HostId, data)
+	return err
+}
+
 func (h *SHostInfo) onUpdateHostInfoSucc(hostbody jsonutils.JSONObject) {
 	h.HostId, _ = hostbody.GetString("id")
 	hostname, _ := hostbody.GetString("name")
-	h.setHostname(hostname)
+	if err := h.updateHostMetadata(hostname); err != nil {
+		h.onFail(err)
+		return
+	}
+
+	if options.HostOptions.HugepagesOption != "native" {
+		if h.isInit && len(h.IsolatedDeviceMan.Devices) > 0 {
+			meta := jsonutils.NewDict()
+			meta.Set("__enable_hugepages", jsonutils.NewString("true"))
+			_, err := modules.Hosts.SetMetadata(h.GetSession(), h.HostId, meta)
+			if err != nil {
+				h.onFail(fmt.Sprintf("failed "))
+			}
+			h.enableHugePages = true
+		} else if hugepage, _ := hostbody.GetString("metadata", "__enable_hugepages"); hugepage == "true" {
+			h.enableHugePages = true
+		}
+		if h.enableHugePages {
+			err := h.EnableNativeHugepages()
+			if err != nil {
+				h.onFail(err)
+			}
+		}
+	}
+	h.onHostDown, _ = hostbody.GetString("metadata", "__on_host_down")
+
 	if memReserved, _ := hostbody.Int("mem_reserved"); memReserved == 0 {
 		h.updateHostReservedMem()
 	} else {
@@ -915,8 +1083,12 @@ func (h *SHostInfo) getReservedMem() int {
 }
 
 func (h *SHostInfo) PutHostOffline() {
+	data := jsonutils.NewDict()
+	if options.HostOptions.EnableHealthChecker {
+		data.Set("update_health_status", jsonutils.JSONTrue)
+	}
 	_, err := modules.Hosts.PerformAction(
-		h.GetSession(), h.HostId, "offline", nil)
+		h.GetSession(), h.HostId, "offline", data)
 	if err != nil {
 		h.onFail(err)
 	} else {
@@ -925,9 +1097,25 @@ func (h *SHostInfo) PutHostOffline() {
 }
 
 func (h *SHostInfo) PutHostOnline() error {
+	if len(h.SysError) > 0 {
+		log.Fatalf("Can't put host online, unless resolve these problem %v", h.SysError)
+	}
+
+	if len(h.SysWarning) > 0 {
+		log.Warningf("Host have some hidden problem %v", h.SysWarning)
+	}
+
+	data := jsonutils.NewDict()
+	if options.HostOptions.EnableHealthChecker && len(options.HostOptions.EtcdEndpoints) > 0 {
+		_, err := host_health.InitHostHealthManager(h.HostId, h.onHostDown)
+		if err != nil {
+			log.Fatalf("Init host health manager failed %s", err)
+		}
+		data.Set("update_health_status", jsonutils.JSONTrue)
+	}
+
 	_, err := modules.Hosts.PerformAction(
-		h.GetSession(),
-		h.HostId, "online", nil)
+		h.GetSession(), h.HostId, "online", data)
 	return err
 }
 
@@ -935,6 +1123,7 @@ func (h *SHostInfo) getNetworkInfo() {
 	params := jsonutils.NewDict()
 	params.Set("details", jsonutils.JSONTrue)
 	params.Set("limit", jsonutils.NewInt(0))
+	params.Set("scope", jsonutils.NewString("system"))
 	res, err := modules.Hostwires.ListDescendent(
 		h.GetSession(),
 		h.HostId, params)
@@ -968,7 +1157,8 @@ func (h *SHostInfo) uploadNetworkInfo() {
 			if len(nic.Network) == 0 {
 				kwargs := jsonutils.NewDict()
 				kwargs.Set("ip", jsonutils.NewString(nic.Ip))
-				kwargs.Set("is_on_premise", jsonutils.JSONTrue)
+				kwargs.Set("is_classic", jsonutils.JSONTrue)
+				kwargs.Set("scope", jsonutils.NewString("system"))
 				kwargs.Set("limit", jsonutils.NewInt(0))
 
 				wireInfo, err := hostutils.GetWireOfIp(context.Background(), kwargs)
@@ -1089,6 +1279,7 @@ func (h *SHostInfo) getStorageInfo() {
 	params := jsonutils.NewDict()
 	params.Set("details", jsonutils.JSONTrue)
 	params.Set("limit", jsonutils.NewInt(0))
+	params.Set("scope", jsonutils.NewString("system"))
 	res, err := modules.Hoststorages.ListDescendent(
 		h.GetSession(),
 		h.HostId, params)
@@ -1118,8 +1309,13 @@ func (h *SHostInfo) onGetStorageInfoSucc(hoststorages []jsonutils.JSONObject) {
 			storage := storageManager.NewSharedStorageInstance(mountPoint, storagetype)
 			if storage != nil {
 				storage.SetStoragecacheId(storagecacheId)
-				storage.SetStorageInfo(storageId, storageName, storageConf)
+				if err := storage.SetStorageInfo(storageId, storageName, storageConf); err != nil {
+					h.onFail(err)
+				}
 				storageManager.Storages = append(storageManager.Storages, storage)
+				if err := storage.Accessible(); err != nil {
+					h.onFail(err)
+				}
 				storageManager.InitSharedStorageImageCache(
 					storagetype, storagecacheId, imagecachePath, storage)
 			}
@@ -1128,7 +1324,9 @@ func (h *SHostInfo) onGetStorageInfoSucc(hoststorages []jsonutils.JSONObject) {
 			storage := storageManager.GetStorageByPath(mountPoint)
 			if storage != nil {
 				storage.SetStoragecacheId(storagecacheId)
-				storage.SetStorageInfo(storageId, storageName, storageConf)
+				if err := storage.SetStorageInfo(storageId, storageName, storageConf); err != nil {
+					h.onFail(err)
+				}
 			} else {
 				// XXX hack: storage type baremetal is a converted host，reserve storage
 				if storagetype != api.STORAGE_BAREMETAL {
@@ -1162,7 +1360,9 @@ func (h *SHostInfo) onSyncStorageInfoSucc(storage storageman.IStorage, storageIn
 		id, _ := storageInfo.GetString("id")
 		name, _ := storageInfo.GetString("name")
 		storageConf, _ := storageInfo.Get("storage_conf")
-		storage.SetStorageInfo(id, name, storageConf)
+		if err := storage.SetStorageInfo(id, name, storageConf); err != nil {
+			h.onFail(err)
+		}
 		h.attachStorage(storage)
 	}
 }
@@ -1182,6 +1382,7 @@ func (h *SHostInfo) getIsolatedDevices() {
 	params.Set("details", jsonutils.JSONTrue)
 	params.Set("limit", jsonutils.NewInt(0))
 	params.Set("host", jsonutils.NewString(h.GetHostId()))
+	params.Set("scope", jsonutils.NewString("system"))
 	res, err := modules.IsolatedDevices.List(h.GetSession(), params)
 	if err != nil {
 		h.onFail(fmt.Sprintf("getIsolatedDevices: %v", err))
@@ -1192,7 +1393,9 @@ func (h *SHostInfo) getIsolatedDevices() {
 func (h *SHostInfo) onGetIsolatedDeviceSucc(objs []jsonutils.JSONObject) {
 	for _, obj := range objs {
 		info := isolated_device.CloudDeviceInfo{}
-		obj.Unmarshal(&info)
+		if err := obj.Unmarshal(&info); err != nil {
+			h.onFail(fmt.Sprintf("unmarshal isolated device to cloud device info failed %s", err))
+		}
 		dev := h.IsolatedDeviceMan.GetDeviceByIdent(info.VendorDeviceId, info.Addr)
 		if dev != nil {
 			dev.SetDeviceInfo(info)
@@ -1214,6 +1417,7 @@ func (h *SHostInfo) uploadIsolatedDevices() {
 			h.onFail(fmt.Sprintf("Sync device %s: %v", dev.String(), err))
 		}
 	}
+
 	h.deployAdminAuthorizedKeys()
 }
 
@@ -1223,18 +1427,13 @@ func (h *SHostInfo) deployAdminAuthorizedKeys() {
 	}
 
 	sshDir := path.Join("/root", ".ssh")
-	if _, err := os.Stat(sshDir); err != nil {
-		if os.IsNotExist(err) {
-			if err := os.MkdirAll(sshDir, 0755); err != nil {
-				onErr("Create ssh dir %s: %v", sshDir, err)
-			}
-		} else {
-			onErr("Stat %s dir: %v", sshDir, err)
-		}
+	output, err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", sshDir).Output()
+	if err != nil {
+		onErr("mkdir .ssh failed %s %s", output, err)
 	}
 
 	query := jsonutils.NewDict()
-	query.Add(jsonutils.JSONTrue, "admin")
+	query.Set("admin", jsonutils.JSONTrue)
 	ret, err := modules.Sshkeypairs.List(h.GetSession(), query)
 	if err != nil {
 		onErr("Get admin sshkey: %v", err)
@@ -1246,15 +1445,23 @@ func (h *SHostInfo) deployAdminAuthorizedKeys() {
 	adminPublicKey, _ := keys.GetString("public_key")
 	pubKeys := &deployapi.SSHKeys{AdminPublicKey: adminPublicKey}
 
+	var oldKeys string
 	authFile := path.Join(sshDir, "authorized_keys")
-	oldKeysBytes, _ := fileutils2.FileGetContents(authFile)
-	oldKeys := string(oldKeysBytes)
-	newKeys := fsdriver.MergeAuthorizedKeys(oldKeys, pubKeys)
-	if err := fileutils2.FilePutContents(authFile, newKeys, false); err != nil {
-		onErr("Write public keys: %v", err)
+	if procutils.NewRemoteCommandAsFarAsPossible("test", "-f", authFile).Run() == nil {
+		output, err := procutils.NewRemoteCommandAsFarAsPossible("cat", authFile).Output()
+		if err != nil {
+			onErr("cat auth file %s %s", output, err)
+		}
+		oldKeys = string(output)
 	}
-	if err := os.Chmod(authFile, 0644); err != nil {
-		onErr("Chmod %s to 0644: %v", authFile, err)
+	newKeys := fsdriver.MergeAuthorizedKeys(oldKeys, pubKeys)
+	if output, err := procutils.NewRemoteCommandAsFarAsPossible(
+		"sh", "-c", fmt.Sprintf("echo '%s' > %s", newKeys, authFile)).Output(); err != nil {
+		onErr("write public keys: %s %s", output, err)
+	}
+	if output, err := procutils.NewRemoteCommandAsFarAsPossible(
+		"chmod", "0644", authFile).Output(); err != nil {
+		onErr("chmod failed %s %s", output, err)
 	}
 	h.onSucc()
 }
@@ -1353,6 +1560,9 @@ func (h *SHostInfo) unregister() {
 func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) {
 	// TODO: dynamic probe endpoint type
 	defaultEndpointType := options.HostOptions.SessionEndpointType
+	if len(defaultEndpointType) == 0 {
+		defaultEndpointType = identityapi.EndpointInterfacePublic
+	}
 	if options.HostOptions.ManageNtpConfiguration {
 		ntpd := system_service.GetService("ntpd")
 		urls, _ := catalog.GetServiceURLs("ntp", options.HostOptions.Region, "", defaultEndpointType)
@@ -1379,10 +1589,13 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 		"zone":           h.Zone,
 		"cloudregion_id": h.CloudregionId,
 		"cloudregion":    h.Cloudregion,
+		"domain_id":      h.Domain_id,
+		"project_domain": h.Project_domain,
 		"region":         options.HostOptions.Region,
 		"host_ip":        h.GetMasterIp(),
-		"platform":       "kvm",
-		"res_type":       "host",
+		//"platform":       "kvm",
+		"brand":    "OneCloud",
+		"res_type": "host",
 	}
 	conf["nics"] = h.getNicsTelegrafConf()
 	urls, _ := catalog.GetServiceURLs("kafka", options.HostOptions.Region, "", defaultEndpointType)
@@ -1396,7 +1609,12 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 	log.Debugf("telegraf config: %s", conf)
 	if !reflect.DeepEqual(telegraf.GetConf(), conf) || !telegraf.IsActive() {
 		telegraf.SetConf(conf)
-		telegraf.BgReload(conf)
+		svcs := os.Getenv("HOST_SYSTEM_SERVICES_OFF")
+		if !strings.Contains(svcs, "telegraf") {
+			telegraf.BgReload(conf)
+		} else {
+			telegraf.BgReloadConf(conf)
+		}
 	}
 
 	urls, _ = catalog.GetServiceURLs("elasticsearch",
@@ -1466,6 +1684,8 @@ func NewHostInfo() (*SHostInfo, error) {
 
 	res.Nics = make([]*SNIC, 0)
 	res.IsRegistered = make(chan struct{})
+	res.SysError = make(map[string]string)
+	res.SysWarning = make(map[string]string)
 	return res, nil
 }
 

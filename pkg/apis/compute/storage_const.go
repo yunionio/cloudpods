@@ -14,6 +14,10 @@
 
 package compute
 
+import (
+	"yunion.io/x/onecloud/pkg/apis"
+)
+
 const (
 	STORAGE_LOCAL     = "local"
 	STORAGE_BAREMETAL = "baremetal"
@@ -49,6 +53,7 @@ const (
 	// STORAGE_CLOUD_SSD ="cloud_ssd"
 	STORAGE_LOCAL_BASIC   = "local_basic"
 	STORAGE_LOCAL_SSD     = "local_ssd"
+	STORAGE_LOCAL_PRO     = "local_pro"
 	STORAGE_CLOUD_BASIC   = "cloud_basic"
 	STORAGE_CLOUD_PREMIUM = "cloud_premium"
 
@@ -59,6 +64,7 @@ const (
 
 	// openstack
 	STORAGE_OPENSTACK_ISCSI = "iscsi"
+	STORAGE_OPENSTACK_NOVA  = "nova"
 
 	// Ucloud storage type
 	STORAGE_UCLOUD_CLOUD_NORMAL         = "CLOUD_NORMAL"         // 普通云盘
@@ -72,9 +78,9 @@ const (
 	STORAGE_ZSTACK_CEPH          = "ceph"
 
 	// Google storage type
-	STORAGE_GOOGLE_LOCAL_STORAGE = "local-storage" //本地SSD暂存盘 (最多8个)
-	STORAGE_GOOGLE_PD_STANDARD   = "pd-standard"   //标准永久性磁盘
-	STORAGE_GOOGLE_PD_SSD        = "pd-ssd"        //SSD永久性磁盘
+	STORAGE_GOOGLE_LOCAL_SSD   = "local-ssd"   //本地SSD暂存盘 (最多8个)
+	STORAGE_GOOGLE_PD_STANDARD = "pd-standard" //标准永久性磁盘
+	STORAGE_GOOGLE_PD_SSD      = "pd-ssd"      //SSD永久性磁盘
 
 	// ctyun storage type
 	STORAGE_CTYUN_SSD  = "SSD"  // 超高IO云硬盘
@@ -121,7 +127,7 @@ var (
 		STORAGE_ZSTACK_LOCAL_STORAGE, STORAGE_ZSTACK_CEPH, STORAGE_GPFS,
 	}
 
-	HOST_STORAGE_LOCAL_TYPES = []string{STORAGE_LOCAL, STORAGE_BAREMETAL, STORAGE_ZSTACK_LOCAL_STORAGE}
+	HOST_STORAGE_LOCAL_TYPES = []string{STORAGE_LOCAL, STORAGE_BAREMETAL, STORAGE_ZSTACK_LOCAL_STORAGE, STORAGE_OPENSTACK_NOVA}
 
 	STORAGE_LIMITED_TYPES = []string{STORAGE_LOCAL, STORAGE_BAREMETAL, STORAGE_NAS, STORAGE_RBD, STORAGE_NFS, STORAGE_GPFS}
 
@@ -131,3 +137,48 @@ var (
 	// 目前来说只支持这些
 	SHARED_STORAGE = []string{STORAGE_NFS, STORAGE_GPFS, STORAGE_RBD}
 )
+
+type StorageResourceInput struct {
+	// 存储（ID或Name）
+	StorageId string `json:"storage_id"`
+	// swagger:ignore
+	// Deprecated
+	// filter by storage_id
+	Storage string `json:"storage" yunion-deprecated-by:"storage_id"`
+}
+
+type StorageFilterListInputBase struct {
+	StorageResourceInput
+
+	// 以存储名称排序
+	// pattern:asc|desc
+	OrderByStorage string `json:"order_by_storage"`
+}
+
+type StorageFilterListInput struct {
+	StorageFilterListInputBase
+
+	StorageShareFilterListInput
+
+	ZonalFilterListInput
+	ManagedResourceListInput
+}
+
+type StorageShareFilterListInput struct {
+	// filter shared storage
+	Share *bool `json:"share"`
+	// filter local storage
+	Local *bool `json:"local"`
+}
+
+type StorageListInput struct {
+	apis.EnabledStatusInfrasResourceBaseListInput
+	apis.ExternalizedResourceBaseListInput
+	SchedtagResourceInput
+
+	ManagedResourceListInput
+	ZonalFilterListInput
+
+	UsableResourceListInput
+	StorageShareFilterListInput
+}

@@ -1,4 +1,4 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/host-deployer-base
+FROM registry.cn-beijing.aliyuncs.com/yunionio/host-deployer-base:v0.2
 
 MAINTAINER "Yaoqi Wan wanyaoqi@yunionyun.com"
 
@@ -6,6 +6,4 @@ ENV TZ Asia/Shanghai
 
 RUN mkdir -p /opt/yunion/bin
 
-ADD ./_output/bin/host-deployer /opt/yunion/bin/host-deployer
-ADD ./_output/bin/.host-deployer.bin /opt/yunion/bin/.host-deployer.bin
-ADD ./_output/bin/bundles/host-deployer /opt/yunion/bin/bundles/host-deployer
+ADD ./_output/alpine-build/bin/host-deployer /opt/yunion/bin/host-deployer

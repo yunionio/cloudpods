@@ -34,7 +34,7 @@ func init() {
 	taskman.RegisterTask(HostStorageAttachTask{})
 }
 
-func (self *HostStorageAttachTask) taskFail(ctx context.Context, host *models.SHost, reason string) {
+func (self *HostStorageAttachTask) taskFail(ctx context.Context, host *models.SHost, reason jsonutils.JSONObject) {
 	if hoststorage := self.getHoststorage(host); hoststorage != nil {
 		storage := hoststorage.GetStorage()
 		hoststorage.Detach(ctx, self.GetUserCred())
@@ -60,14 +60,14 @@ func (self *HostStorageAttachTask) OnInit(ctx context.Context, obj db.IStandalon
 	host := obj.(*models.SHost)
 	hoststorage := self.getHoststorage(host)
 	if hoststorage == nil {
-		self.taskFail(ctx, host, "failed to find hoststorage")
+		self.taskFail(ctx, host, jsonutils.NewString("failed to find hoststorage"))
 		return
 	}
 	storage := hoststorage.GetStorage()
 	self.SetStage("OnAttachStorageComplete", nil)
 	err := host.GetHostDriver().RequestAttachStorage(ctx, hoststorage, host, storage, self)
 	if err != nil {
-		self.taskFail(ctx, host, err.Error())
+		self.taskFail(ctx, host, jsonutils.Marshal(err))
 	}
 }
 
@@ -83,5 +83,5 @@ func (self *HostStorageAttachTask) OnAttachStorageComplete(ctx context.Context, 
 }
 
 func (self *HostStorageAttachTask) OnAttachStorageCompleteFailed(ctx context.Context, host *models.SHost, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, host, reason.String())
+	self.taskFail(ctx, host, reason)
 }

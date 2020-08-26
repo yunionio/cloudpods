@@ -42,8 +42,8 @@ func (self *SGpfsStorageDriver) GetStorageType() string {
 	return api.STORAGE_GPFS
 }
 
-func (self *SGpfsStorageDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return data, nil
+func (self *SGpfsStorageDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.StorageCreateInput) error {
+	return nil
 }
 
 func (self *SGpfsStorageDriver) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, storage *models.SStorage, data jsonutils.JSONObject) {
@@ -52,7 +52,7 @@ func (self *SGpfsStorageDriver) PostCreate(ctx context.Context, userCred mcclien
 	sc.ExternalId = storage.Id
 	timeutils.IsoTime(time.Now())
 	sc.Name = "gpfs-" + storage.Name + timeutils.IsoTime(time.Now())
-	if err := models.StoragecacheManager.TableSpec().Insert(sc); err != nil {
+	if err := models.StoragecacheManager.TableSpec().Insert(ctx, sc); err != nil {
 		log.Errorf("insert storagecache for storage %s error: %v", storage.Name, err)
 		return
 	}

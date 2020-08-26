@@ -46,4 +46,14 @@ func init() {
 		return nil
 	})
 
+	type ListOrganizationOptions struct{}
+	shellutils.R(&ListOrganizationOptions{}, "organization-list", "List organizaitons", func(cli *google.SRegion, args *ListOrganizationOptions) error {
+		orgs, err := cli.GetClient().ListOrganizations()
+		if err != nil {
+			return err
+		}
+		printList(orgs, 0, 0, 0, nil)
+		return nil
+	})
+
 }

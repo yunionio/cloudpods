@@ -15,6 +15,7 @@
 package aws
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -174,7 +175,7 @@ func (self *SElbBackendGroup) GetHealthCheck() (*cloudprovider.SLoadbalancerHeal
 	health.HealthCheckFail = self.UnhealthyThresholdCount
 	health.HealthCheckInterval = self.HealthCheckIntervalSeconds
 	health.HealthCheckURI = self.HealthCheckPath
-	health.HealthCheckType = self.HealthCheckProtocol
+	health.HealthCheckType = strings.ToLower(self.HealthCheckProtocol)
 	health.HealthCheckTimeout = self.HealthCheckTimeoutSeconds
 	health.HealthCheckHttpCode = ToOnecloudHealthCode(self.Matcher.HTTPCode)
 	return health, nil
@@ -216,11 +217,11 @@ func (self *SElbBackendGroup) RemoveBackendServer(serverId string, weight int, p
 	return self.region.RemoveElbBackend(self.GetId(), serverId, weight, port)
 }
 
-func (self *SElbBackendGroup) Delete() error {
+func (self *SElbBackendGroup) Delete(ctx context.Context) error {
 	return self.region.DeleteElbBackendGroup(self.GetId())
 }
 
-func (self *SElbBackendGroup) Sync(group *cloudprovider.SLoadbalancerBackendGroup) error {
+func (self *SElbBackendGroup) Sync(ctx context.Context, group *cloudprovider.SLoadbalancerBackendGroup) error {
 	return self.region.SyncELbBackendGroup(self.GetId(), group)
 }
 

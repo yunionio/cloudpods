@@ -17,6 +17,8 @@ package modules
 import (
 	"encoding/base64"
 	"fmt"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -40,16 +42,17 @@ const (
 	ACCESS_SECRET_TYPE    = api.ACCESS_SECRET_TYPE
 	TOTP_TYPE             = api.TOTP_TYPE
 	RECOVERY_SECRETS_TYPE = api.RECOVERY_SECRETS_TYPE
+	OIDC_CREDENTIAL_TYPE  = api.OIDC_CREDENTIAL_TYPE
 )
 
 type STotpSecret struct {
-	Totp      string
-	Timestamp int64
+	Totp      string `json:"totp"`
+	Timestamp int64  `json:"timestamp"`
 }
 
 type SRecoverySecret struct {
-	Question string
-	Answer   string
+	Question string `json:"question"`
+	Answer   string `json:"answer"`
 }
 
 type SAccessKeySecret struct {
@@ -62,6 +65,13 @@ type SAccessKeySecret struct {
 type SRecoverySecretSet struct {
 	Questions []SRecoverySecret
 	Timestamp int64
+}
+
+type SOpenIDConnectCredential struct {
+	ClientId string `json:"client_id"`
+	// Secret      string `json:"secret"`
+	RedirectUri string `json:"redirect_uri"`
+	api.SAccessKeySecretBlob
 }
 
 func (manager *SCredentialManager) fetchCredentials(s *mcclient.ClientSession, secType string, uid string, pid string) ([]jsonutils.JSONObject, error) {
@@ -89,6 +99,10 @@ func (manager *SCredentialManager) FetchTotpSecrets(s *mcclient.ClientSession, u
 
 func (manager *SCredentialManager) FetchRecoverySecrets(s *mcclient.ClientSession, uid string) ([]jsonutils.JSONObject, error) {
 	return manager.fetchCredentials(s, RECOVERY_SECRETS_TYPE, uid, "")
+}
+
+func (manager *SCredentialManager) FetchOIDCSecrets(s *mcclient.ClientSession, uid string, pid string) ([]jsonutils.JSONObject, error) {
+	return manager.fetchCredentials(s, OIDC_CREDENTIAL_TYPE, uid, pid)
 }
 
 func (manager *SCredentialManager) GetTotpSecret(s *mcclient.ClientSession, uid string) (string, error) {
@@ -186,6 +200,43 @@ func (manager *SCredentialManager) GetAccessKeySecrets(s *mcclient.ClientSession
 	return aksk, nil
 }
 
+func DecodeOIDCSecret(secret jsonutils.JSONObject) (SOpenIDConnectCredential, error) {
+	curr := SOpenIDConnectCredential{}
+	blobStr, err := secret.GetString("blob")
+	if err != nil {
+		return curr, errors.Wrap(err, "secret.GetString")
+	}
+	blobJson, err := jsonutils.ParseString(blobStr)
+	if err != nil {
+		return curr, errors.Wrap(err, "jsonutils.ParseString")
+	}
+	err = blobJson.Unmarshal(&curr)
+	if err != nil {
+		return curr, errors.Wrap(err, "blobJson.Unmarshal")
+	}
+	curr.ClientId, err = secret.GetString("id")
+	if err != nil {
+		return curr, errors.Wrap(err, "secret.GetString('id')")
+	}
+	return curr, nil
+}
+
+func (manager *SCredentialManager) GetOIDCSecret(s *mcclient.ClientSession, uid string, pid string) ([]SOpenIDConnectCredential, error) {
+	secrets, err := manager.FetchOIDCSecrets(s, uid, pid)
+	if err != nil {
+		return nil, err
+	}
+	oidcCreds := make([]SOpenIDConnectCredential, 0)
+	for i := range secrets {
+		curr, err := DecodeOIDCSecret(secrets[i])
+		if err != nil {
+			return nil, errors.Wrap(err, "DecodeOIDCSecret")
+		}
+		oidcCreds = append(oidcCreds, curr)
+	}
+	return oidcCreds, nil
+}
+
 func (manager *SCredentialManager) DoCreateAccessKeySecret(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	key, err := manager.CreateAccessKeySecret(s, "", "", time.Time{})
 	if err != nil {
@@ -222,6 +273,60 @@ func (manager *SCredentialManager) CreateAccessKeySecret(s *mcclient.ClientSessi
 	aksk.TimeStamp, _ = result.GetTime("created_at")
 	aksk.KeyId, _ = result.GetString("id")
 	return aksk, nil
+}
+
+func (manager *SCredentialManager) DoCreateOIDCSecret(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	redirectUri, _ := params.GetString("redirect_uri")
+
+	key, err := manager.CreateOIDCSecret(s, "", "", redirectUri)
+	if err != nil {
+		return nil, errors.Wrap(err, "CreateOIDCSecret")
+	}
+	result := jsonutils.Marshal(key)
+	// result.(*jsonutils.JSONDict).Add(jsonutils.NewString(key.ClientId), "client_id")
+	return result, nil
+}
+
+func isValidRedirectURL(redirectUri string) error {
+	if len(redirectUri) == 0 {
+		return errors.Wrap(httperrors.ErrInputParameter, "empty redirect uri")
+	}
+	if !strings.HasPrefix(redirectUri, "http://") && !strings.HasPrefix(redirectUri, "https://") {
+		return errors.Wrap(httperrors.ErrInputParameter, "invalid schema")
+	}
+	_, err := url.Parse(redirectUri)
+	if err != nil {
+		return errors.Wrapf(httperrors.ErrInputParameter, "invalid redirect_uri %s", redirectUri)
+	}
+	return nil
+}
+
+func (manager *SCredentialManager) CreateOIDCSecret(s *mcclient.ClientSession, uid string, pid string, redirectUri string) (SOpenIDConnectCredential, error) {
+	oidcCred := SOpenIDConnectCredential{}
+	err := isValidRedirectURL(redirectUri)
+	if err != nil {
+		return oidcCred, errors.Wrap(err, "isValidRedirectURL")
+	}
+	oidcCred.Secret = base64.URLEncoding.EncodeToString([]byte(seclib.RandomPassword(32)))
+	oidcCred.RedirectUri = redirectUri
+	blobJson := jsonutils.Marshal(&oidcCred)
+	params := jsonutils.NewDict()
+	name := fmt.Sprintf("oidc-%s-%s-%d", uid, pid, time.Now().Unix())
+	if len(pid) > 0 {
+		params.Add(jsonutils.NewString(pid), "project_id")
+	}
+	params.Add(jsonutils.NewString(OIDC_CREDENTIAL_TYPE), "type")
+	if len(uid) > 0 {
+		params.Add(jsonutils.NewString(uid), "user_id")
+	}
+	params.Add(jsonutils.NewString(blobJson.String()), "blob")
+	params.Add(jsonutils.NewString(name), "name")
+	result, err := manager.Create(s, params)
+	if err != nil {
+		return oidcCred, err
+	}
+	oidcCred.ClientId, _ = result.GetString("id")
+	return oidcCred, nil
 }
 
 func (manager *SCredentialManager) CreateTotpSecret(s *mcclient.ClientSession, uid string) (string, error) {
@@ -295,6 +400,10 @@ func (manager *SCredentialManager) RemoveTotpSecrets(s *mcclient.ClientSession, 
 
 func (manager *SCredentialManager) RemoveRecoverySecrets(s *mcclient.ClientSession, uid string) error {
 	return manager.removeCredentials(s, RECOVERY_SECRETS_TYPE, uid, "")
+}
+
+func (manager *SCredentialManager) RemoveOIDCSecrets(s *mcclient.ClientSession, uid string, pid string) error {
+	return manager.removeCredentials(s, OIDC_CREDENTIAL_TYPE, uid, pid)
 }
 
 var (

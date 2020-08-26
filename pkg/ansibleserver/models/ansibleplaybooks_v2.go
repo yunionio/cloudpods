@@ -39,12 +39,13 @@ import (
 type SAnsiblePlaybookV2 struct {
 	db.SVirtualResourceBase
 
-	Playbook  string    `length:"text" nullable:"false" create:"required" get:"user"`
-	Inventory string    `length:"text" nullable:"false" create:"required" get:"user"`
-	Files     string    `length:"text" nullable:"false" create:"optional" get:"user"`
-	Output    string    `length:"medium" get:"user"`
-	StartTime time.Time `list:"user"`
-	EndTime   time.Time `list:"user"`
+	Playbook     string    `length:"text" nullable:"false" create:"required" get:"user"`
+	Inventory    string    `length:"text" nullable:"false" create:"required" get:"user"`
+	Requirements string    `length:"test" nullable:"false" create:"optional" get:"user"`
+	Files        string    `length:"text" nullable:"false" create:"optional" get:"user"`
+	Output       string    `length:"medium" get:"user"`
+	StartTime    time.Time `list:"user"`
+	EndTime      time.Time `list:"user"`
 
 	CreatorMark string `length:"32" nullable:"false" create:"optional" get:"user"`
 }
@@ -196,6 +197,7 @@ func (apb *SAnsiblePlaybookV2) runPlaybook(ctx context.Context, userCred mcclien
 		Inventory(apb.Inventory).
 		Playbook(apb.Playbook).
 		PrivateKey(privateKey).
+		Requirements(apb.Requirements).
 		Files(files).
 		OutputWriter(&ansiblePlaybookOutputWriter{apb})
 	man.sessions.Add(apb.Id, sess)

@@ -20,6 +20,7 @@ import (
 	"github.com/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	o "yunion.io/x/onecloud/pkg/keystone/options"
@@ -30,14 +31,18 @@ type SSQLDriver struct {
 	driver.SBaseIdentityDriver
 }
 
-func NewSQLDriver(idpId, idpName, template, targetDomainId string, autoCreateProject bool, conf api.TConfigs) (driver.IIdentityBackend, error) {
-	base, err := driver.NewBaseIdentityDriver(idpId, idpName, template, targetDomainId, autoCreateProject, conf)
+func NewSQLDriver(idpId, idpName, template, targetDomainId string, conf api.TConfigs) (driver.IIdentityBackend, error) {
+	base, err := driver.NewBaseIdentityDriver(idpId, idpName, template, targetDomainId, conf)
 	if err != nil {
 		return nil, err
 	}
 	drv := SSQLDriver{base}
 	drv.SetVirtualObject(&drv)
 	return &drv, nil
+}
+
+func (sql *SSQLDriver) GetSsoRedirectUri(ctx context.Context, callbackUrl, state string) (string, error) {
+	return "", errors.Wrap(httperrors.ErrNotSupported, "not a SSO driver")
 }
 
 func (sql *SSQLDriver) Authenticate(ctx context.Context, ident mcclient.SAuthenticationIdentity) (*api.SUserExtended, error) {
@@ -58,7 +63,8 @@ func (sql *SSQLDriver) Authenticate(ctx context.Context, ident mcclient.SAuthent
 	if err != nil {
 		localUser.SaveFailedAuth()
 		if o.Options.PasswordErrorLockCount > 0 && localUser.FailedAuthCount > o.Options.PasswordErrorLockCount {
-			models.UserManager.LockUser(usrExt.Id)
+			models.UserManager.LockUser(usrExt.Id, "too many failed auth attempts")
+			return nil, errors.Wrap(httperrors.ErrTooManyAttempts, "user locked")
 		}
 		return nil, errors.Wrap(err, "usrExt.VerifyPassword")
 	}

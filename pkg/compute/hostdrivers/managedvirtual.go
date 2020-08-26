@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -70,28 +71,27 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 
 		cachedImage := scimg.GetCachedimage()
 		if cachedImage == nil {
-			return nil, fmt.Errorf("cached image not found???")
+			return nil, errors.Wrap(httperrors.ErrImageNotFound, "cached image not found???")
 		}
 
 		iStorageCache, err := storageCache.GetIStorageCache()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "storageCache.GetIStorageCache")
 		}
 
 		image.ExternalId = scimg.ExternalId
 		if cachedImage.ImageType == cloudprovider.CachedImageTypeCustomized {
 			image.ExternalId, err = iStorageCache.UploadImage(ctx, userCred, image, isForce)
+			if err != nil {
+				return nil, errors.Wrap(err, "iStorageCache.UploadImage")
+			}
 		} else {
 			_, err = iStorageCache.GetIImageById(cachedImage.ExternalId)
 			if err != nil {
 				log.Errorf("remote image fetch error %s", err)
-				return nil, err
+				return nil, errors.Wrap(err, "iStorageCache.GetIImageById")
 			}
 			image.ExternalId = cachedImage.ExternalId
-		}
-
-		if err != nil {
-			return nil, err
 		}
 
 		// should record the externalId immediately
@@ -137,17 +137,17 @@ func (self *SManagedVirtualizationHostDriver) RequestUncacheImage(ctx context.Co
 
 		iImage, err := iStorageCache.GetIImageById(scimg.ExternalId)
 		if err != nil {
-			if err == cloudprovider.ErrNotFound {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return nil, nil
 			}
 			log.Errorf("GetIImageById fail %s", err)
-			return nil, err
+			return nil, errors.Wrap(err, "iStorageCache.GetIImageById")
 		}
 
 		err = iImage.Delete(ctx)
 		if err != nil {
 			log.Errorf("iImage Delete fail %s", err)
-			return nil, err
+			return nil, errors.Wrap(err, "iImage.Delete")
 		}
 
 		return nil, nil
@@ -239,7 +239,7 @@ func (self *SManagedVirtualizationHostDriver) RequestResizeDiskOnHost(ctx contex
 	return nil
 }
 
-func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
+func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
 	iCloudStorage, err := storage.GetIStorage()
 	if err != nil {
 		return err
@@ -251,7 +251,20 @@ func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx c
 	size = size >> 10
 
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iDisk, err := iCloudStorage.CreateIDisk(disk.GetName(), int(size), "")
+		_cloudprovider := storage.GetCloudprovider()
+		if _cloudprovider == nil {
+			return nil, fmt.Errorf("invalid cloudprovider for storage %s(%s)", storage.Name, storage.Id)
+		}
+		projectId, err := _cloudprovider.SyncProject(ctx, userCred, disk.ProjectId)
+		if err != nil {
+			log.Errorf("failed to sync project for create %s disk %s error: %v", _cloudprovider.Provider, disk.GetName(), err)
+		}
+		conf := cloudprovider.DiskCreateConfig{
+			Name:      disk.GetName(),
+			SizeGb:    int(size),
+			ProjectId: projectId,
+		}
+		iDisk, err := iCloudStorage.CreateIDisk(&conf)
 		if err != nil {
 			return nil, err
 		}
@@ -262,7 +275,7 @@ func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx c
 
 		cloudprovider.WaitStatus(iDisk, api.DISK_READY, time.Second*5, time.Minute*5)
 
-		models.SyncMetadata(ctx, task.GetUserCred(), disk, iDisk)
+		models.SyncVirtualResourceMetadata(ctx, task.GetUserCred(), disk, iDisk)
 
 		data := jsonutils.NewDict()
 		data.Add(jsonutils.NewInt(int64(iDisk.GetDiskSizeMB())), "disk_size")
@@ -285,7 +298,7 @@ func (self *SManagedVirtualizationHostDriver) RequestDeallocateDiskOnHost(ctx co
 
 	iDisk, err := iCloudStorage.GetIDiskById(disk.GetExternalId())
 	if err != nil {
-		if err == cloudprovider.ErrNotFound {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			task.ScheduleRun(data)
 			return nil
 		}

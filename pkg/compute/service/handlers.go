@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/proxy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/capabilities"
@@ -33,12 +34,14 @@ func InitHandlers(app *appsrv.Application) {
 
 	db.RegistUserCredCacheUpdater()
 
-	db.AddProjectResourceCountHandler("", app)
+	db.AddScopeResourceCountHandler("", app)
 
 	quotas.AddQuotaHandler(&models.QuotaManager.SQuotaBaseManager, "", app)
 	quotas.AddQuotaHandler(&models.RegionQuotaManager.SQuotaBaseManager, "", app)
 	quotas.AddQuotaHandler(&models.ZoneQuotaManager.SQuotaBaseManager, "", app)
 	quotas.AddQuotaHandler(&models.ProjectQuotaManager.SQuotaBaseManager, "", app)
+	quotas.AddQuotaHandler(&models.DomainQuotaManager.SQuotaBaseManager, "", app)
+	quotas.AddQuotaHandler(&models.InfrasQuotaManager.SQuotaBaseManager, "", app)
 
 	usages.AddUsageHandler("", app)
 	capabilities.AddCapabilityHandler("", app)
@@ -70,8 +73,23 @@ func InitHandlers(app *appsrv.Application) {
 		models.ProjectQuotaManager,
 		models.ProjectUsageManager,
 		models.ProjectPendingUsageManager,
+		models.DomainQuotaManager,
+		models.DomainUsageManager,
+		models.DomainPendingUsageManager,
+		models.InfrasQuotaManager,
+		models.InfrasUsageManager,
+		models.InfrasPendingUsageManager,
 
 		models.GroupguestManager,
+
+		models.CloudproviderCapabilityManager,
+
+		models.ScalingTimerManager,
+		models.ScalingAlarmManager,
+		models.ScalingGroupGuestManager,
+		models.ScalingGroupNetworkManager,
+
+		models.ScheduledTaskLabelManager,
 	} {
 		db.RegisterModelManager(manager)
 	}
@@ -79,6 +97,9 @@ func InitHandlers(app *appsrv.Application) {
 	for _, manager := range []db.IModelManager{
 		db.OpsLog,
 		db.Metadata,
+
+		proxy.ProxySettingManager,
+
 		models.BucketManager,
 		models.CloudaccountManager,
 		models.CloudproviderManager,
@@ -127,6 +148,10 @@ func InitHandlers(app *appsrv.Application) {
 		models.HuaweiCachedLbbgManager,
 		models.AwsCachedLbManager,
 		models.AwsCachedLbbgManager,
+		models.QcloudCachedLbManager,
+		models.QcloudCachedLbbgManager,
+		models.OpenstackCachedLbManager,
+		models.OpenstackCachedLbbgManager,
 		models.RouteTableManager,
 
 		models.SchedpolicyManager,
@@ -153,6 +178,16 @@ func InitHandlers(app *appsrv.Application) {
 
 		models.GuestTemplateManager,
 		models.ServiceCatalogManager,
+		models.CloudproviderQuotaManager,
+
+		models.ScalingGroupManager,
+		models.ScalingPolicyManager,
+		models.ScalingActivityManager,
+		models.PolicyDefinitionManager,
+		models.PolicyAssignmentManager,
+
+		models.ScheduledTaskManager,
+		models.ScheduledTaskActivityManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

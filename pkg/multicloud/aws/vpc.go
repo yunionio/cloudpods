@@ -21,8 +21,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
-	"yunion.io/x/pkg/util/secrules"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -131,8 +130,18 @@ func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, err
 }
 
 func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
-	rts := []cloudprovider.ICloudRouteTable{}
-	return rts, nil
+	tables, err := self.region.GetRouteTables(self.GetId(), false)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVpc.GetIRouteTables")
+	}
+
+	itables := make([]cloudprovider.ICloudRouteTable, len(tables))
+	for i := range tables {
+		tables[i].vpc = self
+		itables[i] = &tables[i]
+	}
+
+	return itables, nil
 }
 
 func (self *SVpc) Delete() error {
@@ -153,43 +162,6 @@ func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) 
 		}
 	}
 	return nil, ErrorNotFound()
-}
-
-func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
-	secgrpId := ""
-	// 名称为default的安全组与aws默认安全组名冲突
-	if strings.ToLower(name) == "default" {
-		name = randomString(fmt.Sprintf("%s-", vpcId), 9)
-	}
-
-	rules = SecurityRuleSetToAllowSet(rules)
-	if secgroup, err := self.getSecurityGroupById(vpcId, secgroupId); err != nil {
-		if len(desc) == 0 {
-			desc = fmt.Sprintf("security group %s for vpc %s", name, vpcId)
-		}
-
-		if secgrpId, err = self.CreateSecurityGroup(vpcId, name, secgroupId, desc); err != nil {
-			return "", err
-		}
-
-		//addRules
-		for _, rule := range rules {
-			if err := self.addSecurityGroupRule(secgrpId, &rule); err != nil {
-				return "", err
-			}
-		}
-	} else {
-		//syncRules
-		secgrpId = secgroup.SecurityGroupId
-		log.Debugf("Sync Rules for %s", secgroup.GetName())
-		if secgroup.GetName() != name {
-			if err := self.modifySecurityGroup(secgrpId, name, ""); err != nil {
-				log.Errorf("Change SecurityGroup name to %s failed: %v", name, err)
-			}
-		}
-		self.syncSecgroupRules(secgrpId, rules)
-	}
-	return secgrpId, nil
 }
 
 func (self *SVpc) getWireByZoneId(zoneId string) *SWire {

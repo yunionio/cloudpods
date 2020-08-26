@@ -23,10 +23,13 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -52,6 +55,8 @@ func (self *SESXiGuestDriver) DoScheduleMemoryFilter() bool { return true }
 
 func (self *SESXiGuestDriver) DoScheduleSKUFilter() bool { return false }
 
+func (self *SESXiGuestDriver) DoScheduleStorageFilter() bool { return true }
+
 func (self *SESXiGuestDriver) GetHypervisor() string {
 	return api.HYPERVISOR_ESXI
 }
@@ -62,11 +67,11 @@ func (self *SESXiGuestDriver) GetProvider() string {
 
 func (self *SESXiGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
 	keys := models.SComputeResourceKeys{}
-	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
+	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_ON_PREMISE
 	keys.Provider = api.CLOUD_PROVIDER_VMWARE
-	// ignore brand
-	// ignore hypervisor keys.Hypervisor = api.HYPERVISOR_ESXI
+	keys.Brand = api.CLOUD_PROVIDER_VMWARE
+	keys.Hypervisor = api.HYPERVISOR_ESXI
 	return keys
 }
 
@@ -95,7 +100,7 @@ func (self *SESXiGuestDriver) GetAttachDiskStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
-func (self *SESXiGuestDriver) GetChangeConfigStatus() ([]string, error) {
+func (self *SESXiGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 
@@ -142,8 +147,63 @@ func (self *SESXiGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *mod
 	return nil
 }
 
+type SEsxiImageInfo struct {
+	ImageType          string
+	ImageExternalId    string
+	StorageCacheHostIp string
+}
+
 func (self *SESXiGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
-	return guest.GetJsonDescAtHypervisor(ctx, host)
+	desc := guest.GetJsonDescAtHypervisor(ctx, host)
+	// add image_info
+	disks, _ := desc.GetArray("disks")
+	if len(disks) == 0 {
+		return desc
+	}
+	templateId, _ := disks[0].GetString("template_id")
+	if len(templateId) == 0 {
+		return desc
+	}
+	model, err := models.CachedimageManager.FetchById(templateId)
+	if err != nil {
+		log.Errorf("fail to Fetch cachedimage by '%s' in SESXiGuestDriver.GetJsonDescAtHost: %s", templateId, err)
+		return desc
+	}
+	img := model.(*models.SCachedimage)
+	if img.ImageType != cloudprovider.CachedImageTypeSystem {
+		return desc
+	}
+	sciSubQ := models.StoragecachedimageManager.Query("storagecache_id").Equals("cachedimage_id", templateId).Equals("status", api.CACHED_IMAGE_STATUS_READY).SubQuery()
+	scQ := models.StoragecacheManager.Query().In("id", sciSubQ)
+	storageCaches := make([]models.SStoragecache, 0, 1)
+	err = db.FetchModelObjects(models.StoragecacheManager, scQ, &storageCaches)
+	if err != nil {
+		log.Errorf("fail to fetch storageCache associated with cacheimage '%s'", templateId)
+		return desc
+	}
+	if len(storageCaches) == 0 {
+		log.Errorf("no such storage cache associated with cacheimage '%s'", templateId)
+		return desc
+	}
+	if len(storageCaches) > 1 {
+		log.Errorf("there are multiple storageCache associated with caheimage '%s' ??!!", templateId)
+	}
+
+	var hostIp string
+	storageCacheHost, err := storageCaches[0].GetHost()
+	if err != nil {
+		log.Errorf("fail to GetHost of storageCache %s", storageCaches[0].Id)
+		hostIp = storageCaches[0].ExternalId
+	}
+	hostIp = storageCacheHost.AccessIp
+	imageInfo := SEsxiImageInfo{
+		ImageType:          img.ImageType,
+		ImageExternalId:    img.ExternalId,
+		StorageCacheHostIp: hostIp,
+	}
+	dict := disks[0].(*jsonutils.JSONDict)
+	dict.Add(jsonutils.Marshal(imageInfo), "image_info")
+	return desc
 }
 
 func (self *SESXiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
@@ -175,10 +235,32 @@ func (self *SESXiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gues
 	}
 	config.Add(jsonutils.NewString(extId), "guest_ext_id")
 
-	accessInfo, err := host.GetCloudaccount().GetVCenterAccessInfo(storage.ExternalId)
+	account := host.GetCloudaccount()
+	accessInfo, err := account.GetVCenterAccessInfo(storage.ExternalId)
 	if err != nil {
 		return err
 	}
+
+	action, _ := config.GetString("action")
+	if action == "create" {
+		project, err := db.TenantCacheManager.FetchTenantById(ctx, guest.ProjectId)
+		if err != nil {
+			return errors.Wrapf(err, "FetchTenantById(%s)", guest.ProjectId)
+		}
+
+		projects, err := account.GetExternalProjectsByProjectIdOrName(project.Id, project.Name)
+		if err != nil {
+			return errors.Wrapf(err, "GetExternalProjectsByProjectIdOrName(%s,%s)", project.Id, project.Name)
+		}
+
+		extProj := account.GetAvailableExternalProject(project, projects)
+		if extProj != nil {
+			config.Add(jsonutils.NewString(extProj.Name), "desc", "resource_pool")
+		} else {
+			config.Add(jsonutils.NewString(project.Name), "desc", "resource_pool")
+		}
+	}
+
 	config.Add(jsonutils.Marshal(accessInfo), "datastore")
 
 	url := "/disks/agent/deploy"
@@ -284,15 +366,118 @@ func (self *SESXiGuestDriver) RequestAssociateEip(ctx context.Context, userCred 
 	return fmt.Errorf("ESXiGuestDriver not support associate eip")
 }
 
-func (self *SESXiGuestDriver) CancelExpireTime(
-	ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
-	return guest.CancelExpireTime(ctx, userCred)
+func (self *SESXiGuestDriver) IsSupportCdrom(guest *models.SGuest) (bool, error) {
+	return false, nil
 }
 
-func (self *SESXiGuestDriver) IsSupportPostpaidExpire() bool {
+func (self *SESXiGuestDriver) IsSupportMigrate() bool {
 	return true
 }
 
-func (self *SESXiGuestDriver) IsSupportCdrom(guest *models.SGuest) (bool, error) {
-	return false, nil
+func (self *SESXiGuestDriver) IsSupportLiveMigrate() bool {
+	return true
+}
+
+func (self *SESXiGuestDriver) CheckMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput) error {
+	if len(input.PreferHost) == 0 {
+		return httperrors.NewBadRequestError("esxi guest migrate require prefer_host")
+	}
+	return nil
+}
+
+func (self *SESXiGuestDriver) CheckLiveMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput) error {
+	if len(input.PreferHost) == 0 {
+		return httperrors.NewBadRequestError("esxi guest migrate require prefer_host")
+	}
+	return nil
+}
+
+func (self *SESXiGuestDriver) RequestMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iVM, err := guest.GetIVM()
+		if err != nil {
+			return nil, errors.Wrap(err, "guest.GetIVM")
+		}
+		hostID, _ := data.GetString("prefer_host_id")
+		if hostID == "" {
+			return nil, errors.Wrapf(fmt.Errorf("require hostID"), "RequestMigrate")
+		}
+		iHost, err := models.HostManager.FetchById(hostID)
+		if err != nil {
+			return nil, errors.Wrapf(err, "models.HostManager.FetchById(%s)", hostID)
+		}
+		host := iHost.(*models.SHost)
+		hostExternalId := host.ExternalId
+		if err = iVM.MigrateVM(hostExternalId); err != nil {
+			return nil, errors.Wrapf(err, "iVM.MigrateVM(%s)", hostExternalId)
+		}
+		hostExternalId = iVM.GetIHostId()
+		if hostExternalId == "" {
+			return nil, errors.Wrap(fmt.Errorf("empty hostExternalId"), "iVM.GetIHostId()")
+		}
+		iHost, err = db.FetchByExternalIdAndManagerId(models.HostManager, hostExternalId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			if host := guest.GetHost(); host != nil {
+				return q.Equals("manager_id", host.ManagerId)
+			}
+			return q
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.FetchByExternalId(models.HostManager,%s)", hostExternalId)
+		}
+		host = iHost.(*models.SHost)
+		_, err = db.Update(guest, func() error {
+			guest.HostId = host.GetId()
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "db.Update guest.hostId")
+		}
+		return nil, nil
+	})
+	return nil
+}
+
+func (self *SESXiGuestDriver) RequestLiveMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iVM, err := guest.GetIVM()
+		if err != nil {
+			return nil, errors.Wrap(err, "guest.GetIVM")
+		}
+		hostID, _ := data.GetString("prefer_host_id")
+		if hostID == "" {
+			return nil, errors.Wrapf(fmt.Errorf("require hostID"), "RequestLiveMigrate")
+		}
+		iHost, err := models.HostManager.FetchById(hostID)
+		if err != nil {
+			return nil, errors.Wrapf(err, "models.HostManager.FetchById(%s)", hostID)
+		}
+		host := iHost.(*models.SHost)
+		hostExternalId := host.ExternalId
+		if err = iVM.LiveMigrateVM(hostExternalId); err != nil {
+			return nil, errors.Wrapf(err, "iVM.LiveMigrateVM(%s)", hostExternalId)
+		}
+		hostExternalId = iVM.GetIHostId()
+		if hostExternalId == "" {
+			return nil, errors.Wrap(fmt.Errorf("empty hostExternalId"), "iVM.GetIHostId()")
+		}
+		iHost, err = db.FetchByExternalIdAndManagerId(models.HostManager, hostExternalId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			if host := guest.GetHost(); host != nil {
+				return q.Equals("manager_id", host.ManagerId)
+			}
+			return q
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.FetchByExternalId(models.HostManager,%s)", hostExternalId)
+		}
+		host = iHost.(*models.SHost)
+		_, err = db.Update(guest, func() error {
+			guest.HostId = host.GetId()
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "db.Update guest.hostId")
+		}
+		return nil, nil
+	})
+	return nil
 }

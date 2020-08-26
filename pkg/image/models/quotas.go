@@ -47,6 +47,7 @@ func init() {
 
 	QuotaPendingUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(SQuota{},
+			rbacutils.ScopeProject,
 			"quota_pending_usage_tbl",
 			"quota_pending_usage",
 			"quota_pending_usages",
@@ -54,14 +55,21 @@ func init() {
 	}
 	QuotaUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(SQuota{},
+			rbacutils.ScopeProject,
 			"quota_usage_tbl",
 			"quota_usage",
 			"quota_usages",
 		),
 	}
 	QuotaManager = &SQuotaManager{
-		SQuotaBaseManager: quotas.NewQuotaBaseManager(SQuota{}, "quota_tbl", QuotaPendingUsageManager, QuotaUsageManager,
-			"image_quota", "image_quotas"),
+		SQuotaBaseManager: quotas.NewQuotaBaseManager(SQuota{},
+			rbacutils.ScopeProject,
+			"quota_tbl",
+			QuotaPendingUsageManager,
+			QuotaUsageManager,
+			"image_quota",
+			"image_quotas",
+		),
 	}
 
 	quotas.Register(QuotaManager)
@@ -127,7 +135,7 @@ func (self *SQuota) FetchUsage(ctx context.Context) error {
 		isISO = tristate.None
 	}
 
-	count := ImageManager.count(scope, ownerId, "", isISO, false)
+	count := ImageManager.count(scope, ownerId, "", isISO, false, tristate.None)
 	self.Image = int(count["total"].Count)
 	return nil
 }
@@ -155,6 +163,15 @@ func (self *SQuota) Sub(quota quotas.IQuota) {
 	self.Image = quotas.NonNegative(self.Image - squota.Image)
 }
 
+func (self *SQuota) Allocable(request quotas.IQuota) int {
+	squota := request.(*SQuota)
+	cnt := -1
+	if self.Image >= 0 && squota.Image > 0 && (cnt < 0 || cnt > self.Image/squota.Image) {
+		cnt = self.Image / squota.Image
+	}
+	return cnt
+}
+
 func (self *SQuota) Update(quota quotas.IQuota) {
 	squota := quota.(*SQuota)
 	if squota.Image > 0 {
@@ -178,9 +195,7 @@ func (used *SQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
 
 func (self *SQuota) ToJSON(prefix string) jsonutils.JSONObject {
 	ret := jsonutils.NewDict()
-	// if self.Image > 0 {
 	ret.Add(jsonutils.NewInt(int64(self.Image)), quotas.KeyName(prefix, "image"))
-	// }
 	return ret
 }
 
@@ -205,22 +220,22 @@ func (manager *SQuotaManager) FetchIdNames(ctx context.Context, idMap map[string
 }
 
 type SImageQuotaKeys struct {
-	quotas.SBaseQuotaKeys
+	quotas.SBaseProjectQuotaKeys
 
 	Type string `width:"16" charset:"ascii" nullable:"false" primary:"true" list:"user"`
 }
 
 func (k SImageQuotaKeys) Fields() []string {
-	return append(k.SBaseQuotaKeys.Fields(), "type")
+	return append(k.SBaseProjectQuotaKeys.Fields(), "type")
 }
 
 func (k SImageQuotaKeys) Values() []string {
-	return append(k.SBaseQuotaKeys.Values(), k.Type)
+	return append(k.SBaseProjectQuotaKeys.Values(), k.Type)
 }
 
 func (k1 SImageQuotaKeys) Compare(ik quotas.IQuotaKeys) int {
 	k2 := ik.(SImageQuotaKeys)
-	r := k1.SBaseQuotaKeys.Compare(k2.SBaseQuotaKeys)
+	r := k1.SBaseProjectQuotaKeys.Compare(k2.SBaseProjectQuotaKeys)
 	if r != 0 {
 		return r
 	}
@@ -230,4 +245,71 @@ func (k1 SImageQuotaKeys) Compare(ik quotas.IQuotaKeys) int {
 		return 1
 	}
 	return 0
+}
+
+///////////////////////////////////////////////////
+// for swagger API documentation
+
+// 区域配额详情
+type SImageQuotaDetail struct {
+	SQuota
+
+	quotas.SBaseProjectQuotaDetailKeys
+}
+
+// +onecloud:swagger-gen-route-method=GET
+// +onecloud:swagger-gen-route-path=/image_quotas/{scope}/{scopeId}
+// +onecloud:swagger-gen-route-tag=image_quota
+// +onecloud:swagger-gen-param-path=scope
+// +onecloud:swagger-gen-param-path=配额所属范围，可能值为projects和domains，分别代表项目的配额和域的配额
+// +onecloud:swagger-gen-param-path=scopeId
+// +onecloud:swagger-gen-param-path=指定项目或者域的ID
+// +onecloud:swagger-gen-param-query-index=0
+// +onecloud:swagger-gen-resp-index=0
+// +onecloud:swagger-gen-resp-body-key=image_quotas
+// +onecloud:swagger-gen-resp-body-list
+
+// 获取指定项目或者域的镜像配额
+func GetImageQuota(query quotas.SBaseQuotaQueryInput) *SImageQuotaDetail {
+	return nil
+}
+
+// +onecloud:swagger-gen-route-method=GET
+// +onecloud:swagger-gen-route-path=/image_quotas/{scope}
+// +onecloud:swagger-gen-route-tag=image_quota
+// +onecloud:swagger-gen-param-path=scope
+// +onecloud:swagger-gen-param-path=配额所属范围，可能值为projects和domains，分别代表项 目的配额和域的配额
+// +onecloud:swagger-gen-param-query-index=0
+// +onecloud:swagger-gen-resp-index=0
+// +onecloud:swagger-gen-resp-body-key=image_quotas
+// +onecloud:swagger-gen-resp-body-list
+
+// 获取所有项目或者域的镜像配额
+func ListImageQuotas(query quotas.SBaseQuotaQueryInput) *SImageQuotaDetail {
+	return nil
+}
+
+// 设置镜像配额输入参数
+type SetImageQuotaInput struct {
+	quotas.SBaseQuotaSetInput
+
+	SQuota
+}
+
+// +onecloud:swagger-gen-route-method=POST
+// +onecloud:swagger-gen-route-path=/image_quotas/{scope}/{scopeId}
+// +onecloud:swagger-gen-route-tag=image_quota
+// +onecloud:swagger-gen-param-path=scope
+// +onecloud:swagger-gen-param-path=配额所属范围，可能值为projects和domains，分别代表项目的配额和域的配额
+// +onecloud:swagger-gen-param-path=scopeId
+// +onecloud:swagger-gen-param-path=指定项目或者域的ID
+// +onecloud:swagger-gen-param-body-index=0
+// +onecloud:swagger-gen-param-body-key=image_quotas
+// +onecloud:swagger-gen-resp-index=0
+// +onecloud:swagger-gen-resp-body-key=image_quotas
+// +onecloud:swagger-gen-resp-body-list
+
+// 设置指定项目或者域的镜像配额
+func SetRegionQuotas(input SetImageQuotaInput) *SImageQuotaDetail {
+	return nil
 }

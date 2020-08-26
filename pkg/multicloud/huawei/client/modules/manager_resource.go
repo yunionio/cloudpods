@@ -50,6 +50,7 @@ const (
 	ServiceNameRDS  ServiceNameType = "rds"  // 关系型数据库 RDS
 	ServiceNameCTS  ServiceNameType = "cts"  // 云审计服务
 	ServiceNameCES  ServiceNameType = "ces"  // 监控服务 CloudEye
+	ServiceNameEPS  ServiceNameType = "eps"  // 企业项目
 )
 
 type SManagerContext struct {
@@ -71,10 +72,11 @@ type SResourceManager struct {
 	ctx           manager.IManagerContext
 	ServiceName   ServiceNameType // 服务名称： ecs
 	Region        string          // 区域： cn-north-1
-	ProjectId     string          // 项目ID： uuid
-	version       string          // api 版本号
-	Keyword       string          // 资源名称单数。构建URL时使用
-	KeywordPlural string          // 资源名称复数形式。构建URL时使用
+	DomainId      string
+	ProjectId     string // 项目ID： uuid
+	version       string // api 版本号
+	Keyword       string // 资源名称单数。构建URL时使用
+	KeywordPlural string // 资源名称复数形式。构建URL时使用
 
 	ResourceKeyword string // 资源名称。url中使用
 }
@@ -101,6 +103,10 @@ func (self *SResourceManager) ServiceType() string {
 
 func (self *SResourceManager) GetColumns() []string {
 	return []string{}
+}
+
+func (self *SResourceManager) SetDomainId(domainId string) {
+	self.DomainId = domainId
 }
 
 func (self *SResourceManager) getReourcePath(ctx manager.IManagerContext, rid string, spec string) string {
@@ -143,6 +149,9 @@ func (self *SResourceManager) ListInContextWithSpec(ctx manager.IManagerContext,
 	for k, v := range queries {
 		request.AddQueryParam(k, v)
 	}
+	if len(self.DomainId) > 0 {
+		request.AddHeaderParam("X-Domain-Id", self.DomainId)
+	}
 
 	return self._list(request, responseKey)
 }
@@ -175,6 +184,9 @@ func (self *SResourceManager) CreateInContext(ctx manager.IManagerContext, param
 func (self *SResourceManager) CreateInContextWithSpec(ctx manager.IManagerContext, spec string, params jsonutils.JSONObject, responseKey string) (jsonutils.JSONObject, error) {
 	request := self.newRequest("POST", "", spec, ctx)
 	request.SetContent([]byte(params.String()))
+	if len(self.DomainId) > 0 {
+		request.AddHeaderParam("X-Domain-Id", self.DomainId)
+	}
 
 	return self._do(request, responseKey)
 }
@@ -197,6 +209,9 @@ func (self *SResourceManager) UpdateInContextWithSpec(ctx manager.IManagerContex
 	if len(content) > 0 {
 		request.SetContent([]byte(content))
 	}
+	if len(self.DomainId) > 0 {
+		request.AddHeaderParam("X-Domain-Id", self.DomainId)
+	}
 
 	return self._do(request, responseKey)
 }
@@ -206,7 +221,7 @@ func (self *SResourceManager) Delete(id string, params jsonutils.JSONObject) (js
 }
 
 func (self *SResourceManager) DeleteInContext(ctx manager.IManagerContext, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return self.DeleteInContextWithSpec(ctx, id, "", nil, params, self.Keyword)
+	return self.DeleteInContextWithSpec(ctx, id, "", nil, params, "")
 }
 
 func (self *SResourceManager) DeleteInContextWithSpec(ctx manager.IManagerContext, id string, spec string, queries map[string]string, params jsonutils.JSONObject, responseKey string) (jsonutils.JSONObject, error) {
@@ -218,6 +233,9 @@ func (self *SResourceManager) DeleteInContextWithSpec(ctx manager.IManagerContex
 	content := getContent(params)
 	if len(content) > 0 {
 		request.SetContent([]byte(content))
+	}
+	if len(self.DomainId) > 0 {
+		request.AddHeaderParam("X-Domain-Id", self.DomainId)
 	}
 
 	return self._do(request, responseKey)

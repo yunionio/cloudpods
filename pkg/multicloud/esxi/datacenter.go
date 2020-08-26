@@ -32,9 +32,10 @@ var DATACENTER_PROPS = []string{"name", "parent", "datastore", "network"}
 type SDatacenter struct {
 	SManagedObject
 
-	ihosts    []cloudprovider.ICloudHost
-	istorages []cloudprovider.ICloudStorage
-	inetworks []IVMNetwork
+	ihosts       []cloudprovider.ICloudHost
+	istorages    []cloudprovider.ICloudStorage
+	inetworks    []IVMNetwork
+	iresoucePool []cloudprovider.ICloudProject
 
 	Name string
 }
@@ -63,6 +64,21 @@ func (dc *SDatacenter) getObjectDatacenter() *object.Datacenter {
 	return object.NewDatacenter(dc.manager.client.Client, dc.object.Reference())
 }
 
+func (dc *SDatacenter) scanResourcePool() error {
+	if dc.iresoucePool == nil {
+		pools, err := dc.listResourcePools()
+		if err != nil {
+			return errors.Wrap(err, "listResourcePools")
+		}
+		dc.iresoucePool = []cloudprovider.ICloudProject{}
+		for i := 0; i < len(pools); i++ {
+			p := NewResourcePool(dc.manager, &pools[i], dc)
+			dc.iresoucePool = append(dc.iresoucePool, p)
+		}
+	}
+	return nil
+}
+
 func (dc *SDatacenter) scanHosts() error {
 	if dc.ihosts == nil {
 		var hosts []mo.HostSystem
@@ -86,6 +102,61 @@ func (dc *SDatacenter) scanHosts() error {
 		}
 	}
 	return nil
+}
+
+func (dc *SDatacenter) GetResourcePools() ([]cloudprovider.ICloudProject, error) {
+	err := dc.scanResourcePool()
+	if err != nil {
+		return nil, errors.Wrap(err, "dc.scanResourcePool")
+	}
+	return dc.iresoucePool, nil
+}
+
+func (dc *SDatacenter) listResourcePools() ([]mo.ResourcePool, error) {
+	var pools, result []mo.ResourcePool
+	err := dc.manager.scanMObjects(dc.object.Entity().Self, RESOURCEPOOL_PROPS, &pools)
+	if err != nil {
+		return nil, errors.Wrap(err, "scanMObjects")
+	}
+	for i := range pools {
+		if pools[i].Parent.Type == "ClusterComputeResource" {
+			continue
+		}
+		result = append(result, pools[i])
+	}
+	return result, nil
+}
+
+func (dc *SDatacenter) ListClusters() ([]*SCluster, error) {
+	return dc.listClusters()
+}
+
+func (dc *SDatacenter) GetCluster(cluster string) (*SCluster, error) {
+	clusters, err := dc.ListClusters()
+	if err != nil {
+		return nil, errors.Wrap(err, "ListClusters")
+	}
+	for i := range clusters {
+		if clusters[i].GetName() == cluster {
+			return clusters[i], nil
+		}
+
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (dc *SDatacenter) listClusters() ([]*SCluster, error) {
+	clusters := []mo.ClusterComputeResource{}
+	err := dc.manager.scanMObjects(dc.object.Entity().Self, RESOURCEPOOL_PROPS, &clusters)
+	if err != nil {
+		return nil, errors.Wrap(err, "scanMObjects")
+	}
+	ret := []*SCluster{}
+	for i := range clusters {
+		c := NewCluster(dc.manager, &clusters[i], dc)
+		ret = append(ret, c)
+	}
+	return ret, nil
 }
 
 func (dc *SDatacenter) GetIHosts() ([]cloudprovider.ICloudHost, error) {
@@ -166,25 +237,48 @@ func (dc *SDatacenter) getDcObj() *object.Datacenter {
 	return object.NewDatacenter(dc.manager.client.Client, dc.object.Reference())
 }
 
-func (dc *SDatacenter) fetchVms(vmRefs []types.ManagedObjectReference, all bool) ([]cloudprovider.ICloudVM, error) {
+// fetchVms will identify if VM is a template and return two different arrays; the latter contains all template vms.
+func (dc *SDatacenter) fetchVms(vmRefs []types.ManagedObjectReference, all bool) ([]cloudprovider.ICloudVM, []*SVirtualMachine, error) {
 	var vms []mo.VirtualMachine
 	if vmRefs != nil {
 		err := dc.manager.references2Objects(vmRefs, VIRTUAL_MACHINE_PROPS, &vms)
 		if err != nil {
-			return nil, errors.Wrap(err, "dc.manager.references2Objects")
+			return nil, nil, errors.Wrap(err, "dc.manager.references2Objects")
 		}
 	}
 
-	retVms := make([]cloudprovider.ICloudVM, 0)
+	// avoid applying new memory and copying
+	retVms := make([]cloudprovider.ICloudVM, 0, len(vms)/2)
+	templateVMs := make([]*SVirtualMachine, 0, 2)
 	for i := 0; i < len(vms); i += 1 {
 		if all || !strings.HasPrefix(vms[i].Entity().Name, api.ESXI_IMAGE_CACHE_TMP_PREFIX) {
 			vmObj := NewVirtualMachine(dc.manager, &vms[i], dc)
+			if vms[i].Config != nil && vms[i].Config.Template {
+				templateVMs = append(templateVMs, vmObj)
+				continue
+			}
 			if vmObj != nil {
 				retVms = append(retVms, vmObj)
 			}
 		}
 	}
-	return retVms, nil
+	return retVms, templateVMs, nil
+}
+
+func (dc *SDatacenter) fetchDatastores(datastoreRefs []types.ManagedObjectReference) ([]cloudprovider.ICloudStorage, error) {
+	var dss []mo.Datastore
+	if datastoreRefs != nil {
+		err := dc.manager.references2Objects(datastoreRefs, DATASTORE_PROPS, &dss)
+		if err != nil {
+			return nil, errors.Wrap(err, "dc.manager.references2Objects")
+		}
+	}
+
+	retDatastores := make([]cloudprovider.ICloudStorage, 0, len(dss))
+	for i := range dss {
+		retDatastores = append(retDatastores, NewDatastore(dc.manager, &dss[i], dc))
+	}
+	return retDatastores, nil
 }
 
 func (dc *SDatacenter) scanNetworks() error {
@@ -269,4 +363,42 @@ func (dc *SDatacenter) GetNetworks() ([]IVMNetwork, error) {
 		return nil, errors.Wrap(err, "dc.scanNetworks")
 	}
 	return dc.inetworks, nil
+}
+
+func (dc *SDatacenter) GetTemplateVMs() ([]*SVirtualMachine, error) {
+	hosts, err := dc.GetIHosts()
+	if err != nil {
+		return nil, errors.Wrap(err, "SDatacenter.GetIHosts")
+	}
+	templateVms := make([]*SVirtualMachine, 5)
+	for _, ihost := range hosts {
+		host := ihost.(*SHost)
+		tvms, err := host.GetTemplateVMs()
+		if err != nil {
+			return nil, errors.Wrap(err, "host.GetTemplateVMs")
+		}
+		templateVms = append(templateVms, tvms...)
+	}
+	return templateVms, nil
+}
+
+func (dc *SDatacenter) GetTemplateVMById(id string) (*SVirtualMachine, error) {
+	id = dc.manager.getPrivateId(id)
+	hosts, err := dc.GetIHosts()
+	if err != nil {
+		return nil, errors.Wrap(err, "SDatacenter.GetIHosts")
+	}
+	for _, ihost := range hosts {
+		host := ihost.(*SHost)
+		tvms, err := host.GetTemplateVMs()
+		if err != nil {
+			return nil, errors.Wrap(err, "host.GetTemplateVMs")
+		}
+		for i := range tvms {
+			if tvms[i].GetGlobalId() == id {
+				return tvms[i], nil
+			}
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }

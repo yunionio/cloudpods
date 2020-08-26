@@ -19,19 +19,21 @@ import (
 	"net/url"
 	"os/exec"
 
+	api "yunion.io/x/onecloud/pkg/apis/webconsole"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 const (
-	VNC       = "vnc"
-	ALIYUN    = "aliyun"
-	QCLOUD    = "qcloud"
-	OPENSTACK = "openstack"
-	SPICE     = "spice"
-	WMKS      = "wmks"
-	VMRC      = "vmrc"
-	ZSTACK    = "zstack"
+	VNC       = api.VNC
+	ALIYUN    = api.ALIYUN
+	QCLOUD    = api.QCLOUD
+	OPENSTACK = api.OPENSTACK
+	SPICE     = api.SPICE
+	WMKS      = api.WMKS
+	VMRC      = api.VMRC
+	ZSTACK    = api.ZSTACK
+	CTYUN     = api.CTYUN
 )
 
 type RemoteConsoleInfo struct {
@@ -88,14 +90,24 @@ func (info *RemoteConsoleInfo) Cleanup() error {
 	return nil
 }
 
-// GetData implements ISessionData interface
+// Connect implements ISessionData interface
 func (info *RemoteConsoleInfo) Connect() error {
 	return nil
 }
 
-// GetData implements ISessionData interface
-func (info *RemoteConsoleInfo) GetData(s string) (bool, string, string) {
-	return false, "", ""
+// IsNeedShowInfo implements ISessionData interface
+func (info *RemoteConsoleInfo) IsNeedShowInfo() bool {
+	return false
+}
+
+// Reconnect implements ISessionData interface
+func (info *RemoteConsoleInfo) Reconnect() {
+	return
+}
+
+// Scan implements ISessionData interface
+func (info *RemoteConsoleInfo) Scan(byte, func(string)) {
+	return
 }
 
 // ShowInfo implements ISessionData interface
@@ -109,7 +121,7 @@ func (info *RemoteConsoleInfo) GetConnectParams() (string, error) {
 		return info.getAliyunURL()
 	case QCLOUD:
 		return info.getQcloudURL()
-	case OPENSTACK, VMRC, ZSTACK:
+	case OPENSTACK, VMRC, ZSTACK, CTYUN:
 		return info.Url, nil
 	default:
 		return "", fmt.Errorf("Can't convert protocol %s to connect params", info.Protocol)

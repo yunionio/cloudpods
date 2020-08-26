@@ -17,4 +17,6 @@ package compute
 const (
 	SECGROUP_STATUS_READY    = "ready"
 	SECGROUP_STATUS_DELETING = "deleting"
+
+	SECGROUP_DEFAULT_ID = "default"
 )

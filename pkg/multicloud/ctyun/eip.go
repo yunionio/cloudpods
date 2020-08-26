@@ -15,6 +15,8 @@
 package ctyun
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,10 +27,12 @@ import (
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SEip struct {
 	region *SRegion
+	multicloud.SEipBase
 
 	IPVersion           int64   `json:"ip_version"`
 	BandwidthShareType  string  `json:"bandwidth_share_type"`
@@ -132,6 +136,11 @@ func (self *SEip) GetINetworkId() string {
 func (self *SEip) GetAssociationType() string {
 	orders, err := self.region.GetOrder(self.WorkOrderResourceID)
 	if err != nil {
+		// bugfix: 由于没有接口可以返向查询出关联的device，这里默认关联的是server？
+		if len(self.PortID) > 0 || len(self.PrivateIPAddress) > 0 {
+			return api.EIP_ASSOCIATE_TYPE_SERVER
+		}
+
 		log.Errorf("SEip.GetAssociationType %s", err)
 		return ""
 	}
@@ -139,7 +148,7 @@ func (self *SEip) GetAssociationType() string {
 	for i := range orders {
 		order := orders[i]
 		if strings.Contains(order.ResourceType, "LOADBALANCER") {
-			return api.EIP_ASSOCIATE_TYPE_ELB
+			return api.EIP_ASSOCIATE_TYPE_LOADBALANCER
 		} else {
 			return api.EIP_ASSOCIATE_TYPE_SERVER
 		}
@@ -148,8 +157,30 @@ func (self *SEip) GetAssociationType() string {
 	return ""
 }
 
+// eip查询接口未返回 绑定的实例ID/网卡port id。导致不能正常找出关联的主机
 func (self *SEip) GetAssociationExternalId() string {
-	return self.WorkOrderResourceID
+	vms, err := self.region.GetVMs()
+	if err != nil {
+		log.Errorf("SEip.GetAssociationExternalId.GetVMs %s", err)
+		return ""
+	}
+
+	for i := range vms {
+		vm := vms[i]
+		nics, err := self.region.GetNics(vm.GetId())
+		if err != nil {
+			log.Errorf("SEip.GetAssociationExternalId.GetNics %s", err)
+			return ""
+		}
+
+		for _, nic := range nics {
+			if nic.PortID == self.PortID {
+				return vm.GetGlobalId()
+			}
+		}
+	}
+
+	return ""
 }
 
 // http://ctyun-api-url/apiproxy/v3/queryNetworkDetail
@@ -159,23 +190,38 @@ func (self *SEip) GetBandwidth() int {
 
 func (self *SEip) GetInternetChargeType() string {
 	// todo: fix me
-	return api.EIP_CHARGE_TYPE_BY_BANDWIDTH
+	return ""
 }
 
 func (self *SEip) Delete() error {
-	return cloudprovider.ErrNotImplemented
+	return self.region.DeleteEip(self.GetId())
 }
 
-func (self *SEip) Associate(instanceId string) error {
-	return cloudprovider.ErrNotImplemented
+func (self *SEip) Associate(conf *cloudprovider.AssociateConfig) error {
+	nics, err := self.region.GetNics(conf.InstanceId)
+	if err != nil {
+		return errors.Wrap(err, "Eip.Associate.GetNics")
+	}
+
+	if len(nics) == 0 {
+		return errors.Wrap(fmt.Errorf("no network card found"), "Eip.Associate.GetINics")
+	}
+
+	return self.region.AssociateEip(self.GetId(), nics[0].PortID)
 }
 
 func (self *SEip) Dissociate() error {
-	return cloudprovider.ErrNotImplemented
+	err := self.region.DissociateEip(self.GetId())
+	if err != nil {
+		return err
+	}
+
+	err = cloudprovider.WaitStatusWithDelay(self, api.EIP_STATUS_READY, 5*time.Second, 10*time.Second, 180*time.Second)
+	return errors.Wrap(err, "SEip.Dissociate")
 }
 
 func (self *SEip) ChangeBandwidth(bw int) error {
-	return cloudprovider.ErrNotImplemented
+	return self.region.ChangeBandwidthEip(self.GetName(), self.GetId(), strconv.Itoa(bw))
 }
 
 type Profile struct {
@@ -235,7 +281,7 @@ func (self *SRegion) GetEip(eipId string) (*SEip, error) {
 	}
 }
 
-func (self *SRegion) CreateEip(zoneId, name, size, shareType string) (*SEip, error) {
+func (self *SRegion) CreateEip(zoneId, name, size, shareType, chargeType string) (*SEip, error) {
 	eipParams := jsonutils.NewDict()
 	eipParams.Set("regionId", jsonutils.NewString(self.GetId()))
 	eipParams.Set("zoneId", jsonutils.NewString(zoneId))
@@ -243,22 +289,113 @@ func (self *SRegion) CreateEip(zoneId, name, size, shareType string) (*SEip, err
 	eipParams.Set("type", jsonutils.NewString("5_telcom"))
 	eipParams.Set("size", jsonutils.NewString(size))
 	eipParams.Set("shareType", jsonutils.NewString(shareType))
+	eipParams.Set("chargeMode", jsonutils.NewString(chargeType))
 
 	params := map[string]jsonutils.JSONObject{
 		"createIpInfo": eipParams,
 	}
 
-	eip := &SEip{}
 	resp, err := self.client.DoPost("/apiproxy/v3/ondemand/createIp", params)
 	if err != nil {
 		return nil, errors.Wrap(err, "SRegion.CreateEip.DoPost")
 	}
 
-	err = resp.Unmarshal(eip, "returnObj")
+	eipId, err := resp.GetString("returnObj", "id")
 	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.CreateEip.Unmarshal")
+		return nil, errors.Wrap(err, "SRegion.CreateEip.GetEipId")
 	}
 
-	eip.region = self
-	return eip, nil
+	return self.GetEip(eipId)
+}
+
+func (self *SRegion) DeleteEip(publicIpId string) error {
+	params := map[string]jsonutils.JSONObject{
+		"regionId":   jsonutils.NewString(self.GetId()),
+		"publicIpId": jsonutils.NewString(publicIpId),
+	}
+
+	resp, err := self.client.DoPost("/apiproxy/v3/ondemand/deleteIp", params)
+	if err != nil {
+		return errors.Wrap(err, "SRegion.DeleteEip.DoPost")
+	}
+
+	var ok bool
+	err = resp.Unmarshal(&ok, "returnObj")
+	if !ok {
+		msg, _ := resp.GetString("message")
+		return errors.Wrap(fmt.Errorf(msg), "SRegion.DeleteEip.JobFailed")
+	}
+
+	return nil
+}
+
+// 这里networkCardId 实际指的是port id
+func (self *SRegion) AssociateEip(publicIpId, networkCardId string) error {
+	params := map[string]jsonutils.JSONObject{
+		"regionId":      jsonutils.NewString(self.GetId()),
+		"publicIpId":    jsonutils.NewString(publicIpId),
+		"networkCardId": jsonutils.NewString(networkCardId),
+	}
+
+	_, err := self.client.DoPost("/apiproxy/v3/ondemand/bindIp", params)
+	if err != nil {
+		return errors.Wrap(err, "SRegion.AssociateEip.DoPost")
+	}
+
+	return nil
+}
+
+func (self *SRegion) DissociateEip(publicIpId string) error {
+	params := map[string]jsonutils.JSONObject{
+		"regionId":   jsonutils.NewString(self.GetId()),
+		"publicIpId": jsonutils.NewString(publicIpId),
+	}
+
+	_, err := self.client.DoPost("/apiproxy/v3/ondemand/unbindIp", params)
+	if err != nil {
+		return errors.Wrap(err, "SRegion.DissociateEip.DoPost")
+	}
+
+	return nil
+}
+
+type SBandwidth struct {
+	PublicipInfo        []PublicipInfo `json:"publicip_info"`
+	EnterpriseProjectID string         `json:"enterprise_project_id"`
+	Name                string         `json:"name"`
+	ID                  string         `json:"id"`
+	ShareType           string         `json:"share_type"`
+	Size                int64          `json:"size"`
+	TenantID            string         `json:"tenant_id"`
+	ChargeMode          string         `json:"charge_mode"`
+	BandwidthType       string         `json:"bandwidth_type"`
+}
+
+type PublicipInfo struct {
+	PublicipType    string `json:"publicip_type"`
+	PublicipAddress string `json:"publicip_address"`
+	IPVersion       int64  `json:"ip_version"`
+	PublicipID      string `json:"publicip_id"`
+}
+
+func (self *SRegion) ChangeBandwidthEip(name, publicIpId, sizeMb string) error {
+	params := map[string]jsonutils.JSONObject{
+		"regionId":   jsonutils.NewString(self.GetId()),
+		"publicIpId": jsonutils.NewString(publicIpId),
+		"name":       jsonutils.NewString(name),
+		"size":       jsonutils.NewString(sizeMb),
+	}
+
+	resp, err := self.client.DoPost("/apiproxy/v3/ondemand/upgradeNetwork", params)
+	if err != nil {
+		return errors.Wrap(err, "SRegion.ChangeBandwidthEip.DoPost")
+	}
+
+	bandwidth := SBandwidth{}
+	err = resp.Unmarshal(&bandwidth, "returnObj")
+	if err != nil {
+		return errors.Wrap(err, "SRegion.ChangeBandwidthEip.Unmarshal")
+	}
+
+	return nil
 }

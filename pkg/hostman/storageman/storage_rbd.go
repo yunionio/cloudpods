@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build linux
+// +build linux,cgo
 
 package storageman
 
@@ -59,6 +59,10 @@ type SRbdStorage struct {
 func NewRBDStorage(manager *SStorageManager, path string) *SRbdStorage {
 	var ret = new(SRbdStorage)
 	ret.SBaseStorage = *NewBaseStorage(manager, path)
+	err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", "/etc/ceph").Run()
+	if err != nil {
+		log.Errorf("Failed to mkdir /etc/ceph: %s", err)
+	}
 	return ret
 }
 
@@ -83,6 +87,30 @@ func (s *SRbdStorage) StorageType() string {
 
 func (s *SRbdStorage) GetSnapshotPathByIds(diskId, snapshotId string) string {
 	return ""
+}
+
+func (s *SRbdStorage) IsSnapshotExist(diskId, snapshotId string) (bool, error) {
+	var exist bool
+	pool, _ := s.StorageConf.GetString("pool")
+	_, err := s.withImage(pool, diskId,
+		func(src *rbd.Image) (interface{}, error) {
+			sps, err := src.GetSnapshotNames()
+			if err != nil {
+				return nil, errors.Wrap(err, "get snapshot names")
+			}
+			for i := 0; i < len(sps); i++ {
+				if sps[i].Name == snapshotId {
+					exist = true
+					break
+				}
+			}
+			return nil, nil
+		},
+	)
+	if err != nil {
+		return false, err
+	}
+	return exist, nil
 }
 
 func (s *SRbdStorage) GetSnapshotDir() string {
@@ -594,11 +622,22 @@ func (s *SRbdStorage) CreateDisk(diskId string) IDisk {
 	return disk
 }
 
-func (s *SRbdStorage) Accessible() bool {
-	_, err := s.withCluster(func(conn *rados.Conn) (interface{}, error) {
-		return conn.ListPools()
-	})
-	return err == nil
+func (s *SRbdStorage) Accessible() error {
+	var c = make(chan error)
+	go func() {
+		_, err := s.withCluster(func(conn *rados.Conn) (interface{}, error) {
+			return conn.ListPools()
+		})
+		c <- err
+	}()
+	var err error
+	select {
+	case err = <-c:
+		break
+	case <-time.After(time.Second * 10):
+		err = ErrStorageTimeout
+	}
+	return err
 }
 
 func (s *SRbdStorage) SaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
@@ -718,4 +757,13 @@ func (s *SRbdStorage) CreateDiskFromSnapshot(
 		srcPool, _     = createParams.DiskInfo.GetString("src_pool")
 	)
 	return disk.CreateFromRbdSnapshot(ctx, snapshotUrl, srcDiskId, srcPool)
+}
+
+func (s *SRbdStorage) SetStorageInfo(storageId, storageName string, conf jsonutils.JSONObject) error {
+	s.StorageId = storageId
+	s.StorageName = storageName
+	if dconf, ok := conf.(*jsonutils.JSONDict); ok {
+		s.StorageConf = dconf
+	}
+	return nil
 }

@@ -138,3 +138,7 @@ func (self *SRegion) GetIElasticcacheById(id string) (cloudprovider.ICloudElasti
 func (self *SRegion) GetICloudEvents(start time.Time, end time.Time, withReadEvent bool) ([]cloudprovider.ICloudEvent, error) {
 	return nil, fmt.Errorf("Not Implemented GetICloudEvnets")
 }
+
+func (self *SRegion) GetICloudQuotas() ([]cloudprovider.ICloudQuota, error) {
+	return nil, fmt.Errorf("Not Implemented GetICloudQuotas")
+}

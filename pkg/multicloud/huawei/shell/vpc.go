@@ -30,4 +30,28 @@ func init() {
 		printList(vpcs, 0, 0, 0, nil)
 		return nil
 	})
+
+	type VpcCreateOptions struct {
+		NAME string
+		CIDR string
+		Desc string
+	}
+
+	shellutils.R(&VpcCreateOptions{}, "vpc-create", "Create vpc", func(cli *huawei.SRegion, args *VpcCreateOptions) error {
+		vpc, err := cli.CreateVpc(args.NAME, args.CIDR, args.Desc)
+		if err != nil {
+			return err
+		}
+		printObject(vpc)
+		return nil
+	})
+
+	type VpcIdOption struct {
+		ID string
+	}
+
+	shellutils.R(&VpcIdOption{}, "vpc-delete", "Delete vpc", func(cli *huawei.SRegion, args *VpcIdOption) error {
+		return cli.DeleteVpc(args.ID)
+	})
+
 }

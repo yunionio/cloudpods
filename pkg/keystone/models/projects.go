@@ -29,10 +29,15 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/pinyinutils"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SProjectManager struct {
@@ -74,7 +79,7 @@ type SProject struct {
 
 	ParentId string `width:"64" charset:"ascii" list:"domain" create:"domain_optional"`
 
-	IsDomain tristate.TriState `default:"false" nullable:"false" create:"domain_optional"`
+	IsDomain tristate.TriState `default:"false" nullable:"false"`
 }
 
 func (manager *SProjectManager) GetContextManagers() [][]db.IModelManager {
@@ -85,10 +90,10 @@ func (manager *SProjectManager) GetContextManagers() [][]db.IModelManager {
 }
 
 func (manager *SProjectManager) InitializeData() error {
-	return manager.initSysProject()
+	return manager.initSysProject(context.TODO())
 }
 
-func (manager *SProjectManager) initSysProject() error {
+func (manager *SProjectManager) initSysProject(ctx context.Context) error {
 	q := manager.Query().Equals("name", api.SystemAdminProject)
 	q = q.Equals("domain_id", api.DEFAULT_DOMAIN_ID)
 	cnt, err := q.CountWithError()
@@ -112,7 +117,7 @@ func (manager *SProjectManager) initSysProject() error {
 	project.ParentId = api.DEFAULT_DOMAIN_ID
 	project.SetModelManager(manager, &project)
 
-	err = manager.TableSpec().Insert(&project)
+	err = manager.TableSpec().Insert(ctx, &project)
 	if err != nil {
 		return errors.Wrap(err, "insert")
 	}
@@ -203,13 +208,21 @@ func (proj *SProject) FetchExtend() (*SProjectExtended, error) {
 	return &ext, nil
 }
 
-func (manager *SProjectManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query)
+// 项目列表
+func (manager *SProjectManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ProjectListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query.IdentityBaseResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SIdentityBaseResourceManager.ListItemFilter")
 	}
 
-	userStr := jsonutils.GetAnyString(query, []string{"user_id"})
+	userStr := query.UserId
 	if len(userStr) > 0 {
 		userObj, err := UserManager.FetchById(userStr)
 		if err != nil {
@@ -220,10 +233,20 @@ func (manager *SProjectManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 			}
 		}
 		subq := AssignmentManager.fetchUserProjectIdsQuery(userObj.GetId())
-		q = q.In("id", subq.SubQuery())
+		if query.Jointable != nil && *query.Jointable {
+			user := userObj.(*SUser)
+			if user.DomainId == api.DEFAULT_DOMAIN_ID {
+				q = q.Equals("domain_id", api.DEFAULT_DOMAIN_ID)
+			} else {
+				q = q.In("domain_id", []string{user.DomainId, api.DEFAULT_DOMAIN_ID})
+			}
+			q = q.NotIn("id", subq.SubQuery())
+		} else {
+			q = q.In("id", subq.SubQuery())
+		}
 	}
 
-	groupStr := jsonutils.GetAnyString(query, []string{"group_id"})
+	groupStr := query.GroupId
 	if len(groupStr) > 0 {
 		groupObj, err := GroupManager.FetchById(groupStr)
 		if err != nil {
@@ -234,10 +257,47 @@ func (manager *SProjectManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 			}
 		}
 		subq := AssignmentManager.fetchGroupProjectIdsQuery(groupObj.GetId())
-		q = q.In("id", subq.SubQuery())
+		if query.Jointable != nil && *query.Jointable {
+			group := groupObj.(*SGroup)
+			if group.DomainId == api.DEFAULT_DOMAIN_ID {
+				q = q.Equals("domain_id", api.DEFAULT_DOMAIN_ID)
+			} else {
+				q = q.In("domain_id", []string{group.DomainId, api.DEFAULT_DOMAIN_ID})
+			}
+			q = q.NotIn("id", subq.SubQuery())
+		} else {
+			q = q.In("id", subq.SubQuery())
+		}
 	}
 
 	return q, nil
+}
+
+func (manager *SProjectManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ProjectListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SIdentityBaseResourceManager.OrderByExtraFields(ctx, q, userCred, query.IdentityBaseResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SIdentityBaseResourceManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SProjectManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SIdentityBaseResourceManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (model *SProject) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -279,58 +339,89 @@ func (proj *SProject) IsAdminProject() bool {
 	return proj.Name == api.SystemAdminProject && proj.DomainId == api.DEFAULT_DOMAIN_ID
 }
 
-func (proj *SProject) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if data.Contains("name") {
+func (proj *SProject) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ProjectUpdateInput) (api.ProjectUpdateInput, error) {
+	if len(input.Name) > 0 {
 		if proj.IsAdminProject() {
-			return nil, httperrors.NewForbiddenError("cannot alter system project name")
+			return input, httperrors.NewForbiddenError("cannot alter system project name")
 		}
 	}
-	return proj.SIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, data)
-}
-
-func (proj *SProject) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := proj.SIdentityBaseResource.GetCustomizeColumns(ctx, userCred, query)
-	return projectExtra(proj, extra)
-}
-
-func (proj *SProject) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := proj.SIdentityBaseResource.GetExtraDetails(ctx, userCred, query)
+	var err error
+	input.IdentityBaseUpdateInput, err = proj.SIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, input.IdentityBaseUpdateInput)
 	if err != nil {
-		return nil, err
+		return input, errors.Wrap(err, "SIdentityBaseResource.ValidateUpdateData")
 	}
-	return projectExtra(proj, extra), nil
+
+	return input, nil
 }
 
-func projectExtra(proj *SProject, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	grpCnt, _ := proj.GetGroupCount()
-	extra.Add(jsonutils.NewInt(int64(grpCnt)), "group_count")
-	usrCnt, _ := proj.GetUserCount()
-	extra.Add(jsonutils.NewInt(int64(usrCnt)), "user_count")
+func (manager *SProjectManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.ProjectDetails {
+	rows := make([]api.ProjectDetails, len(objs))
+
+	identRows := manager.SIdentityBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.ProjectDetails{
+			IdentityBaseResourceDetails: identRows[i],
+		}
+		rows[i] = projectExtra(objs[i].(*SProject), rows[i])
+	}
+
+	return rows
+}
+
+func (proj *SProject) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.ProjectDetails, error) {
+	return api.ProjectDetails{}, nil
+}
+
+func projectExtra(proj *SProject, out api.ProjectDetails) api.ProjectDetails {
+	out.GroupCount, _ = proj.GetGroupCount()
+	out.UserCount, _ = proj.GetUserCount()
 	external, update, _ := proj.getExternalResources()
 	if len(external) > 0 {
-		extra.Add(jsonutils.Marshal(external), "ext_resources")
-		extra.Add(jsonutils.NewTimeString(update), "ext_resources_last_update")
+		out.ExtResource = jsonutils.Marshal(external)
+		out.ExtResourcesLastUpdate = update
 		if update.IsZero() {
 			update = time.Now()
 		}
-		nextUpdate := update.Add(time.Duration(options.Options.FetchProjectResourceCountIntervalSeconds) * time.Second)
-		extra.Add(jsonutils.NewTimeString(nextUpdate), "ext_resources_next_update")
+		nextUpdate := update.Add(time.Duration(options.Options.FetchScopeResourceCountIntervalSeconds) * time.Second)
+		out.ExtResourcesNextUpdate = nextUpdate
 	}
-	return extra
+	return out
 }
 
 func (proj *SProject) getExternalResources() (map[string]int, time.Time, error) {
-	return ProjectResourceManager.getProjectResource(proj.Id)
+	return ScopeResourceManager.getScopeResource("", proj.Id, "")
 }
 
 func NormalizeProjectName(name string) string {
 	name = pinyinutils.Text2Pinyin(name)
-	for _, illChar := range []string{
-		"/", ".", " ",
-	} {
-		name = strings.Replace(name, illChar, "", -1)
+	newName := strings.Builder{}
+	lastSlash := false
+	for _, c := range name {
+		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') {
+			newName.WriteRune(c)
+			lastSlash = false
+		} else if c >= 'A' && c <= 'Z' {
+			newName.WriteRune(c - 'A' + 'a')
+			lastSlash = false
+		} else if !lastSlash {
+			newName.WriteRune('-')
+			lastSlash = true
+		}
 	}
-	return name
+	return newName.String()
 }
 
 func (manager *SProjectManager) FetchUserProjects(userId string) ([]SProjectExtended, error) {
@@ -354,47 +445,76 @@ func (manager *SProjectManager) FetchUserProjects(userId string) ([]SProjectExte
 	return ret, nil
 }
 
-func (manager *SProjectManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SProjectManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ProjectCreateInput) (api.ProjectCreateInput, error) {
 	err := db.ValidateCreateDomainId(ownerId.GetProjectDomainId())
 	if err != nil {
-		return nil, err
+		return input, errors.Wrap(err, "ValidateCreateDomainId")
 	}
-	input := api.IdentityBaseResourceCreateInput{}
-	err = data.Unmarshal(&input)
+	input.IdentityBaseResourceCreateInput, err = manager.SIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, input.IdentityBaseResourceCreateInput)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal IdentityBaseResourceCreateInput fail %s", err)
+		return input, errors.Wrap(err, "SIdentityBaseResourceManager.ValidateCreateData")
 	}
-	input, err = manager.SIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	quota := &SIdentityQuota{Project: 1}
+	quota.SetKeys(quotas.SBaseDomainQuotaKeys{DomainId: ownerId.GetProjectDomainId()})
+	err = quotas.CheckSetPendingQuota(ctx, userCred, quota)
 	if err != nil {
-		return nil, err
+		return input, errors.Wrap(err, "CheckSetPendingQuota")
 	}
-	data.Update(jsonutils.Marshal(input))
-	return data, nil
+	return input, nil
+}
+
+func (self *SProject) PostCreate(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) {
+	self.SIdentityBaseResource.PostCreate(ctx, userCred, ownerId, query, data)
+
+	quota := &SIdentityQuota{Project: 1}
+	quota.SetKeys(quotas.SBaseDomainQuotaKeys{DomainId: ownerId.GetProjectDomainId()})
+	err := quotas.CancelPendingUsage(ctx, userCred, quota, quota, true)
+	if err != nil {
+		log.Errorf("CancelPendingUsage fail %s", err)
+	}
+}
+
+func validateJoinProject(userCred mcclient.TokenCredential, project *SProject, roleNames []string) error {
+	opsScope, opsPolicySet := policy.PolicyManager.GetMatchedPolicySet(userCred)
+	rbacCred := rbacutils.NewRbacIdentity(project.DomainId, project.Name, roleNames)
+	assignScope, assignPolicySet := policy.PolicyManager.GetMatchedPolicySet(rbacCred)
+	log.Debugf("opsScope: %s assignScope: %s", opsScope, assignScope)
+	if assignScope.HigherThan(opsScope) {
+		return errors.Wrap(httperrors.ErrNotSufficientPrivilege, "assigning roles requires higher privilege scope")
+	}
+	if !opsScope.HigherThan(assignScope) && opsPolicySet.ViolatedBy(assignPolicySet) {
+		return errors.Wrap(httperrors.ErrNotSufficientPrivilege, "assigning roles violates operator's policy")
+	}
+	return nil
 }
 
 func (project *SProject) AllowPerformJoin(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
+	input api.SProjectAddUserGroupInput,
 ) bool {
 	return db.IsAdminAllowPerform(userCred, project, "join")
 }
 
+// 将用户或组加入项目
 func (project *SProject) PerformJoin(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
+	input api.SProjectAddUserGroupInput,
 ) (jsonutils.JSONObject, error) {
-	input := api.SProjectAddUserGroupInput{}
-	err := data.Unmarshal(&input)
+	err := input.Validate()
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("unmarshal project add user group input error %s", err)
+		return nil, httperrors.NewInputParameterError("%v", err)
 	}
-	err = input.Validate()
-	if err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
-	}
+
+	roleNames := make([]string, 0)
 	roles := make([]*SRole, 0)
 	for i := range input.Roles {
 		obj, err := RoleManager.FetchByIdOrName(userCred, input.Roles[i])
@@ -405,8 +525,16 @@ func (project *SProject) PerformJoin(
 				return nil, httperrors.NewGeneralError(err)
 			}
 		}
-		roles = append(roles, obj.(*SRole))
+		role := obj.(*SRole)
+		roles = append(roles, role)
+		roleNames = append(roleNames, role.Name)
 	}
+
+	err = validateJoinProject(userCred, project, roleNames)
+	if err != nil {
+		return nil, errors.Wrap(err, "validateJoinProject")
+	}
+
 	users := make([]*SUser, 0)
 	for i := range input.Users {
 		obj, err := UserManager.FetchByIdOrName(userCred, input.Users[i])
@@ -434,7 +562,7 @@ func (project *SProject) PerformJoin(
 
 	for i := range users {
 		for j := range roles {
-			err = AssignmentManager.projectAddUser(ctx, userCred, project, users[i], roles[j])
+			err = AssignmentManager.ProjectAddUser(ctx, userCred, project, users[i], roles[j])
 			if err != nil {
 				return nil, httperrors.NewGeneralError(err)
 			}
@@ -460,20 +588,16 @@ func (project *SProject) AllowPerformLeave(ctx context.Context,
 	return db.IsAdminAllowPerform(userCred, project, "leave")
 }
 
+// 将用户或组移出项目
 func (project *SProject) PerformLeave(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
+	input api.SProjectRemoveUserGroupInput,
 ) (jsonutils.JSONObject, error) {
-	input := api.SProjectRemoveUserGroupInput{}
-	err := data.Unmarshal(&input)
+	err := input.Validate()
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("unmarshal project remove usergroup input error %s", err)
-	}
-	err = input.Validate()
-	if err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+		return nil, httperrors.NewInputParameterError("%v", err)
 	}
 
 	for i := range input.UserRoles {
@@ -521,4 +645,43 @@ func (project *SProject) PerformLeave(
 		}
 	}
 	return nil, nil
+}
+
+func (project *SProject) GetUsages() []db.IUsage {
+	if project.Deleted {
+		return nil
+	}
+	usage := SIdentityQuota{Project: 1}
+	usage.SetKeys(quotas.SBaseDomainQuotaKeys{DomainId: project.DomainId})
+	return []db.IUsage{
+		&usage,
+	}
+}
+
+func (manager *SProjectManager) NewProject(ctx context.Context, projectName string, desc string, domainId string) (*SProject, error) {
+	lockman.LockClass(ctx, manager, domainId)
+	defer lockman.ReleaseClass(ctx, manager, domainId)
+
+	project := &SProject{}
+	project.SetModelManager(ProjectManager, project)
+	ownerId := &db.SOwnerId{}
+	if manager.NamespaceScope() == rbacutils.ScopeDomain {
+		ownerId.DomainId = domainId
+	}
+	newName, err := db.GenerateName(ProjectManager, ownerId, projectName)
+	if err != nil {
+		// ignore the error
+		log.Errorf("db.GenerateName error %s for default domain project %s", err, projectName)
+		newName = projectName
+	}
+	project.Name = newName
+	project.DomainId = domainId
+	project.Description = desc
+	project.IsDomain = tristate.False
+	project.ParentId = domainId
+	err = ProjectManager.TableSpec().Insert(ctx, project)
+	if err != nil {
+		return nil, errors.Wrap(err, "Insert")
+	}
+	return project, nil
 }

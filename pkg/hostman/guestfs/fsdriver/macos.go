@@ -49,7 +49,7 @@ func (m *SMacOSRootFs) String() string {
 	return "MacOSRootFs"
 }
 
-func (m *SMacOSRootFs) GetLoginAccount(rootFs IDiskPartition, defaultRootUser bool, windowsDefaultAdminUser bool) string {
+func (m *SMacOSRootFs) GetLoginAccount(rootFs IDiskPartition, user string, defaultRootUser bool, windowsDefaultAdminUser bool) (string, error) {
 	selUsr := ""
 	usrs := m.rootFs.ListDir("/Users", false)
 	if len(usrs) > 0 {
@@ -61,7 +61,7 @@ func (m *SMacOSRootFs) GetLoginAccount(rootFs IDiskPartition, defaultRootUser bo
 			}
 		}
 	}
-	return selUsr
+	return selUsr, nil
 }
 
 func (m *SMacOSRootFs) RootSignatures() []string {

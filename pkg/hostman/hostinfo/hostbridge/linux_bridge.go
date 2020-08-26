@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/util/iproute2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -93,9 +94,10 @@ func (l *SLinuxBridgeDriver) getUpScripts(nic jsonutils.JSONObject) (string, err
 	s := "#!/bin/bash\n\n"
 	s += fmt.Sprintf("switch='%s'\n", l.bridge)
 	if options.HostOptions.TunnelPaddingBytes > 0 {
-		s += fmt.Sprintf("/sbin/ifconfig $1 mtu %d\n", 1500+options.HostOptions.TunnelPaddingBytes)
+		s += fmt.Sprintf("ip link set dev $1 mtu %d\n", 1500+options.HostOptions.TunnelPaddingBytes)
 	}
-	s += "/sbin/ifconfig $1 0.0.0.0 up\n"
+	s += "ip address flush dev $1\n"
+	s += "ip link set dev $1 up\n"
 	s += "brctl addif ${switch} $1\n"
 	return s, nil
 }
@@ -107,7 +109,8 @@ func (l *SLinuxBridgeDriver) getDownScripts(nic jsonutils.JSONObject) (string, e
 	s += "if [ $? -ne '0' ]; then\n"
 	s += "    exit 0\n"
 	s += "fi\n"
-	s += "/sbin/ifconfig $1 0.0.0.0 down\n"
+	s += "ip addr flush dev $1\n"
+	s += "ip link set dev $1 down\n"
 	s += "brctl delif ${switch} $1\n"
 	return s, nil
 }
@@ -127,9 +130,9 @@ func (l *SLinuxBridgeDriver) SetupBridgeDev() error {
 }
 
 func (d *SLinuxBridgeDriver) PersistentMac() error {
-	output, err := procutils.NewCommand("ifconfig", d.bridge.String(), "hw", "ether", d.inter.Mac).Output()
-	if err != nil {
-		return fmt.Errorf("Linux bridge set mac address failed %s %s", output, err)
+	l := iproute2.NewLink(d.bridge.String()).Address(d.inter.Mac)
+	if err := l.Err(); err != nil {
+		return fmt.Errorf("Linux bridge set mac address failed: %v", err)
 	}
 	return nil
 }

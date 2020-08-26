@@ -70,6 +70,7 @@ type SElasticcache struct {
 	NodeType            string      `json:"NodeType"`
 	CapacityMB          int         `json:"Capacity"`
 	Connections         int64       `json:"Connections"`
+	ResourceGroupId     string      `json:"ResourceGroupId"`
 }
 
 type SElasticcacheAttribute struct {
@@ -622,6 +623,10 @@ func (self *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheIn
 		params["NodeType"] = ec.NodeType
 	}
 
+	if len(ec.ProjectId) > 0 {
+		params["ResourceGroupId"] = ec.ProjectId
+	}
+
 	params["NetworkType"] = ec.NetworkType
 	params["VpcId"] = ec.VpcId
 	params["VSwitchId"] = ec.NetworkId
@@ -849,6 +854,10 @@ func (self *SElasticcache) UpdateAuthMode(noPwdAccess bool) error {
 	}
 
 	return nil
+}
+
+func (self *SElasticcache) GetProjectId() string {
+	return self.ResourceGroupId
 }
 
 func (self *SElasticcache) GetAuthMode() string {

@@ -24,6 +24,7 @@ import (
 
 type SDBInstanceBase struct {
 	SVirtualResourceBase
+	SBillingBase
 }
 
 func (instance *SDBInstanceBase) GetConnectionStr() string {

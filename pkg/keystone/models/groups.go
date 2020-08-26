@@ -19,12 +19,14 @@ import (
 	"database/sql"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -75,13 +77,23 @@ func (manager *SGroupManager) GetContextManagers() [][]db.IModelManager {
 	}
 }
 
-func (manager *SGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query)
+// 用户组列表
+func (manager *SGroupManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.GroupListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query.IdentityBaseResourceListInput)
 	if err != nil {
 		return nil, err
 	}
 
-	userIdStr := jsonutils.GetAnyString(query, []string{"user_id"})
+	if len(query.Displayname) > 0 {
+		q = q.Equals("displayname", query.Displayname)
+	}
+
+	userIdStr := query.UserId
 	if len(userIdStr) > 0 {
 		user, err := UserManager.FetchById(userIdStr)
 		if err != nil {
@@ -95,7 +107,7 @@ func (manager *SGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.In("id", subq.SubQuery())
 	}
 
-	projIdStr := jsonutils.GetAnyString(query, []string{"project_id", "tenant_id"})
+	projIdStr := query.ProjectId
 	if len(projIdStr) > 0 {
 		proj, err := ProjectManager.FetchProjectById(projIdStr)
 		if err != nil {
@@ -109,7 +121,46 @@ func (manager *SGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.In("id", subq.SubQuery())
 	}
 
+	if len(query.IdpId) > 0 {
+		idpObj, err := IdentityProviderManager.FetchByIdOrName(userCred, query.IdpId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", IdentityProviderManager.Keyword(), query.IdpId)
+			} else {
+				return nil, errors.Wrap(err, "IdentityProviderManager.FetchByIdOrName")
+			}
+		}
+		subq := IdmappingManager.FetchPublicIdsExcludesQuery(idpObj.GetId(), api.IdMappingEntityGroup, nil)
+		q = q.In("id", subq.SubQuery())
+	}
+
 	return q, nil
+}
+
+func (manager *SGroupManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.GroupListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SIdentityBaseResourceManager.OrderByExtraFields(ctx, q, userCred, query.IdentityBaseResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SIdentityBaseResourceManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SGroupManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SIdentityBaseResourceManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (group *SGroup) GetUserCount() (int, error) {
@@ -143,25 +194,40 @@ func (group *SGroup) Delete(ctx context.Context, userCred mcclient.TokenCredenti
 	return group.SIdentityBaseResource.Delete(ctx, userCred)
 }
 
-func (group *SGroup) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := group.SIdentityBaseResource.GetCustomizeColumns(ctx, userCred, query)
-	return groupExtra(group, extra)
+func (group *SGroup) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.GroupDetails, error) {
+	return api.GroupDetails{}, nil
 }
 
-func (group *SGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := group.SIdentityBaseResource.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
+func (manager *SGroupManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.GroupDetails {
+	rows := make([]api.GroupDetails, len(objs))
+	identRows := manager.SIdentityBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	idList := make([]string, len(rows))
+	for i := range rows {
+		rows[i] = api.GroupDetails{
+			IdentityBaseResourceDetails: identRows[i],
+		}
+		group := objs[i].(*SGroup)
+		idList[i] = group.Id
+		rows[i].UserCount, _ = group.GetUserCount()
+		rows[i].ProjectCount, _ = group.GetProjectCount()
 	}
-	return groupExtra(group, extra), nil
-}
-
-func groupExtra(group *SGroup, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	usrCnt, _ := group.GetUserCount()
-	extra.Add(jsonutils.NewInt(int64(usrCnt)), "user_count")
-	prjCnt, _ := group.GetProjectCount()
-	extra.Add(jsonutils.NewInt(int64(prjCnt)), "project_count")
-	return extra
+	idpRows := expandIdpAttributes(api.IdMappingEntityGroup, idList, fields)
+	for i := range rows {
+		rows[i].IdpResourceInfo = idpRows[i]
+	}
+	return rows
 }
 
 func (manager *SGroupManager) RegisterExternalGroup(ctx context.Context, idpId string, domainId string, groupId string, groupName string) (*SGroup, error) {
@@ -187,7 +253,7 @@ func (manager *SGroupManager) RegisterExternalGroup(ctx context.Context, idpId s
 		group.Name = groupName
 		group.Displayname = groupName
 
-		err = manager.TableSpec().Insert(&group)
+		err = manager.TableSpec().Insert(ctx, &group)
 		if err != nil {
 			return nil, errors.Wrap(err, "Insert")
 		}
@@ -214,18 +280,26 @@ func (group *SGroup) ValidateUpdateCondition(ctx context.Context) error {
 	return group.SIdentityBaseResource.ValidateUpdateCondition(ctx)
 }
 
-func (group *SGroup) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (group *SGroup) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.GroupUpdateInput) (api.GroupUpdateInput, error) {
+	data := jsonutils.Marshal(input)
 	if group.IsReadOnly() {
 		for _, k := range []string{
 			"name",
 			"displayname",
 		} {
 			if data.Contains(k) {
-				return nil, httperrors.NewForbiddenError("field %s is readonly", k)
+				return input, httperrors.NewForbiddenError("field %s is readonly", k)
 			}
 		}
 	}
-	return group.SIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, data)
+
+	var err error
+	input.IdentityBaseUpdateInput, err = group.SIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, input.IdentityBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SIdentityBaseResource.ValidateUpdateData")
+	}
+
+	return input, nil
 }
 
 func (manager *SGroupManager) fetchGroupById(gid string) *SGroup {
@@ -241,7 +315,7 @@ func (manager *SGroupManager) NamespaceScope() rbacutils.TRbacScope {
 }
 
 func (group *SGroup) getIdmapping() (*SIdmapping, error) {
-	return IdmappingManager.FetchEntity(group.Id, api.IdMappingEntityGroup)
+	return IdmappingManager.FetchFirstEntity(group.Id, api.IdMappingEntityGroup)
 }
 
 func (group *SGroup) IsReadOnly() bool {
@@ -258,11 +332,6 @@ func (group *SGroup) LinkedWithIdp(idpId string) bool {
 		return true
 	}
 	return false
-}
-
-func (manager *SGroupManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []db.IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
-	rows := manager.SIdentityBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
-	return expandIdpAttributes(rows, objs, fields, api.IdMappingEntityGroup)
 }
 
 func (manager *SGroupManager) FetchGroupsInDomain(domainId string, excludes []string) ([]SGroup, error) {
@@ -282,20 +351,21 @@ func (group *SGroup) UnlinkIdp(idpId string) error {
 func (group *SGroup) AllowPerformJoin(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
+	input api.SJoinProjectsInput,
 ) bool {
 	return db.IsAdminAllowPerform(userCred, group, "join")
 }
 
+// 组加入项目
 func (group *SGroup) PerformJoin(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
+	input api.SJoinProjectsInput,
 ) (jsonutils.JSONObject, error) {
-	err := joinProjects(group, false, ctx, userCred, data)
+	err := joinProjects(group, false, ctx, userCred, input)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "joinProjects")
 	}
 	return nil, nil
 }
@@ -303,20 +373,159 @@ func (group *SGroup) PerformJoin(
 func (group *SGroup) AllowPerformLeave(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
+	input api.SLeaveProjectsInput,
 ) bool {
 	return db.IsAdminAllowPerform(userCred, group, "leave")
 }
 
+// 组退出项目
 func (group *SGroup) PerformLeave(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
+	input api.SLeaveProjectsInput,
 ) (jsonutils.JSONObject, error) {
-	err := leaveProjects(group, false, ctx, userCred, data)
+	err := leaveProjects(group, false, ctx, userCred, input)
 	if err != nil {
 		return nil, err
+	}
+	return nil, nil
+}
+
+func (manager *SGroupManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	if owner != nil && scope == rbacutils.ScopeProject {
+		// if user has project level privilege, returns all groups in user's project
+		subq := AssignmentManager.fetchProjectGroupIdsQuery(owner.GetProjectId())
+		q = q.In("id", subq.SubQuery())
+		return q
+	}
+	return manager.SIdentityBaseResourceManager.FilterByOwner(q, owner, scope)
+}
+
+func (group *SGroup) GetUsages() []db.IUsage {
+	if group.Deleted {
+		return nil
+	}
+	usage := SIdentityQuota{Group: 1}
+	usage.SetKeys(quotas.SBaseDomainQuotaKeys{DomainId: group.DomainId})
+	return []db.IUsage{
+		&usage,
+	}
+}
+
+func (manager *SGroupManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input api.GroupCreateInput,
+) (api.GroupCreateInput, error) {
+	var err error
+
+	input.IdentityBaseResourceCreateInput, err = manager.SIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, input.IdentityBaseResourceCreateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SIdentityBaseResourceManager.ValidateCreateData")
+	}
+
+	quota := &SIdentityQuota{
+		SBaseDomainQuotaKeys: quotas.SBaseDomainQuotaKeys{DomainId: ownerId.GetProjectDomainId()},
+		Group:                1,
+	}
+	err = quotas.CheckSetPendingQuota(ctx, userCred, quota)
+	if err != nil {
+		return input, errors.Wrap(err, "CheckSetPendingQuota")
+	}
+
+	return input, nil
+}
+
+func (group *SGroup) PostCreate(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) {
+	group.SIdentityBaseResource.PostCreate(ctx, userCred, ownerId, query, data)
+
+	quota := &SIdentityQuota{
+		SBaseDomainQuotaKeys: quotas.SBaseDomainQuotaKeys{DomainId: ownerId.GetProjectDomainId()},
+		Group:                1,
+	}
+	err := quotas.CancelPendingUsage(ctx, userCred, quota, quota, true)
+	if err != nil {
+		log.Errorf("CancelPendingUsage fail %s", err)
+	}
+}
+
+func (group *SGroup) AllowPerformAddUsers(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.PerformGroupAddUsersInput,
+) bool {
+	return db.IsDomainAllowPerform(userCred, group, "add-users")
+}
+
+// 组添加用户
+func (group *SGroup) PerformAddUsers(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.PerformGroupAddUsersInput,
+) (jsonutils.JSONObject, error) {
+	users := make([]*SUser, 0)
+	for _, uid := range input.UserIds {
+		usr, err := UserManager.FetchByIdOrName(userCred, uid)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "user %s", uid)
+			} else {
+				return nil, errors.Wrap(err, "UserManager.FetchByIdOrName")
+			}
+		}
+		users = append(users, usr.(*SUser))
+	}
+	for i := range users {
+		err := UsergroupManager.add(ctx, userCred, users[i], group)
+		if err != nil {
+			return nil, errors.Wrap(err, "UsergroupManager.add")
+		}
+	}
+	return nil, nil
+}
+
+func (group *SGroup) AllowPerformRemoveUsers(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.PerformGroupRemoveUsersInput,
+) bool {
+	return db.IsDomainAllowPerform(userCred, group, "remove-users")
+}
+
+// 组删除用户
+func (group *SGroup) PerformRemoveUsers(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.PerformGroupRemoveUsersInput,
+) (jsonutils.JSONObject, error) {
+	users := make([]*SUser, 0)
+	for _, uid := range input.UserIds {
+		usr, err := UserManager.FetchByIdOrName(userCred, uid)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "user %s", uid)
+			} else {
+				return nil, errors.Wrap(err, "UserManager.FetchByIdOrName")
+			}
+		}
+		users = append(users, usr.(*SUser))
+	}
+	for i := range users {
+		err := UsergroupManager.remove(ctx, userCred, users[i], group)
+		if err != nil {
+			return nil, errors.Wrap(err, "UsergroupManager.add")
+		}
 	}
 	return nil, nil
 }

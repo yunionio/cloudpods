@@ -1,0 +1,656 @@
+{"name": "Open_vSwitch",
+ "version": "7.16.1",
+ "cksum": "1452282319 23860",
+ "tables": {
+   "Open_vSwitch": {
+     "columns": {
+       "bridges": {
+         "type": {"key": {"type": "uuid",
+                          "refTable": "Bridge"},
+                  "min": 0, "max": "unlimited"}},
+       "manager_options": {
+         "type": {"key": {"type": "uuid",
+                          "refTable": "Manager"},
+                  "min": 0, "max": "unlimited"}},
+       "ssl": {
+         "type": {"key": {"type": "uuid",
+                          "refTable": "SSL"},
+                  "min": 0, "max": 1}},
+       "other_config": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"}},
+       "external_ids": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"}},
+       "next_cfg": {
+         "type": "integer"},
+       "cur_cfg": {
+         "type": "integer"},
+       "statistics": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"},
+         "ephemeral": true},
+       "ovs_version": {
+         "type": {"key": {"type": "string"},
+                  "min": 0, "max": 1}},
+       "db_version": {
+         "type": {"key": {"type": "string"},
+                  "min": 0, "max": 1}},
+       "system_type": {
+         "type": {"key": {"type": "string"},
+                  "min": 0, "max": 1}},
+       "system_version": {
+         "type": {"key": {"type": "string"},
+                  "min": 0, "max": 1}},
+       "datapath_types": {
+         "type": {"key": {"type": "string"},
+                  "min": 0, "max": "unlimited"}},
+       "iface_types": {
+         "type": {"key": {"type": "string"},
+                  "min": 0, "max": "unlimited"}},
+       "dpdk_initialized": {
+         "type": "boolean"},
+       "dpdk_version": {
+         "type": {"key": {"type": "string"},
+                  "min": 0, "max": 1}}},
+     "isRoot": true,
+     "maxRows": 1},
+   "Bridge": {
+     "columns": {
+       "name": {
+         "type": "string",
+         "mutable": false},
+       "datapath_type": {
+         "type": "string"},
+       "datapath_version": {
+         "type": "string"},
+       "datapath_id": {
+         "type": {"key": "string", "min": 0, "max": 1},
+         "ephemeral": true},
+       "stp_enable": {
+         "type": "boolean"},
+       "rstp_enable": {
+         "type": "boolean"},
+       "mcast_snooping_enable": {
+         "type": "boolean"},
+       "ports": {
+         "type": {"key": {"type": "uuid",
+                          "refTable": "Port"},
+                  "min": 0, "max": "unlimited"}},
+       "mirrors": {
+         "type": {"key": {"type": "uuid",
+                          "refTable": "Mirror"},
+                  "min": 0, "max": "unlimited"}},
+       "netflow": {
+         "type": {"key": {"type": "uuid",
+                          "refTable": "NetFlow"},
+                  "min": 0, "max": 1}},
+       "sflow": {
+         "type": {"key": {"type": "uuid",
+                          "refTable": "sFlow"},
+                  "min": 0, "max": 1}},
+       "ipfix": {
+         "type": {"key": {"type": "uuid",
+                          "refTable": "IPFIX"},
+                  "min": 0, "max": 1}},
+       "controller": {
+         "type": {"key": {"type": "uuid",
+                          "refTable": "Controller"},
+                  "min": 0, "max": "unlimited"}},
+       "protocols": {
+         "type": {"key": {"type": "string",
+           "enum": ["set", ["OpenFlow10",
+                            "OpenFlow11",
+                            "OpenFlow12",
+                            "OpenFlow13",
+                            "OpenFlow14",
+                            "OpenFlow15",
+                            "OpenFlow16"]]},
+           "min": 0, "max": "unlimited"}},
+       "fail_mode": {
+         "type": {"key": {"type": "string",
+                          "enum": ["set", ["standalone", "secure"]]},
+                  "min": 0, "max": 1}},
+       "status": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"},
+         "ephemeral": true},
+       "rstp_status": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"},
+         "ephemeral": true},
+       "other_config": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"}},
+       "external_ids": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"}},
+       "flood_vlans": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": 0,
+                          "maxInteger": 4095},
+                  "min": 0, "max": 4096}},
+       "flow_tables": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": 0,
+                          "maxInteger": 254},
+                  "value": {"type": "uuid",
+                            "refTable": "Flow_Table"},
+                  "min": 0, "max": "unlimited"}},
+       "auto_attach": {
+         "type": {"key": {"type": "uuid",
+                          "refTable": "AutoAttach"},
+                  "min": 0, "max": 1}}},
+     "indexes": [["name"]]},
+   "Port": {
+     "columns": {
+       "name": {
+         "type": "string",
+         "mutable": false},
+       "interfaces": {
+         "type": {"key": {"type": "uuid",
+                          "refTable": "Interface"},
+                  "min": 1, "max": "unlimited"}},
+       "trunks": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": 0,
+                          "maxInteger": 4095},
+                  "min": 0, "max": 4096}},
+       "cvlans": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": 0,
+                          "maxInteger": 4095},
+                  "min": 0, "max": 4096}},
+       "tag": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": 0,
+                          "maxInteger": 4095},
+                  "min": 0, "max": 1}},
+       "vlan_mode": {
+         "type": {"key": {"type": "string",
+           "enum": ["set", ["trunk", "access", "native-tagged",
+                            "native-untagged", "dot1q-tunnel"]]},
+         "min": 0, "max": 1}},
+       "qos": {
+         "type": {"key": {"type": "uuid",
+                          "refTable": "QoS"},
+                  "min": 0, "max": 1}},
+       "mac": {
+         "type": {"key": {"type": "string"},
+                  "min": 0, "max": 1}},
+       "bond_mode": {
+         "type": {"key": {"type": "string",
+           "enum": ["set", ["balance-tcp", "balance-slb", "active-backup"]]},
+         "min": 0, "max": 1}},
+       "lacp": {
+         "type": {"key": {"type": "string",
+           "enum": ["set", ["active", "passive", "off"]]},
+         "min": 0, "max": 1}},
+       "bond_updelay": {
+         "type": "integer"},
+       "bond_downdelay": {
+         "type": "integer"},
+       "bond_active_slave": {
+         "type": {"key": {"type": "string"},
+                  "min": 0, "max": 1}},
+       "bond_fake_iface": {
+         "type": "boolean"},
+       "fake_bridge": {
+         "type": "boolean"},
+       "status": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"},
+         "ephemeral": true},
+       "rstp_status": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"},
+         "ephemeral": true},
+       "rstp_statistics": {
+           "type": {"key": "string", "value": "integer",
+                    "min": 0, "max": "unlimited"},
+           "ephemeral": true},
+       "statistics": {
+         "type": {"key": "string", "value": "integer",
+                  "min": 0, "max": "unlimited"},
+         "ephemeral": true},
+       "protected": {
+         "type": "boolean"},
+       "other_config": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"}},
+       "external_ids": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"}}},
+     "indexes": [["name"]]},
+   "Interface": {
+     "columns": {
+       "name": {
+         "type": "string",
+         "mutable": false},
+       "type": {
+         "type": "string"},
+       "options": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"}},
+       "ingress_policing_rate": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": 0}}},
+       "ingress_policing_burst": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": 0}}},
+       "mac_in_use": {
+         "type": {"key": {"type": "string"},
+                  "min": 0, "max": 1},
+                  "ephemeral": true},
+       "mac": {
+         "type": {"key": {"type": "string"},
+                  "min": 0, "max": 1}},
+       "ifindex": {
+         "type": {
+           "key": {"type": "integer",
+                   "minInteger": 0,
+                   "maxInteger": 4294967295},
+           "min": 0,
+           "max": 1},
+         "ephemeral": true},
+       "external_ids": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"}},
+       "ofport": {
+         "type": {"key": "integer", "min": 0, "max": 1}},
+       "ofport_request": {
+         "type": {
+           "key": {"type": "integer",
+                   "minInteger": 1,
+                   "maxInteger": 65279},
+           "min": 0,
+           "max": 1}},
+       "bfd": {
+           "type": {"key": "string", "value": "string",
+               "min": 0, "max": "unlimited"}},
+       "bfd_status": {
+           "type": {"key": "string", "value": "string",
+               "min": 0, "max": "unlimited"}},
+       "cfm_mpid": {
+         "type": {
+           "key": {"type": "integer"},
+           "min": 0,
+           "max": 1}},
+       "cfm_remote_mpids": {
+         "type": {
+           "key": {"type": "integer"},
+           "min": 0,
+           "max": "unlimited"},
+         "ephemeral": true},
+       "cfm_flap_count": {
+         "type": {
+           "key": {"type": "integer"},
+           "min": 0,
+           "max": 1}},
+       "cfm_fault": {
+         "type": {
+           "key": { "type": "boolean"},
+           "min": 0,
+           "max": 1},
+         "ephemeral": true},
+       "cfm_fault_status": {
+         "type": {
+           "key": "string", "min": 0, "max": "unlimited"},
+           "ephemeral": true},
+       "cfm_remote_opstate": {
+         "type": {"key": {"type": "string",
+                          "enum": ["set", ["up", "down"]]},
+                  "min": 0, "max": 1},
+         "ephemeral": true},
+       "cfm_health": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": 0,
+                          "maxInteger": 100},
+                  "min": 0, "max": 1},
+           "ephemeral": true},
+       "lacp_current": {
+         "type": {"key": {"type": "boolean"},
+                  "min": 0, "max": 1},
+         "ephemeral": true},
+       "lldp": {
+           "type": {"key": "string", "value": "string",
+               "min": 0, "max": "unlimited"}},
+       "other_config": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"}},
+       "statistics": {
+         "type": {"key": "string", "value": "integer",
+                  "min": 0, "max": "unlimited"},
+         "ephemeral": true},
+       "status": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"},
+         "ephemeral": true},
+       "admin_state": {
+         "type": {"key": {"type": "string",
+                          "enum": ["set", ["up", "down"]]},
+                  "min": 0, "max": 1},
+         "ephemeral": true},
+       "link_state": {
+         "type": {"key": {"type": "string",
+                          "enum": ["set", ["up", "down"]]},
+                  "min": 0, "max": 1},
+         "ephemeral": true},
+       "link_resets": {
+         "type": {"key": {"type": "integer"},
+                  "min": 0, "max": 1},
+         "ephemeral": true},
+       "link_speed": {
+         "type": {"key": "integer", "min": 0, "max": 1},
+         "ephemeral": true},
+       "duplex": {
+         "type": {"key": {"type": "string",
+                          "enum": ["set", ["half", "full"]]},
+                  "min": 0, "max": 1},
+         "ephemeral": true},
+       "mtu": {
+         "type": {"key": "integer", "min": 0, "max": 1},
+         "ephemeral": true},
+       "mtu_request": {
+         "type": {
+           "key": {"type": "integer",
+                   "minInteger": 1},
+           "min": 0,
+           "max": 1}},
+       "error": {
+         "type": {"key": "string", "min": 0, "max": 1}}},
+     "indexes": [["name"]]},
+   "Flow_Table": {
+     "columns": {
+       "name": {
+         "type": {"key": "string", "min": 0, "max": 1}},
+       "flow_limit": {
+         "type": {"key": {"type": "integer", "minInteger": 0},
+                  "min": 0, "max": 1}},
+       "overflow_policy": {
+         "type": {"key": {"type": "string",
+                          "enum": ["set", ["refuse", "evict"]]},
+                  "min": 0, "max": 1}},
+       "groups": {
+         "type": {"key": "string", "min": 0, "max": "unlimited"}},
+       "prefixes": {
+         "type": {"key": "string", "min": 0, "max": 3}},
+       "external_ids": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"}}}},
+   "QoS": {
+     "columns": {
+       "type": {
+         "type": "string"},
+       "queues": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": 0,
+                          "maxInteger": 4294967295},
+                  "value": {"type": "uuid",
+                            "refTable": "Queue"},
+                  "min": 0, "max": "unlimited"}},
+       "other_config": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"}},
+       "external_ids": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"}}},
+     "isRoot": true},
+   "Queue": {
+     "columns": {
+       "dscp": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": 0,
+                          "maxInteger": 63},
+                  "min": 0, "max": 1}},
+       "other_config": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"}},
+       "external_ids": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"}}},
+     "isRoot": true},
+   "Mirror": {
+     "columns": {
+       "name": {
+         "type": "string"},
+       "select_all": {
+         "type": "boolean"},
+       "select_src_port": {
+         "type": {"key": {"type": "uuid",
+                          "refTable": "Port",
+                          "refType": "weak"},
+                   "min": 0, "max": "unlimited"}},
+       "select_dst_port": {
+         "type": {"key": {"type": "uuid",
+                          "refTable": "Port",
+                          "refType": "weak"},
+                   "min": 0, "max": "unlimited"}},
+       "select_vlan": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": 0,
+                          "maxInteger": 4095},
+                  "min": 0, "max": 4096}},
+       "output_port": {
+         "type": {"key": {"type": "uuid",
+                          "refTable": "Port",
+                          "refType": "weak"},
+                  "min": 0, "max": 1}},
+       "output_vlan": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": 1,
+                          "maxInteger": 4095},
+                  "min": 0, "max": 1}},
+       "snaplen": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": 14,
+                          "maxInteger": 65535},
+                  "min": 0, "max": 1}},
+       "statistics": {
+         "type": {"key": "string", "value": "integer",
+                  "min": 0, "max": "unlimited"},
+         "ephemeral": true},
+       "external_ids": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"}}}},
+   "NetFlow": {
+     "columns": {
+       "targets": {
+         "type": {"key": {"type": "string"},
+                  "min": 1, "max": "unlimited"}},
+       "engine_type": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": 0,
+                          "maxInteger": 255},
+                  "min": 0, "max": 1}},
+       "engine_id": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": 0,
+                          "maxInteger": 255},
+                  "min": 0, "max": 1}},
+       "add_id_to_interface": {
+         "type": "boolean"},
+       "active_timeout": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": -1}}},
+       "external_ids": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"}}}},
+   "sFlow": {
+     "columns": {
+       "targets": {
+         "type": {"key": "string", "min": 1, "max": "unlimited"}},
+       "sampling": {
+         "type": {"key": "integer", "min": 0, "max": 1}},
+       "polling": {
+         "type": {"key": "integer", "min": 0, "max": 1}},
+       "header": {
+         "type": {"key": "integer", "min": 0, "max": 1}},
+       "agent": {
+         "type": {"key": "string", "min": 0, "max": 1}},
+       "external_ids": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"}}}},
+   "IPFIX": {
+     "columns": {
+       "targets": {
+         "type": {"key": "string", "min": 0, "max": "unlimited"}},
+       "sampling": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": 1,
+                          "maxInteger": 4294967295},
+                  "min": 0, "max": 1}},
+       "obs_domain_id": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": 0,
+                          "maxInteger": 4294967295},
+                  "min": 0, "max": 1}},
+       "obs_point_id": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": 0,
+                          "maxInteger": 4294967295},
+                  "min": 0, "max": 1}},
+       "cache_active_timeout": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": 0,
+                          "maxInteger": 4200},
+                  "min": 0, "max": 1}},
+       "cache_max_flows": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": 0,
+                          "maxInteger": 4294967295},
+                  "min": 0, "max": 1}},
+       "other_config": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"}},
+       "external_ids": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"}}}},
+   "Flow_Sample_Collector_Set": {
+     "columns": {
+       "id": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": 0,
+                          "maxInteger": 4294967295},
+                  "min": 1, "max": 1}},
+       "bridge": {
+         "type": {"key": {"type": "uuid",
+                          "refTable": "Bridge"},
+                  "min": 1, "max": 1}},
+       "ipfix": {
+         "type": {"key": {"type": "uuid",
+                          "refTable": "IPFIX"},
+                  "min": 0, "max": 1}},
+       "external_ids": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"}}},
+     "isRoot": true,
+     "indexes": [["id", "bridge"]]},
+   "Controller": {
+     "columns": {
+       "target": {
+         "type": "string"},
+       "max_backoff": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": 1000},
+                  "min": 0, "max": 1}},
+       "inactivity_probe": {
+         "type": {"key": "integer", "min": 0, "max": 1}},
+       "connection_mode": {
+         "type": {"key": {"type": "string",
+                  "enum": ["set", ["in-band", "out-of-band"]]},
+                  "min": 0, "max": 1}},
+       "local_ip": {
+         "type": {"key": {"type": "string"},
+                  "min": 0, "max": 1}},
+       "local_netmask": {
+         "type": {"key": {"type": "string"},
+                  "min": 0, "max": 1}},
+       "local_gateway": {
+         "type": {"key": {"type": "string"},
+                  "min": 0, "max": 1}},
+       "enable_async_messages": {
+         "type": {"key": {"type": "boolean"},
+                  "min": 0, "max": 1}},
+       "controller_rate_limit": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": 100},
+                  "min": 0, "max": 1}},
+       "controller_burst_limit": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": 25},
+                  "min": 0, "max": 1}},
+       "other_config": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"}},
+       "external_ids": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"}},
+       "is_connected": {
+         "type": "boolean",
+         "ephemeral": true},
+       "role": {
+         "type": {"key": {"type": "string",
+                          "enum": ["set", ["other", "master", "slave"]]},
+                  "min": 0, "max": 1},
+         "ephemeral": true},
+       "status": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"},
+         "ephemeral": true}}},
+   "Manager": {
+     "columns": {
+       "target": {
+         "type": "string"},
+       "max_backoff": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": 1000},
+                  "min": 0, "max": 1}},
+       "inactivity_probe": {
+         "type": {"key": "integer", "min": 0, "max": 1}},
+       "connection_mode": {
+         "type": {"key": {"type": "string",
+                  "enum": ["set", ["in-band", "out-of-band"]]},
+                  "min": 0, "max": 1}},
+       "other_config": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"}},
+       "external_ids": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"}},
+       "is_connected": {
+         "type": "boolean",
+         "ephemeral": true},
+       "status": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"},
+         "ephemeral": true}},
+     "indexes": [["target"]]},
+   "SSL": {
+     "columns": {
+       "private_key": {
+         "type": "string"},
+       "certificate": {
+         "type": "string"},
+       "ca_cert": {
+         "type": "string"},
+       "bootstrap_ca_cert": {
+         "type": "boolean"},
+       "external_ids": {
+         "type": {"key": "string", "value": "string",
+                  "min": 0, "max": "unlimited"}}},
+     "maxRows": 1},
+   "AutoAttach": {
+     "columns": {
+       "system_name": {
+         "type": "string"},
+       "system_description": {
+         "type": "string"},
+       "mappings": {
+         "type": {"key": {"type": "integer",
+                          "minInteger": 0,
+                          "maxInteger": 16777215},
+                  "value": {"type": "integer",
+                          "minInteger": 0,
+                          "maxInteger": 4095},
+                  "min": 0, "max": "unlimited"}}}}}}

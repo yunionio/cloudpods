@@ -68,15 +68,15 @@ func (self *SStoragecache) fetchImages() error {
 }
 
 func (self *SStoragecache) GetId() string {
-	return fmt.Sprintf("%s-%s", self.region.client.providerId, self.region.GetId())
+	return fmt.Sprintf("%s-%s", self.region.client.cpcfg.Id, self.region.GetId())
 }
 
 func (self *SStoragecache) GetName() string {
-	return fmt.Sprintf("%s-%s", self.region.client.providerName, self.region.GetId())
+	return fmt.Sprintf("%s-%s", self.region.client.cpcfg.Name, self.region.GetId())
 }
 
 func (self *SStoragecache) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s", self.region.client.providerId, self.region.GetGlobalId())
+	return fmt.Sprintf("%s-%s", self.region.client.cpcfg.Id, self.region.GetGlobalId())
 }
 
 func (self *SStoragecache) GetStatus() string {
@@ -107,8 +107,11 @@ func (self *SStoragecache) GetIImages() ([]cloudprovider.ICloudImage, error) {
 
 func (self *SStoragecache) GetIImageById(extId string) (cloudprovider.ICloudImage, error) {
 	image, err := self.region.GetImage(extId)
+	if err != nil {
+		return nil, errors.Wrap(err, "self.region.GetImage")
+	}
 	image.storageCache = self
-	return &image, err
+	return image, nil
 }
 
 func (self *SStoragecache) GetPath() string {
@@ -126,7 +129,7 @@ func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc
 	} else {
 		image.storageCache = self
 		iimage := make([]cloudprovider.ICloudImage, 1)
-		iimage[0] = &image
+		iimage[0] = image
 		if err := cloudprovider.WaitStatus(iimage[0], "avaliable", 15*time.Second, 3600*time.Second); err != nil {
 			return nil, err
 		}
@@ -176,7 +179,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 	meta, reader, sizeByte, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "Images.Download")
 	}
 	log.Debugf("Images meta data %s", meta)
 
@@ -191,7 +194,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 
 	bucket, err := self.region.GetIBucketByName(bucketName)
 	if err != nil {
-		return "", errors.Wrap(err, "GetIBucketByName")
+		return "", errors.Wrapf(err, "GetIBucketByName %s", bucketName)
 	}
 
 	err = cloudprovider.UploadObject(context.Background(), bucket, image.ImageId, 0, reader, sizeByte, "", "", nil, false)

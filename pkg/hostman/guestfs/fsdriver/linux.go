@@ -65,6 +65,14 @@ func (l *sLinuxRootFs) RootSignatures() []string {
 	return []string{"/bin", "/etc", "/boot", "/lib", "/usr"}
 }
 
+func getHostname(hostname, domain string) string {
+	if len(domain) > 0 {
+		return fmt.Sprintf("%s.%s", hostname, domain)
+	} else {
+		return hostname
+	}
+}
+
 func (l *sLinuxRootFs) DeployHosts(rootFs IDiskPartition, hostname, domain string, ips []string) error {
 	var etcHosts = "/etc/hosts"
 	var oldHostFile string
@@ -79,12 +87,21 @@ func (l *sLinuxRootFs) DeployHosts(rootFs IDiskPartition, hostname, domain strin
 	hf.Parse(oldHostFile)
 	hf.Add("127.0.0.1", "localhost")
 	for _, ip := range ips {
-		hf.Add(ip, fmt.Sprintf("%s.%s", hostname, domain), hostname)
+		hf.Add(ip, getHostname(hostname, domain), hostname)
 	}
 	return rootFs.FilePutContents(etcHosts, hf.String(), false, false)
 }
 
-func (l *sLinuxRootFs) GetLoginAccount(rootFs IDiskPartition, defaultRootUser bool, windowsDefaultAdminUser bool) string {
+func (l *sLinuxRootFs) GetLoginAccount(rootFs IDiskPartition, sUser string, defaultRootUser bool, windowsDefaultAdminUser bool) (string, error) {
+	if len(sUser) > 0 {
+		if err := rootFs.UserAdd(sUser, false); err != nil && !strings.Contains(err.Error(), "already exists") {
+			return "", fmt.Errorf("UserAdd %s: %v", sUser, err)
+		}
+		if err := l.EnableUserSudo(rootFs, sUser); err != nil {
+			return "", fmt.Errorf("EnableUserSudo: %s", err)
+		}
+		return sUser, nil
+	}
 	var selUsr string
 	if defaultRootUser && rootFs.Exists("/root", false) {
 		selUsr = ROOT_USER
@@ -102,7 +119,7 @@ func (l *sLinuxRootFs) GetLoginAccount(rootFs IDiskPartition, defaultRootUser bo
 			selUsr = ROOT_USER
 		}
 	}
-	return selUsr
+	return selUsr, nil
 }
 
 func (l *sLinuxRootFs) ChangeUserPasswd(rootFs IDiskPartition, account, gid, publicKey, password string) (string, error) {
@@ -204,7 +221,12 @@ func (l *sLinuxRootFs) DeployFstabScripts(rootFs IDiskPartition, disks []*deploy
 	var rec string
 	var modeRwxOwner = syscall.S_IRUSR | syscall.S_IWUSR | syscall.S_IXUSR
 	var fstab = fstabutils.FSTabFile(string(fstabcont))
-	fstab = fstab.RemoveDevices(len(disks))
+	if fstab != nil {
+		fstab = fstab.RemoveDevices(len(disks))
+	} else {
+		_fstab := make(fstabutils.FsTab, 0)
+		fstab = &_fstab
+	}
 
 	for i := 1; i < len(disks); i++ {
 		diskId := disks[i].DiskId
@@ -314,8 +336,11 @@ func (l *sLinuxRootFs) PrepareFsForTemplate(rootFs IDiskPartition) error {
 	if rootFs.Exists("/etc/fstab", false) {
 		fstabcont, _ := rootFs.FileGetContents("/etc/fstab", false)
 		fstab := fstabutils.FSTabFile(string(fstabcont))
-		fstab = fstab.RemoveDevices(1)
-		cf := fstab.ToConf()
+		var cf string
+		if fstab != nil {
+			fstab = fstab.RemoveDevices(1)
+			cf = fstab.ToConf()
+		}
 		if err := rootFs.FilePutContents("/etc/fstab", cf, false, false); err != nil {
 			return err
 		}
@@ -583,7 +608,9 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 			dnslist := netutils2.GetNicDns(nicDesc)
 			if len(dnslist) > 0 {
 				cmds.WriteString(fmt.Sprintf("    dns-nameservers %s\n", strings.Join(dnslist, " ")))
-				cmds.WriteString(fmt.Sprintf("    dns-search %s\n", nicDesc.Domain))
+				if len(nicDesc.Domain) > 0 {
+					cmds.WriteString(fmt.Sprintf("    dns-search %s\n", nicDesc.Domain))
+				}
 			}
 			if len(nicDesc.TeamingSlaves) > 0 {
 				cmds.WriteString(getNicTeamingConfigCmds(nicDesc.TeamingSlaves))
@@ -809,6 +836,10 @@ func (r *sRedhatLikeRootFs) PrepareFsForTemplate(rootFs IDiskPartition) error {
 	if err := r.sLinuxRootFs.PrepareFsForTemplate(rootFs); err != nil {
 		return err
 	}
+	return r.CleanNetworkScripts(rootFs)
+}
+
+func (r *sRedhatLikeRootFs) CleanNetworkScripts(rootFs IDiskPartition) error {
 	networkPath := "/etc/sysconfig/network-scripts"
 	files := rootFs.ListDir(networkPath, false)
 	for i := 0; i < len(files); i++ {
@@ -832,7 +863,7 @@ func (r *sRedhatLikeRootFs) DeployHostname(rootFs IDiskPartition, hn, domain str
 	var sPath = "/etc/sysconfig/network"
 	centosHn := ""
 	centosHn += "NETWORKING=yes\n"
-	centosHn += fmt.Sprintf("HOSTNAME=%s.%s\n", hn, domain)
+	centosHn += fmt.Sprintf("HOSTNAME=%s\n", getHostname(hn, domain))
 	if err := rootFs.FilePutContents(sPath, centosHn, false, false); err != nil {
 		return err
 	}
@@ -934,7 +965,11 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 		cmds.WriteString(nicDesc.Name)
 		cmds.WriteString("\n")
 		cmds.WriteString("ONBOOT=yes\n")
-		cmds.WriteString("NM_CONTROLLED=no\n")
+		if iv < 8 {
+			cmds.WriteString("NM_CONTROLLED=no\n")
+		} else {
+			cmds.WriteString("NM_CONTROLLED=yes\n")
+		}
 		cmds.WriteString("USERCTL=no\n")
 		if nicDesc.Mtu > 0 {
 			cmds.WriteString(fmt.Sprintf("MTU=%d\n", nicDesc.Mtu))
@@ -997,7 +1032,9 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 				for i := 0; i < len(dnslist); i++ {
 					cmds.WriteString(fmt.Sprintf("DNS%d=%s\n", i+1, dnslist[i]))
 				}
-				cmds.WriteString(fmt.Sprintf("DOMAIN=%s\n", nicDesc.Domain))
+				if len(nicDesc.Domain) > 0 {
+					cmds.WriteString(fmt.Sprintf("DOMAIN=%s\n", nicDesc.Domain))
+				}
 			}
 		} else {
 			cmds.WriteString("BOOTPROTO=dhcp\n")
@@ -1350,7 +1387,7 @@ func NewOpenWrtRootFs(part IDiskPartition) IRootFsDriver {
 }
 
 func (d *SOpenWrtRootFs) GetName() string {
-	return "OpenWRT"
+	return "OpenWrt"
 }
 
 func (d *SOpenWrtRootFs) String() string {
@@ -1360,9 +1397,52 @@ func (d *SOpenWrtRootFs) String() string {
 func (d *SOpenWrtRootFs) RootSignatures() []string {
 	return []string{"/bin", "/etc/", "/lib", "/sbin", "/overlay", "/etc/openwrt_release", "/etc/openwrt_version"}
 }
+func (d *SOpenWrtRootFs) featureBoardConfig(rootFs IDiskPartition) bool {
+	if rootFs.Exists("/etc/board.d", false) {
+		return true
+	}
+	return false
+}
+
+func (d *SOpenWrtRootFs) putBoardConfig(rootFs IDiskPartition, f, c string) error {
+	if err := rootFs.FilePutContents(f, c, false, false); err != nil {
+		return err
+	}
+	if err := rootFs.Chmod(f, 0755, false); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (d *SOpenWrtRootFs) DeployPublicKey(rootFs IDiskPartition, selUsr string, pubkeys *deployapi.SSHKeys) error {
+	if selUsr == "root" && rootFs.Exists("/etc/dropbear", false) {
+		var (
+			authFile = "/etc/dropbear/authorized_keys"
+			uid      = 0
+			gid      = 0
+			replace  = false
+		)
+		return deployAuthorizedKeys(rootFs, authFile, uid, gid, pubkeys, replace)
+	}
+	return d.sLinuxRootFs.DeployPublicKey(rootFs, selUsr, pubkeys)
+}
 
 func (d *SOpenWrtRootFs) DeployHostname(rootFs IDiskPartition, hn, domain string) error {
+	if d.featureBoardConfig(rootFs) {
+		f := "/etc/board.d/00-00-onecloud-hostname"
+		c := fmt.Sprintf(`. /lib/functions/uci-defaults.sh
+board_config_update
+ucidef_set_hostname '%s'
+board_config_flush
+exit 0
+`, hn)
+		return d.putBoardConfig(rootFs, f, c)
+	}
+
 	spath := "/etc/config/system"
+	if !rootFs.Exists(spath, false) {
+		return nil
+	}
 	bcont, err := rootFs.FileGetContents(spath, false)
 	if err != nil {
 		return err
@@ -1373,10 +1453,55 @@ func (d *SOpenWrtRootFs) DeployHostname(rootFs IDiskPartition, hn, domain string
 	return rootFs.FilePutContents(spath, cont, false, false)
 }
 
+func (d *SOpenWrtRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
+	if d.featureBoardConfig(rootFs) {
+		macs := ""
+		for _, nic := range nics {
+			macs = "," + nic.Mac
+		}
+		f := "/etc/board.d/00-01-onecloud-network"
+		c := fmt.Sprintf(`. /lib/functions/uci-defaults.sh
+[ -d /sys/class/net ] || exit 0
+
+board_config_update
+macs='%s'
+i=0
+
+oc_set_ifname() {
+	local net="$1"; shift
+	local ifname="$1"; shift
+
+	if type ucidef_set_interface &>/dev/null; then
+		ucidef_set_interface "$net" ifname "$ifname" protocol dhcp
+	elif type ucidef_set_interface_raw &>/dev/null; then
+		ucidef_set_interface_raw "$net" "$ifname" "dhcp"
+	else
+		echo "no ucidef function to do network ifname config" >&2
+		exit 0
+	fi
+}
+
+for ifname in $(ls /sys/class/net/); do
+	p="/sys/class/net/$ifname"
+	mac="$(cat "$p/address")"
+	if [ "${macs#*,$mac}" != "$macs" ]; then
+		oc_set_ifname "lan$i" "$ifname"
+		i="$(($i + 1))"
+	fi
+done
+
+board_config_flush
+exit 0
+`, macs)
+		return d.putBoardConfig(rootFs, f, c)
+	}
+	return nil
+}
+
 func (d *SOpenWrtRootFs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.ReleaseInfo {
 	ver, _ := rootFs.FileGetContents("/etc/openwrt_version", false)
 	return &deployapi.ReleaseInfo{
-		Distro:  "OpenWRT",
+		Distro:  "OpenWrt",
 		Version: string(ver),
 		Arch:    d.GetArch(rootFs),
 	}
@@ -1495,8 +1620,8 @@ func (d *SCoreOsRootFs) ChangeUserPasswd(rootFs IDiskPartition, account, gid, pu
 	}
 }
 
-func (d *SCoreOsRootFs) GetLoginAccount(rootFs IDiskPartition, defaultRootUser bool, windowsDefaultAdminUser bool) string {
-	return "core"
+func (d *SCoreOsRootFs) GetLoginAccount(rootFs IDiskPartition, user string, defaultRootUser bool, windowsDefaultAdminUser bool) (string, error) {
+	return "core", nil
 }
 
 func (d *SCoreOsRootFs) DeployFiles(deploys []*deployapi.DeployContent) error {

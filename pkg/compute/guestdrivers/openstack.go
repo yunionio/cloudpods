@@ -17,12 +17,19 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -59,10 +66,11 @@ func (self *SOpenStackGuestDriver) GetProvider() string {
 
 func (self *SOpenStackGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
 	keys := models.SComputeResourceKeys{}
-	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
+	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_PRIVATE_CLOUD
 	keys.Provider = api.CLOUD_PROVIDER_OPENSTACK
 	keys.Brand = brand
+	keys.Hypervisor = api.HYPERVISOR_OPENSTACK
 	return keys
 }
 
@@ -71,7 +79,7 @@ func (self *SOpenStackGuestDriver) IsSupportEip() bool {
 }
 
 func (self *SOpenStackGuestDriver) GetDefaultSysDiskBackend() string {
-	return api.STORAGE_OPENSTACK_ISCSI
+	return api.STORAGE_OPENSTACK_NOVA
 }
 
 func (self *SOpenStackGuestDriver) GetMinimalSysDiskSizeGb() int {
@@ -99,11 +107,15 @@ func (self *SOpenStackGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING, api.VM_REBUILD_ROOT_FAIL}, nil
 }
 
-func (self *SOpenStackGuestDriver) GetChangeConfigStatus() ([]string, error) {
+func (self *SOpenStackGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SOpenStackGuestDriver) IsNeedInjectPasswordByCloudInit(desc *cloudprovider.SManagedVMCreateConfig) bool {
+	return true
+}
+
+func (self *SOpenStackGuestDriver) IsWindowsUserDataTypeNeedEncode() bool {
 	return true
 }
 
@@ -112,7 +124,7 @@ func (self *SOpenStackGuestDriver) IsNeedRestartForResetLoginInfo() bool {
 }
 
 func (self *SOpenStackGuestDriver) IsRebuildRootSupportChangeImage() bool {
-	return false
+	return true
 }
 
 func (self *SOpenStackGuestDriver) GetDeployStatus() ([]string, error) {
@@ -142,11 +154,178 @@ func (self *SOpenStackGuestDriver) ValidateCreateData(ctx context.Context, userC
 	if len(input.Eip) > 0 || input.EipBw > 0 {
 		return nil, httperrors.NewUnsupportOperationError("%s not support create virtual machine with eip", self.GetHypervisor())
 	}
+	for i := 1; i < len(input.Disks); i++ {
+		disk := input.Disks[i]
+		if disk.Backend == api.STORAGE_OPENSTACK_NOVA {
+			return nil, httperrors.NewUnsupportOperationError("data disk not support storage type %s", disk.Backend)
+		}
+	}
+
 	return input, nil
 }
 
 func (self *SOpenStackGuestDriver) GetGuestInitialStateAfterCreate() string {
 	return api.VM_RUNNING
+}
+
+func (self *SOpenStackGuestDriver) attachDisks(ctx context.Context, ihost cloudprovider.ICloudHost, instanceId string, diskIds []string) {
+	if len(diskIds) == 0 {
+		return
+	}
+	iVM, err := ihost.GetIVMById(instanceId)
+	if err != nil || iVM == nil {
+		log.Errorf("cannot find vm %s", instanceId)
+		return
+	}
+	for _, diskId := range diskIds {
+		err = iVM.AttachDisk(ctx, diskId)
+		if err != nil {
+			log.Errorf("failed to attach disk %s", diskId)
+		}
+	}
+	return
+}
+
+func (self *SOpenStackGuestDriver) RemoteDeployGuestForRebuildRoot(ctx context.Context, guest *models.SGuest, ihost cloudprovider.ICloudHost, task taskman.ITask, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error) {
+	iVM, err := ihost.GetIVMById(guest.GetExternalId())
+	if err != nil || iVM == nil {
+		return nil, fmt.Errorf("cannot find vm %s(%s)", guest.Id, guest.Name)
+	}
+
+	instanceId := iVM.GetGlobalId()
+
+	diskId, err := func() (string, error) {
+		lockman.LockObject(ctx, guest)
+		defer lockman.ReleaseObject(ctx, guest)
+
+		sysDisk, err := guest.GetSystemDisk()
+		if err != nil {
+			return "", errors.Wrap(err, "guest.GetSystemDisk(")
+		}
+		storage := sysDisk.GetStorage()
+		if storage.StorageType == api.STORAGE_OPENSTACK_NOVA { //不通过镜像创建磁盘的机器
+			conf := cloudprovider.SManagedVMRebuildRootConfig{
+				Account:   desc.Account,
+				ImageId:   desc.ExternalImageId,
+				Password:  desc.Password,
+				PublicKey: desc.PublicKey,
+				SysSizeGB: desc.SysDisk.SizeGB,
+				OsType:    desc.OsType,
+			}
+			return iVM.RebuildRoot(ctx, &conf)
+		}
+
+		iDisks, err := iVM.GetIDisks()
+		if err != nil {
+			return "", errors.Wrap(err, "iVM.GetIDisks")
+		}
+
+		detachDisks := []string{}
+		for i, iDisk := range iDisks {
+			if i != 0 {
+				err = iVM.DetachDisk(ctx, iDisk.GetGlobalId())
+				if err != nil {
+					return "", errors.Wrap(err, "iVM.DetachDisk")
+				}
+				detachDisks = append(detachDisks, iDisk.GetGlobalId())
+			}
+		}
+		defer self.attachDisks(ctx, ihost, instanceId, detachDisks)
+
+		eip, err := guest.GetEip()
+		if err == nil && eip != nil {
+			ieip, err := eip.GetIEip()
+			if err != nil {
+				return "", errors.Wrap(err, "eip.GetIEip")
+			}
+			err = ieip.Dissociate()
+			if err != nil {
+				return "", errors.Wrap(err, "ieip.Dissociate")
+			}
+			conf := &cloudprovider.AssociateConfig{
+				InstanceId:    instanceId,
+				AssociateType: api.EIP_ASSOCIATE_TYPE_SERVER,
+			}
+			defer ieip.Associate(conf)
+		}
+		err = iVM.DeleteVM(ctx)
+		if err != nil {
+			return "", errors.Wrap(err, "iVM.DeleteVM")
+		}
+		err = cloudprovider.WaitDeleted(iVM, time.Second*5, time.Minute*10)
+		if err != nil {
+			return "", errors.Wrap(err, "WaitDeleted")
+		}
+		desc.DataDisks = []cloudprovider.SDiskInfo{}
+		iVM, err = ihost.CreateVM(&desc)
+		if err != nil {
+			return "", errors.Wrap(err, "ihost.CreateVM")
+		}
+
+		instanceId = iVM.GetGlobalId()
+		db.SetExternalId(guest, task.GetUserCred(), instanceId)
+		initialState := guest.GetDriver().GetGuestInitialStateAfterCreate()
+		log.Debugf("VMrebuildRoot %s new instance, wait status %s ...", iVM.GetGlobalId(), initialState)
+		cloudprovider.WaitStatus(iVM, initialState, time.Second*5, time.Second*1800)
+
+		iVM.StopVM(ctx, true)
+
+		iDisks, err = iVM.GetIDisks()
+		if err != nil {
+			return "", errors.Wrapf(err, "iVM.GetIDisks.AfterCreated")
+		}
+
+		for _, iDisk := range iDisks {
+			return iDisk.GetGlobalId(), nil
+		}
+		return "", fmt.Errorf("failed to found new instance system disk")
+	}()
+	if err != nil {
+		return nil, err
+	}
+
+	initialState := guest.GetDriver().GetGuestInitialStateAfterRebuild()
+	log.Debugf("VMrebuildRoot %s new diskID %s, wait status %s ...", iVM.GetGlobalId(), diskId, initialState)
+	err = cloudprovider.WaitStatus(iVM, initialState, time.Second*5, time.Second*1800)
+	if err != nil {
+		return nil, err
+	}
+	log.Debugf("VMrebuildRoot %s, and status is ready", iVM.GetGlobalId())
+
+	maxWaitSecs := 300
+	waited := 0
+
+	for {
+		// hack, wait disk number consistent
+		idisks, err := iVM.GetIDisks()
+		if err != nil {
+			log.Errorf("fail to find VM idisks %s", err)
+			return nil, err
+		}
+		if len(idisks) < len(desc.DataDisks)+1 {
+			if waited > maxWaitSecs {
+				log.Errorf("inconsistent disk number, wait timeout, must be something wrong on remote")
+				return nil, cloudprovider.ErrTimeout
+			}
+			log.Debugf("inconsistent disk number???? %d != %d", len(idisks), len(desc.DataDisks)+1)
+			time.Sleep(time.Second * 5)
+			waited += 5
+		} else {
+			if idisks[0].GetGlobalId() == diskId {
+				break
+			}
+			if waited > maxWaitSecs {
+				return nil, fmt.Errorf("inconsistent sys disk id after rebuild root")
+			}
+			log.Debugf("current system disk id inconsistent %s != %s, try after 5 seconds", idisks[0].GetGlobalId(), diskId)
+			time.Sleep(time.Second * 5)
+			waited += 5
+		}
+	}
+
+	data := fetchIVMinfo(desc, iVM, guest.Id, desc.Account, desc.Password, desc.PublicKey, "rebuild")
+
+	return data, nil
 }
 
 func (self *SOpenStackGuestDriver) GetGuestInitialStateAfterRebuild() string {
@@ -161,11 +340,108 @@ func (self *SOpenStackGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCy
 	return false
 }
 
-func (self *SOpenStackGuestDriver) IsSupportPostpaidExpire() bool {
+func (self *SOpenStackGuestDriver) IsSupportMigrate() bool {
 	return true
 }
 
-func (self *SOpenStackGuestDriver) CancelExpireTime(
-	ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
-	return guest.CancelExpireTime(ctx, userCred)
+func (self *SOpenStackGuestDriver) IsSupportLiveMigrate() bool {
+	return true
+}
+
+func (self *SOpenStackGuestDriver) CheckMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput) error {
+	return nil
+}
+
+func (self *SOpenStackGuestDriver) CheckLiveMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput) error {
+	return nil
+}
+
+func (self *SOpenStackGuestDriver) RequestMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iVM, err := guest.GetIVM()
+		if err != nil {
+			return nil, errors.Wrap(err, "guest.GetIVM")
+		}
+		hostID, _ := data.GetString("prefer_host_id")
+		hostExternalId := ""
+		if hostID != "" {
+			iHost, err := models.HostManager.FetchById(hostID)
+			if err != nil {
+				return nil, errors.Wrapf(err, "models.HostManager.FetchById(%s)", hostID)
+			}
+			host := iHost.(*models.SHost)
+			hostExternalId = host.ExternalId
+		}
+		if err = iVM.MigrateVM(hostExternalId); err != nil {
+			return nil, errors.Wrapf(err, "iVM.MigrateVM(%s)", hostExternalId)
+		}
+		hostExternalId = iVM.GetIHostId()
+		if hostExternalId == "" {
+			return nil, errors.Wrap(fmt.Errorf("empty hostExternalId"), "iVM.GetIHostId()")
+		}
+		iHost, err := db.FetchByExternalIdAndManagerId(models.HostManager, hostExternalId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			if host := guest.GetHost(); host != nil {
+				return q.Equals("manager_id", host.ManagerId)
+			}
+			return q
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.FetchByExternalId(models.HostManager,%s)", hostExternalId)
+		}
+		host := iHost.(*models.SHost)
+		_, err = db.Update(guest, func() error {
+			guest.HostId = host.GetId()
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "db.Update guest.hostId")
+		}
+		return nil, nil
+	})
+	return nil
+}
+
+func (self *SOpenStackGuestDriver) RequestLiveMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iVM, err := guest.GetIVM()
+		if err != nil {
+			return nil, errors.Wrap(err, "guest.GetIVM")
+		}
+		hostID, _ := data.GetString("prefer_host_id")
+		hostExternalId := ""
+		if hostID != "" {
+			iHost, err := models.HostManager.FetchById(hostID)
+			if err != nil {
+				return nil, errors.Wrapf(err, "models.HostManager.FetchById(%s)", hostID)
+			}
+			host := iHost.(*models.SHost)
+			hostExternalId = host.ExternalId
+		}
+		if err = iVM.LiveMigrateVM(hostExternalId); err != nil {
+			return nil, errors.Wrapf(err, "iVM.LiveMigrateVM(%s)", hostExternalId)
+		}
+		hostExternalId = iVM.GetIHostId()
+		if hostExternalId == "" {
+			return nil, errors.Wrap(fmt.Errorf("empty hostExternalId"), "iVM.GetIHostId()")
+		}
+		iHost, err := db.FetchByExternalIdAndManagerId(models.HostManager, hostExternalId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			if host := guest.GetHost(); host != nil {
+				return q.Equals("manager_id", host.ManagerId)
+			}
+			return q
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.FetchByExternalId(models.HostManager,%s)", hostExternalId)
+		}
+		host := iHost.(*models.SHost)
+		_, err = db.Update(guest, func() error {
+			guest.HostId = host.GetId()
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "db.Update guest.hostId")
+		}
+		return nil, nil
+	})
+	return nil
 }

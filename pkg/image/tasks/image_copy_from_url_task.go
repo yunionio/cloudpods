@@ -16,7 +16,6 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"yunion.io/x/jsonutils"
@@ -80,7 +79,9 @@ func (self *ImageCopyFromUrlTask) OnImageImportComplete(ctx context.Context, obj
 func (self *ImageCopyFromUrlTask) OnImageImportCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
 	image := obj.(*models.SImage)
 	copyFrom, _ := self.Params.GetString("copy_from")
-	msg := fmt.Sprintf("copy from url %s request fail %s", copyFrom, err)
+	msg := jsonutils.NewDict()
+	msg.Add(err, "reason")
+	msg.Add(jsonutils.NewString(copyFrom), "copy_from")
 	image.OnSaveTaskFailed(self, self.UserCred, msg)
 	self.SetStageFailed(ctx, msg)
 }

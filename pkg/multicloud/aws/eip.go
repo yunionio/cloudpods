@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 const (
@@ -35,6 +36,7 @@ const (
 
 type SEipAddress struct {
 	region *SRegion
+	multicloud.SEipBase
 
 	AllocationId            string
 	Bandwidth               int
@@ -137,8 +139,8 @@ func (self *SEipAddress) Delete() error {
 	return self.region.DeallocateEIP(self.AllocationId)
 }
 
-func (self *SEipAddress) Associate(instanceId string) error {
-	err := self.region.AssociateEip(self.AllocationId, instanceId)
+func (self *SEipAddress) Associate(conf *cloudprovider.AssociateConfig) error {
+	err := self.region.AssociateEip(self.AllocationId, conf.InstanceId)
 	if err != nil {
 		return err
 	}

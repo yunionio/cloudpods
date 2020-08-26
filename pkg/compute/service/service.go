@@ -15,31 +15,39 @@
 package service
 
 import (
+	"context"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/elect"
+	"yunion.io/x/onecloud/pkg/cloudcommon/etcd"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	_ "yunion.io/x/onecloud/pkg/compute/guestdrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/hostdrivers"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	_ "yunion.io/x/onecloud/pkg/compute/policy"
 	_ "yunion.io/x/onecloud/pkg/compute/regiondrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/storagedrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks"
+	"yunion.io/x/onecloud/pkg/controller/autoscaling"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	_ "yunion.io/x/onecloud/pkg/multicloud/loader"
 )
 
 func StartService() {
-
 	opts := &options.Options
 	commonOpts := &options.Options.CommonOptions
 	baseOpts := &options.Options.BaseOptions
@@ -54,26 +62,52 @@ func StartService() {
 	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
 	})
+	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
+
+	if opts.FetchEtcdServiceInfoAndUseEtcdLock {
+		err := initEtcdLockOpts(opts)
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}
 
 	app := app_common.InitApp(baseOpts, true)
-	InitHandlers(app)
 
+	InitHandlers(app)
 	db.EnsureAppInitSyncDB(app, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
 
-	err := app_common.MergeServiceConfig(opts, api.SERVICE_TYPE, api.SERVICE_VERSION)
-	if err != nil {
-		log.Fatalf("[MERGE CONFIG] Fail to merge service config %s", err)
-	}
-
 	options.InitNameSyncResources()
 
-	err = setInfluxdbRetentionPolicy()
-	if err != nil {
-		log.Errorf("setInfluxdbRetentionPolicy fail: %s", err)
-	}
+	setInfluxdbRetentionPolicy()
 
 	models.InitSyncWorkers(options.Options.CloudSyncWorkerCount)
+
+	var (
+		electObj        *elect.Elect
+		ctx, cancelFunc = context.WithCancel(context.Background())
+	)
+	defer cancelFunc()
+
+	if opts.LockmanMethod == common_options.LockMethodEtcd {
+		etcdCfg, err := elect.NewEtcdConfigFromDBOptions(dbOpts)
+		if err != nil {
+			log.Fatalf("etcd config for elect: %v", err)
+		}
+		electObj, err = elect.NewElect(etcdCfg, "@master-role")
+		if err != nil {
+			log.Fatalf("new elect instance: %v", err)
+		}
+		go electObj.Start(ctx)
+	}
+
+	if opts.EnableHostHealthCheck {
+		if err := initDefaultEtcdClient(dbOpts); err != nil {
+			log.Fatalf("init etcd client failed %s", err)
+		}
+		models.InitHostHealthChecker(etcd.Default(), opts.HostHealthTimeout).
+			StartHostsHealthCheck(context.Background())
+	}
 
 	if !opts.IsSlaveNode {
 		cron := cronman.InitCronJobManager(true, options.Options.CronJobWorkerCount)
@@ -83,12 +117,23 @@ func StartService() {
 		if opts.PrepaidExpireCheck {
 			cron.AddJobAtIntervals("CleanExpiredPrepaidServers", time.Duration(opts.PrepaidExpireCheckSeconds)*time.Second, models.GuestManager.DeleteExpiredPrepaidServers)
 		}
+		if opts.PrepaidAutoRenew {
+			cron.AddJobAtIntervals("AutoRenewPrepaidServers", time.Duration(opts.PrepaidAutoRenewHours)*time.Hour, models.GuestManager.AutoRenewPrepaidServer)
+		}
+		cron.AddJobAtIntervals("CleanExpiredPostpaidElasticCaches", time.Duration(opts.PrepaidExpireCheckSeconds)*time.Second, models.ElasticcacheManager.DeleteExpiredPostpaids)
+		cron.AddJobAtIntervals("CleanExpiredPostpaidDBInstances", time.Duration(opts.PrepaidExpireCheckSeconds)*time.Second, models.DBInstanceManager.DeleteExpiredPostpaids)
 		cron.AddJobAtIntervals("CleanExpiredPostpaidServers", time.Duration(opts.PrepaidExpireCheckSeconds)*time.Second, models.GuestManager.DeleteExpiredPostpaidServers)
 		cron.AddJobAtIntervals("StartHostPingDetectionTask", time.Duration(opts.HostOfflineDetectionInterval)*time.Second, models.HostManager.PingDetectionTask)
 
 		cron.AddJobAtIntervalsWithStartRun("CalculateQuotaUsages", time.Duration(opts.CalculateQuotaUsageIntervalSeconds)*time.Second, models.QuotaManager.CalculateQuotaUsages, true)
+		cron.AddJobAtIntervalsWithStartRun("CalculateRegionQuotaUsages", time.Duration(opts.CalculateQuotaUsageIntervalSeconds)*time.Second, models.RegionQuotaManager.CalculateQuotaUsages, true)
+		cron.AddJobAtIntervalsWithStartRun("CalculateZoneQuotaUsages", time.Duration(opts.CalculateQuotaUsageIntervalSeconds)*time.Second, models.ZoneQuotaManager.CalculateQuotaUsages, true)
+		cron.AddJobAtIntervalsWithStartRun("CalculateProjectQuotaUsages", time.Duration(opts.CalculateQuotaUsageIntervalSeconds)*time.Second, models.ProjectQuotaManager.CalculateQuotaUsages, true)
+		cron.AddJobAtIntervalsWithStartRun("CalculateDomainQuotaUsages", time.Duration(opts.CalculateQuotaUsageIntervalSeconds)*time.Second, models.DomainQuotaManager.CalculateQuotaUsages, true)
+		cron.AddJobAtIntervalsWithStartRun("CalculateInfrasQuotaUsages", time.Duration(opts.CalculateQuotaUsageIntervalSeconds)*time.Second, models.InfrasQuotaManager.CalculateQuotaUsages, true)
 
 		cron.AddJobAtIntervalsWithStartRun("AutoSyncCloudaccountTask", time.Duration(opts.CloudAutoSyncIntervalSeconds)*time.Second, models.CloudaccountManager.AutoSyncCloudaccountTask, true)
+		cron.AddJobAtIntervalsWithStartRun("ReconcileBackupGuests", time.Duration(opts.ReconcileGuestBackupIntervalSeconds)*time.Second, models.GuestManager.ReconcileBackupGuests, true)
 
 		cron.AddJobEveryFewHour("AutoDiskSnapshot", 1, 5, 0, models.DiskManager.AutoDiskSnapshot, false)
 		cron.AddJobEveryFewHour("SnapshotsCleanup", 1, 35, 0, models.SnapshotManager.CleanupSnapshots, false)
@@ -98,9 +143,74 @@ func StartService() {
 		cron.AddJobEveryFewDays("SyncElasticCacheSkus", opts.SyncSkusDay, opts.SyncSkusHour, 0, 0, models.SyncElasticCacheSkus, true)
 		cron.AddJobEveryFewDays("StorageSnapshotsRecycle", 1, 2, 0, 0, models.StorageManager.StorageSnapshotsRecycle, false)
 
-		cron.Start()
-		defer cron.Stop()
+		cron.AddJobEveryFewHour("InspectAllTemplate", 1, 0, 0, models.GuestTemplateManager.InspectAllTemplate, true)
+
+		cron.AddJobAtIntervalsWithStartRun("ScheduledTaskCheck", time.Duration(60)*time.Second, models.ScheduledTaskManager.Timer, true)
+		go cron.Start2(ctx, electObj)
+
+		// init auto scaling controller
+		autoscaling.ASController.Init(options.Options.SASControllerOptions, cron)
 	}
 
 	app_common.ServeForever(app, baseOpts)
+}
+
+func initDefaultEtcdClient(opts *common_options.DBOptions) error {
+	if etcd.Default() != nil {
+		return nil
+	}
+	tlsConfig, err := opts.GetEtcdTLSConfig()
+	if err != nil {
+		return err
+	}
+	err = etcd.InitDefaultEtcdClient(&etcd.SEtcdOptions{
+		EtcdEndpoint:  opts.EtcdEndpoints,
+		EtcdUsername:  opts.EtcdUsername,
+		EtcdPassword:  opts.EtcdPassword,
+		EtcdEnabldSsl: opts.EtcdUseTLS,
+		TLSConfig:     tlsConfig,
+	}, nil)
+	if err != nil {
+		return errors.Wrap(err, "init default etcd client")
+	}
+	return nil
+}
+
+func initEtcdLockOpts(opts *options.ComputeOptions) error {
+	etcdEndpoint, err := app_common.FetchEtcdServiceInfo()
+	if err != nil {
+		if errors.Cause(err) == httperrors.ErrNotFound {
+			return nil
+		}
+		return errors.Wrap(err, "fetch etcd service info")
+	}
+	if etcdEndpoint != nil {
+		opts.EtcdEndpoints = []string{etcdEndpoint.Url}
+		opts.LockmanMethod = common_options.LockMethodEtcd
+		if len(etcdEndpoint.CertId) > 0 {
+			dir, err := ioutil.TempDir("", "etcd-cluster-tls")
+			if err != nil {
+				return errors.Wrap(err, "create dir etcd cluster tls")
+			}
+			opts.EtcdCert, err = writeFile(dir, "etcd.crt", []byte(etcdEndpoint.Certificate))
+			if err != nil {
+				return errors.Wrap(err, "write file certificate")
+			}
+			opts.EtcdKey, err = writeFile(dir, "etcd.key", []byte(etcdEndpoint.PrivateKey))
+			if err != nil {
+				return errors.Wrap(err, "write file private key")
+			}
+			opts.EtcdCacert, err = writeFile(dir, "etcd-ca.crt", []byte(etcdEndpoint.CaCertificate))
+			if err != nil {
+				return errors.Wrap(err, "write file  cacert")
+			}
+			opts.EtcdUseTLS = true
+		}
+	}
+	return nil
+}
+
+func writeFile(dir, file string, data []byte) (string, error) {
+	p := filepath.Join(dir, file)
+	return p, ioutil.WriteFile(p, data, 0600)
 }

@@ -98,12 +98,24 @@ func newInvalidChoiceError(key string, choices choices.Choices, choice string) e
 	return newError(ERR_INVALID_CHOICE, "invalid %q, want %s, got %s", key, choices, choice)
 }
 
+func newInvalidIntChoiceError(key string, choices []int64, choice int64) error {
+	wantS := ""
+	for i, c := range choices {
+		if i > 0 {
+			wantS += ", "
+		}
+		wantS += fmt.Sprintf("%d", c)
+	}
+	gotS := fmt.Sprintf("%d", choice)
+	return newError(ERR_INVALID_CHOICE, "invalid %q, want %s, got %s", key, wantS, gotS)
+}
+
 func newStringTooShortError(key string, got, want int) error {
-	return newError(ERR_INVALID_LENGTH, "%q too short, got %d, min %s", key, got, want)
+	return newError(ERR_INVALID_LENGTH, "%q too short, got %d, min %d", key, got, want)
 }
 
 func newStringTooLongError(key string, got, want int) error {
-	return newError(ERR_INVALID_LENGTH, "%q too long, got %d, max %s", key, got, want)
+	return newError(ERR_INVALID_LENGTH, "%q too long, got %d, max %d", key, got, want)
 }
 
 func newNotInRangeError(key string, value, lower, upper int64) error {

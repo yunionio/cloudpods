@@ -22,8 +22,8 @@ import (
 	"strings"
 
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/reflectutils"
 )
 
 type IQuery interface {
@@ -104,6 +104,8 @@ type SQuery struct {
 	offset   int
 
 	fieldCache map[string]IQueryField
+
+	snapshot string
 }
 
 type SSubQuery struct {
@@ -121,9 +123,9 @@ type SSubQueryField struct {
 
 func (sqf *SSubQueryField) Expression() string {
 	if len(sqf.alias) > 0 {
-		return fmt.Sprintf("%s.%s AS %s", sqf.query.alias, sqf.field.Name(), sqf.alias)
+		return fmt.Sprintf("`%s`.`%s` AS `%s`", sqf.query.alias, sqf.field.Name(), sqf.alias)
 	} else {
-		return fmt.Sprintf("%s.%s", sqf.query.alias, sqf.field.Name())
+		return fmt.Sprintf("`%s`.`%s`", sqf.query.alias, sqf.field.Name())
 	}
 }
 
@@ -173,7 +175,7 @@ func (sq *SSubQuery) findField(id string) IQueryField {
 	for i := range queryFields {
 		if queryFields[i].Name() == id {
 			sq.referedFields[id] = sq.query.Field(queryFields[i].Name())
-			return queryFields[i]
+			return sq.referedFields[id]
 		}
 	}
 	return nil
@@ -514,6 +516,10 @@ func (tq *SQuery) findField(name string) IQueryField {
 func (tq *SQuery) internalFindField(name string) IQueryField {
 	for _, f := range tq.fields {
 		if f.Name() == name {
+			// switch f.(type) {
+			// case *SFunctionFieldBase:
+			// 	log.Warningf("cannot directly reference a function alias, should use Subquery() to enclose the query")
+			// }
 			return f
 		}
 	}
@@ -607,7 +613,7 @@ func mapString2Struct(mapResult map[string]string, destValue reflect.Value) erro
 			if ok {
 				err = setValueBySQLString(fieldValue, v)
 				if err != nil {
-					log.Errorf("Set value error %s", err)
+					log.Errorf("Set field %q value error %s", k, err)
 				}
 			}
 		}
@@ -693,4 +699,16 @@ func (q *SQuery) Row2Struct(row IRowScanner, dest interface{}) error {
 		return err
 	}
 	return q.RowMap2Struct(result, dest)
+}
+
+func (q *SQuery) Snapshot() *SQuery {
+	q.snapshot = q.String()
+	return q
+}
+
+func (q *SQuery) IsAltered() bool {
+	if len(q.snapshot) == 0 {
+		panic(fmt.Sprintf("Query %s has never been snapshot when IsAltered called", q.String()))
+	}
+	return q.String() != q.snapshot
 }

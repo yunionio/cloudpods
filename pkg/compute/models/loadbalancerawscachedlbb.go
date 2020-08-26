@@ -18,9 +18,9 @@ import (
 	"context"
 	"fmt"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
+// +onecloud:swagger-gen-ignore
 type SAwsCachedLbManager struct {
 	SLoadbalancerLogSkipper
 	db.SVirtualResourceBaseManager
@@ -60,10 +61,6 @@ type SAwsCachedLb struct {
 	CachedBackendGroupId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 }
 
-func (lbb *SAwsCachedLb) GetCustomizeColumns(context.Context, mcclient.TokenCredential, jsonutils.JSONObject) *jsonutils.JSONDict {
-	return nil
-}
-
 func (man *SAwsCachedLbManager) GetBackendsByLocalBackendId(backendId string) ([]SAwsCachedLb, error) {
 	loadbalancerBackends := []SAwsCachedLb{}
 	q := man.Query().Equals("backend_id", backendId)
@@ -93,7 +90,7 @@ func (man *SAwsCachedLbManager) CreateAwsCachedLb(ctx context.Context, userCred 
 		return nil, err
 	}
 
-	err = man.TableSpec().Insert(cachedlbb)
+	err = man.TableSpec().Insert(ctx, cachedlbb)
 
 	if err != nil {
 		return nil, err
@@ -198,7 +195,10 @@ func (lbb *SAwsCachedLb) syncRemoveCloudLoadbalancerBackend(ctx context.Context,
 func (lbb *SAwsCachedLb) constructFieldsFromCloudLoadbalancerBackend(extLoadbalancerBackend cloudprovider.ICloudLoadbalancerBackend) error {
 	lbb.Status = extLoadbalancerBackend.GetStatus()
 
-	instance, err := db.FetchByExternalId(GuestManager, extLoadbalancerBackend.GetBackendId())
+	instance, err := db.FetchByExternalIdAndManagerId(GuestManager, extLoadbalancerBackend.GetBackendId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		sq := HostManager.Query().SubQuery()
+		return q.Join(sq, sqlchemy.Equals(q.Field("host_id"), sq.Field("id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), lbb.ManagerId))
+	})
 	if err != nil {
 		return err
 	}
@@ -273,7 +273,7 @@ func (man *SAwsCachedLbManager) newFromCloudLoadbalancerBackend(ctx context.Cont
 		return nil, err
 	}
 
-	err = man.TableSpec().Insert(lbb)
+	err = man.TableSpec().Insert(ctx, lbb)
 
 	if err != nil {
 		return nil, err

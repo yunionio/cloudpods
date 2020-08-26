@@ -39,14 +39,6 @@ func (self *SObjectStoreProviderFactory) GetName() string {
 	return api.CLOUD_PROVIDER_GENERICS3
 }
 
-func (factory *SObjectStoreProviderFactory) IsSupportObjectStorage() bool {
-	return true
-}
-
-func (factory *SObjectStoreProviderFactory) IsSupportComputeEngine() bool {
-	return false
-}
-
 func (self *SObjectStoreProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {
@@ -79,12 +71,18 @@ func (self *SObjectStoreProviderFactory) ValidateUpdateCloudaccountCredential(ct
 	return output, nil
 }
 
-func (self *SObjectStoreProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
-	client, err := objectstore.NewObjectStoreClient(providerId, providerName, url, account, secret, false)
+func (self *SObjectStoreProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
+	client, err := objectstore.NewObjectStoreClient(
+		objectstore.NewObjectStoreClientConfig(
+			cfg.URL, cfg.Account, cfg.Secret,
+		).CloudproviderConfig(cfg),
+	)
 	if err != nil {
 		return nil, err
 	}
-	return NewObjectStoreProvider(self, client), nil
+	return NewObjectStoreProvider(self, client, []string{
+		string(cloudprovider.ACLPrivate),
+	}), nil
 }
 
 func (self *SObjectStoreProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
@@ -103,13 +101,15 @@ func init() {
 
 type SObjectStoreProvider struct {
 	cloudprovider.SBaseProvider
-	client objectstore.IBucketProvider
+	client        objectstore.IBucketProvider
+	supportedAcls []string
 }
 
-func NewObjectStoreProvider(factory cloudprovider.ICloudProviderFactory, client objectstore.IBucketProvider) *SObjectStoreProvider {
+func NewObjectStoreProvider(factory cloudprovider.ICloudProviderFactory, client objectstore.IBucketProvider, acls []string) *SObjectStoreProvider {
 	return &SObjectStoreProvider{
 		SBaseProvider: cloudprovider.NewBaseProvider(factory),
 		client:        client,
+		supportedAcls: acls,
 	}
 }
 
@@ -151,4 +151,16 @@ func (self *SObjectStoreProvider) GetAccountId() string {
 
 func (self *SObjectStoreProvider) GetStorageClasses(regionId string) []string {
 	return []string{}
+}
+
+func (self *SObjectStoreProvider) GetBucketCannedAcls(regionId string) []string {
+	return self.supportedAcls
+}
+
+func (self *SObjectStoreProvider) GetObjectCannedAcls(regionId string) []string {
+	return self.supportedAcls
+}
+
+func (self *SObjectStoreProvider) GetCapabilities() []string {
+	return self.client.GetCapabilities()
 }

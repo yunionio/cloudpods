@@ -24,23 +24,40 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/apis"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
-func (manager *SGuestManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []db.IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
-	rows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
+func (manager *SGuestManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.ServerDetails {
+	rows := make([]api.ServerDetails, len(objs))
+
+	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	hostRows := manager.SHostResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	guestIds := make([]string, len(objs))
 	for i := range objs {
-		guestIds[i] = objs[i].GetId()
+		rows[i] = api.ServerDetails{
+			VirtualResourceDetails: virtRows[i],
+			HostResourceInfo:       hostRows[i],
+		}
+		guestIds[i] = objs[i].(*SGuest).GetId()
 	}
+
 	if len(fields) == 0 || fields.Contains("disk") {
 		gds := fetchGuestDiskSizes(guestIds)
 		if gds != nil {
 			for i := range rows {
-				if gd, ok := gds[objs[i].GetId()]; ok {
-					rows[i].Add(jsonutils.NewInt(gd.DiskSizeMb), "disk")
+				if gd, ok := gds[guestIds[i]]; ok {
+					rows[i].DiskSizeMb = gd.DiskSizeMb
+					rows[i].DiskCount = gd.DiskCount
 				}
 			}
 		}
@@ -49,8 +66,8 @@ func (manager *SGuestManager) FetchCustomizeColumns(ctx context.Context, userCre
 		gips := fetchGuestIPs(guestIds, tristate.False)
 		if gips != nil {
 			for i := range rows {
-				if gip, ok := gips[objs[i].GetId()]; ok {
-					rows[i].Add(jsonutils.NewString(strings.Join(gip, ",")), "ips")
+				if gip, ok := gips[guestIds[i]]; ok {
+					rows[i].IPs = strings.Join(gip, ",")
 				}
 			}
 		}
@@ -59,8 +76,8 @@ func (manager *SGuestManager) FetchCustomizeColumns(ctx context.Context, userCre
 		nicsMap := fetchGuestNICs(ctx, guestIds, tristate.False)
 		if nicsMap != nil {
 			for i := range rows {
-				if nics, ok := nicsMap[objs[i].GetId()]; ok {
-					rows[i].Add(nics, "nics")
+				if nics, ok := nicsMap[guestIds[i]]; ok {
+					rows[i].Nics = nics
 				}
 			}
 		}
@@ -69,12 +86,12 @@ func (manager *SGuestManager) FetchCustomizeColumns(ctx context.Context, userCre
 		gvpcs := fetchGuestVpcs(guestIds)
 		if gvpcs != nil {
 			for i := range rows {
-				if gvpc, ok := gvpcs[objs[i].GetId()]; ok {
+				if gvpc, ok := gvpcs[guestIds[i]]; ok {
 					if len(fields) == 0 || fields.Contains("vpc") {
-						rows[i].Add(jsonutils.NewString(strings.Join(gvpc.Vpc, ",")), "vpc")
+						rows[i].Vpc = strings.Join(gvpc.Vpc, ",")
 					}
 					if len(fields) == 0 || fields.Contains("vpc_id") {
-						rows[i].Add(jsonutils.NewString(strings.Join(gvpc.VpcId, ",")), "vpc_id")
+						rows[i].VpcId = strings.Join(gvpc.VpcId, ",")
 					}
 				}
 			}
@@ -84,12 +101,12 @@ func (manager *SGuestManager) FetchCustomizeColumns(ctx context.Context, userCre
 		gsgs := fetchSecgroups(guestIds)
 		if gsgs != nil {
 			for i := range rows {
-				if gsg, ok := gsgs[objs[i].GetId()]; ok {
+				if gsg, ok := gsgs[guestIds[i]]; ok {
 					if len(fields) == 0 || fields.Contains("secgroups") {
-						rows[i].Add(jsonutils.Marshal(gsg), "secgroups")
+						rows[i].Secgroups = gsg
 					}
 					if len(fields) == 0 || fields.Contains("secgroup") {
-						rows[i].Add(jsonutils.NewString(gsg[0].Name), "secgroup")
+						rows[i].Secgroup = gsg[0].Name
 					}
 				}
 			}
@@ -99,12 +116,12 @@ func (manager *SGuestManager) FetchCustomizeColumns(ctx context.Context, userCre
 		geips := fetchGuestEips(guestIds)
 		if geips != nil {
 			for i := range rows {
-				if eip, ok := geips[objs[i].GetId()]; ok {
+				if eip, ok := geips[guestIds[i]]; ok {
 					if len(fields) == 0 || fields.Contains("eip") {
-						rows[i].Add(jsonutils.NewString(eip.IpAddr), "eip")
+						rows[i].Eip = eip.IpAddr
 					}
 					if len(fields) == 0 || fields.Contains("eip_mode") {
-						rows[i].Add(jsonutils.NewString(eip.Mode), "eip_mode")
+						rows[i].EipMode = eip.Mode
 					}
 				}
 			}
@@ -114,8 +131,8 @@ func (manager *SGuestManager) FetchCustomizeColumns(ctx context.Context, userCre
 		gkps := fetchGuestKeypairs(guestIds)
 		if gkps != nil {
 			for i := range rows {
-				if kps, ok := gkps[objs[i].GetId()]; ok {
-					rows[i].Add(jsonutils.NewString(kps.Keypair), "keypair")
+				if kps, ok := gkps[guestIds[i]]; ok {
+					rows[i].Keypair = kps.Keypair
 				}
 			}
 		}
@@ -124,20 +141,20 @@ func (manager *SGuestManager) FetchCustomizeColumns(ctx context.Context, userCre
 		gdevs := fetchGuestIsolatedDevices(guestIds)
 		if gdevs != nil {
 			for i := range rows {
-				if gdev, ok := gdevs[objs[i].GetId()]; ok {
+				if gdev, ok := gdevs[guestIds[i]]; ok {
 					if len(fields) == 0 || fields.Contains("isolated_devices") {
-						rows[i].Add(jsonutils.NewString(getIsolatedDeviceDetails(gdev)), "isolated_devices")
+						rows[i].IsolatedDevices = gdev
 					}
 					if len(fields) == 0 || fields.Contains("is_gpu") {
 						if len(gdev) > 0 {
-							rows[i].Add(jsonutils.JSONTrue, "is_gpu")
+							rows[i].IsGpu = true
 						} else {
-							rows[i].Add(jsonutils.JSONFalse, "is_gpu")
+							rows[i].IsGpu = false
 						}
 					}
 				} else {
 					if len(fields) == 0 || fields.Contains("is_gpu") {
-						rows[i].Add(jsonutils.JSONFalse, "is_gpu")
+						rows[i].IsGpu = false
 					}
 				}
 			}
@@ -147,27 +164,42 @@ func (manager *SGuestManager) FetchCustomizeColumns(ctx context.Context, userCre
 		gcds := fetchGuestCdroms(guestIds)
 		if gcds != nil {
 			for i := range rows {
-				if gcd, ok := gcds[objs[i].GetId()]; ok {
-					rows[i].Add(jsonutils.NewString(gcd.GetDetails()), "cdrom")
-				} else {
-					rows[i].Add(jsonutils.NewString(""), "cdrom")
+				if gcd, ok := gcds[guestIds[i]]; ok {
+					rows[i].Cdrom = gcd.GetDetails()
 				}
 			}
 		}
 	}
+	if len(fields) == 0 || fields.Contains("scaling_group") {
+		sggs := fetchScalingGroupGuest(guestIds...)
+		if sggs != nil && len(sggs) != 0 {
+			for i := range rows {
+				if sgg, ok := sggs[guestIds[i]]; ok {
+					rows[i].ScalingStatus = sgg.GuestStatus
+					rows[i].ScalingGroupId = sgg.ScalingGroupId
+				}
+			}
+		}
+	}
+
+	for i := range rows {
+		rows[i] = objs[i].(*SGuest).moreExtraInfo(rows[i], userCred, query, fields, isList)
+	}
+
 	return rows
 }
 
 type sGustDiskSize struct {
 	GuestId    string
 	DiskSizeMb int64
+	DiskCount  int
 }
 
 func fetchGuestDiskSizes(guestIds []string) map[string]sGustDiskSize {
 	disks := DiskManager.Query().SubQuery()
 	guestdisks := GuestdiskManager.Query().SubQuery()
 
-	q := disks.Query(guestdisks.Field("guest_id"), sqlchemy.SUM("disk_size_mb", disks.Field("disk_size")))
+	q := disks.Query(guestdisks.Field("guest_id"), sqlchemy.SUM("disk_size_mb", disks.Field("disk_size")), sqlchemy.COUNT("disk_count"))
 	q = q.Join(guestdisks, sqlchemy.Equals(guestdisks.Field("disk_id"), disks.Field("id")))
 	q = q.Filter(sqlchemy.In(guestdisks.Field("guest_id"), guestIds))
 	q = q.GroupBy(guestdisks.Field("guest_id"))
@@ -184,6 +216,10 @@ func fetchGuestDiskSizes(guestIds []string) map[string]sGustDiskSize {
 		ret[gds[i].GuestId] = gds[i]
 	}
 	return ret
+}
+
+func (guest *SGuest) GetDisksSize() int {
+	return guest.getDiskSize()
 }
 
 func (guest *SGuest) getDiskSize() int {
@@ -228,21 +264,42 @@ func fetchGuestIPs(guestIds []string, virtual tristate.TriState) map[string][]st
 	return ret
 }
 
-func fetchGuestNICs(ctx context.Context, guestIds []string, virtual tristate.TriState) map[string]*jsonutils.JSONArray {
-	q := GuestnetworkManager.Query().In("guest_id", guestIds)
-	nics := make([]SGuestnetwork, 0)
-	if err := q.All(&nics); err != nil {
+func fetchGuestNICs(ctx context.Context, guestIds []string, virtual tristate.TriState) map[string][]api.GuestnetworkShortDesc {
+	netq := NetworkManager.Query().SubQuery()
+	wirq := WireManager.Query().SubQuery()
+	gnwq := GuestnetworkManager.Query()
+	q := gnwq.AppendField(
+		gnwq.Field("guest_id"),
+
+		gnwq.Field("ip_addr"),
+		gnwq.Field("ip6_addr"),
+		gnwq.Field("mac_addr").Label("mac"),
+		gnwq.Field("team_with"),
+		gnwq.Field("network_id"), // caution: do not alias netq.id as network_id
+		wirq.Field("vpc_id"),
+	)
+	q = q.Join(netq, sqlchemy.Equals(netq.Field("id"), gnwq.Field("network_id")))
+	q = q.Join(wirq, sqlchemy.Equals(wirq.Field("id"), netq.Field("wire_id")))
+	q = q.In("guest_id", guestIds)
+
+	var descs []struct {
+		GuestId string `json:"guest_id"`
+		api.GuestnetworkShortDesc
+	}
+	if err := q.All(&descs); err != nil {
+		if err != sql.ErrNoRows {
+			log.Errorf("query guest nics info: %v", err)
+		}
 		return nil
 	}
-	ret := make(map[string]*jsonutils.JSONArray)
-	for i := range nics {
-		desc := nics[i].GetShortDesc(ctx)
-		li := ret[nics[i].GuestId]
-		if li == nil {
-			li = jsonutils.NewArray(desc)
-			ret[nics[i].GuestId] = li
+	ret := map[string][]api.GuestnetworkShortDesc{}
+	for i := range descs {
+		desc := &descs[i]
+		guestId := desc.GuestId
+		if _, ok := ret[guestId]; !ok {
+			ret[guestId] = []api.GuestnetworkShortDesc{desc.GuestnetworkShortDesc}
 		} else {
-			li.Add(desc)
+			ret[guestId] = append(ret[guestId], desc.GuestnetworkShortDesc)
 		}
 	}
 	return ret
@@ -307,12 +364,7 @@ func fetchGuestVpcs(guestIds []string) map[string]sGuestVpcsInfo {
 	return ret
 }
 
-type sSecgroupInfo struct {
-	Id   string
-	Name string
-}
-
-func fetchSecgroups(guestIds []string) map[string][]sSecgroupInfo {
+func fetchSecgroups(guestIds []string) map[string][]apis.StandaloneShortDesc {
 	secgroups := SecurityGroupManager.Query().SubQuery()
 	guestsecgroups := GuestsecgroupManager.Query().SubQuery()
 	guests := GuestManager.Query().SubQuery()
@@ -338,13 +390,13 @@ func fetchSecgroups(guestIds []string) map[string][]sSecgroupInfo {
 		return nil
 	}
 
-	ret := make(map[string][]sSecgroupInfo)
+	ret := make(map[string][]apis.StandaloneShortDesc)
 	for i := range gsgs {
 		gsg, ok := ret[gsgs[i].GuestId]
 		if !ok {
-			gsg = make([]sSecgroupInfo, 0)
+			gsg = make([]apis.StandaloneShortDesc, 0)
 		}
-		gsg = append(gsg, sSecgroupInfo{
+		gsg = append(gsg, apis.StandaloneShortDesc{
 			Id:   gsgs[i].SecgroupId,
 			Name: gsgs[i].SecgroupName,
 		})
@@ -405,32 +457,31 @@ func fetchGuestKeypairs(guestIds []string) map[string]sGuestKeypair {
 	return ret
 }
 
-func fetchGuestIsolatedDevices(guestIds []string) map[string][]SIsolatedDevice {
+func fetchGuestIsolatedDevices(guestIds []string) map[string][]api.SIsolatedDevice {
 	q := IsolatedDeviceManager.Query().In("guest_id", guestIds)
 	devs := make([]SIsolatedDevice, 0)
 	err := q.All(&devs)
 	if err != nil {
 		return nil
 	}
-	ret := make(map[string][]SIsolatedDevice)
+	ret := make(map[string][]api.SIsolatedDevice)
 	for i := range devs {
+		dev := api.SIsolatedDevice{}
+		dev.Id = devs[i].Id
+		dev.HostId = devs[i].HostId
+		dev.DevType = devs[i].DevType
+		dev.Model = devs[i].Model
+		dev.GuestId = devs[i].GuestId
+		dev.Addr = devs[i].Addr
+		dev.VendorDeviceId = devs[i].VendorDeviceId
 		gdevs, ok := ret[devs[i].GuestId]
 		if !ok {
-			gdevs = make([]SIsolatedDevice, 0)
+			gdevs = make([]api.SIsolatedDevice, 0)
 		}
-		gdevs = append(gdevs, devs[i])
+		gdevs = append(gdevs, dev)
 		ret[devs[i].GuestId] = gdevs
 	}
 	return ret
-}
-
-func getIsolatedDeviceDetails(devs []SIsolatedDevice) string {
-	var buf strings.Builder
-	for _, dev := range devs {
-		buf.WriteString(dev.getDetailedString())
-		buf.WriteString("\n")
-	}
-	return buf.String()
 }
 
 func fetchGuestCdroms(guestIds []string) map[string]SGuestcdrom {
@@ -443,6 +494,20 @@ func fetchGuestCdroms(guestIds []string) map[string]SGuestcdrom {
 	ret := make(map[string]SGuestcdrom)
 	for i := range gcds {
 		ret[gcds[i].Id] = gcds[i]
+	}
+	return ret
+}
+
+func fetchScalingGroupGuest(guestIds ...string) map[string]SScalingGroupGuest {
+	q := ScalingGroupGuestManager.Query().In("guest_id", guestIds)
+	sggs := make([]SScalingGroupGuest, 0)
+	err := q.All(&sggs)
+	if err != nil {
+		return nil
+	}
+	ret := make(map[string]SScalingGroupGuest)
+	for i := range sggs {
+		ret[sggs[i].GuestId] = sggs[i]
 	}
 	return ret
 }

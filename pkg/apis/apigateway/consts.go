@@ -15,6 +15,6 @@
 package apigateway
 
 const (
-	SERVICE_TYPE    = "apigateway"
+	SERVICE_TYPE    = "yunionapi"
 	SERVICE_VERSION = ""
 )

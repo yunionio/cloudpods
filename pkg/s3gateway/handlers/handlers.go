@@ -144,7 +144,7 @@ func headHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	} else {
 		// do nothing
 	}
-	SendError(w, NotSupported(ctx, "method not supported"))
+	SendError(ctx, w, NotSupported(ctx, "method not supported"))
 }
 
 func readBucket(ctx context.Context, userCred mcclient.TokenCredential, bucketName string, query jsonutils.JSONObject, r *http.Request) (interface{}, http.Header, error) {
@@ -302,13 +302,13 @@ func readHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		// service
 		query, err := jsonutils.ParseQueryString(r.URL.RawQuery)
 		if err != nil {
-			SendError(w, BadRequest(ctx, err.Error()))
+			SendError(ctx, w, BadRequest(ctx, err.Error()))
 			return
 		}
 		input := s3cli.ListBucketsInput{}
 		err = query.Unmarshal(&input)
 		if err != nil {
-			SendError(w, BadRequest(ctx, err.Error()))
+			SendError(ctx, w, BadRequest(ctx, err.Error()))
 		} else {
 			resp, err := listService(ctx, userCred, input)
 			if err != nil {
@@ -321,7 +321,7 @@ func readHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		// bucket get
 		query, err := jsonutils.ParseQueryString(r.URL.RawQuery)
 		if err != nil {
-			SendError(w, BadRequest(ctx, err.Error()))
+			SendError(ctx, w, BadRequest(ctx, err.Error()))
 			return
 		}
 		resp, respHdr, err := readBucket(ctx, userCred, o.Bucket, query, r)
@@ -342,7 +342,7 @@ func readHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		}
 		query, err := jsonutils.ParseQueryString(r.URL.RawQuery)
 		if err != nil {
-			SendError(w, BadRequest(ctx, err.Error()))
+			SendError(ctx, w, BadRequest(ctx, err.Error()))
 			return
 		}
 		resp, respHdr, err := readObject(ctx, userCred, o.Bucket, o.Key, query, r)
@@ -394,7 +394,7 @@ func postHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		// object post
 		query, err := jsonutils.ParseQueryString(r.URL.RawQuery)
 		if err != nil {
-			SendError(w, BadRequest(ctx, err.Error()))
+			SendError(ctx, w, BadRequest(ctx, err.Error()))
 			return
 		}
 		resp, respHdr, err := postObject(ctx, userCred, o.Bucket, o.Key, query, r)
@@ -405,7 +405,7 @@ func postHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		appsrv.SendXml(w, respHdr, resp)
 		return
 	}
-	SendError(w, NotSupported(ctx, "method not supported"))
+	SendError(ctx, w, NotSupported(ctx, "method not supported"))
 }
 
 func putBucket(ctx context.Context, userCred mcclient.TokenCredential, bucket string, query jsonutils.JSONObject, r *http.Request) (interface{}, http.Header, error) {
@@ -489,7 +489,7 @@ func putHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		// bucket put
 		query, err := jsonutils.ParseQueryString(r.URL.RawQuery)
 		if err != nil {
-			SendError(w, BadRequest(ctx, err.Error()))
+			SendError(ctx, w, BadRequest(ctx, err.Error()))
 			return
 		}
 		resp, respHdr, err := putBucket(ctx, userCred, o.Bucket, query, r)
@@ -503,7 +503,7 @@ func putHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		// object put
 		query, err := jsonutils.ParseQueryString(r.URL.RawQuery)
 		if err != nil {
-			SendError(w, BadRequest(ctx, err.Error()))
+			SendError(ctx, w, BadRequest(ctx, err.Error()))
 			return
 		}
 		resp, respHdr, err := putObject(ctx, userCred, o.Bucket, o.Key, query, r)
@@ -514,7 +514,7 @@ func putHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		appsrv.SendXml(w, respHdr, resp)
 		return
 	}
-	SendError(w, NotSupported(ctx, "method not supported"))
+	SendError(ctx, w, NotSupported(ctx, "method not supported"))
 }
 
 func deleteBucket(ctx context.Context, userCred mcclient.TokenCredential, bucket string, query jsonutils.JSONObject) (interface{}, error) {
@@ -573,7 +573,7 @@ func deleteHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 		// bucket delete
 		query, err := jsonutils.ParseQueryString(r.URL.RawQuery)
 		if err != nil {
-			SendError(w, BadRequest(ctx, err.Error()))
+			SendError(ctx, w, BadRequest(ctx, err.Error()))
 			return
 		}
 		resp, err := deleteBucket(ctx, userCred, o.Bucket, query)
@@ -587,7 +587,7 @@ func deleteHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 		// object delete
 		query, err := jsonutils.ParseQueryString(r.URL.RawQuery)
 		if err != nil {
-			SendError(w, BadRequest(ctx, err.Error()))
+			SendError(ctx, w, BadRequest(ctx, err.Error()))
 			return
 		}
 		resp, err := deleteObject(ctx, userCred, o.Bucket, o.Key, query)
@@ -598,5 +598,5 @@ func deleteHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 		}
 		return
 	}
-	SendError(w, NotSupported(ctx, "method not supported"))
+	SendError(ctx, w, NotSupported(ctx, "method not supported"))
 }

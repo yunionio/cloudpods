@@ -37,13 +37,13 @@ func init() {
 	taskman.RegisterTask(SecurityGroupCacheDeleteTask{})
 }
 
-func (self *SecurityGroupCacheDeleteTask) taskFailed(ctx context.Context, cache *models.SSecurityGroupCache, err error) {
-	cache.SetStatus(self.UserCred, api.SECGROUP_CACHE_STATUS_DELETE_FAILED, err.Error())
+func (self *SecurityGroupCacheDeleteTask) taskFailed(ctx context.Context, cache *models.SSecurityGroupCache, err jsonutils.JSONObject) {
+	cache.SetStatus(self.UserCred, api.SECGROUP_CACHE_STATUS_DELETE_FAILED, err.String())
 	secgroup, _ := cache.GetSecgroup()
 	if secgroup != nil {
 		logclient.AddActionLogWithStartable(self, secgroup, logclient.ACT_DELETE, err, self.UserCred, false)
 	}
-	self.SetStageFailed(ctx, err.Error())
+	self.SetStageFailed(ctx, err)
 }
 
 func (self *SecurityGroupCacheDeleteTask) taskComplete(ctx context.Context, cache *models.SSecurityGroupCache) {
@@ -67,11 +67,11 @@ func (self *SecurityGroupCacheDeleteTask) OnInit(ctx context.Context, obj db.ISt
 
 	iRegion, err := cache.GetIRegion()
 	if err != nil {
-		if err == cloudprovider.ErrNotFound {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			self.taskComplete(ctx, cache)
 			return
 		}
-		self.taskFailed(ctx, cache, errors.Wrap(err, "cache.GetIRegion"))
+		self.taskFailed(ctx, cache, jsonutils.NewString(errors.Wrap(err, "cache.GetIRegion").Error()))
 		return
 	}
 	iSecgroup, err := iRegion.GetISecurityGroupById(cache.ExternalId)
@@ -80,12 +80,12 @@ func (self *SecurityGroupCacheDeleteTask) OnInit(ctx context.Context, obj db.ISt
 			self.taskComplete(ctx, cache)
 			return
 		}
-		self.taskFailed(ctx, cache, errors.Wrap(err, "iRegion.GetIStoragecacheById"))
+		self.taskFailed(ctx, cache, jsonutils.NewString(errors.Wrap(err, "iRegion.GetIStoragecacheById").Error()))
 		return
 	}
 	err = iSecgroup.Delete()
 	if err != nil {
-		self.taskFailed(ctx, cache, err)
+		self.taskFailed(ctx, cache, jsonutils.NewString(err.Error()))
 		return
 	}
 	self.taskComplete(ctx, cache)

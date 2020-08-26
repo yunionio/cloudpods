@@ -25,7 +25,9 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -52,12 +54,35 @@ func init() {
 	models.RegisterRegionDriver(&driver)
 }
 
+func (self *SHuaWeiRegionDriver) GetSecurityGroupRuleOrder() cloudprovider.TPriorityOrder {
+	return cloudprovider.PriorityOrderByAsc
+}
+
+func (self *SHuaWeiRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
+}
+
+func (self *SHuaWeiRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:allow any")}
+}
+
+func (self *SHuaWeiRegionDriver) GetSecurityGroupRuleMaxPriority() int {
+	return 0
+}
+
+func (self *SHuaWeiRegionDriver) GetSecurityGroupRuleMinPriority() int {
+	return 0
+}
+
+func (self *SHuaWeiRegionDriver) IsOnlySupportAllowRules() bool {
+	return true
+}
+
 func (self *SHuaWeiRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_HUAWEI
 }
 
-func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	ownerId := ctx.Value("ownerId").(mcclient.IIdentityProvider)
+func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", ownerId)
 	managerIdV := validators.NewModelIdOrNameValidator("manager", "cloudprovider", ownerId)
 	addressTypeV := validators.NewStringChoicesValidator("address_type", api.LB_ADDR_TYPES)
@@ -113,7 +138,7 @@ func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerData(ctx context.Cont
 	data.Set("network_type", jsonutils.NewString(api.LB_NETWORK_TYPE_VPC))
 	data.Set("cloudregion_id", jsonutils.NewString(region.GetId()))
 	data.Set("vpc_id", jsonutils.NewString(vpc.GetId()))
-	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, data)
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, ownerId, data)
 }
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0143878053.html
@@ -278,8 +303,8 @@ func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerBackendData(ctx conte
 	}
 
 	data.Set("name", jsonutils.NewString(name))
-	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
-	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
+	data.Set("manager_id", jsonutils.NewString(lb.GetCloudproviderId()))
+	data.Set("cloudregion_id", jsonutils.NewString(lb.GetRegionId()))
 	return data, nil
 }
 
@@ -370,8 +395,6 @@ func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 		return nil, err
 	}
 
-	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
-	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
 	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerListenerData(ctx, userCred, ownerId, data, lb, backendGroup)
 }
 
@@ -428,8 +451,8 @@ func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx 
 		return data, fmt.Errorf("'domain' or 'path' should not be empty.")
 	}
 
-	data.Set("cloudregion_id", jsonutils.NewString(listener.CloudregionId))
-	data.Set("manager_id", jsonutils.NewString(listener.ManagerId))
+	data.Set("cloudregion_id", jsonutils.NewString(listener.GetRegionId()))
+	data.Set("manager_id", jsonutils.NewString(listener.GetCloudproviderId()))
 	return data, nil
 }
 
@@ -560,11 +583,11 @@ func (self *SHuaWeiRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx cont
 	return self.SManagedVirtualizationRegionDriver.ValidateUpdateLoadbalancerListenerData(ctx, userCred, data, lblis, backendGroup)
 }
 
-func (self *SHuaWeiRegionDriver) createCachedLbbg(lb *models.SLoadbalancer, lblis *models.SLoadbalancerListener, lbr *models.SLoadbalancerListenerRule, lbbg *models.SLoadbalancerBackendGroup) (*models.SHuaweiCachedLbbg, error) {
+func (self *SHuaWeiRegionDriver) createCachedLbbg(ctx context.Context, lb *models.SLoadbalancer, lblis *models.SLoadbalancerListener, lbr *models.SLoadbalancerListenerRule, lbbg *models.SLoadbalancerBackendGroup) (*models.SHuaweiCachedLbbg, error) {
 	// create loadbalancer backendgroup cache
 	cachedLbbg := &models.SHuaweiCachedLbbg{}
-	cachedLbbg.ManagerId = lb.ManagerId
-	cachedLbbg.CloudregionId = lb.CloudregionId
+	cachedLbbg.ManagerId = lb.GetCloudproviderId()
+	cachedLbbg.CloudregionId = lb.GetRegionId()
 	cachedLbbg.LoadbalancerId = lb.GetId()
 	cachedLbbg.BackendGroupId = lbbg.GetId()
 	if lbr != nil {
@@ -577,7 +600,7 @@ func (self *SHuaWeiRegionDriver) createCachedLbbg(lb *models.SLoadbalancer, lbli
 		cachedLbbg.ProtocolType = lblis.ListenerType
 	}
 
-	err := models.HuaweiCachedLbbgManager.TableSpec().Insert(cachedLbbg)
+	err := models.HuaweiCachedLbbgManager.TableSpec().Insert(ctx, cachedLbbg)
 	if err != nil {
 		return nil, err
 	}
@@ -649,7 +672,7 @@ func (self *SHuaWeiRegionDriver) createLoadbalancerBackendGroup(ctx context.Cont
 		return nil, err
 	}
 
-	cachedLbbg, err := self.createCachedLbbg(lb, lblis, lbr, lbbg)
+	cachedLbbg, err := self.createCachedLbbg(ctx, lb, lblis, lbr, lbbg)
 	if err != nil {
 		return nil, errors.Wrap(err, "HuaWeiRegionDriver.createLoadbalancerBackendGroupCache")
 	}
@@ -862,8 +885,14 @@ func (self *SHuaWeiRegionDriver) removeCachedLbbg(ctx context.Context, userCred 
 	return nil
 }
 
-func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, lbbg *models.SLoadbalancerBackendGroup, task taskman.ITask) error {
+func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		lbbg := lblis.GetLoadbalancerBackendGroup()
+		if lbbg == nil {
+			err := fmt.Errorf("failed to find lbbg for lblis %s", lblis.Name)
+			return nil, errors.Wrap(err, "HuaWeiRegionDriver.RequestSyncLoadbalancerbackendGroup.GetLoadbalancerBackendGroup")
+		}
+
 		iRegion, err := lbbg.GetIRegion()
 		if err != nil {
 			return nil, err
@@ -945,7 +974,7 @@ func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context
 
 			// case 2：新绑定,创建本地缓存
 			if olbbg == nil && nlbbg == nil && rlbbg != nil {
-				cachedLbbg, err := self.createCachedLbbg(lb, lblis, nil, lbbg)
+				cachedLbbg, err := self.createCachedLbbg(ctx, lb, lblis, nil, lbbg)
 				if err != nil {
 					return nil, errors.Wrap(err, "HuaWeiRegionDriver.Sync.Case2.createCachedLbbg")
 				}
@@ -1136,12 +1165,12 @@ func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context
 			return nil, errors.Wrap(err, "HuaWeiRegionDriver.Sync.GetILoadBalancerBackendGroupById")
 		}
 
-		err = ilbbg.Sync(groupInput)
+		err = ilbbg.Sync(ctx, groupInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "HuaWeiRegionDriver.Sync.LoadbalancerBackendGroup")
 		}
 
-		if err := cachedLbbg.SyncWithCloudLoadbalancerBackendgroup(ctx, task.GetUserCred(), lb, ilbbg, lb.GetOwnerId()); err != nil {
+		if err := cachedLbbg.SyncWithCloudLoadbalancerBackendgroup(ctx, task.GetUserCred(), lb, ilbbg, lb.GetOwnerId(), lb.GetCloudprovider()); err != nil {
 			return nil, errors.Wrap(err, "HuaWeiRegionDriver.Sync.SyncWithCloudLoadbalancerBackendgroup")
 		}
 
@@ -1165,7 +1194,7 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 		{
 			certId, _ := task.GetParams().GetString("certificate_id")
 			if len(certId) > 0 {
-				provider := models.CloudproviderManager.FetchCloudproviderById(lblis.ManagerId)
+				provider := lblis.GetCloudprovider()
 				if provider == nil {
 					return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
 				}
@@ -1213,7 +1242,7 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 		if err != nil {
 			return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListener.GetILoadBalancerById")
 		}
-		iListener, err := iLoadbalancer.CreateILoadBalancerListener(params)
+		iListener, err := iLoadbalancer.CreateILoadBalancerListener(ctx, params)
 		if err != nil {
 			return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListener.CreateILoadBalancerListener")
 		}
@@ -1226,7 +1255,7 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 		{
 			aclId, _ := task.GetParams().GetString("acl_id")
 			if len(aclId) > 0 {
-				provider := models.CloudproviderManager.FetchCloudproviderById(lblis.ManagerId)
+				provider := lblis.GetCloudprovider()
 				if provider == nil {
 					return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
 				}
@@ -1258,7 +1287,7 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 			}
 		}
 
-		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, loadbalancer.GetOwnerId())
+		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, loadbalancer.GetOwnerId(), loadbalancer.GetCloudprovider())
 	})
 	return nil
 }
@@ -1310,7 +1339,7 @@ func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerListener(ctx context.Con
 		{
 			certId, _ := task.GetParams().GetString("certificate_id")
 			if len(certId) > 0 {
-				provider := models.CloudproviderManager.FetchCloudproviderById(lblis.ManagerId)
+				provider := lblis.GetCloudprovider()
 				if provider == nil {
 					return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
 				}
@@ -1362,14 +1391,14 @@ func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerListener(ctx context.Con
 		if err != nil {
 			return nil, err
 		}
-		if err := iListener.Sync(params); err != nil {
+		if err := iListener.Sync(ctx, params); err != nil {
 			return nil, err
 		}
 
 		{
 			aclId, _ := task.GetParams().GetString("acl_id")
 			if len(aclId) > 0 {
-				provider := models.CloudproviderManager.FetchCloudproviderById(lblis.ManagerId)
+				provider := lblis.GetCloudprovider()
 				if provider == nil {
 					return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
 				}
@@ -1415,7 +1444,7 @@ func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerListener(ctx context.Con
 		if err := iListener.Refresh(); err != nil {
 			return nil, err
 		}
-		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, lblis.GetOwnerId())
+		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, lblis.GetOwnerId(), lblis.GetCloudprovider())
 	})
 	return nil
 }
@@ -1423,7 +1452,7 @@ func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerListener(ctx context.Con
 func deleteHuaweiLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, ilb cloudprovider.ICloudLoadbalancer, irule cloudprovider.ICloudLoadbalancerListenerRule) error {
 	err := irule.Refresh()
 	if err != nil {
-		if err == cloudprovider.ErrNotFound {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			return nil
 		}
 
@@ -1432,7 +1461,7 @@ func deleteHuaweiLoadbalancerListenerRule(ctx context.Context, userCred mcclient
 
 	lbbgId := irule.GetBackendGroupId()
 
-	err = irule.Delete()
+	err = irule.Delete(ctx)
 	if err != nil && err != cloudprovider.ErrNotFound {
 		return errors.Wrap(err, "HuaWeiRegionDriver.Rule.Delete")
 	}
@@ -1441,7 +1470,7 @@ func deleteHuaweiLoadbalancerListenerRule(ctx context.Context, userCred mcclient
 	if len(lbbgId) > 0 {
 		ilbbg, err := ilb.GetILoadBalancerBackendGroupById(lbbgId)
 		if err != nil {
-			if err == cloudprovider.ErrNotFound {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return nil
 			}
 
@@ -1460,7 +1489,7 @@ func deleteHuaweiLoadbalancerListenerRule(ctx context.Context, userCred mcclient
 func deleteHuaweiLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, ilb cloudprovider.ICloudLoadbalancer, ilbbg cloudprovider.ICloudLoadbalancerBackendGroup) error {
 	err := ilbbg.Refresh()
 	if err != nil {
-		if err == cloudprovider.ErrNotFound {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			return nil
 		}
 
@@ -1480,7 +1509,7 @@ func deleteHuaweiLoadbalancerBackendGroup(ctx context.Context, userCred mcclient
 		}
 	}
 
-	err = ilbbg.Delete()
+	err = ilbbg.Delete(ctx)
 	if err != nil && err != cloudprovider.ErrNotFound {
 		return errors.Wrap(err, "HuaWeiRegionDriver.BackendGroup.Delete")
 	}
@@ -1607,7 +1636,7 @@ func (self *SHuaWeiRegionDriver) RequestDeleteLoadbalancerListener(ctx context.C
 
 		iLoadbalancer, err := iRegion.GetILoadBalancerById(loadbalancer.ExternalId)
 		if err != nil {
-			if err == cloudprovider.ErrNotFound {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return nil, nil
 			}
 
@@ -1615,7 +1644,7 @@ func (self *SHuaWeiRegionDriver) RequestDeleteLoadbalancerListener(ctx context.C
 		}
 		iListener, err := iLoadbalancer.GetILoadBalancerListenerById(lblis.ExternalId)
 		if err != nil {
-			if err == cloudprovider.ErrNotFound {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return nil, nil
 			}
 			return nil, err
@@ -1630,7 +1659,7 @@ func (self *SHuaWeiRegionDriver) RequestDeleteLoadbalancerListener(ctx context.C
 			}
 
 			params.BackendGroupID = ""
-			err = iListener.Sync(params)
+			err = iListener.Sync(ctx, params)
 			if err != nil {
 				return nil, err
 			} else {
@@ -1702,7 +1731,7 @@ func (self *SHuaWeiRegionDriver) RequestDeleteLoadbalancerListener(ctx context.C
 			}
 		}
 
-		return nil, iListener.Delete()
+		return nil, iListener.Delete(ctx)
 	})
 	return nil
 }
@@ -1722,7 +1751,7 @@ func (self *SHuaWeiRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx conte
 		}
 		iLoadbalancer, err := iRegion.GetILoadBalancerById(loadbalancer.ExternalId)
 		if err != nil {
-			if err == cloudprovider.ErrNotFound {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return nil, nil
 			}
 
@@ -1741,7 +1770,7 @@ func (self *SHuaWeiRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx conte
 
 			iLoadbalancerBackendGroup, err := iLoadbalancer.GetILoadBalancerBackendGroupById(cachedLbbg.ExternalId)
 			if err != nil {
-				if err == cloudprovider.ErrNotFound {
+				if errors.Cause(err) == cloudprovider.ErrNotFound {
 					if err := deleteHuaweiCachedLbbg(ctx, userCred, cachedLbbg.AssociatedId); err != nil {
 						return nil, errors.Wrap(err, "huaweiRegionDriver.RequestDeleteLoadbalancerBackendGroup.deleteHuaweiCachedLbbg")
 					}
@@ -1774,7 +1803,7 @@ func (self *SHuaWeiRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx conte
 				}
 			}
 
-			err = iLoadbalancerBackendGroup.Delete()
+			err = iLoadbalancerBackendGroup.Delete(ctx)
 			if err != nil {
 				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestDeleteLoadbalancerBackendGroup.Delete")
 			}
@@ -1845,20 +1874,20 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancer(ctx context.Context, 
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		iRegion, err := lb.GetIRegion()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.GetIRegion")
 		}
 		params, err := lb.GetCreateLoadbalancerParams(iRegion)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.GetCreateLoadbalancerParams")
 		}
 		iLoadbalancer, err := iRegion.CreateILoadBalancer(params)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.CreateILoadBalancer")
 		}
 
 		lb.SetModelManager(models.LoadbalancerManager, lb)
 		if err := db.SetExternalId(lb, userCred, iLoadbalancer.GetGlobalId()); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.SetExternalId")
 		}
 
 		{
@@ -1867,32 +1896,39 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancer(ctx context.Context, 
 			if len(eipId) > 0 {
 				ieip, err := iRegion.GetIEipById(eipId)
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.GetIEipById")
 				}
 
-				err = ieip.Associate(iLoadbalancer.GetGlobalId())
-				if err != nil {
-					return nil, err
+				conf := &cloudprovider.AssociateConfig{
+					InstanceId:    iLoadbalancer.GetGlobalId(),
+					AssociateType: api.EIP_ASSOCIATE_TYPE_LOADBALANCER,
 				}
 
-				eip, err := db.FetchByExternalId(models.ElasticipManager, ieip.GetGlobalId())
+				err = ieip.Associate(conf)
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.Associate")
+				}
+
+				eip, err := db.FetchByExternalIdAndManagerId(models.ElasticipManager, ieip.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+					return q.Equals("manager_id", lb.MarkUnDelete)
+				})
+				if err != nil {
+					return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.FetchByExternalId")
 				}
 
 				err = eip.(*models.SElasticip).SyncWithCloudEip(ctx, userCred, lb.GetCloudprovider(), ieip, lb.GetOwnerId())
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.SyncWithCloudEip")
 				}
 			}
 		}
 
-		if err := lb.SyncWithCloudLoadbalancer(ctx, userCred, iLoadbalancer, nil); err != nil {
-			return nil, err
+		if err := lb.SyncWithCloudLoadbalancer(ctx, userCred, iLoadbalancer, nil, lb.GetCloudprovider()); err != nil {
+			return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.SyncWithCloudLoadbalancer")
 		}
 		lbbgs, err := iLoadbalancer.GetILoadBalancerBackendGroups()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.GetILoadBalancerBackendGroups")
 		}
 		if len(lbbgs) > 0 {
 			provider := lb.GetCloudprovider()
@@ -1961,7 +1997,7 @@ func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerBackend(ctx context.Cont
 				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestSyncLoadbalancerBackend.GetILoadbalancerBackendById")
 			}
 
-			err = iBackend.SyncConf(lbb.Port, lbb.Weight)
+			err = iBackend.SyncConf(ctx, lbb.Port, lbb.Weight)
 			if err != nil {
 				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestSyncLoadbalancerBackend.SyncConf")
 			}
@@ -1971,7 +2007,7 @@ func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerBackend(ctx context.Cont
 				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestSyncLoadbalancerBackend.GetILoadbalancerBackendById")
 			}
 
-			err = cachedlbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, iBackend, nil)
+			err = cachedlbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, iBackend, lbb.GetOwnerId())
 			if err != nil {
 				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestSyncLoadbalancerBackend.SyncWithCloudLoadbalancerBackend")
 			}
@@ -2007,7 +2043,7 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Co
 		for _, cachedLbbg := range cachedlbbgs {
 			iLoadbalancerBackendGroup, err := cachedLbbg.GetICloudLoadbalancerBackendGroup()
 			if err != nil {
-				if err == cloudprovider.ErrNotFound {
+				if errors.Cause(err) == cloudprovider.ErrNotFound {
 					if err := deleteHuaweiCachedLbbg(ctx, userCred, cachedLbbg.AssociatedId); err != nil {
 						return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerBackend.deleteHuaweiCachedLbbg")
 					}
@@ -2030,7 +2066,7 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Co
 		}
 
 		if ibackend != nil {
-			if err := lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, ibackend, nil); err != nil {
+			if err := lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, ibackend, lbbg.GetOwnerId(), lb.GetCloudprovider()); err != nil {
 				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerBackend.SyncWithCloudLoadbalancerBackend")
 			}
 		}
@@ -2093,7 +2129,7 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListenerRule(ctx conte
 		if err := db.SetExternalId(lbr, userCred, iListenerRule.GetGlobalId()); err != nil {
 			return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListenerRule.SetExternalId")
 		}
-		return nil, lbr.SyncWithCloudLoadbalancerListenerRule(ctx, userCred, iListenerRule, nil)
+		return nil, lbr.SyncWithCloudLoadbalancerListenerRule(ctx, userCred, iListenerRule, listener.GetOwnerId(), loadbalancer.GetCloudprovider())
 	})
 	return nil
 }
@@ -2113,48 +2149,43 @@ func (self *SHuaWeiRegionDriver) DealNatGatewaySpec(spec string) string {
 	return ""
 }
 
-func (self *SHuaWeiRegionDriver) IsSecurityGroupBelongVpc() bool {
-	return true
-}
-
-func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.SDBInstanceCreateInput, skus []models.SDBInstanceSku, network *models.SNetwork) (*api.SDBInstanceCreateInput, error) {
+func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.DBInstanceCreateInput, skus []models.SDBInstanceSku, network *models.SNetwork) (api.DBInstanceCreateInput, error) {
 	if len(input.MasterInstanceId) > 0 && input.Engine == api.DBINSTANCE_TYPE_SQLSERVER {
-		return nil, httperrors.NewInputParameterError("Not support create read-only dbinstance for %s", input.Engine)
+		return input, httperrors.NewInputParameterError("Not support create read-only dbinstance for %s", input.Engine)
 	}
 
 	if len(input.Name) < 4 || len(input.Name) > 64 {
-		return nil, httperrors.NewInputParameterError("Huawei dbinstance name length shoud be 4~64 characters")
+		return input, httperrors.NewInputParameterError("Huawei dbinstance name length shoud be 4~64 characters")
 	}
 
 	if input.DiskSizeGB < 40 || input.DiskSizeGB > 4000 {
-		return nil, httperrors.NewInputParameterError("%s require disk size must in 40 ~ 4000 GB", self.GetProvider())
+		return input, httperrors.NewInputParameterError("%s require disk size must in 40 ~ 4000 GB", self.GetProvider())
 	}
 
 	if input.DiskSizeGB%10 > 0 {
-		return nil, httperrors.NewInputParameterError("The disk_size_gb must be an integer multiple of 10")
+		return input, httperrors.NewInputParameterError("The disk_size_gb must be an integer multiple of 10")
+	}
+
+	if len(input.Password) == 0 {
+		return input, httperrors.NewMissingParameterError("password")
 	}
 
 	return input, nil
 }
 
-func (self *SHuaWeiRegionDriver) InitDBInstanceUser(instance *models.SDBInstance, task taskman.ITask, desc *cloudprovider.SManagedDBInstanceCreateConfig) error {
-	if len(desc.Password) == 0 {
-		desc.Password = seclib2.RandomPassword2(12)
-	}
-
+func (self *SHuaWeiRegionDriver) InitDBInstanceUser(ctx context.Context, instance *models.SDBInstance, task taskman.ITask, desc *cloudprovider.SManagedDBInstanceCreateConfig) error {
 	user := "root"
 	if desc.Engine == api.DBINSTANCE_TYPE_SQLSERVER {
 		user = "rdsuser"
 	}
 
-	account := models.SDBInstanceAccount{
-		DBInstanceId: instance.Id,
-	}
+	account := models.SDBInstanceAccount{}
+	account.DBInstanceId = instance.Id
 	account.Name = user
 	account.Status = api.DBINSTANCE_USER_AVAILABLE
 	account.ExternalId = user
 	account.SetModelManager(models.DBInstanceAccountManager, &account)
-	err := models.DBInstanceAccountManager.TableSpec().Insert(&account)
+	err := models.DBInstanceAccountManager.TableSpec().Insert(ctx, &account)
 	if err != nil {
 		return err
 	}
@@ -2174,27 +2205,35 @@ func (self *SHuaWeiRegionDriver) IsSupportedBillingCycle(bc billing.SBillingCycl
 	return false
 }
 
-func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input *api.SDBInstanceAccountCreateInput) (*api.SDBInstanceAccountCreateInput, error) {
+func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceAccountCreateInput) (api.DBInstanceAccountCreateInput, error) {
 	if utils.IsInStringArray(instance.Engine, []string{api.DBINSTANCE_TYPE_POSTGRESQL, api.DBINSTANCE_TYPE_SQLSERVER}) {
-		return nil, httperrors.NewInputParameterError("Not support create account for huawei cloud %s instance", instance.Engine)
+		return input, httperrors.NewInputParameterError("Not support create account for huawei cloud %s instance", instance.Engine)
+	}
+	if len(input.Name) == len(input.Password) {
+		for i := range input.Name {
+			if input.Name[i] != input.Password[len(input.Password)-i-1] {
+				return input, nil
+			}
+		}
+		return input, httperrors.NewInputParameterError("Huawei rds password cannot be in the same reverse order as the account")
 	}
 	return input, nil
 }
 
-func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceDatabaseData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input *api.SDBInstanceDatabaseCreateInput) (*api.SDBInstanceDatabaseCreateInput, error) {
+func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceDatabaseData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceDatabaseCreateInput) (api.DBInstanceDatabaseCreateInput, error) {
 	if utils.IsInStringArray(instance.Engine, []string{api.DBINSTANCE_TYPE_POSTGRESQL, api.DBINSTANCE_TYPE_SQLSERVER}) {
-		return nil, httperrors.NewInputParameterError("Not support create database for huawei cloud %s instance", instance.Engine)
+		return input, httperrors.NewInputParameterError("Not support create database for huawei cloud %s instance", instance.Engine)
 	}
 	return input, nil
 }
 
-func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceBackupData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input *api.SDBInstanceBackupCreateInput) (*api.SDBInstanceBackupCreateInput, error) {
+func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceBackupData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceBackupCreateInput) (api.DBInstanceBackupCreateInput, error) {
 	if len(input.Name) < 4 || len(input.Name) > 64 {
-		return nil, httperrors.NewInputParameterError("Huawei DBInstance backup name length shoud be 4~64 characters")
+		return input, httperrors.NewInputParameterError("Huawei DBInstance backup name length shoud be 4~64 characters")
 	}
 
 	if len(input.Databases) > 0 && instance.Engine != api.DBINSTANCE_TYPE_SQLSERVER {
-		return nil, httperrors.NewInputParameterError("Huawei only supports specified databases with %s", api.DBINSTANCE_TYPE_SQLSERVER)
+		return input, httperrors.NewInputParameterError("Huawei only supports specified databases with %s", api.DBINSTANCE_TYPE_SQLSERVER)
 	}
 
 	return input, nil
@@ -2232,6 +2271,28 @@ func (self *SHuaWeiRegionDriver) ValidateDBInstanceAccountPrivilege(ctx context.
 	}
 	if !utils.IsInStringArray(privilege, []string{api.DATABASE_PRIVILEGE_RW, api.DATABASE_PRIVILEGE_R}) {
 		return httperrors.NewInputParameterError("Unknown privilege %s", privilege)
+	}
+	return nil
+}
+
+// https://support.huaweicloud.com/api-rds/rds_09_0009.html
+func (self *SHuaWeiRegionDriver) ValidateDBInstanceRecovery(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, backup *models.SDBInstanceBackup, input api.SDBInstanceRecoveryConfigInput) error {
+	if backup.Engine == api.DBINSTANCE_TYPE_POSTGRESQL {
+		return httperrors.NewNotSupportedError("%s not support recovery", backup.Engine)
+	}
+	if backup.DBInstanceId == instance.Id && instance.Engine != api.DBINSTANCE_TYPE_SQLSERVER {
+		return httperrors.NewNotSupportedError("Huawei %s rds not support recovery from it self rds backup", instance.Engine)
+	}
+	if len(input.Databases) > 0 {
+		if instance.Engine != api.DBINSTANCE_TYPE_SQLSERVER {
+			return httperrors.NewInputParameterError("Huawei only %s engine support databases recovery", instance.Engine)
+		}
+		invalidDbs := []string{"rdsadmin", "master", "msdb", "tempdb", "model"}
+		for _, db := range input.Databases {
+			if utils.IsInStringArray(strings.ToLower(db), invalidDbs) {
+				return httperrors.NewInputParameterError("New databases name can not be one of %s", invalidDbs)
+			}
+		}
 	}
 	return nil
 }
@@ -2411,12 +2472,10 @@ func (self *SHuaWeiRegionDriver) RequestCreateElasticcache(ctx context.Context, 
 			return nil, errors.Wrap(err, "huaweiRegionDriver.CreateElasticcache.GetIRegion")
 		}
 
-		iprovider, err := db.FetchById(models.CloudproviderManager, ec.ManagerId)
-		if err != nil {
-			return nil, errors.Wrap(err, "huaweiRegionDriver.CreateElasticcache.GetProvider")
+		provider := ec.GetCloudprovider()
+		if provider == nil {
+			return nil, errors.Wrap(httperrors.ErrInvalidStatus, "huaweiRegionDriver.CreateElasticcache.GetProvider")
 		}
-
-		provider := iprovider.(*models.SCloudprovider)
 
 		params, err := ec.GetCreateHuaweiElasticcacheParams(task.GetParams())
 		if err != nil {
@@ -2511,7 +2570,7 @@ func (self *SHuaWeiRegionDriver) RequestElasticcacheAccountResetPassword(ctx con
 
 	ec := _ec.(*models.SElasticcache)
 	iec, err := iregion.GetIElasticcacheById(ec.GetExternalId())
-	if err == cloudprovider.ErrNotFound {
+	if errors.Cause(err) == cloudprovider.ErrNotFound {
 		return nil
 	} else if err != nil {
 		return errors.Wrap(err, "huaweiRegionDriver.RequestElasticcacheAccountResetPassword.GetIElasticcacheById")
@@ -2568,5 +2627,13 @@ func (self *SHuaWeiRegionDriver) IsSupportedDBInstance() bool {
 }
 
 func (self *SHuaWeiRegionDriver) IsSupportedElasticcache() bool {
+	return true
+}
+
+func (self *SHuaWeiRegionDriver) GetBackendStatusForAdd() []string {
+	return []string{api.VM_RUNNING, api.VM_READY}
+}
+
+func (self *SHuaWeiRegionDriver) IsDBInstanceNeedSecgroup() bool {
 	return true
 }

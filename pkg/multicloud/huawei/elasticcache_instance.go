@@ -98,6 +98,10 @@ func (self *SElasticcache) GetGlobalId() string {
 	return self.GetId()
 }
 
+func (self *SElasticcache) GetProjectId() string {
+	return self.EnterpriseProjectID
+}
+
 func (self *SElasticcache) Refresh() error {
 	cache, err := self.region.GetElasticCache(self.GetId())
 	if err != nil {
@@ -200,7 +204,12 @@ func (self *SElasticcache) GetArchType() string {
 }
 
 func (self *SElasticcache) GetNodeType() string {
-	return ""
+	// single（单副本） | double（双副本)
+	if strings.Contains(self.ResourceSpecCode, "single") {
+		return "single"
+	} else {
+		return "double"
+	}
 }
 
 func (self *SElasticcache) GetEngine() string {
@@ -438,6 +447,10 @@ func (self *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheIn
 		return nil, err
 	}
 	params.Set("available_zones", jsonutils.NewStringArray(zones))
+
+	if len(ec.ProjectId) > 0 {
+		params.Set("enterprise_project_id", jsonutils.NewString(ec.ProjectId))
+	}
 
 	if len(ec.Password) > 0 {
 		params.Set("no_password_access", jsonutils.NewString("false"))

@@ -54,40 +54,40 @@ func (self *GuestChangeConfigTask) OnDisksResizeComplete(ctx context.Context, ob
 
 	iResizeDisks, err := self.Params.Get("resize")
 	if iResizeDisks == nil || err != nil {
-		self.markStageFailed(ctx, guest, err.Error())
+		self.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
 	resizeDisks := iResizeDisks.(*jsonutils.JSONArray)
 	for i := 0; i < resizeDisks.Length(); i++ {
 		iResizeSet, err := resizeDisks.GetAt(i)
 		if err != nil {
-			self.markStageFailed(ctx, guest, fmt.Sprintf("resizeDisks.GetAt fail %s", err))
+			self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("resizeDisks.GetAt fail %s", err)))
 			return
 		}
 		resizeSet := iResizeSet.(*jsonutils.JSONArray)
 		diskId, err := resizeSet.GetAt(0)
 		if err != nil {
-			self.markStageFailed(ctx, guest, fmt.Sprintf("resizeSet.GetAt(0) fail %s", err))
+			self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("resizeSet.GetAt(0) fail %s", err)))
 			return
 		}
 		idStr, err := diskId.GetString()
 		if err != nil {
-			self.markStageFailed(ctx, guest, fmt.Sprintf("diskId.GetString fail %s", err))
+			self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("diskId.GetString fail %s", err)))
 			return
 		}
 		jSize, err := resizeSet.GetAt(1)
 		if err != nil {
-			self.markStageFailed(ctx, guest, fmt.Sprintf("resizeSet.GetAt(1) fail %s", err))
+			self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("resizeSet.GetAt(1) fail %s", err)))
 			return
 		}
 		size, err := jSize.Int()
 		if err != nil {
-			self.markStageFailed(ctx, guest, fmt.Sprintf("jSize.Int fail %s", err))
+			self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("jSize.Int fail %s", err)))
 			return
 		}
 		iDisk, err := models.DiskManager.FetchById(idStr)
 		if err != nil {
-			self.markStageFailed(ctx, guest, fmt.Sprintf("models.DiskManager.FetchById(idStr) fail %s", err))
+			self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("models.DiskManager.FetchById(idStr) fail %s", err)))
 			return
 		}
 		disk := iDisk.(*models.SDisk)
@@ -95,12 +95,12 @@ func (self *GuestChangeConfigTask) OnDisksResizeComplete(ctx context.Context, ob
 			var pendingUsage models.SQuota
 			err = self.GetPendingUsage(&pendingUsage, 0)
 			if err != nil {
-				self.markStageFailed(ctx, guest, fmt.Sprintf("self.GetPendingUsage(&pendingUsage) fail %s", err))
+				self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("self.GetPendingUsage(&pendingUsage) fail %s", err)))
 				return
 			}
 			err = guest.StartGuestDiskResizeTask(ctx, self.UserCred, disk.Id, size, self.GetTaskId(), &pendingUsage)
 			if err != nil {
-				self.markStageFailed(ctx, guest, fmt.Sprintf("guest.StartGuestDiskResizeTask fail %s", err))
+				self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("guest.StartGuestDiskResizeTask fail %s", err)))
 				return
 			}
 			return
@@ -123,7 +123,7 @@ func (self *GuestChangeConfigTask) DoCreateDisksTask(ctx context.Context, guest 
 
 func (self *GuestChangeConfigTask) OnCreateDisksCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	self.markStageFailed(ctx, guest, fmt.Sprintf("OnCreateDisksCompleteFailed %s", err))
+	self.markStageFailed(ctx, guest, err)
 }
 
 func (self *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -138,7 +138,7 @@ func (self *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, ob
 			provider := guest.GetDriver().GetProvider()
 			sku, err := models.ServerSkuManager.FetchSkuByNameAndProvider(instanceType, provider, false)
 			if err != nil {
-				self.markStageFailed(ctx, guest, fmt.Sprintf("models.ServerSkuManager.FetchSkuByNameAndProvider error %s", err))
+				self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("models.ServerSkuManager.FetchSkuByNameAndProvider error %s", err)))
 				return
 			}
 			vcpuCount = int64(sku.CpuCoreCount)
@@ -160,7 +160,7 @@ func (self *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, ob
 func (self *GuestChangeConfigTask) startGuestChangeCpuMemSpec(ctx context.Context, guest *models.SGuest, instanceType string, vcpuCount int64, vmemSize int64) {
 	err := guest.GetDriver().RequestChangeVmConfig(ctx, guest, self, instanceType, vcpuCount, vmemSize)
 	if err != nil {
-		self.markStageFailed(ctx, guest, fmt.Sprintf("guest.GetDriver().RequestChangeVmConfig fail %s", err))
+		self.markStageFailed(ctx, guest, jsonutils.Marshal(err))
 		return
 	}
 }
@@ -195,14 +195,14 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 		return nil
 	})
 	if err != nil {
-		self.markStageFailed(ctx, guest, fmt.Sprintf("Update fail %s", err))
+		self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("Update fail %s", err)))
 		return
 	}
 	changeConfigSpec := jsonutils.NewDict()
-	if addCpu != 0 {
+	if vcpuCount > 0 && addCpu != 0 {
 		changeConfigSpec.Set("add_cpu", jsonutils.NewInt(int64(addCpu)))
 	}
-	if addMem != 0 {
+	if vmemSize > 0 && addMem != 0 {
 		changeConfigSpec.Set("add_mem", jsonutils.NewInt(int64(addMem)))
 	}
 	if len(instanceType) > 0 {
@@ -214,7 +214,7 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 	var pendingUsage models.SQuota
 	err = self.GetPendingUsage(&pendingUsage, 0)
 	if err != nil {
-		self.markStageFailed(ctx, guest, fmt.Sprintf("GetPendingUsage %s", err))
+		self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("GetPendingUsage %s", err)))
 		return
 	}
 	var cancelUsage models.SQuota
@@ -232,7 +232,7 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 
 	keys, err := guest.GetQuotaKeys()
 	if err != nil {
-		self.markStageFailed(ctx, guest, fmt.Sprintf("guest.GetQuotaKeys %s", err))
+		self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("guest.GetQuotaKeys %s", err)))
 		return
 	}
 	cancelUsage.SetKeys(keys)
@@ -242,14 +242,14 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 	defer lockman.ReleaseClass(ctx, guest.GetModelManager(), guest.ProjectId)
 
 	if !cancelUsage.IsEmpty() {
-		err = quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &cancelUsage)
+		err = quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &cancelUsage, true) // success
 		if err != nil {
-			self.markStageFailed(ctx, guest, fmt.Sprintf("CancelPendingUsage fail %s", err))
+			self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("CancelPendingUsage fail %s", err)))
 			return
 		}
 		err = self.SetPendingUsage(&pendingUsage, 0)
 		if err != nil {
-			self.markStageFailed(ctx, guest, fmt.Sprintf("SetPendingUsage fail %s", err))
+			self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("SetPendingUsage fail %s", err)))
 			return
 		}
 	}
@@ -265,7 +265,7 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecCompleteFailed(ctx con
 	if err := guest.GetDriver().OnGuestChangeCpuMemFailed(ctx, guest, data.(*jsonutils.JSONDict), self); err != nil {
 		log.Errorln(err)
 	}
-	self.markStageFailed(ctx, guest, fmt.Sprintf("guest.GetDriver().RequestChangeVmConfig fail %s", data))
+	self.markStageFailed(ctx, guest, data)
 }
 
 func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecFinish(ctx context.Context, guest *models.SGuest) {
@@ -273,7 +273,7 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecFinish(ctx context.Con
 	self.SetStage("OnSyncConfigComplete", nil)
 	err := guest.StartSyncTaskWithoutSyncstatus(ctx, self.UserCred, false, self.GetTaskId())
 	if err != nil {
-		self.markStageFailed(ctx, guest, fmt.Sprintf("StartSyncstatus fail %s", err))
+		self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("StartSyncstatus fail %s", err)))
 		return
 	}
 }
@@ -284,7 +284,7 @@ func (self *GuestChangeConfigTask) OnSyncConfigComplete(ctx context.Context, obj
 	self.SetStage("on_sync_status_complete", nil)
 	err := guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
 	if err != nil {
-		self.markStageFailed(ctx, guest, fmt.Sprintf("StartSyncstatus fail %s", err))
+		self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("StartSyncstatus fail %s", err)))
 		return
 	}
 }
@@ -310,11 +310,11 @@ func (self *GuestChangeConfigTask) OnGuestStartComplete(ctx context.Context, obj
 }
 
 func (self *GuestChangeConfigTask) OnGuestStartCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, data.String())
+	self.SetStageFailed(ctx, data)
 }
 
-func (self *GuestChangeConfigTask) markStageFailed(ctx context.Context, guest *models.SGuest, reason string) {
-	guest.SetStatus(self.UserCred, api.VM_CHANGE_FLAVOR_FAIL, reason)
+func (self *GuestChangeConfigTask) markStageFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
+	guest.SetStatus(self.UserCred, api.VM_CHANGE_FLAVOR_FAIL, reason.String())
 	db.OpsLog.LogEvent(guest, db.ACT_CHANGE_FLAVOR_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_CHANGE_FLAVOR, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)

@@ -21,14 +21,28 @@ import (
 
 func init() {
 	type PortListOptions struct {
-		MacAddr string
+		MacAddr  string
+		DeviceId string
 	}
 	shellutils.R(&PortListOptions{}, "port-list", "List ports", func(cli *openstack.SRegion, args *PortListOptions) error {
-		ports, err := cli.GetPorts(args.MacAddr)
+		ports, err := cli.GetPorts(args.MacAddr, args.DeviceId)
 		if err != nil {
 			return err
 		}
 		printList(ports, 0, 0, 0, nil)
+		return nil
+	})
+
+	type PortIdOptions struct {
+		ID string
+	}
+
+	shellutils.R(&PortIdOptions{}, "port-show", "Show port", func(cli *openstack.SRegion, args *PortIdOptions) error {
+		port, err := cli.GetPort(args.ID)
+		if err != nil {
+			return err
+		}
+		printObject(port)
 		return nil
 	})
 

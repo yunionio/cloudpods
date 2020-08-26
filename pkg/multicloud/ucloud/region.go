@@ -16,8 +16,6 @@ package ucloud
 
 import (
 	"fmt"
-	"net"
-	"sort"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -202,8 +200,8 @@ func (self *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICl
 	return self.GetSecurityGroupById(secgroupId)
 }
 
-func (self *SRegion) GetISecurityGroupByName(vpcId string, name string) (cloudprovider.ICloudSecurityGroup, error) {
-	secgroups, err := self.GetSecurityGroups("", "", name)
+func (self *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
+	secgroups, err := self.GetSecurityGroups("", "", opts.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -227,41 +225,6 @@ func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreat
 // https://docs.ucloud.cn/api/unet-api/describe_firewall
 // 绑定防火墙组的资源类型，默认为全部资源类型。枚举值为："unatgw"，NAT网关； "uhost"，云主机； "upm"，物理云主机； "hadoophost"，hadoop节点； "fortresshost"，堡垒机； "udhost"，私有专区主机；"udockhost"，容器；"dbaudit"，数据库审计.
 // todo: 是否需要过滤出仅绑定云主机的安全组？
-func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
-	if len(secgroupId) > 0 {
-		_, err := self.GetSecurityGroupById(secgroupId)
-		if err == cloudprovider.ErrNotFound {
-			secgroupId = ""
-		} else if err != nil {
-			return "", err
-		}
-	}
-
-	if len(secgroupId) == 0 {
-		extID, err := self.CreateDefaultSecurityGroup(name, desc)
-		if err != nil {
-			return "", err
-		}
-		secgroupId = extID
-	}
-
-	// 如果是空规则，onecloud。默认拒绝所有流量
-	if len(rules) == 0 {
-		_, IpNet, _ := net.ParseCIDR("0.0.0.0/0")
-		rules = []secrules.SecurityRule{{
-			Priority:    0,
-			Action:      secrules.SecurityRuleDeny,
-			IPNet:       IpNet,
-			Protocol:    secrules.PROTO_ANY,
-			Direction:   secrules.SecurityRuleIngress,
-			PortStart:   0,
-			PortEnd:     0,
-			Ports:       nil,
-			Description: "",
-		}}
-	}
-	return secgroupId, self.syncSecgroupRules(secgroupId, rules)
-}
 
 func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
 	params := NewUcloudParams()
@@ -561,49 +524,9 @@ func (self *SRegion) GetInstanceByID(instanceId string) (SInstance, error) {
 	}
 }
 
-func inList(s int, lst []int) bool {
-	for _, e := range lst {
-		if s == e {
-			return true
-		}
-	}
-
-	return false
-}
-
-func toUcloudSecurityRules(rules []secrules.SecurityRule) ([]string, error) {
-	ps := make([]int, 0)
-	for _, rule := range rules {
-		if rule.Direction == secrules.SecurityRuleIngress && !inList(rule.Priority, ps) {
-			ps = append(ps, rule.Priority)
-		}
-	}
-
-	if len(ps) > 3 {
-		return nil, fmt.Errorf("unable map local security group rule priority  %v to LOW/MEDIUM/LOW", ps)
-	}
-
-	sort.Ints(ps)
-	pmap := map[int]string{}
-	for i, p := range ps {
-		pmap[p] = []string{"LOW", "MEDIUM", "HIGH"}[i]
-	}
-
-	ucloudRules := make([]string, 0)
-	for _, rule := range rules {
-		if rule.Direction == secrules.SecurityRuleIngress {
-			// GRE协议被忽略了
-			ucloudRules = append(ucloudRules, toUcloudSecRule(rule, pmap)...)
-		}
-	}
-
-	return ucloudRules, nil
-}
-
 // GRE协议被忽略了
-func toUcloudSecRule(rule secrules.SecurityRule, pmap map[int]string) []string {
+func toUcloudSecRule(rule cloudprovider.SecurityRule) []string {
 	net := rule.IPNet.String()
-	priority := pmap[rule.Priority]
 	action := "DROP"
 	if rule.Action == secrules.SecurityRuleAllow {
 		action = "ACCEPT"
@@ -612,18 +535,18 @@ func toUcloudSecRule(rule secrules.SecurityRule, pmap map[int]string) []string {
 	rules := make([]string, 0)
 	if len(rule.Ports) > 0 {
 		for _, port := range rule.Ports {
-			_rules := generatorRule(rule.Protocol, priority, net, action, port, port)
+			_rules := generatorRule(rule.Protocol, net, action, port, port, rule.Priority)
 			rules = append(rules, _rules...)
 		}
 	} else {
-		_rules := generatorRule(rule.Protocol, priority, net, action, rule.PortStart, rule.PortEnd)
+		_rules := generatorRule(rule.Protocol, net, action, rule.PortStart, rule.PortEnd, rule.Priority)
 		rules = append(rules, _rules...)
 	}
 
 	return rules
 }
 
-func generatorRule(protocol, priority, net, action string, startPort, endPort int) []string {
+func generatorRule(protocol, net, action string, startPort, endPort, priority int) []string {
 	rules := make([]string, 0)
 
 	var ports string
@@ -634,8 +557,17 @@ func generatorRule(protocol, priority, net, action string, startPort, endPort in
 	} else {
 		ports = fmt.Sprintf("%d-%d", startPort, endPort)
 	}
+	prio := "LOW"
+	switch priority {
+	case 1:
+		prio = "LOW"
+	case 2:
+		prio = "MEDIUM"
+	case 3:
+		prio = "HIGH"
+	}
 
-	template := fmt.Sprintf("%s|%s|%s|%s|%s|", "%s", "%s", net, action, priority)
+	template := fmt.Sprintf("%s|%s|%s|%s|%s|", "%s", "%s", net, action, prio)
 	switch protocol {
 	case secrules.PROTO_ANY:
 		rules = append(rules, fmt.Sprintf(template, "TCP", ports))
@@ -653,10 +585,10 @@ func generatorRule(protocol, priority, net, action string, startPort, endPort in
 }
 
 // https://docs.ucloud.cn/api/unet-api/update_firewall
-func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.SecurityRule) error {
-	_rules, err := toUcloudSecurityRules(rules)
-	if err != nil {
-		return err
+func (self *SRegion) syncSecgroupRules(secgroupId string, rules []cloudprovider.SecurityRule) error {
+	_rules := []string{}
+	for _, r := range rules {
+		_rules = append(_rules, toUcloudSecRule(r)...)
 	}
 
 	params := NewUcloudParams()
@@ -750,4 +682,8 @@ func (region *SRegion) GetIBucketById(bucketId string) (cloudprovider.ICloudBuck
 
 func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
 	return region.GetIBucketByName(name)
+}
+
+func (region *SRegion) GetCapabilities() []string {
+	return region.client.GetCapabilities()
 }

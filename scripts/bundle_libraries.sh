@@ -83,7 +83,7 @@ _runas_so() {
 				argv[0] = arg0;
 				unsetenv("RUNAS_ARG0");
 			}
-
+			unsetenv("LD_PRELOAD");
 			return 0;
 		}
 

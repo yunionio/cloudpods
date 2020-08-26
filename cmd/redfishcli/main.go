@@ -30,9 +30,9 @@ import (
 type BaseOptions struct {
 	Debug      bool   `help:"debug mode"`
 	Help       bool   `help:"Show help"`
-	Endpoint   string `help:"Endpoint, usually https://<host_ipmi_ip>" default:"$REDFISH_ENDPOINT"`
-	Username   string `help:"Username, usually root" default:"$REDFISH_USERNAME"`
-	Password   string `help:"Password" default:"$REDFISH_PASSWORD"`
+	Endpoint   string `help:"Endpoint, usually https://<host_ipmi_ip>" default:"$REDFISH_ENDPOINT" metavar:"REDFISH_ENDPOINT"`
+	Username   string `help:"Username, usually root" default:"$REDFISH_USERNAME" metavar:"REDFISH_USERNAME"`
+	Password   string `help:"Password" default:"$REDFISH_PASSWORD" metavar:"REDFISH_PASSWORD"`
 	SUBCOMMAND string `help:"s3cli subcommand" subcommand:"true"`
 }
 

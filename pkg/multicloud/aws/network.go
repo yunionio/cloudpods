@@ -83,7 +83,24 @@ func (self *SNetwork) IsEmulated() bool {
 }
 
 func (self *SNetwork) GetMetadata() *jsonutils.JSONDict {
-	return nil
+	meta := jsonutils.NewDict()
+	routes, _ := self.wire.vpc.region.GetRouteTablesByNetworkId(self.GetId())
+	if len(routes) == 0 {
+		routes, _ = self.wire.vpc.region.GetRouteTables(self.VpcId, true)
+	}
+
+	support_eip := false
+	if len(routes) >= 1 {
+		for i := range routes[0].Routes {
+			route := routes[0].Routes[i]
+			if route.GetNextHopType() == api.Next_HOP_TYPE_INTERNET {
+				support_eip = true
+			}
+		}
+	}
+
+	meta.Set("support_eip", jsonutils.NewBool(support_eip))
+	return meta
 }
 
 func (self *SNetwork) GetIWire() cloudprovider.ICloudWire {

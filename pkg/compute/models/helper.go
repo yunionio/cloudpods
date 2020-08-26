@@ -90,7 +90,7 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 			}
 		}
 		baremetal := bmObj.(*SHost)
-		if !baremetal.Enabled {
+		if !baremetal.GetEnabled() {
 			return nil, httperrors.NewInvalidStatusError("Baremetal %s not enabled", bmName)
 		}
 
@@ -141,7 +141,7 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 
 		if input.PreferWire != "" {
 			wireStr := input.PreferWire
-			wireObj, err := WireManager.FetchById(wireStr)
+			wireObj, err := WireManager.FetchByIdOrName(userCred, wireStr)
 			if err != nil {
 				if err == sql.ErrNoRows {
 					return nil, httperrors.NewResourceNotFoundError("Wire %s not found", wireStr)
@@ -157,7 +157,7 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 			input.PreferRegion = region.Id
 		} else if input.PreferZone != "" {
 			zoneStr := input.PreferZone
-			zoneObj, err := ZoneManager.FetchById(zoneStr)
+			zoneObj, err := ZoneManager.FetchByIdOrName(userCred, zoneStr)
 			if err != nil {
 				if err == sql.ErrNoRows {
 					return nil, httperrors.NewResourceNotFoundError("Zone %s not found", zoneStr)
@@ -171,7 +171,7 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 			input.PreferRegion = region.Id
 		} else if input.PreferRegion != "" {
 			regionStr := input.PreferRegion
-			regionObj, err := CloudregionManager.FetchById(regionStr)
+			regionObj, err := CloudregionManager.FetchByIdOrName(userCred, regionStr)
 			if err != nil {
 				if err == sql.ErrNoRows {
 					return nil, httperrors.NewResourceNotFoundError("Region %s not found", regionStr)

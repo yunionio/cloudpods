@@ -18,24 +18,24 @@ import (
 	"io/ioutil"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 )
 
 type ReleaseListOptions struct {
 	NamespaceResourceListOptions
-	Filter     string `help:"Filter, split by space"`
-	Admin      bool   `help:"Admin to show all namespace releases"`
 	Deployed   bool   `help:"Show deployed status releases"`
 	Deleted    bool   `help:"Show deleted status releases"`
 	Deleting   bool   `help:"Show deleting status releases"`
 	Failed     bool   `help:"Show failed status releases"`
 	Superseded bool   `help:"Show superseded status releases"`
 	Pending    bool   `help:"Show pending status releases"`
+	Type       string `help:"Release type" choices:"internal|external"`
 }
 
-func (o ReleaseListOptions) Params() *jsonutils.JSONDict {
-	params := o.NamespaceResourceListOptions.Params()
-	if o.Filter != "" {
-		params.Add(jsonutils.NewString(o.Filter), "filter")
+func (o ReleaseListOptions) Params() (*jsonutils.JSONDict, error) {
+	params, err := o.NamespaceResourceListOptions.Params()
+	if err != nil {
+		return nil, err
 	}
 	if o.Namespace != "" {
 		params.Add(jsonutils.NewString(o.Namespace), "namespace")
@@ -43,10 +43,10 @@ func (o ReleaseListOptions) Params() *jsonutils.JSONDict {
 	if o.Name != "" {
 		params.Add(jsonutils.NewString(o.Name), "name")
 	}
-	params.Add(jsonutils.JSONTrue, "all")
-	if o.Admin {
-		params.Add(jsonutils.JSONTrue, "admin")
+	if o.Type != "" {
+		params.Add(jsonutils.NewString(o.Type), "type")
 	}
+	params.Add(jsonutils.JSONTrue, "all")
 	if o.Deployed {
 		params.Add(jsonutils.JSONTrue, "deployed")
 	}
@@ -65,7 +65,7 @@ func (o ReleaseListOptions) Params() *jsonutils.JSONDict {
 	if o.Pending {
 		params.Add(jsonutils.JSONTrue, "pending")
 	}
-	return params
+	return params, nil
 }
 
 type ReleaseCreateUpdateOptions struct {
@@ -92,7 +92,11 @@ func (o ReleaseCreateUpdateOptions) Params() (*jsonutils.JSONDict, error) {
 		if err != nil {
 			return nil, err
 		}
-		params.Add(jsonutils.NewString(string(vals)), "values")
+		valsJson, err := jsonutils.ParseYAML(string(vals))
+		if err != nil {
+			return nil, errors.Wrap(err, "parse yaml values")
+		}
+		params.Add(valsJson, "values_json")
 	}
 	return params, nil
 }

@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type NetworkDeleteTask struct {
@@ -35,11 +36,12 @@ func init() {
 	taskman.RegisterTask(NetworkDeleteTask{})
 }
 
-func (self *NetworkDeleteTask) taskFailed(ctx context.Context, network *models.SNetwork, err error) {
-	log.Errorf("network delete task fail: %s", err)
-	network.SetStatus(self.UserCred, api.NETWORK_STATUS_DELETE_FAILED, err.Error())
-	db.OpsLog.LogEvent(network, db.ACT_ALLOCATE_FAIL, err.Error(), self.UserCred)
-	self.SetStageFailed(ctx, err.Error())
+func (self *NetworkDeleteTask) taskFailed(ctx context.Context, network *models.SNetwork, reason jsonutils.JSONObject) {
+	log.Errorf("network delete task fail: %s", reason)
+	network.SetStatus(self.UserCred, api.NETWORK_STATUS_DELETE_FAILED, reason.String())
+	db.OpsLog.LogEvent(network, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
+	logclient.AddActionLogWithStartable(self, network, logclient.ACT_DELETE, reason, self.UserCred, false)
+	self.SetStageFailed(ctx, reason)
 }
 
 func (self *NetworkDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
@@ -52,17 +54,17 @@ func (self *NetworkDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 	if inet != nil {
 		err = inet.Delete()
 		if err != nil {
-			self.taskFailed(ctx, network, err)
+			self.taskFailed(ctx, network, jsonutils.NewString(err.Error()))
 			return
 		}
 	} else if err == cloudprovider.ErrNotFound {
 		// already deleted, do nothing
 	} else {
-		self.taskFailed(ctx, network, err)
+		self.taskFailed(ctx, network, jsonutils.NewString(err.Error()))
 		return
 	}
 
 	network.RealDelete(ctx, self.UserCred)
-
+	logclient.AddActionLogWithStartable(self, network, logclient.ACT_DELETE, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }

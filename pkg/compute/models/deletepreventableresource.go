@@ -15,15 +15,23 @@
 package models
 
 import (
-	"yunion.io/x/pkg/tristate"
+	"context"
 
+	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/sqlchemy"
+
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SDeletePreventableResourceBase struct {
-	DisableDelete tristate.TriState `nullable:"false" default:"true" list:"user" update:"user" create:"optional"`
+	// 是否开启删除保护
+	// example: true
+	DisableDelete tristate.TriState `nullable:"false" default:"true" list:"user" update:"user" create:"optional" json:"disable_delete"`
 }
+
+type SDeletePreventableResourceBaseManager struct{}
 
 func (lock *SDeletePreventableResourceBase) MarkDeletePreventionOff() {
 	lock.DisableDelete = tristate.False
@@ -53,4 +61,20 @@ func (lock *SDeletePreventableResourceBase) DeletePreventionOff(model db.IModel,
 		return err
 	}
 	return nil
+}
+
+func (manager *SDeletePreventableResourceBaseManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query apis.DeletePreventableResourceBaseListInput,
+) (*sqlchemy.SQuery, error) {
+	if query.DisableDelete != nil {
+		if *query.DisableDelete {
+			q = q.IsTrue("disable_delete")
+		} else {
+			q = q.IsFalse("disable_delete")
+		}
+	}
+	return q, nil
 }

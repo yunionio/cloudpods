@@ -36,11 +36,11 @@ func init() {
 	taskman.RegisterTask(ElasticcacheRestartTask{})
 }
 
-func (self *ElasticcacheRestartTask) taskFail(ctx context.Context, elasticcache *models.SElasticcache, reason string) {
-	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RESTART_FAILED, reason)
+func (self *ElasticcacheRestartTask) taskFail(ctx context.Context, elasticcache *models.SElasticcache, reason jsonutils.JSONObject) {
+	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RESTART_FAILED, reason.String())
 	db.OpsLog.LogEvent(elasticcache, db.ACT_RESTART_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_VM_RESTART, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_STATUS_RESTART_FAILED, reason)
+	notifyclient.NotifySystemError(elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_STATUS_RESTART_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -48,13 +48,13 @@ func (self *ElasticcacheRestartTask) OnInit(ctx context.Context, obj db.IStandal
 	ec := obj.(*models.SElasticcache)
 	region := ec.GetRegion()
 	if region == nil {
-		self.taskFail(ctx, ec, fmt.Sprintf("failed to find region for elastic cache %s", ec.GetName()))
+		self.taskFail(ctx, ec, jsonutils.NewString(fmt.Sprintf("failed to find region for elastic cache %s", ec.GetName())))
 		return
 	}
 
 	self.SetStage("OnElasticcacheRestartComplete", nil)
 	if err := region.GetDriver().RequestRestartElasticcache(ctx, self.GetUserCred(), ec, self); err != nil {
-		self.taskFail(ctx, ec, err.Error())
+		self.taskFail(ctx, ec, jsonutils.Marshal(err))
 		return
 	} else {
 		logclient.AddActionLogWithStartable(self, ec, logclient.ACT_VM_RESTART, nil, self.UserCred, true)

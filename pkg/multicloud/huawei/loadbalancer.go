@@ -15,10 +15,12 @@
 package huawei
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -147,14 +149,26 @@ func (self *SLoadbalancer) GetNetworkType() string {
 }
 
 func (self *SLoadbalancer) GetNetworkIds() []string {
-	return []string{self.VipSubnetID}
+	net := self.GetNetwork()
+	if net != nil {
+		return []string{net.GetId()}
+	}
+
+	return []string{}
 }
 
 func (self *SLoadbalancer) GetNetwork() *SNetwork {
 	if self.subnet == nil {
-		net, err := self.region.getNetwork(self.VipSubnetID)
+		port, err := self.region.GetPort(self.VipPortID)
 		if err == nil {
-			self.subnet = net
+			net, err := self.region.getNetwork(port.NetworkID)
+			if err == nil {
+				self.subnet = net
+			} else {
+				log.Debugf("huawei.SLoadbalancer.getNetwork %s", err)
+			}
+		} else {
+			log.Debugf("huawei.SLoadbalancer.GetPort %s", err)
 		}
 	}
 
@@ -216,7 +230,7 @@ func (self *SLoadbalancer) GetEgressMbps() int {
 }
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0141008275.html
-func (self *SLoadbalancer) Delete() error {
+func (self *SLoadbalancer) Delete(ctx context.Context) error {
 	return self.region.DeleteLoadBalancer(self.GetId())
 }
 
@@ -286,7 +300,7 @@ func (self *SLoadbalancer) GetILoadBalancerBackendGroupById(groupId string) (clo
 	return ret, nil
 }
 
-func (self *SLoadbalancer) CreateILoadBalancerListener(listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
+func (self *SLoadbalancer) CreateILoadBalancerListener(ctx context.Context, listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
 	ret, err := self.region.CreateLoadBalancerListener(listener)
 	if err != nil {
 		return nil, err

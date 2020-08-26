@@ -1,16 +1,14 @@
-// Copyright 2019 Yunion
+// Copyright 2019 Huawei Technologies Co.,Ltd.
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+// this file except in compliance with the License.  You may obtain a copy of the
+// License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+// http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing, software distributed
+// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations under the License.
 
 package obs
 
@@ -57,7 +55,7 @@ type IBaseModel interface {
 }
 
 type ISerializable interface {
-	trans(isObs bool) (map[string]string, map[string][]string, interface{})
+	trans(isObs bool) (map[string]string, map[string][]string, interface{}, error)
 }
 
 type DefaultSerializable struct {
@@ -66,8 +64,8 @@ type DefaultSerializable struct {
 	data    interface{}
 }
 
-func (input DefaultSerializable) trans(isObs bool) (map[string]string, map[string][]string, interface{}) {
-	return input.params, input.headers, input.data
+func (input DefaultSerializable) trans(isObs bool) (map[string]string, map[string][]string, interface{}, error) {
+	return input.params, input.headers, input.data, nil
 }
 
 var defaultSerializable = &DefaultSerializable{}
@@ -76,9 +74,9 @@ func newSubResourceSerial(subResource SubResourceType) *DefaultSerializable {
 	return &DefaultSerializable{map[string]string{string(subResource): ""}, nil, nil}
 }
 
-func trans(subResource SubResourceType, input interface{}) (params map[string]string, headers map[string][]string, data interface{}) {
+func trans(subResource SubResourceType, input interface{}) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	params = map[string]string{string(subResource): ""}
-	data, _ = ConvertRequestToIoReader(input)
+	data, err = ConvertRequestToIoReader(input)
 	return
 }
 
@@ -94,7 +92,7 @@ func (baseModel *BaseModel) setResponseHeaders(responseHeaders map[string][]stri
 	baseModel.ResponseHeaders = responseHeaders
 }
 
-func (input ListBucketsInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input ListBucketsInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	headers = make(map[string][]string)
 	if input.QueryLocation && !isObs {
 		setHeaders(headers, HEADER_LOCATION_AMZ, []string{"true"}, isObs)
@@ -102,63 +100,81 @@ func (input ListBucketsInput) trans(isObs bool) (params map[string]string, heade
 	return
 }
 
-func (input CreateBucketInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input CreateBucketInput) prepareGrantHeaders(headers map[string][]string, isObs bool) {
+	if grantReadId := input.GrantReadId; grantReadId != "" {
+		setHeaders(headers, HEADER_GRANT_READ_OBS, []string{grantReadId}, isObs)
+	}
+	if grantWriteId := input.GrantWriteId; grantWriteId != "" {
+		setHeaders(headers, HEADER_GRANT_WRITE_OBS, []string{grantWriteId}, isObs)
+	}
+	if grantReadAcpId := input.GrantReadAcpId; grantReadAcpId != "" {
+		setHeaders(headers, HEADER_GRANT_READ_ACP_OBS, []string{grantReadAcpId}, isObs)
+	}
+	if grantWriteAcpId := input.GrantWriteAcpId; grantWriteAcpId != "" {
+		setHeaders(headers, HEADER_GRANT_WRITE_ACP_OBS, []string{grantWriteAcpId}, isObs)
+	}
+	if grantFullControlId := input.GrantFullControlId; grantFullControlId != "" {
+		setHeaders(headers, HEADER_GRANT_FULL_CONTROL_OBS, []string{grantFullControlId}, isObs)
+	}
+	if grantReadDeliveredId := input.GrantReadDeliveredId; grantReadDeliveredId != "" {
+		setHeaders(headers, HEADER_GRANT_READ_DELIVERED_OBS, []string{grantReadDeliveredId}, true)
+	}
+	if grantFullControlDeliveredId := input.GrantFullControlDeliveredId; grantFullControlDeliveredId != "" {
+		setHeaders(headers, HEADER_GRANT_FULL_CONTROL_DELIVERED_OBS, []string{grantFullControlDeliveredId}, true)
+	}
+}
+
+func (input CreateBucketInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	headers = make(map[string][]string)
 	if acl := string(input.ACL); acl != "" {
 		setHeaders(headers, HEADER_ACL, []string{acl}, isObs)
 	}
 	if storageClass := string(input.StorageClass); storageClass != "" {
 		if !isObs {
-			if storageClass == "WARM" {
-				storageClass = "STANDARD_IA"
-			} else if storageClass == "COLD" {
-				storageClass = "GLACIER"
+			if storageClass == string(StorageClassWarm) {
+				storageClass = string(storageClassStandardIA)
+			} else if storageClass == string(StorageClassCold) {
+				storageClass = string(storageClassGlacier)
 			}
 		}
 		setHeadersNext(headers, HEADER_STORAGE_CLASS_OBS, HEADER_STORAGE_CLASS, []string{storageClass}, isObs)
-		if epid := string(input.Epid); epid != "" {
+		if epid := input.Epid; epid != "" {
 			setHeaders(headers, HEADER_EPID_HEADERS, []string{epid}, isObs)
 		}
 	}
-	if grantReadId := string(input.GrantReadId); grantReadId != "" {
-		setHeaders(headers, HEADER_GRANT_READ_OBS, []string{grantReadId}, isObs)
-	}
-	if grantWriteId := string(input.GrantWriteId); grantWriteId != "" {
-		setHeaders(headers, HEADER_GRANT_WRITE_OBS, []string{grantWriteId}, isObs)
-	}
-	if grantReadAcpId := string(input.GrantReadAcpId); grantReadAcpId != "" {
-		setHeaders(headers, HEADER_GRANT_READ_ACP_OBS, []string{grantReadAcpId}, isObs)
-	}
-	if grantWriteAcpId := string(input.GrantWriteAcpId); grantWriteAcpId != "" {
-		setHeaders(headers, HEADER_GRANT_WRITE_ACP_OBS, []string{grantWriteAcpId}, isObs)
-	}
-	if grantFullControlId := string(input.GrantFullControlId); grantFullControlId != "" {
-		setHeaders(headers, HEADER_GRANT_FULL_CONTROL_OBS, []string{grantFullControlId}, isObs)
-	}
-	if grantReadDeliveredId := string(input.GrantReadDeliveredId); grantReadDeliveredId != "" {
-		setHeaders(headers, HEADER_GRANT_READ_DELIVERED_OBS, []string{grantReadDeliveredId}, true)
-	}
-	if grantFullControlDeliveredId := string(input.GrantFullControlDeliveredId); grantFullControlDeliveredId != "" {
-		setHeaders(headers, HEADER_GRANT_FULL_CONTROL_DELIVERED_OBS, []string{grantFullControlDeliveredId}, true)
-	}
+	input.prepareGrantHeaders(headers, isObs)
 	if location := strings.TrimSpace(input.Location); location != "" {
 		input.Location = location
-		data, _ = ConvertRequestToIoReader(input)
+
+		xml := make([]string, 0, 3)
+		xml = append(xml, "<CreateBucketConfiguration>")
+		if isObs {
+			xml = append(xml, fmt.Sprintf("<Location>%s</Location>", input.Location))
+		} else {
+			xml = append(xml, fmt.Sprintf("<LocationConstraint>%s</LocationConstraint>", input.Location))
+		}
+		xml = append(xml, "</CreateBucketConfiguration>")
+
+		data = strings.Join(xml, "")
 	}
 	return
 }
 
-func (input SetBucketStoragePolicyInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input SetBucketStoragePolicyInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	xml := make([]string, 0, 1)
 	if !isObs {
 		storageClass := "STANDARD"
-		if input.StorageClass == "WARM" {
-			storageClass = "STANDARD_IA"
-		} else if input.StorageClass == "COLD" {
-			storageClass = "GLACIER"
+		if input.StorageClass == StorageClassWarm {
+			storageClass = string(storageClassStandardIA)
+		} else if input.StorageClass == StorageClassCold {
+			storageClass = string(storageClassGlacier)
 		}
-		xml = append(xml, fmt.Sprintf("<StorageClass>%s</StorageClass>", storageClass))
+		params = map[string]string{string(SubResourceStoragePolicy): ""}
+		xml = append(xml, fmt.Sprintf("<StoragePolicy><DefaultStorageClass>%s</DefaultStorageClass></StoragePolicy>", storageClass))
 	} else {
+		if input.StorageClass != StorageClassWarm && input.StorageClass != StorageClassCold {
+			input.StorageClass = StorageClassStandard
+		}
 		params = map[string]string{string(SubResourceStorageClass): ""}
 		xml = append(xml, fmt.Sprintf("<StorageClass>%s</StorageClass>", input.StorageClass))
 	}
@@ -166,7 +182,7 @@ func (input SetBucketStoragePolicyInput) trans(isObs bool) (params map[string]st
 	return
 }
 
-func (input ListObjsInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input ListObjsInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	params = make(map[string]string)
 	if input.Prefix != "" {
 		params["prefix"] = input.Prefix
@@ -187,16 +203,22 @@ func (input ListObjsInput) trans(isObs bool) (params map[string]string, headers 
 	return
 }
 
-func (input ListObjectsInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
-	params, headers, data = input.ListObjsInput.trans(isObs)
+func (input ListObjectsInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
+	params, headers, data, err = input.ListObjsInput.trans(isObs)
+	if err != nil {
+		return
+	}
 	if input.Marker != "" {
 		params["marker"] = input.Marker
 	}
 	return
 }
 
-func (input ListVersionsInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
-	params, headers, data = input.ListObjsInput.trans(isObs)
+func (input ListVersionsInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
+	params, headers, data, err = input.ListObjsInput.trans(isObs)
+	if err != nil {
+		return
+	}
 	params[string(SubResourceVersions)] = ""
 	if input.KeyMarker != "" {
 		params["key-marker"] = input.KeyMarker
@@ -207,7 +229,7 @@ func (input ListVersionsInput) trans(isObs bool) (params map[string]string, head
 	return
 }
 
-func (input ListMultipartUploadsInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input ListMultipartUploadsInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	params = map[string]string{string(SubResourceUploads): ""}
 	if input.Prefix != "" {
 		params["prefix"] = input.Prefix
@@ -227,46 +249,49 @@ func (input ListMultipartUploadsInput) trans(isObs bool) (params map[string]stri
 	return
 }
 
-func (input SetBucketQuotaInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input SetBucketQuotaInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	return trans(SubResourceQuota, input)
 }
 
-func (input SetBucketAclInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input SetBucketAclInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	params = map[string]string{string(SubResourceAcl): ""}
 	headers = make(map[string][]string)
 
 	if acl := string(input.ACL); acl != "" {
 		setHeaders(headers, HEADER_ACL, []string{acl}, isObs)
 	} else {
-		data, _ = ConvertAclToXml(input.AccessControlPolicy, false, isObs)
+		data, _ = convertBucketAclToXml(input.AccessControlPolicy, false, isObs)
 	}
 	return
 }
 
-func (input SetBucketPolicyInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input SetBucketPolicyInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	params = map[string]string{string(SubResourcePolicy): ""}
 	data = strings.NewReader(input.Policy)
 	return
 }
 
-func (input SetBucketCorsInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input SetBucketCorsInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	params = map[string]string{string(SubResourceCors): ""}
-	data, md5, _ := ConvertRequestToIoReaderV2(input)
-	headers = map[string][]string{HEADER_MD5_CAMEL: {md5}}
+	data, md5, err := ConvertRequestToIoReaderV2(input)
+	if err != nil {
+		return
+	}
+	headers = map[string][]string{HEADER_MD5_CAMEL: []string{md5}}
 	return
 }
 
-func (input SetBucketVersioningInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input SetBucketVersioningInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	return trans(SubResourceVersioning, input)
 }
 
-func (input SetBucketWebsiteConfigurationInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input SetBucketWebsiteConfigurationInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	params = map[string]string{string(SubResourceWebsite): ""}
 	data, _ = ConvertWebsiteConfigurationToXml(input.BucketWebsiteConfiguration, false)
 	return
 }
 
-func (input GetBucketMetadataInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input GetBucketMetadataInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	headers = make(map[string][]string)
 	if origin := strings.TrimSpace(input.Origin); origin != "" {
 		headers[HEADER_ORIGIN_CAMEL] = []string{origin}
@@ -277,33 +302,36 @@ func (input GetBucketMetadataInput) trans(isObs bool) (params map[string]string,
 	return
 }
 
-func (input SetBucketLoggingConfigurationInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input SetBucketLoggingConfigurationInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	params = map[string]string{string(SubResourceLogging): ""}
 	data, _ = ConvertLoggingStatusToXml(input.BucketLoggingStatus, false, isObs)
 	return
 }
 
-func (input SetBucketLifecycleConfigurationInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input SetBucketLifecycleConfigurationInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	params = map[string]string{string(SubResourceLifecycle): ""}
 	data, md5 := ConvertLifecyleConfigurationToXml(input.BucketLifecyleConfiguration, true, isObs)
-	headers = map[string][]string{HEADER_MD5_CAMEL: {md5}}
+	headers = map[string][]string{HEADER_MD5_CAMEL: []string{md5}}
 	return
 }
 
-func (input SetBucketTaggingInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input SetBucketTaggingInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	params = map[string]string{string(SubResourceTagging): ""}
-	data, md5, _ := ConvertRequestToIoReaderV2(input)
-	headers = map[string][]string{HEADER_MD5_CAMEL: {md5}}
+	data, md5, err := ConvertRequestToIoReaderV2(input)
+	if err != nil {
+		return
+	}
+	headers = map[string][]string{HEADER_MD5_CAMEL: []string{md5}}
 	return
 }
 
-func (input SetBucketNotificationInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input SetBucketNotificationInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	params = map[string]string{string(SubResourceNotification): ""}
 	data, _ = ConvertNotificationToXml(input.BucketNotification, false, isObs)
 	return
 }
 
-func (input DeleteObjectInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input DeleteObjectInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	params = make(map[string]string)
 	if input.VersionId != "" {
 		params[PARAM_VERSION_ID] = input.VersionId
@@ -311,14 +339,17 @@ func (input DeleteObjectInput) trans(isObs bool) (params map[string]string, head
 	return
 }
 
-func (input DeleteObjectsInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input DeleteObjectsInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	params = map[string]string{string(SubResourceDelete): ""}
-	data, md5, _ := ConvertRequestToIoReaderV2(input)
-	headers = map[string][]string{HEADER_MD5_CAMEL: {md5}}
+	data, md5, err := ConvertRequestToIoReaderV2(input)
+	if err != nil {
+		return
+	}
+	headers = map[string][]string{HEADER_MD5_CAMEL: []string{md5}}
 	return
 }
 
-func (input SetObjectAclInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input SetObjectAclInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	params = map[string]string{string(SubResourceAcl): ""}
 	if input.VersionId != "" {
 		params[PARAM_VERSION_ID] = input.VersionId
@@ -332,7 +363,7 @@ func (input SetObjectAclInput) trans(isObs bool) (params map[string]string, head
 	return
 }
 
-func (input GetObjectAclInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input GetObjectAclInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	params = map[string]string{string(SubResourceAcl): ""}
 	if input.VersionId != "" {
 		params[PARAM_VERSION_ID] = input.VersionId
@@ -340,13 +371,13 @@ func (input GetObjectAclInput) trans(isObs bool) (params map[string]string, head
 	return
 }
 
-func (input RestoreObjectInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input RestoreObjectInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	params = map[string]string{string(SubResourceRestore): ""}
 	if input.VersionId != "" {
 		params[PARAM_VERSION_ID] = input.VersionId
 	}
 	if !isObs {
-		data, _ = ConvertRequestToIoReader(input)
+		data, err = ConvertRequestToIoReader(input)
 	} else {
 		data = ConverntObsRestoreToXml(input)
 	}
@@ -359,9 +390,8 @@ func (header SseKmsHeader) GetEncryption() string {
 	}
 	if !header.isObs {
 		return DEFAULT_SSE_KMS_ENCRYPTION
-	} else {
-		return DEFAULT_SSE_KMS_ENCRYPTION_OBS
 	}
+	return DEFAULT_SSE_KMS_ENCRYPTION_OBS
 }
 
 func (header SseKmsHeader) GetKey() string {
@@ -404,7 +434,7 @@ func setSseHeader(headers map[string][]string, sseHeader ISseHeader, sseCOnly bo
 	}
 }
 
-func (input GetObjectMetadataInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input GetObjectMetadataInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	params = make(map[string]string)
 	if input.VersionId != "" {
 		params[PARAM_VERSION_ID] = input.VersionId
@@ -422,8 +452,69 @@ func (input GetObjectMetadataInput) trans(isObs bool) (params map[string]string,
 	return
 }
 
-func (input GetObjectInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
-	params, headers, data = input.GetObjectMetadataInput.trans(isObs)
+func (input SetObjectMetadataInput) prepareContentHeaders(headers map[string][]string) {
+	if input.ContentDisposition != "" {
+		headers[HEADER_CONTENT_DISPOSITION_CAMEL] = []string{input.ContentDisposition}
+	}
+	if input.ContentEncoding != "" {
+		headers[HEADER_CONTENT_ENCODING_CAMEL] = []string{input.ContentEncoding}
+	}
+	if input.ContentLanguage != "" {
+		headers[HEADER_CONTENT_LANGUAGE_CAMEL] = []string{input.ContentLanguage}
+	}
+
+	if input.ContentType != "" {
+		headers[HEADER_CONTENT_TYPE_CAML] = []string{input.ContentType}
+	}
+}
+
+func (input SetObjectMetadataInput) prepareStorageClass(headers map[string][]string, isObs bool) {
+	if storageClass := string(input.StorageClass); storageClass != "" {
+		if !isObs {
+			if storageClass == string(StorageClassWarm) {
+				storageClass = string(storageClassStandardIA)
+			} else if storageClass == string(StorageClassCold) {
+				storageClass = string(storageClassGlacier)
+			}
+		}
+		setHeaders(headers, HEADER_STORAGE_CLASS2, []string{storageClass}, isObs)
+	}
+}
+
+func (input SetObjectMetadataInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
+	params = make(map[string]string)
+	params = map[string]string{string(SubResourceMetadata): ""}
+	if input.VersionId != "" {
+		params[PARAM_VERSION_ID] = input.VersionId
+	}
+	headers = make(map[string][]string)
+
+	if directive := string(input.MetadataDirective); directive != "" {
+		setHeaders(headers, HEADER_METADATA_DIRECTIVE, []string{string(input.MetadataDirective)}, isObs)
+	} else {
+		setHeaders(headers, HEADER_METADATA_DIRECTIVE, []string{string(ReplaceNew)}, isObs)
+	}
+	if input.CacheControl != "" {
+		headers[HEADER_CACHE_CONTROL_CAMEL] = []string{input.CacheControl}
+	}
+	input.prepareContentHeaders(headers)
+	if input.Expires != "" {
+		headers[HEADER_EXPIRES_CAMEL] = []string{input.Expires}
+	}
+	if input.WebsiteRedirectLocation != "" {
+		setHeaders(headers, HEADER_WEBSITE_REDIRECT_LOCATION, []string{input.WebsiteRedirectLocation}, isObs)
+	}
+	input.prepareStorageClass(headers, isObs)
+	if input.Metadata != nil {
+		for key, value := range input.Metadata {
+			key = strings.TrimSpace(key)
+			setHeadersNext(headers, HEADER_PREFIX_META_OBS+key, HEADER_PREFIX_META+key, []string{value}, isObs)
+		}
+	}
+	return
+}
+
+func (input GetObjectInput) prepareResponseParams(params map[string]string) {
 	if input.ResponseCacheControl != "" {
 		params[PARAM_RESPONSE_CACHE_CONTROL] = input.ResponseCacheControl
 	}
@@ -442,6 +533,14 @@ func (input GetObjectInput) trans(isObs bool) (params map[string]string, headers
 	if input.ResponseExpires != "" {
 		params[PARAM_RESPONSE_EXPIRES] = input.ResponseExpires
 	}
+}
+
+func (input GetObjectInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
+	params, headers, data, err = input.GetObjectMetadataInput.trans(isObs)
+	if err != nil {
+		return
+	}
+	input.prepareResponseParams(params)
 	if input.ImageProcess != "" {
 		params[PARAM_IMAGE_PROCESS] = input.ImageProcess
 	}
@@ -464,30 +563,34 @@ func (input GetObjectInput) trans(isObs bool) (params map[string]string, headers
 	return
 }
 
-func (input ObjectOperationInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input ObjectOperationInput) prepareGrantHeaders(headers map[string][]string) {
+	if GrantReadId := input.GrantReadId; GrantReadId != "" {
+		setHeaders(headers, HEADER_GRANT_READ_OBS, []string{GrantReadId}, true)
+	}
+	if GrantReadAcpId := input.GrantReadAcpId; GrantReadAcpId != "" {
+		setHeaders(headers, HEADER_GRANT_READ_ACP_OBS, []string{GrantReadAcpId}, true)
+	}
+	if GrantWriteAcpId := input.GrantWriteAcpId; GrantWriteAcpId != "" {
+		setHeaders(headers, HEADER_GRANT_WRITE_ACP_OBS, []string{GrantWriteAcpId}, true)
+	}
+	if GrantFullControlId := input.GrantFullControlId; GrantFullControlId != "" {
+		setHeaders(headers, HEADER_GRANT_FULL_CONTROL_OBS, []string{GrantFullControlId}, true)
+	}
+}
+
+func (input ObjectOperationInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	headers = make(map[string][]string)
 	params = make(map[string]string)
 	if acl := string(input.ACL); acl != "" {
 		setHeaders(headers, HEADER_ACL, []string{acl}, isObs)
 	}
-	if GrantReadId := string(input.GrantReadId); GrantReadId != "" {
-		setHeaders(headers, HEADER_GRANT_READ_OBS, []string{GrantReadId}, true)
-	}
-	if GrantReadAcpId := string(input.GrantReadAcpId); GrantReadAcpId != "" {
-		setHeaders(headers, HEADER_GRANT_READ_ACP_OBS, []string{GrantReadAcpId}, true)
-	}
-	if GrantWriteAcpId := string(input.GrantWriteAcpId); GrantWriteAcpId != "" {
-		setHeaders(headers, HEADER_GRANT_WRITE_ACP_OBS, []string{GrantWriteAcpId}, true)
-	}
-	if GrantFullControlId := string(input.GrantFullControlId); GrantFullControlId != "" {
-		setHeaders(headers, HEADER_GRANT_FULL_CONTROL_OBS, []string{GrantFullControlId}, true)
-	}
+	input.prepareGrantHeaders(headers)
 	if storageClass := string(input.StorageClass); storageClass != "" {
 		if !isObs {
-			if storageClass == "WARM" {
-				storageClass = "STANDARD_IA"
-			} else if storageClass == "COLD" {
-				storageClass = "GLACIER"
+			if storageClass == string(StorageClassWarm) {
+				storageClass = string(storageClassStandardIA)
+			} else if storageClass == string(StorageClassCold) {
+				storageClass = string(storageClassGlacier)
 			}
 		}
 		setHeaders(headers, HEADER_STORAGE_CLASS2, []string{storageClass}, isObs)
@@ -498,7 +601,7 @@ func (input ObjectOperationInput) trans(isObs bool) (params map[string]string, h
 	}
 	setSseHeader(headers, input.SseHeader, false, isObs)
 	if input.Expires != 0 {
-		setHeaders(headers, HEADER_EXPIRES_OBS, []string{Int64ToString(input.Expires)}, true)
+		setHeaders(headers, HEADER_EXPIRES, []string{Int64ToString(input.Expires)}, true)
 	}
 	if input.Metadata != nil {
 		for key, value := range input.Metadata {
@@ -509,8 +612,11 @@ func (input ObjectOperationInput) trans(isObs bool) (params map[string]string, h
 	return
 }
 
-func (input PutObjectBasicInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
-	params, headers, data = input.ObjectOperationInput.trans(isObs)
+func (input PutObjectBasicInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
+	params, headers, data, err = input.ObjectOperationInput.trans(isObs)
+	if err != nil {
+		return
+	}
 
 	if input.ContentMD5 != "" {
 		headers[HEADER_MD5_CAMEL] = []string{input.ContentMD5}
@@ -526,16 +632,58 @@ func (input PutObjectBasicInput) trans(isObs bool) (params map[string]string, he
 	return
 }
 
-func (input PutObjectInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
-	params, headers, data = input.PutObjectBasicInput.trans(isObs)
+func (input PutObjectInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
+	params, headers, data, err = input.PutObjectBasicInput.trans(isObs)
+	if err != nil {
+		return
+	}
 	if input.Body != nil {
 		data = input.Body
 	}
 	return
 }
 
-func (input CopyObjectInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
-	params, headers, data = input.ObjectOperationInput.trans(isObs)
+func (input CopyObjectInput) prepareReplaceHeaders(headers map[string][]string) {
+	if input.CacheControl != "" {
+		headers[HEADER_CACHE_CONTROL] = []string{input.CacheControl}
+	}
+	if input.ContentDisposition != "" {
+		headers[HEADER_CONTENT_DISPOSITION] = []string{input.ContentDisposition}
+	}
+	if input.ContentEncoding != "" {
+		headers[HEADER_CONTENT_ENCODING] = []string{input.ContentEncoding}
+	}
+	if input.ContentLanguage != "" {
+		headers[HEADER_CONTENT_LANGUAGE] = []string{input.ContentLanguage}
+	}
+	if input.ContentType != "" {
+		headers[HEADER_CONTENT_TYPE] = []string{input.ContentType}
+	}
+	if input.Expires != "" {
+		headers[HEADER_EXPIRES] = []string{input.Expires}
+	}
+}
+
+func (input CopyObjectInput) prepareCopySourceHeaders(headers map[string][]string, isObs bool) {
+	if input.CopySourceIfMatch != "" {
+		setHeaders(headers, HEADER_COPY_SOURCE_IF_MATCH, []string{input.CopySourceIfMatch}, isObs)
+	}
+	if input.CopySourceIfNoneMatch != "" {
+		setHeaders(headers, HEADER_COPY_SOURCE_IF_NONE_MATCH, []string{input.CopySourceIfNoneMatch}, isObs)
+	}
+	if !input.CopySourceIfModifiedSince.IsZero() {
+		setHeaders(headers, HEADER_COPY_SOURCE_IF_MODIFIED_SINCE, []string{FormatUtcToRfc1123(input.CopySourceIfModifiedSince)}, isObs)
+	}
+	if !input.CopySourceIfUnmodifiedSince.IsZero() {
+		setHeaders(headers, HEADER_COPY_SOURCE_IF_UNMODIFIED_SINCE, []string{FormatUtcToRfc1123(input.CopySourceIfUnmodifiedSince)}, isObs)
+	}
+}
+
+func (input CopyObjectInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
+	params, headers, data, err = input.ObjectOperationInput.trans(isObs)
+	if err != nil {
+		return
+	}
 
 	var copySource string
 	if input.CopySourceVersionId != "" {
@@ -550,38 +698,10 @@ func (input CopyObjectInput) trans(isObs bool) (params map[string]string, header
 	}
 
 	if input.MetadataDirective == ReplaceMetadata {
-		if input.CacheControl != "" {
-			headers[HEADER_CACHE_CONTROL] = []string{input.CacheControl}
-		}
-		if input.ContentDisposition != "" {
-			headers[HEADER_CONTENT_DISPOSITION] = []string{input.ContentDisposition}
-		}
-		if input.ContentEncoding != "" {
-			headers[HEADER_CONTENT_ENCODING] = []string{input.ContentEncoding}
-		}
-		if input.ContentLanguage != "" {
-			headers[HEADER_CONTENT_LANGUAGE] = []string{input.ContentLanguage}
-		}
-		if input.ContentType != "" {
-			headers[HEADER_CONTENT_TYPE] = []string{input.ContentType}
-		}
-		if input.Expires != "" {
-			headers[HEADER_EXPIRES] = []string{input.Expires}
-		}
+		input.prepareReplaceHeaders(headers)
 	}
 
-	if input.CopySourceIfMatch != "" {
-		setHeaders(headers, HEADER_COPY_SOURCE_IF_MATCH, []string{input.CopySourceIfMatch}, isObs)
-	}
-	if input.CopySourceIfNoneMatch != "" {
-		setHeaders(headers, HEADER_COPY_SOURCE_IF_NONE_MATCH, []string{input.CopySourceIfNoneMatch}, isObs)
-	}
-	if !input.CopySourceIfModifiedSince.IsZero() {
-		setHeaders(headers, HEADER_COPY_SOURCE_IF_MODIFIED_SINCE, []string{FormatUtcToRfc1123(input.CopySourceIfModifiedSince)}, isObs)
-	}
-	if !input.CopySourceIfUnmodifiedSince.IsZero() {
-		setHeaders(headers, HEADER_COPY_SOURCE_IF_UNMODIFIED_SINCE, []string{FormatUtcToRfc1123(input.CopySourceIfUnmodifiedSince)}, isObs)
-	}
+	input.prepareCopySourceHeaders(headers, isObs)
 	if input.SourceSseHeader != nil {
 		if sseCHeader, ok := input.SourceSseHeader.(SseCHeader); ok {
 			setHeaders(headers, HEADER_SSEC_COPY_SOURCE_ENCRYPTION, []string{sseCHeader.GetEncryption()}, isObs)
@@ -589,40 +709,49 @@ func (input CopyObjectInput) trans(isObs bool) (params map[string]string, header
 			setHeaders(headers, HEADER_SSEC_COPY_SOURCE_KEY_MD5, []string{sseCHeader.GetKeyMD5()}, isObs)
 		}
 	}
-	if input.successActionRedirect != "" {
-		headers[HEADER_SUCCESS_ACTION_REDIRECT] = []string{input.successActionRedirect}
+	if input.SuccessActionRedirect != "" {
+		headers[HEADER_SUCCESS_ACTION_REDIRECT] = []string{input.SuccessActionRedirect}
 	}
 	return
 }
 
-func (input AbortMultipartUploadInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input AbortMultipartUploadInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	params = map[string]string{"uploadId": input.UploadId}
 	return
 }
 
-func (input InitiateMultipartUploadInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
-	params, headers, data = input.ObjectOperationInput.trans(isObs)
+func (input InitiateMultipartUploadInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
+	params, headers, data, err = input.ObjectOperationInput.trans(isObs)
+	if err != nil {
+		return
+	}
+	if input.ContentType != "" {
+		headers[HEADER_CONTENT_TYPE_CAML] = []string{input.ContentType}
+	}
 	params[string(SubResourceUploads)] = ""
 	return
 }
 
-func (input UploadPartInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input UploadPartInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	params = map[string]string{"uploadId": input.UploadId, "partNumber": IntToString(input.PartNumber)}
 	headers = make(map[string][]string)
 	setSseHeader(headers, input.SseHeader, true, isObs)
+	if input.ContentMD5 != "" {
+		headers[HEADER_MD5_CAMEL] = []string{input.ContentMD5}
+	}
 	if input.Body != nil {
 		data = input.Body
 	}
 	return
 }
 
-func (input CompleteMultipartUploadInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input CompleteMultipartUploadInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	params = map[string]string{"uploadId": input.UploadId}
 	data, _ = ConvertCompleteMultipartUploadInputToXml(input, false)
 	return
 }
 
-func (input ListPartsInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input ListPartsInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	params = map[string]string{"uploadId": input.UploadId}
 	if input.MaxParts > 0 {
 		params["max-parts"] = IntToString(input.MaxParts)
@@ -633,7 +762,7 @@ func (input ListPartsInput) trans(isObs bool) (params map[string]string, headers
 	return
 }
 
-func (input CopyPartInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}) {
+func (input CopyPartInput) trans(isObs bool) (params map[string]string, headers map[string][]string, data interface{}, err error) {
 	params = map[string]string{"uploadId": input.UploadId, "partNumber": IntToString(input.PartNumber)}
 	headers = make(map[string][]string, 1)
 	var copySource string
@@ -698,13 +827,13 @@ func (rw *readerWrapper) Read(p []byte) (n int, err error) {
 	if rw.totalCount > 0 {
 		n, err = rw.reader.Read(p)
 		readedOnce := int64(n)
-		if remainCount := rw.totalCount - rw.readedCount; remainCount > readedOnce {
+		remainCount := rw.totalCount - rw.readedCount
+		if remainCount > readedOnce {
 			rw.readedCount += readedOnce
 			return n, err
-		} else {
-			rw.readedCount += remainCount
-			return int(remainCount), io.EOF
 		}
+		rw.readedCount += remainCount
+		return int(remainCount), io.EOF
 	}
 	return rw.reader.Read(p)
 }

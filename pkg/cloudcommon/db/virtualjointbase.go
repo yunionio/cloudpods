@@ -19,11 +19,14 @@ import (
 	"reflect"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SVirtualJointResourceBase struct {
@@ -72,16 +75,6 @@ func (manager *SVirtualJointResourceBaseManager) AllowAttach(ctx context.Context
 	return false
 }
 
-func (self *SVirtualJointResourceBase) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	masterVirtual := self.Master().(IVirtualModel)
-	return masterVirtual.IsOwner(userCred) || IsAllowGet(rbacutils.ScopeSystem, userCred, self)
-}
-
-func (self *SVirtualJointResourceBase) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	masterVirtual := self.Master().(IVirtualModel)
-	return masterVirtual.IsOwner(userCred) || IsAllowUpdate(rbacutils.ScopeSystem, userCred, self)
-}
-
 func (manager *SVirtualJointResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		masterQ := manager.GetMasterManager().Query("id")
@@ -117,4 +110,77 @@ func (manager *SVirtualJointResourceBaseManager) FilterByHiddenSystemAttributes(
 	q = q.In(iManager.GetMasterFieldName(), masterQ.SubQuery())
 	q = q.In(iManager.GetSlaveFieldName(), slaveQ.SubQuery())
 	return q
+}
+
+func (model *SVirtualJointResourceBase) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (apis.VirtualJointResourceBaseDetails, error) {
+	return apis.VirtualJointResourceBaseDetails{}, nil
+}
+
+func (manager *SVirtualJointResourceBaseManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []apis.VirtualJointResourceBaseDetails {
+	ret := make([]apis.VirtualJointResourceBaseDetails, len(objs))
+	upperRet := manager.SJointResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range objs {
+		ret[i] = apis.VirtualJointResourceBaseDetails{
+			JointResourceBaseDetails: upperRet[i],
+		}
+	}
+	return ret
+}
+
+func (manager *SVirtualJointResourceBaseManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query apis.VirtualJointResourceBaseListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SJointResourceBaseManager.ListItemFilter(ctx, q, userCred, query.JointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SJointResourceBaseManager.ListItemFilter")
+	}
+
+	return q, nil
+}
+
+func (manager *SVirtualJointResourceBaseManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query apis.VirtualJointResourceBaseListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SJointResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.JointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SJointResourceBaseManager.ListItemFilter")
+	}
+
+	return q, nil
+}
+
+func (self *SVirtualJointResourceBase) ValidateUpdateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.VirtualJointResourceBaseUpdateInput,
+) (apis.VirtualJointResourceBaseUpdateInput, error) {
+	var err error
+	input.JointResourceBaseUpdateInput, err = self.SJointResourceBase.ValidateUpdateData(ctx, userCred, query, input.JointResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SJointResourceBase.ValidateUpdateData")
+	}
+	return input, nil
 }

@@ -24,7 +24,8 @@ var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
 	"asia-east2":           {Latitude: 22.396427, Longitude: 114.109497, City: api.CITY_HONG_KONG, CountryCode: api.COUNTRY_CODE_CN},
 	"asia-northeast1":      {Latitude: 35.709026, Longitude: 139.731995, City: api.CITY_TOKYO, CountryCode: api.COUNTRY_CODE_JP},
 	"asia-northeast2":      {Latitude: 34.6937378, Longitude: 135.5021651, City: api.CITY_OSAKA, CountryCode: api.COUNTRY_CODE_JP},
-	"asia-south1":          {Latitude: 19.075983, Longitude: 72.877655, City: api.CITY_MUMBAI, CountryCode: api.COUNTRY_CODE_IN},
+	"asia-northeast3":      {Latitude: 34.6937378, Longitude: 135.5021651, City: api.CITY_SEOUL, CountryCode: api.COUNTRY_CODE_KR},
+	"asia-south1":          {Latitude: 37.566535, Longitude: 126.9779692, City: api.CITY_MUMBAI, CountryCode: api.COUNTRY_CODE_IN},
 	"asia-southeast1":      {Latitude: 1.352083, Longitude: 103.819839, City: api.CITY_SINGAPORE, CountryCode: api.COUNTRY_CODE_SG},
 	"australia-southeast1": {Latitude: -33.8688197, Longitude: 151.2092955, City: api.CITY_SYDNEY, CountryCode: api.COUNTRY_CODE_AU},
 
@@ -42,6 +43,8 @@ var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
 	"us-east4":                {Latitude: 37.4315734, Longitude: -78.6568942, City: api.CITY_N_VIRGINIA, CountryCode: api.COUNTRY_CODE_US},
 	"us-west1":                {Latitude: 43.8041334, Longitude: -120.5542012, City: api.CITY_OREGON, CountryCode: api.COUNTRY_CODE_US},
 	"us-west2":                {Latitude: 34.0522342, Longitude: -118.2436849, City: api.CITY_LOS_ANGELES, CountryCode: api.COUNTRY_CODE_US},
+	"us-west3":                {Latitude: 40.7767168, Longitude: -111.9905243, City: api.CITY_SALT_LAKE_CITY, CountryCode: api.COUNTRY_CODE_US},
+	"us-west4":                {Latitude: 36.1249185, Longitude: -115.3150811, City: api.CITY_LAS_VEGAS, CountryCode: api.COUNTRY_CODE_US},
 }
 
 var RegionNames = map[string]string{
@@ -49,6 +52,7 @@ var RegionNames = map[string]string{
 	"asia-east2":           "香港",
 	"asia-northeast1":      "东京",
 	"asia-northeast2":      "大阪",
+	"asia-northeast3":      "首尔",
 	"asia-south1":          "孟买",
 	"asia-southeast1":      "新加坡",
 	"australia-southeast1": "悉尼",
@@ -67,4 +71,15 @@ var RegionNames = map[string]string{
 	"us-east4":                "北弗吉尼亚",
 	"us-west1":                "俄勒冈州",
 	"us-west2":                "洛杉矶",
+	"us-west3":                "盐湖城",
+	"us-west4":                "拉斯维加斯",
+
+	// Multi-region
+	"us":   "美国的多区域",
+	"eu":   "欧盟的多区域",
+	"asia": "亚洲的多区域",
+
+	// Dual-region
+	"nam4": "爱荷华和南卡罗来纳",
+	"eur4": "荷兰和芬兰",
 }

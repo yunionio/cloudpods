@@ -31,7 +31,11 @@ func initPVC() {
 		cmdN.Do("list"),
 		"List PersistentVolumeClaims resource",
 		func(s *mcclient.ClientSession, args *o.PVCListOptions) error {
-			ret, err := k8s.PersistentVolumeClaims.List(s, args.Params())
+			params, err := args.Params()
+			if err != nil {
+				return err
+			}
+			ret, err := k8s.PersistentVolumeClaims.List(s, params)
 			if err != nil {
 				return err
 			}

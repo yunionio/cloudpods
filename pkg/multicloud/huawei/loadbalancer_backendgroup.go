@@ -15,6 +15,7 @@
 package huawei
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -166,7 +167,7 @@ func (self *SElbBackendGroup) GetStickySession() (*cloudprovider.SLoadbalancerSt
 		StickySession:              api.LB_BOOL_ON,
 		StickySessionCookie:        self.SessionPersistence.CookieName,
 		StickySessionType:          stickySessionType,
-		StickySessionCookieTimeout: self.SessionPersistence.PersistenceTimeout,
+		StickySessionCookieTimeout: self.SessionPersistence.PersistenceTimeout * 60,
 	}
 
 	return &ret, nil
@@ -312,11 +313,27 @@ func (self *SElbBackendGroup) RemoveBackendServer(backendId string, weight int, 
 	return cloudprovider.WaitDeleted(ibackend, 2*time.Second, 30*time.Second)
 }
 
-func (self *SElbBackendGroup) Delete() error {
+func (self *SElbBackendGroup) Delete(ctx context.Context) error {
 	if len(self.HealthMonitorID) > 0 {
 		err := self.region.DeleteLoadbalancerHealthCheck(self.HealthMonitorID)
 		if err != nil {
 			return errors.Wrap(err, "ElbBackendGroup.Delete.DeleteLoadbalancerHealthCheck")
+		}
+	}
+
+	// 删除后端服务器组的同时，删除掉无效的后端服务器数据
+	{
+		backends, err := self.region.getLoadBalancerAdminStateDownBackends(self.GetId())
+		if err != nil {
+			return errors.Wrap(err, "SElbBackendGroup.Delete.getLoadBalancerAdminStateDownBackends")
+		}
+
+		for i := range backends {
+			backend := backends[i]
+			err := self.RemoveBackendServer(backend.GetId(), backend.GetPort(), backend.GetWeight())
+			if err != nil {
+				return errors.Wrap(err, "SElbBackendGroup.Delete.RemoveBackendServer")
+			}
 		}
 	}
 
@@ -328,7 +345,7 @@ func (self *SElbBackendGroup) Delete() error {
 	return cloudprovider.WaitDeleted(self, 2*time.Second, 30*time.Second)
 }
 
-func (self *SElbBackendGroup) Sync(group *cloudprovider.SLoadbalancerBackendGroup) error {
+func (self *SElbBackendGroup) Sync(ctx context.Context, group *cloudprovider.SLoadbalancerBackendGroup) error {
 	if group == nil {
 		return nil
 	}
@@ -361,7 +378,9 @@ func (self *SRegion) UpdateLoadBalancerBackendGroup(backendGroupID string, group
 	}
 	poolObj.Set("lb_algorithm", jsonutils.NewString(scheduler))
 
-	if group.StickySession != nil {
+	if group.StickySession == nil || group.StickySession.StickySession == api.LB_BOOL_OFF {
+		poolObj.Set("session_persistence", jsonutils.JSONNull)
+	} else {
 		s := jsonutils.NewDict()
 		timeout := int64(group.StickySession.StickySessionCookieTimeout / 60)
 		if group.ListenType == api.LB_LISTENER_TYPE_UDP || group.ListenType == api.LB_LISTENER_TYPE_TCP {
@@ -387,13 +406,13 @@ func (self *SRegion) UpdateLoadBalancerBackendGroup(backendGroupID string, group
 	ret := SElbBackendGroup{}
 	err := DoUpdate(self.ecsClient.ElbBackendGroup.Update, backendGroupID, params, &ret)
 	if err != nil {
-		return ret, err
+		return ret, errors.Wrap(err, "ElbBackendGroup.Update")
 	}
 
 	if group.HealthCheck == nil && len(ret.HealthMonitorID) > 0 {
 		err := self.DeleteLoadbalancerHealthCheck(ret.HealthMonitorID)
 		if err != nil {
-			return ret, err
+			return ret, errors.Wrap(err, "DeleteLoadbalancerHealthCheck")
 		}
 	}
 
@@ -401,12 +420,12 @@ func (self *SRegion) UpdateLoadBalancerBackendGroup(backendGroupID string, group
 		if len(ret.HealthMonitorID) == 0 {
 			_, err := self.CreateLoadBalancerHealthCheck(ret.GetId(), group.HealthCheck)
 			if err != nil {
-				return ret, err
+				return ret, errors.Wrap(err, "CreateLoadBalancerHealthCheck")
 			}
 		} else {
 			_, err := self.UpdateLoadBalancerHealthCheck(ret.HealthMonitorID, group.HealthCheck)
 			if err != nil {
-				return ret, err
+				return ret, errors.Wrap(err, "UpdateLoadBalancerHealthCheck")
 			}
 		}
 	}
@@ -455,7 +474,7 @@ func (self *SRegion) RemoveLoadBalancerBackend(lbbgId string, backendId string) 
 	return DoDelete(m.Delete, backendId, nil, nil)
 }
 
-func (self *SRegion) GetLoadBalancerBackends(backendGroupId string) ([]SElbBackend, error) {
+func (self *SRegion) getLoadBalancerBackends(backendGroupId string) ([]SElbBackend, error) {
 	m := self.ecsClient.ElbBackend
 	err := m.SetBackendGroupId(backendGroupId)
 	if err != nil {
@@ -468,12 +487,42 @@ func (self *SRegion) GetLoadBalancerBackends(backendGroupId string) ([]SElbBacke
 		return nil, err
 	}
 
+	for i := range ret {
+		backend := ret[i]
+		backend.region = self
+	}
+
+	return ret, nil
+}
+
+func (self *SRegion) GetLoadBalancerBackends(backendGroupId string) ([]SElbBackend, error) {
+	ret, err := self.getLoadBalancerBackends(backendGroupId)
+	if err != nil {
+		return nil, errors.Wrap(err, "SRegion.GetLoadBalancerBackends.getLoadBalancerBackends")
+	}
+
 	// 过滤掉服务器已经被删除的backend。原因是运管平台查询不到已删除的服务器记录，导致同步出错。产生肮数据。
 	filtedRet := []SElbBackend{}
 	for i := range ret {
 		if ret[i].AdminStateUp {
 			backend := ret[i]
-			backend.region = self
+			filtedRet = append(filtedRet, backend)
+		}
+	}
+
+	return filtedRet, nil
+}
+
+func (self *SRegion) getLoadBalancerAdminStateDownBackends(backendGroupId string) ([]SElbBackend, error) {
+	ret, err := self.getLoadBalancerBackends(backendGroupId)
+	if err != nil {
+		return nil, errors.Wrap(err, "SRegion.getLoadBalancerAdminStateDownBackends.getLoadBalancerBackends")
+	}
+
+	filtedRet := []SElbBackend{}
+	for i := range ret {
+		if !ret[i].AdminStateUp {
+			backend := ret[i]
 			filtedRet = append(filtedRet, backend)
 		}
 	}

@@ -43,7 +43,7 @@ func (self *SZone) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SZone) GetId() string {
-	return self.region.client.providerId
+	return self.region.client.cpcfg.Id
 }
 
 func (self *SZone) GetName() string {

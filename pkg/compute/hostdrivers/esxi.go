@@ -16,15 +16,18 @@ package hostdrivers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/multicloud/esxi/vcenter"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -61,23 +64,33 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mo
 		return err
 	}
 	cacheImage := obj.(*models.SCachedimage)
-	srcHostCacheImage, err := cacheImage.ChooseSourceStoragecacheInRange(api.HOST_TYPE_ESXI, []string{host.Id},
-		[]interface{}{host.GetZone(), host.GetCloudprovider()})
-	if err != nil {
-		return err
+	var srcHostCacheImage *models.SStoragecachedimage
+	// Check if storageCache has this cacheImage.
+	// If no, choose source storage cache
+	// else, use it
+	hostCacheImage := models.StoragecachedimageManager.GetStoragecachedimage(storageCache.GetId(), cacheImage.GetId())
+	if hostCacheImage == nil {
+		srcHostCacheImage, err = cacheImage.ChooseSourceStoragecacheInRange(api.HOST_TYPE_ESXI, []string{host.Id},
+			[]interface{}{host.GetZone(), host.GetCloudprovider()})
+		if err != nil {
+			return err
+		}
 	}
 
 	type contentStruct struct {
-		ImageId        string
-		HostId         string
-		HostIp         string
-		SrcHostIp      string
-		SrcPath        string
-		SrcDatastore   models.SVCenterAccessInfo
-		Datastore      models.SVCenterAccessInfo
-		Format         string
-		IsForce        bool
-		StoragecacheId string
+		ImageId            string
+		HostId             string
+		HostIp             string
+		SrcHostIp          string
+		SrcPath            string
+		SrcDatastore       vcenter.SVCenterAccessInfo
+		Datastore          vcenter.SVCenterAccessInfo
+		Format             string
+		IsForce            bool
+		StoragecacheId     string
+		ImageType          string
+		ImageExternalId    string
+		StorageCacheHostIp string
 	}
 
 	content := contentStruct{}
@@ -87,11 +100,14 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mo
 	// format force VMDK
 	content.Format = "vmdk" // cacheImage.GetFormat()
 
+	content.ImageType = cacheImage.ImageType
+	content.ImageExternalId = cacheImage.ExternalId
+
 	storage := host.GetStorageByFilePath(storageCache.Path)
 	if storage == nil {
 		msg := fmt.Sprintf("fail to find storage for storageCache %s", storageCache.Path)
 		log.Errorf(msg)
-		return errors.New(msg)
+		return errors.Error(msg)
 	}
 
 	accessInfo, err := host.GetCloudaccount().GetVCenterAccessInfo(storage.ExternalId)
@@ -100,7 +116,21 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mo
 	}
 	content.Datastore = accessInfo
 
-	if srcHostCacheImage != nil {
+	if cacheImage.ImageType == cloudprovider.CachedImageTypeSystem {
+		var host *models.SHost
+		if srcHostCacheImage != nil {
+			host, err = srcHostCacheImage.GetHost()
+			if err != nil {
+				return errors.Wrap(err, "srcHostCacheImage.GetHost")
+			}
+		} else {
+			host, err = storageCache.GetHost()
+			if err != nil {
+				return errors.Wrap(err, "StorageCache.GetHost")
+			}
+		}
+		content.StorageCacheHostIp = host.AccessIp
+	} else if srcHostCacheImage != nil {
 		err = srcHostCacheImage.AddDownloadRefcount()
 		if err != nil {
 			return err
@@ -111,7 +141,11 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mo
 		}
 		content.SrcHostIp = srcHost.AccessIp
 		content.SrcPath = srcHostCacheImage.Path
-		srcStorage := srcHost.GetStorageByFilePath(srcHostCacheImage.Path)
+		srcStorageCache, err := srcHostCacheImage.GetStoragecache()
+		if err != nil {
+			return errors.Wrap(err, "StorageCacheImage.GetStoragecaceh")
+		}
+		srcStorage := srcHost.GetStorageByFilePath(srcStorageCache.Path)
 		accessInfo, err := srcHost.GetCloudaccount().GetVCenterAccessInfo(srcStorage.ExternalId)
 		if err != nil {
 			return err
@@ -142,13 +176,13 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mo
 	return nil
 }
 
-func (self *SESXiHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
+func (self *SESXiHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
 	if !host.IsEsxiAgentReady() {
 		return fmt.Errorf("fail to find valid ESXi agent")
 	}
 
 	type specStruct struct {
-		Datastore models.SVCenterAccessInfo
+		Datastore vcenter.SVCenterAccessInfo
 		HostIp    string
 		Format    string
 	}
@@ -195,8 +229,8 @@ func (self *SESXiHostDriver) RequestPrepareSaveDiskOnHost(ctx context.Context, h
 	}
 
 	type specStruct struct {
-		Vm      models.SVCenterAccessInfo
-		Disk    models.SVCenterAccessInfo
+		Vm      vcenter.SVCenterAccessInfo
+		Disk    vcenter.SVCenterAccessInfo
 		HostIp  string
 		ImageId string
 	}

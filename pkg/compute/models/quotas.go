@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -51,6 +50,7 @@ func init() {
 
 	QuotaUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(Quota,
+			rbacutils.ScopeProject,
 			"quota_usage_tbl",
 			"quota_usage",
 			"quota_usages",
@@ -58,6 +58,7 @@ func init() {
 	}
 	QuotaPendingUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(Quota,
+			rbacutils.ScopeProject,
 			"quota_pending_usage_tbl",
 			"quota_pending_usage",
 			"quota_pending_usages",
@@ -65,6 +66,7 @@ func init() {
 	}
 	QuotaManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaBaseManager(Quota,
+			rbacutils.ScopeProject,
 			"quota_tbl",
 			QuotaPendingUsageManager,
 			QuotaUsageManager,
@@ -80,13 +82,19 @@ type SQuota struct {
 
 	SComputeResourceKeys
 
-	Count   int `default:"-1" allow_zero:"true"`
-	Cpu     int `default:"-1" allow_zero:"true"`
-	Memory  int `default:"-1" allow_zero:"true"`
-	Storage int `default:"-1" allow_zero:"true"`
+	// 主机数量配额
+	Count int `default:"-1" allow_zero:"true" json:"count"`
+	// 主机CPU核数量配额
+	Cpu int `default:"-1" allow_zero:"true" json:"cpu"`
+	// 主机内存容量配额
+	Memory int `default:"-1" allow_zero:"true" json:"memory"`
+	// 主机存储容量配额
+	Storage int `default:"-1" allow_zero:"true" json:"storage"`
 
-	Group          int `default:"-1" allow_zero:"true"`
-	IsolatedDevice int `default:"-1" allow_zero:"true"`
+	// 主机组配额
+	Group int `default:"-1" allow_zero:"true" json:"group"`
+	// 直通设备(GPU)配额
+	IsolatedDevice int `default:"-1" allow_zero:"true" json:"isolated_device"`
 }
 
 func (self *SQuota) GetKeys() quotas.IQuotaKeys {
@@ -180,7 +188,7 @@ func (self *SQuota) FetchUsage(ctx context.Context) error {
 
 	diskSize := totalDiskSize(scope, ownerId, tristate.None, tristate.None, false, false, rangeObjs, providers, brands, keys.CloudEnv, hypervisors)
 
-	guest := totalGuestResourceCount(scope, ownerId, rangeObjs, nil, hypervisors, false, false, nil, nil, providers, brands, keys.CloudEnv)
+	guest := usageTotalGuestResouceCount(scope, ownerId, rangeObjs, nil, hypervisors, false, false, nil, nil, providers, brands, keys.CloudEnv)
 
 	self.Count = guest.TotalGuestCount
 	self.Cpu = guest.TotalCpuCount
@@ -256,6 +264,30 @@ func (self *SQuota) Sub(quota quotas.IQuota) {
 	self.Storage = nonNegative(self.Storage - squota.Storage)
 	self.Group = nonNegative(self.Group - squota.Group)
 	self.IsolatedDevice = nonNegative(self.IsolatedDevice - squota.IsolatedDevice)
+}
+
+func (self *SQuota) Allocable(request quotas.IQuota) int {
+	squota := request.(*SQuota)
+	cnt := -1
+	if self.Count >= 0 && squota.Count > 0 && (cnt < 0 || cnt > self.Count/squota.Count) {
+		cnt = self.Count / squota.Count
+	}
+	if self.Cpu >= 0 && squota.Cpu > 0 && (cnt < 0 || cnt > self.Cpu/squota.Cpu) {
+		cnt = self.Cpu / squota.Cpu
+	}
+	if self.Memory >= 0 && squota.Memory > 0 && (cnt < 0 || cnt > self.Memory/squota.Memory) {
+		cnt = self.Memory / squota.Memory
+	}
+	if self.Storage >= 0 && squota.Storage > 0 && (cnt < 0 || cnt > self.Storage/squota.Storage) {
+		cnt = self.Storage / squota.Storage
+	}
+	if self.Group >= 0 && squota.Group > 0 && (cnt < 0 || cnt > self.Group/squota.Group) {
+		cnt = self.Group / squota.Group
+	}
+	if self.IsolatedDevice >= 0 && squota.IsolatedDevice > 0 && (cnt < 0 || cnt > self.IsolatedDevice/squota.IsolatedDevice) {
+		cnt = self.IsolatedDevice / squota.IsolatedDevice
+	}
+	return cnt
 }
 
 func (self *SQuota) Update(quota quotas.IQuota) {
@@ -372,48 +404,26 @@ func (manager *SQuotaManager) FetchIdNames(ctx context.Context, idMap map[string
 	return idMap, nil
 }
 
-func dbFetchIdNameMap(manager db.IStandaloneModelManager, idMap map[string]string) (map[string]string, error) {
-	q := manager.Query("id", "name").In("id", utils.MapKeys(idMap))
-	rows, err := q.Rows()
-	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
-			return idMap, nil
-		} else {
-			return idMap, errors.Wrap(err, "Query")
-		}
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var id string
-		var name string
-		err := rows.Scan(&id, &name)
-		if err != nil {
-			return idMap, errors.Wrap(err, "rows.Scan")
-		}
-		idMap[id] = name
-	}
-	return idMap, nil
-}
-
 func fetchRegionNames(idMap map[string]string) (map[string]string, error) {
-	return dbFetchIdNameMap(CloudregionManager, idMap)
+	return db.FetchIdNameMap(CloudregionManager, idMap)
 }
 
 func fetchZoneNames(idMap map[string]string) (map[string]string, error) {
-	return dbFetchIdNameMap(ZoneManager, idMap)
+	return db.FetchIdNameMap(ZoneManager, idMap)
 }
 
 func fetchAccountNames(idMap map[string]string) (map[string]string, error) {
-	return dbFetchIdNameMap(CloudaccountManager, idMap)
+	return db.FetchIdNameMap(CloudaccountManager, idMap)
 }
 
 func fetchManagerNames(idMap map[string]string) (map[string]string, error) {
-	return dbFetchIdNameMap(CloudproviderManager, idMap)
+	return db.FetchIdNameMap(CloudproviderManager, idMap)
 }
 
 type SComputeResourceKeys struct {
 	quotas.SZonalCloudResourceKeys
 
+	// 主机配额适用的主机类型，参考主机List的Hypervisor列表
 	Hypervisor string `width:"16" charset:"ascii" nullable:"false" primary:"true" list:"user"`
 }
 
@@ -441,12 +451,12 @@ func (k1 SComputeResourceKeys) Compare(ik quotas.IQuotaKeys) int {
 
 func fetchCloudQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, manager *SCloudprovider) quotas.SCloudResourceKeys {
 	keys := quotas.SCloudResourceKeys{}
-	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
+	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)
 	if manager != nil {
 		account := manager.GetCloudaccount()
 		keys.Provider = account.Provider
 		keys.Brand = account.Brand
-		keys.CloudEnv = account.getCloudEnv()
+		keys.CloudEnv = account.GetCloudEnv()
 		keys.AccountId = account.Id
 		keys.ManagerId = manager.Id
 	} else {
@@ -460,15 +470,19 @@ func fetchCloudQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityP
 func fetchRegionalQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, region *SCloudregion, manager *SCloudprovider) quotas.SRegionalCloudResourceKeys {
 	keys := quotas.SRegionalCloudResourceKeys{}
 	keys.SCloudResourceKeys = fetchCloudQuotaKeys(scope, ownerId, manager)
-	keys.RegionId = region.Id
+	if region != nil {
+		keys.RegionId = region.Id
+	}
 	return keys
 }
 
 func fetchZonalQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, zone *SZone, manager *SCloudprovider) quotas.SZonalCloudResourceKeys {
 	keys := quotas.SZonalCloudResourceKeys{}
 	keys.SCloudResourceKeys = fetchCloudQuotaKeys(scope, ownerId, manager)
-	keys.RegionId = zone.CloudregionId
-	keys.ZoneId = zone.Id
+	if zone != nil {
+		keys.RegionId = zone.CloudregionId
+		keys.ZoneId = zone.Id
+	}
 	return keys
 }
 

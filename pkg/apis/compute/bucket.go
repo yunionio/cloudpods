@@ -35,6 +35,7 @@ const (
 	BUCKET_STATUS_DELETING     = "deleting"
 	BUCKET_STATUS_DELETED      = "deleted"
 	BUCKET_STATUS_DELETE_FAIL  = "delete_fail"
+	BUCKET_STATUS_UNKNOWN      = "unknown"
 
 	BUCKET_UPLOAD_OBJECT_KEY_HEADER          = "X-Yunion-Bucket-Upload-Key"
 	BUCKET_UPLOAD_OBJECT_ACL_HEADER          = "X-Yunion-Bucket-Upload-Acl"
@@ -42,16 +43,22 @@ const (
 )
 
 type BucketCreateInput struct {
-	apis.VirtualResourceCreateInput
-	RegionalResourceCreateInput
-	ManagedResourceCreateInput
+	apis.SharableVirtualResourceCreateInput
+	CloudregionResourceInput
+	CloudproviderResourceInput
 
 	StorageClass string `json:"storage_class"`
 }
 
-type BucketDetail struct {
-	apis.Meta
+type BucketDetails struct {
+	apis.SharableVirtualResourceDetails
+	ManagedResourceInfo
+	CloudregionResourceInfo
+
 	SBucket
+
+	// 访问URL列表
+	AccessUrls []cloudprovider.SBucketAccessUrl `json:"access_urls"`
 }
 
 type BucketObjectsActionInput struct {
@@ -88,4 +95,90 @@ func (input *BucketMetadataInput) Validate() error {
 		return errors.Wrap(httperrors.ErrEmptyRequest, "metadata")
 	}
 	return nil
+}
+
+type BucketListInput struct {
+	apis.SharableVirtualResourceListInput
+	apis.ExternalizedResourceBaseListInput
+
+	ManagedResourceListInput
+	RegionalFilterListInput
+
+	// STORAGE_CLASS
+	StorageClass []string `json:"storage_class"`
+
+	// 位置
+	Location []string `json:"location"`
+
+	// ACL
+	Acl []string `json:"acl"`
+}
+
+type BucketSyncstatusInput struct {
+}
+
+type BucketUpdateInput struct {
+	apis.SharableVirtualResourceBaseUpdateInput
+}
+
+type BucketPerformTempUrlInput struct {
+	// 访问对象方法
+	Method string `json:"method"`
+	// 对象KEY
+	// required:true
+	Key string `json:"key"`
+	// 过期时间，单位秒
+	ExpireSeconds *int `json:"expire_seconds"`
+}
+
+type BucketPerformTempUrlOutput struct {
+	// 生成的临时URL
+	Url string `json:"url"`
+}
+
+type BucketPerformMakedirInput struct {
+	// 目录对象KEY
+	// required:true
+	Key string `json:"key"`
+}
+
+type BucketPerformDeleteInput struct {
+	// 待删除对象KEY
+	// required:true
+	Keys []string `json:"keys"`
+}
+
+type BucketGetAclInput struct {
+	// 对象KEY
+	// required:false
+	Key string `json:"key"`
+}
+
+type BucketGetAclOutput struct {
+	// ACL
+	Acl string `json:"acl"`
+}
+
+type BucketGetObjectsInput struct {
+	// Prefix
+	Prefix string `json:"prefix"`
+	// 是否模拟列举目录模式
+	Recursive *bool `json:"recursive"`
+	// 分页标识
+	PagingMarker string `json:"paging_marker"`
+	// 最大输出条目数
+	Limit *int `json:"limit"`
+}
+
+type BucketGetObjectsOutput struct {
+	// 对象列表
+	Data []cloudprovider.SCloudObject `json:"data"`
+	// 排序字段，总是key
+	// example: key
+	MarkerField string `json:"marker_field"`
+	// 排序顺序，总是降序
+	// example: DESC
+	MarkerOrder string `json:"marker_order"`
+	// 下一页请求的paging_marker标识
+	NextMarker string `json:"next_marker"`
 }

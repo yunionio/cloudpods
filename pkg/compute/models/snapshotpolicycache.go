@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -33,10 +32,15 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SSnapshotPolicyCacheManager struct {
 	db.SStatusStandaloneResourceBaseManager
+	db.SExternalizedResourceBaseManager
+	SCloudregionResourceBaseManager
+	SManagedResourceBaseManager
+	SSnapshotPolicyResourceBaseManager
 }
 
 type SSnapshotPolicyCache struct {
@@ -44,15 +48,15 @@ type SSnapshotPolicyCache struct {
 	db.SExternalizedResourceBase
 	SCloudregionResourceBase
 	SManagedResourceBase
-
-	SnapshotpolicyId string `width:"128" charset:"ascii" create:"required"`
+	SSnapshotPolicyResourceBase `width:"128" charset:"ascii" create:"required"`
+	// SnapshotpolicyId string `width:"128" charset:"ascii" create:"required"`
 }
 
 var SnapshotPolicyCacheManager *SSnapshotPolicyCacheManager
 
 func init() {
 	SnapshotPolicyCacheManager = &SSnapshotPolicyCacheManager{
-		db.NewStatusStandaloneResourceBaseManager(
+		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
 			SSnapshotPolicyCache{},
 			"snapshotpolicycache_tbl",
 			"snapshotpolicycache",
@@ -62,21 +66,55 @@ func init() {
 	SnapshotPolicyCacheManager.SetVirtualObject(SnapshotPolicyCacheManager)
 }
 
-func NewSSnapshotPolicyCache(snapshotpolicyId, cloudregionId, externalId string) SSnapshotPolicyCache {
-	return SSnapshotPolicyCache{
-		SnapshotpolicyId:          snapshotpolicyId,
-		SCloudregionResourceBase:  SCloudregionResourceBase{cloudregionId},
-		SExternalizedResourceBase: db.SExternalizedResourceBase{externalId},
+func NewSSnapshotPolicyCache(snapshotpolicyId, cloudregionId, externalId string) *SSnapshotPolicyCache {
+	cache := SSnapshotPolicyCache{
+		// SnapshotpolicyId:          snapshotpolicyId,
+		SCloudregionResourceBase: SCloudregionResourceBase{
+			CloudregionId: cloudregionId,
+		},
+		SExternalizedResourceBase: db.SExternalizedResourceBase{
+			ExternalId: externalId,
+		},
 	}
+	cache.SnapshotpolicyId = snapshotpolicyId
+	cache.SetModelManager(SnapshotPolicyCacheManager, &cache)
+	return &cache
 }
 
-func (spcm *SSnapshotPolicyCacheManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := spcm.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+// 快照策略缓存列表
+func (spcm *SSnapshotPolicyCacheManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.SnapshotPolicyCacheListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = spcm.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
-	if snapshotpolicyIden, _ := query.GetString("snapshotpolicy"); len(snapshotpolicyIden) > 0 {
+
+	q, err = spcm.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = spcm.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = spcm.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = spcm.SSnapshotPolicyResourceBaseManager.ListItemFilter(ctx, q, userCred, query.SnapshotPolicyFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSnapshotPolicyResourceBaseManager.ListItemFilter")
+	}
+	/*if snapshotpolicyIden := query.Snapshotpolicy; len(snapshotpolicyIden) > 0 {
 		snapshotpolicy, err := SnapshotPolicyManager.FetchByIdOrName(userCred, snapshotpolicyIden)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
@@ -86,8 +124,59 @@ func (spcm *SSnapshotPolicyCacheManager) ListItemFilter(ctx context.Context, q *
 			}
 		}
 		q = q.Equals("snapshotpolicy_id", snapshotpolicy.GetId())
-	}
+	}*/
 	return q, nil
+}
+
+func (spcm *SSnapshotPolicyCacheManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.SnapshotPolicyCacheListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = spcm.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = spcm.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = spcm.SCloudregionResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = spcm.SSnapshotPolicyResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.SnapshotPolicyFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSnapshotPolicyResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (spcm *SSnapshotPolicyCacheManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = spcm.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = spcm.SManagedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = spcm.SCloudregionResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = spcm.SSnapshotPolicyResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (spc *SSnapshotPolicyCache) GetIRegion() (cloudprovider.ICloudRegion, error) {
@@ -110,18 +199,39 @@ func (spc *SSnapshotPolicyCache) GetSnapshotPolicy() (*SSnapshotPolicy, error) {
 	return model.(*SSnapshotPolicy), nil
 }
 
-func (spc *SSnapshotPolicyCache) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := spc.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	regionInfo := spc.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if regionInfo != nil {
-		extra.Update(regionInfo)
+func (spcm *SSnapshotPolicyCacheManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.SnapshotPolicyCacheDetails {
+	rows := make([]api.SnapshotPolicyCacheDetails, len(objs))
+
+	stdRows := spcm.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	manRows := spcm.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	regionRows := spcm.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	snapshotPolicyRows := spcm.SSnapshotPolicyResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = api.SnapshotPolicyCacheDetails{
+			StatusStandaloneResourceDetails: stdRows[i],
+			ManagedResourceInfo:             manRows[i],
+			CloudregionResourceInfo:         regionRows[i],
+			SnapshotPolicyResourceInfo:      snapshotPolicyRows[i],
+		}
 	}
-	accountInfo := spc.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if accountInfo != nil {
-		extra.Update(accountInfo)
-	}
-	return extra
+
+	return rows
+}
+
+func (spc *SSnapshotPolicyCache) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.SnapshotPolicyCacheDetails, error) {
+	return api.SnapshotPolicyCacheDetails{}, nil
 }
 
 // =============================================== detach and delete ===================================================
@@ -160,10 +270,10 @@ func (spcm *SSnapshotPolicyCacheManager) NewCache(ctx context.Context, userCred 
 	snapshotPolicyCache.Status = api.SNAPSHOT_POLICY_CACHE_STATUS_READY
 
 	// should have lock
-	if err := spcm.TableSpec().Insert(&snapshotPolicyCache); err != nil {
+	if err := spcm.TableSpec().Insert(ctx, snapshotPolicyCache); err != nil {
 		return nil, errors.Wrapf(err, "insert snapshotpolicycache failed")
 	}
-	return &snapshotPolicyCache, nil
+	return snapshotPolicyCache, nil
 }
 
 func (spcm *SSnapshotPolicyCacheManager) NewCacheWithExternalId(ctx context.Context, userCred mcclient.TokenCredential,
@@ -175,10 +285,10 @@ func (spcm *SSnapshotPolicyCacheManager) NewCacheWithExternalId(ctx context.Cont
 	snapshotPolicyCache.Status = api.SNAPSHOT_POLICY_CACHE_STATUS_READY
 	snapshotPolicyCache.Name = name
 	// should have lock
-	if err := spcm.TableSpec().Insert(&snapshotPolicyCache); err != nil {
+	if err := spcm.TableSpec().Insert(ctx, snapshotPolicyCache); err != nil {
 		return nil, errors.Wrapf(err, "insert snapshotpolicycache failed")
 	}
-	return &snapshotPolicyCache, nil
+	return snapshotPolicyCache, nil
 }
 
 func (spcm *SSnapshotPolicyCacheManager) Register(ctx context.Context, userCred mcclient.TokenCredential, snapshotPolicyId,
@@ -400,4 +510,32 @@ func (spc *SSnapshotPolicyCache) UpdateCloudSnapshotPolicy(input *cloudprovider.
 	}
 
 	return nil
+}
+
+func (manager *SSnapshotPolicyCacheManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemExportKeys")
+	}
+
+	if keys.ContainsAny(manager.SCloudregionResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SCloudregionResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	if keys.ContainsAny(manager.SManagedResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SManagedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	return q, nil
 }

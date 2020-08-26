@@ -14,7 +14,9 @@
 
 package seclib2
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestAes(t *testing.T) {
 	secret := "This is a secret for AES!!!"

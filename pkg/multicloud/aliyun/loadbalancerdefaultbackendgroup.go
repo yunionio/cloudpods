@@ -15,6 +15,7 @@
 package aliyun
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -113,11 +114,11 @@ func (backendgroup *SLoadbalancerDefaultBackendGroup) GetILoadbalancerBackendByI
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (backendgroup *SLoadbalancerDefaultBackendGroup) Sync(group *cloudprovider.SLoadbalancerBackendGroup) error {
+func (backendgroup *SLoadbalancerDefaultBackendGroup) Sync(ctx context.Context, group *cloudprovider.SLoadbalancerBackendGroup) error {
 	return cloudprovider.ErrNotSupported
 }
 
-func (backendgroup *SLoadbalancerDefaultBackendGroup) Delete() error {
+func (backendgroup *SLoadbalancerDefaultBackendGroup) Delete(ctx context.Context) error {
 	return cloudprovider.ErrNotSupported
 }
 

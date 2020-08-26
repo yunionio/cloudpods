@@ -32,6 +32,7 @@ func NewDeployInfo(
 	defaultRootUser bool,
 	windowsDefaultAdminUser bool,
 	enableCloudInit bool,
+	loginAccount string,
 ) *DeployInfo {
 	return &DeployInfo{
 		PublicKey:               publicKey,
@@ -42,6 +43,7 @@ func NewDeployInfo(
 		DefaultRootUser:         defaultRootUser,
 		WindowsDefaultAdminUser: windowsDefaultAdminUser,
 		EnableCloudInit:         enableCloudInit,
+		LoginAccount:            loginAccount,
 	}
 }
 

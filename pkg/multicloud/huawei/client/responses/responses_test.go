@@ -15,7 +15,6 @@
 package responses
 
 import (
-	"fmt"
 	"testing"
 
 	"yunion.io/x/jsonutils"
@@ -25,14 +24,14 @@ func TestTransColonToDot(t *testing.T) {
 	raw := `{"A:b::C": "1:2:3", "A": true, "B": ["1:2", ":", "c"], "D:E": true}`
 	obj, err := jsonutils.ParseString(raw)
 	if err != nil {
-		fmt.Println(err)
+		t.Fatalf("json parse: %v", err)
 	}
-	nobj, err := TransColonToDot(obj)
+	gotj, err := TransColonToDot(obj)
 	if err != nil {
-		fmt.Println(err)
+		t.Fatalf("trans: %v", err)
 	}
-
-	if nobj.String() != `{"A":true,"A.b..C":"1:2:3","B":["1:2",":","c"],"D.E":true}` {
-		t.Errorf("trans failed")
+	wantj, _ := jsonutils.ParseString(`{"A":true,"A.b..C":"1:2:3","B":["1:2",":","c"],"D.E":true}`)
+	if !wantj.Equals(gotj) {
+		t.Errorf("trans failed, want:\n%s\ngot:\n%s", wantj, gotj)
 	}
 }

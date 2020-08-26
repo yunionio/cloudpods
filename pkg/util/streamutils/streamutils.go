@@ -26,7 +26,7 @@ type SStreamProperty struct {
 	Size     int64
 }
 
-func StreamPipe(reader io.Reader, writer io.Writer, CalChecksum bool) (*SStreamProperty, error) {
+func StreamPipe(reader io.Reader, writer io.Writer, CalChecksum bool, callback func(saved int64)) (*SStreamProperty, error) {
 	sp := SStreamProperty{}
 
 	var md5sum hash.Hash
@@ -49,6 +49,9 @@ func StreamPipe(reader io.Reader, writer io.Writer, CalChecksum bool) (*SStreamP
 					return nil, err
 				}
 				offset += m
+			}
+			if callback != nil {
+				callback(sp.Size)
 			}
 		}
 		if err != nil {

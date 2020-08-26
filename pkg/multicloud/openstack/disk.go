@@ -17,6 +17,7 @@ package openstack
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
+	"yunion.io/x/onecloud/pkg/util/version"
 )
 
 const (
@@ -58,12 +60,12 @@ const (
 )
 
 type Attachment struct {
-	ServerID     string
-	AttachmentID string
+	ServerId     string
+	AttachmentId string
 	HostName     string
-	VolumeID     string
+	VolumeId     string
 	Device       string
-	ID           string
+	Id           string
 }
 
 type Link struct {
@@ -78,7 +80,7 @@ type VolumeImageMetadata struct {
 	MinRAM          int
 	DiskFormat      string
 	ImageName       string
-	ImageID         string
+	ImageId         string
 	ContainerFormat string
 	MinDisk         int
 	Size            int
@@ -88,7 +90,7 @@ type SDisk struct {
 	storage *SStorage
 	multicloud.SDisk
 
-	ID   string
+	Id   string
 	Name string
 
 	MigrationStatus string
@@ -99,10 +101,10 @@ type SDisk struct {
 	Host              string `json:"os-vol-host-attr:host"`
 	Encrypted         bool
 	ReplicationStatus string
-	SnapshotID        string
+	SnapshotId        string
 	Size              int
-	UserID            string
-	TenantID          string `json:"os-vol-tenant-attr:tenant_id"`
+	UserId            string
+	TenantId          string `json:"os-vol-tenant-attr:tenant_id"`
 	Migstat           string `json:"os-vol-mig-status-attr:migstat"`
 	Metadata          Metadata
 
@@ -110,9 +112,9 @@ type SDisk struct {
 	Description         string
 	Multiattach         string
 	SourceVolid         string
-	ConsistencygroupID  string
+	ConsistencygroupId  string
 	VolumeImageMetadata VolumeImageMetadata
-	NameID              string `json:"os-vol-mig-status-attr:name_id"`
+	NameId              string `json:"os-vol-mig-status-attr:name_id"`
 	Bootable            bool
 	CreatedAt           time.Time
 	VolumeType          string
@@ -125,50 +127,40 @@ func (disk *SDisk) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
-func (region *SRegion) GetDisks(category, volumeBackendName string) ([]SDisk, error) {
-	url := "/volumes/detail"
+func (region *SRegion) GetDisks() ([]SDisk, error) {
 	disks := []SDisk{}
-	for len(url) > 0 {
-		_, resp, err := region.CinderList(url, "", nil)
+	resource := "/volumes/detail"
+	query := url.Values{}
+	query.Set("all_tenants", "true")
+	for {
+		resp, err := region.bsList(resource, query)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "bsList")
 		}
-		_disks := []SDisk{}
-		err = resp.Unmarshal(&_disks, "volumes")
+		part := struct {
+			Volumes      []SDisk
+			VolumesLinks SNextLinks
+		}{}
+		err = resp.Unmarshal(&part)
 		if err != nil {
-			return nil, errors.Wrap(err, `resp.Unmarshal(&_disks, "volumes")`)
+			return nil, errors.Wrap(err, "resp.Unmarshal")
 		}
-		disks = append(disks, _disks...)
-		url = ""
-		if resp.Contains("volumes_links") {
-			nextLink := []SNextLink{}
-			err = resp.Unmarshal(&nextLink, "volumes_links")
-			if err != nil {
-				return nil, errors.Wrap(err, `resp.Unmarshal(&nextLink, "volumes_links")`)
-			}
-			for _, next := range nextLink {
-				if next.Rel == "next" {
-					url = next.Href
-					break
-				}
-			}
+		disks = append(disks, part.Volumes...)
+		marker := part.VolumesLinks.GetNextMark()
+		if len(marker) == 0 {
+			break
 		}
+		query.Set("marker", marker)
 	}
-	result := []SDisk{}
-	for _, disk := range disks {
-		if len(category) == 0 || disk.VolumeType == category || strings.HasSuffix(disk.Host, "#"+volumeBackendName) {
-			result = append(result, disk)
-		}
-	}
-	return result, nil
+	return disks, nil
 }
 
 func (disk *SDisk) GetId() string {
-	return disk.ID
+	return disk.Id
 }
 
 func (disk *SDisk) Delete(ctx context.Context) error {
-	err := disk.storage.zone.region.DeleteDisk(disk.ID)
+	err := disk.storage.zone.region.DeleteDisk(disk.Id)
 	if err != nil {
 		return err
 	}
@@ -179,12 +171,12 @@ func (disk *SDisk) attachInstances(attachments []Attachment) error {
 	for _, attachment := range attachments {
 		startTime := time.Now()
 		for time.Now().Sub(startTime) < 5*time.Minute {
-			if err := disk.storage.zone.region.AttachDisk(attachment.ServerID, disk.ID); err != nil {
+			if err := disk.storage.zone.region.AttachDisk(attachment.ServerId, disk.Id); err != nil {
 				if strings.Contains(err.Error(), "status must be available or downloading") {
 					time.Sleep(time.Second * 10)
 					continue
 				}
-				log.Errorf("recover attach disk %s => instance %s error: %v", disk.ID, attachment.ServerID, err)
+				log.Errorf("recover attach disk %s => instance %s error: %v", disk.Id, attachment.ServerId, err)
 				return err
 			} else {
 				return nil
@@ -195,15 +187,24 @@ func (disk *SDisk) attachInstances(attachments []Attachment) error {
 }
 
 func (disk *SDisk) Resize(ctx context.Context, sizeMb int64) error {
+	maxVersion := ""
+	for _, service := range []string{OPENSTACK_SERVICE_VOLUMEV3, OPENSTACK_SERVICE_VOLUMEV2, OPENSTACK_SERVICE_VOLUME} {
+		maxVersion, _ = disk.storage.zone.region.GetMaxVersion(service)
+		if len(maxVersion) > 0 {
+			break
+		}
+	}
+	if version.GE(maxVersion, "3.42") {
+		return disk.storage.zone.region.ResizeDisk(disk.Id, sizeMb)
+	}
 	instanceIds := []string{}
-
 	for _, attachement := range disk.Attachments {
-		if err := disk.storage.zone.region.DetachDisk(attachement.ServerID, disk.ID); err != nil {
+		if err := disk.storage.zone.region.DetachDisk(attachement.ServerId, disk.Id); err != nil {
 			return err
 		}
-		instanceIds = append(instanceIds, attachement.ServerID)
+		instanceIds = append(instanceIds, attachement.ServerId)
 	}
-	err := disk.storage.zone.region.ResizeDisk(disk.ID, sizeMb)
+	err := disk.storage.zone.region.ResizeDisk(disk.Id, sizeMb)
 	if err != nil {
 		disk.attachInstances(disk.Attachments)
 		return err
@@ -215,11 +216,11 @@ func (disk *SDisk) GetName() string {
 	if len(disk.Name) > 0 {
 		return disk.Name
 	}
-	return disk.ID
+	return disk.Id
 }
 
 func (disk *SDisk) GetGlobalId() string {
-	return disk.ID
+	return disk.Id
 }
 
 func (disk *SDisk) IsEmulated() bool {
@@ -252,15 +253,15 @@ func (disk *SDisk) GetStatus() string {
 }
 
 func (disk *SDisk) Refresh() error {
-	new, err := disk.storage.zone.region.GetDisk(disk.ID)
+	_disk, err := disk.storage.zone.region.GetDisk(disk.Id)
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(disk, new)
+	return jsonutils.Update(disk, _disk)
 }
 
 func (disk *SDisk) ResizeDisk(sizeMb int64) error {
-	return disk.storage.zone.region.ResizeDisk(disk.ID, sizeMb)
+	return disk.storage.zone.region.ResizeDisk(disk.Id, sizeMb)
 }
 
 func (disk *SDisk) GetDiskFormat() string {
@@ -276,7 +277,7 @@ func (disk *SDisk) GetIsAutoDelete() bool {
 }
 
 func (disk *SDisk) GetTemplateId() string {
-	return disk.VolumeImageMetadata.ImageID
+	return disk.VolumeImageMetadata.ImageId
 }
 
 func (disk *SDisk) GetDiskType() string {
@@ -306,11 +307,11 @@ func (disk *SDisk) GetMountpoint() string {
 	return ""
 }
 
-func (region *SRegion) CreateDisk(imageRef string, category string, name string, sizeGb int, desc string) (*SDisk, error) {
+func (region *SRegion) CreateDisk(imageRef string, volumeType string, name string, sizeGb int, desc string, projectId string) (*SDisk, error) {
 	params := map[string]map[string]interface{}{
 		"volume": {
 			"size":        sizeGb,
-			"volume_type": category,
+			"volume_type": volumeType,
 			"name":        name,
 			"description": desc,
 		},
@@ -318,14 +319,15 @@ func (region *SRegion) CreateDisk(imageRef string, category string, name string,
 	if len(imageRef) > 0 {
 		params["volume"]["imageRef"] = imageRef
 	}
-	_, resp, err := region.CinderCreate("/volumes", "", jsonutils.Marshal(params))
+	resp, err := region.bsCreate(projectId, "/volumes", params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "bsCreate")
 	}
 
 	disk := &SDisk{}
-	if err := resp.Unmarshal(disk, "volume"); err != nil {
-		return nil, err
+	err = resp.Unmarshal(disk, "volume")
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
 	}
 	//这里由于不好初始化disk的storage就手动循环了,如果是通过镜像创建，有个下载过程,比较慢，等待时间较长
 	startTime := time.Now()
@@ -337,7 +339,7 @@ func (region *SRegion) CreateDisk(imageRef string, category string, name string,
 	for time.Now().Sub(startTime) < timeout {
 		disk, err = region.GetDisk(disk.GetGlobalId())
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "GetDisk(%s)", disk.GetGlobalId())
 		}
 		log.Debugf("disk status %s expect %s", disk.GetStatus(), api.DISK_READY)
 		status := disk.GetStatus()
@@ -345,29 +347,37 @@ func (region *SRegion) CreateDisk(imageRef string, category string, name string,
 			break
 		}
 		if status == api.DISK_ALLOC_FAILED {
-			region.DeleteDisk(disk.GetGlobalId())
-			return nil, fmt.Errorf("allocate disk failed, status is error")
+			messages, _ := region.GetMessages(disk.Id)
+			if len(messages) > 0 {
+				return nil, fmt.Errorf("allocate disk %s failed, status is %s message: %s", disk.Name, disk.Status, messages[0].UserMessage)
+			}
+			return nil, fmt.Errorf("allocate disk %s failed, status is %s", disk.Name, disk.Status)
 		}
 		time.Sleep(time.Second * 10)
 	}
 	if disk.GetStatus() != api.DISK_READY {
-		region.DeleteDisk(disk.GetGlobalId())
 		return nil, fmt.Errorf("timeout for waitting disk ready, current status: %s", disk.Status)
 	}
 	return disk, nil
 }
 
 func (region *SRegion) GetDisk(diskId string) (*SDisk, error) {
-	_, resp, err := region.CinderGet("/volumes/"+diskId, "", nil)
+	resource := fmt.Sprintf("/volumes/%s", diskId)
+	resp, err := region.bsGet(resource)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "bsGet")
 	}
 	disk := &SDisk{}
-	return disk, resp.Unmarshal(disk, "volume")
+	err = resp.Unmarshal(disk, "volume")
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return disk, nil
 }
 
 func (region *SRegion) DeleteDisk(diskId string) error {
-	_, err := region.CinderDelete("/volumes/"+diskId, "")
+	resource := fmt.Sprintf("/volumes/%s", diskId)
+	_, err := region.bsDelete(resource)
 	return err
 }
 
@@ -377,24 +387,24 @@ func (region *SRegion) ResizeDisk(diskId string, sizeMb int64) error {
 			"new_size": sizeMb / 1024,
 		},
 	}
-	_, _, err := region.CinderAction(fmt.Sprintf("/volumes/%s/action", diskId), "", jsonutils.Marshal(params))
+	resource := fmt.Sprintf("/volumes/%s/action", diskId)
+	_, err := region.bsPost(resource, params)
 	return err
 }
 
 func (region *SRegion) ResetDisk(diskId, snapshotId string) error {
-	//目前测试接口不能使用
-	return cloudprovider.ErrNotSupported
-	// params := map[string]map[string]interface{}{
-	// 	"revert": {
-	// 		"snapshot_id": snapshotId,
-	// 	},
-	// }
-	// _, _, err := region.CinderAction(fmt.Sprintf("/volumes/%s/action", diskId), "3.40", jsonutils.Marshal(params))
-	// return err
+	params := map[string]map[string]interface{}{
+		"revert": {
+			"snapshot_id": snapshotId,
+		},
+	}
+	resource := fmt.Sprintf("/volumes/%s/action", diskId)
+	_, err := region.bsPost(resource, params)
+	return err
 }
 
 func (disk *SDisk) CreateISnapshot(ctx context.Context, name, desc string) (cloudprovider.ICloudSnapshot, error) {
-	snapshot, err := disk.storage.zone.region.CreateSnapshot(disk.ID, name, desc)
+	snapshot, err := disk.storage.zone.region.CreateSnapshot(disk.Id, name, desc)
 	if err != nil {
 		return nil, err
 	}
@@ -406,11 +416,20 @@ func (disk *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot
 }
 
 func (disk *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
-	return disk.storage.zone.region.GetSnapshots(disk.ID)
+	snapshots, err := disk.storage.zone.region.GetSnapshots(disk.Id)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetSnapshots(%s)", disk.Id)
+	}
+	isnapshots := []cloudprovider.ICloudSnapshot{}
+	for i := range snapshots {
+		snapshots[i].region = disk.storage.zone.region
+		isnapshots = append(isnapshots, &snapshots[i])
+	}
+	return isnapshots, nil
 }
 
 func (disk *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
-	return disk.ID, disk.storage.zone.region.ResetDisk(disk.ID, snapshotId)
+	return disk.Id, disk.storage.zone.region.ResetDisk(disk.Id, snapshotId)
 }
 
 func (disk *SDisk) GetBillingType() string {
@@ -434,5 +453,5 @@ func (disk *SDisk) Rebuild(ctx context.Context) error {
 }
 
 func (disk *SDisk) GetProjectId() string {
-	return disk.TenantID
+	return disk.TenantId
 }

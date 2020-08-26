@@ -21,20 +21,24 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
-	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SDnsRecordManager struct {
 	db.SAdminSharableVirtualResourceBaseManager
+	db.SEnabledResourceBaseManager
 }
+
+var _ db.IAdminSharableVirtualModelManager = DnsRecordManager
 
 var DnsRecordManager *SDnsRecordManager
 
@@ -54,8 +58,13 @@ const DNS_RECORDS_SEPARATOR = ","
 
 type SDnsRecord struct {
 	db.SAdminSharableVirtualResourceBase
-	Ttl     int               `nullable:"true" default:"1" create:"optional" list:"user" update:"user"`
-	Enabled tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user"`
+	db.SEnabledResourceBase `nullable:"false" default:"true" create:"optional" list:"user"`
+
+	// DNS记录的过期时间，单位为秒
+	// example: 60
+	Ttl int `nullable:"true" default:"1" create:"optional" list:"user" update:"user" json:"ttl"`
+
+	//Enabled tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user"`
 }
 
 // GetRecordsSeparator implements IAdminSharableVirtualModelManager
@@ -275,35 +284,38 @@ func (man *SDnsRecordManager) checkRecordValue(typ, val string) error {
 
 func (man *SDnsRecordManager) validateModelData(
 	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	ownerId mcclient.IIdentityProvider,
-	query jsonutils.JSONObject,
 	data *jsonutils.JSONDict,
-) (*jsonutils.JSONDict, error) {
-	records, err := man.ParseInputInfo(data)
+	isCreate bool,
+) (records []string, err error) {
+	data.Remove("records")
+	records, err = man.ParseInputInfo(data)
 	if err != nil {
-		return nil, err
+		return
 	}
 	if len(records) == 0 {
-		return nil, httperrors.NewInputParameterError("Empty record")
+		if isCreate {
+			err = httperrors.NewInputParameterError("Empty record")
+			return
+		}
+		return
 	}
 	recType := man.getRecordsType(records)
 	name, err := data.GetString("name")
 	if err != nil {
-		return nil, err
+		return
 	}
 	err = man.checkRecordName(recType, name)
 	if err != nil {
-		return nil, err
+		return
 	}
 	if data.Contains("ttl") {
-		jo, err := data.Get("ttl")
+		var (
+			ttl int64
+		)
+		ttl, err = data.Int("ttl")
 		if err != nil {
-			return nil, err
-		}
-		ttl, err := jo.Int()
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("invalid ttl: %s", err)
+			err = httperrors.NewInputParameterError("invalid ttl: %s", err)
+			return
 		}
 		if ttl == 0 {
 			// - Create: use the database default
@@ -311,10 +323,11 @@ func (man *SDnsRecordManager) validateModelData(
 			data.Remove("ttl")
 		} else if ttl < 0 || ttl > 0x7fffffff {
 			// positive values of a signed 32 bit number.
-			return nil, httperrors.NewInputParameterError("invalid ttl: %d", ttl)
+			err = httperrors.NewInputParameterError("invalid ttl: %d", ttl)
+			return
 		}
 	}
-	return data, err
+	return records, nil
 }
 
 func (man *SDnsRecordManager) ValidateCreateData(
@@ -324,11 +337,26 @@ func (man *SDnsRecordManager) ValidateCreateData(
 	query jsonutils.JSONObject,
 	data *jsonutils.JSONDict,
 ) (*jsonutils.JSONDict, error) {
-	data, err := man.validateModelData(ctx, userCred, ownerId, query, data)
+	var err error
+
+	input := apis.AdminSharableVirtualResourceBaseCreateInput{}
+	err = data.Unmarshal(&input)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal AdminSharableVirtualResourceBaseCreateInput")
+	}
+
+	input, err = man.SAdminSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SAdminSharableVirtualResourceBaseManager.ValidateCreateData")
+	}
+
+	data.Update(jsonutils.Marshal(input))
+
+	_, err = man.validateModelData(ctx, data, true)
 	if err != nil {
 		return nil, err
 	}
-	return man.SAdminSharableVirtualResourceBaseManager.ValidateCreateData(man, data)
+	return man.SAdminSharableVirtualResourceBaseManager.ValidateRecordsData(man, data)
 }
 
 func (man *SDnsRecordManager) QueryDns(projectId, name string) *SDnsRecord {
@@ -375,24 +403,50 @@ func (man *SDnsRecordManager) QueryDnsIps(projectId, name, kind string) []*DnsIp
 	return dnsIps
 }
 
+func (rec *SDnsRecord) IsCNAME() bool {
+	return strings.HasPrefix(rec.Records, "CNAME:")
+}
+
+func (rec *SDnsRecord) HasRecordType(typ string) bool {
+	for _, r := range rec.GetInfo() {
+		if strings.HasPrefix(r, typ+":") {
+			return true
+		}
+	}
+	return false
+}
+
+func (rec *SDnsRecord) GetCNAME() string {
+	if !rec.IsCNAME() {
+		panic("not a cname record: " + rec.Records)
+	}
+	return rec.Records[len("CNAME:"):]
+}
+
 func (rec *SDnsRecord) GetInfo() []string {
 	return strings.Split(rec.Records, DNS_RECORDS_SEPARATOR)
 }
 
 func (rec *SDnsRecord) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	data.UpdateDefault(jsonutils.Marshal(rec))
-	data, err := DnsRecordManager.validateModelData(ctx, userCred, rec.GetOwnerId(), query, data)
+	records, err := DnsRecordManager.validateModelData(ctx, data, false)
 	if err != nil {
 		return nil, err
 	}
-	{
-		records, err := DnsRecordManager.ParseInputInfo(data)
-		if err != nil {
-			return nil, err
-		}
+	if len(records) > 0 {
 		data.Set("records", jsonutils.NewString(strings.Join(records, DNS_RECORDS_SEPARATOR)))
 	}
-	return rec.SAdminSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	input := apis.AdminSharableVirtualResourceBaseUpdateInput{}
+	err = data.Unmarshal(&input)
+	if err != nil {
+		return nil, errors.Wrap(err, "data.Unmarshal AdminSharableVirtualResourceBaseUpdateInput")
+	}
+	input, err = rec.SAdminSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SAdminSharableVirtualResourceBase.ValidateUpdateData")
+	}
+	data.Update(jsonutils.Marshal(input))
+	return data, nil
 }
 
 func (rec *SDnsRecord) AddInfo(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
@@ -431,18 +485,10 @@ func (rec *SDnsRecord) AllowPerformEnable(ctx context.Context, userCred mcclient
 	return rec.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, rec, "enable")
 }
 
-func (rec *SDnsRecord) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if rec.Enabled.IsFalse() {
-		diff, err := db.Update(rec, func() error {
-			rec.Enabled = tristate.True
-			return nil
-		})
-		if err != nil {
-			log.Errorf("enabling dnsrecords for %s failed: %s", rec.Name, err)
-			return nil, err
-		}
-		db.OpsLog.LogEvent(rec, db.ACT_ENABLE, diff, userCred)
-		logclient.AddActionLogWithContext(ctx, rec, logclient.ACT_ENABLE, diff, userCred, true)
+func (rec *SDnsRecord) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
+	err := db.EnabledPerformEnable(rec, ctx, userCred, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.EnabledPerformEnable")
 	}
 	return nil, nil
 }
@@ -451,18 +497,72 @@ func (rec *SDnsRecord) AllowPerformDisable(ctx context.Context, userCred mcclien
 	return rec.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, rec, "disable")
 }
 
-func (rec *SDnsRecord) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if rec.Enabled.IsTrue() {
-		diff, err := db.Update(rec, func() error {
-			rec.Enabled = tristate.False
-			return nil
-		})
-		if err != nil {
-			log.Errorf("disabling dnsrecords for %s failed: %s", rec.Name, err)
-			return nil, err
-		}
-		db.OpsLog.LogEvent(rec, db.ACT_DISABLE, diff, userCred)
-		logclient.AddActionLogWithContext(ctx, rec, logclient.ACT_DISABLE, diff, userCred, true)
+func (rec *SDnsRecord) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) (jsonutils.JSONObject, error) {
+	err := db.EnabledPerformEnable(rec, ctx, userCred, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.EnabledPerformEnable")
 	}
 	return nil, nil
+}
+
+// 域名记录列表
+func (manager *SDnsRecordManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DnsRecordListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SAdminSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.AdminSharableVirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SAdminSharableVirtualResourceBaseManager.ListItemFilter")
+	}
+	return q, nil
+}
+
+func (manager *SDnsRecordManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DnsRecordListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SAdminSharableVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.AdminSharableVirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SAdminSharableVirtualResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (manager *SDnsRecordManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SAdminSharableVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
+func (record *SDnsRecord) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.DnsRecordDetails, error) {
+	return api.DnsRecordDetails{}, nil
+}
+
+func (manager *SDnsRecordManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.DnsRecordDetails {
+	rows := make([]api.DnsRecordDetails, len(objs))
+
+	virtRows := manager.SAdminSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = api.DnsRecordDetails{
+			AdminSharableVirtualResourceDetails: virtRows[i],
+		}
+	}
+
+	return rows
 }

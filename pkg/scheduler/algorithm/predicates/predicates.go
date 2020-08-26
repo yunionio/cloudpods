@@ -55,6 +55,10 @@ func (b *BasePredicate) PreExecute(unit *core.Unit, candis []core.Candidater) (b
 	return true, nil
 }
 
+func (b *BasePredicate) GetHypervisorDriver(u *core.Unit) models.IGuestDriver {
+	return models.GetDriver(u.GetHypervisor())
+}
+
 type PredicateHelper struct {
 	predicate      core.FitPredicate
 	predicateFails []core.PredicateFailureReason
@@ -256,7 +260,7 @@ type ISchedtagPredicateInstance interface {
 	IsResourceFitInput(unit *core.Unit, c core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) core.PredicateFailureReason
 
 	DoSelect(c core.Candidater, input ISchedtagCustomer, res []ISchedtagCandidateResource) []ISchedtagCandidateResource
-	AddSelectResult(index int, selectRes []ISchedtagCandidateResource, output *core.AllocatedResource)
+	AddSelectResult(index int, input ISchedtagCustomer, selectRes []ISchedtagCandidateResource, output *core.AllocatedResource)
 	GetCandidateResourceSortScore(candidate ISchedtagCandidateResource) int64
 }
 
@@ -478,7 +482,7 @@ func (p *BaseSchedtagPredicate) OnSelectEnd(sp ISchedtagPredicateInstance, u *co
 		sortRes := newSortCandidateResource(sp, selRes)
 		sort.Sort(sortRes)
 		//log.Debugf("sort result: %s", sortRes.DebugString())
-		sp.AddSelectResult(idx, sortRes.res, output)
+		sp.AddSelectResult(idx, inputs[idx], sortRes.res, output)
 	}
 }
 

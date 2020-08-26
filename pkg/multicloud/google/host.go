@@ -36,7 +36,7 @@ func (self *SHost) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (host *SHost) GetId() string {
-	return host.zone.GetId()
+	return host.zone.GetGlobalId()
 }
 
 func (host *SHost) GetGlobalId() string {
@@ -44,7 +44,7 @@ func (host *SHost) GetGlobalId() string {
 }
 
 func (host *SHost) GetName() string {
-	return fmt.Sprintf("%s-%s", host.zone.region.client.providerName, host.zone.GetName())
+	return fmt.Sprintf("%s-%s", host.zone.region.client.cpcfg.Name, host.zone.GetName())
 }
 
 func (host *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
@@ -167,11 +167,17 @@ func (host *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 	if instance.Zone != host.zone.SelfLink {
 		return nil, cloudprovider.ErrNotFound
 	}
+	instance.host = host
 	return instance, nil
 }
 
 func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	instance, err := host.zone.region._createVM(host.zone.Name, desc)
+	if err != nil {
+		return nil, err
+	}
+	instance.host = host
+	return instance, nil
 }
 
 func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {

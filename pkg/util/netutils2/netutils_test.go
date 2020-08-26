@@ -15,71 +15,8 @@
 package netutils2
 
 import (
-	"reflect"
 	"testing"
 )
-
-func TestSNetInterface_getRoutes(t *testing.T) {
-	n := SNetInterface{name: "br0"}
-	routes := []string{"Kernel IP routing table",
-		"Destination     Gateway         Genmask         Flags Metric Ref    Use Iface",
-		"0.0.0.0         10.168.222.1    0.0.0.0         UG    0      0        0 br0",
-		"10.168.222.0    0.0.0.0         255.255.255.0   U     0      0        0 br0",
-		"169.254.169.254 10.168.222.1    255.255.255.255 UGH   0      0        0 br0",
-		""}
-
-	want := [][]string{{"0.0.0.0", "10.168.222.1", "0.0.0.0"}, {"169.254.169.254", "10.168.222.1", "255.255.255.255"}}
-
-	if got := n.getRoutes(true, routes); !reflect.DeepEqual(got, want) {
-		t.Errorf("getParams() = %v, want %v", got, want)
-	}
-}
-
-func TestSNetInterface_getAddresses(t *testing.T) {
-	output := []string{"4: br0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN qlen 1000",
-		"link/ether 00:22:d5:9e:28:d1 brd ff:ff:ff:ff:ff:ff",
-		"inet 10.168.222.236/24 brd 10.168.222.255 scope global br0",
-		"valid_lft forever preferred_lft forever",
-		"inet6 fe80::222:d5ff:fe9e:28d1/64 scope link",
-		"valid_lft forever preferred_lft forever",
-		""}
-	want := [][]string{{"10.168.222.236", "24"}}
-
-	type fields struct {
-		name string
-		Addr string
-		Mask []byte
-		Mac  string
-	}
-	type args struct {
-		output []string
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   [][]string
-	}{
-		{
-			name: "br0 test",
-			args: args{output},
-			want: want,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			n := &SNetInterface{
-				name: tt.fields.name,
-				Addr: tt.fields.Addr,
-				Mask: tt.fields.Mask,
-				Mac:  tt.fields.Mac,
-			}
-			if got := n.getAddresses(tt.args.output); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("SNetInterface.getAddresses() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
 
 func TestNetlen2Mask(t *testing.T) {
 	type args struct {
@@ -176,4 +113,25 @@ func TestFormatMac(t *testing.T) {
 func TestNewNetInterface(t *testing.T) {
 	n := NewNetInterface("br0")
 	t.Logf("NetInterface: %s %s %s %s", n.name, n.Addr, n.Mask.String(), n.Mac)
+}
+
+func TestMyDefault(t *testing.T) {
+	myip, err := MyIP()
+	if err != nil {
+		// Skip if it's no route to host
+		t.Fatalf("MyIP: %v", err)
+	}
+
+	if myip != "" {
+		srcIp, ifname, err := DefaultSrcIpDev()
+		if err != nil {
+			t.Fatalf("default srcip dev: %v", err)
+		}
+		if srcIp.String() != myip {
+			t.Errorf("myip: %s, srcip: %s", myip, srcIp.String())
+		}
+		if ifname == "" {
+			t.Errorf("empty ifname")
+		}
+	}
 }

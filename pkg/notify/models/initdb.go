@@ -27,8 +27,7 @@ func InitDB() error {
 		 * initialization order matters, do not change the order
 		 */
 
-		ContactManager,
-		VerifyManager,
+		ReceiverManager,
 		NotificationManager,
 		ConfigManager,
 		TemplateManager,

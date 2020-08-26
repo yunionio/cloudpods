@@ -20,7 +20,6 @@ import (
 	"strconv"
 	"strings"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
@@ -34,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
+// +onecloud:swagger-gen-ignore
 type SAwsCachedLbbgManager struct {
 	SLoadbalancerLogSkipper
 	db.SVirtualResourceBaseManager
@@ -67,10 +67,6 @@ type SAwsCachedLbbg struct {
 	Port                int    `nullable:"false" list:"user" create:"required"`                            // 监听端口
 	HealthCheckProtocol string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"` // 健康检查协议类型
 	HealthCheckInterval int    `nullable:"false" list:"user" create:"required"`                            // 健康检查时间间隔
-}
-
-func (lbb *SAwsCachedLbbg) GetCustomizeColumns(context.Context, mcclient.TokenCredential, jsonutils.JSONObject) *jsonutils.JSONDict {
-	return nil
 }
 
 func (lbbg *SAwsCachedLbbg) GetLocalBackendGroup(ctx context.Context, userCred mcclient.TokenCredential) (*SLoadbalancerBackendGroup, error) {
@@ -234,28 +230,22 @@ func (man *SAwsCachedLbbgManager) SyncLoadbalancerBackendgroups(ctx context.Cont
 	}
 	for i := 0; i < len(commondb); i++ {
 		var elb *SLoadbalancer
-		elbIds := commonext[i].GetLoadbalancerId()
-		if err != nil {
-			syncResult.UpdateError(err)
-			continue
-		}
-
 		elbId := commonext[i].GetLoadbalancerId()
-		if len(elbIds) > 0 {
-			ielb, err := db.FetchByExternalId(LoadbalancerManager, elbId)
+		if len(elbId) > 0 {
+			ielb, err := db.FetchByExternalIdAndManagerId(LoadbalancerManager, elbId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				return q.Equals("manager_id", provider.Id)
+			})
 			if err == nil {
 				elb = ielb.(*SLoadbalancer)
 			}
 		}
 
 		if elb == nil {
-			elb = &SLoadbalancer{}
-			elb.Id = ""
-			elb.CloudregionId = region.GetId()
-			elb.ManagerId = provider.GetId()
+			log.Debugf("Aws.SyncLoadbalancerBackendgroups skiped external backendgroup %s", elbId)
+			continue
 		}
 
-		err = commondb[i].SyncWithCloudLoadbalancerBackendgroup(ctx, userCred, elb, commonext[i], provider.GetOwnerId())
+		err = commondb[i].SyncWithCloudLoadbalancerBackendgroup(ctx, userCred, elb, commonext[i], provider.GetOwnerId(), provider)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -269,26 +259,21 @@ func (man *SAwsCachedLbbgManager) SyncLoadbalancerBackendgroups(ctx context.Cont
 	for i := 0; i < len(added); i++ {
 		var elb *SLoadbalancer
 		elbId := added[i].GetLoadbalancerId()
-		if err != nil {
-			syncResult.AddError(err)
-			continue
-		}
-
 		if len(elbId) > 0 {
 			elb, err = LoadbalancerManager.FetchByExternalId(provider.GetId(), elbId)
 			if err != nil {
 				log.Debugf("awsCachedLbbgManager.SyncLoadbalancerBackendgroups %s", err)
+				syncResult.AddError(err)
+				continue
 			}
 		}
 
 		if elb == nil {
-			elb = &SLoadbalancer{}
-			elb.Id = ""
-			elb.CloudregionId = region.GetId()
-			elb.ManagerId = provider.GetId()
+			log.Debugf("Aws.SyncLoadbalancerBackendgroups skiped external backendgroup %s", elbId)
+			continue
 		}
 
-		new, err := man.newFromCloudLoadbalancerBackendgroup(ctx, userCred, elb, added[i], syncOwnerId)
+		new, err := man.newFromCloudLoadbalancerBackendgroup(ctx, userCred, elb, added[i], syncOwnerId, provider)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -347,7 +332,7 @@ func (lbbg *SAwsCachedLbbg) isBackendsMatch(backends []SLoadbalancerBackend, iba
 	return true
 }
 
-func (lbbg *SAwsCachedLbbg) SyncWithCloudLoadbalancerBackendgroup(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup, syncOwnerId mcclient.IIdentityProvider) error {
+func (lbbg *SAwsCachedLbbg) SyncWithCloudLoadbalancerBackendgroup(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider) error {
 	lbbg.SetModelManager(AwsCachedLbbgManager, lbbg)
 
 	ibackends, err := extLoadbalancerBackendgroup.GetILoadbalancerBackends()
@@ -367,7 +352,7 @@ func (lbbg *SAwsCachedLbbg) SyncWithCloudLoadbalancerBackendgroup(ctx context.Co
 
 	var newLocalLbbg *SLoadbalancerBackendGroup
 	if !lbbg.isBackendsMatch(backends, ibackends) {
-		newLocalLbbg, err = newLocalBackendgroupFromCloudLoadbalancerBackendgroup(ctx, userCred, lb, extLoadbalancerBackendgroup, syncOwnerId)
+		newLocalLbbg, err = newLocalBackendgroupFromCloudLoadbalancerBackendgroup(ctx, userCred, lb, extLoadbalancerBackendgroup, syncOwnerId, provider)
 		if err != nil {
 			return errors.Wrap(err, "HuaweiCachedLbbg.SyncWithCloudLoadbalancerBackendgroup.newLocalBackendgroupFromCloudLoadbalancerBackendgroup")
 		}
@@ -395,12 +380,12 @@ func (lbbg *SAwsCachedLbbg) SyncWithCloudLoadbalancerBackendgroup(ctx context.Co
 	}
 	db.OpsLog.LogSyncUpdate(lbbg, diff, userCred)
 
-	SyncCloudProject(userCred, lbbg, syncOwnerId, extLoadbalancerBackendgroup, lb.ManagerId)
+	SyncCloudProject(userCred, lbbg, syncOwnerId, extLoadbalancerBackendgroup, provider.Id)
 	return err
 }
 
-func (man *SAwsCachedLbbgManager) newFromCloudLoadbalancerBackendgroup(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup, syncOwnerId mcclient.IIdentityProvider) (*SAwsCachedLbbg, error) {
-	LocalLbbg, err := newLocalBackendgroupFromCloudLoadbalancerBackendgroup(ctx, userCred, lb, extLoadbalancerBackendgroup, syncOwnerId)
+func (man *SAwsCachedLbbgManager) newFromCloudLoadbalancerBackendgroup(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider) (*SAwsCachedLbbg, error) {
+	LocalLbbg, err := newLocalBackendgroupFromCloudLoadbalancerBackendgroup(ctx, userCred, lb, extLoadbalancerBackendgroup, syncOwnerId, provider)
 	if err != nil {
 		return nil, err
 	}
@@ -439,12 +424,12 @@ func (man *SAwsCachedLbbgManager) newFromCloudLoadbalancerBackendgroup(ctx conte
 	lbbg.Name = newName
 	lbbg.Status = extLoadbalancerBackendgroup.GetStatus()
 
-	err = man.TableSpec().Insert(lbbg)
+	err = man.TableSpec().Insert(ctx, lbbg)
 	if err != nil {
 		return nil, err
 	}
 
-	SyncCloudProject(userCred, lbbg, syncOwnerId, extLoadbalancerBackendgroup, lb.ManagerId)
+	SyncCloudProject(userCred, lbbg, syncOwnerId, extLoadbalancerBackendgroup, provider.Id)
 
 	db.OpsLog.LogEvent(lbbg, db.ACT_CREATE, lbbg.GetShortDesc(ctx), userCred)
 	return lbbg, nil

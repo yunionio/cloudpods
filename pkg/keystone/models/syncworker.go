@@ -44,22 +44,22 @@ func submitIdpSyncTask(ctx context.Context, userCred mcclient.TokenCredential, i
 		idp.SetSyncStatus(ctx, userCred, api.IdentitySyncStatusSyncing)
 		defer idp.SetSyncStatus(ctx, userCred, api.IdentitySyncStatusIdle)
 
-		conf, err := GetConfigs(idp, true)
+		conf, err := GetConfigs(idp, true, nil, nil)
 		if err != nil {
 			log.Errorf("GetConfig for idp %s fail %s", idp.Name, err)
-			idp.MarkDisconnected(ctx, userCred)
+			idp.MarkDisconnected(ctx, userCred, err)
 			return
 		}
-		driver, err := driver.GetDriver(idp.Driver, idp.Id, idp.Name, idp.Template, idp.TargetDomainId, idp.AutoCreateProject.Bool(), conf)
+		driver, err := driver.GetDriver(idp.Driver, idp.Id, idp.Name, idp.Template, idp.TargetDomainId, conf)
 		if err != nil {
 			log.Errorf("GetDriver for idp %s fail %s", idp.Name, err)
-			idp.MarkDisconnected(ctx, userCred)
+			idp.MarkDisconnected(ctx, userCred, err)
 			return
 		}
 		err = driver.Probe(ctx)
 		if err != nil {
 			log.Errorf("Probe for idp %s fail %s", idp.Name, err)
-			idp.MarkDisconnected(ctx, userCred)
+			idp.MarkDisconnected(ctx, userCred, err)
 			return
 		}
 

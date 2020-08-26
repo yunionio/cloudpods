@@ -36,11 +36,11 @@ func init() {
 	taskman.RegisterTask(ElasticcacheSetMaintainTimeTask{})
 }
 
-func (self *ElasticcacheSetMaintainTimeTask) taskFail(ctx context.Context, elasticcache *models.SElasticcache, reason string) {
-	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason)
+func (self *ElasticcacheSetMaintainTimeTask) taskFail(ctx context.Context, elasticcache *models.SElasticcache, reason jsonutils.JSONObject) {
+	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason.String())
 	db.OpsLog.LogEvent(elasticcache, db.ACT_UPDATE, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_UPDATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason)
+	notifyclient.NotifySystemError(elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -48,13 +48,13 @@ func (self *ElasticcacheSetMaintainTimeTask) OnInit(ctx context.Context, obj db.
 	elasticcache := obj.(*models.SElasticcache)
 	region := elasticcache.GetRegion()
 	if region == nil {
-		self.taskFail(ctx, elasticcache, fmt.Sprintf("failed to find region for elastic cache %s", elasticcache.GetName()))
+		self.taskFail(ctx, elasticcache, jsonutils.NewString(fmt.Sprintf("failed to find region for elastic cache %s", elasticcache.GetName())))
 		return
 	}
 
 	self.SetStage("OnElasticcacheSetMaintainTimeComplete", nil)
 	if err := region.GetDriver().RequestElasticcacheSetMaintainTime(ctx, self.GetUserCred(), elasticcache, self); err != nil {
-		self.OnElasticcacheSetMaintainTimeCompleteFailed(ctx, elasticcache, err.Error())
+		self.OnElasticcacheSetMaintainTimeCompleteFailed(ctx, elasticcache, jsonutils.Marshal(err))
 		return
 	}
 
@@ -68,6 +68,6 @@ func (self *ElasticcacheSetMaintainTimeTask) OnElasticcacheSetMaintainTimeComple
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *ElasticcacheSetMaintainTimeTask) OnElasticcacheSetMaintainTimeCompleteFailed(ctx context.Context, elasticcache *models.SElasticcache, reason string) {
+func (self *ElasticcacheSetMaintainTimeTask) OnElasticcacheSetMaintainTimeCompleteFailed(ctx context.Context, elasticcache *models.SElasticcache, reason jsonutils.JSONObject) {
 	self.taskFail(ctx, elasticcache, reason)
 }

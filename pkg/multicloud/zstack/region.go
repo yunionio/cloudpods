@@ -22,7 +22,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -58,11 +57,11 @@ func (region *SRegion) GetId() string {
 }
 
 func (region *SRegion) GetName() string {
-	return region.client.providerName
+	return region.client.cpcfg.Name
 }
 
 func (region *SRegion) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s", CLOUD_PROVIDER_ZSTACK, region.client.providerID)
+	return fmt.Sprintf("%s/%s", CLOUD_PROVIDER_ZSTACK, region.client.cpcfg.Id)
 }
 
 func (region *SRegion) IsEmulated() bool {
@@ -363,8 +362,8 @@ func (region *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.I
 	return region.GetSecurityGroup(secgroupId)
 }
 
-func (region *SRegion) GetISecurityGroupByName(vpcId string, name string) (cloudprovider.ICloudSecurityGroup, error) {
-	secgroups, err := region.GetSecurityGroups("", "", name)
+func (region *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
+	secgroups, err := region.GetSecurityGroups("", "", opts.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -381,23 +380,6 @@ func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCre
 	return region.CreateSecurityGroup(conf.Name, conf.Desc)
 }
 
-func (region *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
-	if len(secgroupId) > 0 {
-		_, err := region.GetSecurityGroup(secgroupId)
-		if err != nil {
-			if err == cloudprovider.ErrNotFound {
-				secgroupId = ""
-			} else {
-				return "", err
-			}
-		}
-	}
-	if len(secgroupId) == 0 {
-		secgroup, err := region.CreateSecurityGroup(name, desc)
-		if err != nil {
-			return "", err
-		}
-		secgroupId = secgroup.UUID
-	}
-	return secgroupId, region.syncSecgroupRules(secgroupId, rules)
+func (region *SRegion) GetCapabilities() []string {
+	return region.client.GetCapabilities()
 }

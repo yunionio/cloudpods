@@ -37,6 +37,10 @@ func Bool(v bool) *bool {
 	return &v
 }
 
+func String(v string) *string {
+	return &v
+}
+
 // IntV returns the integer value as pointed to by the argument if it's
 // non-nil, return 0 otherwise
 func IntV(p *int) int {
@@ -53,6 +57,13 @@ func BoolV(p *bool) bool {
 		return *p
 	}
 	return false
+}
+
+func StringV(p *string) string {
+	if p != nil {
+		return *p
+	}
+	return ""
 }
 
 type IParamsOptions interface {
@@ -199,8 +210,9 @@ type BaseListOptions struct {
 	Scope         string   `help:"resource scope" choices:"system|domain|project|user"`
 
 	System           *bool `help:"Show system resource"`
-	PendingDelete    *bool `help:"Show only pending deleted resource"`
-	PendingDeleteAll *bool `help:"Show all resources including pending deleted" json:"-"`
+	PendingDelete    *bool `help:"Show only pending deleted resources"`
+	PendingDeleteAll *bool `help:"Show also pending-deleted resources" json:"-"`
+	DeleteAll        *bool `help:"Show also deleted resources" json:"-"`
 	ShowEmulated     *bool `help:"Show all resources including the emulated resources"`
 
 	ExportFile  string `help:"Export to file" metavar:"<EXPORT_FILE_PATH>" json:"-"`
@@ -213,7 +225,7 @@ type BaseListOptions struct {
 
 	Manager      string   `help:"List objects belonging to the cloud provider" json:"manager,omitempty"`
 	Account      string   `help:"List objects belonging to the cloud account" json:"account,omitempty"`
-	Provider     []string `help:"List objects from the provider" choices:"OneCloud|VMware|Aliyun|Qcloud|Azure|Aws|Huawei|OpenStack|Ucloud|ZStack" json:"provider,omitempty"`
+	Provider     []string `help:"List objects from the provider" choices:"OneCloud|VMware|Aliyun|Qcloud|Azure|Aws|Huawei|OpenStack|Ucloud|ZStack|Google|Ctyun" json:"provider,omitempty"`
 	Brand        []string `help:"List objects belonging to a special brand"`
 	CloudEnv     string   `help:"Cloud environment" choices:"public|private|onpremise|private_or_onpremise" json:"cloud_env,omitempty"`
 	PublicCloud  *bool    `help:"List objects belonging to public cloud" json:"public_cloud"`
@@ -222,6 +234,12 @@ type BaseListOptions struct {
 	IsManaged    *bool    `help:"List objects managed by external providers" token:"managed" json:"is_managed"`
 
 	PagingMarker string `help:"Marker for pagination" json:"paging_marker"`
+
+	OrderByTag string `help:"Order results by tag values, composed by a tag key and order, e.g user:部门:ASC"`
+}
+
+func (opts *BaseListOptions) GetContextId() string {
+	return ""
 }
 
 func (opts *BaseListOptions) addTag(prefix, tag string, idx int, params *jsonutils.JSONDict) error {
@@ -248,9 +266,11 @@ func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
 	if len(opts.Filter) == 0 {
 		params.Remove("filter_any")
 	}
+	if BoolV(opts.DeleteAll) {
+		params.Set("delete", jsonutils.NewString("all"))
+	}
 	if BoolV(opts.PendingDeleteAll) {
 		params.Set("pending_delete", jsonutils.NewString("all"))
-		params.Set("details", jsonutils.JSONTrue) // required to get pending_deleted field
 	}
 	/*if opts.Admin == nil {
 		requiresSystem := len(opts.Tenant) > 0 ||
@@ -285,4 +305,34 @@ func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
 		tagIdx++
 	}
 	return params, nil
+}
+
+func (o *BaseListOptions) GetExportFile() string {
+	return o.ExportFile
+}
+
+func (o *BaseListOptions) GetExportKeys() string {
+	return o.ExportKeys
+}
+
+func (o *BaseListOptions) GetExportTexts() string {
+	return o.ExportTexts
+}
+
+type ScopedResourceListOptions struct {
+	BelongScope string `help:"Filter by resource belong scope" choices:"system|domain|project"`
+}
+
+func (o *ScopedResourceListOptions) Params() (*jsonutils.JSONDict, error) {
+	return optionsStructToParams(o)
+}
+
+type BaseUpdateOptions struct {
+	ID   string `help:"ID or Name of resource to update"`
+	Name string `help:"Name of resource to update"`
+	Desc string `metavar:"<DESCRIPTION>" help:"Description"`
+}
+
+func (opts *BaseUpdateOptions) GetId() string {
+	return opts.ID
 }

@@ -56,30 +56,55 @@ const (
 	UCLOUD_API_VERSION = "2019-02-28"
 )
 
-type SUcloudClient struct {
-	providerId      string
-	providerName    string
+type UcloudClientConfig struct {
+	cpcfg cloudprovider.ProviderConfig
+
 	accessKeyId     string
 	accessKeySecret string
 	projectId       string
+
+	debug bool
+}
+
+func NewUcloudClientConfig(accessKeyId, accessKeySecret string) *UcloudClientConfig {
+	cfg := &UcloudClientConfig{
+		accessKeyId:     accessKeyId,
+		accessKeySecret: accessKeySecret,
+	}
+	return cfg
+}
+
+func (cfg *UcloudClientConfig) CloudproviderConfig(cpcfg cloudprovider.ProviderConfig) *UcloudClientConfig {
+	cfg.cpcfg = cpcfg
+	return cfg
+}
+
+func (cfg *UcloudClientConfig) ProjectId(projectId string) *UcloudClientConfig {
+	cfg.projectId = projectId
+	return cfg
+}
+
+func (cfg *UcloudClientConfig) Debug(debug bool) *UcloudClientConfig {
+	cfg.debug = debug
+	return cfg
+}
+
+type SUcloudClient struct {
+	*UcloudClientConfig
 
 	iregions []cloudprovider.ICloudRegion
 	iBuckets []cloudprovider.ICloudBucket
 
 	httpClient *http.Client
-	Debug      bool
 }
 
 // 进行资源操作时参数account 对应数据库cloudprovider表中的account字段,由accessKey和projectID两部分组成，通过"/"分割。
 // 初次导入Subaccount时，参数account对应cloudaccounts表中的account字段，即accesskey。此时projectID为空，只能进行同步子账号（项目）、查询region列表等projectId无关的操作。
-func NewUcloudClient(providerId string, providerName string, accessKey string, secret string, projectId string, isDebug bool) (*SUcloudClient, error) {
+func NewUcloudClient(cfg *UcloudClientConfig) (*SUcloudClient, error) {
+	httpClient := cfg.cpcfg.HttpClient()
 	client := SUcloudClient{
-		providerId:      providerId,
-		providerName:    providerName,
-		accessKeyId:     accessKey,
-		accessKeySecret: secret,
-		projectId:       projectId,
-		Debug:           isDebug,
+		UcloudClientConfig: cfg,
+		httpClient:         httpClient,
 	}
 
 	err := client.fetchRegions()
@@ -243,7 +268,7 @@ func (self *SUcloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 	subAccounts := make([]cloudprovider.SSubAccount, 0)
 	for _, project := range projects {
 		subAccount := cloudprovider.SSubAccount{}
-		subAccount.Name = fmt.Sprintf("%s-%s", self.providerName, project.ProjectName)
+		subAccount.Name = fmt.Sprintf("%s-%s", self.cpcfg.Name, project.ProjectName)
 		// ucloud账号ID中可能包含/。因此使用::作为分割符号
 		subAccount.Account = fmt.Sprintf("%s::%s", self.accessKeyId, project.ProjectID)
 		subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
@@ -341,4 +366,18 @@ func (self *SUcloudClient) GetIStorageById(id string) (cloudprovider.ICloudStora
 		}
 	}
 	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SUcloudClient) GetCapabilities() []string {
+	caps := []string{
+		// cloudprovider.CLOUD_CAPABILITY_PROJECT,
+		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
+		cloudprovider.CLOUD_CAPABILITY_NETWORK,
+		// cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
+		// cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
+		// cloudprovider.CLOUD_CAPABILITY_RDS,
+		// cloudprovider.CLOUD_CAPABILITY_CACHE,
+		// cloudprovider.CLOUD_CAPABILITY_EVENT,
+	}
+	return caps
 }

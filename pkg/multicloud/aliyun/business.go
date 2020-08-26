@@ -29,7 +29,7 @@ func (self *SAliyunClient) businessRequest(apiName string, params map[string]str
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, "business.aliyuncs.com", ALIYUN_BSS_API_VERSION, apiName, params, self.Debug)
+	return jsonRequest(cli, "business.aliyuncs.com", ALIYUN_BSS_API_VERSION, apiName, params, self.debug)
 }
 
 type SAccountBalance struct {
@@ -68,7 +68,8 @@ type SPrepaidCard struct {
 func (self *SAliyunClient) QueryAccountBalance() (*SAccountBalance, error) {
 	body, err := self.businessRequest("QueryAccountBalance", nil)
 	if err != nil {
-		if isError(err, "NotApplicable") {
+		// {"RequestId":"5258BDEF-8975-4EB0-9E0C-08D5E54E7981","HostId":"business.aliyuncs.com","Code":"NotAuthorized","Message":"This API is not authorized for caller."}
+		if isError(err, "NotApplicable") || isError(err, "NotAuthorized") {
 			return nil, cloudprovider.ErrNoBalancePermission
 		}
 		return nil, errors.Wrapf(err, "QueryAccountBalance")

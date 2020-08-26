@@ -14,16 +14,53 @@
 
 package apis
 
-import "google.golang.org/grpc"
+import (
+	"context"
+	"time"
+
+	"google.golang.org/grpc"
+)
 
 type SendNotificationClient struct {
 	sendAgentClient
-	Conn *grpc.ClientConn
+	Conn        *grpc.ClientConn
+	CallTimeout time.Duration
 }
 
 func NewSendNotificationClient(cc *grpc.ClientConn) *SendNotificationClient {
 	return &SendNotificationClient{
 		sendAgentClient: sendAgentClient{cc},
 		Conn:            cc,
+		CallTimeout:     30 * time.Second,
 	}
+}
+
+func (c *SendNotificationClient) Send(ctx context.Context, in *SendParams, opts ...grpc.CallOption) (*Empty, error) {
+	ctx, cancel := context.WithTimeout(ctx, c.CallTimeout)
+	defer cancel()
+	return c.sendAgentClient.Send(ctx, in, opts...)
+}
+
+func (c *SendNotificationClient) UpdateConfig(ctx context.Context, in *UpdateConfigParams, opts ...grpc.CallOption) (*Empty, error) {
+	ctx, cancel := context.WithTimeout(ctx, c.CallTimeout)
+	defer cancel()
+	return c.sendAgentClient.UpdateConfig(ctx, in, opts...)
+}
+
+func (c *SendNotificationClient) ValidateConfig(ctx context.Context, in *UpdateConfigParams, opts ...grpc.CallOption) (*ValidateConfigReply, error) {
+	ctx, cancel := context.WithTimeout(ctx, c.CallTimeout)
+	defer cancel()
+	return c.sendAgentClient.ValidateConfig(ctx, in, opts...)
+}
+
+func (c *SendNotificationClient) UseridByMobile(ctx context.Context, in *UseridByMobileParams, opts ...grpc.CallOption) (*UseridByMobileReply, error) {
+	ctx, cancel := context.WithTimeout(ctx, c.CallTimeout)
+	defer cancel()
+	return c.sendAgentClient.UseridByMobile(ctx, in, opts...)
+}
+
+func (c *SendNotificationClient) BatchSend(ctx context.Context, in *BatchSendParams, opts ...grpc.CallOption) (*BatchSendReply, error) {
+	ctx, cancel := context.WithTimeout(ctx, c.CallTimeout)
+	defer cancel()
+	return c.sendAgentClient.BatchSend(ctx, in, opts...)
 }

@@ -34,8 +34,8 @@ func init() {
 	taskman.RegisterTask(SecurityGroupCacheTask{})
 }
 
-func (self *SecurityGroupCacheTask) taskFailed(ctx context.Context, secgroup *models.SSecurityGroup, err error) {
-	self.SetStageFailed(ctx, err.Error())
+func (self *SecurityGroupCacheTask) taskFailed(ctx context.Context, secgroup *models.SSecurityGroup, reason jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, reason)
 }
 
 func (self *SecurityGroupCacheTask) getVpc() (*models.SVpc, error) {
@@ -55,13 +55,13 @@ func (self *SecurityGroupCacheTask) OnInit(ctx context.Context, obj db.IStandalo
 
 	vpc, err := self.getVpc()
 	if err != nil {
-		self.taskFailed(ctx, secgroup, errors.Wrap(err, "self.getVpc()"))
+		self.taskFailed(ctx, secgroup, jsonutils.NewString(errors.Wrap(err, "self.getVpc()").Error()))
 		return
 	}
 
 	region, err := vpc.GetRegion()
 	if err != nil {
-		self.taskFailed(ctx, secgroup, errors.Wrap(err, "vpc.GetRegion"))
+		self.taskFailed(ctx, secgroup, jsonutils.NewString(errors.Wrap(err, "vpc.GetRegion").Error()))
 		return
 	}
 
@@ -69,9 +69,9 @@ func (self *SecurityGroupCacheTask) OnInit(ctx context.Context, obj db.IStandalo
 
 	self.SetStage("OnCacheSecurityGroupComplete", nil)
 
-	err = region.GetDriver().RequestCacheSecurityGroup(ctx, self.UserCred, region, vpc, secgroup, classic, self)
+	err = region.GetDriver().RequestCacheSecurityGroup(ctx, self.UserCred, region, vpc, secgroup, classic, "", self)
 	if err != nil {
-		self.taskFailed(ctx, secgroup, errors.Wrap(err, "RequestCacheSecgroup"))
+		self.taskFailed(ctx, secgroup, jsonutils.Marshal(err))
 		return
 	}
 }
@@ -81,5 +81,5 @@ func (self *SecurityGroupCacheTask) OnCacheSecurityGroupComplete(ctx context.Con
 }
 
 func (self *SecurityGroupCacheTask) OnCacheSecurityGroupCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, err.String())
+	self.SetStageFailed(ctx, err)
 }

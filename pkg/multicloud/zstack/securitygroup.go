@@ -16,15 +16,16 @@ package zstack
 
 import (
 	"fmt"
-	"net"
 	"net/url"
-	"sort"
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SSecurityGroupRule struct {
@@ -41,29 +42,8 @@ type SSecurityGroupRule struct {
 	ZStackTime
 }
 
-type SSecurityGroupRuleSet []SSecurityGroupRule
-
-func (v SSecurityGroupRuleSet) Len() int {
-	return len(v)
-}
-
-func (v SSecurityGroupRuleSet) Swap(i, j int) {
-	v[i], v[j] = v[j], v[i]
-}
-
-func (v SSecurityGroupRuleSet) Less(i, j int) bool {
-	rule, err := v[i].toRule()
-	if err != nil {
-		return false
-	}
-	_rule, err := v[j].toRule()
-	if err != nil {
-		return false
-	}
-	return strings.Compare(rule.String(), _rule.String()) <= 0
-}
-
 type SSecurityGroup struct {
+	multicloud.SSecurityGroup
 	region *SRegion
 
 	ZStackBasic
@@ -123,51 +103,42 @@ func (self *SSecurityGroup) GetDescription() string {
 	return self.Description
 }
 
-func (rule *SSecurityGroupRule) toRule() (*secrules.SecurityRule, error) {
-	r := &secrules.SecurityRule{
-		Direction: secrules.DIR_IN,
-		Action:    secrules.SecurityRuleAllow,
-		Priority:  1,
-		Protocol:  secrules.PROTO_ANY,
-		PortStart: rule.StartPort,
-		PortEnd:   rule.EndPort,
+func (rule *SSecurityGroupRule) toRule() (cloudprovider.SecurityRule, error) {
+	r := cloudprovider.SecurityRule{
+		ExternalId: rule.UUID,
+		SecurityRule: secrules.SecurityRule{
+			Direction: secrules.DIR_IN,
+			Action:    secrules.SecurityRuleAllow,
+			Priority:  1,
+			Protocol:  secrules.PROTO_ANY,
+			PortStart: rule.StartPort,
+			PortEnd:   rule.EndPort,
+		},
 	}
-	_, ipNet, err := net.ParseCIDR(rule.AllowedCIDR)
-	if err != nil {
-		return nil, err
-	}
-	r.IPNet = ipNet
+	r.ParseCIDR(rule.AllowedCIDR)
 	if rule.Type == "Egress" {
 		r.Direction = secrules.DIR_OUT
 	}
 	if rule.Protocol != "ALL" {
 		r.Protocol = strings.ToLower(rule.Protocol)
 	}
+	err := r.ValidateRule()
+	if err != nil {
+		return r, errors.Wrap(err, "invalid rule")
+	}
 	return r, nil
 }
 
-func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
-	rules := []secrules.SecurityRule{}
-	priority := 100
-	outRuleCount := 0
+func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
+	rules := []cloudprovider.SecurityRule{}
 	for i := 0; i < len(self.Rules); i++ {
 		if self.Rules[i].IPVersion == 4 {
 			rule, err := self.Rules[i].toRule()
 			if err != nil {
 				return nil, err
 			}
-			if rule.Direction == secrules.DIR_OUT {
-				outRuleCount++
-			}
-			rule.Priority = priority
-			rules = append(rules, *rule)
-			priority--
+			rules = append(rules, rule)
 		}
-	}
-	if outRuleCount != 0 {
-		rule := secrules.MustParseSecurityRule("out:deny any")
-		rule.Priority = 1
-		rules = append(rules, *rule)
 	}
 	return rules, nil
 }
@@ -196,7 +167,7 @@ func (self *SSecurityGroup) GetProjectId() string {
 	return ""
 }
 
-func (region *SRegion) AddSecurityGroupRule(secgroupId string, rules []secrules.SecurityRule) error {
+func (region *SRegion) AddSecurityGroupRule(secgroupId string, rules []cloudprovider.SecurityRule) error {
 	ruleParam := []map[string]interface{}{}
 	for _, rule := range rules {
 		Type := "Ingress"
@@ -225,7 +196,7 @@ func (region *SRegion) AddSecurityGroupRule(secgroupId string, rules []secrules.
 		} else {
 			if protocol != "ALL" {
 				// TCP UDP端口不能为-1
-				if rule.Protocol == secrules.PROTO_TCP || rule.Protocol == secrules.PROTO_UDP &&
+				if (rule.Protocol == secrules.PROTO_TCP || rule.Protocol == secrules.PROTO_UDP) &&
 					(rule.PortStart <= 0 && rule.PortEnd <= 0) {
 					rule.PortStart = 0
 					rule.PortEnd = 65535
@@ -280,91 +251,16 @@ func (region *SRegion) CreateSecurityGroup(name, desc string) (*SSecurityGroup, 
 	return secgroup, region.client.create("security-groups", jsonutils.Marshal(params), secgroup)
 }
 
-func (region *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.SecurityRule) error {
-	secgroup, err := region.GetSecurityGroup(secgroupId)
+func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
+	deleteIds := []string{}
+	for _, r := range append(inDels, outDels...) {
+		deleteIds = append(deleteIds, r.ExternalId)
+	}
+	err := self.region.DeleteSecurityGroupRules(deleteIds)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "DeleteSecurityGroupRules(%s)", deleteIds)
 	}
-
-	inRules, outRules := secrules.SecurityRuleSet{}, secrules.SecurityRuleSet{}
-	for i := 0; i < len(rules); i++ {
-		if rules[i].Direction == secrules.DIR_IN {
-			inRules = append(inRules, rules[i])
-		} else {
-			outRules = append(outRules, rules[i])
-		}
-	}
-
-	if len(outRules) > 0 {
-		// 避免出现 {"error":{"class":"SYS.1007","code":503,"details":"rule should not be duplicated. rule dump: {\"type\":\"Egress\",\"ipVersion\":4,\"startPort\":-1,\"endPort\":-1,\"protocol\":\"ALL\",\"allowedCidr\":\"0.0.0.0/0\"}"}}
-		find := false
-		for _, _rule := range outRules {
-			if _rule.String() == "out:allow any" {
-				find = true
-				break
-			}
-		}
-		if !find {
-			rule := secrules.MustParseSecurityRule("out:allow any")
-			outRules = append(outRules, *rule)
-		}
-	}
-
-	rules = inRules.AllowList()
-	rules = append(rules, outRules.AllowList()...)
-	for i := 0; i < len(rules); i++ {
-		rules[i].Priority = 1
-	}
-
-	sort.Sort(secrules.SecurityRuleSet(rules))
-	sort.Sort(SSecurityGroupRuleSet(secgroup.Rules))
-
-	delRuleIds := []string{}
-	addRules := []secrules.SecurityRule{}
-
-	i, j := 0, 0
-	for i < len(rules) || j < len(secgroup.Rules) {
-		if i < len(rules) && j < len(secgroup.Rules) {
-			_rule, err := secgroup.Rules[j].toRule()
-			if err != nil {
-				return err
-			}
-			_ruleStr := _rule.String()
-			ruleStr := rules[i].String()
-			cmp := strings.Compare(_ruleStr, ruleStr)
-			if cmp == 0 {
-				if len(secgroup.Rules[j].RemoteSecurityGroupUUID) > 0 {
-					delRuleIds = append(delRuleIds, secgroup.Rules[j].UUID)
-					addRules = append(addRules, rules[i])
-				}
-				i++
-				j++
-			} else if cmp > 0 {
-				delRuleIds = append(delRuleIds, secgroup.Rules[j].UUID)
-				j++
-			} else {
-				addRules = append(addRules, rules[i])
-				i++
-			}
-		} else if i >= len(rules) {
-			delRuleIds = append(delRuleIds, secgroup.Rules[j].UUID)
-			j++
-		} else if j >= len(secgroup.Rules) {
-			addRules = append(addRules, rules[i])
-			i++
-		}
-	}
-	if len(delRuleIds) > 0 {
-		err = region.DeleteSecurityGroupRules(delRuleIds)
-		if err != nil {
-			return err
-		}
-	}
-	return region.AddSecurityGroupRule(secgroupId, addRules)
-}
-
-func (self *SSecurityGroup) SyncRules(rules []secrules.SecurityRule) error {
-	return self.region.syncSecgroupRules(self.UUID, rules)
+	return self.region.AddSecurityGroupRule(self.UUID, append(inAdds, outAdds...))
 }
 
 func (self *SSecurityGroup) Delete() error {

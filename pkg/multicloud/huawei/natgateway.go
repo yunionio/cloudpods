@@ -171,30 +171,18 @@ func (gateway *SNatGateway) GetINatSEntryByID(id string) (cloudprovider.ICloudNa
 	return &snat, nil
 }
 
-func (region *SRegion) GetNatGateway(natGatewayID string) ([]SNatGateway, error) {
+func (region *SRegion) GetNatGateways(vpcID, natGatewayID string) ([]SNatGateway, error) {
 	queues := make(map[string]string)
-	if natGatewayID != "" {
+	if len(natGatewayID) != 0 {
 		queues["id"] = natGatewayID
+	}
+	if len(vpcID) != 0 {
+		queues["router_id"] = vpcID
 	}
 	natGateways := make([]SNatGateway, 0, 2)
 	err := doListAllWithMarker(region.ecsClient.NatGateways.List, queues, &natGateways)
 	if err != nil {
 		return nil, errors.Wrapf(err, "get nat gateways error by natgatewayid")
-	}
-	for i := range natGateways {
-		natGateways[i].region = region
-	}
-	return natGateways, nil
-}
-
-func (region *SRegion) GetNatGateways(vpcID string) ([]SNatGateway, error) {
-	queues := map[string]string{
-		"router_id": vpcID,
-	}
-	natGateways := make([]SNatGateway, 0, 2)
-	err := doListAllWithMarker(region.ecsClient.NatGateways.List, queues, &natGateways)
-	if err != nil {
-		return nil, errors.Wrapf(err, "get nat gateways error by vpcid")
 	}
 	for i := range natGateways {
 		natGateways[i].region = region
@@ -251,7 +239,7 @@ func (region *SRegion) GetNatDEntryByID(id string) (SNatDEntry, error) {
 	err := DoGet(region.ecsClient.DNatRules.Get, id, map[string]string{}, &dnat)
 
 	if err != nil {
-		return SNatDEntry{}, cloudprovider.ErrNotFound
+		return SNatDEntry{}, err
 	}
 	return dnat, nil
 }

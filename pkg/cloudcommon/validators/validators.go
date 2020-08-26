@@ -26,6 +26,7 @@ import (
 	"net"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -158,11 +159,64 @@ func (v *ValidatorIPv4Prefix) Validate(data *jsonutils.JSONDict) error {
 	return nil
 }
 
+type ValidatorIntChoices struct {
+	Validator
+	choices []int64
+
+	Value int64
+}
+
+func NewIntChoicesValidator(key string, choices []int64) *ValidatorIntChoices {
+	v := &ValidatorIntChoices{
+		Validator: Validator{Key: key},
+		choices:   choices,
+	}
+	v.SetParent(v)
+	return v
+}
+
+func (v *ValidatorIntChoices) has(i int64) bool {
+	for _, c := range v.choices {
+		if c == i {
+			return true
+		}
+	}
+	return false
+}
+
+func (v *ValidatorIntChoices) Default(i int64) IValidator {
+	if v.has(i) {
+		v.Validator.Default(i)
+		return v
+	}
+	panic("invalid default for " + v.Key)
+}
+
+func (v *ValidatorIntChoices) getValue() interface{} {
+	return v.Value
+}
+
+func (v *ValidatorIntChoices) Validate(data *jsonutils.JSONDict) error {
+	if err, isSet := v.Validator.validateEx(data); err != nil || !isSet {
+		return err
+	}
+	i, err := v.value.Int()
+	if err != nil {
+		return newGeneralError(v.Key, err)
+	}
+	if !v.has(i) {
+		return newInvalidIntChoiceError(v.Key, v.choices, i)
+	}
+	// in case it's stringified from v.value
+	data.Set(v.Key, jsonutils.NewInt(i))
+	v.Value = i
+	return nil
+}
+
 type ValidatorStringChoices struct {
 	Validator
-	Choices    choices.Choices
-	defaultVal string
-	Value      string
+	Choices choices.Choices
+	Value   string
 }
 
 func NewStringChoicesValidator(key string, choices choices.Choices) *ValidatorStringChoices {
@@ -176,7 +230,8 @@ func NewStringChoicesValidator(key string, choices choices.Choices) *ValidatorSt
 
 func (v *ValidatorStringChoices) Default(s string) IValidator {
 	if v.Choices.Has(s) {
-		return v.Validator.Default(s)
+		v.Validator.Default(s)
+		return v
 	}
 	panic("invalid default for " + v.Key)
 }
@@ -204,11 +259,10 @@ func (v *ValidatorStringChoices) Validate(data *jsonutils.JSONDict) error {
 
 type ValidatorStringMultiChoices struct {
 	Validator
-	Choices    choices.Choices
-	defaultVal string
-	Value      string
-	sep        string
-	keepDup    bool
+	Choices choices.Choices
+	Value   string
+	sep     string
+	keepDup bool
 }
 
 func NewStringMultiChoicesValidator(key string, choices choices.Choices) *ValidatorStringMultiChoices {
@@ -389,6 +443,7 @@ type ValidatorModelIdOrName struct {
 
 	modelIdKey       string
 	noPendingDeleted bool
+	allowEmpty       bool
 }
 
 func (v *ValidatorModelIdOrName) GetProjectId() string {
@@ -458,6 +513,11 @@ func (v *ValidatorModelIdOrName) AllowPendingDeleted(b bool) *ValidatorModelIdOr
 	return v
 }
 
+func (v *ValidatorModelIdOrName) AllowEmpty(b bool) *ValidatorModelIdOrName {
+	v.allowEmpty = b
+	return v
+}
+
 func (v *ValidatorModelIdOrName) validate(data *jsonutils.JSONDict) error {
 	if !data.Contains(v.Key) && data.Contains(v.modelIdKey) {
 		// a hack when validator is used solely for fetching model
@@ -479,6 +539,9 @@ func (v *ValidatorModelIdOrName) validate(data *jsonutils.JSONDict) error {
 	modelIdOrName, err := v.value.GetString()
 	if err != nil {
 		return err
+	}
+	if modelIdOrName == "" && v.allowEmpty {
+		return nil
 	}
 
 	modelManager := db.GetModelManager(v.ModelKeyword)
@@ -508,11 +571,13 @@ func (v *ValidatorModelIdOrName) Validate(data *jsonutils.JSONDict) error {
 	if err != nil {
 		return err
 	}
+	var val string
 	if v.Model != nil {
-		if len(v.modelIdKey) > 0 {
-			data.Remove(v.Key)
-			data.Set(v.modelIdKey, jsonutils.NewString(v.Model.GetId()))
-		}
+		val = v.Model.GetId()
+	}
+	if len(v.modelIdKey) > 0 && data.Contains(v.Key) {
+		data.Remove(v.Key)
+		data.Set(v.modelIdKey, jsonutils.NewString(val))
 	}
 	return nil
 }
@@ -587,6 +652,76 @@ func NewDomainNameValidator(key string) *ValidatorDomainName {
 	}
 	v.SetParent(v)
 	return v
+}
+
+type ValidatorHostPort struct {
+	ValidatorRegexp
+
+	optionalPort bool
+	Domain       string
+	Port         int
+	Value        string
+}
+
+var regHostPort *regexp.Regexp
+
+func init() {
+	// guard against surprise
+	exp := regutils.DOMAINNAME_REG.String()
+	if exp != "" && exp[len(exp)-1] == '$' {
+		exp = exp[:len(exp)-1]
+	}
+	exp += "(?::[0-9]{1,5})?"
+	regHostPort = regexp.MustCompile(exp)
+}
+
+func NewHostPortValidator(key string) *ValidatorHostPort {
+	v := &ValidatorHostPort{
+		ValidatorRegexp: *NewRegexpValidator(key, regHostPort),
+	}
+	v.SetParent(v)
+	return v
+}
+
+func (v *ValidatorHostPort) getValue() interface{} {
+	return v.Value
+}
+
+func (v *ValidatorHostPort) OptionalPort(optionalPort bool) *ValidatorHostPort {
+	v.optionalPort = optionalPort
+	return v
+}
+
+func (v *ValidatorHostPort) Validate(data *jsonutils.JSONDict) error {
+	err := v.ValidatorRegexp.Validate(data)
+	if err != nil {
+		return err
+	}
+	hostPort := v.ValidatorRegexp.Value
+	if hostPort == "" && (v.optional || v.allowEmpty) {
+		return nil
+	}
+	i := strings.IndexRune(hostPort, ':')
+	if i < 0 {
+		if v.optionalPort {
+			v.Value = hostPort
+			v.Domain = hostPort
+			return nil
+		}
+		return newInvalidValueError(v.Key, "port missing")
+	}
+	portStr := hostPort[i+1:]
+	port, err := strconv.ParseUint(portStr, 10, 16)
+	if err != nil {
+		return newInvalidValueError(v.Key, "bad port integer: "+err.Error())
+	}
+	if port <= 0 {
+		return newInvalidValueError(v.Key, "negative port")
+	}
+	v.Value = hostPort
+	v.Domain = hostPort[:i]
+	v.Port = int(port)
+	return nil
 }
 
 type ValidatorURLPath struct {

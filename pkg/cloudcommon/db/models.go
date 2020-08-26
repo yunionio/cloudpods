@@ -46,7 +46,15 @@ func RegisterModelManager(modelMan IModelManager) {
 
 func mustCheckModelManager(modelMan IModelManager) {
 	allowedTags := map[string][]string{
-		"create": {"required", "optional", "domain_required", "domain_optional", "admin_required", "admin_optional"},
+		"create": {
+			"required",
+			"optional",
+			"domain",
+			"domain_required",
+			"domain_optional",
+			"admin_required",
+			"admin_optional",
+		},
 		"search": {"user", "domain", "admin"},
 		"get":    {"user", "domain", "admin"},
 		"list":   {"user", "domain", "admin"},
@@ -59,7 +67,7 @@ func mustCheckModelManager(modelMan IModelManager) {
 			if !ok {
 				continue
 			}
-			if !utils.IsInStringArray(v, allowedValues) {
+			if len(v) > 0 && !utils.IsInStringArray(v, allowedValues) {
 				msg := fmt.Sprintf("model manager %s: column %s has invalid tag %s:\"%s\", expecting %v",
 					modelMan.KeywordPlural(), col.Name(), tagName, v, allowedValues)
 				panic(msg)

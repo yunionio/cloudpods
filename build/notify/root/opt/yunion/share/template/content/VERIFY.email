@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Document</title>
+</head>
+<body>
+  <table style="width: 650px; margin-bottom: 20px;" border="0" cellpadding="0" cellspacing="0" align="center">
+  	<tr style="height: 50px; background: #333; overflow: hidden;">
+  		<td>
+  			<table style="margin-left: 20px;">
+  				<tr>
+  					<td>
+  						<img src="data:{{.login_logo_format}};base64,{{.login_logo}}" alt="" style="color: #fff; height: 32px; vertical-align: middle;">
+  					</td>
+  				</tr>
+  			</table>
+  		</td>
+  		<td>
+  			<table style="float: right;">
+  				<tr>
+  					<td style="padding-left: 20px; padding-right: 20px;">
+  						<a href="" style="text-decoration: none; color: #20A0FF; font-size: 12px; display: none;">产品</a>
+  					</td>
+  					<td style="padding-left: 20px; padding-right: 20px;">
+  						<a href="" style="text-decoration: none; color: #20A0FF; font-size: 12px; display: none;">解决方案</a>
+  					</td>
+  					<td style="padding-left: 20px; padding-right: 20px;">
+  						<a href="" style="text-decoration: none; color: #20A0FF; font-size: 12px; display: none;">服务</a>
+  					</td>
+  					<td style="padding-left: 20px; padding-right: 20px;">
+  						<a href="" style="text-decoration: none; color: #20A0FF; font-size: 12px; display: none;">帮助与文档</a>
+  					</td>
+  					<td style="padding-left: 20px; padding-right: 20px;">
+  						<a href="" style="text-decoration: none; color: #20A0FF; font-size: 12px; display: none;">关于我们</a>
+  					</td>
+  				</tr>
+  			</table>
+  		</td>
+  	</tr>
+  	<tr>
+  		<td style="width: 100%;" colspan="2">
+  			<table style="padding: 20px 10px; width: 100%;">
+	  			<tr>
+	  				<td style="padding-bottom: 20px;">
+                        尊敬的{{.name}}，您好：
+	  				</td>
+	  			</tr>
+	  			<tr>
+                    <td style="padding-bottom: 10px;">您正在验证邮箱，请在验证码输入框中输入：{{.code}}，已完成验证。</td>
+	  			</tr>
+	  		</table>
+  		</td>
+  	</tr>
+  	<tr style="width: 96%;">
+        <td colspan="2" style="border-top: 1px dashed #ccc; color: #333; font-size: 12px; padding-bottom: 10px; font-weight: 100;">如非本人操作，请及时登录平台并修改密码以保证账户的安全</td>
+	</tr>
+	<tr>
+		<td colspan="2" style="background: #333; text-align: right; padding-right: 20px; font-size: 12px; color: #fff; height: 50px;">版权所有 © {{.copyright}} 保留一切权利</td>
+	</tr>
+  </table>
+</body>
+</html>

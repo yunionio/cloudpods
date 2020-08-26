@@ -16,6 +16,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -115,5 +116,85 @@ func Test_call(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+type Embeded struct {
+}
+
+func (e *Embeded) Method() {
+	fmt.Println("Embeded Method")
+}
+
+type Struct0 struct {
+	Embeded
+}
+
+type Struct1 struct {
+	Embeded
+}
+
+type Struct2 struct {
+}
+
+func (e *Struct0) Method() {
+	fmt.Println("Struct0 Method")
+}
+
+type Top0 struct {
+	Struct0
+	Struct1
+	Struct2
+}
+
+type Top1 struct {
+	Struct0
+	Struct1
+	Struct2
+}
+
+func (e *Top1) Method() {
+	fmt.Println("Top1 Method")
+}
+
+func TestFindFunc(t *testing.T) {
+	cases := []struct {
+		obj  interface{}
+		want bool
+	}{
+		{
+			obj:  &Embeded{},
+			want: true,
+		},
+		{
+			obj:  &Struct0{},
+			want: true,
+		},
+		{
+			obj:  &Struct1{},
+			want: true,
+		},
+		{
+			obj:  &Struct2{},
+			want: false,
+		},
+		{
+			obj:  &Top0{},
+			want: true,
+		},
+		{
+			obj:  &Top1{},
+			want: true,
+		},
+	}
+	for _, c := range cases {
+		t.Logf("%s is called", reflect.TypeOf(c.obj))
+		funcVal, err := findFunc(reflect.ValueOf(c.obj), "Method")
+		if funcVal.IsValid() {
+			funcVal.Call(nil)
+		}
+		if (c.want && err != nil) || (!c.want && err == nil) {
+			t.Errorf("%s want %v but err==nil %v", reflect.TypeOf(c.obj), c.want, err == nil)
+		}
 	}
 }

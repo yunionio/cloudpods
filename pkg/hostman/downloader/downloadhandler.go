@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -65,7 +64,7 @@ func AddDownloadHandler(prefix string, app *appsrv.Application) {
 func customizeHandlerInfo(info *appsrv.SHandlerInfo) {
 	switch info.GetName(nil) {
 	case "disk_download", "download", "snapshot_download":
-		info.SetProcessTimeout(time.Minute * 60).SetWorkerManager(streamingWorkerMan)
+		info.SetProcessNoTimeout().SetWorkerManager(streamingWorkerMan)
 	}
 }
 
@@ -86,7 +85,7 @@ func download(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	case "images":
 		hand := NewImageCacheDownloadProvider(w, compress, rateLimit, id)
 		if !fileutils2.Exists(hand.downloadFilePath()) {
-			httperrors.NotFoundError(w, "Image cache %s not found", id)
+			httperrors.NotFoundError(ctx, w, "Image cache %s not found", id)
 		} else {
 			if err := hand.Start(); err != nil {
 				hostutils.Response(ctx, w, err)
@@ -95,7 +94,7 @@ func download(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	case "servers":
 		hand := NewGuestDownloadProvider(w, compress, rateLimit, id)
 		if !fileutils2.Exists(hand.fullPath()) {
-			httperrors.NotFoundError(w, "Guest %s not found", id)
+			httperrors.NotFoundError(ctx, w, "Guest %s not found", id)
 		} else {
 			if err := hand.Start(); err != nil {
 				hostutils.Response(ctx, w, err)

@@ -15,15 +15,31 @@
 package cloudevent
 
 import (
+	"time"
+
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 type CloudeventListInput struct {
-	apis.BaseListInput
+	apis.ModelBaseListInput
 
-	apis.SharableVirtualResourceListInput
+	compute.CloudenvResourceListInput
 
-	Cloudprovider string `json:"cloudprovider"`
+	// 服务类型
+	Service []string `json:"service"`
 
-	Providers []string `json:"providers"`
+	// 订阅
+	Manager []string `json:"manager"`
+
+	// 账号
+	Account []string `json:"account"`
+
+	// 操作类型
+	Action []string `json:"action"`
+
+	// 操作日志起始时间
+	Since time.Time `json:"since"`
+	// 操作日志截止时间
+	Until time.Time `json:"until"`
 }

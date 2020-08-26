@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	api "yunion.io/x/onecloud/pkg/apis/cloudnet"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -212,10 +213,16 @@ func (man *SRuleManager) ValidateCreateData(ctx context.Context, userCred mcclie
 	return data, nil
 }
 
+// 虚拟路由器路由规则列表
 func (man *SRuleManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	input := apis.StandaloneResourceListInput{}
+	err := query.Unmarshal(&input)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "query.Unmarshal")
+	}
+	q, err = man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
 	data := query.(*jsonutils.JSONDict)
 	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
@@ -227,14 +234,17 @@ func (man *SRuleManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery,
 	return q, nil
 }
 
-func (rule *SRule) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if _, err := rule.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data); err != nil {
-		return nil, err
+func (rule *SRule) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.RuleUpdateInput) (api.RuleUpdateInput, error) {
+	var err error
+	input.StandaloneResourceBaseUpdateInput, err = rule.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StandaloneResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
 	}
+	data := jsonutils.Marshal(input).(*jsonutils.JSONDict)
 	if err := RuleManager.validateData(ctx, userCred, rule.GetOwnerId(), query, data, rule); err != nil {
-		return nil, err
+		return input, errors.Wrap(err, "validateData")
 	}
-	return nil, nil
+	return input, nil
 }
 
 func (man *SRuleManager) removeByRouter(ctx context.Context, userCred mcclient.TokenCredential, router *SRouter) error {
@@ -370,7 +380,7 @@ func (man *SRuleManager) addRules(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (man *SRuleManager) addRule(ctx context.Context, userCred mcclient.TokenCredential, rule *SRule) error {
-	return man.TableSpec().Insert(rule)
+	return man.TableSpec().Insert(ctx, rule)
 }
 
 func (rule *SRule) firewalldRule() (*firewalld.Rule, error) {

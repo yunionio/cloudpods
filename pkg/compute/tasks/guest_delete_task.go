@@ -100,6 +100,20 @@ func (self *GuestDeleteTask) OnStartEipDissociateFailed(ctx context.Context, gue
 }
 
 func (self *GuestDeleteTask) OnStartEipDissociate(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	if sourceGuestId := guest.GetMetadata(api.SERVER_META_CONVERT_FROM_ESXI, self.UserCred); len(sourceGuestId) > 0 {
+		sourceGuest := models.GuestManager.FetchGuestById(sourceGuestId)
+		if sourceGuest != nil &&
+			sourceGuest.GetMetadata(api.SERVER_META_CONVERTED_SERVER, self.UserCred) == guest.Id {
+			err := guest.ConvertNetworks(sourceGuest)
+			if err != nil {
+				log.Errorf("Convert networks failed %s", err)
+				self.OnFailed(ctx, guest, jsonutils.NewString(err.Error()))
+				return
+			}
+			sourceGuest.RemoveMetadata(ctx, api.SERVER_META_CONVERTED_SERVER, self.UserCred)
+			sourceGuest.StartSyncstatus(ctx, self.UserCred, "")
+		}
+	}
 	eip, _ := guest.GetEip()
 	if eip != nil && eip.Mode != api.EIP_MODE_INSTANCE_PUBLICIP {
 		// detach floating EIP only
@@ -178,6 +192,9 @@ func (self *GuestDeleteTask) OnSyncConfigComplete(ctx context.Context, obj db.IS
 			return
 		}
 		log.Debugf("XXXXXXX Do guest pending delete... XXXXXXX")
+		// pending detach
+		guest.PendingDetachScalingGroup()
+		guest.DetachScheduledTask(ctx, self.UserCred)
 		guestStatus, _ := self.Params.GetString("guest_status")
 		if !utils.IsInStringArray(guestStatus, []string{
 			api.VM_SCHEDULE_FAILED, api.VM_NETWORK_FAILED, api.VM_DISK_FAILED,
@@ -256,7 +273,7 @@ func (self *GuestDeleteTask) DoDeleteGuest(ctx context.Context, guest *models.SG
 			return
 		}
 		self.OnGuestDeleteComplete(ctx, guest, nil)
-	} else if (host == nil || !host.Enabled) && jsonutils.QueryBoolean(self.Params, "purge", false) {
+	} else if (host == nil || !host.GetEnabled()) && jsonutils.QueryBoolean(self.Params, "purge", false) {
 		self.OnGuestDeleteComplete(ctx, guest, nil)
 	} else {
 		self.SetStage("OnGuestDeleteComplete", nil)
@@ -268,7 +285,7 @@ func (self *GuestDeleteTask) OnFailed(ctx context.Context, guest *models.SGuest,
 	guest.SetStatus(self.UserCred, api.VM_DELETE_FAIL, err.String())
 	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_DELOCATE, err, self.UserCred, false)
-	self.SetStageFailed(ctx, err.String())
+	self.SetStageFailed(ctx, err)
 }
 
 func (self *GuestDeleteTask) OnGuestDeleteCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {

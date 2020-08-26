@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/baremetal"
@@ -71,6 +72,7 @@ func initBaremetalsHandler(app *appsrv.Application) {
 	AddHandler(app, "POST", bmActionPrefix("reset-bmc"), bmObjMiddleware(handleBaremetalResetBMC))
 	AddHandler(app, "POST", bmActionPrefix("ipmi-probe"), bmObjMiddleware(handleBaremetalIpmiProbe))
 	AddHandler(app, "POST", bmActionPrefix("cdrom"), bmObjMiddleware(handleBaremetalCdromTask))
+	AddHandler(app, "POST", bmActionPrefix("jnlp"), bmObjMiddleware(handleBaremetalJnlpTask))
 
 	// server actions handler
 	AddHandler(app, "POST", srvActionPrefix("create"), srvClassMiddleware(handleServerCreate))
@@ -160,6 +162,17 @@ func handleBaremetalCdromTask(ctx *Context, bm *baremetal.SBaremetalInstance) {
 	ctx.ResponseOk()
 }
 
+func handleBaremetalJnlpTask(ctx *Context, bm *baremetal.SBaremetalInstance) {
+	jnlp, err := bm.GetConsoleJNLP(ctx)
+	if err != nil {
+		ctx.ResponseError(errors.Wrap(err, "GetConsoleJNLP"))
+		return
+	}
+	result := jsonutils.NewDict()
+	result.Add(jsonutils.NewString(jnlp), "jnlp")
+	ctx.ResponseJson(result)
+}
+
 func handleServerCreate(ctx *Context, bm *baremetal.SBaremetalInstance) {
 	err := bm.StartServerCreateTask(ctx.UserCred(), ctx.TaskId(), ctx.Data())
 	if err != nil {
@@ -218,7 +231,7 @@ func handleServerStatus(ctx *Context, bm *baremetal.SBaremetalInstance, _ bareme
 
 func handleBaremetalRegister(ctx *Context, input *baremetal.BmRegisterInput) {
 	ctx.DelayProcess(func(data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-		baremetal.GetBaremetalManager().RegisterBaremetal(ctx, input)
+		baremetal.GetBaremetalManager().RegisterBaremetal(ctx, ctx.userCred, input)
 		return nil, nil
 	}, nil)
 }

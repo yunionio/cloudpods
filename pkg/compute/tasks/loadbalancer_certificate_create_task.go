@@ -36,11 +36,11 @@ func init() {
 	taskman.RegisterTask(LoadbalancerCertificateCreateTask{})
 }
 
-func (self *LoadbalancerCertificateCreateTask) taskFail(ctx context.Context, lbcert *models.SCachedLoadbalancerCertificate, reason string) {
-	lbcert.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, reason)
+func (self *LoadbalancerCertificateCreateTask) taskFail(ctx context.Context, lbcert *models.SCachedLoadbalancerCertificate, reason jsonutils.JSONObject) {
+	lbcert.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, reason.String())
 	db.OpsLog.LogEvent(lbcert, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbcert, logclient.ACT_CREATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lbcert.Id, lbcert.Name, api.LB_CREATE_FAILED, reason)
+	notifyclient.NotifySystemError(lbcert.Id, lbcert.Name, api.LB_CREATE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -48,12 +48,12 @@ func (self *LoadbalancerCertificateCreateTask) OnInit(ctx context.Context, obj d
 	lbcert := obj.(*models.SCachedLoadbalancerCertificate)
 	region := lbcert.GetRegion()
 	if region == nil {
-		self.taskFail(ctx, lbcert, fmt.Sprintf("failed to find region for lbcert %s", lbcert.Name))
+		self.taskFail(ctx, lbcert, jsonutils.NewString(fmt.Sprintf("failed to find region for lbcert %s", lbcert.Name)))
 		return
 	}
 	self.SetStage("OnLoadbalancerCertificateCreateComplete", nil)
 	if err := region.GetDriver().RequestCreateLoadbalancerCertificate(ctx, self.GetUserCred(), lbcert, self); err != nil {
-		self.taskFail(ctx, lbcert, err.Error())
+		self.taskFail(ctx, lbcert, jsonutils.Marshal(err))
 	}
 }
 
@@ -65,5 +65,5 @@ func (self *LoadbalancerCertificateCreateTask) OnLoadbalancerCertificateCreateCo
 }
 
 func (self *LoadbalancerCertificateCreateTask) OnLoadbalancerCertificateCreateCompleteFailed(ctx context.Context, lbcert *models.SCachedLoadbalancerCertificate, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lbcert, reason.String())
+	self.taskFail(ctx, lbcert, reason)
 }

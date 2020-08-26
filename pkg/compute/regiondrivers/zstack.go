@@ -16,11 +16,13 @@ package regiondrivers
 
 import (
 	"context"
+	"database/sql"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -35,11 +37,35 @@ func init() {
 	models.RegisterRegionDriver(&driver)
 }
 
+func (self *SZStackRegionDriver) GetSecurityGroupRuleOrder() cloudprovider.TPriorityOrder {
+	return cloudprovider.PriorityOrderByAsc
+}
+
+func (self *SZStackRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
+}
+
+func (self *SZStackRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:allow any")}
+}
+
+func (self *SZStackRegionDriver) GetSecurityGroupRuleMaxPriority() int {
+	return 1
+}
+
+func (self *SZStackRegionDriver) GetSecurityGroupRuleMinPriority() int {
+	return 1
+}
+
+func (self *SZStackRegionDriver) IsOnlySupportAllowRules() bool {
+	return true
+}
+
 func (self *SZStackRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_ZSTACK
 }
 
-func (self *SZStackRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SZStackRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return nil, httperrors.NewNotImplementedError("%s does not currently support creating loadbalancer", self.GetProvider())
 }
 
@@ -51,24 +77,30 @@ func (self *SZStackRegionDriver) ValidateCreateLoadbalancerCertificateData(ctx c
 	return nil, httperrors.NewNotImplementedError("%s does not currently support creating loadbalancer certificate", self.GetProvider())
 }
 
-func (self *SZStackRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	networkV := validators.NewModelIdOrNameValidator("network", "network", nil)
-	err := networkV.Validate(data)
-	if err != nil {
-		return nil, err
+func (self *SZStackRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, input *api.SElasticipCreateInput) error {
+	if len(input.Network) == 0 {
+		return httperrors.NewMissingParameterError("network")
 	}
-	network := networkV.Model.(*models.SNetwork)
+	_network, err := models.NetworkManager.FetchByIdOrName(userCred, input.Network)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return httperrors.NewResourceNotFoundError("failed to found network %s", input.Network)
+		}
+		return httperrors.NewGeneralError(err)
+	}
+	network := _network.(*models.SNetwork)
+	input.NetworkId = network.Id
 
 	vpc := network.GetVpc()
 	if vpc == nil {
-		return nil, httperrors.NewInputParameterError("failed to found vpc for network %s(%s)", network.Name, network.Id)
+		return httperrors.NewInputParameterError("failed to found vpc for network %s(%s)", network.Name, network.Id)
 	}
 	region, err := vpc.GetRegion()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if region.GetDriver().GetProvider() != self.GetProvider() {
-		return nil, httperrors.NewUnsupportOperationError("network %s(%s) does not belong to %s", network.Name, network.Id, self.GetProvider())
+		return httperrors.NewUnsupportOperationError("network %s(%s) does not belong to %s", network.Name, network.Id, self.GetProvider())
 	}
-	return data, nil
+	return nil
 }

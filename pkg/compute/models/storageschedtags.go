@@ -18,13 +18,19 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SStorageschedtagManager struct {
 	*SSchedtagJointsManager
+	SStorageResourceBaseManager
 }
 
 var StorageschedtagManager *SStorageschedtagManager
@@ -55,26 +61,47 @@ func (manager *SStorageschedtagManager) GetSlaveFieldName() string {
 	return "storage_id"
 }
 
-func (s *SStorageschedtag) GetStorage() *SStorage {
-	return s.Master().(*SStorage)
+func (joint *SStorageschedtag) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.StorageschedtagDetails, error) {
+	return api.StorageschedtagDetails{}, nil
 }
 
-func (s *SStorageschedtag) GetStorages() ([]SStorage, error) {
-	storages := []SStorage{}
-	err := s.GetSchedtag().GetObjects(&storages)
-	return storages, err
-}
+func (manager *SStorageschedtagManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.StorageschedtagDetails {
+	rows := make([]api.StorageschedtagDetails, len(objs))
 
-func (joint *SStorageschedtag) Master() db.IStandaloneModel {
-	return joint.SSchedtagJointsBase.master(joint)
-}
+	schedRows := manager.SSchedtagJointsManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	storageIds := make([]string, len(rows))
+	for i := range rows {
+		rows[i] = api.StorageschedtagDetails{
+			SchedtagJointResourceDetails: schedRows[i],
+		}
+		storageIds[i] = objs[i].(*SStorageschedtag).StorageId
+	}
 
-func (joint *SStorageschedtag) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	return joint.SSchedtagJointsBase.getCustomizeColumns(joint, ctx, userCred, query)
-}
+	storageIdMaps, err := db.FetchIdNameMap2(StorageManager, storageIds)
+	if err != nil {
+		log.Errorf("FetchIdNameMap2 hostIds fail %s", err)
+		return rows
+	}
 
-func (joint *SStorageschedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	return joint.SSchedtagJointsBase.getExtraDetails(joint, ctx, userCred, query)
+	for i := range rows {
+		if name, ok := storageIdMaps[storageIds[i]]; ok {
+			rows[i].Storage = name
+		}
+	}
+
+	return rows
 }
 
 func (joint *SStorageschedtag) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -83,4 +110,44 @@ func (joint *SStorageschedtag) Delete(ctx context.Context, userCred mcclient.Tok
 
 func (joint *SStorageschedtag) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return joint.SSchedtagJointsBase.detach(joint, ctx, userCred)
+}
+
+func (manager *SStorageschedtagManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.StorageschedtagListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SSchedtagJointsManager.ListItemFilter(ctx, q, userCred, query.SchedtagJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSchedtagJointsManager.ListItemFilter")
+	}
+	q, err = manager.SStorageResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StorageFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStorageResourceBaseManager.ListItemFilter")
+	}
+
+	return q, nil
+}
+
+func (manager *SStorageschedtagManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.StorageschedtagListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SSchedtagJointsManager.OrderByExtraFields(ctx, q, userCred, query.SchedtagJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSchedtagJointsManager.OrderByExtraFields")
+	}
+	q, err = manager.SStorageResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StorageFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStorageResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
 }

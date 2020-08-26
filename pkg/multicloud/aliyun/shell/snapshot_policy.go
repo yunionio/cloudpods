@@ -84,7 +84,7 @@ func init() {
 
 	type SSnapshotPolicyCancelOptions struct {
 		SNAPSHOTPOLICYID string `help:"snapshot policy id"`
-		DISKID           string `help":disk id"`
+		DISKID           string `help:"disk id"`
 	}
 	shellutils.R(&SSnapshotPolicyCancelOptions{}, "snapshot-policy-cancel", "cancel snapshot policy",
 		func(cli *aliyun.SRegion, args *SSnapshotPolicyCancelOptions) error {

@@ -197,8 +197,8 @@ func (storage *SLocalStorage) GetIStoragecache() cloudprovider.ICloudStoragecach
 	return cache
 }
 
-func (storage *SLocalStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
-	disk, err := storage.region.CreateDisk(name, storage.primaryStorageID, storage.HostUUID, "", sizeGb, desc)
+func (storage *SLocalStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
+	disk, err := storage.region.CreateDisk(conf.Name, storage.primaryStorageID, storage.HostUUID, "", conf.SizeGb, conf.Desc)
 	if err != nil {
 		return nil, err
 	}

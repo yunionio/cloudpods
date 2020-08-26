@@ -122,9 +122,9 @@ func (self *SNetwork) GetIpMask() int8 {
 
 func (self *SNetwork) GetGateway() string {
 	pref, _ := netutils.NewIPV4Prefix(self.CIDR)
-	endIp := pref.Address.BroadcastAddr(pref.MaskLen) // 255
-	endIp = endIp.StepDown()                          // 254
-	return endIp.String()
+	startIp := pref.Address.NetAddr(pref.MaskLen) // 0
+	startIp = startIp.StepUp()                    // 1
+	return startIp.String()
 }
 
 func (self *SNetwork) GetServerType() string {
@@ -171,5 +171,5 @@ func (self *SRegion) deleteNetwork(vpcId string, networkId string) error {
 }
 
 func (self *SNetwork) GetProjectId() string {
-	return ""
+	return self.wire.vpc.EnterpriseProjectID
 }

@@ -49,10 +49,11 @@ func (self *SAliyunGuestDriver) GetProvider() string {
 
 func (self *SAliyunGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
 	keys := models.SComputeResourceKeys{}
-	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
+	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_PUBLIC_CLOUD
 	keys.Provider = api.CLOUD_PROVIDER_ALIYUN
-	// ignore brand
+	keys.Brand = api.CLOUD_PROVIDER_ALIYUN
+	keys.Hypervisor = api.HYPERVISOR_ALIYUN
 	return keys
 }
 
@@ -92,7 +93,7 @@ func (self *SAliyunGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
-func (self *SAliyunGuestDriver) GetChangeConfigStatus() ([]string, error) {
+func (self *SAliyunGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
@@ -185,4 +186,12 @@ func (self *SAliyunGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle
 		return true
 	}
 	return false
+}
+
+func (self *SAliyunGuestDriver) IsSupportPublicipToEip() bool {
+	return true
+}
+
+func (self *SAliyunGuestDriver) IsSupportSetAutoRenew() bool {
+	return true
 }

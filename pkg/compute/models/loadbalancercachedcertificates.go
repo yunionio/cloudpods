@@ -34,11 +34,16 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-ignore
 type SCachedLoadbalancerCertificateManager struct {
 	SLoadbalancerLogSkipper
 	db.SVirtualResourceBaseManager
+	SManagedResourceBaseManager
+	SCloudregionResourceBaseManager
+	SLoadbalancerCertificateResourceBaseManager
 }
 
 var CachedLoadbalancerCertificateManager *SCachedLoadbalancerCertificateManager
@@ -62,7 +67,8 @@ type SCachedLoadbalancerCertificate struct {
 	SManagedResourceBase     // 云账号ID
 	SCloudregionResourceBase // Region ID
 
-	CertificateId string `width:"128" charset:"ascii" nullable:"false" create:"required"  index:"true" list:"user"` // 本地证书ID
+	SLoadbalancerCertificateResourceBase `width:"128" charset:"ascii" nullable:"false" create:"required"  index:"true" list:"user"`
+	// CertificateId string `width:"128" charset:"ascii" nullable:"false" create:"required"  index:"true" list:"user" json:"certificate_id"` // 本地证书ID
 }
 
 func (self *SCachedLoadbalancerCertificate) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -189,22 +195,40 @@ func (self *SCachedLoadbalancerCertificate) PostCreate(ctx context.Context, user
 	return
 }
 
-func (self *SCachedLoadbalancerCertificate) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	providerInfo := self.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if providerInfo != nil {
-		extra.Update(providerInfo)
-	}
-	regionInfo := self.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if regionInfo != nil {
-		extra.Update(regionInfo)
-	}
-	return extra
+func (self *SCachedLoadbalancerCertificate) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.CachedLoadbalancerCertificateDetails, error) {
+	return api.CachedLoadbalancerCertificateDetails{}, nil
 }
 
-func (self *SCachedLoadbalancerCertificate) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra := self.GetCustomizeColumns(ctx, userCred, query)
-	return extra, nil
+func (man *SCachedLoadbalancerCertificateManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.CachedLoadbalancerCertificateDetails {
+	rows := make([]api.CachedLoadbalancerCertificateDetails, len(objs))
+
+	virtRows := man.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	manRows := man.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	regionRows := man.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	certRows := man.SLoadbalancerCertificateResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.CachedLoadbalancerCertificateDetails{
+			VirtualResourceDetails:              virtRows[i],
+			ManagedResourceInfo:                 manRows[i],
+			CloudregionResourceInfo:             regionRows[i],
+			LoadbalancerCertificateResourceInfo: certRows[i],
+		}
+	}
+
+	return rows
 }
 
 func (lbcert *SCachedLoadbalancerCertificate) GetIRegion() (cloudprovider.ICloudRegion, error) {
@@ -234,7 +258,11 @@ func (man *SCachedLoadbalancerCertificateManager) GetOrCreateCachedCertificate(c
 	lockman.LockClass(ctx, man, ownerProjId)
 	defer lockman.ReleaseClass(ctx, man, ownerProjId)
 
-	lbcert, err := man.getLoadbalancerCertificateByRegion(provider, lblis.CloudregionId, cert.Id)
+	region := lblis.GetRegion()
+	if region == nil {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "loadbalancer listener is not attached to any region?")
+	}
+	lbcert, err := man.getLoadbalancerCertificateByRegion(provider, region.Id, cert.Id)
 	if err == nil {
 		return &lbcert, nil
 	}
@@ -244,8 +272,8 @@ func (man *SCachedLoadbalancerCertificateManager) GetOrCreateCachedCertificate(c
 	}
 
 	lbcert = SCachedLoadbalancerCertificate{}
-	lbcert.ManagerId = lblis.ManagerId
-	lbcert.CloudregionId = lblis.CloudregionId
+	lbcert.ManagerId = provider.Id
+	lbcert.CloudregionId = region.Id
 	lbcert.ProjectId = lblis.ProjectId
 	lbcert.ProjectSrc = lblis.ProjectSrc
 	lbcert.Name = cert.Name
@@ -253,7 +281,7 @@ func (man *SCachedLoadbalancerCertificateManager) GetOrCreateCachedCertificate(c
 	lbcert.IsSystem = cert.IsSystem
 	lbcert.CertificateId = cert.Id
 
-	err = man.TableSpec().Insert(&lbcert)
+	err = man.TableSpec().Insert(ctx, &lbcert)
 	if err != nil {
 		return nil, errors.Wrap(err, "cachedLoadbalancerCertificateManager.create")
 	}
@@ -289,7 +317,7 @@ func (man *SCachedLoadbalancerCertificateManager) newFromCloudLoadbalancerCertif
 	if err != nil {
 		switch err {
 		case sql.ErrNoRows:
-			localcert, err := LoadbalancerCertificateManager.CreateCertificate(userCred, lbcert.Name, extCertificate.GetPublickKey(), extCertificate.GetPrivateKey(), extCertificate.GetFingerprint())
+			localcert, err := LoadbalancerCertificateManager.CreateCertificate(ctx, userCred, lbcert.Name, extCertificate.GetPublickKey(), extCertificate.GetPrivateKey(), extCertificate.GetFingerprint())
 			if err != nil {
 				return nil, fmt.Errorf("newFromCloudLoadbalancerCertificate CreateCertificate %s", err)
 			}
@@ -302,7 +330,7 @@ func (man *SCachedLoadbalancerCertificateManager) newFromCloudLoadbalancerCertif
 		lbcert.CertificateId = c.Id
 	}
 
-	err = man.TableSpec().Insert(&lbcert)
+	err = man.TableSpec().Insert(ctx, &lbcert)
 	if err != nil {
 		log.Errorf("newFromCloudLoadbalancerCertificate fail %s", err)
 		return nil, err
@@ -431,4 +459,115 @@ func (man *SCachedLoadbalancerCertificateManager) SyncLoadbalancerCertificates(c
 		}
 	}
 	return syncResult
+}
+
+func (man *SCachedLoadbalancerCertificateManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.CachedLoadbalancerCertificateListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
+	}
+	q, err = man.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
+	}
+	q, err = man.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
+	}
+	q, err = man.SLoadbalancerCertificateResourceBaseManager.ListItemFilter(ctx, q, userCred, query.LoadbalancerCertificateFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SLoadbalancerCertificateResourceBaseManager.ListItemFilter")
+	}
+
+	return q, nil
+}
+
+func (man *SCachedLoadbalancerCertificateManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.CachedLoadbalancerCertificateListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = man.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = man.SCloudregionResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = man.SLoadbalancerCertificateResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.LoadbalancerCertificateFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SLoadbalancerCertificateResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (man *SCachedLoadbalancerCertificateManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = man.SManagedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = man.SCloudregionResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = man.SLoadbalancerCertificateResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SCachedLoadbalancerCertificateManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SManagedResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SManagedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	if keys.ContainsAny(manager.SCloudregionResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SCloudregionResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	if keys.ContainsAny(manager.SLoadbalancerCertificateResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SLoadbalancerCertificateResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SLoadbalancerCertificateResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	return q, nil
 }

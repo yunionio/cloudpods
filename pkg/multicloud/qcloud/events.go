@@ -83,11 +83,12 @@ func (event *SEvent) GetAccount() string {
 }
 
 func (event *SEvent) IsSuccess() bool {
-	return event.ErrorCode > 0
+	return event.ErrorCode == 0
 }
 
 func (event *SEvent) GetCreatedAt() time.Time {
-	return event.EventTime
+	// 非UTC时间,需要往前提8个小时
+	return event.EventTime.Add(time.Hour * -8)
 }
 
 func (region *SRegion) GetICloudEvents(start time.Time, end time.Time, withReadEvent bool) ([]cloudprovider.ICloudEvent, error) {

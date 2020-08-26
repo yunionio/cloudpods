@@ -20,16 +20,19 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SGuestdiskManager struct {
 	SGuestJointsManager
+	SDiskResourceBaseManager
 }
 
 var GuestdiskManager *SGuestdiskManager
@@ -54,7 +57,8 @@ func init() {
 type SGuestdisk struct {
 	SGuestJointsBase
 
-	DiskId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
+	SDiskResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	// DiskId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 
 	ImagePath string `width:"256" charset:"ascii" nullable:"false" get:"user" create:"required"` // Column(VARCHAR(256, charset='ascii'), nullable=False)
 
@@ -81,64 +85,81 @@ func (self *SGuestdisk) AllowDeleteItem(ctx context.Context, userCred mcclient.T
 	return false
 }
 
-func (self *SGuestdisk) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if data.Contains("index") {
-		if index, err := data.Int("index"); err != nil {
-			return nil, err
-		} else {
-			guestdisk := GuestdiskManager.Query().SubQuery()
-			count, err := guestdisk.Query().Filter(sqlchemy.Equals(guestdisk.Field("guest_id"), self.GuestId)).
-				Filter(sqlchemy.NotEquals(guestdisk.Field("disk_id"), self.DiskId)).
-				Filter(sqlchemy.Equals(guestdisk.Field("index"), index)).CountWithError()
-			if err != nil {
-				return nil, httperrors.NewInternalServerError("check disk index uniqueness fail %s", err)
-			}
-			if count > 0 {
-				return nil, httperrors.NewInputParameterError("DISK Index %d has been occupied", index)
+func (self *SGuestdisk) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.GuestdiskUpdateInput) (api.GuestdiskUpdateInput, error) {
+	if input.Index != nil {
+		index := *input.Index
+		guestdisk := GuestdiskManager.Query().SubQuery()
+		count, err := guestdisk.Query().Filter(sqlchemy.Equals(guestdisk.Field("guest_id"), self.GuestId)).
+			Filter(sqlchemy.NotEquals(guestdisk.Field("disk_id"), self.DiskId)).
+			Filter(sqlchemy.Equals(guestdisk.Field("index"), index)).CountWithError()
+		if err != nil {
+			return input, httperrors.NewInternalServerError("check disk index uniqueness fail %s", err)
+		}
+		if count > 0 {
+			return input, httperrors.NewInputParameterError("DISK Index %d has been occupied", index)
+		}
+	}
+	var err error
+	input.GuestJointBaseUpdateInput, err = self.SGuestJointsBase.ValidateUpdateData(ctx, userCred, query, input.GuestJointBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SGuestJointsBase.ValidateUpdateData")
+	}
+	return input, nil
+}
+
+func (self *SGuestdisk) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.GuestDiskDetails, error) {
+	return api.GuestDiskDetails{}, nil
+}
+
+func (manager *SGuestdiskManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.GuestDiskDetails {
+	rows := make([]api.GuestDiskDetails, len(objs))
+
+	guestRows := manager.SGuestJointsManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	diskIds := make([]string, len(rows))
+	for i := range rows {
+		rows[i] = api.GuestDiskDetails{
+			GuestJointResourceDetails: guestRows[i],
+		}
+		diskIds[i] = objs[i].(*SGuestdisk).DiskId
+	}
+
+	disks := make(map[string]SDisk)
+	err := db.FetchStandaloneObjectsByIds(DiskManager, diskIds, &disks)
+	if err != nil {
+		log.Errorf("FetchStandaloneObjectsByIds fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if disk, ok := disks[diskIds[i]]; ok {
+			rows[i].Disk = disk.Name
+			rows[i].Status = disk.Status
+			rows[i].DiskSize = disk.DiskSize
+			rows[i].DiskType = disk.DiskType
+			storage := disk.GetStorage()
+			if storage != nil {
+				rows[i].StorageType = storage.StorageType
+				rows[i].MediumType = storage.MediumType
 			}
 		}
 	}
-	return self.SGuestJointsBase.ValidateUpdateData(ctx, userCred, query, data)
+
+	return rows
 }
 
-func (joint *SGuestdisk) Master() db.IStandaloneModel {
-	return db.JointMaster(joint)
-}
-
-func (joint *SGuestdisk) Slave() db.IStandaloneModel {
-	return db.JointSlave(joint)
-}
-
-func (self *SGuestdisk) getExtraInfo(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	disk := self.GetDisk()
-	if storage := disk.GetStorage(); storage != nil {
-		extra.Add(jsonutils.NewString(storage.StorageType), "storage_type")
-	}
-	extra.Add(jsonutils.NewInt(int64(disk.DiskSize)), "disk_size")
-	extra.Add(jsonutils.NewString(disk.Status), "status")
-	extra.Add(jsonutils.NewString(disk.DiskType), "disk_type")
-	if storage := disk.GetStorage(); storage != nil {
-		extra.Add(jsonutils.NewString(storage.MediumType), "medium_type")
-	}
-	return extra
-}
-
-func (self *SGuestdisk) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SGuestJointsBase.GetCustomizeColumns(ctx, userCred, query)
-	extra = db.JointModelExtra(self, extra)
-	return self.getExtraInfo(extra)
-}
-
-func (self *SGuestdisk) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SGuestJointsBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
-	}
-	extra = db.JointModelExtra(self, extra)
-	return self.getExtraInfo(extra), nil
-}
-
-func (self *SGuestdisk) DoSave(driver string, cache string, mountpoint string) error {
+func (self *SGuestdisk) DoSave(ctx context.Context, driver string, cache string, mountpoint string) error {
 	self.ImagePath = ""
 	if len(driver) == 0 {
 		driver = "scsi"
@@ -152,7 +173,7 @@ func (self *SGuestdisk) DoSave(driver string, cache string, mountpoint string) e
 	self.Driver = driver
 	self.CacheMode = cache
 	self.AioMode = "native"
-	return GuestdiskManager.TableSpec().Insert(self)
+	return GuestdiskManager.TableSpec().Insert(ctx, self)
 }
 
 func (self *SGuestdisk) GetDisk() *SDisk {
@@ -183,15 +204,11 @@ func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 			desc.Add(jsonutils.NewString(storagecacheimg.Path), "image_path")
 		}
 	}
-	storage := disk.GetStorage()
-	// XXX ???
 	if host.HostType == api.HOST_TYPE_HYPERVISOR {
 		desc.Add(jsonutils.NewString(disk.StorageId), "storage_id")
 		localpath := disk.GetPathAtHost(host)
 		if len(localpath) == 0 {
 			desc.Add(jsonutils.JSONTrue, "migrating")
-			target := host.GetLeastUsedStorage(storage.StorageType)
-			desc.Add(jsonutils.NewString(target.Id), "target_storage_id")
 			disk.SetStatus(nil, api.DISK_START_MIGRATE, "migration")
 		} else {
 			desc.Add(jsonutils.NewString(localpath), "path")
@@ -210,6 +227,10 @@ func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 			desc.Set("merge_snapshot", jsonutils.JSONTrue)
 		}
 	}
+	if fpath := disk.GetMetadata(api.DISK_META_ESXI_FLAT_FILE_PATH, nil); len(fpath) > 0 {
+		desc.Set("merge_snapshot", jsonutils.JSONTrue)
+		desc.Set("esxi_flat_file_path", jsonutils.NewString(fpath))
+	}
 	fs := disk.GetFsFormat()
 	if len(fs) > 0 {
 		desc.Add(jsonutils.NewString(fs), "fs")
@@ -224,35 +245,41 @@ func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 	return desc
 }
 
-func (self *SGuestdisk) GetDetailedJson() *jsonutils.JSONDict {
-	desc := jsonutils.NewDict()
+func (self *SGuestdisk) GetDetailedInfo() api.GuestDiskInfo {
+	desc := api.GuestDiskInfo{}
 	disk := self.GetDisk()
-	storage := disk.GetStorage()
-	if fs := disk.GetFsFormat(); len(fs) > 0 {
-		desc.Add(jsonutils.NewString(fs), "fs")
+	if disk == nil {
+		return desc
 	}
-	desc.Add(jsonutils.NewString(disk.DiskType), "disk_type")
-	desc.Add(jsonutils.NewInt(int64(self.Index)), "index")
-	desc.Add(jsonutils.NewInt(int64(disk.DiskSize)), "size")
-	desc.Add(jsonutils.NewString(disk.DiskFormat), "disk_format")
-	desc.Add(jsonutils.NewString(self.Driver), "driver")
-	desc.Add(jsonutils.NewString(self.CacheMode), "cache_mode")
-	desc.Add(jsonutils.NewString(self.AioMode), "aio_mode")
-	desc.Add(jsonutils.NewString(storage.MediumType), "medium_type")
-	desc.Add(jsonutils.NewString(storage.StorageType), "storage_type")
-	desc.Add(jsonutils.NewInt(int64(self.Iops)), "iops")
-	desc.Add(jsonutils.NewInt(int64(self.Bps)), "bps")
+	desc.Id = disk.Id
+	desc.Name = disk.Name
+	desc.FsFormat = disk.FsFormat
+	desc.DiskType = disk.DiskType
+	desc.Index = self.Index
+	desc.SizeMb = disk.DiskSize
+	desc.DiskFormat = disk.DiskFormat
+	desc.Driver = self.Driver
+	desc.CacheMode = self.CacheMode
+	desc.AioMode = self.AioMode
+	desc.Iops = self.Iops
+	desc.Bps = self.Bps
 
 	imageId := disk.GetTemplateId()
 	if len(imageId) > 0 {
-		desc.Add(jsonutils.NewString(imageId), "image_id")
+		desc.ImageId = imageId
 		cachedImageObj, _ := CachedimageManager.FetchById(imageId)
 		if cachedImageObj != nil {
 			cachedImage := cachedImageObj.(*SCachedimage)
-			desc.Add(jsonutils.NewString(cachedImage.GetName()), "image")
+			desc.Image = cachedImage.GetName()
 		}
 	}
 
+	storage := disk.GetStorage()
+	if storage == nil {
+		return desc
+	}
+	desc.MediumType = storage.MediumType
+	desc.StorageType = storage.StorageType
 	return desc
 }
 
@@ -298,4 +325,75 @@ func (self *SGuestdisk) ToDiskConfig() *api.DiskConfig {
 	conf := disk.ToDiskConfig()
 	conf.Index = int(self.Index)
 	return conf
+}
+
+func (manager *SGuestdiskManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.GuestdiskListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SGuestJointsManager.ListItemFilter(ctx, q, userCred, query.GuestJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGuestJointsManager.ListItemFilter")
+	}
+	q, err = manager.SDiskResourceBaseManager.ListItemFilter(ctx, q, userCred, query.DiskFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDiskResourceBaseManager.ListItemFilter")
+	}
+
+	if len(query.Driver) > 0 {
+		q = q.In("driver", query.Driver)
+	}
+	if len(query.CacheMode) > 0 {
+		q = q.In("cache_mode", query.CacheMode)
+	}
+	if len(query.AioMode) > 0 {
+		q = q.In("aio_mode", query.AioMode)
+	}
+
+	return q, nil
+}
+
+func (manager *SGuestdiskManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.GuestdiskListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SGuestJointsManager.OrderByExtraFields(ctx, q, userCred, query.GuestJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGuestJointsManager.OrderByExtraFields")
+	}
+	q, err = manager.SDiskResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.DiskFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDiskResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SGuestdiskManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SGuestJointsManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGuestJointsManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SDiskResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SDiskResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SDiskResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	return q, nil
 }

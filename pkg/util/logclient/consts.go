@@ -91,6 +91,7 @@ const (
 	ACT_VM_REBUILD                   = "重装系统"
 	ACT_VM_RESET_PSWD                = "重置密码"
 	ACT_VM_CHANGE_BANDWIDTH          = "调整带宽"
+	ACT_VM_SRC_CHECK                 = "调整源IP、MAC地址检查"
 	ACT_VM_START                     = "开机"
 	ACT_VM_STOP                      = "关机"
 	ACT_VM_RESTART                   = "重启"
@@ -106,9 +107,11 @@ const (
 	ACT_CREATE_BACKUP                = "创建备份机"
 	ACT_SWITCH_TO_BACKUP             = "主备切换"
 	ACT_RENEW                        = "续费"
+	ACT_SET_AUTO_RENEW               = "设置自动续费"
 	ACT_MIGRATE                      = "迁移"
 	ACT_EIP_ASSOCIATE                = "绑定弹性IP"
 	ACT_EIP_DISSOCIATE               = "解绑弹性IP"
+	ACT_EIP_CONVERT                  = "弹性IP转换"
 	ACT_CHANGE_BANDWIDTH             = "调整带宽"
 	ACT_DISK_CREATE_SNAPSHOT         = "磁盘创建快照"
 	ACT_LB_ADD_BACKEND               = "添加后端服务器"
@@ -127,6 +130,8 @@ const (
 	ACT_VM_RESET                     = "虚拟机回滚快照"
 	ACT_VM_SNAPSHOT_AND_CLONE        = "虚拟机快照并克隆"
 	ACT_VM_BLOCK_STREAM              = "同步数据"
+	ACT_ATTACH_NETWORK               = "绑定网卡"
+	ACT_VM_CONVERT                   = "虚拟机转换Hypervisor"
 
 	ACT_CACHED_IMAGE = "缓存镜像"
 
@@ -140,6 +145,8 @@ const (
 	ACT_IMAGE_PROBE = "镜像检测"
 
 	ACT_AUTHENTICATE = "认证登录"
+
+	ACT_HEALTH_CHECK = "健康检查"
 
 	ACT_RECYCLE_PREPAID      = "池化预付费主机"
 	ACT_UNDO_RECYCLE_PREPAID = "取消池化预付费主机"
@@ -180,4 +187,26 @@ const (
 	ACT_INSTANCE_GROUP_UNBIND = "解绑主机组"
 
 	ACT_FLUSH_INSTANCE = "清空数据"
+
+	ACT_UPDATE_STATUS = "更新状态"
+
+	ACT_REMOVE_GUEST          = "移除实例"
+	ACT_CREATE_SCALING_POLICY = "创建伸缩策略"
+	ACT_DELETE_SCALING_POLICY = "删除伸缩策略"
+
+	ACT_SAVE_TO_TEMPLATE = "保存为模版"
+
+	ACT_SYNC_POLICIES = "同步权限"
+	ACT_SYNC_USERS    = "同步用户"
+	ACT_ADD_USER      = "添加用户"
+	ACT_REMOVE_USER   = "移除用户"
+	ACT_ATTACH_POLICY = "绑定权限"
+	ACT_DETACH_POLICY = "移除权限"
+
+	ACT_UPDATE_BILLING_OPTIONS = "更新账单文件"
+	ACT_UPDATE_CREDENTIAL      = "更新账号密码"
+
+	ACT_PULL_SUBCONTACT   = "拉取联系方式"
+	ACT_SEND_NOTIFICATION = "发送通知消息"
+	ACT_SEND_VERIFICATION = "发送验证消息"
 )

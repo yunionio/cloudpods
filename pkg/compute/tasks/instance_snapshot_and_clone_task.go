@@ -38,9 +38,9 @@ func init() {
 }
 
 func (self *InstanceSnapshotAndCloneTask) taskFailed(
-	ctx context.Context, isp *models.SInstanceSnapshot, reason string) {
+	ctx context.Context, isp *models.SInstanceSnapshot, reason jsonutils.JSONObject) {
 	guest := models.GuestManager.FetchGuestById(isp.GuestId)
-	guest.SetStatus(self.UserCred, compute.VM_SNAPSHOT_AND_CLONE_FAILED, reason)
+	guest.SetStatus(self.UserCred, compute.VM_SNAPSHOT_AND_CLONE_FAILED, reason.String())
 	logclient.AddActionLogWithContext(
 		ctx, guest, logclient.ACT_VM_SNAPSHOT_AND_CLONE, reason, self.UserCred, false,
 	)
@@ -50,7 +50,7 @@ func (self *InstanceSnapshotAndCloneTask) taskFailed(
 
 func (self *InstanceSnapshotAndCloneTask) taskComplete(
 	ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
-	self.finalReleasePendingUsage(ctx)
+	self.finalReleasePendingUsage(ctx, true)
 	guest := models.GuestManager.FetchGuestById(isp.GuestId)
 	guest.StartSyncstatus(ctx, self.UserCred, "")
 	db.OpsLog.LogEvent(guest, db.ACT_VM_SNAPSHOT_AND_CLONE, "", self.UserCred)
@@ -59,22 +59,22 @@ func (self *InstanceSnapshotAndCloneTask) taskComplete(
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *InstanceSnapshotAndCloneTask) SetStageFailed(ctx context.Context, reason string) {
-	self.finalReleasePendingUsage(ctx)
+func (self *InstanceSnapshotAndCloneTask) SetStageFailed(ctx context.Context, reason jsonutils.JSONObject) {
+	self.finalReleasePendingUsage(ctx, false)
 	self.STask.SetStageFailed(ctx, reason)
 }
 
-func (self *InstanceSnapshotAndCloneTask) finalReleasePendingUsage(ctx context.Context) {
+func (self *InstanceSnapshotAndCloneTask) finalReleasePendingUsage(ctx context.Context, success bool) {
 	pendingUsage := models.SQuota{}
 	err := self.GetPendingUsage(&pendingUsage, 0)
 	if err == nil && !pendingUsage.IsEmpty() {
-		quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &pendingUsage)
+		quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &pendingUsage, success)
 	}
 
 	pendingRegionUsage := models.SRegionQuota{}
 	err = self.GetPendingUsage(&pendingRegionUsage, 1)
 	if err == nil && !pendingRegionUsage.IsEmpty() {
-		quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &pendingUsage)
+		quotas.CancelPendingUsage(ctx, self.UserCred, &pendingRegionUsage, &pendingRegionUsage, success)
 	}
 }
 
@@ -82,12 +82,10 @@ func (self *InstanceSnapshotAndCloneTask) OnInit(
 	ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 
 	isp := obj.(*models.SInstanceSnapshot)
-	guest := models.GuestManager.FetchGuestById(isp.GuestId)
-
 	self.SetStage("OnCreateInstanceSnapshot", nil)
-	err := isp.StartCreateInstanceSnapshotTask(ctx, self.UserCred, guest.GetOwnerId(), nil, self.Id)
+	err := isp.StartCreateInstanceSnapshotTask(ctx, self.UserCred, nil, self.Id)
 	if err != nil {
-		self.taskFailed(ctx, isp, err.Error())
+		self.taskFailed(ctx, isp, jsonutils.NewString(err.Error()))
 		return
 	}
 }
@@ -97,7 +95,7 @@ func (self *InstanceSnapshotAndCloneTask) OnCreateInstanceSnapshot(
 	// start create server
 	params, err := self.Params.Get("guest_params")
 	if err != nil {
-		self.taskFailed(ctx, isp, "Failed get new guest params")
+		self.taskFailed(ctx, isp, jsonutils.NewString("Failed get new guest params"))
 		return
 	}
 	count, _ := params.Int("count")
@@ -106,7 +104,7 @@ func (self *InstanceSnapshotAndCloneTask) OnCreateInstanceSnapshot(
 	}
 	err = self.doGuestCreate(ctx, isp, params, int(count))
 	if err != nil {
-		self.taskFailed(ctx, isp, err.Error())
+		self.taskFailed(ctx, isp, jsonutils.NewString(err.Error()))
 		return
 	}
 	self.taskComplete(ctx, isp, nil)
@@ -138,5 +136,5 @@ func (self *InstanceSnapshotAndCloneTask) doGuestCreate(
 
 func (self *InstanceSnapshotAndCloneTask) OnCreateInstanceSnapshotFailed(
 	ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
-	self.taskFailed(ctx, isp, data.String())
+	self.taskFailed(ctx, isp, data)
 }

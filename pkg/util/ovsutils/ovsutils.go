@@ -15,10 +15,13 @@
 package ovsutils
 
 import (
+	"fmt"
+	"net"
 	"regexp"
 	"strings"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -88,6 +91,7 @@ func RemovePortFromBridge(brname, port string) {
 }
 
 func CleanHiddenPorts(brname string) {
+	// BUG patch ports are not included in dpPorts
 	dbPorts := GetDbPorts(brname)
 	dpPorts := GetDpPorts(brname)
 	for _, p := range dbPorts {
@@ -102,4 +106,24 @@ func CleanAllHiddenPorts() {
 	for _, br := range brs {
 		CleanHiddenPorts(br)
 	}
+}
+
+func NormalizeDbHost(db string) (string, error) {
+	if strings.HasPrefix(db, "tcp:") {
+		host, port, err := net.SplitHostPort(db[4:])
+		if err != nil {
+			return "", errors.Wrapf(err, "split host port: %s", db)
+		}
+		if ip := net.ParseIP(host); len(ip) == 0 {
+			addrs, err := net.LookupHost(host)
+			if err != nil {
+				return "", errors.Wrapf(err, "dns lookup (%s) failed", host)
+			}
+			if len(addrs) == 0 {
+				return "", fmt.Errorf("dns lookup (%s) returned empty result", host)
+			}
+			return "tcp:" + addrs[0] + ":" + port, nil
+		}
+	}
+	return db, nil
 }

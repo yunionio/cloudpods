@@ -188,6 +188,19 @@ func initKubeCluster() {
 		return nil
 	})
 
+	R(&o.ClusterSyncOptions{}, cmdN("sync"), "Sync cluster k8s resources", func(s *mcclient.ClientSession, args *o.ClusterSyncOptions) error {
+		param, err := args.Params()
+		if err != nil {
+			return err
+		}
+		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "sync", param)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+
 	R(&o.IdentOptions{}, cmdN("public"), "Make cluster public", func(s *mcclient.ClientSession, args *o.IdentOptions) error {
 		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "public", nil)
 		if err != nil {
@@ -199,6 +212,98 @@ func initKubeCluster() {
 
 	R(&o.IdentOptions{}, cmdN("private"), "Make cluster private", func(s *mcclient.ClientSession, args *o.IdentOptions) error {
 		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "private", nil)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+
+	R(&o.IdentOptions{}, cmdN("components-status"), "Get cluster component status", func(s *mcclient.ClientSession, args *o.IdentOptions) error {
+		ret, err := k8s.KubeClusters.GetSpecific(s, args.ID, "components-status", nil)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+
+	R(&o.ClusterComponentTypeOptions{}, cmdN("component-setting"), "Get cluster component setting", func(s *mcclient.ClientSession, args *o.ClusterComponentTypeOptions) error {
+		q := jsonutils.NewDict()
+		q.Add(jsonutils.NewString(args.TYPE), "type")
+		ret, err := k8s.KubeClusters.GetSpecific(s, args.ID, "component-setting", q)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+
+	R(&o.ClusterEnableComponentCephCSIOpt{}, cmdN("component-enable-ceph-csi"), "Enable cluster ceph csi component", func(s *mcclient.ClientSession, args *o.ClusterEnableComponentCephCSIOpt) error {
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "enable-component", params)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+
+	R(&o.ClusterEnableComponentMonitorOpt{}, cmdN("component-enable-monitor"), "Enable cluster monitor component", func(s *mcclient.ClientSession, args *o.ClusterEnableComponentMonitorOpt) error {
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "enable-component", params)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+
+	R(&o.ClusterEnableComponentFluentBitOpt{}, cmdN("component-enable-fluentbit"), "Enable cluster fluentbit component", func(s *mcclient.ClientSession, args *o.ClusterEnableComponentFluentBitOpt) error {
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "enable-component", params)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+
+	R(&o.ClusterDisableComponent{}, cmdN("component-disable"), "Enable cluster component", func(s *mcclient.ClientSession, args *o.ClusterDisableComponent) error {
+		params := args.Params()
+		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "disable-component", params)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+
+	R(&o.ClusterDisableComponent{}, cmdN("component-delete"), "Delete cluster component", func(s *mcclient.ClientSession, args *o.ClusterDisableComponent) error {
+		params := args.Params()
+		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "delete-component", params)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+
+	R(&o.ClusterUpdateComponentCephCSIOpt{}, cmdN("component-update-ceph-csi"), "Update cluster component", func(s *mcclient.ClientSession, args *o.ClusterUpdateComponentCephCSIOpt) error {
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "update-component", params)
 		if err != nil {
 			return err
 		}

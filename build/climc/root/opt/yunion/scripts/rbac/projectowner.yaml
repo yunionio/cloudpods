@@ -1,0 +1,6 @@
+# rbac for project owner, not allow for delete
+roles:
+  - project_owner
+scope: project
+policy:
+  '*': allow

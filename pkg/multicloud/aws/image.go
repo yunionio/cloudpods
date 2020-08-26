@@ -158,8 +158,6 @@ func (self *ImageImportTask) GetStatus() string {
 	} else {
 		return ImageImportStatusUncompleted
 	}
-
-	return ImageImportStatusUncompleted
 }
 
 func (self *SImage) GetMinRamSizeMb() int {
@@ -549,4 +547,8 @@ func (self *SRegion) addTags(resId string, key string, value string) error {
 		return err
 	}
 	return nil
+}
+
+func (self *SImage) UEFI() bool {
+	return false
 }

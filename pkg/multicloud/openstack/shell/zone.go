@@ -23,11 +23,23 @@ func init() {
 	type ZoneListOptions struct {
 	}
 	shellutils.R(&ZoneListOptions{}, "zone-list", "List zones", func(cli *openstack.SRegion, args *ZoneListOptions) error {
-		zones, err := cli.GetIZones()
+		zones, err := cli.GetZones()
 		if err != nil {
 			return err
 		}
 		printList(zones, 0, 0, 0, nil)
 		return nil
 	})
+
+	type SchedulerPoolListOptions struct {
+	}
+	shellutils.R(&SchedulerPoolListOptions{}, "scheduler-pool-list", "List scheduler pool", func(cli *openstack.SRegion, args *SchedulerPoolListOptions) error {
+		pools, err := cli.GetSchedulerStatsPool()
+		if err != nil {
+			return err
+		}
+		printList(pools, 0, 0, 0, nil)
+		return nil
+	})
+
 }

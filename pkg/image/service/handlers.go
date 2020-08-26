@@ -36,7 +36,7 @@ func InitHandlers(app *appsrv.Application) {
 
 	db.RegistUserCredCacheUpdater()
 
-	db.AddProjectResourceCountHandler(API_VERSION, app)
+	db.AddScopeResourceCountHandler(API_VERSION, app)
 
 	quotas.AddQuotaHandler(&models.QuotaManager.SQuotaBaseManager, API_VERSION, app)
 	usages.AddUsageHandler(API_VERSION, app)
@@ -46,9 +46,11 @@ func InitHandlers(app *appsrv.Application) {
 		taskman.TaskManager,
 		taskman.SubTaskManager,
 		taskman.TaskObjectManager,
+
 		db.UserCacheManager,
 		db.TenantCacheManager,
 		db.SharedResourceManager,
+
 		models.ImageTagManager,
 		models.ImageMemberManager,
 		models.ImagePropertyManager,

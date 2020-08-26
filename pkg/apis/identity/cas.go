@@ -14,8 +14,22 @@
 
 package identity
 
+import "yunion.io/x/pkg/tristate"
+
 type SCASIdpConfigOptions struct {
 	// https://cas.example.org/cas/
 	CASServerURL string `json:"cas_server_url"`
-	Service      string `json:"service"`
+
+	// Deprecated
+	CasProjectAttribute string `json:"cas_project_attribute" "deprecated-by":"project_attribute"`
+	// Deprecated
+	AutoCreateCasProject tristate.TriState `json:"auto_create_cas_project"`
+	// Deprecated
+	DefaultCasProjectId string `json:"default_cas_project_id" "deprecated-by":"default_project_id"`
+	// Deprecated
+	CasRoleAttribute string `json:"cas_role_attribute" "deprected-by":"role_attribute"`
+	// Deprecated
+	DefaultCasRoleId string `json:"default_cas_role_id" "deprecated-by":"default_role_id"`
+
+	SIdpAttributeOptions
 }

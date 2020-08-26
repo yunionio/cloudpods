@@ -219,7 +219,7 @@ func (d *SLocalDisk) createFromTemplate(
 ) (jsonutils.JSONObject, error) {
 	imageCache := imageCacheManager.AcquireImage(ctx, imageId, d.GetZoneName(), "", "")
 	if imageCache != nil {
-		defer imageCacheManager.ReleaseImage(imageId)
+		defer imageCacheManager.ReleaseImage(ctx, imageId)
 		cacheImagePath := imageCache.GetPath()
 
 		if fileutils2.Exists(d.GetPath()) {

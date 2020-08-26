@@ -36,15 +36,16 @@ func init() {
 	taskman.RegisterTask(ElasticcacheAccountResetPasswordTask{})
 }
 
-func (self *ElasticcacheAccountResetPasswordTask) taskFail(ctx context.Context, ea *models.SElasticcacheAccount, reason string) {
-	ea.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason)
+func (self *ElasticcacheAccountResetPasswordTask) taskFail(ctx context.Context, ea *models.SElasticcacheAccount, reason jsonutils.JSONObject) {
+	ea.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason.String())
 	ec, err := db.FetchById(models.ElasticcacheManager, ea.ElasticcacheId)
 	if err == nil {
-		ec.(*models.SElasticcache).SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason)
+		ec.(*models.SElasticcache).SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason.String())
+		logclient.AddActionLogWithStartable(self, ec, logclient.ACT_RESET_PASSWORD, reason, self.UserCred, false)
 	}
 	db.OpsLog.LogEvent(ea, db.ACT_RESET_PASSWORD, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, ea, logclient.ACT_RESET_PASSWORD, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(ea.Id, ea.Name, api.ELASTIC_CACHE_STATUS_CREATE_FAILED, reason)
+	notifyclient.NotifySystemError(ea.Id, ea.Name, api.ELASTIC_CACHE_STATUS_CREATE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -52,20 +53,22 @@ func (self *ElasticcacheAccountResetPasswordTask) OnInit(ctx context.Context, ob
 	ea := obj.(*models.SElasticcacheAccount)
 	region := ea.GetRegion()
 	if region == nil {
-		self.taskFail(ctx, ea, fmt.Sprintf("failed to find region for elastic cache account %s", ea.GetName()))
+		self.taskFail(ctx, ea, jsonutils.NewString(fmt.Sprintf("failed to find region for elastic cache account %s", ea.GetName())))
 		return
 	}
 
 	self.SetStage("OnElasticcacheAccountResetPasswordComplete", nil)
 	if err := region.GetDriver().RequestElasticcacheAccountResetPassword(ctx, self.GetUserCred(), ea, self); err != nil {
-		self.taskFail(ctx, ea, err.Error())
+		self.taskFail(ctx, ea, jsonutils.Marshal(err))
 		return
 	} else {
 		logclient.AddActionLogWithStartable(self, ea, logclient.ACT_RESET_PASSWORD, nil, self.UserCred, true)
 		ec, err := db.FetchById(models.ElasticcacheManager, ea.ElasticcacheId)
 		if err == nil {
 			ec.(*models.SElasticcache).SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RUNNING, "")
+			logclient.AddActionLogWithStartable(self, ec, logclient.ACT_RESET_PASSWORD, "", self.UserCred, true)
 		}
+		logclient.AddActionLogWithStartable(self, ea, logclient.ACT_RESET_PASSWORD, "", self.UserCred, true)
 		self.SetStageComplete(ctx, nil)
 	}
 }

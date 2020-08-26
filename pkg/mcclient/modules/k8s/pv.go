@@ -23,12 +23,12 @@ import (
 var PersistentVolumes *PersistentVolumeManager
 
 type PersistentVolumeManager struct {
-	*MetaResourceManager
+	*ClusterResourceManager
 }
 
 func init() {
 	PersistentVolumes = &PersistentVolumeManager{
-		MetaResourceManager: NewMetaResourceManager("persistentvolume", "persistentvolumes",
+		ClusterResourceManager: NewClusterResourceManager("persistentvolume", "persistentvolumes",
 			NewColumns("StorageClass", "Claim", "AccessModes"),
 			NewColumns()),
 	}
@@ -36,17 +36,17 @@ func init() {
 	modules.Register(PersistentVolumes)
 }
 
-func (m PersistentVolumeManager) GetStorageClass(obj jsonutils.JSONObject) interface{} {
+func (m PersistentVolumeManager) Get_StorageClass(obj jsonutils.JSONObject) interface{} {
 	sc, _ := obj.GetString("storageClass")
 	return sc
 }
 
-func (m PersistentVolumeManager) GetClaim(obj jsonutils.JSONObject) interface{} {
+func (m PersistentVolumeManager) Get_Claim(obj jsonutils.JSONObject) interface{} {
 	claim, _ := obj.GetString("claim")
 	return claim
 }
 
-func (m PersistentVolumeManager) GetAccessModes(obj jsonutils.JSONObject) interface{} {
+func (m PersistentVolumeManager) Get_AccessModes(obj jsonutils.JSONObject) interface{} {
 	modes, _ := obj.(*jsonutils.JSONDict).GetArray("accessModes")
 	return modes
 }

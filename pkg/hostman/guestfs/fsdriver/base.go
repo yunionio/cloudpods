@@ -120,41 +120,55 @@ func (l *sGuestRootFsDriver) IsResizeFsPartitionSupport() bool {
 	return true
 }
 
+func (r *sGuestRootFsDriver) CleanNetworkScripts(rootFs IDiskPartition) error {
+	return nil
+}
+
+const (
+	modeAuthorizedKeysRWX = syscall.S_IRUSR | syscall.S_IWUSR | syscall.S_IXUSR
+	modeAuthorizedKeysRW  = syscall.S_IRUSR | syscall.S_IWUSR
+)
+
+func deployAuthorizedKeys(rootFs IDiskPartition, authFile string, uid, gid int, pubkeys *deployapi.SSHKeys, replace bool) error {
+	var oldKeys = ""
+	if !replace {
+		bOldKeys, _ := rootFs.FileGetContents(authFile, false)
+		oldKeys = string(bOldKeys)
+	}
+	newKeys := MergeAuthorizedKeys(oldKeys, pubkeys)
+	if err := rootFs.FilePutContents(authFile, newKeys, false, false); err != nil {
+		return fmt.Errorf("Put keys to %s: %v", authFile, err)
+	}
+	if err := rootFs.Chown(authFile, uid, gid, false); err != nil {
+		return fmt.Errorf("Chown %s to uid: %d, gid: %d: %v", authFile, uid, gid, err)
+	}
+	if err := rootFs.Chmod(authFile, uint32(modeAuthorizedKeysRW), false); err != nil {
+		return fmt.Errorf("Chmod %s to %d error: %v", authFile, uint32(modeAuthorizedKeysRW), err)
+	}
+	return nil
+}
+
 func DeployAuthorizedKeys(rootFs IDiskPartition, usrDir string, pubkeys *deployapi.SSHKeys, replace bool) error {
 	usrStat := rootFs.Stat(usrDir, false)
 	if usrStat != nil {
 		sshDir := path.Join(usrDir, ".ssh")
 		authFile := path.Join(sshDir, "authorized_keys")
-		modeRwxOwner := syscall.S_IRUSR | syscall.S_IWUSR | syscall.S_IXUSR
-		modeRwOwner := syscall.S_IRUSR | syscall.S_IWUSR
 		fStat, _ := usrStat.Sys().(*syscall.Stat_t)
+		uid := int(fStat.Uid)
+		gid := int(fStat.Gid)
 		if !rootFs.Exists(sshDir, false) {
-			err := rootFs.Mkdir(sshDir, modeRwxOwner, false)
+			err := rootFs.Mkdir(sshDir, modeAuthorizedKeysRWX, false)
 			if err != nil {
 				log.Errorln(err)
 				return err
 			}
-			err = rootFs.Chown(sshDir, int(fStat.Uid), int(fStat.Gid), false)
+			err = rootFs.Chown(sshDir, uid, gid, false)
 			if err != nil {
 				log.Errorln(err)
 				return err
 			}
 		}
-		var oldKeys = ""
-		if !replace {
-			bOldKeys, _ := rootFs.FileGetContents(authFile, false)
-			oldKeys = string(bOldKeys)
-		}
-		newKeys := MergeAuthorizedKeys(oldKeys, pubkeys)
-		if err := rootFs.FilePutContents(authFile, newKeys, false, false); err != nil {
-			return fmt.Errorf("Put keys to %s: %v", authFile, err)
-		}
-		if err := rootFs.Chown(authFile, int(fStat.Uid), int(fStat.Gid), false); err != nil {
-			return fmt.Errorf("Chown %s to uid: %d, gid: %d: %v", authFile, fStat.Uid, fStat.Gid, err)
-		}
-		if err := rootFs.Chmod(authFile, uint32(modeRwOwner), false); err != nil {
-			return fmt.Errorf("Chmod %s to %d error: %v", authFile, uint32(modeRwOwner), err)
-		}
+		return deployAuthorizedKeys(rootFs, authFile, uid, gid, pubkeys, replace)
 	}
 	return nil
 }

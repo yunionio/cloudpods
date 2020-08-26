@@ -95,7 +95,7 @@ func DetectCpuInfo() (*SCPUInfo, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "parse dmi cpuinfo")
 	}
-	cpuArch, err := procutils.NewCommand("uname", "-p").Output()
+	cpuArch, err := procutils.NewCommand("uname", "-m").Output()
 	if err != nil {
 		return nil, errors.Wrap(err, "get cpu architecture")
 	}
@@ -348,6 +348,11 @@ func NewNIC(desc string) (*SNIC, error) {
 	}
 	if err := nic.BridgeDev.PersistentMac(); err != nil {
 		return nil, err
+	}
+	if isDHCP, err := nic.BridgeDev.DisableDHCPClient(); err != nil {
+		return nil, errors.Wrap(err, "disable dhcp client")
+	} else if isDHCP {
+		Instance().SysWarning["dhcp"] = "dhcp client is enabled before host agent start, please disable it"
 	}
 
 	var dhcpRelay []string

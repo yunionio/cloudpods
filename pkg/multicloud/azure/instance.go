@@ -22,7 +22,9 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/osprofile"
+	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -355,8 +357,10 @@ func (self *SInstance) getStorageInfoByUri(uri string) (*SStorage, *SClassicStor
 		if storageaccounts[i].Name == storageName {
 			storage := SStorage{
 				zone:        self.host.zone,
-				Name:        storageName,
 				storageType: storageaccounts[i].Sku.Name,
+			}
+			if !utils.IsInStringArray(storage.storageType, STORAGETYPES) {
+				storage.storageType = STORAGE_STD_LRS
 			}
 			return &storage, nil, nil
 		}
@@ -598,7 +602,7 @@ func (region *SRegion) DetachDisk(instanceId, diskId string) error {
 	}
 	dataDisks := []DataDisk{}
 	for _, origDisk := range instance.Properties.StorageProfile.DataDisks {
-		if origDisk.ManagedDisk.ID != disk.ID {
+		if strings.ToLower(origDisk.ManagedDisk.ID) != strings.ToLower(disk.ID) {
 			dataDisks = append(dataDisks, origDisk)
 		}
 	}
@@ -612,18 +616,20 @@ func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.S
 	if len(config.InstanceType) > 0 {
 		return self.ChangeConfig2(ctx, config.InstanceType)
 	}
+	var err error
 	status := self.GetStatus()
 	for _, vmSize := range self.host.zone.region.getHardwareProfile(config.Cpu, config.MemoryMB) {
 		self.Properties.HardwareProfile.VMSize = vmSize
 		self.Properties.ProvisioningState = ""
 		self.Properties.InstanceView = nil
 		log.Debugf("Try HardwareProfile : %s", vmSize)
-		err := self.host.zone.region.client.Update(jsonutils.Marshal(self), nil)
+		err = self.host.zone.region.client.Update(jsonutils.Marshal(self), nil)
 		if err == nil {
 			return cloudprovider.WaitStatus(self, status, 10*time.Second, 300*time.Second)
-		} else {
-			log.Debugf("ChangeConfig %s", err)
 		}
+	}
+	if err != nil {
+		return errors.Wrap(err, "client.Update")
 	}
 	return fmt.Errorf("Failed to change vm config, specification not supported")
 }
@@ -635,13 +641,10 @@ func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) e
 	self.Properties.InstanceView = nil
 	log.Debugf("Try HardwareProfile : %s", instanceType)
 	err := self.host.zone.region.client.Update(jsonutils.Marshal(self), nil)
-	if err == nil {
-		return cloudprovider.WaitStatus(self, status, 10*time.Second, 300*time.Second)
-	} else {
-		log.Errorf("ChangeConfig2 %s", err)
+	if err != nil {
+		return errors.Wrap(err, "client.Update")
 	}
-
-	return fmt.Errorf("Failed to change vm config, specification not supported")
+	return cloudprovider.WaitStatus(self, status, 10*time.Second, 300*time.Second)
 }
 
 func (region *SRegion) ChangeVMConfig2(ctx context.Context, instanceId string, instanceType string) error {
@@ -775,11 +778,11 @@ func (region *SRegion) DeployVM(ctx context.Context, instanceId, name, password,
 	return nil
 }
 
-func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
+func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
 	cpu := self.GetVcpuCount()
 	memoryMb := self.GetVmemSizeMB()
 	self.StopVM(ctx, true)
-	return self.host.zone.region.ReplaceSystemDisk(self, cpu, memoryMb, imageId, passwd, publicKey, sysSizeGB)
+	return self.host.zone.region.ReplaceSystemDisk(self, cpu, memoryMb, desc.ImageId, desc.Password, desc.PublicKey, desc.SysSizeGB)
 }
 
 func (region *SRegion) ReplaceSystemDisk(instance *SInstance, cpu int, memoryMb int, imageId, passwd, publicKey string, sysSizeGB int) (string, error) {
@@ -840,6 +843,7 @@ func (region *SRegion) ReplaceSystemDisk(instance *SInstance, cpu int, memoryMb 
 	instance.Properties.StorageProfile.OsDisk.Name = ""
 	instance.Properties.ProvisioningState = ""
 	instance.Properties.InstanceView = nil
+	instance.Properties.VmId = ""
 	err = region.client.Update(jsonutils.Marshal(instance), nil)
 	if err != nil {
 		// 更新失败，需要删除之前交换过的系统盘

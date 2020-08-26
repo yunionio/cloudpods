@@ -50,32 +50,54 @@ const (
 	QCLOUD_CLB_API_VERSION     = "2018-03-17"
 	QCLOUD_BILLING_API_VERSION = "2018-07-09"
 	QCLOUD_AUDIT_API_VERSION   = "2019-03-19"
+	QCLOUD_CAM_API_VERSION     = "2019-01-16"
 )
 
-type SQcloudClient struct {
-	providerId   string
-	providerName string
-	AppID        string
-	SecretID     string
-	SecretKey    string
+type QcloudClientConfig struct {
+	cpcfg cloudprovider.ProviderConfig
 
+	secretId  string
+	secretKey string
+	appId     string
+
+	debug bool
+}
+
+func NewQcloudClientConfig(secretId, secretKey string) *QcloudClientConfig {
+	cfg := &QcloudClientConfig{
+		secretId:  secretId,
+		secretKey: secretKey,
+	}
+	return cfg
+}
+
+func (cfg *QcloudClientConfig) CloudproviderConfig(cpcfg cloudprovider.ProviderConfig) *QcloudClientConfig {
+	cfg.cpcfg = cpcfg
+	return cfg
+}
+
+func (cfg *QcloudClientConfig) AppId(appId string) *QcloudClientConfig {
+	cfg.appId = appId
+	return cfg
+}
+
+func (cfg *QcloudClientConfig) Debug(debug bool) *QcloudClientConfig {
+	cfg.debug = debug
+	return cfg
+}
+
+type SQcloudClient struct {
+	*QcloudClientConfig
 	ownerId   string
 	ownerName string
 
 	iregions []cloudprovider.ICloudRegion
 	ibuckets []cloudprovider.ICloudBucket
-
-	Debug bool
 }
 
-func NewQcloudClient(providerId string, providerName string, secretID string, secretKey string, appID string, isDebug bool) (*SQcloudClient, error) {
+func NewQcloudClient(cfg *QcloudClientConfig) (*SQcloudClient, error) {
 	client := SQcloudClient{
-		providerId:   providerId,
-		providerName: providerName,
-		SecretID:     secretID,
-		SecretKey:    secretKey,
-		AppID:        appID,
-		Debug:        isDebug,
+		QcloudClientConfig: cfg,
 	}
 	err := client.fetchRegions()
 	if err != nil {
@@ -89,7 +111,7 @@ func NewQcloudClient(providerId string, providerName string, secretID string, se
 	if err != nil {
 		return nil, errors.Wrap(err, "fetchBuckets")
 	}
-	if isDebug {
+	if client.debug {
 		log.Debugf("ownerID: %s ownerName: %s", client.ownerId, client.ownerName)
 	}
 	return &client, nil
@@ -161,6 +183,17 @@ func billingRequest(client *common.Client, apiName string, params map[string]str
 	return _jsonRequest(client, domain, QCLOUD_BILLING_API_VERSION, apiName, params, debug, true)
 }
 
+func camRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+	domain := "cam.tencentcloudapi.com"
+	return _jsonRequest(client, domain, QCLOUD_CAM_API_VERSION, apiName, params, debug, true)
+}
+
+func monitorRequest(client *common.Client, apiName string, params map[string]string,
+	debug bool) (jsonutils.JSONObject, error) {
+	domain := "monitor.tencentcloudapi.com"
+	return _jsonRequest(client, domain, QCLOUD_API_VERSION_METRICS, apiName, params, debug, true)
+}
+
 // ============phpJsonRequest============
 type qcloudResponse interface {
 	tchttp.Response
@@ -229,10 +262,11 @@ func (r *vpc2017JsonResponse) GetResponse() *interface{} {
 
 // SSL证书专用response
 type wssJsonResponse struct {
-	Code     int          `json:"code"`
-	CodeDesc string       `json:"codeDesc"`
-	Message  string       `json:"message"`
-	Response *interface{} `json:"data"`
+	Code      int          `json:"code"`
+	CodeDesc  string       `json:"codeDesc"`
+	ProjectId int          `json:"projectId"`
+	Message   string       `json:"message"`
+	Response  *interface{} `json:"data"`
 }
 
 func (r *wssJsonResponse) ParseErrorFromHTTPResponse(body []byte) (err error) {
@@ -249,6 +283,11 @@ func (r *wssJsonResponse) ParseErrorFromHTTPResponse(body []byte) (err error) {
 }
 
 func (r *wssJsonResponse) GetResponse() *interface{} {
+	if r.Response == nil {
+		return func(resp interface{}) *interface{} {
+			return &resp
+		}(jsonutils.Marshal(r))
+	}
 	return r.Response
 }
 
@@ -297,7 +336,9 @@ func _jsonRequest(client *common.Client, domain string, version string, apiName 
 	if region, ok := params["Region"]; ok {
 		client = client.Init(region)
 	}
-	client.WithProfile(profile.NewClientProfile())
+	_profile := profile.NewClientProfile()
+	_profile.SignMethod = common.SHA256
+	client.WithProfile(_profile)
 	service := strings.Split(domain, ".")[0]
 	req.Init().WithApiInfo(service, version, apiName)
 	req.SetDomain(domain)
@@ -322,7 +363,9 @@ func _phpJsonRequest(client *common.Client, resp qcloudResponse, domain string, 
 	if region, ok := params["Region"]; ok {
 		client = client.Init(region)
 	}
-	client.WithProfile(profile.NewClientProfile())
+	_profile := profile.NewClientProfile()
+	_profile.SignMethod = common.SHA256
+	client.WithProfile(_profile)
 	service := strings.Split(domain, ".")[0]
 	req.Init().WithApiInfo(service, version, apiName)
 	req.SetDomain(domain)
@@ -364,8 +407,10 @@ func _baseJsonRequest(client *common.Client, req tchttp.Request, resp qcloudResp
 				break
 			}
 		}
-		if strings.Contains(err.Error(), "Code=ResourceNotFound") {
-			return nil, cloudprovider.ErrNotFound
+		for _, code := range []string{"InvalidParameter.RoleNotExist", "Code=ResourceNotFound"} {
+			if strings.Contains(err.Error(), code) {
+				return nil, errors.Wrap(cloudprovider.ErrNotFound, err.Error())
+			}
 		}
 		if strings.Contains(err.Error(), "Code=UnsupportedRegion") {
 			return nil, cloudprovider.ErrNotSupported
@@ -380,7 +425,10 @@ func _baseJsonRequest(client *common.Client, req tchttp.Request, resp qcloudResp
 	}
 	if debug {
 		log.Debugf("request: %s", req.GetParams())
-		log.Debugf("response: %s", jsonutils.Marshal(resp.GetResponse()).PrettyString())
+		response := resp.GetResponse()
+		if response != nil {
+			log.Debugf("response: %s", jsonutils.Marshal(response).PrettyString())
+		}
 	}
 	if err != nil {
 		return nil, err
@@ -398,7 +446,13 @@ func (client *SQcloudClient) GetRegions() []SRegion {
 }
 
 func (client *SQcloudClient) getDefaultClient() (*common.Client, error) {
-	return common.NewClientWithSecretId(client.SecretID, client.SecretKey, QCLOUD_DEFAULT_REGION)
+	cli, err := common.NewClientWithSecretId(client.secretId, client.secretKey, QCLOUD_DEFAULT_REGION)
+	if err != nil {
+		return nil, err
+	}
+	httpClient := client.cpcfg.HttpClient()
+	cli.WithHttpTransport(httpClient.Transport)
+	return cli, nil
 }
 
 func (client *SQcloudClient) vpcRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -406,7 +460,7 @@ func (client *SQcloudClient) vpcRequest(apiName string, params map[string]string
 	if err != nil {
 		return nil, err
 	}
-	return vpcRequest(cli, apiName, params, client.Debug)
+	return vpcRequest(cli, apiName, params, client.debug)
 }
 
 func (client *SQcloudClient) auditRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -414,7 +468,7 @@ func (client *SQcloudClient) auditRequest(apiName string, params map[string]stri
 	if err != nil {
 		return nil, err
 	}
-	return auditRequest(cli, apiName, params, client.Debug)
+	return auditRequest(cli, apiName, params, client.debug)
 }
 
 func (client *SQcloudClient) cbsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -422,7 +476,7 @@ func (client *SQcloudClient) cbsRequest(apiName string, params map[string]string
 	if err != nil {
 		return nil, err
 	}
-	return cbsRequest(cli, apiName, params, client.Debug)
+	return cbsRequest(cli, apiName, params, client.debug)
 }
 
 func (client *SQcloudClient) accountRequestRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -430,7 +484,7 @@ func (client *SQcloudClient) accountRequestRequest(apiName string, params map[st
 	if err != nil {
 		return nil, err
 	}
-	return accountRequest(cli, apiName, params, client.Debug)
+	return accountRequest(cli, apiName, params, client.debug)
 }
 
 func (client *SQcloudClient) clbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -438,7 +492,7 @@ func (client *SQcloudClient) clbRequest(apiName string, params map[string]string
 	if err != nil {
 		return nil, err
 	}
-	return clbRequest(cli, apiName, params, client.Debug)
+	return clbRequest(cli, apiName, params, client.debug)
 }
 
 func (client *SQcloudClient) lbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -446,7 +500,7 @@ func (client *SQcloudClient) lbRequest(apiName string, params map[string]string)
 	if err != nil {
 		return nil, err
 	}
-	return lbRequest(cli, apiName, params, client.Debug)
+	return lbRequest(cli, apiName, params, client.debug)
 }
 
 func (client *SQcloudClient) wssRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -454,7 +508,7 @@ func (client *SQcloudClient) wssRequest(apiName string, params map[string]string
 	if err != nil {
 		return nil, err
 	}
-	return wssRequest(cli, apiName, params, client.Debug)
+	return wssRequest(cli, apiName, params, client.debug)
 }
 
 func (client *SQcloudClient) vpc2017Request(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -462,7 +516,7 @@ func (client *SQcloudClient) vpc2017Request(apiName string, params map[string]st
 	if err != nil {
 		return nil, err
 	}
-	return vpc2017Request(cli, apiName, params, client.Debug)
+	return vpc2017Request(cli, apiName, params, client.debug)
 }
 
 func (client *SQcloudClient) billingRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -470,7 +524,15 @@ func (client *SQcloudClient) billingRequest(apiName string, params map[string]st
 	if err != nil {
 		return nil, err
 	}
-	return billingRequest(cli, apiName, params, client.Debug)
+	return billingRequest(cli, apiName, params, client.debug)
+}
+
+func (client *SQcloudClient) camRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := client.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	return camRequest(cli, apiName, params, client.debug)
 }
 
 func (client *SQcloudClient) jsonRequest(apiName string, params map[string]string, retry bool) (jsonutils.JSONObject, error) {
@@ -478,7 +540,7 @@ func (client *SQcloudClient) jsonRequest(apiName string, params map[string]strin
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, apiName, params, client.Debug, retry)
+	return jsonRequest(cli, apiName, params, client.debug, retry)
 }
 
 func (client *SQcloudClient) fetchRegions() error {
@@ -514,13 +576,13 @@ func (client *SQcloudClient) getCosClient(bucket *SBucket) (*cos.Client, error) 
 		baseUrl,
 		&http.Client{
 			Transport: &cos.AuthorizationTransport{
-				SecretID:  client.SecretID,
-				SecretKey: client.SecretKey,
+				SecretID:  client.secretId,
+				SecretKey: client.secretKey,
 				Transport: &debug.DebugRequestTransport{
-					RequestHeader:  client.Debug,
-					RequestBody:    client.Debug,
-					ResponseHeader: client.Debug,
-					ResponseBody:   client.Debug,
+					RequestHeader:  client.debug,
+					RequestBody:    client.debug,
+					ResponseHeader: client.debug,
+					ResponseBody:   client.debug,
 				},
 			},
 		},
@@ -608,17 +670,21 @@ func (client *SQcloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, erro
 		return nil, err
 	}
 	subAccount := cloudprovider.SSubAccount{}
-	subAccount.Name = client.providerName
-	subAccount.Account = client.SecretID
+	subAccount.Name = client.cpcfg.Name
+	subAccount.Account = client.secretId
 	subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
-	if len(client.AppID) > 0 {
-		subAccount.Account = fmt.Sprintf("%s/%s", client.SecretID, client.AppID)
+	if len(client.appId) > 0 {
+		subAccount.Account = fmt.Sprintf("%s/%s", client.secretId, client.appId)
 	}
 	return []cloudprovider.SSubAccount{subAccount}, nil
 }
 
 func (client *SQcloudClient) GetAccountId() string {
 	return client.ownerName
+}
+
+func (client *SQcloudClient) GetIamLoginUrl() string {
+	return fmt.Sprintf("https://cloud.tencent.com/login/subAccount?account=%s", client.ownerName)
 }
 
 func (client *SQcloudClient) GetIRegions() []cloudprovider.ICloudRegion {
@@ -721,24 +787,34 @@ func (client *SQcloudClient) QueryAccountBalance() (*SAccountBalance, error) {
 }
 
 func (client *SQcloudClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
-	projects := []SProject{}
-	params := map[string]string{"allList": "1"}
-	body, err := client.accountRequestRequest("DescribeProject", params)
+	projects, err := client.GetProjects()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetProjects")
 	}
-	if err := body.Unmarshal(&projects); err != nil {
-		return nil, err
-	}
-	projects = append(projects, SProject{
-		ProjectId:   "0",
-		ProjectName: "默认项目",
-		// CreateTime:  time.Time{},
-	})
+	projects = append(projects, SProject{ProjectId: "0", ProjectName: "默认项目"})
 	iprojects := []cloudprovider.ICloudProject{}
 	for i := 0; i < len(projects); i++ {
 		projects[i].client = client
 		iprojects = append(iprojects, &projects[i])
 	}
 	return iprojects, nil
+}
+
+func (self *SQcloudClient) GetCapabilities() []string {
+	caps := []string{
+		cloudprovider.CLOUD_CAPABILITY_PROJECT,
+		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
+		cloudprovider.CLOUD_CAPABILITY_NETWORK,
+		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
+		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
+		// cloudprovider.CLOUD_CAPABILITY_RDS,
+		// cloudprovider.CLOUD_CAPABILITY_CACHE,
+		cloudprovider.CLOUD_CAPABILITY_EVENT,
+		cloudprovider.CLOUD_CAPABILITY_CLOUDID,
+	}
+	return caps
+}
+
+func (self *SQcloudClient) GetSamlSpInitiatedLoginUrl(idpName string) string {
+	return fmt.Sprintf("https://cloud.tencent.com/login/forwardIdp/%s/%s", self.ownerName, idpName)
 }

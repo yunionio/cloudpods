@@ -21,9 +21,9 @@ type LoadbalancerListenerCreateOptions struct {
 	ListenerType      string `required:"true" choices:"tcp|udp|http|https"`
 	ListenerPort      *int   `required:"true"`
 	BackendServerPort *int
-	BackendGroup      string
+	BackendGroup      *string `json:",allowempty"`
 
-	Scheduler string `required:"true" choices:"rr|wrr|wlc|sch|tch"`
+	Scheduler string `choices:"rr|wrr|wlc|sch|tch"`
 
 	SendProxy string `choices:"off|v1|v2|v2-ssl|v2-ssl-cn"`
 
@@ -67,6 +67,12 @@ type LoadbalancerListenerCreateOptions struct {
 
 	HTTPRequestRate       *int
 	HTTPRequestRatePerSrc *int
+
+	Redirect       *string `choices:"off|raw"`
+	RedirectCode   *int    `choices:"301|302|307"`
+	RedirectScheme *string `choices:"http|https|" json:",allowempty"`
+	RedirectHost   *string `json:",allowempty"`
+	RedirectPath   *string `json:",allowempty"`
 }
 
 type LoadbalancerListenerListOptions struct {
@@ -75,7 +81,7 @@ type LoadbalancerListenerListOptions struct {
 	Loadbalancer string
 	ListenerType string `choices:"tcp|udp|http|https"`
 	ListenerPort *int
-	BackendGroup string
+	BackendGroup *string `json:",allowempty"`
 
 	Scheduler string `choices:"rr|wrr|wlc|sch|tch"`
 
@@ -113,19 +119,25 @@ type LoadbalancerListenerListOptions struct {
 	XForwardedFor string `choices:"true|false"`
 	Gzip          string `choices:"true|false"`
 
-	Certificate     string
+	Certificate     string `json:"certificate_id"`
 	TLSCipherPolicy string
 	EnableHttp2     string `choices:"true|false"`
 
 	HTTPRequestRate       *int
 	HTTPRequestRatePerSrc *int
+
+	Redirect       *string `choices:"off|raw"`
+	RedirectCode   *int    `choices:"301|302|307"`
+	RedirectScheme *string `choices:"http|https|" json:",allowempty"`
+	RedirectHost   *string `json:",allowempty"`
+	RedirectPath   *string `json:",allowempty"`
 }
 
 type LoadbalancerListenerUpdateOptions struct {
 	ID   string `json:"-"`
 	Name string
 
-	BackendGroup string
+	BackendGroup *string `json:",allowempty"`
 
 	Scheduler string `choices:"rr|wrr|wlc|sch|tch"`
 
@@ -169,6 +181,12 @@ type LoadbalancerListenerUpdateOptions struct {
 
 	HTTPRequestRate       *int
 	HTTPRequestRatePerSrc *int
+
+	Redirect       *string `choices:"off|raw"`
+	RedirectCode   *int    `choices:"301|302|307"`
+	RedirectScheme *string `choices:"http|https|" json:",allowempty"`
+	RedirectHost   *string `json:",allowempty"`
+	RedirectPath   *string `json:",allowempty"`
 }
 
 type LoadbalancerListenerGetOptions struct {

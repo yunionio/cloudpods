@@ -45,11 +45,11 @@ func (self *SAzureHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_AZURE
 }
 
-func (self *SAzureHostDriver) ValidateUpdateDisk(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if data.Contains("name") {
-		return nil, httperrors.NewInputParameterError("cannot support change azure disk name")
+func (self *SAzureHostDriver) ValidateUpdateDisk(ctx context.Context, userCred mcclient.TokenCredential, input api.DiskUpdateInput) (api.DiskUpdateInput, error) {
+	if len(input.Name) > 0 {
+		return input, httperrors.NewInputParameterError("cannot support change azure disk name")
 	}
-	return data, nil
+	return input, nil
 }
 
 func (self *SAzureHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

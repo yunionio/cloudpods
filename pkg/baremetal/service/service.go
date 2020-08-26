@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/baremetal"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/baremetal"
 	"yunion.io/x/onecloud/pkg/baremetal/handler"
@@ -28,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/baremetal/tasks"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
@@ -64,6 +66,9 @@ func (s *BaremetalService) StartService() {
 
 	fsdriver.Init(nil)
 	app := app_common.InitApp(&o.Options.BaseOptions, false)
+
+	common_options.StartOptionManager(&o.Options, o.Options.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, o.OnOptionsChange)
+
 	handler.InitHandlers(app)
 
 	s.startAgent(app)
@@ -80,6 +85,10 @@ func (s *BaremetalService) StartService() {
 }
 
 func (s *BaremetalService) startAgent(app *appsrv.Application) {
+	// init lockman
+	lm := lockman.NewInMemoryLockManager()
+	lockman.Init(lm)
+
 	err := baremetal.Start(app)
 	if err != nil {
 		log.Fatalf("Start agent error: %v", err)

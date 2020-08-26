@@ -16,14 +16,16 @@ package modules
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 var (
 	ElasticCache          ElasticCacheManager
-	ElasticCacheAccount   modulebase.ResourceManager
+	ElasticCacheAccount   ElasticCacheAccountManager
 	ElasticCacheBackup    modulebase.ResourceManager
 	ElasticCacheAcl       modulebase.ResourceManager
 	ElasticCacheParameter modulebase.ResourceManager
@@ -33,14 +35,18 @@ type ElasticCacheManager struct {
 	modulebase.ResourceManager
 }
 
+type ElasticCacheAccountManager struct {
+	modulebase.ResourceManager
+}
+
 func init() {
 	ElasticCache = ElasticCacheManager{NewComputeManager("elasticcache", "elasticcaches",
 		[]string{"ID", "Name", "Cloudregion_Id", "Status", "InstanceType", "CapacityMB", "Engine", "EngineVersion"},
 		[]string{})}
 
-	ElasticCacheAccount = NewComputeManager("elasticcacheaccount", "elasticcacheaccounts",
+	ElasticCacheAccount = ElasticCacheAccountManager{NewComputeManager("elasticcacheaccount", "elasticcacheaccounts",
 		[]string{},
-		[]string{})
+		[]string{})}
 
 	ElasticCacheBackup = NewComputeManager("elasticcachebackup", "elasticcachebackups",
 		[]string{},
@@ -62,5 +68,48 @@ func init() {
 }
 
 func (self *ElasticCacheManager) GetLoginInfo(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return self.GetSpecific(s, id, "login-info", params)
+	data, e := self.GetSpecific(s, id, "login-info", params)
+	if e != nil {
+		return nil, e
+	}
+
+	ret := jsonutils.NewDict()
+	username, _ := data.GetString("username")
+	ret.Set("username", jsonutils.NewString(username))
+
+	account_id, _ := data.GetString("account_id")
+	password, _ := data.GetString("password")
+	if len(password) == 0 {
+		return nil, httperrors.NewNotFoundError("No password found")
+	}
+
+	passwd, e := utils.DescryptAESBase64(account_id, password)
+	if e != nil {
+		return nil, e
+	}
+	ret.Set("password", jsonutils.NewString(passwd))
+	return ret, nil
+}
+
+func (self *ElasticCacheAccountManager) GetLoginInfo(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	data, e := self.GetSpecific(s, id, "login-info", params)
+	if e != nil {
+		return nil, e
+	}
+
+	ret := jsonutils.NewDict()
+	username, _ := data.GetString("username")
+	ret.Set("username", jsonutils.NewString(username))
+
+	password, _ := data.GetString("password")
+	if len(password) == 0 {
+		return nil, httperrors.NewNotFoundError("No password found")
+	}
+
+	passwd, e := utils.DescryptAESBase64(id, password)
+	if e != nil {
+		return nil, e
+	}
+	ret.Set("password", jsonutils.NewString(passwd))
+	return ret, nil
 }

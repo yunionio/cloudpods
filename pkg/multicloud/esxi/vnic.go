@@ -54,6 +54,10 @@ func (nic *SVirtualNIC) GetMAC() string {
 	return netutils.FormatMacAddr(nic.getVirtualEthernetCard().MacAddress)
 }
 
+func (nic *SVirtualNIC) InClassicNetwork() bool {
+	return false
+}
+
 func (nic *SVirtualNIC) GetINetwork() cloudprovider.ICloudNetwork {
 	return nil
 }

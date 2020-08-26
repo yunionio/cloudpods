@@ -40,7 +40,7 @@ func init() {
 	taskman.RegisterTask(InstanceSnapshotCreateTask{})
 }
 
-func (self *InstanceSnapshotCreateTask) SetStageFailed(ctx context.Context, reason string) {
+func (self *InstanceSnapshotCreateTask) SetStageFailed(ctx context.Context, reason jsonutils.JSONObject) {
 	self.finalReleasePendingUsage(ctx)
 	self.STask.SetStageFailed(ctx, reason)
 }
@@ -49,22 +49,22 @@ func (self *InstanceSnapshotCreateTask) finalReleasePendingUsage(ctx context.Con
 	pendingUsage := models.SRegionQuota{}
 	err := self.GetPendingUsage(&pendingUsage, 0)
 	if err == nil && !pendingUsage.IsEmpty() {
-		quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &pendingUsage)
+		quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &pendingUsage, false) // final cleanup
 	}
 }
 
 func (self *InstanceSnapshotCreateTask) taskFail(
-	ctx context.Context, isp *models.SInstanceSnapshot, guest *models.SGuest, reason string) {
+	ctx context.Context, isp *models.SInstanceSnapshot, guest *models.SGuest, reason jsonutils.JSONObject) {
 
 	if guest == nil {
 		guest = models.GuestManager.FetchGuestById(isp.GuestId)
 	}
-	isp.SetStatus(self.UserCred, compute.INSTANCE_SNAPSHOT_FAILED, reason)
-	guest.SetStatus(self.UserCred, compute.VM_INSTANCE_SNAPSHOT_FAILED, reason)
+	isp.SetStatus(self.UserCred, compute.INSTANCE_SNAPSHOT_FAILED, reason.String())
+	guest.SetStatus(self.UserCred, compute.VM_INSTANCE_SNAPSHOT_FAILED, reason.String())
 
 	db.OpsLog.LogEvent(isp, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
-	logclient.AddActionLogWithStartable(self, isp, logclient.ACT_CREATE, false, self.UserCred, false)
-	notifyclient.NotifySystemError(isp.GetId(), isp.Name, compute.INSTANCE_SNAPSHOT_FAILED, reason)
+	logclient.AddActionLogWithStartable(self, isp, logclient.ACT_CREATE, reason, self.UserCred, false)
+	notifyclient.NotifySystemError(isp.GetId(), isp.Name, compute.INSTANCE_SNAPSHOT_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -79,7 +79,7 @@ func (self *InstanceSnapshotCreateTask) taskComplete(
 	guest.StartSyncstatus(ctx, self.UserCred, "")
 
 	db.OpsLog.LogEvent(isp, db.ACT_ALLOCATE, "instance snapshot create success", self.UserCred)
-	logclient.AddActionLogWithStartable(self, isp, logclient.ACT_CREATE, false, self.UserCred, true)
+	logclient.AddActionLogWithStartable(self, isp, logclient.ACT_CREATE, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
@@ -107,7 +107,7 @@ func (self *InstanceSnapshotCreateTask) GuestDiskCreateSnapshot(
 	snapshotName, err := db.GenerateName(models.SnapshotManager, self.UserCred,
 		fmt.Sprintf("%s-%s", isp.Name, rand.String(8)))
 	if err != nil {
-		self.taskFail(ctx, isp, guest, fmt.Sprintf("Generate snapshot name %s", err))
+		self.taskFail(ctx, isp, guest, jsonutils.NewString(fmt.Sprintf("Generate snapshot name %s", err)))
 		return
 	}
 
@@ -115,13 +115,13 @@ func (self *InstanceSnapshotCreateTask) GuestDiskCreateSnapshot(
 		ctx, self.UserCred, compute.SNAPSHOT_MANUAL, disks[diskIndex].DiskId,
 		guest.Id, "", snapshotName, -1)
 	if err != nil {
-		self.taskFail(ctx, isp, guest, err.Error())
+		self.taskFail(ctx, isp, guest, jsonutils.NewString(err.Error()))
 		return
 	}
 
-	err = models.InstanceSnapshotJointManager.CreateJoint(isp.Id, snapshot.Id, int8(diskIndex))
+	err = models.InstanceSnapshotJointManager.CreateJoint(ctx, isp.Id, snapshot.Id, int8(diskIndex))
 	if err != nil {
-		self.taskFail(ctx, isp, guest, err.Error())
+		self.taskFail(ctx, isp, guest, jsonutils.NewString(err.Error()))
 		return
 	}
 
@@ -131,7 +131,7 @@ func (self *InstanceSnapshotCreateTask) GuestDiskCreateSnapshot(
 	self.SetStage("OnDiskSnapshot", params)
 
 	if err := snapshot.StartSnapshotCreateTask(ctx, self.UserCred, nil, self.Id); err != nil {
-		self.taskFail(ctx, isp, guest, err.Error())
+		self.taskFail(ctx, isp, guest, jsonutils.NewString(err.Error()))
 		return
 	}
 }
@@ -143,7 +143,7 @@ func (self *InstanceSnapshotCreateTask) OnDiskSnapshot(
 
 	diskIndex, err := self.Params.Int("disk_index")
 	if err != nil {
-		self.taskFail(ctx, isp, guest, err.Error())
+		self.taskFail(ctx, isp, guest, jsonutils.NewString(err.Error()))
 		return
 	}
 
@@ -152,5 +152,5 @@ func (self *InstanceSnapshotCreateTask) OnDiskSnapshot(
 
 func (self *InstanceSnapshotCreateTask) OnDiskSnapshotFailed(
 	ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
-	self.taskFail(ctx, isp, nil, data.String())
+	self.taskFail(ctx, isp, nil, data)
 }

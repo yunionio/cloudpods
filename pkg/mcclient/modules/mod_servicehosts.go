@@ -43,7 +43,7 @@ var (
 )
 
 func init() {
-	ServiceHosts = ServiceNodeManager{NewMonitorManager("service_host", "service_hosts",
+	ServiceHosts = ServiceNodeManager{NewServiceTreeManager("service_host", "service_hosts",
 		[]string{"id", "host_id", "host_name", "ip", "vcpu_count", "vmem_size", "disk", "project", "status", "create_by", "update_by", "delete_by", "gmt_create", "gmt_modified", "gmt_delete", "project_id", "remark"},
 		[]string{})}
 

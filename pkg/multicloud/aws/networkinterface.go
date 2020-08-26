@@ -16,7 +16,7 @@ package aws
 
 import "time"
 
-type SGroup struct {
+type SGroupSet struct {
 	GroupId   string `xml:"groupId"`
 	GroupName string `xml:"groupName"`
 }
@@ -50,7 +50,7 @@ type SNetworkInterface struct {
 	PrivateIpAddress      string              `xml:"privateIpAddress"`
 	PrivateDnsName        string              `xml:"privateDnsName"`
 	SourceDestCheck       bool                `xml:"sourceDestCheck"`
-	GroupSet              []SGroup            `xml:"groupSet>item"`
+	GroupSet              []SGroupSet         `xml:"groupSet>item"`
 	Attachment            SAttachment         `xml:"attachment"`
 	PrivateIpAddressesSet []SPrivateIpAddress `xml:"privateIpAddressesSet>item"`
 	InterfaceType         string              `xml:"interfaceType"`

@@ -191,11 +191,12 @@ func (self *SFile) SetMeta(ctx context.Context, meta http.Header) error {
 }
 
 func doRequest(req *http.Request) (jsonutils.JSONObject, error) {
-	res, err := httputils.GetDefaultClient().Do(req)
+	// ufile request use no timeout client so as to download/upload large files
+	res, err := httputils.GetAdaptiveTimeoutClient().Do(req)
 	if err != nil {
 		return nil, errors.Wrap(err, "httpclient Do")
 	}
-	_, body, err := httputils.ParseJSONResponse(res, err, false)
+	_, body, err := httputils.ParseJSONResponse("", res, err, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "ParseJSONResponse")
 	}
@@ -326,10 +327,6 @@ func (b *SBucket) GetStats() cloudprovider.SBucketStats {
 	return stats
 }
 
-func (b *SBucket) GetIObjects(prefix string, isRecursive bool) ([]cloudprovider.ICloudObject, error) {
-	return cloudprovider.GetIObjects(b, prefix, isRecursive)
-}
-
 func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, maxCount int) (cloudprovider.SListObjectResult, error) {
 	result := cloudprovider.SListObjectResult{}
 
@@ -359,7 +356,7 @@ func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, cannedAcl 
 	return "", cloudprovider.ErrNotSupported
 }
 
-func (b *SBucket) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, input io.Reader, partSize int64) (string, error) {
+func (b *SBucket) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, input io.Reader, partSize int64, offset, totalSize int64) (string, error) {
 	return "", cloudprovider.ErrNotSupported
 }
 

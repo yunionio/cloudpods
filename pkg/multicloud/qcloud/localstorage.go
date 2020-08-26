@@ -35,15 +35,15 @@ func (self *SLocalStorage) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SLocalStorage) GetId() string {
-	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.providerId, self.zone.GetId(), self.storageType)
+	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.cpcfg.Id, self.zone.GetId(), self.storageType)
 }
 
 func (self *SLocalStorage) GetName() string {
-	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.providerName, self.zone.GetId(), self.storageType)
+	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.cpcfg.Name, self.zone.GetId(), self.storageType)
 }
 
 func (self *SLocalStorage) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.providerId, self.zone.GetGlobalId(), self.storageType)
+	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.cpcfg.Id, self.zone.GetGlobalId(), self.storageType)
 }
 
 func (self *SLocalStorage) IsEmulated() bool {
@@ -104,7 +104,7 @@ func (self *SLocalStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
 	return self.zone.region.getStoragecache()
 }
 
-func (self *SLocalStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
+func (self *SLocalStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 

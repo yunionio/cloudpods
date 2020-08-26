@@ -1,0 +1,16 @@
+FROM registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-3 as build
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
+RUN mkdir -p /root/go/src/yunion.io/x/onecloud
+COPY . /root/go/src/yunion.io/x/onecloud
+
+WORKDIR /root/go/src/yunion.io/x/onecloud
+RUN make cmd/esxi-agent
+
+FROM FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v0.2
+
+MAINTAINER "Yaoqi Wan wanyaoqi@yunionyun.com"
+
+RUN mkdir -p /opt/yunion/bin
+COPY --from=build /root/go/src/yunion.io/x/onecloud/build/esxi-agent/root/opt/ /opt/
+COPY --from=build /root/go/src/yunion.io/x/onecloud/_output/bin/esxi-agent /opt/yunion/bin/esxi-agent

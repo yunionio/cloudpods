@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -30,6 +31,14 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
+
+var driverMap = map[string]string{
+	"ahci":        "sata",
+	"parascsi":    "pvscsi",
+	"buslogic":    "scsi",
+	"lsilogic":    "scsi",
+	"lsilogicsas": "scsi",
+}
 
 type SVirtualDisk struct {
 	multicloud.SDisk
@@ -203,7 +212,7 @@ func (disk *SVirtualDisk) GetAccessPath() string {
 		return ""
 	}
 	ds := istore.(*SDatastore)
-	return ds.getFullPath(disk.getBackingInfo().GetFileName())
+	return ds.GetFullPath(disk.getBackingInfo().GetFileName())
 }
 
 func (disk *SVirtualDisk) GetDiskFormat() string {
@@ -261,14 +270,10 @@ func (disk *SVirtualDisk) GetDriver() string {
 	controller := disk.vm.getVdev(disk.getControllerKey())
 	name := controller.GetDriver()
 	name = strings.Replace(name, "controller", "", -1)
-	mapping := map[string]string{
-		"ahci":        "sata",
-		"parascsi":    "pvscsi",
-		"buslogic":    "scsi",
-		"lsilogic":    "scsi",
-		"lsilogicsas": "scsi",
+	if driver, ok := driverMap[name]; ok {
+		return driver
 	}
-	return mapping[name]
+	return name
 }
 
 func (disk *SVirtualDisk) GetCacheMode() string {
@@ -291,7 +296,7 @@ func (disk *SVirtualDisk) Delete(ctx context.Context) error {
 		return err
 	}
 	ds := istorage.(*SDatastore)
-	return ds.DeleteVmdk(ctx, disk.getBackingInfo().GetFileName())
+	return ds.Delete2(ctx, disk.getBackingInfo().GetFileName(), false, false)
 }
 
 func (disk *SVirtualDisk) CreateISnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudSnapshot, error) {
@@ -343,7 +348,23 @@ func (disk *SVirtualDisk) GetBillingType() string {
 	return ""
 }
 
+// GetCreatedAt return create time by getting the Data of file stored at disk.GetAccessPath
 func (disk *SVirtualDisk) GetCreatedAt() time.Time {
+	path, name := disk.GetAccessPath(), disk.GetFilename()
+	storage, err := disk.GetIStorage()
+	if err != nil {
+		return time.Time{}
+	}
+	ds := storage.(*SDatastore)
+	files, err := ds.ListDir(context.Background(), filepath.Dir(path))
+	if err != nil {
+		return time.Time{}
+	}
+	for _, file := range files {
+		if file.Name == name {
+			return file.Date
+		}
+	}
 	return time.Time{}
 }
 
@@ -352,9 +373,13 @@ func (disk *SVirtualDisk) GetExpiredAt() time.Time {
 }
 
 func (disk *SVirtualDisk) Rebuild(ctx context.Context) error {
-	return disk.vm.rebuildDisk(ctx, disk)
+	return disk.vm.rebuildDisk(ctx, disk, "")
 }
 
 func (disk *SVirtualDisk) GetProjectId() string {
-	return ""
+	return disk.vm.GetProjectId()
+}
+
+func (disk *SVirtualDisk) GetFilename() string {
+	return disk.getBackingInfo().GetFileName()
 }

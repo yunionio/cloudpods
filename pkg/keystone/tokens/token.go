@@ -256,14 +256,9 @@ func (t *SAuthToken) getTokenV3(
 	token.Token.User.Name = user.Name
 	token.Token.User.Domain.Id = user.DomainId
 	token.Token.User.Domain.Name = user.DomainName
-	if user.IsLocal {
-		lastPass, err := models.PasswordManager.FetchLastPassword(user.LocalId)
-		if err != nil {
-			return nil, errors.Wrap(err, "FetchLastPassword")
-		}
-		if lastPass != nil && !lastPass.ExpiresAt.IsZero() {
-			token.Token.User.PasswordExpiresAt = lastPass.ExpiresAt
-		}
+	lastPass, _ := models.PasswordManager.FetchLastPassword(user.LocalId)
+	if lastPass != nil && !lastPass.ExpiresAt.IsZero() {
+		token.Token.User.PasswordExpiresAt = lastPass.ExpiresAt
 	}
 	token.Token.User.Displayname = user.Displayname
 	token.Token.User.Email = user.Email
@@ -337,9 +332,9 @@ func (t *SAuthToken) getTokenV3(
 			token.Token.Roles[i].Name = roles[i].Name
 		}
 
-		token.Token.Policies.Project = policy.PolicyManager.MatchedPolicies(rbacutils.ScopeProject, &token)
-		token.Token.Policies.Domain = policy.PolicyManager.MatchedPolicies(rbacutils.ScopeDomain, &token)
-		token.Token.Policies.System = policy.PolicyManager.MatchedPolicies(rbacutils.ScopeSystem, &token)
+		token.Token.Policies.Project = policy.PolicyManager.MatchedPolicyNames(rbacutils.ScopeProject, &token)
+		token.Token.Policies.Domain = policy.PolicyManager.MatchedPolicyNames(rbacutils.ScopeDomain, &token)
+		token.Token.Policies.System = policy.PolicyManager.MatchedPolicyNames(rbacutils.ScopeSystem, &token)
 
 		endpoints, err := models.EndpointManager.FetchAll()
 		if err != nil {

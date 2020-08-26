@@ -44,6 +44,6 @@ func AttachUsageQuery(
 		}
 	}
 	q = CloudProviderFilter(q, hosts.Field("manager_id"), providers, brands, cloudEnv)
-	q = rangeObjectsFilter(q, rangeObjs, nil, hosts.Field("zone_id"), hosts.Field("manager_id"))
+	q = RangeObjectsFilter(q, rangeObjs, nil, hosts.Field("zone_id"), hosts.Field("manager_id"), hosts.Field("id"), nil)
 	return q
 }

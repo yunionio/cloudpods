@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/log"
 
 	apis "yunion.io/x/onecloud/pkg/apis/ansible"
+	apiidentity "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -58,8 +59,8 @@ func getServerAttrs(ID string, s *mcclient.ClientSession) (map[string]string, er
 
 func getInfluxdbURL() (string, error) {
 
-	s := auth.GetAdminSession(nil, "", "")
-	url, err := s.GetServiceURL("influxdb", "")
+	s := auth.GetAdminSessionWithPublic(nil, "", "")
+	url, err := s.GetServiceURL("influxdb", apiidentity.EndpointInterfacePublic)
 
 	if err != nil {
 		log.Errorf("get influxdb Endpoint error %s", err)

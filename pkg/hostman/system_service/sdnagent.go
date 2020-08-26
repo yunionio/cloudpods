@@ -29,3 +29,7 @@ func (s *SHostSdnagent) Reload(kwargs map[string]interface{}) error {
 func (s *SHostSdnagent) BgReload(kwargs map[string]interface{}) {
 	go s.reload(s.GetConfig(kwargs), s.GetConfigFile())
 }
+
+func (s *SHostSdnagent) BgReloadConf(kwargs map[string]interface{}) {
+	go s.reloadConf(s.GetConfig(kwargs), s.GetConfigFile())
+}

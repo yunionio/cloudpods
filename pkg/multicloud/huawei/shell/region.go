@@ -15,6 +15,8 @@
 package shell
 
 import (
+	"fmt"
+
 	"yunion.io/x/onecloud/pkg/multicloud/huawei"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -43,6 +45,12 @@ func init() {
 			return err
 		}
 		printList(domains, 0, 0, 0, nil)
+		return nil
+	})
+
+	shellutils.R(&RegionListOptions{}, "capabilities", "Get capabilities", func(cli *huawei.SRegion, args *RegionListOptions) error {
+		capabilities := cli.GetClient().GetCapabilities()
+		fmt.Println(capabilities)
 		return nil
 	})
 }

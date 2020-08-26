@@ -28,10 +28,10 @@ import (
 type BaseOptions struct {
 	Debug      bool   `help:"debug mode"`
 	Help       bool   `help:"Show help"`
-	AppID      string `help:"AppID" default:"$QCLOUD_APPID"`
-	SecretID   string `help:"Secret" default:"$QCLOUD_SECRET_ID"`
-	SecretKey  string `help:"Access key" default:"$QCLOUD_SECRET_KEY"`
-	RegionId   string `help:"RegionId" default:"$QCLOUD_REGION"`
+	AppID      string `help:"AppID" default:"$QCLOUD_APPID" metavar:"QCLOUD_APPID"`
+	SecretID   string `help:"Secret" default:"$QCLOUD_SECRET_ID" metavar:"QCLOUD_SECRET_ID"`
+	SecretKey  string `help:"Access key" default:"$QCLOUD_SECRET_KEY" metavar:"QCLOUD_SECRET_KEY"`
+	RegionId   string `help:"RegionId" default:"$QCLOUD_REGION" metavar:"QCLOUD_REGION"`
 	SUBCOMMAND string `help:"azurecli subcommand" subcommand:"true"`
 }
 
@@ -85,11 +85,12 @@ func newClient(options *BaseOptions) (*qcloud.SRegion, error) {
 		return nil, fmt.Errorf("Missing SecretID")
 	}
 
-	if cli, err := qcloud.NewQcloudClient("", "",
-		options.SecretID,
-		options.SecretKey,
-		options.AppID,
-		options.Debug); err != nil {
+	if cli, err := qcloud.NewQcloudClient(
+		qcloud.NewQcloudClientConfig(
+			options.SecretID,
+			options.SecretKey,
+		).AppId(options.AppID).Debug(options.Debug),
+	); err != nil {
 		return nil, err
 	} else if region := cli.GetRegion(options.RegionId); region == nil {
 		return nil, fmt.Errorf("No such region %s", options.RegionId)

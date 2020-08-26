@@ -45,12 +45,12 @@ func (self *GuestDiskSnapshotTask) OnInit(ctx context.Context, obj db.IStandalon
 func (self *GuestDiskSnapshotTask) DoDiskSnapshot(ctx context.Context, guest *models.SGuest) {
 	diskId, err := self.Params.GetString("disk_id")
 	if err != nil {
-		self.TaskFailed(ctx, guest, err.Error())
+		self.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
 	snapshotId, err := self.Params.GetString("snapshot_id")
 	if err != nil {
-		self.TaskFailed(ctx, guest, err.Error())
+		self.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
 	params := jsonutils.NewDict()
@@ -59,7 +59,7 @@ func (self *GuestDiskSnapshotTask) DoDiskSnapshot(ctx context.Context, guest *mo
 	guest.SetStatus(self.UserCred, api.VM_SNAPSHOT, "")
 	err = guest.GetDriver().RequestDiskSnapshot(ctx, guest, self, snapshotId, diskId)
 	if err != nil {
-		self.TaskFailed(ctx, guest, err.Error())
+		self.TaskFailed(ctx, guest, jsonutils.Marshal(err))
 		return
 	}
 }
@@ -85,7 +85,7 @@ func (self *GuestDiskSnapshotTask) OnDiskSnapshotComplete(ctx context.Context, g
 		return nil
 	})
 	if err != nil {
-		self.TaskFailed(ctx, guest, fmt.Sprintf("update sanpshot failed: %s", err))
+		self.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("update sanpshot failed: %s", err)))
 		return
 	}
 
@@ -94,7 +94,7 @@ func (self *GuestDiskSnapshotTask) OnDiskSnapshotComplete(ctx context.Context, g
 }
 
 func (self *GuestDiskSnapshotTask) OnDiskSnapshotCompleteFailed(ctx context.Context, guest *models.SGuest, err jsonutils.JSONObject) {
-	self.TaskFailed(ctx, guest, err.String())
+	self.TaskFailed(ctx, guest, err)
 }
 
 func (self *GuestDiskSnapshotTask) TaskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -104,8 +104,8 @@ func (self *GuestDiskSnapshotTask) TaskComplete(ctx context.Context, guest *mode
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *GuestDiskSnapshotTask) TaskFailed(ctx context.Context, guest *models.SGuest, reason string) {
-	guest.SetStatus(self.UserCred, api.VM_SNAPSHOT_FAILED, reason)
+func (self *GuestDiskSnapshotTask) TaskFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
+	guest.SetStatus(self.UserCred, api.VM_SNAPSHOT_FAILED, reason.String())
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_DISK_CREATE_SNAPSHOT, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
 }

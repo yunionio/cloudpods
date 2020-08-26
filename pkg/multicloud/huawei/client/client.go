@@ -15,6 +15,8 @@
 package client
 
 import (
+	"net/http"
+
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth/credentials"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/modules"
@@ -33,6 +35,7 @@ type Client struct {
 
 	Balances           *modules.SBalanceManager
 	Bandwidths         *modules.SBandwidthManager
+	Credentials        *modules.SCredentialManager
 	Disks              *modules.SDiskManager
 	Domains            *modules.SDomainManager
 	Eips               *modules.SEipManager
@@ -79,14 +82,68 @@ type Client struct {
 	DBInstanceJob      *modules.SDBInstanceJobManager
 	Traces             *modules.STraceManager
 	CloudEye           *modules.SCloudEyeManager
+	Quotas             *modules.SQuotaManager
+	EnterpriseProjects *modules.SEnterpriseProjectManager
+	Roles              *modules.SRoleManager
+	Groups             *modules.SGroupManager
 }
 
-func (self *Client) Init() error {
-	// 从环境变量中初始化client
-	return nil
+func (self *Client) SetHttpClient(httpClient *http.Client) {
+	self.Credentials.SetHttpClient(httpClient)
+	self.Servers.SetHttpClient(httpClient)
+	self.ServersV2.SetHttpClient(httpClient)
+	self.NovaServers.SetHttpClient(httpClient)
+	self.Snapshots.SetHttpClient(httpClient)
+	self.OsSnapshots.SetHttpClient(httpClient)
+	self.Images.SetHttpClient(httpClient)
+	self.OpenStackImages.SetHttpClient(httpClient)
+	self.Projects.SetHttpClient(httpClient)
+	self.Regions.SetHttpClient(httpClient)
+	self.Zones.SetHttpClient(httpClient)
+	self.Vpcs.SetHttpClient(httpClient)
+	self.Eips.SetHttpClient(httpClient)
+	self.Elasticcache.SetHttpClient(httpClient)
+	self.DcsAvailableZone.SetHttpClient(httpClient)
+	self.Disks.SetHttpClient(httpClient)
+	self.Domains.SetHttpClient(httpClient)
+	self.Keypairs.SetHttpClient(httpClient)
+	self.Elb.SetHttpClient(httpClient)
+	self.ElbBackend.SetHttpClient(httpClient)
+	self.ElbBackendGroup.SetHttpClient(httpClient)
+	self.ElbListeners.SetHttpClient(httpClient)
+	self.ElbCertificates.SetHttpClient(httpClient)
+	self.ElbHealthCheck.SetHttpClient(httpClient)
+	self.ElbL7policies.SetHttpClient(httpClient)
+	self.ElbPolicies.SetHttpClient(httpClient)
+	self.ElbWhitelist.SetHttpClient(httpClient)
+	self.Orders.SetHttpClient(httpClient)
+	self.SecurityGroupRules.SetHttpClient(httpClient)
+	self.SecurityGroups.SetHttpClient(httpClient)
+	self.NovaSecurityGroups.SetHttpClient(httpClient)
+	self.Subnets.SetHttpClient(httpClient)
+	self.Users.SetHttpClient(httpClient)
+	self.Interface.SetHttpClient(httpClient)
+	self.Jobs.SetHttpClient(httpClient)
+	self.Balances.SetHttpClient(httpClient)
+	self.Bandwidths.SetHttpClient(httpClient)
+	self.Port.SetHttpClient(httpClient)
+	self.Flavors.SetHttpClient(httpClient)
+	self.VpcRoutes.SetHttpClient(httpClient)
+	self.SNatRules.SetHttpClient(httpClient)
+	self.DNatRules.SetHttpClient(httpClient)
+	self.NatGateways.SetHttpClient(httpClient)
+	self.DBInstance.SetHttpClient(httpClient)
+	self.DBInstanceBackup.SetHttpClient(httpClient)
+	self.DBInstanceFlavor.SetHttpClient(httpClient)
+	self.DBInstanceJob.SetHttpClient(httpClient)
+	self.Traces.SetHttpClient(httpClient)
+	self.CloudEye.SetHttpClient(httpClient)
+	self.EnterpriseProjects.SetHttpClient(httpClient)
+	self.Roles.SetHttpClient(httpClient)
+	self.Groups.SetHttpClient(httpClient)
 }
 
-func (self *Client) InitWithOptions(regionId, projectId string, credential auth.Credential) error {
+func (self *Client) InitWithOptions(regionId, domainId, projectId string, credential auth.Credential) error {
 	// 从signer中初始化
 	signer, err := auth.NewSignerWithCredential(credential)
 	if err != nil {
@@ -95,21 +152,20 @@ func (self *Client) InitWithOptions(regionId, projectId string, credential auth.
 	self.signer = signer
 	self.regionId = regionId
 	self.projectId = projectId
-	// 暂时还未用到domainId
-	self.domainId = ""
+	self.domainId = domainId
 	// 初始化 resource manager
 	self.initManagers()
 	return err
 }
 
-func (self *Client) InitWithAccessKey(regionId, projectId, accessKey, secretKey string) error {
+func (self *Client) InitWithAccessKey(regionId, domainId, projectId, accessKey, secretKey string) error {
 	// accessKey signer
 	credential := &credentials.AccessKeyCredential{
 		AccessKeyId:     accessKey,
 		AccessKeySecret: secretKey,
 	}
 
-	return self.InitWithOptions(regionId, projectId, credential)
+	return self.InitWithOptions(regionId, domainId, projectId, credential)
 }
 
 func (self *Client) initManagers() {
@@ -120,7 +176,7 @@ func (self *Client) initManagers() {
 		self.Snapshots = modules.NewSnapshotManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.OsSnapshots = modules.NewOsSnapshotManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Images = modules.NewImageManager(self.regionId, self.projectId, self.signer, self.debug)
-		self.OpenStackImages = modules.NewOpenstackImageManager(self.regionId, self.signer, self.debug)
+		self.OpenStackImages = modules.NewOpenstackImageManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Projects = modules.NewProjectManager(self.signer, self.debug)
 		self.Regions = modules.NewRegionManager(self.signer, self.debug)
 		self.Zones = modules.NewZoneManager(self.regionId, self.projectId, self.signer, self.debug)
@@ -146,10 +202,12 @@ func (self *Client) initManagers() {
 		self.NovaSecurityGroups = modules.NewNovaSecurityGroupManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Subnets = modules.NewSubnetManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Users = modules.NewUserManager(self.signer, self.debug)
+		self.Users.SetDomainId(self.domainId)
 		self.Interface = modules.NewInterfaceManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Jobs = modules.NewJobManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Balances = modules.NewBalanceManager(self.signer, self.debug)
 		self.Bandwidths = modules.NewBandwidthManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.Credentials = modules.NewCredentialManager(self.signer, self.debug)
 		self.Port = modules.NewPortManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Flavors = modules.NewFlavorManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.VpcRoutes = modules.NewVpcRouteManager(self.regionId, self.projectId, self.signer, self.debug)
@@ -162,18 +220,20 @@ func (self *Client) initManagers() {
 		self.DBInstanceJob = modules.NewDBInstanceJobManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Traces = modules.NewTraceManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.CloudEye = modules.NewCloudEyeManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.Quotas = modules.NewQuotaManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.EnterpriseProjects = modules.NewEnterpriseProjectManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.EnterpriseProjects.SetDomainId(self.domainId)
+		self.Roles = modules.NewRoleManager(self.signer, self.debug)
+		self.Roles.SetDomainId(self.domainId)
+		self.Groups = modules.NewGroupManager(self.signer, self.debug)
+		self.Groups.SetDomainId(self.domainId)
 	}
 
 	self.init = true
 }
 
-// todo: init from envrioment
-func NewClient() (*Client, error) {
-	return nil, nil
-}
-
-func NewClientWithAccessKey(regionId, projectId, accessKey, secretKey string, debug bool) (*Client, error) {
+func NewClientWithAccessKey(regionId, domainId, projectId, accessKey, secretKey string, debug bool) (*Client, error) {
 	c := &Client{debug: debug}
-	err := c.InitWithAccessKey(regionId, projectId, accessKey, secretKey)
+	err := c.InitWithAccessKey(regionId, domainId, projectId, accessKey, secretKey)
 	return c, err
 }

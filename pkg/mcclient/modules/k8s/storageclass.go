@@ -23,18 +23,23 @@ import (
 var Storageclass *StorageclassManager
 
 type StorageclassManager struct {
-	*MetaResourceManager
+	*ClusterResourceManager
 }
 
 func init() {
 	Storageclass = &StorageclassManager{
-		MetaResourceManager: NewMetaResourceManager("storageclass", "storageclasses", NewColumns("Provisioner"), NewColumns()),
+		ClusterResourceManager: NewClusterResourceManager("storageclass", "storageclasses", NewColumns("Provisioner", "IsDefault"), NewColumns()),
 	}
 
 	modules.Register(Storageclass)
 }
 
-func (m StorageclassManager) GetProvisioner(obj jsonutils.JSONObject) interface{} {
+func (m StorageclassManager) Get_Provisioner(obj jsonutils.JSONObject) interface{} {
 	provisioner, _ := obj.GetString("provisioner")
 	return provisioner
+}
+
+func (m StorageclassManager) Get_IsDefault(obj jsonutils.JSONObject) interface{} {
+	isDefault, _ := obj.Bool("isDefault")
+	return isDefault
 }

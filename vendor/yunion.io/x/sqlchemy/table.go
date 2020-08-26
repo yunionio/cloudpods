@@ -19,6 +19,7 @@ import (
 	"reflect"
 	"strings"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 )
 
@@ -82,10 +83,14 @@ func (ts *STableSpec) CreateSQL() string {
 	cols := make([]string, 0)
 	primaries := make([]string, 0)
 	indexes := make([]string, 0)
+	autoInc := ""
 	for _, c := range ts.columns {
 		cols = append(cols, c.DefinitionString())
 		if c.IsPrimary() {
 			primaries = append(primaries, fmt.Sprintf("`%s`", c.Name()))
+			if intC, ok := c.(*SIntegerColumn); ok && intC.AutoIncrementOffset > 1 {
+				autoInc = fmt.Sprintf(" AUTO_INCREMENT=%d", intC.AutoIncrementOffset)
+			}
 		}
 		if c.IsIndex() {
 			indexes = append(indexes, fmt.Sprintf("KEY `ix_%s_%s` (`%s`)", ts.name, c.Name(), c.Name()))
@@ -97,7 +102,7 @@ func (ts *STableSpec) CreateSQL() string {
 	if len(indexes) > 0 {
 		cols = append(cols, indexes...)
 	}
-	return fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s` (\n%s\n) ENGINE=InnoDB DEFAULT CHARSET=utf8", ts.name, strings.Join(cols, ",\n"))
+	return fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s` (\n%s\n) ENGINE=InnoDB DEFAULT CHARSET=utf8%s", ts.name, strings.Join(cols, ",\n"), autoInc)
 }
 
 func (ts *STableSpec) Instance() *STable {
@@ -119,7 +124,8 @@ func (tbl *STable) Field(name string, alias ...string) IQueryField {
 	name = utils.CamelSplit(name, "_")
 	spec := tbl.spec.ColumnSpec(name)
 	if spec == nil {
-		panic("column not found: " + name)
+		log.Warningf("column %s not found in table %s", name, tbl.spec.Name())
+		return nil
 	}
 	col := STableField{table: tbl, spec: spec}
 	if len(alias) > 0 {

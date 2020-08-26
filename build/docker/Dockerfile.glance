@@ -1,6 +1,6 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/glance-base:latest
+FROM registry.cn-beijing.aliyuncs.com/yunionio/torrent:20200820
 
 MAINTAINER "Zexi Li <lizexi@yunionyun.com>"
 
 RUN mkdir -p /opt/yunion/bin
-ADD ./_output/bin/glance /opt/yunion/bin/glance
+ADD ./_output/alpine-build/bin/glance /opt/yunion/bin/glance

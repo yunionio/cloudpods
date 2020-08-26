@@ -126,6 +126,7 @@ func fetchIVMinfo(desc cloudprovider.SManagedVMCreateConfig, iVM cloudprovider.I
 
 	if iVM.GetBillingType() == billing_api.BILLING_TYPE_PREPAID {
 		data.Add(jsonutils.NewTimeString(iVM.GetExpiredAt()), "expired_at")
+		data.Add(jsonutils.NewBool(iVM.IsAutoRenew()), "auto_renew")
 	}
 
 	return data

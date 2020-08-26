@@ -14,7 +14,11 @@
 
 package cloudevent
 
+import "yunion.io/x/onecloud/pkg/apis"
+
 const (
+	SERVICE_TYPE = apis.SERVICE_TYPE_CLOUDEVENT
+
 	CLOUD_EVENT_SERVICE_COMPUTE = "compute"
 	CLOUD_EVENT_SERVICE_UNKNOWN = "unknown"
 

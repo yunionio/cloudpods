@@ -30,6 +30,7 @@ type CandidateGetArgs struct {
 	ResType   string
 	RegionID  string
 	ZoneID    string
+	ManagerID string
 	HostTypes []string
 }
 
@@ -205,7 +206,7 @@ func (cm *CandidateManager) GetCandidates(args CandidateGetArgs) ([]core.Candida
 	result := []core.Candidater{}
 
 	matchZone := func(r core.Candidater, zoneId string) bool {
-		if args.ZoneID != "" {
+		if zoneId != "" {
 			if r.Getter().Zone().GetId() == zoneId {
 				return true
 			}
@@ -215,8 +216,24 @@ func (cm *CandidateManager) GetCandidates(args CandidateGetArgs) ([]core.Candida
 	}
 
 	matchRegion := func(r core.Candidater, regionId string) bool {
-		if args.RegionID != "" {
-			if r.Getter().Region().GetId() == regionId {
+		if regionId != "" {
+			region := r.Getter().Region()
+			if region == nil {
+				return false
+			}
+			if region.GetId() == regionId {
+				return true
+			}
+			return false
+		}
+		return true
+	}
+
+	matchCloudprovider := func(r core.Candidater, managerId string) bool {
+		if managerId != "" {
+			cloudProvier := r.Getter().Cloudprovider()
+			// r who belongs to Provider Onecloud doesn't have cloudprovider
+			if cloudProvier != nil && cloudProvier.GetId() == managerId {
 				return true
 			}
 			return false
@@ -239,6 +256,10 @@ func (cm *CandidateManager) GetCandidates(args CandidateGetArgs) ([]core.Candida
 		}
 
 		if !matchZone(r, args.ZoneID) {
+			continue
+		}
+
+		if !matchCloudprovider(r, args.ManagerID) {
 			continue
 		}
 

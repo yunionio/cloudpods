@@ -82,7 +82,12 @@ type SCloudAccountCreateBaseOptions struct {
 
 	SyncIntervalSeconds int `help:"Interval to synchronize if auto sync is enable" metavar:"SECONDS"`
 
+	Project       string `help:"project for this account"`
 	ProjectDomain string `help:"domain for this account"`
+
+	Disabled *bool `help:"create cloud account with disabled status"`
+
+	ProxySetting string `help:"proxy setting id or name" json:"proxy_setting"`
 }
 
 type SVMwareCloudAccountCreateOptions struct {
@@ -93,6 +98,10 @@ type SVMwareCloudAccountCreateOptions struct {
 type SAliyunCloudAccountCreateOptions struct {
 	SCloudAccountCreateBaseOptions
 	SAccessKeyCredential
+
+	OptionsBillingReportBucket  string `help:"bucket that stores billing report" json:"-"`
+	OptionsBillingBucketAccount string `help:"id of account that can access bucket, blank if this account can access" json:"-"`
+	OptionsBillingFilePrefix    string `help:"prefix of billing file name" json:"-"`
 }
 
 type SAzureCloudAccountCreateOptions struct {
@@ -114,7 +123,9 @@ type SAWSCloudAccountCreateOptions struct {
 	SCloudAccountCreateBaseOptions
 	SAccessKeyCredentialWithEnvironment
 
-	OptionsBillingReportBucket string `help:"bucket that stores billing report" json:"-"`
+	OptionsBillingReportBucket  string `help:"bucket that stores billing report" json:"-"`
+	OptionsBillingBucketAccount string `help:"id of account that can access bucket, blank if this account can access" json:"-"`
+	OptionsBillingFilePrefix    string `help:"prefix of billing file name" json:"-"`
 }
 
 type SOpenStackCloudAccountCreateOptions struct {
@@ -210,14 +221,20 @@ type SCtyunCloudAccountUpdateCredentialOptions struct {
 	SAccessKeyCredential
 }
 
+type SGoogleCloudAccountUpdateCredentialOptions struct {
+	SCloudAccountUpdateCredentialBaseOptions
+	GoogleJsonFile string `help:"Google auth json file" positional:"true"`
+}
+
 // update
 
 type SCloudAccountUpdateBaseOptions struct {
 	ID   string `help:"ID or Name of cloud account" json:"-"`
 	Name string `help:"New name to update"`
 
-	SyncIntervalSeconds int   `help:"auto synchornize interval in seconds"`
-	AutoCreateProject   *bool `help:"automatically create local project for new remote project"`
+	SyncIntervalSeconds int    `help:"auto synchornize interval in seconds"`
+	AutoCreateProject   *bool  `help:"automatically create local project for new remote project"`
+	ProxySetting        string `help:"proxy setting name or id" json:"proxy_setting"`
 
 	Desc string `help:"Description" json:"description" token:"desc"`
 }
@@ -228,6 +245,13 @@ type SVMwareCloudAccountUpdateOptions struct {
 
 type SAliyunCloudAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
+
+	OptionsBillingReportBucket        string `help:"update Aliyun S3 bucket that stores account billing report" json:"-"`
+	RemoveOptionsBillingReportBucket  bool   `help:"remove Aliyun S3 bucket that stores account billing report" json:"-"`
+	OptionsBillingBucketAccount       string `help:"update id of account that can access bucket, blank if this account can access" json:"-"`
+	RemoveOptionsBillingBucketAccount bool   `help:"remove id of account that can access bucket, blank if this account can access" json:"-"`
+	OptionsBillingFilePrefix          string `help:"update prefix of billing file name" json:"-"`
+	RemoveOptionsBillingFilePrefix    bool   `help:"remove prefix of billing file name" json:"-"`
 }
 
 type SAzureCloudAccountUpdateOptions struct {
@@ -241,11 +265,31 @@ type SQcloudCloudAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
 }
 
+type SGoogleCloudAccountUpdateOptions struct {
+	SCloudAccountUpdateBaseOptions
+
+	OptionsBillingReportBucket        string `help:"update Google S3 bucket that stores account billing report" json:"-"`
+	RemoveOptionsBillingReportBucket  bool   `help:"remove Google S3 bucket that stores account billing report" json:"-"`
+	OptionsBillingBucketAccount       string `help:"update id of account that can access bucket, blank if this account can access" json:"-"`
+	RemoveOptionsBillingBucketAccount bool   `help:"remove id of account that can access bucket, blank if this account can access" json:"-"`
+	OptionsBillingFilePrefix          string `help:"update prefix of billing file name" json:"-"`
+	RemoveOptionsBillingFilePrefix    bool   `help:"remove prefix of billing file name" json:"-"`
+
+	OptionsUsageReportBucket       string `help:"update Google S3 bucket that stores account usage report" json:"-"`
+	RemoveOptionsUsageReportBucket bool   `help:"remove Google S3 bucket that stores account usage report" json:"-"`
+	OptionsUsageFilePrefix         string `help:"update prefix of usage file name" json:"-"`
+	RemoveOptionsUsageFilePrefix   bool   `help:"remove prefix of usage file name" json:"-"`
+}
+
 type SAWSCloudAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
 
-	OptionsBillingReportBucket       string `help:"update AWS S3 bucket that stores account billing report" json:"-"`
-	RemoveOptionsBillingReportBucket bool   `help:"remote AWS S3 bucket that stores account billing report" json:"-"`
+	OptionsBillingReportBucket        string `help:"update AWS S3 bucket that stores account billing report" json:"-"`
+	RemoveOptionsBillingReportBucket  bool   `help:"remove AWS S3 bucket that stores account billing report" json:"-"`
+	OptionsBillingBucketAccount       string `help:"update id of account that can access bucket, blank if this account can access" json:"-"`
+	RemoveOptionsBillingBucketAccount bool   `help:"remove id of account that can access bucket, blank if this account can access" json:"-"`
+	OptionsBillingFilePrefix          string `help:"update prefix of billing file name" json:"-"`
+	RemoveOptionsBillingFilePrefix    bool   `help:"remove prefix of billing file name" json:"-"`
 }
 
 type SOpenStackCloudAccountUpdateOptions struct {
@@ -254,6 +298,13 @@ type SOpenStackCloudAccountUpdateOptions struct {
 
 type SHuaweiCloudAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
+
+	OptionsBillingReportBucket        string `help:"update Huawei S3 bucket that stores account billing report" json:"-"`
+	RemoveOptionsBillingReportBucket  bool   `help:"remove Huawei S3 bucket that stores account billing report" json:"-"`
+	OptionsBillingBucketAccount       string `help:"update id of account that can access bucket, blank if this account can access" json:"-"`
+	RemoveOptionsBillingBucketAccount bool   `help:"remove id of account that can access bucket, blank if this account can access" json:"-"`
+	OptionsBillingFilePrefix          string `help:"update prefix of billing file name" json:"-"`
+	RemoveOptionsBillingFilePrefix    bool   `help:"remove prefix of billing file name" json:"-"`
 }
 
 type SUcloudCloudAccountUpdateOptions struct {

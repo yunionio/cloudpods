@@ -31,7 +31,11 @@ func initSecret() {
 		cmdN.Do("list"),
 		"List secret resource",
 		func(s *mcclient.ClientSession, args *o.SecretListOptions) error {
-			ret, err := k8s.Secrets.List(s, args.Params())
+			params, err := args.Params()
+			if err != nil {
+				return err
+			}
+			ret, err := k8s.Secrets.List(s, params)
 			if err != nil {
 				return err
 			}
@@ -40,22 +44,40 @@ func initSecret() {
 		})
 	secretCmd.AddR(listCmd)
 
-	registryCmd := initK8sNamespaceResource("registrysecret", k8s.RegistrySecrets)
-	createCmd := NewCommand(
+	registryCmd := NewCmdNameFactory("secret-registry")
+	registryCreateCmd := NewCommand(
 		&o.RegistrySecretCreateOptions{},
-		registryCmd.CommandNameFactory("create"),
-		"Create docker registry secret resource",
+		registryCmd.Do("create"),
+		"Create docker registry secret secret",
 		func(s *mcclient.ClientSession, args *o.RegistrySecretCreateOptions) error {
 			params, err := args.Params()
 			if err != nil {
 				return err
 			}
-			ret, err := k8s.RegistrySecrets.Create(s, params)
+			ret, err := k8s.Secrets.Create(s, params)
 			if err != nil {
 				return err
 			}
 			printObject(ret)
 			return nil
 		})
-	registryCmd.AddR(createCmd)
+
+	cephCSICmd := NewCmdNameFactory("secret-ceph-csi")
+	cephCSICreateCmd := NewCommand(
+		&o.CephCSISecretCreateOptions{},
+		cephCSICmd.Do("create"),
+		"Create ceph csi user secret",
+		func(s *mcclient.ClientSession, args *o.CephCSISecretCreateOptions) error {
+			params, err := args.Params()
+			if err != nil {
+				return err
+			}
+			ret, err := k8s.Secrets.Create(s, params)
+			if err != nil {
+				return err
+			}
+			printObject(ret)
+			return nil
+		})
+	secretCmd.AddR(cephCSICreateCmd, registryCreateCmd)
 }

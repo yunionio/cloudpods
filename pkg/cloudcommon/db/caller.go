@@ -16,15 +16,17 @@ package db
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type Caller struct {
@@ -55,15 +57,58 @@ func call(obj interface{}, fName string, inputs ...interface{}) ([]reflect.Value
 	return callObject(reflect.ValueOf(obj), fName, inputs...)
 }
 
-func callObject(modelVal reflect.Value, fName string, inputs ...interface{}) ([]reflect.Value, error) {
+func findFunc(modelVal reflect.Value, fName string) (reflect.Value, error) {
 	funcVal := modelVal.MethodByName(fName)
-	return callFunc(funcVal, inputs...)
+	if !funcVal.IsValid() || funcVal.IsNil() {
+		log.Debugf("find method %s for %s", fName, modelVal.Type())
+		if modelVal.Kind() != reflect.Ptr {
+			return funcVal, errors.Wrapf(httperrors.ErrNotImplemented, "%s not implemented", fName)
+		}
+		modelVal = modelVal.Elem()
+		if modelVal.Kind() != reflect.Struct {
+			return funcVal, errors.Wrapf(httperrors.ErrNotImplemented, "%s not implemented", fName)
+		}
+		modelType := modelVal.Type()
+		for i := 0; i < modelType.NumField(); i += 1 {
+			fieldType := modelType.Field(i)
+			if fieldType.Anonymous {
+				fieldValue := modelVal.Field(i)
+				if fieldValue.Kind() != reflect.Ptr && fieldValue.CanAddr() {
+					newFuncVal, err := findFunc(fieldValue.Addr(), fName)
+					if err == nil {
+						if !funcVal.IsValid() || funcVal.IsNil() {
+							funcVal = newFuncVal
+						} else {
+							return funcVal, errors.Wrapf(httperrors.ErrConflict, "%s is ambiguous", fName)
+						}
+					}
+				} else if fieldValue.Kind() == reflect.Ptr {
+					newFuncVal, err := findFunc(fieldValue, fName)
+					if err == nil {
+						if !funcVal.IsValid() || funcVal.IsNil() {
+							funcVal = newFuncVal
+						} else {
+							return funcVal, errors.Wrapf(httperrors.ErrConflict, "%s is ambiguous", fName)
+						}
+					}
+				}
+			}
+		}
+		if !funcVal.IsValid() || funcVal.IsNil() {
+			return funcVal, errors.Wrapf(httperrors.ErrNotImplemented, "%s is not implemented", fName)
+		}
+	}
+	return funcVal, nil
 }
 
-func callFunc(funcVal reflect.Value, inputs ...interface{}) ([]reflect.Value, error) {
-	fName := funcVal.String()
+func callObject(modelVal reflect.Value, fName string, inputs ...interface{}) ([]reflect.Value, error) {
+	funcVal := modelVal.MethodByName(fName)
+	return callFunc(funcVal, fName, inputs...)
+}
+
+func callFunc(funcVal reflect.Value, fName string, inputs ...interface{}) ([]reflect.Value, error) {
 	if !funcVal.IsValid() || funcVal.IsNil() {
-		return nil, httperrors.NewActionNotFoundError(fmt.Sprintf("%s method not found", fName))
+		return nil, httperrors.NewActionNotFoundError("%s method not found", fName)
 	}
 	funcType := funcVal.Type()
 	paramLen := funcType.NumIn()
@@ -74,16 +119,23 @@ func callFunc(funcVal reflect.Value, inputs ...interface{}) ([]reflect.Value, er
 	for i := range inputs {
 		params[i] = newParam(funcType.In(i), inputs[i])
 	}
-	args := convertParams(params)
+	args, err := convertParams(params)
+	if err != nil {
+		return nil, err
+	}
 	return funcVal.Call(args), nil
 }
 
-func convertParams(params []*param) []reflect.Value {
+func convertParams(params []*param) ([]reflect.Value, error) {
 	ret := make([]reflect.Value, 0)
 	for _, p := range params {
-		ret = append(ret, p.convert())
+		val, err := p.convert()
+		if err != nil {
+			return ret, err
+		}
+		ret = append(ret, val)
 	}
-	return ret
+	return ret, nil
 }
 
 type param struct {
@@ -107,25 +159,40 @@ func isJSONObject(input interface{}) (jsonutils.JSONObject, bool) {
 	return obj, true
 }
 
-func (p *param) convert() reflect.Value {
+func (p *param) convert() (reflect.Value, error) {
 	if p.input == nil {
-		return reflect.New(p.pType).Elem()
+		return reflect.New(p.pType).Elem(), nil
 	}
 	obj, ok := isJSONObject(p.input)
 	if !ok {
-		return reflect.ValueOf(p.input)
+		return reflect.ValueOf(p.input), nil
 	}
 	// generate object by type
 	val := reflect.New(p.pType)
-	obj.Unmarshal(val.Interface())
-	return val.Elem()
+	err := obj.Unmarshal(val.Interface())
+	if err != nil {
+		return reflect.Value{}, errors.Wrapf(err, "unable to convert '%v' to Type %q", p.input, p.pType.Name())
+	}
+	return val.Elem(), nil
 }
 
 func ValueToJSONObject(out reflect.Value) jsonutils.JSONObject {
+	if gotypes.IsNil(out.Interface()) {
+		return nil
+	}
+
 	if obj, ok := isJSONObject(out); ok {
 		return obj
 	}
 	return jsonutils.Marshal(out.Interface())
+}
+
+func ValueToJSONDict(out reflect.Value) *jsonutils.JSONDict {
+	jsonObj := ValueToJSONObject(out)
+	if jsonObj == nil {
+		return nil
+	}
+	return jsonObj.(*jsonutils.JSONDict)
 }
 
 func ValueToError(out reflect.Value) error {
@@ -137,7 +204,7 @@ func ValueToError(out reflect.Value) error {
 }
 
 func mergeInputOutputData(data *jsonutils.JSONDict, resVal reflect.Value) *jsonutils.JSONDict {
-	retJson := ValueToJSONObject(resVal).(*jsonutils.JSONDict)
+	retJson := ValueToJSONDict(resVal)
 	// preserve the input info not returned by caller
 	data.Update(retJson)
 	return data
@@ -164,7 +231,7 @@ func ListItemFilter(manager IModelManager, ctx context.Context, q *sqlchemy.SQue
 		return nil, httperrors.NewGeneralError(err)
 	}
 	if len(ret) != 2 {
-		return nil, httperrors.NewInternalServerError("Invald ListItemFilter return value")
+		return nil, httperrors.NewInternalServerError("Invald ListItemFilter return value count %d", len(ret))
 	}
 	if err := ValueToError(ret[1]); err != nil {
 		return nil, err
@@ -172,18 +239,72 @@ func ListItemFilter(manager IModelManager, ctx context.Context, q *sqlchemy.SQue
 	return ret[0].Interface().(*sqlchemy.SQuery), nil
 }
 
-func GetExtraDetails(model IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	ret, err := call(model, "GetExtraDetails", ctx, userCred, query)
+func OrderByExtraFields(
+	manager IModelManager,
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) (*sqlchemy.SQuery, error) {
+	ret, err := call(manager, "OrderByExtraFields", ctx, q, userCred, query)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
 	if len(ret) != 2 {
-		return nil, httperrors.NewInternalServerError("Invald GetExtraDetails return value")
+		return nil, httperrors.NewInternalServerError("Invald OrderByExtraFields return value count %d", len(ret))
 	}
 	if err := ValueToError(ret[1]); err != nil {
 		return nil, err
 	}
-	return ValueToJSONObject(ret[0]).(*jsonutils.JSONDict), nil
+	return ret[0].Interface().(*sqlchemy.SQuery), nil
+}
+
+func GetExtraDetails(model IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (*jsonutils.JSONDict, error) {
+	ret, err := call(model, "GetExtraDetails", ctx, userCred, query, isList)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+	if len(ret) != 2 {
+		return nil, httperrors.NewInternalServerError("Invalid GetExtraDetails return value count %d", len(ret))
+	}
+	if err := ValueToError(ret[1]); err != nil {
+		return nil, err
+	}
+	return ValueToJSONDict(ret[0]), nil
+}
+
+func FetchCustomizeColumns(
+	manager IModelManager,
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) ([]*jsonutils.JSONDict, error) {
+	ret, err := call(manager, "FetchCustomizeColumns", ctx, userCred, query, objs, fields, isList)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+	if len(ret) != 1 {
+		return nil, httperrors.NewInternalServerError("Invalid FetchCustomizeColumns return value count %d", len(ret))
+	}
+	if ret[0].IsNil() {
+		return nil, nil
+	}
+	if ret[0].Kind() != reflect.Slice {
+		return nil, httperrors.NewInternalServerError("Invalid FetchCustomizeColumns return value type, not a slice!")
+	}
+	if ret[0].Len() != len(objs) {
+		return nil, httperrors.NewInternalServerError("Invalid FetchCustomizeColumns return value, inconsistent obj count: input %d != output %d", len(objs), ret[0].Len())
+	}
+	retVal := make([]*jsonutils.JSONDict, ret[0].Len())
+	for i := 0; i < ret[0].Len(); i += 1 {
+		jsonDict := ValueToJSONDict(ret[0].Index(i))
+		jsonDict.Update(jsonutils.Marshal(objs[i]).(*jsonutils.JSONDict))
+		retVal[i] = jsonDict
+	}
+	return retVal, nil
 }
 
 func ValidateUpdateData(model IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

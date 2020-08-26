@@ -50,11 +50,11 @@ func (self *ImageProbeTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 	}
 	if e := self.updateImageMetadata(ctx, image); e != nil {
 		image.SetStatus(self.UserCred, api.IMAGE_STATUS_KILLED, fmt.Sprintf("Image update failed %s", e))
-		self.SetStageFailed(ctx, e.Error())
+		self.SetStageFailed(ctx, jsonutils.NewString(e.Error()))
 		return
 	}
 	if err != nil {
-		self.OnProbeFailed(ctx, image, err.Error())
+		self.OnProbeFailed(ctx, image, jsonutils.NewString(err.Error()))
 	} else {
 		self.OnProbeSuccess(ctx, image)
 	}
@@ -68,14 +68,14 @@ func (self *ImageProbeTask) StartImageProbe(ctx context.Context, image *models.S
 	if err := self.updateImageMetadata(ctx, image); err != nil {
 		image.SetStatus(self.UserCred, api.IMAGE_STATUS_KILLED,
 			fmt.Sprintf("Image update failed after probe %s", err))
-		self.SetStageFailed(ctx, err.Error())
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return
 	}
 
 	if probeErr == nil {
 		self.OnProbeSuccess(ctx, image)
 	} else {
-		self.OnProbeFailed(ctx, image, probeErr.Error())
+		self.OnProbeFailed(ctx, image, jsonutils.NewString(probeErr.Error()))
 	}
 }
 
@@ -164,14 +164,17 @@ type sImageInfo struct {
 	IsInstalledCloudInit  bool
 }
 
-func (self *ImageProbeTask) OnProbeFailed(ctx context.Context, image *models.SImage, reason string) {
+func (self *ImageProbeTask) OnProbeFailed(ctx context.Context, image *models.SImage, reason jsonutils.JSONObject) {
 	log.Infof("Image %s Probe Failed: %s", image.Name, reason)
 	db.OpsLog.LogEvent(image, db.ACT_PROBE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithContext(ctx, image, logclient.ACT_IMAGE_PROBE, reason, self.UserCred, false)
 
 	if jsonutils.QueryBoolean(self.Params, "do_convert", false) {
 		self.SetStage("OnConvertComplete", nil)
-		image.StartImageConvertTask(ctx, self.UserCred, self.GetId())
+		if err := image.StartImageConvertTask(ctx, self.UserCred, self.GetId()); err != nil {
+			image.SetStatus(self.UserCred, api.IMAGE_STATUS_ACTIVE, "")
+			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+		}
 	} else {
 		image.SetStatus(self.UserCred, api.IMAGE_STATUS_ACTIVE, "")
 		self.SetStageFailed(ctx, reason)
@@ -186,7 +189,10 @@ func (self *ImageProbeTask) OnProbeSuccess(ctx context.Context, image *models.SI
 
 	if jsonutils.QueryBoolean(self.Params, "do_convert", false) {
 		self.SetStage("OnConvertComplete", nil)
-		image.StartImageConvertTask(ctx, self.UserCred, self.GetId())
+		if err := image.StartImageConvertTask(ctx, self.UserCred, self.GetId()); err != nil {
+			image.SetStatus(self.UserCred, api.IMAGE_STATUS_ACTIVE, "")
+			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+		}
 	} else {
 		image.SetStatus(self.UserCred, api.IMAGE_STATUS_ACTIVE, "")
 		self.SetStageComplete(ctx, nil)

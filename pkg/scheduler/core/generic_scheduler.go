@@ -29,7 +29,9 @@ import (
 	utiltrace "yunion.io/x/pkg/util/trace"
 	"yunion.io/x/pkg/util/workqueue"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
+	"yunion.io/x/onecloud/pkg/scheduler/api"
 	o "yunion.io/x/onecloud/pkg/scheduler/options"
 )
 
@@ -116,7 +118,7 @@ func (g *GenericScheduler) Schedule(unit *Unit, candidates []Candidater) (*Sched
 	trace := utiltrace.New(fmt.Sprintf("SessionID: %s, schedule info: %s",
 		schedInfo.SessionId, unit.Info()))
 
-	defer trace.LogIfLong(100 * time.Millisecond)
+	defer trace.LogIfLong(1 * time.Second)
 	if len(candidates) == 0 {
 		return nil, &NoResourceError{
 			sessionID: schedInfo.SessionId,
@@ -180,10 +182,11 @@ func newSchedResultByCtx(u *Unit, count int64, c Candidater) *SchedResultItem {
 		Count:             count,
 		Capacity:          u.GetCapacity(id),
 		Name:              c.Getter().Name(),
-		Score:             u.GetScore(id).String(),
+		Score:             u.GetScore(id),
 		Data:              u.GetFiltedData(id, count),
 		Candidater:        c,
 		AllocatedResource: u.GetAllocatedResource(id),
+		SchedData:         u.SchedData(),
 	}
 
 	if showDetails {
@@ -193,8 +196,8 @@ func newSchedResultByCtx(u *Unit, count int64, c Candidater) *SchedResultItem {
 	return r
 }
 
-func generateScheduleResult(u *Unit, scs []*SelectedCandidate, cs []Candidater) ([]*SchedResultItem, error) {
-	results := make([]*SchedResultItem, 0)
+func generateScheduleResult(u *Unit, scs []*SelectedCandidate, cs []Candidater) (SchedResultItems, error) {
+	results := make(SchedResultItems, 0)
 	itemMap := make(map[string]int)
 
 	for _, it := range scs {
@@ -218,10 +221,9 @@ func generateScheduleResult(u *Unit, scs []*SelectedCandidate, cs []Candidater) 
 	}
 
 	suggestionAll := u.SchedInfo.SuggestionAll
-	if suggestionAll || len(u.SchedData().Candidates) > 0 {
+	if suggestionAll || len(u.SchedData().PreferCandidates) > 0 {
 		for _, c := range cs {
 			if suggestionLimit <= int64(len(results)) {
-
 				break
 			}
 			id := c.IndexKey()
@@ -242,7 +244,7 @@ type SchedResultItem struct {
 	Count    int64                  `json:"count"`
 	Data     map[string]interface{} `json:"data"`
 	Capacity int64                  `json:"capacity"`
-	Score    string                 `json:"score"`
+	Score    Score                  `json:"score"`
 
 	CapacityDetails map[string]int64 `json:"capacity_details"`
 	ScoreDetails    string           `json:"score_details"`
@@ -250,15 +252,112 @@ type SchedResultItem struct {
 	Candidater Candidater `json:"-"`
 
 	*AllocatedResource
+
+	SchedData *api.SchedInfo
 }
 
-func (item *SchedResultItem) ToCandidateResource() *schedapi.CandidateResource {
+type StorageUsed struct {
+	used map[string]int64
+}
+
+func NewStorageUsed() *StorageUsed {
+	return &StorageUsed{
+		used: make(map[string]int64),
+	}
+}
+
+func (s *StorageUsed) Get(storageId string) int64 {
+	if used, ok := s.used[storageId]; ok {
+		return used
+	}
+	return 0
+}
+
+func (s *StorageUsed) Add(storageId string, used int64) {
+	if s.used == nil {
+		s.used = make(map[string]int64)
+	}
+	oUsed, ok := s.used[storageId]
+	if ok {
+		s.used[storageId] = oUsed + used
+	} else {
+		s.used[storageId] = used
+	}
+}
+
+func (item *SchedResultItem) ToCandidateResource(storageUsed *StorageUsed) *schedapi.CandidateResource {
 	return &schedapi.CandidateResource{
 		HostId: item.ID,
 		Name:   item.Name,
-		Disks:  item.Disks,
+		Disks:  item.getDisks(storageUsed),
 		Nets:   item.Nets,
 	}
+}
+
+func (item *SchedResultItem) getDisks(used *StorageUsed) []*schedapi.CandidateDisk {
+	inputs := item.SchedData.Disks
+	ret := make([]*schedapi.CandidateDisk, 0)
+	for idx, disk := range item.Disks {
+		ret = append(ret, &schedapi.CandidateDisk{
+			Index:      idx,
+			StorageIds: item.getSortStorageIds(used, inputs[idx], disk.Storages),
+		})
+	}
+	return ret
+}
+
+type sortStorage struct {
+	Id      string
+	FeeSize int64
+}
+
+type sortStorages []sortStorage
+
+func (s sortStorages) Len() int {
+	return len(s)
+}
+
+func (s sortStorages) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func (s sortStorages) Less(i, j int) bool {
+	s1 := s[i]
+	s2 := s[j]
+	return s1.FeeSize > s2.FeeSize
+}
+
+func (s sortStorages) getIds() []string {
+	ret := make([]string, 0)
+	for _, obj := range s {
+		ret = append(ret, obj.Id)
+	}
+	return ret
+}
+
+func (item *SchedResultItem) getSortStorageIds(
+	used *StorageUsed,
+	disk *compute.DiskConfig,
+	storages []*schedapi.CandidateStorage) []string {
+	reqSize := disk.SizeMb
+	ss := make([]sortStorage, 0)
+	for _, s := range storages {
+		ss = append(ss, sortStorage{
+			Id:      s.Id,
+			FeeSize: s.FreeCapacity - used.Get(s.Id),
+		})
+	}
+	toSort := sortStorages(ss)
+	sort.Sort(toSort)
+	sortedStorages := toSort.getIds()
+	ret := make([]string, 0)
+	for idx, id := range sortedStorages {
+		if idx == 0 {
+			used.Add(id, int64(reqSize))
+		}
+		ret = append(ret, id)
+	}
+	return ret
 }
 
 func GetCapacities(u *Unit, id string) (res map[string]int64) {
@@ -272,21 +371,18 @@ func GetCapacities(u *Unit, id string) (res map[string]int64) {
 	return
 }
 
-type SchedResultItemList struct {
-	Unit *Unit
-	Data []*SchedResultItem
+type SchedResultItems []*SchedResultItem
+
+func (its SchedResultItems) Len() int {
+	return len(its)
 }
 
-func (its SchedResultItemList) Len() int {
-	return len(its.Data)
+func (its SchedResultItems) Swap(i, j int) {
+	its[i], its[j] = its[j], its[i]
 }
 
-func (its *SchedResultItemList) Swap(i, j int) {
-	its.Data[i], its.Data[j] = its.Data[j], its.Data[i]
-}
-
-func (its SchedResultItemList) Less(i, j int) bool {
-	it1, it2 := its.Data[i], its.Data[j]
+func (its SchedResultItems) Less(i, j int) bool {
+	it1, it2 := its[i], its[j]
 	return it1.Capacity < it2.Capacity
 	/*
 		ctx := its.Unit
@@ -308,6 +404,11 @@ func (its SchedResultItemList) Less(i, j int) bool {
 
 		return v(count1, capacity1, score1) < v(count2, capacity2, score2)
 	*/
+}
+
+type SchedResultItemList struct {
+	Unit *Unit
+	Data SchedResultItems
 }
 
 func (its SchedResultItemList) String() string {
@@ -349,17 +450,12 @@ func SelectHosts(unit *Unit, priorityList HostPriorityList) ([]*SelectedCandidat
 completed:
 	for len(priorityList) > 0 {
 		log.V(10).Debugf("PriorityList: %#v", priorityList)
-		currentPriority := unit.GetMaxSelectPriority()
 		priorityList0 := HostPriorityList{}
 		for _, it := range priorityList {
 			if count <= 0 {
 				break completed
 			}
 			hostID := it.Host
-			if !currentPriority.IsEmpty() && unit.GetSelectPriority(hostID).Less(currentPriority) {
-				priorityList0 = append(priorityList0, it)
-				continue
-			}
 			var (
 				selectedItem *SelectedCandidate
 				ok           bool
@@ -377,9 +473,6 @@ completed:
 			if unit.GetCapacity(hostID) > selectedItem.Count {
 				priorityList0 = append(priorityList0, it)
 			}
-		}
-		if !currentPriority.IsEmpty() {
-			unit.UpdateSelectPriority()
 		}
 		// sort by score
 		priorityList = priorityList0
@@ -405,8 +498,8 @@ completed:
 func findCandidatesThatFit(unit *Unit, candidates []Candidater, predicates map[string]FitPredicate) ([]Candidater, error) {
 	var filtered []Candidater
 
-	ok, err, newPredicates := preExecPredicate(unit, candidates, predicates)
-	if !ok {
+	newPredicates, err := preExecPredicate(unit, candidates, predicates)
+	if err != nil {
 		return nil, err
 	}
 
@@ -457,27 +550,20 @@ func findCandidatesThatFit(unit *Unit, candidates []Candidater, predicates map[s
 	return filtered, nil
 }
 
-func preExecPredicate(unit *Unit, candidates []Candidater, predicates map[string]FitPredicate) (bool, error, map[string]FitPredicate) {
-	var (
-		name              string
-		predicate         FitPredicate
-		ok                bool
-		err               error
-		newPredicateFuncs map[string]FitPredicate
-	)
-	newPredicateFuncs = make(map[string]FitPredicate)
-	for name, predicate = range predicates {
+func preExecPredicate(unit *Unit, candidates []Candidater, predicates map[string]FitPredicate) (map[string]FitPredicate, error) {
+	newPredicateFuncs := map[string]FitPredicate{}
+	for name, predicate := range predicates {
 		// generate new FitPredicates because of race condition?
 		newPredicate := predicate.Clone()
-		ok, err = newPredicate.PreExecute(unit, candidates)
+		ok, err := newPredicate.PreExecute(unit, candidates)
+		if err != nil {
+			return nil, err
+		}
 		if ok {
 			newPredicateFuncs[name] = newPredicate
 		}
-		if err != nil {
-			return false, err, nil
-		}
 	}
-	return true, err, newPredicateFuncs
+	return newPredicateFuncs, nil
 }
 
 type WaitGroupWrapper struct {

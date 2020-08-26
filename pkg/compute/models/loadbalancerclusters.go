@@ -23,14 +23,18 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SLoadbalancerClusterManager struct {
 	db.SStandaloneResourceBaseManager
+	SZoneResourceBaseManager
+	SWireResourceBaseManager
 }
 
 var LoadbalancerClusterManager *SLoadbalancerClusterManager
@@ -50,43 +54,82 @@ func init() {
 type SLoadbalancerCluster struct {
 	db.SStandaloneResourceBase
 	SZoneResourceBase
-	WireId string `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"optional" update:"admin"`
+	SWireResourceBase `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"optional" update:"admin"`
+	//WireId string `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"optional" update:"admin"`
 }
 
-func (man *SLoadbalancerClusterManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, man)
-}
+// 负载均衡集群列表
+func (man *SLoadbalancerClusterManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.LoadbalancerClusterListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
 
-func (man *SLoadbalancerClusterManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, man)
-}
-
-func (lbc *SLoadbalancerCluster) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, lbc)
-}
-
-func (lbc *SLoadbalancerCluster) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, lbc)
-}
-
-func (lbc *SLoadbalancerCluster) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, lbc)
-}
-
-func (man *SLoadbalancerClusterManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err = man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
-	data := query.(*jsonutils.JSONDict)
-	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "zone", ModelKeyword: "zone", OwnerId: userCred},
-		{Key: "wire", ModelKeyword: "wire", OwnerId: userCred},
-	})
+	q, err = man.SZoneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ZonalFilterListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemFilter")
 	}
+	wireQuery := api.WireFilterListInput{
+		WireFilterListBase: query.WireFilterListBase,
+	}
+	q, err = man.SWireResourceBaseManager.ListItemFilter(ctx, q, userCred, wireQuery)
+	if err != nil {
+		return nil, errors.Wrap(err, "SWireResourceBaseManager.ListItemFilter")
+	}
+
 	return q, nil
+}
+
+func (man *SLoadbalancerClusterManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.LoadbalancerClusterListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = man.SZoneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ZonalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SZoneResourceBaseManager.OrderByExtraFields")
+	}
+	wireQuery := api.WireFilterListInput{
+		WireFilterListBase: query.WireFilterListBase,
+	}
+	q, err = man.SWireResourceBaseManager.OrderByExtraFields(ctx, q, userCred, wireQuery)
+	if err != nil {
+		return nil, errors.Wrap(err, "SWireResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (man *SLoadbalancerClusterManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = man.SZoneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = man.SWireResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (man *SLoadbalancerClusterManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -144,7 +187,19 @@ func (lbc *SLoadbalancerCluster) ValidateUpdateData(ctx context.Context, userCre
 		log.Infof("changing wire attribute of lbcluster %s(%s) %sto %s(%s)",
 			lbc.Name, lbc.Id, from, wire.Name, wire.Id)
 	}
-	return lbc.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+
+	input := apis.StandaloneResourceBaseUpdateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal")
+	}
+	input, err = lbc.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
+	}
+	data.Update(jsonutils.Marshal(input))
+
+	return data, nil
 }
 
 func (lbc *SLoadbalancerCluster) ValidateDeleteCondition(ctx context.Context) error {
@@ -170,18 +225,38 @@ func (lbc *SLoadbalancerCluster) ValidateDeleteCondition(ctx context.Context) er
 	return lbc.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (lbc *SLoadbalancerCluster) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := lbc.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	zoneInfo := lbc.SZoneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if zoneInfo != nil {
-		extra.Update(zoneInfo)
-	}
-	return extra
+func (lbc *SLoadbalancerCluster) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.LoadbalancerClusterDetails, error) {
+	return api.LoadbalancerClusterDetails{}, nil
 }
 
-func (lbc *SLoadbalancerCluster) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra := lbc.GetCustomizeColumns(ctx, userCred, query)
-	return extra, nil
+func (man *SLoadbalancerClusterManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.LoadbalancerClusterDetails {
+	rows := make([]api.LoadbalancerClusterDetails, len(objs))
+
+	stdRows := man.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	zoneRows := man.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	wireRows := man.SWireResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.LoadbalancerClusterDetails{
+			StandaloneResourceDetails: stdRows[i],
+			ZoneResourceInfo:          zoneRows[i],
+			WireResourceInfoBase:      wireRows[i].WireResourceInfoBase,
+		}
+	}
+
+	return rows
 }
 
 func (lbc *SLoadbalancerCluster) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -254,10 +329,12 @@ func (man *SLoadbalancerClusterManager) getLoadbalancerAgents(clusterId string) 
 func (man *SLoadbalancerClusterManager) InitializeData() error {
 	// find existing lb with empty clusterid
 	lbs := []SLoadbalancer{}
-	lbQ := LoadbalancerManager.Query().
-		IsFalse("pending_deleted").
-		IsNullOrEmpty("manager_id").
-		IsNullOrEmpty("cluster_id")
+	lbQ := LoadbalancerManager.Query()
+	vpcs := VpcManager.Query().SubQuery()
+	lbQ = lbQ.Join(vpcs, sqlchemy.Equals(lbQ.Field("vpc_id"), vpcs.Field("id")))
+	lbQ = lbQ.Filter(sqlchemy.IsFalse(lbQ.Field("pending_deleted")))
+	lbQ = lbQ.Filter(sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")))
+	lbQ = lbQ.Filter(sqlchemy.IsNullOrEmpty(lbQ.Field("cluster_id")))
 	if err := db.FetchModelObjects(LoadbalancerManager, lbQ, &lbs); err != nil {
 		return errors.Wrap(err, "find lb with empty cluster_id")
 	}
@@ -283,7 +360,7 @@ func (man *SLoadbalancerClusterManager) InitializeData() error {
 				lbc = m.(*SLoadbalancerCluster)
 				lbc.Name = "auto-lbc-" + zoneId
 				lbc.ZoneId = zoneId
-				if err := man.TableSpec().Insert(lbc); err != nil {
+				if err := man.TableSpec().Insert(context.TODO(), lbc); err != nil {
 					return errors.Wrap(err, "insert lbcluster model")
 				}
 			} else {
@@ -327,4 +404,29 @@ func (man *SLoadbalancerClusterManager) InitializeData() error {
 	}
 
 	return nil
+}
+
+func (manager *SLoadbalancerClusterManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SZoneResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SZoneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	if keys.Contains("wire") {
+		q, err = manager.SWireResourceBaseManager.ListItemExportKeys(ctx, q, userCred, stringutils2.NewSortedStrings([]string{"wire"}))
+		if err != nil {
+			return nil, errors.Wrap(err, "SWireResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	return q, nil
 }

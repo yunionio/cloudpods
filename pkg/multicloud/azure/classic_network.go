@@ -54,7 +54,7 @@ func (self *SClassicNetwork) IsEmulated() bool {
 }
 
 func (self *SClassicNetwork) GetStatus() string {
-	return "available"
+	return api.NETWORK_STATUS_AVAILABLE
 }
 
 func (self *SClassicNetwork) Delete() error {

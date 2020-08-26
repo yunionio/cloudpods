@@ -31,7 +31,11 @@ covermode=${COVERMODE:-atomic}
 coverdir=$(mktemp -d /tmp/coverage.XXXXXXXXXX)
 profile="${coverdir}/profile.out"
 if [ -z "$pkgs" ]; then
-	pkgs="$(go list -mod vendor ./... | grep -vE 'host-image|hostimage')"
+	pkgs="$(go list -mod vendor -test ./... | grep '\.test$' | sed -e 's/\.test$//')"
+	pkgs="$(echo "$pkgs" | grep -vE 'host-image|hostimage')"
+fi
+if type circleci &>/dev/null; then
+	pkgs="$(echo "$pkgs" | circleci tests split)"
 fi
 
 echo "mode: $covermode" >"$profile"

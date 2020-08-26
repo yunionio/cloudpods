@@ -26,16 +26,19 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis/compute"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SSnapshotPolicyDiskManager struct {
 	db.SVirtualJointResourceBaseManager
+	SSnapshotPolicyResourceBaseManager
+	SDiskResourceBaseManager
 }
 
 func (m *SSnapshotPolicyDiskManager) GetMasterFieldName() string {
@@ -68,9 +71,11 @@ func init() {
 type SSnapshotPolicyDisk struct {
 	db.SVirtualJointResourceBase
 
-	SnapshotpolicyId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
-	DiskId           string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
-	Status           string `width:"36" charset:"ascii" nullable:"false" default:"init" list:"user" create:"optional"`
+	SSnapshotPolicyResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
+	SDiskResourceBase           `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
+	// SnapshotpolicyId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
+	// DiskId           string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
+	Status string `width:"36" charset:"ascii" nullable:"false" default:"init" list:"user" create:"optional"`
 }
 
 func (sd *SSnapshotPolicyDisk) SetStatus(userCred mcclient.TokenCredential, status string, reason string) error {
@@ -95,32 +100,60 @@ func (sd *SSnapshotPolicyDisk) SetStatus(userCred mcclient.TokenCredential, stat
 	return nil
 }
 
-func (self *SSnapshotPolicyDisk) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) *jsonutils.JSONDict {
-
-	ret, _ := self.getMoreDetails(ctx, userCred, query)
-	return ret
+func (self *SSnapshotPolicyDisk) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.SnapshotPolicyDiskDetails, error) {
+	return api.SnapshotPolicyDiskDetails{}, nil
 }
 
-func (self *SSnapshotPolicyDisk) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+func (manager *SSnapshotPolicyDiskManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.SnapshotPolicyDiskDetails {
+	rows := make([]api.SnapshotPolicyDiskDetails, len(objs))
 
-	return self.getMoreDetails(ctx, userCred, query)
-}
+	virtRows := manager.SVirtualJointResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	snapIds := make([]string, len(rows))
+	diskIds := make([]string, len(rows))
 
-func (self *SSnapshotPolicyDisk) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-
-	ret := jsonutils.NewDict()
-	disk := DiskManager.FetchDiskById(self.DiskId)
-	extraDict, err := disk.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return ret, nil
+	for i := range rows {
+		rows[i] = api.SnapshotPolicyDiskDetails{
+			VirtualJointResourceBaseDetails: virtRows[i],
+		}
+		snapIds[i] = objs[i].(*SSnapshotPolicyDisk).SnapshotpolicyId
+		diskIds[i] = objs[i].(*SSnapshotPolicyDisk).DiskId
 	}
-	dict := jsonutils.Marshal(disk).(*jsonutils.JSONDict)
-	dict.Update(extraDict)
-	ret.Add(dict, "disk")
-	return ret, nil
+
+	snapIdMaps, err := db.FetchIdNameMap2(SnapshotPolicyManager, snapIds)
+	if err != nil {
+		log.Errorf("FetchIdNameMap2 fail for snapshot Ids %s", err)
+		return rows
+	}
+
+	disks := make(map[string]SDisk)
+	err = db.FetchStandaloneObjectsByIds(DiskManager, diskIds, &disks)
+	if err != nil {
+		log.Errorf("FetchStandaloneObjectsByIds for disks fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if name, ok := snapIdMaps[snapIds[i]]; ok {
+			rows[i].Snapshotpolicy = name
+		}
+		if disk, ok := disks[diskIds[i]]; ok {
+			rows[i].Disk, _ = disk.GetExtraDetails(ctx, userCred, query, isList)
+		}
+	}
+
+	return rows
 }
 
 // ==================================================== fetch ==========================================================
@@ -288,8 +321,8 @@ func (m *SSnapshotPolicyDiskManager) SyncAttachDisk(ctx context.Context, userCre
 		sd := SSnapshotPolicyDisk{}
 		sd.DiskId = disk.GetId()
 		sd.SnapshotpolicyId = spId
-		sd.Status = compute.SNAPSHOT_POLICY_DISK_READY
-		err = m.TableSpec().Insert(&sd)
+		sd.Status = api.SNAPSHOT_POLICY_DISK_READY
+		err = m.TableSpec().Insert(ctx, &sd)
 		if err != nil {
 			failRecord = append(failRecord, fmt.Sprintf("attachsnapshotpolicy %s to disk %s failed",
 				spId, disk.GetId()))
@@ -367,7 +400,7 @@ func (sd *SSnapshotPolicyDisk) DetachBySnapshotpolicy(ctx context.Context, userC
 
 // ==================================================== create =========================================================
 
-var ErrExistSD = fmt.Errorf("snapshotpolicy disk has been exist")
+const ErrExistSD = errors.Error("snapshotpolicy disk has been exist")
 
 func (self *SSnapshotPolicyDiskManager) newSnapshotpolicyDisk(ctx context.Context, userCred mcclient.TokenCredential,
 	sp *SSnapshotPolicy, disk *SDisk) (*SSnapshotPolicyDisk, error) {
@@ -384,12 +417,14 @@ func (self *SSnapshotPolicyDiskManager) newSnapshotpolicyDisk(ctx context.Contex
 		return &spd, ErrExistSD
 	}
 
-	spd := SSnapshotPolicyDisk{SnapshotpolicyId: sp.GetId(), DiskId: disk.GetId()}
+	spd := SSnapshotPolicyDisk{}
+	spd.SnapshotpolicyId = sp.GetId()
+	spd.DiskId = disk.GetId()
 	spd.SetModelManager(self, &spd)
 
 	lockman.LockJointObject(ctx, disk, sp)
 	defer lockman.ReleaseJointObject(ctx, disk, sp)
-	return &spd, self.TableSpec().Insert(&spd)
+	return &spd, self.TableSpec().Insert(ctx, &spd)
 
 }
 func (self *SSnapshotPolicyDiskManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -451,7 +486,7 @@ func (sd *SSnapshotPolicyDisk) CustomizeDelete(ctx context.Context, userCred mcc
 	taskData := jsonutils.NewDict()
 	taskData.Add(jsonutils.NewString(snapshotPolicyID), "snapshot_policy_id")
 	taskData.Add(jsonutils.Marshal(sd), "snapshotPolicyDisk")
-	sd.SetStatus(userCred, compute.SNAPSHOT_POLICY_DISK_DELETING, "")
+	sd.SetStatus(userCred, api.SNAPSHOT_POLICY_DISK_DELETING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "SnapshotPolicyCancelTask", disk, userCred, nil, "", "", nil)
 	if err != nil {
 		return errors.Wrapf(err, "SnapshotPolicyCancelTask newTask error %s", err)
@@ -459,4 +494,102 @@ func (sd *SSnapshotPolicyDisk) CustomizeDelete(ctx context.Context, userCred mcc
 		task.ScheduleRun(taskData)
 	}
 	return nil
+}
+
+func (manager *SSnapshotPolicyDiskManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.SnapshotPolicyDiskListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualJointResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualJointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualJointResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SSnapshotPolicyResourceBaseManager.ListItemFilter(ctx, q, userCred, query.SnapshotPolicyFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSnapshotPolicyResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SDiskResourceBaseManager.ListItemFilter(ctx, q, userCred, query.DiskFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDiskResourceBaseManager.ListItemFilter")
+	}
+
+	if len(query.Status) > 0 {
+		q = q.In("status", query.Status)
+	}
+
+	return q, nil
+}
+
+func (manager *SSnapshotPolicyDiskManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.SnapshotPolicyDiskListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualJointResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualJointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualJointResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SSnapshotPolicyResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.SnapshotPolicyFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSnapshotPolicyResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SDiskResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.DiskFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDiskResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SSnapshotPolicyDiskManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualJointResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SSnapshotPolicyResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SDiskResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SSnapshotPolicyDiskManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualJointResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualJointResourceBaseManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SSnapshotPolicyResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SSnapshotPolicyResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SSnapshotPolicyResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	if keys.ContainsAny(manager.SDiskResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SDiskResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SDiskResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	return q, nil
 }

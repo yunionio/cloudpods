@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -436,7 +437,7 @@ func NewScheduleUnit(info *api.SchedInfo, schedManager interface{}) *Unit {
 }
 
 func (u *Unit) Info() string {
-	return fmt.Sprintf("%#v", u.SchedInfo)
+	return u.SchedInfo.JSON(u.SchedInfo).String()
 }
 
 func (u *Unit) SessionID() string {
@@ -448,19 +449,9 @@ func (u *Unit) SchedData() *api.SchedInfo {
 }
 
 func (u *Unit) ShouldExecuteSchedtagFilter(hostId string) bool {
-	schedData := u.SchedData()
-	if !schedData.Backup {
-		if len(schedData.PreferHost) != 0 {
-			return false
-		}
-		return true
-	}
-	for _, preferHost := range []string{schedData.PreferHost, schedData.PreferBackupHost} {
-		if preferHost == hostId {
-			return false
-		}
-	}
-	return true
+	return !utils.IsInStringArray(
+		hostId, []string{u.SchedInfo.PreferHost, u.SchedInfo.PreferBackupHost},
+	)
 }
 
 func (u *Unit) GetHypervisor() string {
@@ -554,14 +545,14 @@ func (u *Unit) SetCapacity(id string, name string, capacity Counter) error {
 	u.capacityLock.Lock()
 	defer u.capacityLock.Unlock()
 
-	// Capacity must >= 0
+	// Capacity must >= -1
 	if !validateCapacityInput(capacity) {
-		err := fmt.Errorf("Capacity counter invalid: %#v, count: %d", capacity, capacity.GetCount())
+		err := fmt.Errorf("capacity counter %#v invalid %d", capacity, capacity.GetCount())
 		log.Errorf("SetCapacity error: %v", err)
 		return err
 	}
 
-	log.V(10).Debugf("%q setCapacity id: %s, capacity: %d", name, id, capacity.GetCount())
+	log.Debugf("%q setCapacity id: %s, capacity: %d", name, id, capacity.GetCount())
 
 	var (
 		capacityObj *Capacity
@@ -626,7 +617,7 @@ func (u *Unit) RegisterSelectPriorityUpdater(name string, f SSelectPriorityUpdat
 }
 
 func validateCapacityInput(c Counter) bool {
-	if c != nil && c.GetCount() >= 0 {
+	if c != nil && c.GetCount() >= -1 {
 		return true
 	}
 	return false

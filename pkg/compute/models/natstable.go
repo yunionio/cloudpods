@@ -30,14 +30,15 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SNatSEntryManager struct {
 	SNatEntryManager
+	SNetworkResourceBaseManager
 }
 
 var NatSEntryManager *SNatSEntryManager
@@ -56,11 +57,18 @@ func init() {
 
 type SNatSEntry struct {
 	SNatEntry
+	SNetworkResourceBase
 
 	IP         string `charset:"ascii" list:"user" create:"required"`
 	SourceCIDR string `width:"22" charset:"ascii" list:"user" create:"required"`
+}
 
-	NetworkId string `width:"36" charset:"ascii" list:"user" create:"optional"`
+func (self *SNatSEntry) GetCloudproviderId() string {
+	network, err := self.GetNetwork()
+	if err == nil {
+		return network.GetCloudproviderId()
+	}
+	return ""
 }
 
 func (self *SNatSEntry) GetNetwork() (*SNetwork, error) {
@@ -74,16 +82,69 @@ func (self *SNatSEntry) GetNetwork() (*SNetwork, error) {
 	return _network.(*SNetwork), nil
 }
 
-func (man *SNatSEntryManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := man.SNatEntryManager.ListItemFilter(ctx, q, userCred, query)
+// NAT网关的源地址转换规则列表
+func (man *SNatSEntryManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.NatSEntryListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := man.SNatEntryManager.ListItemFilter(ctx, q, userCred, query.NatEntryListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SNatEntryManager.ListItemFilter")
 	}
-	data := query.(*jsonutils.JSONDict)
-	return validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "network", ModelKeyword: "network", OwnerId: userCred},
-		{Key: "natgateway", ModelKeyword: "natgateway", OwnerId: userCred},
-	})
+	netQuery := api.NetworkFilterListInput{
+		NetworkFilterListBase: query.NetworkFilterListBase,
+	}
+	q, err = man.SNetworkResourceBaseManager.ListItemFilter(ctx, q, userCred, netQuery)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.ListItemFilter")
+	}
+
+	if len(query.IP) > 0 {
+		q = q.In("ip", query.IP)
+	}
+	if len(query.SourceCIDR) > 0 {
+		q = q.In("source_cidr", query.SourceCIDR)
+	}
+
+	return q, nil
+}
+
+func (manager *SNatSEntryManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.NatSEntryListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SNatEntryManager.OrderByExtraFields(ctx, q, userCred, query.NatEntryListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNatEntryManager.OrderByExtraFields")
+	}
+	netQuery := api.NetworkFilterListInput{
+		NetworkFilterListBase: query.NetworkFilterListBase,
+	}
+	q, err = manager.SNetworkResourceBaseManager.OrderByExtraFields(ctx, q, userCred, netQuery)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (manager *SNatSEntryManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SNatEntryManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SNetworkResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (man *SNatSEntryManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential,
@@ -107,7 +168,7 @@ func (man *SNatSEntryManager) ValidateCreateData(ctx context.Context, userCred m
 		//check sourceCidr and convert to netutils.IPV4Range
 		sourceIPV4Range, err := newIPv4RangeFromCIDR(input.SourceCidr)
 		if err != nil {
-			return nil, httperrors.NewInputParameterError(err.Error())
+			return nil, httperrors.NewInputParameterError("%v", err)
 		}
 		// get natgateway
 		model, err := man.FetchById(input.NatgatewayId)
@@ -116,10 +177,11 @@ func (man *SNatSEntryManager) ValidateCreateData(ctx context.Context, userCred m
 		}
 		natgateway := model.(*SNatGateway)
 		// get vpc
-		vpc, err := natgateway.GetVpc()
-		if err != nil {
-			return nil, err
+		vpc := natgateway.GetVpc()
+		if vpc == nil {
+			return nil, errors.Wrap(httperrors.ErrBadRequest, "invalid natgateway vpc")
 		}
+
 		vpcIPV4Range, err := newIPv4RangeFromCIDR(vpc.CidrBlock)
 		if err != nil {
 			return nil, errors.Wrap(err, "convert vpc cidr to ipv4range error")
@@ -132,7 +194,7 @@ func (man *SNatSEntryManager) ValidateCreateData(ctx context.Context, userCred m
 	} else {
 		network, err := man.checkNetWorkId(input.NetworkId)
 		if err != nil {
-			return nil, httperrors.NewInputParameterError(err.Error())
+			return nil, httperrors.NewInputParameterError("%v", err)
 		}
 		data.Add(jsonutils.NewString(network.GetExternalId()), "network_ext_id")
 	}
@@ -167,7 +229,9 @@ func (man *SNatSEntryManager) ValidateCreateData(ctx context.Context, userCred m
 	return data, nil
 }
 
-func (manager *SNatSEntryManager) SyncNatSTable(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, nat *SNatGateway, extTable []cloudprovider.ICloudNatSEntry) compare.SyncResult {
+func (manager *SNatSEntryManager) SyncNatSTable(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, nat *SNatGateway, extTable []cloudprovider.ICloudNatSEntry) compare.SyncResult {
+	syncOwnerId := provider.GetOwnerId()
+
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
 
@@ -197,7 +261,7 @@ func (manager *SNatSEntryManager) SyncNatSTable(ctx context.Context, userCred mc
 	}
 
 	for i := 0; i < len(commondb); i += 1 {
-		err := commondb[i].SyncWithCloudNatSTable(ctx, userCred, commonext[i])
+		err := commondb[i].SyncWithCloudNatSTable(ctx, userCred, commonext[i], syncOwnerId, provider.Id)
 		if err != nil {
 			result.UpdateError(err)
 			continue
@@ -207,7 +271,7 @@ func (manager *SNatSEntryManager) SyncNatSTable(ctx context.Context, userCred mc
 	}
 
 	for i := 0; i < len(added); i += 1 {
-		routeTableNew, err := manager.newFromCloudNatSTable(ctx, userCred, syncOwnerId, nat, added[i])
+		routeTableNew, err := manager.newFromCloudNatSTable(ctx, userCred, syncOwnerId, nat, added[i], provider.Id)
 		if err != nil {
 			result.AddError(err)
 			continue
@@ -229,13 +293,19 @@ func (self *SNatSEntry) syncRemoveCloudNatSTable(ctx context.Context, userCred m
 	return self.RealDelete(ctx, userCred)
 }
 
-func (self *SNatSEntry) SyncWithCloudNatSTable(ctx context.Context, userCred mcclient.TokenCredential, extEntry cloudprovider.ICloudNatSEntry) error {
+func (self *SNatSEntry) SyncWithCloudNatSTable(ctx context.Context, userCred mcclient.TokenCredential, extEntry cloudprovider.ICloudNatSEntry, syncOwnerId mcclient.IIdentityProvider, managerId string) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		self.Status = extEntry.GetStatus()
 		self.IP = extEntry.GetIP()
 		self.SourceCIDR = extEntry.GetSourceCIDR()
 		if extNetworkId := extEntry.GetNetworkId(); len(extNetworkId) > 0 {
-			network, err := db.FetchByExternalId(NetworkManager, extNetworkId)
+			network, err := db.FetchByExternalIdAndManagerId(NetworkManager, extNetworkId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				wire := WireManager.Query().SubQuery()
+				vpc := VpcManager.Query().SubQuery()
+				return q.Join(wire, sqlchemy.Equals(wire.Field("id"), q.Field("wire_id"))).
+					Join(vpc, sqlchemy.Equals(vpc.Field("id"), wire.Field("vpc_id"))).
+					Filter(sqlchemy.Equals(vpc.Field("manager_id"), managerId))
+			})
 			if err != nil {
 				return err
 			}
@@ -246,11 +316,14 @@ func (self *SNatSEntry) SyncWithCloudNatSTable(ctx context.Context, userCred mcc
 	if err != nil {
 		return err
 	}
+
+	SyncCloudDomain(userCred, self, syncOwnerId)
+
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
 }
 
-func (manager *SNatSEntryManager) newFromCloudNatSTable(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, nat *SNatGateway, extEntry cloudprovider.ICloudNatSEntry) (*SNatSEntry, error) {
+func (manager *SNatSEntryManager) newFromCloudNatSTable(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, nat *SNatGateway, extEntry cloudprovider.ICloudNatSEntry, managerId string) (*SNatSEntry, error) {
 	table := SNatSEntry{}
 	table.SetModelManager(manager, &table)
 
@@ -263,18 +336,26 @@ func (manager *SNatSEntryManager) newFromCloudNatSTable(ctx context.Context, use
 	table.IP = extEntry.GetIP()
 	table.SourceCIDR = extEntry.GetSourceCIDR()
 	if extNetworkId := extEntry.GetNetworkId(); len(extNetworkId) > 0 {
-		network, err := db.FetchByExternalId(NetworkManager, extNetworkId)
+		network, err := db.FetchByExternalIdAndManagerId(NetworkManager, extNetworkId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			wire := WireManager.Query().SubQuery()
+			vpc := VpcManager.Query().SubQuery()
+			return q.Join(wire, sqlchemy.Equals(wire.Field("id"), q.Field("wire_id"))).
+				Join(vpc, sqlchemy.Equals(vpc.Field("id"), wire.Field("vpc_id"))).
+				Filter(sqlchemy.Equals(vpc.Field("manager_id"), managerId))
+		})
 		if err != nil {
 			return nil, err
 		}
 		table.NetworkId = network.GetId()
 	}
 
-	err := manager.TableSpec().Insert(&table)
+	err := manager.TableSpec().Insert(ctx, &table)
 	if err != nil {
 		log.Errorf("newFromCloudNatSTable fail %s", err)
 		return nil, err
 	}
+
+	SyncCloudDomain(userCred, &table, ownerId)
 
 	db.OpsLog.LogEvent(&table, db.ACT_CREATE, table.GetShortDesc(ctx), userCred)
 
@@ -301,39 +382,49 @@ func (manager *SNatSEntryManager) checkNetWorkId(networkId string) (*SNetwork, e
 	return model.(*SNetwork), nil
 }
 
-func (self *SNatSEntry) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
-	}
-	return self.getMoreDetails(ctx, userCred, extra), nil
+func (self *SNatSEntry) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.NatSEntryDetails, error) {
+	return api.NatSEntryDetails{}, nil
 }
 
-func (self *SNatSEntry) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+func (manager *SNatSEntryManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.NatSEntryDetails {
+	rows := make([]api.NatSEntryDetails, len(objs))
 
-	return self.getMoreDetails(ctx, userCred, extra)
-}
+	netIds := make([]string, len(objs))
+	entryRows := manager.SNatEntryManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = api.NatSEntryDetails{
+			NatEntryDetails: entryRows[i],
+		}
+		netIds[i] = objs[i].(*SNatSEntry).NetworkId
+	}
 
-func (self *SNatSEntry) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query *jsonutils.JSONDict) *jsonutils.JSONDict {
-
-	network, err := self.GetNetwork()
+	nets := make(map[string]SNetwork)
+	err := db.FetchStandaloneObjectsByIds(NetworkManager, netIds, &nets)
 	if err != nil {
-		return query
+		return rows
 	}
-	if network == nil {
-		return query
+
+	for i := range rows {
+		if net, ok := nets[netIds[i]]; ok {
+			rows[i].Network = api.SimpleNetwork{
+				Id:            net.Id,
+				Name:          net.Name,
+				GuestIpStart:  net.GuestIpStart,
+				GuestIpEnd:    net.GuestIpEnd,
+				GuestIp6Start: net.GuestIp6Start,
+				GuestIp6End:   net.GuestIp6End,
+			}
+		}
 	}
-	query.Add(jsonutils.Marshal(network), "network")
-	natgateway, err := self.GetNatgateway()
-	if err != nil {
-		log.Errorf("failed to get naggateway %s for stable %s(%s) error: %v", self.NatgatewayId, self.Name, self.Id, err)
-		return query
-	}
-	query.Add(jsonutils.NewString(natgateway.Name), "natgateway")
-	query.Add(jsonutils.NewString(NatGatewayManager.NatNameToReal(self.Name, natgateway.GetId())), "real_name")
-	return query
+
+	return rows
 }
 
 func (self *SNatSEntry) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {

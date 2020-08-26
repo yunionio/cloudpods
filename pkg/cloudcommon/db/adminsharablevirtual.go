@@ -19,15 +19,19 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SAdminSharableVirtualResourceBase struct {
 	SSharableVirtualResourceBase
-	Records string `charset:"ascii" list:"user" create:"optional" update:"user"`
+	Records string `charset:"utf8" list:"user" create:"optional" update:"user"`
 }
 
 type SAdminSharableVirtualResourceBaseManager struct {
@@ -47,7 +51,22 @@ func (manager *SAdminSharableVirtualResourceBaseManager) GetIAdminSharableVirtua
 	return manager.GetVirtualObject().(IAdminSharableVirtualModelManager)
 }
 
-func (manager *SAdminSharableVirtualResourceBaseManager) ValidateCreateData(man IAdminSharableVirtualModelManager, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SAdminSharableVirtualResourceBaseManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input apis.AdminSharableVirtualResourceBaseCreateInput,
+) (apis.AdminSharableVirtualResourceBaseCreateInput, error) {
+	var err error
+	input.SharableVirtualResourceCreateInput, err = manager.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.SharableVirtualResourceCreateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ValidateCreateData")
+	}
+	return input, nil
+}
+
+func (manager *SAdminSharableVirtualResourceBaseManager) ValidateRecordsData(man IAdminSharableVirtualModelManager, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	records, err := man.ParseInputInfo(data)
 	if err != nil {
 		return nil, err
@@ -160,4 +179,79 @@ func (model *SAdminSharableVirtualResourceBase) setInfo(ctx context.Context,
 
 func (model *SAdminSharableVirtualResourceBase) GetIAdminSharableVirtualModel() IAdminSharableVirtualModel {
 	return model.GetVirtualObject().(IAdminSharableVirtualModel)
+}
+
+func (manager *SAdminSharableVirtualResourceBaseManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input apis.AdminSharableVirtualResourceListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.SharableVirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
+	}
+	return q, nil
+}
+
+func (manager *SAdminSharableVirtualResourceBaseManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	q, err := manager.SSharableVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SAdminSharableVirtualResourceBaseManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input apis.AdminSharableVirtualResourceListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SSharableVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.SharableVirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (model *SAdminSharableVirtualResourceBase) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (apis.AdminSharableVirtualResourceDetails, error) {
+	return apis.AdminSharableVirtualResourceDetails{}, nil
+}
+
+func (manager *SAdminSharableVirtualResourceBaseManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []apis.AdminSharableVirtualResourceDetails {
+	rows := make([]apis.AdminSharableVirtualResourceDetails, len(objs))
+	virtRows := manager.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = apis.AdminSharableVirtualResourceDetails{
+			SharableVirtualResourceDetails: virtRows[i],
+		}
+	}
+	return rows
+}
+
+func (model *SAdminSharableVirtualResourceBase) ValidateUpdateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.AdminSharableVirtualResourceBaseUpdateInput,
+) (apis.AdminSharableVirtualResourceBaseUpdateInput, error) {
+	var err error
+	input.SharableVirtualResourceBaseUpdateInput, err = model.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.SharableVirtualResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SSharableVirtualResourceBase.ValidateUpdateData")
+	}
+	return input, nil
 }

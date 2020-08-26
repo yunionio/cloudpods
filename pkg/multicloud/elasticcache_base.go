@@ -16,6 +16,7 @@ package multicloud
 
 type SElasticcacheBase struct {
 	SVirtualResourceBase
+	SBillingBase
 }
 
 type SElasticcacheBackupBase struct {

@@ -28,11 +28,11 @@ import (
 type BaseOptions struct {
 	Help       bool   `help:"Show help" default:"false"`
 	Debug      bool   `help:"Show debug" default:"false"`
-	CloudEnv   string `help:"Cloud environment" default:"$HUAWEI_CLOUD_ENV" choices:"ChinaCloud|InternationalCloud"`
-	AccessKey  string `help:"Access key" default:"$HUAWEI_ACCESS_KEY"`
-	Secret     string `help:"Secret" default:"$HUAWEI_SECRET"`
-	RegionId   string `help:"RegionId" default:"$HUAWEI_REGION"`
-	ProjectId  string `help:"RegionId" default:"$HUAWEI_PROJECT"`
+	CloudEnv   string `help:"Cloud environment" default:"$HUAWEI_CLOUD_ENV" choices:"ChinaCloud|InternationalCloud" metavar:"HUAWEI_CLOUD_ENV"`
+	AccessKey  string `help:"Access key" default:"$HUAWEI_ACCESS_KEY" metavar:"HUAWEI_ACCESS_KEY"`
+	Secret     string `help:"Secret" default:"$HUAWEI_SECRET" metavar:"HUAWEI_SECRET"`
+	RegionId   string `help:"RegionId" default:"$HUAWEI_REGION" metavar:"HUAWEI_REGION"`
+	ProjectId  string `help:"RegionId" default:"$HUAWEI_PROJECT" metavar:"HUAWEI_PROJECT"`
 	SUBCOMMAND string `help:"huaweicli subcommand" subcommand:"true"`
 }
 
@@ -86,9 +86,14 @@ func newClient(options *BaseOptions) (*huawei.SRegion, error) {
 		return nil, fmt.Errorf("Missing secret")
 	}
 
-	cli, err := huawei.NewHuaweiClient("", "", options.CloudEnv,
-		options.AccessKey, options.Secret, options.ProjectId,
-		options.Debug)
+	cli, err := huawei.NewHuaweiClient(
+		huawei.NewHuaweiClientConfig(
+			options.CloudEnv,
+			options.AccessKey,
+			options.Secret,
+			options.ProjectId,
+		).Debug(options.Debug),
+	)
 	if err != nil {
 		return nil, err
 	}

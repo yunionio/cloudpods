@@ -33,3 +33,29 @@ func TestIsUtf8(t *testing.T) {
 		}
 	}
 }
+
+func TestIsPrintableAscii(t *testing.T) {
+	cases := []struct {
+		in   string
+		want bool
+	}{
+		{
+			in:   "passw0rd",
+			want: true,
+		},
+		{
+			in:   string([]byte{128, 45, 48}),
+			want: false,
+		},
+		{
+			in:   "中文",
+			want: false,
+		},
+	}
+	for _, c := range cases {
+		got := IsPrintableAsciiString(c.in)
+		if got != c.want {
+			t.Errorf("%s IsPringtableAsciiString got %v want %v", c.in, got, c.want)
+		}
+	}
+}

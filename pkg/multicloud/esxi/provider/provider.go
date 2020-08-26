@@ -101,8 +101,8 @@ func parseHostPort(host string, defPort int) (string, int, error) {
 	}
 }
 
-func (self *SESXiProviderFactory) GetProvider(providerId, providerName, urlStr, account, secret string) (cloudprovider.ICloudProvider, error) {
-	parts, err := url.Parse(urlStr)
+func (self *SESXiProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
+	parts, err := url.Parse(cfg.URL)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,11 @@ func (self *SESXiProviderFactory) GetProvider(providerId, providerName, urlStr, 
 		return nil, err
 	}
 
-	client, err := esxi.NewESXiClient(providerId, providerName, host, port, account, secret)
+	client, err := esxi.NewESXiClient(
+		esxi.NewESXiClientConfig(
+			host, port, cfg.Account, cfg.Secret,
+		).CloudproviderConfig(cfg),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -182,9 +186,21 @@ func (self *SESXiProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, er
 }
 
 func (self *SESXiProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
-	return nil, cloudprovider.ErrNotSupported
+	return self.client.GetIProjects()
 }
 
 func (self *SESXiProvider) GetStorageClasses(regionId string) []string {
 	return nil
+}
+
+func (self *SESXiProvider) GetBucketCannedAcls(regionId string) []string {
+	return nil
+}
+
+func (self *SESXiProvider) GetObjectCannedAcls(regionId string) []string {
+	return nil
+}
+
+func (self *SESXiProvider) GetCapabilities() []string {
+	return self.client.GetCapabilities()
 }

@@ -40,7 +40,7 @@ func (self *BaremetalUnconvertHypervisorTask) OnInit(ctx context.Context, obj db
 	baremetal.SetStatus(self.UserCred, api.BAREMETAL_CONVERTING, "")
 	guests := baremetal.GetGuests()
 	if len(guests) > 1 {
-		self.SetStageFailed(ctx, "Host guest conut > 1")
+		self.SetStageFailed(ctx, jsonutils.NewString("Host guest conut > 1"))
 	}
 	if len(guests) == 1 {
 		guest := guests[0]
@@ -68,7 +68,7 @@ func (self *BaremetalUnconvertHypervisorTask) OnGuestDeleteCompleteFailed(ctx co
 	db.OpsLog.LogEvent(baremetal, db.ACT_UNCONVERT_FAIL, body, self.UserCred)
 	self.SetStage("OnFailSyncstatusComplete", nil)
 	baremetal.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
-	logclient.AddActionLogWithStartable(self, baremetal, logclient.ACT_BM_UNCONVERT_HYPER, nil, self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, baremetal, logclient.ACT_BM_UNCONVERT_HYPER, body, self.UserCred, false)
 }
 
 func (self *BaremetalUnconvertHypervisorTask) OnPrepareComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
@@ -76,5 +76,5 @@ func (self *BaremetalUnconvertHypervisorTask) OnPrepareComplete(ctx context.Cont
 }
 
 func (self *BaremetalUnconvertHypervisorTask) OnFailSyncstatusComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, "Delete server failed")
+	self.SetStageFailed(ctx, jsonutils.NewString("Delete server failed"))
 }

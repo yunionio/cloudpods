@@ -78,8 +78,8 @@ func (m *SAndroidRootFs) RootSignatures() []string {
 	}
 }
 
-func (m *SAndroidRootFs) GetLoginAccount(rootFs IDiskPartition, defaultRootUser bool, windowsDefaultAdminUser bool) string {
-	return ""
+func (m *SAndroidRootFs) GetLoginAccount(rootFs IDiskPartition, user string, defaultRootUser bool, windowsDefaultAdminUser bool) (string, error) {
+	return "", nil
 }
 
 func (m *SAndroidRootFs) DeployPublicKey(rootfs IDiskPartition, uname string, pubkeys *deployapi.SSHKeys) error {

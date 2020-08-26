@@ -67,6 +67,6 @@ func (self *BaremetalDeleteTask) OnDeleteBaremetalCompleteFailed(ctx context.Con
 }
 
 func (self *BaremetalDeleteTask) OnFailure(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
-	baremetal.SetStatus(self.UserCred, api.BAREMETAL_DELETE_FAIL, "")
-	self.SetStageFailed(ctx, "")
+	baremetal.SetStatus(self.UserCred, api.BAREMETAL_DELETE_FAIL, body.String())
+	self.SetStageFailed(ctx, body)
 }

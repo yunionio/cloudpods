@@ -16,17 +16,20 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/conditionparser"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -36,6 +39,34 @@ type GuestBatchCreateTask struct {
 
 func init() {
 	taskman.RegisterTask(GuestBatchCreateTask{})
+}
+
+func (self *GuestBatchCreateTask) GetSchedParams() (*schedapi.ScheduleInput, error) {
+	params := self.GetParams()
+	input, err := cmdline.FetchScheduleInputByJSON(params)
+	if err != nil {
+		return nil, fmt.Errorf("Unmarsh to schedule input: %v", err)
+	}
+	return input, err
+}
+
+func (self *GuestBatchCreateTask) GetDisks() ([]*api.DiskConfig, error) {
+	input, err := self.GetSchedParams()
+	if err != nil {
+		return nil, err
+	}
+	return input.Disks, nil
+}
+
+func (self *GuestBatchCreateTask) GetFirstDisk() (*api.DiskConfig, error) {
+	disks, err := self.GetDisks()
+	if err != nil {
+		return nil, err
+	}
+	if len(disks) == 0 {
+		return nil, fmt.Errorf("Empty disks to schedule")
+	}
+	return disks[0], nil
 }
 
 func (self *GuestBatchCreateTask) GetCreateInput() (*api.ServerCreateInput, error) {
@@ -53,13 +84,13 @@ func (self *GuestBatchCreateTask) OnInit(ctx context.Context, objs []db.IStandal
 	StartScheduleObjects(ctx, self, objs)
 }
 
-func (self *GuestBatchCreateTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason string) {
-	self.SSchedTask.OnScheduleFailCallback(ctx, obj, reason)
+func (self *GuestBatchCreateTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	if guest.DisableDelete.IsTrue() {
 		guest.SetDisableDelete(self.UserCred, false)
 	}
 	self.clearPendingUsage(ctx, guest)
+	self.SSchedTask.OnScheduleFailCallback(ctx, obj, reason)
 }
 
 func (self *GuestBatchCreateTask) SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, master, slave *schedapi.CandidateResource) {
@@ -75,6 +106,32 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 		log.Errorf("GetPendingUsage fail %s", err)
 	}
 
+	if conditionparser.IsTemplate(guest.Name) {
+		guestInfo := guest.GetShortDesc(ctx)
+		generateName := guest.GetMetadata("generate_name", self.UserCred)
+		if len(generateName) == 0 {
+			generateName = guest.Name
+		}
+		newGenName, err := conditionparser.EvalTemplate(generateName, guestInfo)
+		if err == nil {
+			newName, err := db.GenerateName2(models.GuestManager,
+				guest.GetOwnerId(), newGenName, guest, 1)
+			if err == nil {
+				_, err = db.Update(guest, func() error {
+					guest.Name = newName
+					return nil
+				})
+				if err != nil {
+					log.Errorf("guest update name fail %s", err)
+				}
+			} else {
+				log.Errorf("db.GenerateName2 fail %s", err)
+			}
+		} else {
+			log.Errorf("conditionparser.EvalTemplate fail %s", err)
+		}
+	}
+
 	host := guest.GetHost()
 
 	quotaCpuMem := models.SQuota{Count: 1, Cpu: int(guest.VcpuCount), Memory: guest.VmemSize}
@@ -83,7 +140,7 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 		log.Errorf("guest.GetQuotaKeys fail %s", err)
 	}
 	quotaCpuMem.SetKeys(keys)
-	err = quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &quotaCpuMem)
+	err = quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &quotaCpuMem, true) // success
 	self.SetPendingUsage(&pendingUsage, 0)
 
 	input, err := self.GetCreateInput()
@@ -121,7 +178,7 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 
 	// allocate eips
 	if input.EipBw > 0 {
-		eip, err := models.ElasticipManager.NewEipForVMOnHost(ctx, self.UserCred, guest, host, input.EipBw, input.EipChargeType, &pendingRegionUsage)
+		eip, err := models.ElasticipManager.NewEipForVMOnHost(ctx, self.UserCred, guest, host, input.EipBw, input.EipChargeType, input.EipAutoDellocate, &pendingRegionUsage)
 		self.SetPendingUsage(&pendingRegionUsage, 1)
 		if err != nil {
 			log.Errorf("guest.CreateElasticipOnHost failed: %s", err)
@@ -219,9 +276,9 @@ func (self *GuestBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IS
 	if err != nil {
 		self.clearPendingUsage(ctx, guest)
 		db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
-		logclient.AddActionLogWithStartable(self, obj, logclient.ACT_ALLOCATE, err.Error(), self.GetUserCred(), false)
+		logclient.AddActionLogWithStartable(self, obj, logclient.ACT_ALLOCATE, err, self.GetUserCred(), false)
 		notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_CREATE_FAILED, err.Error())
-		self.SetStageFailed(ctx, err.Error())
+		self.SetStageFailed(ctx, jsonutils.Marshal(err))
 	}
 }
 

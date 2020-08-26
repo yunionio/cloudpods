@@ -61,11 +61,14 @@ type CandidatePropertyGetter interface {
 	Cloudprovider() *computemodels.SCloudprovider
 	IsPublic() bool
 	DomainId() string
+	PublicScope() string
+	SharedDomains() []string
 	Region() *computemodels.SCloudregion
 	HostType() string
 	HostSchedtags() []computemodels.SSchedtag
 	Storages() []*api.CandidateStorage
 	Networks() []*api.CandidateNetwork
+	OvnCapable() bool
 	Status() string
 	HostStatus() string
 	Enabled() bool
@@ -92,6 +95,8 @@ type CandidatePropertyGetter interface {
 	GetFreeGroupCount(groupId string) (int, error)
 
 	GetIpmiInfo() types.SIPMIInfo
+
+	GetQuotaKeys(s *api.SchedInfo) computemodels.SComputeResourceKeys
 }
 
 // Candidater replace host Candidate resource info
@@ -192,13 +197,13 @@ type Priority interface {
 }
 
 type AllocatedResource struct {
-	Disks []*schedapi.CandidateDisk `json:"disks"`
-	Nets  []*schedapi.CandidateNet  `json:"nets"`
+	Disks []*schedapi.CandidateDiskV2 `json:"disks"`
+	Nets  []*schedapi.CandidateNet    `json:"nets"`
 }
 
 func NewAllocatedResource() *AllocatedResource {
 	return &AllocatedResource{
-		Disks: make([]*schedapi.CandidateDisk, 0),
+		Disks: make([]*schedapi.CandidateDiskV2, 0),
 		Nets:  make([]*schedapi.CandidateNet, 0),
 	}
 }

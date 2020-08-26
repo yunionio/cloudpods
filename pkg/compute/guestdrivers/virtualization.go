@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -52,8 +53,8 @@ func (self *SVirtualizedGuestDriver) PrepareDiskRaidConfig(userCred mcclient.Tok
 	return nil, nil
 }
 
-func (self *SVirtualizedGuestDriver) GetNamedNetworkConfiguration(guest *models.SGuest, userCred mcclient.TokenCredential, host *models.SHost, netConfig *api.NetworkConfig) (*models.SNetwork, []models.SNicConfig, api.IPAllocationDirection) {
-	net, _ := host.GetNetworkWithIdAndCredential(netConfig.Network, userCred, netConfig.Reserved)
+func (self *SVirtualizedGuestDriver) GetNamedNetworkConfiguration(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *api.NetworkConfig) (*models.SNetwork, []models.SNicConfig, api.IPAllocationDirection, bool) {
+	net, _ := host.GetNetworkWithId(netConfig.Network, netConfig.Reserved)
 	nicConfs := []models.SNicConfig{
 		{
 			Mac:    netConfig.Mac,
@@ -68,11 +69,24 @@ func (self *SVirtualizedGuestDriver) GetNamedNetworkConfiguration(guest *models.
 			Ifname: "",
 		})
 	}
-	return net, nicConfs, api.IPAllocationStepdown
+	return net, nicConfs, api.IPAllocationStepdown, false
 }
 
 func (self *SVirtualizedGuestDriver) GetRandomNetworkTypes() []string {
 	return []string{api.NETWORK_TYPE_GUEST}
+}
+
+func (self *SVirtualizedGuestDriver) wireAvaiableForGuest(guest *models.SGuest, wire *models.SWire) (bool, error) {
+	if guest.BackupHostId == "" {
+		return true, nil
+	} else {
+		backupHost := models.HostManager.FetchHostById(guest.BackupHostId)
+		count, err := backupHost.GetWiresQuery().Equals("wire_id", wire.Id).CountWithError()
+		if err != nil {
+			return false, errors.Wrap(err, "query host wire")
+		}
+		return count > 0, nil
+	}
 }
 
 func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *api.NetworkConfig, pendingUsage quotas.IQuota) ([]models.SGuestnetwork, error) {
@@ -89,6 +103,11 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 	for i := 0; i < len(hostwires); i += 1 {
 		hostwire := hostwires[i]
 		wire := hostwire.GetWire()
+		if ok, err := self.wireAvaiableForGuest(guest, wire); err != nil {
+			return nil, err
+		} else if !ok {
+			continue
+		}
 
 		if wire == nil {
 			log.Errorf("host wire is nil?????")
@@ -102,9 +121,9 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 
 		var net *models.SNetwork
 		if netConfig.Private {
-			net, _ = wire.GetCandidatePrivateNetwork(userCred, netConfig.Exit, netTypes)
+			net, _ = wire.GetCandidatePrivateNetwork(userCred, models.NetworkManager.AllowScope(userCred), netConfig.Exit, netTypes)
 		} else {
-			net, _ = wire.GetCandidatePublicNetwork(netConfig.Exit, netTypes)
+			net, _ = wire.GetCandidateAutoAllocNetwork(userCred, models.NetworkManager.AllowScope(userCred), netConfig.Exit, netTypes)
 		}
 		if net != nil {
 			netsAvaiable = append(netsAvaiable, *net)
@@ -147,7 +166,7 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 		}
 		nicConfs = append(nicConfs, nicConf)
 	}
-	gn, err := guest.Attach2Network(ctx, userCred, selNet, pendingUsage, netConfig.Address, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, netConfig.Reserved, api.IPAllocationDefault, netConfig.RequireDesignatedIP, nicConfs)
+	gn, err := guest.Attach2Network(ctx, userCred, selNet, pendingUsage, netConfig.Address, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, netConfig.Reserved, api.IPAllocationDefault, netConfig.RequireDesignatedIP, false, nicConfs)
 	return gn, err
 }
 
@@ -167,7 +186,11 @@ func (self *SVirtualizedGuestDriver) RequestGuestCreateInsertIso(ctx context.Con
 }
 
 func (self *SVirtualizedGuestDriver) StartGuestStopTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "GuestStopTask", guest, userCred, params, parentTaskId, "", nil)
+	taskName := "GuestStopTask"
+	if guest.BackupHostId != "" {
+		taskName = "HAGuestStopTask"
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, taskName, guest, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}
@@ -194,12 +217,7 @@ func (self *SVirtualizedGuestDriver) RequestDeleteDetachedDisk(ctx context.Conte
 }
 
 func (self *SVirtualizedGuestDriver) StartGuestSyncstatusTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "GuestSyncstatusTask", guest, userCred, nil, parentTaskId, "", nil)
-	if err != nil {
-		return err
-	}
-	task.ScheduleRun(nil)
-	return nil
+	return models.StartResourceSyncStatusTask(ctx, userCred, guest, "GuestSyncstatusTask", parentTaskId)
 }
 
 func (self *SVirtualizedGuestDriver) RequestStopGuestForDelete(ctx context.Context, guest *models.SGuest,
@@ -207,7 +225,7 @@ func (self *SVirtualizedGuestDriver) RequestStopGuestForDelete(ctx context.Conte
 	if host == nil {
 		host = guest.GetHost()
 	}
-	if host != nil && host.Enabled && host.HostStatus == api.HOST_ONLINE {
+	if host != nil && host.GetEnabled() && host.HostStatus == api.HOST_ONLINE {
 		return guest.StartGuestStopTask(ctx, task.GetUserCred(), true, task.GetTaskId())
 	}
 	if host != nil && !jsonutils.QueryBoolean(task.GetParams(), "purge", false) {

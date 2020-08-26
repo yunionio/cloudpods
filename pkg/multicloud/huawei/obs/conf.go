@@ -1,16 +1,14 @@
-// Copyright 2019 Yunion
+// Copyright 2019 Huawei Technologies Co.,Ltd.
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+// this file except in compliance with the License.  You may obtain a copy of the
+// License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+// http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing, software distributed
+// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations under the License.
 
 package obs
 
@@ -44,9 +42,11 @@ type urlHolder struct {
 type config struct {
 	securityProvider *securityProvider
 	urlHolder        *urlHolder
+	pathStyle        bool
+	cname            bool
+	sslVerify        bool
 	endpoint         string
 	signature        SignatureType
-	pathStyle        bool
 	region           string
 	connectTimeout   int
 	socketTimeout    int
@@ -56,19 +56,19 @@ type config struct {
 	maxRetryCount    int
 	proxyUrl         string
 	maxConnsPerHost  int
-	sslVerify        bool
 	pemCerts         []byte
 	transport        *http.Transport
 	ctx              context.Context
+	maxRedirectCount int
 }
 
 func (conf config) String() string {
 	return fmt.Sprintf("[endpoint:%s, signature:%s, pathStyle:%v, region:%s"+
 		"\nconnectTimeout:%d, socketTimeout:%dheaderTimeout:%d, idleConnTimeout:%d"+
-		"\nmaxRetryCount:%d, maxConnsPerHost:%d, sslVerify:%v, proxyUrl:%s]",
+		"\nmaxRetryCount:%d, maxConnsPerHost:%d, sslVerify:%v, proxyUrl:%s, maxRedirectCount:%d]",
 		conf.endpoint, conf.signature, conf.pathStyle, conf.region,
 		conf.connectTimeout, conf.socketTimeout, conf.headerTimeout, conf.idleConnTimeout,
-		conf.maxRetryCount, conf.maxConnsPerHost, conf.sslVerify, conf.proxyUrl,
+		conf.maxRetryCount, conf.maxConnsPerHost, conf.sslVerify, conf.proxyUrl, conf.maxRedirectCount,
 	)
 }
 
@@ -163,6 +163,18 @@ func WithRequestContext(ctx context.Context) configurer {
 	}
 }
 
+func WithCustomDomainName(cname bool) configurer {
+	return func(conf *config) {
+		conf.cname = cname
+	}
+}
+
+func WithMaxRedirectCount(maxRedirectCount int) configurer {
+	return func(conf *config) {
+		conf.maxRedirectCount = maxRedirectCount
+	}
+}
+
 func (conf *config) initConfigWithDefault() error {
 	conf.securityProvider.ak = strings.TrimSpace(conf.securityProvider.ak)
 	conf.securityProvider.sk = strings.TrimSpace(conf.securityProvider.sk)
@@ -249,6 +261,10 @@ func (conf *config) initConfigWithDefault() error {
 		conf.maxConnsPerHost = DEFAULT_MAX_CONN_PER_HOST
 	}
 
+	if conf.maxRedirectCount < 0 {
+		conf.maxRedirectCount = DEFAULT_MAX_REDIRECT_COUNT
+	}
+
 	conf.proxyUrl = strings.TrimSpace(conf.proxyUrl)
 	return nil
 }
@@ -301,19 +317,28 @@ func DummyQueryEscape(s string) string {
 func (conf *config) formatUrls(bucketName, objectKey string, params map[string]string, escape bool) (requestUrl string, canonicalizedUrl string) {
 
 	urlHolder := conf.urlHolder
-	if bucketName == "" {
+	if conf.cname {
 		requestUrl = fmt.Sprintf("%s://%s:%d", urlHolder.scheme, urlHolder.host, urlHolder.port)
-		canonicalizedUrl = "/"
-	} else {
-		if conf.pathStyle {
-			requestUrl = fmt.Sprintf("%s://%s:%d/%s", urlHolder.scheme, urlHolder.host, urlHolder.port, bucketName)
-			canonicalizedUrl = "/" + bucketName
+		if conf.signature == "v4" {
+			canonicalizedUrl = "/"
 		} else {
-			requestUrl = fmt.Sprintf("%s://%s.%s:%d", urlHolder.scheme, bucketName, urlHolder.host, urlHolder.port)
-			if conf.signature == "v2" {
-				canonicalizedUrl = "/" + bucketName + "/"
+			canonicalizedUrl = "/" + urlHolder.host + "/"
+		}
+	} else {
+		if bucketName == "" {
+			requestUrl = fmt.Sprintf("%s://%s:%d", urlHolder.scheme, urlHolder.host, urlHolder.port)
+			canonicalizedUrl = "/"
+		} else {
+			if conf.pathStyle {
+				requestUrl = fmt.Sprintf("%s://%s:%d/%s", urlHolder.scheme, urlHolder.host, urlHolder.port, bucketName)
+				canonicalizedUrl = "/" + bucketName
 			} else {
-				canonicalizedUrl = "/"
+				requestUrl = fmt.Sprintf("%s://%s.%s:%d", urlHolder.scheme, bucketName, urlHolder.host, urlHolder.port)
+				if conf.signature == "v2" || conf.signature == "OBS" {
+					canonicalizedUrl = "/" + bucketName + "/"
+				} else {
+					canonicalizedUrl = "/"
+				}
 			}
 		}
 	}
@@ -325,7 +350,21 @@ func (conf *config) formatUrls(bucketName, objectKey string, params map[string]s
 	}
 
 	if objectKey != "" {
-		encodeObjectKey := escapeFunc(objectKey)
+		var encodeObjectKey string
+		if escape {
+			tempKey := []rune(objectKey)
+			result := make([]string, 0, len(tempKey))
+			for _, value := range tempKey {
+				if string(value) == "/" {
+					result = append(result, string(value))
+				} else {
+					result = append(result, url.QueryEscape(string(value)))
+				}
+			}
+			encodeObjectKey = strings.Join(result, "")
+		} else {
+			encodeObjectKey = escapeFunc(objectKey)
+		}
 		requestUrl += "/" + encodeObjectKey
 		if !strings.HasSuffix(canonicalizedUrl, "/") {
 			canonicalizedUrl += "/"

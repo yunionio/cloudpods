@@ -15,6 +15,10 @@
 package shell
 
 import (
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/secrules"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -57,6 +61,30 @@ func init() {
 		}
 		printObject(result)
 		return nil
+	})
+
+	type SecurityGroupRuleIdOptions struct {
+		ID string
+	}
+
+	shellutils.R(&SecurityGroupRuleIdOptions{}, "security-group-rule-delete", "Delete security group rule", func(cli *huawei.SRegion, args *SecurityGroupRuleIdOptions) error {
+		return cli.DeleteSecurityGroupRule(args.ID)
+	})
+
+	type SecurityGroupRuleCreateOptions struct {
+		SECGROUP_ID string
+		RULE        string
+	}
+
+	shellutils.R(&SecurityGroupRuleCreateOptions{}, "security-group-rule-create", "Create security group rule", func(cli *huawei.SRegion, args *SecurityGroupRuleCreateOptions) error {
+		_rule, err := secrules.ParseSecurityRule(args.RULE)
+		if err != nil {
+			return errors.Wrapf(err, "invalid rule %s", args.RULE)
+		}
+		rule := cloudprovider.SecurityRule{
+			SecurityRule: *_rule,
+		}
+		return cli.CreateSecurityGroupRule(args.SECGROUP_ID, rule)
 	})
 
 }

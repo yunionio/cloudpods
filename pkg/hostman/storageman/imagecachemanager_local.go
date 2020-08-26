@@ -19,11 +19,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"sync"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/regutils"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -33,30 +33,31 @@ type SLocalImageCacheManager struct {
 	SBaseImageCacheManager
 	// limit      int
 	// isTemplate bool
+	lock lockman.ILockManager
 }
 
 func NewLocalImageCacheManager(manager IStorageManager, cachePath string, storagecacheId string) *SLocalImageCacheManager {
 	imageCacheManager := new(SLocalImageCacheManager)
+	imageCacheManager.lock = lockman.NewInMemoryLockManager()
 	imageCacheManager.storageManager = manager
 	imageCacheManager.storagecacaheId = storagecacheId
 	imageCacheManager.cachePath = cachePath
 	// imageCacheManager.limit = limit
 	// imageCacheManager.isTemplate = isTemplete
 	imageCacheManager.cachedImages = make(map[string]IImageCache, 0)
-	imageCacheManager.mutex = new(sync.Mutex)
 	if !fileutils2.Exists(cachePath) {
 		procutils.NewCommand("mkdir", "-p", cachePath).Run()
 	}
-	imageCacheManager.loadCache()
+	imageCacheManager.loadCache(context.Background())
 	return imageCacheManager
 }
 
-func (c *SLocalImageCacheManager) loadCache() {
+func (c *SLocalImageCacheManager) loadCache(ctx context.Context) {
 	if len(c.cachePath) == 0 {
 		return
 	}
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+	c.lock.LockRawObject(ctx, "LOCAL", "image-cache")
+	defer c.lock.ReleaseRawObject(ctx, "LOCAL", "image-cache")
 	files, _ := ioutil.ReadDir(c.cachePath)
 	for _, f := range files {
 		if regutils.MatchUUIDExact(f.Name()) {
@@ -73,8 +74,8 @@ func (c *SLocalImageCacheManager) LoadImageCache(imageId string) {
 }
 
 func (c *SLocalImageCacheManager) AcquireImage(ctx context.Context, imageId, zone, srcUrl, format string) IImageCache {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+	c.lock.LockRawObject(ctx, "image-cache", imageId)
+	defer c.lock.ReleaseRawObject(ctx, "image-cache", imageId)
 
 	img, ok := c.cachedImages[imageId]
 	if !ok {
@@ -88,9 +89,10 @@ func (c *SLocalImageCacheManager) AcquireImage(ctx context.Context, imageId, zon
 	}
 }
 
-func (c *SLocalImageCacheManager) ReleaseImage(imageId string) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+func (c *SLocalImageCacheManager) ReleaseImage(ctx context.Context, imageId string) {
+	c.lock.LockRawObject(ctx, "image-cache", imageId)
+	defer c.lock.ReleaseRawObject(ctx, "image-cache", imageId)
+
 	if img, ok := c.cachedImages[imageId]; ok {
 		img.Release()
 	}
@@ -107,8 +109,8 @@ func (c *SLocalImageCacheManager) DeleteImageCache(ctx context.Context, data int
 }
 
 func (c *SLocalImageCacheManager) removeImage(ctx context.Context, imageId string) error {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+	c.lock.LockRawObject(ctx, "image-cache", imageId)
+	defer c.lock.ReleaseRawObject(ctx, "image-cache", imageId)
 
 	if img, ok := c.cachedImages[imageId]; ok {
 		delete(c.cachedImages, imageId)
@@ -162,5 +164,3 @@ func (c *SLocalImageCacheManager) PrefetchImageCache(ctx context.Context, data i
 		return nil, fmt.Errorf("Failed to fetch image %s", imageId)
 	}
 }
-
-// TODO: AgentImageCacheManager

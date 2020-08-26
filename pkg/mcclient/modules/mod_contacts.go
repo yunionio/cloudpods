@@ -40,19 +40,22 @@ func (this *ContactsManager) PerformActionWithArrayParams(s *mcclient.ClientSess
 }
 
 func (this *ContactsManager) DoBatchDeleteContacts(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	path := "/contacts/delete-contact"
+	path := "/contacts/delete-contact?uname=true"
 
 	return modulebase.Post(this.ResourceManager, s, path, params, this.Keyword)
 }
 
-func (this *ContactsManager) PerformAction(session *mcclient.ClientSession, id string, action string,
-	params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-
+func (this *ContactsManager) CustomizedPerformAction(session *mcclient.ClientSession, id, action string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	body := jsonutils.NewDict()
+	if params != nil {
+		body.Add(params, this.Keyword)
+	}
 	path := fmt.Sprintf("/%s/%s/%s?uname=true", this.ContextPath(nil), url.PathEscape(id), url.PathEscape(action))
-	return modulebase.Post(this.ResourceManager, session, path, params, this.KeywordPlural)
+	return modulebase.Post(this.ResourceManager, session, path, body, this.KeywordPlural)
 }
 
-func (this *ContactsManager) Get(session *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject,
+func (this *ContactsManager) CustomizedGet(session *mcclient.ClientSession, id string,
+	params jsonutils.JSONObject) (jsonutils.JSONObject,
 	error) {
 
 	q := params.(*jsonutils.JSONDict)

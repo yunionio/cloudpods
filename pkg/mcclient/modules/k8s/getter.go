@@ -35,41 +35,53 @@ var (
 
 type nameGetter struct{}
 
-func (g nameGetter) GetName(obj jsonutils.JSONObject) interface{} {
+func (g nameGetter) Get_Id(obj jsonutils.JSONObject) interface{} {
+	id, _ := obj.GetString("id")
+	return id
+}
+
+func (g nameGetter) Get_Name(obj jsonutils.JSONObject) interface{} {
 	name, _ := obj.GetString("name")
 	return name
 }
 
 type statusGetter struct{}
 
-func (g statusGetter) GetStatus(obj jsonutils.JSONObject) interface{} {
+func (g statusGetter) Get_Status(obj jsonutils.JSONObject) interface{} {
 	status, _ := obj.GetString("status")
 	return status
 }
 
 type ageGetter struct{}
 
-func (g ageGetter) GetAge(obj jsonutils.JSONObject) interface{} {
+func (g ageGetter) Get_Age(obj jsonutils.JSONObject) interface{} {
 	creationTimestamp, err := obj.GetString("creationTimestamp")
 	if err != nil {
-		log.Errorf("Get creationTimestamp error: %v", err)
+		creationTimestamp, err = obj.GetString("created_at")
+		if err != nil {
+			log.Errorf("Get creationTimestamp and created_at error: %v", err)
+			return nil
+		}
+	}
+	t, err := time.Parse(time.RFC3339, creationTimestamp)
+	if err != nil {
+		log.Errorf("parse creationTimestamp %v: %v", creationTimestamp, err)
 		return nil
 	}
-	t, _ := time.Parse(time.RFC3339, creationTimestamp)
 	dur := time.Since(t)
 	return durafmt.ParseShort(dur).String()
 }
 
 type namespaceGetter struct{}
 
-func (g namespaceGetter) GetNamespace(obj jsonutils.JSONObject) interface{} {
+func (g namespaceGetter) Get_Namespace(obj jsonutils.JSONObject) interface{} {
 	ns, _ := obj.GetString("namespace")
 	return ns
 }
 
 type labelGetter struct{}
 
-func (g labelGetter) GetLabels(obj jsonutils.JSONObject) interface{} {
+func (g labelGetter) Get_Labels(obj jsonutils.JSONObject) interface{} {
 	labels, _ := obj.GetMap("labels")
 	str := ""
 	ls := []string{}

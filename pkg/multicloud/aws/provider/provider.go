@@ -43,6 +43,18 @@ func (self *SAwsProviderFactory) IsSupportPrepaidResources() bool {
 	return false
 }
 
+func (self *SAwsProviderFactory) IsSupportCloudIdService() bool {
+	return true
+}
+
+func (self *SAwsProviderFactory) IsSupportCreateCloudgroup() bool {
+	return true
+}
+
+func (factory *SAwsProviderFactory) IsSystemCloudpolicyUnified() bool {
+	return false
+}
+
 func (self *SAwsProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {
@@ -75,8 +87,12 @@ func (self *SAwsProviderFactory) ValidateUpdateCloudaccountCredential(ctx contex
 	return output, nil
 }
 
-func (self *SAwsProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
-	client, err := aws.NewAwsClient(providerId, providerName, url, account, secret, false)
+func (self *SAwsProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
+	client, err := aws.NewAwsClient(
+		aws.NewAwsClientConfig(
+			cfg.URL, cfg.Account, cfg.Secret,
+		).CloudproviderConfig(cfg),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -111,6 +127,10 @@ func (self *SAwsProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) 
 
 func (self *SAwsProvider) GetAccountId() string {
 	return self.client.GetAccountId()
+}
+
+func (self *SAwsProvider) GetIamLoginUrl() string {
+	return self.client.GetIamLoginUrl()
 }
 
 func (self *SAwsProvider) GetIRegions() []cloudprovider.ICloudRegion {
@@ -152,6 +172,62 @@ func (self *SAwsProvider) GetStorageClasses(regionId string) []string {
 	}
 }
 
+func (self *SAwsProvider) GetBucketCannedAcls(regionId string) []string {
+	return self.client.GetBucketCannedAcls()
+}
+
+func (self *SAwsProvider) GetObjectCannedAcls(regionId string) []string {
+	return self.client.GetObjectCannedAcls()
+}
+
 func (self *SAwsProvider) GetCloudRegionExternalIdPrefix() string {
 	return self.client.GetAccessEnv() + "/"
+}
+
+func (self *SAwsProvider) GetCapabilities() []string {
+	return self.client.GetCapabilities()
+}
+
+func (self *SAwsProvider) CreateIClouduser(conf *cloudprovider.SClouduserCreateConfig) (cloudprovider.IClouduser, error) {
+	return self.client.CreateIClouduser(conf)
+}
+
+func (self *SAwsProvider) GetICloudusers() ([]cloudprovider.IClouduser, error) {
+	return self.client.GetICloudusers()
+}
+
+func (self *SAwsProvider) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
+	return self.client.GetICloudgroups()
+}
+
+func (self *SAwsProvider) GetICloudgroupByName(name string) (cloudprovider.ICloudgroup, error) {
+	return self.client.GetICloudgroupByName(name)
+}
+
+func (self *SAwsProvider) CreateICloudgroup(name, desc string) (cloudprovider.ICloudgroup, error) {
+	return self.client.CreateICloudgroup(name, desc)
+}
+
+func (self *SAwsProvider) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	return self.client.GetISystemCloudpolicies()
+}
+
+func (self *SAwsProvider) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	return self.client.GetICustomCloudpolicies()
+}
+
+func (self *SAwsProvider) GetIClouduserByName(name string) (cloudprovider.IClouduser, error) {
+	return self.client.GetIClouduserByName(name)
+}
+
+func (self *SAwsProvider) CreateICloudpolicy(opts *cloudprovider.SCloudpolicyCreateOptions) (cloudprovider.ICloudpolicy, error) {
+	return self.client.CreateICloudpolicy(opts)
+}
+
+func (self *SAwsProvider) GetSamlEntityId() string {
+	return self.client.GetSamlEntityId()
+}
+
+func (self *SAwsProvider) GetSamlSpInitiatedLoginUrl(idpName string) string {
+	return ""
 }

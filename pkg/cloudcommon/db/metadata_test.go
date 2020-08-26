@@ -106,6 +106,11 @@ func TestIsMetadataKeyVisiable(t *testing.T) {
 	}
 }
 
+type MockMetadataModelManager struct {
+	mock.Mock
+	SStandaloneResourceBaseManager
+}
+
 type MockMetadataModel struct {
 	mock.Mock
 	SStandaloneResourceBase
@@ -116,12 +121,13 @@ func (m *MockMetadataModel) GetAllMetadata(userCred mcclient.TokenCredential) (m
 	return args.Get(0).(map[string]string), args.Error(1)
 }
 
-func (m *MockMetadataModel) GetMetadataHideKeys() []string {
+func (m *MockMetadataModelManager) GetMetadataHiddenKeys() []string {
 	args := m.Called()
 	return args.Get(0).([]string)
 }
 
 func TestGetVisiableMetadata(t *testing.T) {
+	testManager := new(MockMetadataModelManager)
 	testObj := new(MockMetadataModel)
 	testObj.On("GetAllMetadata", nil).Return(
 		map[string]string{
@@ -132,11 +138,13 @@ func TestGetVisiableMetadata(t *testing.T) {
 		},
 		nil,
 	)
-	testObj.On("GetMetadataHideKeys").Return([]string{"login_account"})
+	testManager.On("GetMetadataHiddenKeys").Return([]string{"login_account"})
+
+	testObj.SetModelManager(testManager, testObj)
 
 	tests := []struct {
 		name    string
-		model   IMetadataModel
+		model   IStandaloneModel
 		want    map[string]string
 		wantErr bool
 	}{

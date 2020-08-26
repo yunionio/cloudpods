@@ -16,11 +16,12 @@ package huawei
 
 import (
 	"fmt"
-	"net"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/netutils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -100,8 +101,8 @@ func (self *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, e
 华为云子网可用区，类似一个zone标签。即使指定了zone子网在整个region依然是可用。
 通过华为web控制台创建子网需要指定可用区。这里是不指定的。
 */
-func (self *SWire) CreateINetwork(name string, cidr string, desc string) (cloudprovider.ICloudNetwork, error) {
-	networkId, err := self.region.createNetwork(self.vpc.GetId(), name, cidr, desc)
+func (self *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
+	networkId, err := self.region.createNetwork(self.vpc.GetId(), opts.Name, opts.Cidr, opts.Desc)
 	if err != nil {
 		log.Errorf("createNetwork error %s", err)
 		return nil, err
@@ -160,22 +161,13 @@ func (self *SWire) getNetworkById(networkId string) *SNetwork {
 }
 
 func getDefaultGateWay(cidr string) (string, error) {
-	ip, _, err := net.ParseCIDR(cidr)
+	pref, err := netutils.NewIPV4Prefix(cidr)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "getDefaultGateWay.NewIPV4Prefix")
 	}
-
-	ipv4 := ip.To4()
-	if ipv4 == nil || len(ip.String()) == net.IPv6len {
-		return "", fmt.Errorf("ipv6 is not supported currently")
-	}
-
-	if ipv4[3] != 0 {
-		return "", fmt.Errorf("the last byte of ip address must be zero. e.g 192.168.0.0/16")
-	}
-
-	ipv4[3] = 1
-	return ipv4.String(), nil
+	startIp := pref.Address.NetAddr(pref.MaskLen) // 0
+	startIp = startIp.StepUp()                    // 1
+	return startIp.String(), nil
 }
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090590.html

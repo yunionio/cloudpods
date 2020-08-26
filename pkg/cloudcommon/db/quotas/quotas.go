@@ -22,13 +22,14 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 func (manager *SQuotaBaseManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeProject
+	return manager.scope
 }
 
 func (manager *SQuotaBaseManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
@@ -38,6 +39,10 @@ func (manager *SQuotaBaseManager) FetchOwnerId(ctx context.Context, data jsonuti
 func (manager *SQuotaBaseManager) newQuota() IQuota {
 	model, _ := db.NewModelObject(manager)
 	return model.(IQuota)
+}
+
+func (manager *SQuotaBaseManager) getQuotaFields() []string {
+	return manager.newQuota().GetKeys().Fields()
 }
 
 func (manager *SQuotaBaseManager) cleanPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, keys IQuotaKeys) error {
@@ -61,14 +66,14 @@ func (manager *SQuotaBaseManager) _cleanPendingUsage(ctx context.Context, userCr
 	return nil
 }
 
-func (manager *SQuotaBaseManager) cancelPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, localUsage IQuota, cancelUsage IQuota) error {
+func (manager *SQuotaBaseManager) cancelPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, localUsage IQuota, cancelUsage IQuota, save bool) error {
 	LockQuota(ctx, manager, localUsage)
 	defer ReleaseQuota(ctx, manager, localUsage)
 
-	return manager._cancelPendingUsage(ctx, userCred, localUsage, cancelUsage)
+	return manager._cancelPendingUsage(ctx, userCred, localUsage, cancelUsage, save)
 }
 
-func (manager *SQuotaBaseManager) _cancelPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, localUsage IQuota, cancelUsage IQuota) error {
+func (manager *SQuotaBaseManager) _cancelPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, localUsage IQuota, cancelUsage IQuota, save bool) error {
 	originKeys := localUsage.GetKeys()
 	// currentKeys := cancelUsage.GetKeys()
 
@@ -82,14 +87,16 @@ func (manager *SQuotaBaseManager) _cancelPendingUsage(ctx context.Context, userC
 	}
 	//
 	if localUsage != nil {
-		localUsage.Sub(cancelUsage)
+		localUsage.Sub(pendingUsage)
 	}
 
-	log.Debugf("cancelUsage: %s localUsage: %s", jsonutils.Marshal(cancelUsage), jsonutils.Marshal(localUsage))
+	log.Debugf("cancelUsage: %s localUsage: %s pendingUsage: %s", jsonutils.Marshal(cancelUsage), jsonutils.Marshal(localUsage), jsonutils.Marshal(pendingUsage))
 
-	err = manager.changeUsage(ctx, userCred, cancelUsage, true)
-	if err != nil {
-		return errors.Wrap(err, "manager.changelUsage")
+	if save {
+		err = manager.changeUsage(ctx, userCred, pendingUsage, true)
+		if err != nil {
+			return errors.Wrap(err, "manager.changelUsage")
+		}
 	}
 
 	return nil
@@ -104,6 +111,17 @@ func (manager *SQuotaBaseManager) cancelUsage(ctx context.Context, userCred mccl
 
 func (manager *SQuotaBaseManager) _cancelUsage(ctx context.Context, userCred mcclient.TokenCredential, usage IQuota) error {
 	return manager.changeUsage(ctx, userCred, usage, false)
+}
+
+func (manager *SQuotaBaseManager) addUsage(ctx context.Context, userCred mcclient.TokenCredential, usage IQuota) error {
+	LockQuota(ctx, manager, usage)
+	defer ReleaseQuota(ctx, manager, usage)
+
+	return manager._addUsage(ctx, userCred, usage)
+}
+
+func (manager *SQuotaBaseManager) _addUsage(ctx context.Context, userCred mcclient.TokenCredential, usage IQuota) error {
+	return manager.changeUsage(ctx, userCred, usage, true)
 }
 
 func (manager *SQuotaBaseManager) changeUsage(ctx context.Context, userCred mcclient.TokenCredential, usage IQuota, isAdd bool) error {
@@ -216,13 +234,21 @@ func (manager *SQuotaBaseManager) checkQuota(ctx context.Context, request IQuota
 
 func (manager *SQuotaBaseManager) __checkQuota(ctx context.Context, quota IQuota, request IQuota) error {
 	keys := quota.GetKeys()
-	log.Debugf("__checkQuota for keys: %s", QuotaKeyString(keys))
+
+	if !consts.GetNonDefaultDomainProjects() {
+		ownerId := keys.OwnerId()
+		if len(ownerId.GetProjectDomainId()) > 0 && len(ownerId.GetProjectId()) == 0 {
+			// if non_default_domain_projects == false
+			// skip domain quota check
+			return nil
+		}
+	}
+
 	used := manager.newQuota()
 	err := manager.usageStore.GetQuota(ctx, keys, used)
 	if err != nil {
 		return errors.Wrap(err, "manager.usageStore.GetQuotaByKeys")
 	}
-	log.Debugf("__checkQuota usage: %s", jsonutils.Marshal(used))
 	pendings, err := manager.pendingStore.GetChildrenQuotas(ctx, keys)
 	if err != nil {
 		return errors.Wrap(err, "manager.pendingStore.GetChildrenQuotas")
@@ -231,7 +257,6 @@ func (manager *SQuotaBaseManager) __checkQuota(ctx context.Context, quota IQuota
 		if pendings[i].IsEmpty() {
 			continue
 		}
-		log.Debugf("__checkQuota pending %d: %s", i, jsonutils.Marshal(pendings[i]))
 		used.Add(pendings[i])
 	}
 	return used.Exceed(request, quota)
@@ -270,4 +295,52 @@ func (manager *SQuotaBaseManager) _checkSetPendingQuota(ctx context.Context, use
 		}
 	}
 	return nil
+}
+
+func (manager *SQuotaBaseManager) getQuotaCount(ctx context.Context, request IQuota, pendingKeys IQuotaKeys) (int, error) {
+	quotas, err := manager.GetParentQuotas(ctx, request.GetKeys())
+	if err != nil {
+		return 0, errors.Wrap(err, "manager.getMatchedQuotas")
+	}
+	minCnt := -1
+	for i := len(quotas) - 1; i >= 0; i -= 1 {
+		rel := relation(quotas[i].GetKeys(), pendingKeys)
+		if rel == QuotaKeysContain || rel == QuotaKeysEqual {
+			break
+		}
+		cnt, err := manager.__getQuotaCount(ctx, quotas[i], request)
+		if err != nil {
+			return 0, errors.Wrapf(err, "manager.__getQuotaCount for key %s", QuotaKeyString(quotas[i].GetKeys()))
+		}
+		if minCnt < 0 || minCnt > cnt {
+			minCnt = cnt
+		}
+	}
+	return minCnt, nil
+}
+
+func (manager *SQuotaBaseManager) __getQuotaCount(ctx context.Context, quota IQuota, request IQuota) (int, error) {
+	keys := quota.GetKeys()
+	used := manager.newQuota()
+	err := manager.usageStore.GetQuota(ctx, keys, used)
+	if err != nil {
+		return 0, errors.Wrap(err, "manager.usageStore.GetQuotaByKeys")
+	}
+	pendings, err := manager.pendingStore.GetChildrenQuotas(ctx, keys)
+	if err != nil {
+		return 0, errors.Wrap(err, "manager.pendingStore.GetChildrenQuotas")
+	}
+	for i := range pendings {
+		if pendings[i].IsEmpty() {
+			continue
+		}
+		used.Add(pendings[i])
+	}
+	err = used.Exceed(request, quota)
+	if err != nil {
+		return 0, nil
+	}
+	quota.Sub(used)
+	cnt := quota.Allocable(request)
+	return cnt, nil
 }

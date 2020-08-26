@@ -108,7 +108,9 @@ func (task *sBaremetalPrepareTask) prepareBaremetalInfo(cli *ssh.Client) (*barem
 	if len(raidDiskInfo) > 0 {
 		raidDrivers := []string{}
 		for _, drv := range raidDiskInfo {
-			raidDrivers = append(raidDrivers, drv.Driver)
+			if !utils.IsInStringArray(drv.Driver, raidDrivers) {
+				raidDrivers = append(raidDrivers, drv.Driver)
+			}
 		}
 		storageDriver = strings.Join(raidDrivers, ",")
 	} else {
@@ -557,7 +559,8 @@ type ipmiIPConfig struct {
 func (task *sBaremetalPrepareTask) getIPMIIPConfig(ipAddr string) (*ipmiIPConfig, error) {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(ipAddr), "ip")
-	params.Add(jsonutils.JSONTrue, "is_on_premise")
+	params.Add(jsonutils.NewString("system"), "scope")
+	params.Add(jsonutils.JSONTrue, "is_classic")
 	listRet, err := modules.Networks.List(task.getClientSession(), params)
 	if err != nil {
 		return nil, err

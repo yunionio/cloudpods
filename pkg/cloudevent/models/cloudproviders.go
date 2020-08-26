@@ -16,7 +16,11 @@ package models
 
 import (
 	"context"
+	"net/http"
+	"net/url"
 	"time"
+
+	"golang.org/x/net/http/httpproxy"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -25,14 +29,17 @@ import (
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 
+	proxyapi "yunion.io/x/onecloud/pkg/apis/cloudcommon/proxy"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudevent/options"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/s3gateway/session"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SCloudproviderManager struct {
@@ -56,35 +63,40 @@ func init() {
 type SCloudprovider struct {
 	db.SEnabledStatusStandaloneResourceBase
 
-	HealthStatus  string `width:"16" charset:"ascii" default:"normal" nullable:"false" list:"domain"`
-	SyncStatus    string
-	LastSync      time.Time
-	LastSyncEndAt time.Time
-
-	AccessUrl string `width:"64" charset:"ascii" nullable:"true" list:"domain" update:"domain"`
-	Account   string `width:"128" charset:"ascii" nullable:"false" list:"domain"`
-	Secret    string `length:"0" charset:"ascii" nullable:"false" list:"domain"`
+	SyncStatus     string
+	LastSync       time.Time
+	LastSyncEndAt  time.Time
+	LastSyncTimeAt time.Time
 
 	Provider string `width:"64" charset:"ascii" list:"domain"`
+	Brand    string `width:"64" charset:"ascii" list:"domain"`
 }
 
 func (manager *SCloudproviderManager) GetRegionCloudproviders(ctx context.Context, userCred mcclient.TokenCredential) ([]SCloudprovider, error) {
 	s := session.GetSession(ctx, userCred)
+
+	data := []jsonutils.JSONObject{}
+	offset := int64(0)
 	params := jsonutils.NewDict()
-	params.Add(jsonutils.NewString("public"), "cloud_env")
-	result, err := modules.Cloudproviders.List(s, params)
-	if err != nil {
-		return nil, errors.Wrap(err, "modules.Cloudproviders.List")
-	}
-	providers := []SCloudprovider{}
-	for _, _provider := range result.Data {
-		provider := SCloudprovider{}
-		provider.SetModelManager(manager, &provider)
-		err = _provider.Unmarshal(&provider)
+	params.Set("scope", jsonutils.NewString("system"))
+	params.Set("limit", jsonutils.NewInt(1024))
+	for {
+		params.Set("offset", jsonutils.NewInt(offset))
+		result, err := modules.Cloudproviders.List(s, params)
 		if err != nil {
-			return nil, errors.Wrap(err, "_provider.Unmarshal")
+			return nil, errors.Wrap(err, "modules.Cloudproviders.List")
 		}
-		providers = append(providers, provider)
+		data = append(data, result.Data...)
+		if len(data) >= result.Total {
+			break
+		}
+		offset += 1024
+	}
+
+	providers := []SCloudprovider{}
+	err := jsonutils.Update(&providers, data)
+	if err != nil {
+		return nil, errors.Wrap(err, "jsonutils.Update")
 	}
 	return providers, nil
 }
@@ -99,17 +111,18 @@ func (manager *SCloudproviderManager) GetLocalCloudproviders() ([]SCloudprovider
 	return dbProviders, nil
 }
 
-func (manager *SCloudproviderManager) SyncCloudproviders(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+func (manager *SCloudproviderManager) syncCloudproviders(ctx context.Context, userCred mcclient.TokenCredential) compare.SyncResult {
+	result := compare.SyncResult{}
 	providers, err := manager.GetRegionCloudproviders(ctx, userCred)
 	if err != nil {
-		log.Errorf("failed to get region cloudproviders: %v", err)
-		return
+		result.Error(errors.Wrap(err, "GetRegionCloudproviders"))
+		return result
 	}
 
 	dbProviders, err := manager.GetLocalCloudproviders()
 	if err != nil {
-		log.Errorf("failed to get local cloudproviders: %v", err)
-		return
+		result.Error(errors.Wrap(err, "GetLocalCloudproviders"))
+		return result
 	}
 
 	removed := make([]SCloudprovider, 0)
@@ -119,37 +132,50 @@ func (manager *SCloudproviderManager) SyncCloudproviders(ctx context.Context, us
 
 	err = compare.CompareSets(dbProviders, providers, &removed, &commondb, &commonext, &added)
 	if err != nil {
-		log.Errorf("compare.CompareSets: %v", err)
-		return
+		result.Error(errors.Wrap(err, "CompareSets"))
+		return result
 	}
 
 	for i := 0; i < len(removed); i++ {
 		err = removed[i].Delete(ctx, userCred)
 		if err != nil {
-			log.Errorf("failed to remove cloudprovider %s(%s) error: %v", removed[i].Name, removed[i].Id, err)
+			result.DeleteError(err)
+			continue
 		}
+		result.Delete()
 	}
 
 	for i := 0; i < len(commondb); i++ {
 		err = commondb[i].syncWithRegionProvider(ctx, userCred, commonext[i])
 		if err != nil {
-			log.Errorf("failed to sync cloudprovider %s(%s) error: %v", commondb[i].Name, commondb[i].Id, err)
+			result.UpdateError(err)
+			continue
 		}
+		result.Update()
 	}
 
 	for i := 0; i < len(added); i++ {
 		err = manager.newFromRegionProvider(ctx, userCred, added[i])
 		if err != nil {
-			log.Errorf("failed to add cloudprovider %s(%s) error: %v", added[i].Name, added[i].Id, err)
+			result.AddError(err)
+			continue
 		}
+		result.Add()
 	}
+	return result
+}
+
+func (manager *SCloudproviderManager) SyncCloudproviders(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	result := manager.syncCloudproviders(ctx, userCred)
+	info := result.Result()
+	log.Infof("sync cloudproviders result: %s", info)
 }
 
 func (provider *SCloudprovider) syncWithRegionProvider(ctx context.Context, userCred mcclient.TokenCredential, cloudprovider SCloudprovider) error {
 	_, err := db.Update(provider, func() error {
 		provider.Status = cloudprovider.Status
-		provider.Secret = cloudprovider.Secret
 		provider.Enabled = cloudprovider.Enabled
+		provider.Brand = cloudprovider.Brand
 		return nil
 	})
 	return err
@@ -163,8 +189,7 @@ func (self *SCloudprovider) MarkSyncing(userCred mcclient.TokenCredential) error
 		return nil
 	})
 	if err != nil {
-		log.Errorf("Failed to MarkSyncing error: %v", err)
-		return err
+		return errors.Wrap(err, "db.Update")
 	}
 	return nil
 }
@@ -176,41 +201,57 @@ func (self *SCloudprovider) MarkEndSync(userCred mcclient.TokenCredential) error
 		return nil
 	})
 	if err != nil {
-		log.Errorf("Failed to markEndSync error: %v", err)
-		return err
+		return errors.Wrap(err, "db.Update")
+	}
+	return nil
+}
+
+func (self *SCloudprovider) SetLastSyncTimeAt(userCred mcclient.TokenCredential, last time.Time) error {
+	_, err := db.Update(self, func() error {
+		self.LastSyncTimeAt = last
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "db.Update")
 	}
 	return nil
 }
 
 func (manager *SCloudproviderManager) newFromRegionProvider(ctx context.Context, userCred mcclient.TokenCredential, cloudprovider SCloudprovider) error {
 	cloudprovider.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
-	return manager.TableSpec().Insert(&cloudprovider)
+	return manager.TableSpec().Insert(ctx, &cloudprovider)
 }
 
-func (manager *SCloudproviderManager) SyncCloudeventTask(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+func (manager *SCloudproviderManager) syncCloudeventTask(ctx context.Context, userCred mcclient.TokenCredential) error {
 	cloudproviders := []SCloudprovider{}
 	q := manager.Query().IsTrue("enabled").Equals("status", api.CLOUD_PROVIDER_CONNECTED).Equals("sync_status", api.CLOUD_PROVIDER_SYNC_STATUS_IDLE)
 	err := db.FetchModelObjects(manager, q, &cloudproviders)
 	if err != nil {
-		log.Errorf("failed to fetch cloudproviders")
-		return
+		return errors.Wrap(err, "db.FetchModelObjects")
 	}
-	for _, provider := range cloudproviders {
-		err = provider.StartCloudeventSyncTask(ctx, userCred)
+	for i := range cloudproviders {
+		err = cloudproviders[i].StartCloudeventSyncTask(ctx, userCred)
 		if err != nil {
-			log.Errorf("Failed start cloudevent sync task error: %v", err)
+			log.Errorf("Failed start cloudevent sync task for cloudprovider %s (%s) error: %v", cloudproviders[i].Name, cloudproviders[i].Id, err)
 		}
 	}
-	return
+	return nil
+}
+
+func (manager *SCloudproviderManager) SyncCloudeventTask(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	err := manager.syncCloudeventTask(ctx, userCred)
+	if err != nil {
+		log.Errorf("syncCloudeventTask error: %v", err)
+	}
 }
 
 func (provider *SCloudprovider) StartCloudeventSyncTask(ctx context.Context, userCred mcclient.TokenCredential) error {
 	params := jsonutils.NewDict()
-	provider.MarkSyncing(userCred)
 	task, err := taskman.TaskManager.NewTask(ctx, "CloudeventSyncTask", provider, userCred, params, "", "", nil)
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
+	provider.MarkSyncing(userCred)
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -226,19 +267,23 @@ func (self *SCloudprovider) GetNextTimeRange() (time.Time, time.Time, error) {
 	if err != nil {
 		return start, end, errors.Wrap(err, "q.CountWithError")
 	}
-	if count == 0 {
+	if !self.LastSyncTimeAt.IsZero() {
+		start = self.LastSyncTimeAt
+	} else if count == 0 {
 		start = time.Now().AddDate(0, 0, -1*factory.GetMaxCloudEventKeepDays())
 	} else {
-		provider := SCloudprovider{}
-		err = q.First(&provider)
+		event := &SCloudevent{}
+		err = q.First(event)
 		if err != nil {
 			return start, end, errors.Wrap(err, "q.First")
 		}
-		start = provider.CreatedAt
-		if start.Before(time.Now().AddDate(0, 0, factory.GetMaxCloudEventKeepDays()*-1)) {
-			start = time.Now().AddDate(0, 0, factory.GetMaxCloudEventKeepDays()*-1)
-		}
+		start = event.CreatedAt
 	}
+	// 避免cloudevent过长时间未运行，再次运行时记录的最后一条时间距离现在间隔太长
+	if start.Before(time.Now().AddDate(0, 0, factory.GetMaxCloudEventKeepDays()*-1)) {
+		start = time.Now().AddDate(0, 0, factory.GetMaxCloudEventKeepDays()*-1)
+	}
+
 	if options.Options.OneSyncForHours > factory.GetMaxCloudEventSyncDays()*24 {
 		end = start.Add(time.Duration(factory.GetMaxCloudEventSyncDays()*24) * time.Hour)
 	} else {
@@ -251,11 +296,43 @@ func (self *SCloudprovider) GetNextTimeRange() (time.Time, time.Time, error) {
 	return start, end, nil
 }
 
-func (provider *SCloudprovider) getPassword() (string, error) {
+type SCloudproviderDelegate struct {
+	Id   string
+	Name string
+
+	Enabled    bool
+	Status     string
+	SyncStatus string
+
+	AccessUrl string
+	Account   string
+	Secret    string
+
+	Provider string
+	Brand    string
+
+	ProxySetting proxyapi.SProxySetting
+}
+
+func (self *SCloudprovider) GetDelegate() (*SCloudproviderDelegate, error) {
+	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
+	result, err := modules.Cloudproviders.Get(s, self.Id, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "modules.Cloudproviders.Get")
+	}
+	provider := &SCloudproviderDelegate{}
+	err = result.Unmarshal(provider)
+	if err != nil {
+		return nil, errors.Wrap(err, "result.Unmarshal")
+	}
+	return provider, nil
+}
+
+func (provider *SCloudproviderDelegate) getPassword() (string, error) {
 	return utils.DescryptAESBase64(provider.Id, provider.Secret)
 }
 
-func (provider *SCloudprovider) getAccessUrl() string {
+func (provider *SCloudproviderDelegate) getAccessUrl() string {
 	return provider.AccessUrl
 }
 
@@ -271,16 +348,45 @@ func (provider SCloudprovider) GetExternalId() string {
 	return provider.Id
 }
 
-func (provider *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) {
-	if !provider.Enabled {
+func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) {
+	if !self.GetEnabled() {
 		return nil, errors.Error("Cloud provider is not enabled")
 	}
-	accessUrl := provider.getAccessUrl()
-	passwd, err := provider.getPassword()
+	delegate, err := self.GetDelegate()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetDelegate")
 	}
-	return cloudprovider.GetProvider(provider.Id, provider.Name, accessUrl, provider.Account, passwd, provider.Provider)
+	accessUrl := delegate.getAccessUrl()
+	passwd, err := delegate.getPassword()
+	if err != nil {
+		return nil, errors.Wrap(err, "delegate.getPassword")
+	}
+
+	var proxyFunc httputils.TransportProxyFunc
+	{
+		cfg := &httpproxy.Config{
+			HTTPProxy:  delegate.ProxySetting.HTTPProxy,
+			HTTPSProxy: delegate.ProxySetting.HTTPSProxy,
+			NoProxy:    delegate.ProxySetting.NoProxy,
+		}
+		cfgProxyFunc := cfg.ProxyFunc()
+		proxyFunc = func(req *http.Request) (*url.URL, error) {
+			return cfgProxyFunc(req.URL)
+		}
+	}
+
+	return cloudprovider.GetProvider(
+		cloudprovider.ProviderConfig{
+			Id:      self.Id,
+			Name:    self.Name,
+			Vendor:  self.Provider,
+			URL:     accessUrl,
+			Account: delegate.Account,
+			Secret:  passwd,
+
+			ProxyFunc: proxyFunc,
+		},
+	)
 }
 
 func (manager *SCloudproviderManager) InitializeData() error {

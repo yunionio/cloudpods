@@ -109,21 +109,24 @@ func getQemuDefaultCmd(cmd string) string {
 			}
 		}
 	}
+
 	cmds := make([]string, 0)
-	if files, err := ioutil.ReadDir(USER_LOCAL_BIN); err == nil {
-		for i := 0; i < len(files); i++ {
-			if strings.HasPrefix(files[i].Name(), cmd) {
-				cmds = append(cmds, files[i].Name())
+	for _, dir := range []string{USER_LOCAL_BIN, USER_BIN} {
+		if files, err := ioutil.ReadDir(dir); err == nil {
+			for i := 0; i < len(files); i++ {
+				if strings.HasPrefix(files[i].Name(), cmd) {
+					cmds = append(cmds, files[i].Name())
+				}
 			}
-		}
-		if len(cmds) > 0 {
-			sort.Slice(cmds, func(i, j int) bool {
-				return version.LT(getCmdVersion(cmds[i]),
-					getCmdVersion(cmds[j]))
-			})
-			p := path.Join(USER_LOCAL_BIN, cmds[len(cmds)-1])
-			if _, err := os.Stat(p); !os.IsNotExist(err) {
-				return p
+			if len(cmds) > 0 {
+				sort.Slice(cmds, func(i, j int) bool {
+					return version.LT(getCmdVersion(cmds[i]),
+						getCmdVersion(cmds[j]))
+				})
+				p := path.Join(dir, cmds[len(cmds)-1])
+				if _, err := os.Stat(p); !os.IsNotExist(err) {
+					return p
+				}
 			}
 		}
 	}

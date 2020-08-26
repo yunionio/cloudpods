@@ -20,10 +20,12 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type TInternetChargeType string
@@ -64,6 +66,7 @@ type SProfile struct {
 type SEipAddress struct {
 	region *SRegion
 	port   *Port
+	multicloud.SEipBase
 
 	ID                  string    `json:"id"`
 	Status              string    `json:"status"`
@@ -80,6 +83,7 @@ type SEipAddress struct {
 	EnterpriseProjectID string    `json:"enterprise_project_id"`
 	IPVersion           int64     `json:"ip_version"`
 	PortId              string    `json:"port_id"`
+	EnterpriseProjectId string
 }
 
 func (self *SEipAddress) GetId() string {
@@ -164,13 +168,14 @@ func (self *SEipAddress) GetPort() *Port {
 
 func (self *SEipAddress) GetAssociationType() string {
 	port := self.GetPort()
-	if port != nil {
-		return port.DeviceID
+	if port == nil {
+		log.Errorf("SEipAddress.GetAssociationType port not found %#v", self)
+		return api.EIP_ASSOCIATE_TYPE_UNKNOWN
 	}
 
 	owner := port.DeviceOwner
 	if strings.Contains(owner, "LOADBALANCER") {
-		return api.EIP_ASSOCIATE_TYPE_ELB
+		return api.EIP_ASSOCIATE_TYPE_LOADBALANCER
 	} else {
 		return api.EIP_ASSOCIATE_TYPE_SERVER
 	}
@@ -229,8 +234,8 @@ func (self *SEipAddress) Delete() error {
 	return self.region.DeallocateEIP(self.ID)
 }
 
-func (self *SEipAddress) Associate(instanceId string) error {
-	portId, err := self.region.GetInstancePortId(instanceId)
+func (self *SEipAddress) Associate(conf *cloudprovider.AssociateConfig) error {
+	portId, err := self.region.GetInstancePortId(conf.InstanceId)
 	if err != nil {
 		return err
 	}
@@ -286,7 +291,7 @@ func (self *SRegion) GetInstancePortId(instanceId string) (string, error) {
 }
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090596.html
-func (self *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternetChargeType, bgpType string) (*SEipAddress, error) {
+func (self *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternetChargeType, bgpType string, projectId string) (*SEipAddress, error) {
 	paramsStr := `
 {
     "publicip": {
@@ -305,7 +310,11 @@ func (self *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternetCh
 		return nil, fmt.Errorf("AllocateEIP bgp type should not be empty")
 	}
 	paramsStr = fmt.Sprintf(paramsStr, bgpType, name, bwMbps, chargeType)
-	params, _ := jsonutils.ParseString(paramsStr)
+	_params, _ := jsonutils.ParseString(paramsStr)
+	params := _params.(*jsonutils.JSONDict)
+	if len(projectId) > 0 {
+		params.Set("enterprise_project_id", jsonutils.NewString(projectId))
+	}
 	eip := SEipAddress{}
 	err := DoCreate(self.ecsClient.Eips.Create, params, &eip)
 	return &eip, err
@@ -381,4 +390,8 @@ func (self *SRegion) GetEipBandwidth(bandwidthId string) (Bandwidth, error) {
 	bandwidth := Bandwidth{}
 	err := DoGet(self.ecsClient.Bandwidths.Get, bandwidthId, nil, &bandwidth)
 	return bandwidth, err
+}
+
+func (self *SEipAddress) GetProjectId() string {
+	return self.EnterpriseProjectId
 }

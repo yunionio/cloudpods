@@ -17,18 +17,65 @@ package compute
 import "yunion.io/x/onecloud/pkg/apis"
 
 type SDBInstanceDatabasePrivilege struct {
-	Account             string
+	// 数据库账号名称或Id
+	// required: true
+	Account string `json:"account"`
+	// swagger:ignore
 	DBInstanceaccountId string
-	Privilege           string
+	// 权限
+	// | 平台		|Rds引擎				|	支持类型	|
+	// | ----		|-------				|	--------	|
+	// | Aliyun		|MySQL, MariaBD			|	rw, r, ddl, dml	|
+	// | Aliyun		|SQLServer				|	rw, r, owner	|
+	// | Huawei		|MySQL, MariaDB			|	rw, r	|
+	// 同一平台不同的rds类型支持的权限不尽相同
+	// required: true
+	Privilege string `json:"privilege"`
 }
 
-type SDBInstanceDatabaseCreateInput struct {
-	apis.Meta
+type DBInstanceDatabaseCreateInput struct {
+	apis.StatusStandaloneResourceCreateInput
 
-	DBInstanceId        string `json:"dbinstance_id"`
-	CharacterSet        string
-	Name                string
-	Description         string
-	Accounts            []SDBInstanceDatabasePrivilege
-	DBInstanceaccountId string
+	// rds实例名称或Id,建议使用Id
+	//
+	//
+	//
+	// | 平台		|支持Rds引擎				|
+	// | ----		|-------					|
+	// | Aliyun		|MySQL, MariaBD, SQLServer  |
+	// | 华为云		|MySQL, MariaBD				|
+	// required: true
+	// 阿里云SQL Server 2017集群版不支持创建数据库
+	// 阿里云只读实例不支持创建数据库
+	// 实例状态必须是运行中
+	DBInstance string `json:"dbinstance"`
+	// swagger:ignore
+	DBInstanceId string `json:"dbinstance_id"`
+
+	// 数据库字符集
+	// required: true
+	CharacterSet string `json:"character_set"`
+
+	// 赋予账号权限
+	// required: false
+	Accounts []SDBInstanceDatabasePrivilege `json:"accounts"`
+}
+
+type DBInstancedatabaseDetails struct {
+	apis.StatusStandaloneResourceDetails
+	apis.ProjectizedResourceInfo
+	DBInstanceResourceInfo
+
+	SDBInstanceDatabase
+
+	// 数据库权限
+	DBInstanceprivileges []DBInstancePrivilege `json:"dbinstanceprivileges"`
+	ProjectId            string                `json:"tenant_id"`
+}
+
+type DBInstanceparameterDetails struct {
+	apis.StandaloneResourceDetails
+	DBInstanceResourceInfo
+
+	SDBInstanceParameter
 }

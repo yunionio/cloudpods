@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
@@ -61,6 +62,68 @@ func (this *projectRoles) json() jsonutils.JSONObject {
 	}
 	obj.Add(roles, "roles")
 	return obj
+}
+
+type sRole struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type sGroupRole struct {
+	Id       string  `json:"id"`
+	Name     string  `json:"name"`
+	Roles    []sRole `json:"roles"`
+	Policies struct {
+		Project []string `json:"project"`
+		Domain  []string `json:"domain"`
+		System  []string `json:"system"`
+	} `json:"policies"`
+}
+
+type sProjectGroupRole struct {
+	Id     string       `json:"id"`
+	Name   string       `json:"name"`
+	Groups []sGroupRole `json:"groups"`
+}
+
+func (pgr *sProjectGroupRole) add(groupId, groupName, roleId, roleName string, projectPolicies, domainPolicies, systemPolicies []string) {
+	groupIdx := -1
+	for i := range pgr.Groups {
+		if pgr.Groups[i].Id == groupId {
+			groupIdx = i
+			break
+		}
+	}
+	if groupIdx < 0 {
+		groupIdx = len(pgr.Groups)
+		pgr.Groups = append(pgr.Groups, sGroupRole{
+			Id:   groupId,
+			Name: groupName,
+		})
+	}
+	pgr.Groups[groupIdx].add(roleId, roleName, projectPolicies, domainPolicies, systemPolicies)
+}
+
+func (gr *sGroupRole) add(roleId, roleName string, projectPolicies, domainPolicies, systemPolicies []string) {
+	gr.Roles = append(gr.Roles, sRole{
+		Id:   roleId,
+		Name: roleName,
+	})
+	for _, p := range projectPolicies {
+		if !utils.IsInStringArray(p, gr.Policies.Project) {
+			gr.Policies.Project = append(gr.Policies.Project, p)
+		}
+	}
+	for _, p := range domainPolicies {
+		if !utils.IsInStringArray(p, gr.Policies.Domain) {
+			gr.Policies.Domain = append(gr.Policies.Domain, p)
+		}
+	}
+	for _, p := range systemPolicies {
+		if !utils.IsInStringArray(p, gr.Policies.System) {
+			gr.Policies.System = append(gr.Policies.System, p)
+		}
+	}
 }
 
 var (
@@ -186,30 +249,47 @@ func (this *RoleAssignmentManagerV3) GetProjectRole(s *mcclient.ClientSession, i
 	} else {
 		query.Add(jsonutils.NewString(id), resource, "id")
 	}
+	query.Add(jsonutils.JSONNull, "include_policies")
 
 	result, err := this.List(s, query)
 	if err != nil {
 		return jsonutils.JSONNull, err
 	}
 
-	projects := make(map[string]*projectRoles)
+	projects := make([]sProjectGroupRole, 0)
 	for _, roleAssign := range result.Data {
 		roleId, _ := roleAssign.GetString("role", "id")
 		roleName, _ := roleAssign.GetString("role", "name")
 		projectId, _ := roleAssign.GetString("scope", "project", "id")
 		projectName, _ := roleAssign.GetString("scope", "project", "name")
-		_, ok := projects[projectId]
+		groupId, _ := roleAssign.GetString("group", "id")
+		groupName, _ := roleAssign.GetString("group", "name")
+		projPolicies, _ := jsonutils.GetStringArray(roleAssign, "policies", "project")
+		domPolicies, _ := jsonutils.GetStringArray(roleAssign, "policies", "domain")
+		sysPolicies, _ := jsonutils.GetStringArray(roleAssign, "policies", "system")
 
-		if ok {
-			projects[projectId].add(roleId, roleName)
-		} else {
-			projects[projectId] = newProjectRoles(projectId, projectName, roleId, roleName, "")
+		projIdx := -1
+		for i := range projects {
+			if projects[i].Id == projectId {
+				projIdx = i
+				break
+			}
 		}
+
+		if projIdx < 0 {
+			projIdx = len(projects)
+			projects = append(projects, sProjectGroupRole{
+				Id:   projectId,
+				Name: projectName,
+			})
+		}
+
+		projects[projIdx].add(groupId, groupName, roleId, roleName, projPolicies, domPolicies, sysPolicies)
 	}
 
 	projJson := jsonutils.NewArray()
 	for _, proj := range projects {
-		projJson.Add(proj.json())
+		projJson.Add(jsonutils.Marshal(proj))
 	}
 	data.Add(projJson, "data")
 	data.Add(jsonutils.NewInt(int64(len(projects))), "total")

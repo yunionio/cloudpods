@@ -85,9 +85,10 @@ type HistoryTask struct {
 	Time      string     `json:"time"`
 	Consuming string     `json:"consuming"`
 	//Result    []SchedResultItem `json:"result"`
-	Result interface{} `json:"result"`
-	Error  string      `json:"error"`
-	Logs   []string    `json:"logs"`
+	Result      interface{} `json:"result"`
+	Error       string      `json:"error"`
+	Logs        []string    `json:"logs"`
+	CapacityMap interface{} `json:"capacity_map"`
 }
 
 type HistoryDetail struct {

@@ -189,10 +189,11 @@ func (job *SLogFetchJob) Do(ctx context.Context, now time.Time) error {
 	if err != nil {
 		return errors.Wrap(err, "fetchLogs api.EVENT_TYPE_SYSTEM")
 	}
-	err = fetchLogs(job.baremetal, ctx, redfish.EVENT_TYPE_MANAGER)
-	if err != nil {
-		return errors.Wrap(err, "fetchLogs api.EVENT_TYPE_MANAGER")
-	}
+	// no longer fetch management logs
+	// err = fetchLogs(job.baremetal, ctx, redfish.EVENT_TYPE_MANAGER)
+	// if err != nil {
+	// 	return errors.Wrap(err, "fetchLogs api.EVENT_TYPE_MANAGER")
+	// }
 	job.lastTime = now
 	return nil
 }

@@ -26,6 +26,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -60,7 +61,7 @@ func processFilter(handleFunc specHandleFunc) appsrv.FilterHandler {
 		userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 		query, err := jsonutils.ParseQueryString(r.URL.RawQuery)
 		if err != nil {
-			httperrors.GeneralServerError(w, err)
+			httperrors.GeneralServerError(ctx, w, err)
 			return
 		}
 		params := appctx.AppContextParams(ctx)
@@ -69,7 +70,7 @@ func processFilter(handleFunc specHandleFunc) appsrv.FilterHandler {
 		}
 		spec, err := handleFunc(ctx, userCred, query.(*jsonutils.JSONDict))
 		if err != nil {
-			httperrors.GeneralServerError(w, err)
+			httperrors.GeneralServerError(ctx, w, err)
 			return
 		}
 		ret := jsonutils.NewDict()
@@ -238,7 +239,7 @@ func QueryObjectsToJson(objs []models.ISpecModel, ctx context.Context, userCred 
 		if !ok {
 			return nil, fmt.Errorf("Invalid model data structure, not a dict")
 		}
-		extraDict := obj.GetCustomizeColumns(ctx, userCred, query)
+		extraDict, _ := db.GetExtraDetails(obj, ctx, userCred, query, false)
 		if extraDict != nil {
 			jsonDict.Update(extraDict)
 		}

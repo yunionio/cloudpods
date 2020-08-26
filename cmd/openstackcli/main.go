@@ -28,14 +28,14 @@ import (
 type BaseOptions struct {
 	Debug         bool   `help:"debug mode"`
 	Help          bool   `help:"Show help"`
-	AuthURL       string `help:"Auth URL" default:"$OPENSTACK_AUTH_URL"`
-	Username      string `help:"Username" default:"$OPENSTACK_USERNAME"`
-	Password      string `help:"Password" default:"$OPENSTACK_PASSWORD"`
-	Project       string `help:"Project" default:"$OPENSTACK_PROJECT"`
-	EndpointType  string `help:"Project" default:"$OPENSTACK_ENDPOINT_TYPE|internal"`
-	DomainName    string `help:"Domain of user" default:"$OPENSTACK_DOMAIN_NAME|Default"`
-	ProjectDomain string `help:"Domain of project" default:"$OPENSTACK_PROJECT_DOMAIN|Default"`
-	RegionID      string `help:"RegionId" default:"$OPENSTACK_REGION_ID"`
+	AuthURL       string `help:"Auth URL" default:"$OPENSTACK_AUTH_URL" metavar:"OPENSTACK_AUTH_URL"`
+	Username      string `help:"Username" default:"$OPENSTACK_USERNAME" metavar:"OPENSTACK_USERNAME"`
+	Password      string `help:"Password" default:"$OPENSTACK_PASSWORD" metavar:"OPENSTACK_PASSWORD"`
+	Project       string `help:"Project" default:"$OPENSTACK_PROJECT" metavar:"OPENSTACK_PROJECT"`
+	EndpointType  string `help:"Project" default:"$OPENSTACK_ENDPOINT_TYPE|internal" metavar:"OPENSTACK_ENDPOINT_TYPE"`
+	DomainName    string `help:"Domain of user" default:"$OPENSTACK_DOMAIN_NAME|Default" metavar:"OPENSTACK_DOMAIN_NAME"`
+	ProjectDomain string `help:"Domain of project" default:"$OPENSTACK_PROJECT_DOMAIN|Default" metavar:"OPENSTACK_PROJECT_DOMAIN"`
+	RegionID      string `help:"RegionId" default:"$OPENSTACK_REGION_ID" metavar:"OPENSTACK_REGION_ID"`
 	SUBCOMMAND    string `help:"openstackcli subcommand" subcommand:"true"`
 }
 
@@ -93,7 +93,18 @@ func newClient(options *BaseOptions) (*openstack.SRegion, error) {
 		return nil, fmt.Errorf("Missing Password")
 	}
 
-	cli, err := openstack.NewOpenStackClient("", "", options.AuthURL, options.Username, options.Password, options.Project, options.EndpointType, options.DomainName, options.ProjectDomain, options.Debug)
+	cli, err := openstack.NewOpenStackClient(
+		openstack.NewOpenstackClientConfig(
+			options.AuthURL,
+			options.Username,
+			options.Password,
+			options.Project,
+			options.ProjectDomain,
+		).
+			EndpointType(options.EndpointType).
+			DomainName(options.DomainName).
+			Debug(options.Debug),
+	)
 	if err != nil {
 		return nil, err
 	}

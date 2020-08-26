@@ -1,16 +1,14 @@
-// Copyright 2019 Yunion
+// Copyright 2019 Huawei Technologies Co.,Ltd.
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+// this file except in compliance with the License.  You may obtain a copy of the
+// License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+// http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing, software distributed
+// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations under the License.
 
 package obs
 
@@ -59,14 +57,14 @@ func (obsClient ObsClient) doActionWithoutBucket(action, method string, input IS
 }
 
 func (obsClient ObsClient) doActionWithBucketV2(action, method, bucketName string, input ISerializable, output IBaseModel) error {
-	if strings.TrimSpace(bucketName) == "" {
+	if strings.TrimSpace(bucketName) == "" && !obsClient.conf.cname {
 		return errors.New("Bucket is empty")
 	}
 	return obsClient.doAction(action, method, bucketName, "", input, output, false, true)
 }
 
 func (obsClient ObsClient) doActionWithBucket(action, method, bucketName string, input ISerializable, output IBaseModel) error {
-	if strings.TrimSpace(bucketName) == "" {
+	if strings.TrimSpace(bucketName) == "" && !obsClient.conf.cname {
 		return errors.New("Bucket is empty")
 	}
 	return obsClient.doAction(action, method, bucketName, "", input, output, true, true)
@@ -81,8 +79,8 @@ func (obsClient ObsClient) doActionWithBucketAndKeyUnRepeatable(action, method, 
 }
 
 func (obsClient ObsClient) _doActionWithBucketAndKey(action, method, bucketName, objectKey string, input ISerializable, output IBaseModel, repeatable bool) error {
-	if strings.TrimSpace(bucketName) == "" {
-		return errors.New("Key is empty")
+	if strings.TrimSpace(bucketName) == "" && !obsClient.conf.cname {
+		return errors.New("Bucket is empty")
 	}
 	if strings.TrimSpace(objectKey) == "" {
 		return errors.New("Key is empty")
@@ -97,8 +95,10 @@ func (obsClient ObsClient) doAction(action, method, bucketName, objectKey string
 	doLog(LEVEL_INFO, "Enter method %s...", action)
 	start := GetCurrentTimestamp()
 
-	params, headers, data := input.trans(obsClient.conf.signature == SignatureObs)
-
+	params, headers, data, err := input.trans(obsClient.conf.signature == SignatureObs)
+	if err != nil {
+		return err
+	}
 	if params == nil {
 		params = make(map[string]string)
 	}
@@ -246,6 +246,7 @@ func (obsClient ObsClient) doHttp(method, bucketName, objectKey string, params m
 	var redirectUrl string
 	var requestUrl string
 	maxRetryCount := obsClient.conf.maxRetryCount
+	maxRedirectCount := obsClient.conf.maxRedirectCount
 
 	var _data io.Reader
 	if data != nil {
@@ -265,15 +266,24 @@ func (obsClient ObsClient) doHttp(method, bucketName, objectKey string, params m
 		}
 	}
 
-	for i := 0; i <= maxRetryCount; i++ {
+	var lastRequest *http.Request
+	redirectFlag := false
+	for i, redirectCount := 0, 0; i <= maxRetryCount; i++ {
 		if redirectUrl != "" {
-			parsedRedirectUrl, err := url.Parse(redirectUrl)
-			if err != nil {
-				return nil, err
-			}
-			requestUrl, _ = obsClient.doAuth(method, bucketName, objectKey, params, headers, parsedRedirectUrl.Host)
-			if parsedRequestUrl, _ := url.Parse(requestUrl); parsedRequestUrl.RawQuery != "" && parsedRedirectUrl.RawQuery == "" {
-				redirectUrl += "?" + parsedRequestUrl.RawQuery
+			if !redirectFlag {
+				parsedRedirectUrl, err := url.Parse(redirectUrl)
+				if err != nil {
+					return nil, err
+				}
+				requestUrl, err = obsClient.doAuth(method, bucketName, objectKey, params, headers, parsedRedirectUrl.Host)
+				if err != nil {
+					return nil, err
+				}
+				if parsedRequestUrl, err := url.Parse(requestUrl); err != nil {
+					return nil, err
+				} else if parsedRequestUrl.RawQuery != "" && parsedRedirectUrl.RawQuery == "" {
+					redirectUrl += "?" + parsedRequestUrl.RawQuery
+				}
 			}
 			requestUrl = redirectUrl
 		} else {
@@ -285,11 +295,11 @@ func (obsClient ObsClient) doHttp(method, bucketName, objectKey string, params m
 		}
 
 		req, err := http.NewRequest(method, requestUrl, _data)
-		if obsClient.conf.ctx != nil {
-			req = req.WithContext(obsClient.conf.ctx)
-		}
 		if err != nil {
 			return nil, err
+		}
+		if obsClient.conf.ctx != nil {
+			req = req.WithContext(obsClient.conf.ctx)
 		}
 		doLog(LEVEL_DEBUG, "Do request with url [%s] and method [%s]", requestUrl, method)
 
@@ -312,7 +322,14 @@ func (obsClient ObsClient) doHttp(method, bucketName, objectKey string, params m
 			}
 		}
 
+		lastRequest = req
+
 		req.Header[HEADER_USER_AGENT_CAMEL] = []string{USER_AGENT}
+
+		if lastRequest != nil {
+			req.Host = lastRequest.Host
+			req.ContentLength = lastRequest.ContentLength
+		}
 
 		start := GetCurrentTimestamp()
 		resp, err = obsClient.httpClient.Do(req)
@@ -325,6 +342,9 @@ func (obsClient ObsClient) doHttp(method, bucketName, objectKey string, params m
 			msg = err
 			respError = err
 			resp = nil
+			if !repeatable {
+				break
+			}
 		} else {
 			doLog(LEVEL_DEBUG, "Response headers: %v", resp.Header)
 			if resp.StatusCode < 300 {
@@ -334,11 +354,17 @@ func (obsClient ObsClient) doHttp(method, bucketName, objectKey string, params m
 				resp = nil
 				break
 			} else if resp.StatusCode >= 300 && resp.StatusCode < 400 {
-				if location := resp.Header.Get(HEADER_LOCATION_CAMEL); location != "" {
+				if location := resp.Header.Get(HEADER_LOCATION_CAMEL); location != "" && redirectCount < maxRedirectCount {
 					redirectUrl = location
 					doLog(LEVEL_WARN, "Redirect request to %s", redirectUrl)
 					msg = resp.Status
 					maxRetryCount++
+					redirectCount++
+					if resp.StatusCode == 302 && method == HTTP_GET {
+						redirectFlag = true
+					} else {
+						redirectFlag = false
+					}
 				} else {
 					respError = ParseResponseToObsError(resp, obsClient.conf.signature == SignatureObs)
 					resp = nil
@@ -350,7 +376,10 @@ func (obsClient ObsClient) doHttp(method, bucketName, objectKey string, params m
 		}
 		if i != maxRetryCount {
 			if resp != nil {
-				resp.Body.Close()
+				_err := resp.Body.Close()
+				if _err != nil {
+					doLog(LEVEL_WARN, "Failed to close resp body with reason: %v", _err)
+				}
 				resp = nil
 			}
 			if _, ok := headers[HEADER_AUTH_CAMEL]; ok {
@@ -358,23 +387,40 @@ func (obsClient ObsClient) doHttp(method, bucketName, objectKey string, params m
 			}
 			doLog(LEVEL_WARN, "Failed to send request with reason:%v, will try again", msg)
 			if r, ok := _data.(*strings.Reader); ok {
-				r.Seek(0, 0)
+				_, err := r.Seek(0, 0)
+				if err != nil {
+					return nil, err
+				}
 			} else if r, ok := _data.(*bytes.Reader); ok {
-				r.Seek(0, 0)
+				_, err := r.Seek(0, 0)
+				if err != nil {
+					return nil, err
+				}
 			} else if r, ok := _data.(*fileReaderWrapper); ok {
 				fd, err := os.Open(r.filePath)
 				if err != nil {
 					return nil, err
 				}
-				defer fd.Close()
+				defer func() {
+					errMsg := fd.Close()
+					if errMsg != nil {
+						doLog(LEVEL_WARN, "Failed to close with reason: %v", errMsg)
+					}
+				}()
 				fileReaderWrapper := &fileReaderWrapper{filePath: r.filePath}
 				fileReaderWrapper.mark = r.mark
 				fileReaderWrapper.reader = fd
 				fileReaderWrapper.totalCount = r.totalCount
 				_data = fileReaderWrapper
-				fd.Seek(r.mark, 0)
+				_, err = fd.Seek(r.mark, 0)
+				if err != nil {
+					return nil, err
+				}
 			} else if r, ok := _data.(*readerWrapper); ok {
-				r.seek(0, 0)
+				_, err := r.seek(0, 0)
+				if err != nil {
+					return nil, err
+				}
 			}
 			time.Sleep(time.Duration(float64(i+2) * rand.Float64() * float64(time.Second)))
 		} else {
@@ -403,18 +449,38 @@ func getConnDelegate(conn net.Conn, socketTimeout int, finalTimeout int) *connDe
 }
 
 func (delegate *connDelegate) Read(b []byte) (n int, err error) {
-	delegate.SetReadDeadline(time.Now().Add(delegate.socketTimeout))
+	setReadDeadlineErr := delegate.SetReadDeadline(time.Now().Add(delegate.socketTimeout))
+	flag := isDebugLogEnabled()
+
+	if setReadDeadlineErr != nil && flag {
+		doLog(LEVEL_DEBUG, "Failed to set read deadline with reason: %v, but it's ok", setReadDeadlineErr)
+	}
+
 	n, err = delegate.conn.Read(b)
-	delegate.SetReadDeadline(time.Now().Add(delegate.finalTimeout))
+	setReadDeadlineErr = delegate.SetReadDeadline(time.Now().Add(delegate.finalTimeout))
+	if setReadDeadlineErr != nil && flag {
+		doLog(LEVEL_DEBUG, "Failed to set read deadline with reason: %v, but it's ok", setReadDeadlineErr)
+	}
 	return n, err
 }
 
 func (delegate *connDelegate) Write(b []byte) (n int, err error) {
-	delegate.SetWriteDeadline(time.Now().Add(delegate.socketTimeout))
+	setWriteDeadlineErr := delegate.SetWriteDeadline(time.Now().Add(delegate.socketTimeout))
+	flag := isDebugLogEnabled()
+	if setWriteDeadlineErr != nil && flag {
+		doLog(LEVEL_DEBUG, "Failed to set write deadline with reason: %v, but it's ok", setWriteDeadlineErr)
+	}
+
 	n, err = delegate.conn.Write(b)
 	finalTimeout := time.Now().Add(delegate.finalTimeout)
-	delegate.SetWriteDeadline(finalTimeout)
-	delegate.SetReadDeadline(finalTimeout)
+	setWriteDeadlineErr = delegate.SetWriteDeadline(finalTimeout)
+	if setWriteDeadlineErr != nil && flag {
+		doLog(LEVEL_DEBUG, "Failed to set write deadline with reason: %v, but it's ok", setWriteDeadlineErr)
+	}
+	setReadDeadlineErr := delegate.SetReadDeadline(finalTimeout)
+	if setReadDeadlineErr != nil && flag {
+		doLog(LEVEL_DEBUG, "Failed to set read deadline with reason: %v, but it's ok", setReadDeadlineErr)
+	}
 	return n, err
 }
 

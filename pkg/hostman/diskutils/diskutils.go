@@ -17,7 +17,6 @@ package diskutils
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path"
 	"path/filepath"
 	"runtime/debug"
@@ -29,7 +28,6 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/diskutils/nbd"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
-	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
@@ -79,15 +77,16 @@ func (d *SKVMGuestDisk) connect() bool {
 	if strings.HasPrefix(d.imagePath, "rbd:") || d.getImageFormat() == "raw" {
 		//qemu-nbd 连接ceph时 /etc/ceph/ceph.conf 必须存在
 		if strings.HasPrefix(d.imagePath, "rbd:") {
-			if !fileutils2.Exists("/etc/ceph") {
-				if err := os.Mkdir("/etc/ceph", 0755); err != nil {
-					log.Errorf("failed to mkdir /etc/ceph error: %v", err)
-					return false
-				}
+			err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", "/etc/ceph").Run()
+			if err != nil {
+				log.Errorf("Failed to mkdir /etc/ceph: %s", err)
+				return false
 			}
-			if !fileutils2.IsFile("/etc/ceph/ceph.conf") {
-				if _, err := os.Create("/etc/ceph/ceph.conf"); err != nil {
-					log.Errorf("failed to create /etc/ceph/ceph.conf error: %v", err)
+			err = procutils.NewRemoteCommandAsFarAsPossible("test", "-f", "/etc/ceph/ceph.conf").Run()
+			if err != nil {
+				err = procutils.NewRemoteCommandAsFarAsPossible("touch", "/etc/ceph/ceph.conf").Run()
+				if err != nil {
+					log.Errorf("failed to create /etc/ceph/ceph.conf: %s", err)
 					return false
 				}
 			}
@@ -96,7 +95,7 @@ func (d *SKVMGuestDisk) connect() bool {
 	} else {
 		cmd = []string{qemutils.GetQemuNbd(), "-c", d.nbdDev, d.imagePath}
 	}
-	_, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output()
+	_, err := procutils.NewRemoteCommandAsFarAsPossible(cmd[0], cmd[1:]...).Output()
 	if err != nil {
 		log.Errorln(err.Error())
 		return false
@@ -125,7 +124,9 @@ func (d *SKVMGuestDisk) Connect() bool {
 	if pathType == LVM_PATH {
 		d.setupLVMS()
 	} else if pathType == PATH_TYPE_UNKNOWN {
-		if hasLVM, err := d.setupLVMS(); !hasLVM && err == nil {
+		hasLVM, err := d.setupLVMS()
+		// no lvm partition found and has partitions
+		if !hasLVM && err == nil && len(d.partitions) > 0 {
 			d.cacheNonLVMImagePath()
 		}
 	}
@@ -134,7 +135,7 @@ func (d *SKVMGuestDisk) Connect() bool {
 }
 
 func (d *SKVMGuestDisk) getImageFormat() string {
-	lines, err := procutils.NewCommand(qemutils.GetQemuImg(), "info", d.imagePath).Output()
+	lines, err := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuImg(), "info", d.imagePath).Output()
 	if err != nil {
 		return ""
 	}
@@ -278,7 +279,7 @@ func (d *SKVMGuestDisk) Disconnect() bool {
 }
 
 func (d *SKVMGuestDisk) disconnect() bool {
-	_, err := procutils.NewCommand(qemutils.GetQemuNbd(), "-d", d.nbdDev).Output()
+	_, err := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuNbd(), "-d", d.nbdDev).Output()
 	if err != nil {
 		log.Errorln(err.Error())
 		return false
@@ -307,6 +308,10 @@ func (d *SKVMGuestDisk) DetectIsUEFISupport(rootfs fsdriver.IRootFsDriver) bool 
 		}
 	}
 	return false
+}
+
+func (d *SKVMGuestDisk) MountRootfs() fsdriver.IRootFsDriver {
+	return d.MountKvmRootfs()
 }
 
 func (d *SKVMGuestDisk) MountKvmRootfs() fsdriver.IRootFsDriver {
@@ -339,6 +344,10 @@ func (d *SKVMGuestDisk) UmountKvmRootfs(fd fsdriver.IRootFsDriver) {
 	if part := fd.GetPartition(); part != nil {
 		part.Umount()
 	}
+}
+
+func (d *SKVMGuestDisk) UmountRootfs(fd fsdriver.IRootFsDriver) {
+	d.UmountKvmRootfs(fd)
 }
 
 func (d *SKVMGuestDisk) MakePartition(fs string) error {

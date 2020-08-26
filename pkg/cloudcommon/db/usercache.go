@@ -19,7 +19,9 @@ import (
 	"database/sql"
 	"fmt"
 	"runtime/debug"
+	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
@@ -31,6 +33,10 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
+)
+
+var (
+	DefaultUserFetcher func(ctx context.Context, id string) (*SUser, error)
 )
 
 type SUserCacheManager struct {
@@ -52,6 +58,8 @@ func init() {
 		NewKeystoneCacheObjectManager(SUser{}, "users_cache_tbl", "user", "users")}
 	// log.Debugf("initialize user cache manager %s", UserCacheManager.KeywordPlural())
 	UserCacheManager.SetVirtualObject(UserCacheManager)
+
+	DefaultUserFetcher = UserCacheManager.FetchUserByIdOrName
 }
 
 func (manager *SUserCacheManager) updateUserCache(userCred mcclient.TokenCredential) {
@@ -111,14 +119,25 @@ func (manager *SUserCacheManager) FetchUserFromKeystone(ctx context.Context, idS
 		log.Debugf("fetch empty user!!!!\n%s", debug.Stack())
 		return nil, fmt.Errorf("Empty idStr")
 	}
+
+	// It's to query the full list of users(contains other domain's ones and system ones)
+	query := jsonutils.NewDict()
+	query.Set("scope", jsonutils.NewString("system"))
+	query.Set("system", jsonutils.JSONTrue)
+
 	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
-	user, err := modules.UsersV3.GetById(s, idStr, nil)
+	user, err := modules.UsersV3.GetById(s, idStr, query)
 	if err != nil {
 		if je, ok := err.(*httputils.JSONClientError); ok && je.Code == 404 {
-			return nil, sql.ErrNoRows
+			user, err = modules.UsersV3.GetByName(s, idStr, query)
+			if je, ok := err.(*httputils.JSONClientError); ok && je.Code == 404 {
+				return nil, sql.ErrNoRows
+			}
 		}
-		log.Errorf("fetch user %s fail %s", idStr, err)
-		return nil, errors.Wrap(err, "modules.UsersV3.Get")
+		if err != nil {
+			log.Errorf("fetch user %s fail %s", idStr, err)
+			return nil, errors.Wrap(err, "modules.UsersV3.Get")
+		}
 	}
 	id, _ := user.GetString("id")
 	name, _ := user.GetString("name")
@@ -133,7 +152,7 @@ func (manager *SUserCacheManager) Save(ctx context.Context, idStr string, name s
 
 	objo, err := manager.FetchById(idStr)
 	if err != nil && err != sql.ErrNoRows {
-		log.Errorf("FetchTenantbyId fail %s", err)
+		log.Errorf("FetchUserbyId fail %s", err)
 		return nil, err
 	}
 	if err == nil {
@@ -143,6 +162,7 @@ func (manager *SUserCacheManager) Save(ctx context.Context, idStr string, name s
 			obj.Name = name
 			obj.Domain = domain
 			obj.DomainId = domainId
+			obj.LastCheck = time.Now().UTC()
 			return nil
 		})
 		if err != nil {
@@ -157,7 +177,8 @@ func (manager *SUserCacheManager) Save(ctx context.Context, idStr string, name s
 		obj.Name = name
 		obj.Domain = domain
 		obj.DomainId = domainId
-		err = manager.TableSpec().Insert(obj)
+		obj.LastCheck = time.Now().UTC()
+		err = manager.TableSpec().InsertOrUpdate(ctx, obj)
 		if err != nil {
 			return nil, err
 		} else {

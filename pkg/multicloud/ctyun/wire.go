@@ -18,6 +18,8 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/netutils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -94,8 +96,33 @@ func (self *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, e
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SWire) CreateINetwork(name string, cidr string, desc string) (cloudprovider.ICloudNetwork, error) {
-	return nil, cloudprovider.ErrNotImplemented
+func getDefaultGateWay(cidr string) (string, error) {
+	pref, err := netutils.NewIPV4Prefix(cidr)
+	if err != nil {
+		return "", errors.Wrap(err, "getDefaultGateWay.NewIPV4Prefix")
+	}
+	startIp := pref.Address.NetAddr(pref.MaskLen) // 0
+	startIp = startIp.StepUp()                    // 1
+	return startIp.String(), nil
+}
+
+func (self *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
+	var ZoneId string
+	if len(self.inetworks) > 0 {
+		ZoneId = self.inetworks[0].(*SNetwork).ZoneID
+	} else {
+		if len(self.region.izones) > 0 {
+			ZoneId = self.region.izones[0].GetId()
+		} else {
+			return nil, fmt.Errorf("SWire.CreateINetwork region %s zone is empty", self.region.GetName())
+		}
+	}
+	network, err := self.region.CreateNetwork(self.vpc.GetId(), ZoneId, opts.Name, opts.Cidr, "true")
+	if err != nil {
+		return nil, errors.Wrap(err, "SWire.CreateINetwork.CreateNetwork")
+	}
+
+	return network, nil
 }
 
 func (self *SWire) addNetwork(network *SNetwork) {

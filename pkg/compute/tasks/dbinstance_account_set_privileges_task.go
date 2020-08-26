@@ -40,9 +40,9 @@ func init() {
 
 func (self *DBInstanceAccountSetPrivilegesTask) taskFailed(ctx context.Context, account *models.SDBInstanceAccount, err error) {
 	account.SetStatus(self.UserCred, api.DBINSTANCE_USER_AVAILABLE, err.Error())
-	db.OpsLog.LogEvent(account, db.ACT_SET_PRIVILEGES, err.Error(), self.GetUserCred())
-	logclient.AddActionLogWithStartable(self, account, logclient.ACT_SET_PRIVILEGES, err.Error(), self.UserCred, false)
-	self.SetStageFailed(ctx, err.Error())
+	db.OpsLog.LogEvent(account, db.ACT_SET_PRIVILEGES, err, self.GetUserCred())
+	logclient.AddActionLogWithStartable(self, account, logclient.ACT_SET_PRIVILEGES, err, self.UserCred, false)
+	self.SetStageFailed(ctx, jsonutils.Marshal(err))
 }
 
 func (self *DBInstanceAccountSetPrivilegesTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -120,7 +120,7 @@ func (self *DBInstanceAccountSetPrivilegesTask) OnInit(ctx context.Context, obj 
 			DBInstanceaccountId:  account.Id,
 			DBInstancedatabaseId: database.Id,
 		}
-		models.DBInstancePrivilegeManager.TableSpec().Insert(&pri)
+		models.DBInstancePrivilegeManager.TableSpec().Insert(ctx, &pri)
 		logclient.AddActionLogWithStartable(self, account, logclient.ACT_GRANT_PRIVILEGE, nil, self.UserCred, true)
 	}
 

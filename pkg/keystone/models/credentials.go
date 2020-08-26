@@ -32,10 +32,13 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/keys"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SCredentialManager struct {
 	db.SStandaloneResourceBaseManager
+	SUserResourceBaseManager
+	SProjectResourceBaseManager
 }
 
 var CredentialManager *SCredentialManager
@@ -161,34 +164,58 @@ func (self *SCredential) ValidateDeleteCondition(ctx context.Context) error {
 	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (self *SCredential) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SCredential) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CredentialUpdateInput) (api.CredentialUpdateInput, error) {
+	var err error
 
-	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
-}
-
-func (self *SCredential) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return credentialExtra(self, extra)
-}
-
-func (self *SCredential) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+	input.StandaloneResourceBaseUpdateInput, err = self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StandaloneResourceBaseUpdateInput)
 	if err != nil {
-		return nil, err
+		return input, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
 	}
-	return credentialExtra(self, extra), nil
+
+	return input, nil
 }
 
-func credentialExtra(cred *SCredential, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	extra.Add(jsonutils.NewString(string(cred.getBlob())), "blob")
+func (self *SCredential) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.CredentialDetails, error) {
+	return api.CredentialDetails{}, nil
+}
+
+func (manager *SCredentialManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.CredentialDetails {
+	rows := make([]api.CredentialDetails, len(objs))
+
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.CredentialDetails{
+			StandaloneResourceDetails: stdRows[i],
+		}
+		rows[i] = credentialExtra(objs[i].(*SCredential), rows[i])
+	}
+
+	return rows
+}
+
+func credentialExtra(cred *SCredential, out api.CredentialDetails) api.CredentialDetails {
+	out.Blob = string(cred.getBlob())
 
 	usr, _ := UserManager.FetchUserExtended(cred.UserId, "", "", "")
 	if usr != nil {
-		extra.Add(jsonutils.NewString(usr.Name), "user")
-		extra.Add(jsonutils.NewString(usr.DomainId), "domain_id")
-		extra.Add(jsonutils.NewString(usr.DomainName), "domain")
+		out.User = usr.Name
+		out.Domain = usr.DomainName
+		out.DomainId = usr.DomainId
 	}
-	return extra
+	return out
 }
 
 func (self *SCredential) getBlob() []byte {
@@ -196,7 +223,7 @@ func (self *SCredential) getBlob() []byte {
 }
 
 func (self *SCredential) GetAccessKeySecret() (*api.SAccessKeySecretBlob, error) {
-	if self.Type == api.ACCESS_SECRET_TYPE {
+	if self.Type == api.ACCESS_SECRET_TYPE || self.Type == api.OIDC_CREDENTIAL_TYPE {
 		blobJson, err := jsonutils.Parse(self.getBlob())
 		if err != nil {
 			return nil, errors.Wrap(err, "jsonutils.Parse")
@@ -234,7 +261,7 @@ func (self *SCredential) GetOwnerId() mcclient.IIdentityProvider {
 func (manager *SCredentialManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
 	userStr, key := jsonutils.GetAnyString2(data, []string{"user", "user_id"})
 	if len(userStr) > 0 {
-		domainOwner, err := fetchDomainInfo(data)
+		domainOwner, err := db.FetchDomainInfo(ctx, data)
 		if err != nil {
 			return nil, err
 		}
@@ -259,4 +286,64 @@ func (manager *SCredentialManager) FetchOwnerId(ctx context.Context, data jsonut
 		return &ownerId, nil
 	}
 	return nil, nil
+}
+
+// 用户信用凭证列表
+func (manager *SCredentialManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.CredentialListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SUserResourceBaseManager.ListItemFilter(ctx, q, userCred, query.UserFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SUserResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SProjectResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ProjectFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SProjectResourceBaseManager.ListItemFilter")
+	}
+	if query.Enabled != nil {
+		if *query.Enabled {
+			q = q.IsTrue("enabled")
+		} else {
+			q = q.IsFalse("enabled")
+		}
+	}
+	if len(query.Type) > 0 {
+		q = q.In("type", query.Type)
+	}
+	return q, nil
+}
+
+func (manager *SCredentialManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.CredentialListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SCredentialManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }

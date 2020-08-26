@@ -16,17 +16,39 @@ package compute
 
 import "yunion.io/x/onecloud/pkg/apis"
 
-type SDBInstanceBackupCreateInput struct {
-	apis.Meta
+type DBInstanceBackupCreateInput struct {
+	apis.VirtualResourceCreateInput
 
-	DBInstanceId  string `json:"dbinstance_id"`
-	Name          string
-	Description   string
-	DBNames       string
-	Databases     []string
-	Engine        string
+	// Rds实例名称或Id, 建议使用Id
+	// required: true
+	DBInstance string `json:"dbinstance"`
+	// swagger:ignore
+	DBInstanceId string `json:"dbinstance_id"`
+
+	// 需要备份的Rds数据库列表
+	// required: false
+	Databases []string `json:"databases"`
+	// swagger:ignore
+	DBNames string
+
+	// swagger:ignore
+	Engine string
+	// swagger:ignore
 	EngineVersion string
+	// swagger:ignore
 	CloudregionId string
-	BackupMode    string
-	ManagerId     string
+	// swagger:ignore
+	BackupMode string
+	// swagger:ignore
+	ManagerId string
+}
+
+type DBInstanceBackupDetails struct {
+	apis.VirtualResourceDetails
+	ManagedResourceInfo
+	CloudregionResourceInfo
+
+	DBInstanceResourceInfoBase
+
+	SDBInstanceBackup
 }

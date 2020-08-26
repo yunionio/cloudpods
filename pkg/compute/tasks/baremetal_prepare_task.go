@@ -41,12 +41,12 @@ func (self *BaremetalPrepareTask) OnInit(ctx context.Context, obj db.IStandalone
 	self.SetStage("OnSyncConfigComplete", nil)
 	_, err := baremetal.BaremetalSyncRequest(ctx, "POST", url, headers, self.Params)
 	if err != nil {
-		self.OnFailure(ctx, baremetal, err.Error())
+		self.OnFailure(ctx, baremetal, jsonutils.Marshal(err))
 	}
 }
 
-func (self *BaremetalPrepareTask) OnFailure(ctx context.Context, baremetal *models.SHost, reason string) {
-	baremetal.SetStatus(self.UserCred, api.BAREMETAL_PREPARE_FAIL, reason)
+func (self *BaremetalPrepareTask) OnFailure(ctx context.Context, baremetal *models.SHost, reason jsonutils.JSONObject) {
+	baremetal.SetStatus(self.UserCred, api.BAREMETAL_PREPARE_FAIL, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -56,6 +56,5 @@ func (self *BaremetalPrepareTask) OnSyncConfigComplete(ctx context.Context, bare
 }
 
 func (self *BaremetalPrepareTask) OnSyncConfigCompleteFailed(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
-	reason, _ := body.GetString("__reason__")
-	self.OnFailure(ctx, baremetal, reason)
+	self.OnFailure(ctx, baremetal, body)
 }

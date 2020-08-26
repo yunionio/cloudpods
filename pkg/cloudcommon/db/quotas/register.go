@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -33,6 +34,8 @@ func init() {
 	quotaManagerTable = make(map[reflect.Type]IQuotaManager)
 
 	db.CancelUsages = CancelUsages
+	db.CancelPendingUsagesInContext = cancelPendingUsagesInContext
+	db.InitPendingUsagesInContext = initPendingUsagesInContext
 }
 
 func Register(manager IQuotaManager) {
@@ -52,14 +55,22 @@ func getQuotaManager(quota IQuota) IQuotaManager {
 	}
 }
 
-func CancelPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, localUsage IQuota, cancelUsage IQuota) error {
+func CancelPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, localUsage IQuota, cancelUsage IQuota, save bool) error {
+	if localUsage == nil {
+		return nil
+	}
 	manager := getQuotaManager(cancelUsage)
-	return manager.cancelPendingUsage(ctx, userCred, localUsage, cancelUsage)
+	return manager.cancelPendingUsage(ctx, userCred, localUsage, cancelUsage, save)
 }
 
 func CheckSetPendingQuota(ctx context.Context, userCred mcclient.TokenCredential, quota IQuota) error {
 	manager := getQuotaManager(quota)
-	return manager.checkSetPendingQuota(ctx, userCred, quota)
+	err := manager.checkSetPendingQuota(ctx, userCred, quota)
+	if err != nil {
+		return errors.Wrap(err, "manager.checkSetPendingQuota")
+	}
+	savePendingUsagesInContext(ctx, quota)
+	return nil
 }
 
 func CancelUsages(ctx context.Context, userCred mcclient.TokenCredential, usages []db.IUsage) {
@@ -74,4 +85,23 @@ func cancelUsage(ctx context.Context, userCred mcclient.TokenCredential, usage I
 	if err != nil {
 		log.Errorf("cancelUsage %s fail: %s", jsonutils.Marshal(usage), err)
 	}
+}
+
+func AddUsages(ctx context.Context, userCred mcclient.TokenCredential, usages []db.IUsage) {
+	for _, usage := range usages {
+		addUsage(ctx, userCred, usage.(IQuota))
+	}
+}
+
+func addUsage(ctx context.Context, userCred mcclient.TokenCredential, usage IQuota) {
+	manager := getQuotaManager(usage)
+	err := manager.addUsage(ctx, userCred, usage)
+	if err != nil {
+		log.Errorf("cancelUsage %s fail: %s", jsonutils.Marshal(usage), err)
+	}
+}
+
+func GetQuotaCount(ctx context.Context, request IQuota, pendingKeys IQuotaKeys) (int, error) {
+	manager := getQuotaManager(request)
+	return manager.getQuotaCount(ctx, request, pendingKeys)
 }

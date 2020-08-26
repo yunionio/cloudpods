@@ -50,6 +50,10 @@ func (set Loadbalancers) NewModel() models.IVirtualResource {
 
 func (set Loadbalancers) addModelCallback(i models.IVirtualResource) error {
 	m, _ := i.(*models.Loadbalancer)
+	if m.ManagerId != "" || m.ExternalId != "" {
+		log.Errorf("unexpected lb: %#v", m)
+		return nil
+	}
 	set[m.Id] = &Loadbalancer{
 		Loadbalancer:  m,
 		listeners:     LoadbalancerListeners{},
@@ -114,6 +118,10 @@ func (set LoadbalancerListeners) NewModel() models.IVirtualResource {
 
 func (set LoadbalancerListeners) addModelCallback(i models.IVirtualResource) error {
 	m, _ := i.(*models.LoadbalancerListener)
+	if m.ManagerId != "" || m.ExternalId != "" || m.LoadbalancerId == "" {
+		log.Errorf("unexpected lblistener: %#v", m)
+		return nil
+	}
 	set[m.Id] = &LoadbalancerListener{
 		LoadbalancerListener: m,
 		rules:                LoadbalancerListenerRules{},
@@ -172,6 +180,10 @@ func (set LoadbalancerListenerRules) NewModel() models.IVirtualResource {
 
 func (set LoadbalancerListenerRules) addModelCallback(i models.IVirtualResource) error {
 	m, _ := i.(*models.LoadbalancerListenerRule)
+	if m.ManagerId != "" || m.ExternalId != "" || m.ListenerId == "" {
+		log.Errorf("unexpected lblistenerrule: %#v", m)
+		return nil
+	}
 	set[m.Id] = &LoadbalancerListenerRule{
 		LoadbalancerListenerRule: m,
 	}
@@ -225,6 +237,10 @@ func (set LoadbalancerBackendGroups) NewModel() models.IVirtualResource {
 
 func (set LoadbalancerBackendGroups) addModelCallback(i models.IVirtualResource) error {
 	m, _ := i.(*models.LoadbalancerBackendGroup)
+	if m.ManagerId != "" || m.ExternalId != "" || m.LoadbalancerId == "" {
+		log.Errorf("unexpected lbbg: %#v", m)
+		return nil
+	}
 	set[m.Id] = &LoadbalancerBackendGroup{
 		LoadbalancerBackendGroup: m,
 		backends:                 LoadbalancerBackends{},
@@ -264,6 +280,10 @@ func (set LoadbalancerBackends) NewModel() models.IVirtualResource {
 
 func (set LoadbalancerBackends) addModelCallback(i models.IVirtualResource) error {
 	m, _ := i.(*models.LoadbalancerBackend)
+	if m.ManagerId != "" || m.ExternalId != "" || m.BackendGroupId == "" {
+		log.Errorf("unexpected lbb: %#v", m)
+		return nil
+	}
 	set[m.Id] = &LoadbalancerBackend{
 		LoadbalancerBackend: m,
 	}
@@ -280,6 +300,9 @@ func (set LoadbalancerAcls) NewModel() models.IVirtualResource {
 
 func (set LoadbalancerAcls) addModelCallback(i models.IVirtualResource) error {
 	m, _ := i.(*models.LoadbalancerAcl)
+	if m.ManagerId != "" || m.ExternalId != "" {
+		return nil
+	}
 	set[m.Id] = &LoadbalancerAcl{
 		LoadbalancerAcl: m,
 	}
@@ -296,6 +319,9 @@ func (set LoadbalancerCertificates) NewModel() models.IVirtualResource {
 
 func (set LoadbalancerCertificates) addModelCallback(i models.IVirtualResource) error {
 	m, _ := i.(*models.LoadbalancerCertificate)
+	if m.ManagerId != "" || m.ExternalId != "" {
+		return nil
+	}
 	set[m.Id] = &LoadbalancerCertificate{
 		LoadbalancerCertificate: m,
 	}

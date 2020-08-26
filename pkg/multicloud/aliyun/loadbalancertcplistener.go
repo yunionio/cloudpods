@@ -15,6 +15,7 @@
 package aliyun
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -256,8 +257,10 @@ func (region *SRegion) constructBaseCreateListenerParams(lb *SLoadbalancer, list
 	switch listener.BackendGroupType {
 	case api.LB_BACKENDGROUP_TYPE_NORMAL:
 		params["VServerGroupId"] = listener.BackendGroupID
+		params["VServerGroup"] = "on"
 	case api.LB_BACKENDGROUP_TYPE_MASTER_SLAVE:
 		params["MasterSlaveServerGroupId"] = listener.BackendGroupID
+		params["MasterSlaveServerGroup"] = "on"
 	case api.LB_BACKENDGROUP_TYPE_DEFAULT:
 		params["BackendServerPort"] = fmt.Sprintf("%d", listener.BackendServerPort)
 	}
@@ -322,7 +325,7 @@ func (region *SRegion) CreateLoadbalancerTCPListener(lb *SLoadbalancer, listener
 	return iListener, nil
 }
 
-func (listerner *SLoadbalancerTCPListener) Delete() error {
+func (listerner *SLoadbalancerTCPListener) Delete(ctx context.Context) error {
 	return listerner.lb.region.DeleteLoadbalancerListener(listerner.lb.LoadBalancerId, listerner.ListenerPort)
 }
 
@@ -348,7 +351,7 @@ func (region *SRegion) SyncLoadbalancerTCPListener(lb *SLoadbalancer, listener *
 	return err
 }
 
-func (listerner *SLoadbalancerTCPListener) Sync(lblis *cloudprovider.SLoadbalancerListener) error {
+func (listerner *SLoadbalancerTCPListener) Sync(ctx context.Context, lblis *cloudprovider.SLoadbalancerListener) error {
 	return listerner.lb.region.SyncLoadbalancerTCPListener(listerner.lb, lblis)
 }
 

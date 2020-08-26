@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-ignore
 type SAssignmentManager struct {
 	db.SResourceBaseManager
 }
@@ -78,10 +79,10 @@ type SAssignment struct {
 }
 
 func (manager *SAssignmentManager) InitializeData() error {
-	return manager.initSysAssignment()
+	return manager.initSysAssignment(context.TODO())
 }
 
-func (manager *SAssignmentManager) initSysAssignment() error {
+func (manager *SAssignmentManager) initSysAssignment(ctx context.Context) error {
 	adminUser, err := UserManager.FetchUserExtended("", api.SystemAdminUser, api.DEFAULT_DOMAIN_ID, "")
 	if err != nil {
 		return errors.Wrap(err, "FetchUserExtended")
@@ -118,7 +119,7 @@ func (manager *SAssignmentManager) initSysAssignment() error {
 	assign.RoleId = adminRole.Id
 	assign.Inherited = tristate.False
 
-	err = manager.TableSpec().Insert(&assign)
+	err = manager.TableSpec().Insert(ctx, &assign)
 	if err != nil {
 		return errors.Wrap(err, "insert")
 	}
@@ -172,7 +173,7 @@ func (manager *SAssignmentManager) fetchUserProjectRoleIdsQuery(userId, projId s
 	subq2 = subq2.Filter(sqlchemy.Equals(usergroups.Field("user_id"), userId))
 	subq2 = subq2.Filter(sqlchemy.IsFalse(assigns.Field("inherited")))
 
-	return sqlchemy.Union(subq, subq2).Query()
+	return sqlchemy.Union(subq, subq2).Query().Distinct()
 }
 
 func (manager *SAssignmentManager) fetchGroupProjectRoleIdsQuery(groupId, projId string) *sqlchemy.SQuery {
@@ -181,7 +182,7 @@ func (manager *SAssignmentManager) fetchGroupProjectRoleIdsQuery(groupId, projId
 	subq = subq.Equals("actor_id", groupId)
 	subq = subq.Equals("target_id", projId)
 	subq = subq.IsFalse("inherited")
-	return subq
+	return subq.Distinct()
 }
 
 func (manager *SAssignmentManager) fetchGroupProjectIdsQuery(groupId string) *sqlchemy.SQuery {
@@ -189,7 +190,7 @@ func (manager *SAssignmentManager) fetchGroupProjectIdsQuery(groupId string) *sq
 	q = q.Equals("type", api.AssignmentGroupProject)
 	q = q.Equals("actor_id", groupId)
 	q = q.IsFalse("inherited")
-	return q
+	return q.Distinct()
 }
 
 func (manager *SAssignmentManager) fetchProjectGroupIdsQuery(projId string) *sqlchemy.SQuery {
@@ -197,7 +198,7 @@ func (manager *SAssignmentManager) fetchProjectGroupIdsQuery(projId string) *sql
 	q = q.Equals("type", api.AssignmentGroupProject)
 	q = q.Equals("target_id", projId)
 	q = q.IsFalse("inherited")
-	return q
+	return q.Distinct()
 }
 
 func (manager *SAssignmentManager) fetchUserProjectIdsQuery(userId string) *sqlchemy.SQuery {
@@ -218,7 +219,7 @@ func (manager *SAssignmentManager) fetchUserProjectIdsQuery(userId string) *sqlc
 	q2 = q2.Filter(sqlchemy.IsFalse(assigns.Field("inherited")))
 
 	union := sqlchemy.Union(q1, q2)
-	return union.Query()
+	return union.Query().Distinct()
 }
 
 func (manager *SAssignmentManager) fetchProjectUserIdsQuery(projId string) *sqlchemy.SQuery {
@@ -239,10 +240,10 @@ func (manager *SAssignmentManager) fetchProjectUserIdsQuery(projId string) *sqlc
 	q2 = q2.Filter(sqlchemy.IsFalse(assigns.Field("inherited")))
 
 	union := sqlchemy.Union(q1, q2)
-	return union.Query()
+	return union.Query().Distinct()
 }
 
-func (manager *SAssignmentManager) projectAddUser(ctx context.Context, userCred mcclient.TokenCredential, project *SProject, user *SUser, role *SRole) error {
+func (manager *SAssignmentManager) ProjectAddUser(ctx context.Context, userCred mcclient.TokenCredential, project *SProject, user *SUser, role *SRole) error {
 	err := db.ValidateCreateDomainId(project.DomainId)
 	if err != nil {
 		return err
@@ -258,7 +259,7 @@ func (manager *SAssignmentManager) projectAddUser(ctx context.Context, userCred 
 			return httperrors.NewForbiddenError("not enough privilege")
 		}
 	}
-	err = manager.add(api.AssignmentUserProject, user.Id, project.Id, role.Id)
+	err = manager.add(ctx, api.AssignmentUserProject, user.Id, project.Id, role.Id)
 	if err != nil {
 		return errors.Wrap(err, "manager.add")
 	}
@@ -358,7 +359,7 @@ func (manager *SAssignmentManager) projectAddGroup(ctx context.Context, userCred
 			return httperrors.NewForbiddenError("not enough privilege")
 		}
 	}
-	err = manager.add(api.AssignmentGroupProject, group.Id, project.Id, role.Id)
+	err = manager.add(ctx, api.AssignmentGroupProject, group.Id, project.Id, role.Id)
 	if err != nil {
 		return errors.Wrap(err, "manager.add")
 	}
@@ -407,7 +408,7 @@ func (manager *SAssignmentManager) remove(typeStr, actorId, projectId, roleId st
 	return nil
 }
 
-func (manager *SAssignmentManager) add(typeStr, actorId, projectId, roleId string) error {
+func (manager *SAssignmentManager) add(ctx context.Context, typeStr, actorId, projectId, roleId string) error {
 	assign := SAssignment{
 		Type:      typeStr,
 		ActorId:   actorId,
@@ -416,7 +417,7 @@ func (manager *SAssignmentManager) add(typeStr, actorId, projectId, roleId strin
 		Inherited: tristate.False,
 	}
 	assign.SetModelManager(manager, &assign)
-	err := manager.TableSpec().InsertOrUpdate(&assign)
+	err := manager.TableSpec().InsertOrUpdate(ctx, &assign)
 	if err != nil {
 		return errors.Wrap(err, "InsertOrUpdate")
 	}
@@ -444,7 +445,7 @@ func roleAssignmentHandler(ctx context.Context, w http.ResponseWriter, r *http.R
 
 	results, total, err := AssignmentManager.FetchAll(userId, groupId, roleId, domainId, projectId, includeNames, effective, includeSub, includeSystem, includePolicies, int(limit), int(offset))
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	body := jsonutils.NewDict()
@@ -460,76 +461,103 @@ func roleAssignmentHandler(ctx context.Context, w http.ResponseWriter, r *http.R
 }
 
 func (manager *SAssignmentManager) queryAll(userId, groupId, roleId, domainId, projectId string) *sqlchemy.SQuery {
-	q := manager.Query("type", "actor_id", "target_id", "role_id")
+	assigments := manager.Query().SubQuery()
+	q := assigments.Query(
+		assigments.Field("type"),
+		sqlchemy.NewFunction(
+			sqlchemy.NewCase().When(sqlchemy.OR(
+				sqlchemy.Equals(assigments.Field("type"), sqlchemy.NewStringField(api.AssignmentUserProject)),
+				sqlchemy.Equals(assigments.Field("type"), sqlchemy.NewStringField(api.AssignmentUserDomain)),
+			), assigments.Field("actor_id")).Else(sqlchemy.NewStringField("")),
+			"user_id",
+		),
+		sqlchemy.NewFunction(
+			sqlchemy.NewCase().When(sqlchemy.OR(
+				sqlchemy.Equals(assigments.Field("type"), sqlchemy.NewStringField(api.AssignmentGroupProject)),
+				sqlchemy.Equals(assigments.Field("type"), sqlchemy.NewStringField(api.AssignmentGroupDomain)),
+			), assigments.Field("actor_id")).Else(sqlchemy.NewStringField("")),
+			"group_id",
+		),
+		sqlchemy.NewFunction(
+			sqlchemy.NewCase().When(sqlchemy.OR(
+				sqlchemy.Equals(assigments.Field("type"), sqlchemy.NewStringField(api.AssignmentUserDomain)),
+				sqlchemy.Equals(assigments.Field("type"), sqlchemy.NewStringField(api.AssignmentGroupDomain)),
+			), assigments.Field("target_id")).Else(sqlchemy.NewStringField("")),
+			"domain_id",
+		),
+		sqlchemy.NewFunction(
+			sqlchemy.NewCase().When(sqlchemy.OR(
+				sqlchemy.Equals(assigments.Field("type"), sqlchemy.NewStringField(api.AssignmentUserProject)),
+				sqlchemy.Equals(assigments.Field("type"), sqlchemy.NewStringField(api.AssignmentGroupProject)),
+			), assigments.Field("target_id")).Else(sqlchemy.NewStringField("")),
+			"project_id",
+		),
+		assigments.Field("role_id"),
+	)
+	// here use subquery.query to produce a effective reference to case function fields
+	q = q.SubQuery().Query()
 	if len(userId) > 0 {
-		q = q.In("type", []string{api.AssignmentUserProject, api.AssignmentUserDomain}).Equals("actor_id", userId)
+		q = q.In("type", []string{api.AssignmentUserProject, api.AssignmentUserDomain}).Equals("user_id", userId)
 	}
 	if len(groupId) > 0 {
-		q = q.In("type", []string{api.AssignmentGroupProject, api.AssignmentGroupDomain}).Equals("actor_id", groupId)
+		q = q.In("type", []string{api.AssignmentGroupProject, api.AssignmentGroupDomain}).Equals("group_id", groupId)
 	}
 	if len(roleId) > 0 {
 		q = q.Equals("role_id", roleId)
 	}
 	if len(projectId) > 0 {
-		q = q.Equals("target_id", projectId).In("type", []string{api.AssignmentUserProject, api.AssignmentGroupProject})
+		q = q.Equals("project_id", projectId).In("type", []string{api.AssignmentUserProject, api.AssignmentGroupProject})
 	}
 	if len(domainId) > 0 {
-		q = q.Equals("target_id", domainId).In("type", []string{api.AssignmentUserDomain, api.AssignmentGroupDomain})
+		q = q.Equals("domain_id", domainId).In("type", []string{api.AssignmentUserDomain, api.AssignmentGroupDomain})
 	}
 	return q
 }
 
 func fetchRoleAssignmentPolicies(ra *api.SRoleAssignment) {
-	ra.Policies.Project = policy.PolicyManager.MatchedPolicies(rbacutils.ScopeProject, ra)
-	ra.Policies.Domain = policy.PolicyManager.MatchedPolicies(rbacutils.ScopeDomain, ra)
-	ra.Policies.System = policy.PolicyManager.MatchedPolicies(rbacutils.ScopeSystem, ra)
+	ra.Policies.Project = policy.PolicyManager.MatchedPolicyNames(rbacutils.ScopeProject, ra)
+	ra.Policies.Domain = policy.PolicyManager.MatchedPolicyNames(rbacutils.ScopeDomain, ra)
+	ra.Policies.System = policy.PolicyManager.MatchedPolicyNames(rbacutils.ScopeSystem, ra)
 }
 
-func (assign *SAssignment) getRoleAssignment(domains, projects, groups, users, roles map[string]api.SFetchDomainObject, fetchPolicies bool) api.SRoleAssignment {
+type sAssignmentInternal struct {
+	Type      string `json:"type"`
+	UserId    string `json:"user_id"`
+	GroupId   string `json:"group_id"`
+	DomainId  string `json:"domain_id"`
+	ProjectId string `json:"project_id"`
+	RoleId    string `json:"role_id"`
+}
+
+func (assign *sAssignmentInternal) getRoleAssignment(domains, projects, groups, users, roles map[string]api.SFetchDomainObject, fetchPolicies bool) api.SRoleAssignment {
 	ra := api.SRoleAssignment{}
 	ra.Role.Id = assign.RoleId
 	ra.Role.Name = roles[assign.RoleId].Name
 	ra.Role.Domain.Id = roles[assign.RoleId].DomainId
 	ra.Role.Domain.Name = roles[assign.RoleId].Domain
-	switch assign.Type {
-	case api.AssignmentUserDomain:
-		ra.Scope.Domain.Id = assign.TargetId
-		ra.Scope.Domain.Name = domains[assign.TargetId].Name
-		ra.User.Id = assign.ActorId
-		ra.User.Name = users[assign.ActorId].Name
-		ra.User.Domain.Id = users[assign.ActorId].DomainId
-		ra.User.Domain.Name = users[assign.ActorId].Domain
-	case api.AssignmentUserProject:
-		ra.Scope.Project.Id = assign.TargetId
-		ra.Scope.Project.Name = projects[assign.TargetId].Name
-		ra.Scope.Project.Domain.Id = projects[assign.TargetId].DomainId
-		ra.Scope.Project.Domain.Name = projects[assign.TargetId].Domain
-		ra.User.Id = assign.ActorId
-		ra.User.Name = users[assign.ActorId].Name
-		ra.User.Domain.Id = users[assign.ActorId].DomainId
-		ra.User.Domain.Name = users[assign.ActorId].Domain
+	if len(assign.UserId) > 0 {
+		ra.User.Id = assign.UserId
+		ra.User.Name = users[assign.UserId].Name
+		ra.User.Domain.Id = users[assign.UserId].DomainId
+		ra.User.Domain.Name = users[assign.UserId].Domain
+	}
+	if len(assign.GroupId) > 0 {
+		ra.Group.Id = assign.GroupId
+		ra.Group.Name = groups[assign.GroupId].Name
+		ra.Group.Domain.Id = groups[assign.GroupId].DomainId
+		ra.Group.Domain.Name = groups[assign.GroupId].Domain
+	}
+	if len(assign.ProjectId) > 0 {
+		ra.Scope.Project.Id = assign.ProjectId
+		ra.Scope.Project.Name = projects[assign.ProjectId].Name
+		ra.Scope.Project.Domain.Id = projects[assign.ProjectId].DomainId
+		ra.Scope.Project.Domain.Name = projects[assign.ProjectId].Domain
 		if fetchPolicies {
 			fetchRoleAssignmentPolicies(&ra)
 		}
-	case api.AssignmentGroupDomain:
-		ra.Scope.Domain.Id = assign.TargetId
-		ra.Scope.Domain.Name = domains[assign.TargetId].Name
-		ra.Group.Id = assign.ActorId
-		ra.Group.Name = groups[assign.ActorId].Name
-		ra.Group.Domain.Id = groups[assign.ActorId].DomainId
-		ra.Group.Domain.Name = groups[assign.ActorId].Domain
-	case api.AssignmentGroupProject:
-		ra.Scope.Project.Id = assign.TargetId
-		ra.Scope.Project.Name = projects[assign.TargetId].Name
-		ra.Scope.Project.Domain.Id = projects[assign.TargetId].DomainId
-		ra.Scope.Project.Domain.Name = projects[assign.TargetId].Domain
-		ra.Group.Id = assign.ActorId
-		ra.Group.Name = groups[assign.ActorId].Name
-		ra.Group.Domain.Id = groups[assign.ActorId].DomainId
-		ra.Group.Domain.Name = groups[assign.ActorId].Domain
-		if fetchPolicies {
-			fetchRoleAssignmentPolicies(&ra)
-		}
+	} else if len(assign.DomainId) > 0 {
+		ra.Scope.Domain.Id = assign.DomainId
+		ra.Scope.Domain.Name = domains[assign.DomainId].Name
 	}
 	return ra
 }
@@ -541,37 +569,28 @@ func (manager *SAssignmentManager) FetchAll(userId, groupId, roleId, domainId, p
 
 		memberships := UsergroupManager.Query("user_id", "group_id").SubQuery()
 
-		grpproj := manager.queryAll("", groupId, roleId, domainId, projectId).Equals("type", api.AssignmentGroupProject).SubQuery()
-		q2 := grpproj.Query(sqlchemy.NewStringField(api.AssignmentUserProject).Label("type"),
-			memberships.Field("user_id", "actor_id"),
-			grpproj.Field("target_id"), grpproj.Field("role_id"))
-		q2 = q2.Join(memberships, sqlchemy.Equals(grpproj.Field("actor_id"), memberships.Field("group_id")))
-		q2 = q2.Filter(sqlchemy.Equals(grpproj.Field("type"), api.AssignmentGroupProject))
+		grpproj := manager.queryAll("", groupId, roleId, domainId, projectId).In("type", []string{api.AssignmentGroupProject, api.AssignmentGroupDomain}).SubQuery()
+		q2 := grpproj.Query(
+			grpproj.Field("type"),
+			memberships.Field("user_id"),
+			grpproj.Field("group_id"),
+			grpproj.Field("domain_id"),
+			grpproj.Field("project_id"),
+			grpproj.Field("role_id"),
+		)
+		q2 = q2.Join(memberships, sqlchemy.Equals(grpproj.Field("group_id"), memberships.Field("group_id")))
 		if len(userId) > 0 {
 			q2 = q2.Filter(sqlchemy.Equals(memberships.Field("user_id"), userId))
 		}
 
-		grpdom := manager.queryAll("", groupId, roleId, domainId, projectId).Equals("type", api.AssignmentGroupDomain).SubQuery()
-		q3 := grpdom.Query(sqlchemy.NewStringField(api.AssignmentUserDomain).Label("type"),
-			memberships.Field("user_id", "actor_id"),
-			grpdom.Field("target_id"), grpdom.Field("role_id"))
-		q3 = q3.Join(memberships, sqlchemy.Equals(grpdom.Field("actor_id"), memberships.Field("group_id")))
-		q3 = q3.Filter(sqlchemy.Equals(grpdom.Field("type"), api.AssignmentGroupDomain))
-		if len(userId) > 0 {
-			q3 = q3.Filter(sqlchemy.Equals(memberships.Field("user_id"), userId))
-		}
-
-		q = sqlchemy.Union(usrq, q2, q3).Query().Distinct()
+		q = sqlchemy.Union(usrq, q2).Query().Distinct()
 	} else {
 		q = manager.queryAll(userId, groupId, roleId, domainId, projectId).Distinct()
 	}
 
 	if !includeSystem {
 		users := UserManager.Query().SubQuery()
-		q = q.LeftJoin(users, sqlchemy.AND(
-			sqlchemy.Equals(q.Field("actor_id"), users.Field("id")),
-			sqlchemy.In(q.Field("type"), []string{api.AssignmentUserProject, api.AssignmentUserDomain}),
-		))
+		q = q.LeftJoin(users, sqlchemy.Equals(q.Field("user_id"), users.Field("id")))
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.IsFalse(users.Field("is_system_account")),
 			sqlchemy.IsNull(users.Field("is_system_account")),
@@ -590,7 +609,7 @@ func (manager *SAssignmentManager) FetchAll(userId, groupId, roleId, domainId, p
 		q = q.Offset(offset)
 	}
 
-	assigns := make([]SAssignment, 0)
+	assigns := make([]sAssignmentInternal, 0)
 	err = q.All(&assigns)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, -1, httperrors.NewInternalServerError("query error %s", err)
@@ -603,19 +622,17 @@ func (manager *SAssignmentManager) FetchAll(userId, groupId, roleId, domainId, p
 	roleIds := stringutils2.SSortedStrings{}
 
 	for i := range assigns {
-		switch assigns[i].Type {
-		case api.AssignmentGroupProject:
-			projectIds = stringutils2.Append(projectIds, assigns[i].TargetId)
-			groupIds = stringutils2.Append(groupIds, assigns[i].ActorId)
-		case api.AssignmentGroupDomain:
-			domainIds = stringutils2.Append(domainIds, assigns[i].TargetId)
-			groupIds = stringutils2.Append(groupIds, assigns[i].ActorId)
-		case api.AssignmentUserProject:
-			projectIds = stringutils2.Append(projectIds, assigns[i].TargetId)
-			userIds = stringutils2.Append(userIds, assigns[i].ActorId)
-		case api.AssignmentUserDomain:
-			domainIds = stringutils2.Append(domainIds, assigns[i].TargetId)
-			userIds = stringutils2.Append(userIds, assigns[i].ActorId)
+		if len(assigns[i].UserId) > 0 {
+			userIds = stringutils2.Append(userIds, assigns[i].UserId)
+		}
+		if len(assigns[i].GroupId) > 0 {
+			groupIds = stringutils2.Append(groupIds, assigns[i].GroupId)
+		}
+		if len(assigns[i].DomainId) > 0 {
+			domainIds = stringutils2.Append(domainIds, assigns[i].DomainId)
+		}
+		if len(assigns[i].ProjectId) > 0 {
+			projectIds = stringutils2.Append(projectIds, assigns[i].ProjectId)
 		}
 		roleIds = stringutils2.Append(roleIds, assigns[i].RoleId)
 	}

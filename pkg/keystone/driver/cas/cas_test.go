@@ -15,34 +15,74 @@
 package cas
 
 import (
-	"encoding/xml"
+	"reflect"
 	"testing"
 )
 
-func TestXmlUnmarshal(t *testing.T) {
-	xmlstr := `<cas:serviceResponse xmlns:cas='http://www.yale.edu/tp/cas'>
+func TestFetchAttributes(t *testing.T) {
+	cases := []struct {
+		Xml  string
+		Want map[string][]string
+	}{
+		{
+			Xml: `<cas:serviceResponse xmlns:cas='http://www.yale.edu/tp/cas'>
+    <cas:authenticationSuccess>
+        <cas:user>casuser</cas:user>
+        <cas:proj>casproj</cas:proj>
+    </cas:authenticationSuccess>
+</cas:serviceResponse>`,
+			Want: map[string][]string{
+				"cas:user": {"casuser"},
+				"cas:proj": {"casproj"},
+			},
+		},
+		{
+			Xml: `<?xml version="1.0" encoding="UTF-8"?>
+			<cas:serviceResponse xmlns:cas="http://www.yale.edu/tp/cas"><cas:authenticationSuccess><cas:user>lcftest0416</cas:user><cas:proj>周凌测试无线公司1112342</cas:proj></cas:authenticationSuccess></cas:serviceResponse>`,
+			Want: map[string][]string{
+				"cas:user": {"lcftest0416"},
+				"cas:proj": {"周凌测试无线公司1112342"},
+			},
+		},
+		{
+			Xml: `<cas:serviceResponse xmlns:cas='http://www.yale.edu/tp/cas'>
+<cas:authenticationSuccess>
+	<cas:user>casuser</cas:user>
+	<cas:attributes>
+	<cas:credentialType>UsernamePasswordCredential</cas:credentialType>
+	<cas:isFromNewLogin>false</cas:isFromNewLogin>
+	<cas:authenticationDate>2019-09-05T12:40:08.014Z[UTC]</cas:authenticationDate>
+	<cas:authenticationMethod>AcceptUsersAuthenticationHandler</cas:authenticationMethod>
+	<cas:successfulAuthenticationHandlers>AcceptUsersAuthenticationHandler</cas:successfulAuthenticationHandlers>
+	<cas:longTermAuthenticationRequestTokenUsed>false</cas:longTermAuthenticationRequestTokenUsed>
+	</cas:attributes>
+	</cas:authenticationSuccess>
+	</cas:serviceResponse>`,
+			Want: map[string][]string{
+				"cas:user":                                   {"casuser"},
+				"cas:credentialType":                         {"UsernamePasswordCredential"},
+				"cas:isFromNewLogin":                         {"false"},
+				"cas:authenticationDate":                     {"2019-09-05T12:40:08.014Z[UTC]"},
+				"cas:authenticationMethod":                   {"AcceptUsersAuthenticationHandler"},
+				"cas:successfulAuthenticationHandlers":       {"AcceptUsersAuthenticationHandler"},
+				"cas:longTermAuthenticationRequestTokenUsed": {"false"},
+			},
+		},
+		{
+			Xml: `<cas:serviceResponse xmlns:cas='http://www.yale.edu/tp/cas'>
     <cas:authenticationSuccess>
         <cas:user>casuser</cas:user>
     </cas:authenticationSuccess>
-</cas:serviceResponse>
-<cas:serviceResponse xmlns:cas='http://www.yale.edu/tp/cas'>
-    <cas:authenticationSuccess>
-        <cas:user>casuser</cas:user>
-        <cas:attributes>
-            <cas:credentialType>UsernamePasswordCredential</cas:credentialType>
-            <cas:isFromNewLogin>false</cas:isFromNewLogin>
-            <cas:authenticationDate>2019-09-05T12:40:08.014Z[UTC]</cas:authenticationDate>
-            <cas:authenticationMethod>AcceptUsersAuthenticationHandler</cas:authenticationMethod>
-            <cas:successfulAuthenticationHandlers>AcceptUsersAuthenticationHandler</cas:successfulAuthenticationHandlers>
-            <cas:longTermAuthenticationRequestTokenUsed>false</cas:longTermAuthenticationRequestTokenUsed>
-            </cas:attributes>
-    </cas:authenticationSuccess>
-</cas:serviceResponse>`
-	casresp := SCASServiceResponse{}
-	err := xml.Unmarshal([]byte(xmlstr), &casresp)
-	if err != nil {
-		t.Errorf("fail to unmarshal %s", err)
-	} else {
-		t.Logf("%#v", casresp)
+</cas:serviceResponse>`,
+			Want: map[string][]string{
+				"cas:user": {"casuser"},
+			},
+		},
+	}
+	for _, c := range cases {
+		got := fetchAttributes([]byte(c.Xml))
+		if !reflect.DeepEqual(got, c.Want) {
+			t.Errorf("want %s got %s", c.Want, got)
+		}
 	}
 }

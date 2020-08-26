@@ -5,20 +5,20 @@ version: 2
 jobs:
   check:
     docker:
-      - image: yunionio/onecloud-ci:v1.0.3
+      - image: yunionio/centos-build:1.0-1
         environment:
           ONECLOUD_CI_BUILD: "1"
-    working_directory: /home/build/go/src/yunion.io/x/onecloud
+    working_directory: /root/go/onecloud
     steps:
       - checkout
       - run:
           command: |
-            make check
+            make -j3 check
   build:
     requires:
       - check
     docker:
-      - image: yunionio/onecloud-ci:v1.0.2
+      - image: yunionio/centos-build:1.0-1
         environment:
           ONECLOUD_CI_BUILD: "1"
 
@@ -26,24 +26,24 @@ jobs:
     #### expecting it in the form of
     ####   /go/src/github.com/circleci/go-tool
     ####   /go/src/bitbucket.org/circleci/go-tool
-    working_directory: /home/build/go/src/yunion.io/x/onecloud
+    working_directory: /root/go/onecloud
     parallelism: 4
     steps:
       - checkout
       - restore_cache:
           key: onecloud-build-cache-{{ checksum "go.mod" }}-{{ checksum "Makefile" }}
           paths:
-            - /home/build/.cache/go-build
+            - /root/.cache/go-build
       - run:
           command: |
             targets="$(circleci tests glob "cmd/*" | grep -v cmd/host-image | circleci tests split)"
             echo $targets | tr ' ' '\n'
-            make $targets
+            make -j3 $targets
             ls -lh _output/bin/
       - save_cache:
           key: onecloud-build-cache-{{ checksum "go.mod" }}-{{ checksum "Makefile" }}
           paths:
-            - /home/build/.cache/go-build
+            - /root/.cache/go-build
       - store_artifacts:
           path: _output/
 
@@ -51,16 +51,17 @@ jobs:
     requires:
       - check
     docker:
-      - image: yunionio/onecloud-ci:v1.0.2
+      - image: yunionio/centos-build:1.0-1
         environment:
           GO111MODULE: "on"
-    working_directory: /home/build/go/src/yunion.io/x/onecloud
+    working_directory: /root/go/onecloud
+    parallelism: 4
     steps:
       - checkout
       - restore_cache:
           key: onecloud-test-cache-{{ checksum "go.mod" }}-{{ checksum "Makefile" }}
           paths:
-            - /home/build/.cache/go-build
+            - /root/.cache/go-build
       - run:
           name: unit_test
           command: |
@@ -68,7 +69,7 @@ jobs:
       - save_cache:
           key: onecloud-test-cache-{{ checksum "go.mod" }}-{{ checksum "Makefile" }}
           paths:
-            - /home/build/.cache/go-build
+            - /root/.cache/go-build
 
 workflows:
   version: 2

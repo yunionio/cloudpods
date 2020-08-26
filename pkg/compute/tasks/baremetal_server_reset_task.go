@@ -33,7 +33,7 @@ func (self *BaremetalServerResetTask) OnInit(ctx context.Context, obj db.IStanda
 	guest := obj.(*models.SGuest)
 	baremetal := guest.GetHost()
 	if baremetal == nil {
-		self.SetStageFailed(ctx, "Baremetal is None")
+		self.SetStageFailed(ctx, jsonutils.NewString("Baremetal is not found"))
 		return
 	}
 	url := fmt.Sprintf("/baremetals/%s/servers/%s/reset", baremetal.Id, guest.Id)
@@ -41,7 +41,7 @@ func (self *BaremetalServerResetTask) OnInit(ctx context.Context, obj db.IStanda
 	_, err := baremetal.BaremetalSyncRequest(ctx, "POST", url, headers, nil)
 	if err != nil {
 		log.Errorln(err)
-		self.SetStageFailed(ctx, err.Error())
+		self.SetStageFailed(ctx, jsonutils.Marshal(err))
 	} else {
 		self.SetStageComplete(ctx, nil)
 	}

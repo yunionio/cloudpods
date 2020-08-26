@@ -30,6 +30,7 @@ import (
 
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/sortedmap"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/timeutils"
@@ -37,7 +38,7 @@ import (
 )
 
 func (this *JSONValue) Unmarshal(obj interface{}, keys ...string) error {
-	return ErrUnsupported
+	return jsonUnmarshal(this, obj, keys)
 }
 
 func (this *JSONArray) Unmarshal(obj interface{}, keys ...string) error {
@@ -56,8 +57,12 @@ func jsonUnmarshal(jo JSONObject, o interface{}, keys []string) error {
 			return errors.Wrap(err, "Get")
 		}
 	}
-	value := reflect.Indirect(reflect.ValueOf(o))
-	return jo.unmarshalValue(value)
+	value := reflect.ValueOf(o)
+	err := jo.unmarshalValue(reflect.Indirect(value))
+	if err != nil {
+		return errors.Wrap(err, "jo.unmarshalValue")
+	}
+	return nil
 }
 
 func (this *JSONValue) unmarshalValue(val reflect.Value) error {
@@ -333,19 +338,30 @@ func (this *JSONString) unmarshalValue(val reflect.Value) error {
 		}
 	}
 	switch val.Kind() {
-	case reflect.Int, reflect.Uint, reflect.Int8, reflect.Uint8,
-		reflect.Int16, reflect.Uint16, reflect.Int32, reflect.Uint32, reflect.Int64, reflect.Uint64:
-		intVal, err := strconv.ParseInt(this.data, 10, 64)
-		if err != nil {
-			return err
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		if len(this.data) > 0 {
+			intVal, err := strconv.ParseInt(normalizeCurrencyString(this.data), 10, 64)
+			if err != nil {
+				return err
+			}
+			val.SetInt(intVal)
 		}
-		val.SetInt(intVal)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		if len(this.data) > 0 {
+			intVal, err := strconv.ParseUint(normalizeCurrencyString(this.data), 10, 64)
+			if err != nil {
+				return err
+			}
+			val.SetUint(intVal)
+		}
 	case reflect.Float32, reflect.Float64:
-		floatVal, err := strconv.ParseFloat(normalizeCurrencyString(this.data), 64)
-		if err != nil {
-			return err
+		if len(this.data) > 0 {
+			floatVal, err := strconv.ParseFloat(normalizeCurrencyString(this.data), 64)
+			if err != nil {
+				return err
+			}
+			val.SetFloat(floatVal)
 		}
-		val.SetFloat(floatVal)
 	case reflect.Bool:
 		val.SetBool(utils.ToBool(this.data))
 	case reflect.String:
@@ -434,6 +450,7 @@ func (this *JSONDict) unmarshalValue(val reflect.Value) error {
 	case JSONDictType:
 		dict := val.Interface().(JSONDict)
 		dict.Update(this)
+		val.Set(reflect.ValueOf(dict))
 		return nil
 	case JSONDictPtrType, JSONObjectType:
 		val.Set(reflect.ValueOf(this))
@@ -457,7 +474,7 @@ func (this *JSONDict) unmarshalValue(val reflect.Value) error {
 				return err
 			}
 			if objPtr == nil {
-				val.Set(reflect.ValueOf(this.data))
+				val.Set(reflect.ValueOf(this.data)) // ???
 				return nil
 			}
 			err = this.unmarshalValue(reflect.ValueOf(objPtr))
@@ -503,7 +520,9 @@ func (this *JSONDict) unmarshalMap(val reflect.Value) error {
 	if keyType.Kind() != reflect.String {
 		return ErrMapKeyMustString // fmt.Errorf("map key must be string")
 	}
-	for k, v := range this.data {
+	for iter := sortedmap.NewIterator(this.data); iter.HasMore(); iter.Next() {
+		k, vinf := iter.Get()
+		v := vinf.(JSONObject)
 		keyVal := reflect.ValueOf(k)
 		valVal := reflect.New(valType.Elem()).Elem()
 
@@ -516,16 +535,77 @@ func (this *JSONDict) unmarshalMap(val reflect.Value) error {
 	return nil
 }
 
-func (this *JSONDict) unmarshalStruct(val reflect.Value) error {
-	fieldValues := reflectutils.FetchStructFieldValueSetForWrite(val)
-	for k, v := range this.data {
-		fieldValue, find := fieldValues.GetValue(k)
-		if find {
-			err := v.unmarshalValue(fieldValue)
+func setStructFieldAt(key string, v JSONObject, fieldValues reflectutils.SStructFieldValueSet, keyIndexMap map[string][]int, visited map[string]bool) error {
+	if visited == nil {
+		visited = make(map[string]bool)
+	}
+	if _, ok := visited[key]; ok {
+		// reference loop detected
+		return nil
+	}
+	visited[key] = true
+	indexes, ok := keyIndexMap[key]
+	if !ok || len(indexes) == 0 {
+		// try less strict match name
+		indexes = fieldValues.GetStructFieldIndexes2(key, false)
+		if len(indexes) == 0 {
+			// no field match k, ignore
+			return nil
+		}
+	}
+	for _, index := range indexes {
+		err := v.unmarshalValue(fieldValues[index].Value)
+		if err != nil {
+			return errors.Wrap(err, "JSONDict.unmarshalStruct")
+		}
+		depInfo, ok := fieldValues[index].Info.Tags[TAG_DEPRECATED_BY]
+		if ok {
+			err := setStructFieldAt(depInfo, v, fieldValues, keyIndexMap, visited)
 			if err != nil {
-				return errors.Wrap(err, "JSONDict.unmarshalStruct")
+				return errors.Wrap(err, "setStructFieldAt")
 			}
 		}
 	}
 	return nil
+}
+
+func (this *JSONDict) unmarshalStruct(val reflect.Value) error {
+	fieldValues := reflectutils.FetchStructFieldValueSetForWrite(val)
+	keyIndexMap := fieldValues.GetStructFieldIndexesMap()
+	errs := make([]error, 0)
+	for iter := sortedmap.NewIterator(this.data); iter.HasMore(); iter.Next() {
+		k, vinf := iter.Get()
+		v := vinf.(JSONObject)
+		err := setStructFieldAt(k, v, fieldValues, keyIndexMap, nil)
+		if err != nil {
+			// store error, not interrupt the process
+			errs = append(errs, errors.Wrapf(err, "setStructFieldAt %s: %s", k, v))
+		}
+	}
+	callStructAfterUnmarshal(val)
+	if len(errs) > 0 {
+		return errors.NewAggregate(errs)
+	} else {
+		return nil
+	}
+}
+
+func callStructAfterUnmarshal(val reflect.Value) {
+	switch val.Kind() {
+	case reflect.Struct:
+		structType := val.Type()
+		for i := 0; i < val.NumField(); i++ {
+			fieldType := structType.Field(i)
+			if fieldType.Anonymous {
+				callStructAfterUnmarshal(val.Field(i))
+			}
+		}
+		valPtr := val.Addr()
+		afterMarshalFunc := valPtr.MethodByName("AfterUnmarshal")
+		if afterMarshalFunc.IsValid() && !afterMarshalFunc.IsNil() {
+			afterMarshalFunc.Call([]reflect.Value{})
+		}
+	case reflect.Ptr:
+		callStructAfterUnmarshal(val.Elem())
+	}
 }

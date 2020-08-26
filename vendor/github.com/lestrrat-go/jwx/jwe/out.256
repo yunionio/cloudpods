@@ -1,0 +1,28 @@
+=== RUN   Test_A256KW_A256CBC_HS512
+|DEBUG| AES Crypt: alg = A256CBC-HS512
+|DEBUG| AES Crypt: cipher.keysize = 64
+2017/04/07 07:32:55 contentcrypt.KeySize = 128
+|DEBUG| Encrypt: keysize = 128
+|DEBUG| Encrypt: generated cek len = 128
+|DEBUG| Encrypt: encrypted_key = fe1409b4a2580c25b431ccb29de26e19457d8ba5e1724cd55601ea5ee66836159f299c2b561e501893e3d06da5a9012dff4a2b46ffb1ccdbc859da1dac776d50fea0e23354b3065a8b941989965c9ac584b40e5a9e61ed573fd7d29ae6b95cc9e024b8a57f6218ecb8428734a866f23217fe2fc240d4ab487e4eaca8339e92331436edabbd2f5486 (136)
+|DEBUG| ContentCrypt.Encrypt: cek        = b70ae35958ec04c8256fd927ef8f63541ac1d77eac41c39fe173ad92c166879e678d91445fe858be19d2731d2cdd498b0e481ff78204b675b7016208798277167f040064591d5251dc5c691b3431bb2d2deacbca60630637f2f2c73502d451eff4086a8e1a3b2d2068f6806896df306b55b2ef63d8b22dfcf5d1aa6336774465 (128)
+|DEBUG| ContentCrypt.Encrypt: ciphertext = 5468652074727565207369676e206f6620696e74656c6c6967656e6365206973206e6f74206b6e6f776c656467652062757420696d6167696e6174696f6e2e (63)
+|DEBUG| ContentCrypt.Encrypt: aad        = 65794a68624763694f694a424d6a5532533163694c434a6c626d4d694f694a424d6a553251304a444c5568544e544579496e30 (51)
+|DEBUG| CbcAeadFetch: fetching key (128)
+|DEBUG| New: keysize               = 64
+|DEBUG| New: cek (key)             = b70ae35958ec04c8256fd927ef8f63541ac1d77eac41c39fe173ad92c166879e678d91445fe858be19d2731d2cdd498b0e481ff78204b675b7016208798277167f040064591d5251dc5c691b3431bb2d2deacbca60630637f2f2c73502d451eff4086a8e1a3b2d2068f6806896df306b55b2ef63d8b22dfcf5d1aa6336774465 (128)
+|DEBUG| New: ikey                  = b70ae35958ec04c8256fd927ef8f63541ac1d77eac41c39fe173ad92c166879e678d91445fe858be19d2731d2cdd498b0e481ff78204b675b701620879827716 (64)
+|DEBUG| New: ekey                  = 7f040064591d5251dc5c691b3431bb2d2deacbca60630637f2f2c73502d451eff4086a8e1a3b2d2068f6806896df306b55b2ef63d8b22dfcf5d1aa6336774465 (64)
+|DEBUG| CbcAeadFetch: failed to create aead fetcher [183 10 227 89 88 236 4 200 37 111 217 39 239 143 99 84 26 193 215 126 172 65 195 159 225 115 173 146 193 102 135 158 103 141 145 68 95 232 88 190 25 210 115 29 44 221 73 139 14 72 31 247 130 4 182 117 183 1 98 8 121 130 119 22 127 4 0 100 89 29 82 81 220 92 105 27 52 49 187 45 45 234 203 202 96 99 6 55 242 242 199 53 2 212 81 239 244 8 106 142 26 59 45 32 104 246 128 104 150 223 48 107 85 178 239 99 216 178 45 252 245 209 170 99 54 119 68 101] (128): crypto/aes: invalid key size 64
+|DEBUG| AeadFetch failed: cipher: failed to create AES cipher for CBC: crypto/aes: invalid key size 64
+|DEBUG| cipher.encrypt failed
+|DEBUG| Failed to encrypt: failed to crypt content: failed to fetch AEAD for AesContentCipher.encrypt: cipher: failed to create AES cipher for CBC: crypto/aes: invalid key size 64
+|DEBUG| Encrypt: failed to encrypt: failed to crypt content: failed to fetch AEAD for AesContentCipher.encrypt: cipher: failed to create AES cipher for CBC: crypto/aes: invalid key size 64
+--- FAIL: Test_A256KW_A256CBC_HS512 (0.00s)
+	assertions.go:219:                         	Error Trace:	jwe_test.go:366
+			Error:		Received unexpected error "failed to crypt content: failed to fetch AEAD for AesContentCipher.encrypt: cipher: failed to create AES cipher for CBC: crypto/aes: invalid key size 64"
+			Messages:	failed to encrypt payload
+		
+FAIL
+exit status 1
+FAIL	github.com/lestrrat-go/jwx/jwe	0.012s

@@ -15,14 +15,21 @@
 package openstack
 
 import (
+	"net/url"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+)
+
+const (
+	DEFAULT_STORAGE_TYPE = "scheduler"
 )
 
 type SExtraSpecs struct {
@@ -61,20 +68,25 @@ func (storage *SStorage) GetIZone() cloudprovider.ICloudZone {
 }
 
 func (storage *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	disks, err := storage.zone.region.GetDisks(storage.Name, storage.ExtraSpecs.VolumeBackendName)
+	disks, err := storage.zone.region.GetDisks()
 	if err != nil {
 		return nil, err
 	}
-	iDisks := []cloudprovider.ICloudDisk{}
+	idisks := []cloudprovider.ICloudDisk{}
 	for i := 0; i < len(disks); i++ {
-		disks[i].storage = storage
-		iDisks = append(iDisks, &disks[i])
+		if disks[i].VolumeType == storage.Name || strings.HasSuffix(disks[i].Host, "#"+storage.ExtraSpecs.VolumeBackendName) {
+			disks[i].storage = storage
+			idisks = append(idisks, &disks[i])
+		}
 	}
-	return iDisks, nil
+	return idisks, nil
 }
 
 func (storage *SStorage) GetStorageType() string {
-	return strings.ToLower(storage.Name)
+	if len(storage.ExtraSpecs.VolumeBackendName) == 0 {
+		return DEFAULT_STORAGE_TYPE
+	}
+	return storage.ExtraSpecs.VolumeBackendName
 }
 
 func (storage *SStorage) GetMediumType() string {
@@ -94,6 +106,10 @@ func (storage *SStorage) GetStorageConf() jsonutils.JSONObject {
 }
 
 func (storage *SStorage) GetStatus() string {
+	ok, err := storage.zone.region.IsStorageAvailable(storage.GetStorageType())
+	if err != nil || !ok {
+		return api.STORAGE_OFFLINE
+	}
 	return api.STORAGE_ONLINE
 }
 
@@ -110,8 +126,8 @@ func (storage *SStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
 	return storage.zone.region.getStoragecache()
 }
 
-func (storage *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
-	disk, err := storage.zone.region.CreateDisk("", storage.Name, name, sizeGb, desc)
+func (storage *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
+	disk, err := storage.zone.region.CreateDisk("", storage.Name, conf.Name, conf.SizeGb, conf.Desc, conf.ProjectId)
 	if err != nil {
 		log.Errorf("createDisk fail %v", err)
 		return nil, err
@@ -135,4 +151,101 @@ func (storage *SStorage) GetMountPoint() string {
 
 func (storage *SStorage) IsSysDiskStore() bool {
 	return true
+}
+
+func (region *SRegion) GetStorageTypes() ([]SStorage, error) {
+	resource := "/types"
+	storages := []SStorage{}
+	query := url.Values{}
+	for {
+		resp, err := region.bsList(resource, query)
+		if err != nil {
+			return nil, errors.Wrap(err, "bsReqest")
+		}
+		part := struct {
+			VolumeTypes     []SStorage
+			VolumeTypeLinks SNextLinks
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, errors.Wrap(err, "resp.Unmarshal")
+		}
+		storages = append(storages, part.VolumeTypes...)
+		marker := part.VolumeTypeLinks.GetNextMark()
+		if len(marker) == 0 {
+			break
+		}
+		query.Set("marker", marker)
+	}
+	return storages, nil
+}
+
+type SCinderService struct {
+	ActiveBackendId string
+	// cinder-volume
+	Binary            string
+	DisabledReason    string
+	Frozen            string
+	Host              string
+	ReplicationStatus string
+	State             string
+	Status            string
+	UpdatedAt         time.Time
+	Zone              string
+}
+
+func (region *SRegion) GetCinderServices() ([]SCinderService, error) {
+	resp, err := region.bsList("/os-services", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "bsList")
+	}
+	services := []SCinderService{}
+	err = resp.Unmarshal(&services, "services")
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return services, nil
+}
+
+func (region *SRegion) IsStorageAvailable(storageType string) (bool, error) {
+	if utils.IsInStringArray(storageType, []string{DEFAULT_STORAGE_TYPE, api.STORAGE_OPENSTACK_NOVA}) {
+		return true, nil
+	}
+	services, err := region.GetCinderServices()
+	if err != nil {
+		return false, errors.Wrap(err, "GetCinderServices")
+	}
+	for _, service := range services {
+		if service.Binary == "cinder-volume" && strings.Contains(service.Host, "@") {
+			hostInfo := strings.Split(service.Host, "@")
+			if hostInfo[len(hostInfo)-1] == storageType {
+				if service.State == "up" && service.Status == "enabled" {
+					return true, nil
+				}
+			}
+		}
+	}
+	log.Errorf("storage %s offline", storageType)
+	return false, nil
+}
+
+type SCapabilities struct {
+}
+
+type SPool struct {
+	Name         string
+	Capabilities SCapabilities
+}
+
+func (region *SRegion) GetSchedulerStatsPool() ([]SPool, error) {
+	resp, err := region.bsList("/scheduler-stats/get_pools", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "bsList")
+	}
+	pools := []SPool{}
+	err = resp.Unmarshal(&pools, "pools")
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return pools, nil
 }

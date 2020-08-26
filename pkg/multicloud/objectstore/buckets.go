@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/s3cli"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
@@ -51,7 +52,7 @@ func (bucket *SBucket) GetId() string {
 }
 
 func (bucket *SBucket) GetStatus() string {
-	return ""
+	return api.BUCKET_STATUS_READY
 }
 
 func (bucket *SBucket) GetMetadata() *jsonutils.JSONDict {
@@ -263,7 +264,7 @@ func (bucket *SBucket) NewMultipartUpload(ctx context.Context, key string, canne
 	return result.UploadID, nil
 }
 
-func (bucket *SBucket) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, input io.Reader, partSize int64) (string, error) {
+func (bucket *SBucket) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, input io.Reader, partSize int64, offset, totalSize int64) (string, error) {
 	part, err := bucket.client.S3Client().UploadPart(ctx, bucket.Name, key, uploadId, input, partIndex, "", "", partSize, nil)
 	if err != nil {
 		return "", errors.Wrap(err, "UploadPart")
@@ -341,7 +342,7 @@ func (bucket *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket
 		cannedAcl = bucket.GetAcl()
 	}
 	err = obj.SetAcl(cannedAcl)
-	if err != nil {
+	if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented {
 		return errors.Wrap(err, "obj.SetAcl")
 	}
 	return nil

@@ -27,8 +27,9 @@ func InitDB() error {
 		 * initialization order matters, do not change the order
 		 */
 		db.TenantCacheManager,
-		ImageManager,
+		db.Metadata,
 
+		ImageManager,
 		QuotaManager,
 	} {
 		err := manager.InitializeData()

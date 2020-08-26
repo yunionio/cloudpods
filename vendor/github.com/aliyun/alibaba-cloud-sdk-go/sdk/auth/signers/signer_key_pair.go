@@ -28,17 +28,12 @@ import (
 
 type SignerKeyPair struct {
 	*credentialUpdater
-	sessionCredential *SessionAkCredential
-	credential        *credentials.KeyPairCredential
+	sessionCredential *SessionCredential
+	credential        *credentials.RsaKeyPairCredential
 	commonApi         func(request *requests.CommonRequest, signer interface{}) (response *responses.CommonResponse, err error)
 }
 
-type SessionAkCredential struct {
-	accessKeyId     string
-	accessKeySecret string
-}
-
-func NewSignerKeyPair(credential *credentials.KeyPairCredential, commonApi func(*requests.CommonRequest, interface{}) (response *responses.CommonResponse, err error)) (signer *SignerKeyPair, err error) {
+func NewSignerKeyPair(credential *credentials.RsaKeyPairCredential, commonApi func(*requests.CommonRequest, interface{}) (response *responses.CommonResponse, err error)) (signer *SignerKeyPair, err error) {
 	signer = &SignerKeyPair{
 		credential: credential,
 		commonApi:  commonApi,
@@ -55,7 +50,7 @@ func NewSignerKeyPair(credential *credentials.KeyPairCredential, commonApi func(
 		if credential.SessionExpiration >= 900 && credential.SessionExpiration <= 3600 {
 			signer.credentialExpiration = credential.SessionExpiration
 		} else {
-			err = errors.NewClientError(errors.InvalidParamCode, "Key Pair session duration should be in the range of 15min - 1Hr", nil)
+			err = errors.NewClientError(errors.InvalidParamErrorCode, "Key Pair session duration should be in the range of 15min - 1Hr", nil)
 		}
 	} else {
 		signer.credentialExpiration = defaultDurationSeconds
@@ -75,28 +70,28 @@ func (*SignerKeyPair) GetVersion() string {
 	return "1.0"
 }
 
-func (signer *SignerKeyPair) GetAccessKeyId() string {
+func (signer *SignerKeyPair) GetAccessKeyId() (accessKeyId string, err error) {
 	if signer.sessionCredential == nil || signer.needUpdateCredential() {
-		signer.updateCredential()
+		err = signer.updateCredential()
 	}
-	if signer.sessionCredential == nil || len(signer.sessionCredential.accessKeyId) <= 0 {
-		return ""
+	if err != nil && (signer.sessionCredential == nil || len(signer.sessionCredential.AccessKeyId) <= 0) {
+		return "", err
 	}
-	return signer.sessionCredential.accessKeyId
+	return signer.sessionCredential.AccessKeyId, err
 }
 
 func (signer *SignerKeyPair) GetExtraParam() map[string]string {
 	if signer.sessionCredential == nil || signer.needUpdateCredential() {
 		signer.updateCredential()
 	}
-	if signer.sessionCredential == nil || len(signer.sessionCredential.accessKeyId) <= 0 {
+	if signer.sessionCredential == nil || len(signer.sessionCredential.AccessKeyId) <= 0 {
 		return make(map[string]string)
 	}
 	return make(map[string]string)
 }
 
 func (signer *SignerKeyPair) Sign(stringToSign, secretSuffix string) string {
-	secret := signer.sessionCredential.accessKeySecret + secretSuffix
+	secret := signer.sessionCredential.AccessKeyId + secretSuffix
 	return ShaHmac1(stringToSign, secret)
 }
 
@@ -118,11 +113,8 @@ func (signerKeyPair *SignerKeyPair) refreshApi(request *requests.CommonRequest) 
 
 func (signer *SignerKeyPair) refreshCredential(response *responses.CommonResponse) (err error) {
 	if response.GetHttpStatus() != http.StatusOK {
-		message := "refresh session AccessKey failed, message = " + response.GetHttpContentString()
-		err = errors.NewServerError(response.GetHttpStatus(), response.GetOriginHttpResponse().Status, message)
-		if signer.sessionCredential == nil {
-			panic(err)
-		}
+		message := "refresh session AccessKey failed"
+		err = errors.NewServerError(response.GetHttpStatus(), response.GetHttpContentString(), message)
 		return
 	}
 	var data interface{}
@@ -142,13 +134,11 @@ func (signer *SignerKeyPair) refreshCredential(response *responses.CommonRespons
 		return
 	}
 	if accessKeyId == nil || accessKeySecret == nil {
-		if signer.sessionCredential == nil {
-			panic("refresh KeyPair, accessKeyId or accessKeySecret is null")
-		}
+		return
 	}
-	signer.sessionCredential = &SessionAkCredential{
-		accessKeyId:     accessKeyId.(string),
-		accessKeySecret: accessKeySecret.(string),
+	signer.sessionCredential = &SessionCredential{
+		AccessKeyId:     accessKeyId.(string),
+		AccessKeySecret: accessKeySecret.(string),
 	}
 	return
 }

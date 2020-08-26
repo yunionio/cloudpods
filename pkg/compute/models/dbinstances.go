@@ -24,11 +24,13 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -37,15 +39,24 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SDBInstanceManager struct {
 	db.SVirtualResourceBaseManager
+	db.SExternalizedResourceBaseManager
+	SDeletePreventableResourceBaseManager
+
+	SCloudregionResourceBaseManager
+	SManagedResourceBaseManager
+	SVpcResourceBaseManager
 }
 
 var DBInstanceManager *SDBInstanceManager
@@ -71,30 +82,59 @@ type SDBInstance struct {
 	SCloudregionResourceBase
 	SDeletePreventableResourceBase
 
+	// 主实例Id
 	MasterInstanceId string `width:"128" charset:"ascii" list:"user" create:"optional"`
-	VcpuCount        int    `nullable:"false" default:"1" list:"user" create:"optional"`
-	VmemSizeMb       int    `nullable:"false" list:"user" create:"required"`
-	StorageType      string `nullable:"false" list:"user" create:"required"` //存储类型
-	DiskSizeGB       int    `nullable:"false" list:"user" create:"required"`
-	Port             int    `nullable:"false" list:"user" create:"optional"`
-	Category         string `nullable:"false" list:"user" create:"optional"` //实例类别，单机，高可用，只读
+	// CPU数量
+	// example: 1
+	VcpuCount int `nullable:"false" default:"1" list:"user" create:"optional"`
+	// 内存大小
+	// example: 1024
+	VmemSizeMb int `nullable:"false" list:"user" create:"required"`
+	// 存储类型
+	// example: local_ssd
+	StorageType string `nullable:"false" list:"user" create:"required"`
+	// 存储大小
+	// example: 10240
+	DiskSizeGB int `nullable:"false" list:"user" create:"required"`
+	// 端口
+	// example: 3306
+	Port int `nullable:"false" list:"user" create:"optional"`
+	// 实例类型
+	// example: ha
+	Category string `nullable:"false" list:"user" create:"optional"`
 
-	Engine        string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	// 引擎
+	// example: MySQL
+	Engine string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	// 引擎版本
+	// example: 5.7
 	EngineVersion string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	InstanceType  string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	// 套餐名称
+	// example: mysql.x4.large.2c
+	InstanceType string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
+	// 维护时间
 	MaintainTime string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
-	SecgroupId            string `width:"128" charset:"ascii" list:"user" default:"default" create:"optional"`
-	VpcId                 string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	ConnectionStr         string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	// 安全组Id
+	// example: default
+	SecgroupId string `width:"128" charset:"ascii" list:"user" default:"default" create:"optional"`
+
+	// 虚拟私有网络Id
+	// example: ed20d84e-3158-41b1-870c-1725e412e8b6
+	VpcId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+
+	// 外部连接地址
+	ConnectionStr string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	// 内部连接地址
 	InternalConnectionStr string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 
+	// 可用区1
 	Zone1 string `width:"36" charset:"ascii" nullable:"false" create:"optional" list:"user"`
+	// 可用区2
 	Zone2 string `width:"36" charset:"ascii" nullable:"false" create:"optional" list:"user"`
+	// 可用区3
 	Zone3 string `width:"36" charset:"ascii" nullable:"false" create:"optional" list:"user"`
-
-	ZoneId string `width:"36" charset:"ascii" nullable:"false" create:"optional"`
 }
 
 func (manager *SDBInstanceManager) GetContextManagers() [][]db.IModelManager {
@@ -103,56 +143,138 @@ func (manager *SDBInstanceManager) GetContextManagers() [][]db.IModelManager {
 	}
 }
 
-func (self *SDBInstanceManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, self)
-}
-
-func (self *SDBInstanceManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SDBInstance) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SDBInstance) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SDBInstance) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
-}
-
-func (man *SDBInstanceManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+// RDS实例列表
+func (man *SDBInstanceManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DBInstanceListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
-	data := query.(*jsonutils.JSONDict)
-	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "vpc", ModelKeyword: "vpc", OwnerId: userCred},
-		{Key: "zone", ModelKeyword: "zone", OwnerId: userCred},
-		{Key: "cloudregion", ModelKeyword: "cloudregion", OwnerId: userCred},
-	})
+	q, err = man.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
 	}
-	q, err = managedResourceFilterByAccount(q, query, "", nil)
+	q, err = man.SDeletePreventableResourceBaseManager.ListItemFilter(ctx, q, userCred, query.DeletePreventableResourceBaseListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SDeletePreventableResourceBaseManager.ListItemFilter")
+	}
+	q, err = man.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
+	}
+	q, err = man.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
+	}
+	q, err = man.SVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VpcFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
 	}
 
-	q = managedResourceFilterByCloudType(q, query, "", nil)
+	if len(query.ZoneId) > 0 {
+		zoneObj, err := ZoneManager.FetchByIdOrName(userCred, query.ZoneId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), query.ZoneId)
+			} else {
+				return nil, errors.Wrap(err, "ZoneManager.FetchByIdOrName")
+			}
+		}
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.Equals(q.Field("zone1"), zoneObj.GetId()),
+			sqlchemy.Equals(q.Field("zone2"), zoneObj.GetId()),
+			sqlchemy.Equals(q.Field("zone3"), zoneObj.GetId()),
+		))
+	}
 
-	q, err = managedResourceFilterByDomain(q, query, "", nil)
-	if err != nil {
-		return nil, err
+	if len(query.MasterInstance) > 0 {
+		instObj, err := DBInstanceManager.FetchByIdOrName(userCred, query.MasterInstance)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(DBInstanceManager.Keyword(), query.MasterInstance)
+			} else {
+				return nil, errors.Wrap(err, "DBInstanceManager.FetchByIdOrName")
+			}
+		}
+		q = q.Equals("master_instance_id", instObj.GetId())
+	}
+	if query.VcpuCount > 0 {
+		q = q.Equals("vcpu_count", query.VcpuCount)
+	}
+	if query.VmemSizeMb > 0 {
+		q = q.Equals("vmem_size_mb", query.VmemSizeMb)
+	}
+	if len(query.StorageType) > 0 {
+		q = q.Equals("storage_type", query.StorageType)
+	}
+	if len(query.Category) > 0 {
+		q = q.Equals("category", query.Category)
+	}
+	if len(query.Engine) > 0 {
+		q = q.Equals("engine", query.Engine)
+	}
+	if len(query.EngineVersion) > 0 {
+		q = q.Equals("engine_version", query.EngineVersion)
+	}
+	if len(query.InstanceType) > 0 {
+		q = q.Equals("instance_type", query.InstanceType)
 	}
 
 	return q, nil
 }
 
-func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (man *SDBInstanceManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DBInstanceListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := man.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = man.SCloudregionResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = man.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = man.SVpcResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VpcFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVpcResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (man *SDBInstanceManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	q, err := man.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = man.SCloudregionResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = man.SManagedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = man.SVpcResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
+func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.DBInstanceCreateInput) (*jsonutils.JSONDict, error) {
+	data := input.JSON(input)
 	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerId)
 	addressV := validators.NewIPv4AddrValidator("address")
 	secgroupV := validators.NewModelIdOrNameValidator("secgroup", "secgroup", ownerId)
@@ -176,10 +298,24 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 		}
 	}
 
-	input := &api.SDBInstanceCreateInput{}
-	err := data.Unmarshal(input)
+	err := data.Unmarshal(&input)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Unmarshal input failed: %v", err)
+	}
+
+	if len(input.Password) == 0 {
+		input.Password = seclib2.RandomPassword2(12)
+	}
+
+	// reset_password == flase 则置密码为空
+	if input.ResetPassword != nil && !*input.ResetPassword {
+		input.Password = ""
+	}
+
+	if len(input.Password) > 0 {
+		if !seclib2.MeetComplxity(input.Password) {
+			return nil, httperrors.NewWeakPasswordError()
+		}
 	}
 
 	network := networkV.Model.(*SNetwork)
@@ -192,7 +328,7 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 	if cloudprovider == nil {
 		return nil, httperrors.NewGeneralError(fmt.Errorf("failed to get vpc %s(%s) cloudprovider", vpc.Name, vpc.Id))
 	}
-	if !cloudprovider.Enabled {
+	if !cloudprovider.GetEnabled() {
 		return nil, httperrors.NewInputParameterError("cloudprovider %s(%s) disabled", cloudprovider.Name, cloudprovider.Id)
 	}
 
@@ -214,16 +350,25 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 		}
 	}
 
-	if duration, _ := data.GetString("duration"); len(duration) > 0 {
-		billingCycle, err := billing.ParseBillingCycle(duration)
+	if len(input.Duration) > 0 {
+		billingCycle, err := billing.ParseBillingCycle(input.Duration)
 		if err != nil {
-			return nil, httperrors.NewInputParameterError("invalid duration %s", duration)
+			return nil, httperrors.NewInputParameterError("invalid duration %s", input.Duration)
 		}
-		if !region.GetDriver().IsSupportedBillingCycle(billingCycle, man.KeywordPlural()) {
-			return nil, httperrors.NewInputParameterError("unsupported duration %s", duration)
+
+		if !utils.IsInStringArray(input.BillingType, []string{billing_api.BILLING_TYPE_PREPAID, billing_api.BILLING_TYPE_POSTPAID}) {
+			input.BillingType = billing_api.BILLING_TYPE_PREPAID
 		}
-		input.BillingType = billing_api.BILLING_TYPE_PREPAID
+
+		if input.BillingType == billing_api.BILLING_TYPE_PREPAID {
+			if !region.GetDriver().IsSupportedBillingCycle(billingCycle, man.KeywordPlural()) {
+				return nil, httperrors.NewInputParameterError("unsupported duration %s", input.Duration)
+			}
+		}
+
+		tm := time.Time{}
 		input.BillingCycle = billingCycle.String()
+		input.ExpiredAt = billingCycle.EndAt(tm)
 	}
 
 	if len(input.InstanceType) == 0 && (input.VcpuCount == 0 || input.VmemSizeMb == 0) {
@@ -298,6 +443,11 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 		input.VmemSizeMb = skus[0].VmemSizeMb
 	}
 
+	input.VirtualResourceCreateInput, err = man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
+	if err != nil {
+		return nil, err
+	}
+
 	input, err = region.GetDriver().ValidateCreateDBInstanceData(ctx, userCred, ownerId, input, skus, network)
 	if err != nil {
 		return nil, err
@@ -317,12 +467,83 @@ func (self *SDBInstance) PostCreate(ctx context.Context, userCred mcclient.Token
 	task.ScheduleRun(nil)
 }
 
-func (self *SDBInstance) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
+func (self *SDBInstance) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.DBInstanceDetails, error) {
+	return api.DBInstanceDetails{}, nil
+}
+
+func (manager *SDBInstanceManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.DBInstanceDetails {
+	rows := make([]api.DBInstanceDetails, len(objs))
+	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	regRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	vpcIds := make([]string, len(rows))
+	zone1Ids := make([]string, len(rows))
+	zone2Ids := make([]string, len(rows))
+	zone3Ids := make([]string, len(rows))
+	for i := range rows {
+		rows[i] = api.DBInstanceDetails{
+			VirtualResourceDetails:  virtRows[i],
+			ManagedResourceInfo:     manRows[i],
+			CloudregionResourceInfo: regRows[i],
+		}
+		instance := objs[i].(*SDBInstance)
+		rows[i] = instance.getMoreDetails(rows[i])
+		vpcIds[i] = instance.VpcId
+		zone1Ids[i] = instance.Zone1
+		zone2Ids[i] = instance.Zone2
+		zone3Ids[i] = instance.Zone3
 	}
-	return self.getMoreDetails(ctx, userCred, query, extra), nil
+
+	vpcs := make(map[string]SVpc)
+
+	err := db.FetchStandaloneObjectsByIds(VpcManager, vpcIds, &vpcs)
+	if err != nil {
+		log.Errorf("db.FetchStandaloneObjectsByIds fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if vpc, ok := vpcs[vpcIds[i]]; ok {
+			rows[i].Vpc = vpc.Name
+			rows[i].VpcExtId = vpc.ExternalId
+		}
+	}
+
+	zone1, err := db.FetchIdNameMap2(ZoneManager, zone1Ids)
+	if err != nil {
+		return rows
+	}
+
+	zone2, err := db.FetchIdNameMap2(ZoneManager, zone2Ids)
+	if err != nil {
+		return rows
+	}
+
+	zone3, err := db.FetchIdNameMap2(ZoneManager, zone3Ids)
+	if err != nil {
+		return rows
+	}
+
+	for i := range rows {
+		rows[i].Zone1Name = zone1[zone1Ids[i]]
+		rows[i].Zone2Name = zone2[zone2Ids[i]]
+		rows[i].Zone3Name = zone3[zone3Ids[i]]
+	}
+
+	return rows
 }
 
 func (self *SDBInstance) GetVpc() (*SVpc, error) {
@@ -331,14 +552,6 @@ func (self *SDBInstance) GetVpc() (*SVpc, error) {
 		return nil, err
 	}
 	return vpc.(*SVpc), nil
-}
-
-func (self *SDBInstance) GetZone() (*SZone, error) {
-	zone, err := ZoneManager.FetchById(self.ZoneId)
-	if err != nil {
-		return nil, err
-	}
-	return zone.(*SZone), nil
 }
 
 func (self *SDBInstance) GetNetwork() (*SNetwork, error) {
@@ -407,60 +620,29 @@ func fetchDBInstanceZones(rdsIds []string) map[string][]sDBInstanceZone {
 	return result
 }
 
-func (manager *SDBInstanceManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []db.IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
-	rows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
-	rdsIds := make([]string, len(objs))
-	for i := range objs {
-		rdsIds[i] = objs[i].GetId()
-	}
-	if len(fields) == 0 || fields.Contains("zone") {
-		zoneInfo := fetchDBInstanceZones(rdsIds)
-		if zoneInfo != nil {
-			for i := range rows {
-				if zones, ok := zoneInfo[objs[i].GetId()]; ok {
-					for _, zone := range zones {
-						rows[i].Add(jsonutils.NewString(zone.Name), zone.Id)
-					}
-				}
-			}
-		}
-	}
-	return rows
+func (self *SDBInstance) getProviderInfo() SCloudProviderInfo {
+	vpc, _ := self.GetVpc()
+	provider := vpc.GetCloudprovider()
+	region := self.GetRegion()
+	return MakeCloudProviderInfo(region, nil, provider)
 }
 
-func (self *SDBInstance) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	accountInfo := self.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if accountInfo != nil {
-		extra.Update(accountInfo)
-	}
-	regionInfo := self.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if regionInfo != nil {
-		extra.Update(regionInfo)
-	}
-	vpc, _ := self.GetVpc()
-	if vpc != nil {
-		extra.Add(jsonutils.NewString(vpc.Name), "vpc")
-	}
+func (self *SDBInstance) getMoreDetails(out api.DBInstanceDetails) api.DBInstanceDetails {
 	if len(self.SecgroupId) > 0 {
 		if secgroup, _ := self.GetSecgroup(); secgroup != nil {
-			extra.Add(jsonutils.NewString(secgroup.Name), "secgroup")
+			out.Secgroup = secgroup.Name
 		}
 	}
 
 	if skus, _ := self.GetDBInstanceSkus(); len(skus) > 0 {
-		extra.Add(jsonutils.NewInt(int64(skus[0].IOPS)), "iops")
+		out.Iops = skus[0].IOPS
 	}
 
 	network, _ := self.GetNetwork()
 	if network != nil {
-		extra.Add(jsonutils.NewString(network.Name), "network")
+		out.Network = network.Name
 	}
-
-	if metaData, err := self.GetAllMetadata(userCred); err == nil {
-		extra.Add(jsonutils.Marshal(metaData), "metadata")
-	}
-
-	return extra
+	return out
 }
 
 func (self *SDBInstance) GetSecgroup() (*SSecurityGroup, error) {
@@ -479,18 +661,6 @@ func (self *SDBInstance) GetMasterInstance() (*SDBInstance, error) {
 	return instance.(*SDBInstance), nil
 }
 
-func (self *SDBInstance) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	driver, err := self.GetDriver()
-	if err != nil {
-		return nil, err
-	}
-	region := self.GetRegion()
-	if region == nil {
-		return nil, fmt.Errorf("failed to found region for rds %s(%s)", self.Name, self.Id)
-	}
-	return driver.GetIRegionById(region.ExternalId)
-}
-
 func (self *SDBInstance) GetIDBInstance() (cloudprovider.ICloudDBInstance, error) {
 	iregion, err := self.GetIRegion()
 	if err != nil {
@@ -499,41 +669,37 @@ func (self *SDBInstance) GetIDBInstance() (cloudprovider.ICloudDBInstance, error
 	return iregion.GetIDBInstanceById(self.ExternalId)
 }
 
-func (self *SDBInstance) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	dataCopy := jsonutils.DeepCopy(data)
+func (self *SDBInstance) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeProjectOwnerInput) (jsonutils.JSONObject, error) {
 	backups, err := self.GetDBInstanceBackups()
 	if err != nil {
 		return nil, httperrors.NewGeneralError(fmt.Errorf("failed get backups: %v", err))
 	}
 	for i := range backups {
-		_, err := backups[i].PerformChangeOwner(ctx, userCred, query, dataCopy)
+		_, err := backups[i].PerformChangeOwner(ctx, userCred, query, input)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return self.SVirtualResourceBase.PerformChangeOwner(ctx, userCred, query, data)
+	return self.SVirtualResourceBase.PerformChangeOwner(ctx, userCred, query, input)
 }
 
 func (self *SDBInstance) AllowPerformRecovery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "recovery")
 }
 
-func (self *SDBInstance) PerformRecovery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SDBInstance) PerformRecovery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SDBInstanceRecoveryConfigInput) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(self.Status, []string{api.DBINSTANCE_RUNNING}) {
 		return nil, httperrors.NewInvalidStatusError("Cannot do recovery dbinstance in status %s required status %s", self.Status, api.DBINSTANCE_RUNNING)
 	}
 
-	params := data.(*jsonutils.JSONDict)
-	backupV := validators.NewModelIdOrNameValidator("dbinstancebackup", "dbinstancebackup", userCred)
-	err := backupV.Validate(params)
+	_backup, err := DBInstanceBackupManager.FetchByIdOrName(userCred, input.DBInstancebackupId)
 	if err != nil {
-		return nil, err
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError2("dbinstancebackup", input.DBInstancebackupId)
+		}
+		return nil, httperrors.NewGeneralError(err)
 	}
-	input := &api.SDBInstanceRecoveryConfigInput{}
-	err = params.Unmarshal(input)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("Failed to unmarshal input config: %v", err)
-	}
+	input.DBInstancebackupId = _backup.GetId()
 
 	databases, err := self.GetDBInstanceDatabases()
 	if err != nil {
@@ -545,7 +711,7 @@ func (self *SDBInstance) PerformRecovery(ctx context.Context, userCred mcclient.
 		dbDatabases = append(dbDatabases, database.Name)
 	}
 
-	backup := backupV.Model.(*SDBInstanceBackup)
+	backup := _backup.(*SDBInstanceBackup)
 	for src, dest := range input.Databases {
 		if len(dest) == 0 {
 			dest = src
@@ -566,6 +732,20 @@ func (self *SDBInstance) PerformRecovery(ctx context.Context, userCred mcclient.
 
 	if backup.CloudregionId != self.CloudregionId {
 		return nil, httperrors.NewInputParameterError("backup and instance not in same cloudregion")
+	}
+
+	if len(backup.Engine) > 0 && backup.Engine != self.Engine {
+		return nil, httperrors.NewInputParameterError("can not recover data from diff rds engine")
+	}
+
+	driver, err := self.GetRegionDriver()
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+
+	err = driver.ValidateDBInstanceRecovery(ctx, userCred, self, backup, input)
+	if err != nil {
+		return nil, err
 	}
 
 	return nil, self.StartDBInstanceRecoveryTask(ctx, userCred, input.JSON(input), "")
@@ -602,12 +782,56 @@ func (self *SDBInstance) PerformReboot(ctx context.Context, userCred mcclient.To
 	return nil, self.StartDBInstanceRebootTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
+//同步RDS实例状态
+func (self *SDBInstance) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "syncstatus")
+}
+
+func (self *SDBInstance) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	var openTask = true
+	count, err := taskman.TaskManager.QueryTasksOfObject(self, time.Now().Add(-3*time.Minute), &openTask).CountWithError()
+	if err != nil {
+		return nil, err
+	}
+	if count > 0 {
+		return nil, httperrors.NewBadRequestError("DBInstance has %d task active, can't sync status", count)
+	}
+
+	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "DBInstanceSyncStatusTask", "")
+}
+
+func (self *SDBInstance) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "sync")
+}
+
+func (self *SDBInstance) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	var openTask = true
+	count, err := taskman.TaskManager.QueryTasksOfObject(self, time.Now().Add(-3*time.Minute), &openTask).CountWithError()
+	if err != nil {
+		return nil, err
+	}
+	if count > 0 {
+		return nil, httperrors.NewBadRequestError("DBInstance has %d task active, can't sync status", count)
+	}
+
+	return nil, self.StartDBInstanceSyncTask(ctx, userCred, jsonutils.NewDict(), "")
+}
+
 func (self *SDBInstance) AllowPerformSyncStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "sync-status")
 }
 
 func (self *SDBInstance) PerformSyncStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return nil, self.StartDBInstanceSyncStatusTask(ctx, userCred, jsonutils.NewDict(), "")
+	var openTask = true
+	count, err := taskman.TaskManager.QueryTasksOfObject(self, time.Now().Add(-3*time.Minute), &openTask).CountWithError()
+	if err != nil {
+		return nil, err
+	}
+	if count > 0 {
+		return nil, httperrors.NewBadRequestError("DBInstance has %d task active, can't sync status", count)
+	}
+
+	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "DBInstanceSyncStatusTask", "")
 }
 
 func (self *SDBInstance) AllowPerformRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -752,10 +976,16 @@ func (self *SDBInstance) StartDBInstanceRenewTask(ctx context.Context, userCred 
 	return nil
 }
 
-func (self *SDBInstance) SaveRenewInfo(ctx context.Context, userCred mcclient.TokenCredential, bc *billing.SBillingCycle, expireAt *time.Time) error {
+func (self *SDBInstance) SaveRenewInfo(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	bc *billing.SBillingCycle, expireAt *time.Time, billingType string,
+) error {
 	_, err := db.Update(self, func() error {
-		if self.BillingType != billing_api.BILLING_TYPE_PREPAID {
-			self.BillingType = billing_api.BILLING_TYPE_PREPAID
+		if billingType == "" {
+			billingType = billing_api.BILLING_TYPE_PREPAID
+		}
+		if self.BillingType == "" {
+			self.BillingType = billingType
 		}
 		if expireAt != nil && !expireAt.IsZero() {
 			self.ExpiredAt = *expireAt
@@ -793,19 +1023,14 @@ func (self *SDBInstance) StartDBInstanceRebootTask(ctx context.Context, userCred
 	return nil
 }
 
-func (self *SDBInstance) StartDBInstanceSyncStatusTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
-	self.SetStatus(userCred, api.DBINSTANCE_SYNC_STATUS, "")
-	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceSyncStatusTask", self, userCred, data, parentTaskId, "", nil)
+func (self *SDBInstance) StartDBInstanceSyncTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
+	self.SetStatus(userCred, api.DBINSTANCE_SYNC_CONFIG, "")
+	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceSyncTask", self, userCred, data, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}
 	task.ScheduleRun(nil)
 	return nil
-}
-
-func (self *SDBInstance) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreDetails(ctx, userCred, query, extra)
 }
 
 func (manager *SDBInstanceManager) getDBInstancesByProviderId(providerId string) ([]SDBInstance, error) {
@@ -1034,12 +1259,16 @@ func (manager *SDBInstanceManager) SyncDBInstanceMasterId(ctx context.Context, u
 	for _, instance := range cloudDBInstances {
 		masterId := instance.GetMasterInstanceId()
 		if len(masterId) > 0 {
-			master, err := db.FetchByExternalId(manager, masterId)
+			master, err := db.FetchByExternalIdAndManagerId(manager, masterId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				return q.Equals("manager_id", provider.Id)
+			})
 			if err != nil {
 				log.Errorf("failed to found master dbinstance by externalId: %s error: %v", masterId, err)
 				continue
 			}
-			slave, err := db.FetchByExternalId(manager, instance.GetGlobalId())
+			slave, err := db.FetchByExternalIdAndManagerId(manager, instance.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				return q.Equals("manager_id", provider.Id)
+			})
 			if err != nil {
 				log.Errorf("failed to found local dbinstance by externalId %s error: %v", instance.GetGlobalId(), err)
 				continue
@@ -1094,7 +1323,7 @@ func (manager *SDBInstanceManager) SyncDBInstances(ctx context.Context, userCred
 			syncResult.UpdateError(err)
 			continue
 		}
-		syncMetadata(ctx, userCred, &commondb[i], commonext[i])
+		syncVirtualResourceMetadata(ctx, userCred, &commondb[i], commonext[i])
 		localDBInstances = append(localDBInstances, commondb[i])
 		remoteDBInstances = append(remoteDBInstances, commonext[i])
 		syncResult.Update()
@@ -1106,7 +1335,7 @@ func (manager *SDBInstanceManager) SyncDBInstances(ctx context.Context, userCred
 			syncResult.AddError(err)
 			continue
 		}
-		syncMetadata(ctx, userCred, instance, added[i])
+		syncVirtualResourceMetadata(ctx, userCred, instance, added[i])
 		localDBInstances = append(localDBInstances, *instance)
 		remoteDBInstances = append(remoteDBInstances, added[i])
 		syncResult.Add()
@@ -1118,9 +1347,12 @@ func (self *SDBInstance) syncRemoveCloudDBInstance(ctx context.Context, userCred
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
+	self.SetDisableDelete(userCred, false)
+
 	err := self.ValidateDeleteCondition(ctx)
 	if err != nil { // cannot delete
-		return self.SetStatus(userCred, api.VPC_STATUS_UNKNOWN, "sync to delete")
+		self.SetStatus(userCred, api.VPC_STATUS_UNKNOWN, "sync to delete")
+		return errors.Wrap(err, "ValidateDeleteCondition")
 	}
 	return self.RealDelete(ctx, userCred)
 }
@@ -1135,7 +1367,7 @@ func (self *SDBInstance) ValidateDeleteCondition(ctx context.Context) error {
 func (self *SDBInstance) GetDBInstanceSkuQuery() *sqlchemy.SQuery {
 	q := DBInstanceSkuManager.Query().Equals("storage_type", self.StorageType).Equals("category", self.Category).
 		Equals("cloudregion_id", self.CloudregionId).Equals("engine", self.Engine).Equals("engine_version", self.EngineVersion)
-	for k, v := range map[string]string{"zone1": self.Zone1, "zone2": self.Zone2, "zone3": self.Zone3, "zone_id": self.ZoneId} {
+	for k, v := range map[string]string{"zone1": self.Zone1, "zone2": self.Zone2, "zone3": self.Zone3} {
 		if len(v) > 0 {
 			q = q.Equals(k, v)
 		}
@@ -1238,6 +1470,30 @@ func (self *SDBInstance) SetZoneInfo(ctx context.Context, userCred mcclient.Toke
 	return err
 }
 
+func (self *SDBInstance) SetZoneIds(extInstance cloudprovider.ICloudDBInstance) {
+	zone1 := extInstance.GetZone1Id()
+	if len(zone1) > 0 {
+		zone, _ := db.FetchByExternalId(ZoneManager, zone1)
+		if zone != nil {
+			self.Zone1 = zone.GetId()
+		}
+	}
+	zone2 := extInstance.GetZone2Id()
+	if len(zone2) > 0 {
+		zone, _ := db.FetchByExternalId(ZoneManager, zone2)
+		if zone != nil {
+			self.Zone2 = zone.GetId()
+		}
+	}
+	zone3 := extInstance.GetZone3Id()
+	if len(zone3) > 0 {
+		zone, _ := db.FetchByExternalId(ZoneManager, zone3)
+		if zone != nil {
+			self.Zone3 = zone.GetId()
+		}
+	}
+}
+
 func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extInstance cloudprovider.ICloudDBInstance) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		self.Engine = extInstance.GetEngine()
@@ -1248,20 +1504,32 @@ func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred m
 		self.DiskSizeGB = extInstance.GetDiskSizeGB()
 		self.StorageType = extInstance.GetStorageType()
 		self.Status = extInstance.GetStatus()
+		self.Port = extInstance.GetPort()
 
 		self.ConnectionStr = extInstance.GetConnectionStr()
 		self.InternalConnectionStr = extInstance.GetInternalConnectionStr()
 
 		self.MaintainTime = extInstance.GetMaintainTime()
-
-		self.ZoneId = extInstance.GetIZoneId()
-		err := self.setZoneInfo()
-		if err != nil {
-			return errors.Wrap(err, "setZoneInfo")
-		}
+		self.SetZoneIds(extInstance)
 
 		if createdAt := extInstance.GetCreatedAt(); !createdAt.IsZero() {
 			self.CreatedAt = createdAt
+		}
+
+		if expiredAt := extInstance.GetExpiredAt(); !expiredAt.IsZero() {
+			self.ExpiredAt = expiredAt
+		}
+
+		if len(self.VpcId) == 0 {
+			if vpcId := extInstance.GetIVpcId(); len(vpcId) > 0 {
+				vpc, err := db.FetchByExternalIdAndManagerId(VpcManager, vpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+					return q.Equals("manager_id", provider.Id)
+				})
+				if err != nil {
+					return errors.Wrapf(err, "SyncWithCloudDBInstance.FetchVpcId")
+				}
+				self.VpcId = vpc.GetId()
+			}
 		}
 
 		factory, err := provider.GetProviderFactory()
@@ -1272,6 +1540,7 @@ func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred m
 		if factory.IsSupportPrepaidResources() {
 			self.BillingType = extInstance.GetBillingType()
 			self.ExpiredAt = extInstance.GetExpiredAt()
+			self.AutoRenew = extInstance.IsAutoRenew()
 		}
 
 		return nil
@@ -1321,11 +1590,7 @@ func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, u
 	instance.InternalConnectionStr = extInstance.GetInternalConnectionStr()
 
 	instance.MaintainTime = extInstance.GetMaintainTime()
-	instance.ZoneId = extInstance.GetIZoneId()
-	err = instance.setZoneInfo()
-	if err != nil {
-		return nil, errors.Wrap(err, "instance.setZoneInfo")
-	}
+	instance.SetZoneIds(extInstance)
 
 	if secgroupId := extInstance.GetSecurityGroupId(); len(secgroupId) > 0 {
 		q := SecurityGroupCacheManager.Query().Equals("manager_id", provider.Id).Equals("external_id", secgroupId)
@@ -1344,7 +1609,9 @@ func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, u
 	}
 
 	if vpcId := extInstance.GetIVpcId(); len(vpcId) > 0 {
-		vpc, err := db.FetchByExternalId(VpcManager, vpcId)
+		vpc, err := db.FetchByExternalIdAndManagerId(VpcManager, vpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			return q.Equals("manager_id", provider.Id)
+		})
 		if err != nil {
 			return nil, errors.Wrapf(err, "newFromCloudDBInstance.FetchVpcId")
 		}
@@ -1363,14 +1630,15 @@ func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, u
 	if factory.IsSupportPrepaidResources() {
 		instance.BillingType = extInstance.GetBillingType()
 		instance.ExpiredAt = extInstance.GetExpiredAt()
+		instance.AutoRenew = extInstance.IsAutoRenew()
 	}
 
-	err = manager.TableSpec().Insert(&instance)
+	err = manager.TableSpec().Insert(ctx, &instance)
 	if err != nil {
 		return nil, errors.Wrapf(err, "newFromCloudDBInstance.Insert")
 	}
 
-	SyncCloudProject(userCred, &instance, ownerId, extInstance, instance.ManagerId)
+	SyncCloudProject(userCred, &instance, ownerId, extInstance, provider.Id)
 
 	db.OpsLog.LogEvent(&instance, db.ACT_CREATE, instance.GetShortDesc(ctx), userCred)
 
@@ -1386,7 +1654,7 @@ func (man *SDBInstanceManager) TotalCount(
 	q := man.Query()
 	q = scopeOwnerIdFilter(q, scope, ownerId)
 	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
-	q = rangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"))
+	q = RangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"), nil, nil)
 	return q.CountWithError()
 }
 
@@ -1409,4 +1677,166 @@ func (dbinstance *SDBInstance) GetUsages() []db.IUsage {
 	return []db.IUsage{
 		&usage,
 	}
+}
+
+func (dbinstance *SDBInstance) GetIRegion() (cloudprovider.ICloudRegion, error) {
+	region := dbinstance.GetRegion()
+	if region == nil {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid cloudregion")
+	}
+	provider, err := dbinstance.GetDriver()
+	if err != nil {
+		return nil, errors.Wrap(err, "dbinstance.GetDriver")
+	}
+	return provider.GetIRegionById(region.GetExternalId())
+}
+
+func (manager *SDBInstanceManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemExportKeys")
+	}
+
+	if keys.ContainsAny(manager.SManagedResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SManagedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	if keys.ContainsAny(manager.SCloudregionResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SCloudregionResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	if keys.Contains("vpc") {
+		q, err = manager.SVpcResourceBaseManager.ListItemExportKeys(ctx, q, userCred, stringutils2.NewSortedStrings([]string{"vpc"}))
+		if err != nil {
+			return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	return q, nil
+}
+
+func (manager *SDBInstanceManager) getExpiredPostpaids() []SDBInstance {
+	q := ListExpiredPostpaidResources(manager.Query(), options.Options.ExpiredPrepaidMaxCleanBatchSize)
+	q = q.IsFalse("pending_deleted")
+
+	dbs := make([]SDBInstance, 0)
+	err := db.FetchModelObjects(DBInstanceManager, q, &dbs)
+	if err != nil {
+		log.Errorf("fetch dbinstances error %s", err)
+		return nil
+	}
+
+	return dbs
+}
+
+func (cache *SDBInstance) SetDisableDelete(userCred mcclient.TokenCredential, val bool) error {
+	diff, err := db.Update(cache, func() error {
+		if val {
+			cache.DisableDelete = tristate.True
+		} else {
+			cache.DisableDelete = tristate.False
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	db.OpsLog.LogEvent(cache, db.ACT_UPDATE, diff, userCred)
+	logclient.AddSimpleActionLog(cache, logclient.ACT_UPDATE, diff, userCred, true)
+	return err
+}
+
+func (self *SDBInstance) doExternalSync(ctx context.Context, userCred mcclient.TokenCredential) error {
+	provider := self.GetCloudprovider()
+	if provider != nil {
+		return fmt.Errorf("no cloud provider???")
+	}
+
+	iregion, err := self.GetIRegion()
+	if err != nil || iregion == nil {
+		return fmt.Errorf("no cloud region??? %s", err)
+	}
+
+	idbs, err := iregion.GetIDBInstanceById(self.ExternalId)
+	if err != nil {
+		return err
+	}
+	return self.SyncWithCloudDBInstance(ctx, userCred, provider, idbs)
+}
+
+func (manager *SDBInstanceManager) DeleteExpiredPostpaids(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	dbs := manager.getExpiredPostpaids()
+	if dbs == nil {
+		return
+	}
+	for i := 0; i < len(dbs); i += 1 {
+		if len(dbs[i].ExternalId) > 0 {
+			err := dbs[i].doExternalSync(ctx, userCred)
+			if err == nil && dbs[i].IsValidPostPaid() {
+				continue
+			}
+		}
+		dbs[i].SetDisableDelete(userCred, false)
+		dbs[i].StartDBInstanceDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
+	}
+}
+
+func (self *SDBInstance) AllowPerformPostpaidExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "postpaid-expire")
+}
+
+func (self *SDBInstance) PerformPostpaidExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.BillingType != billing_api.BILLING_TYPE_POSTPAID {
+		return nil, httperrors.NewBadRequestError("dbinstance billing type is %s", self.BillingType)
+	}
+
+	bc, err := ParseBillingCycleInput(&self.SBillingResourceBase, data)
+	if err != nil {
+		return nil, err
+	}
+
+	err = self.SaveRenewInfo(ctx, userCred, bc, nil, billing_api.BILLING_TYPE_POSTPAID)
+	return nil, err
+}
+
+func (self *SDBInstance) AllowPerformCancelExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "cancel-expire")
+}
+
+func (self *SDBInstance) PerformCancelExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if err := self.CancelExpireTime(ctx, userCred); err != nil {
+		return nil, err
+	}
+
+	return nil, nil
+}
+
+func (self *SDBInstance) CancelExpireTime(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if self.BillingType != billing_api.BILLING_TYPE_POSTPAID {
+		return httperrors.NewBadRequestError("dbinstance billing type %s not support cancel expire", self.BillingType)
+	}
+
+	_, err := sqlchemy.GetDB().Exec(
+		fmt.Sprintf(
+			"update %s set expired_at = NULL and billing_cycle = NULL where id = ?",
+			DBInstanceManager.TableSpec().Name(),
+		), self.Id,
+	)
+	if err != nil {
+		return errors.Wrap(err, "dbinstance cancel expire time")
+	}
+	db.OpsLog.LogEvent(self, db.ACT_RENEW, "dbinstance cancel expire time", userCred)
+	return nil
 }

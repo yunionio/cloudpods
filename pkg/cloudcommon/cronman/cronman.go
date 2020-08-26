@@ -27,6 +27,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/elect"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
@@ -120,7 +121,7 @@ func (cjth *CronJobTimerHeap) Pop() interface{} {
 
 type SCronJobManager struct {
 	jobs     CronJobTimerHeap
-	stop     chan struct{}
+	stopFunc context.CancelFunc
 	add      chan struct{}
 	running  bool
 	workers  *appsrv.SWorkerManager
@@ -134,7 +135,6 @@ func InitCronJobManager(isDbWorker bool, workerCount int) *SCronJobManager {
 			workers:  appsrv.NewWorkerManager("CronJobWorkers", workerCount, 1024, isDbWorker),
 			dataLock: new(sync.Mutex),
 			add:      make(chan struct{}),
-			stop:     make(chan struct{}),
 		}
 	}
 	return manager
@@ -298,7 +298,22 @@ func (self *SCronJobManager) next(now time.Time) {
 	}
 }
 
+func (self *SCronJobManager) Start2(ctx context.Context, electObj *elect.Elect) {
+	ctx, self.stopFunc = context.WithCancel(ctx)
+	if electObj == nil {
+		self.start(ctx)
+		return
+	}
+	electObj.SubscribeWithAction(ctx, func() { self.start(ctx) }, self.Stop)
+}
+
 func (self *SCronJobManager) Start() {
+	ctx := context.Background()
+	ctx, self.stopFunc = context.WithCancel(ctx)
+	self.start(ctx)
+}
+
+func (self *SCronJobManager) start(ctx context.Context) {
 	if self.running {
 		return
 	}
@@ -306,13 +321,11 @@ func (self *SCronJobManager) Start() {
 	defer self.dataLock.Unlock()
 	self.running = true
 	self.init()
-	go self.run()
+	go self.run(ctx)
 }
 
 func (self *SCronJobManager) Stop() {
-	if self.stop != nil {
-		close(self.stop)
-	}
+	self.stopFunc()
 }
 
 func (self *SCronJobManager) init() {
@@ -327,7 +340,7 @@ func (self *SCronJobManager) init() {
 	}
 }
 
-func (self *SCronJobManager) run() {
+func (self *SCronJobManager) run(ctx context.Context) {
 	var timer *time.Timer
 	var now = time.Now()
 	for {
@@ -343,8 +356,9 @@ func (self *SCronJobManager) run() {
 			self.runJobs(now)
 		case <-self.add:
 			continue
-		case <-self.stop:
+		case <-ctx.Done():
 			timer.Stop()
+			self.running = false
 			return
 		}
 	}

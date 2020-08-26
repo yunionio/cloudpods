@@ -15,6 +15,7 @@
 package aliyun
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -172,7 +173,7 @@ func (region *SRegion) GetLoadbalancerDetail(loadbalancerId string) (*SLoadbalan
 	return &lb, body.Unmarshal(&lb)
 }
 
-func (lb *SLoadbalancer) Delete() error {
+func (lb *SLoadbalancer) Delete(ctx context.Context) error {
 	params := map[string]string{}
 	params["RegionId"] = lb.region.RegionId
 	params["LoadBalancerId"] = lb.LoadBalancerId
@@ -232,7 +233,7 @@ func (lb *SLoadbalancer) CreateILoadBalancerBackendGroup(group *cloudprovider.SL
 	}
 }
 
-func (lb *SLoadbalancer) CreateILoadBalancerListener(listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
+func (lb *SLoadbalancer) CreateILoadBalancerListener(ctx context.Context, listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
 	switch listener.ListenerType {
 	case api.LB_LISTENER_TYPE_TCP:
 		return lb.region.CreateLoadbalancerTCPListener(lb, listener)
@@ -393,5 +394,5 @@ func (lb *SLoadbalancer) GetILoadBalancerListeners() ([]cloudprovider.ICloudLoad
 }
 
 func (lb *SLoadbalancer) GetProjectId() string {
-	return ""
+	return lb.ResourceGroupId
 }

@@ -14,7 +14,9 @@
 
 package compute
 
+import "yunion.io/x/onecloud/pkg/apis"
+
 const (
-	SERVICE_TYPE    = "compute"
+	SERVICE_TYPE    = apis.SERVICE_TYPE_REGION
 	SERVICE_VERSION = "v2"
 )

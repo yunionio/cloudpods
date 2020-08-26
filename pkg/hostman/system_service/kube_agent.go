@@ -43,3 +43,7 @@ func (s *SKubeAgent) Reload(kwargs map[string]interface{}) error {
 func (s *SKubeAgent) BgReload(kwargs map[string]interface{}) {
 	go s.reload(s.GetConfig(kwargs), s.GetConfigFile())
 }
+
+func (s *SKubeAgent) BgReloadConf(kwargs map[string]interface{}) {
+	go s.reloadConf(s.GetConfig(kwargs), s.GetConfigFile())
+}

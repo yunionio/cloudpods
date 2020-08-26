@@ -15,14 +15,18 @@
 package aliyun
 
 import (
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 
 	"yunion.io/x/jsonutils"
 
-	"yunion.io/x/onecloud/pkg/apis/cloudevent"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+)
+
+const (
+	EVENT_REGION_HANGZHOU = "cn-hangzhou"
 )
 
 type SAttributes struct {
@@ -97,12 +101,7 @@ func (event *SEvent) GetAccount() string {
 }
 
 func (event *SEvent) GetService() string {
-	switch event.ServiceName {
-	case "Ecs":
-		return cloudevent.CLOUD_EVENT_SERVICE_COMPUTE
-	default:
-		return cloudevent.CLOUD_EVENT_SERVICE_UNKNOWN
-	}
+	return event.ServiceName
 }
 
 func (event *SEvent) IsSuccess() bool {
@@ -136,14 +135,21 @@ func (region *SRegion) GetICloudEvents(start time.Time, end time.Time, withReadE
 	}
 
 	for i := range events {
-		//if withReadEvent || !strings.HasPrefix(events[i].EventName, "Query") {
+		if !withReadEvent {
+			if strings.HasPrefix(events[i].EventName, "Query") {
+				continue
+			}
+		}
 		iEvents = append(iEvents, &events[i])
-		//}
 	}
 	return iEvents, nil
 }
 
 func (region *SRegion) GetEvents(start time.Time, end time.Time, token string, eventRW string, requestId string) ([]SEvent, string, error) {
+	if region.RegionId != EVENT_REGION_HANGZHOU {
+		return []SEvent{}, "", nil
+	}
+
 	params := map[string]string{
 		"RegionId": region.RegionId,
 	}

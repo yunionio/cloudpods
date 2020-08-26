@@ -17,6 +17,8 @@ package tasks
 import (
 	"context"
 
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -31,7 +33,7 @@ func (self *SDiskBaseTask) getDisk() *models.SDisk {
 	return obj.(*models.SDisk)
 }
 
-func (self *SDiskBaseTask) SetStageFailed(ctx context.Context, reason string) {
+func (self *SDiskBaseTask) SetStageFailed(ctx context.Context, reason jsonutils.JSONObject) {
 	self.finalReleasePendingUsage(ctx)
 	self.STask.SetStageFailed(ctx, reason)
 }
@@ -40,7 +42,7 @@ func (self *SDiskBaseTask) finalReleasePendingUsage(ctx context.Context) {
 	pendingUsage := models.SQuota{}
 	err := self.GetPendingUsage(&pendingUsage, 0)
 	if err == nil && !pendingUsage.IsEmpty() {
-		quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &pendingUsage)
+		quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &pendingUsage, false)
 	}
 }
 

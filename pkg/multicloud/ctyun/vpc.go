@@ -123,7 +123,7 @@ func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
 }
 
 func (self *SVpc) Delete() error {
-	return cloudprovider.ErrNotImplemented
+	return self.region.DeleteVpc(self.GetId())
 }
 
 func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) {
@@ -149,7 +149,6 @@ func (self *SVpc) fetchSecurityGroups() error {
 
 	self.secgroups = make([]cloudprovider.ICloudSecurityGroup, len(secgroups))
 	for i := 0; i < len(secgroups); i++ {
-		secgroups[i].vpc = self
 		self.secgroups[i] = &secgroups[i]
 	}
 
@@ -179,7 +178,7 @@ func (self *SVpc) fetchNetworks() error {
 	}
 
 	if len(networks) == 0 {
-		self.iwires = append(self.iwires, &SWire{region: self.region, vpc: self})
+		self.iwires = []cloudprovider.ICloudWire{&SWire{region: self.region, vpc: self}}
 		return nil
 	}
 
@@ -204,6 +203,10 @@ func (self *SRegion) GetVpc(vpcId string) (*SVpc, error) {
 		return nil, errors.Wrap(err, "SRegion.GetVpc.DoGet")
 	}
 
+	if id, _ := resp.GetString("returnObj", "resVpcId"); len(id) == 0 {
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "SRegion.GetVpc.GetID")
+	}
+
 	err = resp.Unmarshal(vpc, "returnObj")
 	if err != nil {
 		return nil, errors.Wrap(err, "SRegion.GetVpc.Unmarshal")
@@ -211,4 +214,18 @@ func (self *SRegion) GetVpc(vpcId string) (*SVpc, error) {
 
 	vpc.region = self
 	return vpc, nil
+}
+
+func (self *SRegion) DeleteVpc(vpcId string) error {
+	params := map[string]jsonutils.JSONObject{
+		"regionId": jsonutils.NewString(self.GetId()),
+		"vpcId":    jsonutils.NewString(vpcId),
+	}
+
+	_, err := self.client.DoPost("/apiproxy/v3/deleteVPC", params)
+	if err != nil {
+		return errors.Wrap(err, "SRegion.DeleteVpc.DoPost")
+	}
+
+	return nil
 }

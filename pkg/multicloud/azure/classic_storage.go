@@ -62,7 +62,7 @@ func (self *SClassicStorage) GetGlobalId() string {
 }
 
 func (self *SClassicStorage) IsEmulated() bool {
-	return false
+	return true
 }
 
 func (self *SClassicStorage) GetIZone() cloudprovider.ICloudZone {
@@ -77,7 +77,7 @@ func (self *SClassicStorage) GetCapacityMB() int64 {
 	return 0 // unlimited
 }
 
-func (self *SClassicStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
+func (self *SClassicStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 

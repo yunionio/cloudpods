@@ -827,3 +827,16 @@ func (m *QmpMonitor) CancelBlockJob(driveName string, force bool, callback Strin
 	cmd += driveName
 	m.HumanMonitorCommand(cmd, callback)
 }
+
+func (m *QmpMonitor) NetdevAdd(id, netType string, params map[string]string, callback StringCallback) {
+	cmd := fmt.Sprintf("netdev_add %s,id=%s", netType, id)
+	for k, v := range params {
+		cmd += fmt.Sprintf(",%s=%s", k, v)
+	}
+	m.HumanMonitorCommand(cmd, callback)
+}
+
+func (m *QmpMonitor) NetdevDel(id string, callback StringCallback) {
+	cmd := fmt.Sprintf("netdev_del %s", id)
+	m.HumanMonitorCommand(cmd, callback)
+}

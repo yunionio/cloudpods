@@ -37,15 +37,15 @@ func (self *SStorage) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SStorage) GetId() string {
-	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.providerId, self.zone.GetId(), strings.ToLower(self.storageType))
+	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.cpcfg.Id, self.zone.GetId(), strings.ToLower(self.storageType))
 }
 
 func (self *SStorage) GetName() string {
-	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.providerName, self.zone.GetId(), strings.ToLower(self.storageType))
+	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.cpcfg.Name, self.zone.GetId(), strings.ToLower(self.storageType))
 }
 
 func (self *SStorage) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.providerId, self.zone.GetGlobalId(), strings.ToLower(self.storageType))
+	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.cpcfg.Id, self.zone.GetGlobalId(), strings.ToLower(self.storageType))
 }
 
 func (self *SStorage) IsEmulated() bool {
@@ -117,8 +117,8 @@ func (self *SStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
 	return self.zone.region.getStoragecache()
 }
 
-func (self *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
-	diskId, err := self.zone.region.CreateDisk(self.zone.Zone, self.storageType, name, sizeGb, desc)
+func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
+	diskId, err := self.zone.region.CreateDisk(self.zone.Zone, self.storageType, conf.Name, conf.SizeGb, conf.Desc, conf.ProjectId)
 	if err != nil {
 		log.Errorf("createDisk fail %s", err)
 		return nil, err

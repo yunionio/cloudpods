@@ -27,15 +27,18 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SDBInstanceSkuManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
+	db.SExternalizedResourceBaseManager
+	SCloudregionResourceBaseManager
 }
 
 var DBInstanceSkuManager *SDBInstanceSkuManager
@@ -59,7 +62,7 @@ type SDBInstanceSku struct {
 	SCloudregionResourceBase
 	Provider string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_required" update:"admin"`
 
-	StorageType   string `list:"user" create:"optional"`
+	StorageType   string `width:"32" index:"true" list:"user" create:"optional"`
 	DiskSizeStep  int    `list:"user" default:"1" create:"optional"` //步长
 	MaxDiskSizeGb int    `list:"user" create:"optional"`
 	MinDiskSizeGb int    `list:"user" create:"optional"`
@@ -72,9 +75,9 @@ type SDBInstanceSku struct {
 	VcpuCount  int `nullable:"false" default:"1" list:"user" create:"optional"`
 	VmemSizeMb int `nullable:"false" list:"user" create:"required"`
 
-	Category      string `nullable:"false" list:"user" create:"optional"`
-	Engine        string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	EngineVersion string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	Category      string `width:"32" index:"true" nullable:"false" list:"user" create:"optional"`
+	Engine        string `width:"16" index:"true" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	EngineVersion string `width:"16" index:"true" charset:"ascii" nullable:"false" list:"user" create:"required"`
 
 	Zone1  string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
 	Zone2  string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
@@ -108,15 +111,150 @@ func (manager *SDBInstanceSkuManager) fetchDBInstanceSkus(provider string, regio
 	return skus, nil
 }
 
-func (manager *SDBInstanceSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+// RDS套餐类型列表
+func (manager *SDBInstanceSkuManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DBInstanceSkuListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
-	data := query.(*jsonutils.JSONDict)
-	return validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "cloudregion", ModelKeyword: "cloudregion", OwnerId: userCred},
-	})
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
+
+	if domainStr := query.ProjectDomainId; len(domainStr) > 0 {
+		domain, err := db.TenantCacheManager.FetchDomainByIdOrName(context.Background(), domainStr)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("domains", domainStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		query.ProjectDomainId = domain.GetId()
+	}
+
+	q = listItemDomainFilter(q, query.Providers, query.ProjectDomainId)
+
+	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
+	}
+
+	// StorageType
+	if len(query.StorageType) > 0 {
+		q = q.In("storage_type", query.StorageType)
+	}
+	if len(query.VcpuCount) > 0 {
+		q = q.In("vcpu_count", query.VcpuCount)
+	}
+	if len(query.VmemSizeMb) > 0 {
+		q = q.In("vmem_size_mb", query.VmemSizeMb)
+	}
+	if len(query.Category) > 0 {
+		q = q.In("category", query.Category)
+	}
+	if len(query.Engine) > 0 {
+		q = q.In("engine", query.Engine)
+	}
+	if len(query.EngineVersion) > 0 {
+		q = q.In("engine_version", query.EngineVersion)
+	}
+
+	for k, zoneIds := range map[string][]string{"zone1": query.Zone1, "zone2": query.Zone2, "zone3": query.Zone3} {
+		ids := []string{}
+		for _, zoneId := range zoneIds {
+			zone, err := ZoneManager.FetchByIdOrName(userCred, zoneId)
+			if err != nil {
+				if errors.Cause(err) == sql.ErrNoRows {
+					return nil, httperrors.NewResourceNotFoundError2("zone", zoneId)
+				}
+				return nil, httperrors.NewGeneralError(err)
+			}
+			ids = append(ids, zone.GetId())
+		}
+		if len(ids) > 0 {
+			q = q.In(k, ids)
+		}
+	}
+
+	return q, nil
+}
+
+func (self *SDBInstanceSku) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.DBInstanceSkuDetails, error) {
+	return api.DBInstanceSkuDetails{}, nil
+}
+
+func (manager *SDBInstanceSkuManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.DBInstanceSkuDetails {
+	rows := make([]api.DBInstanceSkuDetails, len(objs))
+	enableRows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	regionRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	zoneIds := map[string]string{}
+	for i := range rows {
+		rows[i] = api.DBInstanceSkuDetails{
+			EnabledStatusStandaloneResourceDetails: enableRows[i],
+			CloudregionResourceInfo:                regionRows[i],
+		}
+		sku := objs[i].(*SDBInstanceSku)
+		for _, zoneId := range []string{sku.Zone1, sku.Zone2, sku.Zone3} {
+			if _, ok := zoneIds[zoneId]; !ok {
+				zoneIds[zoneId] = ""
+			}
+		}
+	}
+	var err error
+	zoneIds, err = db.FetchIdNameMap(ZoneManager, zoneIds)
+	if err != nil {
+		log.Errorf("db.FetchIdNameMap fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		sku := objs[i].(*SDBInstanceSku)
+		rows[i].Zone1Name, _ = zoneIds[sku.Zone1]
+		rows[i].Zone2Name, _ = zoneIds[sku.Zone2]
+		rows[i].Zone3Name, _ = zoneIds[sku.Zone3]
+	}
+
+	return rows
+}
+
+func (manager *SDBInstanceSkuManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DBInstanceSkuListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SDBInstanceSkuManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (manager *SDBInstanceSkuManager) GetDBStringArray(q *sqlchemy.SQuery) ([]string, error) {
@@ -143,9 +281,14 @@ func (manager *SDBInstanceSkuManager) AllowGetPropertyInstanceSpecs(ctx context.
 }
 
 func (manager *SDBInstanceSkuManager) GetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	q, err := manager.ListItemFilter(ctx, manager.Query(), userCred, query)
+	listQuery := api.DBInstanceSkuListInput{}
+	err := query.Unmarshal(&listQuery)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "query.Unmarshal")
+	}
+	q, err := manager.ListItemFilter(ctx, manager.Query(), userCred, listQuery)
+	if err != nil {
+		return nil, errors.Wrap(err, "manager.ListItemFilter")
 	}
 
 	input := &SDBInstanceSku{}
@@ -331,13 +474,13 @@ func (manager *SDBInstanceSkuManager) GetDBInstanceSkus(provider, cloudregionId,
 	return skus, nil
 }
 
-func (manager *SDBInstanceSkuManager) syncDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, meta *SSkuResourcesMeta) compare.SyncResult {
+func (manager *SDBInstanceSkuManager) SyncDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, meta *SSkuResourcesMeta) compare.SyncResult {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
 	syncResult := compare.SyncResult{}
 
-	iskus, err := meta.GetDBInstanceSkusByRegion(region.ExternalId)
+	iskus, err := meta.GetDBInstanceSkusByRegionExternalId(region.ExternalId)
 	if err != nil {
 		syncResult.Error(err)
 		return syncResult
@@ -402,56 +545,15 @@ func (sku *SDBInstanceSku) syncWithCloudSku(ctx context.Context, userCred mcclie
 	return err
 }
 
-func (manager *SDBInstanceSkuManager) getZoneBySuffix(region *SCloudregion, suffix string) (*SZone, error) {
-	q := ZoneManager.Query().Equals("cloudregion_id", region.Id).Endswith("external_id", suffix)
-	count, err := q.CountWithError()
-	if err != nil {
-		return nil, err
-	}
-	if count > 1 {
-		return nil, fmt.Errorf("duplicate zone with suffix %s in region %s", suffix, region.Name)
-	}
-	if count == 0 {
-		return nil, fmt.Errorf("failed to found zone with suffix %s in region %s", suffix, region.Name)
-	}
-	zone := &SZone{}
-	return zone, q.First(zone)
-}
-
 func (manager *SDBInstanceSkuManager) newFromCloudSku(ctx context.Context, userCred mcclient.TokenCredential, isku SDBInstanceSku, region *SCloudregion) error {
 	sku := &isku
 	sku.SetModelManager(manager, sku)
 	sku.Id = "" //避免使用yunion meta的id,导致出现duplicate entry问题
 	sku.CloudregionId = region.Id
-
-	if len(isku.Zone1) > 0 {
-		zone, err := manager.getZoneBySuffix(region, isku.Zone1)
-		if err != nil {
-			return errors.Wrapf(err, "failed to get zone1 info by %s", isku.Zone1)
-		}
-		sku.Zone1 = zone.Id
-	}
-
-	if len(isku.Zone2) > 0 {
-		zone, err := manager.getZoneBySuffix(region, isku.Zone2)
-		if err != nil {
-			return errors.Wrapf(err, "failed to get zone1 info by %s", isku.Zone2)
-		}
-		sku.Zone2 = zone.Id
-	}
-
-	if len(isku.Zone3) > 0 {
-		zone, err := manager.getZoneBySuffix(region, isku.Zone3)
-		if err != nil {
-			return errors.Wrapf(err, "failed to get zone1 info by %s", isku.Zone3)
-		}
-		sku.Zone3 = zone.Id
-	}
-
-	return manager.TableSpec().Insert(sku)
+	return manager.TableSpec().Insert(ctx, sku)
 }
 
-func syncRegionDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, regionId string, isStart bool) {
+func SyncRegionDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, regionId string, isStart bool) {
 	if isStart {
 		q := DBInstanceSkuManager.Query()
 		if len(regionId) > 0 {
@@ -480,7 +582,7 @@ func syncRegionDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCreden
 		return
 	}
 
-	meta, err := fetchSkuResourcesMeta()
+	meta, err := FetchSkuResourcesMeta()
 	if err != nil {
 		log.Errorf("failed to fetch sku resource meta: %v", err)
 		return
@@ -491,7 +593,7 @@ func syncRegionDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCreden
 			log.Infof("region %s(%s) not support dbinstance, skip sync", region.Name, region.Id)
 			continue
 		}
-		result := DBInstanceSkuManager.syncDBInstanceSkus(ctx, userCred, &region, meta)
+		result := DBInstanceSkuManager.SyncDBInstanceSkus(ctx, userCred, &region, meta)
 		msg := result.Result()
 		notes := fmt.Sprintf("SyncDBInstanceSkus for region %s result: %s", region.Name, msg)
 		log.Infof(notes)
@@ -500,5 +602,26 @@ func syncRegionDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCreden
 }
 
 func SyncDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	syncRegionDBInstanceSkus(ctx, userCred, "", isStart)
+	SyncRegionDBInstanceSkus(ctx, userCred, "", isStart)
+}
+
+func (manager *SDBInstanceSkuManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SCloudregionResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SCloudregionResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	return q, nil
 }

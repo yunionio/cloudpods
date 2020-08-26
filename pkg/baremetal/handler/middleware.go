@@ -156,11 +156,15 @@ func bmRegisterMiddleware(h bmRegisterFunc) appsrv.FilterHandler {
 			newCtx.ResponseError(httperrors.NewMissingParameterError("hostname"))
 			return
 		}
-		remoteIp, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err != nil {
-			newCtx.ResponseError(httperrors.NewInternalServerError("Parse ip error %s", err))
-			return
+		remoteIp, _ := newCtx.Data().GetString("ssh_ip")
+		if len(remoteIp) == 0 {
+			remoteIp, _, err = net.SplitHostPort(r.RemoteAddr)
+			if err != nil {
+				newCtx.ResponseError(httperrors.NewInternalServerError("Parse ip error %s", err))
+				return
+			}
 		}
+
 		sshPort, err := newCtx.Data().Int("ssh_port")
 		if err != nil {
 			newCtx.ResponseError(httperrors.NewMissingParameterError("ssh_port"))
@@ -257,7 +261,7 @@ func (ctx *Context) ResponseJson(obj jsonutils.JSONObject) {
 }
 
 func (ctx *Context) ResponseError(err error) {
-	httperrors.GeneralServerError(ctx.writer, err)
+	httperrors.GeneralServerError(ctx, ctx.writer, err)
 }
 
 func (ctx *Context) Request() *http.Request {

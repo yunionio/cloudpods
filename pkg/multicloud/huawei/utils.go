@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -84,6 +85,24 @@ func doListAllWithPagerOffset(doList listFunc, queries map[string]string, result
 
 		startIndex++
 		queries["offset"] = fmt.Sprintf("%d", startIndex)
+	}
+	return nil
+}
+
+func doListAllWithNextLink(doList listFunc, querys map[string]string, result interface{}) error {
+	values := []jsonutils.JSONObject{}
+	for {
+		ret, err := doList(querys)
+		if err != nil {
+			return errors.Wrap(err, "doList")
+		}
+		values = append(values, ret.Data...)
+		if len(ret.NextLink) == 0 || ret.NextLink == "null" {
+			break
+		}
+	}
+	if result != nil {
+		return jsonutils.Update(result, values)
 	}
 	return nil
 }
@@ -216,6 +235,11 @@ func DoUpdate(updateFunc updateFunc, id string, params jsonutils.JSONObject, res
 func DoUpdateWithSpec(updateFunc updateFunc2, id string, spec string, params jsonutils.JSONObject) error {
 	_, err := updateFunc(nil, id, spec, params, "")
 	return err
+}
+
+func DoUpdateWithSpec2(updateFunc updateFunc2, id string, spec string, params jsonutils.JSONObject, result interface{}) error {
+	ret, err := updateFunc(nil, id, spec, params, "")
+	return unmarshalResult(ret, err, result, "PUT")
 }
 
 func DoDelete(deleteFunc deleteFunc, id string, params jsonutils.JSONObject, result interface{}) error {

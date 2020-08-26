@@ -42,19 +42,19 @@ func (self *SNfsStorageDriver) GetStorageType() string {
 	return api.STORAGE_NFS
 }
 
-func (self *SNfsStorageDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	conf := jsonutils.NewDict()
-	for _, v := range []string{"nfs_host", "nfs_shared_dir"} {
-		value, _ := data.GetString(v)
-		if len(value) == 0 {
-			return nil, httperrors.NewMissingParameterError(v)
-		}
-		conf.Set(v, jsonutils.NewString(value))
+func (self *SNfsStorageDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.StorageCreateInput) error {
+	input.StorageConf = jsonutils.NewDict()
+	if len(input.NfsHost) == 0 {
+		return httperrors.NewMissingParameterError("nfs_host")
 	}
-
-	data.Set("storage_conf", conf)
-
-	return data, nil
+	if len(input.NfsSharedDir) == 0 {
+		return httperrors.NewMissingParameterError("nfs_shared_dir")
+	}
+	input.StorageConf.Update(jsonutils.Marshal(map[string]string{
+		"nfs_host":       input.NfsHost,
+		"nfs_shared_dir": input.NfsSharedDir,
+	}))
+	return nil
 }
 
 func (self *SNfsStorageDriver) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, storage *models.SStorage, data jsonutils.JSONObject) {
@@ -62,7 +62,7 @@ func (self *SNfsStorageDriver) PostCreate(ctx context.Context, userCred mcclient
 	sc.Path = options.Options.DefaultImageCacheDir
 	sc.ExternalId = storage.Id
 	sc.Name = "nfs-" + storage.Name + time.Now().Format("2006-01-02 15:04:05")
-	if err := models.StoragecacheManager.TableSpec().Insert(sc); err != nil {
+	if err := models.StoragecacheManager.TableSpec().Insert(ctx, sc); err != nil {
 		log.Errorf("insert storagecache for storage %s error: %v", storage.Name, err)
 		return
 	}

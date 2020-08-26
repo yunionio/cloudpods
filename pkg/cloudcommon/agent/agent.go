@@ -24,25 +24,14 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/version"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/agent/iagent"
 	"yunion.io/x/onecloud/pkg/cloudcommon/object"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
-
-type IAgent interface {
-	GetAgentType() string
-	GetAccessIP() (net.IP, error)
-	GetListenIP() (net.IP, error)
-	GetPort() int
-	GetEnableSsl() bool
-	GetZoneName() string
-	GetAdminSession() *mcclient.ClientSession
-	TuneSystem() error
-	StartService() error
-	StopService() error
-}
 
 type SZoneInfo struct {
 	Name string `json:"name"`
@@ -80,11 +69,11 @@ func getIfaceIPs(iface *net.Interface) ([]net.IP, error) {
 	return ips, nil
 }
 
-func (agent *SBaseAgent) IAgent() IAgent {
-	return agent.GetVirtualObject().(IAgent)
+func (agent *SBaseAgent) IAgent() iagent.IAgent {
+	return agent.GetVirtualObject().(iagent.IAgent)
 }
 
-func (agent *SBaseAgent) Init(iagent IAgent, ifname string, cachePath string) error {
+func (agent *SBaseAgent) Init(iagent iagent.IAgent, ifname string, cachePath string) error {
 	iface, err := net.InterfaceByName(ifname)
 	if err != nil {
 		return err
@@ -212,7 +201,8 @@ func (agent *SBaseAgent) getZoneByIP(session *mcclient.ClientSession) (jsonutils
 		return nil, err
 	}
 	params.Add(jsonutils.NewString(listenIP.String()), "ip")
-	params.Add(jsonutils.JSONTrue, "is_on_premise")
+	params.Add(jsonutils.JSONTrue, "is_classic")
+	params.Add(jsonutils.NewString("system"), "scope")
 	networks, err := modules.Networks.List(session, params)
 	if err != nil {
 		return nil, err
@@ -246,7 +236,9 @@ func (agent *SBaseAgent) createOrUpdateBaremetalAgent(session *mcclient.ClientSe
 	if err != nil {
 		return err
 	}
-	params.Add(jsonutils.NewString(naccessIP.String()), "access_ip")
+	if agent.IAgent().GetAgentType() != string(api.AgentTypeEsxi) {
+		params.Add(jsonutils.NewString(naccessIP.String()), "access_ip")
+	}
 	params.Add(jsonutils.NewString(agent.IAgent().GetAgentType()), "agent_type")
 	ret, err := modules.Baremetalagents.List(session, params)
 	if err != nil {

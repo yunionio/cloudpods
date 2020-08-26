@@ -23,14 +23,18 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -56,10 +60,10 @@ func (self *SKVMGuestDriver) GetProvider() string {
 
 func (self *SKVMGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
 	keys := models.SComputeResourceKeys{}
-	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
+	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_ON_PREMISE
 	keys.Provider = api.CLOUD_PROVIDER_ONECLOUD
-	// ignore brand keys.Brand = brand
+	keys.Brand = api.ONECLOUD_BRAND_ONECLOUD
 	keys.Hypervisor = api.HYPERVISOR_KVM
 	return keys
 }
@@ -302,6 +306,59 @@ func (self *SKVMGuestDriver) OnDeleteGuestFinalCleanup(ctx context.Context, gues
 	return nil
 }
 
+func (self *SKVMGuestDriver) IsSupportEip() bool {
+	return true
+}
+
+func (self *SKVMGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+	return nil
+}
+func (self *SKVMGuestDriver) RequestAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, eip *models.SElasticip, task taskman.ITask) error {
+	defer task.ScheduleRun(nil)
+
+	lockman.LockObject(ctx, guest)
+	defer lockman.ReleaseObject(ctx, guest)
+
+	var guestnics []models.SGuestnetwork
+	{
+		netq := models.NetworkManager.Query().SubQuery()
+		wirq := models.WireManager.Query().SubQuery()
+		vpcq := models.VpcManager.Query().SubQuery()
+		gneq := models.GuestnetworkManager.Query()
+		q := gneq.Equals("guest_id", guest.Id).
+			IsNullOrEmpty("eip_id")
+		q = q.Join(netq, sqlchemy.Equals(netq.Field("id"), gneq.Field("network_id")))
+		q = q.Join(wirq, sqlchemy.Equals(wirq.Field("id"), netq.Field("wire_id")))
+		q = q.Join(vpcq, sqlchemy.Equals(vpcq.Field("id"), wirq.Field("vpc_id")))
+		q = q.Filter(sqlchemy.NotEquals(vpcq.Field("id"), api.DEFAULT_VPC_ID))
+		if err := db.FetchModelObjects(models.GuestnetworkManager, q, &guestnics); err != nil {
+			return err
+		}
+		if len(guestnics) == 0 {
+			return errors.Errorf("guest has no nics to associate eip")
+		}
+	}
+
+	guestnic := &guestnics[0]
+	lockman.LockObject(ctx, guestnic)
+	defer lockman.ReleaseObject(ctx, guestnic)
+	if _, err := db.Update(guestnic, func() error {
+		guestnic.EipId = eip.Id
+		return nil
+	}); err != nil {
+		return errors.Wrapf(err, "set associated eip for guestnic %s (guest:%s, network:%s)",
+			guestnic.Ifname, guestnic.GuestId, guestnic.NetworkId)
+	}
+
+	if err := eip.AssociateVM(ctx, userCred, guest); err != nil {
+		return errors.Wrapf(err, "associate eip %s(%s) to vm %s(%s)", eip.Name, eip.Id, guest.Name, guest.Id)
+	}
+	if err := eip.SetStatus(userCred, api.EIP_STATUS_READY, api.EIP_STATUS_ASSOCIATE); err != nil {
+		return errors.Wrapf(err, "set eip status to %s", api.EIP_STATUS_ALLOCATE)
+	}
+	return nil
+}
+
 func (self *SKVMGuestDriver) NeedStopForChangeSpec(guest *models.SGuest, cpuChanged, memChanged bool) bool {
 	return guest.GetMetadata("hotplug_cpu_mem", nil) != "enable" ||
 		(memChanged && guest.GetMetadata("__hugepage", nil) == "native")
@@ -371,7 +428,7 @@ func (self *SKVMGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
-func (self *SKVMGuestDriver) GetChangeConfigStatus() ([]string, error) {
+func (self *SKVMGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
@@ -484,15 +541,67 @@ func (self *SKVMGuestDriver) OnGuestChangeCpuMemFailed(ctx context.Context, gues
 	return nil
 }
 
-func (self *SKVMGuestDriver) CancelExpireTime(
-	ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
-	return guest.CancelExpireTime(ctx, userCred)
-}
-
 func (self *SKVMGuestDriver) IsSupportCdrom(guest *models.SGuest) (bool, error) {
 	return true, nil
 }
 
-func (self *SKVMGuestDriver) IsSupportPostpaidExpire() bool {
+func (self *SKVMGuestDriver) IsSupportMigrate() bool {
 	return true
+}
+
+func (self *SKVMGuestDriver) IsSupportLiveMigrate() bool {
+	return true
+}
+
+func (self *SKVMGuestDriver) CheckMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput) error {
+	if len(guest.BackupHostId) > 0 {
+		return httperrors.NewBadRequestError("Guest have backup, can't migrate")
+	}
+	if !input.IsRescueMode && guest.Status != api.VM_READY {
+		return httperrors.NewServerStatusError("Cannot normal migrate guest in status %s, try rescue mode or server-live-migrate?", guest.Status)
+	}
+	if input.IsRescueMode {
+		guestDisks := guest.GetDisks()
+		for _, guestDisk := range guestDisks {
+			if utils.IsInStringArray(
+				guestDisk.GetDisk().GetStorage().StorageType, api.STORAGE_LOCAL_TYPES) {
+				return httperrors.NewBadRequestError("Rescue mode requires all disk store in shared storages")
+			}
+		}
+	}
+	devices := guest.GetIsolatedDevices()
+	if len(devices) > 0 {
+		return httperrors.NewBadRequestError("Cannot migrate with isolated devices")
+	}
+	if len(input.PreferHost) > 0 {
+		if !db.IsAdminAllowPerform(userCred, guest, "assign-host") {
+			return httperrors.NewBadRequestError("Only system admin can assign host")
+		}
+	}
+	return nil
+}
+
+func (self *SKVMGuestDriver) CheckLiveMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput) error {
+	if len(guest.BackupHostId) > 0 {
+		return httperrors.NewBadRequestError("Guest have backup, can't migrate")
+	}
+	if utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_SUSPEND}) {
+		cdrom := guest.GetCdrom()
+		if cdrom != nil && len(cdrom.ImageId) > 0 {
+			return httperrors.NewBadRequestError("Cannot live migrate with cdrom")
+		}
+		devices := guest.GetIsolatedDevices()
+		if devices != nil && len(devices) > 0 {
+			return httperrors.NewBadRequestError("Cannot live migrate with isolated devices")
+		}
+		if !guest.CheckQemuVersion(guest.GetQemuVersion(userCred), "1.1.2") {
+			return httperrors.NewBadRequestError("Cannot do live migrate, too low qemu version")
+		}
+		if len(input.PreferHost) > 0 {
+			if !db.IsAdminAllowPerform(userCred, guest, "assign-host") {
+				return httperrors.NewBadRequestError("Only system admin can assign host")
+			}
+		}
+	}
+	return nil
 }

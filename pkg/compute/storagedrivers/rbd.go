@@ -46,50 +46,57 @@ func (self *SRbdStorageDriver) GetStorageType() string {
 	return api.STORAGE_RBD
 }
 
-func (self *SRbdStorageDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	conf := jsonutils.NewDict()
-	for _, v := range []string{"rbd_mon_host", "rbd_pool"} {
-		if !data.Contains(v) {
-			return nil, httperrors.NewMissingParameterError(v)
-		}
-		value, _ := data.GetString(v)
-		conf.Add(jsonutils.NewString(value), strings.TrimPrefix(v, "rbd_"))
+func (self *SRbdStorageDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.StorageCreateInput) error {
+	input.StorageConf = jsonutils.NewDict()
+	if len(input.RbdMonHost) == 0 {
+		return httperrors.NewMissingParameterError("rbd_mon_host")
 	}
-	if key, _ := data.GetString("rbd_key"); len(key) > 0 {
-		conf.Add(jsonutils.NewString(key), "key")
-	}
+	input.MonHost = input.RbdMonHost
 
-	for k, v := range map[string]int64{
-		"rbd_rados_mon_op_timeout": api.RBD_DEFAULT_MON_TIMEOUT,
-		"rbd_rados_osd_op_timeout": api.RBD_DEFAULT_OSD_TIMEOUT,
-		"rbd_client_mount_timeout": api.RBD_DEFAULT_MOUNT_TIMEOUT,
-	} {
-		if timeout, _ := data.Int(k); timeout > 0 {
-			conf.Add(jsonutils.NewInt(timeout), strings.TrimPrefix(k, "rbd_"))
-		} else {
-			conf.Add(jsonutils.NewInt(v), strings.TrimPrefix(k, "rbd_"))
-		}
+	if len(input.RbdPool) == 0 {
+		return httperrors.NewMissingParameterError("rbd_pool")
+	}
+	input.Pool = input.RbdPool
+	input.Key = input.RbdKey
+
+	input.RadosMonOpTimeout = input.RbdRadosMonOpTimeout
+	if input.RadosMonOpTimeout <= 0 {
+		input.RadosMonOpTimeout = api.RBD_DEFAULT_MON_TIMEOUT
+	}
+	input.RadosOsdOpTimeout = input.RbdRadosOsdOpTimeout
+	if input.RadosOsdOpTimeout <= 0 {
+		input.RadosOsdOpTimeout = api.RBD_DEFAULT_OSD_TIMEOUT
+	}
+	input.ClientMountTimeout = input.RbdClientMountTimeout
+	if input.ClientMountTimeout <= 0 {
+		input.ClientMountTimeout = api.RBD_DEFAULT_MOUNT_TIMEOUT
 	}
 
 	storages := []models.SStorage{}
 	q := models.StorageManager.Query().Equals("storage_type", api.STORAGE_RBD)
-	if err := db.FetchModelObjects(models.StorageManager, q, &storages); err != nil {
-		return nil, httperrors.NewGeneralError(err)
+	err := db.FetchModelObjects(models.StorageManager, q, &storages)
+	if err != nil {
+		return httperrors.NewGeneralError(err)
 	}
 
-	inputHost, _ := conf.GetString("mon_host")
-	inputPool, _ := conf.GetString("pool")
 	for i := 0; i < len(storages); i++ {
 		host, _ := storages[i].StorageConf.GetString("mon_host")
 		pool, _ := storages[i].StorageConf.GetString("pool")
-		if inputHost == host && inputPool == pool {
-			return nil, httperrors.NewDuplicateResourceError("This RBD Storage[%s/%s] has already exist", storages[i].Name, inputPool)
+		if input.MonHost == host && input.Pool == pool {
+			return httperrors.NewDuplicateResourceError("This RBD Storage[%s/%s] has already exist", storages[i].Name, input.Pool)
 		}
 	}
 
-	data.Set("storage_conf", conf)
-
-	return data, nil
+	input.StorageConf.Update(
+		jsonutils.Marshal(map[string]interface{}{
+			"mon_host":             input.MonHost,
+			"pool":                 input.Pool,
+			"key":                  input.Key,
+			"rados_mon_op_timeout": input.RadosMonOpTimeout,
+			"rados_osd_op_timeout": input.RadosOsdOpTimeout,
+			"client_mount_timeout": input.ClientMountTimeout,
+		}))
+	return nil
 }
 
 func (self *SRbdStorageDriver) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, storage *models.SStorage) (*jsonutils.JSONDict, error) {
@@ -111,7 +118,7 @@ func (self *SRbdStorageDriver) ValidateUpdateData(ctx context.Context, userCred 
 	}
 
 	if update, _ := data.Bool("update_storage_conf"); update {
-		_, err := storage.GetModelManager().TableSpec().Update(storage, func() error {
+		_, err := storage.GetModelManager().TableSpec().Update(ctx, storage, func() error {
 			storage.StorageConf = conf
 			return nil
 		})
@@ -152,7 +159,7 @@ func (self *SRbdStorageDriver) PostCreate(ctx context.Context, userCred mcclient
 		sc.Name = fmt.Sprintf("imagecache-%s", storage.Id)
 		pool, _ := data.GetString("rbd_pool")
 		sc.Path = fmt.Sprintf("rbd:%s", pool)
-		if err := models.StoragecacheManager.TableSpec().Insert(sc); err != nil {
+		if err := models.StoragecacheManager.TableSpec().Insert(ctx, sc); err != nil {
 			log.Errorf("insert storagecache for storage %s error: %v", storage.Name, err)
 			return
 		}
@@ -179,7 +186,7 @@ func (self *SRbdStorageDriver) ValidateSnapshotDelete(ctx context.Context, snaps
 	return nil
 }
 
-func (self *SRbdStorageDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, input *api.SSnapshotCreateInput) error {
+func (self *SRbdStorageDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, input *api.SnapshotCreateInput) error {
 	return nil
 }
 
@@ -204,6 +211,9 @@ func (self *SRbdStorageDriver) RequestCreateSnapshot(ctx context.Context, snapsh
 func (self *SRbdStorageDriver) RequestDeleteSnapshot(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask) error {
 	storage := snapshot.GetStorage()
 	host := storage.GetMasterHost()
+	if host == nil {
+		return errors.Errorf("storage %s can't get master host", storage.Id)
+	}
 	url := fmt.Sprintf("%s/disks/%s/delete-snapshot/%s", host.ManagerUri, storage.Id, snapshot.DiskId)
 	header := task.GetTaskRequestHeader()
 	params := jsonutils.NewDict()

@@ -17,30 +17,51 @@ package service
 import (
 	"fmt"
 
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 )
 
-func setInfluxdbRetentionPolicy() error {
-	urls, err := auth.GetServiceURLs("influxdb", options.Options.Region, "", "internal")
+type sInfluxdbEndpointListener struct {
+	done map[string]bool
+}
+
+func (listener *sInfluxdbEndpointListener) OnServiceCatalogChange(catalog mcclient.IServiceCatalog) {
+	urls, err := auth.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.Region, "", "")
 	if err != nil {
-		return err
+		log.Debugf("sInfluxdbEndpointListener: no influxdb endpoints found, retry later...")
+		return
 	}
 	for _, url := range urls {
+		if done, ok := listener.done[url]; ok && done {
+			continue
+		}
 		err = setInfluxdbRetentionPolicyForUrl(url)
 		if err != nil {
-			return err
+			log.Errorf("set retention policy for url %q fail %s", url, err)
+		} else {
+			listener.done[url] = true
 		}
 	}
-	return nil
+}
+
+func setInfluxdbRetentionPolicy() {
+	listener := &sInfluxdbEndpointListener{
+		done: make(map[string]bool),
+	}
+	auth.RegisterCatalogListener(listener)
 }
 
 func setInfluxdbRetentionPolicyForUrl(url string) error {
 	db := influxdb.NewInfluxdb(url)
 	err := db.SetDatabase("telegraf")
 	if err != nil {
-		return err
+		return errors.Wrap(err, "set database telegraf")
 	}
 	rp := influxdb.SRetentionPolicy{
 		Name:     "30day_only",
@@ -50,7 +71,7 @@ func setInfluxdbRetentionPolicyForUrl(url string) error {
 	}
 	err = db.SetRetentionPolicy(rp)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "set retention policy")
 	}
 	return nil
 }

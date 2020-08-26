@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appctx"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
@@ -510,6 +511,18 @@ func (s *SKVMGuestInstance) SyncMirrorJobFailed(reason string) {
 	}
 }
 
+func (s *SKVMGuestInstance) OnSlaveStartedWithNbdServer(nbdServerPort int64) {
+	params := jsonutils.NewDict()
+	params.Set("nbd_server_port", jsonutils.NewInt(nbdServerPort))
+	_, err := modules.Servers.PerformAction(
+		hostutils.GetComputeSession(context.Background()),
+		s.GetId(), "slave-started", params,
+	)
+	if err != nil {
+		log.Errorf("Server %s perform resume guest got error %s", s.GetId(), err)
+	}
+}
+
 func (s *SKVMGuestInstance) onMonitorConnected(ctx context.Context) {
 	log.Infof("Monitor connected ...")
 	s.Monitor.GetVersion(func(v string) {
@@ -525,11 +538,9 @@ func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string
 		body := jsonutils.NewDict()
 		body.Set("live_migrate_dest_port", migratePort)
 		hostutils.TaskComplete(ctx, body)
-	} else if jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
-		if ctx != nil && len(appctx.AppContextTaskId(ctx)) > 0 {
-			s.startQemuBuiltInNbdServer(ctx)
-		}
-	} else if jsonutils.QueryBoolean(s.Desc, "is_master", false) {
+	} else if s.IsSlave() {
+		s.startQemuBuiltInNbdServer(ctx)
+	} else if s.IsMaster() {
 		s.startDiskBackupMirror(ctx)
 		if ctx != nil && len(appctx.AppContextTaskId(ctx)) > 0 {
 			s.DoResumeTask(ctx)
@@ -582,19 +593,19 @@ func (s *SKVMGuestInstance) startDiskBackupMirror(ctx context.Context) {
 }
 
 func (s *SKVMGuestInstance) startQemuBuiltInNbdServer(ctx context.Context) {
-	if ctx == nil || len(appctx.AppContextTaskId(ctx)) == 0 {
-		return
-	}
-
 	nbdServerPort := s.manager.GetFreePortByBase(BUILT_IN_NBD_SERVER_PORT_BASE)
 	var onNbdServerStarted = func(res string) {
-		if len(res) > 0 {
-			log.Errorf("Start Qemu Builtin nbd server error %s", res)
-			hostutils.TaskFailed(ctx, res)
+		if ctx != nil && len(appctx.AppContextTaskId(ctx)) > 0 {
+			if len(res) > 0 {
+				log.Errorf("Start Qemu Builtin nbd server error %s", res)
+				hostutils.TaskFailed(ctx, res)
+			} else {
+				res := jsonutils.NewDict()
+				res.Set("nbd_server_port", jsonutils.NewInt(int64(nbdServerPort)))
+				hostutils.TaskComplete(ctx, res)
+			}
 		} else {
-			res := jsonutils.NewDict()
-			res.Set("nbd_server_port", jsonutils.NewInt(int64(nbdServerPort)))
-			hostutils.TaskComplete(ctx, res)
+			s.OnSlaveStartedWithNbdServer(int64(nbdServerPort))
 		}
 	}
 	s.Monitor.StartNbdServer(nbdServerPort, true, true, onNbdServerStarted)
@@ -648,7 +659,8 @@ func (s *SKVMGuestInstance) MirrorJobStatus() MirrorJob {
 	case v := <-res:
 		if v != nil && v.Length() >= s.DiskCount() {
 			mirrorSuccCount := 0
-			for _, val := range v.Value() {
+			vs, _ := v.GetArray()
+			for _, val := range vs {
 				jobType, _ := val.GetString("type")
 				jobStatus, _ := val.GetString("status")
 				if jobType == "mirror" && jobStatus == "ready" {
@@ -785,6 +797,18 @@ func (s *SKVMGuestInstance) SaveDesc(desc jsonutils.JSONObject) error {
 	if !ok {
 		return fmt.Errorf("Unknown desc format, not JSONDict")
 	}
+	{
+		// fill in ovn vpc nic bridge field
+		nics, _ := s.Desc.GetArray("nics")
+		ovnBridge := options.HostOptions.OvnIntegrationBridge
+		for _, nic := range nics {
+			vpcProvider, _ := nic.GetString("vpc", "provider")
+			if vpcProvider == compute.VPC_PROVIDER_OVN {
+				nicjd := nic.(*jsonutils.JSONDict)
+				nicjd.Set("bridge", jsonutils.NewString(ovnBridge))
+			}
+		}
+	}
 	if err := fileutils2.FilePutContents(s.GetDescFilePath(), desc.String(), false); err != nil {
 		log.Errorln(err)
 	}
@@ -898,8 +922,29 @@ func (s *SKVMGuestInstance) delTmpDisks(ctx context.Context, migrated bool) erro
 	return nil
 }
 
+func (s *SKVMGuestInstance) delFlatFiles(ctx context.Context) error {
+	if eid, _ := s.Desc.GetString("metadata", "__server_convert_from_esxi"); len(eid) > 0 {
+		disks, _ := s.Desc.GetArray("disks")
+		connections := new(deployapi.EsxiDisksConnectionInfo)
+		connections.Disks = make([]*deployapi.EsxiDiskInfo, len(disks))
+		for i := 0; i < len(disks); i++ {
+			fpath, _ := disks[i].GetString("esxi_flat_file_path")
+			connections.Disks[i] = &deployapi.EsxiDiskInfo{DiskPath: fpath}
+		}
+		_, err := deployclient.GetDeployClient().DisconnectEsxiDisks(ctx, connections)
+		if err != nil {
+			log.Errorf("Disconnect %s esxi disks failed %s", s.GetName(), err)
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *SKVMGuestInstance) Delete(ctx context.Context, migrated bool) error {
 	if err := s.delTmpDisks(ctx, migrated); err != nil {
+		return err
+	}
+	if err := s.delFlatFiles(ctx); err != nil {
 		return err
 	}
 	_, err := procutils.NewCommand("rm", "-rf", s.HomeDir()).Output()
@@ -1054,7 +1099,7 @@ func (s *SKVMGuestInstance) compareDescNetworks(newDesc jsonutils.JSONObject) ([
 		}
 	}
 
-	nics, _ = newDesc.GetArray("nics")
+	nics, _ = s.Desc.GetArray("nics")
 	for _, n := range nics {
 		if isValid(n) {
 			idx := findNet(addNics, n)
@@ -1069,7 +1114,6 @@ func (s *SKVMGuestInstance) compareDescNetworks(newDesc jsonutils.JSONObject) ([
 	return delNics, addNics
 }
 
-// 目测sync_cgroup没有要用到，先不写
 func (s *SKVMGuestInstance) SyncConfig(ctx context.Context, desc jsonutils.JSONObject, fwOnly bool) (jsonutils.JSONObject, error) {
 	var delDisks, addDisks, delNetworks, addNetworks []jsonutils.JSONObject
 	var cdrom *string
@@ -1222,7 +1266,12 @@ func (s *SKVMGuestInstance) streamDisksComplete(ctx context.Context) {
 			d.Set("merge_snapshot", jsonutils.JSONFalse)
 		}
 	}
-	s.SaveDesc(s.Desc)
+	if err := s.SaveDesc(s.Desc); err != nil {
+		log.Errorf("save guest desc failed %s", err)
+	}
+	if err := s.delFlatFiles(ctx); err != nil {
+		log.Errorf("del flat files failed %s", err)
+	}
 	_, err := modules.Servers.PerformAction(hostutils.GetComputeSession(ctx),
 		s.Id, "stream-disks-complete", nil)
 	if err != nil {
@@ -1272,6 +1321,11 @@ func (s *SKVMGuestInstance) OnResumeSyncMetadataInfo() {
 	}
 	if options.HostOptions.HugepagesOption == "native" {
 		meta.Set("__hugepage", jsonutils.NewString("native"))
+	}
+	if !options.HostOptions.HostCpuPassthrough || s.getOsname() == OS_NAME_MACOS {
+		meta.Set("__cpu_mode", jsonutils.NewString(compute.CPU_MODE_QEMU))
+	} else {
+		meta.Set("__cpu_mode", jsonutils.NewString(compute.CPU_MODE_HOST))
 	}
 	if s.syncMeta != nil {
 		meta.Update(s.syncMeta)
@@ -1464,4 +1518,20 @@ func (s *SKVMGuestInstance) onlineResizeDisk(ctx context.Context, diskId string,
 func (s *SKVMGuestInstance) BlockIoThrottle(ctx context.Context, bps, iops int64) error {
 	task := SGuestBlockIoThrottleTask{s, ctx, bps, iops}
 	return task.Start()
+}
+
+func (s *SKVMGuestInstance) IsSharedStorage() bool {
+	disks, _ := s.Desc.GetArray("disks")
+	for i := 0; i < len(disks); i++ {
+		diskPath, _ := disks[i].GetString("path")
+		disk := storageman.GetManager().GetDiskByPath(diskPath)
+		if disk == nil {
+			log.Errorf("failed find disk by path %s", diskPath)
+			return false
+		}
+		if !utils.IsInStringArray(disk.GetType(), compute.SHARED_STORAGE) {
+			return false
+		}
+	}
+	return true
 }

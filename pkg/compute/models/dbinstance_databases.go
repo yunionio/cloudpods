@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -27,15 +28,17 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SDBInstanceDatabaseManager struct {
 	db.SStatusStandaloneResourceBaseManager
+	db.SExternalizedResourceBaseManager
+	SDBInstanceResourceBaseManager
 }
 
 var DBInstanceDatabaseManager *SDBInstanceDatabaseManager
@@ -56,8 +59,15 @@ type SDBInstanceDatabase struct {
 	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 
-	CharacterSet string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional"`
-	DBInstanceId string `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
+	SDBInstanceResourceBase `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
+
+	// 字符集
+	// example: utf-8
+	CharacterSet string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional" json:"character_set"`
+
+	// RDS实例Id
+	// example: 7d07e867-37d1-4754-865d-80f88ad0f982
+	// DBInstanceId string `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
 }
 
 func (manager *SDBInstanceDatabaseManager) GetContextManagers() [][]db.IModelManager {
@@ -95,7 +105,7 @@ func (manager *SDBInstanceDatabaseManager) FetchOwnerId(ctx context.Context, dat
 		}
 		return instance.(*SDBInstance).GetOwnerId(), nil
 	}
-	return nil, nil
+	return db.FetchProjectInfo(ctx, data)
 }
 
 func (manager *SDBInstanceDatabaseManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
@@ -113,32 +123,71 @@ func (manager *SDBInstanceDatabaseManager) FilterByOwner(q *sqlchemy.SQuery, use
 	return q
 }
 
-func (self *SDBInstanceDatabaseManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
+//func (self *SDBInstanceDatabase) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+//只能创建或删除，避免update name后造成登录数据库名称异常
+//	return false
+//}
+
+func (self *SDBInstanceDatabase) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	return nil, httperrors.ErrForbidden
 }
 
-func (self *SDBInstanceDatabase) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SDBInstanceDatabase) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	//只能创建或删除，避免update name后造成登录数据库名称异常
-	return false
-}
-
-func (self *SDBInstanceDatabase) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
-}
-
-func (manager *SDBInstanceDatabaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+// RDS数据库列表
+func (manager *SDBInstanceDatabaseManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DBInstanceDatabaseListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
-	data := query.(*jsonutils.JSONDict)
-	return validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "dbinstance", ModelKeyword: "dbinstance", OwnerId: userCred},
-	})
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SDBInstanceResourceBaseManager.ListItemFilter(ctx, q, userCred, query.DBInstanceFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDBInstanceResourceBaseManager.ListItemFilter")
+	}
+
+	if len(query.CharacterSet) > 0 {
+		q = q.In("character_set", query.CharacterSet)
+	}
+
+	return q, nil
+}
+
+func (manager *SDBInstanceDatabaseManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DBInstanceDatabaseListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SDBInstanceResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.DBInstanceFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDBInstanceResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (manager *SDBInstanceDatabaseManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SDBInstanceResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
 }
 
 func (self *SDBInstanceDatabase) GetParentId() string {
@@ -157,19 +206,26 @@ func (manager *SDBInstanceDatabaseManager) FilterByParentId(q *sqlchemy.SQuery, 
 	return q
 }
 
-func (manager *SDBInstanceDatabaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	instanceV := validators.NewModelIdOrNameValidator("dbinstance", "dbinstance", userCred)
-	err := instanceV.Validate(data)
-	if err != nil {
-		return nil, err
+func (manager *SDBInstanceDatabaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.DBInstanceDatabaseCreateInput) (*jsonutils.JSONDict, error) {
+	for _, instance := range []string{input.DBInstance, input.DBInstanceId} {
+		if len(instance) > 0 {
+			input.DBInstance = instance
+			break
+		}
 	}
+	if len(input.DBInstance) == 0 {
+		return nil, httperrors.NewMissingParameterError("dbinstance")
+	}
+	_instance, err := DBInstanceManager.FetchByIdOrName(userCred, input.DBInstance)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError("failed to found dbinstance %s", input.DBInstance)
+		}
+		return nil, httperrors.NewGeneralError(errors.Wrap(err, "DBInstanceManager.FetchByIdOrName"))
+	}
+	instance := _instance.(*SDBInstance)
+	input.DBInstanceId = instance.Id
 
-	input := &api.SDBInstanceDatabaseCreateInput{}
-	err = data.Unmarshal(input)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("Failed to unmarshal input params: %v", err)
-	}
-	instance := instanceV.Model.(*SDBInstance)
 	if instance.Status != api.DBINSTANCE_RUNNING {
 		return nil, httperrors.NewInputParameterError("DBInstance %s(%s) status is %s require status is %s", instance.Name, instance.Id, instance.Status, api.DBINSTANCE_RUNNING)
 	}
@@ -186,6 +242,11 @@ func (manager *SDBInstanceDatabaseManager) ValidateCreateData(ctx context.Contex
 	}
 
 	input, err = region.GetDriver().ValidateCreateDBInstanceDatabaseData(ctx, userCred, ownerId, instance, input)
+	if err != nil {
+		return nil, err
+	}
+
+	input.StatusStandaloneResourceCreateInput, err = manager.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusStandaloneResourceCreateInput)
 	if err != nil {
 		return nil, err
 	}
@@ -226,44 +287,78 @@ func (self *SDBInstanceDatabase) GetDBInstance() (*SDBInstance, error) {
 	return instance.(*SDBInstance), nil
 }
 
-func (self *SDBInstanceDatabase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
+func (self *SDBInstanceDatabase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.DBInstancedatabaseDetails, error) {
+	return api.DBInstancedatabaseDetails{}, nil
+}
+
+func (manager *SDBInstanceDatabaseManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.DBInstancedatabaseDetails {
+	rows := make([]api.DBInstancedatabaseDetails, len(objs))
+	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	dbRows := manager.SDBInstanceResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	dbinstanceIds := make([]string, len(objs))
+	for i := range rows {
+		rows[i] = api.DBInstancedatabaseDetails{
+			StatusStandaloneResourceDetails: stdRows[i],
+			DBInstanceResourceInfo:          dbRows[i],
+		}
+		database := objs[i].(*SDBInstanceDatabase)
+		rows[i], _ = database.getMoreDetails(ctx, userCred, rows[i])
+		dbinstanceIds[i] = database.DBInstanceId
 	}
 
-	return self.getMoreDetails(ctx, userCred, extra)
+	dbinstances := make(map[string]SDBInstance)
+	err := db.FetchStandaloneObjectsByIds(DBInstanceManager, dbinstanceIds, &dbinstances)
+	if err != nil {
+		log.Errorf("FetchStandaloneObjectsByIds fail: %v", err)
+		return rows
+	}
+
+	virObjs := make([]interface{}, len(objs))
+	for i := range rows {
+		if dbinstance, ok := dbinstances[dbinstanceIds[i]]; ok {
+			virObjs[i] = &dbinstance
+			rows[i].ProjectId = dbinstance.ProjectId
+		}
+	}
+
+	projRows := DBInstanceManager.SProjectizedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, virObjs, fields, isList)
+	for i := range rows {
+		rows[i].ProjectizedResourceInfo = projRows[i]
+	}
+
+	return rows
 }
 
-func (self *SDBInstanceDatabase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	extra, _ = self.getMoreDetails(ctx, userCred, extra)
-	return extra
-}
-
-func (self *SDBInstanceDatabase) getPrivilegesDetails() (*jsonutils.JSONArray, error) {
-	result := jsonutils.NewArray()
+func (self *SDBInstanceDatabase) getPrivilegesDetails() ([]api.DBInstancePrivilege, error) {
+	out := []api.DBInstancePrivilege{}
 	privileges, err := self.GetDBInstancePrivileges()
 	if err != nil {
-		return nil, errors.Wrap(err, "GetDBInstancePrivileges")
+		return out, errors.Wrap(err, "GetDBInstancePrivileges")
 	}
 	for _, privilege := range privileges {
-		detail, err := privilege.GetDetailedJson()
+		detail, err := privilege.GetPrivilege()
 		if err != nil {
 			return nil, errors.Wrap(err, "GetDetailedJson")
 		}
-		result.Add(detail)
+		out = append(out, detail)
 	}
-	return result, nil
+	return out, nil
 }
 
-func (self *SDBInstanceDatabase) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, extra *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SDBInstanceDatabase) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, out api.DBInstancedatabaseDetails) (api.DBInstancedatabaseDetails, error) {
 	privileges, err := self.getPrivilegesDetails()
 	if err != nil {
-		return extra, err
+		return out, err
 	}
-	extra.Add(privileges, "dbinstanceprivileges")
-	return extra, nil
+	out.DBInstanceprivileges = privileges
+	return out, nil
 }
 
 func (manager *SDBInstanceDatabaseManager) SyncDBInstanceDatabases(ctx context.Context, userCred mcclient.TokenCredential, instance *SDBInstance, cloudDatabases []cloudprovider.ICloudDBInstanceDatabase) compare.SyncResult {
@@ -342,7 +437,7 @@ func (manager *SDBInstanceDatabaseManager) newFromCloudDBInstanceDatabase(ctx co
 	database.CharacterSet = extDatabase.GetCharacterSet()
 	database.ExternalId = extDatabase.GetGlobalId()
 
-	err := manager.TableSpec().Insert(&database)
+	err := manager.TableSpec().Insert(ctx, &database)
 	if err != nil {
 		return errors.Wrapf(err, "newFromCloudDBInstanceDatabase.Insert")
 	}
@@ -370,4 +465,24 @@ func (self *SDBInstanceDatabase) StartDBInstanceDatabaseDeleteTask(ctx context.C
 	}
 	task.ScheduleRun(nil)
 	return nil
+}
+
+func (manager *SDBInstanceDatabaseManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SDBInstanceResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SDBInstanceResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SDBInstanceResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	return q, nil
 }

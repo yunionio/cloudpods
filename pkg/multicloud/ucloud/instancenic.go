@@ -38,6 +38,10 @@ func (self *SInstanceNic) GetDriver() string {
 	return "virtio"
 }
 
+func (self *SInstanceNic) InClassicNetwork() bool {
+	return false
+}
+
 func (self *SInstanceNic) GetINetwork() cloudprovider.ICloudNetwork {
 	for _, ip := range self.instance.IPSet {
 		if ip.IP == self.ipAddr {

@@ -23,9 +23,10 @@ import (
 func init() {
 	type NatGatewayOptions struct {
 		NatGatewayID string `help:"Nat Gateway ID"`
+		VpcID        string `help:"Vpc ID"`
 	}
 	shellutils.R(&NatGatewayOptions{}, "nat-gateway-list", "List nat gateway", func(region *huawei.SRegion, args *NatGatewayOptions) error {
-		natGateways, err := region.GetNatGateway(args.NatGatewayID)
+		natGateways, err := region.GetNatGateways(args.VpcID, args.NatGatewayID)
 		if err != nil {
 			return err
 		}

@@ -21,13 +21,43 @@ type ConfigsManager struct {
 }
 
 var (
-	Configs ConfigsManager
+	NotifyReceiver modulebase.ResourceManager
+	NotifyConfig   modulebase.ResourceManager
+	Notification   modulebase.ResourceManager
+	NotifyTemplate modulebase.ResourceManager
+	Configs        ConfigsManager
 )
 
 func init() {
-	Configs = ConfigsManager{NewNotifyManager("config", "configs",
+	NotifyReceiver = NewNotifyv2Manager(
+		"receiver",
+		"receivers",
+		[]string{"ID", "Name", "Email", "Mobile", "Enabled_Contact_Types", "Verified_Contact_Types"},
 		[]string{},
-		[]string{})}
+	)
+	register(&NotifyReceiver)
 
-	register(&Configs)
+	NotifyConfig = NewNotifyv2Manager(
+		"notifyconfig",
+		"notifyconfigs",
+		[]string{"Type", "Content"},
+		[]string{},
+	)
+	register(&NotifyConfig)
+
+	Notification = NewNotifyv2Manager(
+		"notification",
+		"notifications",
+		[]string{"Title", "Content", "ContactType", "Priority", "Receiver_Details"},
+		[]string{},
+	)
+	register(&Notification)
+
+	NotifyTemplate = NewNotifyv2Manager(
+		"notifytemplate",
+		"notifytemplates",
+		[]string{"ID", "Name", "Contact_Type", "Topic", "Template_Type", "Content", "Example"},
+		[]string{},
+	)
+	register(&NotifyTemplate)
 }

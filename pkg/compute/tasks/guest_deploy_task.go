@@ -35,18 +35,21 @@ type GuestDeployTask struct {
 func (self *GuestDeployTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	if !guest.IsNetworkAllocated() {
-		self.SetStageFailed(ctx, fmt.Sprintf("Guest %s network not ready!!", guest.Name))
+		self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("Guest %s network not ready!!", guest.Name)))
 	} else {
 		self.OnGuestNetworkReady(ctx, guest)
 	}
 }
 
 func (self *GuestDeployTask) OnGuestNetworkReady(ctx context.Context, guest *models.SGuest) {
+	self.SetStage("OnDeployWaitServerStop", nil)
 	if jsonutils.QueryBoolean(self.Params, "restart", false) {
-		self.SetStage("OnDeployWaitServerStop", nil)
 		guest.StartGuestStopTask(ctx, self.UserCred, false, self.GetTaskId())
 	} else {
-		self.OnDeployWaitServerStop(ctx, guest, nil)
+		// Note: have to use LocalTaskRun, run to another place implement OnDeployWaitServerStop
+		taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
+			return nil, nil
+		})
 	}
 }
 
@@ -54,27 +57,10 @@ func (self *GuestDeployTask) OnDeployWaitServerStop(ctx context.Context, guest *
 	self.SetStage("OnDeployGuestComplete", nil)
 	targetHostId, _ := self.Params.GetString("target_host_id")
 	if len(targetHostId) == 0 {
-		if len(guest.BackupHostId) > 0 {
-			self.SetStage("OnSlaveHostDeployComplete", nil)
-			self.DeployBackup(ctx, guest, nil)
-			return
-		} else {
-			targetHostId = guest.HostId
-		}
+		targetHostId = guest.HostId
 	}
 	host := models.HostManager.FetchHostById(targetHostId)
 	self.DeployOnHost(ctx, guest, host)
-}
-
-func (self *GuestDeployTask) DeployBackup(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	host := models.HostManager.FetchHostById(guest.BackupHostId)
-	err := guest.GetDriver().RequestDeployGuestOnHost(ctx, guest, host, self)
-	if err != nil {
-		log.Errorf("request_deploy_guest_on_host %s", err)
-		self.OnDeployGuestFail(ctx, guest, err)
-	} else {
-		guest.SetStatus(self.UserCred, api.VM_DEPLOYING_BACKUP, "")
-	}
 }
 
 func (self *GuestDeployTask) DeployOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost) {
@@ -87,19 +73,9 @@ func (self *GuestDeployTask) DeployOnHost(ctx context.Context, guest *models.SGu
 	}
 }
 
-func (self *GuestDeployTask) OnSlaveHostDeployComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	host := guest.GetHost()
-	self.SetStage("OnDeployGuestComplete", nil)
-	self.DeployOnHost(ctx, guest, host)
-}
-
-func (self *GuestDeployTask) OnSlaveHostDeployCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.OnDeployGuestFail(ctx, guest, fmt.Errorf("deploy backup failed %s", data))
-}
-
 func (self *GuestDeployTask) OnDeployGuestFail(ctx context.Context, guest *models.SGuest, err error) {
 	guest.SetStatus(self.UserCred, api.VM_DEPLOY_FAILED, err.Error())
-	self.SetStageFailed(ctx, err.Error())
+	self.SetStageFailed(ctx, jsonutils.Marshal(err))
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_DEPLOY, err, self.UserCred, false)
 	db.OpsLog.LogEvent(guest, db.ACT_VM_DEPLOY_FAIL, err.Error(), self.UserCred)
 }
@@ -161,7 +137,7 @@ func (self *GuestDeployTask) OnDeployGuestCompleteFailed(ctx context.Context, ob
 		}
 	}
 	guest.SetStatus(self.UserCred, api.VM_DEPLOY_FAILED, data.String())
-	self.SetStageFailed(ctx, data.String())
+	self.SetStageFailed(ctx, data)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_DEPLOY, data, self.UserCred, false)
 	db.OpsLog.LogEvent(guest, db.ACT_VM_DEPLOY_FAIL, data, self.UserCred)
 }
@@ -171,7 +147,7 @@ func (self *GuestDeployTask) OnDeployStartGuestComplete(ctx context.Context, obj
 }
 
 func (self *GuestDeployTask) OnDeployStartGuestCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, data.String())
+	self.SetStageFailed(ctx, data)
 }
 
 func (self *GuestDeployTask) OnDeployGuestSyncstatusComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -179,32 +155,9 @@ func (self *GuestDeployTask) OnDeployGuestSyncstatusComplete(ctx context.Context
 }
 
 func (self *GuestDeployTask) OnDeployGuestSyncstatusCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, data.String())
-}
-
-type GuestDeployBackupTask struct {
-	GuestDeployTask
-}
-
-func (self *GuestDeployBackupTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	guest := obj.(*models.SGuest)
-	if len(guest.BackupHostId) == 0 {
-		self.SetStageFailed(ctx, "Guest dosen't have backup host")
-	}
-	self.SetStage("OnDeployGuestComplete", nil)
-	self.DeployBackup(ctx, guest, nil)
-}
-
-func (self *GuestDeployBackupTask) OnDeployGuestComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.SetStageComplete(ctx, nil)
-}
-
-func (self *GuestDeployBackupTask) OnDeployGuestCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	guest.SetStatus(self.UserCred, api.VM_DEPLOYING_BACKUP_FAILED, data.String())
-	self.SetStageComplete(ctx, nil)
+	self.SetStageFailed(ctx, data)
 }
 
 func init() {
 	taskman.RegisterTask(GuestDeployTask{})
-	taskman.RegisterTask(GuestDeployBackupTask{})
 }

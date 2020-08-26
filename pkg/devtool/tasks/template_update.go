@@ -52,7 +52,7 @@ func (self *TemplateUpdate) OnInit(ctx context.Context, obj db.IStandaloneModel,
 	template := obj.(*models.SDevtoolTemplate)
 	_, err := template.TaskUpdate(ctx, self.UserCred, nil, self.Params)
 	if err != nil {
-		self.SetStageFailed(ctx, fmt.Sprintf("TemplateUpdate failed %s", err))
+		self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("TemplateUpdate failed %s", err)))
 	} else {
 		self.SetStageComplete(ctx, nil)
 	}

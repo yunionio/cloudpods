@@ -1,0 +1,174 @@
+package conditions
+
+import (
+	gocontext "context"
+	"strconv"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/apis/monitor"
+	"yunion.io/x/onecloud/pkg/monitor/alerting"
+	mq "yunion.io/x/onecloud/pkg/monitor/metricquery"
+	"yunion.io/x/onecloud/pkg/monitor/models"
+	"yunion.io/x/onecloud/pkg/monitor/tsdb"
+	"yunion.io/x/onecloud/pkg/monitor/validators"
+)
+
+func init() {
+	mq.RegisterMetricQuery("metricquery", func(model []*monitor.AlertCondition) (mq.MetricQuery, error) {
+		return NewMetricQueryCondition(model)
+	})
+}
+
+type MetricQueryCondition struct {
+	QueryCons     []QueryCondition
+	HandleRequest tsdb.HandleRequestFunc
+}
+
+func NewMetricQueryCondition(models []*monitor.AlertCondition) (*MetricQueryCondition, error) {
+	cond := new(MetricQueryCondition)
+
+	cond.HandleRequest = tsdb.HandleRequest
+	for index, model := range models {
+		qc := new(QueryCondition)
+		qc.Index = index
+		q := model.Query
+		qc.Query.Model = q.Model
+		qc.Query.From = q.From
+		qc.Query.To = q.To
+		if err := validators.ValidateFromValue(qc.Query.From); err != nil {
+			return nil, errors.Wrapf(err, "from value %q", qc.Query.From)
+		}
+
+		if err := validators.ValidateToValue(qc.Query.To); err != nil {
+			return nil, errors.Wrapf(err, "to value %q", qc.Query.To)
+		}
+		qc.Query.DataSourceId = q.DataSourceId
+		cond.QueryCons = append(cond.QueryCons, *qc)
+	}
+
+	return cond, nil
+}
+
+func (query *MetricQueryCondition) ExecuteQuery() (*mq.Metrics, error) {
+	timeRange := tsdb.NewTimeRange(query.QueryCons[0].Query.From, query.QueryCons[0].Query.To)
+	evalContext := alerting.EvalContext{
+		Ctx:       gocontext.Background(),
+		IsDebug:   true,
+		IsTestRun: false,
+	}
+	queryResult, err := query.executeQuery(&evalContext, timeRange)
+	if err != nil {
+		return nil, err
+	}
+	return &mq.Metrics{
+		Series: queryResult.series,
+		Metas:  queryResult.metas,
+	}, nil
+}
+
+func (c *MetricQueryCondition) executeQuery(context *alerting.EvalContext, timeRange *tsdb.TimeRange) (*queryResult, error) {
+	ds, err := models.DataSourceManager.GetSource(c.QueryCons[0].Query.DataSourceId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Cound not find datasource %v", c.QueryCons[0].Query.DataSourceId)
+	}
+
+	req := c.getRequestQuery(ds, timeRange, context.IsDebug)
+	result := make(tsdb.TimeSeriesSlice, 0)
+	metas := make([]tsdb.QueryResultMeta, 0)
+
+	if context.IsDebug {
+		setContextLog(context, req)
+	}
+
+	resp, err := c.HandleRequest(context.Ctx, ds.ToTSDBDataSource(""), req)
+	if err != nil {
+		if err == gocontext.DeadlineExceeded {
+			return nil, errors.Error("Alert execution exceeded the timeout")
+		}
+
+		return nil, errors.Wrap(err, "tsdb.HandleRequest() error")
+	}
+	for _, v := range resp.Results {
+		if v.Error != nil {
+			return nil, errors.Wrap(err, "tsdb.HandleResult() response")
+		}
+
+		result = append(result, v.Series...)
+		metas = append(metas, v.Meta)
+
+		queryResultData := map[string]interface{}{}
+
+		if context.IsTestRun {
+			queryResultData["series"] = v.Series
+		}
+
+		if context.IsDebug {
+			queryResultData["meta"] = v.Meta
+		}
+
+		if context.IsTestRun || context.IsDebug {
+			context.Logs = append(context.Logs, &monitor.ResultLogEntry{
+				Message: "Metric Query Result",
+				Data:    queryResultData,
+			})
+		}
+	}
+
+	return &queryResult{
+		series: result,
+		metas:  metas,
+	}, nil
+}
+
+func setContextLog(context *alerting.EvalContext, req *tsdb.TsdbQuery) {
+	data := jsonutils.NewDict()
+	if req.TimeRange != nil {
+		data.Set("from", jsonutils.NewInt(req.TimeRange.GetFromAsMsEpoch()))
+		data.Set("to", jsonutils.NewInt(req.TimeRange.GetToAsMsEpoch()))
+	}
+
+	type queryDto struct {
+		RefId         string              `json:"refId"`
+		Model         monitor.MetricQuery `json:"model"`
+		Datasource    tsdb.DataSource     `json:"datasource"`
+		MaxDataPoints int64               `json:"maxDataPoints"`
+		IntervalMs    int64               `json:"intervalMs"`
+	}
+
+	queries := []*queryDto{}
+	for _, q := range req.Queries {
+		queries = append(queries, &queryDto{
+			RefId:         q.RefId,
+			Model:         q.MetricQuery,
+			Datasource:    q.DataSource,
+			MaxDataPoints: q.MaxDataPoints,
+			IntervalMs:    q.IntervalMs,
+		})
+	}
+
+	data.Set("queries", jsonutils.Marshal(queries))
+
+	context.Logs = append(context.Logs, &monitor.ResultLogEntry{
+		Message: "Metric Query",
+		Data:    data,
+	})
+}
+
+func (query *MetricQueryCondition) getRequestQuery(ds *models.SDataSource, timeRange *tsdb.TimeRange, debug bool) *tsdb.TsdbQuery {
+	querys := make([]*tsdb.Query, 0)
+	for _, qc := range query.QueryCons {
+		querys = append(querys, &tsdb.Query{
+			RefId:       strconv.FormatInt(int64(qc.Index), 10),
+			MetricQuery: qc.Query.Model,
+			DataSource:  *ds.ToTSDBDataSource(qc.Query.Model.Database),
+		})
+	}
+	req := &tsdb.TsdbQuery{
+		TimeRange: timeRange,
+		Queries:   querys,
+		Debug:     debug,
+	}
+	return req
+}

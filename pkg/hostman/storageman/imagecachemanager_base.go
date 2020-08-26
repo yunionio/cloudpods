@@ -16,7 +16,6 @@ package storageman
 
 import (
 	"context"
-	"sync"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -53,7 +52,7 @@ type IImageCacheManger interface {
 	DeleteImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error)
 
 	AcquireImage(ctx context.Context, imageId, zone, srcUrl, format string) IImageCache
-	ReleaseImage(imageId string)
+	ReleaseImage(ctx context.Context, imageId string)
 	LoadImageCache(imageId string)
 }
 
@@ -62,7 +61,6 @@ type SBaseImageCacheManager struct {
 	storagecacaheId string
 	cachePath       string
 	cachedImages    map[string]IImageCache
-	mutex           *sync.Mutex
 }
 
 func (c *SBaseImageCacheManager) GetPath() string {

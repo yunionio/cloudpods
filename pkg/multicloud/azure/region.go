@@ -22,7 +22,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -171,7 +170,7 @@ func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 	if err != nil {
 		log.Errorf("Parse azure region %s longitude %s error: %v", self.Name, self.Longitude, err)
 	} else {
-		info.Latitude = float32(longitude)
+		info.Longitude = float32(longitude)
 	}
 	return info
 }
@@ -541,9 +540,9 @@ func (region *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.I
 	return region.GetSecurityGroupDetails(secgroupId)
 }
 
-func (region *SRegion) GetISecurityGroupByName(vpcId string, name string) (cloudprovider.ICloudSecurityGroup, error) {
-	if strings.Contains(strings.ToLower(vpcId), "microsoft.classicnetwork") {
-		secgroups, err := region.GetClassicSecurityGroups(name)
+func (region *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
+	if strings.Contains(strings.ToLower(opts.VpcId), "microsoft.classicnetwork") {
+		secgroups, err := region.GetClassicSecurityGroups(opts.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -555,7 +554,7 @@ func (region *SRegion) GetISecurityGroupByName(vpcId string, name string) (cloud
 		}
 		return &secgroups[0], nil
 	}
-	secgroups, err := region.GetSecurityGroups(name)
+	secgroups, err := region.GetSecurityGroups(opts.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -570,31 +569,9 @@ func (region *SRegion) GetISecurityGroupByName(vpcId string, name string) (cloud
 
 func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
 	if conf.VpcId == "classic" {
-		return region.CreateClassicSecurityGroup(conf.Desc)
+		return region.CreateClassicSecurityGroup(conf.Name)
 	}
 	return region.CreateSecurityGroup(conf.Name)
-}
-
-func (region *SRegion) SyncSecurityGroup(secgroupId, vpcId, name, desc string, rules []secrules.SecurityRule) (string, error) {
-	if vpcId == "classic" {
-		return region.syncClassicSecurityGroup(secgroupId, name, desc, rules)
-	}
-	if len(secgroupId) > 0 {
-		if _, err := region.GetSecurityGroupDetails(secgroupId); err != nil {
-			if err != cloudprovider.ErrNotFound {
-				return "", err
-			}
-			secgroupId = ""
-		}
-	}
-	if len(secgroupId) == 0 {
-		secgroup, err := region.CreateSecurityGroup(name)
-		if err != nil {
-			return "", err
-		}
-		secgroupId = secgroup.ID
-	}
-	return region.updateSecurityGroupRules(secgroupId, rules)
 }
 
 func (region *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {
@@ -684,4 +661,8 @@ func (region *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, 
 
 func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
 	return region.GetIBucketById(name)
+}
+
+func (region *SRegion) GetCapabilities() []string {
+	return region.client.GetCapabilities()
 }

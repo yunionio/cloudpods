@@ -21,25 +21,26 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	billing "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SAddress struct {
 	region *SRegion
 	SResourceBase
+	multicloud.SEipBase
 
 	Id                string
 	CreationTimestamp time.Time
-	Name              string
 	Description       string
 	Address           string
 	Status            string
 	Region            string
 	Users             []string
-	SelfLink          string
 	NetworkTier       string
 	AddressType       string
 	Kind              string
@@ -147,17 +148,71 @@ func (addr *SAddress) GetInternetChargeType() string {
 }
 
 func (addr *SAddress) Delete() error {
-	return cloudprovider.ErrNotImplemented
+	return addr.region.Delete(addr.SelfLink)
 }
 
-func (addr *SAddress) Associate(instanceId string) error {
-	return cloudprovider.ErrNotImplemented
+func (addr *SAddress) Associate(conf *cloudprovider.AssociateConfig) error {
+	return addr.region.AssociateInstanceEip(conf.InstanceId, addr.Address)
 }
 
 func (addr *SAddress) Dissociate() error {
-	return cloudprovider.ErrNotImplemented
+	if len(addr.Users) > 0 {
+		return addr.region.DissociateInstanceEip(addr.Users[0], addr.Address)
+	}
+	return nil
 }
 
 func (addr *SAddress) ChangeBandwidth(bw int) error {
-	return cloudprovider.ErrNotImplemented
+	return cloudprovider.ErrNotSupported
+}
+
+func (region *SRegion) CreateEip(name string, desc string) (*SAddress, error) {
+	body := map[string]string{
+		"name":        name,
+		"description": desc,
+	}
+	resource := fmt.Sprintf("regions/%s/addresses", region.Name)
+	addr := &SAddress{region: region}
+	err := region.Insert(resource, jsonutils.Marshal(body), addr)
+	if err != nil {
+		return nil, err
+	}
+	return addr, nil
+}
+
+func (region *SRegion) AssociateInstanceEip(instanceId string, eip string) error {
+	instance, err := region.GetInstance(instanceId)
+	if err != nil {
+		return errors.Wrap(err, "region.GetInstance")
+	}
+	for _, networkInterface := range instance.NetworkInterfaces {
+		body := map[string]interface{}{
+			"type":  "ONE_TO_ONE_NAT",
+			"name":  "External NAT",
+			"natIP": eip,
+		}
+		params := map[string]string{"networkInterface": networkInterface.Name}
+		return region.Do(instance.SelfLink, "addAccessConfig", params, jsonutils.Marshal(body))
+	}
+	return fmt.Errorf("no valid networkinterface to associate")
+}
+
+func (region *SRegion) DissociateInstanceEip(instanceId string, eip string) error {
+	instance, err := region.GetInstance(instanceId)
+	if err != nil {
+		return errors.Wrap(err, "region.GetInstance")
+	}
+	for _, networkInterface := range instance.NetworkInterfaces {
+		for _, accessConfig := range networkInterface.AccessConfigs {
+			if accessConfig.NatIP == eip {
+				body := map[string]string{}
+				params := map[string]string{
+					"networkInterface": networkInterface.Name,
+					"accessConfig":     accessConfig.Name,
+				}
+				return region.Do(instance.SelfLink, "deleteAccessConfig", params, jsonutils.Marshal(body))
+			}
+		}
+	}
+	return nil
 }

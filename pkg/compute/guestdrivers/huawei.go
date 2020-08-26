@@ -47,10 +47,11 @@ func (self *SHuaweiGuestDriver) GetProvider() string {
 
 func (self *SHuaweiGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
 	keys := models.SComputeResourceKeys{}
-	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
+	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_PUBLIC_CLOUD
 	keys.Provider = api.CLOUD_PROVIDER_HUAWEI
-	// ignore brand
+	keys.Brand = api.CLOUD_PROVIDER_HUAWEI
+	keys.Hypervisor = api.HYPERVISOR_HUAWEI
 	return keys
 }
 
@@ -82,7 +83,7 @@ func (self *SHuaweiGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
-func (self *SHuaweiGuestDriver) GetChangeConfigStatus() ([]string, error) {
+func (self *SHuaweiGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 
@@ -111,11 +112,6 @@ func (self *SHuaweiGuestDriver) GetGuestInitialStateAfterRebuild() string {
 
 func (self *SHuaweiGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
 	userName := "root"
-	if desc.ImageType == "system" {
-		if desc.OsDistribution == "Ubuntu" {
-			userName = "ubuntu"
-		}
-	}
 	if desc.OsType == "Windows" {
 		userName = "Administrator"
 	}
@@ -129,4 +125,12 @@ func (self *SHuaweiGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle
 	}
 
 	return false
+}
+
+func (self *SHuaweiGuestDriver) IsNeedInjectPasswordByCloudInit(desc *cloudprovider.SManagedVMCreateConfig) bool {
+	return true
+}
+
+func (self *SHuaweiGuestDriver) IsSupportSetAutoRenew() bool {
+	return true
 }

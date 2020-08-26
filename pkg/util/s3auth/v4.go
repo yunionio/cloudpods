@@ -306,7 +306,7 @@ func SignV4(req http.Request, accessKey, secretAccessKey, location string, body 
 
 	h := sha256.New()
 	if body != nil {
-		streamutils.StreamPipe(body, h, false)
+		streamutils.StreamPipe(body, h, false, nil)
 	}
 	req.Header.Set("X-Amz-Content-Sha256", hex.EncodeToString(h.Sum(nil)))
 

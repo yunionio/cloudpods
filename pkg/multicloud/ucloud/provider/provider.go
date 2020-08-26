@@ -82,9 +82,13 @@ func parseAccount(account string) (accessKey string, projectId string) {
 	return
 }
 
-func (self *SUcloudProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
-	accessKey, projectId := parseAccount(account)
-	client, err := ucloud.NewUcloudClient(providerId, providerName, accessKey, secret, projectId, false)
+func (self *SUcloudProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
+	accessKey, projectId := parseAccount(cfg.Account)
+	client, err := ucloud.NewUcloudClient(
+		ucloud.NewUcloudClientConfig(
+			accessKey, cfg.Secret,
+		).ProjectId(projectId).CloudproviderConfig(cfg),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -168,4 +172,22 @@ func (self *SUcloudProvider) GetStorageClasses(regionId string) []string {
 	return []string{
 		"STANDARD", "IA", "ARCHIVE",
 	}
+}
+
+func (self *SUcloudProvider) GetBucketCannedAcls(regionId string) []string {
+	return []string{
+		string(cloudprovider.ACLPrivate),
+		string(cloudprovider.ACLPublicRead),
+	}
+}
+
+func (self *SUcloudProvider) GetObjectCannedAcls(regionId string) []string {
+	return []string{
+		string(cloudprovider.ACLPrivate),
+		string(cloudprovider.ACLPublicRead),
+	}
+}
+
+func (self *SUcloudProvider) GetCapabilities() []string {
+	return self.client.GetCapabilities()
 }

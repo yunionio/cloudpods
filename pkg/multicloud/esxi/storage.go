@@ -15,20 +15,30 @@
 package esxi
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
+	"unicode"
 
 	"github.com/vmware/govmomi/object"
+	"github.com/vmware/govmomi/ovf"
 	"github.com/vmware/govmomi/vim25/mo"
+	"github.com/vmware/govmomi/vim25/progress"
+	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
 
 	"yunion.io/x/jsonutils"
@@ -78,6 +88,10 @@ func (self *SDatastore) GetName() string {
 		log.Fatalf("datastore get name error %s", err)
 	}
 	return fmt.Sprintf("%s-%s", self.getVolumeType(), volName)
+}
+
+func (self *SDatastore) GetRelName() string {
+	return self.getDatastore().Info.GetDatastoreInfo().Name
 }
 
 func (self *SDatastore) GetCapacityMB() int64 {
@@ -245,7 +259,8 @@ func (self *SDatastore) getVMs() ([]cloudprovider.ICloudVM, error) {
 	if len(vms) == 0 {
 		return nil, nil
 	}
-	return dc.fetchVms(vms, false)
+	ret, _, err := dc.fetchVms(vms, false)
+	return ret, err
 }
 
 func (self *SDatastore) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {
@@ -404,12 +419,12 @@ func (self *SDatastore) getPathString(path string) string {
 	return fmt.Sprintf("[%s] %s", self.SManagedObject.GetName(), path)
 }
 
-func (self *SDatastore) getFullPath(remotePath string) string {
+func (self *SDatastore) GetFullPath(remotePath string) string {
 	remotePath = self.cleanPath(remotePath)
 	return path.Join(self.GetUrl(), remotePath)
 }
 
-func (self *SDatastore) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
+func (self *SDatastore) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
@@ -424,6 +439,9 @@ func (self *SDatastore) FileGetContent(ctx context.Context, remotePath string) (
 	var bytes []byte
 
 	err = self.manager.client.Do(ctx, req, func(resp *http.Response) error {
+		if resp.StatusCode == 404 {
+			return cloudprovider.ErrNotFound
+		}
 		if resp.StatusCode >= 400 {
 			return fmt.Errorf("%s", resp.Status)
 		}
@@ -592,6 +610,28 @@ func (self *SDatastore) FilePutContent(ctx context.Context, remotePath string, c
 	return self.Upload(ctx, remotePath, strings.NewReader(content))
 }
 
+// Delete2 can delete file from this Datastore.
+// isNamespace: remotePath is uuid of namespace on vsan datastore
+// force: ignore nonexistent files and arguments
+func (self *SDatastore) Delete2(ctx context.Context, remotePath string, isNamespace, force bool) error {
+	var err error
+	ds := self.getDatastoreObj()
+	dc := self.datacenter.getObjectDatacenter()
+	if isNamespace {
+		nm := object.NewDatastoreNamespaceManager(self.manager.client.Client)
+		err = nm.DeleteDirectory(ctx, dc, remotePath)
+	} else {
+		fm := ds.NewFileManager(dc, force)
+		err = fm.Delete(ctx, remotePath)
+	}
+
+	if err != nil && types.IsFileNotFound(err) && force {
+		// Ignore error
+		return nil
+	}
+	return err
+}
+
 func (self *SDatastore) Delete(ctx context.Context, remotePath string) error {
 	url := self.GetPathUrl(remotePath)
 
@@ -654,7 +694,6 @@ func (self *SDatastore) GetVmdkInfo(ctx context.Context, remotePath string) (*vm
 
 func (self *SDatastore) CheckVmdk(ctx context.Context, remotePath string) error {
 	dm := object.NewVirtualDiskManager(self.manager.client.Client)
-	defer dm.Destroy(ctx)
 
 	dc, err := self.GetDatacenter()
 	if err != nil {
@@ -676,20 +715,18 @@ func (self *SDatastore) getDatastoreObj() *object.Datastore {
 	return object.NewDatastore(self.manager.client.Client, self.getDatastore().Self)
 }
 
-func (self *SDatastore) MakeDir(ctx context.Context, remotePath string) (string, error) {
-	dnm := object.NewDatastoreNamespaceManager(self.manager.client.Client)
-
+func (self *SDatastore) MakeDir(remotePath string) error {
 	remotePath = self.cleanPath(remotePath)
 
-	objDS := self.getDatastoreObj()
-
-	return dnm.CreateDirectory(ctx, objDS, remotePath, "")
+	m := object.NewFileManager(self.manager.client.Client)
+	path := fmt.Sprintf("[%s] %s", self.GetRelName(), remotePath)
+	return m.MakeDirectory(self.manager.context, path, self.datacenter.getObjectDatacenter(), true)
 }
 
 func (self *SDatastore) RemoveDir(ctx context.Context, remotePath string) error {
 	dnm := object.NewDatastoreNamespaceManager(self.manager.client.Client)
 
-	remotePath = self.getFullPath(remotePath)
+	remotePath = self.GetFullPath(remotePath)
 
 	dc, err := self.GetDatacenter()
 	if err != nil {
@@ -699,6 +736,19 @@ func (self *SDatastore) RemoveDir(ctx context.Context, remotePath string) error 
 	dcObj := dc.getObjectDatacenter()
 
 	return dnm.DeleteDirectory(ctx, dcObj, remotePath)
+}
+
+// CheckDirC will check that Dir 'remotePath' is exist, if not, create one.
+func (self *SDatastore) CheckDirC(remotePath string) error {
+	_, err := self.CheckFile(self.manager.context, remotePath)
+	if err == nil {
+		return nil
+	}
+	if errors.Cause(err) != cloudprovider.ErrNotFound {
+		return err
+	}
+	return self.MakeDir(remotePath)
+
 }
 
 func (self *SDatastore) IsSysDiskStore() bool {
@@ -716,4 +766,243 @@ func (self *SDatastore) MoveVmdk(ctx context.Context, srcPath string, dstPath st
 		return err
 	}
 	return task.Wait(ctx)
+}
+
+// domainName will abandon the rune which should't disapear
+func (self *SDatastore) domainName(name string) string {
+	var b bytes.Buffer
+	for _, r := range name {
+		if b.Len() == 0 {
+			if unicode.IsLetter(r) {
+				b.WriteRune(r)
+			}
+		} else {
+			if unicode.IsDigit(r) || unicode.IsLetter(r) || r == '-' {
+				b.WriteRune(r)
+			}
+		}
+	}
+	return strings.TrimRight(b.String(), "-")
+}
+
+// ImportVMDK will upload local vmdk 'diskFile' to the 'remotePath' of remote datastore
+func (self *SDatastore) ImportVMDK(ctx context.Context, diskFile, remotePath string, host *SHost) error {
+	name := fmt.Sprintf("yunioncloud.%s%d", self.domainName(remotePath)[:20], rand.Int())
+	vm, err := self.ImportVM(ctx, diskFile, name, host)
+	if err != nil {
+		return errors.Wrap(err, "SDatastore.ImportVM")
+	}
+
+	defer func() {
+		task, err := vm.Destroy(ctx)
+		if err != nil {
+			log.Errorf("vm.Destory: %s", err)
+			return
+		}
+
+		if err = task.Wait(ctx); err != nil {
+			log.Errorf("task.Wait: %s", err)
+		}
+	}()
+
+	// check if 'image_cache' is esixt
+	err = self.CheckDirC("image_cache")
+	if err != nil {
+		return errors.Wrap(err, "SDatastore.CheckDirC")
+	}
+
+	fm := self.getDatastoreObj().NewFileManager(self.datacenter.getObjectDatacenter(), true)
+
+	// if image_cache not exist
+	return fm.Move(ctx, fmt.Sprintf("[%s] %s/%s.vmdk", self.GetRelName(), name, name), fmt.Sprintf("[%s] %s",
+		self.GetRelName(), remotePath))
+}
+
+var (
+	ErrInvalidFormat = errors.Error("vmdk: invalid format (must be streamOptimized)")
+)
+
+// info is used to inspect a vmdk and generate an ovf template
+type info struct {
+	Header struct {
+		MagicNumber uint32
+		Version     uint32
+		Flags       uint32
+		Capacity    uint64
+	}
+
+	Capacity   uint64
+	Size       int64
+	Name       string
+	ImportName string
+}
+
+// stat looks at the vmdk header to make sure the format is streamOptimized and
+// extracts the disk capacity required to properly generate the ovf descriptor.
+func stat(name string) (*info, error) {
+	f, err := os.Open(name)
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		di  info
+		buf bytes.Buffer
+	)
+
+	_, err = io.CopyN(&buf, f, int64(binary.Size(di.Header)))
+	fi, _ := f.Stat()
+	_ = f.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	err = binary.Read(&buf, binary.LittleEndian, &di.Header)
+	if err != nil {
+		return nil, err
+	}
+
+	if di.Header.MagicNumber != 0x564d444b { // SPARSE_MAGICNUMBER
+		return nil, ErrInvalidFormat
+	}
+
+	if di.Header.Flags&(1<<16) == 0 { // SPARSEFLAG_COMPRESSED
+		// Needs to be converted, for example:
+		//   vmware-vdiskmanager -r src.vmdk -t 5 dst.vmdk
+		//   qemu-img convert -O vmdk -o subformat=streamOptimized src.vmdk dst.vmdk
+		return nil, ErrInvalidFormat
+	}
+
+	di.Capacity = di.Header.Capacity * 512 // VMDK_SECTOR_SIZE
+	di.Size = fi.Size()
+	di.Name = filepath.Base(name)
+	di.ImportName = strings.TrimSuffix(di.Name, ".vmdk")
+
+	return &di, nil
+}
+
+// ovf returns an expanded descriptor template
+func (di *info) ovf() (string, error) {
+	var buf bytes.Buffer
+
+	tmpl, err := template.ParseFiles("/opt/yunion/share/vmware/ovf.xml")
+	if err != nil {
+		return "", err
+	}
+
+	err = tmpl.Execute(&buf, di)
+	if err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
+}
+
+// ImportParams contains the set of optional params to the Import function.
+// Note that "optional" may depend on environment, such as ESX or vCenter.
+type ImportParams struct {
+	Path       string
+	Logger     progress.Sinker
+	Type       types.VirtualDiskType
+	Force      bool
+	Datacenter *object.Datacenter
+	Pool       *object.ResourcePool
+	Folder     *object.Folder
+	Host       *object.HostSystem
+}
+
+// ImportVM will import a vm by uploading a local vmdk
+func (self *SDatastore) ImportVM(ctx context.Context, diskFile, name string, host *SHost) (*object.VirtualMachine, error) {
+
+	var (
+		c         = self.manager.client.Client
+		datastore = self.getDatastoreObj()
+	)
+
+	m := ovf.NewManager(c)
+
+	disk, err := stat(diskFile)
+	if err != nil {
+		return nil, errors.Wrap(err, "stat")
+	}
+
+	disk.ImportName = name
+
+	// Expand the ovf template
+	descriptor, err := disk.ovf()
+	if err != nil {
+		return nil, errors.Wrap(err, "disk.ovf")
+	}
+
+	folders, err := self.datacenter.getObjectDatacenter().Folders(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "Folders")
+	}
+	pool, err := host.GetResourcePool()
+	if err != nil {
+		return nil, errors.Wrap(err, "getResourcePool")
+	}
+
+	kind := types.VirtualDiskTypeThin
+
+	params := types.OvfCreateImportSpecParams{
+		DiskProvisioning: string(kind),
+		EntityName:       disk.ImportName,
+	}
+
+	spec, err := m.CreateImportSpec(ctx, descriptor, pool, datastore, params)
+	if err != nil {
+		return nil, err
+	}
+	if spec.Error != nil {
+		return nil, errors.Error(spec.Error[0].LocalizedMessage)
+	}
+
+	lease, err := pool.ImportVApp(ctx, spec.ImportSpec, folders.VmFolder, host.GetoHostSystem())
+	if err != nil {
+		return nil, err
+	}
+
+	info, err := lease.Wait(ctx, spec.FileItem)
+	if err != nil {
+		return nil, err
+	}
+
+	f, err := os.Open(diskFile)
+	if err != nil {
+		return nil, err
+	}
+
+	lr := newLeaseLogger("upload vmdk", 5)
+
+	lr.Log()
+	defer lr.End()
+
+	opts := soap.Upload{
+		ContentLength: disk.Size,
+		Progress:      lr,
+	}
+
+	u := lease.StartUpdater(ctx, info)
+	defer u.Done()
+
+	item := info.Items[0] // we only have 1 disk to upload
+
+	err = lease.Upload(ctx, item, f, opts)
+
+	_ = f.Close()
+
+	if err != nil {
+		return nil, errors.Wrap(err, "lease.Upload")
+	}
+
+	if err = lease.Complete(ctx); err != nil {
+		log.Debugf("lease complete error: %s, sleep 1s and try again", err)
+		time.Sleep(time.Second)
+		if err = lease.Complete(ctx); err != nil {
+			return nil, errors.Wrap(err, "lease.Complete")
+		}
+	}
+
+	return object.NewVirtualMachine(c, info.Entity), nil
 }

@@ -47,8 +47,8 @@ func (m *SEsxiRootFs) RootSignatures() []string {
 	}
 }
 
-func (m *SEsxiRootFs) GetLoginAccount(rootFs IDiskPartition, defaultRootUser bool, windowsDefaultAdminUser bool) string {
-	return "root"
+func (m *SEsxiRootFs) GetLoginAccount(rootFs IDiskPartition, user string, defaultRootUser bool, windowsDefaultAdminUser bool) (string, error) {
+	return "root", nil
 }
 
 func (m *SEsxiRootFs) GetOs() string {

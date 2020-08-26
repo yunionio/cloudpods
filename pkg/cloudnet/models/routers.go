@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	api "yunion.io/x/onecloud/pkg/apis/cloudnet"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -113,10 +114,14 @@ func (man *SRouterManager) getById(id string) (*SRouter, error) {
 	return router, err
 }
 
-func (router *SRouter) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if _, err := router.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data); err != nil {
-		return nil, err
+func (router *SRouter) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.RouterUpdateInput) (api.RouterUpdateInput, error) {
+	var err error
+	input.StandaloneResourceBaseUpdateInput, err = router.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StandaloneResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
 	}
+
+	data := jsonutils.Marshal(input).(*jsonutils.JSONDict)
 	vs := []validators.IValidator{
 		validators.NewStringNonEmptyValidator("user"),
 		validators.NewStringNonEmptyValidator("host"),
@@ -129,11 +134,11 @@ func (router *SRouter) ValidateUpdateData(ctx context.Context, userCred mcclient
 	for _, v := range vs {
 		v.Optional(true)
 		if err := v.Validate(data); err != nil {
-			return nil, err
+			return input, err
 		}
 	}
-	data.Set("_old_endpoint", jsonutils.NewString(router.endpointIP()))
-	return data, nil
+	input.OldEndpoint = router.endpointIP()
+	return input, nil
 }
 
 func (router *SRouter) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {

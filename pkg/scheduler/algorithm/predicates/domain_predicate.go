@@ -15,7 +15,10 @@
 package predicates
 
 import (
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/scheduler/core"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type DomainPredicate struct {
@@ -33,13 +36,11 @@ func (p *DomainPredicate) Clone() core.FitPredicate {
 func (p *DomainPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := NewPredicateHelper(p, u, c)
 	getter := c.Getter()
-	cloudprovider := getter.Cloudprovider()
-	if cloudprovider == nil || getter.IsPublic() {
-		return h.GetResult()
-	}
-	domainId := getter.DomainId()
-	if domainId != u.SchedInfo.Domain {
-		h.Exclude2("domain_belong", domainId, u.SchedInfo.Domain)
+	if getter.DomainId() == u.SchedInfo.Domain {
+	} else if getter.IsPublic() && getter.PublicScope() == string(rbacutils.ScopeSystem) {
+	} else if getter.IsPublic() && getter.PublicScope() == string(rbacutils.ScopeDomain) && utils.IsInStringArray(u.SchedInfo.Domain, getter.SharedDomains()) {
+	} else {
+		h.Exclude("domain_ownership")
 	}
 	return h.GetResult()
 }

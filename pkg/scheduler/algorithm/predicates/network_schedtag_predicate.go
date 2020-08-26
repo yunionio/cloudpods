@@ -15,18 +15,14 @@
 package predicates
 
 import (
-	"fmt"
 	"sort"
 
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/util/netutils"
-	"yunion.io/x/pkg/utils"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type NetworkSchedtagPredicate struct {
@@ -97,81 +93,7 @@ func (p *NetworkSchedtagPredicate) IsResourceMatchInput(input ISchedtagCustomer,
 func (p *NetworkSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) core.PredicateFailureReason {
 	network := res.(*api.CandidateNetwork)
 	net := input.(*netW)
-	if net.Network != "" {
-		if network.Id != net.Network && network.Name != net.Network {
-			return &FailReason{
-				Reason: fmt.Sprintf("Network name %s != (%s:%s)", net.Network, network.Name, network.Id),
-				Type:   NetworkMatch,
-			}
-		}
-	}
-	if net.Wire != "" {
-		if network.WireId != net.Wire {
-			return &FailReason{
-				Reason: fmt.Sprintf("Wire %s != %s", net.Wire, network.WireId),
-				Type:   NetworkWire,
-			}
-		}
-	}
-
-	if net.Network == "" {
-		netTypes := p.GetNetworkTypes(net.NetType)
-		if !utils.IsInStringArray(network.ServerType, netTypes) {
-			return &FailReason{
-				Reason: fmt.Sprintf("Network %s type %s not in %v", network.Name, network.ServerType, netTypes),
-				Type:   NetworkTypeMatch,
-			}
-		}
-		schedData := u.SchedData()
-		if net.Private {
-			if network.IsPublic {
-				return &FailReason{
-					Reason: fmt.Sprintf("Network %s is public", network.Name),
-					Type:   NetworkPublic,
-				}
-			}
-			if network.ProjectId != schedData.Project && !utils.IsInStringArray(schedData.Project, network.GetSharedProjects()) {
-				return &FailReason{
-					Reason: fmt.Sprintf("Network project %s + %v not owner by %s", network.ProjectId, network.GetSharedProjects(), schedData.Project),
-					Type:   NetworkOwner,
-				}
-			}
-		} else {
-			if !network.IsPublic {
-				return &FailReason{
-					fmt.Sprintf("Network %s is private", network.Name),
-					NetworkPrivate,
-				}
-			}
-			if rbacutils.TRbacScope(network.PublicScope) == rbacutils.ScopeDomain {
-				netDomain := network.DomainId
-				reqDomain := net.Domain
-				if netDomain != reqDomain {
-					return &FailReason{
-						fmt.Sprintf("Network domain scope %s not owner by %s", netDomain, reqDomain),
-						NetworkDomain,
-					}
-				}
-			}
-		}
-	}
-
-	if len(net.Address) > 0 {
-		ipAddr, err := netutils.NewIPV4Addr(net.Address)
-		if err != nil {
-			return &FailReason{
-				fmt.Sprintf("Invalid ip address %s: %v", net.Address, err),
-				NetworkRange,
-			}
-		}
-		if !network.GetIPRange().Contains(ipAddr) {
-			return &FailReason{
-				fmt.Sprintf("Address %s not in range", net.Address),
-				NetworkRange,
-			}
-		}
-	}
-	return nil
+	return IsNetworkAvailable(c, u.SchedData(), net.NetworkConfig, network, p.GetNetworkTypes(net.NetType))
 }
 
 func (p *NetworkSchedtagPredicate) GetNetworkTypes(specifyType string) []string {
@@ -260,7 +182,7 @@ func (p *NetworkSchedtagPredicate) DoSelect(
 	return sNets.Results()
 }
 
-func (p *NetworkSchedtagPredicate) AddSelectResult(index int, selectRes []ISchedtagCandidateResource, output *core.AllocatedResource) {
+func (p *NetworkSchedtagPredicate) AddSelectResult(index int, input ISchedtagCustomer, selectRes []ISchedtagCandidateResource, output *core.AllocatedResource) {
 	networkIds := []string{}
 	for _, res := range selectRes {
 		networkIds = append(networkIds, res.GetId())

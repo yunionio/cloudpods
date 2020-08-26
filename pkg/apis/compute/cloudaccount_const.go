@@ -14,6 +14,11 @@
 
 package compute
 
+import (
+	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+)
+
 const (
 	CLOUD_PROVIDER_INIT          = "init"
 	CLOUD_PROVIDER_CONNECTED     = "connected"
@@ -91,17 +96,17 @@ var (
 )
 
 const (
-	CLOUD_ENV_PUBLIC_CLOUD  = "public"
-	CLOUD_ENV_PRIVATE_CLOUD = "private"
-	CLOUD_ENV_ON_PREMISE    = "onpremise"
+	CLOUD_ENV_PUBLIC_CLOUD  = cloudprovider.CLOUD_ENV_PUBLIC_CLOUD
+	CLOUD_ENV_PRIVATE_CLOUD = cloudprovider.CLOUD_ENV_PRIVATE_CLOUD
+	CLOUD_ENV_ON_PREMISE    = cloudprovider.CLOUD_ENV_ON_PREMISE
 
-	CLOUD_ENV_PRIVATE_ON_PREMISE = "private_or_onpremise"
+	CLOUD_ENV_PRIVATE_ON_PREMISE = cloudprovider.CLOUD_ENV_PRIVATE_ON_PREMISE
 )
 
 const (
-	CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN  = "account_domain"
-	CLOUD_ACCOUNT_SHARE_MODE_SYSTEM          = "system"
-	CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN = "provider_domain"
+	CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN  = apis.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN
+	CLOUD_ACCOUNT_SHARE_MODE_SYSTEM          = apis.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM
+	CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN = apis.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN
 )
 
 var (

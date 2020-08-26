@@ -16,11 +16,13 @@ package regiondrivers
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"regexp"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -32,6 +34,8 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/choices"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/rand"
 )
 
@@ -61,8 +65,7 @@ func (self *SKVMRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_ONECLOUD
 }
 
-func (self *SKVMRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	ownerId := ctx.Value("ownerId").(mcclient.IIdentityProvider)
+func (self *SKVMRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerId)
 	addressV := validators.NewIPv4AddrValidator("address")
 	clusterV := validators.NewModelIdOrNameValidator("cluster", "loadbalancercluster", ownerId)
@@ -81,9 +84,11 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
-
 	if zone == nil {
 		return nil, httperrors.NewInputParameterError("zone info missing")
+	}
+	if vpc.Id != api.DEFAULT_VPC_ID {
+		return nil, httperrors.NewInputParameterError("vpc lb is not allowed for now")
 	}
 
 	if clusterV.Model == nil {
@@ -148,15 +153,6 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerCertificateData(ctx cont
 }
 
 func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendGroupData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lb *models.SLoadbalancer, backends []cloudprovider.SLoadbalancerBackend) (*jsonutils.JSONDict, error) {
-	for _, backend := range backends {
-		switch backend.BackendType {
-		case api.LB_BACKEND_GUEST:
-			if backend.ZoneId != lb.ZoneId {
-				return nil, fmt.Errorf("zone of host %q (%s) != zone of loadbalancer %q (%s)",
-					backend.HostName, backend.ZoneId, lb.Name, lb.ZoneId)
-			}
-		}
-	}
 	return data, nil
 }
 
@@ -169,6 +165,7 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.
 		"weight":       validators.NewRangeValidator("weight", 1, 256).Default(1),
 		"port":         validators.NewPortValidator("port"),
 		"send_proxy":   validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES).Default(api.LB_SENDPROXY_OFF),
+		"ssl":          validators.NewStringChoicesValidator("ssl", api.LB_BOOL_VALUES).Default(api.LB_BOOL_OFF),
 	}
 
 	if err := RunValidators(keyV, data, false); err != nil {
@@ -191,9 +188,6 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.
 		basename = guest.Name
 		backend = backendV.Model
 	case api.LB_BACKEND_HOST:
-		if !db.IsAdminAllowCreate(userCred, man) {
-			return nil, fmt.Errorf("only sysadmin can specify host as backend")
-		}
 		backendV := validators.NewModelIdOrNameValidator("backend", "host", userCred)
 		err := backendV.Validate(data)
 		if err != nil {
@@ -202,16 +196,13 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.
 		host := backendV.Model.(*models.SHost)
 		{
 			if len(host.AccessIp) == 0 {
-				return nil, fmt.Errorf("host %s has no access ip", host.GetId())
+				return nil, httperrors.NewInputParameterError("host %s has no access ip", host.GetId())
 			}
 			data.Set("address", jsonutils.NewString(host.AccessIp))
 		}
 		basename = host.Name
 		backend = backendV.Model
 	case api.LB_BACKEND_IP:
-		if !db.IsAdminAllowCreate(userCred, man) {
-			return nil, fmt.Errorf("only sysadmin can specify ip address as backend")
-		}
 		backendV := validators.NewIPv4AddrValidator("backend")
 		err := backendV.Validate(data)
 		if err != nil {
@@ -221,7 +212,7 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.
 		data.Set("address", jsonutils.NewString(ip))
 		basename = ip
 	default:
-		return nil, fmt.Errorf("internal error: unexpected backend type %s", backendType)
+		return nil, httperrors.NewInputParameterError("internal error: unexpected backend type %s", backendType)
 	}
 
 	name, _ := data.GetString("name")
@@ -236,14 +227,17 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.
 			// guest zone must match that of loadbalancer's
 			host := guest.GetHost()
 			if host == nil {
-				return nil, fmt.Errorf("error getting host of guest %s", guest.GetId())
+				return nil, httperrors.NewInputParameterError("error getting host of guest %s", guest.GetId())
 			}
-
 			if lb == nil {
-				return nil, fmt.Errorf("error loadbalancer of backend group %s", backendGroup.GetId())
+				return nil, httperrors.NewInputParameterError("error loadbalancer of backend group %s", backendGroup.GetId())
 			}
-			if host.ZoneId != lb.ZoneId {
-				return nil, fmt.Errorf("zone of host %q (%s) != zone of loadbalancer %q (%s)",
+			var (
+				lbRegion   = lb.GetRegion()
+				hostRegion = host.GetRegion()
+			)
+			if lbRegion.Id != hostRegion.Id {
+				return nil, httperrors.NewInputParameterError("region of host %q (%s) != region of loadbalancer %q (%s)",
 					host.Name, host.ZoneId, lb.Name, lb.ZoneId)
 			}
 		}
@@ -260,16 +254,17 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.
 	}
 
 	data.Set("name", jsonutils.NewString(name))
-	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
-	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
+	data.Set("manager_id", jsonutils.NewString(lb.GetCloudproviderId()))
+	data.Set("cloudregion_id", jsonutils.NewString(lb.GetRegionId()))
 	return data, nil
 }
 
 func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerBackendData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lbbg *models.SLoadbalancerBackendGroup) (*jsonutils.JSONDict, error) {
 	keyV := map[string]validators.IValidator{
-		"weight":     validators.NewRangeValidator("weight", 1, 256).Optional(true),
-		"port":       validators.NewPortValidator("port").Optional(true),
-		"send_proxy": validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES).Optional(true),
+		"weight":     validators.NewRangeValidator("weight", 1, 256),
+		"port":       validators.NewPortValidator("port"),
+		"send_proxy": validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES),
+		"ssl":        validators.NewStringChoicesValidator("ssl", api.LB_BOOL_VALUES),
 	}
 
 	if err := RunValidators(keyV, data, true); err != nil {
@@ -279,10 +274,22 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerBackendData(ctx context.
 	return data, nil
 }
 
+func (self *SKVMRegionDriver) IsSupportLoadbalancerListenerRuleRedirect() bool {
+	return true
+}
+
 func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
-	listenerV := validators.NewModelIdOrNameValidator("listener", "loadbalancerlistener", ownerId)
-	domainV := validators.NewDomainNameValidator("domain")
-	pathV := validators.NewURLPathValidator("path")
+	var (
+		listenerV = validators.NewModelIdOrNameValidator("listener", "loadbalancerlistener", ownerId)
+		domainV   = validators.NewHostPortValidator("domain").OptionalPort(true)
+		pathV     = validators.NewURLPathValidator("path")
+
+		redirectV       = validators.NewStringChoicesValidator("redirect", api.LB_REDIRECT_TYPES)
+		redirectCodeV   = validators.NewIntChoicesValidator("redirect_code", api.LB_REDIRECT_CODES)
+		redirectSchemeV = validators.NewStringChoicesValidator("redirect_scheme", api.LB_REDIRECT_SCHEMES)
+		redirectHostV   = validators.NewHostPortValidator("redirect_host").OptionalPort(true)
+		redirectPathV   = validators.NewURLPathValidator("redirect_path")
+	)
 	keyV := map[string]validators.IValidator{
 		"status": validators.NewStringChoicesValidator("status", api.LB_STATUS_SPEC).Default(api.LB_STATUS_ENABLED),
 
@@ -292,6 +299,12 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx con
 
 		"http_request_rate":         validators.NewNonNegativeValidator("http_request_rate").Default(0),
 		"http_request_rate_per_src": validators.NewNonNegativeValidator("http_request_rate_per_src").Default(0),
+
+		"redirect":        redirectV.Default(api.LB_REDIRECT_OFF),
+		"redirect_code":   redirectCodeV.Default(api.LB_REDIRECT_CODE_302),
+		"redirect_scheme": redirectSchemeV.Optional(true),
+		"redirect_host":   redirectHostV.AllowEmpty(true).Optional(true),
+		"redirect_path":   redirectPathV.AllowEmpty(true).Optional(true),
 	}
 
 	if err := RunValidators(keyV, data, false); err != nil {
@@ -304,9 +317,26 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx con
 		return nil, httperrors.NewInputParameterError("listener type must be http/https, got %s", listenerType)
 	}
 
-	if lbbg, ok := backendGroup.(*models.SLoadbalancerBackendGroup); ok && lbbg.LoadbalancerId != listener.LoadbalancerId {
-		return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
-			lbbg.Name, lbbg.Id, lbbg.LoadbalancerId, listener.LoadbalancerId)
+	redirectType := redirectV.Value
+	if redirectType != api.LB_REDIRECT_OFF {
+		if redirectType == api.LB_REDIRECT_RAW {
+			scheme, host, path := redirectSchemeV.Value, redirectHostV.Value, redirectPathV.Value
+			if (scheme == "" || scheme == listenerType) && host == "" && path == "" {
+				return nil, httperrors.NewInputParameterError("redirect must have at least one of scheme, host, path changed")
+			}
+		}
+	}
+
+	{
+		if redirectV.Value == api.LB_REDIRECT_OFF {
+			if backendGroup == nil {
+				return nil, httperrors.NewInputParameterError("backend_group argument is missing")
+			}
+		}
+		if lbbg, ok := backendGroup.(*models.SLoadbalancerBackendGroup); ok && lbbg.LoadbalancerId != listener.LoadbalancerId {
+			return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
+				lbbg.Name, lbbg.Id, lbbg.LoadbalancerId, listener.LoadbalancerId)
+		}
 	}
 
 	err := models.LoadbalancerListenerRuleCheckUniqueness(ctx, listener, domainV.Value, pathV.Value)
@@ -314,22 +344,76 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx con
 		return nil, err
 	}
 
-	data.Set("cloudregion_id", jsonutils.NewString(listener.CloudregionId))
-	data.Set("manager_id", jsonutils.NewString(listener.ManagerId))
+	data.Set("cloudregion_id", jsonutils.NewString(listener.GetRegionId()))
+	data.Set("manager_id", jsonutils.NewString(listener.GetCloudproviderId()))
 	return data, nil
 }
 
 func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerListenerRuleData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
-	lbr := ctx.Value("lbr").(*models.SLoadbalancerListenerRule)
+	var (
+		lbr     = ctx.Value("lbr").(*models.SLoadbalancerListenerRule)
+		domainV = validators.NewHostPortValidator("domain").OptionalPort(true)
+		pathV   = validators.NewURLPathValidator("path")
+
+		redirectV       = validators.NewStringChoicesValidator("redirect", api.LB_REDIRECT_TYPES)
+		redirectCodeV   = validators.NewIntChoicesValidator("redirect_code", api.LB_REDIRECT_CODES)
+		redirectSchemeV = validators.NewStringChoicesValidator("redirect_scheme", api.LB_REDIRECT_SCHEMES)
+		redirectHostV   = validators.NewHostPortValidator("redirect_host").OptionalPort(true)
+		redirectPathV   = validators.NewURLPathValidator("redirect_path")
+	)
+	if lbr.Redirect != "" {
+		redirectV.Default(lbr.Redirect)
+	}
+	if lbr.RedirectCode > 0 {
+		redirectCodeV.Default(int64(lbr.RedirectCode))
+	}
+	if lbr.RedirectScheme != "" {
+		redirectSchemeV.Default(lbr.RedirectScheme)
+	}
+	if lbr.RedirectHost != "" {
+		redirectHostV.Default(lbr.RedirectHost)
+	}
+	if lbr.RedirectPath != "" {
+		redirectPathV.Default(lbr.RedirectPath)
+	}
 	keyV := map[string]validators.IValidator{
+		"domain": domainV.AllowEmpty(true).Default(lbr.Domain),
+		"path":   pathV.Default(lbr.Path),
+
 		"http_request_rate":         validators.NewNonNegativeValidator("http_request_rate"),
 		"http_request_rate_per_src": validators.NewNonNegativeValidator("http_request_rate_per_src"),
+
+		"redirect":        redirectV,
+		"redirect_code":   redirectCodeV,
+		"redirect_scheme": redirectSchemeV,
+		"redirect_host":   redirectHostV.AllowEmpty(true),
+		"redirect_path":   redirectPathV.AllowEmpty(true),
 	}
 	for _, v := range keyV {
 		v.Optional(true)
 		if err := v.Validate(data); err != nil {
 			return nil, err
 		}
+	}
+
+	var (
+		redirectType = redirectV.Value
+	)
+	if redirectType != api.LB_REDIRECT_OFF {
+		if redirectType == api.LB_REDIRECT_RAW {
+			var (
+				lblis        = lbr.GetLoadbalancerListener()
+				listenerType = lblis.ListenerType
+			)
+			scheme, host, path := redirectSchemeV.Value, redirectHostV.Value, redirectPathV.Value
+			if (scheme == "" || scheme == listenerType) && host == "" && path == "" {
+				return nil, httperrors.NewInputParameterError("redirect must have at least one of scheme, host, path changed")
+			}
+		}
+	}
+
+	if redirectType == api.LB_REDIRECT_OFF && backendGroup == nil {
+		return nil, httperrors.NewInputParameterError("non redirect lblistener rule must have backend_group set")
 	}
 	if backendGroup, ok := backendGroup.(*models.SLoadbalancerBackendGroup); ok && backendGroup.Id != lbr.BackendGroupId {
 		listenerM, err := models.LoadbalancerListenerManager.FetchById(lbr.ListenerId)
@@ -347,11 +431,20 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerListenerRuleData(ctx con
 }
 
 func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict, lb *models.SLoadbalancer, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
-	listenerTypeV := validators.NewStringChoicesValidator("listener_type", api.LB_LISTENER_TYPES)
-	listenerPortV := validators.NewPortValidator("listener_port")
-	aclStatusV := validators.NewStringChoicesValidator("acl_status", api.LB_BOOL_VALUES)
-	aclTypeV := validators.NewStringChoicesValidator("acl_type", api.LB_ACL_TYPES)
-	aclV := validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerId)
+	var (
+		listenerTypeV = validators.NewStringChoicesValidator("listener_type", api.LB_LISTENER_TYPES)
+		listenerPortV = validators.NewPortValidator("listener_port")
+
+		aclStatusV = validators.NewStringChoicesValidator("acl_status", api.LB_BOOL_VALUES)
+		aclTypeV   = validators.NewStringChoicesValidator("acl_type", api.LB_ACL_TYPES)
+		aclV       = validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerId)
+
+		redirectV       = validators.NewStringChoicesValidator("redirect", api.LB_REDIRECT_TYPES)
+		redirectCodeV   = validators.NewIntChoicesValidator("redirect_code", api.LB_REDIRECT_CODES)
+		redirectSchemeV = validators.NewStringChoicesValidator("redirect_scheme", api.LB_REDIRECT_SCHEMES)
+		redirectHostV   = validators.NewHostPortValidator("redirect_host").OptionalPort(true)
+		redirectPathV   = validators.NewURLPathValidator("redirect_path")
+	)
 	keyV := map[string]validators.IValidator{
 		"status": validators.NewStringChoicesValidator("status", api.LB_STATUS_SPEC).Default(api.LB_STATUS_ENABLED),
 
@@ -364,7 +457,7 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerData(ctx context
 		"acl_type":   aclTypeV.Optional(true),
 		"acl":        aclV.Optional(true),
 
-		"scheduler":   validators.NewStringChoicesValidator("scheduler", api.LB_SCHEDULER_TYPES),
+		"scheduler":   validators.NewStringChoicesValidator("scheduler", api.LB_SCHEDULER_TYPES).Default(api.LB_SCHEDULER_RR),
 		"egress_mbps": validators.NewRangeValidator("egress_mbps", api.LB_MbpsMin, api.LB_MbpsMax).Optional(true),
 
 		"client_request_timeout":  validators.NewRangeValidator("client_request_timeout", 0, 600).Default(10),
@@ -382,6 +475,12 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerData(ctx context
 
 		"http_request_rate":         validators.NewNonNegativeValidator("http_request_rate").Default(0),
 		"http_request_rate_per_src": validators.NewNonNegativeValidator("http_request_rate_per_src").Default(0),
+
+		"redirect":        redirectV.Default(api.LB_REDIRECT_OFF),
+		"redirect_code":   redirectCodeV.Default(api.LB_REDIRECT_CODE_302),
+		"redirect_scheme": redirectSchemeV.Optional(true),
+		"redirect_host":   redirectHostV.AllowEmpty(true).Optional(true),
+		"redirect_path":   redirectPathV.AllowEmpty(true).Optional(true),
 	}
 
 	if err := RunValidators(keyV, data, false); err != nil {
@@ -393,6 +492,18 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerData(ctx context
 	err := models.LoadbalancerListenerManager.CheckListenerUniqueness(ctx, lb, listenerType, listenerPortV.Value)
 	if err != nil {
 		return nil, err
+	}
+
+	if redirectType := redirectV.Value; redirectType != api.LB_REDIRECT_OFF {
+		if listenerType != api.LB_LISTENER_TYPE_HTTP && listenerType != api.LB_LISTENER_TYPE_HTTPS {
+			return nil, httperrors.NewInputParameterError("redirect can only be enabled for http/https listener")
+		}
+		if redirectType == api.LB_REDIRECT_RAW {
+			scheme, host, path := redirectSchemeV.Value, redirectHostV.Value, redirectPathV.Value
+			if (scheme == "" || scheme == listenerType) && host == "" && path == "" {
+				return nil, httperrors.NewInputParameterError("redirect must have at least one of scheme, host, path changed")
+			}
+		}
 	}
 
 	// backendgroup check
@@ -441,8 +552,8 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerData(ctx context
 		return nil, err
 	}
 
-	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
-	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
+	data.Set("manager_id", jsonutils.NewString(lb.GetCloudproviderId()))
+	data.Set("cloudregion_id", jsonutils.NewString(lb.GetRegionId()))
 	return data, nil
 }
 
@@ -458,6 +569,29 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context
 	aclV := validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerId)
 	if len(lblis.AclId) > 0 {
 		aclV.Default(lblis.AclId)
+	}
+
+	var (
+		redirectV       = validators.NewStringChoicesValidator("redirect", api.LB_REDIRECT_TYPES)
+		redirectCodeV   = validators.NewIntChoicesValidator("redirect_code", api.LB_REDIRECT_CODES)
+		redirectSchemeV = validators.NewStringChoicesValidator("redirect_scheme", api.LB_REDIRECT_SCHEMES)
+		redirectHostV   = validators.NewHostPortValidator("redirect_host").OptionalPort(true)
+		redirectPathV   = validators.NewURLPathValidator("redirect_path")
+	)
+	if lblis.Redirect != "" {
+		redirectV.Default(lblis.Redirect)
+	}
+	if lblis.RedirectCode > 0 {
+		redirectCodeV.Default(int64(lblis.RedirectCode))
+	}
+	if lblis.RedirectScheme != "" {
+		redirectSchemeV.Default(lblis.RedirectScheme)
+	}
+	if lblis.RedirectHost != "" {
+		redirectHostV.Default(lblis.RedirectHost)
+	}
+	if lblis.RedirectPath != "" {
+		redirectPathV.Default(lblis.RedirectPath)
 	}
 
 	certV := validators.NewModelIdOrNameValidator("certificate", "loadbalancercertificate", ownerId)
@@ -503,18 +637,46 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context
 		"certificate":       certV,
 		"tls_cipher_policy": tlsCipherPolicyV,
 		"enable_http2":      validators.NewBoolValidator("enable_http2"),
+
+		"redirect":        redirectV,
+		"redirect_code":   redirectCodeV,
+		"redirect_scheme": redirectSchemeV,
+		"redirect_host":   redirectHostV.AllowEmpty(true),
+		"redirect_path":   redirectPathV.AllowEmpty(true),
 	}
 
 	if err := RunValidators(keyV, data, true); err != nil {
 		return nil, err
 	}
 
+	var (
+		redirectType = redirectV.Value
+		listenerType = lblis.ListenerType
+	)
+	if redirectType != api.LB_REDIRECT_OFF {
+		if redirectType == api.LB_REDIRECT_RAW {
+			scheme, host, path := redirectSchemeV.Value, redirectHostV.Value, redirectPathV.Value
+			if (scheme == "" || scheme == listenerType) && host == "" && path == "" {
+				return nil, httperrors.NewInputParameterError("redirect must have at least one of scheme, host, path changed")
+			}
+		}
+	}
+	// NOTE: it's okay we turn off redirect
+	//
+	//  - scheduler have default value on creation
+	//  - backend_group_id is allowed to have unset value for http, https listener
+
 	if err := models.LoadbalancerListenerManager.ValidateAcl(aclStatusV, aclTypeV, aclV, data, lblis.GetProviderName()); err != nil {
 		return nil, err
 	}
 
 	{
-		if lbbg, ok := backendGroup.(*models.SLoadbalancerBackendGroup); ok && lbbg.LoadbalancerId != lblis.LoadbalancerId {
+		if backendGroup == nil {
+			if lblis.ListenerType != api.LB_LISTENER_TYPE_HTTP &&
+				lblis.ListenerType != api.LB_LISTENER_TYPE_HTTPS {
+				return nil, httperrors.NewInputParameterError("non http listener must have backend group set")
+			}
+		} else if lbbg, ok := backendGroup.(*models.SLoadbalancerBackendGroup); ok && lbbg.LoadbalancerId != lblis.LoadbalancerId {
 			return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
 				lbbg.Name, lbbg.Id, lbbg.LoadbalancerId, lblis.LoadbalancerId)
 		}
@@ -591,7 +753,7 @@ func (self *SKVMRegionDriver) RequestDeleteLoadbalancerAcl(ctx context.Context, 
 	return nil
 }
 
-func (self *SKVMRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, lbbg *models.SLoadbalancerBackendGroup, task taskman.ITask) error {
+func (self *SKVMRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -618,19 +780,19 @@ func (self *SKVMRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx context.
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		for _, backend := range backends {
 			loadbalancerBackend := models.SLoadbalancerBackend{
-				BackendGroupId: lbbg.Id,
-				BackendId:      backend.ID,
-				BackendType:    backend.BackendType,
-				BackendRole:    backend.BackendRole,
-				Weight:         backend.Weight,
-				Address:        backend.Address,
-				Port:           backend.Port,
+				BackendId:   backend.ID,
+				BackendType: backend.BackendType,
+				BackendRole: backend.BackendRole,
+				Weight:      backend.Weight,
+				Address:     backend.Address,
+				Port:        backend.Port,
 			}
+			loadbalancerBackend.BackendGroupId = lbbg.Id
 			loadbalancerBackend.Status = api.LB_STATUS_ENABLED
 			loadbalancerBackend.ProjectId = userCred.GetProjectId()
 			loadbalancerBackend.DomainId = userCred.GetProjectDomainId()
 			loadbalancerBackend.Name = fmt.Sprintf("%s-%s-%s", lbbg.Name, backend.BackendType, backend.Name)
-			if err := models.LoadbalancerBackendManager.TableSpec().Insert(&loadbalancerBackend); err != nil {
+			if err := models.LoadbalancerBackendManager.TableSpec().Insert(ctx, &loadbalancerBackend); err != nil {
 				return nil, err
 			}
 		}
@@ -721,12 +883,49 @@ func (self *SKVMRegionDriver) RequestDeleteLoadbalancerListenerRule(ctx context.
 	return nil
 }
 
-func (self *SKVMRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return data, nil
+func (self *SKVMRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, input api.VpcCreateInput) (api.VpcCreateInput, error) {
+	cidrChoices := choices.NewChoices("192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12")
+	cidrV := validators.NewStringChoicesValidator("cidr_block", cidrChoices)
+	if err := cidrV.Validate(jsonutils.Marshal(input).(*jsonutils.JSONDict)); err != nil {
+		return input, err
+	}
+	return input, nil
 }
 
-func (self *SKVMRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return nil, httperrors.NewNotImplementedError("Not Implement EIP")
+func (self *SKVMRegionDriver) RequestDeleteVpc(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, task taskman.ITask) error {
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SKVMRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, input *api.SElasticipCreateInput) error {
+	if len(input.Network) == 0 {
+		return httperrors.NewMissingParameterError("network")
+	}
+	_network, err := models.NetworkManager.FetchByIdOrName(userCred, input.Network)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return httperrors.NewResourceNotFoundError("failed to found network %s", input.Network)
+		}
+		return httperrors.NewGeneralError(err)
+	}
+	network := _network.(*models.SNetwork)
+	if network.ServerType != api.NETWORK_TYPE_EIP {
+		return httperrors.NewInputParameterError("bad network type %q, want %q", network.ServerType, api.NETWORK_TYPE_EIP)
+	}
+	input.NetworkId = network.Id
+
+	vpc := network.GetVpc()
+	if vpc == nil {
+		return httperrors.NewInputParameterError("failed to found vpc for network %s(%s)", network.Name, network.Id)
+	}
+	region, err := vpc.GetRegion()
+	if err != nil {
+		return err
+	}
+	if region.GetDriver().GetProvider() != self.GetProvider() {
+		return httperrors.NewUnsupportOperationError("network %s(%s) does not belong to %s", network.Name, network.Id, self.GetProvider())
+	}
+	return nil
 }
 
 func (self *SKVMRegionDriver) ValidateSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot) error {
@@ -745,7 +944,7 @@ func (self *SKVMRegionDriver) RequestDeleteSnapshot(ctx context.Context, snapsho
 	return models.GetStorageDriver(storage.StorageType).RequestDeleteSnapshot(ctx, snapshot, task)
 }
 
-func (self *SKVMRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SSnapshotCreateInput) error {
+func (self *SKVMRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SnapshotCreateInput) error {
 	host := storage.GetMasterHost()
 	if host == nil {
 		return fmt.Errorf("failed to get master host, maybe the host is offline")
@@ -842,6 +1041,52 @@ func (self *SKVMRegionDriver) RequestCancelSnapshotPolicy(ctx context.Context, u
 func (self *SKVMRegionDriver) OnSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask, data jsonutils.JSONObject) error {
 	task.SetStage("OnKvmSnapshotDelete", nil)
 	task.ScheduleRun(data)
+	return nil
+}
+
+func (self *SKVMRegionDriver) RequestSyncDiskStatus(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		storage := disk.GetStorage()
+		host := storage.GetMasterHost()
+		header := task.GetTaskRequestHeader()
+		url := fmt.Sprintf("%s/disks/%s/%s/status", host.ManagerUri, storage.Id, disk.Id)
+		_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "GET", url, header, nil, false)
+		if err != nil {
+			return nil, err
+		}
+		var diskStatus string
+		originStatus, _ := task.GetParams().GetString("origin_status")
+		status, _ := res.GetString("status")
+		if status == api.DISK_EXIST {
+			diskStatus = originStatus
+		} else {
+			diskStatus = api.DISK_UNKNOWN
+		}
+		return nil, disk.SetStatus(userCred, diskStatus, "sync status")
+	})
+	return nil
+}
+
+func (self *SKVMRegionDriver) RequestSyncSnapshotStatus(ctx context.Context, userCred mcclient.TokenCredential, snapshot *models.SSnapshot, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		storage := snapshot.GetStorage()
+		host := storage.GetMasterHost()
+		header := task.GetTaskRequestHeader()
+		url := fmt.Sprintf("%s/snapshots/%s/%s/%s/status", host.ManagerUri, storage.Id, snapshot.DiskId, snapshot.Id)
+		_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "GET", url, header, nil, false)
+		if err != nil {
+			return nil, err
+		}
+		var snapshotStatus string
+		originStatus, _ := task.GetParams().GetString("origin_status")
+		status, _ := res.GetString("status")
+		if status == api.SNAPSHOT_EXIST {
+			snapshotStatus = originStatus
+		} else {
+			snapshotStatus = api.SNAPSHOT_UNKNOWN
+		}
+		return nil, snapshot.SetStatus(userCred, snapshotStatus, "sync status")
+	})
 	return nil
 }
 
@@ -992,4 +1237,16 @@ func (self *SKVMRegionDriver) RequestElasticcacheBackupRestoreInstance(ctx conte
 
 func (self *SKVMRegionDriver) AllowUpdateElasticcacheAuthMode(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, elasticcache *models.SElasticcache) error {
 	return fmt.Errorf("not support update kvm elastic cache auth_mode")
+}
+
+func (self *SKVMRegionDriver) RequestSyncBucketStatus(ctx context.Context, userCred mcclient.TokenCredential, bucket *models.SBucket, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iBucket, err := bucket.GetIBucket()
+		if err != nil {
+			return nil, errors.Wrap(err, "bucket.GetIBucket")
+		}
+
+		return nil, bucket.SetStatus(userCred, iBucket.GetStatus(), "syncstatus")
+	})
+	return nil
 }

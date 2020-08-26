@@ -22,22 +22,20 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/cache"
 
+	"yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/cloudcommon/syncman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 var (
-	manager            *authManager
-	defaultTimeout     int       = 600 // maybe time.Duration better
-	defaultCacheCount  int64     = 100000
-	initCh             chan bool = make(chan bool)
+	manager           *authManager
+	defaultTimeout    int   = 600 // maybe time.Duration better
+	defaultCacheCount int64 = 100000
+	// initCh             chan bool = make(chan bool)
 	globalEndpointType string
-)
-
-const (
-	PublicEndpointType   string = "public"
-	InternalEndpointType string = "internal"
 )
 
 type AuthInfo struct {
@@ -112,7 +110,7 @@ func (c *TokenCacheVerify) DeleteToken(token string) bool {
 	return c.Delete(token)
 }
 
-func (c *TokenCacheVerify) Verify(cli *mcclient.Client, adminToken, token string) (mcclient.TokenCredential, error) {
+func (c *TokenCacheVerify) Verify(ctx context.Context, cli *mcclient.Client, adminToken, token string) (mcclient.TokenCredential, error) {
 	cred, found := c.GetToken(token)
 	if found {
 		if cred.IsValid() {
@@ -132,12 +130,14 @@ func (c *TokenCacheVerify) Verify(cli *mcclient.Client, adminToken, token string
 	if err != nil {
 		return nil, fmt.Errorf("Add %s credential to cache: %#v", cred.GetTokenString(), err)
 	}
-	callbackAuthhooks(cred)
+	callbackAuthhooks(ctx, cred)
 	// log.Debugf("Add token: %s", cred)
 	return cred, nil
 }
 
 type authManager struct {
+	syncman.SSyncManager
+
 	client           *mcclient.Client
 	info             *AuthInfo
 	adminCredential  mcclient.TokenCredential
@@ -146,12 +146,14 @@ type authManager struct {
 }
 
 func newAuthManager(cli *mcclient.Client, info *AuthInfo) *authManager {
-	return &authManager{
+	authm := &authManager{
 		client:           cli,
 		info:             info,
 		tokenCacheVerify: NewTokenCacheVerify(),
 		accessKeyCache:   newAccessKeyCache(),
 	}
+	authm.InitSync(authm)
+	return authm
 }
 
 func (a *authManager) verifyRequest(req http.Request, virtualHost bool) (mcclient.TokenCredential, error) {
@@ -165,11 +167,11 @@ func (a *authManager) verifyRequest(req http.Request, virtualHost bool) (mcclien
 	return cred, nil
 }
 
-func (a *authManager) verify(token string) (mcclient.TokenCredential, error) {
+func (a *authManager) verify(ctx context.Context, token string) (mcclient.TokenCredential, error) {
 	if a.adminCredential == nil {
 		return nil, fmt.Errorf("No valid admin token credential")
 	}
-	cred, err := a.tokenCacheVerify.Verify(a.client, a.adminCredential.GetTokenString(), token)
+	cred, err := a.tokenCacheVerify.Verify(ctx, a.client, a.adminCredential.GetTokenString(), token)
 	if err != nil {
 		return nil, err
 	}
@@ -194,26 +196,38 @@ func (a *authManager) authAdmin() error {
 	}
 }
 
-func (a *authManager) reAuth() {
-	redoSleepTime := 60 * time.Second
-	for {
-		err := a.authAdmin()
-		if err == nil {
-			break
-		}
-		log.Errorf("Reauth failed: %s, try it again after %v", err, redoSleepTime)
-		time.Sleep(redoSleepTime)
+func (a *authManager) DoSync(first bool) (time.Duration, error) {
+	err := a.authAdmin()
+	if err != nil {
+		return time.Minute, errors.Wrap(err, "authAdmin")
+	} else {
+		return a.adminCredential.GetExpires().Sub(time.Now()) / 2, nil
 	}
-	expire := a.adminCredential.GetExpires()
-	duration := expire.Sub(time.Now())
-	time.AfterFunc(time.Duration(duration.Nanoseconds()/2), a.reAuth)
+}
+
+func (a *authManager) NeedSync(dat *jsonutils.JSONDict) bool {
+	return true
+}
+
+func (a *authManager) Name() string {
+	return "AuthManager"
+}
+
+func (a *authManager) reAuth() {
+	a.SyncOnce()
 }
 
 func (a *authManager) GetServiceURL(service, region, zone, endpointType string) (string, error) {
+	if endpointType == "" && globalEndpointType != "" {
+		endpointType = globalEndpointType
+	}
 	return a.adminCredential.GetServiceURL(service, region, zone, endpointType)
 }
 
 func (a *authManager) GetServiceURLs(service, region, zone, endpointType string) ([]string, error) {
+	if endpointType == "" && globalEndpointType != "" {
+		endpointType = globalEndpointType
+	}
 	return a.adminCredential.GetServiceURLs(service, region, zone, endpointType)
 }
 
@@ -226,31 +240,21 @@ func (a *authManager) isExpired() bool {
 }
 
 func (a *authManager) isAuthed() bool {
+	if a == nil {
+		return false
+	}
 	if a.adminCredential == nil || a.isExpired() {
 		return false
 	}
 	return true
 }
 
-func (a *authManager) init() error {
-	if err := a.authAdmin(); err != nil {
-		initCh <- false
-		log.Fatalf("Auth manager init err: %v", err)
-	}
-	log.Infof("Get token: %v", a.getTokenString())
-	expire := a.adminCredential.GetExpires()
-	duration := expire.Sub(time.Now())
-	time.AfterFunc(time.Duration(duration.Nanoseconds()/2), a.reAuth)
-	initCh <- true
-	return nil
-}
-
 func GetCatalogData(serviceTypes []string, region string) jsonutils.JSONObject {
 	return manager.adminCredential.GetCatalogData(serviceTypes, region)
 }
 
-func Verify(tokenId string) (mcclient.TokenCredential, error) {
-	return manager.verify(tokenId)
+func Verify(ctx context.Context, tokenId string) (mcclient.TokenCredential, error) {
+	return manager.verify(ctx, tokenId)
 }
 
 func VerifyRequest(req http.Request, virtualHost bool) (mcclient.TokenCredential, error) {
@@ -262,7 +266,7 @@ func GetServiceURL(service, region, zone, endpointType string) (string, error) {
 }
 
 func GetPublicServiceURL(service, region, zone string) (string, error) {
-	return manager.GetServiceURL(service, region, zone, PublicEndpointType)
+	return manager.GetServiceURL(service, region, zone, identity.EndpointInterfacePublic)
 }
 
 func GetServiceURLs(service, region, zone, endpointType string) ([]string, error) {
@@ -285,6 +289,7 @@ func AdminCredential() mcclient.TokenCredential {
 	return manager.adminCredential
 }
 
+// Deprecated
 func AdminSession(ctx context.Context, region, zone, endpointType, apiVersion string) *mcclient.ClientSession {
 	cli := Client()
 	if cli == nil {
@@ -296,45 +301,35 @@ func AdminSession(ctx context.Context, region, zone, endpointType, apiVersion st
 	return cli.NewSession(ctx, region, zone, endpointType, AdminCredential(), apiVersion)
 }
 
+// Deprecated
 func AdminSessionWithInternal(ctx context.Context, region, zone, apiVersion string) *mcclient.ClientSession {
 	return AdminSession(ctx, region, zone, "internal", apiVersion)
 }
 
+// Deprecated
 func AdminSessionWithPublic(ctx context.Context, region, zone, apiVersion string) *mcclient.ClientSession {
 	return AdminSession(ctx, region, zone, "public", apiVersion)
 }
 
 type AuthCompletedCallback func()
 
-func (callback *AuthCompletedCallback) Run() {
-	f := *callback
-	for {
-		initOk := <-initCh
-		if initOk && manager.isAuthed() {
-			log.V(10).Infof("Auth completed, run callback: %v", *callback)
-			f()
-			return
-		}
-		log.Warningf("Auth manager not ready, check it again...")
-	}
-}
-
 func AsyncInit(info *AuthInfo, debug, insecure bool, certFile, keyFile string, callback AuthCompletedCallback) {
 	cli := mcclient.NewClient(info.AuthUrl, defaultTimeout, debug, insecure, certFile, keyFile)
 	manager = newAuthManager(cli, info)
-	go manager.init()
-	if callback != nil {
-		go callback.Run()
+	err := manager.FirstSync()
+	if err != nil {
+		log.Fatalf("Auth manager init err: %v", err)
+	} else if callback != nil {
+		callback()
 	}
 }
 
 func Init(info *AuthInfo, debug, insecure bool, certFile, keyFile string) {
-	done := make(chan bool, 1)
-	f := func() {
-		done <- true
-	}
-	AsyncInit(info, debug, insecure, certFile, keyFile, f)
-	<-done
+	AsyncInit(info, debug, insecure, certFile, keyFile, nil)
+}
+
+func ReAuth() {
+	manager.reAuth()
 }
 
 func GetAdminSession(ctx context.Context, region string,
@@ -347,6 +342,11 @@ func GetAdminSessionWithPublic(ctx context.Context, region string,
 	return GetSessionWithPublic(ctx, manager.adminCredential, region, apiVersion)
 }
 
+func GetAdminSessionWithInternal(
+	ctx context.Context, region string, apiVersion string) *mcclient.ClientSession {
+	return GetSessionWithInternal(ctx, manager.adminCredential, region, apiVersion)
+}
+
 func GetSession(ctx context.Context, token mcclient.TokenCredential, region string, apiVersion string) *mcclient.ClientSession {
 	if len(globalEndpointType) != 0 {
 		return getSessionByType(ctx, token, region, apiVersion, globalEndpointType)
@@ -355,11 +355,11 @@ func GetSession(ctx context.Context, token mcclient.TokenCredential, region stri
 }
 
 func GetSessionWithInternal(ctx context.Context, token mcclient.TokenCredential, region string, apiVersion string) *mcclient.ClientSession {
-	return getSessionByType(ctx, token, region, apiVersion, InternalEndpointType)
+	return getSessionByType(ctx, token, region, apiVersion, identity.EndpointInterfaceInternal)
 }
 
 func GetSessionWithPublic(ctx context.Context, token mcclient.TokenCredential, region string, apiVersion string) *mcclient.ClientSession {
-	return getSessionByType(ctx, token, region, apiVersion, PublicEndpointType)
+	return getSessionByType(ctx, token, region, apiVersion, identity.EndpointInterfacePublic)
 }
 
 func getSessionByType(ctx context.Context, token mcclient.TokenCredential, region string, apiVersion string, epType string) *mcclient.ClientSession {
@@ -376,4 +376,10 @@ func InitFromClientSession(session *mcclient.ClientSession) {
 		info:            info,
 		adminCredential: token,
 	}
+
+	SetEndpointType(session.GetEndpointType())
+}
+
+func RegisterCatalogListener(listener mcclient.IServiceCatalogChangeListener) {
+	manager.client.RegisterCatalogListener(listener)
 }

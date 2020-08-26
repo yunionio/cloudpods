@@ -45,25 +45,25 @@ func (self *DBInstanceRenewTask) OnInit(ctx context.Context, obj db.IStandaloneM
 
 	exp, err := instance.GetRegion().GetDriver().RequestRenewDBInstance(instance, bc)
 	if err != nil {
-		msg := fmt.Sprintf("RequestRenewDBInstance failed %s", err)
-		log.Errorf(msg)
-		db.OpsLog.LogEvent(instance, db.ACT_REW_FAIL, msg, self.UserCred)
-		logclient.AddActionLogWithStartable(self, instance, logclient.ACT_RENEW, msg, self.UserCred, false)
-		instance.SetStatus(self.GetUserCred(), api.DBINSTANCE_RENEW_FAILED, msg)
-		self.SetStageFailed(ctx, msg)
+		// msg := fmt.Sprintf("RequestRenewDBInstance failed %s", err)
+		// log.Errorf(msg)
+		db.OpsLog.LogEvent(instance, db.ACT_REW_FAIL, err, self.UserCred)
+		logclient.AddActionLogWithStartable(self, instance, logclient.ACT_RENEW, err, self.UserCred, false)
+		instance.SetStatus(self.GetUserCred(), api.DBINSTANCE_RENEW_FAILED, err.Error())
+		self.SetStageFailed(ctx, jsonutils.Marshal(err))
 		return
 	}
 
-	err = instance.SaveRenewInfo(ctx, self.UserCred, &bc, &exp)
+	err = instance.SaveRenewInfo(ctx, self.UserCred, &bc, &exp, "")
 	if err != nil {
 		msg := fmt.Sprintf("SaveRenewInfo fail %s", err)
 		log.Errorf(msg)
-		self.SetStageFailed(ctx, msg)
+		self.SetStageFailed(ctx, jsonutils.NewString(msg))
 		return
 	}
 
 	logclient.AddActionLogWithStartable(self, instance, logclient.ACT_RENEW, nil, self.UserCred, true)
 
-	instance.StartDBInstanceSyncStatusTask(ctx, self.UserCred, nil, self.GetTaskId())
+	models.StartResourceSyncStatusTask(ctx, self.UserCred, instance, "DBInstanceSyncStatusTask", self.GetTaskId())
 	self.SetStageComplete(ctx, nil)
 }

@@ -15,52 +15,80 @@
 package openstack
 
 import (
+	"fmt"
+
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/regutils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SInstanceNic struct {
-	instance *SInstance
-	MacAddr  string `json:"OS-EXT-IPS-MAC:mac_addr"`
-	Version  int    `json:"version"`
-	Addr     string `json:"addr"`
-	Type     string `json:"OS-EXT-IPS:type"`
+	MacAddr string `json:"OS-EXT-IPS-MAC:mac_addr"`
+	Version int    `json:"version"`
+	Addr    string `json:"addr"`
+	Type    string `json:"OS-EXT-IPS:type"`
 }
 
-func (nic *SInstanceNic) GetIP() string {
-	return nic.Addr
+type SFixedIp struct {
+	IpAddress string
+	SubnetId  string
 }
 
-func (nic *SInstanceNic) GetMAC() string {
+type SInstancePort struct {
+	region    *SRegion
+	FixedIps  []SFixedIp
+	MacAddr   string
+	NetId     string
+	PortId    string
+	PortState string
+}
+
+func (region *SRegion) GetInstancePorts(instanceId string) ([]SInstancePort, error) {
+	resource := fmt.Sprintf("/servers/%s/os-interface", instanceId)
+	resp, err := region.ecsList(resource, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "ecsList")
+	}
+	ports := []SInstancePort{}
+	err = resp.Unmarshal(&ports, "interfaceAttachments")
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return ports, nil
+}
+
+func (nic *SInstancePort) GetIP() string {
+	for i := range nic.FixedIps {
+		if regutils.MatchIPAddr(nic.FixedIps[i].IpAddress) {
+			return nic.FixedIps[i].IpAddress
+		}
+	}
+	return ""
+}
+
+func (nic *SInstancePort) GetMAC() string {
 	return nic.MacAddr
 }
 
-func (nic *SInstanceNic) GetDriver() string {
+func (nic *SInstancePort) GetDriver() string {
 	return "virtio"
 }
 
-func (nic *SInstanceNic) GetINetwork() cloudprovider.ICloudNetwork {
-	ports, err := nic.instance.host.zone.region.GetPorts(nic.MacAddr)
-	if err == nil {
-		for i := 0; i < len(ports); i++ {
-			for j := 0; j < len(ports[i].FixedIps); j++ {
-				if ports[i].FixedIps[j].IpAddress == nic.Addr {
-					network, err := nic.instance.host.zone.region.GetNetwork(ports[i].FixedIps[j].SubnetID)
-					if err != nil {
-						return nil
-					}
-					wires, err := nic.instance.host.zone.GetIWires()
-					if err != nil {
-						return nil
-					}
-					for k := 0; k < len(wires); k++ {
-						wire := wires[k].(*SWire)
-						if net, _ := wire.GetINetworkById(network.ID); net != nil {
-							return net
-						}
-					}
-					return nil
-				}
+func (nic *SInstancePort) InClassicNetwork() bool {
+	return false
+}
+
+func (nic *SInstancePort) GetINetwork() cloudprovider.ICloudNetwork {
+	for i := range nic.FixedIps {
+		if regutils.MatchIPAddr(nic.FixedIps[i].IpAddress) {
+			network, err := nic.region.GetNetwork(nic.FixedIps[i].SubnetId)
+			if err != nil {
+				log.Errorf("failed to found network by %s error: %v", nic.FixedIps[i].SubnetId, err)
+				return nil
 			}
+			return network
 		}
 	}
 	return nil

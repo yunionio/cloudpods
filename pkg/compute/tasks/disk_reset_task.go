@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -37,13 +38,29 @@ func init() {
 	taskman.RegisterTask(DiskCleanUpSnapshotsTask{})
 }
 
-func (self *DiskResetTask) TaskFailed(ctx context.Context, disk *models.SDisk, reason string) {
+func (self *DiskResetTask) getSnapshot() (*models.SSnapshot, error) {
+	snapshotId, err := self.Params.GetString("snapshot_id")
+	if err != nil {
+		return nil, errors.Wrap(err, "Get snapshotId")
+	}
+	snapshot, err := models.SnapshotManager.FetchById(snapshotId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "SnapshotManager.FetchById(%s)", snapshotId)
+	}
+	return snapshot.(*models.SSnapshot), nil
+}
+
+func (self *DiskResetTask) TaskFailed(ctx context.Context, disk *models.SDisk, reason error) {
 	disk.SetStatus(self.UserCred, api.DISK_READY, "")
 	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_RESET_DISK, reason, self.UserCred, false)
-	self.SetStageFailed(ctx, reason)
+	snapshot, _ := self.getSnapshot()
+	if snapshot != nil {
+		logclient.AddActionLogWithStartable(self, snapshot, logclient.ACT_RESET_DISK, reason, self.UserCred, false)
+	}
+	self.SetStageFailed(ctx, jsonutils.Marshal(reason))
 	guests := disk.GetGuests()
 	if len(guests) == 1 {
-		guests[0].SetStatus(self.UserCred, api.VM_DISK_RESET_FAIL, reason)
+		guests[0].SetStatus(self.UserCred, api.VM_DISK_RESET_FAIL, reason.Error())
 	}
 }
 
@@ -63,6 +80,10 @@ func (self *DiskResetTask) TaskCompleted(ctx context.Context, disk *models.SDisk
 			data = jsonutils.NewDict()
 		}
 		logclient.AddActionLogWithStartable(self, disk, logclient.ACT_RESET_DISK, data, self.UserCred, true)
+		snapshot, _ := self.getSnapshot()
+		if snapshot != nil {
+			logclient.AddActionLogWithStartable(self, snapshot, logclient.ACT_RESET_DISK, data, self.UserCred, true)
+		}
 		self.SetStageComplete(ctx, data)
 	}
 }
@@ -72,6 +93,10 @@ func (self *DiskResetTask) OnStartGuest(ctx context.Context, disk *models.SDisk,
 		data = jsonutils.NewDict()
 	}
 	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_RESET_DISK, data, self.UserCred, true)
+	snapshot, _ := self.getSnapshot()
+	if snapshot != nil {
+		logclient.AddActionLogWithStartable(self, snapshot, logclient.ACT_RESET_DISK, data, self.UserCred, true)
+	}
 	self.SetStageComplete(ctx, nil)
 }
 
@@ -79,47 +104,46 @@ func (self *DiskResetTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 	disk := obj.(*models.SDisk)
 	storage := disk.GetStorage()
 	if storage == nil {
-		self.TaskFailed(ctx, disk, "Disk storage not found")
+		self.TaskFailed(ctx, disk, fmt.Errorf("Disk storage not found"))
 		return
 	}
 	host := storage.GetMasterHost()
 	if host == nil {
-		self.TaskFailed(ctx, disk, "Storage master host not found")
+		self.TaskFailed(ctx, disk, fmt.Errorf("Storage master host not found"))
 		return
 	}
 	self.RequestResetDisk(ctx, disk, host)
 }
 
 func (self *DiskResetTask) RequestResetDisk(ctx context.Context, disk *models.SDisk, host *models.SHost) {
-	snapshotId, err := self.Params.GetString("snapshot_id")
+	snapshot, err := self.getSnapshot()
 	if err != nil {
-		self.TaskFailed(ctx, disk, fmt.Sprintf("Get snapshotId error %s", err.Error()))
+		self.TaskFailed(ctx, disk, errors.Wrap(err, "getSnapshot"))
 		return
 	}
-	iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
-	snapshot := iSnapshot.(*models.SSnapshot)
 	params := snapshot.GetRegionDriver().GetDiskResetParams(snapshot)
 
 	self.SetStage("OnRequestResetDisk", nil)
 	err = host.GetHostDriver().RequestResetDisk(ctx, host, disk, params, self)
 	if err != nil {
-		self.TaskFailed(ctx, disk, err.Error())
+		self.TaskFailed(ctx, disk, errors.Wrap(err, "RequestResetDisk"))
 	}
 }
 
 func (self *DiskResetTask) OnRequestResetDiskFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
-	self.TaskFailed(ctx, disk, data.String())
+	self.TaskFailed(ctx, disk, fmt.Errorf(data.String()))
 }
 
 func (self *DiskResetTask) OnRequestResetDisk(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
-	snapshotId, _ := self.Params.GetString("snapshot_id")
-	iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
-	snapshot := iSnapshot.(*models.SSnapshot)
-
-	err := snapshot.GetRegionDriver().OnDiskReset(ctx, self.UserCred, disk, snapshot, data)
+	snapshot, err := self.getSnapshot()
 	if err != nil {
-		log.Errorln(err)
-		self.TaskFailed(ctx, disk, fmt.Sprintf("OnRequestResetDisk %s", err.Error()))
+		self.TaskFailed(ctx, disk, errors.Wrap(err, "getSnapshot"))
+		return
+	}
+
+	err = snapshot.GetRegionDriver().OnDiskReset(ctx, self.UserCred, disk, snapshot, data)
+	if err != nil {
+		self.TaskFailed(ctx, disk, errors.Wrap(err, "OnDiskReset"))
 		return
 	}
 
@@ -144,13 +168,13 @@ func (self *DiskCleanUpSnapshotsTask) StartCleanUpSnapshots(ctx context.Context,
 	if len(guests) == 1 {
 		host = guests[0].GetHost()
 	} else {
-		self.SetStageFailed(ctx, "Disk can't get guest")
+		self.SetStageFailed(ctx, jsonutils.NewString("Disk can't get guest"))
 		return
 	}
 	self.SetStage("OnCleanUpSnapshots", nil)
 	err := host.GetHostDriver().RequestCleanUpDiskSnapshots(ctx, host, disk, self.Params, self)
 	if err != nil {
-		self.SetStageFailed(ctx, err.Error())
+		self.SetStageFailed(ctx, jsonutils.Marshal(err))
 	}
 }
 
@@ -184,6 +208,6 @@ func (self *DiskCleanUpSnapshotsTask) OnCleanUpSnapshots(ctx context.Context, di
 }
 
 func (self *DiskCleanUpSnapshotsTask) OnCleanUpSnapshotsFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
-	db.OpsLog.LogEvent(disk, db.ACT_DISK_CLEAN_UP_SNAPSHOTS_FAIL, data.String(), self.UserCred)
-	self.SetStageFailed(ctx, data.String())
+	db.OpsLog.LogEvent(disk, db.ACT_DISK_CLEAN_UP_SNAPSHOTS_FAIL, data, self.UserCred)
+	self.SetStageFailed(ctx, data)
 }

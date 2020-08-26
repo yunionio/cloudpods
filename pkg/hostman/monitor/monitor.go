@@ -73,6 +73,9 @@ type Monitor interface {
 	ResizeDisk(driveName string, sizeMB int64, callback StringCallback)
 	BlockIoThrottle(driveName string, bps, iops int64, callback StringCallback)
 	CancelBlockJob(driveName string, force bool, callback StringCallback)
+
+	NetdevAdd(id, netType string, params map[string]string, callback StringCallback)
+	NetdevDel(id string, callback StringCallback)
 }
 
 type MonitorErrorFunc func(error)

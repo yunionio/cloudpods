@@ -17,16 +17,21 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
@@ -50,10 +55,11 @@ func (self *SAzureGuestDriver) GetProvider() string {
 
 func (self *SAzureGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
 	keys := models.SComputeResourceKeys{}
-	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
+	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_PUBLIC_CLOUD
 	keys.Provider = api.CLOUD_PROVIDER_AZURE
-	// ignore brand
+	keys.Brand = api.CLOUD_PROVIDER_AZURE
+	keys.Hypervisor = api.HYPERVISOR_AZURE
 	return keys
 }
 
@@ -93,7 +99,11 @@ func (self *SAzureGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
-func (self *SAzureGuestDriver) GetChangeConfigStatus() ([]string, error) {
+func (self *SAzureGuestDriver) IsRebuildRootSupportChangeUEFI() bool {
+	return false
+}
+
+func (self *SAzureGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
@@ -114,6 +124,30 @@ func (self *SAzureGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *mo
 	return nil
 }
 
+func (self *SAzureGuestDriver) ValidateImage(ctx context.Context, image *cloudprovider.SImage) error {
+	if len(image.ExternalId) == 0 {
+		s := auth.GetAdminSession(ctx, options.Options.Region, "")
+		result, err := modules.Images.GetSpecific(s, image.Id, "subformats", nil)
+		if err != nil {
+			return errors.Wrap(err, "get subformats")
+		}
+		subFormats := []struct {
+			Format string
+		}{}
+		err = result.Unmarshal(&subFormats)
+		if err != nil {
+			return errors.Wrap(err, "Unmarshal subformats")
+		}
+		for i := range subFormats {
+			if subFormats[i].Format == "vhd" {
+				return nil
+			}
+		}
+		return httperrors.NewResourceNotFoundError("failed to find subformat vhd for image %s, please append 'vhd' for glance options(target_image_formats)", image.Name)
+	}
+	return nil
+}
+
 func (self *SAzureGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
 	input, err := self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, input)
 	if err != nil {
@@ -121,6 +155,54 @@ func (self *SAzureGuestDriver) ValidateCreateData(ctx context.Context, userCred 
 	}
 	if len(input.Networks) > 2 {
 		return nil, httperrors.NewInputParameterError("cannot support more than 1 nic")
+	}
+	if len(input.Disks) > 0 && len(input.Disks[0].ImageId) > 0 {
+		_image, err := models.CachedimageManager.FetchById(input.Disks[0].ImageId)
+		if err != nil {
+			return nil, errors.Wrap(err, "FetchById")
+		}
+
+		cachedimage := _image.(*models.SCachedimage)
+		image, err := cachedimage.GetImage()
+		if err != nil {
+			return nil, errors.Wrap(err, "GetImage")
+		}
+
+		err = self.ValidateImage(ctx, image)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(image.ExternalId) > 0 && len(input.InstanceType) > 0 {
+			if cachedimage.UEFI.IsFalse() {
+				if strings.HasPrefix(input.InstanceType, "Standard_M") && strings.HasSuffix(input.InstanceType, "v2") {
+					return nil, httperrors.NewNotSupportedError("Azure Mv2-series instance sku only support UEFI image")
+				}
+			} else {
+				// https://docs.microsoft.com/en-us/azure/virtual-machines/windows/generation-2
+				if !(strings.HasPrefix(input.InstanceType, "Standard_B") || // B-series
+					(strings.HasPrefix(input.InstanceType, "Standard_DC") && strings.HasSuffix(input.InstanceType, "s_v2") || input.InstanceType == "Standard_DC8_v2") || // DCsv2-series
+					(strings.HasPrefix(input.InstanceType, "Standard_DS") && strings.HasSuffix(input.InstanceType, "v2")) || // DSv2-series
+					(strings.HasPrefix(input.InstanceType, "Standard_DS") && strings.HasSuffix(input.InstanceType, "s_v3")) || // Dsv3-series
+					(strings.HasPrefix(input.InstanceType, "Standard_D") && strings.HasSuffix(input.InstanceType, "as_v4")) || // Dasv4-series
+					(strings.HasPrefix(input.InstanceType, "Standard_E") && strings.HasSuffix(input.InstanceType, "s_v3")) || // Esv3-series
+					(strings.HasPrefix(input.InstanceType, "Standard_E") && strings.HasSuffix(input.InstanceType, "as_v4")) || // Easv4-series
+					(strings.HasPrefix(input.InstanceType, "Standard_F") && strings.HasSuffix(input.InstanceType, "s_v2")) || // Fsv2-series
+					(strings.HasPrefix(input.InstanceType, "Standard_GS")) || // GS-series
+					(strings.HasPrefix(input.InstanceType, "Standard_HB")) || // HB-series
+					(strings.HasPrefix(input.InstanceType, "Standard_HC")) || // HC-series
+					(strings.HasPrefix(input.InstanceType, "Standard_L") && strings.HasSuffix(input.InstanceType, "s")) || // Ls-series
+					(strings.HasPrefix(input.InstanceType, "Standard_L") && strings.HasSuffix(input.InstanceType, "s_v2")) || // Ls-series
+					(strings.HasPrefix(input.InstanceType, "Standard_M")) || // M-series
+					(strings.HasPrefix(input.InstanceType, "Standard_M") && strings.HasSuffix(input.InstanceType, "s_v2")) || // Mv2-series
+					(strings.HasPrefix(input.InstanceType, "Standard_NC") && strings.HasSuffix(input.InstanceType, "s_v2")) || // NCv2-series
+					(strings.HasPrefix(input.InstanceType, "Standard_NC") && strings.HasSuffix(input.InstanceType, "s_v3")) || // NCv3-series
+					(strings.HasPrefix(input.InstanceType, "Standard_ND")) || // ND-series
+					(strings.HasPrefix(input.InstanceType, "Standard_NV") && strings.HasSuffix(input.InstanceType, "s_v3"))) { // NVv3-series
+					return nil, httperrors.NewUnsupportOperationError("Azure UEFI image %s not support this instance sku", image.Name)
+				}
+			}
+		}
 	}
 	return input, nil
 }
@@ -145,9 +227,5 @@ func (self *SAzureGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManage
 }
 
 func (self *SAzureGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) bool {
-	return false
-}
-
-func (self *SAzureGuestDriver) NeedStopForChangeSpec(guest *models.SGuest, cpuChanged, memChanged bool) bool {
 	return false
 }

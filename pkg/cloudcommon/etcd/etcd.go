@@ -17,19 +17,21 @@ package etcd
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"time"
 
 	"go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/mvcc/mvccpb"
+	"google.golang.org/grpc"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 var (
-	ErrNoSuchKey = errors.New("No such key")
+	ErrNoSuchKey = errors.Error("No such key")
 )
 
 type SEtcdClient struct {
@@ -39,24 +41,43 @@ type SEtcdClient struct {
 
 	namespace string
 
-	leaseId clientv3.LeaseID
+	leaseId            clientv3.LeaseID
+	onKeepaliveFailure func()
+	leaseLiving        bool
 
 	watchers map[string]*SEtcdWatcher
 }
 
-func NewEtcdClient(opt *SEtcdOptions) (*SEtcdClient, error) {
+func defaultOnKeepAliveFailed() {
+	log.Fatalf("etcd keepalive failed")
+}
+
+func NewEtcdClient(opt *SEtcdOptions, onKeepaliveFailure func()) (*SEtcdClient, error) {
 	var err error
 	var tlsConfig *tls.Config
 
 	if opt.EtcdEnabldSsl {
-		tlsConfig, err = seclib2.InitTLSConfig(opt.EtcdSslCertfile, opt.EtcdSslKeyfile)
-		if err != nil {
-			log.Errorf("init tls config fail %s", err)
-			return nil, err
+		if opt.TLSConfig == nil {
+			if len(opt.EtcdSslCaCertfile) > 0 {
+				tlsConfig, err = seclib2.InitTLSConfigWithCA(
+					opt.EtcdSslCertfile, opt.EtcdSslKeyfile, opt.EtcdSslCaCertfile)
+			} else {
+				tlsConfig, err = seclib2.InitTLSConfig(opt.EtcdSslCertfile, opt.EtcdSslKeyfile)
+			}
+			if err != nil {
+				log.Errorf("init tls config fail %s", err)
+				return nil, err
+			}
+		} else {
+			tlsConfig = opt.TLSConfig
 		}
 	}
 
 	etcdClient := &SEtcdClient{}
+	if onKeepaliveFailure == nil {
+		onKeepaliveFailure = defaultOnKeepAliveFailed
+	}
+	etcdClient.onKeepaliveFailure = onKeepaliveFailure
 
 	timeoutSeconds := opt.EtcdTimeoutSeconds
 	if timeoutSeconds == 0 {
@@ -69,6 +90,10 @@ func NewEtcdClient(opt *SEtcdOptions) (*SEtcdClient, error) {
 		Username:    opt.EtcdUsername,
 		Password:    opt.EtcdPassword,
 		TLS:         tlsConfig,
+
+		DialOptions: []grpc.DialOption{
+			grpc.WithBlock(),
+		},
 	})
 	if err != nil {
 		return nil, err
@@ -95,7 +120,9 @@ func NewEtcdClient(opt *SEtcdOptions) (*SEtcdClient, error) {
 
 	err = etcdClient.startSession()
 	if err != nil {
-		etcdClient.Close()
+		if e := etcdClient.Close(); e != nil {
+			log.Errorf("etcd client close failed %s", e)
+		}
 		return nil, err
 	}
 	return etcdClient, nil
@@ -129,19 +156,29 @@ func (cli *SEtcdClient) startSession() error {
 	if err != nil {
 		return err
 	}
+	cli.leaseLiving = true
 
 	go func() {
 		for {
-			ka := <-ch
-			if ka == nil {
-				log.Fatalf("fail to keepalive")
-			} else {
-				log.Debugf("etcd session %d keepalive ttl: %d", ka.ID, ka.TTL)
+			if _, ok := <-ch; !ok {
+				cli.leaseLiving = false
+				log.Errorf("fail to keepalive session")
+				if cli.onKeepaliveFailure != nil {
+					cli.onKeepaliveFailure()
+				}
+				break
 			}
 		}
 	}()
 
 	return nil
+}
+
+func (cli *SEtcdClient) RestartSession() error {
+	if cli.leaseLiving {
+		return errors.Error("session is living, can't restart")
+	}
+	return cli.startSession()
 }
 
 func (cli *SEtcdClient) getKey(key string) string {
@@ -158,6 +195,34 @@ func (cli *SEtcdClient) Put(ctx context.Context, key string, val string) error {
 
 func (cli *SEtcdClient) PutSession(ctx context.Context, key string, val string) error {
 	return cli.put(ctx, key, val, true)
+}
+
+func (cli *SEtcdClient) grantLease(ctx context.Context, ttlSeconds int64) (*clientv3.LeaseGrantResponse, error) {
+	nctx, cancel := context.WithTimeout(ctx, cli.requestTimeout)
+	defer cancel()
+	resp, err := cli.client.Grant(nctx, ttlSeconds)
+	if err != nil {
+		return nil, errors.Wrap(err, "grant lease")
+	}
+	return resp, err
+}
+
+func (cli *SEtcdClient) PutWithLease(ctx context.Context, key string, val string, ttlSeconds int64) error {
+	resp, err := cli.grantLease(ctx, ttlSeconds)
+	if err != nil {
+		return errors.Wrap(err, "put with grant lease")
+	}
+
+	nctx, cancel := context.WithTimeout(ctx, cli.requestTimeout)
+	defer cancel()
+
+	key = cli.getKey(key)
+	leaseId := resp.ID
+	opts := []clientv3.OpOption{
+		clientv3.WithLease(leaseId),
+	}
+	_, err = cli.client.Put(nctx, key, val, opts...)
+	return err
 }
 
 func (cli *SEtcdClient) put(ctx context.Context, key string, val string, session bool) error {
@@ -217,8 +282,9 @@ func (cli *SEtcdClient) List(ctx context.Context, prefix string) ([]SEtcdKeyValu
 	return ret, nil
 }
 
-type TEtcdCreateEventFunc func(key, value []byte)
-type TEtcdModifyEventFunc func(key, oldvalue, value []byte)
+type TEtcdCreateEventFunc func(ctx context.Context, key, value []byte)
+type TEtcdModifyEventFunc func(ctx context.Context, key, oldvalue, value []byte)
+type TEtcdDeleteEventFunc func(ctx context.Context, key []byte)
 
 type SEtcdWatcher struct {
 	watcher clientv3.Watcher
@@ -230,10 +296,15 @@ func (w *SEtcdWatcher) Cancel() {
 	w.cancel()
 }
 
-func (cli *SEtcdClient) Watch(ctx context.Context, prefix string, onCreate TEtcdCreateEventFunc, onModify TEtcdModifyEventFunc) {
+func (cli *SEtcdClient) Watch(
+	ctx context.Context, prefix string,
+	onCreate TEtcdCreateEventFunc,
+	onModify TEtcdModifyEventFunc,
+	onDelete TEtcdDeleteEventFunc,
+) error {
 	_, ok := cli.watchers[prefix]
 	if ok {
-		return
+		return errors.Errorf("watch prefix %s already registered", prefix)
 	}
 
 	watcher := clientv3.NewWatcher(cli.client)
@@ -250,15 +321,24 @@ func (cli *SEtcdClient) Watch(ctx context.Context, prefix string, onCreate TEtcd
 	go func() {
 		for wresp := range rch {
 			for _, ev := range wresp.Events {
+				key := ev.Kv.Key[len(cli.namespace):]
 				if ev.PrevKv == nil {
-					onCreate(ev.Kv.Key[len(cli.namespace):], ev.Kv.Value)
+					onCreate(nctx, key, ev.Kv.Value)
 				} else {
-					onModify(ev.Kv.Key[len(cli.namespace):], ev.PrevKv.Value, ev.Kv.Value)
+					switch ev.Type {
+					case mvccpb.PUT:
+						onModify(nctx, key, ev.PrevKv.Value, ev.Kv.Value)
+					case mvccpb.DELETE:
+						if onDelete != nil {
+							onDelete(nctx, key)
+						}
+					}
 				}
 			}
 		}
 		log.Infof("stop watching %s", prefix)
 	}()
+	return nil
 }
 
 func (cli *SEtcdClient) Unwatch(prefix string) {

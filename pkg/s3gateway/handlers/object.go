@@ -79,7 +79,7 @@ func uploadObject(ctx context.Context, userCred mcclient.TokenCredential, bucket
 	}
 	respHdr := http.Header{}
 	if len(uploadId) > 0 {
-		etag, err := iBucket.UploadPart(ctx, key, uploadId, partNumber, body, contLen)
+		etag, err := iBucket.UploadPart(ctx, key, uploadId, partNumber, body, contLen, 0, 0)
 		if err != nil {
 			return nil, errors.Wrap(err, "iBucket.UploadPart")
 		}

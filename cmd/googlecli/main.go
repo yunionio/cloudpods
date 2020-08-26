@@ -18,22 +18,26 @@ import (
 	"fmt"
 	"os"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/structarg"
 
 	"yunion.io/x/onecloud/pkg/multicloud/google"
 	_ "yunion.io/x/onecloud/pkg/multicloud/google/shell"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 type BaseOptions struct {
 	Debug        bool   `help:"debug mode"`
 	Help         bool   `help:"Show help"`
-	ClientEmail  string `help:"Client email" default:"$GOOGLE_CLIENT_EMAIL"`
-	ProjectID    string `help:"Project ID" default:"$GOOGLE_PROJECT_ID"`
-	PrivateKeyID string `help:"Private Key ID" default:"$GOOGLE_PRIVATE_KEY_ID"`
-	PrivateKey   string `help:"Private Key" default:"$GOOGLE_PRIVATE_KEY"`
-	RegionID     string `help:"RegionID" default:"$GOOGLE_REGION"`
+	AuthFile     string `help:"google cloud auth json file path" default:"$GOOGLE_AUTH_FILE" metavar:"GOOGLE_AUTH_FILE"`
+	ClientEmail  string `help:"Client email" default:"$GOOGLE_CLIENT_EMAIL" metavar:"GOOGLE_CLIENT_EMAIL"`
+	ProjectID    string `help:"Project ID" default:"$GOOGLE_PROJECT_ID" metavar:"GOOGLE_PROJECT_ID"`
+	PrivateKeyID string `help:"Private Key ID" default:"$GOOGLE_PRIVATE_KEY_ID" metavar:"GOOGLE_PRIVATE_KEY_ID"`
+	PrivateKey   string `help:"Private Key" default:"$GOOGLE_PRIVATE_KEY" metavar:"GOOGLE_PRIVATE_KEY"`
+	RegionID     string `help:"RegionID" default:"$GOOGLE_REGION" metavar:"GOOGLE_REGION"`
 	SUBCOMMAND   string `help:"googlecli subcommand" subcommand:"true"`
 }
 
@@ -78,6 +82,20 @@ func showErrorAndExit(e error) {
 }
 
 func newClient(options *BaseOptions) (*google.SRegion, error) {
+	if len(options.AuthFile) > 0 {
+		jsonStr, err := fileutils2.FileGetContents(options.AuthFile)
+		if err != nil {
+			return nil, errors.Wrap(err, "FileGetContents")
+		}
+		jsonCfg, err := jsonutils.ParseString(jsonStr)
+		if err != nil {
+			return nil, errors.Wrap(err, "jsonutils.ParseString")
+		}
+		options.ClientEmail, _ = jsonCfg.GetString("client_email")
+		options.PrivateKeyID, _ = jsonCfg.GetString("private_key_id")
+		options.PrivateKey, _ = jsonCfg.GetString("private_key")
+		options.ProjectID, _ = jsonCfg.GetString("project_id")
+	}
 	if len(options.ClientEmail) == 0 {
 		return nil, fmt.Errorf("Missing ClientEmail")
 	}
@@ -94,7 +112,14 @@ func newClient(options *BaseOptions) (*google.SRegion, error) {
 		return nil, fmt.Errorf("Missing ProjectID")
 	}
 
-	cli, err := google.NewGoogleClient("", "", options.ProjectID, options.ClientEmail, options.PrivateKeyID, options.PrivateKey, options.Debug)
+	cli, err := google.NewGoogleClient(
+		google.NewGoogleClientConfig(
+			options.ProjectID,
+			options.ClientEmail,
+			options.PrivateKeyID,
+			options.PrivateKey,
+		).Debug(options.Debug),
+	)
 	if err != nil {
 		return nil, err
 	}

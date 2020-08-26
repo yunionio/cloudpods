@@ -267,10 +267,10 @@ func TestParseNicInfo(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ParseNicInfo(tt.args.lines)
-			gotJson := jsonutils.Marshal(got).String()
-			wantJson := jsonutils.Marshal(tt.want).String()
-			if gotJson != wantJson {
-				t.Errorf("ParseNicInfo() = %s, want %s", gotJson, wantJson)
+			gotJson := jsonutils.Marshal(got)
+			wantJson := jsonutils.Marshal(tt.want)
+			if !gotJson.Equals(wantJson) {
+				t.Errorf("got:\n%s\nwant:\n%s", gotJson, wantJson)
 			}
 		})
 	}

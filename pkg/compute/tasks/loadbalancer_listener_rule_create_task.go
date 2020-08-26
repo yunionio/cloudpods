@@ -42,6 +42,8 @@ func getOnPrepareLoadbalancerBackendgroupFunc(provider string) func(ctx context.
 		return onHuaiweiPrepareLoadbalancerBackendgroup
 	case api.CLOUD_PROVIDER_AWS:
 		return onAwsPrepareLoadbalancerBackendgroup
+	case api.CLOUD_PROVIDER_OPENSTACK:
+		return onOpenstackPrepareLoadbalancerBackendgroup
 	default:
 		return onPrepareLoadbalancerBackendgroup
 	}
@@ -55,13 +57,13 @@ func onPrepareLoadbalancerBackendgroup(ctx context.Context, region *models.SClou
 func onHuaiweiPrepareLoadbalancerBackendgroup(ctx context.Context, region *models.SCloudregion, lbr *models.SLoadbalancerListenerRule, data jsonutils.JSONObject, self *LoadbalancerListenerRuleCreateTask) {
 	lbbg := lbr.GetLoadbalancerBackendGroup()
 	if lbbg == nil {
-		self.taskFail(ctx, lbr, "huawei loadbalancer listener rule releated backend group not found")
+		self.taskFail(ctx, lbr, jsonutils.NewString("huawei loadbalancer listener rule releated backend group not found"))
 		return
 	}
 
 	lblis := lbr.GetLoadbalancerListener()
 	if lblis == nil {
-		self.taskFail(ctx, lbr, "huawei loadbalancer listener rule releated listener not found")
+		self.taskFail(ctx, lbr, jsonutils.NewString("huawei loadbalancer listener rule releated listener not found"))
 		return
 	}
 
@@ -71,19 +73,19 @@ func onHuaiweiPrepareLoadbalancerBackendgroup(ctx context.Context, region *model
 	if group != nil {
 		ilbbg, err := group.GetICloudLoadbalancerBackendGroup()
 		if err != nil {
-			self.taskFail(ctx, lbr, err.Error())
+			self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
 			return
 		}
 
 		groupParams, err := lbbg.GetHuaweiBackendGroupParams(lblis, lbr)
 		if err != nil {
-			self.taskFail(ctx, lbr, err.Error())
+			self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
 			return
 		}
 		groupParams.ListenerID = ""
 		// 服务器组已经存在，直接同步即可
-		if err := ilbbg.Sync(groupParams); err != nil {
-			self.taskFail(ctx, lbr, err.Error())
+		if err := ilbbg.Sync(ctx, groupParams); err != nil {
+			self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
 			return
 		} else {
 			group.SetModelManager(models.HuaweiCachedLbbgManager, group)
@@ -92,7 +94,7 @@ func onHuaiweiPrepareLoadbalancerBackendgroup(ctx context.Context, region *model
 				group.AssociatedType = api.LB_ASSOCIATE_TYPE_RULE
 				return nil
 			}); err != nil {
-				self.taskFail(ctx, lbr, err.Error())
+				self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
 				return
 			}
 
@@ -108,19 +110,19 @@ func onHuaiweiPrepareLoadbalancerBackendgroup(ctx context.Context, region *model
 func onAwsPrepareLoadbalancerBackendgroup(ctx context.Context, region *models.SCloudregion, lbr *models.SLoadbalancerListenerRule, data jsonutils.JSONObject, self *LoadbalancerListenerRuleCreateTask) {
 	lbbg := lbr.GetLoadbalancerBackendGroup()
 	if lbbg == nil {
-		self.taskFail(ctx, lbr, "aws loadbalancer listener rule releated backend group not found")
+		self.taskFail(ctx, lbr, jsonutils.NewString("aws loadbalancer listener rule releated backend group not found"))
 		return
 	}
 
 	lblis := lbr.GetLoadbalancerListener()
 	if lblis == nil {
-		self.taskFail(ctx, lbr, "aws loadbalancer listener rule releated listener not found")
+		self.taskFail(ctx, lbr, jsonutils.NewString("aws loadbalancer listener rule releated listener not found"))
 		return
 	}
 
 	params, err := lbbg.GetAwsBackendGroupParams(lblis, lbr)
 	if err != nil {
-		self.taskFail(ctx, lbr, err.Error())
+		self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
 		return
 	}
 
@@ -128,13 +130,13 @@ func onAwsPrepareLoadbalancerBackendgroup(ctx context.Context, region *models.SC
 	if group != nil {
 		ilbbg, err := group.GetICloudLoadbalancerBackendGroup()
 		if err != nil {
-			self.taskFail(ctx, lbr, err.Error())
+			self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
 			return
 		}
 
 		// 服务器组已经存在，直接同步即可
-		if err := ilbbg.Sync(params); err != nil {
-			self.taskFail(ctx, lbr, err.Error())
+		if err := ilbbg.Sync(ctx, params); err != nil {
+			self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
 			return
 		}
 
@@ -147,11 +149,64 @@ func onAwsPrepareLoadbalancerBackendgroup(ctx context.Context, region *models.SC
 	}
 }
 
-func (self *LoadbalancerListenerRuleCreateTask) taskFail(ctx context.Context, lbr *models.SLoadbalancerListenerRule, reason string) {
-	lbr.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, reason)
+func onOpenstackPrepareLoadbalancerBackendgroup(ctx context.Context, region *models.SCloudregion, lbr *models.SLoadbalancerListenerRule, data jsonutils.JSONObject, self *LoadbalancerListenerRuleCreateTask) {
+	lbbg := lbr.GetLoadbalancerBackendGroup()
+	if lbbg == nil {
+		self.taskFail(ctx, lbr, jsonutils.NewString("openstack loadbalancer listener rule releated backend group not found"))
+		return
+	}
+
+	lblis := lbr.GetLoadbalancerListener()
+	if lblis == nil {
+		self.taskFail(ctx, lbr, jsonutils.NewString("openstack loadbalancer listener rule releated listener not found"))
+		return
+	}
+
+	params := jsonutils.NewDict()
+	params.Set("ruleId", jsonutils.NewString(lbr.GetId()))
+	group, _ := models.OpenstackCachedLbbgManager.GetCachedBackendGroupByAssociateId(lbr.GetId())
+	if group != nil {
+		ilbbg, err := group.GetICloudLoadbalancerBackendGroup()
+		if err != nil {
+			self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
+			return
+		}
+
+		groupParams, err := lbbg.GetOpenstackBackendGroupParams(lblis, lbr)
+		if err != nil {
+			self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
+			return
+		}
+		groupParams.ListenerID = ""
+		// 服务器组已经存在，直接同步即可
+		if err := ilbbg.Sync(ctx, groupParams); err != nil {
+			self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
+			return
+		} else {
+			group.SetModelManager(models.OpenstackCachedLbbgManager, group)
+			if _, err := db.UpdateWithLock(ctx, group, func() error {
+				group.AssociatedId = lbr.GetId()
+				group.AssociatedType = api.LB_ASSOCIATE_TYPE_RULE
+				return nil
+			}); err != nil {
+				self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
+				return
+			}
+
+			self.OnCreateLoadbalancerListenerRule(ctx, lbr, data)
+		}
+	} else {
+		// 服务器组不存在
+		self.SetStage("OnCreateLoadbalancerListenerRule", nil)
+		lbbg.StartOpenstackLoadBalancerBackendGroupCreateTask(ctx, self.GetUserCred(), params, self.GetTaskId())
+	}
+}
+
+func (self *LoadbalancerListenerRuleCreateTask) taskFail(ctx context.Context, lbr *models.SLoadbalancerListenerRule, reason jsonutils.JSONObject) {
+	lbr.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, reason.String())
 	db.OpsLog.LogEvent(lbr, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbr, logclient.ACT_CREATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lbr.Id, lbr.Name, api.LB_CREATE_FAILED, reason)
+	notifyclient.NotifySystemError(lbr.Id, lbr.Name, api.LB_CREATE_FAILED, reason.String())
 	lblis := lbr.GetLoadbalancerListener()
 	if lblis != nil {
 		logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_LB_ADD_LISTENER_RULE, reason, self.UserCred, false)
@@ -163,7 +218,7 @@ func (self *LoadbalancerListenerRuleCreateTask) OnInit(ctx context.Context, obj 
 	lbr := obj.(*models.SLoadbalancerListenerRule)
 	region := lbr.GetRegion()
 	if region == nil {
-		self.taskFail(ctx, lbr, fmt.Sprintf("failed to find region for lbr %s", lbr.Name))
+		self.taskFail(ctx, lbr, jsonutils.NewString(fmt.Sprintf("failed to find region for lbr %s", lbr.Name)))
 		return
 	}
 
@@ -178,17 +233,17 @@ func (self *LoadbalancerListenerRuleCreateTask) OnPrepareLoadbalancerBackendgrou
 func (self *LoadbalancerListenerRuleCreateTask) OnCreateLoadbalancerListenerRule(ctx context.Context, lbr *models.SLoadbalancerListenerRule, data jsonutils.JSONObject) {
 	region := lbr.GetRegion()
 	if region == nil {
-		self.taskFail(ctx, lbr, fmt.Sprintf("failed to find region for lbr %s", lbr.Name))
+		self.taskFail(ctx, lbr, jsonutils.NewString(fmt.Sprintf("failed to find region for lbr %s", lbr.Name)))
 		return
 	}
 	self.SetStage("OnLoadbalancerListenerRuleCreateComplete", nil)
 	if err := region.GetDriver().RequestCreateLoadbalancerListenerRule(ctx, self.GetUserCred(), lbr, self); err != nil {
-		self.taskFail(ctx, lbr, err.Error())
+		self.taskFail(ctx, lbr, jsonutils.Marshal(err))
 	}
 }
 
 func (self *LoadbalancerListenerRuleCreateTask) OnCreateLoadbalancerListenerRuleFailed(ctx context.Context, lbr *models.SLoadbalancerListenerRule, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lbr, reason.String())
+	self.taskFail(ctx, lbr, reason)
 }
 
 func (self *LoadbalancerListenerRuleCreateTask) OnLoadbalancerListenerRuleCreateComplete(ctx context.Context, lbr *models.SLoadbalancerListenerRule, data jsonutils.JSONObject) {
@@ -203,5 +258,5 @@ func (self *LoadbalancerListenerRuleCreateTask) OnLoadbalancerListenerRuleCreate
 }
 
 func (self *LoadbalancerListenerRuleCreateTask) OnLoadbalancerListenerRuleCreateCompleteFailed(ctx context.Context, lbr *models.SLoadbalancerListenerRule, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lbr, reason.String())
+	self.taskFail(ctx, lbr, reason)
 }

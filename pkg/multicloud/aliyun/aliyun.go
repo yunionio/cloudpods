@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/credentials"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"github.com/pkg/errors"
@@ -51,30 +52,52 @@ const (
 
 	ALIYUN_RAM_API_VERSION = "2015-05-01"
 	ALIYUN_API_VERION_RDS  = "2014-08-15"
+	ALIYUN_RM_API_VERSION  = "2020-03-31"
+	ALIYUN_STS_API_VERSION = "2015-04-01"
 )
 
-type SAliyunClient struct {
-	providerId   string
-	providerName string
+type AliyunClientConfig struct {
+	cpcfg        cloudprovider.ProviderConfig
 	accessKey    string
-	secret       string
+	accessSecret string
+	debug        bool
+}
+
+func NewAliyunClientConfig(accessKey, accessSecret string) *AliyunClientConfig {
+	cfg := &AliyunClientConfig{
+		accessKey:    accessKey,
+		accessSecret: accessSecret,
+	}
+	return cfg
+}
+
+func (cfg *AliyunClientConfig) CloudproviderConfig(cpcfg cloudprovider.ProviderConfig) *AliyunClientConfig {
+	cfg.cpcfg = cpcfg
+	return cfg
+}
+
+func (cfg *AliyunClientConfig) Debug(debug bool) *AliyunClientConfig {
+	cfg.debug = debug
+	return cfg
+}
+
+func (cfg AliyunClientConfig) Copy() AliyunClientConfig {
+	return cfg
+}
+
+type SAliyunClient struct {
+	*AliyunClientConfig
 
 	ownerId   string
 	ownerName string
 
 	iregions []cloudprovider.ICloudRegion
 	iBuckets []cloudprovider.ICloudBucket
-
-	Debug bool
 }
 
-func NewAliyunClient(providerId string, providerName string, accessKey string, secret string, isDebug bool) (*SAliyunClient, error) {
+func NewAliyunClient(cfg *AliyunClientConfig) (*SAliyunClient, error) {
 	client := SAliyunClient{
-		providerId:   providerId,
-		providerName: providerName,
-		accessKey:    accessKey,
-		secret:       secret,
-		Debug:        isDebug,
+		AliyunClientConfig: cfg,
 	}
 	err := client.fetchRegions()
 	if err != nil {
@@ -84,7 +107,7 @@ func NewAliyunClient(providerId string, providerName string, accessKey string, s
 	if err != nil {
 		return nil, errors.Wrap(err, "fetchBuckets")
 	}
-	if client.Debug {
+	if client.debug {
 		log.Debugf("ClientID: %s ClientName: %s", client.ownerId, client.ownerName)
 	}
 	return &client, nil
@@ -98,9 +121,16 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 		resp, err := _jsonRequest(client, domain, apiVersion, apiName, params)
 		retry := false
 		if err != nil {
-			for _, code := range []string{"404 Not Found"} {
+			for _, code := range []string{
+				"InvalidAccessKeyId.NotFound",
+			} {
 				if strings.Contains(err.Error(), code) {
-					return nil, cloudprovider.ErrNotFound
+					return nil, err
+				}
+			}
+			for _, code := range []string{"404 Not Found", "EntityNotExist.Role", "EntityNotExist.Group"} {
+				if strings.Contains(err.Error(), code) {
+					return nil, errors.Wrapf(cloudprovider.ErrNotFound, err.Error())
 				}
 			}
 			for _, code := range []string{
@@ -165,18 +195,28 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 	return body, nil
 }
 
-func (self *SAliyunClient) UpdateAccount(accessKey, secret string) error {
-	if self.accessKey != accessKey || self.secret != secret {
-		self.accessKey = accessKey
-		self.secret = secret
-		return self.fetchRegions()
-	} else {
-		return nil
-	}
+func (self *SAliyunClient) getDefaultClient() (*sdk.Client, error) {
+	transport := httputils.GetTransport(true)
+	transport.Proxy = self.cpcfg.ProxyFunc
+	client, err := sdk.NewClientWithOptions(
+		ALIYUN_DEFAULT_REGION,
+		&sdk.Config{
+			HttpTransport: transport,
+		},
+		&credentials.BaseCredential{
+			AccessKeyId:     self.accessKey,
+			AccessKeySecret: self.accessSecret,
+		},
+	)
+	return client, err
 }
 
-func (self *SAliyunClient) getDefaultClient() (*sdk.Client, error) {
-	return sdk.NewClientWithAccessKey(ALIYUN_DEFAULT_REGION, self.accessKey, self.secret)
+func (self *SAliyunClient) rmRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := self.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	return jsonRequest(cli, "resourcemanager.aliyuncs.com", ALIYUN_RM_API_VERSION, apiName, params, self.debug)
 }
 
 func (self *SAliyunClient) ecsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -184,7 +224,7 @@ func (self *SAliyunClient) ecsRequest(apiName string, params map[string]string) 
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params, self.Debug)
+	return jsonRequest(cli, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params, self.debug)
 }
 
 func (self *SAliyunClient) trialRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -192,7 +232,7 @@ func (self *SAliyunClient) trialRequest(apiName string, params map[string]string
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, "actiontrail.cn-hangzhou.aliyuncs.com", ALIYUN_API_VERSION_TRIAL, apiName, params, self.Debug)
+	return jsonRequest(cli, "actiontrail.cn-hangzhou.aliyuncs.com", ALIYUN_API_VERSION_TRIAL, apiName, params, self.debug)
 }
 
 func (self *SAliyunClient) fetchRegions() error {
@@ -236,11 +276,13 @@ func (client *SAliyunClient) getOssClient(regionId string) (*oss.Client, error) 
 	// The ClientOption Proxy, AuthProxy lacks the feature NO_PROXY has
 	// which can be used to whitelist ips, domains from http_proxy,
 	// https_proxy setting
+	// oss use no timeout client so as to send/download large files
+	httpClient := client.cpcfg.AdaptiveTimeoutHttpClient()
 	cliOpts := []oss.ClientOption{
-		oss.HTTPClient(httputils.GetDefaultClient()),
+		oss.HTTPClient(httpClient),
 	}
 	ep := getOSSExternalDomain(regionId)
-	cli, err := oss.New(ep, client.accessKey, client.secret, cliOpts...)
+	cli, err := oss.New(ep, client.accessKey, client.accessSecret, cliOpts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "oss.New")
 	}
@@ -319,7 +361,7 @@ func (self *SAliyunClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 		return nil, err
 	}
 	subAccount := cloudprovider.SSubAccount{}
-	subAccount.Name = self.providerName
+	subAccount.Name = self.cpcfg.Name
 	subAccount.Account = self.accessKey
 	subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
 	return []cloudprovider.SSubAccount{subAccount}, nil
@@ -390,9 +432,38 @@ func (self *SAliyunClient) GetIStorageById(id string) (cloudprovider.ICloudStora
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (region *SAliyunClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
-	// 阿里云并未公布资源组的api地址
-	// params := map[string]string{}
-	// body, err := region.ecsRequest("ListResourceGroups", params)
-	return nil, cloudprovider.ErrNotImplemented
+func (self *SAliyunClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	pageSize, pageNumber := 50, 1
+	resourceGroups := []SResourceGroup{}
+	for {
+		parts, total, err := self.GetResourceGroups(pageNumber, pageSize)
+		if err != nil {
+			return nil, errors.Wrap(err, "GetResourceGroups")
+		}
+		resourceGroups = append(resourceGroups, parts...)
+		if len(resourceGroups) >= total {
+			break
+		}
+		pageNumber += 1
+	}
+	ret := []cloudprovider.ICloudProject{}
+	for i := range resourceGroups {
+		ret = append(ret, &resourceGroups[i])
+	}
+	return ret, nil
+}
+
+func (region *SAliyunClient) GetCapabilities() []string {
+	caps := []string{
+		cloudprovider.CLOUD_CAPABILITY_PROJECT,
+		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
+		cloudprovider.CLOUD_CAPABILITY_NETWORK,
+		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
+		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
+		cloudprovider.CLOUD_CAPABILITY_RDS,
+		cloudprovider.CLOUD_CAPABILITY_CACHE,
+		cloudprovider.CLOUD_CAPABILITY_EVENT,
+		cloudprovider.CLOUD_CAPABILITY_CLOUDID,
+	}
+	return caps
 }

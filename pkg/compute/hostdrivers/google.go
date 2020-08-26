@@ -15,8 +15,16 @@
 package hostdrivers
 
 import (
+	"context"
+	"fmt"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/utils"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SGoogleHostDriver struct {
@@ -34,4 +42,28 @@ func (self *SGoogleHostDriver) GetHostType() string {
 
 func (self *SGoogleHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_GOOGLE
+}
+
+func (self *SGoogleHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
+	minGB := 10
+	maxGB := -1
+	switch storage.StorageType {
+	case api.STORAGE_GOOGLE_PD_SSD, api.STORAGE_GOOGLE_PD_STANDARD:
+		maxGB = 65536
+	default:
+		return fmt.Errorf("Not support resize %s disk", storage.StorageType)
+	}
+	if sizeGb < minGB || sizeGb > maxGB {
+		return fmt.Errorf("The %s disk size must be in the range of %dG ~ %dGB", storage.StorageType, minGB, maxGB)
+	}
+	return nil
+}
+
+func (self *SGoogleHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	for _, guest := range guests {
+		if !utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_READY}) {
+			return nil, httperrors.NewBadGatewayError("%s reset disk required guest status is running or ready", self.GetHostType())
+		}
+	}
+	return data, nil
 }

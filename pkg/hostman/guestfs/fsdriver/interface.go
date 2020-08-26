@@ -70,7 +70,7 @@ type IRootFsDriver interface {
 	DeployStandbyNetworkingScripts(part IDiskPartition, nics, nicsStandby []*types.SServerNic) error
 	DeployUdevSubsystemScripts(IDiskPartition) error
 	DeployFstabScripts(IDiskPartition, []*deployapi.Disk) error
-	GetLoginAccount(IDiskPartition, bool, bool) string
+	GetLoginAccount(IDiskPartition, string, bool, bool) (string, error)
 	DeployPublicKey(IDiskPartition, string, *deployapi.SSHKeys) error
 	ChangeUserPasswd(part IDiskPartition, account, gid, publicKey, password string) (string, error)
 	DeployYunionroot(rootFs IDiskPartition, pubkeys *deployapi.SSHKeys, isInit bool, enableCloudInit bool) error
@@ -83,6 +83,7 @@ type IRootFsDriver interface {
 	IsResizeFsPartitionSupport() bool
 
 	PrepareFsForTemplate(IDiskPartition) error
+	CleanNetworkScripts(rootFs IDiskPartition) error
 }
 
 type IDebianRootFsDriver interface {

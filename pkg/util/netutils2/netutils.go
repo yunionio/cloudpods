@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 	"unicode"
@@ -31,9 +30,7 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/procutils"
-	"yunion.io/x/onecloud/pkg/util/regutils2"
 )
 
 var PSEUDO_VIP = "169.254.169.231"
@@ -130,7 +127,7 @@ func GetMainNicFromDeployApi(nics []*types.SServerNic) (*types.SServerNic, error
 	if mainNic != nil {
 		return mainNic, nil
 	}
-	return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid nic")
+	return nil, errors.Wrap(errors.ErrInvalidStatus, "no valid nic")
 }
 
 func GetMainNic(nics []jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -172,7 +169,7 @@ func GetMainNic(nics []jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if mainNic != nil {
 		return mainNic, nil
 	}
-	return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid nic")
+	return nil, errors.Wrap(errors.ErrInvalidStatus, "no valid nic")
 }
 
 func Netlen2Mask(netmasklen int) string {
@@ -266,12 +263,15 @@ type SNetInterface struct {
 	Mask net.IPMask
 	Mac  string
 
-	// Mtu int
+	Mtu int
 }
 
-var SECRET_PREFIX = "169.254"
-var SECRET_MASK = []byte{255, 255, 255, 255}
-var secretInterfaceIndex = 254
+var (
+	SECRET_PREFIX        = "169.254"
+	SECRET_MASK          = []byte{255, 255, 255, 255}
+	SECRET_MASK_LEN      = 32
+	secretInterfaceIndex = 254
+)
 
 func NewNetInterface(name string) *SNetInterface {
 	n := new(SNetInterface)
@@ -319,6 +319,8 @@ func (n *SNetInterface) fetchConfig(expectIp string) {
 		return
 	}
 
+	n.Mtu = inter.MTU
+
 	n.Mac = inter.HardwareAddr.String()
 	addrs, err := inter.Addrs()
 	if err == nil {
@@ -337,15 +339,6 @@ func (n *SNetInterface) fetchConfig(expectIp string) {
 		}
 	}
 
-	// mtuStr, err := fileutils2.FileGetContents(fmt.Sprintf("/sys/class/net/%s/mtu", n.name))
-	// if err != nil {
-	// 	log.Errorln("Fail to read MTU for %s: %s", n.name, err)
-	// }
-
-	// n.Mtu, err = strconv.Atoi(mtuStr)
-	// if err != nil {
-	// 	log.Errorln("Fail to read MTU for %s: %s", n.name, err)
-	// }
 }
 
 func (n *SNetInterface) DisableGso() {
@@ -369,53 +362,10 @@ func (n *SNetInterface) IsSecretAddress(addr string, mask []byte) bool {
 	}
 }
 
-func GetSecretInterfaceAddress() (string, []byte) {
+func GetSecretInterfaceAddress() (string, int) {
 	addr := fmt.Sprintf("%s.%d.1", SECRET_PREFIX, secretInterfaceIndex)
 	secretInterfaceIndex -= 1
-	return addr, SECRET_MASK
-}
-
-func (n *SNetInterface) GetRoutes(gwOnly bool) [][]string {
-	output, err := procutils.NewCommand("route", "-n").Output()
-	if err != nil {
-		return nil
-	}
-	return n.getRoutes(gwOnly, strings.Split(string(output), "\n"))
-}
-
-func (n *SNetInterface) getRoutes(gwOnly bool, outputs []string) [][]string {
-	re := regexp.MustCompile(`(?P<dest>[0-9.]+)\s+(?P<gw>[0-9.]+)\s+(?P<mask>[0-9.]+)` +
-		`\s+[A-Z!]+\s+[0-9]+\s+[0-9]+\s+[0-9]+\s+` + n.name)
-
-	var res [][]string = make([][]string, 0)
-	for _, line := range outputs {
-		m := regutils2.GetParams(re, line)
-		if len(m) > 0 && (!gwOnly || m["gw"] != "0.0.0.0") {
-			res = append(res, []string{m["dest"], m["gw"], m["mask"]})
-		}
-	}
-	return res
-}
-
-func (n *SNetInterface) getAddresses(output []string) [][]string {
-	var addrs = make([][]string, 0)
-	re := regexp.MustCompile(`inet (?P<addr>[0-9.]+)/(?P<mask>[0-9]+) `)
-	for _, line := range output {
-		m := regutils2.GetParams(re, line)
-		if len(m) > 0 {
-			addrs = append(addrs, []string{m["addr"], m["mask"]})
-		}
-	}
-	return addrs
-}
-
-func (n *SNetInterface) GetAddresses() [][]string {
-	output, err := procutils.NewCommand("ip", "address", "show", "dev", n.name).Output()
-	if err != nil {
-		log.Errorln(err)
-		return nil
-	}
-	return n.getAddresses(strings.Split(string(output), "\n"))
+	return addr, SECRET_MASK_LEN
 }
 
 func (n *SNetInterface) GetSlaveAddresses() [][]string {

@@ -16,6 +16,8 @@ package consts
 
 import (
 	"time"
+
+	"yunion.io/x/log"
 )
 
 var (
@@ -28,6 +30,11 @@ var (
 	tenantCacheExpireSeconds = 900
 
 	nonDefaultDomainProjects = false
+
+	defaultPagingLimit int64 = 2048
+	maxPagingLimit     int64 = 2048
+
+	domainizedNamespace = true
 )
 
 func SetRegion(region string) {
@@ -55,9 +62,26 @@ func GetTenantCacheExpireSeconds() time.Duration {
 }
 
 func SetNonDefaultDomainProjects(val bool) {
+	log.Infof("set non_default_domain_projects to %v", val)
 	nonDefaultDomainProjects = val
 }
 
 func GetNonDefaultDomainProjects() bool {
 	return nonDefaultDomainProjects
+}
+
+func GetDefaultPagingLimit() int64 {
+	return defaultPagingLimit
+}
+
+func GetMaxPagingLimit() int64 {
+	return maxPagingLimit
+}
+
+func SetDomainizedNamespace(domainNS bool) {
+	domainizedNamespace = domainNS
+}
+
+func IsDomainizedNamespace() bool {
+	return nonDefaultDomainProjects && domainizedNamespace
 }

@@ -25,10 +25,14 @@ type ChartListOptions struct {
 	AllVersion bool   `help:"Get Chart all history versions"`
 	Keyword    string `help:"Chart keyword"`
 	Version    string `help:"Chart semver version filter"`
+	Type       string `help:"Chart type" choices:"internal|external"`
 }
 
-func (o ChartListOptions) Params() *jsonutils.JSONDict {
-	params := o.BaseListOptions.Params()
+func (o ChartListOptions) Params() (*jsonutils.JSONDict, error) {
+	params, err := o.BaseListOptions.Params()
+	if err != nil {
+		return nil, err
+	}
 	if len(o.Name) != 0 {
 		params.Add(jsonutils.NewString(o.Name), "name")
 	}
@@ -47,7 +51,10 @@ func (o ChartListOptions) Params() *jsonutils.JSONDict {
 	if len(o.Keyword) != 0 {
 		params.Add(jsonutils.NewString(o.Keyword), "keyword")
 	}
-	return params
+	if o.Type != "" {
+		params.Add(jsonutils.NewString(o.Type), "type")
+	}
+	return params, nil
 }
 
 type ChartGetOptions struct {

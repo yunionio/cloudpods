@@ -65,10 +65,9 @@ func (self *BaremetalServerStartTask) OnStartComplete(ctx context.Context, guest
 }
 
 func (self *BaremetalServerStartTask) OnStartCompleteFailed(ctx context.Context, guest *models.SGuest, body jsonutils.JSONObject) {
-	reason := body.String()
-	guest.SetStatus(self.UserCred, api.VM_START_FAILED, reason)
-	db.OpsLog.LogEvent(guest, db.ACT_START_FAIL, reason, self.UserCred)
+	guest.SetStatus(self.UserCred, api.VM_START_FAILED, body.String())
+	db.OpsLog.LogEvent(guest, db.ACT_START_FAIL, body, self.UserCred)
 	baremetal := guest.GetHost()
-	baremetal.SetStatus(self.UserCred, api.BAREMETAL_START_FAIL, reason)
-	self.SetStageFailed(ctx, reason)
+	baremetal.SetStatus(self.UserCred, api.BAREMETAL_START_FAIL, body.String())
+	self.SetStageFailed(ctx, body)
 }

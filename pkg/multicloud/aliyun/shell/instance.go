@@ -89,6 +89,23 @@ func init() {
 		return nil
 	})
 
+	shellutils.R(&InstanceOperationOptions{}, "instance-auto-renew-info", "Show instance auto renew info", func(cli *aliyun.SRegion, args *InstanceOperationOptions) error {
+		info, err := cli.GetInstanceAutoRenewAttribute(args.ID)
+		if err != nil {
+			return err
+		}
+		printObject(info)
+		return nil
+	})
+
+	shellutils.R(&InstanceOperationOptions{}, "instance-eip-convert", "Convert instance public ip to eip", func(cli *aliyun.SRegion, args *InstanceOperationOptions) error {
+		err := cli.ConvertPublicIpToEip(args.ID)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
 	shellutils.R(&InstanceOperationOptions{}, "instance-vnc", "Get a instance VNC url", func(cli *aliyun.SRegion, args *InstanceOperationOptions) error {
 		url, err := cli.GetInstanceVNCUrl(args.ID)
 		if err != nil {
@@ -184,4 +201,14 @@ func init() {
 		err := cli.UpdateInstancePassword(args.ID, args.PASSWD)
 		return err
 	})
+
+	type InstanceSetAutoRenewOptions struct {
+		ID        string `help:"Instance ID"`
+		AutoRenew bool   `help:"Is auto renew instance"`
+	}
+
+	shellutils.R(&InstanceSetAutoRenewOptions{}, "instance-set-auto-renew", "Set instance auto renew", func(cli *aliyun.SRegion, args *InstanceSetAutoRenewOptions) error {
+		return cli.SetInstanceAutoRenew(args.ID, args.AutoRenew)
+	})
+
 }

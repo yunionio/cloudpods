@@ -93,6 +93,10 @@ func (h *hostGetter) GetFreePort(netId string) int {
 	return h.h.GetFreePort(netId)
 }
 
+func (h *hostGetter) OvnCapable() bool {
+	return len(h.h.OvnVersion) > 0
+}
+
 type HostDesc struct {
 	*BaseHostDesc
 
@@ -150,34 +154,19 @@ func NewReservedResource(cpu, mem, storage int64) *ReservedResource {
 	}
 }
 
-func CpuIsolatedDevReservedCount() int64 {
-	return o.GetOptions().CpuReservedPerIsolatedDevice
-}
-
-func MemIsolatedDevReservedSize() int64 {
-	return o.GetOptions().MemoryReservedPerIsolatedDevice
-}
-
-func StorageIsolatedDevReservedSize() int64 {
-	return o.GetOptions().StorageReservedPerIsolatedDevice
-}
-
 func NewGuestReservedResourceByBuilder(b *HostBuilder, host *computemodels.SHost) (ret *ReservedResource) {
 	ret = NewReservedResource(0, 0, 0)
 	//isoDevs := b.getUnusedIsolatedDevices(host.ID)
 	isoDevs := b.getIsolatedDevices(host.Id)
-	hostDevsCount := int64(len(isoDevs))
-	if hostDevsCount == 0 {
+	if len(isoDevs) == 0 {
 		return
 	}
-
-	cpuPerDevRsvd := CpuIsolatedDevReservedCount()
-	memPerDevRsvd := MemIsolatedDevReservedSize()
-	storagePerDevRsvd := StorageIsolatedDevReservedSize()
-	ret.CPUCount = hostDevsCount * cpuPerDevRsvd
-	ret.MemorySize = hostDevsCount * memPerDevRsvd
-	ret.StorageSize = hostDevsCount * storagePerDevRsvd
-
+	reservedResource := host.GetDevsReservedResource(isoDevs)
+	if reservedResource != nil {
+		ret.CPUCount = int64(*reservedResource.ReservedCpu)
+		ret.MemorySize = int64(*reservedResource.ReservedMemory)
+		ret.StorageSize = int64(*reservedResource.ReservedStorage)
+	}
 	return
 }
 

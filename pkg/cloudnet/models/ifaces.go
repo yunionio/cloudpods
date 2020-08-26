@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	cnutils "yunion.io/x/onecloud/pkg/cloudnet/utils"
@@ -77,10 +78,16 @@ func (man *SIfaceManager) ValidateCreateData(ctx context.Context, userCred mccli
 	return nil, errors.New("manually adding interface is currently not supported")
 }
 
+// 虚拟路由器接口列表
 func (man *SIfaceManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	input := apis.StandaloneResourceListInput{}
+	err := query.Unmarshal(&input)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "query.Unmarshal")
+	}
+	q, err = man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
 	data := query.(*jsonutils.JSONDict)
 	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
@@ -163,7 +170,7 @@ func (iface *SIface) addOrUpdatePeer(ctx context.Context, userCred mcclient.Toke
 			PersistentKeepalive: persistentKeepalive,
 		}
 		ifacePeer.Name = fmt.Sprintf("%s-%s", iface.Name, peerIface.Name)
-		err := IfacePeerManager.TableSpec().Insert(ifacePeer)
+		err := IfacePeerManager.TableSpec().Insert(ctx, ifacePeer)
 		return err
 	}
 	_, err = db.Update(ifacePeer, func() error {
@@ -389,7 +396,7 @@ func (man *SIfaceManager) addWireguardIface(ctx context.Context, userCred mcclie
 	}
 
 	iface.SetModelManager(man, iface)
-	err := man.TableSpec().Insert(iface)
+	err := man.TableSpec().Insert(ctx, iface)
 	if err != nil {
 		return nil, err
 	}
@@ -412,7 +419,7 @@ func (man *SIfaceManager) addIface(ctx context.Context, userCred mcclient.TokenC
 		Ifname:   ifname,
 	}
 	iface.SetModelManager(man, iface)
-	err := man.TableSpec().Insert(iface)
+	err := man.TableSpec().Insert(ctx, iface)
 	if err != nil {
 		return nil, err
 	}

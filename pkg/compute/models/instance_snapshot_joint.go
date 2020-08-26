@@ -14,7 +14,11 @@
 
 package models
 
-import "yunion.io/x/onecloud/pkg/cloudcommon/db"
+import (
+	"context"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+)
 
 func init() {
 	db.InitManager(func() {
@@ -32,6 +36,7 @@ func init() {
 	})
 }
 
+// +onecloud:swagger-gen-ignore
 type SInstanceSnapshotJoint struct {
 	db.SVirtualJointResourceBase
 
@@ -40,6 +45,7 @@ type SInstanceSnapshotJoint struct {
 	DiskIndex          int8   `nullable:"false" default:"0" list:"user" create:"required"`
 }
 
+// +onecloud:swagger-gen-ignore
 type SInstanceSnapshotJointManager struct {
 	db.SVirtualJointResourceBaseManager
 }
@@ -54,14 +60,14 @@ func (manager *SInstanceSnapshotJointManager) GetSlaveFieldName() string {
 
 var InstanceSnapshotJointManager *SInstanceSnapshotJointManager
 
-func (manager *SInstanceSnapshotJointManager) CreateJoint(instanceSnapshotId, snapshotId string, diskIndex int8) error {
+func (manager *SInstanceSnapshotJointManager) CreateJoint(ctx context.Context, instanceSnapshotId, snapshotId string, diskIndex int8) error {
 	instanceSnapshotJoint := &SInstanceSnapshotJoint{}
 	instanceSnapshotJoint.SetModelManager(manager, instanceSnapshotJoint)
 
 	instanceSnapshotJoint.InstanceSnapshotId = instanceSnapshotId
 	instanceSnapshotJoint.SnapshotId = snapshotId
 	instanceSnapshotJoint.DiskIndex = diskIndex
-	return manager.TableSpec().Insert(instanceSnapshotJoint)
+	return manager.TableSpec().Insert(ctx, instanceSnapshotJoint)
 }
 
 func (manager *SInstanceSnapshotJointManager) IsSubSnapshot(snapshotId string) (bool, error) {

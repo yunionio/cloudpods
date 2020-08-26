@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"reflect"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -223,7 +224,7 @@ func FetchUserInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.IId
 	userStr, key := jsonutils.GetAnyString2(data, []string{"user", "user_id"})
 	if len(userStr) > 0 {
 		data.(*jsonutils.JSONDict).Remove(key)
-		u, err := UserCacheManager.FetchUserByIdOrName(ctx, userStr)
+		u, err := DefaultUserFetcher(ctx, userStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("user", userStr)
@@ -238,14 +239,14 @@ func FetchUserInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.IId
 		}
 		return &ownerId, nil
 	}
-	return nil, nil
+	return FetchProjectInfo(ctx, data)
 }
 
 func FetchProjectInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
 	tenantId, key := jsonutils.GetAnyString2(data, []string{"project", "project_id", "tenant", "tenant_id"})
 	if len(tenantId) > 0 {
 		data.(*jsonutils.JSONDict).Remove(key)
-		t, err := TenantCacheManager.FetchTenantByIdOrName(ctx, tenantId)
+		t, err := DefaultProjectFetcher(ctx, tenantId)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("project", tenantId)
@@ -270,7 +271,7 @@ func FetchDomainInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.I
 	domainId, key := jsonutils.GetAnyString2(data, []string{"domain_id", "project_domain", "project_domain_id"})
 	if len(domainId) > 0 {
 		data.(*jsonutils.JSONDict).Remove(key)
-		domain, err := TenantCacheManager.FetchDomainByIdOrName(ctx, domainId)
+		domain, err := DefaultDomainFetcher(ctx, domainId)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("domain", domainId)
@@ -365,9 +366,7 @@ func FetchCheckQueryOwnerScope(ctx context.Context, userCred mcclient.TokenCrede
 				requireScope = rbacutils.ScopeSystem
 			}
 		}
-	}
-
-	if ownerId == nil {
+	} else {
 		ownerId = userCred
 		reqScopeStr, _ := data.GetString("scope")
 		if len(reqScopeStr) > 0 {
@@ -379,14 +378,140 @@ func FetchCheckQueryOwnerScope(ctx context.Context, userCred mcclient.TokenCrede
 			}
 		} else if action == policy.PolicyActionGet {
 			queryScope = allowScope
-		}
-		if resScope.HigherThan(queryScope) {
+		} else {
 			queryScope = resScope
 		}
+		// if resScope.HigherThan(queryScope) {
+		// 	queryScope = resScope
+		// }
 		requireScope = queryScope
 	}
 	if doCheckRbac && requireScope.HigherThan(allowScope) {
-		return nil, scope, httperrors.NewForbiddenError(fmt.Sprintf("not enough privilege(require:%s,allow:%s,query:%s)", requireScope, allowScope, queryScope))
+		return nil, scope, httperrors.NewForbiddenError("not enough privilege (require:%s,allow:%s,query:%s)",
+			requireScope, allowScope, queryScope)
 	}
 	return ownerId, queryScope, nil
+}
+
+func mapKeys(idMap map[string]string) []string {
+	keys := make([]string, len(idMap))
+	idx := 0
+	for k := range idMap {
+		keys[idx] = k
+		idx += 1
+	}
+	return keys
+}
+
+func FetchIdNameMap2(manager IStandaloneModelManager, ids []string) (map[string]string, error) {
+	idMap := make(map[string]string, len(ids))
+	for _, id := range ids {
+		idMap[id] = ""
+	}
+	return FetchIdNameMap(manager, idMap)
+}
+
+func FetchIdNameMap(manager IStandaloneModelManager, idMap map[string]string) (map[string]string, error) {
+	q := manager.Query("id", "name").In("id", mapKeys(idMap))
+	rows, err := q.Rows()
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return idMap, nil
+		} else {
+			return idMap, errors.Wrap(err, "Query")
+		}
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		var name string
+		err := rows.Scan(&id, &name)
+		if err != nil {
+			return idMap, errors.Wrap(err, "rows.Scan")
+		}
+		idMap[id] = name
+	}
+	return idMap, nil
+}
+
+func FetchModelObjectsByIds(modelManager IModelManager, fieldName string, ids []string, targets interface{}) error {
+	err := FetchQueryObjectsByIds(modelManager.Query(), fieldName, ids, targets)
+	if err != nil {
+		return errors.Wrap(err, "FetchQueryObjectsByIds")
+	}
+	// try to call model's SetModelManager
+	targetValue := reflect.Indirect(reflect.ValueOf(targets))
+	for _, key := range targetValue.MapKeys() {
+		modelValueV := targetValue.MapIndex(key)
+		if modelValueV.Kind() != reflect.Struct {
+			break
+		}
+		newModelValue := reflect.New(modelValueV.Type()).Elem()
+		newModelValue.Set(modelValueV)
+		modelValue := newModelValue.Addr().Interface()
+		if model, ok := modelValue.(IModel); ok {
+			model.SetModelManager(modelManager, model)
+			targetValue.SetMapIndex(key, reflect.Indirect(reflect.ValueOf(model)))
+		}
+	}
+	return nil
+}
+
+func FetchQueryObjectsByIds(q *sqlchemy.SQuery, fieldName string, ids []string, targets interface{}) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	targetValue := reflect.Indirect(reflect.ValueOf(targets))
+	if targetValue.Kind() != reflect.Map {
+		return errors.Wrap(httperrors.ErrBadRequest, "receiver should be a map")
+	}
+
+	isTargetSlice := false
+	modelType := targetValue.Type().Elem()
+	if modelType.Kind() == reflect.Slice {
+		isTargetSlice = true
+		modelType = modelType.Elem()
+	}
+
+	query := q.In(fieldName, ids)
+	rows, err := query.Rows()
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil
+		}
+		return err
+	}
+	defer rows.Close()
+
+	targetsValue := reflect.Indirect(reflect.ValueOf(targets))
+	for rows.Next() {
+		mMap, err := query.Row2Map(rows)
+		if err != nil {
+			return errors.Wrap(err, "query.Row2Map")
+		}
+		fieldValue := mMap[fieldName]
+		m := reflect.New(modelType).Interface() // a pointer
+		err = query.RowMap2Struct(mMap, m)
+		if err != nil {
+			return errors.Wrap(err, "query.RowMap2Struct")
+		}
+		keyValue := reflect.ValueOf(fieldValue)
+		valValue := reflect.Indirect(reflect.ValueOf(m))
+		if isTargetSlice {
+			sliceValue := targetValue.MapIndex(keyValue)
+			if !sliceValue.IsValid() {
+				sliceValue = reflect.New(reflect.SliceOf(modelType)).Elem()
+			}
+			sliceValue = reflect.Append(sliceValue, valValue)
+			targetsValue.SetMapIndex(keyValue, sliceValue)
+		} else {
+			targetsValue.SetMapIndex(keyValue, valValue)
+		}
+	}
+	return nil
+}
+
+func FetchStandaloneObjectsByIds(modelManager IModelManager, ids []string, targets interface{}) error {
+	return FetchModelObjectsByIds(modelManager, "id", ids, targets)
 }

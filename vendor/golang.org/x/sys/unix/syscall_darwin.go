@@ -333,11 +333,15 @@ func utimensat(dirfd int, path string, times *[2]Timespec, flags int) error {
  * Wrapped
  */
 
+//sys	fcntl(fd int, cmd int, arg int) (val int, err error)
+
 //sys	kill(pid int, signum int, posix int) (err error)
 
 func Kill(pid int, signum syscall.Signal) (err error) { return kill(pid, int(signum), 1) }
 
 //sys	ioctl(fd int, req uint, arg uintptr) (err error)
+
+//sys   sysctl(mib []_C_int, old *byte, oldlen *uintptr, new *byte, newlen uintptr) (err error) = SYS_SYSCTL
 
 func Uname(uname *Utsname) error {
 	mib := []_C_int{CTL_KERN, KERN_OSTYPE}

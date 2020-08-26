@@ -36,6 +36,7 @@ const (
 	CITY_TAIPEI        = "Taipei"      //台北市
 	CITY_KAOHSIUNG     = "Kaohsiung"   //高雄市
 	CITY_CHENG_DU      = "Chengdu"     //成都
+	CITY_HE_YUAN       = "HeYuan"      //河源
 	CITY_CHONG_QING    = "Chongqing"   //重庆
 	CITY_LAN_ZHOU      = "Lanzhou"     //兰州
 	CITY_TAI_YUAN      = "Taiyuan"     //太原
@@ -50,11 +51,12 @@ const (
 	CITY_FU_ZHOU       = "Fuzhou"      //福州
 	CITY_WU_HAN        = "Wuhan"       //武汉
 	CITY_CHANG_SHA     = "Changsha"    //长沙
-	CITY_SHU_ZHOU      = "Shuzhou"     //苏州
+	CITY_SU_ZHOU       = "Suzhou"      //苏州
 	CITY_BAO_DING      = "Baoding"     //保定
 	CITY_NAN_JING      = "Nanjing"     //南京
 	CITY_FO_SHAN       = "Foshan"      //佛山
 	CITY_QUAN_ZHOU     = "Quanzhou"    //泉州
+	CITY_NEI_MENG_GU   = "Neimenggu"   //内蒙古
 
 	// 日本
 	CITY_TOKYO = "Tokyo" //东京
@@ -76,6 +78,11 @@ const (
 
 	//瑞士
 	CITY_ZURICH = "Zurich" //苏黎世
+	CITY_GENEVA = "Geneva" //日内瓦
+
+	// 挪威
+	CITY_STAVANGER = "Stavanger" //斯塔万格
+	CITY_OSLO      = "Oslo"      // 奥斯陆
 
 	// 马来西亚
 	CITY_KUALA_LUMPUR = "Kuala Lumpur" //吉隆坡
@@ -104,6 +111,8 @@ const (
 	CITY_IOWA           = "Iowa"           //爱荷华
 	CITY_US_GOV_WEST    = "us-gov-west"    //???
 	CITY_SOUTH_CAROLINA = "South Carolina" //南卡罗来纳州
+	CITY_SALT_LAKE_CITY = "Salt Lake City" //盐湖城
+	CITY_LAS_VEGAS      = "Las Vegas"      //拉斯维加斯
 
 	// 英国
 	CITY_LONDON      = "London"      //伦敦
@@ -114,7 +123,8 @@ const (
 	CITY_DUBAI = "Dubai" //迪拜
 
 	// 德国
-	CITY_FRANKFURT = "Frankfurt" //法兰克福
+	CITY_FRANKFURT   = "Frankfurt"   // 法兰克福
+	CITY_DELMENHORST = "Delmenhorst" // 代尔门霍斯特
 
 	// 韩国
 	CITY_SEOUL = "Seoul" //首尔
@@ -140,6 +150,12 @@ const (
 
 	// 巴西
 	CITY_SAO_PAULO = "Sao Paulo" //圣保罗
+
+	// 智利
+	CITY_SANTIAGO = "Santiago" // 圣地亚哥
+
+	// 墨西哥
+	CITY_MEXICO = "Mexico" // 墨西哥
 
 	// 荷兰
 	CITY_HOLLAND = "Holland" //荷兰
@@ -185,4 +201,7 @@ const (
 	COUNTRY_CODE_NG = "NG" //尼日利亚
 	COUNTRY_CODE_VN = "VN" //越南
 	COUNTRY_CODE_CH = "CH" //瑞士
+	COUNTRY_CODE_NO = "NO" //挪威
+	COUNTRY_CODE_MX = "MX" //墨西哥
+	COUNTRY_CODE_CL = "CL" //智利
 )

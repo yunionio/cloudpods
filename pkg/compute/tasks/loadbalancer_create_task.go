@@ -36,11 +36,11 @@ func init() {
 	taskman.RegisterTask(LoadbalancerCreateTask{})
 }
 
-func (self *LoadbalancerCreateTask) taskFail(ctx context.Context, lb *models.SLoadbalancer, reason string) {
-	lb.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, reason)
+func (self *LoadbalancerCreateTask) taskFail(ctx context.Context, lb *models.SLoadbalancer, reason jsonutils.JSONObject) {
+	lb.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, reason.String())
 	db.OpsLog.LogEvent(lb, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_CREATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lb.Id, lb.Name, api.LB_CREATE_FAILED, reason)
+	notifyclient.NotifySystemError(lb.Id, lb.Name, api.LB_CREATE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -48,12 +48,12 @@ func (self *LoadbalancerCreateTask) OnInit(ctx context.Context, obj db.IStandalo
 	lb := obj.(*models.SLoadbalancer)
 	region := lb.GetRegion()
 	if region == nil {
-		self.taskFail(ctx, lb, fmt.Sprintf("failed to find region for lb %s", lb.Name))
+		self.taskFail(ctx, lb, jsonutils.NewString(fmt.Sprintf("failed to find region for lb %s", lb.Name)))
 		return
 	}
 	self.SetStage("OnLoadbalancerCreateComplete", nil)
 	if err := region.GetDriver().RequestCreateLoadbalancer(ctx, self.GetUserCred(), lb, self); err != nil {
-		self.taskFail(ctx, lb, err.Error())
+		self.taskFail(ctx, lb, jsonutils.Marshal(err))
 	}
 }
 
@@ -66,7 +66,7 @@ func (self *LoadbalancerCreateTask) OnLoadbalancerCreateComplete(ctx context.Con
 }
 
 func (self *LoadbalancerCreateTask) OnLoadbalancerCreateCompleteFailed(ctx context.Context, lb *models.SLoadbalancer, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lb, reason.String())
+	self.taskFail(ctx, lb, reason)
 }
 
 func (self *LoadbalancerCreateTask) OnLoadbalancerStartComplete(ctx context.Context, lb *models.SLoadbalancer, data jsonutils.JSONObject) {
@@ -76,5 +76,5 @@ func (self *LoadbalancerCreateTask) OnLoadbalancerStartComplete(ctx context.Cont
 
 func (self *LoadbalancerCreateTask) OnLoadbalancerStartCompleteFailed(ctx context.Context, lb *models.SLoadbalancer, reason jsonutils.JSONObject) {
 	lb.SetStatus(self.GetUserCred(), api.LB_STATUS_DISABLED, reason.String())
-	self.SetStageFailed(ctx, reason.String())
+	self.SetStageFailed(ctx, reason)
 }

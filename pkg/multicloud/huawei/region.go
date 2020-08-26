@@ -16,7 +16,6 @@ package huawei
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -82,7 +81,7 @@ func (self *SRegion) getECSClient() (*client.Client, error) {
 	}
 
 	if self.ecsClient == nil {
-		self.ecsClient, err = client.NewClientWithAccessKey(self.ID, self.client.projectId, self.client.accessKey, self.client.secret, self.client.debug)
+		self.ecsClient, err = self.client.newRegionAPIClient(self.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -145,6 +144,10 @@ func (self *SRegion) fetchIVpcs() error {
 }
 
 func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
+	if len(id) == 0 {
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "SRegion.GetIVMById")
+	}
+
 	instance, err := self.GetInstanceByID(id)
 	if err != nil {
 		return nil, err
@@ -513,8 +516,8 @@ func (self *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICl
 	return self.GetSecurityGroupDetails(secgroupId)
 }
 
-func (self *SRegion) GetISecurityGroupByName(vpcId string, name string) (cloudprovider.ICloudSecurityGroup, error) {
-	secgroups, err := self.GetSecurityGroups(vpcId, name)
+func (self *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
+	secgroups, err := self.GetSecurityGroups(opts.VpcId, opts.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -532,41 +535,21 @@ func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreat
 	return self.CreateSecurityGroup(conf.VpcId, conf.Name, conf.Desc)
 }
 
-func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
-	if len(secgroupId) > 0 {
-		_, err := self.GetSecurityGroupDetails(secgroupId)
-		if err == cloudprovider.ErrNotFound {
-			secgroupId = ""
-		} else if err != nil {
-			return "", errors.Wrapf(err, "self.GetSecurityGroupDetails(%s)", secgroupId)
-		}
-	}
-
-	if len(secgroupId) == 0 {
-		secgroup, err := self.CreateSecurityGroup(vpcId, name, desc)
-		if err != nil {
-			return "", errors.Wrap(err, "self.CreateSecurityGroup")
-		}
-		secgroupId = secgroup.GetId()
-	}
-
-	// 华为云默认deny。不需要显式指定
-	rules = SecurityRuleSetToAllowSet(rules)
-	return secgroupId, self.syncSecgroupRules(secgroupId, rules)
-}
-
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090608.html
 func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
-	params := jsonutils.NewDict()
-	vpcObj := jsonutils.NewDict()
-	vpcObj.Add(jsonutils.NewString(name), "name")
-	vpcObj.Add(jsonutils.NewString(cidr), "cidr")
-	params.Add(vpcObj, "vpc")
+	return self.CreateVpc(name, cidr, desc)
+}
 
-	vpc := SVpc{}
-	err := DoCreate(self.ecsClient.Vpcs.Create, params, &vpc)
-	vpc.region = self
-	return &vpc, err
+func (self *SRegion) CreateVpc(name, cidr, desc string) (*SVpc, error) {
+	params := map[string]interface{}{
+		"vpc": map[string]string{
+			"name":        name,
+			"cidr":        cidr,
+			"description": desc,
+		},
+	}
+	vpc := &SVpc{region: self}
+	return vpc, DoCreate(self.ecsClient.Vpcs.Create, jsonutils.Marshal(params), vpc)
 }
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090596.html
@@ -605,7 +588,7 @@ func (self *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP
 		eip.Name = eip.Name[:64]
 	}
 
-	ieip, err := self.AllocateEIP(eip.Name, eip.BandwidthMbps, ctype, eip.BGPType)
+	ieip, err := self.AllocateEIP(eip.Name, eip.BandwidthMbps, ctype, eip.BGPType, eip.ProjectId)
 	ieip.region = self
 	if err != nil {
 		return nil, err
@@ -720,7 +703,7 @@ func (self *SRegion) CreateSecurityGroup(vpcId string, name string, desc string)
 	params := jsonutils.NewDict()
 	secgroupObj := jsonutils.NewDict()
 	secgroupObj.Add(jsonutils.NewString(name), "name")
-	if len(vpcId) > 0 {
+	if len(vpcId) > 0 && vpcId != api.NORMAL_VPC_ID {
 		secgroupObj.Add(jsonutils.NewString(vpcId), "vpc_id")
 	}
 	params.Add(secgroupObj, "security_group")
@@ -730,75 +713,23 @@ func (self *SRegion) CreateSecurityGroup(vpcId string, name string, desc string)
 	return &secgroup, err
 }
 
-func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.SecurityRule) error {
-	var DeleteRules []secrules.SecurityRule
-	var AddRules []secrules.SecurityRule
-
-	if secgroup, err := self.GetSecurityGroupDetails(secgroupId); err != nil {
-		return errors.Wrapf(err, "syncSecgroupRules.GetSecurityGroupDetails(%s)", secgroupId)
-	} else {
-		remoteRules, err := secgroup.GetRulesWithExtId()
-		if err != nil {
-			return errors.Wrap(err, "secgroup.GetRulesWithExtId")
-		}
-
-		sort.Sort(secrules.SecurityRuleSet(rules))
-		sort.Sort(secrules.SecurityRuleSet(remoteRules))
-
-		i, j := 0, 0
-		for i < len(rules) || j < len(remoteRules) {
-			if i < len(rules) && j < len(remoteRules) {
-				permissionStr := remoteRules[j].String()
-				ruleStr := rules[i].String()
-				cmp := strings.Compare(permissionStr, ruleStr)
-				if cmp == 0 {
-					// DeleteRules = append(DeleteRules, remoteRules[j])
-					// AddRules = append(AddRules, rules[i])
-					i += 1
-					j += 1
-				} else if cmp > 0 {
-					DeleteRules = append(DeleteRules, remoteRules[j])
-					j += 1
-				} else {
-					AddRules = append(AddRules, rules[i])
-					i += 1
-				}
-			} else if i >= len(rules) {
-				DeleteRules = append(DeleteRules, remoteRules[j])
-				j += 1
-			} else if j >= len(remoteRules) {
-				AddRules = append(AddRules, rules[i])
-				i += 1
-			}
-		}
-	}
-
-	for _, r := range DeleteRules {
-		// r.Description 实际存储的是ruleId
-		if err := self.delSecurityGroupRule(r.Description); err != nil {
-			log.Errorf("delSecurityGroupRule %v error: %s", r, err.Error())
-			return err
-		}
-	}
-
-	for _, r := range AddRules {
-		if err := self.addSecurityGroupRules(secgroupId, &r); err != nil {
-			log.Errorf("addSecurityGroupRule %v error: %s", r, err.Error())
-			return err
-		}
-	}
-
-	return nil
-}
-
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0087467071.html
 func (self *SRegion) delSecurityGroupRule(secGrpRuleId string) error {
-	return DoDelete(self.ecsClient.SecurityGroupRules.Delete, secGrpRuleId, nil, nil)
+	_, err := self.ecsClient.SecurityGroupRules.DeleteInContextWithSpec(nil, secGrpRuleId, "", nil, nil, "")
+	return err
+}
+
+func (self *SRegion) DeleteSecurityGroupRule(ruleId string) error {
+	return self.delSecurityGroupRule(ruleId)
+}
+
+func (self *SRegion) CreateSecurityGroupRule(secgroupId string, rule cloudprovider.SecurityRule) error {
+	return self.addSecurityGroupRules(secgroupId, rule)
 }
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0087451723.html
 // icmp port对应关系：https://support.huaweicloud.com/api-vpc/zh-cn_topic_0024109590.html
-func (self *SRegion) addSecurityGroupRules(secGrpId string, rule *secrules.SecurityRule) error {
+func (self *SRegion) addSecurityGroupRules(secGrpId string, rule cloudprovider.SecurityRule) error {
 	direction := ""
 	if rule.Direction == secrules.SecurityRuleIngress {
 		direction = "ingress"
@@ -873,7 +804,7 @@ func (self *SRegion) CreateLoadBalancer(loadbalancer *cloudprovider.SLoadbalance
 	ret := SLoadbalancer{}
 	subnet, err := self.getNetwork(loadbalancer.NetworkIDs[0])
 	if err != nil {
-		return ret, err
+		return ret, errors.Wrap(err, "SRegion.CreateLoadBalancer.getNetwork")
 	}
 
 	params := jsonutils.NewDict()
@@ -888,7 +819,7 @@ func (self *SRegion) CreateLoadBalancer(loadbalancer *cloudprovider.SLoadbalance
 
 	err = DoCreate(self.ecsClient.Elb.Create, params, &ret)
 	if err != nil {
-		return ret, err
+		return ret, errors.Wrap(err, "SRegion.CreateLoadBalancer.DoCreate")
 	}
 
 	ret.region = self
@@ -897,7 +828,7 @@ func (self *SRegion) CreateLoadBalancer(loadbalancer *cloudprovider.SLoadbalance
 	if len(loadbalancer.EipID) > 0 {
 		err := self.AssociateEipWithPortId(loadbalancer.EipID, ret.VipPortID)
 		if err != nil {
-			return ret, err
+			return ret, errors.Wrap(err, "SRegion.CreateLoadBalancer.AssociateEipWithPortId")
 		}
 	}
 	return ret, nil
@@ -946,7 +877,8 @@ func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
 	}
 	ret := make([]cloudprovider.ICloudBucket, 0)
 	for i := range iBuckets {
-		if iBuckets[i].GetLocation() == region.GetId() && region.client.isMainProject {
+		// huawei OBS is shared across projects
+		if iBuckets[i].GetLocation() == region.GetId() {
 			ret = append(ret, iBuckets[i])
 		}
 	}
@@ -1067,4 +999,8 @@ func (self *SRegion) GetIElasticcaches() ([]cloudprovider.ICloudElasticcache, er
 	}
 
 	return icaches, nil
+}
+
+func (region *SRegion) GetCapabilities() []string {
+	return region.client.GetCapabilities()
 }

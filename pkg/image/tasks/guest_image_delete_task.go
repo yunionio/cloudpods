@@ -55,19 +55,19 @@ func (self *GuestImageDeleteTask) OnInit(ctx context.Context, obj db.IStandalone
 func (self *GuestImageDeleteTask) startPendingDelete(ctx context.Context, guestImage *models.SGuestImage) {
 	images, err := models.GuestImageJointManager.GetImagesByGuestImageId(guestImage.GetId())
 	if err != nil {
-		self.taskFailed(ctx, guestImage, err.Error())
+		self.taskFailed(ctx, guestImage, jsonutils.NewString(err.Error()))
 	}
 	for i := range images {
 		images[i].StopTorrents()
 		err := images[i].DoPendingDelete(ctx, self.UserCred)
 		if err != nil {
-			self.taskFailed(ctx, guestImage, fmt.Sprintf("image %s pending delete failed", images[i].GetId()))
+			self.taskFailed(ctx, guestImage, jsonutils.NewString(fmt.Sprintf("image %s pending delete failed", images[i].GetId())))
 			return
 		}
 	}
 	err = guestImage.DoPendingDelete(ctx, self.UserCred)
 	if err != nil {
-		self.taskFailed(ctx, guestImage, fmt.Sprintf("guest image %s pending delete failed", guestImage.GetId()))
+		self.taskFailed(ctx, guestImage, jsonutils.NewString(fmt.Sprintf("guest image %s pending delete failed", guestImage.GetId())))
 	}
 	self.SetStageComplete(ctx, nil)
 }
@@ -75,37 +75,37 @@ func (self *GuestImageDeleteTask) startPendingDelete(ctx context.Context, guestI
 func (self *GuestImageDeleteTask) startDelete(ctx context.Context, guestImage *models.SGuestImage) {
 	images, err := models.GuestImageJointManager.GetImagesByGuestImageId(guestImage.GetId())
 	if err != nil {
-		self.taskFailed(ctx, guestImage, err.Error())
+		self.taskFailed(ctx, guestImage, jsonutils.NewString(err.Error()))
 	}
 	for i := range images {
 		err := images[i].RemoveFiles()
 		if err != nil {
-			self.taskFailed(ctx, guestImage, fmt.Sprintf("fail to remove %s: %s", images[i].GetPath(""), err))
+			self.taskFailed(ctx, guestImage, jsonutils.NewString(fmt.Sprintf("fail to remove %s: %s", images[i].GetPath(""), err)))
 			return
 		}
 		err = images[i].SetStatus(self.UserCred, api.IMAGE_STATUS_DELETED, "delete")
 		if err != nil {
-			self.taskFailed(ctx, guestImage, fmt.Sprintf("fail to set image %s status ", images[i].GetId()))
+			self.taskFailed(ctx, guestImage, jsonutils.NewString(fmt.Sprintf("fail to set image %s status ", images[i].GetId())))
 			return
 		}
 		err = images[i].RealDelete(ctx, self.UserCred)
 		if err != nil {
-			self.taskFailed(ctx, guestImage, fmt.Sprintf("fail to real delete image %s", images[i].GetId()))
+			self.taskFailed(ctx, guestImage, jsonutils.NewString(fmt.Sprintf("fail to real delete image %s", images[i].GetId())))
 			return
 		}
 	}
 	err = guestImage.SetStatus(self.UserCred, api.IMAGE_STATUS_DELETED, "delete")
 	if err != nil {
-		self.taskFailed(ctx, guestImage, fmt.Sprintf("fail to set guest image status %s", guestImage.GetId()))
+		self.taskFailed(ctx, guestImage, jsonutils.NewString(fmt.Sprintf("fail to set guest image status %s", guestImage.GetId())))
 	}
 	err = guestImage.RealDelete(ctx, self.UserCred)
 	if err != nil {
-		self.taskFailed(ctx, guestImage, fmt.Sprintf("fail to real delete guest image %s", guestImage.GetId()))
+		self.taskFailed(ctx, guestImage, jsonutils.NewString(fmt.Sprintf("fail to real delete guest image %s", guestImage.GetId())))
 	}
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *GuestImageDeleteTask) taskFailed(ctx context.Context, guestImage *models.SGuestImage, reason string) {
+func (self *GuestImageDeleteTask) taskFailed(ctx context.Context, guestImage *models.SGuestImage, reason jsonutils.JSONObject) {
 	log.Errorf("Guest Image %s delete failed: %s", guestImage.Id, reason)
 	db.OpsLog.LogEvent(guestImage, db.ACT_IMAGE_DELETE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithContext(ctx, guestImage, logclient.ACT_DELETE, reason, self.UserCred, false)

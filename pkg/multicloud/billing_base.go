@@ -14,7 +14,10 @@
 
 package multicloud
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type SBillingBase struct{}
 
@@ -28,4 +31,12 @@ func (self *SBillingBase) GetCreatedAt() time.Time {
 
 func (self *SBillingBase) GetExpiredAt() time.Time {
 	return time.Time{}
+}
+
+func (self *SBillingBase) SetAutoRenew(autoRenew bool) error {
+	return fmt.Errorf("Not Implement SetAutoRenew")
+}
+
+func (self *SBillingBase) IsAutoRenew() bool {
+	return false
 }

@@ -16,6 +16,7 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -50,6 +51,7 @@ func (self *DiskBatchCreateTask) getNeedScheduleDisks(objs []db.IStandaloneModel
 
 func (self *DiskBatchCreateTask) clearPendingUsage(ctx context.Context, disk *models.SDisk) {
 	ClearTaskPendingUsage(ctx, self)
+	ClearTaskPendingRegionUsage(ctx, self)
 }
 
 func (self *DiskBatchCreateTask) OnInit(ctx context.Context, objs []db.IStandaloneModel, body jsonutils.JSONObject) {
@@ -82,7 +84,26 @@ func (self *DiskBatchCreateTask) GetSchedParams() (*schedapi.ScheduleInput, erro
 	return ret, err
 }
 
-func (self *DiskBatchCreateTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason string) {
+func (self *DiskBatchCreateTask) GetDisks() ([]*api.DiskConfig, error) {
+	input, err := self.GetSchedParams()
+	if err != nil {
+		return nil, err
+	}
+	return input.Disks, nil
+}
+
+func (self *DiskBatchCreateTask) GetFirstDisk() (*api.DiskConfig, error) {
+	disks, err := self.GetDisks()
+	if err != nil {
+		return nil, err
+	}
+	if len(disks) == 0 {
+		return nil, fmt.Errorf("Empty disks to schedule")
+	}
+	return disks[0], nil
+}
+
+func (self *DiskBatchCreateTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason jsonutils.JSONObject) {
 	self.SSchedTask.OnScheduleFailCallback(ctx, obj, reason)
 	disk := obj.(*models.SDisk)
 	log.Errorf("Schedule disk %s failed", disk.Name)
@@ -106,7 +127,7 @@ func (self *DiskBatchCreateTask) SaveScheduleResult(ctx context.Context, obj ISc
 	onError := func(err error) {
 		self.clearPendingUsage(ctx, disk)
 		disk.SetStatus(self.UserCred, api.DISK_ALLOC_FAILED, err.Error())
-		self.SetStageFailed(ctx, err.Error())
+		self.SetStageFailed(ctx, jsonutils.Marshal(err))
 		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
 		notifyclient.NotifySystemError(disk.Id, disk.Name, api.DISK_ALLOC_FAILED, err.Error())
 	}
@@ -145,7 +166,7 @@ func (self *DiskBatchCreateTask) startCreateDisk(ctx context.Context, disk *mode
 		log.Warningf("disk.GetQuotaKeys fail %s", err)
 	}
 	quotaStorage.SetKeys(keys)
-	quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &quotaStorage)
+	quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &quotaStorage, true) // success
 	self.SetPendingUsage(&pendingUsage, 0)
 
 	disk.StartDiskCreateTask(ctx, self.GetUserCred(), false, "", self.GetTaskId())

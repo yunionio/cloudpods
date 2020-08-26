@@ -26,8 +26,10 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
+// +onecloud:swagger-gen-ignore
 type SNetInterface struct {
 	db.SModelBase
 
@@ -41,6 +43,7 @@ type SNetInterface struct {
 	Mtu         int16  `nullable:"true"`                            // Column(SMALLINT, nullable=True)
 }
 
+// +onecloud:swagger-gen-ignore
 type SNetInterfaceManager struct {
 	db.SModelBaseManager
 }
@@ -265,12 +268,12 @@ func (self *SNetInterface) Remove(ctx context.Context, userCred mcclient.TokenCr
 	return err
 }
 
-func (self *SNetInterface) GetCandidateNetworkForIp(userCred mcclient.TokenCredential, ipAddr string) (*SNetwork, error) {
+func (self *SNetInterface) GetCandidateNetworkForIp(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope, ipAddr string) (*SNetwork, error) {
 	wire := self.GetWire()
 	if wire == nil {
 		return nil, nil
 	}
-	return wire.GetCandidateNetworkForIp(userCred, ipAddr)
+	return wire.GetCandidateNetworkForIp(ownerId, scope, ipAddr)
 }
 
 func (self *SNetInterface) IsUsableServernic() bool {

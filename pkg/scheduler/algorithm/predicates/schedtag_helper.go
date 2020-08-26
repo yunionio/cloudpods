@@ -123,6 +123,16 @@ func GetRequestSchedtags(reqTags []*computeapi.SchedtagConfig, allTags []models.
 
 	appendedTagIds := make(map[string]int)
 
+	for _, reqTag := range reqTags {
+		for _, dbTag := range allTags {
+			if reqTag.Id == dbTag.Id || reqTag.Id == dbTag.Name {
+				if reqTag.Strategy == "" {
+					reqTag.Strategy = dbTag.DefaultStrategy
+				}
+			}
+		}
+	}
+
 	appendTagByStrategy := func(tag *computeapi.SchedtagConfig, defaultWeight int) {
 		if tag.Weight <= 0 {
 			tag.Weight = defaultWeight
@@ -219,7 +229,7 @@ func (p *SchedtagChecker) getDynamicSchedtags(resType string, schedDesc *jsonuti
 
 	tags := []models.SSchedtag{}
 	for _, tag := range dynamicTags {
-		matched, err := conditionparser.Eval(tag.Condition, schedDesc)
+		matched, err := conditionparser.EvalBool(tag.Condition, schedDesc)
 		if err != nil {
 			log.Errorf("Condition parse eval: condition: %q, desc: %s, error: %v", tag.Condition, schedDesc, err)
 			continue

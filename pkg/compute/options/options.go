@@ -42,6 +42,9 @@ type ComputeOptions struct {
 	PrepaidExpireCheckSeconds       int  `default:"600" help:"How long to wait to scan expired prepaid VM or disks, default is 10 minutes"`
 	ExpiredPrepaidMaxCleanBatchSize int  `default:"50" help:"How many expired prepaid servers can be deleted in a batch"`
 
+	PrepaidAutoRenew      bool `default:"true" help:"auto renew prepaid servers when server's auto_renew attr is true"`
+	PrepaidAutoRenewHours int  `default:"3" help:"How long to wait to scan which need renew prepaid VMs, default is 3 hours"`
+
 	LoadbalancerPendingDeleteCheckInterval int `default:"3600" help:"Interval between checks of pending deleted loadbalancer objects, defaults to 1h"`
 
 	ImageCacheStoragePolicy string `default:"least_used" choices:"best_fit|least_used" help:"Policy to choose storage for image cache, best_fit or least_used"`
@@ -73,7 +76,14 @@ type ComputeOptions struct {
 	DefaultRdsQuota          int `default:"10" help:"Common RDS quota per tenant, default 10"`
 	DefaultCacheQuota        int `default:"10" help:"Common ElasticCache quota per tenant, default 10"`
 
-	SystemAdminQuotaCheck bool `help:"Enable quota check for system admin, default False" default:"false"`
+	DefaultGlobalvpcQuota    int `default:"10" help:"Common global Vpc quota per domain, default 10"`
+	DefaultCloudaccountQuota int `default:"20" help:"Common cloud account quota per domain, default 20"`
+
+	DefaultHostQuota int `default:"500" help:"Common host quota per domain, default 500"`
+	DefaultVpcQuota  int `default:"500" help:"Common vpc quota per domain, default 500"`
+
+	SystemAdminQuotaCheck         bool `help:"Enable quota check for system admin, default False" default:"false"`
+	CloudaccountHealthStatusCheck bool `help:"Enable cloudaccount health status check, default True" default:"true"`
 
 	BaremetalPreparePackageUrl string `help:"Baremetal online register package"`
 
@@ -105,7 +115,7 @@ type ComputeOptions struct {
 
 	MinimalIpAddrReusedIntervalSeconds int `help:"Minimal seconds when a release IP address can be reallocate" default:"30"`
 
-	CloudSyncWorkerCount         int `help:"how many current synchronization threads" default:"2"`
+	CloudSyncWorkerCount         int `help:"how many current synchronization threads" default:"5"`
 	CloudAutoSyncIntervalSeconds int `help:"frequency to check auto sync tasks" default:"30"`
 	DefaultSyncIntervalSeconds   int `help:"minimal synchronization interval, default 1 minutes" default:"900"`
 	MinimalSyncIntervalSeconds   int `help:"minimal synchronization interval, default 1 minutes" default:"300"`
@@ -113,11 +123,25 @@ type ComputeOptions struct {
 
 	NameSyncResources []string `help:"resources that need synchronization of name"`
 
-	SyncPurgeRemovedResources []string `help:"resources that shoud be purged immediately if found removed"`
+	SyncPurgeRemovedResources []string `help:"resources that shoud be purged immediately if found removed" default:"server"`
 
-	DisconnectedCloudAccountRetryProbeIntervalHours int `help:"interval to wait to probe status of a disconnected cloud account" default:"24"`
+	DisconnectedCloudAccountRetryProbeIntervalHours int `help:"interval to wait to probe status of a disconnected cloud account" default:"2"`
+
+	BaremetalServerReuseHostIp bool `help:"baremetal server reuse host IP address, default true" default:"true"`
+
+	EnableHostHealthCheck bool `help:"enable host health check" default:"true"`
+	HostHealthTimeout     int  `help:"second of wait host reconnect" default:"60"`
+
+	FetchEtcdServiceInfoAndUseEtcdLock bool `default:"true" help:"fetch etcd service info and use etcd lock"`
+
+	GuestTemplateCheckInterval int `help:"interval between two consecutive inspections of Guest Template in hour unit" default:"12"`
+
+	ScheduledTaskQueueSize int `help:"the maximum number of scheduled tasks that are being executed simultaneously" default:"100"`
+
+	ReconcileGuestBackupIntervalSeconds int `help:"interval reconcile guest bakcups" default:"30"`
 
 	SCapabilityOptions
+	SASControllerOptions
 	common_options.CommonOptions
 	common_options.DBOptions
 }
@@ -130,6 +154,24 @@ type SCapabilityOptions struct {
 	MaxManagedNicCount int `help:"Maximal managed nic count" default:"1"`
 }
 
+type SASControllerOptions struct {
+	TimerInterval       int `help:"The interval between the tow checks about timer, unit: s" default:"60"`
+	ConcurrentUpper     int `help:"This represents the upper limit of concurrent sacling sctivities" default:"500"`
+	CheckScaleInterval  int `help:"The interval between the two checks about scaling, unit: s" default:"60"`
+	CheckHealthInterval int `help:"The interval bewteen the two check about instance's health unit: m" default:"1"`
+}
+
 var (
 	Options ComputeOptions
 )
+
+func OnOptionsChange(oldO, newO interface{}) bool {
+	oldOpts := oldO.(*ComputeOptions)
+	newOpts := newO.(*ComputeOptions)
+
+	changed := false
+	if common_options.OnCommonOptionsChange(&oldOpts.CommonOptions, &newOpts.CommonOptions) {
+		changed = true
+	}
+	return changed
+}

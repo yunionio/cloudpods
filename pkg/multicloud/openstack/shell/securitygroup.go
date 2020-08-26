@@ -21,10 +21,11 @@ import (
 
 func init() {
 	type SecurityGroupListOptions struct {
-		Name string
+		ProjectId string
+		Name      string
 	}
 	shellutils.R(&SecurityGroupListOptions{}, "security-group-list", "List security groups", func(cli *openstack.SRegion, args *SecurityGroupListOptions) error {
-		secgroup, err := cli.GetSecurityGroups(args.Name)
+		secgroup, err := cli.GetSecurityGroups(args.ProjectId, args.Name)
 		if err != nil {
 			return err
 		}
@@ -33,7 +34,8 @@ func init() {
 	})
 
 	type SecurityGroupShowOptions struct {
-		ID string `help:"ID of security group"`
+		ID        string `help:"ID of security group"`
+		ShowRules bool   `help:"Show rules"`
 	}
 	shellutils.R(&SecurityGroupShowOptions{}, "security-group-show", "Show security group", func(cli *openstack.SRegion, args *SecurityGroupShowOptions) error {
 		secgroup, err := cli.GetSecurityGroup(args.ID)
@@ -41,16 +43,26 @@ func init() {
 			return err
 		}
 		printObject(secgroup)
+		if args.ShowRules {
+			rules, err := secgroup.GetRules()
+			if err != nil {
+				return err
+			}
+			for _, r := range rules {
+				printObject(r)
+			}
+		}
 		return nil
 	})
 
 	type SecurityGroupCreateOptions struct {
-		NAME string `help:"Name of security group"`
-		Desc string `help:"Description of security group"`
+		ProjectId string
+		NAME      string `help:"Name of security group"`
+		Desc      string `help:"Description of security group"`
 	}
 
 	shellutils.R(&SecurityGroupCreateOptions{}, "security-group-create", "Create security group", func(cli *openstack.SRegion, args *SecurityGroupCreateOptions) error {
-		secgroup, err := cli.CreateSecurityGroup(args.NAME, args.Desc)
+		secgroup, err := cli.CreateSecurityGroup(args.ProjectId, args.NAME, args.Desc)
 		if err != nil {
 			return err
 		}

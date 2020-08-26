@@ -17,7 +17,6 @@ package huawei
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -70,31 +69,32 @@ type SDBInstance struct {
 
 	flavorCache []SDBInstanceFlavor
 
-	BackupStrategy    SBackupStrategy
-	Created           string //time.Time
-	Datastore         SDatastore
-	DbUserName        string
-	DIskEncryptionId  string
-	FlavorRef         string
-	Ha                SHa
-	Id                string
-	MaintenanceWindow string
-	Name              string
-	Nodes             []SNonde
-	Port              int
-	PrivateIps        []string
-	PublicIps         []string
-	Region            string
-	RelatedInstance   []SRelatedInstance
-	SecurityGroupId   string
-	Status            string
-	SubnetId          string
-	SwitchStrategy    string
-	TimeZone          string
-	Type              string
-	Updated           string //time.Time
-	Volume            SVolume
-	VpcId             string
+	BackupStrategy      SBackupStrategy
+	Created             string //time.Time
+	Datastore           SDatastore
+	DbUserName          string
+	DIskEncryptionId    string
+	FlavorRef           string
+	Ha                  SHa
+	Id                  string
+	MaintenanceWindow   string
+	Name                string
+	Nodes               []SNonde
+	Port                int
+	PrivateIps          []string
+	PublicIps           []string
+	Region              string
+	RelatedInstance     []SRelatedInstance
+	SecurityGroupId     string
+	Status              string
+	SubnetId            string
+	SwitchStrategy      string
+	TimeZone            string
+	Type                string
+	Updated             string //time.Time
+	Volume              SVolume
+	VpcId               string
+	EnterpriseProjectId string
 }
 
 func (region *SRegion) GetDBInstances() ([]SDBInstance, error) {
@@ -192,14 +192,6 @@ func (rds *SDBInstance) GetExpiredAt() time.Time {
 }
 
 func (rds *SDBInstance) GetStorageType() string {
-	switch rds.Volume.Type {
-	case "COMMON":
-		return api.STORAGE_HUAWEI_SATA
-	case "HIGH":
-		return api.STORAGE_HUAWEI_SAS
-	case "ULTRAHIGH":
-		return api.STORAGE_HUAWEI_SSD
-	}
 	return rds.Volume.Type
 }
 
@@ -279,6 +271,10 @@ func (rds *SDBInstance) GetIVpcId() string {
 	return rds.VpcId
 }
 
+func (rds *SDBInstance) GetProjectId() string {
+	return rds.EnterpriseProjectId
+}
+
 func (rds *SDBInstance) Refresh() error {
 	instance, err := rds.region.GetDBInstance(rds.Id)
 	if err != nil {
@@ -287,16 +283,30 @@ func (rds *SDBInstance) Refresh() error {
 	return jsonutils.Update(rds, instance)
 }
 
-func (rds *SDBInstance) GetIZoneId() string {
-	zones := []string{}
+func (rds *SDBInstance) GetZone1Id() string {
+	return rds.GetZoneIdByRole("master")
+}
+
+func (rds *SDBInstance) GetZoneIdByRole(role string) string {
 	for _, node := range rds.Nodes {
-		if node.Role == "master" {
-			zones = append([]string{node.AvailabilityZone}, zones...)
-		} else if node.Role == "slave" {
-			zones = append(zones, node.AvailabilityZone)
+		if node.Role == role {
+			zone, err := rds.region.getZoneById(node.AvailabilityZone)
+			if err != nil {
+				log.Errorf("failed to found zone %s for rds %s error: %v", node.AvailabilityZone, rds.Name, err)
+				return ""
+			}
+			return zone.GetGlobalId()
 		}
 	}
-	return strings.Join(zones, ",")
+	return ""
+}
+
+func (rds *SDBInstance) GetZone2Id() string {
+	return rds.GetZoneIdByRole("slave")
+}
+
+func (rds *SDBInstance) GetZone3Id() string {
+	return ""
 }
 
 type SRdsNetwork struct {
@@ -419,17 +429,6 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 	for _, zone := range zones {
 		zoneIds = append(zoneIds, zone.GetId())
 	}
-	storageType := ""
-	switch desc.StorageType {
-	case api.STORAGE_HUAWEI_SAS:
-		storageType = "HIGH"
-	case api.STORAGE_HUAWEI_SSD:
-		storageType = "ULTRAHIGH"
-	case api.STORAGE_HUAWEI_SATA:
-		storageType = "COMMON"
-	default:
-		return nil, fmt.Errorf("Unknown storage type %s", desc.StorageType)
-	}
 
 	params := map[string]interface{}{
 		"region": region.ID,
@@ -440,12 +439,16 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 		},
 		"password": desc.Password,
 		"volume": map[string]interface{}{
-			"type": storageType,
+			"type": desc.StorageType,
 			"size": desc.DiskSizeGB,
 		},
 		"vpc_id":            desc.VpcId,
 		"subnet_id":         desc.NetworkId,
 		"security_group_id": desc.SecgroupId,
+	}
+
+	if len(desc.ProjectId) > 0 {
+		params["enterprise_project_id"] = desc.ProjectId
 	}
 
 	if len(desc.MasterInstanceId) > 0 {
@@ -714,19 +717,27 @@ func (region *SRegion) ChangeDBInstanceConfig(instanceId string, instanceType st
 }
 
 func (rds *SDBInstance) RecoveryFromBackup(conf *cloudprovider.SDBInstanceRecoveryConfig) error {
-	return rds.region.RecoveryDBInstanceFromBackup(rds.Id, conf.BackupId, conf.Databases)
+	if len(conf.OriginDBInstanceExternalId) == 0 {
+		conf.OriginDBInstanceExternalId = rds.Id
+	}
+	return rds.region.RecoveryDBInstanceFromBackup(rds.Id, conf.OriginDBInstanceExternalId, conf.BackupId, conf.Databases)
 }
 
-func (region *SRegion) RecoveryDBInstanceFromBackup(instanceId string, backupId string, databases map[string]string) error {
+func (region *SRegion) RecoveryDBInstanceFromBackup(target, origin string, backupId string, databases map[string]string) error {
+	source := map[string]interface{}{
+		"type":      "backup",
+		"backup_id": backupId,
+	}
+	if len(origin) > 0 {
+		source["instance_id"] = origin
+	}
+	if len(databases) > 0 {
+		source["database_name"] = databases
+	}
 	params := map[string]interface{}{
-		"source": map[string]interface{}{
-			"instance_id":   instanceId,
-			"type":          "backup",
-			"backup_id":     backupId,
-			"database_name": databases,
-		},
+		"source": source,
 		"target": map[string]string{
-			"instance_id": instanceId,
+			"instance_id": target,
 		},
 	}
 	_, err := region.ecsClient.DBInstance.PerformAction("", "recovery", jsonutils.Marshal(params))

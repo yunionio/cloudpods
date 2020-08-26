@@ -216,7 +216,7 @@ func (self *SInstance) getVpc() (*SVpc, error) {
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	idisks := make([]cloudprovider.ICloudDisk, 0)
 
-	if utils.IsInStringArray(self.SystemDisk.DiskType, []string{"LOCAL_BASIC", "LOCAL_SSD"}) {
+	if utils.IsInStringArray(self.SystemDisk.DiskType, self.host.zone.localstorages) {
 		storage := SLocalStorage{zone: self.host.zone, storageType: self.SystemDisk.DiskType}
 		disk := SLocalDisk{
 			storage:   &storage,
@@ -229,7 +229,7 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	}
 
 	for i := 0; i < len(self.DataDisks); i++ {
-		if utils.IsInStringArray(self.DataDisks[i].DiskType, []string{"LOCAL_BASIC", "LOCAL_SSD"}) {
+		if utils.IsInStringArray(self.DataDisks[i].DiskType, self.host.zone.localstorages) {
 			storage := SLocalStorage{zone: self.host.zone, storageType: self.DataDisks[i].DiskType}
 			disk := SLocalDisk{
 				storage:   &storage,
@@ -270,12 +270,16 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 
 func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 	nics := make([]cloudprovider.ICloudNic, 0)
+	classic := false
+	if len(self.VirtualPrivateCloud.VpcId) == 0 {
+		classic = true
+	}
 	for _, ip := range self.VirtualPrivateCloud.PrivateIpAddresses {
 		nic := SInstanceNic{instance: self, ipAddr: ip}
 		nics = append(nics, &nic)
 	}
 	for _, ip := range self.PrivateIpAddresses {
-		nic := SInstanceNic{instance: self, ipAddr: ip}
+		nic := SInstanceNic{instance: self, ipAddr: ip, classic: classic}
 		nics = append(nics, &nic)
 	}
 	return nics, nil
@@ -431,16 +435,16 @@ func (self *SInstance) DeployVM(ctx context.Context, name string, username strin
 	return self.host.zone.region.DeployVM(self.InstanceId, name, password, keypairName, deleteKeypair, description)
 }
 
-func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
+func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
 	keypair := ""
-	if len(publicKey) > 0 {
+	if len(desc.PublicKey) > 0 {
 		var err error
-		keypair, err = self.host.zone.region.syncKeypair(publicKey)
+		keypair, err = self.host.zone.region.syncKeypair(desc.PublicKey)
 		if err != nil {
 			return "", err
 		}
 	}
-	err := self.host.zone.region.ReplaceSystemDisk(self.InstanceId, imageId, passwd, keypair, sysSizeGB)
+	err := self.host.zone.region.ReplaceSystemDisk(self.InstanceId, desc.ImageId, desc.Password, keypair, desc.SysSizeGB)
 	if err != nil {
 		return "", err
 	}
@@ -491,18 +495,19 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 
 func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, securityGroupId string,
 	zoneId string, desc string, passwd string, disks []SDisk, networkId string, ipAddr string,
-	keypair string, userData string, bc *billing.SBillingCycle) (string, error) {
+	keypair string, userData string, bc *billing.SBillingCycle, projectId string) (string, error) {
 	params := make(map[string]string)
 	params["Region"] = self.Region
 	params["ImageId"] = imageId
 	params["InstanceType"] = instanceType
 	params["SecurityGroupIds.0"] = securityGroupId
 	params["Placement.Zone"] = zoneId
+	if len(projectId) > 0 {
+		params["Placement.ProjectId"] = projectId
+	}
 	params["InstanceName"] = name
-	params["Description"] = desc
 
-	params["InternetAccessible.InternetChargeType"] = "TRAFFIC_POSTPAID_BY_HOUR"
-	params["InternetAccessible.InternetMaxBandwidthOut"] = "100"
+	params["InternetAccessible.InternetMaxBandwidthOut"] = "1"
 	params["InternetAccessible.PublicIpAssigned"] = "FALSE"
 	//params["HostName"] = name
 	if len(keypair) > 0 {
@@ -519,7 +524,11 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	if bc != nil {
 		params["InstanceChargeType"] = "PREPAID"
 		params["InstanceChargePrepaid.Period"] = fmt.Sprintf("%d", bc.GetMonths())
-		params["InstanceChargePrepaid.RenewFlag"] = "NOTIFY_AND_MANUAL_RENEW"
+		if bc.AutoRenew {
+			params["InstanceChargePrepaid.RenewFlag"] = "NOTIFY_AND_AUTO_RENEW"
+		} else {
+			params["InstanceChargePrepaid.RenewFlag"] = "NOTIFY_AND_MANUAL_RENEW"
+		}
 	} else {
 		params["InstanceChargeType"] = "POSTPAID_BY_HOUR"
 	}
@@ -858,4 +867,43 @@ func (self *SInstance) GetProjectId() string {
 
 func (self *SInstance) GetError() error {
 	return nil
+}
+
+func (region *SRegion) ConvertPublicIpToEip(instanceId string) error {
+	params := map[string]string{
+		"InstanceId": instanceId,
+		"Region":     region.Region,
+	}
+	_, err := region.vpcRequest("TransformAddress", params)
+	if err != nil {
+		log.Errorf("TransformAddress fail %s", err)
+		return err
+	}
+	return nil
+}
+
+func (self *SInstance) ConvertPublicIpToEip() error {
+	return self.host.zone.region.ConvertPublicIpToEip(self.InstanceId)
+}
+
+func (self *SInstance) IsAutoRenew() bool {
+	return self.RenewFlag == "NOTIFY_AND_AUTO_RENEW"
+}
+
+// https://cloud.tencent.com/document/api/213/15752
+func (region *SRegion) SetInstanceAutoRenew(instanceId string, autoRenew bool) error {
+	params := map[string]string{
+		"InstanceIds.0": instanceId,
+		"Region":        region.Region,
+		"RenewFlag":     "NOTIFY_AND_MANUAL_RENEW",
+	}
+	if autoRenew {
+		params["RenewFlag"] = "NOTIFY_AND_AUTO_RENEW"
+	}
+	_, err := region.cvmRequest("ModifyInstancesRenewFlag", params, true)
+	return err
+}
+
+func (self *SInstance) SetAutoRenew(autoRenew bool) error {
+	return self.host.zone.region.SetInstanceAutoRenew(self.InstanceId, autoRenew)
 }

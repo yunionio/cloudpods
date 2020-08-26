@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
@@ -66,7 +67,8 @@ type ClientSession struct {
 	Header        http.Header /// headers for this session
 	notifyChannel chan string
 
-	defaultApiVersion string
+	defaultApiVersion   string
+	customizeServiceUrl map[string]string
 }
 
 func populateHeader(self *http.Header, update http.Header) {
@@ -134,17 +136,23 @@ func (this *ClientSession) GetServiceURL(service, endpointType string) (string, 
 	return this.GetServiceVersionURL(service, endpointType, this.getApiVersion(""))
 }
 
+func (this *ClientSession) GetServiceCatalog() IServiceCatalog {
+	return this.client.GetServiceCatalog()
+}
+
 func (this *ClientSession) GetServiceVersionURL(service, endpointType, apiVersion string) (string, error) {
 	if len(this.endpointType) > 0 {
 		// session specific endpoint type should override the input endpointType, which is supplied by manager
 		endpointType = this.endpointType
 	}
 	service = this.getServiceName(service, apiVersion)
-	url, err := this.token.GetServiceURL(service, this.region, this.zone, endpointType)
-	if err != nil && this.client.serviceCatalog != nil {
-		url, err = this.client.serviceCatalog.GetServiceURL(service, this.region, this.zone, endpointType)
-	}
+	url, err := this.GetServiceCatalog().GetServiceURL(service, this.region, this.zone, endpointType)
 	if err != nil && service == api.SERVICE_TYPE {
+		return this.client.authUrl, nil
+	}
+	// HACK! in case schema of keystone changed, always trust authUrl
+	if service == api.SERVICE_TYPE && this.client.authUrl[:5] != url[:5] {
+		log.Warningf("Schema of keystone authUrl and endpoint mismatch: %s!=%s", this.client.authUrl, url)
 		return this.client.authUrl, nil
 	}
 	return url, err
@@ -160,10 +168,7 @@ func (this *ClientSession) GetServiceVersionURLs(service, endpointType, apiVersi
 		endpointType = this.endpointType
 	}
 	service = this.getServiceName(service, apiVersion)
-	urls, err := this.token.GetServiceURLs(service, this.region, this.zone, endpointType)
-	if err != nil && this.client.serviceCatalog != nil {
-		urls, err = this.client.serviceCatalog.GetServiceURLs(service, this.region, this.zone, endpointType)
-	}
+	urls, err := this.GetServiceCatalog().GetServiceURLs(service, this.region, this.zone, endpointType)
 	if err != nil && service == api.SERVICE_TYPE {
 		return []string{this.client.authUrl}, nil
 	}
@@ -174,6 +179,8 @@ func (this *ClientSession) getBaseUrl(service, endpointType, apiVersion string) 
 	if len(service) > 0 {
 		if strings.HasPrefix(service, "http://") || strings.HasPrefix(service, "https://") {
 			return service, nil
+		} else if url, ok := this.customizeServiceUrl[service]; ok {
+			return url, nil
 		} else {
 			return this.GetServiceVersionURL(service, endpointType, this.getApiVersion(apiVersion))
 		}
@@ -249,8 +256,8 @@ func (this *ClientSession) JSONRequest(service, endpointType string, method http
 	return this.JSONVersionRequest(service, endpointType, method, url, headers, body, "")
 }
 
-func (this *ClientSession) ParseJSONResponse(resp *http.Response, err error) (http.Header, jsonutils.JSONObject, error) {
-	return httputils.ParseJSONResponse(resp, err, this.client.debug)
+func (this *ClientSession) ParseJSONResponse(reqBody string, resp *http.Response, err error) (http.Header, jsonutils.JSONObject, error) {
+	return httputils.ParseJSONResponse(reqBody, resp, err, this.client.debug)
 }
 
 func (this *ClientSession) HasSystemAdminPrivilege() bool {
@@ -305,6 +312,10 @@ func (this *ClientSession) RemoveTaskNotifyUrl() {
 	this.Header.Del(TASK_NOTIFY_URL)
 }
 
+func (this *ClientSession) SetServiceUrl(service, url string) {
+	this.customizeServiceUrl[service] = url
+}
+
 func (this *ClientSession) PrepareTask() {
 	// start a random htttp server
 	this.notifyChannel = make(chan string)
@@ -345,6 +356,10 @@ func (this *ClientSession) WaitTaskNotify() {
 	}
 }
 
+func (this *ClientSession) SetApiVersion(version string) {
+	this.defaultApiVersion = version
+}
+
 func (this *ClientSession) GetApiVersion() string {
 	apiVersion := this.getApiVersion("")
 	if len(apiVersion) == 0 {
@@ -368,9 +383,25 @@ func (this *ClientSession) ToJson() jsonutils.JSONObject {
 	if len(this.zone) > 0 {
 		params.Add(jsonutils.NewString(this.zone), "zone")
 	}
+	if tokenV3, ok := this.token.(*TokenCredentialV3); ok {
+		params.Add(jsonutils.NewStringArray(tokenV3.Token.Policies.Project), "project_policies")
+		params.Add(jsonutils.NewStringArray(tokenV3.Token.Policies.Domain), "domain_policies")
+		params.Add(jsonutils.NewStringArray(tokenV3.Token.Policies.System), "system_policies")
+	}
 	return params
 }
 
 func (cs *ClientSession) GetToken() TokenCredential {
 	return cs.token
+}
+
+func (cs *ClientSession) GetContext() context.Context {
+	if cs.ctx == nil {
+		return context.Background()
+	}
+	return cs.ctx
+}
+
+func (cs *ClientSession) GetCommonEtcdEndpoint() (*api.EndpointDetails, error) {
+	return cs.GetClient().GetCommonEtcdEndpoint(cs.GetToken(), cs.region, cs.endpointType)
 }

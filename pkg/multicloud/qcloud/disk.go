@@ -309,11 +309,15 @@ func (self *SDisk) GetIsAutoDelete() bool {
 }
 
 func (self *SDisk) GetCreatedAt() time.Time {
-	return self.CreateTime
+	// 2019-12-25 09:00:43  #非UTC时间
+	return self.CreateTime.Add(time.Hour * -8)
 }
 
 func (self *SDisk) GetExpiredAt() time.Time {
-	return self.DeadlineTime
+	if self.DeadlineTime.IsZero() {
+		return time.Time{}
+	}
+	return self.DeadlineTime.Add(time.Hour * -8)
 }
 
 func (self *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
@@ -374,7 +378,7 @@ func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error)
 	return "", self.storage.zone.region.ResetDisk(self.DiskId, snapshotId)
 }
 
-func (self *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, desc string) (string, error) {
+func (self *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, desc string, projectId string) (string, error) {
 	params := make(map[string]string)
 	params["Region"] = self.Region
 	params["DiskType"] = category
@@ -385,6 +389,9 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 	}
 	params["DiskName"] = name
 	params["Placement.Zone"] = zoneId
+	if len(projectId) > 0 {
+		params["Placement.ProjectId"] = projectId
+	}
 	//params["Encrypted"] = "false"
 	params["DiskSize"] = fmt.Sprintf("%d", sizeGb)
 	params["ClientToken"] = utils.GenRequestId(20)

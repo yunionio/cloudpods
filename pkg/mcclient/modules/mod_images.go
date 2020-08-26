@@ -423,24 +423,6 @@ func (this *ImageManager) Upload(s *mcclient.ClientSession, params jsonutils.JSO
 	return this._create(s, params, body, size)
 }
 
-func (this *ImageManager) IsNameDuplicate(s *mcclient.ClientSession, name string) (bool, error) {
-	dupName := true
-	_, e := this.GetByName(s, name, nil)
-	if e != nil {
-		switch e.(type) {
-		case *httputils.JSONClientError:
-			je := e.(*httputils.JSONClientError)
-			if je.Code == 404 {
-				dupName = false
-			}
-		default:
-			log.Errorf("GetByName fail %s", e)
-			return false, e
-		}
-	}
-	return dupName, nil
-}
-
 func (this *ImageManager) _create(s *mcclient.ClientSession, params jsonutils.JSONObject, body io.Reader, size int64) (jsonutils.JSONObject, error) {
 	/*format, _ := params.GetString("disk-format")
 	if len(format) == 0 {
@@ -457,20 +439,12 @@ func (this *ImageManager) _create(s *mcclient.ClientSession, params jsonutils.JS
 	path := fmt.Sprintf("/%s", this.URLPath())
 	method := httputils.POST
 	if len(imageId) == 0 {
-		name, _ := params.GetString("name")
-		if len(name) == 0 {
+		if !params.Contains("name") && !params.Contains("generate_name") {
 			return nil, httperrors.NewMissingParameterError("name")
-		}
-		dupName, e := this.IsNameDuplicate(s, name)
-		if dupName {
-			return nil, httperrors.NewDuplicateNameError("name", name)
-		}
-		if e != nil {
-			return nil, fmt.Errorf("Check name duplicate error %s", e)
 		}
 	} else {
 		path = fmt.Sprintf("/%s/%s", this.URLPath(), imageId)
-		method = "PUT"
+		method = httputils.PUT
 	}
 	headers, e := setImageMeta(params)
 	if e != nil {
@@ -485,7 +459,6 @@ func (this *ImageManager) _create(s *mcclient.ClientSession, params jsonutils.JS
 		size = 0
 		headers.Set(IMAGE_META_COPY_FROM, copyFromUrl)
 	}
-	headers.Set(fmt.Sprintf("%s%s", IMAGE_META, utils.Capitalize("container-format")), "bare")
 	if body != nil {
 		headers.Add("Content-Type", "application/octet-stream")
 		if size > 0 {
@@ -493,7 +466,7 @@ func (this *ImageManager) _create(s *mcclient.ClientSession, params jsonutils.JS
 		}
 	}
 	resp, err := modulebase.RawRequest(this.ResourceManager, s, method, path, headers, body)
-	_, json, err := s.ParseJSONResponse(resp, err)
+	_, json, err := s.ParseJSONResponse("", resp, err)
 	if err != nil {
 		return nil, err
 	}
@@ -533,11 +506,36 @@ func (this *ImageManager) _update(s *mcclient.ClientSession, id string, params j
 	}
 	path := fmt.Sprintf("/%s/%s", this.URLPath(), url.PathEscape(id))
 	resp, err := modulebase.RawRequest(this.ResourceManager, s, "PUT", path, headers, body)
-	_, json, err := s.ParseJSONResponse(resp, err)
+	_, json, err := s.ParseJSONResponse("", resp, err)
 	if err != nil {
 		return nil, err
 	}
 	return json.Get("image")
+}
+
+func (this *ImageManager) BatchUpdate(
+	session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject,
+) []modulebase.SubmitResult {
+	return modulebase.BatchDo(idlist, func(id string) (jsonutils.JSONObject, error) {
+		var curParams = params.(*jsonutils.JSONDict).Copy()
+		img, err := this.Get(session, id, nil)
+		if err != nil {
+			return nil, err
+		}
+		properties, _ := img.Get("properties")
+		if properties != nil {
+			propDict := properties.(*jsonutils.JSONDict)
+			propMap, _ := propDict.GetMap()
+			if propMap != nil {
+				for k, val := range propMap {
+					if !curParams.Contains("properties", k) {
+						curParams.Add(val, "properties", k)
+					}
+				}
+			}
+		}
+		return this._update(session, id, curParams, nil)
+	})
 }
 
 func (this *ImageManager) Download(s *mcclient.ClientSession, id string, format string, torrent bool) (jsonutils.JSONObject, io.Reader, int64, error) {
@@ -562,7 +560,7 @@ func (this *ImageManager) Download(s *mcclient.ClientSession, id string, format 
 		}
 		return FetchImageMeta(resp.Header), resp.Body, sizeBytes, nil
 	} else {
-		_, _, err = s.ParseJSONResponse(resp, err)
+		_, _, err = s.ParseJSONResponse("", resp, err)
 		return nil, nil, -1, err
 	}
 }
@@ -579,7 +577,9 @@ func init() {
 			"Min_disk", "Min_ram", "Status",
 			"Notes", "OS_arch", "Preference",
 			"OS_Codename", "Description",
-			"Checksum"},
+			"Checksum", "Tenant_Id", "Tenant",
+			"is_guest_image",
+		},
 		[]string{"Owner", "Owner_name"})}
 	register(&Images)
 }

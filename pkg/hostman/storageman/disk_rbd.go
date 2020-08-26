@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build linux
+// +build linux,cgo
 
 package storageman
 
@@ -182,7 +182,7 @@ func (d *SRBDDisk) createFromTemplate(ctx context.Context, imageId, format strin
 	if imageCache == nil {
 		return nil, fmt.Errorf("failed to qcquire image for storage %s", d.Storage.GetStorageName())
 	}
-	defer imageCacheManager.ReleaseImage(imageId)
+	defer imageCacheManager.ReleaseImage(ctx, imageId)
 	storage := d.Storage.(*SRbdStorage)
 	destPool, _ := storage.StorageConf.GetString("pool")
 	storage.deleteImage(destPool, d.Id) //重装系统时，需要删除以前的系统盘

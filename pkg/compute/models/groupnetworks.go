@@ -19,13 +19,18 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SGroupnetworkManager struct {
 	SGroupJointsManager
+	SNetworkResourceBaseManager
 }
 
 var GroupnetworkManager *SGroupnetworkManager
@@ -62,25 +67,47 @@ func (manager *SGroupnetworkManager) GetSlaveFieldName() string {
 	return "network_id"
 }
 
-func (joint *SGroupnetwork) Master() db.IStandaloneModel {
-	return db.JointMaster(joint)
+func (self *SGroupnetwork) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.GroupnetworkDetails, error) {
+	return api.GroupnetworkDetails{}, nil
 }
 
-func (joint *SGroupnetwork) Slave() db.IStandaloneModel {
-	return db.JointSlave(joint)
-}
+func (manager *SGroupnetworkManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.GroupnetworkDetails {
+	rows := make([]api.GroupnetworkDetails, len(objs))
 
-func (self *SGroupnetwork) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SGroupJointsBase.GetCustomizeColumns(ctx, userCred, query)
-	return db.JointModelExtra(self, extra)
-}
-
-func (self *SGroupnetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SGroupJointsBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
+	groupRows := manager.SGroupJointsManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	netIds := make([]string, len(rows))
+	for i := range rows {
+		rows[i] = api.GroupnetworkDetails{
+			GroupJointResourceDetails: groupRows[i],
+		}
+		netIds[i] = objs[i].(*SGroupnetwork).NetworkId
 	}
-	return db.JointModelExtra(self, extra), nil
+
+	netIdMaps, err := db.FetchIdNameMap2(NetworkManager, netIds)
+	if err != nil {
+		log.Errorf("FetchIdNameMap2 fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if name, ok := netIdMaps[netIds[i]]; ok {
+			rows[i].Network = name
+		}
+	}
+
+	return rows
 }
 
 func (self *SGroupnetwork) GetNetwork() *SNetwork {
@@ -98,4 +125,69 @@ func (self *SGroupnetwork) Delete(ctx context.Context, userCred mcclient.TokenCr
 
 func (self *SGroupnetwork) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return db.DetachJoint(ctx, userCred, self)
+}
+
+func (manager *SGroupnetworkManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.GroupnetworkListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SGroupJointsManager.ListItemFilter(ctx, q, userCred, query.GroupJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGroupJointsManager.ListItemFilter")
+	}
+	q, err = manager.SNetworkResourceBaseManager.ListItemFilter(ctx, q, userCred, query.NetworkFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.ListItemFilter")
+	}
+
+	if len(query.IpAddr) > 0 {
+		q = q.In("ip_addr", query.IpAddr)
+	}
+
+	return q, nil
+}
+
+func (manager *SGroupnetworkManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.GroupnetworkListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SGroupJointsManager.OrderByExtraFields(ctx, q, userCred, query.GroupJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGroupJointsManager.OrderByExtraFields")
+	}
+	q, err = manager.SNetworkResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.NetworkFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SGroupnetworkManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SGroupJointsManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGroupJointsManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SNetworkResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SNetworkResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SNetworkResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	return q, nil
 }

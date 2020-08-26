@@ -44,21 +44,52 @@ const (
 	CTYUN_API_VERSION = "2019-11-22"
 )
 
-type SCtyunClient struct {
-	httpClient *http.Client
-	debug      bool
+type CtyunClientConfig struct {
+	cpcfg cloudprovider.ProviderConfig
 
-	providerId   string
-	providerName string
-	projectId    string // 项目ID.
+	projectId    string
 	accessKey    string
-	secret       string
+	accessSecret string
 
-	iregions []cloudprovider.ICloudRegion
+	debug bool
 }
 
-func NewSCtyunClient(providerId string, providerName string, projectId string, accessKey string, secret string, debug bool) (*SCtyunClient, error) {
-	client := &SCtyunClient{httpClient: http.DefaultClient, providerId: providerId, providerName: providerName, projectId: projectId, accessKey: accessKey, secret: secret, debug: debug}
+func NewSCtyunClientConfig(accessKey, accessSecret string) *CtyunClientConfig {
+	cfg := &CtyunClientConfig{
+		accessKey:    accessKey,
+		accessSecret: accessSecret,
+	}
+	return cfg
+}
+
+func (cfg *CtyunClientConfig) ProjectId(projectId string) *CtyunClientConfig {
+	cfg.projectId = projectId
+	return cfg
+}
+
+func (cfg *CtyunClientConfig) CloudproviderConfig(cpcfg cloudprovider.ProviderConfig) *CtyunClientConfig {
+	cfg.cpcfg = cpcfg
+	return cfg
+}
+
+func (cfg *CtyunClientConfig) Debug(debug bool) *CtyunClientConfig {
+	cfg.debug = debug
+	return cfg
+}
+
+type SCtyunClient struct {
+	*CtyunClientConfig
+
+	httpClient *http.Client
+	iregions   []cloudprovider.ICloudRegion
+}
+
+func NewSCtyunClient(cfg *CtyunClientConfig) (*SCtyunClient, error) {
+	httpClient := cfg.cpcfg.HttpClient()
+	client := &SCtyunClient{
+		CtyunClientConfig: cfg,
+		httpClient:        httpClient,
+	}
 
 	err := client.init()
 	if err != nil {
@@ -103,6 +134,7 @@ func (client *SCtyunClient) fetchRegions() error {
 				Description:    zone.ZoneName,
 				ID:             zone.RegionID,
 				ParentRegionID: zone.RegionID,
+				RegionName:     zone.ZoneName,
 				izones:         []cloudprovider.ICloudZone{&zone},
 			}
 
@@ -155,7 +187,7 @@ func formRequest(client *SCtyunClient, method httputils.THttpMethod, apiName str
 		// EEE, d MMM yyyy HH:mm:ss z
 		// Mon, 2 Jan 2006 15:04:05 MST
 		requestDate := time.Now().Format("Mon, 2 Jan 2006 15:04:05 MST")
-		hashMac := hmac.New(sha1.New, []byte(client.secret))
+		hashMac := hmac.New(sha1.New, []byte(client.accessSecret))
 		hashRawString := strings.Join([]string{contentMd5, requestDate, apiName}, "\n")
 		hashMac.Write([]byte(hashRawString))
 		hsum := base64.StdEncoding.EncodeToString(hashMac.Sum(nil))
@@ -168,6 +200,7 @@ func formRequest(client *SCtyunClient, method httputils.THttpMethod, apiName str
 		header.Set("platform", "3")
 	}
 
+	var reqbody string
 	ioData := strings.NewReader("")
 	if method == httputils.GET {
 		for k, v := range queries {
@@ -180,7 +213,8 @@ func formRequest(client *SCtyunClient, method httputils.THttpMethod, apiName str
 			datas.Add(k, c)
 		}
 
-		ioData = strings.NewReader(datas.Encode())
+		reqbody = datas.Encode()
+		ioData = strings.NewReader(reqbody)
 	}
 
 	header.Set("Content-Length", strconv.FormatInt(int64(ioData.Len()), 10))
@@ -201,10 +235,10 @@ func formRequest(client *SCtyunClient, method httputils.THttpMethod, apiName str
 			ioData,
 			client.debug)
 
-		_, jsonResp, err := httputils.ParseJSONResponse(resp, err, client.debug)
+		_, jsonResp, err := httputils.ParseJSONResponse(reqbody, resp, err, client.debug)
 		if err == nil {
 			if code, _ := jsonResp.Int("statusCode"); code != 800 {
-				if strings.Contains(jsonResp.String(), "itemNotFound") {
+				if strings.Contains(jsonResp.String(), "NotFound") {
 					return nil, cloudprovider.ErrNotFound
 				}
 
@@ -241,7 +275,7 @@ func (self *SCtyunClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) 
 		iregion := self.iregions[i]
 
 		s := cloudprovider.SSubAccount{
-			Name:         fmt.Sprintf("%s-%s", self.providerName, iregion.GetId()),
+			Name:         fmt.Sprintf("%s-%s", self.cpcfg.Name, iregion.GetId()),
 			State:        api.CLOUD_PROVIDER_CONNECTED,
 			Account:      fmt.Sprintf("%s/%s", self.accessKey, iregion.GetId()),
 			HealthStatus: api.CLOUD_PROVIDER_HEALTH_NORMAL,
@@ -302,4 +336,18 @@ func (self *SCtyunClient) GetCloudRegionExternalIdPrefix() string {
 	} else {
 		return CLOUD_PROVIDER_CTYUN
 	}
+}
+
+func (self *SCtyunClient) GetCapabilities() []string {
+	caps := []string{
+		// cloudprovider.CLOUD_CAPABILITY_PROJECT,
+		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
+		cloudprovider.CLOUD_CAPABILITY_NETWORK,
+		// cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
+		// cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
+		// cloudprovider.CLOUD_CAPABILITY_RDS,
+		// cloudprovider.CLOUD_CAPABILITY_CACHE,
+		// cloudprovider.CLOUD_CAPABILITY_EVENT,
+	}
+	return caps
 }

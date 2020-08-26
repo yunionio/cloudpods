@@ -35,10 +35,12 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SStoragecachedimageManager struct {
 	db.SJointResourceBaseManager
+	db.SExternalizedResourceBaseManager
 }
 
 var StoragecachedimageManager *SStoragecachedimageManager
@@ -61,16 +63,23 @@ func init() {
 
 type SStoragecachedimage struct {
 	db.SJointResourceBase
+	db.SExternalizedResourceBase
 
+	// 存储缓存Id
 	StoragecacheId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
-	CachedimageId  string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
+	// 镜像缓存Id
+	CachedimageId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
 
-	ExternalId string `width:"256" charset:"utf8" nullable:"false" get:"admin"`
+	// 外部Id
+	// ExternalId string `width:"256" charset:"utf8" nullable:"false" get:"admin"`
 
-	Status         string    `width:"32" charset:"ascii" nullable:"false" default:"init" list:"admin" update:"admin" create:"admin_required"` // = Column(VARCHAR(32, charset='ascii'), nullable=False,
-	Path           string    `width:"256" charset:"utf8" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`                 // = Column(VARCHAR(256, charset='utf8'), nullable=True)
-	LastDownload   time.Time `get:"admin"`                                                                                                    // = Column(DateTime)
-	DownloadRefcnt int       `get:"admin"`                                                                                                    // = Column(Integer)
+	// 镜像状态
+	Status string `width:"32" charset:"ascii" nullable:"false" default:"init" list:"admin" update:"admin" create:"admin_required"`
+	Path   string `width:"256" charset:"utf8" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
+	// 上次下载时间
+	LastDownload time.Time `get:"admin"`
+	// 下载引用次数
+	DownloadRefcnt int `get:"admin"`
 }
 
 func (manager *SStoragecachedimageManager) GetMasterFieldName() string {
@@ -79,14 +88,6 @@ func (manager *SStoragecachedimageManager) GetMasterFieldName() string {
 
 func (manager *SStoragecachedimageManager) GetSlaveFieldName() string {
 	return "cachedimage_id"
-}
-
-func (joint *SStoragecachedimage) Master() db.IStandaloneModel {
-	return db.JointMaster(joint)
-}
-
-func (joint *SStoragecachedimage) Slave() db.IStandaloneModel {
-	return db.JointSlave(joint)
 }
 
 func (self *SStoragecachedimageManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -139,19 +140,35 @@ func (self *SStoragecachedimage) GetHost() (*SHost, error) {
 	return sc.GetHost()
 }
 
-func (self *SStoragecachedimage) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SJointResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	extra = db.JointModelExtra(self, extra)
-	return self.getExtraDetails(ctx, extra)
+func (self *SStoragecachedimage) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.StoragecachedimageDetails, error) {
+	return api.StoragecachedimageDetails{}, nil
 }
 
-func (self *SStoragecachedimage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SJointResourceBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
+func (manager *SStoragecachedimageManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.StoragecachedimageDetails {
+	rows := make([]api.StoragecachedimageDetails, len(objs))
+
+	jointRows := manager.SJointResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.StoragecachedimageDetails{
+			JointResourceBaseDetails: jointRows[i],
+		}
+		rows[i] = objs[i].(*SStoragecachedimage).getExtraDetails(ctx, rows[i])
 	}
-	extra = db.JointModelExtra(self, extra)
-	return self.getExtraDetails(ctx, extra), nil
+
+	return rows
 }
 
 func (manager *SStoragecachedimageManager) AllowListDescendent(ctx context.Context, userCred mcclient.TokenCredential, model db.IStandaloneModel, query jsonutils.JSONObject) bool {
@@ -174,23 +191,24 @@ func (self *SStoragecachedimage) GetStoragecache() (*SStoragecache, error) {
 	return cache.(*SStoragecache), nil
 }
 
-func (self *SStoragecachedimage) getExtraDetails(ctx context.Context, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+func (self *SStoragecachedimage) getExtraDetails(ctx context.Context, out api.StoragecachedimageDetails) api.StoragecachedimageDetails {
 	storagecache, _ := self.GetStoragecache()
 	if storagecache != nil {
-		extra.Add(jsonutils.NewStringArray(storagecache.getStorageNames()), "storages")
+		out.Storagecache = storagecache.Name
+		out.Storages = storagecache.getStorageNames()
 		host, _ := storagecache.GetHost()
 		if host != nil {
-			extra.Add(host.GetShortDesc(ctx), "host")
+			out.Host = host.GetShortDesc(ctx)
 		}
 	}
 	cachedImage := self.GetCachedimage()
 	if cachedImage != nil {
-		extra.Add(jsonutils.NewString(cachedImage.GetName()), "image")
-		extra.Add(jsonutils.NewInt(cachedImage.Size), "size")
+		out.Cachedimage = cachedImage.Name
+		out.Image = cachedImage.GetName()
+		out.Size = cachedImage.Size
 	}
-	cnt, _ := self.getReferenceCount()
-	extra.Add(jsonutils.NewInt(int64(cnt)), "reference")
-	return extra
+	out.Reference, _ = self.getReferenceCount()
+	return out
 }
 
 func (self *SStoragecachedimage) getCdromReferenceCount() (int, error) {
@@ -334,7 +352,7 @@ func (manager *SStoragecachedimageManager) Register(ctx context.Context, userCre
 	}
 	cachedimage.Status = status
 
-	err := manager.TableSpec().Insert(cachedimage)
+	err := manager.TableSpec().Insert(ctx, cachedimage)
 
 	if err != nil {
 		log.Errorf("insert error %s", err)
@@ -463,4 +481,67 @@ func (manager *SStoragecachedimageManager) newFromCloudImage(ctx context.Context
 		return fmt.Errorf("register cached image fail")
 	}
 	return scimg.SetExternalId(image.GetGlobalId())
+}
+
+func (manager *SStoragecachedimageManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.StoragecachedimageListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SJointResourceBaseManager.ListItemFilter(ctx, q, userCred, query.JointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSchedtagJointsManager.ListItemFilter")
+	}
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
+
+	if len(query.StoragecacheId) > 0 {
+		storageCacheObj, err := StoragecacheManager.FetchByIdOrName(userCred, query.StoragecacheId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(StoragecacheManager.Keyword(), query.StoragecacheId)
+			} else {
+				return nil, errors.Wrap(err, "StoragecacheManager.FetchByIdOrName")
+			}
+		}
+		q = q.Equals("storagecache_id", storageCacheObj.GetId())
+	}
+	if len(query.CachedimageId) > 0 {
+		cachedImageObj, err := CachedimageManager.FetchByIdOrName(userCred, query.CachedimageId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CachedimageManager.Keyword(), query.CachedimageId)
+			} else {
+				return nil, errors.Wrap(err, "CachedimageManager.FetchByIdOrName")
+			}
+		}
+		q = q.Equals("cachedimage_id", cachedImageObj.GetId())
+	}
+
+	if len(query.Status) > 0 {
+		q = q.In("status", query.Status)
+	}
+
+	return q, nil
+}
+
+func (manager *SStoragecachedimageManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.StoragecachedimageListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SJointResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.JointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSchedtagJointsManager.OrderByExtraFields")
+	}
+
+	return q, nil
 }

@@ -64,6 +64,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/redfish"
+	"yunion.io/x/onecloud/pkg/util/redfish/bmconsole"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
@@ -273,8 +274,8 @@ func (i *BmRegisterInput) responseSucc(bmId string) {
 	close(i.C)
 }
 
-func (i *BmRegisterInput) responseErr(err error) {
-	httperrors.GeneralServerError(i.W, err)
+func (i *BmRegisterInput) responseErr(ctx context.Context, err error) {
+	httperrors.GeneralServerError(ctx, i.W, err)
 	close(i.C)
 }
 
@@ -288,12 +289,12 @@ func (i *BmRegisterInput) isTimeout() bool {
 }
 
 // delay task
-func (m *SBaremetalManager) RegisterBaremetal(ctx context.Context, input *BmRegisterInput) {
+func (m *SBaremetalManager) RegisterBaremetal(ctx context.Context, userCred mcclient.TokenCredential, input *BmRegisterInput) {
 	adminWire, err := m.checkNetworkFromIp(input.RemoteIp)
 	if input.isTimeout() {
 		return
 	} else if err != nil {
-		input.responseErr(httperrors.NewBadRequestError("Verify network failed: %s", err))
+		input.responseErr(ctx, httperrors.NewBadRequestError("Verify network failed: %s", err))
 		return
 	}
 
@@ -301,7 +302,7 @@ func (m *SBaremetalManager) RegisterBaremetal(ctx context.Context, input *BmRegi
 	if input.isTimeout() {
 		return
 	} else if err != nil {
-		input.responseErr(httperrors.NewBadRequestError("SSH verify failed: %s", err))
+		input.responseErr(ctx, httperrors.NewBadRequestError("SSH verify failed: %s", err))
 		return
 	}
 
@@ -310,7 +311,7 @@ func (m *SBaremetalManager) RegisterBaremetal(ctx context.Context, input *BmRegi
 	if input.isTimeout() {
 		return
 	} else if err != nil {
-		input.responseErr(httperrors.NewBadRequestError("Fetch ipmi address failed: %s", err))
+		input.responseErr(ctx, httperrors.NewBadRequestError("Fetch ipmi address failed: %s", err))
 		return
 	}
 	log.Infof("Find ipmi address %s", input.IpAddr)
@@ -319,7 +320,7 @@ func (m *SBaremetalManager) RegisterBaremetal(ctx context.Context, input *BmRegi
 	if input.isTimeout() {
 		return
 	} else if err != nil {
-		input.responseErr(httperrors.NewBadRequestError("Verify network failed: %s", err))
+		input.responseErr(ctx, httperrors.NewBadRequestError("Verify network failed: %s", err))
 		return
 	}
 
@@ -327,33 +328,36 @@ func (m *SBaremetalManager) RegisterBaremetal(ctx context.Context, input *BmRegi
 	if input.isTimeout() {
 		return
 	} else if err != nil {
-		input.responseErr(httperrors.NewBadRequestError("IPMI login info not correct: %s", err))
+		input.responseErr(ctx, httperrors.NewBadRequestError("IPMI login info not correct: %s", err))
 		return
 	}
 
-	err = m.verifyMacAddr(sshCli)
+	err, registered := m.verifyMacAddr(sshCli)
 	if input.isTimeout() {
 		return
 	} else if err != nil {
-		input.responseErr(httperrors.NewBadRequestError("Verify mac address failed: %s", err))
+		input.responseErr(ctx, httperrors.NewBadRequestError("Verify mac address failed: %s", err))
 		return
 	}
 
 	registerTask := tasks.NewBaremetalRegisterTask(
-		m, sshCli, input.Hostname, input.RemoteIp,
+		userCred, m, sshCli, input.Hostname, input.RemoteIp,
 		input.Username, input.Password, input.IpAddr,
 		ipmiMac, ipmiLanChannel, adminWire, ipmiWire,
 	)
-	bmId, err := registerTask.CreateBaremetal()
-	if input.isTimeout() {
-		return
-	} else if err != nil {
-		input.responseErr(httperrors.NewInternalServerError(err.Error()))
+	var bmId string
+	if !registered {
+		bmId, err = registerTask.CreateBaremetal()
+	} else {
+		bmId, err = registerTask.UpdateBaremetal()
+	}
+	if err != nil {
+		input.responseErr(ctx, httperrors.NewInternalServerError("%v", err))
 		return
 	}
 
 	input.responseSucc(bmId)
-	registerTask.DoPrepare(ctx, sshCli)
+	registerTask.DoPrepare(ctx, sshCli, registered)
 }
 
 func (m *SBaremetalManager) fetchIpmiIp(sshCli *ssh.Client) (string, error) {
@@ -373,7 +377,8 @@ func (m *SBaremetalManager) fetchIpmiIp(sshCli *ssh.Client) (string, error) {
 func (m *SBaremetalManager) checkNetworkFromIp(ip string) (string, error) {
 	params := jsonutils.NewDict()
 	params.Set("ip", jsonutils.NewString(ip))
-	params.Set("is_on_premise", jsonutils.JSONTrue)
+	params.Set("scope", jsonutils.NewString("system"))
+	params.Set("is_classic", jsonutils.JSONTrue)
 	res, err := modules.Networks.List(m.GetClientSession(), params)
 	if err != nil {
 		return "", fmt.Errorf("Fetch network by ip %s failed: %s", ip, err)
@@ -384,31 +389,32 @@ func (m *SBaremetalManager) checkNetworkFromIp(ip string) (string, error) {
 	return res.Data[0].GetString("wire_id")
 }
 
-func (m *SBaremetalManager) verifyMacAddr(sshCli *ssh.Client) error {
+func (m *SBaremetalManager) verifyMacAddr(sshCli *ssh.Client) (error, bool) {
 	output, err := sshCli.Run("/lib/mos/lsnic")
 	if err != nil {
-		return err
+		return err, false
 	}
 	nicinfo := sysutils.ParseNicInfo(output)
 	if len(nicinfo) == 0 {
-		return fmt.Errorf("Can't get nic info")
+		return fmt.Errorf("Can't get nic info"), false
 	}
 
+	var registered bool
 	params := jsonutils.NewDict()
 	for _, nic := range nicinfo {
-		if nic.Up && len(nic.Mac) > 0 {
+		if len(nic.Mac) > 0 {
 			params.Set("any_mac", jsonutils.NewString(nic.Mac.String()))
+			params.Set("scope", jsonutils.NewString("system"))
+			res, err := modules.Hosts.List(m.GetClientSession(), params)
+			if err != nil {
+				return fmt.Errorf("Get hosts info failed: %s", err), false
+			}
+			if len(res.Data) > 0 {
+				registered = true
+			}
 		}
 	}
-	res, err := modules.Hosts.List(m.GetClientSession(), params)
-	if err != nil {
-		return fmt.Errorf("Get hosts info failed: %s", err)
-	}
-	if len(res.Data) > 0 {
-		return fmt.Errorf("Address has been registerd: %s", params.String())
-	} else {
-		return nil
-	}
+	return nil, registered
 }
 
 func (m *SBaremetalManager) checkSshInfo(input *BmRegisterInput) (*ssh.Client, error) {
@@ -746,11 +752,10 @@ func (b *SBaremetalInstance) SyncStatusBackground() {
 	}()
 }
 
-func (b *SBaremetalInstance) InitializeServer(name string) error {
+func (b *SBaremetalInstance) InitializeServer(s *mcclient.ClientSession, name string) error {
 	params := jsonutils.NewDict()
 	params.Set("name", jsonutils.NewString(name))
-	_, err := modules.Hosts.PerformAction(
-		b.manager.GetClientSession(), b.GetId(), "initialize", params)
+	_, err := modules.Hosts.PerformAction(s, b.GetId(), "initialize", params)
 	return err
 }
 
@@ -1035,7 +1040,8 @@ func (b *SBaremetalInstance) getSyslinuxPath(filename string, isTftp bool) strin
 func (b *SBaremetalInstance) findAccessNetwork(accessIp string) (*types.SNetworkConfig, error) {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(accessIp), "ip")
-	params.Add(jsonutils.JSONTrue, "is_on_premise")
+	params.Add(jsonutils.NewString("system"), "scope")
+	params.Add(jsonutils.JSONTrue, "is_classic")
 	session := b.manager.GetClientSession()
 	ret, err := modules.Networks.List(session, params)
 	if err != nil {
@@ -1232,7 +1238,12 @@ func (b *SBaremetalInstance) enableWire(mac net.HardwareAddr, ipAddr string, nic
 
 func (b *SBaremetalInstance) GetIPMIConfig() *types.SIPMIInfo {
 	conf := b.GetRawIPMIConfig()
-	if conf == nil || conf.Password == "" {
+	if conf == nil {
+		log.Debugf("GetIPMIConfig conf is nil")
+		return nil
+	}
+	if conf.Password == "" {
+		log.Debugf("GetIPMIConfig password is nil")
 		return nil
 	}
 	if conf.Username == "" {
@@ -1251,6 +1262,7 @@ func (b *SBaremetalInstance) GetIPMIConfig() *types.SIPMIInfo {
 	}
 	conf.Password = utils.Unquote(conf.Password) // XXX: remove quotes!!!
 	if conf.IpAddr == "" {
+		log.Debugf("GetIPMIConfig ipaddr s nil")
 		return nil
 	}
 	return conf
@@ -1333,6 +1345,7 @@ func (b *SBaremetalInstance) SetExistingIPMIIPAddr(ipAddr string) {
 func (b *SBaremetalInstance) GetIPMITool() *ipmitool.LanPlusIPMI {
 	conf := b.GetIPMIConfig()
 	if conf == nil {
+		log.Debugf("GetIPMIConfig is nil")
 		return nil
 	}
 	return ipmitool.NewLanPlusIPMI(conf.IpAddr, conf.Username, conf.Password)
@@ -1629,6 +1642,10 @@ func (b *SBaremetalInstance) DelayedSyncIPMIInfo(data jsonutils.JSONObject) (jso
 }
 
 func (b *SBaremetalInstance) DelayedSyncDesc(data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if data == nil {
+		session := b.manager.GetClientSession()
+		data, _ = b.manager.fetchBaremetal(session, b.GetId())
+	}
 	err := b.SaveDesc(data)
 	return nil, err
 }
@@ -1921,6 +1938,25 @@ func (b *SBaremetalInstance) fetchPowerThermalMetrics(ctx context.Context) ([]in
 	return powerMetrics, thermalMetrics, nil
 }
 
+func (b *SBaremetalInstance) GetConsoleJNLP(ctx context.Context) (string, error) {
+	cli := b.GetRedfishCli(ctx)
+	if cli != nil {
+		return cli.GetConsoleJNLP(ctx)
+	}
+	conf := b.GetIPMIConfig()
+	bmc := bmconsole.NewBMCConsole(conf.IpAddr, conf.Username, conf.Password, false)
+	manufacture := b.GetManufacture()
+	switch strings.ToLower(manufacture) {
+	case "hp", "hpe":
+		return bmc.GetIloConsoleJNLP(ctx)
+	case "dell", "dell inc.":
+		return bmc.GetIdracConsoleJNLP(ctx, "", "")
+	case "supermicro":
+		return bmc.GetSupermicroConsoleJNLP(ctx)
+	}
+	return "", httperrors.NewNotImplementedError("Unsupported manufacture %s", manufacture)
+}
+
 func (b *SBaremetalInstance) getTags() []influxdb.SKeyValue {
 	tags := []influxdb.SKeyValue{
 		{
@@ -2199,7 +2235,7 @@ func (s *SBaremetalServer) DoPartitionDisk(term *ssh.Client) ([]*disktool.Partit
 		rootSize, _ := rootDisk.Int("size")
 		err = s.doCreateRoot(term, tool.GetRootDisk().GetDevName())
 		if err != nil {
-			return nil, errors.Wrapf(err, "Failed to create root")
+			return nil, errors.Wrap(err, "Failed to create root")
 		}
 		tool.RetrievePartitionInfo()
 		parts := tool.GetPartitions()
@@ -2343,7 +2379,7 @@ func (s *SBaremetalServer) DoDeploy(term *ssh.Client, data jsonutils.JSONObject,
 		password = seclib.RandomPassword(12)
 	}
 	deployInfo := deployapi.NewDeployInfo(publicKey, deployapi.JsonDeploysToStructs(deploys),
-		password, isInit, true, o.Options.LinuxDefaultRootUser, o.Options.WindowsDefaultAdminUser, false)
+		password, isInit, true, o.Options.LinuxDefaultRootUser, o.Options.WindowsDefaultAdminUser, false, "")
 	return s.deployFs(term, deployInfo)
 }
 

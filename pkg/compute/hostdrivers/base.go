@@ -34,8 +34,8 @@ import (
 type SBaseHostDriver struct {
 }
 
-func (self *SBaseHostDriver) ValidateUpdateDisk(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return data, nil
+func (self *SBaseHostDriver) ValidateUpdateDisk(ctx context.Context, userCred mcclient.TokenCredential, input api.DiskUpdateInput) (api.DiskUpdateInput, error) {
+	return input, nil
 }
 
 func (self *SBaseHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -74,11 +74,11 @@ func (self *SBaseHostDriver) PrepareConvert(host *models.SHost, image, raid stri
 	params := &api.ServerCreateInput{
 		ServerConfigs: &api.ServerConfigs{
 			PreferHost: host.Id,
+			Hypervisor: api.HYPERVISOR_BAREMETAL,
 		},
 		VcpuCount: int(host.CpuCount),
 		VmemSize:  host.MemSize,
 		AutoStart: true,
-		Baremetal: true,
 	}
 	params.Description = "Baremetal convered Hypervisor"
 	isSystem := true
@@ -118,7 +118,7 @@ func (self *SBaseHostDriver) FinishUnconvert(ctx context.Context, userCred mccli
 	}
 	db.Update(host, func() error {
 		host.AccessIp = adminNic.IpAddr
-		host.Enabled = true
+		host.SetEnabled(true)
 		host.HostType = api.HOST_TYPE_BAREMETAL
 		host.HostStatus = api.HOST_OFFLINE
 		host.ManagerUri = ""
@@ -156,7 +156,7 @@ func (self *SBaseHostDriver) FinishConvert(userCred mcclient.TokenCredential, ho
 		host.CpuReserved = 0
 		host.MemReserved = 0
 		host.AccessIp = guest.GetRealIPs()[0]
-		host.Enabled = false
+		host.SetEnabled(false)
 		host.HostStatus = api.HOST_OFFLINE
 		host.HostType = hostType
 		host.IsBaremetal = true

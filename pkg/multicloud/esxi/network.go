@@ -15,8 +15,11 @@
 package esxi
 
 import (
+	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
+
+	"yunion.io/x/pkg/errors"
 )
 
 type IVMNetwork interface {
@@ -26,6 +29,7 @@ type IVMNetwork interface {
 	GetNumPorts() int32
 	GetActivePorts() []string
 	GetType() string
+	ContainHost(host *SHost) bool
 }
 
 const (
@@ -43,6 +47,7 @@ var DVPORTGROUP_PROPS = []string{"name", "parent", "summary", "host", "vm", "con
 
 type SNetwork struct {
 	SManagedObject
+	HostPortGroup types.HostPortGroup
 }
 
 type SDistributedVirtualPortgroup struct {
@@ -70,7 +75,7 @@ func (net *SNetwork) GetType() string {
 }
 
 func (net *SNetwork) GetVlanId() int32 {
-	return -1
+	return net.HostPortGroup.Spec.VlanId
 }
 
 func (net *SNetwork) GetVlanMode() string {
@@ -83,6 +88,17 @@ func (net *SNetwork) GetNumPorts() int32 {
 
 func (net *SNetwork) GetActivePorts() []string {
 	return nil
+}
+
+func (net *SNetwork) ContainHost(host *SHost) bool {
+	objs := net.getMONetwork().Host
+	moHost := host.getHostSystem()
+	for _, obj := range objs {
+		if obj.Value == moHost.Reference().Value {
+			return true
+		}
+	}
+	return false
 }
 
 func (net *SDistributedVirtualPortgroup) getMODVPortgroup() *mo.DistributedVirtualPortgroup {
@@ -141,4 +157,87 @@ func (net *SDistributedVirtualPortgroup) GetActivePorts() []string {
 		return conf.UplinkTeamingPolicy.UplinkPortOrder.ActiveUplinkPort
 	}
 	return nil
+}
+
+func (net *SDistributedVirtualPortgroup) ContainHost(host *SHost) bool {
+	objs := net.getMODVPortgroup().Host
+	moHost := host.getHostSystem()
+	for _, obj := range objs {
+		if obj.Value == moHost.Reference().Value {
+			return true
+		}
+	}
+	return false
+}
+
+func (net *SDistributedVirtualPortgroup) Uplink() bool {
+	dvpg := net.getMODVPortgroup()
+	return *dvpg.Config.Uplink
+}
+
+func (net *SDistributedVirtualPortgroup) FindPort() (*types.DistributedVirtualPort, error) {
+	dvgp := net.getMODVPortgroup()
+	odvs := object.NewDistributedVirtualSwitch(net.manager.client.Client, *dvgp.Config.DistributedVirtualSwitch)
+	var (
+		False = false
+		True  = true
+	)
+	criteria := types.DistributedVirtualSwitchPortCriteria{
+		Connected:    &False,
+		Inside:       &True,
+		PortgroupKey: []string{dvgp.Key},
+	}
+	ports, err := odvs.FetchDVPorts(net.manager.context, &criteria)
+	if err != nil {
+		return nil, errors.Wrap(err, "object.DVS.FetchDVPorts")
+	}
+	if len(ports) > 0 {
+		// release extra space timely
+		return &ports[:1][0], nil
+	}
+	return nil, nil
+}
+
+func (net *SDistributedVirtualPortgroup) AddHostToDVS(host *SHost) (err error) {
+	// get dvs
+	dvgp := net.getMODVPortgroup()
+	var s mo.DistributedVirtualSwitch
+	err = net.manager.reference2Object(*dvgp.Config.DistributedVirtualSwitch, []string{"config"}, &s)
+	if err != nil {
+		return errors.Wrapf(err, "fail to convert reference to object")
+	}
+	moHost := host.getHostSystem()
+
+	// check firstly
+	for _, host := range s.Config.GetDVSConfigInfo().Host {
+		if host.Config.Host.Value == moHost.Reference().Value {
+			// host is already a member of dvs
+			return nil
+		}
+	}
+	config := &types.DVSConfigSpec{ConfigVersion: s.Config.GetDVSConfigInfo().ConfigVersion}
+	backing := new(types.DistributedVirtualSwitchHostMemberPnicBacking)
+	pnics := moHost.Config.Network.Pnic
+
+	if len(pnics) == 0 {
+		return errors.Error("no pnic in this host")
+	}
+
+	config.Host = []types.DistributedVirtualSwitchHostMemberConfigSpec{
+		{
+			Operation: "add",
+			Host:      moHost.Reference(),
+			Backing:   backing,
+		},
+	}
+	dvs := object.NewDistributedVirtualSwitch(net.manager.client.Client, s.Reference())
+	task, err := dvs.Reconfigure(net.manager.context, config)
+	if err != nil {
+		return errors.Wrapf(err, "dvs.Reconfigure")
+	}
+	err = task.Wait(net.manager.context)
+	if err == nil {
+		return nil
+	}
+	return err
 }

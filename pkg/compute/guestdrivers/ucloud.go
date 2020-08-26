@@ -41,11 +41,11 @@ func (self *SUCloudGuestDriver) GetProvider() string {
 
 func (self *SUCloudGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
 	keys := models.SComputeResourceKeys{}
-	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
+	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_PUBLIC_CLOUD
 	keys.Provider = api.CLOUD_PROVIDER_UCLOUD
-	// ignore brand
-	// ignore hypervisor
+	keys.Brand = api.CLOUD_PROVIDER_UCLOUD
+	keys.Hypervisor = api.HYPERVISOR_UCLOUD
 	return keys
 }
 
@@ -73,7 +73,7 @@ func (self *SUCloudGuestDriver) GetAttachDiskStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
-func (self *SUCloudGuestDriver) GetChangeConfigStatus() ([]string, error) {
+func (self *SUCloudGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 

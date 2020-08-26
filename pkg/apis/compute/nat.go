@@ -39,3 +39,37 @@ type SNatDCreateInput struct {
 	ExternalPort int
 	IpProtocol   string
 }
+
+type NatDEntryDetails struct {
+	NatEntryDetails
+
+	// SNatDEntry
+}
+
+type NatSEntryDetails struct {
+	NatEntryDetails
+
+	// SNatSEntry
+
+	// SNAT归属网络
+	Network SimpleNetwork `json:"network"`
+}
+
+type SimpleNetwork struct {
+	Id            string `json:"id"`
+	Name          string `json:"name"`
+	GuestIpStart  string `json:"guest_ip_start"`
+	GuestIpEnd    string `json:"guest_ip_end"`
+	GuestIp6Start string `json:"guest_ip6_start"`
+	GuestIp6End   string `json:"guest_ip6_end"`
+}
+
+type NatgatewayDetails struct {
+	apis.StatusInfrasResourceBaseDetails
+
+	VpcResourceInfo
+
+	SNatGateway
+
+	NatSpec string `json:"nat_spec"`
+}

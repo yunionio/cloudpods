@@ -15,6 +15,7 @@
 package aws
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strconv"
@@ -184,7 +185,7 @@ func (self *SElb) GetEgressMbps() int {
 	return 0
 }
 
-func (self *SElb) Delete() error {
+func (self *SElb) Delete(ctx context.Context) error {
 	return self.region.DeleteElb(self.GetId())
 }
 
@@ -240,7 +241,7 @@ func (self *SElb) GetILoadBalancerBackendGroupById(groupId string) (cloudprovide
 	return self.region.GetElbBackendgroup(groupId)
 }
 
-func (self *SElb) CreateILoadBalancerListener(listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
+func (self *SElb) CreateILoadBalancerListener(ctx context.Context, listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
 	ret, err := self.region.CreateElbListener(listener)
 	if err != nil {
 		return nil, err

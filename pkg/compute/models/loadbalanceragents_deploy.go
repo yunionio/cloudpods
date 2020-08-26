@@ -29,6 +29,7 @@ import (
 
 	ansible_apis "yunion.io/x/onecloud/pkg/apis/ansible"
 	compute_apis "yunion.io/x/onecloud/pkg/apis/compute"
+	identity_apis "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -113,6 +114,8 @@ func (lbagent *SLoadbalancerAgent) deploy(ctx context.Context, userCred mcclient
 	}
 	switch input.DeployMethod {
 	case compute_apis.DeployMethodYum:
+		fallthrough
+	default:
 		if v, ok := input.Host.GetVar("repo_base_url"); !ok || v == "" {
 			return nil, httperrors.NewBadRequestError("use yum requires valid repo_base_url")
 		}
@@ -141,8 +144,6 @@ func (lbagent *SLoadbalancerAgent) deploy(ctx context.Context, userCred mcclient
 			},
 		)
 	case compute_apis.DeployMethodCopy:
-		fallthrough
-	default:
 		// glob for rpms
 		basenames := []string{
 			"packages/telegraf",
@@ -159,7 +160,7 @@ func (lbagent *SLoadbalancerAgent) deploy(ctx context.Context, userCred mcclient
 				return nil, errors.WithMessagef(err, "glob error %s", pattern)
 			}
 			if len(matches) == 0 {
-				return nil, errors.WithMessagef(err, "glob nomatch %s", pattern)
+				return nil, errors.Errorf("no match for %q", pattern)
 			}
 			path := matches[len(matches)-1]
 			name := filepath.Base(path)
@@ -196,14 +197,6 @@ func (lbagent *SLoadbalancerAgent) deploy(ctx context.Context, userCred mcclient
 
 	pb.Modules = append(pb.Modules,
 		ansible.Module{
-			Name: "copy",
-			Args: []string{
-				"remote_src=yes",
-				"src=/opt/yunion/share/lbagent/yunion-lbagent.service",
-				"dest=/etc/systemd/system/yunion-lbagent.service",
-			},
-		},
-		ansible.Module{
 			Name: "systemd",
 			Args: []string{
 				"name=yunion-lbagent",
@@ -223,12 +216,9 @@ func (lbagent *SLoadbalancerAgent) undeploy(ctx context.Context, userCred mcclie
 		},
 		Modules: []ansible.Module{
 			{
-				Name: "systemd",
+				Name: "shell",
 				Args: []string{
-					"name=yunion-lbagent",
-					"enabled=no",
-					"state=stopped",
-					"daemon_reload=yes",
+					"systemctl disable --now yunion-lbagent; true",
 				},
 			},
 			{
@@ -285,6 +275,22 @@ func (lbagent *SLoadbalancerAgent) validateHost(ctx context.Context, userCred mc
 		if utils.IsInStringArray(guest.Hypervisor, compute_apis.PUBLIC_CLOUD_HYPERVISORS) {
 			return httperrors.NewBadRequestError("lbagent cannot be deployed on public guests")
 		}
+		if guest.Status != compute_apis.VM_RUNNING {
+			return httperrors.NewBadRequestError("server is in %q state, want %q",
+				guest.Status, compute_apis.VM_RUNNING)
+		}
+
+		// Better make this explicit in the API
+		if guest.SrcIpCheck.Bool() || guest.SrcMacCheck.Bool() {
+			sess := auth.GetSession(ctx, userCred, "", "")
+			params := jsonutils.NewDict()
+			params.Set("src_ip_check", jsonutils.JSONFalse)
+			params.Set("src_mac_check", jsonutils.JSONFalse)
+			_, err := mcclient_modules.Servers.PerformAction(sess, guest.Id, "modify-src-check", params)
+			if err != nil {
+				return errors.Wrapf(err, "turn off src check of guest %s(%s)", guest.Name, guest.Id)
+			}
+		}
 	}
 	return nil
 }
@@ -302,6 +308,7 @@ func (lbagent *SLoadbalancerAgent) PerformDeploy(ctx context.Context, userCred m
 			return nil, httperrors.NewBadRequestError("empty host %s field", k)
 		}
 	}
+	authURL := options.Options.AuthURL
 	{
 		cli := mcclient.NewClient(options.Options.AuthURL, 10, false, true, "", "")
 		token, err := cli.Authenticate(host.Vars["user"], host.Vars["pass"], "", host.Vars["proj"], "")
@@ -311,12 +318,23 @@ func (lbagent *SLoadbalancerAgent) PerformDeploy(ctx context.Context, userCred m
 		if !token.HasSystemAdminPrivilege() {
 			return nil, httperrors.NewBadRequestError("user must have system admin privileges")
 		}
+		authURL, err = token.GetServiceURL(
+			identity_apis.SERVICE_TYPE,
+			options.Options.Region,
+			"",
+			identity_apis.EndpointInterfacePublic)
+		if err != nil {
+			return nil, httperrors.NewClientError("get %s service %s url: %v",
+				identity_apis.SERVICE_TYPE,
+				identity_apis.EndpointInterfacePublic,
+				err)
+		}
 	}
 	if err := lbagent.validateHost(ctx, userCred, &host); err != nil {
 		return nil, err
 	}
 	host.SetVar("region", options.Options.Region)
-	host.SetVar("auth_uri", options.Options.AuthURL)
+	host.SetVar("auth_uri", authURL)
 	host.SetVar("id", lbagent.Id)
 	host.SetVar("ansible_become", "yes")
 
@@ -436,6 +454,7 @@ auth_uri = '{{ auth_uri }}'
 admin_user = '{{ user }}'
 admin_password = '{{ pass }}'
 admin_tenant_name = '{{ proj }}'
+session_endpoint_type = 'public'
 
 data_preserve_n = 10
 base_data_dir = "/opt/cloud/workspace/lbagent"

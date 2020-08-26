@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -27,6 +28,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -58,7 +60,7 @@ type SDomain struct {
 	Extra *jsonutils.JSONDict `nullable:"true"`
 
 	Enabled  tristate.TriState `nullable:"false" default:"true" list:"admin" update:"admin" create:"admin_optional"`
-	IsDomain tristate.TriState `default:"false" nullable:"false" create:"admin_optional"`
+	IsDomain tristate.TriState `default:"false" nullable:"false"`
 
 	// IdpId string `token:"parent_id" width:"64" charset:"ascii" index:"true" list:"admin"`
 
@@ -77,7 +79,7 @@ func (manager *SDomainManager) InitializeData() error {
 		root.DomainId = api.KeystoneDomainRoot
 		root.Enabled = tristate.False
 		root.Description = "The hidden root domain"
-		err := manager.TableSpec().Insert(root)
+		err := manager.TableSpec().Insert(context.TODO(), root)
 		if err != nil {
 			log.Errorf("fail to insert root domain ... %s", err)
 			return err
@@ -95,7 +97,7 @@ func (manager *SDomainManager) InitializeData() error {
 		defDomain.DomainId = api.KeystoneDomainRoot
 		defDomain.Enabled = tristate.True
 		defDomain.Description = "The default domain"
-		err := manager.TableSpec().Insert(defDomain)
+		err := manager.TableSpec().Insert(context.TODO(), defDomain)
 		if err != nil {
 			log.Errorf("fail to insert default domain ... %s", err)
 			return err
@@ -168,13 +170,65 @@ func (manager *SDomainManager) FetchDomainByIdOrName(domain string) (*SDomain, e
 	return obj.(*SDomain), err
 }
 
-func (manager *SDomainManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+// 域列表
+func (manager *SDomainManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DomainListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
 	q = q.NotEquals("id", api.KeystoneDomainRoot)
+
+	if query.Enabled != nil {
+		if *query.Enabled {
+			q = q.IsTrue("enabled")
+		} else {
+			q = q.IsFalse("enabled")
+		}
+	}
+
+	if len(query.IdpId) > 0 {
+		idpObj, err := IdentityProviderManager.FetchByIdOrName(userCred, query.IdpId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", IdentityProviderManager.Keyword(), query.IdpId)
+			} else {
+				return nil, errors.Wrap(err, "IdentityProviderManager.FetchByIdOrName")
+			}
+		}
+		subq := IdmappingManager.FetchPublicIdsExcludesQuery(idpObj.GetId(), api.IdMappingEntityDomain, nil)
+		q = q.In("id", subq.SubQuery())
+	}
+
 	return q, nil
+}
+
+func (manager *SDomainManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DomainListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (manager *SDomainManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
 }
 
 func (domain *SDomain) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -221,6 +275,14 @@ func (domain *SDomain) ValidatePurgeCondition(ctx context.Context) error {
 	if domain.Enabled.IsTrue() {
 		return httperrors.NewInvalidStatusError("domain is enabled")
 	}
+	usrCnt, _ := domain.GetUserCount()
+	if usrCnt > 0 {
+		return httperrors.NewInvalidStatusError("domain is in use by user")
+	}
+	groupCnt, _ := domain.GetGroupCount()
+	if groupCnt > 0 {
+		return httperrors.NewInvalidStatusError("group is in use by group")
+	}
 	projCnt, _ := domain.GetProjectCount()
 	if projCnt > 0 {
 		return httperrors.NewNotEmptyError("domain is in use by project")
@@ -232,6 +294,10 @@ func (domain *SDomain) ValidatePurgeCondition(ctx context.Context) error {
 	policyCnt, _ := domain.GetPolicyCount()
 	if policyCnt > 0 {
 		return httperrors.NewNotEmptyError("domain is in use by policy")
+	}
+	external, _, _ := domain.getExternalResources()
+	if len(external) > 0 {
+		return httperrors.NewNotEmptyError("domain contains external resources")
 	}
 	return nil
 }
@@ -254,51 +320,78 @@ func (domain *SDomain) ValidateUpdateCondition(ctx context.Context) error {
 	return domain.SStandaloneResourceBase.ValidateUpdateCondition(ctx)
 }
 
-func (domain *SDomain) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (domain *SDomain) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DomainUpdateInput) (api.DomainUpdateInput, error) {
+	data := jsonutils.Marshal(input)
 	if domain.IsReadOnly() {
 		for _, k := range []string{
 			"name",
 		} {
 			if data.Contains(k) {
-				return nil, httperrors.NewForbiddenError("field %s is readonly", k)
+				return input, httperrors.NewForbiddenError("field %s is readonly", k)
 			}
 		}
 	}
-	return domain.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
-}
-
-func (domain *SDomain) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := domain.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return domainExtra(domain, extra)
-}
-
-func (domain *SDomain) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := domain.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+	var err error
+	input.StandaloneResourceBaseUpdateInput, err = domain.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StandaloneResourceBaseUpdateInput)
 	if err != nil {
-		return nil, err
+		return input, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
 	}
-	return domainExtra(domain, extra), nil
+	return input, nil
 }
 
-func domainExtra(domain *SDomain, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	// idp, _ := domain.GetIdentityProvider()
-	// if idp != nil {
-	//	extra.Add(jsonutils.NewString(idp.Name), "driver")
-	// }
+func (domain *SDomain) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.DomainDetails, error) {
+	return api.DomainDetails{}, nil
+}
 
-	usrCnt, _ := domain.GetUserCount()
-	extra.Add(jsonutils.NewInt(int64(usrCnt)), "user_count")
-	grpCnt, _ := domain.GetGroupCount()
-	extra.Add(jsonutils.NewInt(int64(grpCnt)), "group_count")
-	prjCnt, _ := domain.GetProjectCount()
-	extra.Add(jsonutils.NewInt(int64(prjCnt)), "project_count")
-	roleCnt, _ := domain.GetRoleCount()
-	extra.Add(jsonutils.NewInt(int64(roleCnt)), "role_count")
-	policyCnt, _ := domain.GetPolicyCount()
-	extra.Add(jsonutils.NewInt(int64(policyCnt)), "policy_count")
-	idpCnt, _ := domain.GetIdpCount()
-	extra.Add(jsonutils.NewInt(int64(idpCnt)), "idp_count")
-	return extra
+func (manager *SDomainManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.DomainDetails {
+	rows := make([]api.DomainDetails, len(objs))
+
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	idList := make([]string, len(rows))
+	for i := range rows {
+		rows[i] = api.DomainDetails{
+			StandaloneResourceDetails: stdRows[i],
+		}
+		domain := objs[i].(*SDomain)
+		idList[i] = domain.Id
+		rows[i].UserCout, _ = domain.GetUserCount()
+		rows[i].GroupCount, _ = domain.GetGroupCount()
+		rows[i].ProjectCout, _ = domain.GetProjectCount()
+		rows[i].RoleCount, _ = domain.GetRoleCount()
+		rows[i].PolicyCount, _ = domain.GetPolicyCount()
+		rows[i].IdpCount, _ = domain.GetIdpCount()
+
+		external, update, _ := domain.getExternalResources()
+		if len(external) > 0 {
+			rows[i].ExtResource = jsonutils.Marshal(external)
+			rows[i].ExtResourcesLastUpdate = update
+			if update.IsZero() {
+				update = time.Now()
+			}
+			nextUpdate := update.Add(time.Duration(options.Options.FetchScopeResourceCountIntervalSeconds) * time.Second)
+			rows[i].ExtResourcesNextUpdate = nextUpdate
+		}
+	}
+
+	idpRows := expandIdpAttributes(api.IdMappingEntityDomain, idList, fields)
+
+	for i := range rows {
+		rows[i].IdpResourceInfo = idpRows[i]
+	}
+
+	return rows
 }
 
 func (domain *SDomain) getUsers() ([]SUser, error) {
@@ -362,7 +455,7 @@ func (domain *SDomain) Delete(ctx context.Context, userCred mcclient.TokenCreden
 }
 
 func (domain *SDomain) getIdmapping() (*SIdmapping, error) {
-	return IdmappingManager.FetchEntity(domain.Id, api.IdMappingEntityDomain)
+	return IdmappingManager.FetchFirstEntity(domain.Id, api.IdMappingEntityDomain)
 }
 
 func (domain *SDomain) IsReadOnly() bool {
@@ -371,11 +464,6 @@ func (domain *SDomain) IsReadOnly() bool {
 		return true
 	}
 	return false
-}
-
-func (manager *SDomainManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []db.IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
-	rows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
-	return expandIdpAttributes(rows, objs, fields, api.IdMappingEntityDomain)
 }
 
 func (domain *SDomain) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -415,4 +503,25 @@ func (domain *SDomain) UnlinkIdp(idpId string) error {
 		}
 	}
 	return IdmappingManager.deleteAny(idpId, api.IdMappingEntityDomain, domain.Id)
+}
+
+func (domain *SDomain) getExternalResources() (map[string]int, time.Time, error) {
+	return ScopeResourceManager.getScopeResource(domain.Id, "", "")
+}
+
+func (manager *SDomainManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input api.DomainCreateInput,
+) (api.DomainCreateInput, error) {
+	var err error
+
+	input.StandaloneResourceCreateInput, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StandaloneResourceCreateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SStandaloneResourceBaseManager.ValidateCreateData")
+	}
+
+	return input, nil
 }

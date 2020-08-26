@@ -16,6 +16,7 @@ package printutils
 
 import (
 	"fmt"
+	"os"
 	"sort"
 
 	"yunion.io/x/jsonutils"
@@ -57,7 +58,12 @@ func PrintJSONList(list *modulebase.ListResult, columns []string) {
 			}
 		}
 	}
-	pt := prettytable.NewPrettyTable(colsWithData)
+	osTryTermWidth := os.Getenv("OS_TRY_TERM_WIDTH")
+	tryTermWidth := true
+	if osTryTermWidth == "false" {
+		tryTermWidth = false
+	}
+	pt := prettytable.NewPrettyTableWithTryTermWidth(colsWithData, tryTermWidth)
 	rows := make([][]string, 0)
 	for _, obj := range list.Data {
 		row := make([]string, 0)

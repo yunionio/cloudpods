@@ -25,6 +25,8 @@ import (
 
 type FilterHandler func(ctx context.Context, w http.ResponseWriter, r *http.Request)
 
+type TMiddleware func(handler FilterHandler) FilterHandler
+
 func VersionHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, version.GetShortString())
 }

@@ -32,7 +32,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	_interface "yunion.io/x/onecloud/pkg/notify/interface"
+	notifyv2 "yunion.io/x/onecloud/pkg/notify"
 	"yunion.io/x/onecloud/pkg/notify/models"
 	"yunion.io/x/onecloud/pkg/notify/rpc/apis"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -49,13 +49,13 @@ const (
 type SRpcService struct {
 	SendServices  *ServiceMap
 	socketFileDir string
-	configStore   _interface.IServiceConfigStore
-	templateStore _interface.ITemplateStore
+	configStore   notifyv2.IServiceConfigStore
+	templateStore notifyv2.ITemplateStore
 }
 
 // NewSRpcService create a SRpcService
-func NewSRpcService(socketFileDir string, configStore _interface.IServiceConfigStore,
-	tempalteStore _interface.ITemplateStore) *SRpcService {
+func NewSRpcService(socketFileDir string, configStore notifyv2.IServiceConfigStore,
+	tempalteStore notifyv2.ITemplateStore) *SRpcService {
 	return &SRpcService{
 		SendServices:  NewServiceMap(),
 		socketFileDir: socketFileDir,
@@ -78,11 +78,11 @@ func (self *SRpcService) InitAll() error {
 		filename := file.Name()
 		if !file.IsDir() && strings.Contains(filename, ".sock") {
 			serviceName := filename[:len(filename)-5]
-			self.startNewService(ctx, serviceName)
+			self.startNewService(ctx, serviceName, true)
 		}
 	}
 	if self.SendServices.Len() == 0 {
-		log.Errorf("No available send service.")
+		log.Infof("No available send service.")
 	} else {
 		log.Infof("Total %d send service init successful", self.SendServices.Len())
 	}
@@ -129,10 +129,36 @@ func (self *SRpcService) Send(ctx context.Context, contactType, contact, topic, 
 	return nil
 }
 
+func (self *SRpcService) BatchSend(ctx context.Context, contacts []string, contactType, topic, message, priority string) ([]*apis.FailedRecord, error) {
+	args, err := self.templateStore.NotifyFilter(contactType, topic, message)
+	if err != nil {
+		return nil, errors.Wrap(err, "templateStore.NotifyFilter")
+	}
+
+	batchSendParams := apis.BatchSendParams{
+		Contacts:       contacts,
+		Title:          args.Title,
+		Message:        args.Message,
+		Priority:       args.Priority,
+		RemoteTemplate: args.RemoteTemplate,
+	}
+
+	f := func(service *apis.SendNotificationClient) (interface{}, error) {
+		return service.BatchSend(ctx, &batchSendParams)
+	}
+
+	ret, err := self.execute(ctx, f, contactType)
+	if err != nil {
+		return nil, errors.Wrapf(err, "contactType '%s'", contactType)
+	}
+	reply := ret.(*apis.BatchSendReply)
+	return reply.FailedRecords, nil
+}
+
 // RestartService can restart remote rpc server and pass config info.
 // This function should be call immediately after init notify server firstly
 // This function should be call immediately after accept the request about changing config.
-func (self *SRpcService) RestartService(ctx context.Context, config _interface.SConfig, serviceName string) {
+func (self *SRpcService) RestartService(ctx context.Context, config notifyv2.SConfig, serviceName string) {
 	_, err := self.restartWithConfig(ctx, serviceName, config)
 	if err != nil {
 		log.Debugf("restart service failed: %s", err)
@@ -167,7 +193,7 @@ func (self *SRpcService) execute(ctx context.Context, f func(client *apis.SendNo
 	var err error
 	if !ok {
 		log.Debugf("get service first time failed")
-		sendService, err = self.startNewService(ctx, serviceName)
+		sendService, err = self.startNewService(ctx, serviceName, true)
 
 		if err != nil {
 			return nil, errors.Wrap(err, "start new service failed")
@@ -247,7 +273,8 @@ func (self *SRpcService) restartWithConfig(ctx context.Context, serviceName stri
 }
 
 // startNewService try to start a new rpc service named serviceName
-func (self *SRpcService) startNewService(ctx context.Context, serviceName string) (*apis.SendNotificationClient, error) {
+// passConfig means if pass config to send service
+func (self *SRpcService) startNewService(ctx context.Context, serviceName string, passConfig bool) (*apis.SendNotificationClient, error) {
 
 	var (
 		sendService *apis.SendNotificationClient
@@ -267,6 +294,10 @@ func (self *SRpcService) startNewService(ctx context.Context, serviceName string
 
 	self.SendServices.Set(sendService, serviceName)
 
+	if !passConfig {
+		return sendService, nil
+	}
+
 	// get config
 	config, err := self.configStore.GetConfig(serviceName)
 	if err != nil {
@@ -280,12 +311,14 @@ func (self *SRpcService) startNewService(ctx context.Context, serviceName string
 	_, err = sendService.UpdateConfig(ctx, &args)
 	if err != nil {
 		st := status.Convert(err)
-		if st.Code() == codes.Unavailable {
+		if st.Code() == codes.FailedPrecondition {
 			// no such rpc serve
-			os.Remove(filename)
-			return nil, fmt.Errorf("no such rpc serve")
+			err = fmt.Errorf(st.Message())
 		}
-		return nil, fmt.Errorf(st.Message())
+		if st.Code() == codes.Unavailable {
+			err = fmt.Errorf("service is unavailable for now: %s", st.Message())
+		}
+		return nil, errors.Wrap(err, "UpdateConfig")
 	}
 
 	return sendService, nil
@@ -318,7 +351,7 @@ func (self *SRpcService) updateService(ctx context.Context) error {
 				delete(serviceNameSet, serviceName)
 				continue
 			}
-			self.startNewService(ctx, serviceName)
+			self.startNewService(ctx, serviceName, true)
 		}
 	}
 
@@ -329,6 +362,37 @@ func (self *SRpcService) updateService(ctx context.Context) error {
 
 	self.SendServices.BatchRemove(serviceNames)
 	return nil
+}
+
+func (self *SRpcService) ValidateConfig(ctx context.Context, cType string, configs map[string]string) (isValid bool,
+	message string, err error) {
+
+	sendService, ok := self.SendServices.Get(cType)
+
+	log.Debugf("get service %s", cType)
+	if !ok {
+		log.Debugf("get service first time failed")
+		sendService, err = self.startNewService(ctx, cType, false)
+
+		if err != nil {
+			err = errors.Wrap(err, "start new service failed")
+			return
+		}
+	}
+	param := apis.UpdateConfigParams{
+		Configs: configs,
+	}
+	rep, err := sendService.ValidateConfig(ctx, &param)
+	if err != nil {
+		st := status.Convert(err)
+		if st.Code() == codes.Unimplemented {
+			err = errors.ErrNotImplemented
+			return
+		}
+		err = fmt.Errorf(st.Message())
+		return
+	}
+	return rep.IsValid, rep.Msg, nil
 }
 
 func grpcDialWithUnixSocket(ctx context.Context, socketPath string) (*grpc.ClientConn, error) {

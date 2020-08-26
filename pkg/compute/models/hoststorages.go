@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
@@ -29,10 +30,14 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
+
+const ErrStorageInUse = errors.Error("StorageInUse")
 
 type SHoststorageManager struct {
 	SHostJointsManager
+	SStorageResourceBaseManager
 }
 
 var HoststorageManager *SHoststorageManager
@@ -41,6 +46,7 @@ func init() {
 	db.InitManager(func() {
 		HoststorageManager = &SHoststorageManager{
 			SHostJointsManager: NewHostJointsManager(
+				"host_id",
 				SHoststorage{},
 				"hoststorages_tbl",
 				"hoststorage",
@@ -55,13 +61,18 @@ func init() {
 type SHoststorage struct {
 	SHostJointsBase
 
-	MountPoint string `width:"256" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"required"` // Column(VARCHAR(256, charset='ascii'), nullable=False)
+	// 宿主机Id
+	HostId string `width:"36" charset:"ascii" nullable:"false" list:"domain" create:"required" json:"host_id"`
+	// 存储Id
+	StorageId string `width:"36" charset:"ascii" nullable:"false" list:"domain" create:"required" json:"storage_id"`
 
-	HostId    string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
-	StorageId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
+	// 挂载点
+	MountPoint string `width:"256" charset:"ascii" nullable:"false" list:"domain" update:"domain" create:"required" json:"mount_point"`
 
-	Config       *jsonutils.JSONArray `nullable:"true" get:"admin"`  // Column(JSONEncodedDict, nullable=True)
-	RealCapacity int64                `nullable:"true" list:"admin"` // Column(Integer, nullable=True)
+	// 配置信息
+	Config *jsonutils.JSONArray `nullable:"true" get:"domain" json:"config"`
+	// 真实容量大小
+	RealCapacity int64 `nullable:"true" list:"domain" json:"real_capacity"`
 }
 
 func (manager *SHoststorageManager) GetMasterFieldName() string {
@@ -72,27 +83,49 @@ func (manager *SHoststorageManager) GetSlaveFieldName() string {
 	return "storage_id"
 }
 
-func (joint *SHoststorage) Master() db.IStandaloneModel {
-	return db.JointMaster(joint)
+func (self *SHoststorage) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.HoststorageDetails, error) {
+	return api.HoststorageDetails{}, nil
 }
 
-func (joint *SHoststorage) Slave() db.IStandaloneModel {
-	return db.JointSlave(joint)
-}
+func (manager *SHoststorageManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.HoststorageDetails {
+	rows := make([]api.HoststorageDetails, len(objs))
 
-func (self *SHoststorage) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SHostJointsBase.GetCustomizeColumns(ctx, userCred, query)
-	extra = db.JointModelExtra(self, extra)
-	return self.getExtraDetails(extra)
-}
+	hostRows := manager.SHostJointsManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	storageIds := make([]string, len(rows))
 
-func (self *SHoststorage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SHostJointsBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
+	for i := range rows {
+		rows[i] = api.HoststorageDetails{
+			HostJointResourceDetails: hostRows[i],
+		}
+		storageIds[i] = objs[i].(*SHoststorage).StorageId
 	}
-	extra = db.JointModelExtra(self, extra)
-	return self.getExtraDetails(extra), nil
+
+	storages := make(map[string]SStorage)
+	err := db.FetchStandaloneObjectsByIds(StorageManager, storageIds, &storages)
+	if err != nil {
+		log.Errorf("db.FetchStandaloneObjectsByIds fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if storage, ok := storages[storageIds[i]]; ok {
+			rows[i] = objs[i].(*SHoststorage).getExtraDetails(storage, rows[i])
+		}
+	}
+
+	return rows
 }
 
 func (self *SHoststorage) GetHost() *SHost {
@@ -149,8 +182,34 @@ func (manager *SHoststorageManager) ValidateCreateData(ctx context.Context, user
 	return data, nil
 }
 
+func (self *SHoststorage) syncLocalStorageShare(ctx context.Context, userCred mcclient.TokenCredential) {
+	// sync host and local storage permissions
+	host := self.GetHost()
+	storage := self.GetStorage()
+	if host != nil && storage != nil && storage.IsLocal() {
+		shareInfo := host.GetSharedInfo()
+		if !shareInfo.IsPublic {
+			_, err := storage.performPrivateInternal(ctx, userCred, nil, apis.PerformPrivateInput{})
+			if err != nil {
+				log.Errorf("attach storage: private local storage fail %s", err)
+			}
+		} else {
+			input := apis.PerformPublicDomainInput{
+				Scope:           string(shareInfo.PublicScope),
+				SharedDomainIds: shareInfo.SharedDomains,
+			}
+			_, err := storage.performPublicInternal(ctx, userCred, nil, input)
+			if err != nil {
+				log.Errorf("attach storage: public local storage fail %s", err)
+			}
+		}
+	}
+}
+
 func (self *SHoststorage) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SHostJointsBase.PostCreate(ctx, userCred, ownerId, query, data)
+
+	self.syncLocalStorageShare(ctx, userCred)
 
 	if err := self.StartHostStorageAttachTask(ctx, userCred); err != nil {
 		log.Errorf("failed to attach storage error: %v", err)
@@ -202,37 +261,34 @@ func (self *SHoststorage) SyncStorageStatus(userCred mcclient.TokenCredential) {
 	}
 }
 
-func (self *SHoststorage) getExtraDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	host := self.GetHost()
-	extra.Add(jsonutils.NewString(host.Name), "host")
-	storage := self.GetStorage()
-	extra.Add(jsonutils.NewString(storage.Name), "storage")
-	extra.Add(jsonutils.NewInt(int64(storage.Capacity)), "capacity")
+func (self *SHoststorage) getExtraDetails(storage SStorage, out api.HoststorageDetails) api.HoststorageDetails {
+	out.Storage = storage.Name
+	out.Capacity = storage.Capacity
 	if storage.StorageConf != nil {
-		extra.Set("storage_conf", storage.StorageConf)
+		out.StorageConf = storage.StorageConf
 	}
 	used := storage.GetUsedCapacity(tristate.True)
 	wasted := storage.GetUsedCapacity(tristate.False)
-	extra.Add(jsonutils.NewInt(int64(used)), "used_capacity")
-	extra.Add(jsonutils.NewInt(int64(wasted)), "waste_capacity")
-	extra.Add(jsonutils.NewInt(int64(storage.GetFreeCapacity())), "free_capacity")
-	extra.Add(jsonutils.NewString(storage.StorageType), "storage_type")
-	extra.Add(jsonutils.NewString(storage.MediumType), "medium_type")
-	extra.Add(jsonutils.NewBool(storage.Enabled.Bool()), "enabled")
-	extra.Add(jsonutils.NewFloat(float64(storage.GetOvercommitBound())), "cmtbound")
+	out.UsedCapacity = used
+	out.WasteCapacity = wasted
+	out.FreeCapacity = storage.GetFreeCapacity()
+	out.StorageType = storage.StorageType
+	out.MediumType = storage.MediumType
+	out.Enabled = storage.Enabled.Bool()
+	out.Cmtbound = storage.GetOvercommitBound()
 
 	//extra.Add(jsonutils.NewInt(int64(self.GetGuestDiskCount())), "guest_disk_count")
 
-	extra = db.FetchModelExtraCountProperties(self, extra)
+	out.GuestDiskCount, _ = self.GetGuestDiskCount()
 
 	if len(storage.StoragecacheId) > 0 {
 		storagecache := StoragecacheManager.FetchStoragecacheById(storage.StoragecacheId)
 		if storagecache != nil {
-			extra.Set("imagecache_path", jsonutils.NewString(storage.GetStorageCachePath(self.MountPoint, storagecache.Path)))
-			extra.Set("storagecache_id", jsonutils.NewString(storagecache.Id))
+			out.StoragecacheId = storagecache.Id
+			out.ImagecachePath = storage.GetStorageCachePath(self.MountPoint, storagecache.Path)
 		}
 	}
-	return extra
+	return out
 }
 
 func (self *SHoststorage) GetGuestDiskCount() (int, error) {
@@ -257,7 +313,7 @@ func (self *SHoststorage) ValidateDeleteCondition(ctx context.Context) error {
 		return httperrors.NewInternalServerError("GetGuestDiskCount fail %s", err)
 	}
 	if cnt > 0 {
-		return httperrors.NewNotEmptyError("guest on the host are using disks on this storage")
+		return errors.Wrap(ErrStorageInUse, "guest on the host are using disks on this storage")
 	}
 	return self.SHostJointsBase.ValidateDeleteCondition(ctx)
 }
@@ -290,4 +346,65 @@ func (self *SHoststorage) syncWithCloudHostStorage(userCred mcclient.TokenCreden
 	}
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
+}
+
+func (manager *SHoststorageManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.HoststorageListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SHostJointsManager.ListItemFilter(ctx, q, userCred, query.HostJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHostResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SStorageResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StorageFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStorageResourceBaseManager.ListItemFilter")
+	}
+
+	return q, nil
+}
+
+func (manager *SHoststorageManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.HoststorageListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SHostJointsManager.OrderByExtraFields(ctx, q, userCred, query.HostJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHostResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SStorageResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StorageFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStorageResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SHoststorageManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SHostJointsManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHostJointsManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SStorageResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SStorageResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SStorageResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	return q, nil
 }

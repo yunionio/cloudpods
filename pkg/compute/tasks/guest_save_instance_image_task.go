@@ -49,13 +49,13 @@ func (self *GuestSaveGuestImageTask) OnInit(ctx context.Context, obj db.IStandal
 		params := jsonutils.DeepCopy(self.Params).(*jsonutils.JSONDict)
 		params.Add(imageIds[index], "image_id")
 		if err := dataDisk.StartDiskSaveTask(ctx, self.UserCred, params, self.GetTaskId()); err != nil {
-			self.taskFailed(ctx, guest, err.Error())
+			self.taskFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		}
 	}
 
 	self.Params.Add(imageIds[len(imageIds)-1], "image_id")
 	if err := disks.Root.StartDiskSaveTask(ctx, self.UserCred, self.Params, self.GetTaskId()); err != nil {
-		self.taskFailed(ctx, guest, err.Error())
+		self.taskFailed(ctx, guest, jsonutils.NewString(err.Error()))
 	}
 }
 
@@ -63,7 +63,8 @@ func (self *GuestSaveGuestImageTask) OnSaveRootImageComplete(ctx context.Context
 	subTasks := taskman.SubTaskManager.GetTotalSubtasks(self.Id, "on_save_root_image_complete", taskman.SUBTASK_FAIL)
 
 	if len(subTasks) > 0 {
-		self.taskFailed(ctx, guest, "subtask failed")
+		self.taskFailed(ctx, guest, jsonutils.NewString("subtask failed"))
+		// ??? return ???
 	}
 
 	if restart, _ := self.GetParams().Bool("auto_start"); restart {
@@ -77,7 +78,7 @@ func (self *GuestSaveGuestImageTask) OnSaveRootImageComplete(ctx context.Context
 
 func (self *GuestSaveGuestImageTask) OnSaveRootImageCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	log.Errorf("Guest save image failed: %s", data.PrettyString())
-	self.taskFailed(ctx, guest, "")
+	self.taskFailed(ctx, guest, data)
 }
 
 func (self *GuestSaveGuestImageTask) OnStartServerComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -93,9 +94,9 @@ func (self *GuestSaveGuestImageTask) taskSuc(ctx context.Context, guest *models.
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *GuestSaveGuestImageTask) taskFailed(ctx context.Context, guest *models.SGuest, reason string) {
+func (self *GuestSaveGuestImageTask) taskFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
 
-	guest.SetStatus(self.UserCred, api.VM_SAVE_DISK_FAILED, reason)
+	guest.SetStatus(self.UserCred, api.VM_SAVE_DISK_FAILED, reason.String())
 	db.OpsLog.LogEvent(guest, db.ACT_GUEST_SAVE_GUEST_IMAGE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_IMAGE_SAVE, reason, self.UserCred, false)
 

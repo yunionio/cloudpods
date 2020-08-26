@@ -18,14 +18,19 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SHostnetworkManager struct {
 	SHostJointsManager
+	SNetworkResourceBaseManager
 }
 
 var HostnetworkManager *SHostnetworkManager
@@ -34,6 +39,7 @@ func init() {
 	db.InitManager(func() {
 		HostnetworkManager = &SHostnetworkManager{
 			SHostJointsManager: NewHostJointsManager(
+				"baremetal_id",
 				SHostnetwork{},
 				"baremetalnetworks_tbl",
 				"baremetalnetwork",
@@ -48,44 +54,88 @@ func init() {
 type SHostnetwork struct {
 	SHostJointsBase
 
-	BaremetalId string `width:"36" charset:"ascii" nullable:"false" list:"admin"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
-	NetworkId   string `width:"36" charset:"ascii" nullable:"false" list:"admin"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
-	IpAddr      string `width:"16" charset:"ascii" list:"admin"`                  // Column(VARCHAR(16, charset='ascii'))
-	MacAddr     string `width:"18" charset:"ascii" list:"admin"`                  // Column(VARCHAR(18, charset='ascii'))
+	// 宿主机ID
+	BaremetalId string `width:"36" charset:"ascii" nullable:"false" list:"domain"`
+	// 网络ID
+	NetworkId string `width:"36" charset:"ascii" nullable:"false" list:"domain"`
+	// IP地址
+	IpAddr string `width:"16" charset:"ascii" list:"domain"`
+	// MAC地址
+	MacAddr string `width:"18" charset:"ascii" list:"domain"`
 }
 
 func (manager *SHostnetworkManager) GetMasterFieldName() string {
-	return "baremetal_id"
+	return manager.getHostIdFieldName()
 }
 
 func (manager *SHostnetworkManager) GetSlaveFieldName() string {
 	return "network_id"
 }
 
-func (bn *SHostnetwork) Master() db.IStandaloneModel {
-	return db.JointMaster(bn)
+func (bn *SHostnetwork) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.HostnetworkDetails, error) {
+	return api.HostnetworkDetails{}, nil
 }
 
-func (bn *SHostnetwork) Slave() db.IStandaloneModel {
-	return db.JointSlave(bn)
-}
+func (manager *SHostnetworkManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.HostnetworkDetails {
+	rows := make([]api.HostnetworkDetails, len(objs))
 
-func (bn *SHostnetwork) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := bn.SHostJointsBase.GetCustomizeColumns(ctx, userCred, query)
-	extra = db.JointModelExtra(bn, extra)
-	netif := bn.GetNetInterface()
-	if netif != nil {
-		extra.Add(jsonutils.NewString(netif.NicType), "nic_type")
+	hostRows := manager.SHostJointsManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	hostIds := make([]string, len(rows))
+	netIds := make([]string, len(rows))
+	macIds := make([]string, len(rows))
+
+	for i := range rows {
+		rows[i] = api.HostnetworkDetails{
+			HostJointResourceDetails: hostRows[i],
+		}
+		hostIds[i] = objs[i].(*SHostnetwork).BaremetalId
+		netIds[i] = objs[i].(*SHostnetwork).NetworkId
+		macIds[i] = objs[i].(*SHostnetwork).MacAddr
 	}
-	return extra
-}
 
-func (bn *SHostnetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := bn.SHostJointsBase.GetExtraDetails(ctx, userCred, query)
+	hostIdMaps, err := db.FetchIdNameMap2(HostManager, hostIds)
 	if err != nil {
-		return nil, err
+		log.Errorf("FetchIdNameMap2 hostIds fail %s", err)
+		return rows
 	}
-	return db.JointModelExtra(bn, extra), nil
+	netIdMaps, err := db.FetchIdNameMap2(NetworkManager, netIds)
+	if err != nil {
+		log.Errorf("FetchIdNameMap2 netIds fail %s", err)
+		return rows
+	}
+	netifs := make(map[string]SNetInterface)
+	netifQ := NetInterfaceManager.Query("mac", "nic_type")
+	err = db.FetchQueryObjectsByIds(netifQ, "mac", macIds, &netifs)
+	if err != nil {
+		log.Errorf("FetchQueryObjectsByIds macIds fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if name, ok := hostIdMaps[hostIds[i]]; ok {
+			rows[i].Host = name
+		}
+		if name, ok := netIdMaps[netIds[i]]; ok {
+			rows[i].Network = name
+		}
+		if netif, ok := netifs[macIds[i]]; ok {
+			rows[i].NicType = netif.NicType
+		}
+	}
+
+	return rows
 }
 
 func (bn *SHostnetwork) GetHost() *SHost {
@@ -154,4 +204,72 @@ func (man *SHostnetworkManager) GetHostByAddress(addr string) *SHost {
 		return host
 	}
 	return nil
+}
+
+func (manager *SHostnetworkManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.HostnetworkListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SHostJointsManager.ListItemFilter(ctx, q, userCred, query.HostJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHostResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SNetworkResourceBaseManager.ListItemFilter(ctx, q, userCred, query.NetworkFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.ListItemFilter")
+	}
+
+	if len(query.IpAddr) > 0 {
+		q = q.In("ip_addr", query.IpAddr)
+	}
+	if len(query.MacAddr) > 0 {
+		q = q.In("mac_addr", query.MacAddr)
+	}
+
+	return q, nil
+}
+
+func (manager *SHostnetworkManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.HostnetworkListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SHostJointsManager.OrderByExtraFields(ctx, q, userCred, query.HostJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHostResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SNetworkResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.NetworkFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SHostnetworkManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SHostJointsManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHostJointsManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SNetworkResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SNetworkResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SNetworkResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	return q, nil
 }

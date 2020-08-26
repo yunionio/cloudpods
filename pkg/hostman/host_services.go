@@ -15,20 +15,22 @@
 package hostman
 
 import (
-	"os"
+	"io/ioutil"
+	"path/filepath"
 
 	execlient "yunion.io/x/executor/client"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
-	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
 	"yunion.io/x/onecloud/pkg/hostman/downloader"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/guesthandlers"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
+	"yunion.io/x/onecloud/pkg/hostman/hosthandler"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/hostmetrics"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -39,6 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman/diskhandlers"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/storagehandler"
 	"yunion.io/x/onecloud/pkg/hostman/system_service"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
@@ -48,16 +51,7 @@ type SHostService struct {
 }
 
 func (host *SHostService) InitService() {
-	common_options.ParseOptions(&options.HostOptions, os.Args, "host.conf", "host")
-	if len(options.HostOptions.CommonConfigFile) > 0 {
-		baseOpt := options.HostOptions.BaseOptions.BaseOptions
-		commonCfg := new(common_options.CommonOptions)
-		commonCfg.Config = options.HostOptions.CommonConfigFile
-		common_options.ParseOptions(commonCfg, []string{"host"}, "common.conf", "host")
-		options.HostOptions.CommonOptions = *commonCfg
-		// keep base options
-		options.HostOptions.BaseOptions.BaseOptions = baseOpt
-	}
+	options.Init()
 	isRoot := sysutils.IsRootPermission()
 	if !isRoot {
 		log.Fatalf("host service must running with root permissions")
@@ -97,12 +91,17 @@ func (host *SHostService) RunService() {
 		log.Fatalf(err.Error())
 	}
 
+	var guestChan chan struct{}
 	guestman.Init(hostInstance, options.HostOptions.ServersPath)
 	app_common.InitAuth(&options.HostOptions.CommonOptions, func() {
 		log.Infof("Auth complete!!")
 
+		if err := host.initEtcdConfig(); err != nil {
+			log.Fatalln(err)
+		}
+
 		hostInstance.StartRegister(2, func() {
-			guestman.GetGuestManager().Bootstrap()
+			guestChan = guestman.GetGuestManager().Bootstrap()
 			// hostmetrics after guestmanager bootstrap
 			hostmetrics.Init()
 			hostmetrics.Start()
@@ -121,6 +120,7 @@ func (host *SHostService) RunService() {
 		"CleanRecycleDiskFiles", 1, 3, 0, 0, storageman.CleanRecycleDiskfiles, false)
 	cronManager.Start()
 
+	close(guestChan)
 	app_common.ServeForeverWithCleanup(app, &options.HostOptions.BaseOptions, func() {
 		hostinfo.Stop()
 		storageman.Stop()
@@ -136,4 +136,46 @@ func (host *SHostService) initHandlers(app *appsrv.Application) {
 	diskhandlers.AddDiskHandler("", app)
 	downloader.AddDownloadHandler("", app)
 	kubehandlers.AddKubeAgentHandler("", app)
+	hosthandler.AddHostHandler("", app)
+}
+
+func (host *SHostService) initEtcdConfig() error {
+	etcdEndpoint, err := app_common.FetchEtcdServiceInfo()
+	if err != nil {
+		if errors.Cause(err) == httperrors.ErrNotFound {
+			return nil
+		}
+		return errors.Wrap(err, "fetch etcd service info")
+	}
+	if etcdEndpoint == nil {
+		return nil
+	}
+	if len(options.HostOptions.EtcdEndpoints) == 0 {
+		options.HostOptions.EtcdEndpoints = []string{etcdEndpoint.Url}
+		if len(etcdEndpoint.CertId) > 0 {
+			dir, err := ioutil.TempDir("", "etcd-cluster-tls")
+			if err != nil {
+				return errors.Wrap(err, "create dir etcd cluster tls")
+			}
+			options.HostOptions.EtcdCert, err = writeFile(dir, "etcd.crt", []byte(etcdEndpoint.Certificate))
+			if err != nil {
+				return errors.Wrap(err, "write file certificate")
+			}
+			options.HostOptions.EtcdKey, err = writeFile(dir, "etcd.key", []byte(etcdEndpoint.PrivateKey))
+			if err != nil {
+				return errors.Wrap(err, "write file private key")
+			}
+			options.HostOptions.EtcdCacert, err = writeFile(dir, "etcd-ca.crt", []byte(etcdEndpoint.CaCertificate))
+			if err != nil {
+				return errors.Wrap(err, "write file  cacert")
+			}
+			options.HostOptions.EtcdUseTLS = true
+		}
+	}
+	return nil
+}
+
+func writeFile(dir, file string, data []byte) (string, error) {
+	p := filepath.Join(dir, file)
+	return p, ioutil.WriteFile(p, data, 0600)
 }

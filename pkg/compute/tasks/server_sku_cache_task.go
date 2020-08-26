@@ -34,8 +34,8 @@ func init() {
 	taskman.RegisterTask(ServerSkuCacheTask{})
 }
 
-func (self *ServerSkuCacheTask) taskFailed(ctx context.Context, sku *models.SServerSku, err error) {
-	self.SetStageFailed(ctx, err.Error())
+func (self *ServerSkuCacheTask) taskFailed(ctx context.Context, sku *models.SServerSku, err jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, err)
 }
 
 func (self *ServerSkuCacheTask) getCloudregion() (*models.SCloudregion, error) {
@@ -55,30 +55,30 @@ func (self *ServerSkuCacheTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 
 	cloudregion, err := self.getCloudregion()
 	if err != nil {
-		self.taskFailed(ctx, sku, errors.Wrap(err, "self.getCloudregion()"))
+		self.taskFailed(ctx, sku, jsonutils.NewString(errors.Wrap(err, "self.getCloudregion()").Error()))
 		return
 	}
 
 	cloudprovider := cloudregion.GetCloudprovider()
 	if cloudprovider == nil {
-		self.taskFailed(ctx, sku, fmt.Errorf("failed to found cloudprovider for cloudregion %s(%s)", cloudregion.Name, cloudregion.Id))
+		self.taskFailed(ctx, sku, jsonutils.NewString(fmt.Sprintf("failed to found cloudprovider for cloudregion %s(%s)", cloudregion.Name, cloudregion.Id)))
 		return
 	}
 
 	provider, err := cloudprovider.GetProvider()
 	if err != nil {
-		self.taskFailed(ctx, sku, errors.Wrap(err, "cloudprovider.GetProvider"))
+		self.taskFailed(ctx, sku, jsonutils.NewString(errors.Wrap(err, "cloudprovider.GetProvider").Error()))
 		return
 	}
 	iRegion, err := provider.GetIRegionById(cloudregion.ExternalId)
 	if err != nil {
-		self.taskFailed(ctx, sku, errors.Wrap(err, "provider.GetIRegionById"))
+		self.taskFailed(ctx, sku, jsonutils.NewString(errors.Wrap(err, "provider.GetIRegionById").Error()))
 		return
 	}
 
 	iskus, err := iRegion.GetISkus()
 	if err != nil {
-		self.taskFailed(ctx, sku, errors.Wrap(err, "provider.GetIRegionById"))
+		self.taskFailed(ctx, sku, jsonutils.NewString(errors.Wrap(err, "provider.GetIRegionById").Error()))
 		return
 	}
 
@@ -91,7 +91,7 @@ func (self *ServerSkuCacheTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 
 	err = iRegion.CreateISku(sku.Name, sku.CpuCoreCount, sku.MemorySizeMB)
 	if err != nil {
-		self.taskFailed(ctx, sku, errors.Wrap(err, "provider.GetIRegionById"))
+		self.taskFailed(ctx, sku, jsonutils.NewString(errors.Wrap(err, "provider.GetIRegionById").Error()))
 		return
 	}
 	self.SetStageComplete(ctx, nil)

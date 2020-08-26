@@ -36,7 +36,7 @@ var (
 )
 
 const (
-	AUTH_TOKEN = appctx.AppContextKey("X_AUTH_TOKEN")
+	AUTH_TOKEN = appctx.APP_CONTEXT_KEY_AUTH_TOKEN
 )
 
 type TokenVerifyFunc func(string) (mcclient.TokenCredential, error)
@@ -50,24 +50,24 @@ func AuthenticateWithDelayDecision(f appsrv.FilterHandler, delayDecision bool) a
 		tokenStr := r.Header.Get(api.AUTH_TOKEN_HEADER)
 		var token mcclient.TokenCredential
 		if len(tokenStr) == 0 {
-			log.Errorf("no auth_token found!")
+			log.Errorf("no auth_token found! delayDecision=%v", delayDecision)
 			if !delayDecision {
-				httperrors.UnauthorizedError(w, "Unauthorized")
+				httperrors.UnauthorizedError(ctx, w, "Unauthorized")
 				return
 			}
 			token = &GuestToken
 		} else {
 			var err error
-			token, err = DefaultTokenVerifier(tokenStr)
+			token, err = DefaultTokenVerifier(ctx, tokenStr)
 			if err != nil {
 				log.Errorf("Verify token failed: %s", err)
 				if !delayDecision {
-					httperrors.UnauthorizedError(w, "InvalidToken")
+					httperrors.UnauthorizedError(ctx, w, "InvalidToken")
 					return
 				}
 			}
 		}
-		ctx = context.WithValue(ctx, AUTH_TOKEN, token)
+		ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_AUTH_TOKEN, token)
 
 		if taskId := r.Header.Get(mcclient.TASK_ID); taskId != "" {
 			ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_TASK_ID, taskId)
@@ -81,7 +81,7 @@ func AuthenticateWithDelayDecision(f appsrv.FilterHandler, delayDecision bool) a
 }
 
 func FetchUserCredential(ctx context.Context, filter func(mcclient.TokenCredential) mcclient.TokenCredential) mcclient.TokenCredential {
-	tokenValue := ctx.Value(AUTH_TOKEN)
+	tokenValue := ctx.Value(appctx.APP_CONTEXT_KEY_AUTH_TOKEN)
 	if tokenValue != nil {
 		token := tokenValue.(mcclient.TokenCredential)
 		if filter != nil {

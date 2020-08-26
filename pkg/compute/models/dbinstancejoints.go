@@ -22,6 +22,7 @@ import (
 
 type SDBInstanceJointsManager struct {
 	db.SVirtualJointResourceBaseManager
+	SDBInstanceResourceBaseManager
 }
 
 func NewDBInstanceJointsManager(dt interface{}, tableName string, keyword string, keywordPlural string, slave db.IVirtualModelManager) SDBInstanceJointsManager {
@@ -40,7 +41,8 @@ func NewDBInstanceJointsManager(dt interface{}, tableName string, keyword string
 type SDBInstanceJointsBase struct {
 	db.SVirtualJointResourceBase
 
-	DBInstanceId string `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
+	SDBInstanceResourceBase `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
+	// DBInstanceId string `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
 }
 
 func (self *SDBInstanceJointsBase) getDBInstance() (*SDBInstance, error) {

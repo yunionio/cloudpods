@@ -70,7 +70,7 @@ func (self *GuestCreateTask) OnDiskPreparedFailed(ctx context.Context, obj db.IS
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
 	notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_DISK_FAILED, data.String())
-	self.SetStageFailed(ctx, data.String())
+	self.SetStageFailed(ctx, data)
 }
 
 func (self *GuestCreateTask) OnDiskPrepared(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -99,7 +99,7 @@ func (self *GuestCreateTask) OnCdromPreparedFailed(ctx context.Context, obj db.I
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
 	notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_DISK_FAILED, fmt.Sprintf("cdrom_failed %s", data))
-	self.SetStageFailed(ctx, fmt.Sprintf("cdrom_failed %s", data))
+	self.SetStageFailed(ctx, data)
 }
 
 func (self *GuestCreateTask) StartDeployGuest(ctx context.Context, guest *models.SGuest) {
@@ -153,7 +153,7 @@ func (self *GuestCreateTask) OnDeployGuestDescCompleteFailed(ctx context.Context
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
 	notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_DEPLOY_FAILED, data.String())
-	self.SetStageFailed(ctx, data.String())
+	self.SetStageFailed(ctx, data)
 }
 
 func (self *GuestCreateTask) OnDeployEipComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -168,7 +168,7 @@ func (self *GuestCreateTask) OnDeployEipComplete(ctx context.Context, obj db.ISt
 	if len(duration) > 0 {
 		bc, err := billing.ParseBillingCycle(duration)
 		if err == nil && guest.ExpiredAt.IsZero() {
-			guest.SaveRenewInfo(ctx, self.GetUserCred(), &bc, nil)
+			guest.SaveRenewInfo(ctx, self.GetUserCred(), &bc, nil, "")
 		}
 		if jsonutils.QueryBoolean(self.GetParams(), "auto_prepaid_recycle", false) {
 			err := guest.CanPerformPrepaidRecycle()
@@ -194,7 +194,7 @@ func (self *GuestCreateTask) OnDeployEipCompleteFailed(ctx context.Context, obj 
 	db.OpsLog.LogEvent(guest, db.ACT_EIP_ATTACH, data, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_EIP_ASSOCIATE, data, self.UserCred, false)
 	notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_ASSOCIATE_EIP_FAILED, data.String())
-	self.SetStageFailed(ctx, data.String())
+	self.SetStageFailed(ctx, data)
 }
 
 func (self *GuestCreateTask) OnAutoStartGuest(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

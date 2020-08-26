@@ -48,9 +48,6 @@ const (
 	LB_SYNC_CONF        = "sync_conf"
 	LB_SYNC_CONF_FAILED = "sync_conf_failed"
 
-	LB_SYNC_STATUS        = "sync_status"
-	LB_SYNC_STATUS_FAILED = "sync_status_failed"
-
 	LB_STATUS_DELETING      = "deleting"
 	LB_STATUS_DELETE_FAILED = "delete_failed"
 	LB_STATUS_DELETED       = "deleted"
@@ -143,11 +140,12 @@ var LB_NETWORK_TYPES = choices.NewChoices(
 
 // TODO https_direct sni
 const (
-	LB_LISTENER_TYPE_TCP     = "tcp"
-	LB_LISTENER_TYPE_UDP     = "udp"
-	LB_LISTENER_TYPE_TCP_UDP = "tcp_udp"
-	LB_LISTENER_TYPE_HTTP    = "http"
-	LB_LISTENER_TYPE_HTTPS   = "https"
+	LB_LISTENER_TYPE_TCP              = "tcp"
+	LB_LISTENER_TYPE_UDP              = "udp"
+	LB_LISTENER_TYPE_TCP_UDP          = "tcp_udp"
+	LB_LISTENER_TYPE_HTTP             = "http"
+	LB_LISTENER_TYPE_HTTPS            = "https"
+	LB_LISTENER_TYPE_TERMINATED_HTTPS = "terminated_https"
 )
 
 var LB_LISTENER_TYPES = choices.NewChoices(
@@ -237,6 +235,7 @@ var LB_STICKY_SESSION_TYPES = choices.NewChoices(
 
 // TODO maybe https check when field need comes ;)
 const (
+	LB_HEALTH_CHECK_PING  = "ping"
 	LB_HEALTH_CHECK_TCP   = "tcp"
 	LB_HEALTH_CHECK_UDP   = "udp"
 	LB_HEALTH_CHECK_HTTP  = "http"
@@ -273,6 +272,40 @@ var LB_HEALTH_CHECK_HTTP_CODES = choices.NewChoices(
 	LB_HEALTH_CHECK_HTTP_CODE_3xx,
 	LB_HEALTH_CHECK_HTTP_CODE_4xx,
 	LB_HEALTH_CHECK_HTTP_CODE_5xx,
+)
+
+const (
+	LB_REDIRECT_OFF = "off"
+	LB_REDIRECT_RAW = "raw"
+)
+
+var LB_REDIRECT_TYPES = choices.NewChoices(
+	LB_REDIRECT_OFF,
+	LB_REDIRECT_RAW,
+)
+
+const (
+	LB_REDIRECT_CODE_301 = int64(301) // Moved Permanently
+	LB_REDIRECT_CODE_302 = int64(302) // Found
+	LB_REDIRECT_CODE_307 = int64(307) // Temporary Redirect
+)
+
+var LB_REDIRECT_CODES = []int64{
+	LB_REDIRECT_CODE_301,
+	LB_REDIRECT_CODE_302,
+	LB_REDIRECT_CODE_307,
+}
+
+const (
+	LB_REDIRECT_SCHEME_IDENTITY = ""
+	LB_REDIRECT_SCHEME_HTTP     = "http"
+	LB_REDIRECT_SCHEME_HTTPS    = "https"
+)
+
+var LB_REDIRECT_SCHEMES = choices.NewChoices(
+	LB_REDIRECT_SCHEME_IDENTITY,
+	LB_REDIRECT_SCHEME_HTTP,
+	LB_REDIRECT_SCHEME_HTTPS,
 )
 
 const (

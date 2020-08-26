@@ -32,13 +32,14 @@ func init() {
 	})
 
 	type EipCreateOptions struct {
-		ZoneId    string `help:"zone id"`
-		Name      string `help:"eip name"`
-		Size      string `help:"size"`
-		ShareType string `help:"share type" choice:"PER|WHOLE"`
+		ZoneId     string `help:"zone id"`
+		Name       string `help:"eip name"`
+		Size       string `help:"size"`
+		ShareType  string `help:"share type" choice:"PER|WHOLE"`
+		ChargeMode string `help:"charge mode" choice:"bandwidth|traffic"`
 	}
 	shellutils.R(&EipCreateOptions{}, "eip-create", "Create eip", func(cli *ctyun.SRegion, args *EipCreateOptions) error {
-		eip, e := cli.CreateEip(args.ZoneId, args.Name, args.Size, args.ShareType)
+		eip, e := cli.CreateEip(args.ZoneId, args.Name, args.Size, args.ShareType, args.ChargeMode)
 		if e != nil {
 			return e
 		}

@@ -16,6 +16,7 @@ package google
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -187,7 +188,7 @@ func (image *SImage) GetCreatedAt() time.Time {
 }
 
 func (image *SImage) GetImageFormat() string {
-	return "vhd"
+	return "raw"
 }
 
 func (image *SImage) IsEmulated() bool {
@@ -212,4 +213,37 @@ func (region *SRegion) fetchImages() ([]SImage, error) {
 	}
 	region.client.images = images
 	return images, nil
+}
+
+func (region *SRegion) CreateImage(name string, desc string, bucketName string, sourceFile string) (*SImage, error) {
+	body := map[string]interface{}{
+		"timeout": "7200s",
+		"steps": []struct {
+			Args []string
+			Name string
+		}{
+			{
+				Args: []string{
+					fmt.Sprintf("-source_file=gs://%s/%s", bucketName, sourceFile),
+					"-data_disk",
+					"-timeout=7056s",
+					"-image_name=" + name,
+					"-no_guest_environment",
+					"-client_id=onecloud",
+					"-description=" + desc,
+				},
+				Name: "gcr.io/compute-image-tools/gce_vm_image_import:release",
+			},
+		},
+		"tags": []string{"gce-daisy", "gce-daisy-image-import"},
+	}
+	err := region.CloudbuildInsert(jsonutils.Marshal(body))
+	if err != nil {
+		return nil, err
+	}
+	return region.GetImage(fmt.Sprintf("projects/%s/global/images/%s", region.GetProjectId(), name))
+}
+
+func (self *SImage) UEFI() bool {
+	return false
 }

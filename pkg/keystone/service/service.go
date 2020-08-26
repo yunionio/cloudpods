@@ -19,9 +19,6 @@ import (
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/golang-plus/uuid"
-
-	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
@@ -29,27 +26,27 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
-	"yunion.io/x/onecloud/pkg/cloudcommon/policy" // "yunion.io/x/onecloud/pkg/keystone/keys"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/keystone/cronjobs"
-	_ "yunion.io/x/onecloud/pkg/keystone/driver/cas"
-	_ "yunion.io/x/onecloud/pkg/keystone/driver/ldap"
-	_ "yunion.io/x/onecloud/pkg/keystone/driver/sql"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/options"
+	_ "yunion.io/x/onecloud/pkg/keystone/policy"
+	"yunion.io/x/onecloud/pkg/keystone/saml"
 	_ "yunion.io/x/onecloud/pkg/keystone/tasks"
 	"yunion.io/x/onecloud/pkg/keystone/tokens"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
-func keystoneUUIDGenerator() string {
-	id, _ := uuid.NewV4()
-	return id.Format(uuid.StyleWithoutDash)
-}
-
 func StartService() {
 	auth.DefaultTokenVerifier = tokens.FernetTokenVerifier
 	db.DefaultUUIDGenerator = keystoneUUIDGenerator
+	db.DefaultProjectFetcher = keystoneProjectFetcher
+	db.DefaultDomainFetcher = keystoneDomainFetcher
+	db.DefaultUserFetcher = keystoneUserFetcher
+	db.DefaultDomainQuery = keystoneDomainQuery
+	db.DefaultProjectQuery = keystoneProjectQuery
+	db.DefaultProjectsFetcher = keystoneProjectsFetcher
 	policy.DefaultPolicyFetcher = localPolicyFetcher
 	logclient.DefaultSessionGenerator = models.GetDefaultClientSession
 	cronman.DefaultAdminSessionGenerator = models.GetDefaultAdminCred
@@ -70,25 +67,31 @@ func StartService() {
 	*/
 
 	app := app_common.InitApp(&opts.BaseOptions, true)
-	InitHandlers(app)
 
+	InitHandlers(app)
 	db.EnsureAppInitSyncDB(app, &opts.DBOptions, models.InitDB)
 
 	app_common.InitBaseAuth(&opts.BaseOptions)
 
-	err := models.MergeServiceConfig(opts)
-	if err != nil {
-		log.Fatalf("[MERGE CONFIG] Fail to merge service config: %s", err)
-	}
+	common_options.StartOptionManagerWithSessionDriver(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, "", options.OnOptionsChange, models.NewServiceConfigSession())
 
 	if !opts.IsSlaveNode {
 		cron := cronman.InitCronJobManager(true, opts.CronJobWorkerCount)
 
 		cron.AddJobAtIntervalsWithStartRun("AutoSyncIdentityProviderTask", time.Duration(opts.AutoSyncIntervalSeconds)*time.Second, models.AutoSyncIdentityProviderTask, true)
-		cron.AddJobAtIntervals("FetchProjectResourceCount", time.Duration(opts.FetchProjectResourceCountIntervalSeconds)*time.Second, cronjobs.FetchProjectResourceCount)
+		cron.AddJobAtIntervalsWithStartRun("FetchScopeResourceCount", time.Duration(opts.FetchScopeResourceCountIntervalSeconds)*time.Second, cronjobs.FetchScopeResourceCount, false)
+		cron.AddJobAtIntervalsWithStartRun("CalculateIdentityQuotaUsages", time.Duration(opts.CalculateQuotaUsageIntervalSeconds)*time.Second, models.IdentityQuotaManager.CalculateQuotaUsages, true)
 
 		cron.Start()
 		defer cron.Stop()
+	}
+
+	if options.Options.EnableSsl {
+		// enable SAML support only if ssl is enabled
+		err := saml.InitSAMLInstance()
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	go func() {

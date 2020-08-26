@@ -20,9 +20,11 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -37,6 +39,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/choices"
 	"yunion.io/x/onecloud/pkg/util/rand"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SAwsRegionDriver struct {
@@ -48,8 +51,46 @@ func init() {
 	models.RegisterRegionDriver(&driver)
 }
 
+func (self *SAwsRegionDriver) GetSecurityGroupRuleOrder() cloudprovider.TPriorityOrder {
+	return cloudprovider.PriorityOrderByAsc
+}
+
+func (self *SAwsRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
+}
+
+func (self *SAwsRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:allow any")}
+}
+
+func (self *SAwsRegionDriver) GetSecurityGroupRuleMaxPriority() int {
+	return 0
+}
+
+func (self *SAwsRegionDriver) GetSecurityGroupRuleMinPriority() int {
+	return 0
+}
+
+func (self *SAwsRegionDriver) IsOnlySupportAllowRules() bool {
+	return true
+}
+
 func (self *SAwsRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_AWS
+}
+
+func networkCheck(network *models.SNetwork) error {
+	total := network.GetPorts()
+	used, err := network.GetTotalNicCount()
+	if err != nil {
+		return errors.Wrap(err, "validateAwsLbNetwork.GetTotalNicCount")
+	}
+
+	if (total - used) < 8 {
+		return fmt.Errorf("network %s free ip is less than 8", network.GetId())
+	}
+
+	return nil
 }
 
 func validateAwsLbNetwork(ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict, requiredMin int) (*jsonutils.JSONDict, error) {
@@ -73,20 +114,44 @@ func validateAwsLbNetwork(ownerId mcclient.IIdentityProvider, data *jsonutils.JS
 		}
 
 		network := networkV.Model.(*models.SNetwork)
+		err := networkCheck(network)
+		if err != nil {
+			return nil, errors.Wrap(err, "validateAwsLbNetwork.networkCheck")
+		}
+
 		region, zone, vpc, _, err := network.ValidateElbNetwork(nil)
 		if err != nil {
 			return nil, err
 		} else {
 			//随机选择一个子网
 			if requiredMin == 2 && len(networkIds) == 1 {
+				var nets []models.SNetwork
 				wires := models.WireManager.Query().SubQuery()
 				q := models.NetworkManager.Query().IsFalse("pending_deleted")
+				q = models.NetworkManager.FilterByOwner(q, ownerId, rbacutils.ScopeProject)
 				q = q.Join(wires, sqlchemy.Equals(q.Field("wire_id"), wires.Field("id")))
 				q = q.Filter(sqlchemy.Equals(wires.Field("vpc_id"), vpc.GetId()))
 				q = q.Filter(sqlchemy.NotEquals(wires.Field("zone_id"), zone.GetId()))
-				err := q.First(secondNet)
+				err := q.All(&nets)
 				if err != nil {
 					return nil, httperrors.NewInputParameterError("required at least %d subnet.", requiredMin)
+				}
+
+				secondNetFound := false
+				for i := range nets {
+					net := nets[i]
+					err := networkCheck(&net)
+					if err != nil {
+						continue
+					}
+
+					secondNet = &net
+					secondNetFound = true
+					break
+				}
+
+				if !secondNetFound {
+					return nil, httperrors.NewInputParameterError("required at least %d subnet with at least 8 free ip.", requiredMin)
 				}
 			}
 		}
@@ -169,8 +234,7 @@ func (self *SAwsRegionDriver) validateCreateNetworkLBData(ownerId mcclient.IIden
 	return data, nil
 }
 
-func (self *SAwsRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	ownerId := ctx.Value("ownerId").(mcclient.IIdentityProvider)
+func (self *SAwsRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	if spec, _ := data.GetString("loadbalancer_spec"); spec == api.LB_AWS_SPEC_APPLICATION {
 		if _, err := self.validateCreateApplicationLBData(ownerId, data); err != nil {
 			return nil, err
@@ -183,7 +247,7 @@ func (self *SAwsRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context
 		return nil, httperrors.NewInputParameterError("invalid parameter loadbalancer_spec %s", spec)
 	}
 
-	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, data)
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, ownerId, data)
 }
 
 func (self *SAwsRegionDriver) validateCreateApplicationListenerData(ctx context.Context, ownerId mcclient.IIdentityProvider, lb *models.SLoadbalancer, backendGroup *models.SLoadbalancerBackendGroup, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -268,8 +332,6 @@ func (self *SAwsRegionDriver) validateCreateApplicationListenerData(ctx context.
 	}
 
 	data.Set("acl_status", jsonutils.NewString(api.LB_BOOL_OFF))
-	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
-	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
 	data.Set("scheduler", jsonutils.NewString(api.LB_SCHEDULER_RR)) // aws 不支持指定调度算法
 	return data, nil
 }
@@ -339,8 +401,6 @@ func (self *SAwsRegionDriver) validateCreateNetworkListenerData(ctx context.Cont
 	data.Set("health_check_fall", jsonutils.NewInt(healthCheckRise))
 	data.Set("sticky_session", jsonutils.NewString(api.LB_BOOL_OFF))
 	data.Set("acl_status", jsonutils.NewString(api.LB_BOOL_OFF))
-	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
-	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
 	data.Set("scheduler", jsonutils.NewString(api.LB_SCHEDULER_RR)) // aws 不支持指定调度算法
 	return data, nil
 }
@@ -442,8 +502,8 @@ func (self *SAwsRegionDriver) validateUpdateApplicationListenerData(ctx context.
 	}
 
 	data.Set("acl_status", jsonutils.NewString(api.LB_BOOL_OFF))
-	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
-	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
+	data.Set("manager_id", jsonutils.NewString(lb.GetCloudproviderId()))
+	data.Set("cloudregion_id", jsonutils.NewString(lb.GetRegionId()))
 	data.Set("scheduler", jsonutils.NewString(api.LB_SCHEDULER_RR)) // aws 不支持指定调度算法
 	return data, nil
 }
@@ -500,20 +560,19 @@ func (self *SAwsRegionDriver) validateUpdateNetworkListenerData(ctx context.Cont
 
 	data.Set("sticky_session", jsonutils.NewString(api.LB_BOOL_OFF))
 	data.Set("acl_status", jsonutils.NewString(api.LB_BOOL_OFF))
-	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
-	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
+	data.Set("manager_id", jsonutils.NewString(lb.GetCloudproviderId()))
+	data.Set("cloudregion_id", jsonutils.NewString(lb.GetRegionId()))
 	data.Set("scheduler", jsonutils.NewString(api.LB_SCHEDULER_RR)) // aws 不支持指定调度算法
 	return data, nil
 }
 
 func (self *SAwsRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lblis *models.SLoadbalancerListener, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
 	ownerId := lblis.GetOwnerId()
-	lbV := validators.NewModelIdOrNameValidator("loadbalancer", "loadbalancer", ownerId)
-	if err := lbV.Validate(data); err != nil {
-		return nil, err
+	lb := lblis.GetLoadbalancer()
+	if lb == nil {
+		return nil, httperrors.NewResourceNotFoundError("loadbalancer listener %s related loadbalancer %s not found", lblis.Id, lblis.LoadbalancerId)
 	}
 
-	lb := lbV.Model.(*models.SLoadbalancer)
 	if lb.LoadbalancerSpec == api.LB_AWS_SPEC_APPLICATION {
 		if _, err := self.validateUpdateApplicationListenerData(ctx, ownerId, lb, lblis, backendGroup, data); err != nil {
 			return nil, err
@@ -587,8 +646,8 @@ func (self *SAwsRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx con
 	// data.Remove("domain")
 	// data.Remove("path")
 	data.Set("condition", jsonutils.NewString(condition))
-	data.Set("cloudregion_id", jsonutils.NewString(listener.CloudregionId))
-	data.Set("manager_id", jsonutils.NewString(listener.ManagerId))
+	data.Set("cloudregion_id", jsonutils.NewString(listener.GetRegionId()))
+	data.Set("manager_id", jsonutils.NewString(listener.GetCloudproviderId()))
 	return data, nil
 }
 
@@ -702,8 +761,8 @@ func (self *SAwsRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.
 	}
 
 	data.Set("name", jsonutils.NewString(name))
-	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
-	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
+	data.Set("manager_id", jsonutils.NewString(lb.GetCloudproviderId()))
+	data.Set("cloudregion_id", jsonutils.NewString(lb.GetRegionId()))
 	return data, nil
 }
 
@@ -755,8 +814,8 @@ func (self *SAwsRegionDriver) createLoadbalancerBackendGroup(ctx context.Context
 
 	// create loadbalancer backendgroup cache
 	cachedLbbg := &models.SAwsCachedLbbg{}
-	cachedLbbg.ManagerId = lb.ManagerId
-	cachedLbbg.CloudregionId = lb.CloudregionId
+	cachedLbbg.ManagerId = lb.GetCloudproviderId()
+	cachedLbbg.CloudregionId = lb.GetRegionId()
 	cachedLbbg.LoadbalancerId = lb.GetId()
 	cachedLbbg.BackendGroupId = lbbg.GetId()
 	cachedLbbg.ExternalId = iLoadbalancerBackendGroup.GetGlobalId()
@@ -767,7 +826,7 @@ func (self *SAwsRegionDriver) createLoadbalancerBackendGroup(ctx context.Context
 	cachedLbbg.HealthCheckProtocol = lblis.HealthCheckType
 	cachedLbbg.HealthCheckInterval = lblis.HealthCheckInterval
 
-	err = models.AwsCachedLbbgManager.TableSpec().Insert(cachedLbbg)
+	err = models.AwsCachedLbbgManager.TableSpec().Insert(ctx, cachedLbbg)
 	if err != nil {
 		return nil, errors.Wrap(err, "AwsRegionDriver.createlbBackendgroup.Insert")
 	}
@@ -880,7 +939,7 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Conte
 		}
 
 		if ibackend != nil {
-			if err := lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, ibackend, nil); err != nil {
+			if err := lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, ibackend, lbbg.GetOwnerId(), lb.GetCloudprovider()); err != nil {
 				return nil, errors.Wrap(err, "AwsRegionDriver.RequestCreateLoadbalancerBackend.SyncWithCloudLoadbalancerBackend")
 			}
 		}
@@ -956,7 +1015,7 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerListener(ctx context.Cont
 		{
 			certId, _ := task.GetParams().GetString("certificate_id")
 			if len(certId) > 0 {
-				provider := models.CloudproviderManager.FetchCloudproviderById(lblis.ManagerId)
+				provider := models.CloudproviderManager.FetchCloudproviderById(lblis.GetCloudproviderId())
 				if provider == nil {
 					return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
 				}
@@ -1007,7 +1066,7 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerListener(ctx context.Cont
 					return nil, errors.Wrap(err, "awsRegionDriver.RequestCreateLoadbalancerListener.GetICloudLoadbalancerBackendGroup")
 				}
 				// 服务器组已经存在，直接同步即可
-				if err := ilbbg.Sync(params); err != nil {
+				if err := ilbbg.Sync(ctx, params); err != nil {
 					return nil, errors.Wrap(err, "awsRegionDriver.RequestCreateLoadbalancerListener.Sync")
 				}
 			} else {
@@ -1036,7 +1095,7 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerListener(ctx context.Cont
 		if err != nil {
 			return nil, errors.Wrap(err, "awsRegionDriver.RequestCreateLoadbalancerListener.GetILoadBalancerById")
 		}
-		iListener, err := iLoadbalancer.CreateILoadBalancerListener(params)
+		iListener, err := iLoadbalancer.CreateILoadBalancerListener(ctx, params)
 		if err != nil {
 			return nil, errors.Wrap(err, "awsRegionDriver.RequestCreateLoadbalancerListener.CreateILoadBalancerListener")
 		}
@@ -1046,7 +1105,7 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerListener(ctx context.Cont
 			return nil, errors.Wrap(err, "awsRegionDriver.RequestCreateLoadbalancerListener.SetExternalId")
 		}
 
-		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, loadbalancer.GetOwnerId())
+		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, loadbalancer.GetOwnerId(), loadbalancer.GetCloudprovider())
 	})
 	return nil
 }
@@ -1093,7 +1152,7 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerListenerRule(ctx context.
 		if err := db.SetExternalId(lbr, userCred, iListenerRule.GetGlobalId()); err != nil {
 			return nil, err
 		}
-		return nil, lbr.SyncWithCloudLoadbalancerListenerRule(ctx, userCred, iListenerRule, nil)
+		return nil, lbr.SyncWithCloudLoadbalancerListenerRule(ctx, userCred, iListenerRule, listener.GetOwnerId(), loadbalancer.GetCloudprovider())
 	})
 	return nil
 }
@@ -1114,7 +1173,7 @@ func (self *SAwsRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx context.
 		}
 		iLoadbalancer, err := iRegion.GetILoadBalancerById(loadbalancer.ExternalId)
 		if err != nil {
-			if err == cloudprovider.ErrNotFound {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return nil, nil
 			}
 			return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackendGroup.GetILoadBalancerById")
@@ -1133,13 +1192,13 @@ func (self *SAwsRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx context.
 
 			iLoadbalancerBackendGroup, err := iLoadbalancer.GetILoadBalancerBackendGroupById(cachedLbbg.ExternalId)
 			if err != nil {
-				if err == cloudprovider.ErrNotFound {
+				if errors.Cause(err) == cloudprovider.ErrNotFound {
 					return nil, nil
 				}
 				return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackendGroup.GetILoadBalancerBackendGroupById")
 			}
 
-			err = iLoadbalancerBackendGroup.Delete()
+			err = iLoadbalancerBackendGroup.Delete(ctx)
 			if err != nil {
 				return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackendGroup.DeleteExtBackendGroup")
 			}
@@ -1172,7 +1231,7 @@ func (self *SAwsRegionDriver) RequestDeleteLoadbalancer(ctx context.Context, use
 
 		iLoadbalancer, err := iRegion.GetILoadBalancerById(lb.ExternalId)
 		if err != nil {
-			if err == cloudprovider.ErrNotFound {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return nil, nil
 			}
 			return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancer.GetILoadBalancerById")
@@ -1200,7 +1259,7 @@ func (self *SAwsRegionDriver) RequestDeleteLoadbalancer(ctx context.Context, use
 
 				iLoadbalancerBackendGroup, err := iLoadbalancer.GetILoadBalancerBackendGroupById(cachedLbbg.ExternalId)
 				if err != nil {
-					if err == cloudprovider.ErrNotFound {
+					if errors.Cause(err) == cloudprovider.ErrNotFound {
 						return nil, nil
 					}
 					return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackendGroup.GetILoadBalancerBackendGroupById")
@@ -1210,11 +1269,16 @@ func (self *SAwsRegionDriver) RequestDeleteLoadbalancer(ctx context.Context, use
 			}
 		}
 
-		err = iLoadbalancer.Delete()
+		err = iLoadbalancer.Delete(ctx)
 		if err != nil {
 			if err != cloudprovider.ErrNotFound {
 				return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancer.Delete")
 			}
+		}
+
+		err = cloudprovider.WaitDeletedWithDelay(iLoadbalancer, 10*time.Second, 10*time.Second, 60*time.Second)
+		if err != nil {
+			return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancer.WaitDeleted")
 		}
 
 		// delete backendgroups
@@ -1222,7 +1286,7 @@ func (self *SAwsRegionDriver) RequestDeleteLoadbalancer(ctx context.Context, use
 			// delete remote lbbgs
 			for i := range ilbbgs {
 				ilbbg := ilbbgs[i]
-				err = ilbbg.Delete()
+				err = ilbbg.Delete(ctx)
 				if err != nil {
 					return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackendGroup.DeleteExtBackendGroup")
 				}
@@ -1258,7 +1322,7 @@ func (self *SAwsRegionDriver) RequestSyncLoadbalancerListener(ctx context.Contex
 		{
 			certId, _ := task.GetParams().GetString("certificate_id")
 			if len(certId) > 0 {
-				provider := models.CloudproviderManager.FetchCloudproviderById(lblis.ManagerId)
+				provider := models.CloudproviderManager.FetchCloudproviderById(lblis.GetCloudproviderId())
 				if provider == nil {
 					return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
 				}
@@ -1310,18 +1374,24 @@ func (self *SAwsRegionDriver) RequestSyncLoadbalancerListener(ctx context.Contex
 		if err != nil {
 			return nil, errors.Wrap(err, "awsRegionDriver.RequestSyncLoadbalancerListener.GetILoadBalancerListenerById")
 		}
-		if err := iListener.Sync(params); err != nil {
+		if err := iListener.Sync(ctx, params); err != nil {
 			return nil, errors.Wrap(err, "awsRegionDriver.RequestSyncLoadbalancerListener.Sync")
 		}
 		if err := iListener.Refresh(); err != nil {
 			return nil, errors.Wrap(err, "awsRegionDriver.RequestSyncLoadbalancerListener.Refresh")
 		}
-		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, nil)
+		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, loadbalancer.GetOwnerId(), loadbalancer.GetCloudprovider())
 	})
 	return nil
 }
 
-func (self *SAwsRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, lbbg *models.SLoadbalancerBackendGroup, task taskman.ITask) error {
+func (self *SAwsRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
+	lbbg := lblis.GetLoadbalancerBackendGroup()
+	if lbbg == nil {
+		err := fmt.Errorf("failed to find lbbg for lblis %s", lblis.Name)
+		return errors.Wrap(err, "AwsRegionDriver.RequestSyncLoadbalancerBackendGroup.GetLoadbalancerBackendGroup")
+	}
+
 	lb := lblis.GetLoadbalancer()
 	if lb == nil {
 		return errors.Wrap(fmt.Errorf("listener %s related loadbalancer not found", lblis.GetId()), "AwsRegionDriver.RequestSyncLoadbalancerBackendGroup.GetLoadbalancer")

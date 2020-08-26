@@ -249,7 +249,7 @@ func (self *SDisk) GetMountpoint() string {
 	return ""
 }
 
-func (self *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, desc string) (string, error) {
+func (self *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, desc string, projectId string) (string, error) {
 	params := make(map[string]string)
 	params["ZoneId"] = zoneId
 	params["DiskName"] = name
@@ -265,6 +265,10 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 	if category == api.STORAGE_CLOUD_ESSD_PL3 {
 		params["DiskCategory"] = api.STORAGE_CLOUD_ESSD
 		params["PerformanceLevel"] = "PL3"
+	}
+
+	if len(projectId) > 0 {
+		params["ResourceGroupId"] = projectId
 	}
 	params["Size"] = fmt.Sprintf("%d", sizeGb)
 	params["ClientToken"] = utils.GenRequestId(20)
@@ -444,5 +448,5 @@ func (self *SRegion) rebuildDisk(diskId string) error {
 }
 
 func (self *SDisk) GetProjectId() string {
-	return ""
+	return self.ResourceGroupId
 }
