@@ -14,6 +14,17 @@
 
 package ldap
 
+import (
+	"yunion.io/x/pkg/errors"
+)
+
+const (
+	ErrEmptyDN      = errors.Error("empty DN")
+	ErrEmptyId      = errors.Error("empty id")
+	ErrEmptyName    = errors.Error("empty name")
+	ErrDisabledUser = errors.Error("disabled user")
+)
+
 type SDomainInfo struct {
 	DN   string
 	Id   string
@@ -31,17 +42,27 @@ type SGroupInfo struct {
 	Members []string
 }
 
-func (info SDomainInfo) isValid() bool {
-	return len(info.DN) > 0 && len(info.Id) > 0 && len(info.Name) > 0
+func (info SDomainInfo) isValid() error {
+	if len(info.DN) == 0 {
+		return ErrEmptyDN
+	}
+	if len(info.Id) == 0 {
+		return ErrEmptyId
+	}
+	if len(info.Name) == 0 {
+		return ErrEmptyName
+	}
+	return nil
 }
 
-func (info SUserInfo) isValid() bool {
-	if !info.SDomainInfo.isValid() {
-		return false
+func (info SUserInfo) isValid() error {
+	err := info.SDomainInfo.isValid()
+	if err != nil {
+		return err
 	}
 	// regarding disabled LDAP user as invalid
 	if !info.Enabled {
-		return false
+		return ErrDisabledUser
 	}
-	return true
+	return nil
 }

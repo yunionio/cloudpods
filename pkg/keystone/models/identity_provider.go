@@ -1042,6 +1042,7 @@ func (self *SIdentityProvider) SyncOrCreateDomain(ctx context.Context, extId str
 }
 
 func (self *SIdentityProvider) SyncOrCreateUser(ctx context.Context, extId string, extName string, domainId string, enableDefault bool, syncUserInfo func(*SUser)) (*SUser, error) {
+	log.Debugf("SyncOrCreateUser extId: %s extName: %s", extId, extName)
 	userId, err := IdmappingManager.RegisterIdMap(ctx, self.Id, extId, api.IdMappingEntityUser)
 	if err != nil {
 		return nil, errors.Wrap(err, "IdmappingManager.RegisterIdMap")
