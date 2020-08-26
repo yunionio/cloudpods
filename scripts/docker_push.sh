@@ -34,25 +34,27 @@ REGISTRY=${REGISTRY:-docker.io/yunion}
 TAG=${TAG:-latest}
 
 build_bin() {
-  local BUILD_ARCH=$2
-  local BUILD_CC=$3
-  local BUILD_CGO=$4
-	case "$1" in
-		climc)
-			docker run --rm \
-				-v $SRC_DIR:/root/go/src/yunion.io/x/onecloud \
-				-v $SRC_DIR/_output/alpine-build:/root/go/src/yunion.io/x/onecloud/_output \
-				registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-3 \
-				/bin/sh -c "set -ex; cd /root/go/src/yunion.io/x/onecloud; $BUILD_ARCH $BUILD_CC $BUILD_CGO GOOS=linux make cmd/$1 cmd/*cli; chown -R $(id -u):$(id -g) _output"
-			;;
-		*)
-			docker run --rm \
-				-v $SRC_DIR:/root/go/src/yunion.io/x/onecloud \
-				-v $SRC_DIR/_output/alpine-build:/root/go/src/yunion.io/x/onecloud/_output \
-				registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-3 \
-				/bin/sh -c "set -ex; cd /root/go/src/yunion.io/x/onecloud; $BUILD_ARCH $BUILD_CC $BUILD_CGO GOOS=linux make cmd/$1; chown -R $(id -u):$(id -g) _output"
-			;;
-	esac
+    local BUILD_ARCH=$2
+    local BUILD_CC=$3
+    local BUILD_CGO=$4
+    case "$1" in
+        climc)
+            docker run --rm \
+                -v $SRC_DIR:/root/go/src/yunion.io/x/onecloud \
+                -v $SRC_DIR/_output/alpine-build:/root/go/src/yunion.io/x/onecloud/_output \
+                -v $SRC_DIR/_output/alpine-build/_cache:/root/.cache \
+                registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-3 \
+                /bin/sh -c "set -ex; cd /root/go/src/yunion.io/x/onecloud; $BUILD_ARCH $BUILD_CC $BUILD_CGO GOOS=linux make cmd/$1 cmd/*cli; chown -R $(id -u):$(id -g) _output"
+            ;;
+        *)
+            docker run --rm \
+                -v $SRC_DIR:/root/go/src/yunion.io/x/onecloud \
+                -v $SRC_DIR/_output/alpine-build:/root/go/src/yunion.io/x/onecloud/_output \
+                -v $SRC_DIR/_output/alpine-build/_cache:/root/.cache \
+                registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-3 \
+                /bin/sh -c "set -ex; cd /root/go/src/yunion.io/x/onecloud; $BUILD_ARCH $BUILD_CC $BUILD_CGO GOOS=linux make cmd/$1; chown -R $(id -u):$(id -g) _output"
+            ;;
+    esac
 }
 
 
