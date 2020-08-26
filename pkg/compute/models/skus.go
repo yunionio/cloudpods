@@ -97,7 +97,7 @@ type SServerSku struct {
 	OsName string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin" default:"Any"` // Windows|Linux|Any
 
 	SysDiskResizable tristate.TriState `default:"true" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
-	SysDiskType      string            `width:"32" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+	SysDiskType      string            `width:"128" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 	SysDiskMinSizeGB int               `nullable:"true" list:"user" create:"admin_optional" update:"admin"` // not required。 windows比较新的版本都是50G左右。
 	SysDiskMaxSizeGB int               `nullable:"true" list:"user" create:"admin_optional" update:"admin"` // not required
 
