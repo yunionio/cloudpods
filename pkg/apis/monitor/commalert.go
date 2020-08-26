@@ -103,11 +103,13 @@ type CommonAlertMetricDetails struct {
 	Comparator string  `json:"comparator"`
 	Threshold  float64 `json:"threshold"`
 	// metric points'value的运算方式
-	Reduce      string `json:"reduce"`
-	DB          string `json:"db"`
-	Measurement string `json:"measurement"`
-	Field       string `json:"field"`
-	Groupby     string `json:"groupby"`
-
-	FieldOpt string `json:"field_opt"`
+	Reduce                 string `json:"reduce"`
+	DB                     string `json:"db"`
+	Measurement            string `json:"measurement"`
+	MeasurementDisplayName string `json:"measurement_display_name"`
+	ResType                string `json:"res_type"`
+	Field                  string `json:"field"`
+	Groupby                string `json:"groupby"`
+	FieldDescription       MetricFieldDetail
+	FieldOpt               string `json:"field_opt"`
 }

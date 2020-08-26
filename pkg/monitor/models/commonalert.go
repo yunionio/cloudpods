@@ -373,6 +373,16 @@ func (man *SCommonAlertManager) FetchCustomizeColumns(
 	return rows
 }
 
+func (alert *SCommonAlert) validateDeleteCondition(out *monitor.CommonAlertDetails) {
+	alert_type := alert.getAlertType()
+	switch alert_type {
+	case monitor.CommonAlertSystemAlertType:
+		out.CanDelete = false
+		out.DeleteFailReason = httperrors.NewInputParameterError("Cannot delete system alert").Error()
+	default:
+	}
+}
+
 func (alert *SCommonAlert) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	isForce, _ := data.Bool("force")
@@ -389,6 +399,8 @@ func (alert *SCommonAlert) AllowDeleteItem(ctx context.Context, userCred mcclien
 }
 
 func (alert *SCommonAlert) GetMoreDetails(out monitor.CommonAlertDetails) (monitor.CommonAlertDetails, error) {
+	alert.validateDeleteCondition(&out)
+
 	var err error
 	alertNotis, err := alert.GetNotifications()
 	if err != nil {
@@ -431,53 +443,98 @@ func (alert *SCommonAlert) getCommonAlertMetricDetails(out *monitor.CommonAlertD
 	if len(setting.Conditions) == 0 {
 		return nil
 	}
-	fieldOpt := alert.getFieldOpt()
+
 	out.CommonAlertMetricDetails = make([]*monitor.CommonAlertMetricDetails, len(setting.Conditions))
 	for i, cond := range setting.Conditions {
-		metricDetails := new(monitor.CommonAlertMetricDetails)
-		cmp := ""
-		switch cond.Evaluator.Type {
-		case "gt":
-			cmp = ">="
-		case "lt":
-			cmp = "<="
-		}
-		metricDetails.Comparator = cmp
-		metricDetails.Threshold = cond.Evaluator.Params[0]
-		metricDetails.Reduce = cond.Reducer.Type
-
-		if fieldOpt != "" {
-			metricDetails.FieldOpt = strings.Split(fieldOpt, "+")[i]
-		}
-		q := cond.Query
-		measurement := q.Model.Measurement
-		field := ""
-		for i, sel := range q.Model.Selects {
-			if i == 0 {
-				field = sel[0].Params[0]
-				continue
-			}
-			if metricDetails.FieldOpt != "" {
-				field = fmt.Sprintf("%s%s%s", field, metricDetails.FieldOpt, sel[0].Params[0])
-			}
-		}
-		//field := q.Model.Selects[0][0].Params[0]
-		db := q.Model.Database
-		var groupby string
-		for _, grb := range q.Model.GroupBy {
-			if grb.Type == "tag" {
-				groupby = grb.Params[0]
-				break
-			}
-		}
-
-		metricDetails.Measurement = measurement
-		metricDetails.Field = field
-		metricDetails.DB = db
-		metricDetails.Groupby = groupby
+		metricDetails := alert.GetCommonAlertMetricDetailsFromAlertCondition(i, cond)
 		out.CommonAlertMetricDetails[i] = metricDetails
 	}
 	return nil
+}
+
+func (alert *SCommonAlert) GetCommonAlertMetricDetailsFromAlertCondition(index int,
+	cond monitor.AlertCondition) *monitor.
+	CommonAlertMetricDetails {
+	fieldOpt := alert.getFieldOpt()
+	metricDetails := new(monitor.CommonAlertMetricDetails)
+	cmp := ""
+	switch cond.Evaluator.Type {
+	case "gt":
+		cmp = ">="
+	case "lt":
+		cmp = "<="
+	}
+	metricDetails.Comparator = cmp
+	metricDetails.Threshold = cond.Evaluator.Params[0]
+	metricDetails.Reduce = cond.Reducer.Type
+
+	if fieldOpt != "" {
+		metricDetails.FieldOpt = strings.Split(fieldOpt, "+")[index]
+	}
+	q := cond.Query
+	measurement := q.Model.Measurement
+	field := ""
+	for i, sel := range q.Model.Selects {
+		if i == 0 {
+			field = sel[0].Params[0]
+			continue
+		}
+		if metricDetails.FieldOpt != "" {
+			field = fmt.Sprintf("%s%s%s", field, metricDetails.FieldOpt, sel[0].Params[0])
+		}
+	}
+	//field := q.Model.Selects[0][0].Params[0]
+	db := q.Model.Database
+	var groupby string
+	for _, grb := range q.Model.GroupBy {
+		if grb.Type == "tag" {
+			groupby = grb.Params[0]
+			break
+		}
+	}
+	metricDetails.Measurement = measurement
+	metricDetails.Field = field
+	metricDetails.DB = db
+	metricDetails.Groupby = groupby
+
+	//fill measurement\field desciption info
+	alert.getMetricDescriptionDetails(metricDetails)
+	if metricDetails.FieldOpt == "/" {
+		metricDetails.FieldDescription.Unit = ""
+	}
+	return metricDetails
+}
+
+func (alert *SCommonAlert) getMetricDescriptionDetails(metricDetails *monitor.CommonAlertMetricDetails) {
+	influxdbMeasurements := DataSourceManager.getMetricDescriptions([]monitor.InfluxMeasurement{monitor.
+		InfluxMeasurement{Measurement: metricDetails.Measurement}})
+	if len(influxdbMeasurements) == 0 {
+		return
+	}
+	if len(influxdbMeasurements[0].MeasurementDisplayName) != 0 {
+		metricDetails.MeasurementDisplayName = influxdbMeasurements[0].MeasurementDisplayName
+	}
+	if len(influxdbMeasurements[0].ResType) != 0 {
+		metricDetails.ResType = influxdbMeasurements[0].ResType
+	}
+	fields := make([]string, 0)
+	if len(metricDetails.FieldOpt) != 0 {
+		fields = append(fields, strings.Split(metricDetails.Field, metricDetails.FieldOpt)...)
+	} else {
+		fields = append(fields, metricDetails.Field)
+	}
+	for _, field := range fields {
+		if influxdbMeasurements[0].FieldDescriptions == nil {
+			return
+		}
+		if fieldDes, ok := influxdbMeasurements[0].FieldDescriptions[field]; ok {
+			if len(metricDetails.FieldOpt) != 0 {
+				fieldDes.Name = metricDetails.Field
+				fieldDes.DisplayName = ""
+			}
+			metricDetails.FieldDescription = fieldDes
+		}
+	}
 }
 
 func getQueryEvalType(evalType string) string {
@@ -518,22 +575,26 @@ func (alert *SCommonAlert) ValidateUpdateData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data monitor.CommonAlertUpdateInput,
-) (monitor.CommonAlertUpdateInput, error) {
-
-	if data.Period == "" {
-		data.Period = "5m"
+	data *jsonutils.JSONDict,
+) (*jsonutils.JSONDict, error) {
+	updataInput := new(monitor.CommonAlertUpdateInput)
+	if period, _ := data.GetString("period"); len(period) > 0 {
+		if _, err := time.ParseDuration(period); err != nil {
+			return data, httperrors.NewInputParameterError("Invalid period format: %s", period)
+		}
+		if period != "" {
+			frep, _ := time.ParseDuration(period)
+			freqSpec := int64(frep / time.Second)
+			data.Set("frequency", jsonutils.NewInt(freqSpec))
+		}
 	}
-	if _, err := time.ParseDuration(data.Period); err != nil {
-		return data, httperrors.NewInputParameterError("Invalid period format: %s", data.Period)
-	}
-	if len(data.Recipients) == 0 {
-		return data, httperrors.NewInputParameterError("recipients is empty")
-	}
-	if len(data.CommonMetricInputQuery.MetricQuery) == 0 {
-		return data, httperrors.NewInputParameterError("metric_query is empty")
-	} else {
-		for _, query := range data.CommonMetricInputQuery.MetricQuery {
+	if metric_query, _ := data.GetArray("metric_query"); len(metric_query) > 0 {
+		for i, _ := range metric_query {
+			query := new(monitor.CommonAlertQuery)
+			err := metric_query[i].Unmarshal(query)
+			if err != nil {
+				return data, errors.Wrap(err, "metric_query Unmarshal error")
+			}
 			if !utils.IsInStringArray(getQueryEvalType(query.Comparator), validators.EvaluatorDefaultTypes) {
 				return data, httperrors.NewInputParameterError("the Comparator is illegal:", query.Comparator)
 			}
@@ -544,33 +605,35 @@ func (alert *SCommonAlert) ValidateUpdateData(
 				return data, httperrors.NewInputParameterError("threshold is meaningless")
 			}
 		}
-	}
+		metricQuery := new(monitor.CommonMetricInputQuery)
+		err := data.Unmarshal(metricQuery)
+		if err != nil {
+			return data, errors.Wrap(err, "metric_query Unmarshal error")
+		}
+		err = CommonAlertManager.ValidateMetricQuery(metricQuery)
+		if err != nil {
+			return data, errors.Wrap(err, "metric query error")
+		}
 
-	err := CommonAlertManager.ValidateMetricQuery(&data.CommonMetricInputQuery)
-	if err != nil {
-		return data, errors.Wrap(err, "metric query error")
-	}
-
-	if data.Period != "" {
-		frep, _ := time.ParseDuration(data.Period)
-		freqSpec := int64(frep / time.Second)
-		data.Frequency = &freqSpec
-	}
-
-	alertCreateInput := alert.getUpdateAlertInput(data)
-	alertCreateInput, err = AlertManager.ValidateCreateData(ctx, userCred, nil, query, alertCreateInput)
-	if err != nil {
-		return data, err
-	}
-	data.Settings = &alertCreateInput.Settings
-	data.AlertUpdateInput, err = alert.SAlert.ValidateUpdateData(ctx, userCred, query, data.AlertUpdateInput)
-	if err != nil {
-		return data, errors.Wrap(err, "SAlert.ValidateUpdateData")
-	}
-	if alert.getAlertType() == monitor.CommonAlertSystemAlertType {
-		tmp := data
-		tmp.Settings = nil
-		return tmp, nil
+		if alert.getAlertType() == monitor.CommonAlertSystemAlertType {
+			return data, nil
+		}
+		data.Update(jsonutils.Marshal(metricQuery))
+		err = data.Unmarshal(updataInput)
+		if err != nil {
+			return data, errors.Wrap(err, "updataInput Unmarshal err")
+		}
+		alertCreateInput := alert.getUpdateAlertInput(*updataInput)
+		alertCreateInput, err = AlertManager.ValidateCreateData(ctx, userCred, nil, query, alertCreateInput)
+		if err != nil {
+			return data, err
+		}
+		data.Set("settings", jsonutils.Marshal(&alertCreateInput.Settings))
+		updataInput.AlertUpdateInput, err = alert.SAlert.ValidateUpdateData(ctx, userCred, query, updataInput.AlertUpdateInput)
+		if err != nil {
+			return data, errors.Wrap(err, "SAlert.ValidateUpdateData")
+		}
+		data.Update(jsonutils.Marshal(updataInput))
 	}
 	return data, nil
 }
@@ -580,12 +643,14 @@ func (alert *SCommonAlert) PostUpdate(
 	query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	updateInput := new(monitor.CommonAlertUpdateInput)
 	data.Unmarshal(updateInput)
-	if err := alert.UpdateNotification(ctx, userCred, query, data); err != nil {
-		log.Errorln("update notification", err)
-	}
-	_, err := alert.PerformSetScope(ctx, userCred, query, data)
-	if err != nil {
-		log.Errorln(errors.Wrap(err, "Alert PerformSetScope"))
+	if len(updateInput.Channel) != 0 {
+		if err := alert.UpdateNotification(ctx, userCred, query, data); err != nil {
+			log.Errorln("update notification", err)
+		}
+		_, err := alert.PerformSetScope(ctx, userCred, query, data)
+		if err != nil {
+			log.Errorln(errors.Wrap(err, "Alert PerformSetScope"))
+		}
 	}
 	CommonAlertManager.SetSubscriptionAlert(alert)
 }

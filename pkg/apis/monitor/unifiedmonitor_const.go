@@ -13,15 +13,12 @@ var (
 	}
 
 	MEASUREMENT_TAG_KEYWORD = map[string]string{
-		"cpu":       "host",
-		"disk":      "device",
-		"mem":       "host",
-		"net":       "host",
-		"netstat":   "host",
-		"vm_cpu":    "vm_name",
-		"vm_diskio": "vm_name",
-		"vm_mem":    "vm_name",
-		"vm_netio":  "vm_name",
+		"host":         "host",
+		"guest":        "vm_name",
+		"redis":        "redis_name",
+		"rds":          "rds_name",
+		"oss":          "oss_name",
+		"cloudaccount": "cloudaccount_name",
 	}
 	AlertReduceFunc = map[string]string{
 		"avg":          "average value",
@@ -47,5 +44,7 @@ type MetricInputQuery struct {
 	From        string        `json:"from"`
 	To          string        `json:"to"`
 	Interval    string        `json:"interval"`
+	DomainId    string        `json:"domain_id"`
+	ProjectId   string        `json:"project_id"`
 	MetricQuery []*AlertQuery `json:"metric_query"`
 }

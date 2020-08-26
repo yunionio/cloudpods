@@ -19,10 +19,13 @@ import (
 	"fmt"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 // EvalContext is the context object for an alert evaluation.
@@ -110,6 +113,17 @@ func (c *EvalContext) GetNotificationTitle() string {
 	return "[" + c.GetStateModel().Text + "] " + c.GetRuleTitle()
 }
 
+func (c *EvalContext) GetCallbackURLPrefix() string {
+	config, err := modules.ServicesV3.GetSpecific(auth.GetAdminSession(c.Ctx, "", ""), "common", "config",
+		jsonutils.NewDict())
+	if err != nil {
+		log.Errorf("GetCallbackURLPrefix err:%v", err)
+		return ""
+	}
+	url, _ := config.GetString("config", "default", "api_server")
+	return url
+}
+
 // GetNewState returns the new state from the alert rule evaluation.
 func (c *EvalContext) GetNewState() monitor.AlertStateType {
 	ns := getNewStateInternal(c)
@@ -179,6 +193,7 @@ func (c *EvalContext) GetNotificationTemplateConfig() monitor.NotificationTempla
 		Description: desc,
 		Level:       c.Rule.Level,
 		NoDataFound: c.NoDataFound,
+		WebUrl:      c.GetCallbackURLPrefix(),
 	}
 }
 
@@ -188,6 +203,7 @@ func (c *EvalContext) GetEvalMatches() []monitor.EvalMatch {
 		ret = append(ret, monitor.EvalMatch{
 			Condition: c.Condition,
 			Value:     c.Value,
+			ValueStr:  c.ValueStr,
 			Metric:    c.Metric,
 			Tags:      c.Tags,
 		})

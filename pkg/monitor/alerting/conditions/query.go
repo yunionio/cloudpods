@@ -17,9 +17,11 @@ package conditions
 import (
 	gocontext "context"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/monitor/alerting"
@@ -55,16 +57,18 @@ type AlertQuery struct {
 }
 
 type FormatCond struct {
-	QueryMeta *tsdb.QueryResultMeta
-	Reducer   string
-	Evaluator AlertEvaluator
+	QueryMeta    *tsdb.QueryResultMeta
+	QueryKeyInfo string
+	Reducer      string
+	Evaluator    AlertEvaluator
 }
 
-func (c *QueryCondition) GenerateFormatCond(meta *tsdb.QueryResultMeta) *FormatCond {
+func (c *QueryCondition) GenerateFormatCond(meta *tsdb.QueryResultMeta, metric string) *FormatCond {
 	return &FormatCond{
-		QueryMeta: meta,
-		Reducer:   c.Reducer.GetType(),
-		Evaluator: c.Evaluator,
+		QueryMeta:    meta,
+		QueryKeyInfo: metric,
+		Reducer:      c.Reducer.GetType(),
+		Evaluator:    c.Evaluator,
 	}
 }
 func (c FormatCond) String() string {
@@ -74,15 +78,32 @@ func (c FormatCond) String() string {
 	return "no_data"
 }
 
-func (c *QueryCondition) filterTags(tags map[string]string) map[string]string {
-	//ret := make(map[string]string)
-	//for key, val := range tags {
-	//	if strings.HasSuffix(key, "_id") {
-	//		continue
-	//	}
-	//	ret[key] = val
-	//}
-	return tags
+func (c *QueryCondition) filterTags(tags map[string]string, details monitor.CommonAlertMetricDetails) map[string]string {
+	ret := make(map[string]string)
+	for key, val := range tags {
+		if strings.HasSuffix(key, "_id") {
+			continue
+		}
+		if len(val) == 0 {
+			continue
+		}
+		if tag, ok := monitor.MEASUREMENT_TAG_KEYWORD[details.ResType]; ok {
+			if key == tag {
+				ret["name"] = val
+			}
+		}
+		if strings.Contains(key, "ip") {
+			ret["ip"] = val
+		}
+		ret[key] = val
+	}
+	for _, tag := range []string{"brand", "platform", "hypervisor"} {
+		if val, ok := ret[tag]; ok {
+			ret["brand"] = val
+			break
+		}
+	}
+	return ret
 }
 
 // Eval evaluates te `QueryCondition`.
@@ -117,19 +138,17 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 		if evalMatch {
 			evalMatchCount++
 		}
-		tags := c.filterTags(series.Tags)
 		var meta *tsdb.QueryResultMeta
 		if len(metas) > 0 {
 			//the relation metas with series is 1 to more
 			meta = &metas[0]
 		}
 		if evalMatch {
-			matches = append(matches, &monitor.EvalMatch{
-				Condition: c.GenerateFormatCond(meta).String(),
-				Metric:    series.Name,
-				Value:     reducedValue,
-				Tags:      tags,
-			})
+			evalMatch, err := c.NewEvalMatch(context, *series, meta, reducedValue)
+			if err != nil {
+				return nil, errors.Wrap(err, "NewEvalMatch error")
+			}
+			matches = append(matches, evalMatch)
 		}
 	}
 
@@ -159,6 +178,66 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 		Operator:    c.Operator,
 		EvalMatches: matches,
 	}, nil
+}
+
+func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series tsdb.TimeSeries,
+	meta *tsdb.QueryResultMeta, value *float64) (*monitor.EvalMatch,
+	error) {
+	evalMatch := new(monitor.EvalMatch)
+	alert, err := models.CommonAlertManager.GetAlert(context.Rule.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetAlert to NewEvalMatch error")
+	}
+	settings, _ := alert.GetSettings()
+	alertDetails := alert.GetCommonAlertMetricDetailsFromAlertCondition(c.Index, settings.Conditions[c.Index])
+	evalMatch.Metric = fmt.Sprintf("%s.%s", alertDetails.Measurement, alertDetails.Field)
+	queryKeyInfo := ""
+	if len(alertDetails.MeasurementDisplayName) > 0 && len(alertDetails.FieldDescription.DisplayName) > 0 {
+		queryKeyInfo = fmt.Sprintf("%s.%s", alertDetails.MeasurementDisplayName, alertDetails.FieldDescription.DisplayName)
+	}
+	if len(queryKeyInfo) == 0 {
+		queryKeyInfo = evalMatch.Metric
+	}
+	msg := fmt.Sprintf("%s.%s %s %.4f ", alertDetails.Measurement, alertDetails.Field,
+		alertDetails.Comparator, alertDetails.Threshold)
+	if len(context.Rule.Message) == 0 {
+		context.Rule.Message = msg
+	}
+	evalMatch.Condition = c.GenerateFormatCond(meta, queryKeyInfo).String()
+	evalMatch.Tags = c.filterTags(series.Tags, *alertDetails)
+	evalMatch.Unit = alertDetails.FieldDescription.Unit
+	evalMatch.Value = value
+	evalMatch.ValueStr = c.RationalizeValueFromUnit(*value, alertDetails.FieldDescription.Unit)
+	return evalMatch, nil
+}
+
+var fileSize = []string{"bps", "Bps", "byte"}
+
+func (c *QueryCondition) RationalizeValueFromUnit(value float64, unit string) string {
+	if utils.IsInStringArray(unit, fileSize) {
+		if unit == "byte" {
+			return (formatFileSize(value, unit, float64(1024)))
+		}
+		return formatFileSize(value, unit, float64(1000))
+	}
+	return fmt.Sprintf("%0.4f %s", value, unit)
+}
+
+// 单位转换 保留四位小数
+func formatFileSize(fileSize float64, unit string, unitsize float64) (size string) {
+	if fileSize < unitsize {
+		return fmt.Sprintf("%.4f%s", fileSize, unit)
+	} else if fileSize < (unitsize * unitsize) {
+		return fmt.Sprintf("%.4fK%s", float64(fileSize)/float64(unitsize), unit)
+	} else if fileSize < (unitsize * unitsize * unitsize) {
+		return fmt.Sprintf("%.4fM%s", float64(fileSize)/float64(unitsize*unitsize), unit)
+	} else if fileSize < (unitsize * unitsize * unitsize * unitsize) {
+		return fmt.Sprintf("%.4fG%s", float64(fileSize)/float64(unitsize*unitsize*unitsize), unit)
+	} else if fileSize < (unitsize * unitsize * unitsize * unitsize * unitsize) {
+		return fmt.Sprintf("%.4fT%s", float64(fileSize)/float64(unitsize*unitsize*unitsize*unitsize), unit)
+	} else { //if fileSize < (1024 * 1024 * 1024 * 1024 * 1024 * 1024)
+		return fmt.Sprintf("%.4fE%s", float64(fileSize)/float64(unitsize*unitsize*unitsize*unitsize*unitsize), unit)
+	}
 }
 
 type queryResult struct {

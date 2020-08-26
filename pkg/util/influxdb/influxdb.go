@@ -85,8 +85,8 @@ func (db *SInfluxdb) Write(data string, precision string) error {
 }
 
 func (db *SInfluxdb) Query(sql string) ([][]dbResult, error) {
-	nurl := fmt.Sprintf("%s/query?q=%s", db.accessUrl, url.QueryEscape(sql))
-	_, body, err := httputils.JSONRequest(db.client, context.Background(), "POST", nurl, nil, nil, db.debug)
+	nurl := fmt.Sprintf("%s/query?db=%s&q=%s&epoch=ms", db.accessUrl, db.dbName, url.QueryEscape(sql))
+	_, body, err := httputils.JSONRequest(db.client, context.Background(), "GET", nurl, nil, nil, db.debug)
 	if err != nil {
 		return nil, err
 	}

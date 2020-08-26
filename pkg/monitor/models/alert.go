@@ -100,6 +100,7 @@ func (manager *SAlertManager) ListItemExportKeys(ctx context.Context, q *sqlchem
 func (man *SAlertManager) FetchAllAlerts() ([]SAlert, error) {
 	objs := make([]SAlert, 0)
 	q := man.Query()
+	q = q.IsTrue("enabled")
 	err := db.FetchModelObjects(man, q, &objs)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, errors.Wrap(err, "db.FetchModelObjects")

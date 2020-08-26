@@ -18,10 +18,13 @@ import (
 	"database/sql"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/monitor"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/monitor/models"
 	"yunion.io/x/onecloud/pkg/monitor/notifydrivers"
@@ -132,6 +135,20 @@ func (n *notificationService) getNeededNotifiers(nIds []string, evalCtx *EvalCon
 				notifier: not,
 				state:    state,
 			})
+			recordCreateInput := monitor.AlertRecordCreateInput{
+				StandaloneResourceCreateInput: apis.StandaloneResourceCreateInput{
+					GenerateName: evalCtx.Rule.Name,
+				},
+				AlertId:  evalCtx.Rule.Id,
+				Level:    evalCtx.Rule.Level,
+				State:    string(evalCtx.Rule.State),
+				EvalData: evalCtx.EvalMatches,
+			}
+			_, err := db.DoCreate(models.AlertRecordManager, evalCtx.Ctx, evalCtx.UserCred, jsonutils.NewDict(),
+				jsonutils.Marshal(&recordCreateInput), evalCtx.UserCred)
+			if err != nil {
+				log.Errorf("create alert record err:%v", err)
+			}
 		}
 	}
 
