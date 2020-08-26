@@ -92,7 +92,11 @@ func (region *SRegion) GetImages(name string, status string, imageId string) ([]
 	}
 	images := []SImage{}
 	resource := "/v2/images"
+	marker := ""
 	for {
+		if len(marker) > 0 {
+			query.Set("marker", marker)
+		}
 		resp, err := region.imageList(resource, query)
 		if err != nil {
 			return nil, errors.Wrap(err, "imageList")
@@ -109,7 +113,17 @@ func (region *SRegion) GetImages(name string, status string, imageId string) ([]
 		if len(part.Next) == 0 {
 			break
 		}
-		resource = part.Next
+		if len(part.Next) > 0 {
+			href, err := url.Parse(part.Next)
+			if err != nil {
+				marker = ""
+			} else {
+				marker = href.Query().Get("marker")
+			}
+		}
+		if len(marker) == 0 {
+			break
+		}
 	}
 	return images, nil
 }
