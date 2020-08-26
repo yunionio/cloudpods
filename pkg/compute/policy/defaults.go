@@ -311,7 +311,7 @@ var (
 					Action:   PolicyActionList,
 					Result:   rbacutils.Allow,
 				},
-				{
+				/*{
 					Service:  api.SERVICE_TYPE,
 					Resource: "networks",
 					Action:   PolicyActionGet,
@@ -323,6 +323,7 @@ var (
 					Action:   PolicyActionList,
 					Result:   rbacutils.Allow,
 				},
+				*/
 			},
 		},
 	}

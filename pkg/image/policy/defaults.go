@@ -44,7 +44,7 @@ var (
 					Action:   PolicyActionList,
 					Result:   rbacutils.Allow,
 				},
-				{
+				/*{
 					Service:  api.SERVICE_TYPE,
 					Resource: "images",
 					Action:   PolicyActionList,
@@ -68,6 +68,7 @@ var (
 					Action:   PolicyActionGet,
 					Result:   rbacutils.Allow,
 				},
+				*/
 			},
 		},
 		{
