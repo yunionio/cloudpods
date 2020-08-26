@@ -83,16 +83,6 @@ func (self *SLDAPDriverClass) ValidateConfig(ctx context.Context, userCred mccli
 	if !unique {
 		return tconf, errors.Wrapf(httperrors.ErrDuplicateResource, "ldap URL %s has been registered", conf.Url)
 	}
-	nconf := make(map[string]jsonutils.JSONObject)
-	err = confJson.Unmarshal(&nconf)
-	if err != nil {
-		return tconf, errors.Wrap(err, "Unmarshal old config")
-	}
-	err = jsonutils.Marshal(conf).Unmarshal(&nconf)
-	if err != nil {
-		return tconf, errors.Wrap(err, "Unmarshal new config")
-	}
-	tconf[api.IdentityDriverLDAP] = nconf
 	return tconf, nil
 }
 
