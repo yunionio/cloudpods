@@ -34,29 +34,30 @@ REGISTRY=${REGISTRY:-docker.io/yunion}
 TAG=${TAG:-latest}
 
 build_bin() {
+  local BUILD_ARCH=$2
+  local BUILD_CC=$3
+  local BUILD_CGO=$4
 	case "$1" in
 		climc)
-			GOOS=linux make cmd/$1 cmd/*cli
-			;;
-		ansibleserver|\
-		host|\
-		region-dns|\
-		vpcagent)
 			docker run --rm \
 				-v $SRC_DIR:/root/go/src/yunion.io/x/onecloud \
 				-v $SRC_DIR/_output/alpine-build:/root/go/src/yunion.io/x/onecloud/_output \
-				registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-1 \
-				/bin/sh -c "set -ex; cd /root/go/src/yunion.io/x/onecloud; make cmd/$1; chown -R $(id -u):$(id -g) _output"
+				registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-3 \
+				/bin/sh -c "set -ex; cd /root/go/src/yunion.io/x/onecloud; $BUILD_ARCH $BUILD_CC $BUILD_CGO GOOS=linux make cmd/$1 cmd/*cli; chown -R $(id -u):$(id -g) _output"
 			;;
 		*)
-			GOOS=linux make cmd/$1
+			docker run --rm \
+				-v $SRC_DIR:/root/go/src/yunion.io/x/onecloud \
+				-v $SRC_DIR/_output/alpine-build:/root/go/src/yunion.io/x/onecloud/_output \
+				registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-3 \
+				/bin/sh -c "set -ex; cd /root/go/src/yunion.io/x/onecloud; $BUILD_ARCH $BUILD_CC $BUILD_CGO GOOS=linux make cmd/$1; chown -R $(id -u):$(id -g) _output"
 			;;
 	esac
 }
 
 
 build_bundle_libraries() {
-    for bundle_component in 'host-deployer' 'baremetal-agent'; do
+    for bundle_component in 'baremetal-agent'; do
         if [ $1 == $bundle_component ]; then
             $CUR_DIR/bundle_libraries.sh _output/bin/bundles/$1 _output/bin/$1
             break
@@ -71,9 +72,51 @@ build_image() {
     docker build -t "$tag" -f "$2" "$3"
 }
 
+buildx_and_push() {
+    local tag=$1
+    local file=$2
+    local path=$3
+    local arch=$4
+    docker buildx build -t "$tag" --platform "linux/$arch" -f "$2" "$3" --push
+}
+
 push_image() {
     local tag=$1
     docker push "$tag"
+}
+
+build_process() {
+    local component=$1
+    build_bin $component
+    build_bundle_libraries $component
+    img_name="$REGISTRY/$component:$TAG"
+    build_image $img_name $DOCKER_DIR/Dockerfile.$component $SRC_DIR
+    push_image "$img_name"
+}
+
+build_process_with_buildx() {
+    local component=$1
+    local arch=$2
+
+    build_env="GOARCH=$arch"
+    img_name="$REGISTRY/$component:$TAG"
+    if [[ $arch == arm64 ]]; then
+        img_name="$img_name-$arch"
+        build_env="$build_env CC=aarch64-linux-musl-gcc"
+        if [[ $component == host ]]; then
+            build_env="$build_env CGO_ENABLED=1"
+        fi
+    fi
+
+    case "$component" in
+        host|esxi-agent)
+            buildx_and_push $img_name $DOCKER_DIR/multi-arch/Dockerfile.$component $SRC_DIR $arch
+            ;;
+        *)
+            build_bin $component $build_env
+            buildx_and_push $img_name $DOCKER_DIR/Dockerfile.$component $SRC_DIR $arch
+            ;;
+    esac
 }
 
 ALL_COMPONENTS=$(ls cmd | grep -v '.*cli$' | xargs)
@@ -97,9 +140,22 @@ for component in $COMPONENTS; do
         continue
     fi
     echo "Start to build component: $component"
-    build_bin $component
-    build_bundle_libraries $component
-    img_name="$REGISTRY/$component:$TAG"
-    build_image $img_name $DOCKER_DIR/Dockerfile.$component $SRC_DIR
-    push_image "$img_name"
+    if [[ $component == baremetal-agent ]]; then
+        build_process $component
+        continue
+    fi
+
+    case "$ARCH" in
+        all)
+            for arch in "arm64" "amd64"; do
+                build_process_with_buildx $component $arch
+            done
+            ;;
+        arm64|amd64)
+            build_process_with_buildx $component $ARCH
+            ;;
+        *)
+            build_process $component
+            ;;
+    esac
 done
