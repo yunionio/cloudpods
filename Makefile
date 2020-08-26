@@ -232,7 +232,7 @@ docker-centos-build-stop:
 .PHONY: docker-centos-build
 .PHONY: docker-centos-build-stop
 
-DOCKER_ALPINE_BUILD_IMAGE?=registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-2
+DOCKER_ALPINE_BUILD_IMAGE?=registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-3
 
 define dockerAlpineBuildCmd
 set -o xtrace
