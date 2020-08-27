@@ -457,6 +457,15 @@ func (alert *SCommonAlert) GetCommonAlertMetricDetailsFromAlertCondition(index i
 	CommonAlertMetricDetails {
 	fieldOpt := alert.getFieldOpt()
 	metricDetails := new(monitor.CommonAlertMetricDetails)
+	if fieldOpt != "" {
+		metricDetails.FieldOpt = strings.Split(fieldOpt, "+")[index]
+	}
+	getCommonAlertMetricDetailsFromCondition(cond, metricDetails)
+	return metricDetails
+}
+
+func getCommonAlertMetricDetailsFromCondition(cond monitor.AlertCondition,
+	metricDetails *monitor.CommonAlertMetricDetails) {
 	cmp := ""
 	switch cond.Evaluator.Type {
 	case "gt":
@@ -468,9 +477,6 @@ func (alert *SCommonAlert) GetCommonAlertMetricDetailsFromAlertCondition(index i
 	metricDetails.Threshold = cond.Evaluator.Params[0]
 	metricDetails.Reduce = cond.Reducer.Type
 
-	if fieldOpt != "" {
-		metricDetails.FieldOpt = strings.Split(fieldOpt, "+")[index]
-	}
 	q := cond.Query
 	measurement := q.Model.Measurement
 	field := ""
@@ -498,14 +504,13 @@ func (alert *SCommonAlert) GetCommonAlertMetricDetailsFromAlertCondition(index i
 	metricDetails.Groupby = groupby
 
 	//fill measurement\field desciption info
-	alert.getMetricDescriptionDetails(metricDetails)
+	getMetricDescriptionDetails(metricDetails)
 	if metricDetails.FieldOpt == "/" {
 		metricDetails.FieldDescription.Unit = ""
 	}
-	return metricDetails
 }
 
-func (alert *SCommonAlert) getMetricDescriptionDetails(metricDetails *monitor.CommonAlertMetricDetails) {
+func getMetricDescriptionDetails(metricDetails *monitor.CommonAlertMetricDetails) {
 	influxdbMeasurements := DataSourceManager.getMetricDescriptions([]monitor.InfluxMeasurement{monitor.
 		InfluxMeasurement{Measurement: metricDetails.Measurement}})
 	if len(influxdbMeasurements) == 0 {
