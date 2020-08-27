@@ -54,7 +54,7 @@ func (f *CPUPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.Pr
 
 	useRsvd := h.UseReserved()
 	getter := c.Getter()
-	if d.OsArch == compute.CPU_ARCH_ARM {
+	if d.OsArch == compute.OS_ARCH_ARM {
 		host := getter.Host()
 		if !host.IsArmHost() {
 			h.Exclude(predicates.ErrHostCpuArchitectureNotMatch)

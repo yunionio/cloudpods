@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -549,6 +550,21 @@ func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &cancelUsage, true)
 	}
 
+	detectedProperties, err := ImagePropertyManager.GetProperties(self.Id)
+	if err == nil {
+		if osArch := detectedProperties[api.IMAGE_OS_ARCH]; strings.Contains(osArch, "aarch") {
+			props, _ := data.Get("properties")
+			if props != nil {
+				dict := props.(*jsonutils.JSONDict)
+				dict.Set(api.IMAGE_OS_ARCH, jsonutils.NewString(osArch))
+			}
+			db.Update(self, func() error {
+				self.OsArch = compute.OS_ARCH_ARM
+				return nil
+			})
+		}
+	}
+
 	if data.Contains("properties") {
 		// update properties
 		props, _ := data.Get("properties")
@@ -577,7 +593,6 @@ func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 			self.startImageCopyFromUrlTask(ctx, userCred, copyFrom, "")
 		}
 	}
-
 }
 
 // After image probe and customization, image size and checksum changed

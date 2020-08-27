@@ -52,6 +52,7 @@ type SCapabilities struct {
 	StorageTypes                []string `json:",allowempty"` // going to remove on 2.14
 	DataStorageTypes            []string `json:",allowempty"` // going to remove on 2.14
 	GPUModels                   []string `json:",allowempty"`
+	HostCpuArchs                []string `json:",allowempty"` // x86_64 aarch64
 	MinNicCount                 int
 	MaxNicCount                 int
 	MinDataDiskCount            int
@@ -118,6 +119,7 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 	capa.MaxDataDiskCount = getMaxDataDiskCount(region, zone)
 	capa.DBInstance = getDBInstanceInfo(region, zone)
 	capa.Usable = isUsable(ownerId, scope, region, zone)
+	capa.HostCpuArchs = getHostCpuArchs(region, zone, domainId)
 	if query == nil {
 		query = jsonutils.NewDict()
 	}
@@ -609,6 +611,29 @@ func getGPUs(region *SCloudregion, zone *SZone, domainId string) []string {
 		}
 	}
 	return gpus
+}
+
+func getHostCpuArchs(region *SCloudregion, zone *SZone, domainId string) []string {
+	q := HostManager.Query("cpu_architecture").Equals("enabled", true).
+		Equals("host_status", "online").Equals("host_type", api.HOST_TYPE_HYPERVISOR)
+	if len(domainId) > 0 {
+		ownerId := &db.SOwnerId{DomainId: domainId}
+		q = HostManager.FilterByOwner(q, ownerId, rbacutils.ScopeDomain)
+	}
+	if zone != nil {
+		q = q.Equals("zone_id", zone.Id)
+	}
+	if region != nil {
+		subq := ZoneManager.Query("id").Equals("cloudregion_id", region.Id).SubQuery()
+		q = q.Filter(sqlchemy.In(q.Field("zone_id"), subq))
+	}
+	q = q.Distinct()
+	res := []string{}
+	if err := q.All(&res); err != nil && err != sql.ErrNoRows {
+		log.Errorf("failed fetch host cpu archs %s", err)
+		return nil
+	}
+	return res
 }
 
 func getNetworkCount(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope, region *SCloudregion, zone *SZone) (int, error) {

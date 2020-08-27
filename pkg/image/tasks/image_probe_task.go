@@ -131,6 +131,9 @@ func (self *ImageProbeTask) updateImageMetadata(
 
 func (self *ImageProbeTask) updateImageInfo(ctx context.Context, image *models.SImage, imageInfo *deployapi.ImageInfo) {
 	imageProperties := jsonutils.Marshal(imageInfo.OsInfo).(*jsonutils.JSONDict)
+	if len(imageInfo.OsInfo.Arch) > 0 {
+		imageProperties.Set(api.IMAGE_OS_ARCH, jsonutils.NewString(imageInfo.OsInfo.Arch))
+	}
 	if len(imageInfo.OsType) > 0 {
 		imageProperties.Set(api.IMAGE_OS_TYPE, jsonutils.NewString(imageInfo.OsType))
 	}
