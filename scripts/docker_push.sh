@@ -38,6 +38,9 @@ build_bin() {
     local BUILD_CC=$3
     local BUILD_CGO=$4
     case "$1" in
+        baremetal-agent)
+            GOOS=linux make cmd/$1
+            ;;
         climc)
             docker run --rm \
                 -v $SRC_DIR:/root/go/src/yunion.io/x/onecloud \
