@@ -87,7 +87,7 @@ type IDevice interface {
 	GetIOMMUGroupDeviceCmd() string
 	GetVGACmd() string
 	GetCPUCmd() string
-	SyncDeviceInfo(IHost) error
+	SyncDeviceInfo(session *mcclient.ClientSession, hostId string) error
 }
 
 type IsolatedDeviceManager struct {
@@ -115,7 +115,7 @@ func (man *IsolatedDeviceManager) fillPCIDevices() error {
 		return nil
 	}
 	for idx, gpu := range gpus {
-		man.Devices = append(man.Devices, newGPUHPCDevice(gpu))
+		man.Devices = append(man.Devices, NewGPUHPCDevice(gpu))
 		log.Infof("Add GPU device: %d => %#v", idx, gpu)
 	}
 	return nil
@@ -225,18 +225,18 @@ func (dev *sBaseDevice) SetDetectedOnHost(probe bool) {
 	dev.detectedOnHost = probe
 }
 
-func (dev *sBaseDevice) SyncDeviceInfo(host IHost) error {
+func (dev *sBaseDevice) SyncDeviceInfo(session *mcclient.ClientSession, hostId string) error {
 	if len(dev.hostId) == 0 {
-		dev.hostId = host.GetHostId()
+		dev.hostId = hostId
 	}
 	data := dev.GetApiResourceData()
 	if len(dev.GetCloudId()) != 0 {
 		log.Infof("Update %s isolated_device: %s", dev.GetCloudId(), data.String())
-		_, err := modules.IsolatedDevices.Update(host.GetSession(), dev.GetCloudId(), data)
+		_, err := modules.IsolatedDevices.Update(session, dev.GetCloudId(), data)
 		return err
 	}
 	log.Infof("Create new isolated_device: %s", data.String())
-	_, err := modules.IsolatedDevices.Create(host.GetSession(), data)
+	_, err := modules.IsolatedDevices.Create(session, data)
 	return err
 }
 
@@ -407,7 +407,7 @@ type sGPUHPCDevice struct {
 	*sGPUBaseDevice
 }
 
-func newGPUHPCDevice(dev *PCIDevice) *sGPUHPCDevice {
+func NewGPUHPCDevice(dev *PCIDevice) *sGPUHPCDevice {
 	gpuDev := &sGPUHPCDevice{
 		sGPUBaseDevice: newGPUBaseDevice(dev),
 	}

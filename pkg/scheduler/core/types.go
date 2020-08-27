@@ -15,14 +15,18 @@
 package core
 
 import (
+	"strings"
+
 	"yunion.io/x/jsonutils"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core/score"
+	schedmodels "yunion.io/x/onecloud/pkg/scheduler/models"
 )
 
 const (
@@ -97,6 +101,17 @@ type CandidatePropertyGetter interface {
 	GetIpmiInfo() types.SIPMIInfo
 
 	GetQuotaKeys(s *api.SchedInfo) computemodels.SComputeResourceKeys
+
+	GetPendingUsage() *schedmodels.SPendingUsage
+
+	// isloatedDevices
+	UnusedIsolatedDevices() []*IsolatedDeviceDesc
+	UnusedIsolatedDevicesByType(devType string) []*IsolatedDeviceDesc
+	UnusedIsolatedDevicesByVendorModel(vendorModel string) []*IsolatedDeviceDesc
+	UnusedIsolatedDevicesByModel(model string) []*IsolatedDeviceDesc
+	GetIsolatedDevice(devID string) *IsolatedDeviceDesc
+	UnusedGpuDevices() []*IsolatedDeviceDesc
+	GetIsolatedDevices() []*IsolatedDeviceDesc
 }
 
 // Candidater replace host Candidate resource info
@@ -206,4 +221,64 @@ func NewAllocatedResource() *AllocatedResource {
 		Disks: make([]*schedapi.CandidateDiskV2, 0),
 		Nets:  make([]*schedapi.CandidateNet, 0),
 	}
+}
+
+type IsolatedDeviceDesc struct {
+	ID             string
+	GuestID        string
+	HostID         string
+	DevType        string
+	Model          string
+	Addr           string
+	VendorDeviceID string
+}
+
+func (i *IsolatedDeviceDesc) VendorID() string {
+	return strings.Split(i.VendorDeviceID, ":")[0]
+}
+
+func (i *IsolatedDeviceDesc) GetVendorModel() *VendorModel {
+	return &VendorModel{
+		Vendor: i.VendorID(),
+		Model:  i.Model,
+	}
+}
+
+type VendorModel struct {
+	Vendor string
+	Model  string
+}
+
+func NewVendorModelByStr(desc string) *VendorModel {
+	vm := new(VendorModel)
+	// desc format is '<vendor>:<model>'
+	parts := strings.Split(desc, ":")
+	if len(parts) == 1 {
+		vm.Model = parts[0]
+	} else if len(parts) == 2 {
+		vm.Vendor = parts[0]
+		vm.Model = parts[1]
+	}
+	return vm
+}
+
+func (vm *VendorModel) IsMatch(target *VendorModel) bool {
+	if vm.Model == "" || target.Model == "" {
+		return false
+	}
+	vendorMatch := false
+	modelMatch := false
+	if target.Vendor != "" {
+		if vm.Vendor == target.Vendor {
+			vendorMatch = true
+		} else if computeapi.ID_VENDOR_MAP[vm.Vendor] == target.Vendor {
+			vendorMatch = true
+		}
+	} else {
+		vendorMatch = true
+	}
+	if vm.Model == target.Model {
+		modelMatch = true
+	}
+	return vendorMatch && modelMatch
 }
