@@ -16,6 +16,7 @@ package candidate
 
 import (
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -28,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
+	"yunion.io/x/onecloud/pkg/scheduler/core"
 	schedmodels "yunion.io/x/onecloud/pkg/scheduler/models"
 )
 
@@ -42,6 +44,8 @@ type BaseHostDesc struct {
 	Networks      []*api.CandidateNetwork                  `json:"networks"`
 	NetInterfaces map[string][]computemodels.SNetInterface `json:"net_interfaces"`
 	Storages      []*api.CandidateStorage                  `json:"storages"`
+
+	IsolatedDevices []*core.IsolatedDeviceDesc `json:"isolated_devices"`
 
 	Tenants       map[string]int64          `json:"tenants"`
 	HostSchedtags []computemodels.SSchedtag `json:"schedtags"`
@@ -217,6 +221,38 @@ func (b baseHostGetter) GetQuotaKeys(s *api.SchedInfo) computemodels.SComputeRes
 	return b.h.getQuotaKeys(s)
 }
 
+func (b baseHostGetter) GetPendingUsage() *schedmodels.SPendingUsage {
+	return b.h.GetPendingUsage()
+}
+
+func (b baseHostGetter) UnusedIsolatedDevices() []*core.IsolatedDeviceDesc {
+	return b.h.UnusedIsolatedDevices()
+}
+
+func (b baseHostGetter) UnusedIsolatedDevicesByType(devType string) []*core.IsolatedDeviceDesc {
+	return b.h.UnusedIsolatedDevicesByType(devType)
+}
+
+func (b baseHostGetter) UnusedIsolatedDevicesByVendorModel(vendorModel string) []*core.IsolatedDeviceDesc {
+	return b.h.UnusedIsolatedDevicesByModel(vendorModel)
+}
+
+func (b baseHostGetter) UnusedIsolatedDevicesByModel(model string) []*core.IsolatedDeviceDesc {
+	return b.h.UnusedIsolatedDevicesByModel(model)
+}
+
+func (b baseHostGetter) GetIsolatedDevice(devID string) *core.IsolatedDeviceDesc {
+	return b.h.GetIsolatedDevice(devID)
+}
+
+func (b baseHostGetter) UnusedGpuDevices() []*core.IsolatedDeviceDesc {
+	return b.h.UnusedGpuDevices()
+}
+
+func (b baseHostGetter) GetIsolatedDevices() []*core.IsolatedDeviceDesc {
+	return b.h.GetIsolatedDevices()
+}
+
 func reviseResourceType(resType string) string {
 	if resType == "" {
 		return computeapi.HostResourceTypeDefault
@@ -224,7 +260,7 @@ func reviseResourceType(resType string) string {
 	return resType
 }
 
-func newBaseHostDesc(host *computemodels.SHost) (*BaseHostDesc, error) {
+func newBaseHostDesc(b *baseBuilder, host *computemodels.SHost) (*BaseHostDesc, error) {
 	host.ResourceType = reviseResourceType(host.ResourceType)
 	desc := &BaseHostDesc{
 		SHost: host,
@@ -267,6 +303,10 @@ func newBaseHostDesc(host *computemodels.SHost) (*BaseHostDesc, error) {
 
 	if err := desc.fillIpmiInfo(host); err != nil {
 		return nil, fmt.Errorf("Fill ipmi info error: %v", err)
+	}
+
+	if err := desc.fillIsolatedDevices(b, host); err != nil {
+		return nil, fmt.Errorf("Fill isolated devices error: %v", err)
 	}
 
 	desc.fillSharedDomains()
@@ -314,6 +354,94 @@ func (b *BaseHostDesc) GetFreePort(netId string) int {
 
 func (b BaseHostDesc) GetResourceType() string {
 	return b.ResourceType
+}
+
+func (h *BaseHostDesc) UnusedIsolatedDevices() []*core.IsolatedDeviceDesc {
+	ret := make([]*core.IsolatedDeviceDesc, 0)
+	for _, dev := range h.IsolatedDevices {
+		if len(dev.GuestID) == 0 {
+			ret = append(ret, dev)
+		}
+	}
+	return ret
+}
+
+func (h *BaseHostDesc) UnusedIsolatedDevicesByType(devType string) []*core.IsolatedDeviceDesc {
+	ret := make([]*core.IsolatedDeviceDesc, 0)
+	for _, dev := range h.UnusedIsolatedDevices() {
+		if dev.DevType == devType {
+			ret = append(ret, dev)
+		}
+	}
+	return ret
+}
+
+func (h *BaseHostDesc) UnusedIsolatedDevicesByVendorModel(vendorModel string) []*core.IsolatedDeviceDesc {
+	ret := make([]*core.IsolatedDeviceDesc, 0)
+	vm := core.NewVendorModelByStr(vendorModel)
+	for _, dev := range h.UnusedIsolatedDevices() {
+		if dev.GetVendorModel().IsMatch(vm) {
+			ret = append(ret, dev)
+		}
+	}
+	return ret
+}
+
+func (h *BaseHostDesc) UnusedIsolatedDevicesByModel(model string) []*core.IsolatedDeviceDesc {
+	ret := make([]*core.IsolatedDeviceDesc, 0)
+	for _, dev := range h.UnusedIsolatedDevices() {
+		if strings.Contains(dev.Model, model) {
+			ret = append(ret, dev)
+		}
+	}
+	return ret
+}
+
+func (h *BaseHostDesc) GetIsolatedDevice(devID string) *core.IsolatedDeviceDesc {
+	for _, dev := range h.IsolatedDevices {
+		if dev.ID == devID {
+			return dev
+		}
+	}
+	return nil
+}
+
+func (h *BaseHostDesc) GetIsolatedDevices() []*core.IsolatedDeviceDesc {
+	return h.IsolatedDevices
+}
+
+func (h *BaseHostDesc) UnusedGpuDevices() []*core.IsolatedDeviceDesc {
+	ret := make([]*core.IsolatedDeviceDesc, 0)
+	for _, dev := range h.UnusedIsolatedDevices() {
+		if strings.HasPrefix(dev.DevType, "GPU") {
+			ret = append(ret, dev)
+		}
+	}
+	return ret
+}
+
+func (h *BaseHostDesc) fillIsolatedDevices(b *baseBuilder, host *computemodels.SHost) error {
+	allDevs := b.getIsolatedDevices(host.Id)
+	if len(allDevs) == 0 {
+		return nil
+	}
+
+	devs := make([]*core.IsolatedDeviceDesc, len(allDevs))
+	for index, devModel := range allDevs {
+		dev := &core.IsolatedDeviceDesc{
+			ID:             devModel.Id,
+			GuestID:        devModel.GuestId,
+			HostID:         devModel.HostId,
+			DevType:        devModel.DevType,
+			Model:          devModel.Model,
+			Addr:           devModel.Addr,
+			VendorDeviceID: devModel.VendorDeviceId,
+		}
+		devs[index] = dev
+	}
+	h.IsolatedDevices = devs
+
+	return nil
 }
 
 func (b *BaseHostDesc) fillCloudProvider(host *computemodels.SHost) error {
@@ -546,6 +674,8 @@ func HostResidentTenantCount(id string) (map[string]int64, error) {
 
 type DescBuilder struct {
 	actor BuildActor
+
+	isolatedDevicesDict map[string][]interface{}
 }
 
 func NewDescBuilder(act BuildActor) *DescBuilder {

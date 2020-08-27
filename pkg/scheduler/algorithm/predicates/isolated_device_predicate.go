@@ -12,20 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package guest
+package predicates
 
 import (
 	"fmt"
 
-	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
-	"yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
 
 // IsolatedDevicePredicate check mode, and number of scheduled
 // device configurations and current resources.
 type IsolatedDevicePredicate struct {
-	predicates.BasePredicate
+	BasePredicate
 }
 
 func (f *IsolatedDevicePredicate) Name() string {
@@ -45,14 +43,9 @@ func (f *IsolatedDevicePredicate) PreExecute(u *core.Unit, cs []core.Candidater)
 }
 
 func (f *IsolatedDevicePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
-	h := predicates.NewPredicateHelper(f, u, c)
+	h := NewPredicateHelper(f, u, c)
 	reqIsoDevs := u.SchedData().IsolatedDevices
-	// TODO: use interface function
-	hc, ok := c.(*candidate.HostDesc)
-	if !ok {
-		return false, nil, fmt.Errorf("Candidater is not *candidate.HostDesc")
-	}
-
+	getter := c.Getter()
 	minCapacity := int64(0xFFFFFFFF)
 
 	// check by specify device id
@@ -60,7 +53,7 @@ func (f *IsolatedDevicePredicate) Execute(u *core.Unit, c core.Candidater) (bool
 		if len(dev.Id) == 0 {
 			continue
 		}
-		if fDev := hc.GetIsolatedDevice(dev.Id); fDev != nil {
+		if fDev := getter.GetIsolatedDevice(dev.Id); fDev != nil {
 			if len(fDev.GuestID) != 0 {
 				h.Exclude(fmt.Sprintf("IsolatedDevice %q already used by guest %q", dev.Id, fDev.GuestID))
 				return h.GetResult()
@@ -73,8 +66,8 @@ func (f *IsolatedDevicePredicate) Execute(u *core.Unit, c core.Candidater) (bool
 	}
 
 	reqCount := len(reqIsoDevs)
-	freeCount := len(hc.UnusedIsolatedDevices()) - hc.GetPendingUsage().IsolatedDevice
-	totalCount := len(hc.IsolatedDevices)
+	freeCount := len(getter.UnusedIsolatedDevices()) - getter.GetPendingUsage().IsolatedDevice
+	totalCount := len(getter.GetIsolatedDevices())
 
 	// check host isolated device count
 	if freeCount < reqCount {
@@ -93,7 +86,7 @@ func (f *IsolatedDevicePredicate) Execute(u *core.Unit, c core.Candidater) (bool
 		}
 	}
 	for devType, reqCount := range devTypeRequest {
-		freeCount := len(hc.UnusedIsolatedDevicesByType(devType))
+		freeCount := len(getter.UnusedIsolatedDevicesByType(devType))
 		if freeCount < reqCount {
 			h.Exclude(fmt.Sprintf("IsolatedDevice type %q not enough, request: %d, hostFree: %d", devType, reqCount, freeCount))
 			return h.GetResult()
@@ -112,7 +105,7 @@ func (f *IsolatedDevicePredicate) Execute(u *core.Unit, c core.Candidater) (bool
 		}
 	}
 	for vendorModel, reqCount := range devVendorModelRequest {
-		freeCount := len(hc.UnusedIsolatedDevicesByVendorModel(vendorModel))
+		freeCount := len(getter.UnusedIsolatedDevicesByVendorModel(vendorModel))
 		if freeCount < reqCount {
 			h.Exclude(fmt.Sprintf("IsolatedDevice vendor:model %q not enough, request: %d, hostFree: %d", vendorModel, reqCount, freeCount))
 			return h.GetResult()

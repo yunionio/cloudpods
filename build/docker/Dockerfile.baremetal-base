@@ -5,12 +5,15 @@ MAINTAINER "Yaoqi Wan <wanyaoqi@yunionyun.com>"
 RUN mkdir -p /opt/yunion/bin
 
 RUN apk update && \
-    apk add --no-cache ipmitool ethtool tzdata ca-certificates && \
+    apk add --no-cache ipmitool ethtool tzdata ca-certificates cdrkit coreutils && \
     rm -rf /var/cache/apk/*
 
 RUN cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 
 RUN mkdir -p /opt/cloud/yunion/baremetal
+
+# udpate latest pci.ids
+RUN wget -O /opt/cloud/yunion/baremetal/pci.ids http://pci-ids.ucw.cz/v2.2/pci.ids
 
 # download baremetal-pxerom-*.x86_64.rpm and unpack rpm in current directory
 COPY ./opt/cloud/yunion/baremetal/bootia32.efi /opt/cloud/yunion/baremetal
@@ -27,13 +30,3 @@ COPY ./opt/cloud/yunion/baremetal/libutil.c32 /opt/cloud/yunion/baremetal
 COPY ./opt/cloud/yunion/baremetal/lpxelinux.0 /opt/cloud/yunion/baremetal
 COPY ./opt/cloud/yunion/baremetal/menu.c32 /opt/cloud/yunion/baremetal
 COPY ./opt/cloud/yunion/baremetal/pxelinux.0 /opt/cloud/yunion/baremetal
-
-# add mkisofs with bundles libraries
-ADD ./mkisofs /bin/mkisofs
-ADD ./.mkisofs.bin /bin/.mkisofs.bin
-ADD ./bundles/mkisofs /bin/bundles/mkisofs
-# use GNU timeout command replace busybox timeout command
-RUN rm /usr/bin/timeout
-ADD ./timeout /bin/timeout
-ADD ./.timeout.bin /bin/.timeout.bin
-ADD ./bundles/timeout /bin/bundles/timeout

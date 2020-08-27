@@ -23,13 +23,23 @@ import (
 type HostSpec struct {
 	apis.Meta
 
-	Cpu         int            `json:"cpu"`
-	Mem         int            `json:"mem"`
-	NicCount    int            `json:"nic_count"`
-	Manufacture string         `json:"manufacture"`
-	Model       string         `json:"model"`
-	Disk        DiskDriverSpec `json:"disk"`
-	Driver      string         `json:"driver"`
+	Cpu             int                  `json:"cpu"`
+	Mem             int                  `json:"mem"`
+	NicCount        int                  `json:"nic_count"`
+	Manufacture     string               `json:"manufacture"`
+	Model           string               `json:"model"`
+	Disk            DiskDriverSpec       `json:"disk"`
+	Driver          string               `json:"driver"`
+	IsolatedDevices []IsolatedDeviceSpec `json:"isolated_devices"`
+}
+
+type IsolatedDeviceSpec struct {
+	apis.Meta
+
+	DevType string `json:"dev_type"`
+	Model   string `json:"model"`
+	PciId   string `json:"pci_id"`
+	Vendor  string `json:"vendor"`
 }
 
 type DiskDriverSpec map[string]DiskAdapterSpec

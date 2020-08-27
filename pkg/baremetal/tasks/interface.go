@@ -67,6 +67,7 @@ type IBaremetal interface {
 	InitializeServer(session *mcclient.ClientSession, name string) error
 	SaveSSHConfig(remoteAddr string, key string) error
 	ServerLoadDesc() error
+	GetDHCPServerIP() (net.IP, error)
 }
 
 type IBmManager interface {
