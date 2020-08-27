@@ -61,6 +61,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.MetricMeasurementManager,
 		models.MetricFieldManager,
 		models.AlertRecordManager,
+		models.AlertDashBoardManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
