@@ -20,6 +20,7 @@ import (
 
 	"github.com/vmware/govmomi/vim25/types"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 )
 
@@ -144,15 +145,25 @@ func NewUSBController(key *int32) types.BaseVirtualDevice {
 	return &device
 }
 
-func NewVNICDev(host *SHost, mac, driver string, vlanId int32, key, ctlKey, index int32) (types.BaseVirtualDevice, error) {
+func NewVNICDev(host *SHost, mac, driver string, bridge string, vlanId int32, key, ctlKey, index int32) (types.BaseVirtualDevice, error) {
 	desc := types.Description{Label: fmt.Sprintf("Network adapter %d", index+1), Summary: "VM Network"}
 
-	inet, err := host.FindNetworkByVlanID(vlanId)
-	if err != nil {
-		return nil, errors.Wrap(err, "SHost.FindNetworkByVlanID")
+	var inet IVMNetwork
+	var err error
+	if (vlanId == 0 || vlanId == 1) && len(bridge) > 0 {
+		inet, err = host.findDVPGById(bridge)
+		if err != nil {
+			log.Errorf("fail to find dvportgroup by name %s: %s", bridge, err)
+		}
+	}
+	if inet == nil {
+		inet, err = host.FindNetworkByVlanID(vlanId)
+		if err != nil {
+			log.Errorf("fail to find network by vlanid %d: %s", vlanId, err)
+		}
 	}
 	if inet == nil || reflect.ValueOf(inet).IsNil() {
-		return nil, errors.Error(fmt.Sprintf("VLAN %d not found", vlanId))
+		return nil, errors.Error(fmt.Sprintf("Brige %s VLAN %d not found", bridge, vlanId))
 	}
 
 	var (
