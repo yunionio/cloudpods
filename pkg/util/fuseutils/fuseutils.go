@@ -77,16 +77,22 @@ func MountFusefs(fetcherfsPath, url, tmpdir, token, mntpath string, blocksize in
 		return errors.Wrapf(err, "mount fetcherfs failed: %s", out)
 	}
 
-	time.Sleep(500 * time.Millisecond)
-	if f, err := os.OpenFile(metaPath, os.O_RDONLY, 0644); err == nil {
-		f.Close()
+	var mounted = false
+	for i := 0; i < 3; i++ {
+		time.Sleep(500 * time.Millisecond)
+		if f, err := os.OpenFile(metaPath, os.O_RDONLY, 0644); err == nil {
+			f.Close()
+			mounted = true
+			break
+		}
+	}
+	if !mounted {
 		out2, err2 := procutils.NewCommand("umount", mntpath).Output()
 		if err2 != nil {
 			log.Errorf("umount fetcherfs failed %s %s", err2, out2)
 		}
-		return nil
+		return errors.Error("failed open metaPath")
 	} else {
-		log.Errorln(err)
-		return errors.Wrap(err, "failed open metaPath")
+		return nil
 	}
 }
