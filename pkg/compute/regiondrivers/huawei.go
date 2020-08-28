@@ -127,6 +127,10 @@ func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerData(ctx context.Cont
 			return nil, fmt.Errorf("eip external id is empty")
 		}
 
+		if eip.ManagerId != vpc.ManagerId {
+			return nil, httperrors.NewInputParameterError("eip's manager (%s(%s)) does not match vpc's(%s(%s)) (%s)", eip.GetName(), eip.GetId(), vpc.GetName(), vpc.GetId(), vpc.ManagerId)
+		}
+
 		data.Set("eip_id", jsonutils.NewString(eip.ExternalId))
 	}
 
