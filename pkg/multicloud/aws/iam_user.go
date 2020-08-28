@@ -220,6 +220,7 @@ func (self *SAwsClient) CreateUser(path string, username string) (*SUser, error)
 }
 
 func (self *SAwsClient) DeleteUser(name string) error {
+	self.DeleteLoginProfile(name)
 	params := map[string]string{
 		"UserName": name,
 	}
