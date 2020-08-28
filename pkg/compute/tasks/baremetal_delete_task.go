@@ -53,12 +53,11 @@ func (self *BaremetalDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneM
 			return
 		}
 		log.Errorln(err.Error())
-		self.OnFailure(ctx, baremetal, nil)
+		self.OnFailure(ctx, baremetal, jsonutils.NewString(err.Error()))
 	}
 }
 
 func (self *BaremetalDeleteTask) OnDeleteBaremetalComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
-	baremetal.RealDelete(ctx, self.UserCred)
 	self.SetStageComplete(ctx, nil)
 }
 

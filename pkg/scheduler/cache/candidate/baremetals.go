@@ -137,7 +137,9 @@ func (bb *BaremetalBuilder) init(ids []string) error {
 	errMessageChannel := make(chan error, 2)
 	defer close(errMessageChannel)
 
-	setFuncs := []func(){}
+	setFuncs := []func(){
+		func() { bb.setIsolatedDevs(ids, errMessageChannel) },
+	}
 
 	for _, f := range setFuncs {
 		wg.Wrap(f)
@@ -198,7 +200,7 @@ func (bb *BaremetalBuilder) build() ([]interface{}, error) {
 }
 
 func (bb *BaremetalBuilder) buildOne(hostObj *computemodels.SHost) (interface{}, error) {
-	baseDesc, err := newBaseHostDesc(hostObj)
+	baseDesc, err := newBaseHostDesc(bb.baseBuilder, hostObj)
 	if err != nil {
 		return nil, err
 	}

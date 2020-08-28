@@ -1144,6 +1144,17 @@ func (self *SHost) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 	}
 	specInfo.Manufacture = manufacture
 	specInfo.Model = model
+	devices := IsolatedDeviceManager.FindByHost(self.Id)
+	if len(devices) > 0 {
+		specInfo.IsolatedDevices = make([]api.IsolatedDeviceSpec, len(devices))
+		for i := 0; i < len(devices); i++ {
+			specInfo.IsolatedDevices[i].DevType = devices[i].DevType
+			specInfo.IsolatedDevices[i].Model = devices[i].Model
+			specInfo.IsolatedDevices[i].PciId = devices[i].VendorDeviceId
+			specInfo.IsolatedDevices[i].Vendor = devices[i].getVendor()
+		}
+	}
+
 	return specInfo.JSON(specInfo)
 }
 

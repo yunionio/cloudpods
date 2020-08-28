@@ -133,11 +133,10 @@ type HostDesc struct {
 	RunningGuestCount  int64 `json:"running_guest_count"`
 
 	//Groups                    *GroupCounts          `json:"groups"`
-	Metadata                  map[string]string     `json:"metadata"`
-	IsolatedDevices           []*IsolatedDeviceDesc `json:"isolated_devices"`
-	IsMaintenance             bool                  `json:"is_maintenance"`
-	GuestReservedResource     *ReservedResource     `json:"guest_reserved_resource"`
-	GuestReservedResourceUsed *ReservedResource     `json:"guest_reserved_used"`
+	Metadata                  map[string]string `json:"metadata"`
+	IsMaintenance             bool              `json:"is_maintenance"`
+	GuestReservedResource     *ReservedResource `json:"guest_reserved_resource"`
+	GuestReservedResourceUsed *ReservedResource `json:"guest_reserved_used"`
 }
 
 type ReservedResource struct {
@@ -243,7 +242,7 @@ type HostBuilder struct {
 	//guestMetadatasDict map[string][]interface{}
 
 	//diskStats           []models.StorageCapacity
-	isolatedDevicesDict map[string][]interface{}
+	// isolatedDevicesDict map[string][]interface{}
 
 	cpuIOLoads map[string]map[string]float64
 
@@ -413,66 +412,6 @@ func (h *HostDesc) GetFreeCPUCount(useRsvd bool) int64 {
 
 func (h *HostDesc) IndexKey() string {
 	return h.Id
-}
-
-func (h *HostDesc) UnusedIsolatedDevices() []*IsolatedDeviceDesc {
-	ret := make([]*IsolatedDeviceDesc, 0)
-	for _, dev := range h.IsolatedDevices {
-		if len(dev.GuestID) == 0 {
-			ret = append(ret, dev)
-		}
-	}
-	return ret
-}
-
-func (h *HostDesc) UnusedIsolatedDevicesByType(devType string) []*IsolatedDeviceDesc {
-	ret := make([]*IsolatedDeviceDesc, 0)
-	for _, dev := range h.UnusedIsolatedDevices() {
-		if dev.DevType == devType {
-			ret = append(ret, dev)
-		}
-	}
-	return ret
-}
-
-func (h *HostDesc) UnusedIsolatedDevicesByVendorModel(vendorModel string) []*IsolatedDeviceDesc {
-	ret := make([]*IsolatedDeviceDesc, 0)
-	vm := NewVendorModelByStr(vendorModel)
-	for _, dev := range h.UnusedIsolatedDevices() {
-		if dev.GetVendorModel().IsMatch(vm) {
-			ret = append(ret, dev)
-		}
-	}
-	return ret
-}
-
-func (h *HostDesc) UnusedIsolatedDevicesByModel(model string) []*IsolatedDeviceDesc {
-	ret := make([]*IsolatedDeviceDesc, 0)
-	for _, dev := range h.UnusedIsolatedDevices() {
-		if strings.Contains(dev.Model, model) {
-			ret = append(ret, dev)
-		}
-	}
-	return ret
-}
-
-func (h *HostDesc) GetIsolatedDevice(devID string) *IsolatedDeviceDesc {
-	for _, dev := range h.IsolatedDevices {
-		if dev.ID == devID {
-			return dev
-		}
-	}
-	return nil
-}
-
-func (h *HostDesc) UnusedGpuDevices() []*IsolatedDeviceDesc {
-	ret := make([]*IsolatedDeviceDesc, 0)
-	for _, dev := range h.UnusedIsolatedDevices() {
-		if strings.HasPrefix(dev.DevType, "GPU") {
-			ret = append(ret, dev)
-		}
-	}
-	return ret
 }
 
 type WaitGroupWrapper struct {
@@ -767,22 +706,6 @@ func (b *HostBuilder) setGuests(ids []string, errMessageChannel chan error) {
 //return
 //}
 
-func (b *HostBuilder) setIsolatedDevs(ids []string, errMessageChannel chan error) {
-	devs := computemodels.IsolatedDeviceManager.FindByHosts(ids)
-	dict, err := utils.GroupBy(devs, func(obj interface{}) (string, error) {
-		dev, ok := obj.(computemodels.SIsolatedDevice)
-		if !ok {
-			return "", utils.ConvertError(obj, "computemodels.SIsolatedDevice")
-		}
-		return dev.HostId, nil
-	})
-	if err != nil {
-		errMessageChannel <- err
-		return
-	}
-	b.isolatedDevicesDict = dict
-}
-
 /*func (b *HostBuilder) setDiskStats(errMessageChannel chan error) {
 	storageIDs := make([]string, len(b.storages))
 	func() {
@@ -865,7 +788,7 @@ func (b *HostBuilder) build() ([]interface{}, error) {
 }
 
 func (b *HostBuilder) buildOne(host *computemodels.SHost) (interface{}, error) {
-	baseDesc, err := newBaseHostDesc(host)
+	baseDesc, err := newBaseHostDesc(b.baseBuilder, host)
 	if err != nil {
 		return nil, err
 	}
@@ -889,7 +812,6 @@ func (b *HostBuilder) buildOne(host *computemodels.SHost) (interface{}, error) {
 		b.fillGuestsResourceInfo,
 		//b.fillResidentGroups,
 		b.fillMetadata,
-		b.fillIsolatedDevices,
 		b.fillCPUIOLoads,
 	}
 
@@ -1079,79 +1001,6 @@ func (b *HostBuilder) fillMetadata(desc *HostDesc, host *computemodels.SHost) er
 	return nil
 }
 
-type IsolatedDeviceDesc struct {
-	ID             string
-	GuestID        string
-	HostID         string
-	DevType        string
-	Model          string
-	Addr           string
-	VendorDeviceID string
-}
-
-func (i *IsolatedDeviceDesc) VendorID() string {
-	return strings.Split(i.VendorDeviceID, ":")[0]
-}
-
-type VendorModel struct {
-	Vendor string
-	Model  string
-}
-
-func NewVendorModelByStr(desc string) *VendorModel {
-	vm := new(VendorModel)
-	// desc format is '<vendor>:<model>'
-	parts := strings.Split(desc, ":")
-	if len(parts) == 1 {
-		vm.Model = parts[0]
-	} else if len(parts) == 2 {
-		vm.Vendor = parts[0]
-		vm.Model = parts[1]
-	}
-	return vm
-}
-
-func (vm *VendorModel) IsMatch(target *VendorModel) bool {
-	if vm.Model == "" || target.Model == "" {
-		return false
-	}
-	vendorMatch := false
-	modelMatch := false
-	if target.Vendor != "" {
-		if vm.Vendor == target.Vendor {
-			vendorMatch = true
-		} else if computeapi.ID_VENDOR_MAP[vm.Vendor] == target.Vendor {
-			vendorMatch = true
-		}
-	} else {
-		vendorMatch = true
-	}
-	if vm.Model == target.Model {
-		modelMatch = true
-	}
-	return vendorMatch && modelMatch
-}
-
-func (i *IsolatedDeviceDesc) GetVendorModel() *VendorModel {
-	return &VendorModel{
-		Vendor: i.VendorID(),
-		Model:  i.Model,
-	}
-}
-
-func (b *HostBuilder) getIsolatedDevices(hostID string) (devs []computemodels.SIsolatedDevice) {
-	devObjs, ok := b.isolatedDevicesDict[hostID]
-	devs = make([]computemodels.SIsolatedDevice, 0)
-	if !ok {
-		return
-	}
-	for _, obj := range devObjs {
-		dev := obj.(computemodels.SIsolatedDevice)
-		devs = append(devs, dev)
-	}
-	return
-}
-
 func (b *HostBuilder) getUsedIsolatedDevices(hostID string) (devs []computemodels.SIsolatedDevice) {
 	devs = make([]computemodels.SIsolatedDevice, 0)
 	for _, dev := range b.getIsolatedDevices(hostID) {
@@ -1191,31 +1040,6 @@ func (b *HostBuilder) getUnusedIsolatedDevices(hostID string) (devs []computemod
 		}
 	}
 	return
-}
-
-func (b *HostBuilder) fillIsolatedDevices(desc *HostDesc, host *computemodels.SHost) error {
-
-	allDevs := b.getIsolatedDevices(host.Id)
-	if len(allDevs) == 0 {
-		return nil
-	}
-
-	devs := make([]*IsolatedDeviceDesc, len(allDevs))
-	for index, devModel := range allDevs {
-		dev := &IsolatedDeviceDesc{
-			ID:             devModel.Id,
-			GuestID:        devModel.GuestId,
-			HostID:         devModel.HostId,
-			DevType:        devModel.DevType,
-			Model:          devModel.Model,
-			Addr:           devModel.Addr,
-			VendorDeviceID: devModel.VendorDeviceId,
-		}
-		devs[index] = dev
-	}
-	desc.IsolatedDevices = devs
-
-	return nil
 }
 
 func (b *HostBuilder) fillCPUIOLoads(desc *HostDesc, host *computemodels.SHost) error {

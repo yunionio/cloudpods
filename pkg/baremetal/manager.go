@@ -536,6 +536,10 @@ func newBaremetalInstance(man *SBaremetalManager, desc jsonutils.JSONObject) (*S
 	return bm, nil
 }
 
+func (b *SBaremetalInstance) GetDHCPServerIP() (net.IP, error) {
+	return b.manager.Agent.GetDHCPServerIP()
+}
+
 func (b *SBaremetalInstance) GetClientSession() *mcclient.ClientSession {
 	return b.manager.GetClientSession()
 }
