@@ -25,8 +25,14 @@ type SHostNicInfo struct {
 	Index   int8
 	LinkUp  bool
 	IpAddr  string
+	IpAddr6 string
 	Mtu     int32
 	NicType string
+
+	DVPortGroup string
+
+	IpAddrPrefixLen  int8
+	IpAddr6PrefixLen int8
 }
 
 func (nic *SHostNicInfo) GetDevice() string {
@@ -56,10 +62,30 @@ func (nic *SHostNicInfo) GetIpAddr() string {
 	return nic.IpAddr
 }
 
+func (nic *SHostNicInfo) GetIpAddrPrefixLen() int8 {
+	return nic.IpAddrPrefixLen
+}
+
+func (nic *SHostNicInfo) GetIpAddr6() string {
+	return nic.IpAddr6
+}
+
+func (nic *SHostNicInfo) GetIpAddr6PrefixLen() int8 {
+	return nic.IpAddr6PrefixLen
+}
+
 func (nic *SHostNicInfo) GetMtu() int32 {
 	return nic.Mtu
 }
 
 func (nic *SHostNicInfo) GetNicType() string {
 	return nic.NicType
+}
+
+func (nic *SHostNicInfo) GetDVPortGroup() string {
+	return nic.DVPortGroup
+}
+
+func (nic *SHostNicInfo) GetBridge() string {
+	return nic.DVPortGroup
 }
