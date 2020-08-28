@@ -127,6 +127,10 @@ func (self *GuestDeleteBackupTask) OnDeleteBackupComplete(ctx context.Context, g
 }
 
 func (self *GuestDeleteBackupTask) TaskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	guest.RemoveMetadata(ctx, "switch_backup", self.UserCred)
+	guest.RemoveMetadata(ctx, "switch_backup_count", self.UserCred)
+	guest.RemoveMetadata(ctx, "create_backup", self.UserCred)
+	guest.RemoveMetadata(ctx, "create_backup_count", self.UserCred)
 	self.OnDeleteBackupComplete(ctx, guest, data)
 	self.SetStageComplete(ctx, nil)
 }
