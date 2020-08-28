@@ -17,6 +17,7 @@ package candidate
 import (
 	"time"
 
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
@@ -26,6 +27,8 @@ import (
 
 type baseBuilder struct {
 	resourceType string
+
+	isolatedDevicesDict map[string][]interface{}
 }
 
 func newBaseBuilder(resourceType string) *baseBuilder {
@@ -36,6 +39,35 @@ func newBaseBuilder(resourceType string) *baseBuilder {
 
 func (b *baseBuilder) Type() string {
 	return b.resourceType
+}
+
+func (b *baseBuilder) getIsolatedDevices(hostID string) (devs []computemodels.SIsolatedDevice) {
+	devObjs, ok := b.isolatedDevicesDict[hostID]
+	devs = make([]computemodels.SIsolatedDevice, 0)
+	if !ok {
+		return
+	}
+	for _, obj := range devObjs {
+		dev := obj.(computemodels.SIsolatedDevice)
+		devs = append(devs, dev)
+	}
+	return
+}
+
+func (b *baseBuilder) setIsolatedDevs(ids []string, errMessageChannel chan error) {
+	devs := computemodels.IsolatedDeviceManager.FindByHosts(ids)
+	dict, err := utils.GroupBy(devs, func(obj interface{}) (string, error) {
+		dev, ok := obj.(computemodels.SIsolatedDevice)
+		if !ok {
+			return "", utils.ConvertError(obj, "computemodels.SIsolatedDevice")
+		}
+		return dev.HostId, nil
+	})
+	if err != nil {
+		errMessageChannel <- err
+		return
+	}
+	b.isolatedDevicesDict = dict
 }
 
 func FetchModelIds(q *sqlchemy.SQuery) ([]string, error) {

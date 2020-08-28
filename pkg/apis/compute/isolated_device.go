@@ -53,6 +53,9 @@ type IsolatedDeviceListInput struct {
 
 	// 设备VENDOE编号
 	VendorDeviceId []string `json:"vendor_device_id"`
+
+	// 展示物理机的上的设备
+	ShowBaremetalIsolatedDevices bool `json:"show_baremetal_isolated_devices"`
 }
 
 type IsolatedDeviceCreateInput struct {
