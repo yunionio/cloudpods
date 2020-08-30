@@ -2645,7 +2645,33 @@ func (network *SNetwork) getUsedAddressQuery(addrOnly bool) *sqlchemy.SQuery {
 		)
 	}
 
-	return sqlchemy.Union(guestNetQ, groupNetQ, hostNetQ, reservedQ, lbNetQ, eipQ, netifsQ).Query()
+	dbnetworks := DBInstanceNetworkManager.Query().Equals("network_id", network.Id).SubQuery()
+	var dbNetQ *sqlchemy.SQuery
+	if addrOnly {
+		dbNetQ = dbnetworks.Query(
+			dbnetworks.Field("ip_addr"),
+		)
+	} else {
+		dbinstances := DBInstanceManager.Query().SubQuery()
+		dbNetQ = dbnetworks.Query(
+			dbnetworks.Field("ip_addr"),
+			sqlchemy.NewStringField("").Label("mac_addr"),
+			sqlchemy.NewStringField(DBInstanceManager.KeywordPlural()).Label("owner_type"),
+			dbnetworks.Field("dbinstance_id").Label("owner_id"),
+			dbinstances.Field("name").Label("owner"),
+			sqlchemy.NewStringField("").Label("associate_id"),
+			sqlchemy.NewStringField("").Label("associate_type"),
+			dbnetworks.Field("created_at"),
+		).Join(
+			dbinstances,
+			sqlchemy.Equals(
+				dbinstances.Field("id"),
+				dbnetworks.Field("dbinstance_id"),
+			),
+		)
+	}
+
+	return sqlchemy.Union(guestNetQ, groupNetQ, hostNetQ, reservedQ, lbNetQ, eipQ, netifsQ, dbNetQ).Query()
 }
 
 type SNetworkAddressList []api.SNetworkAddress
