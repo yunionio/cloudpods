@@ -644,6 +644,8 @@ func totalGuestNicCount(
 	q = q.Join(guests, sqlchemy.Equals(guests.Field("id"), guestnics.Field("guest_id")))
 	q = q.Join(hosts, sqlchemy.Equals(guests.Field("host_id"), hosts.Field("id")))
 
+	q = q.Filter(sqlchemy.IsFalse(guests.Field("pending_deleted")))
+
 	q = CloudProviderFilter(q, hosts.Field("manager_id"), providers, brands, cloudEnv)
 	q = RangeObjectsFilter(q, rangeObjs, nil, hosts.Field("zone_id"), hosts.Field("manager_id"), hosts.Field("id"), nil)
 
