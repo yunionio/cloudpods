@@ -192,6 +192,8 @@ func (s *SGuestMonitorCollector) GetGuests() map[string]*SGuestMonitor {
 			gm.ScalingGroupId, _ = guest.Desc.GetString("scaling_group_id")
 			gm.Tenant, _ = guest.Desc.GetString("tenant")
 			gm.TenantId, _ = guest.Desc.GetString("tenant_id")
+			gm.DomainId, _ = guest.Desc.GetString("domain_id")
+			gm.ProjectDomain, _ = guest.Desc.GetString("project_domain")
 
 			gms[guestId] = gm
 		}
@@ -227,20 +229,22 @@ func (s *SGuestMonitorCollector) toTelegrafReportData(data *jsonutils.JSONDict) 
 	ret := []string{}
 	vs, _ := data.GetMap()
 	for guestId, report := range vs {
-		var vmName, vmIp, scalingGroupId, tenant, tenantId string
+		var vmName, vmIp, scalingGroupId, tenant, tenantId, domainId, projectDomain string
 		if gm, ok := s.monitors[guestId]; ok {
 			vmName = gm.Name
 			vmIp = gm.Ip
 			scalingGroupId = gm.ScalingGroupId
 			tenant = gm.Tenant
 			tenantId = gm.TenantId
+			domainId = gm.DomainId
+			projectDomain = gm.ProjectDomain
 		}
 
 		rs, _ := report.(*jsonutils.JSONDict).GetMap()
 		for metrics, stat := range rs {
 			tags := map[string]string{
 				"vm_id": guestId, "vm_name": vmName, "vm_ip": vmIp,
-				"is_vm": "true", "brand": "OneCloud",
+				"is_vm": "true", "brand": "OneCloud", "res_type": "guest",
 			}
 			if len(scalingGroupId) > 0 {
 				tags["vm_scaling_group_id"] = scalingGroupId
@@ -250,6 +254,12 @@ func (s *SGuestMonitorCollector) toTelegrafReportData(data *jsonutils.JSONDict) 
 			}
 			if len(tenantId) > 0 {
 				tags["tenant_id"] = tenantId
+			}
+			if len(domainId) > 0 {
+				tags["domain_id"] = domainId
+			}
+			if len(projectDomain) > 0 {
+				tags["project_domain"] = projectDomain
 			}
 			if val, ok := stat.(*jsonutils.JSONDict); ok {
 				line := s.addTelegrafLine(metrics, tags, val)
@@ -335,14 +345,15 @@ func (s *SGuestMonitorCollector) collectGmReport(
 	diskio1, err1 := gmData.Get(gmDiskio)
 	diskio2, err2 := prevUsage.Get(gmDiskio)
 	if err1 == nil && err2 == nil {
-		s.addDiskio(diskio1, diskio2, []string{"read_bytes", "write_bytes"})
+		s.addDiskio(diskio1, diskio2, []string{"read_bytes", "write_bytes", "read_bits", "write_bits", "read_count",
+			"write_count"})
 	}
 	return gmData
 }
 
 func (s *SGuestMonitorCollector) GetIoFiledName(field string) string {
 	kmap := map[string]string{
-		"bits": "bps", "bytes": "bps", "packets": "pps",
+		"bits": "bps", "bytes": "Bps", "packets": "pps", "count": "iops",
 	}
 	for k, v := range kmap {
 		if strings.Contains(field, k) {
@@ -414,6 +425,8 @@ type SGuestMonitor struct {
 	ScalingGroupId string
 	Tenant         string
 	TenantId       string
+	DomainId       string
+	ProjectDomain  string
 }
 
 func NewGuestMonitor(name, id string, pid int, nics []jsonutils.JSONObject, cpuCount int,
@@ -426,7 +439,7 @@ func NewGuestMonitor(name, id string, pid int, nics []jsonutils.JSONObject, cpuC
 	if err != nil {
 		return nil, err
 	}
-	return &SGuestMonitor{name, id, pid, nics, cpuCount, ip, proc, "", "", ""}, nil
+	return &SGuestMonitor{name, id, pid, nics, cpuCount, ip, proc, "", "", "", "", ""}, nil
 }
 
 func (m *SGuestMonitor) UpdateVmName(name string) {
@@ -501,6 +514,7 @@ func (m *SGuestMonitor) Cpu() jsonutils.JSONObject {
 	percent, _ := m.Process.Percent(time.Millisecond * 100)
 	cpuTimes, _ := m.Process.Times()
 	ret := jsonutils.NewDict()
+	percent, _ = strconv.ParseFloat(fmt.Sprintf("%0.4f", percent/float64(m.CpuCnt)), 64)
 	ret.Set("usage_active", jsonutils.NewFloat(percent))
 	ret.Set("cpu_usage_idle_pcore", jsonutils.NewFloat(100-percent/float64(m.CpuCnt)))
 	ret.Set("cpu_usage_pcore", jsonutils.NewFloat(percent/float64(m.CpuCnt)))
@@ -527,6 +541,10 @@ func (m *SGuestMonitor) Diskio() jsonutils.JSONObject {
 	ret.Set("meta", meta)
 	ret.Set("read_bytes", jsonutils.NewInt(int64(io.ReadBytes)))
 	ret.Set("write_bytes", jsonutils.NewInt(int64(io.WriteBytes)))
+	ret.Set("read_bits", jsonutils.NewInt(int64(io.ReadBytes)*8))
+	ret.Set("write_bits", jsonutils.NewInt(int64(io.WriteBytes)*8))
+	ret.Set("read_count", jsonutils.NewInt(int64(io.ReadCount)))
+	ret.Set("write_count", jsonutils.NewInt(int64(io.WriteCount)))
 	return ret
 }
 

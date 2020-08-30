@@ -296,11 +296,6 @@ var MetricDescriptions = `
 		},
 		"metric_fields": [
 			{
-				"name":"cpu_count",
-				"display_name":"CPU cores",
-				"unit":"count"
-			},
-			{
 				"name":"cpu_time_system",
 				"display_name":"CPU system state time",
 				"unit":"ms"

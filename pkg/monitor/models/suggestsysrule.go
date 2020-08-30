@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/influxdb"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -364,7 +365,33 @@ func (self *SSuggestSysRuleManager) AllowGetPropertyMetricMeasurement(ctx contex
 
 func (self *SSuggestSysRuleManager) GetPropertyMetricMeasurement(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return DataSourceManager.GetMetricMeasurement(query)
+	return self.GetMetricMeasurement(query)
+}
+
+func (self *SSuggestSysRuleManager) GetMetricMeasurement(query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	database, _ := query.GetString("database")
+	if database == "" {
+		return jsonutils.JSONNull, httperrors.NewInputParameterError("not support database")
+	}
+	measurement, _ := query.GetString("measurement")
+	if measurement == "" {
+		return jsonutils.JSONNull, httperrors.NewInputParameterError("not support measurement")
+	}
+	dataSource, err := DataSourceManager.GetDefaultSource()
+	if err != nil {
+		return jsonutils.JSONNull, errors.Wrap(err, "s.GetDefaultSource")
+	}
+
+	db := influxdb.NewInfluxdb(dataSource.Url)
+	db.SetDatabase(database)
+	output := new(monitor.InfluxMeasurement)
+	output.Measurement = measurement
+	output.Database = database
+	err = getAttributesOnMeasurement(database, monitor.METRIC_FIELD, output, db)
+	if err != nil {
+		return jsonutils.JSONNull, errors.Wrap(err, "getAttributesOnMeasurement error")
+	}
+	return jsonutils.Marshal(output), nil
 }
 
 func (man *SSuggestSysRuleManager) GetRuleByType(tp monitor.SuggestDriverType) (*SSuggestSysRule, error) {
