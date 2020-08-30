@@ -576,3 +576,37 @@ func getUnInsertFields(searchFields []monitor.MetricFieldCreateInput,
 	}
 	return unInsertFields, updateFields
 }
+
+func (self *SMetricMeasurement) getMetricJoint() ([]SMetric, error) {
+	metricJoint := make([]SMetric, 0)
+	q := MetricManager.Query().Equals(MetricManager.GetMasterFieldName(), self.Id)
+	if err := db.FetchModelObjects(MetricManager, q, &metricJoint); err != nil {
+		return nil, err
+	}
+	return metricJoint, nil
+}
+
+func (self *SMetricMeasurement) CustomizeDelete(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	metricJoint, err := self.getMetricJoint()
+	if err != nil {
+		return err
+	}
+	for _, joint := range metricJoint {
+		field, err := joint.GetMetricField()
+		if err != nil {
+			return err
+		}
+		if err := field.CustomizeDelete(ctx, userCred, query, data); err != nil {
+			return err
+		}
+		if err := field.Delete(ctx, userCred); err != nil {
+			return err
+		}
+		if err := joint.Detach(ctx, userCred); err != nil {
+			return err
+		}
+	}
+	return nil
+}

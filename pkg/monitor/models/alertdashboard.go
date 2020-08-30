@@ -109,7 +109,7 @@ func (man *SAlertDashBoardManager) ValidateCreateData(
 				}
 			}
 		}
-		err := CommonAlertManager.ValidateMetricQuery(&data.CommonMetricInputQuery)
+		err := CommonAlertManager.ValidateMetricQuery(&data.CommonMetricInputQuery, data.Scope, ownerId)
 		if err != nil {
 			return data, errors.Wrap(err, "metric query error")
 		}
@@ -262,7 +262,12 @@ func (dash *SAlertDashBoard) ValidateUpdateData(
 		if err != nil {
 			return data, errors.Wrap(err, "metric_query Unmarshal error")
 		}
-		err = CommonAlertManager.ValidateMetricQuery(metricQuery)
+		ownerId, _ := AlertDashBoardManager.FetchOwnerId(ctx, data)
+		if ownerId == nil {
+			ownerId = userCred
+		}
+		scope, _ := data.GetString("scope")
+		err = CommonAlertManager.ValidateMetricQuery(metricQuery, scope, ownerId)
 		if err != nil {
 			return data, errors.Wrap(err, "metric query error")
 		}

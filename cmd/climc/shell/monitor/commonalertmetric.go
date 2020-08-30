@@ -11,4 +11,5 @@ func init() {
 	cmd.List(new(options.MonitorMetricListOptions))
 	cmd.Update(new(options.MetricUpdateOptions))
 	cmd.Show(new(options.MetricShowOptions))
+	cmd.Delete(new(options.MetricDeleteOptions))
 }
