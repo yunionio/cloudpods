@@ -268,6 +268,7 @@ func (vd *VDDKDisk) ExecProg() error {
 	}
 	cmd := NewCommand(execpath(), "-info", "-host", vd.Host, "-port", strconv.Itoa(vd.Port), "-user", vd.User,
 		"-password", vd.Passwd, "-mode", "nbd", "-thumb", thumb, "-vm", fmt.Sprintf("moref=%s", vd.VmRef), vd.DiskPath)
+	log.Debugf("command to mount: %s", cmd)
 	env := os.Environ()
 	env = append(env, fmt.Sprintf("LD_LIBRARY_PATH=%s", libdir()))
 	cmd.Env = env
