@@ -690,8 +690,18 @@ func (r *SReceiver) PerformTriggerVerify(ctx context.Context, userCred mcclient.
 	if len(input.ContactType) == 0 {
 		return nil, httperrors.NewMissingParameterError("contact_type")
 	}
-	if !utils.IsInStringArray(input.ContactType, []string{api.EMAIL, api.MOBILE}) {
+	if !utils.IsInStringArray(input.ContactType, []string{api.EMAIL, api.MOBILE, api.DINGTALK, api.FEISHU, api.WORKWX}) {
 		return nil, httperrors.NewInputParameterError("not support such contact type %q", input.ContactType)
+	}
+	if utils.IsInStringArray(input.ContactType, []string{api.DINGTALK, api.FEISHU, api.WORKWX}) {
+		r.SetStatus(userCred, api.RECEIVER_STATUS_PULLING, "")
+		task, err := taskman.TaskManager.NewTask(ctx, "SubcontactPullTask", r, userCred, nil, "", "")
+		if err != nil {
+			log.Errorf("ContactPullTask newTask error %v", err)
+		} else {
+			task.ScheduleRun(nil)
+		}
+		return nil, nil
 	}
 	_, err := VerificationManager.Create(ctx, r.Id, input.ContactType)
 	if err == ErrVerifyFrequently {
