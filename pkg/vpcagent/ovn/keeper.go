@@ -439,9 +439,25 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 	gnp := &ovn_nb.LogicalSwitchPort{
 		Name:          lportName,
 		Addresses:     []string{fmt.Sprintf("%s %s", guestnetwork.MacAddr, guestnetwork.IpAddr)},
-		PortSecurity:  []string{fmt.Sprintf("%s %s/%d", guestnetwork.MacAddr, guestnetwork.IpAddr, guestnetwork.Network.GuestIpMask)},
 		Dhcpv4Options: &dhcpOpt,
 		Options:       map[string]string{},
+	}
+	if guest.SrcMacCheck.IsFalse() {
+		gnp.Addresses = append(gnp.Addresses, "unknown")
+		// empty, not nil, as match condition
+		gnp.PortSecurity = []string{}
+	} else if guest.SrcIpCheck.IsFalse() {
+		gnp.PortSecurity = []string{
+			fmt.Sprintf("%s", guestnetwork.MacAddr),
+		}
+	} else {
+		gnp.PortSecurity = []string{
+			fmt.Sprintf("%s %s/%d",
+				guestnetwork.MacAddr,
+				guestnetwork.IpAddr,
+				guestnetwork.Network.GuestIpMask,
+			),
+		}
 	}
 
 	var qosVif []*ovn_nb.QoS
