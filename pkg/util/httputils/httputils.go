@@ -99,16 +99,25 @@ func newJsonClientErrorFromRequest2(method string, urlStr string, hdrs http.Head
 	jce.Request.Method = strings.ToUpper(method)
 	jce.Request.Url = urlStr
 	jce.Request.Headers = make(map[string]string)
-	excludeHdrs := []string{}
+	excludeHdrs := []string{
+		"Accept",
+		"Accept-Encoding",
+	}
 	authHdrs := []string{
 		http.CanonicalHeaderKey("authorization"),
 		http.CanonicalHeaderKey("x-auth-token"),
 		http.CanonicalHeaderKey("x-subject-token"),
 	}
+	const (
+		MAX_BODY   = 128
+		FIRST_PART = 100
+	)
 	switch jce.Request.Method {
 	case "PUT", "POST", "PATCH":
 		contType := hdrs.Get(http.CanonicalHeaderKey("content-type"))
-		if strings.Contains(contType, "json") {
+		if len(body) > MAX_BODY {
+			jce.Request.Body = jsonutils.NewString(body[:FIRST_PART] + "..." + body[len(body)-MAX_BODY+FIRST_PART+3:])
+		} else if strings.Contains(contType, "json") {
 			jce.Request.Body, _ = jsonutils.ParseString(body)
 		} else if strings.Contains(contType, "xml") ||
 			strings.Contains(contType, "x-www-form-urlencoded") {
