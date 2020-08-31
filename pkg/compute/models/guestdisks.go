@@ -242,6 +242,9 @@ func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 	if len(dev) > 0 {
 		desc.Add(jsonutils.NewString(dev), "dev")
 	}
+	if disk.IsSsd {
+		desc.Add(jsonutils.JSONTrue, "is_ssd")
+	}
 	return desc
 }
 

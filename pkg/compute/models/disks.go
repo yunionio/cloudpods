@@ -117,6 +117,9 @@ type SDisk struct {
 
 	// # is persistent
 	Nonpersistent bool `default:"false" list:"user" json:"nonpersistent"`
+
+	// 是否标记为SSD磁盘
+	IsSsd bool `nullable:"false" default:"false" list:"user" update:"user" create:"optional"`
 }
 
 func (manager *SDiskManager) GetContextManagers() [][]db.IModelManager {
