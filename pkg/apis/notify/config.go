@@ -34,6 +34,13 @@ type ConfigCreateInput struct {
 	Content jsonutils.JSONObject `json:"content"`
 }
 
+type ConfigUpdateInput struct {
+	// description: config content
+	// required: true
+	// example: {"app_id": "123456", "app_secret": "feishu_nihao"}
+	Content jsonutils.JSONObject `json:"content"`
+}
+
 type ConfigDetails struct {
 	apis.StandaloneResourceDetails
 
