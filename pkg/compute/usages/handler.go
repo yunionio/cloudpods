@@ -371,7 +371,7 @@ func getDomainGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 
 		BucketUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 
-		nicsUsage(rangeObjs, hostTypes, providers, brands, cloudEnv, scope, cred),
+		nicsUsage("domain", rangeObjs, hostTypes, providers, brands, cloudEnv, scope, cred),
 
 		SnapshotUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 
@@ -413,7 +413,7 @@ func getProjectGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityP
 		DisksUsage(getKey(scope, "pending_delete_disks"), rangeObjs, hostTypes, nil, providers, brands, cloudEnv, scope, cred, true, false),
 		DisksUsage(getKey(scope, "pending_delete_disks.system"), rangeObjs, hostTypes, nil, providers, brands, cloudEnv, scope, cred, true, true),
 
-		nicsUsage(rangeObjs, hostTypes, providers, brands, cloudEnv, scope, cred),
+		nicsUsage("", rangeObjs, hostTypes, providers, brands, cloudEnv, scope, cred),
 
 		SnapshotUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 
@@ -601,35 +601,37 @@ func DisksUsage(
 
 func WireUsage(rangeObjs []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) Usage {
 	count := make(map[string]interface{})
-	result := models.WireManager.TotalCount(rangeObjs, hostTypes, providers, brands, cloudEnv, rbacutils.ScopeSystem, nil, false)
+	result := models.WireManager.TotalCount(rangeObjs, hostTypes, providers, brands, cloudEnv, rbacutils.ScopeSystem, nil)
 	count["wires"] = result.WiresCount - result.EmulatedWiresCount
 	count["networks"] = result.NetCount
+	// include nics for pending_deleted guests
 	count["all.nics.guest"] = result.GuestNicCount
+	// nics for pending_deleted guests
+	count["all.nics.guest.pending_delete"] = result.PendingDeletedGuestNicCount
 	count["all.nics.host"] = result.HostNicCount
 	count["all.nics.reserve"] = result.ReservedCount
 	count["all.nics.group"] = result.GroupNicCount
 	count["all.nics.lb"] = result.LbNicCount
+	count["all.nics.eip"] = result.EipNicCount
+	count["all.nics.netif"] = result.NetifNicCount
+	count["all.nics.db"] = result.DbNicCount
 	count["all.nics"] = result.NicCount()
-
-	result = models.WireManager.TotalCount(rangeObjs, hostTypes, providers, brands, cloudEnv, rbacutils.ScopeSystem, nil, true)
-	count["all.nics.guest.pending_delete"] = result.GuestNicCount
-	count["all.nics.lb.pending_delete"] = result.LbNicCount
-	count["all.nics.pending_delete"] = result.GuestNicCount + result.LbNicCount
 
 	return count
 }
 
-func nicsUsage(rangeObjs []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) Usage {
+func nicsUsage(prefix string, rangeObjs []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) Usage {
 	count := make(map[string]interface{})
-	result := models.WireManager.TotalCount(rangeObjs, hostTypes, providers, brands, cloudEnv, scope, ownerId, false)
-	count["nics.guest"] = result.GuestNicCount
-	count["nics.group"] = result.GroupNicCount
-	count["nics.lb"] = result.LbNicCount
-	count["nics"] = result.GuestNicCount + result.GroupNicCount + result.LbNicCount
-	result = models.WireManager.TotalCount(rangeObjs, hostTypes, providers, brands, cloudEnv, scope, ownerId, true)
-	count["nics.guest.pending_delete"] = result.GuestNicCount
-	count["nics.lb.pending_delete"] = result.LbNicCount
-	count["nics.pending_delete"] = result.GuestNicCount + result.LbNicCount
+	result := models.WireManager.TotalCount(rangeObjs, hostTypes, providers, brands, cloudEnv, scope, ownerId)
+	// including nics for pending_deleted guests
+	count[prefixKey(prefix, "nics.guest")] = result.GuestNicCount
+	// #nics for pending_deleted guests
+	count[prefixKey(prefix, "nics.guest.pending_delete")] = result.PendingDeletedGuestNicCount
+	count[prefixKey(prefix, "nics.group")] = result.GroupNicCount
+	count[prefixKey(prefix, "nics.lb")] = result.LbNicCount
+	count[prefixKey(prefix, "nics.db")] = result.DbNicCount
+	count[prefixKey(prefix, "nics.eip")] = result.EipNicCount
+	count[prefixKey(prefix, "nics")] = result.GuestNicCount + result.GroupNicCount + result.LbNicCount + result.DbNicCount + result.EipNicCount
 	return count
 }
 
