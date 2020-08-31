@@ -154,13 +154,6 @@ func (vd *VDDKDisk) MountRootfs() fsdriver.IRootFsDriver {
 	if err != nil {
 		log.Errorf("VDDKDisk Mount failed: %s", err)
 	}
-	// something is wrong
-	if vd.Proc != nil {
-		err := vd.Proc.Kill()
-		if err != nil {
-			log.Errorf("unable to kill proc: %s", err.Error())
-		}
-	}
 	return nil
 }
 
@@ -349,13 +342,16 @@ Loop:
 	}
 	if vd.Proc.Exited() {
 		retCode := vd.Proc.ProcessState.ExitCode()
-		// ignore the error
-		vd.Proc.Kill()
-		vd.Proc = nil
+		err := vd.Proc.Kill()
+		if err != nil {
+			log.Errorf("unable to kill process '%d'", vd.Proc.Process.Pid)
+		}
 		return errors.Error(fmt.Sprintf("VDDKDisk prog exit error(%d): %s", retCode, backup))
 	} else if !isEnd {
-		// timeout
-		vd.Proc.Kill()
+		err := vd.Proc.Kill()
+		if err != nil {
+			log.Errorf("unable to kill process '%d'", vd.Proc.Process.Pid)
+		}
 		return errors.Error(fmt.Sprintf("VDDKDisk read timeout, program blocked"))
 	}
 	return nil
