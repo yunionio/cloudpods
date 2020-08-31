@@ -38,6 +38,7 @@ import (
 	"yunion.io/x/onecloud/pkg/notify/oldmodels"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -458,6 +459,31 @@ func (rm *SReceiverManager) EnabledContactFilter(contactType string, q *sqlchemy
 func (rm *SReceiverManager) VerifiedContactFilter(contactType string, q *sqlchemy.SQuery) *sqlchemy.SQuery {
 	subQuery := SubContactManager.Query("receiver_id").Equals("type", contactType).IsTrue("verified").SubQuery()
 	q = q.Join(subQuery, sqlchemy.Equals(subQuery.Field("receiver_id"), q.Field("id")))
+	return q
+}
+
+func (rm *SReceiverManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeUser
+}
+
+func (rm *SReceiverManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	pro, err := db.FetchUserInfo(ctx, data)
+	if err != nil {
+		return db.FetchDomainInfo(ctx, data)
+	}
+	return pro, nil
+}
+
+func (rm *SReceiverManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	if owner == nil {
+		return q
+	}
+	switch scope {
+	case rbacutils.ScopeDomain:
+		q = q.Equals("domain_id", owner.GetProjectDomainId())
+	case rbacutils.ScopeProject, rbacutils.ScopeUser:
+		q = q.Equals("id", owner.GetUserId())
+	}
 	return q
 }
 
