@@ -314,7 +314,7 @@ func (vd *VDDKDisk) getServerCertThumbSha1(addr string) (string, error) {
 
 func (vd *VDDKDisk) WaitMounted() error {
 	endStr := []byte("Do you want to procede to unmount the volume")
-	timeout := 30 * time.Second
+	timeout := 300 * time.Second
 	endClock := time.After(timeout)
 	isEnd := false
 
