@@ -262,6 +262,7 @@ func (s *SBaseStorage) bindMountTo(sPath string) error {
 			return errors.Errorf("bind mount temp path to local image path failed %s", out)
 		}
 	}
+	log.Infof("bind mount %s -> %s", tempPath, sPath)
 	return nil
 }
 
