@@ -240,8 +240,23 @@ func (self *SConfigManager) InitializeData() error {
 
 	for t, configs := range tcMap {
 		cMap := make(map[string]string)
-		for _, config := range configs {
-			cMap[config.KeyText] = config.ValueText
+		if t == api.EMAIL {
+			for _, config := range configs {
+				switch config.KeyText {
+				case "mail.username":
+					cMap["username"] = config.ValueText
+				case "mail.password":
+					cMap["password"] = config.ValueText
+				case "mail.smtp.hostname":
+					cMap["hostname"] = config.ValueText
+				case "mail.smtp.hostport":
+					cMap["hostport"] = config.ValueText
+				}
+			}
+		} else {
+			for _, config := range configs {
+				cMap[config.KeyText] = config.ValueText
+			}
 		}
 		newConfig := SConfig{
 			Type:    t,
