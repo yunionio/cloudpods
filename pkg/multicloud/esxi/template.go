@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -56,11 +57,22 @@ func (t *SVMTemplate) GetGlobalId() string {
 }
 
 func (t *SVMTemplate) GetStatus() string {
-	_, err := t.cache.host.GetTemplateVMById(t.uuid)
-	if errors.Cause(err) == cloudprovider.ErrNotFound {
+	ihosts, err := t.cache.datastore.GetAttachedHosts()
+	if err != nil {
 		return api.CACHED_IMAGE_STATUS_CACHE_FAILED
 	}
-	return api.CACHED_IMAGE_STATUS_READY
+	for _, ihost := range ihosts {
+		host := ihost.(*SHost)
+		_, err := host.GetTemplateVMById(t.uuid)
+		if err == nil {
+			return api.CACHED_IMAGE_STATUS_READY
+		}
+		if errors.Cause(err) != cloudprovider.ErrNotFound {
+			log.Errorf("fail to find templatevm %q: %v", t.uuid, err)
+			return api.CACHED_IMAGE_STATUS_CACHE_FAILED
+		}
+	}
+	return api.CACHED_IMAGE_STATUS_CACHE_FAILED
 }
 
 func (t *SVMTemplate) Refresh() error {
