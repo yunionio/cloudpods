@@ -222,7 +222,7 @@ func (flavor *SFlavor) GetSysDiskResizable() bool {
 }
 
 func (flavor *SFlavor) GetSysDiskType() string {
-	return "iscsi"
+	return ""
 }
 
 func (flavor *SFlavor) GetSysDiskMinSizeGB() int {
@@ -246,7 +246,7 @@ func (flavor *SFlavor) GetAttachedDiskCount() int {
 }
 
 func (flavor *SFlavor) GetDataDiskTypes() string {
-	return "iscsi"
+	return ""
 }
 
 func (flavor *SFlavor) GetDataDiskMaxCount() int {
