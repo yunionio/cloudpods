@@ -603,11 +603,11 @@ func (r *SReceiver) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		return input, err
 	}
 	// validate email
-	if ok := regutils.MatchEmail(input.Email); !ok {
+	if ok := len(input.Email) == 0 || regutils.MatchEmail(input.Email); !ok {
 		return input, httperrors.NewInputParameterError("invalid email")
 	}
 	// validate mobile
-	if ok := regutils.MatchMobile(input.Mobile); !ok {
+	if ok := len(input.Mobile) == 0 || regutils.MatchMobile(input.Mobile); !ok {
 		return input, httperrors.NewInputParameterError("invalid mobile")
 	}
 	return input, nil
@@ -625,7 +625,7 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 		log.Errorf("PullCache: %v", err)
 	}
 	err = r.SetEnabledContactTypes(input.EnabledContactTypes)
-	if len(input.Email) != 0 {
+	if len(input.Email) != 0 && input.Email != r.Email {
 		r.VerifiedEmail = tristate.False
 		for _, c := range r.subContactCache {
 			if c.ParentContactType == input.Email {
@@ -633,7 +633,7 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 			}
 		}
 	}
-	if len(input.Mobile) != 0 {
+	if len(input.Mobile) != 0 && input.Mobile != r.Mobile {
 		r.VerifiedMobile = tristate.False
 		for _, c := range r.subContactCache {
 			if c.ParentContactType == input.Mobile {
