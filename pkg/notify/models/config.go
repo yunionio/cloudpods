@@ -19,6 +19,7 @@ import (
 	"database/sql"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -98,6 +99,37 @@ func (cm *SConfigManager) ValidateCreateData(ctx context.Context, userCred mccli
 		input.Name = input.Type
 	}
 	return input, nil
+}
+
+func (c *SConfig) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ConfigUpdateInput) (api.ConfigUpdateInput, error) {
+	// validate
+	configs := make(map[string]string)
+	err := input.Content.Unmarshal(&configs)
+	if err != nil {
+		return input, err
+	}
+	isValid, message, err := NotifyService.ValidateConfig(ctx, c.Type, configs)
+	if err != nil {
+		if errors.Cause(err) == errors.ErrNotImplemented {
+			return input, httperrors.NewNotImplementedError("validating config of %s", c.Type)
+		}
+		return input, err
+	}
+	if !isValid {
+		return input, httperrors.NewInputParameterError(message)
+	}
+	return input, nil
+}
+
+func (c *SConfig) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	c.SStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
+	configMap := make(map[string]string)
+	err := c.Content.Unmarshal(&configMap)
+	if err != nil {
+		log.Errorf("unable to unmarshal: %v", err)
+		return
+	}
+	NotifyService.RestartService(ctx, configMap, c.Type)
 }
 
 func (self *SConfigManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.ConfigListInput) (*sqlchemy.SQuery, error) {
