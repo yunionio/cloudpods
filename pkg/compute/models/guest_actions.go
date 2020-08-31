@@ -89,7 +89,7 @@ func (self *SGuest) PreCheckPerformAction(
 ) error {
 	if self.Hypervisor == api.HYPERVISOR_KVM {
 		host := self.GetHost()
-		if (host.HostStatus == api.HOST_OFFLINE || !host.Enabled.Bool()) &&
+		if host != nil && (host.HostStatus == api.HOST_OFFLINE || !host.Enabled.Bool()) &&
 			utils.IsInStringArray(action,
 				[]string{
 					"start", "restart", "stop", "reset", "rebuild-root",
