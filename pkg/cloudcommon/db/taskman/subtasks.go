@@ -46,7 +46,7 @@ type SSubTask struct {
 	Stage     string `width:"64" charset:"ascii" nullable:"false" primary:"true"` // Column(VARCHAR(64, charset='ascii'), nullable=False, primary_key=True)
 	SubtaskId string `width:"36" charset:"ascii" nullable:"false" primary:"true"` // Column(VARCHAR(36, charset='ascii'), nullable=False, primary_key=True)
 	Status    string `width:"36" charset:"ascii" nullable:"false" default:"init"` // Column(VARCHAR(36, charset='ascii'), nullable=False, default=SUBTASK_INIT)
-	Result    string `length:"medium" charset:"ascii" nullable:"true"`            // Column(MEDIUMTEXT(charset='ascii'), nullable=True)
+	Result    string `length:"medium" charset:"utf8" nullable:"true"`             // Column(MEDIUMTEXT(charset='ascii'), nullable=True)
 }
 
 func (manager *SSubTaskmanager) GetSubTask(ptaskId string, subtaskId string) *SSubTask {
