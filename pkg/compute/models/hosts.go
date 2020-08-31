@@ -1381,6 +1381,17 @@ func (self *SHost) GetGuests() []SGuest {
 	return guests
 }
 
+func (self *SHost) GetKvmGuests() []SGuest {
+	q := GuestManager.Query().Equals("host_id", self.Id).Equals("hypervisor", api.HYPERVISOR_KVM)
+	guests := make([]SGuest, 0)
+	err := db.FetchModelObjects(GuestManager, q, &guests)
+	if err != nil {
+		log.Errorf("GetGuests %s", err)
+		return nil
+	}
+	return guests
+}
+
 func (self *SHost) GetGuestCount() (int, error) {
 	q := self.GetGuestsQuery()
 	return q.CountWithError()
@@ -4809,7 +4820,7 @@ func (host *SHost) PerformHostMaintenance(ctx context.Context, userCred mcclient
 		preferHostId = host.Id
 	}
 
-	guests := host.GetGuests()
+	guests := host.GetKvmGuests()
 	for i := 0; i < len(guests); i++ {
 		lockman.LockObject(ctx, &guests[i])
 		defer lockman.ReleaseObject(ctx, &guests[i])
