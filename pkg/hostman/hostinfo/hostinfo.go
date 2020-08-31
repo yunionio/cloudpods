@@ -1229,6 +1229,9 @@ func (h *SHostInfo) onGetStorageInfoSucc(hoststorages []jsonutils.JSONObject) {
 
 func (h *SHostInfo) uploadStorageInfo() {
 	for _, s := range storageman.GetManager().Storages {
+		if err := s.SetStorageInfo(s.GetId(), s.GetStorageName(), s.GetStorageConf()); err != nil {
+			h.onFail(err)
+		}
 		res, err := s.SyncStorageInfo()
 		if err != nil {
 			h.onFail(err)
