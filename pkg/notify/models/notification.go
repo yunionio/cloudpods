@@ -231,7 +231,8 @@ func (nm *SNotificationManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient
 	switch scope {
 	case rbacutils.ScopeDomain:
 		subRq := ReceiverManager.Query("id").Equals("domain_id", owner.GetDomainId()).SubQuery()
-		subRNq := ReceiverNotificationManager.Query("notification_id").Join(subRq, sqlchemy.Equals(q.Field("receiver_id"), subRq.Field("id"))).SubQuery()
+		RNq := ReceiverNotificationManager.Query("notification_id", "receiver_id")
+		subRNq := RNq.Join(subRq, sqlchemy.Equals(RNq.Field("receiver_id"), subRq.Field("id"))).SubQuery()
 		q = q.Join(subRNq, sqlchemy.Equals(q.Field("id"), subRNq.Field("notification_id")))
 	case rbacutils.ScopeProject, rbacutils.ScopeUser:
 		subq := ReceiverNotificationManager.Query("notification_id").Equals("receiver_id", owner.GetUserId()).SubQuery()
