@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -36,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/informer"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/notify/oldmodels"
+	"yunion.io/x/onecloud/pkg/notify/options"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -735,6 +737,9 @@ func (r *SReceiver) PerformVerify(ctx context.Context, userCred mcclient.TokenCr
 	verification, err := VerificationManager.Get(r.Id, input.ContactType)
 	if err != nil {
 		return nil, err
+	}
+	if verification.CreatedAt.Add(time.Duration(options.Options.VerifyValidInterval) * time.Minute).Before(time.Now()) {
+		return nil, httperrors.NewForbiddenError("The validation expires, please retrieve the verification code again")
 	}
 	if verification.Token != input.Token {
 		return nil, httperrors.NewInputParameterError("wrong token")
