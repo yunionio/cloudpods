@@ -32,6 +32,7 @@ type NotifyOption struct {
 	MaxSyncNotification   int `help:"The max number of notification sync from old data source" default:"1000"`
 
 	VerifyExpireInterval int `help:"expire interval of verify message; minutes" default:"5"`
+	VerifyValidInterval  int `help:"valid interval of verify message; miniutes" default:"20"`
 }
 
 var Options NotifyOption
