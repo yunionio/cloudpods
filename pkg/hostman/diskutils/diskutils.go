@@ -347,6 +347,9 @@ func (d *SKVMGuestDisk) UmountKvmRootfs(fd fsdriver.IRootFsDriver) {
 }
 
 func (d *SKVMGuestDisk) UmountRootfs(fd fsdriver.IRootFsDriver) {
+	if fd == nil {
+		return
+	}
 	d.UmountKvmRootfs(fd)
 }
 
