@@ -24,9 +24,11 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SVMTemplate struct {
+	multicloud.SImageBase
 	cache *SDatastoreImageCache
 	vm    *SVirtualMachine
 	uuid  string
@@ -65,7 +67,7 @@ func (t *SVMTemplate) GetStatus() string {
 		host := ihost.(*SHost)
 		_, err := host.GetTemplateVMById(t.uuid)
 		if err == nil {
-			return api.CACHED_IMAGE_STATUS_READY
+			return api.CACHED_IMAGE_STATUS_ACTIVE
 		}
 		if errors.Cause(err) != cloudprovider.ErrNotFound {
 			log.Errorf("fail to find templatevm %q: %v", t.uuid, err)
@@ -123,7 +125,7 @@ func (t *SVMTemplate) GetImageType() string {
 
 func (t *SVMTemplate) GetImageStatus() string {
 	status := t.GetStatus()
-	if status == api.CACHED_IMAGE_STATUS_READY {
+	if status == api.CACHED_IMAGE_STATUS_ACTIVE {
 		return cloudprovider.IMAGE_STATUS_ACTIVE
 	}
 	return cloudprovider.IMAGE_STATUS_DELETED

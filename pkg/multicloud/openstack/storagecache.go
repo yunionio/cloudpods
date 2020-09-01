@@ -158,7 +158,7 @@ func (cache *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.T
 
 	img.storageCache = cache
 
-	return img.Id, cloudprovider.WaitStatus(img, api.CACHED_IMAGE_STATUS_READY, 15*time.Second, 3600*time.Second)
+	return img.Id, cloudprovider.WaitStatus(img, api.CACHED_IMAGE_STATUS_ACTIVE, 15*time.Second, 3600*time.Second)
 }
 
 func (cache *SStoragecache) CreateIImage(snapshoutId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {

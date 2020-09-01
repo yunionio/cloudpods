@@ -223,7 +223,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	if err != nil {
 		return "", err
 	}
-	err = cloudprovider.WaitStatus(img, api.CACHED_IMAGE_STATUS_READY, 15*time.Second, 3600*time.Second)
+	err = cloudprovider.WaitStatus(img, api.CACHED_IMAGE_STATUS_ACTIVE, 15*time.Second, 3600*time.Second)
 	if err != nil {
 		return "", err
 	}

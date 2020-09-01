@@ -27,7 +27,7 @@ type CachedImageUncacheImageInput struct {
 }
 
 type CachedimageDetails struct {
-	apis.StandaloneResourceDetails
+	apis.SharableVirtualResourceDetails
 
 	SCachedimage
 
