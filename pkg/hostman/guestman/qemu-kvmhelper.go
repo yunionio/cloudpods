@@ -183,6 +183,7 @@ func (s *SKVMGuestInstance) GetDiskDeviceModel(driver string) string {
 func (s *SKVMGuestInstance) getVdiskDesc(disk jsonutils.JSONObject) string {
 	diskIndex, _ := disk.Int("index")
 	diskDriver, _ := disk.GetString("driver")
+	isSsd := jsonutils.QueryBoolean(disk, "is_ssd", false)
 
 	var cmd = ""
 	cmd += fmt.Sprintf(" -device %s", s.GetDiskDeviceModel(diskDriver))
@@ -197,6 +198,9 @@ func (s *SKVMGuestInstance) getVdiskDesc(disk jsonutils.JSONObject) string {
 		cmd += fmt.Sprintf(",bus=ide.%d", diskIndex)
 	}
 	cmd += fmt.Sprintf(",id=drive_%d", diskIndex)
+	if isSsd {
+		cmd += ",rotation_rate=1"
+	}
 	return cmd
 }
 

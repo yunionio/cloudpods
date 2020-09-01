@@ -149,6 +149,7 @@ func init() {
 		AutoDelete   string `help:"enable/disable auto delete of disk" choices:"enable|disable"`
 		AutoSnapshot string `help:"enable/disable auto snapshot of disk" choices:"enable|disable"`
 		DiskType     string `help:"Disk type" choices:"data|volume"`
+		IsSsd        *bool  `help:"mark disk as ssd" negative:"no-is-ssd"`
 	}
 	R(&DiskUpdateOptions{}, "disk-update", "Update property of a virtual disk", func(s *mcclient.ClientSession, args *DiskUpdateOptions) error {
 		params := jsonutils.NewDict()
@@ -174,6 +175,13 @@ func init() {
 		}
 		if len(args.DiskType) > 0 {
 			params.Add(jsonutils.NewString(args.DiskType), "disk_type")
+		}
+		if args.IsSsd != nil {
+			if *args.IsSsd {
+				params.Add(jsonutils.JSONTrue, "is_ssd")
+			} else {
+				params.Add(jsonutils.JSONFalse, "is_ssd")
+			}
 		}
 		if params.Size() == 0 {
 			return InvalidUpdateError()
