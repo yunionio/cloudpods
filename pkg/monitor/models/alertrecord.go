@@ -92,6 +92,9 @@ func (manager *SAlertRecordManager) ListItemFilter(
 	if len(query.State) != 0 {
 		q = q.Equals("state", query.State)
 	}
+	if len(query.AlertId) != 0 {
+		q = q.Equals("alert_id", query.AlertId)
+	}
 	return q, nil
 }
 
