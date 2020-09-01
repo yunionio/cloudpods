@@ -674,7 +674,7 @@ func (self *SHost) RealDelete(ctx context.Context, userCred mcclient.TokenCreden
 		if storage != nil && storage.IsLocal() {
 			cnt, err := storage.GetDiskCount()
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "GetDiskCount")
 			}
 			if cnt > 0 {
 				return httperrors.NewNotEmptyError("Inconsistent: local storage is not empty???")
