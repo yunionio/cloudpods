@@ -81,17 +81,25 @@ func (self *SDatastoreImageCache) GetIImages() ([]cloudprovider.ICloudImage, err
 	ret := make([]cloudprovider.ICloudImage, 0, 2)
 
 	// get vm template with only one disk
-	tems, err := self.host.GetTemplateVMs()
+	ihosts, err := self.datastore.GetAttachedHosts()
 	if err != nil {
-		log.Errorf("fail to get templateVMs of host '%s' in SDatastoreImageCache.GetIImages", self.host.GetName())
-		return ret, nil
+		return nil, errors.Wrap(err, "SDatastore.GetAttachedHosts")
 	}
-	for _, tem := range tems {
-		// for now, add vm template with only one disk as cachedimage
-		if len(tem.vdisks) != 1 {
-			continue
+
+	for _, ihost := range ihosts {
+		host := ihost.(*SHost)
+		tems, err := host.GetTemplateVMs()
+		if err != nil {
+			log.Errorf("fail to get templateVMs of host '%s' in SDatastoreImageCache.GetIImages", self.host.GetName())
+			return ret, nil
 		}
-		ret = append(ret, NewVMTemplate(tem, self))
+		for _, tem := range tems {
+			// for now, add vm template with only one disk as cachedimage
+			if len(tem.vdisks) != 1 {
+				continue
+			}
+			ret = append(ret, NewVMTemplate(tem, self))
+		}
 	}
 
 	files, err := self.datastore.ListDir(ctx, IMAGE_CACHE_DIR_NAME)

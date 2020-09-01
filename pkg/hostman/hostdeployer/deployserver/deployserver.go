@@ -74,11 +74,11 @@ func (*DeployerServer) DeployGuestFs(ctx context.Context, req *deployapi.DeployP
 		return new(deployapi.DeployGuestFsResponse), nil
 	}
 	root := disk.MountRootfs()
+	defer disk.UmountRootfs(root)
 	if root == nil {
 		log.Infof("Failed mounting rootfs for %s disk", req.GuestDesc.Hypervisor)
 		return new(deployapi.DeployGuestFsResponse), nil
 	}
-	defer disk.UmountRootfs(root)
 
 	ret, err := guestfs.DoDeployGuestFs(root, req.GuestDesc, req.DeployInfo)
 	if err != nil {
