@@ -763,6 +763,7 @@ func getUserInfo(ctx context.Context, req *http.Request) (*jsonutils.JSONDict, e
 		"last_login_source",
 		"password_expires_at", "failed_auth_count", "failed_auth_at",
 		"idps",
+		"is_local",
 	} {
 		v, e := usr.Get(k)
 		if e == nil {
