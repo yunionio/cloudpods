@@ -645,7 +645,7 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 	if len(input.Email) != 0 && input.Email != r.Email {
 		r.VerifiedEmail = tristate.False
 		for _, c := range r.subContactCache {
-			if c.ParentContactType == input.Email {
+			if c.ParentContactType == api.EMAIL {
 				c.Verified = tristate.False
 			}
 		}
@@ -653,7 +653,7 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 	if len(input.Mobile) != 0 && input.Mobile != r.Mobile {
 		r.VerifiedMobile = tristate.False
 		for _, c := range r.subContactCache {
-			if c.ParentContactType == input.Mobile {
+			if c.ParentContactType == api.MOBILE {
 				c.Verified = tristate.False
 			}
 		}
