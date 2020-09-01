@@ -26,9 +26,11 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SImage struct {
+	multicloud.SImageBase
 	cache    *SDatastoreImageCache
 	filename string
 	size     int64
@@ -74,12 +76,12 @@ func (self *SImage) GetStatus() string {
 	if err != nil {
 		return api.CACHED_IMAGE_STATUS_CACHE_FAILED
 	}
-	return api.CACHED_IMAGE_STATUS_READY
+	return api.CACHED_IMAGE_STATUS_ACTIVE
 }
 
 func (self *SImage) GetImageStatus() string {
 	status := self.GetStatus()
-	if status == api.CACHED_IMAGE_STATUS_READY {
+	if status == api.CACHED_IMAGE_STATUS_ACTIVE {
 		return cloudprovider.IMAGE_STATUS_ACTIVE
 	}
 	return cloudprovider.IMAGE_STATUS_DELETED

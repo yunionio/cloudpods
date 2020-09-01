@@ -23,10 +23,12 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/imagetools"
 )
 
 type SImage struct {
+	multicloud.SImageBase
 	storageCache *SStoragecache
 
 	Zone             string `json:"Zone"`
@@ -65,7 +67,7 @@ func (self *SImage) GetGlobalId() string {
 func (self *SImage) GetStatus() string {
 	switch self.State {
 	case "Available":
-		return api.CACHED_IMAGE_STATUS_READY
+		return api.CACHED_IMAGE_STATUS_ACTIVE
 	case "Making":
 		return api.CACHED_IMAGE_STATUS_CACHING
 	case "Unavailable":

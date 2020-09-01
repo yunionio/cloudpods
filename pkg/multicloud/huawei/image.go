@@ -26,6 +26,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/imagetools"
 )
 
@@ -50,6 +51,7 @@ const (
 
 // https://support.huaweicloud.com/api-ims/zh-cn_topic_0020091565.html
 type SImage struct {
+	multicloud.SImageBase
 	storageCache *SStoragecache
 
 	Schema                 string    `json:"schema"`
@@ -112,7 +114,7 @@ func (self *SImage) GetStatus() string {
 	case ImageStatusQueued:
 		return api.CACHED_IMAGE_STATUS_CACHING
 	case ImageStatusActive:
-		return api.CACHED_IMAGE_STATUS_READY
+		return api.CACHED_IMAGE_STATUS_ACTIVE
 	case ImageStatusKilled:
 		return api.CACHED_IMAGE_STATUS_CACHE_FAILED
 	default:

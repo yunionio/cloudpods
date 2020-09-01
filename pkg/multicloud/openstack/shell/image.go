@@ -43,11 +43,11 @@ func init() {
 	}
 
 	shellutils.R(&ImageOptions{}, "image-show", "Show image", func(cli *openstack.SRegion, args *ImageOptions) error {
-		image, err := cli.GetImages("", "", args.ID)
+		image, err := cli.GetImage(args.ID)
 		if err != nil {
 			return err
 		}
-		printObject(image[0])
+		printObject(image)
 		return nil
 	})
 
