@@ -30,10 +30,21 @@ import (
 type ctxLang uintptr
 
 const ctxLangKey = ctxLang(0)
+const LangHeader = "X-Yunion-Lang"
+
+func SetLangHeader(ctx context.Context, header http.Header) bool {
+	langv := ctx.Value(ctxLangKey)
+	langTag, ok := langv.(language.Tag)
+	if ok {
+		header.Set(LangHeader, langTag.String())
+	}
+	return ok
+}
 
 func WithLangTag(ctx context.Context, tag language.Tag) context.Context {
 	return context.WithValue(ctx, ctxLangKey, tag)
 }
+
 func WithLang(ctx context.Context, lang string) context.Context {
 	tag, err := language.Parse(lang)
 	if err != nil {
@@ -43,11 +54,14 @@ func WithLang(ctx context.Context, lang string) context.Context {
 }
 
 func WithRequestLang(ctx context.Context, req *http.Request) context.Context {
-	if cookie, err := req.Cookie("lang"); err == nil {
-		return WithLang(ctx, cookie.Value)
-	}
 	if val := req.URL.Query().Get("lang"); val != "" {
 		return WithLang(ctx, val)
+	}
+	if val := req.Header.Get(LangHeader); val != "" {
+		return WithLang(ctx, val)
+	}
+	if cookie, err := req.Cookie("lang"); err == nil {
+		return WithLang(ctx, cookie.Value)
 	}
 	return WithLangTag(ctx, language.English)
 }
