@@ -266,7 +266,7 @@ func (self *SDataSourceManager) GetMeasurementsWithDescriptionInfos(query jsonut
 		return jsonutils.JSONNull, errors.Wrap(err, "s.GetDefaultSource")
 	}
 	db := influxdb.NewInfluxdb(dataSource.Url)
-	filterMeasurements, err := self.filterMeasurementsByTime(*db, measurements, query)
+	filterMeasurements, err := self.filterMeasurementsByTime(*db, measurements, query, tagFilter)
 	if err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "filterMeasurementsByTime error")
 	}
@@ -390,13 +390,13 @@ type influxdbQueryChan struct {
 }
 
 func (self *SDataSourceManager) filterMeasurementsByTime(db influxdb.SInfluxdb,
-	measurements []monitor.InfluxMeasurement, query jsonutils.JSONObject) ([]monitor.InfluxMeasurement,
+	measurements []monitor.InfluxMeasurement, query jsonutils.JSONObject, tagFilter string) ([]monitor.InfluxMeasurement,
 	error) {
 	timeF, err := self.getFromAndToFromParam(query)
 	if err != nil {
 		return nil, err
 	}
-	filterMeasurements, err := self.getFilterMeasurementsAsyn(timeF.From, timeF.To, measurements, db)
+	filterMeasurements, err := self.getFilterMeasurementsAsyn(timeF.From, timeF.To, measurements, db, tagFilter)
 	if err != nil {
 		return nil, err
 	}
@@ -432,7 +432,7 @@ func (self *SDataSourceManager) getFromAndToFromParam(query jsonutils.JSONObject
 }
 
 func (self *SDataSourceManager) getFilterMeasurementsAsyn(from, to string,
-	measurements []monitor.InfluxMeasurement, db influxdb.SInfluxdb) ([]monitor.InfluxMeasurement, error) {
+	measurements []monitor.InfluxMeasurement, db influxdb.SInfluxdb, tagFilter string) ([]monitor.InfluxMeasurement, error) {
 	log.Errorln("start asynchronous task")
 	filterMeasurements := make([]monitor.InfluxMeasurement, 0)
 	queryChan := new(influxdbQueryChan)
@@ -445,7 +445,7 @@ func (self *SDataSourceManager) getFilterMeasurementsAsyn(from, to string,
 	for i, _ := range measurements {
 		tmp := measurements[i]
 		measurementQueryGroup.Go(func() error {
-			return self.getFilterMeasurement(queryChan, from, to, tmp, db)
+			return self.getFilterMeasurement(queryChan, from, to, tmp, db, tagFilter)
 		})
 	}
 	measurementQueryGroup.Go(func() error {
@@ -466,11 +466,15 @@ func (self *SDataSourceManager) getFilterMeasurementsAsyn(from, to string,
 }
 
 func (self *SDataSourceManager) getFilterMeasurement(queryChan *influxdbQueryChan, from, to string,
-	measurement monitor.InfluxMeasurement, db influxdb.SInfluxdb) error {
+	measurement monitor.InfluxMeasurement, db influxdb.SInfluxdb, tagFilter string) error {
 	rtnMeasurement := new(monitor.InfluxMeasurement)
 	var buffer bytes.Buffer
-	buffer.WriteString(fmt.Sprintf(fmt.Sprintf(`SELECT last(*) FROM %s WHERE %s `, measurement.Measurement,
-		self.renderTimeFilter(from, to))))
+	buffer.WriteString(fmt.Sprintf(`SELECT last(*) FROM %s WHERE %s`, measurement.Measurement,
+		self.renderTimeFilter(from, to)))
+	if len(tagFilter) != 0 {
+		buffer.WriteString(" AND ")
+		buffer.WriteString(fmt.Sprintf(" %s", tagFilter))
+	}
 	log.Errorln(buffer.String())
 	(&db).SetDatabase(measurement.Database)
 	rtn, err := db.Query(buffer.String())
@@ -489,6 +493,9 @@ func (self *SDataSourceManager) getFilterMeasurement(queryChan *influxdbQueryCha
 					}
 					containsVal := false
 					for _, value := range rtn[rtnIndex][serieIndex].Values {
+						if value[i] == nil {
+							continue
+						}
 						floatVal, err := value[i].Float()
 						if err != nil {
 							continue
@@ -529,7 +536,7 @@ func (self *SDataSourceManager) renderTimeFilter(from, to string) string {
 
 }
 
-func (self *SDataSourceManager) GetMetricMeasurement(query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SDataSourceManager) GetMetricMeasurement(query jsonutils.JSONObject, tagFilter string) (jsonutils.JSONObject, error) {
 	database, _ := query.GetString("database")
 	if database == "" {
 		return jsonutils.JSONNull, httperrors.NewInputParameterError("not find database")
@@ -582,7 +589,7 @@ func (self *SDataSourceManager) GetMetricMeasurement(query jsonutils.JSONObject)
 	tagValGroup, _ := errgroup.WithContext(ctx)
 	defer cancel()
 	tagValGroup.Go(func() error {
-		return self.filterTagValue(*output, timeF, db, &tagValChan)
+		return self.filterTagValue(*output, timeF, db, &tagValChan, tagFilter)
 	})
 	tagValGroup.Go(func() error {
 		for i := 0; i < tagValChan.count; i++ {
@@ -606,7 +613,7 @@ func (self *SDataSourceManager) GetMetricMeasurement(query jsonutils.JSONObject)
 }
 
 func (self *SDataSourceManager) filterTagValue(measurement monitor.InfluxMeasurement, timeF timeFilter,
-	db *influxdb.SInfluxdb, tagValChan *influxdbTagValueChan) error {
+	db *influxdb.SInfluxdb, tagValChan *influxdbTagValueChan, tagFilter string) error {
 	ctx, _ := context.WithTimeout(context.Background(), time.Second*5)
 	tagValGroup2, _ := errgroup.WithContext(ctx)
 	tagValChan2 := influxdbTagValueChan{
@@ -617,8 +624,7 @@ func (self *SDataSourceManager) filterTagValue(measurement monitor.InfluxMeasure
 		tmpkey := measurement.TagKey[i]
 		tagValGroup2.Go(func() error {
 			return self.getFilterMeasurementTagValue(&tagValChan2, timeF.From, timeF.To, measurement.FieldKey[0],
-				tmpkey,
-				measurement, db)
+				tmpkey, measurement, db, tagFilter)
 		})
 	}
 	tagValGroup2.Go(func() error {
@@ -812,11 +818,14 @@ type influxdbTagValueChan struct {
 
 func (self *SDataSourceManager) getFilterMeasurementTagValue(tagValueChan *influxdbTagValueChan, from string,
 	to string, field string, tagKey string,
-	measurement monitor.InfluxMeasurement, db *influxdb.SInfluxdb) error {
+	measurement monitor.InfluxMeasurement, db *influxdb.SInfluxdb, tagFilter string) error {
 	var buffer bytes.Buffer
-	buffer.WriteString(fmt.Sprintf(fmt.Sprintf(`SELECT last("%s") FROM "%s" WHERE %s  GROUP BY %q`,
-		field, measurement.Measurement,
-		self.renderTimeFilter(from, to), tagKey)))
+	buffer.WriteString(fmt.Sprintf(`SELECT last("%s") FROM "%s" WHERE %s `, field, measurement.Measurement,
+		self.renderTimeFilter(from, to)))
+	if len(tagFilter) != 0 {
+		buffer.WriteString(fmt.Sprintf(` AND %s `, tagFilter))
+	}
+	buffer.WriteString(fmt.Sprintf(` GROUP BY %q`, tagKey))
 	rtn, err := db.Query(buffer.String())
 	log.Errorf("sql:", buffer.String())
 	if err != nil {

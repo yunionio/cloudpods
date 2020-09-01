@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -118,6 +119,18 @@ func (manager *SMetricFieldManager) ListItemFilter(
 	return q, nil
 }
 
+func (man *SMetricFieldManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []monitor.MetricFieldDetail {
+	rows := make([]monitor.MetricFieldDetail, len(objs))
+	return rows
+}
+
 func (man *SMetricFieldManager) OrderByExtraFields(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
@@ -144,4 +157,39 @@ func (manager *SMetricFieldManager) SaveMetricField(ctx context.Context, userCre
 		return nil, errors.Wrapf(err, "SaveMetricField error input: %s", fieldInput.JSON(&fieldInput))
 	}
 	return obj.(*SMetricField), nil
+}
+
+func (man *SMetricFieldManager) GetField(id string) (*SMetricField, error) {
+	obj, err := man.FetchById(id)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return obj.(*SMetricField), nil
+}
+
+func (self *SMetricField) CustomizeDelete(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	metricJoint, err := self.getMetricJoint()
+	if err != nil {
+		return err
+	}
+	for _, joint := range metricJoint {
+		if err := joint.Detach(ctx, userCred); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (self *SMetricField) getMetricJoint() ([]SMetric, error) {
+	metricJoint := make([]SMetric, 0)
+	q := MetricManager.Query().Equals(MetricManager.GetSlaveFieldName(), self.Id)
+	if err := db.FetchModelObjects(MetricManager, q, &metricJoint); err != nil {
+		return nil, err
+	}
+	return metricJoint, nil
 }
