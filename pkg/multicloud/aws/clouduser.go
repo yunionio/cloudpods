@@ -174,6 +174,7 @@ func (self *SAwsClient) CreateClouduser(path string, username string) (*SCloudus
 }
 
 func (self *SAwsClient) DeleteClouduser(name string) error {
+	self.DeleteLoginProfile(name)
 	params := map[string]string{
 		"UserName": name,
 	}
