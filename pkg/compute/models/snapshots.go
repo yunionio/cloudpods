@@ -186,6 +186,17 @@ func (manager *SSnapshotManager) ListItemFilter(
 	if len(query.OsType) > 0 {
 		q = q.In("os_type", query.OsType)
 	}
+	if len(query.ServerId) > 0 {
+		iG, err := GuestManager.FetchByIdOrName(userCred, query.ServerId)
+		if err != nil && err == sql.ErrNoRows {
+			return nil, httperrors.NewNotFoundError("guest %s not found", query.ServerId)
+		} else if err != nil {
+			return nil, errors.Wrap(err, "fetch guest")
+		}
+		guest := iG.(*SGuest)
+		gdq := GuestdiskManager.Query("disk_id").Equals("guest_id", guest.Id).SubQuery()
+		q = q.In("disk_id", gdq)
+	}
 
 	return q, nil
 }

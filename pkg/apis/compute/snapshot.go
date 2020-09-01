@@ -88,6 +88,9 @@ type SnapshotListInput struct {
 
 	OutOfChain *bool    `json:"out_of_chain"`
 	OsType     []string `json:"os_type"`
+
+	// list server snapshots
+	ServerId string `json:"server_id"`
 }
 
 type SnapshotDetails struct {
