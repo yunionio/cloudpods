@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/hostman/diskutils/nbd"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
@@ -62,15 +63,10 @@ func (d *SKVMGuestDisk) IsLVMPartition() bool {
 	return len(d.lvms) > 0
 }
 
-func (d *SKVMGuestDisk) ConnectWithoutDetectLvm() bool {
-	return d.connect()
-}
-
-func (d *SKVMGuestDisk) connect() bool {
+func (d *SKVMGuestDisk) connect() error {
 	d.nbdDev = nbd.GetNBDManager().AcquireNbddev()
 	if len(d.nbdDev) == 0 {
-		log.Errorln("Cannot get nbd device")
-		return false
+		return errors.Errorf("Cannot get nbd device")
 	}
 
 	var cmd []string
@@ -80,14 +76,14 @@ func (d *SKVMGuestDisk) connect() bool {
 			err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", "/etc/ceph").Run()
 			if err != nil {
 				log.Errorf("Failed to mkdir /etc/ceph: %s", err)
-				return false
+				return errors.Wrap(err, "Failed to mkdir /etc/ceph: %s")
 			}
 			err = procutils.NewRemoteCommandAsFarAsPossible("test", "-f", "/etc/ceph/ceph.conf").Run()
 			if err != nil {
 				err = procutils.NewRemoteCommandAsFarAsPossible("touch", "/etc/ceph/ceph.conf").Run()
 				if err != nil {
 					log.Errorf("failed to create /etc/ceph/ceph.conf: %s", err)
-					return false
+					return errors.Wrap(err, "failed to create /etc/ceph/ceph.conf")
 				}
 			}
 		}
@@ -95,10 +91,10 @@ func (d *SKVMGuestDisk) connect() bool {
 	} else {
 		cmd = []string{qemutils.GetQemuNbd(), "-c", d.nbdDev, d.imagePath}
 	}
-	_, err := procutils.NewRemoteCommandAsFarAsPossible(cmd[0], cmd[1:]...).Output()
+	output, err := procutils.NewRemoteCommandAsFarAsPossible(cmd[0], cmd[1:]...).Output()
 	if err != nil {
-		log.Errorln(err.Error())
-		return false
+		log.Errorf("qemu-nbd connect failed %s %s", output, err.Error())
+		return errors.Wrapf(err, "qemu-nbd connect failed %s", output)
 	}
 
 	var tried uint = 0
@@ -107,31 +103,37 @@ func (d *SKVMGuestDisk) connect() bool {
 		err = d.findPartitions()
 		if err != nil {
 			log.Errorln(err.Error())
-			return false
+			return err
 		}
 		tried += 1
 	}
-	return true
+	return nil
 }
 
-func (d *SKVMGuestDisk) Connect() bool {
+func (d *SKVMGuestDisk) Connect() error {
 	pathType := d.connectionPrecheck()
 
-	if d.connect() == false {
-		return false
+	if err := d.connect(); err != nil {
+		return errors.Wrap(err, "disk.connect")
 	}
 
 	if pathType == LVM_PATH {
-		d.setupLVMS()
+		if _, err := d.setupLVMS(); err != nil {
+			return err
+		}
 	} else if pathType == PATH_TYPE_UNKNOWN {
 		hasLVM, err := d.setupLVMS()
+		if err != nil {
+			return err
+		}
+
 		// no lvm partition found and has partitions
-		if !hasLVM && err == nil && len(d.partitions) > 0 {
+		if !hasLVM && len(d.partitions) > 0 {
 			d.cacheNonLVMImagePath()
 		}
 	}
 
-	return true
+	return nil
 }
 
 func (d *SKVMGuestDisk) getImageFormat() string {
@@ -156,7 +158,7 @@ func (d *SKVMGuestDisk) findPartitions() error {
 	devpath := filepath.Dir(d.nbdDev)
 	files, err := ioutil.ReadDir(devpath)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "read dir %s", devpath)
 	}
 	for i := 0; i < len(files); i++ {
 		if files[i].Name() != dev && strings.HasPrefix(files[i].Name(), dev+"p") {
@@ -264,30 +266,26 @@ func (d *SKVMGuestDisk) PutdownLVMs() {
 	d.lvms = []*SKVMGuestLVMPartition{}
 }
 
-func (d *SKVMGuestDisk) DisconnectWithoutLvm() bool {
-	return d.disconnect()
-}
-
-func (d *SKVMGuestDisk) Disconnect() bool {
+func (d *SKVMGuestDisk) Disconnect() error {
 	if len(d.nbdDev) > 0 {
 		defer d.LvmDisconnectNotify()
 		d.PutdownLVMs()
 		return d.disconnect()
 	} else {
-		return false
+		return nil
 	}
 }
 
-func (d *SKVMGuestDisk) disconnect() bool {
-	_, err := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuNbd(), "-d", d.nbdDev).Output()
+func (d *SKVMGuestDisk) disconnect() error {
+	output, err := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuNbd(), "-d", d.nbdDev).Output()
 	if err != nil {
 		log.Errorln(err.Error())
-		return false
+		return errors.Wrapf(err, "qemu-nbd disconnect %s", output)
 	}
 	nbd.GetNBDManager().ReleaseNbddev(d.nbdDev)
 	d.nbdDev = ""
 	d.partitions = d.partitions[len(d.partitions):]
-	return true
+	return nil
 
 }
 
