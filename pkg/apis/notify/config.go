@@ -68,3 +68,14 @@ type ConfigValidateOutput struct {
 	IsValid bool   `json:"is_valid"`
 	Message string `json:"message"`
 }
+
+type ConfigManagerGetTypesInput struct {
+	// description: Filter about robot
+	// enum: no,yes,only
+	// example: yes
+	Robot string `json:"robot"`
+}
+
+type ConfigManagerGetTypesOutput struct {
+	Types []string `json:"types"`
+}
