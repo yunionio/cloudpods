@@ -3636,7 +3636,7 @@ func (self *SGuest) DeleteAllDisksInDB(ctx context.Context, userCred mcclient.To
 		disk := guestdisk.GetDisk()
 		err := guestdisk.Detach(ctx, userCred)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "guestdisk.Detach guest_id: %s disk_id: %s", guestdisk.GuestId, guestdisk.DiskId)
 		}
 
 		if disk != nil {

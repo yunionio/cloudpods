@@ -82,14 +82,14 @@ func (host *SHost) purge(ctx context.Context, userCred mcclient.TokenCredential)
 
 	_, err := host.PerformDisable(ctx, userCred, nil, apis.PerformDisableInput{})
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "PerformDisable")
 	}
 
 	guests := host.GetGuests()
 	for i := range guests {
 		err := guests[i].purge(ctx, userCred)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "purge guest %s", guests[i].Id)
 		}
 	}
 
@@ -98,7 +98,7 @@ func (host *SHost) purge(ctx context.Context, userCred mcclient.TokenCredential)
 	for i := range storages {
 		err := storages[i].purgeDisks(ctx, userCred)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "purgeDisks for storage %s", storages[i].Name)
 		}
 	}
 
@@ -139,7 +139,7 @@ func (storage *SStorage) purgeDisks(ctx context.Context, userCred mcclient.Token
 	for i := range disks {
 		err := disks[i].purge(ctx, userCred)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "purge disk %s", disks[i].Id)
 		}
 	}
 	return nil
