@@ -239,6 +239,7 @@ func (agent *SBaseAgent) createOrUpdateBaremetalAgent(session *mcclient.ClientSe
 	if agent.IAgent().GetAgentType() != string(api.AgentTypeEsxi) {
 		params.Add(jsonutils.NewString(naccessIP.String()), "access_ip")
 	}
+	params.Add(jsonutils.NewString(agent.IAgent().GetZoneName()), "zone_id")
 	params.Add(jsonutils.NewString(agent.IAgent().GetAgentType()), "agent_type")
 	ret, err := modules.Baremetalagents.List(session, params)
 	if err != nil {

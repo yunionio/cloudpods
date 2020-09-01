@@ -154,13 +154,6 @@ func (vd *VDDKDisk) MountRootfs() fsdriver.IRootFsDriver {
 	if err != nil {
 		log.Errorf("VDDKDisk Mount failed: %s", err)
 	}
-	// something is wrong
-	if vd.Proc != nil {
-		err := vd.Proc.Kill()
-		if err != nil {
-			log.Errorf("unable to kill proc: %s", err.Error())
-		}
-	}
 	return nil
 }
 
@@ -275,6 +268,7 @@ func (vd *VDDKDisk) ExecProg() error {
 	}
 	cmd := NewCommand(execpath(), "-info", "-host", vd.Host, "-port", strconv.Itoa(vd.Port), "-user", vd.User,
 		"-password", vd.Passwd, "-mode", "nbd", "-thumb", thumb, "-vm", fmt.Sprintf("moref=%s", vd.VmRef), vd.DiskPath)
+	log.Debugf("command to mount: %s", cmd)
 	env := os.Environ()
 	env = append(env, fmt.Sprintf("LD_LIBRARY_PATH=%s", libdir()))
 	cmd.Env = env
@@ -321,7 +315,7 @@ func (vd *VDDKDisk) getServerCertThumbSha1(addr string) (string, error) {
 
 func (vd *VDDKDisk) WaitMounted() error {
 	endStr := []byte("Do you want to procede to unmount the volume")
-	timeout := 30 * time.Second
+	timeout := 300 * time.Second
 	endClock := time.After(timeout)
 	isEnd := false
 
@@ -349,13 +343,16 @@ Loop:
 	}
 	if vd.Proc.Exited() {
 		retCode := vd.Proc.ProcessState.ExitCode()
-		// ignore the error
-		vd.Proc.Kill()
-		vd.Proc = nil
+		err := vd.Proc.Kill()
+		if err != nil {
+			log.Errorf("unable to kill process '%d'", vd.Proc.Process.Pid)
+		}
 		return errors.Error(fmt.Sprintf("VDDKDisk prog exit error(%d): %s", retCode, backup))
 	} else if !isEnd {
-		// timeout
-		vd.Proc.Kill()
+		err := vd.Proc.Kill()
+		if err != nil {
+			log.Errorf("unable to kill process '%d'", vd.Proc.Process.Pid)
+		}
 		return errors.Error(fmt.Sprintf("VDDKDisk read timeout, program blocked"))
 	}
 	return nil
