@@ -137,11 +137,14 @@ func (man *SAlertRecordManager) FetchCustomizeColumns(
 
 func (record *SAlertRecord) GetMoreDetails(out monitor.AlertRecordDetails) (monitor.AlertRecordDetails, error) {
 	evalMatchs := make([]monitor.EvalMatch, 0)
-	err := record.EvalData.Unmarshal(evalMatchs)
-	if err != nil {
-		return out, errors.Wrap(err, "record Unmarshal evalMatchs error")
+	if record.EvalData != nil {
+		err := record.EvalData.Unmarshal(&evalMatchs)
+		if err != nil {
+			return out, errors.Wrap(err, "record Unmarshal evalMatchs error")
+		}
+		out.ResNum = int64(len(evalMatchs))
 	}
-	out.ResNum = int64(len(evalMatchs))
+
 	return out, nil
 }
 
