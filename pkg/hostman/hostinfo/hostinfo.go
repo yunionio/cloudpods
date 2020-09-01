@@ -757,6 +757,7 @@ func (h *SHostInfo) tryCreateNetworkOnWire() {
 	params.Set("mask", jsonutils.NewInt(int64(mask)))
 	params.Set("is_on_premise", jsonutils.JSONTrue)
 	params.Set("server_type", jsonutils.NewString(api.NETWORK_TYPE_BAREMETAL))
+	params.Set("is_on_premise", jsonutils.JSONTrue)
 	ret, err := modules.Networks.PerformClassAction(
 		hostutils.GetComputeSession(context.Background()),
 		"try-create-network", params)
