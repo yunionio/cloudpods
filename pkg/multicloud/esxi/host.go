@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -335,6 +336,24 @@ func (self *SHost) getNicInfo(debug bool) []SHostNicInfo {
 	return self.nicInfo
 }
 
+func mask2len(mask string) int8 {
+	maskAddr, _ := netutils.NewIPV4Addr(mask)
+	return netutils.Mask2Len(maskAddr)
+}
+
+func isVnicAdmin(nic types.HostVirtualNic, defRouteDev string, defGateway string) bool {
+	if nic.Spec.Portgroup == "Management Network" || nic.Spec.Portgroup == "Service Console" || nic.Device == defRouteDev {
+		return true
+	}
+	if nic.Spec.IpRouteSpec != nil {
+		hostRouteConf := nic.Spec.IpRouteSpec.IpRouteConfig.GetHostIpRouteConfig()
+		if hostRouteConf != nil && len(hostRouteConf.DefaultGateway) > 0 && hostRouteConf.DefaultGateway == defGateway {
+			return true
+		}
+	}
+	return false
+}
+
 func (self *SHost) fetchNicInfo(debug bool) []SHostNicInfo {
 	moHost := self.getHostSystem()
 
@@ -365,22 +384,67 @@ func (self *SHost) fetchNicInfo(debug bool) []SHostNicInfo {
 	if len(moHost.Config.Network.ConsoleVnic) > 0 {
 		vnics = append(vnics, moHost.Config.Network.ConsoleVnic...)
 	}
-	findMaster := false
+	// find default route vnic
+	defRouteDevs := make([]string, 0)
+	for _, r := range moHost.Config.Network.RouteTableInfo.IpRoute {
+		if r.Network == "0.0.0.0" && r.PrefixLength == 0 && !utils.IsInStringArray(r.DeviceName, defRouteDevs) {
+			// default route
+			defRouteDevs = append(defRouteDevs, r.DeviceName)
+		}
+	}
+	var defRouteDev string
+	if len(defRouteDevs) > 0 {
+		defRouteDev = defRouteDevs[0]
+	}
+	var defGateway string
+	if moHost.Config.Network.IpRouteConfig.GetHostIpRouteConfig() != nil {
+		defGateway = moHost.Config.Network.IpRouteConfig.GetHostIpRouteConfig().DefaultGateway
+	}
+	// findMaster := false
 	for _, nic := range vnics {
 		mac := netutils.FormatMacAddr(nic.Spec.Mac)
 		pnic := findHostNicByMac(nicInfoList, mac)
 		if pnic != nil {
-			findMaster = true
+			// findMaster = true
 			pnic.IpAddr = nic.Spec.Ip.IpAddress
-			if nic.Spec.Portgroup == "Management Network" || nic.Spec.Portgroup == "Service Console" {
+			pnic.IpAddrPrefixLen = mask2len(nic.Spec.Ip.SubnetMask)
+			if nic.Spec.Ip.IpV6Config != nil && len(nic.Spec.Ip.IpV6Config.IpV6Address) > 0 {
+				pnic.IpAddr6 = nic.Spec.Ip.IpV6Config.IpV6Address[0].IpAddress
+				pnic.IpAddr6PrefixLen = int8(nic.Spec.Ip.IpV6Config.IpV6Address[0].PrefixLength)
+			}
+			if isVnicAdmin(nic, defRouteDev, defGateway) {
 				pnic.NicType = api.NIC_TYPE_ADMIN
 			}
 			pnic.LinkUp = true
 			pnic.Mtu = nic.Spec.Mtu
+			if nic.Spec.DistributedVirtualPort != nil {
+				pnic.DVPortGroup = nic.Spec.DistributedVirtualPort.PortgroupKey
+			}
+		} else {
+			info := SHostNicInfo{}
+			info.Dev = nic.Device
+			info.Driver = "vmkernel"
+			info.Mac = mac
+			info.Index = int8(len(nicInfoList))
+			info.LinkUp = true
+			info.IpAddr = nic.Spec.Ip.IpAddress
+			info.IpAddrPrefixLen = mask2len(nic.Spec.Ip.SubnetMask)
+			if nic.Spec.Ip.IpV6Config != nil && len(nic.Spec.Ip.IpV6Config.IpV6Address) > 0 {
+				info.IpAddr6 = nic.Spec.Ip.IpV6Config.IpV6Address[0].IpAddress
+				info.IpAddr6PrefixLen = int8(nic.Spec.Ip.IpV6Config.IpV6Address[0].PrefixLength)
+			}
+			info.Mtu = nic.Spec.Mtu
+			if isVnicAdmin(nic, defRouteDev, defGateway) {
+				info.NicType = api.NIC_TYPE_ADMIN
+			}
+			if nic.Spec.DistributedVirtualPort != nil {
+				info.DVPortGroup = nic.Spec.DistributedVirtualPort.PortgroupKey
+			}
+			nicInfoList = append(nicInfoList, info)
 		}
 	}
 
-	if !findMaster && len(nicInfoList) > 0 {
+	/*if !findMaster && len(nicInfoList) > 0 {
 		// no match pnic found for master nic
 		// choose the first pnic
 		pnic := &nicInfoList[0]
@@ -394,17 +458,9 @@ func (self *SHost) fetchNicInfo(debug bool) []SHostNicInfo {
 			}
 		}
 		if len(pnic.IpAddr) == 0 {
-			// find default route vnic
-			defRouteDev := make([]string, 0)
-			for _, r := range moHost.Config.Network.RouteTableInfo.IpRoute {
-				if r.Network == "0.0.0.0" && r.PrefixLength == 0 {
-					// default route
-					defRouteDev = append(defRouteDev, r.DeviceName)
-				}
-			}
 			if len(defRouteDev) == 1 {
 				for _, nic := range vnics {
-					if nic.Device == defRouteDev[0] {
+					if nic.Device == defRouteDev {
 						pnic.NicType = api.NIC_TYPE_ADMIN
 						pnic.IpAddr = nic.Spec.Ip.IpAddress
 						pnic.LinkUp = true
@@ -416,7 +472,7 @@ func (self *SHost) fetchNicInfo(debug bool) []SHostNicInfo {
 				log.Errorf("find default route interfaces fail: %s", defRouteDev)
 			}
 		}
-	}
+	}*/
 
 	return nicInfoList
 }
@@ -819,6 +875,7 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 	for _, nic := range nics {
 		index, _ := nic.Int("index")
 		mac, _ := nic.GetString("mac")
+		bridge, _ := nic.GetString("bridge")
 		driver := "e1000"
 		if nic.Contains("driver") {
 			driver, _ = nic.GetString("driver")
@@ -830,7 +887,7 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 		if nic.Contains("vlan") {
 			vlanId, _ = nic.Int("vlan")
 		}
-		dev, err := NewVNICDev(self, mac, driver, int32(vlanId), 4000, 100, int32(index))
+		dev, err := NewVNICDev(self, mac, driver, bridge, int32(vlanId), 4000, 100, int32(index))
 		if err != nil {
 			return nil, errors.Wrap(err, "NewVNICDev")
 		}
@@ -888,6 +945,7 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 		for _, nic := range nics {
 			index, _ := nic.Int("index")
 			mac, _ := nic.GetString("mac")
+			bridge, _ := nic.GetString("bridge")
 			driver := "e1000"
 			if nic.Contains("driver") {
 				driver, _ = nic.GetString("driver")
@@ -899,7 +957,7 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 			if nic.Contains("vlan") {
 				vlanId, _ = nic.Int("vlan")
 			}
-			dev, err := NewVNICDev(host, mac, driver, int32(vlanId), 4000, 100, int32(index))
+			dev, err := NewVNICDev(host, mac, driver, bridge, int32(vlanId), 4000, 100, int32(index))
 			if err != nil {
 				return nil, errors.Wrap(err, "NewVNICDev")
 			}
@@ -1324,6 +1382,19 @@ func (host *SHost) findNovlanDVPG() (*SDistributedVirtualPortgroup, error) {
 		}
 		nvlan := dvpg.GetVlanId()
 		if !host.IsActiveVlanID(nvlan) {
+			return dvpg, nil
+		}
+	}
+	return nil, nil
+}
+
+func (host *SHost) findDVPGById(id string) (*SDistributedVirtualPortgroup, error) {
+	nets, err := host.datacenter.GetNetworks()
+	if err != nil {
+		return nil, errors.Wrap(err, "SHost.datacenter.GetNetworks")
+	}
+	for _, net := range nets {
+		if dvpg, ok := net.(*SDistributedVirtualPortgroup); ok && dvpg.GetId() == id {
 			return dvpg, nil
 		}
 	}

@@ -487,6 +487,7 @@ type ICloudHostNetInterface interface {
 	GetIpAddr() string
 	GetMtu() int32
 	GetNicType() string
+	GetBridge() string
 }
 
 type ICloudLoadbalancer interface {

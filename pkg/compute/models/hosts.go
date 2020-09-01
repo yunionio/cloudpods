@@ -4623,7 +4623,15 @@ func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.T
 						enables = append(enables, extNics[i])
 					}
 				} else {
-					// do nothing, in sync
+					// in sync, sync interface and bridge
+					hw := host.getHostwireOfIdAndMac(netIfs[i].WireId, netIfs[i].Mac)
+					if hw != nil && (hw.Bridge != extNics[i].GetBridge() || hw.Interface != extNics[i].GetDevice()) {
+						db.Update(hw, func() error {
+							hw.Interface = extNics[i].GetDevice()
+							hw.Bridge = extNics[i].GetBridge()
+							return nil
+						})
+					}
 				}
 			} else {
 				reserveIp := false
@@ -4674,7 +4682,7 @@ func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.T
 		// always try reserved pool
 		extNic := adds[i].netif
 		err = host.addNetif(ctx, userCred, extNic.GetMac(), "", extNic.GetIpAddr(), 0, extNic.GetNicType(), extNic.GetIndex(),
-			extNic.IsLinkUp(), int16(extNic.GetMtu()), false, "", "", true, true)
+			extNic.IsLinkUp(), int16(extNic.GetMtu()), false, extNic.GetDevice(), extNic.GetBridge(), true, true)
 		if err != nil {
 			result.AddError(err)
 		} else {
