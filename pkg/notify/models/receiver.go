@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -36,8 +37,10 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/informer"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/notify/oldmodels"
+	"yunion.io/x/onecloud/pkg/notify/options"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -461,6 +464,31 @@ func (rm *SReceiverManager) VerifiedContactFilter(contactType string, q *sqlchem
 	return q
 }
 
+func (rm *SReceiverManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeUser
+}
+
+func (rm *SReceiverManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	pro, err := db.FetchUserInfo(ctx, data)
+	if err != nil {
+		return db.FetchDomainInfo(ctx, data)
+	}
+	return pro, nil
+}
+
+func (rm *SReceiverManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	if owner == nil {
+		return q
+	}
+	switch scope {
+	case rbacutils.ScopeDomain:
+		q = q.Equals("domain_id", owner.GetProjectDomainId())
+	case rbacutils.ScopeProject, rbacutils.ScopeUser:
+		q = q.Equals("id", owner.GetUserId())
+	}
+	return q
+}
+
 func (rm *SReceiverManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.ReceiverListInput) (*sqlchemy.SQuery, error) {
 	q, err := rm.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StatusStandaloneResourceListInput)
 	if err != nil {
@@ -577,11 +605,11 @@ func (r *SReceiver) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		return input, err
 	}
 	// validate email
-	if ok := regutils.MatchEmail(input.Email); !ok {
+	if ok := len(input.Email) == 0 || regutils.MatchEmail(input.Email); !ok {
 		return input, httperrors.NewInputParameterError("invalid email")
 	}
 	// validate mobile
-	if ok := regutils.MatchMobile(input.Mobile); !ok {
+	if ok := len(input.Mobile) == 0 || regutils.MatchMobile(input.Mobile); !ok {
 		return input, httperrors.NewInputParameterError("invalid mobile")
 	}
 	return input, nil
@@ -599,7 +627,7 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 		log.Errorf("PullCache: %v", err)
 	}
 	err = r.SetEnabledContactTypes(input.EnabledContactTypes)
-	if len(input.Email) != 0 {
+	if len(input.Email) != 0 && input.Email != r.Email {
 		r.VerifiedEmail = tristate.False
 		for _, c := range r.subContactCache {
 			if c.ParentContactType == input.Email {
@@ -607,7 +635,7 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 			}
 		}
 	}
-	if len(input.Mobile) != 0 {
+	if len(input.Mobile) != 0 && input.Mobile != r.Mobile {
 		r.VerifiedMobile = tristate.False
 		for _, c := range r.subContactCache {
 			if c.ParentContactType == input.Mobile {
@@ -664,8 +692,18 @@ func (r *SReceiver) PerformTriggerVerify(ctx context.Context, userCred mcclient.
 	if len(input.ContactType) == 0 {
 		return nil, httperrors.NewMissingParameterError("contact_type")
 	}
-	if !utils.IsInStringArray(input.ContactType, []string{api.EMAIL, api.MOBILE}) {
+	if !utils.IsInStringArray(input.ContactType, []string{api.EMAIL, api.MOBILE, api.DINGTALK, api.FEISHU, api.WORKWX}) {
 		return nil, httperrors.NewInputParameterError("not support such contact type %q", input.ContactType)
+	}
+	if utils.IsInStringArray(input.ContactType, []string{api.DINGTALK, api.FEISHU, api.WORKWX}) {
+		r.SetStatus(userCred, api.RECEIVER_STATUS_PULLING, "")
+		task, err := taskman.TaskManager.NewTask(ctx, "SubcontactPullTask", r, userCred, nil, "", "")
+		if err != nil {
+			log.Errorf("ContactPullTask newTask error %v", err)
+		} else {
+			task.ScheduleRun(nil)
+		}
+		return nil, nil
 	}
 	_, err := VerificationManager.Create(ctx, r.Id, input.ContactType)
 	if err == ErrVerifyFrequently {
@@ -699,6 +737,9 @@ func (r *SReceiver) PerformVerify(ctx context.Context, userCred mcclient.TokenCr
 	verification, err := VerificationManager.Get(r.Id, input.ContactType)
 	if err != nil {
 		return nil, err
+	}
+	if verification.CreatedAt.Add(time.Duration(options.Options.VerifyValidInterval) * time.Minute).Before(time.Now()) {
+		return nil, httperrors.NewForbiddenError("The validation expires, please retrieve the verification code again")
 	}
 	if verification.Token != input.Token {
 		return nil, httperrors.NewInputParameterError("wrong token")
