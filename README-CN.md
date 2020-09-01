@@ -41,7 +41,7 @@
 
 ## 架构
 
-![architecture](./docs/architecture.svg)
+![architecture](https://www.yunion.cn/static/frame.png)
 
 
 ## 贡献
