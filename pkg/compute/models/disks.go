@@ -1079,15 +1079,15 @@ func (self *SDisk) validateDeleteCondition(ctx context.Context, isPurge bool) er
 		}
 		host := storage.GetMasterHost()
 		if host == nil {
-			return httperrors.NewBadRequestError("storage of disk no valid host")
+			return httperrors.NewBadRequestError("storage of disk %s no valid host", self.Id)
 		}
 	}
 	cnt, err := self.GetGuestDiskCount()
 	if err != nil {
-		return httperrors.NewInternalServerError("GetGuestDiskCount fail %s", err)
+		return httperrors.NewInternalServerError("GetGuestDiskCount for disk %s fail %s", self.Id, err)
 	}
 	if cnt > 0 {
-		return httperrors.NewNotEmptyError("Virtual disk used by virtual servers")
+		return httperrors.NewNotEmptyError("Virtual disk %s(%s) used by virtual servers", self.Name, self.Id)
 	}
 	if !isPurge && self.IsValidPrePaid() {
 		return httperrors.NewForbiddenError("not allow to delete prepaid disk in valid status")
