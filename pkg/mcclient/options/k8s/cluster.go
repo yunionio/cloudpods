@@ -292,10 +292,18 @@ type ClusterComponentMonitorStorage struct {
 	ClassName string `help:"Storage class name" json:"storageClassName"`
 }
 
+type ClusterComponentMonitorGrafanaTlsOpt struct {
+	CertificateFile string `help:"TLS certificate file" json:"-"`
+	KeyFile         string `help:"TLS key file" json:"-"`
+}
+
 type ClusterComponentMonitorGrafana struct {
-	AdminUser     string                         `help:"Grafana admin user" default:"admin" json:"adminUser"`
-	AdminPassword string                         `help:"Grafana admin user password" json:"adminPassword"`
-	Storage       ClusterComponentMonitorStorage `help:"Storage setting"`
+	AdminUser     string                               `help:"Grafana admin user" default:"admin" json:"adminUser"`
+	AdminPassword string                               `help:"Grafana admin user password" json:"adminPassword"`
+	Storage       ClusterComponentMonitorStorage       `help:"Storage setting"`
+	PublicAddress string                               `help:"Grafana expose public IP address or domain hostname" json:"publicAddress"`
+	Host          string                               `help:"Grafana ingress host domain name" json:"host"`
+	Tls           ClusterComponentMonitorGrafanaTlsOpt `help:"TLS setting"`
 }
 
 type ClusterComponentMonitorLoki struct {
@@ -321,10 +329,24 @@ type ClusterEnableComponentMonitorOpt struct {
 	ClusterComponentMonitorSetting
 }
 
-func (o ClusterEnableComponentMonitorOpt) Params() (*jsonutils.JSONDict, error) {
+func (o ClusterEnableComponentMonitorOpt) Params() (jsonutils.JSONObject, error) {
 	params := o.ClusterComponentOptions.Params("monitor")
 	setting := jsonutils.Marshal(o.ClusterComponentMonitorSetting)
 	params.Add(setting, "monitor")
+	certFile := o.Grafana.Tls.CertificateFile
+	keyFile := o.Grafana.Tls.KeyFile
+	if certFile != "" {
+		cert, err := ioutil.ReadFile(certFile)
+		if err != nil {
+			return nil, errors.Wrap(err, "read grafana tls certFile")
+		}
+		key, err := ioutil.ReadFile(keyFile)
+		if err != nil {
+			return nil, errors.Wrap(err, "read grafana tls keyFile")
+		}
+		params.Add(jsonutils.NewString(string(cert)), "monitor", "grafana", "tlsKeyPair", "certificate")
+		params.Add(jsonutils.NewString(string(key)), "monitor", "grafana", "tlsKeyPair", "key")
+	}
 	return params, nil
 }
 
