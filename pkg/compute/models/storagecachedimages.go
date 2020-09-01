@@ -431,17 +431,17 @@ func (self *SStoragecachedimage) syncRemoveCloudImage(ctx context.Context, userC
 	return nil
 }
 
-func (self *SStoragecachedimage) syncWithCloudImage(ctx context.Context, userCred mcclient.TokenCredential, image cloudprovider.ICloudImage) error {
+func (self *SStoragecachedimage) syncWithCloudImage(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, image cloudprovider.ICloudImage, managerId string) error {
 	cachedImage := self.GetCachedimage()
 	if len(cachedImage.ExternalId) > 0 {
 		self.SetStatus(userCred, image.GetStatus(), "")
-		return cachedImage.syncWithCloudImage(ctx, userCred, image)
+		return cachedImage.syncWithCloudImage(ctx, userCred, ownerId, image, managerId)
 	} else {
 		return nil
 	}
 }
 
-func (manager *SStoragecachedimageManager) newFromCloudImage(ctx context.Context, userCred mcclient.TokenCredential, image cloudprovider.ICloudImage, cache *SStoragecache) error {
+func (manager *SStoragecachedimageManager) newFromCloudImage(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, image cloudprovider.ICloudImage, cache *SStoragecache) error {
 	var cachedImage *SCachedimage
 	imgObj, err := db.FetchByExternalId(CachedimageManager, image.GetGlobalId())
 	if err != nil {
@@ -464,7 +464,7 @@ func (manager *SStoragecachedimageManager) newFromCloudImage(ctx context.Context
 		}
 		if cachedImage == nil {
 			// no such image
-			cachedImage, err = CachedimageManager.newFromCloudImage(ctx, userCred, image)
+			cachedImage, err = CachedimageManager.newFromCloudImage(ctx, userCred, ownerId, image, cache.ManagerId)
 			if err != nil {
 				log.Errorf("CachedimageManager.newFromCloudImage fail %s", err)
 				return err
@@ -474,7 +474,7 @@ func (manager *SStoragecachedimageManager) newFromCloudImage(ctx context.Context
 		cachedImage = imgObj.(*SCachedimage)
 	}
 	if len(cachedImage.ExternalId) > 0 {
-		cachedImage.syncWithCloudImage(ctx, userCred, image)
+		cachedImage.syncWithCloudImage(ctx, userCred, ownerId, image, cache.ManagerId)
 	}
 	scimg := manager.Register(ctx, userCred, cache.GetId(), cachedImage.GetId(), image.GetStatus())
 	if scimg == nil {

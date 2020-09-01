@@ -29,8 +29,10 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/imagetools"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 const (
@@ -46,6 +48,7 @@ const (
 )
 
 type SImage struct {
+	multicloud.SImageBase
 	storageCache *SStoragecache
 
 	Status          string
@@ -157,7 +160,7 @@ func (image *SImage) GetStatus() string {
 	case QUEUED, SAVING, UPLOADING, IMPORTING:
 		return api.CACHED_IMAGE_STATUS_CACHING
 	case ACTIVE:
-		return api.CACHED_IMAGE_STATUS_READY
+		return api.CACHED_IMAGE_STATUS_ACTIVE
 	case DELETED, DEACTIVATED, PENDING_DELETE, KILLED:
 		return api.CACHED_IMAGE_STATUS_CACHE_FAILED
 	default:
@@ -190,6 +193,19 @@ func (image *SImage) Refresh() error {
 
 func (image *SImage) GetImageType() string {
 	return cloudprovider.CachedImageTypeSystem
+}
+
+func (image *SImage) GetPublicScope() rbacutils.TRbacScope {
+	switch image.Visibility {
+	case "private":
+		return rbacutils.ScopeNone
+	default:
+		return rbacutils.ScopeSystem
+	}
+}
+
+func (image *SImage) GetProjectId() string {
+	return image.Owner
 }
 
 func (image *SImage) GetSizeByte() int64 {
@@ -246,17 +262,17 @@ func (image *SImage) GetCreatedAt() time.Time {
 }
 
 func (region *SRegion) GetImage(imageId string) (*SImage, error) {
-	images, err := region.GetImages("", "", imageId)
+	resource := "/v2/images/" + imageId
+	resp, err := region.imageGet(resource)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "imageGet(%s)", resource)
 	}
-	if len(images) == 0 {
-		return nil, cloudprovider.ErrNotFound
+	image := &SImage{}
+	err = resp.Unmarshal(image)
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
 	}
-	if len(images) > 1 {
-		return nil, cloudprovider.ErrDuplicateId
-	}
-	return &images[0], nil
+	return image, nil
 }
 
 func (image *SImage) GetIStoragecache() cloudprovider.ICloudStoragecache {

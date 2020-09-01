@@ -23,13 +23,13 @@ import (
 	"sort"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/imagetools"
 	"yunion.io/x/onecloud/pkg/util/multipart"
@@ -45,6 +45,7 @@ type SBackupStorageRef struct {
 }
 
 type SImage struct {
+	multicloud.SImageBase
 	storageCache *SStoragecache
 
 	BackupStorageRefs []SBackupStorageRef `json:"backupStorageRefs"`
@@ -117,7 +118,7 @@ func (image *SImage) GetStatus() string {
 	}
 	switch image.Status {
 	case "Ready":
-		return api.CACHED_IMAGE_STATUS_READY
+		return api.CACHED_IMAGE_STATUS_ACTIVE
 	case "Downloading":
 		return api.CACHED_IMAGE_STATUS_CACHING
 	case "Deleted":

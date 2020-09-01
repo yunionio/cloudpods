@@ -25,6 +25,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/imagetools"
 )
 
@@ -39,6 +40,7 @@ type SDeprecated struct {
 }
 
 type SImage struct {
+	multicloud.SImageBase
 	storagecache *SStoragecache
 	SResourceBase
 
@@ -120,7 +122,7 @@ func (image *SImage) GetMinRamSizeMb() int {
 func (image *SImage) GetStatus() string {
 	switch image.Status {
 	case "READY":
-		return api.CACHED_IMAGE_STATUS_READY
+		return api.CACHED_IMAGE_STATUS_ACTIVE
 	case "FAILED":
 		return api.CACHED_IMAGE_STATUS_CACHE_FAILED
 	case "PENDING":
