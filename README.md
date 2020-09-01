@@ -44,7 +44,7 @@ Please refers to [install & deployment](https://docs.yunion.io/docs/setup/) (cur
 
 ## Architecture
 
-![architecture](./docs/architecture.svg)
+![architecture](https://www.yunion.cn/static/frame.png)
 
 ## Contribution
 
