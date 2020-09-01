@@ -112,7 +112,7 @@ func (man *SCommonAlertManager) ValidateCreateData(
 			return data, httperrors.NewInputParameterError("the AlertType is illegal:%s", data.AlertType)
 		}
 	}
-	err := man.ValidateMetricQuery(&data.CommonMetricInputQuery)
+	var err = man.ValidateMetricQuery(&data.CommonMetricInputQuery, data.Scope, ownerId)
 	if err != nil {
 		return data, errors.Wrap(err, "metric query error")
 	}
@@ -142,14 +142,14 @@ func (man *SCommonAlertManager) genName(ownerId mcclient.IIdentityProvider, name
 	return name, nil
 }
 
-func (man *SCommonAlertManager) ValidateMetricQuery(metricRequest *monitor.CommonMetricInputQuery) error {
+func (man *SCommonAlertManager) ValidateMetricQuery(metricRequest *monitor.CommonMetricInputQuery, scope string, ownerId mcclient.IIdentityProvider) error {
 	for _, q := range metricRequest.MetricQuery {
 		metriInputQuery := monitor.MetricInputQuery{
 			From:     metricRequest.From,
 			To:       metricRequest.To,
 			Interval: metricRequest.Interval,
 		}
-		setDefaultValue(q.AlertQuery, &metriInputQuery)
+		setDefaultValue(q.AlertQuery, &metriInputQuery, scope, ownerId)
 		err := UnifiedMonitorManager.ValidateInputQuery(q.AlertQuery)
 		if err != nil {
 			return err
@@ -457,6 +457,15 @@ func (alert *SCommonAlert) GetCommonAlertMetricDetailsFromAlertCondition(index i
 	CommonAlertMetricDetails {
 	fieldOpt := alert.getFieldOpt()
 	metricDetails := new(monitor.CommonAlertMetricDetails)
+	if fieldOpt != "" {
+		metricDetails.FieldOpt = strings.Split(fieldOpt, "+")[index]
+	}
+	getCommonAlertMetricDetailsFromCondition(cond, metricDetails)
+	return metricDetails
+}
+
+func getCommonAlertMetricDetailsFromCondition(cond monitor.AlertCondition,
+	metricDetails *monitor.CommonAlertMetricDetails) {
 	cmp := ""
 	switch cond.Evaluator.Type {
 	case "gt":
@@ -468,9 +477,6 @@ func (alert *SCommonAlert) GetCommonAlertMetricDetailsFromAlertCondition(index i
 	metricDetails.Threshold = cond.Evaluator.Params[0]
 	metricDetails.Reduce = cond.Reducer.Type
 
-	if fieldOpt != "" {
-		metricDetails.FieldOpt = strings.Split(fieldOpt, "+")[index]
-	}
 	q := cond.Query
 	measurement := q.Model.Measurement
 	field := ""
@@ -498,14 +504,13 @@ func (alert *SCommonAlert) GetCommonAlertMetricDetailsFromAlertCondition(index i
 	metricDetails.Groupby = groupby
 
 	//fill measurement\field desciption info
-	alert.getMetricDescriptionDetails(metricDetails)
+	getMetricDescriptionDetails(metricDetails)
 	if metricDetails.FieldOpt == "/" {
 		metricDetails.FieldDescription.Unit = ""
 	}
-	return metricDetails
 }
 
-func (alert *SCommonAlert) getMetricDescriptionDetails(metricDetails *monitor.CommonAlertMetricDetails) {
+func getMetricDescriptionDetails(metricDetails *monitor.CommonAlertMetricDetails) {
 	influxdbMeasurements := DataSourceManager.getMetricDescriptions([]monitor.InfluxMeasurement{monitor.
 		InfluxMeasurement{Measurement: metricDetails.Measurement}})
 	if len(influxdbMeasurements) == 0 {
@@ -610,7 +615,8 @@ func (alert *SCommonAlert) ValidateUpdateData(
 		if err != nil {
 			return data, errors.Wrap(err, "metric_query Unmarshal error")
 		}
-		err = CommonAlertManager.ValidateMetricQuery(metricQuery)
+		scope, _ := data.GetString("scope")
+		err = CommonAlertManager.ValidateMetricQuery(metricQuery, scope, userCred)
 		if err != nil {
 			return data, errors.Wrap(err, "metric query error")
 		}

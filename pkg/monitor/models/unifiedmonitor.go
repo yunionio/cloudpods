@@ -1,7 +1,6 @@
 package models
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"strings"
@@ -15,10 +14,10 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	mq "yunion.io/x/onecloud/pkg/monitor/metricquery"
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 var (
@@ -60,18 +59,20 @@ func (self *SUnifiedMonitorManager) AllowGetPropertyMeasurements(ctx context.Con
 
 func (self *SUnifiedMonitorManager) GetPropertyMeasurements(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	var filter string
-	var err error
 
-	if scope, err := query.GetString("scope"); err == nil {
-		filter, err = filterByScope(ctx, scope, query)
-	} else {
-		filter, err = filterByCredential(userCred)
-	}
+	filter, err := getTagFilterByRequestQuery(ctx, query)
 	if err != nil {
 		return nil, err
 	}
 	return DataSourceManager.GetMeasurementsWithDescriptionInfos(query, "", filter)
+}
+
+func getTagFilterByRequestQuery(ctx context.Context, query jsonutils.JSONObject) (filter string, err error) {
+
+	if scope, err := query.GetString("scope"); err == nil {
+		filter, err = filterByScope(ctx, scope, query)
+	}
+	return
 }
 
 func filterByScope(ctx context.Context, scope string, data jsonutils.JSONObject) (string, error) {
@@ -111,21 +112,6 @@ func filterByScope(ctx context.Context, scope string, data jsonutils.JSONObject)
 	return "", fmt.Errorf("scope is illegal")
 }
 
-func filterByCredential(userCred mcclient.TokenCredential) (string, error) {
-	roles := userCred.GetRoles()
-	roleStr := strings.Join(roles, ",")
-	if strings.Contains(roleStr, "admin") {
-		return getTenantIdStr("admin", userCred)
-	}
-	if strings.Contains(roleStr, "domainadmin") {
-		return getTenantIdStr("admin", userCred)
-	}
-	if strings.Contains(roleStr, "member") {
-		return getTenantIdStr("admin", userCred)
-	}
-	return "", errors.Wrap(errors.ErrNotFound, "user role")
-}
-
 func getTenantIdStr(role string, userCred mcclient.TokenCredential) (string, error) {
 	if role == "admin" {
 		return "", nil
@@ -142,26 +128,30 @@ func getTenantIdStr(role string, userCred mcclient.TokenCredential) (string, err
 }
 
 func getProjectIdsFilterByDomain(domainId string) (string, error) {
-	s := auth.GetAdminSession(context.Background(), "", "")
-	params := jsonutils.Marshal(map[string]string{"domain_id": domainId})
-	tenants, err := modules.Projects.List(s, params)
-	if err != nil {
-		return "", errors.Wrap(err, "Projects.List")
-	}
-	var buffer bytes.Buffer
-	for index, tenant := range tenants.Data {
-		tenantId, _ := tenant.GetString("id")
-		if index != len(tenants.Data)-1 {
-			buffer.WriteString(fmt.Sprintf(" %s =~ /%s/ %s ", "tenant_id", tenantId, "OR"))
-		} else {
-			buffer.WriteString(fmt.Sprintf(" %s =~ /%s/ ", "tenant_id", tenantId))
-		}
-	}
-	return buffer.String(), nil
+	//s := auth.GetAdminSession(context.Background(), "", "")
+	//params := jsonutils.Marshal(map[string]string{"domain_id": domainId})
+	//tenants, err := modules.Projects.List(s, params)
+	//if err != nil {
+	//	return "", errors.Wrap(err, "Projects.List")
+	//}
+	//var buffer bytes.Buffer
+	//buffer.WriteString("( ")
+	//for index, tenant := range tenants.Data {
+	//	tenantId, _ := tenant.GetString("id")
+	//	if index != len(tenants.Data)-1 {
+	//		buffer.WriteString(fmt.Sprintf(" %s =~ /%s/ %s ", "tenant_id", tenantId, "OR"))
+	//	} else {
+	//		buffer.WriteString(fmt.Sprintf(" %s =~ /%s/ ", "tenant_id", tenantId))
+	//	}
+	//}
+	//buffer.WriteString(" )")
+	//return buffer.String(), nil
+	return fmt.Sprintf(`"%s" =~ /%s/`, "domain_id", domainId), nil
+
 }
 
 func getProjectIdFilterByProject(projectId string) (string, error) {
-	return fmt.Sprintf("%s =~ /%s/", "tenant_id", projectId), nil
+	return fmt.Sprintf(`"%s" =~ /%s/`, "tenant_id", projectId), nil
 }
 
 func (self *SUnifiedMonitorManager) AllowGetPropertyMetricMeasurement(ctx context.Context,
@@ -178,7 +168,11 @@ func (self *SUnifiedMonitorManager) GetPropertyMetricMeasurement(ctx context.Con
 		GroupOptType:  monitor.UNIFIED_MONITOR_GROUPBY_OPT_TYPE,
 		GroupOptValue: monitor.UNIFIED_MONITOR_GROUPBY_OPT_VALUE,
 	}
-	rtn, err := DataSourceManager.GetMetricMeasurement(query)
+	filter, err := getTagFilterByRequestQuery(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	rtn, err := DataSourceManager.GetMetricMeasurement(query, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +195,12 @@ func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred m
 		return nil, httperrors.NewInputParameterError("no metric_query field in param")
 	}
 	for _, q := range inputQuery.MetricQuery {
-		setDefaultValue(q, inputQuery)
+		scope, _ := data.GetString("scope")
+		ownId, _ := self.FetchOwnerId(ctx, data)
+		if ownId == nil {
+			ownId = userCred
+		}
+		setDefaultValue(q, inputQuery, scope, ownId)
 		err = self.ValidateInputQuery(q)
 		if err != nil {
 			return jsonutils.NewDict(), err
@@ -260,7 +259,8 @@ func (self *SUnifiedMonitorManager) ValidateInputQuery(query *monitor.AlertQuery
 	return validators.ValidateSelectOfMetricQuery(*query)
 }
 
-func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricInputQuery) {
+func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricInputQuery,
+	scope string, ownerId mcclient.IIdentityProvider) {
 	setDataSourceId(query)
 	query.From = inputQuery.From
 	query.To = inputQuery.To
@@ -293,6 +293,25 @@ func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricInputQ
 			Params: []string{},
 		})
 		query.Model.Selects[i] = sel
+	}
+	var projectId, domainId string
+	switch rbacutils.TRbacScope(scope) {
+	case rbacutils.ScopeProject:
+		projectId = ownerId.GetProjectId()
+		query.Model.Tags = append(query.Model.Tags, monitor.MetricQueryTag{
+			Key:       "tenant_id",
+			Operator:  "=",
+			Value:     projectId,
+			Condition: "and",
+		})
+	case rbacutils.ScopeDomain:
+		domainId = ownerId.GetProjectDomainId()
+		query.Model.Tags = append(query.Model.Tags, monitor.MetricQueryTag{
+			Key:       "domain_id",
+			Operator:  "=",
+			Value:     domainId,
+			Condition: "and",
+		})
 	}
 }
 

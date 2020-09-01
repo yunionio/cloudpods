@@ -71,3 +71,15 @@ func (o *MetricShowOptions) Params() (jsonutils.JSONObject, error) {
 func (o *MetricShowOptions) GetId() string {
 	return o.ID
 }
+
+type MetricDeleteOptions struct {
+	ID string `help:"ID of Metric " json:"-"`
+}
+
+func (o *MetricDeleteOptions) GetId() string {
+	return o.ID
+}
+
+func (o *MetricDeleteOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
+}
