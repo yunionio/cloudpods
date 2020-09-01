@@ -119,6 +119,9 @@ func (rm *SReceiverManager) InitializeData() error {
 	if err != nil {
 		return errors.Wrap(err, "db.FetchModelObjects")
 	}
+	if len(contacts) == 0 {
+		return nil
+	}
 
 	// build uid map
 	uids := make([]string, 0, 10)
