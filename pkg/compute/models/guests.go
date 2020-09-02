@@ -2730,7 +2730,7 @@ func getCloudNicNetwork(vnic cloudprovider.ICloudNic, host *SHost, ipList []stri
 	if vnet == nil {
 		if vnic.InClassicNetwork() {
 			region := host.GetRegion()
-			cloudprovider := region.GetCloudprovider()
+			cloudprovider := host.GetCloudprovider()
 			vpc, err := VpcManager.GetOrCreateVpcForClassicNetwork(cloudprovider, region)
 			if err != nil {
 				return nil, errors.Wrap(err, "NewVpcForClassicNetwork")
