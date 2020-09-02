@@ -15,28 +15,25 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"net/url"
 	"os"
-	"strings"
 
 	"yunion.io/x/structarg"
 
-	_ "yunion.io/x/onecloud/cmd/redfishcli/shell"
-	"yunion.io/x/onecloud/pkg/util/fileutils2"
-	"yunion.io/x/onecloud/pkg/util/redfish"
-	"yunion.io/x/onecloud/pkg/util/redfish/bmconsole"
-	_ "yunion.io/x/onecloud/pkg/util/redfish/loader"
+	_ "yunion.io/x/onecloud/cmd/raidcli/shell"
+	"yunion.io/x/onecloud/pkg/baremetal/utils/raid"
+	"yunion.io/x/onecloud/pkg/baremetal/utils/raid/drivers"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
+	"yunion.io/x/onecloud/pkg/util/ssh"
 )
 
 type BaseOptions struct {
 	Debug      bool   `help:"debug mode"`
 	Help       bool   `help:"Show help"`
-	Endpoint   string `help:"Endpoint, usually https://<host_ipmi_ip>" default:"$REDFISH_ENDPOINT"`
-	Username   string `help:"Username, usually root" default:"$REDFISH_USERNAME"`
-	Password   string `help:"Password" default:"$REDFISH_PASSWORD"`
+	Host       string `help:"SSH Host IP" default:"$RAID_HOST" metavar:"RAID_HOST"`
+	Username   string `help:"Username, usually root" default:"$RAID_USERNAME" metavar:"RAID_USERNAME"`
+	Password   string `help:"Password" default:"$RAID_PASSWORD" metavar:"RAID_PASSWORD"`
+	Driver     string `help:"Password" default:"$RAID_DRIVER" metavar:"RAID_DRIVER" choices:"MegaRaid|HPSARaid|Mpt2SAS|MarvelRaid"`
 	SUBCOMMAND string `help:"s3cli subcommand" subcommand:"true"`
 }
 
@@ -46,9 +43,9 @@ var (
 
 func getSubcommandParser() (*structarg.ArgumentParser, error) {
 	parse, e := structarg.NewArgumentParser(options,
-		"redfishcli",
-		"Command-line interface to redfish API.",
-		`See "redfishcli help COMMAND" for help on a specific command.`)
+		"raidcli",
+		"Command-line interface to test RAID drivers.",
+		`See "raidcli help COMMAND" for help on a specific command.`)
 
 	if e != nil {
 		return nil, e
@@ -70,7 +67,6 @@ func getSubcommandParser() (*structarg.ArgumentParser, error) {
 			return nil
 		}
 	})
-	bmcJnlp()
 	for _, v := range shellutils.CommandTable {
 		_, e := subcmd.AddSubParser(v.Options, v.Command, v.Desc, v.Callback)
 		if e != nil {
@@ -80,51 +76,15 @@ func getSubcommandParser() (*structarg.ArgumentParser, error) {
 	return parse, nil
 }
 
-func bmcJnlp() {
-	type BmcGetOptions struct {
-		BRAND string `help:"brand of baremetal" choices:"Lenovo|Huawei|HPE|Dell|Supermicro"`
-		Save  string `help:"save to file"`
-		Debug bool   `help:"turn on debug mode"`
-	}
-	shellutils.R(&BmcGetOptions{}, "bmc-jnlp", "Get Java Console JNLP file", func(args *BmcGetOptions) error {
-		ctx := context.Background()
-		parts, err := url.Parse(options.Endpoint)
-		if err != nil {
-			return err
-		}
-		bmc := bmconsole.NewBMCConsole(parts.Hostname(), options.Username, options.Password, args.Debug)
-		var jnlp string
-		switch strings.ToLower(args.BRAND) {
-		case "hp", "hpe":
-			jnlp, err = bmc.GetIloConsoleJNLP(ctx)
-		case "dell", "dell inc.":
-			jnlp, err = bmc.GetIdracConsoleJNLP(ctx, "", "")
-		case "supermicro":
-			jnlp, err = bmc.GetSupermicroConsoleJNLP(ctx)
-		case "lenovo":
-			jnlp, err = bmc.GetLenovoConsoleJNLP(ctx)
-		}
-		if err != nil {
-			return err
-		}
-		if len(args.Save) > 0 {
-			return fileutils2.FilePutContents(args.Save, jnlp, false)
-		} else {
-			fmt.Println(jnlp)
-			return nil
-		}
-	})
-}
-
 func showErrorAndExit(e error) {
 	fmt.Fprintf(os.Stderr, "%s", e)
 	fmt.Fprintln(os.Stderr)
 	os.Exit(1)
 }
 
-func newClient() (redfish.IRedfishDriver, error) {
-	if len(options.Endpoint) == 0 {
-		return nil, fmt.Errorf("Missing endpoint")
+func newClient() (raid.IRaidDriver, error) {
+	if len(options.Host) == 0 {
+		return nil, fmt.Errorf("Missing host")
 	}
 
 	if len(options.Username) == 0 {
@@ -135,12 +95,36 @@ func newClient() (redfish.IRedfishDriver, error) {
 		return nil, fmt.Errorf("Missing password")
 	}
 
-	cli := redfish.NewRedfishDriver(context.Background(), options.Endpoint, options.Username, options.Password, options.Debug)
-	if cli == nil {
-		return nil, fmt.Errorf("no approriate driver")
+	if len(options.Driver) == 0 {
+		return nil, fmt.Errorf("Missing driver")
 	}
 
-	return cli, nil
+	if options.Debug {
+		raid.Debug = true
+	}
+
+	sshClient, err := ssh.NewClient(
+		options.Host,
+		22,
+		options.Username,
+		options.Password,
+		"",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("ssh client init fail: %s", err)
+	}
+
+	drv := drivers.GetDriver(options.Driver, sshClient)
+	if drv == nil {
+		return nil, fmt.Errorf("not supported driver %s", options.Driver)
+	}
+
+	err = drv.ParsePhyDevs()
+	if err != nil {
+		return nil, fmt.Errorf("parse phyical devices error %s", err)
+	}
+
+	return drv, nil
 }
 
 func main() {
@@ -167,10 +151,8 @@ func main() {
 			suboptions := subparser.Options()
 			if options.SUBCOMMAND == "help" {
 				e = subcmd.Invoke(suboptions)
-			} else if options.SUBCOMMAND == "bmc-jnlp" {
-				e = subcmd.Invoke(suboptions)
 			} else {
-				var client redfish.IRedfishDriver
+				var client raid.IRaidDriver
 				client, e = newClient()
 				if e != nil {
 					showErrorAndExit(e)

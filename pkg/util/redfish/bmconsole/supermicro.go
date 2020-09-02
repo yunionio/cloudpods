@@ -16,14 +16,12 @@ package bmconsole
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/timeutils"
 
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
@@ -44,6 +42,7 @@ func (r *SBMCConsole) GetSupermicroConsoleJNLP(ctx context.Context) (string, err
 	// first do html login
 	postHdr := http.Header{}
 	postHdr.Set("Content-Type", "application/x-www-form-urlencoded")
+	postHdr.Set("Referer", fmt.Sprintf("http://%s/", r.host))
 	setCookieHeader(postHdr, cookies)
 	hdr, _, err := r.RawRequest(ctx, httputils.POST, "/cgi/login.cgi", postHdr, []byte(loginData))
 	if err != nil {
@@ -60,11 +59,12 @@ func (r *SBMCConsole) GetSupermicroConsoleJNLP(ctx context.Context) (string, err
 	}
 
 	getHdr := http.Header{}
+	getHdr.Set("Referer", fmt.Sprintf("https://%s/cgi/url_redirect.cgi?url_name=man_ikvm", r.host))
 	setCookieHeader(getHdr, cookies)
 
-	now := time.Now()
+	// now := time.Now()
 	// fwtype=255&time_stamp=Thu%20Apr%2023%202020%2002%3A25%3A13%20GMT%2B0800%20(%E4%B8%AD%E5%9B%BD%E6%A0%87%E5%87%86%E6%97%B6%E9%97%B4)&_=
-	loginData = strings.Join([]string{
+	/*loginData = strings.Join([]string{
 		"fwtype=255",
 		"time_stamp=" + url.QueryEscape(timeutils.RFC2882Time(now)),
 		"_=",
@@ -78,8 +78,9 @@ func (r *SBMCConsole) GetSupermicroConsoleJNLP(ctx context.Context) (string, err
 	if r.isDebug {
 		log.Debugf("upgrade_process.cgi %s", rspBody)
 	}
+	*/
 
-	_, rspBody, err = r.RawRequest(ctx, httputils.GET, "/cgi/url_redirect.cgi?url_name=ikvm&url_type=jwsk", getHdr, nil)
+	_, rspBody, err := r.RawRequest(ctx, httputils.GET, "/cgi/url_redirect.cgi?url_name=ikvm&url_type=jwsk", getHdr, nil)
 	if err != nil {
 		return "", errors.Wrap(err, "r.RawGet")
 	}
