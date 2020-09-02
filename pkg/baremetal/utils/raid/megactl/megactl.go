@@ -20,9 +20,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/utils"
@@ -75,7 +74,7 @@ func (dev *MegaRaidPhyDev) ToBaremetalStorage(index int) *baremetal.BaremetalSto
 }
 
 func (dev *MegaRaidPhyDev) GetSize() int64 {
-	return dev.sector * int64(dev.block) / 1024 / 1024 // MB
+	return dev.sector * dev.block / 1024 / 1024 // MB
 }
 
 func (dev *MegaRaidPhyDev) parseLine(line string) bool {
@@ -124,7 +123,7 @@ func (dev *MegaRaidPhyDev) parseLine(line string) bool {
 		if err != nil {
 			log.Errorf("parse logical sector size error: %v", err)
 			dev.block = 512
-		} else {
+		} else if block > 0 {
 			dev.block = int64(block)
 		}
 	default:
@@ -189,6 +188,7 @@ type MegaRaidAdaptor struct {
 	raid         *MegaRaid
 	devs         []*MegaRaidPhyDev
 	sn           string
+	name         string
 	busNumber    string
 	deviceNumber string
 	funcNumber   string
@@ -209,6 +209,10 @@ func NewMegaRaidAdaptor(index int, raid *MegaRaid) (*MegaRaidAdaptor, error) {
 	return adapter, nil
 }
 
+func (adapter MegaRaidAdaptor) key() string {
+	return adapter.name + adapter.sn
+}
+
 func (adapter *MegaRaidAdaptor) fillInfo() error {
 	cmd := GetCommand("-AdpAllInfo", fmt.Sprintf("-a%d", adapter.index))
 	ret, err := adapter.remoteRun(cmd)
@@ -223,10 +227,12 @@ func (adapter *MegaRaidAdaptor) fillInfo() error {
 		switch key {
 		case "Serial No":
 			adapter.sn = val
+		case "Product Name":
+			adapter.name = val
 		}
 	}
-	if len(adapter.sn) == 0 {
-		return errors.New("Not found Serial No")
+	if len(adapter.key()) == 0 {
+		return errors.Error("Not found Serial No and Product Name")
 	}
 	return adapter.fillPCIInfo()
 }
@@ -267,7 +273,7 @@ func (adapter *MegaRaidAdaptor) fillPCIInfo() error {
 		}
 	}
 	if len(adapter.busNumber) == 0 || len(adapter.deviceNumber) == 0 || len(adapter.funcNumber) == 0 {
-		return errors.New("Not found bus number")
+		return errors.Error("Not found bus number")
 	}
 	pciDir := fmt.Sprintf("/sys/bus/pci/devices/0000:%s:%s.%s/", adapter.busNumber, adapter.deviceNumber, adapter.funcNumber)
 	cmd = raiddrivers.GetCommand("ls", pciDir, "|", "grep", "host")
@@ -601,18 +607,24 @@ func (adapter *MegaRaidAdaptor) BuildNoneRaid(devs []*baremetal.BaremetalStorage
 
 type StorcliAdaptor struct {
 	Controller int
-	SN         string
+	sn         string
+	name       string
 }
 
 func newStorcliAdaptor() *StorcliAdaptor {
 	return &StorcliAdaptor{
 		Controller: -1,
-		SN:         "",
+		sn:         "",
+		name:       "",
 	}
 }
 
+func (a StorcliAdaptor) key() string {
+	return a.name + a.sn
+}
+
 func (a *StorcliAdaptor) isComplete() bool {
-	return a.Controller >= 0 && a.SN != ""
+	return a.Controller >= 0 && a.key() != ""
 }
 
 func (a *StorcliAdaptor) parseLine(l string) {
@@ -626,13 +638,15 @@ func (a *StorcliAdaptor) parseLine(l string) {
 	case "Controller":
 		a.Controller, _ = strconv.Atoi(val)
 	case "Serial Number":
-		a.SN = val
+		a.sn = val
+	case "Product Name":
+		a.name = val
 	}
 }
 
 func (raid *MegaRaid) GetStorcliAdaptor() (map[string]*StorcliAdaptor, error) {
 	ret := make(map[string]*StorcliAdaptor)
-	cmd := GetCommand2("/call", "show", "|", "grep", "-iE", `'^(Controller|Serial Number)\s='`)
+	cmd := GetCommand2("/call", "show", "|", "grep", "-iE", `'^(Controller|Product Name|Serial Number)\s='`)
 	lines, err := raid.term.Run(cmd)
 	if err != nil {
 		return nil, errors.Wrap(err, "Get storcli adapter")
@@ -641,7 +655,7 @@ func (raid *MegaRaid) GetStorcliAdaptor() (map[string]*StorcliAdaptor, error) {
 	for _, l := range lines {
 		adapter.parseLine(l)
 		if adapter.isComplete() {
-			ret[adapter.SN] = adapter
+			ret[adapter.key()] = adapter
 			adapter = newStorcliAdaptor()
 		}
 	}
@@ -656,9 +670,9 @@ func (adapter *MegaRaidAdaptor) storcliCtrlIndex() (int, error) {
 	if err != nil {
 		return -1, errors.Wrap(err, "Get all Storcli adaptor")
 	}
-	storAdap, ok := storcliAdaps[adapter.sn]
+	storAdap, ok := storcliAdaps[adapter.key()]
 	if !ok {
-		return -1, errors.Errorf("Not found storcli adaptor by SN %q", adapter.sn)
+		return -1, errors.Errorf("Not found storcli adaptor by SN %q", adapter.key())
 	}
 	return storAdap.Controller, nil
 }
@@ -913,6 +927,9 @@ func (raid *MegaRaid) ParsePhyDevs() error {
 	ret, err := raid.term.Run(cmd)
 	if err != nil {
 		return fmt.Errorf("List raid disk error: %v", err)
+	}
+	if raiddrivers.Debug {
+		log.Debugf("-PDList -aALL: %s", ret)
 	}
 	err = raid.parsePhyDevs(ret)
 	if err != nil {
