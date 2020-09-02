@@ -194,7 +194,7 @@ func (manager *SVpcManager) getVpcExternalIdForClassicNetwork(regionId, cloudpro
 func (manager *SVpcManager) GetOrCreateVpcForClassicNetwork(ctx context.Context, cloudprovider *SCloudprovider, region *SCloudregion) (*SVpc, error) {
 	externalId := manager.getVpcExternalIdForClassicNetwork(region.Id, cloudprovider.Id)
 	_vpc, err := db.FetchByExternalIdAndManagerId(manager, externalId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-		return q.Equals("manager_id", region.ManagerId)
+		return q.Equals("manager_id", cloudprovider.Id)
 	})
 	if err == nil {
 		return _vpc.(*SVpc), nil
@@ -211,7 +211,7 @@ func (manager *SVpcManager) GetOrCreateVpcForClassicNetwork(ctx context.Context,
 	vpc.SetEnabled(false)
 	vpc.Status = api.VPC_STATUS_UNAVAILABLE
 	vpc.ExternalId = externalId
-	vpc.ManagerId = region.ManagerId
+	vpc.ManagerId = cloudprovider.Id
 	err = manager.TableSpec().Insert(ctx, vpc)
 	if err != nil {
 		return nil, errors.Wrap(err, "Insert vpc for classic network")
