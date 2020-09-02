@@ -382,7 +382,7 @@ func (self *SDnsRecordSet) GetDefaultDnsTrafficPolicy(provider string) (cloudpro
 	if policy != nil {
 		return cloudprovider.TDnsPolicyType(policy.PolicyType), cloudprovider.TDnsPolicyValue(policy.PolicyValue), policy.Options, nil
 	}
-	return cloudprovider.DnsPolicyTypeSimple, cloudprovider.DnsPolicyValueEmpty, policy.Options, nil
+	return cloudprovider.DnsPolicyTypeSimple, cloudprovider.DnsPolicyValueEmpty, nil, nil
 }
 
 func (self *SDnsRecordSet) GetDnsZone() (*SDnsZone, error) {
