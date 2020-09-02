@@ -55,6 +55,73 @@ func (factory *SAliyunProviderFactory) IsSystemCloudpolicyUnified() bool {
 	return false
 }
 
+func (self *SAliyunProviderFactory) GetSupportedDnsZoneTypes() []cloudprovider.TDnsZoneType {
+	return []cloudprovider.TDnsZoneType{
+		cloudprovider.PublicZone,
+		cloudprovider.PrivateZone,
+	}
+}
+
+func (self *SAliyunProviderFactory) GetSupportedDnsTypes() map[cloudprovider.TDnsZoneType][]cloudprovider.TDnsType {
+	return map[cloudprovider.TDnsZoneType][]cloudprovider.TDnsType{
+		cloudprovider.PublicZone: []cloudprovider.TDnsType{
+			cloudprovider.DnsTypeA,
+			cloudprovider.DnsTypeAAAA,
+			cloudprovider.DnsTypeCAA,
+			cloudprovider.DnsTypeCNAME,
+			cloudprovider.DnsTypeMX,
+			cloudprovider.DnsTypeNS,
+			cloudprovider.DnsTypeSRV,
+			cloudprovider.DnsTypeTXT,
+			cloudprovider.DnsTypePTR,
+			cloudprovider.DnsTypeFORWARD_URL,
+			cloudprovider.DnsTypeREDIRECT_URL,
+		},
+		cloudprovider.PrivateZone: []cloudprovider.TDnsType{
+			cloudprovider.DnsTypeA,
+			cloudprovider.DnsTypeAAAA,
+			cloudprovider.DnsTypeCNAME,
+			cloudprovider.DnsTypeMX,
+			cloudprovider.DnsTypeSRV,
+			cloudprovider.DnsTypeTXT,
+			cloudprovider.DnsTypePTR,
+		},
+	}
+}
+
+func (self *SAliyunProviderFactory) GetSupportedDnsPolicyTypes() map[cloudprovider.TDnsZoneType][]cloudprovider.TDnsPolicyType {
+	return map[cloudprovider.TDnsZoneType][]cloudprovider.TDnsPolicyType{
+		cloudprovider.PublicZone: []cloudprovider.TDnsPolicyType{
+			cloudprovider.DnsPolicyTypeSimple,
+			cloudprovider.DnsPolicyTypeByCarrier,
+			cloudprovider.DnsPolicyTypeByGeoLocation,
+			cloudprovider.DnsPolicyTypeBySearchEngine,
+		},
+		cloudprovider.PrivateZone: []cloudprovider.TDnsPolicyType{
+			cloudprovider.DnsPolicyTypeSimple,
+		},
+	}
+}
+
+func (self *SAliyunProviderFactory) GetSupportedDnsValues() map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyValue {
+	return map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyValue{
+		cloudprovider.DnsPolicyTypeByCarrier: []cloudprovider.TDnsPolicyValue{
+			cloudprovider.DnsPolicyValueUnicom,
+			cloudprovider.DnsPolicyValueTelecom,
+			cloudprovider.DnsPolicyValueChinaMobile,
+			cloudprovider.DnsPolicyValueCernet,
+		},
+		cloudprovider.DnsPolicyTypeByGeoLocation: []cloudprovider.TDnsPolicyValue{
+			cloudprovider.DnsPolicyValueOversea,
+		},
+		cloudprovider.DnsPolicyTypeBySearchEngine: []cloudprovider.TDnsPolicyValue{
+			cloudprovider.DnsPolicyValueBaidu,
+			cloudprovider.DnsPolicyValueGoogle,
+			cloudprovider.DnsPolicyValueBing,
+		},
+	}
+}
+
 func (self *SAliyunProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {

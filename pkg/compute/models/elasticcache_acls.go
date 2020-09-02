@@ -167,8 +167,9 @@ func (manager *SElasticcacheAclManager) newFromCloudElasticcacheAcl(ctx context.
 	return &acl, nil
 }
 
-func (manager *SElasticcacheAclManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
-	return jsonutils.GetAnyString(data, []string{"elasticcache_id", "elasticcache"})
+func (manager *SElasticcacheAclManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
+	elasticcacheId := jsonutils.GetAnyString(data, []string{"elasticcache_id", "elasticcache"})
+	return jsonutils.Marshal(map[string]string{"elasticcache_id": elasticcacheId})
 }
 
 func (manager *SElasticcacheAclManager) ResourceScope() rbacutils.TRbacScope {
@@ -183,9 +184,10 @@ func (manager *SElasticcacheAclManager) FilterByOwner(q *sqlchemy.SQuery, userCr
 	return elasticcacheSubResourceFetchOwner(q, userCred, scope)
 }
 
-func (manager *SElasticcacheAclManager) FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery {
-	if len(parentId) > 0 {
-		q = q.Equals("elasticcache_id", parentId)
+func (manager *SElasticcacheAclManager) FilterByUniqValues(q *sqlchemy.SQuery, values jsonutils.JSONObject) *sqlchemy.SQuery {
+	cacheId, _ := values.GetString("elasticcache_id")
+	if len(cacheId) > 0 {
+		q = q.Equals("elasticcache_id", cacheId)
 	}
 	return q
 }

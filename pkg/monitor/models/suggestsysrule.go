@@ -146,7 +146,7 @@ func (man *SSuggestSysRuleManager) ValidateCreateData(
 		return data, httperrors.NewInputParameterError("not support type %q", data.Type)
 	} else {
 		// Type is uniq
-		if err := db.NewNameValidator(man, ownerId, data.Type, ""); err != nil {
+		if err := db.NewNameValidator(man, ownerId, data.Type, nil); err != nil {
 			return data, err
 		}
 		if rule, err := man.GetRuleByType(monitor.SuggestDriverType(data.Type)); err != nil {

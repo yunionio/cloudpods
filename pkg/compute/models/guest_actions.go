@@ -463,7 +463,7 @@ func (self *SGuest) PerformClone(ctx context.Context, userCred mcclient.TokenCre
 	if len(cloneInput.Name) == 0 {
 		return nil, httperrors.NewMissingParameterError("name")
 	}
-	err = db.NewNameValidator(GuestManager, userCred, cloneInput.Name, "")
+	err = db.NewNameValidator(GuestManager, userCred, cloneInput.Name, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -3767,7 +3767,7 @@ func (man *SGuestManager) PerformImport(ctx context.Context, userCred mcclient.T
 	if obj, _ := man.FetchByIdOrName(userCred, desc.Id); obj != nil {
 		return nil, httperrors.NewInputParameterError("Server %s already exists", desc.Id)
 	}
-	if err := db.NewNameValidator(man, userCred, desc.Name, ""); err != nil {
+	if err := db.NewNameValidator(man, userCred, desc.Name, nil); err != nil {
 		return nil, err
 	}
 	if hostObj, _ := HostManager.FetchByIdOrName(userCred, desc.HostId); hostObj == nil {
@@ -4520,7 +4520,7 @@ func (self *SGuest) validateCreateInstanceSnapshot(
 		return nil, httperrors.NewMissingParameterError("name")
 	}
 
-	err = db.NewNameValidator(InstanceSnapshotManager, ownerId, name, "")
+	err = db.NewNameValidator(InstanceSnapshotManager, ownerId, name, nil)
 	if err != nil {
 		return nil, err
 	}

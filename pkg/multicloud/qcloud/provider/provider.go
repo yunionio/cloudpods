@@ -61,6 +61,65 @@ func (self *SQcloudProviderFactory) IsSupportCreateCloudgroup() bool {
 	return true
 }
 
+func (self *SQcloudProviderFactory) GetSupportedDnsZoneTypes() []cloudprovider.TDnsZoneType {
+	return []cloudprovider.TDnsZoneType{
+		cloudprovider.PublicZone,
+	}
+}
+
+func (self *SQcloudProviderFactory) GetSupportedDnsTypes() map[cloudprovider.TDnsZoneType][]cloudprovider.TDnsType {
+	return map[cloudprovider.TDnsZoneType][]cloudprovider.TDnsType{
+		cloudprovider.PublicZone: []cloudprovider.TDnsType{
+			cloudprovider.DnsTypeA,
+			cloudprovider.DnsTypeAAAA,
+			cloudprovider.DnsTypeCNAME,
+			cloudprovider.DnsTypeMX,
+			cloudprovider.DnsTypeNS,
+			cloudprovider.DnsTypeSRV,
+			cloudprovider.DnsTypeTXT,
+			cloudprovider.DnsTypePTR,
+			cloudprovider.DnsTypeFORWARD_URL,
+			cloudprovider.DnsTypeREDIRECT_URL,
+		},
+	}
+}
+
+func (self *SQcloudProviderFactory) GetSupportedDnsPolicyTypes() map[cloudprovider.TDnsZoneType][]cloudprovider.TDnsPolicyType {
+	return map[cloudprovider.TDnsZoneType][]cloudprovider.TDnsPolicyType{
+		cloudprovider.PublicZone: []cloudprovider.TDnsPolicyType{
+			cloudprovider.DnsPolicyTypeSimple,
+			cloudprovider.DnsPolicyTypeByCarrier,
+			cloudprovider.DnsPolicyTypeByGeoLocation,
+			cloudprovider.DnsPolicyTypeBySearchEngine,
+			cloudprovider.DnsPolicyTypeWeighted,
+		},
+	}
+}
+
+func (self *SQcloudProviderFactory) GetSupportedDnsPolicyValues() map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyValue {
+	return map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyValue{
+		cloudprovider.DnsPolicyTypeByCarrier: []cloudprovider.TDnsPolicyValue{
+			cloudprovider.DnsPolicyValueUnicom,
+			cloudprovider.DnsPolicyValueTelecom,
+			cloudprovider.DnsPolicyValueChinaMobile,
+			cloudprovider.DnsPolicyValueCernet,
+		},
+		cloudprovider.DnsPolicyTypeByGeoLocation: []cloudprovider.TDnsPolicyValue{
+			cloudprovider.DnsPolicyValueOversea,
+			cloudprovider.DnsPolicyValueMainland,
+		},
+		cloudprovider.DnsPolicyTypeBySearchEngine: []cloudprovider.TDnsPolicyValue{
+			cloudprovider.DnsPolicyValueBaidu,
+			cloudprovider.DnsPolicyValueBing,
+			cloudprovider.DnsPolicyValueGoogle,
+			cloudprovider.DnsPolicyValueYoudao,
+			cloudprovider.DnsPolicyValueSousou,
+			cloudprovider.DnsPolicyValueSougou,
+			cloudprovider.DnsPolicyValueQihu360,
+		},
+	}
+}
+
 func (self *SQcloudProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
 	if len(instanceId) == 0 {
 		return fmt.Errorf("Only changes to the binding machine's EIP bandwidth are supported")
@@ -272,4 +331,14 @@ func (self *SQcloudProvider) GetSamlEntityId() string {
 
 func (self *SQcloudProvider) GetSamlSpInitiatedLoginUrl(idpName string) string {
 	return self.client.GetSamlSpInitiatedLoginUrl(idpName)
+}
+
+func (self *SQcloudProvider) GetICloudDnsZones() ([]cloudprovider.ICloudDnsZone, error) {
+	return self.client.GetICloudDnsZones()
+}
+func (self *SQcloudProvider) GetICloudDnsZoneById(id string) (cloudprovider.ICloudDnsZone, error) {
+	return self.client.GetDomainById(id)
+}
+func (self *SQcloudProvider) CreateICloudDnsZone(opts *cloudprovider.SDnsZoneCreateOptions) (cloudprovider.ICloudDnsZone, error) {
+	return self.client.CreateICloudDnsZone(opts)
 }

@@ -244,6 +244,8 @@ func getSystemGeneralUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.I
 	count.Include(
 		VpcUsage("", providers, brands, cloudEnv, nil, rbacutils.ScopeSystem, rangeObjs),
 
+		DnsZoneUsage("", nil, rbacutils.ScopeSystem),
+
 		HostAllUsage("", userCred, rbacutils.ScopeSystem, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv),
 		HostAllUsage("prepaid_pool", userCred, rbacutils.ScopeSystem, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
 		HostAllUsage("any_pool", userCred, rbacutils.ScopeSystem, rangeObjs, hostTypes, nil, providers, brands, cloudEnv),
@@ -330,6 +332,8 @@ func getDomainGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 
 	count.Include(
 		VpcUsage("domain", providers, brands, cloudEnv, cred, rbacutils.ScopeDomain, rangeObjs),
+
+		DnsZoneUsage("domain", cred, rbacutils.ScopeDomain),
 
 		HostAllUsage("", cred, rbacutils.ScopeDomain, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv),
 		HostAllUsage("prepaid_pool", cred, rbacutils.ScopeDomain, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
@@ -507,6 +511,21 @@ func VpcUsage(prefix string, providers []string, brands []string, cloudEnv strin
 	key := "vpcs"
 	if len(prefix) > 0 {
 		key = fmt.Sprintf("%s.vpcs", prefix)
+	}
+	count[key], _ = q.CountWithError()
+	return count
+}
+
+func DnsZoneUsage(prefix string, ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope) Usage {
+	q := models.DnsZoneManager.Query()
+	if scope == rbacutils.ScopeDomain {
+		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
+	}
+
+	count := make(map[string]interface{})
+	key := "dns_zones"
+	if len(prefix) > 0 {
+		key = fmt.Sprintf("%s.dns_zones", prefix)
 	}
 	count[key], _ = q.CountWithError()
 	return count

@@ -180,6 +180,23 @@ func (cmd ResourceCmd) Show(args IShowOpt) {
 	cmd.runWithDesc("show", fmt.Sprintf("Show details of a %s", man.GetKeyword()), args, callback)
 }
 
+func (cmd ResourceCmd) ClassShow(args IShowOpt) {
+	man := cmd.manager
+	callback := func(s *mcclient.ClientSession, args IShowOpt) error {
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+		ret, err := man.(modulebase.Manager).Get(s, args.GetId(), params)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	}
+	cmd.runWithDesc(args.GetId(), fmt.Sprintf("Show %s of a %s", args.GetId(), man.GetKeyword()), args, callback)
+}
+
 type IGetActionOpt interface {
 	IOpt
 	IIdOpt

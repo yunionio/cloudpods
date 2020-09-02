@@ -49,6 +49,7 @@ type IModelManager interface {
 	SetAlias(alias string, aliasPlural string)
 
 	ValidateName(name string) error
+	EnableGenerateName() bool
 
 	// list hooks
 	AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool
@@ -72,7 +73,7 @@ type IModelManager interface {
 	FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery
 	FilterBySystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery
 	FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery
-	FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery
+	FilterByUniqValues(q *sqlchemy.SQuery, uniqValues jsonutils.JSONObject) *sqlchemy.SQuery
 
 	// GetOwnerId(userCred mcclient.IIdentityProvider) mcclient.IIdentityProvider
 
@@ -116,7 +117,7 @@ type IModelManager interface {
 
 	// fetch owner Id from query when create resource
 	FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error)
-	FetchParentId(ctx context.Context, data jsonutils.JSONObject) string
+	FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject
 
 	/* name uniqueness scope, system/domain/project, default is system */
 	NamespaceScope() rbacutils.TRbacScope
@@ -186,7 +187,7 @@ type IModel interface {
 	DeleteInContext(ctx context.Context, userCred mcclient.TokenCredential, ctxObjs []IModel, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error)
 
 	GetOwnerId() mcclient.IIdentityProvider
-	GetParentId() string
+	GetUniqValues() jsonutils.JSONObject
 
 	IsSharable(reqCred mcclient.IIdentityProvider) bool
 

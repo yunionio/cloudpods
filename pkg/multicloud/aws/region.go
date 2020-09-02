@@ -88,6 +88,8 @@ const (
 
 	CLOUDWATCH_SERVICE_NAME = "monitoring"
 	CLOUDWATCH_SERVICE_ID   = "CloudWatch"
+
+	ROUTE53_SERVICE_NAME = "route53"
 )
 
 type SRegion struct {
