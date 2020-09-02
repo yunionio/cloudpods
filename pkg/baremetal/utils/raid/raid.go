@@ -28,6 +28,10 @@ import (
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
+var (
+	Debug bool
+)
+
 const (
 	MODULE_MEGARAID = "megaraid_sas"
 	MODULE_HPSA     = "hpsa"
