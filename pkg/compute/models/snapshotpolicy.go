@@ -173,7 +173,7 @@ func (manager *SSnapshotPolicyManager) ValidateCreateData(ctx context.Context, u
 	input.ProjectId = ownerId.GetProjectId()
 	input.DomainId = ownerId.GetProjectDomainId()
 
-	err = db.NewNameValidator(manager, ownerId, input.Name, "")
+	err = db.NewNameValidator(manager, ownerId, input.Name, nil)
 	if err != nil {
 		return nil, err
 	}

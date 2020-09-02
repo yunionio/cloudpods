@@ -1125,24 +1125,27 @@ func _doCreateItem(
 		return nil, fmt.Errorf("fail to decode json data %s", data)
 	}
 	var err error
+	var generateName string
 
-	generateName, _ := dataDict.GetString("generate_name")
-	if len(generateName) > 0 {
-		dataDict.Remove("generate_name")
-		newName, err := GenerateName2(manager, ownerId, generateName, nil, baseIndex)
-		if err != nil {
-			return nil, err
-		}
-		dataDict.Add(jsonutils.NewString(newName), "name")
-	} /*else {
-		name, _ := data.GetString("name")
-		if len(name) > 0 {
-			err = NewNameValidator(manager, ownerId, name)
+	if manager.EnableGenerateName() {
+		generateName, _ = dataDict.GetString("generate_name")
+		if len(generateName) > 0 {
+			dataDict.Remove("generate_name")
+			newName, err := GenerateName2(manager, ownerId, generateName, nil, baseIndex)
 			if err != nil {
 				return nil, err
 			}
-		}
-	}*/
+			dataDict.Add(jsonutils.NewString(newName), "name")
+		} /*else {
+			name, _ := data.GetString("name")
+			if len(name) > 0 {
+				err = NewNameValidator(manager, ownerId, name)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}*/
+	}
 
 	if batchCreate {
 		dataDict, err = manager.BatchCreateValidateCreateData(ctx, userCred, ownerId, query, dataDict)
@@ -1154,10 +1157,10 @@ func _doCreateItem(
 		return nil, httperrors.NewGeneralError(err)
 	}
 	// run name validation after validate create data
-	parentId := manager.FetchParentId(ctx, dataDict)
+	uniqValues := manager.FetchUniqValues(ctx, dataDict)
 	name, _ := dataDict.GetString("name")
 	if len(name) > 0 {
-		err = NewNameValidator(manager, ownerId, name, parentId)
+		err = NewNameValidator(manager, ownerId, name, uniqValues)
 		if err != nil {
 			return nil, err
 		}

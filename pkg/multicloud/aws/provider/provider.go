@@ -55,6 +55,70 @@ func (factory *SAwsProviderFactory) IsSystemCloudpolicyUnified() bool {
 	return false
 }
 
+func (self *SAwsProviderFactory) GetSupportedDnsZoneTypes() []cloudprovider.TDnsZoneType {
+	return []cloudprovider.TDnsZoneType{
+		cloudprovider.PublicZone,
+		cloudprovider.PrivateZone,
+	}
+}
+
+func (self *SAwsProviderFactory) GetSupportedDnsTypes() map[cloudprovider.TDnsZoneType][]cloudprovider.TDnsType {
+	return map[cloudprovider.TDnsZoneType][]cloudprovider.TDnsType{
+		cloudprovider.PublicZone: []cloudprovider.TDnsType{
+			cloudprovider.DnsTypeA,
+			cloudprovider.DnsTypeAAAA,
+			cloudprovider.DnsTypeCAA,
+			cloudprovider.DnsTypeCNAME,
+			cloudprovider.DnsTypeMX,
+			cloudprovider.DnsTypeNS,
+			cloudprovider.DnsTypeSRV,
+			cloudprovider.DnsTypeSOA,
+			cloudprovider.DnsTypeTXT,
+			cloudprovider.DnsTypePTR,
+			cloudprovider.DnsTypeNAPTR,
+			cloudprovider.DnsTypeSPF,
+		},
+		cloudprovider.PrivateZone: []cloudprovider.TDnsType{
+			cloudprovider.DnsTypeA,
+			cloudprovider.DnsTypeAAAA,
+			cloudprovider.DnsTypeCAA,
+			cloudprovider.DnsTypeCNAME,
+			cloudprovider.DnsTypeMX,
+			cloudprovider.DnsTypeNS,
+			cloudprovider.DnsTypeSRV,
+			cloudprovider.DnsTypeSOA,
+			cloudprovider.DnsTypeTXT,
+			cloudprovider.DnsTypePTR,
+			cloudprovider.DnsTypeNAPTR,
+			cloudprovider.DnsTypeSPF,
+		},
+	}
+}
+
+func (self *SAwsProviderFactory) GetSupportedDnsPolicyTypes() map[cloudprovider.TDnsZoneType][]cloudprovider.TDnsPolicyType {
+	return map[cloudprovider.TDnsZoneType][]cloudprovider.TDnsPolicyType{
+		cloudprovider.PublicZone: []cloudprovider.TDnsPolicyType{
+			cloudprovider.DnsPolicyTypeSimple,
+			cloudprovider.DnsPolicyTypeByGeoLocation,
+			cloudprovider.DnsPolicyTypeWeighted,
+			cloudprovider.DnsPolicyTypeFailover,
+			cloudprovider.DnsPolicyTypeMultiValueAnswer,
+			cloudprovider.DnsPolicyTypeLatency,
+		},
+		cloudprovider.PrivateZone: []cloudprovider.TDnsPolicyType{
+			cloudprovider.DnsPolicyTypeSimple,
+			cloudprovider.DnsPolicyTypeWeighted,
+			cloudprovider.DnsPolicyTypeFailover,
+			cloudprovider.DnsPolicyTypeMultiValueAnswer,
+			cloudprovider.DnsPolicyTypeLatency,
+		},
+	}
+}
+
+func (self *SAwsProviderFactory) GetSupportedDnsPolicyTypeValues() map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyValue {
+	return map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyValue{}
+}
+
 func (self *SAwsProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {
@@ -230,4 +294,14 @@ func (self *SAwsProvider) GetSamlEntityId() string {
 
 func (self *SAwsProvider) GetSamlSpInitiatedLoginUrl(idpName string) string {
 	return ""
+}
+
+func (self *SAwsProvider) GetICloudDnsZones() ([]cloudprovider.ICloudDnsZone, error) {
+	return self.client.GetICloudDnsZones()
+}
+func (self *SAwsProvider) GetICloudDnsZoneById(id string) (cloudprovider.ICloudDnsZone, error) {
+	return self.client.GetHostedZoneById(id)
+}
+func (self *SAwsProvider) CreateICloudDnsZone(opts *cloudprovider.SDnsZoneCreateOptions) (cloudprovider.ICloudDnsZone, error) {
+	return self.client.CreateHostedZone(opts)
 }

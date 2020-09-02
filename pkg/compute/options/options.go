@@ -78,6 +78,7 @@ type ComputeOptions struct {
 
 	DefaultGlobalvpcQuota    int `default:"10" help:"Common global Vpc quota per domain, default 10"`
 	DefaultCloudaccountQuota int `default:"20" help:"Common cloud account quota per domain, default 20"`
+	DefaultDnsZoneQuota      int `default:"20" help:"Common dns zone quota per domain, default 10"`
 
 	DefaultHostQuota int `default:"500" help:"Common host quota per domain, default 500"`
 	DefaultVpcQuota  int `default:"500" help:"Common vpc quota per domain, default 500"`

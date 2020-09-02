@@ -2245,7 +2245,7 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	defer lockman.ReleaseClass(ctx, NetworkManager, db.GetLockClassKey(NetworkManager, userCred))
 
 	if len(input.Name) > 0 {
-		if err := db.NewNameValidator(NetworkManager, userCred, input.Name, ""); err != nil {
+		if err := db.NewNameValidator(NetworkManager, userCred, input.Name, nil); err != nil {
 			return nil, httperrors.NewInputParameterError("Duplicate name %s", input.Name)
 		}
 	} else {

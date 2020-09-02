@@ -254,20 +254,6 @@ func (manager *SElasticcacheResourceBaseManager) GetOrderByFields(query api.Elas
 	return fields
 }
 
-/*
-func (manager *SElasticcacheResourceBaseManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
-	parentId, _ := data.GetString("dbinstance_id")
-	return parentId
-}
-
-func (manager *SElasticcacheResourceBaseManager) FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery {
-	if len(parentId) > 0 {
-		q = q.Equals("dbinstance_id", parentId)
-	}
-	return q
-}
-*/
-
 func (manager *SElasticcacheResourceBaseManager) ListItemExportKeys(ctx context.Context,
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,

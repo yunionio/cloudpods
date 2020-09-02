@@ -25,7 +25,7 @@ require (
 	github.com/anacrolix/torrent v0.0.0-20181129073333-cc531b8c4a80
 	github.com/aokoli/goutils v1.0.1
 	github.com/apache/thrift v0.12.0 // indirect
-	github.com/aws/aws-sdk-go v1.21.4
+	github.com/aws/aws-sdk-go v1.30.29
 	github.com/baiyubin/aliyun-sts-go-sdk v0.0.0-20180326062324-cfa1a18b161f // indirect
 	github.com/beevik/etree v1.1.0 // indirect
 	github.com/benbjohnson/clock v1.0.0
@@ -50,7 +50,7 @@ require (
 	github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2 // indirect
 	github.com/go-logfmt/logfmt v0.4.0 // indirect
 	github.com/go-ole/go-ole v1.2.2 // indirect
-	github.com/go-sql-driver/mysql v1.4.1
+	github.com/go-sql-driver/mysql v1.5.0
 	github.com/go-yaml/yaml v2.1.0+incompatible
 	github.com/gofrs/uuid v3.2.0+incompatible // indirect
 	github.com/golang-plus/errors v1.0.0

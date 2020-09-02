@@ -66,7 +66,7 @@ func (self *SyncCloudIdResourcesTask) OnInit(ctx context.Context, obj db.IStanda
 	}
 
 	self.SetStage("OnSyncCloudusersComplete", nil)
-	account.StartSyncCloudusersTask(ctx, self.GetUserCred(), self.GetParentId())
+	account.StartSyncCloudusersTask(ctx, self.GetUserCred(), self.GetTaskId())
 	self.SetStageComplete(ctx, nil)
 }
 

@@ -171,9 +171,9 @@ func (man *SSuggestSysRuleConfigManager) createFromDriver(ctx context.Context, s
 	data.Scope = string(scope)
 	data.ProjectDomainId = ownerId.GetProjectDomainId()
 	data.ProjectId = ownerId.GetProjectId()
-	// HACK parentId, ref SScopedResourceBaseManager.FetchParentId
-	parentId := man.FetchParentId(ctx, data.JSON(data))
-	if err := db.NewNameValidator(man, ownerId, name, parentId); err != nil {
+	// HACK parentId, ref SScopedResourceBaseManager.FetchUniqValues
+	uniqValues := man.FetchUniqValues(ctx, data.JSON(data))
+	if err := db.NewNameValidator(man, ownerId, name, uniqValues); err != nil {
 		return errors.Wrapf(err, "validate name for %q, domain %q, project %q", scope, ownerId.GetProjectDomainId(), ownerId.GetProjectId())
 	}
 
