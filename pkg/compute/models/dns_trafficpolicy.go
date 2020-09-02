@@ -165,6 +165,7 @@ func (manager *SDnsTrafficPolicyManager) Register(ctx context.Context, userCred 
 		return nil, errors.Wrapf(err, "db.GenerateName")
 	}
 	policy.PolicyType = string(policyType)
+	policy.PolicyValue = string(policyValue)
 	policy.Provider = provider
 	policy.Options = options
 	return policy, manager.TableSpec().Insert(ctx, policy)
