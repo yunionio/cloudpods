@@ -142,6 +142,7 @@ func NotifyNormal(recipientId []string, isGroup bool, event string, data jsonuti
 		notify.NotifyByDingTalk,
 		notify.NotifyByWebConsole,
 		notify.NotifyByFeishu,
+		notify.NotifyByWorkwx,
 	} {
 		RawNotify(recipientId, isGroup,
 			c,
@@ -157,6 +158,7 @@ func NotifyImportant(recipientId []string, isGroup bool, event string, data json
 		notify.NotifyByMobile,
 		notify.NotifyByWebConsole,
 		notify.NotifyByFeishu,
+		notify.NotifyByWorkwx,
 	} {
 		RawNotify(recipientId, isGroup,
 			c,
@@ -172,12 +174,39 @@ func NotifyCritical(recipientId []string, isGroup bool, event string, data jsonu
 		notify.NotifyByMobile,
 		notify.NotifyByWebConsole,
 		notify.NotifyByFeishu,
+		notify.NotifyByWorkwx,
 	} {
 		RawNotify(recipientId, isGroup,
 			c,
 			notify.NotifyPriorityCritical,
 			event, data)
 	}
+}
+
+// NotifyAllWithoutRobot will send messages via all contacnt type from exclude robot contact type such as dingtalk-robot.
+func NotifyAllWithoutRobot(recipientId []string, isGroup bool, priority notify.TNotifyPriority, event string, data jsonutils.JSONObject) error {
+	return notifyRobot("no", recipientId, isGroup, priority, event, data)
+}
+
+// NotifyRobot will send messages via all robot contact type such as dingtalk-robot.
+func NotifyRobot(recipientId []string, isGroup bool, priority notify.TNotifyPriority, event string, data jsonutils.JSONObject) error {
+	return notifyRobot("only", recipientId, isGroup, priority, event, data)
+}
+
+func notifyRobot(robot string, recipientId []string, isGroup bool, priority notify.TNotifyPriority, event string, data jsonutils.JSONObject) error {
+	s := auth.GetAdminSession(context.Background(), consts.GetRegion(), "")
+	params := jsonutils.NewDict()
+	params.Set("robot", jsonutils.NewString(robot))
+	result, err := modules.NotifyConfig.PerformClassAction(s, "get-types", params)
+	if err != nil {
+		return err
+	}
+	jarray, _ := result.Get("types")
+	cTypes := jarray.(*jsonutils.JSONArray).GetStringArray()
+	for _, ct := range cTypes {
+		RawNotify(recipientId, isGroup, notify.TNotifyChannel(ct), priority, event, data)
+	}
+	return nil
 }
 
 func SystemNotify(priority notify.TNotifyPriority, event string, data jsonutils.JSONObject) {

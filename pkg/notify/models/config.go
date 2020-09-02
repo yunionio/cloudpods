@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -130,6 +131,55 @@ func (c *SConfig) PostUpdate(ctx context.Context, userCred mcclient.TokenCredent
 		return
 	}
 	NotifyService.RestartService(ctx, configMap, c.Type)
+}
+
+func (cm *SConfigManager) AllowPerformGetTypes(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return true
+}
+
+func (cm *SConfigManager) PerformGetTypes(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ConfigManagerGetTypesInput) (api.ConfigManagerGetTypesOutput, error) {
+	output := api.ConfigManagerGetTypesOutput{}
+	allContactType, err := cm.allContactType()
+	if err != nil {
+		return output, err
+	}
+	var judge func(string) bool
+	switch input.Robot {
+	case "only":
+		judge = func(ctype string) bool {
+			return strings.Contains(ctype, "robot")
+		}
+	case "yes":
+		judge = func(ctype string) bool {
+			return true
+		}
+	default:
+		judge = func(ctype string) bool {
+			return !strings.Contains(ctype, "robot")
+		}
+	}
+	for _, ctype := range allContactType {
+		if judge(ctype) {
+			output.Types = append(output.Types, ctype)
+		}
+	}
+	return output, nil
+}
+
+func (cm *SConfigManager) allContactType() ([]string, error) {
+	q := cm.Query("type")
+	allTypes := make([]struct {
+		Type string
+	}, 0, 3)
+	err := q.All(&allTypes)
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]string, len(allTypes))
+	for i := range ret {
+		ret[i] = allTypes[i].Type
+	}
+	return ret, nil
 }
 
 func (self *SConfigManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.ConfigListInput) (*sqlchemy.SQuery, error) {

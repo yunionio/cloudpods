@@ -106,6 +106,18 @@ func init() {
 		printObject(data)
 		return nil
 	})
+	type ConfigGetTypesOptions struct {
+		Robot string `json:"robot" choices:"yes|no|only"`
+	}
+	R(&ConfigGetTypesOptions{}, "notify-config-get-types", "Get all Config types", func(s *mcclient.ClientSession, args *ConfigGetTypesOptions) error {
+		param := jsonutils.Marshal(args)
+		result, err := modules.NotifyConfig.PerformClassAction(s, "get-types", param)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }
 
 func configIdFromType(s *mcclient.ClientSession, t string) (string, error) {
