@@ -3545,6 +3545,9 @@ func (self *SHost) PerformOffline(ctx context.Context, userCred mcclient.TokenCr
 			if jsonutils.QueryBoolean(data, "update_health_status", false) {
 				self.EnableHealthCheck = false
 			}
+			// Note: update host status to unknown on host offline
+			// we did not have host status after host offline
+			self.Status = api.BAREMETAL_UNKNOWN
 			return nil
 		})
 		if err != nil {
