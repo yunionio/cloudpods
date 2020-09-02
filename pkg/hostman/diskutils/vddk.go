@@ -60,6 +60,8 @@ type VDDKDisk struct {
 	PartDirs []string
 	Proc     *Command
 	Pid      int
+
+	kvmDisk *SKVMGuestDisk
 }
 
 func NewVDDKDisk(vddkInfo *apis.VDDKConInfo, diskPath string) *VDDKDisk {
@@ -132,36 +134,36 @@ func logpath(pid int) string {
 	return fmt.Sprintf("%s/vixDiskLib-%d.log", TMPDIR, pid)
 }
 
-func (vd *VDDKDisk) Connect() bool {
-	return true
+func (vd *VDDKDisk) Connect() error {
+	flatFile, err := vd.ConnectBlockDevice()
+	if err != nil {
+		return err
+	}
+	vd.kvmDisk = NewKVMGuestDisk(flatFile)
+	return vd.kvmDisk.Connect()
 }
 
-func (vd *VDDKDisk) Disconnect() bool {
-	return true
+func (vd *VDDKDisk) Disconnect() error {
+	if vd.kvmDisk != nil {
+		if err := vd.kvmDisk.Disconnect(); err != nil {
+			log.Errorf("kvm disk disconnect failed %s", err)
+		}
+	}
+	return vd.DisconnectBlockDevice()
 }
 
 func (vd *VDDKDisk) MountRootfs() fsdriver.IRootFsDriver {
-	var err error
-	if err = vd.Mount(); err == nil {
-		for _, mntPath := range vd.PartDirs {
-			part := newVDDKPartition(mntPath)
-			if fs := guestfs.DetectRootFs(part); fs != nil {
-				log.Infof("Use rootfs %s", fs)
-				return fs
-			}
-		}
+	if vd.kvmDisk == nil {
+		return nil
 	}
-	if err != nil {
-		log.Errorf("VDDKDisk Mount failed: %s", err)
-	}
-	return nil
+	return vd.kvmDisk.MountRootfs()
 }
 
 func (vd *VDDKDisk) UmountRootfs(fd fsdriver.IRootFsDriver) {
-	err := vd.Umount()
-	if err != nil {
-		log.Errorf("VDDKDisk Umount failed: %s", err)
+	if vd.kvmDisk == nil {
+		return
 	}
+	vd.kvmDisk.UmountRootfs(fd)
 }
 
 func (vd *VDDKDisk) ParsePartitions(buf string) error {

@@ -21,8 +21,8 @@ import (
 )
 
 type IDisk interface {
-	Connect() bool
-	Disconnect() bool
+	Connect() error
+	Disconnect() error
 	MountRootfs() fsdriver.IRootFsDriver
 	UmountRootfs(driver fsdriver.IRootFsDriver)
 }
