@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/notify"
@@ -71,6 +72,14 @@ type SNotification struct {
 }
 
 func (nm *SNotificationManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.NotificationCreateInput) (api.NotificationCreateInput, error) {
+	// check contact type enabled
+	allContactType, err := ConfigManager.allContactType()
+	if err != nil {
+		return input, err
+	}
+	if !utils.IsInStringArray(input.ContactType, allContactType) {
+		return input, httperrors.NewInputParameterError("Unconfigured contact type %q", input.ContactType)
+	}
 	// check uids, rids and contacts
 	if len(input.Receivers) == 0 && len(input.Contacts) == 0 {
 		return input, httperrors.NewMissingParameterError("receivers | contacts")

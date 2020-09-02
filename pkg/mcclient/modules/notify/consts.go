@@ -28,4 +28,5 @@ const (
 	NotifyByDingTalk   = TNotifyChannel("dingtalk")
 	NotifyByWebConsole = TNotifyChannel("webconsole")
 	NotifyByFeishu     = TNotifyChannel("feishu")
+	NotifyByWorkwx     = TNotifyChannel("workwx")
 )

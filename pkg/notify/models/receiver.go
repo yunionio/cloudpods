@@ -119,6 +119,9 @@ func (rm *SReceiverManager) InitializeData() error {
 	if err != nil {
 		return errors.Wrap(err, "db.FetchModelObjects")
 	}
+	if len(contacts) == 0 {
+		return nil
+	}
 
 	// build uid map
 	uids := make([]string, 0, 10)
@@ -186,6 +189,7 @@ func (rm *SReceiverManager) InitializeData() error {
 					webconsole = true
 					subContact.Contact = uid
 				} else {
+					subContact.ParentContactType = api.MOBILE
 					subContact.Contact = contact.Contact
 				}
 				subContact.ReceiverID = uid
@@ -338,11 +342,15 @@ func (r *SReceiver) setEnabledContactType(contactType string, enabled bool) {
 		if sc, ok := r.subContactCache[contactType]; ok {
 			sc.Enabled = tristate.NewFromBool(enabled)
 		} else {
-			r.subContactCache[contactType] = &SSubContact{
+			subContact := &SSubContact{
 				Type:       contactType,
 				ReceiverID: r.Id,
 				Enabled:    tristate.NewFromBool(enabled),
 			}
+			if contactType != api.WEBCONSOLE {
+				subContact.ParentContactType = api.MOBILE
+			}
+			r.subContactCache[contactType] = subContact
 		}
 	}
 }
@@ -369,10 +377,15 @@ func (r *SReceiver) MarkContactTypeVerified(contactType string) error {
 	if sc, ok := r.subContactCache[contactType]; ok {
 		sc.Verified = tristate.True
 	} else {
-		r.subContactCache[contactType] = &SSubContact{
+		subContact := &SSubContact{
+			Type:       contactType,
 			ReceiverID: r.Id,
-			Verified:   tristate.True,
+			Enabled:    tristate.True,
 		}
+		if contactType != api.WEBCONSOLE {
+			subContact.ParentContactType = api.MOBILE
+		}
+		r.subContactCache[contactType] = subContact
 	}
 	return nil
 }
@@ -387,10 +400,15 @@ func (r *SReceiver) setVerifiedContactType(contactType string, enabled bool) {
 		if sc, ok := r.subContactCache[contactType]; ok {
 			sc.Verified = tristate.NewFromBool(enabled)
 		} else {
-			r.subContactCache[contactType] = &SSubContact{
+			subContact := &SSubContact{
+				Type:       contactType,
 				ReceiverID: r.Id,
 				Verified:   tristate.NewFromBool(enabled),
 			}
+			if contactType != api.WEBCONSOLE {
+				subContact.ParentContactType = api.MOBILE
+			}
+			r.subContactCache[contactType] = subContact
 		}
 	}
 }
@@ -630,7 +648,7 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 	if len(input.Email) != 0 && input.Email != r.Email {
 		r.VerifiedEmail = tristate.False
 		for _, c := range r.subContactCache {
-			if c.ParentContactType == input.Email {
+			if c.ParentContactType == api.EMAIL {
 				c.Verified = tristate.False
 			}
 		}
@@ -638,7 +656,7 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 	if len(input.Mobile) != 0 && input.Mobile != r.Mobile {
 		r.VerifiedMobile = tristate.False
 		for _, c := range r.subContactCache {
-			if c.ParentContactType == input.Mobile {
+			if c.ParentContactType == api.MOBILE {
 				c.Verified = tristate.False
 			}
 		}
