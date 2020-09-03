@@ -25,6 +25,7 @@ const (
 )
 
 type DnsRecordPolicy struct {
+	// 平台
 	Provider      string              `json:"provider"`
 	PolicyType    string              `json:"policy_type"`
 	PolicyValue   string              `json:"policy_value"`
@@ -42,9 +43,18 @@ type DnsRecordSetCreateInput struct {
 	TrafficPolicies []DnsRecordPolicy `json:"traffic_policies"`
 }
 
+type DnsRecordSetUpdateInput struct {
+	apis.EnabledStatusStandaloneResourceBaseUpdateInput
+
+	SDnsRecordSet
+
+	TrafficPolicies []DnsRecordPolicy
+}
+
 type DnsRecordSetDetails struct {
 	apis.EnabledStatusStandaloneResourceDetails
 	SDnsRecordSet
+
 	TrafficPolicies []DnsRecordPolicy
 }
 
