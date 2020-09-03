@@ -35,6 +35,7 @@ type SSubContact struct {
 	ParentContactType string            `width:"16" nullable:"false"`
 	Enabled           tristate.TriState `nullable:"false" default:"false"`
 	Verified          tristate.TriState `nullable:"false" default:"false"`
+	VerifiedNote      string            `width:"1024"`
 }
 
 var SubContactManager *SSubContactManager

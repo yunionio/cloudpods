@@ -20,11 +20,13 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	apis "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/notify"
 	"yunion.io/x/onecloud/pkg/notify/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -51,6 +53,7 @@ func (self *SubcontactPullTask) taskFailed(ctx context.Context, receiver *models
 }
 
 func (self *SubcontactPullTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
+	failedReasons := make([]string, 0)
 	// pull contacts
 	receiver := obj.(*models.SReceiver)
 	if len(receiver.Mobile) == 0 {
@@ -64,12 +67,27 @@ func (self *SubcontactPullTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 		}
 		userid, err := models.NotifyService.ContactByMobile(ctx, receiver.Mobile, cType)
 		if err != nil {
-			reason := fmt.Sprintf("fail to get %s contact by mobile %q: %v", cType, receiver.Mobile, err)
-			self.taskFailed(ctx, receiver, reason)
-			return
+			var reason string
+			if errors.Cause(err) == notify.ErrNoSuchMobile {
+				receiver.MarkContactTypeUnVerified(cType, notify.ErrNoSuchMobile.Error())
+				reason = fmt.Sprintf("%q: no such mobile %s", cType, receiver.Mobile)
+			} else if errors.Cause(err) == notify.ErrIncompleteConfig {
+				receiver.MarkContactTypeUnVerified(cType, notify.ErrIncompleteConfig.Error())
+				reason = fmt.Sprintf("%q: %v", cType, err)
+			} else {
+				receiver.MarkContactTypeUnVerified(cType, "service exceptions")
+				reason = fmt.Sprintf("%q: %v", cType, err)
+			}
+			failedReasons = append(failedReasons, reason)
+			continue
 		}
 		receiver.SetContact(cType, userid)
 		receiver.MarkContactTypeVerified(cType)
+	}
+	if len(failedReasons) > 0 {
+		reason := strings.Join(failedReasons, "; ")
+		self.taskFailed(ctx, receiver, reason)
+		return
 	}
 	// push cache
 	err := receiver.PushCache(ctx)
