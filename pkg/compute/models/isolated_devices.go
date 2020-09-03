@@ -780,6 +780,10 @@ func (manager *SIsolatedDeviceManager) GetDevsOnHost(hostId string, model string
 	return devs, nil
 }
 
+func (self *SIsolatedDevice) GetUniqValues() jsonutils.JSONObject {
+	return jsonutils.Marshal(map[string]string{"host_id": self.HostId})
+}
+
 func (manager *SIsolatedDeviceManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
 	hostId, _ := data.GetString("host_id")
 	return jsonutils.Marshal(map[string]string{"host_id": hostId})

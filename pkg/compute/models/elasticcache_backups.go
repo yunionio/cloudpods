@@ -195,6 +195,10 @@ func (manager *SElasticcacheBackupManager) newFromCloudElasticcacheBackup(ctx co
 	return &backup, nil
 }
 
+func (self *SElasticcacheBackup) GetUniqValues() jsonutils.JSONObject {
+	return jsonutils.Marshal(map[string]string{"elasticcache_id": self.ElasticcacheId})
+}
+
 func (manager *SElasticcacheBackupManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
 	cacheId := jsonutils.GetAnyString(data, []string{"elasticcache_id", "elasticcache"})
 	return jsonutils.Marshal(map[string]string{"elasticcache_id": cacheId})

@@ -116,6 +116,10 @@ func (spm *SScalingPolicyManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fi
 	return spm.SScalingGroupResourceBaseManager.QueryDistinctExtraField(q, field)
 }
 
+func (sgm *SScalingPolicy) GetUniqValues() jsonutils.JSONObject {
+	return jsonutils.Marshal(map[string]string{"scaling_group_id": sgm.ScalingGroupId})
+}
+
 func (spm *SScalingPolicyManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
 	return spm.SScalingGroupResourceBaseManager.FetchUniqValues(ctx, data)
 }

@@ -256,6 +256,14 @@ type sRecordUniqValues struct {
 	DnsValue  string
 }
 
+func (self *SDnsRecordSet) GetUniqValues() jsonutils.JSONObject {
+	return jsonutils.Marshal(sRecordUniqValues{
+		DnsZoneId: self.DnsZoneId,
+		DnsType:   self.DnsType,
+		DnsValue:  self.DnsValue,
+	})
+}
+
 func (manager *SDnsRecordSetManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
 	values := &sRecordUniqValues{}
 	data.Unmarshal(values)
@@ -335,8 +343,59 @@ func (self *SDnsRecordSet) PreDelete(ctx context.Context, userCred mcclient.Toke
 	dnsZone.DoSyncRecords(ctx, userCred)
 }
 
+// 更新
+func (self *SDnsRecordSet) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DnsRecordSetUpdateInput) (api.DnsRecordSetUpdateInput, error) {
+	var err error
+	input.EnabledStatusStandaloneResourceBaseUpdateInput, err = self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.EnabledStatusStandaloneResourceBaseUpdateInput)
+	if err != nil {
+		return input, err
+	}
+
+	dnsZone, err := self.GetDnsZone()
+	if err != nil {
+		return input, httperrors.NewGeneralError(errors.Wrapf(err, "GetDnsZone"))
+	}
+
+	for _, policy := range input.TrafficPolicies {
+		if len(policy.Provider) == 0 {
+			return input, httperrors.NewGeneralError(fmt.Errorf("missing traffic policy provider"))
+		}
+		factory, err := cloudprovider.GetProviderFactory(policy.Provider)
+		if err != nil {
+			return input, httperrors.NewGeneralError(errors.Wrapf(err, "invalid provider %s for traffic policy", policy.Provider))
+		}
+		_dnsTypes := factory.GetSupportedDnsTypes()
+		dnsTypes, _ := _dnsTypes[cloudprovider.TDnsZoneType(dnsZone.ZoneType)]
+		if ok, _ := utils.InArray(cloudprovider.TDnsType(input.DnsType), dnsTypes); !ok {
+			return input, httperrors.NewNotSupportedError("%s %s not supported dns type %s", policy.Provider, dnsZone.ZoneType, input.DnsType)
+		}
+		_policyTypes := factory.GetSupportedDnsPolicyTypes()
+		policyTypes, _ := _policyTypes[cloudprovider.TDnsZoneType(dnsZone.ZoneType)]
+		if ok, _ := utils.InArray(cloudprovider.TDnsPolicyType(policy.PolicyType), policyTypes); !ok {
+			return input, httperrors.NewNotSupportedError("%s %s not supported policy type %s", policy.Provider, dnsZone.ZoneType, policy.PolicyType)
+		}
+		_policyValues := factory.GetSupportedDnsPolicyValues()
+		policyValues, _ := _policyValues[cloudprovider.TDnsPolicyType(policy.PolicyType)]
+		if len(policyValues) > 0 {
+			if len(policy.PolicyValue) == 0 {
+				return input, httperrors.NewMissingParameterError(fmt.Sprintf("missing %s policy value", policy.Provider))
+			}
+			if isIn, _ := utils.InArray(cloudprovider.TDnsPolicyValue(policy.PolicyValue), policyValues); !isIn {
+				return input, httperrors.NewNotSupportedError("%s %s %s not support %s", policy.Provider, dnsZone.ZoneType, policy.PolicyType, policy.PolicyValue)
+			}
+		}
+	}
+	return input, nil
+}
+
 func (self *SDnsRecordSet) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SEnabledStatusStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
+
+	input := &api.DnsRecordSetUpdateInput{}
+	data.Unmarshal(input)
+	for _, policy := range input.TrafficPolicies {
+		self.setTrafficPolicy(ctx, userCred, policy.Provider, cloudprovider.TDnsPolicyType(policy.PolicyType), cloudprovider.TDnsPolicyValue(policy.PolicyValue), policy.PolicyOptions)
+	}
 
 	dnsZone, err := self.GetDnsZone()
 	if err != nil {
