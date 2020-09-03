@@ -54,9 +54,14 @@ type ReceiverDetails struct {
 	// example: eamil, mobile, feishu, dingtalk, workwx
 	EnabledContactTypes []string `json:"enabled_contact_types"`
 
-	// description: verified contact types for user
-	// example: email, mobile, feishu, dingtalk, workwx
-	VerifiedContactTypes []string `json:"verified_contact_types"`
+	// description: verified info
+	VerifiedInfos []VerifiedInfo `json:"verified_infos"`
+}
+
+type VerifiedInfo struct {
+	ContactType string
+	Verified    bool
+	Note        string
 }
 
 type ReceiverListInput struct {

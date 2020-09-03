@@ -413,6 +413,30 @@ func (r *SReceiver) setVerifiedContactType(contactType string, enabled bool) {
 	}
 }
 
+func (r *SReceiver) getVerifiedInfos() ([]api.VerifiedInfo, error) {
+	if err := r.PullCache(false); err != nil {
+		return nil, err
+	}
+	infos := []api.VerifiedInfo{
+		{
+			ContactType: api.EMAIL,
+			Verified:    r.VerifiedEmail.Bool(),
+		},
+		{
+			ContactType: api.MOBILE,
+			Verified:    r.VerifiedMobile.Bool(),
+		},
+	}
+	for subct, subc := range r.subContactCache {
+		infos = append(infos, api.VerifiedInfo{
+			ContactType: subct,
+			Verified:    subc.Verified.Bool(),
+			Note:        subc.VerifiedNote,
+		})
+	}
+	return infos, nil
+}
+
 func (r *SReceiver) GetVerifiedContactTypes() ([]string, error) {
 	if err := r.PullCache(false); err != nil {
 		return nil, err
@@ -547,7 +571,7 @@ func (rm *SReceiverManager) FetchCustomizeColumns(ctx context.Context, userCred 
 		if rows[i].EnabledContactTypes, err = user.GetEnabledContactTypes(); err != nil {
 			log.Errorf("GetEnabledContactTypes: %v", err)
 		}
-		if rows[i].VerifiedContactTypes, err = user.GetVerifiedContactTypes(); err != nil {
+		if rows[i].VerifiedInfos, err = user.getVerifiedInfos(); err != nil {
 			log.Errorf("GetVerifiedContactTypes: %v", err)
 		}
 	}
