@@ -717,7 +717,9 @@ func (r *SReceiver) PerformTriggerVerify(ctx context.Context, userCred mcclient.
 	}
 	if utils.IsInStringArray(input.ContactType, []string{api.DINGTALK, api.FEISHU, api.WORKWX}) {
 		r.SetStatus(userCred, api.RECEIVER_STATUS_PULLING, "")
-		task, err := taskman.TaskManager.NewTask(ctx, "SubcontactPullTask", r, userCred, nil, "", "")
+		params := jsonutils.NewDict()
+		params.Set("contact_types", jsonutils.NewArray(jsonutils.NewString(input.ContactType)))
+		task, err := taskman.TaskManager.NewTask(ctx, "SubcontactPullTask", r, userCred, params, "", "")
 		if err != nil {
 			log.Errorf("ContactPullTask newTask error %v", err)
 		} else {

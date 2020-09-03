@@ -17,6 +17,7 @@ package tasks
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -60,8 +61,14 @@ func (self *SubcontactPullTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 		self.SetStageComplete(ctx, nil)
 		return
 	}
-	enabledContactTypes, _ := receiver.GetEnabledContactTypes()
-	for _, cType := range enabledContactTypes {
+	var contactTypes []string
+	if self.Params.Contains("contact_types") {
+		jArray, _ := self.Params.Get("contact_types")
+		contactTypes = jArray.(*jsonutils.JSONArray).GetStringArray()
+	} else {
+		contactTypes, _ = receiver.GetEnabledContactTypes()
+	}
+	for _, cType := range contactTypes {
 		if !utils.IsInStringArray(cType, PullContactType) {
 			continue
 		}
