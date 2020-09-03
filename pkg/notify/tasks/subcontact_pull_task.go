@@ -71,8 +71,6 @@ func (self *SubcontactPullTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 		receiver.SetContact(cType, userid)
 		receiver.MarkContactTypeVerified(cType)
 	}
-	receiver.SetContact(apis.WEBCONSOLE, receiver.Id)
-	receiver.MarkContactTypeVerified(apis.WEBCONSOLE)
 	// push cache
 	err := receiver.PushCache(ctx)
 	if err != nil {

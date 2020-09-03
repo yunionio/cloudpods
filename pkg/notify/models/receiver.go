@@ -51,13 +51,11 @@ var (
 		api.DINGTALK,
 		api.FEISHU,
 		api.WORKWX,
-		api.WEBCONSOLE,
 	}
 	AllSubContactTypes = []string{
 		api.DINGTALK,
 		api.FEISHU,
 		api.WORKWX,
-		api.WEBCONSOLE,
 	}
 	AllRobotContactTypes = []string{
 		api.FEISHU_ROBOT,
@@ -155,7 +153,6 @@ func (rm *SReceiverManager) InitializeData() error {
 			receiver.Name = user.Name
 			receiver.DomainId = user.DomainId
 		}
-		webconsole := false
 		for _, contact := range contacts {
 			switch contact.ContactType {
 			case api.EMAIL:
@@ -182,16 +179,12 @@ func (rm *SReceiverManager) InitializeData() error {
 				} else {
 					receiver.VerifiedMobile = tristate.False
 				}
+			case api.WEBCONSOLE:
 			default:
 				var subContact SSubContact
 				subContact.Type = contact.ContactType
-				if subContact.Type == api.WEBCONSOLE {
-					webconsole = true
-					subContact.Contact = uid
-				} else {
-					subContact.ParentContactType = api.MOBILE
-					subContact.Contact = contact.Contact
-				}
+				subContact.ParentContactType = api.MOBILE
+				subContact.Contact = contact.Contact
 				subContact.ReceiverID = uid
 				subContact.ParentContactType = api.MOBILE
 				if contact.Enabled == "1" {
@@ -205,16 +198,6 @@ func (rm *SReceiverManager) InitializeData() error {
 					subContact.Verified = tristate.False
 				}
 				receiver.subContactCache[contact.ContactType] = &subContact
-			}
-		}
-		if !webconsole {
-			receiver.subContactCache[api.WEBCONSOLE] = &SSubContact{
-				ReceiverID:        receiver.Id,
-				Type:              api.WEBCONSOLE,
-				Contact:           receiver.Id,
-				ParentContactType: "",
-				Enabled:           tristate.True,
-				Verified:          tristate.True,
 			}
 		}
 		err := rm.TableSpec().InsertOrUpdate(ctx, &receiver)
@@ -294,6 +277,9 @@ func (r *SReceiver) IsEnabledContactType(ct string) (bool, error) {
 	if utils.IsInStringArray(ct, AllRobotContactTypes) {
 		return true, nil
 	}
+	if ct == api.WEBCONSOLE {
+		return true, nil
+	}
 	cts, err := r.GetEnabledContactTypes()
 	if err != nil {
 		return false, errors.Wrap(err, "GetEnabledContactTypes")
@@ -347,9 +333,7 @@ func (r *SReceiver) setEnabledContactType(contactType string, enabled bool) {
 				ReceiverID: r.Id,
 				Enabled:    tristate.NewFromBool(enabled),
 			}
-			if contactType != api.WEBCONSOLE {
-				subContact.ParentContactType = api.MOBILE
-			}
+			subContact.ParentContactType = api.MOBILE
 			r.subContactCache[contactType] = subContact
 		}
 	}
@@ -382,9 +366,7 @@ func (r *SReceiver) MarkContactTypeVerified(contactType string) error {
 			ReceiverID: r.Id,
 			Enabled:    tristate.True,
 		}
-		if contactType != api.WEBCONSOLE {
-			subContact.ParentContactType = api.MOBILE
-		}
+		subContact.ParentContactType = api.MOBILE
 		r.subContactCache[contactType] = subContact
 	}
 	return nil
@@ -405,9 +387,7 @@ func (r *SReceiver) setVerifiedContactType(contactType string, enabled bool) {
 				ReceiverID: r.Id,
 				Verified:   tristate.NewFromBool(enabled),
 			}
-			if contactType != api.WEBCONSOLE {
-				subContact.ParentContactType = api.MOBILE
-			}
+			subContact.ParentContactType = api.MOBILE
 			r.subContactCache[contactType] = subContact
 		}
 	}
@@ -932,6 +912,8 @@ func (r *SReceiver) GetContact(cType string) (string, error) {
 		return r.Email, nil
 	case cType == api.MOBILE:
 		return r.Mobile, nil
+	case cType == api.WEBCONSOLE:
+		return r.Id, nil
 	case utils.IsInStringArray(cType, AllRobotContactTypes):
 		return r.Mobile, nil
 	default:
