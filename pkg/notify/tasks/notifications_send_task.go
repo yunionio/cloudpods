@@ -132,6 +132,11 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		rn := contactMap[fd.Contact]
 		rn.AfterSend(ctx, false, fd.Reason)
 		failedRecord = append(failedRecord, fmt.Sprintf("%s: %s", rn.ReceiverID, fd.Reason))
+		delete(contactMap, fd.Contact)
+	}
+	// after send for successful notify
+	for _, rn := range contactMap {
+		rn.AfterSend(ctx, true, "")
 	}
 	if len(failedRecord) == len(contacts) {
 		self.taskFailed(ctx, notification, strings.Join(failedRecord, "; "), true)
@@ -141,7 +146,6 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		self.taskFailed(ctx, notification, strings.Join(failedRecord, "; "), false)
 		return
 	}
-	log.Infof("successfully send notification %q", notification.GetId())
 	notification.SetStatus(self.UserCred, apis.NOTIFICATION_STATUS_OK, "")
 	logclient.AddActionLogWithContext(ctx, notification, logclient.ACT_SEND_NOTIFICATION, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)

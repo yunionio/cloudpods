@@ -17,6 +17,8 @@ package notify
 import (
 	"context"
 
+	"yunion.io/x/pkg/errors"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/notify/rpc/apis"
 )
@@ -42,3 +44,8 @@ type ITemplateStore interface {
 }
 
 type SConfig map[string]string
+
+var (
+	ErrNoSuchMobile     = errors.Error("no such mobile")
+	ErrIncompleteConfig = errors.Error("incomplete config")
+)

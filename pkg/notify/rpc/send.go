@@ -124,7 +124,11 @@ func (self *SRpcService) Send(ctx context.Context, contactType, contact, topic, 
 
 	_, err = self.execute(ctx, f, contactType)
 	if err != nil {
-		return errors.Wrapf(err, "contactType '%s'", contactType)
+		s, ok := status.FromError(err)
+		if !ok {
+			return err
+		}
+		return errors.Error(s.Message())
 	}
 	return nil
 }
@@ -149,7 +153,11 @@ func (self *SRpcService) BatchSend(ctx context.Context, contacts []string, conta
 
 	ret, err := self.execute(ctx, f, contactType)
 	if err != nil {
-		return nil, errors.Wrapf(err, "contactType '%s'", contactType)
+		s, ok := status.FromError(err)
+		if !ok {
+			return nil, err
+		}
+		return nil, errors.Error(s.Message())
 	}
 	reply := ret.(*apis.BatchSendReply)
 	return reply.FailedRecords, nil
@@ -177,6 +185,16 @@ func (self *SRpcService) ContactByMobile(ctx context.Context, mobile, serviceNam
 	ret, err := self.execute(ctx, f, serviceName)
 	if err != nil {
 		return "", err
+	}
+	s, ok := status.FromError(err)
+	if !ok {
+		return "", err
+	}
+	if s.Code() == codes.NotFound {
+		return "", errors.Wrap(notifyv2.ErrNoSuchMobile, s.Message())
+	}
+	if s.Code() == codes.PermissionDenied {
+		return "", errors.Wrap(notifyv2.ErrIncompleteConfig, s.Message())
 	}
 
 	reply := ret.(*apis.UseridByMobileReply)
@@ -212,7 +230,7 @@ func (self *SRpcService) execute(ctx context.Context, f func(client *apis.SendNo
 		}
 
 		if st.Message() != ErrSendServiceNotInit.Error() {
-			return nil, errors.Error(st.Message())
+			return nil, err
 		}
 
 		// if NOINIT, try to restart server and send again
@@ -230,7 +248,7 @@ func (self *SRpcService) execute(ctx context.Context, f func(client *apis.SendNo
 
 				return nil, errors.Wrap(ErrSendServiceNotFound, serviceName)
 			}
-			return nil, errors.Error(st.Message())
+			return nil, err
 		}
 	}
 	return ret, nil
