@@ -32,7 +32,7 @@ func init() {
 	NotifyReceiver = NewNotifyv2Manager(
 		"receiver",
 		"receivers",
-		[]string{"ID", "Name", "Email", "Mobile", "Enabled_Contact_Types", "Verified_Contact_Types"},
+		[]string{"ID", "Name", "Email", "Mobile", "Enabled_Contact_Types", "Verified_Infos"},
 		[]string{},
 	)
 	register(&NotifyReceiver)
