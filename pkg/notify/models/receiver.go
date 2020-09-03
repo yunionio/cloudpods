@@ -364,7 +364,7 @@ func (r *SReceiver) MarkContactTypeVerified(contactType string) error {
 		subContact := &SSubContact{
 			Type:       contactType,
 			ReceiverID: r.Id,
-			Enabled:    tristate.True,
+			Verified:   tristate.True,
 		}
 		subContact.ParentContactType = api.MOBILE
 		r.subContactCache[contactType] = subContact
