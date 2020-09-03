@@ -91,8 +91,8 @@ type SReceiver struct {
 	db.SDomainizedResourceBase
 	db.SEnabledResourceBase
 
-	Email  string `width:"64" nullable:"false" create:"optional" update:"user" get:"user" list:"admin"`
-	Mobile string `width:"16" nullable:"false" create:"optional" update:"user" get:"user" list:"admin"`
+	Email  string `width:"64" nullable:"false" create:"optional" update:"user" get:"user" list:"user"`
+	Mobile string `width:"16" nullable:"false" create:"optional" update:"user" get:"user" list:"user"`
 
 	// swagger:ignore
 	EnabledEmail tristate.TriState `nullable:"false" default:"false" update:"user"`
