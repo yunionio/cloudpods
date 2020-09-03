@@ -30,6 +30,7 @@ type IVMNetwork interface {
 	GetActivePorts() []string
 	GetType() string
 	ContainHost(host *SHost) bool
+	SetHostPortGroup(pg types.HostPortGroup)
 }
 
 const (
@@ -52,6 +53,7 @@ type SNetwork struct {
 
 type SDistributedVirtualPortgroup struct {
 	SManagedObject
+	HostPortGroup types.HostPortGroup
 }
 
 func NewNetwork(manager *SESXiClient, net *mo.Network, dc *SDatacenter) *SNetwork {
@@ -99,6 +101,10 @@ func (net *SNetwork) ContainHost(host *SHost) bool {
 		}
 	}
 	return false
+}
+
+func (net *SNetwork) SetHostPortGroup(pg types.HostPortGroup) {
+	net.HostPortGroup = pg
 }
 
 func (net *SDistributedVirtualPortgroup) getMODVPortgroup() *mo.DistributedVirtualPortgroup {
@@ -168,6 +174,10 @@ func (net *SDistributedVirtualPortgroup) ContainHost(host *SHost) bool {
 		}
 	}
 	return false
+}
+
+func (net *SDistributedVirtualPortgroup) SetHostPortGroup(pg types.HostPortGroup) {
+	net.HostPortGroup = pg
 }
 
 func (net *SDistributedVirtualPortgroup) Uplink() bool {
