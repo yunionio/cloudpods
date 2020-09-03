@@ -19,7 +19,6 @@ import (
 	"database/sql"
 	"net/http"
 	"net/url"
-	"time"
 
 	"golang.org/x/net/http/httpproxy"
 
@@ -51,8 +50,6 @@ type SCloudaccountManager struct {
 }
 
 var CloudaccountManager *SCloudaccountManager
-var isCloudacountSynced bool
-var providersForSystemPolicySynced []string
 
 func init() {
 	CloudaccountManager = &SCloudaccountManager{
@@ -64,8 +61,6 @@ func init() {
 		),
 	}
 	CloudaccountManager.SetVirtualObject(CloudaccountManager)
-	isCloudacountSynced = false
-	providersForSystemPolicySynced = []string{}
 }
 
 type SCloudaccount struct {
@@ -279,18 +274,6 @@ func (manager *SCloudaccountManager) SyncCloudaccounts(ctx context.Context, user
 
 		result = account.syncCloudprovider(ctx, userCred)
 		log.Debugf("sync cloudprovider for cloudaccount %s(%s) result: %s", account.Name, account.Id, result.Result())
-	}
-	isCloudacountSynced = true
-}
-
-func waitForSync() {
-	now := time.Now()
-	for !isCloudacountSynced {
-		log.Infof("cloudaccount not sync, wait for 10 seconds")
-		time.Sleep(time.Second * 10)
-		if time.Now().Sub(now) > time.Minute*3 {
-			break
-		}
 	}
 }
 
@@ -779,10 +762,6 @@ func (self *SCloudaccount) syncSystemCloudpoliciesFromCloud(ctx context.Context,
 		result.Add()
 	}
 
-	if !utils.IsInStringArray(self.Provider, providersForSystemPolicySynced) {
-		providersForSystemPolicySynced = append(providersForSystemPolicySynced, self.Provider)
-	}
-
 	log.Infof("Sync %s system policies result: %s", self.Provider, result.Result())
 	return nil
 }
@@ -952,14 +931,7 @@ func (manager *SCloudaccountManager) SyncCloudidSystemPolicies(ctx context.Conte
 		log.Errorf("GetSupportCloudIdAccounts error: %v", err)
 		return
 	}
-	providers := []string{}
 	for i := range accounts {
-		if isStart && utils.IsInStringArray(accounts[i].Provider, providersForSystemPolicySynced) {
-			continue
-		}
-		if utils.IsInStringArray(accounts[i].Provider, providers) {
-			continue
-		}
 		_, err := accounts[i].GetProvider() // 检查账号是否可以正常连接
 		if err != nil {
 			log.Errorf("GetProvider for account %s(%s) error: %v", accounts[i].Name, accounts[i].Provider, err)
@@ -970,7 +942,6 @@ func (manager *SCloudaccountManager) SyncCloudidSystemPolicies(ctx context.Conte
 			log.Errorf("StartSystemCloudpolicySyncTask for account %s(%s) error: %v", accounts[i].Name, accounts[i].Provider, err)
 			continue
 		}
-		providers = append(providers, accounts[i].Provider)
 	}
 }
 
@@ -985,17 +956,12 @@ func (self *SCloudaccount) StartSystemCloudpolicySyncTask(ctx context.Context, u
 }
 
 func (manager *SCloudaccountManager) SyncCloudidResources(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	waitForSync()
 	accounts, err := manager.GetSupportCloudIdAccounts()
 	if err != nil {
 		log.Errorf("GetSupportCloudIdAccounts error: %v", err)
 		return
 	}
 	for i := range accounts {
-		if !utils.IsInStringArray(accounts[i].Provider, providersForSystemPolicySynced) {
-			log.Warningf("%s system policies not syncing, sync for next loop", accounts[i].Provider)
-			continue
-		}
 		err = accounts[i].StartSyncCloudIdResourcesTask(ctx, userCred, "")
 		if err != nil {
 			log.Errorf("StartSyncCloudIdResourcesTask for account %s(%s) error: %v", accounts[i].Name, accounts[i].Provider, err)
