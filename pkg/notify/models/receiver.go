@@ -372,6 +372,26 @@ func (r *SReceiver) MarkContactTypeVerified(contactType string) error {
 	return nil
 }
 
+func (r *SReceiver) MarkContactTypeUnVerified(contactType string, note string) error {
+	if err := r.PullCache(false); err != nil {
+		return err
+	}
+	if sc, ok := r.subContactCache[contactType]; ok {
+		sc.Verified = tristate.False
+		sc.VerifiedNote = note
+	} else {
+		subContact := &SSubContact{
+			Type:         contactType,
+			ReceiverID:   r.Id,
+			VerifiedNote: note,
+			Verified:     tristate.False,
+		}
+		subContact.ParentContactType = api.MOBILE
+		r.subContactCache[contactType] = subContact
+	}
+	return nil
+}
+
 func (r *SReceiver) setVerifiedContactType(contactType string, enabled bool) {
 	switch contactType {
 	case api.EMAIL:
@@ -630,6 +650,7 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 		for _, c := range r.subContactCache {
 			if c.ParentContactType == api.EMAIL {
 				c.Verified = tristate.False
+				c.VerifiedNote = "email changed, re-verify"
 			}
 		}
 	}
@@ -638,6 +659,7 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 		for _, c := range r.subContactCache {
 			if c.ParentContactType == api.MOBILE {
 				c.Verified = tristate.False
+				c.VerifiedNote = "mobile changed, re-verify"
 			}
 		}
 	}
