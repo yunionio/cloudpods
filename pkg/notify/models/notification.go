@@ -63,7 +63,7 @@ type SNotification struct {
 
 	ContactType string `width:"16" nullable:"false" create:"required" list:"user" get:"user" index:"true"`
 	// swagger:ignore
-	Topic    string `width:"128" nullable:"true" create:"required"`
+	Topic    string `width:"128" nullable:"true" create:"required" search:"user"`
 	Priority string `width:"16" nullable:"true" create:"optional" list:"user" get:"user"`
 	// swagger:ignore
 	Message    string    `create:"required"`
