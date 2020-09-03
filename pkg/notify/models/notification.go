@@ -105,6 +105,9 @@ func (nm *SNotificationManager) ValidateCreateData(ctx context.Context, userCred
 		input.Receivers = idSet.UnsortedList()
 	}
 	nowStr := time.Now().Format("2006-01-02 15:04:05")
+	if len(input.Priority) == 0 {
+		input.Priority = api.NOTIFICATION_PRIORITY_NORMAL
+	}
 	// hack
 	input.Name = fmt.Sprintf("%s(%s)", input.Topic, nowStr)
 	return input, nil
