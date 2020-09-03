@@ -28,7 +28,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/apigateway/constants"
 	"yunion.io/x/onecloud/pkg/apigateway/options"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/appctx"
@@ -76,14 +75,14 @@ func (h *AuthHandlers) getIdpSsoRedirectUri(ctx context.Context, w http.Response
 	query, _ := jsonutils.ParseQueryString(req.URL.RawQuery)
 	var linkuser string
 	if query != nil && query.Contains("linkuser") {
-		t, authToken, _ := fetchAuthInfo(ctx, req)
+		t, _, _ := fetchAuthInfo(ctx, req)
 		if t == nil {
 			httperrors.InvalidCredentialError(ctx, w, "invalid credential")
 			return
 		}
 		linkuser = t.GetUserId()
-		authCookie := authToken.GetAuthCookie(t)
-		saveCookie(w, constants.YUNION_AUTH_COOKIE, authCookie, "", expires, true)
+		// authCookie := authToken.GetAuthCookie(t)
+		// saveCookie(w, constants.YUNION_AUTH_COOKIE, authCookie, "", expires, true)
 	}
 
 	referer := req.Header.Get(http.CanonicalHeaderKey("referer"))
