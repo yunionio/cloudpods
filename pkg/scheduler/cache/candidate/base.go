@@ -98,6 +98,10 @@ func (b baseHostGetter) IsPublic() bool {
 	return account.ShareMode == computeapi.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM*/
 }
 
+func (b baseHostGetter) KeywordPlural() string {
+	return b.h.KeywordPlural()
+}
+
 func (b baseHostGetter) DomainId() string {
 	return b.h.DomainId
 }

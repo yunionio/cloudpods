@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/plugin"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
@@ -150,6 +151,10 @@ func IsNetworkAvailable(
 		// project-wide share
 	} else if n.ProjectId == data.Project {
 		// owner
+	} else if db.IsAdminAllowGet(data.UserCred, n) {
+		// system admin, can do anything
+	} else if db.IsDomainAllowGet(data.UserCred, n) && data.UserCred.GetProjectDomainId() == n.DomainId {
+		// domain admin, can do anything with domain network
 	} else {
 		return FailReason{
 			Reason: fmt.Sprintf("Network %s not accessible", n.Name),
