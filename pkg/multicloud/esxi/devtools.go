@@ -156,7 +156,7 @@ func NewVNICDev(host *SHost, mac, driver string, bridge string, vlanId int32, ke
 			log.Errorf("fail to find dvportgroup by name %s: %s", bridge, err)
 		}
 	}
-	if inet == nil {
+	if inet == nil || reflect.ValueOf(inet).IsNil() {
 		inet, err = host.FindNetworkByVlanID(vlanId)
 		if err != nil {
 			log.Errorf("fail to find network by vlanid %d: %s", vlanId, err)
