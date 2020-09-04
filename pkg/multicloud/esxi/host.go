@@ -31,7 +31,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
-	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -85,13 +84,15 @@ type SHost struct {
 	multicloud.SHostBase
 	SManagedObject
 
+	masterIp string
+
 	nicInfo      []SHostNicInfo
 	storageInfo  []SHostStorageInfo
 	datastores   []cloudprovider.ICloudStorage
 	storageCache *SDatastoreImageCache
 	vms          []cloudprovider.ICloudVM
 	parent       *mo.ComputeResource
-	networks     []SNetwork
+	networks     []IVMNetwork
 	tempalteVMs  []*SVirtualMachine
 }
 
@@ -341,15 +342,22 @@ func mask2len(mask string) int8 {
 	return netutils.Mask2Len(maskAddr)
 }
 
-func isVnicAdmin(nic types.HostVirtualNic, defRouteDev string, defGateway string) bool {
-	if nic.Spec.Portgroup == "Management Network" || nic.Spec.Portgroup == "Service Console" || nic.Device == defRouteDev {
-		return true
-	}
-	if nic.Spec.IpRouteSpec != nil {
-		hostRouteConf := nic.Spec.IpRouteSpec.IpRouteConfig.GetHostIpRouteConfig()
-		if hostRouteConf != nil && len(hostRouteConf.DefaultGateway) > 0 && hostRouteConf.DefaultGateway == defGateway {
+func (self *SHost) isVnicAdmin(nic types.HostVirtualNic) bool {
+	if len(self.masterIp) > 0 {
+		if self.masterIp == nic.Spec.Ip.IpAddress {
 			return true
+		} else {
+			return false
 		}
+	}
+	exist, err := self.manager.IsHostIpExists(nic.Spec.Ip.IpAddress)
+	if err != nil {
+		log.Errorf("IsHostIpExists %s fail %s", nic.Spec.Ip.IpAddress, err)
+		return false
+	}
+	if exist {
+		self.masterIp = nic.Spec.Ip.IpAddress
+		return true
 	}
 	return false
 }
@@ -384,23 +392,7 @@ func (self *SHost) fetchNicInfo(debug bool) []SHostNicInfo {
 	if len(moHost.Config.Network.ConsoleVnic) > 0 {
 		vnics = append(vnics, moHost.Config.Network.ConsoleVnic...)
 	}
-	// find default route vnic
-	defRouteDevs := make([]string, 0)
-	for _, r := range moHost.Config.Network.RouteTableInfo.IpRoute {
-		if r.Network == "0.0.0.0" && r.PrefixLength == 0 && !utils.IsInStringArray(r.DeviceName, defRouteDevs) {
-			// default route
-			defRouteDevs = append(defRouteDevs, r.DeviceName)
-		}
-	}
-	var defRouteDev string
-	if len(defRouteDevs) > 0 {
-		defRouteDev = defRouteDevs[0]
-	}
-	var defGateway string
-	if moHost.Config.Network.IpRouteConfig.GetHostIpRouteConfig() != nil {
-		defGateway = moHost.Config.Network.IpRouteConfig.GetHostIpRouteConfig().DefaultGateway
-	}
-	// findMaster := false
+
 	for _, nic := range vnics {
 		mac := netutils.FormatMacAddr(nic.Spec.Mac)
 		pnic := findHostNicByMac(nicInfoList, mac)
@@ -412,7 +404,7 @@ func (self *SHost) fetchNicInfo(debug bool) []SHostNicInfo {
 				pnic.IpAddr6 = nic.Spec.Ip.IpV6Config.IpV6Address[0].IpAddress
 				pnic.IpAddr6PrefixLen = int8(nic.Spec.Ip.IpV6Config.IpV6Address[0].PrefixLength)
 			}
-			if isVnicAdmin(nic, defRouteDev, defGateway) {
+			if self.isVnicAdmin(nic) {
 				pnic.NicType = api.NIC_TYPE_ADMIN
 			}
 			pnic.LinkUp = true
@@ -434,7 +426,7 @@ func (self *SHost) fetchNicInfo(debug bool) []SHostNicInfo {
 				info.IpAddr6PrefixLen = int8(nic.Spec.Ip.IpV6Config.IpV6Address[0].PrefixLength)
 			}
 			info.Mtu = nic.Spec.Mtu
-			if isVnicAdmin(nic, defRouteDev, defGateway) {
+			if self.isVnicAdmin(nic) {
 				info.NicType = api.NIC_TYPE_ADMIN
 			}
 			if nic.Spec.DistributedVirtualPort != nil {
@@ -443,36 +435,6 @@ func (self *SHost) fetchNicInfo(debug bool) []SHostNicInfo {
 			nicInfoList = append(nicInfoList, info)
 		}
 	}
-
-	/*if !findMaster && len(nicInfoList) > 0 {
-		// no match pnic found for master nic
-		// choose the first pnic
-		pnic := &nicInfoList[0]
-		for _, nic := range vnics {
-			if nic.Spec.Portgroup == "Management Network" || nic.Spec.Portgroup == "Service Console" {
-				pnic.NicType = api.NIC_TYPE_ADMIN
-				pnic.IpAddr = nic.Spec.Ip.IpAddress
-				pnic.LinkUp = true
-				pnic.Mtu = nic.Spec.Mtu
-				break
-			}
-		}
-		if len(pnic.IpAddr) == 0 {
-			if len(defRouteDev) == 1 {
-				for _, nic := range vnics {
-					if nic.Device == defRouteDev {
-						pnic.NicType = api.NIC_TYPE_ADMIN
-						pnic.IpAddr = nic.Spec.Ip.IpAddress
-						pnic.LinkUp = true
-						pnic.Mtu = nic.Spec.Mtu
-						break
-					}
-				}
-			} else {
-				log.Errorf("find default route interfaces fail: %s", defRouteDev)
-			}
-		}
-	}*/
 
 	return nicInfoList
 }
@@ -1316,8 +1278,8 @@ func (host *SHost) IsActiveVlanID(vlanID int32) bool {
 	return false
 }
 
-func (host *SHost) findBasicNetwork(vlanID int32) (*SNetwork, error) {
-	nets, err := host.GetNetwork()
+func (host *SHost) findBasicNetwork(vlanID int32) (IVMNetwork, error) {
+	nets, err := host.getBasicNetworks()
 	if err != nil {
 		return nil, err
 	}
@@ -1325,35 +1287,76 @@ func (host *SHost) findBasicNetwork(vlanID int32) (*SNetwork, error) {
 		return nil, nil
 	}
 	if !host.IsActiveVlanID(vlanID) {
-		return &nets[0], nil
+		return nets[0], nil
 	}
 	for i := range nets {
 		if nets[i].GetVlanId() == vlanID {
-			return &nets[i], nil
+			return nets[i], nil
 		}
 	}
 	return nil, nil
 }
 
-func (host *SHost) GetNetwork() ([]SNetwork, error) {
+func (host *SHost) getBasicNetworks() ([]IVMNetwork, error) {
+	nets, err := host.GetNetworks()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetNetworks")
+	}
+	ret := make([]IVMNetwork, 0)
+	for i := range nets {
+		if net, ok := nets[i].(*SNetwork); ok {
+			ret = append(ret, net)
+		}
+	}
+	return ret, nil
+}
+
+func (host *SHost) GetNetworks() ([]IVMNetwork, error) {
 	if host.networks != nil {
 		return host.networks, nil
 	}
 	netMobs := host.getHostSystem().Network
-	moNets := make([]mo.Network, 0)
-	err := host.manager.references2Objects(netMobs, NETWORK_PROPS, &moNets)
-	if err != nil {
-		return nil, errors.Wrap(err, "references2Objects")
+	netPortMobs := make([]types.ManagedObjectReference, 0)
+	netNetMobs := make([]types.ManagedObjectReference, 0)
+
+	for i := range netMobs {
+		log.Debugf("type: %s value: %s", netMobs[i].Type, netMobs[i].Value)
+		if netMobs[i].Type == "DistributedVirtualPortgroup" {
+			netPortMobs = append(netPortMobs, netMobs[i])
+		} else {
+			netNetMobs = append(netNetMobs, netMobs[i])
+		}
 	}
-	nets := make([]SNetwork, len(moNets))
-	for i := range moNets {
-		nets[i] = *NewNetwork(host.manager, &moNets[i], host.datacenter)
+
+	nets := make([]IVMNetwork, 0)
+
+	if len(netPortMobs) > 0 {
+		moPorts := make([]mo.DistributedVirtualPortgroup, 0)
+		err := host.manager.references2Objects(netPortMobs, DVPORTGROUP_PROPS, &moPorts)
+		if err != nil {
+			return nil, errors.Wrap(err, "references2Objects")
+		}
+		for i := range moPorts {
+			port := NewDistributedVirtualPortgroup(host.manager, &moPorts[i], host.datacenter)
+			nets = append(nets, port)
+		}
+	}
+	if len(netNetMobs) > 0 {
+		moNets := make([]mo.Network, 0)
+		err := host.manager.references2Objects(netNetMobs, NETWORK_PROPS, &moNets)
+		if err != nil {
+			return nil, errors.Wrap(err, "references2Objects")
+		}
+		for i := range moNets {
+			net := NewNetwork(host.manager, &moNets[i], host.datacenter)
+			nets = append(nets, net)
+		}
 	}
 
 	// network map
-	netMap := make(map[string]*SNetwork)
+	netMap := make(map[string]IVMNetwork)
 	for i := range nets {
-		netMap[nets[i].GetName()] = &nets[i]
+		netMap[nets[i].GetName()] = nets[i]
 	}
 
 	// fetch all portgroup
@@ -1364,7 +1367,7 @@ func (host *SHost) GetNetwork() ([]SNetwork, error) {
 			log.Infof("SNetwork corresponding to the portgroup whose name is %s could not be found", pg.Spec.Name)
 			continue
 		}
-		net.HostPortGroup = pg
+		net.SetHostPortGroup(pg)
 	}
 	host.networks = nets
 	return host.networks, nil

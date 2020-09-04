@@ -82,7 +82,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		networks, err := host.GetNetwork()
+		networks, err := host.GetNetworks()
 		if err != nil {
 			return err
 		}
