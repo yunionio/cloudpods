@@ -12,34 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package multicloud
+package options
 
-import (
-	"time"
+import "yunion.io/x/jsonutils"
 
-	"yunion.io/x/pkg/errors"
-
-	"yunion.io/x/onecloud/pkg/cloudprovider"
-)
-
-type SBillingBase struct{}
-
-func (self *SBillingBase) GetBillingType() string {
-	return ""
+type VpcPeeringConnectionListOptions struct {
+	BaseListOptions
 }
 
-func (self *SBillingBase) GetCreatedAt() time.Time {
-	return time.Time{}
+func (opts *VpcPeeringConnectionListOptions) Params() (jsonutils.JSONObject, error) {
+	return ListStructToParams(opts)
 }
 
-func (self *SBillingBase) GetExpiredAt() time.Time {
-	return time.Time{}
+type VpcPeeringConnectionIdOptions struct {
+	ID string `json:"Vpc peering connection ID"`
 }
 
-func (self *SBillingBase) SetAutoRenew(autoRenew bool) error {
-	return errors.Wrapf(cloudprovider.ErrNotImplemented, "SetAutoRenew")
+func (opts *VpcPeeringConnectionIdOptions) GetId() string {
+	return opts.ID
 }
 
-func (self *SBillingBase) IsAutoRenew() bool {
-	return false
+func (opts *VpcPeeringConnectionIdOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
 }

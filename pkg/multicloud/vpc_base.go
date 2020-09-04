@@ -15,8 +15,7 @@
 package multicloud
 
 import (
-	"fmt"
-
+	"github.com/pkg/errors"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -25,5 +24,17 @@ type SVpc struct {
 }
 
 func (self *SVpc) GetINatGateways() ([]cloudprovider.ICloudNatGateway, error) {
-	return nil, fmt.Errorf("Not Implemented GetNatGateways")
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetINatGateways")
+}
+
+func (self *SVpc) GetICloudVpcPeeringConnections() ([]cloudprovider.ICloudVpcPeeringConnection, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudVpcPeeringConnections")
+}
+
+func (self *SVpc) GetICloudVpcPeeringConnectionById(id string) (cloudprovider.ICloudVpcPeeringConnection, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudVpcPeeringConnectionById")
+}
+
+func (self *SVpc) CreateICloudVpcPeeringConnection(opts *cloudprovider.VpcPeeringConnectionCreateOptions) (cloudprovider.ICloudVpcPeeringConnection, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateICloudVpcPeeringConnection")
 }

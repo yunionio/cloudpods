@@ -12,34 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package multicloud
+package compute
 
-import (
-	"time"
+import "yunion.io/x/onecloud/pkg/apis"
 
-	"yunion.io/x/pkg/errors"
-
-	"yunion.io/x/onecloud/pkg/cloudprovider"
+const (
+	VPC_PEERING_CONNECTION_STATUS_CREATE_FAILED = "create_failed"
+	VPC_PEERING_CONNECTION_STATUS_DELETE_FAILED = "delete_failed"
 )
 
-type SBillingBase struct{}
-
-func (self *SBillingBase) GetBillingType() string {
-	return ""
+type VpcPeeringConnectionDetails struct {
+	apis.EnabledStatusInfrasResourceBaseDetails
 }
 
-func (self *SBillingBase) GetCreatedAt() time.Time {
-	return time.Time{}
+type VpcPeeringConnectionCreateInput struct {
+	apis.EnabledStatusInfrasResourceBaseCreateInput
 }
 
-func (self *SBillingBase) GetExpiredAt() time.Time {
-	return time.Time{}
+type VpcPeeringConnectionListInput struct {
+	apis.EnabledStatusInfrasResourceBaseListInput
 }
 
-func (self *SBillingBase) SetAutoRenew(autoRenew bool) error {
-	return errors.Wrapf(cloudprovider.ErrNotImplemented, "SetAutoRenew")
-}
-
-func (self *SBillingBase) IsAutoRenew() bool {
-	return false
+type VpcPeeringConnectionUpdateInput struct {
+	apis.EnabledStatusInfrasResourceBaseUpdateInput
 }

@@ -12,34 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package multicloud
+package compute
 
 import (
-	"time"
-
-	"yunion.io/x/pkg/errors"
-
-	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/cmd/climc/shell"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
-type SBillingBase struct{}
-
-func (self *SBillingBase) GetBillingType() string {
-	return ""
-}
-
-func (self *SBillingBase) GetCreatedAt() time.Time {
-	return time.Time{}
-}
-
-func (self *SBillingBase) GetExpiredAt() time.Time {
-	return time.Time{}
-}
-
-func (self *SBillingBase) SetAutoRenew(autoRenew bool) error {
-	return errors.Wrapf(cloudprovider.ErrNotImplemented, "SetAutoRenew")
-}
-
-func (self *SBillingBase) IsAutoRenew() bool {
-	return false
+func init() {
+	cmd := shell.NewResourceCmd(&modules.VpcPeeringConnections).WithKeyword("vpc-peering-connection")
+	cmd.List(&options.VpcPeeringConnectionListOptions{})
+	cmd.Show(&options.VpcPeeringConnectionIdOptions{})
+	cmd.Delete(&options.VpcPeeringConnectionIdOptions{})
 }

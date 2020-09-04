@@ -12,34 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package multicloud
+package modules
 
-import (
-	"time"
+import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
-	"yunion.io/x/pkg/errors"
-
-	"yunion.io/x/onecloud/pkg/cloudprovider"
+var (
+	VpcPeeringConnections modulebase.ResourceManager
 )
 
-type SBillingBase struct{}
+func init() {
+	VpcPeeringConnections = NewComputeManager("vpc_peering_connection", "vpc_peering_connections",
+		[]string{"ID", "Name", "Enabled", "Status", "Public_Scope", "Domain_Id", "Domain"},
+		[]string{})
 
-func (self *SBillingBase) GetBillingType() string {
-	return ""
-}
-
-func (self *SBillingBase) GetCreatedAt() time.Time {
-	return time.Time{}
-}
-
-func (self *SBillingBase) GetExpiredAt() time.Time {
-	return time.Time{}
-}
-
-func (self *SBillingBase) SetAutoRenew(autoRenew bool) error {
-	return errors.Wrapf(cloudprovider.ErrNotImplemented, "SetAutoRenew")
-}
-
-func (self *SBillingBase) IsAutoRenew() bool {
-	return false
+	registerCompute(&VpcPeeringConnections)
 }

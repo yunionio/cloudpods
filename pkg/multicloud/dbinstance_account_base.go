@@ -28,9 +28,8 @@
 package multicloud
 
 import (
-	"fmt"
-
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/pkg/errors"
 )
 
 type SDBInstanceAccountBase struct {
@@ -42,17 +41,17 @@ func (account *SDBInstanceAccountBase) GetIDBInstanceAccountPrivileges() ([]clou
 }
 
 func (account *SDBInstanceAccountBase) Delete() error {
-	return fmt.Errorf("Not Implemented Delete")
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "Delete")
 }
 
 func (account *SDBInstanceAccountBase) ResetPassword(password string) error {
-	return fmt.Errorf("Not Implemented ResetPassword")
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "ResetPassword")
 }
 
 func (backup *SDBInstanceAccountBase) GrantPrivilege(database, privilege string) error {
-	return fmt.Errorf("Not Implement GrantPrivilege")
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "GrantPrivilege")
 }
 
 func (backup *SDBInstanceAccountBase) RevokePrivilege(database string) error {
-	return fmt.Errorf("Not Implement RevokePrivilege")
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RevokePrivilege")
 }

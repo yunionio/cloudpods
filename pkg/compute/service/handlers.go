@@ -194,6 +194,8 @@ func InitHandlers(app *appsrv.Application) {
 		models.DnsZoneCacheManager,
 		models.DnsRecordSetManager,
 		models.DnsTrafficPolicyManager,
+
+		models.VpcPeeringConnectionManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

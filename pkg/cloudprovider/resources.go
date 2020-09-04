@@ -444,6 +444,10 @@ type ICloudVpc interface {
 
 	GetIWireById(wireId string) (ICloudWire, error)
 	GetINatGateways() ([]ICloudNatGateway, error)
+
+	GetICloudVpcPeeringConnections() ([]ICloudVpcPeeringConnection, error)
+	GetICloudVpcPeeringConnectionById(id string) (ICloudVpcPeeringConnection, error)
+	CreateICloudVpcPeeringConnection(opts *VpcPeeringConnectionCreateOptions) (ICloudVpcPeeringConnection, error)
 }
 
 type ICloudWire interface {
@@ -1049,4 +1053,13 @@ type ICloudDnsRecordSet interface {
 	GetPolicyType() TDnsPolicyType
 	GetPolicyValue() TDnsPolicyValue
 	GetPolicyOptions() *jsonutils.JSONDict
+}
+
+type ICloudVpcPeeringConnection interface {
+	ICloudResource
+
+	GetPeerVpcId() string
+	GetPeerAccountId() string
+
+	Delete() error
 }

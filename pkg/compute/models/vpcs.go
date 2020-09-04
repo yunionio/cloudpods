@@ -1357,3 +1357,99 @@ func (vpc *SVpc) PerformChangeOwner(ctx context.Context, userCred mcclient.Token
 
 	return nil, nil
 }
+
+func (self *SVpc) GetVpcPeeringConnections() ([]SVpcPeeringConnection, error) {
+	q := VpcPeeringConnectionManager.Query().Equals("vpc_id", self.Id)
+	peers := []SVpcPeeringConnection{}
+	err := db.FetchModelObjects(VpcPeeringConnectionManager, q, &peers)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return peers, nil
+}
+
+func (self *SVpc) SyncVpcPeeringConnections(ctx context.Context, userCred mcclient.TokenCredential, exts []cloudprovider.ICloudVpcPeeringConnection) compare.SyncResult {
+	result := compare.SyncResult{}
+
+	dbPeers, err := self.GetVpcPeeringConnections()
+	if err != nil {
+		result.Error(errors.Wrapf(err, "GetVpcPeeringConnections"))
+		return result
+	}
+
+	provider := self.GetCloudprovider()
+
+	removed := make([]SVpcPeeringConnection, 0)
+	commondb := make([]SVpcPeeringConnection, 0)
+	commonext := make([]cloudprovider.ICloudVpcPeeringConnection, 0)
+	added := make([]cloudprovider.ICloudVpcPeeringConnection, 0)
+
+	err = compare.CompareSets(dbPeers, exts, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		result.Error(err)
+		return result
+	}
+
+	for i := 0; i < len(removed); i += 1 {
+		if len(removed[i].ExternalId) > 0 {
+			err = removed[i].syncRemove(ctx, userCred)
+			if err != nil {
+				result.DeleteError(err)
+				continue
+			}
+			result.Delete()
+		}
+	}
+
+	for i := 0; i < len(commondb); i += 1 {
+		err = commondb[i].syncWithCloudPeerConnection(ctx, userCred, commonext[i], provider)
+		if err != nil {
+			result.UpdateError(err)
+			continue
+		}
+		syncMetadata(ctx, userCred, &commondb[i], commonext[i])
+		result.Update()
+	}
+
+	for i := 0; i < len(added); i += 1 {
+		_, err := self.newFromCloudPeerConnection(ctx, userCred, added[i], provider)
+		if err != nil {
+			result.AddError(errors.Wrapf(err, "newFromCloudPeerConnection"))
+			continue
+		}
+		result.Add()
+	}
+
+	return result
+}
+
+func (self *SVpc) newFromCloudPeerConnection(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudVpcPeeringConnection, provider *SCloudprovider) (*SVpcPeeringConnection, error) {
+	peer := &SVpcPeeringConnection{}
+	peer.SetModelManager(VpcPeeringConnectionManager, peer)
+	peer.Name, _ = db.GenerateName(VpcPeeringConnectionManager, userCred, ext.GetName())
+	peer.ExternalId = ext.GetGlobalId()
+	peer.Status = ext.GetStatus()
+	peer.VpcId = self.Id
+	peer.PeerVpcId = ext.GetPeerVpcId()
+	manager := self.GetCloudprovider()
+	peerVpc, _ := db.FetchByExternalIdAndManagerId(VpcManager, peer.PeerVpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		managerQ := CloudproviderManager.Query("id").Equals("provider", manager.Provider)
+		return q.In("manager_id", managerQ.SubQuery())
+	})
+	if peerVpc != nil {
+		peer.PeerVpcId = peerVpc.GetId()
+	}
+	peer.PeerAccountId = ext.GetPeerAccountId()
+	err := VpcPeeringConnectionManager.TableSpec().Insert(ctx, peer)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Insert")
+	}
+
+	if provider != nil {
+		SyncCloudDomain(userCred, peer, provider.GetOwnerId())
+		peer.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
+	}
+
+	db.OpsLog.LogEvent(peer, db.ACT_CREATE, peer.GetShortDesc(ctx), userCred)
+	return peer, nil
+}
