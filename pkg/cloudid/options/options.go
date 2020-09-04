@@ -32,3 +32,14 @@ type SCloudIdOptions struct {
 var (
 	Options SCloudIdOptions
 )
+
+func OnOptionsChange(oldO, newO interface{}) bool {
+	oldOpts := oldO.(*SCloudIdOptions)
+	newOpts := newO.(*SCloudIdOptions)
+
+	changed := false
+	if common_options.OnCommonOptionsChange(&oldOpts.CommonOptions, &newOpts.CommonOptions) {
+		changed = true
+	}
+	return changed
+}

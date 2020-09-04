@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rand"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -112,6 +113,18 @@ func (self *SCloudgroupcache) CustomizeDelete(ctx context.Context, userCred mccl
 	return self.StartCloudgroupcacheDeleteTask(ctx, userCred, "")
 }
 
+func (manager *SCloudgroupcacheManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeDomain
+}
+
+func (self *SCloudgroupcache) GetOwnerId() mcclient.IIdentityProvider {
+	group, err := self.GetCloudgroup()
+	if err != nil {
+		return nil
+	}
+	return group.GetOwnerId()
+}
+
 func (self *SCloudgroupcache) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
 }
@@ -126,7 +139,7 @@ func (manager *SCloudgroupcacheManager) newFromCloudgroup(ctx context.Context, u
 	cache.CloudgroupId = group.Id
 	cache.Name = iGroup.GetName()
 	cache.Description = iGroup.GetDescription()
-	cache.Status = api.CLOUD_GROUP_STATUS_AVAILABLE
+	cache.Status = api.CLOUD_GROUP_CACHE_STATUS_AVAILABLE
 	cache.ExternalId = iGroup.GetGlobalId()
 	cache.CloudaccountId = cloudaccountId
 	return cache, manager.TableSpec().Insert(ctx, cache)
@@ -136,7 +149,7 @@ func (self *SCloudgroupcache) syncWithCloudgroupcache(ctx context.Context, userC
 	_, err := db.Update(self, func() error {
 		self.Name = iGroup.GetName()
 		self.Description = iGroup.GetDescription()
-		self.Status = api.CLOUD_GROUP_STATUS_AVAILABLE
+		self.Status = api.CLOUD_GROUP_CACHE_STATUS_AVAILABLE
 		return nil
 	})
 	return err
@@ -271,7 +284,7 @@ func (self *SCloudgroupcache) GetOrCreateICloudgroup(ctx context.Context, userCr
 	}
 	_, err = db.Update(self, func() error {
 		self.ExternalId = iGroup.GetGlobalId()
-		self.Status = api.CLOUD_GROUP_STATUS_AVAILABLE
+		self.Status = api.CLOUD_GROUP_CACHE_STATUS_AVAILABLE
 		return nil
 	})
 	if err != nil {

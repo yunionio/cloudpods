@@ -17,6 +17,7 @@ package cloudid
 import "yunion.io/x/onecloud/pkg/apis"
 
 const (
+	CLOUD_GROUP_CACHE_STATUS_AVAILABLE     = "available"     // 正常
 	CLOUD_GROUP_CACHE_STATUS_CREATING      = "creating"      // 创建中
 	CLOUD_GROUP_CACHE_STATUS_CREATE_FAILED = "create_failed" // 创建失败
 	CLOUD_GROUP_CACHE_STATUS_DELETING      = "deleting"      // 删除中
