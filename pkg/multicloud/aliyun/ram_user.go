@@ -86,7 +86,16 @@ func (user *SUser) Delete() error {
 }
 
 func (user *SUser) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
-	return []cloudprovider.ICloudgroup{}, nil
+	groups, err := user.client.ListGroupsForUser(user.UserName)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ListGroupsForUser")
+	}
+	ret := []cloudprovider.ICloudgroup{}
+	for i := range groups {
+		groups[i].client = user.client
+		ret = append(ret, &groups[i])
+	}
+	return ret, nil
 }
 
 func (user *SUser) UpdatePassword(password string) error {
