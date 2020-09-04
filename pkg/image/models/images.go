@@ -603,6 +603,16 @@ func (self *SImage) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		if appParams != nil && appParams.Request.ContentLength > 0 {
 			return nil, httperrors.NewInvalidStatusError("cannot upload in status %s", self.Status)
 		}
+		if minDiskSize, err := data.Int("min_disk"); err == nil {
+			img, err := qemuimg.NewQemuImage(self.getLocalLocation())
+			if err != nil {
+				return nil, errors.Wrap(err, "open image")
+			}
+			virtualSizeMB := img.SizeBytes / 1024 / 1024
+			if virtualSizeMB > 0 && minDiskSize < virtualSizeMB {
+				return nil, httperrors.NewBadRequestError("min disk size must >= %v", virtualSizeMB)
+			}
+		}
 	} else {
 		appParams := appsrv.AppContextGetParams(ctx)
 		if appParams != nil {
@@ -654,7 +664,6 @@ func (self *SImage) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		return nil, errors.Wrap(err, "SSharableVirtualResourceBase.ValidateUpdateData")
 	}
 	data.Update(jsonutils.Marshal(input))
-
 	return data, nil
 }
 
