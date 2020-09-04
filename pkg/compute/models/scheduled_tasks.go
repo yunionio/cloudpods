@@ -178,7 +178,10 @@ func (stm *SScheduledTaskManager) ValidateCreateData(ctx context.Context, userCr
 	} else {
 		input.CycleTimer, err = checkCycleTimerCreateInput(input.CycleTimer)
 	}
-	return input, err
+	if err != nil {
+		return input, httperrors.NewInputParameterError(err.Error())
+	}
+	return input, nil
 }
 
 var wdsCN = []string{"", "一", "二", "三", "四", "五", "六", "日"}
