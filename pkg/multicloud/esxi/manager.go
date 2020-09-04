@@ -466,6 +466,20 @@ func (cli *SESXiClient) checkHostManagedByVCenter() error {
 	return nil
 }
 
+func (cli *SESXiClient) IsHostIpExists(hostIp string) (bool, error) {
+	searchIndex := object.NewSearchIndex(cli.client.Client)
+
+	hostRef, err := searchIndex.FindByIp(cli.context, nil, cli.getPrivateId(hostIp), false)
+	if err != nil {
+		log.Errorf("searchIndex.FindByIp fail %s", err)
+		return false, err
+	}
+	if hostRef == nil {
+		return false, nil
+	}
+	return true, nil
+}
+
 func (cli *SESXiClient) FindHostByIp(hostIp string) (*SHost, error) {
 	searchIndex := object.NewSearchIndex(cli.client.Client)
 
