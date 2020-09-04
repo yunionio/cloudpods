@@ -34,7 +34,7 @@ type SStatusDomainLevelUserResourceBase struct {
 	SStatusDomainLevelResourceBase
 
 	// 本地用户Id
-	OwnerId string `width:"128" charset:"ascii" index:"true" list:"user" nullable:"false" create:"required"`
+	OwnerId string `width:"128" charset:"ascii" index:"true" list:"user" nullable:"false" create:"optional"`
 }
 
 type SStatusDomainLevelUserResourceBaseManager struct {

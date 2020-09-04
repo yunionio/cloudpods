@@ -1124,28 +1124,30 @@ func _doCreateItem(
 		log.Errorf("doCreateItem: fail to decode json data %s", data)
 		return nil, fmt.Errorf("fail to decode json data %s", data)
 	}
-	var err error
-	var generateName string
 
-	if manager.EnableGenerateName() {
-		generateName, _ = dataDict.GetString("generate_name")
-		if len(generateName) > 0 {
-			dataDict.Remove("generate_name")
-			newName, err := GenerateName2(manager, ownerId, generateName, nil, baseIndex)
-			if err != nil {
-				return nil, err
-			}
-			dataDict.Add(jsonutils.NewString(newName), "name")
-		} /*else {
-			name, _ := data.GetString("name")
-			if len(name) > 0 {
-				err = NewNameValidator(manager, ownerId, name)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}*/
+	var err error
+
+	info := struct {
+		GenerateName string
+		Name         string
+	}{}
+	dataDict.Unmarshal(&info)
+	if !manager.EnableGenerateName() {
+		if len(info.GenerateName) > 0 && len(info.Name) == 0 {
+			info.Name = info.GenerateName
+		}
+		info.GenerateName = ""
 	}
+
+	if len(info.GenerateName) > 0 {
+		info.Name, err = GenerateName2(manager, ownerId, info.GenerateName, nil, baseIndex)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	dataDict.Set("name", jsonutils.NewString(info.Name))
+	dataDict.Remove("generate_name")
 
 	if batchCreate {
 		dataDict, err = manager.BatchCreateValidateCreateData(ctx, userCred, ownerId, query, dataDict)
@@ -1158,9 +1160,8 @@ func _doCreateItem(
 	}
 	// run name validation after validate create data
 	uniqValues := manager.FetchUniqValues(ctx, dataDict)
-	name, _ := dataDict.GetString("name")
-	if len(name) > 0 {
-		err = NewNameValidator(manager, ownerId, name, uniqValues)
+	if len(info.Name) > 0 {
+		err = NewNameValidator(manager, ownerId, info.Name, uniqValues)
 		if err != nil {
 			return nil, err
 		}
@@ -1188,9 +1189,9 @@ func _doCreateItem(
 		return nil, httperrors.NewGeneralError(err)
 	}
 	// save generateName
-	if len(generateName) > 0 {
+	if len(info.GenerateName) > 0 {
 		if standaloneMode, ok := model.(IStandaloneModel); ok {
-			standaloneMode.SetMetadata(ctx, "generate_name", generateName, userCred)
+			standaloneMode.SetMetadata(ctx, "generate_name", info.GenerateName, userCred)
 		}
 	}
 	// HACK: set data same as dataDict

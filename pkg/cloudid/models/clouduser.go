@@ -362,13 +362,16 @@ func (manager *SClouduserManager) ValidateCreateData(ctx context.Context, userCr
 	if err != nil {
 		return input, err
 	}
-	user, err := db.UserCacheManager.FetchUserById(ctx, input.OwnerId)
-	if err != nil {
-		return input, errors.Wrap(err, "FetchUserById")
-	}
 
-	if len(input.Name) == 0 {
-		input.Name = user.Name
+	if len(input.OwnerId) > 0 {
+		user, err := db.UserCacheManager.FetchUserById(ctx, input.OwnerId)
+		if err != nil {
+			return input, errors.Wrap(err, "FetchUserById")
+		}
+		input.OwnerId = user.Id
+		if len(input.Name) == 0 {
+			input.Name = user.Name
+		}
 	}
 
 	policyExternalIds := []string{}
@@ -467,7 +470,6 @@ func (manager *SClouduserManager) ValidateCreateData(ctx context.Context, userCr
 	input.ExternalId = iUser.GetGlobalId()
 	input.Name = iUser.GetName()
 
-	input.OwnerId = user.Id
 	input.ProjectDomainId = account.DomainId
 	return input, nil
 }
