@@ -140,6 +140,113 @@ func (s *sVirtualDiskSparseVer2BackingInfo) GetDatastore() *types.ManagedObjectR
 	return s.info.Datastore
 }
 
+type sVirtualDiskRawDiskMappingVer1BackingInfo struct {
+	info *types.VirtualDiskRawDiskMappingVer1BackingInfo
+}
+
+func (s *sVirtualDiskRawDiskMappingVer1BackingInfo) GetParent() IDiskBackingInfo {
+	if s.info.Parent != nil {
+		return &sVirtualDiskRawDiskMappingVer1BackingInfo{
+			info: s.info.Parent,
+		}
+	}
+	return nil
+}
+
+func (s *sVirtualDiskRawDiskMappingVer1BackingInfo) GetUuid() string {
+	return s.info.Uuid
+}
+
+func (s *sVirtualDiskRawDiskMappingVer1BackingInfo) GetDiskMode() string {
+	return s.info.DiskMode
+}
+
+func (s *sVirtualDiskRawDiskMappingVer1BackingInfo) GetWriteThrough() bool {
+	return false
+}
+
+func (s *sVirtualDiskRawDiskMappingVer1BackingInfo) GetFileName() string {
+	return s.info.FileName
+}
+
+func (s *sVirtualDiskRawDiskMappingVer1BackingInfo) GetDatastore() *types.ManagedObjectReference {
+	return s.info.Datastore
+}
+
+type sVirtualDiskSparseVer1BackingInfo struct {
+	info *types.VirtualDiskSparseVer1BackingInfo
+}
+
+func (s *sVirtualDiskSparseVer1BackingInfo) GetParent() IDiskBackingInfo {
+	if s.info.Parent != nil {
+		return &sVirtualDiskSparseVer1BackingInfo{
+			info: s.info.Parent,
+		}
+	}
+	return nil
+}
+
+func (s *sVirtualDiskSparseVer1BackingInfo) GetUuid() string {
+	return s.info.Datastore.String() + s.info.FileName
+}
+
+func (s *sVirtualDiskSparseVer1BackingInfo) GetDiskMode() string {
+	return s.info.DiskMode
+}
+
+func (s *sVirtualDiskSparseVer1BackingInfo) GetWriteThrough() bool {
+	if s.info.WriteThrough != nil && *s.info.WriteThrough == true {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (s *sVirtualDiskSparseVer1BackingInfo) GetFileName() string {
+	return s.info.FileName
+}
+
+func (s *sVirtualDiskSparseVer1BackingInfo) GetDatastore() *types.ManagedObjectReference {
+	return s.info.Datastore
+}
+
+type sVirtualDiskFlatVer1BackingInfo struct {
+	info *types.VirtualDiskFlatVer1BackingInfo
+}
+
+func (s *sVirtualDiskFlatVer1BackingInfo) GetParent() IDiskBackingInfo {
+	if s.info.Parent != nil {
+		return &sVirtualDiskFlatVer1BackingInfo{
+			info: s.info.Parent,
+		}
+	}
+	return nil
+}
+
+func (s *sVirtualDiskFlatVer1BackingInfo) GetUuid() string {
+	return s.info.Datastore.String() + s.info.FileName
+}
+
+func (s *sVirtualDiskFlatVer1BackingInfo) GetDiskMode() string {
+	return s.info.DiskMode
+}
+
+func (s *sVirtualDiskFlatVer1BackingInfo) GetWriteThrough() bool {
+	if s.info.WriteThrough != nil && *s.info.WriteThrough == true {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (s *sVirtualDiskFlatVer1BackingInfo) GetFileName() string {
+	return s.info.FileName
+}
+
+func (s *sVirtualDiskFlatVer1BackingInfo) GetDatastore() *types.ManagedObjectReference {
+	return s.info.Datastore
+}
+
 func (disk *SVirtualDisk) getBackingInfo() IDiskBackingInfo {
 	backing := disk.getVirtualDisk().Backing
 	switch backing.(type) {
@@ -149,10 +256,19 @@ func (disk *SVirtualDisk) getBackingInfo() IDiskBackingInfo {
 		}
 	case *types.VirtualDeviceFileBackingInfo:
 	case *types.VirtualDiskFlatVer1BackingInfo:
+		return &sVirtualDiskFlatVer1BackingInfo{
+			info: backing.(*types.VirtualDiskFlatVer1BackingInfo),
+		}
 	case *types.VirtualDiskLocalPMemBackingInfo:
 	case *types.VirtualDiskRawDiskMappingVer1BackingInfo:
+		return &sVirtualDiskRawDiskMappingVer1BackingInfo{
+			info: backing.(*types.VirtualDiskRawDiskMappingVer1BackingInfo),
+		}
 	case *types.VirtualDiskSeSparseBackingInfo:
 	case *types.VirtualDiskSparseVer1BackingInfo:
+		return &sVirtualDiskSparseVer1BackingInfo{
+			info: backing.(*types.VirtualDiskSparseVer1BackingInfo),
+		}
 	case *types.VirtualDiskSparseVer2BackingInfo:
 		return &sVirtualDiskSparseVer2BackingInfo{
 			info: backing.(*types.VirtualDiskSparseVer2BackingInfo),
