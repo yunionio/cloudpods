@@ -129,7 +129,7 @@ func doScheduleObjects(
 	params := jsonutils.Marshal(schedInput).(*jsonutils.JSONDict)
 	task.SetStage("OnScheduleComplete", params)
 
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	s := auth.GetSession(ctx, task.GetUserCred(), options.Options.Region, "")
 	output, err := modules.SchedManager.DoSchedule(s, schedInput, len(objs))
 	if err != nil {
 		onSchedulerRequestFail(ctx, task, objs, jsonutils.Marshal(err))
