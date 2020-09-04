@@ -101,9 +101,16 @@ func (manager *SProjectizedResourceBaseManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SDomainizedResourceBaseManager.ListItemFilter")
 	}
 	if len(query.Projects) > 0 {
+		// make sure ids are not utf8 string
+		idList := make([]string, 0)
+		for _, pid := range query.Projects {
+			if !stringutils2.IsUtf8(pid) {
+				idList = append(idList, pid)
+			}
+		}
 		tenants := TenantCacheManager.GetTenantQuery().SubQuery()
 		subq := tenants.Query(tenants.Field("id")).Filter(sqlchemy.OR(
-			sqlchemy.In(tenants.Field("id"), query.Projects),
+			sqlchemy.In(tenants.Field("id"), idList),
 			sqlchemy.In(tenants.Field("name"), query.Projects),
 		)).SubQuery()
 		q = q.In("tenant_id", subq)
