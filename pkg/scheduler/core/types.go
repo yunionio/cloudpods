@@ -21,6 +21,7 @@ import (
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
@@ -112,6 +113,8 @@ type CandidatePropertyGetter interface {
 	GetIsolatedDevice(devID string) *IsolatedDeviceDesc
 	UnusedGpuDevices() []*IsolatedDeviceDesc
 	GetIsolatedDevices() []*IsolatedDeviceDesc
+
+	db.IResource
 }
 
 // Candidater replace host Candidate resource info
