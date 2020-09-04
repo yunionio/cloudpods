@@ -292,7 +292,7 @@ func handleOIDCConfiguration(ctx context.Context, w http.ResponseWriter, req *ht
 	userinfoUrl := httputils.JoinPath(options.Options.ApiServer, "api/v1/auth/oidc/user")
 	jwksUrl := httputils.JoinPath(options.Options.ApiServer, "api/v1/auth/oidc/keys")
 	conf := oidcutils.SOIDCConfiguration{
-		Issuer:                options.Options.ApiServer,
+		Issuer:                httputils.JoinPath(options.Options.ApiServer, "api/v1/auth/oidc"),
 		AuthorizationEndpoint: authUrl,
 		TokenEndpoint:         tokenUrl,
 		UserinfoEndpoint:      userinfoUrl,
