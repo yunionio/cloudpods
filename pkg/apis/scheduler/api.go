@@ -53,8 +53,10 @@ type ServerConfig struct {
 	GuestStatus string `json:"guest_status"`
 	Cdrom       string `json:"cdrom"`
 
+	// owner project id
 	Project string `json:"project_id"`
-	Domain  string `json:"domain_id"`
+	// owner domain id
+	Domain string `json:"domain_id"`
 
 	// Deprecated
 	Metadata       map[string]string `json:"__meta__"`

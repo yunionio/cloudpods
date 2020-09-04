@@ -18,13 +18,18 @@ import (
 	"net/http" //"yunion.io/x/jsonutils"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/apis/identity"
 	api "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	o "yunion.io/x/onecloud/pkg/scheduler/options"
 )
 
@@ -43,9 +48,28 @@ type SchedInfo struct {
 	Raw                   string
 
 	InstanceGroupsDetail map[string]*models.SGroup
+
+	UserCred mcclient.TokenCredential
+}
+
+func fetchAuthToken(req *http.Request) (mcclient.TokenCredential, error) {
+	tokenStr := req.Header.Get(identity.AUTH_TOKEN_HEADER)
+	if tokenStr == "" {
+		return nil, errors.Wrap(httperrors.ErrInvalidCredential, "missing token header")
+	}
+	token, err := auth.Verify(req.Context(), tokenStr)
+	if err != nil {
+		return nil, errors.Wrap(err, "Verify")
+	}
+	return token, nil
 }
 
 func FetchSchedInfo(req *http.Request) (*SchedInfo, error) {
+	token, err := fetchAuthToken(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "fetchAuthToken")
+	}
+
 	body, err := appsrv.FetchJSON(req)
 	if err != nil {
 		return nil, err
@@ -59,6 +83,7 @@ func FetchSchedInfo(req *http.Request) (*SchedInfo, error) {
 	input = models.ApplySchedPolicies(input)
 
 	data := NewSchedInfo(input)
+	data.UserCred = token
 
 	domainId := data.Domain
 	for _, net := range data.Networks {
