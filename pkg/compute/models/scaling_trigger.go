@@ -171,10 +171,13 @@ func (st *SScalingTimer) ValidateCreateData(input api.ScalingPolicyCreateInput) 
 	var err error
 	if input.TriggerType == api.TRIGGER_TIMING {
 		input.Timer, err = checkTimerCreateInput(input.Timer)
-		return input, err
+	} else {
+		input.CycleTimer, err = checkCycleTimerCreateInput(input.CycleTimer)
 	}
-	input.CycleTimer, err = checkCycleTimerCreateInput(input.CycleTimer)
-	return input, err
+	if err != nil {
+		return input, httperrors.NewInputParameterError(err.Error())
+	}
+	return input, nil
 }
 
 func (st *SScalingTimer) Register(ctx context.Context, userCred mcclient.TokenCredential) error {
