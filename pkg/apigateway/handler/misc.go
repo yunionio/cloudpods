@@ -53,6 +53,7 @@ const (
 	HOST_IPMI_USERNAME_OPTIONAL = "IPMI用户名"
 	HOST_IPMI_PASSWORD_OPTIONAL = "IPMI密码"
 	HOST_MNG_IP_ADDR_OPTIONAL   = "管理口IP地址"
+	HOST_MNG_MAC_ADDR_OPTIONAL  = "管理口MAC地址"
 )
 
 const (
@@ -63,7 +64,7 @@ const (
 var (
 	BatchHostRegisterTemplate    = []string{HOST_MAC, HOST_NAME, HOST_IPMI_ADDR_OPTIONAL, HOST_IPMI_USERNAME_OPTIONAL, HOST_IPMI_PASSWORD_OPTIONAL}
 	BatchHostISORegisterTemplate = []string{HOST_NAME, HOST_IPMI_ADDR, HOST_IPMI_USERNAME, HOST_IPMI_PASSWORD, HOST_MNG_IP_ADDR}
-	BatchHostPXERegisterTemplate = []string{HOST_NAME, HOST_IPMI_ADDR, HOST_IPMI_USERNAME, HOST_IPMI_PASSWORD, HOST_MNG_IP_ADDR_OPTIONAL}
+	BatchHostPXERegisterTemplate = []string{HOST_NAME, HOST_IPMI_ADDR, HOST_IPMI_USERNAME, HOST_IPMI_PASSWORD, HOST_MNG_MAC_ADDR_OPTIONAL, HOST_MNG_IP_ADDR_OPTIONAL}
 )
 
 func FetchSession(ctx context.Context, r *http.Request, apiVersion string) *mcclient.ClientSession {
@@ -207,7 +208,7 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 	i2 := -1
 	for i, title := range rows[0] {
 		switch title {
-		case HOST_MAC:
+		case HOST_MAC, HOST_MNG_MAC_ADDR_OPTIONAL:
 			paramKeys = append(paramKeys, "access_mac")
 		case HOST_NAME:
 			paramKeys = append(paramKeys, "name")
