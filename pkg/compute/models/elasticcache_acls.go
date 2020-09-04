@@ -167,6 +167,10 @@ func (manager *SElasticcacheAclManager) newFromCloudElasticcacheAcl(ctx context.
 	return &acl, nil
 }
 
+func (self *SElasticcacheAcl) GetUniqValues() jsonutils.JSONObject {
+	return jsonutils.Marshal(map[string]string{"elasticcache_id": self.ElasticcacheId})
+}
+
 func (manager *SElasticcacheAclManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
 	elasticcacheId := jsonutils.GetAnyString(data, []string{"elasticcache_id", "elasticcache"})
 	return jsonutils.Marshal(map[string]string{"elasticcache_id": elasticcacheId})

@@ -319,6 +319,10 @@ func (rip *SReservedip) IsExpired() bool {
 	return false
 }
 
+func (self *SReservedip) GetUniqValues() jsonutils.JSONObject {
+	return jsonutils.Marshal(map[string]string{"network_id": self.NetworkId})
+}
+
 func (manager *SReservedipManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
 	networkId, _ := data.GetString("network_id")
 	return jsonutils.Marshal(map[string]string{"network_id": networkId})

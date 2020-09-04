@@ -264,6 +264,10 @@ func (manager *SDBInstanceAccountManager) QueryDistinctExtraField(q *sqlchemy.SQ
 	return q, httperrors.ErrNotFound
 }
 
+func (self *SDBInstanceAccount) GetUniqValues() jsonutils.JSONObject {
+	return jsonutils.Marshal(map[string]string{"dbinstance_id": self.DBInstanceId})
+}
+
 func (manager *SDBInstanceAccountManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
 	dbinstanceId, _ := data.GetString("dbinstance_id")
 	return jsonutils.Marshal(map[string]string{"dbinstance_id": dbinstanceId})
