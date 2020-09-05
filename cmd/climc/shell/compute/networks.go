@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -360,15 +361,18 @@ func init() {
 
 	type NetworkAddressOptions struct {
 		NETWORK string `help:"id or name of network to query"`
+
+		api.GetNetworkAddressesInput
 	}
 	R(&NetworkAddressOptions{}, "network-addresses", "Query used addresses of network", func(s *mcclient.ClientSession, args *NetworkAddressOptions) error {
-		result, err := modules.Networks.GetSpecific(s, args.NETWORK, "addresses", nil)
+		result, err := modules.Networks.GetSpecific(s, args.NETWORK, "addresses", jsonutils.Marshal(args.GetNetworkAddressesInput))
 		if err != nil {
 			return err
 		}
-		addrList, err := result.GetArray("addresses")
-		if err != nil {
-			return err
+		addrList, _ := result.GetArray("addresses")
+		if addrList == nil {
+			fmt.Println("no result")
+			return nil
 		}
 		listResult := modulebase.ListResult{Data: addrList}
 		printList(&listResult, nil)
