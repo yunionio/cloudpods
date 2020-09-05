@@ -1287,6 +1287,13 @@ func (manager *SDBInstanceManager) SyncDBInstances(ctx context.Context, userCred
 		return nil, nil, syncResult
 	}
 
+	for i := range dbInstances {
+		if taskman.TaskManager.IsInTask(&dbInstances[i]) {
+			syncResult.Error(fmt.Errorf("dbInstance %s(%s)in task", dbInstances[i].Name, dbInstances[i].Id))
+			return nil, nil, syncResult
+		}
+	}
+
 	removed := make([]SDBInstance, 0)
 	commondb := make([]SDBInstance, 0)
 	commonext := make([]cloudprovider.ICloudDBInstance, 0)

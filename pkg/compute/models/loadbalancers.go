@@ -706,6 +706,13 @@ func (man *SLoadbalancerManager) SyncLoadbalancers(ctx context.Context, userCred
 		return nil, nil, syncResult
 	}
 
+	for i := range dbLbs {
+		if taskman.TaskManager.IsInTask(&dbLbs[i]) {
+			syncResult.Error(fmt.Errorf("loadbalancer %s(%s)in task", dbLbs[i].Name, dbLbs[i].Id))
+			return nil, nil, syncResult
+		}
+	}
+
 	removed := []SLoadbalancer{}
 	commondb := []SLoadbalancer{}
 	commonext := []cloudprovider.ICloudLoadbalancer{}
