@@ -78,7 +78,16 @@ func (user *SUser) IsConsoleLogin() bool {
 }
 
 func (user *SUser) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
-	return []cloudprovider.ICloudgroup{}, nil
+	groups, err := user.ListGroups()
+	if err != nil {
+		return nil, errors.Wrapf(err, "ListGroups")
+	}
+	ret := []cloudprovider.ICloudgroup{}
+	for i := range groups {
+		groups[i].client = user.client
+		ret = append(ret, &groups[i])
+	}
+	return ret, nil
 }
 
 func (self *SUser) ListPolicies() ([]SAttachedPolicy, error) {

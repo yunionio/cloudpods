@@ -20,7 +20,7 @@ import (
 
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/apis/cloudid"
+	api "yunion.io/x/onecloud/pkg/apis/cloudid"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	common_app "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
@@ -39,11 +39,12 @@ func StartService() {
 	dbOpts := &opts.DBOptions
 	baseOpts := &opts.BaseOptions
 	commonOpts := &opts.CommonOptions
-	common_options.ParseOptions(opts, os.Args, "cloudid.conf", cloudid.SERVICE_TYPE)
+	common_options.ParseOptions(opts, os.Args, "cloudid.conf", api.SERVICE_TYPE)
 
 	common_app.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
 	})
+	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
 
 	app := common_app.InitApp(baseOpts, false)
 	InitHandlers(app)
@@ -51,7 +52,7 @@ func StartService() {
 	db.EnsureAppInitSyncDB(app, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
 
-	err := saml.InitSAML(app, cloudid.SAML_IDP_PREFIX)
+	err := saml.InitSAML(app, api.SAML_IDP_PREFIX)
 	if err != nil {
 		log.Errorf("SAML initialization fail %s", err)
 		return
