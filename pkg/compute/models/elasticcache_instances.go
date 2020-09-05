@@ -452,6 +452,13 @@ func (manager *SElasticcacheManager) SyncElasticcaches(ctx context.Context, user
 		return nil, nil, syncResult
 	}
 
+	for i := range dbInstances {
+		if taskman.TaskManager.IsInTask(&dbInstances[i]) {
+			syncResult.Error(fmt.Errorf("ElasticCacheInstance %s(%s)in task", dbInstances[i].Name, dbInstances[i].Id))
+			return nil, nil, syncResult
+		}
+	}
+
 	removed := make([]SElasticcache, 0)
 	commondb := make([]SElasticcache, 0)
 	commonext := make([]cloudprovider.ICloudElasticcache, 0)
