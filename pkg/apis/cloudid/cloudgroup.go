@@ -24,6 +24,7 @@ const (
 	CLOUD_GROUP_STATUS_SYNC_POLICIES_FAILED = "sync_policies_failed" // 同步权限失败
 	CLOUD_GROUP_STATUS_SYNC_USERS           = "sync_users"           // 同步用户中
 	CLOUD_GROUP_STATUS_SYNC_USERS_FAILED    = "sync_users_failed"    // 同步用户失败
+	CLOUD_GROUP_STATUS_SYNC_STATUS          = "sync_status"          // 同步状态
 )
 
 type CloudgroupJointResourceDetails struct {

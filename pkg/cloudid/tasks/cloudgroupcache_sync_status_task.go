@@ -48,5 +48,6 @@ func (self *CloudgroupcacheSyncstatusTask) OnInit(ctx context.Context, obj db.IS
 		self.taskFailed(ctx, cache, errors.Wrap(err, "GetICloudgroup"))
 		return
 	}
+	cache.SetStatus(self.GetUserCred(), api.CLOUD_GROUP_CACHE_STATUS_AVAILABLE, "")
 	self.SetStageComplete(ctx, nil)
 }

@@ -67,6 +67,15 @@ func init() {
 		NAME string
 	}
 
+	shellutils.R(&ClouduserOptions{}, "cloud-user-group-list", "List Cloud user groups", func(cli *aliyun.SRegion, args *ClouduserOptions) error {
+		groups, err := cli.GetClient().ListGroupsForUser(args.NAME)
+		if err != nil {
+			return err
+		}
+		printList(groups, 0, 0, 0, nil)
+		return nil
+	})
+
 	shellutils.R(&ClouduserOptions{}, "cloud-user-delete", "Delete Cloud user", func(cli *aliyun.SRegion, args *ClouduserOptions) error {
 		return cli.GetClient().DeleteClouduser(args.NAME)
 	})

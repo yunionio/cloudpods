@@ -480,10 +480,19 @@ func (self *SCloudgroup) AllowPerformSyncstatus(ctx context.Context, userCred mc
 	return db.IsDomainAllowPerform(userCred, self, "syncstatus")
 }
 
+func (self *SCloudgroup) StartCloudgroupSyncstatusTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "CloudgroupSyncstatusTask", self, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	self.SetStatus(userCred, api.CLOUD_GROUP_STATUS_SYNC_STATUS, "")
+	task.ScheduleRun(nil)
+	return nil
+}
+
 // 恢复权限组状态
 func (self *SCloudgroup) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudgroupSyncstatusInput) (jsonutils.JSONObject, error) {
-	self.SetStatus(userCred, api.CLOUD_USER_STATUS_AVAILABLE, "syncstatus")
-	return nil, nil
+	return nil, self.StartCloudgroupSyncstatusTask(ctx, userCred, "")
 }
 
 func (self *SCloudgroup) AllowPerformRemoveUser(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
