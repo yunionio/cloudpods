@@ -310,3 +310,13 @@ type NetworkUpdateInput struct {
 	// 是否加入自动分配地址池
 	IsAutoAlloc *bool `json:"is_auto_alloc"`
 }
+
+type GetNetworkAddressesInput struct {
+	// 获取资源的范围，例如 project|domain|system
+	Scope string `json:"scope"`
+}
+
+type GetNetworkAddressesOutput struct {
+	// IP子网地址记录
+	Addresses []SNetworkAddress `json:"addresses"`
+}
