@@ -17,7 +17,6 @@ package tokens
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"time"
 
 	"yunion.io/x/pkg/errors"
@@ -146,8 +145,12 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 
 	idp := idpObj.(*models.SIdentityProvider)
 
+	if idp.Enabled.IsFalse() {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "idp disabled")
+	}
+
 	if idp.Status != api.IdentityDriverStatusConnected && idp.Status != api.IdentityDriverStatusDisconnected {
-		return nil, errors.Error(fmt.Sprintf("invalid idp status %s", idp.Status))
+		return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "invalid idp status %s", idp.Status)
 	}
 
 	conf, err := models.GetConfigs(idp, true, nil, nil)
