@@ -75,16 +75,29 @@ func SetHTTPRedirectLocationHeader(w http.ResponseWriter, location string) {
 	w.Header().Set("Location", location)
 }
 
-func HTTPError(ctx context.Context, w http.ResponseWriter, msg string, statusCode int, class string, err httputils.Error) {
-	if statusCode >= 300 && statusCode <= 400 {
-		SetHTTPRedirectLocationHeader(w, msg)
+type Error struct {
+	Code    int    `json:"code"`
+	Class   string `json:"class"`
+	Details string `json:"details"`
+}
+
+func NewErrorFromJCError(ctx context.Context, je *httputils.JSONClientError) Error {
+	err := Error{
+		Code:    je.Code,
+		Class:   je.Class,
+		Details: formatDetails(ctx, je.Data, je.Details),
 	}
+	return err
+}
 
-	// 需要在调用w.WriteHeader方法之前，设置header才能生效
-	SendHTTPErrorHeader(w, statusCode)
+func NewErrorFromGeneralError(ctx context.Context, e error) Error {
+	je := NewGeneralError(e)
+	return NewErrorFromJCError(ctx, je)
+}
 
+func formatDetails(ctx context.Context, errData httputils.Error, msg string) string {
 	var details string
-	if err.Id == "" {
+	if errData.Id == "" {
 		details = msg
 	} else {
 		var (
@@ -96,16 +109,30 @@ func HTTPError(ctx context.Context, w http.ResponseWriter, msg string, statusCod
 		} else {
 			lang = language.English
 		}
-		a := make([]interface{}, len(err.Fields))
-		for i := range err.Fields {
-			a[i] = err.Fields[i]
+		a := make([]interface{}, len(errData.Fields))
+		for i := range errData.Fields {
+			a[i] = errData.Fields[i]
 		}
-		details = P(lang, err.Id, a...)
+		details = P(lang, errData.Id, a...)
 	}
-	body := jsonutils.NewDict()
-	body.Add(jsonutils.NewInt(int64(statusCode)), "code")
-	body.Add(jsonutils.NewString(class), "class")
-	body.Add(jsonutils.NewString(details), "details")
+	return details
+}
+
+func HTTPError(ctx context.Context, w http.ResponseWriter, msg string, statusCode int, class string, errData httputils.Error) {
+	details := formatDetails(ctx, errData, msg)
+	if statusCode >= 300 && statusCode <= 400 {
+		SetHTTPRedirectLocationHeader(w, details)
+	}
+
+	// 需要在调用w.WriteHeader方法之前，设置header才能生效
+	SendHTTPErrorHeader(w, statusCode)
+
+	err := Error{
+		Code:    statusCode,
+		Class:   class,
+		Details: details,
+	}
+	body := jsonutils.Marshal(err)
 	w.Write([]byte(body.String()))
 	log.Errorf("Send error %s", details)
 	if statusCode >= 500 {

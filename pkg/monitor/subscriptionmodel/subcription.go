@@ -117,7 +117,7 @@ func (self *SSubscriptionManager) PerformWrite(ctx context.Context, userCred mcc
 	sysAlerts := self.GetSystemAlerts()
 	for _, sysalert := range sysAlerts {
 		details := monitor.CommonAlertDetails{}
-		details, err := sysalert.GetMoreDetails(details)
+		details, err := sysalert.GetMoreDetails(ctx, details)
 		if err != nil {
 			log.Errorln("sysalert getMoreDetails err", err)
 			continue

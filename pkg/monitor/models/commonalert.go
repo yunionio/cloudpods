@@ -368,17 +368,18 @@ func (man *SCommonAlertManager) FetchCustomizeColumns(
 	alertRows := man.SAlertManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		rows[i].AlertDetails = alertRows[i]
-		rows[i], _ = objs[i].(*SCommonAlert).GetMoreDetails(rows[i])
+		rows[i], _ = objs[i].(*SCommonAlert).GetMoreDetails(ctx, rows[i])
 	}
 	return rows
 }
 
-func (alert *SCommonAlert) validateDeleteCondition(out *monitor.CommonAlertDetails) {
+func (alert *SCommonAlert) validateDeleteCondition(ctx context.Context, out *monitor.CommonAlertDetails) {
 	alert_type := alert.getAlertType()
 	switch alert_type {
 	case monitor.CommonAlertSystemAlertType:
+		je := httperrors.NewInputParameterError("Cannot delete system alert")
 		out.CanDelete = false
-		out.DeleteFailReason = httperrors.NewInputParameterError("Cannot delete system alert").Error()
+		out.DeleteFailReason = httperrors.NewErrorFromJCError(ctx, je)
 	default:
 	}
 }
@@ -398,8 +399,8 @@ func (alert *SCommonAlert) AllowDeleteItem(ctx context.Context, userCred mcclien
 	}
 }
 
-func (alert *SCommonAlert) GetMoreDetails(out monitor.CommonAlertDetails) (monitor.CommonAlertDetails, error) {
-	alert.validateDeleteCondition(&out)
+func (alert *SCommonAlert) GetMoreDetails(ctx context.Context, out monitor.CommonAlertDetails) (monitor.CommonAlertDetails, error) {
+	alert.validateDeleteCondition(ctx, &out)
 
 	var err error
 	alertNotis, err := alert.GetNotifications()
