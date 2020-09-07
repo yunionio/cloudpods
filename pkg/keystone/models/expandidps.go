@@ -44,6 +44,9 @@ func expandIdpAttributes(entType string, idList []string, fields stringutils2.SS
 					if len(fields) == 0 || fields.Contains("idp_driver") {
 						rows[i].IdpDriver = idp[0].IdpDriver
 					}
+					if len(fields) == 0 || fields.Contains("template") {
+						rows[i].Template = idp[0].Template
+					}
 				}
 			}
 		} else if err != nil {
@@ -66,6 +69,7 @@ func fetchIdmappings(idList []string, resType string) (map[string][]sIdpInfo, er
 		idmappings.Field("local_id", "idp_entity_id"),
 		idps.Field("name", "idp"),
 		idps.Field("driver", "idp_driver"),
+		idps.Field("template", "template"),
 		idmappings.Field("public_id"),
 	)
 	q = q.Join(idps, sqlchemy.Equals(idps.Field("id"), idmappings.Field("domain_id")))

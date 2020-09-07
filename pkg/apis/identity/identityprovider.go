@@ -59,6 +59,9 @@ type IdpResourceInfo struct {
 
 	// 认证源类型, 例如sql, cas, ldap等
 	IdpDriver string `json:"idp_driver"`
+
+	// 认证源模板
+	Template string `json:"template"`
 }
 
 type IdentityProviderCreateInput struct {
