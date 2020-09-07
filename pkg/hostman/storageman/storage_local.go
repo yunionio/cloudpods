@@ -357,9 +357,9 @@ func (s *SLocalStorage) DestinationPrepareMigrate(
 	templateId, _ := diskinfo.GetString("template_id")
 	// prepare disk snapshot dir
 	if len(snapshots) > 0 && !fileutils2.Exists(disk.GetSnapshotDir()) {
-		_, err := procutils.NewCommand("mkdir", "-p", disk.GetSnapshotDir()).Output()
+		output, err := procutils.NewCommand("mkdir", "-p", disk.GetSnapshotDir()).Output()
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "mkdir %s failed: %s", disk.GetSnapshotDir(), output)
 		}
 	}
 

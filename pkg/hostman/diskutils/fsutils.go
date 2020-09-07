@@ -237,9 +237,9 @@ func ResizePartitionFs(fpath, fs string, raiseError bool) (error, bool) {
 	} else if fs == "xfs" {
 		var tmpPoint = fmt.Sprintf("/tmp/%s", strings.Replace(fpath, "/", "_", -1))
 		if _, err := procutils.NewCommand("mountpoint", tmpPoint).Output(); err == nil {
-			_, err = procutils.NewCommand("umount", "-f", tmpPoint).Output()
+			output, err := procutils.NewCommand("umount", "-f", tmpPoint).Output()
 			if err != nil {
-				log.Errorln(err)
+				log.Errorf("failed umount %s: %s, %s", tmpPoint, err, output)
 				return err, false
 			}
 		}
@@ -256,9 +256,9 @@ func ResizePartitionFs(fpath, fs string, raiseError bool) (error, bool) {
 
 	if len(cmds) > 0 {
 		for _, cmd := range cmds {
-			_, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output()
+			output, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output()
 			if err != nil {
-				log.Errorln(err)
+				log.Errorf("resize partition: %s, %s", err, output)
 				if raiseError {
 					return err, false
 				} else {
@@ -293,8 +293,8 @@ func FsckExtFs(fpath string) bool {
 }
 
 func FsckXfsFs(fpath string) bool {
-	if _, err := procutils.NewCommand("xfs_check", fpath).Output(); err != nil {
-		log.Errorln(err)
+	if output, err := procutils.NewCommand("xfs_check", fpath).Output(); err != nil {
+		log.Errorf("xfs_check failed: %s, %s", err, output)
 		procutils.NewCommand("xfs_repair", fpath).Output()
 		return false
 	}
@@ -313,19 +313,19 @@ func Mkpartition(imagePath, fsFormat string) error {
 	}
 
 	// 创建一个新磁盘分区表类型, ex: mbr gpt msdos ...
-	_, err := procutils.NewCommand(parted, "-s", imagePath, "mklabel", labelType).Output()
+	output, err := procutils.NewCommand(parted, "-s", imagePath, "mklabel", labelType).Output()
 	if err != nil {
-		log.Errorf("mklabel %s %s error %s", imagePath, fsFormat, err)
-		return err
+		log.Errorf("mklabel %s %s error: %s, %s", imagePath, fsFormat, err, output)
+		return errors.Wrapf(err, "parted mklabel failed: %s", output)
 	}
 
 	// 创建一个part-type类型的分区, part-type可以是："primary", "logical", "extended"
 	// 如果指定fs-type(即diskType)则在创建分区的同时进行格式化
-	err = procutils.NewCommand(parted, "-s", "-a", "cylinder",
-		imagePath, "mkpart", "primary", diskType, "0", "100%").Run()
+	output, err = procutils.NewCommand(parted, "-s", "-a", "cylinder",
+		imagePath, "mkpart", "primary", diskType, "0", "100%").Output()
 	if err != nil {
-		log.Errorf("mkpart %s %s error %s", imagePath, fsFormat, err)
-		return err
+		log.Errorf("mkpart %s %s error: %s, %s", imagePath, fsFormat, err, output)
+		return errors.Wrapf(err, "parted mkpart failed: %s", output)
 	}
 	return nil
 }
@@ -359,16 +359,16 @@ func FormatPartition(path, fs, uuid string) error {
 	if len(cmd) > 0 {
 		var cmds = cmd
 		cmds = append(cmds, path)
-		if _, err := procutils.NewCommand(cmds[0], cmds[1:]...).Output(); err != nil {
-			log.Errorln(err)
-			return err
+		if output, err := procutils.NewCommand(cmds[0], cmds[1:]...).Output(); err != nil {
+			log.Errorf("%v failed: %s, %s", cmds, err, output)
+			return errors.Wrapf(err, "format partition failed %s", output)
 		}
 		if len(cmdUuid) > 0 {
 			cmds = cmdUuid
 			cmds = append(cmds, path)
-			if _, err := procutils.NewCommand(cmds[0], cmds[1:]...).Output(); err != nil {
-				log.Errorln(err)
-				return err
+			if output, err := procutils.NewCommand(cmds[0], cmds[1:]...).Output(); err != nil {
+				log.Errorf("%v failed: %s, %s", cmds, err, output)
+				return errors.Wrapf(err, "format partition set uuid failed %s", output)
 			}
 		}
 		return nil

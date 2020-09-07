@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
@@ -41,7 +42,7 @@ func (o *SOVSBridgeDriver) CleanupConfig() {
 func (o *SOVSBridgeDriver) Exists() (bool, error) {
 	data, err := procutils.NewCommand("ovs-vsctl", "list-br").Output()
 	if err != nil {
-		return false, err
+		return false, errors.Wrapf(err, "failed list br: %s", data)
 	}
 	for _, d := range strings.Split(string(data), "\n") {
 		if strings.TrimSpace(d) == o.bridge.String() {
@@ -54,7 +55,7 @@ func (o *SOVSBridgeDriver) Exists() (bool, error) {
 func (o *SOVSBridgeDriver) Interfaces() ([]string, error) {
 	data, err := procutils.NewCommand("ovs-vsctl", "list-ifaces", o.bridge.String()).Output()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed list ifaces: %s", data)
 	}
 
 	var infs = make([]string, 0)
@@ -73,10 +74,10 @@ func (o *SOVSBridgeDriver) SetupInterface() error {
 	}
 
 	if o.inter != nil && !utils.IsInStringArray(o.inter.String(), infs) {
-		err := procutils.NewCommand("ovs-vsctl", "--", "--may-exist",
-			"add-port", o.bridge.String(), o.inter.String()).Run()
+		output, err := procutils.NewCommand("ovs-vsctl", "--", "--may-exist",
+			"add-port", o.bridge.String(), o.inter.String()).Output()
 		if err != nil {
-			return fmt.Errorf("Failed to add interface %s", err)
+			return fmt.Errorf("Failed to add interface: %s, %s", err, output)
 		}
 	}
 	return nil
@@ -88,8 +89,11 @@ func (o *SOVSBridgeDriver) SetupBridgeDev() error {
 		return err
 	}
 	if !exist {
-		_, err := procutils.NewCommand("ovs-vsctl", "--", "--may-exist", "add-br", o.bridge.String()).Output()
-		return err
+		output, err := procutils.NewCommand("ovs-vsctl", "--", "--may-exist", "add-br", o.bridge.String()).Output()
+		if err != nil {
+			return errors.Wrapf(err, "ovs-vsctl add br %s failed: %s", o.bridge.String(), output)
+		}
+		return nil
 	}
 	return nil
 }
