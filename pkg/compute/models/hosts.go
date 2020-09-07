@@ -4922,15 +4922,17 @@ func (host *SHost) PerformHostMaintenance(ctx context.Context, userCred mcclient
 	var preferHostId string
 	preferHost, _ := data.GetString("prefer_host")
 	if len(preferHost) > 0 {
-		if !db.IsAdminAllowPerform(userCred, host, "assign-host") {
-			return nil, httperrors.NewBadRequestError("Only system admin can assign host")
-		}
 		iHost, _ := HostManager.FetchByIdOrName(userCred, preferHost)
 		if iHost == nil {
 			return nil, httperrors.NewBadRequestError("Host %s not found", preferHost)
 		}
 		host := iHost.(*SHost)
 		preferHostId = host.Id
+		if db.IsAdminAllowPerform(userCred, host, "assign-host") {
+		} else if db.IsDomainAllowPerform(userCred, host, "assign-host") && userCred.GetProjectDomainId() == host.DomainId {
+		} else {
+			return nil, httperrors.NewNotSufficientPrivilegeError("Only system admin can assign host")
+		}
 	}
 
 	guests := host.GetKvmGuests()
