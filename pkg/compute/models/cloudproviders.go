@@ -1394,8 +1394,7 @@ func (self *SCloudprovider) StartCloudproviderDeleteTask(ctx context.Context, us
 	params := jsonutils.NewDict()
 	task, err := taskman.TaskManager.NewTask(ctx, "CloudProviderDeleteTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
-		log.Errorf("%s", err)
-		return err
+		return errors.Wrapf(err, "NewTask")
 	}
 	self.SetStatus(userCred, api.CLOUD_PROVIDER_START_DELETE, "StartCloudproviderDeleteTask")
 	task.ScheduleRun(nil)

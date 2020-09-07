@@ -24,6 +24,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/imagetools"
 )
 
@@ -35,6 +36,7 @@ const (
 
 // http://ctyun-api-url/apiproxy/v3/order/getImages
 type SImage struct {
+	multicloud.SImageBase
 	storageCache *SStoragecache
 
 	ID        string `json:"id"`
@@ -66,7 +68,7 @@ func (self *SImage) GetGlobalId() string {
 }
 
 func (self *SImage) GetStatus() string {
-	return api.CACHED_IMAGE_STATUS_READY
+	return api.CACHED_IMAGE_STATUS_ACTIVE
 }
 
 func (self *SImage) Refresh() error {

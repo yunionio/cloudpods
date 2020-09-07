@@ -37,11 +37,12 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SCachedimageManager struct {
-	db.SStandaloneResourceBaseManager
+	db.SSharableVirtualResourceBaseManager
 	db.SExternalizedResourceBaseManager
 }
 
@@ -49,7 +50,7 @@ var CachedimageManager *SCachedimageManager
 
 func init() {
 	CachedimageManager = &SCachedimageManager{
-		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
+		SSharableVirtualResourceBaseManager: db.NewSharableVirtualResourceBaseManager(
 			SCachedimage{},
 			"cachedimages_tbl",
 			"cachedimage",
@@ -60,7 +61,7 @@ func init() {
 }
 
 type SCachedimage struct {
-	db.SStandaloneResourceBase
+	db.SSharableVirtualResourceBase
 	db.SExternalizedResourceBase
 
 	// 镜像大小单位: Byte
@@ -100,10 +101,10 @@ func (self *SCachedimage) ValidateDeleteCondition(ctx context.Context) error {
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("The image has been cached on storages")
 	}
-	if self.GetStatus() == "active" && !self.isReferenceSessionExpire() {
+	if self.GetStatus() == api.CACHED_IMAGE_STATUS_ACTIVE && !self.isReferenceSessionExpire() {
 		return httperrors.NewConflictError("the image reference session has not been expired!")
 	}
-	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx)
 }
 
 func (self *SCachedimage) isReferenceSessionExpire() bool {
@@ -194,32 +195,44 @@ func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, us
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
-	imgId, _ := info.GetString("id")
-	if len(imgId) == 0 {
+	img := struct {
+		Id          string
+		Size        int64
+		Name        string
+		Status      string
+		IsPublic    bool
+		ProjectId   string `json:"tenant_id"`
+		PublicScope string
+	}{}
+	err := info.Unmarshal(&img)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal %s", info.String())
+	}
+	if len(img.Id) == 0 {
 		return nil, fmt.Errorf("invalid image info")
+	}
+	if len(img.Name) == 0 {
+		img.Name = img.Id
 	}
 
 	imageCache := SCachedimage{}
 	imageCache.SetModelManager(manager, &imageCache)
 
-	size, _ := info.Int("size")
-	name, _ := info.GetString("name")
-	if len(name) == 0 {
-		name = imgId
-	}
-
-	name, err := db.GenerateName(manager, nil, name)
+	img.Name, err = db.GenerateName(manager, nil, img.Name)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "db.GenerateName(%s)", img.Name)
 	}
 
-	err = manager.RawQuery().Equals("id", imgId).First(&imageCache)
+	err = manager.RawQuery().Equals("id", img.Id).First(&imageCache)
 	if err != nil {
 		if err == sql.ErrNoRows { // insert
-			imageCache.Id = imgId
-			imageCache.Name = name
-			imageCache.Size = size
+			imageCache.Id = img.Id
+			imageCache.Name = img.Name
+			imageCache.Size = img.Size
 			imageCache.Info = info
+			imageCache.Status = img.Status
+			imageCache.IsPublic = img.IsPublic
+			imageCache.PublicScope = img.PublicScope
 			imageCache.LastSync = timeutils.UtcNow()
 
 			err = manager.TableSpec().Insert(ctx, &imageCache)
@@ -230,13 +243,16 @@ func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, us
 
 			return &imageCache, nil
 		} else {
-			log.Errorf("fetching image cache (%s) failed: %s", imgId, err)
+			log.Errorf("fetching image cache (%s) failed: %s", img.Id, err)
 			return nil, err
 		}
 	} else { // update
 		diff, err := db.Update(&imageCache, func() error {
-			imageCache.Size = size
+			imageCache.Size = img.Size
 			imageCache.Info = info
+			imageCache.Status = img.Status
+			imageCache.IsPublic = img.IsPublic
+			imageCache.PublicScope = img.PublicScope
 			imageCache.LastSync = timeutils.UtcNow()
 			if imageCache.Deleted == true {
 				imageCache.Deleted = false
@@ -323,16 +339,15 @@ func (manager *SCachedimageManager) FetchCustomizeColumns(
 	isList bool,
 ) []api.CachedimageDetails {
 	rows := make([]api.CachedimageDetails, len(objs))
-	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	virtRows := manager.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		ci := objs[i].(*SCachedimage)
 		rows[i] = api.CachedimageDetails{
-			StandaloneResourceDetails: stdRows[i],
-			Status:                    ci.GetStatus(),
-			OsType:                    ci.GetOSType(),
-			OsDistribution:            ci.GetOSDistribution(),
-			OsVersion:                 ci.GetOSVersion(),
-			Hypervisor:                ci.GetHypervisor(),
+			SharableVirtualResourceDetails: virtRows[i],
+			OsType:                         ci.GetOSType(),
+			OsDistribution:                 ci.GetOSDistribution(),
+			OsVersion:                      ci.GetOSVersion(),
+			Hypervisor:                     ci.GetHypervisor(),
 		}
 		rows[i].CachedCount, _ = ci.getStoragecacheCount()
 	}
@@ -372,7 +387,7 @@ func (self *SCachedimage) PerformUncacheImage(ctx context.Context, userCred mccl
 }
 
 func (self *SCachedimage) addRefCount() {
-	if self.GetStatus() != "active" {
+	if self.GetStatus() != api.CACHED_IMAGE_STATUS_ACTIVE {
 		return
 	}
 	_, err := db.Update(self, func() error {
@@ -455,12 +470,17 @@ func (self *SCachedimage) canDeleteLastCache() bool {
 	return false
 }
 
-func (self *SCachedimage) syncWithCloudImage(ctx context.Context, userCred mcclient.TokenCredential, image cloudprovider.ICloudImage) error {
+func (self *SCachedimage) syncWithCloudImage(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, image cloudprovider.ICloudImage, managerId string) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		self.Name = image.GetName()
 		self.Size = image.GetSizeByte()
 		self.ExternalId = image.GetGlobalId()
 		self.ImageType = image.GetImageType()
+		self.PublicScope = string(image.GetPublicScope())
+		self.Status = image.GetStatus()
+		if image.GetPublicScope() == rbacutils.ScopeSystem {
+			self.IsPublic = true
+		}
 		self.UEFI = tristate.NewFromBool(image.UEFI())
 		sImage := cloudprovider.CloudImage2Image(image)
 		self.Info = jsonutils.Marshal(&sImage)
@@ -468,10 +488,12 @@ func (self *SCachedimage) syncWithCloudImage(ctx context.Context, userCred mccli
 		return nil
 	})
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
+
+	SyncCloudProject(userCred, self, ownerId, image, managerId)
 	return err
 }
 
-func (manager *SCachedimageManager) newFromCloudImage(ctx context.Context, userCred mcclient.TokenCredential, image cloudprovider.ICloudImage) (*SCachedimage, error) {
+func (manager *SCachedimageManager) newFromCloudImage(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, image cloudprovider.ICloudImage, managerId string) (*SCachedimage, error) {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
@@ -491,11 +513,20 @@ func (manager *SCachedimageManager) newFromCloudImage(ctx context.Context, userC
 	cachedImage.LastSync = time.Now().UTC()
 	cachedImage.ImageType = image.GetImageType()
 	cachedImage.ExternalId = image.GetGlobalId()
+	cachedImage.Status = image.GetStatus()
+	cachedImage.PublicScope = string(image.GetPublicScope())
+	switch image.GetPublicScope() {
+	case rbacutils.ScopeNone:
+	default:
+		cachedImage.IsPublic = true
+	}
 
 	err = manager.TableSpec().Insert(ctx, &cachedImage)
 	if err != nil {
 		return nil, err
 	}
+
+	SyncCloudProject(userCred, &cachedImage, ownerId, image, managerId)
 
 	return &cachedImage, nil
 }
@@ -529,7 +560,7 @@ func (image *SCachedimage) requestRefreshExternalImage(ctx context.Context, user
 		log.Errorf("iCache.GetIImageById fail %s", err)
 		return nil, err
 	}
-	err = image.syncWithCloudImage(ctx, userCred, iImage)
+	err = image.syncWithCloudImage(ctx, userCred, nil, iImage, "")
 	if err != nil {
 		log.Errorf("image.syncWithCloudImage fail %s", err)
 		return nil, err
@@ -632,6 +663,10 @@ func (manager *SCachedimageManager) ListItemFilter(
 	query api.CachedimageListInput,
 ) (*sqlchemy.SQuery, error) {
 	var err error
+	q, err = manager.SSharableBaseResourceManager.ListItemFilter(ctx, q, userCred, query.SharableResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrapf(err, "SSharableBaseResourceManager.ListItemFilter")
+	}
 
 	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "id", func() *sqlchemy.SQuery {
 		cachedImages := CachedimageManager.Query().SubQuery()
@@ -647,9 +682,9 @@ func (manager *SCachedimageManager) ListItemFilter(
 		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 	}
 
-	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
+	q, err = manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.SharableVirtualResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
 	}
 
 	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
@@ -704,9 +739,9 @@ func (manager *SCachedimageManager) OrderByExtraFields(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
+	q, err = manager.SSharableVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.SharableVirtualResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.OrderByExtraFields")
 	}
 
 	return q, nil
@@ -715,10 +750,44 @@ func (manager *SCachedimageManager) OrderByExtraFields(
 func (manager *SCachedimageManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	q, err = manager.SSharableVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
 
 	return q, httperrors.ErrNotFound
+}
+
+func (manager *SCachedimageManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {
+	q, err := manager.SSharableVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrapf(err, "SSharableVirtualResourceBaseManager.L.ListItemExportKeys")
+	}
+	return q, nil
+}
+
+func (manager *SCachedimageManager) InitializeData() error {
+	images := []SCachedimage{}
+	q := manager.Query().IsNullOrEmpty("tenant_id")
+	err := db.FetchModelObjects(manager, q, &images)
+	if err != nil {
+		return errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	for i := range images {
+		_, err := db.Update(&images[i], func() error {
+			images[i].IsPublic = true
+			images[i].PublicScope = string(rbacutils.ScopeSystem)
+			images[i].ProjectId = "system"
+			if len(images[i].ExternalId) > 0 {
+				images[i].Status = api.CACHED_IMAGE_STATUS_ACTIVE
+			} else {
+				images[i].Status = images[i].GetStatus()
+			}
+			return nil
+		})
+		if err != nil {
+			return errors.Wrapf(err, "db.Update(%s)", images[i].Id)
+		}
+	}
+	return nil
 }

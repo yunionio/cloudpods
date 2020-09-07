@@ -125,7 +125,7 @@ func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.To
 		if err != nil {
 			log.Errorf("GetImageStatus error %s", err)
 		}
-		if img.GetStatus() == api.CACHED_IMAGE_STATUS_READY && !isForce {
+		if img.GetStatus() == api.CACHED_IMAGE_STATUS_ACTIVE && !isForce {
 			return image.ExternalId, nil
 		}
 	} else {
