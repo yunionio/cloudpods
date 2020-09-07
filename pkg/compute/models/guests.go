@@ -4220,6 +4220,14 @@ func (self *SGuest) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 		billingInfo.SCloudProviderInfo = host.getCloudProviderInfo()
 	}
 
+	if len(self.BackupHostId) > 0 {
+		backupHost := HostManager.FetchHostById(self.BackupHostId)
+		if backupHost != nil {
+			desc.Set("backup_host", jsonutils.NewString(backupHost.Name))
+			desc.Set("backup_host_id", jsonutils.NewString(backupHost.Id))
+		}
+	}
+
 	if priceKey := self.GetMetadata("ext:price_key", nil); len(priceKey) > 0 {
 		billingInfo.PriceKey = priceKey
 	}
