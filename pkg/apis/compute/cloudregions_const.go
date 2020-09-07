@@ -57,6 +57,7 @@ const (
 	CITY_FO_SHAN       = "Foshan"      //佛山
 	CITY_QUAN_ZHOU     = "Quanzhou"    //泉州
 	CITY_NEI_MENG_GU   = "Neimenggu"   //内蒙古
+	CITY_WU_LAN_CHA_BU = "Wulanchabu"  //乌兰察布
 
 	// 日本
 	CITY_TOKYO = "Tokyo" //东京
