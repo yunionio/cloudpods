@@ -92,6 +92,12 @@ func (self *ClouduserSyncGroupsTask) OnInit(ctx context.Context, obj db.IStandal
 				self.taskFailed(ctx, user, errors.Wrap(err, "SyncCustomCloudpoliciesForCloud"))
 				return
 			}
+
+			err = cache.SyncCloudusersForCloud(ctx, self.GetUserCred())
+			if err != nil {
+				self.taskFailed(ctx, user, errors.Wrap(err, "SyncCloudusersForCloud"))
+				return
+			}
 		}
 	} else if factory.IsSupportClouduserPolicy() {
 		err := user.SyncSystemCloudpoliciesForCloud(ctx, self.GetUserCred())
