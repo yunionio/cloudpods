@@ -49,7 +49,7 @@ type KeypairListInput struct {
 }
 
 type CachedimageListInput struct {
-	apis.StandaloneResourceListInput
+	apis.SharableVirtualResourceListInput
 	apis.ExternalizedResourceBaseListInput
 
 	ManagedResourceListInput

@@ -42,7 +42,7 @@ func (self *CloudProviderDeleteTask) OnInit(ctx context.Context, obj db.IStandal
 	err := provider.RealDelete(ctx, self.UserCred)
 	if err != nil {
 		provider.SetStatus(self.UserCred, api.CLOUD_PROVIDER_DELETE_FAILED, "StartDiskCloudproviderTask")
-		self.SetStageFailed(ctx, jsonutils.Marshal(err))
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		logclient.AddActionLogWithStartable(self, provider, logclient.ACT_DELETE, err, self.UserCred, false)
 		return
 	}

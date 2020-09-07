@@ -102,7 +102,7 @@ func (cache *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.T
 		} else {
 			status := _image.GetStatus()
 			log.Debugf("UploadImage: Image external ID %s exists, status %s", image.ExternalId, status)
-			if status == api.CACHED_IMAGE_STATUS_READY {
+			if status == api.CACHED_IMAGE_STATUS_ACTIVE {
 				return image.ExternalId, nil
 			}
 			err = cache.region.Delete(image.ExternalId)
