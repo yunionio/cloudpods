@@ -15,59 +15,15 @@
 package cloudid
 
 import (
-	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/mcclient/options/cloudid"
 )
 
 func init() {
-	type CloudgroupcacheListOptions struct {
-		options.BaseListOptions
-
-		CloudgroupId string `json:"cloudgroup_id"`
-	}
-	R(&CloudgroupcacheListOptions{}, "cloud-group-cache-list", "List cloud group caches", func(s *mcclient.ClientSession, opts *CloudgroupcacheListOptions) error {
-		params, err := options.ListStructToParams(opts)
-		if err != nil {
-			return err
-		}
-		result, err := modules.Cloudgroupcaches.List(s, params)
-		if err != nil {
-			return err
-		}
-		printList(result, modules.Cloudgroupcaches.GetColumns(s))
-		return nil
-	})
-
-	type CloudgroupcacheIdOption struct {
-		ID string `help:"Cloudgroup Id"`
-	}
-
-	R(&CloudgroupcacheIdOption{}, "cloud-group-cache-show", "Show cloud groupcache details", func(s *mcclient.ClientSession, opts *CloudgroupcacheIdOption) error {
-		result, err := modules.Cloudgroupcaches.Get(s, opts.ID, nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&CloudgroupcacheIdOption{}, "cloud-group-cache-syncstatus", "Sync cloudgroupcache", func(s *mcclient.ClientSession, opts *CloudgroupcacheIdOption) error {
-		result, err := modules.Cloudgroupcaches.PerformAction(s, opts.ID, "syncstatus", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&CloudgroupcacheIdOption{}, "cloud-group-cache-delete", "Delete cloudgroupcache", func(s *mcclient.ClientSession, opts *CloudgroupcacheIdOption) error {
-		result, err := modules.Cloudgroupcaches.Delete(s, opts.ID, nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
+	cmd := shell.NewResourceCmd(&modules.Cloudgroupcaches).WithKeyword("cloud-group-cache")
+	cmd.List(&cloudid.CloudgroupcacheListOptions{})
+	cmd.Show(&cloudid.CloudgroupcacheIdOption{})
+	cmd.Delete(&cloudid.CloudgroupcacheIdOption{})
+	cmd.Perform("syncstatus", &cloudid.CloudgroupcacheIdOption{})
 }

@@ -17,22 +17,22 @@ package cloudid
 import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/mcclient/options/cloudid"
 )
 
 func init() {
 	cmd := shell.NewResourceCmd(&modules.Cloudusers).WithKeyword("cloud-user")
-	cmd.List(&options.ClouduserListOptions{})
-	cmd.Create(&options.ClouduserCreateOptions{})
-	cmd.Show(&options.ClouduserIdOption{})
-	cmd.Custom(shell.CustomActionGet, "login-info", &options.ClouduserIdOption{})
-	cmd.Delete(&options.ClouduserIdOption{})
-	cmd.Perform("sync", &options.ClouduserSyncOptions{})
-	cmd.Perform("syncstatus", &options.ClouduserIdOption{})
-	cmd.Perform("attach-policy", &options.ClouduserPolicyOptions{})
-	cmd.Perform("detach-policy", &options.ClouduserPolicyOptions{})
-	cmd.Perform("change-owner", &options.ClouduserChangeOwnerOptions{})
-	cmd.Perform("reset-password", &options.ClouduserResetPasswordOptions{})
-	cmd.Perform("cloud-user-join-group", &options.ClouduserGroupOptions{})
-	cmd.Perform("cloud-user-leave-group", &options.ClouduserGroupOptions{})
+	cmd.List(&cloudid.ClouduserListOptions{})
+	cmd.Create(&cloudid.ClouduserCreateOptions{})
+	cmd.Show(&cloudid.ClouduserIdOption{})
+	cmd.Custom(shell.CustomActionGet, "login-info", &cloudid.ClouduserIdOption{})
+	cmd.Delete(&cloudid.ClouduserIdOption{})
+	cmd.Perform("sync", &cloudid.ClouduserSyncOptions{})
+	cmd.Perform("syncstatus", &cloudid.ClouduserIdOption{})
+	cmd.Perform("attach-policy", &cloudid.ClouduserPolicyOptions{})
+	cmd.Perform("detach-policy", &cloudid.ClouduserPolicyOptions{})
+	cmd.Perform("change-owner", &cloudid.ClouduserChangeOwnerOptions{})
+	cmd.Perform("reset-password", &cloudid.ClouduserResetPasswordOptions{})
+	cmd.Perform("cloud-user-join-group", &cloudid.ClouduserGroupOptions{})
+	cmd.Perform("cloud-user-leave-group", &cloudid.ClouduserGroupOptions{})
 }

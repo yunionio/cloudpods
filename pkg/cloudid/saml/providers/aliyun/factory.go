@@ -15,7 +15,7 @@
 package aliyun
 
 import (
-	"yunion.io/x/onecloud/pkg/cloudid/saml/providers"
+	"yunion.io/x/onecloud/pkg/cloudid/models"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -34,5 +34,5 @@ func (d *SAliyunSAMLDriver) GetMetadataUrl() string {
 }
 
 func init() {
-	providers.Register(&SAliyunSAMLDriver{})
+	models.Register(&SAliyunSAMLDriver{})
 }

@@ -162,3 +162,13 @@ type CloudgroupSyncInput struct {
 
 type CloudgroupUpdateInput struct {
 }
+
+type CloudgroupResourceListInput struct {
+	// 根据权限组Id过滤资源
+	CloudgroupId string `json:"cloudgroup_id"`
+}
+
+type CloudgroupResourceDetails struct {
+	// 公有云用户名称
+	Cloudgroup string `json:"cloudgroup"`
+}

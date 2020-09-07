@@ -312,16 +312,59 @@ func (self *SAwsProvider) GetSamlEntityId() string {
 	return self.client.GetSamlEntityId()
 }
 
-func (self *SAwsProvider) GetSamlSpInitiatedLoginUrl(idpName string) string {
-	return ""
-}
-
 func (self *SAwsProvider) GetICloudDnsZones() ([]cloudprovider.ICloudDnsZone, error) {
 	return self.client.GetICloudDnsZones()
 }
+
 func (self *SAwsProvider) GetICloudDnsZoneById(id string) (cloudprovider.ICloudDnsZone, error) {
 	return self.client.GetHostedZoneById(id)
 }
+
 func (self *SAwsProvider) CreateICloudDnsZone(opts *cloudprovider.SDnsZoneCreateOptions) (cloudprovider.ICloudDnsZone, error) {
 	return self.client.CreateHostedZone(opts)
+}
+
+func (self *SAwsProvider) GetICloudSAMLProviders() ([]cloudprovider.ICloudSAMLProvider, error) {
+	return self.client.GetICloudSAMLProviders()
+}
+
+func (self *SAwsProvider) CreateICloudSAMLProvider(opts *cloudprovider.SAMLProviderCreateOptions) (cloudprovider.ICloudSAMLProvider, error) {
+	sp, err := self.client.CreateSAMLProvider(opts.Name, opts.Metadata.String())
+	if err != nil {
+		return nil, errors.Wrap(err, "CreateSAMLProvider")
+	}
+	return sp, nil
+}
+
+func (self *SAwsProvider) GetICloudroles() ([]cloudprovider.ICloudrole, error) {
+	return self.client.GetICloudroles()
+}
+
+func (self *SAwsProvider) GetICloudroleById(id string) (cloudprovider.ICloudrole, error) {
+	roles, err := self.GetICloudroles()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetICloudroles")
+	}
+	for i := range roles {
+		if roles[i].GetGlobalId() == id {
+			return roles[i], nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+}
+
+func (self *SAwsProvider) GetICloudroleByName(name string) (cloudprovider.ICloudrole, error) {
+	role, err := self.client.GetRole(name)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRole(%s)", name)
+	}
+	return role, nil
+}
+
+func (self *SAwsProvider) CreateICloudrole(opts *cloudprovider.SRoleCreateOptions) (cloudprovider.ICloudrole, error) {
+	role, err := self.client.CreateRole(opts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateRole")
+	}
+	return role, nil
 }

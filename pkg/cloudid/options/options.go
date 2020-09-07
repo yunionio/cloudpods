@@ -23,8 +23,10 @@ type SCloudIdOptions struct {
 	common_options.DBOptions
 
 	CloudaccountSyncIntervalMinutes  int `help:"frequency to sync region cloudaccount task" default:"3"`
+	SAMLProviderSyncIntervalHours    int `help:"frequency to sync account saml provider task" default:"3"`
 	SystemPoliciesSyncIntervalHours  int `help:"frequency to sync region cloudaccount task" default:"24"`
 	CloudIdResourceSyncIntervalHours int `help:"frequency to sync region cloudpolicy task" default:"3"`
+	CloudroleSyncIntervalHours       int `help:"frequency to sync region cloudroles task" default:"12"`
 
 	CloudSAMLMetadataPath string `help:"path to store SAML sp metadata file of cloud providers" default:"/opt/yunion/share/saml/sp-metadata"`
 }

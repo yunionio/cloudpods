@@ -191,6 +191,10 @@ type CloudaccountCreateInput struct {
 
 	cloudprovider.SCloudaccount
 	cloudprovider.SCloudaccountCredential
+
+	// 是否启用SAML认证
+	// default: false
+	SAMLAuth *bool `json:"saml_auth"`
 }
 
 type CloudaccountShareModeInput struct {
@@ -404,13 +408,13 @@ type EnrollmentAccountQuery struct {
 
 type GetCloudaccountSamlOutput struct {
 	// cloudaccount SAML ServiceProvider entity ID
-	EntityId string `json:"entity_id"`
+	EntityId string `json:"entity_id,allowempty"`
 	// redirect login URL for this cloudaccount
-	RedirectLoginUrl string `json:"redirect_login_url"`
+	RedirectLoginUrl string `json:"redirect_login_url,allowempty"`
 	// redirect logout URL for this cloudaccount
-	RedirectLogoutUrl string `json:"redirect_logout_url"`
+	RedirectLogoutUrl string `json:"redirect_logout_url,allowempty"`
 	// metadata URL for this cloudaccount
-	MetadataUrl string `json:"metadata_url"`
+	MetadataUrl string `json:"metadata_url,allowempty"`
 	// initial SAML SSO login URL for this cloudaccount
-	InitLoginUrl string `json:"init_login_url"`
+	InitLoginUrl string `json:"init_login_url,allowempty"`
 }

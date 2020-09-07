@@ -15,15 +15,51 @@
 package qcloud
 
 import (
+	"context"
+	"database/sql"
+	"fmt"
+
+	"yunion.io/x/pkg/errors"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudid/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/samlutils"
 	"yunion.io/x/onecloud/pkg/util/samlutils/idp"
 )
 
-func (d *SQcloudSAMLDriver) GetIdpInitiatedLoginData(cloudAccoutId string, userId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLIdpInitiatedLoginData, error) {
-	// TODO
+func (d *SQcloudSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCred mcclient.TokenCredential, cloudAccountId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLIdpInitiatedLoginData, error) {
 	data := samlutils.SSAMLIdpInitiatedLoginData{}
 
-	data.NameId = "cvmcosreadonly"
+	_account, err := models.CloudaccountManager.FetchById(cloudAccountId)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return data, httperrors.NewResourceNotFoundError("cloudaccount", cloudAccountId)
+		}
+		return data, httperrors.NewGeneralError(err)
+	}
+	account := _account.(*models.SCloudaccount)
+	if account.Provider != api.CLOUD_PROVIDER_QCLOUD {
+		return data, httperrors.NewClientError("cloudaccount %s is %s not %s", account.Id, account.Provider, api.CLOUD_PROVIDER_QCLOUD)
+	}
+	if account.SAMLAuth.IsFalse() {
+		return data, httperrors.NewNotSupportedError("cloudaccount %s not open saml auth", account.Id)
+	}
+
+	SAMLProvider, valid := account.IsSAMLProviderValid()
+	if !valid {
+		return data, httperrors.NewResourceNotReadyError("SAMLProvider for account %s not ready", account.Id)
+	}
+
+	role, err := account.SyncRole(userCred.GetUserId())
+	if err != nil {
+		return data, httperrors.NewGeneralError(errors.Wrapf(err, "SyncRole"))
+	}
+
+	roleStr := fmt.Sprintf("qcs::cam::uin/%s:roleName/%s,qcs::cam::uin/%s:saml-provider/%s", account.AccountId, role.ExternalId, account.AccountId, SAMLProvider.ExternalId)
+
+	data.NameId = role.Name
 	data.NameIdFormat = samlutils.NAME_ID_FORMAT_TRANSIENT
 	data.AudienceRestriction = "https://cloud.tencent.com"
 	for _, v := range []struct {
@@ -34,12 +70,12 @@ func (d *SQcloudSAMLDriver) GetIdpInitiatedLoginData(cloudAccoutId string, userI
 		{
 			name:         "https://cloud.tencent.com/SAML/Attributes/Role",
 			friendlyName: "RoleEntitlement",
-			value:        "qcs::cam::uin/100008182714:roleName/cvmcosreadonly,qcs::cam::uin/100008182714:saml-provider/saml.yunion.io",
+			value:        roleStr,
 		},
 		{
 			name:         "https://cloud.tencent.com/SAML/Attributes/RoleSessionName",
 			friendlyName: "RoleSessionName",
-			value:        "cvmcosreadonly",
+			value:        role.Name,
 		},
 	} {
 		data.Attributes = append(data.Attributes, samlutils.SSAMLResponseAttribute{
@@ -53,11 +89,36 @@ func (d *SQcloudSAMLDriver) GetIdpInitiatedLoginData(cloudAccoutId string, userI
 	return data, nil
 }
 
-func (d *SQcloudSAMLDriver) GetSpInitiatedLoginData(cloudAccoutId string, userId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLSpInitiatedLoginData, error) {
-	// not supported
+func (d *SQcloudSAMLDriver) GetSpInitiatedLoginData(ctx context.Context, userCred mcclient.TokenCredential, cloudAccountId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLSpInitiatedLoginData, error) {
 	data := samlutils.SSAMLSpInitiatedLoginData{}
+	_account, err := models.CloudaccountManager.FetchById(cloudAccountId)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return data, httperrors.NewResourceNotFoundError("cloudaccount", cloudAccountId)
+		}
+		return data, httperrors.NewGeneralError(err)
+	}
+	account := _account.(*models.SCloudaccount)
+	if account.Provider != api.CLOUD_PROVIDER_QCLOUD {
+		return data, httperrors.NewClientError("cloudaccount %s is %s not %s", account.Id, account.Provider, api.CLOUD_PROVIDER_QCLOUD)
+	}
+	if account.SAMLAuth.IsFalse() {
+		return data, httperrors.NewNotSupportedError("cloudaccount %s not open saml auth", account.Id)
+	}
 
-	data.NameId = "cvmcosreadonly"
+	SAMLProvider, valid := account.IsSAMLProviderValid()
+	if !valid {
+		return data, httperrors.NewResourceNotReadyError("SAMLProvider for account %s not ready", account.Id)
+	}
+
+	role, err := account.SyncRole(userCred.GetUserId())
+	if err != nil {
+		return data, httperrors.NewGeneralError(errors.Wrapf(err, "SyncRole"))
+	}
+
+	roleStr := fmt.Sprintf("qcs::cam::uin/%s:roleName/%s,qcs::cam::uin/%s:saml-provider/%s", account.AccountId, role.ExternalId, account.AccountId, SAMLProvider.ExternalId)
+
+	data.NameId = role.Name
 	data.NameIdFormat = samlutils.NAME_ID_FORMAT_TRANSIENT
 	data.AudienceRestriction = "https://cloud.tencent.com"
 	for _, v := range []struct {
@@ -68,12 +129,12 @@ func (d *SQcloudSAMLDriver) GetSpInitiatedLoginData(cloudAccoutId string, userId
 		{
 			name:         "https://cloud.tencent.com/SAML/Attributes/Role",
 			friendlyName: "RoleEntitlement",
-			value:        "qcs::cam::uin/100008182714:roleName/cvmcosreadonly,qcs::cam::uin/100008182714:saml-provider/saml.yunion.io",
+			value:        roleStr,
 		},
 		{
 			name:         "https://cloud.tencent.com/SAML/Attributes/RoleSessionName",
 			friendlyName: "RoleSessionName",
-			value:        "cvmcosreadonly",
+			value:        role.Name,
 		},
 	} {
 		data.Attributes = append(data.Attributes, samlutils.SSAMLResponseAttribute{

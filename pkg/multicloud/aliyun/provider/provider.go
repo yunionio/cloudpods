@@ -329,10 +329,6 @@ func (self *SAliyunProvider) GetSamlEntityId() string {
 	return cloudprovider.SAML_ENTITY_ID_ALIYUN_ROLE
 }
 
-func (self *SAliyunProvider) GetSamlSpInitiatedLoginUrl(idpName string) string {
-	return ""
-}
-
 func (self *SAliyunProvider) GetICloudDnsZones() ([]cloudprovider.ICloudDnsZone, error) {
 	izones := []cloudprovider.ICloudDnsZone{}
 	privateZone, err := self.client.GetPrivateICloudDnsZones()

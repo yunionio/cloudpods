@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudid/models"
 	"yunion.io/x/onecloud/pkg/cloudid/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/samlutils"
@@ -55,6 +56,7 @@ func initSAMLInstance() error {
 		return errors.Wrap(err, "samlutils.NewSAMLInstance")
 	}
 
+	models.SamlIdpInstance = SAMLIdpInstance
 	return nil
 }
 
@@ -63,6 +65,10 @@ func SAMLInstance() *samlutils.SSAMLInstance {
 		saml.SetEntityId(options.Options.ApiServer)
 	}
 	return saml
+}
+
+func SAMLIdpInstance() *idp.SSAMLIdpInstance {
+	return idpInstance
 }
 
 func IsSAMLEnabled() bool {

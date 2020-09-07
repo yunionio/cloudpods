@@ -17,18 +17,18 @@ package cloudid
 import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/mcclient/options/cloudid"
 )
 
 func init() {
 	cmd := shell.NewResourceCmd(&modules.Cloudpolicies).WithKeyword("cloud-policy")
-	cmd.Create(&options.CloudpolicyListOptions{})
-	cmd.List(&options.CloudpolicyListOptions{})
-	cmd.Show(&options.CloudpolicyIdOptions{})
-	cmd.Update(&options.CloudpolicyUpdateOption{})
-	cmd.Perform("syncstauts", &options.CloudpolicyIdOptions{})
-	cmd.Perform("lock", &options.CloudpolicyIdOptions{})
-	cmd.Perform("unlock", &options.CloudpolicyIdOptions{})
-	cmd.Perform("assign-group", &options.CloudpolicyGroupOptions{})
-	cmd.Perform("revoke-group", &options.CloudpolicyGroupOptions{})
+	cmd.Create(&cloudid.CloudpolicyListOptions{})
+	cmd.List(&cloudid.CloudpolicyListOptions{})
+	cmd.Show(&cloudid.CloudpolicyIdOptions{})
+	cmd.Update(&cloudid.CloudpolicyUpdateOption{})
+	cmd.Perform("syncstauts", &cloudid.CloudpolicyIdOptions{})
+	cmd.Perform("lock", &cloudid.CloudpolicyIdOptions{})
+	cmd.Perform("unlock", &cloudid.CloudpolicyIdOptions{})
+	cmd.Perform("assign-group", &cloudid.CloudpolicyGroupOptions{})
+	cmd.Perform("revoke-group", &cloudid.CloudpolicyGroupOptions{})
 }

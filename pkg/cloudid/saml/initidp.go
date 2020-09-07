@@ -24,8 +24,8 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudid/models"
 	"yunion.io/x/onecloud/pkg/cloudid/options"
-	"yunion.io/x/onecloud/pkg/cloudid/saml/providers"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/httputils"
@@ -38,11 +38,11 @@ func initSAMLIdp(app *appsrv.Application, prefix string) error {
 		token := auth.FetchUserCredential(ctx, nil)
 		log.Debugf("Recive SP initiated Login: %s", sp.GetEntityId())
 		data := samlutils.SSAMLSpInitiatedLoginData{}
-		driver := providers.FindDriver(sp.GetEntityId())
+		driver := models.FindDriver(sp.GetEntityId())
 		if driver == nil {
 			return data, errors.Wrapf(httperrors.ErrResourceNotFound, "entityID %s not found", sp.GetEntityId())
 		}
-		data, err := driver.GetSpInitiatedLoginData(idpId, token.GetUserId(), sp)
+		data, err := driver.GetSpInitiatedLoginData(ctx, token, idpId, sp)
 		if err != nil {
 			return data, errors.Wrap(err, "driver.GetSpInitiatedLoginData")
 		}
@@ -62,11 +62,11 @@ func initSAMLIdp(app *appsrv.Application, prefix string) error {
 		token := auth.FetchUserCredential(ctx, nil)
 		log.Debugf("Recive IDP initiated Login: %s", sp.GetEntityId())
 		data := samlutils.SSAMLIdpInitiatedLoginData{}
-		driver := providers.FindDriver(sp.GetEntityId())
+		driver := models.FindDriver(sp.GetEntityId())
 		if driver == nil {
 			return data, errors.Wrapf(httperrors.ErrResourceNotFound, "entityID %s not found", sp.GetEntityId())
 		}
-		data, err := driver.GetIdpInitiatedLoginData(idpId, token.GetUserId(), sp)
+		data, err := driver.GetIdpInitiatedLoginData(ctx, token, idpId, sp)
 		if err != nil {
 			return data, errors.Wrap(err, "driver.GetIdpInitiatedLoginData")
 		}
@@ -78,7 +78,7 @@ func initSAMLIdp(app *appsrv.Application, prefix string) error {
 	}
 
 	idpInst := idp.NewIdpInstance(saml, spFunc, idpFunc, logoutFunc)
-	for entityId, drvFactory := range providers.AllDrivers() {
+	for entityId, drvFactory := range models.AllDrivers() {
 		filePath := path.Join(options.Options.CloudSAMLMetadataPath, drvFactory.GetMetadataFilename())
 		metaBytes, err := ioutil.ReadFile(filePath)
 		if err != nil || len(metaBytes) == 0 {

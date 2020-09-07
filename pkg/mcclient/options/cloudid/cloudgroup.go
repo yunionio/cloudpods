@@ -12,12 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package cloudid
 
-import "yunion.io/x/jsonutils"
+import (
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/mcclient/options"
+)
 
 type CloudgroupListOptions struct {
-	BaseListOptions
+	options.BaseListOptions
 
 	ClouduserId   string `json:"clouduser_id"`
 	CloudpolicyId string `json:"cloudpolicy_id"`
@@ -25,7 +29,7 @@ type CloudgroupListOptions struct {
 }
 
 func (opts *CloudgroupListOptions) Params() (jsonutils.JSONObject, error) {
-	return ListStructToParams(opts)
+	return options.ListStructToParams(opts)
 }
 
 type CloudgroupCreateOptions struct {

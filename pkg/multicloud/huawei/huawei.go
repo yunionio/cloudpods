@@ -560,7 +560,3 @@ func (self *SHuaweiClient) initOwner() error {
 	self.ownerId = ownerId
 	return nil
 }
-
-func (self *SHuaweiClient) GetSamlSpInitiatedLoginUrl(idpName string) string {
-	return fmt.Sprintf("https://auth.huaweicloud.com/authui/federation/websso?domain_id=%s&idp=%s&protocol=saml", self.ownerId, idpName)
-}
