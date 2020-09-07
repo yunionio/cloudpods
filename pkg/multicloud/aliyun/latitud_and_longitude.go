@@ -41,4 +41,5 @@ var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
 	"eu-west-1":      {Latitude: 51.507351, Longitude: -0.127758, City: api.CITY_LONDON, CountryCode: api.COUNTRY_CODE_GB},
 	"me-east-1":      {Latitude: 25.204849, Longitude: 55.270782, City: api.CITY_DUBAI, CountryCode: api.COUNTRY_CODE_AE},
 	"eu-central-1":   {Latitude: 50.110924, Longitude: 8.682127, City: api.CITY_FRANKFURT, CountryCode: api.COUNTRY_CODE_DE},
+	"cn-wulanchabu":  {Latitude: 41.0178065, Longitude: 113.094978, City: api.CITY_WU_LAN_CHA_BU, CountryCode: api.COUNTRY_CODE_CN},
 }
