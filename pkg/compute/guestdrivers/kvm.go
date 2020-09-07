@@ -553,6 +553,20 @@ func (self *SKVMGuestDriver) IsSupportLiveMigrate() bool {
 	return true
 }
 
+func checkAssignHost(userCred mcclient.TokenCredential, preferHost string) error {
+	iHost, _ := models.HostManager.FetchByIdOrName(userCred, preferHost)
+	if iHost == nil {
+		return httperrors.NewBadRequestError("Host %s not found", preferHost)
+	}
+	host := iHost.(*models.SHost)
+	if db.IsAdminAllowPerform(userCred, host, "assign-host") {
+	} else if db.IsDomainAllowPerform(userCred, host, "assign-host") && userCred.GetProjectDomainId() == host.DomainId {
+	} else {
+		return httperrors.NewNotSufficientPrivilegeError("Only system admin can assign host")
+	}
+	return nil
+}
+
 func (self *SKVMGuestDriver) CheckMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput) error {
 	if len(guest.BackupHostId) > 0 {
 		return httperrors.NewBadRequestError("Guest have backup, can't migrate")
@@ -574,8 +588,9 @@ func (self *SKVMGuestDriver) CheckMigrate(guest *models.SGuest, userCred mcclien
 		return httperrors.NewBadRequestError("Cannot migrate with isolated devices")
 	}
 	if len(input.PreferHost) > 0 {
-		if !db.IsAdminAllowPerform(userCred, guest, "assign-host") {
-			return httperrors.NewBadRequestError("Only system admin can assign host")
+		err := checkAssignHost(userCred, input.PreferHost)
+		if err != nil {
+			return errors.Wrap(err, "checkAssignHost")
 		}
 	}
 	return nil
@@ -598,8 +613,9 @@ func (self *SKVMGuestDriver) CheckLiveMigrate(guest *models.SGuest, userCred mcc
 			return httperrors.NewBadRequestError("Cannot do live migrate, too low qemu version")
 		}
 		if len(input.PreferHost) > 0 {
-			if !db.IsAdminAllowPerform(userCred, guest, "assign-host") {
-				return httperrors.NewBadRequestError("Only system admin can assign host")
+			err := checkAssignHost(userCred, input.PreferHost)
+			if err != nil {
+				return errors.Wrap(err, "checkAssignHost")
 			}
 		}
 	}
