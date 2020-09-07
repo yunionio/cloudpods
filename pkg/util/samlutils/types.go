@@ -240,6 +240,11 @@ type EntityDescriptor struct {
 	Organization *Organization `xml:"Organization"`
 }
 
+func (ed EntityDescriptor) String() string {
+	str, _ := xml.MarshalIndent(ed, "", "  ")
+	return string(str)
+}
+
 type SIdpRedirectLoginInput struct {
 	SAMLRequest string `json:"SAMLRequest,ignoreempty"`
 	RelayState  string `json:"RelayState,ignoreempty"`

@@ -17,8 +17,10 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"golang.org/x/net/http/httpproxy"
 
@@ -67,9 +69,11 @@ type SCloudaccount struct {
 	db.SStandaloneResourceBase
 	db.SDomainizedResourceBase
 
-	Provider    string `width:"64" charset:"ascii" list:"domain"`
-	Brand       string `width:"64" charset:"utf8" nullable:"true" list:"domain"`
-	IamLoginUrl string `width:"512" charset:"ascii"`
+	AccountId   string            `width:"128" charset:"utf8" nullable:"true" list:"domain" create:"domain_optional"`
+	Provider    string            `width:"64" charset:"ascii" list:"domain"`
+	Brand       string            `width:"64" charset:"utf8" nullable:"true" list:"domain"`
+	IamLoginUrl string            `width:"512" charset:"ascii"`
+	SAMLAuth    tristate.TriState `nullable:"false" list:"domain" default:"false"`
 }
 
 func (manager *SCloudaccountManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
@@ -206,6 +210,34 @@ func (self *SCloudaccount) removeCloudgroupcaches(ctx context.Context, userCred 
 	return nil
 }
 
+func (self *SCloudaccount) removeSAMLProviders(ctx context.Context, userCred mcclient.TokenCredential) error {
+	samls, err := self.GetSAMLProviders()
+	if err != nil {
+		return errors.Wrap(err, "GetSAMLProviders")
+	}
+	for i := range samls {
+		err = samls[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return errors.Wrap(err, "samls[i].RealDelete")
+		}
+	}
+	return nil
+}
+
+func (self *SCloudaccount) removeCloudroles(ctx context.Context, userCred mcclient.TokenCredential) error {
+	roles, err := self.GetCloudroles()
+	if err != nil {
+		return errors.Wrapf(err, "GetCloudroles")
+	}
+	for i := range roles {
+		err = roles[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "roles.RealDelete")
+		}
+	}
+	return nil
+}
+
 func (self *SCloudaccount) syncRemoveCloudaccount(ctx context.Context, userCred mcclient.TokenCredential) error {
 	err := self.syncRemoveClouduser(ctx, userCred)
 	if err != nil {
@@ -222,7 +254,46 @@ func (self *SCloudaccount) syncRemoveCloudaccount(ctx context.Context, userCred 
 		return errors.Wrap(err, "removeCloudgroupcaches")
 	}
 
+	err = self.removeSAMLProviders(ctx, userCred)
+	if err != nil {
+		return errors.Wrapf(err, "removeSAMLProviders")
+	}
+
+	err = self.removeCloudroles(ctx, userCred)
+	if err != nil {
+		return errors.Wrapf(err, "removeCloudroles")
+	}
+
+	err = self.removeSamluser(ctx, userCred)
+	if err != nil {
+		return errors.Wrapf(err, "syncRemoveSamluser")
+	}
+
 	return self.Delete(ctx, userCred)
+}
+
+func (self *SCloudaccount) GetSamlusers() ([]SSamluser, error) {
+	q := SamluserManager.Query().Equals("cloudaccount_id", self.Id)
+	users := []SSamluser{}
+	err := db.FetchModelObjects(SamluserManager, q, &users)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return users, nil
+}
+
+func (self *SCloudaccount) removeSamluser(ctx context.Context, userCred mcclient.TokenCredential) error {
+	users, err := self.GetSamlusers()
+	if err != nil {
+		return errors.Wrapf(err, "GetSamusers")
+	}
+	for i := range users {
+		err = users[i].Delete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "delete %s(%s)", users[i].Name, users[i].Id)
+		}
+	}
+	return nil
 }
 
 func (self *SCloudaccount) syncRemoveClouduser(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -248,6 +319,9 @@ func (manager *SCloudaccountManager) newFromICloudaccount(ctx context.Context, u
 	if err != nil {
 		return nil, errors.Wrap(err, "Insert")
 	}
+	if account.SAMLAuth.IsTrue() {
+		account.StartSAMLProviderCreateTask(ctx, userCred)
+	}
 
 	return account, nil
 }
@@ -258,11 +332,14 @@ func (self *SCloudaccount) syncWithICloudaccount(ctx context.Context, userCred m
 		self.DomainId = account.DomainId
 		self.Brand = account.Brand
 		self.IamLoginUrl = account.IamLoginUrl
+		self.SAMLAuth = account.SAMLAuth
+		self.AccountId = account.AccountId
 		return nil
 	})
 	if err != nil {
 		return errors.Wrap(err, "db.UpdateWithLock")
 	}
+	self.StartSAMLProviderCreateTask(ctx, userCred)
 	return nil
 }
 
@@ -276,6 +353,16 @@ func (manager *SCloudaccountManager) SyncCloudaccounts(ctx context.Context, user
 		result = account.syncCloudprovider(ctx, userCred)
 		log.Debugf("sync cloudprovider for cloudaccount %s(%s) result: %s", account.Name, account.Id, result.Result())
 	}
+}
+
+func (self *SCloudaccount) StartSyncSamlProvidersTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	params := jsonutils.NewDict()
+	task, err := taskman.TaskManager.NewTask(ctx, "SyncSAMLProvidersTask", self, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	task.ScheduleRun(nil)
+	return nil
 }
 
 func (self SCloudaccount) GetGlobalId() string {
@@ -407,6 +494,8 @@ func (account *SCloudDelegate) GetProvider() (cloudprovider.ICloudProvider, erro
 		Account:   account.Account,
 		Secret:    passwd,
 		ProxyFunc: proxyFunc,
+
+		AccountId: account.Id,
 	})
 }
 
@@ -463,14 +552,12 @@ func (self *SCloudaccount) SyncCloudusers(ctx context.Context, userCred mcclient
 	}
 
 	for i := 0; i < len(removed); i++ {
-		if len(removed[i].ExternalId) > 0 {
-			err = removed[i].RealDelete(ctx, userCred)
-			if err != nil {
-				result.DeleteError(err)
-				continue
-			}
-			result.Delete()
+		err = removed[i].RealDelete(ctx, userCred)
+		if err != nil {
+			result.DeleteError(err)
+			continue
 		}
+		result.Delete()
 	}
 
 	for i := 0; i < len(commondb); i++ {
@@ -860,7 +947,7 @@ func (self *SCloudaccount) syncCloudprovider(ctx context.Context, userCred mccli
 	for i := 0; i < len(removed); i++ {
 		err = removed[i].Delete(ctx, userCred)
 		if err != nil {
-			result.AddError(err)
+			result.DeleteError(err)
 			continue
 		}
 		result.Delete()
@@ -970,6 +1057,180 @@ func (manager *SCloudaccountManager) SyncCloudidResources(ctx context.Context, u
 	}
 }
 
+func (self *SCloudaccount) IsSAMLProviderValid() (*SSAMLProvider, bool) {
+	provider, err := self.RegisterSAMProvider()
+	if err != nil {
+		return provider, false
+	}
+	if len(provider.ExternalId) == 0 {
+		return provider, false
+	}
+	return provider, true
+}
+
+func (self *SCloudaccount) RegisterSAMProvider() (*SSAMLProvider, error) {
+	if len(options.Options.ApiServer) == 0 {
+		return nil, fmt.Errorf("empty api server")
+	}
+	sps, err := self.GetSAMLProviders()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetSAMLProviders")
+	}
+	for i := range sps {
+		if sps[i].EntityId == options.Options.ApiServer {
+			return &sps[i], nil
+		}
+	}
+	sp := &SSAMLProvider{}
+	sp.SetModelManager(SAMLProviderManager, sp)
+	sp.Name = func() string {
+		name := strings.TrimPrefix(options.Options.ApiServer, "https://")
+		name = strings.TrimPrefix(name, "http://")
+		return name
+	}()
+	sp.EntityId = options.Options.ApiServer
+	sp.CloudaccountId = self.Id
+	sp.Status = api.SAML_PROVIDER_STATUS_CREATING
+	metadata := SamlIdpInstance().GetMetadata(self.Id).String()
+	sp.MetadataDocument = metadata
+	err = SAMLProviderManager.TableSpec().Insert(context.TODO(), sp)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Insert")
+	}
+	return sp, nil
+}
+
+func (self *SCloudaccount) StartSAMLProviderCreateTask(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if self.SAMLAuth.IsFalse() {
+		return nil
+	}
+	sp, valid := self.IsSAMLProviderValid()
+	if valid {
+		return nil
+	}
+	return sp.StartSAMLProviderCreateTask(ctx, userCred, "")
+}
+
+func (manager *SCloudaccountManager) SyncSAMLProviders(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	accounts, err := manager.GetSupportCloudIdAccounts()
+	if err != nil {
+		log.Errorf("GetSupportCloudIdAccounts error: %v", err)
+		return
+	}
+	for i := range accounts {
+		err = accounts[i].StartSyncSamlProvidersTask(ctx, userCred, "")
+		if err != nil {
+			log.Errorf("StartSyncSamlProvidersTask for account %s(%s) error: %v", accounts[i].Name, accounts[i].Provider, err)
+		}
+	}
+}
+
+func (manager *SCloudaccountManager) SyncCloudroles(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	accounts, err := manager.GetSupportCloudIdAccounts()
+	if err != nil {
+		log.Errorf("GetSupportCloudIdAccounts error: %v", err)
+		return
+	}
+	for i := range accounts {
+		err = accounts[i].StartSyncCloudrolesTask(ctx, userCred, "")
+		if err != nil {
+			log.Errorf("StartSyncCloudrolesTask for account %s(%s) error: %v", accounts[i].Name, accounts[i].Provider, err)
+		}
+	}
+}
+
+func (self *SCloudaccount) StartSyncCloudrolesTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	params := jsonutils.NewDict()
+	task, err := taskman.TaskManager.NewTask(ctx, "SyncCloudrolesTask", self, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SCloudaccount) GetSAMLProviders() ([]SSAMLProvider, error) {
+	q := SAMLProviderManager.Query().Equals("cloudaccount_id", self.Id)
+	samls := []SSAMLProvider{}
+	err := db.FetchModelObjects(SAMLProviderManager, q, &samls)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return samls, nil
+}
+
+func (self *SCloudaccount) SyncSAMLProviders(ctx context.Context, userCred mcclient.TokenCredential, samls []cloudprovider.ICloudSAMLProvider) compare.SyncResult {
+
+	result := compare.SyncResult{}
+
+	dbSamls, err := self.GetSAMLProviders()
+	if err != nil {
+		result.Error(errors.Wrap(err, "GetSAMLProviders"))
+		return result
+	}
+
+	removed := make([]SSAMLProvider, 0)
+	commondb := make([]SSAMLProvider, 0)
+	commonext := make([]cloudprovider.ICloudSAMLProvider, 0)
+	added := make([]cloudprovider.ICloudSAMLProvider, 0)
+
+	err = compare.CompareSets(dbSamls, samls, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		result.Error(errors.Wrap(err, "compare.CompareSets"))
+		return result
+	}
+
+	for i := 0; i < len(removed); i++ {
+		err = removed[i].RealDelete(ctx, userCred)
+		if err != nil {
+			result.DeleteError(err)
+			continue
+		}
+		result.Delete()
+	}
+
+	for i := 0; i < len(commondb); i++ {
+		err = commondb[i].SyncWithCloudSAMLProvider(ctx, userCred, commonext[i])
+		if err != nil {
+			result.UpdateError(err)
+			continue
+		}
+		result.Update()
+	}
+
+	for i := 0; i < len(added); i++ {
+		err = self.newFromCloudSAMLProvider(ctx, userCred, added[i])
+		if err != nil {
+			result.AddError(err)
+			continue
+		}
+		result.Add()
+	}
+	return result
+}
+
+func (self *SCloudaccount) newFromCloudSAMLProvider(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudSAMLProvider) error {
+	saml := &SSAMLProvider{}
+	saml.SetModelManager(SAMLProviderManager, saml)
+	saml.Name = ext.GetName()
+	saml.ExternalId = ext.GetGlobalId()
+	saml.DomainId = self.DomainId
+	saml.CloudaccountId = self.Id
+	metadata, err := ext.GetMetadataDocument()
+	if err != nil {
+		log.Errorf("failed to get metadata from %s(%s) error: %v", self.Name, self.Provider, err)
+	}
+	saml.Status = ext.GetStatus()
+	if metadata != nil {
+		saml.EntityId = metadata.EntityId
+		saml.MetadataDocument = metadata.String()
+	}
+	if saml.EntityId != options.Options.ApiServer {
+		saml.Status = api.SAML_PROVIDER_STATUS_NOT_MATCH
+	}
+	return SAMLProviderManager.TableSpec().Insert(ctx, saml)
+}
+
 func (self *SCloudaccount) StartSyncCloudIdResourcesTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	params := jsonutils.NewDict()
 	task, err := taskman.TaskManager.NewTask(ctx, "SyncCloudIdResourcesTask", self, userCred, params, parentTaskId, "", nil)
@@ -999,14 +1260,12 @@ func (self *SCloudaccount) SyncCloudgroupcaches(ctx context.Context, userCred mc
 	}
 
 	for i := 0; i < len(removed); i++ {
-		if len(removed[i].ExternalId) > 0 { // 只删除云上已经删除过的组
-			err = removed[i].RealDelete(ctx, userCred)
-			if err != nil {
-				result.DeleteError(err)
-				continue
-			}
-			result.Delete()
+		err = removed[i].RealDelete(ctx, userCred)
+		if err != nil {
+			result.DeleteError(err)
+			continue
 		}
+		result.Delete()
 	}
 
 	for i := 0; i < len(commondb); i++ {
@@ -1334,4 +1593,175 @@ func (self *SCloudaccount) SyncSystemCloudpoliciesForCloud(ctx context.Context, 
 
 	log.Infof("Sync %s(%s) system policies for user %s result: %s", self.Name, self.Provider, clouduser.Name, result.Result())
 	return nil
+}
+
+func (self *SCloudaccount) GetLocalUserCloudroles(userId, spId string) ([]SCloudrole, error) {
+	roles := []SCloudrole{}
+	q := CloudroleManager.Query().Equals("cloudaccount_id", self.Id).Equals("owner_id", userId).Equals("saml_provider_id", spId)
+	err := db.FetchModelObjects(CloudroleManager, q, &roles)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return roles, nil
+}
+
+func (self *SCloudaccount) RegisterCloudrole(userId, spId string) (*SCloudrole, error) {
+	roles, err := self.GetLocalUserCloudroles(userId, spId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetLocalUserCloudroles")
+	}
+	if len(roles) > 0 {
+		return &roles[0], nil
+	}
+	user, err := db.UserCacheManager.FetchById(userId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "UserCacheManager.FetchById(%s)", userId)
+	}
+	role := &SCloudrole{}
+	role.SetModelManager(CloudroleManager, role)
+	role.CloudaccountId = self.Id
+	role.OwnerId = userId
+	role.SAMLProviderId = spId
+	role.Name = user.GetName()
+	role.Status = api.CLOUD_ROLE_STATUS_CREATING
+	role.DomainId = self.DomainId
+	return role, CloudroleManager.TableSpec().Insert(context.TODO(), role)
+}
+
+func (self *SCloudaccount) GetCloudrole(userId string) (*SCloudrole, error) {
+	sp, valid := self.IsSAMLProviderValid()
+	if !valid {
+		return nil, fmt.Errorf("SAMLProvider for account %s not ready", self.Id)
+	}
+
+	return self.RegisterCloudrole(userId, sp.Id)
+}
+
+func (self *SCloudaccount) SyncRole(userId string) (*SCloudrole, error) {
+	role, err := self.GetCloudrole(userId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetCloudrole")
+	}
+
+	err = role.SyncRoles()
+	if err != nil {
+		return nil, errors.Wrapf(err, "SyncRoles")
+	}
+
+	return role, nil
+}
+
+func (self *SCloudaccount) GetCloudroles() ([]SCloudrole, error) {
+	roles := []SCloudrole{}
+	q := CloudroleManager.Query()
+	err := db.FetchModelObjects(CloudroleManager, q, &roles)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return roles, nil
+}
+
+func (self *SCloudaccount) newCloudrole(ctx context.Context, userCred mcclient.TokenCredential, iRole cloudprovider.ICloudrole) error {
+	role := &SCloudrole{}
+	role.SetModelManager(CloudroleManager, role)
+	role.Name = iRole.GetName()
+	role.ExternalId = iRole.GetGlobalId()
+	role.Document = iRole.GetDocument()
+	if spId := iRole.GetSAMLProvider(); len(spId) > 0 {
+		sp, _ := db.FetchByExternalIdAndManagerId(SAMLProviderManager, spId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			return q.Equals("cloudaccount_id", self.Id)
+		})
+		if sp != nil {
+			role.SAMLProviderId = sp.GetId()
+		}
+	}
+	role.CloudaccountId = self.Id
+	role.Status = api.CLOUD_ROLE_STATUS_AVAILABLE
+	return CloudroleManager.TableSpec().Insert(ctx, role)
+}
+
+func (self *SCloudaccount) SyncCloudroles(ctx context.Context, userCred mcclient.TokenCredential, exts []cloudprovider.ICloudrole) compare.SyncResult {
+	result := compare.SyncResult{}
+
+	roles, err := self.GetCloudroles()
+	if err != nil {
+		result.Error(errors.Wrapf(err, "GetCloudroles"))
+		return result
+	}
+
+	removed := make([]SCloudrole, 0)
+	commondb := make([]SCloudrole, 0)
+	commonext := make([]cloudprovider.ICloudrole, 0)
+	added := make([]cloudprovider.ICloudrole, 0)
+
+	err = compare.CompareSets(roles, exts, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		result.Error(errors.Wrapf(err, "compare.CompareSets"))
+		return result
+	}
+
+	for i := 0; i < len(removed); i++ {
+		err = removed[i].RealDelete(ctx, userCred)
+		if err != nil {
+			result.DeleteError(err)
+			continue
+		}
+		result.Delete()
+	}
+
+	for i := 0; i < len(commondb); i++ {
+		err = commondb[i].syncWithCloudrole(ctx, userCred, commonext[i])
+		if err != nil {
+			result.UpdateError(err)
+			continue
+		}
+		result.Update()
+	}
+
+	for i := 0; i < len(added); i++ {
+		err := self.newCloudrole(ctx, userCred, added[i])
+		if err != nil {
+			result.AddError(err)
+			continue
+		}
+		result.Add()
+	}
+
+	return result
+}
+
+func (self *SCloudaccount) GetUserCloudgroups(userId string) ([]string, error) {
+	ret := []string{}
+	q := CloudgroupManager.Query()
+	samlusers := SamluserManager.Query("cloudgroup_id").Equals("owner_id", userId).Equals("cloudaccount_id", self.Id).SubQuery()
+	q = q.In("id", samlusers)
+	groups := []SCloudgroup{}
+	err := db.FetchModelObjects(CloudgroupManager, q, &groups)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	if len(groups) == 0 {
+		return ret, nil
+	}
+	for i := range groups {
+		cache, err := CloudgroupcacheManager.Register(&groups[i], self)
+		if err != nil {
+			return []string{}, errors.Wrapf(err, "group cache Register")
+		}
+		if len(cache.ExternalId) > 0 {
+			ret = append(ret, cache.Name)
+		} else {
+			s := auth.GetAdminSession(context.TODO(), options.Options.Region, "")
+			_, err = cache.GetOrCreateICloudgroup(context.TODO(), s.GetToken())
+			if err != nil {
+				return []string{}, errors.Wrapf(err, "GetOrCreateICloudgroup")
+			}
+			cache, err := CloudgroupcacheManager.Register(&groups[i], self)
+			if err != nil {
+				return []string{}, errors.Wrapf(err, "group cache Register")
+			}
+			ret = append(ret, cache.Name)
+		}
+	}
+	return ret, nil
 }

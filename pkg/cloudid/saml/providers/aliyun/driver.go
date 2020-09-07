@@ -15,13 +15,16 @@
 package aliyun
 
 import (
+	"context"
+
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/samlutils"
 	"yunion.io/x/onecloud/pkg/util/samlutils/idp"
 )
 
-func (d *SAliyunSAMLDriver) GetIdpInitiatedLoginData(cloudAccoutId string, userId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLIdpInitiatedLoginData, error) {
+func (d *SAliyunSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCred mcclient.TokenCredential, cloudAccountId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLIdpInitiatedLoginData, error) {
 	// TODO
 	data := samlutils.SSAMLIdpInitiatedLoginData{}
 	data.NameId = "ecsossreadonly"
@@ -41,7 +44,7 @@ func (d *SAliyunSAMLDriver) GetIdpInitiatedLoginData(cloudAccoutId string, userI
 	return data, nil
 }
 
-func (d *SAliyunSAMLDriver) GetSpInitiatedLoginData(cloudAccoutId string, userId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLSpInitiatedLoginData, error) {
+func (d *SAliyunSAMLDriver) GetSpInitiatedLoginData(ctx context.Context, userCred mcclient.TokenCredential, cloudAccountId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLSpInitiatedLoginData, error) {
 	// not supported
 	return samlutils.SSAMLSpInitiatedLoginData{}, errors.ErrNotSupported
 }

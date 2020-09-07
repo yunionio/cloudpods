@@ -12,23 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package providers
+package modules
 
-var (
-	driverTable = make(map[string]ICloudSAMLLoginDriver)
+import (
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
-func Register(driver ICloudSAMLLoginDriver) {
-	driverTable[driver.GetEntityID()] = driver
+type SSAMLProviderManager struct {
+	modulebase.ResourceManager
 }
 
-func FindDriver(entityId string) ICloudSAMLLoginDriver {
-	if driver, ok := driverTable[entityId]; ok {
-		return driver
-	}
-	return nil
-}
+var (
+	SAMLProviders SSAMLProviderManager
+)
 
-func AllDrivers() map[string]ICloudSAMLLoginDriver {
-	return driverTable
+func init() {
+	SAMLProviders = SSAMLProviderManager{NewCloudIdManager("saml_provider", "saml_providers",
+		[]string{},
+		[]string{})}
+
+	register(&SAMLProviders)
 }

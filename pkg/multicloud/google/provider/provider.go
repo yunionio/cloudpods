@@ -297,7 +297,3 @@ func (self *SGoogleProvider) CreateICloudpolicy(opts *cloudprovider.SCloudpolicy
 func (self *SGoogleProvider) GetSamlEntityId() string {
 	return cloudprovider.SAML_ENTITY_ID_GOOGLE
 }
-
-func (self *SGoogleProvider) GetSamlSpInitiatedLoginUrl(idpName string) string {
-	return self.client.GetSamlSpInitiatedLoginUrl(idpName)
-}

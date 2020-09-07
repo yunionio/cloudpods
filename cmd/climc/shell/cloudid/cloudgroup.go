@@ -17,22 +17,22 @@ package cloudid
 import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/mcclient/options/cloudid"
 )
 
 func init() {
 	cmd := shell.NewResourceCmd(&modules.Cloudgroups).WithKeyword("cloud-group")
-	cmd.List(&options.CloudgroupListOptions{})
-	cmd.Create(&options.CloudgroupCreateOptions{})
-	cmd.Show(&options.CloudgroupIdOptions{})
-	cmd.Delete(&options.CloudgroupIdOptions{})
-	cmd.Perform("syncstatus", &options.CloudgroupIdOptions{})
-	cmd.Perform("attach-policy", &options.CloudgroupPolicyOptions{})
-	cmd.Perform("detach-policy", &options.CloudgroupPolicyOptions{})
-	cmd.Perform("add-user", &options.CloudgroupUserOptions{})
-	cmd.Perform("remove-user", &options.CloudgroupUserOptions{})
-	cmd.Perform("set-policies", &options.CloudgroupPolicyOptions{})
-	cmd.Perform("set-users", &options.CloudgroupUserOptions{})
-	cmd.Perform("public", &options.CloudgroupPublicOptions{})
-	cmd.Perform("private", &options.CloudgroupIdOptions{})
+	cmd.List(&cloudid.CloudgroupListOptions{})
+	cmd.Create(&cloudid.CloudgroupCreateOptions{})
+	cmd.Show(&cloudid.CloudgroupIdOptions{})
+	cmd.Delete(&cloudid.CloudgroupIdOptions{})
+	cmd.Perform("syncstatus", &cloudid.CloudgroupIdOptions{})
+	cmd.Perform("attach-policy", &cloudid.CloudgroupPolicyOptions{})
+	cmd.Perform("detach-policy", &cloudid.CloudgroupPolicyOptions{})
+	cmd.Perform("add-user", &cloudid.CloudgroupUserOptions{})
+	cmd.Perform("remove-user", &cloudid.CloudgroupUserOptions{})
+	cmd.Perform("set-policies", &cloudid.CloudgroupPolicyOptions{})
+	cmd.Perform("set-users", &cloudid.CloudgroupUserOptions{})
+	cmd.Perform("public", &cloudid.CloudgroupPublicOptions{})
+	cmd.Perform("private", &cloudid.CloudgroupIdOptions{})
 }

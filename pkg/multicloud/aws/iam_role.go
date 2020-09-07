@@ -16,9 +16,18 @@ package aws
 
 import (
 	"fmt"
+	"net/url"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+)
+
+var (
+	samlRole = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"sts:AssumeRoleWithSAML","Principal":{"Federated":"%s"},"Condition":{"StringEquals":{"SAML:aud":["%s"]}}}]}`
 )
 
 type SRole struct {
@@ -32,6 +41,78 @@ type SRole struct {
 	Description              string    `xml:"Description"`
 	Arn                      string    `xml:"Arn"`
 	CreateDate               time.Time `xml:"CreateDate"`
+}
+
+func (self *SRole) GetGlobalId() string {
+	return self.Arn
+}
+
+func (self *SRole) GetName() string {
+	return self.RoleName
+}
+
+func (self *SRole) Delete() error {
+	return self.client.DeleteRole(self.RoleName)
+}
+
+func (self *SRole) GetDocument() *jsonutils.JSONDict {
+	data, err := url.QueryUnescape(self.AssumeRolePolicyDocument)
+	if err != nil {
+		return nil
+	}
+	document, err := jsonutils.Parse([]byte(data))
+	if err != nil {
+		return nil
+	}
+	return document.(*jsonutils.JSONDict)
+}
+
+//[{"Action":"sts:AssumeRoleWithSAML","Condition":{"StringEquals":{"SAML:aud":"https://signin.aws.amazon.com/saml"}},"Effect":"Allow","Principal":{"Federated":"arn:aws:iam::879324515906:saml-provider/quxuan"}}]
+func (self *SRole) GetSAMLProvider() string {
+	document := self.GetDocument()
+	if document != nil {
+		statement, err := document.GetArray("Statement")
+		if err == nil {
+			for i := range statement {
+				if action, _ := statement[i].GetString("Action"); action == "sts:AssumeRoleWithSAML" {
+					sp, _ := statement[i].GetString("Principal", "Federated")
+					if len(sp) > 0 {
+						return sp
+					}
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func (self *SRole) AttachPolicy(id string) error {
+	return self.client.AttachRolePolicy(self.RoleName, self.client.getIamArn(id))
+}
+
+func (self *SRole) DetachPolicy(id string) error {
+	return self.client.DetachRolePolicy(self.RoleName, self.client.getIamArn(id))
+}
+
+func (self *SRole) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	policies := []SAttachedPolicy{}
+	marker := ""
+	for {
+		part, err := self.client.ListAttachedRolePolicies(self.RoleName, marker, 100, "")
+		if err != nil {
+			return nil, errors.Wrapf(err, "ListAttachedRolePolicies")
+		}
+		policies = append(policies, part.AttachedPolicies...)
+		marker = part.Marker
+		if len(marker) == 0 {
+			break
+		}
+	}
+	ret := []cloudprovider.ICloudpolicy{}
+	for i := range policies {
+		ret = append(ret, &policies[i])
+	}
+	return ret, nil
 }
 
 type SRoles struct {
@@ -80,4 +161,49 @@ func (self *SAwsClient) DeleteRole(name string) error {
 		"RoleName": name,
 	}
 	return self.iamRequest("DeleteRole", params, nil)
+}
+
+func (self *SAwsClient) GetICloudroles() ([]cloudprovider.ICloudrole, error) {
+	roles := []SRole{}
+	marker := ""
+	for {
+		part, err := self.ListRoles(marker, 100, "")
+		if err != nil {
+			return nil, errors.Wrapf(err, "ListRoles")
+		}
+		roles = append(roles, part.Roles...)
+		marker = part.Marker
+		if len(marker) == 0 {
+			break
+		}
+	}
+	ret := []cloudprovider.ICloudrole{}
+	for i := range roles {
+		ret = append(ret, &roles[i])
+	}
+	return ret, nil
+}
+
+func (self *SAwsClient) CreateRole(opts *cloudprovider.SRoleCreateOptions) (*SRole, error) {
+	if len(opts.SAMLProvider) > 0 {
+		aud := "https://signin.amazonaws.cn/saml"
+		if self.GetAccessEnv() == api.CLOUD_ACCESS_ENV_AWS_GLOBAL {
+			aud = "https://signin.aws.amazon.com/saml"
+		}
+		params := map[string]string{
+			"RoleName":                 opts.Name,
+			"Description":              opts.Desc,
+			"AssumeRolePolicyDocument": fmt.Sprintf(samlRole, opts.SAMLProvider, aud),
+		}
+		role := struct {
+			Role SRole
+		}{}
+		err := self.iamRequest("CreateRole", params, &role)
+		if err != nil {
+			return nil, errors.Wrapf(err, "CreateRole")
+		}
+		role.Role.client = self
+		return &role.Role, nil
+	}
+	return nil, cloudprovider.ErrNotImplemented
 }

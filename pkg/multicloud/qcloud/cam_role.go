@@ -16,9 +16,15 @@ package qcloud
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 const (
@@ -37,7 +43,18 @@ const (
 "UpdateTime": "2020-08-11 17:03:30"
 */
 
+type SPrincipal struct {
+	Federated []string
+}
+
+type Statement struct {
+	Action    string
+	Effect    string
+	Principal SPrincipal
+}
+
 type SRole struct {
+	multicloud.SResourceBase
 	client *SQcloudClient
 
 	AddTime         time.Time
@@ -49,6 +66,92 @@ type SRole struct {
 	RoleType        string
 	SessionDuration float32
 	UpdateTime      time.Time
+}
+
+func (self *SRole) GetGlobalId() string {
+	return self.RoleName
+}
+
+func (self *SRole) GetName() string {
+	return self.RoleName
+}
+
+func (self *SRole) GetDocument() *jsonutils.JSONDict {
+	if len(self.PolicyDocument) > 0 {
+		document, err := jsonutils.Parse([]byte(self.PolicyDocument))
+		if err != nil {
+			return nil
+		}
+		return document.(*jsonutils.JSONDict)
+	}
+	return nil
+}
+
+func (self *SRole) GetSAMLProvider() string {
+	document := self.GetDocument()
+	if document != nil {
+		statements := []Statement{}
+		document.Unmarshal(&statements, "statement")
+		for i := range statements {
+			if statements[i].Action == "name/sts:AssumeRoleWithSAML" {
+				for _, federated := range statements[i].Principal.Federated {
+					if strings.Contains(federated, ":saml-provider/") {
+						info := strings.Split(federated, "/")
+						return info[len(info)-1]
+					}
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func (self *SRole) Delete() error {
+	return self.client.DeleteRole(self.RoleName)
+}
+
+func (self *SRole) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	ret := []cloudprovider.ICloudpolicy{}
+	for {
+		part, total, err := self.client.ListAttachedRolePolicies(self.RoleName, "", len(ret), 50)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ListAttachedRolePolicies")
+		}
+		for i := range part {
+			part[i].client = self.client
+			ret = append(ret, &part[i])
+		}
+		if len(ret) >= total {
+			break
+		}
+	}
+	return ret, nil
+}
+
+func (self *SRole) AttachPolicy(id string) error {
+	return self.client.AttachRolePolicy(self.RoleName, id)
+}
+
+func (self *SRole) DetachPolicy(id string) error {
+	return self.client.DetachRolePolicy(self.RoleName, id)
+}
+
+func (self *SQcloudClient) GetICloudroles() ([]cloudprovider.ICloudrole, error) {
+	ret := []cloudprovider.ICloudrole{}
+	for {
+		part, total, err := self.DescribeRoleList(len(ret), 200)
+		if err != nil {
+			return nil, errors.Wrapf(err, "DescribeRoleList")
+		}
+		for i := range part {
+			part[i].client = self
+			ret = append(ret, &part[i])
+		}
+		if len(ret) >= total {
+			break
+		}
+	}
+	return ret, nil
 }
 
 func (self *SQcloudClient) DescribeRoleList(offset int, limit int) ([]SRole, int, error) {
@@ -76,6 +179,9 @@ func (self *SQcloudClient) DescribeRoleList(offset int, limit int) ([]SRole, int
 }
 
 func (self *SQcloudClient) CreateRole(name, document, desc string) (*SRole, error) {
+	if len(document) == 0 {
+		document = DEFAULT_ROLE_DOCUMENT
+	}
 	params := map[string]string{
 		"RoleName":        name,
 		"PolicyDocument":  document,
@@ -145,7 +251,11 @@ func (self *SQcloudClient) DeleteRole(name string) error {
 func (self *SQcloudClient) AttachRolePolicy(roleName string, policyId string) error {
 	params := map[string]string{
 		"AttachRoleName": roleName,
-		"PolicyId":       policyId,
+	}
+	if _id, _ := strconv.Atoi(policyId); _id > 0 {
+		params["PolicyId"] = policyId
+	} else {
+		params["PolicyName"] = policyId
 	}
 	_, err := self.camRequest("AttachRolePolicy", params)
 	return err
@@ -154,7 +264,11 @@ func (self *SQcloudClient) AttachRolePolicy(roleName string, policyId string) er
 func (self *SQcloudClient) DetachRolePolicy(roleName string, policyId string) error {
 	params := map[string]string{
 		"DetachRoleName": roleName,
-		"PolicyId":       policyId,
+	}
+	if _id, _ := strconv.Atoi(policyId); _id > 0 {
+		params["PolicyId"] = policyId
+	} else {
+		params["PolicyName"] = policyId
 	}
 	_, err := self.camRequest("DetachRolePolicy", params)
 	return err

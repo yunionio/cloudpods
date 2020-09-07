@@ -12,19 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package providers
+package cloudid
 
 import (
-	"yunion.io/x/onecloud/pkg/util/samlutils"
-	"yunion.io/x/onecloud/pkg/util/samlutils/idp"
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
-type ICloudSAMLLoginDriver interface {
-	GetEntityID() string
+type CloudgroupPolicyListOptions struct {
+	options.BaseListOptions
+	Cloudgroup  string `help:"ID or Name of Cloudgroup"`
+	Cloudpolicy string `help:"Policy ID or name"`
+}
 
-	GetMetadataFilename() string
-	GetMetadataUrl() string
+func (opts *CloudgroupPolicyListOptions) Params() (jsonutils.JSONObject, error) {
+	return options.ListStructToParams(opts)
+}
 
-	GetIdpInitiatedLoginData(idpId string, userId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLIdpInitiatedLoginData, error)
-	GetSpInitiatedLoginData(idpId string, userId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLSpInitiatedLoginData, error)
+func (opts *CloudgroupPolicyListOptions) GetContextId() string {
+	return opts.Cloudgroup
 }

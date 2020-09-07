@@ -255,7 +255,35 @@ func (self *SCloudgroup) RealDelete(ctx context.Context, userCred mcclient.Token
 	if err != nil {
 		return errors.Wrap(err, "remoteUsers")
 	}
+	err = self.removeSamlusers()
+	if err != nil {
+		return errors.Wrapf(err, "removeSamlusers")
+	}
 	return self.SStatusInfrasResourceBase.Delete(ctx, userCred)
+}
+
+func (self *SCloudgroup) GetSamlusers() ([]SSamluser, error) {
+	q := SamluserManager.Query().Equals("cloudgroup_id", self.Id)
+	users := []SSamluser{}
+	err := db.FetchModelObjects(SamluserManager, q, &users)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return users, nil
+}
+
+func (self *SCloudgroup) removeSamlusers() error {
+	users, err := self.GetSamlusers()
+	if err != nil {
+		return errors.Wrap(err, "GetSamlusers")
+	}
+	for i := range users {
+		err = users[i].Delete(context.TODO(), nil)
+		if err != nil {
+			return errors.Wrapf(err, "rm saml user(%s)", users[i].Id)
+		}
+	}
+	return nil
 }
 
 func (self *SCloudgroup) removeUsers() error {
