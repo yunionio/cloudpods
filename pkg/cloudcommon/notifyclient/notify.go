@@ -126,7 +126,7 @@ func RawNotify(recipientId []string, isGroup bool, channel notify.TNotifyChannel
 	msg.Topic = topic
 	body, _ := getContent(event, "content", channel, data)
 	if len(body) == 0 {
-		body = data.String()
+		body, _ = data.GetString()
 	}
 	msg.Msg = body
 	// log.Debugf("send notification %s %s", topic, body)
