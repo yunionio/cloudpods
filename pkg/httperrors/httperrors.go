@@ -75,6 +75,49 @@ func SetHTTPRedirectLocationHeader(w http.ResponseWriter, location string) {
 	w.Header().Set("Location", location)
 }
 
+type Error struct {
+	Code    int    `json:"code"`
+	Class   string `json:"class"`
+	Details string `json:"details"`
+}
+
+func NewErrorFromJCError(ctx context.Context, je *httputils.JSONClientError) Error {
+	err := Error{
+		Code:    je.Code,
+		Class:   je.Class,
+		Details: formatDetails(ctx, je.Data, je.Details),
+	}
+	return err
+}
+
+func NewErrorFromGeneralError(ctx context.Context, e error) Error {
+	je := NewGeneralError(e)
+	return NewErrorFromJCError(ctx, je)
+}
+
+func formatDetails(ctx context.Context, errData httputils.Error, msg string) string {
+	var details string
+	if errData.Id == "" {
+		details = msg
+	} else {
+		var (
+			langv = ctx.Value(ctxLangKey)
+			lang  language.Tag
+		)
+		if langv != nil {
+			lang = langv.(language.Tag)
+		} else {
+			lang = language.English
+		}
+		a := make([]interface{}, len(errData.Fields))
+		for i := range errData.Fields {
+			a[i] = errData.Fields[i]
+		}
+		details = P(lang, errData.Id, a...)
+	}
+	return details
+}
+
 func HTTPError(ctx context.Context, w http.ResponseWriter, msg string, statusCode int, class string, err httputils.Error) {
 	if statusCode >= 300 && statusCode <= 400 {
 		SetHTTPRedirectLocationHeader(w, msg)
