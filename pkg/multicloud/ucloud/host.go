@@ -258,8 +258,8 @@ func (self *SHost) _createVM(name, imgId string, sysDisk cloudprovider.SDiskInfo
 		log.Errorf("GetImage %s fail %s", imgId, err)
 		return "", err
 	}
-	if img.GetStatus() != api.CACHED_IMAGE_STATUS_READY {
-		log.Errorf("image %s status %s, expect %s", imgId, img.GetStatus(), api.CACHED_IMAGE_STATUS_READY)
+	if img.GetStatus() != api.CACHED_IMAGE_STATUS_ACTIVE {
+		log.Errorf("image %s status %s, expect %s", imgId, img.GetStatus(), api.CACHED_IMAGE_STATUS_ACTIVE)
 		return "", fmt.Errorf("image not ready")
 	}
 

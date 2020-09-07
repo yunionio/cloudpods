@@ -26,7 +26,7 @@ func init() {
 			"OS_Type", "OS_Distribution", "OS_version",
 			"Hypervisor", "Host_count", "Status",
 			"Ref_Count", "cached_count", "image_type",
-			"External_Id",
+			"External_Id", "Is_Public", "Public_Scope", "Tenant", "Tenant_Id",
 		},
 		[]string{})
 

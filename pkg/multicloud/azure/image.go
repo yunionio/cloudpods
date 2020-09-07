@@ -27,6 +27,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type ImageStatusType string
@@ -80,6 +81,7 @@ type ImageProperties struct {
 }
 
 type SImage struct {
+	multicloud.SImageBase
 	storageCache *SStoragecache
 
 	Properties ImageProperties `json:"properties,omitempty"`
@@ -130,7 +132,7 @@ func (self *SImage) GetStatus() string {
 	case "created":
 		return api.CACHED_IMAGE_STATUS_CACHING
 	case "Succeeded":
-		return api.CACHED_IMAGE_STATUS_READY
+		return api.CACHED_IMAGE_STATUS_ACTIVE
 	default:
 		log.Errorf("Unknow image status: %s", self.Properties.ProvisioningState)
 		return api.CACHED_IMAGE_STATUS_CACHE_FAILED

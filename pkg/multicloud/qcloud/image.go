@@ -27,6 +27,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/imagetools"
 )
 
@@ -42,6 +43,7 @@ const (
 )
 
 type SImage struct {
+	multicloud.SImageBase
 	storageCache *SStoragecache
 
 	ImageId            string          //	镜像ID
@@ -140,7 +142,7 @@ func (self *SImage) GetStatus() string {
 	case ImageStatusCreating, ImageStatusSycing, ImageStatusImporting:
 		return api.CACHED_IMAGE_STATUS_CACHING
 	case ImageStatusNormal, ImageStatusUsing:
-		return api.CACHED_IMAGE_STATUS_READY
+		return api.CACHED_IMAGE_STATUS_ACTIVE
 	default:
 		return api.CACHED_IMAGE_STATUS_CACHE_FAILED
 	}
