@@ -778,7 +778,7 @@ func getModelExtraDetails(item IModel, ctx context.Context, showReason bool) api
 	if err != nil {
 		out.CanDelete = false
 		if showReason {
-			out.DeleteFailReason = err.Error()
+			out.DeleteFailReason = httperrors.NewErrorFromGeneralError(ctx, err)
 		}
 	}
 	err = item.ValidateUpdateCondition(ctx)
