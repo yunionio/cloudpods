@@ -758,7 +758,9 @@ func (task *sBaremetalPrepareTask) removeNicInfo(mac string) error {
 	return task.baremetal.SaveDesc(resp)
 }
 
-func (task *sBaremetalPrepareTask) sendNicInfo(nic *types.SNicDevInfo, idx int, nicType string, reset bool, ipAddr string, reserve bool) error {
+func (task *sBaremetalPrepareTask) sendNicInfo(
+	nic *types.SNicDevInfo, idx int, nicType string, reset bool, ipAddr string, reserve bool,
+) error {
 	return task.baremetal.SendNicInfo(nic, idx, nicType, reset, ipAddr, reserve)
 }
 
@@ -771,12 +773,58 @@ func (task *sBaremetalPrepareTask) sendStorageInfo(size int64) error {
 	return err
 }
 
+func (task *sBaremetalPrepareTask) getCloudIsolatedDevices(
+	session *mcclient.ClientSession,
+) ([]jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	params.Set("details", jsonutils.JSONTrue)
+	params.Set("limit", jsonutils.NewInt(0))
+	params.Set("host", jsonutils.NewString(task.baremetal.GetId()))
+	params.Set("scope", jsonutils.NewString("system"))
+	params.Set("show_baremetal_isolated_devices", jsonutils.JSONTrue)
+	res, err := modules.IsolatedDevices.List(session, params)
+	if err != nil {
+		return nil, err
+	}
+	return res.Data, nil
+}
+
 func (task *sBaremetalPrepareTask) sendIsolatedDevicesInfo(
 	session *mcclient.ClientSession, devs []*isolated_device.PCIDevice,
 ) error {
+	objs, err := task.getCloudIsolatedDevices(session)
+	if err != nil {
+		return errors.Wrap(err, "get cloud isolated devices")
+	}
+
+	gpuDevs := make([]isolated_device.IDevice, len(devs))
 	for i := 0; i < len(devs); i++ {
-		dev := isolated_device.NewGPUHPCDevice(devs[i])
-		if err := dev.SyncDeviceInfo(session, task.baremetal.GetId()); err != nil {
+		gpuDevs[i] = isolated_device.NewGPUHPCDevice(devs[i])
+	}
+
+	for _, obj := range objs {
+		var notFound = true
+		info := isolated_device.CloudDeviceInfo{}
+		if err := obj.Unmarshal(&info); err != nil {
+			return errors.Wrap(err, "unmarshal isolated device to cloud device info failed")
+		}
+		for i := 0; i < len(gpuDevs); i++ {
+			if gpuDevs[i].GetAddr() == info.Addr && gpuDevs[i].GetVendorDeviceId() == info.VendorDeviceId {
+				gpuDevs[i].SetDeviceInfo(info)
+				notFound = false
+				break
+			}
+		}
+		if notFound {
+			_, err := modules.IsolatedDevices.PerformAction(session, info.Id, "purge", nil)
+			if err != nil {
+				return errors.Wrap(err, "purge unknown isolated devices")
+			}
+		}
+	}
+
+	for i := 0; i < len(gpuDevs); i++ {
+		if err := gpuDevs[i].SyncDeviceInfo(session, task.baremetal.GetId()); err != nil {
 			return errors.Wrap(err, "sync device info")
 		}
 	}
