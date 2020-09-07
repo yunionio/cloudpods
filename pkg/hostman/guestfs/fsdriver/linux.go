@@ -773,7 +773,7 @@ func (d *SUbuntuRootFs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.Release
 	lines := strings.Split(string(rel), "\n")
 	for _, l := range lines {
 		if strings.HasPrefix(l, distroKey) {
-			version = strings.TrimSpace(l[len(distroKey) : len(l)-1])
+			version = strings.TrimSpace(l[len(distroKey):])
 		}
 	}
 	return deployapi.NewReleaseInfo(d.GetName(), version, d.GetArch(rootFs))
