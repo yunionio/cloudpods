@@ -27,7 +27,7 @@ type ScheduleResult struct {
 	// Result is sync schedule result
 	Result *schedapi.ScheduleOutput
 	// ForecastResult is forecast schedule result
-	ForecastResult interface{}
+	ForecastResult *api.SchedForecastResult
 	// TestResult is test schedule result
 	TestResult interface{}
 }
