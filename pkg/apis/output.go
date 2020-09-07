@@ -16,6 +16,8 @@ package apis
 
 import (
 	"time"
+
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type ModelBaseDetails struct {
@@ -26,7 +28,7 @@ type ModelBaseDetails struct {
 	CanDelete bool `json:"can_delete"`
 
 	// 资源不能删除的原因
-	DeleteFailReason string `json:"delete_fail_reason"`
+	DeleteFailReason httperrors.Error `json:"delete_fail_reason"`
 
 	// 资源是否可以更新, 若为false,update_fail_reason会返回资源不能删除的原因
 	// example: true
