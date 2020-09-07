@@ -98,7 +98,7 @@ func buildHosts(result *core.SchedResultItemList, groups map[string]*models.SGro
 // sortHost sorts the host for guest that is the backup one of the high-availability guest
 // if isBackup is true and the master one if isBackup is false.
 func sortHosts(hosts []*sSchedResultItem, guestInfo *sGuestInfo, isBackup *bool) {
-	sortIndexi, sortIndexj := make([]int64, 4), make([]int64, 4)
+	sortIndexi, sortIndexj := make([]int64, 5), make([]int64, 5)
 	sort.Slice(hosts, func(i, j int) bool {
 		switch {
 		case isBackup == nil:
