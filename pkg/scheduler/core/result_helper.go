@@ -110,96 +110,66 @@ func transToSchedTestResult(result *SchedResultItemList, limit int64) interface{
 	}
 }
 
-func transToSchedForecastResult(result *SchedResultItemList) interface{} {
+func transToSchedForecastResult(result *SchedResultItemList) *api.SchedForecastResult {
 	unit := result.Unit
 	schedData := unit.SchedData()
-	reqCount := int64(schedData.Count)
-	filters := make([]*api.ForecastFilter, 0)
-
-	filtersMap := make(map[string]*api.ForecastFilter)
-	getOrNewFilter := func(preName string) (*api.ForecastFilter, bool) {
-		if info, ok := filtersMap[preName]; !ok {
-			i := &api.ForecastFilter{
-				Filter:   preName,
-				Count:    0,
-				Messages: make([]string, 0),
-			}
-			filtersMap[preName] = i
-			return i, false
-		} else {
-			return info, true
-		}
+	filteredCandidates := make([]api.FilteredCandidate, 0)
+	ret := &api.SchedForecastResult{
+		ReqCount: int64(schedData.Count),
 	}
 
+	// build filteredCandidates
+	failedLogs := unit.LogManager.FailedLogs()
 	logIndex := func(item *SchedResultItem) string {
 		getter := item.Candidater.Getter()
 		name := getter.Name()
 		id := getter.Id()
 		return fmt.Sprintf("%s:%s", name, id)
 	}
-	addInfos := func(logs SchedLogList, item *SchedResultItem) {
-		for preName, cnt := range item.CapacityDetails {
-			if cnt > 0 {
-				continue
-			}
-			failedLog := logs.Get(logIndex(item))
-			if failedLog == nil {
-				log.Errorf("predicate %q count is 0, but not found failed log", preName)
-				continue
-			}
-			for _, msg := range failedLog.Messages {
-				info, exist := getOrNewFilter(msg.Type)
-				info.Count++
-				info.Messages = append(info.Messages, msg.Info)
-				if !exist {
-					filters = append(filters, info)
-				}
-			}
-		}
-	}
-
-	items := make(SchedResultItems, 0)
 	for _, item := range result.Data {
-		hostType := item.Candidater.Getter().HostType()
-		if schedData.Hypervisor == hostType {
-			items = append(items, item)
+		if item.Capacity > 0 {
+			continue
 		}
+		filteredCandidate := api.FilteredCandidate{
+			ID:   item.ID,
+			Name: item.Name,
+		}
+		for preName, capa := range item.CapacityDetails {
+			if capa > 0 {
+				continue
+			}
+			filteredCandidate.FilterName = preName
+		}
+		failedLog := failedLogs.Get(logIndex(item))
+		if failedLog == nil {
+			log.Errorf("candidate %q capacity is 0 but no failedLog found", item.Name)
+			continue
+		}
+		for _, msg := range failedLog.Messages {
+			filteredCandidate.Reasons = append(filteredCandidate.Reasons, msg.Info)
+		}
+		filteredCandidates = append(filteredCandidates, filteredCandidate)
 	}
-
-	for _, item := range items {
-		addInfos(result.Unit.LogManager.FailedLogs(), item)
-	}
+	ret.FilteredCandidates = filteredCandidates
 
 	var (
 		output     = transToSchedResult(result, schedData)
 		readyCount int64
 	)
-
 	for _, candi := range output.Candidates {
-		if len(candi.Error) != 0 {
-			info, exist := getOrNewFilter("select_candidate")
-			msg := candi.Error
-			info.Messages = append(info.Messages, msg)
-			if !exist {
-				filters = append(filters, info)
-			}
-		} else {
+		if len(candi.Error) == 0 {
 			readyCount++
+			continue
 		}
+		ret.NotAllowReasons = append(ret.NotAllowReasons, candi.Error)
 	}
 
-	canCreate := true
-	if readyCount < reqCount {
-		canCreate = false
-		filters = append(filters, &api.ForecastFilter{
-			Messages: []string{
-				fmt.Sprintf("No enough resources: %d/%d(free/request)", readyCount, reqCount),
-			},
-		})
+	ret.AllowCount = readyCount
+	if ret.AllowCount < ret.ReqCount {
+		ret.CanCreate = false
+	} else {
+		ret.CanCreate = true
 	}
-	return &api.SchedForecastResult{
-		CanCreate: canCreate,
-		Filters:   filters,
-		Results:   output.Candidates,
-	}
+
+	return ret
 }

@@ -258,14 +258,17 @@ type ForecastFilter struct {
 	Count    int64    `json:"count"`
 }
 
-type ForecastResult struct {
-	Candidate string `json:"candidate"`
-	Count     int64  `json:"count"`
-	Capacity  int64  `json:"capacity"`
+type FilteredCandidate struct {
+	ID         string   `json:"id"`
+	Name       string   `json:"name"`
+	FilterName string   `json:"filter_name"`
+	Reasons    []string `json:"reasons"`
 }
 
 type SchedForecastResult struct {
-	CanCreate bool                     `json:"can_create"`
-	Filters   []*ForecastFilter        `json:"filters"`
-	Results   []*api.CandidateResource `json:"results"`
+	CanCreate          bool                `json:"can_create"`
+	ReqCount           int64               `json:"req_count"`
+	AllowCount         int64               `json:"allow_count"`
+	NotAllowReasons    []string            `json:"not_allow_reasons"`
+	FilteredCandidates []FilteredCandidate `json:"filtered_candidates"`
 }
