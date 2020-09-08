@@ -307,9 +307,9 @@ func (h *SHostInfo) prepareEnv() error {
 		return fmt.Errorf("Option report_interval must no longer than 5 min")
 	}
 
-	_, err := procutils.NewCommand("mkdir", "-p", options.HostOptions.ServersPath).Output()
+	output, err := procutils.NewCommand("mkdir", "-p", options.HostOptions.ServersPath).Output()
 	if err != nil {
-		return fmt.Errorf("Failed to create path %s", options.HostOptions.ServersPath)
+		return errors.Wrapf(err, "failed to create path %s: %s", options.HostOptions.ServersPath, output)
 	}
 
 	_, err = procutils.NewCommand("ethtool", "-h").Output()
@@ -332,7 +332,7 @@ func (h *SHostInfo) prepareEnv() error {
 	if err != nil {
 		return fmt.Errorf("Failed to activate tun/tap device")
 	}
-	output, err := procutils.NewRemoteCommandAsFarAsPossible("modprobe", "vhost_net").Output()
+	output, err = procutils.NewRemoteCommandAsFarAsPossible("modprobe", "vhost_net").Output()
 	if err != nil {
 		log.Errorf("modprobe error: %s", output)
 	}
@@ -561,9 +561,9 @@ func (h *SHostInfo) TuneSystem() {
 
 func (h *SHostInfo) resetIptables() error {
 	for _, tbl := range []string{"filter", "nat", "mangle"} {
-		_, err := procutils.NewCommand("iptables", "-t", tbl, "-F").Output()
+		output, err := procutils.NewCommand("iptables", "-t", tbl, "-F").Output()
 		if err != nil {
-			return fmt.Errorf("Fail to clean NAT iptable: %s", err)
+			return errors.Wrapf(err, "fail to clean NAT iptables: %s", output)
 		}
 	}
 	return nil

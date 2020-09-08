@@ -343,8 +343,8 @@ func (c *CGroupTask) init() bool {
 			if !ModuleIsMounted(module) {
 				moduleDir := path.Join(cgroupsPath, module)
 				if !fileutils2.Exists(moduleDir) {
-					if _, err := procutils.NewCommand("mkdir", moduleDir).Output(); err != nil {
-						log.Errorln(err)
+					if output, err := procutils.NewCommand("mkdir", moduleDir).Output(); err != nil {
+						log.Errorf("mkdir %s failed: %s, %s", moduleDir, err, output)
 						return false
 					}
 				}

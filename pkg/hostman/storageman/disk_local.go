@@ -322,11 +322,11 @@ func (d *SLocalDisk) GetDiskSetupScripts(diskIndex int) string {
 
 func (d *SLocalDisk) PostCreateFromImageFuse() {
 	mntPath := path.Join(d.Storage.GetFuseMountPath(), d.Id)
-	if _, err := procutils.NewCommand("umount", mntPath).Output(); err != nil {
-		log.Errorln(err)
+	if output, err := procutils.NewCommand("umount", mntPath).Output(); err != nil {
+		log.Errorf("umount %s failed: %s, %s", mntPath, err, output)
 	}
-	if _, err := procutils.NewCommand("rm", "-rf", mntPath).Output(); err != nil {
-		log.Errorln(err)
+	if output, err := procutils.NewCommand("rm", "-rf", mntPath).Output(); err != nil {
+		log.Errorf("rm %s failed: %s, %s", mntPath, err, output)
 	}
 	tmpPath := d.Storage.GetFuseTmpPath()
 	tmpFiles, err := ioutil.ReadDir(tmpPath)
@@ -342,17 +342,17 @@ func (d *SLocalDisk) PostCreateFromImageFuse() {
 func (d *SLocalDisk) CreateSnapshot(snapshotId string) error {
 	snapshotDir := d.GetSnapshotDir()
 	if !fileutils2.Exists(snapshotDir) {
-		_, err := procutils.NewCommand("mkdir", "-p", snapshotDir).Output()
+		output, err := procutils.NewCommand("mkdir", "-p", snapshotDir).Output()
 		if err != nil {
-			log.Errorln(err)
-			return err
+			log.Errorln("mkdir %s failed: %s", snapshotDir, output)
+			return errors.Wrapf(err, "mkdir %s failed: %s", snapshotDir, output)
 		}
 	}
 	snapshotPath := path.Join(snapshotDir, snapshotId)
-	_, err := procutils.NewCommand("mv", "-f", d.getPath(), snapshotPath).Output()
+	output, err := procutils.NewCommand("mv", "-f", d.getPath(), snapshotPath).Output()
 	if err != nil {
-		log.Errorln(err)
-		return err
+		log.Errorln("mv %s to %s failed %s", d.getPath(), snapshotPath, output)
+		return errors.Wrapf(err, "mv %s to %s failed %s", d.getPath(), snapshotPath, output)
 	}
 	img, err := qemuimg.NewQemuImage(d.getPath())
 	if err != nil {
