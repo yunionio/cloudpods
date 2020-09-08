@@ -115,8 +115,13 @@ func (self *SAwsProviderFactory) GetSupportedDnsPolicyTypes() map[cloudprovider.
 	}
 }
 
-func (self *SAwsProviderFactory) GetSupportedDnsPolicyTypeValues() map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyValue {
-	return map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyValue{}
+func (self *SAwsProviderFactory) GetSupportedDnsPolicyValues() map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyValue {
+	return map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyValue{
+		cloudprovider.DnsPolicyTypeByGeoLocation:    cloudprovider.AwsGeoLocations,
+		cloudprovider.DnsPolicyTypeLatency:          cloudprovider.AwsRegions,
+		cloudprovider.DnsPolicyTypeFailover:         cloudprovider.AwsFailovers,
+		cloudprovider.DnsPolicyTypeMultiValueAnswer: cloudprovider.AwsMultiValueAnswers,
+	}
 }
 
 func (self *SAwsProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {

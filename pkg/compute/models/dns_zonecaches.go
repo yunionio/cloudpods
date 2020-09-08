@@ -65,6 +65,7 @@ type SDnsZoneCache struct {
 
 	// 归属云账号ID
 	CloudaccountId string `width:"36" charset:"ascii" nullable:"false" list:"user"`
+	ProductType    string `width:"36" charset:"ascii" nullable:"false" list:"user"`
 }
 
 func (manager *SDnsZoneCacheManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.DnsZoneCacheCreateInput) (api.DnsZoneCacheCreateInput, error) {
@@ -429,16 +430,18 @@ func (self *SDnsZoneCache) GetRecordSets() ([]cloudprovider.DnsRecordSet, error)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetRecordSetsByDnsType")
 	}
+	ttlrange := factory.GetTTLRange(cloudprovider.TDnsZoneType(dnsZone.ZoneType), cloudprovider.TDnsProductType(self.ProductType))
 	ret := []cloudprovider.DnsRecordSet{}
 	for i := range records {
 		record := cloudprovider.DnsRecordSet{
-			Id:       records[i].Id,
-			DnsName:  records[i].Name,
-			DnsValue: records[i].DnsValue,
-			DnsType:  cloudprovider.TDnsType(records[i].DnsType),
-			Enabled:  records[i].Enabled.Bool(),
-			Status:   records[i].Status,
-			Ttl:      records[i].TTL,
+			Id:         records[i].Id,
+			DnsName:    records[i].Name,
+			DnsValue:   records[i].DnsValue,
+			DnsType:    cloudprovider.TDnsType(records[i].DnsType),
+			Enabled:    records[i].Enabled.Bool(),
+			Status:     records[i].Status,
+			Ttl:        ttlrange.GetSuppportedTTL(records[i].TTL),
+			MxPriority: records[i].MxPriority,
 		}
 
 		record.PolicyType, record.PolicyValue, record.PolicyOptions, err = records[i].GetDefaultDnsTrafficPolicy(account.Provider)
@@ -490,7 +493,7 @@ func (self *SDnsZoneCache) SyncRecordSets(ctx context.Context, userCred mcclient
 			return errors.Wrapf(err, "DnsRecordSetManager.FetchById(%s)", update[i].Id)
 		}
 		record := _record.(*SDnsRecordSet)
-		update[i].Ttl = record.TTL
+		update[i].MxPriority = record.MxPriority
 		update[i].Enabled = record.GetEnabled()
 	}
 

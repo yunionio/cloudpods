@@ -50,10 +50,12 @@ const (
 
 	ALIYUN_BSS_API_VERSION = "2017-12-14"
 
-	ALIYUN_RAM_API_VERSION = "2015-05-01"
-	ALIYUN_API_VERION_RDS  = "2014-08-15"
-	ALIYUN_RM_API_VERSION  = "2020-03-31"
-	ALIYUN_STS_API_VERSION = "2015-04-01"
+	ALIYUN_RAM_API_VERSION    = "2015-05-01"
+	ALIYUN_API_VERION_RDS     = "2014-08-15"
+	ALIYUN_RM_API_VERSION     = "2020-03-31"
+	ALIYUN_STS_API_VERSION    = "2015-04-01"
+	ALIYUN_PVTZ_API_VERSION   = "2018-01-01"
+	ALIYUN_ALIDNS_API_VERSION = "2015-01-09"
 )
 
 type AliyunClientConfig struct {
@@ -233,6 +235,22 @@ func (self *SAliyunClient) trialRequest(apiName string, params map[string]string
 		return nil, err
 	}
 	return jsonRequest(cli, "actiontrail.cn-hangzhou.aliyuncs.com", ALIYUN_API_VERSION_TRIAL, apiName, params, self.debug)
+}
+
+func (self *SAliyunClient) pvtzRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := self.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	return jsonRequest(cli, "pvtz.aliyuncs.com", ALIYUN_PVTZ_API_VERSION, apiName, params, self.debug)
+}
+
+func (self *SAliyunClient) alidnsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := self.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	return jsonRequest(cli, "alidns.aliyuncs.com", ALIYUN_ALIDNS_API_VERSION, apiName, params, self.debug)
 }
 
 func (self *SAliyunClient) fetchRegions() error {
@@ -464,6 +482,7 @@ func (region *SAliyunClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_CACHE,
 		cloudprovider.CLOUD_CAPABILITY_EVENT,
 		cloudprovider.CLOUD_CAPABILITY_CLOUDID,
+		cloudprovider.CLOUD_CAPABILITY_DNSZONE,
 	}
 	return caps
 }

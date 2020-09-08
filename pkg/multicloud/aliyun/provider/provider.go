@@ -103,7 +103,7 @@ func (self *SAliyunProviderFactory) GetSupportedDnsPolicyTypes() map[cloudprovid
 	}
 }
 
-func (self *SAliyunProviderFactory) GetSupportedDnsValues() map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyValue {
+func (self *SAliyunProviderFactory) GetSupportedDnsPolicyValues() map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyValue {
 	return map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyValue{
 		cloudprovider.DnsPolicyTypeByCarrier: []cloudprovider.TDnsPolicyValue{
 			cloudprovider.DnsPolicyValueUnicom,
@@ -120,6 +120,29 @@ func (self *SAliyunProviderFactory) GetSupportedDnsValues() map[cloudprovider.TD
 			cloudprovider.DnsPolicyValueBing,
 		},
 	}
+}
+
+func (self *SAliyunProviderFactory) GetTTLRange(zoneType cloudprovider.TDnsZoneType, productType cloudprovider.TDnsProductType) cloudprovider.TTlRange {
+	if zoneType == cloudprovider.PublicZone {
+		if len(productType) > 0 {
+			switch productType {
+			case cloudprovider.DnsProductEnterpriseUltimate:
+				return cloudprovider.TtlRangeAliyunEnterpriseUltimate
+			case cloudprovider.DnsProductEnterpriseStandard:
+				return cloudprovider.TtlRangeAliyunEnterpriseStandard
+			case cloudprovider.DnsProductPersonalProfessional:
+				return cloudprovider.TtlRangeAliyunPersonal
+			default:
+				return cloudprovider.TtlRangeAliyunFree
+			}
+		}
+		return cloudprovider.TtlRangeAliyunFree
+	}
+
+	if zoneType == cloudprovider.PrivateZone {
+		return cloudprovider.TtlRangeAliyunPvtz
+	}
+	return cloudprovider.TTlRange{}
 }
 
 func (self *SAliyunProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
@@ -306,4 +329,48 @@ func (self *SAliyunProvider) GetSamlEntityId() string {
 
 func (self *SAliyunProvider) GetSamlSpInitiatedLoginUrl(idpName string) string {
 	return ""
+}
+
+func (self *SAliyunProvider) GetICloudDnsZones() ([]cloudprovider.ICloudDnsZone, error) {
+	izones := []cloudprovider.ICloudDnsZone{}
+	privateZone, err := self.client.GetPrivateICloudDnsZones()
+	if err != nil {
+		return nil, errors.Wrap(err, "self.client.GetPrivateICloudDnsZones()")
+	}
+	publicZone, err := self.client.GetPublicICloudDnsZones()
+	if err != nil {
+		return nil, errors.Wrap(err, "self.client.GetPrivateICloudDnsZones()")
+	}
+	izones = append(izones, privateZone...)
+	izones = append(izones, publicZone...)
+	return izones, nil
+}
+func (self *SAliyunProvider) GetICloudDnsZoneById(id string) (cloudprovider.ICloudDnsZone, error) {
+	privateIzone, err := self.client.GetPrivateICloudDnsZoneById(id)
+	if err == nil {
+		return privateIzone, nil
+	} else {
+		if err != cloudprovider.ErrNotFound {
+			return nil, err
+		}
+	}
+
+	publicIzone, err := self.client.GetPublicICloudDnsZoneById(id)
+	if err == nil {
+		return publicIzone, nil
+	} else {
+		if err != cloudprovider.ErrNotFound {
+			return nil, err
+		}
+	}
+
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SAliyunProvider) CreateICloudDnsZone(opts *cloudprovider.SDnsZoneCreateOptions) (cloudprovider.ICloudDnsZone, error) {
+	if opts.ZoneType == cloudprovider.PrivateZone {
+		return self.client.CreatePrivateICloudDnsZone(opts)
+	} else {
+		return self.client.CreatePublicICloudDnsZone(opts)
+	}
 }
