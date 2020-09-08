@@ -15,11 +15,10 @@
 package test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/golang/mock/gomock"
-
-	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	apisdu "yunion.io/x/onecloud/pkg/apis/scheduler"
@@ -153,14 +152,40 @@ func TestGenericSchedulerSchedule(t *testing.T) {
 			FreePort:               1,
 			Skus:                   []string{"ecs.g1.c1m1"},
 		}
+		getterParam2 := getterParam1
+		getterParam2.HostId = "host02"
+		getterParam2.HostName = "host02name"
+		getterParam2.Networks = []*api.CandidateNetwork{
+			buildNetwork("network03", "nework03name", "192.168.3.0/24"),
+			buildNetwork("network04", "nework04name", "192.168.4.0/24"),
+		}
 		candidates := []core.Candidater{
 			buildCandidate(ctrl, getterParam1),
+			buildCandidate(ctrl, getterParam2),
 		}
 		res, err := scheduler.Schedule(preSchedule(info, candidates, true))
-		if err == nil {
-			t.Logf("schedule result: %s", jsonutils.Marshal(res))
-		} else {
+		if err != nil {
 			t.Errorf("genericScheduler.Schedule error: %s", err.Error())
+		}
+		forcastResult := &api.SchedForecastResult{
+			CanCreate:       false,
+			AllowCount:      1,
+			ReqCount:        2,
+			NotAllowReasons: []string{"Out of resource"},
+			FilteredCandidates: []api.FilteredCandidate{
+				{
+					FilterName: "host_network",
+					ID:         "host02",
+					Name:       "host02name",
+					Reasons: []string{
+						"nework03name(network03): id/name not matched",
+						"nework04name(network04): id/name not matched",
+					},
+				},
+			},
+		}
+		if !reflect.DeepEqual(res.ForecastResult, forcastResult) {
+			t.Errorf("want: %v, real: %v", forcastResult, res.ForecastResult)
 		}
 	})
 }
