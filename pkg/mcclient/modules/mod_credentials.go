@@ -275,7 +275,7 @@ func (manager *SCredentialManager) CreateAccessKeySecret(s *mcclient.ClientSessi
 	return aksk, nil
 }
 
-func (manager *SCredentialManager) DoCreateOIDCSecret(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (manager *SCredentialManager) DoCreateOidcSecret(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	redirectUri, _ := params.GetString("redirect_uri")
 
 	key, err := manager.CreateOIDCSecret(s, "", "", redirectUri)
