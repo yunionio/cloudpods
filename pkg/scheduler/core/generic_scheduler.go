@@ -15,7 +15,6 @@
 package core
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -29,9 +28,6 @@ import (
 	utiltrace "yunion.io/x/pkg/util/trace"
 	"yunion.io/x/pkg/util/workqueue"
 
-	"yunion.io/x/onecloud/pkg/apis/compute"
-	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
-	"yunion.io/x/onecloud/pkg/scheduler/api"
 	o "yunion.io/x/onecloud/pkg/scheduler/options"
 )
 
@@ -104,7 +100,7 @@ func NewGenericScheduler(s Scheduler) (*GenericScheduler, error) {
 	return g, nil
 }
 
-func (g *GenericScheduler) Schedule(unit *Unit, candidates []Candidater) (*SchedResultItemList, error) {
+func (g *GenericScheduler) Schedule(unit *Unit, candidates []Candidater, helper IResultHelper) (*ScheduleResult, error) {
 	startTime := time.Now()
 	defer func() {
 		log.V(4).Infof("Schedule cost time: %v", time.Since(startTime))
@@ -171,7 +167,8 @@ func (g *GenericScheduler) Schedule(unit *Unit, candidates []Candidater) (*Sched
 		return nil, err
 	}
 
-	return &SchedResultItemList{Unit: unit, Data: resultItems}, nil
+	itemList := &SchedResultItemList{Unit: unit, Data: resultItems}
+	return helper.ResultHelp(itemList, unit.SchedInfo), nil
 }
 
 func newSchedResultByCtx(u *Unit, count int64, c Candidater) *SchedResultItem {
@@ -238,24 +235,6 @@ func generateScheduleResult(u *Unit, scs []*SelectedCandidate, cs []Candidater) 
 	return results, nil
 }
 
-type SchedResultItem struct {
-	ID       string                 `json:"id"`
-	Name     string                 `json:"name"`
-	Count    int64                  `json:"count"`
-	Data     map[string]interface{} `json:"data"`
-	Capacity int64                  `json:"capacity"`
-	Score    Score                  `json:"score"`
-
-	CapacityDetails map[string]int64 `json:"capacity_details"`
-	ScoreDetails    string           `json:"score_details"`
-
-	Candidater Candidater `json:"-"`
-
-	*AllocatedResource
-
-	SchedData *api.SchedInfo
-}
-
 type StorageUsed struct {
 	used map[string]int64
 }
@@ -283,27 +262,6 @@ func (s *StorageUsed) Add(storageId string, used int64) {
 	} else {
 		s.used[storageId] = used
 	}
-}
-
-func (item *SchedResultItem) ToCandidateResource(storageUsed *StorageUsed) *schedapi.CandidateResource {
-	return &schedapi.CandidateResource{
-		HostId: item.ID,
-		Name:   item.Name,
-		Disks:  item.getDisks(storageUsed),
-		Nets:   item.Nets,
-	}
-}
-
-func (item *SchedResultItem) getDisks(used *StorageUsed) []*schedapi.CandidateDisk {
-	inputs := item.SchedData.Disks
-	ret := make([]*schedapi.CandidateDisk, 0)
-	for idx, disk := range item.Disks {
-		ret = append(ret, &schedapi.CandidateDisk{
-			Index:      idx,
-			StorageIds: item.getSortStorageIds(used, inputs[idx], disk.Storages),
-		})
-	}
-	return ret
 }
 
 type sortStorage struct {
@@ -335,31 +293,6 @@ func (s sortStorages) getIds() []string {
 	return ret
 }
 
-func (item *SchedResultItem) getSortStorageIds(
-	used *StorageUsed,
-	disk *compute.DiskConfig,
-	storages []*schedapi.CandidateStorage) []string {
-	reqSize := disk.SizeMb
-	ss := make([]sortStorage, 0)
-	for _, s := range storages {
-		ss = append(ss, sortStorage{
-			Id:      s.Id,
-			FeeSize: s.FreeCapacity - used.Get(s.Id),
-		})
-	}
-	toSort := sortStorages(ss)
-	sort.Sort(toSort)
-	sortedStorages := toSort.getIds()
-	ret := make([]string, 0)
-	for idx, id := range sortedStorages {
-		if idx == 0 {
-			used.Add(id, int64(reqSize))
-		}
-		ret = append(ret, id)
-	}
-	return ret
-}
-
 func GetCapacities(u *Unit, id string) (res map[string]int64) {
 	res = make(map[string]int64)
 	capacities := u.GetCapacities(id)
@@ -369,51 +302,6 @@ func GetCapacities(u *Unit, id string) (res map[string]int64) {
 		}
 	}
 	return
-}
-
-type SchedResultItems []*SchedResultItem
-
-func (its SchedResultItems) Len() int {
-	return len(its)
-}
-
-func (its SchedResultItems) Swap(i, j int) {
-	its[i], its[j] = its[j], its[i]
-}
-
-func (its SchedResultItems) Less(i, j int) bool {
-	it1, it2 := its[i], its[j]
-	return it1.Capacity < it2.Capacity
-	/*
-		ctx := its.Unit
-
-		m := func(c int64) int64 {
-			if c > 0 {
-				return 1
-			}
-			return 0
-		}
-
-		v := func(count, capacity, score int64) int64 {
-			return (m(count) << 42) | (m(capacity) << 21) | score
-		}
-
-		count1, count2 := it1.Count, it2.Count
-		capacity1, capacity2 := ctx.GetCapacity(it1.ID), ctx.GetCapacity(it2.ID)
-		score1, score2 := int64(ctx.GetScore(it1.ID)), int64(ctx.GetScore(it2.ID))
-
-		return v(count1, capacity1, score1) < v(count2, capacity2, score2)
-	*/
-}
-
-type SchedResultItemList struct {
-	Unit *Unit
-	Data SchedResultItems
-}
-
-func (its SchedResultItemList) String() string {
-	bytes, _ := json.Marshal(its.Data)
-	return string(bytes)
 }
 
 type SelectedCandidate struct {
@@ -536,7 +424,11 @@ func findCandidatesThatFit(unit *Unit, candidates []Candidater, predicates map[s
 				unit.AppendFailedCandidates(fcs)
 			}
 		}
-		workqueue.Parallelize(o.GetOptions().PredicateParallelizeSize, len(candidates), checkUnit)
+		workerSize := o.GetOptions().PredicateParallelizeSize
+		if workerSize == 0 {
+			workerSize = 1
+		}
+		workqueue.Parallelize(workerSize, len(candidates), checkUnit)
 		filtered = filtered[:filteredLen]
 		if len(errsChannel) > 0 {
 			errs := make([]error, 0)

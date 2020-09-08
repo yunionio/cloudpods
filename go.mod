@@ -56,6 +56,7 @@ require (
 	github.com/golang-plus/errors v1.0.0
 	github.com/golang-plus/testing v1.0.0 // indirect
 	github.com/golang-plus/uuid v1.0.0
+	github.com/golang/mock v1.3.1
 	github.com/golang/protobuf v1.3.2
 	github.com/google/gopacket v1.1.17
 	github.com/googleapis/gnostic v0.2.0 // indirect

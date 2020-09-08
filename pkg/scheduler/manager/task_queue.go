@@ -24,8 +24,10 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
+	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
+	schedmodels "yunion.io/x/onecloud/pkg/scheduler/models"
 )
 
 const (
@@ -47,7 +49,7 @@ type TaskExecutor struct {
 	callback  TaskExecuteCallback
 	unit      *core.Unit
 
-	resultItems *ScheduleResult
+	resultItems *core.ScheduleResult
 	resultError error
 	logs        []string
 	capacityMap interface{}
@@ -81,16 +83,7 @@ func (te *TaskExecutor) Execute() {
 	}
 }
 
-type ScheduleResult struct {
-	// Result is sync schedule result
-	Result *schedapi.ScheduleOutput
-	// ForecastResult is forecast schedule result
-	ForecastResult interface{}
-	// TestResult is test schedule result
-	TestResult interface{}
-}
-
-func (te *TaskExecutor) execute() (*ScheduleResult, error) {
+func (te *TaskExecutor) execute() (*core.ScheduleResult, error) {
 	scheduler := te.scheduler
 	genericScheduler, err := core.NewGenericScheduler(scheduler.(core.Scheduler))
 	if err != nil {
@@ -105,25 +98,43 @@ func (te *TaskExecutor) execute() (*ScheduleResult, error) {
 
 	te.unit = scheduler.Unit()
 	schedInfo := te.unit.SchedInfo
-	result, err := genericScheduler.Schedule(te.unit, candidates)
+	helper := GenerateResultHelper(schedInfo)
+	result, err := genericScheduler.Schedule(te.unit, candidates, helper)
 	if err != nil {
 		return nil, errors.Wrap(err, "genericScheduler.Schedule")
 	}
-	out := new(ScheduleResult)
 	if schedInfo.IsSuggestion {
-		if schedInfo.ShowSuggestionDetails && schedInfo.SuggestionAll {
-			out.ForecastResult = transToSchedForecastResult(result)
-		} else {
-			out.TestResult = transToSchedTestResult(result, schedInfo.SuggestionLimit)
-		}
-	} else {
-		out.Result = transToSchedResult(result, schedInfo)
-		driver := te.unit.GetHypervisorDriver()
-		if err := setSchedPendingUsage(driver, schedInfo, out.Result); err != nil {
-			return nil, errors.Wrap(err, "setSchedPendingUsage")
-		}
+		return result, nil
 	}
-	return out, nil
+	driver := te.unit.GetHypervisorDriver()
+	if err := setSchedPendingUsage(driver, schedInfo, result.Result); err != nil {
+		return nil, errors.Wrap(err, "setSchedPendingUsage")
+	}
+	return result, nil
+}
+
+func GenerateResultHelper(schedInfo *api.SchedInfo) core.IResultHelper {
+	if !schedInfo.IsSuggestion {
+		return core.SResultHelperFunc(core.ResultHelp)
+	}
+	if schedInfo.ShowSuggestionDetails && schedInfo.SuggestionAll {
+		return core.SResultHelperFunc(core.ResultHelpForForcast)
+	}
+	return core.SResultHelperFunc(core.ResultHelpForTest)
+}
+
+func setSchedPendingUsage(driver computemodels.IGuestDriver, req *api.SchedInfo, resp *schedapi.ScheduleOutput) error {
+	if req.IsSuggestion || IsDriverSkipScheduleDirtyMark(driver) || req.SkipDirtyMarkHost() {
+		return nil
+	}
+	for _, item := range resp.Candidates {
+		schedmodels.HostPendingUsageManager.AddPendingUsage(req, item)
+	}
+	return nil
+}
+
+func IsDriverSkipScheduleDirtyMark(driver computemodels.IGuestDriver) bool {
+	return !(driver.DoScheduleCPUFilter() && driver.DoScheduleMemoryFilter() && driver.DoScheduleStorageFilter())
 }
 
 func (te *TaskExecutor) cleanup() {
@@ -138,7 +149,7 @@ func (te *TaskExecutor) Kill() {
 	}
 }
 
-func (te *TaskExecutor) GetResult() (*ScheduleResult, error) {
+func (te *TaskExecutor) GetResult() (*core.ScheduleResult, error) {
 	return te.resultItems, te.resultError
 }
 
@@ -299,7 +310,7 @@ type Task struct {
 	waitCh        chan struct{}
 
 	completedCount int
-	resultItems    *ScheduleResult
+	resultItems    *core.ScheduleResult
 	resultError    error
 }
 
@@ -393,12 +404,12 @@ func (t *Task) onCompleted() {
 	close(t.waitCh)
 }
 
-func (t *Task) Wait() (*ScheduleResult, error) {
+func (t *Task) Wait() (*core.ScheduleResult, error) {
 	log.V(10).Infof("Task wait...")
 	<-t.waitCh
 	return t.GetResult()
 }
 
-func (t *Task) GetResult() (*ScheduleResult, error) {
+func (t *Task) GetResult() (*core.ScheduleResult, error) {
 	return t.resultItems, t.resultError
 }

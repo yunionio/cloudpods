@@ -30,10 +30,9 @@ import (
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager/sku"
 	schedmodels "yunion.io/x/onecloud/pkg/scheduler/models"
 )
-
-var ErrInstanceGroupNotFound = errors.Error("InstanceGroupNotFound")
 
 type BaseHostDesc struct {
 	*computemodels.SHost
@@ -126,6 +125,11 @@ func (b baseHostGetter) HostSchedtags() []computemodels.SSchedtag {
 	return b.h.HostSchedtags
 }
 
+func (b baseHostGetter) Sku(instanceType string) *sku.ServerSku {
+	zone := b.Zone()
+	return sku.GetByZone(instanceType, zone.GetId())
+}
+
 func (b baseHostGetter) Storages() []*api.CandidateStorage {
 	return b.h.Storages
 }
@@ -138,7 +142,7 @@ func (b baseHostGetter) GetFreeGroupCount(groupId string) (int, error) {
 	// Must Be
 	scg, ok := b.h.InstanceGroups[groupId]
 	if !ok {
-		return 0, errors.Wrap(ErrInstanceGroupNotFound, groupId)
+		return 0, errors.Wrap(core.ErrInstanceGroupNotFound, groupId)
 	}
 	free := scg.Granularity - scg.ReferCount
 	if free < 1 {
