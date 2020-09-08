@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -121,9 +122,9 @@ func (l *SLinuxBridgeDriver) SetupBridgeDev() error {
 		return err
 	}
 	if !exist {
-		_, err := procutils.NewCommand("brctl", "addbr", l.bridge.String()).Output()
+		output, err := procutils.NewCommand("brctl", "addbr", l.bridge.String()).Output()
 		if err != nil {
-			return fmt.Errorf("Failed to create bridge %s", l.bridge)
+			return errors.Wrapf(err, "Failed to create bridge %s", output)
 		}
 	}
 	return nil

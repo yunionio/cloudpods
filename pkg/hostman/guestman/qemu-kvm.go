@@ -26,6 +26,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/pkg/utils"
@@ -106,8 +107,11 @@ func (s *SKVMGuestInstance) HomeDir() string {
 }
 
 func (s *SKVMGuestInstance) PrepareDir() error {
-	_, err := procutils.NewCommand("mkdir", "-p", s.HomeDir()).Output()
-	return err
+	output, err := procutils.NewCommand("mkdir", "-p", s.HomeDir()).Output()
+	if err != nil {
+		return errors.Wrapf(err, "mkdir %s failed: %s", s.HomeDir(), output)
+	}
+	return nil
 }
 
 func (s *SKVMGuestInstance) GetPidFilePath() string {
@@ -860,15 +864,15 @@ func (s *SKVMGuestInstance) StartDelete(ctx context.Context, migrated bool) erro
 func (s *SKVMGuestInstance) ForceStop() bool {
 	s.ExitCleanup(true)
 	if s.IsRunning() {
-		_, err := procutils.NewCommand("kill", "-9", fmt.Sprintf("%d", s.GetPid())).Output()
+		output, err := procutils.NewCommand("kill", "-9", fmt.Sprintf("%d", s.GetPid())).Output()
 		if err != nil {
-			log.Errorln(err)
+			log.Errorf("kill process %d failed: %s, %s", s.GetPid(), err, output)
 			return false
 		}
 		for _, f := range s.GetCleanFiles() {
-			_, err := procutils.NewCommand("rm", "-f", f).Output()
+			output, err := procutils.NewCommand("rm", "-f", f).Output()
 			if err != nil {
-				log.Errorln(err)
+				log.Errorf("rm %s failed: %s, %s", f, err, output)
 				return false
 			}
 		}
@@ -947,8 +951,11 @@ func (s *SKVMGuestInstance) Delete(ctx context.Context, migrated bool) error {
 	if err := s.delFlatFiles(ctx); err != nil {
 		return err
 	}
-	_, err := procutils.NewCommand("rm", "-rf", s.HomeDir()).Output()
-	return err
+	output, err := procutils.NewCommand("rm", "-rf", s.HomeDir()).Output()
+	if err != nil {
+		return errors.Wrapf(err, "rm %s failed: %s", s.HomeDir(), output)
+	}
+	return nil
 }
 
 func (s *SKVMGuestInstance) Stop() bool {
@@ -1378,16 +1385,16 @@ func (s *SKVMGuestInstance) ListStateFilePaths() []string {
 func (s *SKVMGuestInstance) CleanStatefiles() {
 	for _, stateFile := range s.ListStateFilePaths() {
 		if _, err := procutils.NewCommand("mountpoint", stateFile).Output(); err == nil {
-			if _, err = procutils.NewCommand("umount", stateFile).Output(); err != nil {
-				log.Errorln(err)
+			if output, err := procutils.NewCommand("umount", stateFile).Output(); err != nil {
+				log.Errorf("umount %s failed: %s, %s", stateFile, err, output)
 			}
 		}
-		if _, err := procutils.NewCommand("rm", "-rf", stateFile).Output(); err != nil {
-			log.Errorln(err)
+		if output, err := procutils.NewCommand("rm", "-rf", stateFile).Output(); err != nil {
+			log.Errorf("failed rm %s: %s, %s", stateFile, err, output)
 		}
 	}
-	if _, err := procutils.NewCommand("rm", "-rf", s.GetFuseTmpPath()).Output(); err != nil {
-		log.Errorln(err)
+	if output, err := procutils.NewCommand("rm", "-rf", s.GetFuseTmpPath()).Output(); err != nil {
+		log.Errorf("failed rm %s: %s, %s", s.GetFuseTmpPath(), err, output)
 	}
 }
 

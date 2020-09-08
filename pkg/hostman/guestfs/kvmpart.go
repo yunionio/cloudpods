@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -132,9 +133,8 @@ func (p *SKVMGuestDiskPartition) Mount() bool {
 }
 
 func (p *SKVMGuestDiskPartition) mount(readonly bool) error {
-	if _, err := procutils.NewCommand("mkdir", "-p", p.mountPath).Output(); err != nil {
-		log.Errorln(err)
-		return err
+	if output, err := procutils.NewCommand("mkdir", "-p", p.mountPath).Output(); err != nil {
+		return errors.Wrapf(err, "mkdir %s failed: %s", p.mountPath, output)
 	}
 	var cmds = []string{"mount", "-t"}
 	var opt, fsType string
@@ -169,8 +169,8 @@ func (p *SKVMGuestDiskPartition) mount(readonly bool) error {
 			}()
 		}
 	}
-	_, err = procutils.NewCommand(cmds[0], cmds[1:]...).Output()
-	return err
+	output, err := procutils.NewCommand(cmds[0], cmds[1:]...).Output()
+	return errors.Wrapf(err, "mount failed: %s", output)
 }
 
 func (p *SKVMGuestDiskPartition) fsck() error {
@@ -191,11 +191,11 @@ func (p *SKVMGuestDiskPartition) fsck() error {
 		if err != nil {
 			log.Warningf("FS %s dirty, try to repair ...", p.partDev)
 			for i := 0; i < 3; i++ {
-				_, err := procutils.NewCommand(fixCmd[0], fixCmd[1:]...).Output()
+				output, err := procutils.NewCommand(fixCmd[0], fixCmd[1:]...).Output()
 				if err == nil {
 					break
 				} else {
-					log.Errorf("Try to fix partition %s failed: %s", fixCmd, err)
+					log.Errorf("Try to fix partition %s failed: %s, %s", fixCmd, err, output)
 					continue
 				}
 			}
@@ -220,7 +220,7 @@ func (p *SKVMGuestDiskPartition) IsMounted() bool {
 	if err == nil {
 		return true
 	} else {
-		log.Errorln(output)
+		log.Errorf("%s is not a mountpoint: %s", p.mountPath, output)
 		return false
 	}
 }
@@ -265,9 +265,9 @@ func (p *SKVMGuestDiskPartition) Zerofree() {
 
 func (p *SKVMGuestDiskPartition) zerofreeSwap() {
 	uuids := fileutils2.GetDevUuid(p.partDev)
-	_, err := procutils.NewCommand("shred", "-n", "0", "-z", p.partDev).Output()
+	output, err := procutils.NewCommand("shred", "-n", "0", "-z", p.partDev).Output()
 	if err != nil {
-		log.Errorf("zerofree swap error: %s", err)
+		log.Errorf("zerofree swap error: %s, %s", err, output)
 		return
 	}
 	cmd := []string{"mkswap"}
@@ -275,16 +275,16 @@ func (p *SKVMGuestDiskPartition) zerofreeSwap() {
 		cmd = append(cmd, "-U", uuid)
 	}
 	cmd = append(cmd, p.partDev)
-	_, err = procutils.NewCommand(cmd[0], cmd[1:]...).Output()
+	output, err = procutils.NewCommand(cmd[0], cmd[1:]...).Output()
 	if err != nil {
-		log.Errorf("zerofree swap error: %s", err)
+		log.Errorf("zerofree swap error: %s, %s", err, output)
 	}
 }
 
 func (p *SKVMGuestDiskPartition) zerofreeExt() {
-	_, err := procutils.NewCommand("zerofree", p.partDev).Output()
+	output, err := procutils.NewCommand("zerofree", p.partDev).Output()
 	if err != nil {
-		log.Errorf("zerofree ext error: %s", err)
+		log.Errorf("zerofree ext error: %s, %s", err, output)
 		return
 	}
 }

@@ -937,9 +937,9 @@ func (s *SGuestDiskSnapshotTask) onReloadBlkdevSucc(res string) {
 func (s *SGuestDiskSnapshotTask) onSnapshotBlkdevFail(string) {
 	snapshotDir := s.disk.GetSnapshotDir()
 	snapshotPath := path.Join(snapshotDir, s.snapshotId)
-	_, err := procutils.NewCommand("mv", "-f", snapshotPath, s.disk.GetPath()).Output()
+	output, err := procutils.NewCommand("mv", "-f", snapshotPath, s.disk.GetPath()).Output()
 	if err != nil {
-		log.Errorln(err)
+		log.Errorf("mv %s to %s failed: %s, %s", snapshotPath, s.disk.GetPath(), err, output)
 	}
 	hostutils.TaskFailed(s.ctx, "Reload blkdev error")
 }
@@ -1002,15 +1002,15 @@ func (s *SGuestSnapshotDeleteTask) doDiskConvert() error {
 	}
 
 	s.tmpPath = snapshotPath + ".swap"
-	if _, err := procutils.NewCommand("mv", "-f", snapshotPath, s.tmpPath).Output(); err != nil {
-		log.Errorln(err)
+	if output, err := procutils.NewCommand("mv", "-f", snapshotPath, s.tmpPath).Output(); err != nil {
+		log.Errorf("mv %s to %s failed: %s, %s", snapshotPath, s.tmpPath, err, output)
 		if fileutils2.Exists(s.tmpPath) {
 			procutils.NewCommand("mv", "-f", s.tmpPath, snapshotPath).Output()
 		}
 		return err
 	}
-	if _, err := procutils.NewCommand("mv", "-f", convertedDisk, snapshotPath).Output(); err != nil {
-		log.Errorln(err)
+	if output, err := procutils.NewCommand("mv", "-f", convertedDisk, snapshotPath).Output(); err != nil {
+		log.Errorf("mv %s to %s failed: %s, %s", convertedDisk, snapshotPath, err, output)
 		if fileutils2.Exists(s.tmpPath) {
 			procutils.NewCommand("mv", "-f", s.tmpPath, snapshotPath).Output()
 		}
@@ -1034,8 +1034,8 @@ func (s *SGuestSnapshotDeleteTask) onReloadBlkdevSucc(err string) {
 
 func (s *SGuestSnapshotDeleteTask) onSnapshotBlkdevFail(res string) {
 	snapshotPath := path.Join(s.disk.GetSnapshotDir(), s.convertSnapshot)
-	if _, err := procutils.NewCommand("mv", "-f", s.tmpPath, snapshotPath).Output(); err != nil {
-		log.Errorln(err)
+	if output, err := procutils.NewCommand("mv", "-f", s.tmpPath, snapshotPath).Output(); err != nil {
+		log.Errorln("mv %s to %s failed: %s, %s", s.tmpPath, snapshotPath, err, output)
 	}
 	s.taskFailed("Reload blkdev failed")
 }
@@ -1043,9 +1043,9 @@ func (s *SGuestSnapshotDeleteTask) onSnapshotBlkdevFail(res string) {
 func (s *SGuestSnapshotDeleteTask) onResumeSucc(res string) {
 	log.Infof("guest do new snapshot task resume succ %s", res)
 	if len(s.tmpPath) > 0 {
-		_, err := procutils.NewCommand("rm", "-f", s.tmpPath).Output()
+		output, err := procutils.NewCommand("rm", "-f", s.tmpPath).Output()
 		if err != nil {
-			log.Errorln(err)
+			log.Errorf("rm %s failed: %s, %s", s.tmpPath, err, output)
 		}
 	}
 	if !s.pendingDelete {
