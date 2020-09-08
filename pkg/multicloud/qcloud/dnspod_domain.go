@@ -248,10 +248,19 @@ func (self *SDomian) AddDnsRecordSet(opts *cloudprovider.DnsRecordSet) error {
 	values := strings.Split(opts.DnsValue, "*")
 	for i := 0; i < len(values); i++ {
 		opts.DnsValue = values[i]
-		err := self.client.CreateDnsRecord(opts, self.Name)
+		recordId, err := self.client.CreateDnsRecord(opts, self.Name)
 		if err != nil {
 			return errors.Wrapf(err, "self.client.CreateDnsRecord(%s, %s)", fmt.Sprintln(opts), self.Name)
 		}
+		opts.ExternalId = recordId
+		if !opts.Enabled {
+			status := "disable"
+			err = self.client.ModifyRecordStatus(status, opts.ExternalId, self.Name)
+			if err != nil {
+				return errors.Wrapf(err, "self.client.ModifyRecordStatus(%s,%s,%s)", status, opts.ExternalId, self.Name)
+			}
+		}
+
 	}
 	return nil
 }
@@ -263,6 +272,14 @@ func (self *SDomian) UpdateDnsRecordSet(opts *cloudprovider.DnsRecordSet) error 
 		err := self.client.ModifyDnsRecord(opts, self.Name)
 		if err != nil {
 			return errors.Wrapf(err, "self.client.CreateDnsRecord(%s, %s)", fmt.Sprintln(opts), self.Name)
+		}
+		status := "enable"
+		if !opts.Enabled {
+			status = "disable"
+		}
+		err = self.client.ModifyRecordStatus(status, opts.ExternalId, self.Name)
+		if err != nil {
+			return errors.Wrapf(err, "self.client.ModifyRecordStatus(%s,%s,%s)", status, opts.ExternalId, self.Name)
 		}
 	}
 	return nil
@@ -281,18 +298,20 @@ func (self *SDomian) RemoveDnsRecordSet(opts *cloudprovider.DnsRecordSet) error 
 }
 
 func (self *SDomian) SyncDnsRecordSets(common, add, del, update []cloudprovider.DnsRecordSet) error {
-	for i := 0; i < len(add); i++ {
-		err := self.AddDnsRecordSet(&add[i])
-		if err != nil {
-			return errors.Wrapf(err, "self.AddDnsRecordSet(%s)", fmt.Sprintln(add[i]))
-		}
-	}
 	for i := 0; i < len(del); i++ {
 		err := self.RemoveDnsRecordSet(&del[i])
 		if err != nil {
 			return errors.Wrapf(err, "self.RemoveDnsRecordSet(%s)", fmt.Sprintln(del[i]))
 		}
 	}
+
+	for i := 0; i < len(add); i++ {
+		err := self.AddDnsRecordSet(&add[i])
+		if err != nil {
+			return errors.Wrapf(err, "self.AddDnsRecordSet(%s)", fmt.Sprintln(add[i]))
+		}
+	}
+
 	for i := 0; i < len(update); i++ {
 		err := self.UpdateDnsRecordSet(&update[i])
 		if err != nil {
@@ -300,4 +319,21 @@ func (self *SDomian) SyncDnsRecordSets(common, add, del, update []cloudprovider.
 		}
 	}
 	return nil
+}
+
+func (self *SDomian) GetDnsProductType() cloudprovider.TDnsProductType {
+	switch self.GradeTitle {
+	case "企业旗舰版":
+		return cloudprovider.DnsProductEnterpriseUltimate
+	case "企业标准版":
+		return cloudprovider.DnsProductEnterpriseStandard
+	case "企业基础版":
+		return cloudprovider.DnsProductEnterpriseBasic
+	case "个人专业版":
+		return cloudprovider.DnsProductPersonalProfessional
+	case "免费版":
+		return cloudprovider.DnsProductFree
+	default:
+		return cloudprovider.DnsProductFree
+	}
 }

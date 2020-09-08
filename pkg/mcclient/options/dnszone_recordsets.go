@@ -31,10 +31,11 @@ func (opts *DnsRecordSetListOptions) Params() (jsonutils.JSONObject, error) {
 type DnsRecordSetCreateOptions struct {
 	EnabledStatusCreateOptions
 	DNS_ZONE_ID   string `help:"Dns Zone Id"`
-	DNS_TYPE      string `choices:"A|AAAA|CAA|CNAME|MX|NS|SRV|SOA|TXT|PRT|DS|DNSKEY|IPSECKEY|NAPTR|SPF|SSHFP|TLSA|REDIRECT_URL|FORWARD_URL"`
+	DNS_TYPE      string `choices:"A|AAAA|CAA|CNAME|MX|NS|SRV|SOA|TXT|PTR|DS|DNSKEY|IPSECKEY|NAPTR|SPF|SSHFP|TLSA|REDIRECT_URL|FORWARD_URL"`
 	DNS_VALUE     string `help:"Dns Value"`
 	TTL           int64  `help:"Dns ttl"`
-	Provider      string `help:"Dns triffic policy provider" choices:"Aws|Qcloud"`
+	MxPriority    int64  `help:"dns mx type mxpriority"`
+	Provider      string `help:"Dns triffic policy provider" choices:"Aws|Qcloud|Aliyun"`
 	PolicyType    string `choices:"Simple|ByCarrier|ByGeoLocation|BySearchEngine|IpRange|Weighted|Failover|MultiValueAnswer|Latency"`
 	PolicyValue   string `help:"Dns Traffic policy value"`
 	PolicyOptions string

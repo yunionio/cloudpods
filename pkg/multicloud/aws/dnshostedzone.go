@@ -17,6 +17,7 @@ package aws
 import (
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/route53"
 
 	"yunion.io/x/jsonutils"
@@ -70,6 +71,33 @@ func (self *SHostedZone) Refresh() error {
 	}
 
 	return jsonutils.Update(self, hostedZone)
+}
+
+func (client *SAwsClient) ListGeoLocations() ([]*route53.GeoLocationDetails, error) {
+	s, err := client.getAwsRoute53Session()
+	if err != nil {
+		return nil, errors.Wrap(err, "region.getAwsRoute53Session()")
+	}
+	route53Client := route53.New(s)
+	locations := []*route53.GeoLocationDetails{}
+	params := route53.ListGeoLocationsInput{}
+	max := "100"
+	for {
+		params.MaxItems = &max
+		ret, err := route53Client.ListGeoLocations(&params)
+		if err != nil {
+			return nil, errors.Wrapf(err, "route53Client.ListGeoLocations(%s)", jsonutils.Marshal(params).String())
+		}
+		locations = append(locations, ret.GeoLocationDetailsList...)
+		if ret.IsTruncated != nil && !*ret.IsTruncated {
+			break
+		}
+
+		params.StartContinentCode = ret.NextContinentCode
+		params.StartCountryCode = ret.NextCountryCode
+		params.StartSubdivisionCode = ret.NextSubdivisionCode
+	}
+	return locations, nil
 }
 
 func (client *SAwsClient) CreateHostedZone(opts *cloudprovider.SDnsZoneCreateOptions) (*SHostedZone, error) {
@@ -225,6 +253,11 @@ func (client *SAwsClient) GetHostedZoneById(ID string) (*SHostedZone, error) {
 	params.Id = &ID
 	ret, err := route53Client.GetHostedZone(&params)
 	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			if aerr.Code() == route53.ErrCodeNoSuchHostedZone {
+				return nil, errors.Wrap(cloudprovider.ErrNotFound, err.Error())
+			}
+		}
 		return nil, errors.Wrap(err, "route53Client.GetHostedZone()")
 	}
 
@@ -341,16 +374,16 @@ func (self *SHostedZone) GetIDnsRecordSets() ([]cloudprovider.ICloudDnsRecordSet
 }
 
 func (self *SHostedZone) SyncDnsRecordSets(common, add, del, update []cloudprovider.DnsRecordSet) error {
-	for i := 0; i < len(add); i++ {
-		err := self.AddDnsRecordSet(&add[i])
-		if err != nil {
-			return errors.Wrap(err, "self.AddDnsRecordSet()")
-		}
-	}
 	for i := 0; i < len(del); i++ {
 		err := self.RemoveDnsRecordSet(&del[i])
 		if err != nil {
 			return errors.Wrap(err, "self.RemoveDnsRecordSet()")
+		}
+	}
+	for i := 0; i < len(add); i++ {
+		err := self.AddDnsRecordSet(&add[i])
+		if err != nil {
+			return errors.Wrap(err, "self.AddDnsRecordSet()")
 		}
 	}
 	for i := 0; i < len(update); i++ {
@@ -387,4 +420,8 @@ func (self *SHostedZone) RemoveDnsRecordSet(opts *cloudprovider.DnsRecordSet) er
 		opts.DnsName = opts.DnsName + "." + self.Name
 	}
 	return self.client.RemoveDnsRecordSet(self.ID, opts)
+}
+
+func (self *SHostedZone) GetDnsProductType() cloudprovider.TDnsProductType {
+	return ""
 }

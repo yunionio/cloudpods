@@ -208,6 +208,7 @@ type ICloudProviderFactory interface {
 	GetSupportedDnsTypes() map[TDnsZoneType][]TDnsType
 	GetSupportedDnsPolicyTypes() map[TDnsZoneType][]TDnsPolicyType
 	GetSupportedDnsPolicyValues() map[TDnsPolicyType][]TDnsPolicyValue
+	GetTTLRange(zoneType TDnsZoneType, productType TDnsProductType) TTlRange
 }
 
 type ICloudProvider interface {
@@ -611,6 +612,10 @@ func (factory *baseProviderFactory) GetSupportedDnsPolicyTypes() map[TDnsZoneTyp
 
 func (factory *baseProviderFactory) GetSupportedDnsPolicyValues() map[TDnsPolicyType][]TDnsPolicyValue {
 	return map[TDnsPolicyType][]TDnsPolicyValue{}
+}
+
+func (factory *baseProviderFactory) GetTTLRange(zoneType TDnsZoneType, productType TDnsProductType) TTlRange {
+	return TTlRange{}
 }
 
 type SDnsCapability struct {

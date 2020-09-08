@@ -387,7 +387,7 @@ func (manager *SDnsZoneManager) newFromCloudDnsZone(ctx context.Context, userCre
 	SyncCloudDomain(userCred, dnsZone, account.GetOwnerId())
 	dnsZone.SyncShareState(ctx, userCred, account.getAccountShareInfo())
 
-	_, err = dnsZone.newCache(ctx, userCred, account.Id, ext.GetGlobalId())
+	_, err = dnsZone.newCache(ctx, userCred, account.Id, ext)
 	if err != nil {
 		return nil, false, errors.Wrapf(err, "newCache")
 	}
@@ -433,16 +433,19 @@ func (self *SDnsZone) RegisterCache(ctx context.Context, userCred mcclient.Token
 		return cache, nil
 	}
 
-	return self.newCache(ctx, userCred, accountId, "")
+	return self.newCache(ctx, userCred, accountId, nil)
 }
 
-func (self *SDnsZone) newCache(ctx context.Context, userCred mcclient.TokenCredential, accountId, externalId string) (*SDnsZoneCache, error) {
+func (self *SDnsZone) newCache(ctx context.Context, userCred mcclient.TokenCredential, accountId string, ext cloudprovider.ICloudDnsZone) (*SDnsZoneCache, error) {
 	cache := &SDnsZoneCache{}
 	cache.SetModelManager(DnsZoneCacheManager, cache)
 	cache.Name = self.Name
-	cache.ExternalId = externalId
 	cache.CloudaccountId = accountId
 	cache.DnsZoneId = self.Id
+	if ext != nil {
+		cache.ExternalId = ext.GetGlobalId()
+		cache.ProductType = string(ext.GetDnsProductType())
+	}
 	err := DnsZoneCacheManager.TableSpec().Insert(ctx, cache)
 	if err != nil {
 		return nil, errors.Wrapf(err, "dnsZoneCache.Insert")
@@ -513,13 +516,14 @@ func (self *SDnsZone) SyncDnsRecordSets(ctx context.Context, userCred mcclient.T
 	local := []cloudprovider.DnsRecordSet{}
 	for i := range dbRecords {
 		record := cloudprovider.DnsRecordSet{
-			Id:       dbRecords[i].Id,
-			DnsName:  dbRecords[i].Name,
-			Enabled:  dbRecords[i].Enabled.Bool(),
-			Status:   dbRecords[i].Status,
-			DnsType:  cloudprovider.TDnsType(dbRecords[i].DnsType),
-			DnsValue: dbRecords[i].DnsValue,
-			Ttl:      dbRecords[i].TTL,
+			Id:         dbRecords[i].Id,
+			DnsName:    dbRecords[i].Name,
+			Enabled:    dbRecords[i].Enabled.Bool(),
+			Status:     dbRecords[i].Status,
+			DnsType:    cloudprovider.TDnsType(dbRecords[i].DnsType),
+			DnsValue:   dbRecords[i].DnsValue,
+			Ttl:        dbRecords[i].TTL,
+			MxPriority: dbRecords[i].MxPriority,
 		}
 		record.PolicyType, record.PolicyValue, record.PolicyOptions, err = dbRecords[i].GetDefaultDnsTrafficPolicy(provider)
 		if err != nil {
@@ -582,6 +586,7 @@ func (self *SDnsZone) newFromCloudDnsRecordSet(ctx context.Context, userCred mcc
 	record.Status = ext.Status
 	record.Enabled = tristate.NewFromBool(ext.Enabled)
 	record.TTL = ext.Ttl
+	record.MxPriority = ext.MxPriority
 	record.DnsType = string(ext.DnsType)
 	record.DnsValue = ext.DnsValue
 

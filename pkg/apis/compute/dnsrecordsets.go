@@ -34,10 +34,11 @@ type DnsRecordPolicy struct {
 type DnsRecordSetCreateInput struct {
 	apis.EnabledStatusStandaloneResourceCreateInput
 
-	DnsZoneId string `json:"dns_zone_id"`
-	DnsType   string `json:"dns_type"`
-	DnsValue  string `json:"dns_value"`
-	TTL       int64  `json:"ttl"`
+	DnsZoneId  string `json:"dns_zone_id"`
+	DnsType    string `json:"dns_type"`
+	DnsValue   string `json:"dns_value"`
+	TTL        int64  `json:"ttl"`
+	MxPriority int64  `json:"mx_priority"`
 
 	TrafficPolicies []DnsRecordPolicy `json:"traffic_policies"`
 }

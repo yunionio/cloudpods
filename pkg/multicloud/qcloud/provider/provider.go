@@ -78,8 +78,6 @@ func (self *SQcloudProviderFactory) GetSupportedDnsTypes() map[cloudprovider.TDn
 			cloudprovider.DnsTypeSRV,
 			cloudprovider.DnsTypeTXT,
 			cloudprovider.DnsTypePTR,
-			cloudprovider.DnsTypeFORWARD_URL,
-			cloudprovider.DnsTypeREDIRECT_URL,
 		},
 	}
 }
@@ -118,6 +116,27 @@ func (self *SQcloudProviderFactory) GetSupportedDnsPolicyValues() map[cloudprovi
 			cloudprovider.DnsPolicyValueQihu360,
 		},
 	}
+}
+
+// https://buy.cloud.tencent.com/cns?from=gobuy&domain=example4.com
+func (self *SQcloudProviderFactory) GetTTLRange(zoneType cloudprovider.TDnsZoneType, productType cloudprovider.TDnsProductType) cloudprovider.TTlRange {
+	if len(productType) > 0 {
+		switch productType {
+		case cloudprovider.DnsProductEnterpriseUltimate:
+			return cloudprovider.TtlRangeQcloudEnterpriseUltimate
+		case cloudprovider.DnsProductEnterpriseStandard:
+			return cloudprovider.TtlRangeQcloudEnterpriseStandard
+		case cloudprovider.DnsProductEnterpriseBasic:
+			return cloudprovider.TtlRangeQcloudEnterpriseBasic
+		case cloudprovider.DnsProductPersonalProfessional:
+			return cloudprovider.TtlRangeQcloudPersonalProfessional
+		case cloudprovider.DnsProductFree:
+			return cloudprovider.TtlRangeQcloudFree
+		default:
+			return cloudprovider.TtlRangeQcloudFree
+		}
+	}
+	return cloudprovider.TtlRangeQcloudFree
 }
 
 func (self *SQcloudProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
