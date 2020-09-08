@@ -454,6 +454,7 @@ func (manager *SWireManager) totalCountQ(
 ) *sqlchemy.SQuery {
 	guestsQ := filterByScopeOwnerId(GuestManager.Query(), scope, ownerId)
 	guests := guestsQ.SubQuery()
+
 	hostsQ := HostManager.Query()
 	if len(hostTypes) > 0 {
 		hostsQ = hostsQ.In("host_type", hostTypes)
@@ -465,7 +466,9 @@ func (manager *SWireManager) totalCountQ(
 		hostsQ = RangeObjectsFilter(hostsQ, rangeObjs, nil, hostsQ.Field("zone_id"), hostsQ.Field("manager_id"), hostsQ.Field("id"), nil)
 	}
 	hosts := hostsQ.SubQuery()
+
 	groups := filterByScopeOwnerId(GroupManager.Query(), scope, ownerId).SubQuery()
+
 	lbsQ := filterByScopeOwnerId(LoadbalancerManager.Query(), scope, ownerId)
 	if len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
 		lbsQ = CloudProviderFilter(lbsQ, lbsQ.Field("manager_id"), providers, brands, cloudEnv)
@@ -610,21 +613,20 @@ func (manager *SWireManager) totalCountQ(
 	)
 	q = q.LeftJoin(netSQ, sqlchemy.Equals(wires.Field("id"), netSQ.Field("wire_id")))
 
-	if len(rangeObjs) > 0 || len(hostTypes) > 0 {
+	if len(hostTypes) > 0 {
 		hostwires := HostwireManager.Query().SubQuery()
-		sq := hostwires.Query(hostwires.Field("wire_id"))
-		sq = sq.Join(hosts, sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")))
-		sq = sq.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
-		sq = AttachUsageQuery(sq, hosts, hostTypes, nil, nil, nil, "", rangeObjs)
-		q = q.Filter(sqlchemy.In(wires.Field("id"), sq.Distinct()))
+		hosts := HostManager.Query().SubQuery()
+		q = q.Join(hostwires, sqlchemy.Equals(q.Field("id"), hostwires.Field("wire_id")))
+		q = q.Join(hosts, sqlchemy.Equals(hostwires.Field("host_id"), hosts.Field("id")))
+		q = q.Filter(sqlchemy.In(hosts.Field("host_type"), hostTypes))
 	}
 
-	if len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
+	if len(rangeObjs) > 0 || len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
 		vpcs := VpcManager.Query().SubQuery()
 
-		subq := vpcs.Query(vpcs.Field("id"))
-		subq = CloudProviderFilter(subq, vpcs.Field("manager_id"), providers, brands, cloudEnv)
-		q = q.Filter(sqlchemy.In(wires.Field("vpc_id"), subq.SubQuery()))
+		q = q.Join(vpcs, sqlchemy.Equals(q.Field("vpc_id"), vpcs.Field("id")))
+		q = CloudProviderFilter(q, vpcs.Field("manager_id"), providers, brands, cloudEnv)
+		q = RangeObjectsFilter(q, rangeObjs, vpcs.Field("cloudregion_id"), q.Field("zone_id"), vpcs.Field("manager_id"), nil, nil)
 	}
 
 	return q
