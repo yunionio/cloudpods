@@ -526,6 +526,10 @@ func (set Elasticips) NewModel() db.IModel {
 
 func (set Elasticips) AddModel(i db.IModel) {
 	m := i.(*Elasticip)
+	if m.IpAddr == "" || m.NetworkId == "" {
+		// eip records can exist with network id and ip addr not set
+		return
+	}
 	set[m.Id] = m
 }
 
