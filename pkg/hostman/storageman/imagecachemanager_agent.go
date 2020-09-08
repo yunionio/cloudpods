@@ -230,7 +230,7 @@ func (c *SAgentImageCacheManager) perfetchTemplateVMImageCache(ctx context.Conte
 		return nil, err
 	}
 	res := jsonutils.NewDict()
-	res.Add(jsonutils.NewString(data.ImageId), "image_id")
+	res.Add(jsonutils.NewString(data.ImageExternalId), "image_id")
 	return res, nil
 }
 
