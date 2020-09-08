@@ -23,13 +23,10 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 func RunBatchCreateTask(
@@ -55,18 +52,6 @@ func RunBatchCreateTask(
 	}
 }
 
-func allowAssignHost(userCred mcclient.TokenCredential) bool {
-	for _, scope := range []rbacutils.TRbacScope{
-		rbacutils.ScopeSystem,
-		rbacutils.ScopeDomain,
-	} {
-		if userCred.IsAllow(scope, consts.GetServiceType(), GuestManager.KeywordPlural(), policy.PolicyActionPerform, "assign-host") {
-			return true
-		}
-	}
-	return false
-}
-
 func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput, hypervisor string) (*api.ServerCreateInput, error) {
 	var err error
 
@@ -77,9 +62,6 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 	// base validate_create_data
 	if (input.PreferHost != "") && hypervisor != api.HYPERVISOR_CONTAINER {
 
-		if !allowAssignHost(userCred) {
-			return nil, httperrors.NewNotSufficientPrivilegeError("Only system admin can specify preferred host")
-		}
 		bmName := input.PreferHost
 		bmObj, err := HostManager.FetchByIdOrName(nil, bmName)
 		if err != nil {
@@ -90,6 +72,13 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 			}
 		}
 		baremetal := bmObj.(*SHost)
+
+		if db.IsAdminAllowPerform(userCred, baremetal, "assign-host") {
+		} else if db.IsDomainAllowPerform(userCred, baremetal, "assign-host") && userCred.GetProjectDomainId() == baremetal.DomainId {
+		} else {
+			return nil, httperrors.NewNotSufficientPrivilegeError("Only system admin can assign host")
+		}
+
 		if !baremetal.GetEnabled() {
 			return nil, httperrors.NewInvalidStatusError("Baremetal %s not enabled", bmName)
 		}
