@@ -61,6 +61,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/dhcp"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/redfish"
@@ -1398,7 +1399,15 @@ func (b *SBaremetalInstance) DoRedfishPowerOn() error {
 	b.ClearSSHConfig()
 	redfishApi := b.GetRedfishCli(ctx)
 	if redfishApi != nil {
-		return redfishApi.Reset(ctx, "On")
+		err := redfishApi.Reset(ctx, "On")
+		if err != nil {
+			if httputils.ErrorCode(err) == 409 {
+				log.Warningf("redfishApi.Reset On fail %s", err)
+			} else {
+				return errors.Wrap(err, "redfishApi.Reset On")
+			}
+		}
+		return nil
 	}
 	return fmt.Errorf("Baremetal %s redfishApi is nil", b.GetId())
 }
