@@ -161,3 +161,19 @@ func TestDiff(t *testing.T) {
 		}
 	}
 }
+
+func TestDiscreteTTlRange(t *testing.T) {
+	cases := []struct {
+		TtlInput  int64
+		TtlOutPut int64
+	}{
+		{TtlInput: 0, TtlOutPut: 5},
+		{TtlInput: 86399, TtlOutPut: 86400},
+		{TtlInput: 86401, TtlOutPut: 86400},
+	}
+	for _, c := range cases {
+		if c.TtlOutPut != TtlRangeAliyunPvtz.GetSuppportedTTL(c.TtlInput) {
+			t.Fatalf("input %d GetSuppportedTTL should be %d", c.TtlInput, c.TtlOutPut)
+		}
+	}
+}

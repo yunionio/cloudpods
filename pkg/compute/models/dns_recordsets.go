@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -62,9 +63,10 @@ type SDnsRecordSet struct {
 	db.SEnabledStatusStandaloneResourceBase
 	SDnsZoneResourceBase
 
-	DnsType  string `width:"36" charset:"ascii" nullable:"false" list:"user" update:"domain" create:"domain_required"`
-	DnsValue string `width:"256" charset:"ascii" nullable:"false" list:"user" update:"domain" create:"domain_required"`
-	TTL      int64  `nullable:"false" list:"user" update:"domain" create:"domain_required" json:"ttl"`
+	DnsType    string `width:"36" charset:"ascii" nullable:"false" list:"user" update:"domain" create:"domain_required"`
+	DnsValue   string `width:"256" charset:"ascii" nullable:"false" list:"user" update:"domain" create:"domain_required"`
+	TTL        int64  `nullable:"false" list:"user" update:"domain" create:"domain_required" json:"ttl"`
+	MxPriority int64  `nullable:"false" list:"user" update:"domain" create:"domain_optional"`
 }
 
 func (manager *SDnsRecordSetManager) EnableGenerateName() bool {
@@ -78,6 +80,7 @@ func (manager *SDnsRecordSetManager) ValidateCreateData(ctx context.Context, use
 	if err != nil {
 		return input, err
 	}
+	input.Name = strings.ToLower(input.Name)
 	if len(input.DnsZoneId) == 0 {
 		return input, httperrors.NewMissingParameterError("dns_zone_id")
 	}
@@ -87,6 +90,13 @@ func (manager *SDnsRecordSetManager) ValidateCreateData(ctx context.Context, use
 			return input, httperrors.NewResourceNotFoundError2("dns_zone", input.DnsZoneId)
 		}
 		return input, httperrors.NewGeneralError(err)
+	}
+	if input.DnsType == "MX" {
+		if input.MxPriority < 1 || input.MxPriority > 50 {
+			return input, httperrors.NewOutOfRangeError("mx_priority range limited to [1,50]")
+		}
+	} else {
+		input.MxPriority = 0
 	}
 	dnsZone := _dnsZone.(*SDnsZone)
 	for _, policy := range input.TrafficPolicies {
@@ -458,6 +468,7 @@ func (self *SDnsRecordSet) syncWithCloudDnsRecord(ctx context.Context, userCred 
 		self.Enabled = tristate.NewFromBool(ext.Enabled)
 		self.Status = ext.Status
 		self.TTL = ext.Ttl
+		self.MxPriority = ext.MxPriority
 		self.DnsType = string(ext.DnsType)
 		self.DnsValue = ext.DnsValue
 		return nil

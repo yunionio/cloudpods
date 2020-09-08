@@ -1031,6 +1031,8 @@ type ICloudDnsZone interface {
 	SyncDnsRecordSets(common, add, del, update []DnsRecordSet) error
 
 	Delete() error
+
+	GetDnsProductType() TDnsProductType
 }
 
 type ICloudDnsRecordSet interface {
@@ -1042,6 +1044,7 @@ type ICloudDnsRecordSet interface {
 	GetDnsType() TDnsType
 	GetDnsValue() string
 	GetTTL() int64
+	GetMxPriority() int64
 
 	GetPolicyType() TDnsPolicyType
 	GetPolicyValue() TDnsPolicyValue

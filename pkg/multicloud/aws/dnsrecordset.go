@@ -22,7 +22,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/route53"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/stringutils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -145,7 +147,7 @@ func (client *SAwsClient) ChangeResourceRecordSets(action string, hostedZoneId s
 	return nil
 }
 
-func Getroute53ResourceRecordSet(opts *cloudprovider.DnsRecordSet) (*route53.ResourceRecordSet, error) {
+func Getroute53ResourceRecordSet(client *SAwsClient, opts *cloudprovider.DnsRecordSet) (*route53.ResourceRecordSet, error) {
 	resourceRecordSet := route53.ResourceRecordSet{}
 	resourceRecordSet.SetName(opts.DnsName)
 	resourceRecordSet.SetTTL(opts.Ttl)
@@ -154,9 +156,16 @@ func Getroute53ResourceRecordSet(opts *cloudprovider.DnsRecordSet) (*route53.Res
 		resourceRecordSet.SetSetIdentifier(opts.ExternalId)
 	}
 	records := []*route53.ResourceRecord{}
-	values := strings.Split(opts.DnsValue, " ")
+	values := strings.Split(opts.DnsValue, "\n")
 	for i := 0; i < len(values); i++ {
-		records = append(records, &route53.ResourceRecord{Value: &values[i]})
+		value := values[i]
+		if opts.DnsType == cloudprovider.DnsTypeTXT || opts.DnsType == cloudprovider.DnsTypeSPF {
+			value = "\"" + value + "\""
+		}
+		if opts.DnsType == cloudprovider.DnsTypeMX {
+			value = strconv.FormatInt(opts.MxPriority, 10) + " " + value
+		}
+		records = append(records, &route53.ResourceRecord{Value: &value})
 	}
 	resourceRecordSet.SetResourceRecords(records)
 
@@ -164,7 +173,11 @@ func Getroute53ResourceRecordSet(opts *cloudprovider.DnsRecordSet) (*route53.Res
 	if opts.PolicyType == cloudprovider.DnsPolicyTypeSimple || opts.PolicyValue == cloudprovider.DnsPolicyValueEmpty {
 		return &resourceRecordSet, nil
 	}
-
+	// SetIdentifier 设置policy需要 ,也可以通过externalId设置
+	if resourceRecordSet.SetIdentifier == nil {
+		resourceRecordSet.SetSetIdentifier(stringutils.UUID4())
+	}
+	// addition option(health check)
 	if opts.PolicyOptions != nil {
 		health := struct {
 			HealthCheckId string
@@ -175,27 +188,51 @@ func Getroute53ResourceRecordSet(opts *cloudprovider.DnsRecordSet) (*route53.Res
 		}
 	}
 
+	// failover choice:PRIMARY|SECONDARY
 	if opts.PolicyType == cloudprovider.DnsPolicyTypeFailover {
 		resourceRecordSet.SetFailover(string(opts.PolicyValue))
 	}
+	// geolocation
 	if opts.PolicyType == cloudprovider.DnsPolicyTypeByGeoLocation {
-		/*
-			sGeo := SGeoLocationCode{}
-			err := opts.PolicyParams.Unmarshal(&sGeo, "location")
-			if err != nil {
-				return nil, errors.Wrapf(err, "%s Unmarshal(location)", fmt.Sprintln(opts.PolicyParams))
+		Geo := route53.GeoLocation{}
+		locations, err := client.ListGeoLocations()
+		if err != nil {
+			return nil, errors.Wrap(err, "client.ListGeoLocations()")
+		}
+		matchedIndex := -1
+		for i := 0; i < len(locations); i++ {
+			if locations[i].SubdivisionName != nil {
+				if string(opts.PolicyValue) == *locations[i].SubdivisionName {
+					matchedIndex = i
+					break
+				}
 			}
-			Geo := route53.GeoLocation{}
-			Geo.ContinentCode = &sGeo.ContinentCode
-			Geo.CountryCode = &sGeo.CountryCode
-			Geo.SubdivisionCode = &sGeo.SubdivisionCode
-			resourceRecordSet.SetGeoLocation(&Geo)
-		*/
+			if locations[i].CountryName != nil {
+				if string(opts.PolicyValue) == *locations[i].CountryName {
+					matchedIndex = i
+					break
+				}
+			}
+			if locations[i].ContinentCode != nil {
+				if string(opts.PolicyValue) == *locations[i].ContinentCode {
+					matchedIndex = i
+					break
+				}
+			}
+		}
+		if matchedIndex < 0 || matchedIndex >= len(locations) {
+			return nil, errors.Wrap(cloudprovider.ErrNotSupported, "Can't find Support for this location")
+		}
+		Geo.ContinentCode = locations[matchedIndex].ContinentCode
+		Geo.CountryCode = locations[matchedIndex].CountryCode
+		Geo.SubdivisionCode = locations[matchedIndex].SubdivisionCode
+		resourceRecordSet.SetGeoLocation(&Geo)
 	}
-
+	//  latency ,region based
 	if opts.PolicyType == cloudprovider.DnsPolicyTypeLatency {
 		resourceRecordSet.SetRegion(string(opts.PolicyValue))
 	}
+	// MultiValueAnswer ,bool
 	if opts.PolicyType == cloudprovider.DnsPolicyTypeMultiValueAnswer {
 		var multiValueAnswer bool = true
 		if string(opts.PolicyValue) == "false" {
@@ -203,16 +240,17 @@ func Getroute53ResourceRecordSet(opts *cloudprovider.DnsRecordSet) (*route53.Res
 		}
 		resourceRecordSet.SetMultiValueAnswer(multiValueAnswer)
 	}
+	// Weighted.,int64 value
 	if opts.PolicyType == cloudprovider.DnsPolicyTypeWeighted {
-		weight, _ := strconv.Atoi(opts.DnsValue)
+		weight, _ := strconv.Atoi(string(opts.PolicyValue))
 		resourceRecordSet.SetWeight(int64(weight))
 	}
-	return &resourceRecordSet, nil
 
+	return &resourceRecordSet, nil
 }
 
 func (client *SAwsClient) AddDnsRecordSet(hostedZoneId string, opts *cloudprovider.DnsRecordSet) error {
-	resourceRecordSet, err := Getroute53ResourceRecordSet(opts)
+	resourceRecordSet, err := Getroute53ResourceRecordSet(client, opts)
 	if err != nil {
 		return errors.Wrapf(err, "Getroute53ResourceRecordSet(%s)", fmt.Sprintln(opts))
 	}
@@ -224,7 +262,7 @@ func (client *SAwsClient) AddDnsRecordSet(hostedZoneId string, opts *cloudprovid
 }
 
 func (client *SAwsClient) UpdateDnsRecordSet(hostedZoneId string, opts *cloudprovider.DnsRecordSet) error {
-	resourceRecordSet, err := Getroute53ResourceRecordSet(opts)
+	resourceRecordSet, err := Getroute53ResourceRecordSet(client, opts)
 	if err != nil {
 		return errors.Wrapf(err, "Getroute53ResourceRecordSet(%s)", fmt.Sprintln(opts))
 	}
@@ -286,13 +324,38 @@ func (self *SdnsRecordSet) GetDnsType() cloudprovider.TDnsType {
 func (self *SdnsRecordSet) GetDnsValue() string {
 	var records []string
 	for i := 0; i < len(self.ResourceRecords); i++ {
-		records = append(records, self.ResourceRecords[i].Value)
+		value := self.ResourceRecords[i].Value
+		if self.Type == "TXT" || self.Type == "SPF" {
+			value = value[1 : len(value)-1]
+		}
+		if self.Type == "MX" {
+			strs := strings.Split(value, " ")
+			if len(strs) >= 2 {
+				value = strs[1]
+			}
+		}
+		records = append(records, value)
 	}
-	return strings.Join(records, " ")
+	return strings.Join(records, "\n")
 }
 
 func (self *SdnsRecordSet) GetTTL() int64 {
 	return self.TTL
+}
+
+func (self *SdnsRecordSet) GetMxPriority() int64 {
+	if self.GetDnsType() != cloudprovider.DnsTypeMX {
+		return 0
+	}
+	strs := strings.Split(self.GetDnsValue(), " ")
+	if len(strs) > 0 {
+		mx, err := strconv.ParseInt(strs[0], 10, 64)
+		if err == nil {
+			return mx
+		}
+	}
+	log.Errorf("can't parse mxpriority:%s", self.GetDnsValue())
+	return 0
 }
 
 // trafficpolicy 信息
@@ -332,12 +395,39 @@ func (self *SdnsRecordSet) GetPolicyOptions() *jsonutils.JSONDict {
 	return options
 }
 
+func CodeMatch(s string, d *string) bool {
+	if d == nil {
+		return len(s) == 0
+	}
+	return s == *d
+}
+
 func (self *SdnsRecordSet) GetPolicyValue() cloudprovider.TDnsPolicyValue {
 	if len(self.Failover) > 0 {
 		return cloudprovider.TDnsPolicyValue(self.Failover)
 	}
 	if self.GeoLocation != nil {
-		return cloudprovider.TDnsPolicyValue(jsonutils.Marshal(self.GeoLocation).String())
+		locations, err := self.hostedZone.client.ListGeoLocations()
+		log.Errorf("List aws route53 locations failed!")
+		if err != nil {
+			return ""
+		}
+		for i := 0; i < len(locations); i++ {
+			if CodeMatch(self.GeoLocation.SubdivisionCode, locations[i].SubdivisionCode) &&
+				CodeMatch(self.GeoLocation.CountryCode, locations[i].CountryCode) &&
+				CodeMatch(self.GeoLocation.ContinentCode, locations[i].ContinentCode) {
+				if locations[i].SubdivisionCode != nil {
+					return cloudprovider.TDnsPolicyValue(*locations[i].SubdivisionName)
+				}
+				if locations[i].CountryCode != nil {
+					return cloudprovider.TDnsPolicyValue(*locations[i].CountryName)
+				}
+				if locations[i].ContinentCode != nil {
+					return cloudprovider.TDnsPolicyValue(*locations[i].ContinentName)
+				}
+			}
+		}
+		return ""
 	}
 	if len(self.Region) > 0 {
 		return cloudprovider.TDnsPolicyValue(self.Region)
