@@ -66,3 +66,41 @@ func (ra *SRoleAssignment) GetLoginIp() string {
 func (ra *SRoleAssignment) GetTokenString() string {
 	return "faketoken"
 }
+
+type RAInputObject struct {
+	Id string `json:"id"`
+}
+
+type RoleAssignmentsInput struct {
+	User  RAInputObject `json:"user"`
+	Group RAInputObject `json:"group"`
+	Role  RAInputObject `json:"role"`
+
+	Scope struct {
+		Project RAInputObject `json:"project"`
+		Domain  RAInputObject `json:"domain"`
+	} `json:"scope"`
+
+	Users    []string `json:"users"`
+	Groups   []string `json:"groups"`
+	Roles    []string `json:"roles"`
+	Projects []string `json:"projects"`
+	Domains  []string `json:"domains"`
+
+	IncludeNames    *bool `json:"include_names"`
+	Effective       *bool `json:"effective"`
+	IncludeSubtree  *bool `json:"include_subtree"`
+	IncludeSystem   *bool `json:"include_system"`
+	IncludePolicies *bool `json:"include_policies"`
+
+	Limit  *int `json:"limit"`
+	Offset *int `json:"offset"`
+}
+
+type RoleAssignmentsOutput struct {
+	RoleAssignments []SRoleAssignment `json:"role_assignments,allowempty"`
+
+	Total  int64 `json:"total"`
+	Limit  int   `json:"limit"`
+	Offset int   `json:"offset"`
+}

@@ -291,7 +291,9 @@ func (t *SAuthToken) getTokenV3(
 			token.Token.Projects[i].Domain.Id = extProjs[i].DomainId
 			token.Token.Projects[i].Domain.Name = extProjs[i].DomainName
 		}*/
-		assigns, _, err := models.AssignmentManager.FetchAll(user.Id, "", "", "", "", true, true, true, true, true, 0, 0)
+		assigns, _, err := models.AssignmentManager.FetchAll(user.Id, "", "", "", "",
+			nil, nil, nil, nil, nil,
+			true, true, true, true, true, 0, 0)
 		if err != nil {
 			return nil, errors.Wrap(err, "models.AssignmentManager.FetchAll")
 		}
