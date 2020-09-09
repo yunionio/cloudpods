@@ -259,17 +259,17 @@ func (self *SCloudpolicy) GetCloudgroups() ([]SCloudgroup, error) {
 func (self *SCloudpolicy) ValidateDeleteCondition(ctx context.Context) error {
 	users, err := self.GetCloudusers()
 	if err != nil {
-		return errors.Wrapf(err, "GetCloudusers")
+		return httperrors.NewGeneralError(errors.Wrapf(err, "GetCloudusers"))
 	}
 	if len(users) > 0 {
-		return errors.Wrapf(httperrors.ErrNotEmpty, "policy %s has %d users used", self.Name, len(users))
+		return httperrors.NewNotEmptyError("policy %s has %d users used", self.Name, len(users))
 	}
 	groups, err := self.GetCloudgroups()
 	if err != nil {
-		return errors.Wrapf(err, "GetCloudgroups")
+		return httperrors.NewGeneralError(errors.Wrapf(err, "GetCloudgroups"))
 	}
 	if len(groups) > 0 {
-		return errors.Wrapf(httperrors.ErrNotEmpty, "policy %s has %d groups used", self.Name, len(groups))
+		return httperrors.NewNotEmptyError("policy %s has %d groups used", self.Name, len(groups))
 	}
 	return self.SStatusInfrasResourceBase.ValidateDeleteCondition(ctx)
 }
