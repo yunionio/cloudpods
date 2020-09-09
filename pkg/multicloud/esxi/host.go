@@ -689,9 +689,13 @@ func (self *SHost) CreateVM2(ctx context.Context, ds *SDatastore, params SCreate
 	if err != nil {
 		return nil, errors.Wrap(err, "SEsxiClient.FindHostByIp")
 	}
-	temvm, err := imgHost.GetTemplateVMById(imageInfo.ImageExternalId)
+	dc, err := imgHost.GetDatacenter()
 	if err != nil {
-		return nil, errors.Wrap(err, "SHost.GetTemplateVMById")
+		return nil, errors.Wrap(err, "host.GetDatacenter")
+	}
+	temvm, err := dc.FetchTemplateVMById(imageInfo.ImageExternalId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "datacenter.TemplateVMById for image %q and datacenter %q", imageInfo.ImageExternalId, dc.GetId())
 	}
 	return self.CloneVM(ctx, temvm, ds, params)
 }
