@@ -80,6 +80,11 @@ func (man *SCommonAlertManager) ValidateCreateData(
 	if data.Level == "" {
 		return data, httperrors.NewInputParameterError("level is empty")
 	}
+	if len(data.Channel) == 0 {
+		data.Channel = []string{monitor.DEFAULT_SEND_NOTIFY_CHANNEL}
+	} else {
+		data.Channel = append(data.Channel, monitor.DEFAULT_SEND_NOTIFY_CHANNEL)
+	}
 	if !utils.IsInStringArray(data.Level, monitor.CommonAlertLevels) {
 		return data, httperrors.NewInputParameterError("Invalid level format: %s", data.Level)
 	}
@@ -593,6 +598,12 @@ func (alert *SCommonAlert) ValidateUpdateData(
 			freqSpec := int64(frep / time.Second)
 			data.Set("frequency", jsonutils.NewInt(freqSpec))
 		}
+	}
+	if channel, _ := data.GetArray("channel"); len(channel) > 0 {
+		channels := jsonutils.NewArray()
+		channels.Add(channel...)
+		channels.Add(jsonutils.NewString(monitor.DEFAULT_SEND_NOTIFY_CHANNEL))
+		data.Set("channel", channels)
 	}
 	if metric_query, _ := data.GetArray("metric_query"); len(metric_query) > 0 {
 		for i, _ := range metric_query {

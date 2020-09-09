@@ -13,7 +13,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	mq "yunion.io/x/onecloud/pkg/monitor/metricquery"
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
@@ -338,10 +337,7 @@ func setSerieRowName(series *tsdb.TimeSeriesSlice, groupTag []string) {
 		}
 		measurement := strings.Split(serie.Name, ".")[0]
 		//sep measurement set RowName by spe param
-		userCred := auth.AdminCredential()
-		listInput := new(monitor.MetricListInput)
-		listInput.Measurement.Names = []string{measurement}
-		measurements, _ := MetricMeasurementManager.getMeasurementByName(userCred, *listInput)
+		measurements, _ := MetricMeasurementManager.getMeasurementByName(measurement)
 		if len(measurements) != 0 {
 			if key, ok := monitor.MEASUREMENT_TAG_KEYWORD[measurements[0].ResType]; ok {
 				serie.RawName = fmt.Sprintf("%d: %s", index, serie.Tags[key])

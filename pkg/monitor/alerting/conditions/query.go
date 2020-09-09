@@ -143,13 +143,12 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 			//the relation metas with series is 1 to more
 			meta = &metas[0]
 		}
-		if evalMatch {
-			evalMatch, err := c.NewEvalMatch(context, *series, meta, reducedValue)
-			if err != nil {
-				return nil, errors.Wrap(err, "NewEvalMatch error")
-			}
-			matches = append(matches, evalMatch)
+
+		match, err := c.NewEvalMatch(context, *series, meta, reducedValue)
+		if err != nil {
+			return nil, errors.Wrap(err, "NewEvalMatch error")
 		}
+		matches = append(matches, match)
 	}
 
 	// handle no series special case
@@ -181,8 +180,7 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 }
 
 func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series tsdb.TimeSeries,
-	meta *tsdb.QueryResultMeta, value *float64) (*monitor.EvalMatch,
-	error) {
+	meta *tsdb.QueryResultMeta, value *float64) (*monitor.EvalMatch, error) {
 	evalMatch := new(monitor.EvalMatch)
 	alert, err := models.CommonAlertManager.GetAlert(context.Rule.Id)
 	if err != nil {
@@ -208,6 +206,8 @@ func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series tsdb
 	evalMatch.Unit = alertDetails.FieldDescription.Unit
 	evalMatch.Value = value
 	evalMatch.ValueStr = c.RationalizeValueFromUnit(*value, alertDetails.FieldDescription.Unit)
+	evalMatch.MeasurementDesc = alertDetails.MeasurementDisplayName
+	evalMatch.FieldDesc = alertDetails.FieldDescription.DisplayName
 	return evalMatch, nil
 }
 
