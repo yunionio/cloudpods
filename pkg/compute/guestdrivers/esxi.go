@@ -481,3 +481,42 @@ func (self *SESXiGuestDriver) RequestLiveMigrate(ctx context.Context, guest *mod
 	})
 	return nil
 }
+
+func (self *SESXiGuestDriver) RequestSyncstatusOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential) (jsonutils.JSONObject, error) {
+	ihost, err := host.GetIHost()
+	if err != nil {
+		return nil, err
+	}
+	ivm, err := ihost.GetIVMById(guest.GetExternalId())
+	if err != nil && errors.Cause(err) != errors.ErrNotFound {
+		return nil, err
+	}
+	// VM may be migrated by Vcenter, try to find VM from whole datacenter.
+	if err != nil {
+		ehost := ihost.(*esxi.SHost)
+		dc, err := ehost.GetDatacenter()
+		if err != nil {
+			return nil, errors.Wrapf(err, "ehost.GetDatacenter")
+		}
+		vm, err := dc.FetchVMById(guest.GetExternalId())
+		if err != nil {
+			log.Errorf("fail to find ivm by id %q in dc %q: %v", guest.GetExternalId(), dc.GetName(), err)
+			return nil, err
+		}
+		ihost = vm.GetIHost()
+		host = models.HostManager.FetchHostByExtId(ihost.GetGlobalId())
+		if host == nil {
+			return nil, errors.Wrapf(errors.ErrNotFound, "find ivm %q in ihost %q which is not existed here", guest.GetExternalId(), ihost.GetGlobalId())
+		}
+		ivm = vm
+	}
+	err = guest.SyncAllWithCloudVM(ctx, userCred, host, ivm)
+	if err != nil {
+		return nil, err
+	}
+
+	status := GetCloudVMStatus(ivm)
+	body := jsonutils.NewDict()
+	body.Add(jsonutils.NewString(status), "status")
+	return body, nil
+}
