@@ -4723,3 +4723,15 @@ func (self *SHost) StartSyncConfig(ctx context.Context, userCred mcclient.TokenC
 	task.ScheduleRun(nil)
 	return nil
 }
+
+func (manager *SHostManager) FetchHostByExtId(extid string) *SHost {
+	host := SHost{}
+	host.SetModelManager(manager, &host)
+	err := manager.Query().Equals("external_id", extid).First(&host)
+	if err != nil {
+		log.Errorf("fetchHostByExtId fail %s", err)
+		return nil
+	} else {
+		return &host
+	}
+}
