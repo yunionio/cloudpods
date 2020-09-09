@@ -259,7 +259,14 @@ func (self *SDatastore) getVMs() ([]cloudprovider.ICloudVM, error) {
 	if len(vms) == 0 {
 		return nil, nil
 	}
-	ret, _, err := dc.fetchVms(vms, false)
+	svms, err := dc.fetchVms(vms, false)
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]cloudprovider.ICloudVM, len(svms))
+	for i := range svms {
+		ret[i] = svms[i]
+	}
 	return ret, err
 }
 
