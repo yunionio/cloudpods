@@ -462,9 +462,7 @@ func (manager *SMetricMeasurementManager) initMetrics(ctx context.Context, metri
 
 func (manager *SMetricMeasurementManager) initMeasurementAndFieldInfo(createInput monitor.MetricCreateInput) error {
 	userCred := auth.AdminCredential()
-	listInput := new(monitor.MetricListInput)
-	listInput.Measurement.Names = []string{createInput.Measurement.Name}
-	measurements, err := manager.getMeasurementByName(userCred, *listInput)
+	measurements, err := manager.getMeasurementByName(createInput.Measurement.Name)
 	if err != nil {
 		return errors.Wrap(err, "join query get  measurement error")
 	}
@@ -486,10 +484,12 @@ func (manager *SMetricMeasurementManager) initMeasurementAndFieldInfo(createInpu
 	return measurements[0].insertOrUpdateMetric(userCred, createInput, updateFields)
 }
 
-func (manager *SMetricMeasurementManager) getMeasurementByName(userCred mcclient.TokenCredential,
-	listInput monitor.MetricListInput) ([]SMetricMeasurement, error) {
+func (manager *SMetricMeasurementManager) getMeasurementByName(names ...string) ([]SMetricMeasurement, error) {
+	userCred := auth.AdminCredential()
+	listInput := new(monitor.MetricListInput)
+	listInput.Measurement.Names = names
 	query, err := MetricMeasurementManager.ListItemFilter(context.Background(), MetricMeasurementManager.Query(), userCred,
-		listInput)
+		*listInput)
 	if err != nil {
 		return nil, err
 	}

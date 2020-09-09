@@ -21,6 +21,8 @@ const (
 
 	//metirc fields 之间的运算
 	CommonAlertFieldOpt_Division = "/"
+
+	DEFAULT_SEND_NOTIFY_CHANNEL = "users"
 )
 
 var CommonAlertLevels = []string{"normal", "important", "fatal"}
