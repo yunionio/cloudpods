@@ -18,6 +18,8 @@ import (
 	"strings"
 
 	"github.com/vmware/govmomi/object"
+	"github.com/vmware/govmomi/property"
+	"github.com/vmware/govmomi/view"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 
@@ -212,6 +214,68 @@ func (dc *SDatacenter) fetchVms(vmRefs []types.ManagedObjectReference, all bool)
 		}
 	}
 	return vms, nil
+}
+
+func (dc *SDatacenter) FetchVMs() ([]*SVirtualMachine, error) {
+	return dc.fetchVMs(property.Filter{})
+}
+
+func (dc *SDatacenter) FetchNoTemplateVMs() ([]*SVirtualMachine, error) {
+	filter := property.Filter{}
+	filter["config.template"] = false
+	return dc.fetchVMs(filter)
+}
+
+func (dc *SDatacenter) fetchVMs(filter property.Filter) ([]*SVirtualMachine, error) {
+	odc := dc.getObjectDatacenter()
+	root := odc.Reference()
+	m := view.NewManager(dc.manager.client.Client)
+	v, err := m.CreateContainerView(dc.manager.context, root, []string{"VirtualMachine"}, true)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = v.Destroy(dc.manager.context)
+	}()
+	objs, err := v.Find(dc.manager.context, []string{"VirtualMachine"}, filter)
+	if err != nil {
+		return nil, err
+	}
+	vms, err := dc.fetchVms(objs, false)
+	return vms, err
+}
+
+func (dc *SDatacenter) FetchTemplateVMs() ([]*SVirtualMachine, error) {
+	filter := property.Filter{}
+	filter["config.template"] = true
+	return dc.fetchVMs(filter)
+}
+
+func (dc *SDatacenter) FetchTemplateVMById(id string) (*SVirtualMachine, error) {
+	filter := property.Filter{}
+	filter["config.template"] = true
+	filter["summary.config.uuid"] = id
+	vms, err := dc.fetchVMs(filter)
+	if err != nil {
+		return nil, err
+	}
+	if len(vms) == 0 {
+		return nil, errors.ErrNotFound
+	}
+	return vms[0], nil
+}
+
+func (dc *SDatacenter) FetchVMById(id string) (*SVirtualMachine, error) {
+	filter := property.Filter{}
+	filter["summary.config.uuid"] = id
+	vms, err := dc.fetchVMs(filter)
+	if err != nil {
+		return nil, err
+	}
+	if len(vms) == 0 {
+		return nil, errors.ErrNotFound
+	}
+	return vms[0], nil
 }
 
 func (dc *SDatacenter) fetchDatastores(datastoreRefs []types.ManagedObjectReference) ([]cloudprovider.ICloudStorage, error) {
