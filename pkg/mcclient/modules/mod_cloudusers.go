@@ -15,10 +15,14 @@
 package modules
 
 import (
+	"fmt"
+	"strings"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
@@ -50,6 +54,7 @@ func (this *SClouduserManager) GetLoginInfo(s *mcclient.ClientSession, id string
 		Id          string
 		Name        string
 		Secret      string
+		Provider    string
 		IamLoginUrl string
 	}{}
 
@@ -65,6 +70,14 @@ func (this *SClouduserManager) GetLoginInfo(s *mcclient.ClientSession, id string
 	password, err := utils.DescryptAESBase64(user.Id, user.Secret)
 	if err != nil {
 		return nil, errors.Wrap(err, "Descrypt")
+	}
+
+	if user.Provider == api.CLOUD_PROVIDER_ALIYUN {
+		suffix := strings.TrimPrefix(user.IamLoginUrl, "https://signin.aliyun.com/")
+		suffix = strings.TrimSuffix(suffix, "/login.htm")
+		if len(suffix) > 0 {
+			user.Name = fmt.Sprintf("%s@%s", user.Name, suffix)
+		}
 	}
 
 	return jsonutils.Marshal(map[string]string{
