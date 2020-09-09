@@ -90,11 +90,11 @@ func (opts *ClouduserPasswordOptions) Params() (jsonutils.JSONObject, error) {
 
 type ClouduserChangeOwnerOptions struct {
 	ClouduserIdOption
-	USER_ID string `help:"local user id"`
+	UserId string `help:"local user id"`
 }
 
 func (opts *ClouduserChangeOwnerOptions) Params() (jsonutils.JSONObject, error) {
-	return jsonutils.Marshal(map[string]string{"user_id": opts.USER_ID}), nil
+	return jsonutils.Marshal(map[string]string{"user_id": opts.UserId}), nil
 }
 
 type ClouduserGroupOptions struct {

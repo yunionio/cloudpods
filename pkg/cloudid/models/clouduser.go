@@ -1429,21 +1429,39 @@ func (self *SClouduser) AllowPerformChangeOwner(ctx context.Context, userCred mc
 
 // 变更子账号所属本地用户
 func (self *SClouduser) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ClouduserChangeOwnerInput) (jsonutils.JSONObject, error) {
-	user, err := db.UserCacheManager.FetchUserById(ctx, input.UserId)
-	if err != nil {
-		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "Not found user %s", input.UserId))
+	oldUserId := self.OwnerId
+	newUserId := ""
+	if len(input.UserId) > 0 {
+		user, err := db.UserCacheManager.FetchUserById(ctx, input.UserId)
+		if err != nil {
+			return nil, httperrors.NewGeneralError(errors.Wrapf(err, "Not found user %s", input.UserId))
+		}
+		newUserId = user.Id
 	}
-	old := self.OwnerId
-	_, err = db.Update(self, func() error {
-		self.OwnerId = user.GetId()
+
+	_, err := db.Update(self, func() error {
+		self.OwnerId = newUserId
 		return nil
 	})
-
 	if err != nil {
-		return nil, httperrors.NewGeneralError(err)
+		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "db.Update"))
 	}
 
-	logclient.AddSimpleActionLog(self, logclient.ACT_CHANGE_OWNER, map[string]interface{}{"old": old, "new": user}, userCred, true)
+	account, err := self.GetCloudaccount()
+	if err != nil {
+		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "GetCloudaccount"))
+	}
+
+	factory, err := account.GetProviderFactory()
+	if err != nil {
+		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "GetProviderFactory"))
+	}
+
+	logclient.AddSimpleActionLog(self, logclient.ACT_CHANGE_OWNER, map[string]interface{}{"old": oldUserId, "newUserId": newUserId}, userCred, true)
+	if len(newUserId) == 0 || !factory.IsSupportResetClouduserPassword() {
+		return nil, nil
+	}
+
 	return nil, self.StartClouduserResetPasswordTask(ctx, userCred, "", "")
 }
 
