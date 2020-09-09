@@ -156,7 +156,9 @@ func (self *SDnsZone) PostCreate(ctx context.Context, userCred mcclient.TokenCre
 			self.RegisterCache(ctx, userCred, account.Id)
 		}
 	case cloudprovider.PublicZone:
-		self.RegisterCache(ctx, userCred, input.CloudaccountId)
+		if len(input.CloudaccountId) > 0 {
+			self.RegisterCache(ctx, userCred, input.CloudaccountId)
+		}
 	}
 	self.StartDnsZoneCreateTask(ctx, userCred, "")
 }

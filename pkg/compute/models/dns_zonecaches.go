@@ -346,7 +346,7 @@ func (self *SDnsZoneCache) SyncVpcForCloud(ctx context.Context, userCred mcclien
 func (self *SDnsZoneCache) GetCloudaccount() (*SCloudaccount, error) {
 	account, err := CloudaccountManager.FetchById(self.CloudaccountId)
 	if err != nil {
-		return nil, errors.Wrapf(err, "loudaccountManager.FetchById(%s)", self.CloudaccountId)
+		return nil, errors.Wrapf(err, "CloudaccountManager.FetchById(%s)", self.CloudaccountId)
 	}
 	return account.(*SCloudaccount), nil
 }
