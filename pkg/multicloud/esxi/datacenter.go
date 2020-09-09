@@ -436,24 +436,3 @@ func (dc *SDatacenter) GetTemplateVMs() ([]*SVirtualMachine, error) {
 	}
 	return templateVms, nil
 }
-
-func (dc *SDatacenter) GetTemplateVMById(id string) (*SVirtualMachine, error) {
-	id = dc.manager.getPrivateId(id)
-	hosts, err := dc.GetIHosts()
-	if err != nil {
-		return nil, errors.Wrap(err, "SDatacenter.GetIHosts")
-	}
-	for _, ihost := range hosts {
-		host := ihost.(*SHost)
-		tvms, err := host.GetTemplateVMs()
-		if err != nil {
-			return nil, errors.Wrap(err, "host.GetTemplateVMs")
-		}
-		for i := range tvms {
-			if tvms[i].GetGlobalId() == id {
-				return tvms[i], nil
-			}
-		}
-	}
-	return nil, cloudprovider.ErrNotFound
-}
