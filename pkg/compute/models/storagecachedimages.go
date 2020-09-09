@@ -331,7 +331,7 @@ func (self *SStoragecachedimage) markDeleting(ctx context.Context, userCred mccl
 	}
 
 	if !isForce && !utils.IsInStringArray(self.Status,
-		[]string{api.CACHED_IMAGE_STATUS_READY, api.CACHED_IMAGE_STATUS_DELETING, api.CACHED_IMAGE_STATUS_CACHE_FAILED}) {
+		[]string{api.CACHED_IMAGE_STATUS_ACTIVE, api.CACHED_IMAGE_STATUS_DELETING, api.CACHED_IMAGE_STATUS_CACHE_FAILED}) {
 		return httperrors.NewInvalidStatusError("Cannot uncache in status %s", self.Status)
 	}
 	_, err = db.Update(self, func() error {

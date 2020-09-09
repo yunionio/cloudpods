@@ -57,7 +57,7 @@ func (self *StorageCacheImageTask) OnRelinquishLeastUsedCachedImageComplete(ctx 
 	storageCache := obj.(*models.SStoragecache)
 
 	scimg := models.StoragecachedimageManager.Register(ctx, self.UserCred, storageCache.Id, imageId, "")
-	if scimg.Status != api.CACHED_IMAGE_STATUS_READY {
+	if scimg.Status != api.CACHED_IMAGE_STATUS_ACTIVE {
 		scimg.SetStatus(self.UserCred, api.CACHED_IMAGE_STATUS_CACHING, "storage_cache_image_task")
 	}
 
@@ -117,7 +117,7 @@ func (self *StorageCacheImageTask) OnCacheSucc(ctx context.Context, cache *model
 	scimg := models.StoragecachedimageManager.Register(ctx, self.UserCred, cache.Id, imageId, "")
 	extImgId, _ := data.GetString("image_id")
 
-	scimg.SetStatus(self.UserCred, api.CACHED_IMAGE_STATUS_READY, "cached")
+	scimg.SetStatus(self.UserCred, api.CACHED_IMAGE_STATUS_ACTIVE, "cached")
 	if len(extImgId) > 0 && scimg.ExternalId != extImgId {
 		scimg.SetExternalId(extImgId)
 	}
