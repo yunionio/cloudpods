@@ -18,11 +18,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -91,13 +93,31 @@ func (manager *SDnsRecordSetManager) ValidateCreateData(ctx context.Context, use
 		}
 		return input, httperrors.NewGeneralError(err)
 	}
-	if input.DnsType == "MX" {
+	domainReg := regexp.MustCompile(`^(([a-zA-Z]{1})|([a-zA-Z]{1}[a-zA-Z]{1})|([a-zA-Z]{1}[0-9]{1})|([0-9]{1}[a-zA-Z]{1})|([a-zA-Z0-9][a-zA-Z0-9-_]{1,61}[a-zA-Z0-9]))\.([a-zA-Z]{2,6}|[a-zA-Z0-9-]{2,30}\.[a-zA-Z]{2,3})$`)
+	switch cloudprovider.TDnsType(input.DnsType) {
+	case cloudprovider.DnsTypeMX:
 		if input.MxPriority < 1 || input.MxPriority > 50 {
 			return input, httperrors.NewOutOfRangeError("mx_priority range limited to [1,50]")
 		}
-	} else {
+		if !domainReg.MatchString(input.DnsValue) {
+			return input, httperrors.NewInputParameterError("invalid domain %s for MX record", input.DnsValue)
+		}
+	case cloudprovider.DnsTypeA:
+		if !regutils.MatchIP4Addr(input.DnsValue) {
+			return input, httperrors.NewInputParameterError("invalid ipv4 %s for A record", input.DnsValue)
+		}
+	case cloudprovider.DnsTypeAAAA:
+		if !regutils.MatchIP6Addr(input.DnsValue) {
+			return input, httperrors.NewInputParameterError("invalid ipv6 %s for AAAA record", input.DnsValue)
+		}
+	case cloudprovider.DnsTypeCNAME:
+		if !domainReg.MatchString(input.DnsValue) {
+			return input, httperrors.NewInputParameterError("invalid domain %s for CNAME record", input.DnsValue)
+		}
+	default:
 		input.MxPriority = 0
 	}
+
 	dnsZone := _dnsZone.(*SDnsZone)
 	for _, policy := range input.TrafficPolicies {
 		if len(policy.Provider) == 0 {
