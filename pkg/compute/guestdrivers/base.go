@@ -314,6 +314,10 @@ func (self *SBaseGuestDriver) IsWindowsUserDataTypeNeedEncode() bool {
 	return false
 }
 
+func (self *SBaseGuestDriver) IsSupportdDcryptPasswordFromSecretKey() bool {
+	return true
+}
+
 func (self *SBaseGuestDriver) GetUserDataType() string {
 	return cloudprovider.CLOUD_CONFIG
 }

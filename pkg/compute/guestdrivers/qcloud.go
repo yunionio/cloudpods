@@ -226,6 +226,10 @@ func (self *SQcloudGuestDriver) GetGuestInitialStateAfterRebuild() string {
 	return api.VM_RUNNING
 }
 
+func (self *SQcloudGuestDriver) IsSupportdDcryptPasswordFromSecretKey() bool {
+	return false
+}
+
 func (self *SQcloudGuestDriver) GetUserDataType() string {
 	return cloudprovider.CLOUD_SHELL
 }
