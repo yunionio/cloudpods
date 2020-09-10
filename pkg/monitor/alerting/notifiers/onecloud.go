@@ -115,10 +115,6 @@ func GetNotifyTemplateConfig(ctx *alerting.EvalContext) monitor.NotificationTemp
 
 // Notify sends the alert notification.
 func (oc *OneCloudNotifier) Notify(ctx *alerting.EvalContext, _ jsonutils.JSONObject) error {
-	//onecloud 默认向webconsole发送消息
-	//if err := WebConsoleNotify(ctx, oc.Setting.UserIds); err != nil {
-	//	log.Errorf("failed to send webconsole %s: %v", oc.GetNotifierId(), err)
-	//}
 	log.Infof("Sending alert notification %s to onecloud", ctx.GetRuleTitle())
 	config := GetNotifyTemplateConfig(ctx)
 	contentConfig := oc.buildContent(config)
@@ -142,35 +138,67 @@ func (oc *OneCloudNotifier) Notify(ctx *alerting.EvalContext, _ jsonutils.JSONOb
 		Priority:    notify.TNotifyPriority(config.Priority),
 		Msg:         content,
 	}
-	//系统报警UserIds 为空
-	if len(oc.Setting.UserIds) == 0 {
-		notifyclient.SystemNotify(notify.TNotifyPriority(msg.Priority), msg.Topic, jsonutils.NewString(content))
-		return nil
-	}
-	return notify.Notifications.Send(oc.session, msg)
+
+	factory := new(sendBodyFactory)
+	sendImp := factory.newSendnotify(oc, msg)
+
+	return sendImp.send()
 }
 
 func (oc *OneCloudNotifier) buildContent(config monitor.NotificationTemplateConfig) *templates.TemplateConfig {
 	return templates.NewTemplateConfig(config)
 }
 
-func WebConsoleNotify(ctx *alerting.EvalContext, ids []string) error {
-	log.Infof("Sending alert notification %s to webconsole", ctx.GetRuleTitle())
-	config := GetNotifyTemplateConfig(ctx)
-	contentConfig := templates.NewTemplateConfig(config)
-	content, err := contentConfig.GenerateMarkdown()
-	if err != nil {
-		return errors.Wrap(err, "build content")
-	}
+type sendBodyFactory struct {
+}
 
-	msg := notify.SNotifyMessage{
-		Uid:         ids,
-		ContactType: notify.NotifyByWebConsole,
-		Topic:       config.Title,
-		Priority:    notify.TNotifyPriority(config.Priority),
-		Msg:         content,
-		Broadcast:   true,
+func (f *sendBodyFactory) newSendnotify(notifier *OneCloudNotifier, message notify.SNotifyMessage) Isendnotify {
+	def := new(sendnotifyBase)
+	def.OneCloudNotifier = notifier
+	def.msg = message
+	if len(notifier.Setting.UserIds) == 0 {
+		sys := new(sendSysImpl)
+		sys.sendnotifyBase = def
+		return sys
 	}
-	session := auth.GetAdminSession(ctx.Ctx, "", "")
-	return notify.Notifications.Send(session, msg)
+	switch notifier.Setting.Channel {
+	case monitor.DEFAULT_SEND_NOTIFY_CHANNEL:
+		user := new(sendUserImpl)
+		user.sendnotifyBase = def
+		return user
+	default:
+		return def
+	}
+}
+
+type Isendnotify interface {
+	send() error
+}
+
+type sendnotifyBase struct {
+	*OneCloudNotifier
+	msg notify.SNotifyMessage
+}
+
+func (s *sendnotifyBase) send() error {
+	return notify.Notifications.Send(s.session, s.msg)
+}
+
+type sendUserImpl struct {
+	*sendnotifyBase
+}
+
+func (s *sendUserImpl) send() error {
+	return notifyclient.NotifyAllWithoutRobot(s.Setting.UserIds, false, notify.TNotifyPriority(s.msg.Priority), s.msg.Topic,
+		jsonutils.NewString(s.msg.Msg))
+}
+
+type sendSysImpl struct {
+	*sendnotifyBase
+}
+
+func (s *sendSysImpl) send() error {
+	notifyclient.SystemNotify(notify.TNotifyPriority(s.msg.Priority), s.msg.Topic,
+		jsonutils.NewString(s.msg.Msg))
+	return nil
 }
