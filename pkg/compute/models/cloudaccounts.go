@@ -48,6 +48,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/esxi"
 	"yunion.io/x/onecloud/pkg/multicloud/esxi/vcenter"
 	"yunion.io/x/onecloud/pkg/util/choices"
 	"yunion.io/x/onecloud/pkg/util/httputils"
@@ -417,9 +418,11 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 	if err != nil {
 		return output, errors.Wrap(err, "provider.GetOnPremiseIRegion")
 	}
-	hosts, err := iregion.GetIHosts()
+	// hack
+	client := iregion.(*esxi.SESXiClient)
+	hostIps, simpleVms, err := client.HostVmIPs(ctx)
 	if err != nil {
-		return output, errors.Wrap(err, "unable to get hosts")
+		return output, errors.Wrap(err, "unable to fetch ips of hosts and vms")
 	}
 	// fetch networks
 	networks := make([][]SNetwork, len(wires))
@@ -430,20 +433,15 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 		}
 		networks[i] = nets
 	}
-	// fetch host ips
+
 	// key of ipHosts is host's ip
-	ipHosts := make(map[netutils.IPV4Addr]cloudprovider.ICloudHost, len(hosts))
-	for i := range hosts {
-		ip := hosts[i].GetAccessIp()
-		if len(ip) == 0 {
-			log.Errorf("unable to get accessip of host %q", hosts[i].GetName())
-			continue
-		}
+	ipHosts := make(map[netutils.IPV4Addr]string, len(hostIps))
+	for name, ip := range hostIps {
 		addr, err := netutils.NewIPV4Addr(ip)
 		if err != nil {
 			return output, err
 		}
-		ipHosts[addr] = hosts[i]
+		ipHosts[addr] = name
 	}
 	// Find suitable wire and the network containing the Host IP in suitable wire.
 	var (
@@ -490,15 +488,15 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 
 	// Give the suggested network configuration for the Host IP that does not have a corresponding suitable network.
 	noNetHostIP := make([]netutils.IPV4Addr, 0, len(ipHosts))
-	for hip, host := range ipHosts {
+	for ip, name := range ipHosts {
 		rnet := api.CAHostNet{
-			Name: host.GetName(),
-			IP:   host.GetAccessIp(),
+			Name: name,
+			IP:   ip.String(),
 		}
-		if net, ok := suitableNetworks[hip]; ok {
+		if net, ok := suitableNetworks[ip]; ok {
 			rnet.SuitableNetwork = net.GetId()
 		} else {
-			noNetHostIP = append(noNetHostIP, hip)
+			noNetHostIP = append(noNetHostIP, ip)
 		}
 		output.Hosts = append(output.Hosts, rnet)
 	}
@@ -515,7 +513,7 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 
 	// Find the suitable network containing the VM IP in Project 'input.Project', and if not, give the corresponding suggested network configuration in this project.
 	project := input.Project
-	nets := []*SNetwork{}
+	excludeNets := []*SNetwork{}
 	var allNets []SNetwork
 	if suitableWire != nil {
 		allNets, err = suitableWire.getNetworks(userCred, rbacutils.ScopeSystem)
@@ -524,85 +522,161 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 		}
 		for i := range allNets {
 			if allNets[i].ProjectId == project {
-				nets = append(nets, &allNets[i])
+				excludeNets = append(excludeNets, &allNets[i])
 			}
 		}
 	}
-	// find suitable network
-	vms := make([]cloudprovider.ICloudVM, 0, len(hosts))
-	for _, host := range hosts {
-		vs, err := host.GetIVMs()
-		if err != nil {
-			return output, errors.Wrapf(err, "unable to get VMs of host %q", host.GetName())
-		}
-		vms = append(vms, vs...)
+
+	type vm struct {
+		FakeID int
+		IP     netutils.IPV4Addr
+		Name   string
 	}
-	ipVMs := make(map[netutils.IPV4Addr]int, len(vms))
-	for i, vm := range vms {
-		nics, err := vm.GetINics()
-		if err != nil {
-			return output, errors.Wrapf(err, "unable get nics of vm %q", vm.GetName())
-		}
-		for _, nic := range nics {
-			ipStr := nic.GetIP()
-			if len(ipStr) == 0 {
-				continue
-			}
-			ip, err := netutils.NewIPV4Addr(ipStr)
-			if err != nil {
-				return output, errors.Wrapf(err, "unable to new IPV4Addr for ip %q", nic.GetIP())
-			}
-			ipVMs[ip] = i
-		}
-		output.Guests = append(output.Guests, api.CAGuestNet{
-			Name:   vm.GetName(),
-			IPNets: make([]api.CAIPNet, 0, 1),
-		})
-	}
-	suitableNetworks = make(map[netutils.IPV4Addr]*SNetwork)
-	if len(nets) != 0 {
-		for vip := range ipVMs {
-			for i := range nets {
-				ipRange := nets[i].GetIPRange()
-				if !ipRange.Contains(vip) {
-					continue
+	vms := make([]vm, 0, len(simpleVms))
+	var nip netutils.IPV4Addr
+	guestMap := make(map[int]*api.CAGuestNet)
+	for i := range simpleVms {
+		id := i
+		if len(simpleVms[i].IPs) == 0 {
+			if _, ok := guestMap[id]; !ok {
+				guestMap[id] = &api.CAGuestNet{
+					Name:   simpleVms[i].Name,
+					IPNets: []api.CAIPNet{},
 				}
-				suitableNetworks[vip] = nets[i]
-				break
 			}
 		}
-	}
-
-	noNetVMIPs := make([]netutils.IPV4Addr, 0, len(ipVMs))
-	for vip, i := range ipVMs {
-		ipnet := api.CAIPNet{
-			IP: vip.String(),
+		for _, ip := range simpleVms[i].IPs {
+			nip, err = netutils.NewIPV4Addr(ip)
+			if err != nil {
+				return output, err
+			}
+			vms = append(vms, vm{
+				FakeID: i,
+				IP:     nip,
+				Name:   simpleVms[i].Name,
+			})
 		}
-		if net, ok := suitableNetworks[vip]; ok {
-			ipnet.SuitableNetwork = net.GetId()
-		} else {
-			noNetVMIPs = append(noNetVMIPs, vip)
-		}
-		output.Guests[i].IPNets = append(output.Guests[ipVMs[vip]].IPNets, ipnet)
 	}
+	// sort vms via vm's ip
+	sort.Slice(vms, func(i, j int) bool {
+		return vms[i].IP < vms[j].IP
+	})
 
-	// excludedIRs is to prevent network conflicts
-	excludedIRs := make([]netutils.IPV4AddrRange, len(allNets))
-	for i := range excludedIRs {
-		excludedIRs[i] = allNets[i].GetIPRange()
+	excludeNets = make([]*SNetwork, 0, len(allNets)+len(output.HostSuggestedNetworks))
+	for i := range allNets {
+		excludeNets = append(excludeNets, &allNets[i])
 	}
 	for i := range output.HostSuggestedNetworks {
-		startIPStr := output.HostSuggestedNetworks[i].GuestIpStart
-		endIPStr := output.HostSuggestedNetworks[i].GuestIpEnd
-		startIP, _ := netutils.NewIPV4Addr(startIPStr)
-		endIP, _ := netutils.NewIPV4Addr(endIPStr)
-		excludedIRs = append(excludedIRs, netutils.NewIPV4AddrRange(startIP, endIP))
+		startipStr := output.HostSuggestedNetworks[i].GuestIpStart
+		endipStr := output.HostSuggestedNetworks[i].GuestIpEnd
+		excludeNets = append(excludeNets, &SNetwork{GuestIpEnd: endipStr, GuestIpStart: startipStr})
 	}
-	if len(noNetVMIPs) > 0 {
-		sConfs := scm.suggestVMNetwors(noNetVMIPs, excludedIRs)
-		confs := make([]api.CANetConf, len(sConfs))
+	// sort excludeNets via their GuestIpStart
+	sort.Slice(excludeNets, func(i, j int) bool {
+		return excludeNets[i].GuestIpStart < excludeNets[j].GuestIpStart
+	})
+
+	svNets := make([]netutils.IPV4AddrRange, 0, 5)
+	var vmi, neti int
+
+	lastEndIp := netutils.IPV4Addr(0)
+Loop:
+	for neti = 0; neti < len(excludeNets); {
+		startIp, _ := netutils.NewIPV4Addr(excludeNets[neti].GuestIpStart)
+		endIp, _ := netutils.NewIPV4Addr(excludeNets[neti].GuestIpEnd)
+		switch {
+		case vms[vmi].IP > endIp:
+			lastEndIp = endIp
+			neti++
+		case vms[vmi].IP >= startIp:
+			for vms[vmi].IP <= endIp {
+				id := vms[vmi].FakeID
+				if _, ok := guestMap[id]; !ok {
+					guestMap[id] = &api.CAGuestNet{
+						Name:   vms[vmi].Name,
+						IPNets: []api.CAIPNet{},
+					}
+				}
+				guestMap[id].IPNets = append(guestMap[id].IPNets, api.CAIPNet{
+					IP:              vms[vmi].IP.String(),
+					SuitableNetwork: excludeNets[neti].Id,
+				})
+				vmi += 1
+				if vmi == len(vms) {
+					break Loop
+				}
+			}
+			lastEndIp = endIp
+			neti++
+		default:
+			for vms[vmi].IP < startIp {
+				suggestStartIp := vms[vmi].IP.NetAddr(24) + 1
+				if suggestStartIp <= lastEndIp {
+					suggestStartIp = lastEndIp + 1
+				}
+				if suggestStartIp >= startIp {
+					break
+				}
+				suggestEndIp := suggestStartIp.NetAddr(24) + 255
+				if suggestEndIp >= startIp {
+					suggestEndIp = startIp - 1
+				}
+				svNets = append(svNets, netutils.NewIPV4AddrRange(suggestStartIp, suggestEndIp))
+				for vmi < len(vms) && vms[vmi].IP <= suggestEndIp {
+					id := vms[vmi].FakeID
+					if _, ok := guestMap[id]; !ok {
+						guestMap[id] = &api.CAGuestNet{
+							Name:   vms[vmi].Name,
+							IPNets: []api.CAIPNet{},
+						}
+					}
+					guestMap[id].IPNets = append(guestMap[id].IPNets, api.CAIPNet{
+						IP: vms[vmi].IP.String(),
+					})
+					vmi++
+				}
+				if vmi == len(vms) {
+					break Loop
+				}
+			}
+		}
+	}
+
+	for vmi < len(vms) {
+		suggestStartIp := vms[vmi].IP.NetAddr(24) + 1
+		if suggestStartIp <= lastEndIp {
+			suggestStartIp = lastEndIp + 1
+		}
+		suggestEndIp := suggestStartIp.NetAddr(24) + 255
+		svNets = append(svNets, netutils.NewIPV4AddrRange(suggestStartIp, suggestEndIp))
+		for vmi < len(vms) && vms[vmi].IP <= suggestEndIp {
+			id := vms[vmi].FakeID
+			if _, ok := guestMap[id]; !ok {
+				guestMap[id] = &api.CAGuestNet{
+					Name:   vms[vmi].Name,
+					IPNets: []api.CAIPNet{},
+				}
+			}
+			guestMap[id].IPNets = append(guestMap[id].IPNets, api.CAIPNet{
+				IP: vms[vmi].IP.String(),
+			})
+			vmi++
+		}
+	}
+
+	for _, guest := range guestMap {
+		output.Guests = append(output.Guests, *guest)
+	}
+
+	if len(svNets) > 0 {
+		confs := make([]api.CANetConf, len(svNets))
 		for i := range confs {
-			confs[i].CASimpleNetConf = sConfs[i]
+			confs[i].CASimpleNetConf = api.CASimpleNetConf{
+				GuestIpStart: svNets[i].StartIp().String(),
+				GuestIpEnd:   svNets[i].EndIp().String(),
+				GuestIpMask:  24,
+				GuestGateway: (svNets[i].StartIp().NetAddr(24) + 1).String(),
+			}
 			confs[i].Name = fmt.Sprintf("%s-guest-network-%d", input.Name, i+1)
 		}
 		output.GuestSuggestedNetworks = confs
