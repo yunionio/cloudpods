@@ -225,7 +225,7 @@ func (c *SAgentImageCacheManager) perfetchTemplateVMImageCache(ctx context.Conte
 	if err != nil {
 		return nil, errors.Wrap(err, "host.GetDatacenter")
 	}
-	_, err = dc.GetTemplateVMById(data.ImageExternalId)
+	_, err = dc.FetchTemplateVMById(data.ImageExternalId)
 	if err != nil {
 		return nil, err
 	}
