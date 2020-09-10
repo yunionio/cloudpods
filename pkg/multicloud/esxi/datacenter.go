@@ -18,6 +18,8 @@ import (
 	"strings"
 
 	"github.com/vmware/govmomi/object"
+	"github.com/vmware/govmomi/property"
+	"github.com/vmware/govmomi/view"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 
@@ -195,32 +197,85 @@ func (dc *SDatacenter) getDcObj() *object.Datacenter {
 	return object.NewDatacenter(dc.manager.client.Client, dc.object.Reference())
 }
 
-// fetchVms will identify if VM is a template and return two different arrays; the latter contains all template vms.
-func (dc *SDatacenter) fetchVms(vmRefs []types.ManagedObjectReference, all bool) ([]cloudprovider.ICloudVM, []*SVirtualMachine, error) {
-	var vms []mo.VirtualMachine
+func (dc *SDatacenter) fetchVms(vmRefs []types.ManagedObjectReference, all bool) ([]*SVirtualMachine, error) {
+	var movms []mo.VirtualMachine
 	if vmRefs != nil {
-		err := dc.manager.references2Objects(vmRefs, VIRTUAL_MACHINE_PROPS, &vms)
+		err := dc.manager.references2Objects(vmRefs, VIRTUAL_MACHINE_PROPS, &movms)
 		if err != nil {
-			return nil, nil, errors.Wrap(err, "dc.manager.references2Objects")
+			return nil, errors.Wrap(err, "dc.manager.references2Objects")
 		}
 	}
 
 	// avoid applying new memory and copying
-	retVms := make([]cloudprovider.ICloudVM, 0, len(vms)/2)
-	templateVMs := make([]*SVirtualMachine, 0, 2)
-	for i := 0; i < len(vms); i += 1 {
-		if all || !strings.HasPrefix(vms[i].Entity().Name, api.ESXI_IMAGE_CACHE_TMP_PREFIX) {
-			vmObj := NewVirtualMachine(dc.manager, &vms[i], dc)
-			if vms[i].Config != nil && vms[i].Config.Template {
-				templateVMs = append(templateVMs, vmObj)
-				continue
-			}
-			if vmObj != nil {
-				retVms = append(retVms, vmObj)
-			}
+	vms := make([]*SVirtualMachine, 0, len(movms))
+	for i := range movms {
+		if all || !strings.HasPrefix(movms[i].Entity().Name, api.ESXI_IMAGE_CACHE_TMP_PREFIX) {
+			vms = append(vms, NewVirtualMachine(dc.manager, &movms[i], dc))
 		}
 	}
-	return retVms, templateVMs, nil
+	return vms, nil
+}
+
+func (dc *SDatacenter) FetchVMs() ([]*SVirtualMachine, error) {
+	return dc.fetchVMs(property.Filter{})
+}
+
+func (dc *SDatacenter) FetchNoTemplateVMs() ([]*SVirtualMachine, error) {
+	filter := property.Filter{}
+	filter["config.template"] = false
+	return dc.fetchVMs(filter)
+}
+
+func (dc *SDatacenter) fetchVMs(filter property.Filter) ([]*SVirtualMachine, error) {
+	odc := dc.getObjectDatacenter()
+	root := odc.Reference()
+	m := view.NewManager(dc.manager.client.Client)
+	v, err := m.CreateContainerView(dc.manager.context, root, []string{"VirtualMachine"}, true)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = v.Destroy(dc.manager.context)
+	}()
+	objs, err := v.Find(dc.manager.context, []string{"VirtualMachine"}, filter)
+	if err != nil {
+		return nil, err
+	}
+	vms, err := dc.fetchVms(objs, false)
+	return vms, err
+}
+
+func (dc *SDatacenter) FetchTemplateVMs() ([]*SVirtualMachine, error) {
+	filter := property.Filter{}
+	filter["config.template"] = true
+	return dc.fetchVMs(filter)
+}
+
+func (dc *SDatacenter) FetchTemplateVMById(id string) (*SVirtualMachine, error) {
+	filter := property.Filter{}
+	filter["config.template"] = true
+	filter["summary.config.uuid"] = id
+	vms, err := dc.fetchVMs(filter)
+	if err != nil {
+		return nil, err
+	}
+	if len(vms) == 0 {
+		return nil, errors.ErrNotFound
+	}
+	return vms[0], nil
+}
+
+func (dc *SDatacenter) FetchVMById(id string) (*SVirtualMachine, error) {
+	filter := property.Filter{}
+	filter["summary.config.uuid"] = id
+	vms, err := dc.fetchVMs(filter)
+	if err != nil {
+		return nil, err
+	}
+	if len(vms) == 0 {
+		return nil, errors.ErrNotFound
+	}
+	return vms[0], nil
 }
 
 func (dc *SDatacenter) fetchDatastores(datastoreRefs []types.ManagedObjectReference) ([]cloudprovider.ICloudStorage, error) {
@@ -338,25 +393,4 @@ func (dc *SDatacenter) GetTemplateVMs() ([]*SVirtualMachine, error) {
 		templateVms = append(templateVms, tvms...)
 	}
 	return templateVms, nil
-}
-
-func (dc *SDatacenter) GetTemplateVMById(id string) (*SVirtualMachine, error) {
-	id = dc.manager.getPrivateId(id)
-	hosts, err := dc.GetIHosts()
-	if err != nil {
-		return nil, errors.Wrap(err, "SDatacenter.GetIHosts")
-	}
-	for _, ihost := range hosts {
-		host := ihost.(*SHost)
-		tvms, err := host.GetTemplateVMs()
-		if err != nil {
-			return nil, errors.Wrap(err, "host.GetTemplateVMs")
-		}
-		for i := range tvms {
-			if tvms[i].GetGlobalId() == id {
-				return tvms[i], nil
-			}
-		}
-	}
-	return nil, cloudprovider.ErrNotFound
 }
