@@ -412,7 +412,7 @@ func (self *SCachedimage) ChooseSourceStoragecacheInRange(hostType string, exclu
 		Join(hostStorage, sqlchemy.Equals(hostStorage.Field("storage_id"), storage.Field("id"))).
 		Join(host, sqlchemy.Equals(hostStorage.Field("host_id"), host.Field("id"))).
 		Filter(sqlchemy.Equals(storageCachedImage.Field("cachedimage_id"), self.Id)).
-		Filter(sqlchemy.Equals(storageCachedImage.Field("status"), api.CACHED_IMAGE_STATUS_READY)).
+		Filter(sqlchemy.Equals(storageCachedImage.Field("status"), api.CACHED_IMAGE_STATUS_ACTIVE)).
 		Filter(sqlchemy.Equals(host.Field("status"), api.HOST_STATUS_RUNNING)).
 		Filter(sqlchemy.IsTrue(host.Field("enabled"))).
 		Filter(sqlchemy.Equals(host.Field("host_status"), api.HOST_ONLINE)).
@@ -580,7 +580,7 @@ func (image *SCachedimage) getValidStoragecache() []SStoragecache {
 	q = q.Filter(sqlchemy.In(providers.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
 	q = q.Filter(sqlchemy.In(providers.Field("health_status"), api.CLOUD_PROVIDER_VALID_HEALTH_STATUS))
 	q = q.Filter(sqlchemy.Equals(storagecacheimages.Field("cachedimage_id"), image.Id))
-	q = q.Filter(sqlchemy.Equals(storagecacheimages.Field("status"), api.CACHED_IMAGE_STATUS_READY))
+	q = q.Filter(sqlchemy.Equals(storagecacheimages.Field("status"), api.CACHED_IMAGE_STATUS_ACTIVE))
 
 	caches := make([]SStoragecache, 0)
 	err := db.FetchModelObjects(StoragecacheManager, q, &caches)
@@ -620,7 +620,7 @@ func (image *SCachedimage) GetUsableZoneIds() ([]string, error) {
 	q = q.Filter(sqlchemy.In(providers.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
 	q = q.Filter(sqlchemy.In(providers.Field("health_status"), api.CLOUD_PROVIDER_VALID_HEALTH_STATUS))
 	q = q.Filter(sqlchemy.Equals(storagecacheimages.Field("cachedimage_id"), image.Id))
-	q = q.Filter(sqlchemy.Equals(storagecacheimages.Field("status"), api.CACHED_IMAGE_STATUS_READY))
+	q = q.Filter(sqlchemy.Equals(storagecacheimages.Field("status"), api.CACHED_IMAGE_STATUS_ACTIVE))
 	q = q.Filter(sqlchemy.Equals(q.Field("status"), api.ZONE_ENABLE))
 
 	result := []string{}
@@ -702,7 +702,7 @@ func (manager *SCachedimageManager) ListItemFilter(
 		subq = subq.Join(storageCaches, sqlchemy.Equals(storagecachedImages.Field("storagecache_id"), storageCaches.Field("id")))
 		subq = subq.Join(storages, sqlchemy.Equals(storageCaches.Field("id"), storages.Field("storagecache_id")))
 		subq = subq.Join(zones, sqlchemy.Equals(storages.Field("zone_id"), zones.Field("id")))
-		subq = subq.Filter(sqlchemy.Equals(storagecachedImages.Field("status"), api.CACHED_IMAGE_STATUS_READY))
+		subq = subq.Filter(sqlchemy.Equals(storagecachedImages.Field("status"), api.CACHED_IMAGE_STATUS_ACTIVE))
 		return subq
 	})
 	if err != nil {
@@ -717,7 +717,7 @@ func (manager *SCachedimageManager) ListItemFilter(
 		subq := storagecachedImages.Query(storagecachedImages.Field("cachedimage_id"))
 		subq = subq.Join(storageCaches, sqlchemy.Equals(storagecachedImages.Field("storagecache_id"), storageCaches.Field("id")))
 		subq = subq.Join(storages, sqlchemy.Equals(storageCaches.Field("id"), storages.Field("storagecache_id")))
-		subq = subq.Filter(sqlchemy.Equals(storagecachedImages.Field("status"), api.CACHED_IMAGE_STATUS_READY))
+		subq = subq.Filter(sqlchemy.Equals(storagecachedImages.Field("status"), api.CACHED_IMAGE_STATUS_ACTIVE))
 		return subq
 	})
 	if err != nil {
