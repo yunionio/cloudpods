@@ -4271,40 +4271,46 @@ func (self *SGuest) saveOsType(userCred mcclient.TokenCredential, osType string)
 	return err
 }
 
+type sDeployInfo struct {
+	Os       string
+	Account  string
+	Key      string
+	Distro   string
+	Version  string
+	Arch     string
+	Language string
+}
+
 func (self *SGuest) SaveDeployInfo(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) {
+	deployInfo := sDeployInfo{}
+	data.Unmarshal(&deployInfo)
 	info := make(map[string]interface{})
-	if data.Contains("os") {
-		osName, _ := data.GetString("os")
-		self.saveOsType(userCred, osName)
-		info["os_name"] = osName
+	if len(deployInfo.Os) > 0 {
+		self.saveOsType(userCred, deployInfo.Os)
+		info["os_name"] = deployInfo.Os
 	}
-	if data.Contains("account") {
-		account, _ := data.GetString("account")
-		info["login_account"] = account
-		if data.Contains("key") {
-			key, _ := data.GetString("key")
-			info["login_key"] = key
+	driver := self.GetDriver()
+	if len(deployInfo.Account) > 0 {
+		info["login_account"] = deployInfo.Account
+		if len(deployInfo.Key) > 0 && driver.IsSupportdDcryptPasswordFromSecretKey() {
+			info["login_key"] = deployInfo.Key
 			info["login_key_timestamp"] = timeutils.UtcNow()
 		} else {
 			info["login_key"] = "none"
 			info["login_key_timestamp"] = "none"
 		}
 	}
-	if data.Contains("distro") {
-		dist, _ := data.GetString("distro")
-		info["os_distribution"] = dist
+	if len(deployInfo.Distro) > 0 {
+		info["os_distribution"] = deployInfo.Distro
 	}
-	if data.Contains("version") {
-		ver, _ := data.GetString("version")
-		info["os_version"] = ver
+	if len(deployInfo.Version) > 0 {
+		info["os_version"] = deployInfo.Version
 	}
-	if data.Contains("arch") {
-		arch, _ := data.GetString("arch")
-		info["os_arch"] = arch
+	if len(deployInfo.Arch) > 0 {
+		info["os_arch"] = deployInfo.Arch
 	}
-	if data.Contains("language") {
-		lang, _ := data.GetString("language")
-		info["os_language"] = lang
+	if len(deployInfo.Language) > 0 {
+		info["os_language"] = deployInfo.Language
 	}
 	self.SetAllMetadata(ctx, info, userCred)
 	self.saveOldPassword(ctx, userCred)
