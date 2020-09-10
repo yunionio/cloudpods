@@ -142,6 +142,8 @@ type IGuestDriver interface {
 	IsRebuildRootSupportChangeImage() bool
 	IsRebuildRootSupportChangeUEFI() bool
 
+	IsSupportdDcryptPasswordFromSecretKey() bool
+
 	RequestDeleteDetachedDisk(ctx context.Context, disk *SDisk, task taskman.ITask, isPurge bool) error
 	StartGuestDetachdiskTask(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, params *jsonutils.JSONDict, parentTaskId string) error
 	StartGuestAttachDiskTask(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, params *jsonutils.JSONDict, parentTaskId string) error
