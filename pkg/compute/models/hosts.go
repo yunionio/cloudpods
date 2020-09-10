@@ -5450,3 +5450,15 @@ func (manager *SHostManager) ListItemExportKeys(ctx context.Context,
 	}
 	return q, nil
 }
+
+func (manager *SHostManager) FetchHostByExtId(extid string) *SHost {
+	host := SHost{}
+	host.SetModelManager(manager, &host)
+	err := manager.Query().Equals("external_id", extid).First(&host)
+	if err != nil {
+		log.Errorf("fetchHostByExtId fail %s", err)
+		return nil
+	} else {
+		return &host
+	}
+}

@@ -74,10 +74,7 @@ func (d byDiskType) Less(i, j int) bool {
 
 func NewVirtualMachine(manager *SESXiClient, vm *mo.VirtualMachine, dc *SDatacenter) *SVirtualMachine {
 	svm := &SVirtualMachine{SManagedObject: newManagedObject(manager, vm, dc)}
-	err := svm.fetchHardwareInfo()
-	if err != nil {
-		return nil
-	}
+	svm.fetchHardwareInfo()
 	return svm
 }
 
@@ -710,7 +707,7 @@ func (self *SVirtualMachine) UpdateUserData(userData string) error {
 	return nil
 }
 
-func (self *SVirtualMachine) fetchHardwareInfo() error {
+func (self *SVirtualMachine) fetchHardwareInfo() {
 	self.vnics = make([]SVirtualNIC, 0)
 	self.vdisks = make([]SVirtualDisk, 0)
 	self.cdroms = make([]SVirtualCdrom, 0)
@@ -724,7 +721,8 @@ func (self *SVirtualMachine) fetchHardwareInfo() error {
 	}
 
 	if moVM == nil || moVM.Config == nil || moVM.Config.Hardware.Device == nil {
-		return errors.Error("invalid vm config")
+		log.Errorf("invalid vm config, moVM: %v", moVM)
+		return
 	}
 
 	for i := 0; i < len(moVM.Config.Hardware.Device); i += 1 {
@@ -752,7 +750,6 @@ func (self *SVirtualMachine) fetchHardwareInfo() error {
 	sort.Slice(self.vdisks, func(i, j int) bool {
 		return self.vdisks[i].GetIndex() < self.vdisks[j].GetIndex()
 	})
-	return nil
 }
 
 func (self *SVirtualMachine) getVdev(key int32) SVirtualDevice {
@@ -1219,4 +1216,9 @@ func (self *SVirtualMachine) FindMinDiffKey(limit int32) int32 {
 		}
 	}
 	return limit
+}
+
+func (self *SVirtualMachine) IsTemplate() bool {
+	movm := self.getVirtualMachine()
+	return movm.Config != nil && movm.Config.Template
 }
