@@ -181,6 +181,7 @@ func (self *SHost) fetchVMs(all bool) error {
 	}
 
 	MAX_TRIES := 3
+	var vms []*SVirtualMachine
 	for tried := 0; tried < MAX_TRIES; tried += 1 {
 		hostVms := self.getHostSystem().Vm
 		if len(hostVms) == 0 {
@@ -188,15 +189,20 @@ func (self *SHost) fetchVMs(all bool) error {
 			return nil
 		}
 
-		vms, templatevms, err := dc.fetchVms(hostVms, all)
+		vms, err = dc.fetchVms(hostVms, all)
 		if err != nil {
 			log.Errorf("dc.fetchVms fail %s", err)
 			time.Sleep(time.Second)
 			self.Refresh()
 			continue
 		}
-		self.vms = vms
-		self.tempalteVMs = templatevms
+	}
+	for _, vm := range vms {
+		if vm.IsTemplate() {
+			self.tempalteVMs = append(self.tempalteVMs, vm)
+		} else {
+			self.vms = append(self.vms, vm)
+		}
 	}
 	return nil
 }
@@ -702,9 +708,13 @@ func (self *SHost) CreateVM2(ctx context.Context, ds *SDatastore, params SCreate
 	if err != nil {
 		return nil, errors.Wrap(err, "SEsxiClient.FindHostByIp")
 	}
-	temvm, err := imgHost.GetTemplateVMById(imageInfo.ImageExternalId)
+	dc, err := imgHost.GetDatacenter()
 	if err != nil {
-		return nil, errors.Wrap(err, "SHost.GetTemplateVMById")
+		return nil, errors.Wrap(err, "host.GetDatacenter")
+	}
+	temvm, err := dc.FetchTemplateVMById(imageInfo.ImageExternalId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "datacenter.TemplateVMById for image %q and datacenter %q", imageInfo.ImageExternalId, dc.GetId())
 	}
 	return self.CloneVM(ctx, temvm, ds, params)
 }
