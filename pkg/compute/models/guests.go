@@ -4292,8 +4292,11 @@ func (self *SGuest) SaveDeployInfo(ctx context.Context, userCred mcclient.TokenC
 	driver := self.GetDriver()
 	if len(deployInfo.Account) > 0 {
 		info["login_account"] = deployInfo.Account
-		if len(deployInfo.Key) > 0 && driver.IsSupportdDcryptPasswordFromSecretKey() {
+		if len(deployInfo.Key) > 0 {
 			info["login_key"] = deployInfo.Key
+			if len(self.KeypairId) > 0 && !driver.IsSupportdDcryptPasswordFromSecretKey() { // Tencent Cloud does not support simultaneous setting of secret keys and passwords
+				info["login_key"], _ = seclib2.EncryptBase64(self.GetKeypairPublicKey(), "")
+			}
 			info["login_key_timestamp"] = timeutils.UtcNow()
 		} else {
 			info["login_key"] = "none"
