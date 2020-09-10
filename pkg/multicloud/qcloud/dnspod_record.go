@@ -26,6 +26,13 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
+type SRecordCreateRet struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Status string `json:"status"`
+	Weight int    `json:"weight"`
+}
+
 type SRecordCountInfo struct {
 	RecordTotal string `json:"record_total"`
 	RecordsNum  string `json:"records_num"`
@@ -46,7 +53,7 @@ type SDnsRecord struct {
 	LineID     string `json:"line_id"`
 	Type       string `json:"type"`
 	Remark     string `json:"remark"`
-	Mx         int    `json:"mx"`
+	Mx         int64  `json:"mx"`
 	Hold       string `json:"hold"`
 }
 
@@ -131,7 +138,7 @@ func GetRecordLineLineType(policyinfo cloudprovider.TDnsPolicyValue) string {
 }
 
 // https://cloud.tencent.com/document/api/302/8516
-func (client *SQcloudClient) CreateDnsRecord(opts *cloudprovider.DnsRecordSet, domainName string) error {
+func (client *SQcloudClient) CreateDnsRecord(opts *cloudprovider.DnsRecordSet, domainName string) (string, error) {
 	params := map[string]string{}
 	recordline := GetRecordLineLineType(opts.PolicyValue)
 	if opts.Ttl < 600 {
@@ -149,11 +156,19 @@ func (client *SQcloudClient) CreateDnsRecord(opts *cloudprovider.DnsRecordSet, d
 	params["ttl"] = strconv.FormatInt(opts.Ttl, 10)
 	params["value"] = opts.DnsValue
 	params["recordLine"] = recordline
-	_, err := client.cnsRequest("RecordCreate", params)
-	if err != nil {
-		return errors.Wrapf(err, "client.cnsRequest(RecordCreate, %s)", fmt.Sprintln(params))
+	if opts.DnsType == cloudprovider.DnsTypeMX {
+		params["mx"] = strconv.FormatInt(opts.MxPriority, 10)
 	}
-	return nil
+	resp, err := client.cnsRequest("RecordCreate", params)
+	if err != nil {
+		return "", errors.Wrapf(err, "client.cnsRequest(RecordCreate, %s)", fmt.Sprintln(params))
+	}
+	SRecordCreateRet := SRecordCreateRet{}
+	err = resp.Unmarshal(&SRecordCreateRet, "record")
+	if err != nil {
+		return "", errors.Wrapf(err, "%s.Unmarshal(records)", fmt.Sprintln(resp))
+	}
+	return SRecordCreateRet.ID, nil
 }
 
 // https://cloud.tencent.com/document/product/302/8511
@@ -177,7 +192,23 @@ func (client *SQcloudClient) ModifyDnsRecord(opts *cloudprovider.DnsRecordSet, d
 	params["ttl"] = strconv.FormatInt(opts.Ttl, 10)
 	params["value"] = opts.DnsValue
 	params["recordLine"] = recordline
+	if opts.DnsType == cloudprovider.DnsTypeMX {
+		params["mx"] = strconv.FormatInt(opts.MxPriority, 10)
+	}
 	_, err := client.cnsRequest("RecordModify", params)
+	if err != nil {
+		return errors.Wrapf(err, "client.cnsRequest(RecordModify, %s)", fmt.Sprintln(params))
+	}
+	return nil
+}
+
+// https://cloud.tencent.com/document/product/302/8519
+func (client *SQcloudClient) ModifyRecordStatus(status, recordId, domain string) error {
+	params := map[string]string{}
+	params["domain"] = domain
+	params["recordId"] = recordId
+	params["status"] = status // “disable” 和 “enable”
+	_, err := client.cnsRequest("RecordStatus", params)
 	if err != nil {
 		return errors.Wrapf(err, "client.cnsRequest(RecordModify, %s)", fmt.Sprintln(params))
 	}
@@ -220,11 +251,21 @@ func (self *SDnsRecord) GetDnsType() cloudprovider.TDnsType {
 }
 
 func (self *SDnsRecord) GetDnsValue() string {
+	if self.GetDnsType() == cloudprovider.DnsTypeMX || self.GetDnsType() == cloudprovider.DnsTypeCNAME || self.GetDnsType() == cloudprovider.DnsTypeSRV {
+		return self.Value[:len(self.Value)-1]
+	}
 	return self.Value
 }
 
 func (self *SDnsRecord) GetTTL() int64 {
 	return int64(self.TTL)
+}
+
+func (self *SDnsRecord) GetMxPriority() int64 {
+	if self.GetDnsType() == cloudprovider.DnsTypeMX {
+		return self.Mx
+	}
+	return 0
 }
 
 func (self *SDnsRecord) GetPolicyType() cloudprovider.TDnsPolicyType {

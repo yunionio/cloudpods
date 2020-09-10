@@ -88,7 +88,7 @@ func init() {
 		change.DnsValue = args.VALUE
 		change.Ttl = args.TTL
 		change.DnsType = cloudprovider.TDnsType(args.TYPE)
-		e := cli.GetClient().CreateDnsRecord(&change, args.DOMAIN)
+		_, e := cli.GetClient().CreateDnsRecord(&change, args.DOMAIN)
 		if e != nil {
 			return e
 		}
@@ -111,6 +111,19 @@ func init() {
 		change.Ttl = args.TTL
 		change.DnsType = cloudprovider.TDnsType(args.TYPE)
 		e := cli.GetClient().ModifyDnsRecord(&change, args.DOMAIN)
+		if e != nil {
+			return e
+		}
+		return nil
+	})
+
+	type DnsRecordUpdateStatusOptions struct {
+		DOMAIN   string
+		RECORDID int
+		STATUS   string `choices:"disable|enable"`
+	}
+	shellutils.R(&DnsRecordUpdateStatusOptions{}, "dnsrecord-updatestatus", "update dndrecord", func(cli *qcloud.SRegion, args *DnsRecordUpdateStatusOptions) error {
+		e := cli.GetClient().ModifyRecordStatus(args.STATUS, strconv.Itoa(args.RECORDID), args.DOMAIN)
 		if e != nil {
 			return e
 		}
