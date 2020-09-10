@@ -91,15 +91,15 @@ func (self *SubcontactPullTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 		receiver.SetContact(cType, userid)
 		receiver.MarkContactTypeVerified(cType)
 	}
-	if len(failedReasons) > 0 {
-		reason := strings.Join(failedReasons, "; ")
-		self.taskFailed(ctx, receiver, reason)
-		return
-	}
 	// push cache
 	err := receiver.PushCache(ctx)
 	if err != nil {
 		reason := fmt.Sprintf("PushCache: %v", err)
+		self.taskFailed(ctx, receiver, reason)
+		return
+	}
+	if len(failedReasons) > 0 {
+		reason := strings.Join(failedReasons, "; ")
 		self.taskFailed(ctx, receiver, reason)
 		return
 	}

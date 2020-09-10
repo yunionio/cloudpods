@@ -183,8 +183,9 @@ func (self *SRpcService) ContactByMobile(ctx context.Context, mobile, serviceNam
 	}
 
 	ret, err := self.execute(ctx, f, serviceName)
-	if err != nil {
-		return "", err
+	if err == nil {
+		reply := ret.(*apis.UseridByMobileReply)
+		return reply.Userid, nil
 	}
 	s, ok := status.FromError(err)
 	if !ok {
@@ -196,9 +197,7 @@ func (self *SRpcService) ContactByMobile(ctx context.Context, mobile, serviceNam
 	if s.Code() == codes.PermissionDenied {
 		return "", errors.Wrap(notifyv2.ErrIncompleteConfig, s.Message())
 	}
-
-	reply := ret.(*apis.UseridByMobileReply)
-	return reply.Userid, nil
+	return "", err
 }
 
 // Wrap function to execute function call rpc server
