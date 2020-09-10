@@ -61,6 +61,7 @@ func InitDB() error {
 		ScheduledTaskActivityManager,
 		ExternalProjectManager,
 		CachedimageManager,
+		StoragecachedimageManager,
 	} {
 		err := manager.InitializeData()
 		if err != nil {
