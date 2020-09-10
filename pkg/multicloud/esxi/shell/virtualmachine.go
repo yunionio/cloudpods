@@ -27,28 +27,53 @@ import (
 
 func init() {
 	type VirtualMachineListOptions struct {
-		HOSTIP   string `help:"Host IP"`
-		Template bool   `help:"Whether it is tempalte virtual machine"`
+		Datacenter string `help:"Datacenter"`
+		HostIP     string `help:"HostIP"`
+		Template   bool   `help:"Whether it is tempalte virtual machine, default:false"`
 	}
 	shellutils.R(&VirtualMachineListOptions{}, "vm-list", "List vms of a host", func(cli *esxi.SESXiClient, args *VirtualMachineListOptions) error {
-		host, err := cli.FindHostByIp(args.HOSTIP)
-		if err != nil {
-			return err
-		}
-		if args.Template {
-			vms, err := host.GetTemplateVMs()
+		switch {
+		case len(args.HostIP) > 0:
+			host, err := cli.FindHostByIp(args.HostIP)
+			if err != nil {
+				return err
+			}
+			if args.Template {
+				vms, err := host.GetTemplateVMs()
+				if err != nil {
+					return err
+				}
+				printList(vms, []string{})
+				return nil
+			}
+			vms, err := host.GetIVMs2()
 			if err != nil {
 				return err
 			}
 			printList(vms, []string{})
 			return nil
+		case len(args.Datacenter) > 0:
+			dc, err := cli.FindDatacenterByMoId(args.Datacenter)
+			if err != nil {
+				return errors.Wrap(err, "FindDatacenterByMoId")
+			}
+			var vms []*esxi.SVirtualMachine
+			if args.Template {
+				vms, err = dc.FetchTemplateVMs()
+				if err != nil {
+					return errors.Wrap(err, "FetchTemplateVMs")
+				}
+			} else {
+				vms, err = dc.FetchNoTemplateVMs()
+				if err != nil {
+					return errors.Wrap(err, "FetchNoTemplateVMs")
+				}
+			}
+			printList(vms, []string{})
+			return nil
+		default:
+			return fmt.Errorf("Both Datacenter and HostIP cannot be empty")
 		}
-		vms, err := host.GetIVMs2()
-		if err != nil {
-			return err
-		}
-		printList(vms, []string{})
-		return nil
 	})
 
 	type VirtualMachineCloneOptions struct {
@@ -91,24 +116,45 @@ func init() {
 	})
 
 	type VirtualMachineShowOptions struct {
-		HOSTIP   string `help:"Host IP"`
-		VMID     string `help:"VM ID"`
-		Template bool
+		Datacenter string `help:"Datacenter"`
+		HostIP     string `help:"Host IP"`
+		VMID       string `help:"VM ID"`
+	}
+	getVM := func(cli *esxi.SESXiClient, args *VirtualMachineShowOptions) (*esxi.SVirtualMachine, error) {
+		var vm *esxi.SVirtualMachine
+		switch {
+		case len(args.HostIP) > 0:
+			host, err := cli.FindHostByIp(args.HostIP)
+			if err != nil {
+				return nil, errors.Wrap(err, "FindHostByIp")
+			}
+			ivm, err := host.GetIVMById(args.VMID)
+			if err != nil && errors.Cause(err) != errors.ErrNotFound {
+				return nil, err
+			}
+			if err != nil {
+				vm, err = host.GetTemplateVMById(args.VMID)
+				if err != nil {
+					return nil, errors.Wrap(err, "GetTemplateVMById")
+				}
+			}
+			vm = ivm.(*esxi.SVirtualMachine)
+		case len(args.Datacenter) > 0:
+			dc, err := cli.FindDatacenterByMoId(args.Datacenter)
+			if err != nil {
+				return nil, errors.Wrap(err, "FindDatacenterByMoId")
+			}
+			vm, err = dc.FetchVMById(args.VMID)
+			if err != nil {
+				return nil, errors.Wrap(err, "FetchVMById")
+			}
+		default:
+			return nil, fmt.Errorf("Both Datacenter and HostIP cannot be empty")
+		}
+		return vm, nil
 	}
 	shellutils.R(&VirtualMachineShowOptions{}, "vm-show", "Show vm details", func(cli *esxi.SESXiClient, args *VirtualMachineShowOptions) error {
-		host, err := cli.FindHostByIp(args.HOSTIP)
-		if err != nil {
-			return err
-		}
-		if args.Template {
-			vm, err := host.GetTemplateVMById(args.VMID)
-			if err != nil {
-				return err
-			}
-			printObject(vm)
-			return nil
-		}
-		vm, err := host.GetIVMById(args.VMID)
+		vm, err := getVM(cli, args)
 		if err != nil {
 			return err
 		}
@@ -117,11 +163,7 @@ func init() {
 	})
 
 	shellutils.R(&VirtualMachineShowOptions{}, "vm-nics", "Show vm nics details", func(cli *esxi.SESXiClient, args *VirtualMachineShowOptions) error {
-		host, err := cli.FindHostByIp(args.HOSTIP)
-		if err != nil {
-			return err
-		}
-		vm, err := host.GetIVMById(args.VMID)
+		vm, err := getVM(cli, args)
 		if err != nil {
 			return err
 		}
@@ -134,11 +176,7 @@ func init() {
 	})
 
 	shellutils.R(&VirtualMachineShowOptions{}, "vm-disks", "Show vm disks details", func(cli *esxi.SESXiClient, args *VirtualMachineShowOptions) error {
-		host, err := cli.FindHostByIp(args.HOSTIP)
-		if err != nil {
-			return err
-		}
-		vm, err := host.GetIVMById(args.VMID)
+		vm, err := getVM(cli, args)
 		if err != nil {
 			return err
 		}
@@ -151,17 +189,12 @@ func init() {
 	})
 
 	type VirtualMachineDiskResizeOptions struct {
-		HOSTIP  string `help:"host ip"`
-		VMID    string `help:"virtual machine UUID"`
-		DISKIDX int    `help:"disk index"`
-		SIZEGB  int64  `help:"new size of disk"`
+		VirtualMachineShowOptions
+		DISKIDX int   `help:"disk index"`
+		SIZEGB  int64 `help:"new size of disk"`
 	}
 	shellutils.R(&VirtualMachineDiskResizeOptions{}, "vm-disk-resize", "Resize a vm disk", func(cli *esxi.SESXiClient, args *VirtualMachineDiskResizeOptions) error {
-		host, err := cli.FindHostByIp(args.HOSTIP)
-		if err != nil {
-			return err
-		}
-		vm, err := host.GetIVMById(args.VMID)
+		vm, err := getVM(cli, &args.VirtualMachineShowOptions)
 		if err != nil {
 			return err
 		}
@@ -178,11 +211,7 @@ func init() {
 	})
 
 	shellutils.R(&VirtualMachineShowOptions{}, "vm-vnc", "Show vm VNC details", func(cli *esxi.SESXiClient, args *VirtualMachineShowOptions) error {
-		host, err := cli.FindHostByIp(args.HOSTIP)
-		if err != nil {
-			return err
-		}
-		vm, err := host.GetIVMById(args.VMID)
+		vm, err := getVM(cli, args)
 		if err != nil {
 			return err
 		}
@@ -195,15 +224,11 @@ func init() {
 	})
 
 	shellutils.R(&VirtualMachineShowOptions{}, "vm-file-status", "Show vm files details", func(cli *esxi.SESXiClient, args *VirtualMachineShowOptions) error {
-		host, err := cli.FindHostByIp(args.HOSTIP)
+		vm, err := getVM(cli, args)
 		if err != nil {
 			return err
 		}
-		vm, err := host.GetIVMById(args.VMID)
-		if err != nil {
-			return err
-		}
-		err = vm.(*esxi.SVirtualMachine).CheckFileInfo(context.Background())
+		err = vm.CheckFileInfo(context.Background())
 		if err != nil {
 			return err
 		}
