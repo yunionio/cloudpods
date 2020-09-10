@@ -378,6 +378,14 @@ func Like(f IQueryField, v string) ICondition {
 	return &c
 }
 
+func ContainsAny(f IQueryField, v []string) ICondition {
+	conds := make([]ICondition, len(v))
+	for i := range v {
+		conds[i] = Contains(f, v[i])
+	}
+	return OR(conds...)
+}
+
 func Contains(f IQueryField, v string) ICondition {
 	v = likeEscape(v)
 	nv := fmt.Sprintf("%%%s%%", v)
