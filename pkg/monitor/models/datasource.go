@@ -433,7 +433,6 @@ func (self *SDataSourceManager) getFromAndToFromParam(query jsonutils.JSONObject
 
 func (self *SDataSourceManager) getFilterMeasurementsAsyn(from, to string,
 	measurements []monitor.InfluxMeasurement, db influxdb.SInfluxdb, tagFilter string) ([]monitor.InfluxMeasurement, error) {
-	log.Errorln("start asynchronous task")
 	filterMeasurements := make([]monitor.InfluxMeasurement, 0)
 	queryChan := new(influxdbQueryChan)
 	queryChan.queryRtnChan = make(chan monitor.InfluxMeasurement, len(measurements))
@@ -647,11 +646,7 @@ func (self *SDataSourceManager) filterTagValue(measurement monitor.InfluxMeasure
 		close(tagValChan2.rtnChan)
 		return nil
 	})
-	err := tagValGroup2.Wait()
-	if err == nil {
-		log.Errorln("filterTagValue end ")
-	}
-	return err
+	return tagValGroup2.Wait()
 }
 
 func tagValUnion(measurement *monitor.InfluxMeasurement, rtn map[string][]string) {
@@ -751,7 +746,6 @@ func getAttributesOnMeasurement(database, tp string, output *monitor.InfluxMeasu
 	if err != nil {
 		return errors.Wrap(err, "SHOW MEASUREMENTS")
 	}
-	log.Errorf("SHOW %s KEYS ON %s FROM %s", tp, database, output.Measurement)
 	if len(dbRtn) == 0 || len(dbRtn[0]) == 0 {
 		return nil
 	}
@@ -827,7 +821,6 @@ func (self *SDataSourceManager) getFilterMeasurementTagValue(tagValueChan *influ
 	}
 	buffer.WriteString(fmt.Sprintf(` GROUP BY %q`, tagKey))
 	rtn, err := db.Query(buffer.String())
-	log.Errorf("sql:", buffer.String())
 	if err != nil {
 		return errors.Wrap(err, "getFilterMeasurementTagValue query error")
 	}
