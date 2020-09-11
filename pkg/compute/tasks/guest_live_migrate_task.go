@@ -475,7 +475,7 @@ func (self *GuestMigrateTask) TaskFailed(ctx context.Context, guest *models.SGue
 	db.OpsLog.LogEvent(guest, db.ACT_MIGRATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_MIGRATE, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
-	notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_MIGRATE_FAILED, reason.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, guest.Id, guest.Name, api.VM_MIGRATE_FAILED, reason.String())
 }
 
 //ManagedGuestMigrateTask
@@ -527,7 +527,7 @@ func (self *ManagedGuestMigrateTask) OnMigrateCompleteFailed(ctx context.Context
 	db.OpsLog.LogEvent(guest, db.ACT_MIGRATE_FAIL, data, self.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_MIGRATE, data, self.UserCred, false)
 	self.SetStageFailed(ctx, data)
-	notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_MIGRATE_FAILED, data.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, guest.Id, guest.Name, api.VM_MIGRATE_FAILED, data.String())
 }
 
 //ManagedGuestLiveMigrateTask
@@ -565,5 +565,5 @@ func (self *ManagedGuestLiveMigrateTask) OnMigrateCompleteFailed(ctx context.Con
 	db.OpsLog.LogEvent(guest, db.ACT_MIGRATE_FAIL, data, self.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_MIGRATE, data, self.UserCred, false)
 	self.SetStageFailed(ctx, data)
-	notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_MIGRATE_FAILED, data.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, guest.Id, guest.Name, api.VM_MIGRATE_FAILED, data.String())
 }

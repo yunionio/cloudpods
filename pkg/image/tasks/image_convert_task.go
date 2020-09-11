@@ -61,8 +61,8 @@ func (self *ImageConvertTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 			if err == nil {
 				kwargs.Set("os_type", jsonutils.NewString(osType.Value))
 			}
-			notifyclient.SystemNotify(notify.NotifyPriorityNormal, notifyclient.IMAGE_ACTIVED, kwargs)
-			notifyclient.NotifyImportant([]string{self.UserCred.GetUserId()}, false, notifyclient.IMAGE_ACTIVED, kwargs)
+			notifyclient.SystemNotifyWithCtx(ctx, notify.NotifyPriorityNormal, notifyclient.IMAGE_ACTIVED, kwargs)
+			notifyclient.NotifyImportantWithCtx(ctx, []string{self.UserCred.GetUserId()}, false, notifyclient.IMAGE_ACTIVED, kwargs)
 		}
 		return nil, err
 	})

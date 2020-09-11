@@ -40,7 +40,7 @@ func (self *ElasticcacheParameterUpdateTask) taskFail(ctx context.Context, ep *m
 	ep.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_PARAMETER_STATUS_UPDATE_FAILED, reason.String())
 	db.OpsLog.LogEvent(ep, db.ACT_UPDATE, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, ep, logclient.ACT_UPDATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(ep.Id, ep.Name, api.ELASTIC_CACHE_PARAMETER_STATUS_UPDATE_FAILED, reason.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, ep.Id, ep.Name, api.ELASTIC_CACHE_PARAMETER_STATUS_UPDATE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 

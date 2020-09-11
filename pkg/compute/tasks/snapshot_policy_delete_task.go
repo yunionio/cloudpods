@@ -39,7 +39,7 @@ func (self *SnapshotPolicyDeleteTask) taskFail(ctx context.Context, sp *models.S
 	sp.SetStatus(self.GetUserCred(), api.SNAPSHOT_POLICY_DELETE_FAILED, reason.String())
 	db.OpsLog.LogEvent(sp, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, sp, logclient.ACT_DELOCATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(sp.Id, sp.Name, api.SNAPSHOT_POLICY_DELETE_FAILED, reason.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, sp.Id, sp.Name, api.SNAPSHOT_POLICY_DELETE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
