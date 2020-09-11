@@ -22,7 +22,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/util/stringutils"
@@ -462,8 +461,7 @@ func (manager *SSecurityGroupRuleManager) getRulesBySecurityGroup(secgroup *SSec
 	return rules, nil
 }
 
-func (manager *SSecurityGroupRuleManager) SyncRules(ctx context.Context, userCred mcclient.TokenCredential, secgroup *SSecurityGroup, rules cloudprovider.SecurityRuleSet) compare.SyncResult {
-	syncResult := compare.SyncResult{}
+func (self *SSecurityGroup) SyncRules(ctx context.Context, userCred mcclient.TokenCredential, rules cloudprovider.SecurityRuleSet) error {
 	priority, prePriority := 10, 0
 	for i := 0; i < len(rules); i++ {
 		// 这里避免了Rule规则优先级在 1-100之外的问题,ext.GetRules()不需要进行优先级转换
@@ -472,19 +470,17 @@ func (manager *SSecurityGroupRuleManager) SyncRules(ctx context.Context, userCre
 		}
 		prePriority = rules[i].Priority
 		rules[i].Priority = priority
-		_, err := manager.newFromCloudSecurityGroup(ctx, userCred, rules[i], secgroup)
+		_, err := self.newFromCloudSecurityGroupRule(ctx, userCred, rules[i])
 		if err != nil {
-			syncResult.AddError(err)
-			continue
+			return errors.Wrapf(err, "newFromCloudSecurityGroupRule")
 		}
-		syncResult.Add()
 	}
-	return syncResult
+	return nil
 }
 
-func (manager *SSecurityGroupRuleManager) newFromCloudSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, rule cloudprovider.SecurityRule, secgroup *SSecurityGroup) (*SSecurityGroupRule, error) {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+func (self *SSecurityGroup) newFromCloudSecurityGroupRule(ctx context.Context, userCred mcclient.TokenCredential, rule cloudprovider.SecurityRule) (*SSecurityGroupRule, error) {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
 
 	protocol := rule.Protocol
 	if len(protocol) == 0 {
@@ -505,11 +501,11 @@ func (manager *SSecurityGroupRuleManager) newFromCloudSecurityGroup(ctx context.
 		Action:      string(rule.Action),
 		Description: rule.Description,
 	}
-	secrule.SecgroupId = secgroup.Id
+	secrule.SecgroupId = self.Id
 
-	err := manager.TableSpec().Insert(ctx, secrule)
+	err := SecurityGroupRuleManager.TableSpec().Insert(ctx, secrule)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "SecurityGroupRuleManager.Insert")
 	}
 	return secrule, nil
 }

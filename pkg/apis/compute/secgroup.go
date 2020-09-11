@@ -248,3 +248,6 @@ type GuestsecgroupDetails struct {
 	// 安全组名称
 	Secgroup string `json:"secgroup"`
 }
+
+type SecurityGroupPurgeInput struct {
+}
