@@ -133,7 +133,6 @@ func Start(app *appsrv.Application) error {
 }
 
 func (agent *SEsxiAgent) AddImageCacheHandler(prefix string, app *appsrv.Application) {
-	hostutils.InitWorkerManager()
 	app.AddHandler("POST",
 		fmt.Sprintf("%s/disks/image_cache", prefix),
 		auth.Authenticate(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
