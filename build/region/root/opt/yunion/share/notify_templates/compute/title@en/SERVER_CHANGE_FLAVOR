@@ -1,0 +1,1 @@
+The instance type of your {{ .brand }} virtual machine {{ .name }} has been changed to: {{ index .flavor_info "cpu" }}-core CPU, {{ index .flavor_info "memory" }}M memory, {{ index .flavor_info "datadisk" }}G data disk, {{ index .flavor_info "ebw" }}M bandwidth
