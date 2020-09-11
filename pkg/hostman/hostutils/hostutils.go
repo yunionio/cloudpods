@@ -188,7 +188,11 @@ func DelayTaskWithWorker(
 }
 
 func InitWorkerManager() {
-	wm = workmanager.NewWorkManger(TaskFailed, TaskComplete, options.HostOptions.DefaultRequestWorkerCount)
+	InitWorkerManagerWithCount(options.HostOptions.DefaultRequestWorkerCount)
+}
+
+func InitWorkerManagerWithCount(count int) {
+	wm = workmanager.NewWorkManger(TaskFailed, TaskComplete, count)
 }
 
 func InitK8sWorkerManager() {
