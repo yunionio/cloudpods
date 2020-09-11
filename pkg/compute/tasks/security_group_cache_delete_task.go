@@ -16,7 +16,6 @@ package tasks
 
 import (
 	"context"
-	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -26,7 +25,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type SecurityGroupCacheDeleteTask struct {
@@ -39,10 +37,6 @@ func init() {
 
 func (self *SecurityGroupCacheDeleteTask) taskFailed(ctx context.Context, cache *models.SSecurityGroupCache, err error) {
 	cache.SetStatus(self.UserCred, api.SECGROUP_CACHE_STATUS_DELETE_FAILED, err.Error())
-	secgroup, _ := cache.GetSecgroup()
-	if secgroup != nil {
-		logclient.AddActionLogWithStartable(self, secgroup, logclient.ACT_DELETE, err, self.UserCred, false)
-	}
 	self.SetStageFailed(ctx, err.Error())
 }
 
@@ -54,38 +48,18 @@ func (self *SecurityGroupCacheDeleteTask) taskComplete(ctx context.Context, cach
 func (self *SecurityGroupCacheDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	cache := obj.(*models.SSecurityGroupCache)
 
-	if len(cache.ExternalId) == 0 {
-		self.taskComplete(ctx, cache)
-		return
-	}
-
-	_, err := models.CloudproviderManager.FetchById(cache.ManagerId)
-	if err == sql.ErrNoRows {
-		self.taskComplete(ctx, cache)
-		return
-	}
-
-	iRegion, err := cache.GetIRegion()
+	iSecgroup, err := cache.GetISecurityGroup()
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			self.taskComplete(ctx, cache)
 			return
 		}
-		self.taskFailed(ctx, cache, errors.Wrap(err, "cache.GetIRegion"))
-		return
-	}
-	iSecgroup, err := iRegion.GetISecurityGroupById(cache.ExternalId)
-	if err != nil {
-		if err == cloudprovider.ErrNotFound {
-			self.taskComplete(ctx, cache)
-			return
-		}
-		self.taskFailed(ctx, cache, errors.Wrap(err, "iRegion.GetIStoragecacheById"))
+		self.taskFailed(ctx, cache, errors.Wrapf(err, "GetISecurityGroup"))
 		return
 	}
 	err = iSecgroup.Delete()
 	if err != nil {
-		self.taskFailed(ctx, cache, err)
+		self.taskFailed(ctx, cache, errors.Wrapf(err, "iSecgroup.Delete"))
 		return
 	}
 	self.taskComplete(ctx, cache)

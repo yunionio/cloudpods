@@ -37,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -539,6 +540,14 @@ func totalSecurityGroupCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdent
 	return q.CountWithError()
 }
 
+func (self *SSecurityGroup) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "purge")
+}
+
+func (self *SSecurityGroup) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return nil, self.StartDeleteSecurityGroupTask(ctx, userCred, true, "")
+}
+
 func (self *SSecurityGroup) AllowPerformUncacheSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "uncache-secgroup")
 }
@@ -821,7 +830,57 @@ func (manager *SSecurityGroupManager) getSecurityGroups() ([]SSecurityGroup, err
 	}
 }
 
-func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extSec cloudprovider.ICloudSecurityGroup) (*SSecurityGroup, error) {
+func (self *SSecurityGroup) cleanRules(ctx context.Context, userCred mcclient.TokenCredential) error {
+	rules := []SSecurityGroupRule{}
+	q := SecurityGroupRuleManager.Query().Equals("secgroup_id", self.Id)
+	err := db.FetchModelObjects(SecurityGroupRuleManager, q, &rules)
+	if err != nil {
+		return errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	for i := range rules {
+		err = rules[i].Delete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "DeleteRule(%s)", rules[i].Id)
+		}
+	}
+	return nil
+}
+
+func (self *SSecurityGroup) SyncSecurityGroupRules(ctx context.Context, userCred mcclient.TokenCredential, info *sRuleInfo) error {
+	inRules := cloudprovider.AddDefaultRule(info.inRules, info.defaultInRule, "in:deny any", info.order, info.minPriority, info.maxPriority, info.onlyAllowRules)
+	cloudprovider.SortSecurityRule(inRules, info.order, info.onlyAllowRules)
+	outRules := cloudprovider.AddDefaultRule(info.outRules, info.defaultOutRule, "out:allow any", info.order, info.minPriority, info.maxPriority, info.onlyAllowRules)
+	cloudprovider.SortSecurityRule(outRules, info.order, info.onlyAllowRules)
+
+	err := self.cleanRules(ctx, userCred)
+	if err != nil {
+		return errors.Wrapf(err, "cleanRules")
+	}
+
+	err = self.SyncRules(ctx, userCred, inRules)
+	if err != nil {
+		return errors.Wrapf(err, "SyncInRules")
+	}
+	err = self.SyncRules(ctx, userCred, outRules)
+	if err != nil {
+		return errors.Wrapf(err, "SyncOutRules")
+	}
+	return nil
+}
+
+type sRuleInfo struct {
+	rules          []cloudprovider.SecurityRule
+	inRules        []cloudprovider.SecurityRule
+	outRules       []cloudprovider.SecurityRule
+	defaultInRule  cloudprovider.SecurityRule
+	defaultOutRule cloudprovider.SecurityRule
+	order          cloudprovider.TPriorityOrder
+	onlyAllowRules bool
+	maxPriority    int
+	minPriority    int
+}
+
+func (manager *SSecurityGroupManager) getRuleInfo(provider *SCloudprovider, extSec cloudprovider.ICloudSecurityGroup) (*sRuleInfo, error) {
 	regionDriver, err := provider.GetRegionDriver()
 	if err != nil {
 		return nil, errors.Wrap(err, "provider.GetRegionDriver")
@@ -832,36 +891,48 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 		return nil, errors.Wrap(err, "extSec.GetRules")
 	}
 
-	inRules := []cloudprovider.SecurityRule{}
-	outRules := []cloudprovider.SecurityRule{}
+	info := &sRuleInfo{
+		rules:          rules,
+		inRules:        []cloudprovider.SecurityRule{},
+		outRules:       []cloudprovider.SecurityRule{},
+		defaultInRule:  regionDriver.GetDefaultSecurityGroupInRule(),
+		defaultOutRule: regionDriver.GetDefaultSecurityGroupOutRule(),
+		order:          regionDriver.GetSecurityGroupRuleOrder(),
+		onlyAllowRules: regionDriver.IsOnlySupportAllowRules(),
+		maxPriority:    regionDriver.GetSecurityGroupRuleMaxPriority(),
+		minPriority:    regionDriver.GetSecurityGroupRuleMinPriority(),
+	}
+
 	for i := range rules {
 		if rules[i].Direction == secrules.DIR_IN {
-			inRules = append(inRules, rules[i])
+			info.inRules = append(info.inRules, rules[i])
 		} else {
-			outRules = append(outRules, rules[i])
+			info.outRules = append(info.outRules, rules[i])
 		}
 	}
+	return info, nil
+}
 
-	maxPriority := regionDriver.GetSecurityGroupRuleMaxPriority()
-	minPriority := regionDriver.GetSecurityGroupRuleMinPriority()
-
-	defaultInRule := regionDriver.GetDefaultSecurityGroupInRule()
-	defaultOutRule := regionDriver.GetDefaultSecurityGroupOutRule()
-	order := regionDriver.GetSecurityGroupRuleOrder()
-	onlyAllowRules := regionDriver.IsOnlySupportAllowRules()
-
-	// 查询与provider在同域的安全组，比对寻找一个与云上安全组规则相同的安全组
-	secgroups := []SSecurityGroup{}
-	q := manager.Query().Equals("domain_id", provider.DomainId)
-	err = db.FetchModelObjects(manager, q, &secgroups)
+func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extSec cloudprovider.ICloudSecurityGroup) (*SSecurityGroup, error) {
+	info, err := manager.getRuleInfo(provider, extSec)
 	if err != nil {
-		return nil, errors.Wrap(err, "db.FetchModelObjects")
+		return nil, errors.Wrapf(err, "getRuleInfo")
 	}
-	for i := range secgroups {
-		localRules := secrules.SecurityRuleSet(secgroups[i].GetSecRules(""))
-		_, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(minPriority, maxPriority, order, localRules, rules, defaultInRule, defaultOutRule, onlyAllowRules, false)
-		if len(inAdds) == 0 && len(outAdds) == 0 && len(inDels) == 0 && len(outDels) == 0 {
-			return &secgroups[i], nil
+
+	if options.Options.EnableAutoMergeSecurityGroup {
+		// 查询与provider在同域的安全组，比对寻找一个与云上安全组规则相同的安全组
+		secgroups := []SSecurityGroup{}
+		q := manager.Query().Equals("domain_id", provider.DomainId)
+		err = db.FetchModelObjects(manager, q, &secgroups)
+		if err != nil {
+			return nil, errors.Wrap(err, "db.FetchModelObjects")
+		}
+		for i := range secgroups {
+			localRules := secrules.SecurityRuleSet(secgroups[i].GetSecRules(""))
+			_, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(info.minPriority, info.maxPriority, info.order, localRules, info.rules, info.defaultInRule, info.defaultOutRule, info.onlyAllowRules, false)
+			if len(inAdds) == 0 && len(outAdds) == 0 && len(inDels) == 0 && len(outDels) == 0 {
+				return &secgroups[i], nil
+			}
 		}
 	}
 
@@ -870,31 +941,26 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 
 	secgroup := SSecurityGroup{}
 	secgroup.SetModelManager(manager, &secgroup)
-	newName, err := db.GenerateName(manager, userCred, extSec.GetName())
+	secgroup.Name, err = db.GenerateName(manager, userCred, extSec.GetName())
 	if err != nil {
 		return nil, err
 	}
 
-	secgroup.Name = newName
 	secgroup.Description = extSec.GetDescription()
 	secgroup.ProjectId = provider.ProjectId
 	secgroup.DomainId = provider.DomainId
 
-	if err := manager.TableSpec().Insert(ctx, &secgroup); err != nil {
-		return nil, err
+	err = manager.TableSpec().Insert(ctx, &secgroup)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Insert")
 	}
 
-	//这里必须先同步下规则,不然下次对比此安全组规则为空
-	inRules = cloudprovider.AddDefaultRule(inRules, defaultInRule, "in:deny any", order, minPriority, maxPriority, onlyAllowRules)
-	cloudprovider.SortSecurityRule(inRules, order, onlyAllowRules)
-	outRules = cloudprovider.AddDefaultRule(outRules, defaultOutRule, "out:allow any", order, minPriority, maxPriority, onlyAllowRules)
-	cloudprovider.SortSecurityRule(outRules, order, onlyAllowRules)
-
-	SecurityGroupRuleManager.SyncRules(ctx, userCred, &secgroup, inRules)
-	SecurityGroupRuleManager.SyncRules(ctx, userCred, &secgroup, outRules)
+	err = secgroup.SyncSecurityGroupRules(ctx, userCred, info)
+	if err != nil {
+		return nil, errors.Wrapf(err, "SyncSecurityGroupRules")
+	}
 
 	db.OpsLog.LogEvent(&secgroup, db.ACT_CREATE, secgroup.GetShortDesc(ctx), userCred)
-
 	return &secgroup, nil
 }
 
@@ -1035,10 +1101,12 @@ func (self *SSecurityGroup) GetSecurityGroupCaches() []SSecurityGroupCache {
 }
 
 func (self *SSecurityGroup) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	return self.StartDeleteSecurityGroupTask(ctx, userCred, jsonutils.NewDict(), "")
+	return self.StartDeleteSecurityGroupTask(ctx, userCred, false, "")
 }
 
-func (self *SSecurityGroup) StartDeleteSecurityGroupTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+func (self *SSecurityGroup) StartDeleteSecurityGroupTask(ctx context.Context, userCred mcclient.TokenCredential, isPurge bool, parentTaskId string) error {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewBool(isPurge), "purge")
 	self.SetStatus(userCred, api.SECGROUP_STATUS_DELETING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "SecurityGroupDeleteTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
