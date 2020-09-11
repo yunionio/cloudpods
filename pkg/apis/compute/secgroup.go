@@ -257,3 +257,6 @@ type SecgroupMergeInput struct {
 	// Deprecated
 	Secgroups []string `json:"secgroup" yunion-deprecated-by:"secgroup_ids"`
 }
+
+type SecurityGroupPurgeInput struct {
+}
