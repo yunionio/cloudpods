@@ -19,18 +19,19 @@ import common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 type EsxiOptions struct {
 	common_options.CommonOptions
 
-	ListenInterface         string `help:"Master address of host server" default:"br0"`
-	ListenAddress           string `help:"Host serve IP address to select when multiple address bind to ListenInterface"`
-	EsxiAgentPath           string `default:"/opt/cloud/workspace/esxi_agent" help:"Path for esxi agent configuration files"`
-	ImageCachePath          string `help:"Path for storing image caches"`
-	ImageCacheLimit         int    `help:"Maximal storage space for image caching, in GB" default:"20"`
-	AgentTempPath           string `help:"Path for ESXI Agent"`
-	AgentTempLimit          int    `help:"Maximal storage space for ESXi agent, in GB" default:"20"`
-	LinuxDefaultRootUser    bool   `help:"Default account for Linux system is root" default:"false"`
-	WindowsDefaultAdminUser bool   `help:"Default account for Windows system is Administrator" default:"true"`
-	DefaultImageSaveFormat  string `help:"Default image save format, default is vmdk, canbe qcow2" default:"vmdk"`
-	Zone                    string `help:"Zone where the agent locates"`
-	DeployServerSocketPath  string `help:"Deploy server listen socket path" default:"/var/run/deploy.sock"`
+	ListenInterface          string `help:"Master address of host server" default:"br0"`
+	ListenAddress            string `help:"Host serve IP address to select when multiple address bind to ListenInterface"`
+	EsxiAgentPath            string `default:"/opt/cloud/workspace/esxi_agent" help:"Path for esxi agent configuration files"`
+	ImageCachePath           string `help:"Path for storing image caches"`
+	ImageCacheLimit          int    `help:"Maximal storage space for image caching, in GB" default:"20"`
+	AgentTempPath            string `help:"Path for ESXI Agent"`
+	AgentTempLimit           int    `help:"Maximal storage space for ESXi agent, in GB" default:"20"`
+	LinuxDefaultRootUser     bool   `help:"Default account for Linux system is root" default:"false"`
+	WindowsDefaultAdminUser  bool   `help:"Default account for Windows system is Administrator" default:"true"`
+	DefaultImageSaveFormat   string `help:"Default image save format, default is vmdk, canbe qcow2" default:"vmdk"`
+	Zone                     string `help:"Zone where the agent locates"`
+	DeployServerSocketPath   string `help:"Deploy server listen socket path" default:"/var/run/deploy.sock"`
+	HostDelayTaskWorkerCount int    `default:"8" help:"Host delay worker thread count, default is 8"`
 }
 
 var (
