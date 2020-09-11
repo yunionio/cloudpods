@@ -23,6 +23,7 @@ import (
 
 type CloudeventListInput struct {
 	apis.ModelBaseListInput
+	apis.ProjectizedResourceListInput
 
 	compute.CloudenvResourceListInput
 
@@ -42,4 +43,10 @@ type CloudeventListInput struct {
 	Since time.Time `json:"since"`
 	// 操作日志截止时间
 	Until time.Time `json:"until"`
+}
+
+type CloudeventDetails struct {
+	apis.ModelBaseDetails
+	apis.ProjectizedResourceInfo
+	SCloudevent
 }
