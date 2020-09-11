@@ -337,6 +337,17 @@ func (opts *BaseUpdateOptions) GetId() string {
 	return opts.ID
 }
 
+func (opts *BaseUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	if len(opts.Name) > 0 {
+		params.Add(jsonutils.NewString(opts.Name), "name")
+	}
+	if len(opts.Desc) > 0 {
+		params.Add(jsonutils.NewString(opts.Desc), "description")
+	}
+	return params, nil
+}
+
 type BasePublicOptions struct {
 	ID            string   `help:"ID or name of resource" json:"-"`
 	Scope         string   `help:"sharing scope" choices:"system|domain"`

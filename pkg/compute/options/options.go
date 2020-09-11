@@ -145,6 +145,8 @@ type ComputeOptions struct {
 	SASControllerOptions
 	common_options.CommonOptions
 	common_options.DBOptions
+
+	EnableAutoMergeSecurityGroup bool `help:"Enable auto merge secgroup when sync security group from cloud, default False" default:"false"`
 }
 
 type SCapabilityOptions struct {
