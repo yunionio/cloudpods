@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/esxi/options"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
+	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 )
 
 type SExsiAgentService struct {
@@ -70,6 +71,7 @@ func (s *SExsiAgentService) StartService() {
 	fsdriver.Init(nil)
 	deployclient.Init(options.Options.DeployServerSocketPath)
 
+	hostutils.InitWorkerManagerWithCount(options.Options.HostDelayTaskWorkerCount)
 	app := app_common.InitApp(&options.Options.BaseOptions, false)
 	handler.InitHandlers(app)
 
