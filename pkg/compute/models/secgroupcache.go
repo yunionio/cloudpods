@@ -355,6 +355,39 @@ func (self *SSecurityGroupCache) GetSecgroup() (*SSecurityGroup, error) {
 	return model.(*SSecurityGroup), nil
 }
 
+func (self *SSecurityGroupCache) syncWithCloudSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudSecurityGroup) error {
+	_, err := db.Update(self, func() error {
+		self.Status = api.SECGROUP_CACHE_STATUS_READY
+		self.Name = ext.GetName()
+		self.Description = ext.GetDescription()
+		self.ExternalProjectId = ext.GetProjectId()
+		return nil
+	})
+	if err != nil {
+		return errors.Wrapf(err, "db.Update")
+	}
+	secgroup, err := self.GetSecgroup()
+	if err != nil {
+		return errors.Wrapf(err, "GetSecurity")
+	}
+	cacheCount, err := secgroup.GetSecgroupCacheCount()
+	if err != nil {
+		return errors.Wrapf(err, "GetSecgroupCacheCount")
+	}
+	if cacheCount > 1 {
+		return nil
+	}
+	info, err := SecurityGroupManager.getRuleInfo(provider, ext)
+	if err != nil {
+		return errors.Wrapf(err, "getRuleInfo")
+	}
+	err = secgroup.SyncSecurityGroupRules(ctx, userCred, info)
+	if err != nil {
+		return errors.Wrapf(err, "SyncSecurityGroupRules")
+	}
+	return nil
+}
+
 func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, secgroups []cloudprovider.ICloudSecurityGroup, vpc *SVpc) ([]SSecurityGroup, []cloudprovider.ICloudSecurityGroup, compare.SyncResult) {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
@@ -415,25 +448,18 @@ func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.C
 	}
 
 	for i := 0; i < len(commondb); i++ {
-		_, err = db.Update(&commondb[i], func() error {
-			commondb[i].Status = api.SECGROUP_CACHE_STATUS_READY
-			commondb[i].Name = commonext[i].GetName()
-			commondb[i].Description = commonext[i].GetDescription()
-			commondb[i].ExternalProjectId = commonext[i].GetProjectId()
-			return nil
-		})
+		err = commondb[i].syncWithCloudSecurityGroup(ctx, userCred, provider, commonext[i])
 		if err != nil {
-			syncResult.UpdateError(err)
-		} else {
-			syncResult.Update()
+			syncResult.UpdateError(errors.Wrapf(err, "syncWithCloudSecurityGroup"))
+			continue
 		}
+		syncResult.Update()
 	}
 
-	//相同的不能同步, 原因: 多个平台的安全组可能共用一个本地安全组,下面仅仅是新加的安全组
 	for i := 0; i < len(added); i++ {
 		secgroup, err := SecurityGroupManager.newFromCloudSecgroup(ctx, userCred, provider, added[i])
 		if err != nil {
-			syncResult.AddError(err)
+			syncResult.AddError(errors.Wrapf(err, "newFromCloudSecgroup"))
 			continue
 		}
 		if secgroup.ProjectId != provider.ProjectId {
@@ -450,7 +476,7 @@ func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.C
 		}
 		cache, err := manager.NewCache(ctx, userCred, secgroup.Id, vpcId, vpc.CloudregionId, provider.Id, added[i].GetProjectId())
 		if err != nil {
-			syncResult.AddError(fmt.Errorf("failed to create secgroup cache for secgroup %s(%s) provider: %s: %s", secgroup.Name, secgroup.Name, provider.Name, err))
+			syncResult.AddError(errors.Wrapf(err, "NewCache for secgroup %s provider %s", secgroup.Name, provider.Name))
 			continue
 		}
 		_, err = db.Update(cache, func() error {
@@ -461,7 +487,7 @@ func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.C
 			return nil
 		})
 		if err != nil {
-			syncResult.AddError(err)
+			syncResult.AddError(errors.Wrapf(err, "db.Update"))
 			continue
 		}
 		localSecgroups = append(localSecgroups, *secgroup)
@@ -559,4 +585,21 @@ func (manager *SSecurityGroupCacheManager) ListItemExportKeys(ctx context.Contex
 	}
 
 	return q, nil
+}
+
+func (self *SSecurityGroupCache) GetISecurityGroup() (cloudprovider.ICloudSecurityGroup, error) {
+	if len(self.ExternalId) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty externalId")
+	}
+
+	manager := self.GetCloudprovider()
+	if manager == nil {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "failed to found manager")
+	}
+
+	iRegion, err := self.GetIRegion()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetIRegion")
+	}
+	return iRegion.GetISecurityGroupById(self.ExternalId)
 }
