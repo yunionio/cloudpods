@@ -553,3 +553,22 @@ func (manager *SStoragecachedimageManager) OrderByExtraFields(
 
 	return q, nil
 }
+
+func (manager *SStoragecachedimageManager) InitializeData() error {
+	images := []SStoragecachedimage{}
+	q := manager.Query().Equals("status", "ready")
+	err := db.FetchModelObjects(manager, q, &images)
+	if err != nil {
+		return errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	for i := range images {
+		_, err := db.Update(&images[i], func() error {
+			images[i].Status = api.CACHED_IMAGE_STATUS_ACTIVE
+			return nil
+		})
+		if err != nil {
+			return errors.Wrapf(err, "db.Update(%d)", images[i].RowId)
+		}
+	}
+	return nil
+}
