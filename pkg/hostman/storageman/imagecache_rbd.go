@@ -24,7 +24,6 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
-	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -75,11 +74,11 @@ func (r *SRbdImageCache) Acquire(ctx context.Context, zone, srcUrl, format strin
 	}
 	r.imageName = localImageCache.GetName()
 	if !r.Load() {
-		log.Debugf("convert local image %s to rbd pool %s", r.imageId, r.Manager.GetPath())
+		log.Infof("convert local image %s to rbd pool %s", r.imageId, r.Manager.GetPath())
 		err := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuImg(),
 			"convert", "-O", "raw", localImageCache.GetPath(), r.GetPath()).Run()
 		if err != nil {
-			log.Errorf("failed to convert image %s", options.HostOptions.ServersPath)
+			log.Errorf("failed to convert image %s", err)
 			return false
 		}
 	}
