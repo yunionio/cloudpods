@@ -69,7 +69,7 @@ func (self *GuestCreateTask) OnDiskPreparedFailed(ctx context.Context, obj db.IS
 	guest.SetStatus(self.UserCred, api.VM_DISK_FAILED, "allocation failed")
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
-	notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_DISK_FAILED, data.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, guest.Id, guest.Name, api.VM_DISK_FAILED, data.String())
 	self.SetStageFailed(ctx, data)
 }
 
@@ -98,7 +98,7 @@ func (self *GuestCreateTask) OnCdromPreparedFailed(ctx context.Context, obj db.I
 	guest.SetStatus(self.UserCred, api.VM_DISK_FAILED, "")
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
-	notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_DISK_FAILED, fmt.Sprintf("cdrom_failed %s", data))
+	notifyclient.NotifySystemErrorWithCtx(ctx, guest.Id, guest.Name, api.VM_DISK_FAILED, fmt.Sprintf("cdrom_failed %s", data))
 	self.SetStageFailed(ctx, data)
 }
 
@@ -141,7 +141,7 @@ func (self *GuestCreateTask) OnDeployGuestDescComplete(ctx context.Context, obj 
 
 func (self *GuestCreateTask) notifyServerCreated(ctx context.Context, guest *models.SGuest) {
 	guest.NotifyServerEvent(
-		self.UserCred, notifyclient.SERVER_CREATED,
+		ctx, self.UserCred, notifyclient.SERVER_CREATED,
 		notify.NotifyPriorityImportant, true, nil, false,
 	)
 	guest.NotifyAdminServerEvent(ctx, notifyclient.SERVER_CREATED_ADMIN, notify.NotifyPriorityImportant)
@@ -152,7 +152,7 @@ func (self *GuestCreateTask) OnDeployGuestDescCompleteFailed(ctx context.Context
 	guest.SetStatus(self.UserCred, api.VM_DEPLOY_FAILED, "deploy_failed")
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
-	notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_DEPLOY_FAILED, data.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, guest.Id, guest.Name, api.VM_DEPLOY_FAILED, data.String())
 	self.SetStageFailed(ctx, data)
 }
 
@@ -193,7 +193,7 @@ func (self *GuestCreateTask) OnDeployEipCompleteFailed(ctx context.Context, obj 
 	guest.SetStatus(self.UserCred, api.VM_ASSOCIATE_EIP_FAILED, "deploy_failed")
 	db.OpsLog.LogEvent(guest, db.ACT_EIP_ATTACH, data, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_EIP_ASSOCIATE, data, self.UserCred, false)
-	notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_ASSOCIATE_EIP_FAILED, data.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, guest.Id, guest.Name, api.VM_ASSOCIATE_EIP_FAILED, data.String())
 	self.SetStageFailed(ctx, data)
 }
 

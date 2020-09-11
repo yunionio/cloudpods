@@ -159,7 +159,7 @@ func (self *LoadbalancerListenerCreateTask) taskFail(ctx context.Context, lblis 
 	lblis.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, reason.String())
 	db.OpsLog.LogEvent(lblis, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_CREATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lblis.Id, lblis.Name, api.LB_CREATE_FAILED, reason.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, lblis.Id, lblis.Name, api.LB_CREATE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 

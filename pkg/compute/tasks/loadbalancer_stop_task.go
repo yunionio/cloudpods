@@ -40,7 +40,7 @@ func (self *LoadbalancerStopTask) taskFail(ctx context.Context, lb *models.SLoad
 	lb.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, reason.String())
 	db.OpsLog.LogEvent(lb, db.ACT_DISABLE, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_DISABLE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lb.Id, lb.Name, api.LB_STATUS_ENABLED, reason.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, lb.Id, lb.Name, api.LB_STATUS_ENABLED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 

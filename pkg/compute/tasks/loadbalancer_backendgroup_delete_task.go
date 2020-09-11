@@ -40,7 +40,7 @@ func (self *LoadbalancerBackendGroupDeleteTask) taskFail(ctx context.Context, lb
 	lbbg.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, reason.String())
 	db.OpsLog.LogEvent(lbbg, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbbg, logclient.ACT_DELOCATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lbbg.Id, lbbg.Name, api.LB_STATUS_DELETE_FAILED, reason.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, lbbg.Id, lbbg.Name, api.LB_STATUS_DELETE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 

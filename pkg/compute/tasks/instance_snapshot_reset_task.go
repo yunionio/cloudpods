@@ -45,7 +45,7 @@ func (self *InstanceSnapshotResetTask) taskFail(
 
 	db.OpsLog.LogEvent(guest, db.ACT_VM_RESET_SNAPSHOT_FAILED, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_RESET, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(guest.GetId(), isp.Name, compute.VM_SNAPSHOT_RESET_FAILED, reason.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, guest.GetId(), isp.Name, compute.VM_SNAPSHOT_RESET_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 

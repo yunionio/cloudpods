@@ -40,7 +40,7 @@ func (self *LoadbalancerListenerSyncTask) taskFail(ctx context.Context, lblis *m
 	lblis.SetStatus(self.GetUserCred(), api.LB_SYNC_CONF_FAILED, reason.String())
 	db.OpsLog.LogEvent(lblis, db.ACT_SYNC_CONF, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_SYNC_CONF, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lblis.Id, lblis.Name, api.LB_SYNC_CONF_FAILED, reason.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, lblis.Id, lblis.Name, api.LB_SYNC_CONF_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 

@@ -40,7 +40,7 @@ func (self *LoadbalancerAclSyncTask) taskFail(ctx context.Context, lbacl *models
 	lbacl.SetStatus(self.GetUserCred(), api.LB_SYNC_CONF_FAILED, reason.String())
 	db.OpsLog.LogEvent(lbacl, db.ACT_SYNC_CONF, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_SYNC_CONF, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lbacl.Id, lbacl.Name, api.LB_SYNC_CONF_FAILED, reason.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, lbacl.Id, lbacl.Name, api.LB_SYNC_CONF_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 

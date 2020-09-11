@@ -40,7 +40,7 @@ func (self *LoadbalancerCertificateCreateTask) taskFail(ctx context.Context, lbc
 	lbcert.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, reason.String())
 	db.OpsLog.LogEvent(lbcert, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbcert, logclient.ACT_CREATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lbcert.Id, lbcert.Name, api.LB_CREATE_FAILED, reason.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, lbcert.Id, lbcert.Name, api.LB_CREATE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 

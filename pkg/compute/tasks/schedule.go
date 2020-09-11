@@ -70,7 +70,7 @@ func (self *SSchedTask) OnScheduleFailCallback(ctx context.Context, obj ISchedul
 	obj.SetStatus(self.GetUserCred(), api.VM_SCHEDULE_FAILED, reason.String())
 	db.OpsLog.LogEvent(obj, db.ACT_ALLOCATE_FAIL, reason, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, obj, logclient.ACT_ALLOCATE, reason, self.GetUserCred(), false)
-	notifyclient.NotifySystemError(obj.GetId(), obj.GetName(), api.VM_SCHEDULE_FAILED, reason.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, obj.GetId(), obj.GetName(), api.VM_SCHEDULE_FAILED, reason.String())
 }
 
 func (self *SSchedTask) OnScheduleComplete(ctx context.Context, items []db.IStandaloneModel, data *jsonutils.JSONDict) {
