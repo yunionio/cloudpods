@@ -421,8 +421,11 @@ func (self *SElasticip) SyncInstanceWithCloudEip(ctx context.Context, userCred m
 			case api.EIP_ASSOCIATE_TYPE_SERVER:
 				sq := HostManager.Query().SubQuery()
 				return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("host_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), self.ManagerId))
-			case api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY, api.EIP_ASSOCIATE_TYPE_LOADBALANCER:
+			case api.EIP_ASSOCIATE_TYPE_LOADBALANCER:
 				return q.Equals("manager_id", self.ManagerId)
+			case api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY:
+				sq := VpcManager.Query("id").Equals("manager_id", self.ManagerId)
+				return q.In("vpc_id", sq.SubQuery())
 			}
 			return q
 		})
