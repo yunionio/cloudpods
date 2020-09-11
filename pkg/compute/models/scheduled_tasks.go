@@ -493,12 +493,16 @@ func (st *SScheduledTask) Execute(ctx context.Context, userCred mcclient.TokenCr
 	}
 	failedReasons := make([]string, 0, 1)
 	succeedIds := make([]string, 0, 1)
+	displayStrs, err := st.id2displayStr(ids)
+	if err != nil {
+		return err
+	}
 	for _, ret := range results {
 		if ret.succeed {
-			succeedIds = append(succeedIds, ret.id)
+			succeedIds = append(succeedIds, displayStrs[ret.id])
 			continue
 		}
-		failedReasons = append(failedReasons, fmt.Sprintf("\t%s: %s", ret.id, ret.reason))
+		failedReasons = append(failedReasons, fmt.Sprintf("\t%s: %s", displayStrs[ret.id], ret.reason))
 	}
 	if len(failedReasons) == 0 {
 		sa.Succeed()
@@ -512,6 +516,30 @@ func (st *SScheduledTask) Execute(ctx context.Context, userCred mcclient.TokenCr
 	reason := fmt.Sprintf("Some %ss %s successfully:\n\t%s\n\n. Some %ss %s failed:\n%s", st.ResourceType, st.Operation, strings.Join(succeedIds, ";"), st.ResourceType, st.Operation, strings.Join(failedReasons, ";\n"))
 	sa.PartFail(reason)
 	return nil
+}
+
+func (st *SScheduledTask) id2displayStr(ids []string) (map[string]string, error) {
+	ret := make(map[string]string, len(ids))
+	if st.ResourceType != api.ST_RESOURCE_SERVER {
+		for _, id := range ids {
+			ret[id] = id
+		}
+		return ret, nil
+	}
+	type idName struct {
+		Id   string
+		Name string
+	}
+	q := GuestManager.Query("id", "name").In("id", ids)
+	idNames := make([]idName, 0, len(ids))
+	err := q.All(&idNames)
+	if err != nil {
+		return nil, errors.Wrap(err, "SQuery.All")
+	}
+	for _, idName := range idNames {
+		ret[idName.Id] = fmt.Sprintf("%s(%s)", idName.Name, idName.Id)
+	}
+	return ret, nil
 }
 
 func (st *SScheduledTask) NewActivity(ctx context.Context, reject bool) (*SScheduledTaskActivity, error) {
