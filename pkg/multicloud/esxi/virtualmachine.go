@@ -43,6 +43,7 @@ import (
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
+	"yunion.io/x/onecloud/pkg/util/version"
 )
 
 var VIRTUAL_MACHINE_PROPS = []string{"name", "parent", "runtime", "summary", "config", "guest", "resourcePool", "layoutEx"}
@@ -577,11 +578,14 @@ func (self *SVirtualMachine) doDetachDisk(ctx context.Context, vdisk *SVirtualDi
 }
 
 func (self *SVirtualMachine) GetVNCInfo() (jsonutils.JSONObject, error) {
-	info, err := self.acquireWebmksTicket("webmks")
-	if err != nil {
-		info, err = self.acquireVmrcUrl()
+	hostVer := self.GetIHost().GetVersion()
+	if version.GE(hostVer, "6.5") {
+		info, err := self.acquireWebmksTicket("webmks")
+		if err == nil {
+			return info, nil
+		}
 	}
-	return info, err
+	return self.acquireVmrcUrl()
 }
 
 func (self *SVirtualMachine) acquireWebmksTicket(ticketType string) (jsonutils.JSONObject, error) {
@@ -603,14 +607,6 @@ func (self *SVirtualMachine) acquireWebmksTicket(ticketType string) (jsonutils.J
 	if port == 0 {
 		port = 443
 	}
-	/*
-		ret.Add(jsonutils.NewString(ticketType), "type")
-		ret.Add(jsonutils.NewString(ticket.Host), "host")
-		ret.Add(jsonutils.NewInt(int64(ticket.Port)), "port")
-		ret.Add(jsonutils.NewString(ticket.Ticket), "ticket")
-		ret.Add(jsonutils.NewString(ticket.SslThumbprint), "slThumbprint")
-		ret.Add(jsonutils.NewString(ticket.CfgFile), "cfgFile")
-	*/
 	url := fmt.Sprintf("wss://%s:%d/ticket/%s", host, port, ticket.Ticket)
 	ret.Add(jsonutils.NewString("wmks"), "protocol")
 	ret.Add(jsonutils.NewString(url), "url")
