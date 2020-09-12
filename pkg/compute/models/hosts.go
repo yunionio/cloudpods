@@ -4928,10 +4928,9 @@ func (host *SHost) PerformHostMaintenance(ctx context.Context, userCred mcclient
 		}
 		host := iHost.(*SHost)
 		preferHostId = host.Id
-		if db.IsAdminAllowPerform(userCred, host, "assign-host") {
-		} else if db.IsDomainAllowPerform(userCred, host, "assign-host") && userCred.GetProjectDomainId() == host.DomainId {
-		} else {
-			return nil, httperrors.NewNotSufficientPrivilegeError("Only system admin can assign host")
+		err := host.IsAssignable(userCred)
+		if err != nil {
+			return nil, errors.Wrap(err, "IsAssignable")
 		}
 	}
 
@@ -5477,5 +5476,18 @@ func (manager *SHostManager) FetchHostByExtId(extid string) *SHost {
 		return nil
 	} else {
 		return &host
+	}
+}
+
+func (host *SHost) IsAssignable(userCred mcclient.TokenCredential) error {
+	if db.IsAdminAllowPerform(userCred, host, "assign-host") {
+		return nil
+	} else if db.IsDomainAllowPerform(userCred, host, "assign-host") &&
+		(userCred.GetProjectDomainId() == host.DomainId ||
+			host.PublicScope == string(rbacutils.ScopeSystem) ||
+			(host.PublicScope == string(rbacutils.ScopeDomain) && utils.IsInStringArray(userCred.GetProjectDomainId(), host.GetSharedDomains()))) {
+		return nil
+	} else {
+		return httperrors.NewNotSufficientPrivilegeError("Only system admin can assign host")
 	}
 }

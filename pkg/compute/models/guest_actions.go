@@ -4417,10 +4417,9 @@ func (manager *SGuestManager) PerformBatchMigrate(ctx context.Context, userCred 
 		host := iHost.(*SHost)
 		preferHostId = host.Id
 
-		if db.IsAdminAllowPerform(userCred, host, "assign-host") {
-		} else if db.IsDomainAllowPerform(userCred, host, "assign-host") && userCred.GetProjectDomainId() == host.DomainId {
-		} else {
-			return nil, httperrors.NewNotSufficientPrivilegeError("Only system admin can assign host")
+		err := host.IsAssignable(userCred)
+		if err != nil {
+			return nil, errors.Wrap(err, "IsAssignable")
 		}
 	}
 
