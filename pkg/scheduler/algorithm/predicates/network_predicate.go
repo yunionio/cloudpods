@@ -118,13 +118,6 @@ func IsNetworkAvailable(
 		return len(data.HostId) > 0
 	}
 
-	if !isMatchServerType(n.SNetwork) {
-		return FailReason{
-			Reason: fmt.Sprintf("Network %s type %s match", n.Name, n.ServerType),
-			Type:   NetworkTypeMatch,
-		}
-	}
-
 	if n.IsExitNetwork() != exit {
 		return FailReason{Reason: ErrExitIsNotMatch}
 	}
@@ -176,6 +169,14 @@ func IsNetworkAvailable(
 				Type:   NetworkMatch,
 			}
 		}
+	} else {
+		if !isMatchServerType(n.SNetwork) {
+			return FailReason{
+				Reason: fmt.Sprintf("Network %s type %s match", n.Name, n.ServerType),
+				Type:   NetworkTypeMatch,
+			}
+		}
+
 	}
 
 	if req.Network == "" && n.IsAutoAlloc.IsFalse() {
