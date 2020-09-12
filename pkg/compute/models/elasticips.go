@@ -1269,6 +1269,7 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 		wireq := WireManager.Query().SubQuery()
 		hostwireq := HostwireManager.Query().SubQuery()
 		q := NetworkManager.Query()
+		q = NetworkManager.FilterByOwner(q, userCred, NetworkManager.NamespaceScope())
 		q = q.Join(wireq, sqlchemy.Equals(wireq.Field("id"), q.Field("wire_id")))
 		q = q.Join(hostwireq, sqlchemy.Equals(hostwireq.Field("wire_id"), wireq.Field("id")))
 		q = q.Join(hostq, sqlchemy.Equals(hostq.Field("id"), host.Id))
