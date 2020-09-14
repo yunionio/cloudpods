@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -164,7 +165,23 @@ func (cm *SConfigManager) PerformGetTypes(ctx context.Context, userCred mcclient
 			output.Types = append(output.Types, ctype)
 		}
 	}
+	output.Types = sortContactType(output.Types)
 	return output, nil
+}
+
+var sortedCTypes = []string{
+	api.EMAIL, api.MOBILE, api.DINGTALK, api.FEISHU, api.WORKWX, api.DINGTALK_ROBOT, api.FEISHU_ROBOT, api.WORKWX_ROBOT,
+}
+
+func sortContactType(ctypes []string) []string {
+	ctSet := sets.NewString(ctypes...)
+	ret := make([]string, 0, len(ctypes))
+	for _, ct := range sortedCTypes {
+		if ctSet.Has(ct) {
+			ret = append(ret, ct)
+		}
+	}
+	return nil
 }
 
 func (cm *SConfigManager) allContactType() ([]string, error) {

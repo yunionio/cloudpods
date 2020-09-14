@@ -568,8 +568,10 @@ func (rm *SReceiverManager) FetchCustomizeColumns(ctx context.Context, userCred 
 		rows[i].StatusStandaloneResourceDetails = sRows[i]
 		rows[i].DomainizedResourceInfo = dRows[i]
 		user := objs[i].(*SReceiver)
-		if rows[i].EnabledContactTypes, err = user.GetEnabledContactTypes(); err != nil {
+		if enabledCTs, err := user.GetEnabledContactTypes(); err != nil {
 			log.Errorf("GetEnabledContactTypes: %v", err)
+		} else {
+			rows[i].EnabledContactTypes = sortContactType(enabledCTs)
 		}
 		if rows[i].VerifiedInfos, err = user.getVerifiedInfos(); err != nil {
 			log.Errorf("GetVerifiedContactTypes: %v", err)
