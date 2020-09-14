@@ -328,6 +328,17 @@ func notifySystemError(ctx context.Context, idstr string, name string, event str
 	systemNotify(ctx, npk.NotifyPriorityCritical, SYSTEM_ERROR, jsonutils.Marshal(msg))
 }
 
+func NotifyError(ctx context.Context, userCred mcclient.TokenCredential, idstr, name, event, reason string) {
+	msg := SSystemEventMsg{
+		Id:      idstr,
+		Name:    name,
+		Event:   event,
+		Reason:  reason,
+		Created: time.Now(),
+	}
+	notify(ctx, []string{userCred.GetUserId()}, false, npk.NotifyPriorityCritical, SYSTEM_ERROR, jsonutils.Marshal(msg))
+}
+
 func NotifySystemWarning(idstr string, name string, event string, reason string) {
 	notifySystemWarning(context.Background(), idstr, name, event, reason)
 }
