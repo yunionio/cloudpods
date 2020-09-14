@@ -141,6 +141,8 @@ type ComputeOptions struct {
 
 	ReconcileGuestBackupIntervalSeconds int `help:"interval reconcile guest bakcups" default:"30"`
 
+	EnableAutoRenameProject bool `help:"when it set true, auto create project will rename when cloud project name changed" default:"false"`
+
 	SCapabilityOptions
 	SASControllerOptions
 	common_options.CommonOptions
