@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -75,6 +76,9 @@ func (manager *SRegionManager) InitializeData() error {
 		return err
 	}
 	for i := range regions {
+		if gotypes.IsNil(regions[i].Extra) {
+			continue
+		}
 		name, _ := regions[i].Extra.GetString("name")
 		if len(name) == 0 {
 			name = regions[i].Id

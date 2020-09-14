@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -91,6 +92,9 @@ func (manager *SRoleManager) InitializeData() error {
 		return errors.Wrap(err, "query")
 	}
 	for i := range roles {
+		if gotypes.IsNil(roles[i].Extra) {
+			continue
+		}
 		desc, _ := roles[i].Extra.GetString("description")
 		_, err = db.Update(&roles[i], func() error {
 			roles[i].Description = desc
