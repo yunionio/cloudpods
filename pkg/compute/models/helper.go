@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -73,10 +74,9 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 		}
 		baremetal := bmObj.(*SHost)
 
-		if db.IsAdminAllowPerform(userCred, baremetal, "assign-host") {
-		} else if db.IsDomainAllowPerform(userCred, baremetal, "assign-host") && userCred.GetProjectDomainId() == baremetal.DomainId {
-		} else {
-			return nil, httperrors.NewNotSufficientPrivilegeError("Only system admin can assign host")
+		err = baremetal.IsAssignable(userCred)
+		if err != nil {
+			return nil, errors.Wrap(err, "IsAssignable")
 		}
 
 		if !baremetal.GetEnabled() {

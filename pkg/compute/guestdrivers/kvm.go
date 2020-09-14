@@ -559,10 +559,9 @@ func checkAssignHost(userCred mcclient.TokenCredential, preferHost string) error
 		return httperrors.NewBadRequestError("Host %s not found", preferHost)
 	}
 	host := iHost.(*models.SHost)
-	if db.IsAdminAllowPerform(userCred, host, "assign-host") {
-	} else if db.IsDomainAllowPerform(userCred, host, "assign-host") && userCred.GetProjectDomainId() == host.DomainId {
-	} else {
-		return httperrors.NewNotSufficientPrivilegeError("Only system admin can assign host")
+	err := host.IsAssignable(userCred)
+	if err != nil {
+		return errors.Wrap(err, "IsAssignable")
 	}
 	return nil
 }
