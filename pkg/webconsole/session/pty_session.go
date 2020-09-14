@@ -103,6 +103,10 @@ func (p *Pty) Stop() (err error) {
 	var errs []error
 
 	defer func() {
+		p.Cmd, p.Pty = nil, nil
+	}()
+
+	defer func() {
 		err = errors.NewAggregate(errs)
 	}()
 	// LOCK required
@@ -139,8 +143,5 @@ func (p *Pty) Stop() (err error) {
 		}
 	}()
 
-	defer func() {
-		p.Cmd, p.Pty = nil, nil
-	}()
 	return
 }
