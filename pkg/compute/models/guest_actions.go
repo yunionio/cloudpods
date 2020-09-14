@@ -3635,9 +3635,11 @@ func (self *SGuest) SaveRenewInfo(
 	guestdisks := self.GetDisks()
 	for i := 0; i < len(guestdisks); i += 1 {
 		disk := guestdisks[i].GetDisk()
-		err = disk.SaveRenewInfo(ctx, userCred, bc, expireAt, billingType)
-		if err != nil {
-			return err
+		if disk.AutoDelete {
+			err = disk.SaveRenewInfo(ctx, userCred, bc, expireAt, billingType)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
