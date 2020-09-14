@@ -26,6 +26,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/signalutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/webconsole"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -66,7 +67,13 @@ func StartService() {
 
 	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, o.OnOptionsChange)
 
+	registerSigTraps()
 	start()
+}
+
+func registerSigTraps() {
+	signalutils.SetDumpStackSignal()
+	signalutils.StartTrap()
 }
 
 func start() {
