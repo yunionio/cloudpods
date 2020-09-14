@@ -581,6 +581,9 @@ func (client *SQcloudClient) getCosClient(bucket *SBucket) (*cos.Client, error) 
 					RequestBody:    client.debug,
 					ResponseHeader: client.debug,
 					ResponseBody:   client.debug,
+					Transport: &http.Transport{
+						Proxy: client.cpcfg.ProxyFunc,
+					},
 				},
 			},
 		},
