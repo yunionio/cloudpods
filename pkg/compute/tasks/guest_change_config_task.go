@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -317,5 +318,6 @@ func (self *GuestChangeConfigTask) markStageFailed(ctx context.Context, guest *m
 	guest.SetStatus(self.UserCred, api.VM_CHANGE_FLAVOR_FAIL, reason.String())
 	db.OpsLog.LogEvent(guest, db.ACT_CHANGE_FLAVOR_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_CHANGE_FLAVOR, reason, self.UserCred, false)
+	notifyclient.NotifyError(ctx, self.UserCred, guest.GetId(), guest.GetName(), logclient.ACT_VM_CHANGE_FLAVOR, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
