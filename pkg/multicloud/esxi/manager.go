@@ -656,6 +656,9 @@ func (cli *SESXiClient) HostVmIPs(ctx context.Context) (map[string]string, []SSi
 }
 
 func (cli *SESXiClient) vmIPs(host *mo.HostSystem) ([]SSimpleVM, error) {
+	if len(host.Vm) == 0 {
+		return []SSimpleVM{}, nil
+	}
 	var vms []mo.VirtualMachine
 	err := cli.references2Objects(host.Vm, VM_PROPS, &vms)
 	if err != nil {
