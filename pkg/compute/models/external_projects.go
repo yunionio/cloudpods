@@ -26,11 +26,15 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -198,6 +202,25 @@ func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred
 		self.Name = ext.GetName()
 		self.IsEmulated = ext.IsEmulated()
 		self.Status = ext.GetStatus()
+		if self.DomainId == account.DomainId && account.AutoCreateProject && options.Options.EnableAutoRenameProject {
+			tenant, err := db.TenantCacheManager.FetchTenantById(ctx, self.ProjectId)
+			if err != nil {
+				return errors.Wrapf(err, "TenantCacheManager.FetchTenantById(%s)", self.ProjectId)
+			}
+			if tenant.Name != self.Name {
+				s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
+				params := map[string]string{"name": self.Name}
+				_, err := modules.Projects.Update(s, tenant.Id, jsonutils.Marshal(params))
+				if err != nil {
+					return errors.Wrapf(err, "update project name from %s -> %s", tenant.Name, self.Name)
+				}
+				_, err = db.Update(tenant, func() error {
+					tenant.Name = self.Name
+					return nil
+				})
+				return err
+			}
+		}
 		if self.DomainId != account.DomainId {
 			self.ProjectId = account.ProjectId
 			self.DomainId = account.DomainId
@@ -205,8 +228,7 @@ func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred
 		return nil
 	})
 	if err != nil {
-		log.Errorf("SyncWithCloudProject fail %s", err)
-		return err
+		return errors.Wrapf(err, "db.UpdateWithLock")
 	}
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
