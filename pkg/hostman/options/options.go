@@ -133,6 +133,8 @@ type SHostOptions struct {
 	HealthDriver        string `help:"Component save host health state" default:"etcd"`
 	HostHealthTimeout   int    `help:"host health timeout" default:"30"`
 	HostLeaseTimeout    int    `help:"lease timeout" default:"10"`
+
+	SyncStorageInfoDurationSecond int `help:"sync storage size duration, unit is second" default:"10"`
 }
 
 var (

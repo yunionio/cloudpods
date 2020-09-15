@@ -23,7 +23,6 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -33,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/hostman/storageman/storageutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -86,6 +86,7 @@ type IStorage interface {
 
 	SetStorageInfo(storageId, storageName string, conf jsonutils.JSONObject) error
 	SyncStorageInfo() (jsonutils.JSONObject, error)
+	SyncStorageSize() error
 	StorageType() string
 	GetStorageConf() *jsonutils.JSONDict
 	GetStoragecacheId() string
@@ -197,28 +198,35 @@ func (s *SBaseStorage) GetAvailSizeMb() int {
 	return s.GetTotalSizeMb()
 }
 
+func (s *SBaseStorage) GetUsedSizeMb() int {
+	size, err := storageutils.GetUsedSizeMb(s.Path)
+	if err != nil {
+		log.Errorf("failed get %s used size: %s", s.Path, err)
+		return -1
+	}
+	return size
+}
+
 func (s *SBaseStorage) GetMediumType() string {
 	return s.Manager.GetMediumType()
 }
 
 func (s *SBaseStorage) GetFreeSizeMb() int {
-	var stat syscall.Statfs_t
-	err := syscall.Statfs(s.Path, &stat)
+	size, err := storageutils.GetFreeSizeMb(s.Path)
 	if err != nil {
-		log.Errorln(err)
+		log.Errorf("failed get %s free size: %s", s.Path, err)
 		return -1
 	}
-	return int(stat.Bavail * uint64(stat.Bsize) / 1024 / 1024)
+	return size
 }
 
 func (s *SBaseStorage) GetTotalSizeMb() int {
-	var stat syscall.Statfs_t
-	err := syscall.Statfs(s.Path, &stat)
+	size, err := storageutils.GetTotalSizeMb(s.Path)
 	if err != nil {
-		log.Errorln(err)
+		log.Errorf("failed get %s total size: %s", s.Path, err)
 		return -1
 	}
-	return int(stat.Blocks * uint64(stat.Bsize) / 1024 / 1024)
+	return size
 }
 
 func (s *SBaseStorage) SetStorageInfo(storageId, storageName string, conf jsonutils.JSONObject) error {
@@ -238,6 +246,10 @@ func (s *SBaseStorage) SetStorageInfo(storageId, storageName string, conf jsonut
 		return err
 	}
 	return nil
+}
+
+func (s *SBaseStorage) SyncStorageSize() error {
+	return fmt.Errorf("not ipmlement")
 }
 
 func (s *SBaseStorage) bindMountTo(sPath string) error {
