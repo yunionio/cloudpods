@@ -39,7 +39,7 @@ func (man *SGuestnetworkManager) lockAllocMappedAddr(ctx context.Context) {
 }
 
 func (man *SGuestnetworkManager) unlockAllocMappedAddr(ctx context.Context) {
-	defer lockman.ReleaseRawObject(ctx, LOCK_CLASS_guestnetworks_mapped_addr, LOCK_OBJ_guestnetworks_mapped_addr)
+	lockman.ReleaseRawObject(ctx, LOCK_CLASS_guestnetworks_mapped_addr, LOCK_OBJ_guestnetworks_mapped_addr)
 }
 
 func (man *SGuestnetworkManager) allocMappedIpAddr(ctx context.Context) (string, error) {

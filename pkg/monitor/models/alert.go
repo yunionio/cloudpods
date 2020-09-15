@@ -556,8 +556,9 @@ func (alert *SAlert) AttachNotification(
 		return nil, httperrors.NewNotAcceptableError("alert already attached to notification")
 	}
 
-	defer lockman.ReleaseObject(ctx, alert)
 	lockman.LockObject(ctx, alert)
+	defer lockman.ReleaseObject(ctx, alert)
+
 	alertNoti := new(SAlertnotification)
 	alertNoti.AlertId = alert.GetId()
 	alertNoti.Index, err = alert.getNotificationIndex()
