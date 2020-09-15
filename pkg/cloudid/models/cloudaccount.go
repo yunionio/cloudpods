@@ -1117,7 +1117,7 @@ func (self *SCloudaccount) GetOrCreateCloudgroup(ctx context.Context, userCred m
 			policyIds = append(policyIds, policy.Id)
 		}
 	}
-	group, err := CloudgroupManager.newCloudgroup(ctx, userCred, iGroup, self.Provider, self.DomainId)
+	group, err := CloudgroupManager.newCloudgroup(ctx, userCred, self.GetOwnerId(), iGroup, self.Provider)
 	if err != nil {
 		return nil, errors.Wrap(err, "newCloudgroup")
 	}
