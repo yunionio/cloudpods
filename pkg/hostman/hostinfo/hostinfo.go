@@ -1019,6 +1019,8 @@ func (h *SHostInfo) updateHostMetadata(hostname string) error {
 	if len(h.SysWarning) > 0 {
 		meta.SysWarn = jsonutils.Marshal(h.SysWarning).String()
 	}
+	meta.RootPartitionTotalCapacity = int64(GetRootPartTotalCapacity())
+	meta.RootPartitionUsedCapacity = int64(GetRootPartUsedCapacity())
 	data := meta.JSON(meta)
 	_, err := modules.Hosts.SetMetadata(h.GetSession(), h.HostId, data)
 	return err
@@ -1325,6 +1327,15 @@ func (h *SHostInfo) onGetStorageInfoSucc(hoststorages []jsonutils.JSONObject) {
 			storage := storageManager.GetStorageByPath(mountPoint)
 			if storage != nil {
 				storage.SetStoragecacheId(storagecacheId)
+				if IsRootPartition(mountPoint) {
+					// update host storage is root partition
+					params := jsonutils.NewDict()
+					params.Set("is_root_partiton", jsonutils.JSONTrue)
+					_, err := modules.Hoststorages.Update(h.GetSession(), h.HostId, storageId, nil, params)
+					if err != nil {
+						h.onFail(err)
+					}
+				}
 				if err := storage.SetStorageInfo(storageId, storageName, storageConf); err != nil {
 					h.onFail(err)
 				}
@@ -1356,6 +1367,7 @@ func (h *SHostInfo) uploadStorageInfo() {
 			h.onSyncStorageInfoSucc(s, res)
 		}
 	}
+	go storageman.StartSyncStorageSizeTask(time.Duration(options.HostOptions.SyncStorageInfoDuration) * time.Second)
 	h.getIsolatedDevices()
 }
 
@@ -1374,6 +1386,7 @@ func (h *SHostInfo) onSyncStorageInfoSucc(storage storageman.IStorage, storageIn
 func (h *SHostInfo) attachStorage(storage storageman.IStorage) {
 	content := jsonutils.NewDict()
 	content.Set("mount_point", jsonutils.NewString(storage.GetPath()))
+	content.Set("is_root_partition", jsonutils.NewBool(IsRootPartition(storage.GetPath())))
 	_, err := modules.Hoststorages.Attach(h.GetSession(),
 		h.HostId, storage.GetId(), content)
 	if err != nil {

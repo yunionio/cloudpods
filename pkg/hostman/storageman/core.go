@@ -336,3 +336,20 @@ func CleanRecycleDiskfiles(ctx context.Context, userCred mcclient.TokenCredentia
 		cleanDailyFiles(d, _IMGSAVE_BACKUPS_, options.HostOptions.RecycleDiskfileKeepDays)
 	}
 }
+
+func StartSyncStorageSizeTask(interval time.Duration) {
+	log.Infof("Start sync storage size task !!!")
+	for {
+		time.Sleep(interval)
+		manager := GetManager()
+		for i := 0; i < len(manager.Storages); i++ {
+			iS := manager.Storages[i]
+			if iS.StorageType() == api.STORAGE_LOCAL {
+				err := iS.SyncStorageSize()
+				if err != nil {
+					log.Errorf("sync storage %s size failed: %s", iS.GetStorageName(), err)
+				}
+			}
+		}
+	}
+}

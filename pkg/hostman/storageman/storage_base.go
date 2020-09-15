@@ -86,6 +86,7 @@ type IStorage interface {
 
 	SetStorageInfo(storageId, storageName string, conf jsonutils.JSONObject) error
 	SyncStorageInfo() (jsonutils.JSONObject, error)
+	SyncStorageSize() error
 	StorageType() string
 	GetStorageConf() *jsonutils.JSONDict
 	GetStoragecacheId() string
@@ -197,6 +198,16 @@ func (s *SBaseStorage) GetAvailSizeMb() int {
 	return s.GetTotalSizeMb()
 }
 
+func (s *SBaseStorage) GetUsedSizeMb() int {
+	var stat syscall.Statfs_t
+	err := syscall.Statfs(s.Path, &stat)
+	if err != nil {
+		log.Errorln(err)
+		return -1
+	}
+	return int((stat.Blocks - stat.Bfree) * uint64(stat.Bsize) / 1024 / 1024)
+}
+
 func (s *SBaseStorage) GetMediumType() string {
 	return s.Manager.GetMediumType()
 }
@@ -238,6 +249,10 @@ func (s *SBaseStorage) SetStorageInfo(storageId, storageName string, conf jsonut
 		return err
 	}
 	return nil
+}
+
+func (s *SBaseStorage) SyncStorageSize() error {
+	return fmt.Errorf("not ipmlement")
 }
 
 func (s *SBaseStorage) bindMountTo(sPath string) error {

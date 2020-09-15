@@ -1232,10 +1232,11 @@ func (self *SHost) GetHardwareSpecification() *jsonutils.JSONDict {
 }
 
 type SStorageCapacity struct {
-	Capacity  int64 `json:"capacity,omitzero"`
-	Used      int64 `json:"used_capacity,omitzero"`
-	Wasted    int64 `json:"waste_capacity,omitzero"`
-	VCapacity int64 `json:"virtual_capacity,omitzero"`
+	Capacity     int64 `json:"capacity,omitzero"`
+	Used         int64 `json:"used_capacity,omitzero"`
+	RealTimeUsed int64 `json:"real_time_used_capacity,omitzero"`
+	Wasted       int64 `json:"waste_capacity,omitzero"`
+	VCapacity    int64 `json:"virtual_capacity,omitzero"`
 }
 
 func (cap *SStorageCapacity) GetFree() int64 {
@@ -1255,6 +1256,7 @@ func (cap *SStorageCapacity) Add(cap2 SStorageCapacity) {
 	cap.Used += cap2.Used
 	cap.Wasted += cap2.Wasted
 	cap.VCapacity += cap2.VCapacity
+	cap.RealTimeUsed += cap2.RealTimeUsed
 }
 
 func (cap *SStorageCapacity) toCapacityInfo() api.SStorageCapacityInfo {
@@ -2673,6 +2675,7 @@ func (self *SHost) getMoreDetails(ctx context.Context, out api.HostDetails, show
 	capa := self.GetAttachedLocalStorageCapacity()
 	out.Storage = capa.Capacity
 	out.StorageUsed = capa.Used
+	out.RealTimeStorageUsed = capa.RealTimeUsed
 	out.StorageWaste = capa.Wasted
 	out.StorageVirtual = capa.VCapacity
 	out.StorageFree = capa.GetFree()

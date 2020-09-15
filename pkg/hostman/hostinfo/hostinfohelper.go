@@ -22,6 +22,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/shirou/gopsutil/cpu"
@@ -398,4 +399,40 @@ func StartDetachStorages(hs []jsonutils.JSONObject) {
 			hs = hs[1:]
 		}
 	}
+}
+
+func IsRootPartition(path string) bool {
+	path = strings.TrimSuffix(path, "/")
+	pathSegs := strings.Split(path, "/")
+	for len(pathSegs) > 1 {
+		err := procutils.NewRemoteCommandAsFarAsPossible("mountpoint", path).Run()
+		if err != nil {
+			pathSegs = pathSegs[:len(pathSegs)-1]
+			path = strings.Join(pathSegs, "/")
+			continue
+		} else {
+			return false
+		}
+	}
+	return true
+}
+
+func GetRootPartTotalCapacity() int {
+	var stat syscall.Statfs_t
+	err := syscall.Statfs("/", &stat)
+	if err != nil {
+		log.Errorln(err)
+		return -1
+	}
+	return int(stat.Blocks * uint64(stat.Bsize) / 1024 / 1024)
+}
+
+func GetRootPartUsedCapacity() int {
+	var stat syscall.Statfs_t
+	err := syscall.Statfs("/", &stat)
+	if err != nil {
+		log.Errorln(err)
+		return -1
+	}
+	return int((stat.Blocks - stat.Bfree) * uint64(stat.Bsize) / 1024 / 1024)
 }
