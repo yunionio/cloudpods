@@ -652,7 +652,7 @@ func (manager *SSnapshotPolicyCacheManager) purgeAll(ctx context.Context, userCr
 
 func (spc *SSnapshotPolicyCache) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, spc)
-	defer lockman.LockObject(ctx, spc)
+	defer lockman.ReleaseObject(ctx, spc)
 	err := spc.ValidateDeleteCondition(ctx)
 	if err != nil {
 		return err
