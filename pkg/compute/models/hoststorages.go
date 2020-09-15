@@ -68,6 +68,8 @@ type SHoststorage struct {
 
 	// 挂载点
 	MountPoint string `width:"256" charset:"ascii" nullable:"false" list:"domain" update:"domain" create:"required" json:"mount_point"`
+	// 是否是根分区
+	IsRootPartition bool `nullable:"true" default:"false" list:"domain" update:"domain" create:"optional"`
 
 	// 配置信息
 	Config *jsonutils.JSONArray `nullable:"true" get:"domain" json:"config"`

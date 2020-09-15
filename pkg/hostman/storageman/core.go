@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/hostman/storageman/storageutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -335,4 +336,43 @@ func CleanRecycleDiskfiles(ctx context.Context, userCred mcclient.TokenCredentia
 		cleanDailyFiles(d, _RECYCLE_BIN_, options.HostOptions.RecycleDiskfileKeepDays)
 		cleanDailyFiles(d, _IMGSAVE_BACKUPS_, options.HostOptions.RecycleDiskfileKeepDays)
 	}
+}
+
+func StartSyncStorageSizeTask(interval time.Duration) {
+	log.Infof("Start sync storage size task !!!")
+	for {
+		time.Sleep(interval)
+		manager := GetManager()
+		for i := 0; i < len(manager.Storages); i++ {
+			iS := manager.Storages[i]
+			if iS.StorageType() == api.STORAGE_LOCAL {
+				err := iS.SyncStorageSize()
+				if err != nil {
+					log.Errorf("sync storage %s size failed: %s", iS.GetStorageName(), err)
+				}
+			}
+		}
+		err := manager.host.SyncRootPartitionUsedCapacity()
+		if err != nil {
+			log.Errorf("sync root partition used size failed: %s", err)
+		}
+	}
+}
+
+func GetRootPartTotalCapacity() int {
+	size, err := storageutils.GetTotalSizeMb("/")
+	if err != nil {
+		log.Errorf("failed get path %s total size: %s", "/", err)
+		return -1
+	}
+	return size
+}
+
+func GetRootPartUsedCapacity() int {
+	size, err := storageutils.GetUsedSizeMb("/")
+	if err != nil {
+		log.Errorf("failed get path %s used size: %s", "/", err)
+		return -1
+	}
+	return size
 }

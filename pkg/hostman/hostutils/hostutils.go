@@ -51,6 +51,8 @@ type IHost interface {
 
 	GetBridgeDev(bridge string) hostbridge.IBridgeDriver
 	GetIsolatedDeviceManager() *isolated_device.IsolatedDeviceManager
+
+	SyncRootPartitionUsedCapacity() error
 }
 
 func GetComputeSession(ctx context.Context) *mcclient.ClientSession {
