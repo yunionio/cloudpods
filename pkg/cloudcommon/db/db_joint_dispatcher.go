@@ -78,6 +78,7 @@ func (dispatcher *DBJointModelDispatcher) ListMasterDescendent(ctx context.Conte
 		return nil, err
 	}
 	queryDict.Add(jsonutils.NewString(model.GetId()), fmt.Sprintf("%s_id", dispatcher.JointModelManager().GetMasterManager().Keyword()))
+	queryDict.Add(jsonutils.NewString(model.GetId()), dispatcher.JointModelManager().GetMasterFieldName())
 	if len(dispatcher.JointModelManager().GetMasterManager().Alias()) > 0 {
 		queryDict.Add(jsonutils.NewString(model.GetId()), fmt.Sprintf("%s_id", dispatcher.JointModelManager().GetMasterManager().Alias()))
 	}
@@ -104,6 +105,7 @@ func (dispatcher *DBJointModelDispatcher) ListSlaveDescendent(ctx context.Contex
 		return nil, err
 	}
 	queryDict.Add(jsonutils.NewString(model.GetId()), fmt.Sprintf("%s_id", dispatcher.JointModelManager().GetSlaveManager().Keyword()))
+	queryDict.Add(jsonutils.NewString(model.GetId()), dispatcher.JointModelManager().GetSlaveFieldName())
 	if len(dispatcher.JointModelManager().GetSlaveManager().Alias()) > 0 {
 		queryDict.Add(jsonutils.NewString(model.GetId()), fmt.Sprintf("%s_id", dispatcher.JointModelManager().GetSlaveManager().Alias()))
 	}
