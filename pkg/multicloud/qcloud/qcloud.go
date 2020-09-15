@@ -103,10 +103,10 @@ func NewQcloudClient(cfg *QcloudClientConfig) (*SQcloudClient, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "fetchRegions")
 	}
-	err = client.verifyAppId()
-	if err != nil {
-		return nil, errors.Wrap(err, "verifyAppId")
-	}
+	// err = client.verifyAppId()
+	// if err != nil {
+	//	return nil, errors.Wrap(err, "verifyAppId")
+	// }
 	err = client.fetchBuckets()
 	if err != nil {
 		return nil, errors.Wrap(err, "fetchBuckets")
@@ -663,7 +663,8 @@ func (client *SQcloudClient) fetchBuckets() error {
 		createAt, _ := timeutils.ParseTimeStr(bInfo.CreationDate)
 		name := bInfo.Name
 		// name = name[:len(name)-len(result.Owner.ID)-1]
-		name = name[:strings.LastIndexByte(name, '-')]
+		slashPos := strings.LastIndexByte(name, '-')
+		name = name[:slashPos]
 		region, err := client.getIRegionByRegionId(bInfo.Region)
 		if err != nil {
 			log.Errorf("fail to find region %s", bInfo.Region)
