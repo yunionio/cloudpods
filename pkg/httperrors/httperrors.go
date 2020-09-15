@@ -76,9 +76,9 @@ func SetHTTPRedirectLocationHeader(w http.ResponseWriter, location string) {
 }
 
 type Error struct {
-	Code    int    `json:"code"`
-	Class   string `json:"class"`
-	Details string `json:"details"`
+	Code    int    `json:"code,omitzero"`
+	Class   string `json:"class,omitempty"`
+	Details string `json:"details,omitempty"`
 }
 
 func NewErrorFromJCError(ctx context.Context, je *httputils.JSONClientError) Error {
