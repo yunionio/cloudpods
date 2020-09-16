@@ -470,10 +470,6 @@ var AwsFailovers = []TDnsPolicyValue{
 	TDnsPolicyValue("PRIMARY"),
 	TDnsPolicyValue("SECONDARY"),
 }
-var AwsMultiValueAnswers = []TDnsPolicyValue{
-	TDnsPolicyValue("true"),
-	TDnsPolicyValue("false"),
-}
 
 type TTlRange struct {
 	RangeType   TDnsTTLRangeType
