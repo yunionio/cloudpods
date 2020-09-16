@@ -117,10 +117,9 @@ func (self *SAwsProviderFactory) GetSupportedDnsPolicyTypes() map[cloudprovider.
 
 func (self *SAwsProviderFactory) GetSupportedDnsPolicyValues() map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyValue {
 	return map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyValue{
-		cloudprovider.DnsPolicyTypeByGeoLocation:    cloudprovider.AwsGeoLocations,
-		cloudprovider.DnsPolicyTypeLatency:          cloudprovider.AwsRegions,
-		cloudprovider.DnsPolicyTypeFailover:         cloudprovider.AwsFailovers,
-		cloudprovider.DnsPolicyTypeMultiValueAnswer: cloudprovider.AwsMultiValueAnswers,
+		cloudprovider.DnsPolicyTypeByGeoLocation: cloudprovider.AwsGeoLocations,
+		cloudprovider.DnsPolicyTypeLatency:       cloudprovider.AwsRegions,
+		cloudprovider.DnsPolicyTypeFailover:      cloudprovider.AwsFailovers,
 	}
 }
 

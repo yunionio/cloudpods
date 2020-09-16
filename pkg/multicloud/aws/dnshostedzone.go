@@ -45,7 +45,6 @@ type SHostedZone struct {
 	Name                   string           `json:"Name"`
 	Config                 HostedZoneConfig `json:"Config"`
 	ResourceRecordSetCount int64            `json:"ResourceRecordSetCount"`
-	VPCs                   []AssociatedVPC  `json:"VPCs"`
 }
 
 func (self *SHostedZone) GetId() string {
@@ -230,6 +229,31 @@ func (client *SAwsClient) GetHostedZones() ([]SHostedZone, error) {
 	return result, nil
 }
 
+func (client *SAwsClient) GetHostedZoneVpcs(hostedzoneId string) ([]AssociatedVPC, error) {
+	s, err := client.getAwsRoute53Session()
+	if err != nil {
+		return nil, errors.Wrap(err, "region.getAwsRoute53Session()")
+	}
+	route53Client := route53.New(s)
+	params := route53.GetHostedZoneInput{}
+	params.Id = &hostedzoneId
+	ret, err := route53Client.GetHostedZone(&params)
+	if err != nil {
+		if err, ok := err.(awserr.Error); ok {
+			if err.Code() == route53.ErrCodeNoSuchHostedZone {
+				return nil, errors.Wrap(cloudprovider.ErrNotFound, err.Error())
+			}
+		}
+		return nil, errors.Wrap(err, "route53Client.GetHostedZone()")
+	}
+	vpcs := []AssociatedVPC{}
+	err = unmarshalAwsOutput(ret.VPCs, "", &vpcs)
+	if err != nil {
+		return nil, errors.Wrap(err, "unmarshalAwsOutput(HostedZones)")
+	}
+	return vpcs, nil
+}
+
 func (client *SAwsClient) GetICloudDnsZones() ([]cloudprovider.ICloudDnsZone, error) {
 	hostedZones, err := client.GetHostedZones()
 	if err != nil {
@@ -325,14 +349,18 @@ func (self *SHostedZone) GetOptions() *jsonutils.JSONDict {
 }
 
 func (self *SHostedZone) GetICloudVpcIds() ([]string, error) {
-	vpcs := []string{}
+	ret := []string{}
 	if self.Config.PrivateZone {
-		for i := 0; i < len(self.VPCs); i++ {
-			vpcs = append(vpcs, self.VPCs[i].VPCId)
+		vpcs, err := self.client.GetHostedZoneVpcs(self.ID)
+		if err != nil {
+			return nil, errors.Wrapf(err, "self.client.GetHostedZoneVpcs(%s)", self.ID)
 		}
-		return vpcs, nil
+		for i := range vpcs {
+			ret = append(ret, vpcs[i].VPCId)
+		}
+		return ret, nil
 	}
-	return vpcs, errors.Wrapf(cloudprovider.ErrNotSupported, "not a private hostedzone")
+	return ret, errors.Wrapf(cloudprovider.ErrNotSupported, "not a private hostedzone")
 }
 
 func (self *SHostedZone) AddVpc(vpc *cloudprovider.SPrivateZoneVpc) error {
