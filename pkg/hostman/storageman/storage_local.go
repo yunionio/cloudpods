@@ -219,7 +219,7 @@ func (s *SLocalStorage) SaveToGlance(ctx context.Context, params interface{}) (j
 
 	if err := s.saveToGlance(ctx, imageId, imagePath, compress, format); err != nil {
 		log.Errorf("Save to glance failed: %s", err)
-		s.onSaveToGlanceFailed(ctx, imageId)
+		s.onSaveToGlanceFailed(ctx, imageId, err.Error())
 	}
 
 	imagecacheManager := s.Manager.LocalStorageImagecacheManager
@@ -305,11 +305,14 @@ func (s *SLocalStorage) saveToGlance(ctx context.Context, imageId, imagePath str
 	return err
 }
 
-func (s *SLocalStorage) onSaveToGlanceFailed(ctx context.Context, imageId string) {
+func (s *SLocalStorage) onSaveToGlanceFailed(ctx context.Context, imageId string, reason string) {
 	params := jsonutils.NewDict()
 	params.Set("status", jsonutils.NewString("killed"))
-	_, err := modules.Images.Update(hostutils.GetImageSession(ctx, s.GetZoneName()),
-		imageId, params)
+	params.Set("reason", jsonutils.NewString(reason))
+	_, err := modules.Images.PerformAction(
+		hostutils.GetImageSession(ctx, s.GetZoneName()),
+		imageId, "update-status", params,
+	)
 	if err != nil {
 		log.Errorln(err)
 	}

@@ -88,3 +88,12 @@ type ImageCreateInput struct {
 	// 镜像属性
 	Properties map[string]string `json:"properties"`
 }
+
+type ImageUpdateStatusInput struct {
+	apis.Meta
+
+	// 镜像状态
+	Status string `json:"status"`
+	// 更新镜像状态原因
+	Reason string `json:"reason"`
+}
