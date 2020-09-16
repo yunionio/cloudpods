@@ -148,6 +148,47 @@ func (manager *SDnsRecordSetManager) ValidateCreateData(ctx context.Context, use
 			}
 		}
 	}
+	// 处理重复的记录
+	dupedRecordsets := make([]SDnsRecordSet, 0)
+	err = DnsRecordSetManager.Query().Equals("dns_zone_id", input.DnsZoneId).Equals("name", input.Name).Equals("dns_type", input.DnsType).All(&dupedRecordsets)
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		return input, httperrors.NewGeneralError(err)
+	}
+	// 检查dnsrecord 是否通过为policy重复
+	// simple 不能重复，不能和其他policy重复
+	// 不同类型policy不能重复
+	// 同类型policy的dnsrecord重复时，需要通过policyvalue区别
+	for i := range dupedRecordsets {
+		sq := DnsRecordSetTrafficPolicyManager.Query("dns_traffic_policy_id").Equals("dns_recordset_id", dupedRecordsets[i].Id)
+		q := DnsTrafficPolicyManager.Query().In("id", sq.SubQuery())
+		policies := []SDnsTrafficPolicy{}
+		err := db.FetchModelObjects(DnsTrafficPolicyManager, q, &policies)
+		if err != nil {
+			return input, httperrors.NewGeneralError(errors.Wrap(err, "db.FetchModelObjects"))
+		}
+		if len(policies) < 1 || len(input.TrafficPolicies) < 1 {
+			return input, httperrors.NewNotSupportedError("duplicated dnsrecord not support")
+		}
+		for j := range policies {
+			for k := range input.TrafficPolicies {
+				if strings.Contains(policies[j].Name, "MultiValueAnswer") &&
+					input.TrafficPolicies[k].PolicyType == "MultiValueAnswer" {
+					if dupedRecordsets[i].DnsValue == input.DnsValue {
+						return input, httperrors.NewNotSupportedError("MultiValueAnswer policy not support duplicated recordset value")
+					}
+					continue
+				}
+				if strings.Contains(policies[j].Name, "Simple") ||
+					strings.Contains(input.TrafficPolicies[k].PolicyType, "Simple") ||
+					policies[j].Name != fmt.Sprintf("%s-%s", input.TrafficPolicies[k].Provider, input.TrafficPolicies[k].PolicyType) {
+					return input, httperrors.NewNotSupportedError("duplicated dnsrecord not support")
+				}
+				if policies[j].PolicyValue == input.TrafficPolicies[k].PolicyValue {
+					return input, httperrors.NewNotSupportedError("duplicated dnsrecord not support")
+				}
+			}
+		}
+	}
 	input.Status = api.DNS_RECORDSET_STATUS_AVAILABLE
 	input.DnsZoneId = dnsZone.Id
 	return input, nil

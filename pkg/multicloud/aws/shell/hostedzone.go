@@ -76,6 +76,19 @@ func init() {
 		printObject(hostedzone)
 		return nil
 	})
+
+	type HostedZoneVpcListOptions struct {
+		HOSTEDZONEID string
+	}
+	shellutils.R(&HostedZoneVpcListOptions{}, "hostedzonevpc-list", "List hostedzonevpc", func(cli *aws.SRegion, args *HostedZoneVpcListOptions) error {
+		vpcs, err := cli.GetClient().GetHostedZoneVpcs(args.HOSTEDZONEID)
+		if err != nil {
+			return err
+		}
+		printList(vpcs, len(vpcs), 0, 20, []string{})
+		return nil
+	})
+
 	type HostedZoneAddVpcOptions struct {
 		HOSTEDZONEID string
 		VPC          string

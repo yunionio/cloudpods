@@ -170,7 +170,7 @@ func Getroute53ResourceRecordSet(client *SAwsClient, opts *cloudprovider.DnsReco
 	resourceRecordSet.SetResourceRecords(records)
 
 	// traffic policy info--------------------------------------------
-	if opts.PolicyType == cloudprovider.DnsPolicyTypeSimple || opts.PolicyValue == cloudprovider.DnsPolicyValueEmpty {
+	if opts.PolicyType == cloudprovider.DnsPolicyTypeSimple {
 		return &resourceRecordSet, nil
 	}
 	// SetIdentifier 设置policy需要 ,也可以通过externalId设置
@@ -235,9 +235,6 @@ func Getroute53ResourceRecordSet(client *SAwsClient, opts *cloudprovider.DnsReco
 	// MultiValueAnswer ,bool
 	if opts.PolicyType == cloudprovider.DnsPolicyTypeMultiValueAnswer {
 		var multiValueAnswer bool = true
-		if string(opts.PolicyValue) == "false" {
-			multiValueAnswer = false
-		}
 		resourceRecordSet.SetMultiValueAnswer(multiValueAnswer)
 	}
 	// Weighted.,int64 value
@@ -433,13 +430,10 @@ func (self *SdnsRecordSet) GetPolicyValue() cloudprovider.TDnsPolicyValue {
 		return cloudprovider.TDnsPolicyValue(self.Region)
 	}
 	if self.MultiValueAnswer != nil {
-		if self.MultiValueAnswer != nil && *self.MultiValueAnswer {
-			return cloudprovider.TDnsPolicyValue("true")
-		}
-		return cloudprovider.TDnsPolicyValue("false")
+		return cloudprovider.DnsPolicyValueEmpty
 	}
 	if self.Weight != nil {
-		return cloudprovider.TDnsPolicyValue(fmt.Sprintf("%d", self.Weight))
+		return cloudprovider.TDnsPolicyValue(strconv.FormatInt(*self.Weight, 10))
 	}
 	return cloudprovider.DnsPolicyValueEmpty
 }
