@@ -259,7 +259,13 @@ func (r *SRemoteFile) downloadInternal(getData bool, preChksum string) bool {
 }
 
 func (r *SRemoteFile) setProperties(header http.Header) {
-	r.chksum = header.Get("X-Image-Meta-Checksum")
-	r.format = header.Get("X-Image-Meta-Disk_format")
-	r.name = header.Get("X-Image-Meta-Name")
+	if chksum := header.Get("X-Image-Meta-Checksum"); len(chksum) > 0 {
+		r.chksum = chksum
+	}
+	if format := header.Get("X-Image-Meta-Disk_format"); len(format) > 0 {
+		r.format = format
+	}
+	if name := header.Get("X-Image-Meta-Name"); len(name) > 0 {
+		r.name = name
+	}
 }
