@@ -18,6 +18,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -31,6 +33,8 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/monitor/registry"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -49,6 +53,7 @@ func init() {
 		),
 	}
 	SuggestSysRuleManager.SetVirtualObject(SuggestSysRuleManager)
+	registry.RegisterService(SuggestSysRuleManager)
 }
 
 // +onecloud:swagger-gen-model-singular=suggestsysrule
@@ -127,10 +132,14 @@ func (man *SSuggestSysRuleManager) ValidateCreateData(
 	data monitor.SuggestSysRuleCreateInput) (monitor.SuggestSysRuleCreateInput, error) {
 	if data.Period == "" {
 		// default 30s
-		data.Period = "30s"
+		data.Period = "12h"
+	} else {
+		data.Period = parseDuration(data.Period)
 	}
 	if data.TimeFrom == "" {
 		data.TimeFrom = "24h"
+	} else {
+		data.TimeFrom = parseDuration(data.TimeFrom)
 	}
 	if data.Enabled == nil {
 		enable := true
@@ -227,6 +236,8 @@ func (self *SSuggestSysRule) getMoreDetails(out monitor.SuggestSysRuleDetails) m
 	out.ID = self.Id
 	out.Name = self.Name
 	out.Enabled = self.GetEnabled()
+	self.Period = showDuration(self.Period)
+	self.TimeFrom = showDuration(self.TimeFrom)
 	return out
 }
 
@@ -427,4 +438,175 @@ func (self *SSuggestSysRule) UpdateExecTime() {
 		self.ExecTime = time.Now()
 		return nil
 	})
+}
+
+func (manager *SSuggestSysRuleManager) Init() error {
+	return nil
+}
+
+type ruleInfo struct {
+	insertRuleTypes []string
+	updateRules     map[string]*SSuggestSysRule
+	deleteRules     map[string]*SSuggestSysRule
+}
+
+func (man *SSuggestSysRuleManager) Run(ctx context.Context) (err error) {
+	sysRules, err := man.GetRules()
+	if err != nil {
+		return err
+	}
+	ruleOptor := getRuleInfo(sysRules)
+	err = man.initDeleteDefaultRule(ruleOptor)
+	if err != nil {
+		return
+	}
+	log.Errorln("ruleTypes", ruleOptor.insertRuleTypes)
+	err = man.initCreateDefaultRule(ruleOptor)
+	if err != nil {
+		return
+	}
+	err = man.initUpdateDefaultRule(ruleOptor)
+	if err != nil {
+		return
+	}
+	return nil
+}
+
+func (man *SSuggestSysRuleManager) initUpdateDefaultRule(rule ruleInfo) error {
+	for ruleType, suggestRule := range rule.updateRules {
+		ruleDris := GetSuggestSysRuleDrivers()
+		if dri, ok := ruleDris[monitor.SuggestDriverType(ruleType)]; ok {
+			ruleCreateInput := dri.GetDefaultRule()
+			_, err := db.Update(suggestRule, func() error {
+				suggestRule.Name = ruleCreateInput.Name
+				suggestRule.Setting = jsonutils.Marshal(ruleCreateInput.Setting)
+				suggestRule.TimeFrom = ruleCreateInput.TimeFrom
+				suggestRule.Period = ruleCreateInput.Period
+				return nil
+			})
+			if err != nil {
+				return errors.Wrap(err, "initUpdateDefaultRule error")
+			}
+		}
+	}
+	return nil
+}
+
+func (man *SSuggestSysRuleManager) initCreateDefaultRule(rule ruleInfo) error {
+	adminCredential := auth.AdminCredential()
+	for _, ruleType := range rule.insertRuleTypes {
+		ruleDris := GetSuggestSysRuleDrivers()
+		if dri, ok := ruleDris[monitor.SuggestDriverType(ruleType)]; ok {
+			createInput := dri.GetDefaultRule()
+			_, err := db.DoCreate(man, context.Background(), adminCredential, nil, jsonutils.Marshal(&createInput),
+				adminCredential)
+			if err != nil {
+				return errors.Wrap(err, "initCreateDefaultRule error")
+			}
+		}
+	}
+	return nil
+}
+
+func (man *SSuggestSysRuleManager) initDeleteDefaultRule(rule ruleInfo) error {
+	ctx := context.Background()
+	adminCredential := auth.AdminCredential()
+	for key, _ := range rule.deleteRules {
+		err := db.DeleteModel(ctx, adminCredential, rule.deleteRules[key])
+		if err != nil {
+			return errors.Wrap(err, "initDeleteDefaultRule")
+		}
+	}
+	return nil
+}
+
+func getRuleInfo(rules []SSuggestSysRule) (rul ruleInfo) {
+	dbRules := make(map[string]*SSuggestSysRule)
+	for i, _ := range rules {
+		dbRules[rules[i].Type] = &rules[i]
+	}
+	defaultRules := GetSuggestSysRuleDriverTypes()
+	for ruleType, _ := range dbRules {
+		if defaultRules.Has(ruleType) {
+			if rul.updateRules == nil {
+				rul.updateRules = make(map[string]*SSuggestSysRule)
+			}
+			rul.updateRules[ruleType] = dbRules[ruleType]
+			defaultRules.Delete(ruleType)
+			delete(dbRules, ruleType)
+		}
+	}
+	rul.insertRuleTypes = defaultRules.List()
+	rul.deleteRules = dbRules
+	return
+}
+
+func parseDuration(dur string) string {
+	var hourInt int64
+	if strings.Contains(dur, "d") {
+		durDay := strings.Split(dur, "d")[0]
+		dur = strings.Split(dur, "d")[1]
+		durDayInt, _ := strconv.ParseInt(durDay, 10, 64)
+		hourInt = durDayInt * 24
+
+	}
+	if strings.Contains(dur, "h") {
+		durHour := strings.Split(dur, "h")[0]
+		dur = strings.Split(dur, "h")[1]
+		durHourInt, _ := strconv.ParseInt(durHour, 10, 64)
+		hourInt += durHourInt
+	}
+	if hourInt != 0 {
+		dur = fmt.Sprintf("%dh%s", hourInt, dur)
+	}
+	return dur
+}
+
+func showDuration(dur string) string {
+	var durStr string
+	if strings.Contains(dur, "h") {
+		durInt, _ := strconv.ParseInt(strings.Split(dur, "h")[0], 10, 64)
+		durStr = showDuration_(durInt, "h")
+	}
+	if strings.Contains(dur, "m") {
+		durInt, _ := strconv.ParseInt(strings.Split(dur, "m")[0], 10, 64)
+		durStr = showDuration_(durInt, "m")
+	}
+	if strings.Contains(dur, "s") {
+		durInt, _ := strconv.ParseInt(strings.Split(dur, "s")[0], 10, 64)
+		durStr = showDuration_(durInt, "s")
+	}
+	return durStr
+}
+
+func showDuration_(dur int64, sign string) string {
+	var durUp, durSign int64
+	var upSign, durStr string
+	if sign == "s" && dur > 60 {
+		upSign = "m"
+		durUp = dur / 60
+		durSign = dur % 60
+		durStr = showDuration_(durUp, upSign)
+	}
+	if sign == "m" && dur > 60 {
+		upSign = "h"
+		durUp = dur / 60
+		durSign = dur % 60
+		durStr = showDuration_(durUp, upSign)
+	}
+	if sign == "h" && dur > 24 {
+		upSign = "d"
+		durUp = dur / 24
+		durSign = dur % 24
+	}
+
+	if len(upSign) != 0 {
+		durBuf := strings.Builder{}
+		durBuf.WriteString(fmt.Sprintf("%s%d%s", durStr, durUp, upSign))
+		if durSign != 0 {
+			durBuf.WriteString(fmt.Sprintf("%d%s", durSign, sign))
+		}
+		return durBuf.String()
+	}
+	return fmt.Sprintf("%d%s", dur, sign)
 }

@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/monitor/dbinit"
 	"yunion.io/x/onecloud/pkg/monitor/models"
 )
 
@@ -42,6 +43,7 @@ func NewSnapshotUnusedDriver() models.ISuggestSysRuleDriver {
 			monitor.SNAPSHOT_MONITOR_RES_TYPE,
 			monitor.DELETE_DRIVER_ACTION,
 			monitor.MonitorSuggest("释放未使用的快照"),
+			*dbinit.SnapShotUnusedCreateInput,
 		),
 	}
 }
