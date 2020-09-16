@@ -191,8 +191,8 @@ func (l *SLocalImageCache) prepare(ctx context.Context, zone, srcUrl, format str
 }
 
 func (l *SLocalImageCache) fetch(ctx context.Context, zone, srcUrl, format string) bool {
-	if (fileutils2.Exists(l.GetPath()) &&
-		l.remoteFile.VerifyIntegrity()) || l.remoteFile.Fetch() {
+	if (fileutils2.Exists(l.GetPath()) && l.remoteFile.VerifyIntegrity()) ||
+		l.remoteFile.Fetch() {
 		if len(l.Manager.GetId()) > 0 {
 			_, err := hostutils.RemoteStoragecacheCacheImage(ctx,
 				l.Manager.GetId(), l.imageId, "ready", l.GetPath())
