@@ -40,7 +40,7 @@ func (self *ElasticcacheBackupRestoreInstanceTask) taskFail(ctx context.Context,
 	eb.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CREATE_FAILED, reason.String())
 	db.OpsLog.LogEvent(eb, db.ACT_CONVERT_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, eb, logclient.ACT_RESTORE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(eb.Id, eb.Name, api.ELASTIC_CACHE_STATUS_CREATE_FAILED, reason.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, eb.Id, eb.Name, api.ELASTIC_CACHE_STATUS_CREATE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 

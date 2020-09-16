@@ -40,7 +40,7 @@ func (self *LoadbalancerCertificateDeleteTask) taskFail(ctx context.Context, lbc
 	lbcert.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, reason.String())
 	db.OpsLog.LogEvent(lbcert, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbcert, logclient.ACT_DELOCATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lbcert.Id, lbcert.Name, api.LB_STATUS_DELETE_FAILED, reason.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, lbcert.Id, lbcert.Name, api.LB_STATUS_DELETE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 

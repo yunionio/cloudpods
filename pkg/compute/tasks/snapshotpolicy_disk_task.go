@@ -57,7 +57,7 @@ func (self *SnapshotPolicyApplyTask) taskFail(ctx context.Context, disk *models.
 
 	db.OpsLog.LogEvent(disk, db.ACT_APPLY_SNAPSHOT_POLICY_FAILED, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_APPLY_SNAPSHOT_POLICY, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(disk.GetId(), disk.Name, compute.DISK_APPLY_SNAPSHOT_FAIL, reason.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, disk.GetId(), disk.Name, compute.DISK_APPLY_SNAPSHOT_FAIL, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 

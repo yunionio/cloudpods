@@ -40,7 +40,7 @@ func (self *ElasticcacheUpdateBackupPolicyTask) taskFail(ctx context.Context, el
 	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason.String())
 	db.OpsLog.LogEvent(elasticcache, db.ACT_UPDATE, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_UPDATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 

@@ -45,7 +45,7 @@ func (self *ElasticcacheAccountResetPasswordTask) taskFail(ctx context.Context, 
 	}
 	db.OpsLog.LogEvent(ea, db.ACT_RESET_PASSWORD, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, ea, logclient.ACT_RESET_PASSWORD, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(ea.Id, ea.Name, api.ELASTIC_CACHE_STATUS_CREATE_FAILED, reason.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, ea.Id, ea.Name, api.ELASTIC_CACHE_STATUS_CREATE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 

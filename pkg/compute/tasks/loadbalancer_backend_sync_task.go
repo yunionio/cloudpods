@@ -40,7 +40,7 @@ func (self *LoadbalancerBackendSyncTask) taskFail(ctx context.Context, lbb *mode
 	lbb.SetStatus(self.GetUserCred(), api.LB_SYNC_CONF_FAILED, reason.String())
 	db.OpsLog.LogEvent(lbb, db.ACT_SYNC_CONF, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbb, logclient.ACT_SYNC_CONF, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lbb.Id, lbb.Name, api.LB_SYNC_CONF_FAILED, reason.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, lbb.Id, lbb.Name, api.LB_SYNC_CONF_FAILED, reason.String())
 	lbbg := lbb.GetLoadbalancerBackendGroup()
 	if lbbg != nil {
 		logclient.AddActionLogWithStartable(self, lbbg, logclient.ACL_LB_SYNC_BACKEND_CONF, reason, self.UserCred, false)

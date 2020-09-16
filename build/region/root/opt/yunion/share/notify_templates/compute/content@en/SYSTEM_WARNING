@@ -1,0 +1,6 @@
+System warning message
+Resource: {{ .name}}
+Resource ID: {{ .id }}
+Event: {{ .event }}
+Reason: {{ .reason }}
+Time: {{ .created }}

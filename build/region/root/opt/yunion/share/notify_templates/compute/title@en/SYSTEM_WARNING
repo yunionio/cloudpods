@@ -1,0 +1,1 @@
+System warning message {{ .name }} {{ .event }}

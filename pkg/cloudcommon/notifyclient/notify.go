@@ -24,16 +24,19 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/text/language"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
+	npk "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 )
 
 var (
@@ -51,7 +54,20 @@ func init() {
 	templatesTable = make(map[string]*template.Template)
 }
 
-func getTemplateString(topic string, contType string, channel notify.TNotifyChannel) ([]byte, error) {
+func getLangSuffix(ctx context.Context) string {
+	lang := httperrors.Lang(ctx)
+	switch lang {
+	case language.English:
+		return "en"
+	case language.Chinese:
+		return "cn"
+	default:
+		return "en"
+	}
+}
+
+func getTemplateString(ctx context.Context, topic string, contType string, channel npk.TNotifyChannel) ([]byte, error) {
+	contType = contType + "@" + getLangSuffix(ctx)
 	if len(channel) > 0 {
 		path := filepath.Join(consts.NotifyTemplateDir, consts.GetServiceType(), contType, fmt.Sprintf("%s.%s", topic, string(channel)))
 		cont, err := ioutil.ReadFile(path)
@@ -63,13 +79,13 @@ func getTemplateString(topic string, contType string, channel notify.TNotifyChan
 	return ioutil.ReadFile(path)
 }
 
-func getTemplate(topic string, contType string, channel notify.TNotifyChannel) (*template.Template, error) {
+func getTemplate(ctx context.Context, topic string, contType string, channel npk.TNotifyChannel) (*template.Template, error) {
 	key := fmt.Sprintf("%s.%s.%s", topic, contType, channel)
 	templatesTableLock.Lock()
 	defer templatesTableLock.Unlock()
 
 	if _, ok := templatesTable[key]; !ok {
-		cont, err := getTemplateString(topic, contType, channel)
+		cont, err := getTemplateString(ctx, topic, contType, channel)
 		if err != nil {
 			return nil, err
 		}
@@ -82,8 +98,8 @@ func getTemplate(topic string, contType string, channel notify.TNotifyChannel) (
 	return templatesTable[key], nil
 }
 
-func getContent(topic string, contType string, channel notify.TNotifyChannel, data jsonutils.JSONObject) (string, error) {
-	tmpl, err := getTemplate(topic, contType, channel)
+func getContent(ctx context.Context, topic string, contType string, channel npk.TNotifyChannel, data jsonutils.JSONObject) (string, error) {
+	tmpl, err := getTemplate(ctx, topic, contType, channel)
 	if err != nil {
 		return "", err
 	}
@@ -96,22 +112,36 @@ func getContent(topic string, contType string, channel notify.TNotifyChannel, da
 	return buf.String(), nil
 }
 
-func Notify(recipientId []string, isGroup bool, priority notify.TNotifyPriority, event string,
-	data jsonutils.JSONObject) {
+func NotifyWithCtx(ctx context.Context, recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {
+	notify(ctx, recipientId, isGroup, priority, event, data)
+}
+
+func Notify(recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {
+	notify(context.Background(), recipientId, isGroup, priority, event, data)
+}
+
+func notify(ctx context.Context, recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {
 	switch priority {
-	case notify.NotifyPriorityCritical:
-		NotifyCritical(recipientId, isGroup, event, data)
-	case notify.NotifyPriorityImportant:
-		NotifyImportant(recipientId, isGroup, event, data)
+	case npk.NotifyPriorityCritical:
+		notifyCritical(ctx, recipientId, isGroup, event, data)
+	case npk.NotifyPriorityImportant:
+		notifyImportant(ctx, recipientId, isGroup, event, data)
 	default:
-		NotifyNormal(recipientId, isGroup, event, data)
+		notifyNormal(ctx, recipientId, isGroup, event, data)
 	}
 }
 
-func RawNotify(recipientId []string, isGroup bool, channel notify.TNotifyChannel, priority notify.TNotifyPriority,
-	event string, data jsonutils.JSONObject) {
+func RawNotifyWithCtx(ctx context.Context, recipientId []string, isGroup bool, channel npk.TNotifyChannel, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {
+	rawNotify(ctx, recipientId, isGroup, channel, priority, event, data)
+}
+
+func RawNotify(recipientId []string, isGroup bool, channel npk.TNotifyChannel, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {
+	rawNotify(context.Background(), recipientId, isGroup, channel, priority, event, data)
+}
+
+func rawNotify(ctx context.Context, recipientId []string, isGroup bool, channel npk.TNotifyChannel, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {
 	log.Infof("notify %s event %s priority %s", recipientId, event, priority)
-	msg := notify.SNotifyMessage{}
+	msg := npk.SNotifyMessage{}
 	if isGroup {
 		msg.Gid = recipientId
 	} else {
@@ -119,12 +149,12 @@ func RawNotify(recipientId []string, isGroup bool, channel notify.TNotifyChannel
 	}
 	msg.Priority = priority
 	msg.ContactType = channel
-	topic, _ := getContent(event, "title", channel, data)
+	topic, _ := getContent(ctx, event, "title", channel, data)
 	if len(topic) == 0 {
 		topic = event
 	}
 	msg.Topic = topic
-	body, _ := getContent(event, "content", channel, data)
+	body, _ := getContent(ctx, event, "content", channel, data)
 	if len(body) == 0 {
 		body, _ = data.GetString()
 	}
@@ -132,69 +162,103 @@ func RawNotify(recipientId []string, isGroup bool, channel notify.TNotifyChannel
 	// log.Debugf("send notification %s %s", topic, body)
 	notifyClientWorkerMan.Run(func() {
 		s := auth.GetAdminSession(context.Background(), consts.GetRegion(), "")
-		notify.Notifications.Send(s, msg)
+		npk.Notifications.Send(s, msg)
 	}, nil, nil)
 }
 
 func NotifyNormal(recipientId []string, isGroup bool, event string, data jsonutils.JSONObject) {
-	for _, c := range []notify.TNotifyChannel{
-		notify.NotifyByEmail,
-		notify.NotifyByDingTalk,
-		notify.NotifyByWebConsole,
-		notify.NotifyByFeishu,
-		notify.NotifyByWorkwx,
+	notifyNormal(context.Background(), recipientId, isGroup, event, data)
+}
+
+func NotifyNormalWithCtx(ctx context.Context, recipientId []string, isGroup bool, event string, data jsonutils.JSONObject) {
+	notifyNormal(ctx, recipientId, isGroup, event, data)
+}
+
+func notifyNormal(ctx context.Context, recipientId []string, isGroup bool, event string, data jsonutils.JSONObject) {
+	for _, c := range []npk.TNotifyChannel{
+		npk.NotifyByEmail,
+		npk.NotifyByDingTalk,
+		npk.NotifyByWebConsole,
+		npk.NotifyByFeishu,
+		npk.NotifyByWorkwx,
 	} {
-		RawNotify(recipientId, isGroup,
+		rawNotify(ctx, recipientId, isGroup,
 			c,
-			notify.NotifyPriorityNormal,
+			npk.NotifyPriorityNormal,
 			event, data)
 	}
 }
 
 func NotifyImportant(recipientId []string, isGroup bool, event string, data jsonutils.JSONObject) {
-	for _, c := range []notify.TNotifyChannel{
-		notify.NotifyByEmail,
-		notify.NotifyByDingTalk,
-		notify.NotifyByMobile,
-		notify.NotifyByWebConsole,
-		notify.NotifyByFeishu,
-		notify.NotifyByWorkwx,
+	notifyImportant(context.Background(), recipientId, isGroup, event, data)
+}
+
+func NotifyImportantWithCtx(ctx context.Context, recipientId []string, isGroup bool, event string, data jsonutils.JSONObject) {
+	notifyImportant(ctx, recipientId, isGroup, event, data)
+}
+
+func notifyImportant(ctx context.Context, recipientId []string, isGroup bool, event string, data jsonutils.JSONObject) {
+	for _, c := range []npk.TNotifyChannel{
+		npk.NotifyByEmail,
+		npk.NotifyByDingTalk,
+		npk.NotifyByMobile,
+		npk.NotifyByWebConsole,
+		npk.NotifyByFeishu,
+		npk.NotifyByWorkwx,
 	} {
-		RawNotify(recipientId, isGroup,
+		rawNotify(ctx, recipientId, isGroup,
 			c,
-			notify.NotifyPriorityImportant,
+			npk.NotifyPriorityImportant,
 			event, data)
 	}
 }
 
 func NotifyCritical(recipientId []string, isGroup bool, event string, data jsonutils.JSONObject) {
-	for _, c := range []notify.TNotifyChannel{
-		notify.NotifyByEmail,
-		notify.NotifyByDingTalk,
-		notify.NotifyByMobile,
-		notify.NotifyByWebConsole,
-		notify.NotifyByFeishu,
-		notify.NotifyByWorkwx,
+	notifyCritical(context.Background(), recipientId, isGroup, event, data)
+}
+
+func NotifyCriticalWithCtx(ctx context.Context, recipientId []string, isGroup bool, event string, data jsonutils.JSONObject) {
+	notifyCritical(ctx, recipientId, isGroup, event, data)
+}
+
+func notifyCritical(ctx context.Context, recipientId []string, isGroup bool, event string, data jsonutils.JSONObject) {
+	for _, c := range []npk.TNotifyChannel{
+		npk.NotifyByEmail,
+		npk.NotifyByDingTalk,
+		npk.NotifyByMobile,
+		npk.NotifyByWebConsole,
+		npk.NotifyByFeishu,
+		npk.NotifyByWorkwx,
 	} {
-		RawNotify(recipientId, isGroup,
+		rawNotify(ctx, recipientId, isGroup,
 			c,
-			notify.NotifyPriorityCritical,
+			npk.NotifyPriorityCritical,
 			event, data)
 	}
 }
 
 // NotifyAllWithoutRobot will send messages via all contacnt type from exclude robot contact type such as dingtalk-robot.
-func NotifyAllWithoutRobot(recipientId []string, isGroup bool, priority notify.TNotifyPriority, event string, data jsonutils.JSONObject) error {
-	return notifyRobot("no", recipientId, isGroup, priority, event, data)
+func NotifyAllWithoutRobot(recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) error {
+	return notifyRobot(context.Background(), "no", recipientId, isGroup, priority, event, data)
+}
+
+// NotifyAllWithoutRobot will send messages via all contacnt type from exclude robot contact type such as dingtalk-robot.
+func NotifyAllWithoutRobotWithCtx(ctx context.Context, recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) error {
+	return notifyRobot(ctx, "no", recipientId, isGroup, priority, event, data)
 }
 
 // NotifyRobot will send messages via all robot contact type such as dingtalk-robot.
-func NotifyRobot(recipientId []string, isGroup bool, priority notify.TNotifyPriority, event string, data jsonutils.JSONObject) error {
-	return notifyRobot("only", recipientId, isGroup, priority, event, data)
+func NotifyRobot(recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) error {
+	return notifyRobot(context.Background(), "only", recipientId, isGroup, priority, event, data)
 }
 
-func notifyRobot(robot string, recipientId []string, isGroup bool, priority notify.TNotifyPriority, event string, data jsonutils.JSONObject) error {
-	s := auth.GetAdminSession(context.Background(), consts.GetRegion(), "")
+// NotifyRobot will send messages via all robot contact type such as dingtalk-robot.
+func NotifyRobotWithCtx(ctx context.Context, recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) error {
+	return notifyRobot(ctx, "only", recipientId, isGroup, priority, event, data)
+}
+
+func notifyRobot(ctx context.Context, robot string, recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) error {
+	s := auth.GetAdminSession(ctx, consts.GetRegion(), "")
 	params := jsonutils.NewDict()
 	params.Set("robot", jsonutils.NewString(robot))
 	result, err := modules.NotifyConfig.PerformClassAction(s, "get-types", params)
@@ -204,21 +268,37 @@ func notifyRobot(robot string, recipientId []string, isGroup bool, priority noti
 	jarray, _ := result.Get("types")
 	cTypes := jarray.(*jsonutils.JSONArray).GetStringArray()
 	for _, ct := range cTypes {
-		RawNotify(recipientId, isGroup, notify.TNotifyChannel(ct), priority, event, data)
+		RawNotifyWithCtx(ctx, recipientId, isGroup, npk.TNotifyChannel(ct), priority, event, data)
 	}
 	return nil
 }
 
-func SystemNotify(priority notify.TNotifyPriority, event string, data jsonutils.JSONObject) {
+func SystemNotify(priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {
+	systemNotify(context.Background(), priority, event, data)
+}
+
+func SystemNotifyWithCtx(ctx context.Context, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {
+	systemNotify(ctx, priority, event, data)
+}
+
+func systemNotify(ctx context.Context, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {
 	// userId
-	Notify(notifyAdminUsers, false, priority, event, data)
+	notify(ctx, notifyAdminUsers, false, priority, event, data)
 
 	// groupId
-	Notify(notifyAdminGroups, true, priority, event, data)
+	notify(ctx, notifyAdminGroups, true, priority, event, data)
 }
 
 func NotifyGeneralSystemError(data jsonutils.JSONObject) {
-	SystemNotify(notify.NotifyPriorityCritical, SYSTEM_ERROR, data)
+	notifyGeneralSystemError(context.Background(), data)
+}
+
+func NotifyGeneralSystemErrorWithCtx(ctx context.Context, data jsonutils.JSONObject) {
+	notifyGeneralSystemError(ctx, data)
+}
+
+func notifyGeneralSystemError(ctx context.Context, data jsonutils.JSONObject) {
+	systemNotify(ctx, npk.NotifyPriorityCritical, SYSTEM_ERROR, data)
 }
 
 type SSystemEventMsg struct {
@@ -230,6 +310,14 @@ type SSystemEventMsg struct {
 }
 
 func NotifySystemError(idstr string, name string, event string, reason string) {
+	notifySystemError(context.Background(), idstr, name, event, reason)
+}
+
+func NotifySystemErrorWithCtx(ctx context.Context, idstr string, name string, event string, reason string) {
+	notifySystemError(ctx, idstr, name, event, reason)
+}
+
+func notifySystemError(ctx context.Context, idstr string, name string, event string, reason string) {
 	msg := SSystemEventMsg{
 		Id:      idstr,
 		Name:    name,
@@ -237,10 +325,29 @@ func NotifySystemError(idstr string, name string, event string, reason string) {
 		Reason:  reason,
 		Created: time.Now(),
 	}
-	SystemNotify(notify.NotifyPriorityCritical, SYSTEM_ERROR, jsonutils.Marshal(msg))
+	systemNotify(ctx, npk.NotifyPriorityCritical, SYSTEM_ERROR, jsonutils.Marshal(msg))
+}
+
+func NotifyError(ctx context.Context, userCred mcclient.TokenCredential, idstr, name, event, reason string) {
+	msg := SSystemEventMsg{
+		Id:      idstr,
+		Name:    name,
+		Event:   event,
+		Reason:  reason,
+		Created: time.Now(),
+	}
+	notify(ctx, []string{userCred.GetUserId()}, false, npk.NotifyPriorityCritical, SYSTEM_ERROR, jsonutils.Marshal(msg))
 }
 
 func NotifySystemWarning(idstr string, name string, event string, reason string) {
+	notifySystemWarning(context.Background(), idstr, name, event, reason)
+}
+
+func NotifySystemWarningWithCtx(ctx context.Context, idstr string, name string, event string, reason string) {
+	notifySystemWarning(ctx, idstr, name, event, reason)
+}
+
+func notifySystemWarning(ctx context.Context, idstr string, name string, event string, reason string) {
 	msg := SSystemEventMsg{
 		Id:      idstr,
 		Name:    name,
@@ -248,7 +355,7 @@ func NotifySystemWarning(idstr string, name string, event string, reason string)
 		Reason:  reason,
 		Created: time.Now(),
 	}
-	SystemNotify(notify.NotifyPriorityImportant, SYSTEM_WARNING, jsonutils.Marshal(msg))
+	systemNotify(ctx, npk.NotifyPriorityImportant, SYSTEM_WARNING, jsonutils.Marshal(msg))
 }
 
 func parseIdName(idName string) (string, string) {

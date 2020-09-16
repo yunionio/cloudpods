@@ -40,7 +40,7 @@ func (self *LoadbalancerCreateTask) taskFail(ctx context.Context, lb *models.SLo
 	lb.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, reason.String())
 	db.OpsLog.LogEvent(lb, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_CREATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lb.Id, lb.Name, api.LB_CREATE_FAILED, reason.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, lb.Id, lb.Name, api.LB_CREATE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 

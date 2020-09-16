@@ -150,6 +150,7 @@ func (self *SGuest) PerformEvent(ctx context.Context, userCred mcclient.TokenCre
 		db.OpsLog.LogEvent(self, db.ACT_GUEST_PANICKED, data.String(), userCred)
 		logclient.AddSimpleActionLog(self, logclient.ACT_GUEST_PANICKED, data.String(), userCred, true)
 		self.NotifyServerEvent(
+			ctx,
 			userCred,
 			notifyclient.SERVER_PANICKED,
 			notify.NotifyPriorityNormal,
@@ -820,7 +821,7 @@ func (self *SGuest) StartGuestDeployTask(
 }
 
 func (self *SGuest) NotifyServerEvent(
-	userCred mcclient.TokenCredential, event string, priority notify.TNotifyPriority,
+	ctx context.Context, userCred mcclient.TokenCredential, event string, priority notify.TNotifyPriority,
 	loginInfo bool, kwargs *jsonutils.JSONDict, notifyAdmin bool,
 ) {
 	meta, err := self.GetAllMetadata(nil)
@@ -860,9 +861,9 @@ func (self *SGuest) NotifyServerEvent(
 			}
 		}
 	}
-	notifyclient.Notify([]string{userCred.GetUserId()}, false, priority, event, kwargs)
+	notifyclient.NotifyWithCtx(ctx, []string{userCred.GetUserId()}, false, priority, event, kwargs)
 	if notifyAdmin {
-		notifyclient.SystemNotify(priority, event, kwargs)
+		notifyclient.SystemNotifyWithCtx(ctx, priority, event, kwargs)
 	}
 }
 
@@ -876,7 +877,7 @@ func (self *SGuest) NotifyAdminServerEvent(ctx context.Context, event string, pr
 	} else {
 		kwargs.Add(jsonutils.NewString(self.ProjectId), "tenant")
 	}
-	notifyclient.SystemNotify(priority, event, kwargs)
+	notifyclient.SystemNotifyWithCtx(ctx, priority, event, kwargs)
 }
 
 func (self *SGuest) StartGuestStopTask(ctx context.Context, userCred mcclient.TokenCredential, isForce bool, parentTaskId string) error {
