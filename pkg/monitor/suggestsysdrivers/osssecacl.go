@@ -16,6 +16,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/monitor/dbinit"
 	"yunion.io/x/onecloud/pkg/monitor/models"
 )
 
@@ -25,8 +26,13 @@ type OssSecAcl struct {
 
 func NewOssSecAclDriver() models.ISuggestSysRuleDriver {
 	return &OssSecAcl{
-		baseDriver: newBaseDriver(monitor.OSS_SEC_ACL, monitor.OSS_SEC_ACL_MONITOR_RES_TYPE,
-			monitor.OSS_SEC_ACL_DRIVER_ACTION, monitor.OSS_SEC_ACL_MONITOR_SUGGEST),
+		baseDriver: newBaseDriver(
+			monitor.OSS_SEC_ACL,
+			monitor.OSS_SEC_ACL_MONITOR_RES_TYPE,
+			monitor.OSS_SEC_ACL_DRIVER_ACTION,
+			monitor.OSS_SEC_ACL_MONITOR_SUGGEST,
+			*dbinit.OssSecAclCreateInput,
+		),
 	}
 }
 

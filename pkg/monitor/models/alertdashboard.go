@@ -211,7 +211,7 @@ func (dash *SAlertDashBoard) GetCommonAlertMetricDetailsFromAlertCondition(index
 	cond monitor.AlertCondition) *monitor.
 	CommonAlertMetricDetails {
 	metricDetails := new(monitor.CommonAlertMetricDetails)
-	getCommonAlertMetricDetailsFromCondition(cond, metricDetails)
+	getCommonAlertMetricDetailsFromCondition(&cond, metricDetails)
 	return metricDetails
 }
 

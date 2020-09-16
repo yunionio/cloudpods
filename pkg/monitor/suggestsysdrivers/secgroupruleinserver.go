@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/monitor/dbinit"
 	"yunion.io/x/onecloud/pkg/monitor/models"
 )
 
@@ -26,6 +27,7 @@ func NewSecGroupRuleInServerDriver() models.ISuggestSysRuleDriver {
 			monitor.SECGROUPRULEINSERVER_MONITOR_RES_TYPE,
 			monitor.SECGROUPRULEINSERVER_DRIVER_ACTION,
 			monitor.SECGROUPRULEINSERVER_MONITOR_SUGGEST,
+			*dbinit.SecGroupRuleInCreateInput,
 		),
 	}
 }

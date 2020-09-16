@@ -297,20 +297,38 @@ func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricInputQ
 	switch rbacutils.TRbacScope(scope) {
 	case rbacutils.ScopeProject:
 		projectId = ownerId.GetProjectId()
-		query.Model.Tags = append(query.Model.Tags, monitor.MetricQueryTag{
-			Key:       "tenant_id",
-			Operator:  "=",
-			Value:     projectId,
-			Condition: "and",
-		})
+		containId := false
+		for _, tagFilter := range query.Model.Tags {
+			if tagFilter.Key == "tenant_id" {
+				containId = true
+				break
+			}
+		}
+		if !containId {
+			query.Model.Tags = append(query.Model.Tags, monitor.MetricQueryTag{
+				Key:       "tenant_id",
+				Operator:  "=",
+				Value:     projectId,
+				Condition: "and",
+			})
+		}
 	case rbacutils.ScopeDomain:
 		domainId = ownerId.GetProjectDomainId()
-		query.Model.Tags = append(query.Model.Tags, monitor.MetricQueryTag{
-			Key:       "domain_id",
-			Operator:  "=",
-			Value:     domainId,
-			Condition: "and",
-		})
+		containId := false
+		for _, tagFilter := range query.Model.Tags {
+			if tagFilter.Key == "domain_id" {
+				containId = true
+				break
+			}
+		}
+		if !containId {
+			query.Model.Tags = append(query.Model.Tags, monitor.MetricQueryTag{
+				Key:       "domain_id",
+				Operator:  "=",
+				Value:     domainId,
+				Condition: "and",
+			})
+		}
 	}
 }
 

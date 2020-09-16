@@ -23,6 +23,7 @@ type baseDriver struct {
 	resourceType monitor.MonitorResourceType
 	action       monitor.SuggestDriverAction
 	suggest      monitor.MonitorSuggest
+	defRule      monitor.SuggestSysRuleCreateInput
 }
 
 func newBaseDriver(
@@ -30,12 +31,14 @@ func newBaseDriver(
 	resType monitor.MonitorResourceType,
 	action monitor.SuggestDriverAction,
 	suggest monitor.MonitorSuggest,
+	defRule monitor.SuggestSysRuleCreateInput,
 ) *baseDriver {
 	return &baseDriver{
 		driverType:   drvType,
 		resourceType: resType,
 		action:       action,
 		suggest:      suggest,
+		defRule:      defRule,
 	}
 }
 
@@ -53,4 +56,8 @@ func (drv baseDriver) GetAction() monitor.SuggestDriverAction {
 
 func (drv baseDriver) GetSuggest() monitor.MonitorSuggest {
 	return drv.suggest
+}
+
+func (drv baseDriver) GetDefaultRule() monitor.SuggestSysRuleCreateInput {
+	return drv.defRule
 }

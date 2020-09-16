@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/monitor/dbinit"
 	"yunion.io/x/onecloud/pkg/monitor/models"
 )
 
@@ -43,6 +44,7 @@ func NewDiskUnusedDriver() models.ISuggestSysRuleDriver {
 			monitor.DISK_MONITOR_RES_TYPE,
 			monitor.DELETE_DRIVER_ACTION,
 			monitor.DISK_MONITOR_SUGGEST,
+			*dbinit.DiskUnusedCreateInput,
 		),
 	}
 }
