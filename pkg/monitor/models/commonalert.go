@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -412,6 +413,7 @@ func (alert *SCommonAlert) GetMoreDetails(ctx context.Context, out monitor.Commo
 	if err != nil {
 		return out, err
 	}
+	channel := sets.String{}
 	for i, alertNoti := range alertNotis {
 		noti, err := alertNoti.GetNotification()
 		if err != nil {
@@ -424,8 +426,11 @@ func (alert *SCommonAlert) GetMoreDetails(ctx context.Context, out monitor.Commo
 		if i == 0 {
 			out.Recipients = settings.UserIds
 		}
-		out.Channel = append(out.Channel, settings.Channel)
+		if settings.Channel != monitor.DEFAULT_SEND_NOTIFY_CHANNEL {
+			channel.Insert(settings.Channel)
+		}
 	}
+	out.Channel = channel.List()
 	out.Status = alert.GetStatus()
 	out.AlertType = alert.getAlertType()
 	if alert.Frequency < 60 {
@@ -452,14 +457,16 @@ func (alert *SCommonAlert) getCommonAlertMetricDetails(out *monitor.CommonAlertD
 
 	out.CommonAlertMetricDetails = make([]*monitor.CommonAlertMetricDetails, len(setting.Conditions))
 	for i, cond := range setting.Conditions {
-		metricDetails := alert.GetCommonAlertMetricDetailsFromAlertCondition(i, cond)
+		metricDetails := alert.GetCommonAlertMetricDetailsFromAlertCondition(i, &cond)
 		out.CommonAlertMetricDetails[i] = metricDetails
+		setting.Conditions[i] = cond
 	}
+	alert.Settings = jsonutils.Marshal(setting)
 	return nil
 }
 
 func (alert *SCommonAlert) GetCommonAlertMetricDetailsFromAlertCondition(index int,
-	cond monitor.AlertCondition) *monitor.
+	cond *monitor.AlertCondition) *monitor.
 	CommonAlertMetricDetails {
 	fieldOpt := alert.getFieldOpt()
 	metricDetails := new(monitor.CommonAlertMetricDetails)
@@ -470,7 +477,7 @@ func (alert *SCommonAlert) GetCommonAlertMetricDetailsFromAlertCondition(index i
 	return metricDetails
 }
 
-func getCommonAlertMetricDetailsFromCondition(cond monitor.AlertCondition,
+func getCommonAlertMetricDetailsFromCondition(cond *monitor.AlertCondition,
 	metricDetails *monitor.CommonAlertMetricDetails) {
 	cmp := ""
 	switch cond.Evaluator.Type {
@@ -504,6 +511,17 @@ func getCommonAlertMetricDetailsFromCondition(cond monitor.AlertCondition,
 			break
 		}
 	}
+	newQueryTags := make([]monitor.MetricQueryTag, 0)
+	for i, tagFilter := range q.Model.Tags {
+		if tagFilter.Key == "tenant_id" {
+			continue
+		}
+		if tagFilter.Key == "domain_id" {
+			continue
+		}
+		newQueryTags = append(newQueryTags, q.Model.Tags[i])
+	}
+	cond.Query.Model.Tags = newQueryTags
 	metricDetails.Measurement = measurement
 	metricDetails.Field = field
 	metricDetails.DB = db
@@ -600,10 +618,13 @@ func (alert *SCommonAlert) ValidateUpdateData(
 		}
 	}
 	if channel, _ := data.GetArray("channel"); len(channel) > 0 {
-		channels := jsonutils.NewArray()
-		channels.Add(channel...)
-		channels.Add(jsonutils.NewString(monitor.DEFAULT_SEND_NOTIFY_CHANNEL))
-		data.Set("channel", channels)
+		channelStr, _ := data.GetString("channel")
+		if !strings.Contains(channelStr, monitor.DEFAULT_SEND_NOTIFY_CHANNEL) {
+			channels := jsonutils.NewArray()
+			channels.Add(channel...)
+			channels.Add(jsonutils.NewString(monitor.DEFAULT_SEND_NOTIFY_CHANNEL))
+			data.Set("channel", channels)
+		}
 	}
 	if metric_query, _ := data.GetArray("metric_query"); len(metric_query) > 0 {
 		for i, _ := range metric_query {

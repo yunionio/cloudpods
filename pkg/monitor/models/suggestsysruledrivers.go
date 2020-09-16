@@ -34,6 +34,7 @@ type ISuggestSysRuleDriver interface {
 	GetResourceType() monitor.MonitorResourceType
 	GetAction() monitor.SuggestDriverAction
 	GetSuggest() monitor.MonitorSuggest
+	GetDefaultRule() monitor.SuggestSysRuleCreateInput
 	// validate on create
 	ValidateSetting(input *monitor.SSuggestSysAlertSetting) error
 
@@ -63,4 +64,13 @@ func GetSuggestSysRuleResourceTypes() sets.String {
 		result.Insert(string(drv.GetResourceType()))
 	}
 	return result
+}
+
+func GetSuggestSysRuleDriverTypes() sets.String {
+	result := sets.NewString()
+	for _, drv := range suggestSysRuleDrivers {
+		result.Insert(string(drv.GetType()))
+	}
+	return result
+
 }

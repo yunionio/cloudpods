@@ -16,6 +16,9 @@ package alerting
 
 import (
 	"database/sql"
+	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -102,6 +105,7 @@ func (n *notificationService) getNeededNotifiers(nIds []string, evalCtx *EvalCon
 	}
 
 	var result notifierStateSlice
+	shouldNotify := false
 	for _, obj := range notis {
 		not, err := InitNotifier(NotificationConfig{
 			Id:                    obj.GetId(),
@@ -131,27 +135,30 @@ func (n *notificationService) getNeededNotifiers(nIds []string, evalCtx *EvalCon
 		}
 
 		if not.ShouldNotify(evalCtx.Ctx, evalCtx, state) {
+			shouldNotify = true
 			result = append(result, &notifierState{
 				notifier: not,
 				state:    state,
 			})
-			recordCreateInput := monitor.AlertRecordCreateInput{
-				StandaloneResourceCreateInput: apis.StandaloneResourceCreateInput{
-					GenerateName: evalCtx.Rule.Name,
-				},
-				AlertId:  evalCtx.Rule.Id,
-				Level:    evalCtx.Rule.Level,
-				State:    string(evalCtx.Rule.State),
-				EvalData: evalCtx.EvalMatches,
-			}
-			_, err := db.DoCreate(models.AlertRecordManager, evalCtx.Ctx, evalCtx.UserCred, jsonutils.NewDict(),
-				jsonutils.Marshal(&recordCreateInput), evalCtx.UserCred)
-			if err != nil {
-				log.Errorf("create alert record err:%v", err)
-			}
 		}
 	}
-
+	if shouldNotify {
+		recordCreateInput := monitor.AlertRecordCreateInput{
+			StandaloneResourceCreateInput: apis.StandaloneResourceCreateInput{
+				GenerateName: evalCtx.Rule.Name,
+			},
+			AlertId:   evalCtx.Rule.Id,
+			Level:     evalCtx.Rule.Level,
+			State:     string(evalCtx.Rule.State),
+			EvalData:  evalCtx.EvalMatches,
+			AlertRule: newAlertRecordRule(evalCtx),
+		}
+		_, err = db.DoCreate(models.AlertRecordManager, evalCtx.Ctx, evalCtx.UserCred, jsonutils.NewDict(),
+			jsonutils.Marshal(&recordCreateInput), evalCtx.UserCred)
+		if err != nil {
+			log.Errorf("create alert record err:%v", err)
+		}
+	}
 	return result, nil
 }
 
@@ -187,4 +194,25 @@ func InitNotifier(config NotificationConfig) (Notifier, error) {
 		return nil, err
 	}
 	return plug.(Notifier), nil
+}
+
+func newAlertRecordRule(evalCtx *EvalContext) monitor.AlertRecordRule {
+	alertRule := monitor.AlertRecordRule{}
+	if evalCtx.Rule.Frequency < 60 {
+		alertRule.Period = fmt.Sprintf("%ds", evalCtx.Rule.Frequency)
+	} else {
+		alertRule.Period = fmt.Sprintf("%dm", evalCtx.Rule.Frequency/60)
+	}
+	ruleStr := evalCtx.Rule.Message
+	ruleElementArr := strings.Split(ruleStr, " ")
+	if len(ruleElementArr) == 3 {
+		alertRule.Metric = ruleElementArr[0]
+		alertRule.Comparator = ruleElementArr[1]
+		alertRule.Threshold, _ = strconv.ParseFloat(ruleElementArr[2], 64)
+	}
+	if len(evalCtx.EvalMatches) != 0 {
+		alertRule.MeasurementDesc = evalCtx.EvalMatches[0].MeasurementDesc
+		alertRule.FieldDesc = evalCtx.EvalMatches[0].FieldDesc
+	}
+	return alertRule
 }

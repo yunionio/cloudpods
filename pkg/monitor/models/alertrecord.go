@@ -30,10 +30,11 @@ type SAlertRecord struct {
 	db.SStatusStandaloneResourceBase
 	db.SScopedResourceBase
 
-	AlertId  string               `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	Level    string               `charset:"ascii" width:"36" nullable:"false" default:"normal" list:"user" update:"user"`
-	State    string               `width:"36" charset:"ascii" nullable:"false" default:"unknown" list:"user" update:"user"`
-	EvalData jsonutils.JSONObject `list:"user" update:"user"`
+	AlertId   string               `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	Level     string               `charset:"ascii" width:"36" nullable:"false" default:"normal" list:"user" update:"user"`
+	State     string               `width:"36" charset:"ascii" nullable:"false" default:"unknown" list:"user" update:"user"`
+	EvalData  jsonutils.JSONObject `list:"user" update:"user"`
+	AlertRule jsonutils.JSONObject `list:"user" update:"user"`
 }
 
 func init() {
