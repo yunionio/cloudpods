@@ -1452,6 +1452,26 @@ func (img *SImage) GetUsages() []db.IUsage {
 	}
 }
 
+func (self *SImage) AllowPerformUpdateStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "update-status")
+}
+
+func (img *SImage) PerformUpdateStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ImageUpdateStatusInput) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(input.Status, api.ImageDeadStatus) {
+		return nil, httperrors.NewBadRequestError("can't udpate image to status %s, must in %v", input.Status, api.ImageDeadStatus)
+	}
+	_, err := db.Update(img, func() error {
+		img.Status = input.Status
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "udpate image status")
+	}
+	db.OpsLog.LogEvent(img, db.ACT_UPDATE_STATUS, input.Reason, userCred)
+	logclient.AddSimpleActionLog(img, logclient.ACT_UPDATE_STATUS, input.Reason, userCred, true)
+	return nil, nil
+}
+
 func (img *SImage) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicProjectInput) (jsonutils.JSONObject, error) {
 	if img.IsStandard.IsTrue() {
 		return nil, errors.Wrap(httperrors.ErrForbidden, "cannot perform public for standard image")
