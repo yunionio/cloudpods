@@ -70,22 +70,22 @@ var (
 )
 
 type Error struct {
-	Id     string   `json:"id"`
-	Fields []string `json:"fields"`
+	Id     string   `json:"id,omitempty"`
+	Fields []string `json:"fields,omitempty"`
 }
 
 type JSONClientError struct {
 	Request struct {
-		Method  string               `json:"method"`
-		Url     string               `json:"url"`
-		Body    jsonutils.JSONObject `json:"body"`
-		Headers map[string]string    `json:"headers"`
-	} `json:"request"`
+		Method  string               `json:"method,omitempty"`
+		Url     string               `json:"url,omitempty"`
+		Body    jsonutils.JSONObject `json:"body,omitempty"`
+		Headers map[string]string    `json:"headers,omitempty"`
+	} `json:"request,omitempty"`
 
-	Code    int    `json:"code"`
-	Class   string `json:"class"`
-	Details string `json:"details"`
-	Data    Error  `json:"data"`
+	Code    int    `json:"code,omitzero"`
+	Class   string `json:"class,omitempty"`
+	Details string `json:"details,omitempty"`
+	Data    Error  `json:"data,omitempty"`
 }
 
 // body might have been consumed, so body is provided separately
