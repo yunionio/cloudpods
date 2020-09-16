@@ -204,17 +204,22 @@ func (self *SCloudgroup) PostCreate(ctx context.Context, userCred mcclient.Token
 	}
 }
 
-func (manager *SCloudgroupManager) newCloudgroup(ctx context.Context, userCred mcclient.TokenCredential, iGroup cloudprovider.ICloudgroup, provider, domainId string) (*SCloudgroup, error) {
+func (manager *SCloudgroupManager) newCloudgroup(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, iGroup cloudprovider.ICloudgroup, provider string) (*SCloudgroup, error) {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+
+	var err error
 	group := &SCloudgroup{}
-	group.Name = iGroup.GetName()
+	group.Name, err = db.GenerateName(manager, ownerId, iGroup.GetName())
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.GenerateName")
+	}
 	group.Description = iGroup.GetDescription()
 	group.Provider = provider
-	group.DomainId = domainId
+	group.DomainId = ownerId.GetProjectDomainId()
 	group.Status = api.CLOUD_GROUP_STATUS_AVAILABLE
 	group.SetModelManager(manager, group)
-	err := manager.TableSpec().Insert(ctx, group)
+	err = manager.TableSpec().Insert(ctx, group)
 	if err != nil {
 		return nil, errors.Wrap(err, "Insert")
 	}
