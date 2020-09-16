@@ -49,14 +49,16 @@ func (client *SESXiClient) GetMonitorData(serverOrHost jsonutils.JSONObject,
 		return nil, IdNameTable, err
 	}
 	loadMap(perfCounters)
-
+	//log.Errorf("metricIdNameInfo:%v", metricIdNameTable)
 	perfProviderSummary, err := performanceManager.ProviderSummary(client.context, managedEntity.Self)
 	if err != nil {
 		return nil, IdNameTable, err
 	}
 	refreshInterval := perfProviderSummary.RefreshRate
 	perfMetricList, err := performanceManager.AvailableMetric(client.context, managedEntity.Self, refreshInterval)
+	//log.Errorf("availableMetric:%v", perfMetricList)
 	pmiList := buildPerfMetricIds(perfMetricList)
+	//log.Errorf("filteredMetric:%v", pmiList)
 
 	perfQuerySpec := types.PerfQuerySpec{
 		Entity:     managedEntity.Reference(),
@@ -109,12 +111,15 @@ func (cli *SESXiClient) getManagerEntiry(serverOrHost jsonutils.JSONObject, monT
 
 func (cli *SESXiClient) getManagerEntityofVm(server jsonutils.JSONObject) (*mo.ManagedEntity, error) {
 	name, _ := server.GetString("name")
+	extId, _ := server.GetString("external_id")
 	virtualMachines, err := cli.getVirtualMachines()
 	if err != nil {
 		return nil, err
 	}
 	for _, virtualMachine := range virtualMachines {
-		if virtualMachine.Name == name {
+		guest := NewVirtualMachine(cli, &virtualMachine, nil)
+		ip := guest.GetGlobalId()
+		if ip == extId {
 			return virtualMachine.Entity(), nil
 		}
 	}
@@ -122,6 +127,7 @@ func (cli *SESXiClient) getManagerEntityofVm(server jsonutils.JSONObject) (*mo.M
 }
 
 func (cli *SESXiClient) getManagerEntityofHost(host jsonutils.JSONObject) (*mo.ManagedEntity, error) {
+	name, _ := host.GetString("name")
 	extId, _ := host.GetString("external_id")
 	hostSystems, err := cli.GetHostSystem()
 	if err != nil {
@@ -134,7 +140,7 @@ func (cli *SESXiClient) getManagerEntityofHost(host jsonutils.JSONObject) (*mo.M
 			return hostSystem.Entity(), nil
 		}
 	}
-	return nil, fmt.Errorf("No VMware ManagerEntiry for %s host", extId)
+	return nil, fmt.Errorf("No VMware ManagerEntiry for %s host", name)
 }
 
 //根据perfCounterInfos装载metricIdTable、metricNameTable、metricIdNameTable
@@ -162,11 +168,11 @@ func loadMap(perfCounterInfos []types.PerfCounterInfo) {
 
 //根据传入的metricSpecsMap的进行过滤，只取相关的指标metricName
 func buildPerfMetricIds(pmis []types.PerfMetricId) (pmiList []types.PerfMetricId) {
-	for _, perfMetricId := range pmis {
+	for i, perfMetricId := range pmis {
 		metricId := perfMetricId.CounterId
 		if metricName, ok := metricIdNameTable[metricId]; ok && metricName != "" {
 			if _, ok := metricSpecsMap[metricName]; ok {
-				pmiList = append(pmiList, perfMetricId)
+				pmiList = append(pmiList, pmis[i])
 			}
 		}
 	}
