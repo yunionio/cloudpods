@@ -199,7 +199,13 @@ func (manager *SBucketManager) newFromCloudBucket(
 
 	stats := extBucket.GetStats()
 	bucket.SizeBytes = stats.SizeBytes
+	if bucket.SizeBytes < 0 {
+		bucket.SizeBytes = 0
+	}
 	bucket.ObjectCnt = stats.ObjectCount
+	if bucket.ObjectCnt < 0 {
+		bucket.ObjectCnt = 0
+	}
 
 	limit := extBucket.GetLimit()
 	limitSupport := extBucket.LimitSupport()
@@ -259,7 +265,13 @@ func (bucket *SBucket) syncWithCloudBucket(
 	diff, err := db.UpdateWithLock(ctx, bucket, func() error {
 		stats := extBucket.GetStats()
 		bucket.SizeBytes = stats.SizeBytes
+		if bucket.SizeBytes < 0 {
+			bucket.SizeBytes = 0
+		}
 		bucket.ObjectCnt = stats.ObjectCount
+		if bucket.ObjectCnt < 0 {
+			bucket.ObjectCnt = 0
+		}
 
 		if !statsOnly {
 			limit := extBucket.GetLimit()
