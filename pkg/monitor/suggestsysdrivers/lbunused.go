@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/monitor/dbinit"
 	"yunion.io/x/onecloud/pkg/monitor/models"
 )
 
@@ -40,6 +41,7 @@ func NewLBUnusedDriver() models.ISuggestSysRuleDriver {
 			monitor.LB_MONITOR_RES_TYPE,
 			monitor.DELETE_DRIVER_ACTION,
 			monitor.LB_MONITOR_SUGGEST,
+			*dbinit.LbUnusedCreateInput,
 		),
 	}
 }

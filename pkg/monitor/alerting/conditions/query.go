@@ -187,7 +187,7 @@ func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series tsdb
 		return nil, errors.Wrap(err, "GetAlert to NewEvalMatch error")
 	}
 	settings, _ := alert.GetSettings()
-	alertDetails := alert.GetCommonAlertMetricDetailsFromAlertCondition(c.Index, settings.Conditions[c.Index])
+	alertDetails := alert.GetCommonAlertMetricDetailsFromAlertCondition(c.Index, &settings.Conditions[c.Index])
 	evalMatch.Metric = fmt.Sprintf("%s.%s", alertDetails.Measurement, alertDetails.Field)
 	queryKeyInfo := ""
 	if len(alertDetails.MeasurementDisplayName) > 0 && len(alertDetails.FieldDescription.DisplayName) > 0 {
@@ -196,7 +196,7 @@ func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series tsdb
 	if len(queryKeyInfo) == 0 {
 		queryKeyInfo = evalMatch.Metric
 	}
-	msg := fmt.Sprintf("%s.%s %s %.4f ", alertDetails.Measurement, alertDetails.Field,
+	msg := fmt.Sprintf("%s.%s %s %.4f", alertDetails.Measurement, alertDetails.Field,
 		alertDetails.Comparator, alertDetails.Threshold)
 	if len(context.Rule.Message) == 0 {
 		context.Rule.Message = msg

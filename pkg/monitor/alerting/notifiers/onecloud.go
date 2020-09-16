@@ -140,7 +140,7 @@ func (oc *OneCloudNotifier) Notify(ctx *alerting.EvalContext, _ jsonutils.JSONOb
 	}
 
 	factory := new(sendBodyFactory)
-	sendImp := factory.newSendnotify(oc, msg)
+	sendImp := factory.newSendnotify(oc, msg, config)
 
 	return sendImp.send()
 }
@@ -152,10 +152,12 @@ func (oc *OneCloudNotifier) buildContent(config monitor.NotificationTemplateConf
 type sendBodyFactory struct {
 }
 
-func (f *sendBodyFactory) newSendnotify(notifier *OneCloudNotifier, message notify.SNotifyMessage) Isendnotify {
+func (f *sendBodyFactory) newSendnotify(notifier *OneCloudNotifier, message notify.SNotifyMessage,
+	config monitor.NotificationTemplateConfig) Isendnotify {
 	def := new(sendnotifyBase)
 	def.OneCloudNotifier = notifier
 	def.msg = message
+	def.config = config
 	if len(notifier.Setting.UserIds) == 0 {
 		sys := new(sendSysImpl)
 		sys.sendnotifyBase = def
@@ -177,7 +179,8 @@ type Isendnotify interface {
 
 type sendnotifyBase struct {
 	*OneCloudNotifier
-	msg notify.SNotifyMessage
+	msg    notify.SNotifyMessage
+	config monitor.NotificationTemplateConfig
 }
 
 func (s *sendnotifyBase) send() error {
@@ -189,8 +192,8 @@ type sendUserImpl struct {
 }
 
 func (s *sendUserImpl) send() error {
-	return notifyclient.NotifyAllWithoutRobot(s.Setting.UserIds, false, notify.TNotifyPriority(s.msg.Priority), s.msg.Topic,
-		jsonutils.NewString(s.msg.Msg))
+	return notifyclient.NotifyAllWithoutRobot(s.Setting.UserIds, false, notify.TNotifyPriority(s.msg.Priority),
+		"DEFAULT", jsonutils.Marshal(&s.config))
 }
 
 type sendSysImpl struct {

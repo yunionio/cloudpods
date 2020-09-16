@@ -28,13 +28,14 @@ type InfluxdbBaseDriver struct {
 }
 
 func NewInfluxdbBaseDriver(driverType monitor.SuggestDriverType, resourceType monitor.MonitorResourceType,
-	action monitor.SuggestDriverAction, suggest monitor.MonitorSuggest) *InfluxdbBaseDriver {
+	action monitor.SuggestDriverAction, suggest monitor.MonitorSuggest, rule monitor.SuggestSysRuleCreateInput) *InfluxdbBaseDriver {
 	return &InfluxdbBaseDriver{
 		baseDriver: newBaseDriver(
 			driverType,
 			resourceType,
 			action,
 			suggest,
+			rule,
 		)}
 }
 

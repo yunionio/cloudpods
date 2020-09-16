@@ -445,3 +445,16 @@ func (conf *SSuggestSysRuleConfig) ShouldIgnoreAlert(alert *SSuggestSysAlert) bo
 	}
 	return false
 }
+
+func (manager *SSuggestSysRuleConfigManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SScopedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}

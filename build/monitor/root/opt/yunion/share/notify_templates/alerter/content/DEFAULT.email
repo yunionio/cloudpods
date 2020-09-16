@@ -1,60 +1,3 @@
-// Copyright 2019 Yunion
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-package templates
-
-import "yunion.io/x/onecloud/pkg/apis/monitor"
-
-type TemplateConfig struct {
-	monitor.NotificationTemplateConfig
-}
-
-func NewTemplateConfig(c monitor.NotificationTemplateConfig) *TemplateConfig {
-	return &TemplateConfig{
-		NotificationTemplateConfig: c,
-	}
-}
-
-const DefaultMarkdownTemplate = `
-	## {{.Title}}
-	- 时间: {{.StartTime}}
-	- 级别: {{.Level}}
-
-	{{ range .Matches}}
-	- 指标: {{.Metric}}
-	- 触发值: {{.ValueStr}}
-
-	### 触发条件:
-	- {{ $.Description}}
-
-	### 标签
-	 > 名称: {{ GetValFromMap .Tags "name" }}
-	 > ip: {{ GetValFromMap .Tags "ip" }}
-	 > 平台: {{ GetValFromMap .Tags "brand" }}
-    ------
-	{{- end}}
-`
-
-func (c TemplateConfig) GenerateMarkdown() (string, error) {
-	return CompileTEmplateFromMapText(DefaultMarkdownTemplate, c)
-}
-
-func (c TemplateConfig) GenerateEmailMarkdown() (string, error) {
-	return CompileTemplateFromMapHtml(EmailMarkdownTemplate, c)
-}
-
-const EmailMarkdownTemplate = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -132,24 +75,24 @@ const EmailMarkdownTemplate = `
     <tr><td style="height: 10px;"></td></tr>
     <tr>
       <td class="td">报警策略：</td>
-      <td>{{.Name}}</td>
+      <td>{{.name}}</td>
     </tr>
     <tr>
       <td class="td">报警级别：</td>
-      <td>{{.Level}}</td>
+      <td>{{.level}}</td>
     </tr>
     <tr>
       <td class="td">报警时间：</td>
-      <td>{{.StartTime}}</td>
+      <td>{{.start_time}}</td>
     </tr>
     <tr>
       <td class="td">策略详情：</td>
-      <td>{{.Description}}</td>
+      <td>{{.description}}</td>
     </tr>
   </table>
   <table class="table" style="padding-top: 6px; padding-bottom: 10px;">
     <tr>
-      <td style="padding-left: 20px; font-size: 14px;">若要查看详情信息，<a class="link" target="_blank" href="{{.WebUrl}}/commonalerts
+      <td style="padding-left: 20px; font-size: 14px;">若要查看详情信息，<a class="link" target="_blank" href="{{.web_url}}/commonalerts
 ">请登录平台进行查看</a></td>
     </tr>
   </table>
@@ -161,27 +104,27 @@ const EmailMarkdownTemplate = `
         <table cellspacing="0" cellpadding="0" class="resouce-table">
           <thead>
             <tr class="thead-tr">
-              <td>序号</td>
-	              <td>名称</td>
+
+	          <td>名称</td>
               <td>IP</td>
               <td>平台</td>
               <td>触发值</td>
             </tr>
           </thead>
           <tbody>
-			{{- range $i, $Matche := .Matches}}
+			{{- range $i, $Matche := .matches}}
 				<tr class="tbody-tr">
-				  <td>{{ Inc $i}}</td>
+
 				  <td>
-					{{- GetValFromMap .Tags "name"}}
+					{{- index .tags "name"}}
                   </td>
 				  <td>
-					{{ GetValFromMap .Tags "ip" }}
+					{{ index .tags "ip" }}
                   </td>
 				  <td>
-				   	{{ GetValFromMap .Tags "brand" }}
+				   	{{ index .tags "brand" }}
 				  </td>
-				  <td>{{$Matche.ValueStr}}</td>
+				  <td>{{$Matche.value_str}}</td>
 				</tr>
 			{{end}}
           </tbody>
@@ -193,4 +136,3 @@ const EmailMarkdownTemplate = `
   <p style="width: 960px; height: 40px; line-height: 40px; margin: 0 auto; background-color: #4da1ff; color: #fff; font-size: 12px; text-align: center; ">本邮件由系统自动发送，请勿直接回复！</p>
 </body>
 </html>
-`

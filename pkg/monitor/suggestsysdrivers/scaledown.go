@@ -16,6 +16,7 @@ package suggestsysdrivers
 
 import (
 	"yunion.io/x/onecloud/pkg/apis/monitor"
+	"yunion.io/x/onecloud/pkg/monitor/dbinit"
 	"yunion.io/x/onecloud/pkg/monitor/models"
 )
 
@@ -25,7 +26,12 @@ type ScaleDown struct {
 
 func NewScaleDownDriver() models.ISuggestSysRuleDriver {
 	return &ScaleDown{
-		InfluxdbBaseDriver: NewInfluxdbBaseDriver(monitor.SCALE_DOWN, monitor.SCALE_MONTITOR_RES_TYPE,
-			monitor.SCALE_DOWN_DRIVER_ACTION, monitor.SCALE_DOWN_MONITOR_SUGGEST),
+		InfluxdbBaseDriver: NewInfluxdbBaseDriver(
+			monitor.SCALE_DOWN,
+			monitor.SCALE_MONTITOR_RES_TYPE,
+			monitor.SCALE_DOWN_DRIVER_ACTION,
+			monitor.SCALE_DOWN_MONITOR_SUGGEST,
+			*dbinit.ScaleDownCreateInput,
+		),
 	}
 }
