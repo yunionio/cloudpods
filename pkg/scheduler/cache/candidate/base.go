@@ -242,7 +242,7 @@ func (b baseHostGetter) UnusedIsolatedDevicesByType(devType string) []*core.Isol
 }
 
 func (b baseHostGetter) UnusedIsolatedDevicesByVendorModel(vendorModel string) []*core.IsolatedDeviceDesc {
-	return b.h.UnusedIsolatedDevicesByModel(vendorModel)
+	return b.h.UnusedIsolatedDevicesByVendorModel(vendorModel)
 }
 
 func (b baseHostGetter) UnusedIsolatedDevicesByModel(model string) []*core.IsolatedDeviceDesc {
