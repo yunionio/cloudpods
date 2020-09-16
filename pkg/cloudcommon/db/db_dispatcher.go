@@ -1127,27 +1127,28 @@ func _doCreateItem(
 
 	var err error
 
-	info := struct {
-		GenerateName string
-		Name         string
-	}{}
-	dataDict.Unmarshal(&info)
-	if !manager.EnableGenerateName() {
-		if len(info.GenerateName) > 0 && len(info.Name) == 0 {
-			info.Name = info.GenerateName
+	var generateName string
+	if dataDict.Contains("generate_name") {
+		generateName, _ = dataDict.GetString("generate_name")
+		if len(generateName) > 0 {
+			if manager.EnableGenerateName() {
+				// if enable generateName, alway generate name
+				newName, err := GenerateName2(manager, ownerId, generateName, nil, baseIndex)
+				if err != nil {
+					return nil, errors.Wrap(err, "GenerateName2")
+				}
+				dataDict.Add(jsonutils.NewString(newName), "name")
+			} else {
+				// if no name but generate_name provided, use generate_name as name instead
+				oldName, _ := dataDict.GetString("name")
+				if len(oldName) == 0 {
+					dataDict.Add(jsonutils.NewString(generateName), "name")
+				}
+			}
 		}
-		info.GenerateName = ""
+		// cleanup generate_name
+		dataDict.Remove("generate_name")
 	}
-
-	if len(info.GenerateName) > 0 {
-		info.Name, err = GenerateName2(manager, ownerId, info.GenerateName, nil, baseIndex)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	dataDict.Set("name", jsonutils.NewString(info.Name))
-	dataDict.Remove("generate_name")
 
 	if batchCreate {
 		dataDict, err = manager.BatchCreateValidateCreateData(ctx, userCred, ownerId, query, dataDict)
@@ -1160,8 +1161,9 @@ func _doCreateItem(
 	}
 	// run name validation after validate create data
 	uniqValues := manager.FetchUniqValues(ctx, dataDict)
-	if len(info.Name) > 0 {
-		err = NewNameValidator(manager, ownerId, info.Name, uniqValues)
+	name, _ := dataDict.GetString("name")
+	if len(name) > 0 {
+		err = NewNameValidator(manager, ownerId, name, uniqValues)
 		if err != nil {
 			return nil, err
 		}
@@ -1188,10 +1190,10 @@ func _doCreateItem(
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
-	// save generateName
-	if len(info.GenerateName) > 0 {
+	// HACK: save generateName
+	if len(generateName) > 0 && manager.EnableGenerateName() {
 		if standaloneMode, ok := model.(IStandaloneModel); ok {
-			standaloneMode.SetMetadata(ctx, "generate_name", info.GenerateName, userCred)
+			standaloneMode.SetMetadata(ctx, "generate_name", generateName, userCred)
 		}
 	}
 	// HACK: set data same as dataDict
