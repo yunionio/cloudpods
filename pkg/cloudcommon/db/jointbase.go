@@ -122,30 +122,34 @@ func (joint *SJointResourceBase) GetJointModelManager() IJointModelManager {
 	return joint.SResourceBase.GetModelManager().(IJointModelManager)
 }
 
-func getFieldValue(joint IJointModel, keyword string, alias string) string {
+func getFieldValue(joint IJointModel, keyword string, alias string, fieldIdKey string) string {
 	jointValue := reflect.Indirect(reflect.ValueOf(joint))
-	idStr, ok := reflectutils.FindStructFieldInterface(jointValue, fmt.Sprintf("%s_id", keyword))
-	if ok {
-		return idStr.(string)
-	}
-	idStr, ok = reflectutils.FindStructFieldInterface(jointValue, fmt.Sprintf("%s_id", alias))
-	if ok {
-		return idStr.(string)
+	for _, valKey := range []string{
+		fmt.Sprintf("%s_id", keyword),
+		fmt.Sprintf("%s_id", alias),
+		fieldIdKey,
+	} {
+		idStr, ok := reflectutils.FindStructFieldInterface(jointValue, valKey)
+		if ok {
+			return idStr.(string)
+		}
 	}
 	return ""
 }
 
-func JointMasterID(joint IJointModel) string { // need override
-	masterMan := joint.GetJointModelManager().GetMasterManager()
-	return getFieldValue(joint, masterMan.Keyword(), masterMan.Alias())
+func JointMasterID(joint IJointModel) string {
+	jointMan := joint.GetJointModelManager()
+	masterMan := jointMan.GetMasterManager()
+	return getFieldValue(joint, masterMan.Keyword(), masterMan.Alias(), jointMan.GetMasterFieldName())
 }
 
-func JointSlaveID(joint IJointModel) string { // need override
-	slaveMan := joint.GetJointModelManager().GetSlaveManager()
-	return getFieldValue(joint, slaveMan.Keyword(), slaveMan.Alias())
+func JointSlaveID(joint IJointModel) string {
+	jointMan := joint.GetJointModelManager()
+	slaveMan := jointMan.GetSlaveManager()
+	return getFieldValue(joint, slaveMan.Keyword(), slaveMan.Alias(), jointMan.GetSlaveFieldName())
 }
 
-func JointMaster(joint IJointModel) IStandaloneModel { // need override
+func JointMaster(joint IJointModel) IStandaloneModel {
 	masterMan := joint.GetJointModelManager().GetMasterManager()
 	masterId := JointMasterID(joint)
 	//log.Debugf("MasterID: %s %s", masterId, masterMan.KeywordPlural())
@@ -158,7 +162,7 @@ func JointMaster(joint IJointModel) IStandaloneModel { // need override
 	return nil
 }
 
-func JointSlave(joint IJointModel) IStandaloneModel { // need override
+func JointSlave(joint IJointModel) IStandaloneModel {
 	slaveMan := joint.GetJointModelManager().GetSlaveManager()
 	slaveId := JointSlaveID(joint)
 	//log.Debugf("SlaveID: %s %s", slaveId, slaveMan.KeywordPlural())
