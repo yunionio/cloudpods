@@ -1,1 +1,0 @@
-您的{{ .brand }}主机{{ .name }}重装系统成功，{{ if .account }}初始帐号为{{ .account }}，{{ end }}{{ if .keypair }}访问密钥为{{ .keypair }}，{{ end }}{{ if .password }}初始密码为{{ .password }}，{{ end }}请使用{{ if .windows }}远程桌面连接器(RDC){{ else }}SSH{{ end }}或控制面板控制台访问云主机。

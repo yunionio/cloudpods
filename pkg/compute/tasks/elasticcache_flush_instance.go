@@ -40,7 +40,7 @@ func (self *ElasticcacheFlushInstanceTask) taskFail(ctx context.Context, elastic
 	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_FLUSHING_FAILED, reason.String())
 	db.OpsLog.LogEvent(elasticcache, db.ACT_FLUSH_INSTANCE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_FLUSH_INSTANCE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_STATUS_FLUSHING_FAILED, reason.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_STATUS_FLUSHING_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 

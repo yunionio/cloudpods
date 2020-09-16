@@ -40,7 +40,7 @@ func (self *ElasticcacheSyncTask) taskFail(ctx context.Context, elasticcache *mo
 	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_SYNC_FAILED, reason.String())
 	db.OpsLog.LogEvent(elasticcache, db.ACT_SYNC_CONF, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_SYNC_CONF, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_STATUS_SYNC_FAILED, reason.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_STATUS_SYNC_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 

@@ -40,7 +40,7 @@ func (self *ElasticcacheAccountCreateTask) taskFail(ctx context.Context, elastic
 	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_ACCOUNT_STATUS_CREATE_FAILED, reason.String())
 	db.OpsLog.LogEvent(elasticcache, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_CREATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_ACCOUNT_STATUS_CREATE_FAILED, reason.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_ACCOUNT_STATUS_CREATE_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 

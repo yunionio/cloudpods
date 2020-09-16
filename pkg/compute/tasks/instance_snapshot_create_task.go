@@ -64,7 +64,7 @@ func (self *InstanceSnapshotCreateTask) taskFail(
 
 	db.OpsLog.LogEvent(isp, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, isp, logclient.ACT_CREATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(isp.GetId(), isp.Name, compute.INSTANCE_SNAPSHOT_FAILED, reason.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, isp.GetId(), isp.Name, compute.INSTANCE_SNAPSHOT_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 

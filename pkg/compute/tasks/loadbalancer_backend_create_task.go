@@ -40,7 +40,7 @@ func (self *LoadbalancerBackendCreateTask) taskFail(ctx context.Context, lbb *mo
 	lbb.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, reason.String())
 	db.OpsLog.LogEvent(lbb, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbb, logclient.ACT_CREATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lbb.Id, lbb.Name, api.LB_CREATE_FAILED, reason.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, lbb.Id, lbb.Name, api.LB_CREATE_FAILED, reason.String())
 	lbbg := lbb.GetLoadbalancerBackendGroup()
 	if lbbg != nil {
 		logclient.AddActionLogWithStartable(self, lbbg, logclient.ACT_LB_ADD_BACKEND, reason, self.UserCred, false)

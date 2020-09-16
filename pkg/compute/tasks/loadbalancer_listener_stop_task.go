@@ -40,7 +40,7 @@ func (self *LoadbalancerListenerStopTask) taskFail(ctx context.Context, lblis *m
 	lblis.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, reason.String())
 	db.OpsLog.LogEvent(lblis, db.ACT_DISABLE, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_DISABLE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lblis.Id, lblis.Name, api.LB_STATUS_ENABLED, reason.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, lblis.Id, lblis.Name, api.LB_STATUS_ENABLED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 

@@ -177,6 +177,7 @@ func (self *GuestRebuildRootTask) OnRebuildAllDisksComplete(ctx context.Context,
 	}
 	db.OpsLog.LogEvent(guest, db.ACT_REBUILD_ROOT, "", self.UserCred)
 	guest.NotifyServerEvent(
+		ctx,
 		self.UserCred,
 		notifyclient.SERVER_REBUILD_ROOT,
 		notify.NotifyPriorityImportant,

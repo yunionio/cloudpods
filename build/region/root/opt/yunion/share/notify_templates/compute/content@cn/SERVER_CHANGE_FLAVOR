@@ -1,0 +1,1 @@
+您的{{ .brand }}虚拟机{{ .name }}的套餐类型已经更改为 CPU:{{ index .flavor_info "cpu" }}核，内存:{{ index .flavor_info "memory" }}M，数据盘:{{ index .flavor_info "datadisk" }}G，带宽: {{ index .flavor_info "ebw" }}M。
