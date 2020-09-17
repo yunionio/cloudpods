@@ -453,6 +453,16 @@ func (this *ResourceManager) BatchPutInContexts(session *mcclient.ClientSession,
 	})
 }
 
+func (this *ResourceManager) BatchParamsUpdate(session *mcclient.ClientSession, idlist []string, params []jsonutils.JSONObject) []SubmitResult {
+	return this.BatchParamsPutInContexts(session, idlist, params, nil)
+}
+
+func (this *ResourceManager) BatchParamsPutInContexts(session *mcclient.ClientSession, idlist []string, params []jsonutils.JSONObject, ctxs []ManagerContext) []SubmitResult {
+	return BatchParamsDo(idlist, params, func(id string, param jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+		return this.PutInContexts(session, id, param, ctxs)
+	})
+}
+
 func (this *ResourceManager) Patch(session *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return this.PatchInContexts(session, id, params, nil)
 }
