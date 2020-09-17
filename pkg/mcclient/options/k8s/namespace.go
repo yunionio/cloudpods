@@ -14,14 +14,12 @@
 
 package k8s
 
-import (
-	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
-	options "yunion.io/x/onecloud/pkg/mcclient/options/k8s"
-)
+import "yunion.io/x/jsonutils"
 
-func initNamespace() {
-	initK8sClusterResource("namespace", k8s.Namespaces)
+type NamespaceCreateOptions struct {
+	ClusterResourceCreateOptions
+}
 
-	cmd := NewK8sResourceCmd(k8s.Namespaces)
-	cmd.Create(new(options.NamespaceCreateOptions))
+func (o NamespaceCreateOptions) Params() (jsonutils.JSONObject, error) {
+	return o.ClusterResourceCreateOptions.Params()
 }

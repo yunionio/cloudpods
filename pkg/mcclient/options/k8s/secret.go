@@ -23,13 +23,13 @@ type SecretListOptions struct {
 	Type string `help:"Secret type"`
 }
 
-func (o SecretListOptions) Params() (*jsonutils.JSONDict, error) {
+func (o SecretListOptions) Params() (jsonutils.JSONObject, error) {
 	params, err := o.NamespaceResourceListOptions.Params()
 	if err != nil {
 		return nil, err
 	}
 	if o.Type != "" {
-		params.Add(jsonutils.NewString(o.Type), "type")
+		params.(*jsonutils.JSONDict).Add(jsonutils.NewString(o.Type), "type")
 	}
 	return params, nil
 }

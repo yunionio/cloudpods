@@ -22,7 +22,8 @@ type StorageClassCreateOptions struct {
 }
 
 func (o *StorageClassCreateOptions) Params(provisioner string) *jsonutils.JSONDict {
-	params := o.ClusterBaseOptions.Params()
+	paramsObj, _ := o.ClusterResourceCreateOptions.Params()
+	params := paramsObj.(*jsonutils.JSONDict)
 	params.Add(jsonutils.NewString(o.NAME), "name")
 	params.Add(jsonutils.NewString(provisioner), "provisioner")
 	return params

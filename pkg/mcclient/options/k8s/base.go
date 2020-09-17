@@ -33,16 +33,13 @@ func (o ClusterBaseOptions) Params() *jsonutils.JSONDict {
 }
 
 type ClusterResourceBaseOptions struct {
-	ClusterBaseOptions
-	NAME string `help:"Name of resource"`
+	Cluster string `default:"$K8S_CLUSTER" help:"Kubernetes cluster name"`
+	NAME    string `help:"Name of resource"`
 }
 
-type ClusterResourceCreateOptions struct {
-	ClusterResourceBaseOptions
-}
-
-func (o ClusterResourceCreateOptions) Params() *jsonutils.JSONDict {
-	params := o.ClusterBaseOptions.Params()
+func (o ClusterResourceBaseOptions) Params() jsonutils.JSONObject {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(o.Cluster), "cluster")
 	params.Add(jsonutils.NewString(o.NAME), "name")
 	return params
 }
@@ -87,6 +84,10 @@ func (o ResourceGetOptions) Params() *jsonutils.JSONDict {
 	return params
 }
 
+func (o ResourceGetOptions) GetId() string {
+	return o.NAME
+}
+
 type ResourceDeleteOptions struct {
 	ClusterBaseOptions
 	NAME []string `help:"Name ident of the resources"`
@@ -97,13 +98,25 @@ func (o ResourceDeleteOptions) Params() *jsonutils.JSONDict {
 	return params
 }
 
+type ResourceIdsOptions struct {
+	ID []string `help:"Resource id"`
+}
+
+func (o ResourceIdsOptions) GetIds() []string {
+	return o.ID
+}
+
+func (o ResourceIdsOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
 type NamespaceResourceListOptions struct {
 	ResourceListOptions
 	Namespace    string `help:"Namespace of this resource"`
 	AllNamespace bool   `help:"Show resource in all namespace"`
 }
 
-func (o NamespaceResourceListOptions) Params() (*jsonutils.JSONDict, error) {
+func (o NamespaceResourceListOptions) Params() (jsonutils.JSONObject, error) {
 	params, err := o.ResourceListOptions.Params()
 	if err != nil {
 		return nil, err
@@ -135,10 +148,10 @@ type NamespaceResourceGetOptions struct {
 	NamespaceOptions
 }
 
-func (o NamespaceResourceGetOptions) Params() *jsonutils.JSONDict {
+func (o NamespaceResourceGetOptions) Params() (jsonutils.JSONObject, error) {
 	params := o.ResourceGetOptions.Params()
 	params.Update(o.NamespaceOptions.Params())
-	return params
+	return params, nil
 }
 
 type NamespaceResourceDeleteOptions struct {
@@ -146,10 +159,10 @@ type NamespaceResourceDeleteOptions struct {
 	NamespaceOptions
 }
 
-func (o NamespaceResourceDeleteOptions) Params() *jsonutils.JSONDict {
+func (o NamespaceResourceDeleteOptions) Params() (jsonutils.JSONObject, error) {
 	params := o.ResourceDeleteOptions.Params()
 	params.Update(o.NamespaceOptions.Params())
-	return params
+	return params, nil
 }
 
 type NamespaceWithClusterOptions struct {

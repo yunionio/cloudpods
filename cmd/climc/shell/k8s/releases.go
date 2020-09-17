@@ -38,7 +38,11 @@ func initRelease() {
 	})
 
 	R(&o.NamespaceResourceGetOptions{}, cmdN("show"), "Get helm release details", func(s *mcclient.ClientSession, args *o.NamespaceResourceGetOptions) error {
-		ret, err := k8s.Releases.Get(s, args.NAME, args.Params())
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+		ret, err := k8s.Releases.Get(s, args.NAME, params)
 		if err != nil {
 			return err
 		}
