@@ -113,6 +113,7 @@ type Manager interface {
 	PutInContext(session *mcclient.ClientSession, id string, params jsonutils.JSONObject, ctx Manager, ctxid string) (jsonutils.JSONObject, error)
 	PutInContexts(session *mcclient.ClientSession, id string, params jsonutils.JSONObject, ctxs []ManagerContext) (jsonutils.JSONObject, error)
 	BatchUpdate(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject) []SubmitResult
+	BatchParamsUpdate(session *mcclient.ClientSession, idlist []string, params []jsonutils.JSONObject) []SubmitResult
 	BatchPut(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject) []SubmitResult
 	BatchPutInContext(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject, ctx Manager, ctxid string) []SubmitResult
 	BatchPutInContexts(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject, ctxs []ManagerContext) []SubmitResult
