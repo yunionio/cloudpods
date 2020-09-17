@@ -15,13 +15,22 @@
 package k8s
 
 import (
-	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
-	options "yunion.io/x/onecloud/pkg/mcclient/options/k8s"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
-func initNamespace() {
-	initK8sClusterResource("namespace", k8s.Namespaces)
+var (
+	FederatedNamespaceClusters modulebase.JointResourceManager
+)
 
-	cmd := NewK8sResourceCmd(k8s.Namespaces)
-	cmd.Create(new(options.NamespaceCreateOptions))
+func init() {
+	FederatedNamespaceClusters = NewJointManager(
+		"federatednamespacecluster",
+		"federatednamespaceclusters",
+		NewFedJointClusterCols(),
+		NewColumns(),
+		FederatedNamespaces,
+		KubeClusters,
+	)
+	modules.Register(&FederatedNamespaceClusters)
 }

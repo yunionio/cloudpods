@@ -35,6 +35,14 @@ func NewResourceManager(keyword, keywordPlural string, columns, adminColumns *Co
 	return &ResourceManager{man}
 }
 
+func NewJointManager(keyword, keywordPlural string, columns, adminColumns *Columns, master, slave modulebase.Manager) modulebase.JointResourceManager {
+	return modulebase.JointResourceManager{
+		ResourceManager: *NewResourceManager(keyword, keywordPlural, columns, adminColumns).ResourceManager,
+		Master:          master,
+		Slave:           slave,
+	}
+}
+
 func (m ResourceManager) GetBaseManager() modulebase.ResourceManager {
 	return *m.ResourceManager
 }
@@ -139,6 +147,15 @@ func NewClusterCols(col ...string) *Columns {
 
 func NewResourceCols(col ...string) *Columns {
 	return NewNameCols("ID").Add(col...)
+}
+
+func NewFedJointClusterCols(col ...string) *Columns {
+	return NewColumns(
+		"Federatedresource_ID", "Federatedresource",
+		"Cluster_ID", "Cluster",
+		"Namespace_ID", "Namespace",
+		"Resource_ID", "Resource",
+	)
 }
 
 type ListPrinter interface {

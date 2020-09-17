@@ -15,13 +15,28 @@
 package k8s
 
 import (
-	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
-	options "yunion.io/x/onecloud/pkg/mcclient/options/k8s"
+	corev1 "k8s.io/api/core/v1"
+
+	"yunion.io/x/jsonutils"
 )
 
-func initNamespace() {
-	initK8sClusterResource("namespace", k8s.Namespaces)
+type FedNamespaceListOptions struct {
+	FedResourceListOptions
+}
 
-	cmd := NewK8sResourceCmd(k8s.Namespaces)
-	cmd.Create(new(options.NamespaceCreateOptions))
+type FedNamespaceCreateOptions struct {
+	FedResourceCreateOptions
+	Spec FedNamespaceSpec `json:"spec"`
+}
+
+func (o *FedNamespaceCreateOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
+}
+
+type FedNamespaceSpec struct {
+	Template NamespaceTemplate `json:"template"`
+}
+
+type NamespaceTemplate struct {
+	Spec corev1.NamespaceSpec `json:"spec"`
 }
