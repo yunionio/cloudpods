@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -226,7 +227,7 @@ func (rm *SReceiverManager) ValidateCreateData(ctx context.Context, userCred mcc
 		return input, err
 	}
 	// check uid
-	session := auth.GetSession(ctx, userCred, "", "")
+	session := auth.GetAdminSession(ctx, "", "")
 	if len(input.UID) > 0 {
 		userObj, err := modules.UsersV3.GetById(session, input.UID, nil)
 		if err != nil {
@@ -511,11 +512,24 @@ func (rm *SReceiverManager) ResourceScope() rbacutils.TRbacScope {
 }
 
 func (rm *SReceiverManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
-	pro, err := db.FetchUserInfo(ctx, data)
-	if err != nil {
-		return db.FetchDomainInfo(ctx, data)
+	userStr, _ := jsonutils.GetAnyString2(data, []string{"uid"})
+	if len(userStr) > 0 {
+		u, err := db.DefaultUserFetcher(ctx, userStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("user", userStr)
+			}
+			return nil, errors.Wrap(err, "UserCacheManager.FetchUserByIdOrName")
+		}
+		ownerId := db.SOwnerId{
+			UserDomain:   u.Domain,
+			UserDomainId: u.DomainId,
+			UserId:       u.Id,
+			User:         u.Name,
+		}
+		return &ownerId, nil
 	}
-	return pro, nil
+	return db.FetchDomainInfo(ctx, data)
 }
 
 func (rm *SReceiverManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
