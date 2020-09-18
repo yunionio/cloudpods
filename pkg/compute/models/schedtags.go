@@ -295,7 +295,7 @@ func (self *SSchedtag) GetObjectQuery() *sqlchemy.SQuery {
 	q := objs.Query()
 	q = q.Join(objschedtags, sqlchemy.AND(sqlchemy.Equals(objschedtags.Field(jointMan.GetMasterIdKey(jointMan)), objs.Field("id")),
 		sqlchemy.IsFalse(objschedtags.Field("deleted"))))
-	q = q.Filter(sqlchemy.IsTrue(objs.Field("enabled")))
+	// q = q.Filter(sqlchemy.IsTrue(objs.Field("enabled")))
 	q = q.Filter(sqlchemy.Equals(objschedtags.Field("schedtag_id"), self.Id))
 	return q
 }
@@ -305,7 +305,8 @@ func (self *SSchedtag) GetJointManager() ISchedtagJointManager {
 }
 
 func (self *SSchedtag) GetObjectCount() (int, error) {
-	return self.GetJointManager().Query().Equals("schedtag_id", self.Id).CountWithError()
+	q := self.GetObjectQuery()
+	return q.CountWithError()
 }
 
 func (self *SSchedtag) getSchedPoliciesCount() (int, error) {
