@@ -1711,6 +1711,7 @@ func (self *SNetwork) CustomizeDelete(ctx context.Context, userCred mcclient.Tok
 }
 
 func (self *SNetwork) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	DeleteResourceJointSchedtags(self, ctx, userCred)
 	db.OpsLog.LogEvent(self, db.ACT_DELOCATE, self.GetShortDesc(ctx), userCred)
 	self.SetStatus(userCred, api.NETWORK_STATUS_DELETED, "real delete")
 	self.ClearSchedDescCache()
