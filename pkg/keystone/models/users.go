@@ -517,7 +517,7 @@ func (user *SUser) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 			}
 		}
 	}
-	if len(input.Password) > 0 {
+	if len(input.Password) > 0 && (input.SkipPasswordComplexityCheck == nil || *input.SkipPasswordComplexityCheck == false) {
 		passwd := input.Password
 		usrExt, err := UserManager.FetchUserExtended(user.Id, "", "", "")
 		if err != nil {
@@ -722,6 +722,7 @@ func (user *SUser) PostUpdate(ctx context.Context, userCred mcclient.TokenCreden
 			log.Errorf("fail to set password %s", err)
 			return
 		}
+		logclient.AddActionLogWithContext(ctx, user, logclient.ACT_UPDATE_PASSWORD, nil, userCred, true)
 	}
 }
 

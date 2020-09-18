@@ -262,6 +262,8 @@ func init() {
 
 		// DefaultProject string `help:"Default project"`
 		// Option []string `help:"User options"`
+
+		SkipPasswordComplexityCheck bool `help:"skip_password_complexity_check"`
 	}
 	R(&UserUpdateOptions{}, "user-update", "Update a user", func(s *mcclient.ClientSession, args *UserUpdateOptions) error {
 		query := jsonutils.NewDict()
@@ -282,6 +284,9 @@ func init() {
 		}
 		if args.Password != nil {
 			params.Add(jsonutils.NewString(*args.Password), "password")
+			if args.SkipPasswordComplexityCheck {
+				params.Add(jsonutils.JSONTrue, "skip_password_complexity_check")
+			}
 		}
 		if len(args.Displayname) > 0 {
 			params.Add(jsonutils.NewString(args.Displayname), "displayname")

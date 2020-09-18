@@ -432,7 +432,7 @@ func (model *SIdentityBaseResource) PostCreate(ctx context.Context, userCred mcc
 
 func (model *SIdentityBaseResource) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	model.SStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
-	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_UPDATE, data, userCred, true)
+	// logclient.AddActionLogWithContext(ctx, model, logclient.ACT_UPDATE, data, userCred, true)
 }
 
 func (model *SIdentityBaseResource) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
