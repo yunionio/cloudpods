@@ -50,12 +50,6 @@ func TestVariadic(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			msg, _ := errorMessage(c.msg, c.params...)
-			if msg != c.out {
-				t.Errorf("want %s, got %s", c.out, msg)
-			}
-		})
 		t.Run(c.name+"_New", func(t *testing.T) {
 			err := NewJsonClientError(400, "InputParameterError", c.msg, c.params...)
 			if err.Details != c.out {
