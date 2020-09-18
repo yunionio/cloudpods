@@ -399,3 +399,19 @@ func StartDetachStorages(hs []jsonutils.JSONObject) {
 		}
 	}
 }
+
+func IsRootPartition(path string) bool {
+	path = strings.TrimSuffix(path, "/")
+	pathSegs := strings.Split(path, "/")
+	for len(pathSegs) > 1 {
+		err := procutils.NewRemoteCommandAsFarAsPossible("mountpoint", path).Run()
+		if err != nil {
+			pathSegs = pathSegs[:len(pathSegs)-1]
+			path = strings.Join(pathSegs, "/")
+			continue
+		} else {
+			return false
+		}
+	}
+	return true
+}
