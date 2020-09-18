@@ -47,9 +47,9 @@ type SActionlogManager struct {
 type SActionlog struct {
 	db.SOpsLog
 
-	StartTime time.Time `nullable:"true" list:"user" create:"optional"`                           // = Column(DateTime, nullable=False)
-	Success   bool      `list:"user" create:"required"`                                           // = Column(Boolean, default=True)
-	Service   string    `width:"32" charset:"utf8" nullable:"true" list:"user" create:"optional"` //= Column(VARCHAR(32, charset='utf8'), nullable=False)
+	StartTime time.Time `nullable:"true" list:"user" create:"optional"`
+	Success   bool      `list:"user" create:"required"`
+	Service   string    `width:"32" charset:"utf8" nullable:"true" list:"user" create:"optional"`
 }
 
 var ActionLog *SActionlogManager
