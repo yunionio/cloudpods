@@ -1959,7 +1959,7 @@ func (b *SBaremetalInstance) GetConsoleJNLP(ctx context.Context) (string, error)
 	case "hp", "hpe":
 		return bmc.GetIloConsoleJNLP(ctx)
 	case "dell", "dell inc.":
-		return bmc.GetIdracConsoleJNLP(ctx, "", "")
+		return bmc.GetIdracConsoleJNLP(ctx, b.GetSerialNumber(), b.GetModel())
 	case "supermicro":
 		return bmc.GetSupermicroConsoleJNLP(ctx)
 	case "lenovo":
