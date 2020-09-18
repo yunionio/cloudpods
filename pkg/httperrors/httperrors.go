@@ -19,52 +19,12 @@ import (
 	"net/http"
 	"runtime/debug"
 
-	"golang.org/x/text/language"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
-
-type ctxLang uintptr
-
-const ctxLangKey = ctxLang(0)
-const LangHeader = "X-Yunion-Lang"
-
-func SetLangHeader(ctx context.Context, header http.Header) bool {
-	langv := ctx.Value(ctxLangKey)
-	langTag, ok := langv.(language.Tag)
-	if ok {
-		header.Set(LangHeader, langTag.String())
-	}
-	return ok
-}
-
-func WithLangTag(ctx context.Context, tag language.Tag) context.Context {
-	return context.WithValue(ctx, ctxLangKey, tag)
-}
-
-func WithLang(ctx context.Context, lang string) context.Context {
-	tag, err := language.Parse(lang)
-	if err != nil {
-		tag = language.English
-	}
-	return WithLangTag(ctx, tag)
-}
-
-func WithRequestLang(ctx context.Context, req *http.Request) context.Context {
-	if val := req.URL.Query().Get("lang"); val != "" {
-		return WithLang(ctx, val)
-	}
-	if val := req.Header.Get(LangHeader); val != "" {
-		return WithLang(ctx, val)
-	}
-	if cookie, err := req.Cookie("lang"); err == nil {
-		return WithLang(ctx, cookie.Value)
-	}
-	return WithLangTag(ctx, language.English)
-}
 
 func SendHTTPErrorHeader(w http.ResponseWriter, statusCode int) {
 	w.Header().Set("Content-Type", "application/json")
@@ -100,27 +60,14 @@ func formatDetails(ctx context.Context, errData httputils.Error, msg string) str
 	if errData.Id == "" {
 		details = msg
 	} else {
-		lang := Lang(ctx)
+		lang := i18n.Lang(ctx)
 		a := make([]interface{}, len(errData.Fields))
 		for i := range errData.Fields {
 			a[i] = errData.Fields[i]
 		}
-		details = P(lang, errData.Id, a...)
+		details = i18n.P(lang, errData.Id, a...)
 	}
 	return details
-}
-
-func Lang(ctx context.Context) language.Tag {
-	var (
-		langv = ctx.Value(ctxLangKey)
-		lang  language.Tag
-	)
-	if langv != nil {
-		lang = langv.(language.Tag)
-	} else {
-		lang = language.English
-	}
-	return lang
 }
 
 func HTTPError(ctx context.Context, w http.ResponseWriter, msg string, statusCode int, class string, errData httputils.Error) {

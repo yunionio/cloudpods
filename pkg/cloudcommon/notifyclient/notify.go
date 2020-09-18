@@ -31,7 +31,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
-	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
@@ -55,7 +55,7 @@ func init() {
 }
 
 func getLangSuffix(ctx context.Context) string {
-	lang := httperrors.Lang(ctx)
+	lang := i18n.Lang(ctx)
 	switch lang {
 	case language.English:
 		return "en"
