@@ -53,6 +53,7 @@ var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
 	"cn-baoding1":   {Latitude: 38.8739745619, Longitude: 115.4646082830, City: api.CITY_BAO_DING, CountryCode: api.COUNTRY_CODE_CN},
 	"cn-nj2":        {Latitude: 32.0584065670, Longitude: 118.7964897811, City: api.CITY_NAN_JING, CountryCode: api.COUNTRY_CODE_CN},
 	"cn-gdgz1":      {Latitude: 23.12911, Longitude: 113.264385, City: api.CITY_GUANG_ZHOU, CountryCode: api.COUNTRY_CODE_CN},
+	"cn-bj1":        {Latitude: 39.904202, Longitude: 116.407394, City: api.CITY_BEI_JING, CountryCode: api.COUNTRY_CODE_CN},
 	"cn-bj4":        {Latitude: 39.904202, Longitude: 116.407394, City: api.CITY_BEI_JING, CountryCode: api.COUNTRY_CODE_CN},
 	"cn-neimeng5":   {Latitude: 40.842358, Longitude: 111.749992, City: api.CITY_HU_HE_HAO_TE, CountryCode: api.COUNTRY_CODE_CN},
 	"cn-shanghai5":  {Latitude: 31.210344, Longitude: 121.455364, City: api.CITY_SHANG_HAI, CountryCode: api.COUNTRY_CODE_CN},
