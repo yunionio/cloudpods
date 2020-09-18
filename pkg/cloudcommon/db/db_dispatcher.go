@@ -350,7 +350,7 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 	} else {
 		showDetails = true
 	}
-	items := make([]interface{}, 0)
+	var items []interface{}
 	extraResults := make([]*jsonutils.JSONDict, 0)
 	rows, err := q.Rows()
 	if err != nil && err != sql.ErrNoRows {
@@ -405,7 +405,7 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 
 		items = append(items, item)
 	}
-	results := make([]jsonutils.JSONObject, len(items))
+	results := make([]*jsonutils.JSONDict, len(items))
 	if showDetails || len(exportKeys) > 0 {
 		var sortedListFields stringutils2.SSortedStrings
 		if len(exportKeys) > 0 {
@@ -445,7 +445,18 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 			results[i] = jsonDict
 		}
 	}
-	return results, nil
+	for i := range items {
+		i18nDict := items[i].(IModel).GetI18N(ctx)
+		if i18nDict != nil {
+			jsonDict := results[i]
+			jsonDict.Set("_i18n", i18nDict)
+		}
+	}
+	r := make([]jsonutils.JSONObject, len(items))
+	for i := range results {
+		r[i] = results[i]
+	}
+	return r, nil
 }
 
 func fetchContextObjectsIds(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, ctxIds []dispatcher.SResourceContext, queryDict *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
