@@ -74,6 +74,12 @@ func (action *SActionlog) CustomizeCreate(ctx context.Context, userCred mcclient
 	return action.SOpsLog.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
+func (action *SActionlog) GetI18N(ctx context.Context) *jsonutils.JSONDict {
+	r := jsonutils.NewDict()
+	r.Set("action", jsonutils.NewString(logclient.OpsActionI18nTable.Lookup(ctx, action.Action)))
+	return r
+}
+
 // Websockets 不再拉取 ActionLog 的消息，因此注释掉如下代码
 // 可以保留，以便有需求时，再次打开
 // func (manager *SActionlogManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
