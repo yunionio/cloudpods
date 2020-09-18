@@ -223,6 +223,32 @@ func init() {
 		return nil
 	})
 
+	shellutils.R(&VirtualMachineShowOptions{}, "vm-vmrc", "Show vm VMRC connection", func(cli *esxi.SESXiClient, args *VirtualMachineShowOptions) error {
+		vm, err := getVM(cli, args)
+		if err != nil {
+			return err
+		}
+		info, err := vm.GetVmrcInfo()
+		if err != nil {
+			return err
+		}
+		printutils.PrintJSONObject(info)
+		return nil
+	})
+
+	shellutils.R(&VirtualMachineShowOptions{}, "vm-webmks", "Show vm webmks connection", func(cli *esxi.SESXiClient, args *VirtualMachineShowOptions) error {
+		vm, err := getVM(cli, args)
+		if err != nil {
+			return err
+		}
+		info, err := vm.GetWebmksInfo()
+		if err != nil {
+			return err
+		}
+		printutils.PrintJSONObject(info)
+		return nil
+	})
+
 	shellutils.R(&VirtualMachineShowOptions{}, "vm-file-status", "Show vm files details", func(cli *esxi.SESXiClient, args *VirtualMachineShowOptions) error {
 		vm, err := getVM(cli, args)
 		if err != nil {
