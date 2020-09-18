@@ -584,6 +584,14 @@ func (self *SVirtualMachine) GetVNCInfo() (jsonutils.JSONObject, error) {
 	return self.acquireVmrcUrl()
 }
 
+func (self *SVirtualMachine) GetVmrcInfo() (jsonutils.JSONObject, error) {
+	return self.acquireVmrcUrl()
+}
+
+func (self *SVirtualMachine) GetWebmksInfo() (jsonutils.JSONObject, error) {
+	return self.acquireWebmksTicket("webmks")
+}
+
 func (self *SVirtualMachine) acquireWebmksTicket(ticketType string) (jsonutils.JSONObject, error) {
 	vm := object.NewVirtualMachine(self.manager.client.Client, self.getVirtualMachine().Self)
 	ticket, err := vm.AcquireTicket(self.manager.context, ticketType)
