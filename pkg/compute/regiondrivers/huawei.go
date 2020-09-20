@@ -2558,7 +2558,7 @@ func (self *SHuaWeiRegionDriver) RequestCreateElasticcache(ctx context.Context, 
 }
 
 func (self *SHuaWeiRegionDriver) ValidateCreateElasticcacheAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return nil, httperrors.NewUnsupportOperationError("% not support create account", self.GetProvider())
+	return nil, httperrors.NewUnsupportOperationError("%s not support create account", self.GetProvider())
 }
 
 func (self *SHuaWeiRegionDriver) RequestElasticcacheAccountResetPassword(ctx context.Context, userCred mcclient.TokenCredential, ea *models.SElasticcacheAccount, task taskman.ITask) error {

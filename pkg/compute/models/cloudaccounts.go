@@ -3080,7 +3080,7 @@ func (self *SCloudaccount) AllowPerformCreateSubscription(ctx context.Context, u
 // 创建Azure订阅
 func (self *SCloudaccount) PerformCreateSubscription(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SubscriptonCreateInput) (jsonutils.JSONObject, error) {
 	if self.Provider != api.CLOUD_PROVIDER_AZURE {
-		return nil, httperrors.NewNotSupportedError("%s not support create subscription")
+		return nil, httperrors.NewNotSupportedError("%s not support create subscription", self.Provider)
 	}
 	if len(input.Name) == 0 {
 		return nil, httperrors.NewMissingParameterError("name")
