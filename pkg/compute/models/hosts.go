@@ -5421,7 +5421,7 @@ func (host *SHost) PerformSetReservedResourceForIsolatedDevice(
 	caps := host.GetAttachedLocalStorageCapacity()
 	if input.ReservedStorage != nil && caps.Capacity < int64(*input.ReservedStorage*len(devs)) {
 		return nil, httperrors.NewBadRequestError(
-			"host %s can't reserve %dM storage for each isolated device, not enough")
+			"host %s can't reserve %dM storage for each isolated device, not enough", host.Name, input.ReservedStorage)
 	}
 	defer func() {
 		go host.ClearSchedDescCache()

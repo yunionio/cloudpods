@@ -1147,7 +1147,7 @@ func (self *SAliyunRegionDriver) ValidateCreateDBInstanceAccountData(ctx context
 
 	for i, s := range input.Name {
 		if !unicode.IsLetter(s) && !unicode.IsDigit(s) && s != '_' {
-			return input, httperrors.NewInputParameterError("invalid character %s for account name", s)
+			return input, httperrors.NewInputParameterError("invalid character %s for account name", string(s))
 		}
 		if s == '_' && (i == 0 || i == len(input.Name)) {
 			return input, httperrors.NewInputParameterError("account name can not start or end with _")
@@ -1396,7 +1396,8 @@ func (self *SAliyunRegionDriver) ValidateCreateElasticcacheAccountData(ctx conte
 	}
 
 	if accountPrivilegeV.Value == "repl" && elasticCacheV.Model.(*models.SElasticcache).EngineVersion != "4.0" {
-		return nil, httperrors.NewInputParameterError("account_privilege %s only support redis version 4.0")
+		return nil, httperrors.NewInputParameterError("account_privilege %s only support redis version 4.0",
+			accountPrivilegeV.Value)
 	}
 
 	return data, nil

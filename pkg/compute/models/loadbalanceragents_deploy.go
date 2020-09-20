@@ -298,7 +298,7 @@ func (lbagent *SLoadbalancerAgent) validateHost(ctx context.Context, userCred mc
 func (lbagent *SLoadbalancerAgent) PerformDeploy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	input := &compute_apis.LoadbalancerAgentDeployInput{}
 	if err := data.Unmarshal(input); err != nil {
-		return nil, httperrors.NewBadRequestError("unmarshal input", err)
+		return nil, httperrors.NewBadRequestError("unmarshal input: %v", err)
 	}
 	host := input.Host
 	for _, k := range []string{"user", "pass", "proj"} {
