@@ -24,27 +24,16 @@ import (
 // class: error class
 // msg: message
 // params: message format parameters
-func NewJsonClientError(code int, class string, msg string, params ...interface{}) *JSONClientError {
-	details, err := errorMessage(msg, params...)
-	return &JSONClientError{Code: code, Class: class, Details: details, Data: err}
-}
-
-func errorMessage(msgFmt string, params ...interface{}) (string, Error) {
-	fields := make([]string, len(params))
-	for i, v := range params {
-		fields[i] = fmt.Sprint(v)
-	}
-
-	err := Error{
-		Id:     msgFmt,
-		Fields: fields,
-	}
-
-	msg := msgFmt
+func NewJsonClientError(code int, class string, msgFmt string, params ...interface{}) *JSONClientError {
+	details := msgFmt
 	if len(params) > 0 {
-		msg = fmt.Sprintf(msg, params...)
+		details = fmt.Sprintf(msgFmt, params...)
 	}
-	return msg, err
+	theErr := Error{
+		Id:     msgFmt,
+		Fields: params,
+	}
+	return &JSONClientError{Code: code, Class: class, Details: details, Data: theErr}
 }
 
 func msgFmtToTmpl(msgFmt string) string {

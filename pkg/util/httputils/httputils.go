@@ -70,8 +70,8 @@ var (
 )
 
 type Error struct {
-	Id     string   `json:"id,omitempty"`
-	Fields []string `json:"fields,omitempty"`
+	Id     string        `json:"id,omitempty"`
+	Fields []interface{} `json:"fields,omitempty"`
 }
 
 type JSONClientError struct {

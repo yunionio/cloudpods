@@ -947,7 +947,7 @@ func isValidNetworkInfo(userCred mcclient.TokenCredential, netConfig *api.Networ
 	if len(netConfig.Network) > 0 {
 		netObj, err := NetworkManager.FetchByIdOrName(userCred, netConfig.Network)
 		if err != nil {
-			return httperrors.NewResourceNotFoundError("Network %s not found %s", err)
+			return httperrors.NewResourceNotFoundError("Network %s not found: %v", netConfig.Network, err)
 		}
 		net := netObj.(*SNetwork)
 		/*

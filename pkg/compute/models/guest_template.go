@@ -540,7 +540,7 @@ func (gt *SGuestTemplate) PerformPublic(
 			model, err := NetworkManager.FetchByIdOrName(userCred, str)
 			if err != nil {
 				return nil, httperrors.NewResourceNotFoundError(
-					"there is no such secgroup %s descripted by guest template")
+					"there is no such secgroup %s descripted by guest template", str)
 			}
 			network := model.(*SNetwork)
 			netScope := rbacutils.String2Scope(network.PublicScope)

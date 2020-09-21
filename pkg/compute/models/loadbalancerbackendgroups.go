@@ -203,10 +203,10 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 				backends[i].BackendType = api.LB_BACKEND_GUEST
 			}
 			if backends[i].Weight < 0 || backends[i].Weight > 256 {
-				return nil, httperrors.NewInputParameterError("weight %s not support, only support range 0 ~ 256")
+				return nil, httperrors.NewInputParameterError("weight %d not support, only support range 0 ~ 256", backends[i].Weight)
 			}
 			if backends[i].Port < 1 || backends[i].Port > 65535 {
-				return nil, httperrors.NewInputParameterError("port %s not support, only support range 1 ~ 65535")
+				return nil, httperrors.NewInputParameterError("port %d not support, only support range 1 ~ 65535", backends[i].Port)
 			}
 			if len(backends[i].ID) == 0 {
 				return nil, httperrors.NewMissingParameterError("Missing backend id")

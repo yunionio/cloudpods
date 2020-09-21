@@ -38,6 +38,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/proxy"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
@@ -283,7 +284,7 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 			if cancel != nil {
 				defer cancel()
 			}
-			ctx = httperrors.WithRequestLang(ctx, r)
+			ctx = i18n.WithRequestLang(ctx, r)
 			session := hand.workerMan
 			if session == nil {
 				if r.Method == "GET" || r.Method == "HEAD" {
@@ -339,11 +340,11 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 			fw.closeChannels()
 			return hand, appParams
 		} else {
-			ctx := httperrors.WithRequestLang(context.TODO(), r)
+			ctx := i18n.WithRequestLang(context.TODO(), r)
 			httperrors.InternalServerError(ctx, w, "Invalid handler %s", r.URL)
 		}
 	} else if !isCors {
-		ctx := httperrors.WithRequestLang(context.TODO(), r)
+		ctx := i18n.WithRequestLang(context.TODO(), r)
 		httperrors.NotFoundError(ctx, w, "Handler not found")
 	}
 	return nil, nil

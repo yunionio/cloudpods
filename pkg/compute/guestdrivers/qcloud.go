@@ -155,7 +155,7 @@ func (self *SQcloudGuestDriver) ValidateCreateData(ctx context.Context, userCred
 				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 100GB ~ 16000GB", disk.Backend)
 			}
 		case api.STORAGE_LOCAL_PRO:
-			return nil, httperrors.NewInputParameterError("storage %s can not be data disk")
+			return nil, httperrors.NewInputParameterError("storage %s can not be data disk", disk.Backend)
 		}
 		if disk.SizeMb/1024%10 > 0 {
 			return nil, httperrors.NewInputParameterError("Data disk size must be an integer multiple of 10G")

@@ -196,6 +196,7 @@ type IModel interface {
 	MarkDeletePreventionOff()
 
 	GetUsages() []IUsage
+	GetI18N(ctx context.Context) *jsonutils.JSONDict
 }
 
 type IResourceModelManager interface {
