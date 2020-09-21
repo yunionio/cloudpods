@@ -138,7 +138,7 @@ func (manager *SDnsZoneManager) ValidateCreateData(ctx context.Context, userCred
 	}
 	err = quotas.CheckSetPendingQuota(ctx, userCred, quota)
 	if err != nil {
-		return input, httperrors.NewOutOfQuotaError(err.Error())
+		return input, httperrors.NewOutOfQuotaError("%v", err)
 	}
 	return input, nil
 }
