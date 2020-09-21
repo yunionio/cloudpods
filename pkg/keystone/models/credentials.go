@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
@@ -93,6 +94,9 @@ func (manager *SCredentialManager) InitializeData() error {
 		return err
 	}
 	for i := range creds {
+		if gotypes.IsNil(creds[i].Extra) {
+			continue
+		}
 		name, _ := creds[i].Extra.GetString("name")
 		desc, _ := creds[i].Extra.GetString("description")
 		if len(name) == 0 {
