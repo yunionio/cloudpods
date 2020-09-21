@@ -59,22 +59,21 @@ func (self *SUnifiedMonitorManager) AllowGetPropertyMeasurements(ctx context.Con
 func (self *SUnifiedMonitorManager) GetPropertyMeasurements(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 
-	filter, err := getTagFilterByRequestQuery(ctx, query)
+	filter, err := getTagFilterByRequestQuery(ctx, userCred, query)
 	if err != nil {
 		return nil, err
 	}
 	return DataSourceManager.GetMeasurementsWithDescriptionInfos(query, "", filter)
 }
 
-func getTagFilterByRequestQuery(ctx context.Context, query jsonutils.JSONObject) (filter string, err error) {
+func getTagFilterByRequestQuery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (filter string, err error) {
 
-	if scope, err := query.GetString("scope"); err == nil {
-		filter, err = filterByScope(ctx, scope, query)
-	}
+	scope, _ := query.GetString("scope")
+	filter, err = filterByScope(ctx, userCred, scope, query)
 	return
 }
 
-func filterByScope(ctx context.Context, scope string, data jsonutils.JSONObject) (string, error) {
+func filterByScope(ctx context.Context, userCred mcclient.TokenCredential, scope string, data jsonutils.JSONObject) (string, error) {
 	domainId := jsonutils.GetAnyString(data, []string{"domain_id", "domain", "project_domain_id", "project_domain"})
 	projectId := jsonutils.GetAnyString(data, []string{"project_id", "project"})
 	if projectId != "" {
@@ -98,17 +97,16 @@ func filterByScope(ctx context.Context, scope string, data jsonutils.JSONObject)
 		return "", nil
 	case "domain":
 		if domainId == "" {
-			return "", fmt.Errorf("scope is domain but domainId is null")
+			domainId = userCred.GetProjectDomainId()
 		}
 		return getProjectIdsFilterByDomain(domainId)
-	case "project":
+	default:
 		if projectId == "" {
-			return "", fmt.Errorf("scope is project but projectId is null")
+			projectId = userCred.GetProjectId()
 		}
 		return getProjectIdFilterByProject(projectId)
 
 	}
-	return "", fmt.Errorf("scope is illegal")
 }
 
 func getTenantIdStr(role string, userCred mcclient.TokenCredential) (string, error) {
@@ -167,7 +165,7 @@ func (self *SUnifiedMonitorManager) GetPropertyMetricMeasurement(ctx context.Con
 		GroupOptType:  monitor.UNIFIED_MONITOR_GROUPBY_OPT_TYPE,
 		GroupOptValue: monitor.UNIFIED_MONITOR_GROUPBY_OPT_VALUE,
 	}
-	filter, err := getTagFilterByRequestQuery(ctx, query)
+	filter, err := getTagFilterByRequestQuery(ctx, userCred, query)
 	if err != nil {
 		return nil, err
 	}

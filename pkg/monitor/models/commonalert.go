@@ -13,6 +13,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -529,9 +530,6 @@ func getCommonAlertMetricDetailsFromCondition(cond *monitor.AlertCondition,
 
 	//fill measurement\field desciption info
 	getMetricDescriptionDetails(metricDetails)
-	if metricDetails.FieldOpt == "/" {
-		metricDetails.FieldDescription.Unit = ""
-	}
 }
 
 func getMetricDescriptionDetails(metricDetails *monitor.CommonAlertMetricDetails) {
@@ -557,12 +555,21 @@ func getMetricDescriptionDetails(metricDetails *monitor.CommonAlertMetricDetails
 			return
 		}
 		if fieldDes, ok := influxdbMeasurements[0].FieldDescriptions[field]; ok {
-			if len(metricDetails.FieldOpt) != 0 {
-				fieldDes.Name = metricDetails.Field
-				fieldDes.DisplayName = ""
-			}
 			metricDetails.FieldDescription = fieldDes
+			if len(metricDetails.FieldOpt) != 0 {
+				metricDetails.FieldDescription.Name = metricDetails.Field
+				metricDetails.FieldDescription.DisplayName = metricDetails.Field
+				getExtraFieldDetails(metricDetails)
+				break
+			}
 		}
+	}
+}
+
+func getExtraFieldDetails(metricDetails *monitor.CommonAlertMetricDetails) {
+	if metricDetails.FieldOpt == monitor.CommonAlertFieldOpt_Division && metricDetails.Threshold < float64(1) {
+		metricDetails.Threshold = metricDetails.Threshold * float64(100)
+		metricDetails.FieldDescription.Unit = "%"
 	}
 }
 
@@ -586,11 +593,12 @@ func (man *SCommonAlertManager) toAlertCreatInput(input monitor.CommonAlertCreat
 	//ret.Settings =monitor.AlertSetting{}
 	for _, metricquery := range input.CommonMetricInputQuery.MetricQuery {
 		condition := monitor.AlertCondition{
-			Type:      "query",
-			Query:     *metricquery.AlertQuery,
-			Reducer:   monitor.Condition{Type: metricquery.Reduce},
-			Evaluator: monitor.Condition{Type: getQueryEvalType(metricquery.Comparator), Params: []float64{metricquery.Threshold}},
-			Operator:  "and",
+			Type:    "query",
+			Query:   *metricquery.AlertQuery,
+			Reducer: monitor.Condition{Type: metricquery.Reduce},
+			Evaluator: monitor.Condition{Type: getQueryEvalType(metricquery.Comparator),
+				Params: []float64{fieldOperatorThreshold(metricquery.FieldOpt, metricquery.Threshold)}},
+			Operator: "and",
 		}
 		if metricquery.FieldOpt != "" {
 			condition.Reducer.Operators = []string{metricquery.FieldOpt}
@@ -600,12 +608,33 @@ func (man *SCommonAlertManager) toAlertCreatInput(input monitor.CommonAlertCreat
 	return *ret
 }
 
+func fieldOperatorThreshold(opt string, threshold float64) float64 {
+	if opt == monitor.CommonAlertFieldOpt_Division && threshold > 1 {
+		return threshold / float64(100)
+	}
+	return threshold
+}
+
 func (alert *SCommonAlert) ValidateUpdateData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data *jsonutils.JSONDict,
 ) (*jsonutils.JSONDict, error) {
+	generateName, _ := data.GetString("generate_name")
+	if len(generateName) != 0 && alert.Name != generateName {
+		name, err := db.GenerateName(CommonAlertManager, userCred, generateName)
+		if err != nil {
+			return data, err
+		}
+		data.Set("name", jsonutils.NewString(name))
+	}
+	statusUpdate := apis.StatusStandaloneResourceBaseUpdateInput{}
+	data.Unmarshal(&statusUpdate)
+	_, err := alert.SAlert.SStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, statusUpdate)
+	if err != nil {
+		return data, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
+	}
 	updataInput := new(monitor.CommonAlertUpdateInput)
 	if period, _ := data.GetString("period"); len(period) > 0 {
 		if _, err := time.ParseDuration(period); err != nil {
@@ -686,7 +715,9 @@ func (alert *SCommonAlert) PostUpdate(
 		if err := alert.UpdateNotification(ctx, userCred, query, data); err != nil {
 			log.Errorln("update notification", err)
 		}
-		_, err := alert.PerformSetScope(ctx, userCred, query, data)
+	}
+	if _, err := data.GetString("scope"); err == nil {
+		_, err = alert.PerformSetScope(ctx, userCred, query, data)
 		if err != nil {
 			log.Errorln(errors.Wrap(err, "Alert PerformSetScope"))
 		}
@@ -784,6 +815,23 @@ func (alert *SCommonAlert) AllowPerformSetScope(ctx context.Context, userCred mc
 }
 
 func (alert *SCommonAlert) PerformSetScope(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	domainId := jsonutils.GetAnyString(data, []string{"domain_id", "domain", "project_domain_id", "project_domain"})
+	projectId := jsonutils.GetAnyString(data, []string{"project_id", "project"})
+	if len(domainId) == 0 && len(projectId) == 0 {
+		scope, _ := data.GetString("scope")
+		if len(scope) != 0 {
+			switch rbacutils.TRbacScope(scope) {
+			case rbacutils.ScopeSystem:
+
+			case rbacutils.ScopeDomain:
+				domainId = userCred.GetProjectDomainId()
+				data.(*jsonutils.JSONDict).Set("domain_id", jsonutils.NewString(domainId))
+			case rbacutils.ScopeProject:
+				projectId = userCred.GetProjectId()
+				data.(*jsonutils.JSONDict).Set("project_id", jsonutils.NewString(projectId))
+			}
+		}
+	}
 	return db.PerformSetScope(ctx, alert, userCred, data)
 }
 
