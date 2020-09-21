@@ -120,7 +120,7 @@ type SAlert struct {
 	Settings  jsonutils.JSONObject `nullable:"false" list:"user" create:"required" update:"user"`
 	Level     string               `charset:"ascii" width:"36" nullable:"false" default:"normal" list:"user" update:"user"`
 	Message   string               `charset:"utf8" list:"user" create:"optional" update:"user"`
-	UsedBy    string               `charset:"ascii" list:"user"`
+	UsedBy    string               `charset:"ascii" create:"optional" list:"user"`
 
 	// Silenced       bool
 	ExecutionError string `charset:"utf8" list:"user"`
