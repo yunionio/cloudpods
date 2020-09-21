@@ -15,69 +15,20 @@
 package k8s
 
 import (
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 	o "yunion.io/x/onecloud/pkg/mcclient/options/k8s"
 )
 
 func initSecret() {
-	cmdN := NewCmdNameFactory("secret")
-	secretCmd := NewShellCommands(cmdN.Do).AddR(
-		NewK8sNsResourceGetCmd(cmdN, k8s.Secrets),
-		NewK8sNsResourceDeleteCmd(cmdN, k8s.Secrets),
-	)
-	listCmd := NewCommand(
-		&o.SecretListOptions{},
-		cmdN.Do("list"),
-		"List secret resource",
-		func(s *mcclient.ClientSession, args *o.SecretListOptions) error {
-			params, err := args.Params()
-			if err != nil {
-				return err
-			}
-			ret, err := k8s.Secrets.List(s, params)
-			if err != nil {
-				return err
-			}
-			PrintListResultTable(ret, k8s.Secrets, s)
-			return nil
-		})
-	secretCmd.AddR(listCmd)
+	cmd := NewK8sResourceCmd(k8s.Secrets)
+	cmd.Show(new(o.NamespaceResourceGetOptions))
+	cmd.BatchDeleteWithParam(new(o.NamespaceResourceDeleteOptions))
+	cmd.List(new(o.SecretListOptions))
+	cmd.ShowEvent()
 
-	registryCmd := NewCmdNameFactory("secret-registry")
-	registryCreateCmd := NewCommand(
-		&o.RegistrySecretCreateOptions{},
-		registryCmd.Do("create"),
-		"Create docker registry secret secret",
-		func(s *mcclient.ClientSession, args *o.RegistrySecretCreateOptions) error {
-			params, err := args.Params()
-			if err != nil {
-				return err
-			}
-			ret, err := k8s.Secrets.Create(s, params)
-			if err != nil {
-				return err
-			}
-			printObject(ret)
-			return nil
-		})
+	registryCmd := NewK8sResourceCmd(k8s.Secrets).WithKeyword("secret-registry")
+	registryCmd.Create(new(o.RegistrySecretCreateOptions))
 
-	cephCSICmd := NewCmdNameFactory("secret-ceph-csi")
-	cephCSICreateCmd := NewCommand(
-		&o.CephCSISecretCreateOptions{},
-		cephCSICmd.Do("create"),
-		"Create ceph csi user secret",
-		func(s *mcclient.ClientSession, args *o.CephCSISecretCreateOptions) error {
-			params, err := args.Params()
-			if err != nil {
-				return err
-			}
-			ret, err := k8s.Secrets.Create(s, params)
-			if err != nil {
-				return err
-			}
-			printObject(ret)
-			return nil
-		})
-	secretCmd.AddR(cephCSICreateCmd, registryCreateCmd)
+	cephCSICmd := NewK8sResourceCmd(k8s.Secrets).WithKeyword("secret-ceph-csi")
+	cephCSICmd.Create(new(o.CephCSISecretCreateOptions))
 }

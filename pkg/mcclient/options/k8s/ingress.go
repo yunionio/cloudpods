@@ -27,7 +27,7 @@ type IngressCreateOptions struct {
 	Host    string `help:"Fuly qualified domain name of a network host" required:"true"`
 }
 
-func (o IngressCreateOptions) Params() *jsonutils.JSONDict {
+func (o IngressCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params := o.NamespaceWithClusterOptions.Params()
 	params.Add(jsonutils.NewString(o.NAME), "name")
 	path := jsonutils.NewDict()
@@ -44,5 +44,5 @@ func (o IngressCreateOptions) Params() *jsonutils.JSONDict {
 	rules := jsonutils.NewArray()
 	rules.Add(rule)
 	params.Add(rules, "rules")
-	return params
+	return params, nil
 }
