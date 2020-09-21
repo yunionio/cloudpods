@@ -179,7 +179,7 @@ func (stm *SScheduledTaskManager) ValidateCreateData(ctx context.Context, userCr
 		input.CycleTimer, err = checkCycleTimerCreateInput(input.CycleTimer)
 	}
 	if err != nil {
-		return input, httperrors.NewInputParameterError(err.Error())
+		return input, httperrors.NewInputParameterError("%v", err)
 	}
 	return input, nil
 }
