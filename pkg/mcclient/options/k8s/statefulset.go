@@ -31,7 +31,7 @@ type StatefulSetCreateOptions struct {
 	K8sPVCTemplateOptions
 }
 
-func (o StatefulSetCreateOptions) Params() (*jsonutils.JSONDict, error) {
+func (o StatefulSetCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params := o.NamespaceWithClusterOptions.Params()
 	pvcs, err := o.K8sPVCTemplateOptions.Parse()
 	if err != nil {

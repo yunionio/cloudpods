@@ -15,27 +15,11 @@
 package k8s
 
 import (
-	"fmt"
-
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 	o "yunion.io/x/onecloud/pkg/mcclient/options/k8s"
 )
 
 func initKubeCerts() {
-	cmdN := func(action string) string {
-		return fmt.Sprintf("kubecert-%s", action)
-	}
-	R(&o.CertListOptions{}, cmdN("list"), "List k8s cluster certificates key pairs", func(s *mcclient.ClientSession, args *o.CertListOptions) error {
-		params, err := args.Params()
-		if err != nil {
-			return err
-		}
-		ret, err := k8s.KubeCerts.List(s, params)
-		if err != nil {
-			return err
-		}
-		printList(ret, k8s.KubeCerts.GetColumns(s))
-		return nil
-	})
+	cmd := NewK8sResourceCmd(k8s.KubeCerts)
+	cmd.List(new(o.CertListOptions))
 }

@@ -56,7 +56,7 @@ type JobCreateOptions struct {
 	NAME string `help:"Name of job"`
 }
 
-func (o JobCreateOptions) Params() (*jsonutils.JSONDict, error) {
+func (o JobCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params := o.NamespaceWithClusterOptions.Params()
 	if err := o.JobTemplateOptions.Attach(params, o.NAME); err != nil {
 		return nil, err
@@ -72,7 +72,7 @@ type CronJobCreateOptions struct {
 	Schedule string `help:"The chedule in Cron format, e.g. '*/10 * * * *'" required:"true"`
 }
 
-func (o CronJobCreateOptions) Params() (*jsonutils.JSONDict, error) {
+func (o CronJobCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params := o.NamespaceWithClusterOptions.Params()
 
 	if err := o.JobTemplateOptions.Attach(params, o.NAME, "jobTemplate", "spec"); err != nil {
