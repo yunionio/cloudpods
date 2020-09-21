@@ -82,9 +82,11 @@ func getSubcommandParser() (*structarg.ArgumentParser, error) {
 
 func bmcJnlp() {
 	type BmcGetOptions struct {
-		BRAND string `help:"brand of baremetal" choices:"Lenovo|Huawei|HPE|Dell|Supermicro"`
+		BRAND string `help:"brand of baremetal" choices:"Lenovo|Huawei|HPE|Dell|Supermicro|Dell6|Dell7|Dell9"`
 		Save  string `help:"save to file"`
 		Debug bool   `help:"turn on debug mode"`
+		Sku   string `help:"sku"`
+		Model string `help:"model"`
 	}
 	shellutils.R(&BmcGetOptions{}, "bmc-jnlp", "Get Java Console JNLP file", func(args *BmcGetOptions) error {
 		ctx := context.Background()
@@ -98,7 +100,13 @@ func bmcJnlp() {
 		case "hp", "hpe":
 			jnlp, err = bmc.GetIloConsoleJNLP(ctx)
 		case "dell", "dell inc.":
-			jnlp, err = bmc.GetIdracConsoleJNLP(ctx, "", "")
+			jnlp, err = bmc.GetIdracConsoleJNLP(ctx, args.Sku, args.Model)
+		case "dell6":
+			jnlp, err = bmc.GetIdrac6ConsoleJNLP(ctx, args.Sku, args.Model)
+		case "dell7":
+			jnlp, err = bmc.GetIdrac7ConsoleJNLP(ctx, args.Sku, args.Model)
+		case "dell9":
+			jnlp, err = bmc.GetIdrac9ConsoleJNLP(ctx)
 		case "supermicro":
 			jnlp, err = bmc.GetSupermicroConsoleJNLP(ctx)
 		case "lenovo":
