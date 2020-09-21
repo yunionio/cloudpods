@@ -429,6 +429,8 @@ type UserUpdateInput struct {
 	EnableMfa *bool `json:"enable_mfa"`
 
 	Password string `json:"password"`
+
+	SkipPasswordComplexityCheck *bool `json:"skip_password_complexity_check"`
 }
 
 type UserCreateInput struct {
