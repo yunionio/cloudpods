@@ -2984,8 +2984,8 @@ func (self *SGuest) attach2Disk(ctx context.Context, disk *SDisk, userCred mccli
 	guestdisk.DiskId = disk.Id
 	guestdisk.GuestId = self.Id
 
-	defer lockman.ReleaseObject(ctx, self)
 	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
 
 	guestdisk.Index = self.getDiskIndex()
 	err = guestdisk.DoSave(ctx, driver, cache, mountpoint)

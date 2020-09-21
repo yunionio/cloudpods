@@ -59,14 +59,16 @@ func (self *ScalingGroupDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 	spids := make([]string, len(sps))
 	for i := range sps {
 		spids[i] = sps[i].GetId()
-		lockman.LockObject(ctx, &sps[i])
-		err := sps[i].SetStatus(self.UserCred, api.SP_STATUS_DELETING, "delete scaling group")
+		err := func() error {
+			lockman.LockObject(ctx, &sps[i])
+			defer lockman.ReleaseObject(ctx, &sps[i])
+			return sps[i].SetStatus(self.UserCred, api.SP_STATUS_DELETING, "delete scaling group")
+		}()
 		if err != nil {
 			self.taskFailed(ctx, sg, jsonutils.NewString(fmt.Sprintf("set scaling policy %s as deleting status failed: %s",
 				sps[i].GetId(), err)))
 			return
 		}
-		lockman.ReleaseObject(ctx, &sps[i])
 	}
 
 	log.Debugf("finish to mark all scaling policies deleted")

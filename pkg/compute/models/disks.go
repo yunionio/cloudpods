@@ -2566,13 +2566,18 @@ func (self *SDisk) PerformChangeOwner(ctx context.Context, userCred mcclient.Tok
 	}
 	for i := range snapshots {
 		snapshot := snapshots[i]
-		lockman.LockObject(ctx, &snapshot)
-		_, err := snapshot.PerformChangeOwner(ctx, userCred, query, input)
+		err := func() error {
+			lockman.LockObject(ctx, &snapshot)
+			defer lockman.ReleaseObject(ctx, &snapshot)
+			_, err := snapshot.PerformChangeOwner(ctx, userCred, query, input)
+			if err != nil {
+				return err
+			}
+			return nil
+		}()
 		if err != nil {
-			lockman.ReleaseObject(ctx, &snapshot)
 			return nil, errors.Wrapf(err, "fail to change owner of this disk(%s)'s snapshot %s", self.Id, snapshot.Id)
 		}
-		lockman.ReleaseObject(ctx, &snapshot)
 	}
 	return nil, nil
 }

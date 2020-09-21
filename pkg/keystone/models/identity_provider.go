@@ -1008,7 +1008,7 @@ func (self *SIdentityProvider) SyncOrCreateDomain(ctx context.Context, extId str
 	}
 
 	lockman.LockClass(ctx, DomainManager, "")
-	lockman.ReleaseClass(ctx, DomainManager, "")
+	defer lockman.ReleaseClass(ctx, DomainManager, "")
 
 	domain = &SDomain{}
 	domain.SetModelManager(DomainManager, domain)
