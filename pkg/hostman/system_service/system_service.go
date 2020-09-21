@@ -98,7 +98,7 @@ func (s *SBaseSystemService) reloadConf(conf, conFile string) (bool, error) {
 	output, _ := procutils.NewRemoteCommandAsFarAsPossible("cat", conFile).Output()
 	oldConf := string(output)
 	if conf != oldConf {
-		log.Infof("Reload service %s ...", s.name)
+		log.Debugf("Reload service %s ...", s.name)
 		err := procutils.NewRemoteCommandAsFarAsPossible("rm", "-f", conFile).Run()
 		if err != nil {
 			return false, err
