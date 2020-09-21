@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -81,6 +82,9 @@ func (manager *SPolicyManager) InitializeData() error {
 		return err
 	}
 	for i := range policies {
+		if !gotypes.IsNil(policies[i].Extra) {
+			continue
+		}
 		db.Update(&policies[i], func() error {
 			policies[i].Name = policies[i].Type
 			policies[i].Description, _ = policies[i].Extra.GetString("description")
