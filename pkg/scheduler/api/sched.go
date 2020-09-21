@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -83,7 +84,7 @@ func FetchSchedInfo(req *http.Request) (*SchedInfo, error) {
 	input = models.ApplySchedPolicies(input)
 
 	data := NewSchedInfo(input)
-	data.UserCred = token
+	data.UserCred = policy.FilterPolicyCredential(token)
 
 	domainId := data.Domain
 	for _, net := range data.Networks {
