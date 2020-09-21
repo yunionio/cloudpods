@@ -43,7 +43,6 @@ func init() {
 }
 
 var messageKeyToIndex = map[string]int{
-	"% not support create account":                                       1266,
 	"%s %s %s not found":                                                 33,
 	"%s %s %s not support %s":                                            385,
 	"%s %s not found":                                                    429,
@@ -76,6 +75,7 @@ var messageKeyToIndex = map[string]int{
 	"%s not support":                                                     266,
 	"%s not support cdrom params":                                        147,
 	"%s not support close tcp or udp loadbalancer listener health check": 1197,
+	"%s not support create account":                                      1266,
 	"%s not support create eip":                                          134,
 	"%s not support create eip, it only support bind eip":                148,
 	"%s not support create subscription":                                 267,
@@ -509,7 +509,7 @@ var messageKeyToIndex = map[string]int{
 	"Name %s not found":                                              1358,
 	"Nat gateway has %d task active, can't sync status":              945,
 	"Network %s not found":                                           997,
-	"Network %s not found %s":                                        960,
+	"Network %s not found: %v":                                       960,
 	"Network not found":                                              191,
 	"Network not in range of VPC cidrblock %s":                       987,
 	"NetworkCount fail %s":                                           1164,
@@ -1284,7 +1284,7 @@ var messageKeyToIndex = map[string]int{
 	"policy definition %s require cloudregion not in %s":                   728,
 	"policy definition %s require except tag %s":                           731,
 	"policy definition %s require must contains tag %s":                    730,
-	"port %s not support, only support range 1 ~ 65535":                    897,
+	"port %d not support, only support range 1 ~ 65535":                    897,
 	"project %s not found":                                                 263,
 	"project in non-default domain is prohibited":                          46,
 	"project is not found":                                                 1373,
@@ -1402,7 +1402,7 @@ var messageKeyToIndex = map[string]int{
 	"unmarshal JointResourceCreateInput fail %s":               1053,
 	"unmarshal StandaloneResourceCreateInput fail %s":          426,
 	"unmarshal VirtualResourceCreateInput fail %s":             433,
-	"unmarshal input":                                          888,
+	"unmarshal input: %v":                                      888,
 	"unmarshal limit error %s":                                 230,
 	"unmarshaling cidrs failed: %s":                            1016,
 	"unsupport delete %s backups":                              431,
@@ -1416,7 +1416,7 @@ var messageKeyToIndex = map[string]int{
 	"vpc %s not in dns zone":                                   401,
 	"vpc %s(%s) is not a managed resouce":                      1074,
 	"vpc lb is not allowed for now":                            1269,
-	"weight %s not support, only support range 0 ~ 256":        896,
+	"weight %d not support, only support range 0 ~ 256":        896,
 	"wire contains hosts":                                      1163,
 	"wire contains networks":                                   1165,
 	"wire not found for zone %s and vpc %s":                    971,
@@ -1680,150 +1680,150 @@ var en_USIndex = []uint32{ // 1385 elements
 	0x00007564, 0x00007585, 0x000075b7, 0x000075ca,
 	0x000075f1, 0x00007622, 0x00007647, 0x00007657,
 	0x00007668, 0x00007693, 0x000076a5, 0x000076d1,
-	0x000076f0, 0x00007700, 0x00007716, 0x0000772a,
-	0x00007741, 0x00007768, 0x00007782, 0x000077a8,
+	0x000076f0, 0x00007704, 0x0000771a, 0x0000772e,
+	0x00007745, 0x0000776c, 0x00007786, 0x000077ac,
 	// Entry 380 - 39F
-	0x000077d6, 0x00007808, 0x0000783a, 0x00007852,
-	0x0000787c, 0x00007893, 0x000078ae, 0x000078df,
-	0x00007909, 0x0000791f, 0x00007949, 0x0000795e,
-	0x0000798a, 0x00007a0d, 0x00007a45, 0x00007a5d,
-	0x00007a8c, 0x00007abf, 0x00007af2, 0x00007b22,
-	0x00007b4c, 0x00007b6d, 0x00007b9a, 0x00007bcb,
-	0x00007bfc, 0x00007c2e, 0x00007c58, 0x00007c7d,
-	0x00007cb6, 0x00007cd6, 0x00007cf5, 0x00007d24,
+	0x000077da, 0x0000780c, 0x0000783e, 0x00007856,
+	0x00007880, 0x00007897, 0x000078b2, 0x000078e3,
+	0x0000790d, 0x00007923, 0x0000794d, 0x00007962,
+	0x0000798e, 0x00007a11, 0x00007a49, 0x00007a61,
+	0x00007a90, 0x00007ac3, 0x00007af6, 0x00007b26,
+	0x00007b50, 0x00007b71, 0x00007b9e, 0x00007bcf,
+	0x00007c00, 0x00007c32, 0x00007c5c, 0x00007c81,
+	0x00007cba, 0x00007cda, 0x00007cf9, 0x00007d28,
 	// Entry 3A0 - 3BF
-	0x00007d6a, 0x00007d92, 0x00007dc0, 0x00007def,
-	0x00007e1a, 0x00007e4d, 0x00007e85, 0x00007ebd,
-	0x00007ed5, 0x00007f0d, 0x00007f42, 0x00007f7e,
-	0x00007f98, 0x00007fa9, 0x00007fc9, 0x00007ff2,
-	0x00008015, 0x00008021, 0x00008053, 0x00008088,
-	0x000080a7, 0x000080ca, 0x000080da, 0x000080f7,
-	0x0000810c, 0x0000813d, 0x00008153, 0x00008172,
-	0x0000818e, 0x000081b3, 0x000081cd, 0x000081df,
+	0x00007d6e, 0x00007d96, 0x00007dc4, 0x00007df3,
+	0x00007e1e, 0x00007e51, 0x00007e89, 0x00007ec1,
+	0x00007ed9, 0x00007f11, 0x00007f46, 0x00007f82,
+	0x00007f9c, 0x00007fad, 0x00007fcd, 0x00007ff6,
+	0x00008019, 0x00008025, 0x00008057, 0x0000808c,
+	0x000080ab, 0x000080ce, 0x000080de, 0x000080fb,
+	0x00008110, 0x00008141, 0x00008157, 0x00008176,
+	0x00008192, 0x000081b7, 0x000081d1, 0x000081e3,
 	// Entry 3C0 - 3DF
-	0x000081fd, 0x00008215, 0x0000822d, 0x0000825a,
-	0x00008272, 0x0000828b, 0x000082b0, 0x000082c4,
-	0x000082e2, 0x000082fc, 0x00008312, 0x00008338,
-	0x0000835e, 0x00008376, 0x0000839a, 0x000083ae,
-	0x000083c1, 0x000083d9, 0x000083ef, 0x00008417,
-	0x00008431, 0x00008444, 0x0000847b, 0x000084aa,
-	0x000084b8, 0x000084ee, 0x00008517, 0x00008554,
-	0x0000857d, 0x0000859c, 0x000085d4, 0x000085ec,
+	0x00008201, 0x0000821a, 0x00008232, 0x0000825f,
+	0x00008277, 0x00008290, 0x000082b5, 0x000082c9,
+	0x000082e7, 0x00008301, 0x00008317, 0x0000833d,
+	0x00008363, 0x0000837b, 0x0000839f, 0x000083b3,
+	0x000083c6, 0x000083de, 0x000083f4, 0x0000841c,
+	0x00008436, 0x00008449, 0x00008480, 0x000084af,
+	0x000084bd, 0x000084f3, 0x0000851c, 0x00008559,
+	0x00008582, 0x000085a1, 0x000085d9, 0x000085f1,
 	// Entry 3E0 - 3FF
-	0x0000861a, 0x00008641, 0x0000866a, 0x00008698,
-	0x000086a8, 0x000086d7, 0x000086ec, 0x00008707,
-	0x0000872a, 0x00008751, 0x0000875f, 0x0000877b,
-	0x00008794, 0x000087a6, 0x000087bb, 0x000087da,
-	0x000087dd, 0x000087f9, 0x00008819, 0x0000883f,
-	0x00008864, 0x00008876, 0x00008889, 0x000088a7,
-	0x000088da, 0x000088f8, 0x00008929, 0x0000896b,
-	0x000089bd, 0x000089d5, 0x000089fc, 0x00008a14,
+	0x0000861f, 0x00008646, 0x0000866f, 0x0000869d,
+	0x000086ad, 0x000086dc, 0x000086f1, 0x0000870c,
+	0x0000872f, 0x00008756, 0x00008764, 0x00008780,
+	0x00008799, 0x000087ab, 0x000087c0, 0x000087df,
+	0x000087e2, 0x000087fe, 0x0000881e, 0x00008844,
+	0x00008869, 0x0000887b, 0x0000888e, 0x000088ac,
+	0x000088df, 0x000088fd, 0x0000892e, 0x00008970,
+	0x000089c2, 0x000089da, 0x00008a01, 0x00008a19,
 	// Entry 400 - 41F
-	0x00008a31, 0x00008a4b, 0x00008a8c, 0x00008aaa,
-	0x00008ac5, 0x00008ae1, 0x00008b09, 0x00008b30,
-	0x00008b59, 0x00008b82, 0x00008bc9, 0x00008be3,
-	0x00008c10, 0x00008c3f, 0x00008c58, 0x00008c6f,
-	0x00008c8f, 0x00008cad, 0x00008ce1, 0x00008cf5,
-	0x00008d11, 0x00008d2e, 0x00008d49, 0x00008d70,
-	0x00008d84, 0x00008da0, 0x00008db8, 0x00008dd5,
-	0x00008de1, 0x00008e0e, 0x00008e39, 0x00008e4d,
+	0x00008a36, 0x00008a50, 0x00008a91, 0x00008aaf,
+	0x00008aca, 0x00008ae6, 0x00008b0e, 0x00008b35,
+	0x00008b5e, 0x00008b87, 0x00008bce, 0x00008be8,
+	0x00008c15, 0x00008c44, 0x00008c5d, 0x00008c74,
+	0x00008c94, 0x00008cb2, 0x00008ce6, 0x00008cfa,
+	0x00008d16, 0x00008d33, 0x00008d4e, 0x00008d75,
+	0x00008d89, 0x00008da5, 0x00008dbd, 0x00008dda,
+	0x00008de6, 0x00008e13, 0x00008e3e, 0x00008e52,
 	// Entry 420 - 43F
-	0x00008e69, 0x00008e8b, 0x00008ea2, 0x00008ebc,
-	0x00008edc, 0x00008ef2, 0x00008f10, 0x00008f35,
-	0x00008f62, 0x00008f7d, 0x00008f97, 0x00008fb6,
-	0x00008fcd, 0x00009009, 0x0000901d, 0x00009032,
-	0x00009050, 0x0000906c, 0x00009083, 0x000090a7,
-	0x000090d0, 0x000090e7, 0x000090fb, 0x00009121,
-	0x00009138, 0x00009155, 0x00009180, 0x00009197,
-	0x000091b3, 0x000091cd, 0x000091ec, 0x00009204,
+	0x00008e6e, 0x00008e90, 0x00008ea7, 0x00008ec1,
+	0x00008ee1, 0x00008ef7, 0x00008f15, 0x00008f3a,
+	0x00008f67, 0x00008f82, 0x00008f9c, 0x00008fbb,
+	0x00008fd2, 0x0000900e, 0x00009022, 0x00009037,
+	0x00009055, 0x00009071, 0x00009088, 0x000090ac,
+	0x000090d5, 0x000090ec, 0x00009100, 0x00009126,
+	0x0000913d, 0x0000915a, 0x00009185, 0x0000919c,
+	0x000091b8, 0x000091d2, 0x000091f1, 0x00009209,
 	// Entry 440 - 45F
-	0x0000922c, 0x00009255, 0x0000927f, 0x000092ac,
-	0x000092bd, 0x000092dd, 0x0000930e, 0x0000932c,
-	0x0000933b, 0x0000938b, 0x000093be, 0x000093e9,
-	0x00009403, 0x0000941a, 0x00009430, 0x00009459,
-	0x00009487, 0x000094a9, 0x000094d7, 0x00009503,
-	0x0000951d, 0x00009542, 0x00009558, 0x00009589,
-	0x00009599, 0x000095bc, 0x000095ea, 0x000095fd,
-	0x00009615, 0x00009646, 0x0000966a, 0x0000968b,
+	0x00009231, 0x0000925a, 0x00009284, 0x000092b1,
+	0x000092c2, 0x000092e2, 0x00009313, 0x00009331,
+	0x00009340, 0x00009390, 0x000093c3, 0x000093ee,
+	0x00009408, 0x0000941f, 0x00009435, 0x0000945e,
+	0x0000948c, 0x000094ae, 0x000094dc, 0x00009508,
+	0x00009522, 0x00009547, 0x0000955d, 0x0000958e,
+	0x0000959e, 0x000095c1, 0x000095ef, 0x00009602,
+	0x0000961a, 0x0000964b, 0x0000966f, 0x00009690,
 	// Entry 460 - 47F
-	0x000096b4, 0x000096e3, 0x0000970f, 0x0000972e,
-	0x00009762, 0x00009792, 0x000097ac, 0x000097bc,
-	0x000097e0, 0x000097fd, 0x00009819, 0x00009831,
-	0x00009847, 0x0000986c, 0x00009884, 0x000098a2,
-	0x000098bb, 0x000098d3, 0x000098ea, 0x00009908,
-	0x0000991d, 0x00009939, 0x0000994b, 0x00009961,
-	0x0000997a, 0x0000998d, 0x000099b0, 0x000099cd,
-	0x000099f6, 0x00009a0e, 0x00009a39, 0x00009a54,
+	0x000096b9, 0x000096e8, 0x00009714, 0x00009733,
+	0x00009767, 0x00009797, 0x000097b1, 0x000097c1,
+	0x000097e5, 0x00009802, 0x0000981e, 0x00009836,
+	0x0000984c, 0x00009871, 0x00009889, 0x000098a7,
+	0x000098c0, 0x000098d8, 0x000098ef, 0x0000990d,
+	0x00009922, 0x0000993e, 0x00009950, 0x00009966,
+	0x0000997f, 0x00009992, 0x000099b5, 0x000099d2,
+	0x000099fb, 0x00009a13, 0x00009a3e, 0x00009a59,
 	// Entry 480 - 49F
-	0x00009a83, 0x00009aa3, 0x00009ab9, 0x00009ae4,
-	0x00009b06, 0x00009b3c, 0x00009b60, 0x00009b74,
-	0x00009b95, 0x00009bb4, 0x00009be7, 0x00009bf9,
-	0x00009c0d, 0x00009c22, 0x00009c39, 0x00009c48,
-	0x00009c63, 0x00009c9b, 0x00009cdd, 0x00009d04,
-	0x00009d37, 0x00009d56, 0x00009d67, 0x00009d9e,
-	0x00009dc9, 0x00009df4, 0x00009e2e, 0x00009e57,
-	0x00009e8a, 0x00009ea8, 0x00009ed1, 0x00009f0f,
+	0x00009a88, 0x00009aa8, 0x00009abe, 0x00009ae9,
+	0x00009b0b, 0x00009b41, 0x00009b65, 0x00009b79,
+	0x00009b9a, 0x00009bb9, 0x00009bec, 0x00009bfe,
+	0x00009c12, 0x00009c27, 0x00009c3e, 0x00009c4d,
+	0x00009c68, 0x00009ca0, 0x00009ce2, 0x00009d09,
+	0x00009d3c, 0x00009d5b, 0x00009d6c, 0x00009da3,
+	0x00009dce, 0x00009df9, 0x00009e33, 0x00009e5c,
+	0x00009e8f, 0x00009ead, 0x00009ed6, 0x00009f14,
 	// Entry 4A0 - 4BF
-	0x00009f31, 0x00009f6e, 0x00009fb2, 0x00009fe5,
-	0x0000a005, 0x0000a034, 0x0000a079, 0x0000a0ac,
-	0x0000a0d8, 0x0000a123, 0x0000a154, 0x0000a180,
-	0x0000a198, 0x0000a1ae, 0x0000a1f1, 0x0000a231,
-	0x0000a250, 0x0000a284, 0x0000a2fa, 0x0000a32c,
-	0x0000a367, 0x0000a39e, 0x0000a3fb, 0x0000a42f,
-	0x0000a46f, 0x0000a4ac, 0x0000a4f4, 0x0000a54d,
-	0x0000a5a3, 0x0000a5ea, 0x0000a61d, 0x0000a65c,
+	0x00009f36, 0x00009f73, 0x00009fb7, 0x00009fea,
+	0x0000a00a, 0x0000a039, 0x0000a07e, 0x0000a0b1,
+	0x0000a0dd, 0x0000a128, 0x0000a159, 0x0000a185,
+	0x0000a19d, 0x0000a1b3, 0x0000a1f6, 0x0000a236,
+	0x0000a255, 0x0000a289, 0x0000a2ff, 0x0000a331,
+	0x0000a36c, 0x0000a3a3, 0x0000a400, 0x0000a434,
+	0x0000a474, 0x0000a4b1, 0x0000a4f9, 0x0000a552,
+	0x0000a5a8, 0x0000a5ef, 0x0000a622, 0x0000a661,
 	// Entry 4C0 - 4DF
-	0x0000a68d, 0x0000a6b3, 0x0000a6dc, 0x0000a6fc,
-	0x0000a716, 0x0000a72b, 0x0000a74c, 0x0000a780,
-	0x0000a79d, 0x0000a7d2, 0x0000a80e, 0x0000a839,
-	0x0000a867, 0x0000a88e, 0x0000a8b0, 0x0000a8cd,
-	0x0000a905, 0x0000a945, 0x0000a980, 0x0000a9b0,
-	0x0000a9e4, 0x0000aa14, 0x0000aa45, 0x0000aa6f,
-	0x0000aa9d, 0x0000aad3, 0x0000ab06, 0x0000ab2f,
-	0x0000ab68, 0x0000ab8e, 0x0000abb8, 0x0000abe7,
+	0x0000a692, 0x0000a6b8, 0x0000a6e1, 0x0000a701,
+	0x0000a71b, 0x0000a730, 0x0000a751, 0x0000a785,
+	0x0000a7a2, 0x0000a7d7, 0x0000a813, 0x0000a83e,
+	0x0000a86c, 0x0000a893, 0x0000a8b5, 0x0000a8d2,
+	0x0000a90a, 0x0000a94a, 0x0000a985, 0x0000a9b5,
+	0x0000a9e9, 0x0000aa19, 0x0000aa4a, 0x0000aa74,
+	0x0000aaa2, 0x0000aad8, 0x0000ab0b, 0x0000ab34,
+	0x0000ab6d, 0x0000ab93, 0x0000abbd, 0x0000abec,
 	// Entry 4E0 - 4FF
-	0x0000ac1e, 0x0000ac48, 0x0000ac7b, 0x0000acb3,
-	0x0000acfa, 0x0000ad33, 0x0000ad71, 0x0000ada2,
-	0x0000adca, 0x0000adf3, 0x0000ae20, 0x0000ae5d,
-	0x0000ae94, 0x0000aeac, 0x0000aee7, 0x0000af18,
-	0x0000af40, 0x0000af6f, 0x0000af81, 0x0000af9e,
-	0x0000afcf, 0x0000afe1, 0x0000afff, 0x0000b01c,
-	0x0000b030, 0x0000b049, 0x0000b068, 0x0000b08f,
-	0x0000b0c8, 0x0000b106, 0x0000b128, 0x0000b161,
+	0x0000ac23, 0x0000ac4d, 0x0000ac80, 0x0000acb8,
+	0x0000acff, 0x0000ad38, 0x0000ad76, 0x0000ada7,
+	0x0000adcf, 0x0000adf8, 0x0000ae25, 0x0000ae62,
+	0x0000ae99, 0x0000aeb1, 0x0000aeec, 0x0000af1d,
+	0x0000af45, 0x0000af74, 0x0000af86, 0x0000afa4,
+	0x0000afd5, 0x0000afe7, 0x0000b005, 0x0000b022,
+	0x0000b036, 0x0000b04f, 0x0000b06e, 0x0000b095,
+	0x0000b0ce, 0x0000b10c, 0x0000b12e, 0x0000b167,
 	// Entry 500 - 51F
-	0x0000b196, 0x0000b1c4, 0x0000b1df, 0x0000b1fc,
-	0x0000b223, 0x0000b248, 0x0000b268, 0x0000b27e,
-	0x0000b2b0, 0x0000b2e2, 0x0000b303, 0x0000b330,
-	0x0000b372, 0x0000b3a8, 0x0000b3e5, 0x0000b3fb,
-	0x0000b422, 0x0000b45a, 0x0000b46f, 0x0000b48b,
-	0x0000b4a0, 0x0000b4bb, 0x0000b4d7, 0x0000b50d,
-	0x0000b540, 0x0000b55f, 0x0000b595, 0x0000b5bd,
-	0x0000b5df, 0x0000b60b, 0x0000b635, 0x0000b640,
+	0x0000b19c, 0x0000b1ca, 0x0000b1e5, 0x0000b202,
+	0x0000b229, 0x0000b24e, 0x0000b26e, 0x0000b284,
+	0x0000b2b6, 0x0000b2e8, 0x0000b309, 0x0000b336,
+	0x0000b378, 0x0000b3ae, 0x0000b3eb, 0x0000b401,
+	0x0000b428, 0x0000b460, 0x0000b475, 0x0000b491,
+	0x0000b4a6, 0x0000b4c1, 0x0000b4dd, 0x0000b513,
+	0x0000b546, 0x0000b565, 0x0000b59b, 0x0000b5c3,
+	0x0000b5e5, 0x0000b611, 0x0000b63b, 0x0000b646,
 	// Entry 520 - 53F
-	0x0000b654, 0x0000b66a, 0x0000b677, 0x0000b68a,
-	0x0000b6a0, 0x0000b6b2, 0x0000b6c6, 0x0000b6da,
-	0x0000b6ec, 0x0000b6fe, 0x0000b711, 0x0000b725,
-	0x0000b737, 0x0000b74d, 0x0000b767, 0x0000b775,
-	0x0000b785, 0x0000b790, 0x0000b79b, 0x0000b7b7,
-	0x0000b7cf, 0x0000b7dd, 0x0000b7ed, 0x0000b7ff,
-	0x0000b811, 0x0000b828, 0x0000b837, 0x0000b84a,
-	0x0000b85d, 0x0000b874, 0x0000b882, 0x0000b894,
+	0x0000b65a, 0x0000b670, 0x0000b67d, 0x0000b690,
+	0x0000b6a6, 0x0000b6b8, 0x0000b6cc, 0x0000b6e0,
+	0x0000b6f2, 0x0000b704, 0x0000b717, 0x0000b72b,
+	0x0000b73d, 0x0000b753, 0x0000b76d, 0x0000b77b,
+	0x0000b78b, 0x0000b796, 0x0000b7a1, 0x0000b7bd,
+	0x0000b7d5, 0x0000b7e3, 0x0000b7f3, 0x0000b805,
+	0x0000b817, 0x0000b82e, 0x0000b83d, 0x0000b850,
+	0x0000b863, 0x0000b87a, 0x0000b888, 0x0000b89a,
 	// Entry 540 - 55F
-	0x0000b8a8, 0x0000b8bf, 0x0000b8ce, 0x0000b8dd,
-	0x0000b8f3, 0x0000b903, 0x0000b917, 0x0000b92d,
-	0x0000b940, 0x0000b998, 0x0000b9ad, 0x0000b9c2,
-	0x0000b9d5, 0x0000b9e2, 0x0000b9ef, 0x0000ba01,
-	0x0000ba17, 0x0000ba26, 0x0000ba41, 0x0000ba54,
-	0x0000ba66, 0x0000ba7a, 0x0000ba93, 0x0000bab2,
-	0x0000bacc, 0x0000bad8, 0x0000bae5, 0x0000baf9,
-	0x0000bb0d, 0x0000bb19, 0x0000bb2e, 0x0000bb3f,
+	0x0000b8ae, 0x0000b8c5, 0x0000b8d4, 0x0000b8e3,
+	0x0000b8f9, 0x0000b909, 0x0000b91d, 0x0000b933,
+	0x0000b946, 0x0000b99e, 0x0000b9b3, 0x0000b9c8,
+	0x0000b9db, 0x0000b9e8, 0x0000b9f5, 0x0000ba07,
+	0x0000ba1d, 0x0000ba2c, 0x0000ba47, 0x0000ba5a,
+	0x0000ba6c, 0x0000ba80, 0x0000ba99, 0x0000bab8,
+	0x0000bad2, 0x0000bade, 0x0000baeb, 0x0000baff,
+	0x0000bb13, 0x0000bb1f, 0x0000bb34, 0x0000bb45,
 	// Entry 560 - 57F
-	0x0000bb5b, 0x0000bb76, 0x0000bb8c, 0x0000bbae,
-	0x0000bbd4, 0x0000bbf4, 0x0000bc06, 0x0000bc20,
-	0x0000bc27,
+	0x0000bb61, 0x0000bb7c, 0x0000bb92, 0x0000bbb4,
+	0x0000bbda, 0x0000bbfa, 0x0000bc0c, 0x0000bc26,
+	0x0000bc2d,
 } // Size: 5564 bytes
 
-const en_USData string = "" + // Size: 48167 bytes
+const en_USData string = "" + // Size: 48173 bytes
 	"\x02invalid share_mode %s\x02duplicate route cidr %s\x02Internal server " +
 	"error: %s\x02Internal server error\x02Invalid handler %s\x02Handler not " +
 	"found\x02No request key: %s\x02Invalid request header: %v\x02request pro" +
@@ -2285,274 +2285,274 @@ const en_USData string = "" + // Size: 48167 bytes
 	"um requires valid repo_base_url\x02empty host name\x02find host %s: %v" +
 	"\x02lbagent cannot be deployed on managed host\x02find guest %s: %v\x02l" +
 	"bagent cannot be deployed on public guests\x02server is in %q state, wan" +
-	"t %q\x02unmarshal input\x02host missing %s field\x02empty host %s field" +
-	"\x02authenticate error: %v\x02user must have system admin privileges\x02" +
-	"get %s service %s url: %v\x02No previous deployment info available\x02qu" +
-	"ery backend group releated resource failed.\x02weight %s not support, on" +
-	"ly support range 0 ~ 256\x02port %s not support, only support range 1 ~ " +
-	"65535\x02failed to find guest %s\x02only sysadmin can specify host as ba" +
-	"ckend\x02failed to find host %s\x02unexpected backend type %s\x02region " +
-	"of backend %d does not match that of lb's\x02failed to find region for l" +
-	"oadbalancer %s\x02get isDefault fail %s\x02backend group %s is default b" +
-	"ackend group\x02get refCount fail %s\x02backend group %s is still referr" +
-	"ed by %d %s\x02%s requires the virtual machine state to be %s before it " +
-	"can be added backendgroup, but current state of the virtual machine is %" +
-	"s\x02guest %s(%s) vpc %s(%s) not same as loadbalancer vpc %s\x02failed g" +
-	"etting guest %s\x02guest %s(%s) vpc %s(%s) not same as vpc %s(%s)\x02gue" +
-	"st %s(%s) is already in the backendgroup %s(%s)\x02failed to found regio" +
-	"n for loadbalancer backend %s\x02failed to found backendgroup for backen" +
-	"d %s(%s)\x02the acl cache in region %s aready exists.\x02get certificate" +
-	" refcount fail %s\x02certificate %s is still referred to by %d %s\x02inv" +
-	"alid local certificate, private key is empty.\x02invalid local certifica" +
-	"te, certificate is empty.\x02the certificate cache in region %s aready e" +
-	"xists.\x02not allowed update content of certificate\x02allow only intern" +
-	"al zone, got %s(%s)\x02wire zone must match zone parameter, got %s, want" +
-	" %s(%s)\x02zone of wire must be %s, got %s\x02get lbcluster refcount fai" +
-	"l %v\x02lbcluster %s(%s) is still referred to by %d %s\x04\x00\x01 A\x02" +
-	"lbclusters %s(%s) and %s(%s) has conflict virtual_router_id: %d \x02inva" +
-	"lid conditions format,required json\x02invalid conditions fromat,require" +
-	"d json array\x02condition values limit (5 per rule). %d given.\x02rule %" +
-	"s/%s already occupied by rule %s(%s)\x02failed to find region for loadba" +
-	"lancer listener %s\x02failed to find region for loadbalancer listener ru" +
-	"le %s\x02%s listener port %d is already taken by listener %s(%s)\x02cann" +
-	"ot find region info\x02backend group %s(%s) belongs to loadbalancer %s, " +
-	"not %s\x04\x00\x01 0\x02cluster zone %s does not match network zone %s " +
-	"\x02cluster wire affiliation does not match network's: %s != %s\x02Unmar" +
-	"shal input failed %s\x02Port value error\x02invalid internal ip address:" +
-	" %s\x02eip has been binding to another instance\x02eip has been binding " +
-	"to snat rules\x02No such eip\x02Nat gateway has %d task active, can't sy" +
-	"nc status\x02Only one of that sourceCIDR and netword_id is needed\x02cid" +
-	"r %s is not in range vpc %s\x02eip has been binding to dnat rules\x02no " +
-	"such network\x02GetAllocatedNicCount fail %s\x02not an empty network\x02" +
-	"address %s is not in the range of network %s(%s)\x02isAddressUsed fail %" +
-	"s\x02address %s is already occupied\x02getFreeAddressCount fail %s\x02ne" +
-	"twork %s(%s) has no free addresses\x02candidate %s out of range\x02Out o" +
-	"f IP address\x02no allow to access network %s\x02Network %s not found %s" +
-	"\x02Address %s not in range\x02Only system admin allowed to use reserved" +
-	" ip\x02Address %s not reserved\x02Address %s has been used\x02Bandwidth " +
-	"limit cannot exceed %dMbps\x02Duration %s invalid\x02not a valid ip addr" +
-	"ess %s: %s\x02Address %s not in network\x02get reserved ip error\x02foun" +
-	"d %d wires for zone %s and vpc %s\x02wire not found for zone %s and vpc " +
-	"%s\x02Invalid server_type: %s\x02cannot derive valid ifname hint: %v\x02" +
-	"ip_prefix error: %s\x02Invalid masklen %d\x02Invalid start ip: %s %s\x02" +
-	"invalid end ip: %s %s\x02start and end ip not in the same subnet\x02%s: " +
-	"Invalid IP address %s\x02bad gateway ip: %v\x02gateway ip must be in the" +
-	" same subnet as start, end ip\x02zone and vpc info required when wire is" +
-	" absent\x02VPC not ready\x02eip network can only exist in default vpc, g" +
-	"ot %s(%s)\x02subnet masklen should be smaller than 30\x02start and end i" +
-	"p when masked are not in the same cidr subnet\x02Network not in range of" +
-	" VPC cidrblock %s\x02fail to GetNetworks of vpc: %v\x02Conflict address " +
-	"space with existing networks in vpc %q\x02query all networks fail\x02Con" +
-	"flict address space with existing networks\x02Address been assigned out " +
-	"of new range\x02start, end ip must be in the same subnet\x02network serv" +
-	"er_type %s not support auto alloc\x02Parse Ip Failed\x02Cannot purge net" +
-	"work on enabled cloud provider\x02Network %s not found\x02Invalid Target" +
-	" Network: %s\x02Incontinuity Network for %s and %s\x02only on premise su" +
-	"pport this operation\x02Invalid IP %s\x02Split IP %s is the start ip\x02" +
-	"Split IP %s out of range\x02Duplicate name %s\x02GenerateName fail %s" +
-	"\x02Generate ifname hint failed %s\x02ip\x02Only support server type %s" +
-	"\x02Only support on premise network\x02on-premise network cannot sync st" +
-	"atus\x02managed network cannot change status\x02invalid status %s\x02not" +
-	" support create\x02not support create definition\x02Cannot purge route_t" +
-	"able on enabled cloud provider\x02unmarshaling cidrs failed: %s\x02min_i" +
-	"nstance_number should not be smaller than 0\x02min_instance_number shoul" +
-	"d not be bigger than max_instance_number\x02desire_instance_number shoul" +
-	"d between min_instance_number and max_instance_number\x02no such cloud r" +
-	"egion %s\x02ScalingGroup should have some networks\x02some networks not " +
-	"exist\x02network '%s' not in vpc '%s'\x02no such guest template %s\x02th" +
-	"e guest template %s is not valid in cloudregion %s, reason: %s\x02unkown" +
-	" expansion principle %s\x02unkown shrink principle %s\x02unkown health c" +
-	"heck mode %s\x02no such loadbalancer backend group '%s'\x02invalid loadb" +
-	"alancer backend port '%d'\x02invalid loadbalancer backend weight '%d'" +
-	"\x02Please disable this ScalingGroup firstly\x02There are some guests in" +
-	" this ScalingGroup, please delete them firstly\x02no such ScalingGroup '" +
-	"%s'\x02Guest '%s' don't belong to ScalingGroup '%s'\x02every scaling pol" +
-	"icy belong to a scaling group\x02no such scaling group %s\x02unkown trig" +
-	"ger type %s\x02unkown scaling policy action %s\x02unkown scaling policy " +
-	"unit %s\x02Can't trigger scaling policy without status 'ready'\x02mismat" +
-	"ched alarm id\x02unkown operator in alarm %s\x02unkown indicator in alar" +
-	"m %s\x02unkown wrapper in alarm %s\x02the min value of cycle in alarm is" +
-	" 300\x02invalid strategy %s\x02ResourceType %q not support\x02schedtag_i" +
-	"d not provide\x02Not support resource_type %s\x02Schedtag %s\x02Schedtag" +
-	" %s resource_type mismatch: %s != %s\x02unmarshal JointResourceCreateInp" +
-	"ut fail %s\x02Invalid schedtag %s\x02Invalid default stragegy %s\x02Cann" +
-	"ot set default strategy of %s\x02GetObjectCount fail %s\x02Tag is associ" +
-	"ated with %s\x02getDynamicSchedtagCount fail %s\x02tag has dynamic rules" +
-	"\x02getSchedPoliciesCount fail %s\x02tag is associate with sched policie" +
-	"s\x02Schedtag %s ResourceType is %s, not match %s\x02unkown scheduled ty" +
-	"pe '%s'\x02unkown resource type '%s'\x02unkown resource operation '%s'" +
-	"\x02unkown label type '%s'\x02This scheduled task is being executed now," +
-	" please try later\x02need scheduled task\x02not enough privilege\x02Fail" +
-	"ed to unmarshal input: %v\x02Failed fetching secgroup %s\x02rule %d is i" +
-	"nvalid: %s\x02vpc %s(%s) is not a managed resouce\x02Not support cache c" +
-	"lassic security group\x02invalid ip address: %s\x02FetchByName fail %s" +
-	"\x02secgroup %s rules not equals %s rules\x02GetGuestsCount fail %s\x02t" +
-	"he security group is in use\x02not allow to delete default security grou" +
-	"p\x02no such guest template\x02fail to parse icon url '%s'\x02no such gu" +
-	"est_template %s\x02failed to found cloudregion %s\x02failed to found zon" +
-	"e %s\x02cpu_core_count should be range of 1~256\x02memory_size_mb, shoud" +
-	" be range of 512~%d\x02instance_type_category shoud be one of %s\x02chec" +
-	"kout server sku name duplicate error: %v\x02Duplicate sku %s\x02instance" +
-	" specs list query error\x02can not update instance_type for public cloud" +
-	" %s\x02Cannot change server sku name\x02check instance\x02now allow to d" +
-	"elete inuse instance_type.please remove related servers first: %s\x02not" +
-	" allow to delete public cloud instance_type: %s\x02failed to find cloudr" +
-	"egion for zone %s(%s)\x02duplicate instanceType %s\x02query sku list fai" +
-	"led.\x02delete sku %s failed.\x02Only support cache sku for private clou" +
-	"d\x02failed to get cloudprovider for region %s(%s)\x02Retention days mus" +
-	"t in 1~%d or -1\x02repeat_weekdays only contains %d days at most\x02time" +
-	"_points only contains %d points at most\x02Unmarshel input failed %s\x02" +
-	"Retention days must in 1~65535 or -1\x02Do not need to update\x02Couldn'" +
-	"t delete snapshot policy binding to disks\x02no such disk %s\x02snapshot" +
-	"policy disk has been exist\x02disk %s has too many snapshot policy attac" +
-	"hed\x02guest %s not found\x02failed to found disk %s\x02failed to found " +
-	"region for disk's storage %s(%s)\x02Cannot delete snapshot in status %s" +
-	"\x02Fetch instance snapshot error %s\x02snapshot referenced by instance " +
-	"snapshot\x02Snapshot has %d task active, can't sync status\x02Cannot Del" +
-	"ete disk %s snapshots, disk exist\x02Disk %s dose not have snapshot\x02C" +
-	"an not delete disk snapshots, have manual snapshot\x02Cannot purge snaps" +
-	"hot on enabled cloud provider\x02getReferenceCount fail %s\x02Image is i" +
-	"n use\x02Active download session not expired\x02Cannot delete the last c" +
-	"ache\x02Cannot uncache in status %s\x02storage cache not empty\x02refere" +
-	"red by storages\x02cannot uncache non-customized images\x02storage not c" +
-	"ache image\x02Fail to mark cache status: %s\x02missing image id or name" +
-	"\x02Invalid storage type %s\x02Invalid medium type %s\x02Not support cre" +
-	"ate %s storage\x02GetHostCount fail %s\x02storage has associate hosts" +
-	"\x02storage has disks\x02storage has snapshots\x02storage cache is missi" +
-	"ng\x02storage is enabled\x02can't detach host in status online\x02host %" +
-	"s storage %s not found\x02invalid external_access_mode %q, want %s\x02Ge" +
-	"tNetworkCount fail %s\x02VPC not empty, please delete network first\x02G" +
-	"etNatgatewayCount fail %v\x02VPC not empty, please delete nat gateway fi" +
-	"rst\x02not allow to delete default vpc\x02invalid cidr_block %s\x02Canno" +
-	"t purge vpc on enabled cloud provider\x02on-premise vpc cannot sync stat" +
-	"us\x02For default vpc, only system level sharing can be set\x02Prohibit " +
-	"making default vpc private\x02mapped ip exhausted\x02bandwidth must be g" +
-	"reater than 0\x02mtu must be range of 0~1000000\x02Currently only kvm pl" +
-	"atform supports creating wire\x02HostCount fail %s\x02wire contains host" +
-	"s\x02NetworkCount fail %s\x02wire contains networks\x02not empty zone" +
-	"\x02not support create %s zone\x02intranet loadbalancer not support band" +
-	"width charge type\x02Loadbalancer's manager (%s(%s)) does not match vpc'" +
-	"s(%s(%s)) (%s)\x02Aliyun not allow to change certificate\x02master slave" +
-	" backendgorup must contain two backend\x02Unsupport backendgorup type %s" +
-	"\x02invalid guest %s\x02Aliyun instance weight must be in the range of 0" +
-	" ~ 100\x02internal error: unexpected backend type %s\x02backendgroup %s " +
-	"not support this operation\x02region of host %q (%s) != region of loadba" +
-	"lancer %q (%s))\x02%s backend group not support change port\x02%s backen" +
-	"d group not support change port or weight\x02Unknown backend group type " +
-	"%s\x02listener type must be http/https, got %s\x02backend group %s(%s) b" +
-	"elongs to loadbalancer %s instead of %s\x02backend group type must be no" +
-	"rmal\x02loadbalancerlistenerrule %s(%s): fetching listener %s failed\x02" +
-	"http or https listener only supportd default or normal backendgroup\x02h" +
-	"ealth_check_domain must be in the range of 1 ~ 80\x02%s length must less" +
-	" 500 letters\x02sticky_session_cookie length must within 1~200\x02sticky" +
-	"_session_cookie can only contain letters, Numbers, '_' and '-'\x02Unknow" +
-	"n sticky_session_type, only support %s or %s\x02failed to find loadbalan" +
-	"cer's %s(%s) region\x02The specified Scheduler %s is invalid for perform" +
-	"ance sharing loadbalancer\x02failed to found loadbalancer for listener %" +
-	"s(%s)\x02cloudregion %s(%s) not support %s scheduler\x02invalid %s,requi" +
-	"red int\x02%s cannot be set to 0\x02%s not support close tcp or udp load" +
-	"balancer listener health check\x02Snapshot for %s name can't start with " +
-	"auto, http:// or https://\x02Aliyun %s not support recovery\x02Aliyun %s" +
-	" only support recover from it self backups\x02Aliyun %s only 8.0 and 5.7" +
-	" high_availability local_ssd or 5.6 high_availability support recovery f" +
-	"rom it self backups\x02slave dbinstance not support prepaid billing type" +
-	"\x02failed to match any skus in the network %s(%s) zone %s(%s)\x02Not su" +
-	"pport create readonly dbinstance for MySQL %s %s\x02Not support create r" +
-	"eadonly dbinstance for MySQL %s %s with storage type %s, only support %s" +
-	"\x02Not support create readonly dbinstance for MySQL %s\x02SQL Server on" +
-	"ly support create readonly dbinstance for 2017_ent\x02SQL Server cannot " +
-	"have more than seven read-only dbinstances\x02Not support create readonl" +
-	"y dbinstance with master dbinstance engine %s\x02Master dbinstance memor" +
-	"y ≥64GB, up to 10 read-only instances are allowed to be created\x02Maste" +
-	"r dbinstance memory <64GB, up to 5 read-only instances are allowed to be" +
-	" created\x02At least two networks are required under vpc %s(%s) with ali" +
-	"yun %s(%s)\x02Description can not start with http:// or https://\x02Aliy" +
-	"un DBInstance account name length shoud be 2~16 characters\x02%s is rese" +
-	"rved for aliyun %s, please use another\x02invalid character %s for accou" +
-	"nt name\x02account name can not start or end with _\x02%s only support a" +
-	"liyun %s or %s\x02%s only support aliyun %s\x02Unknown privilege %s\x02n" +
-	"etwork %s related vpc not found\x02account_privilege %s only support red" +
-	"is version 4.0\x02required at least %d subnet.\x02required at least %d s" +
-	"ubnet with at least 8 free ip.\x02Loadbalancer's manager %s does not mat" +
-	"ch vpc's(%s(%s)) (%s)\x02all networks should in the same vpc. (%s).\x02a" +
-	"lready has one network in the zone %s. (%s).\x02invalid parameter loadba" +
-	"lancer_spec %s\x02invalid parameter backendgroup %s\x02invalid loadbalan" +
-	"cer_spec %s\x02%s does not currently support creating loadbalancer acl" +
-	"\x02%s does not currently support creating loadbalancer certificate\x02l" +
-	"oadbalancer listener %s related loadbalancer %s not found\x02The backend" +
-	" %s is already registered on port %d\x02%s does not currently support cr" +
-	"eating loadbalancer\x02disk and snapshotpolicy should have same domain" +
-	"\x02disk and snapshotpolicy should have same project\x02%s does not supp" +
-	"ort creating loadbalancer\x02%s does not support creating loadbalancer a" +
-	"cl\x02%s does not support creating loadbalancer certificate\x02Google db" +
-	"instance not support prepaid billing type\x02disk size gb must in range " +
-	"10 ~ 30720 Gb\x02eip's manager (%s(%s)) does not match vpc's(%s(%s)) (%s" +
-	")\x02loadbalancer is using by %d listener.\x02loadbalancer is using by %" +
-	"d backendgroup.\x02Not support create read-only dbinstance for %s\x02Hua" +
-	"wei dbinstance name length shoud be 4~64 characters\x02%s require disk s" +
-	"ize must in 40 ~ 4000 GB\x02The disk_size_gb must be an integer multiple" +
-	" of 10\x02Not support create account for huawei cloud %s instance\x02Hua" +
-	"wei rds password cannot be in the same reverse order as the account\x02N" +
-	"ot support create database for huawei cloud %s instance\x02Huawei DBInst" +
-	"ance backup name length shoud be 4~64 characters\x02Huawei only supports" +
-	" specified databases with %s\x02Huawei DBInstance Disk cannot be thrink" +
-	"\x02Huawei DBInstance category cannot change\x02Huawei DBInstance storag" +
-	"e type cannot change\x02Huawei current not support reset dbinstance acco" +
-	"unt password\x02No need to grant or revoke privilege for admin account" +
-	"\x02%s not support recovery\x02Huawei %s rds not support recovery from i" +
-	"t self rds backup\x02Huawei only %s engine support databases recovery" +
-	"\x02New databases name can not be one of %s\x02zone mismatch, elastic ca" +
-	"che sku zone %s != %s\x02sku %s is soldout\x02% not support create accou" +
-	"nt\x02huawei %s mode elastic not support create backup\x02zone info miss" +
-	"ing\x02vpc lb is not allowed for now\x02zone %s(%s) has no lbcluster\x02" +
-	"no viable lbcluster\x02host %s has no access ip\x02error getting host of" +
-	" guest %s\x02error loadbalancer of backend group %s\x02region of host %q" +
-	" (%s) != region of loadbalancer %q (%s)\x02redirect must have at least o" +
-	"ne of scheme, host, path changed\x02backend_group argument is missing" +
-	"\x02non redirect lblistener rule must have backend_group set\x02redirect" +
-	" can only be enabled for http/https listener\x02non http listener must h" +
-	"ave backend group set\x02failed to found network %s\x02bad network type " +
-	"%q, want %q\x02failed to found vpc for network %s(%s)\x02network %s(%s) " +
-	"does not belong to %s\x02Kvm snapshot missing storage ??\x02failed to fi" +
-	"nd acl %s\x02cannot change loadbalancer listener listener_type\x02cannot" +
-	" change loadbalancer listener listener_port\x02can not make backup in st" +
-	"atus %s\x02loadbalancer listener %s is already updating\x02loadbalancer " +
-	"backendgroup aready associate with other %s listener\x02%s request the m" +
-	"ask range should be between 16 and 28\x02loadbalancer aready associated " +
-	"with fourth layer listener %s\x02path can not be emtpy\x02server %s with" +
-	" port %d already in used\x02server %s with port %d aready used by other " +
-	"%s listener\x02Empty spec query key\x02Parse spec key %s error: %v\x02Ge" +
-	"t object error: %v\x02empty project_id/tenant_id\x02tenant/project %s no" +
-	"t found\x02Snapshot reference(by disk) count > 0, can not delete\x02disk" +
-	" need at least one of snapshot as backing file\x02Disk %s dosen't attach" +
-	" guest ?\x02Disk attached Guest has backup, Can't create snapshot\x02Can" +
-	"not do snapshot when VM in status %s\x02check disk snapshot count fail %" +
-	"s\x02Disk %s snapshot full, cannot take any more\x02This RBD Storage[%s/" +
-	"%s] has already exist\x02BadGateway\x02InternalServerError\x02ResourceNo" +
-	"tReadyError\x02PaymentError\x02ImageNotFoundError\x02ResourceNotFoundErr" +
-	"or\x02SpecNotFoundError\x02ActionNotFoundError\x02TenantNotFoundError" +
-	"\x02UserNotFoundError\x02ServerStatusError\x02InvalidFormatError\x02Inpu" +
-	"tParameterError\x02WeakPasswordError\x02MissingParameterError\x02Insuffi" +
-	"cientResourceError\x02OutOfResource\x02OutOfQuotaError\x02OutOfRange\x02" +
-	"OutOfLimit\x02NotSufficientPrivilegeError\x02UnsupportOperationError\x02" +
-	"NotEmptyError\x02BadRequestError\x02EmptyRequestError\x02UnauthorizedErr" +
-	"or\x02InvalidCredentialError\x02ForbiddenError\x02NotAcceptableError\x02" +
-	"DuplicateNameError\x02DuplicateResourceError\x02ConflictError\x02Resourc" +
-	"eBusyError\x02RequireLicenseError\x02ProtectedResourceError\x02NoProject" +
-	"Error\x02TooLargeEntity\x02TooManyFailedAttempts\x02TooManyRequests\x02U" +
-	"nsupportedProtocol\x02PolicyDefinitionError\x02Image %s not found\x02pas" +
-	"sword must be 12 chars of at least one digit, letter, uppercase letter a" +
-	"nd punctuate\x02Missing parameter %s\x02Duplicate name %s %s\x02Duplicat" +
-	"e ID %s %s\x02Unauthorized\x02InvalidToken\x02Name %s not found\x02No lo" +
-	"gin secret found\x02no totp for %s\x02no recovery secrets for %s\x02totp" +
-	" secret exists\x02No password found\x02No ssh password: %s\x02invalid re" +
-	"sources format\x02service %s not found error: %v\x02global-settings not " +
-	"found\x02missing uid\x02missing pids\x02missing pid in pids\x02missing r" +
-	"id in pids\x02missing rid\x02project is not found\x02No login key: %s" +
-	"\x02Not found kind in query: %v\x02Not found key in query: %v\x02unsuppo" +
-	"rted action %s\x02Not find executor for data source\x02security group id" +
-	" should not be empty\x02failed to find SecurityGroup %s\x02no valid endp" +
-	"oint\x02failed parsing url %q: %v\x02bad ip"
+	"t %q\x02unmarshal input: %v\x02host missing %s field\x02empty host %s fi" +
+	"eld\x02authenticate error: %v\x02user must have system admin privileges" +
+	"\x02get %s service %s url: %v\x02No previous deployment info available" +
+	"\x02query backend group releated resource failed.\x02weight %d not suppo" +
+	"rt, only support range 0 ~ 256\x02port %d not support, only support rang" +
+	"e 1 ~ 65535\x02failed to find guest %s\x02only sysadmin can specify host" +
+	" as backend\x02failed to find host %s\x02unexpected backend type %s\x02r" +
+	"egion of backend %d does not match that of lb's\x02failed to find region" +
+	" for loadbalancer %s\x02get isDefault fail %s\x02backend group %s is def" +
+	"ault backend group\x02get refCount fail %s\x02backend group %s is still " +
+	"referred by %d %s\x02%s requires the virtual machine state to be %s befo" +
+	"re it can be added backendgroup, but current state of the virtual machin" +
+	"e is %s\x02guest %s(%s) vpc %s(%s) not same as loadbalancer vpc %s\x02fa" +
+	"iled getting guest %s\x02guest %s(%s) vpc %s(%s) not same as vpc %s(%s)" +
+	"\x02guest %s(%s) is already in the backendgroup %s(%s)\x02failed to foun" +
+	"d region for loadbalancer backend %s\x02failed to found backendgroup for" +
+	" backend %s(%s)\x02the acl cache in region %s aready exists.\x02get cert" +
+	"ificate refcount fail %s\x02certificate %s is still referred to by %d %s" +
+	"\x02invalid local certificate, private key is empty.\x02invalid local ce" +
+	"rtificate, certificate is empty.\x02the certificate cache in region %s a" +
+	"ready exists.\x02not allowed update content of certificate\x02allow only" +
+	" internal zone, got %s(%s)\x02wire zone must match zone parameter, got %" +
+	"s, want %s(%s)\x02zone of wire must be %s, got %s\x02get lbcluster refco" +
+	"unt fail %v\x02lbcluster %s(%s) is still referred to by %d %s\x04\x00" +
+	"\x01 A\x02lbclusters %s(%s) and %s(%s) has conflict virtual_router_id: %" +
+	"d \x02invalid conditions format,required json\x02invalid conditions from" +
+	"at,required json array\x02condition values limit (5 per rule). %d given." +
+	"\x02rule %s/%s already occupied by rule %s(%s)\x02failed to find region " +
+	"for loadbalancer listener %s\x02failed to find region for loadbalancer l" +
+	"istener rule %s\x02%s listener port %d is already taken by listener %s(%" +
+	"s)\x02cannot find region info\x02backend group %s(%s) belongs to loadbal" +
+	"ancer %s, not %s\x04\x00\x01 0\x02cluster zone %s does not match network" +
+	" zone %s \x02cluster wire affiliation does not match network's: %s != %s" +
+	"\x02Unmarshal input failed %s\x02Port value error\x02invalid internal ip" +
+	" address: %s\x02eip has been binding to another instance\x02eip has been" +
+	" binding to snat rules\x02No such eip\x02Nat gateway has %d task active," +
+	" can't sync status\x02Only one of that sourceCIDR and netword_id is need" +
+	"ed\x02cidr %s is not in range vpc %s\x02eip has been binding to dnat rul" +
+	"es\x02no such network\x02GetAllocatedNicCount fail %s\x02not an empty ne" +
+	"twork\x02address %s is not in the range of network %s(%s)\x02isAddressUs" +
+	"ed fail %s\x02address %s is already occupied\x02getFreeAddressCount fail" +
+	" %s\x02network %s(%s) has no free addresses\x02candidate %s out of range" +
+	"\x02Out of IP address\x02no allow to access network %s\x02Network %s not" +
+	" found: %v\x02Address %s not in range\x02Only system admin allowed to us" +
+	"e reserved ip\x02Address %s not reserved\x02Address %s has been used\x02" +
+	"Bandwidth limit cannot exceed %dMbps\x02Duration %s invalid\x02not a val" +
+	"id ip address %s: %s\x02Address %s not in network\x02get reserved ip err" +
+	"or\x02found %d wires for zone %s and vpc %s\x02wire not found for zone %" +
+	"s and vpc %s\x02Invalid server_type: %s\x02cannot derive valid ifname hi" +
+	"nt: %v\x02ip_prefix error: %s\x02Invalid masklen %d\x02Invalid start ip:" +
+	" %s %s\x02invalid end ip: %s %s\x02start and end ip not in the same subn" +
+	"et\x02%s: Invalid IP address %s\x02bad gateway ip: %v\x02gateway ip must" +
+	" be in the same subnet as start, end ip\x02zone and vpc info required wh" +
+	"en wire is absent\x02VPC not ready\x02eip network can only exist in defa" +
+	"ult vpc, got %s(%s)\x02subnet masklen should be smaller than 30\x02start" +
+	" and end ip when masked are not in the same cidr subnet\x02Network not i" +
+	"n range of VPC cidrblock %s\x02fail to GetNetworks of vpc: %v\x02Conflic" +
+	"t address space with existing networks in vpc %q\x02query all networks f" +
+	"ail\x02Conflict address space with existing networks\x02Address been ass" +
+	"igned out of new range\x02start, end ip must be in the same subnet\x02ne" +
+	"twork server_type %s not support auto alloc\x02Parse Ip Failed\x02Cannot" +
+	" purge network on enabled cloud provider\x02Network %s not found\x02Inva" +
+	"lid Target Network: %s\x02Incontinuity Network for %s and %s\x02only on " +
+	"premise support this operation\x02Invalid IP %s\x02Split IP %s is the st" +
+	"art ip\x02Split IP %s out of range\x02Duplicate name %s\x02GenerateName " +
+	"fail %s\x02Generate ifname hint failed %s\x02ip\x02Only support server t" +
+	"ype %s\x02Only support on premise network\x02on-premise network cannot s" +
+	"ync status\x02managed network cannot change status\x02invalid status %s" +
+	"\x02not support create\x02not support create definition\x02Cannot purge " +
+	"route_table on enabled cloud provider\x02unmarshaling cidrs failed: %s" +
+	"\x02min_instance_number should not be smaller than 0\x02min_instance_num" +
+	"ber should not be bigger than max_instance_number\x02desire_instance_num" +
+	"ber should between min_instance_number and max_instance_number\x02no suc" +
+	"h cloud region %s\x02ScalingGroup should have some networks\x02some netw" +
+	"orks not exist\x02network '%s' not in vpc '%s'\x02no such guest template" +
+	" %s\x02the guest template %s is not valid in cloudregion %s, reason: %s" +
+	"\x02unkown expansion principle %s\x02unkown shrink principle %s\x02unkow" +
+	"n health check mode %s\x02no such loadbalancer backend group '%s'\x02inv" +
+	"alid loadbalancer backend port '%d'\x02invalid loadbalancer backend weig" +
+	"ht '%d'\x02Please disable this ScalingGroup firstly\x02There are some gu" +
+	"ests in this ScalingGroup, please delete them firstly\x02no such Scaling" +
+	"Group '%s'\x02Guest '%s' don't belong to ScalingGroup '%s'\x02every scal" +
+	"ing policy belong to a scaling group\x02no such scaling group %s\x02unko" +
+	"wn trigger type %s\x02unkown scaling policy action %s\x02unkown scaling " +
+	"policy unit %s\x02Can't trigger scaling policy without status 'ready'" +
+	"\x02mismatched alarm id\x02unkown operator in alarm %s\x02unkown indicat" +
+	"or in alarm %s\x02unkown wrapper in alarm %s\x02the min value of cycle i" +
+	"n alarm is 300\x02invalid strategy %s\x02ResourceType %q not support\x02" +
+	"schedtag_id not provide\x02Not support resource_type %s\x02Schedtag %s" +
+	"\x02Schedtag %s resource_type mismatch: %s != %s\x02unmarshal JointResou" +
+	"rceCreateInput fail %s\x02Invalid schedtag %s\x02Invalid default strageg" +
+	"y %s\x02Cannot set default strategy of %s\x02GetObjectCount fail %s\x02T" +
+	"ag is associated with %s\x02getDynamicSchedtagCount fail %s\x02tag has d" +
+	"ynamic rules\x02getSchedPoliciesCount fail %s\x02tag is associate with s" +
+	"ched policies\x02Schedtag %s ResourceType is %s, not match %s\x02unkown " +
+	"scheduled type '%s'\x02unkown resource type '%s'\x02unkown resource oper" +
+	"ation '%s'\x02unkown label type '%s'\x02This scheduled task is being exe" +
+	"cuted now, please try later\x02need scheduled task\x02not enough privile" +
+	"ge\x02Failed to unmarshal input: %v\x02Failed fetching secgroup %s\x02ru" +
+	"le %d is invalid: %s\x02vpc %s(%s) is not a managed resouce\x02Not suppo" +
+	"rt cache classic security group\x02invalid ip address: %s\x02FetchByName" +
+	" fail %s\x02secgroup %s rules not equals %s rules\x02GetGuestsCount fail" +
+	" %s\x02the security group is in use\x02not allow to delete default secur" +
+	"ity group\x02no such guest template\x02fail to parse icon url '%s'\x02no" +
+	" such guest_template %s\x02failed to found cloudregion %s\x02failed to f" +
+	"ound zone %s\x02cpu_core_count should be range of 1~256\x02memory_size_m" +
+	"b, shoud be range of 512~%d\x02instance_type_category shoud be one of %s" +
+	"\x02checkout server sku name duplicate error: %v\x02Duplicate sku %s\x02" +
+	"instance specs list query error\x02can not update instance_type for publ" +
+	"ic cloud %s\x02Cannot change server sku name\x02check instance\x02now al" +
+	"low to delete inuse instance_type.please remove related servers first: %" +
+	"s\x02not allow to delete public cloud instance_type: %s\x02failed to fin" +
+	"d cloudregion for zone %s(%s)\x02duplicate instanceType %s\x02query sku " +
+	"list failed.\x02delete sku %s failed.\x02Only support cache sku for priv" +
+	"ate cloud\x02failed to get cloudprovider for region %s(%s)\x02Retention " +
+	"days must in 1~%d or -1\x02repeat_weekdays only contains %d days at most" +
+	"\x02time_points only contains %d points at most\x02Unmarshel input faile" +
+	"d %s\x02Retention days must in 1~65535 or -1\x02Do not need to update" +
+	"\x02Couldn't delete snapshot policy binding to disks\x02no such disk %s" +
+	"\x02snapshotpolicy disk has been exist\x02disk %s has too many snapshot " +
+	"policy attached\x02guest %s not found\x02failed to found disk %s\x02fail" +
+	"ed to found region for disk's storage %s(%s)\x02Cannot delete snapshot i" +
+	"n status %s\x02Fetch instance snapshot error %s\x02snapshot referenced b" +
+	"y instance snapshot\x02Snapshot has %d task active, can't sync status" +
+	"\x02Cannot Delete disk %s snapshots, disk exist\x02Disk %s dose not have" +
+	" snapshot\x02Can not delete disk snapshots, have manual snapshot\x02Cann" +
+	"ot purge snapshot on enabled cloud provider\x02getReferenceCount fail %s" +
+	"\x02Image is in use\x02Active download session not expired\x02Cannot del" +
+	"ete the last cache\x02Cannot uncache in status %s\x02storage cache not e" +
+	"mpty\x02referered by storages\x02cannot uncache non-customized images" +
+	"\x02storage not cache image\x02Fail to mark cache status: %s\x02missing " +
+	"image id or name\x02Invalid storage type %s\x02Invalid medium type %s" +
+	"\x02Not support create %s storage\x02GetHostCount fail %s\x02storage has" +
+	" associate hosts\x02storage has disks\x02storage has snapshots\x02storag" +
+	"e cache is missing\x02storage is enabled\x02can't detach host in status " +
+	"online\x02host %s storage %s not found\x02invalid external_access_mode %" +
+	"q, want %s\x02GetNetworkCount fail %s\x02VPC not empty, please delete ne" +
+	"twork first\x02GetNatgatewayCount fail %v\x02VPC not empty, please delet" +
+	"e nat gateway first\x02not allow to delete default vpc\x02invalid cidr_b" +
+	"lock %s\x02Cannot purge vpc on enabled cloud provider\x02on-premise vpc " +
+	"cannot sync status\x02For default vpc, only system level sharing can be " +
+	"set\x02Prohibit making default vpc private\x02mapped ip exhausted\x02ban" +
+	"dwidth must be greater than 0\x02mtu must be range of 0~1000000\x02Curre" +
+	"ntly only kvm platform supports creating wire\x02HostCount fail %s\x02wi" +
+	"re contains hosts\x02NetworkCount fail %s\x02wire contains networks\x02n" +
+	"ot empty zone\x02not support create %s zone\x02intranet loadbalancer not" +
+	" support bandwidth charge type\x02Loadbalancer's manager (%s(%s)) does n" +
+	"ot match vpc's(%s(%s)) (%s)\x02Aliyun not allow to change certificate" +
+	"\x02master slave backendgorup must contain two backend\x02Unsupport back" +
+	"endgorup type %s\x02invalid guest %s\x02Aliyun instance weight must be i" +
+	"n the range of 0 ~ 100\x02internal error: unexpected backend type %s\x02" +
+	"backendgroup %s not support this operation\x02region of host %q (%s) != " +
+	"region of loadbalancer %q (%s))\x02%s backend group not support change p" +
+	"ort\x02%s backend group not support change port or weight\x02Unknown bac" +
+	"kend group type %s\x02listener type must be http/https, got %s\x02backen" +
+	"d group %s(%s) belongs to loadbalancer %s instead of %s\x02backend group" +
+	" type must be normal\x02loadbalancerlistenerrule %s(%s): fetching listen" +
+	"er %s failed\x02http or https listener only supportd default or normal b" +
+	"ackendgroup\x02health_check_domain must be in the range of 1 ~ 80\x02%s " +
+	"length must less 500 letters\x02sticky_session_cookie length must within" +
+	" 1~200\x02sticky_session_cookie can only contain letters, Numbers, '_' a" +
+	"nd '-'\x02Unknown sticky_session_type, only support %s or %s\x02failed t" +
+	"o find loadbalancer's %s(%s) region\x02The specified Scheduler %s is inv" +
+	"alid for performance sharing loadbalancer\x02failed to found loadbalance" +
+	"r for listener %s(%s)\x02cloudregion %s(%s) not support %s scheduler\x02" +
+	"invalid %s,required int\x02%s cannot be set to 0\x02%s not support close" +
+	" tcp or udp loadbalancer listener health check\x02Snapshot for %s name c" +
+	"an't start with auto, http:// or https://\x02Aliyun %s not support recov" +
+	"ery\x02Aliyun %s only support recover from it self backups\x02Aliyun %s " +
+	"only 8.0 and 5.7 high_availability local_ssd or 5.6 high_availability su" +
+	"pport recovery from it self backups\x02slave dbinstance not support prep" +
+	"aid billing type\x02failed to match any skus in the network %s(%s) zone " +
+	"%s(%s)\x02Not support create readonly dbinstance for MySQL %s %s\x02Not " +
+	"support create readonly dbinstance for MySQL %s %s with storage type %s," +
+	" only support %s\x02Not support create readonly dbinstance for MySQL %s" +
+	"\x02SQL Server only support create readonly dbinstance for 2017_ent\x02S" +
+	"QL Server cannot have more than seven read-only dbinstances\x02Not suppo" +
+	"rt create readonly dbinstance with master dbinstance engine %s\x02Master" +
+	" dbinstance memory ≥64GB, up to 10 read-only instances are allowed to be" +
+	" created\x02Master dbinstance memory <64GB, up to 5 read-only instances " +
+	"are allowed to be created\x02At least two networks are required under vp" +
+	"c %s(%s) with aliyun %s(%s)\x02Description can not start with http:// or" +
+	" https://\x02Aliyun DBInstance account name length shoud be 2~16 charact" +
+	"ers\x02%s is reserved for aliyun %s, please use another\x02invalid chara" +
+	"cter %s for account name\x02account name can not start or end with _\x02" +
+	"%s only support aliyun %s or %s\x02%s only support aliyun %s\x02Unknown " +
+	"privilege %s\x02network %s related vpc not found\x02account_privilege %s" +
+	" only support redis version 4.0\x02required at least %d subnet.\x02requi" +
+	"red at least %d subnet with at least 8 free ip.\x02Loadbalancer's manage" +
+	"r %s does not match vpc's(%s(%s)) (%s)\x02all networks should in the sam" +
+	"e vpc. (%s).\x02already has one network in the zone %s. (%s).\x02invalid" +
+	" parameter loadbalancer_spec %s\x02invalid parameter backendgroup %s\x02" +
+	"invalid loadbalancer_spec %s\x02%s does not currently support creating l" +
+	"oadbalancer acl\x02%s does not currently support creating loadbalancer c" +
+	"ertificate\x02loadbalancer listener %s related loadbalancer %s not found" +
+	"\x02The backend %s is already registered on port %d\x02%s does not curre" +
+	"ntly support creating loadbalancer\x02disk and snapshotpolicy should hav" +
+	"e same domain\x02disk and snapshotpolicy should have same project\x02%s " +
+	"does not support creating loadbalancer\x02%s does not support creating l" +
+	"oadbalancer acl\x02%s does not support creating loadbalancer certificate" +
+	"\x02Google dbinstance not support prepaid billing type\x02disk size gb m" +
+	"ust in range 10 ~ 30720 Gb\x02eip's manager (%s(%s)) does not match vpc'" +
+	"s(%s(%s)) (%s)\x02loadbalancer is using by %d listener.\x02loadbalancer " +
+	"is using by %d backendgroup.\x02Not support create read-only dbinstance " +
+	"for %s\x02Huawei dbinstance name length shoud be 4~64 characters\x02%s r" +
+	"equire disk size must in 40 ~ 4000 GB\x02The disk_size_gb must be an int" +
+	"eger multiple of 10\x02Not support create account for huawei cloud %s in" +
+	"stance\x02Huawei rds password cannot be in the same reverse order as the" +
+	" account\x02Not support create database for huawei cloud %s instance\x02" +
+	"Huawei DBInstance backup name length shoud be 4~64 characters\x02Huawei " +
+	"only supports specified databases with %s\x02Huawei DBInstance Disk cann" +
+	"ot be thrink\x02Huawei DBInstance category cannot change\x02Huawei DBIns" +
+	"tance storage type cannot change\x02Huawei current not support reset dbi" +
+	"nstance account password\x02No need to grant or revoke privilege for adm" +
+	"in account\x02%s not support recovery\x02Huawei %s rds not support recov" +
+	"ery from it self rds backup\x02Huawei only %s engine support databases r" +
+	"ecovery\x02New databases name can not be one of %s\x02zone mismatch, ela" +
+	"stic cache sku zone %s != %s\x02sku %s is soldout\x02%s not support crea" +
+	"te account\x02huawei %s mode elastic not support create backup\x02zone i" +
+	"nfo missing\x02vpc lb is not allowed for now\x02zone %s(%s) has no lbclu" +
+	"ster\x02no viable lbcluster\x02host %s has no access ip\x02error getting" +
+	" host of guest %s\x02error loadbalancer of backend group %s\x02region of" +
+	" host %q (%s) != region of loadbalancer %q (%s)\x02redirect must have at" +
+	" least one of scheme, host, path changed\x02backend_group argument is mi" +
+	"ssing\x02non redirect lblistener rule must have backend_group set\x02red" +
+	"irect can only be enabled for http/https listener\x02non http listener m" +
+	"ust have backend group set\x02failed to found network %s\x02bad network " +
+	"type %q, want %q\x02failed to found vpc for network %s(%s)\x02network %s" +
+	"(%s) does not belong to %s\x02Kvm snapshot missing storage ??\x02failed " +
+	"to find acl %s\x02cannot change loadbalancer listener listener_type\x02c" +
+	"annot change loadbalancer listener listener_port\x02can not make backup " +
+	"in status %s\x02loadbalancer listener %s is already updating\x02loadbala" +
+	"ncer backendgroup aready associate with other %s listener\x02%s request " +
+	"the mask range should be between 16 and 28\x02loadbalancer aready associ" +
+	"ated with fourth layer listener %s\x02path can not be emtpy\x02server %s" +
+	" with port %d already in used\x02server %s with port %d aready used by o" +
+	"ther %s listener\x02Empty spec query key\x02Parse spec key %s error: %v" +
+	"\x02Get object error: %v\x02empty project_id/tenant_id\x02tenant/project" +
+	" %s not found\x02Snapshot reference(by disk) count > 0, can not delete" +
+	"\x02disk need at least one of snapshot as backing file\x02Disk %s dosen'" +
+	"t attach guest ?\x02Disk attached Guest has backup, Can't create snapsho" +
+	"t\x02Cannot do snapshot when VM in status %s\x02check disk snapshot coun" +
+	"t fail %s\x02Disk %s snapshot full, cannot take any more\x02This RBD Sto" +
+	"rage[%s/%s] has already exist\x02BadGateway\x02InternalServerError\x02Re" +
+	"sourceNotReadyError\x02PaymentError\x02ImageNotFoundError\x02ResourceNot" +
+	"FoundError\x02SpecNotFoundError\x02ActionNotFoundError\x02TenantNotFound" +
+	"Error\x02UserNotFoundError\x02ServerStatusError\x02InvalidFormatError" +
+	"\x02InputParameterError\x02WeakPasswordError\x02MissingParameterError" +
+	"\x02InsufficientResourceError\x02OutOfResource\x02OutOfQuotaError\x02Out" +
+	"OfRange\x02OutOfLimit\x02NotSufficientPrivilegeError\x02UnsupportOperati" +
+	"onError\x02NotEmptyError\x02BadRequestError\x02EmptyRequestError\x02Unau" +
+	"thorizedError\x02InvalidCredentialError\x02ForbiddenError\x02NotAcceptab" +
+	"leError\x02DuplicateNameError\x02DuplicateResourceError\x02ConflictError" +
+	"\x02ResourceBusyError\x02RequireLicenseError\x02ProtectedResourceError" +
+	"\x02NoProjectError\x02TooLargeEntity\x02TooManyFailedAttempts\x02TooMany" +
+	"Requests\x02UnsupportedProtocol\x02PolicyDefinitionError\x02Image %s not" +
+	" found\x02password must be 12 chars of at least one digit, letter, upper" +
+	"case letter and punctuate\x02Missing parameter %s\x02Duplicate name %s %" +
+	"s\x02Duplicate ID %s %s\x02Unauthorized\x02InvalidToken\x02Name %s not f" +
+	"ound\x02No login secret found\x02no totp for %s\x02no recovery secrets f" +
+	"or %s\x02totp secret exists\x02No password found\x02No ssh password: %s" +
+	"\x02invalid resources format\x02service %s not found error: %v\x02global" +
+	"-settings not found\x02missing uid\x02missing pids\x02missing pid in pid" +
+	"s\x02missing rid in pids\x02missing rid\x02project is not found\x02No lo" +
+	"gin key: %s\x02Not found kind in query: %v\x02Not found key in query: %v" +
+	"\x02unsupported action %s\x02Not find executor for data source\x02securi" +
+	"ty group id should not be empty\x02failed to find SecurityGroup %s\x02no" +
+	" valid endpoint\x02failed parsing url %q: %v\x02bad ip"
 
 var zh_CNIndex = []uint32{ // 1385 elements
 	// Entry 0 - 1F
@@ -2805,150 +2805,150 @@ var zh_CNIndex = []uint32{ // 1385 elements
 	0x00007251, 0x00007272, 0x000072a2, 0x000072b9,
 	0x000072e1, 0x00007312, 0x0000734a, 0x0000735a,
 	0x00007377, 0x000073a8, 0x000073c2, 0x000073f0,
-	0x00007416, 0x00007432, 0x00007447, 0x0000745c,
-	0x0000746e, 0x00007493, 0x000074b3, 0x000074d2,
+	0x00007416, 0x00007436, 0x0000744b, 0x00007460,
+	0x00007472, 0x00007497, 0x000074b7, 0x000074d6,
 	// Entry 380 - 39F
-	0x000074f7, 0x00007522, 0x0000754d, 0x0000755f,
-	0x00007590, 0x000075a5, 0x000075c0, 0x000075f5,
-	0x0000761f, 0x0000763a, 0x0000765b, 0x00007675,
-	0x00007694, 0x000076e0, 0x00007721, 0x00007736,
-	0x0000775f, 0x00007787, 0x000077b4, 0x000077e2,
-	0x0000780a, 0x0000782b, 0x00007847, 0x0000786c,
-	0x00007897, 0x000078b9, 0x000078d5, 0x00007906,
-	0x00007943, 0x0000796b, 0x0000799b, 0x000079c1,
+	0x000074fb, 0x00007526, 0x00007551, 0x00007563,
+	0x00007594, 0x000075a9, 0x000075c4, 0x000075f9,
+	0x00007623, 0x0000763e, 0x0000765f, 0x00007679,
+	0x00007698, 0x000076e4, 0x00007725, 0x0000773a,
+	0x00007763, 0x0000778b, 0x000077b8, 0x000077e6,
+	0x0000780e, 0x0000782f, 0x0000784b, 0x00007870,
+	0x0000789b, 0x000078bd, 0x000078d9, 0x0000790a,
+	0x00007947, 0x0000796f, 0x0000799f, 0x000079c5,
 	// Entry 3A0 - 3BF
-	0x00007a10, 0x00007a36, 0x00007a65, 0x00007a96,
-	0x00007ab4, 0x00007ae4, 0x00007b0e, 0x00007b34,
-	0x00007b4d, 0x00007b8e, 0x00007bcc, 0x00007c10,
-	0x00007c31, 0x00007c41, 0x00007c5e, 0x00007c7a,
-	0x00007c94, 0x00007ca1, 0x00007cec, 0x00007d1f,
-	0x00007d41, 0x00007d5b, 0x00007d6b, 0x00007d8b,
-	0x00007d9b, 0x00007dbf, 0x00007dde, 0x00007df3,
-	0x00007e18, 0x00007e3a, 0x00007e55, 0x00007e6d,
+	0x00007a14, 0x00007a3a, 0x00007a69, 0x00007a9a,
+	0x00007ab8, 0x00007ae8, 0x00007b12, 0x00007b38,
+	0x00007b51, 0x00007b92, 0x00007bd0, 0x00007c14,
+	0x00007c35, 0x00007c45, 0x00007c62, 0x00007c7e,
+	0x00007c98, 0x00007ca5, 0x00007cf0, 0x00007d23,
+	0x00007d45, 0x00007d5f, 0x00007d6f, 0x00007d8f,
+	0x00007d9f, 0x00007dc3, 0x00007de2, 0x00007df7,
+	0x00007e1c, 0x00007e3e, 0x00007e59, 0x00007e71,
 	// Entry 3C0 - 3DF
-	0x00007e85, 0x00007e9f, 0x00007eb7, 0x00007ee7,
-	0x00007efc, 0x00007f11, 0x00007f30, 0x00007f48,
-	0x00007f61, 0x00007f79, 0x00007f92, 0x00007fc0,
-	0x00007fe4, 0x00008004, 0x0000802e, 0x00008043,
-	0x00008057, 0x00008071, 0x0000808b, 0x000080b2,
-	0x000080ca, 0x000080e1, 0x00008116, 0x00008146,
-	0x00008156, 0x00008193, 0x000081b1, 0x000081ee,
-	0x00008214, 0x00008235, 0x0000825a, 0x00008276,
+	0x00007e89, 0x00007ea3, 0x00007ebb, 0x00007eeb,
+	0x00007f00, 0x00007f15, 0x00007f34, 0x00007f4c,
+	0x00007f65, 0x00007f7d, 0x00007f96, 0x00007fc4,
+	0x00007fe8, 0x00008008, 0x00008032, 0x00008047,
+	0x0000805b, 0x00008075, 0x0000808f, 0x000080b6,
+	0x000080ce, 0x000080e5, 0x0000811a, 0x0000814a,
+	0x0000815a, 0x00008197, 0x000081b5, 0x000081f2,
+	0x00008218, 0x00008239, 0x0000825e, 0x0000827a,
 	// Entry 3E0 - 3FF
-	0x00008292, 0x000082c0, 0x000082e7, 0x00008311,
-	0x00008326, 0x00008369, 0x0000837b, 0x00008396,
-	0x000083b3, 0x000083cf, 0x000083de, 0x000083fb,
-	0x00008413, 0x00008420, 0x0000843e, 0x0000845f,
-	0x00008462, 0x0000847a, 0x00008496, 0x000084c4,
-	0x000084e6, 0x000084f8, 0x00008508, 0x00008524,
-	0x0000856a, 0x0000858a, 0x000085ab, 0x000085de,
-	0x0000862d, 0x00008645, 0x00008667, 0x0000867d,
+	0x00008296, 0x000082c4, 0x000082eb, 0x00008315,
+	0x0000832a, 0x0000836d, 0x0000837f, 0x0000839a,
+	0x000083b7, 0x000083d3, 0x000083e2, 0x000083ff,
+	0x00008417, 0x00008424, 0x00008442, 0x00008463,
+	0x00008466, 0x0000847e, 0x0000849a, 0x000084c8,
+	0x000084ea, 0x000084fc, 0x0000850c, 0x00008528,
+	0x0000856e, 0x0000858e, 0x000085af, 0x000085e2,
+	0x00008631, 0x00008649, 0x0000866b, 0x00008681,
 	// Entry 400 - 41F
-	0x00008695, 0x000086ad, 0x000086e4, 0x000086ff,
-	0x0000871a, 0x00008738, 0x00008759, 0x0000877d,
-	0x000087a1, 0x000087ba, 0x000087f1, 0x00008809,
-	0x00008826, 0x0000884b, 0x00008860, 0x00008878,
-	0x00008896, 0x000088ba, 0x000088ed, 0x000088ff,
-	0x00008923, 0x00008947, 0x0000896e, 0x0000898d,
-	0x0000899f, 0x000089b7, 0x000089cf, 0x000089e7,
-	0x000089f6, 0x00008a28, 0x00008a56, 0x00008a6e,
+	0x00008699, 0x000086b1, 0x000086e8, 0x00008703,
+	0x0000871e, 0x0000873c, 0x0000875d, 0x00008781,
+	0x000087a5, 0x000087be, 0x000087f5, 0x0000880d,
+	0x0000882a, 0x0000884f, 0x00008864, 0x0000887c,
+	0x0000889a, 0x000088be, 0x000088f1, 0x00008903,
+	0x00008927, 0x0000894b, 0x00008972, 0x00008991,
+	0x000089a3, 0x000089bb, 0x000089d3, 0x000089eb,
+	0x000089fa, 0x00008a2c, 0x00008a5a, 0x00008a72,
 	// Entry 420 - 43F
-	0x00008a86, 0x00008aa7, 0x00008ac7, 0x00008adc,
-	0x00008b05, 0x00008b1e, 0x00008b45, 0x00008b64,
-	0x00008b98, 0x00008bb0, 0x00008bc8, 0x00008bda,
-	0x00008bf2, 0x00008c1d, 0x00008c36, 0x00008c43,
-	0x00008c64, 0x00008c7c, 0x00008c96, 0x00008cb9,
-	0x00008cd8, 0x00008cef, 0x00008d06, 0x00008d29,
-	0x00008d48, 0x00008d5e, 0x00008d80, 0x00008d96,
-	0x00008db1, 0x00008dc9, 0x00008de1, 0x00008df5,
+	0x00008a8a, 0x00008aab, 0x00008acb, 0x00008ae0,
+	0x00008b09, 0x00008b22, 0x00008b49, 0x00008b68,
+	0x00008b9c, 0x00008bb4, 0x00008bcc, 0x00008bde,
+	0x00008bf6, 0x00008c21, 0x00008c3a, 0x00008c47,
+	0x00008c68, 0x00008c80, 0x00008c9a, 0x00008cbd,
+	0x00008cdc, 0x00008cf3, 0x00008d0a, 0x00008d2d,
+	0x00008d4c, 0x00008d62, 0x00008d84, 0x00008d9a,
+	0x00008db5, 0x00008dcd, 0x00008de5, 0x00008df9,
 	// Entry 440 - 45F
-	0x00008e1a, 0x00008e3e, 0x00008e69, 0x00008e87,
-	0x00008e97, 0x00008eb6, 0x00008ee1, 0x00008ef7,
-	0x00008f0a, 0x00008f5b, 0x00008f86, 0x00008fb2,
-	0x00008fc7, 0x00008fdd, 0x00008ff0, 0x0000900c,
-	0x00009039, 0x00009064, 0x0000908b, 0x000090b7,
-	0x000090d8, 0x0000910e, 0x0000911b, 0x00009149,
-	0x0000915b, 0x00009177, 0x0000919e, 0x000091b0,
-	0x000091c5, 0x000091ea, 0x0000920b, 0x00009229,
+	0x00008e1e, 0x00008e42, 0x00008e6d, 0x00008e8b,
+	0x00008e9b, 0x00008eba, 0x00008ee5, 0x00008efb,
+	0x00008f0e, 0x00008f5f, 0x00008f8a, 0x00008fb6,
+	0x00008fcb, 0x00008fe1, 0x00008ff4, 0x00009010,
+	0x0000903d, 0x00009068, 0x0000908f, 0x000090bb,
+	0x000090dc, 0x00009112, 0x0000911f, 0x0000914d,
+	0x0000915f, 0x0000917b, 0x000091a2, 0x000091b4,
+	0x000091c9, 0x000091ee, 0x0000920f, 0x0000922d,
 	// Entry 460 - 47F
-	0x00009248, 0x0000928a, 0x000092b7, 0x000092cc,
-	0x000092fd, 0x00009340, 0x00009363, 0x00009376,
-	0x0000938f, 0x000093ab, 0x000093c9, 0x000093dc,
-	0x000093ef, 0x00009414, 0x00009430, 0x0000944e,
-	0x00009469, 0x00009481, 0x00009499, 0x000094b1,
-	0x000094cf, 0x000094e8, 0x000094fe, 0x00009514,
-	0x0000952a, 0x00009543, 0x00009565, 0x00009582,
-	0x000095ae, 0x000095cf, 0x000095fa, 0x0000961e,
+	0x0000924c, 0x0000928e, 0x000092bb, 0x000092d0,
+	0x00009301, 0x00009344, 0x00009367, 0x0000937a,
+	0x00009393, 0x000093af, 0x000093cd, 0x000093e0,
+	0x000093f3, 0x00009418, 0x00009434, 0x00009452,
+	0x0000946d, 0x00009485, 0x0000949d, 0x000094b5,
+	0x000094d3, 0x000094ec, 0x00009502, 0x00009518,
+	0x0000952e, 0x00009547, 0x00009569, 0x00009586,
+	0x000095b2, 0x000095d3, 0x000095fe, 0x00009622,
 	// Entry 480 - 49F
-	0x0000964c, 0x00009665, 0x0000967c, 0x000096bc,
-	0x000096e5, 0x0000971f, 0x00009741, 0x00009750,
-	0x00009767, 0x0000978b, 0x000097b6, 0x000097d1,
-	0x000097f0, 0x0000980e, 0x00009827, 0x00009835,
-	0x0000984e, 0x0000987c, 0x000098b8, 0x000098d7,
-	0x000098ff, 0x0000991a, 0x0000992f, 0x0000995e,
-	0x00009985, 0x000099a3, 0x000099e4, 0x00009a05,
-	0x00009a2f, 0x00009a4a, 0x00009a78, 0x00009aaa,
+	0x00009650, 0x00009669, 0x00009680, 0x000096c0,
+	0x000096e9, 0x00009723, 0x00009745, 0x00009754,
+	0x0000976b, 0x0000978f, 0x000097ba, 0x000097d5,
+	0x000097f4, 0x00009812, 0x0000982b, 0x00009839,
+	0x00009852, 0x00009880, 0x000098bc, 0x000098db,
+	0x00009903, 0x0000991e, 0x00009933, 0x00009962,
+	0x00009989, 0x000099a7, 0x000099e8, 0x00009a09,
+	0x00009a33, 0x00009a4e, 0x00009a7c, 0x00009aae,
 	// Entry 4A0 - 4BF
-	0x00009ac9, 0x00009af9, 0x00009b2d, 0x00009b5f,
-	0x00009b83, 0x00009bb8, 0x00009c04, 0x00009c34,
-	0x00009c5f, 0x00009c9e, 0x00009ccf, 0x00009cf6,
-	0x00009d11, 0x00009d24, 0x00009d54, 0x00009d8b,
-	0x00009da6, 0x00009dd7, 0x00009e39, 0x00009e64,
-	0x00009e9e, 0x00009ecd, 0x00009f1c, 0x00009f49,
-	0x00009f83, 0x00009fb9, 0x00009fec, 0x0000a02f,
-	0x0000a06b, 0x0000a0a4, 0x0000a0cc, 0x0000a106,
+	0x00009acd, 0x00009afd, 0x00009b31, 0x00009b63,
+	0x00009b87, 0x00009bbc, 0x00009c08, 0x00009c38,
+	0x00009c63, 0x00009ca2, 0x00009cd3, 0x00009cfa,
+	0x00009d15, 0x00009d28, 0x00009d58, 0x00009d8f,
+	0x00009daa, 0x00009ddb, 0x00009e3d, 0x00009e68,
+	0x00009ea2, 0x00009ed1, 0x00009f20, 0x00009f4d,
+	0x00009f87, 0x00009fbd, 0x00009ff0, 0x0000a033,
+	0x0000a06f, 0x0000a0a8, 0x0000a0d0, 0x0000a10a,
 	// Entry 4C0 - 4DF
-	0x0000a126, 0x0000a14d, 0x0000a17b, 0x0000a19a,
-	0x0000a1b4, 0x0000a1c6, 0x0000a1e4, 0x0000a210,
-	0x0000a225, 0x0000a255, 0x0000a293, 0x0000a2ba,
-	0x0000a2e0, 0x0000a306, 0x0000a327, 0x0000a34d,
-	0x0000a383, 0x0000a3ad, 0x0000a3dc, 0x0000a3fc,
-	0x0000a426, 0x0000a44e, 0x0000a479, 0x0000a49d,
-	0x0000a4cd, 0x0000a4f1, 0x0000a525, 0x0000a550,
-	0x0000a583, 0x0000a5ad, 0x0000a5da, 0x0000a613,
+	0x0000a12a, 0x0000a151, 0x0000a17f, 0x0000a19e,
+	0x0000a1b8, 0x0000a1ca, 0x0000a1e8, 0x0000a214,
+	0x0000a229, 0x0000a259, 0x0000a297, 0x0000a2be,
+	0x0000a2e4, 0x0000a30a, 0x0000a32b, 0x0000a351,
+	0x0000a387, 0x0000a3b1, 0x0000a3e0, 0x0000a400,
+	0x0000a42a, 0x0000a452, 0x0000a47d, 0x0000a4a1,
+	0x0000a4d1, 0x0000a4f5, 0x0000a529, 0x0000a554,
+	0x0000a587, 0x0000a5b1, 0x0000a5de, 0x0000a617,
 	// Entry 4E0 - 4FF
-	0x0000a650, 0x0000a682, 0x0000a6a6, 0x0000a6d0,
-	0x0000a701, 0x0000a731, 0x0000a771, 0x0000a79e,
-	0x0000a7cc, 0x0000a7fa, 0x0000a82e, 0x0000a86b,
-	0x0000a899, 0x0000a8ab, 0x0000a8e2, 0x0000a90c,
-	0x0000a92d, 0x0000a95d, 0x0000a96d, 0x0000a985,
-	0x0000a9b8, 0x0000a9cc, 0x0000a9ee, 0x0000aa1e,
-	0x0000aa46, 0x0000aa66, 0x0000aa8a, 0x0000aabd,
-	0x0000ab09, 0x0000ab3d, 0x0000ab5a, 0x0000ab8f,
+	0x0000a654, 0x0000a686, 0x0000a6aa, 0x0000a6d4,
+	0x0000a705, 0x0000a735, 0x0000a775, 0x0000a7a2,
+	0x0000a7d0, 0x0000a7fe, 0x0000a832, 0x0000a86f,
+	0x0000a89d, 0x0000a8af, 0x0000a8e6, 0x0000a910,
+	0x0000a931, 0x0000a961, 0x0000a971, 0x0000a989,
+	0x0000a9bc, 0x0000a9d0, 0x0000a9f2, 0x0000aa22,
+	0x0000aa4a, 0x0000aa6a, 0x0000aa8e, 0x0000aac1,
+	0x0000ab0d, 0x0000ab41, 0x0000ab5e, 0x0000ab93,
 	// Entry 500 - 51F
-	0x0000abb8, 0x0000abdb, 0x0000abf3, 0x0000ac16,
-	0x0000ac3e, 0x0000ac56, 0x0000ac78, 0x0000ac88,
-	0x0000acb7, 0x0000ace6, 0x0000ad07, 0x0000ad2b,
-	0x0000ad55, 0x0000ad7d, 0x0000adaa, 0x0000adbd,
-	0x0000adda, 0x0000ae02, 0x0000ae1e, 0x0000ae3e,
-	0x0000ae56, 0x0000ae71, 0x0000ae83, 0x0000aeab,
-	0x0000aeda, 0x0000aef8, 0x0000af2f, 0x0000af56,
-	0x0000af7a, 0x0000afa1, 0x0000afba, 0x0000afc7,
+	0x0000abbc, 0x0000abdf, 0x0000abf7, 0x0000ac1a,
+	0x0000ac42, 0x0000ac5a, 0x0000ac7c, 0x0000ac8c,
+	0x0000acbb, 0x0000acea, 0x0000ad0b, 0x0000ad2f,
+	0x0000ad59, 0x0000ad81, 0x0000adae, 0x0000adc1,
+	0x0000adde, 0x0000ae06, 0x0000ae22, 0x0000ae42,
+	0x0000ae5a, 0x0000ae75, 0x0000ae87, 0x0000aeaf,
+	0x0000aede, 0x0000aefc, 0x0000af33, 0x0000af5a,
+	0x0000af7e, 0x0000afa5, 0x0000afbe, 0x0000afcb,
 	// Entry 520 - 53F
-	0x0000afdd, 0x0000aff6, 0x0000b006, 0x0000b016,
-	0x0000b026, 0x0000b034, 0x0000b044, 0x0000b054,
-	0x0000b064, 0x0000b07a, 0x0000b08a, 0x0000b09d,
-	0x0000b0a7, 0x0000b0b7, 0x0000b0c4, 0x0000b0d1,
-	0x0000b0de, 0x0000b0eb, 0x0000b0f8, 0x0000b105,
-	0x0000b118, 0x0000b125, 0x0000b135, 0x0000b142,
-	0x0000b14c, 0x0000b15c, 0x0000b163, 0x0000b170,
-	0x0000b17d, 0x0000b18a, 0x0000b191, 0x0000b19b,
+	0x0000afe1, 0x0000affa, 0x0000b00a, 0x0000b01a,
+	0x0000b02a, 0x0000b038, 0x0000b048, 0x0000b058,
+	0x0000b068, 0x0000b07e, 0x0000b08e, 0x0000b0a1,
+	0x0000b0ab, 0x0000b0bb, 0x0000b0c8, 0x0000b0d5,
+	0x0000b0e2, 0x0000b0ef, 0x0000b0fc, 0x0000b109,
+	0x0000b11c, 0x0000b129, 0x0000b139, 0x0000b146,
+	0x0000b150, 0x0000b160, 0x0000b167, 0x0000b174,
+	0x0000b181, 0x0000b18e, 0x0000b195, 0x0000b19f,
 	// Entry 540 - 55F
-	0x0000b1a9, 0x0000b1bc, 0x0000b1c9, 0x0000b1d6,
-	0x0000b1ef, 0x0000b1ff, 0x0000b212, 0x0000b225,
-	0x0000b237, 0x0000b28e, 0x0000b2a0, 0x0000b2b4,
-	0x0000b2ca, 0x0000b2d4, 0x0000b2e3, 0x0000b2f5,
-	0x0000b311, 0x0000b32a, 0x0000b34b, 0x0000b35f,
-	0x0000b36f, 0x0000b387, 0x0000b39d, 0x0000b3b4,
-	0x0000b3cd, 0x0000b3da, 0x0000b3e8, 0x0000b3fc,
-	0x0000b410, 0x0000b41d, 0x0000b42d, 0x0000b446,
+	0x0000b1ad, 0x0000b1c0, 0x0000b1cd, 0x0000b1da,
+	0x0000b1f3, 0x0000b203, 0x0000b216, 0x0000b229,
+	0x0000b23b, 0x0000b292, 0x0000b2a4, 0x0000b2b8,
+	0x0000b2ce, 0x0000b2d8, 0x0000b2e7, 0x0000b2f9,
+	0x0000b315, 0x0000b32e, 0x0000b34f, 0x0000b363,
+	0x0000b373, 0x0000b38b, 0x0000b3a1, 0x0000b3b8,
+	0x0000b3d1, 0x0000b3de, 0x0000b3ec, 0x0000b400,
+	0x0000b414, 0x0000b421, 0x0000b431, 0x0000b44a,
 	// Entry 560 - 57F
-	0x0000b462, 0x0000b47d, 0x0000b492, 0x0000b4b7,
-	0x0000b4cf, 0x0000b4e4, 0x0000b4f7, 0x0000b50f,
-	0x0000b51b,
+	0x0000b466, 0x0000b481, 0x0000b496, 0x0000b4bb,
+	0x0000b4d3, 0x0000b4e8, 0x0000b4fb, 0x0000b513,
+	0x0000b51f,
 } // Size: 5564 bytes
 
-const zh_CNData string = "" + // Size: 46363 bytes
+const zh_CNData string = "" + // Size: 46367 bytes
 	"\x02无效的shared_mode %s\x02无效的路由CIDR %s\x02服务器内部错误：%s\x02服务器内部错误\x02无效的han" +
 	"dler：%s\x02未找到handler\x02找不到请求的键：%s\x02无效的请求头部：%v\x02请求处理超时\x02不允许记录列表为空" +
 	"\x02记录条目数过多\x02找不到%s方法\x02%s方法参数长度不匹配，期望数%d，实际%d\x02无效的ValidateCreateDat" +
@@ -3178,60 +3178,60 @@ const zh_CNData string = "" + // Size: 46363 bytes
 	"冲突：%v\x02转发集群%s(%s)已占用virtual_router_id %d\x02%s：时间错误：%s\x02%s：新指定时间在未" +
 	"来：%s > %s\x02集群中已有节点%s(%s)使用VRRP优先级%d\x02使用yum模式需要提供有效的repo_base_url参数" +
 	"\x02主机名为空\x02查找宿主机%s出错：%v\x02转发节点不能部署到纳管的宿主机上\x02查找虚机%s出错：%v\x02转发节点不能部署" +
-	"到公有云虚机上\x02虚机当前状态为%q，要求为%q\x02unmarshal输入参数出错\x02主机缺少%s字段\x02主机缺少%s字段" +
-	"\x02认证出错：%v\x02用户必须有系统管理员权限\x02获取%s %s服务URL出错：%v\x02上次部署的信息不可用\x02查找后端组相" +
-	"关的资源出错\x02无效的权重%s，要求在0～256范围\x02无效的端口%s，要求在1~65535范围\x02找不到虚机%s\x02仅系统" +
-	"管理员可指定宿主机作为后端\x02找不到宿主机%s\x02未识别的后端类型%s\x02第%d个后端所属的region与lb的region不匹" +
-	"配\x02查找负载均衡所属region失败：%s\x02调用isDefault出错：%s\x02后端服务器组%s是默认组\x02调用refC" +
-	"ount出错：%s\x02后端组%s仍被%d个%s使用\x02%s要求添加到后端组中的虚机状态为%s，当前虚机状态为%s\x02虚机%s(%s)" +
-	"所处VPC %s(%s)和负载均衡所处VPC %s不一致\x02获取虚机%s出错\x02虚机%s(%s)所属VPC %s(%s)不是%s(%" +
-	"s)\x02虚机%s(%s)已存在于后端组%s(%s)\x02查找负载均衡后端%s的region时出错\x02查找后端%s(%s)所属的后端组时" +
-	"出错\x02访问控制缓存已在region %s存在\x02获取证书使用数失败：%s\x02证书%s仍被%d个%s使用\x02无效的本地证书：" +
-	"私钥为空\x02无效的本地证书：证书内容为空\x02证书缓存已在region %s存在\x02不允许变更证书内容\x02zone %s(%s" +
-	")不合法：仅允许本地IDC的zone\x02二层网络所属zone %s与参数中的zone %s(%s)冲突，\x02wire所属zone必须为%" +
-	"s，实际为%s\x02获取负载均衡集群引用次数失败：%v\x02负载均衡集群仍被%d个%s使用\x04\x00\x01 J\x02负载均衡集群%" +
-	"s(%s)和%s(%s)两者virtual_router_id参数冲突：%d\x02无效的条件格式，要求为JSON\x02无效的表达式格式，要求" +
-	"为JSON数组\x02触及条件数目上限（5），已指定%d个\x02规则%s/%s已被%s(%s)使用\x02查找负载均衡监听所属region" +
-	"失败：%s\x02查找负载均衡转发策略失败：%s\x02%s监听的端口%d已被%s(%s)占用\x02无法找到region信息\x02后端服" +
-	"务器组%s(%s)属于负载均衡实例%s，而不是%s\x04\x00\x01 9\x02负载均衡集群所属zone %s与子网zone %s不匹" +
-	"配\x02负载均衡集群所属wire与子网所属wire不匹配：%s != %s\x02Unmarshal输入参数失败：%s\x02端口值错误" +
-	"\x02无效的内网IP地址：%s\x02EIP已绑定到其它实例\x02EIP已绑定到SNAT规则\x02找不到EIP\x02NAT网关已有%d个" +
-	"活跃任务在执行，无法执行同步状态操作\x02sourceCIDR和network_id仅允许指定其中一个\x02CIDR %s不在VPC允许" +
-	"范围%s内\x02EIP已绑定到DNAT规则\x02找不到子网\x02GetAllocatedNicCount失败：%s\x02子网不为空" +
-	"\x02地址%s不在子网%s(%s)范围内\x02isAddressUsed调用失败：%s\x02地址%s已被占用\x02getFreeAddr" +
-	"essCount调用失败：%s\x02子网%s(%s)已没有可用地址\x02候选IP %s不在范围内\x02找不到可用IP地址\x02不允许使用" +
-	"网络%s\x02查找网络%s失败：%s\x02地址%s不在范围内\x02仅系统管理员允许使用预留的IP地址\x02地址%s未被预留\x02地" +
-	"址%s已被使用\x02带宽限速不可超过%dMbps\x02无效的时间长度%s\x02无效的IP地址%s：%s\x02地址%s不在子网中" +
-	"\x02获取预留地址出错\x02找到%d个二层网络（zone %s，vpc %s）\x02找不到wire（zone %s，vpc %s）\x02" +
-	"无效的server_type参数：%s\x02无法生成有效的网卡名指引：%v\x02ip_prefix错误：%s\x02无效的masklen" +
-	" %d\x02无效的起始IP %s：%s\x02无效的终止IP %s：%s\x02起始和终止IP不在同一个子网\x02%s: 无效的IP地址%s" +
-	"\x02无效的网关IP：%v\x02网关IP必须与起始、终止IP在同一个子网\x02当wire未指定时必须指定zone和vpc信息\x02VPC" +
-	"未准备好\x02EIP子网仅能存在于经典网络vpc中，实际为%s(%s)\x02子网掩码长度需小于30\x02起始、终止IP使用掩码后不属于" +
-	"同一个CIDR子网\x02子网不在VPC cidrblock %s范围内\x02调用vpc GetNetworks失败：%v\x02与vpc" +
-	" %q中已有子网地址冲突\x02查询所有子网时失败\x02与已有子网地址冲突\x02已存在分配了的地址在新范围以外\x02起始、终止IP必须在同" +
-	"一子网\x02子网server_type %s不支持自动分配\x02解析IP地址失败\x02子网所属cloudprovider为启用状态，无" +
-	"法执行purge操作\x02找不到子网%s\x02无效的目标子网：%s\x02子网%s和%s地址不连续\x02仅本地IDC支持此操作\x02" +
-	"无效的IP %s\x02分割IP %s是子网起始IP\x02分割IP %s不在范围\x02名称重复\x02GenerateName调用失败：" +
-	"%s\x02生成网卡名指引失败：%s\x02ip\x02仅支持服务类型%s\x02仅支持本地IDC的子网\x02本地IDC子网无法执行同步状态操" +
-	"作\x02无法变更纳管子网的状态\x02无效的状态%s\x02不支持创建\x02不支持创建策略定义\x02路由表所属cloudprovide" +
-	"r为启用状态，无法执行purge操作\x02unmarshal CIDR列表失败：%s\x02min_instance_number不应小于0" +
-	"\x02min_instance_number不应大于max_instance_number\x02desire_instance_number" +
-	"应在min_instance_number和max_instance_number范围内\x02找不到cloudregion %s\x02伸" +
-	"缩组需要指定网络参数\x02部分子网不存在\x02子网%s不在vpc %s中\x02找不到虚机模板%s\x02虚机模板%s在cloudreg" +
-	"ion %s中无效，原因：%s\x02未知的扩容原则：%s\x02未知的缩容原则：%s\x02未知的健康检查模式%s\x02找不到负载均衡后端组" +
-	"%s\x02找不到负载均衡后端端口%d\x02无效的负载均衡后端权重%d\x02请先禁用此伸缩组\x02此伸缩组中还存在虚机，请先将它们删除" +
-	"\x02找不到此伸缩组%s\x02虚机%s不属于伸缩组%s\x02伸缩策略必须属于某伸缩组\x02找不到伸缩组%s\x02未知的触发类型%s" +
-	"\x02未知的伸缩策略动作%s\x02未知的伸缩策略计量单位%s\x02除非状态ready，否则无法触发伸缩策略\x02报警id不匹配\x02告" +
-	"警%s中包含未知的操作符\x02告警%s中存在未知的指示器\x02告警%s中存在未知的聚合函数\x02告警周期的最小值为300\x02无效的" +
-	"策略%s\x02不支持资源类型%q\x02无效schedtag_id参数\x02不支持资源类型%s\x02调度标签%s\x02调度标签%s的" +
-	"资源类型不匹配：%s != %s\x02unmarshal JointResourceCreateInput出错：%s\x02无效的调度标签" +
-	"%s\x02无效的默认策略%s\x02无法设定%s作为默认策略\x02GetObjectCount调用出错：%s\x02标签已关联至%s\x02" +
-	"getDynamicSchedtagCount调用出错：%s\x02标签已有动态规则\x02getSchedPoliciesCount调用出错：" +
-	"%s\x02标签已与调度策略绑定\x02调度标签%s的资源类型为%s，与%s不匹配\x02未知的调度类型%q\x02未知的资源类型%q\x02未" +
-	"知的操作%q\x02未知的标签类型%q\x02调度任务正执行中，请稍后尝试\x02需要指定调度任务\x02权限不足\x02unmarshal" +
-	"输入参数出错：%v\x02获取安全组%s失败\x02第%d条规则无效：%s\x02vpc %s(%s)不是一个纳管资源\x02不支持缓存经典" +
-	"安全组\x02无效的IP地址：%s\x02FetchByName出错：%s\x02安全组%s的规则与%s不相等\x02GetGuestCou" +
-	"nt调用出错：%s\x02安全组正使用中\x02不允许删除默认的安全组\x02找不到虚机模板\x02解析图标URL出错：%s\x02找不到虚机模" +
+	"到公有云虚机上\x02虚机当前状态为%q，要求为%q\x02unmarshal输入参数出错: %v\x02主机缺少%s字段\x02主机缺少%" +
+	"s字段\x02认证出错：%v\x02用户必须有系统管理员权限\x02获取%s %s服务URL出错：%v\x02上次部署的信息不可用\x02查找后" +
+	"端组相关的资源出错\x02无效的权重%d，要求在0～256范围\x02无效的端口%d，要求在1~65535范围\x02找不到虚机%s\x02" +
+	"仅系统管理员可指定宿主机作为后端\x02找不到宿主机%s\x02未识别的后端类型%s\x02第%d个后端所属的region与lb的regio" +
+	"n不匹配\x02查找负载均衡所属region失败：%s\x02调用isDefault出错：%s\x02后端服务器组%s是默认组\x02调用ref" +
+	"Count出错：%s\x02后端组%s仍被%d个%s使用\x02%s要求添加到后端组中的虚机状态为%s，当前虚机状态为%s\x02虚机%s(%s" +
+	")所处VPC %s(%s)和负载均衡所处VPC %s不一致\x02获取虚机%s出错\x02虚机%s(%s)所属VPC %s(%s)不是%s(%s" +
+	")\x02虚机%s(%s)已存在于后端组%s(%s)\x02查找负载均衡后端%s的region时出错\x02查找后端%s(%s)所属的后端组时出" +
+	"错\x02访问控制缓存已在region %s存在\x02获取证书使用数失败：%s\x02证书%s仍被%d个%s使用\x02无效的本地证书：私" +
+	"钥为空\x02无效的本地证书：证书内容为空\x02证书缓存已在region %s存在\x02不允许变更证书内容\x02zone %s(%s)" +
+	"不合法：仅允许本地IDC的zone\x02二层网络所属zone %s与参数中的zone %s(%s)冲突，\x02wire所属zone必须为" +
+	"%s，实际为%s\x02获取负载均衡集群引用次数失败：%v\x02负载均衡集群仍被%d个%s使用\x04\x00\x01 J\x02负载均衡集群" +
+	"%s(%s)和%s(%s)两者virtual_router_id参数冲突：%d\x02无效的条件格式，要求为JSON\x02无效的表达式格式，要" +
+	"求为JSON数组\x02触及条件数目上限（5），已指定%d个\x02规则%s/%s已被%s(%s)使用\x02查找负载均衡监听所属regio" +
+	"n失败：%s\x02查找负载均衡转发策略失败：%s\x02%s监听的端口%d已被%s(%s)占用\x02无法找到region信息\x02后端服务" +
+	"器组%s(%s)属于负载均衡实例%s，而不是%s\x04\x00\x01 9\x02负载均衡集群所属zone %s与子网zone %s不匹配" +
+	"\x02负载均衡集群所属wire与子网所属wire不匹配：%s != %s\x02Unmarshal输入参数失败：%s\x02端口值错误\x02" +
+	"无效的内网IP地址：%s\x02EIP已绑定到其它实例\x02EIP已绑定到SNAT规则\x02找不到EIP\x02NAT网关已有%d个活跃" +
+	"任务在执行，无法执行同步状态操作\x02sourceCIDR和network_id仅允许指定其中一个\x02CIDR %s不在VPC允许范围" +
+	"%s内\x02EIP已绑定到DNAT规则\x02找不到子网\x02GetAllocatedNicCount失败：%s\x02子网不为空\x02地" +
+	"址%s不在子网%s(%s)范围内\x02isAddressUsed调用失败：%s\x02地址%s已被占用\x02getFreeAddress" +
+	"Count调用失败：%s\x02子网%s(%s)已没有可用地址\x02候选IP %s不在范围内\x02找不到可用IP地址\x02不允许使用网络%" +
+	"s\x02查找网络%s失败：%v\x02地址%s不在范围内\x02仅系统管理员允许使用预留的IP地址\x02地址%s未被预留\x02地址%s已被" +
+	"使用\x02带宽限速不可超过%dMbps\x02无效的时间长度%s\x02无效的IP地址%s：%s\x02地址%s不在子网中\x02获取预留" +
+	"地址出错\x02找到%d个二层网络（zone %s，vpc %s）\x02找不到wire（zone %s，vpc %s）\x02无效的ser" +
+	"ver_type参数：%s\x02无法生成有效的网卡名指引：%v\x02ip_prefix错误：%s\x02无效的masklen %d\x02无" +
+	"效的起始IP %s：%s\x02无效的终止IP %s：%s\x02起始和终止IP不在同一个子网\x02%s: 无效的IP地址%s\x02无效" +
+	"的网关IP：%v\x02网关IP必须与起始、终止IP在同一个子网\x02当wire未指定时必须指定zone和vpc信息\x02VPC未准备好" +
+	"\x02EIP子网仅能存在于经典网络vpc中，实际为%s(%s)\x02子网掩码长度需小于30\x02起始、终止IP使用掩码后不属于同一个CID" +
+	"R子网\x02子网不在VPC cidrblock %s范围内\x02调用vpc GetNetworks失败：%v\x02与vpc %q中已有子网" +
+	"地址冲突\x02查询所有子网时失败\x02与已有子网地址冲突\x02已存在分配了的地址在新范围以外\x02起始、终止IP必须在同一子网" +
+	"\x02子网server_type %s不支持自动分配\x02解析IP地址失败\x02子网所属cloudprovider为启用状态，无法执行pu" +
+	"rge操作\x02找不到子网%s\x02无效的目标子网：%s\x02子网%s和%s地址不连续\x02仅本地IDC支持此操作\x02无效的IP %" +
+	"s\x02分割IP %s是子网起始IP\x02分割IP %s不在范围\x02名称重复\x02GenerateName调用失败：%s\x02生成网" +
+	"卡名指引失败：%s\x02ip\x02仅支持服务类型%s\x02仅支持本地IDC的子网\x02本地IDC子网无法执行同步状态操作\x02无法" +
+	"变更纳管子网的状态\x02无效的状态%s\x02不支持创建\x02不支持创建策略定义\x02路由表所属cloudprovider为启用状态，" +
+	"无法执行purge操作\x02unmarshal CIDR列表失败：%s\x02min_instance_number不应小于0\x02mi" +
+	"n_instance_number不应大于max_instance_number\x02desire_instance_number应在min_" +
+	"instance_number和max_instance_number范围内\x02找不到cloudregion %s\x02伸缩组需要指定网络" +
+	"参数\x02部分子网不存在\x02子网%s不在vpc %s中\x02找不到虚机模板%s\x02虚机模板%s在cloudregion %s中无" +
+	"效，原因：%s\x02未知的扩容原则：%s\x02未知的缩容原则：%s\x02未知的健康检查模式%s\x02找不到负载均衡后端组%s\x02" +
+	"找不到负载均衡后端端口%d\x02无效的负载均衡后端权重%d\x02请先禁用此伸缩组\x02此伸缩组中还存在虚机，请先将它们删除\x02找不" +
+	"到此伸缩组%s\x02虚机%s不属于伸缩组%s\x02伸缩策略必须属于某伸缩组\x02找不到伸缩组%s\x02未知的触发类型%s\x02未知" +
+	"的伸缩策略动作%s\x02未知的伸缩策略计量单位%s\x02除非状态ready，否则无法触发伸缩策略\x02报警id不匹配\x02告警%s中" +
+	"包含未知的操作符\x02告警%s中存在未知的指示器\x02告警%s中存在未知的聚合函数\x02告警周期的最小值为300\x02无效的策略%s" +
+	"\x02不支持资源类型%q\x02无效schedtag_id参数\x02不支持资源类型%s\x02调度标签%s\x02调度标签%s的资源类型不匹" +
+	"配：%s != %s\x02unmarshal JointResourceCreateInput出错：%s\x02无效的调度标签%s\x02" +
+	"无效的默认策略%s\x02无法设定%s作为默认策略\x02GetObjectCount调用出错：%s\x02标签已关联至%s\x02getD" +
+	"ynamicSchedtagCount调用出错：%s\x02标签已有动态规则\x02getSchedPoliciesCount调用出错：%s" +
+	"\x02标签已与调度策略绑定\x02调度标签%s的资源类型为%s，与%s不匹配\x02未知的调度类型%q\x02未知的资源类型%q\x02未知的" +
+	"操作%q\x02未知的标签类型%q\x02调度任务正执行中，请稍后尝试\x02需要指定调度任务\x02权限不足\x02unmarshal输入" +
+	"参数出错：%v\x02获取安全组%s失败\x02第%d条规则无效：%s\x02vpc %s(%s)不是一个纳管资源\x02不支持缓存经典安全" +
+	"组\x02无效的IP地址：%s\x02FetchByName出错：%s\x02安全组%s的规则与%s不相等\x02GetGuestCount" +
+	"调用出错：%s\x02安全组正使用中\x02不允许删除默认的安全组\x02找不到虚机模板\x02解析图标URL出错：%s\x02找不到虚机模" +
 	"板%s\x02找不到cloudregion %s\x02查找zone %s失败\x02cpu_core_count应在1～256范围内" +
 	"\x02memory_size_mb应在512~%d范围内\x02instance_type_category应是%s其中之一\x02检查SKU" +
 	"重名时出错：%v\x02重复的SKU %s\x02实例规格列表查询出错\x02无法变更公有云%s SKU的实例类型\x02无法变更SKU名称" +
@@ -3311,4 +3311,4 @@ const zh_CNData string = "" + // Size: 46363 bytes
 	"\x02找不到登录login_key\x02查询中找不到kind：%v\x02查询中找不到key：%v\x02不支持的动作%s\x02找不到数据" +
 	"源对应的执行器\x02安全组id不应为空\x02找不到安全组%s\x02无效的服务点\x02解析URL %q出错：%v\x02无效的IP"
 
-	// Total table size 105658 bytes (103KiB); checksum: 17CAAC3
+	// Total table size 105668 bytes (103KiB); checksum: 6D028F77

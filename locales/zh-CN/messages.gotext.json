@@ -5330,9 +5330,9 @@
             "position": "pkg/compute/models/loadbalanceragents_deploy.go:279:40"
         },
         {
-            "id": "unmarshal input",
-            "message": "unmarshal input",
-            "translation": "unmarshal输入参数出错",
+            "id": "unmarshal input: %v",
+            "message": "unmarshal input: %v",
+            "translation": "unmarshal输入参数出错: %v",
             "position": "pkg/compute/models/loadbalanceragents_deploy.go:301:44"
         },
         {
@@ -5378,15 +5378,15 @@
             "position": "pkg/compute/models/loadbalancerbackendgroups.go:118:49"
         },
         {
-            "id": "weight %s not support, only support range 0 ~ 256",
-            "message": "weight %s not support, only support range 0 ~ 256",
-            "translation": "无效的权重%s，要求在0～256范围",
+            "id": "weight %d not support, only support range 0 ~ 256",
+            "message": "weight %d not support, only support range 0 ~ 256",
+            "translation": "无效的权重%d，要求在0～256范围",
             "position": "pkg/compute/models/loadbalancerbackendgroups.go:206:50"
         },
         {
-            "id": "port %s not support, only support range 1 ~ 65535",
-            "message": "port %s not support, only support range 1 ~ 65535",
-            "translation": "无效的端口%s，要求在1~65535范围",
+            "id": "port %d not support, only support range 1 ~ 65535",
+            "message": "port %d not support, only support range 1 ~ 65535",
+            "translation": "无效的端口%d，要求在1~65535范围",
             "position": "pkg/compute/models/loadbalancerbackendgroups.go:209:50"
         },
         {
@@ -5762,9 +5762,9 @@
             "position": "pkg/compute/models/networks.go:924:44"
         },
         {
-            "id": "Network %s not found %s",
-            "message": "Network %s not found %s",
-            "translation": "查找网络%s失败：%s",
+            "id": "Network %s not found: %v",
+            "message": "Network %s not found: %v",
+            "translation": "查找网络%s失败：%v",
             "position": "pkg/compute/models/networks.go:950:46"
         },
         {
@@ -7598,8 +7598,8 @@
             "position": "pkg/compute/regiondrivers/huawei.go:2356:43"
         },
         {
-            "id": "% not support create account",
-            "message": "% not support create account",
+            "id": "%s not support create account",
+            "message": "%s not support create account",
             "translation": "%s不支持创建账号",
             "position": "pkg/compute/regiondrivers/huawei.go:2561:51"
         },
