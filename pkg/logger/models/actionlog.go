@@ -47,9 +47,9 @@ type SActionlogManager struct {
 type SActionlog struct {
 	db.SOpsLog
 
-	StartTime time.Time `nullable:"true" list:"user" create:"optional"`                           // = Column(DateTime, nullable=False)
-	Success   bool      `list:"user" create:"required"`                                           // = Column(Boolean, default=True)
-	Service   string    `width:"32" charset:"utf8" nullable:"true" list:"user" create:"optional"` //= Column(VARCHAR(32, charset='utf8'), nullable=False)
+	StartTime time.Time `nullable:"true" list:"user" create:"optional"`
+	Success   bool      `list:"user" create:"required"`
+	Service   string    `width:"32" charset:"utf8" nullable:"true" list:"user" create:"optional"`
 }
 
 var ActionLog *SActionlogManager
@@ -72,6 +72,12 @@ func (action *SActionlog) CustomizeCreate(ctx context.Context, userCred mcclient
 		action.StartTime = now
 	}
 	return action.SOpsLog.CustomizeCreate(ctx, userCred, ownerId, query, data)
+}
+
+func (action *SActionlog) GetI18N(ctx context.Context) *jsonutils.JSONDict {
+	r := jsonutils.NewDict()
+	r.Set("action", jsonutils.NewString(logclient.OpsActionI18nTable.Lookup(ctx, action.Action)))
+	return r
 }
 
 // Websockets 不再拉取 ActionLog 的消息，因此注释掉如下代码

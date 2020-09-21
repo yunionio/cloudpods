@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
@@ -294,13 +295,13 @@ func getSpecHandler(ctx context.Context, w http.ResponseWriter, r *http.Request)
 }
 
 func writeErrNoRequestKey(ctx context.Context, w http.ResponseWriter, r *http.Request, key string) {
-	ctx = httperrors.WithRequestLang(ctx, r)
+	ctx = i18n.WithRequestLang(ctx, r)
 	httperrors.InvalidInputError(ctx, w,
 		"No request key: %s", key)
 }
 
 func writeErrInvalidRequestHeader(ctx context.Context, w http.ResponseWriter, r *http.Request, err error) {
-	ctx = httperrors.WithRequestLang(ctx, r)
+	ctx = i18n.WithRequestLang(ctx, r)
 	httperrors.InvalidInputError(ctx, w,
 		"Invalid request header: %v", err)
 }

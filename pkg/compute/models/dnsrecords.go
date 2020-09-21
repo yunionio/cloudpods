@@ -241,11 +241,11 @@ func (man *SDnsRecordManager) checkRecordName(typ, name string) error {
 		}
 	case "SRV":
 		if !regutils.MatchDomainSRV(name) {
-			return httperrors.NewNotAcceptableError("SRV: invalid srv record name: %s", typ, name)
+			return httperrors.NewNotAcceptableError("SRV: invalid srv record name: %s", name)
 		}
 	case "PTR":
 		if !regutils.MatchPtr(name) {
-			return httperrors.NewNotAcceptableError("PTR: invalid ptr record name: %s", typ, name)
+			return httperrors.NewNotAcceptableError("PTR: invalid ptr record name: %s", name)
 		}
 	}
 	if regutils.MatchIPAddr(name) {

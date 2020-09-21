@@ -30,7 +30,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
-	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -209,7 +209,7 @@ func (this *ClientSession) RawBaseUrlRequest(
 		populateHeader(&tmpHeader, headers)
 	}
 	populateHeader(&tmpHeader, this.Header)
-	httperrors.SetLangHeader(this.ctx, tmpHeader)
+	i18n.SetHTTPLangHeader(this.ctx, tmpHeader)
 	ctx := this.ctx
 	if this.ctx == nil {
 		ctx = context.Background()
@@ -245,7 +245,7 @@ func (this *ClientSession) JSONVersionRequest(
 		populateHeader(&tmpHeader, headers)
 	}
 	populateHeader(&tmpHeader, this.Header)
-	httperrors.SetLangHeader(this.ctx, tmpHeader)
+	i18n.SetHTTPLangHeader(this.ctx, tmpHeader)
 	ctx := this.ctx
 	if this.ctx == nil {
 		ctx = context.Background()

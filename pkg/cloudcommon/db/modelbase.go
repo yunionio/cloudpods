@@ -596,3 +596,7 @@ func (model *SModelBase) DeleteInContext(ctx context.Context, userCred mcclient.
 func (model *SModelBase) GetUsages() []IUsage {
 	return nil
 }
+
+func (model *SModelBase) GetI18N(ctx context.Context) *jsonutils.JSONDict {
+	return nil
+}

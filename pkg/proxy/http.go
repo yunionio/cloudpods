@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/i18n"
 )
 
 type EndpointGenerator func(context.Context, *http.Request) (string, error)
@@ -54,14 +55,15 @@ func NewHTTPReverseProxy(ef *SEndpointFactory, m RequestManipulator) *SReversePr
 }
 
 func (p *SReverseProxy) ServeHTTP(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	ctx = i18n.WithRequestLang(ctx, r)
 	endpoint, err := p.generator(ctx, r)
 	if err != nil {
-		httperrors.InternalServerError(httperrors.WithRequestLang(ctx, r), w, "%v", err)
+		httperrors.InternalServerError(ctx, w, "%v", err)
 		return
 	}
 	remoteUrl, err := url.Parse(endpoint)
 	if err != nil {
-		httperrors.InternalServerError(httperrors.WithRequestLang(ctx, r), w, "failed parsing url %q: %v", endpoint, err)
+		httperrors.InternalServerError(ctx, w, "failed parsing url %q: %v", endpoint, err)
 		return
 	}
 	log.Debugf("Forwarding to servie: %q, url: %q", p.serviceName, remoteUrl.String())
@@ -73,7 +75,7 @@ func (p *SReverseProxy) ServeHTTP(ctx context.Context, w http.ResponseWriter, r 
 	}
 	r, err = p.manipulator(ctx, r)
 	if err != nil {
-		httperrors.InternalServerError(httperrors.WithRequestLang(ctx, r), w, "%v", err)
+		httperrors.InternalServerError(ctx, w, "%v", err)
 		return
 	}
 	proxy.ServeHTTP(w, r)
