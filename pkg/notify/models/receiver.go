@@ -368,6 +368,7 @@ func (r *SReceiver) MarkContactTypeVerified(contactType string) error {
 			Verified:   tristate.True,
 		}
 		subContact.ParentContactType = api.MOBILE
+		subContact.VerifiedNote = ""
 		r.subContactCache[contactType] = subContact
 	}
 	return nil
