@@ -162,7 +162,10 @@ func rawNotify(ctx context.Context, recipientId []string, isGroup bool, channel 
 	// log.Debugf("send notification %s %s", topic, body)
 	notifyClientWorkerMan.Run(func() {
 		s := auth.GetAdminSession(context.Background(), consts.GetRegion(), "")
-		npk.Notifications.Send(s, msg)
+		err := npk.Notifications.Send(s, msg)
+		if err != nil {
+			log.Errorf("unable to send notification: %v", err)
+		}
 	}, nil, nil)
 }
 
