@@ -60,9 +60,6 @@ const (
 
 	ZSTACK_BRAND_DSTACK     = "DStack"
 	ONECLOUD_BRAND_ONECLOUD = "OneCloud"
-
-	CLOUD_PROVIDER_ONECLOUD_EN = "YunionCloud"
-	CLOUD_PROVIDER_ONECLOUD_CN = "云联壹云"
 )
 
 const (

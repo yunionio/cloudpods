@@ -24,8 +24,6 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/text/language"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
@@ -46,24 +44,24 @@ var (
 
 	notifyAdminUsers  []string
 	notifyAdminGroups []string
+
+	notifyclientI18nTable = i18n.Table{}
+)
+
+const (
+	SUFFIX = "suffix"
 )
 
 func init() {
 	notifyClientWorkerMan = appsrv.NewWorkerManager("NotifyClientWorkerManager", 1, 50, false)
 	templatesTableLock = &sync.Mutex{}
 	templatesTable = make(map[string]*template.Template)
+
+	notifyclientI18nTable.Set(SUFFIX, i18n.NewTableEntry().EN("en").CN("cn"))
 }
 
 func getLangSuffix(ctx context.Context) string {
-	lang := i18n.Lang(ctx)
-	switch lang {
-	case language.English:
-		return "en"
-	case language.Chinese:
-		return "cn"
-	default:
-		return "en"
-	}
+	return notifyclientI18nTable.Lookup(ctx, SUFFIX)
 }
 
 func getTemplateString(ctx context.Context, topic string, contType string, channel npk.TNotifyChannel) ([]byte, error) {
