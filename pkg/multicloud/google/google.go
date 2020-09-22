@@ -814,9 +814,11 @@ func (g *gError) ParseErrorFromJsonResponse(statusCode int, body jsonutils.JSONO
 func _jsonRequest(cli *http.Client, method httputils.THttpMethod, url string, body jsonutils.JSONObject, debug bool) (jsonutils.JSONObject, error) {
 	client := httputils.NewJsonClient(cli)
 	req := httputils.NewJsonRequest(method, url, body)
-	var ge gError
+	var err error
+	var data jsonutils.JSONObject
 	for i := 0; i < MAX_RETRY; i++ {
-		_, data, err := client.Send(context.Background(), req, &ge, debug)
+		var ge gError
+		_, data, err = client.Send(context.Background(), req, &ge, debug)
 		if err == nil {
 			return data, nil
 		}
@@ -835,9 +837,9 @@ func _jsonRequest(cli *http.Client, method httputils.THttpMethod, url string, bo
 				continue
 			}
 		}
-		return nil, &ge
+		return nil, err
 	}
-	return nil, &ge
+	return nil, err
 }
 
 func (self *SGoogleClient) GetRegion(regionId string) *SRegion {
