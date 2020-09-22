@@ -25,6 +25,7 @@ import (
 	"time"
 	"unicode"
 
+	"golang.org/x/text/language"
 	"gopkg.in/fatih/set.v0"
 
 	"yunion.io/x/jsonutils"
@@ -53,6 +54,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -836,7 +838,16 @@ func (self *SGuest) NotifyServerEvent(
 	kwargs.Add(jsonutils.NewString(self.Hypervisor), "hypervisor")
 	host := self.GetHost()
 	if host != nil {
-		kwargs.Add(jsonutils.NewString(host.GetBrand()), "brand")
+		brand := host.GetBrand()
+		if brand == api.CLOUD_PROVIDER_ONECLOUD {
+			switch i18n.Lang(ctx) {
+			case language.Chinese:
+				brand = api.CLOUD_PROVIDER_ONECLOUD_CN
+			default:
+				brand = api.CLOUD_PROVIDER_ONECLOUD_EN
+			}
+		}
+		kwargs.Add(jsonutils.NewString(brand), "brand")
 	}
 	if loginInfo {
 		kwargs.Add(jsonutils.NewString(self.getNotifyIps()), "ips")
