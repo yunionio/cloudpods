@@ -341,19 +341,19 @@ func (self *SDataSourceManager) getMetricDescriptions(influxdbMeasurements []mon
 	if err != nil {
 		log.Errorln(errors.Wrap(err, "DataSourceManager getMetricDescriptions error"))
 	}
-	measurements, err := MetricMeasurementManager.getMeasurement(query)
-	if len(measurements) != 0 {
+	descriMeasurements, err := MetricMeasurementManager.getMeasurement(query)
+	if len(descriMeasurements) != 0 {
 
-		measurementsIns := make([]interface{}, len(measurements))
-		for i, _ := range measurements {
-			measurementsIns[i] = &measurements[i]
+		measurementsIns := make([]interface{}, len(descriMeasurements))
+		for i, _ := range descriMeasurements {
+			measurementsIns[i] = &descriMeasurements[i]
 		}
 		details := MetricMeasurementManager.FetchCustomizeColumns(context.Background(), userCred, jsonutils.NewDict(), measurementsIns,
 			stringutils2.NewSortedStrings([]string{}), true)
 		if err != nil {
 			log.Errorln(errors.Wrap(err, "DataSourceManager getMetricDescriptions error"))
 		}
-		for i, measureDes := range measurements {
+		for i, measureDes := range descriMeasurements {
 			for j, _ := range influxdbMeasurements {
 				if measureDes.Name == influxdbMeasurements[j].Measurement {
 					if len(measureDes.DisplayName) != 0 {
@@ -495,13 +495,12 @@ func (self *SDataSourceManager) getFilterMeasurement(queryChan *influxdbQueryCha
 						if value[i] == nil {
 							continue
 						}
-						floatVal, err := value[i].Float()
+						_, err := value[i].Float()
 						if err != nil {
 							continue
 						}
-						if !floatEquals(floatVal, float64(0)) {
-							containsVal = true
-						}
+						containsVal = true
+						break
 					}
 					if containsVal {
 						rtnFields = append(rtnFields, strings.Replace(meanFieldArr[i], "last_", "", 1))
@@ -820,6 +819,7 @@ func (self *SDataSourceManager) getFilterMeasurementTagValue(tagValueChan *influ
 		buffer.WriteString(fmt.Sprintf(` AND %s `, tagFilter))
 	}
 	buffer.WriteString(fmt.Sprintf(` GROUP BY %q`, tagKey))
+	log.Errorln(buffer.String())
 	rtn, err := db.Query(buffer.String())
 	if err != nil {
 		return errors.Wrap(err, "getFilterMeasurementTagValue query error")
