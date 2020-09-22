@@ -898,13 +898,13 @@ func (self *SKVMRegionDriver) RequestDeleteVpc(ctx context.Context, userCred mcc
 }
 
 func (self *SKVMRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, input *api.SElasticipCreateInput) error {
-	if len(input.Network) == 0 {
-		return httperrors.NewMissingParameterError("network")
+	if len(input.NetworkId) == 0 {
+		return httperrors.NewMissingParameterError("network_id")
 	}
-	_network, err := models.NetworkManager.FetchByIdOrName(userCred, input.Network)
+	_network, err := models.NetworkManager.FetchByIdOrName(userCred, input.NetworkId)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return httperrors.NewResourceNotFoundError("failed to found network %s", input.Network)
+			return httperrors.NewResourceNotFoundError2("network", input.NetworkId)
 		}
 		return httperrors.NewGeneralError(err)
 	}
@@ -922,7 +922,7 @@ func (self *SKVMRegionDriver) ValidateCreateEipData(ctx context.Context, userCre
 	if err != nil {
 		return err
 	}
-	if region.GetDriver().GetProvider() != self.GetProvider() {
+	if region.Id != input.CloudregionId {
 		return httperrors.NewUnsupportOperationError("network %s(%s) does not belong to %s", network.Name, network.Id, self.GetProvider())
 	}
 	return nil
