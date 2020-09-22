@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 
+	"golang.org/x/text/language"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -26,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
@@ -113,10 +116,49 @@ func GetNotifyTemplateConfig(ctx *alerting.EvalContext) monitor.NotificationTemp
 	return config
 }
 
+func GetNotifyTemplateConfigOfEN(ctx *alerting.EvalContext) monitor.NotificationTemplateConfig {
+	priority := notify.NotifyPriorityNormal
+	level := "Normal"
+	switch ctx.Rule.Level {
+	case "", "normal":
+		priority = notify.NotifyPriorityNormal
+	case "important":
+		priority = notify.NotifyPriorityImportant
+		level = "Important"
+	case "fatal", "critical":
+		priority = notify.NotifyPriorityCritical
+		level = "Critical"
+	}
+	topic := fmt.Sprintf("[%s]", level)
+
+	isRecovery := false
+	if ctx.Rule.State == monitor.AlertStateOK {
+		isRecovery = true
+		topic = fmt.Sprintf("%s %s Alarm recovered", topic, ctx.GetRuleTitle())
+	} else if ctx.NoDataFound {
+		topic = fmt.Sprintf("%s %s No data available", topic, ctx.GetRuleTitle())
+	} else {
+		topic = fmt.Sprintf("%s %s Alarm", topic, ctx.GetRuleTitle())
+	}
+	config := ctx.GetNotificationTemplateConfig()
+	config.Title = topic
+	config.Level = level
+	config.Priority = string(priority)
+	config.IsRecovery = isRecovery
+	return config
+}
+
 // Notify sends the alert notification.
 func (oc *OneCloudNotifier) Notify(ctx *alerting.EvalContext, _ jsonutils.JSONObject) error {
 	log.Infof("Sending alert notification %s to onecloud", ctx.GetRuleTitle())
-	config := GetNotifyTemplateConfig(ctx)
+	var config monitor.NotificationTemplateConfig
+	lang := i18n.Lang(ctx.Ctx)
+	switch lang {
+	case language.English:
+		config = GetNotifyTemplateConfigOfEN(ctx)
+	default:
+		config = GetNotifyTemplateConfig(ctx)
+	}
 	contentConfig := oc.buildContent(config)
 
 	var content string

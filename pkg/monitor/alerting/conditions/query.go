@@ -92,10 +92,13 @@ func (c *QueryCondition) filterTags(tags map[string]string, details monitor.Comm
 				ret["name"] = val
 			}
 		}
-		if strings.Contains(key, "ip") {
+		if strings.Contains(key, "ip") && key != "host_ip" {
 			ret["ip"] = val
 		}
 		ret[key] = val
+	}
+	if _, ok := ret["ip"]; !ok {
+		ret["ip"] = tags["host_ip"]
 	}
 	for _, tag := range []string{"brand", "platform", "hypervisor"} {
 		if val, ok := ret[tag]; ok {

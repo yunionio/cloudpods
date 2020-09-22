@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>{{.Title}}</title>
+</head>
+<style>
+  .title {
+    height: 40px;
+    line-height: 40px;
+    width: 960px;
+    background-color: #4da1ff;
+    color: #fff;
+    font-size: 16px;
+    text-align: center;
+    margin: 0 auto;
+  }
+  .table {
+    width: 960px;
+    margin: 0 auto;
+    padding: 10px 30px 0px 30px;
+    font-family:'微软雅黑',Helvetica,Arial,sans-serif;
+    font-size:14px;
+    background-color: #fbfbfb;
+  }
+  .tr-title {
+    height: 10px;
+    border-left: 5px solid #4da1ff;
+    margin-left: 10px;
+    padding: 3px 8px;
+    font-weight: bold;
+  }
+  .td {
+    width: 80px;
+    padding-left: 20px;
+    height: 35px;
+    font-weight: 400;
+  }
+  .link {
+    text-decoration: none;
+    color: #3591FF;
+  }
+  .thead-tr td {
+    border-left: 1px solid #d7d7d7;
+    border-top: 1px solid #d7d7d7;
+    height: 32px;
+    font-size: 14px;
+    background-color: #d7d7d7;
+    text-align: center;
+  }
+  .tbody-tr td {
+    border-left: 1px solid #d7d7d7;
+    border-top: 1px solid #d7d7d7;
+    height: 32px;
+    font-size: 14px;
+    font-weight: 400;
+    text-align: center;
+  }
+  .pb-3 {
+    padding-bottom: 30px;
+  }
+  .resouce-table {
+    width: 98%;
+    color: #717171;
+    border-right: 1px solid #d7d7d7;
+    border-bottom: 1px solid #d7d7d7;
+  }
+</style>
+<body>
+  <h3 class="title">Alert</h3>
+  <table border="0" cellspacing="0" cellpadding="0" class="table">
+    <tr><td colspan="4" class="tr-title">Alert info</td></tr>
+    <tr><td style="height: 10px;"></td></tr>
+    <tr>
+      <td class="td">Alarm strategy：</td>
+      <td>{{.name}}</td>
+    </tr>
+    <tr>
+      <td class="td">Alarm level：</td>
+      <td>{{.level}}</td>
+    </tr>
+    <tr>
+      <td class="td">Alarm time：</td>
+      <td>{{.start_time}}</td>
+    </tr>
+    <tr>
+      <td class="td">Strategy details：</td>
+      <td>{{.description}}</td>
+    </tr>
+  </table>
+  <table class="table" style="padding-top: 6px; padding-bottom: 10px;">
+    <tr>
+      <td style="padding-left: 20px; font-size: 14px;">To view details，<a class="link" target="_blank" href="{{.web_url}}/commonalerts
+">Please log in to the platform to view</a></td>
+    </tr>
+  </table>
+  <table border="0" cellspacing="0" cellpadding="0" class="table pb-3">
+    <tr><td colspan="4" class="tr-title">Alarm resources</td></tr>
+    <tr><td style="height: 10px;"></td></tr>
+    <tr>
+      <td colspan="4" style="padding: 10px 0 0 20px;">
+        <table cellspacing="0" cellpadding="0" class="resouce-table">
+          <thead>
+            <tr class="thead-tr">
+
+	          <td>Name</td>
+              <td>IP</td>
+              <td>Brand</td>
+              <td>Trigger value</td>
+            </tr>
+          </thead>
+          <tbody>
+			{{- range $i, $Matche := .matches}}
+				<tr class="tbody-tr">
+
+				  <td>
+					{{- index .tags "name"}}
+                  </td>
+				  <td>
+					{{ index .tags "ip" }}
+                  </td>
+				  <td>
+				   	{{ index .tags "brand" }}
+				  </td>
+				  <td>{{$Matche.value_str}}</td>
+				</tr>
+			{{end}}
+          </tbody>
+        </table>
+      </td>
+    </tr>
+    <tr><td style="height: 10px;"></td></tr>
+  </table>
+  <p style="width: 960px; height: 40px; line-height: 40px; margin: 0 auto; background-color: #4da1ff; color: #fff; font-size: 12px; text-align: center; ">This email is sent automatically by the system. Please do not reply directly！</p>
+</body>
+</html>
+
+
+
+
+
+
+
