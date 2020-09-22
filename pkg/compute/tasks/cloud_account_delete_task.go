@@ -16,8 +16,11 @@ package tasks
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -61,6 +64,18 @@ func (self *CloudAccountDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 
 func (self *CloudAccountDeleteTask) OnAllCloudProviderDeleteComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	account := obj.(*models.SCloudaccount)
+
+	// check providers deleted success
+	count, err := account.GetProviderCount()
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		self.OnAllCloudProviderDeleteCompleteFailed(ctx, obj, jsonutils.NewString(err.Error()))
+		return
+	}
+
+	if count > 0 {
+		self.OnAllCloudProviderDeleteCompleteFailed(ctx, obj, jsonutils.NewString(fmt.Sprintf("cloudprovider deleted failed count %d", count)))
+		return
+	}
 
 	account.RealDelete(ctx, self.UserCred)
 
