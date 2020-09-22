@@ -192,11 +192,11 @@ func (manager *SWireResourceBaseManager) ListItemFilter(
 		}
 		err = regionQ.First(region)
 		if err != nil {
-			return nil, errors.Wrap(err, "q.First")
+			return nil, errors.Wrap(err, "regionQ.First")
 		}
 		if utils.IsInStringArray(region.Provider, api.REGIONAL_NETWORK_PROVIDERS) {
 			vpcQ := VpcManager.Query().SubQuery()
-			q = q.Join(vpcQ, sqlchemy.Equals(vpcQ.Field("id"), q.Field("vpc_id"))).
+			wireQ = wireQ.Join(vpcQ, sqlchemy.Equals(vpcQ.Field("id"), wireQ.Field("vpc_id"))).
 				Filter(sqlchemy.Equals(vpcQ.Field("cloudregion_id"), region.Id))
 		} else {
 			zoneQuery := api.ZonalFilterListInput{
