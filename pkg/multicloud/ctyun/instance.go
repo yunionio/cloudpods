@@ -365,7 +365,7 @@ func (self *SInstance) GetInstanceType() string {
 
 func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 	if len(self.SecurityGroups) == 0 {
-		return nil, nil
+		return []string{}, nil
 	}
 
 	if len(self.MasterOrderId) > 0 {
@@ -423,8 +423,34 @@ func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
 }
 
 func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
-	for i := 0; i < len(secgroupIds); i++ {
-		err := self.host.zone.region.AssignSecurityGroup(self.GetId(), secgroupIds[i])
+	currentIds, err := self.GetSecurityGroupIds()
+	if err != nil {
+		return errors.Wrap(err, "GetSecurityGroupIds")
+	}
+
+	adds := []string{}
+	for i := range secgroupIds {
+		if !utils.IsInStringArray(secgroupIds[i], currentIds) {
+			adds = append(adds, secgroupIds[i])
+		}
+	}
+
+	for i := range adds {
+		err := self.host.zone.region.AssignSecurityGroup(self.GetId(), adds[i])
+		if err != nil {
+			return errors.Wrap(err, "Instance.SetSecurityGroups")
+		}
+	}
+
+	removes := []string{}
+	for i := range currentIds {
+		if !utils.IsInStringArray(currentIds[i], secgroupIds) {
+			removes = append(removes, currentIds[i])
+		}
+	}
+
+	for i := range removes {
+		err := self.host.zone.region.UnsignSecurityGroup(self.GetId(), removes[i])
 		if err != nil {
 			return errors.Wrap(err, "Instance.SetSecurityGroups")
 		}
