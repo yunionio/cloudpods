@@ -1974,8 +1974,10 @@ func (self *SGuest) getNetworksDetails() string {
 func (self *SGuest) getDisksDetails() string {
 	var buf bytes.Buffer
 	for _, disk := range self.GetDisks() {
-		buf.WriteString(disk.GetDetailedString())
-		buf.WriteString("\n")
+		if details := disk.GetDetailedString(); len(details) > 0 {
+			buf.WriteString(details)
+			buf.WriteString("\n")
+		}
 	}
 	return buf.String()
 }

@@ -187,7 +187,7 @@ func (self *SGuestdisk) DoSave(driver string, cache string, mountpoint string) e
 func (self *SGuestdisk) GetDisk() *SDisk {
 	disk, err := DiskManager.FetchById(self.DiskId)
 	if err != nil {
-		log.Errorf("GetDisk fail: %s", err)
+		log.Errorf("GetDisk %s fail: %s", self.DiskId, err)
 		return nil
 	}
 	return disk.(*SDisk)
@@ -287,6 +287,10 @@ func (self *SGuestdisk) GetDetailedJson() *jsonutils.JSONDict {
 
 func (self *SGuestdisk) GetDetailedString() string {
 	disk := self.GetDisk()
+	if disk == nil {
+		return ""
+	}
+
 	var fs string
 	if len(disk.GetTemplateId()) > 0 {
 		fs = "root"
