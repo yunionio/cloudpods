@@ -105,3 +105,12 @@ type ClouduserGroupOptions struct {
 func (opts *ClouduserGroupOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(map[string]string{"cloudgroup_id": opts.CLOUDGROUP_ID}), nil
 }
+
+type ClouduserResetPasswordOptions struct {
+	ClouduserIdOption
+	Password string `help:"password"`
+}
+
+func (opts *ClouduserResetPasswordOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(map[string]string{"password": opts.Password}), nil
+}
