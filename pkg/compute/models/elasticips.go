@@ -798,50 +798,19 @@ func (manager *SElasticipManager) getEipByExtEip(ctx context.Context, userCred m
 	return manager.newFromCloudEip(ctx, userCred, extEip, provider, region, syncOwnerId)
 }
 
-func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.SElasticipCreateInput) (*jsonutils.JSONDict, error) {
-	var (
-		region   *SCloudregion
-		provider *SCloudprovider
-		err      error
-	)
-	for _, cloudregion := range []string{input.Cloudregion, input.Region, input.RegionId} {
-		if len(cloudregion) > 0 {
-			input.Cloudregion = cloudregion
-			break
-		}
+func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.SElasticipCreateInput) (api.SElasticipCreateInput, error) {
+	if input.CloudregionId == "" {
+		input.CloudregionId = api.DEFAULT_REGION_ID
 	}
-	if input.Cloudregion == "" {
-		input.Cloudregion = api.DEFAULT_REGION_ID
-	}
-	if obj, err := CloudregionManager.FetchByIdOrName(nil, input.Cloudregion); err != nil {
+	obj, err := CloudregionManager.FetchByIdOrName(nil, input.CloudregionId)
+	if err != nil {
 		if err != sql.ErrNoRows {
-			return nil, httperrors.NewGeneralError(err)
-		} else {
-			return nil, httperrors.NewResourceNotFoundError("Region %s not found", input.Cloudregion)
+			return input, httperrors.NewGeneralError(err)
 		}
-	} else {
-		region = obj.(*SCloudregion)
+		return input, httperrors.NewResourceNotFoundError2("cloudregion", input.CloudregionId)
 	}
+	region := obj.(*SCloudregion)
 	input.CloudregionId = region.GetId()
-
-	for _, cloudprovider := range []string{input.Cloudprovider, input.Manager, input.ManagerId} {
-		if len(cloudprovider) > 0 {
-			input.Cloudprovider = cloudprovider
-			break
-		}
-	}
-	if input.Cloudprovider != "" {
-		providerObj, err := CloudproviderManager.FetchByIdOrName(nil, input.Cloudprovider)
-		if err != nil {
-			if err != sql.ErrNoRows {
-				return nil, httperrors.NewGeneralError(err)
-			} else {
-				return nil, httperrors.NewResourceNotFoundError("Cloud provider %s not found", input.Cloudprovider)
-			}
-		}
-		provider = providerObj.(*SCloudprovider)
-		input.ManagerId = provider.Id
-	}
 
 	// publicIp cannot be created standalone
 	input.Mode = api.EIP_MODE_STANDALONE_EIP
@@ -851,15 +820,30 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 	}
 
 	if !utils.IsInStringArray(input.ChargeType, []string{api.EIP_CHARGE_TYPE_BY_BANDWIDTH, api.EIP_CHARGE_TYPE_BY_TRAFFIC}) {
-		return nil, httperrors.NewInputParameterError("charge type %s not supported", input.ChargeType)
+		return input, httperrors.NewInputParameterError("charge type %s not supported", input.ChargeType)
 	}
 
-	if input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput); err != nil {
-		return nil, err
+	input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
+	if err != nil {
+		return input, err
 	}
 
-	if err = region.GetDriver().ValidateCreateEipData(ctx, userCred, &input); err != nil {
-		return nil, err
+	err = region.GetDriver().ValidateCreateEipData(ctx, userCred, &input)
+	if err != nil {
+		return input, err
+	}
+
+	var provider *SCloudprovider = nil
+	if input.ManagerId != "" {
+		providerObj, err := CloudproviderManager.FetchByIdOrName(nil, input.ManagerId)
+		if err != nil {
+			if err != sql.ErrNoRows {
+				return input, httperrors.NewGeneralError(err)
+			}
+			return input, httperrors.NewResourceNotFoundError2("cloudprovider", input.ManagerId)
+		}
+		provider = providerObj.(*SCloudprovider)
+		input.ManagerId = provider.Id
 	}
 
 	//避免参数重名后还有pending.eip残留
@@ -867,10 +851,10 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 	quotaKeys := fetchRegionalQuotaKeys(rbacutils.ScopeProject, ownerId, region, provider)
 	eipPendingUsage.SetKeys(quotaKeys)
 	if err = quotas.CheckSetPendingQuota(ctx, userCred, eipPendingUsage); err != nil {
-		return nil, err
+		return input, err
 	}
 
-	return input.JSON(input), nil
+	return input, nil
 }
 
 func (eip *SElasticip) GetQuotaKeys() (quotas.IQuotaKeys, error) {
