@@ -24,20 +24,27 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 )
 
-var (
-	metricIdTable     = map[int32]types.PerfCounterInfo{}
-	metricNameTable   = map[string]types.PerfCounterInfo{}
-	metricIdNameTable = map[int32]string{}
+type SPerfMetricInfo struct {
+	metricIdTable     map[int32]types.PerfCounterInfo
+	metricNameTable   map[string]types.PerfCounterInfo
+	metricIdNameTable map[int32]string
 	metricSpecsMap    map[string][]string
-)
+}
 
 func (client *SESXiClient) GetMonitorData(serverOrHost jsonutils.JSONObject,
 	monType string, metricSpecs map[string][]string,
 	since time.Time, until time.Time) (perfEntityMetricList []*types.PerfEntityMetric, IdNameTable map[int32]string, err error) {
-	metricSpecsMap = metricSpecs
+	perMetricInfo := SPerfMetricInfo{
+		metricIdTable:     make(map[int32]types.PerfCounterInfo),
+		metricNameTable:   make(map[string]types.PerfCounterInfo),
+		metricIdNameTable: make(map[int32]string),
+		metricSpecsMap:    make(map[string][]string),
+	}
+	perMetricInfo.metricSpecsMap = metricSpecs
 	managedEntity, err := client.getManagerEntiry(serverOrHost, monType)
 	if err != nil {
 		return nil, IdNameTable, err
@@ -48,7 +55,7 @@ func (client *SESXiClient) GetMonitorData(serverOrHost jsonutils.JSONObject,
 	if err != nil {
 		return nil, IdNameTable, err
 	}
-	loadMap(perfCounters)
+	perMetricInfo = loadMap(perfCounters, perMetricInfo)
 	//log.Errorf("metricIdNameInfo:%v", metricIdNameTable)
 	perfProviderSummary, err := performanceManager.ProviderSummary(client.context, managedEntity.Self)
 	if err != nil {
@@ -57,7 +64,7 @@ func (client *SESXiClient) GetMonitorData(serverOrHost jsonutils.JSONObject,
 	refreshInterval := perfProviderSummary.RefreshRate
 	perfMetricList, err := performanceManager.AvailableMetric(client.context, managedEntity.Self, refreshInterval)
 	//log.Errorf("availableMetric:%v", perfMetricList)
-	pmiList := buildPerfMetricIds(perfMetricList)
+	pmiList := buildPerfMetricIds(perfMetricList, perMetricInfo)
 	//log.Errorf("filteredMetric:%v", pmiList)
 
 	perfQuerySpec := types.PerfQuerySpec{
@@ -78,7 +85,69 @@ func (client *SESXiClient) GetMonitorData(serverOrHost jsonutils.JSONObject,
 			perfEntityMetricList = append(perfEntityMetricList, perfEntityMetric)
 		}
 	}
-	return perfEntityMetricList, metricIdNameTable, nil
+	return perfEntityMetricList, perMetricInfo.metricIdNameTable, nil
+}
+
+func (client *SESXiClient) GetMonitorDataList(serverOrHost []jsonutils.JSONObject,
+	monType string, metrics []string,
+	since time.Time, until time.Time) (map[string]performance.EntityMetric, error) {
+	entityServerorm := make(map[string]string)
+	entityRefs := make([]types.ManagedObjectReference, 0)
+	for i, _ := range serverOrHost {
+		managedEntity, err := client.getManagerEntiry(serverOrHost[i], monType)
+		if err != nil {
+			log.Errorln(errors.Wrap(err, "getManagerEntiry error"))
+			continue
+		}
+		extId, _ := serverOrHost[i].GetString("external_id")
+		entityServerorm[managedEntity.Self.Value] = extId
+		entityRefs = append(entityRefs, managedEntity.Self)
+	}
+
+	performanceManager := performance.NewManager(client.client.Client)
+	counterInfoNameMap, err := performanceManager.CounterInfoByName(client.context)
+	names := make([]string, 0)
+	ids := make(map[int32]string)
+	for _, metric := range metrics {
+		if couterInfo, ok := counterInfoNameMap[metric]; ok {
+			names = append(names, metric)
+			ids[couterInfo.Key] = ""
+		}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	perfProviderSummary, err := performanceManager.ProviderSummary(client.context, entityRefs[0])
+	if err != nil {
+		return nil, err
+	}
+	refreshInterval := perfProviderSummary.RefreshRate
+	perfMetricList, err := performanceManager.AvailableMetric(client.context, entityRefs[0], refreshInterval)
+	pmis := getPerfMetrics(perfMetricList, ids)
+	perfQuerySpec := types.PerfQuerySpec{
+		MaxSample:  int32(5),
+		MetricId:   pmis,
+		Format:     "normal",
+		IntervalId: refreshInterval,
+		StartTime:  &since,
+		EndTime:    &until,
+	}
+	metricEntities, err := performanceManager.SampleByName(client.context, perfQuerySpec, names, entityRefs)
+	if err != nil {
+		return nil, err
+	}
+	result, err := performanceManager.ToMetricSeries(client.context, metricEntities)
+	if err != nil {
+		return nil, err
+	}
+	resultMap := make(map[string]performance.EntityMetric)
+	for i, res := range result {
+		if extId, ok := entityServerorm[res.Entity.Value]; ok {
+			resultMap[extId] = result[i]
+		}
+	}
+	return resultMap, nil
 }
 
 func (cli *SESXiClient) getVirtualMachines() ([]mo.VirtualMachine, error) {
@@ -144,10 +213,11 @@ func (cli *SESXiClient) getManagerEntityofHost(host jsonutils.JSONObject) (*mo.M
 }
 
 //根据perfCounterInfos装载metricIdTable、metricNameTable、metricIdNameTable
-func loadMap(perfCounterInfos []types.PerfCounterInfo) {
+func loadMap(perfCounterInfos []types.PerfCounterInfo, perfMetricInfo SPerfMetricInfo) SPerfMetricInfo {
+
 	for _, perfCounterInfo := range perfCounterInfos {
 		metricId := perfCounterInfo.Key
-		metricIdTable[metricId] = perfCounterInfo
+		perfMetricInfo.metricIdTable[metricId] = perfCounterInfo
 		if perfCounterInfo.GroupInfo.GetElementDescription() != nil && perfCounterInfo.GroupInfo.
 			GetElementDescription().Key != "" {
 			var builder strings.Builder
@@ -159,22 +229,32 @@ func loadMap(perfCounterInfos []types.PerfCounterInfo) {
 			}
 			if len(perfCounterInfo.AssociatedCounterId) == 0 && perfCounterInfo.RollupType == types.
 				PerfSummaryTypeAverage {
-				metricNameTable[builder.String()] = perfCounterInfo
-				metricIdNameTable[metricId] = builder.String()
+				perfMetricInfo.metricNameTable[builder.String()] = perfCounterInfo
+				perfMetricInfo.metricIdNameTable[metricId] = builder.String()
 			}
 		}
 	}
+	return perfMetricInfo
 }
 
 //根据传入的metricSpecsMap的进行过滤，只取相关的指标metricName
-func buildPerfMetricIds(pmis []types.PerfMetricId) (pmiList []types.PerfMetricId) {
+func buildPerfMetricIds(pmis []types.PerfMetricId, perfMetricInfo SPerfMetricInfo) (pmiList []types.PerfMetricId) {
 	for i, perfMetricId := range pmis {
 		metricId := perfMetricId.CounterId
-		if metricName, ok := metricIdNameTable[metricId]; ok && metricName != "" {
-			if _, ok := metricSpecsMap[metricName]; ok {
+		if metricName, ok := perfMetricInfo.metricIdNameTable[metricId]; ok && metricName != "" {
+			if _, ok := perfMetricInfo.metricSpecsMap[metricName]; ok {
 				pmiList = append(pmiList, pmis[i])
 			}
 		}
 	}
 	return pmiList
+}
+
+func getPerfMetrics(pmis []types.PerfMetricId, ids map[int32]string) (pmiList []types.PerfMetricId) {
+	for i, pmi := range pmis {
+		if _, ok := ids[pmi.CounterId]; ok {
+			pmiList = append(pmiList, pmis[i])
+		}
+	}
+	return
 }
