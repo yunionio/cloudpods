@@ -52,6 +52,7 @@ type ServerListOptions struct {
 	WithoutUserMeta    *bool  `help:"Show Servers without user metadata"`
 	Group              string `help:"Instance Group ID or Name"`
 	HostSn             string `help:"Host SN"`
+	IpAddr             string `help:"Fileter by ip"`
 
 	OrderByDisk    string `help:"Order by disk size" choices:"asc|desc"`
 	OrderByHost    string `help:"Order by host name" choices:"asc|desc"`

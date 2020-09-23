@@ -355,6 +355,17 @@ func (manager *SGuestManager) ListItemFilter(
 		q = q.In("host_id", sq)
 	}
 
+	if len(query.IpAddr) > 0 {
+		gn := GuestnetworkManager.Query("guest_id").Contains("ip_addr", query.IpAddr).SubQuery()
+		guestEip := ElasticipManager.Query("associate_id").Equals("associate_type", api.EIP_ASSOCIATE_TYPE_SERVER).Contains("ip_addr", query.IpAddr).SubQuery()
+		q = q.LeftJoin(gn, sqlchemy.Equals(q.Field("id"), gn.Field("guest_id")))
+		q = q.LeftJoin(guestEip, sqlchemy.Equals(q.Field("id"), guestEip.Field("associate_id")))
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.IsNotNull(gn.Field("guest_id")),
+			sqlchemy.IsNotNull(guestEip.Field("associate_id")),
+		))
+	}
+
 	diskFilter := query.AttachableServersForDisk
 	if len(diskFilter) > 0 {
 		diskI, _ := DiskManager.FetchByIdOrName(userCred, diskFilter)
