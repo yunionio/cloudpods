@@ -7,7 +7,7 @@ COPY . /root/go/src/yunion.io/x/onecloud
 WORKDIR /root/go/src/yunion.io/x/onecloud
 RUN make cmd/esxi-agent
 
-FROM FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v0.2
+FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v0.2
 
 MAINTAINER "Yaoqi Wan wanyaoqi@yunionyun.com"
 
