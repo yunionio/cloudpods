@@ -159,17 +159,18 @@ func (self *SNetwork) ValidateDeleteCondition(ctx context.Context) error {
 	if err != nil {
 		return httperrors.NewInternalServerError("GetAllocatedNicCount fail %s", err)
 	}
-	if cnt > 0 {
-		return httperrors.NewNotEmptyError("not an empty network")
+	if cnt.Total > 0 {
+		return httperrors.NewNotEmptyError("not an empty network %s", jsonutils.Marshal(cnt).String())
 	}
 	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx)
 }
 
 func (self *SNetwork) GetTotalNicCount() (int, error) {
-	total, err := self.GetAllocatedNicCount()
+	count, err := self.GetAllocatedNicCount()
 	if err != nil {
 		return -1, err
 	}
+	total := count.Total
 	cnt, err := self.GetReservedNicsCount()
 	if err != nil {
 		return -1, err
@@ -183,39 +184,50 @@ func (self *SNetwork) GetTotalNicCount() (int, error) {
 	return total, nil
 }
 
-func (self *SNetwork) GetAllocatedNicCount() (int, error) {
-	total := 0
-	cnt, err := self.GetGuestnicsCount()
+type sNicCount struct {
+	GuestNicCount        int
+	GroupNicCount        int
+	BaremetalNicCount    int
+	LoadbalancerNicCount int
+	DBInstanceNicCount   int
+	EipNicCount          int
+	Total                int
+}
+
+func (self *SNetwork) GetAllocatedNicCount() (*sNicCount, error) {
+	cnt := &sNicCount{Total: 0}
+	var err error
+	cnt.GuestNicCount, err = self.GetGuestnicsCount()
 	if err != nil {
-		return -1, err
+		return nil, errors.Wrapf(err, "GetGuestnicsCount")
 	}
-	total += cnt
-	cnt, err = self.GetGroupNicsCount()
+	cnt.Total += cnt.GuestNicCount
+	cnt.GroupNicCount, err = self.GetGroupNicsCount()
 	if err != nil {
-		return -1, err
+		return nil, errors.Wrapf(err, "GetGroupNicsCount")
 	}
-	total += cnt
-	cnt, err = self.GetBaremetalNicsCount()
+	cnt.Total += cnt.GroupNicCount
+	cnt.BaremetalNicCount, err = self.GetBaremetalNicsCount()
 	if err != nil {
-		return -1, err
+		return nil, errors.Wrapf(err, "GetBaremetalNicsCount")
 	}
-	total += cnt
-	cnt, err = self.GetLoadbalancerIpsCount()
+	cnt.Total += cnt.BaremetalNicCount
+	cnt.LoadbalancerNicCount, err = self.GetLoadbalancerIpsCount()
 	if err != nil {
-		return -1, err
+		return nil, errors.Wrapf(err, "GetLoadbalancerIpsCount")
 	}
-	total += cnt
-	cnt, err = self.GetDBInstanceIpsCount()
+	cnt.Total += cnt.LoadbalancerNicCount
+	cnt.DBInstanceNicCount, err = self.GetDBInstanceIpsCount()
 	if err != nil {
-		return -1, err
+		return nil, errors.Wrapf(err, "GetDBInstanceIpsCount")
 	}
-	total += cnt
-	cnt, err = self.GetEipsCount()
+	cnt.Total += cnt.DBInstanceNicCount
+	cnt.EipNicCount, err = self.GetEipsCount()
 	if err != nil {
-		return -1, err
+		return nil, errors.Wrapf(err, "GetEipsCount")
 	}
-	total += cnt
-	return total, nil
+	cnt.Total += cnt.EipNicCount
+	return cnt, nil
 }
 
 /*验证elb network可用，并返回关联的region, zone,vpc, wire*/
@@ -296,6 +308,16 @@ func (self *SNetwork) GetReservedNicsCount() (int, error) {
 
 func (self *SNetwork) GetLoadbalancerIpsCount() (int, error) {
 	return LoadbalancernetworkManager.Query().Equals("network_id", self.Id).CountWithError()
+}
+
+func (self *SNetwork) GetDBInstanceNetworks() ([]SDBInstanceNetwork, error) {
+	q := DBInstanceNetworkManager.Query().Equals("network_id", self.Id)
+	networks := []SDBInstanceNetwork{}
+	err := db.FetchModelObjects(DBInstanceNetworkManager, q, &networks)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return networks, nil
 }
 
 func (self *SNetwork) GetDBInstanceIpsCount() (int, error) {
