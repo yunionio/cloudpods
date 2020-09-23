@@ -81,6 +81,10 @@ func (self *SStorage) GetCapacityMB() int64 {
 	return 0 // unlimited
 }
 
+func (self *SStorage) GetCapacityUsedMB() int64 {
+	return 0
+}
+
 func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
 	disk, err := self.zone.region.CreateDisk(self.storageType, conf.Name, int32(conf.SizeGb), conf.Desc, "", conf.ProjectId)
 	if err != nil {
