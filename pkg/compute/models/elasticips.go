@@ -29,6 +29,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -1252,8 +1253,9 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 		hostq := HostManager.Query().SubQuery()
 		wireq := WireManager.Query().SubQuery()
 		hostwireq := HostwireManager.Query().SubQuery()
+		scope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), NetworkManager.KeywordPlural(), policy.PolicyActionList)
 		q := NetworkManager.Query()
-		q = NetworkManager.FilterByOwner(q, userCred, NetworkManager.NamespaceScope())
+		q = NetworkManager.FilterByOwner(q, userCred, scope)
 		q = q.Join(wireq, sqlchemy.Equals(wireq.Field("id"), q.Field("wire_id")))
 		q = q.Join(hostwireq, sqlchemy.Equals(hostwireq.Field("wire_id"), wireq.Field("id")))
 		q = q.Join(hostq, sqlchemy.Equals(hostq.Field("id"), host.Id))
