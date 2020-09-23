@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
@@ -79,6 +80,24 @@ func (self *SDBInstanceNetwork) Detach(ctx context.Context, userCred mcclient.To
 
 func (self *SDBInstanceNetwork) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return false
+}
+
+// RDS网络列表
+func (manager *SDBInstanceNetworkManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DBInstanceNetworkListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SVirtualJointResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualJointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualJointResourceBase.ListItemFilter")
+	}
+	q, err = manager.SDBInstanceResourceBaseManager.ListItemFilter(ctx, q, userCred, query.DBInstanceFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDBInstanceResourceBaseManager.ListItemFilter")
+	}
+	return q, nil
 }
 
 func (self *SDBInstanceNetwork) GetNetwork() (*SNetwork, error) {
@@ -227,5 +246,25 @@ func (manager *SDBInstanceNetworkManager) newFromCloudDBNetwork(ctx context.Cont
 	if err != nil {
 		return errors.Wrapf(err, "newFromCloudDBNetwork.Insert")
 	}
+	return nil
+}
+
+func (manager *SDBInstanceNetworkManager) InitializeData() error {
+	sq := DBInstanceManager.Query("id")
+	q := manager.Query().NotIn("dbinstance_id", sq.SubQuery())
+	networks := []SDBInstanceNetwork{}
+	err := db.FetchModelObjects(manager, q, &networks)
+	if err != nil {
+		return errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	for i := range networks {
+		_, err := db.Update(&networks[i], func() error {
+			return networks[i].MarkDelete()
+		})
+		if err != nil {
+			return errors.Wrapf(err, "db.Update.MarkDelete")
+		}
+	}
+	log.Debugf("SDBInstanceNetworkManager cleaned %d dirty data.", len(networks))
 	return nil
 }
