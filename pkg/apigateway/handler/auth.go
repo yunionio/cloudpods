@@ -258,6 +258,15 @@ func fetchUserInfoFromToken(ctx context.Context, req *http.Request, token mcclie
 	return info, nil
 }
 
+func FetchProjectMetadata(ctx context.Context, req *http.Request, pid string) (jsonutils.JSONObject, error) {
+	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
+	meta, err := modules.Projects.GetSpecific(s, pid, "metadata", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetProjectMetadata")
+	}
+	return meta, nil
+}
+
 func isUserEnableTotp(userInfo jsonutils.JSONObject) bool {
 	return jsonutils.QueryBoolean(userInfo, "enable_mfa", false)
 }
@@ -778,6 +787,14 @@ func getUserInfo(ctx context.Context, req *http.Request) (*jsonutils.JSONDict, e
 	data.Add(jsonutils.NewString(token.GetProjectId()), "projectId")
 	data.Add(jsonutils.NewString(token.GetProjectDomain()), "projectDomain")
 	data.Add(jsonutils.NewString(token.GetProjectDomainId()), "projectDomainId")
+
+	pmeta, err := FetchProjectMetadata(ctx, req, token.GetProjectId())
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchProjectMetadata")
+	}
+	if pmeta != nil {
+		data.Add(pmeta, "project_meta")
+	}
 
 	log.Infof("getUserInfo modules.RoleAssignments.List")
 	query := jsonutils.NewDict()
