@@ -40,8 +40,8 @@ func (self *DnsZoneCacheCreateTask) taskFailed(ctx context.Context, cache *model
 	cache.SetStatus(self.GetUserCred(), api.DNS_ZONE_CACHE_STATUS_CREATE_FAILED, err.Error())
 	db.OpsLog.LogEvent(cache, db.ACT_CREATE, cache.GetShortDesc(ctx), self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, cache, logclient.ACT_CREATE, err, self.UserCred, false)
-	dnsZone, err := cache.GetDnsZone()
-	if err == nil {
+	dnsZone, err2 := cache.GetDnsZone()
+	if err2 == nil {
 		dnsZone.SetStatus(self.GetUserCred(), api.DNS_ZONE_CACHE_STATUS_CREATE_FAILED, "")
 		logclient.AddActionLogWithContext(ctx, dnsZone, logclient.ACT_CREATE, err, self.UserCred, false)
 	}
