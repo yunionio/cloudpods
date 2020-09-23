@@ -32,6 +32,7 @@ func init() {
 	cmd.Perform("attach-policy", &options.ClouduserPolicyOptions{})
 	cmd.Perform("detach-policy", &options.ClouduserPolicyOptions{})
 	cmd.Perform("change-owner", &options.ClouduserChangeOwnerOptions{})
+	cmd.Perform("reset-password", &options.ClouduserResetPasswordOptions{})
 	cmd.Perform("cloud-user-join-group", &options.ClouduserGroupOptions{})
 	cmd.Perform("cloud-user-leave-group", &options.ClouduserGroupOptions{})
 }
