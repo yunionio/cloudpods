@@ -55,6 +55,10 @@ type SScalingGroupGuest struct {
 	Manual         tristate.TriState `nullable:"false" default:"false"`
 }
 
+func (sggm *SScalingGroupGuestManager) GetSlaveFieldName() string {
+	return "scaling_group_id"
+}
+
 func (sggm *SScalingGroupGuestManager) Attach(ctx context.Context, scaligGroupId, guestId string, manual bool) error {
 	sgg := &SScalingGroupGuest{
 		SGuestJointsBase: SGuestJointsBase{
