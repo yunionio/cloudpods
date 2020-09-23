@@ -39,6 +39,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
 	"yunion.io/x/onecloud/pkg/monitor/options"
 	"yunion.io/x/onecloud/pkg/monitor/registry"
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
@@ -214,7 +215,7 @@ func (self *SDataSourceManager) getMeasurementQueryInfluxdb(query jsonutils.JSON
 	measurementFilter, tagFilter string) (rtnMeasurements []monitor.InfluxMeasurement, err error) {
 	database, _ := query.GetString("database")
 	if database == "" {
-		return rtnMeasurements, httperrors.NewInputParameterError("not find database")
+		return rtnMeasurements, merrors.NewArgIsEmptyErr("database")
 	}
 	dataSource, err := self.GetDefaultSource()
 	if err != nil {
@@ -537,19 +538,19 @@ func (self *SDataSourceManager) renderTimeFilter(from, to string) string {
 func (self *SDataSourceManager) GetMetricMeasurement(query jsonutils.JSONObject, tagFilter string) (jsonutils.JSONObject, error) {
 	database, _ := query.GetString("database")
 	if database == "" {
-		return jsonutils.JSONNull, httperrors.NewInputParameterError("not find database")
+		return jsonutils.JSONNull, merrors.NewArgIsEmptyErr("database")
 	}
 	measurement, _ := query.GetString("measurement")
 	if measurement == "" {
-		return jsonutils.JSONNull, httperrors.NewInputParameterError("not find measurement")
+		return jsonutils.JSONNull, merrors.NewArgIsEmptyErr("measurement")
 	}
 	field, _ := query.GetString("field")
 	if field == "" {
-		return jsonutils.JSONNull, httperrors.NewInputParameterError("not find field")
+		return jsonutils.JSONNull, merrors.NewArgIsEmptyErr("field")
 	}
 	from, _ := query.GetString("from")
 	if len(from) == 0 {
-		return jsonutils.JSONNull, httperrors.NewInputParameterError("not find from")
+		return jsonutils.JSONNull, merrors.NewArgIsEmptyErr("from")
 	}
 	dataSource, err := self.GetDefaultSource()
 	if err != nil {

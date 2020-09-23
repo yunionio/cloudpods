@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
 	"yunion.io/x/onecloud/pkg/monitor/notifydrivers"
 )
 
@@ -126,7 +127,7 @@ func (man *SNotificationManager) GetNotificationsWithDefault(ids []string) ([]SN
 
 func (man *SNotificationManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, _ jsonutils.JSONObject, input monitor.NotificationCreateInput) (monitor.NotificationCreateInput, error) {
 	if input.Type == "" {
-		return input, httperrors.NewInputParameterError("notification type is empty")
+		return input, merrors.NewArgIsEmptyErr("type")
 	}
 	if input.SendReminder == nil {
 		sendReminder := true
