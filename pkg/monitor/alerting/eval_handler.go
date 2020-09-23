@@ -71,6 +71,7 @@ func (e *DefaultEvalHandler) Eval(context *EvalContext) {
 		}
 
 		context.EvalMatches = append(context.EvalMatches, cr.EvalMatches...)
+		context.AlertOkEvalMatches = append(context.AlertOkEvalMatches, cr.AlertOkEvalMatches...)
 	}
 
 	context.ConditionEvals = conditionEvals + " = " + strconv.FormatBool(firing)

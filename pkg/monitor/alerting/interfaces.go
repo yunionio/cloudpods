@@ -36,10 +36,11 @@ type scheduler interface {
 
 // ConditionResult is the result of a condition evaluation.
 type ConditionResult struct {
-	Firing      bool
-	NoDataFound bool
-	Operator    string
-	EvalMatches []*monitor.EvalMatch
+	Firing             bool
+	NoDataFound        bool
+	Operator           string
+	EvalMatches        []*monitor.EvalMatch
+	AlertOkEvalMatches []*monitor.EvalMatch
 }
 
 // Condition is responsible for evaluating an alert condition.

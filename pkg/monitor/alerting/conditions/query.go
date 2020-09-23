@@ -123,6 +123,7 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 	emptySeriesCount := 0
 	evalMatchCount := 0
 	var matches []*monitor.EvalMatch
+	var alertOkmatches []*monitor.EvalMatch
 
 	for _, series := range seriesList {
 		reducedValue := c.Reducer.Reduce(series)
@@ -146,12 +147,20 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 			//the relation metas with series is 1 to more
 			meta = &metas[0]
 		}
-
-		match, err := c.NewEvalMatch(context, *series, meta, reducedValue)
-		if err != nil {
-			return nil, errors.Wrap(err, "NewEvalMatch error")
+		if evalMatch {
+			match, err := c.NewEvalMatch(context, *series, meta, reducedValue)
+			if err != nil {
+				return nil, errors.Wrap(err, "NewEvalMatch error")
+			}
+			matches = append(matches, match)
 		}
-		matches = append(matches, match)
+		if reducedValue != nil && !evalMatch {
+			match, err := c.NewEvalMatch(context, *series, meta, reducedValue)
+			if err != nil {
+				return nil, errors.Wrap(err, "NewEvalMatch error")
+			}
+			alertOkmatches = append(alertOkmatches, match)
+		}
 	}
 
 	// handle no series special case
@@ -175,10 +184,11 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 	}
 
 	return &alerting.ConditionResult{
-		Firing:      evalMatchCount > 0,
-		NoDataFound: emptySeriesCount == len(seriesList),
-		Operator:    c.Operator,
-		EvalMatches: matches,
+		Firing:             evalMatchCount > 0,
+		NoDataFound:        emptySeriesCount == len(seriesList),
+		Operator:           c.Operator,
+		EvalMatches:        matches,
+		AlertOkEvalMatches: alertOkmatches,
 	}, nil
 }
 
