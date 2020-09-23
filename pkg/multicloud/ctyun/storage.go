@@ -114,6 +114,10 @@ func (self *SStorage) GetCapacityMB() int64 {
 	return 0
 }
 
+func (self *SStorage) GetCapacityUsedMB() int64 {
+	return 0
+}
+
 func (self *SStorage) GetStorageConf() jsonutils.JSONObject {
 	return jsonutils.NewDict()
 }

@@ -202,6 +202,7 @@ type ICloudStorage interface {
 	GetStorageType() string
 	GetMediumType() string
 	GetCapacityMB() int64 // MB
+	GetCapacityUsedMB() int64
 	GetStorageConf() jsonutils.JSONObject
 	GetEnabled() bool
 

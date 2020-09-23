@@ -77,6 +77,10 @@ func (self *SClassicStorage) GetCapacityMB() int64 {
 	return 0 // unlimited
 }
 
+func (self *SClassicStorage) GetCapacityUsedMB() int64 {
+	return 0
+}
+
 func (self *SClassicStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }

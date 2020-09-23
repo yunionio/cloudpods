@@ -161,6 +161,10 @@ func (storage *SLocalStorage) GetCapacityMB() int64 {
 	return storage.TotalCapacity / 1024 / 1024
 }
 
+func (storage *SLocalStorage) GetCapacityUsedMB() int64 {
+	return 0
+}
+
 func (storage *SLocalStorage) GetStorageConf() jsonutils.JSONObject {
 	conf := jsonutils.NewDict()
 	return conf
