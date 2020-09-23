@@ -1351,17 +1351,7 @@ func (manager *SDBInstanceManager) SyncDBInstances(ctx context.Context, userCred
 }
 
 func (self *SDBInstance) syncRemoveCloudDBInstance(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, self)
-	defer lockman.ReleaseObject(ctx, self)
-
-	self.SetDisableDelete(userCred, false)
-
-	err := self.ValidateDeleteCondition(ctx)
-	if err != nil { // cannot delete
-		self.SetStatus(userCred, api.VPC_STATUS_UNKNOWN, "sync to delete")
-		return errors.Wrap(err, "ValidateDeleteCondition")
-	}
-	return self.RealDelete(ctx, userCred)
+	return self.Purge(ctx, userCred)
 }
 
 func (self *SDBInstance) ValidateDeleteCondition(ctx context.Context) error {
