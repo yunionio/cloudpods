@@ -74,7 +74,7 @@ type SStorage struct {
 	Capacity int64 `nullable:"false" list:"domain" update:"domain" create:"domain_required"`
 	// 实际容量大小，单位Mb
 	// we always expect actual capacity great or equal than zero, otherwise something wrong
-	ActualCapacity int64 `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
+	ActualCapacityUsed int64 `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 	// 预留容量大小
 	Reserved int64 `nullable:"true" default:"0" list:"domain" update:"domain"`
 	// 存储类型
@@ -412,7 +412,7 @@ func (self *SStorage) getStorageCapacity() SStorageCapacity {
 	capa.Used = self.GetUsedCapacity(tristate.True)
 	capa.Wasted = self.GetUsedCapacity(tristate.False)
 	capa.VCapacity = int64(float32(self.GetCapacity()) * self.GetOvercommitBound())
-	capa.ActualUsed = self.ActualCapacity
+	capa.ActualUsed = self.ActualCapacityUsed
 
 	return capa
 }
