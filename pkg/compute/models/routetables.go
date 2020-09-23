@@ -373,8 +373,8 @@ func (manager *SRouteTableManager) FetchCustomizeColumns(
 }
 
 func (man *SRouteTableManager) SyncRouteTables(ctx context.Context, userCred mcclient.TokenCredential, vpc *SVpc, cloudRouteTables []cloudprovider.ICloudRouteTable, provider *SCloudprovider) ([]SRouteTable, []cloudprovider.ICloudRouteTable, compare.SyncResult) {
-	lockman.LockClass(ctx, man, db.GetLockClassKey(man, userCred))
-	defer lockman.ReleaseClass(ctx, man, db.GetLockClassKey(man, userCred))
+	lockman.LockRawObject(ctx, "route-tables", vpc.Id)
+	defer lockman.ReleaseRawObject(ctx, "route-tables", vpc.Id)
 
 	localRouteTables := make([]SRouteTable, 0)
 	remoteRouteTables := make([]cloudprovider.ICloudRouteTable, 0)
@@ -429,7 +429,7 @@ func (man *SRouteTableManager) SyncRouteTables(ctx context.Context, userCred mcc
 	return localRouteTables, remoteRouteTables, syncResult
 }
 
-func (man *SRouteTableManager) newRouteTableFromCloud(userCred mcclient.TokenCredential, vpc *SVpc, cloudRouteTable cloudprovider.ICloudRouteTable) (*SRouteTable, error) {
+func (man *SRouteTableManager) newRouteTableFromCloud(ctx context.Context, userCred mcclient.TokenCredential, vpc *SVpc, cloudRouteTable cloudprovider.ICloudRouteTable) (*SRouteTable, error) {
 	routes := api.SRoutes{}
 	{
 		cloudRoutes, err := cloudRouteTable.GetIRoutes()
@@ -453,7 +453,7 @@ func (man *SRouteTableManager) newRouteTableFromCloud(userCred mcclient.TokenCre
 	routeTable.VpcId = vpc.Id
 	{
 		basename := routeTableBasename(cloudRouteTable.GetName(), vpc.Name)
-		newName, err := db.GenerateName(man, userCred, basename)
+		newName, err := db.GenerateName(ctx, man, userCred, basename)
 		if err != nil {
 			return nil, err
 		}
@@ -480,11 +480,20 @@ func routeTableBasename(name, vpcName string) string {
 }
 
 func (man *SRouteTableManager) insertFromCloud(ctx context.Context, userCred mcclient.TokenCredential, vpc *SVpc, cloudRouteTable cloudprovider.ICloudRouteTable, provider *SCloudprovider) (*SRouteTable, error) {
-	routeTable, err := man.newRouteTableFromCloud(userCred, vpc, cloudRouteTable)
+	var routeTable *SRouteTable
+	var err error
+	err = func() error {
+		lockman.LockRawObject(ctx, man.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, man.Keyword(), "name")
+
+		routeTable, err = man.newRouteTableFromCloud(ctx, userCred, vpc, cloudRouteTable)
+		if err != nil {
+			return err
+		}
+
+		return man.TableSpec().Insert(ctx, routeTable)
+	}()
 	if err != nil {
-		return nil, err
-	}
-	if err := man.TableSpec().Insert(ctx, routeTable); err != nil {
 		return nil, err
 	}
 	if provider != nil {
@@ -510,7 +519,7 @@ func (self *SRouteTable) syncRemoveCloudRouteTable(ctx context.Context, userCred
 
 func (self *SRouteTable) SyncWithCloudRouteTable(ctx context.Context, userCred mcclient.TokenCredential, vpc *SVpc, cloudRouteTable cloudprovider.ICloudRouteTable, provider *SCloudprovider) error {
 	man := self.GetModelManager().(*SRouteTableManager)
-	routeTable, err := man.newRouteTableFromCloud(userCred, vpc, cloudRouteTable)
+	routeTable, err := man.newRouteTableFromCloud(ctx, userCred, vpc, cloudRouteTable)
 	if err != nil {
 		return err
 	}

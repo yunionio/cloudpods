@@ -79,8 +79,8 @@ type SElasticcacheParameter struct {
 }
 
 func (manager *SElasticcacheParameterManager) SyncElasticcacheParameters(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticcache, cloudElasticcacheParameters []cloudprovider.ICloudElasticcacheParameter) compare.SyncResult {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, elasticcache.GetOwnerId()))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, elasticcache.GetOwnerId()))
+	lockman.LockRawObject(ctx, "elastic-cache-parameters", elasticcache.Id)
+	defer lockman.ReleaseRawObject(ctx, "elastic-cache-parameters", elasticcache.Id)
 
 	syncResult := compare.SyncResult{}
 

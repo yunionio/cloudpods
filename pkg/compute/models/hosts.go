@@ -1645,8 +1645,8 @@ func (manager *SHostManager) getHostsByZoneProvider(zone *SZone, provider *SClou
 }
 
 func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, hosts []cloudprovider.ICloudHost) ([]SHost, []cloudprovider.ICloudHost, compare.SyncResult) {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	lockman.LockRawObject(ctx, "hosts", fmt.Sprintf("%s-%s", zone.Id, provider.Id))
+	defer lockman.ReleaseRawObject(ctx, "hosts", fmt.Sprintf("%s-%s", zone.Id, provider.Id))
 
 	localHosts := make([]SHost, 0)
 	remoteHosts := make([]cloudprovider.ICloudHost, 0)
@@ -1963,11 +1963,6 @@ func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mccl
 		izone = wire.GetZone()
 	}
 
-	newName, err := db.GenerateName(manager, userCred, extHost.GetName())
-	if err != nil {
-		return nil, fmt.Errorf("generate name fail %s", err)
-	}
-	host.Name = newName
 	host.ExternalId = extHost.GetGlobalId()
 	host.ZoneId = izone.Id
 
@@ -2010,10 +2005,20 @@ func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mccl
 	host.IsPublic = false
 	host.PublicScope = string(rbacutils.ScopeNone)
 
-	err = manager.TableSpec().Insert(ctx, &host)
+	var err = func() error {
+		lockman.LockRawObject(ctx, manager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+
+		newName, err := db.GenerateName(ctx, manager, userCred, extHost.GetName())
+		if err != nil {
+			return errors.Wrapf(err, "db.GenerateName")
+		}
+		host.Name = newName
+
+		return manager.TableSpec().Insert(ctx, &host)
+	}()
 	if err != nil {
-		log.Errorf("newFromCloudHost fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "Insert")
 	}
 
 	db.OpsLog.LogEvent(&host, db.ACT_CREATE, host.GetShortDesc(ctx), userCred)
@@ -2037,8 +2042,8 @@ func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mccl
 }
 
 func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.TokenCredential, storages []cloudprovider.ICloudStorage, provider *SCloudprovider) ([]SStorage, []cloudprovider.ICloudStorage, compare.SyncResult) {
-	lockman.LockClass(ctx, StorageManager, db.GetLockClassKey(StorageManager, userCred))
-	defer lockman.ReleaseClass(ctx, StorageManager, db.GetLockClassKey(StorageManager, userCred))
+	lockman.LockRawObject(ctx, "storages", self.Id)
+	defer lockman.ReleaseRawObject(ctx, "storages", self.Id)
 
 	localStorages := make([]SStorage, 0)
 	remoteStorages := make([]cloudprovider.ICloudStorage, 0)
@@ -2170,12 +2175,10 @@ func (self *SHost) newCloudHostStorage(ctx context.Context, userCred mcclient.To
 			// create the storage right now
 			storageObj, err = StorageManager.newFromCloudStorage(ctx, userCred, extStorage, provider, self.GetZone())
 			if err != nil {
-				log.Errorf("create by cloud storage fail %s", err)
-				return nil, err
+				return nil, errors.Wrapf(err, "StorageManager.newFromCloudStorage")
 			}
 		} else {
-			log.Errorf("%s", err)
-			return nil, err
+			return nil, errors.Wrapf(err, "FetchByExternalIdAndManagerId(%s)", extStorage.GetGlobalId())
 		}
 	}
 	storage := storageObj.(*SStorage)
@@ -2184,8 +2187,8 @@ func (self *SHost) newCloudHostStorage(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SHost) SyncHostWires(ctx context.Context, userCred mcclient.TokenCredential, wires []cloudprovider.ICloudWire) compare.SyncResult {
-	lockman.LockObject(ctx, self)
-	defer lockman.ReleaseObject(ctx, self)
+	lockman.LockRawObject(ctx, "wires", self.Id)
+	defer lockman.ReleaseRawObject(ctx, "wires", self.Id)
 
 	syncResult := compare.SyncResult{}
 
@@ -2298,8 +2301,8 @@ type SGuestSyncResult struct {
 }
 
 func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, iprovider cloudprovider.ICloudProvider, vms []cloudprovider.ICloudVM, syncOwnerId mcclient.IIdentityProvider) ([]SGuestSyncResult, compare.SyncResult) {
-	lockman.LockClass(ctx, GuestManager, db.GetLockClassKey(GuestManager, syncOwnerId))
-	defer lockman.ReleaseClass(ctx, GuestManager, db.GetLockClassKey(GuestManager, syncOwnerId))
+	lockman.LockRawObject(ctx, "guests", self.Id)
+	defer lockman.ReleaseRawObject(ctx, "guests", self.Id)
 
 	syncVMPairs := make([]SGuestSyncResult, 0)
 	syncResult := compare.SyncResult{}

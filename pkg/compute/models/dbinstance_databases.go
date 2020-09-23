@@ -370,8 +370,8 @@ func (self *SDBInstanceDatabase) getMoreDetails(ctx context.Context, userCred mc
 }
 
 func (manager *SDBInstanceDatabaseManager) SyncDBInstanceDatabases(ctx context.Context, userCred mcclient.TokenCredential, instance *SDBInstance, cloudDatabases []cloudprovider.ICloudDBInstanceDatabase) compare.SyncResult {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, instance.GetOwnerId()))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, instance.GetOwnerId()))
+	lockman.LockRawObject(ctx, "dbinstance-databases", instance.Id)
+	defer lockman.ReleaseRawObject(ctx, "dbinstance-databases", instance.Id)
 
 	result := compare.SyncResult{}
 	dbDatabases, err := instance.GetDBInstanceDatabases()

@@ -19,6 +19,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -157,7 +158,7 @@ func (man *SCommonAlertManager) ValidateCreateData(
 		return data, errors.Wrap(err, "metric query error")
 	}
 
-	name, err := man.genName(ownerId, data.Name)
+	name, err := man.genName(ctx, ownerId, data.Name)
 	if err != nil {
 		return data, err
 	}
@@ -173,9 +174,12 @@ func (man *SCommonAlertManager) ValidateCreateData(
 
 }
 
-func (man *SCommonAlertManager) genName(ownerId mcclient.IIdentityProvider, name string) (string,
+func (man *SCommonAlertManager) genName(ctx context.Context, ownerId mcclient.IIdentityProvider, name string) (string,
 	error) {
-	name, err := db.GenerateName(man, ownerId, name)
+	lockman.LockRawObject(ctx, man.Keyword(), "name")
+	defer lockman.ReleaseRawObject(ctx, man.Keyword(), "name")
+
+	name, err := db.GenerateName(ctx, man, ownerId, name)
 	if err != nil {
 		return "", err
 	}
@@ -793,7 +797,7 @@ func (alert *SCommonAlert) ValidateUpdateData(
 ) (*jsonutils.JSONDict, error) {
 	generateName, _ := data.GetString("generate_name")
 	if len(generateName) != 0 && alert.Name != generateName {
-		name, err := db.GenerateName(CommonAlertManager, userCred, generateName)
+		name, err := db.GenerateName(ctx, CommonAlertManager, userCred, generateName)
 		if err != nil {
 			return data, err
 		}

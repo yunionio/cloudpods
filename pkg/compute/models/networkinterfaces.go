@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -223,8 +224,8 @@ func (manager *SNetworkInterfaceManager) getNetworkInterfacesByProviderId(provid
 }
 
 func (manager *SNetworkInterfaceManager) SyncNetworkInterfaces(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, exts []cloudprovider.ICloudNetworkInterface) ([]SNetworkInterface, []cloudprovider.ICloudNetworkInterface, compare.SyncResult) {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, provider.GetOwnerId()))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, provider.GetOwnerId()))
+	lockman.LockRawObject(ctx, "network-interfaces", fmt.Sprintf("%s-%s", provider.Id, region.Id))
+	defer lockman.ReleaseRawObject(ctx, "network-interfaces", fmt.Sprintf("%s-%s", provider.Id, region.Id))
 
 	localResources := make([]SNetworkInterface, 0)
 	remoteResources := make([]cloudprovider.ICloudNetworkInterface, 0)
@@ -342,12 +343,6 @@ func (manager *SNetworkInterfaceManager) newFromCloudNetworkInterface(ctx contex
 	networkinterface := SNetworkInterface{}
 	networkinterface.SetModelManager(manager, &networkinterface)
 
-	newName, err := db.GenerateName(manager, provider.GetOwnerId(), ext.GetName())
-	if err != nil {
-		return nil, err
-	}
-	networkinterface.Name = newName
-
 	networkinterface.Status = ext.GetStatus()
 	networkinterface.ExternalId = ext.GetGlobalId()
 	networkinterface.CloudregionId = region.Id
@@ -363,9 +358,20 @@ func (manager *SNetworkInterfaceManager) newFromCloudNetworkInterface(ctx contex
 		}
 	}
 
-	err = manager.TableSpec().Insert(ctx, &networkinterface)
+	var err = func() error {
+		lockman.LockRawObject(ctx, manager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+
+		newName, err := db.GenerateName(ctx, manager, provider.GetOwnerId(), ext.GetName())
+		if err != nil {
+			return err
+		}
+		networkinterface.Name = newName
+
+		return manager.TableSpec().Insert(ctx, &networkinterface)
+	}()
 	if err != nil {
-		return nil, errors.Wrap(err, "TableSpec().Insert(&networkinterface)")
+		return nil, errors.Wrap(err, "Insert")
 	}
 
 	SyncCloudDomain(userCred, &networkinterface, provider.GetOwnerId())

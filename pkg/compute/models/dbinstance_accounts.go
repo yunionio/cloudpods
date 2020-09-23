@@ -630,8 +630,8 @@ func (self *SDBInstanceAccount) GetDBInstanceDatabaseByName(dbName string) (*SDB
 }
 
 func (manager *SDBInstanceAccountManager) SyncDBInstanceAccounts(ctx context.Context, userCred mcclient.TokenCredential, instance *SDBInstance, cloudAccounts []cloudprovider.ICloudDBInstanceAccount) ([]SDBInstanceAccount, []cloudprovider.ICloudDBInstanceAccount, compare.SyncResult) {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, instance.GetOwnerId()))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, instance.GetOwnerId()))
+	lockman.LockRawObject(ctx, "dbinstance-accounts", instance.Id)
+	defer lockman.ReleaseRawObject(ctx, "dbinstance-accounts", instance.Id)
 
 	result := compare.SyncResult{}
 	localAccounts := []SDBInstanceAccount{}

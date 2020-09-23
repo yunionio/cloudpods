@@ -281,8 +281,8 @@ func (manager *SWireManager) getWiresByVpcAndZone(vpc *SVpc, zone *SZone) ([]SWi
 }
 
 func (manager *SWireManager) SyncWires(ctx context.Context, userCred mcclient.TokenCredential, vpc *SVpc, wires []cloudprovider.ICloudWire, provider *SCloudprovider) ([]SWire, []cloudprovider.ICloudWire, compare.SyncResult) {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	lockman.LockRawObject(ctx, "wires", vpc.Id)
+	defer lockman.ReleaseRawObject(ctx, "wires", vpc.Id)
 
 	localWires := make([]SWire, 0)
 	remoteWires := make([]cloudprovider.ICloudWire, 0)
@@ -423,11 +423,6 @@ func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mccl
 	wire := SWire{}
 	wire.SetModelManager(manager, &wire)
 
-	newName, err := db.GenerateName(manager, userCred, extWire.GetName())
-	if err != nil {
-		return nil, err
-	}
-	wire.Name = newName
 	wire.ExternalId = extWire.GetGlobalId()
 	wire.Bandwidth = extWire.GetBandwidth()
 	wire.Status = extWire.GetStatus()
@@ -455,10 +450,20 @@ func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mccl
 	wire.PublicScope = vpc.PublicScope
 	wire.PublicSrc = vpc.PublicSrc
 
-	err = manager.TableSpec().Insert(ctx, &wire)
+	err = func() error {
+		lockman.LockRawObject(ctx, manager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+
+		newName, err := db.GenerateName(ctx, manager, userCred, extWire.GetName())
+		if err != nil {
+			return err
+		}
+		wire.Name = newName
+
+		return manager.TableSpec().Insert(ctx, &wire)
+	}()
 	if err != nil {
-		log.Errorf("newFromCloudWire fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "Insert")
 	}
 
 	if provider != nil && !wire.IsEmulated {

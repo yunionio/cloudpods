@@ -2595,15 +2595,6 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 
 	guest.Status = extVM.GetStatus()
 	guest.ExternalId = extVM.GetGlobalId()
-	if options.NameSyncResources.Contains(manager.Keyword()) {
-		guest.Name = extVM.GetName()
-	} else {
-		newName, err := db.GenerateName(manager, syncOwnerId, extVM.GetName())
-		if err != nil {
-			return nil, err
-		}
-		guest.Name = newName
-	}
 	guest.VcpuCount = extVM.GetVcpuCount()
 	guest.BootOrder = extVM.GetBootOrder()
 	guest.Vga = extVM.GetVga()
@@ -2660,10 +2651,24 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 		guest.VmemSize = extVM.GetVmemSizeMB()
 	}
 
-	err := manager.TableSpec().Insert(ctx, &guest)
+	var err = func() error {
+		lockman.LockRawObject(ctx, manager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+
+		if options.NameSyncResources.Contains(manager.Keyword()) {
+			guest.Name = extVM.GetName()
+		} else {
+			newName, err := db.GenerateName(ctx, manager, syncOwnerId, extVM.GetName())
+			if err != nil {
+				return errors.Wrapf(err, "db.GenerateName")
+			}
+			guest.Name = newName
+		}
+
+		return manager.TableSpec().Insert(ctx, &guest)
+	}()
 	if err != nil {
-		log.Errorf("Insert fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "Insert")
 	}
 
 	SyncCloudProject(userCred, &guest, syncOwnerId, extVM, host.ManagerId)

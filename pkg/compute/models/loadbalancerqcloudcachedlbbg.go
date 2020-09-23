@@ -257,8 +257,8 @@ func (man *SQcloudCachedLbbgManager) getLoadbalancerBackendgroupsByLoadbalancer(
 func (man *SQcloudCachedLbbgManager) SyncLoadbalancerBackendgroups(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, lb *SLoadbalancer, lbbgs []cloudprovider.ICloudLoadbalancerBackendGroup, syncRange *SSyncRange) ([]SQcloudCachedLbbg, []cloudprovider.ICloudLoadbalancerBackendGroup, compare.SyncResult) {
 	syncOwnerId := provider.GetOwnerId()
 
-	lockman.LockClass(ctx, man, db.GetLockClassKey(man, syncOwnerId))
-	defer lockman.ReleaseClass(ctx, man, db.GetLockClassKey(man, syncOwnerId))
+	lockman.LockRawObject(ctx, "backendgroups", fmt.Sprintf("%s-%s", provider.Id, lb.Id))
+	defer lockman.ReleaseRawObject(ctx, "backendgroups", fmt.Sprintf("%s-%s", provider.Id, lb.Id))
 
 	localLbgs := []SQcloudCachedLbbg{}
 	remoteLbbgs := []cloudprovider.ICloudLoadbalancerBackendGroup{}
@@ -331,15 +331,19 @@ func (man *SQcloudCachedLbbgManager) newFromCloudLoadbalancerBackendgroup(ctx co
 	lbbg.BackendGroupId = LocalLbbg.GetId()
 	lbbg.ExternalId = extLoadbalancerBackendgroup.GetGlobalId()
 
-	newName, err := db.GenerateName(man, syncOwnerId, LocalLbbg.GetName())
-	if err != nil {
-		return nil, err
-	}
-
-	lbbg.Name = newName
 	lbbg.Status = extLoadbalancerBackendgroup.GetStatus()
 
-	err = man.TableSpec().Insert(ctx, lbbg)
+	err = func() error {
+		lockman.LockRawObject(ctx, man.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, man.Keyword(), "name")
+
+		lbbg.Name, err = db.GenerateName(ctx, man, syncOwnerId, LocalLbbg.GetName())
+		if err != nil {
+			return err
+		}
+
+		return man.TableSpec().Insert(ctx, lbbg)
+	}()
 	if err != nil {
 		return nil, err
 	}

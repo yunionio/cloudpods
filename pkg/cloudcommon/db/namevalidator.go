@@ -15,6 +15,7 @@
 package db
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 
@@ -111,18 +112,18 @@ func alterNameValidator(model IModel, name string) error {
 	return nil
 }
 
-func GenerateName(manager IModelManager, ownerId mcclient.IIdentityProvider, hint string) (string, error) {
-	return GenerateName2(manager, ownerId, hint, nil, 1)
+func GenerateName(ctx context.Context, manager IModelManager, ownerId mcclient.IIdentityProvider, hint string) (string, error) {
+	return GenerateName2(ctx, manager, ownerId, hint, nil, 1)
 }
 
 func GenerateAlterName(model IModel, hint string) (string, error) {
 	if hint == model.GetName() {
 		return hint, nil
 	}
-	return GenerateName2(nil, nil, hint, model, 1)
+	return GenerateName2(nil, nil, nil, hint, model, 1)
 }
 
-func GenerateName2(manager IModelManager, ownerId mcclient.IIdentityProvider, hint string, model IModel, baseIndex int) (string, error) {
+func GenerateName2(ctx context.Context, manager IModelManager, ownerId mcclient.IIdentityProvider, hint string, model IModel, baseIndex int) (string, error) {
 	_, pattern, patternLen, offset := stringutils2.ParseNamePattern2(hint)
 	var name string
 	if patternLen == 0 {

@@ -95,8 +95,8 @@ func (man *SMeterAlertManager) GetDriver(typ string) IMeterAlertDriver {
 	return man.drivers[typ]
 }
 
-func (man *SMeterAlertManager) genName(ownerId mcclient.IIdentityProvider, hint string) (string, error) {
-	return db.GenerateName(man, ownerId, hint)
+func (man *SMeterAlertManager) genName(ctx context.Context, ownerId mcclient.IIdentityProvider, hint string) (string, error) {
+	return db.GenerateName(ctx, man, ownerId, hint)
 }
 
 func (man *SMeterAlertManager) getAllBillAccounts(ctx context.Context) ([]jsonutils.JSONObject, error) {
@@ -146,7 +146,7 @@ func (man *SMeterAlertManager) ValidateCreateData(
 	if drv == nil {
 		return nil, httperrors.NewInputParameterError("not support type %q", data.Type)
 	}
-	name, err := man.genName(ownerId, drv.GetName())
+	name, err := man.genName(ctx, ownerId, drv.GetName())
 	if err != nil {
 		return nil, err
 	}

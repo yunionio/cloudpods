@@ -18,7 +18,6 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
@@ -234,8 +233,8 @@ func (man *SNatSEntryManager) ValidateCreateData(ctx context.Context, userCred m
 func (manager *SNatSEntryManager) SyncNatSTable(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, nat *SNatGateway, extTable []cloudprovider.ICloudNatSEntry) compare.SyncResult {
 	syncOwnerId := provider.GetOwnerId()
 
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
+	lockman.LockRawObject(ctx, "stable", nat.Id)
+	defer lockman.ReleaseRawObject(ctx, "stable", nat.Id)
 
 	result := compare.SyncResult{}
 	dbNatSTables, err := nat.GetSTable()
@@ -329,7 +328,6 @@ func (manager *SNatSEntryManager) newFromCloudNatSTable(ctx context.Context, use
 	table := SNatSEntry{}
 	table.SetModelManager(manager, &table)
 
-	table.Name, _ = db.GenerateName(manager, ownerId, extEntry.GetName())
 	table.Status = extEntry.GetStatus()
 	table.ExternalId = extEntry.GetGlobalId()
 	table.IsEmulated = extEntry.IsEmulated()
@@ -351,10 +349,20 @@ func (manager *SNatSEntryManager) newFromCloudNatSTable(ctx context.Context, use
 		table.NetworkId = network.GetId()
 	}
 
-	err := manager.TableSpec().Insert(ctx, &table)
+	var err = func() error {
+		lockman.LockRawObject(ctx, manager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+
+		var err error
+		table.Name, err = db.GenerateName(ctx, manager, ownerId, extEntry.GetName())
+		if err != nil {
+			return err
+		}
+
+		return manager.TableSpec().Insert(ctx, &table)
+	}()
 	if err != nil {
-		log.Errorf("newFromCloudNatSTable fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "Insert")
 	}
 
 	SyncCloudDomain(userCred, &table, ownerId)

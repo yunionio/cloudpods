@@ -379,8 +379,8 @@ func (manager *SCloudregionManager) SyncRegions(
 	[]SCloudproviderregion,
 	compare.SyncResult,
 ) {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	lockman.LockRawObject(ctx, "cloudregions", externalIdPrefix)
+	defer lockman.ReleaseRawObject(ctx, "cloudregions", externalIdPrefix)
 
 	syncResult := compare.SyncResult{}
 	localRegions := make([]SCloudregion, 0)
@@ -515,12 +515,7 @@ func (manager *SCloudregionManager) newFromCloudRegion(ctx context.Context, user
 	region := SCloudregion{}
 	region.SetModelManager(manager, &region)
 
-	newName, err := db.GenerateName(manager, nil, cloudRegion.GetName())
-	if err != nil {
-		return nil, err
-	}
 	region.ExternalId = cloudRegion.GetGlobalId()
-	region.Name = newName
 	region.SGeographicInfo = cloudRegion.GetGeographicInfo()
 	region.Status = cloudRegion.GetStatus()
 	region.SetEnabled(true)
@@ -537,9 +532,18 @@ func (manager *SCloudregionManager) newFromCloudRegion(ctx context.Context, user
 		region.ManagerId = provider.Id
 	}
 
-	err = manager.TableSpec().Insert(ctx, &region)
+	err = func() error {
+		lockman.LockRawObject(ctx, manager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+
+		region.Name, err = db.GenerateName(ctx, manager, nil, cloudRegion.GetName())
+		if err != nil {
+			return errors.Wrapf(err, "db.GenerateName")
+		}
+
+		return manager.TableSpec().Insert(ctx, &region)
+	}()
 	if err != nil {
-		log.Errorf("newFromCloudRegion fail %s", err)
 		return nil, err
 	}
 

@@ -23,6 +23,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -76,14 +77,20 @@ func (self *BaremetalSyncAllGuestsStatusTask) OnInit(ctx context.Context, obj db
 		bs := baremetal.GetBaremetalstorage().GetStorage()
 		bs.SetStatus(self.UserCred, api.STORAGE_OFFLINE, "")
 		if first && baremetal.Name != guest.Name {
-			db.Update(baremetal, func() error {
-				newName, err := db.GenerateName(baremetal.GetModelManager(), nil, guest.Name)
-				if err != nil {
-					return err
-				}
-				baremetal.Name = newName
-				return nil
-			})
+
+			func() {
+				lockman.LockRawObject(ctx, models.HostManager.Keyword(), "name")
+				defer lockman.ReleaseRawObject(ctx, models.HostManager.Keyword(), "name")
+
+				db.Update(baremetal, func() error {
+					newName, err := db.GenerateName(ctx, baremetal.GetModelManager(), nil, guest.Name)
+					if err != nil {
+						return err
+					}
+					baremetal.Name = newName
+					return nil
+				})
+			}()
 		}
 		if first {
 			db.OpsLog.LogEvent(guest, db.ACT_CONVERT_COMPLETE, "", self.UserCred)

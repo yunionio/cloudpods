@@ -1204,8 +1204,11 @@ func _doCreateItem(
 			generateName, _ = dataDict.GetString("generate_name")
 			if len(generateName) > 0 {
 				if manager.EnableGenerateName() {
+					lockman.LockRawObject(ctx, manager.Keyword(), "name")
+					defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+
 					// if enable generateName, alway generate name
-					newName, err := GenerateName2(manager, ownerId, generateName, nil, baseIndex)
+					newName, err := GenerateName2(ctx, manager, ownerId, generateName, nil, baseIndex)
 					if err != nil {
 						return nil, errors.Wrap(err, "GenerateName2")
 					}

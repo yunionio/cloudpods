@@ -679,8 +679,8 @@ func (man *SLoadbalancerListenerRuleManager) getLoadbalancerListenerRulesByListe
 func (man *SLoadbalancerListenerRuleManager) SyncLoadbalancerListenerRules(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, listener *SLoadbalancerListener, rules []cloudprovider.ICloudLoadbalancerListenerRule, syncRange *SSyncRange) compare.SyncResult {
 	syncOwnerId := provider.GetOwnerId()
 
-	lockman.LockClass(ctx, man, db.GetLockClassKey(man, syncOwnerId))
-	defer lockman.ReleaseClass(ctx, man, db.GetLockClassKey(man, syncOwnerId))
+	lockman.LockRawObject(ctx, "listener-rules", listener.Id)
+	defer lockman.ReleaseRawObject(ctx, "listener-rules", listener.Id)
 
 	syncResult := compare.SyncResult{}
 
@@ -870,17 +870,21 @@ func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRul
 	//lbr.ManagerId = listener.ManagerId
 	//lbr.CloudregionId = listener.CloudregionId
 
-	newName, err := db.GenerateName(man, syncOwnerId, extRule.GetName())
-	if err != nil {
-		return nil, err
-	}
-	lbr.Name = newName
 	lbr.constructFieldsFromCloudListenerRule(userCred, extRule)
-	err = man.TableSpec().Insert(ctx, lbr)
+	var err = func() error {
+		lockman.LockRawObject(ctx, man.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, man.Keyword(), "name")
 
+		newName, err := db.GenerateName(ctx, man, syncOwnerId, extRule.GetName())
+		if err != nil {
+			return err
+		}
+		lbr.Name = newName
+
+		return man.TableSpec().Insert(ctx, lbr)
+	}()
 	if err != nil {
-		log.Errorf("newFromCloudLoadbalancerListenerRule fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "Insert")
 	}
 
 	err = lbr.updateCachedLoadbalancerBackendGroupAssociate(ctx, extRule)

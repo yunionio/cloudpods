@@ -1399,8 +1399,8 @@ func (manager *SDBInstanceManager) SyncDBInstanceMasterId(ctx context.Context, u
 }
 
 func (manager *SDBInstanceManager) SyncDBInstances(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, region *SCloudregion, cloudDBInstances []cloudprovider.ICloudDBInstance) ([]SDBInstance, []cloudprovider.ICloudDBInstance, compare.SyncResult) {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, provider.GetOwnerId()))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, provider.GetOwnerId()))
+	lockman.LockRawObject(ctx, "dbinstances", fmt.Sprintf("%s-%s", provider.Id, region.Id))
+	defer lockman.ReleaseRawObject(ctx, "dbinstances", fmt.Sprintf("%s-%s", provider.Id, region.Id))
 
 	localDBInstances := []SDBInstance{}
 	remoteDBInstances := []cloudprovider.ICloudDBInstance{}
@@ -1684,17 +1684,9 @@ func (self *SDBInstance) GetSlaveDBInstances() ([]SDBInstance, error) {
 }
 
 func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, provider *SCloudprovider, region *SCloudregion, extInstance cloudprovider.ICloudDBInstance) (*SDBInstance, error) {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
 	instance := SDBInstance{}
 	instance.SetModelManager(manager, &instance)
-
-	newName, err := db.GenerateName(manager, ownerId, extInstance.GetName())
-	if err != nil {
-		return nil, err
-	}
-	instance.Name = newName
 
 	instance.ExternalId = extInstance.GetGlobalId()
 	instance.CloudregionId = region.Id
@@ -1753,7 +1745,16 @@ func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, u
 		instance.AutoRenew = extInstance.IsAutoRenew()
 	}
 
-	err = manager.TableSpec().Insert(ctx, &instance)
+	err = func() error {
+		lockman.LockRawObject(ctx, manager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+
+		instance.Name, err = db.GenerateName(ctx, manager, ownerId, extInstance.GetName())
+		if err != nil {
+			return errors.Wrapf(err, "db.GenerateName")
+		}
+		return manager.TableSpec().Insert(ctx, &instance)
+	}()
 	if err != nil {
 		return nil, errors.Wrapf(err, "newFromCloudDBInstance.Insert")
 	}

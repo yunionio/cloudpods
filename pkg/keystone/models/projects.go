@@ -657,27 +657,30 @@ func (project *SProject) GetUsages() []db.IUsage {
 }
 
 func (manager *SProjectManager) NewProject(ctx context.Context, projectName string, desc string, domainId string) (*SProject, error) {
-	lockman.LockClass(ctx, manager, domainId)
-	defer lockman.ReleaseClass(ctx, manager, domainId)
-
 	project := &SProject{}
 	project.SetModelManager(ProjectManager, project)
 	ownerId := &db.SOwnerId{}
 	if manager.NamespaceScope() == rbacutils.ScopeDomain {
 		ownerId.DomainId = domainId
 	}
-	newName, err := db.GenerateName(ProjectManager, ownerId, projectName)
-	if err != nil {
-		// ignore the error
-		log.Errorf("db.GenerateName error %s for default domain project %s", err, projectName)
-		newName = projectName
-	}
-	project.Name = newName
 	project.DomainId = domainId
 	project.Description = desc
 	project.IsDomain = tristate.False
 	project.ParentId = domainId
-	err = ProjectManager.TableSpec().Insert(ctx, project)
+	var err = func() error {
+		lockman.LockRawObject(ctx, manager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+
+		newName, err := db.GenerateName(ctx, ProjectManager, ownerId, projectName)
+		if err != nil {
+			// ignore the error
+			log.Errorf("db.GenerateName error %s for default domain project %s", err, projectName)
+			newName = projectName
+		}
+		project.Name = newName
+
+		return ProjectManager.TableSpec().Insert(ctx, project)
+	}()
 	if err != nil {
 		return nil, errors.Wrap(err, "Insert")
 	}

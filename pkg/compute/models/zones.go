@@ -191,8 +191,8 @@ func (zone *SZone) GetI18N(ctx context.Context) *jsonutils.JSONDict {
 }
 
 func (manager *SZoneManager) SyncZones(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, zones []cloudprovider.ICloudZone) ([]SZone, []cloudprovider.ICloudZone, compare.SyncResult) {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	lockman.LockRawObject(ctx, "zones", region.Id)
+	defer lockman.ReleaseRawObject(ctx, "zones", region.Id)
 
 	localZones := make([]SZone, 0)
 	remoteZones := make([]cloudprovider.ICloudZone, 0)
@@ -294,11 +294,6 @@ func (manager *SZoneManager) newFromCloudZone(ctx context.Context, userCred mccl
 	zone := SZone{}
 	zone.SetModelManager(manager, &zone)
 
-	newName, err := db.GenerateName(manager, userCred, extZone.GetName())
-	if err != nil {
-		return nil, err
-	}
-	zone.Name = newName
 	zone.Status = extZone.GetStatus()
 	zone.ExternalId = extZone.GetGlobalId()
 
@@ -306,10 +301,20 @@ func (manager *SZoneManager) newFromCloudZone(ctx context.Context, userCred mccl
 
 	zone.CloudregionId = region.Id
 
-	err = manager.TableSpec().Insert(ctx, &zone)
+	var err = func() error {
+		lockman.LockRawObject(ctx, manager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+
+		newName, err := db.GenerateName(ctx, manager, userCred, extZone.GetName())
+		if err != nil {
+			return err
+		}
+		zone.Name = newName
+
+		return manager.TableSpec().Insert(ctx, &zone)
+	}()
 	if err != nil {
-		log.Errorf("newFromCloudZone fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "Insert")
 	}
 
 	err = manager.SyncI18ns(ctx, userCred, &zone, extZone.GetI18n())

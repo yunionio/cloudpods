@@ -1072,18 +1072,20 @@ func (self *SKVMRegionDriver) RequestCreateInstanceSnapshot(ctx context.Context,
 		return nil
 	}
 
-	lockman.LockClass(ctx, models.SnapshotManager, task.GetUserCred().GetProjectId())
-	defer lockman.ReleaseClass(ctx, models.SnapshotManager, task.GetUserCred().GetProjectId())
+	snapshot, err := func() (*models.SSnapshot, error) {
+		lockman.LockClass(ctx, models.SnapshotManager, "name")
+		defer lockman.ReleaseClass(ctx, models.SnapshotManager, "name")
 
-	snapshotName, err := db.GenerateName(models.SnapshotManager, task.GetUserCred(),
-		fmt.Sprintf("%s-%s", isp.Name, rand.String(8)))
-	if err != nil {
-		return errors.Wrap(err, "Generate snapshot name")
-	}
+		snapshotName, err := db.GenerateName(ctx, models.SnapshotManager, task.GetUserCred(),
+			fmt.Sprintf("%s-%s", isp.Name, rand.String(8)))
+		if err != nil {
+			return nil, errors.Wrap(err, "Generate snapshot name")
+		}
 
-	snapshot, err := models.SnapshotManager.CreateSnapshot(
-		ctx, task.GetUserCred(), api.SNAPSHOT_MANUAL, disks[diskIndex].DiskId,
-		guest.Id, "", snapshotName, -1)
+		return models.SnapshotManager.CreateSnapshot(
+			ctx, task.GetUserCred(), api.SNAPSHOT_MANUAL, disks[diskIndex].DiskId,
+			guest.Id, "", snapshotName, -1)
+	}()
 	if err != nil {
 		return err
 	}

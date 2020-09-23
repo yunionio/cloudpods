@@ -373,15 +373,23 @@ func (self *SCloudprovider) newFromCloudAccessGroup(ctx context.Context, userCre
 	}
 	group := &SAccessGroup{}
 	group.SetModelManager(AccessGroupManager, group)
-	group.Name, _ = db.GenerateName(AccessGroupManager, self.GetOwnerId(), iAccessGroup.GetName())
 	group.Status = api.ACCESS_GROUP_STATUS_AVAILABLE
 	group.DomainId = self.DomainId
-	err = AccessGroupManager.TableSpec().Insert(ctx, group)
+
+	err = func() error {
+		lockman.LockRawObject(ctx, AccessGroupManager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, AccessGroupManager.Keyword(), "name")
+
+		group.Name, err = db.GenerateName(ctx, AccessGroupManager, self.GetOwnerId(), iAccessGroup.GetName())
+		if err != nil {
+			return errors.Wrapf(err, "db.GenerateName")
+		}
+		return AccessGroupManager.TableSpec().Insert(ctx, group)
+	}()
 	if err != nil {
-		return errors.Wrapf(err, "AccessGroupManager.Insert")
+		return errors.Wrapf(err, "Insert")
 	}
-	err = group.SyncRules(ctx, userCred, src)
-	return nil
+	return group.SyncRules(ctx, userCred, src)
 }
 
 func (self *SAccessGroup) GetAccessGroupCaches() ([]SAccessGroupCache, error) {

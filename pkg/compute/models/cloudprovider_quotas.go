@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -205,8 +206,8 @@ func (manager *SCloudproviderQuotaManager) GetQuotas(provider *SCloudprovider, r
 }
 
 func (manager *SCloudproviderQuotaManager) SyncQuotas(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, region *SCloudregion, quotaRange string, iQuotas []cloudprovider.ICloudQuota) compare.SyncResult {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, provider.GetOwnerId()))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, provider.GetOwnerId()))
+	lockman.LockRawObject(ctx, "quotas", fmt.Sprintf("%s-%s", provider.Id, region.Id))
+	defer lockman.ReleaseRawObject(ctx, "quotas", fmt.Sprintf("%s-%s", provider.Id, region.Id))
 	result := compare.SyncResult{}
 
 	dbQuotas, err := manager.GetQuotas(provider, region, quotaRange)
@@ -265,9 +266,6 @@ func (self *SCloudproviderQuota) SyncWithCloudQuota(ctx context.Context, userCre
 }
 
 func (manager *SCloudproviderQuotaManager) newFromCloudQuota(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, quotaRange string, iQuota cloudprovider.ICloudQuota) error {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
-
 	quota := SCloudproviderQuota{}
 	quota.SetModelManager(manager, &quota)
 

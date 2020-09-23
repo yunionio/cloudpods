@@ -659,8 +659,8 @@ func (manager *SNetworkManager) getNetworksByWire(wire *SWire) ([]SNetwork, erro
 func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mcclient.TokenCredential, wire *SWire, nets []cloudprovider.ICloudNetwork, provider *SCloudprovider) ([]SNetwork, []cloudprovider.ICloudNetwork, compare.SyncResult) {
 	syncOwnerId := provider.GetOwnerId()
 
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
+	lockman.LockRawObject(ctx, "networks", wire.Id)
+	defer lockman.ReleaseRawObject(ctx, "networks", wire.Id)
 
 	localNets := make([]SNetwork, 0)
 	remoteNets := make([]cloudprovider.ICloudNetwork, 0)
@@ -783,11 +783,6 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 	net := SNetwork{}
 	net.SetModelManager(manager, &net)
 
-	newName, err := db.GenerateName(manager, syncOwnerId, extNet.GetName())
-	if err != nil {
-		return nil, err
-	}
-	net.Name = newName
 	net.Status = extNet.GetStatus()
 	net.ExternalId = extNet.GetGlobalId()
 	net.WireId = wire.Id
@@ -805,10 +800,20 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 
 	net.AllocTimoutSeconds = extNet.GetAllocTimeoutSeconds()
 
-	err = manager.TableSpec().Insert(ctx, &net)
+	var err = func() error {
+		lockman.LockRawObject(ctx, manager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+
+		newName, err := db.GenerateName(ctx, manager, syncOwnerId, extNet.GetName())
+		if err != nil {
+			return err
+		}
+		net.Name = newName
+
+		return manager.TableSpec().Insert(ctx, &net)
+	}()
 	if err != nil {
-		log.Errorf("newFromCloudZone fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "Insert")
 	}
 
 	vpc := wire.GetVpc()
@@ -2429,26 +2434,7 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 		return nil, httperrors.NewInputParameterError("Split IP %s out of range", input.SplitIp)
 	}
 
-	lockman.LockClass(ctx, NetworkManager, db.GetLockClassKey(NetworkManager, userCred))
-	defer lockman.ReleaseClass(ctx, NetworkManager, db.GetLockClassKey(NetworkManager, userCred))
-
-	if len(input.Name) > 0 {
-		if err := db.NewNameValidator(NetworkManager, userCred, input.Name, nil); err != nil {
-			return nil, httperrors.NewInputParameterError("Duplicate name %s", input.Name)
-		}
-	} else {
-		input.Name, err = db.GenerateName(NetworkManager, userCred, fmt.Sprintf("%s#", self.Name))
-		if err != nil {
-			return nil, httperrors.NewInternalServerError("GenerateName fail %s", err)
-		}
-	}
-
 	network := &SNetwork{}
-	network.Name = input.Name
-	network.IfnameHint, err = NetworkManager.newIfnameHint(input.Name)
-	if err != nil {
-		return nil, httperrors.NewBadRequestError("Generate ifname hint failed %s", err)
-	}
 	network.GuestIpStart = input.SplitIp
 	network.GuestIpEnd = self.GuestIpEnd
 	network.GuestIpMask = self.GuestIpMask
@@ -2468,7 +2454,29 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	network.Description = self.Description
 	network.IsAutoAlloc = self.IsAutoAlloc
 
-	err = NetworkManager.TableSpec().Insert(ctx, network)
+	err = func() error {
+		lockman.LockRawObject(ctx, NetworkManager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, NetworkManager.Keyword(), "name")
+
+		if len(input.Name) > 0 {
+			if err := db.NewNameValidator(NetworkManager, userCred, input.Name, nil); err != nil {
+				return httperrors.NewInputParameterError("Duplicate name %s", input.Name)
+			}
+		} else {
+			input.Name, err = db.GenerateName(ctx, NetworkManager, userCred, fmt.Sprintf("%s#", self.Name))
+			if err != nil {
+				return httperrors.NewInternalServerError("GenerateName fail %s", err)
+			}
+		}
+
+		network.Name = input.Name
+		network.IfnameHint, err = NetworkManager.newIfnameHint(input.Name)
+		if err != nil {
+			return httperrors.NewBadRequestError("Generate ifname hint failed %s", err)
+		}
+
+		return NetworkManager.TableSpec().Insert(ctx, network)
+	}()
 	if err != nil {
 		return nil, err
 	}
@@ -2592,13 +2600,18 @@ func (manager *SNetworkManager) PerformTryCreateNetwork(ctx context.Context, use
 		newNetwork.IsPublic = nm.IsPublic
 		newNetwork.ProjectId = userCred.GetProjectId()
 		newNetwork.DomainId = userCred.GetProjectDomainId()
-		newName, err := db.GenerateName(NetworkManager, userCred, fmt.Sprintf("%s#", nm.Name))
-		if err != nil {
-			return nil, httperrors.NewInternalServerError("GenerateName fail %s", err)
-		}
-		newNetwork.Name = newName
 
-		err = NetworkManager.TableSpec().Insert(ctx, newNetwork)
+		err = func() error {
+			lockman.LockRawObject(ctx, NetworkManager.Keyword(), "name")
+			defer lockman.ReleaseRawObject(ctx, NetworkManager.Keyword(), "name")
+
+			newNetwork.Name, err = db.GenerateName(ctx, NetworkManager, userCred, fmt.Sprintf("%s#", nm.Name))
+			if err != nil {
+				return httperrors.NewInternalServerError("GenerateName fail %s", err)
+			}
+
+			return NetworkManager.TableSpec().Insert(ctx, newNetwork)
+		}()
 		if err != nil {
 			return nil, err
 		}

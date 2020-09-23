@@ -170,7 +170,8 @@ func (man *SNotificationManager) CreateOneCloudNotification(
 		Channel: channel,
 		UserIds: userIds,
 	}
-	newName, err := db.GenerateName(man, userCred, alertName)
+
+	newName, err := db.GenerateName(ctx, man, userCred, alertName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "generate name: %s", alertName)
 	}

@@ -788,16 +788,10 @@ func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.
 		DomainId:  userCred.GetProjectDomainId(),
 		ProjectId: userCred.GetProjectId(),
 	}
-	var err error
-	input.Name, err = db.GenerateName(SecurityGroupManager, ownerId, input.Name)
-	if err != nil {
-		return input, err
-	}
-
 	pendingUsage := SProjectQuota{Secgroup: 1}
 	quotaKey := quotas.OwnerIdProjectQuotaKeys(rbacutils.ScopeProject, ownerId)
 	pendingUsage.SetKeys(quotaKey)
-	err = quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage)
+	err := quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage)
 	if err != nil {
 		return input, httperrors.NewOutOfQuotaError("%s", err)
 	}
@@ -811,7 +805,17 @@ func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.
 	secgroup.ProjectId = userCred.GetProjectId()
 	secgroup.DomainId = userCred.GetProjectDomainId()
 
-	err = SecurityGroupManager.TableSpec().Insert(ctx, secgroup)
+	err = func() error {
+		lockman.LockClass(ctx, SecurityGroupManager, "name")
+		defer lockman.ReleaseClass(ctx, SecurityGroupManager, "name")
+
+		input.Name, err = db.GenerateName(ctx, SecurityGroupManager, ownerId, input.Name)
+		if err != nil {
+			return err
+		}
+
+		return SecurityGroupManager.TableSpec().Insert(ctx, secgroup)
+	}()
 	if err != nil {
 		return input, httperrors.NewGeneralError(errors.Wrapf(err, "Insert"))
 	}
@@ -1070,22 +1074,25 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 		}
 	}
 
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
-
 	secgroup := SSecurityGroup{}
 	secgroup.SetModelManager(manager, &secgroup)
-	secgroup.Name, err = db.GenerateName(manager, userCred, extSec.GetName())
-	if err != nil {
-		return nil, nil, err
-	}
 
 	secgroup.Status = api.SECGROUP_STATUS_READY
 	secgroup.Description = extSec.GetDescription()
 	secgroup.ProjectId = provider.ProjectId
 	secgroup.DomainId = provider.DomainId
 
-	err = manager.TableSpec().Insert(ctx, &secgroup)
+	err = func() error {
+		lockman.LockRawObject(ctx, manager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+
+		secgroup.Name, err = db.GenerateName(ctx, manager, userCred, extSec.GetName())
+		if err != nil {
+			return errors.Wrapf(err, "db.GenerateName")
+		}
+
+		return manager.TableSpec().Insert(ctx, &secgroup)
+	}()
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "Insert")
 	}

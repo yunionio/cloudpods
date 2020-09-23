@@ -438,8 +438,8 @@ func (self *SVpc) setDefault(def bool) error {
 }
 
 func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, vpcs []cloudprovider.ICloudVpc) ([]SVpc, []cloudprovider.ICloudVpc, compare.SyncResult) {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	lockman.LockRawObject(ctx, "vpcs", fmt.Sprintf("%s-%s", provider.Id, region.Id))
+	defer lockman.ReleaseRawObject(ctx, "vpcs", fmt.Sprintf("%s-%s", provider.Id, region.Id))
 
 	localVPCs := make([]SVpc, 0)
 	remoteVPCs := make([]cloudprovider.ICloudVpc, 0)
@@ -568,14 +568,20 @@ func (self *SVpc) SyncGlobalVpc(ctx context.Context, userCred mcclient.TokenCred
 			if idx > 0 {
 				gv.Name = gv.Name[:idx]
 			}
-			gv.Name, err = db.GenerateName(GlobalVpcManager, userCred, gv.Name)
-			if err != nil {
-				return errors.Wrap(err, "db.GenerateName")
-			}
 			gv.SetEnabled(true)
 			gv.Status = api.GLOBAL_VPC_STATUS_AVAILABLE
 			gv.SetModelManager(GlobalVpcManager, gv)
-			err = GlobalVpcManager.TableSpec().Insert(ctx, gv)
+			err = func() error {
+				lockman.LockRawObject(ctx, GlobalVpcManager.Keyword(), "name")
+				defer lockman.ReleaseRawObject(ctx, GlobalVpcManager.Keyword(), "name")
+
+				gv.Name, err = db.GenerateName(ctx, GlobalVpcManager, userCred, gv.Name)
+				if err != nil {
+					return errors.Wrap(err, "db.GenerateName")
+				}
+
+				return GlobalVpcManager.TableSpec().Insert(ctx, gv)
+			}()
 			if err != nil {
 				return errors.Wrap(err, "GlobalVpcManager.Insert")
 			}
@@ -623,11 +629,6 @@ func (manager *SVpcManager) newFromCloudVpc(ctx context.Context, userCred mcclie
 	vpc := SVpc{}
 	vpc.SetModelManager(manager, &vpc)
 
-	newName, err := db.GenerateName(manager, userCred, extVPC.GetName())
-	if err != nil {
-		return nil, err
-	}
-	vpc.Name = newName
 	vpc.Status = extVPC.GetStatus()
 	vpc.ExternalId = extVPC.GetGlobalId()
 	vpc.IsDefault = extVPC.GetIsDefault()
@@ -639,10 +640,20 @@ func (manager *SVpcManager) newFromCloudVpc(ctx context.Context, userCred mcclie
 
 	vpc.IsEmulated = extVPC.IsEmulated()
 
-	err = manager.TableSpec().Insert(ctx, &vpc)
+	var err = func() error {
+		lockman.LockRawObject(ctx, manager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+
+		newName, err := db.GenerateName(ctx, manager, userCred, extVPC.GetName())
+		if err != nil {
+			return err
+		}
+		vpc.Name = newName
+
+		return manager.TableSpec().Insert(ctx, &vpc)
+	}()
 	if err != nil {
-		log.Errorf("newFromCloudVpc fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "Insert")
 	}
 
 	SyncCloudDomain(userCred, &vpc, provider.GetOwnerId())
@@ -1701,7 +1712,6 @@ func (self *SVpc) SyncVpcPeeringConnections(ctx context.Context, userCred mcclie
 func (self *SVpc) newFromCloudPeerConnection(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudVpcPeeringConnection, provider *SCloudprovider) (*SVpcPeeringConnection, error) {
 	peer := &SVpcPeeringConnection{}
 	peer.SetModelManager(VpcPeeringConnectionManager, peer)
-	peer.Name, _ = db.GenerateName(VpcPeeringConnectionManager, provider.GetOwnerId(), ext.GetName())
 	peer.ExternalId = ext.GetGlobalId()
 	peer.Status = ext.GetStatus()
 	peer.VpcId = self.Id
@@ -1716,7 +1726,18 @@ func (self *SVpc) newFromCloudPeerConnection(ctx context.Context, userCred mccli
 		peer.PeerVpcId = peerVpc.GetId()
 	}
 	peer.ExtPeerAccountId = ext.GetPeerAccountId()
-	err := VpcPeeringConnectionManager.TableSpec().Insert(ctx, peer)
+	var err = func() error {
+		lockman.LockClass(ctx, VpcPeeringConnectionManager, "name")
+		defer lockman.ReleaseClass(ctx, VpcPeeringConnectionManager, "name")
+
+		var err error
+		peer.Name, err = db.GenerateName(ctx, VpcPeeringConnectionManager, provider.GetOwnerId(), ext.GetName())
+		if err != nil {
+			return errors.Wrapf(err, "db.GenerateName")
+		}
+
+		return VpcPeeringConnectionManager.TableSpec().Insert(ctx, peer)
+	}()
 	if err != nil {
 		return nil, errors.Wrapf(err, "Insert")
 	}

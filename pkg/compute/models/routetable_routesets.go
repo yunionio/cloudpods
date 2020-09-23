@@ -390,16 +390,22 @@ func (manager *SRouteTableRouteSetManager) newRouteSetFromCloud(ctx context.Cont
 			}
 		}
 	}
-	{
+
+	var err = func() error {
 		basename := routeSetBasename(cloudRouteSet.GetName(), cloudRouteSet.GetCidr())
-		newName, err := db.GenerateName(manager, userCred, basename)
+
+		lockman.LockClass(ctx, manager, "name")
+		defer lockman.ReleaseClass(ctx, manager, "name")
+
+		newName, err := db.GenerateName(ctx, manager, userCred, basename)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		routeSet.Name = newName
-	}
 
-	if err := manager.TableSpec().Insert(ctx, routeSet); err != nil {
+		return manager.TableSpec().Insert(ctx, routeSet)
+	}()
+	if err != nil {
 		return nil, err
 	}
 

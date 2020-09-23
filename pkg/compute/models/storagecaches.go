@@ -214,8 +214,7 @@ func (manager *SStoragecacheManager) SyncWithCloudStoragecache(ctx context.Conte
 				return localCache, true, nil
 			}
 		} else {
-			log.Errorf("%s", err)
-			return nil, false, err
+			return nil, false, errors.Wrapf(err, "db.FetchByExternalIdAndManagerId(%s)", cloudCache.GetGlobalId())
 		}
 	} else {
 		localCache := localCacheObj.(*SStoragecache)
@@ -228,11 +227,6 @@ func (manager *SStoragecacheManager) newFromCloudStoragecache(ctx context.Contex
 	local := SStoragecache{}
 	local.SetModelManager(manager, &local)
 
-	newName, err := db.GenerateName(manager, userCred, cloudCache.GetName())
-	if err != nil {
-		return nil, err
-	}
-	local.Name = newName
 	local.ExternalId = cloudCache.GetGlobalId()
 
 	local.IsEmulated = cloudCache.IsEmulated()
@@ -240,7 +234,18 @@ func (manager *SStoragecacheManager) newFromCloudStoragecache(ctx context.Contex
 
 	local.Path = cloudCache.GetPath()
 
-	err = manager.TableSpec().Insert(ctx, &local)
+	var err = func() error {
+		lockman.LockRawObject(ctx, manager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+
+		newName, err := db.GenerateName(ctx, manager, userCred, cloudCache.GetName())
+		if err != nil {
+			return err
+		}
+		local.Name = newName
+
+		return manager.TableSpec().Insert(ctx, &local)
+	}()
 	if err != nil {
 		return nil, err
 	}

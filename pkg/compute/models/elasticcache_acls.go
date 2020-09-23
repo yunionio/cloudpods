@@ -71,8 +71,8 @@ type SElasticcacheAcl struct {
 }
 
 func (manager *SElasticcacheAclManager) SyncElasticcacheAcls(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticcache, cloudElasticcacheAcls []cloudprovider.ICloudElasticcacheAcl) compare.SyncResult {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, elasticcache.GetOwnerId()))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, elasticcache.GetOwnerId()))
+	lockman.LockRawObject(ctx, "elastic-cache-acls", elasticcache.Id)
+	defer lockman.ReleaseRawObject(ctx, "elastic-cache-acls", elasticcache.Id)
 
 	syncResult := compare.SyncResult{}
 

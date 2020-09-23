@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -116,8 +117,8 @@ func (manager *SBucketManager) fetchBuckets(provider *SCloudprovider, region *SC
 }
 
 func (manager *SBucketManager) syncBuckets(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, buckets []cloudprovider.ICloudBucket) compare.SyncResult {
-	lockman.LockClass(ctx, manager, "")
-	defer lockman.ReleaseClass(ctx, manager, "")
+	lockman.LockRawObject(ctx, "buckets", fmt.Sprintf("%s-%s", provider.Id, region.Id))
+	defer lockman.ReleaseRawObject(ctx, "buckets", fmt.Sprintf("%s-%s", provider.Id, region.Id))
 
 	syncResult := compare.SyncResult{}
 
@@ -173,6 +174,7 @@ func (manager *SBucketManager) newFromCloudBucket(
 	provider *SCloudprovider,
 	region *SCloudregion,
 ) (*SBucket, error) {
+
 	bucket := SBucket{}
 	bucket.SetModelManager(manager, &bucket)
 
@@ -180,13 +182,6 @@ func (manager *SBucketManager) newFromCloudBucket(
 	bucket.ManagerId = provider.Id
 	bucket.CloudregionId = region.Id
 	bucket.Status = api.BUCKET_STATUS_READY
-
-	newName, err := db.GenerateName(manager, nil, extBucket.GetName())
-	if err != nil {
-		return nil, errors.Wrap(err, "db.GenerateName")
-	}
-
-	bucket.Name = newName
 
 	created := extBucket.GetCreateAt()
 	if !created.IsZero() {
@@ -220,9 +215,20 @@ func (manager *SBucketManager) newFromCloudBucket(
 
 	bucket.IsEmulated = false
 
-	err = manager.TableSpec().Insert(ctx, &bucket)
+	var err = func() error {
+		lockman.LockRawObject(ctx, manager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+
+		var err error
+		bucket.Name, err = db.GenerateName(ctx, manager, nil, extBucket.GetName())
+		if err != nil {
+			return errors.Wrap(err, "db.GenerateName")
+		}
+
+		return manager.TableSpec().Insert(ctx, &bucket)
+	}()
 	if err != nil {
-		return nil, errors.Wrap(err, "Insert")
+		return nil, err
 	}
 
 	SyncCloudProject(userCred, &bucket, provider.GetOwnerId(), extBucket, provider.Id)

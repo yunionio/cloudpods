@@ -954,13 +954,6 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 	isNew = true
 
 	newCloudprovider, err := func() (*SCloudprovider, error) {
-		lockman.LockClass(ctx, CloudproviderManager, "")
-		defer lockman.ReleaseClass(ctx, CloudproviderManager, "")
-
-		newName, err := db.GenerateName(CloudproviderManager, nil, subAccount.Name)
-		if err != nil {
-			return nil, err
-		}
 		newCloudprovider := SCloudprovider{}
 		newCloudprovider.Account = subAccount.Account
 		newCloudprovider.Secret = self.Secret
@@ -978,7 +971,6 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 			newCloudprovider.SetEnabled(false)
 			newCloudprovider.Status = api.CLOUD_PROVIDER_DISCONNECTED
 		}
-		newCloudprovider.Name = newName
 		if !self.AutoCreateProject || len(self.ProjectId) > 0 {
 			ownerId := self.GetOwnerId()
 			if len(self.ProjectId) > 0 {
@@ -1011,12 +1003,20 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 
 		newCloudprovider.SetModelManager(CloudproviderManager, &newCloudprovider)
 
-		err = CloudproviderManager.TableSpec().Insert(ctx, &newCloudprovider)
+		err = func() error {
+			lockman.LockRawObject(ctx, CloudproviderManager.Keyword(), "name")
+			defer lockman.ReleaseRawObject(ctx, CloudproviderManager.Keyword(), "name")
+
+			newCloudprovider.Name, err = db.GenerateName(ctx, CloudproviderManager, nil, subAccount.Name)
+			if err != nil {
+				return err
+			}
+			return CloudproviderManager.TableSpec().Insert(ctx, &newCloudprovider)
+		}()
 		if err != nil {
 			return nil, err
-		} else {
-			return &newCloudprovider, nil
 		}
+		return &newCloudprovider, nil
 	}()
 	if err != nil {
 		log.Errorf("insert new cloudprovider fail %s", err)

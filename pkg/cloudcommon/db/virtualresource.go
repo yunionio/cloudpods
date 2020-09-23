@@ -492,12 +492,12 @@ func (model *SVirtualResourceBase) MarkCancelPendingDelete(ctx context.Context, 
 	manager := model.GetModelManager()
 	ownerId := model.GetOwnerId()
 
-	lockman.LockClass(ctx, manager, GetLockClassKey(manager, ownerId))
-	defer lockman.ReleaseClass(ctx, manager, GetLockClassKey(manager, ownerId))
+	lockman.LockRawObject(ctx, manager.Keyword(), "name")
+	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
 
-	newName, err := GenerateName(manager, ownerId, model.Name)
+	newName, err := GenerateName(ctx, manager, ownerId, model.Name)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "GenerateNam")
 	}
 	diff, err := Update(model, func() error {
 		model.Name = newName
@@ -506,8 +506,7 @@ func (model *SVirtualResourceBase) MarkCancelPendingDelete(ctx context.Context, 
 		return nil
 	})
 	if err != nil {
-		log.Errorf("MarkCancelPendingDelete fail %s", err)
-		return err
+		return errors.Wrapf(err, "MarkCancelPendingDelete.Update")
 	}
 	OpsLog.LogEvent(model, ACT_CANCEL_DELETE, diff, userCred)
 	return nil

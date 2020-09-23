@@ -1052,7 +1052,7 @@ func (manager *SCloudproviderManager) migrateVCenterInfo(vc *SVCenter) error {
 	cp := SCloudprovider{}
 	cp.SetModelManager(manager, &cp)
 
-	newName, err := db.GenerateName(manager, nil, vc.Name)
+	newName, err := db.GenerateName(context.Background(), manager, nil, vc.Name)
 	if err != nil {
 		return err
 	}

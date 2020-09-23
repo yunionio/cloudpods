@@ -432,8 +432,8 @@ func (self *SSecurityGroupCache) syncWithCloudSecurityGroup(ctx context.Context,
 }
 
 func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, secgroups []cloudprovider.ICloudSecurityGroup, vpc *SVpc) ([]SSecurityGroup, []cloudprovider.ICloudSecurityGroup, compare.SyncResult) {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	lockman.LockRawObject(ctx, "secgroups", vpc.Id)
+	defer lockman.ReleaseRawObject(ctx, "secgroups", vpc.Id)
 
 	localSecgroups := []SSecurityGroup{}
 	remoteSecgroups := []cloudprovider.ICloudSecurityGroup{}
