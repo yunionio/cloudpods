@@ -1265,17 +1265,21 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 			return nil, errors.Wrapf(err, "fetch eip networks usable in host %s(%s)",
 				host.Name, host.Id)
 		}
+		var net *SNetwork
 		for i := range nets {
-			net := &nets[i]
+			net = &nets[i]
 			cnt, err := net.GetFreeAddressCount()
 			if err != nil {
 				continue
 			}
 			if cnt > 0 {
-				eip.NetworkId = net.Id
 				break
 			}
 		}
+		if net == nil {
+			return nil, errors.Error("no usable eip network")
+		}
+		eip.NetworkId = net.Id
 	}
 
 	var err error
