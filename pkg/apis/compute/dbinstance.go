@@ -350,3 +350,8 @@ type DBInstanceFilterListInput struct {
 
 	VpcFilterListInput
 }
+
+type DBInstanceNetworkListInput struct {
+	apis.VirtualJointResourceBaseListInput
+	DBInstanceFilterListInput
+}
