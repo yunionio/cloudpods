@@ -3,6 +3,10 @@
 set -o errexit
 set -o pipefail
 
+if [ "$DEBUG" == "true" ]; then
+    set -ex ;export PS4='+(${BASH_SOURCE}:${LINENO}): ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
+fi
+
 readlink_mac() {
   cd `dirname $1`
   TARGET_FILE=`basename $1`
@@ -83,6 +87,7 @@ buildx_and_push() {
     local path=$3
     local arch=$4
     docker buildx build -t "$tag" --platform "linux/$arch" -f "$2" "$3" --push
+    docker pull "$tag"
 }
 
 push_image() {
