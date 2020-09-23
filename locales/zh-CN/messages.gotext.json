@@ -149,121 +149,121 @@
             "id": "No context manager",
             "message": "No context manager",
             "translation": "找不到上下文管理器",
-            "position": "pkg/cloudcommon/db/db_dispatcher.go:493:48"
+            "position": "pkg/cloudcommon/db/db_dispatcher.go:500:48"
         },
         {
             "id": "No such context %s(%s)",
             "message": "No such context %s(%s)",
             "translation": "没有此上下文%s(%s)",
-            "position": "pkg/cloudcommon/db/db_dispatcher.go:510:47"
+            "position": "pkg/cloudcommon/db/db_dispatcher.go:517:47"
         },
         {
             "id": "fail to get http response writer from context",
             "message": "fail to get http response writer from context",
             "translation": "从上下文中获取HTTP响应Writer失败",
-            "position": "pkg/cloudcommon/db/db_dispatcher.go:802:48"
+            "position": "pkg/cloudcommon/db/db_dispatcher.go:809:48"
         },
         {
             "id": "FetchCustomizeColumns returns incorrect results",
             "message": "FetchCustomizeColumns returns incorrect results",
             "translation": "FetchCustomizeColumns返回值不正确",
-            "position": "pkg/cloudcommon/db/db_dispatcher.go:854:47"
+            "position": "pkg/cloudcommon/db/db_dispatcher.go:861:47"
         },
         {
             "id": "reflect call %s fail %s",
             "message": "reflect call %s fail %s",
             "translation": "反射调用%s出错：%s",
-            "position": "pkg/cloudcommon/db/db_dispatcher.go:885:49"
+            "position": "pkg/cloudcommon/db/db_dispatcher.go:892:49"
         },
         {
             "id": "Invald %s return value",
             "message": "Invald %s return value",
             "translation": "%s返回值无效",
-            "position": "pkg/cloudcommon/db/db_dispatcher.go:888:49"
+            "position": "pkg/cloudcommon/db/db_dispatcher.go:895:49"
         },
         {
             "id": "%s not allow to get property %s",
             "message": "%s not allow to get property %s",
             "translation": "%s不允许获取%s属性",
-            "position": "pkg/cloudcommon/db/db_dispatcher.go:891:44"
+            "position": "pkg/cloudcommon/db/db_dispatcher.go:898:44"
         },
         {
             "id": "No return value, so why query?",
             "message": "No return value, so why query?",
             "translation": "没有返回值",
-            "position": "pkg/cloudcommon/db/db_dispatcher.go:909:45"
+            "position": "pkg/cloudcommon/db/db_dispatcher.go:916:45"
         },
         {
             "id": "Not allow to get details",
             "message": "Not allow to get details",
             "translation": "不允许获取详情",
-            "position": "pkg/cloudcommon/db/db_dispatcher.go:940:43"
+            "position": "pkg/cloudcommon/db/db_dispatcher.go:947:43"
         },
         {
             "id": "%s %s %s not found",
             "message": "%s %s %s not found",
             "translation": "%s %s %s找不到",
-            "position": "pkg/cloudcommon/db/db_dispatcher.go:976:47"
+            "position": "pkg/cloudcommon/db/db_dispatcher.go:983:47"
         },
         {
             "id": "%s not allow to get spec %s",
             "message": "%s not allow to get spec %s",
             "translation": "%s不允许获取%s",
-            "position": "pkg/cloudcommon/db/db_dispatcher.go:987:44"
+            "position": "pkg/cloudcommon/db/db_dispatcher.go:994:44"
         },
         {
             "id": "Not allow to create item",
             "message": "Not allow to create item",
             "translation": "不允许创建对象",
-            "position": "pkg/cloudcommon/db/db_dispatcher.go:1240:43"
+            "position": "pkg/cloudcommon/db/db_dispatcher.go:1247:43"
         },
         {
             "id": "body is not a json?",
             "message": "body is not a json?",
             "translation": "请求体不是JSON对象？",
-            "position": "pkg/cloudcommon/db/db_dispatcher.go:1282:48"
+            "position": "pkg/cloudcommon/db/db_dispatcher.go:1289:48"
         },
         {
             "id": "Missing name or generate_name",
             "message": "Missing name or generate_name",
             "translation": "未指定name或者generate_name",
-            "position": "pkg/cloudcommon/db/db_dispatcher.go:1288:49"
+            "position": "pkg/cloudcommon/db/db_dispatcher.go:1295:49"
         },
         {
             "id": "not allow to perform %s",
             "message": "not allow to perform %s",
             "translation": "不允许执行%s",
-            "position": "pkg/cloudcommon/db/db_dispatcher.go:1445:43"
+            "position": "pkg/cloudcommon/db/db_dispatcher.go:1452:43"
         },
         {
             "id": "%s allow %s %s not found",
             "message": "%s allow %s %s not found",
             "translation": "找不到%s Allow %s %s方法",
-            "position": "pkg/cloudcommon/db/db_dispatcher.go:1584:49"
+            "position": "pkg/cloudcommon/db/db_dispatcher.go:1591:49"
         },
         {
             "id": "%s not allow to %s %s",
             "message": "%s not allow to %s %s",
             "translation": "%s不允许%s %s",
-            "position": "pkg/cloudcommon/db/db_dispatcher.go:1597:44"
+            "position": "pkg/cloudcommon/db/db_dispatcher.go:1604:44"
         },
         {
             "id": "Invalid data JSONObject",
             "message": "Invalid data JSONObject",
             "translation": "无效的JSON对象",
-            "position": "pkg/cloudcommon/db/db_dispatcher.go:1633:48"
+            "position": "pkg/cloudcommon/db/db_dispatcher.go:1640:48"
         },
         {
             "id": "Not allow to update item",
             "message": "Not allow to update item",
             "translation": "不允许更新对象",
-            "position": "pkg/cloudcommon/db/db_dispatcher.go:1687:43"
+            "position": "pkg/cloudcommon/db/db_dispatcher.go:1694:43"
         },
         {
             "id": "%s(%s) not allow to delete",
             "message": "%s(%s) not allow to delete",
             "translation": "不允许删除%s(%s)",
-            "position": "pkg/cloudcommon/db/db_dispatcher.go:1791:43"
+            "position": "pkg/cloudcommon/db/db_dispatcher.go:1798:43"
         },
         {
             "id": "Not allow to attach",
@@ -2267,7 +2267,7 @@
             "id": "no such snapshotpolicy %s",
             "message": "no such snapshotpolicy %s",
             "translation": "找不到快照策略%s",
-            "position": "pkg/compute/models/disks.go:2612:48"
+            "position": "pkg/compute/models/disks.go:2617:48"
         },
         {
             "id": "mx_priority range limited to [1,50]",
@@ -2711,157 +2711,151 @@
             "id": "server %s not found",
             "message": "server %s not found",
             "translation": "找不到虚机%s",
-            "position": "pkg/compute/models/elasticips.go:147:53"
+            "position": "pkg/compute/models/elasticips.go:148:53"
         },
         {
             "id": "Not support associate type %s, only support %s",
             "message": "Not support associate type %s, only support %s",
             "translation": "不支持绑定类型%s，仅支持%s",
-            "position": "pkg/compute/models/elasticips.go:173:49"
-        },
-        {
-            "id": "Cloud provider %s not found",
-            "message": "Cloud provider %s not found",
-            "translation": "找不到cloudprovider %s",
-            "position": "pkg/compute/models/elasticips.go:839:52"
+            "position": "pkg/compute/models/elasticips.go:174:49"
         },
         {
             "id": "charge type %s not supported",
             "message": "charge type %s not supported",
             "translation": "不支持付费类型%s",
-            "position": "pkg/compute/models/elasticips.go:854:48"
+            "position": "pkg/compute/models/elasticips.go:824:50"
         },
         {
             "id": "eip has been associated with instance",
             "message": "eip has been associated with instance",
             "translation": "EIP已绑定到其它实例",
-            "position": "pkg/compute/models/elasticips.go:955:42"
+            "position": "pkg/compute/models/elasticips.go:940:42"
         },
         {
             "id": "eip cannot associate in status %s",
             "message": "eip cannot associate in status %s",
             "translation": "EIP状态为%s无法绑定",
-            "position": "pkg/compute/models/elasticips.go:959:47"
+            "position": "pkg/compute/models/elasticips.go:944:47"
         },
         {
             "id": "fixed eip cannot be associated",
             "message": "fixed eip cannot be associated",
             "translation": "固定EIP不可再被关联",
-            "position": "pkg/compute/models/elasticips.go:963:52"
+            "position": "pkg/compute/models/elasticips.go:948:52"
         },
         {
             "id": "Unsupported %s",
             "message": "Unsupported %s",
             "translation": "不支持%s",
-            "position": "pkg/compute/models/elasticips.go:976:48"
+            "position": "pkg/compute/models/elasticips.go:961:48"
         },
         {
             "id": "cannot associate pending delete server",
             "message": "cannot associate pending delete server",
             "translation": "无法与正在删除的虚机进行绑定",
-            "position": "pkg/compute/models/elasticips.go:994:47"
+            "position": "pkg/compute/models/elasticips.go:979:47"
         },
         {
             "id": "instance is already associated with eip",
             "message": "instance is already associated with eip",
             "translation": "实例已与其它EIP绑定",
-            "position": "pkg/compute/models/elasticips.go:1001:47"
+            "position": "pkg/compute/models/elasticips.go:986:47"
         },
         {
             "id": "cannot associate server in status %s",
             "message": "cannot associate server in status %s",
             "translation": "虚机状态%s无法进行EIP绑定操作",
-            "position": "pkg/compute/models/elasticips.go:1005:47"
+            "position": "pkg/compute/models/elasticips.go:990:47"
         },
         {
             "id": "cannot associate eip with same network",
             "message": "cannot associate eip with same network",
             "translation": "虚机与EIP在同一子网下不可关联",
-            "position": "pkg/compute/models/elasticips.go:1015:50"
+            "position": "pkg/compute/models/elasticips.go:1000:50"
         },
         {
             "id": "server region is not found???",
             "message": "server region is not found???",
             "translation": "找不到虚机所属region",
-            "position": "pkg/compute/models/elasticips.go:1022:48"
+            "position": "pkg/compute/models/elasticips.go:1007:48"
         },
         {
             "id": "eip region is not found???",
             "message": "eip region is not found???",
             "translation": "找不到EIP所属region",
-            "position": "pkg/compute/models/elasticips.go:1027:48"
+            "position": "pkg/compute/models/elasticips.go:1012:48"
         },
         {
             "id": "eip and server are not in the same region",
             "message": "eip and server are not in the same region",
             "translation": "EIP的虚机不在同一region",
-            "position": "pkg/compute/models/elasticips.go:1031:48"
+            "position": "pkg/compute/models/elasticips.go:1016:48"
         },
         {
             "id": "eip and server are not in the same zone",
             "message": "eip and server are not in the same zone",
             "translation": "EIP和虚机不在同一个zone",
-            "position": "pkg/compute/models/elasticips.go:1038:49"
+            "position": "pkg/compute/models/elasticips.go:1023:49"
         },
         {
             "id": "server host is not found???",
             "message": "server host is not found???",
             "translation": "虚机所在宿主机找不到",
-            "position": "pkg/compute/models/elasticips.go:1044:48"
+            "position": "pkg/compute/models/elasticips.go:1029:48"
         },
         {
             "id": "server and eip are not managed by the same provider",
             "message": "server and eip are not managed by the same provider",
             "translation": "虚机和EIP分属不同cloudprovider",
-            "position": "pkg/compute/models/elasticips.go:1048:48"
+            "position": "pkg/compute/models/elasticips.go:1033:48"
         },
         {
             "id": "eip cannot dissociate in status %s",
             "message": "eip cannot dissociate in status %s",
             "translation": "EIP状态为%s无法执行解绑操作",
-            "position": "pkg/compute/models/elasticips.go:1096:47"
+            "position": "pkg/compute/models/elasticips.go:1081:47"
         },
         {
             "id": "fixed public eip cannot be dissociated",
             "message": "fixed public eip cannot be dissociated",
             "translation": "固定的公网IP无法解绑",
-            "position": "pkg/compute/models/elasticips.go:1100:52"
+            "position": "pkg/compute/models/elasticips.go:1085:52"
         },
         {
             "id": "the associated natgateway has corresponding snat rules with eip %s, please delete them firstly",
             "message": "the associated natgateway has corresponding snat rules with eip %s, please delete them firstly",
             "translation": "EIP %s正被NAT网关的SNAT规则使用，请先删除它们",
-            "position": "pkg/compute/models/elasticips.go:1116:53"
+            "position": "pkg/compute/models/elasticips.go:1101:53"
         },
         {
             "id": "the associated natgateway has corresponding dnat rules with eip %s, please delete them firstly",
             "message": "the associated natgateway has corresponding dnat rules with eip %s, please delete them firstly",
             "translation": "EIP %s正被NAT网关的DNAT规则使用，请先删除它们",
-            "position": "pkg/compute/models/elasticips.go:1126:53"
+            "position": "pkg/compute/models/elasticips.go:1111:53"
         },
         {
             "id": "fixed eip cannot sync status",
             "message": "fixed eip cannot sync status",
             "translation": "固定公网IP无法执行同步状态操作",
-            "position": "pkg/compute/models/elasticips.go:1181:52"
+            "position": "pkg/compute/models/elasticips.go:1166:52"
         },
         {
             "id": "cannot change bandwidth in status %s",
             "message": "cannot change bandwidth in status %s",
             "translation": "EIP状态为%s无法变更带宽",
-            "position": "pkg/compute/models/elasticips.go:1337:47"
+            "position": "pkg/compute/models/elasticips.go:1327:47"
         },
         {
             "id": "Invalid bandwidth",
             "message": "Invalid bandwidth",
             "translation": "无效的带宽",
-            "position": "pkg/compute/models/elasticips.go:1342:48"
+            "position": "pkg/compute/models/elasticips.go:1332:48"
         },
         {
             "id": "Cannot purge elastic_ip on enabled cloud provider",
             "message": "Cannot purge elastic_ip on enabled cloud provider",
             "translation": "EIP所属cloudprovider为启用状态，无法执行purge操作",
-            "position": "pkg/compute/models/elasticips.go:1463:48"
+            "position": "pkg/compute/models/elasticips.go:1453:48"
         },
         {
             "id": "not allow change project across domain",
@@ -4433,19 +4427,19 @@
             "id": "fetch disk size failed",
             "message": "fetch disk size failed",
             "translation": "获取磁盘大小失败",
-            "position": "pkg/compute/models/guests.go:5269:63"
+            "position": "pkg/compute/models/guests.go:5271:63"
         },
         {
             "id": "image %s do not belong to guest image %s",
             "message": "image %s do not belong to guest image %s",
             "translation": "镜像%s不在虚机镜像%s中",
-            "position": "pkg/compute/models/guests.go:5335:41"
+            "position": "pkg/compute/models/guests.go:5337:41"
         },
         {
             "id": "miss some subimage of guest image",
             "message": "miss some subimage of guest image",
             "translation": "部分虚机镜像的子镜像未指定",
-            "position": "pkg/compute/models/guests.go:5341:39"
+            "position": "pkg/compute/models/guests.go:5343:39"
         },
         {
             "id": "Baremetal %s not enabled",
@@ -4985,85 +4979,85 @@
             "id": "host status %s can't exit maintenance",
             "message": "host status %s can't exit maintenance",
             "translation": "宿主机状态%s无法退出维护模式",
-            "position": "pkg/compute/models/hosts.go:4901:47"
+            "position": "pkg/compute/models/hosts.go:4903:47"
         },
         {
             "id": "host type %s can't do host maintenance",
             "message": "host type %s can't do host maintenance",
             "translation": "宿主机类型%s无法进入维护模式",
-            "position": "pkg/compute/models/hosts.go:4919:44"
+            "position": "pkg/compute/models/hosts.go:4921:44"
         },
         {
             "id": "unsupport on host status %s",
             "message": "unsupport on host status %s",
             "translation": "宿主机状态为%s不支持此操作",
-            "position": "pkg/compute/models/hosts.go:4922:44"
+            "position": "pkg/compute/models/hosts.go:4924:44"
         },
         {
             "id": "Host %s can't migrate guests %s in status %s",
             "message": "Host %s can't migrate guests %s in status %s",
             "translation": "宿主机%s无法迁移虚机%s，因虚机状态为%s",
-            "position": "pkg/compute/models/hosts.go:4950:45"
+            "position": "pkg/compute/models/hosts.go:4952:45"
         },
         {
             "id": "Cannot do insert-iso in status %s",
             "message": "Cannot do insert-iso in status %s",
             "translation": "因状态为%s无法执行insert-iso指令",
-            "position": "pkg/compute/models/hosts.go:5226:46"
+            "position": "pkg/compute/models/hosts.go:5228:46"
         },
         {
             "id": "Cannot do eject-iso in status %s",
             "message": "Cannot do eject-iso in status %s",
             "translation": "因状态为%s无法执行eject-iso指令",
-            "position": "pkg/compute/models/hosts.go:5257:46"
+            "position": "pkg/compute/models/hosts.go:5259:46"
         },
         {
             "id": "Cannot sync config a non-baremetal host",
             "message": "Cannot sync config a non-baremetal host",
             "translation": "非裸金属服务器中无法执行同步配置操作",
-            "position": "pkg/compute/models/hosts.go:5282:44"
+            "position": "pkg/compute/models/hosts.go:5284:44"
         },
         {
             "id": "reserved cpu must \u003e= 0",
             "message": "reserved cpu must \u003e= 0",
             "translation": "预留CPU数必须为非负整数",
-            "position": "pkg/compute/models/hosts.go:5401:48"
+            "position": "pkg/compute/models/hosts.go:5403:48"
         },
         {
             "id": "reserved memory must \u003e= 0",
             "message": "reserved memory must \u003e= 0",
             "translation": "预留内存大小必须为非负整数",
-            "position": "pkg/compute/models/hosts.go:5404:48"
+            "position": "pkg/compute/models/hosts.go:5406:48"
         },
         {
             "id": "reserved storage must \u003e= 0",
             "message": "reserved storage must \u003e= 0",
             "translation": "预留存储必须为非负整数",
-            "position": "pkg/compute/models/hosts.go:5407:48"
+            "position": "pkg/compute/models/hosts.go:5409:48"
         },
         {
             "id": "host %s can't reserve %d cpu for each isolated device, not enough",
             "message": "host %s can't reserve %d cpu for each isolated device, not enough",
             "translation": "宿主机%s无法为每个透传设备预留%d个CPU，因资源不够",
-            "position": "pkg/compute/models/hosts.go:5414:44"
+            "position": "pkg/compute/models/hosts.go:5416:44"
         },
         {
             "id": "host %s can't reserve %dM memory for each isolated device, not enough",
             "message": "host %s can't reserve %dM memory for each isolated device, not enough",
             "translation": "宿主机%s无法为每个透传设备预留%dM内存，因资源不够",
-            "position": "pkg/compute/models/hosts.go:5418:44"
+            "position": "pkg/compute/models/hosts.go:5420:44"
         },
         {
             "id": "host %s can't reserve %dM storage for each isolated device, not enough",
             "message": "host %s can't reserve %dM storage for each isolated device, not enough",
             "translation": "宿主机%s无法为每个透传设备预留%dM存储，因资源不够",
-            "position": "pkg/compute/models/hosts.go:5423:44"
+            "position": "pkg/compute/models/hosts.go:5425:44"
         },
         {
             "id": "Only system admin can assign host",
             "message": "Only system admin can assign host",
             "translation": "仅系统管理员可指定宿主机",
-            "position": "pkg/compute/models/hosts.go:5494:51"
+            "position": "pkg/compute/models/hosts.go:5496:51"
         },
         {
             "id": "StorageInUse",
@@ -7688,12 +7682,6 @@
             "position": "pkg/compute/regiondrivers/kvm.go:677:50"
         },
         {
-            "id": "failed to found network %s",
-            "message": "failed to found network %s",
-            "translation": "查找子网%s时出错",
-            "position": "pkg/compute/regiondrivers/kvm.go:907:46"
-        },
-        {
             "id": "bad network type %q, want %q",
             "message": "bad network type %q, want %q",
             "translation": "无效的子网类型%q，期望%q",
@@ -7745,7 +7733,7 @@
             "id": "loadbalancer listener %s is already updating",
             "message": "loadbalancer listener %s is already updating",
             "translation": "负载均衡监听%s正在变更中",
-            "position": "pkg/compute/regiondrivers/openstack.go:542:50"
+            "position": "pkg/compute/regiondrivers/openstack.go:543:50"
         },
         {
             "id": "loadbalancer backendgroup aready associate with other %s listener",
@@ -8159,7 +8147,7 @@
             "id": "No login secret found",
             "message": "No login secret found",
             "translation": "找不到登录密文信息",
-            "position": "pkg/mcclient/modules/mod_cloudusers.go:67:42"
+            "position": "pkg/mcclient/modules/mod_cloudusers.go:68:42"
         },
         {
             "id": "no totp for %s",
@@ -8270,10 +8258,346 @@
             "position": "pkg/mcclient/modules/mod_users.go:139:48"
         },
         {
+            "id": "url is empty",
+            "message": "url is empty",
+            "translation": "URL不应为空",
+            "position": "pkg/monitor/alerting/notifiers/dingding.go:50:52"
+        },
+        {
+            "id": "invalid url: %v",
+            "message": "invalid url: %v",
+            "translation": "无效的URL: %v",
+            "position": "pkg/monitor/alerting/notifiers/dingding.go:53:52"
+        },
+        {
+            "id": "unsupport type: %s",
+            "message": "unsupport type: %s",
+            "translation": "不支持的类型：%s",
+            "position": "pkg/monitor/alerting/notifiers/dingding.go:63:52"
+        },
+        {
+            "id": "app_id is empty",
+            "message": "app_id is empty",
+            "translation": "app_id为空",
+            "position": "pkg/monitor/alerting/notifiers/feishu.go:43:52"
+        },
+        {
+            "id": "app_secret is empty",
+            "message": "app_secret is empty",
+            "translation": "app_secret为空",
+            "position": "pkg/monitor/alerting/notifiers/feishu.go:46:52"
+        },
+        {
+            "id": "channel is empty",
+            "message": "channel is empty",
+            "translation": "channel为空",
+            "position": "pkg/monitor/alerting/notifiers/onecloud.go:50:52"
+        },
+        {
+            "id": "parameter %s is empty",
+            "message": "parameter %s is empty",
+            "translation": "参数%s为空",
+            "position": "pkg/monitor/errors/error.go:8:42"
+        },
+        {
+            "id": "unsupported no_data_state %s",
+            "message": "unsupported no_data_state %s",
+            "translation": "不支持的no_data_state：%s",
+            "position": "pkg/monitor/models/alert.go:269:43"
+        },
+        {
+            "id": "unsupported execution_error_state %s",
+            "message": "unsupported execution_error_state %s",
+            "translation": "不支持的execution_error_state：%s",
+            "position": "pkg/monitor/models/alert.go:276:43"
+        },
+        {
+            "id": "metric %s is invalid format, usage \u003cmeasurement\u003e.\u003cfield\u003e",
+            "message": "metric %s is invalid format, usage \u003cmeasurement\u003e.\u003cfield\u003e",
+            "translation": "指标%s的格式无效，应为\u003cmeasurement\u003e.\u003cfield\u003e",
+            "position": "pkg/monitor/models/alert.go:380:51"
+        },
+        {
+            "id": "Cannot change state on pause alert",
+            "message": "Cannot change state on pause alert",
+            "translation": "无法变更状态为暂停的告警状态",
+            "position": "pkg/monitor/models/alert.go:436:2"
+        },
+        {
+            "id": "alert already attached to notification",
+            "message": "alert already attached to notification",
+            "translation": "告警已绑定到通知",
+            "position": "pkg/monitor/models/alert.go:557:47"
+        },
+        {
+            "id": "Alert is already un-paused",
+            "message": "Alert is already un-paused",
+            "translation": "报警已非暂停状态",
+            "position": "pkg/monitor/models/alert.go:674:47"
+        },
+        {
+            "id": "Alert is already paused",
+            "message": "Alert is already paused",
+            "translation": "告警已是暂停状态",
+            "position": "pkg/monitor/models/alert.go:678:47"
+        },
+        {
+            "id": "Invalid refresh format: %s",
+            "message": "Invalid refresh format: %s",
+            "translation": "refresh参数格式无效：%s",
+            "position": "pkg/monitor/models/alertdashboard.go:95:50"
+        },
+        {
+            "id": "the Comparator is illegal:",
+            "message": "the Comparator is illegal:",
+            "translation": "参数comparator无效",
+            "position": "pkg/monitor/models/alertdashboard.go:104:52"
+        },
+        {
+            "id": "the reduce is illegal",
+            "message": "the reduce is illegal",
+            "translation": "参数reduce无效",
+            "position": "pkg/monitor/models/alertdashboard.go:109:52"
+        },
+        {
+            "id": "not find alert %s",
+            "message": "not find alert %s",
+            "translation": "找不到告警%s",
+            "position": "pkg/monitor/models/alertnotification.go:135:51"
+        },
+        {
+            "id": "not find notification %s",
+            "message": "not find notification %s",
+            "translation": "找不到通知%s",
+            "position": "pkg/monitor/models/alertnotification.go:142:51"
+        },
+        {
+            "id": "Invalid level format: %s",
+            "message": "Invalid level format: %s",
+            "translation": "参数level的格式无效：%s",
+            "position": "pkg/monitor/models/commonalert.go:92:49"
+        },
+        {
+            "id": "Invalid period format: %s",
+            "message": "Invalid period format: %s",
+            "translation": "参数period的格式无效：%s",
+            "position": "pkg/monitor/models/commonalert.go:95:49"
+        },
+        {
+            "id": "threshold is meaningless",
+            "message": "threshold is meaningless",
+            "translation": "参数threshold的值为效",
+            "position": "pkg/monitor/models/commonalert.go:113:51"
+        },
+        {
+            "id": "the AlertType is illegal:%s",
+            "message": "the AlertType is illegal:%s",
+            "translation": "参数AlertType无效：%s",
+            "position": "pkg/monitor/models/commonalert.go:120:50"
+        },
+        {
+            "id": "Cannot delete system alert",
+            "message": "Cannot delete system alert",
+            "translation": "不可删除系统告警",
+            "position": "pkg/monitor/models/commonalert.go:388:42"
+        },
+        {
+            "id": "Default data source not found",
+            "message": "Default data source not found",
+            "translation": "找不到默认数据源",
+            "position": "pkg/monitor/models/datasource.go:61:2"
+        },
+        {
+            "id": "not support database",
+            "message": "not support database",
+            "translation": "不支持此数据库",
+            "position": "pkg/monitor/models/datasource.go:294:63"
+        },
+        {
+            "id": "not support type %q",
+            "message": "not support type %q",
+            "translation": "不支持类型%q",
+            "position": "pkg/monitor/models/meteralert.go:147:48"
+        },
+        {
+            "id": "unsupported resource type %s",
+            "message": "unsupported resource type %s",
+            "translation": "不支持资源类型%s",
+            "position": "pkg/monitor/models/nodealert.go:160:51"
+        },
+        {
+            "id": "not found alert notification used by %s",
+            "message": "not found alert notification used by %s",
+            "translation": "找不到被%s使用的告警通知",
+            "position": "pkg/monitor/models/nodealert.go:629:41"
+        },
+        {
+            "id": "unsupported notification type %s",
+            "message": "unsupported notification type %s",
+            "translation": "不支持告警类型%s",
+            "position": "pkg/monitor/models/notification.go:80:49"
+        },
+        {
+            "id": "Alert notification used by %d alert",
+            "message": "Alert notification used by %d alert",
+            "translation": "通知被%d个告警使用",
+            "position": "pkg/monitor/models/notification.go:216:37"
+        },
+        {
+            "id": "not found res_id %q",
+            "message": "not found res_id %q",
+            "translation": "找不到res_id %q",
+            "position": "pkg/monitor/models/suggestsysalert.go:200:49"
+        },
+        {
+            "id": "not found type %q",
+            "message": "not found type %q",
+            "translation": "找不到类型%q",
+            "position": "pkg/monitor/models/suggestsysalert.go:203:49"
+        },
+        {
+            "id": "type %s rule already exists",
+            "message": "type %s rule already exists",
+            "translation": "类型为%s的规则已存在",
+            "position": "pkg/monitor/models/suggestsysrule.go:167:53"
+        },
+        {
+            "id": "no found rule setting",
+            "message": "no found rule setting",
+            "translation": "找不到规则设置",
+            "position": "pkg/monitor/models/suggestsysrule.go:173:51"
+        },
+        {
+            "id": "not found resource_type %q",
+            "message": "not found resource_type %q",
+            "translation": "找不到resource_type %q",
+            "position": "pkg/monitor/models/suggestsysruleconfig.go:253:43"
+        },
+        {
+            "id": "not found driver by type %q",
+            "message": "not found driver by type %q",
+            "translation": "找不到driver类型%q",
+            "position": "pkg/monitor/models/suggestsysruleconfig.go:258:44"
+        },
+        {
+            "id": "resource type %q of driver does not match input %q",
+            "message": "resource type %q of driver does not match input %q",
+            "translation": "driver %q的资源类型与输入参数的资源类型%q不匹配",
+            "position": "pkg/monitor/models/suggestsysruleconfig.go:261:49"
+        },
+        {
+            "id": "resource type must provided when resource_id specified",
+            "message": "resource type must provided when resource_id specified",
+            "translation": "当resource_id指定时，必须也指定资源类型",
+            "position": "pkg/monitor/models/suggestsysruleconfig.go:266:47"
+        },
+        {
+            "id": "type or resource_type must provided",
+            "message": "type or resource_type must provided",
+            "translation": "参数type或resource_type必须要指定",
+            "position": "pkg/monitor/models/suggestsysruleconfig.go:269:47"
+        },
+        {
+            "id": "not found rule by type %q",
+            "message": "not found rule by type %q",
+            "translation": "无法根据类型%q找到规则",
+            "position": "pkg/monitor/models/suggestsysruleconfig.go:284:42"
+        },
+        {
+            "id": "Invalid interval format: %s",
+            "message": "Invalid interval format: %s",
+            "translation": "参数interval的格式无效：%s",
+            "position": "pkg/monitor/models/unifiedmonitor.go:255:43"
+        },
+        {
+            "id": "Unsupported notification type",
+            "message": "Unsupported notification type",
+            "translation": "不支持的通知类型",
+            "position": "pkg/monitor/notifydrivers/drivers.go:28:2"
+        },
+        {
+            "id": "the evalType is illegal",
+            "message": "the evalType is illegal",
+            "translation": "evalType参数非法",
+            "position": "pkg/monitor/suggestsysdrivers/influxdbbasedriver.go:58:44"
+        },
+        {
+            "id": "Influxdb invalid status",
+            "message": "Influxdb invalid status",
+            "translation": "influxdb无效状态",
+            "position": "pkg/monitor/tsdb/driver/influxdb/influxdb.go:36:2"
+        },
+        {
             "id": "Not find executor for data source",
             "message": "Not find executor for data source",
             "translation": "找不到数据源对应的执行器",
             "position": "pkg/monitor/tsdb/query_endpoint.go:36:2"
+        },
+        {
+            "id": "Condition is missing the threshold parameter",
+            "message": "Condition is missing the threshold parameter",
+            "translation": "条件缺少threshold参数",
+            "position": "pkg/monitor/validators/validators.go:30:2"
+        },
+        {
+            "id": "Condition is missing the type parameter",
+            "message": "Condition is missing the type parameter",
+            "translation": "条件缺少type参数",
+            "position": "pkg/monitor/validators/validators.go:31:2"
+        },
+        {
+            "id": "Invalid condition evaluator type",
+            "message": "Invalid condition evaluator type",
+            "translation": "无效的求值类型",
+            "position": "pkg/monitor/validators/validators.go:32:2"
+        },
+        {
+            "id": "Unknown alert condition",
+            "message": "Unknown alert condition",
+            "translation": "未知的告警条件",
+            "position": "pkg/monitor/validators/validators.go:33:2"
+        },
+        {
+            "id": "Alert is missing conditions",
+            "message": "Alert is missing conditions",
+            "translation": "告警缺少告警条件",
+            "position": "pkg/monitor/validators/validators.go:34:2"
+        },
+        {
+            "id": "input condition is empty",
+            "message": "input condition is empty",
+            "translation": "输入条件为空",
+            "position": "pkg/monitor/validators/validators.go:48:43"
+        },
+        {
+            "id": "Unkown alert condition type: %s",
+            "message": "Unkown alert condition type: %s",
+            "translation": "未知的告警条件类型：%s",
+            "position": "pkg/monitor/validators/validators.go:61:43"
+        },
+        {
+            "id": "Unkown operator %s",
+            "message": "Unkown operator %s",
+            "translation": "未知的操作符%s",
+            "position": "pkg/monitor/validators/validators.go:76:43"
+        },
+        {
+            "id": "select for nothing in query",
+            "message": "select for nothing in query",
+            "translation": "查询内容为空",
+            "position": "pkg/monitor/validators/validators.go:118:44"
+        },
+        {
+            "id": "query duration err: from: %s, to:%s",
+            "message": "query duration err: from: %s, to:%s",
+            "translation": "查询区间无效：from：%s，to：%s",
+            "position": "pkg/monitor/validators/validators.go:142:44"
+        },
+        {
+            "id": "query duration `to` err: %s",
+            "message": "query duration `to` err: %s",
+            "translation": "查询区间参数to无效：%s",
+            "position": "pkg/monitor/validators/validators.go:146:42"
         },
         {
             "id": "security group id should not be empty",
