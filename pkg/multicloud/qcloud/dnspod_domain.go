@@ -15,7 +15,6 @@
 package qcloud
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -65,17 +64,17 @@ func (client *SQcloudClient) GetDomains(offset int, limit int) ([]SDomian, int, 
 	params["length"] = strconv.Itoa(limit)
 	resp, err := client.cnsRequest("DomainList", params)
 	if err != nil {
-		return nil, 0, errors.Wrapf(err, "client.cnsRequest(DomainList, %s)", fmt.Sprintln(params))
+		return nil, 0, errors.Wrapf(err, "client.cnsRequest(DomainList, %s)", jsonutils.Marshal(params).String())
 	}
 	count := sDomianCountInfo{}
 	err = resp.Unmarshal(&count, "info")
 	if err != nil {
-		return nil, 0, errors.Wrapf(err, "%s.Unmarshal(info)", fmt.Sprintln(resp))
+		return nil, 0, errors.Wrapf(err, "%s.Unmarshal(info)", resp.String())
 	}
 	domains := []SDomian{}
 	err = resp.Unmarshal(&domains, "domains")
 	if err != nil {
-		return nil, 0, errors.Wrapf(err, "%s.Unmarshal(domains)", fmt.Sprintln(resp))
+		return nil, 0, errors.Wrapf(err, "%s.Unmarshal(domains)", resp.String())
 	}
 
 	for i := 0; i < len(domains); i++ {
@@ -126,7 +125,7 @@ func (client *SQcloudClient) GetDomainById(domainId string) (*SDomian, error) {
 			return &domains[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "can't find %s in %s", domainId, fmt.Sprintln(domains))
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "can't find %s", domainId)
 }
 
 // https://cloud.tencent.com/document/product/302/8504
@@ -135,7 +134,7 @@ func (client *SQcloudClient) CreateDomian(domianName string) (*SDomian, error) {
 	params["domain"] = domianName
 	_, err := client.cnsRequest("DomainCreate", params)
 	if err != nil {
-		return nil, errors.Wrapf(err, "client.cnsRequest(DomainCreate, %s)", fmt.Sprintln(params))
+		return nil, errors.Wrapf(err, "client.cnsRequest(DomainCreate, %s)", jsonutils.Marshal(params).String())
 	}
 	domains, err := client.GetAllDomains()
 	if err != nil {
@@ -159,7 +158,7 @@ func (client *SQcloudClient) DeleteDomian(domianName string) error {
 	params["domain"] = domianName
 	_, err := client.cnsRequest("DomainDelete", params)
 	if err != nil {
-		return errors.Wrapf(err, "client.cnsRequest(DomainDelete, %s)", fmt.Sprintln(params))
+		return errors.Wrapf(err, "client.cnsRequest(DomainDelete, %s)", jsonutils.Marshal(params).String())
 	}
 	return nil
 }
@@ -250,7 +249,7 @@ func (self *SDomian) AddDnsRecordSet(opts *cloudprovider.DnsRecordSet) error {
 		opts.DnsValue = values[i]
 		recordId, err := self.client.CreateDnsRecord(opts, self.Name)
 		if err != nil {
-			return errors.Wrapf(err, "self.client.CreateDnsRecord(%s, %s)", fmt.Sprintln(opts), self.Name)
+			return errors.Wrapf(err, "self.client.CreateDnsRecord(%s, %s)", jsonutils.Marshal(opts).String(), self.Name)
 		}
 		opts.ExternalId = recordId
 		if !opts.Enabled {
@@ -271,7 +270,7 @@ func (self *SDomian) UpdateDnsRecordSet(opts *cloudprovider.DnsRecordSet) error 
 		opts.DnsValue = values[i]
 		err := self.client.ModifyDnsRecord(opts, self.Name)
 		if err != nil {
-			return errors.Wrapf(err, "self.client.CreateDnsRecord(%s, %s)", fmt.Sprintln(opts), self.Name)
+			return errors.Wrapf(err, "self.client.CreateDnsRecord(%s, %s)", jsonutils.Marshal(opts).String(), self.Name)
 		}
 		status := "enable"
 		if !opts.Enabled {
@@ -301,21 +300,21 @@ func (self *SDomian) SyncDnsRecordSets(common, add, del, update []cloudprovider.
 	for i := 0; i < len(del); i++ {
 		err := self.RemoveDnsRecordSet(&del[i])
 		if err != nil {
-			return errors.Wrapf(err, "self.RemoveDnsRecordSet(%s)", fmt.Sprintln(del[i]))
+			return errors.Wrapf(err, "self.RemoveDnsRecordSet(%s)", jsonutils.Marshal(del[i]).String())
 		}
 	}
 
 	for i := 0; i < len(add); i++ {
 		err := self.AddDnsRecordSet(&add[i])
 		if err != nil {
-			return errors.Wrapf(err, "self.AddDnsRecordSet(%s)", fmt.Sprintln(add[i]))
+			return errors.Wrapf(err, "self.AddDnsRecordSet(%s)", jsonutils.Marshal(add[i]).String())
 		}
 	}
 
 	for i := 0; i < len(update); i++ {
 		err := self.UpdateDnsRecordSet(&update[i])
 		if err != nil {
-			return errors.Wrapf(err, "self.UpdateDnsRecordSet(%s)", fmt.Sprintln(update[i]))
+			return errors.Wrapf(err, "self.UpdateDnsRecordSet(%s)", jsonutils.Marshal(update[i]).String())
 		}
 	}
 	return nil
