@@ -509,6 +509,8 @@ func (self *SElasticcache) syncRemoveCloudElasticcache(ctx context.Context, user
 
 	self.SetDisableDelete(userCred, false)
 
+	self.DeleteSubResources(ctx, userCred)
+
 	err := self.ValidateDeleteCondition(ctx)
 	if err != nil {
 		self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_ERROR, "sync to delete")
