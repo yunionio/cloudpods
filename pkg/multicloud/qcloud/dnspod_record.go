@@ -15,7 +15,6 @@
 package qcloud
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -66,17 +65,17 @@ func (client *SQcloudClient) GetDnsRecords(sDomainName string, offset int, limit
 	params["domain"] = sDomainName
 	resp, err := client.cnsRequest("RecordList", params)
 	if err != nil {
-		return nil, 0, errors.Wrapf(err, "client.cnsRequest(RecordList, %s)", fmt.Sprintln(params))
+		return nil, 0, errors.Wrapf(err, "client.cnsRequest(RecordList, %s)", jsonutils.Marshal(params).String())
 	}
 	count := SRecordCountInfo{}
 	err = resp.Unmarshal(&count, "info")
 	if err != nil {
-		return nil, 0, errors.Wrapf(err, "%s.Unmarshal(info)", fmt.Sprintln(resp))
+		return nil, 0, errors.Wrapf(err, "%s.Unmarshal(info)", jsonutils.Marshal(resp).String())
 	}
 	records := []SDnsRecord{}
 	err = resp.Unmarshal(&records, "records")
 	if err != nil {
-		return nil, 0, errors.Wrapf(err, "%s.Unmarshal(records)", fmt.Sprintln(resp))
+		return nil, 0, errors.Wrapf(err, "%s.Unmarshal(records)", jsonutils.Marshal(resp).String())
 	}
 	RecordTotal, err := strconv.Atoi(count.RecordTotal)
 	if err != nil {
@@ -161,12 +160,12 @@ func (client *SQcloudClient) CreateDnsRecord(opts *cloudprovider.DnsRecordSet, d
 	}
 	resp, err := client.cnsRequest("RecordCreate", params)
 	if err != nil {
-		return "", errors.Wrapf(err, "client.cnsRequest(RecordCreate, %s)", fmt.Sprintln(params))
+		return "", errors.Wrapf(err, "client.cnsRequest(RecordCreate, %s)", jsonutils.Marshal(params).String())
 	}
 	SRecordCreateRet := SRecordCreateRet{}
 	err = resp.Unmarshal(&SRecordCreateRet, "record")
 	if err != nil {
-		return "", errors.Wrapf(err, "%s.Unmarshal(records)", fmt.Sprintln(resp))
+		return "", errors.Wrapf(err, "%s.Unmarshal(records)", jsonutils.Marshal(resp).String())
 	}
 	return SRecordCreateRet.ID, nil
 }
@@ -197,7 +196,7 @@ func (client *SQcloudClient) ModifyDnsRecord(opts *cloudprovider.DnsRecordSet, d
 	}
 	_, err := client.cnsRequest("RecordModify", params)
 	if err != nil {
-		return errors.Wrapf(err, "client.cnsRequest(RecordModify, %s)", fmt.Sprintln(params))
+		return errors.Wrapf(err, "client.cnsRequest(RecordModify, %s)", jsonutils.Marshal(params).String())
 	}
 	return nil
 }
@@ -210,7 +209,7 @@ func (client *SQcloudClient) ModifyRecordStatus(status, recordId, domain string)
 	params["status"] = status // “disable” 和 “enable”
 	_, err := client.cnsRequest("RecordStatus", params)
 	if err != nil {
-		return errors.Wrapf(err, "client.cnsRequest(RecordModify, %s)", fmt.Sprintln(params))
+		return errors.Wrapf(err, "client.cnsRequest(RecordModify, %s)", jsonutils.Marshal(params).String())
 	}
 	return nil
 }
@@ -222,7 +221,7 @@ func (client *SQcloudClient) DeleteDnsRecord(recordId int, domainName string) er
 	params["recordId"] = strconv.Itoa(recordId)
 	_, err := client.cnsRequest("RecordDelete", params)
 	if err != nil {
-		return errors.Wrapf(err, "client.cnsRequest(RecordDelete, %s)", fmt.Sprintln(params))
+		return errors.Wrapf(err, "client.cnsRequest(RecordDelete, %s)", jsonutils.Marshal(params).String())
 	}
 	return nil
 }
