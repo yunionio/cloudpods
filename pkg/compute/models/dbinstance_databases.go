@@ -487,3 +487,21 @@ func (manager *SDBInstanceDatabaseManager) ListItemExportKeys(ctx context.Contex
 	}
 	return q, nil
 }
+
+func (manager *SDBInstanceDatabaseManager) InitializeData() error {
+	sq := DBInstanceManager.Query("id")
+	q := manager.Query().NotIn("dbinstance_id", sq.SubQuery())
+	databases := []SDBInstanceDatabase{}
+	err := db.FetchModelObjects(manager, q, &databases)
+	if err != nil {
+		return errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	for i := range databases {
+		err = databases[i].Purge(context.Background(), nil)
+		if err != nil {
+			return errors.Wrapf(err, "purge %s", databases[i].Id)
+		}
+	}
+	log.Debugf("SDBInstanceDatabaseManager cleaned %d dirty data.", len(databases))
+	return nil
+}

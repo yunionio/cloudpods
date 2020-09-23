@@ -735,3 +735,21 @@ func (manager *SDBInstanceAccountManager) ListItemExportKeys(ctx context.Context
 	}
 	return q, nil
 }
+
+func (manager *SDBInstanceAccountManager) InitializeData() error {
+	sq := DBInstanceManager.Query("id")
+	q := manager.Query().NotIn("dbinstance_id", sq.SubQuery())
+	accounts := []SDBInstanceAccount{}
+	err := db.FetchModelObjects(manager, q, &accounts)
+	if err != nil {
+		return errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	for i := range accounts {
+		err = accounts[i].Purge(context.Background(), nil)
+		if err != nil {
+			return errors.Wrapf(err, "purge %s", accounts[i].Id)
+		}
+	}
+	log.Debugf("SDBInstanceAccountManager cleaned %d dirty data.", len(accounts))
+	return nil
+}
