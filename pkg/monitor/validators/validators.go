@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
 )
 
 const (
@@ -92,13 +93,13 @@ func ValidateAlertConditionQuery(input monitor.AlertQuery) error {
 
 func ValidateAlertQueryModel(input monitor.MetricQuery) error {
 	if len(input.Selects) == 0 {
-		return httperrors.NewInputParameterError("no select data in query")
+		return merrors.NewArgIsEmptyErr("select")
 	}
 	if len(input.Database) == 0 {
-		return httperrors.NewInputParameterError("no database in query")
+		return merrors.NewArgIsEmptyErr("database")
 	}
 	if len(input.Measurement) == 0 {
-		return httperrors.NewInputParameterError("no measurement in query")
+		return merrors.NewArgIsEmptyErr("measurement")
 	}
 	return nil
 }
@@ -138,11 +139,11 @@ func ValidateFromAndToValue(input monitor.AlertQuery) error {
 			if toDur >= fromDur {
 				return nil
 			}
-			return httperrors.NewInputParameterError("query from:%s,to:%s err", input.From, input.To)
+			return httperrors.NewInputParameterError("query duration err: from: %s, to:%s", input.From, input.To)
 		}
 		return err
 	}
-	return httperrors.NewInputParameterError("query to:%s format err", input.To)
+	return httperrors.NewInputParameterError("query duration `to` err: %s", input.To)
 }
 
 func ValidateAlertConditionReducer(input monitor.Condition) error {

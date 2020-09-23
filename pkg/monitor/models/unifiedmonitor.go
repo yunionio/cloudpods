@@ -13,6 +13,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
 	mq "yunion.io/x/onecloud/pkg/monitor/metricquery"
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
@@ -189,7 +190,7 @@ func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred m
 		return jsonutils.NewDict(), err
 	}
 	if len(inputQuery.MetricQuery) == 0 {
-		return nil, httperrors.NewInputParameterError("no metric_query field in param")
+		return nil, merrors.NewArgIsEmptyErr("metric_query")
 	}
 	for _, q := range inputQuery.MetricQuery {
 		scope, _ := data.GetString("scope")

@@ -13,6 +13,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -95,7 +96,7 @@ func (man *SAlertDashBoardManager) ValidateCreateData(
 		}
 	}
 	if len(data.CommonMetricInputQuery.MetricQuery) == 0 {
-		return data, httperrors.NewInputParameterError("metric_query is empty")
+		return data, merrors.NewArgIsEmptyErr("metric_query")
 	} else {
 		for _, query := range data.CommonMetricInputQuery.MetricQuery {
 			if len(query.Comparator) != 0 {

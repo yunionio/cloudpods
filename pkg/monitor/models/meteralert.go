@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
 	"yunion.io/x/onecloud/pkg/monitor/options"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -157,7 +158,7 @@ func (man *SMeterAlertManager) ValidateCreateData(
 		}
 	}
 	if data.Recipients == "" {
-		return nil, httperrors.NewInputParameterError("recipients is empty")
+		return nil, merrors.NewArgIsEmptyErr("recipients")
 	}
 
 	ds, err := DataSourceManager.GetDefaultSource()
