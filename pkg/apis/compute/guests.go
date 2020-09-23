@@ -58,6 +58,9 @@ type ServerListInput struct {
 	// enum: asc,desc
 	// OrderByDisk string `json:"order_by_disk"`
 
+	// 根据ip查找机器
+	IpAddr string `json:"ip_addr"`
+
 	// 列出可以挂载指定EIP的主机
 	UsableServerForEip string `json:"usable_server_for_eip"`
 
