@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
 	"yunion.io/x/onecloud/pkg/monitor/options"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -96,7 +97,7 @@ func (man *SNodeAlertManager) ValidateCreateData(
 		return nil, httperrors.NewInputParameterError("Invalid period format: %s", data.Period)
 	}
 	if data.Metric == "" {
-		return nil, httperrors.NewInputParameterError("metric is missing")
+		return nil, merrors.NewArgIsEmptyErr("metric")
 	}
 	parts := strings.Split(data.Metric, ".")
 	if len(parts) != 2 {
@@ -107,10 +108,10 @@ func (man *SNodeAlertManager) ValidateCreateData(
 		return nil, err
 	}
 	if data.Recipients == "" {
-		return nil, httperrors.NewInputParameterError("recipients is empty")
+		return nil, merrors.NewArgIsEmptyErr("recipients")
 	}
 	if data.NodeId == "" {
-		return nil, httperrors.NewInputParameterError("node_id is empty")
+		return nil, merrors.NewArgIsEmptyErr("node_id")
 	}
 	nodeName, resType, err := man.validateResourceId(ctx, data.Type, data.NodeId)
 	if err != nil {

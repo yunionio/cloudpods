@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -77,10 +78,10 @@ func (man *SCommonAlertManager) ValidateCreateData(
 		data.Period = "5m"
 	}
 	if data.Name == "" {
-		return data, httperrors.NewInputParameterError("name is empty")
+		return data, merrors.NewArgIsEmptyErr("name")
 	}
 	if data.Level == "" {
-		return data, httperrors.NewInputParameterError("level is empty")
+		return data, merrors.NewArgIsEmptyErr("level")
 	}
 	if len(data.Channel) == 0 {
 		data.Channel = []string{monitor.DEFAULT_SEND_NOTIFY_CHANNEL}
@@ -95,11 +96,11 @@ func (man *SCommonAlertManager) ValidateCreateData(
 	}
 	// 默认的系统配置Recipients=commonalert-default
 	if data.AlertType != monitor.CommonAlertSystemAlertType && len(data.Recipients) == 0 {
-		return data, httperrors.NewInputParameterError("recipients is empty")
+		return data, merrors.NewArgIsEmptyErr("recipients")
 	}
 
 	if len(data.CommonMetricInputQuery.MetricQuery) == 0 {
-		return data, httperrors.NewInputParameterError("metric_query is empty")
+		return data, merrors.NewArgIsEmptyErr("metric_query")
 	} else {
 		for _, query := range data.CommonMetricInputQuery.MetricQuery {
 			if !utils.IsInStringArray(getQueryEvalType(query.Comparator), validators.EvaluatorDefaultTypes) {
