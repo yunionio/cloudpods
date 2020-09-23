@@ -648,6 +648,14 @@ func (manager *SAssignmentManager) FetchAll(
 		if len(userId) > 0 {
 			q2 = q2.Filter(sqlchemy.Equals(memberships.Field("user_id"), userId))
 		}
+		if len(userStrs) > 0 {
+			subq := UserManager.Query("id")
+			subq = subq.Filter(sqlchemy.OR(
+				sqlchemy.In(subq.Field("id"), userStrs),
+				sqlchemy.ContainsAny(subq.Field("name"), userStrs),
+			))
+			q2 = q2.Filter(sqlchemy.In(memberships.Field("user_id"), subq.SubQuery()))
+		}
 
 		q = sqlchemy.Union(usrq, q2).Query().Distinct()
 	} else {
