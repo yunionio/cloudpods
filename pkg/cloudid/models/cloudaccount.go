@@ -167,6 +167,7 @@ func (manager *SCloudaccountManager) syncCloudaccounts(ctx context.Context, user
 			result.AddError(err)
 			continue
 		}
+		account.StartSyncCloudIdResourcesTask(ctx, userCred, "")
 		localAccounts = append(localAccounts, *account)
 		result.Add()
 	}
