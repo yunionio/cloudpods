@@ -111,6 +111,10 @@ func (man *SCommonAlertManager) ValidateCreateData(
 			if query.Threshold == 0 {
 				return data, httperrors.NewInputParameterError("threshold is meaningless")
 			}
+			if strings.Contains(query.To, "now-") {
+				query.To = "now"
+				query.From = "1h"
+			}
 		}
 	}
 
@@ -670,6 +674,10 @@ func (alert *SCommonAlert) ValidateUpdateData(
 			}
 			if query.Threshold == 0 {
 				return data, httperrors.NewInputParameterError("threshold is meaningless")
+			}
+			if strings.Contains(query.To, "now-") {
+				query.To = "now"
+				query.From = "1h"
 			}
 		}
 		metricQuery := new(monitor.CommonMetricInputQuery)

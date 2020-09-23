@@ -490,6 +490,7 @@ func (self *SDataSourceManager) getFilterMeasurement(queryChan *influxdbQueryCha
 					if !strings.Contains(meanFieldArr[i], "last") {
 						continue
 					}
+
 					containsVal := false
 					for _, value := range rtn[rtnIndex][serieIndex].Values {
 						if value[i] == nil {

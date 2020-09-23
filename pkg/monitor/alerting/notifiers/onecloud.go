@@ -226,7 +226,12 @@ type sendnotifyBase struct {
 }
 
 func (s *sendnotifyBase) send() error {
-	return notify.Notifications.Send(s.session, s.msg)
+	notifyclient.RawNotifyWithCtx(s.Ctx, s.Setting.UserIds, false, notify.TNotifyChannel(s.Setting.Channel),
+		notify.TNotifyPriority(s.msg.Priority),
+		"DEFAULT",
+		jsonutils.Marshal(&s.config))
+	return nil
+	//return notify.Notifications.Send(s.session, s.msg)
 }
 
 type sendUserImpl struct {
@@ -243,7 +248,7 @@ type sendSysImpl struct {
 }
 
 func (s *sendSysImpl) send() error {
-	notifyclient.SystemNotify(notify.TNotifyPriority(s.msg.Priority), s.msg.Topic,
-		jsonutils.NewString(s.msg.Msg))
+	notifyclient.SystemNotify(notify.TNotifyPriority(s.msg.Priority), "DEFAULT",
+		jsonutils.Marshal(&s.config))
 	return nil
 }
