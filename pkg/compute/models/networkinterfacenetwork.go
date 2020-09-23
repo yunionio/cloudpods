@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
@@ -227,4 +228,24 @@ func (self *SNetworkinterfacenetwork) GetDetailJson() (jsonutils.JSONObject, err
 		"networkinterface_id": self.NetworkinterfaceId,
 		"network":             network.Name,
 	}), nil
+}
+
+func (manager *SNetworkinterfacenetworkManager) InitializeData() error {
+	sq := NetworkInterfaceManager.Query("id")
+	q := manager.Query().NotIn("networkinterface_id", sq.SubQuery())
+	networks := []SNetworkinterfacenetwork{}
+	err := db.FetchModelObjects(manager, q, &networks)
+	if err != nil {
+		return errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	for i := range networks {
+		_, err = db.Update(&networks[i], func() error {
+			return networks[i].MarkDelete()
+		})
+		if err != nil {
+			return errors.Wrapf(err, "Delete %d", networks[i].RowId)
+		}
+	}
+	log.Debugf("SNetworkinterfacenetworkManager cleaned %d deprecated networkinterface ipAddrs.", len(networks))
+	return nil
 }
