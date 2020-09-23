@@ -258,7 +258,7 @@ func (man *SSuggestSysRuleConfigManager) ValidateCreateData(ctx context.Context,
 				return nil, httperrors.NewNotFoundError("not found driver by type %q", *input.Type)
 			}
 			if drv.GetResourceType() != *input.ResourceType {
-				return nil, httperrors.NewNotAcceptableError("type %q resource type not match input %q", drv.GetType(), *input.ResourceType)
+				return nil, httperrors.NewNotAcceptableError("resource type %q of driver does not match input %q", drv.GetType(), *input.ResourceType)
 			}
 		}
 	}

@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
 	"yunion.io/x/onecloud/pkg/monitor/registry"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -382,11 +383,11 @@ func (self *SSuggestSysRuleManager) GetPropertyMetricMeasurement(ctx context.Con
 func (self *SSuggestSysRuleManager) GetMetricMeasurement(query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	database, _ := query.GetString("database")
 	if database == "" {
-		return jsonutils.JSONNull, httperrors.NewInputParameterError("not support database")
+		return jsonutils.JSONNull, merrors.NewArgIsEmptyErr("database")
 	}
 	measurement, _ := query.GetString("measurement")
 	if measurement == "" {
-		return jsonutils.JSONNull, httperrors.NewInputParameterError("not support measurement")
+		return jsonutils.JSONNull, merrors.NewArgIsEmptyErr("measurement")
 	}
 	dataSource, err := DataSourceManager.GetDefaultSource()
 	if err != nil {
