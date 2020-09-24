@@ -836,7 +836,11 @@ func (self *SGuest) NotifyServerEvent(
 	kwargs.Add(jsonutils.NewString(self.Hypervisor), "hypervisor")
 	host := self.GetHost()
 	if host != nil {
-		kwargs.Add(jsonutils.NewString(host.GetBrand()), "brand")
+		brand := host.GetBrand()
+		if brand == api.CLOUD_PROVIDER_ONECLOUD {
+			brand = api.ComputeI18nTable.Lookup(ctx, brand)
+		}
+		kwargs.Add(jsonutils.NewString(brand), "brand")
 	}
 	if loginInfo {
 		kwargs.Add(jsonutils.NewString(self.getNotifyIps()), "ips")

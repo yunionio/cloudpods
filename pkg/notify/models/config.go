@@ -181,7 +181,7 @@ func sortContactType(ctypes []string) []string {
 			ret = append(ret, ct)
 		}
 	}
-	return nil
+	return ret
 }
 
 func (cm *SConfigManager) allContactType() ([]string, error) {
