@@ -484,7 +484,7 @@ func (spc *SSnapshotPolicyCache) DeleteCloudSnapshotPolicy() error {
 			return err
 		}
 		cloudSp, err := iregion.GetISnapshotPolicyById(spc.ExternalId)
-		if err == cloudprovider.ErrNotFound {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			return nil
 		}
 		if err != nil {

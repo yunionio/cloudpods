@@ -267,7 +267,7 @@ func (self *SRegion) CreateStorageAccount(storageAccount string) (*SStorageAccou
 	if err == nil {
 		return account, nil
 	}
-	if err == cloudprovider.ErrNotFound {
+	if errors.Cause(err) == cloudprovider.ErrNotFound {
 		uniqName := self.GetUniqStorageAccountName()
 		stoargeaccount := SStorageAccount{
 			region: self,
@@ -1145,7 +1145,7 @@ func (b *SStorageAccount) AbortMultipartUpload(ctx context.Context, key string, 
 	}
 	container, err := b.getOrCreateContainer(containerName, false)
 	if err != nil {
-		if err == cloudprovider.ErrNotFound {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			return nil
 		}
 		return errors.Wrap(err, "getOrCreateContainer")

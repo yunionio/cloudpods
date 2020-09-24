@@ -231,7 +231,7 @@ func (self *SLBBackendGroup) AddBackendServer(serverId string, weight int, port 
 // https://cloud.tencent.com/document/product/214/31794
 func (self *SLBBackendGroup) RemoveBackendServer(serverId string, weight int, port int) error {
 	_, err := self.lb.region.GetInstance(serverId)
-	if err == cloudprovider.ErrNotFound {
+	if err != nil && errors.Cause(err) == cloudprovider.ErrNotFound {
 		return nil
 	}
 
