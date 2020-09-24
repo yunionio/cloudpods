@@ -783,7 +783,7 @@ func (region *SRegion) AttachDisk(instanceId, diskId string, boot bool) error {
 	if boot {
 		body["autoDelete"] = true
 	}
-	params := map[string]string{"forceAttach": "true"}
+	params := map[string]string{}
 	return region.Do(instanceId, "attachDisk", params, jsonutils.Marshal(body))
 }
 
