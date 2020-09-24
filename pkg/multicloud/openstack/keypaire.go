@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/util/rand"
 )
 
 type SKeypair struct {
@@ -112,13 +113,16 @@ func (region *SRegion) syncKeypair(namePrefix, publicKey string) (string, error)
 			return keypair.Keypair.Name, nil
 		}
 	}
-	for i := 0; i < 10; i++ {
-		name := fmt.Sprintf("%s-%d", namePrefix, i)
+	randomString := func(prefix string, length int) string {
+		return fmt.Sprintf("%s-%s", prefix, rand.String(length))
+	}
+	for i := 1; i < 10; i++ {
+		name := randomString(namePrefix, i)
 		if _, err := region.GetKeypair(name); err != nil {
-			if err == cloudprovider.ErrNotFound {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				keypair, err := region.CreateKeypair(name, publicKey, "ssh")
 				if err != nil {
-					return "", err
+					return "", errors.Wrapf(err, "CreateKeypair")
 				}
 				return keypair.Keypair.Name, nil
 			}
