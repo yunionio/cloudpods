@@ -356,7 +356,11 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 		return output, httperrors.NewNotSupportedError("not support for cloudaccount with provider '%s'", input.Provider)
 	}
 	// validate first
-	input.CloudaccountCreateInput, err = scm.ValidateCreateData(ctx, userCred, userCred, query, input.CloudaccountCreateInput)
+	ownerId, err := scm.FetchOwnerId(ctx, jsonutils.Marshal(input))
+	if err != nil {
+		return output, errors.Wrap(err, "FetchOwnerId in PerformPrepareNets")
+	}
+	input.CloudaccountCreateInput, err = scm.ValidateCreateData(ctx, userCred, ownerId, query, input.CloudaccountCreateInput)
 	if err != nil {
 		return output, err
 	}
