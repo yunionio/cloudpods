@@ -30,3 +30,7 @@ type ExternalProjectDetails struct {
 
 	SExternalProject
 }
+
+type ExternalProjectChangeProjectInput struct {
+	apis.ProjectizedResourceInput
+}
