@@ -29,3 +29,7 @@ func (self *SHostBase) GetMemCmtbound() float32 {
 func (self *SHostBase) GetReservedMemoryMb() int {
 	return 0
 }
+
+func (self *SHostBase) GetSchedtags() ([]string, error) {
+	return nil, nil
+}
