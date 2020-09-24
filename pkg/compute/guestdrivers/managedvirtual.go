@@ -438,8 +438,8 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 	}
 
 	iVM, err := func() (cloudprovider.ICloudVM, error) {
-		lockman.LockObject(ctx, host)
-		defer lockman.ReleaseObject(ctx, host)
+		lockman.LockObject(ctx, guest)
+		defer lockman.ReleaseObject(ctx, guest)
 
 		iVM, err := ihost.CreateVM(&desc)
 		if err != nil {
