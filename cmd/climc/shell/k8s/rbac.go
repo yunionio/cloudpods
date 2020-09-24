@@ -15,17 +15,12 @@
 package k8s
 
 import (
-	//"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
-	//o "yunion.io/x/onecloud/pkg/mcclient/options/k8s"
 )
 
 func initRbac() {
-	//cmdRole := initK8sNamespaceResource("rbacrole", k8s.RbacRoles)
-	initK8sNamespaceResource("rbac-role", k8s.RbacRoles)
 	initK8sNamespaceResource("rbac-rolebinding", k8s.RbacRoleBindings)
 	initK8sClusterResource("rbac-clusterrole", k8s.RbacClusterRoles)
 	initK8sClusterResource("rbac-clusterrolebinding", k8s.RbacClusterRoleBindings)
 	initK8sNamespaceResource("serviceaccount", k8s.ServiceAccounts)
-	//cmdRoleN := cmdRole.CommandNameFactory
 }
