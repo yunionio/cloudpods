@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -132,7 +133,7 @@ func (cache *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.T
 	for {
 		_, err = cache.region.GetImageByName(imageName)
 		if err != nil {
-			if err == cloudprovider.ErrNotFound {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				break
 			} else {
 				return "", err
