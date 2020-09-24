@@ -63,7 +63,7 @@ func (self *SNatSEntryDeleteTask) OnInit(ctx context.Context, obj db.IStandalone
 		return
 	}
 	cloudNatSEntry, err := cloudNatGateway.GetINatSEntryByID(snatEntry.ExternalId)
-	if err == cloudprovider.ErrNotFound {
+	if errors.Cause(err) == cloudprovider.ErrNotFound {
 		//already delete
 	} else if err != nil {
 		self.TaskFailed(ctx, snatEntry, errors.Wrapf(err, "Get SNat Entry by ID '%s' failed", snatEntry.ExternalId))

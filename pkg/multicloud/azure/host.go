@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/utils"
 
@@ -92,7 +93,7 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 	}
 	nic, err := self.searchNetorkInterface(desc.IpAddr, net.GetId(), desc.ExternalSecgroupId)
 	if err != nil {
-		if err == cloudprovider.ErrNotFound {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			nic, err = self.zone.region.CreateNetworkInterface(desc.ProjectId, fmt.Sprintf("%s-ipconfig", desc.Name), desc.IpAddr, net.GetId(), desc.ExternalSecgroupId)
 			if err != nil {
 				return nil, err

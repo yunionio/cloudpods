@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -57,7 +58,7 @@ func (self *NetworkDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 			self.taskFailed(ctx, network, err)
 			return
 		}
-	} else if err == cloudprovider.ErrNotFound {
+	} else if errors.Cause(err) == cloudprovider.ErrNotFound {
 		// already deleted, do nothing
 	} else {
 		self.taskFailed(ctx, network, err)

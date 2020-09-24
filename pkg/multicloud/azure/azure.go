@@ -567,15 +567,15 @@ func (e *AzureError) Error() string {
 func (self *SAzureClient) getUniqName(cli *autorest.Client, resourceGroup string, resourceType, name string, body jsonutils.JSONObject) (string, string, error) {
 	url := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s", self.subscriptionId, resourceGroup, resourceType, name)
 	if _, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "", DefaultResource); err != nil {
-		if err == cloudprovider.ErrNotFound {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			return url, body.String(), nil
 		}
 		return "", "", err
 	}
 	for i := 0; i < 20; i++ {
 		url = fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s-%d", self.subscriptionId, resourceGroup, resourceType, name, i)
-		if _, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "", DefaultResource); err == cloudprovider.ErrNotFound {
-			if err == cloudprovider.ErrNotFound {
+		if _, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "", DefaultResource); err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				data := body.(*jsonutils.JSONDict)
 				data.Set("name", jsonutils.NewString(fmt.Sprintf("%s-%d", name, i)))
 				return url, body.String(), nil

@@ -2519,11 +2519,7 @@ func (self *SHost) GetIHostAndProvider() (cloudprovider.ICloudHost, cloudprovide
 	}
 	ihost, err := iregion.GetIHostById(self.ExternalId)
 	if err != nil {
-		if err == cloudprovider.ErrNotFound {
-			return nil, nil, cloudprovider.ErrNotFound
-		}
-		log.Errorf("fail to find ihost by id %s %s", self.ExternalId, err)
-		return nil, nil, fmt.Errorf("fail to find ihost by id %s", err)
+		return nil, nil, errors.Wrapf(err, "iregion.GetIHostById(%s)", self.ExternalId)
 	}
 	return ihost, provider, nil
 }

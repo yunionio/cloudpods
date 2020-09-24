@@ -621,7 +621,7 @@ func (self *SRegion) StopVM(instanceId string, isForce bool) error {
 func (self *SRegion) DeleteVM(instanceId string) error {
 	status, err := self.GetInstanceStatus(instanceId)
 	if err != nil {
-		if err == cloudprovider.ErrNotFound {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			return nil
 		}
 		log.Errorf("Fail to get instance status on DeleteVM: %s", err)
