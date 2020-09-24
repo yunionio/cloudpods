@@ -104,3 +104,7 @@ func (cluster *SCluster) SyncResourcePool(name string) (*mo.ResourcePool, error)
 	}
 	return cluster.CreateResourcePool(name)
 }
+
+func (cluster *SCluster) getoCluster() *mo.ClusterComputeResource {
+	return cluster.object.(*mo.ClusterComputeResource)
+}

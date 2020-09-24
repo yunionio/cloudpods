@@ -128,6 +128,29 @@ func (self *SHost) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }
 
+func (self *SHost) GetSchedtags() ([]string, error) {
+	clusters, err := self.datacenter.listClusters()
+	if err != nil {
+		return nil, err
+	}
+	reference := self.GetoHostSystem().Reference()
+	tags := make([]string, 0, 1)
+Loop:
+	for i := range clusters {
+		oc := clusters[i].getoCluster()
+		if len(oc.Host) == 0 {
+			continue
+		}
+		for _, h := range oc.Host {
+			if h == reference {
+				tags = append(tags, fmt.Sprintf("cluster:%s", oc.Name))
+				continue Loop
+			}
+		}
+	}
+	return tags, nil
+}
+
 func (self *SHost) getHostSystem() *mo.HostSystem {
 	return self.object.(*mo.HostSystem)
 }
