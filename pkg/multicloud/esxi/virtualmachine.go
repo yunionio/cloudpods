@@ -717,7 +717,7 @@ func (self *SVirtualMachine) fetchHardwareInfo() {
 	}
 
 	if moVM == nil || moVM.Config == nil || moVM.Config.Hardware.Device == nil {
-		log.Errorf("invalid vm config, moVM: %v", moVM)
+		log.Errorf("invalid vm config, moVM: %#v", moVM)
 		return
 	}
 

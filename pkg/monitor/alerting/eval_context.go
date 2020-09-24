@@ -30,16 +30,17 @@ import (
 
 // EvalContext is the context object for an alert evaluation.
 type EvalContext struct {
-	Firing         bool
-	IsTestRun      bool
-	IsDebug        bool
-	EvalMatches    []*monitor.EvalMatch
-	Logs           []*monitor.ResultLogEntry
-	Error          error
-	ConditionEvals string
-	StartTime      time.Time
-	EndTime        time.Time
-	Rule           *Rule
+	Firing             bool
+	IsTestRun          bool
+	IsDebug            bool
+	EvalMatches        []*monitor.EvalMatch
+	AlertOkEvalMatches []*monitor.EvalMatch
+	Logs               []*monitor.ResultLogEntry
+	Error              error
+	ConditionEvals     string
+	StartTime          time.Time
+	EndTime            time.Time
+	Rule               *Rule
 
 	NoDataFound    bool
 	PrevAlertState monitor.AlertStateType
@@ -188,8 +189,8 @@ func (c *EvalContext) GetNotificationTemplateConfig() monitor.NotificationTempla
 		Title:       c.GetNotificationTitle(),
 		Name:        c.Rule.Name,
 		Matches:     c.GetEvalMatches(),
-		StartTime:   c.StartTime.Format(time.RFC3339),
-		EndTime:     c.EndTime.Format(time.RFC3339),
+		StartTime:   c.StartTime.Format("2006-01-02 15:04:05"),
+		EndTime:     c.EndTime.Format("2006-01-02 15:04:05"),
 		Description: desc,
 		Level:       c.Rule.Level,
 		NoDataFound: c.NoDataFound,

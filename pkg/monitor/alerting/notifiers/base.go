@@ -25,6 +25,7 @@ import (
 
 // NotifierBase is the base implentation of a notifier
 type NotifierBase struct {
+	Ctx                   context.Context
 	Name                  string
 	Type                  string
 	Id                    string
@@ -37,6 +38,7 @@ type NotifierBase struct {
 // NewNotifierBase returns a new NotifierBase
 func NewNotifierBase(config alerting.NotificationConfig) NotifierBase {
 	return NotifierBase{
+		Ctx:  config.Ctx,
 		Id:   config.Id,
 		Name: config.Name,
 		// IsDefault: config.IsDefault,
