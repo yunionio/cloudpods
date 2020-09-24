@@ -130,23 +130,23 @@ func (c Columns) Array() []string {
 }
 
 func NewNameCols(col ...string) *Columns {
-	return NewColumns("Name", "Id").Add(col...)
+	return NewColumns("Name", "Id", "Status").Add(col...)
 }
 
 func NewMetaCols(col ...string) *Columns {
-	return NewNameCols("Age").Add(col...)
+	return NewNameCols("creationTimestamp", "Created_At").Add(col...)
 }
 
 func NewNamespaceCols(col ...string) *Columns {
-	return NewMetaCols("Namespace", "Labels").Add(col...)
+	return NewMetaCols("Namespace_ID", "Namespace", "Labels").Add(col...)
 }
 
 func NewClusterCols(col ...string) *Columns {
-	return NewColumns("Cluster").Add(col...)
+	return NewColumns("Cluster_ID", "Cluster").Add(col...)
 }
 
 func NewResourceCols(col ...string) *Columns {
-	return NewNameCols("ID").Add(col...)
+	return NewNameCols().Add(col...)
 }
 
 func NewFedJointClusterCols(col ...string) *Columns {

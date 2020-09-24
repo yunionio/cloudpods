@@ -20,7 +20,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 )
 
 type BaseEventListOptions struct {
@@ -54,23 +53,19 @@ type TypeEventListOptions struct {
 	ID string `help:"" metavar:"OBJ_ID"`
 }
 
-func doK8sEventList(s *mcclient.ClientSession, args *EventListOptions) error {
-	return doEventList(*k8s.Logs.ResourceManager, s, args)
-}
-
 func doComputeEventList(s *mcclient.ClientSession, args *EventListOptions) error {
-	return doEventList(modules.Logs, s, args)
+	return DoEventList(modules.Logs, s, args)
 }
 
 func doImageEventList(s *mcclient.ClientSession, args *EventListOptions) error {
-	return doEventList(modules.ImageLogs, s, args)
+	return DoEventList(modules.ImageLogs, s, args)
 }
 
 func doIdentityEventList(s *mcclient.ClientSession, args *EventListOptions) error {
-	return doEventList(modules.IdentityLogs, s, args)
+	return DoEventList(modules.IdentityLogs, s, args)
 }
 
-func doEventList(man modulebase.ResourceManager, s *mcclient.ClientSession, args *EventListOptions) error {
+func DoEventList(man modulebase.ResourceManager, s *mcclient.ClientSession, args *EventListOptions) error {
 	params := jsonutils.NewDict()
 	if len(args.Type) > 0 {
 		params.Add(jsonutils.NewStringArray(args.Type), "obj_type")
@@ -188,16 +183,6 @@ func init() {
 	R(&TypeEventListOptions{}, "bucket-event", "Show operation event logs of bucket", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
 		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"bucket"}}
 		return doComputeEventList(s, &nargs)
-	})
-
-	R(&TypeEventListOptions{}, "kubecluster-event", "Show operation event logs of kubernetes cluster", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
-		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"kubecluster"}}
-		return doK8sEventList(s, &nargs)
-	})
-
-	R(&TypeEventListOptions{}, "kubemachine-event", "Show operation event logs of kubernetes machine", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
-		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"kubemachine"}}
-		return doK8sEventList(s, &nargs)
 	})
 
 	R(&TypeEventListOptions{}, "image-event", "Show operation event logs of glance images", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {

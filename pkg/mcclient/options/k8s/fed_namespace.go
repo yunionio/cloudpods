@@ -26,7 +26,7 @@ type FedNamespaceListOptions struct {
 
 type FedNamespaceCreateOptions struct {
 	FedResourceCreateOptions
-	Spec FedNamespaceSpec `json:"spec"`
+	Spec FedNamespaceSpec `json:"spec,allowempty"`
 }
 
 func (o *FedNamespaceCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -34,9 +34,9 @@ func (o *FedNamespaceCreateOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type FedNamespaceSpec struct {
-	Template NamespaceTemplate `json:"template"`
+	Template NamespaceTemplate `json:"template,allowempty"`
 }
 
 type NamespaceTemplate struct {
-	Spec corev1.NamespaceSpec `json:"spec"`
+	Spec corev1.NamespaceSpec `json:"spec,allowempty"`
 }

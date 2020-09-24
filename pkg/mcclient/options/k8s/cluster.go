@@ -185,6 +185,12 @@ func (o KubeClusterImportOptions) Params() (jsonutils.JSONObject, error) {
 	return params, nil
 }
 
+type ClusterGCOpts struct{}
+
+func (o ClusterGCOpts) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
 type IdentOptions struct {
 	ID string `help:"ID or name of the model"`
 }
@@ -197,12 +203,27 @@ func (o IdentOptions) GetId() string {
 	return o.ID
 }
 
+type ClusterPurgeOptions struct {
+	IdentOptions
+	Force bool `help:"force purge"`
+}
+
+func (o ClusterPurgeOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	force := jsonutils.JSONFalse
+	if o.Force {
+		force = jsonutils.JSONTrue
+	}
+	params.Add(force, "force")
+	return params, nil
+}
+
 type ClusterSyncOptions struct {
 	IdentOptions
 	Force bool `help:"force sync"`
 }
 
-func (o ClusterSyncOptions) Params() (*jsonutils.JSONDict, error) {
+func (o ClusterSyncOptions) Params() (jsonutils.JSONObject, error) {
 	param := jsonutils.NewDict()
 	if o.Force {
 		param.Add(jsonutils.JSONTrue, "force")
@@ -220,6 +241,14 @@ type IdentsOptions struct {
 	ID []string `help:"ID of models to operate"`
 }
 
+func (o IdentsOptions) GetIds() []string {
+	return o.ID
+}
+
+func (o IdentsOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
 type ClusterDeleteOptions struct {
 	IdentsOptions
 }
@@ -229,7 +258,7 @@ type KubeClusterAddMachinesOptions struct {
 	AddMachineOptions
 }
 
-func (o AddMachineOptions) Params() (*jsonutils.JSONArray, error) {
+func (o AddMachineOptions) Params() (jsonutils.JSONObject, error) {
 	machineObjs := jsonutils.NewArray()
 	if len(o.Machine) == 0 {
 		return machineObjs, nil
@@ -248,7 +277,7 @@ func (o AddMachineOptions) Params() (*jsonutils.JSONArray, error) {
 	return machineObjs, nil
 }
 
-func (o KubeClusterAddMachinesOptions) Params() (*jsonutils.JSONDict, error) {
+func (o KubeClusterAddMachinesOptions) Params() (jsonutils.JSONObject, error) {
 	params := jsonutils.NewDict()
 	machinesArray, err := o.AddMachineOptions.Params()
 	if err != nil {
@@ -263,7 +292,7 @@ type KubeClusterDeleteMachinesOptions struct {
 	Machines []string `help:"Machine id or name"`
 }
 
-func (o KubeClusterDeleteMachinesOptions) Params() (*jsonutils.JSONDict, error) {
+func (o KubeClusterDeleteMachinesOptions) Params() (jsonutils.JSONObject, error) {
 	params := jsonutils.NewDict()
 	machinesArray := jsonutils.NewArray()
 	for _, m := range o.Machines {

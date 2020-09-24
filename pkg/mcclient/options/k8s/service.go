@@ -57,7 +57,7 @@ type ServiceCreateOptions struct {
 	Selector []string `help:"Selectors are backends pods labels, e.g. 'run=app'"`
 }
 
-func (o ServiceCreateOptions) Params() (*jsonutils.JSONDict, error) {
+func (o ServiceCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params := o.NamespaceWithClusterOptions.Params()
 	svcSpec, err := o.ServiceSpecOptions.Params()
 	if err != nil {

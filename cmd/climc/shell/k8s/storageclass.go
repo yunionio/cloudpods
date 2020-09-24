@@ -15,70 +15,15 @@
 package k8s
 
 import (
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 	o "yunion.io/x/onecloud/pkg/mcclient/options/k8s"
 )
 
 func initStorageClass() {
-	cmdN := NewCmdNameFactory("storageclass")
 	scCmd := initK8sClusterResource("storageclass", k8s.Storageclass)
+	scCmd.Perform("set-default", new(o.ClusterResourceBaseOptions))
 
-	setDefaultCmd := NewCommand(
-		&o.ClusterResourceBaseOptions{},
-		cmdN.Do("set-default"),
-		"Set storageclass as default",
-		func(s *mcclient.ClientSession, args *o.ClusterResourceBaseOptions) error {
-			ret, err := k8s.Storageclass.PerformAction(s, args.NAME, "set-default", args.Params())
-			if err != nil {
-				return err
-			}
-			printObject(ret)
-			return nil
-		},
-	)
-
-	scCmd.AddR(setDefaultCmd)
-
-	addStorageClassCephCSI(scCmd)
-}
-
-func addStorageClassCephCSI(cmd *ShellCommands) {
-	rbdN := NewCmdNameFactory("storageclass-ceph-csi-rbd")
-	rbdCreateCmd := NewCommand(
-		&o.StorageClassCephCSIRBDCreateOptions{},
-		rbdN.Do("create"),
-		"Create ceph csi rbd",
-		func(s *mcclient.ClientSession, args *o.StorageClassCephCSIRBDCreateOptions) error {
-			params, err := args.Params()
-			if err != nil {
-				return err
-			}
-			ret, err := k8s.Storageclass.Create(s, params)
-			if err != nil {
-				return err
-			}
-			printObject(ret)
-			return nil
-		},
-	)
-	testConnCmd := NewCommand(
-		&o.StorageClassCephCSIRBDTestOptions{},
-		rbdN.Do("connection-test"),
-		"Test storageclass connection",
-		func(s *mcclient.ClientSession, args *o.StorageClassCephCSIRBDTestOptions) error {
-			params, err := args.Params()
-			if err != nil {
-				return err
-			}
-			ret, err := k8s.Storageclass.PerformClassAction(s, "connection-test", params)
-			if err != nil {
-				return err
-			}
-			printObject(ret)
-			return nil
-		},
-	)
-
-	cmd.AddR(rbdCreateCmd, testConnCmd)
+	rbdCmd := NewK8sResourceCmd(k8s.Storageclass).SetKeyword("storageclass-ceph-csi-rbd")
+	rbdCmd.Create(new(o.StorageClassCephCSIRBDCreateOptions))
+	rbdCmd.PerformClass("connection-test", new(o.StorageClassCephCSIRBDTestOptions))
 }

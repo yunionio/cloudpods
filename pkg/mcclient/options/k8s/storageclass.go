@@ -36,7 +36,7 @@ type StorageClassCephCSIRBDTestOptions struct {
 	SecretNamespace string `help:"Ceph credentials secret namespace"`
 }
 
-func (o *StorageClassCephCSIRBDTestOptions) Params() (*jsonutils.JSONDict, error) {
+func (o *StorageClassCephCSIRBDTestOptions) Params() (jsonutils.JSONObject, error) {
 	params := o.StorageClassCreateOptions.Params("rbd.csi.ceph.com")
 	input, err := o.getInput()
 	if err != nil {
@@ -61,7 +61,7 @@ type StorageClassCephCSIRBDCreateOptions struct {
 	FsType        string `help:"CSI default volume filesystem type" default:"ext4"`
 }
 
-func (o *StorageClassCephCSIRBDCreateOptions) Params() (*jsonutils.JSONDict, error) {
+func (o *StorageClassCephCSIRBDCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params, err := o.StorageClassCephCSIRBDTestOptions.Params()
 	if err != nil {
 		return nil, err
@@ -70,7 +70,7 @@ func (o *StorageClassCephCSIRBDCreateOptions) Params() (*jsonutils.JSONDict, err
 	if err != nil {
 		return nil, err
 	}
-	params.Add(input, "cephCSIRBD")
+	params.(*jsonutils.JSONDict).Add(input, "cephCSIRBD")
 	return params, nil
 }
 
