@@ -1910,7 +1910,7 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancer(ctx context.Context, 
 				}
 
 				eip, err := db.FetchByExternalIdAndManagerId(models.ElasticipManager, ieip.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-					return q.Equals("manager_id", lb.MarkUnDelete)
+					return q.Equals("manager_id", lb.ManagerId)
 				})
 				if err != nil {
 					return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.FetchByExternalId")
