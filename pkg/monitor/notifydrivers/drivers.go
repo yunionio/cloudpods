@@ -15,6 +15,7 @@
 package notifydrivers
 
 import (
+	"context"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -40,6 +41,7 @@ type Notifier interface {
 }
 
 type NotificationConfig struct {
+	Ctx                   context.Context
 	Id                    string
 	Name                  string
 	Type                  string

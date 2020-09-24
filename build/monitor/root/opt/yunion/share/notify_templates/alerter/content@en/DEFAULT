@@ -1,0 +1,17 @@
+## {{.title}}
+- Time: {{.start_time}}
+- Level: {{.level}}
+
+{{ range .matches}}
+- Metric: {{.metric}}
+- Trigger value: {{html .value_str}}
+
+### Trigger condition:
+- {{html $.description }}
+
+### Label
+ > Name: {{ index .tags "name" }}
+ > IP: {{ index .tags "ip" }}
+ > Brand: {{ index .tags "brand" }}
+------
+{{- end}}

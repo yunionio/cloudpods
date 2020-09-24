@@ -468,8 +468,9 @@ func (manager *SMetricMeasurementManager) initMeasurementAndFieldInfo(createInpu
 	}
 	unInsertFields := createInput.MetricFields
 	updateFields := make([]monitor.MetricFieldCreateInput, 0)
+	deleteFields := make([]string, 0)
 	if len(measurements) != 0 {
-		unInsertFields, updateFields = measurements[0].getInsertAndUpdateFields(userCred, createInput)
+		unInsertFields, updateFields, deleteFields = measurements[0].getInsertAndUpdateFields(userCred, createInput)
 	}
 	if len(measurements) == 0 {
 		_, err := db.DoCreate(manager, context.Background(), userCred, jsonutils.NewDict(),
@@ -481,7 +482,7 @@ func (manager *SMetricMeasurementManager) initMeasurementAndFieldInfo(createInpu
 		return err
 	}
 	createInput.MetricFields = unInsertFields
-	return measurements[0].insertOrUpdateMetric(userCred, createInput, updateFields)
+	return measurements[0].insertOrUpdateMetric(userCred, createInput, updateFields, deleteFields)
 }
 
 func (manager *SMetricMeasurementManager) getMeasurementByName(names ...string) ([]SMetricMeasurement, error) {
@@ -497,16 +498,16 @@ func (manager *SMetricMeasurementManager) getMeasurementByName(names ...string) 
 }
 
 func (self *SMetricMeasurement) getInsertAndUpdateFields(userCred mcclient.TokenCredential, input monitor.MetricCreateInput) (unInsertFields,
-	updateFields []monitor.MetricFieldCreateInput) {
+	updateFields []monitor.MetricFieldCreateInput, deleteFields []string) {
 	measurementsIns := []interface{}{self}
 	details := MetricMeasurementManager.FetchCustomizeColumns(context.Background(), userCred, jsonutils.NewDict(), measurementsIns,
 		stringutils2.NewSortedStrings([]string{}), true)
-	unInsertFields, updateFields = getUnInsertFields(input.MetricFields, details[0])
+	unInsertFields, updateFields, deleteFields = getUnInsertFields(input.MetricFields, details[0])
 	return
 }
 
 func (self *SMetricMeasurement) insertOrUpdateMetric(userCred mcclient.TokenCredential,
-	createInput monitor.MetricCreateInput, updateFields []monitor.MetricFieldCreateInput) error {
+	createInput monitor.MetricCreateInput, updateFields []monitor.MetricFieldCreateInput, deleteFields []string) error {
 	_, err := db.Update(self, func() error {
 		if len(createInput.Measurement.DisplayName) != 0 {
 			self.DisplayName = createInput.Measurement.DisplayName
@@ -546,13 +547,26 @@ func (self *SMetricMeasurement) insertOrUpdateMetric(userCred mcclient.TokenCred
 				}
 			}
 		}
+		for _, field := range deleteFields {
+			if field == dbFields[i].Name {
+				err := dbFields[i].CustomizeDelete(context.Background(), userCred, nil, nil)
+				if err != nil {
+					return errors.Wrap(err, "CustomizeDelete fields error")
+				}
+				err = dbFields[i].Delete(context.Background(), userCred)
+				if err != nil {
+					return errors.Wrap(err, "Delete fields error")
+				}
+			}
+		}
 	}
+
 	return nil
 }
 
 func getUnInsertFields(searchFields []monitor.MetricFieldCreateInput,
 	dbFields monitor.MetricDetails) (unInsertFields, updateFields []monitor.
-	MetricFieldCreateInput) {
+	MetricFieldCreateInput, deleteFields []string) {
 	fieldCountMap := make(map[string]int)
 	fieldMap := make(map[string]monitor.MetricFieldCreateInput, 0)
 	for _, field := range searchFields {
@@ -567,6 +581,8 @@ func getUnInsertFields(searchFields []monitor.MetricFieldCreateInput,
 				updateFields = append(updateFields, field)
 			}
 			delete(fieldCountMap, dbField.Name)
+		} else {
+			deleteFields = append(deleteFields, dbField.Name)
 		}
 	}
 	for fieldName, _ := range fieldCountMap {
@@ -574,7 +590,7 @@ func getUnInsertFields(searchFields []monitor.MetricFieldCreateInput,
 			unInsertFields = append(unInsertFields, field)
 		}
 	}
-	return unInsertFields, updateFields
+	return unInsertFields, updateFields, deleteFields
 }
 
 func (self *SMetricMeasurement) getMetricJoint() ([]SMetric, error) {

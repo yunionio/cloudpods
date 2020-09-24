@@ -108,6 +108,7 @@ func (n *notificationService) getNeededNotifiers(nIds []string, evalCtx *EvalCon
 	shouldNotify := false
 	for _, obj := range notis {
 		not, err := InitNotifier(NotificationConfig{
+			Ctx:                   evalCtx.Ctx,
 			Id:                    obj.GetId(),
 			Name:                  obj.GetName(),
 			Type:                  obj.Type,
@@ -143,6 +144,12 @@ func (n *notificationService) getNeededNotifiers(nIds []string, evalCtx *EvalCon
 		}
 	}
 	if shouldNotify {
+		var matches []*monitor.EvalMatch
+		if evalCtx.Firing {
+			matches = evalCtx.EvalMatches
+		} else {
+			matches = evalCtx.AlertOkEvalMatches
+		}
 		recordCreateInput := monitor.AlertRecordCreateInput{
 			StandaloneResourceCreateInput: apis.StandaloneResourceCreateInput{
 				GenerateName: evalCtx.Rule.Name,
@@ -150,7 +157,7 @@ func (n *notificationService) getNeededNotifiers(nIds []string, evalCtx *EvalCon
 			AlertId:   evalCtx.Rule.Id,
 			Level:     evalCtx.Rule.Level,
 			State:     string(evalCtx.Rule.State),
-			EvalData:  evalCtx.EvalMatches,
+			EvalData:  matches,
 			AlertRule: newAlertRecordRule(evalCtx),
 		}
 		_, err = db.DoCreate(models.AlertRecordManager, evalCtx.Ctx, evalCtx.UserCred, jsonutils.NewDict(),
