@@ -78,7 +78,7 @@ type ICreateOpt interface {
 	IOpt
 }
 
-func (cmd ResourceCmd) runWithDesc(action, desc string, args interface{}, callback interface{}) {
+func (cmd ResourceCmd) RunWithDesc(action, desc string, args interface{}, callback interface{}) {
 	man := cmd.manager
 	prefix := cmd.prefix
 	if prefix != "" {
@@ -98,8 +98,8 @@ func (cmd ResourceCmd) runWithDesc(action, desc string, args interface{}, callba
 	R(args, fmt.Sprintf("%s%s-%s", prefix, cmd.keyword, action), desc, callback)
 }
 
-func (cmd ResourceCmd) run(action string, args interface{}, callback interface{}) {
-	cmd.runWithDesc(action, "", args, callback)
+func (cmd ResourceCmd) Run(action string, args interface{}, callback interface{}) {
+	cmd.RunWithDesc(action, "", args, callback)
 }
 
 func (cmd ResourceCmd) List(args IListOpt) {
@@ -130,7 +130,7 @@ func (cmd ResourceCmd) List(args IListOpt) {
 		printList(result, man.GetColumns(s))
 		return nil
 	}
-	cmd.run("list", args, callback)
+	cmd.Run("list", args, callback)
 }
 
 func (cmd ResourceCmd) Create(args ICreateOpt) {
@@ -147,7 +147,7 @@ func (cmd ResourceCmd) Create(args ICreateOpt) {
 		printObject(ret)
 		return nil
 	}
-	cmd.run("create", args, callback)
+	cmd.Run("create", args, callback)
 }
 
 type IIdOpt interface {
@@ -177,7 +177,7 @@ func (cmd ResourceCmd) Show(args IShowOpt) {
 		printObject(ret)
 		return nil
 	}
-	cmd.runWithDesc("show", fmt.Sprintf("Show details of a %s", man.GetKeyword()), args, callback)
+	cmd.RunWithDesc("show", fmt.Sprintf("Show details of a %s", man.GetKeyword()), args, callback)
 }
 
 func (cmd ResourceCmd) ClassShow(args IShowOpt) {
@@ -194,7 +194,7 @@ func (cmd ResourceCmd) ClassShow(args IShowOpt) {
 		printObject(ret)
 		return nil
 	}
-	cmd.runWithDesc(args.GetId(), fmt.Sprintf("Show %s of a %s", args.GetId(), man.GetKeyword()), args, callback)
+	cmd.RunWithDesc(args.GetId(), fmt.Sprintf("Show %s of a %s", args.GetId(), man.GetKeyword()), args, callback)
 }
 
 type IGetActionOpt interface {
@@ -247,7 +247,7 @@ func (cmd ResourceCmd) Custom(action TCustomAction, funcname string, args IGetAc
 		}
 		return nil
 	}
-	cmd.runWithDesc(funcname, fmt.Sprintf("Get %s of a %s", funcname, man.GetKeyword()), args, callback)
+	cmd.RunWithDesc(funcname, fmt.Sprintf("Get %s of a %s", funcname, man.GetKeyword()), args, callback)
 }
 
 type IDeleteOpt interface {
@@ -269,7 +269,7 @@ func (cmd ResourceCmd) Delete(args IDeleteOpt) {
 		printObject(ret)
 		return nil
 	}
-	cmd.runWithDesc("delete", fmt.Sprintf("Delete %s", man.GetKeyword()), args, callback)
+	cmd.RunWithDesc("delete", fmt.Sprintf("Delete %s", man.GetKeyword()), args, callback)
 }
 
 type IWithDescOpt interface {
@@ -295,7 +295,7 @@ func (cmd ResourceCmd) Perform(action string, args IPerformOpt) {
 		printObject(ret)
 		return nil
 	}
-	cmd.run(action, args, callback)
+	cmd.Run(action, args, callback)
 }
 
 func (cmd ResourceCmd) PerformClass(action string, args IOpt) {
@@ -312,7 +312,7 @@ func (cmd ResourceCmd) PerformClass(action string, args IOpt) {
 		printObject(ret)
 		return nil
 	}
-	cmd.run(action, args, callback)
+	cmd.Run(action, args, callback)
 }
 
 type IBatchPerformOpt interface {
@@ -331,7 +331,7 @@ func (cmd ResourceCmd) BatchPerform(action string, args IBatchPerformOpt) {
 		printBatchResults(ret, man.GetColumns(s))
 		return nil
 	}
-	cmd.run(action, args, callback)
+	cmd.Run(action, args, callback)
 }
 
 type IGetOpt interface {
@@ -353,7 +353,7 @@ func (cmd ResourceCmd) Get(specific string, args IGetOpt) {
 		printObject(ret)
 		return nil
 	}
-	cmd.runWithDesc(specific, fmt.Sprintf("Get %s of a %s", specific, man.GetKeyword()), args, callback)
+	cmd.RunWithDesc(specific, fmt.Sprintf("Get %s of a %s", specific, man.GetKeyword()), args, callback)
 }
 
 type IUpdateOpt interface {
@@ -375,7 +375,7 @@ func (cmd ResourceCmd) Update(args IUpdateOpt) {
 		printObject(ret)
 		return nil
 	}
-	cmd.run("update", args, callback)
+	cmd.Run("update", args, callback)
 }
 
 type IMetadataOpt interface {
@@ -397,7 +397,7 @@ func (cmd ResourceCmd) GetMetadata(args IMetadataOpt) {
 		printObject(ret)
 		return nil
 	}
-	cmd.runWithDesc("metadata", fmt.Sprintf("Show metadata of a %s", man.GetKeyword()), args, callback)
+	cmd.RunWithDesc("metadata", fmt.Sprintf("Show metadata of a %s", man.GetKeyword()), args, callback)
 }
 
 type IBatchDeleteOpt interface {
@@ -416,7 +416,7 @@ func (cmd ResourceCmd) BatchDelete(args IBatchDeleteOpt) {
 		printBatchResults(ret, man.GetColumns(s))
 		return nil
 	}
-	cmd.run("delete", args, callback)
+	cmd.Run("delete", args, callback)
 }
 
 type IBatchDeleteWithParamOpt interface {
@@ -439,7 +439,7 @@ func (cmd ResourceCmd) BatchDeleteWithParam(args IBatchDeleteWithParamOpt) {
 		printBatchResults(ret, man.GetColumns(s))
 		return nil
 	}
-	cmd.run("delete", args, callback)
+	cmd.Run("delete", args, callback)
 }
 
 type IBatchPutOpt interface {
@@ -458,7 +458,7 @@ func (cmd ResourceCmd) BatchPut(args IBatchPutOpt) {
 		printBatchResults(ret, man.GetColumns(s))
 		return nil
 	}
-	cmd.run("update", args, callback)
+	cmd.Run("update", args, callback)
 }
 
 type JointCmd struct {
@@ -498,7 +498,7 @@ func (cmd JointCmd) List(args IJointListOpt) {
 		printList(result, man.GetColumns(s))
 		return nil
 	}
-	cmd.runWithDesc("list", fmt.Sprintf("list %s %s pairs", man.MasterManager().KeyString(), man.SlaveManager().KeyString()), args, callback)
+	cmd.RunWithDesc("list", fmt.Sprintf("list %s %s pairs", man.MasterManager().KeyString(), man.SlaveManager().KeyString()), args, callback)
 }
 
 type IJointShowOpt interface {
@@ -521,5 +521,5 @@ func (cmd JointCmd) Show(args IJointShowOpt) {
 		printObject(result)
 		return nil
 	}
-	cmd.run("show", args, callback)
+	cmd.Run("show", args, callback)
 }

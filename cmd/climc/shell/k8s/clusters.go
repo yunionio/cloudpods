@@ -28,13 +28,22 @@ func initKubeCluster() {
 	cmdN := func(action string) string {
 		return fmt.Sprintf("k8s-cluster-%s", action)
 	}
-	cmd := NewK8sResourceCmd(k8s.KubeClusters).SetKeyword("cluster")
+	cmd := NewK8sResourceCmd(k8s.KubeClusters)
+	cmd.SetKeyword("cluster")
+	cmd.ShowEvent()
 	cmd.List(new(o.ClusterListOptions))
 	cmd.Show(new(o.IdentOptions))
 	cmd.Create(new(o.KubeClusterCreateOptions))
+	cmd.Perform("sync", new(o.ClusterSyncOptions))
+	cmd.Perform("syncstatus", new(o.IdentOptions))
+	cmd.Get("components-status", new(o.IdentOptions))
 	cmd.Get("api-resources", new(o.IdentOptions))
 	cmd.Get("cluster-users", new(o.IdentOptions))
 	cmd.Get("cluster-user-groups", new(o.IdentOptions))
+	cmd.Perform("purge", new(o.ClusterPurgeOptions))
+	cmd.Perform("delete-machines", new(o.KubeClusterDeleteMachinesOptions))
+	cmd.Perform("add-machines", new(o.KubeClusterAddMachinesOptions))
+	cmd.PerformClass("gc", new(o.ClusterGCOpts))
 
 	R(&o.KubeClusterImportOptions{}, cmdN("import"), "Import k8s cluster", func(s *mcclient.ClientSession, args *o.KubeClusterImportOptions) error {
 		params, err := args.Params()
@@ -52,41 +61,6 @@ func initKubeCluster() {
 	R(&o.ClusterDeleteOptions{}, cmdN("delete"), "Delete cluster", func(s *mcclient.ClientSession, args *o.ClusterDeleteOptions) error {
 		ret := k8s.KubeClusters.BatchDeleteWithParam(s, args.ID, nil, nil)
 		printBatchResults(ret, k8s.KubeClusters.GetColumns(s))
-		return nil
-	})
-
-	R(&o.KubeClusterAddMachinesOptions{}, cmdN("add-machines"), "Add machines to cluster", func(s *mcclient.ClientSession, args *o.KubeClusterAddMachinesOptions) error {
-		params, err := args.Params()
-		if err != nil {
-			return err
-		}
-		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "add-machines", params)
-		if err != nil {
-			return err
-		}
-		printObject(ret)
-		return nil
-	})
-
-	R(&o.KubeClusterDeleteMachinesOptions{}, cmdN("delete-machines"), "Delete machines in cluster", func(s *mcclient.ClientSession, args *o.KubeClusterDeleteMachinesOptions) error {
-		params, err := args.Params()
-		if err != nil {
-			return err
-		}
-		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "delete-machines", params)
-		if err != nil {
-			return err
-		}
-		printObject(ret)
-		return nil
-	})
-
-	R(&o.IdentOptions{}, cmdN("terminate"), "Terminate cluster", func(s *mcclient.ClientSession, args *o.IdentOptions) error {
-		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "terminate", nil)
-		if err != nil {
-			return err
-		}
-		printObject(ret)
 		return nil
 	})
 
@@ -149,37 +123,6 @@ func initKubeCluster() {
 
 	R(&o.IdentOptions{}, cmdN("apply-addons"), "Apply base requirements addons", func(s *mcclient.ClientSession, args *o.IdentOptions) error {
 		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "apply-addons", nil)
-		if err != nil {
-			return err
-		}
-		printObject(ret)
-		return nil
-	})
-
-	R(&o.IdentOptions{}, cmdN("syncstatus"), "Sync cluster status", func(s *mcclient.ClientSession, args *o.IdentOptions) error {
-		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "syncstatus", nil)
-		if err != nil {
-			return err
-		}
-		printObject(ret)
-		return nil
-	})
-
-	R(&o.ClusterSyncOptions{}, cmdN("sync"), "Sync cluster k8s resources", func(s *mcclient.ClientSession, args *o.ClusterSyncOptions) error {
-		param, err := args.Params()
-		if err != nil {
-			return err
-		}
-		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "sync", param)
-		if err != nil {
-			return err
-		}
-		printObject(ret)
-		return nil
-	})
-
-	R(&o.IdentOptions{}, cmdN("components-status"), "Get cluster component status", func(s *mcclient.ClientSession, args *o.IdentOptions) error {
-		ret, err := k8s.KubeClusters.GetSpecific(s, args.ID, "components-status", nil)
 		if err != nil {
 			return err
 		}

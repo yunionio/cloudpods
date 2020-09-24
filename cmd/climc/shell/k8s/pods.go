@@ -16,8 +16,12 @@ package k8s
 
 import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
+	o "yunion.io/x/onecloud/pkg/mcclient/options/k8s"
 )
 
 func initPod() {
 	initK8sNamespaceResource("pod", k8s.Pods)
+	cmd := NewK8sResourceCmd(k8s.Pods)
+	cmd.List(new(o.NamespaceResourceListOptions))
+	cmd.Show(new(o.NamespaceResourceGetOptions))
 }

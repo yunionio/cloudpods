@@ -25,6 +25,6 @@ type CertListOptions struct {
 	Cluster string `help:"Filter by cluster"`
 }
 
-func (o CertListOptions) Params() (*jsonutils.JSONDict, error) {
+func (o CertListOptions) Params() (jsonutils.JSONObject, error) {
 	return options.ListStructToParams(&o)
 }

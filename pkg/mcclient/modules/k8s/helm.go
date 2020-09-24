@@ -24,7 +24,7 @@ var (
 
 func init() {
 	Repos = NewResourceManager("repo", "repos",
-		NewResourceCols("url", "is_public", "source", "type"),
+		NewResourceCols("Url", "Is_Public", "Source", "Type"),
 		NewColumns(),
 	)
 	modules.Register(Repos)
