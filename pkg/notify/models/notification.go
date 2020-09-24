@@ -109,7 +109,11 @@ func (nm *SNotificationManager) ValidateCreateData(ctx context.Context, userCred
 		input.Priority = api.NOTIFICATION_PRIORITY_NORMAL
 	}
 	// hack
-	input.Name = fmt.Sprintf("%s(%s)", input.Topic, nowStr)
+	length := 10
+	if len(input.Topic) < 10 {
+		length = len(input.Topic)
+	}
+	input.Name = fmt.Sprintf("%s-%s-%s", input.Topic[:length], input.ContactType, nowStr)
 	return input, nil
 }
 
