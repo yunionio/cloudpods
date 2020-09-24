@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -326,10 +327,14 @@ func (self *SDisk) GetAccessPath() string {
 }
 
 func (self *SDisk) Delete(ctx context.Context) error {
-	if disk, err := self.storage.zone.region.GetDisk(self.GetId()); err == cloudprovider.ErrNotFound {
-		log.Errorf("Failed to find disk %s when delete", self.GetId())
-		return nil
-	} else if disk.Status != "deleting" {
+	disk, err := self.storage.zone.region.GetDisk(self.GetId())
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
+			return nil
+		}
+		return err
+	}
+	if disk.Status != "deleting" {
 		// 等待硬盘ready
 		cloudprovider.WaitStatus(self, api.DISK_READY, 5*time.Second, 60*time.Second)
 		err := self.storage.zone.region.DeleteDisk(self.GetId())

@@ -127,7 +127,7 @@ func (self *SSnapshot) Delete() error {
 	idisk, err := self.region.GetDisk(self.UDiskID)
 	if err == nil {
 		zoneId = idisk.Zone
-	} else if err == cloudprovider.ErrNotFound {
+	} else if errors.Cause(err) == cloudprovider.ErrNotFound {
 		zones, err := self.region.GetIZones()
 		if err != nil {
 			return errors.Wrap(err, "snapshot.Delete GetIZones")

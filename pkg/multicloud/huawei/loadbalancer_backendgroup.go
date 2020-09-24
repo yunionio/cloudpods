@@ -298,7 +298,7 @@ func (self *SElbBackendGroup) AddBackendServer(serverId string, weight int, port
 func (self *SElbBackendGroup) RemoveBackendServer(backendId string, weight int, port int) error {
 	ibackend, err := self.GetILoadbalancerBackendById(backendId)
 	if err != nil {
-		if err == cloudprovider.ErrNotFound {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			return nil
 		}
 

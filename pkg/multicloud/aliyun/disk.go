@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -130,7 +131,7 @@ func (self *SDisk) GetId() string {
 func (self *SDisk) Delete(ctx context.Context) error {
 	_, err := self.storage.zone.region.getDisk(self.DiskId)
 	if err != nil {
-		if err == cloudprovider.ErrNotFound {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			// 未找到disk, 说明disk已经被删除了. 避免回收站中disk-delete循环删除失败
 			return nil
 		}
