@@ -15,7 +15,6 @@
 package aws
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -249,7 +248,7 @@ func Getroute53ResourceRecordSet(client *SAwsClient, opts *cloudprovider.DnsReco
 func (client *SAwsClient) AddDnsRecordSet(hostedZoneId string, opts *cloudprovider.DnsRecordSet) error {
 	resourceRecordSet, err := Getroute53ResourceRecordSet(client, opts)
 	if err != nil {
-		return errors.Wrapf(err, "Getroute53ResourceRecordSet(%s)", fmt.Sprintln(opts))
+		return errors.Wrapf(err, "Getroute53ResourceRecordSet(%s)", jsonutils.Marshal(opts).String())
 	}
 	err = client.ChangeResourceRecordSets("CREATE", hostedZoneId, resourceRecordSet)
 	if err != nil {
@@ -261,7 +260,7 @@ func (client *SAwsClient) AddDnsRecordSet(hostedZoneId string, opts *cloudprovid
 func (client *SAwsClient) UpdateDnsRecordSet(hostedZoneId string, opts *cloudprovider.DnsRecordSet) error {
 	resourceRecordSet, err := Getroute53ResourceRecordSet(client, opts)
 	if err != nil {
-		return errors.Wrapf(err, "Getroute53ResourceRecordSet(%s)", fmt.Sprintln(opts))
+		return errors.Wrapf(err, "Getroute53ResourceRecordSet(%s)", jsonutils.Marshal(opts).String())
 	}
 	err = client.ChangeResourceRecordSets("UPSERT", hostedZoneId, resourceRecordSet)
 	if err != nil {
