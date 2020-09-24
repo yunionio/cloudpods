@@ -1019,7 +1019,7 @@ func (bucket *SBucket) PerformUpload(
 		if inc.SizeBytes < 0 {
 			inc.SizeBytes = 0
 		}
-	} else if err == cloudprovider.ErrNotFound {
+	} else if errors.Cause(err) == cloudprovider.ErrNotFound {
 		// new upload
 		inc.SizeBytes = sizeBytes
 		inc.ObjectCount = 1
@@ -1246,7 +1246,7 @@ func (bucket *SBucket) GetDetailsAcl(
 	} else {
 		object, err := cloudprovider.GetIObject(iBucket, objKey)
 		if err != nil {
-			if err == cloudprovider.ErrNotFound {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return output, httperrors.NewNotFoundError("object %s not found", objKey)
 			} else {
 				return output, httperrors.NewInternalServerError("iBucket.GetIObjects error %s", err)
@@ -1455,7 +1455,7 @@ func (bucket *SBucket) processObjectsActionInput(input api.BucketObjectsActionIn
 		} else {
 			object, err := cloudprovider.GetIObject(iBucket, key)
 			if err != nil {
-				if err == cloudprovider.ErrNotFound {
+				if errors.Cause(err) == cloudprovider.ErrNotFound {
 					return nil, nil, httperrors.NewResourceNotFoundError("object %s not found", key)
 				} else {
 					return nil, nil, httperrors.NewInternalServerError("iBucket.GetIObject error %s", err)

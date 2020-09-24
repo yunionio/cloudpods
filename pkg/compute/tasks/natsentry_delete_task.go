@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -64,7 +65,7 @@ func (self *SNatSEntryDeleteTask) OnInit(ctx context.Context, obj db.IStandalone
 		return
 	}
 	cloudNatSEntry, err := cloudNatGateway.GetINatSEntryByID(snatEntry.ExternalId)
-	if err == cloudprovider.ErrNotFound {
+	if errors.Cause(err) == cloudprovider.ErrNotFound {
 		//already delete
 	} else if err != nil {
 		self.TaskFailed(ctx, snatEntry, jsonutils.NewString(fmt.Sprintf("Get SNat Entry by ID '%s' failed: %s", snatEntry.ExternalId, err)))
