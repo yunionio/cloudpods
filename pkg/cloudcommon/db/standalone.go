@@ -26,6 +26,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -389,6 +390,12 @@ func (model *SStandaloneResourceBase) PostCreate(ctx context.Context, userCred m
 	meta := make(map[string]string)
 	err := data.Unmarshal(&meta, "__meta__")
 	if err == nil {
+		for k, v := range meta {
+			if !strings.HasPrefix(k, db.USER_TAG_PREFIX) {
+				delete(meta, k)
+				meta[db.USER_TAG_PREFIX+k] = v
+			}
+		}
 		model.PerformMetadata(ctx, userCred, nil, meta)
 	}
 }
