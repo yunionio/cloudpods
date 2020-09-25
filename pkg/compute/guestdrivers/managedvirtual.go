@@ -669,7 +669,9 @@ func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx conte
 		}
 
 		for _, guestdisk := range guest.GetDisks() {
-			if disk := guestdisk.GetDisk(); disk != nil && disk.AutoDelete {
+			disk := guestdisk.GetDisk()
+			storage := disk.GetStorage()
+			if disk != nil && disk.AutoDelete && !utils.IsInStringArray(storage.StorageType, api.STORAGE_LOCAL_TYPES) {
 				idisk, err := disk.GetIDisk()
 				if err != nil {
 					if errors.Cause(err) == cloudprovider.ErrNotFound {
@@ -677,6 +679,9 @@ func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx conte
 					}
 					log.Errorf("disk.GetIDisk fail %s", err)
 					return nil, err
+				}
+				if idisk.GetStatus() == api.DISK_DEALLOC {
+					continue
 				}
 				err = idisk.Delete(ctx)
 				if err != nil {
