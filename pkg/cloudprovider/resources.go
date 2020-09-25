@@ -248,6 +248,8 @@ type ICloudHost interface {
 
 	CreateVM(desc *SManagedVMCreateConfig) (ICloudVM, error)
 	GetIHostNics() ([]ICloudHostNetInterface, error)
+
+	GetSchedtags() ([]string, error)
 }
 
 type ICloudVM interface {
