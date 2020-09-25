@@ -24,7 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
-var RESOURCEPOOL_PROPS = []string{"name", "parent"}
+var RESOURCEPOOL_PROPS = []string{"name", "parent", "host"}
 
 type SResourcePool struct {
 	multicloud.SResourceBase

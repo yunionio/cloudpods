@@ -38,6 +38,7 @@ type SDatacenter struct {
 	istorages    []cloudprovider.ICloudStorage
 	inetworks    []IVMNetwork
 	iresoucePool []cloudprovider.ICloudProject
+	clusters     []*SCluster
 
 	Name string
 }
@@ -148,6 +149,9 @@ func (dc *SDatacenter) GetCluster(cluster string) (*SCluster, error) {
 }
 
 func (dc *SDatacenter) listClusters() ([]*SCluster, error) {
+	if dc.clusters != nil {
+		return dc.clusters, nil
+	}
 	clusters := []mo.ClusterComputeResource{}
 	err := dc.manager.scanMObjects(dc.object.Entity().Self, RESOURCEPOOL_PROPS, &clusters)
 	if err != nil {
