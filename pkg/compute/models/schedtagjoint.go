@@ -44,7 +44,6 @@ func NewSchedtagJointsManager(
 	keyword string,
 	keywordPlural string,
 	master db.IStandaloneModelManager,
-	slave db.IStandaloneModelManager,
 ) *SSchedtagJointsManager {
 	return &SSchedtagJointsManager{
 		SJointResourceBaseManager: db.NewJointResourceBaseManager(
@@ -53,7 +52,7 @@ func NewSchedtagJointsManager(
 			keyword,
 			keywordPlural,
 			master,
-			slave,
+			SchedtagManager,
 		),
 	}
 }
@@ -64,7 +63,7 @@ type SSchedtagJointsBase struct {
 	SchedtagId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // =Column(VARCHAR(36, charset='ascii'), nullable=False)
 }
 
-func (manager *SSchedtagJointsManager) GetMasterFieldName() string {
+func (manager *SSchedtagJointsManager) GetSlaveFieldName() string {
 	return "schedtag_id"
 }
 
@@ -118,7 +117,7 @@ func (man *SSchedtagJointsManager) AllowListDescendent(ctx context.Context, user
 	return db.IsAdminAllowList(userCred, man)
 }
 
-func (man *SSchedtagJointsManager) GetMasterIdKey(m db.IJointModelManager) string {
+func (man *SSchedtagJointsManager) GetResourceIdKey(m db.IJointModelManager) string {
 	return fmt.Sprintf("%s_id", m.GetMasterManager().Keyword())
 }
 
