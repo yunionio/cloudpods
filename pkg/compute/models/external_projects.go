@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -36,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -202,28 +204,54 @@ func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred
 		self.Name = ext.GetName()
 		self.IsEmulated = ext.IsEmulated()
 		self.Status = ext.GetStatus()
-		if self.DomainId == account.DomainId && account.AutoCreateProject && options.Options.EnableAutoRenameProject {
+		share := account.GetSharedInfo()
+		if self.DomainId != account.DomainId && !(share.PublicScope == rbacutils.ScopeSystem ||
+			(share.PublicScope == rbacutils.ScopeDomain && utils.IsInStringArray(self.DomainId, share.SharedDomains))) {
+			self.ProjectId = account.ProjectId
+			self.DomainId = account.DomainId
+			if account.AutoCreateProject {
+				desc := fmt.Sprintf("auto create from cloud project %s (%s)", self.Name, self.ExternalId)
+				domainId, projectId, err := account.getOrCreateTenant(ctx, self.Name, "", desc)
+				if err != nil {
+					log.Errorf("failed to get or create tenant %s(%s) %v", self.Name, self.ExternalId, err)
+				} else {
+					self.ProjectId = projectId
+					self.DomainId = domainId
+				}
+			}
+			return nil
+		}
+		if account.AutoCreateProject && options.Options.EnableAutoRenameProject {
 			tenant, err := db.TenantCacheManager.FetchTenantById(ctx, self.ProjectId)
 			if err != nil {
 				return errors.Wrapf(err, "TenantCacheManager.FetchTenantById(%s)", self.ProjectId)
 			}
 			if tenant.Name != self.Name {
-				s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
-				params := map[string]string{"name": self.Name}
-				_, err := modules.Projects.Update(s, tenant.Id, jsonutils.Marshal(params))
+				proj, err := db.TenantCacheManager.FetchTenantByName(ctx, self.Name)
 				if err != nil {
-					return errors.Wrapf(err, "update project name from %s -> %s", tenant.Name, self.Name)
+					if errors.Cause(err) == sql.ErrNoRows {
+						s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
+						params := map[string]string{"name": self.Name}
+						_, err := modules.Projects.Update(s, tenant.Id, jsonutils.Marshal(params))
+						if err != nil {
+							return errors.Wrapf(err, "update project name from %s -> %s", tenant.Name, self.Name)
+						}
+						_, err = db.Update(tenant, func() error {
+							tenant.Name = self.Name
+							return nil
+						})
+						return err
+					}
+					return errors.Wrapf(err, "FetchTenantByName(%s)", self.Name)
 				}
-				_, err = db.Update(tenant, func() error {
-					tenant.Name = self.Name
+				if proj.DomainId == account.DomainId ||
+					share.PublicScope == rbacutils.ScopeSystem ||
+					(share.PublicScope == rbacutils.ScopeDomain && utils.IsInStringArray(proj.DomainId, share.SharedDomains)) {
+					self.ProjectId = proj.Id
+					self.DomainId = proj.DomainId
 					return nil
-				})
-				return err
+				}
 			}
-		}
-		if self.DomainId != account.DomainId {
-			self.ProjectId = account.ProjectId
-			self.DomainId = account.DomainId
 		}
 		return nil
 	})
@@ -250,7 +278,7 @@ func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context,
 		project.ProjectId = localProject.Id
 	} else if account.AutoCreateProject {
 		desc := fmt.Sprintf("auto create from cloud project %s (%s)", project.Name, project.ExternalId)
-		domainId, projectId, err := getOrCreateTenant(ctx, project.Name, account.DomainId, "", desc)
+		domainId, projectId, err := account.getOrCreateTenant(ctx, project.Name, "", desc)
 		if err != nil {
 			log.Errorf("failed to get or create tenant %s(%s) %v", project.Name, project.ExternalId, err)
 		} else {
@@ -261,8 +289,7 @@ func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context,
 
 	err := manager.TableSpec().Insert(ctx, &project)
 	if err != nil {
-		log.Errorf("newFromCloudProject fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "Insert")
 	}
 
 	db.OpsLog.LogEvent(&project, db.ACT_CREATE, project.GetShortDesc(ctx), userCred)
@@ -273,23 +300,38 @@ func (self *SExternalProject) AllowPerformChangeProject(ctx context.Context, use
 	return db.IsAdminAllowPerform(userCred, self, "change-project")
 }
 
-func (self *SExternalProject) PerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	project, err := data.GetString("project")
+func (self *SExternalProject) GetCloudaccount() (*SCloudaccount, error) {
+	account, err := CloudaccountManager.FetchById(self.CloudaccountId)
 	if err != nil {
-		return nil, httperrors.NewMissingParameterError("project")
+		return nil, errors.Wrapf(err, "CloudaccountManager.FetchById(%s)", self.CloudaccountId)
+	}
+	return account.(*SCloudaccount), nil
+}
+
+// 切换本地项目
+func (self *SExternalProject) PerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ExternalProjectChangeProjectInput) (jsonutils.JSONObject, error) {
+	if len(input.ProjectId) == 0 {
+		return nil, httperrors.NewMissingParameterError("project_id")
 	}
 
-	tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, project)
+	tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, input.ProjectId)
 	if err != nil {
-		return nil, httperrors.NewNotFoundError("project %s not found", project)
+		return nil, httperrors.NewNotFoundError("project %s not found", input.ProjectId)
 	}
 
 	if self.ProjectId == tenant.Id {
 		return nil, nil
 	}
 
-	if self.DomainId != tenant.DomainId {
-		return nil, httperrors.NewForbiddenError("not allow change project across domain")
+	account, err := self.GetCloudaccount()
+	if err != nil {
+		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "GetCloudaccount"))
+	}
+	share := account.GetSharedInfo()
+
+	if self.DomainId != tenant.DomainId && !(tenant.DomainId == account.DomainId || share.PublicScope == rbacutils.ScopeSystem ||
+		(share.PublicScope == rbacutils.ScopeDomain && utils.IsInStringArray(tenant.DomainId, share.SharedDomains))) {
+		return nil, httperrors.NewForbiddenError("account %s not share for domain %s", account.Name, tenant.DomainId)
 	}
 
 	notes := struct {
@@ -310,11 +352,11 @@ func (self *SExternalProject) PerformChangeProject(ctx context.Context, userCred
 
 	_, err = db.Update(self, func() error {
 		self.ProjectId = tenant.Id
+		self.DomainId = tenant.DomainId
 		return nil
 	})
 	if err != nil {
-		log.Errorf("Update external project error: %v", err)
-		return nil, httperrors.NewGeneralError(err)
+		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "db.Update"))
 	}
 
 	logclient.AddSimpleActionLog(self, logclient.ACT_CHANGE_OWNER, notes, userCred, true)
