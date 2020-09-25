@@ -21,7 +21,7 @@ func init() {
 
 func NewCommonAlertManager() *SCommonAlertManager {
 	man := NewMonitorV2Manager("commonalert", "commonalerts",
-		[]string{"id", "name", "level", "alert_type", "period", "recipients", "channel"},
+		[]string{"id", "name", "enabled", "level", "alert_type", "period", "recipients", "channel"},
 		[]string{})
 	return &SCommonAlertManager{
 		ResourceManager: &man,
