@@ -87,7 +87,7 @@ func (s *SLocalStorage) GetComposedName() string {
 
 func (s *SLocalStorage) SyncStorageSize() error {
 	content := jsonutils.NewDict()
-	content.Set("actual_capacity", jsonutils.NewInt(int64(s.GetUsedSizeMb())))
+	content.Set("actual_capacity_used", jsonutils.NewInt(int64(s.GetUsedSizeMb())))
 	_, err := modules.Storages.Put(
 		hostutils.GetComputeSession(context.Background()),
 		s.StorageId, content)
@@ -98,7 +98,7 @@ func (s *SLocalStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	content := jsonutils.NewDict()
 	content.Set("name", jsonutils.NewString(s.GetName(s.GetComposedName)))
 	content.Set("capacity", jsonutils.NewInt(int64(s.GetAvailSizeMb())))
-	content.Set("actual_capacity", jsonutils.NewInt(int64(s.GetUsedSizeMb())))
+	content.Set("actual_capacity_used", jsonutils.NewInt(int64(s.GetUsedSizeMb())))
 	content.Set("storage_type", jsonutils.NewString(s.StorageType()))
 	content.Set("medium_type", jsonutils.NewString(s.GetMediumType()))
 	content.Set("zone", jsonutils.NewString(s.GetZoneName()))
