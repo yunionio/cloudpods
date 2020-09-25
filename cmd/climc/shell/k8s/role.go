@@ -22,6 +22,7 @@ import (
 func init() {
 	cmd := NewK8sResourceCmd(k8s.RbacRoles).SetKeyword("role")
 	cmd.Create(new(options.RoleCreateOpt))
+	cmd.Update(new(options.RoleUpdateOpt))
 	cmd.List(new(options.NamespaceResourceListOptions))
 	cmd.Show(new(options.NamespaceResourceGetOptions))
 	cmd.BatchDelete(new(options.ResourceIdsOptions))

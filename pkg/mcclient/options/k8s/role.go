@@ -37,3 +37,19 @@ func (o *RoleCreateOpt) Params() (jsonutils.JSONObject, error) {
 	params.Add(jsonutils.Marshal(rules), "rules")
 	return params, nil
 }
+
+type RoleUpdateOpt struct {
+	NamespaceResourceUpdateOptions
+
+	Rule []string `help:"role rule, e.g: 'apps/v1:deployments:get,watch,list'"`
+}
+
+func (o *RoleUpdateOpt) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	rules, err := parsePolicyRules(o.Rule)
+	if err != nil {
+		return nil, err
+	}
+	params.Add(jsonutils.Marshal(rules), "rules")
+	return params, nil
+}

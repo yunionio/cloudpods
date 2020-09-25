@@ -44,3 +44,15 @@ func (o NamespaceResourceCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params.Add(jsonutils.NewString(o.NAMESPACE), "namespace_id")
 	return params, nil
 }
+
+type ClusterResourceUpdateOptions struct {
+	ID string `help:"Id of resource"`
+}
+
+func (o ClusterResourceUpdateOptions) GetId() string {
+	return o.ID
+}
+
+type NamespaceResourceUpdateOptions struct {
+	ClusterResourceUpdateOptions
+}
