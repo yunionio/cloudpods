@@ -99,6 +99,11 @@ func (self *SDatastore) GetCapacityMB() int64 {
 	return moStore.Summary.Capacity / 1024 / 1024
 }
 
+func (self *SDatastore) GetCapacityUsedMB() int64 {
+	moStore := self.getDatastore()
+	return self.GetCapacityMB() - moStore.Summary.FreeSpace/1024/1024
+}
+
 func (self *SDatastore) GetEnabled() bool {
 	return true
 }

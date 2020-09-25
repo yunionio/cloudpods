@@ -36,6 +36,10 @@ type GuestDeleteTask struct {
 	SGuestBaseTask
 }
 
+var (
+	STORAGEIDS = "storage_ids"
+)
+
 func init() {
 	taskman.RegisterTask(GuestDeleteTask{})
 }
@@ -251,6 +255,15 @@ func (self *GuestDeleteTask) OnPendingDeleteCompleteFailed(ctx context.Context, 
 }
 
 func (self *GuestDeleteTask) StartDeleteGuest(ctx context.Context, guest *models.SGuest) {
+	// Temporary storageids to sync capacityUsed after delete
+	{
+		storages := guest.GetStorages()
+		storageIds := make([]string, len(storages))
+		for i := range storages {
+			storageIds[i] = storages[i].GetId()
+		}
+		self.Params.Set(STORAGEIDS, jsonutils.NewStringArray(storageIds))
+	}
 	// No snapshot
 	self.SetStage("OnGuestDetachDisksComplete", nil)
 	guest.GetDriver().RequestDetachDisksFromGuestForDelete(ctx, guest, self)
@@ -303,6 +316,18 @@ func (self *GuestDeleteTask) OnGuestDeleteComplete(ctx context.Context, obj db.I
 	guest.EjectIso(self.UserCred)
 	guest.DeleteEip(ctx, self.UserCred)
 	guest.GetDriver().OnDeleteGuestFinalCleanup(ctx, guest, self.UserCred)
+	// sync capacity used for storage
+	ja, err := self.Params.GetArray(STORAGEIDS)
+	if err == nil {
+		storageIds := make([]string, len(ja))
+		for i := range ja {
+			storageIds[i], _ = ja[i].GetString()
+		}
+		err = guest.SyncCapacityUsedForStorage(ctx, storageIds)
+		if err != nil {
+			log.Errorf("unable to SyncCapacityUsedForStoarage: %v", err)
+		}
+	}
 	self.DeleteGuest(ctx, guest)
 }
 

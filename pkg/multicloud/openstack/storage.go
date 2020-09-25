@@ -100,6 +100,10 @@ func (storage *SStorage) GetCapacityMB() int64 {
 	return 0 // unlimited
 }
 
+func (storage *SStorage) GetCapacityUsedMB() int64 {
+	return 0
+}
+
 func (storage *SStorage) GetStorageConf() jsonutils.JSONObject {
 	conf := jsonutils.NewDict()
 	return conf

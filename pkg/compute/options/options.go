@@ -143,6 +143,8 @@ type ComputeOptions struct {
 
 	EnableAutoRenameProject bool `help:"when it set true, auto create project will rename when cloud project name changed" default:"false"`
 
+	SyncStorageCapacityUsedIntervalMinutes int `help:"interval sync storage capacity used" default:"10"`
+
 	SCapabilityOptions
 	SASControllerOptions
 	common_options.CommonOptions
