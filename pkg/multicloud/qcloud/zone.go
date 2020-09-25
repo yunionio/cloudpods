@@ -170,7 +170,10 @@ func (self *SZone) fetchStorages() error {
 
 func (self *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	if self.istorages == nil {
-		self.fetchStorages()
+		err := self.fetchStorages()
+		if err != nil {
+			return nil, errors.Wrapf(err, "fetchStorages")
+		}
 	}
 	return self.istorages, nil
 }
@@ -221,7 +224,10 @@ func (self *SZone) getStorageByCategory(category string) (*SStorage, error) {
 
 func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
 	if self.istorages == nil {
-		self.fetchStorages()
+		err := self.fetchStorages()
+		if err != nil {
+			return nil, errors.Wrapf(err, "fetchStorages")
+		}
 	}
 	for i := 0; i < len(self.istorages); i += 1 {
 		if self.istorages[i].GetGlobalId() == id {
