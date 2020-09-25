@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"yunion.io/x/log"
@@ -1360,7 +1361,7 @@ func (network *SDBInstanceNetwork) purge(ctx context.Context, userCred mcclient.
 
 func (instance *SDBInstance) purgeNetwork(ctx context.Context, userCred mcclient.TokenCredential) error {
 	network, err := instance.GetDBNetwork()
-	if err != nil {
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
 		return errors.Wrapf(err, "GetDBNetwork")
 	}
 	if network != nil {
