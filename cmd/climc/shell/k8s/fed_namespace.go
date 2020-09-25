@@ -29,5 +29,6 @@ func init() {
 		AttachCluster(new(options.FedResourceJointClusterAttachOptions)).
 		DetachCluster(new(options.FedResourceJointClusterDetachOptions)).
 		SyncCluster(new(options.FedResourceJointClusterDetachOptions)).
+		Sync(new(options.IdentOptions)).
 		ShowEvent()
 }

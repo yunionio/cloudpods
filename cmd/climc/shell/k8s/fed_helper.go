@@ -64,3 +64,8 @@ func (c *fedResourceCmd) SyncCluster(args shell.IPerformOpt) *fedResourceCmd {
 	c.K8sResourceCmd.Perform("sync-cluster", args)
 	return c
 }
+
+func (c *fedResourceCmd) Sync(args shell.IPerformOpt) *fedResourceCmd {
+	c.K8sResourceCmd.Perform("sync", args)
+	return c
+}

@@ -66,6 +66,14 @@ type FedResourceIdOptions struct {
 	FEDRESOURCE string `help:"ID or Name of federated resource"`
 }
 
+func (o FedResourceIdOptions) GetId() string {
+	return o.FEDRESOURCE
+}
+
+func (o FedResourceIdOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
 type FedResourceJointClusterAttachOptions struct {
 	FedResourceIdOptions
 	FedResourceClusterJointOptions
@@ -75,6 +83,10 @@ func (o *FedResourceJointClusterAttachOptions) GetId() string {
 	return o.FEDRESOURCE
 }
 
+func (o *FedResourceJointClusterAttachOptions) Params() (jsonutils.JSONObject, error) {
+	return o.FedResourceClusterJointOptions.Params()
+}
+
 type FedResourceJointClusterDetachOptions struct {
 	FedResourceIdOptions
 	FedResourceClusterJointOptions
@@ -82,4 +94,8 @@ type FedResourceJointClusterDetachOptions struct {
 
 func (o *FedResourceJointClusterDetachOptions) GetId() string {
 	return o.FEDRESOURCE
+}
+
+func (o *FedResourceJointClusterDetachOptions) Params() (jsonutils.JSONObject, error) {
+	return o.FedResourceClusterJointOptions.Params()
 }
