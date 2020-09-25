@@ -44,7 +44,6 @@ func init() {
 				"schedtagnetwork",
 				"schedtagnetworks",
 				NetworkManager,
-				SchedtagManager,
 			),
 		}
 		NetworkschedtagManager.SetVirtualObject(NetworkschedtagManager)
@@ -57,7 +56,7 @@ type SNetworkschedtag struct {
 	NetworkId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 }
 
-func (manager *SNetworkschedtagManager) GetSlaveFieldName() string {
+func (manager *SNetworkschedtagManager) GetMasterFieldName() string {
 	return "network_id"
 }
 
