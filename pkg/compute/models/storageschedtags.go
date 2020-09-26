@@ -44,7 +44,6 @@ func init() {
 				"schedtagstorage",
 				"schedtagstorages",
 				StorageManager,
-				SchedtagManager,
 			),
 		}
 		StorageschedtagManager.SetVirtualObject(StorageschedtagManager)
@@ -57,7 +56,7 @@ type SStorageschedtag struct {
 	StorageId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 }
 
-func (manager *SStorageschedtagManager) GetSlaveFieldName() string {
+func (manager *SStorageschedtagManager) GetMasterFieldName() string {
 	return "storage_id"
 }
 
