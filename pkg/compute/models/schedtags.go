@@ -51,7 +51,7 @@ var STRATEGY_LIST = api.STRATEGY_LIST
 
 type ISchedtagJointManager interface {
 	db.IJointModelManager
-	GetMasterIdKey(db.IJointModelManager) string
+	GetResourceIdKey(db.IJointModelManager) string
 }
 
 type ISchedtagJointModel interface {
@@ -367,7 +367,7 @@ func (self *SSchedtag) GetObjectQuery() *sqlchemy.SQuery {
 	objs := masterMan.Query().SubQuery()
 	objschedtags := jointMan.Query().SubQuery()
 	q := objs.Query()
-	q = q.Join(objschedtags, sqlchemy.AND(sqlchemy.Equals(objschedtags.Field(jointMan.GetMasterIdKey(jointMan)), objs.Field("id")),
+	q = q.Join(objschedtags, sqlchemy.AND(sqlchemy.Equals(objschedtags.Field(jointMan.GetResourceIdKey(jointMan)), objs.Field("id")),
 		sqlchemy.IsFalse(objschedtags.Field("deleted"))))
 	// q = q.Filter(sqlchemy.IsTrue(objs.Field("enabled")))
 	q = q.Filter(sqlchemy.Equals(objschedtags.Field("schedtag_id"), self.Id))
@@ -469,7 +469,7 @@ func (self *SSchedtag) GetShortDescV2(ctx context.Context) api.SchedtagShortDesc
 
 func GetResourceJointSchedtags(obj IModelWithSchedtag) ([]ISchedtagJointModel, error) {
 	jointMan := obj.GetSchedtagJointManager()
-	q := jointMan.Query().Equals(jointMan.GetMasterIdKey(jointMan), obj.GetId())
+	q := jointMan.Query().Equals(jointMan.GetResourceIdKey(jointMan), obj.GetId())
 	jointTags := make([]ISchedtagJointModel, 0)
 	rows, err := q.Rows()
 	if err != nil {
@@ -501,7 +501,7 @@ func GetSchedtags(jointMan ISchedtagJointManager, masterId string) []SSchedtag {
 	q := schedtags.Query()
 	q = q.Join(objschedtags, sqlchemy.AND(sqlchemy.Equals(objschedtags.Field("schedtag_id"), schedtags.Field("id")),
 		sqlchemy.IsFalse(objschedtags.Field("deleted"))))
-	q = q.Filter(sqlchemy.Equals(objschedtags.Field(jointMan.GetMasterIdKey(jointMan)), masterId))
+	q = q.Filter(sqlchemy.Equals(objschedtags.Field(jointMan.GetResourceIdKey(jointMan)), masterId))
 	err := db.FetchModelObjects(SchedtagManager, q, &tags)
 	if err != nil {
 		log.Errorf("GetSchedtags error: %s", err)
@@ -553,7 +553,7 @@ func PerformSetResourceSchedtag(obj IModelWithSchedtag, ctx context.Context, use
 			if newTagObj, err := db.NewModelObject(jointMan); err != nil {
 				return nil, httperrors.NewGeneralError(err)
 			} else {
-				objectKey := jointMan.GetMasterIdKey(jointMan)
+				objectKey := jointMan.GetResourceIdKey(jointMan)
 				createData := jsonutils.NewDict()
 				createData.Add(jsonutils.NewString(setTagId), "schedtag_id")
 				createData.Add(jsonutils.NewString(obj.GetId()), objectKey)
