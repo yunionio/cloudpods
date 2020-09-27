@@ -107,19 +107,10 @@ type DBInstanceCreateInput struct {
 	//
 	// | 平台		| 支持类型	| 说明 |
 	// | -----		| ------	| --- |
-	// | 华为云		|ha, single, replica| |
-	// | 阿里云		|basic, high_availability, always_on, finance||
-	// | Google		|Zonal, Regional | |
-	// 翻译:
-	// basic: 基础版
-	// high_availability: 高可用
-	// always_on: 集群版
-	// finance: 金融版, 三节点
-	// ha: 高可用
-	// single: 单机
-	// replica: 只读
-	// Zonal: 单区域
-	// Regional: 区域级
+	// | 华为云		|ha, single, replica| ha: 高可用, single: 单机, replica: 只读|
+	// | 阿里云		|basic, high_availability, always_on, finance|basic: 基础版, high_availability: 高可用, always_on: 集群版, finance: 金融版, 三节点|
+	// | Google		|Zonal, Regional | Zonal: 单区域, Regional: 区域级|
+	// | 腾讯云		|fe, ha, basic | ha: 高可用, basic: 基础版, fe: 金融版|
 	// required: true
 	Category string `json:"category"`
 
@@ -127,13 +118,12 @@ type DBInstanceCreateInput struct {
 	//
 	//
 	//
-	// | 平台	| 支持类型	|
-	// | 华为云	|SSD, SAS, SATA|
-	// | 阿里云	|local_ssd, cloud_essd, cloud_ssd|
-	// | Google	|PD_SSD, PD_HDD|
-	// 翻译:
-	// PD_SSD: SSD
-	// PD_HDD: HDD
+	// | 平台	| 支持类型	| 说明 |
+	// | -----		| ------	| --- |
+	// | 华为云	|SSD, SAS, SATA| |
+	// | 阿里云	|local_ssd, cloud_essd, cloud_ssd| |
+	// | Google	|PD_SSD, PD_HDD| PD_SSD: SSD, PD_HDD: HDD|
+	// | 腾讯云	|cloud_ssd, local_ssd| |
 	// required: true
 	StorageType string `json:"storage_type"`
 
@@ -146,6 +136,7 @@ type DBInstanceCreateInput struct {
 	// 阿里云不需要此参数
 	// 华为云会默认创建一个用户,若不传此参数, 则为随机密码
 	// 谷歌云会默认创建一个用户,若不传此参数, 则为随机密码
+	// 腾讯云会默认创建一个用户,若不传此参数, 则为随机密码
 	Password string `json:"password"`
 
 	// 是否不设置初始密码

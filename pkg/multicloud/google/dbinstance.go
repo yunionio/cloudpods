@@ -625,45 +625,9 @@ func (region *SRegion) CreateDBInstance(desc *cloudprovider.SManagedDBInstanceCr
 	if _, ok := EngineVersions[databaseVersion]; !ok {
 		return nil, fmt.Errorf("Unsupport %s version %s", desc.Engine, desc.EngineVersion)
 	}
-	var err error
-	var rds *SDBInstance = nil
-	if len(desc.InstanceType) > 0 {
-		if len(desc.ZoneIds) == 0 {
-			desc.ZoneIds = append(desc.ZoneIds, "")
-		}
-		for _, zoneId := range desc.ZoneIds {
-			rds, err = region.CreateRds(desc.Name, desc.Engine, databaseVersion, desc.Category, desc.InstanceType, desc.StorageType, desc.DiskSizeGB, desc.VpcId, zoneId, desc.Password)
-			if err == nil {
-				break
-			} else {
-				log.Errorf("failed to create dbinstance %s at %s error: %v", desc.Name, zoneId, err)
-			}
-		}
-		if err != nil {
-			return nil, errors.Wrap(err, "CreateRds")
-		}
-	} else if len(desc.InstanceTypes) > 0 {
-		for _, spec := range desc.InstanceTypes {
-			if len(spec.ZoneIds) == 0 {
-				desc.ZoneIds = append(desc.ZoneIds, "")
-			}
-			for _, zoneId := range spec.ZoneIds {
-				rds, err = region.CreateRds(desc.Name, desc.Engine, databaseVersion, desc.Category, desc.InstanceType, desc.StorageType, desc.DiskSizeGB, desc.VpcId, zoneId, desc.Password)
-				if err == nil {
-					break
-				} else {
-					log.Errorf("failed to create dbinstance %s at %s error: %v", desc.Name, zoneId, err)
-				}
-			}
-			if err == nil {
-				break
-			}
-		}
-		if err != nil {
-			return nil, errors.Wrap(err, "CreateRds")
-		}
-	} else {
-		return nil, fmt.Errorf("Missing instance type info")
+	rds, err := region.CreateRds(desc.Name, desc.Engine, databaseVersion, desc.Category, desc.InstanceType, desc.StorageType, desc.DiskSizeGB, desc.VpcId, desc.ZoneId, desc.Password)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateRds")
 	}
 	return rds, nil
 }

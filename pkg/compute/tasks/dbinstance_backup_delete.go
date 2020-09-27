@@ -49,15 +49,9 @@ func (self *DBInstanceBackupDeleteTask) OnInit(ctx context.Context, obj db.IStan
 }
 
 func (self *DBInstanceBackupDeleteTask) DeleteDBInstanceBackup(ctx context.Context, backup *models.SDBInstanceBackup) {
-	iRegion, err := backup.GetIRegion()
-	if err != nil {
-		self.taskFailed(ctx, backup, errors.Wrap(err, "backup.GetIRegion"))
-		return
-	}
-
-	iBackup, err := iRegion.GetIDBInstanceBackupById(backup.ExternalId)
-	if err != nil && err != cloudprovider.ErrNotFound {
-		self.taskFailed(ctx, backup, errors.Wrap(err, "iRegion.GetIDBInstanceBackupById"))
+	iBackup, err := backup.GetIDBInstanceBackup()
+	if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound {
+		self.taskFailed(ctx, backup, errors.Wrap(err, "backup.GetIDBInstanceBackup"))
 		return
 	}
 

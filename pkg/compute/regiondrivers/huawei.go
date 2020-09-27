@@ -2187,7 +2187,6 @@ func (self *SHuaWeiRegionDriver) InitDBInstanceUser(ctx context.Context, instanc
 	account.DBInstanceId = instance.Id
 	account.Name = user
 	account.Status = api.DBINSTANCE_USER_AVAILABLE
-	account.ExternalId = user
 	account.SetModelManager(models.DBInstanceAccountManager, &account)
 	err := models.DBInstanceAccountManager.TableSpec().Insert(ctx, &account)
 	if err != nil {
