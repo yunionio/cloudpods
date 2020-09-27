@@ -136,6 +136,9 @@ func storageDetach(ctx context.Context, body jsonutils.JSONObject) (interface{},
 	if storage == nil {
 		return nil, httperrors.NewBadRequestError("ShareStorage[%s] Has detach from host ...", name)
 	}
+	if err := storage.Detach(); err != nil {
+		log.Errorf("detach storage %s failed: %s", storage.GetPath(), err)
+	}
 	storageman.GetManager().Remove(storage)
 	return nil, nil
 }

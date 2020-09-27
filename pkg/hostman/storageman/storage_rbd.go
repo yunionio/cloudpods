@@ -634,10 +634,14 @@ func (s *SRbdStorage) Accessible() error {
 	select {
 	case err = <-c:
 		break
-	case <-time.After(time.Second * 10):
+	case <-time.After(time.Second * 30):
 		err = ErrStorageTimeout
 	}
 	return err
+}
+
+func (s *SRbdStorage) Detach() error {
+	return nil
 }
 
 func (s *SRbdStorage) SaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
