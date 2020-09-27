@@ -126,6 +126,7 @@ type IStorage interface {
 		disksBackingFile, srcSnapshots jsonutils.JSONObject, rebaseDisks bool, diskDesc jsonutils.JSONObject) error
 
 	Accessible() error
+	Detach() error
 }
 
 type SBaseStorage struct {
