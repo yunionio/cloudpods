@@ -151,6 +151,8 @@ type ComputeOptions struct {
 	common_options.DBOptions
 
 	EnableAutoMergeSecurityGroup bool `help:"Enable auto merge secgroup when sync security group from cloud, default False" default:"false"`
+
+	DefaultNetworkGatewayAddress uint32 `help:"Default address for network gateway" default:"1"`
 }
 
 type SCapabilityOptions struct {
