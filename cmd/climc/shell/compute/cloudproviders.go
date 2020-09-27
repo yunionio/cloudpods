@@ -35,6 +35,8 @@ func init() {
 		NoObjectStorage  bool     `help:"filter cloudproviders that has no object storage"`
 		Capability       []string `help:"capability filter" choices:"project|compute|network|loadbalancer|objectstore|rds|cache|event"`
 		Cloudregion      string   `help:"filter cloudproviders by cloudregion"`
+
+		HostSchedtagId string `help:"filter by host schedtag"`
 	}
 	R(&CloudproviderListOptions{}, "cloud-provider-list", "List cloud providers", func(s *mcclient.ClientSession, args *CloudproviderListOptions) error {
 		var params *jsonutils.JSONDict
@@ -61,6 +63,10 @@ func init() {
 
 			if len(args.Cloudregion) > 0 {
 				params.Add(jsonutils.NewString(args.Cloudregion), "cloudregion")
+			}
+
+			if len(args.HostSchedtagId) > 0 {
+				params.Add(jsonutils.NewString(args.HostSchedtagId), "host_schedtag_id")
 			}
 		}
 		result, err := modules.Cloudproviders.List(s, params)
