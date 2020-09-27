@@ -46,6 +46,33 @@ type SBaseManager struct {
 	debug   bool
 }
 
+type sThrottlingThreshold struct {
+	locked   bool
+	lockTime time.Time
+}
+
+func (t *sThrottlingThreshold) CheckingLock() {
+	if !t.locked {
+		return
+	}
+
+	for {
+		if t.lockTime.Sub(time.Now()).Seconds() < 0 {
+			return
+		}
+		log.Debugf("throttling threshold has been reached. release at %s", t.lockTime)
+		time.Sleep(5 * time.Second)
+	}
+}
+
+func (t *sThrottlingThreshold) Lock() {
+	// 锁定至少15秒
+	t.locked = true
+	t.lockTime = time.Now().Add(15 * time.Second)
+}
+
+var ThrottlingLock = sThrottlingThreshold{locked: false, lockTime: time.Time{}}
+
 func NewBaseManager2(signer auth.Signer, debug bool, requesthk IRequestHook) SBaseManager {
 	return SBaseManager{
 		signer:      signer,
@@ -159,6 +186,7 @@ func (ce *HuaweiClientError) ParseErrorFromJsonResponse(statusCode int, body jso
 }
 
 func (self *SBaseManager) jsonRequest(request requests.IRequest) (http.Header, jsonutils.JSONObject, error) {
+	ThrottlingLock.CheckingLock()
 	ctx := context.Background()
 	// hook request
 	if self.requestHook != nil {
@@ -187,7 +215,6 @@ func (self *SBaseManager) jsonRequest(request requests.IRequest) (http.Header, j
 	req := httputils.NewJsonRequest(httputils.THttpMethod(request.GetMethod()), request.BuildUrl(), jsonBody)
 	req.SetHeader(header)
 	resp := &HuaweiClientError{}
-	// 发送 request。todo: 支持debug
 	const MAX_RETRY = 3
 	retry := MAX_RETRY
 	for {
@@ -200,11 +227,16 @@ func (self *SBaseManager) jsonRequest(request requests.IRequest) (http.Header, j
 
 		switch err := e.(type) {
 		case *HuaweiClientError:
-			if (err.Code == 499 || err.Code == 429) && retry > 0 && request.GetMethod() == "GET" {
+			if err.Code == 499 && retry > 0 && request.GetMethod() == "GET" {
 				retry -= 1
 				time.Sleep(3 * time.Second * time.Duration(MAX_RETRY-retry))
 			} else if (err.Code == 404 || strings.Contains(err.Details, "could not be found") || strings.Contains(err.Details, "does not exist")) && request.GetMethod() != "POST" {
 				return h, b, errors.Wrap(cloudprovider.ErrNotFound, err.Error())
+			} else if err.Code == 429 && retry > 0 {
+				// 当前请求过多。
+				ThrottlingLock.Lock()
+				retry -= 1
+				time.Sleep(15 * time.Second)
 			} else {
 				return h, b, e
 			}
