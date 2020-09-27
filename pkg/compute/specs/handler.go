@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/appctx"
@@ -200,7 +201,7 @@ func handleQueryModel(
 		return nil, err
 	}
 	objs := QueryObjects(manager, objects, specKeys, isOkF, statusCheck)
-	return QueryObjectsToJson(objs, ctx, userCred, query)
+	return QueryObjectsToJson(manager, objs, ctx, userCred, query)
 }
 
 func QueryObjects(
@@ -231,15 +232,23 @@ func QueryObjects(
 	return selectedObjs
 }
 
-func QueryObjectsToJson(objs []models.ISpecModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func QueryObjectsToJson(manager models.ISpecModelManager, objs []models.ISpecModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	iObjs := make([]interface{}, len(objs))
+	for i := range objs {
+		iObjs[i] = objs[i]
+	}
+	details, err := db.FetchCustomizeColumns(manager, ctx, userCred, query, iObjs, nil, false)
+	if err != nil {
+		return nil, errors.Wrapf(err, "get %s details", manager.KeywordPlural())
+	}
 	ret := jsonutils.NewArray()
-	for _, obj := range objs {
+	for idx, obj := range objs {
 		jsonData := jsonutils.Marshal(obj)
 		jsonDict, ok := jsonData.(*jsonutils.JSONDict)
 		if !ok {
 			return nil, fmt.Errorf("Invalid model data structure, not a dict")
 		}
-		extraDict, _ := db.GetExtraDetails(obj, ctx, userCred, query, false)
+		extraDict := details[idx]
 		if extraDict != nil {
 			jsonDict.Update(extraDict)
 		}
