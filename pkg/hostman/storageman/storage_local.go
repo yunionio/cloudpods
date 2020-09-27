@@ -174,6 +174,10 @@ func (s *SLocalStorage) Accessible() error {
 
 }
 
+func (s *SLocalStorage) Detach() error {
+	return nil
+}
+
 func (s *SLocalStorage) DeleteDiskfile(diskpath string) error {
 	log.Infof("Start Delete %s", diskpath)
 	if options.HostOptions.RecycleDiskfile {
