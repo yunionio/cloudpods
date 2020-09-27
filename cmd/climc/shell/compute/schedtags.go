@@ -153,4 +153,17 @@ func init() {
 		printBatchResults(ret, modules.Schedtags.GetColumns(s))
 		return nil
 	})
+
+	R(&options.ResourceMetadataOptions{}, "schedtag-set-user-metadata", "Set metadata of a server", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
+		params, err := opts.Params()
+		if err != nil {
+			return err
+		}
+		result, err := modules.Schedtags.PerformAction(s, opts.ID, "user-metadata", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }
