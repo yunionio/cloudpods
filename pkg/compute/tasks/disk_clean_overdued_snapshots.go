@@ -157,5 +157,5 @@ func (self *SnapshotCleanupTask) OnDeleteSnapshot(ctx context.Context, obj db.IS
 
 func (self *SnapshotCleanupTask) OnDeleteSnapshotFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	log.Errorf("snapshot delete faield %s", data)
-	self.OnDeleteSnapshot(ctx, obj, data)
+	self.SetStageFailed(ctx, data)
 }
