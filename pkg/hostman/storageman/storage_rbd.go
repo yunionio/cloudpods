@@ -634,7 +634,7 @@ func (s *SRbdStorage) Accessible() error {
 	select {
 	case err = <-c:
 		break
-	case <-time.After(time.Second * 10):
+	case <-time.After(time.Second * 30):
 		err = ErrStorageTimeout
 	}
 	return err
