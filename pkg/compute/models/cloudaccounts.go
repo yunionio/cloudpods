@@ -991,6 +991,15 @@ func (manager *SCloudaccountManager) validateCreateData(
 		input.AutoCreateProject = &createProject
 	}
 
+	endpoints := cloudprovider.SApsaraEndpoints{}
+	if input.SCloudaccountCredential.SApsaraEndpoints != nil {
+		if input.Options == nil {
+			input.Options = jsonutils.NewDict()
+		}
+		endpoints = *input.SCloudaccountCredential.SApsaraEndpoints
+		input.Options.Update(jsonutils.Marshal(input.SCloudaccountCredential.SApsaraEndpoints))
+	}
+
 	input.SCloudaccount, err = providerDriver.ValidateCreateCloudaccountData(ctx, userCred, input.SCloudaccountCredential)
 	if err != nil {
 		return input, err
@@ -1044,6 +1053,8 @@ func (manager *SCloudaccountManager) validateCreateData(
 		Account:   input.Account,
 		Secret:    input.Secret,
 		ProxyFunc: proxyFunc,
+
+		SApsaraEndpoints: endpoints,
 	})
 	if err != nil {
 		if err == cloudprovider.ErrNoSuchProvder {
@@ -1419,6 +1430,10 @@ func (self *SCloudaccount) getProviderInternal() (cloudprovider.ICloudProvider, 
 	if err != nil {
 		return nil, fmt.Errorf("Invalid password %s", err)
 	}
+	endpoints := cloudprovider.SApsaraEndpoints{}
+	if self.Provider == api.CLOUD_PROVIDER_APSARA && self.Options != nil {
+		self.Options.Unmarshal(&endpoints)
+	}
 	return cloudprovider.GetProvider(cloudprovider.ProviderConfig{
 		Id:      self.Id,
 		Name:    self.Name,
@@ -1426,6 +1441,8 @@ func (self *SCloudaccount) getProviderInternal() (cloudprovider.ICloudProvider, 
 		URL:     self.AccessUrl,
 		Account: self.Account,
 		Secret:  secret,
+
+		SApsaraEndpoints: endpoints,
 
 		ProxyFunc: self.proxyFunc(),
 	})

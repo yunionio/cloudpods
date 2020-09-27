@@ -19,6 +19,8 @@ import (
 	"io/ioutil"
 
 	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type CloudaccountListOptions struct {
@@ -759,9 +761,9 @@ func (opts *SVMwareCloudAccountPrepareNetsOptions) Params() (jsonutils.JSONObjec
 }
 
 type SApsaraCloudAccountCreateOptions struct {
-	SAliyunCloudAccountCreateOptions
-
-	AuthUrl string `help:"Auth Url" positional:"true"`
+	SCloudAccountCreateBaseOptions
+	cloudprovider.SApsaraEndpoints
+	SAccessKeyCredential
 }
 
 func (opts *SApsaraCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {

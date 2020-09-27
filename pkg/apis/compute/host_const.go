@@ -24,6 +24,7 @@ const (
 	HOST_TYPE_XEN        = "xen"     // # XenServer
 
 	HOST_TYPE_ALIYUN    = "aliyun"
+	HOST_TYPE_APSARA    = "apsara"
 	HOST_TYPE_AWS       = "aws"
 	HOST_TYPE_QCLOUD    = "qcloud"
 	HOST_TYPE_AZURE     = "azure"
@@ -102,6 +103,7 @@ var HOST_TYPES = []string{
 	HOST_TYPE_KUBELET,
 	HOST_TYPE_XEN,
 	HOST_TYPE_ALIYUN,
+	HOST_TYPE_APSARA,
 	HOST_TYPE_AZURE,
 	HOST_TYPE_AWS,
 	HOST_TYPE_QCLOUD,

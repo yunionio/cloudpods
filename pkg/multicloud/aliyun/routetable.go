@@ -180,7 +180,6 @@ func (self *SRouteTable) GetType() cloudprovider.RouteTableType {
 		return cloudprovider.RouteTableTypeCustom
 	default:
 		return cloudprovider.RouteTableTypeSystem
-
 	}
 }
 

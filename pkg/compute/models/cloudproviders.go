@@ -811,6 +811,11 @@ func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) 
 
 	account := self.GetCloudaccount()
 
+	endpoints := cloudprovider.SApsaraEndpoints{}
+	if account.Options != nil {
+		account.Options.Unmarshal(&endpoints)
+	}
+
 	return cloudprovider.GetProvider(cloudprovider.ProviderConfig{
 		Id:        self.Id,
 		Name:      self.Name,
@@ -819,6 +824,8 @@ func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) 
 		Account:   self.Account,
 		Secret:    passwd,
 		ProxyFunc: account.proxyFunc(),
+
+		SApsaraEndpoints: endpoints,
 	})
 }
 

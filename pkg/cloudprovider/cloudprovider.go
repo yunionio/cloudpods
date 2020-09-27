@@ -94,6 +94,9 @@ type SCloudaccountCredential struct {
 	GCPPrivateKeyId string `json:"gcp_private_key_id"`
 	// Google服务账号秘钥 (gcp)
 	GCPPrivateKey string `json:"gcp_private_key"`
+
+	// 阿里云专有云Endpoints
+	*SApsaraEndpoints
 }
 
 type SCloudaccount struct {
@@ -154,6 +157,8 @@ type ProviderConfig struct {
 	Secret  string
 
 	AccountId string
+
+	SApsaraEndpoints
 
 	ProxyFunc httputils.TransportProxyFunc
 }
