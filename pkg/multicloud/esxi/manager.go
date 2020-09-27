@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/utils"
 
@@ -677,6 +678,10 @@ func (cli *SESXiClient) vmIPs(host *mo.HostSystem) ([]SSimpleVM, error) {
 		for _, net := range vm.Guest.Net {
 			for _, ip := range net.IpAddress {
 				if regutils.MatchIP4Addr(ip) {
+					ipaddr, _ := netutils.NewIPV4Addr(ip)
+					if netutils.IsLinkLocal(ipaddr) {
+						continue
+					}
 					guestIps = append(guestIps, ip)
 				}
 			}
