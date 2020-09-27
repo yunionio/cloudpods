@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
@@ -411,4 +412,49 @@ func (this *Client) NewSession(ctx context.Context, region, zone, endpointType s
 		Header:              http.Header{},
 		customizeServiceUrl: map[string]string{},
 	}
+}
+
+type SFetchMatchPoliciesOutput struct {
+	Names    map[rbacutils.TRbacScope][]string `json:"names"`
+	Policies rbacutils.TPolicyGroup            `json:"policies"`
+}
+
+func (o *SFetchMatchPoliciesOutput) Decode(object jsonutils.JSONObject) error {
+	err := object.Unmarshal(&o.Names, "names")
+	if err != nil {
+		return errors.Wrap(err, "unmarshal names")
+	}
+	pData, err := object.Get("policies")
+	if err != nil {
+		return errors.Wrap(err, "Get policies")
+	}
+	o.Policies, err = rbacutils.DecodePolicyGroup(pData)
+	if err != nil {
+		return errors.Wrap(err, "DecodePolicyGroup")
+	}
+	return nil
+}
+
+func (o SFetchMatchPoliciesOutput) Encode() jsonutils.JSONObject {
+	output := jsonutils.NewDict()
+	output.Set("names", jsonutils.Marshal(o.Names))
+	output.Set("policies", o.Policies.Encode())
+	return output
+}
+
+func (client *Client) FetchMatchPolicies(ctx context.Context, token TokenCredential) (*SFetchMatchPoliciesOutput, error) {
+	header := http.Header{}
+	if token.GetTokenString() != "" {
+		header.Add(api.AUTH_TOKEN_HEADER, token.GetTokenString())
+	}
+	_, rbody, err := client.jsonRequest(ctx, client.authUrl, "", "GET", "/auth/policies", header, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "jsonRequest")
+	}
+	output := &SFetchMatchPoliciesOutput{}
+	err = output.Decode(rbody)
+	if err != nil {
+		return nil, errors.Wrap(err, "SFetchMatchPoliciesOutput.Decode")
+	}
+	return output, nil
 }

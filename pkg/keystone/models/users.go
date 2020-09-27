@@ -86,7 +86,7 @@ type SUser struct {
 	LastLoginIp     string `nullable:"true" list:"domain"`
 	LastLoginSource string `nullable:"true" list:"domain"`
 
-	IsSystemAccount tristate.TriState `nullable:"false" default:"false" list:"domain" update:"domain" create:"domain_optional"`
+	IsSystemAccount tristate.TriState `nullable:"false" default:"false" list:"domain" update:"admin" create:"admin_optional"`
 
 	// deprecated
 	DefaultProjectId string `width:"64" charset:"ascii" nullable:"true"`
@@ -957,7 +957,7 @@ func joinProjects(ident db.IModel, isUser bool, ctx context.Context, userCred mc
 
 	projects := make([]*SProject, 0)
 	roles := make([]*SRole, 0)
-	roleNames := make([]string, 0)
+	roleIds := make([]string, 0)
 
 	for i := range input.Roles {
 		obj, err := RoleManager.FetchByIdOrName(userCred, input.Roles[i])
@@ -970,7 +970,7 @@ func joinProjects(ident db.IModel, isUser bool, ctx context.Context, userCred mc
 		}
 		role := obj.(*SRole)
 		roles = append(roles, role)
-		roleNames = append(roleNames, role.Name)
+		roleIds = append(roleIds, role.Id)
 	}
 
 	for i := range input.Projects {
@@ -983,7 +983,7 @@ func joinProjects(ident db.IModel, isUser bool, ctx context.Context, userCred mc
 			}
 		}
 		project := obj.(*SProject)
-		err = validateJoinProject(userCred, project, roleNames)
+		err = validateJoinProject(userCred, project, roleIds)
 		if err != nil {
 			return errors.Wrapf(err, "validateJoinProject %s(%s)", project.Id, project.Name)
 		}

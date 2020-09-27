@@ -12,32 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package policy
+package tokens
 
 import (
-	"yunion.io/x/jsonutils"
+	"context"
+	"net/http"
 
+	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
-func PolicyCreate(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	result, err := modules.Policies.Create(s, params)
+func fetchTokenPolicies(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	token := policy.FetchUserCredential(ctx)
+	names, group, err := models.RolePolicyManager.GetMatchPolicyGroup(token, false)
 	if err != nil {
-		return nil, err
+		httperrors.GeneralServerError(ctx, w, err)
+		return
 	}
-	return result, nil
-}
-
-func PolicyPatch(s *mcclient.ClientSession, idstr string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	result, err := modules.Policies.Patch(s, idstr, params)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func PolicyDelete(s *mcclient.ClientSession, idstr string) error {
-	_, err := modules.Policies.Delete(s, idstr, nil)
-	return err
+	output := mcclient.SFetchMatchPoliciesOutput{}
+	output.Names = names
+	output.Policies = group
+	appsrv.SendJSON(w, output.Encode())
 }

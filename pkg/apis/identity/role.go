@@ -14,7 +14,10 @@
 
 package identity
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
+)
 
 type RoleDetails struct {
 	IdentityBaseResourceDetails
@@ -22,8 +25,11 @@ type RoleDetails struct {
 
 	SRole
 
-	UserCount     int      `json:"user_count"`
-	GroupCount    int      `json:"group_count"`
-	ProjectCount  int      `json:"project_count"`
+	UserCount    int `json:"user_count"`
+	GroupCount   int `json:"group_count"`
+	ProjectCount int `json:"project_count"`
+
 	MatchPolicies []string `json:"match_policies"`
+
+	Policies map[rbacutils.TRbacScope][]string `json:"policies"`
 }

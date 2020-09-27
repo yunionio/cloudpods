@@ -615,7 +615,7 @@ func (this *projectRoles) add(roleId, roleName string) {
 	this.roles = append(this.roles, role{id: roleId, name: roleName})
 }
 
-func (this *projectRoles) getToken(scope rbacutils.TRbacScope, user, userId, domain, domainId string, ip string) mcclient.TokenCredential {
+func (this *projectRoles) getToken(user, userId, domain, domainId string, ip string) mcclient.TokenCredential {
 	return &mcclient.SSimpleToken{
 		Token:           "faketoken",
 		Domain:          domain,
@@ -627,11 +627,11 @@ func (this *projectRoles) getToken(scope rbacutils.TRbacScope, user, userId, dom
 		ProjectDomain:   this.domain,
 		ProjectDomainId: this.domainId,
 		Roles:           strings.Join(this.getRoles(), ","),
+		RoleIds:         strings.Join(this.getRoleIds(), ","),
 		Context: mcclient.SAuthContext{
 			Ip: ip,
 		},
 	}
-	// return policy.PolicyManager.IsScopeCapable(&t, scope)
 }
 
 func (this *projectRoles) getRoles() []string {
@@ -642,43 +642,55 @@ func (this *projectRoles) getRoles() []string {
 	return roles
 }
 
-func (this *projectRoles) json(user, userId, domain, domainId string, ip string) jsonutils.JSONObject {
+func (this *projectRoles) getRoleIds() []string {
+	roles := make([]string, 0)
+	for _, r := range this.roles {
+		roles = append(roles, r.id)
+	}
+	return roles
+}
+
+func (this *projectRoles) json(s *mcclient.ClientSession, user, userId, domain, domainId string, ip string) (jsonutils.JSONObject, map[string][]string) {
 	obj := jsonutils.NewDict()
 	obj.Add(jsonutils.NewString(this.id), "id")
 	obj.Add(jsonutils.NewString(this.name), "name")
 	obj.Add(jsonutils.NewString(this.domain), "domain")
 	obj.Add(jsonutils.NewString(this.domainId), "domain_id")
+	roleIds := make([]string, 0)
 	roles := jsonutils.NewArray()
 	for _, r := range this.roles {
 		role := jsonutils.NewDict()
 		role.Add(jsonutils.NewString(r.id), "id")
 		role.Add(jsonutils.NewString(r.name), "name")
 		roles.Add(role)
+		roleIds = append(roleIds, r.id)
 	}
 	obj.Add(roles, "roles")
+
+	policies, _ := modules.RolePolicies.FetchMatchedPolicies(s, roleIds, this.id, ip)
 	for _, scope := range []rbacutils.TRbacScope{
 		rbacutils.ScopeProject,
 		rbacutils.ScopeDomain,
 		rbacutils.ScopeSystem,
 	} {
-		token := this.getToken(scope, user, userId, domain, domainId, ip)
-		matches := policy.PolicyManager.MatchedPolicyNames(scope, token)
-		obj.Add(jsonutils.NewStringArray(matches), fmt.Sprintf("%s_policies", scope))
-		if len(matches) > 0 {
-			obj.Add(jsonutils.JSONTrue, fmt.Sprintf("%s_capable", scope))
-		} else {
-			obj.Add(jsonutils.JSONFalse, fmt.Sprintf("%s_capable", scope))
-		}
-		// backward compatible
-		if scope == rbacutils.ScopeSystem {
+		if matches, ok := policies[string(scope)]; ok {
+			obj.Add(jsonutils.NewStringArray(matches), fmt.Sprintf("%s_policies", scope))
 			if len(matches) > 0 {
-				obj.Add(jsonutils.JSONTrue, "admin_capable")
+				obj.Add(jsonutils.JSONTrue, fmt.Sprintf("%s_capable", scope))
 			} else {
-				obj.Add(jsonutils.JSONFalse, "admin_capable")
+				obj.Add(jsonutils.JSONFalse, fmt.Sprintf("%s_capable", scope))
+			}
+			// backward compatible
+			if scope == rbacutils.ScopeSystem {
+				if len(matches) > 0 {
+					obj.Add(jsonutils.JSONTrue, "admin_capable")
+				} else {
+					obj.Add(jsonutils.JSONFalse, "admin_capable")
+				}
 			}
 		}
 	}
-	return obj
+	return obj, policies
 }
 
 func isLBAgentExists(s *mcclient.ClientSession) (bool, error) {
@@ -850,38 +862,40 @@ func getUserInfo2(s *mcclient.ClientSession, uid string, pid string, loginIp str
 	}
 
 	data.Add(jsonutils.NewStringArray(currentRoles), "roles")
-
+	var policies map[string][]string
 	projJson := jsonutils.NewArray()
 	for _, proj := range projects {
-		projJson.Add(proj.json(
+		j, p := proj.json(
+			s,
 			usrName,
 			usrId,
 			usrDomainName,
 			usrDomainId,
 			loginIp,
-		))
+		)
+		projJson.Add(j)
+		if proj.id == pid {
+			policies = p
+		}
 	}
 	data.Add(projJson, "projects")
 
 	if len(pid) > 0 {
-		ident := rbacutils.NewRbacIdentity2(projDomainId, projName, currentRoles, loginIp)
 		for _, scope := range []rbacutils.TRbacScope{
 			rbacutils.ScopeSystem,
 			rbacutils.ScopeDomain,
 			rbacutils.ScopeProject,
 		} {
-			p := policy.PolicyManager.MatchedPolicyNames(scope, ident)
-			data.Add(jsonutils.NewStringArray(p), fmt.Sprintf("%s_policies", scope))
-			if scope == rbacutils.ScopeSystem {
-				data.Add(jsonutils.NewStringArray(p), "admin_policies")
-			} else if scope == rbacutils.ScopeProject {
-				data.Add(jsonutils.NewStringArray(p), "policies")
+			if p, ok := policies[string(scope)]; ok {
+				data.Add(jsonutils.NewStringArray(p), fmt.Sprintf("%s_policies", scope))
+				if scope == rbacutils.ScopeSystem {
+					data.Add(jsonutils.NewStringArray(p), "admin_policies")
+				} else if scope == rbacutils.ScopeProject {
+					data.Add(jsonutils.NewStringArray(p), "policies")
+				}
 			}
 		}
 	}
-
-	allPolicies := policy.PolicyManager.AllPolicies()
-	data.Add(jsonutils.Marshal(allPolicies), "all_policies")
 
 	services := jsonutils.NewArray()
 	menus := jsonutils.NewArray()

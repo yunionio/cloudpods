@@ -19,6 +19,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type IdentityBaseResourceCreateInput struct {
@@ -336,6 +337,9 @@ type PolicyListInput struct {
 
 	// 以类型查询
 	Type []string `json:"type"`
+
+	// 是否显示系统权限
+	IsSystem *bool `json:"is_system"`
 }
 
 type RegionFilterListInput struct {
@@ -397,9 +401,18 @@ type IdentityProviderUpdateInput struct {
 type PolicyUpdateInput struct {
 	EnabledIdentityBaseUpdateInput
 
+	// Deprecated
+	// swagger:ignore
 	Type string `json:"type"`
 
+	// Policy内容
 	Blob jsonutils.JSONObject `json:"blob"`
+
+	// 生效范围，project|domain|system
+	Scope rbacutils.TRbacScope `json:"scope"`
+
+	// 是否为系统权限
+	IsSystem *bool `json:"is_system"`
 }
 
 type ProjectUpdateInput struct {
@@ -475,9 +488,18 @@ type PolicyCreateInput struct {
 	EnabledIdentityBaseResourceCreateInput
 	apis.SharableResourceBaseCreateInput
 
+	// Deprecated
+	// swagger:ignore
 	Type string `json:"type"`
 
+	// policy
 	Blob jsonutils.JSONObject `json:"blob"`
+
+	// 生效范围，project|domain|system
+	Scope rbacutils.TRbacScope `json:"scope"`
+
+	// 是否为系统权限
+	IsSystem *bool `json:"is_system"`
 }
 
 type RoleCreateInput struct {

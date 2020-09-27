@@ -57,8 +57,8 @@ func getServiceConfig(s *mcclient.ClientSession, serviceId string) (jsonutils.JS
 }
 
 type IServiceConfigSession interface {
-	Merge(opts interface{}, serviceType string, serviceVersion string) bool
-	Upload()
+	Merge(opts interface{}, serviceType string, serviceVersion string, isFirst bool) bool
+	Upload(isFirst bool)
 	IsRemote() bool
 }
 
@@ -72,7 +72,7 @@ func newServiceConfigSession() IServiceConfigSession {
 	return &mcclientServiceConfigSession{}
 }
 
-func (s *mcclientServiceConfigSession) Merge(opts interface{}, serviceType string, serviceVersion string) bool {
+func (s *mcclientServiceConfigSession) Merge(opts interface{}, serviceType string, serviceVersion string, isFirst bool) bool {
 	merged := false
 	s.config = jsonutils.Marshal(opts).(*jsonutils.JSONDict)
 	region, _ := s.config.GetString("region")
@@ -88,7 +88,7 @@ func (s *mcclientServiceConfigSession) Merge(opts interface{}, serviceType strin
 			merged = true
 		} else {
 			// not initialized
-			s.Upload()
+			s.Upload(isFirst)
 		}
 	}
 	commonServiceId, _ := getServiceIdByType(s.session, consts.COMMON_SERVICE, "")
@@ -113,7 +113,7 @@ func (s *mcclientServiceConfigSession) Merge(opts interface{}, serviceType strin
 	return false
 }
 
-func (s *mcclientServiceConfigSession) Upload() {
+func (s *mcclientServiceConfigSession) Upload(isFirst bool) {
 	// upload service config
 	if len(s.serviceId) > 0 {
 		nconf := jsonutils.NewDict()

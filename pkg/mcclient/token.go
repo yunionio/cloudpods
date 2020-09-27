@@ -74,6 +74,7 @@ type TokenCredential interface {
 
 	GetTokenString() string
 	GetRoles() []string
+	GetRoleIds() []string
 	GetExpires() time.Time
 	IsValid() bool
 	ValidDuration() time.Duration

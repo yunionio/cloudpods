@@ -40,6 +40,7 @@ type SSimpleToken struct {
 	ProjectDomainId string
 
 	Roles   string
+	RoleIds string
 	Expires time.Time
 
 	Context SAuthContext
@@ -97,6 +98,10 @@ func (self *SSimpleToken) GetUserName() string {
 
 func (self *SSimpleToken) GetRoles() []string {
 	return strings.Split(self.Roles, ",")
+}
+
+func (self *SSimpleToken) GetRoleIds() []string {
+	return strings.Split(self.RoleIds, ",")
 }
 
 func (self *SSimpleToken) GetExpires() time.Time {
@@ -194,6 +199,7 @@ func SimplifyToken(token TokenCredential) TokenCredential {
 		ProjectDomainId: token.GetProjectDomainId(),
 
 		Roles:   strings.Join(token.GetRoles(), ","),
+		RoleIds: strings.Join(token.GetRoleIds(), ","),
 		Expires: token.GetExpires(),
 		Context: SAuthContext{
 			Source: token.GetLoginSource(),

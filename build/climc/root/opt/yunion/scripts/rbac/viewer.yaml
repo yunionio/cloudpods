@@ -1,0 +1,6 @@
+policy:
+  '*':
+    '*':
+      get: allow
+      list: allow
+      '*': deny

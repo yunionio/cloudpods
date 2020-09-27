@@ -16,6 +16,7 @@ package modules
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
@@ -30,22 +31,18 @@ var Policies SPolicyManager
 
 func policyReadFilter(session *mcclient.ClientSession, s jsonutils.JSONObject, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	ss := s.(*jsonutils.JSONDict)
-	ret := ss.CopyIncludes("id", "type", "enabled", "domain_id", "domain", "project_domain", "can_update", "can_delete", "is_public", "description", "delete_fail_reason", "update_fail_reason", "public_scope", "shared_domains", "created_at", "updated_at")
+	ret := ss.CopyExcludes("blob", "type")
 	blobJson, _ := ss.Get("blob")
 	if blobJson != nil {
-		policy := rbacutils.SRbacPolicy{}
 		blobStr, _ := blobJson.GetString()
 		if len(blobStr) > 0 {
 			blobJson, _ = jsonutils.ParseString(blobStr)
 		}
-		err := policy.Decode(blobJson)
+		policy, err := rbacutils.DecodePolicyData(blobJson)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "rbacutils.DecodePolicyData")
 		}
-		blobJson, err = policy.Encode()
-		if err != nil {
-			return nil, err
-		}
+		blobJson = policy.EncodeData()
 		var format string
 		if query != nil {
 			format, _ = query.GetString("format")
@@ -82,7 +79,7 @@ func policyWriteFilter(session *mcclient.ClientSession, s jsonutils.JSONObject, 
 		ret.Add(blobJson, "blob")
 	}
 	for _, k := range []string{
-		"type", "enabled", "domain", "domain_id", "project_domain", "description", "is_public", "public_scope", "shared_domains",
+		"name", "type", "enabled", "domain", "domain_id", "project_domain", "description", "is_public", "public_scope", "shared_domains", "scope", "is_system",
 	} {
 		if s.Contains(k) {
 			val, err := s.Get(k)
@@ -97,14 +94,15 @@ func policyWriteFilter(session *mcclient.ClientSession, s jsonutils.JSONObject, 
 
 func init() {
 	Policies = SPolicyManager{NewIdentityV3Manager(
-		"policy", "policies",
-		[]string{"id", "type", "policy", "enabled",
-			"domain_id", "domain", "project_domain",
-			"is_public", "description",
+		"policy",
+		"policies",
+		[]string{"id", "name", "policy", "scope", "enabled",
+			"domain_id", "domain", "project_domain", "public_scope",
+			"is_public", "description", "is_system",
 		},
 		[]string{})}
 
-	Policies.SetReadFilter(policyReadFilter).SetWriteFilter(policyWriteFilter).SetNameField("type")
+	Policies.SetReadFilter(policyReadFilter).SetWriteFilter(policyWriteFilter) // .SetNameField("type")
 
 	register(&Policies)
 }

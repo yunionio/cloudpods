@@ -31,7 +31,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
-	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -480,15 +479,14 @@ func (self *SProject) PostCreate(
 	}
 }
 
-func validateJoinProject(userCred mcclient.TokenCredential, project *SProject, roleNames []string) error {
-	opsScope, opsPolicySet := policy.PolicyManager.GetMatchedPolicySet(userCred)
-	rbacCred := rbacutils.NewRbacIdentity(project.DomainId, project.Name, roleNames)
-	assignScope, assignPolicySet := policy.PolicyManager.GetMatchedPolicySet(rbacCred)
-	log.Debugf("opsScope: %s assignScope: %s", opsScope, assignScope)
+func validateJoinProject(userCred mcclient.TokenCredential, project *SProject, roleIds []string) error {
+	_, opsPolicies, _ := RolePolicyManager.GetMatchPolicyGroup(userCred, false)
+	_, assignPolicies, _ := RolePolicyManager.GetMatchPolicyGroup2(false, roleIds, project.Id, "", false)
+	opsScope := opsPolicies.HighestScope()
+	assignScope := assignPolicies.HighestScope()
 	if assignScope.HigherThan(opsScope) {
 		return errors.Wrap(httperrors.ErrNotSufficientPrivilege, "assigning roles requires higher privilege scope")
-	}
-	if !opsScope.HigherThan(assignScope) && opsPolicySet.ViolatedBy(assignPolicySet) {
+	} else if assignScope == opsScope && opsPolicies[opsScope].ViolatedBy(assignPolicies[assignScope]) {
 		return errors.Wrap(httperrors.ErrNotSufficientPrivilege, "assigning roles violates operator's policy")
 	}
 	return nil
@@ -514,7 +512,7 @@ func (project *SProject) PerformJoin(
 		return nil, httperrors.NewInputParameterError("%v", err)
 	}
 
-	roleNames := make([]string, 0)
+	roleIds := make([]string, 0)
 	roles := make([]*SRole, 0)
 	for i := range input.Roles {
 		obj, err := RoleManager.FetchByIdOrName(userCred, input.Roles[i])
@@ -527,10 +525,10 @@ func (project *SProject) PerformJoin(
 		}
 		role := obj.(*SRole)
 		roles = append(roles, role)
-		roleNames = append(roleNames, role.Name)
+		roleIds = append(roleIds, role.Id)
 	}
 
-	err = validateJoinProject(userCred, project, roleNames)
+	err = validateJoinProject(userCred, project, roleIds)
 	if err != nil {
 		return nil, errors.Wrap(err, "validateJoinProject")
 	}

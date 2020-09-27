@@ -202,6 +202,14 @@ func (token *TokenCredentialV3) GetRoles() []string {
 	return roles
 }
 
+func (token *TokenCredentialV3) GetRoleIds() []string {
+	roles := make([]string, 0)
+	for i := 0; i < len(token.Token.Roles); i++ {
+		roles = append(roles, token.Token.Roles[i].Id)
+	}
+	return roles
+}
+
 func (this *TokenCredentialV3) GetExpires() time.Time {
 	return this.Token.ExpiresAt
 }

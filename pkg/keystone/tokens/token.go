@@ -23,7 +23,6 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
-	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/keystone/keys"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/options"
@@ -219,10 +218,13 @@ func (t *SAuthToken) GetSimpleUserCred(token string) (mcclient.TokenCredential, 
 		roles, err = models.AssignmentManager.FetchUserProjectRoles(t.UserId, t.DomainId)
 	}
 	roleStrs := make([]string, len(roles))
+	roleIdStrs := make([]string, len(roles))
 	for i := range roles {
 		roleStrs[i] = roles[i].Name
+		roleIdStrs[i] = roles[i].Id
 	}
 	ret.Roles = strings.Join(roleStrs, ",")
+	ret.RoleIds = strings.Join(roleIdStrs, ",")
 	return &ret, nil
 }
 
@@ -334,9 +336,10 @@ func (t *SAuthToken) getTokenV3(
 			token.Token.Roles[i].Name = roles[i].Name
 		}
 
-		token.Token.Policies.Project = policy.PolicyManager.MatchedPolicyNames(rbacutils.ScopeProject, &token)
-		token.Token.Policies.Domain = policy.PolicyManager.MatchedPolicyNames(rbacutils.ScopeDomain, &token)
-		token.Token.Policies.System = policy.PolicyManager.MatchedPolicyNames(rbacutils.ScopeSystem, &token)
+		policyNames, _, _ := models.RolePolicyManager.GetMatchPolicyGroup(&token, true)
+		token.Token.Policies.Project, _ = policyNames[rbacutils.ScopeProject]
+		token.Token.Policies.Domain, _ = policyNames[rbacutils.ScopeDomain]
+		token.Token.Policies.System, _ = policyNames[rbacutils.ScopeSystem]
 
 		endpoints, err := models.EndpointManager.FetchAll()
 		if err != nil {
@@ -400,6 +403,7 @@ func (t *SAuthToken) getTokenV2(
 		token.Metadata.Roles = make([]string, len(roles))
 		for i := range roles {
 			token.User.Roles[i].Name = roles[i].Name
+			token.User.Roles[i].Id = roles[i].Id
 			token.Metadata.Roles[i] = roles[i].Name
 		}
 		endpoints, err := models.EndpointManager.FetchAll()

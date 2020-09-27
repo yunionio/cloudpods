@@ -1,6 +1,0 @@
-# rbac for project owner, not allow for delete
-roles:
-  - domain_admin
-scope: domain
-policy:
-  '*': allow

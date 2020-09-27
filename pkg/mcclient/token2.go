@@ -51,6 +51,8 @@ type KeystoneServiceV2 struct {
 type KeystoneRoleV2 struct {
 	// 角色名称
 	Name string `json:"name"`
+	// 角色ID
+	Id string `json:"id"`
 }
 
 type KeystoneUserV2 struct {
@@ -164,6 +166,14 @@ func (token *TokenCredentialV2) GetRoles() []string {
 	roles := make([]string, 0)
 	for i := 0; i < len(token.User.Roles); i++ {
 		roles = append(roles, token.User.Roles[i].Name)
+	}
+	return roles
+}
+
+func (token *TokenCredentialV2) GetRoleIds() []string {
+	roles := make([]string, 0)
+	for i := 0; i < len(token.User.Roles); i++ {
+		roles = append(roles, token.User.Roles[i].Id)
 	}
 	return roles
 }

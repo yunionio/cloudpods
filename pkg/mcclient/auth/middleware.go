@@ -25,11 +25,15 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 var (
-	GuestToken = mcclient.SSimpleToken{
-		User: "guest",
+	GUEST_USER  = "guest"
+	GUEST_TOKEN = "guest_token"
+	GuestToken  = mcclient.SSimpleToken{
+		User:  GUEST_USER,
+		Token: GUEST_TOKEN,
 	}
 
 	DefaultTokenVerifier = Verify
@@ -90,4 +94,8 @@ func FetchUserCredential(ctx context.Context, filter func(mcclient.TokenCredenti
 		return token
 	}
 	return nil
+}
+
+func IsGuestToken(userCred rbacutils.IRbacIdentity) bool {
+	return userCred.GetTokenString() == GUEST_TOKEN
 }

@@ -38,6 +38,7 @@ func init() {
 	type PolicyListOptions struct {
 		options.BaseListOptions
 		Type          string `help:"filter by type"`
+		IsSystem      *bool  `help:"filter by is_system" negative:"is_no_system"`
 		Format        string `help:"policy format, default to yaml" default:"yaml" choices:"yaml|json"`
 		OrderByDomain string `help:"order by domain name" choices:"asc|desc"`
 	}
@@ -100,6 +101,7 @@ func init() {
 		Enabled  bool   `help:"update policy enabled"`
 		Disabled bool   `help:"update policy disabled"`
 		Desc     string `help:"Description"`
+		IsSystem *bool  `help:"is_system"`
 	}
 	updateFunc := func(s *mcclient.ClientSession, args *PolicyPatchOptions) error {
 		policyId, err := modules.Policies.GetId(s, args.ID, nil)
@@ -124,6 +126,13 @@ func init() {
 		}
 		if len(args.Desc) > 0 {
 			params.Add(jsonutils.NewString(args.Desc), "description")
+		}
+		if args.IsSystem != nil {
+			if *args.IsSystem {
+				params.Add(jsonutils.JSONTrue, "is_system")
+			} else {
+				params.Add(jsonutils.JSONFalse, "is_system")
+			}
 		}
 		result, err := modules.Policies.Patch(s, policyId, params)
 		if err != nil {
@@ -236,11 +245,12 @@ func init() {
 		UserDomain    string   `help:"Domain for user"`
 		Project       string   `help:"Role assignments for project"`
 		ProjectDomain string   `help:"Domain for project"`
-		Role          []string `help:"Roles"`
+		Role          []string `help:"Role name list"`
+		RoleId        []string `help:"Role Id list"`
 	}
 	R(&PolicyAdminCapableOptions{}, "policy-admin-capable", "Check admin capable", func(s *mcclient.ClientSession, args *PolicyAdminCapableOptions) error {
 		auth.InitFromClientSession(s)
-		policy.EnableGlobalRbac(15*time.Second, 15*time.Second, false)
+		policy.EnableGlobalRbac(15*time.Second, false)
 
 		var token mcclient.TokenCredential
 		if len(args.User) > 0 {
@@ -250,6 +260,7 @@ func init() {
 				Project:       args.Project,
 				ProjectDomain: args.ProjectDomain,
 				Roles:         strings.Join(args.Role, ","),
+				RoleIds:       strings.Join(args.RoleId, ","),
 			}
 		} else {
 			token = s.GetToken()
@@ -277,6 +288,7 @@ func init() {
 		UserDomain    string   `help:"Domain for user"`
 		Project       string   `help:"Role assignments for project"`
 		Role          []string `help:"Roles"`
+		RoleId        []string `help:"Role Id list"`
 		Request       []string `help:"explain request, in format of key:scope:service:resource:action:extra"`
 		Name          string   `help:"policy name"`
 		Debug         bool     `help:"enable RBAC debug"`
@@ -292,24 +304,9 @@ func init() {
 			rbacutils.ShowMatchRuleDebug = true
 		}
 		auth.InitFromClientSession(s)
-		policy.EnableGlobalRbac(15*time.Second, 15*time.Second, false)
+		policy.EnableGlobalRbac(15*time.Second, false)
 		if args.Debug {
 			consts.EnableRbacDebug()
-		}
-
-		findPolicy := false
-		for !findPolicy {
-			all := policy.PolicyManager.AllPolicies()
-			for _, allP := range all {
-				if len(allP) > 0 {
-					findPolicy = true
-					break
-				}
-			}
-			if findPolicy {
-				break
-			}
-			time.Sleep(time.Second)
 		}
 
 		req := jsonutils.NewDict()
@@ -374,6 +371,7 @@ func init() {
 				ProjectDomain:   projDom,
 				ProjectDomainId: projDomId,
 				Roles:           strings.Join(args.Role, ","),
+				RoleIds:         strings.Join(args.RoleId, ","),
 				Context: mcclient.SAuthContext{
 					Ip: args.Ip,
 				},
@@ -389,7 +387,7 @@ func init() {
 		}
 		printObject(result)
 
-		for _, r := range args.Role {
+		/*for _, r := range args.Role {
 			fmt.Println("role", r, "matched policies:", policy.PolicyManager.RoleMatchPolicies(r))
 		}
 
@@ -405,7 +403,7 @@ func init() {
 			fmt.Println("matched", scope, "policies:", m)
 		}
 
-		fmt.Println("all_policies", policy.PolicyManager.AllPolicies())
+		fmt.Println("all_policies", policy.PolicyManager.AllPolicies())*/
 		return nil
 	})
 }

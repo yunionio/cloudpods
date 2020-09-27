@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -69,8 +70,18 @@ type SPolicy struct {
 	SEnabledIdentityBaseResource
 	db.SSharableBaseResource `"is_public=>create":"domain_optional" "public_scope=>create":"domain_optional"`
 
-	Type string               `width:"255" charset:"utf8" nullable:"false" list:"user" create:"domain_required" update:"domain"`
+	// swagger:ignore
+	// Deprecated
+	Type string `width:"255" charset:"utf8" nullable:"false" list:"user" create:"domain_required" update:"domain"`
+
+	// 权限定义
 	Blob jsonutils.JSONObject `nullable:"false" list:"user" create:"domain_required" update:"domain"`
+
+	// 权限范围
+	Scope rbacutils.TRbacScope `nullable:"true" list:"user" create:"domain_required" update:"domain"`
+
+	// 是否为系统权限
+	IsSystem tristate.TriState `nullable:"false" default:"false" list:"domain" update:"admin" create:"admin_optional"`
 }
 
 func (manager *SPolicyManager) InitializeData() error {
@@ -91,6 +102,113 @@ func (manager *SPolicyManager) InitializeData() error {
 			return nil
 		})
 	}
+
+	err = manager.initializeRolePolicyGroup()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (manager *SPolicyManager) initializeRolePolicyGroup() error {
+	ctx := context.Background()
+	q := manager.Query()
+	q = q.IsNullOrEmpty("scope")
+	policies := make([]SPolicy, 0)
+	err := db.FetchModelObjects(manager, q, &policies)
+	if err != nil {
+		return err
+	}
+
+	for i := range policies {
+		var policy rbacutils.SRbacPolicy
+		err := policy.Decode(policies[i].Blob)
+		if err != nil {
+			log.Errorf("Decode policy %s failed %s", policies[i].Name, err)
+			continue
+		}
+		failed := false
+		if len(policy.Roles) == 0 && len(policy.Projects) == 0 {
+			// match any
+			roles, err := policies[i].fetchMatchableRoles()
+			if err != nil {
+				log.Errorf("policy fetchMatchableRoles fail %s", err)
+				failed = true
+			} else {
+				for _, r := range roles {
+					err = RolePolicyManager.newRecord(ctx, r.Id, "", policies[i].Id, tristate.NewFromBool(policy.Auth), policy.Ips)
+					if err != nil {
+						log.Errorf("insert role policy fail %s", err)
+						failed = true
+					}
+				}
+			}
+		} else if len(policy.Roles) > 0 && len(policy.Projects) == 0 {
+			for _, r := range policy.Roles {
+				role, err := RoleManager.FetchRoleByName(r, policies[i].DomainId, "")
+				if err != nil {
+					log.Errorf("fetch role %s fail %s", r, err)
+					continue
+				}
+				err = RolePolicyManager.newRecord(ctx, role.Id, "", policies[i].Id, tristate.True, policy.Ips)
+				if err != nil {
+					log.Errorf("insert role policy fail %s", err)
+					failed = true
+				}
+			}
+		} else if len(policy.Roles) == 0 && len(policy.Projects) > 0 {
+			for _, p := range policy.Projects {
+				project, err := ProjectManager.FetchProjectByName(p, policies[i].DomainId, "")
+				if err != nil {
+					log.Errorf("fetch porject %s fail %s", p, err)
+					continue
+				}
+				roles, err := policies[i].fetchMatchableRoles()
+				if err != nil {
+					log.Errorf("policy fetchMatchableRoles fail %s", err)
+					failed = true
+				} else {
+					for _, r := range roles {
+						err = RolePolicyManager.newRecord(ctx, r.Id, project.Id, policies[i].Id, tristate.True, policy.Ips)
+						if err != nil {
+							log.Errorf("insert role policy fail %s", err)
+							failed = true
+						}
+					}
+				}
+			}
+		} else if len(policy.Roles) > 0 && len(policy.Projects) > 0 {
+			for _, r := range policy.Roles {
+				role, err := RoleManager.FetchRoleByName(r, policies[i].DomainId, "")
+				if err != nil {
+					log.Errorf("fetch role %s fail %s", r, err)
+					continue
+				}
+				for _, p := range policy.Projects {
+					project, err := ProjectManager.FetchProjectByName(p, policies[i].DomainId, "")
+					if err != nil {
+						log.Errorf("fetch project %s fail %s", p, err)
+						continue
+					}
+					err = RolePolicyManager.newRecord(ctx, role.Id, project.Id, policies[i].Id, tristate.True, policy.Ips)
+					if err != nil {
+						log.Errorf("insert role policy fail %s", err)
+						failed = true
+					}
+				}
+			}
+		}
+		if !failed {
+			db.Update(&policies[i], func() error {
+				policies[i].Scope = policy.Scope
+				// do not rewrite blob, make backward compatible
+				// policies[i].Blob = policy.Rules.Encode()
+				return nil
+			})
+		}
+	}
+
 	return nil
 }
 
@@ -106,16 +224,34 @@ func (manager *SPolicyManager) FetchEnabledPolicies() ([]SPolicy, error) {
 	return policies, nil
 }
 
-func validatePolicyVioldatePrivilege(userCred mcclient.TokenCredential, policy *rbacutils.SRbacPolicy) error {
+func validatePolicyVioldatePrivilege(userCred mcclient.TokenCredential, policyScope rbacutils.TRbacScope, policy rbacutils.TPolicy) error {
 	if userCred.GetUserName() == api.SystemAdminUser && userCred.GetDomainId() == api.DEFAULT_DOMAIN_ID {
 		return nil
 	}
-	opsScope, opsPolicySet := policyman.PolicyManager.GetMatchedPolicySet(userCred)
-	if opsScope != rbacutils.ScopeSystem && policy.Scope.HigherThan(opsScope) {
-		return errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "cannot create policy scope higher than %s", opsScope)
+	_, policyGroup, err := RolePolicyManager.GetMatchPolicyGroup(userCred, false)
+	if err != nil {
+		return errors.Wrap(err, "GetMatchPolicyGroup")
 	}
+	noViolate := false
 	assignPolicySet := rbacutils.TPolicySet{policy}
-	if !opsScope.HigherThan(policy.Scope) && opsPolicySet.ViolatedBy(assignPolicySet) {
+	for _, scope := range []rbacutils.TRbacScope{
+		rbacutils.ScopeSystem,
+		rbacutils.ScopeDomain,
+		rbacutils.ScopeProject,
+	} {
+		isViolate := false
+		policySet, ok := policyGroup[scope]
+		if !ok || len(policySet) == 0 || policySet.ViolatedBy(assignPolicySet) {
+			isViolate = true
+		}
+		if !isViolate {
+			noViolate = true
+		}
+		if scope == policyScope {
+			break
+		}
+	}
+	if !noViolate {
 		return errors.Wrap(httperrors.ErrNotSufficientPrivilege, "policy violates operator's policy")
 	}
 	return nil
@@ -129,17 +265,21 @@ func (manager *SPolicyManager) ValidateCreateData(
 	input api.PolicyCreateInput,
 ) (api.PolicyCreateInput, error) {
 	var err error
-	if len(input.Type) == 0 {
+	if len(input.Type) == 0 && len(input.Name) == 0 {
 		return input, httperrors.NewInputParameterError("missing input field type")
 	}
-	input.Name = input.Type
-	policy := rbacutils.SRbacPolicy{}
-	err = policy.Decode(input.Blob)
+	if len(input.Name) == 0 {
+		input.Name = input.Type
+	}
+
+	policy, err := rbacutils.DecodePolicyData(input.Blob)
 	if err != nil {
 		return input, httperrors.NewInputParameterError("fail to decode policy data")
 	}
 
-	err = validatePolicyVioldatePrivilege(userCred, &policy)
+	input.Scope = rbacutils.String2ScopeDefault(string(input.Scope), rbacutils.ScopeProject)
+
+	err = validatePolicyVioldatePrivilege(userCred, input.Scope, policy)
 	if err != nil {
 		return input, errors.Wrap(err, "validatePolicyVioldatePrivilege")
 	}
@@ -166,20 +306,49 @@ func (manager *SPolicyManager) ValidateCreateData(
 		return input, errors.Wrap(err, "CheckSetPendingQuota")
 	}
 
+	requireScope := input.Scope
+	if input.IsSystem != nil && *input.IsSystem {
+		requireScope = rbacutils.ScopeSystem
+	}
+	allowScope := policyman.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, manager.KeywordPlural(), policyman.PolicyActionCreate)
+	if requireScope.HigherThan(allowScope) {
+		return input, errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "require %s allow %s", requireScope, allowScope)
+	}
+
 	return input, nil
 }
 
 func (policy *SPolicy) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.PolicyUpdateInput) (api.PolicyUpdateInput, error) {
+	var requireScope rbacutils.TRbacScope
+
+	if len(input.Scope) > 0 {
+		input.Scope = rbacutils.String2ScopeDefault(string(input.Scope), rbacutils.ScopeProject)
+		requireScope = input.Scope
+	}
+	if input.IsSystem != nil && *input.IsSystem {
+		requireScope = rbacutils.ScopeSystem
+	}
+
+	if len(requireScope) > 0 {
+		allowScope := policyman.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, policy.KeywordPlural(), policyman.PolicyActionUpdate)
+		if requireScope.HigherThan(allowScope) {
+			return input, errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "require %s allow %s", requireScope, allowScope)
+		}
+	}
+
 	if input.Blob != nil {
-		p := rbacutils.SRbacPolicy{}
-		err := p.Decode(input.Blob)
+		p, err := rbacutils.DecodePolicyData(input.Blob)
 		if err != nil {
 			return input, httperrors.NewInputParameterError("fail to decode policy data")
 		}
 		/* if p.IsSystemWidePolicy() && policyman.PolicyManager.Allow(rbacutils.ScopeSystem, userCred, consts.GetServiceType(), policy.GetModelManager().KeywordPlural(), policyman.PolicyActionUpdate) == rbacutils.Deny {
 			return nil, httperrors.NewNotSufficientPrivilegeError("not allow to update system-wide policy")
 		} */
-		err = validatePolicyVioldatePrivilege(userCred, &p)
+		scope := input.Scope
+		if len(scope) == 0 {
+			scope = policy.Scope
+		}
+		err = validatePolicyVioldatePrivilege(userCred, scope, p)
 		if err != nil {
 			return input, errors.Wrap(err, "validatePolicyVioldatePrivilege")
 		}
@@ -192,6 +361,7 @@ func (policy *SPolicy) ValidateUpdateData(ctx context.Context, userCred mcclient
 	if err != nil {
 		return input, errors.Wrap(err, "SEnabledIdentityBaseResource.ValidateUpdateData")
 	}
+
 	return input, nil
 }
 
@@ -207,17 +377,17 @@ func (policy *SPolicy) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 		log.Errorf("CancelPendingUsage fail %s", err)
 	}
 
-	policyman.PolicyManager.SyncOnce()
+	// policyman.PolicyManager.SyncOnce()
 }
 
 func (policy *SPolicy) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	policy.SEnabledIdentityBaseResource.PostUpdate(ctx, userCred, query, data)
-	policyman.PolicyManager.SyncOnce()
+	// policyman.PolicyManager.SyncOnce()
 }
 
 func (policy *SPolicy) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
 	policy.SEnabledIdentityBaseResource.PostDelete(ctx, userCred)
-	policyman.PolicyManager.SyncOnce()
+	// policyman.PolicyManager.SyncOnce()
 }
 
 func (policy *SPolicy) IsSharable(reqUsrId mcclient.IIdentityProvider) bool {
@@ -238,7 +408,7 @@ func (policy *SPolicy) PerformPublic(ctx context.Context, userCred mcclient.Toke
 	if err != nil {
 		return nil, errors.Wrap(err, "SharablePerformPublic")
 	}
-	policyman.PolicyManager.SyncOnce()
+	// policyman.PolicyManager.SyncOnce()
 	return nil, nil
 }
 
@@ -252,7 +422,7 @@ func (policy *SPolicy) PerformPrivate(ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		return nil, errors.Wrap(err, "SharablePerformPrivate")
 	}
-	policyman.PolicyManager.SyncOnce()
+	// policyman.PolicyManager.SyncOnce()
 	return nil, nil
 }
 
@@ -270,6 +440,9 @@ func (policy *SPolicy) ValidateDeleteCondition(ctx context.Context) error {
 	// if policy.IsShared() {
 	// 	return httperrors.NewInvalidStatusError("cannot delete shared policy")
 	// }
+	if policy.IsSystem.IsTrue() {
+		return httperrors.NewForbiddenError("cannot delete system policy")
+	}
 	if policy.Enabled.IsTrue() {
 		return httperrors.NewInvalidStatusError("cannot delete enabled policy")
 	}
@@ -293,6 +466,13 @@ func (manager *SPolicyManager) ListItemFilter(
 	}
 	if len(query.Type) > 0 {
 		q = q.In("type", query.Type)
+	}
+	if query.IsSystem != nil {
+		if *query.IsSystem {
+			q = q.IsTrue("is_system")
+		} else {
+			q = q.IsFalse("is_system")
+		}
 	}
 	return q, nil
 }
@@ -378,4 +558,30 @@ func (policy *SPolicy) GetRequiredSharedDomainIds() []string {
 
 func (policy *SPolicy) GetSharedDomains() []string {
 	return db.SharableGetSharedProjects(policy, db.SharedTargetDomain)
+}
+
+func (policy *SPolicy) getPolicy() (rbacutils.TPolicy, error) {
+	pc, err := rbacutils.DecodePolicyData(policy.Blob)
+	if err != nil {
+		return nil, errors.Wrap(err, "Decode")
+	}
+	return pc, nil
+}
+
+func (policy *SPolicy) GetChangeOwnerCandidateDomainIds() []string {
+	return db.ISharableChangeOwnerCandidateDomainIds(policy)
+}
+
+func (policy *SPolicy) fetchMatchableRoles() ([]SRole, error) {
+	q := RoleManager.Query()
+	candDomains := policy.GetChangeOwnerCandidateDomainIds()
+	if len(candDomains) > 0 {
+		q = q.In("domain_id", candDomains)
+	}
+	roles := make([]SRole, 0)
+	err := db.FetchModelObjects(RoleManager, q, &roles)
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "FetchRoles")
+	}
+	return roles, nil
 }
