@@ -1773,9 +1773,26 @@ func (self *SHost) syncWithCloudPrepaidVM(extVM cloudprovider.ICloudVM, host *SH
 }
 
 var (
-	METADATA_EXT_SCHEDTAG_KEY   = "ext:schedtag"
-	METADATA_EXT_SCHEDTAG_VALUE = "yes"
+	METADATA_EXT_SCHEDTAG_KEY = "ext:schedtag"
 )
+
+func (s *SHost) getAllSchedtagsWithExtSchedtagKey(ctx context.Context, userCred mcclient.TokenCredential) (map[string]*SSchedtag, error) {
+	q := SchedtagManager.Query().Equals("resource_type", HostManager.KeywordPlural())
+	sts := make([]SSchedtag, 0, 5)
+	err := db.FetchModelObjects(SchedtagManager, q, &sts)
+	if err != nil {
+		return nil, err
+	}
+	stMap := make(map[string]*SSchedtag)
+	for i := range sts {
+		extTagName := sts[i].GetMetadata(METADATA_EXT_SCHEDTAG_KEY, userCred)
+		if len(extTagName) == 0 {
+			continue
+		}
+		stMap[extTagName] = &sts[i]
+	}
+	return stMap, nil
+}
 
 func (s *SHost) syncSchedtags(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost) error {
 	stq := SchedtagManager.Query()
@@ -1795,31 +1812,43 @@ func (s *SHost) syncSchedtags(ctx context.Context, userCred mcclient.TokenCreden
 	removedIds := make([]string, 0)
 	for i := range schedtags {
 		stag := &schedtags[i]
-		if v := stag.GetMetadata(METADATA_EXT_SCHEDTAG_KEY, userCred); v != METADATA_EXT_SCHEDTAG_VALUE {
+		extTagName := stag.GetMetadata(METADATA_EXT_SCHEDTAG_KEY, userCred)
+		if len(extTagName) == 0 {
 			continue
 		}
-		if !extStStrSet.Has(stag.GetName()) {
+		if !extStStrSet.Has(extTagName) {
 			removed = append(removed, stag)
 			removedIds = append(removedIds, stag.GetId())
 		} else {
-			extStStrSet.Delete(stag.GetName())
+			extStStrSet.Delete(extTagName)
 		}
 	}
 	added := extStStrSet.UnsortedList()
 
-	for _, stStr := range added {
-		st := &SSchedtag{
-			ResourceType: HostManager.KeywordPlural(),
-		}
-		st.DomainId = s.DomainId
-		st.Name = stStr
-		st.Description = "Sync from cloud"
-		err := SchedtagManager.TableSpec().Insert(ctx, st)
+	var stagMap map[string]*SSchedtag
+	if len(added) > 0 {
+		stagMap, err = s.getAllSchedtagsWithExtSchedtagKey(ctx, userCred)
 		if err != nil {
-			return errors.Wrapf(err, "unable to create schedtag %q", stStr)
+			return errors.Wrap(err, "getAllSchedtagsWithExtSchedtagKey")
 		}
-		st.SetModelManager(SchedtagManager, st)
-		st.SetMetadata(ctx, METADATA_EXT_SCHEDTAG_KEY, METADATA_EXT_SCHEDTAG_VALUE, userCred)
+	}
+
+	for _, stStr := range added {
+		st, ok := stagMap[stStr]
+		if !ok {
+			st = &SSchedtag{
+				ResourceType: HostManager.KeywordPlural(),
+			}
+			st.DomainId = s.DomainId
+			st.Name = stStr
+			st.Description = "Sync from cloud"
+			err := SchedtagManager.TableSpec().Insert(ctx, st)
+			if err != nil {
+				return errors.Wrapf(err, "unable to create schedtag %q", stStr)
+			}
+			st.SetModelManager(SchedtagManager, st)
+			st.SetMetadata(ctx, METADATA_EXT_SCHEDTAG_KEY, stStr, userCred)
+		}
 		// attach
 		hostschedtag := &SHostschedtag{
 			HostId: s.GetId(),
