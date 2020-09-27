@@ -587,7 +587,6 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 	svNets := make([]netutils.IPV4AddrRange, 0, 5)
 	var vmi, neti int
 
-	lastEndIp := netutils.IPV4Addr(0)
 Loop:
 	for neti = 0; neti < len(excludeNets); {
 		if vmi >= len(vms) {
@@ -597,7 +596,6 @@ Loop:
 		endIp, _ := netutils.NewIPV4Addr(excludeNets[neti].GuestIpEnd)
 		switch {
 		case vms[vmi].IP > endIp:
-			lastEndIp = endIp
 			neti++
 		case vms[vmi].IP >= startIp:
 			for vms[vmi].IP <= endIp {
@@ -617,23 +615,13 @@ Loop:
 					break Loop
 				}
 			}
-			lastEndIp = endIp
 			neti++
 		default:
 			for vms[vmi].IP < startIp {
-				suggestStartIp := vms[vmi].IP.NetAddr(24) + 1
-				if suggestStartIp <= lastEndIp {
-					suggestStartIp = lastEndIp + 1
-				}
-				if suggestStartIp >= startIp {
-					break
-				}
-				suggestEndIp := suggestStartIp.NetAddr(24) + 255
-				if suggestEndIp >= startIp {
-					suggestEndIp = startIp - 1
-				}
-				svNets = append(svNets, netutils.NewIPV4AddrRange(suggestStartIp, suggestEndIp))
-				for vmi < len(vms) && vms[vmi].IP <= suggestEndIp {
+				suggestStartIp := vms[vmi].IP
+				suggestEndIp := vms[vmi].IP
+				endLimitIp := suggestStartIp.NetAddr(24) + 255
+				for {
 					id := vms[vmi].FakeID
 					if _, ok := guestMap[id]; !ok {
 						guestMap[id] = &api.CAGuestNet{
@@ -645,7 +633,21 @@ Loop:
 						IP: vms[vmi].IP.String(),
 					})
 					vmi++
+					if vmi == len(vms) {
+						break
+					}
+					if suggestEndIp == endLimitIp {
+						break
+					}
+					if vms[vmi].IP > suggestEndIp+1 {
+						break
+					}
+					if vms[vmi].IP >= startIp {
+						break
+					}
+					suggestEndIp = vms[vmi].IP
 				}
+				svNets = append(svNets, netutils.NewIPV4AddrRange(suggestStartIp, suggestEndIp))
 				if vmi == len(vms) {
 					break Loop
 				}
@@ -654,13 +656,10 @@ Loop:
 	}
 
 	for vmi < len(vms) {
-		suggestStartIp := vms[vmi].IP.NetAddr(24) + 1
-		if suggestStartIp <= lastEndIp {
-			suggestStartIp = lastEndIp + 1
-		}
-		suggestEndIp := suggestStartIp.NetAddr(24) + 255
-		svNets = append(svNets, netutils.NewIPV4AddrRange(suggestStartIp, suggestEndIp))
-		for vmi < len(vms) && vms[vmi].IP <= suggestEndIp {
+		suggestStartIp := vms[vmi].IP
+		endLimitIp := suggestStartIp.NetAddr(24) + 255
+		suggestEndIp := suggestStartIp
+		for {
 			id := vms[vmi].FakeID
 			if _, ok := guestMap[id]; !ok {
 				guestMap[id] = &api.CAGuestNet{
@@ -672,7 +671,18 @@ Loop:
 				IP: vms[vmi].IP.String(),
 			})
 			vmi++
+			if vmi == len(vms) {
+				break
+			}
+			if suggestEndIp == endLimitIp {
+				break
+			}
+			if vms[vmi].IP > suggestEndIp+1 {
+				break
+			}
+			suggestEndIp = vms[vmi].IP
 		}
+		svNets = append(svNets, netutils.NewIPV4AddrRange(suggestStartIp, suggestEndIp))
 	}
 
 	for _, guest := range guestMap {
@@ -686,7 +696,7 @@ Loop:
 				GuestIpStart: svNets[i].StartIp().String(),
 				GuestIpEnd:   svNets[i].EndIp().String(),
 				GuestIpMask:  24,
-				GuestGateway: (svNets[i].StartIp().NetAddr(24) + 1).String(),
+				GuestGateway: (svNets[i].StartIp().NetAddr(24) + netutils.IPV4Addr(options.Options.DefaultNetworkGatewayAddressEsxi)).String(),
 			}
 			confs[i].Name = fmt.Sprintf("%s-guest-network-%d", input.Name, i+1)
 		}
@@ -761,7 +771,7 @@ func (manager *SCloudaccountManager) suggestHostNetworks(ips []netutils.IPV4Addr
 			lastnetAddr = netAddr
 		}
 
-		gatewayIP := consequent[0].NetAddr(mask) + 1
+		gatewayIP := consequent[0].NetAddr(mask) + netutils.IPV4Addr(options.Options.DefaultNetworkGatewayAddressEsxi)
 		ret = append(ret, api.CASimpleNetConf{
 			GuestIpStart: consequent[0].String(),
 			GuestIpEnd:   consequent[len(consequent)-1].String(),
@@ -770,7 +780,7 @@ func (manager *SCloudaccountManager) suggestHostNetworks(ips []netutils.IPV4Addr
 		})
 		consequent = []netutils.IPV4Addr{ip}
 	}
-	gatewayIp := consequent[0].NetAddr(mask) + 1
+	gatewayIp := consequent[0].NetAddr(mask) + netutils.IPV4Addr(options.Options.DefaultNetworkGatewayAddressEsxi)
 	ret = append(ret, api.CASimpleNetConf{
 		GuestIpStart: consequent[0].String(),
 		GuestIpEnd:   consequent[len(consequent)-1].String(),
