@@ -440,12 +440,11 @@ func diskCreateInput2ComputeQuotaKeys(input api.DiskCreateInput, ownerId mcclien
 	return keys
 }
 
-func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, oinput api.DiskCreateInput) (*jsonutils.JSONDict, error) {
-	input := &oinput
+func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.DiskCreateInput) (api.DiskCreateInput, error) {
 	diskConfig := input.DiskConfig
 	diskConfig, err := parseDiskInfo(ctx, userCred, diskConfig)
 	if err != nil {
-		return nil, err
+		return input, err
 	}
 	input.ProjectId = ownerId.GetProjectId()
 	input.ProjectDomainId = ownerId.GetProjectDomainId()
@@ -456,26 +455,18 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 	if storageID != "" {
 		storageObj, err := StorageManager.FetchByIdOrName(nil, storageID)
 		if err != nil {
-			return nil, httperrors.NewResourceNotFoundError("Storage %s not found", storageID)
+			return input, httperrors.NewResourceNotFoundError("Storage %s not found", storageID)
 		}
 		storage := storageObj.(*SStorage)
 
 		provider := storage.GetCloudprovider()
-		if provider != nil {
-			if !provider.GetEnabled() {
-				return nil, httperrors.NewInputParameterError("provider %s(%s) is disabled, you need enable provider first", provider.Name, provider.Id)
-			}
-			if !utils.IsInStringArray(provider.Status, api.CLOUD_PROVIDER_VALID_STATUS) {
-				return nil, httperrors.NewInputParameterError("invalid provider %s(%s) status %s, require status is %s", provider.Name, provider.Id, provider.Status, api.CLOUD_PROVIDER_VALID_STATUS)
-			}
-			if !utils.IsInStringArray(provider.HealthStatus, api.CLOUD_PROVIDER_VALID_HEALTH_STATUS) {
-				return nil, httperrors.NewInputParameterError("invalid provider %s(%s) health status %s, require status is %s", provider.Name, provider.Id, provider.HealthStatus, api.CLOUD_PROVIDER_VALID_HEALTH_STATUS)
-			}
+		if provider != nil && !provider.IsAvailable() {
+			return input, httperrors.NewResourceNotReadyError("cloudprovider %s not available", provider.Name)
 		}
 
 		host := storage.GetMasterHost()
 		if host == nil {
-			return nil, httperrors.NewResourceNotFoundError("storage %s(%s) need online and attach host for create disk", storage.Name, storage.Id)
+			return input, httperrors.NewResourceNotFoundError("storage %s(%s) need online and attach host for create disk", storage.Name, storage.Id)
 		}
 		input.Hypervisor = host.GetHostDriver().GetHypervisor()
 		if len(diskConfig.Backend) == 0 {
@@ -483,7 +474,7 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 		}
 		err = manager.validateDiskOnStorage(diskConfig, storage)
 		if err != nil {
-			return nil, err
+			return input, err
 		}
 		input.Storage = storage.Id
 
@@ -498,25 +489,39 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 		if len(diskConfig.Backend) == 0 {
 			diskConfig.Backend = api.STORAGE_LOCAL
 		}
+		if len(input.PreferManager) > 0 {
+			_manager, err := CloudproviderManager.FetchByIdOrName(userCred, input.PreferManager)
+			if err != nil {
+				if errors.Cause(err) == sql.ErrNoRows {
+					return input, httperrors.NewResourceNotFoundError2("cloudprovider", input.PreferManager)
+				}
+				return input, httperrors.NewGeneralError(err)
+			}
+			manager := _manager.(*SCloudprovider)
+			if !manager.IsAvailable() {
+				return input, httperrors.NewResourceNotReadyError("cloudprovider %s not available", manager.Name)
+			}
+			input.PreferManager = manager.Id
+		}
 		serverInput, err := ValidateScheduleCreateData(ctx, userCred, input.ToServerCreateInput(), input.Hypervisor)
 		if err != nil {
-			return nil, err
+			return input, err
 		}
-		input = serverInput.ToDiskCreateInput()
-		quotaKey = diskCreateInput2ComputeQuotaKeys(*input, ownerId)
+		input = *serverInput.ToDiskCreateInput()
+		quotaKey = diskCreateInput2ComputeQuotaKeys(input, ownerId)
 	}
 
 	input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
 	if err != nil {
-		return nil, err
+		return input, err
 	}
 
 	pendingUsage := SQuota{Storage: diskConfig.SizeMb}
 	pendingUsage.SetKeys(quotaKey)
 	if err := quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
-		return nil, httperrors.NewOutOfQuotaError("%s", err)
+		return input, httperrors.NewOutOfQuotaError("%s", err)
 	}
-	return input.JSON(input), nil
+	return input, nil
 }
 
 func (manager *SDiskManager) validateDiskOnStorage(diskConfig *api.DiskConfig, storage *SStorage) error {

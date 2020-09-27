@@ -26,6 +26,9 @@ type DiskCreateInput struct {
 
 	*DiskConfig
 
+	// 调度使用指定的云账号
+	PreferManager string `json:"prefer_manager_id"`
+
 	// 此参数仅适用于未指定storage时进行调度到指定区域创建磁盘
 	// required: false
 	PreferRegion string `json:"prefer_region_id"`
@@ -51,12 +54,13 @@ type DiskCreateInput struct {
 func (req *DiskCreateInput) ToServerCreateInput() *ServerCreateInput {
 	input := ServerCreateInput{
 		ServerConfigs: &ServerConfigs{
-			PreferRegion: req.PreferRegion,
-			PreferZone:   req.PreferZone,
-			PreferWire:   req.PreferWire,
-			PreferHost:   req.PreferHost,
-			Hypervisor:   req.Hypervisor,
-			Disks:        []*DiskConfig{req.DiskConfig},
+			PreferManager: req.PreferManager,
+			PreferRegion:  req.PreferRegion,
+			PreferZone:    req.PreferZone,
+			PreferWire:    req.PreferWire,
+			PreferHost:    req.PreferHost,
+			Hypervisor:    req.Hypervisor,
+			Disks:         []*DiskConfig{req.DiskConfig},
 			// Project:      req.Project,
 			// Domain:       req.Domain,
 		},
