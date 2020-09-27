@@ -61,7 +61,7 @@ func (zone *SZone) GetGlobalId() string {
 }
 
 func (zone *SZone) IsEmulated() bool {
-	return true
+	return false
 }
 
 func (zone *SZone) GetStatus() string {
