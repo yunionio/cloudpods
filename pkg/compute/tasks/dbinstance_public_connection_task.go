@@ -48,7 +48,7 @@ func (self *DBInstancePublicConnectionTask) getAction() string {
 func (self *DBInstancePublicConnectionTask) taskFailed(ctx context.Context, dbinstance *models.SDBInstance, err error) {
 	dbinstance.SetStatus(self.UserCred, api.DBINSTANCE_FAILE, err.Error())
 	logclient.AddActionLogWithStartable(self, dbinstance, self.getAction(), err, self.UserCred, false)
-	self.SetStageFailed(ctx, jsonutils.Marshal(err))
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *DBInstancePublicConnectionTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -63,7 +63,9 @@ func (self *DBInstancePublicConnectionTask) DBInstancePublicConnectionOperation(
 		return
 	}
 
-	if isOpen, _ := self.GetParams().Bool("open"); isOpen {
+	isOpen := jsonutils.QueryBoolean(self.GetParams(), "open", false)
+
+	if isOpen {
 		err = idbinstance.OpenPublicConnection()
 	} else {
 		err = idbinstance.ClosePublicConnection()
@@ -73,14 +75,27 @@ func (self *DBInstancePublicConnectionTask) DBInstancePublicConnectionOperation(
 		return
 	}
 
-	err = cloudprovider.WaitStatus(idbinstance, api.DBINSTANCE_RUNNING, 10*time.Second, time.Minute*30)
+	connectionStr := ""
+
+	err = cloudprovider.Wait(time.Second*10, time.Minute*5, func() (bool, error) {
+		iRds, err := instance.GetIDBInstance()
+		if err != nil {
+			return false, errors.Wrapf(err, "GetIDBInstance")
+		}
+		connectionStr = iRds.GetConnectionStr()
+		if (isOpen && len(connectionStr) > 0) || (!isOpen && len(connectionStr) == 0) {
+			return true, nil
+		}
+		return false, nil
+	})
+
 	if err != nil {
-		self.taskFailed(ctx, instance, errors.Wrap(err, "cloudprovider.WaitStatus"))
+		self.taskFailed(ctx, instance, errors.Wrapf(err, "cloudprovider.Wait"))
 		return
 	}
 
 	_, err = db.Update(instance, func() error {
-		instance.ConnectionStr = idbinstance.GetConnectionStr()
+		instance.ConnectionStr = connectionStr
 		return nil
 	})
 

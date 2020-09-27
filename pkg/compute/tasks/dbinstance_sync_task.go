@@ -53,7 +53,7 @@ func (self *DBInstanceSyncTask) SyncDBInstance(ctx context.Context, dbinstance *
 		self.taskFailed(ctx, dbinstance, errors.Wrapf(err, "dbinstance.GetIDBInstance"))
 		return
 	}
-	err = dbinstance.SyncWithCloudDBInstance(ctx, self.UserCred, dbinstance.GetCloudprovider(), idbinstance)
+	err = dbinstance.SyncAllWithCloudDBInstance(ctx, self.UserCred, dbinstance.GetCloudprovider(), idbinstance)
 	if err != nil {
 		self.taskFailed(ctx, dbinstance, errors.Wrapf(err, "dbinstance.GetIDBInstance"))
 		return

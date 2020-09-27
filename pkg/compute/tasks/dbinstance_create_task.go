@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -40,7 +39,7 @@ func (self *DBInstanceCreateTask) taskFailed(ctx context.Context, dbinstance *mo
 	dbinstance.SetStatus(self.UserCred, api.DBINSTANCE_CREATE_FAILED, err.Error())
 	db.OpsLog.LogEvent(dbinstance, db.ACT_CREATE, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_CREATE, err, self.UserCred, false)
-	self.SetStageFailed(ctx, jsonutils.Marshal(err))
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *DBInstanceCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -61,35 +60,6 @@ func (self *DBInstanceCreateTask) CreateDBInstance(ctx context.Context, dbinstan
 func (self *DBInstanceCreateTask) OnCreateDBInstanceComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	dbinstance := obj.(*models.SDBInstance)
 	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_CREATE, nil, self.UserCred, true)
-
-	accounts, err := dbinstance.GetDBInstanceAccounts()
-	if err != nil {
-		log.Errorf("failed to get dbinstance %s account error: %v", dbinstance.Name, err)
-	}
-
-	if len(accounts) > 0 {
-		iRds, err := dbinstance.GetIDBInstance()
-		if err != nil {
-			log.Errorf("failed to found dbinstance %s error: %v", dbinstance.Name, err)
-		} else {
-			iAccounts, err := iRds.GetIDBInstanceAccounts()
-			if err != nil {
-				log.Errorf("failed to get accounts from cloud dbinstance %s error: %v", dbinstance.Name, err)
-			}
-			externalIds := map[string]string{}
-			for _, iAccount := range iAccounts {
-				externalIds[iAccount.GetName()] = iAccount.GetGlobalId()
-			}
-			for i := range accounts {
-				externalId, ok := externalIds[accounts[i].Name]
-				if !ok {
-					log.Errorf("failed to get dbinstance account %s from cloud dbinstance for set externalId", accounts[i].Name)
-				} else {
-					db.SetExternalId(&accounts[i], self.UserCred, externalId)
-				}
-			}
-		}
-	}
 
 	self.SetStage("OnSyncDBInstanceStatusComplete", nil)
 	models.StartResourceSyncStatusTask(ctx, self.UserCred, dbinstance, "DBInstanceSyncStatusTask", self.GetTaskId())

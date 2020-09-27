@@ -64,6 +64,7 @@ func (self *DBInstanceAccountCreateTask) CreateDBInstanceAccount(ctx context.Con
 
 	desc := &cloudprovider.SDBInstanceAccountCreateConfig{
 		Name: account.Name,
+		Host: account.Host,
 	}
 	desc.Password, _ = account.GetPassword()
 
@@ -85,7 +86,7 @@ func (self *DBInstanceAccountCreateTask) CreateDBInstanceAccount(ctx context.Con
 
 	var iAccount cloudprovider.ICloudDBInstanceAccount = nil
 	for i := range iAccounts {
-		if iAccounts[i].GetName() == account.Name {
+		if iAccounts[i].GetName() == account.Name && iAccounts[i].GetHost() == account.Host {
 			iAccount = iAccounts[i]
 			break
 		}
@@ -100,7 +101,7 @@ func (self *DBInstanceAccountCreateTask) CreateDBInstanceAccount(ctx context.Con
 		return
 	}
 
-	db.SetExternalId(account, self.UserCred, iAccount.GetGlobalId())
+	//db.SetExternalId(account, self.UserCred, iAccount.GetGlobalId())
 
 	input := api.DBInstanceAccountCreateInput{}
 	self.GetParams().Unmarshal(&input)

@@ -41,14 +41,6 @@ type SDBInstanceAccount struct {
 	PrivExceeded       string
 }
 
-func (account *SDBInstanceAccount) GetId() string {
-	return account.AccountName
-}
-
-func (account *SDBInstanceAccount) GetGlobalId() string {
-	return account.AccountName
-}
-
 func (account *SDBInstanceAccount) GetName() string {
 	return account.AccountName
 }

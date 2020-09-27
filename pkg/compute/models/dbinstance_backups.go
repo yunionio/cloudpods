@@ -369,6 +369,30 @@ func (backup *SDBInstanceBackup) GetIRegion() (cloudprovider.ICloudRegion, error
 }
 
 func (backup *SDBInstanceBackup) GetIDBInstanceBackup() (cloudprovider.ICloudDBInstanceBackup, error) {
+	if len(backup.ExternalId) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty external id")
+	}
+	if len(backup.DBInstanceId) > 0 {
+		rds, err := backup.GetDBInstance()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetDBInstance")
+		}
+		iRds, err := rds.GetIDBInstance()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetIDBInstance")
+		}
+		backups, err := iRds.GetIDBInstanceBackups()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetIDBInstanceBackups")
+		}
+		for i := range backups {
+			if backups[i].GetGlobalId() == backup.ExternalId {
+				return backups[i], nil
+			}
+		}
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "externalId: %s", backup.ExternalId)
+	}
+
 	iRegion, err := backup.GetIRegion()
 	if err != nil {
 		return nil, errors.Wrap(err, "backup.GetIRegion")
@@ -432,6 +456,7 @@ func (self *SDBInstanceBackup) SyncWithCloudDBInstanceBackup(
 	provider *SCloudprovider,
 ) error {
 	_, err := db.UpdateWithLock(ctx, self, func() error {
+		self.ExternalId = extBackup.GetGlobalId()
 		self.Status = extBackup.GetStatus()
 		self.StartTime = extBackup.GetStartTime()
 		self.EndTime = extBackup.GetEndTime()

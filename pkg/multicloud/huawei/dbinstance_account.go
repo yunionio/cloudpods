@@ -30,15 +30,6 @@ type SDBInstanceAccount struct {
 	Name     string
 }
 
-func (account *SDBInstanceAccount) GetId() string {
-	return account.Name
-
-}
-
-func (account *SDBInstanceAccount) GetGlobalId() string {
-	return account.Name
-}
-
 func (account *SDBInstanceAccount) GetName() string {
 	return account.Name
 }
@@ -49,10 +40,6 @@ func (account *SDBInstanceAccount) Delete() error {
 
 func (region *SRegion) DeleteDBInstanceAccount(instanceId string, account string) error {
 	return DoDeleteWithSpec(region.ecsClient.DBInstance.DeleteInContextWithSpec, nil, instanceId, fmt.Sprintf("db_user/%s", account), nil, nil)
-}
-
-func (account *SDBInstanceAccount) GetStatus() string {
-	return api.DBINSTANCE_USER_AVAILABLE
 }
 
 func (account *SDBInstanceAccount) GetIDBInstanceAccountPrivileges() ([]cloudprovider.ICloudDBInstanceAccountPrivilege, error) {

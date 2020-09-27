@@ -1358,3 +1358,57 @@ func (self *SQcloudRegionDriver) RequestSyncLoadbalancerListener(ctx context.Con
 	})
 	return nil
 }
+
+func (self *SQcloudRegionDriver) InitDBInstanceUser(ctx context.Context, instance *models.SDBInstance, task taskman.ITask, desc *cloudprovider.SManagedDBInstanceCreateConfig) error {
+	user := "root"
+	account := models.SDBInstanceAccount{}
+	account.DBInstanceId = instance.Id
+	account.Name = user
+	account.Host = "%"
+	if instance.Engine == api.DBINSTANCE_TYPE_MYSQL && instance.Category == api.QCLOUD_DBINSTANCE_CATEGORY_BASIC {
+		account.Host = "localhost"
+	}
+	account.Status = api.DBINSTANCE_USER_AVAILABLE
+	account.SetModelManager(models.DBInstanceAccountManager, &account)
+	err := models.DBInstanceAccountManager.TableSpec().Insert(ctx, &account)
+	if err != nil {
+		return errors.Wrapf(err, "Insert")
+	}
+	return account.SetPassword(desc.Password)
+}
+
+func (self *SQcloudRegionDriver) IsSupportedDBInstance() bool {
+	return true
+}
+
+func (self *SQcloudRegionDriver) IsDBInstanceNeedSecgroup() bool {
+	return true
+}
+
+func (self *SQcloudRegionDriver) ValidateCreateDBInstanceBackupData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceBackupCreateInput) (api.DBInstanceBackupCreateInput, error) {
+	switch instance.Engine {
+	case api.DBINSTANCE_TYPE_MYSQL:
+		if instance.Category == api.QCLOUD_DBINSTANCE_CATEGORY_BASIC {
+			return input, httperrors.NewNotSupportedError("Qcloud Basic MySQL instance not support create backup")
+		}
+	}
+	return input, nil
+}
+
+func (self *SQcloudRegionDriver) ValidateCreateDBInstanceAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceAccountCreateInput) (api.DBInstanceAccountCreateInput, error) {
+	return input, nil
+}
+
+func (self *SQcloudRegionDriver) ValidateCreateDBInstanceDatabaseData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceDatabaseCreateInput) (api.DBInstanceDatabaseCreateInput, error) {
+	return input, httperrors.NewNotSupportedError("Not support create Qcloud databases")
+}
+
+func (self *SQcloudRegionDriver) ValidateDBInstanceAccountPrivilege(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, account string, privilege string) error {
+	switch privilege {
+	case api.DATABASE_PRIVILEGE_RW:
+	case api.DATABASE_PRIVILEGE_R:
+	default:
+		return httperrors.NewInputParameterError("Unknown privilege %s", privilege)
+	}
+	return nil
+}

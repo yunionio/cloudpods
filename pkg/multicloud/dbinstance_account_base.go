@@ -30,11 +30,11 @@ package multicloud
 import (
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SDBInstanceAccountBase struct {
-	SResourceBase
 }
 
 func (account *SDBInstanceAccountBase) GetIDBInstanceAccountPrivileges() ([]cloudprovider.ICloudDBInstanceAccountPrivilege, error) {
@@ -43,6 +43,14 @@ func (account *SDBInstanceAccountBase) GetIDBInstanceAccountPrivileges() ([]clou
 
 func (account *SDBInstanceAccountBase) Delete() error {
 	return errors.Wrapf(cloudprovider.ErrNotImplemented, "Delete")
+}
+
+func (account *SDBInstanceAccountBase) GetHost() string {
+	return "%"
+}
+
+func (account *SDBInstanceAccountBase) GetStatus() string {
+	return api.DBINSTANCE_USER_AVAILABLE
 }
 
 func (account *SDBInstanceAccountBase) ResetPassword(password string) error {
