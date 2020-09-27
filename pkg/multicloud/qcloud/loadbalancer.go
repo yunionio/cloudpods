@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -187,13 +188,28 @@ func (self *SLoadbalancer) CreateILoadBalancerListener(ctx context.Context, list
 			hc,
 			cert)
 	}
-
 	if err != nil {
 		return nil, err
 	}
 
-	time.Sleep(3 * time.Second)
-	return self.GetILoadBalancerListenerById(listenId)
+	var lblis cloudprovider.ICloudLoadbalancerListener
+	err = cloudprovider.Wait(3*time.Second, 30*time.Second, func() (bool, error) {
+		lblis, err = self.GetILoadBalancerListenerById(listenId)
+		if err != nil {
+			if errors.Cause(err) != cloudprovider.ErrNotFound {
+				return false, err
+			} else {
+				return false, nil
+			}
+		}
+
+		return true, nil
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "GetILoadBalancerListenerById.Wait")
+	}
+
+	return lblis, nil
 }
 
 func (self *SLoadbalancer) GetILoadBalancerListenerById(listenerId string) (cloudprovider.ICloudLoadbalancerListener, error) {

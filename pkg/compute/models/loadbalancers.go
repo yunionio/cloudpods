@@ -436,10 +436,7 @@ func (lb *SLoadbalancer) GetCreateLoadbalancerParams(iRegion cloudprovider.IClou
 		ChargeType:       lb.ChargeType,
 		LoadbalancerSpec: lb.LoadbalancerSpec,
 	}
-	iRegion, err := lb.GetIRegion()
-	if err != nil {
-		return nil, err
-	}
+
 	if len(lb.ZoneId) > 0 {
 		zone := lb.GetZone()
 		if zone == nil {
@@ -447,7 +444,7 @@ func (lb *SLoadbalancer) GetCreateLoadbalancerParams(iRegion cloudprovider.IClou
 		}
 		iZone, err := iRegion.GetIZoneById(zone.ExternalId)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "GetIZoneById")
 		}
 		params.ZoneID = iZone.GetId()
 	}
@@ -462,7 +459,7 @@ func (lb *SLoadbalancer) GetCreateLoadbalancerParams(iRegion cloudprovider.IClou
 		}
 		iVpc, err := iRegion.GetIVpcById(vpc.ExternalId)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "GetIVpcById")
 		}
 		params.VpcID = iVpc.GetId()
 	}
@@ -476,7 +473,7 @@ func (lb *SLoadbalancer) GetCreateLoadbalancerParams(iRegion cloudprovider.IClou
 		for i := range networks {
 			iNetwork, err := networks[i].GetINetwork()
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "GetINetwork")
 			}
 			params.NetworkIDs = append(params.NetworkIDs, iNetwork.GetId())
 		}
