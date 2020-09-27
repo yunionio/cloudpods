@@ -17,6 +17,7 @@ package storageman
 import (
 	"context"
 	"fmt"
+	"path"
 	"strings"
 	"time"
 
@@ -126,6 +127,25 @@ func (s *SNFSStorage) checkAndMount() error {
 		"mount", "-t", "nfs", fmt.Sprintf("%s:%s", host, sharedDir), s.Path).Run()
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+func (s *SNFSStorage) Detach() error {
+	if !strings.HasPrefix(s.Path, "/opt/cloud") {
+		tmpPath := path.Join(TempBindMountPath, s.Path)
+		out, err := procutils.NewCommand("umount", s.Path).Output()
+		if err != nil {
+			return errors.Wrapf(err, "1. umount %s failed %s", s.Path, out)
+		}
+		out, err = procutils.NewRemoteCommandAsFarAsPossible("umount", tmpPath).Output()
+		if err != nil {
+			return errors.Wrapf(err, "2. umount %s failed %s", tmpPath, out)
+		}
+	}
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("umount", s.Path).Output()
+	if err != nil {
+		return errors.Wrapf(err, "3. umount %s failed %s", s.Path, out)
 	}
 	return nil
 }

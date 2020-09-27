@@ -640,6 +640,10 @@ func (s *SRbdStorage) Accessible() error {
 	return err
 }
 
+func (s *SRbdStorage) Detach() error {
+	return nil
+}
+
 func (s *SRbdStorage) SaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	data, ok := params.(*jsonutils.JSONDict)
 	if !ok {
