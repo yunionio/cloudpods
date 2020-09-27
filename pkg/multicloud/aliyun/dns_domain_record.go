@@ -212,7 +212,7 @@ func (self *SDomainRecord) GetDnsName() string {
 }
 
 func (self *SDomainRecord) GetStatus() string {
-	return api.DNS_ZONE_STATUS_AVAILABLE
+	return api.DNS_RECORDSET_STATUS_AVAILABLE
 }
 
 func (self *SDomainRecord) GetEnabled() bool {

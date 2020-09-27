@@ -18,13 +18,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
-	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -75,6 +73,44 @@ func (manager *SDnsRecordSetManager) EnableGenerateName() bool {
 	return false
 }
 
+type SDnsRecordSetValidateInfo struct {
+	api.SDnsRecordSet
+	TrafficPolicies []api.DnsRecordPolicy
+}
+
+func validateDnsrecordPolicy(dnsType string, dnsZone *SDnsZone, trafficPolicies []api.DnsRecordPolicy) error {
+	for _, policy := range trafficPolicies {
+		if len(policy.Provider) == 0 {
+			return httperrors.NewGeneralError(fmt.Errorf("missing traffic policy provider"))
+		}
+		factory, err := cloudprovider.GetProviderFactory(policy.Provider)
+		if err != nil {
+			return httperrors.NewGeneralError(errors.Wrapf(err, "invalid provider %s for traffic policy", policy.Provider))
+		}
+		_dnsTypes := factory.GetSupportedDnsTypes()
+		dnsTypes, _ := _dnsTypes[cloudprovider.TDnsZoneType(dnsZone.ZoneType)]
+		if ok, _ := utils.InArray(cloudprovider.TDnsType(dnsType), dnsTypes); !ok {
+			return httperrors.NewNotSupportedError("%s %s not supported dns type %s", policy.Provider, dnsZone.ZoneType, dnsType)
+		}
+		_policyTypes := factory.GetSupportedDnsPolicyTypes()
+		policyTypes, _ := _policyTypes[cloudprovider.TDnsZoneType(dnsZone.ZoneType)]
+		if ok, _ := utils.InArray(cloudprovider.TDnsPolicyType(policy.PolicyType), policyTypes); !ok {
+			return httperrors.NewNotSupportedError("%s %s not supported policy type %s", policy.Provider, dnsZone.ZoneType, policy.PolicyType)
+		}
+		_policyValues := factory.GetSupportedDnsPolicyValues()
+		policyValues, _ := _policyValues[cloudprovider.TDnsPolicyType(policy.PolicyType)]
+		if len(policyValues) > 0 {
+			if len(policy.PolicyValue) == 0 {
+				return httperrors.NewMissingParameterError(fmt.Sprintf("missing %s policy value", policy.Provider))
+			}
+			if isIn, _ := utils.InArray(cloudprovider.TDnsPolicyValue(policy.PolicyValue), policyValues); !isIn {
+				return httperrors.NewNotSupportedError("%s %s %s not support %s", policy.Provider, dnsZone.ZoneType, policy.PolicyType, policy.PolicyValue)
+			}
+		}
+	}
+	return nil
+}
+
 // 创建
 func (manager *SDnsRecordSetManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.DnsRecordSetCreateInput) (api.DnsRecordSetCreateInput, error) {
 	var err error
@@ -93,69 +129,36 @@ func (manager *SDnsRecordSetManager) ValidateCreateData(ctx context.Context, use
 		}
 		return input, httperrors.NewGeneralError(err)
 	}
-	domainReg := regexp.MustCompile(`^(([a-zA-Z]{1})|([a-zA-Z]{1}[a-zA-Z]{1})|([a-zA-Z]{1}[0-9]{1})|([0-9]{1}[a-zA-Z]{1})|([a-zA-Z0-9][a-zA-Z0-9-_]{1,61}[a-zA-Z0-9]))\.([a-zA-Z]{2,6}|[a-zA-Z0-9-]{2,30}\.[a-zA-Z]{2,3})$`)
-	switch cloudprovider.TDnsType(input.DnsType) {
-	case cloudprovider.DnsTypeMX:
-		if input.MxPriority < 1 || input.MxPriority > 50 {
-			return input, httperrors.NewOutOfRangeError("mx_priority range limited to [1,50]")
-		}
-		if !domainReg.MatchString(input.DnsValue) {
-			return input, httperrors.NewInputParameterError("invalid domain %s for MX record", input.DnsValue)
-		}
-	case cloudprovider.DnsTypeA:
-		if !regutils.MatchIP4Addr(input.DnsValue) {
-			return input, httperrors.NewInputParameterError("invalid ipv4 %s for A record", input.DnsValue)
-		}
-	case cloudprovider.DnsTypeAAAA:
-		if !regutils.MatchIP6Addr(input.DnsValue) {
-			return input, httperrors.NewInputParameterError("invalid ipv6 %s for AAAA record", input.DnsValue)
-		}
-	case cloudprovider.DnsTypeCNAME:
-		if !domainReg.MatchString(input.DnsValue) {
-			return input, httperrors.NewInputParameterError("invalid domain %s for CNAME record", input.DnsValue)
-		}
-	default:
-		input.MxPriority = 0
+	dnsZone := _dnsZone.(*SDnsZone)
+
+	validateInfo := &SDnsRecordSetValidateInfo{}
+
+	validateInfo.TrafficPolicies = input.TrafficPolicies
+
+	recordset := api.SDnsRecordSet{}
+	recordset.DnsZoneId = input.DnsZoneId
+	recordset.DnsType = input.DnsType
+	recordset.DnsValue = input.DnsValue
+	recordset.TTL = input.TTL
+	recordset.MxPriority = input.MxPriority
+
+	err = recordset.ValidateDnsrecordValue()
+	if err != nil {
+		return input, err
+	}
+	err = validateDnsrecordPolicy(input.DnsType, dnsZone, input.TrafficPolicies)
+	if err != nil {
+		return input, err
 	}
 
-	dnsZone := _dnsZone.(*SDnsZone)
-	for _, policy := range input.TrafficPolicies {
-		if len(policy.Provider) == 0 {
-			return input, httperrors.NewGeneralError(fmt.Errorf("missing traffic policy provider"))
-		}
-		factory, err := cloudprovider.GetProviderFactory(policy.Provider)
-		if err != nil {
-			return input, httperrors.NewGeneralError(errors.Wrapf(err, "invalid provider %s for traffic policy", policy.Provider))
-		}
-		_dnsTypes := factory.GetSupportedDnsTypes()
-		dnsTypes, _ := _dnsTypes[cloudprovider.TDnsZoneType(dnsZone.ZoneType)]
-		if ok, _ := utils.InArray(cloudprovider.TDnsType(input.DnsType), dnsTypes); !ok {
-			return input, httperrors.NewNotSupportedError("%s %s not supported dns type %s", policy.Provider, dnsZone.ZoneType, input.DnsType)
-		}
-		_policyTypes := factory.GetSupportedDnsPolicyTypes()
-		policyTypes, _ := _policyTypes[cloudprovider.TDnsZoneType(dnsZone.ZoneType)]
-		if ok, _ := utils.InArray(cloudprovider.TDnsPolicyType(policy.PolicyType), policyTypes); !ok {
-			return input, httperrors.NewNotSupportedError("%s %s not supported policy type %s", policy.Provider, dnsZone.ZoneType, policy.PolicyType)
-		}
-		_policyValues := factory.GetSupportedDnsPolicyValues()
-		policyValues, _ := _policyValues[cloudprovider.TDnsPolicyType(policy.PolicyType)]
-		if len(policyValues) > 0 {
-			if len(policy.PolicyValue) == 0 {
-				return input, httperrors.NewMissingParameterError(fmt.Sprintf("missing %s policy value", policy.Provider))
-			}
-			if isIn, _ := utils.InArray(cloudprovider.TDnsPolicyValue(policy.PolicyValue), policyValues); !isIn {
-				return input, httperrors.NewNotSupportedError("%s %s %s not support %s", policy.Provider, dnsZone.ZoneType, policy.PolicyType, policy.PolicyValue)
-			}
-		}
-	}
 	// 处理重复的记录
 	dupedRecordsets := make([]SDnsRecordSet, 0)
 	err = DnsRecordSetManager.Query().Equals("dns_zone_id", input.DnsZoneId).Equals("name", input.Name).Equals("dns_type", input.DnsType).All(&dupedRecordsets)
 	if err != nil && errors.Cause(err) != sql.ErrNoRows {
 		return input, httperrors.NewGeneralError(err)
 	}
-	// 检查dnsrecord 是否通过为policy重复
-	// simple 不能重复，不能和其他policy重复
+	// 检查dnsrecord 是否通过policy重复
+	// simple类型不能重复，不能和其他policy重复
 	// 不同类型policy不能重复
 	// 同类型policy的dnsrecord重复时，需要通过policyvalue区别
 	for i := range dupedRecordsets {
@@ -167,28 +170,25 @@ func (manager *SDnsRecordSetManager) ValidateCreateData(ctx context.Context, use
 			return input, httperrors.NewGeneralError(errors.Wrap(err, "db.FetchModelObjects"))
 		}
 		if len(policies) < 1 || len(input.TrafficPolicies) < 1 {
-			return input, httperrors.NewNotSupportedError("duplicated dnsrecord not support")
+			return input, httperrors.NewNotSupportedError("duplicated dnsrecord with simple policy not support")
 		}
 		for j := range policies {
 			for k := range input.TrafficPolicies {
-				if strings.Contains(policies[j].Name, "MultiValueAnswer") &&
-					input.TrafficPolicies[k].PolicyType == "MultiValueAnswer" {
-					if dupedRecordsets[i].DnsValue == input.DnsValue {
-						return input, httperrors.NewNotSupportedError("MultiValueAnswer policy not support duplicated recordset value")
-					}
+				if policies[j].Provider != input.TrafficPolicies[k].Provider {
 					continue
 				}
 				if strings.Contains(policies[j].Name, "Simple") ||
 					strings.Contains(input.TrafficPolicies[k].PolicyType, "Simple") ||
-					policies[j].Name != fmt.Sprintf("%s-%s", input.TrafficPolicies[k].Provider, input.TrafficPolicies[k].PolicyType) {
-					return input, httperrors.NewNotSupportedError("duplicated dnsrecord not support")
+					policies[j].PolicyType != input.TrafficPolicies[k].PolicyType {
+					return input, httperrors.NewNotSupportedError("duplicated dnsrecord with different policyType not support")
 				}
 				if policies[j].PolicyValue == input.TrafficPolicies[k].PolicyValue {
-					return input, httperrors.NewNotSupportedError("duplicated dnsrecord not support")
+					return input, httperrors.NewNotSupportedError("duplicated dnsrecord with same policyValue not support")
 				}
 			}
 		}
 	}
+
 	input.Status = api.DNS_RECORDSET_STATUS_AVAILABLE
 	input.DnsZoneId = dnsZone.Id
 	return input, nil
@@ -324,12 +324,14 @@ func (self *SDnsRecordSet) Delete(ctx context.Context, userCred mcclient.TokenCr
 type sRecordUniqValues struct {
 	DnsZoneId string
 	DnsType   string
+	DnsName   string
 	DnsValue  string
 }
 
 func (self *SDnsRecordSet) GetUniqValues() jsonutils.JSONObject {
 	return jsonutils.Marshal(sRecordUniqValues{
 		DnsZoneId: self.DnsZoneId,
+		DnsName:   self.Name,
 		DnsType:   self.DnsType,
 		DnsValue:  self.DnsValue,
 	})
@@ -347,12 +349,19 @@ func (manager *SDnsRecordSetManager) FilterByUniqValues(q *sqlchemy.SQuery, valu
 	if len(uniq.DnsZoneId) > 0 {
 		q = q.Equals("dns_zone_id", uniq.DnsZoneId)
 	}
+	if len(uniq.DnsName) > 0 {
+		q = q.Equals("name", uniq.DnsName)
+	}
+	if uniq.DnsType == "CNAME" {
+		return q
+	}
 	if len(uniq.DnsType) > 0 {
 		q = q.Equals("dns_type", uniq.DnsType)
 	}
 	if len(uniq.DnsValue) > 0 {
 		q = q.Equals("dns_value", uniq.DnsValue)
 	}
+
 	return q
 }
 
@@ -427,32 +436,90 @@ func (self *SDnsRecordSet) ValidateUpdateData(ctx context.Context, userCred mccl
 		return input, httperrors.NewGeneralError(errors.Wrapf(err, "GetDnsZone"))
 	}
 
-	for _, policy := range input.TrafficPolicies {
-		if len(policy.Provider) == 0 {
-			return input, httperrors.NewGeneralError(fmt.Errorf("missing traffic policy provider"))
-		}
-		factory, err := cloudprovider.GetProviderFactory(policy.Provider)
+	recordset := api.SDnsRecordSet{}
+	recordset.DnsType = input.DnsType
+	recordset.DnsValue = input.DnsValue
+	if len(recordset.DnsType) == 0 {
+		recordset.DnsType = self.DnsType
+	}
+	if len(recordset.DnsValue) == 0 {
+		recordset.DnsValue = self.DnsValue
+	}
+	if input.TTL != nil {
+		recordset.TTL = *input.TTL
+	} else {
+		recordset.TTL = self.TTL
+	}
+	if input.MxPriority != nil {
+		recordset.MxPriority = *input.MxPriority
+	} else {
+		recordset.MxPriority = self.MxPriority
+	}
+
+	err = recordset.ValidateDnsrecordValue()
+	if err != nil {
+		return input, err
+	}
+	err = validateDnsrecordPolicy(input.DnsType, dnsZone, input.TrafficPolicies)
+	if err != nil {
+		return input, err
+	}
+
+	// 处理重复的记录
+	dupedRecordsets := make([]SDnsRecordSet, 0)
+	q := DnsRecordSetManager.Query().Equals("dns_zone_id", dnsZone.Id).Equals("name", input.Name).Equals("dns_type", input.DnsType).NotEquals("id", self.Id)
+	err = q.All(&dupedRecordsets)
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		return input, httperrors.NewGeneralError(err)
+	}
+	// 检查dnsrecord 是否通过policy重复
+	// simple类型不能重复，不能和其他policy重复
+	// 不同类型policy不能重复
+	// 同类型policy的dnsrecord重复时，需要通过policyvalue区别
+
+	oldPolicies, err := self.GetDnsTrafficPolicies()
+	if err != nil {
+		return input, httperrors.NewGeneralError(err)
+	}
+	for i := range dupedRecordsets {
+		sq := DnsRecordSetTrafficPolicyManager.Query("dns_traffic_policy_id").Equals("dns_recordset_id", dupedRecordsets[i].Id)
+		q := DnsTrafficPolicyManager.Query().In("id", sq.SubQuery())
+		policies := []SDnsTrafficPolicy{}
+		err := db.FetchModelObjects(DnsTrafficPolicyManager, q, &policies)
 		if err != nil {
-			return input, httperrors.NewGeneralError(errors.Wrapf(err, "invalid provider %s for traffic policy", policy.Provider))
+			return input, httperrors.NewGeneralError(errors.Wrap(err, "db.FetchModelObjects"))
 		}
-		_dnsTypes := factory.GetSupportedDnsTypes()
-		dnsTypes, _ := _dnsTypes[cloudprovider.TDnsZoneType(dnsZone.ZoneType)]
-		if ok, _ := utils.InArray(cloudprovider.TDnsType(input.DnsType), dnsTypes); !ok {
-			return input, httperrors.NewNotSupportedError("%s %s not supported dns type %s", policy.Provider, dnsZone.ZoneType, input.DnsType)
+		if len(policies) < 1 || (len(input.TrafficPolicies) < 1 && len(oldPolicies) < 1) {
+			return input, httperrors.NewNotSupportedError("duplicated dnsrecord with simple policy not support")
 		}
-		_policyTypes := factory.GetSupportedDnsPolicyTypes()
-		policyTypes, _ := _policyTypes[cloudprovider.TDnsZoneType(dnsZone.ZoneType)]
-		if ok, _ := utils.InArray(cloudprovider.TDnsPolicyType(policy.PolicyType), policyTypes); !ok {
-			return input, httperrors.NewNotSupportedError("%s %s not supported policy type %s", policy.Provider, dnsZone.ZoneType, policy.PolicyType)
-		}
-		_policyValues := factory.GetSupportedDnsPolicyValues()
-		policyValues, _ := _policyValues[cloudprovider.TDnsPolicyType(policy.PolicyType)]
-		if len(policyValues) > 0 {
-			if len(policy.PolicyValue) == 0 {
-				return input, httperrors.NewMissingParameterError(fmt.Sprintf("missing %s policy value", policy.Provider))
+		for j := range policies {
+			for k := range input.TrafficPolicies {
+				if policies[j].Provider != input.TrafficPolicies[k].Provider {
+					continue
+				}
+				if strings.Contains(policies[j].Name, "Simple") ||
+					strings.Contains(input.TrafficPolicies[k].PolicyType, "Simple") ||
+					policies[j].PolicyType != input.TrafficPolicies[k].PolicyType {
+					return input, httperrors.NewNotSupportedError("duplicated dnsrecord with different policyType not support")
+				}
+				if policies[j].PolicyValue == input.TrafficPolicies[k].PolicyValue {
+					return input, httperrors.NewNotSupportedError("duplicated dnsrecord with same policyValue not support")
+				}
 			}
-			if isIn, _ := utils.InArray(cloudprovider.TDnsPolicyValue(policy.PolicyValue), policyValues); !isIn {
-				return input, httperrors.NewNotSupportedError("%s %s %s not support %s", policy.Provider, dnsZone.ZoneType, policy.PolicyType, policy.PolicyValue)
+			if len(input.TrafficPolicies) < 1 {
+				for k := range oldPolicies {
+					if policies[j].Provider != input.TrafficPolicies[k].Provider {
+						continue
+					}
+					if strings.Contains(policies[j].Name, "Simple") ||
+						strings.Contains(oldPolicies[k].PolicyType, "Simple") ||
+						policies[j].PolicyType != oldPolicies[k].PolicyType {
+						return input, httperrors.NewNotSupportedError("duplicated dnsrecord with different policyType not support")
+					}
+					if policies[j].PolicyValue == oldPolicies[k].PolicyValue {
+						return input, httperrors.NewNotSupportedError("duplicated dnsrecord with same policyValue not support")
+					}
+				}
 			}
 		}
 	}

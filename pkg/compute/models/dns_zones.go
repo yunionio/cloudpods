@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -245,12 +246,35 @@ func (manager *SDnsZoneManager) FetchCustomizeColumns(
 		return rows
 	}
 
+	ownedVpcs := []SVpc{}
+	q := VpcManager.Query()
+	ownerId, queryScope, err := db.FetchCheckQueryOwnerScope(ctx, userCred, query, VpcManager, policy.PolicyActionList, true)
+	if err != nil {
+		log.Errorf("FetchCheckQueryOwnerScope error: %v", err)
+		return rows
+	}
+	q = VpcManager.FilterByOwner(q, ownerId, queryScope)
+	err = db.FetchModelObjects(VpcManager, q, &ownedVpcs)
+	if err != nil {
+		log.Errorf("db.FetchModelObjects error: %v", err)
+		return rows
+	}
+	ownedVpcIds := map[string]bool{}
+	for i := range ownedVpcs {
+		ownedVpcIds[ownedVpcs[i].Id] = true
+	}
+
 	for i := range rows {
 		records, _ := recordMaps[dnsZoneIds[i]]
 		rows[i].DnsRecordsetCount = len(records)
 
 		vpcs, _ := vpcMaps[dnsZoneIds[i]]
-		rows[i].VpcCount = len(vpcs)
+		rows[i].VpcCount = 0
+		for j := range vpcs {
+			if _, ok := ownedVpcIds[vpcs[j]]; ok {
+				rows[i].VpcCount++
+			}
+		}
 	}
 	return rows
 }

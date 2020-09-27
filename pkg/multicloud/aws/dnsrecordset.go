@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/stringutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -293,7 +294,7 @@ func (client *SAwsClient) RemoveDnsRecordSet(hostedZoneId string, opts *cloudpro
 }
 
 func (self *SdnsRecordSet) GetStatus() string {
-	return ""
+	return api.DNS_RECORDSET_STATUS_AVAILABLE
 }
 
 func (self *SdnsRecordSet) GetEnabled() bool {

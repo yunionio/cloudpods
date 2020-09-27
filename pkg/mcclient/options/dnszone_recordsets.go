@@ -78,14 +78,37 @@ func (opts *DnsRecordSetIdOptions) Params() (jsonutils.JSONObject, error) {
 
 type DnsRecordSetUpdateOptions struct {
 	BaseUpdateOptions
-	DnsType  string `choices:"A|AAAA|CAA|CNAME|MX|NS|SRV|SOA|TXT|PRT|DS|DNSKEY|IPSECKEY|NAPTR|SPF|SSHFP|TLSA|REDIRECT_URL|FORWARD_URL"`
-	DnsValue string
-	Ttl      int64
+	DnsType       string `choices:"A|AAAA|CAA|CNAME|MX|NS|SRV|SOA|TXT|PRT|DS|DNSKEY|IPSECKEY|NAPTR|SPF|SSHFP|TLSA|REDIRECT_URL|FORWARD_URL"`
+	DnsValue      string
+	Ttl           int64
+	MxPriority    int64  `help:"dns mx type mxpriority"`
+	Provider      string `help:"Dns triffic policy provider" choices:"Aws|Qcloud|Aliyun"`
+	PolicyType    string `choices:"Simple|ByCarrier|ByGeoLocation|BySearchEngine|IpRange|Weighted|Failover|MultiValueAnswer|Latency"`
+	PolicyValue   string `help:"Dns Traffic policy value"`
+	PolicyOptions string
 }
 
 func (opts *DnsRecordSetUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
 	params.Remove("id")
+	params.Remove("policy_type")
+	params.Remove("policy_options")
+	if len(opts.PolicyType) > 0 && len(opts.Provider) > 0 {
+		policies := jsonutils.NewArray()
+		policy := jsonutils.NewDict()
+		policy.Add(jsonutils.NewString(opts.PolicyType), "policy_type")
+		policy.Add(jsonutils.NewString(opts.Provider), "provider")
+		policy.Add(jsonutils.NewString(opts.PolicyValue), "policy_value")
+		if len(opts.PolicyOptions) > 0 {
+			policyParams, err := jsonutils.Parse([]byte(opts.PolicyOptions))
+			if err != nil {
+				return nil, errors.Wrapf(err, "jsonutils.Parse(%s)", opts.PolicyOptions)
+			}
+			policy.Add(policyParams, "policy_options")
+		}
+		policies.Add(policy)
+		params.Add(policies, "traffic_policies")
+	}
 	return params, nil
 }
 
