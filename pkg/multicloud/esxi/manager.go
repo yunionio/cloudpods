@@ -667,7 +667,10 @@ func (cli *SESXiClient) vmIPs(host *mo.HostSystem) ([]SSimpleVM, error) {
 	ret := make([]SSimpleVM, 0, len(vms))
 	for i := range vms {
 		vm := vms[i]
-		if vm.Config.Template {
+		if vm.Config != nil && vm.Config.Template {
+			continue
+		}
+		if vm.Guest == nil {
 			continue
 		}
 		guestIps := make([]string, 0)
