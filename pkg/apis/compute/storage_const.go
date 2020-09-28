@@ -183,4 +183,7 @@ type StorageListInput struct {
 
 	UsableResourceListInput
 	StorageShareFilterListInput
+
+	// filter by host schedtag
+	HostSchedtagId string `json:"host_schedtag_id"`
 }
