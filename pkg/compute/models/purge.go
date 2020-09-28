@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"yunion.io/x/log"
@@ -881,6 +882,20 @@ func (nic *SNetworkInterface) purge(ctx context.Context, userCred mcclient.Token
 	return nic.Delete(ctx, userCred)
 }
 
+func (net *SNetwork) purgeDBInstanceNetworks(ctx context.Context, userCred mcclient.TokenCredential) error {
+	dbNets, err := net.GetDBInstanceNetworks()
+	if err != nil {
+		return errors.Wrapf(err, "GetDBInstanceNetworks")
+	}
+	for i := range dbNets {
+		err = dbNets[i].Delete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "Delete %d", dbNets[i].RowId)
+		}
+	}
+	return nil
+}
+
 func (net *SNetwork) purgeNetworkInterfaces(ctx context.Context, userCred mcclient.TokenCredential) error {
 	networkinterfaceIds := NetworkinterfacenetworkManager.Query("networkinterface_id").Equals("network_id", net.Id).Distinct().SubQuery()
 	q := NetworkInterfaceManager.Query().In("id", networkinterfaceIds)
@@ -904,37 +919,42 @@ func (net *SNetwork) purge(ctx context.Context, userCred mcclient.TokenCredentia
 
 	err := net.purgeGuestnetworks(ctx, userCred)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "purgeGuestnetworks")
 	}
 	err = net.purgeHostnetworks(ctx, userCred)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "purgeHostnetworks")
 	}
 	err = net.purgeGroupnetworks(ctx, userCred)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "purgeGroupnetworks")
 	}
 	err = net.purgeLoadbalancernetworks(ctx, userCred)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "purgeLoadbalancernetworks")
 	}
 	err = net.purgeEipnetworks(ctx, userCred)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "purgeEipnetworks")
 	}
 	err = net.purgeReservedIps(ctx, userCred)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "purgeReservedIps")
 	}
 
 	err = net.purgeNetworkInterfaces(ctx, userCred)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "purgeNetworkInterfaces")
+	}
+
+	err = net.purgeDBInstanceNetworks(ctx, userCred)
+	if err != nil {
+		return errors.Wrapf(err, "purgeDBInstanceNetworks")
 	}
 
 	err = net.ValidateDeleteCondition(ctx)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "ValidateDeleteCondition")
 	}
 	return net.RealDelete(ctx, userCred)
 }
@@ -1334,13 +1354,16 @@ func (network *SDBInstanceNetwork) purge(ctx context.Context, userCred mcclient.
 
 	err := network.ValidateDeleteCondition(ctx)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "ValidateDeleteCondition")
 	}
 	return network.Delete(ctx, userCred)
 }
 
 func (instance *SDBInstance) purgeNetwork(ctx context.Context, userCred mcclient.TokenCredential) error {
-	network, _ := instance.GetDBNetwork()
+	network, err := instance.GetDBNetwork()
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		return errors.Wrapf(err, "GetDBNetwork")
+	}
 	if network != nil {
 		return network.purge(ctx, userCred)
 	}
@@ -1369,22 +1392,22 @@ func (instance *SDBInstance) Purge(ctx context.Context, userCred mcclient.TokenC
 
 	err := instance.purgeAccounts(ctx, userCred)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "purgeAccounts")
 	}
 
 	err = instance.purgeDatabases(ctx, userCred)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "purgeDatabases")
 	}
 
 	err = instance.purgeParameters(ctx, userCred)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "purgeParameters")
 	}
 
 	err = instance.purgeNetwork(ctx, userCred)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "purgeNetwork")
 	}
 
 	err = instance.PurgeBackups(ctx, userCred, api.BACKUP_MODE_AUTOMATED)
@@ -1394,7 +1417,7 @@ func (instance *SDBInstance) Purge(ctx context.Context, userCred mcclient.TokenC
 
 	err = instance.ValidateDeleteCondition(ctx)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "ValidateDeleteCondition")
 	}
 
 	return instance.RealDelete(ctx, userCred)

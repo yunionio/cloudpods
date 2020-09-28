@@ -107,7 +107,7 @@ type ReleaseCreateOptions struct {
 	CHARTNAME string `help:"Helm chart name, e.g stable/etcd"`
 }
 
-func (o ReleaseCreateOptions) Params() (*jsonutils.JSONDict, error) {
+func (o ReleaseCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params, err := o.AppBaseCreateOptions.Params()
 	if err != nil {
 		return nil, err
@@ -145,6 +145,14 @@ func (o ReleaseUpgradeOptions) Params() (*jsonutils.JSONDict, error) {
 type ReleaseDeleteOptions struct {
 	NamespaceWithClusterOptions
 	NAME string `help:"Release instance name"`
+}
+
+func (o *ReleaseDeleteOptions) GetId() string {
+	return o.NAME
+}
+
+func (o *ReleaseDeleteOptions) Params() (jsonutils.JSONObject, error) {
+	return o.NamespaceWithClusterOptions.Params(), nil
 }
 
 type ReleaseHistoryOptions struct {

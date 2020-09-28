@@ -286,8 +286,21 @@ func (self *SNetworkInterface) syncRemoveCloudNetworkInterface(ctx context.Conte
 
 	err := self.ValidateDeleteCondition(ctx)
 	if err != nil {
-		return self.SetStatus(userCred, api.NETWORK_INTERFACE_STATUS_UNKNOWN, "sync to delete")
+		self.SetStatus(userCred, api.NETWORK_INTERFACE_STATUS_UNKNOWN, "sync to delete")
+		return errors.Wrapf(err, "ValidateDeleteCondition")
 	}
+
+	networks, err := self.GetNetworks()
+	if err != nil {
+		return errors.Wrapf(err, "GetNetworks")
+	}
+	for i := range networks {
+		err = networks[i].Delete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "Delete networkinterfacenetwork %d", networks[i].RowId)
+		}
+	}
+
 	return self.Delete(ctx, userCred)
 }
 

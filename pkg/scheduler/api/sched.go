@@ -105,6 +105,9 @@ func FetchSchedInfo(req *http.Request) (*SchedInfo, error) {
 	}
 	details := make(map[string]*models.SGroup)
 	for i := range groups {
+		if groups[i].Enabled.IsFalse() {
+			continue
+		}
 		details[groups[i].Id] = &groups[i]
 	}
 	data.InstanceGroupsDetail = details

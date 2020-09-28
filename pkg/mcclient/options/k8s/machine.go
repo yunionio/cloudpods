@@ -29,7 +29,7 @@ type MachineListOptions struct {
 	Cluster string `help:"Filter by cluster"`
 }
 
-func (o MachineListOptions) Params() (*jsonutils.JSONDict, error) {
+func (o MachineListOptions) Params() (jsonutils.JSONObject, error) {
 	return options.ListStructToParams(&o)
 }
 
@@ -46,7 +46,7 @@ type MachineCreateOptions struct {
 	Hypervisor string `help:"VM hypervisor"`
 }
 
-func (o MachineCreateOptions) Params() (*jsonutils.JSONDict, error) {
+func (o MachineCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params := jsonutils.NewDict()
 	if o.Name != "" {
 		params.Add(jsonutils.NewString(o.Name), "name")

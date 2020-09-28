@@ -114,6 +114,9 @@ type NetworkListInput struct {
 	IsAutoAlloc *bool `json:"is_auto_alloc"`
 	// 是否为基础网络（underlay）
 	IsClassic *bool `json:"is_classic"`
+
+	// filter by Host schedtag
+	HostSchedtagId string `json:"host_schedtag_id"`
 }
 
 type NetworkResourceInfoBase struct {

@@ -68,6 +68,10 @@ func (storage *SNovaStorage) GetCapacityMB() int64 {
 	return int64(storage.host.GetStorageSizeMB())
 }
 
+func (storage *SNovaStorage) GetCapacityUsedMB() int64 {
+	return 0
+}
+
 func (storage *SNovaStorage) GetStorageConf() jsonutils.JSONObject {
 	conf := jsonutils.NewDict()
 	return conf

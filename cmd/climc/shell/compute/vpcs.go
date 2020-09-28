@@ -16,6 +16,7 @@ package compute
 
 import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
@@ -35,4 +36,17 @@ func init() {
 	cmd.Perform("public", &options.BasePublicOptions{})
 	cmd.Perform("change-owner", &options.VpcChangeOwnerOptions{})
 	cmd.Get("vpc-change-owner-candidate-domains", &options.VpcIdOptions{})
+
+	R(&options.ResourceMetadataOptions{}, "vpc-set-user-metadata", "Set metadata of a vpc", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
+		params, err := opts.Params()
+		if err != nil {
+			return err
+		}
+		result, err := modules.Vpcs.PerformAction(s, opts.ID, "user-metadata", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

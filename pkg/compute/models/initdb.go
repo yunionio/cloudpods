@@ -62,6 +62,10 @@ func InitDB() error {
 		ExternalProjectManager,
 		CachedimageManager,
 		StoragecachedimageManager,
+		NetworkinterfacenetworkManager,
+		DBInstanceNetworkManager,
+		DBInstanceAccountManager,
+		DBInstanceDatabaseManager,
 	} {
 		err := manager.InitializeData()
 		if err != nil {

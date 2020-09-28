@@ -70,7 +70,7 @@ func (this *SchedtagManager) DoBatchSchedtagHostAddRemove(s *mcclient.ClientSess
 
 func init() {
 	Schedtags = SchedtagManager{NewComputeManager("schedtag", "schedtags",
-		[]string{"ID", "Name", "Default_strategy", "Resource_type", "Domain_id", "Project_id"},
+		[]string{"ID", "Name", "Default_strategy", "Resource_type", "Domain_id", "Project_id", "Metadata"},
 		[]string{})}
 
 	registerCompute(&Schedtags)

@@ -22,10 +22,30 @@ import (
 
 type RepoListOptions struct {
 	options.BaseListOptions
+	Type string `help:"Helm repostitory type" json:"type" choices:"internal|external"`
+}
+
+func (o *RepoListOptions) Params() (jsonutils.JSONObject, error) {
+	params, err := o.BaseListOptions.Params()
+	if err != nil {
+		return nil, err
+	}
+	if o.Type != "" {
+		params.Add(jsonutils.NewString(o.Type), "type")
+	}
+	return params, nil
 }
 
 type RepoGetOptions struct {
 	NAME string `help:"ID or name of the repo"`
+}
+
+func (o *RepoGetOptions) GetId() string {
+	return o.NAME
+}
+
+func (o *RepoGetOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
 }
 
 type RepoCreateOptions struct {
@@ -35,7 +55,7 @@ type RepoCreateOptions struct {
 	Public bool   `help:"Make repostitory public"`
 }
 
-func (o RepoCreateOptions) Params() *jsonutils.JSONDict {
+func (o RepoCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(o.NAME), "name")
 	params.Add(jsonutils.NewString(o.URL), "url")
@@ -45,7 +65,7 @@ func (o RepoCreateOptions) Params() *jsonutils.JSONDict {
 	if o.Public {
 		params.Add(jsonutils.JSONTrue, "is_public")
 	}
-	return params
+	return params, nil
 }
 
 type RepoUpdateOptions struct {
@@ -54,7 +74,11 @@ type RepoUpdateOptions struct {
 	Url  string `help:"Repository url to change"`
 }
 
-func (o RepoUpdateOptions) Params() *jsonutils.JSONDict {
+func (o RepoUpdateOptions) GetId() string {
+	return o.NAME
+}
+
+func (o RepoUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	params := jsonutils.NewDict()
 	if o.Name != "" {
 		params.Add(jsonutils.NewString(o.Name), "name")
@@ -62,5 +86,19 @@ func (o RepoUpdateOptions) Params() *jsonutils.JSONDict {
 	if o.Url != "" {
 		params.Add(jsonutils.NewString(o.Url), "url")
 	}
-	return params
+	return params, nil
+}
+
+type RepoPublicOptions struct {
+	ID            string   `help:"ID or name of repo" json:"-"`
+	Scope         string   `help:"sharing scope" choices:"system|domain"`
+	SharedDomains []string `help:"share to domains"`
+}
+
+func (o *RepoPublicOptions) GetId() string {
+	return o.ID
+}
+
+func (o *RepoPublicOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
 }

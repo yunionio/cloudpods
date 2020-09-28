@@ -44,7 +44,6 @@ func init() {
 				"schedtaghost",
 				"schedtaghosts",
 				HostManager,
-				SchedtagManager,
 			),
 		}
 		HostschedtagManager.SetVirtualObject(HostschedtagManager)
@@ -57,7 +56,7 @@ type SHostschedtag struct {
 	HostId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 }
 
-func (manager *SHostschedtagManager) GetSlaveFieldName() string {
+func (manager *SHostschedtagManager) GetMasterFieldName() string {
 	return "host_id"
 }
 

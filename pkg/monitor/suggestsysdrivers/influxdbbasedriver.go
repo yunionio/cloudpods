@@ -19,6 +19,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/monitor/alerting"
 	"yunion.io/x/onecloud/pkg/monitor/alerting/conditions"
+	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
 	"yunion.io/x/onecloud/pkg/monitor/models"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
 )
@@ -40,27 +41,24 @@ func NewInfluxdbBaseDriver(driverType monitor.SuggestDriverType, resourceType mo
 }
 
 func (drv *InfluxdbBaseDriver) ValidateSetting(input *monitor.SSuggestSysAlertSetting) error {
-	if input.ScaleRule == nil {
-		return httperrors.NewInputParameterError("no found rule setting ")
-	}
-	if len(*input.ScaleRule) == 0 {
-		return httperrors.NewInputParameterError("no found customize monitor rule")
+	if input.ScaleRule == nil || len(*input.ScaleRule) == 0 {
+		return merrors.NewArgIsEmptyErr("ScaleRule")
 	}
 	for _, scale := range *input.ScaleRule {
 		if scale.Database == "" {
-			return httperrors.NewInputParameterError("database is missing")
+			return merrors.NewArgIsEmptyErr("database")
 		}
 		if scale.Measurement == "" {
-			return httperrors.NewInputParameterError("measurement is missing")
+			return merrors.NewArgIsEmptyErr("measurement")
 		}
 		if scale.Field == "" {
-			return httperrors.NewInputParameterError("field is missing")
+			return merrors.NewArgIsEmptyErr("field")
 		}
 		if !utils.IsInStringArray(getQueryEvalType(scale), validators.EvaluatorDefaultTypes) {
 			return httperrors.NewInputParameterError("the evalType is illegal")
 		}
 		if scale.Threshold == 0 {
-			return httperrors.NewInputParameterError("threshold is meaningless")
+			return merrors.NewArgIsEmptyErr("threshold")
 		}
 	}
 	return nil

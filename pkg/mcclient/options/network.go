@@ -34,6 +34,8 @@ type NetworkListOptions struct {
 	ServerType string   `help:"search networks belongs to a ServerType" choices:"baremetal|container|eip|guest|ipmi|pxe"`
 	Schedtag   string   `help:"filter networks by schedtag"`
 
+	HostSchedtagId string `help:"filter by host schedtag"`
+
 	IsAutoAlloc *bool `help:"search network with is_auto_alloc"`
 	IsClassic   *bool `help:"search classic on-premise network"`
 

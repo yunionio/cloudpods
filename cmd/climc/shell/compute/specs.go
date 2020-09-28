@@ -70,13 +70,15 @@ func init() {
 
 	type HostsQueryOptions struct {
 		options.BaseListOptions
-		HostType string   `help:"Host type filter" choices:"baremetal|hypervisor|esxi|kubelet|hyperv"`
-		Ncpu     int64    `help:"#CPU count of host" metavar:"<CPU_COUNT>"`
-		MemSize  int64    `help:"Memory MB size"`
-		DiskSpec []string `help:"Disk spec string, like 'Linux_adapter0_HDD_111Gx4'"`
-		Nic      int64    `help:"#Nics count of host" metavar:"<NIC_COUNT>"`
-		GpuModel []string `help:"GPU model, like 'GeForce GTX 1050 Ti'"`
-		Occupied bool     `help:"show occupid host" json:"-"`
+		HostType    string   `help:"Host type filter" choices:"baremetal|hypervisor|esxi|kubelet|hyperv"`
+		Ncpu        int64    `help:"#CPU count of host" metavar:"<CPU_COUNT>"`
+		MemSize     int64    `help:"Memory MB size"`
+		DiskSpec    []string `help:"Disk spec string, like 'Linux_adapter0_HDD_111Gx4'"`
+		Nic         int64    `help:"#Nics count of host" metavar:"<NIC_COUNT>"`
+		GpuModel    []string `help:"GPU model, like 'GeForce GTX 1050 Ti'"`
+		Occupied    bool     `help:"Show occupid host" json:"-"`
+		Manufacture string   `help:"Manufacture of host"`
+		Model       string   `help:"Model of host"`
 	}
 	R(&HostsQueryOptions{}, "spec-hosts-list", "List hosts according by specs", func(s *mcclient.ClientSession, args *HostsQueryOptions) error {
 		newHostSpecKeys := func() []string {
@@ -89,6 +91,12 @@ func init() {
 			}
 			if args.Nic > 0 {
 				keys = append(keys, fmt.Sprintf("nic:%d", args.Nic))
+			}
+			if args.Manufacture != "" {
+				keys = append(keys, fmt.Sprintf("manufacture:%s", args.Manufacture))
+			}
+			if args.Model != "" {
+				keys = append(keys, fmt.Sprintf("model:%s", args.Model))
 			}
 			for _, gm := range args.GpuModel {
 				keys = append(keys, fmt.Sprintf("gpu_model:%s", gm))

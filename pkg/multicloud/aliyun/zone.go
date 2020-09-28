@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -202,14 +203,20 @@ func (self *SZone) getStorageByCategory(category string) (*SStorage, error) {
 
 func (self *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	if self.istorages == nil {
-		self.fetchStorages()
+		err := self.fetchStorages()
+		if err != nil {
+			return nil, errors.Wrapf(err, "fetchStorages")
+		}
 	}
 	return self.istorages, nil
 }
 
 func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
 	if self.istorages == nil {
-		self.fetchStorages()
+		err := self.fetchStorages()
+		if err != nil {
+			return nil, errors.Wrapf(err, "fetchStorages")
+		}
 	}
 	for i := 0; i < len(self.istorages); i += 1 {
 		if self.istorages[i].GetGlobalId() == id {

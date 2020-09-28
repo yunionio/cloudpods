@@ -41,12 +41,12 @@ type PVCCreateOptions struct {
 	StorageClass string `help:"PVC StorageClassName"`
 }
 
-func (o PVCCreateOptions) Params() *jsonutils.JSONDict {
+func (o PVCCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params := o.NamespaceWithClusterOptions.Params()
 	params.Add(jsonutils.NewString(o.NAME), "name")
 	params.Add(jsonutils.NewString(o.SIZE), "size")
 	if o.StorageClass != "" {
 		params.Add(jsonutils.NewString(o.StorageClass), "storageClass")
 	}
-	return params
+	return params, nil
 }

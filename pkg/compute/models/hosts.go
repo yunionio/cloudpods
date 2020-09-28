@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -1142,8 +1143,8 @@ func (self *SHost) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 	if model == "" {
 		model = "Unknown"
 	}
-	specInfo.Manufacture = manufacture
-	specInfo.Model = model
+	specInfo.Manufacture = strings.ReplaceAll(manufacture, " ", "_")
+	specInfo.Model = strings.ReplaceAll(model, " ", "_")
 	devices := IsolatedDeviceManager.FindByHost(self.Id)
 	if len(devices) > 0 {
 		specInfo.IsolatedDevices = make([]api.IsolatedDeviceSpec, len(devices))
@@ -1735,6 +1736,11 @@ func (self *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.Toke
 		self.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
 	}
 
+	if err := self.syncSchedtags(ctx, userCred, extHost); err != nil {
+		log.Errorf("syncSchedtags fail:  %v", err)
+		return err
+	}
+
 	if err := HostManager.ClearSchedDescCache(self.Id); err != nil {
 		log.Errorf("ClearSchedDescCache for host %s error %v", self.Name, err)
 	}
@@ -1764,6 +1770,131 @@ func (self *SHost) syncWithCloudPrepaidVM(extVM cloudprovider.ICloudVM, host *SH
 	}
 
 	return err
+}
+
+var (
+	METADATA_EXT_SCHEDTAG_KEY = "ext:schedtag"
+)
+
+func (s *SHost) getAllSchedtagsWithExtSchedtagKey(ctx context.Context, userCred mcclient.TokenCredential) (map[string]*SSchedtag, error) {
+	q := SchedtagManager.Query().Equals("resource_type", HostManager.KeywordPlural())
+	sts := make([]SSchedtag, 0, 5)
+	err := db.FetchModelObjects(SchedtagManager, q, &sts)
+	if err != nil {
+		return nil, err
+	}
+	stMap := make(map[string]*SSchedtag)
+	for i := range sts {
+		extTagName := sts[i].GetMetadata(METADATA_EXT_SCHEDTAG_KEY, userCred)
+		if len(extTagName) == 0 {
+			continue
+		}
+		stMap[extTagName] = &sts[i]
+	}
+	return stMap, nil
+}
+
+func (s *SHost) syncSchedtags(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost) error {
+	stq := SchedtagManager.Query()
+	subq := HostschedtagManager.Query("schedtag_id").Equals("host_id", s.Id).SubQuery()
+	stq = stq.Join(subq, sqlchemy.Equals(stq.Field("id"), subq.Field("schedtag_id")))
+	schedtags := make([]SSchedtag, 0)
+	err := db.FetchModelObjects(SchedtagManager, stq, &schedtags)
+	if err != nil {
+		return errors.Wrap(err, "db.FetchModelObjects")
+	}
+	extSchedtagStrs, err := extHost.GetSchedtags()
+	if err != nil {
+		return errors.Wrap(err, "extHost.GetSchedtags")
+	}
+	extStStrSet := sets.NewString(extSchedtagStrs...)
+	removed := make([]*SSchedtag, 0)
+	removedIds := make([]string, 0)
+	for i := range schedtags {
+		stag := &schedtags[i]
+		extTagName := stag.GetMetadata(METADATA_EXT_SCHEDTAG_KEY, userCred)
+		if len(extTagName) == 0 {
+			continue
+		}
+		if !extStStrSet.Has(extTagName) {
+			removed = append(removed, stag)
+			removedIds = append(removedIds, stag.GetId())
+		} else {
+			extStStrSet.Delete(extTagName)
+		}
+	}
+	added := extStStrSet.UnsortedList()
+
+	var stagMap map[string]*SSchedtag
+	if len(added) > 0 {
+		stagMap, err = s.getAllSchedtagsWithExtSchedtagKey(ctx, userCred)
+		if err != nil {
+			return errors.Wrap(err, "getAllSchedtagsWithExtSchedtagKey")
+		}
+	}
+
+	for _, stStr := range added {
+		st, ok := stagMap[stStr]
+		if !ok {
+			st = &SSchedtag{
+				ResourceType: HostManager.KeywordPlural(),
+			}
+			st.DomainId = s.DomainId
+			st.Name = stStr
+			st.Description = "Sync from cloud"
+			err := SchedtagManager.TableSpec().Insert(ctx, st)
+			if err != nil {
+				return errors.Wrapf(err, "unable to create schedtag %q", stStr)
+			}
+			st.SetModelManager(SchedtagManager, st)
+			st.SetMetadata(ctx, METADATA_EXT_SCHEDTAG_KEY, stStr, userCred)
+		}
+		// attach
+		hostschedtag := &SHostschedtag{
+			HostId: s.GetId(),
+		}
+		hostschedtag.SchedtagId = st.GetId()
+		err = HostschedtagManager.TableSpec().Insert(ctx, hostschedtag)
+		if err != nil {
+			return errors.Wrapf(err, "unable to create hostschedtag for tag %q host %q", stStr, s.GetId())
+		}
+	}
+
+	if len(removedIds) == 0 {
+		return nil
+	}
+
+	q := HostschedtagManager.Query().Equals("host_id", s.GetId()).In("schedtag_id", removedIds)
+	hostschedtags := make([]SHostschedtag, 0, len(removedIds))
+	err = db.FetchModelObjects(HostschedtagManager, q, &hostschedtags)
+	if err != nil {
+		return errors.Wrap(err, "db.FetchModelObject")
+	}
+	for i := range hostschedtags {
+		err = hostschedtags[i].Detach(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "unable to detach host %q and schedtag %q", hostschedtags[i].HostId, hostschedtags[i].SchedtagId)
+		}
+	}
+
+	// try to clean
+	for _, tag := range removed {
+		cnt, err := tag.GetObjectCount()
+		if err != nil {
+			log.Errorf("unable to GetObjectCount for schedtag %q: %v", tag.GetName(), err)
+			continue
+		}
+		if cnt > 0 {
+			continue
+		}
+		err = tag.Delete(ctx, userCred)
+		if err != nil {
+			log.Errorf("unable to delete schedtag %q: %v", tag.GetName(), err)
+			continue
+		}
+	}
+
+	return nil
 }
 
 func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost, provider *SCloudprovider, izone *SZone) (*SHost, error) {
@@ -1843,6 +1974,11 @@ func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mccl
 	db.OpsLog.LogEvent(&host, db.ACT_CREATE, host.GetShortDesc(ctx), userCred)
 
 	SyncCloudDomain(userCred, &host, provider.GetOwnerId())
+
+	if err := host.syncSchedtags(ctx, userCred, extHost); err != nil {
+		log.Errorf("newFromCloudHost fail in syncSchedtags %v", err)
+		return nil, err
+	}
 
 	if provider != nil {
 		host.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
@@ -2536,11 +2672,7 @@ func (self *SHost) GetIHostAndProvider() (cloudprovider.ICloudHost, cloudprovide
 	}
 	ihost, err := iregion.GetIHostById(self.ExternalId)
 	if err != nil {
-		if err == cloudprovider.ErrNotFound {
-			return nil, nil, cloudprovider.ErrNotFound
-		}
-		log.Errorf("fail to find ihost by id %s %s", self.ExternalId, err)
-		return nil, nil, fmt.Errorf("fail to find ihost by id %s", err)
+		return nil, nil, errors.Wrapf(err, "iregion.GetIHostById(%s)", self.ExternalId)
 	}
 	return ihost, provider, nil
 }

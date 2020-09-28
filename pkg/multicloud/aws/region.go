@@ -809,7 +809,7 @@ func (self *SRegion) CreateILoadBalancerCertificate(cert *cloudprovider.SLoadbal
 			return true, nil
 		}
 
-		if err == cloudprovider.ErrNotFound {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			return false, nil
 		} else {
 			return false, err

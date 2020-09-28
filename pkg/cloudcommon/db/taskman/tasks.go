@@ -61,6 +61,8 @@ const (
 	TASK_INIT_STAGE = "on_init"
 
 	CONVERT_TASK = "convert_task"
+
+	LANG = "lang"
 )
 
 type STaskManager struct {

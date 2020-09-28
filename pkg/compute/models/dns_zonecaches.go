@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -70,6 +71,36 @@ type SDnsZoneCache struct {
 
 func (manager *SDnsZoneCacheManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.DnsZoneCacheCreateInput) (api.DnsZoneCacheCreateInput, error) {
 	return input, httperrors.NewNotSupportedError("Not support")
+}
+
+func (manager *SDnsZoneCacheManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeDomain
+}
+
+func (manager *SDnsZoneCacheManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	dnsZoneId, _ := data.GetString("dns_zone_id")
+	if len(dnsZoneId) > 0 {
+		dnsZone, err := db.FetchById(DnsZoneManager, dnsZoneId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.FetchById(DnsZoneManager, %s)", dnsZoneId)
+		}
+		return dnsZone.(*SDnsZone).GetOwnerId(), nil
+	}
+	return db.FetchProjectInfo(ctx, data)
+}
+
+func (self *SDnsZoneCache) GetOwnerId() mcclient.IIdentityProvider {
+	dnsZone, err := self.GetDnsZone()
+	if err != nil {
+		return nil
+	}
+	return dnsZone.GetOwnerId()
+}
+
+func (manager *SDnsZoneCacheManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	sq := DnsZoneManager.Query("id")
+	sq = db.SharableManagerFilterByOwner(DnsZoneManager, sq, userCred, scope)
+	return q.In("dns_zone_id", sq.SubQuery())
 }
 
 func (manager *SDnsZoneCacheManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {

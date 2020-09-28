@@ -355,15 +355,20 @@ func createTenant(ctx context.Context, name, domainId, desc string) (string, str
 	return domainId, projectId, nil
 }
 
-func getOrCreateTenant(ctx context.Context, name, domainId, projectId, desc string) (string, string, error) {
+func (self *SCloudaccount) getOrCreateTenant(ctx context.Context, name, projectId, desc string) (string, string, error) {
 	tenant, err := getTenant(ctx, projectId, name)
-	if err != nil && errors.Cause(err) != sql.ErrNoRows {
-		return "", "", err
+	if err != nil {
+		if errors.Cause(err) != sql.ErrNoRows {
+			return "", "", errors.Wrapf(err, "getTenan")
+		}
+		return createTenant(ctx, name, self.DomainId, desc)
 	}
-	if err == sql.ErrNoRows || tenant.DomainId != domainId {
-		return createTenant(ctx, name, domainId, desc)
+	share := self.GetSharedInfo()
+	if tenant.DomainId == self.DomainId || (share.PublicScope == rbacutils.ScopeSystem ||
+		(share.PublicScope == rbacutils.ScopeDomain && utils.IsInStringArray(tenant.DomainId, share.SharedDomains))) {
+		return tenant.DomainId, tenant.Id, nil
 	}
-	return tenant.DomainId, tenant.Id, nil
+	return createTenant(ctx, name, self.DomainId, desc)
 }
 
 func (self *SCloudprovider) syncProject(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -373,7 +378,7 @@ func (self *SCloudprovider) syncProject(ctx context.Context, userCred mcclient.T
 	}
 
 	desc := fmt.Sprintf("auto create from cloud provider %s (%s)", self.Name, self.Id)
-	domainId, projectId, err := getOrCreateTenant(ctx, self.Name, account.DomainId, self.ProjectId, desc)
+	domainId, projectId, err := account.getOrCreateTenant(ctx, self.Name, self.ProjectId, desc)
 	if err != nil {
 		return errors.Wrap(err, "getOrCreateTenant")
 	}
@@ -1194,6 +1199,22 @@ func (manager *SCloudproviderManager) ListItemFilter(
 	if len(query.Brands) > 0 {
 		subq := CloudaccountManager.Query("id").In("brand", query.Brands).SubQuery()
 		q = q.In("cloudaccount_id", subq)
+	}
+
+	if len(query.HostSchedtagId) > 0 {
+		schedTagObj, err := SchedtagManager.FetchByIdOrName(userCred, query.HostSchedtagId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", SchedtagManager.Keyword(), query.HostSchedtagId)
+			} else {
+				return nil, errors.Wrap(err, "SchedtagManager.FetchByIdOrName")
+			}
+		}
+		subq := HostManager.Query("manager_id")
+		hostschedtags := HostschedtagManager.Query().Equals("schedtag_id", schedTagObj.GetId()).SubQuery()
+		subq = subq.Join(hostschedtags, sqlchemy.Equals(hostschedtags.Field("host_id"), subq.Field("id")))
+		log.Debugf("%s", subq.String())
+		q = q.In("id", subq.SubQuery())
 	}
 
 	return q, nil

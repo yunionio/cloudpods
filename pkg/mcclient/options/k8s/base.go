@@ -37,11 +37,15 @@ type ClusterResourceBaseOptions struct {
 	NAME    string `help:"Name of resource"`
 }
 
-func (o ClusterResourceBaseOptions) Params() jsonutils.JSONObject {
+func (o ClusterResourceBaseOptions) GetId() string {
+	return o.NAME
+}
+
+func (o ClusterResourceBaseOptions) Params() (jsonutils.JSONObject, error) {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(o.Cluster), "cluster")
 	params.Add(jsonutils.NewString(o.NAME), "name")
-	return params
+	return params, nil
 }
 
 type BaseListOptions struct {
@@ -65,7 +69,7 @@ type ResourceListOptions struct {
 	BaseListOptions
 }
 
-func (o ResourceListOptions) Params() (*jsonutils.JSONDict, error) {
+func (o ResourceListOptions) Params() (jsonutils.JSONObject, error) {
 	params, err := o.BaseListOptions.Params()
 	if err != nil {
 		return nil, err
@@ -79,9 +83,9 @@ type ResourceGetOptions struct {
 	NAME string `help:"Name ident of the resource"`
 }
 
-func (o ResourceGetOptions) Params() *jsonutils.JSONDict {
+func (o ResourceGetOptions) Params() (jsonutils.JSONObject, error) {
 	params := o.ClusterBaseOptions.Params()
-	return params
+	return params, nil
 }
 
 func (o ResourceGetOptions) GetId() string {
@@ -93,9 +97,17 @@ type ResourceDeleteOptions struct {
 	NAME []string `help:"Name ident of the resources"`
 }
 
-func (o ResourceDeleteOptions) Params() *jsonutils.JSONDict {
+func (o ResourceDeleteOptions) GetIds() []string {
+	return o.NAME
+}
+
+func (o ResourceDeleteOptions) QueryParams() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
+func (o ResourceDeleteOptions) Params() (jsonutils.JSONObject, error) {
 	params := o.ClusterBaseOptions.Params()
-	return params
+	return params, nil
 }
 
 type ResourceIdsOptions struct {
@@ -112,8 +124,7 @@ func (o ResourceIdsOptions) Params() (jsonutils.JSONObject, error) {
 
 type NamespaceResourceListOptions struct {
 	ResourceListOptions
-	Namespace    string `help:"Namespace of this resource"`
-	AllNamespace bool   `help:"Show resource in all namespace"`
+	Namespace string `help:"Namespace of this resource"`
 }
 
 func (o NamespaceResourceListOptions) Params() (jsonutils.JSONObject, error) {
@@ -121,12 +132,8 @@ func (o NamespaceResourceListOptions) Params() (jsonutils.JSONObject, error) {
 	if err != nil {
 		return nil, err
 	}
-	if o.AllNamespace {
-		params.Add(jsonutils.JSONTrue, "all_namespace")
-		return params, nil
-	}
 	if o.Namespace != "" {
-		params.Add(jsonutils.NewString(o.Namespace), "namespace")
+		params.(*jsonutils.JSONDict).Add(jsonutils.NewString(o.Namespace), "namespace")
 	}
 	return params, nil
 }
@@ -149,8 +156,11 @@ type NamespaceResourceGetOptions struct {
 }
 
 func (o NamespaceResourceGetOptions) Params() (jsonutils.JSONObject, error) {
-	params := o.ResourceGetOptions.Params()
-	params.Update(o.NamespaceOptions.Params())
+	params, err := o.ResourceGetOptions.Params()
+	if err != nil {
+		return nil, err
+	}
+	params.(*jsonutils.JSONDict).Update(o.NamespaceOptions.Params())
 	return params, nil
 }
 
@@ -159,9 +169,16 @@ type NamespaceResourceDeleteOptions struct {
 	NamespaceOptions
 }
 
+func (o NamespaceResourceDeleteOptions) QueryParams() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
 func (o NamespaceResourceDeleteOptions) Params() (jsonutils.JSONObject, error) {
-	params := o.ResourceDeleteOptions.Params()
-	params.Update(o.NamespaceOptions.Params())
+	params, err := o.ResourceDeleteOptions.Params()
+	if err != nil {
+		return nil, err
+	}
+	params.(*jsonutils.JSONDict).Update(o.NamespaceOptions.Params())
 	return params, nil
 }
 

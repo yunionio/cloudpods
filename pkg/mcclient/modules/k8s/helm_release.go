@@ -28,6 +28,8 @@ type ReleaseManager struct {
 
 func init() {
 	Releases = &ReleaseManager{
-		NewNamespaceResourceManager("release", "releases", NewNamespaceCols("status", "type"), NewColumns())}
+		NewNamespaceResourceManager("release", "releases", NewNamespaceCols(
+			"Chart", "Chart_Version", "Status", "Type", "Repo_Id", "Repo",
+		), NewColumns())}
 	modules.Register(Releases)
 }

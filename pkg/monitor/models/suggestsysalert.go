@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -281,10 +282,10 @@ func (alert *SSuggestSysAlert) ValidateUpdateData(
 	data monitor.SuggestSysAlertUpdateInput) (monitor.SuggestSysAlertUpdateInput, error) {
 	//rule 查询到资源信息后没有将资源id，进行转换
 	if len(data.ResID) == 0 {
-		return data, httperrors.NewInputParameterError("not found res_id ")
+		return data, merrors.NewArgIsEmptyErr("res_id")
 	}
 	if len(data.Type) == 0 {
-		return data, httperrors.NewInputParameterError("not found type ")
+		return data, merrors.NewArgIsEmptyErr("type")
 	}
 	var err error
 	data.VirtualResourceBaseUpdateInput, err = alert.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query,

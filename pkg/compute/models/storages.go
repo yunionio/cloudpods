@@ -74,7 +74,7 @@ type SStorage struct {
 	Capacity int64 `nullable:"false" list:"domain" update:"domain" create:"domain_required"`
 	// 实际容量大小，单位Mb
 	// we always expect actual capacity great or equal than zero, otherwise something wrong
-	ActualCapacity int64 `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
+	ActualCapacityUsed int64 `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 	// 预留容量大小
 	Reserved int64 `nullable:"true" default:"0" list:"domain" update:"domain"`
 	// 存储类型
@@ -412,7 +412,7 @@ func (self *SStorage) getStorageCapacity() SStorageCapacity {
 	capa.Used = self.GetUsedCapacity(tristate.True)
 	capa.Wasted = self.GetUsedCapacity(tristate.False)
 	capa.VCapacity = int64(float32(self.GetCapacity()) * self.GetOvercommitBound())
-	capa.ActualUsed = self.ActualCapacity
+	capa.ActualUsed = self.ActualCapacityUsed
 
 	return capa
 }
@@ -758,6 +758,58 @@ func (self *SStorage) syncRemoveCloudStorage(ctx context.Context, userCred mccli
 	return err
 }
 
+var CapacityUsedCloudStorageProvider = []string{
+	api.CLOUD_PROVIDER_VMWARE,
+}
+
+func (sm *SStorageManager) SyncCapacityUsedForStorage(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	cpSubQ := CloudproviderManager.Query("id").In("provider", CapacityUsedCloudStorageProvider).SubQuery()
+	sQ := sm.Query()
+	sQ = sQ.Join(cpSubQ, sqlchemy.Equals(sQ.Field("manager_id"), cpSubQ.Field("id")))
+	storages := make([]SStorage, 0, 5)
+	err := db.FetchModelObjects(sm, sQ, &storages)
+	if err != nil {
+		log.Errorf("unable to fetch storages with sql %q: %v", sQ.String(), err)
+	}
+	for i := range storages {
+		err := storages[i].SyncCapacityUsed(ctx)
+		if err != nil {
+			log.Errorf("unable to sync CapacityUsed for storage %q: %v", storages[i].Id, err)
+		}
+	}
+}
+
+func (s *SStorage) SyncCapacityUsed(ctx context.Context) error {
+	cp := s.GetCloudprovider()
+	if cp == nil {
+		return errors.Wrapf(errors.ErrNotFound, "no cloudprovider for storage %s", s.Id)
+	}
+	if !utils.IsInStringArray(cp.Provider, CapacityUsedCloudStorageProvider) {
+		return nil
+	}
+	icp, err := cp.GetProvider()
+	if err != nil {
+		return errors.Wrap(err, "GetProvider")
+	}
+	iregion, err := icp.GetOnPremiseIRegion()
+	if err != nil {
+		return errors.Wrap(err, "GetOnPremiseIRegion")
+	}
+	cloudStorage, err := iregion.GetIStorageById(s.ExternalId)
+	if err != nil {
+		return errors.Wrap(err, "GetIStorageById")
+	}
+	capacityUsed := cloudStorage.GetCapacityUsedMB()
+	if s.ActualCapacityUsed == capacityUsed {
+		return nil
+	}
+	_, err = db.UpdateWithLock(ctx, s, func() error {
+		s.ActualCapacityUsed = capacityUsed
+		return nil
+	})
+	return err
+}
+
 func (self *SStorage) syncWithCloudStorage(ctx context.Context, userCred mcclient.TokenCredential, extStorage cloudprovider.ICloudStorage, provider *SCloudprovider) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		// self.Name = extStorage.GetName()
@@ -766,6 +818,9 @@ func (self *SStorage) syncWithCloudStorage(ctx context.Context, userCred mcclien
 		self.MediumType = extStorage.GetMediumType()
 		if capacity := extStorage.GetCapacityMB(); capacity != 0 {
 			self.Capacity = capacity
+		}
+		if capacity := extStorage.GetCapacityUsedMB(); capacity != 0 {
+			self.ActualCapacityUsed = capacity
 		}
 		self.StorageConf = extStorage.GetStorageConf()
 
@@ -807,6 +862,7 @@ func (manager *SStorageManager) newFromCloudStorage(ctx context.Context, userCre
 	storage.MediumType = extStorage.GetMediumType()
 	storage.StorageConf = extStorage.GetStorageConf()
 	storage.Capacity = extStorage.GetCapacityMB()
+	storage.ActualCapacityUsed = extStorage.GetCapacityUsedMB()
 	storage.Cmtbound = 1.0
 
 	storage.Enabled = tristate.NewFromBool(extStorage.GetEnabled())

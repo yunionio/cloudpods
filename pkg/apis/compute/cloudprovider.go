@@ -232,6 +232,9 @@ type CloudproviderListInput struct {
 
 	// 账号健康状态
 	HealthStatus []string `json:"health_status"`
+
+	// filter by host schedtag
+	HostSchedtagId string `json:"host_schedtag_id"`
 }
 
 func (input *CapabilityListInput) AfterUnmarshal() {

@@ -20,47 +20,52 @@ import (
 )
 
 type fedResourceCmd struct {
-	*shell.ResourceCmd
+	*K8sResourceCmd
 }
 
 func newFedResourceCmd(manager modulebase.IBaseManager) *fedResourceCmd {
 	cmd := NewK8sResourceCmd(manager)
 	return &fedResourceCmd{
-		ResourceCmd: cmd,
+		K8sResourceCmd: cmd,
 	}
 }
 
 func (c *fedResourceCmd) List(args shell.IListOpt) *fedResourceCmd {
-	c.ResourceCmd.List(args)
+	c.K8sResourceCmd.List(args)
 	return c
 }
 
 func (c *fedResourceCmd) Show(args shell.IShowOpt) *fedResourceCmd {
-	c.ResourceCmd.Show(args)
+	c.K8sResourceCmd.Show(args)
 	return c
 }
 
 func (c *fedResourceCmd) Create(args shell.ICreateOpt) *fedResourceCmd {
-	c.ResourceCmd.Create(args)
+	c.K8sResourceCmd.Create(args)
 	return c
 }
 
 func (c *fedResourceCmd) Delete(args shell.IDeleteOpt) *fedResourceCmd {
-	c.ResourceCmd.Delete(args)
+	c.K8sResourceCmd.Delete(args)
 	return c
 }
 
 func (c *fedResourceCmd) AttachCluster(args shell.IPerformOpt) *fedResourceCmd {
-	c.ResourceCmd.Perform("attach-cluster", args)
+	c.K8sResourceCmd.Perform("attach-cluster", args)
 	return c
 }
 
 func (c *fedResourceCmd) DetachCluster(args shell.IPerformOpt) *fedResourceCmd {
-	c.ResourceCmd.Perform("detach-cluster", args)
+	c.K8sResourceCmd.Perform("detach-cluster", args)
 	return c
 }
 
 func (c *fedResourceCmd) SyncCluster(args shell.IPerformOpt) *fedResourceCmd {
-	c.ResourceCmd.Perform("sync-cluster", args)
+	c.K8sResourceCmd.Perform("sync-cluster", args)
+	return c
+}
+
+func (c *fedResourceCmd) Sync(args shell.IPerformOpt) *fedResourceCmd {
+	c.K8sResourceCmd.Perform("sync", args)
 	return c
 }

@@ -488,7 +488,17 @@ func (f *ResourceHandlers) batchUpdateHandler(ctx context.Context, w http.Respon
 		return
 	}
 
-	ret := module.BatchUpdate(req.Session(), idlist, body)
+	var ret []modulebase.SubmitResult
+	if jsonutils.QueryBoolean(query, "batch_params", false) {
+		bodys, err := body.GetArray()
+		if err != nil {
+			httperrors.GeneralServerError(ctx, w, err)
+			return
+		}
+		ret = module.BatchParamsUpdate(req.Session(), idlist, bodys)
+	} else {
+		ret = module.BatchUpdate(req.Session(), idlist, body)
+	}
 	w.WriteHeader(207)
 	appsrv.SendJSON(w, modulebase.SubmitResults2JSON(ret))
 }

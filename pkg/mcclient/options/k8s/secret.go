@@ -42,7 +42,7 @@ type RegistrySecretCreateOptions struct {
 	Email    string `help:"Docker registry user email"`
 }
 
-func (o RegistrySecretCreateOptions) Params() (*jsonutils.JSONDict, error) {
+func (o RegistrySecretCreateOptions) Params() (jsonutils.JSONObject, error) {
 	input, err := o.SecretCreateOptions.Params("kubernetes.io/dockerconfigjson")
 	if err != nil {
 		return nil, err
@@ -76,7 +76,7 @@ type CephCSISecretCreateOptions struct {
 	USERKEY string `help:"User key"`
 }
 
-func (o CephCSISecretCreateOptions) Params() (*jsonutils.JSONDict, error) {
+func (o CephCSISecretCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params, err := o.SecretCreateOptions.Params("yunion.io/ceph-csi")
 	if err != nil {
 		return nil, err

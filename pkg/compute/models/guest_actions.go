@@ -836,7 +836,11 @@ func (self *SGuest) NotifyServerEvent(
 	kwargs.Add(jsonutils.NewString(self.Hypervisor), "hypervisor")
 	host := self.GetHost()
 	if host != nil {
-		kwargs.Add(jsonutils.NewString(host.GetBrand()), "brand")
+		brand := host.GetBrand()
+		if brand == api.CLOUD_PROVIDER_ONECLOUD {
+			brand = api.ComputeI18nTable.Lookup(ctx, brand)
+		}
+		kwargs.Add(jsonutils.NewString(brand), "brand")
 	}
 	if loginInfo {
 		kwargs.Add(jsonutils.NewString(self.getNotifyIps()), "ips")
@@ -3654,6 +3658,53 @@ func (self *SGuest) PerformRenew(ctx context.Context, userCred mcclient.TokenCre
 	}
 
 	return nil, nil
+}
+
+func (self *SGuest) GetStorages() []*SStorage {
+	disks := self.GetDisks()
+	storageMap := make(map[string]*SStorage)
+	for i := range disks {
+		storage := disks[i].GetStorage()
+		if _, ok := storageMap[storage.GetId()]; !ok {
+			storageMap[storage.GetId()] = storage
+		}
+	}
+	ret := make([]*SStorage, 0, len(storageMap))
+	for _, s := range storageMap {
+		ret = append(ret, s)
+	}
+	return ret
+}
+
+func (self *SGuest) SyncCapacityUsedForStorage(ctx context.Context, storageIds []string) error {
+	if self.Hypervisor != api.HYPERVISOR_ESXI {
+		return nil
+	}
+	var storages []*SStorage
+	if len(storageIds) == 0 {
+		storages = self.GetStorages()
+	} else {
+		q := StorageManager.Query()
+		if len(storageIds) == 1 {
+			q = q.Equals("id", storageIds[0])
+		} else {
+			q = q.In("id", storageIds[0])
+		}
+		ss := make([]SStorage, 0, len(storageIds))
+		err := db.FetchModelObjects(StorageManager, q, &ss)
+		if err != nil {
+			return errors.Wrap(err, "FetchModelObjects")
+		}
+		storages = make([]*SStorage, len(ss))
+		for i := range ss {
+			storages[i] = &ss[i]
+		}
+	}
+	for _, s := range storages {
+		err := s.SyncCapacityUsed(ctx)
+		return errors.Wrapf(err, "unable to SyncCapacityUsed for storage %q", s.GetId())
+	}
+	return nil
 }
 
 func (self *SGuest) startGuestRenewTask(ctx context.Context, userCred mcclient.TokenCredential, duration string, parentTaskId string) error {

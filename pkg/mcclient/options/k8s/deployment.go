@@ -29,7 +29,7 @@ type DeploymentCreateOptions struct {
 	Replicas int64  `help:"Number of replicas for pods in this deployment"`
 }
 
-func (o DeploymentCreateOptions) Params() (*jsonutils.JSONDict, error) {
+func (o DeploymentCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params := o.NamespaceWithClusterOptions.Params()
 	o.K8sPodTemplateOptions.setContainerName(o.NAME)
 	if err := o.K8sPodTemplateOptions.Attach(params); err != nil {
@@ -54,7 +54,11 @@ type DeploymentUpdateOptions struct {
 	Image []string `help:"Image of container to set, e.g. 'default=nginx:latest'"`
 }
 
-func (o DeploymentUpdateOptions) Params() (*jsonutils.JSONDict, error) {
+func (o DeploymentUpdateOptions) GetId() string {
+	return o.NAME
+}
+
+func (o DeploymentUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	params := o.NamespaceWithClusterOptions.Params()
 	containers := jsonutils.NewArray()
 	for _, img := range o.Image {

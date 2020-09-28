@@ -187,6 +187,9 @@ func (cli *SESXiClient) getManagerEntityofVm(server jsonutils.JSONObject) (*mo.M
 	}
 	for _, virtualMachine := range virtualMachines {
 		guest := NewVirtualMachine(cli, &virtualMachine, nil)
+		if guest == nil {
+			continue
+		}
 		ip := guest.GetGlobalId()
 		if ip == extId {
 			return virtualMachine.Entity(), nil
@@ -204,6 +207,9 @@ func (cli *SESXiClient) getManagerEntityofHost(host jsonutils.JSONObject) (*mo.M
 	}
 	for _, hostSystem := range hostSystems {
 		host := NewHost(cli, &hostSystem, nil)
+		if host == nil {
+			continue
+		}
 		ip := host.GetGlobalId()
 		if ip == extId {
 			return hostSystem.Entity(), nil

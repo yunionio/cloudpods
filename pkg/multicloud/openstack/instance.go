@@ -540,7 +540,11 @@ func (region *SRegion) DeployVM(instanceId string, name string, password string,
 }
 
 func (instance *SInstance) DeleteVM(ctx context.Context) error {
-	return instance.host.zone.region.DeleteVM(instance.Id)
+	err := instance.host.zone.region.DeleteVM(instance.Id)
+	if err != nil {
+		return errors.Wrapf(err, "instance.host.zone.region.DeleteVM(%s)", instance.Id)
+	}
+	return cloudprovider.WaitDeleted(instance, time.Second*5, time.Minute*10)
 }
 
 func (region *SRegion) ReplaceSystemDisk(instanceId string, imageId string, passwd string, publicKey string, sysDiskSizeGB int) error {
