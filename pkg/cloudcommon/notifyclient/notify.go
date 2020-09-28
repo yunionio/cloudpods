@@ -78,7 +78,7 @@ func getTemplateString(ctx context.Context, topic string, contType string, chann
 }
 
 func getTemplate(ctx context.Context, topic string, contType string, channel npk.TNotifyChannel) (*template.Template, error) {
-	key := fmt.Sprintf("%s.%s.%s", topic, contType, channel)
+	key := fmt.Sprintf("%s.%s.%s@%s", topic, contType, channel, getLangSuffix(ctx))
 	templatesTableLock.Lock()
 	defer templatesTableLock.Unlock()
 
