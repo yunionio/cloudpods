@@ -16,6 +16,7 @@ package cloudprovider
 
 import (
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
@@ -601,7 +602,7 @@ func (r DnsRecordSet) GetMxPriority() int64 {
 }
 
 func (record DnsRecordSet) Equals(r DnsRecordSet) bool {
-	if record.DnsName != r.DnsName {
+	if strings.ToLower(record.DnsName) != strings.ToLower(r.DnsName) {
 		return false
 	}
 	if record.DnsType != r.DnsType {

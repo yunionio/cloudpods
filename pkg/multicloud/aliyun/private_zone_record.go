@@ -159,7 +159,7 @@ func (self *SPvtzRecord) GetDnsName() string {
 }
 
 func (self *SPvtzRecord) GetStatus() string {
-	return api.DNS_ZONE_STATUS_AVAILABLE
+	return api.DNS_RECORDSET_STATUS_AVAILABLE
 }
 
 func (self *SPvtzRecord) GetEnabled() bool {

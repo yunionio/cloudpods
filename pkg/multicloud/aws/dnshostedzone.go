@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
@@ -60,7 +61,7 @@ func (self *SHostedZone) GetGlobalId() string {
 }
 
 func (self *SHostedZone) GetStatus() string {
-	return ""
+	return api.DNS_ZONE_STATUS_AVAILABLE
 }
 
 func (self *SHostedZone) Refresh() error {
