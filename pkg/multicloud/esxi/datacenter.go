@@ -262,6 +262,25 @@ func (dc *SDatacenter) fetchVms(vmRefs []types.ManagedObjectReference, all bool)
 	return vms, nil
 }
 
+func (dc *SDatacenter) fetchHosts_(vmRefs []types.ManagedObjectReference, all bool) ([]*SHost, error) {
+	var movms []mo.HostSystem
+	if vmRefs != nil {
+		err := dc.manager.references2Objects(vmRefs, VIRTUAL_MACHINE_PROPS, &movms)
+		if err != nil {
+			return nil, errors.Wrap(err, "dc.manager.references2Objects")
+		}
+	}
+
+	// avoid applying new memory and copying
+	vms := make([]*SHost, 0, len(movms))
+	for i := range movms {
+		if all || !strings.HasPrefix(movms[i].Entity().Name, api.ESXI_IMAGE_CACHE_TMP_PREFIX) {
+			vms = append(vms, NewHost(dc.manager, &movms[i], dc))
+		}
+	}
+	return vms, nil
+}
+
 func (dc *SDatacenter) FetchVMs() ([]*SVirtualMachine, error) {
 	return dc.fetchVMs(property.Filter{})
 }
@@ -289,6 +308,64 @@ func (dc *SDatacenter) fetchVMs(filter property.Filter) ([]*SVirtualMachine, err
 	}
 	vms, err := dc.fetchVms(objs, false)
 	return vms, err
+}
+
+func (dc *SDatacenter) FetchNoTemplateVMEntityReferens() ([]types.ManagedObjectReference, error) {
+	filter := property.Filter{}
+	filter["config.template"] = false
+	odc := dc.getObjectDatacenter()
+	root := odc.Reference()
+	m := view.NewManager(dc.manager.client.Client)
+	v, err := m.CreateContainerView(dc.manager.context, root, []string{"VirtualMachine"}, true)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = v.Destroy(dc.manager.context)
+	}()
+	objs, err := v.Find(dc.manager.context, []string{"VirtualMachine"}, filter)
+	if err != nil {
+		return nil, err
+	}
+	return objs, nil
+}
+
+func (dc *SDatacenter) FetchNoTemplateHostEntityReferens() ([]types.ManagedObjectReference, error) {
+	filter := property.Filter{}
+	odc := dc.getObjectDatacenter()
+	root := odc.Reference()
+	m := view.NewManager(dc.manager.client.Client)
+	v, err := m.CreateContainerView(dc.manager.context, root, []string{"HostSystem"}, true)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = v.Destroy(dc.manager.context)
+	}()
+	objs, err := v.Find(dc.manager.context, []string{"HostSystem"}, filter)
+	if err != nil {
+		return nil, err
+	}
+	return objs, nil
+}
+
+func (dc *SDatacenter) fetchHosts(filter property.Filter) ([]*SHost, error) {
+	odc := dc.getObjectDatacenter()
+	root := odc.Reference()
+	m := view.NewManager(dc.manager.client.Client)
+	v, err := m.CreateContainerView(dc.manager.context, root, []string{"HostSystem"}, true)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = v.Destroy(dc.manager.context)
+	}()
+	objs, err := v.Find(dc.manager.context, []string{"HostSystem"}, filter)
+	if err != nil {
+		return nil, err
+	}
+	hosts, err := dc.fetchHosts_(objs, false)
+	return hosts, err
 }
 
 func (dc *SDatacenter) FetchTemplateVMs() ([]*SVirtualMachine, error) {
