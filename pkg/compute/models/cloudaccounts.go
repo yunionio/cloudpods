@@ -636,6 +636,9 @@ Loop:
 					if vms[vmi].IP > suggestEndIp+1 {
 						break
 					}
+					if vms[vmi].IP >= startIp {
+						break
+					}
 					suggestEndIp = vms[vmi].IP
 				}
 				svNets = append(svNets, netutils.NewIPV4AddrRange(suggestStartIp, suggestEndIp))
