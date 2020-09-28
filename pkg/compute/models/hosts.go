@@ -1143,8 +1143,8 @@ func (self *SHost) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 	if model == "" {
 		model = "Unknown"
 	}
-	specInfo.Manufacture = manufacture
-	specInfo.Model = model
+	specInfo.Manufacture = strings.ReplaceAll(manufacture, " ", "_")
+	specInfo.Model = strings.ReplaceAll(model, " ", "_")
 	devices := IsolatedDeviceManager.FindByHost(self.Id)
 	if len(devices) > 0 {
 		specInfo.IsolatedDevices = make([]api.IsolatedDeviceSpec, len(devices))
