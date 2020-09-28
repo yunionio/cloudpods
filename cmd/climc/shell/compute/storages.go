@@ -35,6 +35,8 @@ func init() {
 		Zone     string `help:"List storages in zone" json:"-"`
 		Region   string `help:"List storages in region"`
 		Schedtag string `help:"filter storage by schedtag"`
+
+		HostSchedtagId string `help:"filter storage by host schedtag"`
 	}
 	R(&StorageListOptions{}, "storage-list", "List storages", func(s *mcclient.ClientSession, opts *StorageListOptions) error {
 		params, err := options.ListStructToParams(opts)
