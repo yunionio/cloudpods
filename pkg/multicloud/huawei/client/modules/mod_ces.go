@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -143,7 +142,7 @@ func (ces *SCloudEyeManager) GetMetricsData(metrics []SMetricMeta, since time.Ti
 	if err != nil {
 		return nil, errors.Wrap(err, "ces.jsonRequest")
 	}
-	log.Debugf("%s", resp)
+	//log.Debugf("%s", resp)
 	result := make([]SMetricData, 0)
 	err = resp.Unmarshal(&result, "metrics")
 	if err != nil {
