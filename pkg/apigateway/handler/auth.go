@@ -71,6 +71,7 @@ func (h *AuthHandlers) AddMethods() {
 		NewHP(handleOIDCAuth, "oidc", "auth"),
 		NewHP(handleOIDCConfiguration, "oidc", ".well-known", "openid-configuration"),
 		NewHP(handleOIDCJWKeys, "oidc", "keys"),
+		NewHP(handleOIDCUserInfo, "oidc", "user"),
 	)
 	h.AddByMethod(POST, nil,
 		NewHP(h.initTotpSecrets, "initcredential"),
@@ -91,8 +92,6 @@ func (h *AuthHandlers) AddMethods() {
 		NewHP(h.getResources, "scoped_resources"),
 		NewHP(fetchIdpBasicConfig, "idp", "<idp_id>", "info"),
 		NewHP(fetchIdpSAMLMetadata, "idp", "<idp_id>", "saml-metadata"),
-		// oidc
-		NewHP(handleOIDCUserInfo, "oidc", "user"),
 	)
 	h.AddByMethod(POST, FetchAuthToken,
 		NewHP(h.resetUserPassword, "password"),
@@ -251,20 +250,15 @@ func doTenantLogin(ctx context.Context, req *http.Request, body jsonutils.JSONOb
 
 func fetchUserInfoFromToken(ctx context.Context, req *http.Request, token mcclient.TokenCredential) (jsonutils.JSONObject, error) {
 	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
-	info, err := modules.UsersV3.Get(s, token.GetUserId(), nil)
+	return fetchUserInfoById(s, token.GetUserId())
+}
+
+func fetchUserInfoById(s *mcclient.ClientSession, userId string) (jsonutils.JSONObject, error) {
+	info, err := modules.UsersV3.Get(s, userId, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "UsersV3.Get")
 	}
 	return info, nil
-}
-
-func FetchProjectMetadata(ctx context.Context, req *http.Request, pid string) (jsonutils.JSONObject, error) {
-	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
-	meta, err := modules.Projects.GetSpecific(s, pid, "metadata", nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetProjectMetadata")
-	}
-	return meta, nil
 }
 
 func isUserEnableTotp(userInfo jsonutils.JSONObject) bool {
@@ -759,9 +753,14 @@ func getUserInfo(ctx context.Context, req *http.Request) (*jsonutils.JSONDict, e
 		log.Errorf("modules.UsersV3.Get fail %s", err)
 		return nil, fmt.Errorf("not found user %s", token.GetUserId())
 	}*/
-	usr, err := fetchUserInfoFromToken(ctx, req, token)
+	// usr, err := fetchUserInfoFromToken(ctx, req, token)
+	return getUserInfo2(s, token.GetUserId(), token.GetProjectId(), token.GetLoginIp())
+}
+
+func getUserInfo2(s *mcclient.ClientSession, uid string, pid string, loginIp string) (*jsonutils.JSONDict, error) {
+	usr, err := fetchUserInfoById(s, uid)
 	if err != nil {
-		return nil, errors.Wrapf(err, "fetchUserInfoFromToken %s", token.GetUserId())
+		return nil, errors.Wrapf(err, "fetchUserInfoFromToken %s", uid)
 	}
 	data := jsonutils.NewDict()
 	for _, k := range []string{
@@ -779,21 +778,37 @@ func getUserInfo(ctx context.Context, req *http.Request) (*jsonutils.JSONDict, e
 			data.Add(v, k)
 		}
 	}
-	data.Add(jsonutils.NewString(token.GetDomainId()), "domain", "id")
-	data.Add(jsonutils.NewString(token.GetDomainName()), "domain", "name")
-	data.Add(jsonutils.NewStringArray(auth.AdminCredential().GetRegions()), "regions")
-	data.Add(jsonutils.NewStringArray(token.GetRoles()), "roles")
-	data.Add(jsonutils.NewString(token.GetProjectName()), "projectName")
-	data.Add(jsonutils.NewString(token.GetProjectId()), "projectId")
-	data.Add(jsonutils.NewString(token.GetProjectDomain()), "projectDomain")
-	data.Add(jsonutils.NewString(token.GetProjectDomainId()), "projectDomainId")
+	usrId, _ := usr.GetString("id")
+	usrName, _ := usr.GetString("name")
+	usrDomainId, _ := usr.GetString("domain_id")
+	usrDomainName, _ := usr.GetString("project_domain")
 
-	pmeta, err := FetchProjectMetadata(ctx, req, token.GetProjectId())
-	if err != nil {
-		return nil, errors.Wrap(err, "FetchProjectMetadata")
-	}
-	if pmeta != nil {
-		data.Add(pmeta, "project_meta")
+	data.Add(jsonutils.NewString(usrDomainId), "domain", "id")
+	data.Add(jsonutils.NewString(usrDomainName), "domain", "name")
+	data.Add(jsonutils.NewStringArray(auth.AdminCredential().GetRegions()), "regions")
+
+	var projName string
+	var projDomainId string
+	if len(pid) > 0 {
+		projInfo, err := modules.Projects.GetById(s, pid, nil)
+		if err != nil {
+			return nil, errors.Wrapf(err, "fetchProjectById %s", pid)
+		}
+
+		projName, _ = projInfo.GetString("name")
+		projId, _ := projInfo.GetString("id")
+		projDomainId, _ = projInfo.GetString("domain_id")
+		projDomainName, _ := projInfo.GetString("project_domain")
+		data.Add(jsonutils.NewString(projName), "projectName")
+		data.Add(jsonutils.NewString(projId), "projectId")
+		data.Add(jsonutils.NewString(projDomainName), "projectDomain")
+		data.Add(jsonutils.NewString(projDomainId), "projectDomainId")
+
+		pmeta, err := projInfo.Get("metadata")
+		if pmeta != nil {
+			data.Add(pmeta, "project_meta")
+		}
+
 	}
 
 	log.Infof("getUserInfo modules.RoleAssignments.List")
@@ -802,11 +817,12 @@ func getUserInfo(ctx context.Context, req *http.Request) (*jsonutils.JSONDict, e
 	query.Add(jsonutils.JSONNull, "include_names")
 	query.Add(jsonutils.JSONNull, "include_system")
 	query.Add(jsonutils.NewInt(0), "limit")
-	query.Add(jsonutils.NewString(token.GetUserId()), "user", "id")
+	query.Add(jsonutils.NewString(uid), "user", "id")
 	roleAssigns, err := modules.RoleAssignments.List(s, query)
 	if err != nil {
 		return nil, errors.Wrapf(err, "get RoleAssignments list")
 	}
+	currentRoles := make([]string, 0)
 	projects := make(map[string]*projectRoles)
 	for _, roleAssign := range roleAssigns.Data {
 		roleId, _ := roleAssign.GetString("role", "id")
@@ -815,6 +831,9 @@ func getUserInfo(ctx context.Context, req *http.Request) (*jsonutils.JSONDict, e
 		projectName, _ := roleAssign.GetString("scope", "project", "name")
 		domainId, _ := roleAssign.GetString("scope", "project", "domain", "id")
 		domain, _ := roleAssign.GetString("scope", "project", "domain", "name")
+		if projectId == pid {
+			currentRoles = append(currentRoles, roleName)
+		}
 		_, ok := projects[projectId]
 		if ok {
 			projects[projectId].add(roleId, roleName)
@@ -822,31 +841,38 @@ func getUserInfo(ctx context.Context, req *http.Request) (*jsonutils.JSONDict, e
 			projects[projectId] = newProjectRoles(projectId, projectName, roleId, roleName, domainId, domain)
 		}
 	}
+
+	data.Add(jsonutils.NewStringArray(currentRoles), "roles")
+
 	projJson := jsonutils.NewArray()
 	for _, proj := range projects {
 		projJson.Add(proj.json(
-			token.GetUserName(),
-			token.GetUserId(),
-			token.GetDomainName(),
-			token.GetDomainId(),
-			token.GetLoginIp(),
+			usrName,
+			usrId,
+			usrDomainName,
+			usrDomainId,
+			loginIp,
 		))
 	}
 	data.Add(projJson, "projects")
 
-	for _, scope := range []rbacutils.TRbacScope{
-		rbacutils.ScopeSystem,
-		rbacutils.ScopeDomain,
-		rbacutils.ScopeProject,
-	} {
-		p := policy.PolicyManager.MatchedPolicyNames(scope, token)
-		data.Add(jsonutils.NewStringArray(p), fmt.Sprintf("%s_policies", scope))
-		if scope == rbacutils.ScopeSystem {
-			data.Add(jsonutils.NewStringArray(p), "admin_policies")
-		} else if scope == rbacutils.ScopeProject {
-			data.Add(jsonutils.NewStringArray(p), "policies")
+	if len(pid) > 0 {
+		ident := rbacutils.NewRbacIdentity2(projDomainId, projName, currentRoles, loginIp)
+		for _, scope := range []rbacutils.TRbacScope{
+			rbacutils.ScopeSystem,
+			rbacutils.ScopeDomain,
+			rbacutils.ScopeProject,
+		} {
+			p := policy.PolicyManager.MatchedPolicyNames(scope, ident)
+			data.Add(jsonutils.NewStringArray(p), fmt.Sprintf("%s_policies", scope))
+			if scope == rbacutils.ScopeSystem {
+				data.Add(jsonutils.NewStringArray(p), "admin_policies")
+			} else if scope == rbacutils.ScopeProject {
+				data.Add(jsonutils.NewStringArray(p), "policies")
+			}
 		}
 	}
+
 	allPolicies := policy.PolicyManager.AllPolicies()
 	data.Add(jsonutils.Marshal(allPolicies), "all_policies")
 
@@ -854,7 +880,7 @@ func getUserInfo(ctx context.Context, req *http.Request) (*jsonutils.JSONDict, e
 	menus := jsonutils.NewArray()
 	k8s := jsonutils.NewArray()
 
-	curReg := FetchRegion(req)
+	curReg := s.GetRegion()
 	srvCat := auth.Client().GetServiceCatalog()
 	var allsrv []string
 	var alleps []mcclient.ExternalService
@@ -908,13 +934,13 @@ func getUserInfo(ctx context.Context, req *http.Request) (*jsonutils.JSONDict, e
 	}
 
 	log.Infof("getUserInfo modules.Hosts.Get")
-	s2 := auth.GetSession(ctx, token, FetchRegion(req), "v2")
+	// s2 := auth.GetSession(ctx, token, FetchRegion(req), "v2")
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString("host_type"), "field")
 	params.Add(jsonutils.NewString("system"), "scope")
 	params.Add(jsonutils.JSONTrue, "usable")
 	params.Add(jsonutils.JSONTrue, "show_emulated")
-	cap, err := modules.Hosts.Get(s2, "distinct-field", params)
+	cap, err := modules.Hosts.Get(s, "distinct-field", params)
 	if err != nil {
 		log.Errorf("modules.Servers.Get distinct-field fail %s", err)
 	} else {

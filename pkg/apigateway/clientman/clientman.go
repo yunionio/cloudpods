@@ -15,6 +15,8 @@
 package clientman
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
 	"io/ioutil"
 
 	"github.com/pkg/errors"
@@ -37,4 +39,9 @@ func InitClient() error {
 	}
 
 	return nil
+}
+
+func SetupTest() {
+	key, _ := rsa.GenerateKey(rand.Reader, 2048)
+	setPrivateKey(key)
 }
