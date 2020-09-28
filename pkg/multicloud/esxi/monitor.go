@@ -28,6 +28,14 @@ import (
 	"yunion.io/x/pkg/errors"
 )
 
+const (
+	MONTYPE_HOSTSYSTEM     = "HostSystem"
+	MONTYPE_VIRTUALMACHINE = "VirtualMachine"
+)
+
+var VIRTUAL_MACHINE_UUID = []string{"summary.config.uuid"}
+var HOST_UUID = []string{"config.network"}
+
 type SPerfMetricInfo struct {
 	metricIdTable     map[int32]types.PerfCounterInfo
 	metricNameTable   map[string]types.PerfCounterInfo
@@ -88,22 +96,28 @@ func (client *SESXiClient) GetMonitorData(serverOrHost jsonutils.JSONObject,
 	return perfEntityMetricList, perMetricInfo.metricIdNameTable, nil
 }
 
-func (client *SESXiClient) GetMonitorDataList(serverOrHost []jsonutils.JSONObject,
+func (client *SESXiClient) GetMonitorDataList(hostExtId string, serverOrHost []jsonutils.JSONObject,
 	monType string, metrics []string,
 	since time.Time, until time.Time) (map[string]performance.EntityMetric, error) {
-	entityServerorm := make(map[string]string)
+	resultMap := make(map[string]performance.EntityMetric)
 	entityRefs := make([]types.ManagedObjectReference, 0)
-	for i, _ := range serverOrHost {
-		managedEntity, err := client.getManagerEntiry(serverOrHost[i], monType)
-		if err != nil {
-			log.Errorln(errors.Wrap(err, "getManagerEntiry error"))
-			continue
-		}
-		extId, _ := serverOrHost[i].GetString("external_id")
-		entityServerorm[managedEntity.Self.Value] = extId
-		entityRefs = append(entityRefs, managedEntity.Self)
+	var err error
+	time1 := time.Now()
+	switch monType {
+	case MONTYPE_HOSTSYSTEM:
+		entityRefs, err = client.getHostMorAndOrm(serverOrHost)
+	case MONTYPE_VIRTUALMACHINE:
+		entityRefs, err = client.getVmMorAndOrm(serverOrHost)
 	}
+	if err != nil {
+		return nil, err
+	}
+	log.Errorf("get entityRef cost time:%f s", time.Now().Sub(time1).Seconds())
 
+	if len(entityRefs) == 0 {
+		return resultMap, nil
+	}
+	time2 := time.Now()
 	performanceManager := performance.NewManager(client.client.Client)
 	counterInfoNameMap, err := performanceManager.CounterInfoByName(client.context)
 	names := make([]string, 0)
@@ -123,11 +137,11 @@ func (client *SESXiClient) GetMonitorDataList(serverOrHost []jsonutils.JSONObjec
 		return nil, err
 	}
 	refreshInterval := perfProviderSummary.RefreshRate
-	perfMetricList, err := performanceManager.AvailableMetric(client.context, entityRefs[0], refreshInterval)
-	pmis := getPerfMetrics(perfMetricList, ids)
+	//perfMetricList, err := performanceManager.AvailableMetric(client.context, entityRefs[0], refreshInterval)
+	//pmis := getPerfMetrics(perfMetricList, ids)
 	perfQuerySpec := types.PerfQuerySpec{
-		MaxSample:  int32(5),
-		MetricId:   pmis,
+		MaxSample: int32(10),
+		//MetricId:   pmis,
 		Format:     "normal",
 		IntervalId: refreshInterval,
 		StartTime:  &since,
@@ -141,16 +155,110 @@ func (client *SESXiClient) GetMonitorDataList(serverOrHost []jsonutils.JSONObjec
 	if err != nil {
 		return nil, err
 	}
+	resultMap, err = client.getMetricReturnInfo(result, entityRefs, monType)
+	if err != nil {
+		return nil, err
+	}
+	log.Errorf("get performanceManager MetricSeries   cost time:%f s", time.Now().Sub(time2).Seconds())
+
+	return resultMap, nil
+}
+
+func (client *SESXiClient) getMetricReturnInfo(metrics []performance.EntityMetric,
+	references []types.ManagedObjectReference, monType string) (map[string]performance.EntityMetric, error) {
+	switch monType {
+	case MONTYPE_VIRTUALMACHINE:
+		return client.getVmMetricReturnInfo(metrics, references)
+	case MONTYPE_HOSTSYSTEM:
+		return client.getHostMetricReturnInfo(metrics, references)
+	}
+	return nil, fmt.Errorf("No find mon_type:%s", monType)
+}
+
+func (client *SESXiClient) getVmMetricReturnInfo(metrics []performance.EntityMetric,
+	references []types.ManagedObjectReference) (map[string]performance.EntityMetric, error) {
 	resultMap := make(map[string]performance.EntityMetric)
-	for i, res := range result {
-		if extId, ok := entityServerorm[res.Entity.Value]; ok {
-			resultMap[extId] = result[i]
+	var movms []mo.VirtualMachine
+	err := client.references2Objects(references, VIRTUAL_MACHINE_UUID, &movms)
+	if err != nil {
+		return nil, err
+	}
+extResult:
+	for i, res := range metrics {
+		for _, vm := range movms {
+			if res.Entity == vm.Self {
+				resultMap[vm.Summary.Config.Uuid] = metrics[i]
+				continue extResult
+			}
 		}
 	}
 	return resultMap, nil
 }
 
+func (client *SESXiClient) getHostMetricReturnInfo(metrics []performance.EntityMetric,
+	references []types.ManagedObjectReference) (map[string]performance.EntityMetric, error) {
+	resultMap := make(map[string]performance.EntityMetric)
+	var hosts []mo.HostSystem
+	err := client.references2Objects(references, HOST_UUID, &hosts)
+	if err != nil {
+		return nil, err
+	}
+extResult:
+	for i, res := range metrics {
+		for _, mh := range hosts {
+			if res.Entity == mh.Self {
+				host := NewHost(client, &mh, nil)
+				if host == nil {
+					continue extResult
+				}
+
+				resultMap[host.GetGlobalId()] = metrics[i]
+				continue extResult
+			}
+		}
+	}
+	return resultMap, nil
+}
+
+func (client *SESXiClient) getHostMorAndOrm(hostObjs []jsonutils.JSONObject) ([]types.ManagedObjectReference, error) {
+	entityRefs := make([]types.ManagedObjectReference, 0)
+
+	datacenters, err := client.GetDatacenters()
+	if err != nil {
+		return nil, err
+	}
+	for _, dc := range datacenters {
+		ref, err := dc.FetchNoTemplateHostEntityReferens()
+		if err != nil {
+			log.Errorln(err)
+			continue
+		}
+		entityRefs = append(entityRefs, ref...)
+	}
+	return entityRefs, nil
+}
+
+func (client *SESXiClient) getVmMorAndOrm(servers []jsonutils.JSONObject) ([]types.
+	ManagedObjectReference, error) {
+	entityRefs := make([]types.ManagedObjectReference, 0)
+
+	datacenters, err := client.GetDatacenters()
+	if err != nil {
+		return nil, err
+	}
+	for _, dc := range datacenters {
+		ref, err := dc.FetchNoTemplateVMEntityReferens()
+		if err != nil {
+			log.Errorln(err)
+			continue
+		}
+		entityRefs = append(entityRefs, ref...)
+	}
+	return entityRefs, nil
+}
+
 func (cli *SESXiClient) getVirtualMachines() ([]mo.VirtualMachine, error) {
+	cli.GetDatacenters()
 	var virtualMachines []mo.VirtualMachine
 	err := cli.scanAllMObjects(VIRTUAL_MACHINE_PROPS, &virtualMachines)
 	if err != nil {

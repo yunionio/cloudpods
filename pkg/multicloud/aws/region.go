@@ -297,7 +297,7 @@ func (self *SRegion) cloudWatchRequest(apiName string, params *cloudwatch.GetMet
 	client.Handlers.Unmarshal.PushBackNamed(query.UnmarshalHandler)
 	client.Handlers.UnmarshalMeta.PushBackNamed(query.UnmarshalMetaHandler)
 	client.Handlers.UnmarshalError.PushBackNamed(query.UnmarshalErrorHandler)
-	return cloudWatchRequest(client, apiName, params, retval, true)
+	return cloudWatchRequest(client, apiName, params, retval, false)
 }
 
 func (self *SRegion) GetElbV2Client() (*elbv2.ELBV2, error) {
