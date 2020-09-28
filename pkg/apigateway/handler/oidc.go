@@ -45,7 +45,10 @@ import (
 )
 
 const (
+	// OIDC code expires in 5 minutes
 	OIDC_CODE_EXPIRE_SECONDS = 300
+	// OIDC token expires in 2 hours
+	OIDC_TOKEN_EXPIRE_SECONDS = 7200
 )
 
 func getLoginCallbackParam() string {
@@ -72,7 +75,7 @@ func addQuery(urlstr string, qs jsonutils.JSONObject) string {
 func handleOIDCAuth(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	ctx, err := fetchAndSetAuthContext(ctx, w, req)
 	if err != nil {
-		// redirect to login page
+		// not login redirect to login page
 		qs := jsonutils.NewDict()
 		oUrl := req.URL.String()
 		if !strings.HasPrefix(oUrl, "http") {
@@ -135,8 +138,10 @@ func doOIDCAuth(ctx context.Context, req *http.Request, query jsonutils.JSONObje
 		return oidcAuth, "", errors.Wrap(httperrors.ErrInvalidCredential, "redirect uri not match")
 	}
 
+	token := AppContextToken(ctx)
+
 	cliIp := netutils2.GetHttpRequestIp(req)
-	codeInfo := newOIDCClientInfo(cliIp)
+	codeInfo := newOIDCClientInfo(token, cliIp, FetchRegion(req))
 	code := clientman.EncryptString(codeInfo.toBytes())
 
 	return oidcAuth, code, nil
@@ -155,12 +160,20 @@ func handleOIDCToken(ctx context.Context, w http.ResponseWriter, req *http.Reque
 type SOIDCClientInfo struct {
 	Timestamp int64
 	Ip        netutils.IPV4Addr
+	UserId    string
+	ProjectId string
+	Region    string
 }
 
 func (i SOIDCClientInfo) toBytes() []byte {
-	enc := make([]byte, 12)
+	enc := make([]byte, 12+1+len(i.UserId)+1+len(i.ProjectId)+len(i.Region))
 	binary.LittleEndian.PutUint64(enc, uint64(i.Timestamp))
 	binary.LittleEndian.PutUint32(enc[8:], uint32(i.Ip))
+	enc[12] = byte(len(i.UserId))
+	enc[13] = byte(len(i.ProjectId))
+	copy(enc[14:], i.UserId)
+	copy(enc[14+len(i.UserId):], i.ProjectId)
+	copy(enc[14+len(i.UserId)+len(i.ProjectId):], i.Region)
 	return enc
 }
 
@@ -171,21 +184,65 @@ func (i SOIDCClientInfo) isExpired() bool {
 	return false
 }
 
+func (i SOIDCClientInfo) expiresAt(secs int) time.Time {
+	expires := i.Timestamp + int64(secs)*int64(time.Second)
+	esecs := expires / int64(time.Second)
+	nsecs := expires - esecs*int64(time.Second)
+	return time.Unix(esecs, nsecs)
+}
+
 func decodeOIDCClientInfo(enc []byte) (SOIDCClientInfo, error) {
 	info := SOIDCClientInfo{}
-	if len(enc) != 8+4 {
+	if len(enc) < 8+4+1 {
 		return info, errors.Wrap(httperrors.ErrInvalidCredential, "code byte length must be 12")
 	}
 	info.Timestamp = int64(binary.LittleEndian.Uint64(enc))
 	info.Ip = netutils.IPV4Addr(binary.LittleEndian.Uint32(enc[8:]))
+	info.UserId = string(enc[14 : 14+int(enc[12])])
+	info.ProjectId = string(enc[14+int(enc[12]) : 14+int(enc[12])+int(enc[13])])
+	info.Region = string(enc[14+int(enc[12])+int(enc[13]):])
 	return info, nil
 }
 
-func newOIDCClientInfo(ipstr string) SOIDCClientInfo {
+func newOIDCClientInfo(token mcclient.TokenCredential, ipstr string, region string) SOIDCClientInfo {
 	info := SOIDCClientInfo{}
 	info.Timestamp = time.Now().UnixNano()
 	info.Ip, _ = netutils.NewIPV4Addr(ipstr)
+	info.UserId = token.GetUserId()
+	info.ProjectId = token.GetProjectId()
+	info.Region = region
 	return info
+}
+
+type SOIDCClientToken struct {
+	Info SOIDCClientInfo
+}
+
+func (t SOIDCClientToken) encode() string {
+	json := jsonutils.NewDict()
+	json.Add(jsonutils.NewString(string(t.Info.toBytes())), "info")
+	return clientman.EncryptString([]byte(json.String()))
+}
+
+func decodeOIDCClientToken(token string) (SOIDCClientToken, error) {
+	ret := SOIDCClientToken{}
+	tBytes, err := clientman.DecryptString(token)
+	if err != nil {
+		return ret, errors.Wrap(err, "DecryptString")
+	}
+	json, err := jsonutils.Parse(tBytes)
+	if err != nil {
+		return ret, errors.Wrap(err, "json.Parse")
+	}
+	info, err := json.GetString("info")
+	if err != nil {
+		return ret, errors.Wrap(err, "getString(info)")
+	}
+	ret.Info, err = decodeOIDCClientInfo([]byte(info))
+	if err != nil {
+		return ret, errors.Wrap(err, "decodeOIDCClientInfo")
+	}
+	return ret, nil
 }
 
 func validateOIDCToken(ctx context.Context, req *http.Request) (oidcutils.SOIDCAccessTokenResponse, error) {
@@ -253,35 +310,29 @@ func validateOIDCToken(ctx context.Context, req *http.Request) (oidcutils.SOIDCA
 		return tokenResp, errors.Wrap(httperrors.ErrInvalidCredential, "client secret not match")
 	}
 
-	token, err := auth.Client().AuthenticateByAccessKey(clientId, clientSecret, codeInfo.Ip.String())
-	if err != nil {
-		return tokenResp, errors.Wrap(err, "invalid client_id/client_secret")
+	token := SOIDCClientToken{
+		Info: codeInfo,
 	}
 
 	tokenResp = token2AccessTokenResponse(token, clientId)
 	return tokenResp, nil
 }
 
-func token2AccessTokenResponse(token mcclient.TokenCredential, clientId string) oidcutils.SOIDCAccessTokenResponse {
+func token2AccessTokenResponse(token SOIDCClientToken, clientId string) oidcutils.SOIDCAccessTokenResponse {
 	resp := oidcutils.SOIDCAccessTokenResponse{}
-	resp.AccessToken = token2AccessToken(token)
+	resp.AccessToken = token.encode()
 	resp.TokenType = oidcutils.OIDC_BEARER_TOKEN_TYPE
 	resp.IdToken, _ = token2IdToken(token, clientId)
-	resp.ExpiresIn = int(token.GetExpires().Unix() - time.Now().Unix())
+	resp.ExpiresIn = int(token.Info.expiresAt(OIDC_TOKEN_EXPIRE_SECONDS).Unix() - time.Now().Unix())
 	return resp
 }
 
-func token2AccessToken(token mcclient.TokenCredential) string {
-	authToken := clientman.NewAuthToken(token.GetTokenString(), false, false)
-	return authToken.Encode()
-}
-
-func token2IdToken(token mcclient.TokenCredential, clientId string) (string, error) {
+func token2IdToken(token SOIDCClientToken, clientId string) (string, error) {
 	jwtToken := jwt.New()
 	jwtToken.Set(jwt.IssuerKey, options.Options.ApiServer)
-	jwtToken.Set(jwt.SubjectKey, token.GetUserId())
+	jwtToken.Set(jwt.SubjectKey, token.Info.UserId)
 	jwtToken.Set(jwt.AudienceKey, clientId)
-	jwtToken.Set(jwt.ExpirationKey, token.GetExpires().Unix())
+	jwtToken.Set(jwt.ExpirationKey, token.Info.expiresAt(OIDC_TOKEN_EXPIRE_SECONDS).Unix())
 	jwtToken.Set(jwt.IssuedAtKey, time.Now().Unix())
 	return clientman.SignJWT(jwtToken)
 }
@@ -334,7 +385,24 @@ func handleOIDCJWKeys(ctx context.Context, w http.ResponseWriter, req *http.Requ
 }
 
 func handleOIDCUserInfo(ctx context.Context, w http.ResponseWriter, req *http.Request) {
-	data, err := getUserInfo(ctx, req)
+	tokenHdr := getAuthToken(req)
+	if len(tokenHdr) == 0 {
+		httperrors.InvalidCredentialError(ctx, w, "No token in header")
+		return
+	}
+	token, err := decodeOIDCClientToken(tokenHdr)
+	if err != nil {
+		log.Errorf("decodeOIDCClientToken %s fail %s", tokenHdr, err)
+		httperrors.InvalidCredentialError(ctx, w, "Token in header invalid")
+		return
+	}
+	if token.Info.expiresAt(OIDC_TOKEN_EXPIRE_SECONDS).Before(time.Now()) {
+		httperrors.InvalidCredentialError(ctx, w, "Token expired")
+		return
+	}
+
+	s := auth.GetAdminSession(ctx, token.Info.Region, "")
+	data, err := getUserInfo2(s, token.Info.UserId, token.Info.ProjectId, token.Info.Ip.String())
 	if err != nil {
 		httperrors.NotFoundError(ctx, w, "%v", err)
 		return
