@@ -79,6 +79,7 @@ func (this *SpecsManager) GetObjects(s *mcclient.ClientSession, params jsonutils
 		return nil, httperrors.NewInputParameterError("Not found key in query: %v", err)
 	}
 	dict.Remove("key")
+	specKey = url.QueryEscape(specKey)
 	url := newSpecActionURL(model, specKey, "resource", dict)
 	return modulebase.Get(this.ResourceManager, s, url, this.Keyword)
 }
