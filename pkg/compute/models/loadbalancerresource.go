@@ -75,6 +75,12 @@ func (self *SLoadbalancerResourceBase) GetCloudprovider() *SCloudprovider {
 	if vpc != nil {
 		return vpc.GetCloudprovider()
 	}
+
+	lb := self.GetLoadbalancer()
+	if lb != nil {
+		return lb.GetCloudprovider()
+	}
+
 	return nil
 }
 
