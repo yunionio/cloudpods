@@ -110,7 +110,7 @@ build_process_with_buildx() {
 
     build_env="GOARCH=$arch"
     img_name="$REGISTRY/$component:$TAG"
-    if [[ $arch == arm64 ]]; then
+    if [[ "$arch" == arm64 ]]; then
         img_name="$img_name-$arch"
         build_env="$build_env CC=aarch64-linux-musl-gcc"
         if [[ $component == host ]]; then
@@ -119,7 +119,7 @@ build_process_with_buildx() {
     fi
 
     case "$component" in
-        host|esxi-agent)
+        host | esxi-agent | torrent)
             buildx_and_push $img_name $DOCKER_DIR/multi-arch/Dockerfile.$component $SRC_DIR $arch
             ;;
         *)
