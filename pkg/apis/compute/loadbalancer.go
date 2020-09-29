@@ -202,6 +202,9 @@ type LoadbalancerResourceInfo struct {
 	ZoneId string `json:"zone_id"`
 
 	ZoneResourceInfoBase
+
+	// cloud provider info
+	ManagedResourceInfo
 }
 
 type LoadbalancerResourceInput struct {
