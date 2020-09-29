@@ -112,7 +112,7 @@ func (man *SCommonAlertManager) ValidateCreateData(
 			if query.Threshold == 0 {
 				return data, httperrors.NewInputParameterError("threshold is meaningless")
 			}
-			if strings.Contains(query.To, "now-") {
+			if strings.Contains(query.From, "now-") || strings.Contains(query.To, "now") {
 				query.To = "now"
 				query.From = "1h"
 			}
@@ -651,8 +651,9 @@ func (alert *SCommonAlert) ValidateUpdateData(
 			data.Set("frequency", jsonutils.NewInt(freqSpec))
 		}
 	}
-	if channel, _ := data.GetArray("channel"); len(channel) > 0 {
+	if recipients, _ := data.GetArray("recipients"); len(recipients) > 0 {
 		channelStr, _ := data.GetString("channel")
+		channel, _ := data.GetArray("channel")
 		if !strings.Contains(channelStr, monitor.DEFAULT_SEND_NOTIFY_CHANNEL) {
 			channels := jsonutils.NewArray()
 			channels.Add(channel...)
@@ -676,7 +677,7 @@ func (alert *SCommonAlert) ValidateUpdateData(
 			if query.Threshold == 0 {
 				return data, httperrors.NewInputParameterError("threshold is meaningless")
 			}
-			if strings.Contains(query.To, "now-") {
+			if strings.Contains(query.From, "now-") || strings.Contains(query.To, "now") {
 				query.To = "now"
 				query.From = "1h"
 			}
