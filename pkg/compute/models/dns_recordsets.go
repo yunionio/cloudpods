@@ -387,6 +387,14 @@ func (manager *SDnsRecordSetManager) ResourceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeDomain
 }
 
+func (self *SDnsRecordSet) IsSharable(reqUsrId mcclient.IIdentityProvider) bool {
+	dnsZone, err := self.GetDnsZone()
+	if err != nil {
+		return false
+	}
+	return dnsZone.IsSharable(reqUsrId)
+}
+
 func (self *SDnsRecordSet) GetOwnerId() mcclient.IIdentityProvider {
 	dnsZone, err := self.GetDnsZone()
 	if err != nil {
