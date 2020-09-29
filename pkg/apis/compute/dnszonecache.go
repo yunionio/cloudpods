@@ -22,6 +22,7 @@ const (
 	DNS_ZONE_CACHE_STATUS_CREATING      = "creating"
 	DNS_ZONE_CACHE_STATUS_CREATE_FAILED = "create_failed"
 	DNS_ZONE_CACHE_STATUS_AVAILABLE     = "available"
+	DNS_ZONE_CACHE_STATUS_UNKNOWN       = "unknown"
 )
 
 type DnsZoneCacheCreateInput struct {
