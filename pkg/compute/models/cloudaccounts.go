@@ -360,6 +360,9 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 	if err != nil {
 		return output, errors.Wrap(err, "FetchOwnerId in PerformPrepareNets")
 	}
+	if ownerId == nil {
+		ownerId = userCred
+	}
 	input.CloudaccountCreateInput, err = scm.ValidateCreateData(ctx, userCred, ownerId, query, input.CloudaccountCreateInput)
 	if err != nil {
 		return output, err
