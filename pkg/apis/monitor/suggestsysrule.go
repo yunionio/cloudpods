@@ -94,7 +94,6 @@ type SSuggestSysAlertSetting struct {
 }
 
 type EIPUnused struct {
-	//Status string `json:"status"`
 }
 
 type DiskUnused struct {

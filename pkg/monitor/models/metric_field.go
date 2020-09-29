@@ -6,6 +6,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -152,15 +153,23 @@ func (man *SMetricFieldManager) OrderByExtraFields(
 
 func (manager *SMetricFieldManager) SaveMetricField(ctx context.Context, userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider, fieldInput monitor.MetricFieldCreateInput) (*SMetricField, error) {
-	obj, err := db.DoCreate(manager, ctx, userCred, nil, fieldInput.JSON(&fieldInput), userCred)
-	if err != nil {
-		return nil, errors.Wrapf(err, "SaveMetricField error input: %s", fieldInput.JSON(&fieldInput))
+	field := new(SMetricField)
+	field.Name = fieldInput.Name
+	field.DisplayName = fieldInput.DisplayName
+	field.Description = fieldInput.Description
+	field.Unit = fieldInput.Unit
+	field.ValueType = fieldInput.ValueType
+	field.Enabled = tristate.True
+	field.SetModelManager(manager, field)
+	if err := manager.TableSpec().Insert(ctx, field); err != nil {
+		return nil, errors.Wrapf(err, "insert config %#v", field)
 	}
-	return obj.(*SMetricField), nil
+
+	return field, nil
 }
 
-func (man *SMetricFieldManager) GetField(id string) (*SMetricField, error) {
-	obj, err := man.FetchById(id)
+func (man *SMetricFieldManager) GetFieldByIdOrName(id string, userCred mcclient.TokenCredential) (*SMetricField, error) {
+	obj, err := man.FetchByIdOrName(userCred, id)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, nil

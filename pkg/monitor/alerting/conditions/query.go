@@ -209,16 +209,16 @@ func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series tsdb
 	if len(queryKeyInfo) == 0 {
 		queryKeyInfo = evalMatch.Metric
 	}
-	msg := fmt.Sprintf("%s.%s %s %.4f", alertDetails.Measurement, alertDetails.Field,
-		alertDetails.Comparator, alertDetails.Threshold)
+	evalMatch.Unit = alertDetails.FieldDescription.Unit
+	msg := fmt.Sprintf("%s.%s %s %s", alertDetails.Measurement, alertDetails.Field,
+		alertDetails.Comparator, c.RationalizeValueFromUnit(alertDetails.Threshold, evalMatch.Unit, ""))
 	if len(context.Rule.Message) == 0 {
 		context.Rule.Message = msg
 	}
 	evalMatch.Condition = c.GenerateFormatCond(meta, queryKeyInfo).String()
 	evalMatch.Tags = c.filterTags(series.Tags, *alertDetails)
-	evalMatch.Unit = alertDetails.FieldDescription.Unit
 	evalMatch.Value = value
-	evalMatch.ValueStr = c.RationalizeValueFromUnit(*value, alertDetails.FieldDescription.Unit)
+	evalMatch.ValueStr = c.RationalizeValueFromUnit(*value, alertDetails.FieldDescription.Unit, alertDetails.FieldOpt)
 	evalMatch.MeasurementDesc = alertDetails.MeasurementDisplayName
 	evalMatch.FieldDesc = alertDetails.FieldDescription.DisplayName
 	return evalMatch, nil
@@ -226,12 +226,15 @@ func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series tsdb
 
 var fileSize = []string{"bps", "Bps", "byte"}
 
-func (c *QueryCondition) RationalizeValueFromUnit(value float64, unit string) string {
+func (c *QueryCondition) RationalizeValueFromUnit(value float64, unit string, opt string) string {
 	if utils.IsInStringArray(unit, fileSize) {
 		if unit == "byte" {
 			return (formatFileSize(value, unit, float64(1024)))
 		}
 		return formatFileSize(value, unit, float64(1000))
+	}
+	if unit == "%" && monitor.CommonAlertFieldOpt_Division == opt {
+		return fmt.Sprintf("%0.4f %s", value*100, unit)
 	}
 	return fmt.Sprintf("%0.4f %s", value, unit)
 }

@@ -99,6 +99,9 @@ func (rule *SSuggestSysRule) GetType() monitor.SuggestDriverType {
 //根据数据库中查询得到的信息进行适配转换，同时更新drivers中的内容
 func (rule *SSuggestSysRule) getSuggestSysAlertSetting() (*monitor.SSuggestSysAlertSetting, error) {
 	setting := new(monitor.SSuggestSysAlertSetting)
+	if rule.Setting == nil {
+		rule.Setting = jsonutils.NewDict()
+	}
 	err := rule.Setting.Unmarshal(setting)
 	if err != nil {
 		return nil, errors.Wrap(err, "SSuggestSysRule getSuggestSysAlertSetting error")
@@ -177,6 +180,8 @@ func (man *SSuggestSysRuleManager) ValidateCreateData(
 			if err := dri.ValidateSetting(data.Setting); err != nil {
 				return data, errors.Wrap(err, "validate setting error")
 			}
+		} else {
+			data.Setting = new(monitor.SSuggestSysAlertSetting)
 		}
 	}
 	return data, nil
