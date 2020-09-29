@@ -654,3 +654,6 @@ var MetricDescriptions = `
 	}
 ]
 `
+var MetricNeedDeleteDescriptions = []string{"rds_conn", "rds_cpu", "rds_mem", "rds_netio", "rds_disk", "dcs_cpu",
+	"dcs_mem", "dcs_netio", "dcs_conn", "dcs_instantopt", "dcs_cachekeys", "dcs_datamem", "oss_latency",
+	"oss_netio", "oss_req"}

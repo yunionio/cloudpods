@@ -24,6 +24,7 @@ var MetricUnit = []string{"%", "bps", "Mbps", "Bps", "count/s", "count", "ms", "
 
 type MetricMeasurementCreateInput struct {
 	apis.StandaloneResourceCreateInput
+	apis.EnabledBaseResourceCreateInput
 
 	ResType     string `json:"res_type"`
 	DisplayName string `json:"display_name"`

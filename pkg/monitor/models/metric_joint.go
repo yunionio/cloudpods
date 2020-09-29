@@ -5,6 +5,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
 type SMetricManager struct {
@@ -51,7 +52,7 @@ func (metric *SMetric) DoSave(ctx context.Context) error {
 }
 
 func (self *SMetric) GetMetricField() (*SMetricField, error) {
-	return MetricFieldManager.GetField(self.FieldId)
+	return MetricFieldManager.GetFieldByIdOrName(self.FieldId, auth.AdminCredential())
 }
 
 func (joint *SMetric) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
