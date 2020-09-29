@@ -187,7 +187,7 @@ func (manager *SLoadbalancerResourceBaseManager) FetchCustomizeColumns(
 
 	for i := range rows {
 		rows[i].VpcResourceInfo = vpcRows[i]
-		rows[i].ZoneResourceInfoBase = zoneRows[i].ZoneResourceInfoBase
+		rows[i].ZoneResourceInfo = zoneRows[i]
 		rows[i].ManagedResourceInfo = manRows[i]
 	}
 	return rows
