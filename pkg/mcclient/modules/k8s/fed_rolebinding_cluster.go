@@ -29,7 +29,7 @@ func init() {
 		"federatedrolebindingclusters",
 		NewFedJointClusterCols(),
 		NewColumns(),
-		FederatedRoles,
+		FederatedRoleBindings,
 		KubeClusters,
 	)
 	modules.Register(&FederatedRoleBindingClusters)
