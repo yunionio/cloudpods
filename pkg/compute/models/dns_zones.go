@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -126,6 +127,9 @@ func (manager *SDnsZoneManager) ValidateCreateData(ctx context.Context, userCred
 				return input, httperrors.NewNotSupportedError("Not support %s for account %s, supported %s", input.ZoneType, account.Name, zoneTypes)
 			}
 			input.CloudaccountId = account.GetId()
+		}
+		if !strings.ContainsRune(input.Name, '.') {
+			return input, httperrors.NewNotSupportedError("top level public domain name %s not support", input.Name)
 		}
 	default:
 		return input, httperrors.NewInputParameterError("unknown zone type %s", input.ZoneType)
