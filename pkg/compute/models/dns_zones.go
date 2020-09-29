@@ -469,6 +469,7 @@ func (self *SDnsZone) newCache(ctx context.Context, userCred mcclient.TokenCrede
 	cache.CloudaccountId = accountId
 	cache.DnsZoneId = self.Id
 	if ext != nil {
+		cache.Status = ext.GetStatus()
 		cache.ExternalId = ext.GetGlobalId()
 		cache.ProductType = string(ext.GetDnsProductType())
 	}
