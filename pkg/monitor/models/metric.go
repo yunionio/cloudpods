@@ -75,6 +75,10 @@ func (man *SMetricMeasurementManager) ValidateCreateData(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject,
 	data monitor.MetricCreateInput) (monitor.MetricMeasurementCreateInput, error) {
+	enable := true
+	if data.Measurement.Enabled == nil {
+		data.Measurement.Enabled = &enable
+	}
 	return data.Measurement, nil
 }
 
@@ -96,11 +100,11 @@ func (measurement *SMetricMeasurement) CustomizeCreate(
 	for _, fieldInput := range input.MetricFields {
 		field, err := measurement.SaveMetricField(ctx, userCred, ownerId, fieldInput)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "SMetricMeasurement CustomizeCreate to save field error")
 		}
 		err = measurement.attachMetricField(ctx, userCred, field)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "attachMetricField error")
 		}
 	}
 	return nil
@@ -376,53 +380,6 @@ func (man *SMetricMeasurementManager) Run(ctx context.Context) error {
 	return nil
 }
 
-func (manager *SMetricMeasurementManager) initMeasurementDatabase(ctx context.Context) (err error) {
-	databases, err := DataSourceManager.GetDatabases()
-	if err != nil {
-		return err
-	}
-	databaseArr, err := databases.GetArray("databases")
-	if err != nil {
-		return err
-	}
-	databaseGroup, _ := errgroup.WithContext(ctx)
-	for dIndex, _ := range databaseArr {
-		databaseTmp := databaseArr[dIndex]
-		databaseStr, _ := databaseTmp.GetString()
-		databaseGroup.Go(manager.getMeasurementAsyn(ctx, databaseStr))
-	}
-	err = databaseGroup.Wait()
-	return
-}
-
-func (manager *SMetricMeasurementManager) getMeasurementAsyn(ctx context.Context, database string) func() error {
-	return func() error {
-		query := jsonutils.NewDict()
-		query.Add(jsonutils.NewString(database), "database")
-
-		measurements, err := DataSourceManager.GetMeasurementsWithOutTimeFilter(query, "", "")
-		if err != nil {
-			return err
-		}
-		measurementArr, err := measurements.GetArray("measurements")
-		if err != nil {
-			return err
-		}
-		metrics := make([]monitor.MetricCreateInput, 0)
-		for mIndex, _ := range measurementArr {
-			measurementStr, _ := measurementArr[mIndex].GetString("measurement")
-			metric := monitor.MetricCreateInput{}
-			metricMea := monitor.MetricMeasurementCreateInput{}
-			metricMea.Name = measurementStr
-			metricMea.Database = database
-			metric.Measurement = metricMea
-			metric.MetricFields = make([]monitor.MetricFieldCreateInput, 0)
-			metrics = append(metrics, metric)
-		}
-		return manager.initMetrics(ctx, metrics)
-	}
-}
-
 func (manager *SMetricMeasurementManager) initJsonMetricInfo(ctx context.Context) error {
 	metricDescriptions, err := jsonutils.ParseString(dbinit.MetricDescriptions)
 	if err != nil {
@@ -433,7 +390,31 @@ func (manager *SMetricMeasurementManager) initJsonMetricInfo(ctx context.Context
 	if err != nil {
 		return errors.Wrap(err, "SMetricMeasurementManager Unmarshal MetricDescriptionstr error")
 	}
-	return manager.initMetrics(ctx, metrics)
+	err = manager.initMetrics(ctx, metrics)
+	if err != nil {
+		return err
+	}
+	return manager.deleteUnusedMetricDescriptions()
+}
+
+func (manager *SMetricMeasurementManager) deleteUnusedMetricDescriptions() error {
+	metricMeasurements, err := manager.getMeasurementByName(dbinit.MetricNeedDeleteDescriptions...)
+	if err != nil {
+		return err
+	}
+	userCred := auth.AdminCredential()
+	for i, _ := range metricMeasurements {
+		err := (&metricMeasurements[i]).CustomizeDelete(context.Background(), userCred, jsonutils.NewDict(),
+			jsonutils.NewDict())
+		if err != nil {
+			return errors.Wrap(err, "init deleteUnusedMetricDescriptions error")
+		}
+		err = (&metricMeasurements[i]).Delete(context.Background(), userCred)
+		if err != nil {
+			return errors.Wrap(err, "init deleteUnusedMetricDescriptions error")
+		}
+	}
+	return nil
 }
 
 func (manager *SMetricMeasurementManager) initMetrics(ctx context.Context, metrics []monitor.MetricCreateInput) (err error) {
@@ -472,6 +453,7 @@ func (manager *SMetricMeasurementManager) initMeasurementAndFieldInfo(createInpu
 	if len(measurements) != 0 {
 		unInsertFields, updateFields, deleteFields = measurements[0].getInsertAndUpdateFields(userCred, createInput)
 	}
+
 	if len(measurements) == 0 {
 		_, err := db.DoCreate(manager, context.Background(), userCred, jsonutils.NewDict(),
 			jsonutils.Marshal(&createInput),
