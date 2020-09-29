@@ -167,23 +167,28 @@ func (manager *SLoadbalancerResourceBaseManager) FetchCustomizeColumns(
 
 	vpcList := make([]interface{}, len(rows))
 	zoneList := make([]interface{}, len(rows))
+	manList := make([]interface{}, len(rows))
 	for i := range rows {
 		rows[i] = api.LoadbalancerResourceInfo{}
 		if lb, ok := lbs[lbIds[i]]; ok {
 			rows[i].Loadbalancer = lb.Name
 			rows[i].VpcId = lb.VpcId
 			rows[i].ZoneId = lb.ZoneId
+			rows[i].ManagerId = lb.ManagerId
 		}
 		vpcList[i] = &SVpcResourceBase{rows[i].VpcId}
 		zoneList[i] = &SZoneResourceBase{rows[i].ZoneId}
+		manList[i] = &SManagedResourceBase{rows[i].ManagerId}
 	}
 
 	vpcRows := manager.SVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, vpcList, fields, isList)
 	zoneRows := manager.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, zoneList, fields, isList)
+	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, manList, fields, isList)
 
 	for i := range rows {
 		rows[i].VpcResourceInfo = vpcRows[i]
 		rows[i].ZoneResourceInfoBase = zoneRows[i].ZoneResourceInfoBase
+		rows[i].ManagedResourceInfo = manRows[i]
 	}
 	return rows
 }
