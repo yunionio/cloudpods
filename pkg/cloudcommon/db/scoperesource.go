@@ -116,7 +116,7 @@ func (m *SScopedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, userCred 
 	}
 	switch scope {
 	case rbacutils.ScopeDomain:
-		q = q.Filter(sqlchemy.OR(
+		/* q = q.Filter(sqlchemy.OR(
 			// share to system
 			sqlchemy.AND(
 				sqlchemy.IsNullOrEmpty(q.Field("domain_id")),
@@ -124,9 +124,10 @@ func (m *SScopedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, userCred 
 			),
 			// share to this domain or its sub-projects
 			sqlchemy.Equals(q.Field("domain_id"), userCred.GetProjectDomainId()),
-		))
+		)) */
+		q = q.Equals("domain_id", userCred.GetProjectDomainId())
 	case rbacutils.ScopeProject:
-		q = q.Filter(sqlchemy.OR(
+		/* q = q.Filter(sqlchemy.OR(
 			// share to system
 			sqlchemy.AND(
 				sqlchemy.IsNullOrEmpty(q.Field("domain_id")),
@@ -142,7 +143,8 @@ func (m *SScopedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, userCred 
 				sqlchemy.Equals(q.Field("domain_id"), userCred.GetProjectDomainId()),
 				sqlchemy.Equals(q.Field("tenant_id"), userCred.GetProjectId()),
 			),
-		))
+		)) */
+		q = q.Equals("tenant_id", userCred.GetProjectId())
 	}
 	return q
 }
