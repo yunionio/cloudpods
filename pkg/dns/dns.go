@@ -87,7 +87,8 @@ type SRegionDNS struct {
 	Region        string
 	K8sSkip       bool
 
-	K8sManager *k8s.SKubeClusterManager
+	K8sManager            *k8s.SKubeClusterManager
+	primaryZoneLabelCount int
 }
 
 func New() *SRegionDNS {
@@ -402,9 +403,13 @@ func (r *SRegionDNS) queryLocalDnsRecords(req *recordRequest) (recs []msg.Servic
 }
 
 func (r *SRegionDNS) isMyDomain(req *recordRequest) bool {
-	zones := []string{fmt.Sprintf("%s.", r.PrimaryZone)}
-	zone := plugin.Zones(zones).Matches(req.state.Name())
-	if zone != "" {
+	qname := req.state.Name()
+	qnameLabelCount := dns.CountLabel(qname)
+	if qnameLabelCount <= r.primaryZoneLabelCount {
+		return false
+	}
+	matched := dns.CompareDomainName(r.PrimaryZone, qname)
+	if matched == r.primaryZoneLabelCount {
 		return true
 	}
 	return false

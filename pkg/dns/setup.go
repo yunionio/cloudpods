@@ -21,6 +21,7 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 	"github.com/mholt/caddy"
+	"github.com/miekg/dns"
 
 	"yunion.io/x/pkg/util/regutils"
 )
@@ -44,6 +45,10 @@ func setup(c *caddy.Controller) error {
 	if !regutils.MatchDomainName(rDNS.PrimaryZone) {
 		return fmt.Errorf("dns_domain %q invalid", rDNS.PrimaryZone)
 	}
+	if r := rDNS.PrimaryZone[len(rDNS.PrimaryZone)-1]; r != '.' {
+		rDNS.PrimaryZone += "."
+	}
+	rDNS.primaryZoneLabelCount = dns.CountLabel(rDNS.PrimaryZone)
 
 	err = rDNS.initDB(c)
 	if err != nil {
