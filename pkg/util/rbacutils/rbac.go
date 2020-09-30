@@ -655,6 +655,7 @@ type sSimpleRbacIdentity struct {
 	domainId    string
 	projectName string
 	roleNames   []string
+	loginIp     string
 }
 
 func (id sSimpleRbacIdentity) GetProjectDomainId() string {
@@ -670,7 +671,7 @@ func (id sSimpleRbacIdentity) GetProjectName() string {
 }
 
 func (id sSimpleRbacIdentity) GetLoginIp() string {
-	return ""
+	return id.loginIp
 }
 
 func (id sSimpleRbacIdentity) GetTokenString() string {
@@ -678,10 +679,15 @@ func (id sSimpleRbacIdentity) GetTokenString() string {
 }
 
 func NewRbacIdentity(domainId, projectName string, roleNames []string) IRbacIdentity {
+	return NewRbacIdentity2(domainId, projectName, roleNames, "")
+}
+
+func NewRbacIdentity2(domainId, projectName string, roleNames []string, loginIp string) IRbacIdentity {
 	return sSimpleRbacIdentity{
 		domainId:    domainId,
 		projectName: projectName,
 		roleNames:   roleNames,
+		loginIp:     loginIp,
 	}
 }
 
