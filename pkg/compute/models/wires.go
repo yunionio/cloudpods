@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -362,8 +363,9 @@ func (self *SWire) syncWithCloudWire(ctx context.Context, userCred mcclient.Toke
 
 		if self.IsEmulated {
 			self.DomainId = vpc.DomainId
-			self.IsPublic = vpc.IsPublic
-			self.PublicScope = vpc.PublicScope
+			// self.IsPublic = vpc.IsPublic
+			// self.PublicScope = vpc.PublicScope
+			// self.PublicSrc = vpc.PublicSrc
 		}
 
 		return nil
@@ -375,6 +377,8 @@ func (self *SWire) syncWithCloudWire(ctx context.Context, userCred mcclient.Toke
 	if provider != nil && !self.IsEmulated {
 		SyncCloudDomain(userCred, self, provider.GetOwnerId())
 		self.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
+	} else if self.IsEmulated {
+		self.SaveSharedInfo(apis.TOwnerSource(vpc.PublicSrc), ctx, userCred, vpc.GetSharedInfo())
 	}
 
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
@@ -418,6 +422,7 @@ func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mccl
 	wire.DomainId = vpc.DomainId
 	wire.IsPublic = vpc.IsPublic
 	wire.PublicScope = vpc.PublicScope
+	wire.PublicSrc = vpc.PublicSrc
 
 	err = manager.TableSpec().Insert(ctx, &wire)
 	if err != nil {
