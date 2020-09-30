@@ -311,6 +311,42 @@ func (self *SSuggestSysRule) PerformDisable(ctx context.Context, userCred mcclie
 	return nil, nil
 }
 
+func (self *SSuggestSysRule) AllowPerformConfig(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "config")
+}
+
+func (self *SSuggestSysRule) PerformConfig(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	period, _ := data.GetString("period")
+	timeFrom, _ := data.GetString("time_from")
+	if len(period) != 0 {
+		period = parseDuration(period)
+		if _, err := time.ParseDuration(period); err != nil {
+			return data, httperrors.NewInputParameterError("Invalid period format: %s", period)
+		}
+	}
+	if len(timeFrom) != 0 {
+		timeFrom = parseDuration(timeFrom)
+		if _, err := time.ParseDuration(timeFrom); err != nil {
+			return data, httperrors.NewInputParameterError("Invalid time_from format: %s", timeFrom)
+		}
+	}
+	db.Update(self, func() error {
+		if len(period) != 0 {
+			self.Period = period
+		}
+		if len(timeFrom) != 0 {
+			self.TimeFrom = timeFrom
+
+		}
+		return nil
+	})
+	db.OpsLog.LogEvent(self, "modifyconfig", "", userCred)
+	self.updateCronjob()
+	return nil, nil
+}
+
 func (self *SSuggestSysRuleManager) AllowGetPropertyRuleType(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return true
 }
