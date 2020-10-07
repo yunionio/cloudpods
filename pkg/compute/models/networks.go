@@ -1942,10 +1942,10 @@ func (manager *SNetworkManager) ListItemFilter(
 		q = q.In("ifname_hint", input.IfnameHint)
 	}
 	if len(input.GuestIpStart) > 0 {
-		q = q.In("guest_ip_start", input.GuestIpStart)
+		q = q.Filter(sqlchemy.ContainsAny(q.Field("guest_ip_start"), input.GuestIpStart))
 	}
 	if len(input.GuestIpEnd) > 0 {
-		q = q.In("guest_ip_end", input.GuestIpEnd)
+		q = q.Filter(sqlchemy.ContainsAny(q.Field("guest_ip_end"), input.GuestIpEnd))
 	}
 	if len(input.GuestIpMask) > 0 {
 		q = q.In("guest_ip_mask", input.GuestIpMask)
@@ -2206,9 +2206,17 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 	ipSS, _ := netutils.NewIPV4Addr(self.GuestIpStart)
 	ipSE, _ := netutils.NewIPV4Addr(self.GuestIpEnd)
 
-	if ipNE.StepUp() == ipSS {
+	wireNets := make([]SNetwork, 0)
+	q := NetworkManager.Query().Equals("wire_id", self.WireId).NotEquals("id", self.Id).NotEquals("id", net.Id)
+	err = db.FetchModelObjects(NetworkManager, q, &wireNets)
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
+		return nil, errors.Wrap(err, "Query nets of same wire")
+	}
+
+	if ipNE.StepUp() == ipSS || (ipNE.StepUp() < ipSS && !isOverlapNetworks(wireNets, ipNE.StepUp(), ipSS.StepDown())) {
 		startIp, endIp = net.GuestIpStart, self.GuestIpEnd
-	} else if ipSE.StepUp() == ipNS {
+	} else if ipSE.StepUp() == ipNS || (ipSE.StepUp() < ipNS && !isOverlapNetworks(wireNets, ipSE.StepUp(), ipNS.StepDown())) {
 		startIp, endIp = self.GuestIpStart, net.GuestIpEnd
 	} else {
 		note := "Incontinuity Network for %s and %s"
