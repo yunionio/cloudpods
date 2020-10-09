@@ -51,7 +51,7 @@ type SInfluxdbShemaManager struct {
 
 func NewSuggestSysRuleManager() *SSuggestSysRuleManager {
 	man := NewMonitorV2Manager("suggestsysrule", "suggestsysrules",
-		[]string{"id", "name", "type", "enabled", "setting"},
+		[]string{"id", "name", "type", "enabled", "period", "time_from", "setting"},
 		[]string{})
 	return &SSuggestSysRuleManager{
 		ResourceManager: &man,
