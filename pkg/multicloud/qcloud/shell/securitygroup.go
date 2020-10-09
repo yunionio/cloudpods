@@ -25,12 +25,14 @@ import (
 
 func init() {
 	type SecurityGroupListOptions struct {
-		Name   string `help:"Secgroup Name"`
-		Limit  int    `help:"page size"`
-		Offset int    `help:"page offset"`
+		Ids    []string `help:"Secgroup Ids"`
+		VpcId  string   `help:"Vpc Id"`
+		Name   string   `help:"Secgroup Name"`
+		Limit  int      `help:"page size"`
+		Offset int      `help:"page offset"`
 	}
 	shellutils.R(&SecurityGroupListOptions{}, "security-group-list", "List SecurityGroup", func(cli *qcloud.SRegion, args *SecurityGroupListOptions) error {
-		secgrps, total, err := cli.GetSecurityGroups("", args.Name, args.Limit, args.Offset)
+		secgrps, total, err := cli.GetSecurityGroups(args.Ids, args.VpcId, args.Name, args.Limit, args.Offset)
 		if err != nil {
 			return err
 		}
@@ -42,12 +44,15 @@ func init() {
 		ID string `help:"SecurityGroup ID"`
 	}
 	shellutils.R(&SecurityGroupOptions{}, "security-group-show", "Show SecurityGroup", func(cli *qcloud.SRegion, args *SecurityGroupOptions) error {
-		secgroup, err := cli.GetSecurityGroupDetails(args.ID)
+		secgroups, _, err := cli.GetSecurityGroups([]string{args.ID}, "", "", 0, 1)
 		if err != nil {
 			return err
 		}
-		printObject(secgroup)
-		return nil
+		if len(secgroups) == 1 {
+			printObject(secgroups[0])
+			return nil
+		}
+		return cloudprovider.ErrNotFound
 	})
 
 	shellutils.R(&SecurityGroupOptions{}, "security-group-delete", "Delete SecurityGroup", func(cli *qcloud.SRegion, args *SecurityGroupOptions) error {

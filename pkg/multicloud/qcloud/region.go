@@ -931,11 +931,19 @@ func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket
 }
 
 func (self *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
-	return self.GetSecurityGroupDetails(secgroupId)
+	secgroups, total, err := self.GetSecurityGroups([]string{secgroupId}, "", "", 0, 1)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetSecurityGroups(%s)", secgroupId)
+	}
+	if total < 1 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	secgroups[0].region = self
+	return &secgroups[0], nil
 }
 
 func (self *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
-	secgroups, total, err := self.GetSecurityGroups(opts.VpcId, opts.Name, 0, 0)
+	secgroups, total, err := self.GetSecurityGroups([]string{}, opts.VpcId, opts.Name, 0, 0)
 	if err != nil {
 		return nil, err
 	}
