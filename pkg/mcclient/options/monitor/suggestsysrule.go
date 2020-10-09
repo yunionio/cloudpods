@@ -27,8 +27,34 @@ type SuggestRuleListOptions struct {
 	options.BaseListOptions
 }
 
+func (o *SuggestRuleListOptions) Params() (jsonutils.JSONObject, error) {
+	return options.ListStructToParams(o)
+}
+
 type SuggestRuleShowOptions struct {
 	ID string `help:"ID or name of the alert" json:"-"`
+}
+
+func (o *SuggestRuleShowOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
+}
+
+func (o *SuggestRuleShowOptions) GetId() string {
+	return o.ID
+}
+
+type SuggestRuleConfigOptions struct {
+	ID       string `help:"ID or name of the alert" json:"-"`
+	Period   string `help:"Period of suggest rule e.g. '5s', '1m'"`
+	TimeFrom string `help:"TimeFrom of suggest rule e.g. '24h'"`
+}
+
+func (o *SuggestRuleConfigOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
+}
+
+func (o *SuggestRuleConfigOptions) GetId() string {
+	return o.ID
 }
 
 type SuggestSysRuleAlertSettingOptions struct {
@@ -43,7 +69,7 @@ type SuggestRuleCreateOptions struct {
 	Period  string `help:"Period of suggest rule e.g. '5s', '1m'" default:"30s"`
 }
 
-func (opt SuggestRuleCreateOptions) Params() (jsonutils.JSONObject, error) {
+func (opt *SuggestRuleCreateOptions) Params() (jsonutils.JSONObject, error) {
 	input := new(monitor.SuggestSysRuleCreateInput)
 	input.Name = opt.Name
 	input.Period = opt.Period
@@ -119,5 +145,13 @@ func newSuggestSysAlertSetting(tp string) *monitor.SSuggestSysAlertSetting {
 }
 
 type SuggestRuleDeleteOptions struct {
-	ID []string `help:"ID of alert to delete"`
+	ID string `help:"ID of alert to delete"`
+}
+
+func (o *SuggestRuleDeleteOptions) GetId() string {
+	return o.ID
+}
+
+func (o *SuggestRuleDeleteOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
 }

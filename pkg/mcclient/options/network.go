@@ -40,6 +40,9 @@ type NetworkListOptions struct {
 	IsClassic   *bool `help:"search classic on-premise network"`
 
 	Status string `help:"filter by network status"`
+
+	GuestIpStart []string `help:"search by guest_ip_start"`
+	GuestIpEnd   []string `help:"search by guest_ip_end"`
 }
 
 func (opts *NetworkListOptions) GetContextId() string {

@@ -99,6 +99,9 @@ func (rule *SSuggestSysRule) GetType() monitor.SuggestDriverType {
 //根据数据库中查询得到的信息进行适配转换，同时更新drivers中的内容
 func (rule *SSuggestSysRule) getSuggestSysAlertSetting() (*monitor.SSuggestSysAlertSetting, error) {
 	setting := new(monitor.SSuggestSysAlertSetting)
+	if rule.Setting == nil {
+		rule.Setting = jsonutils.NewDict()
+	}
 	err := rule.Setting.Unmarshal(setting)
 	if err != nil {
 		return nil, errors.Wrap(err, "SSuggestSysRule getSuggestSysAlertSetting error")
@@ -177,6 +180,8 @@ func (man *SSuggestSysRuleManager) ValidateCreateData(
 			if err := dri.ValidateSetting(data.Setting); err != nil {
 				return data, errors.Wrap(err, "validate setting error")
 			}
+		} else {
+			data.Setting = new(monitor.SSuggestSysAlertSetting)
 		}
 	}
 	return data, nil
@@ -303,6 +308,42 @@ func (self *SSuggestSysRule) PerformDisable(ctx context.Context, userCred mcclie
 		db.OpsLog.LogEvent(self, db.ACT_DISABLE, "", userCred)
 		self.updateCronjob()
 	}
+	return nil, nil
+}
+
+func (self *SSuggestSysRule) AllowPerformConfig(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "config")
+}
+
+func (self *SSuggestSysRule) PerformConfig(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	period, _ := data.GetString("period")
+	timeFrom, _ := data.GetString("time_from")
+	if len(period) != 0 {
+		period = parseDuration(period)
+		if _, err := time.ParseDuration(period); err != nil {
+			return data, httperrors.NewInputParameterError("Invalid period format: %s", period)
+		}
+	}
+	if len(timeFrom) != 0 {
+		timeFrom = parseDuration(timeFrom)
+		if _, err := time.ParseDuration(timeFrom); err != nil {
+			return data, httperrors.NewInputParameterError("Invalid time_from format: %s", timeFrom)
+		}
+	}
+	db.Update(self, func() error {
+		if len(period) != 0 {
+			self.Period = period
+		}
+		if len(timeFrom) != 0 {
+			self.TimeFrom = timeFrom
+
+		}
+		return nil
+	})
+	db.OpsLog.LogEvent(self, "modifyconfig", "", userCred)
+	self.updateCronjob()
 	return nil, nil
 }
 

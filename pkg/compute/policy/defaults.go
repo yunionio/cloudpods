@@ -131,6 +131,30 @@ var (
 					Action:   PolicyActionList,
 					Result:   rbacutils.Allow,
 				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "dns_recordsets",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "dns_recodsets",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "dns_zonecaches",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "dns_zonecaches",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
 			},
 		},
 		{

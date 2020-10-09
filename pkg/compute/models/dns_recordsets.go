@@ -152,40 +152,78 @@ func (manager *SDnsRecordSetManager) ValidateCreateData(ctx context.Context, use
 	}
 
 	// 处理重复的记录
-	dupedRecordsets := make([]SDnsRecordSet, 0)
-	err = DnsRecordSetManager.Query().Equals("dns_zone_id", input.DnsZoneId).Equals("name", input.Name).Equals("dns_type", input.DnsType).All(&dupedRecordsets)
-	if err != nil && errors.Cause(err) != sql.ErrNoRows {
-		return input, httperrors.NewGeneralError(err)
-	}
+
+	// CNAME  dnsName不能和其他类型record相同
+
+	// 同dnsName 同dnsType重复检查
 	// 检查dnsrecord 是否通过policy重复
 	// simple类型不能重复，不能和其他policy重复
 	// 不同类型policy不能重复
 	// 同类型policy的dnsrecord重复时，需要通过policyvalue区别
-	for i := range dupedRecordsets {
-		sq := DnsRecordSetTrafficPolicyManager.Query("dns_traffic_policy_id").Equals("dns_recordset_id", dupedRecordsets[i].Id)
-		q := DnsTrafficPolicyManager.Query().In("id", sq.SubQuery())
-		policies := []SDnsTrafficPolicy{}
-		err := db.FetchModelObjects(DnsTrafficPolicyManager, q, &policies)
-		if err != nil {
-			return input, httperrors.NewGeneralError(errors.Wrap(err, "db.FetchModelObjects"))
-		}
-		if len(policies) < 1 || len(input.TrafficPolicies) < 1 {
-			return input, httperrors.NewNotSupportedError("duplicated dnsrecord with simple policy not support")
-		}
-		for j := range policies {
-			for k := range input.TrafficPolicies {
-				if policies[j].Provider != input.TrafficPolicies[k].Provider {
-					continue
-				}
-				if strings.Contains(policies[j].Name, "Simple") ||
-					strings.Contains(input.TrafficPolicies[k].PolicyType, "Simple") ||
-					policies[j].PolicyType != input.TrafficPolicies[k].PolicyType {
-					return input, httperrors.NewNotSupportedError("duplicated dnsrecord with different policyType not support")
-				}
-				if policies[j].PolicyValue == input.TrafficPolicies[k].PolicyValue {
-					return input, httperrors.NewNotSupportedError("duplicated dnsrecord with same policyValue not support")
-				}
+
+	// validate name type
+	q := DnsRecordSetManager.Query().Equals("dns_zone_id", input.DnsZoneId).Equals("name", input.Name)
+	recordTypeQuery := q
+	switch input.DnsType {
+	case "CNAME":
+		recordTypeQuery = recordTypeQuery.NotEquals("dns_type", "CNAME")
+	default:
+		recordTypeQuery = recordTypeQuery.Equals("dns_type", "CNAME")
+	}
+
+	cnt, err := recordTypeQuery.CountWithError()
+	if err != nil {
+		return input, httperrors.NewGeneralError(err)
+	}
+	if cnt > 0 {
+		return input, httperrors.NewNotSupportedError("duplicated with CNAME dnsrecord name not support")
+	}
+
+	//validate policy
+
+	policyQuery := DnsRecordSetManager.Query().Equals("dns_zone_id", input.DnsZoneId).Equals("name", input.Name).Equals("dns_type", input.DnsType)
+	if len(input.TrafficPolicies) > 0 {
+		for i := range input.TrafficPolicies {
+			dupeDnsrecord := DnsRecordSetManager.Query().Equals("dns_zone_id", input.DnsZoneId).Equals("name", input.Name).Equals("dns_type", input.DnsType).SubQuery()
+			provider := input.TrafficPolicies[i].Provider
+			policyType := input.TrafficPolicies[i].PolicyType
+			policyValue := input.TrafficPolicies[i].PolicyValue
+
+			policyQuery := dupeDnsrecord.Query()
+			dnsrecordTrafficPolicies := DnsRecordSetTrafficPolicyManager.Query().SubQuery()
+			dnstrafficPolicy := DnsTrafficPolicyManager.Query().SubQuery()
+
+			policyQuery = policyQuery.LeftJoin(dnsrecordTrafficPolicies, sqlchemy.Equals(dupeDnsrecord.Field("id"), dnsrecordTrafficPolicies.Field("dns_recordset_id")))
+			policyQuery = policyQuery.LeftJoin(dnstrafficPolicy, sqlchemy.Equals(dnsrecordTrafficPolicies.Field("dns_traffic_policy_id"), dnstrafficPolicy.Field("id")))
+			policyQuery = policyQuery.Filter(sqlchemy.OR(
+				sqlchemy.IsNullOrEmpty(dnsrecordTrafficPolicies.Field("dns_traffic_policy_id")), // 无trafficPolicy的重复dnsrecord
+				sqlchemy.Contains(dnstrafficPolicy.Field("name"), "Simple"),                     // 简单 trafficPolicy的重复dnsrecord
+				sqlchemy.AND(
+					sqlchemy.Equals(dnstrafficPolicy.Field("provider"), provider), // 只看相同provider
+					sqlchemy.OR(
+						sqlchemy.NotEquals(dnstrafficPolicy.Field("policy_type"), policyType), // policy类型不同的重复dnsrecord
+						sqlchemy.AND(
+							sqlchemy.Equals(dnstrafficPolicy.Field("policy_type"), policyType), // policy类型相同但未通过policyvalue区分的的重复dnsrecord
+							sqlchemy.Equals(dnstrafficPolicy.Field("policy_value"), policyValue)),
+					),
+				),
+			))
+			policyQuery.DebugQuery()
+			cnt, err = policyQuery.CountWithError()
+			if err != nil {
+				return input, httperrors.NewGeneralError(err)
 			}
+			if cnt > 0 {
+				return input, httperrors.NewNotSupportedError("duplicated dnsrecord with existed dnsrecord can not distinguish by %s policy", provider)
+			}
+		}
+	} else {
+		cnt, err = policyQuery.CountWithError()
+		if err != nil {
+			return input, httperrors.NewGeneralError(err)
+		}
+		if cnt > 0 {
+			return input, httperrors.NewNotSupportedError("duplicated dnsrecord with existed dnsrecord not support")
 		}
 	}
 
@@ -352,9 +390,6 @@ func (manager *SDnsRecordSetManager) FilterByUniqValues(q *sqlchemy.SQuery, valu
 	if len(uniq.DnsName) > 0 {
 		q = q.Equals("name", uniq.DnsName)
 	}
-	if uniq.DnsType == "CNAME" {
-		return q
-	}
 	if len(uniq.DnsType) > 0 {
 		q = q.Equals("dns_type", uniq.DnsType)
 	}
@@ -385,6 +420,14 @@ func (manager *SDnsRecordSetManager) FilterByOwner(q *sqlchemy.SQuery, userCred 
 
 func (manager *SDnsRecordSetManager) ResourceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeDomain
+}
+
+func (self *SDnsRecordSet) IsSharable(reqUsrId mcclient.IIdentityProvider) bool {
+	dnsZone, err := self.GetDnsZone()
+	if err != nil {
+		return false
+	}
+	return dnsZone.IsSharable(reqUsrId)
 }
 
 func (self *SDnsRecordSet) GetOwnerId() mcclient.IIdentityProvider {
@@ -436,25 +479,23 @@ func (self *SDnsRecordSet) ValidateUpdateData(ctx context.Context, userCred mccl
 		return input, httperrors.NewGeneralError(errors.Wrapf(err, "GetDnsZone"))
 	}
 
+	if len(input.DnsType) == 0 {
+		input.DnsType = self.DnsType
+	}
+	if len(input.DnsValue) == 0 {
+		input.DnsValue = self.DnsValue
+	}
+	if input.TTL == nil {
+		input.TTL = &self.TTL
+	}
+	if input.MxPriority == nil {
+		input.MxPriority = &self.MxPriority
+	}
 	recordset := api.SDnsRecordSet{}
 	recordset.DnsType = input.DnsType
 	recordset.DnsValue = input.DnsValue
-	if len(recordset.DnsType) == 0 {
-		recordset.DnsType = self.DnsType
-	}
-	if len(recordset.DnsValue) == 0 {
-		recordset.DnsValue = self.DnsValue
-	}
-	if input.TTL != nil {
-		recordset.TTL = *input.TTL
-	} else {
-		recordset.TTL = self.TTL
-	}
-	if input.MxPriority != nil {
-		recordset.MxPriority = *input.MxPriority
-	} else {
-		recordset.MxPriority = self.MxPriority
-	}
+	recordset.TTL = *input.TTL
+	recordset.MxPriority = *input.MxPriority
 
 	err = recordset.ValidateDnsrecordValue()
 	if err != nil {
@@ -466,61 +507,95 @@ func (self *SDnsRecordSet) ValidateUpdateData(ctx context.Context, userCred mccl
 	}
 
 	// 处理重复的记录
-	dupedRecordsets := make([]SDnsRecordSet, 0)
-	q := DnsRecordSetManager.Query().Equals("dns_zone_id", dnsZone.Id).Equals("name", input.Name).Equals("dns_type", input.DnsType).NotEquals("id", self.Id)
-	err = q.All(&dupedRecordsets)
-	if err != nil && errors.Cause(err) != sql.ErrNoRows {
-		return input, httperrors.NewGeneralError(err)
-	}
+
+	// CNAME  dnsName不能和其他类型record相同
+
+	// 同dnsName 同dnsType重复检查
 	// 检查dnsrecord 是否通过policy重复
 	// simple类型不能重复，不能和其他policy重复
 	// 不同类型policy不能重复
 	// 同类型policy的dnsrecord重复时，需要通过policyvalue区别
 
-	oldPolicies, err := self.GetDnsTrafficPolicies()
+	// validate name type
+	q := DnsRecordSetManager.Query().Equals("dns_zone_id", dnsZone.Id).NotEquals("id", self.Id).Equals("name", input.Name)
+	recordTypeQuery := q
+	switch input.DnsType {
+	case "CNAME":
+		recordTypeQuery = recordTypeQuery.NotEquals("dns_type", "CNAME")
+	default:
+		recordTypeQuery = recordTypeQuery.Equals("dns_type", "CNAME")
+	}
+
+	cnt, err := recordTypeQuery.CountWithError()
 	if err != nil {
 		return input, httperrors.NewGeneralError(err)
 	}
-	for i := range dupedRecordsets {
-		sq := DnsRecordSetTrafficPolicyManager.Query("dns_traffic_policy_id").Equals("dns_recordset_id", dupedRecordsets[i].Id)
-		q := DnsTrafficPolicyManager.Query().In("id", sq.SubQuery())
-		policies := []SDnsTrafficPolicy{}
-		err := db.FetchModelObjects(DnsTrafficPolicyManager, q, &policies)
+	if cnt > 0 {
+		return input, httperrors.NewNotSupportedError("duplicated with CNAME dnsrecord name not support")
+	}
+
+	//validate policy
+	policies, err := self.GetDnsTrafficPolicies()
+	if err != nil {
+		return input, httperrors.NewGeneralError(err)
+	}
+	policyMap := map[string]SDnsTrafficPolicy{}
+	for i := range policies {
+		policyMap[policies[i].Provider] = policies[i]
+	}
+	for i := range input.TrafficPolicies {
+		inputPolicy := input.TrafficPolicies[i]
+		policyMap[inputPolicy.Provider] = SDnsTrafficPolicy{
+			Provider:    inputPolicy.Provider,
+			PolicyType:  inputPolicy.PolicyType,
+			PolicyValue: inputPolicy.PolicyValue,
+			Options:     inputPolicy.PolicyOptions,
+		}
+	}
+
+	policyQuery := DnsRecordSetManager.Query().Equals("dns_zone_id", dnsZone.Id).NotEquals("id", self.Id).Equals("name", input.Name).Equals("dns_type", input.DnsType)
+	if len(policyMap) > 0 {
+		for i := range policyMap {
+			dupeDnsrecord := DnsRecordSetManager.Query().Equals("dns_zone_id", dnsZone.Id).NotEquals("id", self.Id).Equals("name", input.Name).Equals("dns_type", input.DnsType).SubQuery()
+			provider := policyMap[i].Provider
+			policyType := policyMap[i].PolicyType
+			policyValue := policyMap[i].PolicyValue
+
+			policyQuery := dupeDnsrecord.Query()
+			dnsrecordTrafficPolicies := DnsRecordSetTrafficPolicyManager.Query().SubQuery()
+			dnstrafficPolicy := DnsTrafficPolicyManager.Query().SubQuery()
+
+			policyQuery = policyQuery.LeftJoin(dnsrecordTrafficPolicies, sqlchemy.Equals(dupeDnsrecord.Field("id"), dnsrecordTrafficPolicies.Field("dns_recordset_id")))
+			policyQuery = policyQuery.LeftJoin(dnstrafficPolicy, sqlchemy.Equals(dnsrecordTrafficPolicies.Field("dns_traffic_policy_id"), dnstrafficPolicy.Field("id")))
+			policyQuery = policyQuery.Filter(sqlchemy.OR(
+				sqlchemy.IsNullOrEmpty(dnsrecordTrafficPolicies.Field("dns_traffic_policy_id")), // 无trafficPolicy的重复dnsrecord
+				sqlchemy.Contains(dnstrafficPolicy.Field("name"), "Simple"),                     // 简单 trafficPolicy的重复dnsrecord
+				sqlchemy.AND(
+					sqlchemy.Equals(dnstrafficPolicy.Field("provider"), provider), // 只看相同provider
+					sqlchemy.OR(
+						sqlchemy.NotEquals(dnstrafficPolicy.Field("policy_type"), policyType), // policy类型不同的重复dnsrecord
+						sqlchemy.AND(
+							sqlchemy.Equals(dnstrafficPolicy.Field("policy_type"), policyType), // policy类型相同但未通过policyvalue区分的的重复dnsrecord
+							sqlchemy.Equals(dnstrafficPolicy.Field("policy_value"), policyValue)),
+					),
+				),
+			))
+			policyQuery.DebugQuery()
+			cnt, err = policyQuery.CountWithError()
+			if err != nil {
+				return input, httperrors.NewGeneralError(err)
+			}
+			if cnt > 0 {
+				return input, httperrors.NewNotSupportedError("duplicated dnsrecord with existed dnsrecord can not distinguish by %s policy", provider)
+			}
+		}
+	} else {
+		cnt, err = policyQuery.CountWithError()
 		if err != nil {
-			return input, httperrors.NewGeneralError(errors.Wrap(err, "db.FetchModelObjects"))
+			return input, httperrors.NewGeneralError(err)
 		}
-		if len(policies) < 1 || (len(input.TrafficPolicies) < 1 && len(oldPolicies) < 1) {
-			return input, httperrors.NewNotSupportedError("duplicated dnsrecord with simple policy not support")
-		}
-		for j := range policies {
-			for k := range input.TrafficPolicies {
-				if policies[j].Provider != input.TrafficPolicies[k].Provider {
-					continue
-				}
-				if strings.Contains(policies[j].Name, "Simple") ||
-					strings.Contains(input.TrafficPolicies[k].PolicyType, "Simple") ||
-					policies[j].PolicyType != input.TrafficPolicies[k].PolicyType {
-					return input, httperrors.NewNotSupportedError("duplicated dnsrecord with different policyType not support")
-				}
-				if policies[j].PolicyValue == input.TrafficPolicies[k].PolicyValue {
-					return input, httperrors.NewNotSupportedError("duplicated dnsrecord with same policyValue not support")
-				}
-			}
-			if len(input.TrafficPolicies) < 1 {
-				for k := range oldPolicies {
-					if policies[j].Provider != input.TrafficPolicies[k].Provider {
-						continue
-					}
-					if strings.Contains(policies[j].Name, "Simple") ||
-						strings.Contains(oldPolicies[k].PolicyType, "Simple") ||
-						policies[j].PolicyType != oldPolicies[k].PolicyType {
-						return input, httperrors.NewNotSupportedError("duplicated dnsrecord with different policyType not support")
-					}
-					if policies[j].PolicyValue == oldPolicies[k].PolicyValue {
-						return input, httperrors.NewNotSupportedError("duplicated dnsrecord with same policyValue not support")
-					}
-				}
-			}
+		if cnt > 0 {
+			return input, httperrors.NewNotSupportedError("duplicated dnsrecord with existed dnsrecord not support")
 		}
 	}
 	return input, nil
