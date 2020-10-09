@@ -211,23 +211,13 @@ func (c *SAgentImageCacheManager) prefetchImageCacheByUpload(ctx context.Context
 }
 
 func (c *SAgentImageCacheManager) perfetchTemplateVMImageCache(ctx context.Context, data *sImageCacheData) (jsonutils.JSONObject, error) {
-
 	client, err := esxi.NewESXiClientFromAccessInfo(ctx, &data.Datastore)
 	if err != nil {
 		return nil, errors.Wrap(err, "esxi.NewESXiClientFromJson")
 	}
-	// data.StorageCacheExternalId is Host Ip associated with the StorageCache in where CachedImage stored
-	host, err := client.FindHostByIp(data.StorageCacheHostIp)
+	_, err = client.SearchTemplateVM(data.ImageExternalId)
 	if err != nil {
-		return nil, err
-	}
-	dc, err := host.GetDatacenter()
-	if err != nil {
-		return nil, errors.Wrap(err, "host.GetDatacenter")
-	}
-	_, err = dc.FetchTemplateVMById(data.ImageExternalId)
-	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "SEsxiClient.SearchTemplateVM for image %q", data.ImageExternalId)
 	}
 	res := jsonutils.NewDict()
 	res.Add(jsonutils.NewString(data.ImageExternalId), "image_id")
