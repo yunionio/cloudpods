@@ -728,6 +728,25 @@ func (manager *SCachedimageManager) ListItemFilter(
 		q = q.In("image_type", query.ImageType)
 	}
 
+	if len(query.HostSchedtagId) > 0 {
+		schedTagObj, err := SchedtagManager.FetchByIdOrName(userCred, query.HostSchedtagId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", SchedtagManager.Keyword(), query.HostSchedtagId)
+			} else {
+				return nil, errors.Wrap(err, "SchedtagManager.FetchByIdOrName")
+			}
+		}
+		subq := StoragecachedimageManager.Query("cachedimage_id")
+		storages := StorageManager.Query("id", "storagecache_id").SubQuery()
+		hoststorages := HoststorageManager.Query("host_id", "storage_id").SubQuery()
+		hostschedtags := HostschedtagManager.Query().Equals("schedtag_id", schedTagObj.GetId()).SubQuery()
+		subq = subq.Join(storages, sqlchemy.Equals(storages.Field("storagecache_id"), subq.Field("storagecache_id")))
+		subq = subq.Join(hoststorages, sqlchemy.Equals(hoststorages.Field("storage_id"), storages.Field("id")))
+		subq = subq.Join(hostschedtags, sqlchemy.Equals(hostschedtags.Field("host_id"), hoststorages.Field("host_id")))
+		q = q.In("id", subq.SubQuery())
+	}
+
 	return q, nil
 }
 
