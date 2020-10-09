@@ -1351,7 +1351,7 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 		ret := make([]sCreateResult, len(multiData))
 		for i := range multiData {
 			var model IModel
-			model, err = batchCreateDoCreateItem(manager, ctx, userCred, ownerId, query, multiData[i], i)
+			model, err = batchCreateDoCreateItem(manager, ctx, userCred, ownerId, query, multiData[i], i+1)
 			if err == nil {
 				ret[i] = sCreateResult{model: model, err: nil}
 			} else {
