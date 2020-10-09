@@ -66,21 +66,28 @@ func init() {
 			}
 		}
 		if vm {
-			vmips, err := cli.VMIP2()
+			vmipinfos, err := cli.VMIP2()
 			if err != nil {
 				return errors.Wrap(err, "VMIP2")
 			}
 			//split
-			for n, ips := range vmips {
-				if len(ips) == 0 && len(args.Cidr) == 0 {
-					list = append(list, IPDetails{
-						Name:   n,
-						Type:   "vm",
-						Ip:     "",
-						Ipaddr: 0,
-					})
-				}
-				for _, ip := range ips {
+			for i := range vmipinfos {
+				for _, macip := range vmipinfos[i].MacIps {
+					mac := macip.Mac
+					if len(macip.IPs) == 0 {
+						list = append(list, IPDetails{
+							Name:       vmipinfos[i].Name,
+							Mac:        mac,
+							Uuid:       vmipinfos[i].Uuid,
+							Moid:       vmipinfos[i].Moid,
+							PowerState: vmipinfos[i].PowerState,
+							Type:       "vm",
+							Ip:         "",
+							Ipaddr:     0,
+						})
+						continue
+					}
+					ip := macip.IPs[0]
 					ipaddr, err := netutils.NewIPV4Addr(ip)
 					if err != nil {
 						return errors.Wrapf(err, "NewIPV4Addr for ip %s", ip)
@@ -88,11 +95,16 @@ func init() {
 					if len(args.Cidr) > 0 && !cidr.Contains(ipaddr) {
 						continue
 					}
+
 					list = append(list, IPDetails{
-						Name:   n,
-						Type:   "vm",
-						Ip:     ip,
-						Ipaddr: ipaddr,
+						Name:       vmipinfos[i].Name,
+						Mac:        mac,
+						Uuid:       vmipinfos[i].Uuid,
+						Moid:       vmipinfos[i].Moid,
+						PowerState: vmipinfos[i].PowerState,
+						Type:       "vm",
+						Ip:         ip,
+						Ipaddr:     ipaddr,
 					})
 				}
 			}
@@ -101,18 +113,34 @@ func init() {
 		sort.Slice(list, func(i, j int) bool {
 			return list[i].Ipaddr < list[j].Ipaddr
 		})
-		printList(list, []string{"name", "type", "ip"})
+		printList(list, []string{"name", "type", "ip", "mac", "Power_State", "uuid", "moid"})
 		return nil
 	})
 }
 
 type IPDetails struct {
-	Name   string
-	Type   string
-	Ip     string
-	Ipaddr netutils.IPV4Addr
+	Moid       string
+	PowerState string
+	Uuid       string
+	Name       string
+	Type       string
+	Ip         string
+	Mac        string
+	Ipaddr     netutils.IPV4Addr
 }
 
+func (i IPDetails) GetMoid() string {
+	return i.Moid
+}
+func (i IPDetails) GetPowerState() string {
+	return i.PowerState
+}
+func (i IPDetails) GetUuid() string {
+	return i.Uuid
+}
+func (i IPDetails) GetMac() string {
+	return i.Mac
+}
 func (i IPDetails) GetName() string {
 	return i.Name
 }

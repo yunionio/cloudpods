@@ -23,7 +23,7 @@ import (
 
 var HOST_PROPS = []string{"name", "config.network", "vm"}
 
-var VM_PROPS = []string{"name", "guest.net", "config.template"}
+var VM_PROPS = []string{"name", "guest.net", "config.template", "summary.config.uuid", "summary.runtime.powerState"}
 
 func (cli *SESXiClient) AllHostIP() (map[string]string, []mo.HostSystem, error) {
 	var hosts []mo.HostSystem
@@ -69,13 +69,26 @@ func (cli *SESXiClient) VMIP(host mo.HostSystem) (map[string][]string, error) {
 	return ret, nil
 }
 
-func (cli *SESXiClient) VMIP2() (map[string][]string, error) {
+type SVMIPInfo struct {
+	Moid       string
+	PowerState string
+	Name       string
+	Uuid       string
+	MacIps     []SMacIps
+}
+
+type SMacIps struct {
+	Mac string
+	IPs []string
+}
+
+func (cli *SESXiClient) VMIP2() ([]SVMIPInfo, error) {
 	var vms []mo.VirtualMachine
 	err := cli.scanAllMObjects(VM_PROPS, &vms)
 	if err != nil {
 		return nil, errors.Wrap(err, "scanAllMObjects")
 	}
-	ret := make(map[string][]string, len(vms))
+	ret := make([]SVMIPInfo, 0, len(vms))
 	for i := range vms {
 		vm := vms[i]
 		if vm.Config != nil && vm.Config.Template {
@@ -84,15 +97,29 @@ func (cli *SESXiClient) VMIP2() (map[string][]string, error) {
 		if vm.Guest == nil {
 			continue
 		}
-		guestIps := make([]string, 0)
+		info := SVMIPInfo{
+			Moid:       vm.Reference().Value,
+			PowerState: string(vm.Summary.Runtime.PowerState),
+			Uuid:       vm.Summary.Config.Uuid,
+			Name:       vm.Name,
+		}
+		macIps := make([]SMacIps, 0, len(vm.Guest.Net))
 		for _, net := range vm.Guest.Net {
+			if len(net.Network) == 0 {
+				continue
+			}
+			macip := SMacIps{
+				Mac: net.MacAddress,
+			}
 			for _, ip := range net.IpAddress {
 				if regutils.MatchIP4Addr(ip) {
-					guestIps = append(guestIps, ip)
+					macip.IPs = append(macip.IPs, ip)
 				}
 			}
+			macIps = append(macIps, macip)
 		}
-		ret[vm.Name] = guestIps
+		info.MacIps = macIps
+		ret = append(ret, info)
 	}
 	return ret, nil
 }
