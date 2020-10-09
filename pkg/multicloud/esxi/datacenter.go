@@ -256,7 +256,12 @@ func (dc *SDatacenter) fetchVms(vmRefs []types.ManagedObjectReference, all bool)
 	vms := make([]*SVirtualMachine, 0, len(movms))
 	for i := range movms {
 		if all || !strings.HasPrefix(movms[i].Entity().Name, api.ESXI_IMAGE_CACHE_TMP_PREFIX) {
-			vms = append(vms, NewVirtualMachine(dc.manager, &movms[i], dc))
+			vm := NewVirtualMachine(dc.manager, &movms[i], dc)
+			// must
+			if vm == nil {
+				continue
+			}
+			vms = append(vms, vm)
 		}
 	}
 	return vms, nil
