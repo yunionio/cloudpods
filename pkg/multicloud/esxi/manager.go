@@ -386,6 +386,9 @@ func (cli *SESXiClient) scanMObjectsWithFilter(folder types.ManagedObjectReferen
 
 	err = v.RetrieveWithFilter(cli.context, []string{resType}, props, dst, filter)
 	if err != nil {
+		if strings.Contains(err.Error(), "object references is empty") {
+			return nil
+		}
 		return errors.Wrapf(err, "v.RetrieveWithFilter %s", resType)
 	}
 

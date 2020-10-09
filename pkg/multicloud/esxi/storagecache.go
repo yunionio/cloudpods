@@ -99,7 +99,7 @@ func (self *SDatastoreImageCache) GetPath() string {
 	return path.Join(self.datastore.GetMountPoint(), IMAGE_CACHE_DIR_NAME)
 }
 
-func (self *SDatastoreImageCache) getTempalteVM() ([]SVirtualMachine, error) {
+func (self *SDatastoreImageCache) getTempalteVM() ([]*SVirtualMachine, error) {
 	dc := self.datastore.datacenter
 	modc := dc.getDatacenter()
 	mods := self.datastore.getDatastore()
@@ -111,16 +111,17 @@ func (self *SDatastoreImageCache) getTempalteVM() ([]SVirtualMachine, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "scanMObjectsWithFilter")
 	}
-	ret := make([]SVirtualMachine, 0, len(templates))
+	ret := make([]*SVirtualMachine, 0, len(templates))
 	for i := range templates {
-		ret = append(ret, *NewVirtualMachine(self.datastore.manager, &templates[i], self.datastore.datacenter))
+		ret = append(ret, NewVirtualMachine(self.datastore.manager, &templates[i], self.datastore.datacenter))
 	}
 	return ret, nil
 }
 
-func (self *SDatastoreImageCache) getFakeTempateVM() ([]SVirtualMachine, error) {
-	if tempalteNameRegex == nil {
-		return []SVirtualMachine{}, nil
+func (self *SDatastoreImageCache) GetFakeTempateVM(regex string) ([]*SVirtualMachine, error) {
+	tNameRegex, err := regexp.Compile(regex)
+	if err != nil {
+		return nil, err
 	}
 	dc := self.datastore.datacenter
 	modc := dc.getDatacenter()
@@ -128,6 +129,44 @@ func (self *SDatastoreImageCache) getFakeTempateVM() ([]SVirtualMachine, error) 
 	var vms []mo.VirtualMachine
 	filter := property.Filter{}
 	filter["datastore"] = mods.Reference()
+	filter["summary.runtime.powerState"] = types.VirtualMachinePowerStatePoweredOff
+	err = self.datastore.manager.scanMObjectsWithFilter(modc.Reference(), []string{"name"}, &vms, filter)
+	if err != nil {
+		return nil, errors.Wrap(err, "scanMObjectsWithFilter")
+	}
+	objs := make([]types.ManagedObjectReference, 0)
+	for i := range vms {
+		name := vms[i].Name
+		if tNameRegex.MatchString(name) {
+			objs = append(objs, vms[i].Reference())
+		}
+	}
+	if len(objs) == 0 {
+		return nil, nil
+	}
+	templates := make([]mo.VirtualMachine, 0, len(objs))
+	err = self.datastore.manager.references2Objects(objs, VIRTUAL_MACHINE_PROPS, &templates)
+	if err != nil {
+		return nil, errors.Wrap(err, "references2Objects")
+	}
+	ret := make([]*SVirtualMachine, 0, len(templates))
+	for i := range templates {
+		ret = append(ret, NewVirtualMachine(self.datastore.manager, &templates[i], self.datastore.datacenter))
+	}
+	return ret, nil
+}
+
+func (self *SDatastoreImageCache) getFakeTempateVM() ([]*SVirtualMachine, error) {
+	if tempalteNameRegex == nil {
+		return []*SVirtualMachine{}, nil
+	}
+	dc := self.datastore.datacenter
+	modc := dc.getDatacenter()
+	mods := self.datastore.getDatastore()
+	var vms []mo.VirtualMachine
+	filter := property.Filter{}
+	filter["datastore"] = mods.Reference()
+	filter["summary.runtime.powerState"] = types.VirtualMachinePowerStatePoweredOff
 	err := self.datastore.manager.scanMObjectsWithFilter(modc.Reference(), []string{"name"}, &vms, filter)
 	if err != nil {
 		return nil, errors.Wrap(err, "scanMObjectsWithFilter")
@@ -139,17 +178,25 @@ func (self *SDatastoreImageCache) getFakeTempateVM() ([]SVirtualMachine, error) 
 			objs = append(objs, vms[i].Reference())
 		}
 	}
-	templates := make([]SVirtualMachine, 0, len(objs))
+	if len(objs) == 0 {
+		return nil, nil
+	}
+	templates := make([]mo.VirtualMachine, 0, len(objs))
 	err = self.datastore.manager.references2Objects(objs, VIRTUAL_MACHINE_PROPS, &templates)
 	if err != nil {
 		return nil, errors.Wrap(err, "references2Objects")
 	}
-	return templates, nil
+	ret := make([]*SVirtualMachine, 0, len(templates))
+	for i := range templates {
+		ret = append(ret, NewVirtualMachine(self.datastore.manager, &templates[i], self.datastore.datacenter))
+	}
+	return ret, nil
 }
 
 func (self *SDatastoreImageCache) GetIImages() ([]cloudprovider.ICloudImage, error) {
 	ctx := context.Background()
 	ret := make([]cloudprovider.ICloudImage, 0, 2)
+	log.Infof("start to GetIImages")
 
 	realTemplates, err := self.getTempalteVM()
 	if err != nil {
@@ -161,10 +208,15 @@ func (self *SDatastoreImageCache) GetIImages() ([]cloudprovider.ICloudImage, err
 	}
 
 	for i := range realTemplates {
-		ret = append(ret, NewVMTemplate(&realTemplates[i], self))
+		ret = append(ret, NewVMTemplate(realTemplates[i], self))
 	}
 	for i := range fakeTemplates {
-		ret = append(ret, NewVMTemplate(&fakeTemplates[i], self))
+		ret = append(ret, NewVMTemplate(fakeTemplates[i], self))
+	}
+
+	log.Errorf("get templates successfully")
+	for i := range fakeTemplates {
+		log.Infof("fake template name: %s", fakeTemplates[i].GetName())
 	}
 
 	files, err := self.datastore.ListDir(ctx, IMAGE_CACHE_DIR_NAME)

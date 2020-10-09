@@ -76,6 +76,20 @@ func init() {
 		return nil
 	})
 
+	shellutils.R(&DatastoreShowOptions{}, "ds-faketemplate-list", "Show image list of a datastore image cache", func(cli *esxi.SESXiClient, args *DatastoreShowOptions) error {
+		ds, err := getDatastore(cli, args.DATACENTER, args.DSID)
+		if err != nil {
+			return err
+		}
+		icache := ds.GetIStoragecache()
+		cache := icache.(*esxi.SDatastoreImageCache)
+		vms, err := cache.GetFakeTempateVM("^((?i)(VMWARE-))")
+		if err != nil {
+			return err
+		}
+		printList(vms, []string{})
+		return nil
+	})
 	shellutils.R(&DatastoreShowOptions{}, "ds-cache-list", "Show image list of a datastore image cache", func(cli *esxi.SESXiClient, args *DatastoreShowOptions) error {
 		ds, err := getDatastore(cli, args.DATACENTER, args.DSID)
 		if err != nil {
