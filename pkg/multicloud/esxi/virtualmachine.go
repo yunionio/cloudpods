@@ -1279,5 +1279,8 @@ func (self *SVirtualMachine) GetIHostId() string {
 
 func (self *SVirtualMachine) IsTemplate() bool {
 	movm := self.getVirtualMachine()
+	if tempalteNameRegex != nil && tempalteNameRegex.MatchString(self.GetName()) {
+		return true
+	}
 	return movm.Config != nil && movm.Config.Template
 }

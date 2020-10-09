@@ -155,7 +155,7 @@ type ComputeOptions struct {
 
 	DefaultNetworkGatewayAddressEsxi uint32 `help:"Default address for network gateway" default:"1"`
 
-	esxi.VMIPOptions
+	esxi.EsxiOptions
 }
 
 type SCapabilityOptions struct {

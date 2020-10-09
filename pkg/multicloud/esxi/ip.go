@@ -23,10 +23,6 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 )
 
-type VMIPOptions struct {
-	ReasonableCIDREsxi string `help:"Reasonable CIDR in esxi, such as '10.0.0.0/8'" defautl:""`
-}
-
 type IPV4Range struct {
 	iprange *netutils.IPV4AddrRange
 }
@@ -45,7 +41,7 @@ func (i IPV4Range) Contains(ip string) bool {
 
 var vmIPV4Filter IPV4Range
 
-func InitVMIPV4Filter(cidr string) error {
+func initVMIPV4Filter(cidr string) error {
 	if len(cidr) == 0 {
 		return nil
 	}

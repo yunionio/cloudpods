@@ -18,6 +18,11 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"regexp"
+
+	"github.com/vmware/govmomi/property"
+	"github.com/vmware/govmomi/vim25/mo"
+	"github.com/vmware/govmomi/vim25/types"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -34,6 +39,24 @@ const (
 type SDatastoreImageCache struct {
 	datastore *SDatastore
 	host      *SHost
+}
+
+type EsxiOptions struct {
+	ReasonableCIDREsxi string `help:"Reasonable CIDR in esxi, such as '10.0.0.0/8'" defautl:""`
+	TemplateNameRegex  string `help:"Regex of template name"`
+}
+
+var tempalteNameRegex *regexp.Regexp
+
+func InitEsxiConfig(opt EsxiOptions) error {
+	var err error
+	if len(opt.TemplateNameRegex) != 0 {
+		tempalteNameRegex, err = regexp.Compile(opt.TemplateNameRegex)
+		if err != nil {
+			return errors.Wrap(err, "regexp.Compile")
+		}
+	}
+	return initVMIPV4Filter(opt.ReasonableCIDREsxi)
 }
 
 func (self *SDatastoreImageCache) GetId() string {
@@ -76,30 +99,72 @@ func (self *SDatastoreImageCache) GetPath() string {
 	return path.Join(self.datastore.GetMountPoint(), IMAGE_CACHE_DIR_NAME)
 }
 
+func (self *SDatastoreImageCache) getTempalteVM() ([]SVirtualMachine, error) {
+	dc := self.datastore.datacenter
+	modc := dc.getDatacenter()
+	mods := self.datastore.getDatastore()
+	templates := make([]mo.VirtualMachine, 0)
+	filter := property.Filter{}
+	filter["config.template"] = true
+	filter["datastore"] = mods.Reference()
+	err := self.datastore.manager.scanMObjectsWithFilter(modc.Reference(), VIRTUAL_MACHINE_PROPS, &templates, filter)
+	if err != nil {
+		return nil, errors.Wrap(err, "scanMObjectsWithFilter")
+	}
+	ret := make([]SVirtualMachine, 0, len(templates))
+	for i := range templates {
+		ret = append(ret, *NewVirtualMachine(self.datastore.manager, &templates[i], self.datastore.datacenter))
+	}
+	return ret, nil
+}
+
+func (self *SDatastoreImageCache) getFakeTempateVM() ([]SVirtualMachine, error) {
+	if tempalteNameRegex == nil {
+		return []SVirtualMachine{}, nil
+	}
+	dc := self.datastore.datacenter
+	modc := dc.getDatacenter()
+	mods := self.datastore.getDatastore()
+	var vms []mo.VirtualMachine
+	filter := property.Filter{}
+	filter["datastore"] = mods.Reference()
+	err := self.datastore.manager.scanMObjectsWithFilter(modc.Reference(), []string{"name"}, &vms, filter)
+	if err != nil {
+		return nil, errors.Wrap(err, "scanMObjectsWithFilter")
+	}
+	objs := make([]types.ManagedObjectReference, 0)
+	for i := range vms {
+		name := vms[i].Name
+		if tempalteNameRegex.MatchString(name) {
+			objs = append(objs, vms[i].Reference())
+		}
+	}
+	templates := make([]SVirtualMachine, 0, len(objs))
+	err = self.datastore.manager.references2Objects(objs, VIRTUAL_MACHINE_PROPS, &templates)
+	if err != nil {
+		return nil, errors.Wrap(err, "references2Objects")
+	}
+	return templates, nil
+}
+
 func (self *SDatastoreImageCache) GetIImages() ([]cloudprovider.ICloudImage, error) {
 	ctx := context.Background()
 	ret := make([]cloudprovider.ICloudImage, 0, 2)
 
-	// get vm template with only one disk
-	ihosts, err := self.datastore.GetAttachedHosts()
+	realTemplates, err := self.getTempalteVM()
 	if err != nil {
-		return nil, errors.Wrap(err, "SDatastore.GetAttachedHosts")
+		return nil, errors.Wrap(err, "getTemplateVM")
+	}
+	fakeTemplates, err := self.getFakeTempateVM()
+	if err != nil {
+		return nil, errors.Wrap(err, "getVMWithRegex")
 	}
 
-	for _, ihost := range ihosts {
-		host := ihost.(*SHost)
-		tems, err := host.GetTemplateVMs()
-		if err != nil {
-			log.Errorf("fail to get templateVMs of host '%s' in SDatastoreImageCache.GetIImages", self.host.GetName())
-			return ret, nil
-		}
-		for _, tem := range tems {
-			// for now, add vm template with only one disk as cachedimage
-			if len(tem.vdisks) != 1 {
-				continue
-			}
-			ret = append(ret, NewVMTemplate(tem, self))
-		}
+	for i := range realTemplates {
+		ret = append(ret, NewVMTemplate(&realTemplates[i], self))
+	}
+	for i := range fakeTemplates {
+		ret = append(ret, NewVMTemplate(&fakeTemplates[i], self))
 	}
 
 	files, err := self.datastore.ListDir(ctx, IMAGE_CACHE_DIR_NAME)
