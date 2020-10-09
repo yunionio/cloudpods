@@ -44,6 +44,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/compute/tasks"
 	"yunion.io/x/onecloud/pkg/controller/autoscaling"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/multicloud/esxi"
 	_ "yunion.io/x/onecloud/pkg/multicloud/loader"
 )
 
@@ -57,6 +58,11 @@ func StartService() {
 	if opts.PortV2 > 0 {
 		log.Infof("Port V2 %d is specified, use v2 port", opts.PortV2)
 		commonOpts.Port = opts.PortV2
+	}
+
+	err := esxi.InitVMIPV4Filter(opts.ReasonableCIDREsxi)
+	if err != nil {
+		log.Fatalf("unable to initVMIPV4Filter: %v", err)
 	}
 
 	app_common.InitAuth(commonOpts, func() {

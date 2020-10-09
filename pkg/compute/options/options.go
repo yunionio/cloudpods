@@ -17,6 +17,7 @@ package options
 import (
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/pending_delete"
+	"yunion.io/x/onecloud/pkg/multicloud/esxi"
 )
 
 type ComputeOptions struct {
@@ -153,6 +154,8 @@ type ComputeOptions struct {
 	EnableAutoMergeSecurityGroup bool `help:"Enable auto merge secgroup when sync security group from cloud, default False" default:"false"`
 
 	DefaultNetworkGatewayAddressEsxi uint32 `help:"Default address for network gateway" default:"1"`
+
+	esxi.VMIPOptions
 }
 
 type SCapabilityOptions struct {

@@ -680,14 +680,22 @@ func (cli *SESXiClient) vmIPs(host *mo.HostSystem) ([]SSimpleVM, error) {
 		}
 		guestIps := make([]string, 0)
 		for _, net := range vm.Guest.Net {
+			if len(net.Network) == 0 {
+				continue
+			}
 			for _, ip := range net.IpAddress {
-				if regutils.MatchIP4Addr(ip) {
-					ipaddr, _ := netutils.NewIPV4Addr(ip)
-					if netutils.IsLinkLocal(ipaddr) {
-						continue
-					}
-					guestIps = append(guestIps, ip)
+				if !regutils.MatchIP4Addr(ip) {
+					continue
 				}
+				if !vmIPV4Filter.Contains(ip) {
+					continue
+				}
+				ipaddr, _ := netutils.NewIPV4Addr(ip)
+				if netutils.IsLinkLocal(ipaddr) {
+					continue
+				}
+				guestIps = append(guestIps, ip)
+				break
 			}
 		}
 		ret = append(ret, SSimpleVM{vm.Name, guestIps})
