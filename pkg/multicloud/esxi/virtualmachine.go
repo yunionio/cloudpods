@@ -762,6 +762,9 @@ func (self *SVirtualMachine) fetchGuestIps() map[string]string {
 	for _, net := range moVM.Guest.Net {
 		mac := netutils.FormatMacAddr(net.MacAddress)
 		for _, ip := range net.IpAddress {
+			if !vmIPV4Filter.Contains(ip) {
+				continue
+			}
 			if regutils.MatchIP4Addr(ip) {
 				guestIps[mac] = ip
 				break
