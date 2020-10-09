@@ -27,6 +27,8 @@ func init() {
 
 		Region string `help:"show images cached at cloud region"`
 		Zone   string `help:"show images cached at zone"`
+
+		HostSchedtagId string `help:"filter cached image with host schedtag"`
 	}
 	R(&CachedImageListOptions{}, "cached-image-list", "List cached images", func(s *mcclient.ClientSession, args *CachedImageListOptions) error {
 		params, err := options.ListStructToParams(args)
