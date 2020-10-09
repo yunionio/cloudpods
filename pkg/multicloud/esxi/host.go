@@ -703,18 +703,9 @@ func (self *SHost) CreateVM2(ctx context.Context, ds *SDatastore, params SCreate
 	if imageInfo.ImageType != cloudprovider.CachedImageTypeSystem {
 		return self.DoCreateVM(ctx, ds, params)
 	}
-	// get host
-	imgHost, err := self.manager.FindHostByIp(imageInfo.StorageCacheHostIp)
+	temvm, err := self.manager.SearchTemplateVM(imageInfo.ImageExternalId)
 	if err != nil {
-		return nil, errors.Wrap(err, "SEsxiClient.FindHostByIp")
-	}
-	dc, err := imgHost.GetDatacenter()
-	if err != nil {
-		return nil, errors.Wrap(err, "host.GetDatacenter")
-	}
-	temvm, err := dc.FetchTemplateVMById(imageInfo.ImageExternalId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "datacenter.TemplateVMById for image %q and datacenter %q", imageInfo.ImageExternalId, dc.GetId())
+		return nil, errors.Wrapf(err, "SEsxiClient.SearchTemplateVM for image %q", imageInfo.ImageExternalId)
 	}
 	return self.CloneVM(ctx, temvm, ds, params)
 }
