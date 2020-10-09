@@ -17,9 +17,46 @@ package esxi
 import (
 	"github.com/vmware/govmomi/vim25/mo"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
 )
+
+type VMIPOptions struct {
+	ReasonableCIDREsxi string `help:"Reasonable CIDR in esxi, such as '10.0.0.0/8'" defautl:""`
+}
+
+type IPV4Range struct {
+	iprange *netutils.IPV4AddrRange
+}
+
+func (i IPV4Range) Contains(ip string) bool {
+	ipaddr, err := netutils.NewIPV4Addr(ip)
+	if err != nil {
+		log.Errorf("unable to parse ip %q: %v", ip, err)
+		return false
+	}
+	if i.iprange == nil {
+		return true
+	}
+	return i.iprange.Contains(ipaddr)
+}
+
+var vmIPV4Filter IPV4Range
+
+func InitVMIPV4Filter(cidr string) error {
+	if len(cidr) == 0 {
+		return nil
+	}
+	prefix, err := netutils.NewIPV4Prefix(cidr)
+	if err != nil {
+		return errors.Wrapf(err, "parse cidr %q", cidr)
+	}
+	irange := prefix.ToIPRange()
+	vmIPV4Filter.iprange = &irange
+	return nil
+}
 
 var HOST_PROPS = []string{"name", "config.network", "vm"}
 
