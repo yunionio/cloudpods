@@ -348,6 +348,33 @@ func (cli *SESXiClient) scanAllMObjects(props []string, dst interface{}) error {
 	return cli.scanMObjects(cli.client.ServiceContent.RootFolder, props, dst)
 }
 
+func (cli *SESXiClient) scanMObjectsWithFilter(folder types.ManagedObjectReference, props []string, dst interface{}, filter property.Filter) error {
+	dstValue := reflect.Indirect(reflect.ValueOf(dst))
+	dstType := dstValue.Type()
+	dstEleType := dstType.Elem()
+
+	resType := dstEleType.Name()
+	m := view.NewManager(cli.client.Client)
+
+	v, err := m.CreateContainerView(cli.context, folder, []string{resType}, true)
+	if err != nil {
+		return errors.Wrapf(err, "m.CreateContainerView %s", resType)
+	}
+
+	defer v.Destroy(cli.context)
+
+	err = v.RetrieveWithFilter(cli.context, []string{resType}, props, dst, filter)
+	if err != nil {
+		// hack
+		if strings.Contains(err.Error(), "object references is empty") {
+			return nil
+		}
+		return errors.Wrapf(err, "v.RetrieveWithFilter %s", resType)
+	}
+
+	return nil
+}
+
 func (cli *SESXiClient) scanMObjects(folder types.ManagedObjectReference, props []string, dst interface{}) error {
 	dstValue := reflect.Indirect(reflect.ValueOf(dst))
 	dstType := dstValue.Type()

@@ -60,15 +60,15 @@ func StartService() {
 		commonOpts.Port = opts.PortV2
 	}
 
-	err := esxi.InitVMIPV4Filter(opts.ReasonableCIDREsxi)
-	if err != nil {
-		log.Fatalf("unable to initVMIPV4Filter: %v", err)
-	}
-
 	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
 	})
 	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
+
+	err := esxi.InitEsxiConfig(opts.EsxiOptions)
+	if err != nil {
+		log.Fatalf("unable to init esxi configs: %v", err)
+	}
 
 	if opts.FetchEtcdServiceInfoAndUseEtcdLock {
 		err := initEtcdLockOpts(opts)

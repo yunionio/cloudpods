@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"regexp"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -34,6 +35,24 @@ const (
 type SDatastoreImageCache struct {
 	datastore *SDatastore
 	host      *SHost
+}
+
+type EsxiOptions struct {
+	ReasonableCIDREsxi string `help:"Reasonable CIDR in esxi, such as '10.0.0.0/8'" defautl:""`
+	TemplateNameRegex  string `help:"Regex of template name"`
+}
+
+var tempalteNameRegex *regexp.Regexp
+
+func InitEsxiConfig(opt EsxiOptions) error {
+	var err error
+	if len(opt.TemplateNameRegex) != 0 {
+		tempalteNameRegex, err = regexp.Compile(opt.TemplateNameRegex)
+		if err != nil {
+			return errors.Wrap(err, "regexp.Compile")
+		}
+	}
+	return initVMIPV4Filter(opt.ReasonableCIDREsxi)
 }
 
 func (self *SDatastoreImageCache) GetId() string {
@@ -76,30 +95,38 @@ func (self *SDatastoreImageCache) GetPath() string {
 	return path.Join(self.datastore.GetMountPoint(), IMAGE_CACHE_DIR_NAME)
 }
 
+func (self *SDatastoreImageCache) getTempalteVMs() ([]*SVirtualMachine, error) {
+	return self.datastore.FetchTemplateVMs()
+}
+
+func (self *SDatastoreImageCache) getFakeTempateVMs() ([]*SVirtualMachine, error) {
+	return self.datastore.FetchFakeTempateVMs("")
+}
+
 func (self *SDatastoreImageCache) GetIImages() ([]cloudprovider.ICloudImage, error) {
 	ctx := context.Background()
 	ret := make([]cloudprovider.ICloudImage, 0, 2)
+	log.Infof("start to GetIImages")
 
-	// get vm template with only one disk
-	ihosts, err := self.datastore.GetAttachedHosts()
+	realTemplates, err := self.getTempalteVMs()
 	if err != nil {
-		return nil, errors.Wrap(err, "SDatastore.GetAttachedHosts")
+		return nil, errors.Wrap(err, "getTemplateVMs")
+	}
+	fakeTemplates, err := self.getFakeTempateVMs()
+	if err != nil {
+		return nil, errors.Wrap(err, "getFakeTempateVMs")
 	}
 
-	for _, ihost := range ihosts {
-		host := ihost.(*SHost)
-		tems, err := host.GetTemplateVMs()
-		if err != nil {
-			log.Errorf("fail to get templateVMs of host '%s' in SDatastoreImageCache.GetIImages", self.host.GetName())
-			return ret, nil
-		}
-		for _, tem := range tems {
-			// for now, add vm template with only one disk as cachedimage
-			if len(tem.vdisks) != 1 {
-				continue
-			}
-			ret = append(ret, NewVMTemplate(tem, self))
-		}
+	for i := range realTemplates {
+		ret = append(ret, NewVMTemplate(realTemplates[i], self))
+	}
+	for i := range fakeTemplates {
+		ret = append(ret, NewVMTemplate(fakeTemplates[i], self))
+	}
+
+	log.Errorf("get templates successfully")
+	for i := range fakeTemplates {
+		log.Infof("fake template name: %s", fakeTemplates[i].GetName())
 	}
 
 	files, err := self.datastore.ListDir(ctx, IMAGE_CACHE_DIR_NAME)
@@ -108,7 +135,7 @@ func (self *SDatastoreImageCache) GetIImages() ([]cloudprovider.ICloudImage, err
 	}
 	if err != nil {
 		log.Errorf("GetIImages ListDir fail %s", err)
-		return nil, err
+		return ret, nil
 	}
 
 	validFilenames := make(map[string]bool)
