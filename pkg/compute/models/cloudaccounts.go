@@ -693,7 +693,7 @@ Loop:
 				GuestIpStart: svNets[i].StartIp().String(),
 				GuestIpEnd:   svNets[i].EndIp().String(),
 				GuestIpMask:  24,
-				GuestGateway: (svNets[i].StartIp().NetAddr(24) + netutils.IPV4Addr(options.Options.DefaultNetworkGatewayAddress)).String(),
+				GuestGateway: (svNets[i].StartIp().NetAddr(24) + netutils.IPV4Addr(options.Options.DefaultNetworkGatewayAddressEsxi)).String(),
 			}
 			confs[i].Name = fmt.Sprintf("%s-guest-network-%d", input.Name, i+1)
 		}
@@ -768,7 +768,7 @@ func (manager *SCloudaccountManager) suggestHostNetworks(ips []netutils.IPV4Addr
 			lastnetAddr = netAddr
 		}
 
-		gatewayIP := consequent[0].NetAddr(mask) + netutils.IPV4Addr(options.Options.DefaultNetworkGatewayAddress)
+		gatewayIP := consequent[0].NetAddr(mask) + netutils.IPV4Addr(options.Options.DefaultNetworkGatewayAddressEsxi)
 		ret = append(ret, api.CASimpleNetConf{
 			GuestIpStart: consequent[0].String(),
 			GuestIpEnd:   consequent[len(consequent)-1].String(),
@@ -777,7 +777,7 @@ func (manager *SCloudaccountManager) suggestHostNetworks(ips []netutils.IPV4Addr
 		})
 		consequent = []netutils.IPV4Addr{ip}
 	}
-	gatewayIp := consequent[0].NetAddr(mask) + netutils.IPV4Addr(options.Options.DefaultNetworkGatewayAddress)
+	gatewayIp := consequent[0].NetAddr(mask) + netutils.IPV4Addr(options.Options.DefaultNetworkGatewayAddressEsxi)
 	ret = append(ret, api.CASimpleNetConf{
 		GuestIpStart: consequent[0].String(),
 		GuestIpEnd:   consequent[len(consequent)-1].String(),
