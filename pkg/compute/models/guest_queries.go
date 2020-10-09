@@ -72,6 +72,16 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 			}
 		}
 	}
+	if len(fields) == 0 || fields.Contains("macs") {
+		gMacs := fetchGuestMacs(guestIds, tristate.False)
+		if gMacs != nil {
+			for i := range rows {
+				if gMac, ok := gMacs[guestIds[i]]; ok {
+					rows[i].Macs = strings.Join(gMac, ",")
+				}
+			}
+		}
+	}
 	if len(fields) == 0 || fields.Contains("nics") {
 		nicsMap := fetchGuestNICs(ctx, guestIds, tristate.False)
 		if nicsMap != nil {
@@ -260,6 +270,36 @@ func fetchGuestIPs(guestIds []string, virtual tristate.TriState) map[string][]st
 			ret[gias[i].GuestId] = make([]string, 0)
 		}
 		ret[gias[i].GuestId] = append(ret[gias[i].GuestId], gias[i].IpAddr)
+	}
+	return ret
+}
+
+func fetchGuestMacs(guestIds []string, virtual tristate.TriState) map[string][]string {
+	guestnetworks := GuestnetworkManager.Query().SubQuery()
+	q := guestnetworks.Query(guestnetworks.Field("guest_id"), guestnetworks.Field("mac_addr"))
+	q = q.In("guest_id", guestIds)
+	if virtual.IsTrue() {
+		q = q.IsTrue("virtual")
+	} else if virtual.IsFalse() {
+		q = q.IsFalse("virtual")
+	}
+	q = q.IsNotEmpty("mac_addr")
+	q = q.Asc("mac_addr")
+	type sGuestIdMacAddr struct {
+		GuestId string
+		MacAddr string
+	}
+	gims := make([]sGuestIdMacAddr, 0)
+	err := q.All(&gims)
+	if err != nil && err != sql.ErrNoRows {
+		return nil
+	}
+	ret := make(map[string][]string)
+	for i := range gims {
+		if _, ok := ret[gims[i].GuestId]; !ok {
+			ret[gims[i].GuestId] = make([]string, 0)
+		}
+		ret[gims[i].GuestId] = append(ret[gims[i].GuestId], gims[i].MacAddr)
 	}
 	return ret
 }
