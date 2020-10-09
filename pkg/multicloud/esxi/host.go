@@ -922,7 +922,11 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 		return nil, errors.Wrap(err, "fail to fetch virtual machine just created")
 	}
 
-	return NewVirtualMachine(self.manager, &moVM, self.datacenter), nil
+	evm := NewVirtualMachine(self.manager, &moVM, self.datacenter)
+	if evm == nil {
+		return nil, errors.Error("create successfully but unable to NewVirtualMachine")
+	}
+	return evm, nil
 }
 
 func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SDatastore, params SCreateVMParam) (*SVirtualMachine, error) {
@@ -1095,6 +1099,9 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 
 	// resize the disk
 	vm := NewVirtualMachine(host.manager, &moVM, host.datacenter)
+	if vm == nil {
+		return nil, errors.Error("clone successfully but unable to NewVirtualMachine")
+	}
 	sort.Sort(byDiskType(vm.vdisks))
 	for i, s := range newSizes {
 		err := vm.vdisks[i].Resize(ctx, s)
