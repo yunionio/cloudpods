@@ -147,15 +147,22 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 		"0.0.0.0/0", network.GuestGateway,
 	}
 	mtu -= 58
+	const (
+		leaseTime  = 86400 * 365 * 3
+		renewTime  = 86400
+		rebindTime = 86400 * 3
+	)
 	dhcpopts := &ovnutil.DHCPOptions{
 		Cidr: fmt.Sprintf("%s/%d", network.GuestIpStart, network.GuestIpMask),
 		Options: map[string]string{
 			"server_id":              network.GuestGateway,
 			"server_mac":             dhcpMac,
-			"lease_time":             fmt.Sprintf("%d", 86400),
 			"router":                 network.GuestGateway,
 			"classless_static_route": fmt.Sprintf("{%s}", strings.Join(routes, ",")),
 			"mtu":                    fmt.Sprintf("%d", mtu),
+			"lease_time":             fmt.Sprintf("%d", leaseTime),
+			"T1":                     fmt.Sprintf("%d", renewTime),
+			"T2":                     fmt.Sprintf("%d", rebindTime),
 		},
 		ExternalIds: map[string]string{
 			externalKeyOcRef: network.Id,
