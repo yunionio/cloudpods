@@ -241,6 +241,12 @@ type PerformChangeProjectOwnerInput struct {
 	ProjectizedResourceInput
 }
 
+type PerformFreezeInput struct {
+}
+
+type PerformUnfreezeInput struct {
+}
+
 type PerformChangeDomainOwnerInput struct {
 	DomainizedResourceInput
 }

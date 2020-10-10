@@ -47,6 +47,9 @@ const (
 	ACT_BACKUP_START        = "backup_start"
 	ACT_BACKUP_START_FAILED = "backup_start_fail"
 
+	ACT_FREEZE   = "freeze"
+	ACT_UNFREEZE = "unfreeze"
+
 	ACT_RESTARING    = "restarting"
 	ACT_RESTART_FAIL = "restart_fail"
 
