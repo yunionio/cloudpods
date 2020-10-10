@@ -167,7 +167,7 @@ func (man *SSuggestSysRuleManager) ValidateCreateData(
 				return data, err
 			}
 		} else if rule != nil {
-			return data, httperrors.NewDuplicateResourceError("type %s rule already exists")
+			return data, httperrors.NewDuplicateResourceError("type %s rule already exists", data.Type)
 		}
 
 		drvType := monitor.SuggestDriverType(data.Type)
