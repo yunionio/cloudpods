@@ -50,7 +50,10 @@ func (cli *SESXiClient) VMIP(host mo.HostSystem) (map[string][]string, error) {
 	ret := make(map[string][]string, len(vms))
 	for i := range vms {
 		vm := vms[i]
-		if vm.Config.Template {
+		if vm.Config == nil || vm.Config.Template {
+			continue
+		}
+		if vm.Guest == nil {
 			continue
 		}
 		guestIps := make([]string, 0)
@@ -75,7 +78,10 @@ func (cli *SESXiClient) VMIP2() (map[string][]string, error) {
 	ret := make(map[string][]string, len(vms))
 	for i := range vms {
 		vm := vms[i]
-		if vm.Config.Template {
+		if vm.Config == nil || vm.Config.Template {
+			continue
+		}
+		if vm.Guest == nil {
 			continue
 		}
 		guestIps := make([]string, 0)
