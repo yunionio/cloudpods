@@ -52,12 +52,12 @@ func init() {
 // +onecloud:swagger-gen-model-plural=suggestsysruleconfigs
 type SSuggestSysRuleConfigManager struct {
 	db.SStandaloneResourceBaseManager
-	db.SScopedResourceBaseManager
+	SMonitorScopedResourceManager
 }
 
 type SSuggestSysRuleConfig struct {
 	db.SStandaloneResourceBase
-	db.SScopedResourceBase
+	SMonitorScopedResource
 
 	// RuleId is SSuggestSysRule model object id
 	// RuleId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
@@ -166,7 +166,7 @@ func (man *SSuggestSysRuleConfigManager) createFromDriver(ctx context.Context, s
 	}
 	config.SetModelManager(man, config)
 
-	ownerId := config.GetOwnerId()
+	ownerId := config.SMonitorScopedResource.GetOwnerId()
 	data := monitor.SuggestSysRuleConfigCreateInput{}
 	data.Scope = string(scope)
 	data.ProjectDomainId = ownerId.GetProjectDomainId()
