@@ -19,6 +19,7 @@ import (
 	"net/http"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
@@ -222,6 +223,7 @@ func verifyCommon(ctx context.Context, w http.ResponseWriter, tokenStr string) (
 	token := SAuthToken{}
 	err := token.ParseFernetToken(tokenStr)
 	if err != nil {
+		log.Errorf("ParseFernetToken %s fail: %s", tokenStr, err)
 		return nil, httperrors.NewInvalidCredentialError("invalid token")
 	}
 	return &token, nil
