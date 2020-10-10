@@ -156,8 +156,11 @@ func (c *SSHtoolSol) GetData(data string) (isShow bool, ouput string, command st
 	args := []string{
 		o.Options.SshpassToolPath, "-p", data,
 		o.Options.SshToolPath, "-p", fmt.Sprintf("%d", c.Port), fmt.Sprintf("%s@%s", c.Username, c.IP),
-		"-oGlobalKnownHostsFile=/dev/null", "-oUserKnownHostsFile=/dev/null", "-oStrictHostKeyChecking=no",
-		"-oPreferredAuthentications=password", "-oPubkeyAuthentication=no", //密码登录时,避免搜寻秘钥登录
+		"-oGlobalKnownHostsFile=/dev/null",
+		"-oUserKnownHostsFile=/dev/null",
+		"-oStrictHostKeyChecking=no",
+		"-oPreferredAuthentications=password",
+		"-oPubkeyAuthentication=no", //密码登录时,避免搜寻秘钥登录
 	}
 	return true, "", strings.Join(args, " ")
 }
