@@ -1,6 +1,7 @@
 ## {{.title}}
 - 时间: {{.start_time}}
 - 级别: {{.level}}
+- 详情地址: {{.web_url}}/commonalerts
 
 {{ range .matches}}
 - 指标: {{.metric}}
