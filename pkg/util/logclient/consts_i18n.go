@@ -284,6 +284,7 @@ func init() {
 		CN("移除后端服务器"),
 	)
 	t.Set(ACL_LB_SYNC_BACKEND_CONF, i18n.NewTableEntry().
+		EN("Lb Sycn Backend Conf").
 		CN("同步后端服务器配置"),
 	)
 	t.Set(ACT_LB_ADD_LISTENER_RULE, i18n.NewTableEntry().
@@ -598,5 +599,14 @@ func init() {
 	t.Set(ACT_SYNC_RECORD_SETS, i18n.NewTableEntry().
 		EN("Sync Record Sets").
 		CN("同步解析列表"),
+	)
+
+	t.Set(ACT_FREEZE, i18n.NewTableEntry().
+		EN("Freeze").
+		CN("冻结资源"),
+	)
+	t.Set(ACT_UNFREEZE, i18n.NewTableEntry().
+		EN("Freeze").
+		CN("解冻资源"),
 	)
 }
