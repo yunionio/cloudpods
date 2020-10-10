@@ -159,7 +159,7 @@ func (c *SSHtoolSol) GetData(data string) (isShow bool, ouput string, command st
 		"-oGlobalKnownHostsFile=/dev/null",
 		"-oUserKnownHostsFile=/dev/null",
 		"-oStrictHostKeyChecking=no",
-		"-oPreferredAuthentications=password",
+		"-oPreferredAuthentications=password,keyboard-interactive",
 		"-oPubkeyAuthentication=no", //密码登录时,避免搜寻秘钥登录
 	}
 	return true, "", strings.Join(args, " ")
