@@ -364,7 +364,7 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 	if ownerId == nil {
 		ownerId = userCred
 	}
-	input.CloudaccountCreateInput, err = scm.ValidateCreateData(ctx, userCred, ownerId, query, input.CloudaccountCreateInput)
+	input.CloudaccountCreateInput, err = scm.validateCreateData(ctx, userCred, ownerId, query, input.CloudaccountCreateInput)
 	if err != nil {
 		return output, err
 	}
@@ -892,10 +892,41 @@ func (manager *SCloudaccountManager) ValidateCreateData(
 	query jsonutils.JSONObject,
 	input api.CloudaccountCreateInput,
 ) (api.CloudaccountCreateInput, error) {
+	input, err := manager.validateCreateData(ctx, userCred, ownerId, query, input)
+	if err != nil {
+		return input, errors.Wrap(err, "validateCreateData")
+	}
+
+	input.EnabledStatusInfrasResourceBaseCreateInput, err = manager.SEnabledStatusInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusInfrasResourceBaseCreateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.ValidateCreateData")
+	}
+
+	quota := &SDomainQuota{
+		SBaseDomainQuotaKeys: quotas.SBaseDomainQuotaKeys{
+			DomainId: ownerId.GetProjectDomainId(),
+		},
+		Cloudaccount: 1,
+	}
+	err = quotas.CheckSetPendingQuota(ctx, userCred, quota)
+	if err != nil {
+		return input, errors.Wrapf(err, "CheckSetPendingQuota")
+	}
+
+	return input, nil
+}
+
+func (manager *SCloudaccountManager) validateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input api.CloudaccountCreateInput,
+) (api.CloudaccountCreateInput, error) {
 	// check domainId
 	err := db.ValidateCreateDomainId(ownerId.GetProjectDomainId())
 	if err != nil {
-		return input, err
+		return input, errors.Wrap(err, "db.ValidateCreateDomainId")
 	}
 
 	if !cloudprovider.IsSupported(input.Provider) {
@@ -1006,22 +1037,6 @@ func (manager *SCloudaccountManager) ValidateCreateData(
 		input.SyncIntervalSeconds = options.Options.MinimalSyncIntervalSeconds
 	}
 
-	input.EnabledStatusInfrasResourceBaseCreateInput, err = manager.SEnabledStatusInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusInfrasResourceBaseCreateInput)
-	if err != nil {
-		return input, err
-	}
-
-	quota := &SDomainQuota{
-		SBaseDomainQuotaKeys: quotas.SBaseDomainQuotaKeys{
-			DomainId: ownerId.GetProjectDomainId(),
-		},
-		Cloudaccount: 1,
-	}
-	err = quotas.CheckSetPendingQuota(ctx, userCred, quota)
-	if err != nil {
-		return input, errors.Wrapf(err, "CheckSetPendingQuota")
-	}
-
 	return input, nil
 }
 
@@ -1053,9 +1068,6 @@ func (self *SCloudaccount) CustomizeCreate(ctx context.Context, userCred mcclien
 }
 
 func (self *SCloudaccount) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SEnabledStatusInfrasResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
-	self.savePassword(self.Secret)
-
 	quota := &SDomainQuota{
 		SBaseDomainQuotaKeys: quotas.SBaseDomainQuotaKeys{
 			DomainId: ownerId.GetProjectDomainId(),
@@ -1066,6 +1078,10 @@ func (self *SCloudaccount) PostCreate(ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		log.Errorf("CancelPendingUsage fail %s", err)
 	}
+
+	self.SEnabledStatusInfrasResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	self.savePassword(self.Secret)
+
 	if self.Enabled.IsTrue() {
 		self.StartSyncCloudProviderInfoTask(ctx, userCred, nil, "")
 	}
