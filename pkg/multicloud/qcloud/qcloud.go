@@ -345,7 +345,7 @@ func _jsonRequest(client *common.Client, domain string, version string, apiName 
 
 	for k, v := range params {
 		if strings.HasSuffix(k, "Ids.0") && len(v) == 0 {
-			return nil, cloudprovider.ErrNotFound
+			return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s = %s", k, v)
 		}
 		req.GetParams()[k] = v
 	}
