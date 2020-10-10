@@ -553,7 +553,11 @@ func (cli *SESXiClient) FindVMByPrivateID(idstr string) (*SVirtualMachine, error
 		return nil, errors.Wrap(err, "reference2Object fail")
 	}
 
-	return NewVirtualMachine(cli, &vm, nil), nil
+	ret := NewVirtualMachine(cli, &vm, nil)
+	if ret == nil {
+		return nil, errors.Error("invalid vm")
+	}
+	return ret, nil
 }
 
 func (cli *SESXiClient) DoExtendDiskOnline(_vm *SVirtualMachine, _disk *SVirtualDisk, newSizeMb int64) error {
