@@ -1293,6 +1293,7 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 		log.Errorf("create EIP record fail %s", err)
 		return nil, err
 	}
+	db.OpsLog.LogEvent(eip, db.ACT_CREATE, eip.GetShortDesc(ctx), userCred)
 
 	eipPendingUsage := &SRegionQuota{Eip: 1}
 	keys := fetchRegionalQuotaKeys(
