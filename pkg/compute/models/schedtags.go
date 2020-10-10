@@ -140,6 +140,43 @@ func (manager *SSchedtagManager) AllowListItems(ctx context.Context, userCred mc
 	return true
 }
 
+func (m *SSchedtagManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	if userCred == nil {
+		return q
+	}
+	switch scope {
+	case rbacutils.ScopeDomain:
+		q = q.Filter(sqlchemy.OR(
+			// share to system
+			sqlchemy.AND(
+				sqlchemy.IsNullOrEmpty(q.Field("domain_id")),
+				//sqlchemy.IsNullOrEmpty(q.Field("tenant_id")),
+			),
+			// share to this domain or its sub-projects
+			sqlchemy.Equals(q.Field("domain_id"), userCred.GetProjectDomainId()),
+		))
+	case rbacutils.ScopeProject:
+		q = q.Filter(sqlchemy.OR(
+			// share to system
+			sqlchemy.AND(
+				sqlchemy.IsNullOrEmpty(q.Field("domain_id")),
+				sqlchemy.IsNullOrEmpty(q.Field("tenant_id")),
+			),
+			// share to project's parent domain
+			sqlchemy.AND(
+				sqlchemy.Equals(q.Field("domain_id"), userCred.GetProjectDomainId()),
+				sqlchemy.IsNullOrEmpty(q.Field("tenant_id")),
+			),
+			// share to this project
+			sqlchemy.AND(
+				sqlchemy.Equals(q.Field("domain_id"), userCred.GetProjectDomainId()),
+				sqlchemy.Equals(q.Field("tenant_id"), userCred.GetProjectId()),
+			),
+		))
+	}
+	return q
+}
+
 // 调度标签列表
 func (manager *SSchedtagManager) ListItemFilter(
 	ctx context.Context,
