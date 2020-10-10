@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -81,34 +82,8 @@ func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SD
 	if net == nil {
 		return "", fmt.Errorf("invalid network ID %s", networkId)
 	}
-	if net.wire == nil {
-		log.Errorf("network's wire is empty")
-		return "", fmt.Errorf("network's wire is empty")
-	}
-	if net.wire.vpc == nil {
-		log.Errorf("network's wire' vpc is empty")
-		return "", fmt.Errorf("network's wire's vpc is empty")
-	}
 
 	var err error
-
-	// if len(secgroupId) == 0 {
-	// 	secgroups, err := net.wire.vpc.GetISecurityGroups()
-	// 	if err != nil {
-	// 		return "", fmt.Errorf("get security group error %s", err)
-	// 	}
-
-	// 	if len(secgroups) == 0 {
-	// 		secId, err := self.zone.region.createDefaultSecurityGroup(net.wire.vpc.VpcId)
-	// 		if err != nil {
-	// 			return "", fmt.Errorf("no secgroup for vpc and failed to create a default One!!")
-	// 		} else {
-	// 			secgroupId = secId
-	// 		}
-	// 	} else {
-	// 		secgroupId = secgroups[0].GetId()
-	// 	}
-	// }
 
 	keypair := ""
 	if len(publicKey) > 0 {
@@ -120,12 +95,10 @@ func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SD
 
 	img, err := self.zone.region.GetImage(imgId)
 	if err != nil {
-		log.Errorf("getiamge fail %s", err)
-		return "", err
+		return "", errors.Wrapf(err, "GetImage(%s)", imgId)
 	}
 	if img.ImageState != ImageStatusNormal && img.ImageState != ImageStatusUsing {
-		log.Errorf("image %s status %s", imgId, img.ImageState)
-		return "", fmt.Errorf("image not ready")
+		return "", fmt.Errorf("image %s not ready status is %s", imgId, img.ImageState)
 	}
 
 	err = self.zone.validateStorageType(sysDisk.StorageType)
@@ -156,8 +129,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SD
 		log.Debugf("Try instancetype : %s", instanceType)
 		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceType, secgroupId, self.zone.Zone, desc, passwd, disks, networkId, ipAddr, keypair, userData, bc, projectId)
 		if err != nil {
-			log.Errorf("Failed for %s: %s", instanceType, err)
-			return "", fmt.Errorf("Failed to create specification %s.%s", instanceType, err.Error())
+			return "", errors.Wrapf(err, "Failed to create specification %s", instanceType)
 		}
 		return vmId, nil
 	}
