@@ -119,7 +119,7 @@ build_process_with_buildx() {
     fi
 
     case "$component" in
-        host | esxi-agent | torrent)
+        host | torrent)
             buildx_and_push $img_name $DOCKER_DIR/multi-arch/Dockerfile.$component $SRC_DIR $arch
             ;;
         *)
@@ -151,6 +151,9 @@ for component in $COMPONENTS; do
     fi
     echo "Start to build component: $component"
     if [[ $component == baremetal-agent ]]; then
+        if [[ "$ARCH" == "arm64" ]]; then
+            continue
+        fi
         build_process $component
         continue
     fi
