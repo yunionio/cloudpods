@@ -506,10 +506,10 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 		params["Placement.ProjectId"] = projectId
 	}
 	params["InstanceName"] = name
+	params["HostName"] = name
 
 	params["InternetAccessible.InternetMaxBandwidthOut"] = "1"
 	params["InternetAccessible.PublicIpAssigned"] = "FALSE"
-	//params["HostName"] = name
 	if len(keypair) > 0 {
 		params["LoginSettings.KeyIds.0"] = keypair
 	} else if len(passwd) > 0 {
@@ -545,7 +545,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	}
 	network, err := self.GetNetwork(networkId)
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "GetNetwork(%s)", networkId)
 	}
 	params["VirtualPrivateCloud.SubnetId"] = networkId
 	params["VirtualPrivateCloud.VpcId"] = network.VpcId
@@ -554,12 +554,10 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	}
 
 	params["ClientToken"] = utils.GenRequestId(20)
-	// log.Errorf("create params: %s", jsonutils.Marshal(params).PrettyString())
 	instanceIdSet := []string{}
 	body, err := self.cvmRequest("RunInstances", params, true)
 	if err != nil {
-		log.Errorf("RunInstances fail %s", err)
-		return "", err
+		return "", errors.Wrapf(err, "RunInstances")
 	}
 	err = body.Unmarshal(&instanceIdSet, "InstanceIdSet")
 	if err == nil && len(instanceIdSet) > 0 {
