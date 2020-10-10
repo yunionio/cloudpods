@@ -76,7 +76,11 @@ func (d byDiskType) Less(i, j int) bool {
 
 func NewVirtualMachine(manager *SESXiClient, vm *mo.VirtualMachine, dc *SDatacenter) *SVirtualMachine {
 	svm := &SVirtualMachine{SManagedObject: newManagedObject(manager, vm, dc)}
-	svm.fetchHardwareInfo()
+	err := svm.fetchHardwareInfo()
+	if err != nil {
+		log.Errorf("NewVirtualMachine: %v", err)
+		return nil
+	}
 	return svm
 }
 
@@ -707,7 +711,7 @@ func (self *SVirtualMachine) UpdateUserData(userData string) error {
 	return nil
 }
 
-func (self *SVirtualMachine) fetchHardwareInfo() {
+func (self *SVirtualMachine) fetchHardwareInfo() error {
 	self.vnics = make([]SVirtualNIC, 0)
 	self.vdisks = make([]SVirtualDisk, 0)
 	self.cdroms = make([]SVirtualCdrom, 0)
@@ -721,8 +725,7 @@ func (self *SVirtualMachine) fetchHardwareInfo() {
 	}
 
 	if moVM == nil || moVM.Config == nil || moVM.Config.Hardware.Device == nil {
-		log.Errorf("invalid vm config, moVM: %v", moVM)
-		return
+		return fmt.Errorf("invalid vm")
 	}
 
 	for i := 0; i < len(moVM.Config.Hardware.Device); i += 1 {
@@ -750,6 +753,7 @@ func (self *SVirtualMachine) fetchHardwareInfo() {
 	sort.Slice(self.vdisks, func(i, j int) bool {
 		return self.vdisks[i].GetIndex() < self.vdisks[j].GetIndex()
 	})
+	return nil
 }
 
 func (self *SVirtualMachine) getVdev(key int32) SVirtualDevice {
