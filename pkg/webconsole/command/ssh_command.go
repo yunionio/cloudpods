@@ -129,8 +129,11 @@ func (c *SSHtoolSol) GetCommand() *exec.Cmd {
 		args := []string{
 			o.Options.SshpassToolPath, "-p", c.password,
 			o.Options.SshToolPath, "-p", fmt.Sprintf("%d", c.Port), fmt.Sprintf("%s@%s", c.username, c.IP),
-			"-oGlobalKnownHostsFile=/dev/null", "-oUserKnownHostsFile=/dev/null", "-oStrictHostKeyChecking=no",
-			"-oPreferredAuthentications=password", "-oPubkeyAuthentication=no", //密码登录时,避免搜寻秘钥登录
+			"-oGlobalKnownHostsFile=/dev/null",
+			"-oUserKnownHostsFile=/dev/null",
+			"-oStrictHostKeyChecking=no",
+			"-oPreferredAuthentications=password,keyboard-interactive",
+			"-oPubkeyAuthentication=no", // 密码登录时,避免搜寻秘钥登录
 			"-oNumberOfPasswordPrompts=1",
 		}
 		cmd := exec.Command(args[0], args[1:]...)
