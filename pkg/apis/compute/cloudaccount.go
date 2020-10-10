@@ -367,7 +367,8 @@ type CAGuestNet struct {
 
 type CAIPNet struct {
 	// description: IP
-	IP string `json:"ip"`
+	IP     string `json:"ip"`
+	VlanID int32  `json:"vlan_id"`
 	// description: 合适的已有网络
 	SuitableNetwork string `json:"suitable_network,allowempty"`
 }
@@ -377,6 +378,7 @@ type CASimpleNetConf struct {
 	GuestIpEnd   string `json:"guest_ip_end"`
 	GuestIpMask  int8   `json:"guest_ip_mask"`
 	GuestGateway string `json:"guest_gateway"`
+	VlanID       int32  `json:"vlan_id"`
 }
 
 type CANetConf struct {
