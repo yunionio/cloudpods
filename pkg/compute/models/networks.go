@@ -499,7 +499,7 @@ func (self *SNetwork) GetNetAddr() netutils.IPV4Addr {
 }
 
 func (self *SNetwork) GetDNS() string {
-	if len(self.GuestDns) > 0 && len(self.GuestDomain) > 0 {
+	if len(self.GuestDns) > 0 {
 		return self.GuestDns
 	} else {
 		return options.Options.DNSServer
@@ -507,7 +507,7 @@ func (self *SNetwork) GetDNS() string {
 }
 
 func (self *SNetwork) GetDomain() string {
-	if len(self.GuestDns) > 0 && len(self.GuestDomain) > 0 {
+	if len(self.GuestDomain) > 0 {
 		return self.GuestDomain
 	} else {
 		return options.Options.DNSDomain
