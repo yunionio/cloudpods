@@ -406,8 +406,11 @@ func isUserAllowWebconsole(userInfo jsonutils.JSONObject) bool {
 }
 
 func saveCookie(w http.ResponseWriter, name, val, domain string, expire time.Time, base64 bool) {
-	diff := time.Until(expire)
-	maxAge := int(diff.Seconds())
+	var maxAge int
+	if !expire.IsZero() {
+		diff := time.Until(expire)
+		maxAge = int(diff.Seconds())
+	}
 	// log.Println("Set cookie", name, expire, maxAge, val)
 	var valenc string
 	if base64 {
@@ -461,7 +464,11 @@ func clearCookie(w http.ResponseWriter, name string, domain string) {
 
 func saveAuthCookie(w http.ResponseWriter, authToken *clientman.SAuthToken, token mcclient.TokenCredential) {
 	authCookie := authToken.GetAuthCookie(token)
-	saveCookie(w, constants.YUNION_AUTH_COOKIE, authCookie, options.Options.CookieDomain, token.GetExpires(), true)
+	expire := time.Time{}
+	if !options.Options.SessionLevelAuthCookie {
+		expire = token.GetExpires()
+	}
+	saveCookie(w, constants.YUNION_AUTH_COOKIE, authCookie, options.Options.CookieDomain, expire, true)
 }
 
 func clearAuthCookie(w http.ResponseWriter) {
