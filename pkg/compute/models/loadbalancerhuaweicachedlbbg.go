@@ -222,7 +222,6 @@ func (man *SHuaweiCachedLbbgManager) SyncLoadbalancerBackendgroups(ctx context.C
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
-			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 			localLbgs = append(localLbgs, commondb[i])
 			remoteLbbgs = append(remoteLbbgs, commonext[i])
 			syncResult.Update()
@@ -233,7 +232,6 @@ func (man *SHuaweiCachedLbbgManager) SyncLoadbalancerBackendgroups(ctx context.C
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
-			syncMetadata(ctx, userCred, new, added[i])
 			localLbgs = append(localLbgs, *new)
 			remoteLbbgs = append(remoteLbbgs, added[i])
 			syncResult.Add()

@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strconv"
 	"strings"
@@ -249,7 +250,6 @@ func (man *SAwsCachedLbbgManager) SyncLoadbalancerBackendgroups(ctx context.Cont
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
-			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 			localLbgs = append(localLbgs, commondb[i])
 			remoteLbbgs = append(remoteLbbgs, commonext[i])
 			syncResult.Update()
@@ -277,7 +277,6 @@ func (man *SAwsCachedLbbgManager) SyncLoadbalancerBackendgroups(ctx context.Cont
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
-			syncMetadata(ctx, userCred, new, added[i])
 			localLbgs = append(localLbgs, *new)
 			remoteLbbgs = append(remoteLbbgs, added[i])
 			syncResult.Add()
@@ -433,4 +432,31 @@ func (man *SAwsCachedLbbgManager) newFromCloudLoadbalancerBackendgroup(ctx conte
 
 	db.OpsLog.LogEvent(lbbg, db.ACT_CREATE, lbbg.GetShortDesc(ctx), userCred)
 	return lbbg, nil
+}
+
+func (man *SAwsCachedLbbgManager) InitializeData() error {
+	ret := []db.SMetadata{}
+	q := db.Metadata.Query().Equals("obj_type", man.Keyword())
+	err := db.FetchModelObjects(db.Metadata, q, &ret)
+	if err != nil {
+		if errors.Cause(err) != sql.ErrNoRows {
+			log.Debugf("SAwsCachedLbbgManager.InitializeData %s", err)
+		}
+
+		return nil
+	}
+
+	for i := range ret {
+		item := ret[i]
+		_, err := db.Update(&item, func() error {
+			return item.MarkDelete()
+		})
+		if err != nil {
+			log.Debugf("SAwsCachedLbbgManager.MarkDelete %s", err)
+			return nil
+		}
+	}
+
+	log.Debugf("SAwsCachedLbbgManager cleaned %d dirty data.", len(ret))
+	return nil
 }
