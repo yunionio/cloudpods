@@ -145,6 +145,8 @@ func syncScopeResourceCount(ctx context.Context, regionId string, serviceId stri
 				ownerList = append(ownerList, scopeRes.OwnerId)
 			}
 
+			scopeRes.SetModelManager(models.ScopeResourceManager, &scopeRes)
+
 			err := models.ScopeResourceManager.TableSpec().InsertOrUpdate(ctx, &scopeRes)
 			if err != nil {
 				log.Errorf("table insert error %s", err)
