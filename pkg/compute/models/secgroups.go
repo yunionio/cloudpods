@@ -545,6 +545,10 @@ func (self *SSecurityGroup) AllowPerformPurge(ctx context.Context, userCred mccl
 }
 
 func (self *SSecurityGroup) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	err := self.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return nil, err
+	}
 	return nil, self.StartDeleteSecurityGroupTask(ctx, userCred, true, "")
 }
 
@@ -1008,12 +1012,11 @@ func (self *SSecurityGroup) DoSync(ctx context.Context, userCred mcclient.TokenC
 func (manager *SSecurityGroupManager) InitializeData() error {
 	_, err := manager.FetchById("default")
 	if err != nil && err != sql.ErrNoRows {
-		log.Errorf("find default secgroup fail %s", err)
-		return err
+		return errors.Wrapf(err, `manager.FetchById("default")`)
 	}
-	if err == sql.ErrNoRows {
-		var secGrp *SSecurityGroup
-		secGrp = &SSecurityGroup{}
+	if errors.Cause(err) == sql.ErrNoRows {
+		log.Debugf("Init default secgroup")
+		secGrp := &SSecurityGroup{}
 		secGrp.SetModelManager(manager, secGrp)
 		secGrp.Id = "default"
 		secGrp.Name = "Default"
@@ -1022,11 +1025,11 @@ func (manager *SSecurityGroupManager) InitializeData() error {
 		secGrp.DomainId = auth.AdminCredential().GetProjectDomainId()
 		// secGrp.IsEmulated = false
 		secGrp.IsPublic = true
+		secGrp.Deleted = false
 		secGrp.PublicScope = string(rbacutils.ScopeSystem)
-		err = manager.TableSpec().Insert(context.TODO(), secGrp)
+		err = manager.TableSpec().InsertOrUpdate(context.TODO(), secGrp)
 		if err != nil {
-			log.Errorf("Insert default secgroup failed!!! %s", err)
-			return err
+			return errors.Wrapf(err, "Insert default secgroup")
 		}
 
 		defRule := SSecurityGroupRule{}
@@ -1039,8 +1042,7 @@ func (manager *SSecurityGroupManager) InitializeData() error {
 		defRule.SecgroupId = "default"
 		err = SecurityGroupRuleManager.TableSpec().Insert(context.TODO(), &defRule)
 		if err != nil {
-			log.Errorf("Insert default secgroup rule fail %s", err)
-			return err
+			return errors.Wrapf(err, "Insert default secgroup rule")
 		}
 	}
 	guests := make([]SGuest, 0)
