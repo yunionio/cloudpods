@@ -44,7 +44,7 @@ func main() {
 
 	err = fs.Serve(c, *fetcherFs)
 	if err != nil {
-		log.Errorln("serve failed %s", err)
+		log.Errorf("serve failed %s", err)
 	}
 }
 
