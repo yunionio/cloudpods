@@ -539,13 +539,14 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 		FakeID int
 		IP     netutils.IPV4Addr
 		Name   string
+		VlanID int32
 	}
 	vms := make([]vm, 0, len(simpleVms))
 	var nip netutils.IPV4Addr
 	guestMap := make(map[int]*api.CAGuestNet)
 	for i := range simpleVms {
 		id := i
-		if len(simpleVms[i].IPs) == 0 {
+		if len(simpleVms[i].IPVlans) == 0 {
 			if _, ok := guestMap[id]; !ok {
 				guestMap[id] = &api.CAGuestNet{
 					Name:   simpleVms[i].Name,
@@ -553,8 +554,8 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 				}
 			}
 		}
-		for _, ip := range simpleVms[i].IPs {
-			nip, err = netutils.NewIPV4Addr(ip)
+		for _, ipVlan := range simpleVms[i].IPVlans {
+			nip, err = netutils.NewIPV4Addr(ipVlan.IP)
 			if err != nil {
 				return output, err
 			}
@@ -562,6 +563,7 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 				FakeID: i,
 				IP:     nip,
 				Name:   simpleVms[i].Name,
+				VlanID: ipVlan.VlanID,
 			})
 		}
 	}
@@ -584,7 +586,7 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 		return excludeNets[i].GuestIpStart < excludeNets[j].GuestIpStart
 	})
 
-	svNets := make([]netutils.IPV4AddrRange, 0, 5)
+	svNets := make([]api.CASimpleNetConf, 0, 5)
 	var vmi, neti int
 
 Loop:
@@ -609,6 +611,7 @@ Loop:
 				guestMap[id].IPNets = append(guestMap[id].IPNets, api.CAIPNet{
 					IP:              vms[vmi].IP.String(),
 					SuitableNetwork: excludeNets[neti].Id,
+					VlanID:          vms[vmi].VlanID,
 				})
 				vmi += 1
 				if vmi == len(vms) {
@@ -621,6 +624,7 @@ Loop:
 				suggestStartIp := vms[vmi].IP
 				suggestEndIp := vms[vmi].IP
 				endLimitIp := suggestStartIp.NetAddr(24) + 255
+				vlanId := vms[vmi].VlanID
 				for {
 					id := vms[vmi].FakeID
 					if _, ok := guestMap[id]; !ok {
@@ -630,7 +634,8 @@ Loop:
 						}
 					}
 					guestMap[id].IPNets = append(guestMap[id].IPNets, api.CAIPNet{
-						IP: vms[vmi].IP.String(),
+						IP:     vms[vmi].IP.String(),
+						VlanID: vms[vmi].VlanID,
 					})
 					vmi++
 					if vmi == len(vms) {
@@ -645,9 +650,18 @@ Loop:
 					if vms[vmi].IP >= startIp {
 						break
 					}
+					if vms[vmi].VlanID != vlanId {
+						break
+					}
 					suggestEndIp = vms[vmi].IP
 				}
-				svNets = append(svNets, netutils.NewIPV4AddrRange(suggestStartIp, suggestEndIp))
+				svNets = append(svNets, api.CASimpleNetConf{
+					GuestIpStart: suggestStartIp.String(),
+					GuestIpEnd:   suggestEndIp.String(),
+					VlanID:       vlanId,
+					GuestIpMask:  24,
+					GuestGateway: (suggestStartIp.NetAddr(24) + netutils.IPV4Addr(options.Options.DefaultNetworkGatewayAddressEsxi)).String(),
+				})
 				if vmi == len(vms) {
 					break Loop
 				}
@@ -659,6 +673,7 @@ Loop:
 		suggestStartIp := vms[vmi].IP
 		endLimitIp := suggestStartIp.NetAddr(24) + 255
 		suggestEndIp := suggestStartIp
+		vlanId := vms[vmi].VlanID
 		for {
 			id := vms[vmi].FakeID
 			if _, ok := guestMap[id]; !ok {
@@ -680,9 +695,18 @@ Loop:
 			if vms[vmi].IP > suggestEndIp+1 {
 				break
 			}
+			if vms[vmi].VlanID != vlanId {
+				break
+			}
 			suggestEndIp = vms[vmi].IP
 		}
-		svNets = append(svNets, netutils.NewIPV4AddrRange(suggestStartIp, suggestEndIp))
+		svNets = append(svNets, api.CASimpleNetConf{
+			GuestIpStart: suggestStartIp.String(),
+			GuestIpEnd:   suggestEndIp.String(),
+			VlanID:       vlanId,
+			GuestIpMask:  24,
+			GuestGateway: (suggestStartIp.NetAddr(24) + netutils.IPV4Addr(options.Options.DefaultNetworkGatewayAddressEsxi)).String(),
+		})
 	}
 
 	for _, guest := range guestMap {
@@ -692,12 +716,7 @@ Loop:
 	if len(svNets) > 0 {
 		confs := make([]api.CANetConf, len(svNets))
 		for i := range confs {
-			confs[i].CASimpleNetConf = api.CASimpleNetConf{
-				GuestIpStart: svNets[i].StartIp().String(),
-				GuestIpEnd:   svNets[i].EndIp().String(),
-				GuestIpMask:  24,
-				GuestGateway: (svNets[i].StartIp().NetAddr(24) + netutils.IPV4Addr(options.Options.DefaultNetworkGatewayAddressEsxi)).String(),
-			}
+			confs[i].CASimpleNetConf = svNets[i]
 			confs[i].Name = fmt.Sprintf("%s-guest-network-%d", input.Name, i+1)
 		}
 		output.GuestSuggestedNetworks = confs

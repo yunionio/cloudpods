@@ -20,6 +20,7 @@ import (
 	"net/url"
 	"reflect"
 	"strings"
+	"sync"
 
 	"github.com/vmware/govmomi"
 	"github.com/vmware/govmomi/object"
@@ -634,17 +635,54 @@ func (cli *SESXiClient) MoveDisk(ctx context.Context, src, dst string, isForce b
 
 var (
 	SIMPLE_HOST_PROPS = []string{"name", "config.network", "vm"}
-	SIMPLE_VM_PROPS   = []string{"name", "guest.net", "config.template"}
+	SIMPLE_VM_PROPS   = []string{"name", "guest.net", "config.template", "config.hardware.device"}
+	SIMPLE_DVPG_PROPS = []string{"key", "config.defaultPortConfig"}
 )
 
+type SIPVlan struct {
+	IP     string
+	VlanID int32
+}
+
 type SSimpleVM struct {
-	Name string
-	IPs  []string
+	Name    string
+	IPVlans []SIPVlan
+}
+
+func (cli *SESXiClient) scanAllDvPortgroups() ([]*SDistributedVirtualPortgroup, error) {
+	var modvpgs []mo.DistributedVirtualPortgroup
+	err := cli.scanAllMObjects(SIMPLE_DVPG_PROPS, &modvpgs)
+	if err != nil {
+		return nil, errors.Wrap(err, "scanAllMObjects")
+	}
+	dvpgs := make([]*SDistributedVirtualPortgroup, 0, len(modvpgs))
+	for i := range modvpgs {
+		dvpgs = append(dvpgs, NewDistributedVirtualPortgroup(cli, &modvpgs[i], nil))
+	}
+	return dvpgs, nil
+}
+
+func (cli *SESXiClient) dvpgKeyVlanMap() (*sync.Map, error) {
+	dvpgs, err := cli.scanAllDvPortgroups()
+	if err != nil {
+		return nil, err
+	}
+	ret := new(sync.Map)
+	for i := range dvpgs {
+		key := dvpgs[i].getMODVPortgroup().Key
+		vlanid := dvpgs[i].GetVlanId()
+		ret.Store(key, vlanid)
+	}
+	return ret, nil
 }
 
 func (cli *SESXiClient) HostVmIPs(ctx context.Context) (map[string]string, []SSimpleVM, error) {
+	dvpgKeyVlanMap, err := cli.dvpgKeyVlanMap()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "unable to get dvpgKeyVlanMap")
+	}
 	var hosts []mo.HostSystem
-	err := cli.scanAllMObjects(SIMPLE_HOST_PROPS, &hosts)
+	err = cli.scanAllMObjects(SIMPLE_HOST_PROPS, &hosts)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "scanAllMObjects")
 	}
@@ -653,7 +691,7 @@ func (cli *SESXiClient) HostVmIPs(ctx context.Context) (map[string]string, []SSi
 	for i := range hosts {
 		j := i
 		group.Go(func() error {
-			vmIps, err := cli.vmIPs(&hosts[j])
+			vmIps, err := cli.vmIPs(&hosts[j], dvpgKeyVlanMap)
 			if err != nil {
 				return err
 			}
@@ -687,12 +725,39 @@ func (cli *SESXiClient) HostVmIPs(ctx context.Context) (map[string]string, []SSi
 	return hostIps, svms, nil
 }
 
-func (cli *SESXiClient) vmIPs(host *mo.HostSystem) ([]SSimpleVM, error) {
+func (cli *SESXiClient) macVlanMap(movm mo.VirtualMachine, dvpgKeyVlanMap *sync.Map) map[string]int32 {
+	ret := make(map[string]int32, 2)
+	for _, device := range movm.Config.Hardware.Device {
+		bcard, ok := device.(types.BaseVirtualEthernetCard)
+		if !ok {
+			continue
+		}
+		card := bcard.GetVirtualEthernetCard()
+		mac := card.MacAddress
+		dvpgBackInfo, ok := card.Backing.(*types.VirtualEthernetCardDistributedVirtualPortBackingInfo)
+		if !ok {
+			ret[mac] = 0
+			continue
+		}
+		dvpgKey := dvpgBackInfo.Port.PortgroupKey
+		value, ok := dvpgKeyVlanMap.Load(dvpgKey)
+		if !ok {
+			log.Errorf("dvpg %s not found in key-vlanid map", dvpgKey)
+			ret[mac] = 0
+			continue
+		}
+		vlanid := value.(int32)
+		ret[mac] = vlanid
+	}
+	return ret
+}
+
+func (cli *SESXiClient) vmIPs(host *mo.HostSystem, dvpgKeyVlanMap *sync.Map) ([]SSimpleVM, error) {
 	if len(host.Vm) == 0 {
 		return []SSimpleVM{}, nil
 	}
 	var vms []mo.VirtualMachine
-	err := cli.references2Objects(host.Vm, VM_PROPS, &vms)
+	err := cli.references2Objects(host.Vm, SIMPLE_VM_PROPS, &vms)
 	if err != nil {
 		return nil, errors.Wrap(err, "references2Objects")
 	}
@@ -705,11 +770,13 @@ func (cli *SESXiClient) vmIPs(host *mo.HostSystem) ([]SSimpleVM, error) {
 		if vm.Guest == nil {
 			continue
 		}
-		guestIps := make([]string, 0)
+		macVlanMap := cli.macVlanMap(vm, dvpgKeyVlanMap)
+		guestIps := make([]SIPVlan, 0)
 		for _, net := range vm.Guest.Net {
 			if len(net.Network) == 0 {
 				continue
 			}
+			mac := net.MacAddress
 			for _, ip := range net.IpAddress {
 				if !regutils.MatchIP4Addr(ip) {
 					continue
@@ -721,7 +788,10 @@ func (cli *SESXiClient) vmIPs(host *mo.HostSystem) ([]SSimpleVM, error) {
 				if netutils.IsLinkLocal(ipaddr) {
 					continue
 				}
-				guestIps = append(guestIps, ip)
+				guestIps = append(guestIps, SIPVlan{
+					IP:     ip,
+					VlanID: macVlanMap[mac],
+				})
 				break
 			}
 		}
