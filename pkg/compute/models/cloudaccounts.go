@@ -590,6 +590,9 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 	lastEndIp := netutils.IPV4Addr(0)
 Loop:
 	for neti = 0; neti < len(excludeNets); {
+		if vmi >= len(vms) {
+			break
+		}
 		startIp, _ := netutils.NewIPV4Addr(excludeNets[neti].GuestIpStart)
 		endIp, _ := netutils.NewIPV4Addr(excludeNets[neti].GuestIpEnd)
 		switch {
