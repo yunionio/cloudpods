@@ -1,6 +1,7 @@
 ## {{.title}}
 - Time: {{.start_time}}
 - Level: {{.level}}
+- WebUrl: {{.web_url}}/commonalerts
 
 {{ range .matches}}
 - Metric: {{.metric}}

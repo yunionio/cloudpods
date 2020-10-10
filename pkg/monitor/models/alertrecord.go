@@ -21,14 +21,14 @@ var (
 type SAlertRecordManager struct {
 	db.SEnabledResourceBaseManager
 	db.SStatusStandaloneResourceBaseManager
-	db.SScopedResourceBaseManager
+	SMonitorScopedResourceManager
 }
 
 type SAlertRecord struct {
 	//db.SVirtualResourceBase
 	db.SEnabledResourceBase
 	db.SStatusStandaloneResourceBase
-	db.SScopedResourceBase
+	SMonitorScopedResource
 
 	AlertId   string               `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	Level     string               `charset:"ascii" width:"36" nullable:"false" default:"normal" list:"user" update:"user"`

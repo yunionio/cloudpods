@@ -55,7 +55,7 @@ type SAlertManager struct {
 	//db.SVirtualResourceBaseManager
 	db.SEnabledResourceBaseManager
 	db.SStatusStandaloneResourceBaseManager
-	db.SScopedResourceBaseManager
+	SMonitorScopedResourceManager
 	//db.SStatusResourceBaseManager
 
 	tester AlertTestRunner
@@ -112,7 +112,7 @@ type SAlert struct {
 	//db.SVirtualResourceBase
 	db.SEnabledResourceBase
 	db.SStatusStandaloneResourceBase
-	db.SScopedResourceBase
+	SMonitorScopedResource
 	//db.SStatusResourceBase
 
 	// Frequency is evaluate period
