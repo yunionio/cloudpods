@@ -132,7 +132,7 @@ func (c *SSHtoolSol) GetCommand() *exec.Cmd {
 			"-oGlobalKnownHostsFile=/dev/null",
 			"-oUserKnownHostsFile=/dev/null",
 			"-oStrictHostKeyChecking=no",
-			"-oPreferredAuthentications=password",
+			"-oPreferredAuthentications=password,keyboard-interactive",
 			"-oPubkeyAuthentication=no", // 密码登录时,避免搜寻秘钥登录
 			"-oNumberOfPasswordPrompts=1",
 		}
