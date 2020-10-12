@@ -169,8 +169,7 @@ func (self *SGuest) GetDetailsDesc(ctx context.Context, userCred mcclient.TokenC
 	if host == nil {
 		return nil, httperrors.NewInvalidStatusError("No host for server")
 	}
-	desc := self.GetDriver().GetJsonDescAtHost(ctx, userCred, self, host)
-	return desc, nil
+	return self.GetDriver().GetJsonDescAtHost(ctx, userCred, self, host, nil)
 }
 
 func (self *SGuest) AllowPerformSaveImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

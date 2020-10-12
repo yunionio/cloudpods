@@ -387,6 +387,9 @@ type ServerCreateOptionalOptions struct {
 	EipChargeType string `help:"newly allocated EIP charge type" choices:"traffic|bandwidth" json:"eip_charge_type,omitempty"`
 	Eip           string `help:"associate with an existing EIP when server is created" json:"eip,omitempty"`
 
+	PublicIpBw         int    `help:"associate public ip with bandwidth in MB where server is created" json:"public_ip_bw,omitzero"`
+	PublicIpChargeType string `help:"newly allocated public ip charge type" choices:"traffic|bandwidth" json:"public_ip_charge_type,omitempty"`
+
 	GuestImageID string `help:"create from guest image, need to specify the guest image id"`
 }
 

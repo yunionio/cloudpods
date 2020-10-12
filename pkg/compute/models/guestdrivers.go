@@ -56,7 +56,7 @@ type IGuestDriver interface {
 
 	RequestRenewInstance(guest *SGuest, bc billing.SBillingCycle) (time.Time, error)
 
-	GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, host *SHost) jsonutils.JSONObject
+	GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, host *SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error)
 
 	ValidateImage(ctx context.Context, image *cloudprovider.SImage) error
 	ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *api.ServerCreateInput) (*api.ServerCreateInput, error)
@@ -169,6 +169,7 @@ type IGuestDriver interface {
 	RequestSyncToBackup(ctx context.Context, guest *SGuest, task taskman.ITask) error
 
 	IsSupportEip() bool
+	IsSupportPublicIp() bool
 	ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error
 	RequestAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, eip *SElasticip, task taskman.ITask) error
 

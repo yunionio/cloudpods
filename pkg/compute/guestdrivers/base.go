@@ -270,6 +270,10 @@ func (self *SBaseGuestDriver) IsSupportEip() bool {
 	return false
 }
 
+func (self *SBaseGuestDriver) IsSupportPublicIp() bool {
+	return false
+}
+
 func (self *SBaseGuestDriver) RequestAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, eip *models.SElasticip, task taskman.ITask) error {
 	return fmt.Errorf("SBaseGuestDriver: Not Implement RequestAssociateEip")
 }

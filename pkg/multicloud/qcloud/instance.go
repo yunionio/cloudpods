@@ -489,13 +489,13 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 	if instances[0].InstanceState == "LAUNCH_FAILED" {
 		return nil, cloudprovider.ErrNotFound
 	}
-	log.Debugf("%#v", instances)
 	return &instances[0], nil
 }
 
 func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, securityGroupId string,
 	zoneId string, desc string, passwd string, disks []SDisk, networkId string, ipAddr string,
-	keypair string, userData string, bc *billing.SBillingCycle, projectId string) (string, error) {
+	keypair string, userData string, bc *billing.SBillingCycle, projectId string,
+	publicIpBw int, publicIpChargeType cloudprovider.TElasticipChargeType) (string, error) {
 	params := make(map[string]string)
 	params["Region"] = self.Region
 	params["ImageId"] = imageId
@@ -508,12 +508,18 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	params["InstanceName"] = name
 	params["HostName"] = name
 
-	bandwidth := 100
-	if bc != nil {
-		bandwidth = 200
+	bandwidth := publicIpBw
+	if publicIpBw == 0 {
+		bandwidth = 100
+		if bc != nil {
+			bandwidth = 200
+		}
 	}
 
 	internetChargeType := "TRAFFIC_POSTPAID_BY_HOUR"
+	if publicIpChargeType == cloudprovider.ElasticipChargeTypeByBandwidth {
+		internetChargeType = "BANDWIDTH_PREPAID"
+	}
 	_, totalCount, err := self.GetBandwidthPackages([]string{}, 0, 50)
 	if err != nil {
 		return "", errors.Wrapf(err, "GetBandwidthPackages")
@@ -525,7 +531,9 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 
 	params["InternetAccessible.InternetChargeType"] = internetChargeType
 	params["InternetAccessible.InternetMaxBandwidthOut"] = fmt.Sprintf("%d", bandwidth)
-	params["InternetAccessible.PublicIpAssigned"] = "FALSE"
+	if publicIpBw == 0 {
+		params["InternetAccessible.PublicIpAssigned"] = "FALSE"
+	}
 	if len(keypair) > 0 {
 		params["LoginSettings.KeyIds.0"] = keypair
 	} else if len(passwd) > 0 {

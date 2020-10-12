@@ -51,6 +51,7 @@ const (
 	CLOUD_CAPABILITY_EVENT        = "event"
 	CLOUD_CAPABILITY_CLOUDID      = "cloudid"
 	CLOUD_CAPABILITY_DNSZONE      = "dnszone"
+	CLOUD_CAPABILITY_PUBLIC_IP    = "public_ip"
 )
 
 const (
