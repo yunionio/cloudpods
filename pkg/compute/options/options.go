@@ -144,9 +144,10 @@ type ComputeOptions struct {
 
 	EnableAutoRenameProject bool `help:"when it set true, auto create project will rename when cloud project name changed" default:"false"`
 
-	SyncStorageCapacityUsedIntervalMinutes int `help:"interval sync storage capacity used" default:"10"`
+	SyncStorageCapacityUsedIntervalMinutes int  `help:"interval sync storage capacity used" default:"10"`
+	LockStorageFromCachedimage             bool `help:"must use storage in where selected cachedimage when creating vm"`
 
-	LockStorageFromCachedimage bool `help:"must use storage in where selected cachedimage when creating vm"`
+	SyncExtDiskSnapshotIntervalMinutes int `help:"sync snapshot for external disk" default:"20"`
 
 	SCapabilityOptions
 	SASControllerOptions
