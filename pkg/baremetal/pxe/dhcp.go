@@ -269,6 +269,9 @@ func (req *dhcpRequest) findNetworkConf(session *mcclient.ClientSession, filterU
 		params.Add(jsonutils.NewString(
 			fmt.Sprintf("guest_dhcp.endswith(',%s')", req.RelayAddr)),
 			"filter.3")
+		params.Add(jsonutils.NewString(
+			fmt.Sprintf("guest_dhcp.equals(%s)", req.RelayAddr)),
+			"filter.4")
 		params.Add(jsonutils.JSONTrue, "filter_any")
 	}
 	params.Add(jsonutils.JSONTrue, "is_classic")
