@@ -15,6 +15,7 @@
 package shell
 
 import (
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -54,4 +55,68 @@ func init() {
 		return cli.DeleteVpc(args.ID)
 	})
 
+	type VpcPeeringListOPtion struct {
+		VPCID string
+	}
+	shellutils.R(&VpcPeeringListOPtion{}, "vpcPeering-list", "List vpcPeering", func(cli *huawei.SRegion, args *VpcPeeringListOPtion) error {
+		vpcPeerings, err := cli.GetVpcPeerings(args.VPCID)
+		if err != nil {
+			return err
+		}
+		printList(vpcPeerings, 0, 0, 0, nil)
+		return nil
+	})
+
+	type VpcPeeringShowOPtion struct {
+		VPCPEERINGID string
+	}
+	shellutils.R(&VpcPeeringShowOPtion{}, "vpcPeering-show", "show vpcPeering", func(cli *huawei.SRegion, args *VpcPeeringShowOPtion) error {
+		vpcPeering, err := cli.GetVpcPeering(args.VPCPEERINGID)
+		if err != nil {
+			return err
+		}
+		printObject(vpcPeering)
+		return nil
+	})
+
+	type VpcPeeringCreateOPtion struct {
+		NAME        string
+		VPCID       string
+		PEERVPCID   string
+		PEEROWNERID string
+	}
+	shellutils.R(&VpcPeeringCreateOPtion{}, "vpcPeering-create", "create vpcPeering", func(cli *huawei.SRegion, args *VpcPeeringCreateOPtion) error {
+		opts := cloudprovider.VpcPeeringConnectionCreateOptions{}
+		opts.Name = args.NAME
+		opts.PeerVpcId = args.PEERVPCID
+		opts.PeerAccountId = args.PEEROWNERID
+		vpcPeering, err := cli.CreateVpcPeering(args.VPCID, &opts)
+		if err != nil {
+			return err
+		}
+		printObject(vpcPeering)
+		return nil
+	})
+
+	type VpcPeeringAcceptOPtion struct {
+		VPCPEERINGID string
+	}
+	shellutils.R(&VpcPeeringAcceptOPtion{}, "vpcPeering-accept", "Accept vpcPeering", func(cli *huawei.SRegion, args *VpcPeeringAcceptOPtion) error {
+		err := cli.AcceptVpcPeering(args.VPCPEERINGID)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
+	type VpcPeeringDeleteOPtion struct {
+		VPCPEERINGID string
+	}
+	shellutils.R(&VpcPeeringDeleteOPtion{}, "vpcPeering-delete", "Delete vpcPeering", func(cli *huawei.SRegion, args *VpcPeeringDeleteOPtion) error {
+		err := cli.DeleteVpcPeering(args.VPCPEERINGID)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 }

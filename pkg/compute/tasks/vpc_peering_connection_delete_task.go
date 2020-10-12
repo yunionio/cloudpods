@@ -44,13 +44,13 @@ func (self *VpcPeeringConnectionDeleteTask) taskFailed(ctx context.Context, peer
 }
 
 func (self *VpcPeeringConnectionDeleteTask) taskComplete(ctx context.Context, peer *models.SVpcPeeringConnection) {
-	peer.RealDelete(ctx, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, peer, logclient.ACT_DELETE, nil, self.UserCred, true)
+	peer.RealDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }
 
 func (self *VpcPeeringConnectionDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	peer := obj.(models.SVpcPeeringConnection)
+	peer := obj.(*models.SVpcPeeringConnection)
 
 	vpc, err := peer.GetVpc()
 	if err != nil {
@@ -61,6 +61,11 @@ func (self *VpcPeeringConnectionDeleteTask) OnInit(ctx context.Context, obj db.I
 	iVpc, err := vpc.GetIVpc()
 	if err != nil {
 		self.taskFailed(ctx, peer, errors.Wrapf(err, "GetIVpc"))
+		return
+	}
+
+	if len(peer.ExternalId) == 0 {
+		self.taskComplete(ctx, peer)
 		return
 	}
 

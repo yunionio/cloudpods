@@ -51,15 +51,12 @@ func (self *VpcPeeringConnectionCreateTask) OnInit(ctx context.Context, obj db.I
 		self.taskFailed(ctx, peer, errors.Wrapf(err, "GetVpc"))
 		return
 	}
-	account := vpc.GetCloudaccount()
 
 	peerVpc, err := peer.GetPeerVpc()
 	if err != nil {
 		self.taskFailed(ctx, peer, errors.Wrapf(err, "GetPeerVpc"))
 		return
 	}
-
-	peerAccount := peerVpc.GetCloudaccount()
 
 	iVpc, err := vpc.GetIVpc()
 	if err != nil {
@@ -74,24 +71,34 @@ func (self *VpcPeeringConnectionCreateTask) OnInit(ctx context.Context, obj db.I
 	}
 
 	opts := &cloudprovider.VpcPeeringConnectionCreateOptions{
-		Name:         peer.Name,
-		Desc:         peer.Description,
-		PeerVpcId:    iPeerVpc.GetId(),
-		PeerRegionId: iPeerVpc.GetRegion().GetId(),
+		Name:          peer.Name,
+		Desc:          peer.Description,
+		Bandwidth:     peer.Bandwidth,
+		PeerVpcId:     iPeerVpc.GetId(),
+		PeerRegionId:  iPeerVpc.GetRegion().GetId(),
+		PeerAccountId: iPeerVpc.GetAuthorityOwnerId(),
 	}
-	if account.Id != peerAccount.Id {
-		opts.PeerAccountId = ""
-	}
-
 	iPeerConnection, err := iVpc.CreateICloudVpcPeeringConnection(opts)
 	if err != nil {
 		self.taskFailed(ctx, peer, errors.Wrapf(err, "CreateICloudVpcPeeringConnection"))
 		return
 	}
+	err = iPeerVpc.AcceptICloudVpcPeeringConnection(iPeerConnection.GetGlobalId())
+	if err != nil {
+		self.taskFailed(ctx, peer, errors.Wrapf(err, "AcceptICloudVpcPeeringConnection"))
+		return
+	}
 
+	iPeerConnection.Refresh()
 	err = peer.SyncWithCloudPeerConnection(ctx, self.GetUserCred(), iPeerConnection, nil)
 	if err != nil {
 		self.taskFailed(ctx, peer, errors.Wrapf(err, "SyncWithCloudPeerConnection"))
 		return
 	}
+	self.taskComplete(ctx, peer)
+}
+
+func (self *VpcPeeringConnectionCreateTask) taskComplete(ctx context.Context, peer *models.SVpcPeeringConnection) {
+	logclient.AddActionLogWithStartable(self, peer, logclient.ACT_CREATE, nil, self.UserCred, true)
+	self.SetStageComplete(ctx, nil)
 }

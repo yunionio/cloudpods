@@ -15,7 +15,8 @@
 package multicloud
 
 import (
-	"github.com/pkg/errors"
+	"yunion.io/x/pkg/errors"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -37,4 +38,20 @@ func (self *SVpc) GetICloudVpcPeeringConnectionById(id string) (cloudprovider.IC
 
 func (self *SVpc) CreateICloudVpcPeeringConnection(opts *cloudprovider.VpcPeeringConnectionCreateOptions) (cloudprovider.ICloudVpcPeeringConnection, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateICloudVpcPeeringConnection")
+}
+
+func (self *SVpc) AcceptICloudVpcPeeringConnection(id string) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "AcceptICloudVpcPeeringConnection", id)
+}
+
+func (self *SVpc) GetAuthorityOwnerId() string {
+	return ""
+}
+
+func (self *SVpc) CreateRouteToVpcPeeringConnection(cidrBlock, peerId string) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateRouteToVpcPeeringConnection")
+}
+
+func (self *SVpc) DeleteVpcPeeringConnectionRoute(vpcPeeringConnectionId string) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "DeleteVpcPeeringConnectionRoute")
 }

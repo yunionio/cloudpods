@@ -994,11 +994,30 @@ func (vpc *SVpc) purgeWires(ctx context.Context, userCred mcclient.TokenCredenti
 	return nil
 }
 
+func (vpc *SVpc) purgeVpcPeeringConnections(ctx context.Context, userCred mcclient.TokenCredential) error {
+	vpcPCs, err := vpc.GetVpcPeeringConnections()
+	if err != nil {
+		return err
+	}
+	for i := range vpcPCs {
+		err := vpcPCs[i].purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (vpc *SVpc) Purge(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, vpc)
 	defer lockman.ReleaseObject(ctx, vpc)
 
-	err := vpc.purgeWires(ctx, userCred)
+	err := vpc.purgeVpcPeeringConnections(ctx, userCred)
+	if err != nil {
+		return err
+	}
+
+	err = vpc.purgeWires(ctx, userCred)
 	if err != nil {
 		return err
 	}
@@ -1694,4 +1713,10 @@ func (manager *SPolicyDefinitionManager) purgeAll(ctx context.Context, userCred 
 		}
 	}
 	return nil
+}
+
+func (vpcPC *SVpcPeeringConnection) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, vpcPC)
+	defer lockman.ReleaseObject(ctx, vpcPC)
+	return vpcPC.RealDelete(ctx, userCred)
 }

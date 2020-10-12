@@ -88,6 +88,7 @@ func (cfg *QcloudClientConfig) Debug(debug bool) *QcloudClientConfig {
 
 type SQcloudClient struct {
 	*QcloudClientConfig
+	uin       string
 	ownerId   string
 	ownerName string
 
@@ -234,11 +235,13 @@ func (r *phpJsonRequest) GetPath() string {
 
 // 2017vpc专用response
 type vpc2017JsonResponse struct {
-	Code       int          `json:"code"`
-	CodeDesc   string       `json:"codeDesc"`
-	Message    string       `json:"message"`
-	TotalCount int          `json:"totalCount"`
-	Response   *interface{} `json:"data"`
+	Code                int          `json:"code"`
+	CodeDesc            string       `json:"codeDesc"`
+	Message             string       `json:"message"`
+	TotalCount          int          `json:"totalCount"`
+	TaskId              int64        `json:"taskId"`
+	PeeringConnectionId string       `json:"peeringConnectionId"`
+	Response            *interface{} `json:"data"`
 }
 
 func (r *vpc2017JsonResponse) ParseErrorFromHTTPResponse(body []byte) (err error) {
@@ -257,9 +260,11 @@ func (r *vpc2017JsonResponse) ParseErrorFromHTTPResponse(body []byte) (err error
 func (r *vpc2017JsonResponse) GetResponse() *interface{} {
 	if r.Response == nil {
 		result, _ := jsonutils.Parse([]byte(`{"data":[],"totalCount":0}`))
+		resultMap := result.(*jsonutils.JSONDict)
+		resultMap.Update(jsonutils.Marshal(r))
 		return func(resp interface{}) *interface{} {
 			return &resp
-		}(result)
+		}(resultMap)
 	}
 	return func(resp interface{}) *interface{} {
 		return &resp

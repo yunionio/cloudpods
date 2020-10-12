@@ -124,6 +124,18 @@ func (self *SAwsProviderFactory) GetSupportedDnsPolicyValues() map[cloudprovider
 	}
 }
 
+func (factory *SAwsProviderFactory) IsSupportCrossCloudEnvVpcPeering() bool {
+	return false
+}
+
+func (factory *SAwsProviderFactory) IsSupportCrossRegionVpcPeering() bool {
+	return true
+}
+
+func (factory *SAwsProviderFactory) IsSupportVpcPeeringVpcCidrOverlap() bool {
+	return false
+}
+
 func (self *SAwsProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {

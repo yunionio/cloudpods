@@ -14,16 +14,24 @@
 
 package modules
 
-import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
-
-var (
-	VpcPeeringConnections modulebase.ResourceManager
+import (
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
 )
 
-func init() {
-	VpcPeeringConnections = NewComputeManager("vpc_peering_connection", "vpc_peering_connections",
-		[]string{"ID", "Name", "Enabled", "Status", "vpc_id", "peer_vpc_id", "peer_account_id", "Public_Scope", "Domain_Id", "Domain"},
-		[]string{})
+type SVpcPeeringManager struct {
+	SResourceManager
+}
 
-	registerCompute(&VpcPeeringConnections)
+func NewVpcPeeringManager(regionId string, projectId string, signer auth.Signer, debug bool) *SVpcPeeringManager {
+	return &SVpcPeeringManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(signer, debug),
+		ServiceName:   ServiceNameVPC,
+		Region:        regionId,
+		ProjectId:     "",
+		version:       "v2.0",
+		Keyword:       "peering",
+		KeywordPlural: "peerings",
+
+		ResourceKeyword: "vpc/peerings",
+	}}
 }

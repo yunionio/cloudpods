@@ -448,6 +448,8 @@ type ICloudVpc interface {
 	GetICloudVpcPeeringConnections() ([]ICloudVpcPeeringConnection, error)
 	GetICloudVpcPeeringConnectionById(id string) (ICloudVpcPeeringConnection, error)
 	CreateICloudVpcPeeringConnection(opts *VpcPeeringConnectionCreateOptions) (ICloudVpcPeeringConnection, error)
+	AcceptICloudVpcPeeringConnection(id string) error
+	GetAuthorityOwnerId() string
 }
 
 type ICloudWire interface {
@@ -1060,6 +1062,7 @@ type ICloudVpcPeeringConnection interface {
 
 	GetPeerVpcId() string
 	GetPeerAccountId() string
+	GetEnabled() bool
 
 	Delete() error
 }

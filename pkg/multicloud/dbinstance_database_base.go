@@ -15,7 +15,8 @@
 package multicloud
 
 import (
-	"github.com/pkg/errors"
+	"yunion.io/x/pkg/errors"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 

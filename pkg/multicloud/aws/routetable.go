@@ -15,6 +15,9 @@
 package aws
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/aws/aws-sdk-go/service/ec2"
 
 	"yunion.io/x/jsonutils"
@@ -133,6 +136,48 @@ func (self *SRegion) GetRouteTables(vpcId string, mainRouteOnly bool) ([]SRouteT
 	}
 
 	return routeTables, nil
+}
+
+func (self *SRegion) CreateRoute(routeTableId string, DestinationCIDRBlock string, targetId string) error {
+	input := &ec2.CreateRouteInput{}
+	input.RouteTableId = &routeTableId
+	input.DestinationCidrBlock = &DestinationCIDRBlock
+	segs := strings.Split(targetId, "-")
+	if len(segs) == 0 {
+		return fmt.Errorf("invalid aws vpc targetid:%s", targetId)
+	}
+	switch segs[0] {
+	case "i":
+		input.InstanceId = &targetId
+	case "igw", "vgw":
+		input.GatewayId = &targetId
+	case "pcx":
+		input.VpcPeeringConnectionId = &targetId
+	case "eni":
+		input.NetworkInterfaceId = &targetId
+	case "nat":
+		input.NatGatewayId = &targetId
+	case "eigw":
+		input.EgressOnlyInternetGatewayId = &targetId
+	default:
+		return fmt.Errorf("invalid aws vpc targetid:%s", targetId)
+	}
+	_, err := self.ec2Client.CreateRoute(input)
+	if err != nil {
+		return errors.Wrapf(err, "self.ec2Client.CreateRoute(%s)", jsonutils.Marshal(input).String())
+	}
+	return nil
+}
+
+func (self *SRegion) RemoveRoute(routeTableId string, DestinationCIDRBlock string) error {
+	input := &ec2.DeleteRouteInput{}
+	input.RouteTableId = &routeTableId
+	input.DestinationCidrBlock = &DestinationCIDRBlock
+	_, err := self.ec2Client.DeleteRoute(input)
+	if err != nil {
+		return errors.Wrapf(err, "self.ec2Client.DeleteRoute(%s)", jsonutils.Marshal(input).String())
+	}
+	return nil
 }
 
 func (self *SRegion) GetRouteTablesByNetworkId(netId string) ([]SRouteTable, error) {

@@ -35,3 +35,14 @@ func (opts *VpcPeeringConnectionIdOptions) GetId() string {
 func (opts *VpcPeeringConnectionIdOptions) Params() (jsonutils.JSONObject, error) {
 	return nil, nil
 }
+
+type VpcPeeringConnectionCreateOptions struct {
+	EnabledStatusCreateOptions
+	VpcId     string
+	PeerVpcId string
+	Bandwidth int
+}
+
+func (opts *VpcPeeringConnectionCreateOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts).(*jsonutils.JSONDict), nil
+}

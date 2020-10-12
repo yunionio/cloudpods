@@ -70,7 +70,7 @@ type SRouteTable struct {
 	VpcId       string
 	Description string
 	Type        string
-	Routes      []cloudprovider.ICloudRoute
+	Routes      []*SRouteEntry
 }
 
 func NewSRouteTable(vpc *SVpc, Type string) SRouteTable {
@@ -134,7 +134,11 @@ func (self *SRouteTable) GetIRoutes() ([]cloudprovider.ICloudRoute, error) {
 			return nil, err
 		}
 	}
-	return self.Routes, nil
+	ret := []cloudprovider.ICloudRoute{}
+	for i := range self.Routes {
+		ret = append(ret, self.Routes[i])
+	}
+	return ret, nil
 }
 
 // fetchRoutes fetch Routes
@@ -152,7 +156,7 @@ func (self *SRouteTable) fetchRoutesForIP() error {
 		return errors.Wrap(err, "get vpc info error")
 	}
 	routeArray, err := ret.GetArray("routes")
-	routes := make([]cloudprovider.ICloudRoute, 0, len(routeArray))
+	routes := make([]*SRouteEntry, 0, len(routeArray))
 	for i := range routeArray {
 		destination, err := routeArray[i].GetString("destination")
 		if err != nil {
@@ -180,7 +184,7 @@ func (self *SRouteTable) fetchRoutesForPeer() error {
 	if err != nil {
 		return errors.Wrap(err, "get peer route error")
 	}
-	routesPeer := make([]cloudprovider.ICloudRoute, 0, retPeer.Total)
+	routesPeer := make([]*SRouteEntry, 0, retPeer.Total)
 	for i := range retPeer.Data {
 		route := retPeer.Data[i]
 		id, err := route.GetString("id")
@@ -253,4 +257,27 @@ func (self *SRegion) GetRouteTables(vpcId string) ([]SRouteTable, error) {
 
 	}
 	return ret, nil
+}
+
+func (self *SRegion) CreatePeeringRoute(vpcId, destinationCidr, target string) error {
+	params := jsonutils.NewDict()
+	routeObj := jsonutils.NewDict()
+	routeObj.Set("type", jsonutils.NewString("peering"))
+	routeObj.Set("nexthop", jsonutils.NewString(target))
+	routeObj.Set("destination", jsonutils.NewString(destinationCidr))
+	routeObj.Set("vpc_id", jsonutils.NewString(vpcId))
+	params.Set("route", routeObj)
+	err := DoCreate(self.ecsClient.VpcRoutes.Create, params, nil)
+	if err != nil {
+		return errors.Wrapf(err, "DoCreate(self.ecsClient.VpcRoutes.Create, %s, &ret)", jsonutils.Marshal(params).String())
+	}
+	return nil
+}
+
+func (self *SRegion) DeletePeeringRoute(routeId string) error {
+	err := DoDelete(self.ecsClient.VpcRoutes.Delete, routeId, nil, nil)
+	if err != nil {
+		return errors.Wrapf(err, "DoDelete(self.ecsClient.VpcRoutes.Delete,%s,nil)", routeId)
+	}
+	return nil
 }

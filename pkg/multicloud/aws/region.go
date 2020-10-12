@@ -342,20 +342,29 @@ func (self *SRegion) fetchIVpcs() error {
 
 	self.ivpcs = make([]cloudprovider.ICloudVpc, 0)
 	for _, vpc := range vpcs.Vpcs {
+		cidrBlockAssociationSet := []string{}
+		for i := range vpc.CidrBlockAssociationSet {
+			cidr := vpc.CidrBlockAssociationSet[i]
+			if cidr.CidrBlockState.State != nil && *cidr.CidrBlockState.State == "associated" {
+				cidrBlockAssociationSet = append(cidrBlockAssociationSet, *cidr.CidrBlock)
+			}
+		}
+
 		tags := make(map[string]string, 0)
 		for _, tag := range vpc.Tags {
 			tags[*tag.Key] = *tag.Value
 		}
 
 		self.ivpcs = append(self.ivpcs, &SVpc{region: self,
-			CidrBlock:       *vpc.CidrBlock,
-			Tags:            tags,
-			IsDefault:       *vpc.IsDefault,
-			RegionId:        self.RegionId,
-			Status:          *vpc.State,
-			VpcId:           *vpc.VpcId,
-			VpcName:         tags["Name"],
-			InstanceTenancy: *vpc.InstanceTenancy,
+			CidrBlock:               *vpc.CidrBlock,
+			CidrBlockAssociationSet: cidrBlockAssociationSet,
+			Tags:                    tags,
+			IsDefault:               *vpc.IsDefault,
+			RegionId:                self.RegionId,
+			Status:                  *vpc.State,
+			VpcId:                   *vpc.VpcId,
+			VpcName:                 tags["Name"],
+			InstanceTenancy:         *vpc.InstanceTenancy,
 		})
 	}
 

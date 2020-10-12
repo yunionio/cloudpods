@@ -214,6 +214,79 @@ func (self *SVpc) GetINatGateways() ([]cloudprovider.ICloudNatGateway, error) {
 	return ret, nil
 }
 
+func (self *SVpc) GetICloudVpcPeeringConnections() ([]cloudprovider.ICloudVpcPeeringConnection, error) {
+	svpcPCs, err := self.getVpcPeeringConnections()
+	if err != nil {
+		return nil, errors.Wrap(err, "self.getVpcPeeringConnections()")
+	}
+	ivpcPCs := []cloudprovider.ICloudVpcPeeringConnection{}
+	for i := range svpcPCs {
+		ivpcPCs = append(ivpcPCs, &svpcPCs[i])
+	}
+	return ivpcPCs, nil
+}
+func (self *SVpc) GetICloudVpcPeeringConnectionById(id string) (cloudprovider.ICloudVpcPeeringConnection, error) {
+	svpcPC, err := self.getVpcPeeringConnectionById(id)
+	if err != nil {
+		return nil, errors.Wrapf(err, "self.getVpcPeeringConnectionById(%s)", id)
+	}
+	return svpcPC, nil
+}
+
+func (self *SVpc) CreateICloudVpcPeeringConnection(opts *cloudprovider.VpcPeeringConnectionCreateOptions) (cloudprovider.ICloudVpcPeeringConnection, error) {
+	svpcPC, err := self.region.CreateVpcPeering(self.GetId(), opts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "self.region.CreateVpcPeering(%s,%s)", self.GetId(), jsonutils.Marshal(opts).String())
+	}
+	svpcPC.vpc = self
+	return svpcPC, nil
+}
+func (self *SVpc) AcceptICloudVpcPeeringConnection(id string) error {
+	vpcPC, err := self.getVpcPeeringConnectionById(id)
+	if err != nil {
+		return errors.Wrapf(err, "self.getVpcPeeringConnectionById(%s)", id)
+	}
+	if vpcPC.GetStatus() == api.VPC_PEERING_CONNECTION_STATUS_ACTIVE {
+		return nil
+	}
+	if vpcPC.GetStatus() == api.VPC_PEERING_CONNECTION_STATUS_UNKNOWN {
+		return errors.Wrapf(cloudprovider.ErrInvalidStatus, "vpcPC: %s", jsonutils.Marshal(vpcPC).String())
+	}
+	err = self.region.AcceptVpcPeering(id)
+	if err != nil {
+		return errors.Wrapf(err, "self.region.AcceptVpcPeering(%s)", id)
+	}
+	return nil
+}
+
+func (self *SVpc) GetAuthorityOwnerId() string {
+	return self.region.client.projectId
+}
+
+func (self *SVpc) getVpcPeeringConnections() ([]SVpcPeering, error) {
+	svpcPeerings, err := self.region.GetVpcPeerings(self.GetId())
+	if err != nil {
+		return nil, errors.Wrapf(err, "self.region.GetVpcPeerings(%s)", self.GetId())
+	}
+	vpcPCs := []SVpcPeering{}
+	for i := range svpcPeerings {
+		if svpcPeerings[i].GetVpcId() == self.GetId() {
+			svpcPeerings[i].vpc = self
+			vpcPCs = append(vpcPCs, svpcPeerings[i])
+		}
+	}
+	return vpcPCs, nil
+}
+
+func (self *SVpc) getVpcPeeringConnectionById(id string) (*SVpcPeering, error) {
+	svpcPC, err := self.region.GetVpcPeering(id)
+	if err != nil {
+		return nil, errors.Wrapf(err, "self.region.GetVpcPeering(%s)", id)
+	}
+	svpcPC.vpc = self
+	return svpcPC, nil
+}
+
 func (self *SRegion) getVpc(vpcId string) (*SVpc, error) {
 	vpc := SVpc{}
 	err := DoGet(self.ecsClient.Vpcs.Get, vpcId, nil, &vpc)

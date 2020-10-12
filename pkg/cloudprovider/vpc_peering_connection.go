@@ -20,4 +20,5 @@ type VpcPeeringConnectionCreateOptions struct {
 	PeerVpcId     string
 	PeerAccountId string
 	PeerRegionId  string
+	Bandwidth     int //qcloud cross region,Mbps
 }

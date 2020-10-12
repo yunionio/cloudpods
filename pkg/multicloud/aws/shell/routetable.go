@@ -21,16 +21,30 @@ import (
 
 func init() {
 	type RouteTableListOptions struct {
-		VpcId string `help:"vpc id"`
+		VpcId    string `help:"vpc id"`
+		MainOnly bool
 	}
 	shellutils.R(&RouteTableListOptions{}, "routetable-list", "List route tables", func(cli *aws.SRegion, args *RouteTableListOptions) error {
-		routetables, err := cli.GetRouteTables(args.VpcId, false)
+		routetables, err := cli.GetRouteTables(args.VpcId, args.MainOnly)
 		if err != nil {
 			printObject(err)
 			return nil
 		}
 
 		printList(routetables, 0, 0, 0, nil)
+		return nil
+	})
+
+	type RouteCreateOptions struct {
+		ROUTETABLEID string `help:"routetable id"`
+		CIDRBLOCK    string
+		TARGETID     string
+	}
+	shellutils.R(&RouteCreateOptions{}, "route-create", "create route", func(cli *aws.SRegion, args *RouteCreateOptions) error {
+		err := cli.CreateRoute(args.ROUTETABLEID, args.CIDRBLOCK, args.TARGETID)
+		if err != nil {
+			return err
+		}
 		return nil
 	})
 }

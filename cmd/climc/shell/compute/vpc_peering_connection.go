@@ -24,5 +24,8 @@ func init() {
 	cmd := shell.NewResourceCmd(&modules.VpcPeeringConnections).WithKeyword("vpc-peering-connection")
 	cmd.List(&options.VpcPeeringConnectionListOptions{})
 	cmd.Show(&options.VpcPeeringConnectionIdOptions{})
+	cmd.Create(&options.VpcPeeringConnectionCreateOptions{})
 	cmd.Delete(&options.VpcPeeringConnectionIdOptions{})
+	cmd.Perform("sync", &options.VpcPeeringConnectionIdOptions{})
+	cmd.Perform("syncstatus", &options.VpcPeeringConnectionIdOptions{})
 }
