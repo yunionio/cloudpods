@@ -149,6 +149,18 @@ func (manager *SDnsZoneManager) ValidateCreateData(ctx context.Context, userCred
 }
 
 func (self *SDnsZone) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	quota := &SDomainQuota{
+		SBaseDomainQuotaKeys: quotas.SBaseDomainQuotaKeys{
+			DomainId: ownerId.GetProjectDomainId(),
+		},
+		DnsZone: 1,
+	}
+	err := quotas.CancelPendingUsage(ctx, userCred, quota, quota, true)
+	if err != nil {
+		log.Errorf("SDnsZone CancelPendingUsage fail %s", err)
+	}
+	self.SEnabledStatusInfrasResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+
 	input := &api.DnsZoneCreateInput{}
 	data.Unmarshal(input)
 	switch cloudprovider.TDnsZoneType(input.ZoneType) {
@@ -872,4 +884,15 @@ func (manager *SDnsZoneManager) totalCount(scope rbacutils.TRbacScope, ownerId m
 	}
 	cnt, _ := q.CountWithError()
 	return cnt
+}
+
+func (dzone *SDnsZone) GetUsages() []db.IUsage {
+	if dzone.Deleted {
+		return nil
+	}
+	usage := SDomainQuota{DnsZone: 1}
+	usage.SetKeys(quotas.SBaseDomainQuotaKeys{DomainId: dzone.DomainId})
+	return []db.IUsage{
+		&usage,
+	}
 }
