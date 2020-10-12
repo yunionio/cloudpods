@@ -241,13 +241,13 @@ func (self *SLDAPDriver) syncUserDB(ctx context.Context, ui SUserInfo, domainId 
 		// } else {
 		//	user.Enabled = tristate.False
 		// }
-		if val, ok := ui.Extra["email"]; ok && len(val) > 0 && len(user.Email) > 0 {
+		if val, ok := ui.Extra["email"]; ok && len(val) > 0 && len(user.Email) == 0 {
 			user.Email = val
 		}
-		if val, ok := ui.Extra["displayname"]; ok && len(val) > 0 && len(user.Displayname) > 0 {
+		if val, ok := ui.Extra["displayname"]; ok && len(val) > 0 && len(user.Displayname) == 0 {
 			user.Displayname = val
 		}
-		if val, ok := ui.Extra["mobile"]; ok && len(val) > 0 && len(user.Mobile) > 0 {
+		if val, ok := ui.Extra["mobile"]; ok && len(val) > 0 && len(user.Mobile) == 0 {
 			user.Mobile = val
 		}
 	})
