@@ -29,9 +29,15 @@ func init() {
 	type VirtualMachineListOptions struct {
 		Datacenter string `help:"Datacenter"`
 		HostIP     string `help:"HostIP"`
+		FakeRegex  string `help:"regex for fake template' name"`
+		Datastore  string `help:"Datastore"`
 		Template   bool   `help:"Whether it is tempalte virtual machine, default:false"`
 	}
 	shellutils.R(&VirtualMachineListOptions{}, "vm-list", "List vms of a host", func(cli *esxi.SESXiClient, args *VirtualMachineListOptions) error {
+		var (
+			vms []*esxi.SVirtualMachine
+			err error
+		)
 		switch {
 		case len(args.HostIP) > 0:
 			host, err := cli.FindHostByIp(args.HostIP)
@@ -53,27 +59,44 @@ func init() {
 			printList(vms, []string{})
 			return nil
 		case len(args.Datacenter) > 0:
-			dc, err := cli.FindDatacenterByMoId(args.Datacenter)
-			if err != nil {
-				return errors.Wrap(err, "FindDatacenterByMoId")
-			}
-			var vms []*esxi.SVirtualMachine
-			if args.Template {
-				vms, err = dc.FetchTemplateVMs()
+			var fetcher esxi.VMFetcher
+			if len(args.Datastore) > 0 {
+				ds, err := getDatastore(cli, args.Datacenter, args.Datastore)
 				if err != nil {
-					return errors.Wrap(err, "FetchTemplateVMs")
+					return err
+				}
+				fetcher = ds
+			} else {
+				dc, err := cli.FindDatacenterByMoId(args.Datacenter)
+				if err != nil {
+					return errors.Wrap(err, "FindDatacenterByMoId")
+				}
+				fetcher = dc
+			}
+			if args.Template {
+				if len(args.FakeRegex) > 0 {
+					fmt.Printf("regex: %s\n", args.FakeRegex)
+					vms, err = fetcher.FetchFakeTempateVMs(args.FakeRegex)
+					if err != nil {
+						return errors.Wrap(err, "FetchFakeTempateVMs")
+					}
+				} else {
+					vms, err = fetcher.FetchTemplateVMs()
+					if err != nil {
+						return errors.Wrap(err, "FetchTemplateVMs")
+					}
 				}
 			} else {
-				vms, err = dc.FetchNoTemplateVMs()
+				vms, err = fetcher.FetchNoTemplateVMs()
 				if err != nil {
 					return errors.Wrap(err, "FetchNoTemplateVMs")
 				}
 			}
-			printList(vms, []string{})
-			return nil
 		default:
 			return fmt.Errorf("Both Datacenter and HostIP cannot be empty")
 		}
+		printList(vms, []string{})
+		return nil
 	})
 
 	type VirtualMachineCloneOptions struct {

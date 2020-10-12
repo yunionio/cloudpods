@@ -14,7 +14,10 @@
 
 package options
 
-import common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+import (
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	"yunion.io/x/onecloud/pkg/multicloud/esxi"
+)
 
 type EsxiOptions struct {
 	common_options.CommonOptions
@@ -32,6 +35,7 @@ type EsxiOptions struct {
 	Zone                     string `help:"Zone where the agent locates"`
 	DeployServerSocketPath   string `help:"Deploy server listen socket path" default:"/var/run/deploy.sock"`
 	HostDelayTaskWorkerCount int    `default:"8" help:"Host delay worker thread count, default is 8"`
+	esxi.EsxiOptions
 }
 
 var (
