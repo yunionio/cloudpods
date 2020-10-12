@@ -14,12 +14,16 @@
 
 package multicloud
 
-import "fmt"
+import (
+	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+)
 
 type SDBInstanceDatabaseBase struct {
 	SResourceBase
 }
 
 func (db *SDBInstanceDatabaseBase) Delete() error {
-	return fmt.Errorf("Not Implemented Delete")
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "Delete")
 }

@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -59,6 +60,27 @@ func (self *SQcloudProviderFactory) IsSupportCloudIdService() bool {
 
 func (self *SQcloudProviderFactory) IsSupportCreateCloudgroup() bool {
 	return true
+}
+
+func (self *SQcloudProviderFactory) IsSupportCrossCloudEnvVpcPeering() bool {
+	return false
+}
+
+func (self *SQcloudProviderFactory) IsSupportCrossRegionVpcPeering() bool {
+	return true
+}
+
+func (self *SQcloudProviderFactory) IsSupportVpcPeeringVpcCidrOverlap() bool {
+	return false
+}
+
+func (self *SQcloudProviderFactory) ValidateCrossRegionVpcPeeringBandWidth(bandwidth int) error {
+	validatedBandwidths := []int{10, 20, 50, 100, 200, 500, 1000}
+	ok, _ := utils.InArray(bandwidth, validatedBandwidths)
+	if ok {
+		return nil
+	}
+	return httperrors.NewInputParameterError("require validated qcloud cross region vpcPeering bandwidth values:[10, 20, 50, 100, 200, 500, 1000],unit Mbps")
 }
 
 func (self *SQcloudProviderFactory) GetSupportedDnsZoneTypes() []cloudprovider.TDnsZoneType {

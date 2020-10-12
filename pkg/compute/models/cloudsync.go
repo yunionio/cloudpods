@@ -250,7 +250,27 @@ func syncRegionVPCs(ctx context.Context, userCred mcclient.TokenCredential, sync
 			}
 			syncVpcRouteTables(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
 			syncVpcNatgateways(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
+			syncVpcPeerConnections(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
 		}()
+	}
+}
+
+func syncVpcPeerConnections(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localVpc *SVpc, remoteVpc cloudprovider.ICloudVpc, syncRange *SSyncRange) {
+	peerConnections, err := remoteVpc.GetICloudVpcPeeringConnections()
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return
+		}
+		log.Errorf("GetICloudVpcPeeringConnections for vpc %s failed %v", localVpc.Name, err)
+		return
+	}
+
+	result := localVpc.SyncVpcPeeringConnections(ctx, userCred, peerConnections)
+	syncResults.Add(VpcPeeringConnectionManager, result)
+
+	log.Infof("SyncVpcPeeringConnections for vpc %s result: %s", localVpc.Name, result.Result())
+	if result.IsError() {
+		return
 	}
 }
 

@@ -23,11 +23,17 @@ import (
 type SRoute struct {
 	routetable *SRouteTable
 
-	DestinationCIDRBlock string  `json:"DestinationCidrBlock"`
-	GatewayID            *string `json:"GatewayId,omitempty"`
-	Origin               string  `json:"Origin"`
-	State                string  `json:"State"`
-	NatGatewayID         *string `json:"NatGatewayId,omitempty"`
+	DestinationCIDRBlock string `json:"DestinationCidrBlock"`
+	Origin               string `json:"Origin"`
+	State                string `json:"State"`
+	// only one exist
+	GatewayID              *string `json:"GatewayId,omitempty"`
+	NatGatewayID           *string `json:"NatGatewayId,omitempty"`
+	InstanceID             *string `json:"InstanceId,omitempty"`
+	LocalGatewayID         *string `json:"LocalGatewayId,omitempty"`
+	NetworkInterfaceID     *string `json:"NetworkInterfaceId,omitempty"`
+	TransitGatewayID       *string `json:"TransitGatewayId,omitempty"`
+	VpcPeeringConnectionID *string `json:"VpcPeeringConnectionId,omitempty"`
 }
 
 func (self *SRoute) GetType() string {
@@ -69,9 +75,27 @@ func (self *SRoute) GetNextHopType() string {
 }
 
 func (self *SRoute) GetNextHop() string {
-	if self.GatewayID == nil {
-		return ""
+	if self.NatGatewayID != nil {
+		return *self.NatGatewayID
+	}
+	if self.GatewayID != nil {
+		return *self.GatewayID
+	}
+	if self.InstanceID != nil {
+		return *self.InstanceID
+	}
+	if self.LocalGatewayID != nil {
+		return *self.LocalGatewayID
+	}
+	if self.NetworkInterfaceID != nil {
+		return *self.NetworkInterfaceID
+	}
+	if self.TransitGatewayID != nil {
+		return *self.TransitGatewayID
+	}
+	if self.VpcPeeringConnectionID != nil {
+		return *self.VpcPeeringConnectionID
 	}
 
-	return *self.GatewayID
+	return ""
 }

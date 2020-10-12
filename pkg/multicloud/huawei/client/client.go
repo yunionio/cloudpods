@@ -76,6 +76,7 @@ type Client struct {
 	SNatRules          *modules.SNatSRuleManager
 	DNatRules          *modules.SNatDRuleManager
 	NatGateways        *modules.SNatGatewayManager
+	VpcPeerings        *modules.SVpcPeeringManager
 	DBInstance         *modules.SDBInstanceManager
 	DBInstanceBackup   *modules.SDBInstanceBackupManager
 	DBInstanceFlavor   *modules.SDBInstanceFlavorManager
@@ -214,6 +215,7 @@ func (self *Client) initManagers() {
 		self.SNatRules = modules.NewNatSManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.DNatRules = modules.NewNatDManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.NatGateways = modules.NewNatGatewayManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.VpcPeerings = modules.NewVpcPeeringManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.DBInstance = modules.NewDBInstanceManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.DBInstanceBackup = modules.NewDBInstanceBackupManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.DBInstanceFlavor = modules.NewDBInstanceFlavorManager(self.regionId, self.projectId, self.signer, self.debug)

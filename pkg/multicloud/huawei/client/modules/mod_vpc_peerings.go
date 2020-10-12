@@ -12,34 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package multicloud
+package modules
 
 import (
-	"time"
-
-	"yunion.io/x/pkg/errors"
-
-	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
 )
 
-type SBillingBase struct{}
-
-func (self *SBillingBase) GetBillingType() string {
-	return ""
+type SVpcPeeringManager struct {
+	SResourceManager
 }
 
-func (self *SBillingBase) GetCreatedAt() time.Time {
-	return time.Time{}
-}
+func NewVpcPeeringManager(regionId string, projectId string, signer auth.Signer, debug bool) *SVpcPeeringManager {
+	return &SVpcPeeringManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(signer, debug),
+		ServiceName:   ServiceNameVPC,
+		Region:        regionId,
+		ProjectId:     "",
+		version:       "v2.0",
+		Keyword:       "peering",
+		KeywordPlural: "peerings",
 
-func (self *SBillingBase) GetExpiredAt() time.Time {
-	return time.Time{}
-}
-
-func (self *SBillingBase) SetAutoRenew(autoRenew bool) error {
-	return errors.Wrapf(cloudprovider.ErrNotImplemented, "SetAutoRenew")
-}
-
-func (self *SBillingBase) IsAutoRenew() bool {
-	return false
+		ResourceKeyword: "vpc/peerings",
+	}}
 }
