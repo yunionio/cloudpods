@@ -234,8 +234,8 @@ func (self *SKVMGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, gue
 	return nil
 }
 
-func (self *SKVMGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
-	return guest.GetJsonDescAtHypervisor(ctx, host)
+func (self *SKVMGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
+	return guest.GetJsonDescAtHypervisor(ctx, host), nil
 }
 
 func (self *SKVMGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
@@ -267,7 +267,10 @@ func (self *SKVMGuestDriver) RequestStartOnHost(ctx context.Context, guest *mode
 	header := self.getTaskRequestHeader(task)
 
 	config := jsonutils.NewDict()
-	desc := guest.GetDriver().GetJsonDescAtHost(ctx, userCred, guest, host)
+	desc, err := guest.GetDriver().GetJsonDescAtHost(ctx, userCred, guest, host, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetJsonDescAtHost")
+	}
 	config.Add(desc, "desc")
 	params := task.GetParams()
 	if params.Length() > 0 {
@@ -447,7 +450,10 @@ func (self *SKVMGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *mode
 }
 
 func (self *SKVMGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	desc := guest.GetDriver().GetJsonDescAtHost(ctx, task.GetUserCred(), guest, host)
+	desc, err := guest.GetDriver().GetJsonDescAtHost(ctx, task.GetUserCred(), guest, host, nil)
+	if err != nil {
+		return errors.Wrapf(err, "GetJsonDescAtHost")
+	}
 	body := jsonutils.NewDict()
 	body.Add(desc, "desc")
 	if fw_only, _ := task.GetParams().Bool("fw_only"); fw_only {
@@ -455,7 +461,7 @@ func (self *SKVMGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest 
 	}
 	url := fmt.Sprintf("%s/servers/%s/sync", host.ManagerUri, guest.Id)
 	header := self.getTaskRequestHeader(task)
-	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
+	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
 	return err
 }
 
@@ -496,13 +502,16 @@ func (self *SKVMGuestDriver) RequestRebuildRootDisk(ctx context.Context, guest *
 
 func (self *SKVMGuestDriver) RequestSyncToBackup(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	host := guest.GetHost()
-	desc := guest.GetDriver().GetJsonDescAtHost(ctx, task.GetUserCred(), guest, host)
+	desc, err := guest.GetDriver().GetJsonDescAtHost(ctx, task.GetUserCred(), guest, host, nil)
+	if err != nil {
+		return errors.Wrapf(err, "GetJsonDescAtHost")
+	}
 	body := jsonutils.NewDict()
 	body.Add(desc, "desc")
 	body.Set("backup_nbd_server_uri", jsonutils.NewString(guest.GetMetadata("backup_nbd_server_uri", task.GetUserCred())))
 	url := fmt.Sprintf("%s/servers/%s/drive-mirror", host.ManagerUri, guest.Id)
 	header := self.getTaskRequestHeader(task)
-	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
+	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
 	if err != nil {
 		return err
 	}

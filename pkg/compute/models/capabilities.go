@@ -44,6 +44,7 @@ type SCapabilities struct {
 	DisabledComputeEngineBrands []string `json:",allowempty"`
 	CloudIdBrands               []string `json:",allowempty"`
 	DisabledCloudIdBrands       []string `json:",allowempty"`
+	PublicIpBrands              []string `json:",allowempty"`
 	NetworkManageBrands         []string `json:",allowempty"`
 	DisabledNetworkManageBrands []string `json:",allowempty"`
 	ObjectStorageBrands         []string `json:",allowempty"`
@@ -262,6 +263,7 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabi
 	capa.NetworkManageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_NETWORK)
 	capa.ObjectStorageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE)
 	capa.CloudIdBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_CLOUDID)
+	capa.PublicIpBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_PUBLIC_IP)
 
 	if utils.IsInStringArray(api.HYPERVISOR_KVM, capa.Hypervisors) || utils.IsInStringArray(api.HYPERVISOR_BAREMETAL, capa.Hypervisors) {
 		capa.Brands = append(capa.Brands, api.ONECLOUD_BRAND_ONECLOUD)
