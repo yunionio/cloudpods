@@ -508,7 +508,13 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	params["InstanceName"] = name
 	params["HostName"] = name
 
-	params["InternetAccessible.InternetMaxBandwidthOut"] = "1"
+	bandwidth := 100
+	if bc != nil {
+		bandwidth = 200
+	}
+
+	params["InternetAccessible.InternetChargeType"] = "TRAFFIC_POSTPAID_BY_HOUR"
+	params["InternetAccessible.InternetMaxBandwidthOut"] = fmt.Sprintf("%d", bandwidth)
 	params["InternetAccessible.PublicIpAssigned"] = "FALSE"
 	if len(keypair) > 0 {
 		params["LoginSettings.KeyIds.0"] = keypair
