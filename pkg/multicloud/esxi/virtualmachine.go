@@ -63,6 +63,12 @@ type SVirtualMachine struct {
 	guestIps map[string]string
 }
 
+type VMFetcher interface {
+	FetchNoTemplateVMs() ([]*SVirtualMachine, error)
+	FetchTemplateVMs() ([]*SVirtualMachine, error)
+	FetchFakeTempateVMs(string) ([]*SVirtualMachine, error)
+}
+
 type byDiskType []SVirtualDisk
 
 func (d byDiskType) Len() int      { return len(d) }
@@ -763,6 +769,9 @@ func (self *SVirtualMachine) fetchGuestIps() map[string]string {
 		mac := netutils.FormatMacAddr(net.MacAddress)
 		for _, ip := range net.IpAddress {
 			if regutils.MatchIP4Addr(ip) {
+				if !vmIPV4Filter.Contains(ip) {
+					continue
+				}
 				guestIps[mac] = ip
 				break
 			}
@@ -1276,5 +1285,8 @@ func (self *SVirtualMachine) GetIHostId() string {
 
 func (self *SVirtualMachine) IsTemplate() bool {
 	movm := self.getVirtualMachine()
+	if tempalteNameRegex != nil && tempalteNameRegex.MatchString(self.GetName()) && movm.Summary.Runtime.PowerState == types.VirtualMachinePowerStatePoweredOff {
+		return true
+	}
 	return movm.Config != nil && movm.Config.Template
 }

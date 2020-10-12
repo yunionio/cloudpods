@@ -36,6 +36,7 @@ import (
 
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/ovf"
+	"github.com/vmware/govmomi/property"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/progress"
 	"github.com/vmware/govmomi/vim25/soap"
@@ -252,6 +253,33 @@ func (self *SDatastore) getStorageCache() *SDatastoreImageCache {
 
 func (self *SDatastore) GetIZone() cloudprovider.ICloudZone {
 	return nil
+}
+
+func (self *SDatastore) FetchNoTemplateVMs() ([]*SVirtualMachine, error) {
+	mods := self.getDatastore()
+	filter := property.Filter{}
+	filter["datastore"] = mods.Reference()
+	return self.datacenter.fetchVMsWithFilter(filter)
+}
+
+func (self *SDatastore) FetchTemplateVMs() ([]*SVirtualMachine, error) {
+	mods := self.getDatastore()
+	filter := property.Filter{}
+	filter["config.template"] = true
+	filter["datastore"] = mods.Reference()
+	return self.datacenter.fetchVMsWithFilter(filter)
+}
+
+func (self *SDatastore) FetchFakeTempateVMs(regex string) ([]*SVirtualMachine, error) {
+	mods := self.getDatastore()
+	filter := property.Filter{}
+	filter["datastore"] = mods.Reference()
+	filter["summary.runtime.powerState"] = types.VirtualMachinePowerStatePoweredOff
+	movms, err := self.datacenter.fetchMoVms(filter, []string{"name"})
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to fetch mo.VirtualMachines")
+	}
+	return self.datacenter.fetchFakeTemplateVMs(movms, regex)
 }
 
 func (self *SDatastore) getVMs() ([]cloudprovider.ICloudVM, error) {
