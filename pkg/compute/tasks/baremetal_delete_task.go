@@ -60,7 +60,7 @@ func (self *BaremetalDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneM
 func (self *BaremetalDeleteTask) OnDeleteBaremetalComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
 	err := baremetal.RealDelete(ctx, self.UserCred)
 	if err != nil {
-		log.Errorln("RealDelete fail %s", err)
+		log.Errorf("RealDelete fail %s", err)
 		self.OnFailure(ctx, baremetal, jsonutils.Marshal(err))
 		return
 	}

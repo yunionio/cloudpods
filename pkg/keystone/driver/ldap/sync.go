@@ -181,7 +181,7 @@ func (self *SLDAPDriver) syncUsers(ctx context.Context, cli *ldaputils.SLDAPClie
 	if err != nil {
 		return nil, errors.Wrap(err, "searchLDAP")
 	}
-	log.Debugf("syncUsers: ldapSearch entries: %s", entries)
+	log.Debugf("syncUsers: ldapSearch entries: %#v", entries)
 	userIds := make([]string, 0)
 	userIdMap := make(map[string]string)
 	for i := range entries {
