@@ -144,7 +144,7 @@ func (d *SLocalDisk) Resize(ctx context.Context, params interface{}) (jsonutils.
 	sizeMb, _ := diskInfo.Int("size")
 	disk, err := qemuimg.NewQemuImage(d.GetPath())
 	if err != nil {
-		log.Errorln(err)
+		log.Errorf("qemuimg.NewQemuImage %s fail: %s", d.GetPath(), err)
 		return nil, err
 	}
 	if err := disk.Resize(int(sizeMb)); err != nil {
@@ -163,15 +163,13 @@ func (d *SLocalDisk) Resize(ctx context.Context, params interface{}) (jsonutils.
 func (d *SLocalDisk) CreateFromImageFuse(ctx context.Context, url string, size int64) error {
 	log.Infof("Create from image fuse %s", url)
 
-	var (
-		localPath   = d.Storage.GetFuseTmpPath()
-		mntPath     = path.Join(d.Storage.GetFuseMountPath(), d.Id)
-		contentPath = path.Join(mntPath, "content")
-		newImg, err = qemuimg.NewQemuImage(d.getPath())
-	)
+	localPath := d.Storage.GetFuseTmpPath()
+	mntPath := path.Join(d.Storage.GetFuseMountPath(), d.Id)
+	contentPath := path.Join(mntPath, "content")
+	newImg, err := qemuimg.NewQemuImage(d.getPath())
 
 	if err != nil {
-		log.Errorln(err)
+		log.Errorf("qemuimg.NewQemuImage %s fail: %s", d.getPath(), err)
 		return err
 	}
 
@@ -344,14 +342,14 @@ func (d *SLocalDisk) CreateSnapshot(snapshotId string) error {
 	if !fileutils2.Exists(snapshotDir) {
 		output, err := procutils.NewCommand("mkdir", "-p", snapshotDir).Output()
 		if err != nil {
-			log.Errorln("mkdir %s failed: %s", snapshotDir, output)
+			log.Errorf("mkdir %s failed: %s", snapshotDir, output)
 			return errors.Wrapf(err, "mkdir %s failed: %s", snapshotDir, output)
 		}
 	}
 	snapshotPath := path.Join(snapshotDir, snapshotId)
 	output, err := procutils.NewCommand("mv", "-f", d.getPath(), snapshotPath).Output()
 	if err != nil {
-		log.Errorln("mv %s to %s failed %s", d.getPath(), snapshotPath, output)
+		log.Errorf("mv %s to %s failed %s", d.getPath(), snapshotPath, output)
 		return errors.Wrapf(err, "mv %s to %s failed %s", d.getPath(), snapshotPath, output)
 	}
 	img, err := qemuimg.NewQemuImage(d.getPath())

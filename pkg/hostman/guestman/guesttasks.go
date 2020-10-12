@@ -1035,7 +1035,7 @@ func (s *SGuestSnapshotDeleteTask) onReloadBlkdevSucc(err string) {
 func (s *SGuestSnapshotDeleteTask) onSnapshotBlkdevFail(res string) {
 	snapshotPath := path.Join(s.disk.GetSnapshotDir(), s.convertSnapshot)
 	if output, err := procutils.NewCommand("mv", "-f", s.tmpPath, snapshotPath).Output(); err != nil {
-		log.Errorln("mv %s to %s failed: %s, %s", s.tmpPath, snapshotPath, err, output)
+		log.Errorf("mv %s to %s failed: %s, %s", s.tmpPath, snapshotPath, err, output)
 	}
 	s.taskFailed("Reload blkdev failed")
 }

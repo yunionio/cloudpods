@@ -101,12 +101,12 @@ func (man *SAlertDashBoardManager) ValidateCreateData(
 		for _, query := range data.CommonMetricInputQuery.MetricQuery {
 			if len(query.Comparator) != 0 {
 				if !utils.IsInStringArray(getQueryEvalType(query.Comparator), validators.EvaluatorDefaultTypes) {
-					return data, httperrors.NewInputParameterError("the Comparator is illegal:", query.Comparator)
+					return data, httperrors.NewInputParameterError("the Comparator is illegal: %s", query.Comparator)
 				}
 			}
 			if len(query.Reduce) != 0 {
 				if _, ok := monitor.AlertReduceFunc[query.Reduce]; !ok {
-					return data, httperrors.NewInputParameterError("the reduce is illegal", query.Reduce)
+					return data, httperrors.NewInputParameterError("the reduce is illegal %s", query.Reduce)
 				}
 			}
 		}
@@ -249,12 +249,12 @@ func (dash *SAlertDashBoard) ValidateUpdateData(
 			}
 			if len(query.Comparator) != 0 {
 				if !utils.IsInStringArray(getQueryEvalType(query.Comparator), validators.EvaluatorDefaultTypes) {
-					return data, httperrors.NewInputParameterError("the Comparator is illegal:", query.Comparator)
+					return data, httperrors.NewInputParameterError("the Comparator is illegal: %s", query.Comparator)
 				}
 			}
 			if len(query.Reduce) != 0 {
 				if _, ok := monitor.AlertReduceFunc[query.Reduce]; !ok {
-					return data, httperrors.NewInputParameterError("the reduce is illegal", query.Reduce)
+					return data, httperrors.NewInputParameterError("the reduce is illegal: %s", query.Reduce)
 				}
 			}
 		}
