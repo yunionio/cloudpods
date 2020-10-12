@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/fileutils"
+	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -2454,28 +2455,49 @@ func (self *SDisk) UpdataSnapshotsBackingDisk(backingDiskId string) error {
 	return nil
 }
 
-func (manager *SDiskManager) AutoSyncExtDiskSnapshot(ctx context.Context, userCred mcclient.TokenCredential,
-	isStart bool) {
+func (manager *SDiskManager) AutoSyncExtDiskSnapshot(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 
-	spds, err := manager.getAutoSnapshotDisksId(true)
+	now := time.Now()
+	q := SnapshotPolicyDiskManager.Query().LE("next_sync_time", now)
+	spds := make([]SSnapshotPolicyDisk, 0)
+	err := db.FetchModelObjects(SnapshotPolicyDiskManager, q, &spds)
 	if err != nil {
-		log.Errorf("Get auto snapshot ext disks id failed: %s", err)
-		return
+		log.Errorf("unable to FetchModelObjects: %v", err)
 	}
-	if len(spds) == 0 {
-		log.Infof("CronJob AutoSyncExtDiskSnapshot: No external disk need sync snapshot")
-		return
+	// fetch all snapshotpolicy
+	spIdSet := sets.NewString()
+	for i := range spds {
+		spIdSet.Insert(spds[i].SnapshotpolicyId)
+	}
+	sps, err := SnapshotPolicyManager.FetchAllByIds(spIdSet.UnsortedList())
+	if err != nil {
+		log.Errorf("unable to FetchAllByIds: %v", err)
+	}
+	spMap := make(map[string]*SSnapshotPolicy, len(sps))
+	for i := range sps {
+		spMap[sps[i].GetId()] = &sps[i]
 	}
 
 	for i := 0; i < len(spds); i++ {
-		disk := manager.FetchDiskById(spds[i].DiskId)
+		spd := &spds[i]
+		disk := manager.FetchDiskById(spd.DiskId)
 
 		syncResult := disk.syncSnapshots(ctx, userCred)
 		if syncResult.IsError() {
 			db.OpsLog.LogEvent(disk, db.ACT_DISK_AUTO_SYNC_SNAPSHOT_FAIL, syncResult.Result(), userCred)
 			continue
 		}
+		if syncResult.AddCnt == 0 {
+			continue
+		}
 		db.OpsLog.LogEvent(disk, db.ACT_DISK_AUTO_SYNC_SNAPSHOT, "disk auto sync snapshot successfully", userCred)
+		_, err := db.Update(spd, func() error {
+			spd.NextSyncTime = spMap[spd.GetId()].ComputeNextSyncTime(now, spd.NextSyncTime)
+			return nil
+		})
+		if err != nil {
+			log.Errorf("unable to update NextSyncTime for snapshotpolicydisk %q %q", spd.SnapshotpolicyId, spd.DiskId)
+		}
 	}
 }
 
