@@ -68,6 +68,8 @@ type SEipAddress struct {
 	IsEipDirectConnection bool      //	eip是否支持直通模式。true表示eip支持直通模式，false表示资源不支持直通模式
 	AddressType           string    //	eip资源类型，包括"CalcIP","WanIP","EIP","AnycastEIP"。其中"CalcIP"表示设备ip，“WanIP”表示普通公网ip，“EIP”表示弹性公网ip，“AnycastEip”表示加速EIP
 	CascadeRelease        bool      //	eip是否在解绑后自动释放。true表示eip将会在解绑后自动释放，false表示eip在解绑后不会自动释放
+	Bandwidth             int
+	InternetChargeType    string
 }
 
 func (self *SEipAddress) GetId() string {
@@ -163,6 +165,9 @@ func (self *SEipAddress) Delete() error {
 }
 
 func (self *SEipAddress) GetBandwidth() int {
+	if self.Bandwidth > 0 {
+		return self.Bandwidth
+	}
 	if len(self.InstanceId) > 0 {
 		if strings.HasPrefix(self.InstanceId, "ins-") {
 			if instance, err := self.region.GetInstance(self.InstanceId); err == nil {
@@ -190,6 +195,12 @@ func (self *SEipAddress) GetExpiredAt() time.Time {
 }
 
 func (self *SEipAddress) GetInternetChargeType() string {
+	switch self.InternetChargeType {
+	case "TRAFFIC_POSTPAID_BY_HOUR":
+		return api.EIP_CHARGE_TYPE_BY_TRAFFIC
+	case "BANDWIDTH_PACKAGE", "BANDWIDTH_POSTPAID_BY_HOUR", "BANDWIDTH_PREPAID_BY_MONTH":
+		return api.EIP_CHARGE_TYPE_BY_BANDWIDTH
+	}
 	if len(self.InstanceId) > 0 {
 		if strings.HasPrefix(self.InstanceId, "ins-") {
 			if instance, err := self.region.GetInstance(self.InstanceId); err == nil {
@@ -210,7 +221,7 @@ func (self *SEipAddress) Associate(conf *cloudprovider.AssociateConfig) error {
 	if err != nil {
 		return err
 	}
-	if conf.Bandwidth > 0 {
+	if conf.Bandwidth > 0 && self.Bandwidth == 0 {
 		err = self.region.UpdateInstanceBandwidth(conf.InstanceId, conf.Bandwidth)
 		if err != nil {
 			log.Warningf("failed to change instance %s bandwidth -> %d error: %v", conf.InstanceId, conf.Bandwidth, err)
@@ -284,7 +295,9 @@ func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
 
 func (region *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternetChargeType) (*SEipAddress, error) {
 	params := make(map[string]string)
-	params["Region"] = region.Region
+	if bwMbps > 0 {
+		params["InternetMaxBandwidthOut"] = fmt.Sprintf("%d", bwMbps)
+	}
 	addRessSet := []string{}
 	body, err := region.vpcRequest("AllocateAddresses", params)
 	if err != nil {
@@ -298,6 +311,7 @@ func (region *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternet
 		name = name[:20]
 	}
 	if len(addRessSet) > 0 {
+		params = map[string]string{}
 		params["AddressId"] = addRessSet[0]
 		params["AddressName"] = name
 		_, err = region.vpcRequest("ModifyAddressAttribute", params)
