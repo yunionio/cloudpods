@@ -95,7 +95,7 @@ func (manager *SVpcPeeringConnectionManager) ListItemFilter(
 		peerVpc, err := VpcManager.FetchByIdOrName(userCred, query.PeerVpcId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError("peer_vpc_id", query.PeerVpcId)
+				return nil, httperrors.NewResourceNotFoundError2("peer_vpc_id", query.PeerVpcId)
 			}
 			return nil, httperrors.NewGeneralError(err)
 		}
