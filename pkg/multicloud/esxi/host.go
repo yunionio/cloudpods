@@ -1008,15 +1008,15 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 			log.Infof("resize system disk: %dGB => %dGB", from.vdisks[0].GetDiskSizeMB()/1024, vdisk.CapacityInKB/1024/1024)
 		}
 		// remove extra disk
-		for i := 1; i < len(from.vdisks); i++ {
-			dev := from.vdisks[i].dev
-			spec := &types.VirtualDeviceConfigSpec{}
-			spec.Operation = types.VirtualDeviceConfigSpecOperationRemove
-			spec.Device = dev
-			spec.FileOperation = types.VirtualDeviceConfigSpecFileOperationDestroy
-			deviceChange = append(deviceChange, spec)
-			log.Debugf("remove disk, index: %d", i)
-		}
+		// for i := 1; i < len(from.vdisks); i++ {
+		// 	 dev := from.vdisks[i].dev
+		// 	 spec := &types.VirtualDeviceConfigSpec{}
+		// 	 spec.Operation = types.VirtualDeviceConfigSpecOperationRemove
+		// 	 spec.Device = dev
+		//	 spec.FileOperation = types.VirtualDeviceConfigSpecFileOperationDestroy
+		//	 deviceChange = append(deviceChange, spec)
+		//	 log.Debugf("remove disk, index: %d", i)
+		// }
 	}
 
 	dc, err := host.GetDatacenter()
