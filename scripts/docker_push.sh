@@ -144,7 +144,7 @@ else
 fi
 
 cd $SRC_DIR
-mkdir -p $(SRC_DIR)/_output
+mkdir -p $SRC_DIR/_output
 
 for component in $COMPONENTS; do
     if [[ $component == *cli ]]; then
