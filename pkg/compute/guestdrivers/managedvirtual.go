@@ -306,6 +306,8 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 		return errors.Wrapf(err, "desc.GetConfig")
 	}
 
+	desc.Tags, _ = guest.GetAllUserMetadata()
+
 	//创建并同步安全组规则
 	{
 		vpc, err := guest.GetVpc()

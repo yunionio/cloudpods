@@ -495,7 +495,9 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, securityGroupId string,
 	zoneId string, desc string, passwd string, disks []SDisk, networkId string, ipAddr string,
 	keypair string, userData string, bc *billing.SBillingCycle, projectId string,
-	publicIpBw int, publicIpChargeType cloudprovider.TElasticipChargeType) (string, error) {
+	publicIpBw int, publicIpChargeType cloudprovider.TElasticipChargeType,
+	tags map[string]string,
+) (string, error) {
 	params := make(map[string]string)
 	params["Region"] = self.Region
 	params["ImageId"] = imageId
@@ -525,7 +527,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 		return "", errors.Wrapf(err, "GetBandwidthPackages")
 	}
 	if totalCount > 0 {
-		bandwidth = 1000
+		bandwidth = 65535 // unlimited bandwidth
 		internetChargeType = "BANDWIDTH_PACKAGE"
 	}
 
@@ -555,6 +557,17 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 		}
 	} else {
 		params["InstanceChargeType"] = "POSTPAID_BY_HOUR"
+	}
+
+	// tags
+	if len(tags) > 0 {
+		params["TagSpecification.0.ResourceType"] = "instance"
+		tagIdx := 0
+		for k, v := range tags {
+			params[fmt.Sprintf("TagSpecification.0.Tags.%d.Key", tagIdx)] = k
+			params[fmt.Sprintf("TagSpecification.0.Tags.%d.Value", tagIdx)] = v
+			tagIdx += 1
+		}
 	}
 
 	//params["IoOptimized"] = "optimized"

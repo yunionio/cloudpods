@@ -71,6 +71,8 @@ type SManagedVMCreateConfig struct {
 
 	SPublicIpInfo
 
+	Tags map[string]string
+
 	BillingCycle *billing.SBillingCycle
 }
 

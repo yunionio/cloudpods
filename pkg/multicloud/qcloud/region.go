@@ -763,7 +763,7 @@ func (self *SRegion) GetMatchInstanceTypes(cpu int, memMB int, gpu int, zoneId s
 	return ret, nil
 }
 
-func (self *SRegion) CreateInstanceSimple(name string, imgId string, cpu int, memGB int, storageType string, dataDiskSizesGB []int, networkId string, passwd string, publicKey string) (*SInstance, error) {
+func (self *SRegion) CreateInstanceSimple(name string, imgId string, cpu int, memGB int, storageType string, dataDiskSizesGB []int, networkId string, passwd string, publicKey string, secgroup string, tags map[string]string) (*SInstance, error) {
 	izones, err := self.GetIZones()
 	if err != nil {
 		return nil, err
@@ -783,6 +783,10 @@ func (self *SRegion) CreateInstanceSimple(name string, imgId string, cpu int, me
 				Password:          passwd,
 				DataDisks:         []cloudprovider.SDiskInfo{},
 				PublicKey:         publicKey,
+
+				Tags: tags,
+
+				ExternalSecgroupId: secgroup,
 			}
 			for _, sizeGB := range dataDiskSizesGB {
 				desc.DataDisks = append(desc.DataDisks, cloudprovider.SDiskInfo{SizeGB: sizeGB, StorageType: storageType})

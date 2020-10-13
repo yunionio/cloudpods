@@ -16,6 +16,7 @@ package shell
 
 import (
 	"fmt"
+	"strings"
 
 	"yunion.io/x/onecloud/pkg/multicloud/qcloud"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
@@ -38,19 +39,32 @@ func init() {
 	})
 
 	type InstanceCreateOptions struct {
-		NAME      string `help:"name of instance"`
-		IMAGE     string `help:"image ID"`
-		CPU       int    `help:"CPU count"`
-		MEMORYGB  int    `help:"MemoryGB"`
-		Disk      []int  `help:"Data disk sizes int GB"`
-		STORAGE   string `help:"Storage type" choices:"LOCAL_BASIC|LOCAL_SSD|CLOUD_BASIC|CLOUD_PREMIUM|CLOUD_SSD"`
-		NETWORK   string `help:"Network ID"`
-		PASSWD    string `help:"password"`
-		PublicKey string `help:"PublicKey"`
+		NAME      string   `help:"name of instance"`
+		IMAGE     string   `help:"image ID"`
+		CPU       int      `help:"CPU count"`
+		MEMORYGB  int      `help:"MemoryGB"`
+		Disk      []int    `help:"Data disk sizes int GB"`
+		STORAGE   string   `help:"Storage type" choices:"LOCAL_BASIC|LOCAL_SSD|CLOUD_BASIC|CLOUD_PREMIUM|CLOUD_SSD"`
+		NETWORK   string   `help:"Network ID"`
+		PASSWD    string   `help:"password"`
+		SECGROUP  string   `help:"Security group"`
+		PublicKey string   `help:"PublicKey"`
+		Tag       []string `help:"tags"`
 	}
 
 	shellutils.R(&InstanceCreateOptions{}, "instance-create", "Create a instance", func(cli *qcloud.SRegion, args *InstanceCreateOptions) error {
-		instance, e := cli.CreateInstanceSimple(args.NAME, args.IMAGE, args.CPU, args.MEMORYGB, args.STORAGE, args.Disk, args.NETWORK, args.PASSWD, args.PublicKey)
+		tags := make(map[string]string)
+		if len(args.Tag) > 0 {
+			for _, t := range args.Tag {
+				ts := strings.Split(t, ":")
+				if len(ts) >= 2 {
+					tags[ts[0]] = ts[1]
+				} else {
+					tags[ts[0]] = ""
+				}
+			}
+		}
+		instance, e := cli.CreateInstanceSimple(args.NAME, args.IMAGE, args.CPU, args.MEMORYGB, args.STORAGE, args.Disk, args.NETWORK, args.PASSWD, args.PublicKey, args.SECGROUP, tags)
 		if e != nil {
 			return e
 		}
