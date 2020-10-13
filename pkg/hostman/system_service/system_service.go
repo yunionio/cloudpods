@@ -16,6 +16,7 @@ package system_service
 
 import (
 	"fmt"
+	"strings"
 
 	"yunion.io/x/log"
 
@@ -97,7 +98,7 @@ func (s *SBaseSystemService) reload(conf, conFile string) error {
 func (s *SBaseSystemService) reloadConf(conf, conFile string) (bool, error) {
 	output, _ := procutils.NewRemoteCommandAsFarAsPossible("cat", conFile).Output()
 	oldConf := string(output)
-	if conf != oldConf {
+	if strings.TrimSpace(conf) != strings.TrimSpace(oldConf) {
 		log.Debugf("Reload service %s ...", s.name)
 		err := procutils.NewRemoteCommandAsFarAsPossible("rm", "-f", conFile).Run()
 		if err != nil {

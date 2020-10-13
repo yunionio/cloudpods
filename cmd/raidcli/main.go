@@ -33,7 +33,8 @@ type BaseOptions struct {
 	Host       string `help:"SSH Host IP" default:"$RAID_HOST" metavar:"RAID_HOST"`
 	Username   string `help:"Username, usually root" default:"$RAID_USERNAME" metavar:"RAID_USERNAME"`
 	Password   string `help:"Password" default:"$RAID_PASSWORD" metavar:"RAID_PASSWORD"`
-	Driver     string `help:"Password" default:"$RAID_DRIVER" metavar:"RAID_DRIVER" choices:"MegaRaid|HPSARaid|Mpt2SAS|MarvelRaid"`
+	Driver     string `help:"Raid dirver" default:"$RAID_DRIVER" metavar:"RAID_DRIVER" choices:"MegaRaid|HPSARaid|Mpt2SAS|MarvelRaid"`
+	LocalHost  bool   `help:"Run raidcli in localhost"`
 	SUBCOMMAND string `help:"s3cli subcommand" subcommand:"true"`
 }
 
@@ -83,43 +84,48 @@ func showErrorAndExit(e error) {
 }
 
 func newClient() (raid.IRaidDriver, error) {
-	if len(options.Host) == 0 {
-		return nil, fmt.Errorf("Missing host")
-	}
-
-	if len(options.Username) == 0 {
-		return nil, fmt.Errorf("Missing username")
-	}
-
-	if len(options.Password) == 0 {
-		return nil, fmt.Errorf("Missing password")
+	if options.Debug {
+		raid.Debug = true
 	}
 
 	if len(options.Driver) == 0 {
 		return nil, fmt.Errorf("Missing driver")
 	}
 
-	if options.Debug {
-		raid.Debug = true
+	var drv raid.IRaidDriver
+	if !options.LocalHost {
+		if len(options.Host) == 0 {
+			return nil, fmt.Errorf("Missing host")
+		}
+
+		if len(options.Username) == 0 {
+			return nil, fmt.Errorf("Missing username")
+		}
+
+		if len(options.Password) == 0 {
+			return nil, fmt.Errorf("Missing password")
+		}
+
+		sshClient, err := ssh.NewClient(
+			options.Host,
+			22,
+			options.Username,
+			options.Password,
+			"",
+		)
+		if err != nil {
+			return nil, fmt.Errorf("ssh client init fail: %s", err)
+		}
+
+		drv = drivers.GetDriver(options.Driver, sshClient)
+		if drv == nil {
+			return nil, fmt.Errorf("not supported driver %s", options.Driver)
+		}
+	} else {
+		drv = drivers.GetLocalDriver(options.Driver)
 	}
 
-	sshClient, err := ssh.NewClient(
-		options.Host,
-		22,
-		options.Username,
-		options.Password,
-		"",
-	)
-	if err != nil {
-		return nil, fmt.Errorf("ssh client init fail: %s", err)
-	}
-
-	drv := drivers.GetDriver(options.Driver, sshClient)
-	if drv == nil {
-		return nil, fmt.Errorf("not supported driver %s", options.Driver)
-	}
-
-	err = drv.ParsePhyDevs()
+	err := drv.ParsePhyDevs()
 	if err != nil {
 		return nil, fmt.Errorf("parse phyical devices error %s", err)
 	}

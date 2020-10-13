@@ -29,10 +29,9 @@ import (
 	_ "yunion.io/x/onecloud/pkg/baremetal/utils/raid/mvcli"
 	_ "yunion.io/x/onecloud/pkg/baremetal/utils/raid/sas2iru"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
-	"yunion.io/x/onecloud/pkg/util/ssh"
 )
 
-func GetDriver(name string, term *ssh.Client) raid.IRaidDriver {
+func GetDriver(name string, term raid.IExecTerm) raid.IRaidDriver {
 	factory := raid.RaidDrivers[name]
 	if factory == nil {
 		return nil
@@ -40,7 +39,15 @@ func GetDriver(name string, term *ssh.Client) raid.IRaidDriver {
 	return factory(term)
 }
 
-func GetDriverWithInit(name string, term *ssh.Client) (raid.IRaidDriver, error) {
+func GetLocalDriver(name string) raid.IRaidDriver {
+	factory := raid.RaidDrivers[name]
+	if factory == nil {
+		return nil
+	}
+	return factory(NewExecutor())
+}
+
+func GetDriverWithInit(name string, term raid.IExecTerm) (raid.IRaidDriver, error) {
 	drv := GetDriver(name, term)
 	if drv == nil {
 		return nil, errors.Errorf("Not found raid driver %q", name)
@@ -48,7 +55,7 @@ func GetDriverWithInit(name string, term *ssh.Client) (raid.IRaidDriver, error) 
 	return drv, drv.ParsePhyDevs()
 }
 
-func GetDriverByKernelModule(module string, term *ssh.Client) (raid.IRaidDriver, error) {
+func GetDriverByKernelModule(module string, term raid.IExecTerm) (raid.IRaidDriver, error) {
 	name := ""
 	switch module {
 	case raid.MODULE_MEGARAID:
@@ -64,7 +71,7 @@ func GetDriverByKernelModule(module string, term *ssh.Client) (raid.IRaidDriver,
 	return GetDriverWithInit(name, term)
 }
 
-func GetDrivers(term *ssh.Client) []raid.IRaidDriver {
+func GetDrivers(term raid.IExecTerm) []raid.IRaidDriver {
 	ret := []raid.IRaidDriver{}
 	for _, factory := range raid.RaidDrivers {
 		ret = append(ret, factory(term))

@@ -24,7 +24,6 @@ import (
 	"yunion.io/x/onecloud/pkg/baremetal/utils/raid/drivers"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
-	"yunion.io/x/onecloud/pkg/util/ssh"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
@@ -48,7 +47,7 @@ func GetRaidLogicVolumes(drv raid.IRaidDriver) ([]*raid.RaidLogicalVolume, error
 	return lvs, nil
 }
 
-func DetectStorageInfo(term *ssh.Client, wait bool) ([]*baremetal.BaremetalStorage, []*baremetal.BaremetalStorage, []*baremetal.BaremetalStorage, error) {
+func DetectStorageInfo(term raid.IExecTerm, wait bool) ([]*baremetal.BaremetalStorage, []*baremetal.BaremetalStorage, []*baremetal.BaremetalStorage, error) {
 	raidDiskInfo := make([]*baremetal.BaremetalStorage, 0)
 	lvDiskInfo := make([]*raid.RaidLogicalVolume, 0)
 
