@@ -513,7 +513,17 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 		bandwidth = 200
 	}
 
-	params["InternetAccessible.InternetChargeType"] = "TRAFFIC_POSTPAID_BY_HOUR"
+	internetChargeType := "TRAFFIC_POSTPAID_BY_HOUR"
+	_, totalCount, err := self.GetBandwidthPackages([]string{}, 0, 50)
+	if err != nil {
+		return "", errors.Wrapf(err, "GetBandwidthPackages")
+	}
+	if totalCount > 0 {
+		bandwidth = 1000
+		internetChargeType = "BANDWIDTH_PACKAGE"
+	}
+
+	params["InternetAccessible.InternetChargeType"] = internetChargeType
 	params["InternetAccessible.InternetMaxBandwidthOut"] = fmt.Sprintf("%d", bandwidth)
 	params["InternetAccessible.PublicIpAssigned"] = "FALSE"
 	if len(keypair) > 0 {
