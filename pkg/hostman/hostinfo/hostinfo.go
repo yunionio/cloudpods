@@ -40,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/host_health"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -1610,18 +1611,18 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 	conf := map[string]interface{}{}
 	conf["hostname"] = h.getHostname()
 	conf["tags"] = map[string]string{
-		"host_id":        h.HostId,
-		"zone_id":        h.ZoneId,
-		"zone":           h.Zone,
-		"cloudregion_id": h.CloudregionId,
-		"cloudregion":    h.Cloudregion,
-		"domain_id":      h.Domain_id,
-		"project_domain": h.Project_domain,
-		"region":         options.HostOptions.Region,
-		"host_ip":        h.GetMasterIp(),
-		//"platform":       "kvm",
-		"brand":    "OneCloud",
-		"res_type": "host",
+		"host_id":                             h.HostId,
+		"zone_id":                             h.ZoneId,
+		"zone":                                h.Zone,
+		"cloudregion_id":                      h.CloudregionId,
+		"cloudregion":                         h.Cloudregion,
+		"domain_id":                           h.Domain_id,
+		"project_domain":                      h.Project_domain,
+		"region":                              options.HostOptions.Region,
+		"host_ip":                             h.GetMasterIp(),
+		hostconsts.TELEGRAF_TAG_KEY_BRAND:     hostconsts.TELEGRAF_TAG_ONECLOUD_BRAND,
+		hostconsts.TELEGRAF_TAG_KEY_RES_TYPE:  hostconsts.TELEGRAF_TAG_ONECLOUD_RES_TYPE,
+		hostconsts.TELEGRAF_TAG_KEY_HOST_TYPE: hostconsts.TELEGRAF_TAG_ONECLOUD_HOST_TYPE_HOST,
 	}
 	conf["nics"] = h.getNicsTelegrafConf()
 	urls, _ := catalog.GetServiceURLs("kafka", options.HostOptions.Region, "", defaultEndpointType)
