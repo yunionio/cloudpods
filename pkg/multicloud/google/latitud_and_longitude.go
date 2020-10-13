@@ -27,6 +27,7 @@ var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
 	"asia-northeast3":      {Latitude: 34.6937378, Longitude: 135.5021651, City: api.CITY_SEOUL, CountryCode: api.COUNTRY_CODE_KR},
 	"asia-south1":          {Latitude: 37.566535, Longitude: 126.9779692, City: api.CITY_MUMBAI, CountryCode: api.COUNTRY_CODE_IN},
 	"asia-southeast1":      {Latitude: 1.352083, Longitude: 103.819839, City: api.CITY_SINGAPORE, CountryCode: api.COUNTRY_CODE_SG},
+	"asia-southeast2":      {Latitude: -6.175110, Longitude: 106.865036, City: api.CITY_JAKARTA, CountryCode: api.COUNTRY_CODE_ID},
 	"australia-southeast1": {Latitude: -33.8688197, Longitude: 151.2092955, City: api.CITY_SYDNEY, CountryCode: api.COUNTRY_CODE_AU},
 
 	"europe-north1": {Latitude: 39.904202, Longitude: 116.407394, City: api.CITY_FINLAND, CountryCode: api.COUNTRY_CODE_CN},
@@ -55,6 +56,7 @@ var RegionNames = map[string]string{
 	"asia-northeast3":      "首尔",
 	"asia-south1":          "孟买",
 	"asia-southeast1":      "新加坡",
+	"asia-southeast2":      "雅加达",
 	"australia-southeast1": "悉尼",
 
 	"europe-north1": "芬兰",
