@@ -37,6 +37,8 @@ type GatewayOptions struct {
 
 	ReturnFullDomainList bool `default:"true" help:"return domain list for get_regions API"`
 
+	SessionLevelAuthCookie bool `default:"false" help:"YunionAuth cookie is valid during a browser session"`
+
 	common_options.CommonOptions `"request_worker_count->default":"32"`
 }
 
