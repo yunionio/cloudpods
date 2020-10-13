@@ -1234,8 +1234,8 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 		chargeType = api.EIP_CHARGE_TYPE_BY_TRAFFIC
 	}
 
-	eip := SElasticip{}
-	eip.SetModelManager(manager, &eip)
+	eip := &SElasticip{}
+	eip.SetModelManager(manager, eip)
 
 	eip.Mode = api.EIP_MODE_STANDALONE_EIP
 	// do not implicitly auto dellocate EIP, should be set by user explicitly
@@ -1288,11 +1288,12 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 		return nil, errors.Wrap(err, "db.GenerateName")
 	}
 
-	err = manager.TableSpec().Insert(ctx, &eip)
+	err = manager.TableSpec().Insert(ctx, eip)
 	if err != nil {
 		log.Errorf("create EIP record fail %s", err)
 		return nil, err
 	}
+	db.OpsLog.LogEvent(eip, db.ACT_CREATE, eip.GetShortDesc(ctx), userCred)
 
 	eipPendingUsage := &SRegionQuota{Eip: 1}
 	keys := fetchRegionalQuotaKeys(
@@ -1304,7 +1305,7 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 	eipPendingUsage.SetKeys(keys)
 	quotas.CancelPendingUsage(ctx, userCred, pendingUsage, eipPendingUsage, true)
 
-	return &eip, nil
+	return eip, nil
 }
 
 func (eip *SElasticip) AllocateAndAssociateVM(ctx context.Context, userCred mcclient.TokenCredential, vm *SGuest, parentTaskId string) error {
