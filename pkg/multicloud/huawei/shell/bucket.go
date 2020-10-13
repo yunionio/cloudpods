@@ -15,9 +15,35 @@
 package shell
 
 import (
+	"fmt"
+
+	"yunion.io/x/onecloud/pkg/multicloud/huawei"
 	"yunion.io/x/onecloud/pkg/multicloud/objectstore"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func init() {
 	objectstore.S3Shell()
+
+	type BucketNameOptions struct {
+		NAME string
+	}
+	shellutils.R(&BucketNameOptions{}, "bucket-head", "Head bucket", func(cli *huawei.SRegion, args *BucketNameOptions) error {
+		result, err := cli.HeadBucket(args.NAME)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	shellutils.R(&BucketNameOptions{}, "bucket-project", "Show bucket project", func(cli *huawei.SRegion, args *BucketNameOptions) error {
+		bucket, err := cli.GetIBucketByName(args.NAME)
+		if err != nil {
+			return err
+		}
+		fmt.Println("project: ", bucket.GetProjectId())
+		return nil
+	})
+
 }
