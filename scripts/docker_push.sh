@@ -144,6 +144,8 @@ else
 fi
 
 cd $SRC_DIR
+mkdir -p $(SRC_DIR)/_output
+
 for component in $COMPONENTS; do
     if [[ $component == *cli ]]; then
         echo "Please build image for climc"
