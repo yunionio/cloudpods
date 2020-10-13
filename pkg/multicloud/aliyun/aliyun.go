@@ -136,6 +136,11 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 				}
 			}
 			for _, code := range []string{
+				"EOF",
+				"i/o timeout",
+				"TLS handshake timeout",
+				"connection reset by peer",
+				"server misbehaving",
 				"SignatureNonceUsed",
 				"InvalidInstance.NotSupported",
 				"try later",
