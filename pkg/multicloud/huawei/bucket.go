@@ -42,6 +42,14 @@ type SBucket struct {
 }
 
 func (b *SBucket) GetProjectId() string {
+	resp, err := b.region.HeadBucket(b.Name)
+	if err != nil {
+		return ""
+	}
+	epid, _ := resp.ResponseHeaders["epid"]
+	if len(epid) > 0 {
+		return epid[0]
+	}
 	return ""
 }
 
