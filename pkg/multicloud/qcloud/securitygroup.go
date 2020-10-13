@@ -72,7 +72,7 @@ type SSecurityGroup struct {
 	SecurityGroupPolicySet SecurityGroupPolicySet
 }
 
-func (self *SRegion) GetSecurityGroups(vpcId string, name string, offset int, limit int) ([]SSecurityGroup, int, error) {
+func (self *SRegion) GetSecurityGroups(ids []string, vpcId string, name string, offset int, limit int) ([]SSecurityGroup, int, error) {
 	if limit > 50 || limit <= 0 {
 		limit = 50
 	}
@@ -85,19 +85,21 @@ func (self *SRegion) GetSecurityGroups(vpcId string, name string, offset int, li
 		params["Filters.0.Values.0"] = name
 	}
 
-	body, err := self.vpcRequest("DescribeSecurityGroups", params)
+	for idx, id := range ids {
+		params[fmt.Sprintf("SecurityGroupIds.%d", idx)] = id
+	}
+
+	resp, err := self.vpcRequest("DescribeSecurityGroups", params)
 	if err != nil {
-		log.Errorf("GetSecurityGroups fail %s", err)
-		return nil, 0, err
+		return nil, 0, errors.Wrapf(err, "DescribeSecurityGroups")
 	}
 
 	secgrps := make([]SSecurityGroup, 0)
-	err = body.Unmarshal(&secgrps, "SecurityGroupSet")
+	err = resp.Unmarshal(&secgrps, "SecurityGroupSet")
 	if err != nil {
-		log.Errorf("Unmarshal security groups fail %s", err)
-		return nil, 0, err
+		return nil, 0, errors.Wrapf(err, "resp.Unmarshal")
 	}
-	total, _ := body.Float("TotalCount")
+	total, _ := resp.Float("TotalCount")
 	return secgrps, int(total), nil
 }
 
@@ -239,19 +241,19 @@ func (self *SecurityGroupPolicy) getAddressRules(rule cloudprovider.SecurityRule
 }
 
 func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
-	secgroup, err := self.region.GetSecurityGroupDetails(self.SecurityGroupId)
+	policySet, err := self.region.DescribeSecurityGroupPolicies(self.SecurityGroupId)
 	if err != nil {
 		return nil, err
 	}
-	for i := 0; i < len(secgroup.SecurityGroupPolicySet.Egress); i++ {
-		secgroup.SecurityGroupPolicySet.Egress[i].direction = "out"
+	for i := 0; i < len(policySet.Egress); i++ {
+		policySet.Egress[i].direction = "out"
 	}
-	for i := 0; i < len(secgroup.SecurityGroupPolicySet.Ingress); i++ {
-		secgroup.SecurityGroupPolicySet.Ingress[i].direction = "in"
+	for i := 0; i < len(policySet.Ingress); i++ {
+		policySet.Ingress[i].direction = "in"
 	}
 	originRules := []SecurityGroupPolicy{}
-	originRules = append(originRules, secgroup.SecurityGroupPolicySet.Egress...)
-	originRules = append(originRules, secgroup.SecurityGroupPolicySet.Ingress...)
+	originRules = append(originRules, policySet.Egress...)
+	originRules = append(originRules, policySet.Ingress...)
 	for i := 0; i < len(originRules); i++ {
 		originRules[i].region = self.region
 	}
@@ -272,11 +274,14 @@ func (self *SSecurityGroup) IsEmulated() bool {
 }
 
 func (self *SSecurityGroup) Refresh() error {
-	group, err := self.region.GetSecurityGroupDetails(self.SecurityGroupId)
+	groups, total, err := self.region.GetSecurityGroups([]string{self.SecurityGroupId}, "", "", 0, 0)
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(self, group)
+	if total < 1 {
+		return cloudprovider.ErrNotFound
+	}
+	return jsonutils.Update(self, groups[0])
 }
 
 func (self *SSecurityGroup) deleteRules(rules []cloudprovider.SecurityRule, direction string) error {
@@ -392,7 +397,7 @@ func (self *SRegion) AddRule(secgroupId string, policyIndex int, rule cloudprovi
 	return nil
 }
 
-func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup, error) {
+func (self *SRegion) DescribeSecurityGroupPolicies(secGroupId string) (*SecurityGroupPolicySet, error) {
 	params := make(map[string]string)
 	params["Region"] = self.Region
 	params["SecurityGroupId"] = secGroupId
@@ -403,13 +408,12 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 		return nil, err
 	}
 
-	secgrp := SSecurityGroup{SecurityGroupId: secGroupId, region: self}
-	err = body.Unmarshal(&secgrp.SecurityGroupPolicySet, "SecurityGroupPolicySet")
+	policies := SecurityGroupPolicySet{}
+	err = body.Unmarshal(&policies, "SecurityGroupPolicySet")
 	if err != nil {
-		log.Errorf("Unmarshal security group details fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "body.Unmarshal")
 	}
-	return &secgrp, nil
+	return &policies, nil
 }
 
 func (self *SRegion) DeleteSecurityGroup(secGroupId string) error {
