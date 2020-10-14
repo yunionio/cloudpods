@@ -14,6 +14,13 @@
 
 package cloudprovider
 
+type TElasticipChargeType string
+
+var (
+	ElasticipChargeTypeByTraffic   = TElasticipChargeType("traffic")
+	ElasticipChargeTypeByBandwidth = TElasticipChargeType("bandwidth")
+)
+
 type SEip struct {
 	Name              string
 	BandwidthMbps     int

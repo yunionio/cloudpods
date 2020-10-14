@@ -830,6 +830,7 @@ func (self *SQcloudClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_EVENT,
 		cloudprovider.CLOUD_CAPABILITY_CLOUDID,
 		cloudprovider.CLOUD_CAPABILITY_DNSZONE,
+		cloudprovider.CLOUD_CAPABILITY_PUBLIC_IP,
 	}
 	return caps
 }

@@ -54,12 +54,15 @@ func (d SManagedVirtualizedGuestDriver) DoScheduleMemoryFilter() bool { return f
 
 func (d SManagedVirtualizedGuestDriver) DoScheduleStorageFilter() bool { return false }
 
-func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
+func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
 	config := cloudprovider.SManagedVMCreateConfig{}
 	config.Name = guest.Name
 	config.Cpu = int(guest.VcpuCount)
 	config.MemoryMB = guest.VmemSize
 	config.Description = guest.Description
+	if params != nil {
+		params.Unmarshal(&config.SPublicIpInfo)
+	}
 
 	config.InstanceType = guest.InstanceType
 
@@ -117,7 +120,7 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 	if guest.BillingType == billing_api.BILLING_TYPE_PREPAID {
 		bc, err := billing.ParseBillingCycle(guest.BillingCycle)
 		if err != nil {
-			log.Errorf("fail to parse billing cycle %s: %s", guest.BillingCycle, err)
+			return nil, errors.Wrapf(err, "ParseBillingCycle(%s)", guest.BillingCycle)
 		}
 		if bc.IsValid() {
 			bc.AutoRenew = guest.AutoRenew
@@ -125,7 +128,7 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 		}
 	}
 
-	return jsonutils.Marshal(&config)
+	return jsonutils.Marshal(&config), nil
 }
 
 func (self *SManagedVirtualizedGuestDriver) RequestGuestCreateAllDisks(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
@@ -293,14 +296,14 @@ func (self *SManagedVirtualizedGuestDriver) RequestStartOnHost(ctx context.Conte
 func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
 	if err != nil {
-		log.Errorf("GetDeployConfigOnHost error: %v", err)
-		return err
+		return errors.Wrapf(err, "GetDeployConfigOnHost")
 	}
 	log.Debugf("RequestDeployGuestOnHost: %s", config)
 
 	desc := cloudprovider.SManagedVMCreateConfig{}
-	if err := desc.GetConfig(config); err != nil {
-		return err
+	err = desc.GetConfig(config)
+	if err != nil {
+		return errors.Wrapf(err, "desc.GetConfig")
 	}
 
 	//创建并同步安全组规则
@@ -447,10 +450,6 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 		}
 
 		db.SetExternalId(guest, userCred, iVM.GetGlobalId())
-		err = iVM.SetSecurityGroups(desc.ExternalSecgroupIds)
-		if err != nil {
-			log.Errorf("failed to set multi secgroup for instance %s error: %v", guest.Name, err)
-		}
 
 		if hostId := iVM.GetIHostId(); len(hostId) > 0 {
 			host, err := db.FetchByExternalIdAndManagerId(models.HostManager, hostId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
@@ -482,8 +481,12 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 
 	iVM, err = ihost.GetIVMById(iVM.GetGlobalId())
 	if err != nil {
-		log.Errorf("cannot find vm %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "GetIVMById(%s)", iVM.GetGlobalId())
+	}
+
+	err = iVM.SetSecurityGroups(desc.ExternalSecgroupIds)
+	if err != nil {
+		return nil, errors.Wrapf(err, "SetSecurityGroups")
 	}
 
 	ret, expect := 0, len(desc.DataDisks)+1

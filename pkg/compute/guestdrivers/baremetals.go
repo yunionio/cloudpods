@@ -404,8 +404,8 @@ func (self *SBaremetalGuestDriver) ValidateCreateDataOnHost(ctx context.Context,
 	return input, nil
 }
 
-func (self *SBaremetalGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
-	return guest.GetJsonDescAtBaremetal(ctx, host)
+func (self *SBaremetalGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
+	return guest.GetJsonDescAtBaremetal(ctx, host), nil
 }
 
 func (self *SBaremetalGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) (*jsonutils.JSONDict, error) {

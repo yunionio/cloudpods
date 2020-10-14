@@ -1523,6 +1523,21 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 
 func (manager *SGuestManager) validateEip(userCred mcclient.TokenCredential, input *api.ServerCreateInput,
 	preferRegionId string, preferManagerId string) error {
+	if input.PublicIpBw > 0 {
+		if !GetDriver(input.Hypervisor).IsSupportPublicIp() {
+			return httperrors.NewNotImplementedError("public ip not supported for %s", input.Hypervisor)
+		}
+		if len(input.PublicIpChargeType) == 0 {
+			input.PublicIpChargeType = string(cloudprovider.ElasticipChargeTypeByTraffic)
+		}
+		if !utils.IsInStringArray(input.PublicIpChargeType, []string{
+			string(cloudprovider.ElasticipChargeTypeByTraffic),
+			string(cloudprovider.ElasticipChargeTypeByBandwidth),
+		}) {
+			return httperrors.NewInputParameterError("invalid public_ip_charge_type %s", input.PublicIpChargeType)
+		}
+		return nil
+	}
 	eipStr := input.Eip
 	eipBw := input.EipBw
 	if len(eipStr) > 0 || eipBw > 0 {
@@ -3676,7 +3691,10 @@ func (self *SGuest) isNeedDoResetPasswd() bool {
 func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, params *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	config := jsonutils.NewDict()
 
-	desc := self.GetDriver().GetJsonDescAtHost(ctx, userCred, self, host)
+	desc, err := self.GetDriver().GetJsonDescAtHost(ctx, userCred, self, host, params)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetJsonDescAtHost")
+	}
 	config.Add(desc, "desc")
 
 	deploys, err := cmdline.FetchDeployConfigsByJSON(params)
