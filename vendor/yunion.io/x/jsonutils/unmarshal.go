@@ -524,6 +524,9 @@ func (this *JSONDict) unmarshalMap(val reflect.Value) error {
 		k, vinf := iter.Get()
 		v := vinf.(JSONObject)
 		keyVal := reflect.ValueOf(k)
+		if keyType != keyVal.Type() {
+			keyVal = keyVal.Convert(keyType)
+		}
 		valVal := reflect.New(valType.Elem()).Elem()
 
 		err := v.unmarshalValue(valVal)

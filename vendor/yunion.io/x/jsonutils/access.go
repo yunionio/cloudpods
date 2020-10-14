@@ -53,8 +53,17 @@ func NewInt(val int64) *JSONInt {
 	return &JSONInt{data: val}
 }
 
+//deprecated
 func NewFloat(val float64) *JSONFloat {
-	return &JSONFloat{data: val}
+	return &JSONFloat{data: val, bit: 64}
+}
+
+func NewFloat64(val float64) *JSONFloat {
+	return &JSONFloat{data: val, bit: 64}
+}
+
+func NewFloat32(val float32) *JSONFloat {
+	return &JSONFloat{data: float64(val), bit: 32}
 }
 
 func NewBool(val bool) *JSONBool {
