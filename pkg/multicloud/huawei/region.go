@@ -957,17 +957,20 @@ func (region *SRegion) DeleteIBucket(name string) error {
 	return nil
 }
 
-func (region *SRegion) IBucketExist(name string) (bool, error) {
+func (region *SRegion) HeadBucket(name string) (*obs.BaseModel, error) {
 	obsClient, err := region.getOBSClient()
 	if err != nil {
-		return false, errors.Wrap(err, "region.getOBSClient")
+		return nil, errors.Wrap(err, "region.getOBSClient")
 	}
-	_, err = obsClient.HeadBucket(name)
+	return obsClient.HeadBucket(name)
+}
+
+func (region *SRegion) IBucketExist(name string) (bool, error) {
+	_, err := region.HeadBucket(name)
 	if err != nil {
 		if obsHttpCode(err) == 404 {
 			return false, nil
 		} else {
-			log.Debugf("%#v %s", err, err)
 			return false, errors.Wrap(err, "HeadBucket")
 		}
 	}
