@@ -15,7 +15,10 @@
 package misc
 
 import (
+	"yunion.io/x/pkg/errors"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 func init() {
@@ -23,6 +26,38 @@ func init() {
 	}
 	R(&CurrentUserOptions{}, "session-show", "show information of current account", func(s *mcclient.ClientSession, args *CurrentUserOptions) error {
 		printObject(s.ToJson())
+		return nil
+	})
+	type FreezeResrouceOptions struct {
+		ID     string `help:"ID of resource"`
+		Module string `help:"Resource module type, eg: servers, disks, networks"`
+	}
+	R(&FreezeResrouceOptions{}, "freeze-resource", "Freeze resource operation update and perform action except for unfreeze", func(s *mcclient.ClientSession, args *FreezeResrouceOptions) error {
+		mod, err := modulebase.GetModule(s, args.Module)
+		if err != nil {
+			return errors.Wrap(err, "failed get module")
+		}
+		obj, err := mod.PerformAction(s, args.ID, "freeze", nil)
+		if err != nil {
+			return err
+		}
+		printObject(obj)
+		return nil
+	})
+	type UnfreezeResrouceOptions struct {
+		ID     string `help:"ID of resource"`
+		Module string `help:"Resource module type, eg: servers, disks, networks"`
+	}
+	R(&UnfreezeResrouceOptions{}, "unfreeze-resource", "Unfreeze resource", func(s *mcclient.ClientSession, args *UnfreezeResrouceOptions) error {
+		mod, err := modulebase.GetModule(s, args.Module)
+		if err != nil {
+			return errors.Wrap(err, "failed get module")
+		}
+		obj, err := mod.PerformAction(s, args.ID, "unfreeze", nil)
+		if err != nil {
+			return err
+		}
+		printObject(obj)
 		return nil
 	})
 }
