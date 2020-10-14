@@ -246,7 +246,10 @@ func (man *SOpenstackCachedLbManager) newFromCloudLoadbalancerBackend(ctx contex
 	if err != nil {
 		return nil, err
 	}
-
+	// openstack lb后端是ip:port 不一定有server映射
+	if len(extLoadbalancerBackend.GetBackendId()) == 0 {
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "extLoadbalancerBackend.GetBackendId()")
+	}
 	locallbb, err := newLocalBackendFromCloudLoadbalancerBackend(ctx, userCred, localBackendGroup, extLoadbalancerBackend, syncOwnerId)
 	if err != nil {
 		return nil, err
