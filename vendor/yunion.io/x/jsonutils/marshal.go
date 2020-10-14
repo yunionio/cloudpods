@@ -150,13 +150,23 @@ func marshalInt64(val int64, info *reflectutils.SStructFieldInfo) JSONObject {
 	}
 }
 
-func marshalFloat64(val float64, info *reflectutils.SStructFieldInfo) JSONObject {
+func marshalFloat64(val float64, info *reflectutils.SStructFieldInfo, bit int) JSONObject {
 	if val == 0.0 && info != nil && info.OmitZero {
 		return JSONNull
 	} else if info != nil && info.ForceString {
 		return NewString(fmt.Sprintf("%f", val))
 	} else {
-		return NewFloat(val)
+		return NewFloat64(val)
+	}
+}
+
+func marshalFloat32(val float32, info *reflectutils.SStructFieldInfo, bit int) JSONObject {
+	if val == 0.0 && info != nil && info.OmitZero {
+		return JSONNull
+	} else if info != nil && info.ForceString {
+		return NewString(fmt.Sprintf("%f", val))
+	} else {
+		return NewFloat32(val)
 	}
 }
 
@@ -312,9 +322,12 @@ func marshalValue(objValue reflect.Value, info *reflectutils.SStructFieldInfo) J
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		intValue := objValue.Convert(gotypes.Int64Type)
 		return marshalInt64(intValue.Interface().(int64), info)
-	case reflect.Float32, reflect.Float64:
-		floatValue := objValue.Convert(gotypes.Float64Type)
-		return marshalFloat64(floatValue.Interface().(float64), info)
+	case reflect.Float32:
+		floatVal := objValue.Convert(gotypes.Float32Type)
+		return marshalFloat32(floatVal.Interface().(float32), info, 32)
+	case reflect.Float64:
+		floatVal := objValue.Convert(gotypes.Float64Type)
+		return marshalFloat64(floatVal.Interface().(float64), info, 64)
 	case reflect.Interface, reflect.Ptr:
 		if objValue.IsNil() {
 			return JSONNull
