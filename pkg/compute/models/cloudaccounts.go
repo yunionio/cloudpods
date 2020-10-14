@@ -1970,7 +1970,7 @@ func (self *SCloudaccount) GetDetailsBalance(ctx context.Context, userCred mccli
 		return nil, httperrors.NewGeneralError(err)
 	}
 	ret := jsonutils.NewDict()
-	ret.Add(jsonutils.NewFloat(balance), "balance")
+	ret.Add(jsonutils.NewFloat64(balance), "balance")
 	return ret, nil
 }
 

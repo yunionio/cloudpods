@@ -386,7 +386,7 @@ func (s *SGuestMonitorCollector) reportIo(curInfo, prevInfo jsonutils.JSONObject
 			prev, _ := prevInfo.GetString(field)
 			fcur, _ := strconv.ParseFloat(cur, 64)
 			fprev, _ := strconv.ParseFloat(prev, 64)
-			ioInfo.Set(s.GetIoFiledName(field), jsonutils.NewFloat((fcur-fprev)/float64(diffTime)))
+			ioInfo.Set(s.GetIoFiledName(field), jsonutils.NewFloat64((fcur-fprev)/float64(diffTime)))
 		}
 	}
 	return ioInfo
@@ -515,11 +515,11 @@ func (m *SGuestMonitor) Cpu() jsonutils.JSONObject {
 	cpuTimes, _ := m.Process.Times()
 	ret := jsonutils.NewDict()
 	percent, _ = strconv.ParseFloat(fmt.Sprintf("%0.4f", percent/float64(m.CpuCnt)), 64)
-	ret.Set("usage_active", jsonutils.NewFloat(percent))
-	ret.Set("cpu_usage_idle_pcore", jsonutils.NewFloat(100-percent/float64(m.CpuCnt)))
-	ret.Set("cpu_usage_pcore", jsonutils.NewFloat(percent/float64(m.CpuCnt)))
-	ret.Set("cpu_time_user", jsonutils.NewFloat(cpuTimes.User))
-	ret.Set("cpu_time_system", jsonutils.NewFloat(cpuTimes.System))
+	ret.Set("usage_active", jsonutils.NewFloat64(percent))
+	ret.Set("cpu_usage_idle_pcore", jsonutils.NewFloat64(100-percent/float64(m.CpuCnt)))
+	ret.Set("cpu_usage_pcore", jsonutils.NewFloat64(percent/float64(m.CpuCnt)))
+	ret.Set("cpu_time_user", jsonutils.NewFloat64(cpuTimes.User))
+	ret.Set("cpu_time_system", jsonutils.NewFloat64(cpuTimes.System))
 	ret.Set("cpu_count", jsonutils.NewInt(int64(m.CpuCnt)))
 
 	threadCnt, _ := m.Process.NumThreads()
@@ -558,6 +558,6 @@ func (m *SGuestMonitor) Mem() jsonutils.JSONObject {
 	ret := jsonutils.NewDict()
 	ret.Set("rss", jsonutils.NewInt(int64(mem.RSS)))
 	ret.Set("vms", jsonutils.NewInt(int64(mem.VMS)))
-	ret.Set("used_percent", jsonutils.NewFloat(float64(used_percent)))
+	ret.Set("used_percent", jsonutils.NewFloat64(float64(used_percent)))
 	return ret
 }

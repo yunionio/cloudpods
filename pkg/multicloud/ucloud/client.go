@@ -82,9 +82,9 @@ func (self *SParams) Set(key string, value interface{}) {
 	case bool:
 		self.data.Set(key, jsonutils.NewBool(v))
 	case float64:
-		self.data.Set(key, jsonutils.NewFloat(v))
+		self.data.Set(key, jsonutils.NewFloat64(v))
 	case float32:
-		self.data.Set(key, jsonutils.NewFloat(float64(v)))
+		self.data.Set(key, jsonutils.NewFloat32(v))
 	case []string:
 		self.data.Set(key, jsonutils.NewStringArray(v))
 	default:

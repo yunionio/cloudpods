@@ -116,7 +116,7 @@ func optionsStructRvToParams(rv reflect.Value) (*jsonutils.JSONDict, error) {
 			rv64 := f.Convert(gotypes.Float64Type)
 			f64 := rv64.Interface().(float64)
 			if f64 != 0 || !jsonInfo.OmitZero {
-				p.Set(name, jsonutils.NewFloat(f64))
+				p.Set(name, jsonutils.NewFloat64(f64))
 			}
 		case reflect.String:
 			s := f.Interface().(string)

@@ -259,10 +259,10 @@ func init() {
 			params.Add(jsonutils.NewString(args.Desc), "description")
 		}
 		if args.CpuCommitBound > 0.0 {
-			params.Add(jsonutils.NewFloat(args.CpuCommitBound), "cpu_cmtbound")
+			params.Add(jsonutils.NewFloat64(args.CpuCommitBound), "cpu_cmtbound")
 		}
 		if args.MemoryCommitBound > 0.0 {
-			params.Add(jsonutils.NewFloat(args.MemoryCommitBound), "mem_cmtbound")
+			params.Add(jsonutils.NewFloat64(args.MemoryCommitBound), "mem_cmtbound")
 		}
 		if len(args.MemoryReserved) > 0 {
 			params.Add(jsonutils.NewString(args.MemoryReserved), "mem_reserved")
