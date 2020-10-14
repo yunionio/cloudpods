@@ -332,6 +332,9 @@ type GetMetadataInput struct {
 	// | 外部标签 | key以ext:为前缀，为从其他平台同步过来的标签 |
 	//
 	Field []string `json:"field"`
+
+	// 按标签前缀过滤
+	Prefix string `json:"prefix"`
 }
 
 // 获取资源标签（元数据）输出

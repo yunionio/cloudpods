@@ -2194,8 +2194,21 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
 		return nil, err
 	}
-	if self.WireId != net.WireId || self.GuestGateway != net.GuestGateway {
-		err = httperrors.NewInputParameterError("Invalid Target Network: %s", input.Target)
+
+	failReason := make([]string, 0)
+
+	if self.WireId != net.WireId {
+		failReason = append(failReason, "wire_id")
+	}
+	if self.GuestGateway != net.GuestGateway {
+		failReason = append(failReason, "guest_gateway")
+	}
+	if self.VlanId != net.VlanId {
+		failReason = append(failReason, "vlan_id")
+	}
+
+	if len(failReason) > 0 {
+		err = httperrors.NewInputParameterError("Invalid Target Network %s: inconsist %s", input.Target, strings.Join(failReason, ","))
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
 		return nil, err
 	}
