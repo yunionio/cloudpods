@@ -153,40 +153,37 @@ type SEsxiImageInfo struct {
 	StorageCacheHostIp string
 }
 
-func (self *SESXiGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
+func (self *SESXiGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
 	desc := guest.GetJsonDescAtHypervisor(ctx, host)
 	// add image_info
 	disks, _ := desc.GetArray("disks")
 	if len(disks) == 0 {
-		return desc
+		return desc, nil
 	}
 	templateId, _ := disks[0].GetString("template_id")
 	if len(templateId) == 0 {
-		return desc
+		return desc, nil
 	}
 	model, err := models.CachedimageManager.FetchById(templateId)
 	if err != nil {
-		log.Errorf("fail to Fetch cachedimage by '%s' in SESXiGuestDriver.GetJsonDescAtHost: %s", templateId, err)
-		return desc
+		return desc, errors.Wrapf(err, "CachedimageManager.FetchById(%s)", templateId)
 	}
 	img := model.(*models.SCachedimage)
 	if img.ImageType != cloudprovider.CachedImageTypeSystem {
-		return desc
+		return desc, nil
 	}
 	sciSubQ := models.StoragecachedimageManager.Query("storagecache_id").Equals("cachedimage_id", templateId).Equals("status", api.CACHED_IMAGE_STATUS_ACTIVE).SubQuery()
 	scQ := models.StoragecacheManager.Query().In("id", sciSubQ)
 	storageCaches := make([]models.SStoragecache, 0, 1)
 	err = db.FetchModelObjects(models.StoragecacheManager, scQ, &storageCaches)
 	if err != nil {
-		log.Errorf("fail to fetch storageCache associated with cacheimage '%s'", templateId)
-		return desc
+		return desc, errors.Wrapf(err, "fetch storageCache associated with cacheimage %s", templateId)
 	}
 	if len(storageCaches) == 0 {
-		log.Errorf("no such storage cache associated with cacheimage '%s'", templateId)
-		return desc
+		return desc, errors.Errorf("no such storage cache associated with cacheimage %s", templateId)
 	}
 	if len(storageCaches) > 1 {
-		log.Errorf("there are multiple storageCache associated with caheimage '%s' ??!!", templateId)
+		return desc, errors.Errorf("there are multiple storageCache associated with caheimage '%s' ??!!", templateId)
 	}
 
 	var hostIp string
@@ -203,7 +200,7 @@ func (self *SESXiGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mc
 	}
 	dict := disks[0].(*jsonutils.JSONDict)
 	dict.Add(jsonutils.Marshal(imageInfo), "image_info")
-	return desc
+	return desc, nil
 }
 
 func (self *SESXiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
