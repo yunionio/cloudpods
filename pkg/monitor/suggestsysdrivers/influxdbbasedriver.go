@@ -230,7 +230,7 @@ func describeEvalResultTojson(evalMatchsMap map[string][]*monitor.EvalMatch, map
 			idTag := getMetricIdTag(evalMatch.Tags)
 			if val, ok := idTag[mappingId]; ok {
 				if val == mappingVal {
-					problem.Add(jsonutils.NewFloat(*evalMatch.Value), evalMatch.Metric)
+					problem.Add(jsonutils.NewFloat64(*evalMatch.Value), evalMatch.Metric)
 				}
 			}
 		}
