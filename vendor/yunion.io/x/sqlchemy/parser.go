@@ -55,35 +55,35 @@ func getFiledTypeCol(fieldType reflect.Type, fieldname string, tagmap map[string
 		col := NewTextColumn(fieldname, tagmap, isPointer)
 		return &col
 	case reflect.Int, reflect.Int32:
-		tagmap[TAG_WIDTH] = "11"
+		tagmap[TAG_WIDTH] = intWidthString("INT")
 		col := NewIntegerColumn(fieldname, "INT", false, tagmap, isPointer)
 		return &col
 	case reflect.Int8:
-		tagmap[TAG_WIDTH] = "4"
+		tagmap[TAG_WIDTH] = intWidthString("TINYINT")
 		col := NewIntegerColumn(fieldname, "TINYINT", false, tagmap, isPointer)
 		return &col
 	case reflect.Int16:
-		tagmap[TAG_WIDTH] = "6"
+		tagmap[TAG_WIDTH] = intWidthString("SMALLINT")
 		col := NewIntegerColumn(fieldname, "SMALLINT", false, tagmap, isPointer)
 		return &col
 	case reflect.Int64:
-		tagmap[TAG_WIDTH] = "20"
+		tagmap[TAG_WIDTH] = intWidthString("BIGINT")
 		col := NewIntegerColumn(fieldname, "BIGINT", false, tagmap, isPointer)
 		return &col
 	case reflect.Uint, reflect.Uint32:
-		tagmap[TAG_WIDTH] = "11"
+		tagmap[TAG_WIDTH] = uintWidthString("INT")
 		col := NewIntegerColumn(fieldname, "INT", true, tagmap, isPointer)
 		return &col
 	case reflect.Uint8:
-		tagmap[TAG_WIDTH] = "4"
+		tagmap[TAG_WIDTH] = uintWidthString("TINYINT")
 		col := NewIntegerColumn(fieldname, "TINYINT", true, tagmap, isPointer)
 		return &col
 	case reflect.Uint16:
-		tagmap[TAG_WIDTH] = "6"
+		tagmap[TAG_WIDTH] = uintWidthString("SMALLINT")
 		col := NewIntegerColumn(fieldname, "SMALLINT", true, tagmap, isPointer)
 		return &col
 	case reflect.Uint64:
-		tagmap[TAG_WIDTH] = "20"
+		tagmap[TAG_WIDTH] = uintWidthString("BIGINT")
 		col := NewIntegerColumn(fieldname, "BIGINT", true, tagmap, isPointer)
 		return &col
 	case reflect.Bool:

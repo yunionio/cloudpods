@@ -14,6 +14,11 @@
 
 package sqlchemy
 
+import (
+	"strconv"
+	"strings"
+)
+
 const (
 	SQL_OP_AND      = "AND"
 	SQL_OP_OR       = "OR"
@@ -48,3 +53,26 @@ const (
 	TAG_CREATE_TIMESTAMP = "created_at"
 	TAG_ALLOW_ZERO       = "allow_zero"
 )
+
+var (
+	INT_WIDTH_DEFAULT = map[string]int{
+		"TINYINT":  4,
+		"SMALLINT": 6,
+		"INT":      11,
+		"BIGINT":   20,
+	}
+	UNSIGNED_INT_WIDTH_DEFAULT = map[string]int{
+		"TINYINT":  3,
+		"SMALLINT": 5,
+		"INT":      10,
+		"BIGINT":   20,
+	}
+)
+
+func intWidthString(typeStr string) string {
+	return strconv.FormatInt(int64(INT_WIDTH_DEFAULT[strings.ToUpper(typeStr)]), 10)
+}
+
+func uintWidthString(typeStr string) string {
+	return strconv.FormatInt(int64(UNSIGNED_INT_WIDTH_DEFAULT[strings.ToUpper(typeStr)]), 10)
+}

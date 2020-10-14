@@ -19,7 +19,10 @@ func (this *JSONInt) String() string {
 }
 
 func (this *JSONFloat) String() string {
-	return strconv.FormatFloat(this.data, 'g', -1, 64)
+	if this.bit != 32 && this.bit != 64 {
+		this.bit = 64
+	}
+	return strconv.FormatFloat(this.data, 'f', -1, this.bit)
 }
 
 func (this *JSONBool) String() string {
