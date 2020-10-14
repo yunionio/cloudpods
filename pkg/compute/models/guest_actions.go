@@ -89,6 +89,9 @@ func (self *SGuest) PreCheckPerformAction(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	action string, query jsonutils.JSONObject, data jsonutils.JSONObject,
 ) error {
+	if err := self.SVirtualResourceBase.PreCheckPerformAction(ctx, userCred, action, query, data); err != nil {
+		return err
+	}
 	if self.Hypervisor == api.HYPERVISOR_KVM {
 		host := self.GetHost()
 		if host != nil && (host.HostStatus == api.HOST_OFFLINE || !host.Enabled.Bool()) &&

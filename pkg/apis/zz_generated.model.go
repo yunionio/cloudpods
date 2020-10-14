@@ -228,4 +228,6 @@ type SVirtualResourceBase struct {
 	PendingDeletedAt time.Time `json:"pending_deleted_at"`
 	// 资源是否处于回收站中
 	PendingDeleted bool `json:"pending_deleted"`
+	// 资源是否被冻结
+	Freezed bool `json:"freezed"`
 }

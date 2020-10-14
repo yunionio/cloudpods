@@ -80,7 +80,7 @@ const (
 	ACT_DISK_CREATE_SNAPSHOT         = "disk_create_snapshot"
 	ACT_LB_ADD_BACKEND               = "lb_add_backend"
 	ACT_LB_REMOVE_BACKEND            = "lb_remove_backend"
-	ACL_LB_SYNC_BACKEND_CONF         = "同步后端服务器配置"
+	ACL_LB_SYNC_BACKEND_CONF         = "lb_sync_backend_conf"
 	ACT_LB_ADD_LISTENER_RULE         = "lb_add_listener_rule"
 	ACT_LB_REMOVE_LISTENER_RULE      = "lb_remove_listener_rule"
 	ACT_DELETE_BACKUP                = "delete_backup"
@@ -96,6 +96,8 @@ const (
 	ACT_VM_BLOCK_STREAM              = "vm_block_stream"
 	ACT_ATTACH_NETWORK               = "attach_network"
 	ACT_VM_CONVERT                   = "vm_convert"
+	ACT_FREEZE                       = "freeze"
+	ACT_UNFREEZE                     = "unfreeze"
 
 	ACT_CACHED_IMAGE = "cached_image"
 
