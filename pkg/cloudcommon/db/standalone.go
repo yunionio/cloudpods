@@ -295,7 +295,19 @@ func (model *SStandaloneResourceBase) RemoveAllMetadata(ctx context.Context, use
 }
 
 func (model *SStandaloneResourceBase) GetAllMetadata(userCred mcclient.TokenCredential) (map[string]string, error) {
-	return Metadata.GetAll(model, nil, userCred)
+	return Metadata.GetAll(model, nil, "", userCred)
+}
+
+func (model *SStandaloneResourceBase) GetAllUserMetadata() (map[string]string, error) {
+	meta, err := Metadata.GetAll(model, nil, USER_TAG_PREFIX, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "Metadata.GetAll")
+	}
+	ret := make(map[string]string)
+	for k, v := range meta {
+		ret[k[len(USER_TAG_PREFIX):]] = v
+	}
+	return ret, nil
 }
 
 func (model *SStandaloneResourceBase) AllowGetDetailsMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -304,9 +316,17 @@ func (model *SStandaloneResourceBase) AllowGetDetailsMetadata(ctx context.Contex
 
 // 获取资源标签（元数据）
 func (model *SStandaloneResourceBase) GetDetailsMetadata(ctx context.Context, userCred mcclient.TokenCredential, input apis.GetMetadataInput) (apis.GetMetadataOutput, error) {
-	val, err := Metadata.GetAll(model, input.Field, userCred)
+	val, err := Metadata.GetAll(model, input.Field, input.Prefix, userCred)
 	if err != nil {
 		return nil, errors.Wrap(err, "Metadata.GetAll")
+	}
+	if len(input.Prefix) > 0 {
+		// trim prefix from key
+		ret := make(map[string]string)
+		for k, v := range val {
+			ret[k[len(input.Prefix):]] = v
+		}
+		val = ret
 	}
 	return val, nil
 }
