@@ -186,4 +186,7 @@ type StorageListInput struct {
 
 	// filter by host schedtag
 	HostSchedtagId string `json:"host_schedtag_id"`
+
+	// filter by cachedimage
+	ImageId string `json:"image_id"`
 }
