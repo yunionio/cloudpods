@@ -33,7 +33,7 @@ func NewDiskManager(regionId string, projectId string, signer auth.Signer, debug
 		Keyword:       "volume",
 		KeywordPlural: "volumes",
 
-		ResourceKeyword: "volumes",
+		ResourceKeyword: "cloudvolumes",
 	}}
 }
 
