@@ -23,6 +23,7 @@ import (
 )
 
 const DEFAULT_CLOUD_RULE_ID = "default_cloud_rule_id"
+const DEFAULT_LOCAL_RULE_ID = "default_local_rule_id"
 
 type SecurityGroupFilterOptions struct {
 	VpcId     string
@@ -42,6 +43,42 @@ type SecurityRule struct {
 	secrules.SecurityRule
 	Name       string
 	ExternalId string
+}
+
+type LocalSecurityRule struct {
+	secrules.SecurityRule
+	ExternalId string
+}
+
+func (r LocalSecurityRule) String() string {
+	return r.SecurityRule.String()
+}
+
+type LocalSecurityRuleSet []LocalSecurityRule
+
+func (srs LocalSecurityRuleSet) Len() int {
+	return len(srs)
+}
+
+func (srs LocalSecurityRuleSet) Swap(i, j int) {
+	srs[i], srs[j] = srs[j], srs[i]
+}
+
+func (srs LocalSecurityRuleSet) Less(i, j int) bool {
+	if srs[i].Priority > srs[j].Priority {
+		return true
+	} else if srs[i].Priority == srs[j].Priority {
+		return srs[i].String() < srs[j].String()
+	}
+	return false
+}
+
+func (srs LocalSecurityRuleSet) AllowList() secrules.SecurityRuleSet {
+	rules := secrules.SecurityRuleSet{}
+	for _, r := range srs {
+		rules = append(rules, r.SecurityRule)
+	}
+	return rules.AllowList()
 }
 
 type TPriorityOrder int
@@ -112,13 +149,15 @@ func CompareRules(
 	defaultInRule, defaultOutRule SecurityRule,
 	onlyAllowRules bool, debug bool,
 ) (common, inAdds, outAdds, inDels, outDels []SecurityRule) {
-	localInRules := secrules.SecurityRuleSet{}
-	localOutRules := secrules.SecurityRuleSet{}
+	localInRules := LocalSecurityRuleSet{}
+	localOutRules := LocalSecurityRuleSet{}
 	for i := range localRules {
+		localRule := LocalSecurityRule{}
+		localRule.SecurityRule = localRules[i]
 		if localRules[i].Direction == secrules.DIR_IN {
-			localInRules = append(localInRules, localRules[i])
+			localInRules = append(localInRules, localRule)
 		} else {
-			localOutRules = append(localOutRules, localRules[i])
+			localOutRules = append(localOutRules, localRule)
 		}
 	}
 	inRules := SecurityRuleSet{}
@@ -132,17 +171,22 @@ func CompareRules(
 	}
 	var inCommon, outCommon = inRules, outRules
 
-	defaultLocalInRule := *secrules.MustParseSecurityRule("in:deny any")
-	defaultLocalOutRule := *secrules.MustParseSecurityRule("out:allow any")
+	defaultLocalInRule := LocalSecurityRule{ExternalId: DEFAULT_LOCAL_RULE_ID}
+	defaultLocalInRule.SecurityRule = *secrules.MustParseSecurityRule("in:deny any")
+	defaultLocalOutRule := LocalSecurityRule{ExternalId: DEFAULT_LOCAL_RULE_ID}
+	defaultLocalOutRule.SecurityRule = *secrules.MustParseSecurityRule("out:allow any")
 
 	inRules = AddDefaultRule(inRules, defaultInRule, defaultLocalInRule.String(), order, minPriority, maxPriority, onlyAllowRules)
 	outRules = AddDefaultRule(outRules, defaultOutRule, defaultLocalOutRule.String(), order, minPriority, maxPriority, onlyAllowRules)
 
+	defaultInEquals, defaultOutEquals := true, true
 	if defaultLocalInRule.String() != defaultInRule.String() {
 		localInRules = append(localInRules, defaultLocalInRule)
+		defaultInEquals = false
 	}
 	if defaultLocalOutRule.String() != defaultOutRule.String() {
 		localOutRules = append(localOutRules, defaultLocalOutRule)
+		defaultOutEquals = false
 	}
 
 	sort.Sort(localInRules)
@@ -150,9 +194,26 @@ func CompareRules(
 
 	localInAllowList := localInRules.AllowList()
 	localOutAllowList := localOutRules.AllowList()
+	_localInRules := LocalSecurityRuleSet{}
+	for i := range localInAllowList {
+		rule := LocalSecurityRule{}
+		rule.SecurityRule = localInAllowList[i]
+		_localInRules = append(_localInRules, rule)
+	}
+	_localOutRules := LocalSecurityRuleSet{}
+	for i := range localOutAllowList {
+		rule := LocalSecurityRule{}
+		rule.SecurityRule = localOutAllowList[i]
+		_localOutRules = append(_localOutRules, rule)
+	}
 	if onlyAllowRules {
-		localInRules = localInAllowList
-		localOutRules = localOutAllowList
+		localOutRules, localInRules = _localOutRules, _localInRules
+	}
+	if len(_localInRules) < len(localInRules) {
+		localInRules = _localInRules
+	}
+	if len(_localOutRules) < len(localOutRules) {
+		localOutRules = _localOutRules
 	}
 
 	SortSecurityRule(inRules, order, onlyAllowRules)
@@ -199,7 +260,7 @@ func CompareRules(
 		return init
 	}
 
-	var compare = func(localRules secrules.SecurityRuleSet, remoteRules SecurityRuleSet) (common, add, del []SecurityRule) {
+	var compare = func(localRules LocalSecurityRuleSet, remoteRules SecurityRuleSet) (common, add, del []SecurityRule) {
 		i, j, inc, prePriority := 0, 0, 1, 0
 		for i < len(localRules) || j < len(remoteRules) {
 			if i < len(localRules) && j < len(remoteRules) {
@@ -214,7 +275,11 @@ func CompareRules(
 					if remoteRules[j].ExternalId == DEFAULT_CLOUD_RULE_ID {
 						remoteRules[j].Priority = addPriority(remoteRules[j].Priority, order, 1, minPriority, maxPriority, onlyAllowRules)
 					}
-					common = append(common, remoteRules[j])
+					if localRules[i].ExternalId != DEFAULT_LOCAL_RULE_ID ||
+						(localRules[i].Direction == secrules.DIR_IN && !defaultInEquals) ||
+						(localRules[i].Direction == secrules.DIR_OUT && !defaultOutEquals) {
+						common = append(common, remoteRules[j])
+					}
 					i++
 					j++
 				} else if cmp < 0 {
@@ -225,7 +290,11 @@ func CompareRules(
 				} else {
 					initPriority := getInitPriority(prePriority, minPriority, maxPriority)
 					localRules[i].Priority = addPriority(initPriority, order, inc, minPriority, maxPriority, onlyAllowRules)
-					add = append(add, SecurityRule{SecurityRule: localRules[i]})
+					if localRules[i].ExternalId != DEFAULT_LOCAL_RULE_ID ||
+						(localRules[i].Direction == secrules.DIR_IN && !defaultInEquals) ||
+						(localRules[i].Direction == secrules.DIR_OUT && !defaultOutEquals) {
+						add = append(add, SecurityRule{SecurityRule: localRules[i].SecurityRule})
+					}
 					i++
 					inc++
 				}
@@ -241,7 +310,11 @@ func CompareRules(
 				}
 				initPriority = getInitPriority(initPriority, minPriority, maxPriority) // 若是初始添加规则，尽量以中间为节点，避免仅出现天地规则
 				localRules[i].Priority = addPriority(initPriority, order, inc, minPriority, maxPriority, onlyAllowRules)
-				add = append(add, SecurityRule{SecurityRule: localRules[i]})
+				if localRules[i].ExternalId != DEFAULT_LOCAL_RULE_ID ||
+					(localRules[i].Direction == secrules.DIR_IN && !defaultInEquals) ||
+					(localRules[i].Direction == secrules.DIR_OUT && !defaultOutEquals) {
+					add = append(add, SecurityRule{SecurityRule: localRules[i].SecurityRule})
+				}
 				i++
 				inc++
 			}
@@ -250,17 +323,17 @@ func CompareRules(
 	}
 
 	type rulePair struct {
-		localRules  []secrules.SecurityRule
+		localRules  LocalSecurityRuleSet
 		remoteRules []SecurityRule
 		protocol    string
 	}
 
-	var splitRules = func(localRules []secrules.SecurityRule, remoteRules []SecurityRule) []rulePair {
+	var splitRules = func(localRules LocalSecurityRuleSet, remoteRules []SecurityRule) []rulePair {
 		rules := map[string]rulePair{}
 		for _, r := range localRules {
 			pair, ok := rules[r.Protocol]
 			if !ok {
-				pair = rulePair{localRules: []secrules.SecurityRule{}, remoteRules: []SecurityRule{}, protocol: r.Protocol}
+				pair = rulePair{localRules: LocalSecurityRuleSet{}, remoteRules: []SecurityRule{}, protocol: r.Protocol}
 			}
 			pair.localRules = append(pair.localRules, r)
 			rules[r.Protocol] = pair
@@ -269,7 +342,7 @@ func CompareRules(
 		for _, r := range remoteRules {
 			pair, ok := rules[r.Protocol]
 			if !ok {
-				pair = rulePair{localRules: []secrules.SecurityRule{}, remoteRules: []SecurityRule{}, protocol: r.Protocol}
+				pair = rulePair{localRules: LocalSecurityRuleSet{}, remoteRules: []SecurityRule{}, protocol: r.Protocol}
 			}
 			pair.remoteRules = append(pair.remoteRules, r)
 			rules[r.Protocol] = pair
@@ -282,7 +355,7 @@ func CompareRules(
 		return ret
 	}
 
-	var compareRules = func(localRules []secrules.SecurityRule, remoteRules []SecurityRule) (common, add, dels []SecurityRule) {
+	var compareRules = func(localRules LocalSecurityRuleSet, remoteRules []SecurityRule) (common, add, dels []SecurityRule) {
 		pairs := splitRules(localRules, remoteRules)
 		for _, r := range pairs {
 			_common, _add, _dels := compare(r.localRules, r.remoteRules)
