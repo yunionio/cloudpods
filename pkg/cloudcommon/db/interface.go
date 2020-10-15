@@ -246,6 +246,10 @@ type IMetadataBaseModelManager interface {
 	GetMetadataHiddenKeys() []string
 }
 
+type IMetadataBaseModel interface {
+	OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential)
+}
+
 type IStandaloneModelManager interface {
 	IResourceModelManager
 
@@ -282,6 +286,8 @@ type IStandaloneModel interface {
 	GetAllMetadata(userCred mcclient.TokenCredential) (map[string]string, error)
 
 	IsShared() bool
+
+	IMetadataBaseModel
 }
 
 type IDomainLevelModelManager interface {

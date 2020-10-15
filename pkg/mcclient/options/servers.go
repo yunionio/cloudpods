@@ -1057,3 +1057,8 @@ func (o *ServerSaveTemplateOptions) Params() (jsonutils.JSONObject, error) {
 func (o *ServerSaveTemplateOptions) Description() string {
 	return "Save Guest Template of this Server"
 }
+
+type ServerRemoteUpdateOptions struct {
+	ServerIdOptions
+	computeapi.ServerRemoteUpdateInput
+}

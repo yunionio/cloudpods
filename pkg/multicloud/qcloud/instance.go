@@ -180,7 +180,25 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	data.Add(jsonutils.NewString(priceKey), "price_key")
 
 	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
+
+	tags, _ := self.getCloudMetadata()
+	for k, v := range tags {
+		data.Add(jsonutils.NewString(v), k)
+	}
+
 	return data
+}
+
+func (self *SInstance) getCloudMetadata() (map[string]string, error) {
+	mtags, err := self.host.zone.region.FetchResourceTags("cvm", "instance", []string{self.InstanceId})
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchResourceTags")
+	}
+	if tags, ok := mtags[self.InstanceId]; ok {
+		return *tags, nil
+	} else {
+		return nil, nil
+	}
 }
 
 func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
@@ -720,7 +738,7 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 
 func (self *SRegion) UpdateVM(instanceId string, name, osType string) error {
 	params := make(map[string]string)
-	params["HostName"] = stringutils2.GenerateHostName(name, osType)
+	params["InstanceName"] = name
 	return self.modifyInstanceAttribute(instanceId, params)
 }
 
@@ -942,4 +960,8 @@ func (region *SRegion) SetInstanceAutoRenew(instanceId string, autoRenew bool) e
 
 func (self *SInstance) SetAutoRenew(autoRenew bool) error {
 	return self.host.zone.region.SetInstanceAutoRenew(self.InstanceId, autoRenew)
+}
+
+func (self *SInstance) SetMetadata(tags map[string]string, replace bool) error {
+	return self.host.zone.region.SetResourceTags("cvm", "instance", []string{self.InstanceId}, tags, replace)
 }
