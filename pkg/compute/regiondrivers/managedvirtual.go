@@ -1480,95 +1480,109 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncSecurityGroup(ctx con
 		return "", errors.Wrap(err, "SSecurityGroupCache.Register")
 	}
 
-	iRegion, err := vpc.GetIRegion()
-	if err != nil {
-		return "", errors.Wrap(err, "vpc.GetIRegion")
-	}
+	waitChan := make(chan error)
 
-	var iSecgroup cloudprovider.ICloudSecurityGroup = nil
-	if len(cache.ExternalId) > 0 {
-		iSecgroup, err = iRegion.GetISecurityGroupById(cache.ExternalId)
-		if err != nil {
-			if errors.Cause(err) != cloudprovider.ErrNotFound {
-				return "", errors.Wrap(err, "iRegion.GetSecurityGroupById")
-			}
-			cache.ExternalId = ""
-		}
-	}
-
-	if len(cache.ExternalId) == 0 {
-		if strings.ToLower(secgroup.Name) == "default" { //避免有些云不支持default关键字
-			secgroup.Name = "DefaultGroup"
-		}
-		// 避免有的云不支持重名安全组
-		randomString := func(prefix string, length int) string {
-			return fmt.Sprintf("%s-%s", prefix, rand.String(length))
-		}
-		opts := &cloudprovider.SecurityGroupFilterOptions{
-			Name:      randomString(secgroup.Name, 1),
-			VpcId:     vpcId,
-			ProjectId: remoteProjectId,
-		}
-		for i := 2; i < 30; i++ {
-			_, err := iRegion.GetISecurityGroupByName(opts)
+	models.RunSyncSecgroupTask(func() {
+		err := func() error {
+			iRegion, err := vpc.GetIRegion()
 			if err != nil {
-				if errors.Cause(err) == cloudprovider.ErrNotFound {
-					break
-				}
-				if errors.Cause(err) != cloudprovider.ErrDuplicateId {
-					return "", err
+				return errors.Wrap(err, "vpc.GetIRegion")
+			}
+
+			var iSecgroup cloudprovider.ICloudSecurityGroup = nil
+			if len(cache.ExternalId) > 0 {
+				iSecgroup, err = iRegion.GetISecurityGroupById(cache.ExternalId)
+				if err != nil {
+					if errors.Cause(err) != cloudprovider.ErrNotFound {
+						return errors.Wrap(err, "iRegion.GetSecurityGroupById")
+					}
+					cache.ExternalId = ""
 				}
 			}
-			opts.Name = randomString(secgroup.Name, i)
-		}
-		conf := &cloudprovider.SecurityGroupCreateInput{
-			Name:      opts.Name,
-			Desc:      secgroup.Description,
-			VpcId:     vpcId,
-			ProjectId: remoteProjectId,
-			Rules:     secgroup.GetSecRules(""),
-		}
-		iSecgroup, err = iRegion.CreateISecurityGroup(conf)
-		if err != nil {
-			return "", errors.Wrap(err, "iRegion.CreateISecurityGroup")
-		}
-	}
 
-	_, err = db.Update(cache, func() error {
-		cache.ExternalId = iSecgroup.GetGlobalId()
-		cache.Name = iSecgroup.GetName()
-		cache.Status = api.SECGROUP_CACHE_STATUS_READY
-		return nil
+			if len(cache.ExternalId) == 0 {
+				if strings.ToLower(secgroup.Name) == "default" { //避免有些云不支持default关键字
+					secgroup.Name = "DefaultGroup"
+				}
+				// 避免有的云不支持重名安全组
+				randomString := func(prefix string, length int) string {
+					return fmt.Sprintf("%s-%s", prefix, rand.String(length))
+				}
+				opts := &cloudprovider.SecurityGroupFilterOptions{
+					Name:      randomString(secgroup.Name, 1),
+					VpcId:     vpcId,
+					ProjectId: remoteProjectId,
+				}
+				for i := 2; i < 30; i++ {
+					_, err := iRegion.GetISecurityGroupByName(opts)
+					if err != nil {
+						if errors.Cause(err) == cloudprovider.ErrNotFound {
+							break
+						}
+						if errors.Cause(err) != cloudprovider.ErrDuplicateId {
+							return errors.Wrapf(err, "GetISecurityGroupByName")
+						}
+					}
+					opts.Name = randomString(secgroup.Name, i)
+				}
+				conf := &cloudprovider.SecurityGroupCreateInput{
+					Name:      opts.Name,
+					Desc:      secgroup.Description,
+					VpcId:     vpcId,
+					ProjectId: remoteProjectId,
+					Rules:     secgroup.GetSecRules(""),
+				}
+				iSecgroup, err = iRegion.CreateISecurityGroup(conf)
+				if err != nil {
+					return errors.Wrapf(err, "iRegion.CreateISecurityGroup")
+				}
+			}
+
+			_, err = db.Update(cache, func() error {
+				cache.ExternalId = iSecgroup.GetGlobalId()
+				cache.Name = iSecgroup.GetName()
+				cache.Status = api.SECGROUP_CACHE_STATUS_READY
+				return nil
+			})
+
+			if err != nil {
+				return errors.Wrapf(err, "db.Update")
+			}
+
+			rules, err := iSecgroup.GetRules()
+			if err != nil {
+				return errors.Wrapf(err, "iSecgroup.GetRules")
+			}
+
+			maxPriority := region.GetDriver().GetSecurityGroupRuleMaxPriority()
+			minPriority := region.GetDriver().GetSecurityGroupRuleMinPriority()
+
+			defaultInRule := region.GetDriver().GetDefaultSecurityGroupInRule()
+			defaultOutRule := region.GetDriver().GetDefaultSecurityGroupOutRule()
+			order := region.GetDriver().GetSecurityGroupRuleOrder()
+			onlyAllowRules := region.GetDriver().IsOnlySupportAllowRules()
+
+			localRules := secrules.SecurityRuleSet(secgroup.GetSecRules(""))
+
+			common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(minPriority, maxPriority, order, localRules, rules, defaultInRule, defaultOutRule, onlyAllowRules, false)
+
+			if len(inAdds) == 0 && len(inDels) == 0 && len(outAdds) == 0 && len(outDels) == 0 {
+				return nil
+			}
+			return iSecgroup.SyncRules(common, inAdds, outAdds, inDels, outDels)
+		}()
+
+		waitChan <- err
 	})
 
+	err = <-waitChan
 	if err != nil {
-		return "", errors.Wrap(err, "db.Update")
+		return "", err
 	}
 
-	rules, err := iSecgroup.GetRules()
+	cache, err = models.SecurityGroupCacheManager.Register(ctx, userCred, secgroup.Id, vpcId, region.Id, vpc.ManagerId, remoteProjectId)
 	if err != nil {
-		return "", errors.Wrap(err, "iSecgroup.GetRules")
-	}
-
-	maxPriority := region.GetDriver().GetSecurityGroupRuleMaxPriority()
-	minPriority := region.GetDriver().GetSecurityGroupRuleMinPriority()
-
-	defaultInRule := region.GetDriver().GetDefaultSecurityGroupInRule()
-	defaultOutRule := region.GetDriver().GetDefaultSecurityGroupOutRule()
-	order := region.GetDriver().GetSecurityGroupRuleOrder()
-	onlyAllowRules := region.GetDriver().IsOnlySupportAllowRules()
-
-	localRules := secrules.SecurityRuleSet(secgroup.GetSecRules(""))
-
-	common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(minPriority, maxPriority, order, localRules, rules, defaultInRule, defaultOutRule, onlyAllowRules, false)
-
-	if len(inAdds) == 0 && len(inDels) == 0 && len(outAdds) == 0 && len(outDels) == 0 {
-		return cache.ExternalId, nil
-	}
-
-	err = iSecgroup.SyncRules(common, inAdds, outAdds, inDels, outDels)
-	if err != nil {
-		return "", errors.Wrap(err, "iSecgroup.SyncRules")
+		return "", errors.Wrap(err, "SSecurityGroupCache.Register")
 	}
 
 	return cache.ExternalId, nil
