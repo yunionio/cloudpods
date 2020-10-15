@@ -187,6 +187,12 @@ type NetworkCreateInput struct {
 
 	// 是否加入自动分配地址池
 	IsAutoAlloc *bool `json:"is_auto_alloc"`
+
+	// VlanId
+	VlanId *int `json:"vlan_id"`
+
+	// deprecated
+	Vlan *int `json:"vlan" yunion-deprecated-by:"vlan_id"`
 }
 
 type NetworkDetails struct {

@@ -87,6 +87,10 @@ func alterNameValidator(model IModel, name string) error {
 	return nil
 }
 
+func GenerateAlertName(model IModel, hint string) (string, error) {
+	return GenerateName2(model.GetModelManager(), nil, hint, model, 1)
+}
+
 func GenerateName(manager IModelManager, ownerId mcclient.IIdentityProvider, hint string) (string, error) {
 	return GenerateName2(manager, ownerId, hint, nil, 1)
 }

@@ -100,6 +100,9 @@ func (self *SDatastoreImageCache) getTempalteVMs() ([]*SVirtualMachine, error) {
 }
 
 func (self *SDatastoreImageCache) getFakeTempateVMs() ([]*SVirtualMachine, error) {
+	if tempalteNameRegex == nil {
+		return nil, nil
+	}
 	return self.datastore.FetchFakeTempateVMs("")
 }
 
