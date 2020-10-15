@@ -1399,6 +1399,17 @@ func (manager *SStorageManager) ListItemFilter(
 		q = q.In("id", subq.SubQuery())
 	}
 
+	if len(query.ImageId) > 0 {
+		image, err := CachedimageManager.getImageInfo(ctx, userCred, query.ImageId, false)
+		if err != nil {
+			return nil, errors.Wrap(err, "CachedimageManager.getImageInfo")
+		}
+		subq := StorageManager.Query("id")
+		storagecaches := StoragecachedimageManager.Query("storagecache_id").Equals("cachedimage_id", image.Id).SubQuery()
+		subq = subq.Join(storagecaches, sqlchemy.Equals(subq.Field("storagecache_id"), storagecaches.Field("storagecache_id")))
+		q = q.In("id", subq.SubQuery())
+	}
+
 	return q, err
 }
 
