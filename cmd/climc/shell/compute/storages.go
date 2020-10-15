@@ -37,6 +37,7 @@ func init() {
 		Schedtag string `help:"filter storage by schedtag"`
 
 		HostSchedtagId string `help:"filter storage by host schedtag"`
+		ImageId        string `help:"filter storage by image"`
 	}
 	R(&StorageListOptions{}, "storage-list", "List storages", func(s *mcclient.ClientSession, opts *StorageListOptions) error {
 		params, err := options.ListStructToParams(opts)
