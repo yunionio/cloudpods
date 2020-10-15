@@ -164,6 +164,9 @@ func (manager *SDBInstanceSkuManager) ListItemFilter(
 	if len(query.EngineVersion) > 0 {
 		q = q.In("engine_version", query.EngineVersion)
 	}
+	if len(query.Providers) > 0 {
+		q = q.In("provider", query.Providers)
+	}
 
 	for k, zoneIds := range map[string][]string{"zone1": query.Zone1, "zone2": query.Zone2, "zone3": query.Zone3} {
 		ids := []string{}
