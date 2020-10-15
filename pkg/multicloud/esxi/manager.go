@@ -351,7 +351,8 @@ func (cli *SESXiClient) scanAllMObjects(props []string, dst interface{}) error {
 
 func (cli *SESXiClient) SearchTemplateVM(id string) (*SVirtualMachine, error) {
 	filter := property.Filter{}
-	filter["summary.config.uuid"] = id
+	uuid := toTemplateUuid(id)
+	filter["summary.config.uuid"] = uuid
 	var movms []mo.VirtualMachine
 	err := cli.scanMObjectsWithFilter(cli.client.ServiceContent.RootFolder, VIRTUAL_MACHINE_PROPS, &movms, filter)
 	if err != nil {

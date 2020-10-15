@@ -192,8 +192,13 @@ func (self *SESXiGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mc
 	var hostIp string
 	storageCacheHost, err := storageCaches[0].GetHost()
 	if err != nil {
-		log.Errorf("fail to GetHost of storageCache %s", storageCaches[0].Id)
+		log.Errorf("unable to GetHost of storageCache %s: %v", storageCaches[0].Id, err)
 		hostIp = storageCaches[0].ExternalId
+	} else if storageCacheHost == nil {
+		log.Errorf("unable to GetHost of storageCache %s: result is nil", storageCaches[0].Id)
+		hostIp = storageCaches[0].ExternalId
+	} else {
+		hostIp = storageCacheHost.AccessIp
 	}
 	hostIp = storageCacheHost.AccessIp
 	imageInfo := SEsxiImageInfo{
