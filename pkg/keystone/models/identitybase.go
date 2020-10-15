@@ -133,12 +133,7 @@ func (manager *SIdentityBaseResourceManager) ListItemFilter(
 	// override manager.SDomainizedResourceBaseManager.ListItemFilter()
 	if len(query.ProjectDomainIds) > 0 {
 		// make sure ids are not utf8 string
-		idList := make([]string, 0)
-		for _, pid := range query.ProjectDomainIds {
-			if !stringutils2.IsUtf8(pid) {
-				idList = append(idList, pid)
-			}
-		}
+		idList := stringutils2.RemoveUtf8Strings(query.ProjectDomainIds)
 		domains := DomainManager.Query().SubQuery()
 		subq := domains.Query(domains.Field("id")).Filter(sqlchemy.OR(
 			sqlchemy.In(domains.Field("id"), idList),

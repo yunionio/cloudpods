@@ -15,6 +15,7 @@
 package stringutils2
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -30,6 +31,31 @@ func TestIsUtf8(t *testing.T) {
 		got := IsUtf8(c.In)
 		if got != c.Want {
 			t.Errorf("IsUtf8 %s got %v want %v", c.In, got, c.Want)
+		}
+	}
+}
+
+func TestRemoveUtf8Strings(t *testing.T) {
+	cases := []struct {
+		in   []string
+		want []string
+	}{
+		{
+			in:   []string{},
+			want: []string{},
+		},
+		{
+			in:   []string{"en", "中文"},
+			want: []string{"en"},
+		},
+		{
+			in:   []string{"中文"},
+			want: []string{},
+		},
+	}
+	for _, c := range cases {
+		if got := RemoveUtf8Strings(c.in); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("RemoveUtf8Strings %s got %v want %v", c.in, got, c.want)
 		}
 	}
 }
