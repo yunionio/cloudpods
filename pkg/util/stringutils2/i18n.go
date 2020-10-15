@@ -23,6 +23,16 @@ func IsUtf8(str string) bool {
 	return false
 }
 
+func RemoveUtf8Strings(idOrNames []string) []string {
+	ids := make([]string, 0)
+	for _, idOrName := range idOrNames {
+		if !IsUtf8(idOrName) {
+			ids = append(ids, idOrName)
+		}
+	}
+	return ids
+}
+
 func IsPrintableAscii(b byte) bool {
 	if b >= 32 && b <= 126 {
 		return true
