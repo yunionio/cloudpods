@@ -70,10 +70,34 @@ func (meta *SMetadataResourceBaseModelManager) ListItemFilter(
 		q = q.Filter(sqlchemy.In(q.Field("id"), sq))
 	}
 
-	if input.WithoutUserMeta {
+	if input.WithoutUserMeta != nil || input.WithUserMeta != nil {
 		metadatas := Metadata.Query().Equals("obj_type", manager.Keyword()).SubQuery()
 		sq := metadatas.Query(metadatas.Field("obj_id")).Startswith("key", USER_TAG_PREFIX).Distinct().SubQuery()
-		q.Filter(sqlchemy.NotIn(q.Field("id"), sq))
+		if (input.WithoutUserMeta != nil && *input.WithoutUserMeta) || (input.WithUserMeta != nil && !*input.WithUserMeta) {
+			q = q.Filter(sqlchemy.NotIn(q.Field("id"), sq))
+		} else {
+			q = q.Filter(sqlchemy.In(q.Field("id"), sq))
+		}
+	}
+
+	if input.WithCloudMeta != nil {
+		metadatas := Metadata.Query().Equals("obj_type", manager.Keyword()).SubQuery()
+		sq := metadatas.Query(metadatas.Field("obj_id")).Startswith("key", CLOUD_TAG_PREFIX).Distinct().SubQuery()
+		if *input.WithCloudMeta {
+			q = q.Filter(sqlchemy.In(q.Field("id"), sq))
+		} else {
+			q = q.Filter(sqlchemy.NotIn(q.Field("id"), sq))
+		}
+	}
+
+	if input.WithMeta != nil {
+		metadatas := Metadata.Query().Equals("obj_type", manager.Keyword()).SubQuery()
+		sq := metadatas.Query(metadatas.Field("obj_id")).Distinct().SubQuery()
+		if *input.WithMeta {
+			q = q.Filter(sqlchemy.In(q.Field("id"), sq))
+		} else {
+			q = q.Filter(sqlchemy.NotIn(q.Field("id"), sq))
+		}
 	}
 
 	return q
