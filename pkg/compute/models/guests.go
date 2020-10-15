@@ -1592,6 +1592,13 @@ func (self *SGuest) PostUpdate(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	self.StartSyncTask(ctx, userCred, true, "")
+
+	if data.Contains("name") || data.Contains("__meta__") {
+		err := self.StartRemoteUpdateTask(ctx, userCred, false, "")
+		if err != nil {
+			log.Errorf("StartRemoteUpdateTask fail: %s", err)
+		}
+	}
 }
 
 func (manager *SGuestManager) checkCreateQuota(
@@ -2465,7 +2472,10 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		extVM.Refresh()
 		if options.NameSyncResources.Contains(self.Keyword()) && !recycle {
-			self.Name = extVM.GetName()
+			newName, _ := db.GenerateAlterName(self, extVM.GetName())
+			if len(newName) > 0 && newName != self.Name {
+				self.Name = newName
+			}
 		}
 		if !self.IsFailureStatus() {
 			self.Status = extVM.GetStatus()
@@ -5465,4 +5475,25 @@ func (manager *SGuestManager) ValidateNameLoginAccount(name string) error {
 		return nil
 	}
 	return httperrors.NewInputParameterError("name starts with letter, and contains letter, number and - only")
+}
+
+func (guest *SGuest) StartRemoteUpdateTask(ctx context.Context, userCred mcclient.TokenCredential, replaceTags bool, parentTaskId string) error {
+	data := jsonutils.NewDict()
+	if replaceTags {
+		data.Add(jsonutils.JSONTrue, "replace_tags")
+	}
+	if task, err := taskman.TaskManager.NewTask(ctx, "GuestRemoteUpdateTask", guest, userCred, data, parentTaskId, "", nil); err != nil {
+		log.Errorln(err)
+		return errors.Wrap(err, "Start GuestRemoteUpdateTask")
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
+}
+
+func (guest *SGuest) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
+	err := guest.StartRemoteUpdateTask(ctx, userCred, false, "")
+	if err != nil {
+		log.Errorf("StartRemoteUpdateTask fail: %s", err)
+	}
 }

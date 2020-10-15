@@ -317,6 +317,8 @@ type ICloudVM interface {
 	LiveMigrateVM(hostid string) error
 
 	GetError() error
+
+	SetMetadata(tags map[string]string, replace bool) error
 }
 
 type ICloudNic interface {
