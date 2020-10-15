@@ -301,7 +301,9 @@ func newLocalBackendFromCloudLoadbalancerBackend(ctx context.Context, userCred m
 		sq := HostManager.Query().SubQuery()
 		return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("host_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), lbbgProvider.Id))
 	})
-
+	if err != nil {
+		return nil, err
+	}
 	guest := instance.(*SGuest)
 	//address, err := LoadbalancerBackendManager.GetGuestAddress(guest)
 	//if err != nil {
