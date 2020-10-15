@@ -310,10 +310,9 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 	}
 
 	array := jsonutils.NewArray()
-	diskArray, _ := desc.GetArray("disks")
-	for idx, d := range disks {
+	for _, d := range disks {
 		disk := d.(*esxi.SVirtualDisk)
-		diskId, _ := diskArray[idx].GetString("disk_id")
+		diskId := disk.GetId()
 		diskDict := jsonutils.NewDict()
 		diskDict.Add(jsonutils.NewString(diskId), "disk_id")
 		diskDict.Add(jsonutils.NewString(disk.GetGlobalId()), "uuid")

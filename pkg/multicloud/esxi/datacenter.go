@@ -287,7 +287,7 @@ func (dc *SDatacenter) fetchFakeTemplateVMs(movms []mo.VirtualMachine, regex str
 	objs := make([]types.ManagedObjectReference, 0)
 	for i := range movms {
 		name := movms[i].Name
-		if tNameRegex.MatchString(name) {
+		if tNameRegex != nil && tNameRegex.MatchString(name) {
 			objs = append(objs, movms[i].Reference())
 		}
 	}

@@ -16,6 +16,8 @@ package esxi
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -42,8 +44,23 @@ func NewVMTemplate(vm *SVirtualMachine, cache *SDatastoreImageCache) *SVMTemplat
 	}
 }
 
+const splitStr = "/"
+
+func toTemplateUuid(templateId string) string {
+	ids := strings.Split(templateId, splitStr)
+	if len(ids) == 1 {
+		return ids[0]
+	}
+	return ids[1]
+}
+
+func toTemplateId(providerId string, templateUuid string) string {
+	return fmt.Sprintf("%s%s%s", providerId, splitStr, templateUuid)
+}
+
 func (t *SVMTemplate) GetId() string {
-	return t.uuid
+	providerId := t.vm.manager.cpcfg.Id
+	return toTemplateId(providerId, t.uuid)
 }
 
 func (t *SVMTemplate) UEFI() bool {
