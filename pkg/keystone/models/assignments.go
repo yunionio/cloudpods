@@ -463,6 +463,7 @@ func roleAssignmentHandler(ctx context.Context, w http.ResponseWriter, r *http.R
 		input.Roles,
 		input.Domains,
 		input.Projects,
+		input.ProjectDomains,
 		includeNames, effective, includeSub, includeSystem, includePolicies,
 		limit, offset)
 
@@ -481,7 +482,7 @@ func roleAssignmentHandler(ctx context.Context, w http.ResponseWriter, r *http.R
 
 func (manager *SAssignmentManager) queryAll(
 	userId, groupId, roleId, domainId, projectId string,
-	users, groups, roles, domains, projects []string,
+	users, groups, roles, domains, projects, projectDomains []string,
 ) *sqlchemy.SQuery {
 	assigments := manager.Query().SubQuery()
 	q := assigments.Query(
@@ -562,6 +563,17 @@ func (manager *SAssignmentManager) queryAll(
 		))
 		q = q.In("project_id", subq.SubQuery()).In("type", []string{api.AssignmentUserProject, api.AssignmentGroupProject})
 	}
+	if len(projectDomains) > 0 {
+		subq := ProjectManager.Query("id")
+		domainQ := DomainManager.Query("id", "name").SubQuery()
+		subq = subq.Join(domainQ, sqlchemy.Equals(subq.Field("domain_id"), domainQ.Field("id")))
+		subq = subq.Filter(sqlchemy.OR(
+			sqlchemy.In(domainQ.Field("id"), projectDomains),
+			sqlchemy.ContainsAny(domainQ.Field("name"), projectDomains),
+		))
+		q = q.In("project_id", subq.SubQuery()).In("type", []string{api.AssignmentUserProject, api.AssignmentGroupProject})
+	}
+
 	if len(domainId) > 0 {
 		q = q.Equals("domain_id", domainId).In("type", []string{api.AssignmentUserDomain, api.AssignmentGroupDomain})
 	}
@@ -626,16 +638,16 @@ func (assign *sAssignmentInternal) getRoleAssignment(domains, projects, groups, 
 
 func (manager *SAssignmentManager) FetchAll(
 	userId, groupId, roleId, domainId, projectId string,
-	userStrs, groupStrs, roleStrs, domainStrs, projectStrs []string,
+	userStrs, groupStrs, roleStrs, domainStrs, projectStrs, projectDomainStrs []string,
 	includeNames, effective, includeSub, includeSystem, includePolicies bool,
 	limit, offset int) ([]api.SRoleAssignment, int64, error) {
 	var q *sqlchemy.SQuery
 	if effective {
-		usrq := manager.queryAll(userId, "", roleId, domainId, projectId, userStrs, nil, roleStrs, domainStrs, projectStrs).In("type", []string{api.AssignmentUserProject, api.AssignmentUserDomain})
+		usrq := manager.queryAll(userId, "", roleId, domainId, projectId, userStrs, nil, roleStrs, domainStrs, projectStrs, projectDomainStrs).In("type", []string{api.AssignmentUserProject, api.AssignmentUserDomain})
 
 		memberships := UsergroupManager.Query("user_id", "group_id").SubQuery()
 
-		grpproj := manager.queryAll("", groupId, roleId, domainId, projectId, nil, groupStrs, roleStrs, domainStrs, projectStrs).In("type", []string{api.AssignmentGroupProject, api.AssignmentGroupDomain}).SubQuery()
+		grpproj := manager.queryAll("", groupId, roleId, domainId, projectId, nil, groupStrs, roleStrs, domainStrs, projectStrs, projectDomainStrs).In("type", []string{api.AssignmentGroupProject, api.AssignmentGroupDomain}).SubQuery()
 		q2 := grpproj.Query(
 			grpproj.Field("type"),
 			memberships.Field("user_id"),
@@ -659,7 +671,7 @@ func (manager *SAssignmentManager) FetchAll(
 
 		q = sqlchemy.Union(usrq, q2).Query().Distinct()
 	} else {
-		q = manager.queryAll(userId, groupId, roleId, domainId, projectId, userStrs, groupStrs, roleStrs, domainStrs, projectStrs).Distinct()
+		q = manager.queryAll(userId, groupId, roleId, domainId, projectId, userStrs, groupStrs, roleStrs, domainStrs, projectStrs, projectDomainStrs).Distinct()
 	}
 
 	if !includeSystem {
