@@ -1334,6 +1334,20 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 	}
 
 	{
+		defaultVlanId := 1
+
+		if input.VlanId == nil {
+			input.VlanId = &defaultVlanId
+		} else if *input.VlanId < 1 {
+			input.VlanId = &defaultVlanId
+		}
+
+		if *input.VlanId > 4095 {
+			return input, httperrors.NewInputParameterError("valid vlan id")
+		}
+	}
+
+	{
 		if len(input.IfnameHint) == 0 {
 			input.IfnameHint = input.Name
 		}
