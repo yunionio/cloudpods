@@ -102,12 +102,7 @@ func (manager *SProjectizedResourceBaseManager) ListItemFilter(
 	}
 	if len(query.ProjectIds) > 0 {
 		// make sure ids are not utf8 string
-		idList := make([]string, 0)
-		for _, pid := range query.ProjectIds {
-			if !stringutils2.IsUtf8(pid) {
-				idList = append(idList, pid)
-			}
-		}
+		idList := stringutils2.RemoveUtf8Strings(query.ProjectIds)
 		tenants := TenantCacheManager.GetTenantQuery().SubQuery()
 		subq := tenants.Query(tenants.Field("id")).Filter(sqlchemy.OR(
 			sqlchemy.In(tenants.Field("id"), idList),
