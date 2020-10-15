@@ -141,6 +141,10 @@ func (this *RoleAssignmentManagerV3) GetProjectUsers(s *mcclient.ClientSession, 
 		query.Add(jsonutils.JSONNull, "effective")
 	}
 
+	if jsonutils.QueryBoolean(params, "system", false) {
+		query.Add(jsonutils.JSONNull, "include_system")
+	}
+
 	resource, e := params.GetString("resource")
 	if e != nil {
 		return jsonutils.JSONNull, e
@@ -222,6 +226,10 @@ func (this *RoleAssignmentManagerV3) GetProjectRole(s *mcclient.ClientSession, i
 
 	if params.Contains("effective") {
 		query.Add(jsonutils.JSONNull, "effective")
+	}
+
+	if jsonutils.QueryBoolean(params, "system", false) {
+		query.Add(jsonutils.JSONNull, "include_system")
 	}
 
 	resource, err := params.GetString("resource")
