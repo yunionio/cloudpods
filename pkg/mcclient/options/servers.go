@@ -67,6 +67,10 @@ type ServerListOptions struct {
 	BaseListOptions
 
 	VpcProvider string `help:"filter by vpc's provider" json:"vpc_provider"`
+
+	WithMeta *bool `help:"filter by metadata" negative:"without_meta"`
+
+	WithUserMeta *bool `help:"filter by user metadata" negative:"without_user_meta"`
 }
 
 func (o *ServerListOptions) Params() (jsonutils.JSONObject, error) {
