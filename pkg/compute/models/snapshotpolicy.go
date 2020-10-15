@@ -350,7 +350,6 @@ func (manager *SSnapshotPolicyManager) FetchCustomizeColumns(
 			VirtualResourceDetails: virtRows[i],
 		}
 		rows[i] = objs[i].(*SSnapshotPolicy).getMoreDetails(rows[i])
-		log.Infof("details: %v", rows[i])
 	}
 
 	return rows
