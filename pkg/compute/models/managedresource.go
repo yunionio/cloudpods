@@ -518,7 +518,7 @@ func _managedResourceFilterByAccount(managerIdFieldName string, q *sqlchemy.SQue
 	if len(cloudaccountArr) > 0 {
 		cpq := CloudaccountManager.Query().SubQuery()
 		subcpq := cpq.Query(cpq.Field("id")).Filter(sqlchemy.OR(
-			sqlchemy.In(cpq.Field("id"), cloudaccountArr),
+			sqlchemy.In(cpq.Field("id"), stringutils2.RemoveUtf8Strings(cloudaccountArr)),
 			sqlchemy.In(cpq.Field("name"), cloudaccountArr),
 		)).SubQuery()
 		subq := CloudproviderManager.Query("id").In("cloudaccount_id", subcpq).SubQuery()
