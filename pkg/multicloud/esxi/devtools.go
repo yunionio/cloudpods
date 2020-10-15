@@ -158,18 +158,23 @@ func NewVNICDev(host *SHost, mac, driver string, vlanId int32, key, ctlKey, inde
 	var backing types.BaseVirtualDeviceBackingInfo
 	switch inet.(type) {
 	case *SDistributedVirtualPortgroup:
+		// net := inet.(*SDistributedVirtualPortgroup)
+		// port, err := net.FindPort()
+		//if err != nil {
+		//		return nil, errors.Wrap(err, "net.FindPort")
+		//	}
+		//	if port == nil {
+		//		return nil, fmt.Errorf("no active port for dvportgroup %q", net.GetName())
+		//	}
 		net := inet.(*SDistributedVirtualPortgroup)
-		port, err := net.FindPort()
+		dvpg := net.getMODVPortgroup()
+		uuid, err := net.GetDVSUuid()
 		if err != nil {
-			return nil, errors.Wrap(err, "net.FindPort")
-		}
-		if port == nil {
-			return nil, errors.Error("no valid port on DVS, exhausted")
+			return nil, errors.Wrap(err, "GetDVSUuid")
 		}
 		portCon := types.DistributedVirtualSwitchPortConnection{
-			PortgroupKey: port.PortgroupKey,
-			SwitchUuid:   port.DvsUuid,
-			PortKey:      port.Key,
+			PortgroupKey: dvpg.Key,
+			SwitchUuid:   uuid,
 		}
 		backing = &types.VirtualEthernetCardDistributedVirtualPortBackingInfo{Port: portCon}
 	case *SNetwork:
