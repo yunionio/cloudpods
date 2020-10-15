@@ -107,12 +107,7 @@ func (manager *SDomainizedResourceBaseManager) ListItemFilter(
 ) (*sqlchemy.SQuery, error) {
 	if len(query.ProjectDomains) > 0 {
 		// make sure ids are not utf8 string
-		idList := make([]string, 0)
-		for _, pid := range query.ProjectDomains {
-			if !stringutils2.IsUtf8(pid) {
-				idList = append(idList, pid)
-			}
-		}
+		idList := stringutils2.RemoveUtf8Strings(query.ProjectDomains)
 		tenants := TenantCacheManager.GetDomainQuery().SubQuery()
 		subq := tenants.Query(tenants.Field("id")).Filter(sqlchemy.OR(
 			sqlchemy.In(tenants.Field("id"), idList),
