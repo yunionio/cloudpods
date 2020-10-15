@@ -195,8 +195,16 @@ type MetadataResourceListInput struct {
 	// 通过标签过滤
 	OrderByTag string `json:"order_by_tag"`
 
-	// 返回资源的标签不包含特定的用户标签
-	WithoutUserMeta bool `json:"without_user_meta"`
+	// deprecated
+	// 返回资源的标签不包含用户标签
+	WithoutUserMeta *bool `json:"without_user_meta"`
+
+	// 返回资源的标签包含用户标签
+	WithUserMeta *bool `json:"with_user_meta"`
+
+	// 返回资源的标签包含外部标签
+	WithCloudMeta *bool `json:"with_cloud_meta"`
+
 	// 返回列表数据中包含资源的标签数据（Metadata）
 	WithMeta *bool `json:"with_meta"`
 }
