@@ -34,7 +34,7 @@ type SCloudElasticCacheInput struct {
 	Engine           string                 // Redis|Memcache
 	EngineVersion    string                 // 版本类型
 	PrivateIpAddress string                 // 指定新实例的内网IP地址。
-	SecurityGroupId  string                 // 安全组ID
+	SecurityGroupIds []string               // 安全组ID
 	EipId            string                 // 绑定弹性IP
 	MaintainBegin    string                 // 维护时间窗开始时间，格式为HH:mm:ss
 	MaintainEnd      string                 // 维护时间窗结束时间，格式为HH:mm:ss
@@ -69,4 +69,8 @@ type SCloudElasticCacheBackupPolicyUpdateInput struct {
 	BackupReservedDays    int    // 1-7
 	PreferredBackupPeriod string // Monday（周一） / Tuesday（周二） / Wednesday（周三） / Thursday（周四） / Friday（周五） / Saturday（周六） / Sunday（周日）
 	PreferredBackupTime   string // 备份时间，格式：HH:mmZ-HH:mmZ
+}
+
+type SCloudElasticCacheFlushInstanceInput struct {
+	Password string // root账号密码. requied by qcloud
 }

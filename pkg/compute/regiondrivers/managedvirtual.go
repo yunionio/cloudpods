@@ -47,6 +47,14 @@ type SManagedVirtualizationRegionDriver struct {
 	SVirtualizationRegionDriver
 }
 
+func (self *SManagedVirtualizationRegionDriver) IsSupportedElasticcacheSecgroup() bool {
+	return false
+}
+
+func (self *SManagedVirtualizationRegionDriver) GetMaxElasticcacheSecurityGroupCount() int {
+	return 0
+}
+
 func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, owerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return self.ValidateManagerId(ctx, userCred, data)
 }
@@ -1770,7 +1778,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *models.SElasticcache, task taskman.ITask) error {
+func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *models.SElasticcache, task taskman.ITask, data *jsonutils.JSONDict) error {
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -1993,7 +2001,12 @@ func (self *SManagedVirtualizationRegionDriver) RequestUpdateElasticcacheAuthMod
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestUpdateElasticcacheAuthMode.UpdatedbAuthMode")
 	}
 
-	return cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 10*time.Second, 10*time.Second, 300*time.Second)
+	return cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 10*time.Second, 10*time.Second, 600*time.Second)
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestUpdateElasticcacheSecgroups(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
+	// todo: finish me
+	return nil
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheSetMaintainTime(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
@@ -2096,7 +2109,18 @@ func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheFlushInstance
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheFlushInstance.GetIElasticcacheById")
 	}
 
-	err = iec.FlushInstance()
+	password, _ := task.GetParams().GetString("password")
+	input := cloudprovider.SCloudElasticCacheFlushInstanceInput{}
+	if len(password) > 0 {
+		input.Password = password
+	} else {
+		if info, err := ec.GetDetailsLoginInfo(ctx, userCred, jsonutils.NewDict()); err == nil && info != nil {
+			pwd, _ := info.GetString("password")
+			input.Password = pwd
+		}
+	}
+
+	err = iec.FlushInstance(input)
 	if err != nil {
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheFlushInstance.FlushInstance")
 	}
@@ -2453,7 +2477,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcacheBackup(
 			return nil, errors.Wrap(err, "managedVirtualizationRegionDriver.CreateElasticcacheBackup.GetIElasticcacheById")
 		}
 
-		ieb, err := iec.CreateBackup()
+		ieb, err := iec.CreateBackup(eb.Name)
 		if err != nil {
 			return nil, errors.Wrap(err, "managedVirtualizationRegionDriver.CreateElasticcacheBackup.CreateBackup")
 		}
@@ -2831,4 +2855,8 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateElasticcache(
 	})
 	// nil ops
 	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestSyncSecgroupsForElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestSyncSecgroupsForElasticcache")
 }

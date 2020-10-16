@@ -59,7 +59,7 @@ func (self *ElasticcacheAccountResetPasswordTask) OnInit(ctx context.Context, ob
 
 	self.SetStage("OnElasticcacheAccountResetPasswordComplete", nil)
 	if err := region.GetDriver().RequestElasticcacheAccountResetPassword(ctx, self.GetUserCred(), ea, self); err != nil {
-		self.taskFail(ctx, ea, jsonutils.Marshal(err))
+		self.taskFail(ctx, ea, jsonutils.NewString(err.Error()))
 		return
 	} else {
 		logclient.AddActionLogWithStartable(self, ea, logclient.ACT_RESET_PASSWORD, nil, self.UserCred, true)

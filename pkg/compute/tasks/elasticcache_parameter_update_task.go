@@ -60,7 +60,7 @@ func (self *ElasticcacheParameterUpdateTask) OnInit(ctx context.Context, obj db.
 
 	self.SetStage("OnElasticcacheParameterUpdateComplete", nil)
 	if err := region.GetDriver().RequestElasticcacheUpdateInstanceParameters(ctx, self.GetUserCred(), iec.(*models.SElasticcache), self); err != nil {
-		self.OnElasticcacheParameterUpdateCompleteFailed(ctx, ep, jsonutils.Marshal(err))
+		self.OnElasticcacheParameterUpdateCompleteFailed(ctx, ep, jsonutils.NewString(err.Error()))
 		return
 	}
 

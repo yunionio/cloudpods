@@ -28,6 +28,7 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/sortedmap"
@@ -293,7 +294,7 @@ func (this *JSONString) unmarshalValue(val reflect.Value) error {
 		if len(this.data) > 0 {
 			tm, err = timeutils.ParseTimeStr(this.data)
 			if err != nil {
-				return errors.Wrap(err, "timeutils.ParseTimeStr")
+				log.Warningf("timeutils.ParseTimeStr %s %s", this.data, err)
 			}
 		} else {
 			tm = time.Time{}

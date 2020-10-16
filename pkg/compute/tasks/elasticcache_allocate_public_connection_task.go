@@ -54,7 +54,7 @@ func (self *ElasticcacheAllocatePublicConnectionTask) OnInit(ctx context.Context
 
 	self.SetStage("OnElasticcacheAllocatePublicConnectionComplete", nil)
 	if err := region.GetDriver().RequestElasticcacheAllocatePublicConnection(ctx, self.GetUserCred(), elasticcache, self); err != nil {
-		self.OnElasticcacheAllocatePublicConnectionCompleteFailed(ctx, elasticcache, jsonutils.Marshal(err))
+		self.OnElasticcacheAllocatePublicConnectionCompleteFailed(ctx, elasticcache, jsonutils.NewString(err.Error()))
 		return
 	}
 

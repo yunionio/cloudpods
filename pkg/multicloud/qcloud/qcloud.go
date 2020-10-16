@@ -55,6 +55,7 @@ const (
 	QCLOUD_MARIADB_API_VERSION   = "2017-03-12"
 	QCLOUD_POSTGRES_API_VERSION  = "2017-03-12"
 	QCLOUD_SQLSERVER_API_VERSION = "2018-03-28"
+	QCLOUD_REDIS_API_VERSION     = "2018-04-12"
 )
 
 type QcloudClientConfig struct {
@@ -156,6 +157,12 @@ func cbsRequest(client *common.Client, apiName string, params map[string]string,
 func accountRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
 	domain := "account.api.qcloud.com"
 	return _phpJsonRequest(client, &wssJsonResponse{}, domain, "/v2/index.php", "", apiName, params, debug)
+}
+
+// redis
+func redisRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+	domain := apiDomain("redis", params)
+	return _jsonRequest(client, domain, QCLOUD_REDIS_API_VERSION, apiName, params, debug, true)
 }
 
 // loadbalancer服务 api 3.0
@@ -545,6 +552,15 @@ func (client *SQcloudClient) cdbRequest(apiName string, params map[string]string
 	return cdbRequest(cli, apiName, params, client.debug)
 }
 
+func (client *SQcloudClient) redisRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := client.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+
+	return redisRequest(cli, apiName, params, client.debug)
+}
+
 func (client *SQcloudClient) mariadbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	cli, err := client.getDefaultClient()
 	if err != nil {
@@ -887,6 +903,8 @@ func (self *SQcloudClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
 		cloudprovider.CLOUD_CAPABILITY_RDS,
 		// cloudprovider.CLOUD_CAPABILITY_CACHE,
+		// cloudprovider.CLOUD_CAPABILITY_RDS,
+		cloudprovider.CLOUD_CAPABILITY_CACHE,
 		cloudprovider.CLOUD_CAPABILITY_EVENT,
 		cloudprovider.CLOUD_CAPABILITY_CLOUDID,
 		cloudprovider.CLOUD_CAPABILITY_DNSZONE,

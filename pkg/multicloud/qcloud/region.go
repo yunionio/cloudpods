@@ -17,6 +17,8 @@ package qcloud
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/tencentyun/cos-go-sdk-v5"
@@ -712,6 +714,11 @@ func (self *SRegion) wssRequest(apiName string, params map[string]string) (jsonu
 	return self.client.wssRequest(apiName, params)
 }
 
+func (self *SRegion) redisRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	params["Region"] = self.Region
+	return self.client.redisRequest(apiName, params)
+}
+
 func (self *SRegion) GetNetworks(ids []string, vpcId string, offset int, limit int) ([]SNetwork, int, error) {
 	if limit > 50 || limit <= 0 {
 		limit = 50
@@ -1000,4 +1007,113 @@ func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreat
 
 func (region *SRegion) GetCapabilities() []string {
 	return region.client.GetCapabilities()
+}
+
+func (region *SRegion) GetIElasticcaches() ([]cloudprovider.ICloudElasticcache, error) {
+	caches, err := region.GetCloudElasticcaches()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetCloudElasticcaches")
+	}
+
+	ret := []cloudprovider.ICloudElasticcache{}
+	for i := range caches {
+		cache := caches[i]
+		cache.region = region
+		ret = append(ret, &cache)
+	}
+
+	return ret, nil
+}
+
+func (region *SRegion) GetIElasticcacheById(id string) (cloudprovider.ICloudElasticcache, error) {
+	caches, err := region.GetCloudElasticcaches()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetCloudElasticcaches")
+	}
+
+	for i := range caches {
+		if caches[i].GetGlobalId() == id {
+			caches[i].region = region
+			return &caches[i], nil
+		}
+	}
+
+	return nil, cloudprovider.ErrNotFound
+}
+
+// https://cloud.tencent.com/document/product/239/20026
+func (r *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheInput) (cloudprovider.ICloudElasticcache, error) {
+	params := map[string]string{}
+	if len(ec.ZoneIds) == 0 {
+		return nil, fmt.Errorf("CreateIElasticcaches zone id should not be empty.")
+	}
+
+	zoneId, ok := zoneIdMaps[ec.ZoneIds[0]]
+	if !ok {
+		return nil, fmt.Errorf("can't convert zone %s to integer id", ec.ZoneIds[0])
+	}
+
+	spec, err := parseLocalInstanceSpec(ec.InstanceType)
+	if err != nil {
+		return nil, errors.Wrap(err, "parseLocalInstanceSpec")
+	}
+
+	params["InstanceName"] = ec.InstanceName
+	params["ProjectId"] = ec.ProjectId
+	params["ZoneId"] = fmt.Sprintf("%d", zoneId)
+	params["TypeId"] = spec.TypeId
+	params["MemSize"] = strconv.Itoa(spec.MemSizeMB)
+	params["RedisShardNum"] = spec.RedisShardNum
+	params["RedisReplicasNum"] = spec.RedisReplicasNum
+	params["GoodsNum"] = "1"
+	if strings.ToLower(ec.NetworkType) == api.LB_NETWORK_TYPE_VPC {
+		params["VpcId"] = ec.VpcId
+		params["SubnetId"] = ec.NetworkId
+
+		for i := range ec.SecurityGroupIds {
+			params[fmt.Sprintf("SecurityGroupIdList.%d", i)] = ec.SecurityGroupIds[i]
+		}
+	}
+	params["Period"] = "1"
+	params["BillingMode"] = "0"
+	if ec.BC != nil && ec.BC.GetMonths() >= 1 {
+		params["Period"] = strconv.Itoa(ec.BC.GetMonths())
+		params["BillingMode"] = "1"
+		// 自动续费
+		if ec.BC.AutoRenew {
+			params["AutoRenew"] = "1"
+		}
+	}
+
+	if len(ec.Password) > 0 {
+		params["NoAuth"] = "false"
+		params["Password"] = ec.Password
+	} else {
+		params["NoAuth"] = "true"
+	}
+
+	resp, err := r.redisRequest("CreateInstances", params)
+	if err != nil {
+		return nil, errors.Wrap(err, "CreateInstances")
+	}
+
+	instanceId, err := resp.GetString("DealId")
+	if err != nil {
+		return nil, errors.Wrap(err, "dealId")
+	}
+
+	//instanceId := ""
+	//err = cloudprovider.Wait(5*time.Second, 900*time.Second, func() (bool, error) {
+	//	instanceId, err = r.GetElasticcacheIdByDeal(dealId)
+	//	if err != nil {
+	//		return false, nil
+	//	}
+	//
+	//	return true, nil
+	//})
+	//if err != nil {
+	//	return nil, errors.Wrap(err, "Wait.GetElasticcacheIdByDeal")
+	//}
+
+	return r.GetIElasticcacheById(instanceId)
 }
