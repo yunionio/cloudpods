@@ -64,7 +64,7 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 		desc.InstanceType, desc.ExternalNetworkId,
 		desc.IpAddr, desc.Description, desc.Password,
 		desc.DataDisks, desc.PublicKey, desc.ExternalSecgroupId,
-		desc.UserData, desc.BillingCycle, desc.ProjectId, desc.PublicIpBw, desc.PublicIpChargeType, desc.Tags)
+		desc.UserData, desc.BillingCycle, desc.ProjectId, desc.PublicIpBw, desc.PublicIpChargeType, desc.Tags, desc.OsType)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SD
 	networkId string, ipAddr string, desc string, passwd string,
 	diskSizes []cloudprovider.SDiskInfo, publicKey string, secgroupId string, userData string, bc *billing.SBillingCycle, projectId string,
 	publicIpBw int, publicIpChargeType cloudprovider.TElasticipChargeType,
-	tags map[string]string,
+	tags map[string]string, osType string,
 ) (string, error) {
 	net := self.zone.getNetworkById(networkId)
 	if net == nil {
@@ -130,7 +130,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SD
 
 	if len(instanceType) > 0 {
 		log.Debugf("Try instancetype : %s", instanceType)
-		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceType, secgroupId, self.zone.Zone, desc, passwd, disks, networkId, ipAddr, keypair, userData, bc, projectId, publicIpBw, publicIpChargeType, tags)
+		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceType, secgroupId, self.zone.Zone, desc, passwd, disks, networkId, ipAddr, keypair, userData, bc, projectId, publicIpBw, publicIpChargeType, tags, osType)
 		if err != nil {
 			return "", errors.Wrapf(err, "Failed to create specification %s", instanceType)
 		}
@@ -149,7 +149,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SD
 	for _, instType := range instanceTypes {
 		instanceTypeId := instType.InstanceType
 		log.Debugf("Try instancetype : %s", instanceTypeId)
-		vmId, err = self.zone.region.CreateInstance(name, imgId, instanceTypeId, secgroupId, self.zone.Zone, desc, passwd, disks, networkId, ipAddr, keypair, userData, bc, projectId, publicIpBw, publicIpChargeType, tags)
+		vmId, err = self.zone.region.CreateInstance(name, imgId, instanceTypeId, secgroupId, self.zone.Zone, desc, passwd, disks, networkId, ipAddr, keypair, userData, bc, projectId, publicIpBw, publicIpChargeType, tags, osType)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", instanceTypeId, err)
 		} else {

@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 const (
@@ -419,7 +420,7 @@ func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 }
 
 func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
-	return self.host.zone.region.UpdateVM(self.InstanceId, name)
+	return self.host.zone.region.UpdateVM(self.InstanceId, name, self.GetOSType())
 }
 
 func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
@@ -496,7 +497,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	zoneId string, desc string, passwd string, disks []SDisk, networkId string, ipAddr string,
 	keypair string, userData string, bc *billing.SBillingCycle, projectId string,
 	publicIpBw int, publicIpChargeType cloudprovider.TElasticipChargeType,
-	tags map[string]string,
+	tags map[string]string, osType string,
 ) (string, error) {
 	params := make(map[string]string)
 	params["Region"] = self.Region
@@ -508,7 +509,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 		params["Placement.ProjectId"] = projectId
 	}
 	params["InstanceName"] = name
-	params["HostName"] = name
+	params["HostName"] = stringutils2.GenerateHostName(name, osType)
 
 	bandwidth := publicIpBw
 	if publicIpBw == 0 {
@@ -717,9 +718,9 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 	return cloudprovider.WaitDeleted(self, 10*time.Second, 300*time.Second) // 5minutes
 }
 
-func (self *SRegion) UpdateVM(instanceId string, hostname string) error {
+func (self *SRegion) UpdateVM(instanceId string, name, osType string) error {
 	params := make(map[string]string)
-	params["HostName"] = hostname
+	params["HostName"] = stringutils2.GenerateHostName(name, osType)
 	return self.modifyInstanceAttribute(instanceId, params)
 }
 
