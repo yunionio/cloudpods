@@ -1147,6 +1147,7 @@ func (self *SVirtualMachine) DoCustomize(ctx context.Context, params jsonutils.J
 		}
 		spec.Identity = &sysPrep
 	}
+	log.Infof("customize spec: %#v", spec)
 	task, err := self.getVmObj().Customize(ctx, *spec)
 	if err != nil {
 		return errors.Wrap(err, "object.VirtualMachine.Customize")

@@ -299,13 +299,22 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 		},
 		VddkInfo: &vddkInfo,
 	})
+	customize := false
 	if err != nil {
-		log.Errorf("DeployClient.DeployGuestFs: %s", err)
-		// if deploy fail, try customization
+		log.Errorf("unable to DeployGuestFs: %v", err)
+		customize = true
+	} else if deploy == nil {
+		log.Errorf("unable to DeployGuestFs: deploy is nil")
+		customize = true
+	} else if len(deploy.Os) == 0 {
+		log.Errorf("unable to DeployGuestFs: os is empty")
+		customize = true
+	}
+	if customize == true {
 		as.waitVmToolsVersion(ctx, vm)
 		err = vm.DoCustomize(ctx, desc)
 		if err != nil {
-			return nil, errors.Wrap(err, "VM.DoCustomize")
+			log.Errorf("unable to DoCustomize for vm %s: %v", vm.GetId(), err)
 		}
 	}
 
@@ -327,7 +336,12 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 	updated.Add(array, "disks")
 	updated.Add(jsonutils.NewString(vm.GetGlobalId()), "uuid")
 	updated.Add(jsonutils.NewString(realHost.GetAccessIp()), "host_ip")
-	ret := jsonutils.Marshal(deploy)
+	var ret jsonutils.JSONObject
+	if deploy != nil {
+		ret = jsonutils.Marshal(deploy)
+	} else {
+		ret = jsonutils.NewDict()
+	}
 	ret.(*jsonutils.JSONDict).Update(updated)
 	return ret, nil
 }
