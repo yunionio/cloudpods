@@ -393,3 +393,8 @@ func (self *SBaseGuestDriver) RequestMigrate(ctx context.Context, guest *models.
 func (self *SBaseGuestDriver) RequestLiveMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement RequestLiveMigrate")
 }
+
+func (self *SBaseGuestDriver) RequestRemoteUpdate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, replaceTags bool) error {
+	// nil ops
+	return nil
+}

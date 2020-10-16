@@ -709,7 +709,8 @@ func (self *SRegion) GetInstanceIdByImageId(imageId string) (string, error) {
 
 func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, SubnetId string, securityGroupId string,
 	zoneId string, desc string, disks []SDisk, ipAddr string,
-	keypair string, userData string) (string, error) {
+	keypair string, userData string, ntags map[string]string,
+) (string, error) {
 	var count int64 = 1
 	// disk
 	blockDevices := []*ec2.BlockDeviceMapping{}
@@ -769,6 +770,13 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	tags := TagSpec{ResourceType: "instance"}
 	tags.SetNameTag(name)
 	tags.SetDescTag(desc)
+
+	if len(ntags) > 0 {
+		for k, v := range ntags {
+			tags.SetTag(k, v)
+		}
+	}
+
 	ec2TagSpec, err := tags.GetTagSpecifications()
 	if err != nil {
 		return "", err
@@ -977,7 +985,9 @@ func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, i
 		[]SDisk{{Size: sysDiskSizeGB, Category: rootDisk.Category}},
 		"",
 		keypair,
-		userdata)
+		userdata,
+		nil,
+	)
 	if err == nil {
 		defer self.DeleteVM(_id)
 	} else {

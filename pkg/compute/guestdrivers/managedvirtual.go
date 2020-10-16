@@ -1215,3 +1215,25 @@ func (self *SManagedVirtualizedGuestDriver) RequestSetAutoRenewInstance(ctx cont
 	})
 	return nil
 }
+
+func (self *SManagedVirtualizedGuestDriver) RequestRemoteUpdate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, replaceTags bool) error {
+	// nil ops
+	iVM, err := guest.GetIVM()
+	if err != nil {
+		return errors.Wrap(err, "guest.GetIVM")
+	}
+	tags, err := guest.GetAllUserMetadata()
+	if err != nil {
+		log.Errorf("GetAllUserMetadata fail %s", err)
+	} else {
+		err := iVM.SetMetadata(tags, replaceTags)
+		if err != nil {
+			return errors.Wrap(err, "iVM.SetMetadata")
+		}
+	}
+	err = iVM.UpdateVM(ctx, guest.Name)
+	if err != nil {
+		return errors.Wrap(err, "iVM.UpdateVM")
+	}
+	return nil
+}

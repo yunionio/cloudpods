@@ -40,3 +40,7 @@ func (instance *SInstanceBase) MigrateVM(hostId string) error {
 func (instance *SInstanceBase) LiveMigrateVM(hostId string) error {
 	return cloudprovider.ErrNotImplemented
 }
+
+func (instance *SInstanceBase) SetMetadata(tags map[string]string, replace bool) error {
+	return cloudprovider.ErrNotImplemented
+}
