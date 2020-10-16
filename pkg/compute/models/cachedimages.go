@@ -699,7 +699,7 @@ func (manager *SCachedimageManager) ListItemFilter(
 	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "id", func() *sqlchemy.SQuery {
 		storagecachedImages := StoragecachedimageManager.Query().SubQuery()
 		storageCaches := StoragecacheManager.Query().SubQuery()
-		storages := StorageManager.Query().SubQuery()
+		storages := StorageManager.Query().In("status", []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE}).IsTrue("enabled").SubQuery()
 		zones := ZoneManager.Query().SubQuery()
 
 		subq := storagecachedImages.Query(storagecachedImages.Field("cachedimage_id"))
