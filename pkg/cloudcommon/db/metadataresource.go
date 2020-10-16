@@ -90,10 +90,10 @@ func (meta *SMetadataResourceBaseModelManager) ListItemFilter(
 		}
 	}
 
-	if input.WithMeta != nil {
+	if input.WithAnyMeta != nil {
 		metadatas := Metadata.Query().Equals("obj_type", manager.Keyword()).SubQuery()
 		sq := metadatas.Query(metadatas.Field("obj_id")).Distinct().SubQuery()
-		if *input.WithMeta {
+		if *input.WithAnyMeta {
 			q = q.Filter(sqlchemy.In(q.Field("id"), sq))
 		} else {
 			q = q.Filter(sqlchemy.NotIn(q.Field("id"), sq))
