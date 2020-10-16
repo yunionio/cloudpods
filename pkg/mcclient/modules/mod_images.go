@@ -93,6 +93,12 @@ func (this *ImageManager) GetByName(session *mcclient.ClientSession, id string, 
 }
 
 func (this *ImageManager) Get(session *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	// hack: some GetPropertiesMethod must use HTTP GET action like:
+	// - GET /images/distinct-field
+	// hard code this id currently, should found a better solution
+	if ok, _ := utils.InStringArray(id, []string{"distinct-field"}); ok {
+		return this.ResourceManager.Get(session, id, params)
+	}
 	r, e := this.GetById(session, id, params)
 	if e == nil {
 		return r, e
