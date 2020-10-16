@@ -43,7 +43,7 @@ const (
 )
 
 var NETWORK_PROPS = []string{"name", "parent", "summary", "host", "vm"}
-var DVPORTGROUP_PROPS = []string{"name", "parent", "summary", "host", "vm", "config"}
+var DVPORTGROUP_PROPS = []string{"name", "parent", "summary", "host", "vm", "config", "key"}
 
 type SNetwork struct {
 	SManagedObject
@@ -173,6 +173,16 @@ func (net *SDistributedVirtualPortgroup) ContainHost(host *SHost) bool {
 func (net *SDistributedVirtualPortgroup) Uplink() bool {
 	dvpg := net.getMODVPortgroup()
 	return *dvpg.Config.Uplink
+}
+
+func (net *SDistributedVirtualPortgroup) GetDVSUuid() (string, error) {
+	dvgp := net.getMODVPortgroup()
+	var dvs mo.DistributedVirtualSwitch
+	err := net.manager.reference2Object(*dvgp.Config.DistributedVirtualSwitch, []string{"uuid"}, &dvs)
+	if err != nil {
+		return "", errors.Wrap(err, "reference2Object")
+	}
+	return dvs.Uuid, nil
 }
 
 func (net *SDistributedVirtualPortgroup) FindPort() (*types.DistributedVirtualPort, error) {
