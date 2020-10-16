@@ -29,6 +29,7 @@ const (
 	ELASTIC_CACHE_STATUS_INACTIVE              = "inactive"              //（被禁用）
 	ELASTIC_CACHE_STATUS_FLUSHING              = "flushing"              //（清除中）
 	ELASTIC_CACHE_STATUS_FLUSHING_FAILED       = "flushing_failed"       //（清除失败）
+	ELASTIC_CACHE_STATUS_RELEASING             = "releasing"             //（释放中）
 	ELASTIC_CACHE_STATUS_RELEASED              = "released"              //（已释放）
 	ELASTIC_CACHE_STATUS_RELEASE_FAILED        = "release_failed"        //（释放失败）
 	ELASTIC_CACHE_STATUS_TRANSFORMING          = "transforming"          //（转换中）
@@ -52,6 +53,7 @@ const (
 	ELASTIC_CACHE_ACCOUNT_STATUS_CREATE_FAILED = "create_failed" //（创建失败）
 	ELASTIC_CACHE_ACCOUNT_STATUS_DELETING      = "deleting"      // 删除中
 	ELASTIC_CACHE_ACCOUNT_STATUS_DELETE_FAILED = "delete_failed" // 删除失败
+	ELASTIC_CACHE_ACCOUNT_STATUS_DELETED       = "deleted"       // 已删除
 )
 
 const (

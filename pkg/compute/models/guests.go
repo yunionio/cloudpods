@@ -4801,7 +4801,12 @@ func (self *SGuest) getSecgroupsBySecgroupExternalIds(externalIds []string) ([]S
 	if host == nil {
 		return nil, errors.Error("not found host for guest")
 	}
-	sq := SecurityGroupCacheManager.Query("secgroup_id").In("external_id", externalIds).Equals("manager_id", host.ManagerId)
+
+	return getSecgroupsBySecgroupExternalIds(host.ManagerId, externalIds)
+}
+
+func getSecgroupsBySecgroupExternalIds(managerId string, externalIds []string) ([]SSecurityGroup, error) {
+	sq := SecurityGroupCacheManager.Query("secgroup_id").In("external_id", externalIds).Equals("manager_id", managerId)
 	q := SecurityGroupManager.Query().In("id", sq.SubQuery())
 	secgroups := []SSecurityGroup{}
 	err := db.FetchModelObjects(SecurityGroupManager, q, &secgroups)

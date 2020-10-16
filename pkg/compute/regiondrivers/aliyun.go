@@ -1279,7 +1279,7 @@ func (self *SAliyunRegionDriver) ValidateCreateElasticcacheData(ctx context.Cont
 	return data, nil
 }
 
-func (self *SAliyunRegionDriver) RequestCreateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
+func (self *SAliyunRegionDriver) RequestCreateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask, data *jsonutils.JSONDict) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		iRegion, err := ec.GetIRegion()
 		if err != nil {
@@ -1479,7 +1479,7 @@ func (self *SAliyunRegionDriver) RequestCreateElasticcacheBackup(ctx context.Con
 			backupIds = append(backupIds, oBackups[i].GetGlobalId())
 		}
 
-		_, err = iec.CreateBackup()
+		_, err = iec.CreateBackup("")
 		if err != nil {
 			return nil, errors.Wrap(err, "managedVirtualizationRegionDriver.CreateElasticcacheBackup.CreateBackup")
 		}
@@ -1575,4 +1575,12 @@ func (self *SAliyunRegionDriver) IsSupportedDBInstance() bool {
 
 func (self *SAliyunRegionDriver) IsSupportedElasticcache() bool {
 	return true
+}
+
+func (self *SAliyunRegionDriver) IsSupportedElasticcacheSecgroup() bool {
+	return false
+}
+
+func (self *SAliyunRegionDriver) GetMaxElasticcacheSecurityGroupCount() int {
+	return 0
 }
