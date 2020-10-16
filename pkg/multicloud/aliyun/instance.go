@@ -549,7 +549,9 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 
 func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, securityGroupId string,
 	zoneId string, desc string, passwd string, disks []SDisk, vSwitchId string, ipAddr string,
-	keypair string, userData string, bc *billing.SBillingCycle, projectId, osType string) (string, error) {
+	keypair string, userData string, bc *billing.SBillingCycle, projectId, osType string,
+	tags map[string]string,
+) (string, error) {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
 	params["ImageId"] = imageId
@@ -612,6 +614,15 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 
 	if len(userData) > 0 {
 		params["UserData"] = userData
+	}
+
+	if len(tags) > 0 {
+		tagIdx := 0
+		for k, v := range tags {
+			params[fmt.Sprintf("Tag.%d.Key", tagIdx)] = k
+			params[fmt.Sprintf("Tag.%d.Value", tagIdx)] = v
+			tagIdx += 1
+		}
 	}
 
 	if bc != nil {
