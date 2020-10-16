@@ -272,6 +272,18 @@ func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, us
 	}
 }
 
+func (image *SCachedimage) GetStorages() ([]SStorage, error) {
+	sq := StorageManager.Query()
+	storagecacheimageSubq := StoragecachedimageManager.Query("storagecache_id").Equals("cachedimage_id", image.GetId()).SubQuery()
+	sq.Join(storagecacheimageSubq, sqlchemy.Equals(sq.Field("storagecache_id"), storagecacheimageSubq.Field("storagecache_id")))
+	storages := make([]SStorage, 0, 1)
+	err := db.FetchModelObjects(StorageManager, sq, &storages)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	return storages, nil
+}
+
 func (manager *SCachedimageManager) GetImageById(ctx context.Context, userCred mcclient.TokenCredential, imageId string, refresh bool) (*cloudprovider.SImage, error) {
 	imgObj, _ := manager.FetchById(imageId)
 	if imgObj != nil {

@@ -79,6 +79,46 @@ func (self *SESXiGuestDriver) GetDefaultSysDiskBackend() string {
 	return api.STORAGE_LOCAL
 }
 
+func (self *SESXiGuestDriver) ChooseHostStorage(host *models.SHost, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
+	if !options.Options.LockStorageFromCachedimage || len(diskConfig.ImageId) == 0 {
+		return self.SVirtualizedGuestDriver.ChooseHostStorage(host, diskConfig, storageIds)
+	}
+	var (
+		image *cloudprovider.SImage
+		err   error
+	)
+	obj, err := models.CachedimageManager.FetchById(diskConfig.ImageId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to fetch cachedimage %s", diskConfig.ImageId)
+	}
+	cachedimage := obj.(*models.SCachedimage)
+	if len(cachedimage.ExternalId) > 0 || cachedimage.ImageType != cloudprovider.CachedImageTypeSystem {
+		return self.SVirtualizedGuestDriver.ChooseHostStorage(host, diskConfig, storageIds)
+	}
+	storages, err := cachedimage.GetStorages()
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to GetStorages of cachedimage %s", diskConfig.ImageId)
+	}
+	if len(storages) == 0 {
+		log.Warningf("there no storage associated with cachedimage %q", image.Id)
+		return self.SVirtualizedGuestDriver.ChooseHostStorage(host, diskConfig, storageIds)
+	}
+	if len(storages) > 1 {
+		log.Warningf("there are multiple storageCache associated with caheimage %q", image.Id)
+	}
+	wantStorageIds := make([]string, len(storages))
+	for i := range wantStorageIds {
+		wantStorageIds[i] = storages[i].GetId()
+	}
+	for i := range wantStorageIds {
+		if utils.IsInStringArray(wantStorageIds[i], storageIds) {
+			log.Infof("use storage %q in where cachedimage %q", wantStorageIds[i], image.Id)
+			return &storages[i], nil
+		}
+	}
+	return self.SVirtualizedGuestDriver.ChooseHostStorage(host, diskConfig, storageIds)
+}
+
 func (self *SESXiGuestDriver) GetMinimalSysDiskSizeGb() int {
 	return options.Options.DefaultDiskSizeMB / 1024
 }

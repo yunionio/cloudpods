@@ -146,6 +146,8 @@ type ComputeOptions struct {
 
 	SyncStorageCapacityUsedIntervalMinutes int `help:"interval sync storage capacity used" default:"10"`
 
+	LockStorageFromCachedimage bool `help:"must use storage in where selected cachedimage when creating vm"`
+
 	SCapabilityOptions
 	SASControllerOptions
 	common_options.CommonOptions
