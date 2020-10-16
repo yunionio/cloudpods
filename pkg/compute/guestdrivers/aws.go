@@ -131,8 +131,8 @@ func (self *SAwsGuestDriver) GetStorageTypes() []string {
 	}
 }
 
-func (self *SAwsGuestDriver) ChooseHostStorage(host *models.SHost, backend string, storageIds []string) *models.SStorage {
-	return self.chooseHostStorage(self, host, backend, storageIds)
+func (self *SAwsGuestDriver) ChooseHostStorage(host *models.SHost, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
+	return self.chooseHostStorage(self, host, diskConfig.Backend, storageIds), nil
 }
 
 func (self *SAwsGuestDriver) GetDetachDiskStatus() ([]string, error) {

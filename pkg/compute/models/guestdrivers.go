@@ -73,7 +73,7 @@ type IGuestDriver interface {
 	GetRandomNetworkTypes() []string
 
 	GetStorageTypes() []string
-	ChooseHostStorage(host *SHost, backend string, storageIds []string) *SStorage
+	ChooseHostStorage(host *SHost, diskConfig *api.DiskConfig, storageIds []string) (*SStorage, error)
 
 	StartGuestCreateTask(guest *SGuest, ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, pendingUsage quotas.IQuota, parentTaskId string) error
 

@@ -249,15 +249,15 @@ func (self *SBaremetalGuestDriver) GetStorageTypes() []string {
 	}
 }
 
-func (self *SBaremetalGuestDriver) ChooseHostStorage(host *models.SHost, backend string, storageIds []string) *models.SStorage {
+func (self *SBaremetalGuestDriver) ChooseHostStorage(host *models.SHost, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
 	if len(storageIds) != 0 {
-		return models.StorageManager.FetchStorageById(storageIds[0])
+		return models.StorageManager.FetchStorageById(storageIds[0]), nil
 	}
 	bs := host.GetBaremetalstorage()
 	if bs == nil {
-		return nil
+		return nil, nil
 	}
-	return bs.GetStorage()
+	return bs.GetStorage(), nil
 }
 
 func (self *SBaremetalGuestDriver) RequestGuestCreateAllDisks(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
