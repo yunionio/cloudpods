@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 const (
@@ -480,7 +481,7 @@ func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 }
 
 func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
-	return self.host.zone.region.UpdateVM(self.InstanceId, name)
+	return self.host.zone.region.UpdateVM(self.InstanceId, name, self.OSType)
 }
 
 func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
@@ -548,7 +549,7 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 
 func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, securityGroupId string,
 	zoneId string, desc string, passwd string, disks []SDisk, vSwitchId string, ipAddr string,
-	keypair string, userData string, bc *billing.SBillingCycle, projectId string) (string, error) {
+	keypair string, userData string, bc *billing.SBillingCycle, projectId, osType string) (string, error) {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
 	params["ImageId"] = imageId
@@ -560,7 +561,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	params["InternetChargeType"] = "PayByTraffic"
 	params["InternetMaxBandwidthIn"] = "200"
 	params["InternetMaxBandwidthOut"] = "100"
-	params["HostName"] = name
+	params["HostName"] = stringutils2.GenerateHostName(name, osType)
 	if len(passwd) > 0 {
 		params["Password"] = passwd
 	} else {
@@ -776,7 +777,7 @@ func (self *SRegion) DeployVM(instanceId string, name string, password string, k
 
 	if len(name) > 0 && instance.InstanceName != name {
 		params["InstanceName"] = name
-		params["HostName"] = name
+		params["HostName"] = stringutils2.GenerateHostName(name, instance.OSType)
 	}
 
 	if len(description) > 0 && instance.Description != description {
@@ -808,14 +809,14 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 	return cloudprovider.WaitDeleted(self, 10*time.Second, 300*time.Second) // 5minutes
 }
 
-func (self *SRegion) UpdateVM(instanceId string, hostname string) error {
+func (self *SRegion) UpdateVM(instanceId string, name, osType string) error {
 	/*
 			api: ModifyInstanceAttribute
 		    https://help.aliyun.com/document_detail/25503.html?spm=a2c4g.11186623.4.1.DrgpjW
 	*/
 	params := make(map[string]string)
-	params["HostName"] = hostname
-	params["InstanceName"] = hostname
+	params["HostName"] = stringutils2.GenerateHostName(name, osType)
+	params["InstanceName"] = name
 	return self.modifyInstanceAttribute(instanceId, params)
 }
 
