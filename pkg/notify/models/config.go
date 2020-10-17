@@ -69,7 +69,7 @@ func (cm *SConfigManager) ValidateCreateData(ctx context.Context, userCred mccli
 	if err != nil {
 		return input, err
 	}
-	if !utils.IsInStringArray(input.Type, []string{api.EMAIL, api.MOBILE, api.DINGTALK, api.FEISHU, api.WEBCONSOLE, api.WORKWX, api.FEISHU_ROBOT, api.DINGTALK_ROBOT, api.WORKWX_ROBOT}) {
+	if !utils.IsInStringArray(input.Type, []string{api.EMAIL, api.MOBILE, api.DINGTALK, api.FEISHU, api.WEBCONSOLE, api.WORKWX, api.FEISHU_ROBOT, api.DINGTALK_ROBOT, api.WORKWX_ROBOT, api.WEBHOOK}) {
 		return input, httperrors.NewInputParameterError("unkown type %q", input.Type)
 	}
 	if input.Content == nil {

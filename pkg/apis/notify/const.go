@@ -29,6 +29,7 @@ const (
 	FEISHU_ROBOT   = "feishu-robot"
 	DINGTALK_ROBOT = "dingtalk-robot"
 	WORKWX_ROBOT   = "workwx-robot"
+	WEBHOOK        = "webhook"
 
 	ROBOT = "robot"
 
