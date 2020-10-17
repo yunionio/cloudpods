@@ -136,10 +136,10 @@ func (self *SOpenStackProviderFactory) GetProvider(cfg cloudprovider.ProviderCon
 	}, nil
 }
 
-func (self *SOpenStackProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
-	accountInfo := strings.Split(account, "/")
+func (self *SOpenStackProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) (map[string]string, error) {
+	accountInfo := strings.Split(info.Account, "/")
 	if len(accountInfo) < 2 {
-		return nil, fmt.Errorf("Missing username or project name %s", account)
+		return nil, fmt.Errorf("Missing username or project name %s", info.Account)
 	}
 	project, username, endpointType, domainName, projectDomainName := accountInfo[0], accountInfo[1], "internal", "Default", "Default"
 	if len(accountInfo) == 3 {
@@ -147,9 +147,9 @@ func (self *SOpenStackProviderFactory) GetClientRC(url, account, secret string) 
 	}
 
 	return map[string]string{
-		"OPENSTACK_AUTH_URL":       url,
+		"OPENSTACK_AUTH_URL":       info.Url,
 		"OPENSTACK_USERNAME":       username,
-		"OPENSTACK_PASSWORD":       secret,
+		"OPENSTACK_PASSWORD":       info.Secret,
 		"OPENSTACK_PROJECT":        project,
 		"OPENSTACK_ENDPOINT_TYPE":  endpointType,
 		"OPENSTACK_DOMAIN_NAME":    domainName,

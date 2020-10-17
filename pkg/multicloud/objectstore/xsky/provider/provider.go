@@ -50,10 +50,10 @@ func (self *SXskyProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) 
 	}), nil
 }
 
-func (self *SXskyProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
+func (self *SXskyProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) (map[string]string, error) {
 	client, err := xsky.NewXskyClient(
 		objectstore.NewObjectStoreClientConfig(
-			url, account, secret,
+			info.Url, info.Account, info.Secret,
 		),
 	)
 	if err != nil {

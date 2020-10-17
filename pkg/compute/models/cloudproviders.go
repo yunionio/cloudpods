@@ -1561,7 +1561,7 @@ func (provider *SCloudprovider) GetDetailsClirc(ctx context.Context, userCred mc
 	if err != nil {
 		return nil, err
 	}
-	rc, err := cloudprovider.GetClientRC(accessUrl, provider.Account, passwd, provider.Provider)
+	rc, err := cloudprovider.GetClientRC(provider.Name, accessUrl, provider.Account, passwd, provider.Provider)
 	if err != nil {
 		return nil, err
 	}

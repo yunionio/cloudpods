@@ -125,8 +125,8 @@ func (self *SESXiProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) 
 	}, nil
 }
 
-func (self *SESXiProviderFactory) GetClientRC(urlStr, account, secret string) (map[string]string, error) {
-	parts, err := url.Parse(urlStr)
+func (self *SESXiProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) (map[string]string, error) {
+	parts, err := url.Parse(info.Url)
 	if err != nil {
 		return nil, err
 	}
@@ -138,8 +138,8 @@ func (self *SESXiProviderFactory) GetClientRC(urlStr, account, secret string) (m
 	return map[string]string{
 		"VMWARE_HOST":     host,
 		"VMWARE_PORT":     fmt.Sprintf("%d", port),
-		"VMWARE_ACCOUNT":  account,
-		"VMWARE_PASSWORD": secret,
+		"VMWARE_ACCOUNT":  info.Account,
+		"VMWARE_PASSWORD": info.Secret,
 	}, nil
 }
 

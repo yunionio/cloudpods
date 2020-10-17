@@ -50,11 +50,11 @@ func (self *SCephRadosProviderFactory) GetProvider(cfg cloudprovider.ProviderCon
 	}), nil
 }
 
-func (self *SCephRadosProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
+func (self *SCephRadosProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) (map[string]string, error) {
 	return map[string]string{
-		"S3_ACCESS_KEY": account,
-		"S3_SECRET":     secret,
-		"S3_ACCESS_URL": url,
+		"S3_ACCESS_KEY": info.Account,
+		"S3_SECRET":     info.Secret,
+		"S3_ACCESS_URL": info.Url,
 		"S3_BACKEND":    api.CLOUD_PROVIDER_CEPH,
 	}, nil
 }

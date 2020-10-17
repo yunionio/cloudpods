@@ -135,15 +135,15 @@ func (self *SAzureProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig)
 	}
 }
 
-func (self *SAzureProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
-	tenantId, appId, appKey, subId := parseAccount(account, secret)
+func (self *SAzureProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) (map[string]string, error) {
+	tenantId, appId, appKey, subId := parseAccount(info.Account, info.Secret)
 	return map[string]string{
 		"AZURE_DIRECTORY_ID":    tenantId,
 		"AZURE_SUBSCRIPTION_ID": subId,
 		"AZURE_APPLICATION_ID":  appId,
 		"AZURE_APPLICATION_KEY": appKey,
 		"AZURE_REGION_ID":       "",
-		"AZURE_CLOUD_ENV":       url,
+		"AZURE_CLOUD_ENV":       info.Url,
 	}, nil
 }
 

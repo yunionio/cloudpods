@@ -99,11 +99,11 @@ func (self *SCtyunProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig)
 	}, nil
 }
 
-func (self *SCtyunProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
+func (self *SCtyunProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) (map[string]string, error) {
 	return map[string]string{
-		"CTYUN_ACCESS_URL": url,
-		"CTYUN_ACCESS_KEY": account,
-		"CTYUN_SECRET":     secret,
+		"CTYUN_ACCESS_URL": info.Url,
+		"CTYUN_ACCESS_KEY": info.Account,
+		"CTYUN_SECRET":     info.Secret,
 		"CTYUN_REGION":     ctyun.CTYUN_DEFAULT_REGION,
 	}, nil
 }
