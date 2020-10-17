@@ -223,21 +223,34 @@ func (self *SESXiGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mc
 		return desc, errors.Errorf("no such storage cache associated with cacheimage %s", templateId)
 	}
 	if len(storageCaches) > 1 {
-		return desc, errors.Errorf("there are multiple storageCache associated with caheimage '%s' ??!!", templateId)
+		log.Warningf("there are multiple storageCache associated with caheimage '%s' ??!!", templateId)
 	}
 
-	var hostIp string
-	storageCacheHost, err := storageCaches[0].GetHost()
-	if err != nil {
-		log.Errorf("unable to GetHost of storageCache %s: %v", storageCaches[0].Id, err)
-		hostIp = storageCaches[0].ExternalId
-	} else if storageCacheHost == nil {
-		log.Errorf("unable to GetHost of storageCache %s: result is nil", storageCaches[0].Id)
-		hostIp = storageCaches[0].ExternalId
-	} else {
-		hostIp = storageCacheHost.AccessIp
+	var storageCacheHost *models.SHost
+	// select storagecacheHost
+	for i := range storageCaches {
+		hosts, err := storageCaches[i].GetHosts()
+		if err != nil {
+			return desc, errors.Wrap(err, "storageCaches.GetHosts")
+		}
+		for i := range hosts {
+			if host.GetId() == hosts[i].GetId() {
+				storageCacheHost = &hosts[i]
+			}
+		}
 	}
-	hostIp = storageCacheHost.AccessIp
+
+	if storageCacheHost == nil {
+		storageCacheHost, err = storageCaches[0].GetHost()
+		if err != nil {
+			return desc, errors.Wrapf(err, "unable to GetHost of storageCache %s", storageCaches[0].Id)
+		}
+		if storageCacheHost == nil {
+			return desc, fmt.Errorf("unable to GetHost of storageCache %s: result is nil", storageCaches[0].Id)
+		}
+	}
+
+	hostIp := storageCacheHost.AccessIp
 	imageInfo := SEsxiImageInfo{
 		ImageType:          img.ImageType,
 		ImageExternalId:    img.ExternalId,
