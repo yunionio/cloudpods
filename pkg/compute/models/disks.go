@@ -2147,9 +2147,12 @@ func (self *SDisk) AllowPerformCancelDelete(ctx context.Context, userCred mcclie
 }
 
 func (self *SDisk) PerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.PendingDeleted {
+	if self.PendingDeleted && !self.Deleted {
 		err := self.DoCancelPendingDelete(ctx, userCred)
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
+		self.RecoverUsages(ctx, userCred)
 	}
 	return nil, nil
 }
