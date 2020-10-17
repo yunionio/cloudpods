@@ -15,8 +15,14 @@
 package system_service
 
 import (
+	"context"
 	"fmt"
+	"sort"
 	"strings"
+
+	"yunion.io/x/log"
+
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type STelegraf struct {
@@ -32,8 +38,13 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 	conf += "[global_tags]\n"
 	if tags, ok := kwargs["tags"]; ok {
 		tgs, _ := tags.(map[string]string)
-		for k, v := range tgs {
-			conf += fmt.Sprintf("  %s = \"%s\"\n", k, v)
+		keys := []string{}
+		for k := range tgs {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			conf += fmt.Sprintf("  %s = \"%s\"\n", k, tgs[k])
 		}
 	}
 	conf += "\n"
@@ -119,6 +130,9 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 	conf += "\n"
 	conf += "[[inputs.system]]\n"
 	conf += "\n"
+	conf += "[[inputs.smart]]\n"
+	conf += "  path=\"/usr/sbin/smartctl\"\n"
+	conf += "\n"
 	conf += "[[inputs.net]]\n"
 	if nics, ok := kwargs["nics"]; ok {
 		ns, _ := nics.([]map[string]interface{})
@@ -180,5 +194,26 @@ func (s *STelegraf) BgReload(kwargs map[string]interface{}) {
 }
 
 func (s *STelegraf) BgReloadConf(kwargs map[string]interface{}) {
-	go s.reloadConf(s.GetConfig(kwargs), s.GetConfigFile())
+	go func() {
+		reload, err := s.reloadConf(s.GetConfig(kwargs), s.GetConfigFile())
+		if err != nil {
+			log.Errorf("Failed reload conf: %s", err)
+		}
+		if reload {
+			err := s.ReloadTelegraf()
+			if err != nil {
+				log.Errorf("failed reload telegraf: %s", err)
+			}
+		}
+	}()
+}
+
+func (s *STelegraf) ReloadTelegraf() error {
+	log.Infof("Start reolad telegraf...")
+	telegrafReoladUrl := "http://localhost:8087/reload"
+	_, _, err := httputils.JSONRequest(
+		httputils.GetDefaultClient(), context.Background(),
+		"POST", telegrafReoladUrl, nil, nil, false,
+	)
+	return err
 }

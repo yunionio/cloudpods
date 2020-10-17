@@ -15,6 +15,8 @@
 package raid
 
 import (
+	"io"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 )
@@ -40,4 +42,9 @@ type IRaidAdapter interface {
 	BuildRaid5(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error
 	BuildRaid10(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error
 	BuildNoneRaid(devs []*baremetal.BaremetalStorage) error
+}
+
+type IExecTerm interface {
+	Run(cmds ...string) ([]string, error)
+	RunWithInput(input io.Reader, cmds ...string) ([]string, error)
 }
