@@ -1230,6 +1230,11 @@ func (self *SManagedVirtualizedGuestDriver) RequestRemoteUpdate(ctx context.Cont
 		if err != nil {
 			return errors.Wrap(err, "iVM.SetMetadata")
 		}
+		// sync back cloud metadata
+		err = models.SyncVirtualResourceMetadata(ctx, userCred, guest, iVM)
+		if err != nil {
+			return errors.Wrap(err, "syncVirtualResourceMetadata")
+		}
 	}
 	err = iVM.UpdateVM(ctx, guest.Name)
 	if err != nil {

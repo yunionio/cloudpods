@@ -210,6 +210,9 @@ type SDescribeTagsSeqResponse struct {
 }
 
 func (region *SRegion) fetchTags(keys []string, limit int, offset int) (int, []SDescribeTag, error) {
+	if len(keys) == 0 {
+		return 0, nil, nil
+	}
 	params := make(map[string]string)
 	for i, k := range keys {
 		params[fmt.Sprintf("TagKeys.%d", i)] = k
