@@ -145,6 +145,10 @@ func (self *GuestCreateTask) OnDeployGuestDescComplete(ctx context.Context, obj 
 }
 
 func (self *GuestCreateTask) notifyServerCreated(ctx context.Context, guest *models.SGuest) {
+	err := notifyclient.NotifyWebhook(ctx, self.UserCred, guest, notifyclient.ActionCreate)
+	if err != nil {
+		log.Errorf("unable to NotifyWebhook: %v", err)
+	}
 	guest.NotifyServerEvent(
 		ctx, self.UserCred, notifyclient.SERVER_CREATED,
 		notify.NotifyPriorityImportant, true, nil, false,
