@@ -328,7 +328,12 @@ func (self *GuestCreateBackupTask) StartCreateBackupDisks(ctx context.Context, g
 		if len(candidateDisks) >= i {
 			candidateDisk = candidateDisks[i]
 		}
-		storage := guest.ChooseHostStorage(host, api.STORAGE_LOCAL, candidateDisk)
+		diskConfig := &api.DiskConfig{Backend: api.STORAGE_LOCAL}
+		storage, err := guest.ChooseHostStorage(host, diskConfig, candidateDisk)
+		if err != nil {
+			self.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("unable to ChooseHostStorage: %v", err)))
+			return
+		}
 		if storage == nil {
 			self.TaskFailed(ctx, guest, jsonutils.NewString("Get backup storage error"))
 			return

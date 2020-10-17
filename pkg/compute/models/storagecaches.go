@@ -133,7 +133,7 @@ func (self *SStoragecache) GetRegion() (*SCloudregion, error) {
 	return region, nil
 }
 
-func (self *SStoragecache) getHostId() (string, error) {
+func (self *SStoragecache) GetHosts() ([]SHost, error) {
 	hoststorages := HoststorageManager.Query().SubQuery()
 	storages := StorageManager.Query().SubQuery()
 
@@ -153,7 +153,15 @@ func (self *SStoragecache) getHostId() (string, error) {
 			sqlchemy.IsTrue(storages.Field("enabled")))).
 		Filter(sqlchemy.Equals(hoststorages.Field("storage_id"), storages.Field("id"))).All(&hosts)
 	if err != nil {
-		return "", err
+		return nil, err
+	}
+	return hosts, nil
+}
+
+func (self *SStoragecache) getHostId() (string, error) {
+	hosts, err := self.GetHosts()
+	if err != nil {
+		return "", errors.Wrap(err, "GetHosts")
 	}
 
 	hostIds := make([]string, 0)

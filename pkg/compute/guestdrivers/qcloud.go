@@ -75,8 +75,8 @@ func (self *SQcloudGuestDriver) GetStorageTypes() []string {
 	}
 }
 
-func (self *SQcloudGuestDriver) ChooseHostStorage(host *models.SHost, backend string, storageIds []string) *models.SStorage {
-	return self.chooseHostStorage(self, host, backend, storageIds)
+func (self *SQcloudGuestDriver) ChooseHostStorage(host *models.SHost, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
+	return self.chooseHostStorage(self, host, diskConfig.Backend, storageIds), nil
 }
 
 func (self *SQcloudGuestDriver) GetDetachDiskStatus() ([]string, error) {
