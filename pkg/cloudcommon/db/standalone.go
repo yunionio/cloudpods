@@ -266,12 +266,27 @@ func (model *SStandaloneResourceBase) GetMetadataJson(key string, userCred mccli
 	return Metadata.GetJsonValue(model, key, userCred)
 }
 
+func isUserMetadata(key string) bool {
+	return strings.HasPrefix(key, USER_TAG_PREFIX)
+}
+
+func containsUserMetadata(dict map[string]interface{}) bool {
+	for k := range dict {
+		if isUserMetadata(k) {
+			return true
+		}
+	}
+	return false
+}
+
 func (model *SStandaloneResourceBase) SetMetadata(ctx context.Context, key string, value interface{}, userCred mcclient.TokenCredential) error {
 	err := Metadata.SetValue(ctx, model, key, value, userCred)
 	if err != nil {
 		return errors.Wrap(err, "SetValue")
 	}
-	model.GetIStandaloneModel().OnMetadataUpdated(ctx, userCred)
+	if isUserMetadata(key) {
+		model.GetIStandaloneModel().OnMetadataUpdated(ctx, userCred)
+	}
 	return nil
 }
 
@@ -280,7 +295,9 @@ func (model *SStandaloneResourceBase) SetAllMetadata(ctx context.Context, dictst
 	if err != nil {
 		return errors.Wrap(err, "SetValuesWithLog")
 	}
-	model.GetIStandaloneModel().OnMetadataUpdated(ctx, userCred)
+	if containsUserMetadata(dictstore) {
+		model.GetIStandaloneModel().OnMetadataUpdated(ctx, userCred)
+	}
 	return nil
 }
 
@@ -307,7 +324,6 @@ func (model *SStandaloneResourceBase) SetCloudMetadataAll(ctx context.Context, d
 	if err != nil {
 		return errors.Wrap(err, "SetAll")
 	}
-	model.GetIStandaloneModel().OnMetadataUpdated(ctx, userCred)
 	return nil
 }
 
@@ -316,7 +332,6 @@ func (model *SStandaloneResourceBase) RemoveMetadata(ctx context.Context, key st
 	if err != nil {
 		return errors.Wrap(err, "SetValue")
 	}
-	model.GetIStandaloneModel().OnMetadataUpdated(ctx, userCred)
 	return nil
 }
 
@@ -325,7 +340,6 @@ func (model *SStandaloneResourceBase) RemoveAllMetadata(ctx context.Context, use
 	if err != nil {
 		return errors.Wrap(err, "RemoveAll")
 	}
-	model.GetIStandaloneModel().OnMetadataUpdated(ctx, userCred)
 	return nil
 }
 
