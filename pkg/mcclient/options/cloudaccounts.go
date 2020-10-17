@@ -95,9 +95,15 @@ type SVMwareCloudAccountCreateOptions struct {
 	SVMwareCredentialWithEnvironment
 }
 
+type SAliyunAccessKeyCredentialWithEnvironment struct {
+	SAccessKeyCredential
+
+	Environment string `help:"Cloud environment" choices:"InternationalCloud|FinanceCloud" default:"InternationalCloud"`
+}
+
 type SAliyunCloudAccountCreateOptions struct {
 	SCloudAccountCreateBaseOptions
-	SAccessKeyCredential
+	SAliyunAccessKeyCredentialWithEnvironment
 
 	OptionsBillingReportBucket  string `help:"bucket that stores billing report" json:"-"`
 	OptionsBillingBucketAccount string `help:"id of account that can access bucket, blank if this account can access" json:"-"`
