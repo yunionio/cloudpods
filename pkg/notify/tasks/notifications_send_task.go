@@ -104,10 +104,6 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		contactMap[contact] = &rns[i]
 	}
 
-	if len(contactMap) == 0 {
-		self.taskFailed(ctx, notification, strings.Join(failedRecord, "; "), true)
-	}
-
 	// set status before send
 	now := time.Now()
 	contacts := make([]string, 0, len(contactMap))
@@ -138,7 +134,7 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 	for _, rn := range contactMap {
 		rn.AfterSend(ctx, true, "")
 	}
-	if len(failedRecord) == len(contacts) {
+	if len(failedRecord) > 0 && len(failedRecord) == len(contacts) {
 		self.taskFailed(ctx, notification, strings.Join(failedRecord, "; "), true)
 		return
 	}

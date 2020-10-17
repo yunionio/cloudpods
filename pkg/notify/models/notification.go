@@ -77,12 +77,18 @@ func (nm *SNotificationManager) ValidateCreateData(ctx context.Context, userCred
 	if err != nil {
 		return input, err
 	}
-	if !utils.IsInStringArray(input.ContactType, allContactType) {
+	switch {
+	case input.ContactType == api.WEBHOOK:
+	case utils.IsInStringArray(input.ContactType, ConfigManager.filterContactType(allContactType, "")):
+		//check uids, rids and contacts
+		if len(input.Receivers) == 0 && len(input.Contacts) == 0 {
+			return input, httperrors.NewMissingParameterError("receivers | contacts")
+		}
+	case utils.IsInStringArray(input.ContactType, ConfigManager.filterContactType(allContactType, api.CTYPE_ROBOT_ONLY)):
+	default:
 		return input, httperrors.NewInputParameterError("Unconfigured contact type %q", input.ContactType)
 	}
-	// check uids, rids and contacts
-	if len(input.Receivers) == 0 && len(input.Contacts) == 0 {
-		return input, httperrors.NewMissingParameterError("receivers | contacts")
+	if !utils.IsInStringArray(input.ContactType, allContactType) {
 	}
 	// check receivers
 	if len(input.Receivers) > 0 {
@@ -181,6 +187,9 @@ func (n *SNotification) ReceiverNotificationsNotOK() ([]SReceiverNotification, e
 	rnq := ReceiverNotificationManager.Query().Equals("notification_id", n.Id).NotEquals("status", api.RECEIVER_NOTIFICATION_OK)
 	rns := make([]SReceiverNotification, 0, 1)
 	err := db.FetchModelObjects(ReceiverNotificationManager, rnq, &rns)
+	if err == sql.ErrNoRows {
+		return []SReceiverNotification{}, nil
+	}
 	if err != nil {
 		return nil, err
 	}
