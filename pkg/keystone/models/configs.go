@@ -127,24 +127,29 @@ func config2map(opts []SConfigOption) api.TConfigs {
 	return conf
 }
 
-func (manager *SConfigOptionManager) deleteConfigs(model db.IModel) error {
+func (manager *SConfigOptionManager) deleteConfigs(model db.IModel) ([]sChangeOption, error) {
 	return manager.syncConfigs(model, nil)
 }
 
-func (manager *SConfigOptionManager) updateConfigs(newOpts TConfigOptions) error {
-	for i := range newOpts {
-		err := manager.TableSpec().InsertOrUpdate(context.Background(), &newOpts[i])
-		if err != nil {
-			return errors.Wrap(err, "Insert")
-		}
-	}
-	return nil
+type sChangeOption struct {
+	Group  string               `json:"group"`
+	Option string               `json:"option"`
+	Value  jsonutils.JSONObject `json:"value"`
+	OValue jsonutils.JSONObject `json:"ovalue"`
 }
 
-func (manager *SConfigOptionManager) removeConfigs(model db.IModel, newOpts TConfigOptions) error {
+func (manager *SConfigOptionManager) updateConfigs(model db.IModel, newOpts TConfigOptions) ([]sChangeOption, error) {
+	return manager.syncRemoveConfigs(model, newOpts, false)
+}
+
+func (manager *SConfigOptionManager) removeConfigs(model db.IModel, newOpts TConfigOptions) ([]sChangeOption, error) {
 	oldOpts, err := manager.fetchConfigs(model, nil, nil)
 	if err != nil {
-		return errors.Wrap(err, "fetchOldConfigs")
+		return nil, errors.Wrap(err, "fetchOldConfigs")
+	}
+	changed := make([]sChangeOption, 0)
+	for i := range newOpts {
+		newOpts[i].Value = nil
 	}
 	_, updated1, _, _ := compareConfigOptions(oldOpts, newOpts)
 	for i := range updated1 {
@@ -152,42 +157,71 @@ func (manager *SConfigOptionManager) removeConfigs(model db.IModel, newOpts TCon
 			return updated1[i].MarkDelete()
 		})
 		if err != nil {
-			return errors.Wrap(err, "Delete")
+			return changed, errors.Wrap(err, "Delete")
 		}
+		changed = append(changed, sChangeOption{
+			Group:  updated1[i].Group,
+			Option: updated1[i].Option,
+			OValue: updated1[i].Value,
+		})
 	}
-	return nil
+	return changed, nil
 }
 
-func (manager *SConfigOptionManager) syncConfigs(model db.IModel, newOpts TConfigOptions) error {
+func (manager *SConfigOptionManager) syncConfigs(model db.IModel, newOpts TConfigOptions) ([]sChangeOption, error) {
+	return manager.syncRemoveConfigs(model, newOpts, true)
+}
+
+func (manager *SConfigOptionManager) syncRemoveConfigs(model db.IModel, newOpts TConfigOptions, remove bool) ([]sChangeOption, error) {
 	oldOpts, err := manager.fetchConfigs(model, nil, nil)
 	if err != nil {
-		return errors.Wrap(err, "fetchOldConfigs")
+		return nil, errors.Wrap(err, "fetchOldConfigs")
 	}
+	changed := make([]sChangeOption, 0)
 	deleted, updated1, updated2, added := compareConfigOptions(oldOpts, newOpts)
-	for i := range deleted {
-		_, err := db.Update(&deleted[i], func() error {
-			return deleted[i].MarkDelete()
-		})
-		if err != nil {
-			return errors.Wrap(err, "Delete")
+	if remove {
+		for i := range deleted {
+			_, err := db.Update(&deleted[i], func() error {
+				return deleted[i].MarkDelete()
+			})
+			if err != nil {
+				return changed, errors.Wrap(err, "Delete")
+			}
+			changed = append(changed, sChangeOption{
+				Group:  deleted[i].Group,
+				Option: deleted[i].Option,
+				OValue: deleted[i].Value,
+			})
 		}
 	}
 	for i := range updated1 {
+		ovalue := updated1[i].Value
 		_, err = db.Update(&updated1[i], func() error {
 			updated1[i].Value = updated2[i].Value
 			return nil
 		})
 		if err != nil {
-			return errors.Wrap(err, "Update")
+			return changed, errors.Wrap(err, "Update")
 		}
+		changed = append(changed, sChangeOption{
+			Group:  updated1[i].Group,
+			Option: updated1[i].Option,
+			OValue: ovalue,
+			Value:  updated2[i].Value,
+		})
 	}
 	for i := range added {
 		err = manager.TableSpec().InsertOrUpdate(context.TODO(), &added[i])
 		if err != nil {
-			return errors.Wrap(err, "Insert")
+			return changed, errors.Wrap(err, "Insert")
 		}
+		changed = append(changed, sChangeOption{
+			Group:  added[i].Group,
+			Option: added[i].Option,
+			Value:  added[i].Value,
+		})
 	}
-	return nil
+	return changed, nil
 }
 
 func filterOptions(opts TConfigOptions, whiteList map[string][]string, blackList map[string][]string) TConfigOptions {
@@ -281,8 +315,12 @@ func compareConfigOptions(opts1, opts2 TConfigOptions) (deleted, updated1, updat
 			added = append(added, opts2[j])
 			j += 1
 		} else {
-			updated1 = append(updated1, opts1[i])
-			updated2 = append(updated2, opts2[j])
+			if (opts1[i].Value == nil && opts2[j].Value != nil) ||
+				(opts1[i].Value != nil && opts2[j].Value == nil) ||
+				(opts1[i].Value != nil && opts2[j].Value != nil && !opts1[i].Value.Equals(opts2[j].Value)) {
+				updated1 = append(updated1, opts1[i])
+				updated2 = append(updated2, opts2[j])
+			}
 			i += 1
 			j += 1
 		}
@@ -330,32 +368,35 @@ func GetConfigs(model db.IModel, sensitive bool, whiteList, blackList map[string
 }
 
 func saveConfigs(userCred mcclient.TokenCredential, action string, model db.IModel, opts api.TConfigs, whiteList map[string][]string, blackList map[string][]string, sensitiveConfs map[string][]string) error {
+	var err error
+	changed := make([]sChangeOption, 0)
+	changedSensitive := make([]sChangeOption, 0)
 	whiteListedOpts, sensitiveOpts := getConfigOptions(opts, model, sensitiveConfs)
 	whiteListedOpts = filterOptions(whiteListedOpts, whiteList, blackList)
 	if action == "update" {
-		err := WhitelistedConfigManager.updateConfigs(whiteListedOpts)
+		changed, err = WhitelistedConfigManager.updateConfigs(model, whiteListedOpts)
 		if err != nil {
 			return errors.Wrap(err, "WhitelistedConfigManager.updateConfig")
 		}
-		err = SensitiveConfigManager.updateConfigs(sensitiveOpts)
+		changedSensitive, err = SensitiveConfigManager.updateConfigs(model, sensitiveOpts)
 		if err != nil {
 			return errors.Wrap(err, "SensitiveConfigManager.updateConfig")
 		}
 	} else if action == "remove" {
-		err := WhitelistedConfigManager.removeConfigs(model, whiteListedOpts)
+		changed, err = WhitelistedConfigManager.removeConfigs(model, whiteListedOpts)
 		if err != nil {
 			return errors.Wrap(err, "WhitelistedConfigManager.updateConfig")
 		}
-		err = SensitiveConfigManager.removeConfigs(model, sensitiveOpts)
+		changedSensitive, err = SensitiveConfigManager.removeConfigs(model, sensitiveOpts)
 		if err != nil {
 			return errors.Wrap(err, "SensitiveConfigManager.updateConfig")
 		}
 	} else {
-		err := WhitelistedConfigManager.syncConfigs(model, whiteListedOpts)
+		changed, err = WhitelistedConfigManager.syncConfigs(model, whiteListedOpts)
 		if err != nil {
 			return errors.Wrap(err, "WhitelistedConfigManager.syncConfig")
 		}
-		err = SensitiveConfigManager.syncConfigs(model, sensitiveOpts)
+		changedSensitive, err = SensitiveConfigManager.syncConfigs(model, sensitiveOpts)
 		if err != nil {
 			return errors.Wrap(err, "SensitiveConfigManager.syncConfig")
 		}
@@ -363,8 +404,21 @@ func saveConfigs(userCred mcclient.TokenCredential, action string, model db.IMod
 	if userCred == nil {
 		userCred = getDefaultAdminCred()
 	}
-	db.OpsLog.LogEvent(model, db.ACT_CHANGE_CONFIG, opts, userCred)
-	logclient.AddSimpleActionLog(model, logclient.ACT_CHANGE_CONFIG, whiteListedOpts, userCred, true)
+	maskedValue := jsonutils.NewString("*")
+	for i := range changedSensitive {
+		if changedSensitive[i].OValue != nil {
+			changedSensitive[i].OValue = maskedValue
+		}
+		if changedSensitive[i].Value != nil {
+			changedSensitive[i].Value = maskedValue
+		}
+	}
+	changed = append(changed, changedSensitive...)
+	if len(changed) > 0 {
+		notes := jsonutils.Marshal(changed)
+		db.OpsLog.LogEvent(model, db.ACT_CHANGE_CONFIG, notes, userCred)
+		logclient.AddSimpleActionLog(model, logclient.ACT_CHANGE_CONFIG, notes, userCred, true)
+	}
 	return nil
 }
 
