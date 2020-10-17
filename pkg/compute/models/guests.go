@@ -48,6 +48,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/userdata"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -1598,6 +1599,11 @@ func (self *SGuest) PostUpdate(ctx context.Context, userCred mcclient.TokenCrede
 		if err != nil {
 			log.Errorf("StartRemoteUpdateTask fail: %s", err)
 		}
+	}
+	// notify webhook
+	err := notifyclient.NotifyWebhook(ctx, userCred, self, notifyclient.ActionUpdate)
+	if err != nil {
+		log.Errorf("unable to NotifyWebhook: %v", err)
 	}
 }
 
