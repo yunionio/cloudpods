@@ -31,7 +31,6 @@ import (
 	"yunion.io/x/onecloud/pkg/baremetal/utils/raid"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/util/regutils2"
-	"yunion.io/x/onecloud/pkg/util/ssh"
 )
 
 type HPSARaidPhyDev struct {
@@ -347,11 +346,11 @@ func (adapter *HPSARaidAdaptor) RemoveLogicVolumes() error {
 }
 
 type HPSARaid struct {
-	term     *ssh.Client
+	term     raid.IExecTerm
 	adapters []*HPSARaidAdaptor
 }
 
-func NewHPSARaid(term *ssh.Client) raid.IRaidDriver {
+func NewHPSARaid(term raid.IExecTerm) raid.IRaidDriver {
 	return &HPSARaid{
 		term:     term,
 		adapters: make([]*HPSARaidAdaptor, 0),

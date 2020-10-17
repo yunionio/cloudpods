@@ -27,10 +27,10 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/baremetal/utils/raid"
 	raiddrivers "yunion.io/x/onecloud/pkg/baremetal/utils/raid"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/util/regutils2"
-	"yunion.io/x/onecloud/pkg/util/ssh"
 )
 
 var (
@@ -320,7 +320,7 @@ func (adapter *MegaRaidAdaptor) GetIndex() int {
 	return adapter.index
 }
 
-func (adapter *MegaRaidAdaptor) getTerm() *ssh.Client {
+func (adapter *MegaRaidAdaptor) getTerm() raid.IExecTerm {
 	return adapter.raid.term
 }
 
@@ -376,7 +376,7 @@ func (adapter *MegaRaidAdaptor) parseLogicVolumes(lines []string) ([]*raiddriver
 	return lvs, nil
 }
 
-func getLogicVolumeDeviceById(hostNum, scsiId int, term *ssh.Client) (string, error) {
+func getLogicVolumeDeviceById(hostNum, scsiId int, term raid.IExecTerm) (string, error) {
 	items, err := raiddrivers.SGMap(term)
 	if err != nil {
 		return "", err
@@ -892,13 +892,13 @@ func (adapter *MegaRaidAdaptor) clearJBODDisks() {
 }
 
 type MegaRaid struct {
-	term       *ssh.Client
+	term       raid.IExecTerm
 	adapters   []*MegaRaidAdaptor
 	PhyDevsCnt int
 	Capacity   int64
 }
 
-func NewMegaRaid(term *ssh.Client) raiddrivers.IRaidDriver {
+func NewMegaRaid(term raid.IExecTerm) raiddrivers.IRaidDriver {
 	return &MegaRaid{
 		term:     term,
 		adapters: make([]*MegaRaidAdaptor, 0),

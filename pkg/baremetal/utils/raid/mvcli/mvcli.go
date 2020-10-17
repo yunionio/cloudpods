@@ -25,7 +25,6 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/raid"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
-	"yunion.io/x/onecloud/pkg/util/ssh"
 )
 
 type MarvelRaidPhyDev struct {
@@ -243,11 +242,11 @@ func (adapter *MarvelRaidAdaptor) BuildNoneRaid(devs []*baremetal.BaremetalStora
 }
 
 type MarvelRaid struct {
-	term     *ssh.Client
+	term     raid.IExecTerm
 	adapters []*MarvelRaidAdaptor
 }
 
-func NewMarvelRaid(term *ssh.Client) raid.IRaidDriver {
+func NewMarvelRaid(term raid.IExecTerm) raid.IRaidDriver {
 	return &MarvelRaid{
 		term:     term,
 		adapters: make([]*MarvelRaidAdaptor, 0),

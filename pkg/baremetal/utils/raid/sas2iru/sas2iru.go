@@ -26,7 +26,6 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/raid"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
-	"yunion.io/x/onecloud/pkg/util/ssh"
 )
 
 type Mpt2SASRaidPhyDev struct {
@@ -307,12 +306,12 @@ func (adapter *Mpt2SASRaidAdaptor) RemoveLogicVolumes() error {
 }
 
 type Mpt2SASRaid struct {
-	term     *ssh.Client
+	term     raid.IExecTerm
 	utility  string
 	adapters []*Mpt2SASRaidAdaptor
 }
 
-func NewMpt2SASRaid(term *ssh.Client) raid.IRaidDriver {
+func NewMpt2SASRaid(term raid.IExecTerm) raid.IRaidDriver {
 	return &Mpt2SASRaid{
 		term:     term,
 		adapters: make([]*Mpt2SASRaidAdaptor, 0),

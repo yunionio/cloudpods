@@ -1,0 +1,3 @@
+FROM registry.cn-beijing.aliyuncs.com/yunionio/yunion-rootfs:v1.0
+
+ADD ./_output/bin/telegraf-raid-plugin /opt/yunion/bin/telegraf-raid-plugin

@@ -24,7 +24,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
-	"yunion.io/x/onecloud/pkg/util/ssh"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
@@ -45,7 +44,7 @@ const (
 	UnknownLogicalVolumeIndex = MaxInt
 )
 
-type RaidDriverFactory func(term *ssh.Client) IRaidDriver
+type RaidDriverFactory func(term IExecTerm) IRaidDriver
 
 type sRaidDrivers map[string]RaidDriverFactory
 
@@ -106,7 +105,7 @@ func (dev *RaidBasePhyDev) ToBaremetalStorage(index int) *baremetal.BaremetalSto
 	}
 }
 
-func GetModules(term *ssh.Client) []string {
+func GetModules(term IExecTerm) []string {
 	ret := []string{}
 	lines, err := term.Run("/sbin/lsmod")
 	if err != nil {
@@ -142,7 +141,7 @@ type RaidLogicalVolume struct {
 	BlockDev string
 }
 
-func SGMap(term *ssh.Client) ([]compute.SGMapItem, error) {
+func SGMap(term IExecTerm) ([]compute.SGMapItem, error) {
 	lines, err := term.Run("/usr/bin/sg_map -x")
 	if err != nil {
 		return nil, errors.Wrap(err, "run sg_map")
