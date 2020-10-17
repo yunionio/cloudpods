@@ -109,9 +109,9 @@ func (man *SCommonAlertManager) ValidateCreateData(
 			if _, ok := monitor.AlertReduceFunc[query.Reduce]; !ok {
 				return data, httperrors.NewInputParameterError("the reduce is illegal: %s", query.Reduce)
 			}
-			if query.Threshold == 0 {
+			/*if query.Threshold == 0 {
 				return data, httperrors.NewInputParameterError("threshold is meaningless")
-			}
+			}*/
 			if strings.Contains(query.From, "now-") || strings.Contains(query.To, "now") {
 				query.To = "now"
 				query.From = "1h"
@@ -453,27 +453,34 @@ func (alert *SCommonAlert) GetMoreDetails(ctx context.Context, out monitor.Commo
 }
 
 func (alert *SCommonAlert) getCommonAlertMetricDetails(out *monitor.CommonAlertDetails) error {
-	setting, err := alert.GetSettings()
+	metricDetails, err := alert.GetCommonAlertMetricDetails()
 	if err != nil {
 		return err
 	}
-	if len(setting.Conditions) == 0 {
-		return nil
-	}
-
-	out.CommonAlertMetricDetails = make([]*monitor.CommonAlertMetricDetails, len(setting.Conditions))
-	for i, cond := range setting.Conditions {
-		metricDetails := alert.GetCommonAlertMetricDetailsFromAlertCondition(i, &cond)
-		out.CommonAlertMetricDetails[i] = metricDetails
-		setting.Conditions[i] = cond
-	}
-	alert.Settings = jsonutils.Marshal(setting)
+	out.CommonAlertMetricDetails = metricDetails
 	return nil
 }
 
-func (alert *SCommonAlert) GetCommonAlertMetricDetailsFromAlertCondition(index int,
-	cond *monitor.AlertCondition) *monitor.
-	CommonAlertMetricDetails {
+func (alert *SCommonAlert) GetCommonAlertMetricDetails() ([]*monitor.CommonAlertMetricDetails, error) {
+	setting, err := alert.GetSettings()
+	if err != nil {
+		return nil, errors.Wrap(err, "get alert settings")
+	}
+	if len(setting.Conditions) == 0 {
+		return nil, nil
+	}
+	ret := make([]*monitor.CommonAlertMetricDetails, len(setting.Conditions))
+	for i, cond := range setting.Conditions {
+		metricDetails := alert.GetCommonAlertMetricDetailsFromAlertCondition(i, &cond)
+		ret[i] = metricDetails
+		setting.Conditions[i] = cond
+	}
+	// side effect, update setting cause of setting.Conditions has changed by GetCommonAlertMetricDetailsFromAlertCondition
+	alert.Settings = jsonutils.Marshal(setting)
+	return ret, nil
+}
+
+func (alert *SCommonAlert) GetCommonAlertMetricDetailsFromAlertCondition(index int, cond *monitor.AlertCondition) *monitor.CommonAlertMetricDetails {
 	fieldOpt := alert.getFieldOpt()
 	metricDetails := new(monitor.CommonAlertMetricDetails)
 	if fieldOpt != "" {
@@ -489,6 +496,8 @@ func getCommonAlertMetricDetailsFromCondition(cond *monitor.AlertCondition,
 	switch cond.Evaluator.Type {
 	case "gt":
 		cmp = ">="
+	case "eq":
+		cmp = "=="
 	case "lt":
 		cmp = "<="
 	}
@@ -532,14 +541,16 @@ func getCommonAlertMetricDetailsFromCondition(cond *monitor.AlertCondition,
 	metricDetails.Field = field
 	metricDetails.DB = db
 	metricDetails.Groupby = groupby
+	metricDetails.Filters = cond.Query.Model.Tags
 
 	//fill measurement\field desciption info
 	getMetricDescriptionDetails(metricDetails)
 }
 
 func getMetricDescriptionDetails(metricDetails *monitor.CommonAlertMetricDetails) {
-	influxdbMeasurements := DataSourceManager.getMetricDescriptions([]monitor.InfluxMeasurement{monitor.
-		InfluxMeasurement{Measurement: metricDetails.Measurement}})
+	influxdbMeasurements := DataSourceManager.getMetricDescriptions([]monitor.InfluxMeasurement{
+		{Measurement: metricDetails.Measurement},
+	})
 	if len(influxdbMeasurements) == 0 {
 		return
 	}
@@ -585,6 +596,8 @@ func getQueryEvalType(evalType string) string {
 		typ = "gt"
 	case "<=", "<":
 		typ = "lt"
+	case "==":
+		typ = "eq"
 	}
 	return typ
 }
@@ -662,7 +675,7 @@ func (alert *SCommonAlert) ValidateUpdateData(
 		}
 	}
 	if metric_query, _ := data.GetArray("metric_query"); len(metric_query) > 0 {
-		for i, _ := range metric_query {
+		for i := range metric_query {
 			query := new(monitor.CommonAlertQuery)
 			err := metric_query[i].Unmarshal(query)
 			if err != nil {
@@ -674,9 +687,9 @@ func (alert *SCommonAlert) ValidateUpdateData(
 			if _, ok := monitor.AlertReduceFunc[query.Reduce]; !ok {
 				return data, httperrors.NewInputParameterError("the reduce is illegal: %s", query.Reduce)
 			}
-			if query.Threshold == 0 {
+			/*if query.Threshold == 0 {
 				return data, httperrors.NewInputParameterError("threshold is meaningless")
-			}
+			}*/
 			if strings.Contains(query.From, "now-") || strings.Contains(query.To, "now") {
 				query.To = "now"
 				query.From = "1h"

@@ -35,7 +35,7 @@ const (
 )
 
 var (
-	EvaluatorDefaultTypes = []string{"gt", "lt"}
+	EvaluatorDefaultTypes = []string{"gt", "lt", "eq"}
 	EvaluatorRangedTypes  = []string{"within_range", "outside_range"}
 
 	CommonAlertType             = []string{monitor.CommonAlertNomalAlertType, monitor.CommonAlertSystemAlertType}

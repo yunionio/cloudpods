@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
@@ -154,4 +155,24 @@ func (record *SAlertRecord) GetMoreDetails(out monitor.AlertRecordDetails) (moni
 
 func (man *SAlertRecordManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, _ jsonutils.JSONObject, data monitor.AlertRecordCreateInput) (monitor.AlertRecordCreateInput, error) {
 	return data, nil
+}
+
+func (record *SAlertRecord) GetEvalData() ([]monitor.EvalMatch, error) {
+	ret := make([]monitor.EvalMatch, 0)
+	if err := record.EvalData.Unmarshal(&ret); err != nil {
+		return nil, errors.Wrap(err, "unmarshal evalMatchs error")
+	}
+	return ret, nil
+}
+
+func (record *SAlertRecord) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	record.SStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	if err := GetAlertResourceManager().ReconcileFromRecord(ctx, userCred, ownerId, record); err != nil {
+		log.Errorf("Reconcile from alert record error: %v", err)
+		return
+	}
+}
+
+func (record *SAlertRecord) GetState() monitor.AlertStateType {
+	return monitor.AlertStateType(record.State)
 }

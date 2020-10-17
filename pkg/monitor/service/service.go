@@ -32,6 +32,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/monitor/alerting"
 	_ "yunion.io/x/onecloud/pkg/monitor/alerting/conditions"
 	_ "yunion.io/x/onecloud/pkg/monitor/alerting/notifiers"
+	_ "yunion.io/x/onecloud/pkg/monitor/alertresourcedrivers"
 	"yunion.io/x/onecloud/pkg/monitor/models"
 	_ "yunion.io/x/onecloud/pkg/monitor/notifydrivers"
 	"yunion.io/x/onecloud/pkg/monitor/options"
