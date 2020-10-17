@@ -711,7 +711,7 @@ func (manager *SCachedimageManager) ListItemFilter(
 	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "id", func() *sqlchemy.SQuery {
 		storagecachedImages := StoragecachedimageManager.Query().SubQuery()
 		storageCaches := StoragecacheManager.Query().SubQuery()
-		storages := StorageManager.Query().In("status", []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE}).IsTrue("enabled").SubQuery()
+		storages := StorageManager.Query().SubQuery()
 		zones := ZoneManager.Query().SubQuery()
 
 		subq := storagecachedImages.Query(storagecachedImages.Field("cachedimage_id"))
@@ -761,6 +761,21 @@ func (manager *SCachedimageManager) ListItemFilter(
 		subq = subq.Join(hoststorages, sqlchemy.Equals(hoststorages.Field("storage_id"), storages.Field("id")))
 		subq = subq.Join(hostschedtags, sqlchemy.Equals(hostschedtags.Field("host_id"), hoststorages.Field("host_id")))
 		q = q.In("id", subq.SubQuery())
+	}
+
+	if query.Valid != nil {
+		storagecachedImages := StoragecachedimageManager.Query().SubQuery()
+		storageCaches := StoragecacheManager.Query().SubQuery()
+		storages := StorageManager.Query().In("status", []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE}).IsTrue("enabled").SubQuery()
+
+		subq := storagecachedImages.Query(storagecachedImages.Field("cachedimage_id"))
+		subq = subq.Join(storageCaches, sqlchemy.Equals(storagecachedImages.Field("storagecache_id"), storageCaches.Field("id")))
+		subq = subq.Join(storages, sqlchemy.Equals(storageCaches.Field("id"), storages.Field("storagecache_id")))
+		if *query.Valid {
+			q = q.In("id", subq.SubQuery())
+		} else {
+			q = q.NotIn("id", subq.SubQuery())
+		}
 	}
 
 	return q, nil
