@@ -33,4 +33,5 @@ const (
 	NotifyFeishuRobot     = TNotifyChannel("feishu-robot")
 	NotifyByDingTalkRobot = TNotifyChannel("dingtalk-robot")
 	NotifyByWorkwxRobot   = TNotifyChannel("workwx-robot")
+	NotifyByWebhook       = TNotifyChannel("webhook")
 )

@@ -14,6 +14,13 @@
 
 package notifyclient
 
+import (
+	"fmt"
+	"strings"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+)
+
 const (
 	SYSTEM_ERROR   = "SYSTEM_ERROR"
 	SYSTEM_WARNING = "SYSTEM_WARNING"
@@ -28,3 +35,42 @@ const (
 
 	IMAGE_ACTIVED = "IMAGE_ACTIVED"
 )
+
+type SAction string
+
+var (
+	Event SEvent
+
+	ActionCreate       SAction = "create"
+	ActionUpdate       SAction = "update"
+	ActionDelete       SAction = "delete"
+	ActionRebuildRoot  SAction = "rebuild_root"
+	ActionChangeConfig SAction = "change_config"
+)
+
+type SEvent struct {
+	resourceType string
+	action       SAction
+}
+
+func (se SEvent) WithResourceType(manager db.IModelManager) SEvent {
+	se.resourceType = manager.Keyword()
+	return se
+}
+
+func (se SEvent) WithAction(a SAction) SEvent {
+	se.action = a
+	return se
+}
+
+func (se SEvent) ResourceType() string {
+	return se.resourceType
+}
+
+func (se SEvent) Action() string {
+	return string(se.action)
+}
+
+func (se SEvent) String() string {
+	return strings.ToUpper(fmt.Sprintf("%s_%s", se.ResourceType(), se.Action()))
+}
