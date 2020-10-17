@@ -45,31 +45,29 @@ type SOpsLogManager struct {
 type SOpsLog struct {
 	SModelBase
 
-	Id      int64  `primary:"true" auto_increment:"true" list:"user"`                                        // = Column(BigInteger, primary_key=True)
-	ObjType string `width:"40" charset:"ascii" nullable:"false" list:"user" create:"required"`               // = Column(VARCHAR(40, charset='ascii'), nullable=False)
-	ObjId   string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"` //  = Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
-	ObjName string `width:"128" charset:"utf8" nullable:"false" list:"user" create:"required"`               //= Column(VARCHAR(128, charset='utf8'), nullable=False)
-	Action  string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"required"`                //= Column(VARCHAR(32, charset='ascii'), nullable=False)
+	Id      int64  `primary:"true" auto_increment:"true" list:"user"`
+	ObjType string `width:"40" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	ObjId   string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
+	ObjName string `width:"128" charset:"utf8" nullable:"false" list:"user" create:"required"`
+	Action  string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"required"`
 	Notes   string `charset:"utf8" list:"user" create:"required"`
 
-	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" list:"user" create:"required" index:"true"` // = Column(VARCHAR(ID_LENGTH, charset='ascii'))
-	Project   string `name:"tenant" width:"128" charset:"utf8" list:"user" create:"required"`                  // tenant    = Column(VARCHAR(128, charset='utf8'))
+	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" list:"user" create:"optional" index:"true"`
+	Project   string `name:"tenant" width:"128" charset:"utf8" list:"user" create:"optional"`
 
-	ProjectDomainId string `name:"project_domain_id" default:"default" width:"128" charset:"ascii" list:"user" create:"required"`
-	ProjectDomain   string `name:"project_domain" default:"Default" width:"128" charset:"utf8" list:"user" create:"required"`
+	ProjectDomainId string `name:"project_domain_id" default:"default" width:"128" charset:"ascii" list:"user" create:"optional"`
+	ProjectDomain   string `name:"project_domain" default:"Default" width:"128" charset:"utf8" list:"user" create:"optional"`
 
-	UserId   string `width:"128" charset:"ascii" list:"user" create:"required"` // = Column(VARCHAR(ID_LENGTH, charset='ascii'))
-	User     string `width:"128" charset:"utf8" list:"user" create:"required"`  // = Column(VARCHAR(128, charset='utf8'))
+	UserId   string `width:"128" charset:"ascii" list:"user" create:"required"`
+	User     string `width:"128" charset:"utf8" list:"user" create:"required"`
 	DomainId string `width:"128" charset:"ascii" list:"user" create:"optional"`
 	Domain   string `width:"128" charset:"utf8" list:"user" create:"optional"`
-	Roles    string `width:"64" charset:"ascii" list:"user" create:"optional"` // = Column(VARCHAR(64, charset='ascii'))
+	Roles    string `width:"64" charset:"ascii" list:"user" create:"optional"`
 
-	// BillingType    string    `width:"64" charset:"ascii" default:"postpaid" list:"user" create:"user"`      // billing_type = Column(VARCHAR(64, charset='ascii'), nullable=True)
-	OpsTime time.Time `nullable:"false" list:"user"` // = Column(DateTime, nullable=False)
+	OpsTime time.Time `nullable:"false" list:"user"`
 
 	OwnerDomainId  string `name:"owner_domain_id" default:"default" width:"128" charset:"ascii" list:"user" create:"optional"`
-	OwnerProjectId string `name:"owner_tenant_id" width:"128" charset:"ascii" list:"user" create:"optional"` // = Column(VARCHAR(ID_LENGTH, charset='ascii'))
-	// owner_user_id   = Column(VARCHAR(ID_LENGTH, charset='ascii'))
+	OwnerProjectId string `name:"owner_tenant_id" width:"128" charset:"ascii" list:"user" create:"optional"`
 }
 
 var OpsLog *SOpsLogManager
@@ -434,6 +432,7 @@ func (manager *SOpsLogManager) ValidateCreateData(ctx context.Context,
 	query jsonutils.JSONObject,
 	data apis.OpsLogCreateInput,
 ) (apis.OpsLogCreateInput, error) {
+	data.User = ownerId.GetUserName()
 	return data, nil
 }
 
