@@ -61,4 +61,7 @@ const (
 	TEMPLATE_TYPE_TITLE   = "title"
 	TEMPLATE_TYPE_CONTENT = "content"
 	TEMPLATE_TYPE_REMOTE  = "remote"
+
+	CTYPE_ROBOT_YES  = "yes"
+	CTYPE_ROBOT_ONLY = "only"
 )

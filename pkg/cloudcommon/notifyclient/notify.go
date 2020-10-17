@@ -29,12 +29,14 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	npk "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 var (
@@ -97,6 +99,9 @@ func getTemplate(ctx context.Context, topic string, contType string, channel npk
 }
 
 func getContent(ctx context.Context, topic string, contType string, channel npk.TNotifyChannel, data jsonutils.JSONObject) (string, error) {
+	if channel == npk.NotifyByWebhook {
+		return "", nil
+	}
 	tmpl, err := getTemplate(ctx, topic, contType, channel)
 	if err != nil {
 		return "", err
@@ -108,6 +113,23 @@ func getContent(ctx context.Context, topic string, contType string, channel npk.
 	}
 	// log.Debugf("notify.getContent %s %s %s %s", topic, contType, data, buf.String())
 	return buf.String(), nil
+}
+
+func NotifyWebhook(ctx context.Context, userCred mcclient.TokenCredential, obj db.IModel, action SAction) error {
+	ret, err := db.FetchCustomizeColumns(obj.GetModelManager(), ctx, userCred, jsonutils.NewDict(), []interface{}{obj}, stringutils2.SSortedStrings{}, false)
+	if err != nil {
+		return err
+	}
+	if len(ret) == 0 {
+		return fmt.Errorf("unable to get details for model %q", obj.GetId())
+	}
+	event := Event.WithAction(action).WithResourceType(obj.GetModelManager())
+	msg := jsonutils.NewDict()
+	msg.Set("resource_type", jsonutils.NewString(event.ResourceType()))
+	msg.Set("action", jsonutils.NewString(event.Action()))
+	msg.Set("resource_details", ret[0])
+	RawNotifyWithCtx(ctx, []string{}, false, npk.NotifyByWebhook, npk.NotifyPriorityNormal, event.String(), msg)
+	return nil
 }
 
 func NotifyWithCtx(ctx context.Context, recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {
