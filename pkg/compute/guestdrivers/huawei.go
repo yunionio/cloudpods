@@ -67,8 +67,8 @@ func (self *SHuaweiGuestDriver) GetStorageTypes() []string {
 	return []string{api.STORAGE_HUAWEI_SATA, api.STORAGE_HUAWEI_SAS, api.STORAGE_HUAWEI_SSD}
 }
 
-func (self *SHuaweiGuestDriver) ChooseHostStorage(host *models.SHost, backend string, storageIds []string) *models.SStorage {
-	return self.chooseHostStorage(self, host, backend, storageIds)
+func (self *SHuaweiGuestDriver) ChooseHostStorage(host *models.SHost, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
+	return self.chooseHostStorage(self, host, diskConfig.Backend, storageIds), nil
 }
 
 func (self *SHuaweiGuestDriver) GetDetachDiskStatus() ([]string, error) {

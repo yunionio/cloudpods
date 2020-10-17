@@ -3436,11 +3436,11 @@ func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.T
 	return disk, nil
 }
 
-func (self *SGuest) ChooseHostStorage(host *SHost, backend string, candidate *schedapi.CandidateDisk) *SStorage {
+func (self *SGuest) ChooseHostStorage(host *SHost, diskConfig *api.DiskConfig, candidate *schedapi.CandidateDisk) (*SStorage, error) {
 	if candidate == nil || len(candidate.StorageIds) == 0 {
-		return self.GetDriver().ChooseHostStorage(host, backend, nil)
+		return self.GetDriver().ChooseHostStorage(host, diskConfig, nil)
 	}
-	return self.GetDriver().ChooseHostStorage(host, backend, candidate.StorageIds)
+	return self.GetDriver().ChooseHostStorage(host, diskConfig, candidate.StorageIds)
 }
 
 func (self *SGuest) createDiskOnHost(
@@ -3455,7 +3455,10 @@ func (self *SGuest) createDiskOnHost(
 	backupCandidate *schedapi.CandidateDisk,
 	autoAttach bool,
 ) (*SDisk, error) {
-	var storage *SStorage
+	var (
+		storage *SStorage
+		err     error
+	)
 	if len(diskConfig.Storage) > 0 {
 		_storage, err := StorageManager.FetchByIdOrName(userCred, diskConfig.Storage)
 		if err != nil {
@@ -3466,7 +3469,10 @@ func (self *SGuest) createDiskOnHost(
 		}
 		storage = _storage.(*SStorage)
 	} else {
-		storage = self.ChooseHostStorage(host, diskConfig.Backend, candidate)
+		storage, err = self.ChooseHostStorage(host, diskConfig, candidate)
+		if err != nil {
+			return nil, errors.Wrap(err, "ChooseHostStorage")
+		}
 	}
 	if storage == nil {
 		return nil, fmt.Errorf("No storage on %s to create disk for %s", host.GetName(), diskConfig.Backend)
@@ -3478,7 +3484,10 @@ func (self *SGuest) createDiskOnHost(
 	}
 	if len(self.BackupHostId) > 0 {
 		backupHost := HostManager.FetchHostById(self.BackupHostId)
-		backupStorage := self.ChooseHostStorage(backupHost, diskConfig.Backend, backupCandidate)
+		backupStorage, err := self.ChooseHostStorage(backupHost, diskConfig, backupCandidate)
+		if err != nil {
+			return nil, errors.Wrap(err, "ChooseHostStorage")
+		}
 		diff, err := db.Update(disk, func() error {
 			disk.BackupStorageId = backupStorage.Id
 			return nil

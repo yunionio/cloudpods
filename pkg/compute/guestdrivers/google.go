@@ -81,8 +81,8 @@ func (self *SGoogleGuestDriver) GetStorageTypes() []string {
 	}
 }
 
-func (self *SGoogleGuestDriver) ChooseHostStorage(host *models.SHost, backend string, storageIds []string) *models.SStorage {
-	return self.chooseHostStorage(self, host, backend, storageIds)
+func (self *SGoogleGuestDriver) ChooseHostStorage(host *models.SHost, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
+	return self.chooseHostStorage(self, host, diskConfig.Backend, storageIds), nil
 }
 
 func (self *SGoogleGuestDriver) GetGuestInitialStateAfterCreate() string {
