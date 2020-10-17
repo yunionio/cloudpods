@@ -61,6 +61,9 @@ type CachedimageListInput struct {
 
 	// filter by host schedtag
 	HostSchedtagId string `json:"host_schedtag_id"`
+
+	// valid cachedimage
+	Valid *bool `json:"valid"`
 }
 
 type ExternalProjectListInput struct {
