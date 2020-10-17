@@ -516,6 +516,24 @@ func (alert *SAlert) GetNotifications() ([]SAlertnotification, error) {
 	return notis, nil
 }
 
+func (alert *SAlert) GetAlertResources() ([]*SAlertResource, error) {
+	jRess := make([]SAlertResourceAlert, 0)
+	jm := GetAlertResourceAlertManager()
+	q := jm.Query().Equals("alert_id", alert.GetId())
+	if err := db.FetchModelObjects(jm, q, &jRess); err != nil {
+		return nil, err
+	}
+	ress := make([]*SAlertResource, len(jRess))
+	for idx := range jRess {
+		res, err := jRess[idx].GetAlertResource()
+		if err != nil {
+			return nil, errors.Wrapf(err, "get alert %s related alret resource", alert.GetName())
+		}
+		ress[idx] = res
+	}
+	return ress, nil
+}
+
 func (alert *SAlert) getNotificationIndex() (int8, error) {
 	notis, err := alert.GetNotifications()
 	if err != nil {
@@ -649,6 +667,15 @@ func (alert *SAlert) CustomizeDelete(
 	for _, noti := range notis {
 		if err := noti.Detach(ctx, userCred); err != nil {
 			return err
+		}
+	}
+	alertRess, err := alert.GetAlertResources()
+	if err != nil {
+		return errors.Wrap(err, "get alert resources")
+	}
+	for _, res := range alertRess {
+		if err := res.DetachAlert(ctx, userCred, alert.GetId()); err != nil {
+			return errors.Wrapf(err, "detach alert resource %s", res.LogPrefix())
 		}
 	}
 	return nil
