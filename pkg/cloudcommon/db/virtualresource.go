@@ -393,9 +393,19 @@ func (model *SVirtualResourceBase) AllowPerformCancelDelete(ctx context.Context,
 func (model *SVirtualResourceBase) PerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if model.PendingDeleted && !model.Deleted {
 		err := model.DoCancelPendingDelete(ctx, userCred)
-		return nil, err
+		if err != nil {
+			return nil, errors.Wrap(err, "model.DoCancelPendingDelete")
+		}
+		model.RecoverUsages(ctx, userCred)
 	}
 	return nil, nil
+}
+
+func (model *SVirtualResourceBase) RecoverUsages(ctx context.Context, userCred mcclient.TokenCredential) {
+	usages := model.GetIModel().GetUsages()
+	if AddUsages != nil && len(usages) > 0 {
+		AddUsages(ctx, userCred, usages)
+	}
 }
 
 func (model *SVirtualResourceBase) DoCancelPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -416,7 +426,10 @@ func (model *SVirtualResourceBase) GetIVirtualModel() IVirtualModel {
 
 func (model *SVirtualResourceBase) CancelPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	if model.PendingDeleted && !model.Deleted {
-		return model.MarkCancelPendingDelete(ctx, userCred)
+		err := model.MarkCancelPendingDelete(ctx, userCred)
+		if err != nil {
+			return errors.Wrap(err, "MarkCancelPendingDelete")
+		}
 	}
 	return nil
 }
