@@ -29,6 +29,21 @@ func (o *CommonAlertShowOptions) GetId() string {
 	return o.ID
 }
 
+type CommonAlertUpdateOptions struct {
+	ID         string `help:"ID of alart " json:"-"`
+	Period     string `help:"exec period of alert" json:"period"`
+	Comparator string `help:"Alarm policy threshold comparison method" json:"comparator" `
+	Threshold  string `help:"Alarm policy threshold" json:"threshold"`
+}
+
+func (o *CommonAlertUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
+}
+
+func (o *CommonAlertUpdateOptions) GetId() string {
+	return o.ID
+}
+
 type CommonAlertDeleteOptions struct {
 	ID    []string `help:"ID of alart"`
 	Force bool     `help:"force to delete alert"`

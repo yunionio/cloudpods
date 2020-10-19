@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -874,4 +875,52 @@ func (manager *SCommonAlertManager) QueryDistinctExtraField(q *sqlchemy.SQuery, 
 		return q, nil
 	}
 	return q, httperrors.ErrNotFound
+}
+
+func (alert *SCommonAlert) AllowPerformConfig(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, alert, "config")
+}
+
+func (alert *SCommonAlert) PerformConfig(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	period, _ := data.GetString("period")
+	comparator, _ := data.GetString("comparator")
+	threshold, _ := data.GetString("threshold")
+	fmt.Println(threshold)
+	if len(period) != 0 {
+		if _, err := time.ParseDuration(period); err != nil {
+			return data, httperrors.NewInputParameterError("Invalid period format: %s", period)
+		}
+	}
+	if len(comparator) != 0 {
+		if !utils.IsInStringArray(getQueryEvalType(comparator), validators.EvaluatorDefaultTypes) {
+			return data, httperrors.NewInputParameterError("the Comparator is illegal: %s", comparator)
+		}
+	}
+	if len(threshold) != 0 {
+		_, err := strconv.ParseFloat(threshold, 64)
+		if err != nil {
+			return data, httperrors.NewInputParameterError("threshold:%s should be number type", threshold)
+		}
+	}
+	_, err := db.Update(alert, func() error {
+		if len(period) != 0 {
+			freq, _ := time.ParseDuration(period)
+			alert.Frequency = int64(freq / time.Second)
+		}
+		setting, _ := alert.GetSettings()
+		if len(comparator) != 0 {
+			setting.Conditions[0].Evaluator.Type = getQueryEvalType(comparator)
+
+		}
+		if len(threshold) != 0 {
+			val, _ := strconv.ParseFloat(threshold, 64)
+			fmt.Println(threshold)
+			setting.Conditions[0].Evaluator.Params = []float64{fieldOperatorThreshold("", val)}
+		}
+		alert.Settings = jsonutils.Marshal(setting)
+		return nil
+	})
+	return jsonutils.Marshal(alert), err
 }

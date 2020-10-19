@@ -17,7 +17,6 @@ package alerting
 import (
 	"database/sql"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -216,7 +215,7 @@ func newAlertRecordRule(evalCtx *EvalContext) monitor.AlertRecordRule {
 	if len(ruleElementArr) == 3 {
 		alertRule.Metric = ruleElementArr[0]
 		alertRule.Comparator = ruleElementArr[1]
-		alertRule.Threshold, _ = strconv.ParseFloat(ruleElementArr[2], 64)
+		alertRule.Threshold = ruleElementArr[2]
 	}
 	if len(evalCtx.EvalMatches) != 0 {
 		alertRule.MeasurementDesc = evalCtx.EvalMatches[0].MeasurementDesc
