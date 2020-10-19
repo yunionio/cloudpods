@@ -59,6 +59,7 @@ func (r *SRegion) metricsRequest(action string, params map[string]string) (jsonu
 func (r *SRegion) GetMonitorData(name string, ns string, since time.Time, until time.Time,
 	demensions []SQcMetricDimension) ([]SDataPoint, error) {
 	params := make(map[string]string)
+	params["Region"] = r.Region
 	params["MetricName"] = name
 	params["Namespace"] = ns
 	if !since.IsZero() {
