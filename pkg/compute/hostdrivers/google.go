@@ -48,7 +48,7 @@ func (self *SGoogleHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb
 	minGB := 10
 	maxGB := -1
 	switch storage.StorageType {
-	case api.STORAGE_GOOGLE_PD_SSD, api.STORAGE_GOOGLE_PD_STANDARD:
+	case api.STORAGE_GOOGLE_PD_SSD, api.STORAGE_GOOGLE_PD_STANDARD, api.STORAGE_GOOGLE_PD_BALANCED:
 		maxGB = 65536
 	default:
 		return fmt.Errorf("Not support resize %s disk", storage.StorageType)
