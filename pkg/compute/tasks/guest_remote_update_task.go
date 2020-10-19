@@ -52,16 +52,5 @@ func (self *GuestRemoteUpdateTask) OnInit(ctx context.Context, obj db.IStandalon
 }
 
 func (self *GuestRemoteUpdateTask) OnRemoteUpdateComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	guest := obj.(*models.SGuest)
-	if !self.IsSubtask() {
-		self.SetStage("OnSyncStatusComplete", nil)
-		guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
-	} else {
-		self.OnSyncStatusComplete(ctx, obj, data)
-	}
-}
-
-func (self *GuestRemoteUpdateTask) OnSyncStatusComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	// guest := obj.(*models.SGuest)
 	self.SetStageComplete(ctx, nil)
 }
