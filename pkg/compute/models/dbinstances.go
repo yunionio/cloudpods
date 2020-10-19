@@ -1642,17 +1642,31 @@ func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, u
 	return &instance, nil
 }
 
+type SRdsCountStat struct {
+	TotalRdsCount  int
+	TotalCpuCount  int
+	TotalMemSizeMb int
+}
+
 func (man *SDBInstanceManager) TotalCount(
 	scope rbacutils.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel,
 	providers []string, brands []string, cloudEnv string,
-) (int, error) {
-	q := man.Query()
+) (SRdsCountStat, error) {
+	sq := man.Query().SubQuery()
+	q := sq.Query(sqlchemy.COUNT("total_rds_count"),
+		sqlchemy.SUM("total_cpu_count", sq.Field("vcpu_count")),
+		sqlchemy.SUM("total_mem_size_mb", sq.Field("vmem_size_mb")))
+
 	q = scopeOwnerIdFilter(q, scope, ownerId)
 	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
 	q = RangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"), nil, nil)
-	return q.CountWithError()
+
+	stat := SRdsCountStat{}
+	row := q.Row()
+	err := q.Row2Struct(row, &stat)
+	return stat, err
 }
 
 func (dbinstance *SDBInstance) GetQuotaKeys() quotas.IQuotaKeys {

@@ -196,7 +196,8 @@ func (self *SRegionQuota) FetchUsage(ctx context.Context) error {
 	self.ObjectGB = int(bucketUsage.Bytes / 1000 / 1000 / 1000)
 	self.ObjectCnt = bucketUsage.Objects
 
-	self.Rds, _ = DBInstanceManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv)
+	rdsUsage, _ := DBInstanceManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv)
+	self.Rds = rdsUsage.TotalRdsCount
 	self.Cache, _ = ElasticcacheManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv)
 
 	self.Loadbalancer, _ = LoadbalancerManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv)
