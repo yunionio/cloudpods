@@ -16,18 +16,16 @@ package monitor
 
 import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
 	options "yunion.io/x/onecloud/pkg/mcclient/options/monitor"
 )
 
 func init() {
+	cmd := shell.NewResourceCmd(monitor.AlertResources)
+	cmd.List(new(options.AlertResourceListOptions))
+	cmd.Show(new(options.AlertResourceShowOptions))
+	cmd.BatchDelete(new(options.AlertResourceDeleteOptions))
 
-	cmd := shell.NewResourceCmd(modules.SuggestSysRuleManager)
-	cmd.List(new(options.SuggestRuleListOptions))
-	cmd.Show(new(options.SuggestRuleShowOptions))
-	cmd.Perform("enable", new(options.SuggestRuleShowOptions))
-	cmd.Perform("disable", new(options.SuggestRuleShowOptions))
-	cmd.BatchDelete(new(options.CommonAlertDeleteOptions))
-	cmd.Perform("config", new(options.SuggestRuleConfigOptions))
-
+	jCmd := shell.NewJointCmd(monitor.AlertResourceAlert)
+	jCmd.List(new(options.AlertResourceAlertListOptions))
 }

@@ -30,11 +30,11 @@ func (o *CommonAlertShowOptions) GetId() string {
 }
 
 type CommonAlertDeleteOptions struct {
-	ID    string `help:"ID of alart"`
-	Force bool   `help:"force to delete alert"`
+	ID    []string `help:"ID of alart"`
+	Force bool     `help:"force to delete alert"`
 }
 
-func (o *CommonAlertDeleteOptions) GetId() string {
+func (o *CommonAlertDeleteOptions) GetIds() []string {
 	return o.ID
 }
 

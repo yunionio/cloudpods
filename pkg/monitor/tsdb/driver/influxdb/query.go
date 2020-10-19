@@ -20,6 +20,8 @@ import (
 	"strconv"
 	"strings"
 
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
 )
 
@@ -77,7 +79,11 @@ func (query *Query) renderTags() []string {
 		} else if tag.Operator == "<" || tag.Operator == ">" {
 			textValue = tag.Value
 		} else {
-			textValue = fmt.Sprintf("'%s'", strings.Replace(tag.Value, `\`, `\\`, -1))
+			if utils.IsInStringArray(tag.Value, []string{"true", "false"}) {
+				textValue = tag.Value
+			} else {
+				textValue = fmt.Sprintf("'%s'", strings.Replace(tag.Value, `\`, `\\`, -1))
+			}
 		}
 
 		res = append(res, fmt.Sprintf(`%s"%s" %s %s`, str, tag.Key, tag.Operator, textValue))
