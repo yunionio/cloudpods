@@ -13,4 +13,5 @@ func init() {
 	cmd.Perform("enable", &options.CommonAlertShowOptions{})
 	cmd.Perform("disable", &options.CommonAlertShowOptions{})
 	cmd.BatchDelete(new(options.CommonAlertDeleteOptions))
+	cmd.Perform("config", &options.CommonAlertUpdateOptions{})
 }

@@ -86,6 +86,9 @@ func NewTimePointByVal(value float64, timestamp float64) TimePoint {
 
 func (p TimePoint) IsValid() bool {
 	for i := 0; i < len(p)-1; i++ {
+		if p[i] == nil {
+			return false
+		}
 		if p[i].(*float64) == nil {
 			return false
 		}
