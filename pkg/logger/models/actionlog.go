@@ -81,6 +81,25 @@ func (action *SActionlog) GetI18N(ctx context.Context) *jsonutils.JSONDict {
 	return r
 }
 
+func (man *SActionlogManager) GetI18N(ctx context.Context, idstr string, resObj jsonutils.JSONObject) *jsonutils.JSONDict {
+	if idstr != "distinct-field" {
+		return nil
+	}
+	res := &struct {
+		Action []string `json:"action"`
+	}{}
+	if err := resObj.Unmarshal(res); err != nil {
+		return nil
+	}
+	for i, act := range res.Action {
+		act18 := logclient.OpsActionI18nTable.Lookup(ctx, act)
+		res.Action[i] = act18
+	}
+	robj := jsonutils.Marshal(res)
+	rdict := robj.(*jsonutils.JSONDict)
+	return rdict
+}
+
 // Websockets 不再拉取 ActionLog 的消息，因此注释掉如下代码
 // 可以保留，以便有需求时，再次打开
 // func (manager *SActionlogManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
