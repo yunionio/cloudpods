@@ -141,6 +141,7 @@ func (c *RaidInfoCollector) toTelegrafReportData(raidDiskInfo []*baremetal.Barem
 	ret := []string{}
 	for i := 0; i < len(raidDiskInfo); i++ {
 		statArr := []string{}
+		raidDiskInfo[i].Status = strings.ToLower(raidDiskInfo[i].Status)
 		jStat := jsonutils.Marshal(raidDiskInfo[i])
 		jMap, _ := jStat.GetMap()
 		for k, v := range jMap {
