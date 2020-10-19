@@ -47,6 +47,11 @@ func (t *STableSpec) incrementInternal(diff interface{}, opcode string, target i
 
 	dataValue := reflect.Indirect(reflect.ValueOf(diff))
 	fields := reflectutils.FetchStructFieldValueSet(dataValue)
+	var targetFields reflectutils.SStructFieldValueSet
+	if target != nil {
+		targetValue := reflect.Indirect(reflect.ValueOf(target))
+		targetFields = reflectutils.FetchStructFieldValueSet(targetValue)
+	}
 
 	primaries := make(map[string]interface{})
 	vars := make([]interface{}, 0)
@@ -58,6 +63,9 @@ func (t *STableSpec) incrementInternal(diff interface{}, opcode string, target i
 		k := c.Name()
 		v, _ := fields.GetInterface(k)
 		if c.IsPrimary() {
+			if targetFields != nil {
+				v, _ = targetFields.GetInterface(k)
+			}
 			if !gotypes.IsNil(v) && !c.IsZero(v) {
 				primaries[k] = v
 			} else if c.IsText() {
