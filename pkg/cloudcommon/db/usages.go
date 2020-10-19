@@ -28,6 +28,8 @@ type IUsage interface {
 var (
 	CancelUsages func(ctx context.Context, userCred mcclient.TokenCredential, usages []IUsage)
 
+	AddUsages func(ctx context.Context, userCred mcclient.TokenCredential, usages []IUsage)
+
 	CancelPendingUsagesInContext func(ctx context.Context, userCred mcclient.TokenCredential) error
 
 	InitPendingUsagesInContext func(ctx context.Context) context.Context
