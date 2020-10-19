@@ -854,7 +854,9 @@ func LoadbalancerUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityPro
 func DBInstanceUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) Usage {
 	cnt, _ := models.DBInstanceManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv)
 	count := make(map[string]interface{})
-	count[getKey(scope, "rds")] = cnt
+	count[getKey(scope, "rds")] = cnt.TotalRdsCount
+	count[getKey(scope, "rds.cpu")] = cnt.TotalCpuCount
+	count[getKey(scope, "rds.memory")] = cnt.TotalMemSizeMb
 	return count
 }
 
