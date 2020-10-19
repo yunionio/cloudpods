@@ -233,6 +233,7 @@ func (manager *SEndpointManager) SetEtcdInformerBackend(ep *SEndpoint) error {
 		return errors.Wrap(err, "new etcd informer backend")
 	}
 	informer.Set(be)
+	log.Infof("Informer set etcd backend success")
 	return nil
 }
 
@@ -630,14 +631,4 @@ func (endpoint *SEndpoint) ValidateUpdateData(
 		data.Set("service_certificate_id", jsonutils.NewString(cert.GetId()))
 	}
 	return data, nil
-}
-
-func TrySetInformerBackend() {
-	endpoint, err := EndpointManager.FetchByName(nil, apis.SERVICE_TYPE_ETCD)
-	if err != nil {
-		log.Errorf("Failed fetch etcd service endpoint: %s", err)
-		return
-	}
-	ep := endpoint.(*SEndpoint)
-	ep.trySetInformerBackend()
 }
