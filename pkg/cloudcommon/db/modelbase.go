@@ -425,6 +425,10 @@ func (manager *SModelBaseManager) OnCreateFailed(ctx context.Context, userCred m
 	return nil
 }
 
+func (manager *SModelBaseManager) GetI18N(ctx context.Context, idstr string, resObj jsonutils.JSONObject) *jsonutils.JSONDict {
+	return nil
+}
+
 func (model *SModelBase) GetId() string {
 	return ""
 }
