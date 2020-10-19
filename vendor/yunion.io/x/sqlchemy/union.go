@@ -146,7 +146,16 @@ func (uq *SUnion) Variables() []interface{} {
 	return ret
 }
 
+// deprecated
 func Union(query ...IQuery) *SUnion {
+	u, err := UnionWithError(query...)
+	if err != nil {
+		log.Fatalf("Fatal: %s", err.Error())
+	}
+	return u
+}
+
+func UnionWithError(query ...IQuery) (*SUnion, error) {
 	fieldNames := make([]string, 0)
 	for _, f := range query[0].QueryFields() {
 		fieldNames = append(fieldNames, f.Name())
@@ -155,11 +164,11 @@ func Union(query ...IQuery) *SUnion {
 	for i := 1; i < len(query); i += 1 {
 		qfields := query[i].QueryFields()
 		if len(fieldNames) != len(qfields) {
-			log.Fatalf("cannot union, number of fields not match!")
+			return nil, fmt.Errorf("cannot union, number of fields not match!")
 		}
 		for i := range qfields {
 			if fieldNames[i] != qfields[i].Name() {
-				log.Fatalf("cannot union, name of fields not match!")
+				return nil, fmt.Errorf("cannot union, name of fields not match!")
 			}
 		}
 	}
@@ -176,7 +185,7 @@ func Union(query ...IQuery) *SUnion {
 		fields[i] = &SUnionQueryField{name: fieldNames[i], union: uq}
 	}
 
-	return uq
+	return uq, nil
 }
 
 func (uq *SUnion) Query(f ...IQueryField) *SQuery {

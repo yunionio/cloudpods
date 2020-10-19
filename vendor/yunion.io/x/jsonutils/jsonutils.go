@@ -91,6 +91,7 @@ type JSONInt struct {
 type JSONFloat struct {
 	JSONValue
 	data float64
+	bit  int
 }
 
 type JSONBool struct {
