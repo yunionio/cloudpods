@@ -246,9 +246,12 @@ func (gi *SGuestImage) AllowPerformCancelDelete(ctx context.Context, userCred mc
 func (gi *SGuestImage) PerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 
-	if gi.PendingDeleted {
+	if gi.PendingDeleted && !gi.Deleted {
 		err := gi.DoCancelPendingDelete(ctx, userCred)
-		return nil, err
+		if err != nil {
+			return nil, errors.Wrap(err, "DoCancelPendingDelete")
+		}
+		gi.RecoverUsages(ctx, userCred)
 	}
 	return nil, nil
 }
@@ -633,5 +636,23 @@ func (manager *SGuestImageManager) Usage(scope rbacutils.TRbacScope, ownerId mcc
 
 	usages[strings.Join(key, ".")] = int64(cnt)
 
+	return usages
+}
+
+func (gi *SGuestImage) GetUsages() []db.IUsage {
+	if gi.PendingDeleted || gi.Deleted {
+		return nil
+	}
+	images, err := GuestImageJointManager.GetImagesByGuestImageId(gi.Id)
+	if err != nil {
+		return nil
+	}
+	usages := make([]db.IUsage, 0)
+	for i := range images {
+		ui := images[i].GetUsages()
+		if len(ui) > 0 {
+			usages = append(usages, ui...)
+		}
+	}
 	return usages
 }
