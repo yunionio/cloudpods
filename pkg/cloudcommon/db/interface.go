@@ -127,6 +127,8 @@ type IModelManager interface {
 	QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error)
 
 	GetPagingConfig() *SPagingConfig
+
+	GetI18N(ctx context.Context, idstr string, resObj jsonutils.JSONObject) *jsonutils.JSONDict
 }
 
 type IModel interface {
