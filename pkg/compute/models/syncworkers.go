@@ -71,5 +71,5 @@ func RunSyncCloudAccountTask(probeFunc func()) {
 }
 
 func RunSyncSecgroupTask(syncFunc func()) {
-	syncAccountWorker.Run(syncFunc, nil, nil)
+	syncSecgroupWorker.Run(syncFunc, nil, nil)
 }
