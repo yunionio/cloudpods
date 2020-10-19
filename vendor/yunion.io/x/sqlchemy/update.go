@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"strings"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
@@ -74,14 +75,21 @@ func (ud *SUpdateDiff) String() string {
 		utils.TruncateString(ud.new, 32))
 }
 
+func (ud SUpdateDiff) jsonObj() jsonutils.JSONObject {
+	r := jsonutils.NewDict()
+	r.Set("old", jsonutils.Marshal(ud.old))
+	r.Set("new", jsonutils.Marshal(ud.new))
+	return r
+}
+
 type UpdateDiffs map[string]SUpdateDiff
 
 func (uds UpdateDiffs) String() string {
-	items := make([]string, 0, len(uds))
-	for k, v := range uds {
-		items = append(items, fmt.Sprintf("%s:%s", k, v.String()))
+	obj := jsonutils.NewDict()
+	for k := range uds {
+		obj.Set(k, uds[k].jsonObj())
 	}
-	return strings.Join(items, ";")
+	return obj.String()
 }
 
 func (us *SUpdateSession) saveUpdate(dt interface{}) (UpdateDiffs, error) {
