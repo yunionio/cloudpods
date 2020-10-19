@@ -99,6 +99,7 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 			}
 			_, err = db.Update(eip, func() error {
 				eip.IpAddr = ipAddr
+				eip.BgpType = network.BgpType
 				return nil
 			})
 			if err != nil {
