@@ -215,7 +215,7 @@ func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series tsdb
 	if len(context.Rule.Message) == 0 {
 		context.Rule.Message = msg
 	}
-	evalMatch.Condition = c.GenerateFormatCond(meta, queryKeyInfo).String()
+	//evalMatch.Condition = c.GenerateFormatCond(meta, queryKeyInfo).String()
 	evalMatch.Tags = c.filterTags(series.Tags, *alertDetails)
 	evalMatch.Value = value
 	evalMatch.ValueStr = c.RationalizeValueFromUnit(*value, alertDetails.FieldDescription.Unit, alertDetails.FieldOpt)
@@ -234,9 +234,9 @@ func (c *QueryCondition) RationalizeValueFromUnit(value float64, unit string, op
 		return formatFileSize(value, unit, float64(1000))
 	}
 	if unit == "%" && monitor.CommonAlertFieldOpt_Division == opt {
-		return fmt.Sprintf("%0.4f %s", value*100, unit)
+		return fmt.Sprintf("%0.4f%s", value*100, unit)
 	}
-	return fmt.Sprintf("%0.4f %s", value, unit)
+	return fmt.Sprintf("%0.4f%s", value, unit)
 }
 
 // 单位转换 保留四位小数
