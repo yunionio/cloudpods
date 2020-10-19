@@ -1587,7 +1587,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncSecurityGroup(ctx con
 
 	waitChan := make(chan error)
 
-	models.RunSyncSecgroupTask(func() {
+	models.RunSyncSecgroupTask(ctx, func() {
 		err := func() error {
 			iRegion, err := vpc.GetIRegion()
 			if err != nil {
