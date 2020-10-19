@@ -529,7 +529,7 @@ func getDiskInfo(disk string) (cloudprovider.SDiskInfo, error) {
 	result := cloudprovider.SDiskInfo{}
 	diskInfo := strings.Split(disk, ":")
 	for _, d := range diskInfo {
-		if utils.IsInStringArray(d, []string{api.STORAGE_GOOGLE_PD_STANDARD, api.STORAGE_GOOGLE_PD_SSD, api.STORAGE_GOOGLE_LOCAL_SSD}) {
+		if utils.IsInStringArray(d, []string{api.STORAGE_GOOGLE_PD_STANDARD, api.STORAGE_GOOGLE_PD_SSD, api.STORAGE_GOOGLE_LOCAL_SSD, api.STORAGE_GOOGLE_PD_BALANCED}) {
 			result.StorageType = d
 		} else if memSize, err := fileutils.GetSizeMb(d, 'M', 1024); err == nil {
 			result.SizeGB = memSize >> 10
