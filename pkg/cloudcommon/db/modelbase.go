@@ -359,14 +359,15 @@ func (manager *SModelBaseManager) GetPropertyDistinctField(ctx context.Context, 
 		}
 	}
 
-	var res = jsonutils.NewDict()
 	q := im.Query()
 	q, err = ListItemQueryFilters(im, ctx, q, userCred, query, policy.PolicyActionList)
 	if err != nil {
 		return nil, err
 	}
-	var backupQuery = *q
-
+	var (
+		backupQuery = *q
+		res         = jsonutils.NewDict()
+	)
 	// query field
 	for i := 0; i < len(fields); i++ {
 		var nq = backupQuery
@@ -421,6 +422,10 @@ func (manager *SModelBaseManager) BatchCreateValidateCreateData(ctx context.Cont
 }
 
 func (manager *SModelBaseManager) OnCreateFailed(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	return nil
+}
+
+func (manager *SModelBaseManager) GetI18N(ctx context.Context, idstr string, resObj jsonutils.JSONObject) *jsonutils.JSONDict {
 	return nil
 }
 

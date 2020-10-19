@@ -928,6 +928,12 @@ func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, quer
 	if err != nil {
 		return nil, err
 	} else if data != nil {
+		if dataDict, ok := data.(*jsonutils.JSONDict); ok {
+			i18nDict := dispatcher.modelManager.GetI18N(ctx, idStr, data)
+			if i18nDict != nil {
+				dataDict.Set("_i18n", i18nDict)
+			}
+		}
 		return data, nil
 	}
 
