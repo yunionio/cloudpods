@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
@@ -102,7 +103,7 @@ func (gm *SGuestImageJointManager) GetImagesByFilter(guestImageId string,
 	q = filter(q)
 	images := make([]SImage, 0, len(imageIds))
 	err = db.FetchModelObjects(ImageManager, q, &images)
-	if err != nil {
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
 		return nil, errors.Wrap(err, "fetch images failed")
 	}
 	return images, nil
