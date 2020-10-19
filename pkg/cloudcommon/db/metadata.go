@@ -492,6 +492,7 @@ func (manager *SMetadataManager) SetValues(ctx context.Context, obj IModel, stor
 		}
 
 		newRecord := SMetadata{}
+		newRecord.SetModelManager(manager, &newRecord)
 
 		newRecord.ObjId = obj.GetId()
 		newRecord.ObjType = obj.GetModelManager().Keyword()
