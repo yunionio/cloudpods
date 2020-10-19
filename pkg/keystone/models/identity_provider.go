@@ -832,11 +832,11 @@ func (self *SIdentityProvider) getLinkedDomains() ([]SDomain, error) {
 }
 
 func (ident *SIdentityProvider) deleteConfigs(ctx context.Context, userCred mcclient.TokenCredential) error {
-	err := WhitelistedConfigManager.deleteConfigs(ident)
+	_, err := WhitelistedConfigManager.deleteConfigs(ident)
 	if err != nil {
 		return errors.Wrap(err, "WhitelistedConfigManager.deleteConfig")
 	}
-	err = SensitiveConfigManager.deleteConfigs(ident)
+	_, err = SensitiveConfigManager.deleteConfigs(ident)
 	if err != nil {
 		return errors.Wrap(err, "SensitiveConfigManager.deleteConfig")
 	}
