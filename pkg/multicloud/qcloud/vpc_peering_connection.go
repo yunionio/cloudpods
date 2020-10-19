@@ -59,7 +59,7 @@ func (region *SRegion) DescribeVpcPeeringConnections(vpcId string, peeringConnec
 	}
 	body, err := region.vpc2017Request("DescribeVpcPeeringConnections", params)
 	if err != nil {
-		return nil, 0, errors.Wrapf(err, `region.vpcRequest("DescribeVpcPeeringConnections", params)`, jsonutils.Marshal(params).String())
+		return nil, 0, errors.Wrapf(err, `region.vpcRequest("DescribeVpcPeeringConnections", %s)`, jsonutils.Marshal(params).String())
 	}
 
 	total, _ := body.Float("totalCount")
@@ -80,7 +80,7 @@ func (region *SRegion) GetAllVpcPeeringConnections(vpcId string) ([]SVpcPC, erro
 	for {
 		vpcPCS, total, err := region.DescribeVpcPeeringConnections(vpcId, "", len(result), 50)
 		if err != nil {
-			return nil, errors.Wrapf(err, `client.DescribeVpcPeeringConnections(%s,"",%d,50)`, vpcId, len(result), len(result))
+			return nil, errors.Wrapf(err, `client.DescribeVpcPeeringConnections(%s,"",%d,50)`, vpcId, len(result))
 		}
 		result = append(result, vpcPCS...)
 		if total <= len(result) {
@@ -261,7 +261,7 @@ func (self *SVpcPC) Delete() error {
 		}
 		//任务的当前状态。0：成功，1：失败，2：进行中。
 		if status == 1 {
-			return false, errors.Wrap(fmt.Errorf("taskfailed,taskId=%s", taskId), "client.DescribeVpcTaskResult(taskId)")
+			return false, errors.Wrap(fmt.Errorf("taskfailed,taskId=%d", taskId), "client.DescribeVpcTaskResult(taskId)")
 		}
 		if status == 0 {
 			return true, nil
@@ -269,7 +269,7 @@ func (self *SVpcPC) Delete() error {
 		return false, nil
 	})
 	if err != nil {
-		return errors.Wrapf(err, "self.region.WaitTask(%s)", taskId)
+		return errors.Wrapf(err, "self.region.WaitTask(%d)", taskId)
 	}
 	return nil
 }

@@ -247,7 +247,7 @@ func (self *SVpc) CreateCrossRegionSVpcPeeringConnection(opts *cloudprovider.Vpc
 		}
 		//任务的当前状态。0：成功，1：失败，2：进行中。
 		if status == 1 {
-			return false, errors.Wrap(fmt.Errorf("taskfailed,taskId=%s", taskId), "client.DescribeVpcTaskResult(taskId)")
+			return false, errors.Wrapf(fmt.Errorf("taskfailed,taskId=%d", taskId), "client.DescribeVpcTaskResult(taskId)")
 		}
 		if status == 0 {
 			return true, nil
@@ -255,7 +255,7 @@ func (self *SVpc) CreateCrossRegionSVpcPeeringConnection(opts *cloudprovider.Vpc
 		return false, nil
 	})
 	if err != nil {
-		return nil, errors.Wrapf(err, " cloudprovider.Wait %s", taskId)
+		return nil, errors.Wrapf(err, "cloudprovider.Wait %d", taskId)
 	}
 	svpcPCs, err := self.GetSVpcPeeringConnections()
 	if err != nil {
@@ -289,7 +289,7 @@ func (self *SVpc) AcceptCrossRegionSVpcPeeringConnection(id string) error {
 		}
 		//任务的当前状态。0：成功，1：失败，2：进行中。
 		if status == 1 {
-			return false, errors.Wrap(fmt.Errorf("taskfailed,taskId=%s", taskId), "client.DescribeVpcTaskResult(taskId)")
+			return false, errors.Wrap(fmt.Errorf("taskfailed,taskId=%d", taskId), "client.DescribeVpcTaskResult(taskId)")
 		}
 		if status == 0 {
 			return true, nil
@@ -297,7 +297,7 @@ func (self *SVpc) AcceptCrossRegionSVpcPeeringConnection(id string) error {
 		return false, nil
 	})
 	if err != nil {
-		return errors.Wrapf(err, " cloudprovider.Wait %s", taskId)
+		return errors.Wrapf(err, " cloudprovider.Wait %d", taskId)
 	}
 	svpcPC, err := self.GetSVpcPeeringConnectionById(id)
 	if err != nil {

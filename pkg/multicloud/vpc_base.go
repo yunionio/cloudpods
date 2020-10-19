@@ -41,7 +41,7 @@ func (self *SVpc) CreateICloudVpcPeeringConnection(opts *cloudprovider.VpcPeerin
 }
 
 func (self *SVpc) AcceptICloudVpcPeeringConnection(id string) error {
-	return errors.Wrapf(cloudprovider.ErrNotImplemented, "AcceptICloudVpcPeeringConnection", id)
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "AcceptICloudVpcPeeringConnection")
 }
 
 func (self *SVpc) GetAuthorityOwnerId() string {
