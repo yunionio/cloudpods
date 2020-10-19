@@ -76,7 +76,8 @@ func (action *SActionlog) CustomizeCreate(ctx context.Context, userCred mcclient
 
 func (action *SActionlog) GetI18N(ctx context.Context) *jsonutils.JSONDict {
 	r := jsonutils.NewDict()
-	r.Set("action", jsonutils.NewString(logclient.OpsActionI18nTable.Lookup(ctx, action.Action)))
+	act18 := logclient.OpsActionI18nTable.Lookup(ctx, action.Action)
+	r.Set("action", jsonutils.NewString(act18))
 	return r
 }
 
