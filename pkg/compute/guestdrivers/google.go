@@ -77,6 +77,7 @@ func (self *SGoogleGuestDriver) GetStorageTypes() []string {
 	return []string{
 		api.STORAGE_GOOGLE_PD_SSD,
 		api.STORAGE_GOOGLE_PD_STANDARD,
+		api.STORAGE_GOOGLE_PD_BALANCED,
 		api.STORAGE_GOOGLE_LOCAL_SSD,
 	}
 }
@@ -113,7 +114,7 @@ func (self *SGoogleGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *m
 	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY, api.VM_RUNNING}) {
 		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
 	}
-	if !utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_GOOGLE_PD_SSD, api.STORAGE_GOOGLE_PD_STANDARD}) {
+	if !utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_GOOGLE_PD_SSD, api.STORAGE_GOOGLE_PD_STANDARD, api.STORAGE_GOOGLE_PD_BALANCED}) {
 		return fmt.Errorf("Cannot resize %s disk", storage.StorageType)
 	}
 	return nil
@@ -132,13 +133,15 @@ func (self *SGoogleGuestDriver) ValidateCreateData(ctx context.Context, userCred
 		minGB := -1
 		maxGB := -1
 		switch disk.Backend {
-		case api.STORAGE_GOOGLE_PD_SSD, api.STORAGE_GOOGLE_PD_STANDARD:
+		case api.STORAGE_GOOGLE_PD_SSD, api.STORAGE_GOOGLE_PD_STANDARD, api.STORAGE_GOOGLE_PD_BALANCED:
 			minGB = 10
 			maxGB = 65536
 		case api.STORAGE_GOOGLE_LOCAL_SSD:
 			minGB = 375
 			maxGB = 375
 			localDisk++
+		default:
+			return nil, httperrors.NewInputParameterError("Unknown google storage type %s", disk.Backend)
 		}
 		if i == 0 && disk.Backend == api.STORAGE_GOOGLE_LOCAL_SSD {
 			return nil, httperrors.NewInputParameterError("System disk does not support %s disk", disk.Backend)

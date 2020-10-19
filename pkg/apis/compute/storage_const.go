@@ -81,6 +81,7 @@ const (
 	STORAGE_GOOGLE_LOCAL_SSD   = "local-ssd"   //本地SSD暂存盘 (最多8个)
 	STORAGE_GOOGLE_PD_STANDARD = "pd-standard" //标准永久性磁盘
 	STORAGE_GOOGLE_PD_SSD      = "pd-ssd"      //SSD永久性磁盘
+	STORAGE_GOOGLE_PD_BALANCED = "pd-balanced" //平衡永久性磁盘
 
 	// ctyun storage type
 	STORAGE_CTYUN_SSD  = "SSD"  // 超高IO云硬盘
