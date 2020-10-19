@@ -21,15 +21,16 @@ import (
 )
 
 const (
-	PolicyActionGet  = common_policy.PolicyActionGet
-	PolicyActionList = common_policy.PolicyActionList
+	PolicyActionGet    = common_policy.PolicyActionGet
+	PolicyActionList   = common_policy.PolicyActionList
+	PolicyActionCreate = common_policy.PolicyActionCreate
 )
 
 var (
 	predefinedDefaultPolicies = []rbacutils.SRbacPolicy{
 		{
 			Auth:  true,
-			Scope: rbacutils.ScopeProject,
+			Scope: rbacutils.ScopeUser,
 			Rules: []rbacutils.SRbacRule{
 				{
 					Service:  api.SERVICE_TYPE,
@@ -41,6 +42,12 @@ var (
 					Service:  api.SERVICE_TYPE,
 					Resource: "actions",
 					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "actions",
+					Action:   PolicyActionCreate,
 					Result:   rbacutils.Allow,
 				},
 			},

@@ -52,11 +52,11 @@ type SOpsLog struct {
 	Action  string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"required"`                //= Column(VARCHAR(32, charset='ascii'), nullable=False)
 	Notes   string `charset:"utf8" list:"user" create:"required"`
 
-	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" list:"user" create:"required" index:"true"` // = Column(VARCHAR(ID_LENGTH, charset='ascii'))
-	Project   string `name:"tenant" width:"128" charset:"utf8" list:"user" create:"required"`                  // tenant    = Column(VARCHAR(128, charset='utf8'))
+	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" list:"user" create:"optional" index:"true"` // = Column(VARCHAR(ID_LENGTH, charset='ascii'))
+	Project   string `name:"tenant" width:"128" charset:"utf8" list:"user" create:"optional"`                  // tenant    = Column(VARCHAR(128, charset='utf8'))
 
-	ProjectDomainId string `name:"project_domain_id" default:"default" width:"128" charset:"ascii" list:"user" create:"required"`
-	ProjectDomain   string `name:"project_domain" default:"Default" width:"128" charset:"utf8" list:"user" create:"required"`
+	ProjectDomainId string `name:"project_domain_id" default:"default" width:"128" charset:"ascii" list:"user" create:"optional"`
+	ProjectDomain   string `name:"project_domain" default:"Default" width:"128" charset:"utf8" list:"user" create:"optional"`
 
 	UserId   string `width:"128" charset:"ascii" list:"user" create:"required"` // = Column(VARCHAR(ID_LENGTH, charset='ascii'))
 	User     string `width:"128" charset:"utf8" list:"user" create:"required"`  // = Column(VARCHAR(128, charset='utf8'))
@@ -434,6 +434,7 @@ func (manager *SOpsLogManager) ValidateCreateData(ctx context.Context,
 	query jsonutils.JSONObject,
 	data apis.OpsLogCreateInput,
 ) (apis.OpsLogCreateInput, error) {
+	data.User = ownerId.GetUserName()
 	return data, nil
 }
 
