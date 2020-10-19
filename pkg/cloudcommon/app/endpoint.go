@@ -30,6 +30,7 @@ type SEndpointChangeManager struct {
 func newEndpointChangeManager() *SEndpointChangeManager {
 	man := &SEndpointChangeManager{}
 	man.InitSync(man)
+	man.FirstSync()
 	return man
 }
 

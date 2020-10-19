@@ -631,3 +631,13 @@ func (endpoint *SEndpoint) ValidateUpdateData(
 	}
 	return data, nil
 }
+
+func TrySetInformerBackend() {
+	endpoint, err := EndpointManager.FetchByName(nil, apis.SERVICE_TYPE_ETCD)
+	if err != nil {
+		log.Errorf("Failed fetch etcd service endpoint: %s", err)
+		return
+	}
+	ep := endpoint.(*SEndpoint)
+	ep.trySetInformerBackend()
+}

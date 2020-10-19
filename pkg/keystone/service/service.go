@@ -70,6 +70,7 @@ func StartService() {
 
 	InitHandlers(app)
 	db.EnsureAppInitSyncDB(app, &opts.DBOptions, models.InitDB)
+	models.TrySetInformerBackend()
 
 	app_common.InitBaseAuth(&opts.BaseOptions)
 
