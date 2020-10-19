@@ -29,6 +29,7 @@ const (
 	FEISHU_ROBOT   = "feishu-robot"
 	DINGTALK_ROBOT = "dingtalk-robot"
 	WORKWX_ROBOT   = "workwx-robot"
+	WEBHOOK        = "webhook"
 
 	ROBOT = "robot"
 
@@ -60,4 +61,7 @@ const (
 	TEMPLATE_TYPE_TITLE   = "title"
 	TEMPLATE_TYPE_CONTENT = "content"
 	TEMPLATE_TYPE_REMOTE  = "remote"
+
+	CTYPE_ROBOT_YES  = "yes"
+	CTYPE_ROBOT_ONLY = "only"
 )

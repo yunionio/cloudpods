@@ -176,6 +176,10 @@ func (self *GuestRebuildRootTask) OnRebuildAllDisksComplete(ctx context.Context,
 		}
 	}
 	db.OpsLog.LogEvent(guest, db.ACT_REBUILD_ROOT, "", self.UserCred)
+	err = notifyclient.NotifyWebhook(ctx, self.UserCred, guest, notifyclient.ActionRebuildRoot)
+	if err != nil {
+		log.Errorf("unable to NotifyWebhook: %v", err)
+	}
 	guest.NotifyServerEvent(
 		ctx,
 		self.UserCred,

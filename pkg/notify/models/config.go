@@ -69,7 +69,7 @@ func (cm *SConfigManager) ValidateCreateData(ctx context.Context, userCred mccli
 	if err != nil {
 		return input, err
 	}
-	if !utils.IsInStringArray(input.Type, []string{api.EMAIL, api.MOBILE, api.DINGTALK, api.FEISHU, api.WEBCONSOLE, api.WORKWX, api.FEISHU_ROBOT, api.DINGTALK_ROBOT, api.WORKWX_ROBOT}) {
+	if !utils.IsInStringArray(input.Type, []string{api.EMAIL, api.MOBILE, api.DINGTALK, api.FEISHU, api.WEBCONSOLE, api.WORKWX, api.FEISHU_ROBOT, api.DINGTALK_ROBOT, api.WORKWX_ROBOT, api.WEBHOOK}) {
 		return input, httperrors.NewInputParameterError("unkown type %q", input.Type)
 	}
 	if input.Content == nil {
@@ -139,19 +139,15 @@ func (cm *SConfigManager) AllowPerformGetTypes(ctx context.Context, userCred mcc
 	return true
 }
 
-func (cm *SConfigManager) PerformGetTypes(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ConfigManagerGetTypesInput) (api.ConfigManagerGetTypesOutput, error) {
-	output := api.ConfigManagerGetTypesOutput{}
-	allContactType, err := cm.allContactType()
-	if err != nil {
-		return output, err
-	}
+func (cm *SConfigManager) filterContactType(cTypes []string, robot string) []string {
 	var judge func(string) bool
-	switch input.Robot {
-	case "only":
+	ret := make([]string, 0, len(cTypes)/2)
+	switch robot {
+	case api.CTYPE_ROBOT_ONLY:
 		judge = func(ctype string) bool {
 			return strings.Contains(ctype, "robot")
 		}
-	case "yes":
+	case api.CTYPE_ROBOT_YES:
 		judge = func(ctype string) bool {
 			return true
 		}
@@ -160,12 +156,21 @@ func (cm *SConfigManager) PerformGetTypes(ctx context.Context, userCred mcclient
 			return !strings.Contains(ctype, "robot")
 		}
 	}
-	for _, ctype := range allContactType {
+	for _, ctype := range cTypes {
 		if judge(ctype) {
-			output.Types = append(output.Types, ctype)
+			ret = append(ret, ctype)
 		}
 	}
-	output.Types = sortContactType(output.Types)
+	return ret
+}
+
+func (cm *SConfigManager) PerformGetTypes(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ConfigManagerGetTypesInput) (api.ConfigManagerGetTypesOutput, error) {
+	output := api.ConfigManagerGetTypesOutput{}
+	allContactType, err := cm.allContactType()
+	if err != nil {
+		return output, err
+	}
+	output.Types = sortContactType(cm.filterContactType(allContactType, input.Robot))
 	return output, nil
 }
 
