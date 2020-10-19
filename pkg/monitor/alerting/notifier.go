@@ -160,11 +160,12 @@ func (n *notificationService) getNeededNotifiers(nIds []string, evalCtx *EvalCon
 			EvalData:  matches,
 			AlertRule: newAlertRecordRule(evalCtx),
 		}
-		_, err = db.DoCreate(models.AlertRecordManager, evalCtx.Ctx, evalCtx.UserCred, jsonutils.NewDict(),
-			jsonutils.Marshal(&recordCreateInput), evalCtx.UserCred)
+		createData := recordCreateInput.JSON(recordCreateInput)
+		record, err := db.DoCreate(models.AlertRecordManager, evalCtx.Ctx, evalCtx.UserCred, jsonutils.NewDict(), createData, evalCtx.UserCred)
 		if err != nil {
 			log.Errorf("create alert record err:%v", err)
 		}
+		record.PostCreate(evalCtx.Ctx, evalCtx.UserCred, evalCtx.UserCred, nil, createData)
 	}
 	return result, nil
 }

@@ -24,9 +24,11 @@ import (
 )
 
 var (
-	Alerts            *SAlertManager
-	Notifications     *SNotificationManager
-	Alertnotification *SAlertnotificationManager
+	Alerts             *SAlertManager
+	Notifications      *SNotificationManager
+	Alertnotification  *SAlertnotificationManager
+	AlertResources     *SAlertResourceManager
+	AlertResourceAlert *SAlertResourceAlertManager
 )
 
 type SAlertManager struct {
@@ -68,19 +70,48 @@ func NewAlertnotificationManager() *SAlertnotificationManager {
 	return &SAlertnotificationManager{&man}
 }
 
+type SAlertResourceManager struct {
+	*modulebase.ResourceManager
+}
+
+func NewAlertResourceManager() *SAlertResourceManager {
+	man := modules.NewMonitorV2Manager("alertresource", "alertresources",
+		[]string{"Id", "Name", "Type", "Count", "Tags"},
+		[]string{})
+	return &SAlertResourceManager{
+		ResourceManager: &man,
+	}
+}
+
+type SAlertResourceAlertManager struct {
+	*modulebase.JointResourceManager
+}
+
+func NewAlertResourceAlertManager() *SAlertResourceAlertManager {
+	man := modules.NewJointMonitorV2Manager("alertresourcealert", "alertresourcealerts",
+		[]string{"Alert_Resource_ID", "Alert_Resource", "Alert_ID", "Alert", "Alert_Record_ID", "Trigger_Time", "Data", "Common_Alert_Metric_Details"},
+		[]string{},
+		AlertResources, Alerts)
+	return &SAlertResourceAlertManager{&man}
+}
+
 func init() {
 	Alerts = NewAlertManager()
 	Notifications = NewNotificationManager()
+	AlertResources = NewAlertResourceManager()
 	for _, m := range []modulebase.IBaseManager{
 		Alerts,
 		Notifications,
+		AlertResources,
 	} {
 		modules.Register(m)
 	}
 
 	Alertnotification = NewAlertnotificationManager()
+	AlertResourceAlert = NewAlertResourceAlertManager()
 	for _, m := range []modulebase.IBaseManager{
 		Alertnotification,
+		AlertResourceAlert,
 	} {
 		modules.Register(m)
 	}

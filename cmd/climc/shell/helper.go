@@ -485,7 +485,7 @@ func (cmd JointCmd) List(args IJointListOpt) {
 		if len(args.GetMasterOpt()) > 0 {
 			result, err = man.ListDescendent(s, args.GetMasterOpt(), params)
 		} else if len(args.GetSlaveOpt()) > 0 {
-			result, err = man.ListDescendent2(s, args.GetMasterOpt(), params)
+			result, err = man.ListDescendent2(s, args.GetSlaveOpt(), params)
 		} else {
 			result, err = man.List(s, params)
 		}
