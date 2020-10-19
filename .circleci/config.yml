@@ -38,7 +38,7 @@ jobs:
           command: |
             targets="$(circleci tests glob "cmd/*" | grep -v cmd/host-image | circleci tests split)"
             echo $targets | tr ' ' '\n'
-            make -j3 $targets
+            make -j2 $targets
             ls -lh _output/bin/
       - save_cache:
           key: onecloud-build-cache-{{ checksum "go.mod" }}-{{ checksum "Makefile" }}
