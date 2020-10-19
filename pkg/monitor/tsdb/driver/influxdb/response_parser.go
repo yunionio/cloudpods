@@ -186,7 +186,7 @@ func (rp *ResponseParser) parseTimepoint(valuePair []interface{}, valuePosition 
 func (rp *ResponseParser) parseTimepointV2(valuePair []interface{}) (tsdb.TimePoint, error) {
 	timepoint := make(tsdb.TimePoint, 0)
 	for i := 1; i < len(valuePair); i++ {
-		timepoint = append(timepoint, rp.parseValue(valuePair[i]))
+		timepoint = append(timepoint, rp.parseValueV2(valuePair[i]))
 	}
 	timestampNumber, _ := valuePair[0].(json.Number)
 	timestamp, err := timestampNumber.Float64()
@@ -201,6 +201,26 @@ func (rp *ResponseParser) parseValue(value interface{}) *float64 {
 	number, ok := value.(json.Number)
 	if !ok {
 		return nil
+	}
+
+	fvalue, err := number.Float64()
+	if err == nil {
+		return &fvalue
+	}
+
+	ivalue, err := number.Int64()
+	if err == nil {
+		ret := float64(ivalue)
+		return &ret
+	}
+
+	return nil
+}
+
+func (rp *ResponseParser) parseValueV2(value interface{}) interface{} {
+	number, ok := value.(json.Number)
+	if !ok {
+		return value
 	}
 
 	fvalue, err := number.Float64()

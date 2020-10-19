@@ -39,6 +39,6 @@ type AlertRecordRule struct {
 	// 比较运算符, 比如: >, <, >=, <=
 	Comparator string `json:"comparator"`
 	// 报警阀值
-	Threshold float64 `json:"threshold"`
-	Period    string  `json:"period"`
+	Threshold string `json:"threshold"`
+	Period    string `json:"period"`
 }

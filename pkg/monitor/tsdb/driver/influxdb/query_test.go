@@ -32,6 +32,9 @@ func TestInfluxdbQueryBuilder(t *testing.T) {
 		qp1, _ := NewQueryPart("field", []string{"value"})
 		qp2, _ := NewQueryPart("mean", []string{})
 
+		qp3, _ := NewQueryPart("func_field", []string{"usage_active", "vm_name", "vm_ip"})
+		qp4, _ := NewQueryPart("top", []string{"5"})
+
 		mathPartDivideBy100, _ := NewQueryPart("math", []string{"/ 100"})
 		mathPartDivideByIntervalMs, _ := NewQueryPart("math", []string{"/ $__interval_ms"})
 
@@ -48,6 +51,10 @@ func TestInfluxdbQueryBuilder(t *testing.T) {
 			TimeRange: tsdb.NewTimeRange("5m", "now"),
 		}
 
+		queryContext2 := &tsdb.TsdbQuery{
+			TimeRange: tsdb.NewTimeRange("30m", "now"),
+		}
+
 		Convey("can build simple query", func() {
 			query := &Query{
 				Selects:     []*Select{{*qp1, *qp2}},
@@ -60,6 +67,19 @@ func TestInfluxdbQueryBuilder(t *testing.T) {
 			rawQuery, err := query.Build(queryContext)
 			So(err, ShouldBeNil)
 			So(rawQuery, ShouldEqual, `SELECT mean("value") FROM "policy"."cpu" WHERE time > now() - 5m GROUP BY time(10s) fill(null)`)
+		})
+
+		Convey("can build top query", func() {
+			query := &Query{
+				Selects:     []*Select{{*qp3, *qp4}},
+				Measurement: "vm_cpu",
+				Policy:      "30day_only",
+				Interval:    time.Second * 10,
+			}
+
+			rawQuery, err := query.Build(queryContext2)
+			So(err, ShouldBeNil)
+			So(rawQuery, ShouldEqual, `SELECT top("usage_active","vm_name","vm_ip", 5) FROM "30day_only"."vm_cpu" WHERE time > now() - 30m`)
 		})
 
 		Convey("can build query with tz", func() {

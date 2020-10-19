@@ -37,6 +37,7 @@ func init() {
 	renders = make(map[string]QueryDefinition)
 
 	renders["field"] = QueryDefinition{Renderer: fieldRenderer}
+	renders["func_field"] = QueryDefinition{Renderer: funFieldRenderer}
 
 	renders["spread"] = QueryDefinition{Renderer: functionRenderer}
 	renders["count"] = QueryDefinition{Renderer: functionRenderer}
@@ -118,6 +119,24 @@ func fieldRenderer(query *Query, queryCtx *tsdb.TsdbQuery, part *QueryPart, inne
 	}
 	// return fmt.Sprintf(`"%s"::field`, part.Params[0])
 	return fmt.Sprintf(`"%s"`, part.Params[0])
+}
+
+func funFieldRenderer(query *Query, queryCtx *tsdb.TsdbQuery, part *QueryPart, innerExpr string) string {
+	if part.Params[0] == "*" {
+		// return "*::field"
+		return "*"
+	}
+	if len(innerExpr) != 0 {
+		part.Params = append([]string{innerExpr}, part.Params...)
+	}
+	stringB := strings.Builder{}
+	for i, str := range part.Params {
+		stringB.WriteString(fmt.Sprintf(`"%s"`, str))
+		if i != len(part.Params)-1 {
+			stringB.WriteString(",")
+		}
+	}
+	return stringB.String()
 }
 
 func tagRenderer(query *Query, queryCtx *tsdb.TsdbQuery, part *QueryPart, innerExpr string) string {

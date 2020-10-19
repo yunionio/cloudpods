@@ -1,6 +1,8 @@
 package modules
 
-import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
+import (
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
+)
 
 var (
 	CommonAlertManager *SCommonAlertManager
