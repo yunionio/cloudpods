@@ -26,7 +26,7 @@ var (
 
 func init() {
 	DBInstanceSkus = DBInstanceSkusManager{NewComputeManager("dbinstance_sku", "dbinstance_skus",
-		[]string{"Id", "Name", "Engine", "Engine_Version", "Category", "Storage_Type", "Status", "Enabled"},
+		[]string{},
 		[]string{})}
 
 	registerCompute(&DBInstanceSkus)

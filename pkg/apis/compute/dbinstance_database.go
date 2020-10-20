@@ -44,6 +44,7 @@ type DBInstanceDatabaseCreateInput struct {
 	// | ----		|-------					|
 	// | Aliyun		|MySQL, MariaBD, SQLServer  |
 	// | 华为云		|MySQL, MariaBD				|
+	// | 腾讯云		|           				|
 	// required: true
 	// 阿里云SQL Server 2017集群版不支持创建数据库
 	// 阿里云只读实例不支持创建数据库

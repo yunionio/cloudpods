@@ -66,7 +66,7 @@ func (self *DBInstanceAccountRevokePrivilegeTask) OnInit(ctx context.Context, ob
 
 	var iAccount cloudprovider.ICloudDBInstanceAccount = nil
 	for _, ac := range accounts {
-		if ac.GetName() == account.Name {
+		if ac.GetName() == account.Name && ac.GetHost() == account.Host {
 			iAccount = ac
 			break
 		}

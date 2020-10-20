@@ -46,11 +46,15 @@ const (
 
 	QCLOUD_DEFAULT_REGION = "ap-beijing"
 
-	QCLOUD_API_VERSION         = "2017-03-12"
-	QCLOUD_CLB_API_VERSION     = "2018-03-17"
-	QCLOUD_BILLING_API_VERSION = "2018-07-09"
-	QCLOUD_AUDIT_API_VERSION   = "2019-03-19"
-	QCLOUD_CAM_API_VERSION     = "2019-01-16"
+	QCLOUD_API_VERSION           = "2017-03-12"
+	QCLOUD_CLB_API_VERSION       = "2018-03-17"
+	QCLOUD_BILLING_API_VERSION   = "2018-07-09"
+	QCLOUD_AUDIT_API_VERSION     = "2019-03-19"
+	QCLOUD_CAM_API_VERSION       = "2019-01-16"
+	QCLOUD_CDB_API_VERSION       = "2017-03-20"
+	QCLOUD_MARIADB_API_VERSION   = "2017-03-12"
+	QCLOUD_POSTGRES_API_VERSION  = "2017-03-12"
+	QCLOUD_SQLSERVER_API_VERSION = "2018-03-28"
 )
 
 type QcloudClientConfig struct {
@@ -164,6 +168,30 @@ func clbRequest(client *common.Client, apiName string, params map[string]string,
 func lbRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
 	domain := "lb.api.qcloud.com"
 	return _phpJsonRequest(client, &lbJsonResponse{}, domain, "/v2/index.php", "", apiName, params, debug)
+}
+
+// cdb
+func cdbRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+	domain := apiDomain("cdb", params)
+	return _jsonRequest(client, domain, QCLOUD_CDB_API_VERSION, apiName, params, debug, true)
+}
+
+// mariadb
+func mariadbRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+	domain := apiDomain("mariadb", params)
+	return _jsonRequest(client, domain, QCLOUD_MARIADB_API_VERSION, apiName, params, debug, true)
+}
+
+// postgres
+func postgresRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+	domain := apiDomain("postgres", params)
+	return _jsonRequest(client, domain, QCLOUD_POSTGRES_API_VERSION, apiName, params, debug, true)
+}
+
+// sqlserver
+func sqlserverRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+	domain := apiDomain("sqlserver", params)
+	return _jsonRequest(client, domain, QCLOUD_SQLSERVER_API_VERSION, apiName, params, debug, true)
 }
 
 // ssl 证书服务
@@ -509,6 +537,38 @@ func (client *SQcloudClient) lbRequest(apiName string, params map[string]string)
 	return lbRequest(cli, apiName, params, client.debug)
 }
 
+func (client *SQcloudClient) cdbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := client.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	return cdbRequest(cli, apiName, params, client.debug)
+}
+
+func (client *SQcloudClient) mariadbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := client.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	return mariadbRequest(cli, apiName, params, client.debug)
+}
+
+func (client *SQcloudClient) postgresRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := client.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	return postgresRequest(cli, apiName, params, client.debug)
+}
+
+func (client *SQcloudClient) sqlserverRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := client.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	return sqlserverRequest(cli, apiName, params, client.debug)
+}
+
 func (client *SQcloudClient) wssRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	cli, err := client.getDefaultClient()
 	if err != nil {
@@ -825,7 +885,7 @@ func (self *SQcloudClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_NETWORK,
 		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
 		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
-		// cloudprovider.CLOUD_CAPABILITY_RDS,
+		cloudprovider.CLOUD_CAPABILITY_RDS,
 		// cloudprovider.CLOUD_CAPABILITY_CACHE,
 		cloudprovider.CLOUD_CAPABILITY_EVENT,
 		cloudprovider.CLOUD_CAPABILITY_CLOUDID,
