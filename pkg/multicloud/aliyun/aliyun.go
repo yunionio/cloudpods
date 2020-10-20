@@ -36,6 +36,9 @@ import (
 )
 
 const (
+	ALIYUN_INTERNATIONAL_CLOUDENV = "InternationalCloud"
+	ALIYUN_FINANCE_CLOUDENV       = "FinanceCloud"
+
 	CLOUD_PROVIDER_ALIYUN    = api.CLOUD_PROVIDER_ALIYUN
 	CLOUD_PROVIDER_ALIYUN_CN = "阿里云"
 
@@ -60,13 +63,15 @@ const (
 
 type AliyunClientConfig struct {
 	cpcfg        cloudprovider.ProviderConfig
+	cloudEnv     string // 服务区域 InternationalCloud | FinanceCloud
 	accessKey    string
 	accessSecret string
 	debug        bool
 }
 
-func NewAliyunClientConfig(accessKey, accessSecret string) *AliyunClientConfig {
+func NewAliyunClientConfig(cloudEnv, accessKey, accessSecret string) *AliyunClientConfig {
 	cfg := &AliyunClientConfig{
+		cloudEnv:     cloudEnv,
 		accessKey:    accessKey,
 		accessSecret: accessSecret,
 	}
@@ -490,4 +495,15 @@ func (region *SAliyunClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_DNSZONE,
 	}
 	return caps
+}
+
+func (self *SAliyunClient) GetAccessEnv() string {
+	switch self.cloudEnv {
+	case ALIYUN_INTERNATIONAL_CLOUDENV:
+		return api.CLOUD_ACCESS_ENV_ALIYUN_GLOBAL
+	case ALIYUN_FINANCE_CLOUDENV:
+		return api.CLOUD_ACCESS_ENV_ALIYUN_FINANCE
+	default:
+		return api.CLOUD_ACCESS_ENV_ALIYUN_GLOBAL
+	}
 }

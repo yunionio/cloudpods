@@ -56,7 +56,7 @@ type SCloudaccountCredential struct {
 	// 秘钥key (Aliyun, Aws, huawei, ucloud, ctyun, zstack, s3)
 	AccessKeySecret string `json:"access_key_secret"`
 
-	// 环境 (Azure, Aws, huawei, ctyun)
+	// 环境 (Azure, Aws, huawei, ctyun, aliyun)
 	Environment string `json:"environment"`
 
 	// 目录ID (Azure)
