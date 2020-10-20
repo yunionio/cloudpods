@@ -782,9 +782,9 @@ func (alert *SCommonAlert) CustomizeDelete(
 	err := alert.customizeDeleteNotis(ctx, userCred, query, data)
 	if err != nil {
 		alert.SetStatus(userCred, monitor.ALERT_STATUS_DELETE_FAIL, "")
-
+		return errors.Wrap(err, "customizeDeleteNotis")
 	}
-	return err
+	return alert.SAlert.CustomizeDelete(ctx, userCred, query, data)
 }
 
 func (alert *SCommonAlert) customizeDeleteNotis(
