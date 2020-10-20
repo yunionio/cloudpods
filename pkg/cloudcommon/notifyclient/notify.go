@@ -20,6 +20,7 @@ import (
 	"html/template"
 	"io/ioutil"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -36,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	npk "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -159,7 +161,16 @@ func RawNotify(recipientId []string, isGroup bool, channel npk.TNotifyChannel, p
 	rawNotify(context.Background(), recipientId, isGroup, channel, priority, event, data)
 }
 
-func rawNotify(ctx context.Context, recipientId []string, isGroup bool, channel npk.TNotifyChannel, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {
+// IntelliNotify try to create receiver nonexistent if createReceiver is set to true
+func IntelliNotify(ctx context.Context, recipientId []string, isGroup bool, channel npk.TNotifyChannel, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject, createReceiver bool) {
+	intelliNotify(ctx, recipientId, isGroup, channel, priority, event, data, createReceiver)
+}
+
+const noSuchReceiver = `no such receiver whose uid is '(.*)'`
+
+var noSuchReceiverRegexp = regexp.MustCompile(noSuchReceiver)
+
+func intelliNotify(ctx context.Context, recipientId []string, isGroup bool, channel npk.TNotifyChannel, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject, createReceiver bool) {
 	log.Infof("notify %s event %s priority %s", recipientId, event, priority)
 	msg := npk.SNotifyMessage{}
 	if isGroup {
@@ -182,11 +193,44 @@ func rawNotify(ctx context.Context, recipientId []string, isGroup bool, channel 
 	// log.Debugf("send notification %s %s", topic, body)
 	notifyClientWorkerMan.Run(func() {
 		s := auth.GetAdminSession(context.Background(), consts.GetRegion(), "")
-		err := npk.Notifications.Send(s, msg)
-		if err != nil {
-			log.Errorf("unable to send notification: %v", err)
+		for {
+			err := npk.Notifications.Send(s, msg)
+			if err == nil {
+				break
+			}
+			if !createReceiver {
+				log.Errorf("unable to send notification: %v", err)
+				break
+			}
+			jerr, ok := err.(*httputils.JSONClientError)
+			if !ok {
+				log.Errorf("unable to send notification: %v", err)
+				break
+			}
+			if jerr.Code > 500 {
+				log.Errorf("unable to send notification: %v", err)
+				break
+			}
+			match := noSuchReceiverRegexp.FindStringSubmatch(jerr.Details)
+			if match == nil || len(match) <= 1 {
+				log.Errorf("unable to send notification: %v", err)
+				break
+			}
+			receiverId := match[1]
+			createData := jsonutils.NewDict()
+			createData.Set("uid", jsonutils.NewString(receiverId))
+			_, err = modules.NotifyReceiver.Create(s, createData)
+			if err != nil {
+				log.Errorf("try to create receiver %q, but failed: %v", receiverId, err)
+				break
+			}
+			log.Infof("create receiver %q successfully", receiverId)
 		}
 	}, nil, nil)
+}
+
+func rawNotify(ctx context.Context, recipientId []string, isGroup bool, channel npk.TNotifyChannel, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {
+	intelliNotify(ctx, recipientId, isGroup, channel, priority, event, data, false)
 }
 
 func NotifyNormal(recipientId []string, isGroup bool, event string, data jsonutils.JSONObject) {
