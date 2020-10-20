@@ -63,6 +63,10 @@ var (
 		api.DINGTALK_ROBOT,
 		api.WORKWX_ROBOT,
 	}
+	AllOkContactTypes = append(AllRobotContactTypes,
+		api.WEBCONSOLE,
+		api.WEBHOOK,
+	)
 )
 
 type SReceiverManager struct {
@@ -264,18 +268,18 @@ func (rm *SReceiverManager) ValidateCreateData(ctx context.Context, userCred mcc
 	// hack
 	input.Name = input.UName
 	// validate email
-	if ok := regutils.MatchEmail(input.Email); !ok {
+	if ok := regutils.MatchEmail(input.Email); len(input.Email) > 0 && !ok {
 		return input, httperrors.NewInputParameterError("invalid email")
 	}
 	// validate mobile
-	if ok := regutils.MatchMobile(input.Mobile); !ok {
+	if ok := regutils.MatchMobile(input.Mobile); len(input.Mobile) > 0 && !ok {
 		return input, httperrors.NewInputParameterError("invalid mobile")
 	}
 	return input, nil
 }
 
 func (r *SReceiver) IsEnabledContactType(ct string) (bool, error) {
-	if utils.IsInStringArray(ct, AllRobotContactTypes) {
+	if utils.IsInStringArray(ct, AllOkContactTypes) {
 		return true, nil
 	}
 	if ct == api.WEBCONSOLE {
@@ -289,7 +293,7 @@ func (r *SReceiver) IsEnabledContactType(ct string) (bool, error) {
 }
 
 func (r *SReceiver) IsVerifiedContactType(ct string) (bool, error) {
-	if utils.IsInStringArray(ct, AllRobotContactTypes) {
+	if utils.IsInStringArray(ct, AllOkContactTypes) {
 		return true, nil
 	}
 	cts, err := r.GetVerifiedContactTypes()
