@@ -310,11 +310,11 @@ func (sp *SSnapshotPolicy) DetachAfterDelete(ctx context.Context, userCred mccli
 
 func (sp *SSnapshotPolicy) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	// check if sp bind to some disks
-	sds, err := SnapshotPolicyDiskManager.FetchAllBySnapshotpolicyID(ctx, userCred, sp.GetId())
+	count, err := SnapshotPolicyDiskManager.FetchDiskCountBySPID(sp.Id)
 	if err != nil {
-		return errors.Wrap(err, "fetch bind info failed")
+		return errors.Wrap(err, "unable to FetchDiskCountBySPID")
 	}
-	if len(sds) != 0 {
+	if count != 0 {
 		return httperrors.NewBadRequestError("Couldn't delete snapshot policy binding to disks")
 	}
 	sp.SetStatus(userCred, api.SNAPSHOT_POLICY_DELETING, "")
