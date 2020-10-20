@@ -17,6 +17,8 @@ package models
 import (
 	"context"
 	"fmt"
+	"sort"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -215,7 +217,10 @@ func (manager *SSnapshotPolicyManager) OnCreateComplete(ctx context.Context, ite
 	userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	for i := range items {
 		sp := items[i].(*SSnapshotPolicy)
-		sp.SetStatus(userCred, api.SNAPSHOT_POLICY_READY, "create complete")
+		db.Update(sp, func() error {
+			sp.Status = api.SNAPSHOT_POLICY_READY
+			return nil
+		})
 	}
 }
 
@@ -720,6 +725,53 @@ func (self *SSnapshotPolicyManager) TimePointsParseIntArray(nums []int) uint32 {
 
 func (self *SSnapshotPolicyManager) TimePointsToIntArray(n uint32) []int {
 	return bitmap.Uint2IntArray(n)
+}
+
+func (sp *SSnapshotPolicy) ComputeNextSyncTime(base, lastSyncTime time.Time) time.Time {
+	if base.IsZero() {
+		base = time.Now()
+	}
+	base = base.Truncate(time.Hour)
+
+	baseWeekday := int(base.Weekday())
+	if baseWeekday == 0 {
+		baseWeekday = 7
+	}
+	weekDays := SnapshotPolicyManager.RepeatWeekdaysToIntArray(sp.RepeatWeekdays)
+	weekDays = append(weekDays, weekDays[0]+7)
+	index := sort.SearchInts(weekDays, baseWeekday)
+	addDay := weekDays[index] - baseWeekday
+	nextTime := base.AddDate(0, 0, addDay)
+
+	// find timePoint closest to the base
+	timePoints := SnapshotPolicyManager.TimePointsToIntArray(sp.TimePoints)
+	var newHour int
+	if addDay > 0 {
+		newHour = timePoints[0]
+	} else {
+		baseHour := base.Hour()
+		index := sort.SearchInts(timePoints, baseHour)
+		index = index % len(timePoints)
+		if timePoints[index] == baseHour {
+			index = index + 1
+			newHour = timePoints[index]
+		} else {
+			newHour = timePoints[index]
+		}
+	}
+	nextTime = time.Date(nextTime.Year(), nextTime.Month(), nextTime.Day(), newHour, 0, 0, 0, base.Location())
+
+	if sp.RetentionDays <= 0 {
+		return nextTime
+	}
+	if lastSyncTime.IsZero() {
+		lastSyncTime = base
+	}
+	snapshotRentionExpired := lastSyncTime.AddDate(0, 0, sp.RetentionDays)
+	if snapshotRentionExpired.Before(nextTime) {
+		return snapshotRentionExpired
+	}
+	return nextTime
 }
 
 func (sp *SSnapshotPolicy) GenerateCreateSpParams() *cloudprovider.SnapshotPolicyInput {
