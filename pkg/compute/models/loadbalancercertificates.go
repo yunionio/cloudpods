@@ -151,7 +151,6 @@ func (manager *SLoadbalancerCertificateManager) FetchCustomizeColumns(
 func (lbcert *SLoadbalancerCertificate) ValidateDeleteCondition(ctx context.Context) error {
 	men := []db.IModelManager{
 		LoadbalancerListenerManager,
-		CachedLoadbalancerCertificateManager,
 	}
 	lbcertId := lbcert.Id
 	for _, man := range men {
@@ -169,6 +168,20 @@ func (lbcert *SLoadbalancerCertificate) ValidateDeleteCondition(ctx context.Cont
 				lbcertId, n, man.KeywordPlural())
 		}
 	}
+
+	// cache delete condition
+	caches, err := lbcert.GetCachedCerts()
+	if err != nil {
+		return errors.Wrap(err, "GetCachedCerts")
+	}
+
+	for i := range caches {
+		err := caches[i].ValidateDeleteCondition(ctx)
+		if err != nil {
+			return errors.Wrap(err, "ValidateDeleteCondition")
+		}
+	}
+
 	return nil
 }
 
@@ -182,6 +195,18 @@ func (lbcert *SLoadbalancerCertificate) PerformPurge(ctx context.Context, userCr
 
 func (lbcert *SLoadbalancerCertificate) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	if !lbcert.PendingDeleted {
+		caches, err := lbcert.GetCachedCerts()
+		if err != nil {
+			return errors.Wrap(err, "GetCachedCerts")
+		}
+
+		for i := range caches {
+			err := caches[i].MarkPendingDelete(userCred)
+			if err != nil {
+				return errors.Wrap(err, "MarkPendingDelete")
+			}
+		}
+
 		return lbcert.DoPendingDelete(ctx, userCred)
 	}
 
