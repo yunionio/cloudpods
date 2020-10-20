@@ -810,49 +810,6 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 		index   = 0
 		ctrlKey = 0
 	)
-	for _, disk := range disks {
-		imagePath := disk.ImagePath
-		var size = disk.Size
-		if len(imagePath) == 0 {
-			if size == 0 {
-				size = 30 * 1024
-			}
-		} else {
-			imagePath, err = self.FileUrlPathToDsPath(imagePath)
-			if err != nil {
-				return nil, errors.Wrapf(err, "SHost.FileUrlPathToDsPath")
-			}
-		}
-		uuid, driver := disk.DiskId, "scsi"
-		if len(disk.Driver) > 0 {
-			driver = disk.Driver
-		}
-		if driver == "scsi" || driver == "pvscsi" {
-			if self.isVersion50() {
-				driver = "scsi"
-			}
-			ctrlKey = 1000
-			index = scsiIdx
-			scsiIdx += 1
-			if scsiIdx == 7 {
-				scsiIdx++
-			}
-		} else {
-			ideno := ideIdx % 2
-			if ideno == 0 {
-				index = ideIdx/2 + ide1un
-			} else {
-				index = ideIdx/2 + ide2un
-			}
-			ctrlKey = 200 + ideno
-			ideIdx += 1
-		}
-		log.Debugf("size: %d, image path: %s, uuid: %s, index: %d, ctrlKey: %d, driver: %s.", size, imagePath, uuid,
-			index, ctrlKey, disk.Driver)
-		spec := addDevSpec(NewDiskDev(size, imagePath, uuid, int32(index), 2000, int32(ctrlKey), 0))
-		spec.FileOperation = "create"
-		deviceChange = append(deviceChange, spec)
-	}
 
 	// add usb to support mouse
 	usbController := addDevSpec(NewUSBController(nil))
@@ -906,8 +863,77 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 		return nil, errors.Wrap(err, "Task.WaitForResult")
 	}
 
+	deviceChange = make([]types.BaseVirtualDeviceConfigSpec, 0, 1)
+	// add disks
+	for _, disk := range disks {
+		imagePath := disk.ImagePath
+		var size = disk.Size
+		if len(imagePath) == 0 {
+			if size == 0 {
+				size = 30 * 1024
+			}
+		} else {
+			imagePath, err = self.FileUrlPathToDsPath(imagePath)
+			if err != nil {
+				return nil, errors.Wrapf(err, "SHost.FileUrlPathToDsPath")
+			}
+			newImagePath := fmt.Sprintf("[%s] %s/%s.vmdk", ds.GetRelName(), params.Uuid, params.Uuid)
+			fm := ds.getDatastoreObj().NewFileManager(dc.getObjectDatacenter(), true)
+			err := fm.Copy(ctx, imagePath, newImagePath)
+			if err != nil {
+				return nil, errors.Wrap(err, "unable to copy system disk")
+			}
+			imagePath = newImagePath
+		}
+		uuid, driver := disk.DiskId, "scsi"
+		if len(disk.Driver) > 0 {
+			driver = disk.Driver
+		}
+		if driver == "scsi" || driver == "pvscsi" {
+			if self.isVersion50() {
+				driver = "scsi"
+			}
+			ctrlKey = 1000
+			index = scsiIdx
+			scsiIdx += 1
+			if scsiIdx == 7 {
+				scsiIdx++
+			}
+		} else {
+			ideno := ideIdx % 2
+			if ideno == 0 {
+				index = ideIdx/2 + ide1un
+			} else {
+				index = ideIdx/2 + ide2un
+			}
+			ctrlKey = 200 + ideno
+			ideIdx += 1
+		}
+		log.Debugf("size: %d, image path: %s, uuid: %s, index: %d, ctrlKey: %d, driver: %s.", size, imagePath, uuid,
+			index, ctrlKey, disk.Driver)
+		spec := addDevSpec(NewDiskDev(size, imagePath, uuid, int32(index), 2000, int32(ctrlKey), 0))
+		if len(imagePath) == 0 {
+			spec.FileOperation = "create"
+		}
+		deviceChange = append(deviceChange, spec)
+	}
+
+	configSpec := types.VirtualMachineConfigSpec{}
+	configSpec.DeviceChange = deviceChange
+
+	vmRef := info.Result.(types.ManagedObjectReference)
+	objectVM := object.NewVirtualMachine(self.manager.client.Client, vmRef)
+	task, err = objectVM.Reconfigure(ctx, configSpec)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to reconfigure")
+	}
+	err = task.Wait(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "task.Wait")
+	}
+
 	var moVM mo.VirtualMachine
-	err = self.manager.reference2Object(info.Result.(types.ManagedObjectReference), VIRTUAL_MACHINE_PROPS, &moVM)
+	err = self.manager.reference2Object(vmRef, VIRTUAL_MACHINE_PROPS, &moVM)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to fetch virtual machine just created")
 	}
