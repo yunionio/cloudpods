@@ -40,6 +40,10 @@ func (drvF *nodeDriverF) IsEvalMatched(input monitor.EvalMatch) bool {
 	if !hasResType {
 		return false
 	}
+	_, hasHostType := tags[hostconsts.TELEGRAF_TAG_KEY_HOST_TYPE]
+	if !hasHostType {
+		return false
+	}
 	_, hasHost := tags[NODE_TAG_HOST_KEY]
 	if !hasHost {
 		return false
