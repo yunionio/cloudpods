@@ -191,10 +191,10 @@ func (self *SAliyunProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig
 	}, nil
 }
 
-func (self *SAliyunProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
+func (self *SAliyunProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) (map[string]string, error) {
 	return map[string]string{
-		"ALIYUN_ACCESS_KEY": account,
-		"ALIYUN_SECRET":     secret,
+		"ALIYUN_ACCESS_KEY": info.Account,
+		"ALIYUN_SECRET":     info.Secret,
 		"ALIYUN_REGION":     aliyun.ALIYUN_DEFAULT_REGION,
 	}, nil
 }

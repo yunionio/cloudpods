@@ -98,11 +98,11 @@ func (self *SUcloudProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig
 	}, nil
 }
 
-func (self *SUcloudProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
-	accessKey, projectId := parseAccount(account)
+func (self *SUcloudProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) (map[string]string, error) {
+	accessKey, projectId := parseAccount(info.Account)
 	return map[string]string{
 		"UCLOUD_ACCESS_KEY": accessKey,
-		"UCLOUD_SECRET":     secret,
+		"UCLOUD_SECRET":     info.Secret,
 		"UCLOUD_REGION":     ucloud.UCLOUD_DEFAULT_REGION,
 		"UCLOUD_PROJECT":    projectId,
 	}, nil

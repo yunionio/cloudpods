@@ -139,13 +139,18 @@ func (self *SHuaweiProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig
 	}, nil
 }
 
-func (self *SHuaweiProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
-	accessKey, projectId := parseAccount(account)
+func (self *SHuaweiProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) (map[string]string, error) {
+	accessKey, projectId := parseAccount(info.Account)
+	region := huawei.HUAWEI_DEFAULT_REGION
+	data := strings.Split(info.Name, "-")
+	if len(data) >= 3 {
+		region = strings.Join(data[2:], "-")
+	}
 	return map[string]string{
-		"HUAWEI_CLOUD_ENV":  url,
+		"HUAWEI_CLOUD_ENV":  info.Url,
 		"HUAWEI_ACCESS_KEY": accessKey,
-		"HUAWEI_SECRET":     secret,
-		"HUAWEI_REGION":     huawei.HUAWEI_DEFAULT_REGION,
+		"HUAWEI_SECRET":     info.Secret,
+		"HUAWEI_REGION":     region,
 		"HUAWEI_PROJECT":    projectId,
 	}, nil
 }

@@ -182,12 +182,12 @@ func (self *SAwsProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (
 	}, nil
 }
 
-func (self *SAwsProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
+func (self *SAwsProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) (map[string]string, error) {
 	return map[string]string{
-		"AWS_ACCESS_URL": url,
-		"AWS_ACCESS_KEY": account,
-		"AWS_SECRET":     secret,
-		"AWS_REGION":     aws.GetDefaultRegionId(url),
+		"AWS_ACCESS_URL": info.Url,
+		"AWS_ACCESS_KEY": info.Account,
+		"AWS_SECRET":     info.Secret,
+		"AWS_REGION":     aws.GetDefaultRegionId(info.Url),
 	}, nil
 }
 

@@ -227,17 +227,17 @@ func (self *SQcloudProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig
 	}, nil
 }
 
-func (self *SQcloudProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
-	secretId := account
+func (self *SQcloudProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) (map[string]string, error) {
+	secretId := info.Account
 	appId := ""
-	if tmp := strings.Split(account, "/"); len(tmp) == 2 {
+	if tmp := strings.Split(info.Account, "/"); len(tmp) == 2 {
 		secretId = tmp[0]
 		appId = tmp[1]
 	}
 	return map[string]string{
 		"QCLOUD_APPID":      appId,
 		"QCLOUD_SECRET_ID":  secretId,
-		"QCLOUD_SECRET_KEY": secret,
+		"QCLOUD_SECRET_KEY": info.Secret,
 		"QCLOUD_REGION":     qcloud.QCLOUD_DEFAULT_REGION,
 	}, nil
 }

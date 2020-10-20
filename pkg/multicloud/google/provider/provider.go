@@ -174,8 +174,8 @@ func parseAccount(account, secret string) (projectId string, clientEmail string,
 	return
 }
 
-func (self *SGoogleProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
-	projectId, clientEmail, privateKey, privateKeyId := parseAccount(account, secret)
+func (self *SGoogleProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) (map[string]string, error) {
+	projectId, clientEmail, privateKey, privateKeyId := parseAccount(info.Account, info.Secret)
 	return map[string]string{
 		"GOOGLE_CLIENT_EMAIL":   clientEmail,
 		"GOOGLE_PROJECT_ID":     projectId,

@@ -85,11 +85,11 @@ func (self *SObjectStoreProviderFactory) GetProvider(cfg cloudprovider.ProviderC
 	}), nil
 }
 
-func (self *SObjectStoreProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
+func (self *SObjectStoreProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) (map[string]string, error) {
 	return map[string]string{
-		"S3_ACCESS_KEY": account,
-		"S3_SECRET":     secret,
-		"S3_ACCESS_URL": url,
+		"S3_ACCESS_KEY": info.Account,
+		"S3_SECRET":     info.Secret,
+		"S3_ACCESS_URL": info.Url,
 		"S3_BACKEND":    api.CLOUD_PROVIDER_GENERICS3,
 	}, nil
 }

@@ -91,11 +91,11 @@ func (self *SZStackProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig
 	}, nil
 }
 
-func (self *SZStackProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
+func (self *SZStackProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) (map[string]string, error) {
 	return map[string]string{
-		"ZSTACK_AUTH_URL":  url,
-		"ZSTACK_USERNAME":  account,
-		"ZSTACK_PASSWORD":  secret,
+		"ZSTACK_AUTH_URL":  info.Url,
+		"ZSTACK_USERNAME":  info.Account,
+		"ZSTACK_PASSWORD":  info.Secret,
 		"ZSTACK_REGION_ID": zstack.ZSTACK_DEFAULT_REGION,
 	}, nil
 }
