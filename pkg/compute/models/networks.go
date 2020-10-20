@@ -119,6 +119,9 @@ type SNetwork struct {
 	// 该网段是否用于自动分配IP地址，如果为false，则用户需要明确选择该网段，才会使用该网段分配IP，
 	// 如果为true，则用户不指定网段时，则自动从该值为true的网络中选择一个分配地址
 	IsAutoAlloc tristate.TriState `nullable:"true" list:"user" get:"user" update:"user" create:"optional"`
+
+	// 线路类型
+	BgpType string `width:"64" charset:"utf8" nullable:"false" get:"user" update:"user" create:"optional"`
 }
 
 func (manager *SNetworkManager) GetContextManagers() [][]db.IModelManager {
@@ -1455,6 +1458,9 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 	}
 	if input.ServerType == api.NETWORK_TYPE_EIP && vpc.Id != api.DEFAULT_VPC_ID {
 		return input, httperrors.NewInputParameterError("eip network can only exist in default vpc, got %s(%s)", vpc.Name, vpc.Id)
+	}
+	if input.ServerType != api.NETWORK_TYPE_EIP {
+		input.BgpType = ""
 	}
 
 	var (
@@ -2870,4 +2876,48 @@ func (manager *SNetworkManager) AllowScope(userCred mcclient.TokenCredential) rb
 			return rbacutils.ScopeProject
 		}
 	}
+}
+
+func (self *SNetwork) AllowPerformSetBgpType(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "set-isp")
+}
+
+func (self *SNetwork) PerformSetBgpType(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.NetworkSetBgpTypeInput) (jsonutils.JSONObject, error) {
+	if self.BgpType == input.BgpType {
+		return nil, nil
+	}
+	if self.ServerType != api.NETWORK_TYPE_EIP {
+		return nil, httperrors.NewInputParameterError("BgpType attribute is only useful for eip network")
+	}
+	{
+		var eips []SElasticip
+		q := ElasticipManager.Query().
+			Equals("network_id", self.Id).
+			NotEquals("bgp_type", input.BgpType)
+		if err := db.FetchModelObjects(ElasticipManager, q, &eips); err != nil {
+			return nil, err
+		}
+		for i := range eips {
+			eip := &eips[i]
+			if diff, err := db.UpdateWithLock(ctx, eip, func() error {
+				eip.BgpType = input.BgpType
+				return nil
+			}); err != nil {
+				// no need to retry/restore here.  return error
+				// and retry after user resolves the error
+				return nil, err
+			} else {
+				db.OpsLog.LogEvent(eip, db.ACT_UPDATE, diff, userCred)
+			}
+		}
+	}
+	if diff, err := db.Update(self, func() error {
+		self.BgpType = input.BgpType
+		return nil
+	}); err != nil {
+		return nil, err
+	} else {
+		db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
+	}
+	return nil, nil
 }

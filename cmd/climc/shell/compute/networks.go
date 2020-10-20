@@ -69,6 +69,7 @@ func init() {
 		AllocPolicy string `help:"Address allocation policy" choices:"none|stepdown|stepup|random"`
 		ServerType  string `help:"Server type" choices:"baremetal|container|eip|guest|ipmi|pxe"`
 		IsAutoAlloc *bool  `help:"Auto allocation IP pool"`
+		BgpType     string `help:"Internet service provider name" positional:"false"`
 		Desc        string `help:"Description" metavar:"DESCRIPTION"`
 	}
 	R(&NetworkCreateOptions{}, "network-create", "Create a virtual network", func(s *mcclient.ClientSession, args *NetworkCreateOptions) error {
@@ -95,6 +96,9 @@ func init() {
 		if len(args.Desc) > 0 {
 			params.Add(jsonutils.NewString(args.Desc), "description")
 		}
+		if len(args.BgpType) > 0 {
+			params.Add(jsonutils.NewString(args.BgpType), "bgp_type")
+		}
 		if args.IsAutoAlloc != nil {
 			params.Add(jsonutils.NewBool(*args.IsAutoAlloc), "is_auto_alloc")
 		}
@@ -107,17 +111,21 @@ func init() {
 	})
 
 	type NetworkCreateOptions2 struct {
-		Wire   string `help:"ID or Name of wire in which the network is created"`
-		Vpc    string `help:"ID or Name of vpc in which the network is created"`
-		Zone   string `help:"ID or Name of zone in which the network is created"`
-		NAME   string `help:"Name of new network"`
-		PREFIX string `help:"Start of IPv4 address range"`
-		Desc   string `help:"Description" metavar:"DESCRIPTION"`
+		Wire    string `help:"ID or Name of wire in which the network is created"`
+		Vpc     string `help:"ID or Name of vpc in which the network is created"`
+		Zone    string `help:"ID or Name of zone in which the network is created"`
+		NAME    string `help:"Name of new network"`
+		PREFIX  string `help:"Start of IPv4 address range"`
+		BgpType string `help:"Internet service provider name" positional:"false"`
+		Desc    string `help:"Description" metavar:"DESCRIPTION"`
 	}
 	R(&NetworkCreateOptions2{}, "network-create2", "Create a virtual network", func(s *mcclient.ClientSession, args *NetworkCreateOptions2) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.NAME), "name")
 		params.Add(jsonutils.NewString(args.PREFIX), "guest_ip_prefix")
+		if len(args.BgpType) > 0 {
+			params.Add(jsonutils.NewString(args.BgpType), "bgp_type")
+		}
 		if len(args.Desc) > 0 {
 			params.Add(jsonutils.NewString(args.Desc), "description")
 		}
@@ -247,6 +255,22 @@ func init() {
 			return err
 		}
 		net, err := modules.Networks.PerformAction(s, args.ID, "change-owner", params)
+		if err != nil {
+			return err
+		}
+		printObject(net)
+		return nil
+	})
+	type NetworkSetBgpTypeOptions struct {
+		ID      string  `help:"Network to set BgpType" json:"-"`
+		BgpType *string `help:"new BgpType name"`
+	}
+	R(&NetworkSetBgpTypeOptions{}, "network-set-bgp-type", "Set BgpType of a network", func(s *mcclient.ClientSession, args *NetworkSetBgpTypeOptions) error {
+		params, err := options.StructToParams(args)
+		if err != nil {
+			return err
+		}
+		net, err := modules.Networks.PerformAction(s, args.ID, "set-bgp-type", params)
 		if err != nil {
 			return err
 		}

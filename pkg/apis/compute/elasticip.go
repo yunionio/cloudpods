@@ -67,6 +67,9 @@ type SElasticipCreateInput struct {
 	// 子网Id
 	// 私有云创建此参数必传,例如Openstack, ZStack
 	NetworkId string `json:"network_id"`
+
+	// description: BgpType for the new eip
+	BgpType string `json:"bgp_type"`
 }
 
 type ElasticipDetails struct {
