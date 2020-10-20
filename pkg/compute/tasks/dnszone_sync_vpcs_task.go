@@ -146,5 +146,14 @@ func (self *DnsZoneSyncVpcsTask) OnInit(ctx context.Context, obj db.IStandaloneM
 		}
 	}
 
+	self.SetStage("OnSyncRecordSetComplete", nil)
+	dnsZone.StartDnsZoneSyncRecordSetsTask(ctx, self.GetUserCred(), self.GetTaskId())
+}
+
+func (self *DnsZoneSyncVpcsTask) OnSyncRecordSetComplete(ctx context.Context, dnsZone *models.SDnsZone, data jsonutils.JSONObject) {
 	self.taskComplete(ctx, dnsZone)
+}
+
+func (self *DnsZoneSyncVpcsTask) OnSyncRecordSetCompleteFailed(ctx context.Context, cache *models.SDnsZoneCache, data jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, data)
 }
