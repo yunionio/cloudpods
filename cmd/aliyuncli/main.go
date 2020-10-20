@@ -28,6 +28,7 @@ import (
 type BaseOptions struct {
 	Debug      bool   `help:"debug mode"`
 	Help       bool   `help:"Show help"`
+	CloudEnv   string `help:"Cloud environment" default:"$ALIYUN_CLOUD_ENV" choices:"InternationalCloud|FinanceCloud" metavar:"ALIYUN_CLOUD_ENV"`
 	AccessKey  string `help:"Access key" default:"$ALIYUN_ACCESS_KEY" metavar:"ALIYUN_ACCESS_KEY"`
 	Secret     string `help:"Secret" default:"$ALIYUN_SECRET" metavar:"ALIYUN_SECRET"`
 	RegionId   string `help:"RegionId" default:"$ALIYUN_REGION" metavar:"ALIYUN_REGION"`
@@ -86,7 +87,9 @@ func newClient(options *BaseOptions) (*aliyun.SRegion, error) {
 
 	cli, err := aliyun.NewAliyunClient(
 		aliyun.NewAliyunClientConfig(
-			options.AccessKey, options.Secret,
+			options.CloudEnv,
+			options.AccessKey,
+			options.Secret,
 		).Debug(options.Debug),
 	)
 	if err != nil {

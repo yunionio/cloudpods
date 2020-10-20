@@ -153,6 +153,7 @@ func (self *SAliyunProviderFactory) ValidateCreateCloudaccountData(ctx context.C
 	if len(input.AccessKeySecret) == 0 {
 		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_secret")
 	}
+	output.AccessUrl = input.Environment
 	output.Account = input.AccessKeyId
 	output.Secret = input.AccessKeySecret
 	return output, nil
@@ -176,6 +177,7 @@ func (self *SAliyunProviderFactory) ValidateUpdateCloudaccountCredential(ctx con
 func (self *SAliyunProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
 	client, err := aliyun.NewAliyunClient(
 		aliyun.NewAliyunClientConfig(
+			cfg.URL,
 			cfg.Account,
 			cfg.Secret,
 		).CloudproviderConfig(cfg),
