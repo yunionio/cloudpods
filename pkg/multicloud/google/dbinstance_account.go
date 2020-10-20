@@ -21,8 +21,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SSqlserverUserDetails struct {
@@ -30,6 +30,7 @@ type SSqlserverUserDetails struct {
 }
 
 type SDBInstanceAccount struct {
+	multicloud.SDBInstanceAccountBase
 	rds *SDBInstance
 
 	Kind                 string
@@ -71,28 +72,12 @@ func (account *SDBInstanceAccount) Delete() error {
 	return account.rds.region.DeleteDBInstanceAccount(account.rds.Name, account.Name, account.Host)
 }
 
-func (account *SDBInstanceAccount) GetGlobalId() string {
-	return account.Name
-}
-
-func (account *SDBInstanceAccount) GetId() string {
-	return account.SelfLink
-}
-
-func (account *SDBInstanceAccount) GetMetadata() *jsonutils.JSONDict {
-	return nil
+func (account *SDBInstanceAccount) GetHost() string {
+	return account.Host
 }
 
 func (account *SDBInstanceAccount) GetName() string {
 	return account.Name
-}
-
-func (account *SDBInstanceAccount) GetStatus() string {
-	return api.DBINSTANCE_USER_AVAILABLE
-}
-
-func (account *SDBInstanceAccount) IsEmulated() bool {
-	return false
 }
 
 func (account *SDBInstanceAccount) Refresh() error {

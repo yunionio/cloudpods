@@ -1624,7 +1624,6 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 			Description:   dbinstance.Description,
 			StorageType:   dbinstance.StorageType,
 			DiskSizeGB:    dbinstance.DiskSizeGB,
-			InstanceType:  dbinstance.InstanceType,
 			VcpuCount:     dbinstance.VcpuCount,
 			VmemSizeMb:    dbinstance.VmemSizeMb,
 			VpcId:         vpc.ExternalId,
@@ -1641,12 +1640,6 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 		desc.ProjectId, err = _cloudprovider.SyncProject(ctx, userCred, dbinstance.ProjectId)
 		if err != nil {
 			log.Errorf("failed to sync project %s for create %s rds %s error: %v", dbinstance.ProjectId, _cloudprovider.Provider, dbinstance.Name, err)
-		}
-
-		if len(dbinstance.InstanceType) > 0 {
-			desc.ZoneIds, _ = dbinstance.GetAvailableZoneIds()
-		} else {
-			desc.InstanceTypes, _ = dbinstance.GetAvailableInstanceTypes()
 		}
 
 		region := dbinstance.GetRegion()
@@ -1687,49 +1680,46 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 			desc.MasterInstanceId = master.ExternalId
 		}
 
-		log.Debugf("create dbinstance params: %s", jsonutils.Marshal(desc).String())
-
-		idbinstance, err := iregion.CreateIDBInstance(&desc)
-		if idbinstance != nil { //避免创建失败后,删除本地的未能同步删除云上失败的RDS
-			db.SetExternalId(dbinstance, userCred, idbinstance.GetGlobalId())
-		}
+		instanceTypes, err := dbinstance.GetAvailableInstanceTypes()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "GetAvailableInstanceTypes")
+		}
+		if len(instanceTypes) == 0 {
+			return nil, fmt.Errorf("no avaiable sku for create")
 		}
 
-		err = cloudprovider.WaitStatus(idbinstance, api.DBINSTANCE_RUNNING, time.Second*5, time.Hour*1)
+		var createFunc = func() (cloudprovider.ICloudDBInstance, error) {
+			errMsgs := []string{}
+			for i := range instanceTypes {
+				desc.SInstanceType = instanceTypes[i]
+				log.Debugf("create dbinstance params: %s", jsonutils.Marshal(desc).String())
+
+				iRds, err := iregion.CreateIDBInstance(&desc)
+				if err != nil {
+					errMsgs = append(errMsgs, err.Error())
+					continue
+				}
+				return iRds, nil
+			}
+			if len(errMsgs) > 0 {
+				return nil, fmt.Errorf(strings.Join(errMsgs, "\n"))
+			}
+			return nil, fmt.Errorf("no avaiable skus %s(%dC%d) for create", dbinstance.InstanceType, desc.VcpuCount, desc.VmemSizeMb)
+		}
+
+		iRds, err := createFunc()
+		if err != nil {
+			return nil, errors.Wrapf(err, "create")
+		}
+
+		err = cloudprovider.WaitStatus(iRds, api.DBINSTANCE_RUNNING, time.Second*5, time.Hour*1)
 		if err != nil {
 			log.Errorf("timeout for waiting dbinstance running error: %v", err)
 		}
 
-		dbinstance.SyncWithCloudDBInstance(ctx, userCred, dbinstance.GetCloudprovider(), idbinstance)
-
-		network, err := idbinstance.GetDBNetwork()
+		err = dbinstance.SyncAllWithCloudDBInstance(ctx, userCred, dbinstance.GetCloudprovider(), iRds)
 		if err != nil {
-			log.Errorf("failed to get get network for dbinstance %s(%s) error: %v", dbinstance.Name, dbinstance.Id, err)
-		} else {
-			models.DBInstanceNetworkManager.SyncDBInstanceNetwork(ctx, userCred, dbinstance, network)
-		}
-
-		parameters, err := idbinstance.GetIDBInstanceParameters()
-		if err != nil {
-			log.Errorf("failed to get parameters for dbinstance %s(%s) error: %v", dbinstance.Name, dbinstance.Id, err)
-		} else {
-			models.DBInstanceParameterManager.SyncDBInstanceParameters(ctx, userCred, dbinstance, parameters)
-		}
-
-		backups, err := idbinstance.GetIDBInstanceBackups()
-		if err != nil {
-			log.Errorf("failed to get backups for dbinstance %s(%s) error: %v", dbinstance.Name, dbinstance.Id, err)
-		} else {
-			models.DBInstanceBackupManager.SyncDBInstanceBackups(ctx, userCred, dbinstance.GetCloudprovider(), dbinstance, dbinstance.GetRegion(), backups)
-		}
-
-		databases, err := idbinstance.GetIDBInstanceDatabases()
-		if err != nil {
-			log.Errorf("failed to get databases for databases %s(%s) error: %v", dbinstance.Name, dbinstance.Id, err)
-		} else {
-			models.DBInstanceDatabaseManager.SyncDBInstanceDatabases(ctx, userCred, dbinstance, databases)
+			log.Errorf("SyncAllWithCloudDBInstance error: %v", err)
 		}
 
 		return nil, nil
@@ -2237,37 +2227,36 @@ func (self *SManagedVirtualizationRegionDriver) RequestChangeDBInstanceConfig(ct
 			instance.StorageType = input.StorageType
 		}
 
-		conf := &cloudprovider.SManagedDBInstanceChangeConfig{
+		conf := cloudprovider.SManagedDBInstanceChangeConfig{
 			DiskSizeGB:  input.DiskSizeGB,
 			StorageType: instance.StorageType,
 		}
 
-		instanceTypes := []string{}
+		opts := []cloudprovider.SManagedDBInstanceChangeConfig{}
 
-		if len(input.InstanceType) > 0 {
-			conf.InstanceType = input.InstanceType
-		} else if input.VCpuCount == 0 && input.VmemSizeMb == 0 {
-			conf.InstanceType = instance.InstanceType
-		} else {
-			instance.InstanceType = ""
+		if len(input.InstanceType) > 0 || input.VCpuCount > 0 || input.VmemSizeMb > 0 {
+			instance.InstanceType = input.InstanceType
 			if input.VCpuCount > 0 {
 				instance.VcpuCount = input.VCpuCount
 			}
 			if input.VmemSizeMb > 0 {
 				instance.VmemSizeMb = input.VmemSizeMb
 			}
-
 			skus, err := instance.GetDBInstanceSkus()
 			if err != nil {
 				return nil, errors.Wrap(err, "instance.GetDBInstanceSkus")
 			}
-			for _, sku := range skus {
-				instanceTypes = append(instanceTypes, sku.Name)
+			for i := range skus {
+				conf.InstanceType = skus[i].Name
+				conf.VcpuCount = skus[i].VcpuCount
+				conf.VmemSizeMb = skus[i].VmemSizeMb
+				opts = append(opts, conf)
 			}
-		}
-
-		if len(conf.InstanceType) == 0 && len(instanceTypes) == 0 {
-			return nil, fmt.Errorf("No available dbinstance sku for change config")
+		} else {
+			conf.InstanceType = instance.InstanceType
+			conf.VcpuCount = instance.VcpuCount
+			conf.VmemSizeMb = instance.VmemSizeMb
+			opts = append(opts, conf)
 		}
 
 		iRds, err := instance.GetIDBInstance()
@@ -2275,29 +2264,38 @@ func (self *SManagedVirtualizationRegionDriver) RequestChangeDBInstanceConfig(ct
 			return nil, errors.Wrap(err, "instance.GetIDBInstance")
 		}
 
-		log.Infof("change config: %s", jsonutils.Marshal(conf).String())
-
-		if len(conf.InstanceType) > 0 {
-			err = iRds.ChangeConfig(ctx, conf)
-			if err != nil {
-				return nil, errors.Wrapf(err, "iRds.ChangeConfig(%s)", conf.InstanceType)
-			}
-		} else {
-			for _, instanceType := range instanceTypes {
-				conf.InstanceType = instanceType
-				log.Infof("try change instance type to %s", instance.InstanceType)
-				err = iRds.ChangeConfig(ctx, conf)
+		var changeConfig = func() error {
+			errMsgs := []string{}
+			for i := range opts {
+				log.Infof("change config: %s", jsonutils.Marshal(opts[i]).String())
+				err = iRds.ChangeConfig(ctx, &opts[i])
 				if err != nil {
-					log.Warningf("change failed: %v try another", err)
+					errMsgs = append(errMsgs, err.Error())
+					continue
 				}
+				return nil
 			}
-			return nil, fmt.Errorf("no available dbinstance sku to change")
+			if len(errMsgs) > 0 {
+				return fmt.Errorf(strings.Join(errMsgs, "\n"))
+			}
+			return fmt.Errorf("no available dbinstance sku to change")
+		}
+
+		err = changeConfig()
+		if err != nil {
+			return nil, err
 		}
 
 		err = cloudprovider.WaitStatus(iRds, api.DBINSTANCE_RUNNING, time.Second*10, time.Minute*40)
 		if err != nil {
-			log.Errorf("failed to wait rds %s(%s) status running", instance.Name, instance.Id)
+			return nil, errors.Wrapf(err, "cloudprovider.WaitStatus")
 		}
+
+		err = iRds.Refresh()
+		if err != nil {
+			return nil, errors.Wrapf(err, "iRds.Refresh")
+		}
+
 		_, err = db.Update(instance, func() error {
 			instance.InstanceType = iRds.GetInstanceType()
 			instance.Category = iRds.GetCategory()
@@ -2322,11 +2320,6 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstanceBackup(ct
 			return nil, errors.Wrap(err, "instance.GetIDBInstance")
 		}
 
-		iRegion, err := backup.GetIRegion()
-		if err != nil {
-			return nil, errors.Wrap(err, "backup.GetIRegion")
-		}
-
 		desc := &cloudprovider.SDBInstanceBackupCreateConfig{
 			Name: backup.Name,
 		}
@@ -2340,11 +2333,14 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstanceBackup(ct
 			return nil, errors.Wrap(err, "iRds.CreateBackup")
 		}
 
-		db.SetExternalId(backup, userCred, backupId)
-
-		iBackup, err := iRegion.GetIDBInstanceBackupById(backupId)
+		err = db.SetExternalId(backup, userCred, backupId)
 		if err != nil {
-			return nil, errors.Wrapf(err, "iRegion.GetIDBInstanceBackupById(%s)", backupId)
+			return nil, errors.Wrapf(err, "db.SetExternalId")
+		}
+
+		iBackup, err := backup.GetIDBInstanceBackup()
+		if err != nil {
+			return nil, errors.Wrapf(err, "backup.GetIDBInstanceBackup")
 		}
 
 		_, err = db.Update(backup, func() error {

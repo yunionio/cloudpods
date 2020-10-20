@@ -469,17 +469,7 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 				"replication_mode": "sync",
 			}
 		}
-		if len(desc.ZoneIds) == 0 {
-			for _, masterZoneId := range zoneIds {
-				for _, slaveZoneId := range zoneIds {
-					desc.ZoneIds = append(desc.ZoneIds, fmt.Sprintf("%s,%s", masterZoneId, slaveZoneId))
-				}
-			}
-		}
 	case api.HUAWEI_DBINSTANCE_CATEGORY_SINGLE:
-		if len(desc.ZoneIds) == 0 {
-			desc.ZoneIds = zoneIds
-		}
 	case api.HUAWEI_DBINSTANCE_CATEGORY_REPLICA:
 	}
 
@@ -497,42 +487,11 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 			"is_auto_renew": false,
 		}
 	}
-	var resp jsonutils.JSONObject = nil
-
-	if len(desc.InstanceType) > 0 {
-		params["flavor_ref"] = desc.InstanceType
-		for _, zoneId := range desc.ZoneIds {
-			params["availability_zone"] = zoneId
-			resp, err = region.ecsClient.DBInstance.Create(jsonutils.Marshal(params))
-			if err == nil {
-				break
-			}
-		}
-		if err != nil {
-			log.Debugf("params: %s", jsonutils.Marshal(params).PrettyString())
-			return nil, errors.Wrap(err, "DBInstance.Create")
-		}
-	} else {
-		for _, spec := range desc.InstanceTypes {
-			params["flavor_ref"] = spec.InstanceType
-			for _, zoneId := range spec.ZoneIds {
-				params["availability_zone"] = zoneId
-				resp, err = region.ecsClient.DBInstance.Create(jsonutils.Marshal(params))
-				if err == nil {
-					break
-				}
-			}
-			if err == nil {
-				break
-			}
-		}
-		if err != nil {
-			log.Debugf("params: %s", jsonutils.Marshal(params).PrettyString())
-			return nil, errors.Wrap(err, "region.ecsClient.DBInstance.Create")
-		}
-		if resp == nil {
-			return nil, fmt.Errorf("dbinstance type %dC%dMB not avaiable", desc.VcpuCount, desc.VmemSizeMb)
-		}
+	params["flavor_ref"] = desc.InstanceType
+	params["availability_zone"] = desc.ZoneId
+	resp, err := region.ecsClient.DBInstance.Create(jsonutils.Marshal(params))
+	if err != nil {
+		return nil, errors.Wrapf(err, "Create")
 	}
 
 	instance := &SDBInstance{region: region}

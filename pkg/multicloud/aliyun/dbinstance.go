@@ -604,17 +604,18 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 		"RegionId":              region.RegionId,
 		"Engine":                desc.Engine,
 		"EngineVersion":         desc.EngineVersion,
-		"DBInstanceClass":       desc.InstanceType,
 		"DBInstanceStorage":     fmt.Sprintf("%d", desc.DiskSizeGB),
 		"DBInstanceNetType":     "Intranet",
 		"PayType":               "Postpaid",
 		"SecurityIPList":        "0.0.0.0/0",
 		"DBInstanceDescription": desc.Name,
-		"ClientToken":           utils.GenRequestId(20),
 		"InstanceNetworkType":   "VPC",
 		"VPCId":                 desc.VpcId,
 		"VSwitchId":             desc.NetworkId,
 		"DBInstanceStorageType": desc.StorageType,
+		"DBInstanceClass":       desc.InstanceType,
+		"ZoneId":                desc.ZoneId,
+		"ClientToken":           utils.GenRequestId(20),
 	}
 	switch desc.Category {
 	case api.ALIYUN_DBINSTANCE_CATEGORY_HA:
@@ -651,43 +652,9 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 		params["DBInstanceId"] = desc.MasterInstanceId
 	}
 
-	var err error
-	var resp jsonutils.JSONObject
-	if len(desc.InstanceType) > 0 {
-		params["DBInstanceClass"] = desc.InstanceType
-		for _, zoneId := range desc.ZoneIds {
-			params["ZoneId"] = zoneId
-			resp, err = region.rdsRequest(action, params)
-			if err == nil {
-				break
-			}
-		}
-		if len(desc.ZoneIds) == 0 {
-			resp, err = region.rdsRequest(action, params)
-		}
-		if err != nil {
-			return nil, errors.Wrapf(err, "region.rdsRequest.%s", action)
-		}
-	} else {
-		for _, spec := range desc.InstanceTypes {
-			params["DBInstanceClass"] = spec.InstanceType
-			for _, zoneId := range spec.ZoneIds {
-				params["ZoneId"] = zoneId
-				resp, err = region.rdsRequest(action, params)
-				if err == nil {
-					break
-				}
-			}
-			if err == nil {
-				break
-			}
-		}
-		if err != nil {
-			return nil, errors.Wrapf(err, "region.rdsRequest.%s", action)
-		}
-		if resp == nil {
-			return nil, fmt.Errorf("dbinstance type %dC%dMB not avaiable", desc.VcpuCount, desc.VmemSizeMb)
-		}
+	resp, err := region.rdsRequest(action, params)
+	if err != nil {
+		return nil, errors.Wrapf(err, "rdsRequest")
 	}
 	instanceId, err := resp.GetString("DBInstanceId")
 	if err != nil {

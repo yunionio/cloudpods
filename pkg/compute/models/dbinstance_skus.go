@@ -30,6 +30,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -627,4 +628,28 @@ func (manager *SDBInstanceSkuManager) ListItemExportKeys(ctx context.Context,
 	}
 
 	return q, nil
+}
+
+func (self *SDBInstanceSku) GetZoneInfo() (cloudprovider.SZoneInfo, error) {
+	zoneInfo := cloudprovider.SZoneInfo{ZoneId: self.ZoneId}
+	region := self.GetRegion()
+	if region == nil {
+		return zoneInfo, fmt.Errorf("empyt region for rds sku %s(%s)", self.Name, self.Id)
+	}
+	var cloudZoneId = func(id string) (string, error) {
+		if len(id) == 0 {
+			return "", nil
+		}
+		_zone, err := ZoneManager.FetchById(id)
+		if err != nil {
+			log.Errorf("ZoneManager.FetchById(%s) error: %v", id, err)
+			return "", errors.Wrapf(err, "ZoneManager.FetchById(%s)", id)
+		}
+		zone := _zone.(*SZone)
+		return strings.TrimPrefix(zone.ExternalId, region.ExternalId+"/"), nil
+	}
+	zoneInfo.Zone1, _ = cloudZoneId(self.Zone1)
+	zoneInfo.Zone2, _ = cloudZoneId(self.Zone2)
+	zoneInfo.Zone3, _ = cloudZoneId(self.Zone3)
+	return zoneInfo, nil
 }

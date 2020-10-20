@@ -26,19 +26,24 @@ type SExtraIp struct {
 	URL string
 }
 
+type SZoneInfo struct {
+	Zone1  string
+	Zone2  string
+	Zone3  string
+	ZoneId string
+}
+
 type SInstanceType struct {
 	InstanceType string
-	ZoneIds      []string
+	SZoneInfo
 }
 
 type SManagedDBInstanceCreateConfig struct {
+	Name        string
+	Description string
+	StorageType string
+	DiskSizeGB  int
 	SInstanceType
-	Name             string
-	Description      string
-	StorageType      string
-	DiskSizeGB       int
-	InstanceType     string
-	InstanceTypes    []SInstanceType
 	VcpuCount        int
 	VmemSizeMb       int
 	VpcId            string
@@ -61,6 +66,8 @@ type SManagedDBInstanceChangeConfig struct {
 	DiskSizeGB   int
 	StorageType  string
 	InstanceType string
+	VcpuCount    int
+	VmemSizeMb   int
 }
 
 type SDBInstanceDatabaseCreateConfig struct {
@@ -77,6 +84,7 @@ type SDBInstancePrivilege struct {
 
 type SDBInstanceAccountCreateConfig struct {
 	Name        string
+	Host        string
 	Description string
 	Password    string
 }

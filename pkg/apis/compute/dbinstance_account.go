@@ -48,6 +48,7 @@ type DBInstanceAccountCreateInput struct {
 	// | ----		|-------					|
 	// | Aliyun		|MySQL, MariaBD, SQLServer	|
 	// | 华为云		|MySQL, MariaBD				|
+	// | 腾讯云		|MySQL      				|
 	// required: true
 	// 阿里云SQL Server 2017集群版不支持创建账号
 	// 实例状态必须是运行中

@@ -674,6 +674,26 @@ func (self *SRegion) lbRequest(apiName string, params map[string]string) (jsonut
 	return self.client.lbRequest(apiName, params)
 }
 
+func (self *SRegion) cdbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	params["Region"] = self.Region
+	return self.client.cdbRequest(apiName, params)
+}
+
+func (self *SRegion) mariadbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	params["Region"] = self.Region
+	return self.client.mariadbRequest(apiName, params)
+}
+
+func (self *SRegion) postgresRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	params["Region"] = self.Region
+	return self.client.postgresRequest(apiName, params)
+}
+
+func (self *SRegion) sqlserverRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	params["Region"] = self.Region
+	return self.client.sqlserverRequest(apiName, params)
+}
+
 func (self *SRegion) wssRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	return self.client.wssRequest(apiName, params)
 }

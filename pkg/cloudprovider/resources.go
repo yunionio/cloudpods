@@ -835,7 +835,9 @@ type ICloudDBInstanceDatabase interface {
 }
 
 type ICloudDBInstanceAccount interface {
-	ICloudResource
+	GetName() string
+	GetStatus() string
+	GetHost() string
 
 	GetIDBInstanceAccountPrivileges() ([]ICloudDBInstanceAccountPrivilege, error)
 

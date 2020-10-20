@@ -111,7 +111,7 @@ type SDBInstance struct {
 	EngineVersion string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	// 套餐名称
 	// example: mysql.x4.large.2c
-	InstanceType string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	InstanceType string `width:"64" charset:"utf8" nullable:"true" list:"user" create:"optional"`
 
 	// 维护时间
 	MaintainTime string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"optional"`
@@ -666,7 +666,11 @@ func (self *SDBInstance) GetIDBInstance() (cloudprovider.ICloudDBInstance, error
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetIRegion")
 	}
-	return iregion.GetIDBInstanceById(self.ExternalId)
+	iRds, err := iregion.GetIDBInstanceById(self.ExternalId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetIDBInstanceById(%s)", self.ExternalId)
+	}
+	return iRds, nil
 }
 
 func (self *SDBInstance) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeProjectOwnerInput) (jsonutils.JSONObject, error) {
@@ -1413,26 +1417,19 @@ func (self *SDBInstance) GetAvailableZoneIds() ([]string, error) {
 }
 
 func (self *SDBInstance) GetAvailableInstanceTypes() ([]cloudprovider.SInstanceType, error) {
-	instanceTypes := map[string]cloudprovider.SInstanceType{}
+	instanceTypes := []cloudprovider.SInstanceType{}
 	skus, err := self.GetAvailableDBInstanceSkus()
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetAvailableDBInstanceSkus")
 	}
 
 	for _, sku := range skus {
-		if instanceType, ok := instanceTypes[sku.Name]; !ok {
-			instanceTypes[sku.Name] = cloudprovider.SInstanceType{InstanceType: sku.Name, ZoneIds: []string{sku.ZoneId}}
-		} else if !utils.IsInStringArray(sku.ZoneId, instanceType.ZoneIds) {
-			instanceType.ZoneIds = append(instanceType.ZoneIds, sku.ZoneId)
-		}
+		instanceType := cloudprovider.SInstanceType{}
+		instanceType.InstanceType = sku.Name
+		instanceType.SZoneInfo, _ = sku.GetZoneInfo()
+		instanceTypes = append(instanceTypes, instanceType)
 	}
-
-	result := []cloudprovider.SInstanceType{}
-	for _, instanceType := range instanceTypes {
-		result = append(result, instanceType)
-	}
-
-	return result, nil
+	return instanceTypes, nil
 }
 
 func (self *SDBInstance) setZoneInfo() error {
@@ -1491,8 +1488,18 @@ func (self *SDBInstance) SetZoneIds(extInstance cloudprovider.ICloudDBInstance) 
 	}
 }
 
+func (self *SDBInstance) SyncAllWithCloudDBInstance(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extInstance cloudprovider.ICloudDBInstance) error {
+	err := self.SyncWithCloudDBInstance(ctx, userCred, provider, extInstance)
+	if err != nil {
+		return errors.Wrapf(err, "SyncWithCloudDBInstance")
+	}
+	syncDBInstanceResource(ctx, userCred, SSyncResultSet{}, self, extInstance)
+	return nil
+}
+
 func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extInstance cloudprovider.ICloudDBInstance) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
+		self.ExternalId = extInstance.GetGlobalId()
 		self.Engine = extInstance.GetEngine()
 		self.EngineVersion = extInstance.GetEngineVersion()
 		self.InstanceType = extInstance.GetInstanceType()

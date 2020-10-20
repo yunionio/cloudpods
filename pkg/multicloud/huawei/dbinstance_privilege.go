@@ -28,7 +28,7 @@ type SDatabasePrivilege struct {
 }
 
 func (privilege *SDatabasePrivilege) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s", privilege.account.GetGlobalId(), privilege.Name)
+	return fmt.Sprintf("%s/%s", privilege.account.Name, privilege.Name)
 }
 
 func (privilege *SDatabasePrivilege) GetPrivilege() string {

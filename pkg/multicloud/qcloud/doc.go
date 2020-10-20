@@ -41,6 +41,22 @@ clb.tencentcloudapi.com
 clb.ap-shanghai-fsi.tencentcloudapi.com
 clb.ap-shenzhen-fsi.tencentcloudapi.com
 
+cdb.tencentcloudapi.com
+cdb.ap-shanghai-fsi.tencentcloudapi.com
+cdb.ap-shenzhen-fsi.tencentcloudapi.com
+
+mariadb.tencentcloudapi.com
+mariadb.ap-shanghai-fsi.tencentcloudapi.com
+mariadb.ap-shenzhen-fsi.tencentcloudapi.com
+
+postgres.tencentcloudapi.com
+postgres.ap-shanghai-fsi.tencentcloudapi.com
+postgres.ap-shenzhen-fsi.tencentcloudapi.com
+
+sqlserver.tencentcloudapi.com
+sqlserver.ap-shanghai-fsi.tencentcloudapi.com
+sqlserver.ap-shenzhen-fsi.tencentcloudapi.com
+
 lb.api.qcloud.com
 wss.api.qcloud.com
 cns.api.qcloud.com
