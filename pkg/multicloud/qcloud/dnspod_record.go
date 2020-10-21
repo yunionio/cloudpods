@@ -57,12 +57,15 @@ type SDnsRecord struct {
 }
 
 // https://cloud.tencent.com/document/product/302/8517
-func (client *SQcloudClient) GetDnsRecords(sDomainName string, offset int, limit int) ([]SDnsRecord, int, error) {
+func (client *SQcloudClient) GetDnsRecords(projectId string, sDomainName string, offset int, limit int) ([]SDnsRecord, int, error) {
 
 	params := map[string]string{}
 	params["offset"] = strconv.Itoa(offset)
 	params["length"] = strconv.Itoa(limit)
 	params["domain"] = sDomainName
+	if len(projectId) > 0 {
+		params["qProjectId"] = projectId
+	}
 	resp, err := client.cnsRequest("RecordList", params)
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "client.cnsRequest(RecordList, %s)", jsonutils.Marshal(params).String())
@@ -88,7 +91,8 @@ func (client *SQcloudClient) GetAllDnsRecords(sDomainName string) ([]SDnsRecord,
 	count := 0
 	result := []SDnsRecord{}
 	for true {
-		records, total, err := client.GetDnsRecords(sDomainName, count, 100)
+		// -1 所有项目; 0,default默认项目
+		records, total, err := client.GetDnsRecords("-1", sDomainName, count, 100)
 		if err != nil {
 			return nil, errors.Wrapf(err, "client.GetDnsRecords(%s,%d,%d)", sDomainName, count, 100)
 		}
