@@ -439,7 +439,6 @@ func (manager *SSecurityGroupManager) ValidateCreateData(
 ) (api.SSecgroupCreateInput, error) {
 	var err error
 
-	// TODO: check set pending quota
 	input.Status = api.SECGROUP_STATUS_READY
 
 	for i, rule := range input.Rules {
@@ -454,11 +453,26 @@ func (manager *SSecurityGroupManager) ValidateCreateData(
 		return input, err
 	}
 
+	pendingUsage := SProjectQuota{Secgroup: 1}
+	quotaKey := quotas.OwnerIdProjectQuotaKeys(rbacutils.ScopeProject, ownerId)
+	pendingUsage.SetKeys(quotaKey)
+	err = quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage)
+	if err != nil {
+		return input, httperrors.NewOutOfQuotaError("%s", err)
+	}
+
 	return input, nil
 }
 
 func (self *SSecurityGroup) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SSharableVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+
+	quota := &SProjectQuota{Secgroup: 1}
+	quota.SetKeys(self.GetQuotaKeys())
+	err := quotas.CancelPendingUsage(ctx, userCred, quota, quota, true)
+	if err != nil {
+		log.Errorf("Secgroup CancelPendingUsage fail %s", err)
+	}
 
 	input := &api.SSecgroupCreateInput{}
 	data.Unmarshal(input)
@@ -649,32 +663,40 @@ func (self *SSecurityGroup) AllowPerformClone(ctx context.Context, userCred mccl
 	return true
 }
 
-func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	name, _ := data.GetString("name")
-	if len(name) == 0 {
-		return nil, httperrors.NewMissingParameterError("name")
+func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SecurityGroupCloneInput) (api.SecurityGroupCloneInput, error) {
+	if len(input.Name) == 0 {
+		return input, httperrors.NewMissingParameterError("name")
 	}
-	_, err := SecurityGroupManager.FetchByName(userCred, name)
+	ownerId := &db.SOwnerId{
+		DomainId:  userCred.GetProjectDomainId(),
+		ProjectId: userCred.GetProjectId(),
+	}
+	var err error
+	input.Name, err = db.GenerateName(SecurityGroupManager, ownerId, input.Name)
 	if err != nil {
-		if err != sql.ErrNoRows {
-			return nil, httperrors.NewInternalServerError("FetchByName fail %s", err)
-		}
-	} else {
-		return nil, httperrors.NewDuplicateNameError("name", name)
+		return input, err
+	}
+
+	pendingUsage := SProjectQuota{Secgroup: 1}
+	quotaKey := quotas.OwnerIdProjectQuotaKeys(rbacutils.ScopeProject, ownerId)
+	pendingUsage.SetKeys(quotaKey)
+	err = quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage)
+	if err != nil {
+		return input, httperrors.NewOutOfQuotaError("%s", err)
 	}
 
 	secgroup := &SSecurityGroup{}
 	secgroup.SetModelManager(SecurityGroupManager, secgroup)
 
-	secgroup.Name = name
-	secgroup.Description, _ = data.GetString("description")
+	secgroup.Name = input.Name
+	secgroup.Description = input.Description
+	secgroup.Status = api.SECGROUP_STATUS_READY
 	secgroup.ProjectId = userCred.GetProjectId()
 	secgroup.DomainId = userCred.GetProjectDomainId()
 
 	err = SecurityGroupManager.TableSpec().Insert(ctx, secgroup)
 	if err != nil {
-		return nil, err
-		//db.OpsLog.LogCloneEvent(self, secgroup, userCred, nil)
+		return input, httperrors.NewGeneralError(errors.Wrapf(err, "Insert"))
 	}
 
 	secgrouprules := self.getSecurityRules("")
@@ -691,12 +713,19 @@ func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.
 		secgrouprule.Description = rule.Description
 		secgrouprule.SecgroupId = secgroup.Id
 		if err := SecurityGroupRuleManager.TableSpec().Insert(ctx, secgrouprule); err != nil {
-			return nil, err
+			return input, err
 		}
 	}
 
+	quota := &SProjectQuota{Secgroup: 1}
+	quota.SetKeys(secgroup.GetQuotaKeys())
+	err = quotas.CancelPendingUsage(ctx, userCred, quota, quota, true)
+	if err != nil {
+		log.Errorf("Secgroup CancelPendingUsage fail %s", err)
+	}
+
 	logclient.AddActionLogWithContext(ctx, secgroup, logclient.ACT_CREATE, secgroup.GetShortDesc(ctx), userCred, true)
-	return nil, nil
+	return input, nil
 }
 
 func (self *SSecurityGroup) AllowPerformMerge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
