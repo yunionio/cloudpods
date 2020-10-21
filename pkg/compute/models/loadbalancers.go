@@ -310,8 +310,9 @@ func (man *SLoadbalancerManager) ValidateCreateData(
 
 	input.CloudregionId = region.GetId()
 
+	var cloudprovider *SCloudprovider
 	if len(input.CloudproviderId) > 0 {
-		_, input.CloudproviderResourceInput, err = ValidateCloudproviderResourceInput(userCred, input.CloudproviderResourceInput)
+		cloudprovider, input.CloudproviderResourceInput, err = ValidateCloudproviderResourceInput(userCred, input.CloudproviderResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateCloudproviderResourceInput")
 		}
@@ -320,6 +321,13 @@ func (man *SLoadbalancerManager) ValidateCreateData(
 	input.VirtualResourceCreateInput, err = man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
 	if err != nil {
 		return nil, err
+	}
+
+	quotaKeys := fetchRegionalQuotaKeys(rbacutils.ScopeProject, ownerId, region, cloudprovider)
+	pendingUsage := SRegionQuota{Loadbalancer: 1}
+	pendingUsage.SetKeys(quotaKeys)
+	if err := quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
+		return nil, httperrors.NewOutOfQuotaError("%s", err)
 	}
 
 	return region.GetDriver().ValidateCreateLoadbalancerData(ctx, userCred, ownerId, input.JSON(input))
@@ -370,6 +378,13 @@ func (lb *SLoadbalancer) PostCreate(ctx context.Context, userCred mcclient.Token
 	// NOTE lb.Id will only be available after BeforeInsert happens
 	// NOTE this means lb.UpdateVersion will be 0, then 1 after creation
 	// NOTE need ways to notify error
+
+	pendingUsage := SRegionQuota{Loadbalancer: 1}
+	pendingUsage.SetKeys(lb.GetQuotaKeys())
+	err := quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, true)
+	if err != nil {
+		log.Errorf("CancelPendingUsage error %s", err)
+	}
 
 	lb.SetStatus(userCred, api.LB_CREATING, "")
 	if err := lb.StartLoadBalancerCreateTask(ctx, userCred, data.(*jsonutils.JSONDict), ""); err != nil {
