@@ -66,6 +66,7 @@ func StartService() {
 	cron := cronman.InitCronJobManager(true, opts.CronJobWorkerCount)
 	suggestsysdrivers.InitSuggestSysRuleCronjob()
 	cron.AddJobAtIntervalsWithStartRun("InitScopeSuggestConfigs", time.Duration(opts.InitScopeSuggestConfigIntervalSeconds)*time.Second, models.SuggestSysRuleConfigManager.InitScopeConfigs, true)
+	cron.AddJobAtIntervalsWithStartRun("InitAlertResourceAdminRoleUsers", time.Duration(opts.InitAlertResourceAdminRoleUsersIntervalSeconds)*time.Second, models.GetAlertResourceManager().GetAdminRoleUsers, true)
 	cron.Start()
 	defer cron.Stop()
 
