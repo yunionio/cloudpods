@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"yunion.io/x/log"
@@ -1360,12 +1359,36 @@ func (network *SDBInstanceNetwork) purge(ctx context.Context, userCred mcclient.
 }
 
 func (instance *SDBInstance) purgeNetwork(ctx context.Context, userCred mcclient.TokenCredential) error {
-	network, err := instance.GetDBNetwork()
-	if err != nil && errors.Cause(err) != sql.ErrNoRows {
-		return errors.Wrapf(err, "GetDBNetwork")
+	networks, err := instance.GetDBNetworks()
+	if err != nil {
+		return errors.Wrapf(err, "GetDBNetworks")
 	}
-	if network != nil {
-		return network.purge(ctx, userCred)
+	for i := range networks {
+		err = networks[i].purge(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "networks.purge %d", networks[i].RowId)
+		}
+	}
+	return nil
+}
+
+func (self *SDBInstanceSecgroup) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
+	return self.Detach(ctx, userCred)
+}
+
+func (instance *SDBInstance) purgeSecgroups(ctx context.Context, userCred mcclient.TokenCredential) error {
+	secgroups, err := instance.GetDBInstanceSecgroups()
+	if err != nil {
+		return errors.Wrapf(err, "GetDBInstanceSecgroups")
+	}
+	for i := range secgroups {
+		err = secgroups[i].purge(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "secgroups.purge %d", secgroups[i].RowId)
+		}
 	}
 	return nil
 }
@@ -1408,6 +1431,11 @@ func (instance *SDBInstance) Purge(ctx context.Context, userCred mcclient.TokenC
 	err = instance.purgeNetwork(ctx, userCred)
 	if err != nil {
 		return errors.Wrapf(err, "purgeNetwork")
+	}
+
+	err = instance.purgeSecgroups(ctx, userCred)
+	if err != nil {
+		return errors.Wrapf(err, "purgeSecgroups")
 	}
 
 	err = instance.PurgeBackups(ctx, userCred, api.BACKUP_MODE_AUTOMATED)

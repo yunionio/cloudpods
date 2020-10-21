@@ -15,9 +15,14 @@
 package models
 
 import (
-	"yunion.io/x/pkg/errors"
+	"context"
 
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SDBInstanceJointsManager struct {
@@ -55,4 +60,40 @@ func (self *SDBInstanceJointsBase) getDBInstance() (*SDBInstance, error) {
 
 func (manager *SDBInstanceJointsManager) GetMasterFieldName() string {
 	return "dbinstance_id"
+}
+
+func (manager *SDBInstanceJointsManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DBInstanceJoinListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SVirtualJointResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualJointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualJointResourceBase.ListItemFilter")
+	}
+	q, err = manager.SDBInstanceResourceBaseManager.ListItemFilter(ctx, q, userCred, query.DBInstanceFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDBInstanceResourceBaseManager.ListItemFilter")
+	}
+	return q, nil
+}
+
+func (manager *SDBInstanceJointsManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DBInstanceJoinListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualJointResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualJointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualJointResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SDBInstanceResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.DBInstanceFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDBInstanceResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
 }

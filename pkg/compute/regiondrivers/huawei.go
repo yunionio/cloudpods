@@ -2174,6 +2174,10 @@ func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceData(ctx context.Contex
 		return input, httperrors.NewMissingParameterError("password")
 	}
 
+	if len(input.SecgroupIds) == 0 {
+		input.SecgroupIds = []string{"default"}
+	}
+
 	return input, nil
 }
 
@@ -2637,6 +2641,6 @@ func (self *SHuaWeiRegionDriver) GetBackendStatusForAdd() []string {
 	return []string{api.VM_RUNNING, api.VM_READY}
 }
 
-func (self *SHuaWeiRegionDriver) IsDBInstanceNeedSecgroup() bool {
-	return true
+func (self *SHuaWeiRegionDriver) GetRdsSupportSecgroupCount() int {
+	return 1
 }

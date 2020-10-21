@@ -298,20 +298,21 @@ func (rds *SDBInstance) getZone(index int) string {
 	return fmt.Sprintf("%s%s", rds.RegionId, string(zoneCode))
 }
 
-func (rds *SDBInstance) GetDBNetwork() (*cloudprovider.SDBInstanceNetwork, error) {
+func (rds *SDBInstance) GetDBNetworks() ([]cloudprovider.SDBInstanceNetwork, error) {
 	netInfo, err := rds.region.GetDBInstanceNetInfo(rds.DBInstanceId)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "GetDBInstanceNetInfo")
 	}
-	network := &cloudprovider.SDBInstanceNetwork{}
+	networks := []cloudprovider.SDBInstanceNetwork{}
 	for _, net := range netInfo {
 		if net.IPType == "Private" {
+			network := cloudprovider.SDBInstanceNetwork{}
 			network.IP = net.IPAddress
 			network.NetworkId = net.VSwitchId
-			return network, nil
+			networks = append(networks, network)
 		}
 	}
-	return nil, fmt.Errorf("failed to found network for aliyun rds %s", rds.DBInstanceId)
+	return []cloudprovider.SDBInstanceNetwork{}, nil
 }
 
 func (rds *SDBInstance) fetchNetInfo() error {

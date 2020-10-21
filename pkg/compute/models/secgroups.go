@@ -145,6 +145,15 @@ func (manager *SSecurityGroupManager) ListItemFilter(
 		q = q.Filter(sqlchemy.OR(filters...))
 	}
 
+	if len(input.DBInstanceId) > 0 {
+		_, err = validators.ValidateModel(userCred, DBInstanceManager, &input.DBInstanceId)
+		if err != nil {
+			return nil, err
+		}
+		sq := DBInstanceSecgroupManager.Query("secgroup_id").Equals("dbinstance_id", input.DBInstanceId)
+		q = q.In("id", sq.SubQuery())
+	}
+
 	if len(input.Ip) > 0 || len(input.Ports) > 0 {
 		sq := SecurityGroupRuleManager.Query("secgroup_id")
 		if len(input.Ip) > 0 {

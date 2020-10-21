@@ -40,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/rand"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type SManagedVirtualizationRegionDriver struct {
@@ -1643,12 +1644,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 		}
 
 		params := task.GetParams()
-		networkId, _ := params.GetString("network_external_id")
-		if len(networkId) == 0 {
-			return nil, fmt.Errorf("failed to get network externalId")
-		}
-		address, _ := params.GetString("address")
 		passwd, _ := params.GetString("password")
+		if len(passwd) == 0 && jsonutils.QueryBoolean(params, "reset_password", true) {
+			passwd = seclib2.RandomPassword2(12)
+		}
 		desc := cloudprovider.SManagedDBInstanceCreateConfig{
 			Name:          dbinstance.Name,
 			Description:   dbinstance.Description,
@@ -1657,8 +1656,6 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 			VcpuCount:     dbinstance.VcpuCount,
 			VmemSizeMb:    dbinstance.VmemSizeMb,
 			VpcId:         vpc.ExternalId,
-			NetworkId:     networkId,
-			Address:       address,
 			Engine:        dbinstance.Engine,
 			EngineVersion: dbinstance.EngineVersion,
 			Category:      dbinstance.Category,
@@ -1666,6 +1663,19 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 			Password:      passwd,
 		}
 		desc.Tags, _ = dbinstance.GetAllUserMetadata()
+
+		networks, err := dbinstance.GetDBNetworks()
+		if err != nil {
+			return nil, errors.Wrapf(err, "dbinstance.GetDBNetworks")
+		}
+
+		if len(networks) > 0 {
+			net, err := networks[0].GetNetwork()
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetNetwork")
+			}
+			desc.NetworkId, desc.Address = net.ExternalId, networks[0].IpAddr
+		}
 
 		_cloudprovider := dbinstance.GetCloudprovider()
 		desc.ProjectId, err = _cloudprovider.SyncProject(ctx, userCred, dbinstance.ProjectId)
@@ -1680,18 +1690,20 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 			return nil, err
 		}
 
-		if region.GetDriver().IsDBInstanceNeedSecgroup() {
-			secgroup, _ := dbinstance.GetSecgroup()
-			if secgroup != nil {
-				vpcId, err := region.GetDriver().GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, false)
-				if err != nil {
-					return nil, errors.Wrap(err, "GetSecurityGroupVpcId")
-				}
-				desc.SecgroupId, err = region.GetDriver().RequestSyncSecurityGroup(ctx, userCred, vpcId, vpc, secgroup, desc.ProjectId)
-				if err != nil {
-					return nil, errors.Wrap(err, "SyncSecurityGroup")
-				}
+		secgroups, err := dbinstance.GetSecgroups()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetSecgroups")
+		}
+		for i := range secgroups {
+			vpcId, err := region.GetDriver().GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, false)
+			if err != nil {
+				return nil, errors.Wrap(err, "GetSecurityGroupVpcId")
 			}
+			secId, err := region.GetDriver().RequestSyncSecurityGroup(ctx, userCred, vpcId, vpc, &secgroups[i], desc.ProjectId)
+			if err != nil {
+				return nil, errors.Wrap(err, "SyncSecurityGroup")
+			}
+			desc.SecgroupIds = append(desc.SecgroupIds, secId)
 		}
 
 		if dbinstance.BillingType == billing_api.BILLING_TYPE_PREPAID {
@@ -1743,16 +1755,15 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 			return nil, errors.Wrapf(err, "create")
 		}
 
+		err = db.SetExternalId(dbinstance, userCred, iRds.GetGlobalId())
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.SetExternalId")
+		}
+
 		err = cloudprovider.WaitStatus(iRds, api.DBINSTANCE_RUNNING, time.Second*5, time.Hour*1)
 		if err != nil {
-			log.Errorf("timeout for waiting dbinstance running error: %v", err)
+			return nil, errors.Wrapf(err, "cloudprovider.WaitStatus runing")
 		}
-
-		err = dbinstance.SyncAllWithCloudDBInstance(ctx, userCred, dbinstance.GetCloudprovider(), iRds)
-		if err != nil {
-			log.Errorf("SyncAllWithCloudDBInstance error: %v", err)
-		}
-
 		return nil, nil
 	})
 
