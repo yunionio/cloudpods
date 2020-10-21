@@ -37,6 +37,7 @@ import (
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
@@ -608,8 +609,32 @@ func (self *SDataSourceManager) GetMetricMeasurement(query jsonutils.JSONObject,
 	if err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "getTagValue error")
 	}
+	self.filterRtnTags(output)
 	return jsonutils.Marshal(output), nil
 
+}
+
+func (self *SDataSourceManager) filterRtnTags(output *monitor.InfluxMeasurement) {
+	for _, tag := range []string{hostconsts.TELEGRAF_TAG_KEY_BRAND, hostconsts.TELEGRAF_TAG_KEY_PLATFORM,
+		hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR} {
+		if val, ok := output.TagValue[tag]; ok {
+			output.TagValue[hostconsts.TELEGRAF_TAG_KEY_BRAND] = val
+			break
+		}
+	}
+	for _, tag := range []string{"source", "status", hostconsts.TELEGRAF_TAG_KEY_HOST_TYPE,
+		hostconsts.TELEGRAF_TAG_KEY_RES_TYPE, "is_vm", "os_type", hostconsts.TELEGRAF_TAG_KEY_PLATFORM,
+		hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR, "domain_name", "region"} {
+		if _, ok := output.TagValue[tag]; ok {
+			delete(output.TagValue, tag)
+		}
+	}
+
+	repTag := make([]string, 0)
+	for tag, _ := range output.TagValue {
+		repTag = append(repTag, tag)
+	}
+	output.TagKey = repTag
 }
 
 func (self *SDataSourceManager) filterTagValue(measurement monitor.InfluxMeasurement, timeF timeFilter,

@@ -36,10 +36,10 @@ func (drvF cloudaccountDriverF) GetType() monitor.AlertResourceType {
 
 func (drvF cloudaccountDriverF) IsEvalMatched(input monitor.EvalMatch) bool {
 	tags := input.Tags
-	_, hasId := tags[CLOUDACCOUNT_TAG_ID_KEY]
-	if !hasId {
-		return false
-	}
+	//_, hasId := tags[CLOUDACCOUNT_TAG_ID_KEY]
+	//if !hasId {
+	//	return false
+	//}
 	_, hasName := tags[CLOUDACCOUNT_TAG_NAME_KEY]
 	if !hasName {
 		return false
