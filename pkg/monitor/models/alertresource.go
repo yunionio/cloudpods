@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -27,11 +28,15 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	mc_modules "yunion.io/x/onecloud/pkg/mcclient/modules"
+	npk "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 var (
 	alertResourceManager *SAlertResourceManager
+	adminUsers           *sync.Map
 )
 
 func init() {
@@ -372,4 +377,111 @@ func (res *SAlertResource) CustomizeDelete(
 		}
 	}
 	return nil
+}
+
+func (manager *SAlertResourceManager) NotifyAlertResourceCount(ctx context.Context) error {
+	log.Errorln("exec NotifyAlertResourceCount func")
+	cn, err := manager.getResourceCount()
+	if err != nil {
+		return err
+	}
+	alertResourceCount := resourceCount{
+		AlertResourceCount: cn,
+	}
+	if adminUsers == nil {
+		manager.GetAdminRoleUsers(ctx, nil, true)
+	}
+	adminUsersTmp := *adminUsers
+	ids := make([]string, 0)
+	adminUsersTmp.Range(func(key, value interface{}) bool {
+		ids = append(ids, key.(string))
+		return true
+	})
+	if len(ids) == 0 {
+		return fmt.Errorf("no find users in receivers has admin role")
+	}
+	//if len(ids) != 0 {
+	//	notifyclient.RawNotifyWithCtx(ctx, ids, false, npk.NotifyByWebConsole, npk.NotifyPriorityCritical,
+	//		"alertResourceCount", jsonutils.Marshal(&alertResourceCount))
+	//	return nil
+	//} else {
+	//	return fmt.Errorf("no find users in receivers has admin role")
+	//}
+	manager.sendWebsocketInfo(ids, alertResourceCount)
+	return nil
+}
+
+type resourceCount struct {
+	AlertResourceCount int `json:"alert_resource_count"`
+}
+
+func (manager *SAlertResourceManager) getResourceCount() (int, error) {
+	query := manager.Query("id")
+	cn, err := query.CountWithError()
+	if err != nil {
+		return cn, errors.Wrap(err, "SAlertResourceManager get resource count error")
+	}
+
+	return cn, nil
+}
+
+func (manager *SAlertResourceManager) GetAdminRoleUsers(ctx context.Context, userCred mcclient.TokenCredential,
+	isStart bool) {
+	if adminUsers == nil {
+		adminUsers = new(sync.Map)
+	}
+	offset := 0
+	query := jsonutils.NewDict()
+	session := auth.GetAdminSession(ctx, "", "")
+	rid, err := mc_modules.RolesV3.GetId(session, "admin", jsonutils.NewDict())
+	if err != nil {
+		errors.Errorf("get role id error:%v", err)
+		return
+	}
+	query.Add(jsonutils.NewString(rid), "role", "id")
+	for {
+		query.Set("offset", jsonutils.NewInt(int64(offset)))
+		result, err := mc_modules.RoleAssignments.List(session, query)
+		if err != nil {
+			errors.Errorf("get admin role list error:%v", err)
+			return
+		}
+		for _, roleAssign := range result.Data {
+			userId, err := roleAssign.GetString("user", "id")
+			if err != nil {
+				log.Errorf("roleAssign:%v", roleAssign)
+				return
+			}
+			//_, err = mc_modules.NotifyReceiver.GetById(session, userId, jsonutils.NewDict())
+			//if err != nil {
+			//	log.Errorf("Recipients GetById err:%v", err)
+			//	continue
+			//}
+			adminUsers.Store(userId, roleAssign)
+		}
+		offset = result.Offset + len(result.Data)
+		if offset >= result.Total {
+			break
+		}
+	}
+}
+
+func (manager *SAlertResourceManager) sendWebsocketInfo(uids []string, alertResourceCount resourceCount) {
+	session := auth.GetAdminSession(context.Background(), "", "")
+	params := jsonutils.NewDict()
+	params.Set("obj_type", jsonutils.NewString("monitor"))
+	params.Set("obj_id", jsonutils.NewString(""))
+	params.Set("obj_name", jsonutils.NewString(""))
+	params.Set("success", jsonutils.JSONTrue)
+	params.Set("action", jsonutils.NewString("alertResourceCount"))
+	params.Set("notes", jsonutils.NewString(fmt.Sprintf("priority=%s; content=%s", string(npk.NotifyPriorityCritical),
+		jsonutils.Marshal(&alertResourceCount).String())))
+	for _, uid := range uids {
+		params.Set("user_id", jsonutils.NewString(uid))
+		params.Set("user", jsonutils.NewString(uid))
+		_, err := mc_modules.Websockets.Create(session, params)
+		if err != nil {
+			log.Errorf("websocket send info err:%v", err)
+		}
+	}
 }
