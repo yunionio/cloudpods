@@ -762,7 +762,7 @@ type ICloudDBInstance interface {
 	Reboot() error
 
 	GetMasterInstanceId() string
-	GetSecurityGroupId() string
+	GetSecurityGroupIds() ([]string, error)
 	GetPort() int
 	GetEngine() string
 	GetEngineVersion() string
@@ -785,7 +785,7 @@ type ICloudDBInstance interface {
 	GetZone3Id() string
 	GetIVpcId() string
 
-	GetDBNetwork() (*SDBInstanceNetwork, error)
+	GetDBNetworks() ([]SDBInstanceNetwork, error)
 	GetIDBInstanceParameters() ([]ICloudDBInstanceParameter, error)
 	GetIDBInstanceDatabases() ([]ICloudDBInstanceDatabase, error)
 	GetIDBInstanceAccounts() ([]ICloudDBInstanceAccount, error)

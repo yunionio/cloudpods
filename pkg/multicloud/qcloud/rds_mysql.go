@@ -210,8 +210,10 @@ func (self *SMySQLInstance) GetMaintainTime() string {
 	return timeWindow.String()
 }
 
-func (self *SMySQLInstance) GetDBNetwork() (*cloudprovider.SDBInstanceNetwork, error) {
-	return &cloudprovider.SDBInstanceNetwork{NetworkId: self.UniqSubnetId, IP: self.Vip}, nil
+func (self *SMySQLInstance) GetDBNetworks() ([]cloudprovider.SDBInstanceNetwork, error) {
+	return []cloudprovider.SDBInstanceNetwork{
+		cloudprovider.SDBInstanceNetwork{NetworkId: self.UniqSubnetId, IP: self.Vip},
+	}, nil
 }
 
 func (self *SMySQLInstance) GetConnectionStr() string {
@@ -237,22 +239,22 @@ func (self *SMySQLInstance) GetMasterInstanceId() string {
 	return self.MasterInfo.InstanceId
 }
 
-func (self *SMySQLInstance) GetSecurityGroupId() string {
+func (self *SMySQLInstance) GetSecurityGroupIds() ([]string, error) {
 	if len(self.SecurityGroupIds) > 0 {
-		return self.SecurityGroupIds[0]
+		return self.SecurityGroupIds, nil
 	}
 	if self.DeviceType == "BASIC" {
-		return ""
+		return []string{}, nil
 	}
 	secgroups, err := self.region.DescribeMySQLDBSecurityGroups(self.InstanceId)
 	if err != nil {
-		log.Errorf("failed to get instance %s security group info %v", self.InstanceId, err)
-		return ""
+		return []string{}, errors.Wrapf(err, "DescribeMySQLDBSecurityGroups")
 	}
-	if len(secgroups) > 0 {
-		return secgroups[0].SecurityGroupId
+	ids := []string{}
+	for i := range secgroups {
+		ids = append(ids, secgroups[i].SecurityGroupId)
 	}
-	return ""
+	return ids, nil
 }
 
 func (self *SMySQLInstance) Renew(bc billing.SBillingCycle) error {
@@ -723,8 +725,8 @@ func (self *SRegion) CreateMySQLDBInstance(opts *cloudprovider.SManagedDBInstanc
 	if len(opts.Password) > 0 {
 		params["Password"] = opts.Password
 	}
-	if len(opts.SecgroupId) > 0 {
-		params["SecurityGroup.0"] = opts.SecgroupId
+	for i, secId := range opts.SecgroupIds {
+		params[fmt.Sprintf("SecurityGroup.%d", i)] = secId
 	}
 	action := "CreateDBInstanceHour"
 	if opts.BillingCycle != nil {
@@ -770,7 +772,25 @@ func (self *SRegion) CreateMySQLDBInstance(opts *cloudprovider.SManagedDBInstanc
 		i++
 	}
 
-	resp, err := self.cdbRequest(action, params)
+	var create = func(action string, params map[string]string) (jsonutils.JSONObject, error) {
+		startTime := time.Now()
+		var resp jsonutils.JSONObject
+		var err error
+		for time.Now().Sub(startTime) < time.Minute*10 {
+			resp, err = self.cdbRequest(action, params)
+			if err != nil {
+				if strings.Contains(err.Error(), "OperationDenied.OtherOderInProcess") || strings.Contains(err.Error(), "Message=请求已经在处理中") {
+					time.Sleep(time.Second * 20)
+					continue
+				}
+				return nil, errors.Wrapf(err, "cdbRequest")
+			}
+			return resp, nil
+		}
+		return resp, err
+	}
+
+	resp, err := create(action, params)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cdbRequest")
 	}

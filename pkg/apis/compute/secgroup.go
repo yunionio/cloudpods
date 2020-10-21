@@ -134,6 +134,8 @@ type SecgroupListInput struct {
 
 	ServerFilterListInput
 
+	DBInstanceResourceInput
+
 	// equals
 	Equals string
 
