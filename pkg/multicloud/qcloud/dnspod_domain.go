@@ -58,10 +58,14 @@ type SDomian struct {
 }
 
 // https://cloud.tencent.com/document/product/302/8505
-func (client *SQcloudClient) GetDomains(offset int, limit int) ([]SDomian, int, error) {
+func (client *SQcloudClient) GetDomains(projectId string, offset int, limit int) ([]SDomian, int, error) {
 	params := map[string]string{}
 	params["offset"] = strconv.Itoa(offset)
 	params["length"] = strconv.Itoa(limit)
+	if len(projectId) > 0 {
+		params["qProjectId"] = projectId
+	}
+
 	resp, err := client.cnsRequest("DomainList", params)
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "client.cnsRequest(DomainList, %s)", jsonutils.Marshal(params).String())
@@ -87,7 +91,8 @@ func (client *SQcloudClient) GetAllDomains() ([]SDomian, error) {
 	count := 0
 	result := []SDomian{}
 	for {
-		domains, total, err := client.GetDomains(count, 100)
+		// -1 所有项目; 0,default默认项目
+		domains, total, err := client.GetDomains("-1", count, 100)
 		if err != nil {
 			return nil, errors.Wrap(err, " client.GetDomains(count, 100)")
 		}
