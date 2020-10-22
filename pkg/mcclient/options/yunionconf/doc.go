@@ -12,15 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package yunionconf
-
-import "yunion.io/x/onecloud/pkg/apis"
-
-const (
-	SERVICE_TYPE = apis.SERVICE_TYPE_YUNIONCONF
-)
-
-const (
-	ANY_DOMAIN_ID  = "[any_domain_id]"
-	ANY_PROJECT_ID = "[any_project_id]"
-)
+package yunionconf // import "yunion.io/x/onecloud/pkg/mcclient/options/yunionconf"

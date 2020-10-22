@@ -46,24 +46,12 @@ func getAllScopeResourceCountsHandler(ctx context.Context, w http.ResponseWriter
 func getAllScopeResourceCounts() (map[string][]SScopeResourceCount, error) {
 	ret := make(map[string][]SScopeResourceCount)
 	for _, manager := range globalTables {
-		if virtman, ok := manager.(IVirtualModelManager); ok {
-			resCnt, err := virtman.GetResourceCount()
+		if cntMan, ok := manager.(IResourceCountManager); ok {
+			resCnt, err := cntMan.GetResourceCount()
 			if err != nil {
-				return nil, errors.Wrap(err, "getProjectResourceCount")
+				return nil, errors.Wrap(err, "cntMan.GetResourceCount")
 			}
-			ret[virtman.KeywordPlural()] = resCnt
-		} else if domainMan, ok := manager.(IDomainLevelModelManager); ok {
-			resCnt, err := domainMan.GetResourceCount()
-			if err != nil {
-				return nil, errors.Wrap(err, "getDomainResourceCount")
-			}
-			ret[domainMan.KeywordPlural()] = resCnt
-		} else if userMan, ok := manager.(IUserModelManager); ok {
-			resCnt, err := userMan.GetResourceCount()
-			if err != nil {
-				return nil, errors.Wrap(err, "getUserResourceCount")
-			}
-			ret[userMan.KeywordPlural()] = resCnt
+			ret[cntMan.KeywordPlural()] = resCnt
 		}
 	}
 	return ret, nil
@@ -74,6 +62,11 @@ type SScopeResourceCount struct {
 	DomainId string `json:"domain_id"`
 	OwnerId  string `json:"owner_id"`
 	ResCount int    `json:"res_count"`
+}
+
+type IResourceCountManager interface {
+	GetResourceCount() ([]SScopeResourceCount, error)
+	KeywordPlural() string
 }
 
 func (virtman *SVirtualResourceBaseManager) GetResourceCount() ([]SScopeResourceCount, error) {

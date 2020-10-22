@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package modules
+package yunionconf
 
 import (
 	"context"
@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 type ParametersManager struct {
@@ -34,11 +35,11 @@ var (
 )
 
 func init() {
-	Parameters = ParametersManager{NewYunionConfManager("parameter", "parameters",
+	Parameters = ParametersManager{modules.NewYunionConfManager("parameter", "parameters",
 		[]string{"id", "created_at", "update_at", "name", "value"},
 		[]string{"namespace", "namespace_id", "created_by", "updated_by"},
 	)}
-	register(&Parameters)
+	modules.Register(&Parameters)
 }
 
 func (this *ParametersManager) GetGlobalSettings(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -46,7 +47,7 @@ func (this *ParametersManager) GetGlobalSettings(s *mcclient.ClientSession, para
 	p := jsonutils.NewDict()
 	p.Add(jsonutils.NewString("system"), "scope")
 	p.Add(jsonutils.NewString("global-settings"), "name")
-	parameters, err := this.ListInContext(adminSession, p, &ServicesV3, "yunionagent")
+	parameters, err := this.ListInContext(adminSession, p, &modules.ServicesV3, "yunionagent")
 	if err != nil {
 		return nil, err
 	}

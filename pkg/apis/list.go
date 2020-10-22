@@ -143,9 +143,13 @@ type ModelBaseListInput struct {
 	// 返回结果只包含指定的字段
 	Field []string `json:"field"`
 	// 用于数据导出，指定导出的数据字段
-	ExportKeys string `json:"export_keys"`
+	ExportKeys string `json:"export_keys" help:"Export field keys"`
 	// 返回结果携带delete_fail_reason和update_fail_reason字段
 	ShowFailReason *bool `json:"show_fail_reason"`
+}
+
+func (o ModelBaseListInput) GetExportKeys() string {
+	return o.ExportKeys
 }
 
 type IncrementalListInput struct {

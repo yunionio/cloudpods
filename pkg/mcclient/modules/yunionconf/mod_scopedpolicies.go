@@ -14,13 +14,24 @@
 
 package yunionconf
 
-import "yunion.io/x/onecloud/pkg/apis"
-
-const (
-	SERVICE_TYPE = apis.SERVICE_TYPE_YUNIONCONF
+import (
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
-const (
-	ANY_DOMAIN_ID  = "[any_domain_id]"
-	ANY_PROJECT_ID = "[any_project_id]"
+type ScopedPolicyManager struct {
+	modulebase.ResourceManager
+}
+
+var (
+	ScopedPolicies ScopedPolicyManager
 )
+
+func init() {
+	ScopedPolicies = ScopedPolicyManager{modules.NewYunionConfManager(
+		"scopedpolicy", "scopedpolicies",
+		[]string{"id", "name", "category", "policies", "public_scope", "domain_id", "ref_count"},
+		[]string{},
+	)}
+	modules.Register(&ScopedPolicies)
+}
