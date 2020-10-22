@@ -1002,7 +1002,6 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 		}
 	}
 
-	var rootDiskSizeMb int64
 	if len(params.Disks) > 0 {
 		driver := params.Disks[0].Driver
 		if driver == "scsi" || driver == "pvscsi" {
@@ -1028,11 +1027,6 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 				deviceChange = append(deviceChange, addDevSpec(NewIDEDev(200, 0)))
 				deviceChange = append(deviceChange, addDevSpec(NewIDEDev(200, 1)))
 			}
-		}
-
-		rootDiskSizeMb = params.Disks[0].Size
-		if rootDiskSizeMb == 0 {
-			rootDiskSizeMb = 30 * 1024
 		}
 	}
 
@@ -1098,15 +1092,70 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 	if vm == nil {
 		return nil, errors.Error("clone successfully but unable to NewVirtualMachine")
 	}
-	// resize system disk
-	if rootDiskSizeMb > 0 && int64(vm.vdisks[0].GetDiskSizeMB()) != rootDiskSizeMb {
-		err = vm.vdisks[0].Resize(ctx, rootDiskSizeMb)
-		if err != nil {
-			return vm, errors.Wrap(err, "resize for root disk")
+
+	deviceChange = make([]types.BaseVirtualDeviceConfigSpec, 0, 5)
+	// adjust disk
+	var i int
+	if len(params.Disks) > 0 {
+		// resize system disk
+		sysDiskSize := params.Disks[0].Size
+		if sysDiskSize == 0 {
+			sysDiskSize = 30 * 1024
+		}
+		if int64(vm.vdisks[0].GetDiskSizeMB()) != sysDiskSize {
+			vdisk := vm.vdisks[0].getVirtualDisk()
+			originSize := vdisk.CapacityInKB
+			vdisk.CapacityInKB = sysDiskSize * 1024
+			spec := &types.VirtualDeviceConfigSpec{}
+			spec.Operation = types.VirtualDeviceConfigSpecOperationEdit
+			spec.Device = vdisk
+			deviceChange = append(deviceChange, spec)
+			log.Infof("resize system disk: %dGB => %dGB", originSize/1024/1024, sysDiskSize/1024)
+		}
+		// resize existed disk
+		for i = 1; i < len(params.Disks); i++ {
+			if i >= len(vm.vdisks) {
+				break
+			}
+			wantDisk := params.Disks[i]
+			vdisk := vm.vdisks[i]
+			modisk := vdisk.getVirtualDisk()
+			if wantDisk.Size <= int64(vdisk.GetDiskSizeMB()) {
+				continue
+			}
+			originSize := modisk.CapacityInKB
+			modisk.CapacityInKB = wantDisk.Size * 1024
+			spec := &types.VirtualDeviceConfigSpec{}
+			spec.Operation = types.VirtualDeviceConfigSpecOperationEdit
+			spec.Device = vdisk.dev
+			deviceChange = append(deviceChange, spec)
+			log.Infof("resize No.%d data disk: %dGB => %dGB", i, originSize/1024/1024, wantDisk.Size/1024)
+		}
+		// remove extra disk
+		for ; i < len(vm.vdisks); i++ {
+			vdisk := vm.vdisks[i]
+			spec := &types.VirtualDeviceConfigSpec{}
+			spec.Operation = types.VirtualDeviceConfigSpecOperationRemove
+			spec.Device = vdisk.dev
+			spec.FileOperation = types.VirtualDeviceConfigSpecFileOperationDestroy
+			deviceChange = append(deviceChange, spec)
+			log.Infof("remove No.%d data disk", i)
+		}
+		if len(deviceChange) > 0 {
+			spec = types.VirtualMachineConfigSpec{}
+			spec.DeviceChange = deviceChange
+			task, err = vm.getVmObj().Reconfigure(ctx, spec)
+			if err != nil {
+				return vm, errors.Wrap(err, "Reconfigure to resize disks")
+			}
+			err = task.Wait(ctx)
+			if err != nil {
+				return vm, errors.Wrap(err, "Wait task to resize disks")
+			}
 		}
 	}
 	// add data disk
-	for i := 1; i < len(params.Disks); i++ {
+	for ; i < len(params.Disks); i++ {
 		size := params.Disks[i].Size
 		if size == 0 {
 			size = 30 * 1024
