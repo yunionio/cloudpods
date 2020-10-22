@@ -24,6 +24,7 @@ var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
 	"cn-beijing":            {Latitude: 39.904202, Longitude: 116.407394, City: api.CITY_BEI_JING, CountryCode: api.COUNTRY_CODE_CN},
 	"cn-zhangjiakou":        {Latitude: 40.767544, Longitude: 114.886337, City: api.CITY_ZHANG_JIA_KOU, CountryCode: api.COUNTRY_CODE_CN},
 	"cn-huhehaote":          {Latitude: 40.842358, Longitude: 111.749992, City: api.CITY_HU_HE_HAO_TE, CountryCode: api.COUNTRY_CODE_CN},
+	"cn-huhehaote-nebula-1": {Latitude: 40.842358, Longitude: 111.749992, City: api.CITY_HU_HE_HAO_TE, CountryCode: api.COUNTRY_CODE_CN},
 	"cn-hangzhou":           {Latitude: 30.274084, Longitude: 120.155067, City: api.CITY_HANG_ZHOU, CountryCode: api.COUNTRY_CODE_CN},
 	"cn-shanghai":           {Latitude: 31.230391, Longitude: 121.473701, City: api.CITY_SHANG_HAI, CountryCode: api.COUNTRY_CODE_CN},
 	"cn-shanghai-finance-1": {Latitude: 31.230391, Longitude: 121.473701, City: api.CITY_SHANG_HAI, CountryCode: api.COUNTRY_CODE_CN},
@@ -44,4 +45,5 @@ var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
 	"me-east-1":             {Latitude: 25.204849, Longitude: 55.270782, City: api.CITY_DUBAI, CountryCode: api.COUNTRY_CODE_AE},
 	"eu-central-1":          {Latitude: 50.110924, Longitude: 8.682127, City: api.CITY_FRANKFURT, CountryCode: api.COUNTRY_CODE_DE},
 	"cn-wulanchabu":         {Latitude: 41.0178065, Longitude: 113.094978, City: api.CITY_WU_LAN_CHA_BU, CountryCode: api.COUNTRY_CODE_CN},
+	"cn-guangzhou":          {Latitude: 23.129110, Longitude: 113.264381, City: api.CITY_GUANG_ZHOU, CountryCode: api.COUNTRY_CODE_CN},
 }
