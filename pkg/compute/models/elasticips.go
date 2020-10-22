@@ -99,7 +99,7 @@ type SElasticip struct {
 	// example: bandwidth
 	ChargeType string `name:"charge_type" list:"user" create:"required"`
 	// 线路类型
-	BgpType string `width:"64" charset:"utf8" nullable:"false" get:"user" list:"user" create:"optional"`
+	BgpType string `width:"64" charset:"utf8" nullable:"true" get:"user" list:"user" create:"optional"`
 
 	// 是否跟随主机删除而自动释放
 	AutoDellocate tristate.TriState `default:"false" get:"user" create:"optional" update:"user"`
