@@ -14,7 +14,10 @@
 
 package multicloud
 
-import "yunion.io/x/onecloud/pkg/util/rbacutils"
+import (
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
+)
 
 type SImageBase struct {
 	SVirtualResourceBase
@@ -22,4 +25,8 @@ type SImageBase struct {
 
 func (self *SImageBase) GetPublicScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeSystem
+}
+
+func (self *SImageBase) GetSubImages() []cloudprovider.SSubImage {
+	return nil
 }
