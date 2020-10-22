@@ -211,7 +211,9 @@ func buildCloudregion(id, name, provider string) *models.SCloudregion {
 		SEnabledStatusStandaloneResourceBase: db.SEnabledStatusStandaloneResourceBase{
 			SStatusStandaloneResourceBase: db.SStatusStandaloneResourceBase{
 				SStandaloneResourceBase: db.SStandaloneResourceBase{
-					Id:   id,
+					SStandaloneAnonResourceBase: db.SStandaloneAnonResourceBase{
+						Id: id,
+					},
 					Name: name,
 				},
 				SStatusResourceBase: db.SStatusResourceBase{
