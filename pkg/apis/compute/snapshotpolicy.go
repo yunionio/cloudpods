@@ -21,10 +21,10 @@ type SnapshotPolicyDetails struct {
 
 	SSnapshotPolicy
 
-	RetentionDays  int   `json:"retention_days"`
-	RepeatWeekdays []int `json:"repeat_weekdays"`
-	TimePoints     []int `json:"time_points"`
-	IsActivated    *bool `json:"is_activated,omitempty"`
+	RetentionDays         int   `json:"retention_days"`
+	RepeatWeekdaysDisplay []int `json:"repeat_weekdays_display"`
+	TimePointsDisplay     []int `json:"time_points_display"`
+	IsActivated           *bool `json:"is_activated,omitempty"`
 
 	BindingDiskCount int `json:"binding_disk_count"`
 }
