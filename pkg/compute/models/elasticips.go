@@ -478,7 +478,9 @@ func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.
 		factory, _ := provider.GetProviderFactory()
 		if factory != nil && factory.IsSupportPrepaidResources() {
 			self.BillingType = ext.GetBillingType()
-			self.ExpiredAt = ext.GetExpiredAt()
+			if expired := ext.GetExpiredAt(); !expired.IsZero() {
+				self.ExpiredAt = expired
+			}
 			self.AutoRenew = ext.IsAutoRenew()
 		}
 
