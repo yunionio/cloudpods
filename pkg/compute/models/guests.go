@@ -2539,7 +2539,9 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 
 	if provider.GetFactory().IsSupportPrepaidResources() {
 		guest.BillingType = extVM.GetBillingType()
-		guest.ExpiredAt = extVM.GetExpiredAt()
+		if expired := extVM.GetExpiredAt(); !expired.IsZero() {
+			guest.ExpiredAt = expired
+		}
 		if guest.GetDriver().IsSupportSetAutoRenew() {
 			guest.AutoRenew = extVM.IsAutoRenew()
 		}

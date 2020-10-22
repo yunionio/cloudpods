@@ -649,7 +649,9 @@ func (manager *SElasticcacheManager) newFromCloudElasticcache(ctx context.Contex
 
 	if factory.IsSupportPrepaidResources() {
 		instance.BillingType = extInstance.GetBillingType()
-		instance.ExpiredAt = extInstance.GetExpiredAt()
+		if expired := extInstance.GetExpiredAt(); !expired.IsZero() {
+			instance.ExpiredAt = expired
+		}
 		instance.AutoRenew = extInstance.IsAutoRenew()
 	}
 
