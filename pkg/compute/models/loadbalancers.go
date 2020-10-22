@@ -96,6 +96,9 @@ type SLoadbalancer struct {
 
 	SLoadbalancerRateLimiter
 
+	// 备可用区
+	Zone1 string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user" json:"zone_1"`
+
 	// IP地址
 	Address string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" json:"address"`
 	// 地址类型
@@ -463,6 +466,19 @@ func (lb *SLoadbalancer) GetCreateLoadbalancerParams(iRegion cloudprovider.IClou
 		}
 		params.ZoneID = iZone.GetId()
 	}
+
+	if len(lb.Zone1) > 0 {
+		z1 := ZoneManager.FetchZoneById(lb.Zone1)
+		if z1 == nil {
+			return nil, fmt.Errorf("failed to find zone 1 for lb %s", lb.Name)
+		}
+		iZone, err := iRegion.GetIZoneById(z1.ExternalId)
+		if err != nil {
+			return nil, errors.Wrap(err, "GetIZoneById")
+		}
+		params.SlaveZoneID = iZone.GetId()
+	}
+
 	if lb.ChargeType == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
 		params.EgressMbps = lb.EgressMbps
 	}

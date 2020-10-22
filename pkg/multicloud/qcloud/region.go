@@ -176,6 +176,7 @@ func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalanc
 	LoadBalancerType := "INTERNAL"
 	if loadbalancer.AddressType == api.LB_ADDR_TYPE_INTERNET {
 		LoadBalancerType = "OPEN"
+
 	}
 	params := map[string]string{
 		"LoadBalancerType": LoadBalancerType,
@@ -189,6 +190,15 @@ func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalanc
 
 	if loadbalancer.AddressType != api.LB_ADDR_TYPE_INTERNET {
 		params["SubnetId"] = loadbalancer.NetworkIDs[0]
+	} else {
+		// 公网类型ELB可支持多可用区
+		if len(loadbalancer.ZoneID) > 0 {
+			if len(loadbalancer.SlaveZoneID) > 0 {
+				params["MasterZoneId"] = loadbalancer.ZoneID
+			} else {
+				params["ZoneId"] = loadbalancer.ZoneID
+			}
+		}
 	}
 
 	resp, err := self.clbRequest("CreateLoadBalancer", params)
