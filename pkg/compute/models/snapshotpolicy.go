@@ -370,8 +370,8 @@ func (sp *SSnapshotPolicy) GetExtraDetails(
 }
 
 func (sp *SSnapshotPolicy) getMoreDetails(out api.SnapshotPolicyDetails) api.SnapshotPolicyDetails {
-	out.RepeatWeekdays = SnapshotPolicyManager.RepeatWeekdaysToIntArray(sp.RepeatWeekdays)
-	out.TimePoints = SnapshotPolicyManager.TimePointsToIntArray(sp.TimePoints)
+	out.RepeatWeekdaysDisplay = SnapshotPolicyManager.RepeatWeekdaysToIntArray(sp.RepeatWeekdays)
+	out.TimePointsDisplay = SnapshotPolicyManager.TimePointsToIntArray(sp.TimePoints)
 	out.BindingDiskCount, _ = SnapshotPolicyDiskManager.FetchDiskCountBySPID(sp.Id)
 	return out
 }
