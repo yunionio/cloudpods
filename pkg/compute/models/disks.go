@@ -2455,6 +2455,12 @@ func (self *SDisk) UpdataSnapshotsBackingDisk(backingDiskId string) error {
 func (manager *SDiskManager) AutoSyncExtDiskSnapshot(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 
 	now := time.Now()
+	week := now.Weekday()
+	if week == 0 {
+		week += 7
+	}
+	timePoint := now.Hour()
+
 	q := SnapshotPolicyDiskManager.Query().LE("next_sync_time", now)
 	spds := make([]SSnapshotPolicyDisk, 0)
 	err := db.FetchModelObjects(SnapshotPolicyDiskManager, q, &spds)
@@ -2484,7 +2490,11 @@ func (manager *SDiskManager) AutoSyncExtDiskSnapshot(ctx context.Context, userCr
 			db.OpsLog.LogEvent(disk, db.ACT_DISK_AUTO_SYNC_SNAPSHOT_FAIL, syncResult.Result(), userCred)
 			continue
 		}
-		if syncResult.AddCnt == 0 {
+		sp := spMap[spd.GetId()]
+		repeatWeekdays := SnapshotPolicyManager.RepeatWeekdaysToIntArray(sp.RepeatWeekdays)
+		timePoints := SnapshotPolicyManager.TimePointsToIntArray(sp.TimePoints)
+		if isInInts(int(week), repeatWeekdays) && isInInts(timePoint, timePoints) && syncResult.AddCnt == 0 {
+			// should add one
 			continue
 		}
 		db.OpsLog.LogEvent(disk, db.ACT_DISK_AUTO_SYNC_SNAPSHOT, "disk auto sync snapshot successfully", userCred)
@@ -2496,6 +2506,15 @@ func (manager *SDiskManager) AutoSyncExtDiskSnapshot(ctx context.Context, userCr
 			log.Errorf("unable to update NextSyncTime for snapshotpolicydisk %q %q", spd.SnapshotpolicyId, spd.DiskId)
 		}
 	}
+}
+
+func isInInts(a int, array []int) bool {
+	for _, i := range array {
+		if i == a {
+			return true
+		}
+	}
+	return false
 }
 
 func (self *SDisk) syncSnapshots(ctx context.Context, userCred mcclient.TokenCredential) compare.SyncResult {
