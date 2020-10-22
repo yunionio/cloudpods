@@ -151,7 +151,7 @@ func optionsStructRvToParams(rv reflect.Value) (*jsonutils.JSONDict, error) {
 }
 
 func optionsStructToParams(v interface{}) (*jsonutils.JSONDict, error) {
-	rv := reflect.ValueOf(v).Elem()
+	rv := reflect.Indirect(reflect.ValueOf(v))
 	return optionsStructRvToParams(rv)
 }
 
@@ -164,7 +164,7 @@ func StructToParams(v interface{}) (*jsonutils.JSONDict, error) {
 // ListStructToParams converts the struct as pointed to by the argument to JSON
 // dict params, taking into account .BaseListOptions.Params() if it exists
 func ListStructToParams(v interface{}) (*jsonutils.JSONDict, error) {
-	rv := reflect.ValueOf(v).Elem()
+	rv := reflect.Indirect(reflect.ValueOf(v))
 	params, err := optionsStructRvToParams(rv)
 	if err != nil {
 		return nil, err
@@ -215,9 +215,8 @@ type BaseListOptions struct {
 	DeleteAll        *bool `help:"Show also deleted resources" json:"-"`
 	ShowEmulated     *bool `help:"Show all resources including the emulated resources"`
 
-	ExportFile  string `help:"Export to file" metavar:"<EXPORT_FILE_PATH>" json:"-"`
-	ExportKeys  string `help:"Export field keys"`
-	ExportTexts string `help:"Export field displayname texts" json:"-"`
+	ExportKeys string `help:"Export field keys"`
+	ExtraListOptions
 
 	Tags      []string `help:"Tags info, eg: hypervisor=aliyun, os_type=Linux, os_version" json:"-"`
 	UserTags  []string `help:"UserTags info, eg: group=rd" json:"-"`
@@ -236,10 +235,6 @@ type BaseListOptions struct {
 	PagingMarker string `help:"Marker for pagination" json:"paging_marker"`
 
 	OrderByTag string `help:"Order results by tag values, composed by a tag key and order, e.g user:部门:ASC"`
-}
-
-func (opts *BaseListOptions) GetContextId() string {
-	return ""
 }
 
 func (opts *BaseListOptions) addTag(prefix, tag string, idx int, params *jsonutils.JSONDict) error {
@@ -307,16 +302,25 @@ func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
 	return params, nil
 }
 
-func (o *BaseListOptions) GetExportFile() string {
-	return o.ExportFile
-}
-
 func (o *BaseListOptions) GetExportKeys() string {
 	return o.ExportKeys
 }
 
-func (o *BaseListOptions) GetExportTexts() string {
+type ExtraListOptions struct {
+	ExportFile  string `help:"Export to file" metavar:"<EXPORT_FILE_PATH>" json:"-"`
+	ExportTexts string `help:"Export field displayname texts" json:"-"`
+}
+
+func (o ExtraListOptions) GetExportFile() string {
+	return o.ExportFile
+}
+
+func (o ExtraListOptions) GetExportTexts() string {
 	return o.ExportTexts
+}
+
+func (o ExtraListOptions) GetContextId() string {
+	return ""
 }
 
 type ScopedResourceListOptions struct {
@@ -373,4 +377,18 @@ type EnabledStatusCreateOptions struct {
 	BaseCreateOptions
 	Status  string
 	Enabled *bool `help:"turn on enabled flag"`
+}
+
+type BaseShowOptions struct {
+	ID             string `json:"-"`
+	WithMeta       *bool  `help:"With meta data"`
+	ShowFailReason *bool  `help:"show fail reason fields"`
+}
+
+func (o BaseShowOptions) Params() (jsonutils.JSONObject, error) {
+	return StructToParams(o)
+}
+
+func (o BaseShowOptions) GetId() string {
+	return o.ID
 }

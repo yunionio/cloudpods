@@ -153,8 +153,7 @@ func (o *ServerSwitchToBackupOptions) Description() string {
 }
 
 type ServerShowOptions struct {
-	ID       string `help:"ID or name of the server" json:"-"`
-	WithMeta *bool  `help:"With meta data"`
+	BaseShowOptions `id->help:"ID or name of the server"`
 }
 
 func (o *ServerShowOptions) Params() (jsonutils.JSONObject, error) {

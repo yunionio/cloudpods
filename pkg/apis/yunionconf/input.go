@@ -15,7 +15,10 @@
 package yunionconf
 
 import (
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type ParameterListInput struct {
@@ -39,4 +42,69 @@ type ParameterListInput struct {
 
 	// filter by name
 	Name []string `json:"name"`
+}
+
+type ScopedPolicyCreateInput struct {
+	apis.InfrasResourceBaseCreateInput
+
+	// 策略类别
+	Category string `json:"category"`
+
+	// 策略定义内容
+	Policies jsonutils.JSONObject `json:"policies"`
+}
+
+type ScopedPolicyUpdateInput struct {
+	apis.InfrasResourceBaseUpdateInput
+
+	// 策略定义内容
+	Policies jsonutils.JSONObject `json:"policies"`
+}
+
+type ScopedPolicyListInput struct {
+	apis.InfrasResourceBaseListInput
+
+	// 策略类别
+	Category []string `json:"category"`
+}
+
+type ScopedPolicyDetails struct {
+	apis.InfrasResourceBaseDetails
+
+	RefCount int `json:"ref_count"`
+}
+
+type ScopedPolicyBindingListInput struct {
+	apis.ResourceBaseListInput
+
+	PolicyId  string `json:"policy_id"`
+	DomainId  string `json:"domain_id"`
+	ProjectId string `json:"project_id"`
+
+	Category string `json:"category"`
+
+	Effective *bool `json:"effective"`
+}
+
+type ScopedPolicyBindingDetails struct {
+	apis.ResourceBaseDetails
+
+	Id string `json:"id"`
+
+	PolicyName string `json:"policy_name"`
+
+	Category string `json:"category"`
+
+	Policies jsonutils.JSONObject `json:"policy"`
+
+	ProjectDomain string `json:"project_domain"`
+
+	Project string `json:"project"`
+}
+
+type ScopedPolicyBindInput struct {
+	// 绑定范围
+	Scope rbacutils.TRbacScope `json:"scope"`
+	// 绑定的目标ID（域或者项目ID)
+	TargetIds []string `json:"target_ids"`
 }

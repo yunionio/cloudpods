@@ -15,20 +15,14 @@
 package yunionconf
 
 import (
-	"yunion.io/x/onecloud/pkg/appsrv"
-	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/yunionconf/models"
+	"yunion.io/x/onecloud/cmd/climc/shell"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/yunionconf"
+	options "yunion.io/x/onecloud/pkg/mcclient/options/yunionconf"
 )
 
-func InitHandlers(app *appsrv.Application) {
-	for _, manager := range []db.IModelManager{
-		models.ParameterManager,
-	} {
-		db.RegisterModelManager(manager)
-		handler := db.NewModelHandler(manager)
-		dispatcher.AddModelDispatcher("", app, handler)
-		dispatcher.AddModelDispatcher("/users/<user_id>", app, handler)
-		dispatcher.AddModelDispatcher("/services/<service_id>", app, handler)
-	}
+func init() {
+	cmd := shell.NewResourceCmd(&modules.ScopedPolicyBindings)
+	cmd.List(new(options.ScopedPolicyBindingListOptions))
+	cmd.Show(new(options.ScopedPolicyBindingShowOptions))
+	cmd.Delete(new(options.ScopedPolicyBindingIDOptions))
 }
