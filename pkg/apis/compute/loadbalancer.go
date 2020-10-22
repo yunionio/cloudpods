@@ -269,3 +269,8 @@ type LoadbalancerCreateInput struct {
 	CloudproviderResourceInput
 	// Manager     string `json:"manager"`
 }
+
+type LoadbalancerRemoteUpdateInput struct {
+	// 是否覆盖替换所有标签
+	ReplaceTags *bool `json:"replace_tags" help:"replace all remote tags"`
+}

@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -371,4 +372,47 @@ func init() {
 		return nil
 	})
 
+	R(&options.ResourceMetadataOptions{}, "dbinstance-add-tag", "Set tag of a dbinstance", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
+		params, err := opts.Params()
+		if err != nil {
+			return err
+		}
+		result, err := modules.DBInstance.PerformAction(s, opts.ID, "user-metadata", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.ResourceMetadataOptions{}, "dbinstance-set-tag", "Set tag of a dbinstance", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
+		params, err := opts.Params()
+		if err != nil {
+			return err
+		}
+		result, err := modules.DBInstance.PerformAction(s, opts.ID, "set-user-metadata", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type DBInstanceRemoteUpdateOptions struct {
+		ID string `json:"-"`
+		computeapi.DBInstanceRemoteUpdateInput
+	}
+
+	R(&DBInstanceRemoteUpdateOptions{}, "dbinstance-remote-update", "Change owner porject of a dbinstance", func(s *mcclient.ClientSession, opts *DBInstanceRemoteUpdateOptions) error {
+		params, err := options.StructToParams(opts)
+		if err != nil {
+			return err
+		}
+		result, err := modules.DBInstance.PerformAction(s, opts.ID, "remote-update", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

@@ -454,3 +454,7 @@ func (self *SRegion) CreateElbBackendgroup(group *cloudprovider.SLoadbalancerBac
 
 	return nil, fmt.Errorf("CreateElbBackendgroup error: %#v", backendgroups)
 }
+
+func (self *SElb) SetMetadata(tags map[string]string, replace bool) error {
+	return cloudprovider.ErrNotSupported
+}
