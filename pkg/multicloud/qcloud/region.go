@@ -193,9 +193,10 @@ func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalanc
 	} else {
 		// 公网类型ELB可支持多可用区
 		if len(loadbalancer.ZoneID) > 0 {
-			params["MasterZoneId"] = loadbalancer.ZoneID
 			if len(loadbalancer.SlaveZoneID) > 0 {
-				params["ZoneId"] = loadbalancer.SlaveZoneID
+				params["MasterZoneId"] = loadbalancer.ZoneID
+			} else {
+				params["ZoneId"] = loadbalancer.ZoneID
 			}
 		}
 	}
