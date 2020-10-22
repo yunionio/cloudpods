@@ -252,6 +252,10 @@ type LoadbalancerCreateInput struct {
 	// LB的其他配置信息
 	LBInfo jsonutils.JSONObject `json:"lb_info"`
 
+	// 从可用区1
+	// required: false
+	Zone1 string `json:"zone_1"`
+
 	// SLoadbalancer
 
 	VpcResourceInput
