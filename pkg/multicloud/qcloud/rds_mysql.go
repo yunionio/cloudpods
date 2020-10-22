@@ -809,3 +809,26 @@ func (self *SMySQLInstance) CreateIBackup(opts *cloudprovider.SDBInstanceBackupC
 	}
 	return self.region.CreateMySQLBackup(self.InstanceId, tables)
 }
+
+func (self *SMySQLInstance) GetMetadata() *jsonutils.JSONDict {
+	meta := jsonutils.NewDict()
+	tags, err := self.region.FetchResourceTags("cdb", "instanceId", []string{self.GetId()})
+	if err != nil {
+		log.Errorf(`[err:%s]self.region.FetchResourceTags("cdb", "instanceId", []string{self.GetId()})`, err.Error())
+		return nil
+	}
+	if _, ok := tags[self.GetId()]; !ok {
+		return meta
+	}
+	resourceTag := tags[self.GetId()]
+	if resourceTag != nil {
+		for k, v := range *resourceTag {
+			meta.Add(jsonutils.NewString(v), k)
+		}
+	}
+	return meta
+}
+
+func (self *SMySQLInstance) SetMetadata(tags map[string]string, replace bool) error {
+	return self.region.SetResourceTags("cdb", "instanceId", []string{self.InstanceId}, tags, replace)
+}

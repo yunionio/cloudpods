@@ -734,3 +734,7 @@ func (self *SElasticcache) GetICloudElasticcacheBackup(backupId string) (cloudpr
 
 	return nil, cloudprovider.ErrNotFound
 }
+
+func (instance *SElasticcache) SetMetadata(tags map[string]string, replace bool) error {
+	return cloudprovider.ErrNotImplemented
+}

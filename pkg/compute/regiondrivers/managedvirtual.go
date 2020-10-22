@@ -265,6 +265,36 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncstatusLoadbalancer(ct
 	return nil
 }
 
+func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, replaceTags bool, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iRegion, err := lb.GetIRegion()
+		if err != nil {
+			return nil, err
+		}
+		iLoadbalancer, err := iRegion.GetILoadBalancerById(lb.ExternalId)
+		if err != nil {
+			return nil, err
+		}
+		tags, err := lb.GetAllUserMetadata()
+		if err != nil {
+			log.Errorf("GetAllUserMetadata fail %s", err)
+		} else {
+			err := iLoadbalancer.SetMetadata(tags, replaceTags)
+			if err != nil {
+				return nil, errors.Wrap(err, "iLoadbalancer.SetMetadata")
+			}
+			// sync back cloud metadata
+			err = models.SyncVirtualResourceMetadata(ctx, userCred, lb, iLoadbalancer)
+			if err != nil {
+				return nil, errors.Wrap(err, "syncVirtualResourceMetadata")
+			}
+		}
+		return nil, nil
+	})
+	// nil ops
+	return nil
+}
+
 func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		if jsonutils.QueryBoolean(task.GetParams(), "purge", false) {
@@ -2367,6 +2397,32 @@ func (self *SManagedVirtualizationRegionDriver) ValidateResetDBInstancePassword(
 	return nil
 }
 
+func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateDBInstance(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, replaceTags bool, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iRds, err := instance.GetIDBInstance()
+		if err != nil {
+			return nil, errors.Wrap(err, "instance.GetIDBInstance")
+		}
+		tags, err := instance.GetAllUserMetadata()
+		if err != nil {
+			log.Errorf("GetAllUserMetadata fail %s", err)
+		} else {
+			err := iRds.SetMetadata(tags, replaceTags)
+			if err != nil {
+				return nil, errors.Wrap(err, "iRds.SetMetadata")
+			}
+			// sync back cloud metadata
+			err = models.SyncVirtualResourceMetadata(ctx, userCred, instance, iRds)
+			if err != nil {
+				return nil, errors.Wrap(err, "syncVirtualResourceMetadata")
+			}
+		}
+		return nil, nil
+	})
+	// nil ops
+	return nil
+}
+
 func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcacheBackup(ctx context.Context, userCred mcclient.TokenCredential, eb *models.SElasticcacheBackup, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		_ec, err := db.FetchById(models.ElasticcacheManager, eb.ElasticcacheId)
@@ -2734,5 +2790,33 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncElasticcacheStatus(ct
 
 		return nil, elasticcache.SetStatus(userCred, iElasticcache.GetStatus(), "syncstatus")
 	})
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *models.SElasticcache, replaceTags bool, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iRegion, err := elasticcache.GetIRegion()
+		if err != nil {
+			return nil, errors.Wrap(err, "elasticcache.GetIRegion")
+		}
+
+		iElasticcache, err := iRegion.GetIElasticcacheById(elasticcache.ExternalId)
+		tags, err := elasticcache.GetAllUserMetadata()
+		if err != nil {
+			log.Errorf("GetAllUserMetadata fail %s", err)
+		} else {
+			err := iElasticcache.SetMetadata(tags, replaceTags)
+			if err != nil {
+				return nil, errors.Wrap(err, "iElasticcache.SetMetadata")
+			}
+			// sync back cloud metadata
+			err = models.SyncVirtualResourceMetadata(ctx, userCred, elasticcache, iElasticcache)
+			if err != nil {
+				return nil, errors.Wrap(err, "syncVirtualResourceMetadata")
+			}
+		}
+		return nil, nil
+	})
+	// nil ops
 	return nil
 }

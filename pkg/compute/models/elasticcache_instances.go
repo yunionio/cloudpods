@@ -1713,3 +1713,39 @@ func (self *SElasticcache) CancelExpireTime(ctx context.Context, userCred mcclie
 	db.OpsLog.LogEvent(self, db.ACT_RENEW, "elasticcache cancel expire time", userCred)
 	return nil
 }
+
+func (self *SElasticcache) AllowPerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "remote-update")
+}
+
+func (self *SElasticcache) PerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ElasticcacheRemoteUpdateInput) (jsonutils.JSONObject, error) {
+	err := self.StartRemoteUpdateTask(ctx, userCred, (input.ReplaceTags != nil && *input.ReplaceTags), "")
+	if err != nil {
+		return nil, errors.Wrap(err, "StartRemoteUpdateTask")
+	}
+	return nil, nil
+}
+
+func (self *SElasticcache) StartRemoteUpdateTask(ctx context.Context, userCred mcclient.TokenCredential, replaceTags bool, parentTaskId string) error {
+	data := jsonutils.NewDict()
+	if replaceTags {
+		data.Add(jsonutils.JSONTrue, "replace_tags")
+	}
+	if task, err := taskman.TaskManager.NewTask(ctx, "ElasticcacheRemoteUpdateTask", self, userCred, data, parentTaskId, "", nil); err != nil {
+		log.Errorln(err)
+		return errors.Wrap(err, "Start ElasticcacheRemoteUpdateTask")
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
+}
+
+func (self *SElasticcache) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
+	if len(self.ExternalId) == 0 {
+		return
+	}
+	err := self.StartRemoteUpdateTask(ctx, userCred, false, "")
+	if err != nil {
+		log.Errorf("StartRemoteUpdateTask fail: %s", err)
+	}
+}

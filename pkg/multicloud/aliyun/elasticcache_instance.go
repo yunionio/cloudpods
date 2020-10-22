@@ -911,3 +911,21 @@ func (self *SElasticcache) GetICloudElasticcacheBackup(backupId string) (cloudpr
 
 	return nil, cloudprovider.ErrNotFound
 }
+
+func (instance *SElasticcache) GetMetadata() *jsonutils.JSONDict {
+	data := jsonutils.NewDict()
+	tags, err := instance.region.ListResourceTags("kvs", "INSTANCE", []string{instance.GetId()})
+	if err != nil {
+		log.Errorf(`[err:%s]instance.region.FetchResourceTags("kvs", "instance", []string{instance.GetId()})`, err.Error())
+		return nil
+	}
+	if _, ok := tags[instance.GetId()]; !ok {
+		return nil
+	}
+	data.Update(jsonutils.Marshal(tags[instance.GetId()]))
+	return data
+}
+
+func (instance *SElasticcache) SetMetadata(tags map[string]string, replace bool) error {
+	return instance.region.SetResourceTags("kvs", "INSTANCE", []string{instance.GetId()}, tags, replace)
+}

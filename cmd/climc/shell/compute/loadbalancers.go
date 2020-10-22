@@ -108,4 +108,43 @@ func init() {
 		return nil
 	})
 
+	R(&options.ResourceMetadataOptions{}, "lb-add-tag", "Set tag of a lb", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
+		params, err := opts.Params()
+		if err != nil {
+			return err
+		}
+		result, err := modules.Loadbalancers.PerformAction(s, opts.ID, "user-metadata", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.ResourceMetadataOptions{}, "lb-set-tag", "Set tag of a lb", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
+		params, err := opts.Params()
+		if err != nil {
+			return err
+		}
+		result, err := modules.Loadbalancers.PerformAction(s, opts.ID, "set-user-metadata", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.LoadbalancerRemoteUpdateOptions{}, "lb-remote-update", "Change lb status", func(s *mcclient.ClientSession, opts *options.ServerRemoteUpdateOptions) error {
+		params, err := options.StructToParams(opts)
+		if err != nil {
+			return err
+		}
+		lb, err := modules.Loadbalancers.PerformAction(s, opts.ID, "remote-update", params)
+		if err != nil {
+			return err
+		}
+		printObject(lb)
+		return nil
+	})
+
 }
