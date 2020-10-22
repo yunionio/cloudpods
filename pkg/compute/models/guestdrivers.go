@@ -35,6 +35,7 @@ type IGuestScheduleDriver interface {
 	DoScheduleCPUFilter() bool
 	DoScheduleMemoryFilter() bool
 	DoScheduleStorageFilter() bool
+	DoScheduleCloudproviderTagFilter() bool
 }
 
 type IGuestDriver interface {

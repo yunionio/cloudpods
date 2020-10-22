@@ -23,9 +23,10 @@ import (
 type SchedtagConfig struct {
 	apis.Meta
 
-	Id       string `json:"id"`
-	Strategy string `json:"strategy"`
-	Weight   int    `json:"weight"`
+	Id           string `json:"id"`
+	Strategy     string `json:"strategy"`
+	Weight       int    `json:"weight"`
+	ResourceType string `json:"resource_type"`
 }
 
 type NetworkConfig struct {

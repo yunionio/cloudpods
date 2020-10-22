@@ -42,6 +42,8 @@ func (d SBaseGuestScheduleDriver) DoScheduleMemoryFilter() bool { return true }
 
 func (d SBaseGuestScheduleDriver) DoScheduleStorageFilter() bool { return true }
 
+func (d SBaseGuestScheduleDriver) DoScheduleCloudproviderTagFilter() bool { return false }
+
 type SBaseGuestDriver struct {
 	SBaseGuestScheduleDriver
 }

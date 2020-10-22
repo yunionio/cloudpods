@@ -123,5 +123,8 @@ func init() {
 		modules.Schedtaghosts,
 		modules.Schedtagstorages,
 		modules.Schedtagnetworks,
+		modules.Schedtagcloudproviders,
+		modules.Schedtagcloudregions,
+		modules.Schedtagzones,
 	).register()
 }

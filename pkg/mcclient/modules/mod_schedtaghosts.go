@@ -17,9 +17,12 @@ package modules
 import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 var (
-	Schedtaghosts    modulebase.JointResourceManager
-	Schedtagstorages modulebase.JointResourceManager
-	Schedtagnetworks modulebase.JointResourceManager
+	Schedtaghosts          modulebase.JointResourceManager
+	Schedtagstorages       modulebase.JointResourceManager
+	Schedtagnetworks       modulebase.JointResourceManager
+	Schedtagcloudproviders modulebase.JointResourceManager
+	Schedtagcloudregions   modulebase.JointResourceManager
+	Schedtagzones          modulebase.JointResourceManager
 )
 
 func newSchedtagJointManager(keyword, keywordPlural string, columns, adminColumns []string, slave modulebase.Manager) modulebase.JointResourceManager {
@@ -44,7 +47,29 @@ func init() {
 		[]string{},
 		&Networks)
 
-	registerCompute(&Schedtaghosts)
-	registerCompute(&Schedtagstorages)
-	registerCompute(&Schedtagnetworks)
+	Schedtagcloudproviders = newSchedtagJointManager("schedtagcloudprovider", "schedtagcloudproviders",
+		[]string{"Cloudprovider_ID", "Cloudprovider"},
+		[]string{},
+		&Cloudproviders)
+
+	Schedtagcloudregions = newSchedtagJointManager("schedtagcloudregion", "schedtagcloudregions",
+		[]string{"Cloudregion_ID", "Cloudregion"},
+		[]string{},
+		&Cloudregions)
+
+	Schedtagzones = newSchedtagJointManager("schedtagzone", "schedtagzones",
+		[]string{"Zone_ID", "Zone"},
+		[]string{},
+		&Zones)
+
+	for _, m := range []modulebase.IBaseManager{
+		&Schedtaghosts,
+		&Schedtagstorages,
+		&Schedtagnetworks,
+		&Schedtagcloudproviders,
+		&Schedtagcloudregions,
+		&Schedtagzones,
+	} {
+		registerCompute(m)
+	}
 }

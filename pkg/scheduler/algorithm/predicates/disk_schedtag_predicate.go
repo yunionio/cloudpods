@@ -17,6 +17,7 @@ package predicates
 import (
 	"fmt"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
@@ -64,6 +65,10 @@ func (d diskW) IsSpecifyResource() bool {
 
 func (d diskW) GetSchedtags() []*computeapi.SchedtagConfig {
 	return d.DiskConfig.Schedtags
+}
+
+func (d diskW) GetDynamicConditionInput() *jsonutils.JSONDict {
+	return d.JSON(d)
 }
 
 func (p *DiskSchedtagPredicate) GetInputs(u *core.Unit) []ISchedtagCustomer {

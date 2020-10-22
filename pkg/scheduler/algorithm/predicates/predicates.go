@@ -41,6 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/plugin"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
+	"yunion.io/x/onecloud/pkg/scheduler/core/score"
 )
 
 // BasePredicate is a default struct for all the predicates that will
@@ -264,6 +265,11 @@ type ISchedtagPredicateInstance interface {
 	GetCandidateResourceSortScore(candidate ISchedtagCandidateResource) int64
 }
 
+// Schedtag Description
+// require: Must be scheduled to the specified tag resource
+// prefer: Priority to the specified resource
+// avoid: Try to avoid scheduling to the specified resource
+// exclude: Do not allow scheduling on the specified resource
 type BaseSchedtagPredicate struct {
 	BasePredicate
 	plugin.BasePlugin
@@ -292,7 +298,8 @@ func (p *PredicatedSchedtagResource) hasAvoidTags() bool {
 }
 
 type ISchedtagCustomer interface {
-	JSON(interface{}) *jsonutils.JSONDict
+	// JSON(interface{}) *jsonutils.JSONDict
+	GetDynamicConditionInput() *jsonutils.JSONDict
 	Keyword() string
 	IsSpecifyResource() bool
 	GetSchedtags() []*computeapi.SchedtagConfig
@@ -323,7 +330,7 @@ func (w SchedtagResourceW) GetSchedtags() []models.SSchedtag {
 func (w SchedtagResourceW) GetDynamicSchedDesc() *jsonutils.JSONDict {
 	ret := jsonutils.NewDict()
 	resSchedDesc := w.candidater.GetDynamicConditionInput()
-	inputSchedDesc := w.input.JSON(w.input)
+	inputSchedDesc := w.input.GetDynamicConditionInput()
 	ret.Add(resSchedDesc, w.candidater.Keyword())
 	ret.Add(inputSchedDesc, w.input.Keyword())
 	return ret
@@ -339,11 +346,10 @@ func (p *BaseSchedtagPredicate) check(input ISchedtagCustomer, candidate ISchedt
 		return nil, err
 	}
 	tagPredicate := NewSchedtagPredicate(input.GetSchedtags(), allTags)
-	shouldExec := u.ShouldExecuteSchedtagFilter(c.Getter().Id())
 	res := &PredicatedSchedtagResource{
 		ISchedtagCandidateResource: candidate,
 	}
-	if shouldExec && !input.IsSpecifyResource() {
+	if !input.IsSpecifyResource() {
 		if err := tagPredicate.Check(
 			SchedtagResourceW{
 				candidater: candidate,
@@ -421,7 +427,7 @@ func (p *BaseSchedtagPredicate) Execute(
 		}
 		if len(matchedRes) == 0 {
 			errs = append(errs, &FailReason{
-				Reason: fmt.Sprintf("Not found matched %s, candidate: %s, %s: %s", input.ResourceKeyword(), c.Getter().Name(), input.Keyword(), input.JSON(input).String()),
+				Reason: fmt.Sprintf("Not found matched %s, candidate: %s, %s: %s", input.ResourceKeyword(), c.Getter().Name(), input.Keyword(), input.GetDynamicConditionInput()),
 				Type:   fmt.Sprintf("%s_match", input.ResourceKeyword()),
 			})
 		}
@@ -452,6 +458,17 @@ func (p *BaseSchedtagPredicate) Execute(
 	}
 
 	return h.GetResult()
+}
+
+func SetCandidateScoreBySchedtag(u *core.Unit, c core.Candidater, aggCountMap map[string]int, prefer bool) {
+	stepScore := core.PriorityStep
+	doSet := u.SetPreferScore
+	if !prefer {
+		doSet = u.SetAvoidScore
+	}
+	for n, count := range aggCountMap {
+		doSet(c.IndexKey(), score.NewScore(score.TScore(count*stepScore), n))
+	}
 }
 
 func (p *BaseSchedtagPredicate) OnPriorityEnd(sp ISchedtagPredicateInstance, u *core.Unit, c core.Candidater) {
@@ -553,4 +570,72 @@ func (p *BaseSchedtagPredicate) selectResource(
 		}
 	}
 	return nil
+}
+
+type iServerBaseSchedtagPredicate interface {
+	ISchedtagPredicateInstance
+	GetCandidateResource(core.Candidater) ISchedtagCandidateResource
+}
+
+type ServerBaseSchedtagPredicate struct {
+	*BaseSchedtagPredicate
+	filter iServerBaseSchedtagPredicate
+}
+
+func NewServerBaseSchedtagPredicate(filter iServerBaseSchedtagPredicate) *ServerBaseSchedtagPredicate {
+	return &ServerBaseSchedtagPredicate{
+		BaseSchedtagPredicate: NewBaseSchedtagPredicate(),
+		filter:                filter,
+	}
+}
+
+func (p *ServerBaseSchedtagPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
+	return p.BaseSchedtagPredicate.PreExecute(p.filter, u, cs)
+}
+
+func (p *ServerBaseSchedtagPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
+	return p.BaseSchedtagPredicate.Execute(p.filter, u, c)
+}
+
+func (p *ServerBaseSchedtagPredicate) GetResources(c core.Candidater) []ISchedtagCandidateResource {
+	res := p.filter.GetCandidateResource(c)
+	if res == nil {
+		return nil
+	}
+	return []ISchedtagCandidateResource{
+		res,
+	}
+}
+
+func (p *ServerBaseSchedtagPredicate) IsResourceMatchInput(input ISchedtagCustomer, res ISchedtagCandidateResource) bool {
+	return true
+}
+
+func (p *ServerBaseSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) core.PredicateFailureReason {
+	return nil
+}
+
+func (p *ServerBaseSchedtagPredicate) DoSelect(
+	c core.Candidater,
+	input ISchedtagCustomer,
+	res []ISchedtagCandidateResource,
+) []ISchedtagCandidateResource {
+	return res
+}
+
+func (p *ServerBaseSchedtagPredicate) AddSelectResult(index int, input ISchedtagCustomer, selectRes []ISchedtagCandidateResource, output *core.AllocatedResource) {
+	// resource is host, do nothing
+}
+
+func (p *ServerBaseSchedtagPredicate) GetCandidateResourceSortScore(selectRes ISchedtagCandidateResource) int64 {
+	// TODO
+	return 1
+}
+
+func (p *ServerBaseSchedtagPredicate) OnPriorityEnd(u *core.Unit, c core.Candidater) {
+	p.BaseSchedtagPredicate.OnPriorityEnd(p.filter, u, c)
+}
+
+func (p *ServerBaseSchedtagPredicate) OnSelectEnd(u *core.Unit, c core.Candidater, count int64) {
+	p.BaseSchedtagPredicate.OnSelectEnd(p.filter, u, c, count)
 }

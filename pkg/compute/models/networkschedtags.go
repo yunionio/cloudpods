@@ -18,22 +18,18 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
-type SNetworkschedtagManager struct {
-	*SSchedtagJointsManager
-	SNetworkResourceBaseManager
-}
-
-var NetworkschedtagManager *SNetworkschedtagManager
+var (
+	NetworkschedtagManager *SNetworkschedtagManager
+	_                      ISchedtagJointModel = new(SNetworkschedtag)
+)
 
 func init() {
 	db.InitManager(func() {
@@ -50,6 +46,11 @@ func init() {
 	})
 }
 
+type SNetworkschedtagManager struct {
+	*SSchedtagJointsManager
+	resourceBaseManager SNetworkResourceBaseManager
+}
+
 type SNetworkschedtag struct {
 	SSchedtagJointsBase
 
@@ -58,6 +59,10 @@ type SNetworkschedtag struct {
 
 func (manager *SNetworkschedtagManager) GetMasterFieldName() string {
 	return "network_id"
+}
+
+func (s *SNetworkschedtag) GetResourceId() string {
+	return s.NetworkId
 }
 
 func (s *SNetworkschedtag) GetExtraDetails(
@@ -69,38 +74,12 @@ func (s *SNetworkschedtag) GetExtraDetails(
 	return api.NetworkschedtagDetails{}, nil
 }
 
-func (manager *SNetworkschedtagManager) FetchCustomizeColumns(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	objs []interface{},
-	fields stringutils2.SSortedStrings,
-	isList bool,
-) []api.NetworkschedtagDetails {
-	rows := make([]api.NetworkschedtagDetails, len(objs))
-
-	schedRows := manager.SSchedtagJointsManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-	netIds := make([]string, len(rows))
-	for i := range rows {
-		rows[i] = api.NetworkschedtagDetails{
-			SchedtagJointResourceDetails: schedRows[i],
-		}
-		netIds[i] = objs[i].(*SNetworkschedtag).NetworkId
+func (s *SNetworkschedtag) GetDetails(base api.SchedtagJointResourceDetails, resourceName string, isList bool) interface{} {
+	out := api.NetworkschedtagDetails{
+		SchedtagJointResourceDetails: base,
 	}
-
-	netIdMaps, err := db.FetchIdNameMap2(NetworkManager, netIds)
-	if err != nil {
-		log.Errorf("FetchIdNameMap2 netIds fail %s", err)
-		return rows
-	}
-
-	for i := range rows {
-		if name, ok := netIdMaps[netIds[i]]; ok {
-			rows[i].Network = name
-		}
-	}
-
-	return rows
+	out.Network = resourceName
+	return out
 }
 
 func (s *SNetworkschedtag) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -123,7 +102,7 @@ func (manager *SNetworkschedtagManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SSchedtagJointsManager.ListItemFilter")
 	}
-	q, err = manager.SNetworkResourceBaseManager.ListItemFilter(ctx, q, userCred, query.NetworkFilterListInput)
+	q, err = manager.resourceBaseManager.ListItemFilter(ctx, q, userCred, query.NetworkFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.ListItemFilter")
 	}
@@ -143,7 +122,7 @@ func (manager *SNetworkschedtagManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SSchedtagJointsManager.OrderByExtraFields")
 	}
-	q, err = manager.SNetworkResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.NetworkFilterListInput)
+	q, err = manager.resourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.NetworkFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.OrderByExtraFields")
 	}

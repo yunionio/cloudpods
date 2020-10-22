@@ -1678,3 +1678,23 @@ func (self *SCloudprovider) SyncProject(ctx context.Context, userCred mcclient.T
 	}
 	return account.SyncProject(ctx, userCred, id)
 }
+
+func (self *SCloudprovider) GetSchedtags() []SSchedtag {
+	return GetSchedtags(CloudproviderschedtagManager, self.Id)
+}
+
+func (self *SCloudprovider) GetDynamicConditionInput() *jsonutils.JSONDict {
+	return jsonutils.Marshal(self).(*jsonutils.JSONDict)
+}
+
+func (self *SCloudprovider) AllowPerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return AllowPerformSetResourceSchedtag(self, ctx, userCred, query, data)
+}
+
+func (self *SCloudprovider) PerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return PerformSetResourceSchedtag(self, ctx, userCred, query, data)
+}
+
+func (self *SCloudprovider) GetSchedtagJointManager() ISchedtagJointManager {
+	return CloudproviderschedtagManager
+}

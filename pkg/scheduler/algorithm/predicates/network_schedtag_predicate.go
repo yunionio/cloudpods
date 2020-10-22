@@ -17,6 +17,7 @@ package predicates
 import (
 	"sort"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
@@ -61,6 +62,10 @@ func (n netW) IsSpecifyResource() bool {
 
 func (n netW) GetSchedtags() []*computeapi.SchedtagConfig {
 	return n.NetworkConfig.Schedtags
+}
+
+func (n netW) GetDynamicConditionInput() *jsonutils.JSONDict {
+	return n.NetworkConfig.JSON(n.NetworkConfig)
 }
 
 func (p *NetworkSchedtagPredicate) GetInputs(u *core.Unit) []ISchedtagCustomer {

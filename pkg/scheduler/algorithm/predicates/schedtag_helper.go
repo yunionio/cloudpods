@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -299,4 +300,14 @@ func (c *SchedtagChecker) Check(p ISchedtagPredicate, candidate ISchedtagCandida
 	}
 
 	return nil
+}
+
+func GetInputSchedtagByType(tags []*computeapi.SchedtagConfig, types ...string) []*computeapi.SchedtagConfig {
+	ret := make([]*computeapi.SchedtagConfig, 0)
+	for _, tag := range tags {
+		if utils.IsInStringArray(tag.ResourceType, types) {
+			ret = append(ret, tag)
+		}
+	}
+	return ret
 }

@@ -30,7 +30,7 @@ func init() {
 func baremetalPredicates() sets.String {
 	return sets.NewString(
 		factory.RegisterFitPredicate("a-BaremetalStatusFilter", &predicatebm.StatusPredicate{}),
-		factory.RegisterFitPredicate("b-BaremetalAggregateFilter", &predicates.AggregatePredicate{}),
+		factory.RegisterFitPredicate("b-BaremetalschedtagFilter", predicates.NewHostSchedtagPredicate()),
 		factory.RegisterFitPredicate("c-BaremetalCPUFilter", &predicatebm.CPUPredicate{}),
 		factory.RegisterFitPredicate("d-BaremetalMemoryFilter", &predicatebm.MemoryPredicate{}),
 		factory.RegisterFitPredicate("e-BaremetalStorageFilter", &predicatebm.StoragePredicate{}),
@@ -41,5 +41,8 @@ func baremetalPredicates() sets.String {
 		factory.RegisterFitPredicate("k-NetBondingFilter", &predicatebm.NetBondingPredicate{}),
 		factory.RegisterFitPredicate("l-CdromFilter", &predicatebm.CdromBootPredicate{}),
 		factory.RegisterFitPredicate("m-IsolatedDevicesFilter", &predicates.IsolatedDevicePredicate{}),
+		factory.RegisterFitPredicate("n-CloudproviderschedtagFilter", predicates.NewCloudproviderSchedtagPredicate()),
+		factory.RegisterFitPredicate("o-CloudregionschedtagFilter", predicates.NewCloudregionSchedtagPredicate()),
+		factory.RegisterFitPredicate("p-ZoneschedtagFilter", predicates.NewZoneSchedtagPredicate()),
 	)
 }

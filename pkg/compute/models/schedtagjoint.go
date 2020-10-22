@@ -21,7 +21,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -158,21 +157,20 @@ func (manager *SSchedtagJointsManager) FetchCustomizeColumns(
 	objs []interface{},
 	fields stringutils2.SSortedStrings,
 	isList bool,
-) []api.SchedtagJointResourceDetails {
-	rows := make([]api.SchedtagJointResourceDetails, len(objs))
+) []interface{} {
+	rows := make([]interface{}, len(objs))
 
 	jointRows := manager.SJointResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	tagIds := make([]string, len(rows))
+	resIds := make([]string, len(rows))
 	for i := range rows {
 		rows[i] = api.SchedtagJointResourceDetails{
 			JointResourceBaseDetails: jointRows[i],
 		}
-		var base *SSchedtagJointsBase
-		reflectutils.FindAnonymouStructPointer(objs[i], &base)
-		if base != nil && len(base.SchedtagId) > 0 {
-			tagIds[i] = base.SchedtagId
-		}
+		obj := objs[i].(ISchedtagJointModel)
+		tagIds[i] = obj.GetSchedtagId()
+		resIds[i] = obj.GetResourceId()
 	}
 
 	tags := make(map[string]SSchedtag)
@@ -184,9 +182,24 @@ func (manager *SSchedtagJointsManager) FetchCustomizeColumns(
 
 	for i := range rows {
 		if schedtag, ok := tags[tagIds[i]]; ok {
-			rows[i].Schedtag = schedtag.Name
-			rows[i].ResourceType = schedtag.ResourceType
+			out := rows[i].(api.SchedtagJointResourceDetails)
+			out.Schedtag = schedtag.Name
+			out.ResourceType = schedtag.ResourceType
+			rows[i] = out
 		}
+	}
+
+	resIdMaps, err := db.FetchIdNameMap2(manager.GetMasterManager(), resIds)
+	if err != nil {
+		log.Errorf("FetchIdNameMap2 %sIds error: %v", manager.GetMasterManager().Keyword(), err)
+		return rows
+	}
+
+	for idx := range objs {
+		obj := objs[idx].(ISchedtagJointModel)
+		baseDetail := rows[idx].(api.SchedtagJointResourceDetails)
+		out := obj.GetDetails(baseDetail, resIdMaps[resIds[idx]], isList)
+		rows[idx] = out
 	}
 
 	return rows

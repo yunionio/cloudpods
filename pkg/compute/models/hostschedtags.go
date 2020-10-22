@@ -18,22 +18,18 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
-type SHostschedtagManager struct {
-	*SSchedtagJointsManager
-	SHostResourceBaseManager
-}
-
-var HostschedtagManager *SHostschedtagManager
+var (
+	HostschedtagManager *SHostschedtagManager
+	_                   ISchedtagJointModel = new(SHostschedtag)
+)
 
 func init() {
 	db.InitManager(func() {
@@ -48,6 +44,11 @@ func init() {
 		}
 		HostschedtagManager.SetVirtualObject(HostschedtagManager)
 	})
+}
+
+type SHostschedtagManager struct {
+	*SSchedtagJointsManager
+	resourceBaseManager SHostResourceBaseManager
 }
 
 type SHostschedtag struct {
@@ -69,38 +70,12 @@ func (self *SHostschedtag) GetExtraDetails(
 	return api.HostschedtagDetails{}, nil
 }
 
-func (manager *SHostschedtagManager) FetchCustomizeColumns(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	objs []interface{},
-	fields stringutils2.SSortedStrings,
-	isList bool,
-) []api.HostschedtagDetails {
-	rows := make([]api.HostschedtagDetails, len(objs))
-
-	schedRows := manager.SSchedtagJointsManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-	hostIds := make([]string, len(rows))
-	for i := range rows {
-		rows[i] = api.HostschedtagDetails{
-			SchedtagJointResourceDetails: schedRows[i],
-		}
-		hostIds[i] = objs[i].(*SHostschedtag).HostId
+func (self *SHostschedtag) GetDetails(base api.SchedtagJointResourceDetails, resourceName string, isList bool) interface{} {
+	out := api.HostschedtagDetails{
+		SchedtagJointResourceDetails: base,
 	}
-
-	hostIdMaps, err := db.FetchIdNameMap2(HostManager, hostIds)
-	if err != nil {
-		log.Errorf("FetchIdNameMap2 hostIds fail %s", err)
-		return rows
-	}
-
-	for i := range rows {
-		if name, ok := hostIdMaps[hostIds[i]]; ok {
-			rows[i].Host = name
-		}
-	}
-
-	return rows
+	out.Host = resourceName
+	return out
 }
 
 func (self *SHostschedtag) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -109,6 +84,10 @@ func (self *SHostschedtag) Delete(ctx context.Context, userCred mcclient.TokenCr
 
 func (self *SHostschedtag) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return self.SSchedtagJointsBase.detach(self, ctx, userCred)
+}
+
+func (self *SHostschedtag) GetResourceId() string {
+	return self.HostId
 }
 
 func (manager *SHostschedtagManager) ListItemFilter(
@@ -123,7 +102,7 @@ func (manager *SHostschedtagManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SSchedtagJointsManager.ListItemFilter")
 	}
-	q, err = manager.SHostResourceBaseManager.ListItemFilter(ctx, q, userCred, query.HostFilterListInput)
+	q, err = manager.resourceBaseManager.ListItemFilter(ctx, q, userCred, query.HostFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SHostResourceBaseManager.ListItemFilter")
 	}
@@ -143,7 +122,7 @@ func (manager *SHostschedtagManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SSchedtagJointsManager.OrderByExtraFields")
 	}
-	q, err = manager.SHostResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.HostFilterListInput)
+	q, err = manager.resourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.HostFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SHostResourceBaseManager.OrderByExtraFields")
 	}
