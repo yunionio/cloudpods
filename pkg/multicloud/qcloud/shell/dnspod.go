@@ -24,11 +24,12 @@ import (
 
 func init() {
 	type DomianListOptions struct {
-		Offset int
-		Limit  int
+		Offset    int
+		Limit     int
+		ProjectId string
 	}
 	shellutils.R(&DomianListOptions{}, "domain-list", "List domains", func(cli *qcloud.SRegion, args *DomianListOptions) error {
-		domains, total, e := cli.GetClient().GetDomains(args.Offset, args.Limit)
+		domains, total, e := cli.GetClient().GetDomains(args.ProjectId, args.Offset, args.Limit)
 		if e != nil {
 			return e
 		}
@@ -61,12 +62,13 @@ func init() {
 	})
 
 	type DnsRecordListOptions struct {
-		DOMAIN string
-		Offset int
-		Limit  int
+		DOMAIN    string
+		ProjectId string
+		Offset    int
+		Limit     int
 	}
 	shellutils.R(&DnsRecordListOptions{}, "dnsrecord-list", "List dndrecord", func(cli *qcloud.SRegion, args *DnsRecordListOptions) error {
-		records, total, e := cli.GetClient().GetDnsRecords(args.DOMAIN, args.Offset, args.Limit)
+		records, total, e := cli.GetClient().GetDnsRecords(args.ProjectId, args.DOMAIN, args.Offset, args.Limit)
 		if e != nil {
 			return e
 		}
@@ -84,7 +86,7 @@ func init() {
 	}
 	shellutils.R(&DnsRecordCreateOptions{}, "dnsrecord-create", "create dndrecord", func(cli *qcloud.SRegion, args *DnsRecordCreateOptions) error {
 		change := cloudprovider.DnsRecordSet{}
-		change.DnsName = args.DOMAIN
+		change.DnsName = args.NAME
 		change.DnsValue = args.VALUE
 		change.Ttl = args.TTL
 		change.DnsType = cloudprovider.TDnsType(args.TYPE)
