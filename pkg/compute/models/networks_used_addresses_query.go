@@ -46,230 +46,246 @@ var usedAddressQueryProviders = []usedAddressQueryProvider{
 }
 
 func (manager *SGuestnetworkManager) usedAddressQuery(args *usedAddressQueryArgs) *sqlchemy.SQuery {
-	guestnetworks := GuestnetworkManager.Query().Equals("network_id", args.network.Id).SubQuery()
-	var guestNetQ *sqlchemy.SQuery
+	var (
+		baseq = GuestnetworkManager.Query().Equals("network_id", args.network.Id).SubQuery()
+		retq  *sqlchemy.SQuery
+	)
 	if args.addrOnly {
-		guestNetQ = guestnetworks.Query(
-			guestnetworks.Field("ip_addr"),
+		retq = baseq.Query(
+			baseq.Field("ip_addr"),
 		)
 	} else {
-		guests := GuestManager.FilterByOwner(GuestManager.Query(), args.owner, args.scope).SubQuery()
-		guestNetQ = guestnetworks.Query(
-			guestnetworks.Field("ip_addr"),
-			guestnetworks.Field("mac_addr"),
+		ownerq := GuestManager.FilterByOwner(GuestManager.Query(), args.owner, args.scope).SubQuery()
+		retq = baseq.Query(
+			baseq.Field("ip_addr"),
+			baseq.Field("mac_addr"),
 			sqlchemy.NewStringField(GuestManager.KeywordPlural()).Label("owner_type"),
-			guests.Field("id").Label("owner_id"),
-			guests.Field("name").Label("owner"),
+			ownerq.Field("id").Label("owner_id"),
+			ownerq.Field("name").Label("owner"),
 			sqlchemy.NewStringField("").Label("associate_id"),
 			sqlchemy.NewStringField("").Label("associate_type"),
-			guestnetworks.Field("created_at"),
+			baseq.Field("created_at"),
 		).LeftJoin(
-			guests,
+			ownerq,
 			sqlchemy.Equals(
-				guests.Field("id"),
-				guestnetworks.Field("guest_id"),
+				ownerq.Field("id"),
+				baseq.Field("guest_id"),
 			),
 		)
 	}
-	return guestNetQ
+	return retq
 }
 
 func (manager *SHostnetworkManager) usedAddressQuery(args *usedAddressQueryArgs) *sqlchemy.SQuery {
-	hostnetworks := HostnetworkManager.Query().Equals("network_id", args.network.Id).SubQuery()
-	var hostNetQ *sqlchemy.SQuery
+	var (
+		baseq = HostnetworkManager.Query().Equals("network_id", args.network.Id).SubQuery()
+		retq  *sqlchemy.SQuery
+	)
 	if args.addrOnly {
-		hostNetQ = hostnetworks.Query(
-			hostnetworks.Field("ip_addr"),
+		retq = baseq.Query(
+			baseq.Field("ip_addr"),
 		)
 	} else {
-		hosts := HostManager.FilterByOwner(HostManager.Query(), args.owner, args.scope).SubQuery()
-		hostNetQ = hostnetworks.Query(
-			hostnetworks.Field("ip_addr"),
-			hostnetworks.Field("mac_addr"),
+		ownerq := HostManager.FilterByOwner(HostManager.Query(), args.owner, args.scope).SubQuery()
+		retq = baseq.Query(
+			baseq.Field("ip_addr"),
+			baseq.Field("mac_addr"),
 			sqlchemy.NewStringField(HostManager.KeywordPlural()).Label("owner_type"),
-			hosts.Field("id").Label("owner_id"),
-			hosts.Field("name").Label("owner"),
+			ownerq.Field("id").Label("owner_id"),
+			ownerq.Field("name").Label("owner"),
 			sqlchemy.NewStringField("").Label("associate_id"),
 			sqlchemy.NewStringField("").Label("associate_type"),
-			hostnetworks.Field("created_at"),
+			baseq.Field("created_at"),
 		).LeftJoin(
-			hosts,
+			ownerq,
 			sqlchemy.Equals(
-				hosts.Field("id"),
-				hostnetworks.Field("baremetal_id"),
+				ownerq.Field("id"),
+				baseq.Field("baremetal_id"),
 			),
 		)
 	}
-	return hostNetQ
+	return retq
 }
 
 func (manager *SReservedipManager) usedAddressQuery(args *usedAddressQueryArgs) *sqlchemy.SQuery {
-	reserved := ReservedipManager.Query().Equals("network_id", args.network.Id).SubQuery()
-	var reservedQ *sqlchemy.SQuery
+	var (
+		baseq = ReservedipManager.Query().Equals("network_id", args.network.Id).SubQuery()
+		retq  *sqlchemy.SQuery
+	)
 	if args.addrOnly {
-		reservedQ = reserved.Query(
-			reserved.Field("ip_addr"),
+		retq = baseq.Query(
+			baseq.Field("ip_addr"),
 		)
 	} else {
-		reservedQ = reserved.Query(
-			reserved.Field("ip_addr"),
+		retq = baseq.Query(
+			baseq.Field("ip_addr"),
 			sqlchemy.NewStringField("").Label("mac_addr"),
 			sqlchemy.NewStringField(ReservedipManager.KeywordPlural()).Label("owner_type"),
-			reserved.Field("id").Label("owner_id"),
-			reserved.Field("notes").Label("owner"),
+			baseq.Field("id").Label("owner_id"),
+			baseq.Field("notes").Label("owner"),
 			sqlchemy.NewStringField("").Label("associate_id"),
 			sqlchemy.NewStringField("").Label("associate_type"),
-			reserved.Field("created_at"),
+			baseq.Field("created_at"),
 		)
 	}
-	reservedQ = reservedQ.Filter(sqlchemy.OR(
-		sqlchemy.IsNullOrEmpty(reserved.Field("expired_at")),
-		sqlchemy.GT(reserved.Field("expired_at"), time.Now()),
+	retq = retq.Filter(sqlchemy.OR(
+		sqlchemy.IsNullOrEmpty(baseq.Field("expired_at")),
+		sqlchemy.GT(baseq.Field("expired_at"), time.Now()),
 	))
-	return reservedQ
+	return retq
 }
 
 func (manager *SGroupnetworkManager) usedAddressQuery(args *usedAddressQueryArgs) *sqlchemy.SQuery {
-	groupnetworks := GroupnetworkManager.Query().Equals("network_id", args.network.Id).SubQuery()
-	var groupNetQ *sqlchemy.SQuery
+	var (
+		baseq = GroupnetworkManager.Query().Equals("network_id", args.network.Id).SubQuery()
+		retq  *sqlchemy.SQuery
+	)
 	if args.addrOnly {
-		groupNetQ = groupnetworks.Query(
-			groupnetworks.Field("ip_addr"),
+		retq = baseq.Query(
+			baseq.Field("ip_addr"),
 		)
 	} else {
-		groups := GroupManager.FilterByOwner(GroupManager.Query(), args.owner, args.scope).SubQuery()
-		groupNetQ = groupnetworks.Query(
-			groupnetworks.Field("ip_addr"),
+		ownerq := GroupManager.FilterByOwner(GroupManager.Query(), args.owner, args.scope).SubQuery()
+		retq = baseq.Query(
+			baseq.Field("ip_addr"),
 			sqlchemy.NewStringField("").Label("mac_addr"),
 			sqlchemy.NewStringField(GroupManager.KeywordPlural()).Label("owner_type"),
-			groups.Field("id").Label("owner_id"),
-			groups.Field("name").Label("owner"),
+			ownerq.Field("id").Label("owner_id"),
+			ownerq.Field("name").Label("owner"),
 			sqlchemy.NewStringField("").Label("associate_id"),
 			sqlchemy.NewStringField("").Label("associate_type"),
-			groupnetworks.Field("created_at"),
+			baseq.Field("created_at"),
 		).LeftJoin(
-			groups,
+			ownerq,
 			sqlchemy.Equals(
-				groups.Field("id"),
-				groupnetworks.Field("group_id"),
+				ownerq.Field("id"),
+				baseq.Field("group_id"),
 			),
 		)
 	}
-	return groupNetQ
+	return retq
 }
 
 func (manager *SLoadbalancernetworkManager) usedAddressQuery(args *usedAddressQueryArgs) *sqlchemy.SQuery {
-	lbnetworks := LoadbalancernetworkManager.Query().Equals("network_id", args.network.Id).SubQuery()
-	var lbNetQ *sqlchemy.SQuery
+	var (
+		baseq = LoadbalancernetworkManager.Query().Equals("network_id", args.network.Id).SubQuery()
+		retq  *sqlchemy.SQuery
+	)
 	if args.addrOnly {
-		lbNetQ = lbnetworks.Query(
-			lbnetworks.Field("ip_addr"),
+		retq = baseq.Query(
+			baseq.Field("ip_addr"),
 		)
 	} else {
-		loadbalancers := LoadbalancerManager.FilterByOwner(LoadbalancerManager.Query(), args.owner, args.scope).SubQuery()
-		lbNetQ = lbnetworks.Query(
-			lbnetworks.Field("ip_addr"),
+		ownerq := LoadbalancerManager.FilterByOwner(LoadbalancerManager.Query(), args.owner, args.scope).SubQuery()
+		retq = baseq.Query(
+			baseq.Field("ip_addr"),
 			sqlchemy.NewStringField("").Label("mac_addr"),
 			sqlchemy.NewStringField(LoadbalancerManager.KeywordPlural()).Label("owner_type"),
-			loadbalancers.Field("id").Label("owner_id"),
-			loadbalancers.Field("name").Label("owner"),
+			ownerq.Field("id").Label("owner_id"),
+			ownerq.Field("name").Label("owner"),
 			sqlchemy.NewStringField("").Label("associate_id"),
 			sqlchemy.NewStringField("").Label("associate_type"),
-			lbnetworks.Field("created_at"),
+			baseq.Field("created_at"),
 		).LeftJoin(
-			loadbalancers,
+			ownerq,
 			sqlchemy.Equals(
-				loadbalancers.Field("id"),
-				lbnetworks.Field("loadbalancer_id"),
+				ownerq.Field("id"),
+				baseq.Field("loadbalancer_id"),
 			),
 		)
 	}
-	return lbNetQ
+	return retq
 }
 
 func (manager *SElasticipManager) usedAddressQuery(args *usedAddressQueryArgs) *sqlchemy.SQuery {
-	elasticips := ElasticipManager.Query().Equals("network_id", args.network.Id).SubQuery()
-	ownerEips := ElasticipManager.FilterByOwner(ElasticipManager.Query().Equals("network_id", args.network.Id), args.owner, args.scope).SubQuery()
-	var eipQ *sqlchemy.SQuery
+	var (
+		baseq = ElasticipManager.Query().Equals("network_id", args.network.Id).SubQuery()
+		retq  *sqlchemy.SQuery
+	)
 	if args.addrOnly {
-		eipQ = elasticips.Query(
-			elasticips.Field("ip_addr"),
+		retq = baseq.Query(
+			baseq.Field("ip_addr"),
 		)
 	} else {
-		eipQ = elasticips.Query(
-			elasticips.Field("ip_addr"),
+		ownerq := ElasticipManager.FilterByOwner(ElasticipManager.Query().Equals("network_id", args.network.Id), args.owner, args.scope).SubQuery()
+		retq = baseq.Query(
+			baseq.Field("ip_addr"),
 			sqlchemy.NewStringField("").Label("mac_addr"),
 			sqlchemy.NewStringField(ElasticipManager.KeywordPlural()).Label("owner_type"),
-			ownerEips.Field("id").Label("owner_id"),
-			ownerEips.Field("name").Label("owner"),
-			ownerEips.Field("associate_id"),
-			ownerEips.Field("associate_type"),
-			elasticips.Field("created_at"),
+			ownerq.Field("id").Label("owner_id"),
+			ownerq.Field("name").Label("owner"),
+			ownerq.Field("associate_id"),
+			ownerq.Field("associate_type"),
+			baseq.Field("created_at"),
 		).LeftJoin(
-			ownerEips,
+			ownerq,
 			sqlchemy.Equals(
-				elasticips.Field("id"),
-				ownerEips.Field("id"),
+				baseq.Field("id"),
+				ownerq.Field("id"),
 			),
 		)
 	}
-	return eipQ
+	return retq
 }
 
 func (manager *SNetworkinterfacenetworkManager) usedAddressQuery(args *usedAddressQueryArgs) *sqlchemy.SQuery {
-	netifnetworks := NetworkinterfacenetworkManager.Query().Equals("network_id", args.network.Id).SubQuery()
-	var netifsQ *sqlchemy.SQuery
+	var (
+		baseq = NetworkinterfacenetworkManager.Query().Equals("network_id", args.network.Id).SubQuery()
+		retq  *sqlchemy.SQuery
+	)
 	if args.addrOnly {
-		netifsQ = netifnetworks.Query(
-			netifnetworks.Field("ip_addr"),
+		retq = baseq.Query(
+			baseq.Field("ip_addr"),
 		)
 	} else {
-		netifs := NetworkInterfaceManager.FilterByOwner(NetworkInterfaceManager.Query(), args.owner, args.scope).SubQuery()
-		netifsQ = netifnetworks.Query(
-			netifnetworks.Field("ip_addr"),
-			netifs.Field("mac").Label("mac_addr"),
+		ownerq := NetworkInterfaceManager.FilterByOwner(NetworkInterfaceManager.Query(), args.owner, args.scope).SubQuery()
+		retq = baseq.Query(
+			baseq.Field("ip_addr"),
+			ownerq.Field("mac").Label("mac_addr"),
 			sqlchemy.NewStringField(NetworkInterfaceManager.KeywordPlural()).Label("owner_type"),
-			netifs.Field("id").Label("owner_id"),
-			netifs.Field("name").Label("owner"),
-			netifs.Field("associate_id"),
-			netifs.Field("associate_type"),
-			netifnetworks.Field("created_at"),
+			ownerq.Field("id").Label("owner_id"),
+			ownerq.Field("name").Label("owner"),
+			ownerq.Field("associate_id"),
+			ownerq.Field("associate_type"),
+			baseq.Field("created_at"),
 		).LeftJoin(
-			netifs,
+			ownerq,
 			sqlchemy.Equals(
-				netifnetworks.Field("networkinterface_id"),
-				netifs.Field("id"),
+				baseq.Field("networkinterface_id"),
+				ownerq.Field("id"),
 			),
 		)
 	}
-	return netifsQ
+	return retq
 }
 
 func (manager *SDBInstanceManager) usedAddressQuery(args *usedAddressQueryArgs) *sqlchemy.SQuery {
-	dbnetworks := DBInstanceNetworkManager.Query().Equals("network_id", args.network.Id).SubQuery()
-	var dbNetQ *sqlchemy.SQuery
+	var (
+		baseq = DBInstanceNetworkManager.Query().Equals("network_id", args.network.Id).SubQuery()
+		retq  *sqlchemy.SQuery
+	)
 	if args.addrOnly {
-		dbNetQ = dbnetworks.Query(
-			dbnetworks.Field("ip_addr"),
+		retq = baseq.Query(
+			baseq.Field("ip_addr"),
 		)
 	} else {
-		dbinstances := DBInstanceManager.FilterByOwner(DBInstanceManager.Query(), args.owner, args.scope).SubQuery()
-		dbNetQ = dbnetworks.Query(
-			dbnetworks.Field("ip_addr"),
+		ownerq := DBInstanceManager.FilterByOwner(DBInstanceManager.Query(), args.owner, args.scope).SubQuery()
+		retq = baseq.Query(
+			baseq.Field("ip_addr"),
 			sqlchemy.NewStringField("").Label("mac_addr"),
 			sqlchemy.NewStringField(DBInstanceManager.KeywordPlural()).Label("owner_type"),
-			dbinstances.Field("id").Label("owner_id"),
-			dbinstances.Field("name").Label("owner"),
+			ownerq.Field("id").Label("owner_id"),
+			ownerq.Field("name").Label("owner"),
 			sqlchemy.NewStringField("").Label("associate_id"),
 			sqlchemy.NewStringField("").Label("associate_type"),
-			dbnetworks.Field("created_at"),
+			baseq.Field("created_at"),
 		).LeftJoin(
-			dbinstances,
+			ownerq,
 			sqlchemy.Equals(
-				dbinstances.Field("id"),
-				dbnetworks.Field("dbinstance_id"),
+				ownerq.Field("id"),
+				baseq.Field("dbinstance_id"),
 			),
 		)
 	}
-	return dbNetQ
+	return retq
 }
