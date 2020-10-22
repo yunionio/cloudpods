@@ -174,6 +174,7 @@ type ICloudImage interface {
 	GetCreatedAt() time.Time
 	UEFI() bool
 	GetPublicScope() rbacutils.TRbacScope
+	GetSubImages() []SSubImage
 }
 
 type ICloudStoragecache interface {
