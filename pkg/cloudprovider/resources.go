@@ -524,6 +524,8 @@ type ICloudLoadbalancer interface {
 
 	CreateILoadBalancerListener(ctx context.Context, listener *SLoadbalancerListener) (ICloudLoadbalancerListener, error)
 	GetILoadBalancerListenerById(listenerId string) (ICloudLoadbalancerListener, error)
+
+	SetMetadata(tags map[string]string, replace bool) error
 }
 
 type ICloudLoadbalancerListener interface {
@@ -796,6 +798,8 @@ type ICloudDBInstance interface {
 	RecoveryFromBackup(conf *SDBInstanceRecoveryConfig) error
 
 	Delete() error
+
+	SetMetadata(tags map[string]string, replace bool) error
 }
 
 type ICloudDBInstanceParameter interface {
@@ -900,6 +904,8 @@ type ICloudElasticcache interface {
 	UpdateAuthMode(noPasswordAccess bool) error
 	UpdateInstanceParameters(config jsonutils.JSONObject) error
 	UpdateBackupPolicy(config SCloudElasticCacheBackupPolicyUpdateInput) error
+
+	SetMetadata(tags map[string]string, replace bool) error
 }
 
 type ICloudElasticcacheAccount interface {

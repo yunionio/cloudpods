@@ -1075,3 +1075,7 @@ func (self *SInstance) IsAutoRenew() bool {
 func (self *SInstance) SetAutoRenew(autoRenew bool) error {
 	return self.host.zone.region.SetInstanceAutoRenew(self.InstanceId, autoRenew)
 }
+
+func (self *SInstance) SetMetadata(tags map[string]string, replace bool) error {
+	return self.host.zone.region.SetResourceTags("ecs", "instance", []string{self.InstanceId}, tags, replace)
+}

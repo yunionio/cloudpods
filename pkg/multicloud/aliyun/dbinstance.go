@@ -775,3 +775,21 @@ func (region *SRegion) RenewDBInstance(instanceId string, bc billing.SBillingCyc
 	_, err := region.rdsRequest("RenewInstance", params)
 	return err
 }
+
+func (rds *SDBInstance) GetMetadata() *jsonutils.JSONDict {
+	data := jsonutils.NewDict()
+	tags, err := rds.region.ListResourceTags("rds", "INSTANCE", []string{rds.GetId()})
+	if err != nil {
+		log.Errorf(`[err:%s]rds.region.FetchResourceTags("slb", "instance", []string{rds.GetId()})`, err.Error())
+		return nil
+	}
+	if _, ok := tags[rds.GetId()]; !ok {
+		return nil
+	}
+	data.Update(jsonutils.Marshal(tags[rds.GetId()]))
+	return data
+}
+
+func (rds *SDBInstance) SetMetadata(tags map[string]string, replace bool) error {
+	return rds.region.SetResourceTags("rds", "INSTANCE", []string{rds.GetId()}, tags, replace)
+}

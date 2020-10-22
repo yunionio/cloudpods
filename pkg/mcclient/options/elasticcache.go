@@ -14,6 +14,8 @@
 
 package options
 
+import computeapi "yunion.io/x/onecloud/pkg/apis/compute"
+
 type ElasticCacheCreateOptions struct {
 	NAME          string
 	Manager       string
@@ -62,4 +64,9 @@ type ElasticCacheParameterUpdateOptions struct {
 
 type ElasticCacheIdOptions struct {
 	ID string
+}
+
+type ElasticCacheRemoteUpdateOptions struct {
+	ID string `json:"-"`
+	computeapi.ElasticcacheRemoteUpdateInput
 }

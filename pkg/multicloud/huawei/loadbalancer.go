@@ -540,3 +540,7 @@ func (self *SRegion) UpdateLoadBalancerHealthCheck(healthCheckID string, healthC
 func (self *SRegion) DeleteLoadbalancerHealthCheck(healthCheckID string) error {
 	return DoDelete(self.ecsClient.ElbHealthCheck.Delete, healthCheckID, nil, nil)
 }
+
+func (self *SLoadbalancer) SetMetadata(tags map[string]string, replace bool) error {
+	return cloudprovider.ErrNotSupported
+}

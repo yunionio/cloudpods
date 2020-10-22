@@ -487,3 +487,7 @@ func (lb *SLoadbalancer) GetILoadBalancerListeners() ([]cloudprovider.ICloudLoad
 func (lb *SLoadbalancer) GetProjectId() string {
 	return lb.ProjectID
 }
+
+func (self *SLoadbalancer) SetMetadata(tags map[string]string, replace bool) error {
+	return cloudprovider.ErrNotSupported
+}

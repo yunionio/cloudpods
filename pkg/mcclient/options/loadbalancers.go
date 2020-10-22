@@ -14,6 +14,10 @@
 
 package options
 
+import (
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
+)
+
 type LoadbalancerCreateOptions struct {
 	NAME             string
 	Network          string
@@ -26,6 +30,7 @@ type LoadbalancerCreateOptions struct {
 	Zone1            string `json:"zone_1" help:"slave zone 1"`
 	Cluster          string `json:"cluster_id"`
 	Manager          string
+	Meta             map[string]string `json:"__meta__"`
 }
 
 type LoadbalancerGetOptions struct {
@@ -71,4 +76,9 @@ type LoadbalancerActionSyncStatusOptions struct {
 
 type LoadbalancerIdOptions struct {
 	ID string `json:"-"`
+}
+
+type LoadbalancerRemoteUpdateOptions struct {
+	ID string `json:"-"`
+	computeapi.LoadbalancerRemoteUpdateInput
 }

@@ -393,4 +393,44 @@ func init() {
 		printList(result, nil)
 		return nil
 	})
+
+	R(&options.ResourceMetadataOptions{}, "elastic-cache-add-tag", "Set tag of a server", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
+		params, err := opts.Params()
+		if err != nil {
+			return err
+		}
+		result, err := modules.ElasticCache.PerformAction(s, opts.ID, "user-metadata", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.ResourceMetadataOptions{}, "elastic-cache-set-tag", "Set tag of a server", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
+		params, err := opts.Params()
+		if err != nil {
+			return err
+		}
+		result, err := modules.ElasticCache.PerformAction(s, opts.ID, "set-user-metadata", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.ElasticCacheRemoteUpdateOptions{}, "elastic-cache-remote-update", "Restore elastisc cache backup", func(s *mcclient.ClientSession, opts *options.ElasticCacheRemoteUpdateOptions) error {
+		params, err := options.StructToParams(opts)
+		if err != nil {
+			return err
+		}
+		result, err := modules.ElasticCache.PerformAction(s, opts.ID, "remote-update", params)
+		if err != nil {
+			return err
+		}
+
+		printObject(result)
+		return nil
+	})
 }
