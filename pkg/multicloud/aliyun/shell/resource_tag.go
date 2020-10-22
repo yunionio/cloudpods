@@ -24,11 +24,12 @@ import (
 
 func init() {
 	type TagGetOptions struct {
+		SERVICE string   `help:"service, eg. ecs"`
 		RESTYPE string   `help:"resource type, eg. instance"`
 		ID      []string `help:"resource Id, eg. ins-123xxx"`
 	}
 	shellutils.R(&TagGetOptions{}, "tag-show", "show tag of a specific resource", func(cli *aliyun.SRegion, args *TagGetOptions) error {
-		tags, err := cli.ListResourceTags(args.RESTYPE, args.ID)
+		tags, err := cli.ListResourceTags(args.SERVICE, args.RESTYPE, args.ID)
 		if err != nil {
 			return err
 		}
@@ -49,7 +50,7 @@ func init() {
 			parts := strings.Split(t, ":")
 			tags[parts[0]] = parts[1]
 		}
-		err := cli.SetResourceTags(args.RESTYPE, args.ID, tags, args.Replace)
+		err := cli.SetResourceTags(args.SERVICE, args.RESTYPE, args.ID, tags, args.Replace)
 		if err != nil {
 			return err
 		}

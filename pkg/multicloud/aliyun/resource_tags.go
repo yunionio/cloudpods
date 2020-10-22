@@ -30,7 +30,7 @@ type STagResource struct {
 	TagKey       string `json:"TagKey"`
 }
 
-func (self *SRegion) rawListTagResources(resourceType string, resIds []string, token string) ([]STagResource, string, error) {
+func (self *SRegion) rawListTagResources(serviceType string, resourceType string, resIds []string, token string) ([]STagResource, string, error) {
 	if len(resIds) > 50 {
 		return nil, "", errors.Wrap(cloudprovider.ErrNotSupported, "resource count exceed 50 for one request")
 	}
@@ -42,9 +42,9 @@ func (self *SRegion) rawListTagResources(resourceType string, resIds []string, t
 	if len(token) != 0 {
 		params["NextToken"] = token
 	}
-	ret, err := self.ecsRequest("ListTagResources", params)
+	ret, err := self.tagRequest(serviceType, "ListTagResources", params)
 	if err != nil {
-		return nil, "", errors.Wrapf(err, `self.ecsRequest("ListTagResources", %s)`, jsonutils.Marshal(params).String())
+		return nil, "", errors.Wrapf(err, `self.tagRequest(%s,"ListTagResources", %s)`, serviceType, jsonutils.Marshal(params).String())
 	}
 	tagResources := []STagResource{}
 	err = ret.Unmarshal(&tagResources, "TagResources", "TagResource")
@@ -85,14 +85,14 @@ func splitTags(tags map[string]string, stride int) []map[string]string {
 	return tagsGroups
 }
 
-func (self *SRegion) ListResourceTags(resourceType string, resIds []string) (map[string]*map[string]string, error) {
+func (self *SRegion) ListResourceTags(serviceType string, resourceType string, resIds []string) (map[string]*map[string]string, error) {
 	tags := make(map[string]*map[string]string)
 	tagReources := []STagResource{}
 	nextToken := ""
 	resIdsGroups := splitStringSlice(resIds, 50)
 	for i := range resIdsGroups {
 		for {
-			_tagResource, nextToken, err := self.rawListTagResources(resourceType, resIdsGroups[i], nextToken)
+			_tagResource, nextToken, err := self.rawListTagResources(serviceType, resourceType, resIdsGroups[i], nextToken)
 			if err != nil {
 				return nil, errors.Wrapf(err, "self.rawListTagResources(%s,%s,%s)", resourceType, resIds, nextToken)
 			}
@@ -117,7 +117,7 @@ func (self *SRegion) ListResourceTags(resourceType string, resIds []string) (map
 	return tags, nil
 }
 
-func (self *SRegion) rawTagResources(resourceType string, resIds []string, tags map[string]string) error {
+func (self *SRegion) rawTagResources(serviceType string, resourceType string, resIds []string, tags map[string]string) error {
 	if len(resIds) > 50 {
 		return errors.Wrap(cloudprovider.ErrNotSupported, "resource count exceed 50 for one request")
 	}
@@ -135,14 +135,14 @@ func (self *SRegion) rawTagResources(resourceType string, resIds []string, tags 
 		params[fmt.Sprintf("Tag.%d.Value", i+1)] = v
 		i++
 	}
-	_, err := self.ecsRequest("TagResources", params)
+	_, err := self.tagRequest(serviceType, "TagResources", params)
 	if err != nil {
-		return errors.Wrapf(err, `self.ecsRequest("TagResources", %s)`, jsonutils.Marshal(params).String())
+		return errors.Wrapf(err, `self.tagRequest(%s,"TagResources", %s)`, serviceType, jsonutils.Marshal(params).String())
 	}
 	return nil
 }
 
-func (self *SRegion) TagResources(resourceType string, resIds []string, tags map[string]string) error {
+func (self *SRegion) TagResources(serviceType string, resourceType string, resIds []string, tags map[string]string) error {
 	if len(resIds) == 0 || len(tags) == 0 {
 		return nil
 	}
@@ -150,7 +150,7 @@ func (self *SRegion) TagResources(resourceType string, resIds []string, tags map
 	tagsGroups := splitTags(tags, 20)
 	for i := range resIdsGroups {
 		for j := range tagsGroups {
-			err := self.rawTagResources(resourceType, resIdsGroups[i], tagsGroups[j])
+			err := self.rawTagResources(serviceType, resourceType, resIdsGroups[i], tagsGroups[j])
 			if err != nil {
 				return errors.Wrapf(err, "self.rawTagResources(resourceType, resIdsGroups[i], tagsGroups[i])")
 			}
@@ -159,7 +159,7 @@ func (self *SRegion) TagResources(resourceType string, resIds []string, tags map
 	return nil
 }
 
-func (self *SRegion) rawUntagResources(resourceType string, resIds []string, tags []string) error {
+func (self *SRegion) rawUntagResources(serviceType string, resourceType string, resIds []string, tags []string) error {
 	if len(resIds) > 50 {
 		return errors.Wrap(cloudprovider.ErrNotSupported, "resource count exceed 50 for one request")
 	}
@@ -174,14 +174,14 @@ func (self *SRegion) rawUntagResources(resourceType string, resIds []string, tag
 	for i := range tags {
 		params[fmt.Sprintf("TagKey.%d", i+1)] = tags[i]
 	}
-	_, err := self.ecsRequest("UntagResources", params)
+	_, err := self.tagRequest(serviceType, "UntagResources", params)
 	if err != nil {
-		return errors.Wrapf(err, `self.ecsRequest("UntagResources", %s)`, jsonutils.Marshal(params).String())
+		return errors.Wrapf(err, `self.tagRequest(%s,"UntagResources", %s)`, serviceType, jsonutils.Marshal(params).String())
 	}
 	return nil
 }
 
-func (self *SRegion) UntagResources(resourceType string, resIds []string, tags []string) error {
+func (self *SRegion) UntagResources(serviceType string, resourceType string, resIds []string, tags []string) error {
 	if len(resIds) == 0 || len(tags) == 0 {
 		return nil
 	}
@@ -189,7 +189,7 @@ func (self *SRegion) UntagResources(resourceType string, resIds []string, tags [
 	tagsGroups := splitStringSlice(tags, 20)
 	for i := range resIdsGroups {
 		for j := range tagsGroups {
-			err := self.rawUntagResources(resourceType, resIdsGroups[i], tagsGroups[j])
+			err := self.rawUntagResources(serviceType, resourceType, resIdsGroups[i], tagsGroups[j])
 			if err != nil {
 				return errors.Wrapf(err, "self.rawTagResources(resourceType, resIdsGroups[i], tagsGroups[i])")
 			}
@@ -198,15 +198,15 @@ func (self *SRegion) UntagResources(resourceType string, resIds []string, tags [
 	return nil
 }
 
-func (self *SRegion) SetResourceTags(resourceType string, resIds []string, tags map[string]string, replace bool) error {
-	oldTags, err := self.ListResourceTags(resourceType, resIds)
+func (self *SRegion) SetResourceTags(serviceType string, resourceType string, resIds []string, tags map[string]string, replace bool) error {
+	oldTags, err := self.ListResourceTags(serviceType, resourceType, resIds)
 	if err != nil {
 		return errors.Wrapf(err, "self.ListResourceTags(%s,%s)", resourceType, resIds)
 	}
 	for i := range resIds {
 		_, ok := oldTags[resIds[i]]
 		if !ok {
-			err := self.TagResources(resourceType, []string{resIds[i]}, tags)
+			err := self.TagResources(serviceType, resourceType, []string{resIds[i]}, tags)
 			if err != nil {
 				return errors.Wrap(err, "self.TagResources(resourceType, []string{resIds[i]}, tags)")
 			}
@@ -230,11 +230,11 @@ func (self *SRegion) SetResourceTags(resourceType string, resIds []string, tags 
 					}
 				}
 			}
-			err := self.UntagResources(resourceType, []string{resIds[i]}, delTags)
+			err := self.UntagResources(serviceType, resourceType, []string{resIds[i]}, delTags)
 			if err != nil {
 				return errors.Wrap(err, "self.UntagResources(resourceType, []string{resIds[i]}, delTags)")
 			}
-			err = self.TagResources(resourceType, []string{resIds[i]}, addTags)
+			err = self.TagResources(serviceType, resourceType, []string{resIds[i]}, addTags)
 			if err != nil {
 				return errors.Wrap(err, "self.TagResources(resourceType, []string{resIds[i]}, addTags)")
 			}

@@ -270,7 +270,20 @@ func (self *SLoadbalancer) GetMetadata() *jsonutils.JSONDict {
 	meta.Add(jsonutils.NewInt(self.OpenBGP), "OpenBGP")
 	meta.Add(jsonutils.NewString(self.Domain), "Domain")
 	meta.Add(jsonutils.NewInt(self.ProjectID), "ProjectID")
-
+	tags, err := self.region.FetchResourceTags("clb", "clb", []string{self.GetId()})
+	if err != nil {
+		log.Errorf(`[err:%s]self.region.FetchResourceTags("clb", "clb", []string{self.GetId()})`, err.Error())
+		return nil
+	}
+	if _, ok := tags[self.GetId()]; !ok {
+		return meta
+	}
+	resourceTag := tags[self.GetId()]
+	if resourceTag != nil {
+		for k, v := range *resourceTag {
+			meta.Add(jsonutils.NewString(v), k)
+		}
+	}
 	return meta
 }
 
@@ -644,4 +657,8 @@ func (self *SRegion) WaitLBTaskSuccess(requestId string, interval time.Duration,
 
 func (self *SLoadbalancer) GetProjectId() string {
 	return strconv.Itoa(int(self.ProjectID))
+}
+
+func (self *SLoadbalancer) SetMetadata(tags map[string]string, replace bool) error {
+	return self.region.SetResourceTags("clb", "clb", []string{self.LoadBalancerID}, tags, replace)
 }

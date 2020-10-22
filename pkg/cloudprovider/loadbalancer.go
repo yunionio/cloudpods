@@ -29,4 +29,5 @@ type SLoadbalancer struct {
 	EgressMbps       int
 	billingCycle     *billing.SBillingCycle
 	ProjectId        string
+	Tags             map[string]string
 }

@@ -464,6 +464,7 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 }
 
 func (self *SDBInstance) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	pendingUsage := SRegionQuota{Loadbalancer: 1}
 	pendingUsage.SetKeys(self.GetQuotaKeys())
 	err := quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, true)
@@ -1870,4 +1871,40 @@ func (self *SDBInstance) CancelExpireTime(ctx context.Context, userCred mcclient
 	}
 	db.OpsLog.LogEvent(self, db.ACT_RENEW, "dbinstance cancel expire time", userCred)
 	return nil
+}
+
+func (self *SDBInstance) AllowPerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "remote-update")
+}
+
+func (self *SDBInstance) PerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DBInstanceRemoteUpdateInput) (jsonutils.JSONObject, error) {
+	err := self.StartRemoteUpdateTask(ctx, userCred, (input.ReplaceTags != nil && *input.ReplaceTags), "")
+	if err != nil {
+		return nil, errors.Wrap(err, "StartRemoteUpdateTask")
+	}
+	return nil, nil
+}
+
+func (self *SDBInstance) StartRemoteUpdateTask(ctx context.Context, userCred mcclient.TokenCredential, replaceTags bool, parentTaskId string) error {
+	data := jsonutils.NewDict()
+	if replaceTags {
+		data.Add(jsonutils.JSONTrue, "replace_tags")
+	}
+	if task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceRemoteUpdateTask", self, userCred, data, parentTaskId, "", nil); err != nil {
+		log.Errorln(err)
+		return errors.Wrap(err, "Start ElasticcacheRemoteUpdateTask")
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
+}
+
+func (self *SDBInstance) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
+	if len(self.ExternalId) == 0 {
+		return
+	}
+	err := self.StartRemoteUpdateTask(ctx, userCred, false, "")
+	if err != nil {
+		log.Errorf("StartRemoteUpdateTask fail: %s", err)
+	}
 }

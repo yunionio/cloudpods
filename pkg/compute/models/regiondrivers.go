@@ -46,6 +46,7 @@ type IRegionDriver interface {
 	RequestStartLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, task taskman.ITask) error
 	RequestStopLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, task taskman.ITask) error
 	RequestSyncstatusLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, task taskman.ITask) error
+	RequestRemoteUpdateLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, replaceTags bool, task taskman.ITask) error
 
 	ValidateCreateLoadbalancerAclData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
 	RequestCreateLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *SCachedLoadbalancerAcl, task taskman.ITask) error
@@ -167,6 +168,8 @@ type IDBInstanceDriver interface {
 	IsDBInstanceNeedSecgroup() bool
 
 	ValidateDBInstanceRecovery(ctx context.Context, userCred mcclient.TokenCredential, instance *SDBInstance, backup *SDBInstanceBackup, input api.SDBInstanceRecoveryConfigInput) error
+
+	RequestRemoteUpdateDBInstance(ctx context.Context, userCred mcclient.TokenCredential, instance *SDBInstance, replaceTags bool, task taskman.ITask) error
 }
 
 type IElasticcacheDriver interface {
@@ -198,6 +201,8 @@ type IElasticcacheDriver interface {
 	RequestElasticcacheUpdateBackupPolicy(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticcache, task taskman.ITask) error
 
 	RequestSyncElasticcacheStatus(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticcache, task taskman.ITask) error
+
+	RequestRemoteUpdateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticcache, replaceTags bool, task taskman.ITask) error
 }
 
 type IElasticcacheAccount interface {

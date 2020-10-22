@@ -451,6 +451,7 @@ func (lb *SLoadbalancer) GetCreateLoadbalancerParams(iRegion cloudprovider.IClou
 		ChargeType:       lb.ChargeType,
 		LoadbalancerSpec: lb.LoadbalancerSpec,
 	}
+	params.Tags, _ = lb.GetAllUserMetadata()
 
 	if len(lb.ZoneId) > 0 {
 		zone := lb.GetZone()
@@ -1204,4 +1205,40 @@ func (manager *SLoadbalancerManager) ListItemExportKeys(ctx context.Context,
 
 func (self *SLoadbalancer) GetChangeOwnerCandidateDomainIds() []string {
 	return self.SManagedResourceBase.GetChangeOwnerCandidateDomainIds()
+}
+
+func (self *SLoadbalancer) AllowPerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "remote-update")
+}
+
+func (self *SLoadbalancer) PerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.LoadbalancerRemoteUpdateInput) (jsonutils.JSONObject, error) {
+	err := self.StartRemoteUpdateTask(ctx, userCred, (input.ReplaceTags != nil && *input.ReplaceTags), "")
+	if err != nil {
+		return nil, errors.Wrap(err, "StartRemoteUpdateTask")
+	}
+	return nil, nil
+}
+
+func (guest *SLoadbalancer) StartRemoteUpdateTask(ctx context.Context, userCred mcclient.TokenCredential, replaceTags bool, parentTaskId string) error {
+	data := jsonutils.NewDict()
+	if replaceTags {
+		data.Add(jsonutils.JSONTrue, "replace_tags")
+	}
+	if task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerRemoteUpdateTask", guest, userCred, data, parentTaskId, "", nil); err != nil {
+		log.Errorln(err)
+		return errors.Wrap(err, "Start LoadbalancerRemoteUpdateTask")
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
+}
+
+func (guest *SLoadbalancer) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
+	if len(guest.ExternalId) == 0 {
+		return
+	}
+	err := guest.StartRemoteUpdateTask(ctx, userCred, false, "")
+	if err != nil {
+		log.Errorf("StartRemoteUpdateTask fail: %s", err)
+	}
 }

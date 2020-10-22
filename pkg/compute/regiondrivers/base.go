@@ -52,6 +52,11 @@ func (self *SBaseRegionDriver) RequestSyncstatusLoadbalancer(ctx context.Context
 	return fmt.Errorf("Not Implement RequestSyncstatusLoadbalancer")
 }
 
+func (self *SBaseRegionDriver) RequestRemoteUpdateLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, replaceTags bool, task taskman.ITask) error {
+	// nil ops
+	return nil
+}
+
 func (self *SBaseRegionDriver) RequestDeleteLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement RequestDeleteLoadbalancer")
 }
@@ -346,6 +351,11 @@ func (self *SBaseRegionDriver) ValidateDBInstanceRecovery(ctx context.Context, u
 	return errors.Wrap(cloudprovider.ErrNotImplemented, "ValidateDBInstanceRecovery")
 }
 
+func (self *SBaseRegionDriver) RequestRemoteUpdateDBInstance(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, replaceTags bool, task taskman.ITask) error {
+	// nil ops
+	return nil
+}
+
 func (self *SBaseRegionDriver) IsSupportedDBInstance() bool {
 	return false
 }
@@ -376,6 +386,11 @@ func (self *SBaseRegionDriver) RequestSyncDBInstanceBackupStatus(ctx context.Con
 
 func (self *SBaseRegionDriver) RequestSyncElasticcacheStatus(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *models.SElasticcache, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement RequestSyncElasticcacheStatus")
+}
+
+func (self *SBaseRegionDriver) RequestRemoteUpdateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *models.SElasticcache, replaceTags bool, task taskman.ITask) error {
+	// nil ops
+	return nil
 }
 
 func (self *SBaseRegionDriver) IsDBInstanceNeedSecgroup() bool {
