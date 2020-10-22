@@ -20,6 +20,8 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -47,6 +49,7 @@ type SEndpointManager struct {
 	SRegionResourceBaseManager
 
 	informerBackends map[string]informer.IInformerBackend
+	informerSetter   sync.Once
 }
 
 var EndpointManager *SEndpointManager
@@ -131,7 +134,8 @@ func (manager *SEndpointManager) SetInformerBackend() error {
 	if err != nil {
 		return errors.Wrap(err, "fetch informer endpoint")
 	}
-	return manager.SetInformerBackendByEndpoint(informerEp)
+	manager.SetInformerBackendUntilSuccess(informerEp)
+	return nil
 }
 
 func (manager *SEndpointManager) getSessionEndpointType() string {
@@ -160,11 +164,30 @@ func (manager *SEndpointManager) IsEtcdInformerBackend(ep *SEndpoint) bool {
 	return true
 }
 
-func (manager *SEndpointManager) SetInformerBackendByEndpoint(ep *SEndpoint) error {
-	if !manager.IsEtcdInformerBackend(ep) {
-		return nil
+func (manager *SEndpointManager) SetInformerBackendUntilSuccess(ep *SEndpoint) {
+	if informer.GetDefaultBackend() != nil {
+		log.Infof("Informer backend has been setted")
+		return
 	}
-	return manager.SetEtcdInformerBackend(ep)
+	manager.informerSetter.Do(func() {
+		go func() {
+			for {
+				if err := manager.SetEtcdInformerBackend(ep); err != nil {
+					log.Errorf("Set etcd informer backend failed: %s", err)
+					time.Sleep(time.Second * 30)
+				} else {
+					break
+				}
+			}
+		}()
+	})
+}
+
+func (manager *SEndpointManager) SetInformerBackendByEndpoint(ep *SEndpoint) {
+	if !manager.IsEtcdInformerBackend(ep) {
+		return
+	}
+	manager.SetInformerBackendUntilSuccess(ep)
 }
 
 func (manager *SEndpointManager) fetchInformerEndpoint() (*SEndpoint, error) {
@@ -587,9 +610,7 @@ func (manager *SEndpointManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fie
 }
 
 func (endpoint *SEndpoint) trySetInformerBackend() {
-	if err := EndpointManager.SetInformerBackendByEndpoint(endpoint); err != nil {
-		log.Errorf("Set informer by endpoint %s error: %v", endpoint.GetName(), err)
-	}
+	EndpointManager.SetInformerBackendByEndpoint(endpoint)
 }
 
 func (endpoint *SEndpoint) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
