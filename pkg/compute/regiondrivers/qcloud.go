@@ -72,6 +72,7 @@ func (self *SQcloudRegionDriver) GetProvider() string {
 
 func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", ownerId)
+	zone1V := validators.NewModelIdOrNameValidator("zone_1", "zone", ownerId)
 	vpcV := validators.NewModelIdOrNameValidator("vpc", "vpc", ownerId)
 	managerIdV := validators.NewModelIdOrNameValidator("manager", "cloudprovider", ownerId)
 	addressTypeV := validators.NewStringChoicesValidator("address_type", api.LB_ADDR_TYPES)
@@ -81,6 +82,7 @@ func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerData(ctx context.Cont
 		"address_type": addressTypeV.Default(api.LB_ADDR_TYPE_INTRANET),
 		"vpc":          vpcV,
 		"zone":         zoneV,
+		"zone_1":       zone1V.Optional(true),
 		"manager":      managerIdV,
 	}
 
@@ -111,6 +113,9 @@ func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerData(ctx context.Cont
 		return nil, fmt.Errorf("getting region failed")
 	}
 
+	if zone1V.Model != nil && len(zone1V.Model.GetId()) > 0 && addressTypeV.Value == api.LB_ADDR_TYPE_INTERNET {
+		data.Set("zone_1", jsonutils.NewString(zone1V.Model.GetId()))
+	}
 	data.Set("network_type", jsonutils.NewString(api.LB_NETWORK_TYPE_VPC))
 	data.Set("cloudregion_id", jsonutils.NewString(region.GetId()))
 	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, ownerId, data)
