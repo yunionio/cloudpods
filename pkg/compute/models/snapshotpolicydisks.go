@@ -494,6 +494,16 @@ func (self *SSnapshotPolicyDiskManager) ValidateCreateData(ctx context.Context, 
 	return data, nil
 }
 
+func (sd *SSnapshotPolicyDisk) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	sp, err := SnapshotPolicyManager.FetchSnapshotPolicyById(sd.SnapshotpolicyId)
+	if err != nil {
+		return err
+	}
+	now := time.Now()
+	sd.NextSyncTime = sp.ComputeNextSyncTime(now, now)
+	return nil
+}
+
 func (sd *SSnapshotPolicyDisk) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.
 	IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 
