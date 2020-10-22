@@ -1537,7 +1537,9 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 
 	if provider.GetFactory().IsSupportPrepaidResources() {
 		disk.BillingType = extDisk.GetBillingType()
-		disk.ExpiredAt = extDisk.GetExpiredAt()
+		if expired := extDisk.GetExpiredAt(); !expired.IsZero() {
+			disk.ExpiredAt = expired
+		}
 		disk.AutoRenew = extDisk.IsAutoRenew()
 	}
 
