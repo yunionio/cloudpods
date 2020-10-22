@@ -453,10 +453,23 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 		return nil, err
 	}
 
+	quotaKeys := fetchRegionalQuotaKeys(rbacutils.ScopeProject, ownerId, region, cloudprovider)
+	pendingUsage := SRegionQuota{Rds: 1}
+	pendingUsage.SetKeys(quotaKeys)
+	if err := quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
+		return nil, httperrors.NewOutOfQuotaError("%s", err)
+	}
+
 	return input.JSON(input), nil
 }
 
 func (self *SDBInstance) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	pendingUsage := SRegionQuota{Loadbalancer: 1}
+	pendingUsage.SetKeys(self.GetQuotaKeys())
+	err := quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, true)
+	if err != nil {
+		log.Errorf("CancelPendingUsage error %s", err)
+	}
 	self.SetStatus(userCred, api.DBINSTANCE_DEPLOYING, "")
 	params := data.(*jsonutils.JSONDict)
 	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceCreateTask", self, userCred, params, "", "", nil)
