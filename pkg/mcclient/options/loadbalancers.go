@@ -23,6 +23,7 @@ type LoadbalancerCreateOptions struct {
 	ChargeType       string `choices:"traffic|bandwidth"`
 	Bandwidth        int
 	Zone             string
+	Zone1            string `json:"zone_1" help:"slave zone 1"`
 	Cluster          string `json:"cluster_id"`
 	Manager          string
 }
