@@ -729,6 +729,10 @@ func (self *SRegion) CreateMySQLDBInstance(opts *cloudprovider.SManagedDBInstanc
 	action := "CreateDBInstanceHour"
 	if opts.BillingCycle != nil {
 		params["Period"] = fmt.Sprintf("%d", opts.BillingCycle.GetMonths())
+		params["AutoRenewFlag"] = "0"
+		if opts.BillingCycle.AutoRenew {
+			params["AutoRenewFlag"] = "1"
+		}
 		action = "CreateDBInstance"
 	}
 	switch opts.Category {

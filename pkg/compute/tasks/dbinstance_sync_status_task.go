@@ -53,7 +53,6 @@ func (self *DBInstanceSyncStatusTask) SyncStatusDBInstance(ctx context.Context, 
 		self.taskFailed(ctx, dbinstance, errors.Wrapf(err, "dbinstance.GetIDBInstance"))
 		return
 	}
-	status := idbinstance.GetStatus()
-	dbinstance.SetStatus(self.UserCred, status, "")
+	dbinstance.SyncAllWithCloudDBInstance(ctx, self.UserCred, dbinstance.GetCloudprovider(), idbinstance)
 	self.SetStageComplete(ctx, nil)
 }
