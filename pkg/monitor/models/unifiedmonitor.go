@@ -11,6 +11,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
@@ -390,6 +391,12 @@ func fillSerieTags(series *tsdb.TimeSeriesSlice) {
 			if val, ok := serie.Tags[tag]; ok {
 				serie.Tags["brand"] = val
 				break
+			}
+		}
+		for _, tag := range []string{"source", "status", hostconsts.TELEGRAF_TAG_KEY_HOST_TYPE,
+			hostconsts.TELEGRAF_TAG_KEY_RES_TYPE, "cpu", "is_vm", "os_type", "domain_name", "region"} {
+			if _, ok := serie.Tags[tag]; ok {
+				delete(serie.Tags, tag)
 			}
 		}
 		(*series)[i] = serie

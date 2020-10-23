@@ -221,5 +221,9 @@ func newAlertRecordRule(evalCtx *EvalContext) monitor.AlertRecordRule {
 		alertRule.MeasurementDesc = evalCtx.EvalMatches[0].MeasurementDesc
 		alertRule.FieldDesc = evalCtx.EvalMatches[0].FieldDesc
 	}
+	if len(evalCtx.AlertOkEvalMatches) != 0 {
+		alertRule.MeasurementDesc = evalCtx.AlertOkEvalMatches[0].MeasurementDesc
+		alertRule.FieldDesc = evalCtx.AlertOkEvalMatches[0].FieldDesc
+	}
 	return alertRule
 }

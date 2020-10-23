@@ -22,12 +22,13 @@ type AlerterOptions struct {
 	common_options.CommonOptions
 	common_options.DBOptions
 
-	DataProxyTimeout                      int   `help:"query data source proxy timeout" default:"30"`
-	AlertingMinIntervalSeconds            int64 `help:"alerting min schedule frequency" default:"10"`
-	AlertingMaxAttempts                   int   `help:"alerting engine max attempt" default:"3"`
-	AlertingEvaluationTimeoutSeconds      int64 `help:"alerting evaluation timeout" default:"5"`
-	AlertingNotificationTimeoutSeconds    int64 `help:"alerting notification timeout" default:"30"`
-	InitScopeSuggestConfigIntervalSeconds int   `help:"internal to init scope suggest configs" default:"900"`
+	DataProxyTimeout                               int   `help:"query data source proxy timeout" default:"30"`
+	AlertingMinIntervalSeconds                     int64 `help:"alerting min schedule frequency" default:"10"`
+	AlertingMaxAttempts                            int   `help:"alerting engine max attempt" default:"3"`
+	AlertingEvaluationTimeoutSeconds               int64 `help:"alerting evaluation timeout" default:"5"`
+	AlertingNotificationTimeoutSeconds             int64 `help:"alerting notification timeout" default:"30"`
+	InitScopeSuggestConfigIntervalSeconds          int   `help:"internal to init scope suggest configs" default:"900"`
+	InitAlertResourceAdminRoleUsersIntervalSeconds int   `help:"internal to init alert resource admin role users " default:"3600"`
 }
 
 var (
