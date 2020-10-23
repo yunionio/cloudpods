@@ -78,6 +78,10 @@ type DBInstanceCreateInput struct {
 	// 包年包月时间周期
 	Duration string `json:"duration"`
 
+	// 是否自动续费(仅包年包月时生效)
+	// default: false
+	AutoRenew bool `json:"auto_renew"`
+
 	// swagger:ignore
 	ExpiredAt time.Time `json:"expired_at"`
 
