@@ -758,6 +758,9 @@ func (self *SRegion) CreateMySQLDBInstance(opts *cloudprovider.SManagedDBInstanc
 			params["BackupZone"] = opts.Zone3
 		}
 	}
+	if opts.EngineVersion == "5.5" { // 5.5 不支持多可用区部署
+		params["DeployMode"] = "0"
+	}
 	params["ClientToken"] = utils.GenRequestId(20)
 	resp, err := self.cdbRequest(action, params)
 	if err != nil {
