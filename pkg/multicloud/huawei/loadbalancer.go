@@ -201,9 +201,19 @@ func (self *SLoadbalancer) GetVpcId() string {
 func (self *SLoadbalancer) GetZoneId() string {
 	net := self.GetNetwork()
 	if net != nil {
-		return net.AvailabilityZone
+		z, err := self.region.getZoneById(net.AvailabilityZone)
+		if err != nil {
+			log.Infof("getZoneById %s %s", net.AvailabilityZone, err)
+			return ""
+		}
+
+		return z.GetGlobalId()
 	}
 
+	return ""
+}
+
+func (self *SLoadbalancer) GetZone1Id() string {
 	return ""
 }
 

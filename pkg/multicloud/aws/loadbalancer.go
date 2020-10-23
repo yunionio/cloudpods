@@ -170,7 +170,21 @@ func (self *SElb) GetZoneId() string {
 	}
 
 	sort.Strings(zones)
-	return zones[0]
+	if len(zones) > 0 {
+		z, err := self.region.getZoneById(zones[0])
+		if err != nil {
+			log.Infof("getZoneById %s %s", zones[0], err)
+			return ""
+		}
+
+		return z.GetGlobalId()
+	}
+
+	return ""
+}
+
+func (self *SElb) GetZone1Id() string {
+	return ""
 }
 
 func (self *SElb) GetLoadbalancerSpec() string {

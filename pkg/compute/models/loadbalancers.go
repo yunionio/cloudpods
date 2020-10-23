@@ -614,6 +614,7 @@ func (man *SLoadbalancerManager) FetchCustomizeColumns(
 	regRows := man.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	vpcRows := man.SVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	zoneRows := man.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	zone1Rows := man.FetchZone1ResourceInfos(ctx, userCred, query, objs)
 	netRows := man.SNetworkResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
@@ -625,6 +626,7 @@ func (man *SLoadbalancerManager) FetchCustomizeColumns(
 			CloudregionResourceInfo: regRows[i],
 			VpcResourceInfoBase:     vpcRows[i].VpcResourceInfoBase,
 			ZoneResourceInfoBase:    zoneRows[i].ZoneResourceInfoBase,
+			Zone1ResourceInfoBase:   zone1Rows[i],
 			NetworkResourceInfoBase: netRows[i].NetworkResourceInfoBase,
 		}
 		rows[i], _ = objs[i].(*SLoadbalancer).getMoreDetails(rows[i])
@@ -632,6 +634,37 @@ func (man *SLoadbalancerManager) FetchCustomizeColumns(
 
 	return rows
 }
+
+func (lb *SLoadbalancerManager) FetchZone1ResourceInfos(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{}) []api.Zone1ResourceInfoBase {
+	rows := make([]api.Zone1ResourceInfoBase, len(objs))
+	zoneIds := []string{}
+	for i := range objs {
+		zone1 := objs[i].(*SLoadbalancer).Zone1
+		if len(zone1) > 0 {
+			zoneIds = append(zoneIds, zone1)
+		}
+	}
+
+	zones := make(map[string]SZone)
+	err := db.FetchStandaloneObjectsByIds(ZoneManager, zoneIds, &zones)
+	if err != nil {
+		log.Errorf("FetchStandaloneObjectsByIds fail %s", err)
+		return rows
+	}
+
+	for i := range objs {
+		if zone, ok := zones[objs[i].(*SLoadbalancer).Zone1]; ok {
+			rows[i].Zone1Name = zone.GetName()
+			rows[i].Zone1ExtId = fetchExternalId(zone.GetExternalId())
+		}
+	}
+
+	return rows
+}
+
 func (lb *SLoadbalancer) GetExtraDetails(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -867,6 +900,12 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 		}
 	}
 
+	if zoneId := extLb.GetZone1Id(); len(zoneId) > 0 {
+		if zone, err := db.FetchByExternalId(ZoneManager, zoneId); err == nil && zone != nil {
+			lb.Zone1 = zone.GetId()
+		}
+	}
+
 	if extLb.GetMetadata() != nil {
 		lb.LBInfo = extLb.GetMetadata()
 	}
@@ -1040,6 +1079,24 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 				return q.Equals("manager_id", provider.Id)
 			}); err == nil && vpc != nil {
 				lb.VpcId = vpc.GetId()
+			}
+		}
+
+		if len(lb.ZoneId) == 0 {
+			extZoneId := extLb.GetZoneId()
+			if len(extZoneId) > 0 {
+				if zone, err := db.FetchByExternalId(ZoneManager, extZoneId); err == nil && zone != nil {
+					lb.ZoneId = zone.GetId()
+				}
+			}
+		}
+
+		if len(lb.Zone1) == 0 {
+			extZoneId := extLb.GetZone1Id()
+			if len(extZoneId) > 0 {
+				if zone, err := db.FetchByExternalId(ZoneManager, extZoneId); err == nil && zone != nil {
+					lb.Zone1 = zone.GetId()
+				}
 			}
 		}
 
