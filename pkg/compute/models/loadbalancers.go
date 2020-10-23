@@ -1097,12 +1097,10 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 			}
 		}
 
-		if len(lb.ZoneId) == 0 {
-			extZoneId := extLb.GetZoneId()
-			if len(extZoneId) > 0 {
-				if zone, err := db.FetchByExternalId(ZoneManager, extZoneId); err == nil && zone != nil {
-					lb.ZoneId = zone.GetId()
-				}
+		extZoneId := extLb.GetZoneId()
+		if len(extZoneId) > 0 {
+			if zone, err := db.FetchByExternalId(ZoneManager, extZoneId); err == nil && zone != nil {
+				lb.ZoneId = zone.GetId()
 			}
 		}
 
