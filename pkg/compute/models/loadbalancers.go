@@ -657,8 +657,7 @@ func (lb *SLoadbalancerManager) FetchZone1ResourceInfos(ctx context.Context,
 
 	for i := range objs {
 		if zone, ok := zones[objs[i].(*SLoadbalancer).Zone1]; ok {
-			rows[i].Zone1 = zone.GetName()
-			rows[i].Zone1Id = zone.GetId()
+			rows[i].Zone1Name = zone.GetName()
 			rows[i].Zone1ExtId = zone.GetExternalId()
 		}
 	}
@@ -901,6 +900,12 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 		}
 	}
 
+	if zoneId := extLb.GetZone1Id(); len(zoneId) > 0 {
+		if zone, err := db.FetchByExternalId(ZoneManager, zoneId); err == nil && zone != nil {
+			lb.Zone1 = zone.GetId()
+		}
+	}
+
 	if extLb.GetMetadata() != nil {
 		lb.LBInfo = extLb.GetMetadata()
 	}
@@ -1074,6 +1079,24 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 				return q.Equals("manager_id", provider.Id)
 			}); err == nil && vpc != nil {
 				lb.VpcId = vpc.GetId()
+			}
+		}
+
+		if len(lb.ZoneId) == 0 {
+			extZoneId := extLb.GetZoneId()
+			if len(extZoneId) > 0 {
+				if zone, err := db.FetchByExternalId(ZoneManager, extZoneId); err == nil && zone != nil {
+					lb.ZoneId = zone.GetId()
+				}
+			}
+		}
+
+		if len(lb.Zone1) == 0 {
+			extZoneId := extLb.GetZone1Id()
+			if len(extZoneId) > 0 {
+				if zone, err := db.FetchByExternalId(ZoneManager, extZoneId); err == nil && zone != nil {
+					lb.Zone1 = zone.GetId()
+				}
 			}
 		}
 
