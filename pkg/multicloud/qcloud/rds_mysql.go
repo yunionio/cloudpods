@@ -729,23 +729,34 @@ func (self *SRegion) CreateMySQLDBInstance(opts *cloudprovider.SManagedDBInstanc
 	action := "CreateDBInstanceHour"
 	if opts.BillingCycle != nil {
 		params["Period"] = fmt.Sprintf("%d", opts.BillingCycle.GetMonths())
+		params["AutoRenewFlag"] = "0"
+		if opts.BillingCycle.AutoRenew {
+			params["AutoRenewFlag"] = "1"
+		}
 		action = "CreateDBInstance"
-	}
-	switch opts.Category {
-	case api.QCLOUD_DBINSTANCE_CATEGORY_HA, api.QCLOUD_DBINSTANCE_CATEGORY_BASIC:
-		params["DeviceType"] = strings.ToUpper(opts.Category)
-	case api.QCLOUD_DBINSTANCE_CATEGORY_FINANCE:
-		params["DeviceType"] = "HA"
-		params["ProtectMode"] = "2"
 	}
 	if len(opts.Zone1) > 0 {
 		params["Zone"] = opts.Zone1
 	}
-	if len(opts.Zone2) > 0 {
-		params["SlaveZone"] = opts.Zone2
-	}
-	if len(opts.Zone3) > 0 {
-		params["BackupZone"] = opts.Zone3
+	switch opts.Category {
+	case api.QCLOUD_DBINSTANCE_CATEGORY_BASIC:
+		params["DeviceType"] = strings.ToUpper(opts.Category)
+	case api.QCLOUD_DBINSTANCE_CATEGORY_HA:
+		params["DeviceType"] = strings.ToUpper(opts.Category)
+		params["DeployMode"] = "1"
+		if len(opts.Zone2) > 0 {
+			params["SlaveZone"] = opts.Zone2
+		}
+	case api.QCLOUD_DBINSTANCE_CATEGORY_FINANCE:
+		params["DeviceType"] = "HA"
+		params["ProtectMode"] = "2"
+		params["DeployMode"] = "1"
+		if len(opts.Zone2) > 0 {
+			params["SlaveZone"] = opts.Zone2
+		}
+		if len(opts.Zone3) > 0 {
+			params["BackupZone"] = opts.Zone3
+		}
 	}
 	params["ClientToken"] = utils.GenRequestId(20)
 	resp, err := self.cdbRequest(action, params)

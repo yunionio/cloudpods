@@ -42,6 +42,8 @@ type SCapabilities struct {
 	DisabledBrands              []string `json:",allowempty"`
 	ComputeEngineBrands         []string `json:",allowempty"`
 	DisabledComputeEngineBrands []string `json:",allowempty"`
+	RdsEngineBrands             []string `json:",allowempty"`
+	DisabledRdsEngineBrands     []string `json:",allowempty"`
 	CloudIdBrands               []string `json:",allowempty"`
 	DisabledCloudIdBrands       []string `json:",allowempty"`
 	PublicIpBrands              []string `json:",allowempty"`
@@ -260,6 +262,7 @@ func getDBInstanceInfo(region *SCloudregion, zone *SZone) map[string]map[string]
 func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabilities) {
 	capa.Brands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, "")
 	capa.ComputeEngineBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_COMPUTE)
+	capa.RdsEngineBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_RDS)
 	capa.NetworkManageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_NETWORK)
 	capa.ObjectStorageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE)
 	capa.CloudIdBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_CLOUDID)
@@ -273,6 +276,7 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabi
 
 	capa.DisabledBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, "")
 	capa.DisabledComputeEngineBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_COMPUTE)
+	capa.DisabledRdsEngineBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_RDS)
 	capa.DisabledNetworkManageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_NETWORK)
 	capa.DisabledObjectStorageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE)
 	capa.DisabledCloudIdBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_CLOUDID)
