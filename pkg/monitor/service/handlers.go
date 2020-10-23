@@ -18,6 +18,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	_ "net/http/pprof"
 	"strconv"
 
 	"github.com/gorilla/mux"
@@ -120,4 +121,13 @@ func addMiscHandlers(root *mux.Router) {
 		}
 	}
 	root.HandleFunc("/subscriptions/write", adapterF(performHandler))
+
+	// ref: pkg/appsrv/appsrv:addDefaultHandlers
+	root.HandleFunc("/version", adapterF(appsrv.VersionHandler))
+	root.HandleFunc("/stats", adapterF(appsrv.StatisticHandler))
+	root.HandleFunc("/ping", adapterF(appsrv.PingHandler))
+	root.HandleFunc("/worker_stats", adapterF(appsrv.WorkerStatsHandler))
+
+	// pprof handler
+	root.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
 }
