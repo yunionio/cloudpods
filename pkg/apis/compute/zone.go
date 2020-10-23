@@ -88,11 +88,24 @@ type ZoneDetails struct {
 
 type ZoneResourceInfoBase struct {
 	// 可用区名称
-	// example: zone1
+	// example: 北京一区
 	Zone string `json:"zone"`
 
 	// 纳管云的zoneId
 	ZoneExtId string `json:"zone_ext_id"`
+}
+
+type Zone1ResourceInfoBase struct {
+	// 可用区名称
+	// example: 北京2区
+	Zone1 string `json:"zone_1"`
+
+	// 可用区ID
+	// example: cn-beijing-2
+	Zone1Id string `json:"zone_1_id"`
+
+	// 纳管云的zoneId
+	Zone1ExtId string `json:"zone_1_ext_id"`
 }
 
 type ZoneResourceInfo struct {
