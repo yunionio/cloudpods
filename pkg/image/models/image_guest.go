@@ -541,7 +541,7 @@ func (self *SGuestImage) PerformPublic(
 		return nil, errors.Wrap(err, "fail to fetch subimages of guest image")
 	}
 	for i := range images {
-		_, err := images[i].PerformPublic(ctx, userCred, query, input)
+		_, err := images[i].performPublic(ctx, userCred, query, input)
 		if err != nil {
 			return nil, errors.Wrapf(err, "fail to public subimage %s", images[i].GetId())
 		}
@@ -560,7 +560,7 @@ func (self *SGuestImage) PerformPrivate(
 		return nil, errors.Wrap(err, "fail to fetch subimages of guest image")
 	}
 	for i := range images {
-		_, err := images[i].PerformPrivate(ctx, userCred, query, input)
+		_, err := images[i].performPrivate(ctx, userCred, query, input)
 		if err != nil {
 			return nil, errors.Wrapf(err, "fail to private subimage %s", images[i].GetId())
 		}
