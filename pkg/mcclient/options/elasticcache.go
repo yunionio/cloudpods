@@ -14,7 +14,14 @@
 
 package options
 
-import computeapi "yunion.io/x/onecloud/pkg/apis/compute"
+import (
+	"fmt"
+	"strings"
+
+	"yunion.io/x/jsonutils"
+
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
+)
 
 type ElasticCacheCreateOptions struct {
 	NAME          string
@@ -29,9 +36,33 @@ type ElasticCacheCreateOptions struct {
 	PrivateIP     string `help:"private ip address in specificated network"`
 	Password      string `help:"set auth password"`
 	InstanceType  string
-	CapacityMB    string `help:"elastic cache capacity. required by huawei."`
-	BillingType   string `choices:"postpaid|prepaid" default:"postpaid"`
-	Month         int    `help:"billing duration (unit:month)"`
+	CapacityMB    string   `help:"elastic cache capacity. required by huawei."`
+	BillingType   string   `choices:"postpaid|prepaid" default:"postpaid"`
+	Month         int      `help:"billing duration (unit:month)"`
+	Tags          []string `help:"Tags info,prefix with 'user:', eg: user:project=default" json:"-"`
+}
+
+func (opts *ElasticCacheCreateOptions) Params() (*jsonutils.JSONDict, error) {
+	params, err := StructToParams(opts)
+	if err != nil {
+		return nil, err
+	}
+	Tagparams := jsonutils.NewDict()
+	for _, tag := range opts.Tags {
+		info := strings.Split(tag, "=")
+		if len(info) == 2 {
+			if len(info[0]) == 0 {
+				return nil, fmt.Errorf("invalidate tag info %s", tag)
+			}
+			Tagparams.Add(jsonutils.NewString(info[1]), info[0])
+		} else if len(info) == 1 {
+			Tagparams.Add(jsonutils.NewString(info[0]), info[0])
+		} else {
+			return nil, fmt.Errorf("invalidate tag info %s", tag)
+		}
+	}
+	params.Add(Tagparams, "__meta__")
+	return params, nil
 }
 
 type ElasticCacheAccountCreateOptions struct {

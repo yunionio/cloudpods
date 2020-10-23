@@ -51,27 +51,8 @@ func init() {
 		return nil
 	})
 
-	type DBInstanceCreateOptions struct {
-		NAME          string `help:"DBInstance Name"`
-		InstanceType  string `help:"InstanceType for DBInstance"`
-		VcpuCount     int    `help:"Core of cpu for DBInstance"`
-		VmemSizeMb    int    `help:"Memory size of DBInstance"`
-		Port          int    `help:"Port of DBInstance"`
-		Category      string `help:"Category of DBInstance"`
-		Network       string `help:"Network of DBInstance"`
-		Address       string `help:"Address of DBInstance"`
-		Engine        string `help:"Engine of DBInstance"`
-		EngineVersion string `help:"EngineVersion of DBInstance Engine"`
-		StorageType   string `help:"StorageTyep of DBInstance"`
-		Secgroup      string `help:"Secgroup name or Id for DBInstance"`
-		Zone          string `help:"ZoneId or name for DBInstance"`
-		DiskSizeGB    int    `help:"Storage size for DBInstance"`
-		Duration      string `help:"Duration for DBInstance"`
-		AllowDelete   *bool  `help:"not lock dbinstance" `
-	}
-
-	R(&DBInstanceCreateOptions{}, "dbinstance-create", "Create DB instance", func(s *mcclient.ClientSession, opts *DBInstanceCreateOptions) error {
-		params, err := options.StructToParams(opts)
+	R(&options.DBInstanceCreateOptions{}, "dbinstance-create", "Create DB instance", func(s *mcclient.ClientSession, opts *options.DBInstanceCreateOptions) error {
+		params, err := opts.Params()
 		if err != nil {
 			return err
 		}

@@ -15,11 +15,17 @@
 package options
 
 import (
+	"fmt"
+	"strings"
+
+	"yunion.io/x/jsonutils"
+
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 type LoadbalancerCreateOptions struct {
 	NAME             string
+	Vpc              string
 	Network          string
 	Address          string
 	AddressType      string `choices:"intranet|internet"`
@@ -30,7 +36,30 @@ type LoadbalancerCreateOptions struct {
 	Zone1            string `json:"zone_1" help:"slave zone 1"`
 	Cluster          string `json:"cluster_id"`
 	Manager          string
-	Meta             map[string]string `json:"__meta__"`
+	Tags             []string `help:"Tags info,prefix with 'user:', eg: user:project=default" json:"-"`
+}
+
+func (opts *LoadbalancerCreateOptions) Params() (*jsonutils.JSONDict, error) {
+	params, err := StructToParams(opts)
+	if err != nil {
+		return nil, err
+	}
+	Tagparams := jsonutils.NewDict()
+	for _, tag := range opts.Tags {
+		info := strings.Split(tag, "=")
+		if len(info) == 2 {
+			if len(info[0]) == 0 {
+				return nil, fmt.Errorf("invalidate tag info %s", tag)
+			}
+			Tagparams.Add(jsonutils.NewString(info[1]), info[0])
+		} else if len(info) == 1 {
+			Tagparams.Add(jsonutils.NewString(info[0]), info[0])
+		} else {
+			return nil, fmt.Errorf("invalidate tag info %s", tag)
+		}
+	}
+	params.Add(Tagparams, "__meta__")
+	return params, nil
 }
 
 type LoadbalancerGetOptions struct {

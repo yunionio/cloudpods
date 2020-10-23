@@ -40,6 +40,7 @@ type SCloudElasticCacheInput struct {
 	MaintainEnd      string                 // 维护时间窗结束时间，格式为HH:mm:ss
 	BC               *billing.SBillingCycle // 包年包月
 	ProjectId        string
+	Tags             map[string]string
 }
 
 type SCloudElasticCacheAccountInput struct {
