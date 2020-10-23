@@ -1476,21 +1476,29 @@ func (img *SImage) PerformUpdateStatus(ctx context.Context, userCred mcclient.To
 }
 
 func (img *SImage) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicProjectInput) (jsonutils.JSONObject, error) {
-	if img.IsStandard.IsTrue() {
-		return nil, errors.Wrap(httperrors.ErrForbidden, "cannot perform public for standard image")
-	}
 	if img.IsGuestImage.IsTrue() {
 		return nil, errors.Wrap(httperrors.ErrForbidden, "cannot perform public for guest image")
+	}
+	return img.performPublic(ctx, userCred, query, input)
+}
+
+func (img *SImage) performPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicProjectInput) (jsonutils.JSONObject, error) {
+	if img.IsStandard.IsTrue() {
+		return nil, errors.Wrap(httperrors.ErrForbidden, "cannot perform public for standard image")
 	}
 	return img.SSharableVirtualResourceBase.PerformPublic(ctx, userCred, query, input)
 }
 
-func (img *SImage) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) (jsonutils.JSONObject, error) {
+func (img *SImage) performPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) (jsonutils.JSONObject, error) {
 	if img.IsStandard.IsTrue() {
 		return nil, errors.Wrap(httperrors.ErrForbidden, "cannot perform private for standard image")
 	}
+	return img.SSharableVirtualResourceBase.PerformPrivate(ctx, userCred, query, input)
+}
+
+func (img *SImage) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) (jsonutils.JSONObject, error) {
 	if img.IsGuestImage.IsTrue() {
 		return nil, errors.Wrap(httperrors.ErrForbidden, "cannot perform private for guest image")
 	}
-	return img.SSharableVirtualResourceBase.PerformPrivate(ctx, userCred, query, input)
+	return img.performPrivate(ctx, userCred, query, input)
 }
