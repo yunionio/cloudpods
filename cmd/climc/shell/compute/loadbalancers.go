@@ -22,7 +22,7 @@ import (
 
 func init() {
 	R(&options.LoadbalancerCreateOptions{}, "lb-create", "Create lb", func(s *mcclient.ClientSession, opts *options.LoadbalancerCreateOptions) error {
-		params, err := options.StructToParams(opts)
+		params, err := opts.Params()
 		if err != nil {
 			return err
 		}
