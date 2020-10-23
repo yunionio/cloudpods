@@ -17,6 +17,7 @@ package db
 import (
 	"fmt"
 	"os"
+	"reflect"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
@@ -70,6 +71,40 @@ func mustCheckModelManager(modelMan IModelManager) {
 			if len(v) > 0 && !utils.IsInStringArray(v, allowedValues) {
 				msg := fmt.Sprintf("model manager %s: column %s has invalid tag %s:\"%s\", expecting %v",
 					modelMan.KeywordPlural(), col.Name(), tagName, v, allowedValues)
+				panic(msg)
+			}
+		}
+	}
+
+	if false {
+		requiredManagerFuncNames := []string{
+			"ListItemFilter",
+			"OrderByExtraFields",
+			"FetchCustomizeColumns",
+		}
+		for _, name := range requiredManagerFuncNames {
+			manV := reflect.ValueOf(modelMan)
+			methV := manV.MethodByName(name)
+			if !methV.IsValid() {
+				msg := fmt.Sprintf("model manager %T: has no valid %s, likely caused by ambiguity",
+					modelMan, name)
+				panic(msg)
+			}
+		}
+		requiredModelFuncNames := []string{
+			"GetExtraDetails",
+		}
+		for _, name := range requiredModelFuncNames {
+			model, err := NewModelObject(modelMan)
+			if err != nil {
+				msg := fmt.Sprintf("model manager %T: new model object: %v", modelMan, err)
+				panic(msg)
+			}
+			modelV := reflect.ValueOf(model)
+			methV := modelV.MethodByName(name)
+			if !methV.IsValid() {
+				msg := fmt.Sprintf("model %T: has no valid %s, likely caused by ambiguity",
+					model, name)
 				panic(msg)
 			}
 		}
