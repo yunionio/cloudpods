@@ -141,6 +141,10 @@ func (lb *SLoadbalancer) GetZoneId() string {
 	return zone.GetGlobalId()
 }
 
+func (self *SLoadbalancer) GetZone1Id() string {
+	return ""
+}
+
 func (lb *SLoadbalancer) IsEmulated() bool {
 	return false
 }

@@ -200,6 +200,10 @@ func (lb *SLoadbalancer) GetZoneId() string {
 	return lb.AvailabilityZone
 }
 
+func (self *SLoadbalancer) GetZone1Id() string {
+	return ""
+}
+
 func (lb *SLoadbalancer) IsEmulated() bool {
 	return false
 }
