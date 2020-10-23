@@ -41,7 +41,7 @@ func init() {
 	})
 
 	R(&options.ElasticCacheCreateOptions{}, "elastic-cache-create", "Create elastisc cache instance", func(s *mcclient.ClientSession, opts *options.ElasticCacheCreateOptions) error {
-		params, err := options.StructToParams(opts)
+		params, err := opts.Params()
 		if err != nil {
 			return err
 		}

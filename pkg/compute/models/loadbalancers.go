@@ -1034,6 +1034,7 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 		if extLb.GetMetadata() != nil {
 			lb.LBInfo = extLb.GetMetadata()
 		}
+		syncVirtualResourceMetadata(ctx, userCred, lb, extLb)
 
 		if vpcId := extLb.GetVpcId(); len(vpcId) > 0 {
 			if vpc, err := db.FetchByExternalIdAndManagerId(VpcManager, vpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
@@ -1235,12 +1236,12 @@ func (self *SLoadbalancer) PerformRemoteUpdate(ctx context.Context, userCred mcc
 	return nil, nil
 }
 
-func (guest *SLoadbalancer) StartRemoteUpdateTask(ctx context.Context, userCred mcclient.TokenCredential, replaceTags bool, parentTaskId string) error {
+func (self *SLoadbalancer) StartRemoteUpdateTask(ctx context.Context, userCred mcclient.TokenCredential, replaceTags bool, parentTaskId string) error {
 	data := jsonutils.NewDict()
 	if replaceTags {
 		data.Add(jsonutils.JSONTrue, "replace_tags")
 	}
-	if task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerRemoteUpdateTask", guest, userCred, data, parentTaskId, "", nil); err != nil {
+	if task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerRemoteUpdateTask", self, userCred, data, parentTaskId, "", nil); err != nil {
 		log.Errorln(err)
 		return errors.Wrap(err, "Start LoadbalancerRemoteUpdateTask")
 	} else {
@@ -1249,11 +1250,11 @@ func (guest *SLoadbalancer) StartRemoteUpdateTask(ctx context.Context, userCred 
 	return nil
 }
 
-func (guest *SLoadbalancer) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
-	if len(guest.ExternalId) == 0 {
+func (self *SLoadbalancer) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
+	if len(self.ExternalId) == 0 {
 		return
 	}
-	err := guest.StartRemoteUpdateTask(ctx, userCred, false, "")
+	err := self.StartRemoteUpdateTask(ctx, userCred, false, "")
 	if err != nil {
 		log.Errorf("StartRemoteUpdateTask fail: %s", err)
 	}

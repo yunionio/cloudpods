@@ -1568,6 +1568,7 @@ func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred m
 	if err != nil {
 		return err
 	}
+	syncVirtualResourceMetadata(ctx, userCred, self, extInstance)
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
 }

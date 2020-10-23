@@ -847,6 +847,7 @@ func (self *SElasticcache) GetCreateAliyunElasticcacheParams(data *jsonutils.JSO
 			input.NetworkId = network.ExternalId
 		}
 	}
+	input.Tags, _ = self.GetAllUserMetadata()
 
 	return input, nil
 }

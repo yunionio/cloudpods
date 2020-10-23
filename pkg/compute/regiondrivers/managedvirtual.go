@@ -1665,6 +1665,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 			Port:          dbinstance.Port,
 			Password:      passwd,
 		}
+		desc.Tags, _ = dbinstance.GetAllUserMetadata()
 
 		_cloudprovider := dbinstance.GetCloudprovider()
 		desc.ProjectId, err = _cloudprovider.SyncProject(ctx, userCred, dbinstance.ProjectId)

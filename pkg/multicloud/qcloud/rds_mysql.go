@@ -759,6 +759,14 @@ func (self *SRegion) CreateMySQLDBInstance(opts *cloudprovider.SManagedDBInstanc
 		}
 	}
 	params["ClientToken"] = utils.GenRequestId(20)
+
+	i := 0
+	for k, v := range opts.Tags {
+		params[fmt.Sprintf("ResourceTags.%d.TagKey", i)] = k
+		params[fmt.Sprintf("ResourceTags.%d.TagValue", i)] = v
+		i++
+	}
+
 	resp, err := self.cdbRequest(action, params)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cdbRequest")

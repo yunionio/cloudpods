@@ -60,6 +60,7 @@ type SManagedDBInstanceCreateConfig struct {
 	ProjectId        string
 
 	BillingCycle *billing.SBillingCycle
+	Tags         map[string]string
 }
 
 type SManagedDBInstanceChangeConfig struct {
