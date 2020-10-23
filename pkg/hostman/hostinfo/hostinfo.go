@@ -1108,8 +1108,10 @@ func (h *SHostInfo) PutHostOffline() {
 }
 
 func (h *SHostInfo) PutHostOnline() error {
-	if len(h.SysError) > 0 {
+	if len(h.SysError) > 0 && !options.HostOptions.StartHostIgnoreSysError {
 		log.Fatalf("Can't put host online, unless resolve these problem %v", h.SysError)
+	} else if len(h.SysError) > 0 && options.HostOptions.StartHostIgnoreSysError {
+		log.Errorf("Host sys error: %v", h.SysError)
 	}
 
 	if len(h.SysWarning) > 0 {
