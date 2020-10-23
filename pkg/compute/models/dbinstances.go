@@ -273,6 +273,15 @@ func (man *SDBInstanceManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SDBInstanceManager) BatchCreateValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	input := api.DBInstanceCreateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, errors.Wrapf(err, "data.Unmarshal")
+	}
+	return manager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+}
+
 func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.DBInstanceCreateInput) (*jsonutils.JSONDict, error) {
 	data := input.JSON(input)
 	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerId)
