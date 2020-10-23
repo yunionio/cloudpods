@@ -71,6 +71,14 @@ type SLoadbalancer struct {
 	CreateTime       time.Time `json:"CreateTime"`
 	Isolation        int64     `json:"Isolation"` // 0：表示未被隔离，1：表示被隔离。
 	SubnetId         string    `json:"SubnetId"`
+	BackupZoneSet    []ZoneSet `json:"BackupZoneSet"`
+	MasterZone       ZoneSet   `json:"MasterZone"`
+}
+
+type ZoneSet struct {
+	Zone     string `json:"Zone"`
+	ZoneID   int64  `json:"ZoneId"`
+	ZoneName string `json:"ZoneName"`
 }
 
 func (self *SLoadbalancer) GetLoadbalancerSpec() string {
@@ -316,6 +324,47 @@ func (self *SLoadbalancer) GetVpcId() string {
 }
 
 func (self *SLoadbalancer) GetZoneId() string {
+	zoneId := ""
+	if len(self.MasterZone.Zone) > 0 {
+		zoneId = self.MasterZone.Zone
+	} else if len(self.SubnetId) > 0 {
+		net, err := self.region.GetNetwork(self.SubnetId)
+		if err != nil {
+			log.Warningf("GetNetwork %s %s", self.SubnetId, err)
+			return ""
+		}
+
+		zoneId = net.Zone
+	}
+
+	if len(zoneId) > 0 {
+		z, err := self.region.getZoneById(zoneId)
+		if err != nil {
+			log.Warningf("getZoneById %s %s", zoneId, err)
+			return ""
+		}
+
+		return z.GetGlobalId()
+	}
+
+	return ""
+}
+
+func (self *SLoadbalancer) GetZone1Id() string {
+	if self.BackupZoneSet == nil {
+		return ""
+	}
+
+	if len(self.BackupZoneSet) > 0 {
+		z, err := self.region.getZoneById(self.BackupZoneSet[0].Zone)
+		if err != nil {
+			log.Warningf("getZoneById %s %s", self.BackupZoneSet[0].Zone, err)
+			return ""
+		}
+
+		return z.GetGlobalId()
+	}
+
 	return ""
 }
 
