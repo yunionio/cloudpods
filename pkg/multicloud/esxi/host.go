@@ -1002,6 +1002,7 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 		}
 	}
 
+	var rootDiskSizeMb int64
 	if len(params.Disks) > 0 {
 		driver := params.Disks[0].Driver
 		if driver == "scsi" || driver == "pvscsi" {
@@ -1029,30 +1030,10 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 			}
 		}
 
-		// resize system disk
-		sysDiskSize := params.Disks[0].Size
-		if sysDiskSize == 0 {
-			sysDiskSize = 30 * 1024
+		rootDiskSizeMb = params.Disks[0].Size
+		if rootDiskSizeMb == 0 {
+			rootDiskSizeMb = 30 * 1024
 		}
-		if int64(from.vdisks[0].GetDiskSizeMB()) != sysDiskSize {
-			vdisk := from.vdisks[0].getVirtualDisk()
-			vdisk.CapacityInKB = sysDiskSize * 1024
-			spec := &types.VirtualDeviceConfigSpec{}
-			spec.Operation = types.VirtualDeviceConfigSpecOperationEdit
-			spec.Device = vdisk
-			deviceChange = append(deviceChange, spec)
-			log.Infof("resize system disk: %dGB => %dGB", from.vdisks[0].GetDiskSizeMB()/1024, vdisk.CapacityInKB/1024/1024)
-		}
-		// remove extra disk
-		// for i := 1; i < len(from.vdisks); i++ {
-		// 	 dev := from.vdisks[i].dev
-		// 	 spec := &types.VirtualDeviceConfigSpec{}
-		// 	 spec.Operation = types.VirtualDeviceConfigSpecOperationRemove
-		// 	 spec.Device = dev
-		//	 spec.FileOperation = types.VirtualDeviceConfigSpecFileOperationDestroy
-		//	 deviceChange = append(deviceChange, spec)
-		//	 log.Debugf("remove disk, index: %d", i)
-		// }
 	}
 
 	dc, err := host.GetDatacenter()
@@ -1116,6 +1097,13 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 	vm := NewVirtualMachine(host.manager, &moVM, host.datacenter)
 	if vm == nil {
 		return nil, errors.Error("clone successfully but unable to NewVirtualMachine")
+	}
+	// resize system disk
+	if rootDiskSizeMb > 0 && int64(vm.vdisks[0].GetDiskSizeMB()) != rootDiskSizeMb {
+		err = vm.vdisks[0].Resize(ctx, rootDiskSizeMb)
+		if err != nil {
+			return vm, errors.Wrap(err, "resize for root disk")
+		}
 	}
 	// add data disk
 	for i := 1; i < len(params.Disks); i++ {
