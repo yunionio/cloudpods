@@ -271,6 +271,21 @@ func (man *SLoadbalancerManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fie
 	return q, httperrors.ErrNotFound
 }
 
+func (man *SLoadbalancerManager) BatchCreateValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	input := api.LoadbalancerCreateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, err
+	}
+
+	newData, err := man.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	if err != nil {
+		return nil, err
+	}
+
+	return newData, nil
+}
+
 func (man *SLoadbalancerManager) ValidateCreateData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
