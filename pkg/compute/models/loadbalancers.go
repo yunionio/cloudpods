@@ -658,7 +658,7 @@ func (lb *SLoadbalancerManager) FetchZone1ResourceInfos(ctx context.Context,
 	for i := range objs {
 		if zone, ok := zones[objs[i].(*SLoadbalancer).Zone1]; ok {
 			rows[i].Zone1Name = zone.GetName()
-			rows[i].Zone1ExtId = zone.GetExternalId()
+			rows[i].Zone1ExtId = fetchExternalId(zone.GetExternalId())
 		}
 	}
 
