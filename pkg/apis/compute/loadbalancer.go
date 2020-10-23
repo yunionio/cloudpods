@@ -174,6 +174,7 @@ type LoadbalancerDetails struct {
 
 	VpcResourceInfoBase
 	ZoneResourceInfoBase
+	Zone1ResourceInfoBase
 	NetworkResourceInfoBase
 
 	SLoadbalancer
