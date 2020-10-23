@@ -865,6 +865,7 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 
 	deviceChange = make([]types.BaseVirtualDeviceConfigSpec, 0, 1)
 	// add disks
+	var rootDiskSizeMb int64
 	for _, disk := range disks {
 		imagePath := disk.ImagePath
 		var size = disk.Size
@@ -884,6 +885,7 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 				return nil, errors.Wrap(err, "unable to copy system disk")
 			}
 			imagePath = newImagePath
+			rootDiskSizeMb = size
 		}
 		uuid, driver := disk.DiskId, "scsi"
 		if len(disk.Driver) > 0 {
@@ -941,6 +943,14 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 	evm := NewVirtualMachine(self.manager, &moVM, self.datacenter)
 	if evm == nil {
 		return nil, errors.Error("create successfully but unable to NewVirtualMachine")
+	}
+
+	// resize root disk
+	if rootDiskSizeMb > 0 && int64(evm.vdisks[0].GetDiskSizeMB()) != rootDiskSizeMb {
+		err = evm.vdisks[0].Resize(ctx, rootDiskSizeMb)
+		if err != nil {
+			return evm, errors.Wrap(err, "resize for root disk")
+		}
 	}
 	return evm, nil
 }
