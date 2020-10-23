@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/rand"
 )
 
@@ -1383,6 +1384,18 @@ func (self *SQcloudRegionDriver) IsSupportedDBInstance() bool {
 
 func (self *SQcloudRegionDriver) IsDBInstanceNeedSecgroup() bool {
 	return true
+}
+
+func (self *SQcloudRegionDriver) IsSupportedBillingCycle(bc billing.SBillingCycle, resource string) bool {
+	switch resource {
+	case models.DBInstanceManager.KeywordPlural():
+		years := bc.GetYears()
+		months := bc.GetMonths()
+		if (years >= 1 && years <= 3) || (months >= 1 && months <= 12) {
+			return true
+		}
+	}
+	return false
 }
 
 func (self *SQcloudRegionDriver) ValidateCreateDBInstanceBackupData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceBackupCreateInput) (api.DBInstanceBackupCreateInput, error) {
