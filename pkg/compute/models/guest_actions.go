@@ -3797,7 +3797,7 @@ func (self *SGuest) AllowPerformStreamDisksComplete(ctx context.Context, userCre
 func (self *SGuest) PerformStreamDisksComplete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	for _, disk := range self.GetDisks() {
 		d := disk.GetDisk()
-		if len(d.SnapshotId) > 0 {
+		if len(d.SnapshotId) > 0 && d.GetMetadata("merge_snapshot", userCred) == "true" {
 			SnapshotManager.AddRefCount(d.SnapshotId, -1)
 			d.SetMetadata(ctx, "merge_snapshot", jsonutils.JSONFalse, userCred)
 		}
