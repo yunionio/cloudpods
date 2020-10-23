@@ -34,7 +34,6 @@ import (
 	"yunion.io/x/pkg/util/wait"
 	"yunion.io/x/pkg/utils"
 
-	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
@@ -95,23 +94,30 @@ func (man *SDataSourceManager) Run(ctx context.Context) error {
 
 func (man *SDataSourceManager) initDefaultDataSource(ctx context.Context) error {
 	region := options.Options.Region
+	epType := options.Options.SessionEndpointType
 	initF := func() {
 		ds, err := man.GetDefaultSource()
 		if err != nil && err != ErrDataSourceDefaultNotFound {
 			log.Errorf("Get default datasource: %v", err)
 			return
 		}
-		if ds != nil {
-			return
-		}
-		s := auth.GetAdminSessionWithPublic(ctx, region, "")
+		s := auth.GetAdminSession(ctx, region, "")
 		if s == nil {
 			log.Errorf("get empty public session for region %s", region)
 			return
 		}
-		url, err := s.GetServiceURL("influxdb", identityapi.EndpointInterfacePublic)
+		url, err := s.GetServiceURL("influxdb", epType)
 		if err != nil {
 			log.Errorf("get influxdb public url: %v", err)
+			return
+		}
+		if ds != nil {
+			if _, err := db.Update(ds, func() error {
+				ds.Url = url
+				return nil
+			}); err != nil {
+				log.Errorf("update datasource url error: %v", err)
+			}
 			return
 		}
 		ds = &SDataSource{
