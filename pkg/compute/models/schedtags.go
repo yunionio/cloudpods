@@ -187,6 +187,13 @@ func (m *SSchedtagManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.I
 	return q
 }
 
+func (manager *SSchedtagManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {
+	return db.ApplyListItemExportKeys(ctx, q, userCred, keys,
+		&manager.SStandaloneResourceBaseManager,
+		&manager.SScopedResourceBaseManager,
+	)
+}
+
 // 调度标签列表
 func (manager *SSchedtagManager) ListItemFilter(
 	ctx context.Context,
