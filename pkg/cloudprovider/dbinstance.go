@@ -47,7 +47,7 @@ type SManagedDBInstanceCreateConfig struct {
 	VcpuCount        int
 	VmemSizeMb       int
 	VpcId            string
-	SecgroupId       string
+	SecgroupIds      []string
 	NetworkId        string
 	Address          string
 	Engine           string

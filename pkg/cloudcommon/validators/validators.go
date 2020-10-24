@@ -30,6 +30,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
@@ -820,4 +821,16 @@ func NewIPv4AddrValidator(key string) *ValidatorIPv4Addr {
 	}
 	v.SetParent(v)
 	return v
+}
+
+var ValidateModel = func(userCred mcclient.TokenCredential, manager db.IStandaloneModelManager, id *string) (db.IModel, error) {
+	model, err := manager.FetchByIdOrName(userCred, *id)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), *id)
+		}
+		return nil, httperrors.NewGeneralError(err)
+	}
+	*id = model.GetId()
+	return model, nil
 }

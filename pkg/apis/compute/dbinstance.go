@@ -27,9 +27,9 @@ type DBInstanceCreateInput struct {
 	// Ip子网名称或Id,建议使用Id
 	// 谷歌云并不实际使用Ip子网,仅仅通过Ip子网确定Vpc
 	// required: true
-	Network string `json:"network"`
+	NetworkId string `json:"network_id"`
 	// swagger:ignore
-	NetworkId string
+	Network string `json:"network" yunion-deprecated-by:"network_id"`
 
 	// Ip子网内的地址,不填则按照ip子网的地址分配策略分配一个ip
 	// required: false
@@ -41,11 +41,17 @@ type DBInstanceCreateInput struct {
 	// swagger:ignore
 	MasterInstanceId string
 
-	// 安全组名称或Id
-	// default: default
-	Secgroup string `json:"secgroup"`
+	// 安全组Id列表
+	//
+	//
+	// | 云平台      | 最大支出安全组数量 |
+	// |-------------|----------|
+	// | 腾讯云      | 5    |
+	// | 华为云      | 1   |
+	// | 阿里云      | 不支持|
+	SecgroupIds []string `json:"secgroup_ids"`
 	// swagger:ignore
-	SecgroupId string
+	Secgroup string `json:"secgroup" yunion-deprecated-by:"secgroup_ids"`
 
 	// 主可用区名称或Id, 此参数从指定的套餐所在的可用区获取
 	Zone1 string `json:"zone1"`
@@ -59,10 +65,6 @@ type DBInstanceCreateInput struct {
 	// swagger:ignore
 	ZoneId string
 
-	// 区域名称或Id，建议使用Id
-	// swagger:ignore
-	Cloudregion string `json:"cloudregion"`
-
 	// swagger:ignore
 	CloudregionId string
 
@@ -71,9 +73,6 @@ type DBInstanceCreateInput struct {
 
 	// swagger:ignore
 	ManagerId string
-
-	// swagger:ignore
-	NetworkExternalId string
 
 	// 包年包月时间周期
 	Duration string `json:"duration"`
@@ -155,9 +154,6 @@ type DBInstanceCreateInput struct {
 	// rds实例内存大小
 	// 若指定实例套餐，此参数将根据套餐设置
 	VmemSizeMb int `json:"vmem_size_mb"`
-
-	// swagger:ignore
-	Provider string
 }
 
 type SDBInstanceChangeConfigInput struct {
@@ -346,7 +342,7 @@ type DBInstanceFilterListInput struct {
 	VpcFilterListInput
 }
 
-type DBInstanceNetworkListInput struct {
+type DBInstanceJoinListInput struct {
 	apis.VirtualJointResourceBaseListInput
 	DBInstanceFilterListInput
 }
@@ -354,4 +350,10 @@ type DBInstanceNetworkListInput struct {
 type DBInstanceRemoteUpdateInput struct {
 	// 是否覆盖替换所有标签
 	ReplaceTags *bool `json:"replace_tags" help:"replace all remote tags"`
+}
+
+type DBInstanceNetworkListInput struct {
+	DBInstanceJoinListInput
+
+	NetworkFilterListInput
 }

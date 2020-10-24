@@ -165,7 +165,7 @@ type IDBInstanceDriver interface {
 	IsSupportKeepDBInstanceManualBackup() bool
 
 	InitDBInstanceUser(ctx context.Context, dbinstance *SDBInstance, task taskman.ITask, desc *cloudprovider.SManagedDBInstanceCreateConfig) error
-	IsDBInstanceNeedSecgroup() bool
+	GetRdsSupportSecgroupCount() int
 
 	ValidateDBInstanceRecovery(ctx context.Context, userCred mcclient.TokenCredential, instance *SDBInstance, backup *SDBInstanceBackup, input api.SDBInstanceRecoveryConfigInput) error
 

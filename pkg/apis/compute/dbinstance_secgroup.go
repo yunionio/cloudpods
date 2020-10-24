@@ -12,23 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package modules
+package compute
 
-import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
+import "yunion.io/x/onecloud/pkg/apis"
 
-var (
-	DBInstanceNetworks modulebase.JointResourceManager
-)
+type DBInstanceSecgroupListInput struct {
+	DBInstanceJoinListInput
 
-func init() {
-	DBInstanceNetworks = NewJointComputeManager(
-		"dbinstancenetwork",
-		"dbinstancenetworks",
-		[]string{},
-		[]string{},
-		&DBInstance,
-		&Networks,
-	)
+	SecgroupFilterListInput
+}
 
-	registerCompute(&DBInstanceNetworks)
+type DBInstanceSecgroupDetails struct {
+	apis.VirtualJointResourceBaseDetails
+
+	// RDS名称
+	DBInstance string `json:"dbinstance"`
+	// 安全组名称
+	Secgroup string `json:"secgroup"`
 }
