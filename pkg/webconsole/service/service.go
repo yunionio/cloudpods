@@ -18,7 +18,7 @@ import (
 	"context"
 	"net"
 	"net/http"
-	"net/http/pprof"
+	_ "net/http/pprof"
 	"net/url"
 	"os"
 	"strconv"
@@ -133,9 +133,5 @@ func addMiscHandlers(root *mux.Router) {
 	root.HandleFunc("/worker_stats", adapterF(appsrv.WorkerStatsHandler))
 
 	// pprof handler
-	root.HandleFunc("/debug/pprof/", pprof.Index)
-	root.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-	root.HandleFunc("/debug/pprof/profile", pprof.Profile)
-	root.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-	root.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	root.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
 }
