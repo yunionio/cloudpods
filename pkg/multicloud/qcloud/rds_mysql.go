@@ -740,19 +740,18 @@ func (self *SRegion) CreateMySQLDBInstance(opts *cloudprovider.SManagedDBInstanc
 	if len(opts.Zone1) > 0 {
 		params["Zone"] = opts.Zone1
 	}
+	params["DeployMode"] = "0"
 	switch opts.Category {
 	case api.QCLOUD_DBINSTANCE_CATEGORY_BASIC:
 		params["DeviceType"] = strings.ToUpper(opts.Category)
 	case api.QCLOUD_DBINSTANCE_CATEGORY_HA:
 		params["DeviceType"] = strings.ToUpper(opts.Category)
-		params["DeployMode"] = "1"
 		if len(opts.Zone2) > 0 {
 			params["SlaveZone"] = opts.Zone2
 		}
 	case api.QCLOUD_DBINSTANCE_CATEGORY_FINANCE:
 		params["DeviceType"] = "HA"
 		params["ProtectMode"] = "2"
-		params["DeployMode"] = "1"
 		if len(opts.Zone2) > 0 {
 			params["SlaveZone"] = opts.Zone2
 		}
@@ -760,8 +759,8 @@ func (self *SRegion) CreateMySQLDBInstance(opts *cloudprovider.SManagedDBInstanc
 			params["BackupZone"] = opts.Zone3
 		}
 	}
-	if opts.EngineVersion == "5.5" { // 5.5 不支持多可用区部署
-		params["DeployMode"] = "0"
+	if len(opts.Zone1) > 0 && len(opts.Zone2) > 0 && opts.Zone1 != opts.Zone2 {
+		params["DeployMode"] = "1"
 	}
 	params["ClientToken"] = utils.GenRequestId(20)
 
