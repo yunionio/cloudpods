@@ -1271,6 +1271,7 @@ func (s *SKVMGuestInstance) streamDisksComplete(ctx context.Context) {
 		if jsonutils.QueryBoolean(disk, "merge_snapshot", false) {
 			d := disks[i].(*jsonutils.JSONDict)
 			d.Set("merge_snapshot", jsonutils.JSONFalse)
+			s.Desc.Set("need_sync_stream_disks", jsonutils.JSONTrue)
 		}
 	}
 	if err := s.SaveDesc(s.Desc); err != nil {
@@ -1279,10 +1280,24 @@ func (s *SKVMGuestInstance) streamDisksComplete(ctx context.Context) {
 	if err := s.delFlatFiles(ctx); err != nil {
 		log.Errorf("del flat files failed %s", err)
 	}
-	_, err := modules.Servers.PerformAction(hostutils.GetComputeSession(ctx),
-		s.Id, "stream-disks-complete", nil)
-	if err != nil {
-		log.Infof("stream disks complete sync error %s", err)
+	go s.sendStreamDisksComplete(ctx)
+}
+
+func (s *SKVMGuestInstance) sendStreamDisksComplete(ctx context.Context) {
+	for {
+		_, err := modules.Servers.PerformAction(hostutils.GetComputeSession(ctx),
+			s.Id, "stream-disks-complete", nil)
+		if err != nil {
+			log.Errorf("stream disks complete sync error %s", err)
+			time.Sleep(30 * time.Second)
+			continue
+		} else {
+			break
+		}
+	}
+	s.Desc.Remove("need_sync_stream_disks")
+	if err := s.SaveDesc(s.Desc); err != nil {
+		log.Errorf("save guest desc failed %s", err)
 	}
 }
 
