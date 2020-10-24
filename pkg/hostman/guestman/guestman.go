@@ -291,6 +291,11 @@ func (m *SGuestManager) LoadServer(sid string) {
 		log.Errorf("On load server error: %s", err)
 		return
 	}
+
+	if jsonutils.QueryBoolean(guest.Desc, "need_sync_stream_disks", false) {
+		go guest.sendStreamDisksComplete(context.Background())
+	}
+
 	m.CandidateServers[sid] = guest
 }
 
