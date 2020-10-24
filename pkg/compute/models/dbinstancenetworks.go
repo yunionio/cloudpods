@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -28,13 +27,13 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SDBInstanceNetworkManager struct {
 	SDBInstanceJointsManager
+	SNetworkResourceBaseManager
 }
 
 var DBInstanceNetworkManager *SDBInstanceNetworkManager
@@ -81,13 +80,14 @@ func (manager *SDBInstanceNetworkManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.DBInstanceNetworkListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, err := manager.SVirtualJointResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualJointResourceBaseListInput)
+	var err error
+	q, err = manager.SDBInstanceJointsManager.ListItemFilter(ctx, q, userCred, query.DBInstanceJoinListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SVirtualJointResourceBase.ListItemFilter")
+		return nil, errors.Wrap(err, "SDBInstanceJointsManager.ListItemFilter")
 	}
-	q, err = manager.SDBInstanceResourceBaseManager.ListItemFilter(ctx, q, userCred, query.DBInstanceFilterListInput)
+	q, err = manager.SNetworkResourceBaseManager.ListItemFilter(ctx, q, userCred, query.NetworkFilterListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SDBInstanceResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.ListItemFilter")
 	}
 	return q, nil
 }
@@ -100,81 +100,32 @@ func (self *SDBInstanceNetwork) GetNetwork() (*SNetwork, error) {
 	return network.(*SNetwork), nil
 }
 
-type SDBInstanceNetworkRequestData struct {
-	DBInstance *SDBInstance
-	NetworkId  string
-	reserved   bool                      // allocate from reserved
-	Address    string                    // the address user intends to use
-	strategy   api.IPAllocationDirection // allocate bottom up, top down, randomly
+func (manager *SDBInstanceNetworkManager) newNetwork(ctx context.Context, userCred mcclient.TokenCredential, rdsId, networkId, ipAddr string) error {
+	ds := &SDBInstanceNetwork{}
+	ds.SetModelManager(DBInstanceNetworkManager, ds)
+	ds.DBInstanceId = rdsId
+	ds.NetworkId = networkId
+	ds.IpAddr = ipAddr
+	return manager.TableSpec().Insert(ctx, ds)
 }
 
-func (m *SDBInstanceNetworkManager) NewDBInstanceNetwork(ctx context.Context, userCred mcclient.TokenCredential, req *SDBInstanceNetworkRequestData) (*SDBInstanceNetwork, error) {
-	networkMan := db.GetModelManager("network").(*SNetworkManager)
-	if networkMan == nil {
-		return nil, fmt.Errorf("failed getting network manager")
-	}
-	im, err := networkMan.FetchById(req.NetworkId)
-	if err != nil {
-		return nil, err
-	}
-	network := im.(*SNetwork)
-	in := &SDBInstanceNetwork{
-		NetworkId: network.Id,
-	}
-	in.DBInstanceId = req.DBInstance.Id
-	in.SetModelManager(m, in)
-
-	lockman.LockObject(ctx, network)
-	defer lockman.ReleaseObject(ctx, network)
-	usedMap := network.GetUsedAddresses()
-	recentReclaimed := map[string]bool{}
-	ipAddr, err := network.GetFreeIP(ctx, userCred,
-		usedMap, recentReclaimed, req.Address, req.strategy, req.reserved)
-	if err != nil {
-		return nil, err
-	}
-	in.IpAddr = ipAddr
-	err = m.TableSpec().Insert(ctx, in)
-	if err != nil {
-		// NOTE no need to free ipAddr as GetFreeIP has no side effect
-		return nil, err
-	}
-	return in, nil
-}
-
-func (manager *SDBInstanceNetworkManager) SyncDBInstanceNetwork(ctx context.Context, userCred mcclient.TokenCredential, dbinstance *SDBInstance, network *cloudprovider.SDBInstanceNetwork) compare.SyncResult {
+func (manager *SDBInstanceNetworkManager) SyncDBInstanceNetwork(ctx context.Context, userCred mcclient.TokenCredential, dbinstance *SDBInstance, exts []cloudprovider.SDBInstanceNetwork) compare.SyncResult {
 	result := compare.SyncResult{}
-	if network == nil {
-		return result
-	}
 
-	dbNetwork, err := dbinstance.GetDBNetwork()
-	if err != nil && err != sql.ErrNoRows {
+	networks, err := dbinstance.GetDBNetworks()
+	if err != nil {
 		result.Error(err)
 		return result
 	}
 
-	if dbNetwork == nil {
-		err = manager.newFromCloudDBNetwork(ctx, userCred, dbinstance, network)
-		if err != nil {
-			result.AddError(err)
-		} else {
-			result.Add()
-		}
-	} else {
-		err = dbNetwork.syncWithCloudDBNetwork(ctx, userCred, dbinstance, network)
-		if err != nil {
-			result.UpdateError(err)
-		} else {
-			result.Update()
-		}
+	localMap := map[string]SDBInstanceNetwork{}
+	for i := range networks {
+		localMap[networks[i].NetworkId+networks[i].IpAddr] = networks[i]
 	}
-	return result
-}
+	remoteMap := map[string]bool{}
 
-func (self *SDBInstanceNetwork) syncWithCloudDBNetwork(ctx context.Context, userCred mcclient.TokenCredential, dbinstance *SDBInstance, network *cloudprovider.SDBInstanceNetwork) error {
-	_, err := db.UpdateWithLock(ctx, self, func() error {
-		_localnetwork, err := db.FetchByExternalIdAndManagerId(NetworkManager, network.NetworkId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+	for i := range exts {
+		_network, err := db.FetchByExternalIdAndManagerId(NetworkManager, exts[i].NetworkId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 			wire := WireManager.Query().SubQuery()
 			vpc := VpcManager.Query().SubQuery()
 			return q.Join(wire, sqlchemy.Equals(wire.Field("id"), q.Field("wire_id"))).
@@ -182,63 +133,65 @@ func (self *SDBInstanceNetwork) syncWithCloudDBNetwork(ctx context.Context, user
 				Filter(sqlchemy.Equals(vpc.Field("manager_id"), dbinstance.ManagerId))
 		})
 		if err != nil {
-			return errors.Wrapf(err, "FetchByExternalIdAndManagerId")
+			result.Error(err)
+			continue
 		}
-		localnetwork := _localnetwork.(*SNetwork)
-		self.NetworkId = localnetwork.Id
+		network := _network.(*SNetwork)
+		exts[i].NetworkId = network.GetId()
+		remoteMap[exts[i].NetworkId+exts[i].IP] = true
+		_, ok := localMap[exts[i].NetworkId+exts[i].IP]
+		if !ok {
+			ipAddr, err := netutils.NewIPV4Addr(exts[i].IP)
+			if err != nil {
+				result.AddError(errors.Wrapf(err, "invalid ip"))
+			}
 
-		ipAdd, err := netutils.NewIPV4Addr(network.IP)
-		if err != nil {
-			return errors.Wrapf(err, "NewIPV4Addr")
-		}
-		if !localnetwork.IsAddressInRange(ipAdd) {
-			return fmt.Errorf("IP %s not in network %s(%s) address range", network.IP, localnetwork.Name, localnetwork.Id)
-		}
-		self.IpAddr = network.IP
+			if !network.IsAddressInRange(ipAddr) {
+				result.AddError(fmt.Errorf("IP %s not in network %s(%s) address range", exts[i].IP, network.Name, network.Id))
+				continue
+			}
 
-		return nil
-	})
-	if err != nil {
-		return errors.Wrapf(err, "syncWithCloudDBNetwork.UpdateWithLock")
+			err = manager.newNetwork(ctx, userCred, dbinstance.Id, exts[i].NetworkId, exts[i].IP)
+			if err != nil {
+				result.AddError(err)
+				continue
+			}
+			result.Add()
+		}
 	}
-	return nil
+	for i := range networks {
+		_, ok := remoteMap[networks[i].NetworkId]
+		if ok {
+			continue
+		}
+		err = networks[i].Detach(ctx, userCred)
+		if err != nil {
+			result.DeleteError(err)
+			continue
+		}
+		result.Delete()
+	}
+	return result
 }
 
-func (manager *SDBInstanceNetworkManager) newFromCloudDBNetwork(ctx context.Context, userCred mcclient.TokenCredential, dbinstance *SDBInstance, network *cloudprovider.SDBInstanceNetwork) error {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+func (manager *SDBInstanceNetworkManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DBInstanceNetworkListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
 
-	dbNetwork := SDBInstanceNetwork{}
-	dbNetwork.SetModelManager(manager, &dbNetwork)
-
-	dbNetwork.DBInstanceId = dbinstance.Id
-	_localnetwork, err := db.FetchByExternalIdAndManagerId(NetworkManager, network.NetworkId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-		wire := WireManager.Query().SubQuery()
-		vpc := VpcManager.Query().SubQuery()
-		return q.Join(wire, sqlchemy.Equals(wire.Field("id"), q.Field("wire_id"))).
-			Join(vpc, sqlchemy.Equals(vpc.Field("id"), wire.Field("vpc_id"))).
-			Filter(sqlchemy.Equals(vpc.Field("manager_id"), dbinstance.ManagerId))
-	})
+	q, err = manager.SDBInstanceJointsManager.OrderByExtraFields(ctx, q, userCred, query.DBInstanceJoinListInput)
 	if err != nil {
-		return errors.Wrapf(err, "newFromCloudDBNetwork.FetchByExternalIdAndManagerId")
+		return nil, errors.Wrap(err, "SDBInstanceJointsManager.OrderByExtraFields")
+	}
+	q, err = manager.SNetworkResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.NetworkFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.OrderByExtraFields")
 	}
 
-	localnetwork := _localnetwork.(*SNetwork)
-	ipAdd, err := netutils.NewIPV4Addr(network.IP)
-	if err != nil {
-		return errors.Wrapf(err, "newFromCloudDBNetwork.NewIPV4Addr")
-	}
-	if !localnetwork.IsAddressInRange(ipAdd) {
-		return fmt.Errorf("IP %s not in network %s(%s) address range", network.IP, localnetwork.Name, localnetwork.Id)
-	}
-	dbNetwork.NetworkId = localnetwork.Id
-	dbNetwork.IpAddr = network.IP
-
-	err = manager.TableSpec().Insert(ctx, &dbNetwork)
-	if err != nil {
-		return errors.Wrapf(err, "newFromCloudDBNetwork.Insert")
-	}
-	return nil
+	return q, nil
 }
 
 func (manager *SDBInstanceNetworkManager) InitializeData() error {

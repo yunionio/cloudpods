@@ -803,6 +803,10 @@ func syncDBInstanceResource(ctx context.Context, userCred mcclient.TokenCredenti
 	if err != nil {
 		log.Errorf("syncDBInstanceNetwork error: %v", err)
 	}
+	err = syncDBInstanceSecgroups(ctx, userCred, syncResults, localInstance, remoteInstance)
+	if err != nil {
+		log.Errorf("syncDBInstanceSecgroups error: %v", err)
+	}
 	err = syncDBInstanceParameters(ctx, userCred, syncResults, localInstance, remoteInstance)
 	if err != nil {
 		log.Errorf("syncDBInstanceParameters error: %v", err)
@@ -818,20 +822,32 @@ func syncDBInstanceResource(ctx context.Context, userCred mcclient.TokenCredenti
 }
 
 func syncDBInstanceNetwork(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localInstance *SDBInstance, remoteInstance cloudprovider.ICloudDBInstance) error {
-	network, err := remoteInstance.GetDBNetwork()
+	networks, err := remoteInstance.GetDBNetworks()
 	if err != nil {
-		return errors.Wrapf(err, "GetDBNetwork")
+		return errors.Wrapf(err, "GetDBNetworks")
 	}
 
-	if network == nil {
-		return nil
-	}
-
-	result := DBInstanceNetworkManager.SyncDBInstanceNetwork(ctx, userCred, localInstance, network)
+	result := DBInstanceNetworkManager.SyncDBInstanceNetwork(ctx, userCred, localInstance, networks)
 	syncResults.Add(DBInstanceNetworkManager, result)
 
 	msg := result.Result()
 	log.Infof("SyncDBInstanceNetwork for dbinstance %s result: %s", localInstance.Name, msg)
+	if result.IsError() {
+		return result.AllError()
+	}
+	return nil
+}
+
+func syncDBInstanceSecgroups(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localInstance *SDBInstance, remoteInstance cloudprovider.ICloudDBInstance) error {
+	secIds, err := remoteInstance.GetSecurityGroupIds()
+	if err != nil {
+		return errors.Wrapf(err, "GetSecurityGroupIds")
+	}
+	result := DBInstanceSecgroupManager.SyncDBInstanceSecgroups(ctx, userCred, localInstance, secIds)
+	syncResults.Add(DBInstanceSecgroupManager, result)
+
+	msg := result.Result()
+	log.Infof("SyncDBInstanceSecgroups for dbinstance %s result: %s", localInstance.Name, msg)
 	if result.IsError() {
 		return result.AllError()
 	}

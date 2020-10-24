@@ -261,8 +261,8 @@ func (rds *SDBInstance) GetIDBInstanceAccounts() ([]cloudprovider.ICloudDBInstan
 	return accounts, nil
 }
 
-func (rds *SDBInstance) GetDBNetwork() (*cloudprovider.SDBInstanceNetwork, error) {
-	return nil, nil
+func (rds *SDBInstance) GetDBNetworks() ([]cloudprovider.SDBInstanceNetwork, error) {
+	return []cloudprovider.SDBInstanceNetwork{}, nil
 }
 
 func (rds *SDBInstance) GetInternalConnectionStr() string {

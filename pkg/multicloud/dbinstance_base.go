@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 
+	"yunion.io/x/pkg/errors"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
@@ -35,8 +37,8 @@ func (instance *SDBInstanceBase) GetInternalConnectionStr() string {
 	return ""
 }
 
-func (instance *SDBInstanceBase) GetDBNetwork() (*cloudprovider.SDBInstanceNetwork, error) {
-	return nil, fmt.Errorf("Not Implemented GetDBNetwork")
+func (instance *SDBInstanceBase) GetDBNetworks() ([]cloudprovider.SDBInstanceNetwork, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetDBNetworks")
 }
 
 func (instance *SDBInstanceBase) GetIDBInstanceParameters() ([]cloudprovider.ICloudDBInstanceParameter, error) {
@@ -75,8 +77,8 @@ func (instance *SDBInstanceBase) GetMasterInstanceId() string {
 	return ""
 }
 
-func (instance *SDBInstanceBase) GetSecurityGroupId() string {
-	return ""
+func (instance *SDBInstanceBase) GetSecurityGroupIds() ([]string, error) {
+	return []string{}, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetSecurityGroupIds")
 }
 
 func (instance *SDBInstanceBase) Renew(bc billing.SBillingCycle) error {

@@ -1387,8 +1387,15 @@ func (self *SQcloudRegionDriver) IsSupportedDBInstance() bool {
 	return true
 }
 
-func (self *SQcloudRegionDriver) IsDBInstanceNeedSecgroup() bool {
-	return true
+func (self *SQcloudRegionDriver) GetRdsSupportSecgroupCount() int {
+	return 5
+}
+
+func (self *SQcloudRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.DBInstanceCreateInput, skus []models.SDBInstanceSku, network *models.SNetwork) (api.DBInstanceCreateInput, error) {
+	if input.Engine == api.DBINSTANCE_TYPE_MYSQL && input.Category != api.QCLOUD_DBINSTANCE_CATEGORY_BASIC && len(input.SecgroupIds) == 0 {
+		input.SecgroupIds = []string{api.SECGROUP_DEFAULT_ID}
+	}
+	return input, nil
 }
 
 func (self *SQcloudRegionDriver) IsSupportedBillingCycle(bc billing.SBillingCycle, resource string) bool {

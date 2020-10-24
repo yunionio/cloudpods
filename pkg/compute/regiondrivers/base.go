@@ -396,3 +396,7 @@ func (self *SBaseRegionDriver) RequestRemoteUpdateElasticcache(ctx context.Conte
 func (self *SBaseRegionDriver) IsDBInstanceNeedSecgroup() bool {
 	return false
 }
+
+func (self *SBaseRegionDriver) GetRdsSupportSecgroupCount() int {
+	return 0
+}

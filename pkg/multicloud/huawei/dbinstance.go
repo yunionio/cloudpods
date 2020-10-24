@@ -167,8 +167,8 @@ func (rds *SDBInstance) GetBillingType() string {
 	return billing_api.BILLING_TYPE_PREPAID
 }
 
-func (rds *SDBInstance) GetSecurityGroupId() string {
-	return rds.SecurityGroupId
+func (rds *SDBInstance) GetSecurityGroupIds() ([]string, error) {
+	return []string{rds.SecurityGroupId}, nil
 }
 
 func (rds *SDBInstance) fetchFlavor() error {
@@ -314,16 +314,16 @@ type SRdsNetwork struct {
 	IP       string
 }
 
-func (rds *SDBInstance) GetDBNetwork() (*cloudprovider.SDBInstanceNetwork, error) {
+func (rds *SDBInstance) GetDBNetworks() ([]cloudprovider.SDBInstanceNetwork, error) {
+	ret := []cloudprovider.SDBInstanceNetwork{}
 	for _, ip := range rds.PrivateIps {
-		inetwork := &cloudprovider.SDBInstanceNetwork{
+		network := cloudprovider.SDBInstanceNetwork{
 			IP:        ip,
 			NetworkId: rds.SubnetId,
 		}
-		return inetwork, nil
+		ret = append(ret, network)
 	}
-
-	return nil, fmt.Errorf("failed to found network for huawei rds %s", rds.Name)
+	return ret, nil
 }
 
 func (rds *SDBInstance) GetInternalConnectionStr() string {
@@ -430,6 +430,10 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 		zoneIds = append(zoneIds, zone.GetId())
 	}
 
+	if len(desc.SecgroupIds) == 0 {
+		return nil, fmt.Errorf("Missing secgroupId")
+	}
+
 	params := map[string]interface{}{
 		"region": region.ID,
 		"name":   desc.Name,
@@ -444,7 +448,7 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 		},
 		"vpc_id":            desc.VpcId,
 		"subnet_id":         desc.NetworkId,
-		"security_group_id": desc.SecgroupId,
+		"security_group_id": desc.SecgroupIds[0],
 	}
 
 	if len(desc.ProjectId) > 0 {
