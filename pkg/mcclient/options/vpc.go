@@ -39,18 +39,19 @@ func (opts *VpcListOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type VpcCreateOptions struct {
-	REGION             string `help:"ID or name of the region where the VPC is created"`
+	REGION             string `help:"ID or name of the region where the VPC is created" json:"cloudregion_id"`
 	Id                 string `help:"ID of the new VPC"`
-	NAME               string `help:"Name of the VPC"`
+	NAME               string `help:"Name of the VPC" json:"name"`
 	CIDR               string `help:"CIDR block"`
 	Default            bool   `help:"default VPC for the region" default:"false"`
 	Desc               string `help:"Description of the VPC"`
-	Manager            string `help:"ID or Name of Cloud provider"`
-	ExternalAccessMode string `help:"Filter by external access mode" choices:"distgw|eip|eip-distgw" default:"eip-distgw"`
+	Manager            string `help:"ID or Name of Cloud provider" json:"manager_id"`
+	ExternalAccessMode string `help:"Filter by external access mode" choices:"distgw|eip|eip-distgw" default:""`
 }
 
 func (opts *VpcCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(opts.REGION), "cloudregion_id")
 	params.Add(jsonutils.NewString(opts.NAME), "name")
 	params.Add(jsonutils.NewString(opts.CIDR), "cidr_block")
 	if len(opts.Id) > 0 {
@@ -66,7 +67,7 @@ func (opts *VpcCreateOptions) Params() (jsonutils.JSONObject, error) {
 		params.Add(jsonutils.JSONTrue, "is_default")
 	}
 	if len(opts.Manager) > 0 {
-		params.Add(jsonutils.NewString(opts.Manager), "manager")
+		params.Add(jsonutils.NewString(opts.Manager), "manager_id")
 	}
 	return params, nil
 }
