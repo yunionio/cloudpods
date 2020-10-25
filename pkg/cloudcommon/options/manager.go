@@ -116,7 +116,7 @@ func optionsEquals(newOpts interface{}, oldOpts interface{}) bool {
 func (manager *SOptionManager) DoSync(first bool) (time.Duration, error) {
 	newOpts := manager.newOptions()
 	copyOptions(newOpts, manager.options)
-	merged := manager.session.Merge(newOpts, manager.serviceType, manager.serviceVersion)
+	merged := manager.session.Merge(newOpts, manager.serviceType, manager.serviceVersion, first)
 
 	if merged && !optionsEquals(newOpts, manager.options) {
 		if manager.onOptionsChange != nil && manager.onOptionsChange(manager.options, newOpts) && !first {
@@ -124,7 +124,7 @@ func (manager *SOptionManager) DoSync(first bool) (time.Duration, error) {
 			appsrv.SetExitFlag()
 		}
 		copyOptions(manager.options, newOpts)
-		manager.session.Upload()
+		manager.session.Upload(first)
 	}
 	return manager.refreshInterval, nil
 }

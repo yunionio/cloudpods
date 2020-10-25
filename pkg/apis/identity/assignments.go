@@ -14,6 +14,8 @@
 
 package identity
 
+import "yunion.io/x/onecloud/pkg/util/rbacutils"
+
 type SIdentityObject struct {
 	Id   string `json:"id"`
 	Name string `json:"name"`
@@ -47,16 +49,13 @@ type SRoleAssignment struct {
 }
 
 // rbacutils.IRbacIdentity interfaces
-func (ra *SRoleAssignment) GetProjectDomainId() string {
-	return ra.Scope.Project.Domain.Id
+
+func (ra *SRoleAssignment) GetProjectId() string {
+	return ra.Scope.Project.Id
 }
 
-func (ra *SRoleAssignment) GetProjectName() string {
-	return ra.Scope.Project.Name
-}
-
-func (ra *SRoleAssignment) GetRoles() []string {
-	return []string{ra.Role.Name}
+func (ra *SRoleAssignment) GetRoleIds() []string {
+	return []string{ra.Role.Id}
 }
 
 func (ra *SRoleAssignment) GetLoginIp() string {
@@ -64,7 +63,7 @@ func (ra *SRoleAssignment) GetLoginIp() string {
 }
 
 func (ra *SRoleAssignment) GetTokenString() string {
-	return "faketoken"
+	return rbacutils.FAKE_TOKEN
 }
 
 type RAInputObject struct {

@@ -28,7 +28,6 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -589,9 +588,10 @@ func (manager *SAssignmentManager) queryAll(
 }
 
 func fetchRoleAssignmentPolicies(ra *api.SRoleAssignment) {
-	ra.Policies.Project = policy.PolicyManager.MatchedPolicyNames(rbacutils.ScopeProject, ra)
-	ra.Policies.Domain = policy.PolicyManager.MatchedPolicyNames(rbacutils.ScopeDomain, ra)
-	ra.Policies.System = policy.PolicyManager.MatchedPolicyNames(rbacutils.ScopeSystem, ra)
+	policyNames, _, _ := RolePolicyManager.GetMatchPolicyGroup(ra, true)
+	ra.Policies.Project, _ = policyNames[rbacutils.ScopeProject]
+	ra.Policies.Domain, _ = policyNames[rbacutils.ScopeDomain]
+	ra.Policies.System, _ = policyNames[rbacutils.ScopeSystem]
 }
 
 type sAssignmentInternal struct {

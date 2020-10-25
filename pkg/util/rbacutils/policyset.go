@@ -14,27 +14,14 @@
 
 package rbacutils
 
-type SPolicyInfo struct {
-	Id     string
-	Name   string
-	Policy *SRbacPolicy
-}
+import (
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
-type TPolicySet []*SRbacPolicy
+	"yunion.io/x/onecloud/pkg/httperrors"
+)
 
-func GetMatchedPolicies(policies []SPolicyInfo, userCred IRbacIdentity) (TPolicySet, []string) {
-	matchedPolicies := make([]*SRbacPolicy, 0)
-	matchedNames := make([]string, 0)
-	for i := range policies {
-		isMatched, _ := policies[i].Policy.Match(userCred)
-		if !isMatched {
-			continue
-		}
-		matchedPolicies = append(matchedPolicies, policies[i].Policy)
-		matchedNames = append(matchedNames, policies[i].Name)
-	}
-	return matchedPolicies, matchedNames
-}
+type TPolicySet []TPolicy
 
 func (policies TPolicySet) GetMatchRules(service string, resource string, action string, extra ...string) []SRbacRule {
 	matchRules := make([]SRbacRule, 0)
@@ -45,6 +32,30 @@ func (policies TPolicySet) GetMatchRules(service string, resource string, action
 		}
 	}
 	return matchRules
+}
+
+func DecodePolicySet(jsonObj jsonutils.JSONObject) (TPolicySet, error) {
+	jsonArr, err := jsonObj.GetArray()
+	if err != nil {
+		return nil, errors.Wrap(httperrors.ErrInvalidFormat, "invalid json: not an array")
+	}
+	set := TPolicySet{}
+	for i := range jsonArr {
+		policy, err := DecodePolicy(jsonArr[i])
+		if err != nil {
+			return nil, errors.Wrapf(err, "decode %d", i)
+		}
+		set = append(set, policy)
+	}
+	return set, nil
+}
+
+func (policies TPolicySet) Encode() jsonutils.JSONObject {
+	obj := make([]jsonutils.JSONObject, len(policies))
+	for i := range policies {
+		obj[i] = policies[i].Encode()
+	}
+	return jsonutils.NewArray(obj...)
 }
 
 // ViolatedBy: policies中deny的权限，但是assign中却是allow
@@ -70,9 +81,9 @@ func (policies TPolicySet) violatedBySet(assign TPolicySet, expect TRbacResult) 
 	return false
 }
 
-func (policies TPolicySet) violatedByPolicy(policy *SRbacPolicy, expect TRbacResult) bool {
-	for i := range policy.Rules {
-		rule := policy.Rules[i]
+func (policies TPolicySet) violatedByPolicy(policy TPolicy, expect TRbacResult) bool {
+	for i := range policy {
+		rule := policy[i]
 		if rule.Result != expect {
 			continue
 		}

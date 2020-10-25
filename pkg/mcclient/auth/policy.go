@@ -12,26 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package service
+package auth
 
 import (
 	"context"
 
-	"yunion.io/x/pkg/errors"
-
-	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
-func localPolicyFetcher(ctx context.Context, token mcclient.TokenCredential) (*mcclient.SFetchMatchPoliciesOutput, error) {
-	names, groups, err := models.RolePolicyManager.GetMatchPolicyGroup(token, false)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetMatchPolicyGroup")
-	}
+func (a *authManager) fetchMatchPolicies(ctx context.Context, token mcclient.TokenCredential) (*mcclient.SFetchMatchPoliciesOutput, error) {
+	return a.client.FetchMatchPolicies(ctx, token)
+}
 
-	output := mcclient.SFetchMatchPoliciesOutput{}
-	output.Names = names
-	output.Policies = groups
-
-	return &output, nil
+func FetchMatchPolicies(ctx context.Context, token mcclient.TokenCredential) (*mcclient.SFetchMatchPoliciesOutput, error) {
+	return manager.fetchMatchPolicies(ctx, token)
 }

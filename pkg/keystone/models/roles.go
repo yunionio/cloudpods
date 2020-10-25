@@ -23,13 +23,14 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
-	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -240,7 +241,13 @@ func (manager *SRoleManager) FetchCustomizeColumns(
 		rows[i].UserCount, _ = role.GetUserCount()
 		rows[i].GroupCount, _ = role.GetGroupCount()
 		rows[i].ProjectCount, _ = role.GetProjectCount()
-		rows[i].MatchPolicies = policy.PolicyManager.RoleMatchPolicies(role.Name)
+		names, _, _ := RolePolicyManager.GetMatchPolicyGroup2(false, []string{role.Id}, "", "", true)
+		rows[i].Policies = names
+		mp := make([]string, 0)
+		for _, v := range names {
+			mp = append(mp, v...)
+		}
+		rows[i].MatchPolicies = mp
 	}
 
 	return rows
@@ -347,7 +354,7 @@ func (role *SRole) UpdateInContext(ctx context.Context, userCred mcclient.TokenC
 	if project.DomainId != role.DomainId && !role.GetIsPublic() {
 		return nil, httperrors.NewInputParameterError("inconsistent domain for project and roles")
 	}
-	err := validateJoinProject(userCred, project, []string{role.Name})
+	err := validateJoinProject(userCred, project, []string{role.Id})
 	if err != nil {
 		return nil, errors.Wrap(err, "validateJoinProject")
 	}
@@ -436,7 +443,6 @@ func (role *SRole) PerformPublic(ctx context.Context, userCred mcclient.TokenCre
 	if err != nil {
 		return nil, errors.Wrap(err, "SharablePerformPublic")
 	}
-	policy.PolicyManager.SyncOnce()
 	return nil, nil
 }
 
@@ -449,7 +455,6 @@ func (role *SRole) PerformPrivate(ctx context.Context, userCred mcclient.TokenCr
 	if err != nil {
 		return nil, errors.Wrap(err, "SharablePerformPrivate")
 	}
-	policy.PolicyManager.SyncOnce()
 	return nil, nil
 }
 
@@ -540,4 +545,172 @@ func (role *SRole) GetRequiredSharedDomainIds() []string {
 
 func (role *SRole) GetSharedDomains() []string {
 	return db.SharableGetSharedProjects(role, db.SharedTargetDomain)
+}
+
+func (role *SRole) AllowPerformSetPolicies(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.RolePerformSetPoliciesInput) bool {
+	return true
+}
+
+func (role *SRole) PerformSetPolicies(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.RolePerformSetPoliciesInput) (jsonutils.JSONObject, error) {
+	normalInputIds := stringutils2.NewSortedStrings(nil)
+	normalInputs := make(map[string]sRolePerformAddPolicyInput, len(input.Policies))
+	for i := range input.Policies {
+		normalInput, err := role.normalizeRoleAddPolicyInput(userCred, input.Policies[i])
+		if err != nil {
+			return nil, errors.Wrapf(err, "normalizeRoleAddPolicyInput at %d", i)
+		}
+		idstr := normalInput.getId()
+		if _, ok := normalInputs[idstr]; !ok {
+			normalInputs[idstr] = normalInput
+			normalInputIds = stringutils2.Append(normalInputIds, idstr)
+		} else {
+			log.Warningf("duplicate input key id %s", idstr)
+		}
+	}
+
+	existRpList, err := RolePolicyManager.fetchByRoleId(role.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "RolePolicyManager.fetchByRoleId")
+	}
+
+	existRpIds := stringutils2.NewSortedStrings(nil)
+	existRpMap := make(map[string]*SRolePolicy)
+	for i := range existRpList {
+		idstr := existRpList[i].GetId()
+		if _, ok := existRpMap[idstr]; !ok {
+			existRpMap[idstr] = &existRpList[i]
+			existRpIds = stringutils2.Append(existRpIds, idstr)
+		}
+	}
+
+	addedIds, updatedIds, deletedIds := stringutils2.Split(normalInputIds, existRpIds)
+
+	for _, idstr := range deletedIds {
+		toDel := existRpMap[idstr]
+		err := RolePolicyManager.deleteRecord(ctx, toDel.RoleId, toDel.ProjectId, toDel.PolicyId)
+		if err != nil {
+			return nil, errors.Wrap(err, "RolePolicyManager.deleteRecord")
+		}
+	}
+
+	for _, idstr := range updatedIds {
+		toUpdate := normalInputs[idstr]
+		err := RolePolicyManager.newRecord(ctx, toUpdate.roleId, toUpdate.projectId, toUpdate.policyId, tristate.True, toUpdate.prefixes)
+		if err != nil {
+			return nil, errors.Wrap(err, "RolePolicyManager.updateRecord")
+		}
+	}
+
+	for _, idstr := range addedIds {
+		toAdd := normalInputs[idstr]
+		err := RolePolicyManager.newRecord(ctx, toAdd.roleId, toAdd.projectId, toAdd.policyId, tristate.True, toAdd.prefixes)
+		if err != nil {
+			return nil, errors.Wrap(err, "RolePolicyManager.newRecord")
+		}
+	}
+
+	return nil, nil
+}
+
+func (role *SRole) AllowPerformAddPolicy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.RolePerformAddPolicyInput) bool {
+	return true
+}
+
+type sRolePerformAddPolicyInput struct {
+	prefixes  []netutils.IPV4Prefix
+	roleId    string
+	projectId string
+	policyId  string
+}
+
+func (s sRolePerformAddPolicyInput) getId() string {
+	return fmt.Sprintf("%s:%s:%s", s.roleId, s.projectId, s.policyId)
+}
+
+func (role *SRole) normalizeRoleAddPolicyInput(userCred mcclient.TokenCredential, input api.RolePerformAddPolicyInput) (sRolePerformAddPolicyInput, error) {
+	output := sRolePerformAddPolicyInput{}
+	prefList := make([]netutils.IPV4Prefix, 0)
+	for _, ipStr := range input.Ips {
+		pref, err := netutils.NewIPV4Prefix(ipStr)
+		if err != nil {
+			return output, errors.Wrapf(httperrors.ErrInputParameter, "invalid prefix %s", ipStr)
+		}
+		prefList = append(prefList, pref)
+	}
+	if len(input.ProjectId) > 0 {
+		proj, err := ProjectManager.FetchByIdOrName(userCred, input.ProjectId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return output, errors.Wrapf(httperrors.ErrNotFound, "%s %s", ProjectManager.Keyword(), input.ProjectId)
+			} else {
+				return output, errors.Wrap(err, "ProjectManager.FetchByIdOrName")
+			}
+		}
+		output.projectId = proj.GetId()
+	}
+	if len(input.PolicyId) == 0 {
+		return output, errors.Wrap(httperrors.ErrInputParameter, "missing policy_id")
+	}
+	policy, err := PolicyManager.FetchByIdOrName(userCred, input.PolicyId)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return output, errors.Wrapf(httperrors.ErrNotFound, "%s %s", PolicyManager.Keyword(), input.PolicyId)
+		} else {
+			return output, errors.Wrap(err, "PolicyManager.FetchByIdOrName")
+		}
+	}
+	output.roleId = role.Id
+	output.prefixes = prefList
+	output.policyId = policy.GetId()
+	return output, nil
+}
+
+func (role *SRole) PerformAddPolicy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.RolePerformAddPolicyInput) (jsonutils.JSONObject, error) {
+	normalInput, err := role.normalizeRoleAddPolicyInput(userCred, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "normalizeRoleAddPolicyInput")
+	}
+	err = RolePolicyManager.newRecord(ctx, normalInput.roleId, normalInput.projectId, normalInput.policyId, tristate.True, normalInput.prefixes)
+	if err != nil {
+		return nil, errors.Wrap(err, "newRecord")
+	}
+	return nil, nil
+}
+
+func (role *SRole) AllowPerformRemovePolicy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.RolePerformRemovePolicyInput) bool {
+	return true
+}
+
+func (role *SRole) PerformRemovePolicy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.RolePerformRemovePolicyInput) (jsonutils.JSONObject, error) {
+	if len(input.ProjectId) > 0 {
+		proj, err := ProjectManager.FetchByIdOrName(userCred, input.ProjectId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, errors.Wrapf(httperrors.ErrNotFound, "%s %s", ProjectManager.Keyword(), input.ProjectId)
+			} else {
+				return nil, errors.Wrap(err, "ProjectManager.FetchByIdOrName")
+			}
+		}
+		input.ProjectId = proj.GetId()
+	}
+	if len(input.PolicyId) == 0 {
+		return nil, errors.Wrap(httperrors.ErrInputParameter, "missing policy_id")
+	}
+	policy, err := PolicyManager.FetchByIdOrName(userCred, input.PolicyId)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, errors.Wrapf(httperrors.ErrNotFound, "%s %s", PolicyManager.Keyword(), input.PolicyId)
+		} else {
+			return nil, errors.Wrap(err, "PolicyManager.FetchByIdOrName")
+		}
+	}
+	err = RolePolicyManager.deleteRecord(ctx, role.Id, input.ProjectId, policy.GetId())
+	if err != nil {
+		return nil, errors.Wrap(err, "deleteRecord")
+	}
+	return nil, nil
+}
+
+func (role *SRole) GetChangeOwnerCandidateDomainIds() []string {
+	return db.ISharableChangeOwnerCandidateDomainIds(role)
 }

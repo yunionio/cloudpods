@@ -26,32 +26,28 @@ func TestTPolicySet_Violate(t *testing.T) {
 		{
 			name: "case1",
 			p1: TPolicySet{
-				&SRbacPolicy{
-					Rules: []SRbacRule{
-						{
-							Service:  "compute",
-							Resource: "servers",
-							Action:   "list",
-							Result:   Deny,
-						},
-						{
-							Service:  "compute",
-							Resource: "servers",
-							Action:   WILD_MATCH,
-							Result:   Allow,
-						},
+				{
+					{
+						Service:  "compute",
+						Resource: "servers",
+						Action:   "list",
+						Result:   Deny,
+					},
+					{
+						Service:  "compute",
+						Resource: "servers",
+						Action:   WILD_MATCH,
+						Result:   Allow,
 					},
 				},
 			},
 			p2: TPolicySet{
-				&SRbacPolicy{
-					Rules: []SRbacRule{
-						{
-							Service:  "compute",
-							Resource: "servers",
-							Action:   WILD_MATCH,
-							Result:   Allow,
-						},
+				{
+					{
+						Service:  "compute",
+						Resource: "servers",
+						Action:   WILD_MATCH,
+						Result:   Allow,
 					},
 				},
 			},
@@ -60,40 +56,34 @@ func TestTPolicySet_Violate(t *testing.T) {
 		{
 			name: "case2",
 			p1: TPolicySet{
-				&SRbacPolicy{
-					Rules: []SRbacRule{
-						{
-							Service:  "comptue",
-							Resource: "servers",
-							Action:   "list",
-							Result:   Deny,
-						},
-						{
-							Service:  "compute",
-							Resource: "servers",
-							Action:   WILD_MATCH,
-							Result:   Allow,
-						},
+				{
+					{
+						Service:  "comptue",
+						Resource: "servers",
+						Action:   "list",
+						Result:   Deny,
+					},
+					{
+						Service:  "compute",
+						Resource: "servers",
+						Action:   WILD_MATCH,
+						Result:   Allow,
 					},
 				},
 			},
 			p2: TPolicySet{
-				&SRbacPolicy{
-					Rules: []SRbacRule{
-						{
-							Service: WILD_MATCH,
-							Result:  Allow,
-						},
+				{
+					{
+						Service: WILD_MATCH,
+						Result:  Allow,
 					},
 				},
-				&SRbacPolicy{
-					Rules: []SRbacRule{
-						{
-							Service:  "compute",
-							Resource: "servers",
-							Action:   "list",
-							Result:   Deny,
-						},
+				{
+					{
+						Service:  "compute",
+						Resource: "servers",
+						Action:   "list",
+						Result:   Deny,
 					},
 				},
 			},
@@ -102,60 +92,52 @@ func TestTPolicySet_Violate(t *testing.T) {
 		{
 			name: "case3",
 			p1: TPolicySet{
-				&SRbacPolicy{
-					Rules: []SRbacRule{
-						{
-							Service: WILD_MATCH,
-							Result:  Allow,
-						},
-						{
-							Service:  "compute",
-							Resource: "servers",
-							Action:   "create",
-							Result:   Deny,
-						},
+				{
+					{
+						Service: WILD_MATCH,
+						Result:  Allow,
+					},
+					{
+						Service:  "compute",
+						Resource: "servers",
+						Action:   "create",
+						Result:   Deny,
 					},
 				},
-				&SRbacPolicy{
-					Rules: []SRbacRule{
-						{
-							Service:  "comptue",
-							Resource: "servers",
-							Action:   "list",
-							Result:   Deny,
-						},
-						{
-							Service:  "compute",
-							Resource: "servers",
-							Action:   WILD_MATCH,
-							Result:   Allow,
-						},
+				{
+					{
+						Service:  "comptue",
+						Resource: "servers",
+						Action:   "list",
+						Result:   Deny,
+					},
+					{
+						Service:  "compute",
+						Resource: "servers",
+						Action:   WILD_MATCH,
+						Result:   Allow,
 					},
 				},
 			},
 			p2: TPolicySet{
-				&SRbacPolicy{
-					Rules: []SRbacRule{
-						{
-							Service: WILD_MATCH,
-							Result:  Deny,
-						},
+				{
+					{
+						Service: WILD_MATCH,
+						Result:  Deny,
 					},
 				},
-				&SRbacPolicy{
-					Rules: []SRbacRule{
-						{
-							Service:  "comptue",
-							Resource: "servers",
-							Action:   WILD_MATCH,
-							Result:   Deny,
-						},
-						{
-							Service:  "compute",
-							Resource: "servers",
-							Action:   "get",
-							Result:   Allow,
-						},
+				{
+					{
+						Service:  "comptue",
+						Resource: "servers",
+						Action:   WILD_MATCH,
+						Result:   Deny,
+					},
+					{
+						Service:  "compute",
+						Resource: "servers",
+						Action:   "get",
+						Result:   Allow,
 					},
 				},
 			},
@@ -164,30 +146,24 @@ func TestTPolicySet_Violate(t *testing.T) {
 		{
 			name: "case4",
 			p2: TPolicySet{
-				&SRbacPolicy{
-					Scope: ScopeDomain,
-					Rules: []SRbacRule{
-						{
-							Service: WILD_MATCH,
-							Result:  Allow,
-						},
+				{
+					{
+						Service: WILD_MATCH,
+						Result:  Allow,
 					},
 				},
 			},
 			p1: TPolicySet{
-				&SRbacPolicy{
-					Scope: ScopeDomain,
-					Rules: []SRbacRule{
-						{
-							Service: WILD_MATCH,
-							Result:  Allow,
-						},
-						{
-							Service:  "compute",
-							Resource: "servers",
-							Action:   "list",
-							Result:   Deny,
-						},
+				{
+					{
+						Service: WILD_MATCH,
+						Result:  Allow,
+					},
+					{
+						Service:  "compute",
+						Resource: "servers",
+						Action:   "list",
+						Result:   Deny,
 					},
 				},
 			},

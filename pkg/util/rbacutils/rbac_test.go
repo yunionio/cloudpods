@@ -203,11 +203,7 @@ func TestSRabcPolicy_Encode(t *testing.T) {
 			return
 		}
 
-		policyJson1, err := policy.Encode()
-		if err != nil {
-			t.Errorf("encode error %s", err)
-			return
-		}
+		policyJson1 := policy.Encode()
 
 		policy2 := SRbacPolicy{}
 
@@ -217,11 +213,7 @@ func TestSRabcPolicy_Encode(t *testing.T) {
 			return
 		}
 
-		policyJson2, err := policy2.Encode()
-		if err != nil {
-			t.Errorf("encode error 2 %s", err)
-			return
-		}
+		policyJson2 := policy2.Encode()
 
 		policyStr1 := policyJson1.PrettyString()
 		policyStr2 := policyJson2.PrettyString()
@@ -235,6 +227,7 @@ func TestSRabcPolicy_Encode(t *testing.T) {
 	}
 }
 
+/*
 func TestSRabcPolicy_Explain(t *testing.T) {
 	policyStr := `{
         "condition": "usercred.project != \"system\" && usercred.roles==\"projectowner\"",
@@ -282,6 +275,7 @@ func TestSRabcPolicy_Explain(t *testing.T) {
 
 	t.Logf("%#v", output)
 }
+*/
 
 func TestConditionParser(t *testing.T) {
 	condition := `tenant=="system" && roles.contains("admin")`
@@ -291,44 +285,16 @@ func TestConditionParser(t *testing.T) {
 	t.Logf("%s", roles)
 }
 
-type sRbacIdentity struct {
-	DomainId string
-	Project  string
-	Roles    []string
-	Ip       string
-	Token    string
-}
-
-func (ri *sRbacIdentity) GetProjectDomainId() string {
-	return ri.DomainId
-}
-
-func (ri *sRbacIdentity) GetProjectName() string {
-	return ri.Project
-}
-
-func (ri *sRbacIdentity) GetRoles() []string {
-	return ri.Roles
-}
-
-func (ri *sRbacIdentity) GetLoginIp() string {
-	return ri.Ip
-}
-
-func (ri *sRbacIdentity) GetTokenString() string {
-	return ri.Token
-}
-
 func TestSRbacPolicyMatch(t *testing.T) {
 	prefix, _ := netutils.NewIPV4Prefix("10.168.22.0/24")
 	cases := []struct {
 		policy   SRbacPolicy
-		userCred IRbacIdentity
+		userCred IRbacIdentity2
 		want     bool
 	}{
 		{
 			SRbacPolicy{},
-			&sRbacIdentity{},
+			newRbacIdentity2("", "", nil, ""),
 			true,
 		},
 		{
@@ -340,20 +306,14 @@ func TestSRbacPolicyMatch(t *testing.T) {
 			SRbacPolicy{
 				Projects: []string{"system"},
 			},
-			&sRbacIdentity{
-				Project: "system",
-				Token:   "faketoken",
-			},
+			newRbacIdentity2("", "system", nil, ""),
 			true,
 		},
 		{
 			SRbacPolicy{
 				Projects: []string{"system"},
 			},
-			&sRbacIdentity{
-				Project: "demo",
-				Token:   "faketoken",
-			},
+			newRbacIdentity2("", "demo", nil, ""),
 			false,
 		},
 		{
@@ -361,11 +321,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 				Projects: []string{"system"},
 				Roles:    []string{"admin"},
 			},
-			&sRbacIdentity{
-				Project: "system",
-				Roles:   []string{"admin"},
-				Token:   "faketoken",
-			},
+			newRbacIdentity2("", "system", []string{"admin"}, ""),
 			true,
 		},
 		{
@@ -373,11 +329,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 				Projects: []string{"system"},
 				Roles:    []string{"admin"},
 			},
-			&sRbacIdentity{
-				Project: "system",
-				Roles:   []string{"admin", "_member_"},
-				Token:   "faketoken",
-			},
+			newRbacIdentity2("", "system", []string{"admin", "_member_"}, ""),
 			true,
 		},
 		{
@@ -385,11 +337,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 				Projects: []string{"system"},
 				Roles:    []string{"admin"},
 			},
-			&sRbacIdentity{
-				Project: "system",
-				Roles:   []string{"_member_"},
-				Token:   "faketoken",
-			},
+			newRbacIdentity2("", "system", []string{"_member_"}, ""),
 			false,
 		},
 		{
@@ -413,12 +361,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 				Roles:    []string{"admin"},
 				Ips:      []netutils.IPV4Prefix{prefix},
 			},
-			&sRbacIdentity{
-				Project: "system",
-				Roles:   []string{"admin"},
-				Ip:      "10.0.0.23",
-				Token:   "faketoken",
-			},
+			newRbacIdentity2("", "system", []string{"admin"}, "10.0.0.23"),
 			false,
 		},
 		{
@@ -427,12 +370,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 				Roles:    []string{"admin"},
 				Ips:      []netutils.IPV4Prefix{prefix},
 			},
-			&sRbacIdentity{
-				Project: "system",
-				Roles:   []string{"admin"},
-				Ip:      "10.168.22.23",
-				Token:   "faketoken",
-			},
+			newRbacIdentity2("", "system", []string{"admin"}, "10.168.22.23"),
 			true,
 		},
 		{
@@ -441,12 +379,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 				Roles:    []string{"admin"},
 				Ips:      []netutils.IPV4Prefix{prefix},
 			},
-			&sRbacIdentity{
-				Project: "system",
-				Roles:   []string{"_member_"},
-				Ip:      "10.168.22.23",
-				Token:   "faketoken",
-			},
+			newRbacIdentity2("", "system", []string{"_member_"}, "10.168.22.23"),
 			false,
 		},
 		{
@@ -454,12 +387,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 				Roles: []string{"admin"},
 				Ips:   []netutils.IPV4Prefix{prefix},
 			},
-			&sRbacIdentity{
-				Project: "system",
-				Roles:   []string{"_member_", "admin"},
-				Ip:      "10.168.22.23",
-				Token:   "faketoken",
-			},
+			newRbacIdentity2("", "system", []string{"_member_", "admin"}, "10.168.22.23"),
 			true,
 		},
 		{
@@ -468,12 +396,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 				Roles:    []string{"admin", "_member_"},
 				Ips:      []netutils.IPV4Prefix{prefix},
 			},
-			&sRbacIdentity{
-				Project: "system",
-				Roles:   []string{"_member_", "projectowner"},
-				Ip:      "10.168.22.23",
-				Token:   "faketoken",
-			},
+			newRbacIdentity2("", "system", []string{"_member_", "projectowner"}, "10.168.22.23"),
 			true,
 		},
 		{
@@ -482,11 +405,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 				Roles:    []string{"domain_admin"},
 				Auth:     true,
 			},
-			&sRbacIdentity{
-				Project: "ldapproj",
-				Roles:   []string{"domain_admin"},
-				Token:   "faketoken",
-			},
+			newRbacIdentity2("", "ldapproj", []string{"domain_admin"}, ""),
 			true,
 		},
 		{
@@ -495,7 +414,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 				Roles:    []string{"admin"},
 				Auth:     true,
 			},
-			NewRbacIdentity("", "", []string{"admin"}),
+			newRbacIdentity2("", "", []string{"admin"}, ""),
 			true,
 		},
 	}
