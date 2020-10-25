@@ -494,6 +494,13 @@ func (manager *SGuestManager) ListItemFilter(
 	if len(query.InstanceType) > 0 {
 		q = q.In("instance_type", query.InstanceType)
 	}
+	if query.WithHost != nil {
+		if *query.WithHost {
+			q = q.IsNotEmpty("host_id")
+		} else {
+			q = q.IsNullOrEmpty("host_id")
+		}
+	}
 
 	return q, nil
 }
@@ -3123,12 +3130,11 @@ func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCred
 
 func filterGuestByRange(q *sqlchemy.SQuery, rangeObjs []db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string) *sqlchemy.SQuery {
 	hosts := HostManager.Query().SubQuery()
+	subq := hosts.Query(hosts.Field("id"))
+	subq = AttachUsageQuery(subq, hosts, hostTypes, resourceTypes, providers, brands, cloudEnv, rangeObjs)
 
-	q = q.Join(hosts, sqlchemy.Equals(hosts.Field("id"), q.Field("host_id")))
-	//q = q.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
-	// q = q.Filter(sqlchemy.Equals(hosts.Field("host_status"), HOST_ONLINE))
+	q = q.In("host_id", subq.SubQuery())
 
-	q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, providers, brands, cloudEnv, rangeObjs)
 	return q
 }
 
@@ -3236,7 +3242,9 @@ func _guestResourceCountQuery(
 
 	q = q.LeftJoin(isoDevSubQuery, sqlchemy.Equals(isoDevSubQuery.Field("guest_id"), guests.Field("id")))
 
-	q = filterGuestByRange(q, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv)
+	if len(rangeObjs) > 0 || len(hostTypes) > 0 || len(resourceTypes) > 0 || len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
+		q = filterGuestByRange(q, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv)
+	}
 
 	switch scope {
 	case rbacutils.ScopeSystem:

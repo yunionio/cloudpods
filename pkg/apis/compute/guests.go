@@ -98,6 +98,9 @@ type ServerListInput struct {
 	SrcMacCheck *bool `json:"src_mac_check"`
 
 	InstanceType []string `json:"instance_type"`
+
+	// 是否调度到宿主机上
+	WithHost *bool `json:"with_host"`
 }
 
 func (input *ServerListInput) AfterUnmarshal() {
