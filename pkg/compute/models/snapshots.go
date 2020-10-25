@@ -621,6 +621,11 @@ func (self *SSnapshot) ValidateDeleteCondition(ctx context.Context) error {
 	if count > 0 {
 		return httperrors.NewBadRequestError("snapshot referenced by instance snapshot")
 	}
+	if disk, err := self.GetDisk(); err == nil {
+		if disk.Status == api.DISK_RESET {
+			return httperrors.NewBadRequestError("Cannot delete snapshot on disk reset")
+		}
+	}
 	driver := self.GetRegionDriver()
 	if driver != nil {
 		return driver.ValidateSnapshotDelete(ctx, self)
