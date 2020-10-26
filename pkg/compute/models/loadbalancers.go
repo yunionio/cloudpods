@@ -46,6 +46,7 @@ type SLoadbalancerManager struct {
 
 	db.SVirtualResourceBaseManager
 	db.SExternalizedResourceBaseManager
+	SDeletePreventableResourceBaseManager
 
 	SVpcResourceBaseManager
 	SZoneResourceBaseManager
@@ -86,6 +87,7 @@ type SLoadbalancer struct {
 	db.SExternalizedResourceBase
 	SManagedResourceBase
 	SCloudregionResourceBase
+	SDeletePreventableResourceBase
 
 	// LB might optionally be in a VPC, vpc_id, manager_id, cloudregion_id
 	SVpcResourceBase `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
@@ -151,6 +153,10 @@ func (man *SLoadbalancerManager) ListItemFilter(
 	q, err = man.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
+	}
+	q, err = man.SDeletePreventableResourceBaseManager.ListItemFilter(ctx, q, userCred, query.DeletePreventableResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDeletePreventableResourceBaseManager.ListItemFilter")
 	}
 	vpcQuery := api.VpcFilterListInput{
 		VpcFilterListInputBase: query.VpcFilterListInputBase,
@@ -715,6 +721,10 @@ func (lb *SLoadbalancer) ValidateDeleteCondition(ctx context.Context) error {
 		if err := region.GetDriver().ValidateDeleteLoadbalancerCondition(ctx, lb); err != nil {
 			return err
 		}
+	}
+
+	if lb.DisableDelete.IsTrue() {
+		return httperrors.NewInvalidStatusError("loadbalancer is locked, cannot delete")
 	}
 
 	return lb.SModelBase.ValidateDeleteCondition(ctx)

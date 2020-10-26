@@ -303,6 +303,8 @@ func (lb *SLoadbalancer) purge(ctx context.Context, userCred mcclient.TokenCrede
 	lockman.LockObject(ctx, lb)
 	defer lockman.ReleaseObject(ctx, lb)
 
+	lb.DeletePreventionOff(lb, userCred)
+
 	_, err := db.UpdateWithLock(ctx, lb, func() error {
 		//避免 purge backendgroups 时循环依赖
 		lb.BackendGroupId = ""

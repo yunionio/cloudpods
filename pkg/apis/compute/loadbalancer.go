@@ -74,6 +74,7 @@ type LoadbalancerListenerRuleListInput struct {
 type LoadbalancerListInput struct {
 	apis.VirtualResourceListInput
 	apis.ExternalizedResourceBaseListInput
+	apis.DeletePreventableResourceBaseListInput
 
 	VpcFilterListInput
 	ZonalFilterListBase
