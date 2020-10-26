@@ -15,7 +15,15 @@
 package k8s
 
 import (
+	"fmt"
+
+	"github.com/ghodss/yaml"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+
 	"yunion.io/x/onecloud/cmd/climc/shell"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
@@ -67,5 +75,53 @@ func (c *fedResourceCmd) SyncCluster(args shell.IPerformOpt) *fedResourceCmd {
 
 func (c *fedResourceCmd) Sync(args shell.IPerformOpt) *fedResourceCmd {
 	c.K8sResourceCmd.Perform("sync", args)
+	return c
+}
+
+type iFedResUpdateOpt interface {
+	shell.IShowOpt
+	GetUpdateFields() []string
+}
+
+func (c *fedResourceCmd) Update(args iFedResUpdateOpt) *fedResourceCmd {
+	man := c.manager
+	fields := args.GetUpdateFields()
+	callback := func(s *mcclient.ClientSession, args iFedResUpdateOpt) error {
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+		ret, err := man.(modulebase.Manager).Get(s, args.GetId(), params)
+		if err != nil {
+			return err
+		}
+		updateData := jsonutils.NewDict()
+		for _, field := range fields {
+			up, err := ret.Get(field)
+			if err != nil {
+				return errors.Wrapf(err, "get update field %s", field)
+			}
+			updateData.Add(up, field)
+		}
+		content, err := FileTempEdit(args.GetId(), "yaml", updateData.YAMLString())
+		if err != nil {
+			return errors.Wrap(err, "edit tempfile")
+		}
+		jsonBytes, err := yaml.YAMLToJSON([]byte(content))
+		if err != nil {
+			return errors.Wrap(err, "yaml to json")
+		}
+		updateBody, err := jsonutils.Parse(jsonBytes)
+		if err != nil {
+			return errors.Wrap(err, "parse json bytes")
+		}
+		ret, err = man.(modulebase.Manager).Update(s, args.GetId(), updateBody)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	}
+	c.RunWithDesc("update", fmt.Sprintf("Update %s of a %s", fields, man.GetKeyword()), args, callback)
 	return c
 }

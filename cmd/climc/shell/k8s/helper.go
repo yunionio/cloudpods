@@ -23,6 +23,7 @@ import (
 	"github.com/ghodss/yaml"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/cmd/climc/shell/events"
@@ -54,6 +55,31 @@ func (cmd *K8sResourceCmd) ShowEvent() *K8sResourceCmd {
 	}
 	cmd.RunWithDesc("event", fmt.Sprintf("Show operation event logs of k8s %s", cmd.manager.GetKeyword()), new(events.TypeEventListOptions), callback)
 	return cmd
+}
+
+func FileTempEdit(prefix, suffix string, input string) (string, error) {
+	tempfile, err := ioutil.TempFile("", fmt.Sprintf("k8s-%s*.%s", prefix, suffix))
+	if err != nil {
+		return "", errors.Wrap(err, "New tempfile")
+	}
+	defer os.Remove(tempfile.Name())
+	if _, err := tempfile.Write([]byte(input)); err != nil {
+		return "", errors.Wrap(err, "write tempfile")
+	}
+	if err := tempfile.Close(); err != nil {
+		return "", err
+	}
+	cmd := exec.Command("vim", tempfile.Name())
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	if err := cmd.Run(); err != nil {
+		return "", err
+	}
+	content, err := ioutil.ReadFile(tempfile.Name())
+	if err != nil {
+		return "", errors.Wrapf(err, "read file %s", tempfile.Name())
+	}
+	return string(content), nil
 }
 
 func (cmd *K8sResourceCmd) EditRaw(opt shell.IGetOpt) *K8sResourceCmd {
