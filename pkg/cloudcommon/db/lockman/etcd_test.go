@@ -26,7 +26,8 @@ func TestEctdLockManager(t *testing.T) {
 	shared := newSharedObject()
 	for i := 0; i < 4; i++ {
 		lockman, err := NewEtcdLockManager(&SEtcdLockManagerConfig{
-			Endpoints: []string{"localhost:2379"},
+			LockPrefix: "test-etcd-lock-manager",
+			Endpoints:  []string{"localhost:2379"},
 		})
 		if err != nil {
 			t.Skipf("new etcd lockman: %v", err)
