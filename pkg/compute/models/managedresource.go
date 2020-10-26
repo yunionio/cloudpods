@@ -557,7 +557,7 @@ func _managedResourceFilterByAccount(managerIdFieldName string, q *sqlchemy.SQue
 	return q, nil
 }
 
-func _managedResourceFilterByZone(q *sqlchemy.SQuery, query api.ZonalFilterListInput) (*sqlchemy.SQuery, error) {
+func managedResourceFilterByZone(q *sqlchemy.SQuery, query api.ZonalFilterListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
 	zoneList := query.ZoneList()
 	if len(query.ZoneIds) >= 1 {
 		zoneQ := ZoneManager.Query("id")
@@ -565,55 +565,56 @@ func _managedResourceFilterByZone(q *sqlchemy.SQuery, query api.ZonalFilterListI
 			sqlchemy.In(zoneQ.Field("id"), zoneList),
 			sqlchemy.In(zoneQ.Field("name"), zoneList),
 		))
-		q = q.Filter(sqlchemy.In(q.Field("zone_id"), zoneQ.SubQuery()))
+		if len(filterField) == 0 {
+			q = q.Filter(sqlchemy.In(q.Field("zone_id"), zoneQ.SubQuery()))
+		} else {
+			sq := subqFunc()
+			sq = sq.Filter(sqlchemy.In(sq.Field("zone_id"), zoneQ.SubQuery()))
+			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+		}
 	} else if len(query.ZoneId) > 0 {
 		zoneObj, _, err := ValidateZoneResourceInput(nil, query.ZoneResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateZoneResourceInput")
 		}
-		q = q.Filter(sqlchemy.Equals(q.Field("zone_id"), zoneObj.GetId()))
+		if len(filterField) == 0 {
+			q = q.Filter(sqlchemy.Equals(q.Field("zone_id"), zoneObj.GetId()))
+		} else {
+			sq := subqFunc()
+			sq = sq.Filter(sqlchemy.Equals(sq.Field("zone_id"), zoneObj.GetId()))
+			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+		}
 	}
+
 	return q, nil
 }
 
-func managedResourceFilterByZone(q *sqlchemy.SQuery, query api.ZonalFilterListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
-	return filterFieldFromSubQuery(q, filterField, subqFunc, func(s *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
-		return _managedResourceFilterByZone(s, query)
-	})
-}
-
-func filterFieldFromSubQuery(q *sqlchemy.SQuery, filterField string, subqFunc func() *sqlchemy.SQuery, filterAdd func(query *sqlchemy.SQuery) (*sqlchemy.SQuery, error)) (*sqlchemy.SQuery, error) {
-	if len(filterField) == 0 {
-		return filterAdd(q)
-	}
-	sq, err := filterAdd(subqFunc())
-	if err != nil {
-		return nil, err
-	}
-	q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
-	return q, nil
-}
-
-func _managedResourceFilterByRegion(q *sqlchemy.SQuery, query api.RegionalFilterListInput) (*sqlchemy.SQuery, error) {
+func managedResourceFilterByRegion(q *sqlchemy.SQuery, query api.RegionalFilterListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
 	regionStr := query.CloudregionId
 	if len(regionStr) > 0 {
 		regionObj, _, err := ValidateCloudregionResourceInput(nil, query.CloudregionResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateCloudregionResourceInput")
 		}
-		q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), regionObj.GetId()))
+		if len(filterField) == 0 {
+			q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), regionObj.GetId()))
+		} else {
+			sq := subqFunc()
+			sq = sq.Filter(sqlchemy.Equals(sq.Field("cloudregion_id"), regionObj.GetId()))
+			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+		}
 	}
 	if len(query.City) > 0 {
 		subq := CloudregionManager.Query("id").Equals("city", query.City).SubQuery()
-		q = q.Filter(sqlchemy.In(q.Field("cloudregion_id"), subq))
+		if len(filterField) == 0 {
+			q = q.Filter(sqlchemy.In(q.Field("cloudregion_id"), subq))
+		} else {
+			sq := subqFunc()
+			sq = sq.Filter(sqlchemy.In(sq.Field("cloudregion_id"), subq))
+			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+		}
 	}
 	return q, nil
-}
-
-func managedResourceFilterByRegion(q *sqlchemy.SQuery, query api.RegionalFilterListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
-	return filterFieldFromSubQuery(q, filterField, subqFunc, func(s *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
-		return _managedResourceFilterByRegion(s, query)
-	})
 }
 
 func _filterByCloudType(managerIdFieldName string, q *sqlchemy.SQuery, input api.ManagedResourceListInput, filterField string, subqFunc func() *sqlchemy.SQuery) *sqlchemy.SQuery {
