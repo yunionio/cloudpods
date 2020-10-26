@@ -74,6 +74,14 @@ func (o FedResourceIdOptions) Params() (jsonutils.JSONObject, error) {
 	return nil, nil
 }
 
+type FedResourceUpdateOptions struct {
+	FedResourceIdOptions
+}
+
+func (o FedResourceUpdateOptions) GetUpdateFields() []string {
+	return []string{"spec"}
+}
+
 type FedResourceJointClusterAttachOptions struct {
 	FedResourceIdOptions
 	FedResourceClusterJointOptions
