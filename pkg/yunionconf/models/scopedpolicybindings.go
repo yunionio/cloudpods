@@ -25,8 +25,10 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/yunionconf"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -138,6 +140,10 @@ func (manager *SScopedPolicyBindingManager) unbind(ctx context.Context, category
 	return nil
 }
 
+func (manager *SScopedPolicyBindingManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeProject
+}
+
 func (manager *SScopedPolicyBindingManager) getReferenceCount(policyId string) (int, error) {
 	q := manager.Query().Equals("policy_id", policyId)
 	return q.CountWithError()
@@ -183,6 +189,46 @@ func (manager *SScopedPolicyBindingManager) ListItemFilter(
 			return nil, errors.Wrap(err, "TenantCacheManager.FetchDomainByIdOrName")
 		}
 		query.DomainId = domainObj.Id
+	} else {
+		if len(query.Scope) == 0 {
+			query.Scope = rbacutils.ScopeProject
+		}
+		switch query.Scope {
+		case rbacutils.ScopeProject:
+			query.ProjectId = userCred.GetProjectId()
+			query.DomainId = userCred.GetProjectDomainId()
+		case rbacutils.ScopeDomain:
+			query.DomainId = userCred.GetProjectDomainId()
+		}
+	}
+
+	var requireScope rbacutils.TRbacScope
+	if len(query.ProjectId) > 0 {
+		if query.ProjectId == userCred.GetProjectId() {
+			// require project privileges
+			requireScope = rbacutils.ScopeProject
+		} else if query.DomainId == userCred.GetProjectDomainId() {
+			// require domain privileges
+			requireScope = rbacutils.ScopeDomain
+		} else {
+			// require system privileges
+			requireScope = rbacutils.ScopeSystem
+		}
+	} else if len(query.DomainId) > 0 {
+		if query.DomainId == userCred.GetProjectDomainId() {
+			// require domain privileges
+			requireScope = rbacutils.ScopeDomain
+		} else {
+			// require system privileges
+			requireScope = rbacutils.ScopeSystem
+		}
+	} else {
+		requireScope = rbacutils.ScopeSystem
+	}
+
+	allowScope := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, manager.KeywordPlural(), policy.PolicyActionList)
+	if requireScope.HigherThan(allowScope) {
+		return nil, errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "require: %s allow: %s", requireScope, allowScope)
 	}
 
 	if query.Effective != nil && *query.Effective && (len(query.ProjectId) > 0 || len(query.DomainId) > 0) {
