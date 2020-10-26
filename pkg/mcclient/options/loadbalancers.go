@@ -39,7 +39,7 @@ type LoadbalancerCreateOptions struct {
 	Tags             []string `help:"Tags info,prefix with 'user:', eg: user:project=default" json:"-"`
 }
 
-func (opts *LoadbalancerCreateOptions) Params() (*jsonutils.JSONDict, error) {
+func (opts *LoadbalancerCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params, err := StructToParams(opts)
 	if err != nil {
 		return nil, err
@@ -62,16 +62,37 @@ func (opts *LoadbalancerCreateOptions) Params() (*jsonutils.JSONDict, error) {
 	return params, nil
 }
 
-type LoadbalancerGetOptions struct {
+type LoadbalancerIdOptions struct {
 	ID string `json:"-"`
 }
 
+func (opts *LoadbalancerIdOptions) GetId() string {
+	return opts.ID
+}
+
+func (opts *LoadbalancerIdOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
 type LoadbalancerUpdateOptions struct {
-	ID   string `json:"-"`
+	LoadbalancerIdOptions
 	Name string
 
+	Delete       string `help:"Lock server to prevent from deleting" choices:"enable|disable" json:"-"`
 	Cluster      string `json:"cluster_id"`
 	BackendGroup string
+}
+
+func (opts LoadbalancerUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
+	if len(opts.Delete) > 0 {
+		if opts.Delete == "disable" {
+			params.Set("disable_delete", jsonutils.JSONTrue)
+		} else {
+			params.Set("disable_delete", jsonutils.JSONFalse)
+		}
+	}
+	return params, nil
 }
 
 type LoadbalancerDeleteOptions struct {
@@ -94,20 +115,31 @@ type LoadbalancerListOptions struct {
 	Cluster      string `json:"cluster_id"`
 }
 
+func (opts *LoadbalancerListOptions) Params() (jsonutils.JSONObject, error) {
+	return ListStructToParams(opts)
+}
+
 type LoadbalancerActionStatusOptions struct {
-	ID     string `json:"-"`
+	LoadbalancerIdOptions
 	Status string `choices:"enabled|disabled"`
+}
+
+func (opts *LoadbalancerActionStatusOptions) Params() (jsonutils.JSONObject, error) {
+	if len(opts.Status) == 0 {
+		return nil, fmt.Errorf("empty status")
+	}
+	return jsonutils.Marshal(map[string]string{"status": opts.Status}), nil
 }
 
 type LoadbalancerActionSyncStatusOptions struct {
 	ID string `json:"-"`
 }
 
-type LoadbalancerIdOptions struct {
-	ID string `json:"-"`
+type LoadbalancerRemoteUpdateOptions struct {
+	LoadbalancerIdOptions
+	computeapi.LoadbalancerRemoteUpdateInput
 }
 
-type LoadbalancerRemoteUpdateOptions struct {
-	ID string `json:"-"`
-	computeapi.LoadbalancerRemoteUpdateInput
+func (opts *LoadbalancerRemoteUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
 }
