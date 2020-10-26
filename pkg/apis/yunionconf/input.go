@@ -72,6 +72,8 @@ type ScopedPolicyDetails struct {
 	apis.InfrasResourceBaseDetails
 
 	RefCount int `json:"ref_count"`
+
+	SScopedPolicy
 }
 
 type ScopedPolicyBindingListInput struct {
@@ -100,6 +102,8 @@ type ScopedPolicyBindingDetails struct {
 	ProjectDomain string `json:"project_domain"`
 
 	Project string `json:"project"`
+
+	SScopedPolicyBinding
 }
 
 type ScopedPolicyBindInput struct {
