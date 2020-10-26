@@ -706,9 +706,11 @@ func (alert *SCommonAlert) ValidateUpdateData(
 		if err != nil {
 			return data, errors.Wrap(err, "metric query error")
 		}
-
 		if alert.getAlertType() == monitor.CommonAlertSystemAlertType {
-			return data, nil
+			forceUpdate, _ := data.Bool("force_update")
+			if !forceUpdate {
+				return data, nil
+			}
 		}
 		data.Update(jsonutils.Marshal(metricQuery))
 		err = data.Unmarshal(updataInput)
