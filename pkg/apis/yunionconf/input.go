@@ -86,6 +86,8 @@ type ScopedPolicyBindingListInput struct {
 	Category string `json:"category"`
 
 	Effective *bool `json:"effective"`
+
+	Scope rbacutils.TRbacScope `json:"scope"`
 }
 
 type ScopedPolicyBindingDetails struct {
