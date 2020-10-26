@@ -248,19 +248,6 @@ func (manager *SElasticipManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fi
 	return q, httperrors.ErrNotFound
 }
 
-func (manager *SElasticipManager) getEipsByRegion(region *SCloudregion, provider *SCloudprovider) ([]SElasticip, error) {
-	eips := make([]SElasticip, 0)
-	q := manager.Query().Equals("cloudregion_id", region.Id)
-	if provider != nil {
-		q = q.Equals("manager_id", provider.Id)
-	}
-	err := db.FetchModelObjects(manager, q, &eips)
-	if err != nil {
-		return nil, err
-	}
-	return eips, nil
-}
-
 func (self *SElasticip) GetRegion() *SCloudregion {
 	return CloudregionManager.FetchRegionById(self.CloudregionId)
 }
@@ -329,7 +316,7 @@ func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclien
 	// remoteEips := make([]cloudprovider.ICloudEIP, 0)
 	syncResult := compare.SyncResult{}
 
-	dbEips, err := manager.getEipsByRegion(region, provider)
+	dbEips, err := region.GetElasticIps(provider.Id, api.EIP_MODE_STANDALONE_EIP)
 	if err != nil {
 		syncResult.Error(err)
 		return syncResult

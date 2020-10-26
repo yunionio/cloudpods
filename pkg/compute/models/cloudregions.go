@@ -118,6 +118,22 @@ func (self *SCloudregion) ValidateDeleteCondition(ctx context.Context) error {
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
+func (self *SCloudregion) GetElasticIps(managerId, eipMode string) ([]SElasticip, error) {
+	q := ElasticipManager.Query().Equals("cloudregion_id", self.Id)
+	if len(managerId) > 0 {
+		q = q.Equals("manager_id", managerId)
+	}
+	if len(eipMode) > 0 {
+		q = q.Equals("mode", eipMode)
+	}
+	eips := []SElasticip{}
+	err := db.FetchModelObjects(ElasticipManager, q, &eips)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return eips, nil
+}
+
 func (self *SCloudregion) GetZoneQuery() *sqlchemy.SQuery {
 	zones := ZoneManager.Query()
 	if self.Id == api.DEFAULT_REGION_ID {
