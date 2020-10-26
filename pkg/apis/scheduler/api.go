@@ -80,6 +80,7 @@ type ScheduleInput struct {
 	CpuDesc      string `json:"cpu_desc"`
 	CpuMicrocode string `json:"cpu_microcode"`
 	CpuMode      string `json:"cpu_mode"`
+	OsArch       string `json:"os_arch"`
 
 	PendingUsages []jsonutils.JSONObject
 }

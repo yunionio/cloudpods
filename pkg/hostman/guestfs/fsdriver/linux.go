@@ -23,7 +23,7 @@ import (
 	"syscall"
 
 	"github.com/pkg/errors"
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -325,8 +325,26 @@ func (l *sLinuxRootFs) GetOs() string {
 
 func (l *sLinuxRootFs) GetArch(rootFs IDiskPartition) string {
 	if rootFs.Exists("/lib64", false) && rootFs.Exists("/usr/lib64", false) {
+		files := rootFs.ListDir("/lib64", false)
+		for i := 0; i < len(files); i++ {
+			if strings.HasPrefix(files[i], "ld-") {
+				if strings.Contains(files[i], "aarch64") {
+					return "aarch64"
+				} else if strings.Contains(files[i], "x86") {
+					return "x86_64"
+				}
+			}
+		}
 		return "x86_64"
 	} else {
+		files := rootFs.ListDir("/lib", false)
+		for i := 0; i < len(files); i++ {
+			if strings.HasPrefix(files[i], "ld-") {
+				if strings.Contains(files[i], "arm") {
+					return "aarch32"
+				}
+			}
+		}
 		return "x86"
 	}
 }

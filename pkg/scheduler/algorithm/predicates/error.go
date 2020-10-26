@@ -41,6 +41,7 @@ const (
 	ErrSubtotalOfSplitExceedsDiskSize         = `subtotal of split exceeds disk size`
 	ErrBaremetalHasAlreadyBeenOccupied        = `baremetal has already been occupied`
 	ErrPrepaidHostOccupied                    = `prepaid host occupied`
+	ErrHostCpuArchitectureNotMatch            = `host cpu architecture not match`
 
 	ErrUnknown = `unknown error`
 )

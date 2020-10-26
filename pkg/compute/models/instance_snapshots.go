@@ -66,6 +66,8 @@ type SInstanceSnapshot struct {
 	KeypairId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
 	// 操作系统类型
 	OsType string `width:"36" charset:"ascii" nullable:"true" list:"user"`
+	// CPU架构
+	OsArch string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	// 套餐名称
 	InstanceType string `width:"64" charset:"utf8" nullable:"true" list:"user" create:"optional"`
 }
@@ -283,6 +285,7 @@ func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(
 		instanceSnapshot.SecGroups = jsonutils.Marshal(secIds)
 	}
 	instanceSnapshot.OsType = guest.OsType
+	instanceSnapshot.OsArch = guest.OsArch
 	instanceSnapshot.ServerMetadata = serverMetadata
 	instanceSnapshot.InstanceType = guest.InstanceType
 	err := manager.TableSpec().Insert(ctx, instanceSnapshot)

@@ -41,6 +41,8 @@ type SnapshotCreateInput struct {
 	OutOfChain bool `json:"out_of_chain"`
 	// swagger:ignore
 	ManagerId string `json:"manager_id"`
+	// swagger:ignore
+	OsArch string `json:"os_arch"`
 }
 
 type SSnapshotPolicyCreateInput struct {

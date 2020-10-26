@@ -14,18 +14,27 @@
 
 package fsdriver
 
+import (
+	"strings"
+
+	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/util/procutils"
+)
+
 type newRootFsDriverFunc func(part IDiskPartition) IRootFsDriver
 
 var (
 	privatePrefixes []string
 	rootfsDrivers   = make([]newRootFsDriverFunc, 0)
+	hostCpuArch     string
 )
 
 func GetRootfsDrivers() []newRootFsDriverFunc {
 	return rootfsDrivers
 }
 
-func Init(initPrivatePrefixes []string) {
+func Init(initPrivatePrefixes []string) error {
 	if len(initPrivatePrefixes) > 0 {
 		privatePrefixes = make([]string, len(initPrivatePrefixes))
 		copy(privatePrefixes, initPrivatePrefixes)
@@ -41,4 +50,10 @@ func Init(initPrivatePrefixes []string) {
 	rootfsDrivers = append(rootfsDrivers, NewEsxiRootFs)
 	rootfsDrivers = append(rootfsDrivers, NewWindowsRootFs)
 	rootfsDrivers = append(rootfsDrivers, NewAndroidRootFs)
+	cpuArch, err := procutils.NewCommand("uname", "-m").Output()
+	if err != nil {
+		return errors.Wrap(err, "get cpu architecture")
+	}
+	hostCpuArch = strings.TrimSpace(string(cpuArch))
+	return nil
 }

@@ -605,13 +605,21 @@ func (w *SWinRegTool) GetInstallLanguage() string {
 	}
 }
 
-func (w *SWinRegTool) GetArch() string {
+func (w *SWinRegTool) GetArch(hostCpuArch string) string {
 	prodKey := `HKLM\SOFTWARE\Wow6432Node\Microsoft\Windows NT\CurrentVersion\CurrentVersion`
 	ver := w.GetRegistry(prodKey)
 	if len(ver) > 0 {
-		return "x86_64"
+		if hostCpuArch == "aarch64" {
+			return "aarch64"
+		} else {
+			return "x86_64"
+		}
 	} else {
-		return "x86"
+		if hostCpuArch == "aarch64" {
+			return "aarch32"
+		} else {
+			return "x86"
+		}
 	}
 }
 

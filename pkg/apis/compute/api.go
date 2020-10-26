@@ -141,6 +141,10 @@ type DiskConfig struct {
 	// requried: false
 	Mountpoint string `json:"mountpoint"`
 
+	// 操作系统CPU架构
+	// required: false
+	OsArch string `json:"os_arch"`
+
 	//后端存储类型,若指定了存储ID,此参数会根据存储设置,若不指定，则作为调度的一个参考
 	//
 	//
@@ -491,6 +495,8 @@ type ServerCreateInput struct {
 
 	// swagger:ignore
 	OsType string `json:"os_type"`
+	// swagger:ignore
+	OsArch string `json:"os_arch"`
 	// swagger:ignore
 	DisableUsbKbd bool `json:"disable_usb_kbd"`
 	// swagger:ignore

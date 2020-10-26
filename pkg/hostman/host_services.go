@@ -40,7 +40,6 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/diskhandlers"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/storagehandler"
-	"yunion.io/x/onecloud/pkg/hostman/system_service"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
@@ -70,8 +69,6 @@ func (host *SHostService) InitService() {
 		execlient.Init(options.HostOptions.ExecutorSocketPath)
 		procutils.SetRemoteExecutor()
 	}
-
-	system_service.Init()
 }
 
 func (host *SHostService) OnExitService() {}

@@ -18,8 +18,14 @@ type SOpenvswitch struct {
 	*SBaseSystemService
 }
 
+var openvswitch = "openvswitch"
+
+func SetOpenvswitchName(name string) {
+	openvswitch = name
+}
+
 func NewOpenvswitchService() *SOpenvswitch {
-	return &SOpenvswitch{NewBaseSystemService("openvswitch", nil)}
+	return &SOpenvswitch{NewBaseSystemService(openvswitch, nil)}
 }
 
 func (s *SOpenvswitch) Reload(kwargs map[string]interface{}) error {

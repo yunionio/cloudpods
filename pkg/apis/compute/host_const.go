@@ -129,3 +129,7 @@ const (
 	HOST_HEALTH_STATUS_RUNNING = "running"
 	HOST_HEALTH_LOCK_PREFIX    = "host-health"
 )
+
+const (
+	CPU_ARCH_AARCH64 = "aarch64"
+)

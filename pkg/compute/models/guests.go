@@ -147,6 +147,9 @@ type SGuest struct {
 	// 虚拟化技术
 	// example: kvm
 	Hypervisor string `width:"16" charset:"ascii" nullable:"false" default:"kvm" list:"user" create:"required"`
+	// 虚拟机CPU架构
+	// example: x86 arm
+	OsArch string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	// 套餐名称
 	InstanceType string `width:"64" charset:"utf8" nullable:"true" list:"user" create:"optional"`
@@ -1163,6 +1166,10 @@ func (manager *SGuestManager) validateCreateData(
 			if len(imgProperties) == 0 {
 				imgProperties = image.Properties
 			}
+		}
+
+		if arch := imgProperties["os_arch"]; strings.Contains(arch, "aarch") {
+			input.OsArch = api.OS_ARCH_ARM
 		}
 
 		if len(imgProperties) == 0 {
@@ -4950,6 +4957,7 @@ func (self *SGuest) ToSchedDesc() *schedapi.ScheduleInput {
 
 	config.Hypervisor = self.GetHypervisor()
 	desc.ServerConfig = *config
+	desc.OsArch = self.OsArch
 	return desc
 }
 

@@ -116,6 +116,9 @@ type SDisk struct {
 	// example: sys
 	DiskType string `width:"32" charset:"ascii" nullable:"true" list:"user" update:"admin" json:"disk_type"`
 
+	// cpu架构
+	OsArch string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+
 	// # is persistent
 	Nonpersistent bool `default:"false" list:"user" json:"nonpersistent"`
 
@@ -1699,6 +1702,7 @@ func fillDiskConfigBySnapshot(userCred mcclient.TokenCredential, diskConfig *api
 		diskConfig.Backend = storage.StorageType
 		diskConfig.Fs = ""
 		diskConfig.Mountpoint = ""
+		diskConfig.OsArch = snapshot.OsArch
 	}
 	return nil
 }
@@ -1726,6 +1730,9 @@ func fillDiskConfigByImage(ctx context.Context, userCred mcclient.TokenCredentia
 		CachedimageManager.ImageAddRefCount(image.Id)
 		if diskConfig.SizeMb != api.DISK_SIZE_AUTOEXTEND && diskConfig.SizeMb < image.MinDiskMB {
 			diskConfig.SizeMb = image.MinDiskMB // MB
+		}
+		if strings.Contains(image.Properties["os_arch"], "aarch") {
+			diskConfig.OsArch = api.OS_ARCH_ARM
 		}
 	}
 	return nil
@@ -1777,6 +1784,7 @@ func (self *SDisk) fetchDiskInfo(diskConfig *api.DiskConfig) {
 	}
 	self.DiskFormat = diskConfig.Format
 	self.DiskSize = diskConfig.SizeMb
+	self.OsArch = diskConfig.OsArch
 }
 
 type DiskInfo struct {
