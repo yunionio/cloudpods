@@ -86,6 +86,8 @@ type CommonAlertUpdateInput struct {
 	Channel []string `json:"channel"`
 	// 通知接受者
 	Recipients []string `json:"recipients"`
+	// systemalert policy may need update through operator
+	ForceUpdate bool `json:"force_update"`
 }
 
 type CommonAlertDetails struct {
