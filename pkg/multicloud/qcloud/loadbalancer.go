@@ -312,10 +312,18 @@ func (self *SLoadbalancer) GetAddressType() string {
 }
 
 func (self *SLoadbalancer) GetNetworkType() string {
-	return api.LB_NETWORK_TYPE_VPC
+	if len(self.VpcID) > 0 {
+		return api.LB_NETWORK_TYPE_VPC
+	} else {
+		return api.LB_NETWORK_TYPE_CLASSIC
+	}
 }
 
 func (self *SLoadbalancer) GetNetworkIds() []string {
+	if len(self.SubnetId) == 0 {
+		return []string{}
+	}
+
 	return []string{self.SubnetId}
 }
 

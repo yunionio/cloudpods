@@ -1927,7 +1927,7 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancer(ctx context.Context, 
 			}
 		}
 
-		if err := lb.SyncWithCloudLoadbalancer(ctx, userCred, iLoadbalancer, nil, lb.GetCloudprovider()); err != nil {
+		if err := lb.SyncWithCloudLoadbalancer(ctx, userCred, iLoadbalancer, nil, lb.GetCloudprovider(), lb.GetRegion()); err != nil {
 			return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.SyncWithCloudLoadbalancer")
 		}
 		lbbgs, err := iLoadbalancer.GetILoadBalancerBackendGroups()
