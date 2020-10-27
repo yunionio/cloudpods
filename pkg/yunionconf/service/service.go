@@ -26,7 +26,6 @@ import (
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
-	"yunion.io/x/onecloud/pkg/yunionconf"
 	"yunion.io/x/onecloud/pkg/yunionconf/models"
 	"yunion.io/x/onecloud/pkg/yunionconf/options"
 	_ "yunion.io/x/onecloud/pkg/yunionconf/policy"
@@ -46,7 +45,7 @@ func StartService() {
 	cloudcommon.InitDB(dbOpts)
 
 	app := app_common.InitApp(baseOpts, true)
-	yunionconf.InitHandlers(app)
+	InitHandlers(app)
 	cloudcommon.AppDBInit(app)
 
 	if db.CheckSync(opts.AutoSyncTable) {
