@@ -79,6 +79,9 @@ func (client *SQcloudClient) GetProjects() ([]SProject, error) {
 	projects := []SProject{}
 	params := map[string]string{"allList": "1"}
 	resp, err := client.accountRequestRequest("DescribeProject", params)
+	if err != nil {
+		return nil, errors.Wrapf(err, "DescribeProject")
+	}
 	err = resp.Unmarshal(&projects)
 	if err != nil {
 		return nil, errors.Wrap(err, "resp.Unmarshal")
