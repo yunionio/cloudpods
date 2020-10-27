@@ -93,8 +93,8 @@ func (self *SNetworkResourceBase) GetRegion() *SCloudregion {
 	return region
 }
 
-func (self *SNetworkResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) api.NetworkResourceInfo {
-	return api.NetworkResourceInfo{}
+func (self *SNetworkResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.NetworkResourceInfo, error) {
+	return api.NetworkResourceInfo{}, nil
 }
 
 func (manager *SNetworkResourceBaseManager) FetchCustomizeColumns(
