@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vmware/govmomi/nfc"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/soap"
@@ -1229,8 +1230,19 @@ func (self *SVirtualMachine) ExportTemplate(ctx context.Context, idx int, diskPa
 	lr := newLeaseLogger("download vmdk", 5)
 	lr.Log()
 	defer lr.End()
+
+	// filter vmdk item
+	vmdkItems := make([]nfc.FileItem, 0, len(info.Items)/2)
+	for i := range info.Items {
+		if strings.HasSuffix(info.Items[i].Path, ".vmdk") {
+			vmdkItems = append(vmdkItems, info.Items[i])
+		} else {
+			log.Infof("item.Path does not end in '.vmdk': %#v", info.Items[i])
+		}
+	}
+
 	log.Debugf("download to %s start...", diskPath)
-	err = lease.DownloadFile(ctx, diskPath, info.Items[idx], soap.Download{Progress: lr})
+	err = lease.DownloadFile(ctx, diskPath, vmdkItems[idx], soap.Download{Progress: lr})
 	if err != nil {
 		return errors.Wrap(err, "lease.DownloadFile")
 	}
