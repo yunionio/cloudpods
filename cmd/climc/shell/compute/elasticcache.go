@@ -46,6 +46,10 @@ func init() {
 			return err
 		}
 
+		if len(opts.SecgroupIds) > 0 {
+			params.Set("secgroup_ids", jsonutils.NewStringArray(opts.SecgroupIds))
+		}
+
 		result, err := modules.ElasticCache.Create(s, params)
 		if err != nil {
 			return err

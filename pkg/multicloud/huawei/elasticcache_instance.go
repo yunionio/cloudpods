@@ -439,7 +439,9 @@ func (self *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheIn
 	params.Set("engine_version", jsonutils.NewString(ec.EngineVersion))
 	params.Set("capacity", jsonutils.NewInt(ec.CapacityGB))
 	params.Set("vpc_id", jsonutils.NewString(ec.VpcId))
-	params.Set("security_group_id", jsonutils.NewString(ec.SecurityGroupId))
+	if len(ec.SecurityGroupIds) > 0 {
+		params.Set("security_group_id", jsonutils.NewString(ec.SecurityGroupIds[0]))
+	}
 	params.Set("subnet_id", jsonutils.NewString(ec.NetworkId))
 	params.Set("product_id", jsonutils.NewString(ec.InstanceType))
 	zones, err := self.zoneNameToDcsZoneIds(ec.ZoneIds)
@@ -613,7 +615,7 @@ func (self *SElasticcache) UpdateInstanceParameters(config jsonutils.JSONObject)
 }
 
 // https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423033.html
-func (self *SElasticcache) CreateBackup() (cloudprovider.ICloudElasticcacheBackup, error) {
+func (self *SElasticcache) CreateBackup(desc string) (cloudprovider.ICloudElasticcacheBackup, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 
@@ -666,7 +668,7 @@ func (self *SElasticcache) UpdateBackupPolicy(config cloudprovider.SCloudElastic
 
 // https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423030.html
 // 当前版本，只有DCS2.0实例支持清空数据功能，即flush操作。
-func (self *SElasticcache) FlushInstance() error {
+func (self *SElasticcache) FlushInstance(input cloudprovider.SCloudElasticCacheFlushInstanceInput) error {
 	resp, err := self.region.ecsClient.Elasticcache.Flush(self.GetId())
 	if err != nil {
 		return errors.Wrap(err, "elasticcache.FlushInstance")
@@ -698,6 +700,10 @@ func (self *SElasticcache) GetAuthMode() string {
 	default:
 		return "on"
 	}
+}
+
+func (self *SElasticcache) GetSecurityGroupIds() ([]string, error) {
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (self *SElasticcache) GetICloudElasticcacheAccount(accountId string) (cloudprovider.ICloudElasticcacheAccount, error) {
@@ -737,4 +743,8 @@ func (self *SElasticcache) GetICloudElasticcacheBackup(backupId string) (cloudpr
 
 func (instance *SElasticcache) SetMetadata(tags map[string]string, replace bool) error {
 	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SElasticcache) UpdateSecurityGroups(secgroupIds []string) error {
+	return errors.Wrap(cloudprovider.ErrNotSupported, "UpdateSecurityGroups")
 }

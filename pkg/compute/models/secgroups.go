@@ -154,6 +154,12 @@ func (manager *SSecurityGroupManager) ListItemFilter(
 		q = q.In("id", sq.SubQuery())
 	}
 
+	// elastic cache
+	q, err = manager.ListItemElasticcacheFilter(ctx, q, userCred, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "ListItemElasticcacheFilter")
+	}
+
 	if len(input.Ip) > 0 || len(input.Ports) > 0 {
 		sq := SecurityGroupRuleManager.Query("secgroup_id")
 		if len(input.Ip) > 0 {
@@ -166,6 +172,27 @@ func (manager *SSecurityGroupManager) ListItemFilter(
 			sq = sq.Equals("direction", input.Direction)
 		}
 		q = q.In("id", sq.SubQuery())
+	}
+
+	return q, nil
+}
+
+func (manager *SSecurityGroupManager) ListItemElasticcacheFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.SecgroupListInput,
+) (*sqlchemy.SQuery, error) {
+	cacheId := input.ElasticcacheId
+	if len(cacheId) > 0 {
+		cache, _, err := ValidateElasticcacheResourceInput(userCred, input.ELasticcacheResourceInput)
+		if err != nil {
+			return nil, errors.Wrap(err, "ValidateElasticcacheResourceInput")
+		}
+		cacheId := cache.GetId()
+		filters := []sqlchemy.ICondition{}
+		filters = append(filters, sqlchemy.In(q.Field("id"), ElasticcachesecgroupManager.Query("secgroup_id").Equals("elasticcache_id", cacheId).SubQuery()))
+		q = q.Filter(sqlchemy.OR(filters...))
 	}
 
 	return q, nil

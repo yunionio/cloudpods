@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -54,14 +55,34 @@ func (self *ElasticcacheCreateTask) OnInit(ctx context.Context, obj db.IStandalo
 
 	// sync security group here
 	self.SetStage("OnSyncSecurityGroupComplete", data.(*jsonutils.JSONDict))
-	self.OnSyncSecurityGroupComplete(ctx, elasticcache, data)
+	if region.GetDriver().IsSupportedElasticcacheSecgroup() {
+		secgroups := []string{}
+		err := self.GetParams().Unmarshal(&secgroups, "secgroup_ids")
+		if err != nil {
+			self.taskFail(ctx, elasticcache, jsonutils.Marshal(errors.Wrap(err, "Unmarshal.secgroup_ids")))
+			return
+		}
+		secgroupInput := api.ElasticcacheSecgroupsInput{SecgroupIds: secgroups}
+		_, err = elasticcache.ProcessElasticcacheSecgroupsInput(ctx, self.UserCred, "set", &secgroupInput)
+		if err != nil {
+			self.taskFail(ctx, elasticcache, jsonutils.Marshal(errors.Wrap(err, "ProcessElasticcacheSecgroupsInput")))
+			return
+		}
+
+		if err := region.GetDriver().RequestSyncSecgroupsForElasticcache(ctx, self.UserCred, elasticcache, self); err != nil {
+			self.taskFail(ctx, elasticcache, jsonutils.NewString(err.Error()))
+			return
+		}
+	} else {
+		self.OnSyncSecurityGroupComplete(ctx, elasticcache, data)
+	}
 }
 
 func (self *ElasticcacheCreateTask) OnSyncSecurityGroupComplete(ctx context.Context, elasticcache *models.SElasticcache, data jsonutils.JSONObject) {
 	region := elasticcache.GetRegion()
 	self.SetStage("OnElasticcacheCreateComplete", nil)
-	if err := region.GetDriver().RequestCreateElasticcache(ctx, self.GetUserCred(), elasticcache, self); err != nil {
-		self.taskFail(ctx, elasticcache, jsonutils.Marshal(err))
+	if err := region.GetDriver().RequestCreateElasticcache(ctx, self.GetUserCred(), elasticcache, self, data.(*jsonutils.JSONDict)); err != nil {
+		self.taskFail(ctx, elasticcache, jsonutils.NewString(err.Error()))
 		return
 	}
 }

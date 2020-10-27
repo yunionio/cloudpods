@@ -797,7 +797,7 @@ func (self *SElasticcache) UpdateInstanceParameters(config jsonutils.JSONObject)
 }
 
 // https://help.aliyun.com/document_detail/61075.html?spm=a2c4g.11186623.6.749.4cba126a2U9xNa
-func (self *SElasticcache) CreateBackup() (cloudprovider.ICloudElasticcacheBackup, error) {
+func (self *SElasticcache) CreateBackup(desc string) (cloudprovider.ICloudElasticcacheBackup, error) {
 	params := make(map[string]string)
 	params["InstanceId"] = self.GetId()
 
@@ -826,7 +826,7 @@ func (self *SElasticcache) UpdateBackupPolicy(config cloudprovider.SCloudElastic
 }
 
 // https://help.aliyun.com/document_detail/60931.html?spm=a2c4g.11186623.6.728.5c57292920UKx3
-func (self *SElasticcache) FlushInstance() error {
+func (self *SElasticcache) FlushInstance(input cloudprovider.SCloudElasticCacheFlushInstanceInput) error {
 	params := make(map[string]string)
 	params["InstanceId"] = self.GetId()
 
@@ -871,6 +871,10 @@ func (self *SElasticcache) GetAuthMode() string {
 	default:
 		return "off"
 	}
+}
+
+func (self *SElasticcache) GetSecurityGroupIds() ([]string, error) {
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (self *SElasticcache) GetICloudElasticcacheAccount(accountId string) (cloudprovider.ICloudElasticcacheAccount, error) {
@@ -928,4 +932,8 @@ func (instance *SElasticcache) GetMetadata() *jsonutils.JSONDict {
 
 func (instance *SElasticcache) SetMetadata(tags map[string]string, replace bool) error {
 	return instance.region.SetResourceTags("kvs", "INSTANCE", []string{instance.GetId()}, tags, replace)
+}
+
+func (self *SElasticcache) UpdateSecurityGroups(secgroupIds []string) error {
+	return errors.Wrap(cloudprovider.ErrNotSupported, "UpdateSecurityGroups")
 }

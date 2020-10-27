@@ -1123,7 +1123,7 @@ func (self *SKVMRegionDriver) ValidateCacheSecgroup(ctx context.Context, userCre
 	return fmt.Errorf("No need to cache secgroup for onecloud region")
 }
 
-func (self *SKVMRegionDriver) RequestCreateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *models.SElasticcache, task taskman.ITask) error {
+func (self *SKVMRegionDriver) RequestCreateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *models.SElasticcache, task taskman.ITask, data *jsonutils.JSONDict) error {
 	return nil
 }
 
@@ -1156,6 +1156,10 @@ func (self *SKVMRegionDriver) RequestElasticcacheChangeSpec(ctx context.Context,
 }
 
 func (self *SKVMRegionDriver) RequestUpdateElasticcacheAuthMode(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *models.SElasticcache, task taskman.ITask) error {
+	return nil
+}
+
+func (self *SKVMRegionDriver) RequestUpdateElasticcacheSecgroups(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
 	return nil
 }
 
@@ -1249,4 +1253,12 @@ func (self *SKVMRegionDriver) RequestSyncBucketStatus(ctx context.Context, userC
 		return nil, bucket.SetStatus(userCred, iBucket.GetStatus(), "syncstatus")
 	})
 	return nil
+}
+
+func (self *SKVMRegionDriver) IsSupportedElasticcacheSecgroup() bool {
+	return false
+}
+
+func (self *SKVMRegionDriver) GetMaxElasticcacheSecurityGroupCount() int {
+	return 0
 }

@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/pkg/errors"
+
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -53,6 +55,7 @@ func syncElasticcaches(ctx context.Context, userCred mcclient.TokenCredential, s
 			syncElasticcacheAccounts(ctx, userCred, syncResults, &localInstances[i], remoteInstances[i])
 			syncElasticcacheAcls(ctx, userCred, syncResults, &localInstances[i], remoteInstances[i])
 			syncElasticcacheBackups(ctx, userCred, syncResults, &localInstances[i], remoteInstances[i])
+			syncElasticcacheSecgroups(ctx, userCred, syncResults, &localInstances[i], remoteInstances[i])
 		}()
 	}
 }
@@ -97,7 +100,11 @@ func syncElasticcacheAcls(ctx context.Context, userCred mcclient.TokenCredential
 	acls, err := remoteInstance.GetICloudElasticcacheAcls()
 	if err != nil {
 		msg := fmt.Sprintf("GetIElasticcacheAcls for dbinstance %s failed %s", remoteInstance.GetName(), err)
-		log.Errorf(msg)
+		if errors.Cause(err) == cloudprovider.ErrNotSupported {
+			log.Warningf(msg)
+		} else {
+			log.Errorf(msg)
+		}
 		return
 	}
 
@@ -124,6 +131,28 @@ func syncElasticcacheBackups(ctx context.Context, userCred mcclient.TokenCredent
 
 	msg := result.Result()
 	log.Infof("SyncElasticcacheBackups for dbinstance %s result: %s", localInstance.Name, msg)
+	if result.IsError() {
+		return
+	}
+}
+
+func syncElasticcacheSecgroups(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localInstance *SElasticcache, remoteInstance cloudprovider.ICloudElasticcache) {
+	secgroupIds, err := remoteInstance.GetSecurityGroupIds()
+	if err != nil {
+		msg := fmt.Sprintf("Elasticcache.GetSecurityGroupIds for dbinstance %s failed %s", remoteInstance.GetName(), err)
+		if errors.Cause(err) == cloudprovider.ErrNotSupported {
+			log.Warningf(msg)
+		} else {
+			log.Errorf(msg)
+		}
+		return
+	}
+
+	result := localInstance.SyncElasticcacheSecgroups(ctx, userCred, secgroupIds)
+	syncResults.Add(ElasticcacheAclManager, result)
+
+	msg := result.Result()
+	log.Infof("SyncElasticcacheSecgroups for dbinstance %s result: %s", localInstance.Name, msg)
 	if result.IsError() {
 		return
 	}

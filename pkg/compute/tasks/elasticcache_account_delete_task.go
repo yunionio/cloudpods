@@ -54,7 +54,7 @@ func (self *ElasticcacheAccountDeleteTask) OnInit(ctx context.Context, obj db.IS
 
 	self.SetStage("OnElasticcacheAccountDeleteComplete", nil)
 	if err := region.GetDriver().RequestDeleteElasticcacheAccount(ctx, self.GetUserCred(), ea, self); err != nil {
-		self.taskFail(ctx, ea, jsonutils.Marshal(err))
+		self.taskFail(ctx, ea, jsonutils.NewString(err.Error()))
 		return
 	} else {
 		err = db.DeleteModel(ctx, self.GetUserCred(), ea)
