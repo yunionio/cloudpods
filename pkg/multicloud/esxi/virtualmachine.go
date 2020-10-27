@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vmware/govmomi/nfc"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/soap"
@@ -726,8 +727,13 @@ func (self *SVirtualMachine) fetchHardwareInfo() error {
 		return fmt.Errorf("invalid vm")
 	}
 
-	for i := 0; i < len(moVM.Config.Hardware.Device); i += 1 {
-		dev := moVM.Config.Hardware.Device[i]
+	// sort devices via their Key
+	devices := moVM.Config.Hardware.Device
+	sort.Slice(devices, func(i, j int) bool {
+		return devices[i].GetVirtualDevice().Key < devices[j].GetVirtualDevice().Key
+	})
+	for i := 0; i < len(devices); i += 1 {
+		dev := devices[i]
 		devType := reflect.Indirect(reflect.ValueOf(dev)).Type()
 
 		etherType := reflect.TypeOf((*types.VirtualEthernetCard)(nil)).Elem()
@@ -738,7 +744,7 @@ func (self *SVirtualMachine) fetchHardwareInfo() error {
 		if reflectutils.StructContains(devType, etherType) {
 			self.vnics = append(self.vnics, NewVirtualNIC(self, dev, len(self.vnics)))
 		} else if reflectutils.StructContains(devType, diskType) {
-			self.vdisks = append(self.vdisks, NewVirtualDisk(self, dev, len(self.vnics)))
+			self.vdisks = append(self.vdisks, NewVirtualDisk(self, dev, len(self.vdisks)))
 		} else if reflectutils.StructContains(devType, vgaType) {
 			self.vga = NewVirtualVGA(self, dev, 0)
 		} else if reflectutils.StructContains(devType, cdromType) {
@@ -1167,8 +1173,19 @@ func (self *SVirtualMachine) ExportTemplate(ctx context.Context, idx int, diskPa
 	lr := newLeaseLogger("download vmdk", 5)
 	lr.Log()
 	defer lr.End()
+
+	// filter vmdk item
+	vmdkItems := make([]nfc.FileItem, 0, len(info.Items)/2)
+	for i := range info.Items {
+		if strings.HasSuffix(info.Items[i].Path, ".vmdk") {
+			vmdkItems = append(vmdkItems, info.Items[i])
+		} else {
+			log.Infof("item.Path does not end in '.vmdk': %#v", info.Items[i])
+		}
+	}
+
 	log.Debugf("download to %s start...", diskPath)
-	err = lease.DownloadFile(ctx, diskPath, info.Items[idx], soap.Download{Progress: lr})
+	err = lease.DownloadFile(ctx, diskPath, vmdkItems[idx], soap.Download{Progress: lr})
 	if err != nil {
 		return errors.Wrap(err, "lease.DownloadFile")
 	}
