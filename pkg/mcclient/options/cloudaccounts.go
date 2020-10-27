@@ -14,6 +14,25 @@
 
 package options
 
+import (
+	"fmt"
+	"io/ioutil"
+
+	"yunion.io/x/jsonutils"
+)
+
+type CloudaccountListOptions struct {
+	BaseListOptions
+	Capability []string `help:"capability filter" choices:"project|compute|network|loadbalancer|objectstore|rds|cache|event"`
+
+	//DistinctField string `help:"distinct field"`
+	ProxySetting string `help:"Proxy setting id or name"`
+}
+
+func (opts *CloudaccountListOptions) Params() (jsonutils.JSONObject, error) {
+	return ListStructToParams(opts)
+}
+
 type SUserPasswordCredential struct {
 	Username string `help:"Username" positional:"true"`
 	Password string `help:"Password" positional:"true"`
@@ -101,6 +120,12 @@ type SAliyunAccessKeyCredentialWithEnvironment struct {
 	Environment string `help:"Cloud environment" choices:"InternationalCloud|FinanceCloud" default:"InternationalCloud"`
 }
 
+func (opts *SVMwareCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("VMware"), "provider")
+	return params, nil
+}
+
 type SAliyunCloudAccountCreateOptions struct {
 	SCloudAccountCreateBaseOptions
 	SAliyunAccessKeyCredentialWithEnvironment
@@ -110,9 +135,34 @@ type SAliyunCloudAccountCreateOptions struct {
 	OptionsBillingFilePrefix    string `help:"prefix of billing file name" json:"-"`
 }
 
+func (opts *SAliyunCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Aliyun"), "provider")
+	options := jsonutils.NewDict()
+	if len(opts.OptionsBillingReportBucket) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsBillingReportBucket), "billing_report_bucket")
+	}
+	if len(opts.OptionsBillingBucketAccount) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsBillingBucketAccount), "billing_bucket_account")
+	}
+	if len(opts.OptionsBillingFilePrefix) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsBillingFilePrefix), "billing_file_prefix")
+	}
+	if options.Size() > 0 {
+		params.(*jsonutils.JSONDict).Add(options, "options")
+	}
+	return params, nil
+}
+
 type SAzureCloudAccountCreateOptions struct {
 	SCloudAccountCreateBaseOptions
 	SAzureCredentialWithEnvironment
+}
+
+func (opts *SAzureCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Azure"), "provider")
+	return params, nil
 }
 
 type SQcloudCloudAccountCreateOptions struct {
@@ -120,9 +170,51 @@ type SQcloudCloudAccountCreateOptions struct {
 	SQcloudCredential
 }
 
+func (opts *SQcloudCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Qcloud"), "provider")
+	return params, nil
+}
+
 type SGoogleCloudAccountCreateOptions struct {
 	SCloudAccountCreateBaseOptions
 	GoogleJsonFile string `help:"Google auth json file" positional:"true"`
+}
+
+func parseGcpCredential(filename string) (jsonutils.JSONObject, error) {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	authParams, err := jsonutils.Parse(data)
+	if err != nil {
+		return nil, err
+	}
+	ret := jsonutils.NewDict()
+	for _, k := range []string{
+		"client_email",
+		"project_id",
+		"private_key_id",
+		"private_key",
+	} {
+		v, _ := authParams.Get(k)
+		ret.Add(v, fmt.Sprintf("gcp_%s", k))
+	}
+	return ret, nil
+}
+
+func (opts *SGoogleCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Google"), "provider")
+	authParams, err := parseGcpCredential(opts.GoogleJsonFile)
+	if err != nil {
+		return nil, err
+	}
+	err = jsonutils.Update(params, authParams)
+	if err != nil {
+		return nil, err
+	}
+	return params, nil
 }
 
 type SAWSCloudAccountCreateOptions struct {
@@ -134,9 +226,34 @@ type SAWSCloudAccountCreateOptions struct {
 	OptionsBillingFilePrefix    string `help:"prefix of billing file name" json:"-"`
 }
 
+func (opts *SAWSCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
+	options := jsonutils.NewDict()
+	if len(opts.OptionsBillingReportBucket) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsBillingReportBucket), "billing_report_bucket")
+	}
+	if len(opts.OptionsBillingBucketAccount) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsBillingBucketAccount), "billing_bucket_account")
+	}
+	if len(opts.OptionsBillingFilePrefix) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsBillingFilePrefix), "billing_file_prefix")
+	}
+	if options.Size() > 0 {
+		params.Add(options, "options")
+	}
+	params.Add(jsonutils.NewString("Aws"), "provider")
+	return params, nil
+}
+
 type SOpenStackCloudAccountCreateOptions struct {
 	SCloudAccountCreateBaseOptions
 	SOpenStackCredentialWithAuthURL
+}
+
+func (opts *SOpenStackCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("OpenStack"), "provider")
+	return params, nil
 }
 
 type SHuaweiCloudAccountCreateOptions struct {
@@ -144,9 +261,21 @@ type SHuaweiCloudAccountCreateOptions struct {
 	SAccessKeyCredentialWithEnvironment
 }
 
+func (opts *SHuaweiCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Huawei"), "provider")
+	return params, nil
+}
+
 type SUcloudCloudAccountCreateOptions struct {
 	SCloudAccountCreateBaseOptions
 	SAccessKeyCredential
+}
+
+func (opts *SUcloudCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Ucloud"), "provider")
+	return params, nil
 }
 
 type SZStackCloudAccountCreateOptions struct {
@@ -155,10 +284,42 @@ type SZStackCloudAccountCreateOptions struct {
 	AuthURL string `help:"ZStack auth_url" positional:"true" json:"auth_url"`
 }
 
+func (opts *SZStackCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("ZStack"), "provider")
+	return params, nil
+}
+
 type SS3CloudAccountCreateOptions struct {
 	SCloudAccountCreateBaseOptions
 	SAccessKeyCredential
 	Endpoint string `help:"S3 endpoint" required:"true" positional:"true" json:"endpoint"`
+}
+
+func (opts *SS3CloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("S3"), "provider")
+	return params, nil
+}
+
+type SCephCloudAccountCreateOptions struct {
+	SS3CloudAccountCreateOptions
+}
+
+func (opts *SCephCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Ceph"), "provider")
+	return params, nil
+}
+
+type SXskyCloudAccountCreateOptions struct {
+	SS3CloudAccountCreateOptions
+}
+
+func (opts *SXskyCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Xsky"), "provider")
+	return params, nil
 }
 
 type SCtyunCloudAccountCreateOptions struct {
@@ -166,87 +327,157 @@ type SCtyunCloudAccountCreateOptions struct {
 	SAccessKeyCredentialWithEnvironment
 }
 
+func (opts *SCtyunCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Ctyun"), "provider")
+	return params, nil
+}
+
 // update credential options
 
-type SCloudAccountUpdateCredentialBaseOptions struct {
+type SCloudAccountIdOptions struct {
 	ID string `help:"ID or Name of cloud account" json:"-"`
 }
 
+func (opts *SCloudAccountIdOptions) GetId() string {
+	return opts.ID
+}
+
+func (opts *SCloudAccountIdOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
 type SVMwareCloudAccountUpdateCredentialOptions struct {
-	SCloudAccountUpdateCredentialBaseOptions
+	SCloudAccountIdOptions
 	SUserPasswordCredential
+}
+
+func (opts *SVMwareCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
 }
 
 type SAliyunCloudAccountUpdateCredentialOptions struct {
-	SCloudAccountUpdateCredentialBaseOptions
+	SCloudAccountIdOptions
 	SAccessKeyCredential
+}
+
+func (opts *SAliyunCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
 }
 
 type SAzureCloudAccountUpdateCredentialOptions struct {
-	SCloudAccountUpdateCredentialBaseOptions
+	SCloudAccountIdOptions
 	SAzureCredential
 }
 
+func (opts *SAzureCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
 type SQcloudCloudAccountUpdateCredentialOptions struct {
-	SCloudAccountUpdateCredentialBaseOptions
+	SCloudAccountIdOptions
 	SQcloudCredential
 }
 
+func (opts *SQcloudCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
 type SAWSCloudAccountUpdateCredentialOptions struct {
-	SCloudAccountUpdateCredentialBaseOptions
+	SCloudAccountIdOptions
 	SAccessKeyCredential
+}
+
+func (opts *SAWSCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
 }
 
 type SOpenStackCloudAccountUpdateCredentialOptions struct {
-	SCloudAccountUpdateCredentialBaseOptions
+	SCloudAccountIdOptions
 	SOpenStackCredential
 }
 
+func (opts *SOpenStackCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
 type SHuaweiCloudAccountUpdateCredentialOptions struct {
-	SCloudAccountUpdateCredentialBaseOptions
+	SCloudAccountIdOptions
 	SAccessKeyCredential
+}
+
+func (opts *SHuaweiCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
 }
 
 type SUcloudCloudAccountUpdateCredentialOptions struct {
-	SCloudAccountUpdateCredentialBaseOptions
+	SCloudAccountIdOptions
 	SAccessKeyCredential
+}
+
+func (opts *SUcloudCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
 }
 
 type SZStackCloudAccountUpdateCredentialOptions struct {
-	SCloudAccountUpdateCredentialBaseOptions
+	SCloudAccountIdOptions
 	SUserPasswordCredential
 }
 
+func (opts *SZStackCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
 type SS3CloudAccountUpdateCredentialOptions struct {
-	SCloudAccountUpdateCredentialBaseOptions
+	SCloudAccountIdOptions
 	SAccessKeyCredential
+}
+
+func (opts *SS3CloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
 }
 
 type SCtyunCloudAccountUpdateCredentialOptions struct {
-	SCloudAccountUpdateCredentialBaseOptions
+	SCloudAccountIdOptions
 	SAccessKeyCredential
 }
 
+func (opts *SCtyunCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
 type SGoogleCloudAccountUpdateCredentialOptions struct {
-	SCloudAccountUpdateCredentialBaseOptions
+	SCloudAccountIdOptions
 	GoogleJsonFile string `help:"Google auth json file" positional:"true"`
+}
+
+func (opts *SGoogleCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
+	return parseGcpCredential(opts.GoogleJsonFile)
 }
 
 // update
 
 type SCloudAccountUpdateBaseOptions struct {
-	ID   string `help:"ID or Name of cloud account" json:"-"`
+	SCloudAccountIdOptions
 	Name string `help:"New name to update"`
 
-	SyncIntervalSeconds int    `help:"auto synchornize interval in seconds"`
+	SyncIntervalSeconds *int   `help:"auto synchornize interval in seconds"`
 	AutoCreateProject   *bool  `help:"automatically create local project for new remote project"`
 	ProxySetting        string `help:"proxy setting name or id" json:"proxy_setting"`
 
 	Desc string `help:"Description" json:"description" token:"desc"`
 }
 
+func (opts *SCloudAccountUpdateBaseOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, fmt.Errorf("obsolete, please try cloud-account-update-xxx, where xxx is vmware, aliyun, azure, qcloud, aws, openstack, huawei etc.")
+}
+
 type SVMwareCloudAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
+}
+
+func (opts *SVMwareCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
 }
 
 type SAliyunCloudAccountUpdateOptions struct {
@@ -260,6 +491,38 @@ type SAliyunCloudAccountUpdateOptions struct {
 	RemoveOptionsBillingFilePrefix    bool   `help:"remove prefix of billing file name" json:"-"`
 }
 
+func (opts *SAliyunCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
+
+	options := jsonutils.NewDict()
+	if len(opts.OptionsBillingReportBucket) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsBillingReportBucket), "billing_report_bucket")
+	}
+	if len(opts.OptionsBillingBucketAccount) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsBillingBucketAccount), "billing_bucket_account")
+	}
+	if len(opts.OptionsBillingFilePrefix) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsBillingFilePrefix), "billing_file_prefix")
+	}
+	if options.Size() > 0 {
+		params.Add(options, "options")
+	}
+	removeOptions := make([]string, 0)
+	if opts.RemoveOptionsBillingReportBucket {
+		removeOptions = append(removeOptions, "billing_report_bucket")
+	}
+	if opts.RemoveOptionsBillingBucketAccount {
+		removeOptions = append(removeOptions, "billing_bucket_account")
+	}
+	if opts.RemoveOptionsBillingFilePrefix {
+		removeOptions = append(removeOptions, "billing_file_prefix")
+	}
+	if len(removeOptions) > 0 {
+		params.Add(jsonutils.NewStringArray(removeOptions), "remove_options")
+	}
+	return params, nil
+}
+
 type SAzureCloudAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
 
@@ -267,8 +530,32 @@ type SAzureCloudAccountUpdateOptions struct {
 	RemoveOptionsBalanceKey bool   `help:"remove cloud blance account key" json:"-"`
 }
 
+func (opts *SAzureCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
+
+	options := jsonutils.NewDict()
+	if len(opts.OptionsBalanceKey) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsBalanceKey), "balance_key")
+	}
+	if options.Size() > 0 {
+		params.Add(options, "options")
+	}
+	removeOptions := make([]string, 0)
+	if opts.RemoveOptionsBalanceKey {
+		removeOptions = append(removeOptions, "balance_key")
+	}
+	if len(removeOptions) > 0 {
+		params.Add(jsonutils.NewStringArray(removeOptions), "remove_options")
+	}
+	return params, nil
+}
+
 type SQcloudCloudAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
+}
+
+func (opts *SQcloudCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
 }
 
 type SGoogleCloudAccountUpdateOptions struct {
@@ -287,6 +574,50 @@ type SGoogleCloudAccountUpdateOptions struct {
 	RemoveOptionsUsageFilePrefix   bool   `help:"remove prefix of usage file name" json:"-"`
 }
 
+func (opts *SGoogleCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
+
+	options := jsonutils.NewDict()
+	if len(opts.OptionsBillingReportBucket) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsBillingReportBucket), "billing_report_bucket")
+	}
+	if len(opts.OptionsBillingBucketAccount) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsBillingBucketAccount), "billing_bucket_account")
+	}
+	if len(opts.OptionsBillingFilePrefix) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsBillingFilePrefix), "billing_file_prefix")
+	}
+	if len(opts.OptionsUsageReportBucket) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsUsageReportBucket), "usage_report_bucket")
+	}
+	if len(opts.OptionsUsageFilePrefix) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsUsageFilePrefix), "usage_file_prefix")
+	}
+	if options.Size() > 0 {
+		params.Add(options, "options")
+	}
+	removeOptions := make([]string, 0)
+	if opts.RemoveOptionsBillingReportBucket {
+		removeOptions = append(removeOptions, "billing_report_bucket")
+	}
+	if opts.RemoveOptionsBillingBucketAccount {
+		removeOptions = append(removeOptions, "billing_bucket_account")
+	}
+	if opts.RemoveOptionsBillingFilePrefix {
+		removeOptions = append(removeOptions, "billing_file_prefix")
+	}
+	if opts.RemoveOptionsUsageReportBucket {
+		removeOptions = append(removeOptions, "usage_report_bucket")
+	}
+	if opts.RemoveOptionsUsageFilePrefix {
+		removeOptions = append(removeOptions, "usage_file_prefix")
+	}
+	if len(removeOptions) > 0 {
+		params.Add(jsonutils.NewStringArray(removeOptions), "remove_options")
+	}
+	return params, nil
+}
+
 type SAWSCloudAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
 
@@ -298,8 +629,44 @@ type SAWSCloudAccountUpdateOptions struct {
 	RemoveOptionsBillingFilePrefix    bool   `help:"remove prefix of billing file name" json:"-"`
 }
 
+func (opts *SAWSCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
+
+	options := jsonutils.NewDict()
+	if len(opts.OptionsBillingReportBucket) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsBillingReportBucket), "billing_report_bucket")
+	}
+	if len(opts.OptionsBillingBucketAccount) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsBillingBucketAccount), "billing_bucket_account")
+	}
+	if len(opts.OptionsBillingFilePrefix) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsBillingFilePrefix), "billing_file_prefix")
+	}
+	if options.Size() > 0 {
+		params.Add(options, "options")
+	}
+	removeOptions := make([]string, 0)
+	if opts.RemoveOptionsBillingReportBucket {
+		removeOptions = append(removeOptions, "billing_report_bucket")
+	}
+	if opts.RemoveOptionsBillingBucketAccount {
+		removeOptions = append(removeOptions, "billing_bucket_account")
+	}
+	if opts.RemoveOptionsBillingFilePrefix {
+		removeOptions = append(removeOptions, "billing_file_prefix")
+	}
+	if len(removeOptions) > 0 {
+		params.Add(jsonutils.NewStringArray(removeOptions), "remove_options")
+	}
+	return params, nil
+}
+
 type SOpenStackCloudAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
+}
+
+func (opts *SOpenStackCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
 }
 
 type SHuaweiCloudAccountUpdateOptions struct {
@@ -313,18 +680,213 @@ type SHuaweiCloudAccountUpdateOptions struct {
 	RemoveOptionsBillingFilePrefix    bool   `help:"remove prefix of billing file name" json:"-"`
 }
 
+func (opts *SHuaweiCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
+
+	options := jsonutils.NewDict()
+	if len(opts.OptionsBillingReportBucket) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsBillingReportBucket), "billing_report_bucket")
+	}
+	if len(opts.OptionsBillingBucketAccount) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsBillingBucketAccount), "billing_bucket_account")
+	}
+	if len(opts.OptionsBillingFilePrefix) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsBillingFilePrefix), "billing_file_prefix")
+	}
+	if options.Size() > 0 {
+		params.Add(options, "options")
+	}
+	removeOptions := make([]string, 0)
+	if opts.RemoveOptionsBillingReportBucket {
+		removeOptions = append(removeOptions, "billing_report_bucket")
+	}
+	if opts.RemoveOptionsBillingBucketAccount {
+		removeOptions = append(removeOptions, "billing_bucket_account")
+	}
+	if opts.RemoveOptionsBillingFilePrefix {
+		removeOptions = append(removeOptions, "billing_file_prefix")
+	}
+	if len(removeOptions) > 0 {
+		params.Add(jsonutils.NewStringArray(removeOptions), "remove_options")
+	}
+	return params, nil
+}
+
 type SUcloudCloudAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
+}
+
+func (opts *SUcloudCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
 }
 
 type SZStackCloudAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
 }
 
+func (opts *SZStackCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
 type SS3CloudAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
 }
 
+func (opts *SS3CloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
 type SCtyunCloudAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
+}
+
+func (opts *SCtyunCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
+type SVMwareCloudAccountPrepareNetsOptions struct {
+	Project       string `help:"project for this account"`
+	ProjectDomain string `help:"domain for this account"`
+	NAME          string `help:"name for this account"`
+	SVMwareCredentialWithEnvironment
+}
+
+func (opts *SVMwareCloudAccountPrepareNetsOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("VMware"), "provider")
+	return params, nil
+}
+
+type SApsaraCloudAccountCreateOptions struct {
+	SAliyunCloudAccountCreateOptions
+
+	AuthUrl string `help:"Auth Url" positional:"true"`
+}
+
+func (opts *SApsaraCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Apsara"), "provider")
+	return params, nil
+}
+
+type CloudaccountUpdateCredentialOptions struct {
+	SCloudAccountIdOptions
+	AccessKeyID     string `help:"Aiyun|HuaWei|Aws access_key_id"`
+	AccessKeySecret string `help:"Aiyun|HuaWei|Aws access_key_secret"`
+	AppID           string `help:"Qcloud appid"`
+	SecretID        string `help:"Qcloud secret_id"`
+	SecretKey       string `help:"Qcloud secret_key"`
+	ProjectName     string `help:"OpenStack project_name"`
+	Username        string `help:"OpenStack|VMware username"`
+	Password        string `help:"OpenStack|VMware password"`
+	EndpointType    string `help:"OpenStack endpointType"`
+	ClientID        string `help:"Azure tenant_id"`
+	ClientSecret    string `help:"Azure clinet_secret"`
+}
+
+func (opts *CloudaccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, fmt.Errorf("obsolete command, please try cloud-account-update-credential-xxx, where xxx is vmware, aliyun, azure, qcloud, aws, openstack, huawei, etc.")
+}
+
+type CloudaccountSyncOptions struct {
+	SCloudAccountIdOptions
+	Force    bool     `help:"Force sync no matter what"`
+	FullSync bool     `help:"Synchronize everything"`
+	Region   []string `help:"region to sync"`
+	Zone     []string `help:"region to sync"`
+	Host     []string `help:"region to sync"`
+}
+
+func (opts *CloudaccountSyncOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
+type CloudaccountEnableAutoSyncOptions struct {
+	SCloudAccountIdOptions
+	SyncIntervalSeconds int `help:"new sync interval in seconds"`
+}
+
+func (opts *CloudaccountEnableAutoSyncOptions) Params() (jsonutils.JSONObject, error) {
+	return StructToParams(opts)
+}
+
+type CloudaccountPublicOptions struct {
+	SCloudAccountIdOptions
+	Scope         string   `help:"public_sccope" choices:"domain|system" json:"scope"`
+	SharedDomains []string `help:"shared domains" json:"shared_domains"`
+	ShareMode     string   `help:"share_mode" choices:"account_domain|provider_domain|system"`
+}
+
+func (opts *CloudaccountPublicOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
+type CloudaccountShareModeOptions struct {
+	SCloudAccountIdOptions
+	MODE string `help:"cloud account share mode" choices:"account_domain|system|provider_domain"`
+}
+
+func (opts *CloudaccountShareModeOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(map[string]string{"share_mode": opts.MODE}), nil
+}
+
+type CloudaccountSyncSkusOptions struct {
+	SCloudAccountIdOptions
+	RESOURCE string `help:"Resource of skus" choices:"serversku|elasticcachesku|dbinstance_sku"`
+	Force    bool   `help:"Force sync no matter what"`
+	Provider string `help:"provider to sync"`
+	Region   string `help:"region to sync"`
+}
+
+func (opts *CloudaccountSyncSkusOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	params.Set("resource", jsonutils.NewString(opts.RESOURCE))
+	if opts.Force {
+		params.Add(jsonutils.JSONTrue, "force")
+	}
+
+	if len(opts.Provider) > 0 {
+		params.Add(jsonutils.NewString(opts.Provider), "cloudprovider")
+	}
+
+	if len(opts.Region) > 0 {
+		params.Add(jsonutils.NewString(opts.Region), "cloudregion")
+	}
+	return params, nil
+}
+
+type ClouaccountChangeOwnerOptions struct {
+	SCloudAccountIdOptions
+	ProjectDomain string `json:"project_domain" help:"target domain"`
+}
+
+func (opts *ClouaccountChangeOwnerOptions) Params() (jsonutils.JSONObject, error) {
+	if len(opts.ProjectDomain) == 0 {
+		return nil, fmt.Errorf("empty project_domain")
+	}
+	return jsonutils.Marshal(opts), nil
+}
+
+type ClouaccountChangeProjectOptions struct {
+	SCloudAccountIdOptions
+	PROJECT string `json:"project" help:"target domain"`
+}
+
+func (opts *ClouaccountChangeProjectOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
+type SubscriptionCreateOptions struct {
+	SCloudAccountIdOptions
+	NAME              string
+	ENROLLMENTACCOUNT string
+	OfferType         string `choices:"MS-AZR-0148P|MS-AZR-0017P" default:"MS-AZR-0017P"`
+}
+
+func (opts *SubscriptionCreateOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(map[string]string{
+		"name":                  opts.NAME,
+		"offer_type":            opts.OfferType,
+		"enrollment_account_id": opts.ENROLLMENTACCOUNT,
+	}), nil
 }
