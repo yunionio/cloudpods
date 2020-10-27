@@ -134,6 +134,10 @@ func (cmd ResourceCmd) List(args IListOpt) {
 }
 
 func (cmd ResourceCmd) Create(args ICreateOpt) {
+	cmd.CreateWithKeyworkd("create", args)
+}
+
+func (cmd ResourceCmd) CreateWithKeyworkd(keyword string, args ICreateOpt) {
 	man := cmd.manager
 	callback := func(s *mcclient.ClientSession, args ICreateOpt) error {
 		params, err := args.Params()
@@ -147,7 +151,7 @@ func (cmd ResourceCmd) Create(args ICreateOpt) {
 		printObject(ret)
 		return nil
 	}
-	cmd.Run("create", args, callback)
+	cmd.Run(keyword, args, callback)
 }
 
 type IIdOpt interface {
@@ -281,7 +285,7 @@ type IPerformOpt interface {
 	IIdOpt
 }
 
-func (cmd ResourceCmd) Perform(action string, args IPerformOpt) {
+func (cmd ResourceCmd) PerformWithKeyword(keyword, action string, args IPerformOpt) {
 	man := cmd.manager
 	callback := func(s *mcclient.ClientSession, args IPerformOpt) error {
 		params := jsonutils.Marshal(args) // .Params()
@@ -292,7 +296,11 @@ func (cmd ResourceCmd) Perform(action string, args IPerformOpt) {
 		printObject(ret)
 		return nil
 	}
-	cmd.Run(action, args, callback)
+	cmd.Run(keyword, args, callback)
+}
+
+func (cmd ResourceCmd) Perform(action string, args IPerformOpt) {
+	cmd.PerformWithKeyword(action, action, args)
 }
 
 func (cmd ResourceCmd) PerformClass(action string, args IOpt) {
@@ -358,12 +366,17 @@ type IUpdateOpt interface {
 	IIdOpt
 }
 
-func (cmd ResourceCmd) Update(args IUpdateOpt) {
+func (cmd ResourceCmd) UpdateWithKeyword(keyword string, args IUpdateOpt) {
 	man := cmd.manager
 	callback := func(s *mcclient.ClientSession, args IUpdateOpt) error {
-		params, err := args.Params()
+		_params, err := args.Params()
 		if err != nil {
 			return err
+		}
+		params := _params.(*jsonutils.JSONDict)
+		params.Remove("id")
+		if params.Length() == 0 {
+			return InvalidUpdateError()
 		}
 		ret, err := man.(modulebase.Manager).Update(s, args.GetId(), params)
 		if err != nil {
@@ -372,7 +385,11 @@ func (cmd ResourceCmd) Update(args IUpdateOpt) {
 		printObject(ret)
 		return nil
 	}
-	cmd.Run("update", args, callback)
+	cmd.Run(keyword, args, callback)
+}
+
+func (cmd ResourceCmd) Update(args IUpdateOpt) {
+	cmd.UpdateWithKeyword("update", args)
 }
 
 type IMetadataOpt interface {
