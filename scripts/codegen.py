@@ -138,6 +138,10 @@ class ModelAPI(FuncDispatcher):
     def gen_monitor(self):
         self.run(pkg=["monitor", "models"], out=["monitor"])
 
+    def gen_yunionconf(self):
+        self.run(pkg=["yunionconf", "models"], out=["yunionconf"])
+
+
 class SwaggerCode(FuncDispatcher):
 
     def __init__(self, pkg_dir, pkg_swagger):
@@ -177,6 +181,9 @@ class SwaggerCode(FuncDispatcher):
     def gen_monitor(self):
         self.run("monitor", pkg=["models"], out="monitor")
 
+    def gen_yunionconf(self):
+        self.run("yunionconf", pkg=["models"], out="yunionconf")
+
     def gen_notify(self):
         self.run("notify", pkg=["models"], out="notify")
 
@@ -208,6 +215,9 @@ class SwaggerYAML(FuncDispatcher):
 
     def gen_monitor(self):
         self.run("monitor")
+
+    def gen_yunionconf(self):
+        self.run("yunionconf")
 
     def gen_notify(self):
         self.run("notify")

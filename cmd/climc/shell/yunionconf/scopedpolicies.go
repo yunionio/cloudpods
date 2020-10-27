@@ -14,13 +14,18 @@
 
 package yunionconf
 
-import "yunion.io/x/onecloud/pkg/apis"
-
-const (
-	SERVICE_TYPE = apis.SERVICE_TYPE_YUNIONCONF
+import (
+	"yunion.io/x/onecloud/cmd/climc/shell"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/yunionconf"
+	options "yunion.io/x/onecloud/pkg/mcclient/options/yunionconf"
 )
 
-const (
-	ANY_DOMAIN_ID  = "[any_domain_id]"
-	ANY_PROJECT_ID = "[any_project_id]"
-)
+func init() {
+	cmd := shell.NewResourceCmd(&modules.ScopedPolicies)
+	cmd.List(new(options.ScopedPolicyListOptions))
+	cmd.Show(new(options.ScopedPolicyShowOptions))
+	cmd.Create(new(options.ScopedPolicyCreateOptions))
+	cmd.Update(new(options.ScopedPolicyUpdateOptions))
+	cmd.Delete(new(options.ScopedPolicyIDOptions))
+	cmd.Perform("bind", new(options.ScopedPolicyBindOptions))
+}
