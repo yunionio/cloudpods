@@ -981,6 +981,7 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 		return nil, err
 	}
 
+	secgroup.Status = api.SECGROUP_STATUS_READY
 	secgroup.Description = extSec.GetDescription()
 	secgroup.ProjectId = provider.ProjectId
 	secgroup.DomainId = provider.DomainId
