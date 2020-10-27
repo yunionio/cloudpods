@@ -609,11 +609,23 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 		params["VirtualPrivateCloud.PrivateIpAddresses.0"] = ipAddr
 	}
 
-	params["ClientToken"] = utils.GenRequestId(20)
+	var body jsonutils.JSONObject
 	instanceIdSet := []string{}
-	body, err := self.cvmRequest("RunInstances", params, true)
+	err = cloudprovider.Wait(time.Second*10, time.Minute, func() (bool, error) {
+		params["ClientToken"] = utils.GenRequestId(20)
+		body, err = self.cvmRequest("RunInstances", params, true)
+		if err != nil {
+			if strings.Contains(err.Error(), "Code=InvalidPermission") { // 带宽上移用户未指定公网ip时不能设置带宽
+				delete(params, "InternetAccessible.InternetChargeType")
+				delete(params, "InternetAccessible.InternetMaxBandwidthOut")
+				return false, nil
+			}
+			return false, errors.Wrapf(err, "RunInstances")
+		}
+		return true, nil
+	})
 	if err != nil {
-		return "", errors.Wrapf(err, "RunInstances")
+		return "", errors.Wrap(err, "RunInstances")
 	}
 	err = body.Unmarshal(&instanceIdSet, "InstanceIdSet")
 	if err == nil && len(instanceIdSet) > 0 {
