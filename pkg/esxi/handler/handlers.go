@@ -75,7 +75,7 @@ func uploadHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 		httperrors.MissingParameterError(ctx, w, "miss disk")
 		return
 	}
-	hostutils.DelayTask(ctx, esxi.EsxiAgent.AgentStorage.SaveToGlance, disk)
+	hostutils.DelayTaskWithoutReqctx(ctx, esxi.EsxiAgent.AgentStorage.SaveToGlance, disk)
 	hostutils.ResponseOk(ctx, w)
 }
 
