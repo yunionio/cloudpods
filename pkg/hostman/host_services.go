@@ -60,6 +60,10 @@ func (host *SHostService) InitService() {
 		log.Fatalf("missing deploy server socket path")
 	}
 
+	if options.HostOptions.BlockStreamSpeedLimitMB < 0 {
+		options.HostOptions.BlockStreamSpeedLimitMB = 100
+	}
+
 	options.HostOptions.EnableRbac = false // disable rbac
 	// init base option for pid file
 	host.SServiceBase.O = &options.HostOptions.BaseOptions

@@ -737,7 +737,7 @@ func (s *SGuestStreamDisksTask) startDoBlockStream() {
 	if len(s.streamDevs) > 0 {
 		dev := s.streamDevs[0]
 		s.streamDevs = s.streamDevs[1:]
-		s.Monitor.BlockStream(dev, s.startWaitBlockStream)
+		s.Monitor.BlockStream(dev, options.HostOptions.BlockStreamSpeedLimitMB, s.startWaitBlockStream)
 	} else {
 		s.taskComplete()
 	}

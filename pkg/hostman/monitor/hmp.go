@@ -393,10 +393,9 @@ func (m *HmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMod
 	m.Query(cmd, callback)
 }
 
-func (m *HmpMonitor) BlockStream(drive string, callback StringCallback) {
+func (m *HmpMonitor) BlockStream(drive string, speedLimitMb int, callback StringCallback) {
 	var (
-		speed = 100 // limit 100 MB/s
-		cmd   = fmt.Sprintf("block_stream %s %d", drive, speed)
+		cmd = fmt.Sprintf("block_stream %s %d", drive, speedLimitMb)
 	)
 	m.Query(cmd, callback)
 }

@@ -137,6 +137,7 @@ type SHostOptions struct {
 
 	SyncStorageInfoDurationSecond int  `help:"sync storage size duration, unit is second" default:"60"`
 	StartHostIgnoreSysError       bool `help:"start host agent ignore sys error" default:"false"`
+	BlockStreamSpeedLimitMB       int  `help:"guest block stream speed limit(MB)" default:"100"`
 }
 
 var (
