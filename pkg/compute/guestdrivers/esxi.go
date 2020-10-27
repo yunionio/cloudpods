@@ -17,6 +17,7 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -168,6 +169,40 @@ func (self *SESXiGuestDriver) GetRebuildRootStatus() ([]string, error) {
 
 func (self *SESXiGuestDriver) GetDeployStatus() ([]string, error) {
 	return []string{api.VM_READY}, nil
+}
+
+func (self *SESXiGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+	// check disk config
+	if len(data.Disks) == 0 {
+		return data, nil
+	}
+	rootDisk := data.Disks[0]
+	image, err := models.CachedimageManager.GetImageInfo(ctx, userCred, rootDisk.ImageId, false)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to GetImageInfo of image %q", rootDisk.ImageId)
+	}
+	if len(image.SubImages) <= 1 {
+		return data, nil
+	}
+	sort.Slice(image.SubImages, func(i, j int) bool {
+		return image.SubImages[i].Index < image.SubImages[j].Index
+	})
+	newDataDisks := make([]*api.DiskConfig, 0, len(image.SubImages)+len(data.Disks)-1)
+	for i, subImage := range image.SubImages {
+		nDataDisk := *rootDisk
+		nDataDisk.SizeMb = subImage.MinDiskMB
+		nDataDisk.Index = i
+		if i > 0 {
+			nDataDisk.ImageId = ""
+		}
+		newDataDisks = append(newDataDisks, &nDataDisk)
+	}
+	for i := 1; i < len(data.Disks); i++ {
+		data.Disks[i].Index += len(image.SubImages) - 1
+		newDataDisks = append(newDataDisks, data.Disks[i])
+	}
+	data.Disks = newDataDisks
+	return data, nil
 }
 
 func (self *SESXiGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {

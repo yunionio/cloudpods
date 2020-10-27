@@ -183,3 +183,18 @@ func (t *SVMTemplate) GetCreatedAt() time.Time {
 	}
 	return t.vm.vdisks[0].GetCreatedAt()
 }
+
+func (t *SVMTemplate) GetSubImages() []cloudprovider.SSubImage {
+	subImages := make([]cloudprovider.SSubImage, 0, len(t.vm.vdisks))
+	for i := range t.vm.vdisks {
+		vdisk := t.vm.vdisks[i]
+		sizeMb := vdisk.GetDiskSizeMB()
+		subImages = append(subImages, cloudprovider.SSubImage{
+			Index:     i,
+			SizeBytes: int64(sizeMb) * (1 << 20),
+			MinDiskMB: sizeMb,
+			MinRamMb:  0,
+		})
+	}
+	return subImages
+}

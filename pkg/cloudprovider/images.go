@@ -50,6 +50,17 @@ type SImage struct {
 	// UpdatedAt       time.Time
 	PublicScope string
 	ExternalId  string
+
+	// SubImages record the subImages of the guest image.
+	// For normal image, it's nil.
+	SubImages []SSubImage
+}
+
+type SSubImage struct {
+	Index     int
+	MinDiskMB int
+	MinRamMb  int
+	SizeBytes int64
 }
 
 func CloudImage2Image(image ICloudImage) SImage {
@@ -71,6 +82,7 @@ func CloudImage2Image(image ICloudImage) SImage {
 		Protected: true,
 		SizeBytes: image.GetSizeByte(),
 		Status:    image.GetImageStatus(),
+		SubImages: image.GetSubImages(),
 	}
 }
 

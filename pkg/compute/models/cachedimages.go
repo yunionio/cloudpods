@@ -329,6 +329,10 @@ func (manager *SCachedimageManager) getImageByName(ctx context.Context, userCred
 	return cachedImage.GetImage()
 }
 
+func (manager *SCachedimageManager) GetImageInfo(ctx context.Context, userCred mcclient.TokenCredential, imageId string, refresh bool) (*cloudprovider.SImage, error) {
+	return manager.getImageInfo(ctx, userCred, imageId, refresh)
+}
+
 func (manager *SCachedimageManager) getImageInfo(ctx context.Context, userCred mcclient.TokenCredential, imageId string, refresh bool) (*cloudprovider.SImage, error) {
 	img, err := manager.GetImageById(ctx, userCred, imageId, refresh)
 	if err == nil {
