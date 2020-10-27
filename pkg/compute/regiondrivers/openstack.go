@@ -178,7 +178,7 @@ func (self *SOpenStackRegionDriver) RequestCreateLoadbalancer(ctx context.Contex
 			return nil, errors.Wrap(fmt.Errorf("status error"), "check status")
 		}
 
-		if err := lb.SyncWithCloudLoadbalancer(ctx, userCred, iLoadbalancer, nil, lb.GetCloudprovider()); err != nil {
+		if err := lb.SyncWithCloudLoadbalancer(ctx, userCred, iLoadbalancer, nil, lb.GetCloudprovider(), lb.GetRegion()); err != nil {
 			return nil, err
 		}
 

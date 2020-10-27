@@ -803,6 +803,53 @@ func (man *SLoadbalancerManager) getLoadbalancersByRegion(region *SCloudregion, 
 	return lbs, nil
 }
 
+func (man *SLoadbalancerManager) getLoadbalancersByExternalIds(externalIds []string) ([]SLoadbalancer, error) {
+	lbs := []SLoadbalancer{}
+	q := man.Query()
+	q = q.In("external_id", externalIds)
+	q = q.IsFalse("pending_deleted")
+	if err := db.FetchModelObjects(man, q, &lbs); err != nil {
+		log.Errorf("failed to get lbs for region: %#v error: %v", externalIds, err)
+		return nil, err
+	}
+	return lbs, nil
+}
+
+func (man *SLoadbalancerManager) getLocalLoadbalancers(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, lbs []cloudprovider.ICloudLoadbalancer)  ([]SLoadbalancer, error) {
+	part1, err := man.getLoadbalancersByRegion(region, provider)
+	if err != nil {
+		return nil, err
+	}
+
+	localLbs := map[string]SLoadbalancer{}
+	for i := range part1 {
+		localLbs[part1[i].Id] = part1[i]
+	}
+
+	externalIds := []string{}
+	for i := range lbs {
+		externalIds = append(externalIds, lbs[i].GetGlobalId())
+	}
+
+	if len(externalIds) > 0 {
+		part2, err := man.getLoadbalancersByExternalIds(externalIds)
+		if err != nil {
+			return nil, err
+		}
+
+		for i := range part2 {
+			localLbs[part2[i].Id] = part2[i]
+		}
+	}
+
+	ret := []SLoadbalancer{}
+	for id, _ := range localLbs {
+		ret = append(ret, localLbs[id])
+	}
+
+	return ret, nil
+}
+
 func (man *SLoadbalancerManager) SyncLoadbalancers(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, lbs []cloudprovider.ICloudLoadbalancer, syncRange *SSyncRange) ([]SLoadbalancer, []cloudprovider.ICloudLoadbalancer, compare.SyncResult) {
 	syncOwnerId := provider.GetOwnerId()
 
@@ -813,7 +860,7 @@ func (man *SLoadbalancerManager) SyncLoadbalancers(ctx context.Context, userCred
 	remoteLbs := []cloudprovider.ICloudLoadbalancer{}
 	syncResult := compare.SyncResult{}
 
-	dbLbs, err := man.getLoadbalancersByRegion(region, provider)
+	dbLbs, err := man.getLocalLoadbalancers(ctx, userCred, provider, region, remoteLbs)
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult
@@ -846,7 +893,7 @@ func (man *SLoadbalancerManager) SyncLoadbalancers(ctx context.Context, userCred
 		}
 	}
 	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].SyncWithCloudLoadbalancer(ctx, userCred, commonext[i], syncOwnerId, provider)
+		err = commondb[i].SyncWithCloudLoadbalancer(ctx, userCred, commonext[i], syncOwnerId, provider, region)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -912,6 +959,14 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 	lbNetworkIds := getExtLbNetworkIds(extLb, lb.ManagerId)
 	lb.NetworkId = strings.Join(lbNetworkIds, ",")
 
+	// classic vpc
+	if extLb.GetNetworkType() == api.LB_NETWORK_TYPE_CLASSIC  {
+		if vpc, err := VpcManager.GetOrCreateVpcForClassicNetwork(ctx, provider, region); err == nil && vpc != nil {
+			lb.VpcId = vpc.GetId()
+		}
+	}
+
+	// vpc
 	if vpcId := extLb.GetVpcId(); len(vpcId) > 0 {
 		if vpc, err := db.FetchByExternalIdAndManagerId(VpcManager, vpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 			return q.Equals("manager_id", provider.Id)
@@ -1081,7 +1136,7 @@ func (self *SLoadbalancer) SyncLoadbalancerEip(ctx context.Context, userCred mcc
 	return result
 }
 
-func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, extLb cloudprovider.ICloudLoadbalancer, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider) error {
+func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, extLb cloudprovider.ICloudLoadbalancer, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, region *SCloudregion) error {
 	lockman.LockObject(ctx, lb)
 	defer lockman.ReleaseObject(ctx, lb)
 
@@ -1100,6 +1155,14 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 		}
 		syncVirtualResourceMetadata(ctx, userCred, lb, extLb)
 
+		// classic vpc
+		if extLb.GetNetworkType() == api.LB_NETWORK_TYPE_CLASSIC  {
+			if vpc, err := VpcManager.GetOrCreateVpcForClassicNetwork(ctx, provider, region); err == nil && vpc != nil {
+				lb.VpcId = vpc.GetId()
+			}
+		}
+
+		// vpc
 		if vpcId := extLb.GetVpcId(); len(vpcId) > 0 {
 			if vpc, err := db.FetchByExternalIdAndManagerId(VpcManager, vpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 				return q.Equals("manager_id", provider.Id)
