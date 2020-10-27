@@ -2472,7 +2472,7 @@ func (self *SHuaWeiRegionDriver) ValidateCreateElasticcacheData(ctx context.Cont
 	return data, nil
 }
 
-func (self *SHuaWeiRegionDriver) RequestCreateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
+func (self *SHuaWeiRegionDriver) RequestCreateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask, data *jsonutils.JSONDict) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		iRegion, err := ec.GetIRegion()
 		if err != nil {
@@ -2635,6 +2635,14 @@ func (self *SHuaWeiRegionDriver) IsSupportedDBInstance() bool {
 
 func (self *SHuaWeiRegionDriver) IsSupportedElasticcache() bool {
 	return true
+}
+
+func (self *SHuaWeiRegionDriver) IsSupportedElasticcacheSecgroup() bool {
+	return false
+}
+
+func (self *SHuaWeiRegionDriver) GetMaxElasticcacheSecurityGroupCount() int {
+	return 0
 }
 
 func (self *SHuaWeiRegionDriver) GetBackendStatusForAdd() []string {

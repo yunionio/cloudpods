@@ -54,7 +54,7 @@ func (self *ElasticcacheFlushInstanceTask) OnInit(ctx context.Context, obj db.IS
 
 	self.SetStage("OnElasticcacheFlushInstanceComplete", nil)
 	if err := region.GetDriver().RequestElasticcacheFlushInstance(ctx, self.GetUserCred(), elasticcache, self); err != nil {
-		self.OnElasticcacheFlushInstanceCompleteFailed(ctx, elasticcache, jsonutils.Marshal(err))
+		self.OnElasticcacheFlushInstanceCompleteFailed(ctx, elasticcache, jsonutils.NewString(err.Error()))
 		return
 	}
 

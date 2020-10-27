@@ -14,7 +14,11 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"time"
+
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 type ElasticcacheDetails struct {
 	apis.VirtualResourceDetails
@@ -25,6 +29,9 @@ type ElasticcacheDetails struct {
 
 	// IP子网名称
 	Network string `json:"network"`
+
+	// 关联安全组列表
+	Secgroups []apis.StandaloneShortDesc `json:"secgroups"`
 }
 
 type ElasticcacheResourceInfo struct {
@@ -98,4 +105,113 @@ type ElasticcacheSyncstatusInput struct {
 type ElasticcacheRemoteUpdateInput struct {
 	// 是否覆盖替换所有标签
 	ReplaceTags *bool `json:"replace_tags" help:"replace all remote tags"`
+}
+
+//type SElasticcacheJointsBase struct {
+//	apis.SVirtualJointResourceBase
+//	// 弹性缓存实例(ID or Name)
+//	ElasticcacheId string `json:"elasticcache_id"`
+//}
+
+type ElasticcacheJointResourceDetails struct {
+	apis.VirtualJointResourceBaseDetails
+
+	// 弹性缓存实例名称
+	Elasticcache string `json:"elasticcache"`
+	// 弹性缓存实例ID
+	ElasticcacheId string `json:"elasticcache_id"`
+}
+
+type ElasticcacheJointsListInput struct {
+	apis.VirtualJointResourceBaseListInput
+
+	ElasticcacheFilterListInput
+}
+
+type ElasticcacheJointBaseUpdateInput struct {
+	apis.VirtualJointResourceBaseUpdateInput
+}
+
+type ElasticcacheSecgroupsInput struct {
+	// 安全组Id列表
+	// 实例必须处于运行状态
+	//
+	//
+	// | 平台		 | 最多绑定安全组数量	|
+	// |-------------|-------------------	|
+	// | 腾讯云       | 10     			    |
+	// | 华为云       | 不支持安全组			|
+	// | 阿里云       | 不支持安全组			|
+	SecgroupIds []string `json:"secgroup_ids"`
+}
+
+type ElasticcacheCreateInput struct {
+	apis.VirtualResourceCreateInput
+
+	// 安全组列表
+	// 腾讯云需要传此参数
+	// required: false
+	ElasticcacheSecgroupsInput
+
+	// 主可用区名称或Id
+	Zone string `json:"zone"`
+
+	// Ip子网名称或Id,建议使用Id
+	// required: true
+	Network string `json:"network"`
+
+	// 网络类型
+	//  enum: vpc, cLassic
+	// required: true
+	NetworkType string `json:"network_type"`
+
+	// 弹性缓存Engine
+	//  enum: redis, memcache
+	// required: true
+	Engine string `json:"engine"`
+
+	// 弹性缓存Engine版本
+	// required: false
+	EngineVersion string `json:"engine_version"`
+
+	// 实例规格
+	// required: false
+	InstanceType string `json:"instance_type"`
+
+	// 初始密码
+	// required: false
+	Password string `json:"password"`
+
+	// 安全组名称或Id
+	// default: default
+	Secgroup string `json:"secgroup"`
+
+	// 内网IP
+	// 阿里云、华为云此参数可选，其它公有云该参数无效
+	// required: false
+	PrivateIp string `json:"private_ip"`
+
+	// swagger:ignore
+	VpcId string
+
+	// swagger:ignore
+	ManagerId string
+
+	// 包年包月时间周期
+	Duration string `json:"duration"`
+
+	// swagger:ignore
+	ExpiredAt time.Time `json:"expired_at"`
+
+	// 计费方式
+	// enum: postpaid, prepaid
+	BillingType string
+	// swagger:ignore
+	BillingCycle string
+
+	// 弹性缓存维护时间段
+	// 华为云此参数可选,其它云该参数无效
+	// enum: 22:00:00, 02:00:00, 06:00:00, 10:00:00, 14:00:00, 18:00:00
+	// required: false
+	MaintainStartTime string `json:"maintain_start_time"`
 }

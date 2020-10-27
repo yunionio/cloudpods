@@ -393,6 +393,10 @@ func (self *SBaseRegionDriver) RequestRemoteUpdateElasticcache(ctx context.Conte
 	return nil
 }
 
+func (self *SBaseRegionDriver) RequestSyncSecgroupsForElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestSyncSecgroupsForElasticcache")
+}
+
 func (self *SBaseRegionDriver) IsDBInstanceNeedSecgroup() bool {
 	return false
 }

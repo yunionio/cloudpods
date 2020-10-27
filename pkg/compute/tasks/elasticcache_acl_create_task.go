@@ -54,7 +54,7 @@ func (self *ElasticcacheAclCreateTask) OnInit(ctx context.Context, obj db.IStand
 
 	self.SetStage("OnElasticcacheAclCreateComplete", nil)
 	if err := region.GetDriver().RequestCreateElasticcacheAcl(ctx, self.GetUserCred(), ea, self); err != nil {
-		self.taskFail(ctx, ea, jsonutils.Marshal(err))
+		self.taskFail(ctx, ea, jsonutils.NewString(err.Error()))
 		return
 	}
 }

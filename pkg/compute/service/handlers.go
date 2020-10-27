@@ -222,6 +222,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.InstanceSnapshotJointManager,
 		models.DnsZoneVpcManager,
 		models.DBInstanceSecgroupManager,
+		models.ElasticcachesecgroupManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewJointModelHandler(manager)
