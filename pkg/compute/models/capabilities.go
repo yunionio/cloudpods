@@ -634,10 +634,20 @@ func getHostCpuArchs(region *SCloudregion, zone *SZone, domainId string) []strin
 		q = q.Filter(sqlchemy.In(q.Field("zone_id"), subq))
 	}
 	q = q.Distinct()
-	res := []string{}
-	if err := q.All(&res); err != nil && err != sql.ErrNoRows {
+	type CpuArch struct {
+		CpuArchitecture string
+	}
+	archs := make([]CpuArch, 0)
+	if err := q.All(&archs); err != nil && err != sql.ErrNoRows {
 		log.Errorf("failed fetch host cpu archs %s", err)
 		return nil
+	}
+	if len(archs) == 0 {
+		return nil
+	}
+	res := make([]string, len(archs))
+	for i := 0; i < len(archs); i++ {
+		res[i] = archs[i].CpuArchitecture
 	}
 	return res
 }

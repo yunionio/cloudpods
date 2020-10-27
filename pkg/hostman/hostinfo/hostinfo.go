@@ -625,7 +625,7 @@ func (h *SHostInfo) detectOsDist() {
 			}
 		}
 	}
-	if utils.IsInStringArray(h.sysinfo.OsDistribution, []string{"uos", "debian", "ubuntu"}) {
+	if utils.IsInStringArray(strings.ToLower(h.sysinfo.OsDistribution), []string{"uos", "debian", "ubuntu"}) {
 		system_service.SetOpenvswitchName("openvswitch-switch")
 	}
 }
