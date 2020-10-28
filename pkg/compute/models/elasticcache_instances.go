@@ -561,7 +561,7 @@ func (self *SElasticcache) SyncWithCloudElasticcache(ctx context.Context, userCr
 	if err != nil {
 		return errors.Wrapf(err, "syncWithCloudElasticcache.Update")
 	}
-
+	syncVirtualResourceMetadata(ctx, userCred, self, extInstance)
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
 }
@@ -1038,6 +1038,8 @@ func (self *SElasticcache) GetCreateQCloudElasticcacheParams(data *jsonutils.JSO
 			input.NetworkId = network.ExternalId
 		}
 	}
+
+	input.Tags, _ = self.GetAllUserMetadata()
 
 	return input, nil
 }

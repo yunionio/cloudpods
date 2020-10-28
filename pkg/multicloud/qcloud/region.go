@@ -1114,6 +1114,9 @@ func (r *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheInput
 	//if err != nil {
 	//	return nil, errors.Wrap(err, "Wait.GetElasticcacheIdByDeal")
 	//}
-
+	err = r.SetResourceTags("redis", "instance", []string{instanceId}, ec.Tags, false)
+	if err != nil {
+		log.Errorf("SetResourceTags(redis:%s,error:%s)", instanceId, err)
+	}
 	return r.GetIElasticcacheById(instanceId)
 }

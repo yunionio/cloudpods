@@ -646,6 +646,7 @@ func (self *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheIn
 	if err != nil {
 		return nil, errors.Wrap(err, "region.CreateIElasticcaches")
 	}
+	self.SetResourceTags("kvs", "INSTANCE", []string{ret.InstanceID}, ec.Tags, false)
 
 	ret.region = self
 	return ret, nil
