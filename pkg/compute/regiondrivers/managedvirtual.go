@@ -1880,7 +1880,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncElasticcache(ctx cont
 		log.Debugf("managedVirtualizationRegionDriver.RequestSyncElasticcache.SyncElasticcacheBackups %s", result.Result())
 	}
 
-	return ec.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_RUNNING, "")
+	return nil
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestDeleteElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
@@ -1988,7 +1988,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestUpdateElasticcacheAuthMod
 		noPassword = false
 	}
 
-	err = iec.UpdateAuthMode(noPassword)
+	err = iec.UpdateAuthMode(noPassword, "")
 	if err != nil {
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestUpdateElasticcacheAuthMode.UpdateAuthMode")
 	}
@@ -2236,6 +2236,7 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateElasticcacheBackup
 		return nil, httperrors.NewInputParameterError("can not make backup in status %s", ec.Status)
 	}
 
+	data.Set("backup_mode", jsonutils.NewString(api.BACKUP_MODE_MANUAL))
 	return data, nil
 }
 

@@ -1627,7 +1627,7 @@ func (instance *SElasticcache) purge(ctx context.Context, userCred mcclient.Toke
 		return err
 	}
 
-	return instance.Delete(ctx, userCred)
+	return instance.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
 func (manager *SElasticcacheManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
