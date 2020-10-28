@@ -661,6 +661,7 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 	if err != nil {
 		return nil, errors.Wrap(err, `resp.GetString("DBInstanceId")`)
 	}
+	region.SetResourceTags("rds", "INSTANCE", []string{instanceId}, desc.Tags, false)
 	return region.GetIDBInstanceById(instanceId)
 }
 

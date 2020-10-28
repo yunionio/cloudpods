@@ -932,6 +932,7 @@ func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbala
 	if err != nil {
 		return nil, err
 	}
+	region.SetResourceTags("slb", "instance", []string{loadBalancerID}, loadbalancer.Tags, false)
 	iLoadbalancer, err := region.GetLoadbalancerDetail(loadBalancerID)
 	if err != nil {
 		return nil, err
