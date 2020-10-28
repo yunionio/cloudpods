@@ -384,8 +384,11 @@ func (m *HmpMonitor) ReloadDiskBlkdev(device, path string, callback StringCallba
 	m.Query(fmt.Sprintf("reload_disk_snapshot_blkdev -n %s %s", device, path), callback)
 }
 
-func (m *HmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMode string, unmap bool) {
+func (m *HmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMode string, unmap, blockReplication bool) {
 	cmd := "drive_mirror -n"
+	if blockReplication {
+		cmd += " -c"
+	}
 	if syncMode == "full" {
 		cmd += " -f"
 	}

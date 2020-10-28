@@ -1066,15 +1066,17 @@ func (s *SGuestSnapshotDeleteTask) onResumeSucc(res string) {
 type SDriveMirrorTask struct {
 	*SKVMGuestInstance
 
-	ctx      context.Context
-	nbdUri   string
-	onSucc   func()
-	syncMode string
-	index    int
+	ctx              context.Context
+	nbdUri           string
+	onSucc           func()
+	syncMode         string
+	index            int
+	blockReplication bool
 }
 
 func NewDriveMirrorTask(
-	ctx context.Context, s *SKVMGuestInstance, nbdUri, syncMode string, onSucc func(),
+	ctx context.Context, s *SKVMGuestInstance, nbdUri, syncMode string,
+	blockReplication bool, onSucc func(),
 ) *SDriveMirrorTask {
 	return &SDriveMirrorTask{
 		SKVMGuestInstance: s,
@@ -1082,11 +1084,24 @@ func NewDriveMirrorTask(
 		nbdUri:            nbdUri,
 		syncMode:          syncMode,
 		onSucc:            onSucc,
+		blockReplication:  blockReplication,
 	}
 }
 
 func (s *SDriveMirrorTask) Start() {
 	s.startMirror("")
+}
+
+func (s *SDriveMirrorTask) supportBlockReplication() bool {
+	c := make(chan bool)
+	s.Monitor.HumanMonitorCommand("help drive_mirror", func(res string) {
+		if strings.Index(res, "[-c]") > 0 {
+			c <- true
+		} else {
+			c <- false
+		}
+	})
+	return <-c
 }
 
 func (s *SDriveMirrorTask) startMirror(res string) {
@@ -1095,11 +1110,16 @@ func (s *SDriveMirrorTask) startMirror(res string) {
 		hostutils.TaskFailed(s.ctx, res)
 		return
 	}
+	var blockReplication = false
+	if s.blockReplication && s.supportBlockReplication() {
+		blockReplication = true
+		log.Infof("mirror block replication supported")
+	}
 	disks, _ := s.Desc.GetArray("disks")
 	if s.index < len(disks) {
 		target := fmt.Sprintf("%s:exportname=drive_%d", s.nbdUri, s.index)
 		s.Monitor.DriveMirror(s.startMirror, fmt.Sprintf("drive_%d", s.index),
-			target, s.syncMode, true)
+			target, s.syncMode, true, blockReplication)
 		s.index += 1
 	} else {
 		if s.onSucc != nil {

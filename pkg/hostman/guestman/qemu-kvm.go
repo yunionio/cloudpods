@@ -592,7 +592,7 @@ func (s *SKVMGuestInstance) startDiskBackupMirror(ctx context.Context) {
 			cb := func(res string) { log.Infof("On backup mirror server(%s) resume start", s.Id) }
 			s.Monitor.SimpleCommand("cont", cb)
 		}
-		NewDriveMirrorTask(ctx, s, nbdUri, "top", onSucc).Start()
+		NewDriveMirrorTask(ctx, s, nbdUri, "top", true, onSucc).Start()
 	}
 }
 

@@ -692,22 +692,27 @@ func (m *QmpMonitor) ReloadDiskBlkdev(device, path string, callback StringCallba
 	m.Query(cmd, cb)
 }
 
-func (m *QmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMode string, unmap bool) {
+func (m *QmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMode string, unmap, blockReplication bool) {
 	var (
 		cb = func(res *Response) {
 			callback(m.actionResult(res))
 		}
-		cmd = &Command{
-			Execute: "drive-mirror",
-			Args: map[string]interface{}{
-				"device": drive,
-				"target": target,
-				"mode":   "existing",
-				"sync":   syncMode,
-				"unmap":  unmap,
-			},
+		args = map[string]interface{}{
+			"device": drive,
+			"target": target,
+			"mode":   "existing",
+			"sync":   syncMode,
+			"unmap":  unmap,
 		}
 	)
+	if blockReplication {
+		args["block-replication"] = true
+	}
+	cmd := &Command{
+		Execute: "drive-mirror",
+		Args:    args,
+	}
+
 	m.Query(cmd, cb)
 }
 
