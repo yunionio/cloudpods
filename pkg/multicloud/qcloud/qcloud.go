@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -730,7 +731,14 @@ func (client *SQcloudClient) fetchBuckets() error {
 		// name = name[:len(name)-len(result.Owner.ID)-1]
 		slashPos := strings.LastIndexByte(name, '-')
 		name = name[:slashPos]
-		region, err := client.getIRegionByRegionId(bInfo.Region)
+		regionStr := func() string {
+			info := strings.Split(bInfo.Region, "-")
+			if num, _ := strconv.Atoi(info[len(info)-1]); num > 0 {
+				return strings.TrimSuffix(bInfo.Region, fmt.Sprintf("-%d", num))
+			}
+			return bInfo.Region
+		}()
+		region, err := client.getIRegionByRegionId(regionStr)
 		if err != nil {
 			log.Errorf("fail to find region %s", bInfo.Region)
 			continue
