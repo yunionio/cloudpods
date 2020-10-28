@@ -65,7 +65,7 @@ type SIdmapping struct {
 	PublicId    string `width:"64" charset:"ascii" nullable:"false" primary:"false"`
 	IdpId       string `name:"domain_id" width:"64" charset:"ascii" nullable:"false" primary:"true"`
 	IdpEntityId string `name:"local_id" width:"128" charset:"utf8" nullable:"false" primary:"true"`
-	EntityType  string `width:"10" charset:"ascii" nullable:"false"`
+	EntityType  string `width:"10" charset:"ascii" nullable:"false" primary:"true"`
 }
 
 func getIdmapKey(idpId string, entityId string, entityType string) string {
@@ -104,7 +104,7 @@ func (manager *SIdmappingManager) RegisterIdMapWithId(ctx context.Context, idpId
 		mapping.IdpEntityId = entityId
 		mapping.EntityType = entityType
 
-		err = manager.TableSpec().InsertOrUpdate(ctx, &mapping)
+		err = manager.TableSpec().Insert(ctx, &mapping)
 		if err != nil {
 			return "", errors.Wrap(err, "Insert")
 		}
