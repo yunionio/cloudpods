@@ -31,6 +31,14 @@ func (tq *SQuery) Filter(cond ICondition) *SQuery {
 	return tq
 }
 
+func (tq *SQuery) FilterByTrue() *SQuery {
+	return tq.Filter(&STrueCondition{})
+}
+
+func (tq *SQuery) FilterByFalse() *SQuery {
+	return tq.Filter(&SFalseCondition{})
+}
+
 func (q *SQuery) Like(f string, v string) *SQuery {
 	cond := Like(q.Field(f), v)
 	return q.Filter(cond)
