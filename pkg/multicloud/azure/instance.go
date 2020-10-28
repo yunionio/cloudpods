@@ -17,6 +17,7 @@ package azure
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -194,31 +195,28 @@ type SInstance struct {
 
 func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 	instance := SInstance{}
-	return &instance, self.client.Get(instanceId, []string{"$expand=instanceView"}, &instance)
+	params := url.Values{}
+	params.Set("$expand", "instanceView")
+	return &instance, self.get(instanceId, params, &instance)
 }
 
 func (self *SRegion) GetInstanceScaleSets() ([]SInstance, error) {
 	instance := []SInstance{}
-	return instance, self.client.ListAll("Microsoft.Compute/virtualMachineScaleSets", &instance)
+	return instance, self.client.list("Microsoft.Compute/virtualMachineScaleSets", url.Values{}, &instance)
 }
 
 func (self *SRegion) GetInstances() ([]SInstance, error) {
 	result := []SInstance{}
-	instances := []SInstance{}
-	err := self.client.ListAll("Microsoft.Compute/virtualMachines", &instances)
+	resource := fmt.Sprintf("Microsoft.Compute/locations/%s/virtualMachines", self.Name)
+	err := self.client.list(resource, url.Values{}, &result)
 	if err != nil {
 		return nil, err
-	}
-	for i := 0; i < len(instances); i++ {
-		if instances[i].Location == self.Name {
-			result = append(result, instances[i])
-		}
 	}
 	return result, nil
 }
 
 func (self *SRegion) doDeleteVM(instanceId string) error {
-	return self.client.Delete(instanceId)
+	return self.del(instanceId)
 }
 
 func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
@@ -349,7 +347,7 @@ func (self *SInstance) getStorageInfoByUri(uri string) (*SStorage, *SClassicStor
 			return nil, &storage, nil
 		}
 	}
-	storageaccounts, err = self.host.zone.region.GetStorageAccounts()
+	storageaccounts, err = self.host.zone.region.ListStorageAccounts()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -580,7 +578,7 @@ func (region *SRegion) AttachDisk(instanceId, diskId string) error {
 	instance.Properties.StorageProfile.DataDisks = dataDisks
 	instance.Properties.ProvisioningState = ""
 	instance.Properties.InstanceView = nil
-	return region.client.Update(jsonutils.Marshal(instance), nil)
+	return region.update(jsonutils.Marshal(instance), nil)
 }
 
 func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
@@ -609,7 +607,7 @@ func (region *SRegion) DetachDisk(instanceId, diskId string) error {
 	instance.Properties.StorageProfile.DataDisks = dataDisks
 	instance.Properties.ProvisioningState = ""
 	instance.Properties.InstanceView = nil
-	return region.client.Update(jsonutils.Marshal(instance), nil)
+	return region.update(jsonutils.Marshal(instance), nil)
 }
 
 func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
@@ -623,7 +621,7 @@ func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.S
 		self.Properties.ProvisioningState = ""
 		self.Properties.InstanceView = nil
 		log.Debugf("Try HardwareProfile : %s", vmSize)
-		err = self.host.zone.region.client.Update(jsonutils.Marshal(self), nil)
+		err = self.host.zone.region.update(jsonutils.Marshal(self), nil)
 		if err == nil {
 			return cloudprovider.WaitStatus(self, status, 10*time.Second, 300*time.Second)
 		}
@@ -640,7 +638,7 @@ func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) e
 	self.Properties.ProvisioningState = ""
 	self.Properties.InstanceView = nil
 	log.Debugf("Try HardwareProfile : %s", instanceType)
-	err := self.host.zone.region.client.Update(jsonutils.Marshal(self), nil)
+	err := self.host.zone.region.update(jsonutils.Marshal(self), nil)
 	if err != nil {
 		return errors.Wrap(err, "client.Update")
 	}
@@ -697,8 +695,8 @@ func (region *SRegion) execOnLinux(instanceId string, command string) error {
 			Settings:           map[string]string{"commandToExecute": command},
 		},
 	}
-	url := fmt.Sprintf("%s/extensions/CustomScript", instanceId)
-	_, err := region.client.jsonRequest("PUT", url, jsonutils.Marshal(extension).String())
+	resource := fmt.Sprintf("%s/extensions/CustomScript", instanceId)
+	_, err := region.client.jsonRequest("PUT", resource, jsonutils.Marshal(extension), url.Values{})
 	return err
 }
 
@@ -715,7 +713,7 @@ func (region *SRegion) resetOvsEnv(instanceId string) error {
 }
 
 func (region *SRegion) deleteExtension(instanceId, extensionName string) error {
-	return region.client.Delete(fmt.Sprintf("%s/extensions/%s", instanceId, extensionName))
+	return region.del(fmt.Sprintf("%s/extensions/%s", instanceId, extensionName))
 }
 func (region *SRegion) resetLoginInfo(instanceId string, setting map[string]string) error {
 	extension := SVirtualMachineExtension{
@@ -727,8 +725,8 @@ func (region *SRegion) resetLoginInfo(instanceId string, setting map[string]stri
 			ProtectedSettings:  setting,
 		},
 	}
-	url := fmt.Sprintf("%s/extensions/enablevmaccess", instanceId)
-	_, err := region.client.jsonRequest("PUT", url, jsonutils.Marshal(extension).String())
+	resource := fmt.Sprintf("%s/extensions/enablevmaccess", instanceId)
+	_, err := region.client.jsonRequest("PUT", resource, jsonutils.Marshal(extension), url.Values{})
 	if err != nil {
 		err = region.deleteExtension(instanceId, "enablevmaccess")
 		if err != nil {
@@ -738,8 +736,8 @@ func (region *SRegion) resetLoginInfo(instanceId string, setting map[string]stri
 		if err != nil {
 			return err
 		}
-		url := fmt.Sprintf("%s/extensions/enablevmaccess", instanceId)
-		_, err = region.client.jsonRequest("PUT", url, jsonutils.Marshal(extension).String())
+		resource := fmt.Sprintf("%s/extensions/enablevmaccess", instanceId)
+		_, err = region.client.jsonRequest("PUT", resource, jsonutils.Marshal(extension), url.Values{})
 		return err
 	}
 	return nil
@@ -850,7 +848,7 @@ func (region *SRegion) ReplaceSystemDisk(instance *SInstance, cpu int, memoryMb 
 	instance.Properties.ProvisioningState = ""
 	instance.Properties.InstanceView = nil
 	instance.Properties.VmId = ""
-	err = region.client.Update(jsonutils.Marshal(instance), nil)
+	err = region.update(jsonutils.Marshal(instance), nil)
 	if err != nil {
 		// 更新失败，需要删除之前交换过的系统盘
 		region.DeleteDisk(instance.Properties.StorageProfile.OsDisk.ManagedDisk.ID)
@@ -1058,7 +1056,7 @@ func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 }
 
 func (self *SRegion) StartVM(instanceId string) error {
-	_, err := self.client.PerformAction(instanceId, "start", "")
+	_, err := self.perform(instanceId, "start", nil)
 	return err
 }
 
@@ -1066,7 +1064,7 @@ func (self *SInstance) StartVM(ctx context.Context) error {
 	if err := self.host.zone.region.StartVM(self.ID); err != nil {
 		return err
 	}
-	self.host.zone.region.client.jsonRequest("PATCH", self.ID, jsonutils.Marshal(self).String())
+	self.host.zone.region.client.jsonRequest("PATCH", self.ID, jsonutils.Marshal(self), url.Values{})
 	return cloudprovider.WaitStatus(self, api.VM_RUNNING, 10*time.Second, 300*time.Second)
 }
 
@@ -1075,12 +1073,12 @@ func (self *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerSto
 	if err != nil {
 		return err
 	}
-	self.host.zone.region.client.jsonRequest("PATCH", self.ID, jsonutils.Marshal(self).String())
+	self.host.zone.region.client.jsonRequest("PATCH", self.ID, jsonutils.Marshal(self), url.Values{})
 	return cloudprovider.WaitStatus(self, api.VM_READY, 10*time.Second, 300*time.Second)
 }
 
 func (self *SRegion) StopVM(instanceId string, isForce bool) error {
-	_, err := self.client.PerformAction(instanceId, "deallocate", "")
+	_, err := self.perform(instanceId, "deallocate", nil)
 	return err
 }
 

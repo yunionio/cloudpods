@@ -71,7 +71,7 @@ func (self *SNetwork) Delete() error {
 		}
 		vpc.Properties.Subnets = &subnets
 		vpc.Properties.ProvisioningState = ""
-		return self.wire.vpc.region.client.Update(jsonutils.Marshal(vpc), nil)
+		return self.wire.vpc.region.update(jsonutils.Marshal(vpc), nil)
 	}
 	return nil
 }

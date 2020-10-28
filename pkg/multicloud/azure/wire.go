@@ -88,7 +88,7 @@ func (self *SRegion) createNetwork(vpc *SVpc, subnetName string, cidr string, de
 		*vpc.Properties.Subnets = append(*vpc.Properties.Subnets, subnet)
 	}
 	vpc.Properties.ProvisioningState = ""
-	err := self.client.Update(jsonutils.Marshal(vpc), vpc)
+	err := self.update(jsonutils.Marshal(vpc), vpc)
 	if err != nil {
 		return nil, err
 	}

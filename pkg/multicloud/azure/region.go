@@ -16,6 +16,7 @@ package azure
 
 import (
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -48,12 +49,11 @@ type SRegion struct {
 
 	storageCache *SStoragecache
 
-	ID             string
-	SubscriptionID string
-	Name           string
-	DisplayName    string
-	Latitude       string
-	Longitude      string
+	ID          string
+	Name        string
+	DisplayName string
+	Latitude    string
+	Longitude   string
 }
 
 func (self *SRegion) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
@@ -70,50 +70,37 @@ func (self *SRegion) GetClient() *SAzureClient {
 	return self.client
 }
 
-func (self *SRegion) GetVMSize(location string) (map[string]SVMSize, error) {
-	if len(location) == 0 {
-		location = self.Name
-	}
-	body, err := self.client.ListVmSizes(location)
-	if err != nil {
-		return nil, err
-	}
-	vmSizes := []SVMSize{}
-	err = body.Unmarshal(&vmSizes, "value")
-	if err != nil {
-		return nil, err
-	}
-	result := map[string]SVMSize{}
-	for i := 0; i < len(vmSizes); i++ {
-		result[vmSizes[i].Name] = vmSizes[i]
-	}
-	return result, nil
+func (self *SRegion) ListVmSizes() ([]SVMSize, error) {
+	result := []SVMSize{}
+	resource := fmt.Sprintf("Microsoft.Compute/locations/%s/vmSizes", self.Name)
+	return result, self.client.list(resource, url.Values{}, &result)
 }
 
 func (self *SRegion) getHardwareProfile(cpu, memMB int) []string {
-	if vmSizes, err := self.GetVMSize(""); err != nil {
+	vmSizes, err := self.ListVmSizes()
+	if err != nil {
 		return []string{}
-	} else {
-		profiles := make([]string, 0)
-		for vmSize, info := range vmSizes {
-			if info.MemoryInMB == int32(memMB) && info.NumberOfCores == cpu {
-				profiles = append(profiles, vmSize)
-			}
-		}
-		return profiles
 	}
+	result := []string{}
+	for i := range vmSizes {
+		if vmSizes[i].MemoryInMB == int32(memMB) && vmSizes[i].NumberOfCores == cpu {
+			result = append(result, vmSizes[i].Name)
+		}
+	}
+	return result
 }
 
-func (self *SRegion) getVMSize(size string) (*SVMSize, error) {
-	vmSizes, err := self.GetVMSize("")
+func (self *SRegion) getVMSize(name string) (*SVMSize, error) {
+	vmSizes, err := self.ListVmSizes()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "ListVmSizes")
 	}
-	vmSize, ok := vmSizes[size]
-	if !ok {
-		return nil, cloudprovider.ErrNotFound
+	for i := range vmSizes {
+		if vmSizes[i].Name == name {
+			return &vmSizes[i], nil
+		}
 	}
-	return &vmSize, nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, name)
 }
 
 func (self *SRegion) GetMetadata() *jsonutils.JSONDict {
@@ -191,7 +178,7 @@ func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudpro
 		},
 		Type: "Microsoft.Network/virtualNetworks",
 	}
-	return &vpc, self.client.Create(jsonutils.Marshal(vpc), &vpc)
+	return &vpc, self.create("", jsonutils.Marshal(vpc), &vpc)
 }
 
 func (self *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
@@ -344,7 +331,7 @@ func (self *SRegion) getStoragecache() *SStoragecache {
 func (self *SRegion) getVpcs() ([]SVpc, error) {
 	result := []SVpc{}
 	vpcs := []SVpc{}
-	err := self.client.ListAll("Microsoft.Network/virtualNetworks", &vpcs)
+	err := self.client.list("Microsoft.Network/virtualNetworks", url.Values{}, &vpcs)
 	if err != nil {
 		return nil, err
 	}
@@ -360,7 +347,7 @@ func (self *SRegion) getClassicVpcs() ([]SClassicVpc, error) {
 	result := []SClassicVpc{}
 	for _, resourceType := range []string{"Microsoft.ClassicNetwork/virtualNetworks"} {
 		vpcs := []SClassicVpc{}
-		err := self.client.ListAll(resourceType, &vpcs)
+		err := self.client.list(resourceType, url.Values{}, &vpcs)
 		if err != nil {
 			return nil, err
 		}
@@ -498,7 +485,7 @@ func (self *SRegion) CreateInstanceSimple(name string, imgId, osType string, cpu
 
 func (region *SRegion) GetEips() ([]SEipAddress, error) {
 	eips := []SEipAddress{}
-	err := region.client.ListAll("Microsoft.Network/publicIPAddresses", &eips)
+	err := region.client.list("Microsoft.Network/publicIPAddresses", url.Values{}, &eips)
 	if err != nil {
 		return nil, err
 	}
@@ -611,16 +598,13 @@ func (region *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAc
 }
 
 func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
-	iBuckets, err := region.client.getIBuckets()
+	accounts, err := region.ListStorageAccounts()
 	if err != nil {
-		return nil, errors.Wrap(err, "getIBuckets")
+		return nil, errors.Wrapf(err, "ListStorageAccounts")
 	}
 	ret := make([]cloudprovider.ICloudBucket, 0)
-	for i := range iBuckets {
-		if iBuckets[i].GetLocation() != region.GetId() {
-			continue
-		}
-		ret = append(ret, iBuckets[i])
+	for i := range accounts {
+		ret = append(ret, &accounts[i])
 	}
 	return ret, nil
 }
@@ -634,20 +618,19 @@ func (region *SRegion) CreateIBucket(name string, storageClassStr string, acl st
 }
 
 func (region *SRegion) DeleteIBucket(name string) error {
-	accounts, err := region.GetStorageAccounts()
+	accounts, err := region.listStorageAccounts()
 	if err != nil {
-		return errors.Wrap(err, "GetStorageAccounts")
+		return errors.Wrap(err, "ListStorageAccounts")
 	}
 	for i := range accounts {
 		if accounts[i].Name == name {
-			err = region.client.Delete(accounts[i].ID)
+			err = region.del(accounts[i].ID)
 			if err != nil {
-				return errors.Wrap(err, "region.client.Delete")
+				return errors.Wrapf(err, "region.del")
 			}
 			return nil
 		}
 	}
-	region.client.invalidateIBuckets()
 	return nil
 }
 
@@ -665,4 +648,72 @@ func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket
 
 func (region *SRegion) GetCapabilities() []string {
 	return region.client.GetCapabilities()
+}
+
+func (self *SRegion) get(resource string, params url.Values, retVal interface{}) error {
+	return self.client.get(resource, params, retVal)
+}
+
+func (self *SRegion) del(resource string) error {
+	return self.client.del(resource)
+}
+
+func (self *SRegion) checkResourceGroup(resourceGroup string) (string, error) {
+	if len(resourceGroup) == 0 {
+		resourceGroup = "Default"
+	}
+	for i := range self.client.ressourceGroups {
+		if strings.ToLower(self.client.ressourceGroups[i].Name) == strings.ToLower(resourceGroup) {
+			return resourceGroup, nil
+		}
+	}
+	_, err := self.CreateResourceGroup(resourceGroup)
+	return resourceGroup, err
+}
+
+type sInfo struct {
+	Location string
+	Name     string
+	Type     string
+}
+
+func (self *SRegion) createInfo(body jsonutils.JSONObject) (sInfo, error) {
+	info := sInfo{}
+	err := body.Unmarshal(&info)
+	if err != nil {
+		return info, errors.Wrapf(err, "body.Unmarshal")
+	}
+	if len(info.Name) == 0 {
+		return info, fmt.Errorf("Missing name params")
+	}
+	if len(info.Type) == 0 {
+		return info, fmt.Errorf("Missing type params")
+	}
+	return info, nil
+}
+
+func (self *SRegion) create(resourceGroup string, body jsonutils.JSONObject, retVal interface{}) error {
+	info, err := self.createInfo(body)
+	if err != nil {
+		return errors.Wrapf(err, "createInfo")
+	}
+	resourceGroup, err = self.checkResourceGroup(resourceGroup)
+	if err != nil {
+		return errors.Wrapf(err, "checkResourceGroup")
+	}
+	info.Name, err = self.client.getUniqName(resourceGroup, info.Type, info.Name)
+	if err != nil {
+		return errors.Wrapf(err, "getUniqName")
+	}
+	info.Location = self.Name
+	jsonutils.Update(&body, info)
+	return self.client.create(resourceGroup, info.Type, info.Name, body, retVal)
+}
+
+func (self *SRegion) update(body jsonutils.JSONObject, retVal interface{}) error {
+	return self.client.update(body, retVal)
+}
+
+func (self *SRegion) perform(id, action string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return self.client.perform(id, action, body)
 }

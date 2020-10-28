@@ -122,7 +122,7 @@ func (group *SCloudgroup) DetachSystemPolicy(policyId string) error {
 			return errors.Wrapf(err, "GetRule(%s)", assignment.Properties.RoleDefinitionId)
 		}
 		if role.Properties.RoleName == policyId {
-			return group.client.Delete(assignment.Id)
+			return group.client.gdel(assignment.Id)
 		}
 	}
 	return nil
@@ -142,7 +142,7 @@ func (self *SAzureClient) GetCloudgroups(name string) ([]SCloudgroup, error) {
 	if len(name) > 0 {
 		params.Set("$filter", fmt.Sprintf("displayName eq '%s'", name))
 	}
-	err := self.ListGraphResource("groups", params, &groups)
+	err := self.glist("groups", params, &groups)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +180,7 @@ func (self *SAzureClient) GetICloudgroupByName(name string) (cloudprovider.IClou
 func (self *SAzureClient) ListGroupMemebers(id string) ([]SClouduser, error) {
 	users := []SClouduser{}
 	resource := fmt.Sprintf("groups/%s/members", id)
-	err := self.ListGraphResource(resource, nil, &users)
+	err := self.glist(resource, nil, &users)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +188,7 @@ func (self *SAzureClient) ListGroupMemebers(id string) ([]SClouduser, error) {
 }
 
 func (self *SAzureClient) DeleteGroup(id string) error {
-	return self.DeleteGraph(fmt.Sprintf("%s/groups/%s?api-version=1.6", self.tenantId, id))
+	return self.gdel(fmt.Sprintf("%s/groups/%s", self.tenantId, id))
 }
 
 func (self *SAzureClient) CreateGroup(name, desc string) (*SCloudgroup, error) {
@@ -202,7 +202,7 @@ func (self *SAzureClient) CreateGroup(name, desc string) (*SCloudgroup, error) {
 		params["Description"] = desc
 	}
 	group := SCloudgroup{client: self}
-	err := self.CreateGraphResource("groups", jsonutils.Marshal(params), &group)
+	err := self.gcreate("groups", jsonutils.Marshal(params), &group)
 	if err != nil {
 		return nil, errors.Wrap(err, "Create")
 	}
@@ -220,7 +220,7 @@ func (self *SAzureClient) RemoveGroupUser(id, userName string) error {
 	if len(users) > 1 {
 		return cloudprovider.ErrDuplicateId
 	}
-	return self.DeleteGraph(fmt.Sprintf("%s/groups/%s/$links/members/%s", self.tenantId, id, users[0].ObjectId))
+	return self.gdel(fmt.Sprintf("%s/groups/%s/$links/members/%s", self.tenantId, id, users[0].ObjectId))
 }
 
 func (self *SAzureClient) CreateICloudgroup(name, desc string) (cloudprovider.ICloudgroup, error) {
@@ -247,7 +247,7 @@ func (self *SAzureClient) AddGroupUser(id, userName string) error {
 	params := map[string]string{
 		"url": fmt.Sprintf("%s%s/directoryObjects/%s", self.domain, self.tenantId, users[0].ObjectId),
 	}
-	err = self.CreateGraphResource(resource, jsonutils.Marshal(params), nil)
+	err = self.gcreate(resource, jsonutils.Marshal(params), nil)
 	if err != nil && !strings.Contains(err.Error(), "One or more added object references already exist for the following modified properties") {
 		return err
 	}

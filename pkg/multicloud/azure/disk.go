@@ -17,6 +17,7 @@ package azure
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -118,7 +119,7 @@ func (self *SRegion) CreateDisk(storageType string, name string, sizeGb int32, d
 		}
 		disk.Properties.OsType = image.GetOsType()
 	}
-	return &disk, self.client.CreateWithResourceGroup(resourceGroup, jsonutils.Marshal(disk), &disk)
+	return &disk, self.create(resourceGroup, jsonutils.Marshal(disk), &disk)
 }
 
 func (self *SRegion) DeleteDisk(diskId string) error {
@@ -130,7 +131,7 @@ func (self *SRegion) deleteDisk(diskId string) error {
 		startTime := time.Now()
 		timeout := 5 * time.Minute
 		for {
-			err := self.client.Delete(diskId)
+			err := self.del(diskId)
 			if err == nil {
 				return nil
 			}
@@ -158,20 +159,20 @@ func (self *SRegion) ResizeDisk(diskId string, sizeGb int32) error {
 		}
 		disk.Properties.DiskSizeGB = sizeGb
 		disk.Properties.ProvisioningState = ""
-		return self.client.Update(jsonutils.Marshal(disk), nil)
+		return self.update(jsonutils.Marshal(disk), nil)
 	}
 	return cloudprovider.ErrNotSupported
 }
 
 func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
 	disk := SDisk{}
-	return &disk, self.client.Get(diskId, []string{}, &disk)
+	return &disk, self.get(diskId, url.Values{}, &disk)
 }
 
 func (self *SRegion) GetDisks() ([]SDisk, error) {
 	result := []SDisk{}
 	disks := []SDisk{}
-	err := self.client.ListAll("Microsoft.Compute/disks", &disks)
+	err := self.client.list("Microsoft.Compute/disks", url.Values{}, &disks)
 	if err != nil {
 		return nil, err
 	}
@@ -346,14 +347,14 @@ func (self *SDisk) GetSnapshotDetail(snapshotId string) (*SSnapshot, error) {
 
 func (region *SRegion) GetSnapshotDetail(snapshotId string) (*SSnapshot, error) {
 	snapshot := SSnapshot{region: region}
-	return &snapshot, region.client.Get(snapshotId, []string{}, &snapshot)
+	return &snapshot, region.get(snapshotId, url.Values{}, &snapshot)
 }
 
 func (region *SRegion) GetSnapShots(diskId string) ([]SSnapshot, error) {
 	result := []SSnapshot{}
 	if !strings.HasPrefix(diskId, "https://") {
 		snapshots := []SSnapshot{}
-		err := region.client.ListAll("Microsoft.Compute/snapshots", &snapshots)
+		err := region.client.list("Microsoft.Compute/snapshots", url.Values{}, &snapshots)
 		if err != nil {
 			return nil, err
 		}
@@ -397,7 +398,7 @@ func (self *SRegion) CreateDiskBySnapshot(diskName, snapshotId string) (*SDisk, 
 		"type": "Microsoft.Compute/disks",
 	}
 	disk := &SDisk{}
-	err := self.client.Create(jsonutils.Marshal(params), disk)
+	err := self.create("", jsonutils.Marshal(params), disk)
 	if err != nil {
 		return nil, errors.Wrapf(err, "CreateDiskBySnapshot.Create")
 	}

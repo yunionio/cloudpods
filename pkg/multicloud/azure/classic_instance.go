@@ -17,6 +17,7 @@ package azure
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -176,7 +177,7 @@ func (self *SClassicInstance) GetInstanceType() string {
 func (self *SRegion) GetClassicInstances() ([]SClassicInstance, error) {
 	result := []SClassicInstance{}
 	instances := []SClassicInstance{}
-	err := self.client.ListAll("Microsoft.ClassicCompute/virtualMachines", &instances)
+	err := self.client.list("Microsoft.ClassicCompute/virtualMachines", url.Values{}, &instances)
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +191,9 @@ func (self *SRegion) GetClassicInstances() ([]SClassicInstance, error) {
 
 func (self *SRegion) GetClassicInstance(instanceId string) (*SClassicInstance, error) {
 	instance := SClassicInstance{}
-	return &instance, self.client.Get(instanceId, []string{"$expand=instanceView"}, &instance)
+	params := url.Values{}
+	params.Add("$expand", "instanceView")
+	return &instance, self.get(instanceId, params, &instance)
 }
 
 type ClassicInstanceDiskProperties struct {
@@ -212,7 +215,7 @@ type ClassicInstanceDisk struct {
 
 func (self *SClassicInstance) getDisks() ([]SClassicDisk, error) {
 	disks := []SClassicDisk{}
-	body, err := self.host.zone.region.client.jsonRequest("GET", fmt.Sprintf("%s/disks", self.ID), "")
+	body, err := self.host.zone.region.client.jsonRequest("GET", fmt.Sprintf("%s/disks", self.ID), nil, url.Values{})
 	if err != nil {
 		return nil, err
 	}
@@ -350,10 +353,10 @@ func (self *SClassicInstance) DeleteVM(ctx context.Context) error {
 		return err
 	}
 	if self.Properties.NetworkProfile.NetworkSecurityGroup != nil {
-		self.host.zone.region.client.Delete(self.Properties.NetworkProfile.NetworkSecurityGroup.ID)
+		self.host.zone.region.del(self.Properties.NetworkProfile.NetworkSecurityGroup.ID)
 	}
 	if self.Properties.DomainName != nil {
-		self.host.zone.region.client.Delete(self.Properties.DomainName.ID)
+		self.host.zone.region.del(self.Properties.DomainName.ID)
 	}
 	return nil
 }
@@ -457,7 +460,7 @@ func (self *SClassicInstance) StopVM(ctx context.Context, opts *cloudprovider.Se
 }
 
 func (self *SRegion) StopClassicVM(instanceId string, isForce bool) error {
-	_, err := self.client.PerformAction(instanceId, "shutdown", "")
+	_, err := self.perform(instanceId, "shutdown", nil)
 	return err
 }
 
@@ -511,7 +514,7 @@ func (self *SClassicInstance) AssignSecurityGroup(secgroupId string) error {
 		if self.Properties.NetworkProfile.NetworkSecurityGroup.ID == secgroupId {
 			return nil
 		}
-		self.host.zone.region.client.Delete(fmt.Sprintf("%s/associatedNetworkSecurityGroups/%s", self.ID, self.Properties.NetworkProfile.NetworkSecurityGroup.Name))
+		self.host.zone.region.del(fmt.Sprintf("%s/associatedNetworkSecurityGroups/%s", self.ID, self.Properties.NetworkProfile.NetworkSecurityGroup.Name))
 	}
 
 	secgroup, err := self.host.zone.region.GetClassicSecurityGroupDetails(secgroupId)
@@ -528,7 +531,7 @@ func (self *SClassicInstance) AssignSecurityGroup(secgroupId string) error {
 			},
 		},
 	}
-	return self.host.zone.region.client.Update(jsonutils.Marshal(data), nil)
+	return self.host.zone.region.update(jsonutils.Marshal(data), nil)
 }
 
 func (self *SClassicInstance) GetBillingType() string {

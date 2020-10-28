@@ -67,7 +67,7 @@ func (self *SClassicNetwork) Delete() error {
 		}
 		subnets = append(subnets, network)
 	}
-	return self.wire.vpc.region.client.Update(jsonutils.Marshal(vpc), self.wire.vpc)
+	return self.wire.vpc.region.update(jsonutils.Marshal(vpc), self.wire.vpc)
 }
 
 func (self *SClassicNetwork) GetGateway() string {

@@ -15,6 +15,7 @@
 package azure
 
 import (
+	"net/url"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -98,7 +99,7 @@ func (self *SVpc) Delete() error {
 }
 
 func (self *SRegion) DeleteVpc(vpcId string) error {
-	return self.client.Delete(vpcId)
+	return self.del(vpcId)
 }
 
 func (self *SVpc) getSecurityGroups() ([]SSecurityGroup, error) {
@@ -219,7 +220,7 @@ func (self *SVpc) GetStatus() string {
 
 func (region *SRegion) GetVpc(vpcId string) (*SVpc, error) {
 	vpc := SVpc{region: region}
-	return &vpc, region.client.Get(vpcId, []string{}, &vpc)
+	return &vpc, region.get(vpcId, url.Values{}, &vpc)
 }
 
 func (self *SVpc) Refresh() error {
@@ -244,5 +245,5 @@ func (self *SVpc) GetNetworks() []SNetwork {
 
 func (self *SRegion) GetNetworkDetail(networkId string) (*Subnet, error) {
 	subnet := Subnet{}
-	return &subnet, self.client.Get(networkId, []string{}, &subnet)
+	return &subnet, self.get(networkId, url.Values{}, &subnet)
 }

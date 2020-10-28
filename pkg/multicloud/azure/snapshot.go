@@ -15,7 +15,6 @@
 package azure
 
 import (
-	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -90,7 +89,7 @@ func (self *SRegion) CreateSnapshot(diskId, snapName, desc string) (*SSnapshot, 
 		},
 		Type: "Microsoft.Compute/snapshots",
 	}
-	return &snapshot, self.client.Create(jsonutils.Marshal(snapshot), &snapshot)
+	return &snapshot, self.create("", jsonutils.Marshal(snapshot), &snapshot)
 }
 
 func (self *SSnapshot) Delete() error {
@@ -102,7 +101,7 @@ func (self *SSnapshot) GetSizeMb() int32 {
 }
 
 func (self *SRegion) DeleteSnapshot(snapshotId string) error {
-	return self.client.Delete(snapshotId)
+	return self.del(snapshotId)
 }
 
 type AccessURIOutput struct {
@@ -119,7 +118,11 @@ type AccessURI struct {
 }
 
 func (self *SRegion) GrantAccessSnapshot(snapshotId string) (string, error) {
-	body, err := self.client.PerformAction(snapshotId, "beginGetAccess", fmt.Sprintf(`{"access": "Read", "durationInSeconds": %d}`, 3600*24))
+	params := map[string]interface{}{
+		"access":            "Read",
+		"durationInSeconds": 3600 * 24,
+	}
+	body, err := self.perform(snapshotId, "beginGetAccess", jsonutils.Marshal(params))
 	if err != nil {
 		return "", err
 	}
@@ -149,7 +152,7 @@ func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 		return nil, err
 	}
 	classicSnapshots := []SClassicSnapshot{}
-	storages, err := self.GetStorageAccounts()
+	storages, err := self.ListStorageAccounts()
 	if err != nil {
 		return nil, err
 	}

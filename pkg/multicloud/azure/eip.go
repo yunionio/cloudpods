@@ -16,9 +16,11 @@ package azure
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
@@ -72,7 +74,7 @@ func (region *SRegion) AllocateEIP(eipName, projectId string) (*SEipAddress, err
 		},
 		Type: "Microsoft.Network/publicIPAddresses",
 	}
-	err := region.client.CreateWithResourceGroup(projectId, jsonutils.Marshal(eip), &eip)
+	err := region.create(projectId, jsonutils.Marshal(eip), &eip)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +87,7 @@ func (region *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudE
 
 func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
 	eip := SEipAddress{region: region}
-	return &eip, region.client.Get(eipId, []string{}, &eip)
+	return &eip, region.get(eipId, url.Values{}, &eip)
 }
 
 func (self *SEipAddress) Associate(conf *cloudprovider.AssociateConfig) error {
@@ -102,10 +104,9 @@ func (region *SRegion) AssociateEip(eipId string, instanceId string) error {
 		if err != nil {
 			return err
 		}
-		log.Errorf("nic: %s", jsonutils.Marshal(nic).PrettyString())
 		if len(nic.Properties.IPConfigurations) > 0 {
 			nic.Properties.IPConfigurations[0].Properties.PublicIPAddress = &PublicIPAddress{ID: eipId}
-			return region.client.Update(jsonutils.Marshal(nic), nil)
+			return region.update(jsonutils.Marshal(nic), nil)
 		}
 		return fmt.Errorf("network interface with no IPConfigurations")
 	}
@@ -126,24 +127,18 @@ func (self *SEipAddress) Delete() error {
 }
 
 func (region *SRegion) DeallocateEIP(eipId string) error {
-	startTime := time.Now()
-	timeout := time.Minute * 3
-	for {
-		err := region.client.Delete(eipId)
+	return cloudprovider.Wait(time.Second*5, time.Minute*5, func() (bool, error) {
+		err := region.del(eipId)
 		if err == nil {
-			return nil
+			return true, nil
 		}
 		// {"error":{"code":"PublicIPAddressCannotBeDeleted","details":[],"message":"Public IP address /subscriptions/d4f0ec08-3e28-4ae5-bdf9-3dc7c5b0eeca/resourceGroups/Default/providers/Microsoft.Network/publicIPAddresses/eip-for-test-wwl can not be deleted since it is still allocated to resource /subscriptions/d4f0ec08-3e28-4ae5-bdf9-3dc7c5b0eeca/resourceGroups/Default/providers/Microsoft.Network/networkInterfaces/test-wwl-ipconfig."}}
 		// 刚解绑eip后可能数据未刷新，需要再次尝试
 		if strings.Contains(err.Error(), "it is still allocated to resource") {
-			time.Sleep(time.Second * 5)
-		} else {
-			return err
+			return false, nil
 		}
-		if time.Now().Sub(startTime) > timeout {
-			return err
-		}
-	}
+		return false, errors.Wrapf(err, "del(%s)", eipId)
+	})
 }
 
 func (self *SEipAddress) Dissociate() error {
@@ -173,7 +168,7 @@ func (region *SRegion) DissociateEip(eipId string) error {
 			break
 		}
 	}
-	return region.client.Update(jsonutils.Marshal(nic), nil)
+	return region.update(jsonutils.Marshal(nic), nil)
 }
 
 func (self *SEipAddress) GetAssociationExternalId() string {

@@ -41,7 +41,7 @@ func (cli *SAzureClient) GetEnrollmentAccounts() ([]cloudprovider.SEnrollmentAcc
 	accounts := struct {
 		Value []SEnrollmentAccount
 	}{}
-	err := cli.Get("providers/Microsoft.Billing/enrollmentAccounts", nil, &accounts)
+	err := cli.get("providers/Microsoft.Billing/enrollmentAccounts", nil, &accounts)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,8 @@ func (cli *SAzureClient) CreateSubscription(name string, eaId string, offerType 
 		"owners":      owners,
 	}
 	resource := fmt.Sprintf("providers/Microsoft.Billing/enrollmentAccounts/%s/providers/Microsoft.Subscription/createSubscription", eaId)
-	return cli.POST(resource, jsonutils.Marshal(body))
+	_, err = cli.post(resource, jsonutils.Marshal(body))
+	return err
 }
 
 type SServicePrincipal struct {
@@ -97,9 +98,5 @@ func (cli *SAzureClient) ListServicePrincipal(appId string) ([]SServicePrincipal
 		params.Set("$filter", fmt.Sprintf(`appId eq '%s'`, cli.clientId))
 	}
 	result := []SServicePrincipal{}
-	err := cli.ListGraphResource("servicePrincipals", params, &result)
-	if err != nil {
-		return result, errors.Wrap(err, "ListGraphResource.servicePrincipals")
-	}
-	return result, nil
+	return result, cli.glist("servicePrincipals", params, &result)
 }

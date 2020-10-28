@@ -17,6 +17,7 @@ package azure
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -241,7 +242,7 @@ func (self *SRegion) GetImageById(imageId string) (SImage, error) {
 
 func (self *SRegion) getPrivateImage(imageId string) (SImage, error) {
 	image := SImage{}
-	err := self.client.Get(imageId, []string{}, &image)
+	err := self.get(imageId, url.Values{}, &image)
 	if err != nil {
 		return image, err
 	}
@@ -295,7 +296,7 @@ func (self *SRegion) CreateImageByBlob(imageName, osType, blobURI string, diskSi
 		},
 		Type: "Microsoft.Compute/images",
 	}
-	return &image, self.client.Create(jsonutils.Marshal(image), &image)
+	return &image, self.create("", jsonutils.Marshal(image), &image)
 }
 
 func (self *SRegion) CreateImage(snapshotId, imageName, osType, imageDesc string) (*SImage, error) {
@@ -315,7 +316,7 @@ func (self *SRegion) CreateImage(snapshotId, imageName, osType, imageDesc string
 		},
 		Type: "Microsoft.Compute/images",
 	}
-	return &image, self.client.Create(jsonutils.Marshal(image), &image)
+	return &image, self.create("", jsonutils.Marshal(image), &image)
 }
 
 func (self *SRegion) getOfferedImages(publishersFilter []string, offersFilter []string, skusFilter []string, verFilter []string, imageType string, latestVer bool) ([]SImage, error) {
@@ -388,7 +389,7 @@ func (self *SRegion) GetOfferedImageIDs(publishersFilter []string, offersFilter 
 func (self *SRegion) getPrivateImages() ([]SImage, error) {
 	result := []SImage{}
 	images := []SImage{}
-	err := self.client.ListAll("Microsoft.Compute/images", &images)
+	err := self.client.list("Microsoft.Compute/images", url.Values{}, &images)
 	if err != nil {
 		return nil, err
 	}
@@ -433,7 +434,7 @@ func (self *SRegion) GetImages(imageType string) ([]SImage, error) {
 }
 
 func (self *SRegion) DeleteImage(imageId string) error {
-	return self.client.Delete(imageId)
+	return self.del(imageId)
 }
 
 func (self *SImage) GetBlobUri() string {
@@ -464,7 +465,8 @@ type SAzureImageResource struct {
 
 func (region *SRegion) GetImagePublishers(filter []string) ([]string, error) {
 	publishers := make([]SAzureImageResource, 0)
-	err := region.client.ListResources(fmt.Sprintf("Microsoft.Compute/locations/%s/publishers", region.Name), &publishers, nil)
+	// TODO
+	err := region.client.list(fmt.Sprintf("Microsoft.Compute/locations/%s/publishers", region.Name), url.Values{}, &publishers)
 	if err != nil {
 		return nil, err
 	}
@@ -493,7 +495,7 @@ func (region *SRegion) getImageOffers(publisher string, filter []string) ([]stri
 		log.Warningf("failed to get publisher %s driver", publisher)
 	}
 	offers := make([]SAzureImageResource, 0)
-	err := region.client.ListResources(fmt.Sprintf("Microsoft.Compute/locations/%s/publishers/%s/artifacttypes/vmimage/offers", region.Name, publisher), &offers, nil)
+	err := region.client.list(fmt.Sprintf("Microsoft.Compute/locations/%s/publishers/%s/artifacttypes/vmimage/offers", region.Name, publisher), url.Values{}, &offers)
 	if err != nil {
 		return nil, err
 	}
@@ -519,7 +521,7 @@ func (region *SRegion) getImageSkus(publisher string, offer string, filter []str
 		}
 	}
 	skus := make([]SAzureImageResource, 0)
-	err := region.client.ListResources(fmt.Sprintf("Microsoft.Compute/locations/%s/publishers/%s/artifacttypes/vmimage/offers/%s/skus", region.Name, publisher, offer), &skus, nil)
+	err := region.client.list(fmt.Sprintf("Microsoft.Compute/locations/%s/publishers/%s/artifacttypes/vmimage/offers/%s/skus", region.Name, publisher, offer), url.Values{}, &skus)
 	if err != nil {
 		return nil, err
 	}
@@ -534,10 +536,12 @@ func (region *SRegion) getImageSkus(publisher string, offer string, filter []str
 func (region *SRegion) getImageVersions(publisher string, offer string, sku string, filter []string, latestVer bool) ([]string, error) {
 	vers := make([]SAzureImageResource, 0)
 	resource := fmt.Sprintf("Microsoft.Compute/locations/%s/publishers/%s/artifacttypes/vmimage/offers/%s/skus/%s/versions", region.Name, publisher, offer, sku)
+	params := url.Values{}
 	if latestVer {
-		resource = resource + "?$top=1&$orderby=name%20desc"
+		params.Set("$top", "1")
+		params.Set("orderby", "name desc")
 	}
-	err := region.client.ListResources(resource, &vers, nil)
+	err := region.client.list(resource, params, &vers)
 	if err != nil {
 		return nil, err
 	}
@@ -558,7 +562,7 @@ func (region *SRegion) getImageDetail(publisher string, offer string, sku string
 		"/artifacttypes/vmimage/offers/" + offer +
 		"/skus/" + sku +
 		"/versions/" + version
-	return image, region.client.Get(id, []string{}, &image)
+	return image, region.get(id, url.Values{}, &image)
 }
 
 func (region *SRegion) getOfferedImage(offerId string) (SImage, error) {

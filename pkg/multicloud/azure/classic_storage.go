@@ -17,6 +17,7 @@ package azure
 import (
 	"strings"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -100,7 +101,10 @@ func (self *SClassicStorage) GetIDiskById(diskId string) (cloudprovider.ICloudDi
 
 func (self *SClassicStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	storageaccount, err := self.zone.region.GetStorageAccountDetail(self.ID)
-	disks, _, err := self.zone.region.GetStorageAccountDisksWithSnapshots(storageaccount)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetStorageAccountDetail")
+	}
+	disks, _, err := self.zone.region.GetStorageAccountDisksWithSnapshots(*storageaccount)
 	if err != nil {
 		return nil, err
 	}

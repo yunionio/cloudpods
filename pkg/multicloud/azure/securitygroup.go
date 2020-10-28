@@ -17,6 +17,7 @@ package azure
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"strconv"
 	"strings"
 	"unicode"
@@ -311,12 +312,12 @@ func (region *SRegion) CreateSecurityGroup(secName string) (*SSecurityGroup, err
 		Type:     "Microsoft.Network/networkSecurityGroups",
 		Location: region.Name,
 	}
-	return &secgroup, region.client.Create(jsonutils.Marshal(secgroup), &secgroup)
+	return &secgroup, region.create("", jsonutils.Marshal(secgroup), &secgroup)
 }
 
 func (region *SRegion) GetSecurityGroups(name string) ([]SSecurityGroup, error) {
 	secgroups := []SSecurityGroup{}
-	err := region.client.ListAll("Microsoft.Network/networkSecurityGroups", &secgroups)
+	err := region.client.list("Microsoft.Network/networkSecurityGroups", url.Values{}, &secgroups)
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +333,7 @@ func (region *SRegion) GetSecurityGroups(name string) ([]SSecurityGroup, error) 
 
 func (region *SRegion) GetSecurityGroupDetails(secgroupId string) (*SSecurityGroup, error) {
 	secgroup := SSecurityGroup{region: region}
-	return &secgroup, region.client.Get(secgroupId, []string{}, &secgroup)
+	return &secgroup, region.get(secgroupId, url.Values{}, &secgroup)
 }
 
 func (self *SSecurityGroup) Refresh() error {
@@ -422,7 +423,7 @@ func (region *SRegion) AttachSecurityToInterfaces(secgroupId string, nicIds []st
 			return err
 		}
 		nic.Properties.NetworkSecurityGroup = &SSecurityGroup{ID: secgroupId}
-		if err := region.client.Update(jsonutils.Marshal(nic), nil); err != nil {
+		if err := region.update(jsonutils.Marshal(nic), nil); err != nil {
 			return err
 		}
 	}
@@ -453,12 +454,12 @@ func (self *SSecurityGroup) Delete() error {
 				return err
 			}
 			nic.Properties.NetworkSecurityGroup = nil
-			if err := self.region.client.Update(jsonutils.Marshal(nic), nil); err != nil {
+			if err := self.region.update(jsonutils.Marshal(nic), nil); err != nil {
 				return err
 			}
 		}
 	}
-	return self.region.client.Delete(self.ID)
+	return self.region.del(self.ID)
 }
 
 func (self *SSecurityGroup) SetRules(rules []cloudprovider.SecurityRule) error {
@@ -479,7 +480,7 @@ func (self *SSecurityGroup) SetRules(rules []cloudprovider.SecurityRule) error {
 	}
 	self.Properties.SecurityRules = securityRules
 	self.Properties.ProvisioningState = ""
-	return self.region.client.Update(jsonutils.Marshal(self), nil)
+	return self.region.update(jsonutils.Marshal(self), nil)
 }
 
 func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {

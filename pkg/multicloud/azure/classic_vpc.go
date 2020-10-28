@@ -16,6 +16,7 @@ package azure
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -91,7 +92,7 @@ func (self *SClassicVpc) GetCidrBlock() string {
 }
 
 func (self *SClassicVpc) Delete() error {
-	return self.region.client.Delete(self.ID)
+	return self.region.del(self.ID)
 }
 
 func (self *SClassicVpc) getWire() *SClassicWire {
@@ -103,7 +104,7 @@ func (self *SClassicVpc) getWire() *SClassicWire {
 
 func (region *SRegion) GetClassicVpc(vpcId string) (*SClassicVpc, error) {
 	vpc := SClassicVpc{region: region}
-	return &vpc, region.client.Get(vpcId, []string{}, &vpc)
+	return &vpc, region.get(vpcId, url.Values{}, &vpc)
 }
 
 func (self *SClassicVpc) fetchNetworks() error {
