@@ -1737,7 +1737,7 @@ func (self *SElasticcache) doExternalSync(ctx context.Context, userCred mcclient
 	return self.SyncWithCloudElasticcache(ctx, userCred, provider, iecs)
 }
 
-func (model *SElasticcacheManager) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (self *SElasticcache) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	log.Infof("elasticcache delete do nothing. Do delete in StartDeleteElasticcacheTask")
 	return nil
 }
