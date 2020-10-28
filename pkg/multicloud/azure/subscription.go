@@ -1,6 +1,6 @@
 package azure
 
-import "yunion.io/x/pkg/errors"
+import "net/url"
 
 type SSubscription struct {
 	SubscriptionId string `json:"subscriptionId"`
@@ -8,15 +8,8 @@ type SSubscription struct {
 	DisplayName    string `json:"displayName"`
 }
 
-func (self *SAzureClient) GetSubscriptions() ([]SSubscription, error) {
-	resp, err := self.ListSubscriptions()
-	if err != nil {
-		return nil, err
-	}
-	subscriptions := []SSubscription{}
-	err = resp.Unmarshal(&subscriptions, "value")
-	if err != nil {
-		return nil, errors.Wrap(err, "resp.Unmarshal")
-	}
-	return subscriptions, nil
+func (self *SAzureClient) ListSubscriptions() ([]SSubscription, error) {
+	result := []SSubscription{}
+	err := self.list("subscriptions", url.Values{}, &result)
+	return result, err
 }

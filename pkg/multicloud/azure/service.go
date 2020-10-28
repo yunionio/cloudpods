@@ -16,6 +16,7 @@ package azure
 
 import (
 	"fmt"
+	"net/url"
 )
 
 type SServices struct {
@@ -36,24 +37,24 @@ type ResourceType struct {
 	ResourceType string   `json:"resourceType,omitempty"`
 }
 
-func (self *SRegion) ListServices() ([]SService, error) {
+func (self *SAzureClient) ListServices() ([]SService, error) {
 	services := []SService{}
-	return services, self.client.List("providers", &services)
+	return services, self.list("providers", url.Values{}, &services)
 }
 
 func (self *SRegion) SerciceShow(serviceType string) (*SService, error) {
 	service := SService{}
-	return &service, self.client.Get("providers/"+serviceType, []string{}, &service)
+	return &service, self.get("providers/"+serviceType, url.Values{}, &service)
 }
 
 func (self *SRegion) serviceOperation(resourceType, operation string) error {
-	services, err := self.ListServices()
+	services, err := self.client.ListServices()
 	if err != nil {
 		return err
 	}
 	for _, service := range services {
 		if service.Namespace == resourceType {
-			_, err := self.client.jsonRequest("POST", fmt.Sprintf("%s/%s", service.ID, operation), "")
+			_, err := self.client.jsonRequest("POST", fmt.Sprintf("%s/%s", service.ID, operation), nil, url.Values{})
 			return err
 		}
 	}

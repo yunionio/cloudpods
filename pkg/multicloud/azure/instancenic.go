@@ -15,6 +15,7 @@
 package azure
 
 import (
+	"net/url"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -71,7 +72,7 @@ func (self *SInstanceNic) GetIP() string {
 }
 
 func (region *SRegion) DeleteNetworkInterface(interfaceId string) error {
-	return region.client.Delete(interfaceId)
+	return region.del(interfaceId)
 }
 
 func (self *SInstanceNic) Delete() error {
@@ -101,7 +102,7 @@ func (self *SInstanceNic) updateSecurityGroup(secgroupId string) error {
 	if len(secgroupId) > 0 {
 		self.Properties.NetworkSecurityGroup = &SSecurityGroup{ID: secgroupId}
 	}
-	return region.client.Update(jsonutils.Marshal(self), nil)
+	return region.update(jsonutils.Marshal(self), nil)
 }
 
 func (self *SInstanceNic) revokeSecurityGroup() error {
@@ -132,12 +133,12 @@ func (self *SInstanceNic) GetINetwork() cloudprovider.ICloudNetwork {
 
 func (self *SRegion) GetNetworkInterfaceDetail(interfaceId string) (*SInstanceNic, error) {
 	instancenic := SInstanceNic{}
-	return &instancenic, self.client.Get(interfaceId, []string{}, &instancenic)
+	return &instancenic, self.get(interfaceId, url.Values{}, &instancenic)
 }
 
 func (self *SRegion) GetNetworkInterfaces() ([]SInstanceNic, error) {
 	interfaces := []SInstanceNic{}
-	err := self.client.ListAll("Microsoft.Network/networkInterfaces", &interfaces)
+	err := self.client.list("Microsoft.Network/networkInterfaces", url.Values{}, &interfaces)
 	if err != nil {
 		return nil, err
 	}
@@ -177,5 +178,5 @@ func (self *SRegion) CreateNetworkInterface(resourceGroup string, nicName string
 		instancenic.Properties.IPConfigurations[0].Properties.PrivateIPAllocationMethod = "Dynamic"
 	}
 
-	return &instancenic, self.client.CreateWithResourceGroup(resourceGroup, jsonutils.Marshal(&instancenic), &instancenic)
+	return &instancenic, self.create(resourceGroup, jsonutils.Marshal(&instancenic), &instancenic)
 }

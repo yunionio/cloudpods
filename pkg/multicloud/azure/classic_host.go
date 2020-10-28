@@ -43,7 +43,7 @@ func (self *SClassicHost) GetName() string {
 }
 
 func (self *SClassicHost) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s-classic", self.zone.region.GetGlobalId(), self.zone.region.SubscriptionID)
+	return fmt.Sprintf("%s/%s-classic", self.zone.region.GetGlobalId(), self.zone.region.client.subscriptionId)
 }
 
 func (self *SClassicHost) IsEmulated() bool {

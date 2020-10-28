@@ -49,7 +49,7 @@ func (self *SHost) GetName() string {
 }
 
 func (self *SHost) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s", self.zone.region.GetGlobalId(), self.zone.region.SubscriptionID)
+	return fmt.Sprintf("%s/%s", self.zone.region.GetGlobalId(), self.zone.region.client.subscriptionId)
 }
 
 func (self *SHost) IsEmulated() bool {
@@ -74,7 +74,7 @@ func (self *SHost) searchNetorkInterface(IPAddr string, networkId string, secgro
 			if ipConf.Properties.PrivateIPAddress == IPAddr && networkId == ipConf.Properties.Subnet.ID && ipConf.Properties.PrivateIPAllocationMethod == "Static" {
 				if nic.Properties.NetworkSecurityGroup == nil || nic.Properties.NetworkSecurityGroup.ID != secgroupId {
 					nic.Properties.NetworkSecurityGroup = &SSecurityGroup{ID: secgroupId}
-					if err := self.zone.region.client.Update(jsonutils.Marshal(nic), nil); err != nil {
+					if err := self.zone.region.update(jsonutils.Marshal(nic), nil); err != nil {
 						log.Errorf("assign secgroup %s for nic %#v failed: %v", secgroupId, nic, err)
 						return nil, err
 					}
@@ -217,7 +217,7 @@ func (self *SHost) _createVM(desc *cloudprovider.SManagedVMCreateConfig, nicId s
 	if len(desc.InstanceType) > 0 {
 		instance.Properties.HardwareProfile.VMSize = desc.InstanceType
 		log.Debugf("Try HardwareProfile : %s", desc.InstanceType)
-		err = self.zone.region.client.CreateWithResourceGroup(desc.ProjectId, jsonutils.Marshal(instance), &instance)
+		err = self.zone.region.create(desc.ProjectId, jsonutils.Marshal(instance), &instance)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", desc.InstanceType, err)
 			return "", fmt.Errorf("Failed to create specification %s.%s", desc.InstanceType, err.Error())
@@ -228,7 +228,7 @@ func (self *SHost) _createVM(desc *cloudprovider.SManagedVMCreateConfig, nicId s
 	for _, profile := range self.zone.region.getHardwareProfile(desc.Cpu, desc.MemoryMB) {
 		instance.Properties.HardwareProfile.VMSize = profile
 		log.Debugf("Try HardwareProfile : %s", profile)
-		err = self.zone.region.client.CreateWithResourceGroup(desc.ProjectId, jsonutils.Marshal(instance), &instance)
+		err = self.zone.region.create(desc.ProjectId, jsonutils.Marshal(instance), &instance)
 		if err != nil {
 			for _, key := range []string{`"code":"InvalidParameter"`, `"code":"NicInUse"`} {
 				if strings.Contains(err.Error(), key) {

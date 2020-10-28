@@ -23,7 +23,7 @@ func init() {
 	type ServiceListOptions struct {
 	}
 	shellutils.R(&ServiceListOptions{}, "service-list", "List providers", func(cli *azure.SRegion, args *ServiceListOptions) error {
-		services, err := cli.ListServices()
+		services, err := cli.GetClient().ListServices()
 		if err != nil {
 			return err
 		}

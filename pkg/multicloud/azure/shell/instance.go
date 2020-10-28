@@ -54,19 +54,18 @@ func init() {
 	})
 
 	type InstanceSizeListOptions struct {
-		Location string
 	}
 
 	shellutils.R(&InstanceSizeListOptions{}, "instance-size-list", "List intances", func(cli *azure.SRegion, args *InstanceSizeListOptions) error {
-		if vmSize, err := cli.GetVMSize(args.Location); err != nil {
+		vmSizes, err := cli.ListVmSizes()
+		if err != nil {
 			return err
-		} else {
-			printObject(vmSize)
-			return nil
 		}
+		printList(vmSizes, 0, 0, 0, nil)
+		return nil
 	})
 	shellutils.R(&InstanceSizeListOptions{}, "resource-sku-list", "List resource sku", func(cli *azure.SRegion, args *InstanceSizeListOptions) error {
-		skus, err := cli.GetResourceSkus(args.Location)
+		skus, err := cli.GetClient().ListResourceSkus()
 		if err != nil {
 			return err
 		}

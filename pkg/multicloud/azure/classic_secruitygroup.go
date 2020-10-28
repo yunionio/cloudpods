@@ -17,6 +17,7 @@ package azure
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"strconv"
 	"strings"
 	"unicode"
@@ -186,12 +187,12 @@ func (region *SRegion) CreateClassicSecurityGroup(name string) (*SClassicSecurit
 		Type:     "Microsoft.ClassicNetwork/networkSecurityGroups",
 		Location: region.Name,
 	}
-	return &secgroup, region.client.Create(jsonutils.Marshal(secgroup), &secgroup)
+	return &secgroup, region.create("", jsonutils.Marshal(secgroup), &secgroup)
 }
 
 func (region *SRegion) GetClassicSecurityGroups(name string) ([]SClassicSecurityGroup, error) {
 	secgroups := []SClassicSecurityGroup{}
-	err := region.client.ListAll("Microsoft.ClassicNetwork/networkSecurityGroups", &secgroups)
+	err := region.client.list("Microsoft.ClassicNetwork/networkSecurityGroups", url.Values{}, &secgroups)
 	if err != nil {
 		return nil, err
 	}
@@ -206,11 +207,11 @@ func (region *SRegion) GetClassicSecurityGroups(name string) ([]SClassicSecurity
 
 func (region *SRegion) GetClassicSecurityGroupDetails(secgroupId string) (*SClassicSecurityGroup, error) {
 	secgroup := SClassicSecurityGroup{region: region}
-	return &secgroup, region.client.Get(secgroupId, []string{}, &secgroup)
+	return &secgroup, region.get(secgroupId, url.Values{}, &secgroup)
 }
 
 func (region *SRegion) deleteClassicSecurityGroup(secgroupId string) error {
-	return region.client.Delete(secgroupId)
+	return region.del(secgroupId)
 }
 
 func (self *SClassicSecurityGroup) Delete() error {
@@ -289,7 +290,10 @@ func convertClassicSecurityGroupRules(rule cloudprovider.SecurityRule) ([]SClass
 
 func (self *SRegion) getClassicSecurityGroupRules(secgroupId string) ([]SClassicSecurityGroupRule, error) {
 	rules := []SClassicSecurityGroupRule{}
-	result, err := self.client.jsonRequest("GET", fmt.Sprintf("%s/securityRules?api-version=2015-06-01", secgroupId), "")
+	params := url.Values{}
+	params.Set("api-version", "2015-06-01")
+	resource := fmt.Sprintf("%s/securityRules", secgroupId)
+	result, err := self.client.jsonRequest("GET", resource, nil, params)
 	if err != nil {
 		return nil, err
 	}
@@ -297,8 +301,10 @@ func (self *SRegion) getClassicSecurityGroupRules(secgroupId string) ([]SClassic
 }
 
 func (self *SRegion) addClassicSecgroupRule(secgroupId string, rule SClassicSecurityGroupRule) error {
-	url := fmt.Sprintf("%s/securityRules/%s?api-version=2015-06-01", secgroupId, rule.Name)
-	_, err := self.client.jsonRequest("PUT", url, jsonutils.Marshal(rule).String())
+	resource := fmt.Sprintf("%s/securityRules/%s", secgroupId, rule.Name)
+	params := url.Values{}
+	params.Set("api-version", "2015-06-01")
+	_, err := self.client.jsonRequest("PUT", resource, jsonutils.Marshal(rule), params)
 	return err
 }
 
@@ -308,7 +314,7 @@ func (self *SClassicSecurityGroup) GetProjectId() string {
 
 func (self *SClassicSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
 	for _, r := range append(inDels, outDels...) {
-		err := self.region.client.Delete(r.ExternalId)
+		err := self.region.del(r.ExternalId)
 		if err != nil {
 			return errors.Wrapf(err, "Delete(%s)", r.ExternalId)
 		}

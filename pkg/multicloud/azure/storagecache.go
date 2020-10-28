@@ -133,9 +133,9 @@ func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SStoragecache) checkStorageAccount() (*SStorageAccount, error) {
-	storageaccounts, err := self.region.GetStorageAccounts()
+	storageaccounts, err := self.region.ListStorageAccounts()
 	if err != nil {
-		return nil, errors.Wrap(err, "GetStorageAccounts")
+		return nil, errors.Wrap(err, "ListStorageAccounts")
 	}
 	if len(storageaccounts) == 0 {
 		storageaccount, err := self.region.CreateStorageAccount(self.region.Name)
@@ -146,16 +146,16 @@ func (self *SStoragecache) checkStorageAccount() (*SStorageAccount, error) {
 	}
 	for i := 0; i < len(storageaccounts); i++ {
 		if id, ok := storageaccounts[i].Tags["id"]; ok && id == self.region.Name {
-			return storageaccounts[i], nil
+			return &storageaccounts[i], nil
 		}
 	}
 
-	storageaccount := storageaccounts[0]
+	storageaccount := &storageaccounts[0]
 	if storageaccount.Tags == nil {
 		storageaccount.Tags = map[string]string{}
 	}
 	storageaccount.Tags["id"] = self.region.Name
-	err = self.region.client.Update(jsonutils.Marshal(storageaccount), nil)
+	err = self.region.update(jsonutils.Marshal(storageaccount), nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Update(%s)", jsonutils.Marshal(storageaccount).String())
 	}

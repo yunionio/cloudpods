@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
@@ -117,10 +118,9 @@ func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 			log.Debugf("find disk %s for storage %s", disks[i].GetName(), self.GetName())
 		}
 	}
-	storageaccounts, err := self.zone.region.GetStorageAccounts()
+	storageaccounts, err := self.zone.region.ListStorageAccounts()
 	if err != nil {
-		log.Errorf("List storage account for get idisks error: %v", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "ListStorageAccounts")
 	}
 	for i := 0; i < len(storageaccounts); i++ {
 		storageType := strings.ToLower(storageaccounts[i].Sku.Name)

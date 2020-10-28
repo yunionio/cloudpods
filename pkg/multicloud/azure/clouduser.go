@@ -119,19 +119,23 @@ func (user *SClouduser) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy,
 }
 
 func (user *SClouduser) AttachSystemPolicy(policyId string) error {
-	subscriptionId, err := user.client.getDefaultSubscriptionId()
-	if err != nil {
-		return errors.Wrapf(err, "getDefaultSubscriptionId")
+	for _, subscription := range user.client.subscriptions {
+		err := user.client.AssignPolicy(user.ObjectId, policyId, subscription.SubscriptionId)
+		if err != nil {
+			return errors.Wrapf(err, "AssignPolicy for subscription %s", subscription.SubscriptionId)
+		}
 	}
-	return user.client.AssignPolicy(user.ObjectId, policyId, subscriptionId)
+	return nil
 }
 
 func (user *SClouduser) AttachCustomPolicy(policyId string) error {
-	subscriptionId, err := user.client.getDefaultSubscriptionId()
-	if err != nil {
-		return errors.Wrapf(err, "getDefaultSubscriptionId")
+	for _, subscription := range user.client.subscriptions {
+		err := user.client.AssignPolicy(user.ObjectId, policyId, subscription.SubscriptionId)
+		if err != nil {
+			return errors.Wrapf(err, "AssignPolicy for subscription %s", subscription.SubscriptionId)
+		}
 	}
-	return user.client.AssignPolicy(user.ObjectId, policyId, subscriptionId)
+	return nil
 }
 
 func (user *SClouduser) DetachSystemPolicy(policyId string) error {
@@ -145,7 +149,7 @@ func (user *SClouduser) DetachSystemPolicy(policyId string) error {
 			return errors.Wrapf(err, "GetRule(%s)", assignment.Properties.RoleDefinitionId)
 		}
 		if role.Properties.RoleName == policyId {
-			return user.client.Delete(assignment.Id)
+			return user.client.gdel(assignment.Id)
 		}
 	}
 	return nil
@@ -182,30 +186,13 @@ func (user *SClouduser) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
 }
 
 func (self *SAzureClient) GetUserGroups(userId string) ([]SCloudgroup, error) {
-	cli, err := self.getGraphClient()
-	if err != nil {
-		return nil, err
-	}
-
 	resource := fmt.Sprintf("%s/users/%s/memberOf", self.tenantId, userId)
-	resp, err := jsonRequest(cli, "GET", self.domain, resource, self.subscriptionId, "", GraphResource)
-	if err != nil {
-		return nil, err
-	}
-
 	groups := []SCloudgroup{}
-	err = resp.Unmarshal(&groups, "value")
-	if err != nil {
-		return nil, errors.Wrap(err, "resp.Unmarshal")
-	}
-	return groups, nil
+	err := self.glist(resource, url.Values{}, groups)
+	return groups, err
 }
 
 func (self *SAzureClient) ResetClouduserPassword(id, password string) error {
-	cli, err := self.getGraphClient()
-	if err != nil {
-		return err
-	}
 	body := jsonutils.Marshal(map[string]interface{}{
 		"passwordPolicies": "DisablePasswordExpiration, DisableStrongPassword",
 		"passwordProfile": map[string]interface{}{
@@ -213,7 +200,7 @@ func (self *SAzureClient) ResetClouduserPassword(id, password string) error {
 		},
 	})
 	resource := fmt.Sprintf("%s/users/%s", self.tenantId, id)
-	_, err = jsonRequest(cli, "PATCH", self.domain, resource, self.subscriptionId, body.String(), GraphResource)
+	_, err := self.gpatch(resource, body)
 	return err
 }
 
@@ -223,7 +210,7 @@ func (self *SAzureClient) GetCloudusers(name string) ([]SClouduser, error) {
 	if len(name) > 0 {
 		params.Set("$filter", fmt.Sprintf("userPrincipalName eq '%s'", name))
 	}
-	err := self.ListGraphResource("users", params, &users)
+	err := self.glist("users", params, &users)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +218,7 @@ func (self *SAzureClient) GetCloudusers(name string) ([]SClouduser, error) {
 }
 
 func (self *SAzureClient) DeleteClouduser(id string) error {
-	return self.DeleteGraph(fmt.Sprintf("%s/users/%s?api-version=1.6", self.tenantId, id))
+	return self.gdel(fmt.Sprintf("%s/users/%s", self.tenantId, id))
 }
 
 func (self *SAzureClient) GetICloudusers() ([]cloudprovider.IClouduser, error) {
@@ -272,9 +259,9 @@ type SDomain struct {
 
 func (self *SAzureClient) GetDomains() ([]SDomain, error) {
 	domains := []SDomain{}
-	err := self.ListGraphResource("domains", nil, &domains)
+	err := self.glist("domains", nil, &domains)
 	if err != nil {
-		return nil, errors.Wrap(err, "ListGraphResource")
+		return nil, errors.Wrap(err, "glist")
 	}
 	return domains, nil
 }
@@ -302,7 +289,7 @@ func (self *SAzureClient) CreateClouduser(name, password string) (*SClouduser, e
 	}
 	params["userPrincipalName"] = fmt.Sprintf("%s@%s", name, domains[0].Name)
 	user := SClouduser{client: self}
-	err = self.CreateGraphResource("users", jsonutils.Marshal(params), &user)
+	err = self.gcreate("users", jsonutils.Marshal(params), &user)
 	if err != nil {
 		return nil, errors.Wrap(err, "Create")
 	}

@@ -25,12 +25,12 @@ func init() {
 		Offset int `help:"page offset"`
 	}
 	shellutils.R(&ResourceGroupListOptions{}, "resource-group-list", "List group", func(cli *azure.SRegion, args *ResourceGroupListOptions) error {
-		if groups, err := cli.GetResourceGroups(); err != nil {
+		groups, err := cli.GetClient().ListResourceGroups()
+		if err != nil {
 			return err
-		} else {
-			printList(groups, len(groups), args.Offset, args.Limit, []string{})
-			return nil
 		}
+		printList(groups, len(groups), 0, 0, []string{})
+		return nil
 	})
 
 	type ResourceGroupOptions struct {
@@ -47,10 +47,11 @@ func init() {
 	})
 
 	shellutils.R(&ResourceGroupOptions{}, "resource-group-create", "Create resource group", func(cli *azure.SRegion, args *ResourceGroupOptions) error {
-		err := cli.CreateResourceGroup(args.GROUP)
+		resp, err := cli.CreateResourceGroup(args.GROUP)
 		if err != nil {
 			return err
 		}
+		printObject(resp)
 		return nil
 	})
 

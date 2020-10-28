@@ -25,12 +25,12 @@ func init() {
 	type StorageAccountListOptions struct {
 	}
 	shellutils.R(&StorageAccountListOptions{}, "storage-account-list", "List storage account", func(cli *azure.SRegion, args *StorageAccountListOptions) error {
-		if accounts, err := cli.GetStorageAccounts(); err != nil {
+		accounts, err := cli.ListStorageAccounts()
+		if err != nil {
 			return err
-		} else {
-			printList(accounts, len(accounts), 0, 0, []string{})
-			return nil
 		}
+		printList(accounts, len(accounts), 0, 0, []string{})
+		return nil
 	})
 
 	type StorageAccountOptions struct {

@@ -14,12 +14,6 @@
 
 package azure
 
-import (
-	"fmt"
-
-	"yunion.io/x/pkg/utils"
-)
-
 /*
 {
 	"capabilities":[
@@ -113,48 +107,7 @@ type SResourceSkusResult struct {
 }
 
 func (self *SAzureClient) ListResourceSkus() ([]SResourceSku, error) {
-	cli, err := self.getDefaultClient()
-	if err != nil {
-		return nil, err
-	}
-	if len(self.subscriptionId) == 0 {
-		return nil, fmt.Errorf("need subscription id")
-	}
-	url := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Compute/skus?api-version=2017-09-01", self.subscriptionId)
-	skus := make([]SResourceSku, 0)
-	for {
-		body, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "", DefaultResource)
-		if err != nil {
-			return nil, err
-		}
-		result := SResourceSkusResult{}
-		err = body.Unmarshal(&result)
-		if err != nil {
-			return nil, err
-		}
-		skus = append(skus, result.Value...)
-		if len(result.NextLink) > 0 {
-			url = result.NextLink
-		} else {
-			break
-		}
-	}
-	return skus, nil
-}
-
-func (self *SRegion) GetResourceSkus(location string) ([]SResourceSku, error) {
-	skus, err := self.client.ListResourceSkus()
-	if err != nil {
-		return nil, err
-	}
-	if len(location) == 0 {
-		return skus, nil
-	}
-	ret := make([]SResourceSku, 0)
-	for i := 0; i < len(skus); i += 1 {
-		if utils.IsInStringArray(location, skus[i].Locations) {
-			ret = append(ret, skus[i])
-		}
-	}
-	return ret, nil
+	skus := []SResourceSku{}
+	resource := "Microsoft.Compute/skus"
+	return skus, self.list(resource, nil, &skus)
 }

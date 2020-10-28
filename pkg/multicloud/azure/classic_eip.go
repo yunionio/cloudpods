@@ -15,6 +15,7 @@
 package azure
 
 import (
+	"net/url"
 	"strings"
 	"time"
 
@@ -134,7 +135,7 @@ func (self *SClassicEipAddress) IsEmulated() bool {
 
 func (region *SRegion) GetClassicEip(eipId string) (*SClassicEipAddress, error) {
 	eip := SClassicEipAddress{region: region}
-	return &eip, region.client.Get(eipId, []string{}, &eip)
+	return &eip, region.get(eipId, url.Values{}, &eip)
 }
 
 func (self *SClassicEipAddress) Refresh() error {
@@ -147,7 +148,7 @@ func (self *SClassicEipAddress) Refresh() error {
 
 func (region *SRegion) GetClassicEips() ([]SClassicEipAddress, error) {
 	eips := []SClassicEipAddress{}
-	err := region.client.ListAll("Microsoft.ClassicNetwork/reservedIps", &eips)
+	err := region.client.list("Microsoft.ClassicNetwork/reservedIps", url.Values{}, &eips)
 	if err != nil {
 		return nil, err
 	}
