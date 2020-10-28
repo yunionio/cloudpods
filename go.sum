@@ -1142,5 +1142,7 @@ yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e h1:v+EzIadodSwkdZ/7bremd7J8
 yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e/go.mod h1:0iFKpOs1y4lbCxeOmq3Xx/0AcQoewVPwj62eRluioEo=
 yunion.io/x/sqlchemy v0.0.0-20201029091740-cd5e77b56d4b h1:xBAzDPvvmsOBjxAj0PLHMNLVdPNOlYFHAm7T3IZ2ehs=
 yunion.io/x/sqlchemy v0.0.0-20201029091740-cd5e77b56d4b/go.mod h1:FTdwPdGhMgh4E+UFXc9klI1Ok34fMuybTT+jLhOaIjI=
+yunion.io/x/sqlchemy v0.0.0-20201116041103-013e56cab959 h1:42hMtiEXrGgSf2aS+LE5FNK9i3FzKwyaPgYoX0rD6NQ=
+yunion.io/x/sqlchemy v0.0.0-20201116041103-013e56cab959/go.mod h1:FTdwPdGhMgh4E+UFXc9klI1Ok34fMuybTT+jLhOaIjI=
 yunion.io/x/structarg v0.0.0-20200720093445-9f850fa222ce h1:kU8xE7O5uZ1GSJVMZHoJ+jrNL7csUQHYGyAPW9QfNpE=
 yunion.io/x/structarg v0.0.0-20200720093445-9f850fa222ce/go.mod h1:EP6NSv2C0zzqBDTKumv8hPWLb3XvgMZDHQRfyuOrQng=
