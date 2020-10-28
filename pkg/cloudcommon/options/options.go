@@ -90,6 +90,8 @@ type BaseOptions struct {
 
 	ApiServer string `help:"URL to access frontend webconsole"`
 
+	CustomizedPrivatePrefixes []string `help:"customized private prefixes"`
+
 	structarg.BaseOptions
 }
 

@@ -15,6 +15,11 @@
 package options
 
 import (
+	"sort"
+
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/netutils"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 )
 
@@ -24,6 +29,7 @@ func OnBaseOptionsChange(oOpts, nOpts interface{}) bool {
 
 	changed := false
 	if oldOpts.RequestWorkerCount != newOpts.RequestWorkerCount {
+		log.Debugf("RequestWorkerCount changed from %d to %d", oldOpts.RequestWorkerCount, newOpts.RequestWorkerCount)
 		changed = true
 	}
 	if oldOpts.TimeZone != newOpts.TimeZone {
@@ -40,7 +46,28 @@ func OnBaseOptionsChange(oOpts, nOpts interface{}) bool {
 		consts.SetDomainizedNamespace(newOpts.DomainizedNamespace)
 		changed = true
 	}
+	if privatePrrefixesChanged(oldOpts.CustomizedPrivatePrefixes, newOpts.CustomizedPrivatePrefixes) {
+		netutils.SetPrivatePrefixes(newOpts.CustomizedPrivatePrefixes)
+		log.Debugf("Customized private prefixes: %s", netutils.GetPrivateIPRanges())
+	}
 	return changed
+}
+
+func privatePrrefixesChanged(oldprefs, newprefs []string) bool {
+	if len(oldprefs) != len(newprefs) {
+		return true
+	}
+	if len(oldprefs) == 0 {
+		return false
+	}
+	sort.Strings(oldprefs)
+	sort.Strings(newprefs)
+	for i := range newprefs {
+		if oldprefs[i] != newprefs[i] {
+			return true
+		}
+	}
+	return false
 }
 
 func OnCommonOptionsChange(oOpts, nOpts interface{}) bool {
