@@ -887,7 +887,8 @@ func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
 	}
 	ret := make([]cloudprovider.ICloudBucket, 0)
 	for i := range iBuckets {
-		if iBuckets[i].GetLocation() != region.GetId() {
+		bucket := iBuckets[i].(*SBucket)
+		if bucket.region.GetId() != region.GetId() {
 			continue
 		}
 		ret = append(ret, iBuckets[i])
