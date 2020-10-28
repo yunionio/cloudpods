@@ -61,6 +61,7 @@ func (self *LoadbalancerBackendGroupDeleteTask) OnLoadbalancerBackendGroupDelete
 	db.OpsLog.LogEvent(lbbg, db.ACT_DELETE, lbbg.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbbg, logclient.ACT_DELOCATE, nil, self.UserCred, true)
 	lbbg.LBPendingDelete(ctx, self.GetUserCred())
+	notifyclient.NotifyWebhook(ctx, self.UserCred, lbbg, notifyclient.ActionDelete)
 	self.SetStageComplete(ctx, nil)
 }
 

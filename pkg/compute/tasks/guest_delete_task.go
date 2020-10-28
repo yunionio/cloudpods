@@ -345,10 +345,7 @@ func (self *GuestDeleteTask) DeleteGuest(ctx context.Context, guest *models.SGue
 }
 
 func (self *GuestDeleteTask) NotifyServerDeleted(ctx context.Context, guest *models.SGuest) {
-	err := notifyclient.NotifyWebhook(ctx, self.UserCred, guest, notifyclient.ActionDelete)
-	if err != nil {
-		log.Errorf("unable to NotifyWebhook: %v", err)
-	}
+	notifyclient.NotifyWebhook(ctx, self.UserCred, guest, notifyclient.ActionDelete)
 	guest.NotifyServerEvent(
 		ctx,
 		self.UserCred,

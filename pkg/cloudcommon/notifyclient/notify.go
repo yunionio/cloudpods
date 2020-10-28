@@ -117,13 +117,15 @@ func getContent(ctx context.Context, topic string, contType string, channel npk.
 	return buf.String(), nil
 }
 
-func NotifyWebhook(ctx context.Context, userCred mcclient.TokenCredential, obj db.IModel, action SAction) error {
+func NotifyWebhook(ctx context.Context, userCred mcclient.TokenCredential, obj db.IModel, action SAction) {
 	ret, err := db.FetchCustomizeColumns(obj.GetModelManager(), ctx, userCred, jsonutils.NewDict(), []interface{}{obj}, stringutils2.SSortedStrings{}, false)
 	if err != nil {
-		return err
+		log.Errorf("unable to NotifyWebhook: %v", err)
+		return
 	}
 	if len(ret) == 0 {
-		return fmt.Errorf("unable to get details for model %q", obj.GetId())
+		log.Errorf("unable to NotifyWebhook: details of model %q is empty", obj.GetId())
+		return
 	}
 	event := Event.WithAction(action).WithResourceType(obj.GetModelManager())
 	msg := jsonutils.NewDict()
@@ -131,7 +133,6 @@ func NotifyWebhook(ctx context.Context, userCred mcclient.TokenCredential, obj d
 	msg.Set("action", jsonutils.NewString(event.Action()))
 	msg.Set("resource_details", ret[0])
 	RawNotifyWithCtx(ctx, []string{}, false, npk.NotifyByWebhook, npk.NotifyPriorityNormal, event.String(), msg)
-	return nil
 }
 
 func NotifyWithCtx(ctx context.Context, recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {
