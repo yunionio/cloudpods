@@ -32,6 +32,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -382,14 +383,15 @@ func (man *SLoadbalancerCertificateManager) InitializeData() error {
 	return nil
 }
 
-func (man *SLoadbalancerCertificateManager) CreateCertificate(ctx context.Context, userCred mcclient.TokenCredential, name string, publicKey string, privateKey, fingerprint string) (*SLoadbalancerCertificate, error) {
+func (man *SLoadbalancerCertificateManager) CreateCertificate(ctx context.Context, userCred mcclient.TokenCredential, name string, extCert cloudprovider.ICloudLoadbalancerCertificate) (*SLoadbalancerCertificate, error) {
+	fingerprint := extCert.GetFingerprint()
 	if len(fingerprint) == 0 {
 		return nil, fmt.Errorf("CreateCertificate fingerprint can not be empty")
 	}
 
 	data := jsonutils.NewDict()
-	data.Set("certificate", jsonutils.NewString(publicKey))
-	data.Set("private_key", jsonutils.NewString(privateKey))
+	data.Set("certificate", jsonutils.NewString(extCert.GetPublickKey()))
+	data.Set("private_key", jsonutils.NewString(extCert.GetPrivateKey()))
 	data.Set("name", jsonutils.NewString(name))
 	data.Set("fingerprint", jsonutils.NewString(fingerprint))
 	q := man.Query().Equals("fingerprint", fingerprint).Asc("created_at").IsFalse("pending_deleted")
@@ -409,6 +411,11 @@ func (man *SLoadbalancerCertificateManager) CreateCertificate(ctx context.Contex
 		cert.DomainId = userCred.GetProjectDomainId()
 		cert.ProjectId = userCred.GetProjectId()
 		cert.ProjectSrc = string(apis.OWNER_SOURCE_CLOUD)
+
+		// other information's
+		cert.CommonName = extCert.GetCommonName()
+		cert.SubjectAlternativeNames = extCert.GetSubjectAlternativeNames()
+		cert.NotAfter = extCert.GetExpireTime()
 
 		err = man.TableSpec().Insert(ctx, cert)
 		if err != nil {

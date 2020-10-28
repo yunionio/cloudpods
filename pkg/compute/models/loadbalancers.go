@@ -815,7 +815,7 @@ func (man *SLoadbalancerManager) getLoadbalancersByExternalIds(externalIds []str
 	return lbs, nil
 }
 
-func (man *SLoadbalancerManager) getLocalLoadbalancers(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, lbs []cloudprovider.ICloudLoadbalancer)  ([]SLoadbalancer, error) {
+func (man *SLoadbalancerManager) getLocalLoadbalancers(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, lbs []cloudprovider.ICloudLoadbalancer) ([]SLoadbalancer, error) {
 	part1, err := man.getLoadbalancersByRegion(region, provider)
 	if err != nil {
 		return nil, err
@@ -960,7 +960,7 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 	lb.NetworkId = strings.Join(lbNetworkIds, ",")
 
 	// classic vpc
-	if extLb.GetNetworkType() == api.LB_NETWORK_TYPE_CLASSIC  {
+	if extLb.GetNetworkType() == api.LB_NETWORK_TYPE_CLASSIC {
 		if vpc, err := VpcManager.GetOrCreateVpcForClassicNetwork(ctx, provider, region); err == nil && vpc != nil {
 			lb.VpcId = vpc.GetId()
 		}
@@ -1156,7 +1156,7 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 		syncVirtualResourceMetadata(ctx, userCred, lb, extLb)
 
 		// classic vpc
-		if extLb.GetNetworkType() == api.LB_NETWORK_TYPE_CLASSIC  {
+		if extLb.GetNetworkType() == api.LB_NETWORK_TYPE_CLASSIC {
 			if vpc, err := VpcManager.GetOrCreateVpcForClassicNetwork(ctx, provider, region); err == nil && vpc != nil {
 				lb.VpcId = vpc.GetId()
 			}
