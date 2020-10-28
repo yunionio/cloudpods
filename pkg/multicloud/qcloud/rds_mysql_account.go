@@ -290,18 +290,22 @@ func (self *SRegion) DescribeMySQLAccounts(instanceId string, offset, limit int)
 }
 
 func (self *SMySQLInstance) GetIDBInstanceAccounts() ([]cloudprovider.ICloudDBInstanceAccount, error) {
-	ret := []cloudprovider.ICloudDBInstanceAccount{}
+	accounts := []SMySQLInstanceAccount{}
 	for {
-		part, total, err := self.region.DescribeMySQLAccounts(self.InstanceId, len(ret), 100)
+		part, total, err := self.region.DescribeMySQLAccounts(self.InstanceId, len(accounts), 100)
 		if err != nil {
 			return nil, errors.Wrapf(err, "DescribeMySQLAccounts")
 		}
-		for i := range part {
-			part[i].rds = self
-			ret = append(ret, &part[i])
-		}
-		if len(ret) >= total {
+		accounts = append(accounts, part...)
+		if len(accounts) >= total {
 			break
+		}
+	}
+	ret := []cloudprovider.ICloudDBInstanceAccount{}
+	for i := range accounts {
+		if len(accounts[i].User) > 0 { // 忽略用户为空的用户
+			accounts[i].rds = self
+			ret = append(ret, &accounts[i])
 		}
 	}
 	return ret, nil

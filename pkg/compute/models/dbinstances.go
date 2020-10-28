@@ -1556,9 +1556,10 @@ func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred m
 					return q.Equals("manager_id", provider.Id)
 				})
 				if err != nil {
-					return errors.Wrapf(err, "SyncWithCloudDBInstance.FetchVpcId")
+					log.Errorf("FetchVpcId(%s) error: %v", vpcId, err)
+				} else {
+					self.VpcId = vpc.GetId()
 				}
-				self.VpcId = vpc.GetId()
 			}
 		}
 
@@ -1630,9 +1631,10 @@ func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, u
 			return q.Equals("manager_id", provider.Id)
 		})
 		if err != nil {
-			return nil, errors.Wrapf(err, "newFromCloudDBInstance.FetchVpcId")
+			log.Errorf("FetchVpcId(%s) error: %v", vpcId, err)
+		} else {
+			instance.VpcId = vpc.GetId()
 		}
-		instance.VpcId = vpc.GetId()
 	}
 
 	if createdAt := extInstance.GetCreatedAt(); !createdAt.IsZero() {
