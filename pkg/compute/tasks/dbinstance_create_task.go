@@ -23,6 +23,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -60,7 +61,7 @@ func (self *DBInstanceCreateTask) CreateDBInstance(ctx context.Context, dbinstan
 func (self *DBInstanceCreateTask) OnCreateDBInstanceComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	dbinstance := obj.(*models.SDBInstance)
 	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_CREATE, nil, self.UserCred, true)
-
+	notifyclient.NotifyWebhook(ctx, self.UserCred, dbinstance, notifyclient.ActionCreate)
 	self.SetStage("OnSyncDBInstanceStatusComplete", nil)
 	models.StartResourceSyncStatusTask(ctx, self.UserCred, dbinstance, "DBInstanceSyncStatusTask", self.GetTaskId())
 }

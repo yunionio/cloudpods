@@ -180,6 +180,7 @@ func (self *LoadbalancerListenerCreateTask) OnPrepareLoadbalancerBackendgroup(ct
 	lblis.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, "")
 	db.OpsLog.LogEvent(lblis, db.ACT_ALLOCATE, lblis.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_CREATE, nil, self.UserCred, true)
+	notifyclient.NotifyWebhook(ctx, self.UserCred, lblis, notifyclient.ActionCreate)
 	self.SetStage("OnLoadbalancerListenerStartComplete", nil)
 	lblis.StartLoadBalancerListenerStartTask(ctx, self.GetUserCred(), self.GetTaskId())
 }
