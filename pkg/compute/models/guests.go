@@ -1615,10 +1615,7 @@ func (self *SGuest) PostUpdate(ctx context.Context, userCred mcclient.TokenCrede
 		}
 	}
 	// notify webhook
-	err := notifyclient.NotifyWebhook(ctx, userCred, self, notifyclient.ActionUpdate)
-	if err != nil {
-		log.Errorf("unable to NotifyWebhook: %v", err)
-	}
+	notifyclient.NotifyWebhook(ctx, userCred, self, notifyclient.ActionUpdate)
 }
 
 func (manager *SGuestManager) checkCreateQuota(
