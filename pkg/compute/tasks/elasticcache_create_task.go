@@ -87,6 +87,10 @@ func (self *ElasticcacheCreateTask) OnSyncSecurityGroupComplete(ctx context.Cont
 	}
 }
 
+func (self *ElasticcacheCreateTask) OnSyncSecurityGroupCompleteFailed(ctx context.Context, elasticcache *models.SElasticcache, reason jsonutils.JSONObject) {
+	self.taskFail(ctx, elasticcache, reason)
+}
+
 func (self *ElasticcacheCreateTask) OnElasticcacheCreateComplete(ctx context.Context, elasticcache *models.SElasticcache, data jsonutils.JSONObject) {
 	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RUNNING, "")
 	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_CREATE, "", self.UserCred, true)

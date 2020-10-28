@@ -839,7 +839,7 @@ func (self *SElasticcache) FlushInstance(input cloudprovider.SCloudElasticCacheF
 }
 
 // https://help.aliyun.com/document_detail/98531.html?spm=5176.11065259.1996646101.searchclickresult.4df474c38Sc2SO
-func (self *SElasticcache) UpdateAuthMode(noPwdAccess bool) error {
+func (self *SElasticcache) UpdateAuthMode(noPwdAccess bool, password string) error {
 	params := make(map[string]string)
 	params["InstanceId"] = self.GetId()
 	if noPwdAccess {

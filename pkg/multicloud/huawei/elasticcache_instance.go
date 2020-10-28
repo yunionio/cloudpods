@@ -689,7 +689,7 @@ func (self *SElasticcache) FlushInstance(input cloudprovider.SCloudElasticCacheF
 }
 
 // SElasticcacheAccount => ResetPassword
-func (self *SElasticcache) UpdateAuthMode(noPwdAccess bool) error {
+func (self *SElasticcache) UpdateAuthMode(noPwdAccess bool, password string) error {
 	return cloudprovider.ErrNotSupported
 }
 

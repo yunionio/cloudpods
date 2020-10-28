@@ -68,8 +68,8 @@ type InstanceTag struct {
 }
 
 type MaintenanceTime struct {
-	StartTime time.Time `json:"start_time"`
-	EndTime   time.Time `json:"end_time"`
+	StartTime string `json:"start_time"`
+	EndTime   string `json:"end_time"`
 }
 
 var zoneMaps = map[int]string{
@@ -438,7 +438,7 @@ func (self *SElasticcache) GetMaintainStartTime() string {
 		}
 	}
 
-	return self.MaintenanceTime.StartTime.String()
+	return self.MaintenanceTime.StartTime
 }
 
 func (self *SElasticcache) GetMaintainEndTime() string {
@@ -449,7 +449,7 @@ func (self *SElasticcache) GetMaintainEndTime() string {
 		}
 	}
 
-	return self.MaintenanceTime.EndTime.String()
+	return self.MaintenanceTime.EndTime
 }
 
 func (self *SElasticcache) GetAuthMode() string {
@@ -475,7 +475,7 @@ func (self *SElasticcache) GetSecurityGroupIds() ([]string, error) {
 }
 
 func (self *SElasticcache) GetICloudElasticcacheAccounts() ([]cloudprovider.ICloudElasticcacheAccount, error) {
-	accounts, err := self.region.GetCloudElasticcacheAccounts(self.GetId())
+	accounts, err := self.getCloudElasticcacheAccounts()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetCloudElasticcacheAccounts")
 	}
@@ -527,7 +527,7 @@ func (self *SElasticcache) GetICloudElasticcacheParameters() ([]cloudprovider.IC
 }
 
 func (self *SElasticcache) GetICloudElasticcacheAccount(accountId string) (cloudprovider.ICloudElasticcacheAccount, error) {
-	accounts, err := self.region.GetCloudElasticcacheAccounts(self.GetId())
+	accounts, err := self.getCloudElasticcacheAccounts()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetCloudElasticcacheAccounts")
 	}
@@ -780,22 +780,21 @@ func (self *SElasticcache) FlushInstance(input cloudprovider.SCloudElasticCacheF
 }
 
 // https://cloud.tencent.com/document/product/239/38923
+// https://cloud.tencent.com/document/product/239/20014
 // true表示将主账号切换为免密账号，这里只适用于主账号，子账号不可免密
-func (self *SElasticcache) UpdateAuthMode(noPasswordAccess bool) error {
-	account, err := self.getCloudElasticcacheAccount("root")
-	if err != nil {
-		return errors.Wrap(err, "getCloudElasticcacheAccount")
+func (self *SElasticcache) UpdateAuthMode(noPasswordAccess bool, password string) error {
+	params := map[string]string{}
+	params["InstanceId"] = self.GetId()
+	if noPasswordAccess {
+		params["NoAuth"] = "true"
+	} else {
+		params["NoAuth"] = "false"
+		params["Password"] = password
 	}
 
-	input := cloudprovider.SCloudElasticCacheAccountUpdateInput{}
-	input.NoPasswordAccess = &noPasswordAccess
-	//if noPasswordAccess == false {
-	//	input.Password = password
-	//}
-
-	err = account.UpdateAccount(input)
+	_, err := self.region.redisRequest("ResetPassword", params)
 	if err != nil {
-		return errors.Wrap(err, "UpdateAccount")
+		return errors.Wrap(err, "ResetPassword")
 	}
 
 	return nil
@@ -819,9 +818,34 @@ func (self *SElasticcache) UpdateBackupPolicy(config cloudprovider.SCloudElastic
 	panic("implement me")
 }
 
+func (self *SElasticcache) getCloudElasticcacheAccounts() ([]SElasticcacheAccount, error) {
+	if self.GetEngineVersion() == "2.8" {
+		account := SElasticcacheAccount{}
+		account.cacheDB = self
+		account.AccountName = "root"
+		account.InstanceID = self.GetId()
+		account.Privilege = "rw"
+		account.Status = 2
+		account.IsEmulate = true
+
+		return []SElasticcacheAccount{account}, nil
+	}
+
+	accounts, err := self.region.GetCloudElasticcacheAccounts(self.GetId())
+	if err != nil {
+		return nil, errors.Wrap(err, "GetCloudElasticcacheAccounts")
+	}
+
+	for i := range accounts {
+		accounts[i].cacheDB = self
+	}
+
+	return accounts, nil
+}
+
 // https://cloud.tencent.com/document/api/239/38924
 func (self *SElasticcache) getCloudElasticcacheAccount(accountName string) (*SElasticcacheAccount, error) {
-	accounts, err := self.region.GetCloudElasticcacheAccounts(self.GetId())
+	accounts, err := self.getCloudElasticcacheAccounts()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetCloudElasticcacheAccounts")
 	}
@@ -858,7 +882,7 @@ func (self *SRegion) GetCloudElasticcacheAccounts(instanceId string) ([]SElastic
 	params := map[string]string{}
 	params["Region"] = self.GetId()
 	params["InstanceId"] = instanceId
-	params["Limit"] = "1000"
+	params["Limit"] = "100"
 	params["Offset"] = "0"
 	resp, err := self.client.redisRequest("DescribeInstanceAccount", params)
 	if err != nil {

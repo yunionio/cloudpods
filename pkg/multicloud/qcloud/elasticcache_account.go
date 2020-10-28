@@ -24,6 +24,7 @@ type SElasticcacheAccount struct {
 	Privilege      string   `json:"Privilege"`
 	ReadonlyPolicy []string `json:"ReadonlyPolicy"`
 	Status         int      `json:"Status"`
+	IsEmulate      bool     `json:"is_emulate"`
 }
 
 func (self *SElasticcacheAccount) GetId() string {
@@ -32,6 +33,10 @@ func (self *SElasticcacheAccount) GetId() string {
 
 func (self *SElasticcacheAccount) GetName() string {
 	return self.AccountName
+}
+
+func (self *SElasticcacheAccount) IsEmulated() bool {
+	return self.IsEmulate
 }
 
 func (self *SElasticcacheAccount) GetGlobalId() string {

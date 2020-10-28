@@ -910,7 +910,7 @@ type ICloudElasticcache interface {
 	CreateAcl(aclName, securityIps string) (ICloudElasticcacheAcl, error)
 	CreateBackup(desc string) (ICloudElasticcacheBackup, error)
 	FlushInstance(input SCloudElasticCacheFlushInstanceInput) error
-	UpdateAuthMode(noPasswordAccess bool) error
+	UpdateAuthMode(noPasswordAccess bool, password string) error
 	UpdateInstanceParameters(config jsonutils.JSONObject) error
 	UpdateBackupPolicy(config SCloudElasticCacheBackupPolicyUpdateInput) error
 
