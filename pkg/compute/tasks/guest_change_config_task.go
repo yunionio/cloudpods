@@ -272,11 +272,8 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecCompleteFailed(ctx con
 func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecFinish(ctx context.Context, guest *models.SGuest) {
 	models.HostManager.ClearSchedDescCache(guest.HostId)
 	self.SetStage("OnSyncConfigComplete", nil)
-	err := notifyclient.NotifyWebhook(ctx, self.UserCred, guest, notifyclient.ActionChangeConfig)
-	if err != nil {
-		log.Errorf("unable to NotifyWebhook: %v", err)
-	}
-	err = guest.StartSyncTaskWithoutSyncstatus(ctx, self.UserCred, false, self.GetTaskId())
+	notifyclient.NotifyWebhook(ctx, self.UserCred, guest, notifyclient.ActionChangeConfig)
+	err := guest.StartSyncTaskWithoutSyncstatus(ctx, self.UserCred, false, self.GetTaskId())
 	if err != nil {
 		self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("StartSyncstatus fail %s", err)))
 		return
