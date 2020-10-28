@@ -87,38 +87,28 @@ func (self *SOAuth2Driver) Authenticate(ctx context.Context, ident mcclient.SAut
 		return nil, errors.Wrapf(err, "driver %s Authenticate", self.Template)
 	}
 
-	var usrId, usrName string
+	var domainId, domainName, usrId, usrName string
+	if v, ok := attrs[options.DomainIdAttribute]; ok && len(v) > 0 {
+		domainId = v[0]
+	}
+	if v, ok := attrs[options.DomainNameAttribute]; ok && len(v) > 0 {
+		domainName = v[0]
+	}
 	if v, ok := attrs[options.UserIdAttribute]; ok && len(v) > 0 {
 		usrId = v[0]
 	}
 	if v, ok := attrs[options.UserNameAttribute]; ok && len(v) > 0 {
 		usrName = v[0]
 	}
-	if len(usrId) == 0 && len(usrName) == 0 {
-		return nil, errors.Wrap(httperrors.ErrUnauthenticated, "empty userId or userName")
-	}
-	if len(usrId) == 0 {
-		usrId = usrName
-	} else if len(usrName) == 0 {
-		usrName = usrId
-	}
 
 	idp, err := models.IdentityProviderManager.FetchIdentityProviderById(self.IdpId)
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetIdentityProvider")
 	}
-	domain, usr, err := idp.SyncOrCreateDomainAndUser(ctx, usrId, usrName)
+	domain, usr, err := idp.SyncOrCreateDomainAndUser(ctx, domainId, domainName, usrId, usrName)
 	if err != nil {
 		return nil, errors.Wrap(err, "idp.SyncOrCreateDomainAndUser")
 	}
-	/*domain, err := idp.GetSingleDomain(ctx, api.DefaultRemoteDomainId, self.IdpName, fmt.Sprintf("OpenID Connect/OAuth2.0 provider %s", self.IdpName), false)
-	if err != nil {
-		return nil, errors.Wrap(err, "idp.GetSingleDomain")
-	}
-	usr, err := idp.SyncOrCreateUser(ctx, usrId, usrName, domain.Id, true, nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "idp.SyncOrCreateUser")
-	}*/
 	extUser, err := models.UserManager.FetchUserExtended(usr.Id, "", "", "")
 	if err != nil {
 		return nil, errors.Wrap(err, "models.UserManager.FetchUserExtended")

@@ -15,6 +15,9 @@
 package identity
 
 type SIdpAttributeOptions struct {
+	DomainNameAttribute string `json:"domain_name_attribute"`
+	DomainIdAttribute   string `json:"domain_id_attribute"`
+
 	UserNameAttribute string `json:"user_name_attribute"`
 	UserIdAttribute   string `json:"user_id_attribute"`
 

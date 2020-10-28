@@ -175,7 +175,7 @@ func (h *AuthHandlers) GetRegionsResponse(ctx context.Context, w http.ResponseWr
 	}
 	retIdps := make([]jsonutils.JSONObject, 0)
 	for i := range idps.Data {
-		retIdp := idps.Data[i].(*jsonutils.JSONDict).CopyIncludes("id", "name", "driver", "template", "icon_uri")
+		retIdp := idps.Data[i].(*jsonutils.JSONDict).CopyIncludes("id", "name", "driver", "template", "icon_uri", "is_default")
 		retIdps = append(retIdps, retIdp)
 	}
 
