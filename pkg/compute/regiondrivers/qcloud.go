@@ -1566,7 +1566,7 @@ func (self *SQcloudRegionDriver) RequestCreateElasticcache(ctx context.Context, 
 			return nil, errors.Wrap(err, "qcloudRegionDriver.CreateElasticcache.CreateIElasticcaches")
 		}
 
-		err = cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 30*time.Second, 15*time.Second, 600*time.Second)
+		err = cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 30*time.Second, 15*time.Second, 900*time.Second)
 		if err != nil {
 			return nil, errors.Wrap(err, "qcloudRegionDriver.CreateElasticcache.WaitStatusWithDelay")
 		}
@@ -1661,6 +1661,11 @@ func (self *SQcloudRegionDriver) ValidateCreateElasticcacheAccountData(ctx conte
 		}
 	}
 
+	ec := elasticCacheV.Model.(*models.SElasticcache)
+	if ec.Engine == "redis" && ec.EngineVersion == "2.8" {
+		return nil, httperrors.NewNotSupportedError("redis version 2.8 not support create account")
+	}
+
 	passwd, _ := data.GetString("password")
 	if !seclib2.MeetComplxity(passwd) {
 		return nil, httperrors.NewWeakPasswordError()
@@ -1738,7 +1743,7 @@ func (self *SQcloudRegionDriver) RequestElasticcacheAccountResetPassword(ctx con
 
 	iea, err := iec.GetICloudElasticcacheAccount(ea.GetExternalId())
 	if err != nil {
-		return errors.Wrap(err, "qcloudRegionDriver.RequestElasticcacheAccountResetPassword.GetICloudElasticcacheBackup")
+		return errors.Wrap(err, "qcloudRegionDriver.RequestElasticcacheAccountResetPassword.GetICloudElasticcacheAccount")
 	}
 
 	data := task.GetParams()
@@ -1751,15 +1756,41 @@ func (self *SQcloudRegionDriver) RequestElasticcacheAccountResetPassword(ctx con
 		return errors.Wrap(err, "qcloudRegionDriver.RequestElasticcacheAccountResetPassword.GetUpdateQcloudElasticcacheAccountParams")
 	}
 
-	err = iea.UpdateAccount(input)
-	if err != nil {
-		return errors.Wrap(err, "qcloudRegionDriver.RequestElasticcacheAccountResetPassword.UpdateAccount")
+	if iec.GetEngine() == "redis" && iec.GetEngineVersion() == "2.8" {
+		noAuth := false
+		if ec.AuthMode == "off" {
+			noAuth = true
+		}
+
+		if input.NoPasswordAccess != nil {
+			noAuth = *input.NoPasswordAccess
+		}
+		pwd := ""
+		if input.Password != nil {
+			pwd = *input.Password
+		}
+		err = iec.UpdateAuthMode(noAuth, pwd)
+	} else {
+		err = iea.UpdateAccount(input)
+		if err != nil {
+			return errors.Wrap(err, "qcloudRegionDriver.RequestElasticcacheAccountResetPassword.UpdateAccount")
+		}
 	}
 
 	if input.Password != nil {
 		err = ea.SavePassword(*input.Password)
 		if err != nil {
 			return errors.Wrap(err, "qcloudRegionDriver.RequestElasticcacheAccountResetPassword.SavePassword")
+		}
+
+		if iea.GetName() == "root" {
+			_, err := db.UpdateWithLock(ctx, ec, func() error {
+				ec.AuthMode = api.LB_BOOL_ON
+				return nil
+			})
+			if err != nil {
+				return errors.Wrap(err, "qcloudRegionDriver.RequestElasticcacheAccountResetPassword.UpdateAuthMode")
+			}
 		}
 	}
 

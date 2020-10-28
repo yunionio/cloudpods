@@ -96,9 +96,9 @@ func (self *SElasticcacheBackup) GetBackupType() string {
 
 func (self *SElasticcacheBackup) GetBackupMode() string {
 	switch self.BackupType {
-	case "systemBackupInstance":
+	case "1", "systemBackupInstance":
 		return api.ELASTIC_CACHE_BACKUP_MODE_AUTOMATED
-	case "manualBackupInstance":
+	case "0", "manualBackupInstance":
 		return api.ELASTIC_CACHE_BACKUP_MODE_MANUAL
 	default:
 		return self.BackupType
