@@ -28,12 +28,15 @@ import (
 	"yunion.io/x/pkg/util/prometheus"
 	"yunion.io/x/pkg/utils"
 
+	compute_api "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	_ "yunion.io/x/onecloud/pkg/compute/guestdrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/hostdrivers"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
+	compute_options "yunion.io/x/onecloud/pkg/compute/options"
 	_ "yunion.io/x/onecloud/pkg/scheduler/algorithmprovider"
 	skuman "yunion.io/x/onecloud/pkg/scheduler/data_manager/sku"
 	schedhandler "yunion.io/x/onecloud/pkg/scheduler/handler"
@@ -87,6 +90,8 @@ func StartService() error {
 		log.Infof("Auth complete!!")
 		startSched()
 	})
+
+	common_options.StartOptionManager(&opts.ComputeOptions, opts.ConfigSyncPeriodSeconds, compute_api.SERVICE_TYPE, compute_api.SERVICE_VERSION, compute_options.OnOptionsChange)
 
 	app := app_common.InitApp(&opts.BaseOptions, true)
 	cloudcommon.AppDBInit(app)
