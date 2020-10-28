@@ -515,18 +515,6 @@ func (s *SKVMGuestInstance) SyncMirrorJobFailed(reason string) {
 	}
 }
 
-func (s *SKVMGuestInstance) OnSlaveStartedWithNbdServer(nbdServerPort int64) {
-	params := jsonutils.NewDict()
-	params.Set("nbd_server_port", jsonutils.NewInt(nbdServerPort))
-	_, err := modules.Servers.PerformAction(
-		hostutils.GetComputeSession(context.Background()),
-		s.GetId(), "slave-started", params,
-	)
-	if err != nil {
-		log.Errorf("Server %s perform resume guest got error %s", s.GetId(), err)
-	}
-}
-
 func (s *SKVMGuestInstance) onMonitorConnected(ctx context.Context) {
 	log.Infof("Monitor connected ...")
 	s.Monitor.GetVersion(func(v string) {
@@ -597,9 +585,9 @@ func (s *SKVMGuestInstance) startDiskBackupMirror(ctx context.Context) {
 }
 
 func (s *SKVMGuestInstance) startQemuBuiltInNbdServer(ctx context.Context) {
-	nbdServerPort := s.manager.GetFreePortByBase(BUILT_IN_NBD_SERVER_PORT_BASE)
-	var onNbdServerStarted = func(res string) {
-		if ctx != nil && len(appctx.AppContextTaskId(ctx)) > 0 {
+	if ctx != nil && len(appctx.AppContextTaskId(ctx)) > 0 {
+		nbdServerPort := s.manager.GetFreePortByBase(BUILT_IN_NBD_SERVER_PORT_BASE)
+		var onNbdServerStarted = func(res string) {
 			if len(res) > 0 {
 				log.Errorf("Start Qemu Builtin nbd server error %s", res)
 				hostutils.TaskFailed(ctx, res)
@@ -608,11 +596,9 @@ func (s *SKVMGuestInstance) startQemuBuiltInNbdServer(ctx context.Context) {
 				res.Set("nbd_server_port", jsonutils.NewInt(int64(nbdServerPort)))
 				hostutils.TaskComplete(ctx, res)
 			}
-		} else {
-			s.OnSlaveStartedWithNbdServer(int64(nbdServerPort))
 		}
+		s.Monitor.StartNbdServer(nbdServerPort, true, true, onNbdServerStarted)
 	}
-	s.Monitor.StartNbdServer(nbdServerPort, true, true, onNbdServerStarted)
 }
 
 func (s *SKVMGuestInstance) clearCgroup(pid int) {

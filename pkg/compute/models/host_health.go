@@ -107,7 +107,7 @@ func (h *SHostHealthChecker) onHostUnhealthy(ctx context.Context, hostId string)
 	lockman.LockRawObject(ctx, api.HOST_HEALTH_LOCK_PREFIX, hostId)
 	defer lockman.ReleaseRawObject(ctx, api.HOST_HEALTH_LOCK_PREFIX, hostId)
 	host := HostManager.FetchHostById(hostId)
-	if host.EnableHealthCheck == true {
+	if host != nil && host.EnableHealthCheck == true {
 		host.OnHostDown(ctx, auth.AdminCredential())
 	}
 }

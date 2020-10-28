@@ -1019,15 +1019,11 @@ func (self *SGuest) StartInsertIsoTask(ctx context.Context, imageId string, boot
 	return nil
 }
 
-func (self *SGuest) IsDisksShared() bool {
-	return self.getDefaultStorageType() == api.STORAGE_RBD
-}
-
 func (self *SGuest) StartGueststartTask(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	data *jsonutils.JSONDict, parentTaskId string,
 ) error {
-	if self.Hypervisor == api.HYPERVISOR_KVM && self.IsDisksShared() {
+	if self.Hypervisor == api.HYPERVISOR_KVM && self.guestDisksStorageTypeIsShared() {
 		return self.GuestSchedStartTask(ctx, userCred, data, parentTaskId)
 	} else {
 		return self.GuestNonSchedStartTask(ctx, userCred, data, parentTaskId)
@@ -2746,16 +2742,14 @@ func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCr
 
 	status := input.Status
 	if len(self.BackupHostId) > 0 && status == api.VM_RUNNING {
-		if len(self.GetMetadata("__mirror_job_status", userCred)) == 0 {
-			self.SetMetadata(ctx, "__mirror_job_status", "ready", userCred)
-		}
-	} else if ispId := self.GetMetadata("__base_instance_snapshot_id", userCred); len(ispId) > 0 {
+		self.SetMetadata(ctx, api.MIRROR_JOB, api.MIRROR_JOB_READY, userCred)
+	} else if ispId := self.GetMetadata(api.BASE_INSTANCE_SNAPSHOT_ID, userCred); len(ispId) > 0 {
 		ispM, err := InstanceSnapshotManager.FetchById(ispId)
 		if err == nil {
 			isp := ispM.(*SInstanceSnapshot)
 			isp.DecRefCount(ctx, userCred)
 		}
-		self.SetMetadata(ctx, "__base_instance_snapshot_id", "", userCred)
+		self.SetMetadata(ctx, api.BASE_INSTANCE_SNAPSHOT_ID, "", userCred)
 	}
 
 	if preStatus != self.Status && !self.isNotRunningStatus(preStatus) && self.isNotRunningStatus(self.Status) {
@@ -3152,13 +3146,12 @@ func (self *SGuest) PerformSwitchToBackup(ctx context.Context, userCred mcclient
 		return nil, httperrors.NewBadRequestError("Guest no backup host")
 	}
 
-	mirrorJobStatus := self.GetMetadata("__mirror_job_status", userCred)
-	if mirrorJobStatus != "ready" {
+	mirrorJobStatus := self.GetMetadata(api.MIRROR_JOB, userCred)
+	if mirrorJobStatus != api.MIRROR_JOB_READY {
 		return nil, httperrors.NewBadRequestError("Guest can't switch to backup, mirror job not ready")
 	}
 
 	oldStatus := self.Status
-	self.SetStatus(userCred, api.VM_SWITCH_TO_BACKUP, "Switch to backup")
 	deleteBackup := jsonutils.QueryBoolean(data, "delete_backup", false)
 	purgeBackup := jsonutils.QueryBoolean(data, "purge_backup", false)
 
@@ -3170,6 +3163,7 @@ func (self *SGuest) PerformSwitchToBackup(ctx context.Context, userCred mcclient
 		log.Errorln(err)
 		return nil, err
 	} else {
+		self.SetStatus(userCred, api.VM_SWITCH_TO_BACKUP, "Switch to backup")
 		task.ScheduleRun(nil)
 	}
 	return nil, nil
@@ -3272,27 +3266,12 @@ func (self *SGuest) AllowPerformBlockStreamFailed(ctx context.Context, userCred 
 
 func (self *SGuest) PerformBlockStreamFailed(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if len(self.BackupHostId) > 0 {
-		self.SetMetadata(ctx, "__mirror_job_status", "failed", userCred)
+		self.SetMetadata(ctx, api.MIRROR_JOB, api.MIRROR_JOB_FAILED, userCred)
 	}
 	if self.Status == api.VM_BLOCK_STREAM || self.Status == api.VM_RUNNING {
 		reason, _ := data.GetString("reason")
 		logclient.AddSimpleActionLog(self, logclient.ACT_VM_BLOCK_STREAM, reason, userCred, false)
 		return nil, self.SetStatus(userCred, api.VM_BLOCK_STREAM_FAIL, reason)
-	}
-	return nil, nil
-}
-
-func (self *SGuest) AllowPerformSlaveStarted(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "slave-started")
-}
-
-func (self *SGuest) PerformSlaveStarted(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.GetMetadata("__mirror_job_status", userCred) == "failed" {
-		if port, err := data.Int("nbd_server_port"); err != nil {
-			return nil, httperrors.NewMissingParameterError("nbd_server_port")
-		} else {
-			self.StartMirrorJob(ctx, userCred, port, "")
-		}
 	}
 	return nil, nil
 }

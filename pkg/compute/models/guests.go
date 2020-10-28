@@ -1821,7 +1821,7 @@ func (manager *SGuestManager) SetPropertiesWithInstanceSnapshot(
 					delete(metadata, "passwd")
 					metadata["login_key"], _ = utils.EncryptAESBase64(guest.Id, passwd.(string))
 				}
-				metadata["__base_instance_snapshot_id"] = isp.Id
+				metadata[api.BASE_INSTANCE_SNAPSHOT_ID] = isp.Id
 				guest.SetAllMetadata(ctx, metadata, userCred)
 			}
 		}

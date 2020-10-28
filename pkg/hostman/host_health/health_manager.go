@@ -17,9 +17,11 @@ package host_health
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -83,6 +85,8 @@ func (m *SHostHealthManager) OnUnhealth() {
 	if m.onHostDown == SHUTDOWN_SERVERS {
 		m.shutdownServers()
 	}
+	utils.DumpAllGoroutineStack(log.Logger().Out)
+	os.Exit(1)
 }
 
 func (m *SHostHealthManager) SetOnHostDown(onHostDown string) {
