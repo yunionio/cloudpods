@@ -232,7 +232,7 @@ func (self *SOpenStackGuestDriver) RemoteDeployGuestForRebuildRoot(ctx context.C
 		}
 		defer self.attachDisks(ctx, ihost, instanceId, detachDisks)
 
-		eip, err := guest.GetEip()
+		eip, err := guest.GetElasticIp()
 		if err == nil && eip != nil {
 			ieip, err := eip.GetIEip()
 			if err != nil {
