@@ -62,6 +62,7 @@ func (self *ElasticcacheDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 		ec.DeleteSubResources(ctx, self.UserCred)
 		ec.SVirtualResourceBase.Delete(ctx, self.UserCred)
 		logclient.AddActionLogWithStartable(self, ec, logclient.ACT_DELETE, "", self.UserCred, true)
+		notifyclient.NotifyWebhook(ctx, self.UserCred, ec, notifyclient.ActionDelete)
 		self.SetStageComplete(ctx, nil)
 	}
 }

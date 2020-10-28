@@ -23,6 +23,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -87,6 +88,7 @@ func (self *DBInstanceDeleteTask) DeleteDBInstanceComplete(ctx context.Context, 
 	}
 
 	self.DeleteBackups(ctx, dbinstance, nil)
+	notifyclient.NotifyWebhook(ctx, self.UserCred, dbinstance, notifyclient.ActionDelete)
 }
 
 func (self *DBInstanceDeleteTask) DeleteBackups(ctx context.Context, instance *models.SDBInstance, data jsonutils.JSONObject) {
