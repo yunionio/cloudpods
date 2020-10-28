@@ -90,6 +90,7 @@ func (self *ElasticcacheCreateTask) OnSyncSecurityGroupComplete(ctx context.Cont
 func (self *ElasticcacheCreateTask) OnElasticcacheCreateComplete(ctx context.Context, elasticcache *models.SElasticcache, data jsonutils.JSONObject) {
 	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RUNNING, "")
 	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_CREATE, "", self.UserCred, true)
+	notifyclient.NotifyWebhook(ctx, self.UserCred, elasticcache, notifyclient.ActionCreate)
 	self.SetStageComplete(ctx, nil)
 }
 
