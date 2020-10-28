@@ -106,6 +106,10 @@ func (manager *SStandaloneAnonResourceBaseManager) FilterById(q *sqlchemy.SQuery
 	return q.Equals("id", idStr)
 }
 
+func (manager *SStandaloneAnonResourceBaseManager) FilterByName(q *sqlchemy.SQuery, name string) *sqlchemy.SQuery {
+	return q.FilterByFalse()
+}
+
 func (manager *SStandaloneAnonResourceBaseManager) FilterByNotId(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery {
 	return q.NotEquals("id", idStr)
 }
