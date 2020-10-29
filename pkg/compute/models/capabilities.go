@@ -43,6 +43,8 @@ type SCapabilities struct {
 	ComputeEngineBrands         []string `json:",allowempty"`
 	DisabledComputeEngineBrands []string `json:",allowempty"`
 	RdsEngineBrands             []string `json:",allowempty"`
+	RedisEngineBrands           []string `json:",allowempty"`
+	LoadbalancerEngineBrands    []string `json:",allowempty"`
 	DisabledRdsEngineBrands     []string `json:",allowempty"`
 	CloudIdBrands               []string `json:",allowempty"`
 	DisabledCloudIdBrands       []string `json:",allowempty"`
@@ -265,15 +267,22 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabi
 	capa.Brands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, "")
 	capa.ComputeEngineBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_COMPUTE)
 	capa.RdsEngineBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_RDS)
+	capa.RedisEngineBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_CACHE)
 	capa.NetworkManageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_NETWORK)
 	capa.ObjectStorageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE)
 	capa.CloudIdBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_CLOUDID)
 	capa.PublicIpBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_PUBLIC_IP)
+	capa.LoadbalancerEngineBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_LOADBALANCER)
 
 	if utils.IsInStringArray(api.HYPERVISOR_KVM, capa.Hypervisors) || utils.IsInStringArray(api.HYPERVISOR_BAREMETAL, capa.Hypervisors) {
 		capa.Brands = append(capa.Brands, api.ONECLOUD_BRAND_ONECLOUD)
 		capa.ComputeEngineBrands = append(capa.ComputeEngineBrands, api.ONECLOUD_BRAND_ONECLOUD)
 	}
+
+	if count, _ := LoadbalancerClusterManager.Query().Limit(1).CountWithError(); count > 0 {
+		capa.LoadbalancerEngineBrands = append(capa.LoadbalancerEngineBrands, api.ONECLOUD_BRAND_ONECLOUD)
+	}
+
 	capa.NetworkManageBrands = append(capa.NetworkManageBrands, api.ONECLOUD_BRAND_ONECLOUD)
 
 	capa.DisabledBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, "")
