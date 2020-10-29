@@ -78,6 +78,11 @@ type ICreateOpt interface {
 	IOpt
 }
 
+type IBatchCreateOpt interface {
+	IOpt
+	GetCountParam() int
+}
+
 func (cmd ResourceCmd) RunWithDesc(action, desc string, args interface{}, callback interface{}) {
 	man := cmd.manager
 	prefix := cmd.prefix
@@ -152,6 +157,29 @@ func (cmd ResourceCmd) create(s *mcclient.ClientSession, args ICreateOpt) error 
 		return err
 	}
 	printObject(ret)
+	return nil
+}
+
+func (cmd ResourceCmd) BatchCreate(args IBatchCreateOpt) {
+	cmd.BatchCreateWithKeyword("create", args)
+}
+
+func (cmd ResourceCmd) BatchCreateWithKeyword(keyword string, args IBatchCreateOpt) {
+	cmd.Run(keyword, args, cmd.batchCreate)
+}
+
+func (cmd ResourceCmd) batchCreate(s *mcclient.ClientSession, args IBatchCreateOpt) error {
+	man := cmd.manager.(modulebase.Manager)
+	count := args.GetCountParam()
+	if count <= 1 {
+		return cmd.create(s, args)
+	}
+	params, err := args.Params()
+	if err != nil {
+		return err
+	}
+	rets := man.BatchCreate(s, params, count)
+	printBatchResults(rets, man.GetColumns(s))
 	return nil
 }
 
