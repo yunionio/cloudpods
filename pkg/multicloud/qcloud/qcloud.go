@@ -743,27 +743,41 @@ func (client *SQcloudClient) fetchBuckets() error {
 	for i := range s.Buckets {
 		bInfo := s.Buckets[i]
 		createAt, _ := timeutils.ParseTimeStr(bInfo.CreationDate)
-		name := bInfo.Name
-		// name = name[:len(name)-len(result.Owner.ID)-1]
-		slashPos := strings.LastIndexByte(name, '-')
-		name = name[:slashPos]
-		regionStr := func() string {
-			info := strings.Split(bInfo.Region, "-")
-			if num, _ := strconv.Atoi(info[len(info)-1]); num > 0 {
-				return strings.TrimSuffix(bInfo.Region, fmt.Sprintf("-%d", num))
-			}
-			return bInfo.Region
-		}()
-		region, err := client.getIRegionByRegionId(regionStr)
+		slashPos := strings.LastIndexByte(bInfo.Name, '-')
+		appId := bInfo.Name[slashPos+1:]
+		if appId != client.appId {
+			log.Errorf("[%s %s] Inconsistent appId: %s expect %s", bInfo.Name, bInfo.Region, appId, client.appId)
+		}
+		name := bInfo.Name[:slashPos]
+		region, err := client.getIRegionByRegionId(bInfo.Region)
+		var zone cloudprovider.ICloudZone
 		if err != nil {
 			log.Errorf("fail to find region %s", bInfo.Region)
-			continue
+			// possibly a zone, try zone
+			regionStr := func() string {
+				info := strings.Split(bInfo.Region, "-")
+				if num, _ := strconv.Atoi(info[len(info)-1]); num > 0 {
+					return strings.TrimSuffix(bInfo.Region, fmt.Sprintf("-%d", num))
+				}
+				return bInfo.Region
+			}()
+			region, err = client.getIRegionByRegionId(regionStr)
+			if err != nil {
+				log.Errorf("fail to find region %s", regionStr)
+				continue
+			}
+			zone, _ = region.(*SRegion).getZoneById(bInfo.Region)
+			log.Debugf("find zonal bucket %s", zone.GetId())
 		}
 		b := SBucket{
 			region:     region.(*SRegion),
+			AppId:      appId,
 			Name:       name,
 			Location:   bInfo.Region,
 			CreateDate: createAt,
+		}
+		if zone != nil {
+			b.zone = zone.(*SZone)
 		}
 		ret = append(ret, &b)
 	}
