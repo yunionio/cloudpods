@@ -827,24 +827,10 @@ func getModelItemDetails(manager IModelManager, item IModel, ctx context.Context
 }
 
 func getItemDetails(manager IModelManager, item IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	extraDict, err := GetExtraDetails(item, ctx, userCred, query, false)
-	if err != nil {
-		return nil, httperrors.NewGeneralError(err)
-	}
-	if extraDict == nil {
-		// override GetExtraDetails
-		return nil, nil
-	}
-
 	metaFields, excludeFields := GetDetailFields(manager, userCred)
 	fieldFilter := jsonutils.GetQueryStringArray(query, "field")
 	getFields := mergeFields(metaFields, fieldFilter, IsAllowGet(rbacutils.ScopeSystem, userCred, item))
 	excludes, _, _ := stringutils2.Split(stringutils2.NewSortedStrings(excludeFields), getFields)
-
-	//jsonDict := jsonutils.Marshal(item).(*jsonutils.JSONDict)
-	//jsonDict = jsonDict.CopyIncludes(getFields...)
-	// extraDict.Update(jsonDict)
-	// jsonDict = getModelExtraDetails(item, ctx, jsonDict)
 
 	var sortedListFields stringutils2.SSortedStrings
 	if len(fieldFilter) > 0 {
