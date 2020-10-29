@@ -99,7 +99,7 @@ func (b *EtcdBackendForClient) registerClientResource(ctx context.Context, key s
 	if err != nil {
 		return err
 	}
-	if err := b.PutWithLease(ctx, clientKey, "ok", 60); err != nil {
+	if err := b.PutSession(ctx, clientKey, "ok"); err != nil {
 		return err
 	}
 	return nil
