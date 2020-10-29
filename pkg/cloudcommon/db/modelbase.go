@@ -110,6 +110,10 @@ func (manager *SModelBaseManager) EnableGenerateName() bool {
 	return true
 }
 
+func (manager *SModelBaseManager) HasName() bool {
+	return false
+}
+
 func (model *SModelBase) MarkDeletePreventionOn() {
 	return
 }

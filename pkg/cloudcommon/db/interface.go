@@ -48,6 +48,7 @@ type IModelManager interface {
 	AliasPlural() string
 	SetAlias(alias string, aliasPlural string)
 
+	HasName() bool
 	ValidateName(name string) error
 	EnableGenerateName() bool
 

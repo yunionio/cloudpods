@@ -54,6 +54,10 @@ func NewStandaloneResourceBaseManager(
 	}
 }
 
+func (manager *SStandaloneResourceBaseManager) HasName() bool {
+	return true
+}
+
 func (manager *SStandaloneResourceBaseManager) FilterByName(q *sqlchemy.SQuery, name string) *sqlchemy.SQuery {
 	return q.Equals("name", name)
 }
