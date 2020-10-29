@@ -111,7 +111,7 @@ func (manager *SNetworkResourceBaseManager) FetchCustomizeColumns(
 		var base *SNetworkResourceBase
 		err := reflectutils.FindAnonymouStructPointer(objs[i], &base)
 		if err != nil {
-			log.Errorf("Cannot find SCloudregionResourceBase in object %s", objs[i])
+			log.Errorf("Cannot find SNetworkResourceBase in object %T", objs[i])
 			continue
 		}
 		netIds[i] = base.NetworkId
