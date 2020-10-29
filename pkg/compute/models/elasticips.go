@@ -1215,8 +1215,25 @@ func (self *SElasticip) getMoreDetails(out api.ElasticipDetails) api.ElasticipDe
 	return out
 }
 
-func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCred mcclient.TokenCredential, vm *SGuest,
-	host *SHost, bw int, chargeType string, autoDellocate bool, pendingUsage quotas.IQuota) (*SElasticip, error) {
+type NewEipForVMOnHostArgs struct {
+	Bandwidth     int
+	ChargeType    string
+	AutoDellocate bool
+
+	Guest        *SGuest
+	Host         *SHost
+	PendingUsage quotas.IQuota
+}
+
+func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCred mcclient.TokenCredential, args *NewEipForVMOnHostArgs) (*SElasticip, error) {
+	var (
+		bw            = args.Bandwidth
+		chargeType    = args.ChargeType
+		autoDellocate = args.AutoDellocate
+		vm            = args.Guest
+		host          = args.Host
+		pendingUsage  = args.PendingUsage
+	)
 	region := host.GetRegion()
 
 	if len(chargeType) == 0 {
