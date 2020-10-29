@@ -154,6 +154,31 @@ func (manager *SGuestnetworkManager) FetchCustomizeColumns(
 	return rows
 }
 
+func (manager *SGuestnetworkManager) fetchByRowIds(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	rowIds []int64,
+) ([]SGuestnetwork, error) {
+	var gns []SGuestnetwork
+	q := manager.Query().In("row_id", rowIds)
+	if err := db.FetchModelObjects(manager, q, &gns); err != nil {
+		return nil, errors.Wrapf(err, "fetch guestnetworks by row_id list")
+	}
+	idmap := map[int64]int{}
+	for i := range gns {
+		idmap[gns[i].RowId] = i
+	}
+	ret := make([]SGuestnetwork, len(rowIds))
+	for i, rowId := range rowIds {
+		if j, ok := idmap[rowId]; ok {
+			ret[i] = gns[j]
+		} else {
+			return nil, errors.Wrapf(errors.ErrNotFound, "guestnetwork row %d", rowId)
+		}
+	}
+	return ret, nil
+}
+
 func (manager *SGuestnetworkManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return false
 }
@@ -646,6 +671,9 @@ func (self *SGuestnetwork) LogDetachEvent(ctx context.Context, userCred mcclient
 }
 
 func (self *SGuestnetwork) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if err := NetworkAddressManager.deleteByGuestnetworkId(ctx, userCred, self.RowId); err != nil {
+		return errors.Wrap(err, "delete attached network addresses")
+	}
 	return db.DeleteModel(ctx, userCred, self)
 }
 
@@ -872,6 +900,23 @@ func (manager *SGuestnetworkManager) FetchByIdsAndIpMac(guestId string, netId st
 		return nil, err
 	}
 	return ign.(*SGuestnetwork), nil
+}
+
+func (manager *SGuestnetworkManager) FetchByGuestIdIndex(guestId string, index int8) (*SGuestnetwork, error) {
+	q := manager.Query().
+		Equals("guest_id", guestId).
+		Equals("index", index)
+	var rets []SGuestnetwork
+	if err := db.FetchModelObjects(manager, q, &rets); err != nil {
+		return nil, err
+	}
+	if len(rets) > 1 {
+		return nil, errors.Errorf("guest %s has conflict nic index (%d)", guestId, index)
+	}
+	if len(rets) == 0 {
+		return nil, errors.ErrNotFound
+	}
+	return &rets[0], nil
 }
 
 func (self *SGuestnetwork) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
