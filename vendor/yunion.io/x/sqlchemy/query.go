@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 
 	"yunion.io/x/log"
@@ -153,6 +154,10 @@ func (sq *SSubQuery) Expression() string {
 	for k := range sq.referedFields {
 		fields = append(fields, sq.referedFields[k])
 	}
+	// Make sure the order of the fields
+	sort.Slice(fields, func(i, j int) bool {
+		return fields[i].Name() < fields[j].Name()
+	})
 	return fmt.Sprintf("(%s)", sq.query.String(fields...))
 }
 

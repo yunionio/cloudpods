@@ -97,8 +97,10 @@ func CompareSets(dbSet interface{}, extSet interface{}, removed interface{}, com
 				i += 1
 				j += 1
 			} else if cmp < 0 {
-				newVal := reflect.Append(removedValue, dbSetArray[i].value)
-				removedValue.Set(newVal)
+				if len(dbSetArray[i].key) > 0 {
+					newVal := reflect.Append(removedValue, dbSetArray[i].value)
+					removedValue.Set(newVal)
+				}
 				i += 1
 			} else {
 				newVal := reflect.Append(addedValue, extSetArray[j].value)
@@ -110,8 +112,10 @@ func CompareSets(dbSet interface{}, extSet interface{}, removed interface{}, com
 			addedValue.Set(newVal)
 			j += 1
 		} else if j >= len(extSetArray) {
-			newVal := reflect.Append(removedValue, dbSetArray[i].value)
-			removedValue.Set(newVal)
+			if len(dbSetArray[i].key) > 0 {
+				newVal := reflect.Append(removedValue, dbSetArray[i].value)
+				removedValue.Set(newVal)
+			}
 			i += 1
 		}
 	}
