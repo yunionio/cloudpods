@@ -105,6 +105,7 @@ var (
 			"time_zone",
 			"domainized_namespace",
 			"api_server",
+			"customized_private_prefixes",
 		},
 	}
 
