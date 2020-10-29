@@ -17,6 +17,7 @@ package options
 import (
 	"os"
 
+	api "yunion.io/x/onecloud/pkg/apis/scheduler"
 	common_optoins "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/compute/options"
 )
@@ -99,6 +100,6 @@ func GetOptions() *SchedulerOptions {
 }
 
 func Init() {
-	common_optoins.ParseOptions(&opt, os.Args, "region.conf", "scheduler")
+	common_optoins.ParseOptions(&opt, os.Args, "region.conf", api.SERVICE_TYPE)
 	options.Options = opt.ComputeOptions
 }
