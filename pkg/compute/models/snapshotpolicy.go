@@ -740,6 +740,9 @@ func (sp *SSnapshotPolicy) ComputeNextSyncTime(base, lastSyncTime time.Time) tim
 	weekDays := SnapshotPolicyManager.RepeatWeekdaysToIntArray(sp.RepeatWeekdays)
 	weekDays = append(weekDays, weekDays[0]+7)
 	index := sort.SearchInts(weekDays, baseWeekday)
+	if weekDays[index] == baseWeekday {
+		index += 1
+	}
 	addDay := weekDays[index] - baseWeekday
 	nextTime := base.AddDate(0, 0, addDay)
 
@@ -753,7 +756,7 @@ func (sp *SSnapshotPolicy) ComputeNextSyncTime(base, lastSyncTime time.Time) tim
 		index := sort.SearchInts(timePoints, baseHour)
 		index = index % len(timePoints)
 		if timePoints[index] == baseHour {
-			index = index + 1
+			index = (index + 1) % len(timePoints)
 			newHour = timePoints[index]
 		} else {
 			newHour = timePoints[index]
