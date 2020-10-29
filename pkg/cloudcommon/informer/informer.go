@@ -92,7 +92,7 @@ func Create(ctx context.Context, obj *ModelObject) error {
 	if !isResourceWatched(obj.KeywordPlural) {
 		return nil
 	}
-	return run(func(be IInformerBackend) error {
+	return run(ctx, func(ctx context.Context, be IInformerBackend) error {
 		return be.Create(ctx, obj)
 	})
 }
@@ -101,7 +101,7 @@ func Update(ctx context.Context, obj *ModelObject, oldObj *jsonutils.JSONDict) e
 	if !isResourceWatched(obj.KeywordPlural) {
 		return nil
 	}
-	return run(func(be IInformerBackend) error {
+	return run(ctx, func(ctx context.Context, be IInformerBackend) error {
 		return be.Update(ctx, obj, oldObj)
 	})
 }
@@ -110,7 +110,7 @@ func Delete(ctx context.Context, obj *ModelObject) error {
 	if !isResourceWatched(obj.KeywordPlural) {
 		return nil
 	}
-	return run(func(be IInformerBackend) error {
+	return run(ctx, func(ctx context.Context, be IInformerBackend) error {
 		return be.Delete(ctx, obj)
 	})
 }
