@@ -156,6 +156,10 @@ func (b *EtcdBackend) put(ctx context.Context, key, val string) error {
 	return b.PutWithLease(ctx, key, val, b.leaseTTL)
 }
 
+func (b *EtcdBackend) PutSession(ctx context.Context, key, val string) error {
+	return b.client.PutSession(ctx, key, val)
+}
+
 func (b *EtcdBackend) PutWithLease(ctx context.Context, key, val string, ttlSeconds int64) error {
 	return b.client.PutWithLease(ctx, key, val, ttlSeconds)
 }
