@@ -34,13 +34,14 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 // +onecloud:swagger-gen-ignore
 type SCachedLoadbalancerCertificateManager struct {
 	SLoadbalancerLogSkipper
-	db.SVirtualResourceBaseManager
+	db.SSharableVirtualResourceBaseManager
 	SManagedResourceBaseManager
 	SCloudregionResourceBaseManager
 	SLoadbalancerCertificateResourceBaseManager
@@ -50,7 +51,7 @@ var CachedLoadbalancerCertificateManager *SCachedLoadbalancerCertificateManager
 
 func init() {
 	CachedLoadbalancerCertificateManager = &SCachedLoadbalancerCertificateManager{
-		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
+		SSharableVirtualResourceBaseManager: db.NewSharableVirtualResourceBaseManager(
 			SCachedLoadbalancerCertificate{},
 			"cachedloadbalancercertificates_tbl",
 			"cachedloadbalancercertificate",
@@ -62,7 +63,7 @@ func init() {
 }
 
 type SCachedLoadbalancerCertificate struct {
-	db.SVirtualResourceBase
+	db.SSharableVirtualResourceBase
 	db.SExternalizedResourceBase
 	SManagedResourceBase     // 云账号ID
 	SCloudregionResourceBase // Region ID
@@ -310,6 +311,11 @@ func (man *SCachedLoadbalancerCertificateManager) newFromCloudLoadbalancerCertif
 	lbcert.ExternalId = extCertificate.GetGlobalId()
 	lbcert.ManagerId = provider.Id
 	lbcert.CloudregionId = region.Id
+
+	// sharable
+	lbcert.IsPublic = true
+	lbcert.PublicScope = string(rbacutils.ScopeDomain)
+	lbcert.PublicSrc = "cloud"
 
 	c := SLoadbalancerCertificate{}
 	q1 := LoadbalancerCertificateManager.Query().IsFalse("pending_deleted").Equals("fingerprint", extCertificate.GetFingerprint())

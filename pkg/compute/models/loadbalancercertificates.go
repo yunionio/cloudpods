@@ -35,12 +35,13 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SLoadbalancerCertificateManager struct {
 	SLoadbalancerLogSkipper
-	db.SVirtualResourceBaseManager
+	db.SSharableVirtualResourceBaseManager
 	db.SExternalizedResourceBaseManager
 }
 
@@ -48,7 +49,7 @@ var LoadbalancerCertificateManager *SLoadbalancerCertificateManager
 
 func init() {
 	LoadbalancerCertificateManager = &SLoadbalancerCertificateManager{
-		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
+		SSharableVirtualResourceBaseManager: db.NewSharableVirtualResourceBaseManager(
 			SLoadbalancerCertificate{},
 			"loadbalancercertificates_tbl",
 			"loadbalancercertificate",
@@ -63,7 +64,7 @@ func init() {
 //  - notify users of cert expiration
 //  - ca info: self-signed, public ca
 type SLoadbalancerCertificate struct {
-	db.SVirtualResourceBase
+	db.SSharableVirtualResourceBase
 	db.SExternalizedResourceBase
 
 	// SManagedResourceBase
@@ -411,6 +412,11 @@ func (man *SLoadbalancerCertificateManager) CreateCertificate(ctx context.Contex
 		cert.DomainId = userCred.GetProjectDomainId()
 		cert.ProjectId = userCred.GetProjectId()
 		cert.ProjectSrc = string(apis.OWNER_SOURCE_CLOUD)
+
+		// sharable
+		cert.IsPublic = true
+		cert.PublicScope = string(rbacutils.ScopeDomain)
+		cert.PublicSrc = "cloud"
 
 		// other information's
 		cert.CommonName = extCert.GetCommonName()
