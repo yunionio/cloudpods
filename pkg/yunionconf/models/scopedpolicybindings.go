@@ -32,6 +32,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-model-singular=scopedpolicybinding
+// +onecloud:swagger-gen-model-plural=scopedpolicybindings
 type SScopedPolicyBindingManager struct {
 	db.SResourceBaseManager
 }

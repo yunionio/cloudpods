@@ -29,6 +29,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-model-singular=scopedpolicy
+// +onecloud:swagger-gen-model-plural=scopedpolicies
 type SScopedPolicyManager struct {
 	db.SInfrasResourceBaseManager
 }
