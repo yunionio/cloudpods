@@ -460,17 +460,30 @@ func guestGetHostWireFromNetwork(host *SHost, network *SNetwork) (*SHostwire, er
 	return hostWire, nil
 }
 
-func (self *SGuestnetwork) getJsonDescAtHost(host *SHost) jsonutils.JSONObject {
-	network := self.GetNetwork()
+func (self *SGuestnetwork) getJsonDescAtHost(ctx context.Context, host *SHost) jsonutils.JSONObject {
+	var (
+		ret     *jsonutils.JSONDict
+		network = self.GetNetwork()
+	)
 	if network.isOneCloudVpcNetwork() {
-		return self.getJsonDescOneCloudVpc(network)
+		ret = self.getJsonDescOneCloudVpc(network)
 	} else {
 		hostWire, err := guestGetHostWireFromNetwork(host, network)
 		if err != nil {
 			log.Errorln(err)
 		}
-		return self.getJsonDescHostwire(network, hostWire)
+		ret = self.getJsonDescHostwire(network, hostWire)
 	}
+	{
+		ipnets, err := NetworkAddressManager.fetchAddressesByGuestnetworkId(ctx, self.RowId)
+		if err != nil {
+			log.Errorln(err)
+		}
+		if len(ipnets) > 0 {
+			ret.Set("networkaddresses", jsonutils.Marshal(ipnets))
+		}
+	}
+	return ret
 }
 
 func (self *SGuestnetwork) getJsonDescHostwire(network *SNetwork, hostwire *SHostwire) *jsonutils.JSONDict {
