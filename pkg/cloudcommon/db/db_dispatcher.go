@@ -1131,26 +1131,28 @@ func _doCreateItem(
 	var err error
 
 	var generateName string
-	if dataDict.Contains("generate_name") {
-		generateName, _ = dataDict.GetString("generate_name")
-		if len(generateName) > 0 {
-			if manager.EnableGenerateName() {
-				// if enable generateName, alway generate name
-				newName, err := GenerateName2(manager, ownerId, generateName, nil, baseIndex)
-				if err != nil {
-					return nil, errors.Wrap(err, "GenerateName2")
-				}
-				dataDict.Add(jsonutils.NewString(newName), "name")
-			} else {
-				// if no name but generate_name provided, use generate_name as name instead
-				oldName, _ := dataDict.GetString("name")
-				if len(oldName) == 0 {
-					dataDict.Add(jsonutils.NewString(generateName), "name")
+	if manager.HasName() {
+		if dataDict.Contains("generate_name") {
+			generateName, _ = dataDict.GetString("generate_name")
+			if len(generateName) > 0 {
+				if manager.EnableGenerateName() {
+					// if enable generateName, alway generate name
+					newName, err := GenerateName2(manager, ownerId, generateName, nil, baseIndex)
+					if err != nil {
+						return nil, errors.Wrap(err, "GenerateName2")
+					}
+					dataDict.Add(jsonutils.NewString(newName), "name")
+				} else {
+					// if no name but generate_name provided, use generate_name as name instead
+					oldName, _ := dataDict.GetString("name")
+					if len(oldName) == 0 {
+						dataDict.Add(jsonutils.NewString(generateName), "name")
+					}
 				}
 			}
+			// cleanup generate_name
+			dataDict.Remove("generate_name")
 		}
-		// cleanup generate_name
-		dataDict.Remove("generate_name")
 	}
 
 	if batchCreate {
@@ -1162,13 +1164,16 @@ func _doCreateItem(
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
-	// run name validation after validate create data
-	uniqValues := manager.FetchUniqValues(ctx, dataDict)
-	name, _ := dataDict.GetString("name")
-	if len(name) > 0 {
-		err = NewNameValidator(manager, ownerId, name, uniqValues)
-		if err != nil {
-			return nil, err
+
+	if manager.HasName() {
+		// run name validation after validate create data
+		uniqValues := manager.FetchUniqValues(ctx, dataDict)
+		name, _ := dataDict.GetString("name")
+		if len(name) > 0 {
+			err = NewNameValidator(manager, ownerId, name, uniqValues)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -1193,10 +1198,13 @@ func _doCreateItem(
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
-	// HACK: save generateName
-	if len(generateName) > 0 && manager.EnableGenerateName() {
-		if standaloneMode, ok := model.(IStandaloneModel); ok {
-			standaloneMode.SetMetadata(ctx, "generate_name", generateName, userCred)
+
+	if manager.HasName() {
+		// HACK: save generateName
+		if len(generateName) > 0 && manager.EnableGenerateName() {
+			if standaloneMode, ok := model.(IStandaloneModel); ok {
+				standaloneMode.SetMetadata(ctx, "generate_name", generateName, userCred)
+			}
 		}
 	}
 	// HACK: set data same as dataDict
@@ -1275,19 +1283,21 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 	return getItemDetails(dispatcher.modelManager, model, ctx, userCred, query)
 }
 
-func expandMultiCreateParams(data jsonutils.JSONObject, count int) ([]jsonutils.JSONObject, error) {
+func expandMultiCreateParams(manager IModelManager, data jsonutils.JSONObject, count int) ([]jsonutils.JSONObject, error) {
 	jsonDict, ok := data.(*jsonutils.JSONDict)
 	if !ok {
 		return nil, httperrors.NewInputParameterError("body is not a json?")
 	}
-	name, _ := jsonDict.GetString("generate_name")
-	if len(name) == 0 {
-		name, _ = jsonDict.GetString("name")
+	if manager.HasName() {
+		name, _ := jsonDict.GetString("generate_name")
 		if len(name) == 0 {
-			return nil, httperrors.NewInputParameterError("Missing name or generate_name")
+			name, _ = jsonDict.GetString("name")
+			if len(name) == 0 {
+				return nil, httperrors.NewInputParameterError("Missing name or generate_name")
+			}
+			jsonDict.Add(jsonutils.NewString(name), "generate_name")
+			jsonDict.RemoveIgnoreCase("name")
 		}
-		jsonDict.Add(jsonutils.NewString(name), "generate_name")
-		jsonDict.RemoveIgnoreCase("name")
 	}
 	ret := make([]jsonutils.JSONObject, count)
 	for i := 0; i < count; i += 1 {
@@ -1351,7 +1361,7 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 			return nil, errors.Wrap(err, "manager.BatchPreValidate")
 		}
 
-		multiData, err = expandMultiCreateParams(data, count)
+		multiData, err = expandMultiCreateParams(manager, data, count)
 		if err != nil {
 			return nil, errors.Wrap(err, "expandMultiCreateParams")
 		}
