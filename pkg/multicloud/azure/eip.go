@@ -20,9 +20,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -44,11 +44,11 @@ type IPConfiguration struct {
 }
 
 type PublicIPAddressPropertiesFormat struct {
-	PublicIPAddressVersion   string           `json:"publicIPAddressVersion,omitempty"`
-	IPAddress                string           `json:"ipAddress,omitempty"`
-	PublicIPAllocationMethod string           `json:"publicIPAllocationMethod,omitempty"`
-	ProvisioningState        string           `json:"provisioningState,omitempty"`
-	IPConfiguration          *IPConfiguration `json:"ipConfiguration,omitempty"`
+	PublicIPAddressVersion   string          `json:"publicIPAddressVersion,omitempty"`
+	IPAddress                string          `json:"ipAddress,omitempty"`
+	PublicIPAllocationMethod string          `json:"publicIPAllocationMethod,omitempty"`
+	ProvisioningState        string          `json:"provisioningState,omitempty"`
+	IPConfiguration          IPConfiguration `json:"ipConfiguration,omitempty"`
 }
 
 type SEipAddress struct {
@@ -63,22 +63,22 @@ type SEipAddress struct {
 	Sku        *PublicIPAddressSku
 }
 
-func (region *SRegion) AllocateEIP(eipName, projectId string) (*SEipAddress, error) {
-	eip := SEipAddress{
-		region:   region,
-		Location: region.Name,
-		Name:     eipName,
-		Properties: PublicIPAddressPropertiesFormat{
-			PublicIPAddressVersion:   "IPv4",
-			PublicIPAllocationMethod: "Static",
+func (self *SRegion) AllocateEIP(name, projectId string) (*SEipAddress, error) {
+	params := map[string]interface{}{
+		"Location": self.Name,
+		"Name":     name,
+		"Properties": map[string]string{
+			"PublicIPAddressVersion":   "IPv4",
+			"PublicIPAllocationMethod": "Static",
 		},
-		Type: "Microsoft.Network/publicIPAddresses",
+		"Type": "Microsoft.Network/publicIPAddresses",
 	}
-	err := region.create(projectId, jsonutils.Marshal(eip), &eip)
+	eip := &SEipAddress{region: self}
+	err := self.create(projectId, jsonutils.Marshal(params), eip)
 	if err != nil {
 		return nil, err
 	}
-	return &eip, cloudprovider.WaitStatus(&eip, api.EIP_STATUS_READY, 10*time.Second, 300*time.Second)
+	return eip, cloudprovider.WaitStatus(eip, api.EIP_STATUS_READY, 10*time.Second, 300*time.Second)
 }
 
 func (region *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
@@ -100,7 +100,7 @@ func (region *SRegion) AssociateEip(eipId string, instanceId string) error {
 		return err
 	}
 	if len(instance.Properties.NetworkProfile.NetworkInterfaces) > 0 {
-		nic, err := region.GetNetworkInterfaceDetail(instance.Properties.NetworkProfile.NetworkInterfaces[0].ID)
+		nic, err := region.GetNetworkInterface(instance.Properties.NetworkProfile.NetworkInterfaces[0].ID)
 		if err != nil {
 			return err
 		}
@@ -148,17 +148,13 @@ func (self *SEipAddress) Dissociate() error {
 func (region *SRegion) DissociateEip(eipId string) error {
 	eip, err := region.GetEip(eipId)
 	if err != nil {
-		return err
-	}
-	if eip.Properties.IPConfiguration == nil {
-		log.Debugf("eip %s not associate any instance", eip.Name)
-		return nil
+		return errors.Wrapf(err, "GetEip(%s)", eipId)
 	}
 	interfaceId := eip.Properties.IPConfiguration.ID
 	if strings.Index(interfaceId, "/ipConfigurations/") > 0 {
 		interfaceId = strings.Split(interfaceId, "/ipConfigurations/")[0]
 	}
-	nic, err := region.GetNetworkInterfaceDetail(interfaceId)
+	nic, err := region.GetNetworkInterface(interfaceId)
 	if err != nil {
 		return err
 	}
@@ -172,19 +168,15 @@ func (region *SRegion) DissociateEip(eipId string) error {
 }
 
 func (self *SEipAddress) GetAssociationExternalId() string {
-	if self.Properties.IPConfiguration != nil {
-		interfaceId := self.Properties.IPConfiguration.ID
-		if strings.Index(interfaceId, "/ipConfigurations/") > 0 {
-			interfaceId = strings.Split(interfaceId, "/ipConfigurations/")[0]
-		}
-		nic, err := self.region.GetNetworkInterfaceDetail(interfaceId)
+	interfaceId := self.Properties.IPConfiguration.ID
+	if len(interfaceId) > 0 && strings.Index(interfaceId, "/ipConfigurations/") > 0 {
+		interfaceId = strings.Split(interfaceId, "/ipConfigurations/")[0]
+		nic, err := self.region.GetNetworkInterface(interfaceId)
 		if err != nil {
-			log.Errorf("Failt to find NetworkInterface for eip %s", self.Name)
+			log.Errorf("Failt to find NetworkInterface for eip %s nic %s", self.Name, interfaceId)
 			return ""
 		}
-		if nic.Properties.VirtualMachine != nil {
-			return nic.Properties.VirtualMachine.ID
-		}
+		return strings.ToLower(nic.Properties.VirtualMachine.ID)
 	}
 	return ""
 }
@@ -225,11 +217,9 @@ func (self *SEipAddress) GetMode() string {
 	if self.IsEmulated() {
 		return api.EIP_MODE_INSTANCE_PUBLICIP
 	}
-	if self.Properties.IPConfiguration != nil {
-		nic, err := self.region.GetNetworkInterfaceDetail(self.Properties.IPConfiguration.ID)
-		if err == nil && nic.Properties.VirtualMachine != nil && len(nic.Properties.VirtualMachine.ID) > 0 {
-			return api.EIP_MODE_INSTANCE_PUBLICIP
-		}
+	nic, err := self.region.GetNetworkInterface(self.Properties.IPConfiguration.ID)
+	if err == nil && len(nic.Properties.VirtualMachine.ID) > 0 {
+		return api.EIP_MODE_INSTANCE_PUBLICIP
 	}
 	return api.EIP_MODE_STANDALONE_EIP
 }

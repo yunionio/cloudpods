@@ -23,17 +23,14 @@ import (
 
 func init() {
 	type SnapshotListOptions struct {
-		Disk   string `help:"List snapshot for disk"`
-		Limit  int    `help:"page size"`
-		Offset int    `help:"page offset"`
 	}
 	shellutils.R(&SnapshotListOptions{}, "snapshot-list", "List snapshot", func(cli *azure.SRegion, args *SnapshotListOptions) error {
-		if snapshots, err := cli.GetSnapShots(args.Disk); err != nil {
+		snapshots, err := cli.ListSnapshots()
+		if err != nil {
 			return err
-		} else {
-			printList(snapshots, len(snapshots), args.Offset, args.Limit, []string{})
-			return nil
 		}
+		printList(snapshots, len(snapshots), 0, 0, []string{})
+		return nil
 	})
 
 	type SnapshotCreateOptions struct {
@@ -43,12 +40,12 @@ func init() {
 	}
 
 	shellutils.R(&SnapshotCreateOptions{}, "snapshot-create", "Create snapshot", func(cli *azure.SRegion, args *SnapshotCreateOptions) error {
-		if snapshot, err := cli.CreateSnapshot(args.DISK, args.NAME, args.Desc); err != nil {
+		snapshot, err := cli.CreateSnapshot(args.DISK, args.NAME, args.Desc)
+		if err != nil {
 			return err
-		} else {
-			printObject(snapshot)
-			return nil
 		}
+		printObject(snapshot)
+		return nil
 	})
 
 	type SnapshotOptions struct {
@@ -60,12 +57,12 @@ func init() {
 	})
 
 	shellutils.R(&SnapshotOptions{}, "snapshot-show", "List snapshot", func(cli *azure.SRegion, args *SnapshotOptions) error {
-		if snapshot, err := cli.GetSnapshotDetail(args.ID); err != nil {
+		snapshot, err := cli.GetSnapshot(args.ID)
+		if err != nil {
 			return err
-		} else {
-			printObject(snapshot)
-			return nil
 		}
+		printObject(snapshot)
+		return nil
 	})
 
 	shellutils.R(&SnapshotOptions{}, "snapshot-grant-access", "Grant access for snapshot", func(cli *azure.SRegion, args *SnapshotOptions) error {

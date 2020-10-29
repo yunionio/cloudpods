@@ -101,19 +101,7 @@ func (self *SClassicHost) GetHostType() string {
 }
 
 func (self *SClassicHost) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	storageaccount, err := self.zone.region.GetStorageAccountDetail(id)
-	if err != nil {
-		return nil, err
-	}
-	storage := &SClassicStorage{
-		zone:       self.zone,
-		ID:         storageaccount.ID,
-		Name:       storageaccount.Name,
-		Type:       storageaccount.Type,
-		Location:   storageaccount.Location,
-		Properties: storageaccount.Properties.ClassicStorageProperties,
-	}
-	return storage, nil
+	return self.zone.GetIStorageById(id)
 }
 
 func (self *SClassicHost) GetSysInfo() jsonutils.JSONObject {
@@ -123,23 +111,7 @@ func (self *SClassicHost) GetSysInfo() jsonutils.JSONObject {
 }
 
 func (self *SClassicHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	storageaccounts, err := self.zone.region.GetClassicStorageAccounts()
-	if err != nil {
-		return nil, err
-	}
-	istorages := make([]cloudprovider.ICloudStorage, len(storageaccounts))
-	for i := 0; i < len(storageaccounts); i++ {
-		storage := SClassicStorage{
-			zone:       self.zone,
-			ID:         storageaccounts[i].ID,
-			Name:       storageaccounts[i].Name,
-			Type:       storageaccounts[i].Type,
-			Location:   storageaccounts[i].Location,
-			Properties: storageaccounts[i].Properties.ClassicStorageProperties,
-		}
-		istorages[i] = &storage
-	}
-	return istorages, nil
+	return self.zone.GetIClassicStorages(), nil
 }
 
 func (self *SClassicHost) GetIVMById(instanceId string) (cloudprovider.ICloudVM, error) {

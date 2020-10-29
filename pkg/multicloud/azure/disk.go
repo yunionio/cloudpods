@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -50,11 +51,18 @@ type CreationData struct {
 	SourceResourceID string          `json:"sourceResourceId,omitempty"`
 }
 
+type TAzureInt32 string
+
+func (ai TAzureInt32) Int32() int32 {
+	num, _ := strconv.Atoi(strings.Trim(string(ai), "\t"))
+	return int32(num)
+}
+
 type DiskProperties struct {
 	//TimeCreated       time.Time //??? 序列化出错？
 	OsType            string       `json:"osType,omitempty"`
 	CreationData      CreationData `json:"creationData,omitempty"`
-	DiskSizeGB        int32        `json:"diskSizeGB,omitempty"`
+	DiskSizeGB        TAzureInt32  `json:"diskSizeGB,omitempty"`
 	ProvisioningState string       `json:"provisioningState,omitempty"`
 	DiskState         string       `json:"diskState,omitempty"`
 }
@@ -75,93 +83,75 @@ type SDisk struct {
 	Tags map[string]string `json:"tags,omitempty"`
 }
 
-func (self *SRegion) CreateDisk(storageType string, name string, sizeGb int32, desc string, imageId, resourceGroup string) (*SDisk, error) {
-	disk := SDisk{
-		Name:     name,
-		Location: self.Name,
-		Sku: DiskSku{
-			Name: storageType,
+func (self *SRegion) CreateDisk(storageType string, name string, sizeGb int32, desc string, imageId, snapshotId, resourceGroup string) (*SDisk, error) {
+	params := jsonutils.Marshal(map[string]interface{}{
+		"Name":     name,
+		"Location": self.Name,
+		"Sku": map[string]string{
+			"Name": storageType,
 		},
-		Properties: DiskProperties{
-			CreationData: CreationData{
-				CreateOption: "Empty",
-			},
-			DiskSizeGB: sizeGb,
+		"Type": "Microsoft.Compute/disks",
+	}).(*jsonutils.JSONDict)
+	properties := map[string]interface{}{
+		"CreationData": map[string]string{
+			"CreateOption": "Empty",
 		},
-		Type: "Microsoft.Compute/disks",
+		"DiskSizeGB": sizeGb,
 	}
 	if len(imageId) > 0 {
 		image, err := self.GetImageById(imageId)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "GetImageById(%s)", imageId)
 		}
-		if isPrivateImageID(image.ID) {
-			blobUrl := image.GetBlobUri()
-			if len(blobUrl) == 0 {
-				return nil, fmt.Errorf("failed to find blobUri for image %s", image.Name)
-			}
-			disk.Properties.CreationData = CreationData{
-				CreateOption: "Import",
-				SourceURI:    blobUrl,
-			}
-		} else {
-			// 通过镜像创建的磁盘只能传ID参数，不能通过sku,offer等参数创建.
-			_imageId, err := self.getOfferedImageId(&image)
-			if err != nil {
-				return nil, err
-			}
-			disk.Properties.CreationData = CreationData{
-				CreateOption: "FromImage",
-				ImageReference: &ImageReference{
-					ID: _imageId,
+		// 通过镜像创建的磁盘只能传ID参数，不能通过sku,offer等参数创建.
+		imageId, err := self.getOfferedImageId(&image)
+		if err != nil {
+			return nil, errors.Wrapf(err, "getOfferedImageId")
+		}
+		properties = map[string]interface{}{
+			"CreationData": map[string]interface{}{
+				"CreateOption": "FromImage",
+				"ImageReference": map[string]string{
+					"Id": imageId,
 				},
-			}
+			},
 		}
-		disk.Properties.OsType = image.GetOsType()
+	} else if len(snapshotId) > 0 {
+		properties = map[string]interface{}{
+			"CreationData": map[string]interface{}{
+				"CreateOption":     "Copy",
+				"sourceResourceId": snapshotId,
+			},
+		}
 	}
-	return &disk, self.create(resourceGroup, jsonutils.Marshal(disk), &disk)
+	params.Add(jsonutils.Marshal(properties), "Properties")
+	disk := &SDisk{}
+	return disk, self.create(resourceGroup, params, disk)
 }
 
 func (self *SRegion) DeleteDisk(diskId string) error {
-	return self.deleteDisk(diskId)
-}
-
-func (self *SRegion) deleteDisk(diskId string) error {
-	if !strings.HasPrefix(diskId, "https://") {
-		startTime := time.Now()
-		timeout := 5 * time.Minute
-		for {
-			err := self.del(diskId)
-			if err == nil {
-				return nil
-			}
-			// Disk vdisk_stress-testvm-azure-1-1_1555940308395625000 is attached to VM /subscriptions/d4f0ec08-3e28-4ae5-bdf9-3dc7c5b0eeca/resourceGroups/Default/providers/Microsoft.Compute/virtualMachines/stress-testvm-azure-1.
-			// 更换系统盘后，数据未刷新会出现如上错误，多尝试几次即可
-			if strings.Contains(err.Error(), "is attached to VM") {
-				time.Sleep(time.Second * 5)
-			} else {
-				return err
-			}
-			if time.Now().Sub(startTime) > timeout {
-				return err
-			}
+	return cloudprovider.Wait(time.Second*5, time.Minute*5, func() (bool, error) {
+		err := self.del(diskId)
+		if err == nil {
+			return true, nil
 		}
-	}
-	//TODO
-	return cloudprovider.ErrNotImplemented
+		// Disk vdisk_stress-testvm-azure-1-1_1555940308395625000 is attached to VM /subscriptions/d4f0ec08-3e28-4ae5-bdf9-3dc7c5b0eeca/resourceGroups/Default/providers/Microsoft.Compute/virtualMachines/stress-testvm-azure-1.
+		// 更换系统盘后，数据未刷新会出现如上错误，多尝试几次即可
+		if strings.Contains(err.Error(), "is attached to VM") {
+			return false, nil
+		}
+		return false, err
+	})
 }
 
 func (self *SRegion) ResizeDisk(diskId string, sizeGb int32) error {
-	if !strings.HasPrefix(diskId, "https://") {
-		disk, err := self.GetDisk(diskId)
-		if err != nil {
-			return err
-		}
-		disk.Properties.DiskSizeGB = sizeGb
-		disk.Properties.ProvisioningState = ""
-		return self.update(jsonutils.Marshal(disk), nil)
+	disk, err := self.GetDisk(diskId)
+	if err != nil {
+		return err
 	}
-	return cloudprovider.ErrNotSupported
+	disk.Properties.DiskSizeGB = TAzureInt32(sizeGb)
+	disk.Properties.ProvisioningState = ""
+	return self.update(jsonutils.Marshal(disk), nil)
 }
 
 func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
@@ -170,40 +160,25 @@ func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
 }
 
 func (self *SRegion) GetDisks() ([]SDisk, error) {
-	result := []SDisk{}
 	disks := []SDisk{}
-	err := self.client.list("Microsoft.Compute/disks", url.Values{}, &disks)
+	err := self.list("Microsoft.Compute/disks", url.Values{}, &disks)
 	if err != nil {
 		return nil, err
 	}
-	for i := 0; i < len(disks); i++ {
-		if disks[i].Location == self.Name {
-			result = append(result, disks[i])
-		}
-	}
-	return result, nil
-}
-
-func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-	data.Add(jsonutils.NewString(api.HYPERVISOR_AZURE), "hypervisor")
-	return data
+	return disks, nil
 }
 
 func (self *SDisk) GetStatus() string {
-	if !strings.HasPrefix(self.ID, "https://") {
-		status := self.Properties.ProvisioningState
-		switch status {
-		case "Updating":
-			return api.DISK_ALLOCATING
-		case "Succeeded":
-			return api.DISK_READY
-		default:
-			log.Errorf("Unknow azure disk %s status: %s", self.ID, status)
-			return api.DISK_UNKNOWN
-		}
+	status := self.Properties.ProvisioningState
+	switch status {
+	case "Updating":
+		return api.DISK_ALLOCATING
+	case "Succeeded":
+		return api.DISK_READY
+	default:
+		log.Errorf("Unknow azure disk %s status: %s", self.ID, status)
+		return api.DISK_UNKNOWN
 	}
-	return api.DISK_READY
 }
 
 func (self *SDisk) GetId() string {
@@ -211,18 +186,15 @@ func (self *SDisk) GetId() string {
 }
 
 func (self *SDisk) Refresh() error {
-	if !strings.HasPrefix(self.ID, "https://") {
-		disk, err := self.storage.zone.region.GetDisk(self.ID)
-		if err != nil {
-			return cloudprovider.ErrNotFound
-		}
-		return jsonutils.Update(self, disk)
+	disk, err := self.storage.zone.region.GetDisk(self.ID)
+	if err != nil {
+		return errors.Wrapf(err, "GetDisk(%s)", self.ID)
 	}
-	return nil
+	return jsonutils.Update(self, disk)
 }
 
 func (self *SDisk) Delete(ctx context.Context) error {
-	return self.storage.zone.region.deleteDisk(self.ID)
+	return self.storage.zone.region.DeleteDisk(self.ID)
 }
 
 func (self *SDisk) Resize(ctx context.Context, sizeMb int64) error {
@@ -273,7 +245,7 @@ func (self *SDisk) GetDiskFormat() string {
 }
 
 func (self *SDisk) GetDiskSizeMB() int {
-	return int(self.Properties.DiskSizeGB) * 1024
+	return int(self.Properties.DiskSizeGB.Int32()) * 1024
 }
 
 func (self *SDisk) GetIsAutoDelete() bool {
@@ -295,31 +267,26 @@ func (self *SDisk) GetDiskType() string {
 }
 
 func (self *SDisk) CreateISnapshot(ctx context.Context, name, desc string) (cloudprovider.ICloudSnapshot, error) {
-	if snapshot, err := self.storage.zone.region.CreateSnapshot(self.ID, name, desc); err != nil {
-		log.Errorf("createSnapshot fail %s", err)
-		return nil, err
-	} else {
-		return snapshot, nil
+	snapshot, err := self.storage.zone.region.CreateSnapshot(self.ID, name, desc)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateSnapshot")
 	}
-}
-
-func (self *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
-	return self.GetSnapshotDetail(snapshotId)
+	return snapshot, nil
 }
 
 func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
-	isnapshots := make([]cloudprovider.ICloudSnapshot, 0)
-	if !strings.HasPrefix(self.ID, "https://") {
-		snapshots, err := self.storage.zone.region.GetSnapShots(self.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		for i := 0; i < len(snapshots); i++ {
-			isnapshots = append(isnapshots, &snapshots[i])
+	snapshots, err := self.storage.zone.region.ListSnapshots()
+	if err != nil {
+		return nil, errors.Wrapf(err, "ListSnapshots")
+	}
+	ret := []cloudprovider.ICloudSnapshot{}
+	for i := range snapshots {
+		if strings.ToLower(snapshots[i].Properties.CreationData.SourceResourceID) == strings.ToLower(self.ID) {
+			snapshots[i].region = self.storage.zone.region
+			ret = append(ret, &snapshots[i])
 		}
 	}
-	return isnapshots, nil
+	return ret, nil
 }
 
 func (self *SDisk) GetBillingType() string {
@@ -334,75 +301,19 @@ func (self *SDisk) GetExpiredAt() time.Time {
 	return time.Time{}
 }
 
-func (self *SDisk) GetSnapshotDetail(snapshotId string) (*SSnapshot, error) {
-	snapshot, err := self.storage.zone.region.GetSnapshotDetail(snapshotId)
-	if err != nil {
-		return nil, err
-	}
-	if snapshot.Properties.CreationData.SourceResourceID != self.ID {
-		return nil, cloudprovider.ErrNotFound
-	}
-	return snapshot, nil
-}
-
-func (region *SRegion) GetSnapshotDetail(snapshotId string) (*SSnapshot, error) {
-	snapshot := SSnapshot{region: region}
-	return &snapshot, region.get(snapshotId, url.Values{}, &snapshot)
-}
-
-func (region *SRegion) GetSnapShots(diskId string) ([]SSnapshot, error) {
-	result := []SSnapshot{}
-	if !strings.HasPrefix(diskId, "https://") {
-		snapshots := []SSnapshot{}
-		err := region.client.list("Microsoft.Compute/snapshots", url.Values{}, &snapshots)
-		if err != nil {
-			return nil, err
-		}
-		for i := 0; i < len(snapshots); i++ {
-			if snapshots[i].Location == region.Name {
-				if len(diskId) == 0 || diskId == snapshots[i].Properties.CreationData.SourceResourceID {
-					snapshots[i].region = region
-					result = append(result, snapshots[i])
-				}
-			}
-		}
-	}
-	return result, nil
-}
-
 func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
 	if self.Properties.DiskState != "Unattached" {
 		return "", fmt.Errorf("Azure reset disk needs to be done in the Unattached state, current status: %s", self.Properties.DiskState)
 	}
-	disk, err := self.storage.zone.region.CreateDiskBySnapshot(self.Name, snapshotId)
+	disk, err := self.storage.zone.region.CreateDisk(self.Sku.Name, self.Name, 0, "", "", snapshotId, self.GetProjectId())
 	if err != nil {
-		return "", errors.Wrap(err, "Reset")
+		return "", errors.Wrap(err, "CreateDisk")
 	}
-	err = self.storage.zone.region.deleteDisk(self.ID)
+	err = self.storage.zone.region.DeleteDisk(self.ID)
 	if err != nil {
 		log.Warningf("delete old disk %s error: %v", self.ID, err)
 	}
 	return disk.ID, nil
-}
-
-func (self *SRegion) CreateDiskBySnapshot(diskName, snapshotId string) (*SDisk, error) {
-	params := map[string]interface{}{
-		"name":     diskName,
-		"location": self.Name,
-		"properties": map[string]interface{}{
-			"creationData": map[string]string{
-				"createOption":     "Copy",
-				"sourceResourceId": snapshotId,
-			},
-		},
-		"type": "Microsoft.Compute/disks",
-	}
-	disk := &SDisk{}
-	err := self.create("", jsonutils.Marshal(params), disk)
-	if err != nil {
-		return nil, errors.Wrapf(err, "CreateDiskBySnapshot.Create")
-	}
-	return disk, nil
 }
 
 func (disk *SDisk) GetAccessPath() string {

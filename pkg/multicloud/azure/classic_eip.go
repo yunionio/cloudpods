@@ -148,7 +148,7 @@ func (self *SClassicEipAddress) Refresh() error {
 
 func (region *SRegion) GetClassicEips() ([]SClassicEipAddress, error) {
 	eips := []SClassicEipAddress{}
-	err := region.client.list("Microsoft.ClassicNetwork/reservedIps", url.Values{}, &eips)
+	err := region.list("Microsoft.ClassicNetwork/reservedIps", url.Values{}, &eips)
 	if err != nil {
 		return nil, err
 	}

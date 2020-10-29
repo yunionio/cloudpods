@@ -27,12 +27,12 @@ func init() {
 		ImageType string `help:"image type" choices:"customized|system|shared|market"`
 	}
 	shellutils.R(&ImageListOptions{}, "image-list", "List images", func(cli *azure.SRegion, args *ImageListOptions) error {
-		if images, err := cli.GetImages(args.ImageType); err != nil {
+		images, err := cli.GetImages(args.ImageType)
+		if err != nil {
 			return err
-		} else {
-			printList(images, len(images), 0, 0, []string{})
-			return nil
 		}
+		printList(images, len(images), 0, 0, []string{})
+		return nil
 	})
 
 	type ImagePublishersOptions struct {
@@ -93,12 +93,21 @@ func init() {
 		}
 	})
 
-	type ImageDeleteOptions struct {
+	type ImageIdOptions struct {
 		ID string `helo:"Image ID"`
 	}
 
-	shellutils.R(&ImageDeleteOptions{}, "image-delete", "Delete image", func(cli *azure.SRegion, args *ImageDeleteOptions) error {
+	shellutils.R(&ImageIdOptions{}, "image-delete", "Delete image", func(cli *azure.SRegion, args *ImageIdOptions) error {
 		return cli.DeleteImage(args.ID)
+	})
+
+	shellutils.R(&ImageIdOptions{}, "image-show", "Delete image", func(cli *azure.SRegion, args *ImageIdOptions) error {
+		image, err := cli.GetImageById(args.ID)
+		if err != nil {
+			return err
+		}
+		printObject(image)
+		return nil
 	})
 
 }

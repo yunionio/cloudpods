@@ -27,7 +27,6 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
-	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type SVMSize struct {
@@ -42,10 +41,6 @@ type SVMSize struct {
 type SRegion struct {
 	multicloud.SRegion
 	client *SAzureClient
-
-	izones       []cloudprovider.ICloudZone
-	ivpcs        []cloudprovider.ICloudVpc
-	iclassicVpcs []cloudprovider.ICloudVpc
 
 	storageCache *SStoragecache
 
@@ -289,36 +284,12 @@ func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SRegion) getZoneById(id string) (*SZone, error) {
-	if izones, err := self.GetIZones(); err != nil {
-		return nil, err
-	} else {
-		for i := 0; i < len(izones); i += 1 {
-			zone := izones[i].(*SZone)
-			if zone.GetId() == id {
-				return zone, nil
-			}
-		}
-	}
-	return nil, fmt.Errorf("no such zone %s", id)
-}
-
-func (self *SRegion) fetchZones() error {
-	if self.izones == nil || len(self.izones) == 0 {
-		self.izones = make([]cloudprovider.ICloudZone, 1)
-		zone := SZone{region: self, Name: self.Name}
-		self.izones[0] = &zone
-	}
-	return nil
+func (self *SRegion) getZone() *SZone {
+	return &SZone{region: self, Name: self.Name}
 }
 
 func (self *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
-	if self.izones == nil {
-		if err := self.fetchInfrastructure(); err != nil {
-			return nil, err
-		}
-	}
-	return self.izones, nil
+	return []cloudprovider.ICloudZone{self.getZone()}, nil
 }
 
 func (self *SRegion) getStoragecache() *SStoragecache {
@@ -328,159 +299,69 @@ func (self *SRegion) getStoragecache() *SStoragecache {
 	return self.storageCache
 }
 
-func (self *SRegion) getVpcs() ([]SVpc, error) {
+func (self *SRegion) ListVpcs() ([]SVpc, error) {
 	result := []SVpc{}
-	vpcs := []SVpc{}
-	err := self.client.list("Microsoft.Network/virtualNetworks", url.Values{}, &vpcs)
+	err := self.list("Microsoft.Network/virtualNetworks", url.Values{}, &result)
 	if err != nil {
-		return nil, err
-	}
-	for i := 0; i < len(vpcs); i++ {
-		if vpcs[i].Location == self.Name {
-			result = append(result, vpcs[i])
-		}
+		return nil, errors.Wrapf(err, "list")
 	}
 	return result, nil
 }
 
-func (self *SRegion) getClassicVpcs() ([]SClassicVpc, error) {
+func (self *SRegion) ListClassicVpcs() ([]SClassicVpc, error) {
 	result := []SClassicVpc{}
-	for _, resourceType := range []string{"Microsoft.ClassicNetwork/virtualNetworks"} {
-		vpcs := []SClassicVpc{}
-		err := self.client.list(resourceType, url.Values{}, &vpcs)
-		if err != nil {
-			return nil, err
-		}
-		for i := 0; i < len(vpcs); i++ {
-			if vpcs[i].Location == self.Name {
-				result = append(result, vpcs[i])
-			}
-		}
+	err := self.list("Microsoft.ClassicNetwork/virtualNetworks", url.Values{}, &result)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ListClassicVpcs")
 	}
 	return result, nil
-}
-
-func (self *SRegion) fetchIClassicVpc() error {
-	classicVpcs, err := self.getClassicVpcs()
-	if err != nil {
-		return err
-	}
-	self.iclassicVpcs = make([]cloudprovider.ICloudVpc, 0)
-	for i := 0; i < len(classicVpcs); i++ {
-		classicVpcs[i].region = self
-		self.iclassicVpcs = append(self.iclassicVpcs, &classicVpcs[i])
-	}
-	return nil
-}
-
-func (self *SRegion) fetchIVpc() error {
-	vpcs, err := self.getVpcs()
-	if err != nil {
-		return err
-	}
-	self.ivpcs = make([]cloudprovider.ICloudVpc, 0)
-	for i := 0; i < len(vpcs); i++ {
-		if vpcs[i].Location == self.Name {
-			vpcs[i].region = self
-			self.ivpcs = append(self.ivpcs, &vpcs[i])
-		}
-	}
-	return nil
 }
 
 func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
-	if self.ivpcs == nil || self.iclassicVpcs == nil {
-		if err := self.fetchInfrastructure(); err != nil {
-			return nil, err
-		}
-	}
-	for _, vpc := range self.ivpcs {
-		log.Debugf("find vpc %s for region %s", vpc.GetName(), self.GetName())
-	}
-	for _, vpc := range self.iclassicVpcs {
-		log.Debugf("find classic vpc %s for region %s", vpc.GetName(), self.GetName())
-	}
-	ivpcs := self.ivpcs
-	if len(self.iclassicVpcs) > 0 {
-		ivpcs = append(ivpcs, self.iclassicVpcs...)
-	}
-	return ivpcs, nil
-}
-
-func (self *SRegion) fetchInfrastructure() error {
-	err := self.fetchZones()
+	vpcs, err := self.ListVpcs()
 	if err != nil {
-		return err
+		return nil, errors.Wrapf(err, "ListVpcs")
 	}
-	err = self.fetchIVpc()
+	classicVpcs, err := self.ListClassicVpcs()
 	if err != nil {
-		return err
+		return nil, errors.Wrapf(err, "ListClassicVpcs")
 	}
-	for i := 0; i < len(self.ivpcs); i++ {
-		for j := 0; j < len(self.izones); j++ {
-			zone := self.izones[j].(*SZone)
-			vpc := self.ivpcs[i].(*SVpc)
-			wire := SWire{zone: zone, vpc: vpc}
-			zone.addWire(&wire)
-			vpc.addWire(&wire)
-		}
+	ret := []cloudprovider.ICloudVpc{}
+	for i := range vpcs {
+		vpcs[i].region = self
+		ret = append(ret, &vpcs[i])
 	}
-
-	err = self.fetchIClassicVpc()
-	if err != nil {
-		return err
+	for i := range classicVpcs {
+		classicVpcs[i].region = self
+		ret = append(ret, &classicVpcs[i])
 	}
-	for i := 0; i < len(self.iclassicVpcs); i++ {
-		for j := 0; j < len(self.izones); j++ {
-			zone := self.izones[j].(*SZone)
-			vpc := self.iclassicVpcs[i].(*SClassicVpc)
-			wire := SClassicWire{zone: zone, vpc: vpc}
-			zone.addClassicWire(&wire)
-			vpc.addWire(&wire)
-		}
-	}
-	return nil
+	return ret, nil
 }
 
 func (self *SRegion) CreateInstanceSimple(name string, imgId, osType string, cpu int, memMb int, sysDiskSizeGB int, storageType string, dataDiskSizesGB []int, networkId string, passwd string, publicKey string) (*SInstance, error) {
-	izones, err := self.GetIZones()
+	network, err := self.GetNetwork(networkId)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "GetNetwork(%s)", networkId)
 	}
-	for i := 0; i < len(izones); i += 1 {
-		z := izones[i].(*SZone)
-		log.Debugf("Search in zone %s", z.Name)
-		net := z.getNetworkById(networkId)
-		if net != nil {
-			desc := &cloudprovider.SManagedVMCreateConfig{
-				Name:              name,
-				ExternalImageId:   imgId,
-				SysDisk:           cloudprovider.SDiskInfo{SizeGB: sysDiskSizeGB, StorageType: storageType},
-				Cpu:               cpu,
-				MemoryMB:          memMb,
-				ExternalNetworkId: networkId,
-				Password:          seclib2.RandomPassword2(12),
-				DataDisks:         []cloudprovider.SDiskInfo{},
-				PublicKey:         publicKey,
-				OsType:            osType,
-			}
-			if len(passwd) > 0 {
-				desc.Password = passwd
-			}
-			for _, sizeGB := range dataDiskSizesGB {
-				desc.DataDisks = append(desc.DataDisks, cloudprovider.SDiskInfo{SizeGB: sizeGB, StorageType: storageType})
-			}
-			host := z.getHost()
-			inst, err := host.CreateVM(desc)
-			if err != nil {
-				return nil, err
-			}
-			instance := inst.(*SInstance)
-			instance.host = host
-			return instance, nil
-		}
+	desc := &cloudprovider.SManagedVMCreateConfig{
+		Name:              name,
+		ExternalImageId:   imgId,
+		SysDisk:           cloudprovider.SDiskInfo{SizeGB: sysDiskSizeGB, StorageType: storageType},
+		Cpu:               cpu,
+		MemoryMB:          memMb,
+		ExternalNetworkId: networkId,
+		Password:          passwd,
+		DataDisks:         []cloudprovider.SDiskInfo{},
+		PublicKey:         publicKey,
+		OsType:            osType,
 	}
-	return nil, fmt.Errorf("cannot find network %s", networkId)
+	if len(passwd) > 0 {
+		desc.Password = passwd
+	}
+	for _, sizeGB := range dataDiskSizesGB {
+		desc.DataDisks = append(desc.DataDisks, cloudprovider.SDiskInfo{SizeGB: sizeGB, StorageType: storageType})
+	}
+	return self._createVM(desc, network.ID)
 }
 
 func (region *SRegion) GetEips() ([]SEipAddress, error) {
@@ -529,29 +410,15 @@ func (region *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.I
 
 func (region *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
 	if strings.Contains(strings.ToLower(opts.VpcId), "microsoft.classicnetwork") {
-		secgroups, err := region.GetClassicSecurityGroups(opts.Name)
-		if err != nil {
-			return nil, err
-		}
-		if len(secgroups) == 0 {
-			return nil, cloudprovider.ErrNotFound
-		}
-		if len(secgroups) > 1 {
-			return nil, cloudprovider.ErrDuplicateId
-		}
-		return &secgroups[0], nil
+		return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "not support classic secgroup")
 	}
-	secgroups, err := region.GetSecurityGroups(opts.Name)
+	resource := fmt.Sprintf("subscriptions/%s/resourcegroups/%s/providers/microsoft.network/networksecuritygroups/%s", region.client.subscriptionId, opts.ProjectId, opts.Name)
+	secgroup := &SSecurityGroup{region: region}
+	err := region.get(resource, url.Values{}, secgroup)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "get(%s)", resource)
 	}
-	if len(secgroups) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	if len(secgroups) > 1 {
-		return nil, cloudprovider.ErrDuplicateId
-	}
-	return &secgroups[0], nil
+	return secgroup, nil
 }
 
 func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
@@ -654,8 +521,21 @@ func (self *SRegion) get(resource string, params url.Values, retVal interface{})
 	return self.client.get(resource, params, retVal)
 }
 
+func (self *SRegion) Show(resource string) (jsonutils.JSONObject, error) {
+	ret := jsonutils.NewDict()
+	err := self.get(resource, url.Values{}, ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
 func (self *SRegion) del(resource string) error {
 	return self.client.del(resource)
+}
+
+func (self *SRegion) Delete(resource string) error {
+	return self.del(resource)
 }
 
 func (self *SRegion) checkResourceGroup(resourceGroup string) (string, error) {
@@ -672,9 +552,9 @@ func (self *SRegion) checkResourceGroup(resourceGroup string) (string, error) {
 }
 
 type sInfo struct {
-	Location string
-	Name     string
-	Type     string
+	Location string `json:"Location"`
+	Name     string `json:"Name"`
+	Type     string `json:"Type"`
 }
 
 func (self *SRegion) createInfo(body jsonutils.JSONObject) (sInfo, error) {
@@ -692,8 +572,9 @@ func (self *SRegion) createInfo(body jsonutils.JSONObject) (sInfo, error) {
 	return info, nil
 }
 
-func (self *SRegion) create(resourceGroup string, body jsonutils.JSONObject, retVal interface{}) error {
-	info, err := self.createInfo(body)
+func (self *SRegion) create(resourceGroup string, _body jsonutils.JSONObject, retVal interface{}) error {
+	body := _body.(*jsonutils.JSONDict)
+	info, err := self.createInfo(_body)
 	if err != nil {
 		return errors.Wrapf(err, "createInfo")
 	}
@@ -706,7 +587,7 @@ func (self *SRegion) create(resourceGroup string, body jsonutils.JSONObject, ret
 		return errors.Wrapf(err, "getUniqName")
 	}
 	info.Location = self.Name
-	jsonutils.Update(&body, info)
+	body.Update(jsonutils.Marshal(info))
 	return self.client.create(resourceGroup, info.Type, info.Name, body, retVal)
 }
 
@@ -716,4 +597,28 @@ func (self *SRegion) update(body jsonutils.JSONObject, retVal interface{}) error
 
 func (self *SRegion) perform(id, action string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return self.client.perform(id, action, body)
+}
+
+func (self *SRegion) put(resource string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return self.client.put(resource, body)
+}
+
+func (self *SRegion) patch(resource string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return self.client.patch(resource, body)
+}
+
+func (self *SRegion) list(resource string, params url.Values, retVal interface{}) error {
+	result := []jsonutils.JSONObject{}
+	err := self.client.list(resource, params, &result)
+	if err != nil {
+		return errors.Wrapf(err, "client.list")
+	}
+	ret := []jsonutils.JSONObject{}
+	for i := range result {
+		location, _ := result[i].GetString("location")
+		if len(location) == 0 || strings.ToLower(self.Name) == strings.ToLower(location) {
+			ret = append(ret, result[i])
+		}
+	}
+	return jsonutils.Update(retVal, ret)
 }

@@ -38,19 +38,17 @@ type SEnrollmentAccount struct {
 }
 
 func (cli *SAzureClient) GetEnrollmentAccounts() ([]cloudprovider.SEnrollmentAccount, error) {
-	accounts := struct {
-		Value []SEnrollmentAccount
-	}{}
-	err := cli.get("providers/Microsoft.Billing/enrollmentAccounts", nil, &accounts)
+	accounts := []SEnrollmentAccount{}
+	err := cli.list("providers/Microsoft.Billing/enrollmentAccounts", nil, &accounts)
 	if err != nil {
 		return nil, err
 	}
 	eas := []cloudprovider.SEnrollmentAccount{}
-	for i := range accounts.Value {
+	for i := range accounts {
 		ea := cloudprovider.SEnrollmentAccount{
-			Id:   accounts.Value[i].Name,
-			Name: accounts.Value[i].Properties.PrincipalName,
-			Type: accounts.Value[i].Type,
+			Id:   accounts[i].Name,
+			Name: accounts[i].Properties.PrincipalName,
+			Type: accounts[i].Type,
 		}
 		eas = append(eas, ea)
 	}

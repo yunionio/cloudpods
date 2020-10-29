@@ -293,18 +293,16 @@ func (self *SRegion) getClassicSecurityGroupRules(secgroupId string) ([]SClassic
 	params := url.Values{}
 	params.Set("api-version", "2015-06-01")
 	resource := fmt.Sprintf("%s/securityRules", secgroupId)
-	result, err := self.client.jsonRequest("GET", resource, nil, params)
+	err := self.client.list(resource, params, &rules)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "list")
 	}
-	return rules, result.Unmarshal(&rules, "value")
+	return rules, nil
 }
 
 func (self *SRegion) addClassicSecgroupRule(secgroupId string, rule SClassicSecurityGroupRule) error {
 	resource := fmt.Sprintf("%s/securityRules/%s", secgroupId, rule.Name)
-	params := url.Values{}
-	params.Set("api-version", "2015-06-01")
-	_, err := self.client.jsonRequest("PUT", resource, jsonutils.Marshal(rule), params)
+	_, err := self.put(resource, jsonutils.Marshal(rule))
 	return err
 }
 

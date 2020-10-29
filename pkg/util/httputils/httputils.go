@@ -88,6 +88,10 @@ type JSONClientError struct {
 	Data    Error  `json:"data,omitempty"`
 }
 
+type sClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 // body might have been consumed, so body is provided separately
 func newJsonClientErrorFromRequest(req *http.Request, body string) *JSONClientError {
 	return newJsonClientErrorFromRequest2(req.Method, req.URL.String(), req.Header, body)
@@ -146,7 +150,7 @@ type JSONClientErrorMsg struct {
 }
 
 type JsonClient struct {
-	client *http.Client
+	client sClient
 }
 
 type JsonRequest interface {
@@ -224,7 +228,7 @@ func (ce *JSONClientError) ParseErrorFromJsonResponse(statusCode int, body jsonu
 	return ce
 }
 
-func NewJsonClient(client *http.Client) *JsonClient {
+func NewJsonClient(client sClient) *JsonClient {
 	return &JsonClient{client: client}
 }
 
@@ -427,7 +431,7 @@ func GetDefaultClient() *http.Client {
 	return GetClient(true, time.Second*15)
 }
 
-func Request(client *http.Client, ctx context.Context, method THttpMethod, urlStr string, header http.Header, body io.Reader, debug bool) (*http.Response, error) {
+func Request(client sClient, ctx context.Context, method THttpMethod, urlStr string, header http.Header, body io.Reader, debug bool) (*http.Response, error) {
 	req, resp, err := requestInternal(client, ctx, method, urlStr, header, body, debug)
 	if err != nil {
 		var reqBody string
@@ -454,7 +458,7 @@ func Request(client *http.Client, ctx context.Context, method THttpMethod, urlSt
 	return resp, nil
 }
 
-func requestInternal(client *http.Client, ctx context.Context, method THttpMethod, urlStr string, header http.Header, body io.Reader, debug bool) (*http.Request, *http.Response, error) {
+func requestInternal(client sClient, ctx context.Context, method THttpMethod, urlStr string, header http.Header, body io.Reader, debug bool) (*http.Request, *http.Response, error) {
 	if client == nil {
 		client = defaultHttpClient
 	}

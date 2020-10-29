@@ -17,6 +17,13 @@ package azure
 import (
 	"fmt"
 	"net/url"
+	"strings"
+	"time"
+
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SServices struct {
@@ -42,29 +49,47 @@ func (self *SAzureClient) ListServices() ([]SService, error) {
 	return services, self.list("providers", url.Values{}, &services)
 }
 
-func (self *SRegion) SerciceShow(serviceType string) (*SService, error) {
+func (self *SAzureClient) GetSercice(serviceType string) (*SService, error) {
 	service := SService{}
 	return &service, self.get("providers/"+serviceType, url.Values{}, &service)
 }
 
-func (self *SRegion) serviceOperation(resourceType, operation string) error {
-	services, err := self.client.ListServices()
-	if err != nil {
-		return err
-	}
-	for _, service := range services {
-		if service.Namespace == resourceType {
-			_, err := self.client.jsonRequest("POST", fmt.Sprintf("%s/%s", service.ID, operation), nil, url.Values{})
-			return err
+func (self *SAzureClient) serviceOperation(serviceType, operation string) error {
+	resource := fmt.Sprintf("subscriptions/%s/providers/%s", self.subscriptionId, serviceType)
+	_, err := self.perform(resource, operation, nil)
+	return err
+}
+
+func (self *SAzureClient) waitServiceStatus(serviceType, status string) error {
+	return cloudprovider.Wait(time.Second*10, time.Minute*5, func() (bool, error) {
+		services, err := self.ListServices()
+		if err != nil {
+			return false, errors.Wrapf(err, "ListServices")
 		}
+		for _, service := range services {
+			if strings.ToLower(service.Namespace) == strings.ToLower(serviceType) {
+				if service.RegistrationState == status {
+					return true, nil
+				}
+				log.Debugf("service %s status: %s expect %s", serviceType, service.RegistrationState, status)
+			}
+		}
+		return false, nil
+	})
+}
+
+func (self *SAzureClient) ServiceRegister(serviceType string) error {
+	err := self.serviceOperation(serviceType, "register")
+	if err != nil {
+		return errors.Wrapf(err, "serviceOperation(%s)", "register")
 	}
-	return fmt.Errorf("failed to find namespace: %s", resourceType)
+	return self.waitServiceStatus(serviceType, "Registered")
 }
 
-func (self *SRegion) ServiceRegister(resourceType string) error {
-	return self.serviceOperation(resourceType, "register")
-}
-
-func (self *SRegion) ServiceUnRegister(resourceType string) error {
-	return self.serviceOperation(resourceType, "unregister")
+func (self *SAzureClient) ServiceUnRegister(serviceType string) error {
+	err := self.serviceOperation(serviceType, "unregister")
+	if err != nil {
+		return errors.Wrapf(err, "serviceOperation(%s)", "unregister")
+	}
+	return self.waitServiceStatus(serviceType, "NotRegistered")
 }

@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/osprofile"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
@@ -166,27 +167,17 @@ func (self *SClassicInstance) GetHypervisor() string {
 	return api.HYPERVISOR_AZURE
 }
 
-func (self *SClassicInstance) IsEmulated() bool {
-	return false
-}
-
 func (self *SClassicInstance) GetInstanceType() string {
 	return self.Properties.HardwareProfile.Size
 }
 
 func (self *SRegion) GetClassicInstances() ([]SClassicInstance, error) {
-	result := []SClassicInstance{}
 	instances := []SClassicInstance{}
-	err := self.client.list("Microsoft.ClassicCompute/virtualMachines", url.Values{}, &instances)
+	err := self.list("Microsoft.ClassicCompute/virtualMachines", url.Values{}, &instances)
 	if err != nil {
 		return nil, err
 	}
-	for i := 0; i < len(instances); i++ {
-		if instances[i].Location == self.Name {
-			result = append(result, instances[i])
-		}
-	}
-	return result, nil
+	return instances, nil
 }
 
 func (self *SRegion) GetClassicInstance(instanceId string) (*SClassicInstance, error) {
@@ -196,45 +187,16 @@ func (self *SRegion) GetClassicInstance(instanceId string) (*SClassicInstance, e
 	return &instance, self.get(instanceId, params, &instance)
 }
 
-type ClassicInstanceDiskProperties struct {
-	DiskName        string
-	Caching         string
-	OperatingSystem string
-	IoType          string
-	DiskSize        int32
-	SourceImageName string
-	VhdUri          string
-}
-
-type ClassicInstanceDisk struct {
-	Properties ClassicInstanceDiskProperties
-	ID         string
-	Name       string
-	Type       string
-}
-
-func (self *SClassicInstance) getDisks() ([]SClassicDisk, error) {
-	disks := []SClassicDisk{}
-	body, err := self.host.zone.region.client.jsonRequest("GET", fmt.Sprintf("%s/disks", self.ID), nil, url.Values{})
+func (self *SRegion) GetClassicInstanceDisks(instanceId string) ([]SClassicDisk, error) {
+	result := struct {
+		Value []SClassicDisk
+	}{}
+	resource := fmt.Sprintf("%s/disks", instanceId)
+	err := self.get(resource, url.Values{}, &result)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "list")
 	}
-	_disks, err := body.GetArray("value")
-	if err != nil {
-		return nil, err
-	}
-	for i := 0; i < len(_disks); i++ {
-		disk := SClassicDisk{}
-		err = _disks[i].Unmarshal(&disk, "properties")
-		if err != nil {
-			return nil, err
-		}
-		storage := SClassicStorage{zone: self.host.zone, Name: disk.StorageAccount.Name, ID: disk.StorageAccount.ID}
-		disk.DiskSizeGB = disk.DiskSize
-		disk.storage = &storage
-		disks = append(disks, disk)
-	}
-	return disks, nil
+	return result.Value, nil
 }
 
 func (self *SClassicInstance) getNics() ([]SClassicInstanceNic, error) {
@@ -361,25 +323,17 @@ func (self *SClassicInstance) DeleteVM(ctx context.Context) error {
 	return nil
 }
 
-func (self *SClassicInstance) fetchDisks() error {
-	disks, err := self.getDisks()
-	if err != nil {
-		return err
-	}
-	self.idisks = make([]cloudprovider.ICloudDisk, len(disks))
-	for i := 0; i < len(disks); i++ {
-		self.idisks[i] = &disks[i]
-	}
-	return nil
-}
-
 func (self *SClassicInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	if self.idisks == nil {
-		if err := self.fetchDisks(); err != nil {
-			return nil, err
-		}
+	disks, err := self.host.zone.region.GetClassicInstanceDisks(self.ID)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetClassicInstanceDisks")
 	}
-	return self.idisks, nil
+	ret := []cloudprovider.ICloudDisk{}
+	for i := range disks {
+		disks[i].region = self.host.zone.region
+		ret = append(ret, &disks[i])
+	}
+	return ret, nil
 }
 
 func (self *SClassicInstance) GetOSType() string {
