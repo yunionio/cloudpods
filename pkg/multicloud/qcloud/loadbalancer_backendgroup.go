@@ -420,5 +420,5 @@ func (self *SLBBackendGroup) GetBackends() ([]SLBBackend, error) {
 }
 
 func (self *SLBBackendGroup) GetProjectId() string {
-	return ""
+	return self.lb.GetProjectId()
 }

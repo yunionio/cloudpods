@@ -105,5 +105,5 @@ func (self *SLBCertificate) GetExpireTime() time.Time {
 }
 
 func (self *SLBCertificate) GetProjectId() string {
-	return ""
+	return self.ProjectID
 }

@@ -108,7 +108,7 @@ func (self *SLBListenerRule) GetPath() string {
 }
 
 func (self *SLBListenerRule) GetProjectId() string {
-	return ""
+	return self.listener.GetProjectId()
 }
 
 func (self *SLBListenerRule) GetBackendGroup() *SLBBackendGroup {
