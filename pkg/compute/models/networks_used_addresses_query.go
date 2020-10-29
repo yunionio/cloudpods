@@ -43,6 +43,7 @@ var usedAddressQueryProviders = []usedAddressQueryProvider{
 	ElasticipManager,
 	NetworkinterfacenetworkManager,
 	DBInstanceManager,
+	NetworkAddressManager,
 }
 
 func (manager *SGuestnetworkManager) usedAddressQuery(args *usedAddressQueryArgs) *sqlchemy.SQuery {
@@ -286,6 +287,31 @@ func (manager *SDBInstanceManager) usedAddressQuery(args *usedAddressQueryArgs) 
 				baseq.Field("dbinstance_id"),
 			),
 		)
+	}
+	return retq
+}
+
+func (manager *SNetworkAddressManager) usedAddressQuery(args *usedAddressQueryArgs) *sqlchemy.SQuery {
+	var (
+		baseq = NetworkAddressManager.Query().Equals("network_id", args.network.Id).SubQuery()
+		retq  *sqlchemy.SQuery
+	)
+	if args.addrOnly {
+		retq = baseq.Query(
+			baseq.Field("ip_addr"),
+		)
+	} else {
+		retq = baseq.Query(
+			baseq.Field("ip_addr"),
+			sqlchemy.NewStringField("").Label("mac_addr"),
+			sqlchemy.NewStringField(NetworkAddressManager.KeywordPlural()).Label("owner_type"),
+			baseq.Field("id").Label("owner_id"),
+			baseq.Field("id").Label("owner"),
+			baseq.Field("parent_id").Label("associate_id"),
+			baseq.Field("parent_type").Label("associate_type"),
+			baseq.Field("created_at"),
+		)
+		retq = NetworkAddressManager.FilterByOwner(retq, args.owner, args.scope)
 	}
 	return retq
 }
