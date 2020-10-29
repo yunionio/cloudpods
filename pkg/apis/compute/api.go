@@ -448,8 +448,9 @@ type ServerCreateInput struct {
 	// 弹性公网IP带宽
 	// 指定此参数后会创建新的弹性公网IP并绑定到新建的虚拟机
 	// 此参数优先级低于public_ip
-	// 私有云不支持此参数
 	EipBw int `json:"eip_bw,omitzero"`
+	// 弹性公网IP线路类型
+	EipBgpType string `json:"eip_bgp_type,omitzero"`
 	// 弹性公网IP计费类型
 	EipChargeType string `json:"eip_charge_type,omitempty"`
 	// 是否跟随主机删除而自动释放

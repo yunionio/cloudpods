@@ -3001,6 +3001,7 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 			return nil, httperrors.NewMissingParameterError("bandwidth")
 		}
 	}
+	bgpType, _ := data.GetString("bgp_type")
 	autoDellocate, _ := data.Bool("auto_dellocate")
 
 	host := self.GetHost()
@@ -3038,6 +3039,7 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 
 	eip, err := ElasticipManager.NewEipForVMOnHost(ctx, userCred, &NewEipForVMOnHostArgs{
 		Bandwidth:     int(bw),
+		BgpType:       bgpType,
 		ChargeType:    chargeType,
 		AutoDellocate: autoDellocate,
 

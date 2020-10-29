@@ -184,6 +184,7 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 	if input.EipBw > 0 {
 		eip, err := models.ElasticipManager.NewEipForVMOnHost(ctx, self.UserCred, &models.NewEipForVMOnHostArgs{
 			Bandwidth:     input.EipBw,
+			BgpType:       input.EipBgpType,
 			ChargeType:    input.EipChargeType,
 			AutoDellocate: input.EipAutoDellocate,
 
