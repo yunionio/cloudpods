@@ -193,6 +193,9 @@ type NetworkCreateInput struct {
 
 	// deprecated
 	Vlan *int `json:"vlan" yunion-deprecated-by:"vlan_id"`
+
+	// 线路类型
+	BgpType string `json:"bgp_type"`
 }
 
 type NetworkDetails struct {
@@ -328,4 +331,13 @@ type GetNetworkAddressesInput struct {
 type GetNetworkAddressesOutput struct {
 	// IP子网地址记录
 	Addresses []SNetworkAddress `json:"addresses"`
+}
+
+type NetworkSetBgpTypeInput struct {
+	apis.Meta
+
+	// description: new BgpType name
+	// required: true
+	// example: ChinaTelecom, BGP, etc.
+	BgpType string `json:"bgp_type"`
 }

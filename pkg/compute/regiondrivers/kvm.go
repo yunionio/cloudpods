@@ -898,17 +898,40 @@ func (self *SKVMRegionDriver) RequestDeleteVpc(ctx context.Context, userCred mcc
 }
 
 func (self *SKVMRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, input *api.SElasticipCreateInput) error {
-	if len(input.NetworkId) == 0 {
-		return httperrors.NewMissingParameterError("network_id")
-	}
-	_network, err := models.NetworkManager.FetchByIdOrName(userCred, input.NetworkId)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return httperrors.NewResourceNotFoundError2("network", input.NetworkId)
+	var network *models.SNetwork
+	if input.NetworkId != "" {
+		_network, err := models.NetworkManager.FetchByIdOrName(userCred, input.NetworkId)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return httperrors.NewResourceNotFoundError2("network", input.NetworkId)
+			}
+			return httperrors.NewGeneralError(err)
 		}
-		return httperrors.NewGeneralError(err)
+		network = _network.(*models.SNetwork)
+		input.BgpType = network.BgpType
+	} else if input.BgpType != "" {
+		q := models.NetworkManager.Query().
+			Equals("server_type", api.NETWORK_TYPE_EIP).
+			Equals("bgp_type", input.BgpType)
+		var nets []models.SNetwork
+		if err := db.FetchModelObjects(models.NetworkManager, q, &nets); err != nil {
+			return err
+		}
+		for i := range nets {
+			net := &nets[i]
+			cnt, _ := net.GetFreeAddressCount()
+			if cnt > 0 {
+				network = net
+				input.NetworkId = net.Id
+				break
+			}
+		}
+		if network == nil {
+			return httperrors.NewNotFoundError("no available eip network from BgpType %s", input.BgpType)
+		}
+	} else {
+		return httperrors.NewMissingParameterError("network_id, isp")
 	}
-	network := _network.(*models.SNetwork)
 	if network.ServerType != api.NETWORK_TYPE_EIP {
 		return httperrors.NewInputParameterError("bad network type %q, want %q", network.ServerType, api.NETWORK_TYPE_EIP)
 	}

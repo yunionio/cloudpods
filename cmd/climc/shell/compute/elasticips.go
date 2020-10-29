@@ -52,6 +52,7 @@ func init() {
 		Bandwidth  int    `help:"Bandwidth in Mbps"`
 		Ip         string `help:"IP address of the EIP"`
 		Network    string `help:"Network of the EIP"`
+		BgpType    string `help:"BgpType of the EIP" positional:"false"`
 		ChargeType string `help:"bandwidth charge type" choices:"traffic|bandwidth"`
 	}
 	R(&EipCreateOptions{}, "eip-create", "Create an EIP", func(s *mcclient.ClientSession, args *EipCreateOptions) error {
@@ -73,6 +74,9 @@ func init() {
 
 		if len(args.Network) > 0 {
 			params.Add(jsonutils.NewString(args.Network), "network")
+		}
+		if len(args.BgpType) > 0 {
+			params.Add(jsonutils.NewString(args.BgpType), "bgp_type")
 		}
 
 		if len(args.Ip) > 0 {
