@@ -4001,7 +4001,7 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *j
 	nics, _ := self.GetNetworks("")
 	domain := options.Options.DNSDomain
 	for _, nic := range nics {
-		nicDesc := nic.getJsonDescAtHost(host)
+		nicDesc := nic.getJsonDescAtHost(ctx, host)
 		jsonNics = append(jsonNics, nicDesc)
 		nicDomain, _ := nicDesc.GetString("domain")
 		if len(nicDomain) > 0 && len(domain) == 0 {

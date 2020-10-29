@@ -90,6 +90,7 @@ func (man *SNetworkAddressManager) fetchByGuestnetworkId(ctx context.Context, ro
 }
 
 type addrConf struct {
+	Type    string `json:"type"`
 	IpAddr  string `json:"ip_addr"`
 	Masklen int    `json:"masklen"`
 	Gateway string `json:"gateway"`
@@ -100,6 +101,7 @@ func (man *SNetworkAddressManager) fetchAddressesByGuestnetworkId(ctx context.Co
 		naq     = man.queryByGuestnetworkId(ctx, rowid).SubQuery()
 		nq      = NetworkManager.Query().SubQuery()
 		ipnetsq = naq.Query(
+			naq.Field("type"),
 			naq.Field("ip_addr"),
 			nq.Field("guest_ip_mask").Label("masklen"),
 			nq.Field("guest_gateway").Label("gateway"),
