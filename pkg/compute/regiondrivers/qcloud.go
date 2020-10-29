@@ -1561,6 +1561,11 @@ func (self *SQcloudRegionDriver) RequestCreateElasticcache(ctx context.Context, 
 			return nil, errors.Wrap(err, "qcloudRegionDriver.CreateElasticcache.GetCreateHuaweiElasticcacheParams")
 		}
 		params.SecurityGroupIds = secgroups
+		params.ProjectId, err = provider.SyncProject(ctx, userCred, ec.ProjectId)
+		if err != nil {
+			log.Errorf("failed to sync project %s for create %s elastic cache %s error: %v", ec.ProjectId, provider.Provider, ec.Name, err)
+		}
+
 		iec, err := iRegion.CreateIElasticcaches(params)
 		if err != nil {
 			return nil, errors.Wrap(err, "qcloudRegionDriver.CreateElasticcache.CreateIElasticcaches")
