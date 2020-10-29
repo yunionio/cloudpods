@@ -3053,7 +3053,15 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 		return nil, httperrors.NewOutOfQuotaError("Out of eip quota: %s", err)
 	}
 
-	eip, err := ElasticipManager.NewEipForVMOnHost(ctx, userCred, self, host, int(bw), chargeType, autoDellocate, eipPendingUsage)
+	eip, err := ElasticipManager.NewEipForVMOnHost(ctx, userCred, &NewEipForVMOnHostArgs{
+		Bandwidth:     int(bw),
+		ChargeType:    chargeType,
+		AutoDellocate: autoDellocate,
+
+		Guest:        self,
+		Host:         host,
+		PendingUsage: eipPendingUsage,
+	})
 	if err != nil {
 		quotas.CancelPendingUsage(ctx, userCred, eipPendingUsage, eipPendingUsage, false)
 		return nil, httperrors.NewGeneralError(err)

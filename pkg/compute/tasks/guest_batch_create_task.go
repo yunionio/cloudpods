@@ -182,7 +182,15 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 
 	// allocate eips
 	if input.EipBw > 0 {
-		eip, err := models.ElasticipManager.NewEipForVMOnHost(ctx, self.UserCred, guest, host, input.EipBw, input.EipChargeType, input.EipAutoDellocate, &pendingRegionUsage)
+		eip, err := models.ElasticipManager.NewEipForVMOnHost(ctx, self.UserCred, &models.NewEipForVMOnHostArgs{
+			Bandwidth:     input.EipBw,
+			ChargeType:    input.EipChargeType,
+			AutoDellocate: input.EipAutoDellocate,
+
+			Guest:        guest,
+			Host:         host,
+			PendingUsage: &pendingRegionUsage,
+		})
 		self.SetPendingUsage(&pendingRegionUsage, 1)
 		if err != nil {
 			log.Errorf("guest.CreateElasticipOnHost failed: %s", err)
