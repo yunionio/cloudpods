@@ -1757,18 +1757,20 @@ func (self *SQcloudRegionDriver) RequestElasticcacheAccountResetPassword(ctx con
 	}
 
 	if iec.GetEngine() == "redis" && iec.GetEngineVersion() == "2.8" {
-		noAuth := false
-		if ec.AuthMode == "off" {
-			noAuth = true
-		}
-
-		if input.NoPasswordAccess != nil {
-			noAuth = *input.NoPasswordAccess
-		}
 		pwd := ""
 		if input.Password != nil {
 			pwd = *input.Password
 		}
+
+		noAuth := false
+		if len(pwd) > 0 {
+			noAuth = false
+		} else if input.NoPasswordAccess != nil {
+			noAuth = *input.NoPasswordAccess
+		} else if ec.AuthMode == "off" {
+			noAuth = true
+		}
+
 		err = iec.UpdateAuthMode(noAuth, pwd)
 	} else {
 		err = iea.UpdateAccount(input)
