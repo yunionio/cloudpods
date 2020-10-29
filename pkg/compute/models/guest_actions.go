@@ -2607,7 +2607,7 @@ func (self *SGuest) RevokeAllSecgroups(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SGuest) DoPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
-	eip, _ := self.GetEip()
+	eip, _ := self.GetEipOrPublicIp()
 	if eip != nil {
 		eip.DoPendingDelete(ctx, userCred)
 	}
@@ -2649,6 +2649,11 @@ func (self *SGuest) PerformCancelDelete(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SGuest) DoCancelPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	eip, _ := self.GetEipOrPublicIp()
+	if eip != nil {
+		eip.DoCancelPendingDelete(ctx, userCred)
+	}
+
 	for _, guestdisk := range self.GetDisks() {
 		disk := guestdisk.GetDisk()
 		disk.DoCancelPendingDelete(ctx, userCred)
@@ -2864,12 +2869,12 @@ func (self *SGuest) AllowPerformAssociateEip(ctx context.Context, userCred mccli
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "associate-eip")
 }
 
-func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerAssociateEipInput) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
 		return nil, httperrors.NewInvalidStatusError("cannot associate eip in status %s", self.Status)
 	}
 
-	eip, err := self.GetEip()
+	eip, err := self.GetEipOrPublicIp()
 	if err != nil {
 		log.Errorf("Fail to get Eip %s", err)
 		return nil, httperrors.NewGeneralError(err)
@@ -2877,7 +2882,7 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 	if eip != nil {
 		return nil, httperrors.NewInvalidStatusError("already associate with eip")
 	}
-	eipStr := jsonutils.GetAnyString(data, []string{"eip", "eip_id"})
+	eipStr := input.EipId
 	if len(eipStr) == 0 {
 		return nil, httperrors.NewMissingParameterError("eip_id")
 	}
@@ -2952,8 +2957,8 @@ func (self *SGuest) AllowPerformDissociateEip(ctx context.Context, userCred mccl
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "dissociate-eip")
 }
 
-func (self *SGuest) PerformDissociateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	eip, err := self.GetEip()
+func (self *SGuest) PerformDissociateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerDissociateEipInput) (jsonutils.JSONObject, error) {
+	eip, err := self.GetElasticIp()
 	if err != nil {
 		log.Errorf("Fail to get Eip %s", err)
 		return nil, httperrors.NewGeneralError(err)
@@ -2969,7 +2974,7 @@ func (self *SGuest) PerformDissociateEip(ctx context.Context, userCred mcclient.
 
 	self.SetStatus(userCred, api.VM_DISSOCIATE_EIP, "associate eip")
 
-	autoDelete := jsonutils.QueryBoolean(data, "auto_delete", false)
+	autoDelete := (input.AudoDelete != nil && *input.AudoDelete)
 
 	err = eip.StartEipDissociateTask(ctx, userCred, autoDelete, "")
 	if err != nil {
@@ -4313,7 +4318,7 @@ func (guest *SGuest) PerformChangeOwner(ctx context.Context, userCred mcclient.T
 		}
 	}
 
-	if eip, _ := guest.GetEip(); eip != nil {
+	if eip, _ := guest.GetEipOrPublicIp(); eip != nil {
 		_, err := eip.PerformChangeOwner(ctx, userCred, query, input)
 		if err != nil {
 			return nil, err

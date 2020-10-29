@@ -118,7 +118,7 @@ func (self *GuestDeleteTask) OnStartEipDissociate(ctx context.Context, guest *mo
 			sourceGuest.StartSyncstatus(ctx, self.UserCred, "")
 		}
 	}
-	eip, _ := guest.GetEip()
+	eip, _ := guest.GetEipOrPublicIp()
 	if eip != nil && eip.Mode != api.EIP_MODE_INSTANCE_PUBLICIP {
 		// detach floating EIP only
 		if jsonutils.QueryBoolean(self.Params, "purge", false) {
