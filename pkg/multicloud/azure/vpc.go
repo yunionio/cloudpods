@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -33,29 +34,17 @@ type SubnetPropertiesFormat struct {
 	//ProvisioningState string
 }
 
-type Subnet struct {
-	Properties SubnetPropertiesFormat
-	Name       string
-	ID         string
-}
-
 type VirtualNetworkPropertiesFormat struct {
 	ProvisioningState      string
 	Status                 string
 	VirtualNetworkSiteName string
 	AddressSpace           AddressSpace `json:"addressSpace,omitempty"`
-	Subnets                *[]SNetwork  `json:"subnets,omitempty"`
+	Subnets                []SNetwork   `json:"subnets,omitempty"`
 }
 
 type SVpc struct {
 	multicloud.SVpc
-
 	region *SRegion
-
-	iwires    []cloudprovider.ICloudWire
-	secgroups []cloudprovider.ICloudSecurityGroup
-
-	isDefault bool
 
 	ID         string
 	Name       string
@@ -87,11 +76,14 @@ func (self *SVpc) IsEmulated() bool {
 }
 
 func (self *SVpc) GetIsDefault() bool {
-	return self.isDefault
+	return true
 }
 
 func (self *SVpc) GetCidrBlock() string {
-	return self.Properties.AddressSpace.AddressPrefixes[0]
+	if len(self.Properties.AddressSpace.AddressPrefixes) > 0 {
+		return self.Properties.AddressSpace.AddressPrefixes[0]
+	}
+	return ""
 }
 
 func (self *SVpc) Delete() error {
@@ -102,60 +94,17 @@ func (self *SRegion) DeleteVpc(vpcId string) error {
 	return self.del(vpcId)
 }
 
-func (self *SVpc) getSecurityGroups() ([]SSecurityGroup, error) {
-	securityGroups, err := self.region.GetSecurityGroups("")
-	if err != nil {
-		return nil, err
-	}
-	for i := 0; i < len(securityGroups); i++ {
-		securityGroups[i].vpc = self
-	}
-	return securityGroups, nil
-}
-
-func (self *SVpc) fetchSecurityGroups() error {
-	self.secgroups = make([]cloudprovider.ICloudSecurityGroup, 0)
-	if secgrps, err := self.getSecurityGroups(); err != nil {
-		return err
-	} else {
-		for i := 0; i < len(secgrps); i++ {
-			self.secgroups = append(self.secgroups, &secgrps[i])
-		}
-		return nil
-	}
-}
-
-func (self *SVpc) getWire() *SWire {
-	if self.iwires == nil {
-		self.fetchWires()
-	}
-	return self.iwires[0].(*SWire)
-}
-
-func (self *SVpc) fetchNetworks() error {
-	vpc, err := self.region.GetVpc(self.ID)
-	if err != nil {
-		return err
-	}
-	if vpc.Properties.Subnets != nil {
-		networks := *vpc.Properties.Subnets
-		wire := self.getWire()
-		for i := 0; i < len(networks); i++ {
-			networks[i].wire = wire
-			wire.addNetwork(&networks[i])
-		}
-	}
-	return nil
-}
-
 func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
-	if self.secgroups == nil {
-		err := self.fetchSecurityGroups()
-		if err != nil {
-			return nil, err
-		}
+	secgroups, err := self.region.ListSecgroups()
+	if err != nil {
+		return nil, errors.Wrapf(err, "ListSecgroups")
 	}
-	return self.secgroups, nil
+	ret := []cloudprovider.ICloudSecurityGroup{}
+	for i := range secgroups {
+		secgroups[i].region = self.region
+		ret = append(ret, &secgroups[i])
+	}
+	return ret, nil
 }
 
 func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
@@ -167,44 +116,21 @@ func (self *SVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudR
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (self *SVpc) fetchWires() error {
-	networks := make([]cloudprovider.ICloudNetwork, len(*self.Properties.Subnets))
-	if len(self.region.izones) == 0 {
-		self.region.fetchZones()
+func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) {
+	wire := self.getWire()
+	if wire.GetGlobalId() != wireId {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, wireId)
 	}
-	wire := SWire{zone: self.region.izones[0].(*SZone), vpc: self, inetworks: networks}
-	for i, _network := range *self.Properties.Subnets {
-		network := SNetwork{wire: &wire}
-		if err := jsonutils.Update(&network, _network); err != nil {
-			return err
-		}
-		networks[i] = &network
-	}
-	self.iwires = []cloudprovider.ICloudWire{&wire}
-	return nil
+	return wire, nil
 }
 
-func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) {
-	if self.iwires == nil {
-		if err := self.fetchNetworks(); err != nil {
-			return nil, err
-		}
-	}
-	for i := 0; i < len(self.iwires); i++ {
-		if self.iwires[i].GetGlobalId() == wireId {
-			return self.iwires[i], nil
-		}
-	}
-	return nil, cloudprovider.ErrNotFound
+func (self *SVpc) getWire() *SWire {
+	zone := self.region.getZone()
+	return &SWire{zone: zone, vpc: self}
 }
 
 func (self *SVpc) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	if self.iwires == nil {
-		if err := self.fetchWires(); err != nil {
-			return nil, err
-		}
-	}
-	return self.iwires, nil
+	return []cloudprovider.ICloudWire{self.getWire()}, nil
 }
 
 func (self *SVpc) GetRegion() cloudprovider.ICloudRegion {
@@ -224,26 +150,18 @@ func (region *SRegion) GetVpc(vpcId string) (*SVpc, error) {
 }
 
 func (self *SVpc) Refresh() error {
-	if vpc, err := self.region.GetVpc(self.ID); err != nil {
-		return err
-	} else if err := jsonutils.Update(self, vpc); err != nil {
+	vpc, err := self.region.GetVpc(self.ID)
+	if err != nil {
 		return err
 	}
-	return nil
-}
-
-func (self *SVpc) addWire(wire *SWire) {
-	if self.iwires == nil {
-		self.iwires = make([]cloudprovider.ICloudWire, 0)
-	}
-	self.iwires = append(self.iwires, wire)
+	return jsonutils.Update(self, vpc)
 }
 
 func (self *SVpc) GetNetworks() []SNetwork {
-	return *self.Properties.Subnets
+	return self.Properties.Subnets
 }
 
-func (self *SRegion) GetNetworkDetail(networkId string) (*Subnet, error) {
-	subnet := Subnet{}
-	return &subnet, self.get(networkId, url.Values{}, &subnet)
+func (self *SRegion) GetNetwork(networkId string) (*SNetwork, error) {
+	network := SNetwork{}
+	return &network, self.get(networkId, url.Values{}, &network)
 }

@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type GroupProperties struct {
@@ -29,6 +30,7 @@ type GroupProperties struct {
 }
 
 type SResourceGroup struct {
+	multicloud.SResourceBase
 	client *SAzureClient
 
 	ID         string
@@ -77,16 +79,4 @@ func (r *SResourceGroup) GetGlobalId() string {
 
 func (r *SResourceGroup) GetStatus() string {
 	return api.EXTERNAL_PROJECT_STATUS_AVAILABLE
-}
-
-func (r *SResourceGroup) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
-func (r *SResourceGroup) IsEmulated() bool {
-	return false
-}
-
-func (r *SResourceGroup) Refresh() error {
-	return nil
 }

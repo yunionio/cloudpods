@@ -18,12 +18,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type Capabilitie struct {
@@ -40,6 +39,7 @@ const (
 var STORAGETYPES = []string{STORAGE_STD_LRS, STORAGE_PRE_LRS, STORAGE_STD_SSD}
 
 type SStorage struct {
+	multicloud.SResourceBase
 	zone *SZone
 
 	storageType  string
@@ -48,10 +48,6 @@ type SStorage struct {
 	Kind         string
 	Locations    []string
 	Capabilities []Capabilitie
-}
-
-func (self *SStorage) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SStorage) GetId() string {
@@ -87,7 +83,7 @@ func (self *SStorage) GetCapacityUsedMB() int64 {
 }
 
 func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
-	disk, err := self.zone.region.CreateDisk(self.storageType, conf.Name, int32(conf.SizeGb), conf.Desc, "", conf.ProjectId)
+	disk, err := self.zone.region.CreateDisk(self.storageType, conf.Name, int32(conf.SizeGb), conf.Desc, "", "", conf.ProjectId)
 	if err != nil {
 		return nil, err
 	}
@@ -115,37 +111,6 @@ func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 		if storageType == strings.ToLower(self.storageType) {
 			disks[i].storage = self
 			idisks = append(idisks, &disks[i])
-			log.Debugf("find disk %s for storage %s", disks[i].GetName(), self.GetName())
-		}
-	}
-	storageaccounts, err := self.zone.region.ListStorageAccounts()
-	if err != nil {
-		return nil, errors.Wrapf(err, "ListStorageAccounts")
-	}
-	for i := 0; i < len(storageaccounts); i++ {
-		storageType := strings.ToLower(storageaccounts[i].Sku.Name)
-		if strings.ToLower(self.storageType) != storageType {
-			continue
-		}
-		disks, _, err := self.zone.region.GetStorageAccountDisksWithSnapshots(storageaccounts[i])
-		if err != nil {
-			return nil, err
-		}
-		for j := 0; j < len(disks); j++ {
-			disk := SDisk{
-				storage: self,
-				Sku: DiskSku{
-					Name: storageaccounts[i].Sku.Name,
-					Tier: storageaccounts[i].Sku.Tier,
-				},
-				Properties: DiskProperties{
-					DiskSizeGB: disks[j].DiskSizeGB,
-					OsType:     disks[j].diskType,
-				},
-				ID:   disks[j].VhdUri,
-				Name: disks[j].DiskName,
-			}
-			idisks = append(idisks, &disk)
 		}
 	}
 	return idisks, nil

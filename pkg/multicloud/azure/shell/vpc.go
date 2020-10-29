@@ -21,12 +21,11 @@ import (
 
 func init() {
 	type VpcListOptions struct {
-		Classic bool `help:"List classic vpcs"`
-		Limit   int  `help:"page size"`
-		Offset  int  `help:"page offset"`
+		Limit  int `help:"page size"`
+		Offset int `help:"page offset"`
 	}
 	shellutils.R(&VpcListOptions{}, "vpc-list", "List vpcs", func(cli *azure.SRegion, args *VpcListOptions) error {
-		vpcs, err := cli.GetIVpcs()
+		vpcs, err := cli.ListVpcs()
 		if err != nil {
 			return err
 		}

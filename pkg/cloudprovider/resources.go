@@ -417,7 +417,6 @@ type ICloudDisk interface {
 	Delete(ctx context.Context) error
 
 	CreateISnapshot(ctx context.Context, name string, desc string) (ICloudSnapshot, error)
-	GetISnapshot(idStr string) (ICloudSnapshot, error)
 	GetISnapshots() ([]ICloudSnapshot, error)
 
 	GetExtSnapshotPolicyIds() ([]string, error)

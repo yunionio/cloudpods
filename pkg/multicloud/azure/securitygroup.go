@@ -63,12 +63,12 @@ type SecurityGroupPropertiesFormat struct {
 	SecurityRules        []SecurityRules `json:"securityRules,omitempty"`
 	DefaultSecurityRules []SecurityRules `json:"defaultSecurityRules,omitempty"`
 	NetworkInterfaces    *[]Interface    `json:"networkInterfaces,omitempty"`
-	Subnets              *[]Subnet       `json:"subnets,omitempty"`
+	Subnets              *[]SNetwork     `json:"subnets,omitempty"`
 	ProvisioningState    string          //Possible values are: 'Updating', 'Deleting', and 'Failed'
 }
 type SSecurityGroup struct {
 	multicloud.SSecurityGroup
-	vpc        *SVpc
+
 	region     *SRegion
 	Properties *SecurityGroupPropertiesFormat `json:"properties,omitempty"`
 	ID         string
@@ -315,20 +315,13 @@ func (region *SRegion) CreateSecurityGroup(secName string) (*SSecurityGroup, err
 	return &secgroup, region.create("", jsonutils.Marshal(secgroup), &secgroup)
 }
 
-func (region *SRegion) GetSecurityGroups(name string) ([]SSecurityGroup, error) {
+func (region *SRegion) ListSecgroups() ([]SSecurityGroup, error) {
 	secgroups := []SSecurityGroup{}
-	err := region.client.list("Microsoft.Network/networkSecurityGroups", url.Values{}, &secgroups)
+	err := region.list("Microsoft.Network/networkSecurityGroups", url.Values{}, &secgroups)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "list")
 	}
-	result := []SSecurityGroup{}
-	for i := 0; i < len(secgroups); i++ {
-		if secgroups[i].Location == region.Name && (len(name) == 0 || strings.ToLower(secgroups[i].Name) == strings.ToLower(name)) {
-			secgroups[i].region = region
-			result = append(result, secgroups[i])
-		}
-	}
-	return result, err
+	return secgroups, nil
 }
 
 func (region *SRegion) GetSecurityGroupDetails(secgroupId string) (*SSecurityGroup, error) {
@@ -418,11 +411,11 @@ func convertSecurityGroupRule(rule cloudprovider.SecurityRule) *SecurityRules {
 
 func (region *SRegion) AttachSecurityToInterfaces(secgroupId string, nicIds []string) error {
 	for _, nicId := range nicIds {
-		nic, err := region.GetNetworkInterfaceDetail(nicId)
+		nic, err := region.GetNetworkInterface(nicId)
 		if err != nil {
 			return err
 		}
-		nic.Properties.NetworkSecurityGroup = &SSecurityGroup{ID: secgroupId}
+		nic.Properties.NetworkSecurityGroup = SSecurityGroup{ID: secgroupId}
 		if err := region.update(jsonutils.Marshal(nic), nil); err != nil {
 			return err
 		}
@@ -449,11 +442,10 @@ func (self *SSecurityGroup) GetProjectId() string {
 func (self *SSecurityGroup) Delete() error {
 	if self.Properties.NetworkInterfaces != nil {
 		for _, nic := range *self.Properties.NetworkInterfaces {
-			nic, err := self.region.GetNetworkInterfaceDetail(nic.ID)
+			nic, err := self.region.GetNetworkInterface(nic.ID)
 			if err != nil {
 				return err
 			}
-			nic.Properties.NetworkSecurityGroup = nil
 			if err := self.region.update(jsonutils.Marshal(nic), nil); err != nil {
 				return err
 			}

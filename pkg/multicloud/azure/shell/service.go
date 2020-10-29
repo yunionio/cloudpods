@@ -36,15 +36,15 @@ func init() {
 	}
 
 	shellutils.R(&ServiceOptions{}, "service-register", "Register service", func(cli *azure.SRegion, args *ServiceOptions) error {
-		return cli.ServiceRegister(args.NAME)
+		return cli.GetClient().ServiceRegister(args.NAME)
 	})
 
 	shellutils.R(&ServiceOptions{}, "service-unregister", "Unregister service", func(cli *azure.SRegion, args *ServiceOptions) error {
-		return cli.ServiceUnRegister(args.NAME)
+		return cli.GetClient().ServiceUnRegister(args.NAME)
 	})
 
 	shellutils.R(&ServiceOptions{}, "service-show", "Show service detail", func(cli *azure.SRegion, args *ServiceOptions) error {
-		service, err := cli.SerciceShow(args.NAME)
+		service, err := cli.GetClient().GetSercice(args.NAME)
 		if err != nil {
 			return err
 		}

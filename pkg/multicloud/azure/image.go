@@ -120,10 +120,6 @@ func (self *SImage) GetName() string {
 	return self.Name
 }
 
-func (self *SImage) IsEmulated() bool {
-	return false
-}
-
 func (self *SImage) GetGlobalId() string {
 	return strings.ToLower(self.ID)
 }
@@ -153,11 +149,11 @@ func (self *SImage) GetImageStatus() string {
 }
 
 func (self *SImage) Refresh() error {
-	new, err := self.storageCache.region.GetImageById(self.ID)
+	image, err := self.storageCache.region.GetImageById(self.ID)
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(self, new)
+	return jsonutils.Update(self, image)
 }
 
 func (self *SImage) GetImageType() string {
@@ -249,34 +245,6 @@ func (self *SRegion) getPrivateImage(imageId string) (SImage, error) {
 	return image, nil
 }
 
-/* func (self *SRegion) GetImageByName(name string) (*SImage, error) {
-	images := []SImage{}
-	err := self.client.ListAll("Microsoft.Compute/images", &images)
-	if err != nil {
-		return nil, err
-	}
-	for i := 0; i < len(images); i++ {
-		if images[i].Name == name {
-			return &images[i], nil
-		}
-	}
-	return nil, cloudprovider.ErrNotFound
-}
-
-func (self *SRegion) GetImageById(idstr string) (*SImage, error) {
-	images := []SImage{}
-	err := self.client.ListAll("Microsoft.Compute/images", &images)
-	if err != nil {
-		return nil, err
-	}
-	for i := 0; i < len(images); i++ {
-		if images[i].ID == idstr {
-			return &images[i], nil
-		}
-	}
-	return nil, cloudprovider.ErrNotFound
-}*/
-
 func (self *SRegion) CreateImageByBlob(imageName, osType, blobURI string, diskSizeGB int32) (*SImage, error) {
 	if diskSizeGB < 1 || diskSizeGB > 4095 {
 		diskSizeGB = 30
@@ -356,20 +324,20 @@ func (self *SRegion) GetOfferedImageIDs(publishersFilter []string, offersFilter 
 		for _, offer := range offers {
 			skus, err := self.getImageSkus(publisher, offer, toLowerStringArray(skusFilter))
 			if err != nil {
-				log.Errorf("failed to found skus for publisher %s offer %s error: %v", publisher, offer, err)
 				if errors.Cause(err) != cloudprovider.ErrNotFound {
 					return nil, errors.Wrap(err, "getImageSkus")
 				}
+				log.Errorf("failed to found skus for publisher %s offer %s error: %v", publisher, offer, err)
 				continue
 			}
 			for _, sku := range skus {
 				verFilter = toLowerStringArray(verFilter)
 				vers, err := self.getImageVersions(publisher, offer, sku, verFilter, latestVer)
 				if err != nil {
-					log.Errorf("failed to found publisher %s offer %s sku %s version error: %v", publisher, offer, sku, err)
 					if errors.Cause(err) != cloudprovider.ErrNotFound {
 						return nil, errors.Wrap(err, "getImageVersions")
 					}
+					log.Errorf("failed to found publisher %s offer %s sku %s version error: %v", publisher, offer, sku, err)
 					continue
 				}
 				for _, ver := range vers {

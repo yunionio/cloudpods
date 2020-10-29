@@ -15,6 +15,7 @@
 package multicloud
 
 type SDisk struct {
+	SVirtualResourceBase
 	SBillingBase
 }
 
