@@ -1217,6 +1217,7 @@ func (self *SElasticip) getMoreDetails(out api.ElasticipDetails) api.ElasticipDe
 
 type NewEipForVMOnHostArgs struct {
 	Bandwidth     int
+	BgpType       string
 	ChargeType    string
 	AutoDellocate bool
 
@@ -1228,6 +1229,7 @@ type NewEipForVMOnHostArgs struct {
 func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCred mcclient.TokenCredential, args *NewEipForVMOnHostArgs) (*SElasticip, error) {
 	var (
 		bw            = args.Bandwidth
+		bgpType       = args.BgpType
 		chargeType    = args.ChargeType
 		autoDellocate = args.AutoDellocate
 		vm            = args.Guest
@@ -1266,6 +1268,7 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 		q = q.Join(hostwireq, sqlchemy.Equals(hostwireq.Field("wire_id"), wireq.Field("id")))
 		q = q.Join(hostq, sqlchemy.Equals(hostq.Field("id"), host.Id))
 		q = q.Equals("server_type", api.NETWORK_TYPE_EIP)
+		q = q.Equals("bgp_type", bgpType)
 		var nets []SNetwork
 		if err := db.FetchModelObjects(NetworkManager, q, &nets); err != nil {
 			return nil, errors.Wrapf(err, "fetch eip networks usable in host %s(%s)",
