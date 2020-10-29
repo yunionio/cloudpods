@@ -88,14 +88,13 @@ func (self *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadb
 		return nil, err
 	}
 
-	icerts := []cloudprovider.ICloudLoadbalancerCertificate{}
+	certIds := []string{}
 	for _, lb := range lbs {
 		listeners, err := lb.GetLoadbalancerListeners("HTTPS")
 		if err != nil {
 			return nil, err
 		}
 
-		certIds := []string{}
 		for _, listener := range listeners {
 			if len(listener.Certificate.CERTID) > 0 && !utils.IsInStringArray(listener.Certificate.CERTID, certIds) {
 				certIds = append(certIds, listener.Certificate.CERTID)
@@ -115,15 +114,16 @@ func (self *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadb
 				}
 			}
 		}
+	}
 
-		for _, cid := range certIds {
-			icert, err := self.GetILoadBalancerCertificateById(cid)
-			if err != nil {
-				return nil, err
-			}
-
-			icerts = append(icerts, icert)
+	icerts := []cloudprovider.ICloudLoadbalancerCertificate{}
+	for _, cid := range certIds {
+		icert, err := self.GetILoadBalancerCertificateById(cid)
+		if err != nil {
+			return nil, err
 		}
+
+		icerts = append(icerts, icert)
 	}
 
 	return icerts, nil
