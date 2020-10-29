@@ -1238,7 +1238,16 @@ func (manager *SNetworkManager) newIfnameHint(hint string) (string, error) {
 				return r, nil
 			}
 		}
-		return "", fmt.Errorf("failed finding ifname hint after 3 tries")
+		/* generate ifname by ifname hint failed
+		 * try generate from rand string */
+		for i := 0; i < 3; i++ {
+			r := sani(rand.String(MAX_HINT_LEN))
+			cnt, err := manager.Query().Equals("ifname_hint", r).CountWithError()
+			if err == nil && cnt == 0 {
+				return r, nil
+			}
+		}
+		return "", fmt.Errorf("failed finding ifname hint")
 	}
 
 	r := ""
