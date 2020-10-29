@@ -872,5 +872,5 @@ func certificateParams(t LB_TYPE, params map[string]string, cert *certificate, p
 }
 
 func (self *SLBListener) GetProjectId() string {
-	return ""
+	return self.lb.GetProjectId()
 }

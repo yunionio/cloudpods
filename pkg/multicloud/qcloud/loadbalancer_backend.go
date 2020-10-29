@@ -188,7 +188,7 @@ func (self *SRegion) GetLBBackends(t LB_TYPE, lbId, listenerId, ruleId string) (
 }
 
 func (self *SLBBackend) GetProjectId() string {
-	return ""
+	return self.group.GetProjectId()
 }
 
 func (self *SLBBackend) SyncConf(ctx context.Context, port, weight int) error {
