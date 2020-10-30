@@ -1823,3 +1823,7 @@ func (self *SQcloudRegionDriver) RequestElasticcacheAccountResetPassword(ctx con
 
 	return ea.SyncWithCloudElasticcacheAccount(ctx, userCred, iea)
 }
+
+func (self *SQcloudRegionDriver) IsCertificateBelongToRegion() bool {
+	return false
+}

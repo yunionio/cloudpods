@@ -73,6 +73,10 @@ func (self *SBaseRegionDriver) RequestDeleteLoadbalancerAcl(ctx context.Context,
 	return fmt.Errorf("Not Implement RequestDeleteLoadbalancerAcl")
 }
 
+func (self *SBaseRegionDriver) IsCertificateBelongToRegion() bool {
+	return true
+}
+
 func (self *SBaseRegionDriver) RequestCreateLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, lbcert *models.SCachedLoadbalancerCertificate, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement RequestCreateLoadbalancerCertificate")
 }
