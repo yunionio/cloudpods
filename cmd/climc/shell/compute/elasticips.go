@@ -190,12 +190,16 @@ func init() {
 	type ServerCreateEipOptions struct {
 		ID         string `help:"server ID or name"`
 		BW         int    `help:"EIP bandwidth in Mbps"`
+		BgpType    string `help:"desired BGP type"`
 		ChargeType string `help:"bandwidth charge type" choices:"traffic|bandwidth"`
 	}
 	R(&ServerCreateEipOptions{}, "server-create-eip", "allocate an EIP and associate EIP to server", func(s *mcclient.ClientSession, args *ServerCreateEipOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewInt(int64(args.BW)), "bandwidth")
 
+		if args.BgpType != "" {
+			params.Add(jsonutils.NewString(args.BgpType), "bgp_type")
+		}
 		if len(args.ChargeType) > 0 {
 			params.Add(jsonutils.NewString(args.ChargeType), "charge_type")
 		}

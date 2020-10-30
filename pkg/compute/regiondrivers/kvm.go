@@ -909,7 +909,7 @@ func (self *SKVMRegionDriver) ValidateCreateEipData(ctx context.Context, userCre
 		}
 		network = _network.(*models.SNetwork)
 		input.BgpType = network.BgpType
-	} else if input.BgpType != "" {
+	} else {
 		q := models.NetworkManager.Query().
 			Equals("server_type", api.NETWORK_TYPE_EIP).
 			Equals("bgp_type", input.BgpType)
@@ -927,10 +927,8 @@ func (self *SKVMRegionDriver) ValidateCreateEipData(ctx context.Context, userCre
 			}
 		}
 		if network == nil {
-			return httperrors.NewNotFoundError("no available eip network from BgpType %s", input.BgpType)
+			return httperrors.NewNotFoundError("no available eip network")
 		}
-	} else {
-		return httperrors.NewMissingParameterError("network_id, isp")
 	}
 	if network.ServerType != api.NETWORK_TYPE_EIP {
 		return httperrors.NewInputParameterError("bad network type %q, want %q", network.ServerType, api.NETWORK_TYPE_EIP)
