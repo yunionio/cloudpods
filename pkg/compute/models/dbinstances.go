@@ -1636,6 +1636,14 @@ func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, u
 			instance.VpcId = vpc.GetId()
 		}
 	}
+	if len(instance.VpcId) == 0 {
+		vpc, err := VpcManager.GetOrCreateVpcForClassicNetwork(ctx, provider, region)
+		if err != nil {
+			log.Errorf("failed to create classic vpc for region %s error: %v", region.Name, err)
+		} else {
+			instance.VpcId = vpc.GetId()
+		}
+	}
 
 	if createdAt := extInstance.GetCreatedAt(); !createdAt.IsZero() {
 		instance.CreatedAt = createdAt
