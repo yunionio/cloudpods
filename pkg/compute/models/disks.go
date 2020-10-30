@@ -2498,8 +2498,15 @@ func (manager *SDiskManager) AutoSyncExtDiskSnapshot(ctx context.Context, userCr
 
 	for i := 0; i < len(spds); i++ {
 		spd := &spds[i]
-		disk := manager.FetchDiskById(spd.DiskId)
-
+		obj, err := manager.FetchById(spd.DiskId)
+		if errors.Cause(err) == sql.ErrNoRows || errors.Cause(err) == errors.ErrNotFound {
+			err := spd.RealDetach(ctx, userCred)
+			if err != nil {
+				log.Errorf("unable to detach s %q, d %q: %v", spd.SnapshotpolicyId, spd.DiskId, err)
+			}
+			continue
+		}
+		disk := obj.(*SDisk)
 		syncResult := disk.syncSnapshots(ctx, userCred)
 		if syncResult.IsError() {
 			db.OpsLog.LogEvent(disk, db.ACT_DISK_AUTO_SYNC_SNAPSHOT_FAIL, syncResult.Result(), userCred)
@@ -2513,7 +2520,7 @@ func (manager *SDiskManager) AutoSyncExtDiskSnapshot(ctx context.Context, userCr
 			continue
 		}
 		db.OpsLog.LogEvent(disk, db.ACT_DISK_AUTO_SYNC_SNAPSHOT, "disk auto sync snapshot successfully", userCred)
-		_, err := db.Update(spd, func() error {
+		_, err = db.Update(spd, func() error {
 			newNextSyncTime := spMap[spd.SnapshotpolicyId].ComputeNextSyncTime(now, spd.NextSyncTime)
 			spd.NextSyncTime = newNextSyncTime
 			return nil
