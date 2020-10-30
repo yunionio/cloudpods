@@ -503,7 +503,10 @@ func getCommonAlertMetricDetailsFromCondition(cond *monitor.AlertCondition,
 		cmp = "<="
 	}
 	metricDetails.Comparator = cmp
-	metricDetails.Threshold = cond.Evaluator.Params[0]
+
+	if len(cond.Evaluator.Params) != 0 {
+		metricDetails.Threshold = cond.Evaluator.Params[0]
+	}
 	metricDetails.Reduce = cond.Reducer.Type
 
 	q := cond.Query

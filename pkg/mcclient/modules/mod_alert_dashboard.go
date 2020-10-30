@@ -16,7 +16,7 @@ func init() {
 }
 func NewAlertDashBoardManager() *SAlertDashBoardManager {
 	man := NewMonitorV2Manager("alertdashboard", "alertdashboards",
-		[]string{"id", "name", "refresh", "common_alert_metric_details"},
+		[]string{"id", "name", "refresh", "alert_panel_details"},
 		[]string{})
 	return &SAlertDashBoardManager{
 		ResourceManager: &man,
