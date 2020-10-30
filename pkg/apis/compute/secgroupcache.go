@@ -18,6 +18,7 @@ import "yunion.io/x/onecloud/pkg/apis"
 
 type SecurityGroupCacheDetails struct {
 	apis.StatusStandaloneResourceDetails
+	apis.ProjectizedResourceInfo
 	ManagedResourceInfo
 	CloudregionResourceInfo
 
@@ -25,4 +26,6 @@ type SecurityGroupCacheDetails struct {
 
 	// 虚拟私有网络名称
 	Vpc string `json:"vpc"`
+
+	ProjectId string `json:"tenant_id"`
 }
