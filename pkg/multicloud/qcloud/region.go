@@ -965,7 +965,7 @@ func (self *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFi
 }
 
 func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
-	return self.CreateSecurityGroup(conf.Name, conf.Desc)
+	return self.CreateSecurityGroup(conf.Name, conf.ProjectId, conf.Desc)
 }
 
 func (region *SRegion) GetCapabilities() []string {
@@ -1022,7 +1022,10 @@ func (r *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheInput
 	}
 
 	params["InstanceName"] = ec.InstanceName
-	params["ProjectId"] = ec.ProjectId
+	if len(ec.ProjectId) > 0 {
+		log.Debugf("CreateIElasticcaches %s at project %s", ec.InstanceName, ec.ProjectId)
+		params["ProjectId"] = ec.ProjectId
+	}
 	params["ZoneId"] = fmt.Sprintf("%d", zoneId)
 	params["TypeId"] = spec.TypeId
 	params["MemSize"] = strconv.Itoa(spec.MemSizeMB)
