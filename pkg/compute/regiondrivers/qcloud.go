@@ -39,6 +39,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/choices"
 	"yunion.io/x/onecloud/pkg/util/rand"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
@@ -1622,6 +1623,10 @@ func (self *SQcloudRegionDriver) RequestCreateElasticcache(ctx context.Context, 
 	return nil
 }
 
+func (self *SQcloudRegionDriver) GetSecurityGroupPublicScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeProject
+}
+
 func (self *SQcloudRegionDriver) RequestSyncSecgroupsForElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		// sync secgroups to cloud
@@ -1632,9 +1637,19 @@ func (self *SQcloudRegionDriver) RequestSyncSecgroupsForElasticcache(ctx context
 				return nil, errors.Wrap(err, "qcloudRegionDriver.GetElasticcacheSecgroups")
 			}
 
+			provider := ec.GetCloudprovider()
+			if provider == nil {
+				return nil, errors.Wrap(httperrors.ErrInvalidStatus, "qcloudRegionDriver.GetCloudprovider")
+			}
+
+			extProjectId, err := provider.SyncProject(ctx, userCred, ec.ProjectId)
+			if err != nil {
+				return nil, fmt.Errorf("failed to sync project %s for create %s elastic cache %s error: %v", ec.ProjectId, provider.Provider, ec.Name, err)
+			}
+
 			vpc := ec.GetVpc()
 			for i := range ess {
-				externalId, err := self.RequestSyncSecurityGroup(ctx, task.GetUserCred(), vpc.GetId(), vpc, ess[i].GetSecGroup(), "")
+				externalId, err := self.RequestSyncSecurityGroup(ctx, task.GetUserCred(), vpc.GetId(), vpc, ess[i].GetSecGroup(), extProjectId)
 				if err != nil {
 					return nil, errors.Wrap(err, "RequestSyncSecurityGroup")
 				}

@@ -500,11 +500,15 @@ func (self *SRegion) AddressGroupList(groupId, groupName string, offset, limit i
 	return addressTemplateGroups, int(total), nil
 }
 
-func (self *SRegion) CreateSecurityGroup(name, description string) (*SSecurityGroup, error) {
+func (self *SRegion) CreateSecurityGroup(name, projectId, description string) (*SSecurityGroup, error) {
 	params := make(map[string]string)
 	params["Region"] = self.Region
 	params["GroupName"] = name
 	params["GroupDescription"] = description
+	if len(projectId) > 0 {
+		params["ProjectId"] = projectId
+	}
+
 	if len(description) == 0 {
 		params["GroupDescription"] = "Customize Create"
 	}
