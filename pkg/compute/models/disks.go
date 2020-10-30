@@ -1837,6 +1837,10 @@ func (self *SDisk) Delete(ctx context.Context, userCred mcclient.TokenCredential
 }
 
 func (self *SDisk) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	err := self.DetachAllSnapshotpolicies(ctx, userCred)
+	if err != nil {
+		log.Errorf("unable to DetachAllSnapshotpolicies: %v", err)
+	}
 	return self.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
