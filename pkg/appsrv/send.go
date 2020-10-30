@@ -35,12 +35,12 @@ func SendNoContent(w http.ResponseWriter) {
 }
 
 func Send(w http.ResponseWriter, text string) {
-	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Type", "text/plain;charset=utf-8")
 	sendBytes(w, []byte(text))
 }
 
 func SendHTML(w http.ResponseWriter, text string) {
-	w.Header().Set("Content-Type", "text/html")
+	w.Header().Set("Content-Type", "text/html;charset=utf-8")
 	sendBytes(w, []byte(text))
 }
 
@@ -56,7 +56,7 @@ func SendStruct(w http.ResponseWriter, obj interface{}) {
 
 func SendJSON(w http.ResponseWriter, obj jsonutils.JSONObject) {
 	var output []byte
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	if obj != nil {
 		output = []byte(obj.String())
 	}
@@ -92,7 +92,7 @@ func SendXmlWithIndent(w http.ResponseWriter, hdr http.Header, obj interface{}, 
 					w.Header().Set(k, v[0])
 				}
 			}
-			w.Header().Set("Content-Type", "application/xml")
+			w.Header().Set("Content-Type", "application/xml;charset=utf-8")
 			w.Header().Set("Content-Length", strconv.FormatInt(int64(len(xmlBytes)+len(xml.Header)), 10))
 			w.Write([]byte(xml.Header))
 			w.Write(xmlBytes)
