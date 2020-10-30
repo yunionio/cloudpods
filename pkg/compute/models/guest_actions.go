@@ -3018,6 +3018,7 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 			return nil, httperrors.NewMissingParameterError("bandwidth")
 		}
 	}
+	bgpType, _ := data.GetString("bgp_type")
 	autoDellocate, _ := data.Bool("auto_dellocate")
 
 	host := self.GetHost()
@@ -3053,7 +3054,16 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 		return nil, httperrors.NewOutOfQuotaError("Out of eip quota: %s", err)
 	}
 
-	eip, err := ElasticipManager.NewEipForVMOnHost(ctx, userCred, self, host, int(bw), chargeType, autoDellocate, eipPendingUsage)
+	eip, err := ElasticipManager.NewEipForVMOnHost(ctx, userCred, &NewEipForVMOnHostArgs{
+		Bandwidth:     int(bw),
+		BgpType:       bgpType,
+		ChargeType:    chargeType,
+		AutoDellocate: autoDellocate,
+
+		Guest:        self,
+		Host:         host,
+		PendingUsage: eipPendingUsage,
+	})
 	if err != nil {
 		quotas.CancelPendingUsage(ctx, userCred, eipPendingUsage, eipPendingUsage, false)
 		return nil, httperrors.NewGeneralError(err)
