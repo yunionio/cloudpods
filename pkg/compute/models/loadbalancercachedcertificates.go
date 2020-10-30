@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -396,7 +397,7 @@ func (man *SCachedLoadbalancerCertificateManager) getLoadbalancerCertificatesByR
 	certificates := []SCachedLoadbalancerCertificate{}
 	q := man.Query().Equals("manager_id", provider.Id).IsFalse("pending_deleted")
 	// aws 所有region共用一份证书.与region无关
-	if region.GetProviderName() != api.CLOUD_PROVIDER_AWS {
+	if !utils.IsInStringArray(region.GetProviderName(), []string{api.CLOUD_PROVIDER_AWS, api.CLOUD_PROVIDER_QCLOUD}) {
 		q = q.Equals("cloudregion_id", region.Id)
 	}
 

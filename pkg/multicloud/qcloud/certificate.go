@@ -15,9 +15,15 @@
 package qcloud
 
 import (
+	"crypto/sha1"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 )
 
 type projectInfo struct {
@@ -31,102 +37,243 @@ type projectInfo struct {
 
 // https://cloud.tencent.com/document/api/400/13675
 type SCertificate struct {
+	region *SRegion
+
+	CertificateID       string      `json:"CertificateId"`
+	CertificateType     string      `json:"CertificateType"`
+	Deployable          bool        `json:"Deployable"`
+	RenewAble           bool        `json:"RenewAble"`
 	OwnerUin            string      `json:"ownerUin"`
 	ProjectID           string      `json:"projectId"`
 	From                string      `json:"from"`
-	Type                int         `json:"type"`
-	Cert                string      `json:"cert"`
-	CERTType            string      `json:"certType"`
 	ProductZhName       string      `json:"productZhName"`
 	Domain              string      `json:"domain"`
 	Alias               string      `json:"alias"`
 	Status              int         `json:"status"`
 	VulnerabilityStatus string      `json:"vulnerability_status"`
-	VerifyType          string      `json:"verifyType"`
 	CERTBeginTime       time.Time   `json:"certBeginTime"`
 	CERTEndTime         time.Time   `json:"certEndTime"`
 	ValidityPeriod      string      `json:"validityPeriod"`
 	InsertTime          string      `json:"insertTime"`
 	ProjectInfo         projectInfo `json:"projectInfo"`
-	ID                  string      `json:"id"` // 证书Id
-	SubjectAltName      []string    `json:"subjectAltName"`
-	TypeName            string      `json:"type_name"`
 	StatusName          string      `json:"status_name"`
 	IsVip               bool        `json:"is_vip"`
 	IsDv                bool        `json:"is_dv"`
 	IsWildcard          bool        `json:"is_wildcard"`
 	IsVulnerability     bool        `json:"is_vulnerability"`
+
+	// certificate details
+	detailsInitd          bool     `json:"details_initd"`
+	SubjectAltName        []string `json:"subjectAltName"`
+	CertificatePrivateKey string   `json:"CertificatePrivateKey"`
+	CertificatePublicKey  string   `json:"CertificatePublicKey"`
 }
 
-func (self *SRegion) GetCertificates(id string, withCert bool, limit int, page int) ([]SCertificate, int, error) {
-	params := map[string]string{}
-	if withCert {
-		params["withCert"] = "1"
+func (self *SCertificate) GetDetails() *SCertificate {
+	if !self.detailsInitd {
+		cert, err := self.region.GetCertificate(self.GetId())
+		if err != nil {
+			log.Debugf("GetCertificate %s", err)
+		}
+
+		self.detailsInitd = true
+		self.SubjectAltName = cert.SubjectAltName
+		self.CertificatePrivateKey = cert.CertificatePrivateKey
+		self.CertificatePublicKey = cert.CertificatePublicKey
 	}
 
-	if len(id) > 0 {
-		params["id"] = id
-	}
+	return self
+}
 
-	if limit > 0 {
-		params["count"] = strconv.Itoa(limit)
-	}
+func (self *SCertificate) GetPublickKey() string {
+	return self.GetDetails().CertificatePublicKey
+}
 
-	if page > 0 {
-		params["page"] = strconv.Itoa(page)
-	}
+func (self *SCertificate) GetPrivateKey() string {
+	return self.GetDetails().CertificatePrivateKey
+}
 
-	resp, err := self.wssRequest("CertGetList", params)
+// 证书不能修改
+func (self *SCertificate) Sync(name, privateKey, publickKey string) error {
+	return nil
+}
+
+func (self *SCertificate) Delete() error {
+	return self.region.DeleteCertificate(self.GetId())
+}
+
+func (self *SCertificate) GetId() string {
+	return self.CertificateID
+}
+
+func (self *SCertificate) GetName() string {
+	return self.Alias
+}
+
+func (self *SCertificate) GetGlobalId() string {
+	return self.CertificateID
+}
+
+// todo: 貌似目前onecloud没有记录状态
+func (self *SCertificate) GetStatus() string {
+	return strconv.Itoa(self.Status)
+}
+
+func (self *SCertificate) Refresh() error {
+	cert, err := self.region.GetCertificate(self.GetId())
 	if err != nil {
-		return nil, 0, err
+		return errors.Wrap(err, "GetCertificate")
+	}
+
+	return jsonutils.Update(self, cert)
+}
+
+func (self *SCertificate) IsEmulated() bool {
+	return false
+}
+
+func (self *SCertificate) GetMetadata() *jsonutils.JSONDict {
+	return nil
+}
+
+func (self *SCertificate) GetCommonName() string {
+	return self.Domain
+}
+
+func (self *SCertificate) GetSubjectAlternativeNames() string {
+	return strings.Join(self.GetDetails().SubjectAltName, ",")
+}
+
+func (self *SCertificate) GetFingerprint() string {
+	_fp := sha1.Sum([]byte(self.GetDetails().CertificatePublicKey))
+	fp := fmt.Sprintf("sha1:% x", _fp)
+	return strings.Replace(fp, " ", ":", -1)
+}
+
+func (self *SCertificate) GetExpireTime() time.Time {
+	return self.CERTEndTime
+}
+
+func (self *SCertificate) GetProjectId() string {
+	return self.ProjectID
+}
+
+// ssl.tencentcloudapi.com
+/*
+状态值 0：审核中，1：已通过，2：审核失败，3：已过期，4：已添加 DNS 解析记录，5：OV/EV 证书，待提交资料，6：订单取消中，7：已取消，8：已提交资料， 待上传确认函。
+*/
+func (self *SRegion) GetCertificates(projectId, certificateStatus, searchKey string) ([]SCertificate, error) {
+	params := map[string]string{}
+	params["Limit"] = "100"
+	if len(projectId) > 0 {
+		params["ProjectId"] = projectId
+	}
+
+	if len(certificateStatus) > 0 {
+		params["CertificateStatus.0"] = certificateStatus
+	}
+
+	if len(searchKey) > 0 {
+		params["SearchKey"] = searchKey
 	}
 
 	certs := []SCertificate{}
-	err = resp.Unmarshal(&certs, "list")
-	if err != nil {
-		return nil, 0, err
+	offset := 0
+	total := 100
+	for total > offset {
+		params["Offset"] = strconv.Itoa(offset)
+		resp, err := self.sslRequest("DescribeCertificates", params)
+		if err != nil {
+			return nil, errors.Wrap(err, "DescribeCertificates")
+		}
+
+		_certs := []SCertificate{}
+		err = resp.Unmarshal(&certs, "Certificates")
+		if err != nil {
+			return nil, errors.Wrap(err, "Unmarshal.Certificates")
+		}
+
+		err = resp.Unmarshal(&total, "TotalCount")
+		if err != nil {
+			return nil, errors.Wrap(err, "Unmarshal.TotalCount")
+		}
+
+		certs = append(certs, _certs...)
+		offset += 100
 	}
 
-	total, err := resp.Float("totalNum")
-	if err != nil {
-		return nil, 0, err
+	for i := range certs {
+		certs[i].region = self
 	}
 
-	return certs, int(total), nil
+	return certs, nil
 }
 
-// https://cloud.tencent.com/document/api/400/9078
-// 返回证书ID
-func (self *SRegion) CreateCertificate(cert, certType, key, desc string) (string, error) {
-
+// https://cloud.tencent.com/document/product/400/41674
+func (self *SRegion) GetCertificate(certId string) (*SCertificate, error) {
 	params := map[string]string{
-		"cert":     cert,
-		"certType": certType,
-		"alias":    desc,
+		"CertificateId": certId,
 	}
 
-	if certType == "SVR" {
-		params["key"] = key
+	resp, err := self.sslRequest("DescribeCertificateDetail", params)
+	if err != nil {
+		return nil, errors.Wrap(err, "DescribeCertificateDetail")
 	}
 
-	resp, err := self.wssRequest("CertUpload", params)
+	cert := &SCertificate{}
+	err = resp.Unmarshal(cert)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal")
+	}
+	cert.region = self
+
+	return cert, nil
+}
+
+// https://cloud.tencent.com/document/product/400/41665
+// 返回证书ID
+func (self *SRegion) CreateCertificate(projectId, publicKey, privateKey, certType, desc string) (string, error) {
+	params := map[string]string{
+		"CertificatePublicKey": publicKey,
+		"CertificateType":      certType,
+		"Alias":                desc,
+	}
+
+	if len(privateKey) > 0 {
+		params["CertificatePrivateKey"] = privateKey
+	} else {
+		if certType == "SVR" {
+			return "", fmt.Errorf("certificate private key required while certificate type is SVR")
+		}
+	}
+
+	if len(projectId) > 0 {
+		params["ProjectId"] = projectId
+	}
+
+	resp, err := self.sslRequest("UploadCertificate", params)
 	if err != nil {
 		return "", err
 	}
 
-	return resp.GetString("id")
+	return resp.GetString("CertificateId")
 }
 
+// https://cloud.tencent.com/document/product/400/41675
 func (self *SRegion) DeleteCertificate(id string) error {
 	if len(id) == 0 {
 		return fmt.Errorf("DelteCertificate certificate id should not be empty")
 	}
 
-	params := map[string]string{"id": id}
-	_, err := self.wssRequest("CertDelete", params)
+	params := map[string]string{"CertificateId": id}
+	resp, err := self.sslRequest("DeleteCertificate", params)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "DeleteCertificate")
 	}
 
-	return nil
+	if deleted, _ := resp.Bool("DeleteResult"); deleted {
+		return nil
+	} else {
+		return fmt.Errorf("DeleteCertificate %s", resp)
+	}
 }
