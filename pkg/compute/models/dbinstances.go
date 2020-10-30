@@ -1562,6 +1562,15 @@ func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred m
 				}
 			}
 		}
+		if len(self.VpcId) == 0 {
+			region := self.GetRegion()
+			vpc, err := VpcManager.GetOrCreateVpcForClassicNetwork(ctx, provider, region)
+			if err != nil {
+				log.Errorf("failed to create classic vpc for region %s error: %v", region.Name, err)
+			} else {
+				self.VpcId = vpc.GetId()
+			}
+		}
 
 		factory, err := provider.GetProviderFactory()
 		if err != nil {
