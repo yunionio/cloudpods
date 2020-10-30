@@ -67,6 +67,8 @@ func InitDB() error {
 		DBInstanceNetworkManager,
 		DBInstanceAccountManager,
 		DBInstanceDatabaseManager,
+
+		SnapshotPolicyDiskManager,
 	} {
 		err := manager.InitializeData()
 		if err != nil {
