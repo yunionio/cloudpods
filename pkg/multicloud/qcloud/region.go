@@ -83,71 +83,26 @@ func (self *SRegion) GetILoadBalancerAcls() ([]cloudprovider.ICloudLoadbalancerA
 }
 
 func (self *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
-	lbs, err := self.GetLoadbalancers(nil)
+	certs, err := self.GetCertificates("", "", "")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetCertificates")
 	}
 
-	certIds := []string{}
-	for _, lb := range lbs {
-		listeners, err := lb.GetLoadbalancerListeners("HTTPS")
-		if err != nil {
-			return nil, err
-		}
-
-		for _, listener := range listeners {
-			if len(listener.Certificate.CERTID) > 0 && !utils.IsInStringArray(listener.Certificate.CERTID, certIds) {
-				certIds = append(certIds, listener.Certificate.CERTID)
-			}
-
-			if len(listener.Certificate.CERTCAID) > 0 && !utils.IsInStringArray(listener.Certificate.CERTCAID, certIds) {
-				certIds = append(certIds, listener.Certificate.CERTCAID)
-			}
-
-			for _, rule := range listener.Rules {
-				if len(rule.Certificate.CERTID) > 0 && !utils.IsInStringArray(rule.Certificate.CERTID, certIds) {
-					certIds = append(certIds, rule.Certificate.CERTID)
-				}
-
-				if len(rule.Certificate.CERTCAID) > 0 && !utils.IsInStringArray(rule.Certificate.CERTCAID, certIds) {
-					certIds = append(certIds, rule.Certificate.CERTCAID)
-				}
-			}
-		}
-	}
-
-	icerts := []cloudprovider.ICloudLoadbalancerCertificate{}
-	for _, cid := range certIds {
-		icert, err := self.GetILoadBalancerCertificateById(cid)
-		if err != nil {
-			return nil, err
-		}
-
-		icerts = append(icerts, icert)
+	icerts := make([]cloudprovider.ICloudLoadbalancerCertificate, len(certs))
+	for i := range certs {
+		icerts[i] = &certs[i]
 	}
 
 	return icerts, nil
 }
 
 func (self *SRegion) GetILoadBalancerCertificateById(certId string) (cloudprovider.ICloudLoadbalancerCertificate, error) {
-	certs, _, err := self.GetCertificates(certId, true, 0, 0)
+	cert, err := self.GetCertificate(certId)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetCertificate")
 	}
 
-	icerts := []cloudprovider.ICloudLoadbalancerCertificate{}
-	for i := 0; i < len(certs); i++ {
-		cert := SLBCertificate{region: self, SCertificate: certs[i]}
-		icerts = append(icerts, &cert)
-	}
-
-	if len(certs) == 1 {
-		return icerts[0], nil
-	} else if len(certs) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	} else {
-		return nil, fmt.Errorf("GetILoadBalancerCertificateById %d certificate found, expect 1", len(certs))
-	}
+	return cert, nil
 }
 
 func (self *SRegion) GetILoadBalancerById(loadbalancerId string) (cloudprovider.ICloudLoadbalancer, error) {
@@ -241,19 +196,21 @@ func (self *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAcce
 }
 
 // todo:目前onecloud端只能指定服务器端证书。需要兼容客户端证书？
-func (self *SRegion) CreateILoadBalancerCertificate(cert *cloudprovider.SLoadbalancerCertificate) (cloudprovider.ICloudLoadbalancerCertificate, error) {
-	certId, err := self.CreateCertificate(cert.Certificate, "SVR", cert.PrivateKey, cert.Name)
+// todo:支持指定Project。
+// todo: 已过期的证书不能上传也不能关联资源
+func (self *SRegion) CreateILoadBalancerCertificate(input *cloudprovider.SLoadbalancerCertificate) (cloudprovider.ICloudLoadbalancerCertificate, error) {
+	certId, err := self.CreateCertificate("", input.Certificate, input.PrivateKey, "SVR", input.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	certs, _, err := self.GetCertificates(certId, false, 10, 0)
-	if len(certs) != 1 || err != nil {
-		log.Debugf("CreateILoadBalancerCertificate failed. %d certificate matched", len(certs))
+	cert, err := self.GetCertificate(certId)
+	if err != nil {
+		log.Debugf("GetCertificate %s failed", certId)
 		return nil, err
 	}
 
-	return &SLBCertificate{region: self, SCertificate: certs[0]}, nil
+	return cert, nil
 }
 
 func (self *SRegion) GetId() string {
@@ -710,8 +667,13 @@ func (self *SRegion) sqlserverRequest(apiName string, params map[string]string) 
 	return self.client.sqlserverRequest(apiName, params)
 }
 
+// deprecated
 func (self *SRegion) wssRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	return self.client.wssRequest(apiName, params)
+}
+
+func (self *SRegion) sslRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	return self.client.sslRequest(apiName, params)
 }
 
 func (self *SRegion) redisRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
