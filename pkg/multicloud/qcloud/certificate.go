@@ -24,6 +24,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type projectInfo struct {
@@ -95,7 +97,7 @@ func (self *SCertificate) GetPrivateKey() string {
 
 // 证书不能修改
 func (self *SCertificate) Sync(name, privateKey, publickKey string) error {
-	return nil
+	return cloudprovider.ErrNotSupported
 }
 
 func (self *SCertificate) Delete() error {
