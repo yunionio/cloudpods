@@ -172,10 +172,28 @@ func (m *SSnapshotPolicyDiskManager) FetchBySnapshotPolicyDisk(spId, diskId stri
 	return &ret[0], nil
 }
 
-func (sdm *SSnapshotPolicyDiskManager) InitalizeData() error {
-	q := sdm.Query().IsNullOrEmpty("next_sync_time")
+func (sdm *SSnapshotPolicyDiskManager) InitializeData() error {
+	diskQ := DiskManager.Query("id").SubQuery()
+	sdQ := sdm.Query().NotIn("disk_id", diskQ)
+
 	var sds []SSnapshotPolicyDisk
-	err := db.FetchModelObjects(sdm, q, &sds)
+	err := db.FetchModelObjects(sdm, sdQ, &sds)
+	if err != nil {
+		return errors.Wrap(err, "unable to FetchModelObjects")
+	}
+	for i := range sds {
+		sd := &sds[i]
+		_, err := db.Update(sd, func() error {
+			return sd.MarkDelete()
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	sds = make([]SSnapshotPolicyDisk, 0)
+	q := sdm.Query().IsNullOrEmpty("next_sync_time")
+	err = db.FetchModelObjects(sdm, q, &sds)
 	if err != nil {
 		return err
 	}
