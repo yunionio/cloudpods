@@ -80,14 +80,6 @@ func (self *GuestDetachDiskTask) OnDetachDiskComplete(ctx context.Context, guest
 		return
 	}
 	disk := objDisk.(*models.SDisk)
-	// detach disk and snapshotpolicy if hypervisor is kvm
-	if guest.Hypervisor == api.HYPERVISOR_KVM {
-		err := disk.DetachAllSnapshotpolicies(ctx, self.UserCred)
-		if err != nil {
-			self.OnTaskFail(ctx, guest, nil, jsonutils.NewString(fmt.Sprintf("detach all snapshotpolicies failed: %s", err.Error())))
-			return
-		}
-	}
 	disk.SetStatus(self.UserCred, api.DISK_READY, "on detach disk complete")
 	keepDisk := jsonutils.QueryBoolean(self.Params, "keep_disk", true)
 	host := guest.GetHost()
