@@ -39,7 +39,10 @@ const (
 type SBucket struct {
 	multicloud.SBaseBucket
 
+	AppId string
+
 	region *SRegion
+	zone   *SZone
 
 	Name       string
 	Location   string
@@ -51,11 +54,15 @@ func (b *SBucket) GetProjectId() string {
 }
 
 func (b *SBucket) GetGlobalId() string {
-	return b.Name
+	if b.AppId == b.region.client.appId {
+		return b.Name
+	} else {
+		return b.getFullName()
+	}
 }
 
 func (b *SBucket) GetName() string {
-	return b.Name
+	return b.GetGlobalId()
 }
 
 func (b *SBucket) GetLocation() string {
@@ -135,11 +142,15 @@ func (b *SBucket) SetAcl(aclStr cloudprovider.TBucketACLType) error {
 }
 
 func (b *SBucket) getFullName() string {
-	return fmt.Sprintf("%s-%s", b.Name, b.region.client.appId)
+	return fmt.Sprintf("%s-%s", b.Name, b.AppId)
 }
 
 func (b *SBucket) getBucketUrlHost() string {
-	return fmt.Sprintf("%s.%s", b.getFullName(), b.region.getCosEndpoint())
+	if b.zone != nil {
+		return fmt.Sprintf("%s.%s", b.getFullName(), b.zone.getCosEndpoint())
+	} else {
+		return fmt.Sprintf("%s.%s", b.getFullName(), b.region.getCosEndpoint())
+	}
 }
 
 func (b *SBucket) getBucketUrl() string {

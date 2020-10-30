@@ -291,3 +291,7 @@ func (self *SZone) getAvaliableInstanceTypes() []string {
 func refreshHours() float64 {
 	return 5
 }
+
+func (self *SZone) getCosEndpoint() string {
+	return fmt.Sprintf("cos.%s.myqcloud.com", self.GetId())
+}
