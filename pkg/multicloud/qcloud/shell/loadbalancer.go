@@ -15,6 +15,8 @@
 package shell
 
 import (
+	"io/ioutil"
+
 	"yunion.io/x/onecloud/pkg/multicloud/qcloud"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -29,6 +31,76 @@ func init() {
 		}
 
 		printList(lbs, 0, 0, 0, []string{})
+		return nil
+	})
+
+	type LbCertListOptions struct {
+	}
+	shellutils.R(&LbCertListOptions{}, "lbcert-list", "List certs", func(cli *qcloud.SRegion, args *LbCertListOptions) error {
+		certs, err := cli.GetCertificates("", "", "")
+		if err != nil {
+			return err
+		}
+
+		printList(certs, 0, 0, 0, []string{})
+		return nil
+	})
+
+	type LbCertIdOptions struct {
+		ID string `json:"id" help:"certificate id"`
+	}
+	shellutils.R(&LbCertIdOptions{}, "lbcert-show", "Show cert", func(cli *qcloud.SRegion, args *LbCertIdOptions) error {
+		cert, err := cli.GetCertificate(args.ID)
+		if err != nil {
+			return err
+		}
+
+		printObject(cert)
+		return nil
+	})
+
+	shellutils.R(&LbCertIdOptions{}, "lbcert-delete", "delete cert", func(cli *qcloud.SRegion, args *LbCertIdOptions) error {
+		err := cli.DeleteCertificate(args.ID)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	type LbCertUploadOptions struct {
+		PublicKeyPath  string `json:"public_key_path"`
+		PrivateKeyPath string `json:"private_key_path"`
+		CertType       string `json:"cert_type"`
+		Desc           string `json:"desc"`
+	}
+
+	shellutils.R(&LbCertUploadOptions{}, "lbcert-upload", "Upload cert", func(cli *qcloud.SRegion, args *LbCertUploadOptions) error {
+		public := ""
+		if len(args.PublicKeyPath) > 0 {
+			_public, err := ioutil.ReadFile(args.PublicKeyPath)
+			if err != nil {
+				return err
+			}
+
+			public = string(_public)
+		}
+
+		private := ""
+		if len(args.PrivateKeyPath) > 0 {
+			_private, err := ioutil.ReadFile(args.PrivateKeyPath)
+			if err != nil {
+				return err
+			}
+
+			private = string(_private)
+		}
+		certId, err := cli.CreateCertificate("", public, private, args.CertType, args.Desc)
+		if err != nil {
+			return err
+		}
+
+		print(certId)
 		return nil
 	})
 }
