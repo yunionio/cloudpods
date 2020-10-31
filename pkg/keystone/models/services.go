@@ -203,7 +203,7 @@ func (service *SService) PerformConfig(ctx context.Context, userCred mcclient.To
 	if service.isCommonService() {
 		err = saveConfigs(userCred, action, service, opts, api.CommonWhitelistOptionMap, nil, nil)
 	} else {
-		err = saveConfigs(userCred, action, service, opts, nil, api.ServiceBlacklistOptionMap, nil)
+		err = saveConfigs(userCred, action, service, opts, nil, api.MergeServiceConfigOptions(api.CommonWhitelistOptionMap, api.ServiceBlacklistOptionMap), nil)
 	}
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("saveConfig fail %s", err)
