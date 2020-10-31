@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	o "yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 // +onecloud:swagger-gen-ignore
@@ -110,6 +111,15 @@ func (manager *SPasswordManager) fetchByLocaluserId(localUserId int) ([]SPasswor
 func validatePasswordComplexity(password string) error {
 	if o.Options.PasswordMinimalLength > 0 && len(password) < o.Options.PasswordMinimalLength {
 		return errors.Wrap(httperrors.ErrWeakPassword, "too simple password")
+	}
+	if o.Options.PasswordCharComplexity > 0 {
+		complexity := o.Options.PasswordCharComplexity
+		if complexity > 4 {
+			complexity = 4
+		}
+		if stringutils2.GetCharTypeCount(password) < complexity {
+			return errors.Wrap(httperrors.ErrWeakPassword, "too simple password")
+		}
 	}
 	return nil
 }

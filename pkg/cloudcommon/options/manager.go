@@ -124,7 +124,10 @@ func (manager *SOptionManager) DoSync(first bool) (time.Duration, error) {
 			appsrv.SetExitFlag()
 		}
 		copyOptions(manager.options, newOpts)
-		manager.session.Upload()
+		if first {
+			// upload config for the first time ONLY
+			manager.session.Upload()
+		}
 	}
 	return manager.refreshInterval, nil
 }
