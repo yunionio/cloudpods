@@ -57,6 +57,7 @@ const (
 	QCLOUD_POSTGRES_API_VERSION  = "2017-03-12"
 	QCLOUD_SQLSERVER_API_VERSION = "2018-03-28"
 	QCLOUD_REDIS_API_VERSION     = "2018-04-12"
+	QCLOUD_SSL_API_VERSION       = "2019-12-05"
 )
 
 type QcloudClientConfig struct {
@@ -203,10 +204,16 @@ func sqlserverRequest(client *common.Client, apiName string, params map[string]s
 	return _jsonRequest(client, domain, QCLOUD_SQLSERVER_API_VERSION, apiName, params, debug, true)
 }
 
-// ssl 证书服务
+// deprecated: ssl 证书服务
 func wssRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
 	domain := "wss.api.qcloud.com"
 	return _phpJsonRequest(client, &wssJsonResponse{}, domain, "/v2/index.php", "", apiName, params, debug)
+}
+
+// ssl 证书服务
+func sslRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+	domain := "ssl.tencentcloudapi.com"
+	return _jsonRequest(client, domain, QCLOUD_SSL_API_VERSION, apiName, params, debug, true)
 }
 
 // dnspod 解析服务
@@ -454,7 +461,7 @@ func _baseJsonRequest(client *common.Client, req tchttp.Request, resp qcloudResp
 				break
 			}
 		}
-		for _, code := range []string{"InvalidParameter.RoleNotExist", "Code=ResourceNotFound"} {
+		for _, code := range []string{"InvalidParameter.RoleNotExist", "Code=ResourceNotFound", "FailedOperation.CertificateNotFound"} {
 			if strings.Contains(err.Error(), code) {
 				return nil, errors.Wrap(cloudprovider.ErrNotFound, err.Error())
 			}
@@ -591,12 +598,21 @@ func (client *SQcloudClient) sqlserverRequest(apiName string, params map[string]
 	return sqlserverRequest(cli, apiName, params, client.debug)
 }
 
+// deprecated
 func (client *SQcloudClient) wssRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	cli, err := client.getDefaultClient()
 	if err != nil {
 		return nil, err
 	}
 	return wssRequest(cli, apiName, params, client.debug)
+}
+
+func (client *SQcloudClient) sslRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := client.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	return sslRequest(cli, apiName, params, client.debug)
 }
 
 func (client *SQcloudClient) cnsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
