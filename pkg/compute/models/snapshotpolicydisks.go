@@ -215,7 +215,7 @@ func (sdm *SSnapshotPolicyDiskManager) InitializeData() error {
 	for i := range sds {
 		sd := &sds[i]
 		_, err := db.Update(sd, func() error {
-			sd.NextSyncTime = spMap[sd.SnapshotpolicyId].ComputeNextSyncTime(now, now)
+			sd.NextSyncTime = spMap[sd.SnapshotpolicyId].ComputeNextSyncTime(now)
 			return nil
 		})
 		if err != nil {
@@ -475,7 +475,7 @@ func (self *SSnapshotPolicyDiskManager) newSnapshotpolicyDisk(ctx context.Contex
 	spd.SnapshotpolicyId = sp.GetId()
 	spd.DiskId = disk.GetId()
 	now := time.Now()
-	spd.NextSyncTime = sp.ComputeNextSyncTime(now, now)
+	spd.NextSyncTime = sp.ComputeNextSyncTime(now)
 	spd.SetModelManager(self, &spd)
 
 	lockman.LockJointObject(ctx, disk, sp)
@@ -518,7 +518,7 @@ func (sd *SSnapshotPolicyDisk) CustomizeCreate(ctx context.Context, userCred mcc
 		return err
 	}
 	now := time.Now()
-	sd.NextSyncTime = sp.ComputeNextSyncTime(now, now)
+	sd.NextSyncTime = sp.ComputeNextSyncTime(now)
 	return nil
 }
 

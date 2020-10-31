@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -727,7 +728,7 @@ func (self *SSnapshotPolicyManager) TimePointsToIntArray(n uint32) []int {
 	return bitmap.Uint2IntArray(n)
 }
 
-func (sp *SSnapshotPolicy) ComputeNextSyncTime(base, lastSyncTime time.Time) time.Time {
+func computeNextSyncTime(weekDays, timePoints []int, base time.Time) time.Time {
 	if base.IsZero() {
 		base = time.Now()
 	}
@@ -737,17 +738,12 @@ func (sp *SSnapshotPolicy) ComputeNextSyncTime(base, lastSyncTime time.Time) tim
 	if baseWeekday == 0 {
 		baseWeekday = 7
 	}
-	weekDays := SnapshotPolicyManager.RepeatWeekdaysToIntArray(sp.RepeatWeekdays)
 	weekDays = append(weekDays, weekDays[0]+7)
 	index := sort.SearchInts(weekDays, baseWeekday)
-	if weekDays[index] == baseWeekday {
-		index += 1
-	}
 	addDay := weekDays[index] - baseWeekday
 	nextTime := base.AddDate(0, 0, addDay)
 
 	// find timePoint closest to the base
-	timePoints := SnapshotPolicyManager.TimePointsToIntArray(sp.TimePoints)
 	var newHour int
 	if addDay > 0 {
 		newHour = timePoints[0]
@@ -764,17 +760,29 @@ func (sp *SSnapshotPolicy) ComputeNextSyncTime(base, lastSyncTime time.Time) tim
 	}
 	nextTime = time.Date(nextTime.Year(), nextTime.Month(), nextTime.Day(), newHour, 0, 0, 0, base.Location())
 
-	if sp.RetentionDays <= 0 {
-		return nextTime
-	}
-	if lastSyncTime.IsZero() {
-		lastSyncTime = base
-	}
-	snapshotRentionExpired := lastSyncTime.AddDate(0, 0, sp.RetentionDays)
-	if snapshotRentionExpired.Before(nextTime) {
-		return snapshotRentionExpired
+	if !nextTime.After(base) {
+		// If the calculated NextSyncTime and base are equal, add 1 hour to base and recursive processing.
+		return computeNextSyncTime(weekDays, timePoints, base.Add(time.Hour))
 	}
 	return nextTime
+}
+
+func (sp *SSnapshotPolicy) ComputeNextSyncTime(base time.Time) time.Time {
+	weekDays := SnapshotPolicyManager.RepeatWeekdaysToIntArray(sp.RepeatWeekdays)
+	timePoints := SnapshotPolicyManager.TimePointsToIntArray(sp.TimePoints)
+	if sp.RetentionDays <= 0 {
+		return computeNextSyncTime(weekDays, timePoints, base)
+	}
+	// A snapshotpolicy takes effect every Monday with keeping snapshot 3 days. So, the snapshots should be synchronized every Monday (snapshots) and Thursdays (release snapshots).
+	set := sets.NewInt(weekDays...)
+	for _, day := range weekDays {
+		newDay := (day + sp.RetentionDays) % 7
+		if newDay == 0 {
+			newDay = 7
+		}
+		set.Insert(newDay)
+	}
+	return computeNextSyncTime(set.List(), timePoints, base)
 }
 
 func (sp *SSnapshotPolicy) GenerateCreateSpParams() *cloudprovider.SnapshotPolicyInput {
