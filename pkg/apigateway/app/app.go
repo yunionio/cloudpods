@@ -23,14 +23,14 @@ import (
 type Application struct {
 	*appsrv.Application
 
-	AuthHandler          handler.IHandler
-	MiscHandler          handler.IHandler
-	K8sHandler           handler.IHandler
-	ResourceHandler      handler.IHandler
-	CSRFResourceHandler  handler.IHandler
-	RPCHandler           handler.IHandler
-	InfluxdbProxyHandler handler.IHandler
-	CloudIdSAMLHandler   handler.IHandler
+	AuthHandler         handler.IHandler
+	MiscHandler         handler.IHandler
+	K8sHandler          handler.IHandler
+	ResourceHandler     handler.IHandler
+	CSRFResourceHandler handler.IHandler
+	RPCHandler          handler.IHandler
+	// InfluxdbProxyHandler handler.IHandler
+	CloudIdSAMLHandler handler.IHandler
 }
 
 func NewApp(app *appsrv.Application) *Application {
@@ -66,7 +66,7 @@ func (app *Application) InitHandlers() *Application {
 		AddGet(handler.FetchAuthToken).
 		AddPost(handler.FetchAuthToken)
 
-	app.InfluxdbProxyHandler = handler.NewInfluxdbProxyHandler("/query")
+	// app.InfluxdbProxyHandler = handler.NewInfluxdbProxyHandler("/query")
 
 	app.CloudIdSAMLHandler = handler.NewProxyHandlerWithService(cloudid.SAML_IDP_PREFIX, cloudid.SERVICE_TYPE)
 
@@ -76,7 +76,7 @@ func (app *Application) InitHandlers() *Application {
 func (app *Application) Bind() {
 	for _, h := range []handler.IHandler{
 		app.CloudIdSAMLHandler,
-		app.InfluxdbProxyHandler,
+		// app.InfluxdbProxyHandler,
 		app.MiscHandler,
 		app.AuthHandler,
 		app.K8sHandler,
