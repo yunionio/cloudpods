@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
@@ -19,6 +20,10 @@ import (
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+)
+
+const (
+	TELEGRAF_DATABASE = "telegraf"
 )
 
 var (
@@ -185,6 +190,9 @@ func (self *SUnifiedMonitorManager) AllowPerformQuery(ctx context.Context, userC
 }
 
 func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if err := ValidateQuerySignature(data); err != nil {
+		return nil, errors.Wrap(err, "ValidateQuerySignature")
+	}
 	inputQuery := new(monitor.MetricInputQuery)
 	err := data.Unmarshal(inputQuery)
 	if err != nil {
@@ -239,7 +247,13 @@ func doQuery(query monitor.MetricInputQuery) (*mq.Metrics, error) {
 	if err != nil {
 		return nil, err
 	}
-	return metricQ.ExecuteQuery()
+	metrics, err := metricQ.ExecuteQuery()
+	if err != nil {
+		return nil, err
+	}
+	// drop metas contains raw_query
+	metrics.Metas = nil
+	return metrics, nil
 }
 
 func (self *SUnifiedMonitorManager) ValidateInputQuery(query *monitor.AlertQuery) error {
@@ -284,6 +298,21 @@ func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricInputQ
 				Type:   "fill",
 				Params: []string{"none"},
 			})
+	}
+
+	if query.Model.Database == "" {
+		metricMeasurement, _ := MetricMeasurementManager.GetCache().Get(query.Model.Measurement)
+		database := ""
+		if metricMeasurement == nil {
+			log.Warningf("Not found measurement %s from metrics measurement cache", query.Model.Measurement)
+		} else {
+			database = metricMeasurement.Database
+		}
+		if database == "" {
+			// hack: query from default telegraf database if no metric measurement matched
+			database = TELEGRAF_DATABASE
+		}
+		query.Model.Database = database
 	}
 
 	for i, sel := range query.Model.Selects {
