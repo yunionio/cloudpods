@@ -2525,7 +2525,7 @@ func (manager *SDiskManager) AutoSyncExtDiskSnapshot(ctx context.Context, userCr
 		}
 		db.OpsLog.LogEvent(disk, db.ACT_DISK_AUTO_SYNC_SNAPSHOT, "disk auto sync snapshot successfully", userCred)
 		_, err = db.Update(spd, func() error {
-			newNextSyncTime := spMap[spd.SnapshotpolicyId].ComputeNextSyncTime(now, spd.NextSyncTime)
+			newNextSyncTime := spMap[spd.SnapshotpolicyId].ComputeNextSyncTime(now)
 			spd.NextSyncTime = newNextSyncTime
 			return nil
 		})
