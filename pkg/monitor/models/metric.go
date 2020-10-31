@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"sync"
 
 	"golang.org/x/sync/errgroup"
 
@@ -22,10 +23,30 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+var MetricMeasurementManager *SMetricMeasurementManager
+
+func init() {
+	MetricMeasurementManager = &SMetricMeasurementManager{
+		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
+			SMetricMeasurement{},
+			"metricmeasurement_tbl",
+			"metricmeasurement",
+			"metricmeasurements",
+		),
+		measurementsCache: &sMetricMeasurementCache{},
+	}
+
+	MetricMeasurementManager.SetVirtualObject(MetricMeasurementManager)
+	registry.RegisterService(MetricMeasurementManager)
+}
+
 type SMetricMeasurementManager struct {
 	db.SEnabledResourceBaseManager
 	db.SStatusStandaloneResourceBaseManager
 	db.SScopedResourceBaseManager
+
+	// measurementsCache records all cache measurement and related info
+	measurementsCache *sMetricMeasurementCache
 }
 
 type SMetricMeasurement struct {
@@ -39,20 +60,28 @@ type SMetricMeasurement struct {
 	DisplayName string `width:"256" list:"user" update:"user"`
 }
 
-var MetricMeasurementManager *SMetricMeasurementManager
+type IMetricMeasurementCache interface {
+	Get(measurementName string) (*SMetricMeasurement, bool)
+}
 
-func init() {
-	MetricMeasurementManager = &SMetricMeasurementManager{
-		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
-			SMetricMeasurement{},
-			"metricmeasurement_tbl",
-			"metricmeasurement",
-			"metricmeasurements",
-		),
+type sMetricMeasurementCache struct {
+	sync.Map
+}
+
+func (c *sMetricMeasurementCache) set(measurementName string, obj *SMetricMeasurement) {
+	c.Store(measurementName, obj)
+}
+
+func (c *sMetricMeasurementCache) Get(measurementName string) (*SMetricMeasurement, bool) {
+	obj, ok := c.Load(measurementName)
+	if !ok {
+		return nil, false
 	}
+	return obj.(*SMetricMeasurement), true
+}
 
-	MetricMeasurementManager.SetVirtualObject(MetricMeasurementManager)
-	registry.RegisterService(MetricMeasurementManager)
+func (manager *SMetricMeasurementManager) GetCache() IMetricMeasurementCache {
+	return manager.measurementsCache
 }
 
 func (manager *SMetricMeasurementManager) NamespaceScope() rbacutils.TRbacScope {
@@ -386,15 +415,31 @@ func (manager *SMetricMeasurementManager) initJsonMetricInfo(ctx context.Context
 		return errors.Wrap(err, "SMetricMeasurementManager Parse MetricDescriptionstr error")
 	}
 	metrics := make([]monitor.MetricCreateInput, 0)
-	err = metricDescriptions.Unmarshal(&metrics)
-	if err != nil {
+	if err := metricDescriptions.Unmarshal(&metrics); err != nil {
 		return errors.Wrap(err, "SMetricMeasurementManager Unmarshal MetricDescriptionstr error")
 	}
-	err = manager.initMetrics(ctx, metrics)
-	if err != nil {
-		return err
+	if err := manager.initMetrics(ctx, metrics); err != nil {
+		return errors.Wrap(err, "initMetrics")
 	}
-	return manager.deleteUnusedMetricDescriptions()
+	if err := manager.deleteUnusedMetricDescriptions(); err != nil {
+		return errors.Wrap(err, "deleteUnusedMetricDescriptions")
+	}
+	if err := manager.reloadCache(); err != nil {
+		return errors.Wrap(err, "reload measurement cache")
+	}
+	return nil
+}
+
+func (manager *SMetricMeasurementManager) reloadCache() error {
+	objs := make([]SMetricMeasurement, 0)
+	q := manager.Query()
+	if err := db.FetchModelObjects(manager, q, &objs); err != nil {
+		return errors.Wrap(err, "Fetch all measurements")
+	}
+	for _, obj := range objs {
+		manager.measurementsCache.set(obj.Name, &obj)
+	}
+	return nil
 }
 
 func (manager *SMetricMeasurementManager) deleteUnusedMetricDescriptions() error {
