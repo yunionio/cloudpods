@@ -188,5 +188,12 @@ func OnOptionsChange(oldO, newO interface{}) bool {
 	if common_options.OnCommonOptionsChange(&oldOpts.CommonOptions, &newOpts.CommonOptions) {
 		changed = true
 	}
+
+	if oldOpts.PendingDeleteCheckSeconds != newOpts.PendingDeleteCheckSeconds {
+		if !oldOpts.IsSlaveNode {
+			changed = true
+		}
+	}
+
 	return changed
 }

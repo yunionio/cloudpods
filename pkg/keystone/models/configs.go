@@ -401,9 +401,6 @@ func saveConfigs(userCred mcclient.TokenCredential, action string, model db.IMod
 			return errors.Wrap(err, "SensitiveConfigManager.syncConfig")
 		}
 	}
-	if userCred == nil {
-		userCred = getDefaultAdminCred()
-	}
 	maskedValue := jsonutils.NewString("*")
 	for i := range changedSensitive {
 		if changedSensitive[i].OValue != nil {
@@ -416,8 +413,12 @@ func saveConfigs(userCred mcclient.TokenCredential, action string, model db.IMod
 	changed = append(changed, changedSensitive...)
 	if len(changed) > 0 {
 		notes := jsonutils.Marshal(changed)
+		if userCred == nil {
+			userCred = getDefaultAdminCred()
+		} else {
+			logclient.AddSimpleActionLog(model, logclient.ACT_CHANGE_CONFIG, notes, userCred, true)
+		}
 		db.OpsLog.LogEvent(model, db.ACT_CHANGE_CONFIG, notes, userCred)
-		logclient.AddSimpleActionLog(model, logclient.ACT_CHANGE_CONFIG, notes, userCred, true)
 	}
 	return nil
 }
@@ -495,7 +496,7 @@ func uploadConfig(service *SService, config jsonutils.JSONObject) {
 	if service.isCommonService() {
 		err = saveConfigs(nil, "", service, tconf, api.CommonWhitelistOptionMap, nil, nil)
 	} else {
-		err = saveConfigs(nil, "", service, tconf, nil, api.ServiceBlacklistOptionMap, nil)
+		err = saveConfigs(nil, "", service, tconf, nil, api.MergeServiceConfigOptions(api.CommonWhitelistOptionMap, api.ServiceBlacklistOptionMap), nil)
 	}
 	if err != nil {
 		log.Errorf("saveConfigs fail %s", err)
