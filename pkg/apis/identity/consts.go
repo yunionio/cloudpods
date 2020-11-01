@@ -203,3 +203,19 @@ var (
 		},
 	}
 )
+
+func mergeConfigOptionsFrom(opt1, opt2 map[string][]string) map[string][]string {
+	for opt, values := range opt2 {
+		ovalues, _ := opt1[opt]
+		opt1[opt] = append(ovalues, values...)
+	}
+	return opt1
+}
+
+func MergeServiceConfigOptions(opts ...map[string][]string) map[string][]string {
+	ret := make(map[string][]string)
+	for i := range opts {
+		ret = mergeConfigOptionsFrom(ret, opts[i])
+	}
+	return ret
+}

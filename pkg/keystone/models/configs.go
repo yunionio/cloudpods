@@ -367,7 +367,7 @@ func GetConfigs(model db.IModel, sensitive bool, whiteList, blackList map[string
 	return config2map(opts), nil
 }
 
-func saveConfigs(userCred mcclient.TokenCredential, action string, model db.IModel, opts api.TConfigs, whiteList map[string][]string, blackList map[string][]string, sensitiveConfs map[string][]string, skipLog bool) error {
+func saveConfigs(userCred mcclient.TokenCredential, action string, model db.IModel, opts api.TConfigs, whiteList map[string][]string, blackList map[string][]string, sensitiveConfs map[string][]string) error {
 	var err error
 	changed := make([]sChangeOption, 0)
 	changedSensitive := make([]sChangeOption, 0)
@@ -401,9 +401,6 @@ func saveConfigs(userCred mcclient.TokenCredential, action string, model db.IMod
 			return errors.Wrap(err, "SensitiveConfigManager.syncConfig")
 		}
 	}
-	if userCred == nil {
-		userCred = getDefaultAdminCred()
-	}
 	maskedValue := jsonutils.NewString("*")
 	for i := range changedSensitive {
 		if changedSensitive[i].OValue != nil {
@@ -416,10 +413,12 @@ func saveConfigs(userCred mcclient.TokenCredential, action string, model db.IMod
 	changed = append(changed, changedSensitive...)
 	if len(changed) > 0 {
 		notes := jsonutils.Marshal(changed)
-		db.OpsLog.LogEvent(model, db.ACT_CHANGE_CONFIG, notes, userCred)
-		if !skipLog {
+		if userCred == nil {
+			userCred = getDefaultAdminCred()
+		} else {
 			logclient.AddSimpleActionLog(model, logclient.ACT_CHANGE_CONFIG, notes, userCred, true)
 		}
+		db.OpsLog.LogEvent(model, db.ACT_CHANGE_CONFIG, notes, userCred)
 	}
 	return nil
 }
@@ -433,7 +432,7 @@ func NewServiceConfigSession() common_options.IServiceConfigSession {
 	return &dbServiceConfigSession{}
 }
 
-func (s *dbServiceConfigSession) Merge(opts interface{}, serviceType string, serviceVersion string, isFirst bool) bool {
+func (s *dbServiceConfigSession) Merge(opts interface{}, serviceType string, serviceVersion string) bool {
 	merged := false
 	s.config = jsonutils.Marshal(opts).(*jsonutils.JSONDict)
 	s.service, _ = ServiceManager.fetchServiceByType(serviceType)
@@ -447,7 +446,7 @@ func (s *dbServiceConfigSession) Merge(opts interface{}, serviceType string, ser
 			merged = true
 		} else {
 			// not initialized
-			uploadConfig(s.service, s.config, isFirst)
+			uploadConfig(s.service, s.config)
 		}
 	}
 	commonService, _ := ServiceManager.fetchServiceByType(consts.COMMON_SERVICE)
@@ -461,7 +460,7 @@ func (s *dbServiceConfigSession) Merge(opts interface{}, serviceType string, ser
 			merged = true
 		} else {
 			// common not initialized
-			uploadConfig(commonService, s.config, isFirst)
+			uploadConfig(commonService, s.config)
 		}
 	}
 	if merged {
@@ -474,18 +473,18 @@ func (s *dbServiceConfigSession) Merge(opts interface{}, serviceType string, ser
 	return false
 }
 
-func (s *dbServiceConfigSession) Upload(isFirst bool) {
+func (s *dbServiceConfigSession) Upload() {
 	if s.service == nil {
 		return
 	}
-	uploadConfig(s.service, s.config, isFirst)
+	uploadConfig(s.service, s.config)
 }
 
 func (s *dbServiceConfigSession) IsRemote() bool {
 	return false
 }
 
-func uploadConfig(service *SService, config jsonutils.JSONObject, isFirst bool) {
+func uploadConfig(service *SService, config jsonutils.JSONObject) {
 	nconf := jsonutils.NewDict()
 	nconf.Add(config, "default")
 	tconf := api.TConfigs{}
@@ -495,9 +494,9 @@ func uploadConfig(service *SService, config jsonutils.JSONObject, isFirst bool) 
 		return
 	}
 	if service.isCommonService() {
-		err = saveConfigs(nil, "", service, tconf, api.CommonWhitelistOptionMap, nil, nil, isFirst)
+		err = saveConfigs(nil, "", service, tconf, api.CommonWhitelistOptionMap, nil, nil)
 	} else {
-		err = saveConfigs(nil, "", service, tconf, nil, api.ServiceBlacklistOptionMap, nil, isFirst)
+		err = saveConfigs(nil, "", service, tconf, nil, api.MergeServiceConfigOptions(api.CommonWhitelistOptionMap, api.ServiceBlacklistOptionMap), nil)
 	}
 	if err != nil {
 		log.Errorf("saveConfigs fail %s", err)

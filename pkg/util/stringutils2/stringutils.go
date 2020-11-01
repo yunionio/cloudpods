@@ -185,3 +185,29 @@ func GenerateHostName(name string, osType string) string {
 	}
 	return forOther(name)
 }
+
+func GetCharTypeCount(str string) int {
+	digitIdx := 0
+	lowerIdx := 1
+	upperIdx := 2
+	otherIdx := 3
+	complexity := make([]int, 4)
+	for _, b := range []byte(str) {
+		if b >= '0' && b <= '9' {
+			complexity[digitIdx] += 1
+		} else if b >= 'a' && b <= 'z' {
+			complexity[lowerIdx] += 1
+		} else if b >= 'A' && b <= 'Z' {
+			complexity[upperIdx] += 1
+		} else {
+			complexity[otherIdx] += 1
+		}
+	}
+	ret := 0
+	for i := range complexity {
+		if complexity[i] > 0 {
+			ret += 1
+		}
+	}
+	return ret
+}
