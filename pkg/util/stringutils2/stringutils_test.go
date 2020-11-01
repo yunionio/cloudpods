@@ -166,3 +166,45 @@ func TestGenerateHostName(t *testing.T) {
 		}
 	}
 }
+
+func TestGetCharTypeCount(t *testing.T) {
+	cases := []struct {
+		in   string
+		want int
+	}{
+		{
+			in:   "",
+			want: 0,
+		},
+		{
+			in:   "123",
+			want: 1,
+		},
+		{
+			in:   "abc",
+			want: 1,
+		},
+		{
+			in:   "abcAbc",
+			want: 2,
+		},
+		{
+			in:   "123dbA",
+			want: 3,
+		},
+		{
+			in:   "123@Acv",
+			want: 4,
+		},
+		{
+			in:   "中文",
+			want: 1,
+		},
+	}
+	for _, c := range cases {
+		got := GetCharTypeCount(c.in)
+		if got != c.want {
+			t.Errorf("GetCharTypeCount %s want %d got %d", c.in, c.want, got)
+		}
+	}
+}
