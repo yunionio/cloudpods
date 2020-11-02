@@ -176,6 +176,11 @@ func (d *SGuestDiskSyncTask) syncDisksConf() {
 		d.changeCdrom()
 		return
 	}
+	if idxs := d.guest.GetNeedMergeBackingFileDiskIndexs(); len(idxs) > 0 {
+		d.guest.StreamDisks(context.Background(),
+			func() { d.guest.streamDisksComplete(context.Background()) }, idxs,
+		)
+	}
 	d.callback()
 }
 
