@@ -239,13 +239,12 @@ func (manager *SScopedPolicyBindingManager) ListItemFilter(
 		maxq = filterByOwnerId(maxq, query.DomainId, query.ProjectId, *query.Effective, query.Category, query.PolicyId)
 		maxq = maxq.GroupBy(bindingQ.Field("category"))
 		subq := maxq.SubQuery()
-		q = q.Join(subq, sqlchemy.AND(
-			sqlchemy.Equals(q.Field("category"), subq.Field("category")),
-			sqlchemy.Equals(q.Field("priority"), subq.Field("max_priority")),
-		))
+		q = q.Join(subq, sqlchemy.Equals(q.Field("category"), subq.Field("category")))
+		q = q.Filter(sqlchemy.Equals(q.Field("priority"), subq.Field("max_priority")))
+	} else {
+		effective := (query.Effective != nil && *query.Effective)
+		q = filterByOwnerId(q, query.DomainId, query.ProjectId, effective, query.Category, query.PolicyId)
 	}
-	effective := (query.Effective != nil && *query.Effective)
-	q = filterByOwnerId(q, query.DomainId, query.ProjectId, effective, query.Category, query.PolicyId)
 
 	return q, nil
 }
