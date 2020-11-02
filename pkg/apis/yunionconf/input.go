@@ -83,7 +83,7 @@ type ScopedPolicyBindingListInput struct {
 	DomainId  string `json:"domain_id"`
 	ProjectId string `json:"project_id"`
 
-	Category string `json:"category"`
+	Category []string `json:"category"`
 
 	Effective *bool `json:"effective"`
 
