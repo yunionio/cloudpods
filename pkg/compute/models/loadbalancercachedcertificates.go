@@ -23,7 +23,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -376,8 +375,12 @@ func (lbcert *SCachedLoadbalancerCertificate) syncRemoveCloudLoadbalancerCertifi
 func (man *SCachedLoadbalancerCertificateManager) getLoadbalancerCertificateByRegion(provider *SCloudprovider, regionId string, localCertificateId string) (SCachedLoadbalancerCertificate, error) {
 	certificates := []SCachedLoadbalancerCertificate{}
 	q := man.Query().Equals("manager_id", provider.Id).Equals("certificate_id", localCertificateId).IsFalse("pending_deleted")
-	// aws 所有region共用一份证书.与region无关
-	if provider.GetName() != api.CLOUD_PROVIDER_AWS {
+	regionDriver, err := provider.GetRegionDriver()
+	if err != nil {
+		return SCachedLoadbalancerCertificate{}, errors.Wrap(err, "GetRegionDriver")
+	}
+
+	if regionDriver.IsCertificateBelongToRegion() {
 		q = q.Equals("cloudregion_id", regionId)
 	}
 
@@ -396,8 +399,7 @@ func (man *SCachedLoadbalancerCertificateManager) getLoadbalancerCertificateByRe
 func (man *SCachedLoadbalancerCertificateManager) getLoadbalancerCertificatesByRegion(region *SCloudregion, provider *SCloudprovider) ([]SCachedLoadbalancerCertificate, error) {
 	certificates := []SCachedLoadbalancerCertificate{}
 	q := man.Query().Equals("manager_id", provider.Id).IsFalse("pending_deleted")
-	// aws 所有region共用一份证书.与region无关
-	if !utils.IsInStringArray(region.GetProviderName(), []string{api.CLOUD_PROVIDER_AWS, api.CLOUD_PROVIDER_QCLOUD}) {
+	if region.GetDriver().IsCertificateBelongToRegion() {
 		q = q.Equals("cloudregion_id", region.Id)
 	}
 
@@ -571,4 +573,32 @@ func (manager *SCachedLoadbalancerCertificateManager) ListItemExportKeys(ctx con
 		}
 	}
 	return q, nil
+}
+
+func (man *SCachedLoadbalancerCertificateManager) InitializeData() error {
+	certs := man.Query().SubQuery()
+	sq := certs.Query(certs.Field("id"), certs.Field("external_id"), sqlchemy.COUNT("external_id").Label("total"))
+	sq2 := sq.GroupBy("external_id").SubQuery()
+	sq3 := sq2.Query(sq2.Field("external_id")).GT("total", 1).SubQuery()
+
+	duplicates := []SCachedLoadbalancerCertificate{}
+	q := man.Query().In("external_id", sq3)
+	err := db.FetchModelObjects(man, q, &duplicates)
+	if err != nil {
+		return errors.Wrap(err, "clean duplicated cached loadbalancer certificates")
+	}
+
+	for i := range duplicates {
+		cache := duplicates[i]
+		_, err := db.Update(&cache, func() error {
+			cache.MarkDelete()
+			return nil
+		})
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("clean duplicated cached loadbalancer certificate %s", cache.GetId()))
+		}
+	}
+
+	log.Infof("%d duplicated cached loadbalancer certificate cleaned", len(duplicates))
+	return nil
 }

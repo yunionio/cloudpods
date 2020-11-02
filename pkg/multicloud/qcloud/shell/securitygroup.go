@@ -60,12 +60,13 @@ func init() {
 	})
 
 	type SecurityGroupCreateOptions struct {
-		NAME string `help:"SecurityGroup Name"`
-		Desc string `help:"SecurityGroup Description"`
+		NAME      string `help:"SecurityGroup Name"`
+		ProjectId string `help:"Project SecurityGroup belong to"`
+		Desc      string `help:"SecurityGroup Description"`
 	}
 
 	shellutils.R(&SecurityGroupCreateOptions{}, "security-group-create", "Create SecurityGroup", func(cli *qcloud.SRegion, args *SecurityGroupCreateOptions) error {
-		secgrp, err := cli.CreateSecurityGroup(args.NAME, args.Desc)
+		secgrp, err := cli.CreateSecurityGroup(args.NAME, args.ProjectId, args.Desc)
 		if err != nil {
 			return err
 		}
