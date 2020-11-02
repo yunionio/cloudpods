@@ -249,12 +249,14 @@ func (manager *SDnsZoneManager) FetchCustomizeColumns(
 	rows := make([]api.DnsZoneDetails, len(objs))
 	enRows := manager.SEnabledStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	dnsZoneIds := make([]string, len(objs))
+	dnsZones := make([]*SDnsZone, len(objs))
 	for i := range rows {
 		rows[i] = api.DnsZoneDetails{
 			EnabledStatusInfrasResourceBaseDetails: enRows[i],
 		}
 		dnsZone := objs[i].(*SDnsZone)
 		dnsZoneIds[i] = dnsZone.Id
+		dnsZones[i] = dnsZone
 	}
 
 	vpcMaps, recordMaps, err := manager.GetExtraMaps(dnsZoneIds)
@@ -290,6 +292,19 @@ func (manager *SDnsZoneManager) FetchCustomizeColumns(
 			if _, ok := ownedVpcIds[vpcs[j]]; ok {
 				rows[i].VpcCount++
 			}
+		}
+	}
+	if !isList {
+		for i := range rows {
+			caches, err := dnsZones[i].GetDnsZoneCaches()
+			if err != nil {
+				log.Errorf("unable to GetDnsZoneCaches for dnsCache %q: %v", dnsZones[i].GetId(), err)
+			}
+			objs := make([]interface{}, len(caches))
+			for i := range caches {
+				objs[i] = &caches[i]
+			}
+			rows[i].CloudCaches = DnsZoneCacheManager.FetchCustomizeColumns(ctx, userCred, jsonutils.NewDict(), objs, stringutils2.SSortedStrings{}, true)
 		}
 	}
 	return rows
