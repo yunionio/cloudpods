@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
@@ -87,12 +88,12 @@ func (c *MetricQueryCondition) executeQuery(context *alerting.EvalContext, timeR
 		if err == gocontext.DeadlineExceeded {
 			return nil, errors.Error("Alert execution exceeded the timeout")
 		}
-
-		return nil, errors.Wrap(err, "tsdb.HandleRequest() error")
+		log.Errorf("metricQuery HandleRequest error:%v", err)
+		return nil, err
 	}
 	for _, v := range resp.Results {
 		if v.Error != nil {
-			return nil, errors.Wrap(err, "tsdb.HandleResult() response")
+			return nil, errors.Wrap(err, "metricQuery HandleResult response error")
 		}
 
 		result = append(result, v.Series...)
