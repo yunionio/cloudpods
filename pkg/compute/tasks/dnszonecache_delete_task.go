@@ -23,6 +23,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -49,6 +50,9 @@ func (self *DnsZoneCacheDeleteTask) taskComplete(ctx context.Context, cache *mod
 		dnsZone.SetStatus(self.GetUserCred(), api.DNS_ZONE_STATUS_AVAILABLE, "")
 	}
 	cache.RealDelete(ctx, self.GetUserCred())
+	if err == nil {
+		notifyclient.NotifyWebhook(ctx, self.UserCred, dnsZone, notifyclient.ActionUpdate)
+	}
 	self.SetStageComplete(ctx, nil)
 }
 
