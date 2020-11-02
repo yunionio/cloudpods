@@ -29,6 +29,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -245,6 +246,7 @@ func (self *SDnsRecordSet) PostCreate(ctx context.Context, userCred mcclient.Tok
 		return
 	}
 	logclient.AddSimpleActionLog(dnsZone, logclient.ACT_ALLOCATE, data, userCred, true)
+	notifyclient.NotifyWebhook(ctx, userCred, self, notifyclient.ActionCreate)
 	dnsZone.DoSyncRecords(ctx, userCred)
 }
 
@@ -463,6 +465,7 @@ func (self *SDnsRecordSet) PreDelete(ctx context.Context, userCred mcclient.Toke
 		return
 	}
 	logclient.AddSimpleActionLog(dnsZone, logclient.ACT_ALLOCATE, self, userCred, true)
+	notifyclient.NotifyWebhook(ctx, userCred, self, notifyclient.ActionDelete)
 	dnsZone.DoSyncRecords(ctx, userCred)
 }
 
@@ -615,6 +618,7 @@ func (self *SDnsRecordSet) PostUpdate(ctx context.Context, userCred mcclient.Tok
 		return
 	}
 	logclient.AddSimpleActionLog(self, logclient.ACT_UPDATE, data, userCred, true)
+	notifyclient.NotifyWebhook(ctx, userCred, self, notifyclient.ActionUpdate)
 	dnsZone.DoSyncRecords(ctx, userCred)
 }
 

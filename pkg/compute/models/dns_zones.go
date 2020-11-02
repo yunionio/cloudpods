@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -226,6 +227,10 @@ func (manager *SDnsZoneManager) ListItemFilter(
 
 func (self *SDnsZone) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
 	return db.IsDomainAllowUpdate(userCred, self)
+}
+
+func (self *SDnsZone) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	notifyclient.NotifyWebhook(ctx, userCred, self, notifyclient.ActionUpdate)
 }
 
 // 解析详情
