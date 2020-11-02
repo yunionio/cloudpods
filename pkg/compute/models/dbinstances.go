@@ -1490,28 +1490,37 @@ func (self *SDBInstance) SetZoneInfo(ctx context.Context, userCred mcclient.Toke
 	return err
 }
 
-func (self *SDBInstance) SetZoneIds(extInstance cloudprovider.ICloudDBInstance) {
+func (self *SDBInstance) SetZoneIds(extInstance cloudprovider.ICloudDBInstance) error {
+	region := self.GetRegion()
+	if region == nil {
+		return fmt.Errorf("failed found region for dbinstance %s", self.Name)
+	}
+	zones, err := region.GetZones()
+	if err != nil {
+		return errors.Wrapf(err, "GetZones")
+	}
+	var setZoneId = func(input string, output *string) {
+		for _, zone := range zones {
+			if strings.HasSuffix(zone.ExternalId, input) {
+				*output = zone.Id
+				break
+			}
+		}
+		return
+	}
 	zone1 := extInstance.GetZone1Id()
 	if len(zone1) > 0 {
-		zone, _ := db.FetchByExternalId(ZoneManager, zone1)
-		if zone != nil {
-			self.Zone1 = zone.GetId()
-		}
+		setZoneId(zone1, &self.Zone1)
 	}
 	zone2 := extInstance.GetZone2Id()
 	if len(zone2) > 0 {
-		zone, _ := db.FetchByExternalId(ZoneManager, zone2)
-		if zone != nil {
-			self.Zone2 = zone.GetId()
-		}
+		setZoneId(zone2, &self.Zone2)
 	}
 	zone3 := extInstance.GetZone3Id()
 	if len(zone3) > 0 {
-		zone, _ := db.FetchByExternalId(ZoneManager, zone3)
-		if zone != nil {
-			self.Zone3 = zone.GetId()
-		}
+		setZoneId(zone3, &self.Zone3)
 	}
+	return nil
 }
 
 func (self *SDBInstance) SyncAllWithCloudDBInstance(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extInstance cloudprovider.ICloudDBInstance) error {
