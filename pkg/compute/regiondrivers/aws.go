@@ -1433,3 +1433,7 @@ func (self *SAwsRegionDriver) RequestPullLoadbalancerBackendGroup(ctx context.Co
 func (self *SAwsRegionDriver) IsSecurityGroupBelongVpc() bool {
 	return true
 }
+
+func (self *SAwsRegionDriver) IsCertificateBelongToRegion() bool {
+	return false
+}
