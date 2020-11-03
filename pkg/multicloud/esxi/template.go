@@ -130,10 +130,12 @@ func (t *SVMTemplate) GetIStoragecache() cloudprovider.ICloudStoragecache {
 }
 
 func (t *SVMTemplate) GetSizeByte() int64 {
-	if len(t.vm.vdisks) == 0 {
-		return 30 * (1 << 30)
+	var sum int
+	for i := range t.vm.vdisks {
+		vdisk := t.vm.vdisks[i]
+		sum += vdisk.GetDiskSizeMB()
 	}
-	return int64(t.vm.vdisks[0].GetDiskSizeMB()) * (1 << 20)
+	return int64(sum) * (1 << 20)
 }
 
 func (t *SVMTemplate) GetImageType() string {
