@@ -126,7 +126,7 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 	var alertOkmatches []*monitor.EvalMatch
 
 	for _, series := range seriesList {
-		reducedValue := c.Reducer.Reduce(series)
+		reducedValue, valStrArr := c.Reducer.Reduce(series)
 		evalMatch := c.Evaluator.Eval(reducedValue)
 
 		if reducedValue == nil {
@@ -148,14 +148,14 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 			meta = &metas[0]
 		}
 		if evalMatch {
-			match, err := c.NewEvalMatch(context, *series, meta, reducedValue)
+			match, err := c.NewEvalMatch(context, *series, meta, reducedValue, valStrArr)
 			if err != nil {
 				return nil, errors.Wrap(err, "NewEvalMatch error")
 			}
 			matches = append(matches, match)
 		}
 		if reducedValue != nil && !evalMatch {
-			match, err := c.NewEvalMatch(context, *series, meta, reducedValue)
+			match, err := c.NewEvalMatch(context, *series, meta, reducedValue, valStrArr)
 			if err != nil {
 				return nil, errors.Wrap(err, "NewEvalMatch error")
 			}
@@ -193,7 +193,7 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 }
 
 func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series tsdb.TimeSeries,
-	meta *tsdb.QueryResultMeta, value *float64) (*monitor.EvalMatch, error) {
+	meta *tsdb.QueryResultMeta, value *float64, valStrArr []string) (*monitor.EvalMatch, error) {
 	evalMatch := new(monitor.EvalMatch)
 	alert, err := models.CommonAlertManager.GetAlert(context.Rule.Id)
 	if err != nil {
@@ -218,10 +218,26 @@ func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series tsdb
 	//evalMatch.Condition = c.GenerateFormatCond(meta, queryKeyInfo).String()
 	evalMatch.Tags = c.filterTags(series.Tags, *alertDetails)
 	evalMatch.Value = value
-	evalMatch.ValueStr = c.RationalizeValueFromUnit(*value, alertDetails.FieldDescription.Unit, alertDetails.FieldOpt)
+	evalMatch.ValueStr = c.RationalizeValueFromUnit(*value, alertDetails.FieldDescription.Unit,
+		alertDetails.FieldOpt)
+	if alertDetails.GetPointStr {
+		evalMatch.ValueStr = c.jointPointStr(series, evalMatch.ValueStr, valStrArr)
+	}
 	evalMatch.MeasurementDesc = alertDetails.MeasurementDisplayName
 	evalMatch.FieldDesc = alertDetails.FieldDescription.DisplayName
 	return evalMatch, nil
+}
+
+func (c *QueryCondition) jointPointStr(series tsdb.TimeSeries, value string, valStrArr []string) string {
+	str := ""
+	for i := 0; i < len(valStrArr); i++ {
+		if i == 0 {
+			str = fmt.Sprintf("%s=%s", series.Columns[i], value)
+			continue
+		}
+		str = fmt.Sprintf("%s,%s=%s", str, series.Columns[i], valStrArr[i])
+	}
+	return str
 }
 
 var fileSize = []string{"bps", "Bps", "byte"}
