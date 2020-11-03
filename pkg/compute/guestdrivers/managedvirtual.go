@@ -54,6 +54,8 @@ func (d SManagedVirtualizedGuestDriver) DoScheduleMemoryFilter() bool { return f
 
 func (d SManagedVirtualizedGuestDriver) DoScheduleStorageFilter() bool { return false }
 
+func (d SManagedVirtualizedGuestDriver) DoScheduleCloudproviderTagFilter() bool { return true }
+
 func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
 	config := cloudprovider.SManagedVMCreateConfig{}
 	config.Name = guest.Name

@@ -115,20 +115,11 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 		region := zone.GetRegion()
 		input.PreferRegion = region.Id
 	} else {
-		schedtags := make(map[string]string)
-		for _, tag := range input.Schedtags {
-			schedtags[tag.Id] = tag.Strategy
-		}
-		if len(schedtags) > 0 {
-			schedtags, err = SchedtagManager.ValidateSchedtags(userCred, schedtags)
+		if len(input.Schedtags) > 0 {
+			input.Schedtags, err = SchedtagManager.ValidateSchedtags(userCred, input.Schedtags)
 			if err != nil {
 				return nil, httperrors.NewInputParameterError("invalid aggregate_strategy: %s", err)
 			}
-			tags := make([]*api.SchedtagConfig, 0)
-			for name, strategy := range schedtags {
-				tags = append(tags, &api.SchedtagConfig{Id: name, Strategy: strategy})
-			}
-			input.Schedtags = tags
 		}
 
 		if input.PreferWire != "" {

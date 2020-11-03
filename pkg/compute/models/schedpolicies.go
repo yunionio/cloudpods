@@ -238,10 +238,10 @@ func applyResourceSchedPolicy(
 	input *jsonutils.JSONDict,
 	setTags func([]*api.SchedtagConfig),
 ) {
-	schedtags := make(map[string]string)
+	schedtags := make(map[string]*api.SchedtagConfig)
 
 	for _, tag := range oldTags {
-		schedtags[tag.Id] = tag.Strategy
+		schedtags[tag.Id] = tag
 	}
 
 	log.Infof("original schedtag %#v", schedtags)
@@ -250,17 +250,29 @@ func applyResourceSchedPolicy(
 		policy := policies[i]
 		st := policy.getSchedtag()
 		if matchResourceSchedPolicy(policy, input) {
-			schedtags[st.Name] = policy.Strategy
+			if conf, idOk := schedtags[st.GetId()]; idOk {
+				conf.Id = st.GetId()
+				conf.Strategy = policy.Strategy
+				schedtags[st.GetId()] = conf
+			} else if conf, nameOk := schedtags[st.GetName()]; nameOk {
+				conf.Id = st.GetId()
+				conf.Strategy = policy.Strategy
+				schedtags[st.GetId()] = conf
+				delete(schedtags, st.GetName())
+			} else {
+				schedtags[st.GetId()] = &api.SchedtagConfig{
+					Id:           st.GetId(),
+					Strategy:     policy.Strategy,
+					ResourceType: st.ResourceType,
+				}
+			}
 		}
 	}
-	log.Infof("updated sched tag %s", schedtags)
+	log.Infof("updated sched tag %#v", schedtags)
 
 	newSchedtags := make([]*api.SchedtagConfig, 0)
-	for name, strategy := range schedtags {
-		newSchedtags = append(newSchedtags, &api.SchedtagConfig{
-			Id:       name,
-			Strategy: strategy,
-		})
+	for _, tag := range schedtags {
+		newSchedtags = append(newSchedtags, tag)
 	}
 	setTags(newSchedtags)
 }

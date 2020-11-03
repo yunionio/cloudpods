@@ -18,22 +18,23 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/stringutils2"
+)
+
+var (
+	StorageschedtagManager *SStorageschedtagManager
+	_                      ISchedtagJointModel = new(SStorageschedtag)
 )
 
 type SStorageschedtagManager struct {
 	*SSchedtagJointsManager
-	SStorageResourceBaseManager
+	resourceBaseManager SStorageResourceBaseManager
 }
-
-var StorageschedtagManager *SStorageschedtagManager
 
 func init() {
 	db.InitManager(func() {
@@ -60,6 +61,10 @@ func (manager *SStorageschedtagManager) GetMasterFieldName() string {
 	return "storage_id"
 }
 
+func (joint *SStorageschedtag) GetResourceId() string {
+	return joint.StorageId
+}
+
 func (joint *SStorageschedtag) GetExtraDetails(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -69,38 +74,12 @@ func (joint *SStorageschedtag) GetExtraDetails(
 	return api.StorageschedtagDetails{}, nil
 }
 
-func (manager *SStorageschedtagManager) FetchCustomizeColumns(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	objs []interface{},
-	fields stringutils2.SSortedStrings,
-	isList bool,
-) []api.StorageschedtagDetails {
-	rows := make([]api.StorageschedtagDetails, len(objs))
-
-	schedRows := manager.SSchedtagJointsManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-	storageIds := make([]string, len(rows))
-	for i := range rows {
-		rows[i] = api.StorageschedtagDetails{
-			SchedtagJointResourceDetails: schedRows[i],
-		}
-		storageIds[i] = objs[i].(*SStorageschedtag).StorageId
+func (joint *SStorageschedtag) GetDetails(base api.SchedtagJointResourceDetails, resourceName string, isList bool) interface{} {
+	out := api.StorageschedtagDetails{
+		SchedtagJointResourceDetails: base,
 	}
-
-	storageIdMaps, err := db.FetchIdNameMap2(StorageManager, storageIds)
-	if err != nil {
-		log.Errorf("FetchIdNameMap2 hostIds fail %s", err)
-		return rows
-	}
-
-	for i := range rows {
-		if name, ok := storageIdMaps[storageIds[i]]; ok {
-			rows[i].Storage = name
-		}
-	}
-
-	return rows
+	out.Storage = resourceName
+	return out
 }
 
 func (joint *SStorageschedtag) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -123,7 +102,7 @@ func (manager *SStorageschedtagManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SSchedtagJointsManager.ListItemFilter")
 	}
-	q, err = manager.SStorageResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StorageFilterListInput)
+	q, err = manager.resourceBaseManager.ListItemFilter(ctx, q, userCred, query.StorageFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStorageResourceBaseManager.ListItemFilter")
 	}
@@ -143,7 +122,7 @@ func (manager *SStorageschedtagManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SSchedtagJointsManager.OrderByExtraFields")
 	}
-	q, err = manager.SStorageResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StorageFilterListInput)
+	q, err = manager.resourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StorageFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStorageResourceBaseManager.OrderByExtraFields")
 	}

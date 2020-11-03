@@ -57,6 +57,8 @@ type ISchedtagJointManager interface {
 type ISchedtagJointModel interface {
 	db.IJointModel
 	GetSchedtagId() string
+	GetResourceId() string
+	GetDetails(base api.SchedtagJointResourceDetails, resourceName string, isList bool) interface{}
 }
 
 type IModelWithSchedtag interface {
@@ -103,9 +105,12 @@ func (manager *SSchedtagManager) InitializeData() error {
 		})
 	}
 	manager.BindJointManagers(map[db.IModelManager]ISchedtagJointManager{
-		HostManager:    HostschedtagManager,
-		StorageManager: StorageschedtagManager,
-		NetworkManager: NetworkschedtagManager,
+		HostManager:          HostschedtagManager,
+		StorageManager:       StorageschedtagManager,
+		NetworkManager:       NetworkschedtagManager,
+		CloudproviderManager: CloudproviderschedtagManager,
+		ZoneManager:          ZoneschedtagManager,
+		CloudregionManager:   CloudregionschedtagManager,
 	})
 	return nil
 }
@@ -256,23 +261,25 @@ func (self *SSchedtag) AllowDeleteItem(ctx context.Context, userCred mcclient.To
 	return db.IsAdminAllowDelete(userCred, self)
 }
 
-func (manager *SSchedtagManager) ValidateSchedtags(userCred mcclient.TokenCredential, schedtags map[string]string) (map[string]string, error) {
-	ret := make(map[string]string)
-	for tag, act := range schedtags {
-		schedtagObj, err := manager.FetchByIdOrName(nil, tag)
+func (manager *SSchedtagManager) ValidateSchedtags(userCred mcclient.TokenCredential, schedtags []*api.SchedtagConfig) ([]*api.SchedtagConfig, error) {
+	ret := make([]*api.SchedtagConfig, len(schedtags))
+	for idx, tag := range schedtags {
+		schedtagObj, err := manager.FetchByIdOrName(userCred, tag.Id)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError("Invalid schedtag %s", tag)
+				return nil, httperrors.NewResourceNotFoundError("Invalid schedtag %s", tag.Id)
 			} else {
 				return nil, httperrors.NewGeneralError(err)
 			}
 		}
-		act = strings.ToLower(act)
+		strategy := strings.ToLower(tag.Strategy)
 		schedtag := schedtagObj.(*SSchedtag)
-		if !utils.IsInStringArray(act, STRATEGY_LIST) {
-			return nil, httperrors.NewInputParameterError("invalid strategy %s", act)
+		if !utils.IsInStringArray(strategy, STRATEGY_LIST) {
+			return nil, httperrors.NewInputParameterError("invalid strategy %s", strategy)
 		}
-		ret[schedtag.Name] = act
+		tag.Id = schedtag.GetId()
+		tag.ResourceType = schedtag.ResourceType
+		ret[idx] = tag
 	}
 	return ret, nil
 }
@@ -378,15 +385,6 @@ func (self *SSchedtag) ValidateDeleteCondition(ctx context.Context) error {
 	}
 	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
-
-/*
-func (self *SSchedtag) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return userCred.IsSystemAdmin()
-}
-
-func (self *SSchedtag) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return userCred.IsSystemAdmin()
-}*/
 
 func (self *SSchedtag) GetObjects(objs interface{}) error {
 	q := self.GetObjectQuery()
@@ -603,7 +601,9 @@ func PerformSetResourceSchedtag(obj IModelWithSchedtag, ctx context.Context, use
 			}
 		}
 	}
-	obj.ClearSchedDescCache()
+	if err := obj.ClearSchedDescCache(); err != nil {
+		log.Errorf("Resource %s/%s ClearSchedDescCache error: %v", obj.Keyword(), obj.GetId(), err)
+	}
 	return nil, nil
 }
 

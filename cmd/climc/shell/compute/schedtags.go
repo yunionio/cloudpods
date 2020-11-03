@@ -76,7 +76,7 @@ func init() {
 		Strategy string `help:"Policy" choices:"require|exclude|prefer|avoid"`
 		Desc     string `help:"Description"`
 		Scope    string `help:"Resource scope" choices:"system|domain|project"`
-		Type     string `help:"Resource type" choices:"hosts|storages|networks"`
+		Type     string `help:"Resource type" choices:"hosts|storages|networks|cloudproviders|cloudregions|zones"`
 	}
 	R(&SchedtagCreateOptions{}, "schedtag-create", "Create a schedule tag", func(s *mcclient.ClientSession, args *SchedtagCreateOptions) error {
 		params := jsonutils.NewDict()

@@ -31,7 +31,7 @@ func defaultPredicates() sets.String {
 	return sets.NewString(
 		factory.RegisterFitPredicate("a-GuestHostStatusFilter", &predicateguest.StatusPredicate{}),
 		factory.RegisterFitPredicate("b-GuestHypervisorFilter", &predicateguest.HypervisorPredicate{}),
-		factory.RegisterFitPredicate("c-GuestAggregateFilter", &predicates.AggregatePredicate{}),
+		factory.RegisterFitPredicate("c-GuestHostschedtagFilter", predicates.NewHostSchedtagPredicate()),
 		factory.RegisterFitPredicate("d-GuestMigrateFilter", &predicateguest.MigratePredicate{}),
 		factory.RegisterFitPredicate("e-GuestDomainFilter", &predicates.DomainPredicate{}),
 		factory.RegisterFitPredicate("e-GuestImageFilter", &predicateguest.ImagePredicate{}),
@@ -45,6 +45,9 @@ func defaultPredicates() sets.String {
 		factory.RegisterFitPredicate("m-GuestDiskschedtagFilter", &predicates.DiskSchedtagPredicate{}),
 		factory.RegisterFitPredicate("n-ServerSkuFilter", &predicates.InstanceTypePredicate{}),
 		factory.RegisterFitPredicate("o-GuestNetschedtagFilter", &predicates.NetworkSchedtagPredicate{}),
+		factory.RegisterFitPredicate("p-CloudproviderschedtagFilter", predicates.NewCloudproviderSchedtagPredicate()),
+		factory.RegisterFitPredicate("q-CloudregionschedtagFilter", predicates.NewCloudregionSchedtagPredicate()),
+		factory.RegisterFitPredicate("r-ZoneschedtagFilter", predicates.NewZoneSchedtagPredicate()),
 		factory.RegisterFitPredicate("z-QuotaFilter", &predicates.SQuotaPredicate{}),
 	)
 }

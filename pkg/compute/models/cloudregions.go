@@ -937,3 +937,36 @@ func (manager *SCloudregionManager) FetchDefaultRegion() *SCloudregion {
 func (self *SCloudregion) GetCloudEnv() string {
 	return cloudprovider.GetProviderCloudEnv(self.Provider)
 }
+
+func (self *SCloudregion) GetSchedtags() []SSchedtag {
+	return GetSchedtags(CloudregionschedtagManager, self.Id)
+}
+
+func (self *SCloudregion) GetDynamicConditionInput() *jsonutils.JSONDict {
+	return jsonutils.Marshal(self).(*jsonutils.JSONDict)
+}
+
+func (self *SCloudregion) AllowPerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return AllowPerformSetResourceSchedtag(self, ctx, userCred, query, data)
+}
+
+func (self *SCloudregion) PerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return PerformSetResourceSchedtag(self, ctx, userCred, query, data)
+}
+
+func (self *SCloudregion) GetSchedtagJointManager() ISchedtagJointManager {
+	return CloudregionschedtagManager
+}
+
+func (self *SCloudregion) ClearSchedDescCache() error {
+	zones, err := self.GetZones()
+	if err != nil {
+		return errors.Wrap(err, "get zones")
+	}
+	for i := range zones {
+		if err := zones[i].ClearSchedDescCache(); err != nil {
+			return errors.Wrapf(err, "clean zone %s sched cache", zones[i].GetName())
+		}
+	}
+	return nil
+}
