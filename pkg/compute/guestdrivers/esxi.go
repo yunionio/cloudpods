@@ -213,9 +213,6 @@ func (self *SESXiGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *mod
 	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY}) {
 		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
 	}
-	if disk.DiskType == api.DISK_TYPE_SYS {
-		return fmt.Errorf("Cannot resize system disk")
-	}
 	/*if !utils.IsInStringArray(storage.StorageType, []string{models.STORAGE_PUBLIC_CLOUD, models.STORAGE_CLOUD_SSD, models.STORAGE_CLOUD_EFFICIENCY}) {
 		return fmt.Errorf("Cannot resize %s disk", storage.StorageType)
 	}*/
