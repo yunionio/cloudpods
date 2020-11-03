@@ -23,6 +23,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -96,6 +97,10 @@ func (self *DnsZoneCacheCreateTask) OnInit(ctx context.Context, obj db.IStandalo
 }
 
 func (self *DnsZoneCacheCreateTask) OnSyncRecordSetComplete(ctx context.Context, cache *models.SDnsZoneCache, data jsonutils.JSONObject) {
+	zone, err := cache.GetDnsZone()
+	if err == nil {
+		notifyclient.NotifyWebhook(ctx, self.UserCred, zone, notifyclient.ActionUpdate)
+	}
 	self.taskComplete(ctx, cache)
 }
 
