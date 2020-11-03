@@ -47,7 +47,7 @@ func (drvF *nodeDriverF) IsEvalMatched(input monitor.EvalMatch) bool {
 	if !hasHostType {
 		return false
 	}
-	if hostType != hostconsts.TELEGRAF_TAG_ONECLOUD_HOST_TYPE_HOST &&
+	if hostType != hostconsts.TELEGRAF_TAG_ONECLOUD_HOST_TYPE_HOST ||
 		hostType != hostconsts.TELEGRAF_TAG_ONECLOUD_HOST_TYPE_CONTROLLER {
 		return false
 	}

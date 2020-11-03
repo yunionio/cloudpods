@@ -27,7 +27,7 @@ import (
 )
 
 type Reducer interface {
-	Reduce(series *tsdb.TimeSeries) *float64
+	Reduce(series *tsdb.TimeSeries) (*float64, []string)
 	GetType() string
 }
 
@@ -42,14 +42,14 @@ func (s *queryReducer) GetType() string {
 	return s.Type
 }
 
-func (s *queryReducer) Reduce(series *tsdb.TimeSeries) *float64 {
+func (s *queryReducer) Reduce(series *tsdb.TimeSeries) (*float64, []string) {
 	if len(series.Points) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	value := float64(0)
 	allNull := true
-
+	valArr := make([]string, 0)
 	switch s.Type {
 	case "avg":
 		validPointsCount := 0
@@ -98,6 +98,7 @@ func (s *queryReducer) Reduce(series *tsdb.TimeSeries) *float64 {
 		for i := len(points) - 1; i >= 0; i-- {
 			if points[i].IsValid() {
 				value = points[i].Value()
+				valArr = points[i].PointValueStr()
 				allNull = false
 				break
 			}
@@ -136,10 +137,10 @@ func (s *queryReducer) Reduce(series *tsdb.TimeSeries) *float64 {
 	}
 
 	if allNull {
-		return nil
+		return nil, nil
 	}
 
-	return &value
+	return &value, valArr
 }
 
 func newSimpleReducer(t string) *queryReducer {

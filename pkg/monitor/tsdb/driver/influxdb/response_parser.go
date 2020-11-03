@@ -74,16 +74,19 @@ func (rp *ResponseParser) transformRowsV2(rows []Row, queryResult *tsdb.QueryRes
 	var result tsdb.TimeSeriesSlice
 	for _, row := range rows {
 		col := ""
+		columns := make([]string, 0)
 		for _, column := range row.Columns {
 			if column == "time" {
 				continue
 			}
+			columns = append(columns, column)
 			if col == "" {
 				col = column
 				continue
 			}
 			col = fmt.Sprintf("%s-%s", col, column)
 		}
+		columns = append(columns, "time")
 		var points tsdb.TimeSeriesPoints
 		for _, valuePair := range row.Values {
 			point, err := rp.parseTimepointV2(valuePair)
@@ -92,9 +95,10 @@ func (rp *ResponseParser) transformRowsV2(rows []Row, queryResult *tsdb.QueryRes
 			}
 		}
 		result = append(result, &tsdb.TimeSeries{
-			Name:   rp.formatSerieName(row, col, query),
-			Points: points,
-			Tags:   row.Tags,
+			Name:    rp.formatSerieName(row, col, query),
+			Columns: columns,
+			Points:  points,
+			Tags:    row.Tags,
 		})
 	}
 
@@ -233,6 +237,5 @@ func (rp *ResponseParser) parseValueV2(value interface{}) interface{} {
 		ret := float64(ivalue)
 		return &ret
 	}
-
-	return nil
+	return number.String()
 }
