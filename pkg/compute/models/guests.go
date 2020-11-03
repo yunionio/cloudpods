@@ -620,7 +620,7 @@ func (guest *SGuest) validateDeleteCondition(ctx context.Context, isPurge bool) 
 	if guest.DisableDelete.IsTrue() {
 		return httperrors.NewInvalidStatusError("Virtual server is locked, cannot delete")
 	}
-	if !isPurge && guest.IsValidPrePaid() {
+	if !isPurge && guest.IsNotDeletablePrePaid() {
 		return httperrors.NewForbiddenError("not allow to delete prepaid server in valid status")
 	}
 	return guest.SVirtualResourceBase.ValidateDeleteCondition(ctx)

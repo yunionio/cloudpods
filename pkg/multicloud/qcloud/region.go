@@ -1087,7 +1087,7 @@ func (r *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheInput
 			instanceId = dealId
 		} else {
 			err = cloudprovider.Wait(5*time.Second, 900*time.Second, func() (bool, error) {
-				_realInstanceId, err := r.GetElasticcacheIdByDeal(instanceId)
+				_realInstanceId, err := r.GetElasticcacheIdByDeal(dealId)
 				if err != nil {
 					return false, nil
 				}

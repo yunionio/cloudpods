@@ -1074,7 +1074,7 @@ func (self *SElasticcache) ValidateDeleteCondition(ctx context.Context) error {
 		return httperrors.NewInvalidStatusError("Elastic cache is locked, cannot delete")
 	}
 
-	if self.GetChargeType() == billing.BILLING_TYPE_PREPAID && self.ExpiredAt.Sub(time.Now()).Seconds() > 0 {
+	if self.IsNotDeletablePrePaid() {
 		return httperrors.NewInvalidStatusError("Elastic cache is not expired, cannot delete")
 	}
 
