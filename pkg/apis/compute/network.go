@@ -69,6 +69,7 @@ type NetworkListInput struct {
 	WireFilterListInput
 
 	HostResourceInput
+	StorageResourceInput
 
 	UsableResourceListInput
 
