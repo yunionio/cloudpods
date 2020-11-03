@@ -162,7 +162,7 @@ func (dash *SAlertDashBoard) getJointPanels() ([]SAlertDashboardPanel, error) {
 	q := AlertDashBoardPanelManager.Query().Equals(AlertDashBoardPanelManager.GetMasterFieldName(), dash.Id)
 	err := db.FetchModelObjects(AlertDashBoardPanelManager, q, &joints)
 	if err != nil {
-		return joints, errors.Wrapf(err, "get dash:%s joint panel err")
+		return joints, errors.Wrapf(err, "get dash:%s joint panel err", dash.Name)
 	}
 	return joints, err
 }
@@ -200,7 +200,7 @@ func (dash *SAlertDashBoard) CustomizeDelete(
 	query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	panels, err := dash.getAttachPanels()
 	if err != nil {
-		return errors.Wrapf(err, "dash:%s,when exec customizedelete to get attach panels error")
+		return errors.Wrapf(err, "dash:%s,when exec customizedelete to get attach panels error", dash.Name)
 	}
 	for _, panel := range panels {
 		if err := panel.CustomizeDelete(ctx, userCred, query, data); err != nil {
