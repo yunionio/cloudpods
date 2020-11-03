@@ -66,6 +66,30 @@ var (
 				},
 			},
 		},
+		{
+			Auth:  true,
+			Scope: rbacutils.ScopeProject,
+			Rules: []rbacutils.SRbacRule{
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "scopedpolicybindings",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+			},
+		},
+		{
+			Auth:  true,
+			Scope: rbacutils.ScopeDomain,
+			Rules: []rbacutils.SRbacRule{
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "scopedpolicybindings",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+			},
+		},
 	}
 )
 
