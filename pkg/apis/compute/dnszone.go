@@ -124,6 +124,8 @@ type DnsZoneDetails struct {
 	DnsRecordsetCount int `json:"dns_recordset_count"`
 	// 关联vpc数量
 	VpcCount int `json:"vpc_count"`
+	// Cache info
+	CloudCaches []DnsZoneCacheDetails `json:"cloud_caches"`
 }
 
 type DnsZoneListInput struct {

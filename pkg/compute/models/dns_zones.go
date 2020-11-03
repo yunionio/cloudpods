@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -228,6 +229,10 @@ func (self *SDnsZone) AllowUpdateItem(ctx context.Context, userCred mcclient.Tok
 	return db.IsDomainAllowUpdate(userCred, self)
 }
 
+func (self *SDnsZone) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	notifyclient.NotifyWebhook(ctx, userCred, self, notifyclient.ActionUpdate)
+}
+
 // 解析详情
 func (self *SDnsZone) GetExtraDetails(
 	ctx context.Context,
@@ -249,12 +254,14 @@ func (manager *SDnsZoneManager) FetchCustomizeColumns(
 	rows := make([]api.DnsZoneDetails, len(objs))
 	enRows := manager.SEnabledStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	dnsZoneIds := make([]string, len(objs))
+	dnsZones := make([]*SDnsZone, len(objs))
 	for i := range rows {
 		rows[i] = api.DnsZoneDetails{
 			EnabledStatusInfrasResourceBaseDetails: enRows[i],
 		}
 		dnsZone := objs[i].(*SDnsZone)
 		dnsZoneIds[i] = dnsZone.Id
+		dnsZones[i] = dnsZone
 	}
 
 	vpcMaps, recordMaps, err := manager.GetExtraMaps(dnsZoneIds)
@@ -290,6 +297,19 @@ func (manager *SDnsZoneManager) FetchCustomizeColumns(
 			if _, ok := ownedVpcIds[vpcs[j]]; ok {
 				rows[i].VpcCount++
 			}
+		}
+	}
+	if !isList {
+		for i := range rows {
+			caches, err := dnsZones[i].GetDnsZoneCaches()
+			if err != nil {
+				log.Errorf("unable to GetDnsZoneCaches for dnsCache %q: %v", dnsZones[i].GetId(), err)
+			}
+			objs := make([]interface{}, len(caches))
+			for i := range caches {
+				objs[i] = &caches[i]
+			}
+			rows[i].CloudCaches = DnsZoneCacheManager.FetchCustomizeColumns(ctx, userCred, jsonutils.NewDict(), objs, stringutils2.SSortedStrings{}, true)
 		}
 	}
 	return rows
