@@ -602,12 +602,17 @@ func (self *SElasticcache) Restart() error {
 
 // https://cloud.tencent.com/document/product/239/34440
 func (self *SElasticcache) Delete() error {
-	err := self.Destroy()
-	if err != nil {
-		return errors.Wrap(err, "Destroy")
+	if self.GetBillingType() == billing_api.BILLING_TYPE_POSTPAID {
+		if err := self.DestroyPostpaidInstance(); err != nil {
+			return errors.Wrap(err, "DestroyPostpaidInstance")
+		}
+	} else {
+		if err := self.DestroyPrepaidInstance(); err != nil {
+			return errors.Wrap(err, "DestroyPrepaidInstance")
+		}
 	}
 
-	err = cloudprovider.WaitStatus(self, api.ELASTIC_CACHE_STATUS_RELEASING, 5*time.Second, 180*time.Second)
+	err := cloudprovider.WaitStatus(self, api.ELASTIC_CACHE_STATUS_RELEASING, 5*time.Second, 180*time.Second)
 	if err != nil {
 		return errors.Wrap(err, "WaitStatus.releasing")
 	}
@@ -621,7 +626,19 @@ func (self *SElasticcache) Delete() error {
 }
 
 // https://cloud.tencent.com/document/product/239/34439
-func (self *SElasticcache) Destroy() error {
+func (self *SElasticcache) DestroyPrepaidInstance() error {
+	params := map[string]string{}
+	params["InstanceId"] = self.GetId()
+	_, err := self.region.redisRequest("DestroyPrepaidInstance", params)
+	if err != nil {
+		return errors.Wrap(err, "DestroyPrepaidInstance")
+	}
+
+	return nil
+}
+
+// https://cloud.tencent.com/document/product/239/34439
+func (self *SElasticcache) DestroyPostpaidInstance() error {
 	params := map[string]string{}
 	params["InstanceId"] = self.GetId()
 	_, err := self.region.redisRequest("DestroyPostpaidInstance", params)
