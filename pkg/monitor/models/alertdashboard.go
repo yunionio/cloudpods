@@ -6,15 +6,12 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
-	"yunion.io/x/onecloud/pkg/monitor/validators"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -31,9 +28,7 @@ type SAlertDashBoard struct {
 	db.SStatusStandaloneResourceBase
 	db.SScopedResourceBase
 
-	Refresh  string               `nullable:"false" list:"user" create:"required" update:"user"`
-	Settings jsonutils.JSONObject `nullable:"false" list:"user" create:"required" update:"user"`
-	Message  string               `charset:"utf8" list:"user" create:"optional" update:"user"`
+	Refresh string `nullable:"false" list:"user" create:"required" update:"user"`
 }
 
 var AlertDashBoardManager *SAlertDashBoardManager
@@ -90,67 +85,19 @@ func (man *SAlertDashBoardManager) ValidateCreateData(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject,
 	data monitor.AlertDashBoardCreateInput) (monitor.AlertDashBoardCreateInput, error) {
-	if len(data.Refresh) != 0 {
-		if _, err := time.ParseDuration(data.Refresh); err != nil {
-			return data, httperrors.NewInputParameterError("Invalid refresh format: %s", data.Refresh)
-		}
+	if len(data.Refresh) == 0 {
+		data.Refresh = "1m"
 	}
-	if len(data.CommonMetricInputQuery.MetricQuery) == 0 {
-		return data, merrors.NewArgIsEmptyErr("metric_query")
-	} else {
-		for _, query := range data.CommonMetricInputQuery.MetricQuery {
-			if len(query.Comparator) != 0 {
-				if !utils.IsInStringArray(getQueryEvalType(query.Comparator), validators.EvaluatorDefaultTypes) {
-					return data, httperrors.NewInputParameterError("the Comparator is illegal: %s", query.Comparator)
-				}
-			}
-			if len(query.Reduce) != 0 {
-				if _, ok := monitor.AlertReduceFunc[query.Reduce]; !ok {
-					return data, httperrors.NewInputParameterError("the reduce is illegal %s", query.Reduce)
-				}
-			}
-		}
-		err := CommonAlertManager.ValidateMetricQuery(&data.CommonMetricInputQuery, data.Scope, ownerId)
-		if err != nil {
-			return data, errors.Wrap(err, "metric query error")
-		}
+	if _, err := time.ParseDuration(data.Refresh); err != nil {
+		return data, httperrors.NewInputParameterError("Invalid refresh format: %s", data.Refresh)
 	}
 
-	name, err := CommonAlertManager.genName(ownerId, data.Name)
+	generateName, err := db.GenerateName(man, ownerId, data.Name)
 	if err != nil {
 		return data, err
 	}
-	data.Name = name
-
-	alertCreateInput := man.toAlertCreateInput(data)
-	//alertCreateInput, err = AlertManager.ValidateCreateData(ctx, userCred, ownerId, query, alertCreateInput)
-	//if err != nil {
-	//	return data, err
-	//}
-	data.AlertCreateInput = alertCreateInput
-	enable := true
-	if data.Enabled == nil {
-		data.Enabled = &enable
-	}
+	data.Name = generateName
 	return data, nil
-}
-
-func (man *SAlertDashBoardManager) toAlertCreateInput(input monitor.AlertDashBoardCreateInput) monitor.AlertCreateInput {
-	ret := new(monitor.AlertCreateInput)
-	for _, metricquery := range input.CommonMetricInputQuery.MetricQuery {
-		condition := monitor.AlertCondition{
-			Type:      "query",
-			Query:     *metricquery.AlertQuery,
-			Reducer:   monitor.Condition{Type: metricquery.Reduce},
-			Evaluator: monitor.Condition{Type: getQueryEvalType(metricquery.Comparator), Params: []float64{metricquery.Threshold}},
-			Operator:  "and",
-		}
-		if metricquery.FieldOpt != "" {
-			condition.Reducer.Operators = []string{metricquery.FieldOpt}
-		}
-		ret.Settings.Conditions = append(ret.Settings.Conditions, condition)
-	}
-	return *ret
 }
 
 func (dash *SAlertDashBoard) CustomizeCreate(
@@ -192,39 +139,45 @@ func (man *SAlertDashBoardManager) FetchCustomizeColumns(
 }
 
 func (dash *SAlertDashBoard) GetMoreDetails(out monitor.AlertDashBoardDetails) (monitor.AlertDashBoardDetails, error) {
-	setting, err := dash.GetSettings()
+	panels, err := dash.getAttachPanels()
 	if err != nil {
-		return out, err
+		return out, errors.Wrapf(err, "dashboard:%s GetMoreDetails error", dash.Name)
 	}
-	if len(setting.Conditions) == 0 {
-		return out, nil
-	}
-
-	out.CommonAlertMetricDetails = make([]*monitor.CommonAlertMetricDetails, len(setting.Conditions))
-	for i, cond := range setting.Conditions {
-		metricDetails := dash.GetCommonAlertMetricDetailsFromAlertCondition(i, cond)
-		out.CommonAlertMetricDetails[i] = metricDetails
+	out.AlertPanelDetails = make([]monitor.AlertPanelDetail, len(panels))
+	for i, panel := range panels {
+		//out.AlertPanelDetail[i].PanelDetails = monitor.PanelDetails{}
+		out.AlertPanelDetails[i].PanelDetails, err = panel.GetMoreDetails(out.AlertPanelDetails[i].PanelDetails)
+		if err != nil {
+			return out, errors.Wrapf(err, "dashboard:%s get panel:%s details error", dash.Name, panel.Name)
+		}
+		out.AlertPanelDetails[i].Setting = panel.Settings
+		out.AlertPanelDetails[i].PanelId = panel.Id
+		out.AlertPanelDetails[i].PanelName = panel.Name
 	}
 	return out, nil
 }
 
-func (dash *SAlertDashBoard) GetCommonAlertMetricDetailsFromAlertCondition(index int,
-	cond monitor.AlertCondition) *monitor.
-	CommonAlertMetricDetails {
-	metricDetails := new(monitor.CommonAlertMetricDetails)
-	getCommonAlertMetricDetailsFromCondition(&cond, metricDetails)
-	return metricDetails
+func (dash *SAlertDashBoard) getJointPanels() ([]SAlertDashboardPanel, error) {
+	joints := make([]SAlertDashboardPanel, 0)
+	q := AlertDashBoardPanelManager.Query().Equals(AlertDashBoardPanelManager.GetMasterFieldName(), dash.Id)
+	err := db.FetchModelObjects(AlertDashBoardPanelManager, q, &joints)
+	if err != nil {
+		return joints, errors.Wrapf(err, "get dash:%s joint panel err")
+	}
+	return joints, err
 }
 
-func (dash *SAlertDashBoard) GetSettings() (*monitor.AlertSetting, error) {
-	setting := new(monitor.AlertSetting)
-	if dash.Settings == nil {
-		return setting, nil
+func (dash *SAlertDashBoard) getAttachPanels() ([]SAlertPanel, error) {
+	panels := make([]SAlertPanel, 0)
+	panelQuery := AlertPanelManager.Query()
+	sq := AlertDashBoardPanelManager.Query(AlertDashBoardPanelManager.GetSlaveFieldName()).Equals(
+		AlertDashBoardPanelManager.GetMasterFieldName(), dash.Id).SubQuery()
+	panelQuery = panelQuery.In("id", sq)
+	err := db.FetchModelObjects(AlertPanelManager, panelQuery, &panels)
+	if err != nil {
+		return panels, errors.Wrapf(err, "dashboard:%s get attach panels error", dash.Name)
 	}
-	if err := dash.Settings.Unmarshal(setting); err != nil {
-		return nil, errors.Wrapf(err, "dashboard %s unmarshal", dash.GetId())
-	}
-	return setting, nil
+	return panels, nil
 }
 
 func (dash *SAlertDashBoard) ValidateUpdateData(
@@ -233,71 +186,37 @@ func (dash *SAlertDashBoard) ValidateUpdateData(
 	query jsonutils.JSONObject,
 	data *jsonutils.JSONDict,
 ) (*jsonutils.JSONDict, error) {
-	updataInput := new(monitor.AlertDashBoardUpdateInput)
-	if refresh, _ := data.GetString("refresh"); len(refresh) > 0 {
+	if refresh, err := data.GetString("refresh"); err == nil && len(refresh) != 0 {
 		if _, err := time.ParseDuration(refresh); err != nil {
 			return data, httperrors.NewInputParameterError("Invalid refresh format: %s", refresh)
 		}
-	}
 
-	if metric_query, _ := data.GetArray("metric_query"); len(metric_query) > 0 {
-		for i, _ := range metric_query {
-			query := new(monitor.CommonAlertQuery)
-			err := metric_query[i].Unmarshal(query)
-			if err != nil {
-				return data, errors.Wrap(err, "metric_query Unmarshal error")
-			}
-			if len(query.Comparator) != 0 {
-				if !utils.IsInStringArray(getQueryEvalType(query.Comparator), validators.EvaluatorDefaultTypes) {
-					return data, httperrors.NewInputParameterError("the Comparator is illegal: %s", query.Comparator)
-				}
-			}
-			if len(query.Reduce) != 0 {
-				if _, ok := monitor.AlertReduceFunc[query.Reduce]; !ok {
-					return data, httperrors.NewInputParameterError("the reduce is illegal: %s", query.Reduce)
-				}
-			}
-		}
-		metricQuery := new(monitor.CommonMetricInputQuery)
-		err := data.Unmarshal(metricQuery)
-		if err != nil {
-			return data, errors.Wrap(err, "metric_query Unmarshal error")
-		}
-		ownerId, _ := AlertDashBoardManager.FetchOwnerId(ctx, data)
-		if ownerId == nil {
-			ownerId = userCred
-		}
-		scope, _ := data.GetString("scope")
-		err = CommonAlertManager.ValidateMetricQuery(metricQuery, scope, ownerId)
-		if err != nil {
-			return data, errors.Wrap(err, "metric query error")
-		}
-
-		data.Update(jsonutils.Marshal(metricQuery))
-		err = data.Unmarshal(updataInput)
-		if err != nil {
-			return data, errors.Wrap(err, "updataInput Unmarshal err")
-		}
-		alertCreateInput := dash.getUpdateAlertInput(*updataInput)
-		//alertCreateInput, err = AlertManager.ValidateCreateData(ctx, userCred, nil, query, alertCreateInput)
-		//if err != nil {
-		//	return data, err
-		//}
-		data.Set("settings", jsonutils.Marshal(&alertCreateInput.Settings))
-		updataInput.StandaloneResourceBaseUpdateInput, err = dash.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred,
-			query, updataInput.StandaloneResourceBaseUpdateInput)
-		if err != nil {
-			return data, errors.Wrap(err, "SAlertDashBoard.ValidateUpdateData")
-		}
-		data.Update(jsonutils.Marshal(updataInput))
 	}
 	return data, nil
 }
 
-func (dash *SAlertDashBoard) getUpdateAlertInput(updateInput monitor.AlertDashBoardUpdateInput) monitor.AlertCreateInput {
-	input := monitor.AlertDashBoardCreateInput{
-		CommonMetricInputQuery: updateInput.CommonMetricInputQuery,
+func (dash *SAlertDashBoard) CustomizeDelete(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	panels, err := dash.getAttachPanels()
+	if err != nil {
+		return errors.Wrapf(err, "dash:%s,when exec customizedelete to get attach panels error")
 	}
-	createInput := AlertDashBoardManager.toAlertCreateInput(input)
-	return createInput
+	for _, panel := range panels {
+		if err := panel.CustomizeDelete(ctx, userCred, query, data); err != nil {
+			return errors.Wrap(err, "dashboard exec panel CustomizeDelete error")
+		}
+		if err := panel.Delete(ctx, userCred); err != nil {
+			return errors.Wrap(err, "dashboard exec panel Delete error")
+		}
+	}
+	return nil
+}
+
+func (manager *SAlertDashBoardManager) getDashboardByid(id string) (*SAlertDashBoard, error) {
+	iModel, err := db.FetchById(manager, id)
+	if err != nil {
+		return nil, err
+	}
+	return iModel.(*SAlertDashBoard), nil
 }

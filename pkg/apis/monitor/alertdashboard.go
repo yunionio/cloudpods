@@ -1,12 +1,15 @@
 package monitor
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 type AlertDashBoardCreateInput struct {
-	apis.ScopedResourceInput
-
-	CommonMetricInputQuery
-	AlertCreateInput
+	apis.Meta
+	apis.ScopedResourceCreateInput
+	apis.StandaloneResourceCreateInput
 
 	Refresh string `json:"refresh"`
 }
@@ -17,13 +20,13 @@ type AlertDashBoardListInput struct {
 
 type AlertDashBoardDetails struct {
 	AlertDetails
-
-	CommonAlertMetricDetails []*CommonAlertMetricDetails `json:"common_alert_metric_details"`
+	AlertPanelDetails []AlertPanelDetail `json:"alert_panel_details"`
 }
 
-type AlertDashBoardUpdateInput struct {
-	CommonMetricInputQuery
-	V1AlertUpdateInput
-
-	Refresh string `json:"refresh"`
+type AlertPanelDetail struct {
+	PanelName string `json:"panel_name"`
+	PanelId   string `json:"panel_id"`
+	Refresh   string `json:"refresh"`
+	Setting   jsonutils.JSONObject
+	PanelDetails
 }
