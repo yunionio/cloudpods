@@ -72,6 +72,7 @@ func (self *SQcloudGuestDriver) GetStorageTypes() []string {
 		api.STORAGE_CLOUD_SSD,
 		api.STORAGE_LOCAL_BASIC,
 		api.STORAGE_LOCAL_SSD,
+		api.STORAGE_CLOUD_HSSD,
 	}
 }
 
@@ -154,6 +155,10 @@ func (self *SQcloudGuestDriver) ValidateCreateData(ctx context.Context, userCred
 			if disk.SizeMb < 100*1024 || disk.SizeMb > 16000*1024 {
 				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 100GB ~ 16000GB", disk.Backend)
 			}
+		case api.STORAGE_CLOUD_HSSD:
+			if disk.SizeMb < 20*1024 || disk.SizeMb > 32000*1024 {
+				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 20GB ~ 32000GB", disk.Backend)
+			}
 		case api.STORAGE_LOCAL_PRO:
 			return nil, httperrors.NewInputParameterError("storage %s can not be data disk", disk.Backend)
 		}
@@ -193,6 +198,10 @@ func (self *SQcloudGuestDriver) ValidateChangeConfig(ctx context.Context, userCr
 		case api.STORAGE_CLOUD_SSD:
 			if newDisk.SizeMb < 100*1024 || newDisk.SizeMb > 16000*1024 {
 				return httperrors.NewInputParameterError("The %s disk size must be in the range of 100GB ~ 16000GB", newDisk.Backend)
+			}
+		case api.STORAGE_CLOUD_HSSD:
+			if newDisk.SizeMb < 20*1024 || newDisk.SizeMb > 32000*1024 {
+				return httperrors.NewInputParameterError("The %s disk size must be in the range of 20GB ~ 32000GB", newDisk.Backend)
 			}
 		case api.STORAGE_LOCAL_BASIC, api.STORAGE_LOCAL_SSD, api.STORAGE_LOCAL_PRO:
 			return httperrors.NewUnsupportOperationError("Not support create local storage disks")
