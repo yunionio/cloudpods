@@ -55,7 +55,8 @@ const (
 	STORAGE_LOCAL_SSD     = "local_ssd"
 	STORAGE_LOCAL_PRO     = "local_pro"
 	STORAGE_CLOUD_BASIC   = "cloud_basic"
-	STORAGE_CLOUD_PREMIUM = "cloud_premium"
+	STORAGE_CLOUD_PREMIUM = "cloud_premium" //高性能云硬盘
+	STORAGE_CLOUD_HSSD    = "cloud_hssd"    //增强型SSD云硬盘
 
 	// huawei storage type
 	STORAGE_HUAWEI_SSD  = "SSD"  // 超高IO云硬盘
