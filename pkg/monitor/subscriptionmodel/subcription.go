@@ -204,7 +204,7 @@ func (self *SSubscriptionManager) Eval(details monitor.CommonAlertMetricDetails,
 	if err != nil {
 		return false, nil, err
 	}
-	reduceValue := reducer.Reduce(serie)
+	reduceValue, _ := reducer.Reduce(serie)
 
 	evalCond := monitor.Condition{
 		Type:   getQueryEvalType(details.Comparator),

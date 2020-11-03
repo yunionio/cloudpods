@@ -78,7 +78,7 @@ func TestSimpleReducer(t *testing.T) {
 			series.Points = append(series.Points, tsdb.NewTimePointByVal(2, 5))
 			series.Points = append(series.Points, tsdb.NewTimePointByVal(3, 6))
 
-			result := reducer.Reduce(series)
+			result, _ := reducer.Reduce(series)
 			So(result, ShouldNotBeNil)
 			So(*result, ShouldEqual, 2)
 		})
@@ -99,9 +99,9 @@ func TestSimpleReducer(t *testing.T) {
 				series.Points = append(series.Points, tsdb.NewTimePoint(nil, 2))
 				series.Points = append(series.Points, tsdb.NewTimePointByVal(3, 3))
 				series.Points = append(series.Points, tsdb.NewTimePointByVal(4, 4))
-
-				So(reducer.Reduce(series), ShouldNotBeNil)
-				So(*reducer.Reduce(series), ShouldEqual, 2)
+				reduce, _ := reducer.Reduce(series)
+				So(reduce, ShouldNotBeNil)
+				So(*reduce, ShouldEqual, 2)
 			})
 
 			Convey("with null values", func() {
@@ -112,8 +112,8 @@ func TestSimpleReducer(t *testing.T) {
 
 				series.Points = append(series.Points, tsdb.NewTimePoint(nil, 1))
 				series.Points = append(series.Points, tsdb.NewTimePoint(nil, 2))
-
-				So(reducer.Reduce(series), ShouldBeNil)
+				reduce, _ := reducer.Reduce(series)
+				So(reduce, ShouldBeNil)
 			})
 		})
 
@@ -127,8 +127,8 @@ func TestSimpleReducer(t *testing.T) {
 			series.Points = append(series.Points, tsdb.NewTimePoint(nil, 2))
 			series.Points = append(series.Points, tsdb.NewTimePoint(nil, 3))
 			series.Points = append(series.Points, tsdb.NewTimePointByVal(3, 4))
-
-			So(*reduer.Reduce(series), ShouldEqual, 3)
+			reduce, _ := reduer.Reduce(series)
+			So(*reduce, ShouldEqual, 3)
 		})
 
 		Convey("diff one point", func() {
@@ -154,8 +154,8 @@ func TestSimpleReducer(t *testing.T) {
 
 			series.Points = append(series.Points, tsdb.NewTimePoint(nil, 1))
 			series.Points = append(series.Points, tsdb.NewTimePoint(nil, 2))
-
-			So(reducer.Reduce(series), ShouldBeNil)
+			reduce, _ := reducer.Reduce(series)
+			So(reduce, ShouldBeNil)
 		})
 
 		Convey("percent_diff one point", func() {
@@ -181,8 +181,8 @@ func TestSimpleReducer(t *testing.T) {
 
 			series.Points = append(series.Points, tsdb.NewTimePoint(nil, 1))
 			series.Points = append(series.Points, tsdb.NewTimePoint(nil, 2))
-
-			So(reducer.Reduce(series), ShouldBeNil)
+			reduce, _ := reducer.Reduce(series)
+			So(reduce, ShouldBeNil)
 		})
 	})
 }
@@ -197,6 +197,6 @@ func testReducer(reducerType string, datapoints ...float64) float64 {
 		val := datapoints[idx]
 		serires.Points = append(serires.Points, tsdb.NewTimePoint(&val, 1234134))
 	}
-
-	return *reducer.Reduce(serires)
+	reduce, _ := reducer.Reduce(serires)
+	return *reduce
 }
