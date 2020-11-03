@@ -44,7 +44,7 @@ func (self *SRegion) GetIDBInstances() ([]cloudprovider.ICloudDBInstance, error)
 }
 
 func (self *SRegion) GetIDBInstanceById(id string) (cloudprovider.ICloudDBInstance, error) {
-	if strings.HasPrefix(id, "cdb-") {
+	if strings.HasPrefix(id, "cdb") {
 		return self.GetMySQLInstanceById(id)
 	}
 	return nil, cloudprovider.ErrNotFound
