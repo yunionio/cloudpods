@@ -30,7 +30,7 @@ import (
 )
 
 type SGoogleProviderFactory struct {
-	cloudprovider.SPublicCloudBaseProviderFactor
+	cloudprovider.SPublicCloudBaseProviderFactory
 }
 
 func (self *SGoogleProviderFactory) GetId() string {

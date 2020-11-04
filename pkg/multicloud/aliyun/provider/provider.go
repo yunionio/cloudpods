@@ -28,7 +28,7 @@ import (
 )
 
 type SAliyunProviderFactory struct {
-	cloudprovider.SPublicCloudBaseProviderFactor
+	cloudprovider.SPublicCloudBaseProviderFactory
 }
 
 func (self *SAliyunProviderFactory) GetId() string {

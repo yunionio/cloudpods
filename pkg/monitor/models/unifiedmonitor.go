@@ -362,7 +362,7 @@ func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricInputQ
 			})
 		}
 	}
-	if metricMeasurement.ResType == hostconsts.TELEGRAF_TAG_ONECLOUD_RES_TYPE {
+	if metricMeasurement != nil && metricMeasurement.ResType == hostconsts.TELEGRAF_TAG_ONECLOUD_RES_TYPE {
 		query.Model.Tags = append(query.Model.Tags, monitor.MetricQueryTag{
 			Key:       hostconsts.TELEGRAF_TAG_KEY_RES_TYPE,
 			Operator:  "=",

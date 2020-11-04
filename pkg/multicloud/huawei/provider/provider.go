@@ -29,7 +29,7 @@ import (
 )
 
 type SHuaweiProviderFactory struct {
-	cloudprovider.SPublicCloudBaseProviderFactor
+	cloudprovider.SPublicCloudBaseProviderFactory
 }
 
 func (self *SHuaweiProviderFactory) GetId() string {

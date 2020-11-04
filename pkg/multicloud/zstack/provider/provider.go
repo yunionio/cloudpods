@@ -28,7 +28,7 @@ import (
 )
 
 type SZStackProviderFactory struct {
-	cloudprovider.SPrivateCloudBaseProviderFactor
+	cloudprovider.SPrivateCloudBaseProviderFactory
 }
 
 func (self *SZStackProviderFactory) GetId() string {
