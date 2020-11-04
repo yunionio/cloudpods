@@ -233,6 +233,8 @@ func (manager *SScopedPolicyBindingManager) ListItemFilter(
 		return nil, errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "require: %s allow: %s", requireScope, allowScope)
 	}
 
+	effective := (query.Effective != nil && *query.Effective)
+	q = filterByOwnerId(q, query.DomainId, query.ProjectId, effective, query.Category, query.PolicyId)
 	if query.Effective != nil && *query.Effective && (len(query.ProjectId) > 0 || len(query.DomainId) > 0) {
 		bindingQ := manager.Query().SubQuery()
 		maxq := bindingQ.Query(bindingQ.Field("category"), sqlchemy.MAX("max_priority", bindingQ.Field("priority")))
@@ -241,9 +243,6 @@ func (manager *SScopedPolicyBindingManager) ListItemFilter(
 		subq := maxq.SubQuery()
 		q = q.Join(subq, sqlchemy.Equals(q.Field("category"), subq.Field("category")))
 		q = q.Filter(sqlchemy.Equals(q.Field("priority"), subq.Field("max_priority")))
-	} else {
-		effective := (query.Effective != nil && *query.Effective)
-		q = filterByOwnerId(q, query.DomainId, query.ProjectId, effective, query.Category, query.PolicyId)
 	}
 
 	return q, nil
@@ -254,8 +253,11 @@ func filterByOwnerId(q *sqlchemy.SQuery, domainId, projectId string, effective b
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.AND(sqlchemy.IsNullOrEmpty(q.Field("domain_id")), sqlchemy.IsNullOrEmpty(q.Field("project_id"))),
 			sqlchemy.AND(sqlchemy.Equals(q.Field("domain_id"), api.ANY_DOMAIN_ID), sqlchemy.Equals(q.Field("project_id"), api.ANY_PROJECT_ID)),
-			sqlchemy.AND(sqlchemy.Equals(q.Field("domain_id"), domainId), sqlchemy.Equals(q.Field("project_id"), api.ANY_PROJECT_ID)),
-			sqlchemy.AND(sqlchemy.Equals(q.Field("domain_id"), domainId), sqlchemy.Equals(q.Field("project_id"), projectId)),
+			sqlchemy.AND(sqlchemy.Equals(q.Field("domain_id"), domainId), sqlchemy.OR(
+				sqlchemy.IsNullOrEmpty(q.Field("project_id")),
+				sqlchemy.Equals(q.Field("project_id"), api.ANY_PROJECT_ID),
+				sqlchemy.Equals(q.Field("project_id"), projectId),
+			)),
 		))
 	} else if len(domainId) > 0 {
 		q = q.IsNullOrEmpty("project_id")
