@@ -179,6 +179,21 @@ func (manager *SGuestnetworkManager) fetchByRowIds(
 	return ret, nil
 }
 
+func (manager *SGuestnetworkManager) fetchByRowId(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	rowId int64,
+) (*SGuestnetwork, error) {
+	gns, err := manager.fetchByRowIds(ctx, userCred, []int64{rowId})
+	if err != nil {
+		return nil, err
+	}
+	if len(gns) != 1 {
+		return nil, errors.Errorf("row_id %d: got %d guesnetwork entries", rowId, len(gns))
+	}
+	return &gns[0], nil
+}
+
 func (manager *SGuestnetworkManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return false
 }
