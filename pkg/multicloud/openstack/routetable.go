@@ -26,6 +26,32 @@ type SRouteEntry struct {
 	Nexthop     string `json:"nexthop"`
 }
 
+func (route *SRouteEntry) GetId() string {
+	return route.Destination + ":" + route.Nexthop
+}
+func (route *SRouteEntry) GetName() string {
+	return ""
+}
+func (route *SRouteEntry) GetGlobalId() string {
+	return route.GetId()
+}
+
+func (route *SRouteEntry) GetStatus() string {
+	return ""
+}
+
+func (route *SRouteEntry) Refresh() error {
+	return nil
+}
+
+func (route *SRouteEntry) IsEmulated() bool {
+	return false
+}
+
+func (route *SRouteEntry) GetMetadata() *jsonutils.JSONDict {
+	return nil
+}
+
 func (route *SRouteEntry) GetType() string {
 	return api.ROUTE_ENTRY_TYPE_CUSTOM
 }
@@ -72,8 +98,8 @@ func (self *SRouteTable) GetRegionId() string {
 	return self.vpc.region.GetId()
 }
 
-func (self *SRouteTable) GetType() string {
-	return ""
+func (self *SRouteTable) GetType() cloudprovider.RouteTableType {
+	return cloudprovider.RouteTableTypeSystem
 }
 
 func (self *SRouteTable) GetVpcId() string {
@@ -98,4 +124,21 @@ func (self *SRouteTable) IsEmulated() bool {
 
 func (self *SRouteTable) Refresh() error {
 	return nil
+}
+
+func (self *SRouteTable) GetAssociations() []cloudprovider.RouteTableAssociation {
+	result := []cloudprovider.RouteTableAssociation{}
+	return result
+}
+
+func (self *SRouteTable) CreateRoute(route cloudprovider.RouteSet) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (self *SRouteTable) UpdateRoute(route cloudprovider.RouteSet) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (self *SRouteTable) RemoveRoute(route cloudprovider.RouteSet) error {
+	return cloudprovider.ErrNotSupported
 }

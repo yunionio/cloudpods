@@ -173,13 +173,26 @@ func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "get route table error")
 		}
-		ret := make([]cloudprovider.ICloudRouteTable, len(routeTables))
+		defaultRouteTable := NewSRouteTable(self, string(cloudprovider.RouteTableTypeSystem))
 		for i := range routeTables {
-			ret[i] = &routeTables[i]
+			defaultRouteTable.Routes = append(defaultRouteTable.Routes, routeTables[i].Routes...)
 		}
-		self.routeTables = ret
+		self.routeTables = []cloudprovider.ICloudRouteTable{&defaultRouteTable}
 	}
 	return self.routeTables, nil
+}
+
+// 华为云 路由表资源方法 api 暂未支持，只能直接对vpc对象增加，删除 路由
+func (self *SVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudRouteTable, error) {
+	routeTables, err := self.getRouteTables()
+	if err != nil {
+		return nil, errors.Wrap(err, "get route table error")
+	}
+	defaultRouteTable := NewSRouteTable(self, string(cloudprovider.RouteTableTypeSystem))
+	for i := range routeTables {
+		defaultRouteTable.Routes = append(defaultRouteTable.Routes, routeTables[i].Routes...)
+	}
+	return &defaultRouteTable, nil
 }
 
 func (self *SVpc) Delete() error {
@@ -225,6 +238,19 @@ func (self *SVpc) GetICloudVpcPeeringConnections() ([]cloudprovider.ICloudVpcPee
 	}
 	return ivpcPCs, nil
 }
+
+func (self *SVpc) GetICloudAccepterVpcPeeringConnections() ([]cloudprovider.ICloudVpcPeeringConnection, error) {
+	svpcPCs, err := self.getAccepterVpcPeeringConnections()
+	if err != nil {
+		return nil, errors.Wrap(err, "self.getAccepterVpcPeeringConnections()")
+	}
+	ivpcPCs := []cloudprovider.ICloudVpcPeeringConnection{}
+	for i := range svpcPCs {
+		ivpcPCs = append(ivpcPCs, &svpcPCs[i])
+	}
+	return ivpcPCs, nil
+}
+
 func (self *SVpc) GetICloudVpcPeeringConnectionById(id string) (cloudprovider.ICloudVpcPeeringConnection, error) {
 	svpcPC, err := self.getVpcPeeringConnectionById(id)
 	if err != nil {
@@ -271,6 +297,21 @@ func (self *SVpc) getVpcPeeringConnections() ([]SVpcPeering, error) {
 	vpcPCs := []SVpcPeering{}
 	for i := range svpcPeerings {
 		if svpcPeerings[i].GetVpcId() == self.GetId() {
+			svpcPeerings[i].vpc = self
+			vpcPCs = append(vpcPCs, svpcPeerings[i])
+		}
+	}
+	return vpcPCs, nil
+}
+
+func (self *SVpc) getAccepterVpcPeeringConnections() ([]SVpcPeering, error) {
+	svpcPeerings, err := self.region.GetVpcPeerings(self.GetId())
+	if err != nil {
+		return nil, errors.Wrapf(err, "self.region.GetVpcPeerings(%s)", self.GetId())
+	}
+	vpcPCs := []SVpcPeering{}
+	for i := range svpcPeerings {
+		if svpcPeerings[i].GetPeerVpcId() == self.GetId() {
 			svpcPeerings[i].vpc = self
 			vpcPCs = append(vpcPCs, svpcPeerings[i])
 		}

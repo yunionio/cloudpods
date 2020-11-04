@@ -366,14 +366,20 @@ type ICloudSecurityGroup interface {
 type ICloudRouteTable interface {
 	ICloudResource
 
+	GetAssociations() []RouteTableAssociation
 	GetDescription() string
 	GetRegionId() string
 	GetVpcId() string
-	GetType() string
+	GetType() RouteTableType
 	GetIRoutes() ([]ICloudRoute, error)
+
+	CreateRoute(route RouteSet) error
+	UpdateRoute(route RouteSet) error
+	RemoveRoute(route RouteSet) error
 }
 
 type ICloudRoute interface {
+	ICloudResource
 	GetType() string
 	GetCidr() string
 	GetNextHopType() string
@@ -445,6 +451,7 @@ type ICloudVpc interface {
 	GetIWires() ([]ICloudWire, error)
 	GetISecurityGroups() ([]ICloudSecurityGroup, error)
 	GetIRouteTables() ([]ICloudRouteTable, error)
+	GetIRouteTableById(routeTableId string) (ICloudRouteTable, error)
 
 	Delete() error
 
@@ -452,6 +459,7 @@ type ICloudVpc interface {
 	GetINatGateways() ([]ICloudNatGateway, error)
 
 	GetICloudVpcPeeringConnections() ([]ICloudVpcPeeringConnection, error)
+	GetICloudAccepterVpcPeeringConnections() ([]ICloudVpcPeeringConnection, error)
 	GetICloudVpcPeeringConnectionById(id string) (ICloudVpcPeeringConnection, error)
 	CreateICloudVpcPeeringConnection(opts *VpcPeeringConnectionCreateOptions) (ICloudVpcPeeringConnection, error)
 	AcceptICloudVpcPeeringConnection(id string) error

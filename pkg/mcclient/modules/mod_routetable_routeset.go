@@ -12,9 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
+package modules
 
-const (
-	ROUTE_TABLE_TYPE_VPC = "VPC" // VPC路由器
-	ROUTE_TABLE_TYPE_VBR = "VBR" // 边界路由器
+import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
+
+type RouteTableRoutesetManager struct {
+	modulebase.ResourceManager
+}
+
+var (
+	RouteTableRouteSets RouteTableRoutesetManager
 )
+
+func init() {
+	RouteTableRouteSets = RouteTableRoutesetManager{
+		NewComputeManager(
+			"route_table_route_set",
+			"route_table_route_sets",
+			[]string{
+				"id",
+				"name",
+				"type",
+				"route_table_id",
+				"type",
+				"cidr",
+				"next_hop_type",
+				"next_hop_id",
+				"ext_next_hop_id",
+			},
+			[]string{},
+		),
+	}
+	registerCompute(&RouteTableRouteSets)
+}

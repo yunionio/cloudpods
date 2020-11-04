@@ -231,6 +231,10 @@ func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
 	return self.routeTables, nil
 }
 
+func (self *SVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudRouteTable, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
 func (self *SVpc) Delete() error {
 	err := self.fetchSecurityGroups()
 	if err != nil {

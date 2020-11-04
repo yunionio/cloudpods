@@ -23,7 +23,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -43,6 +42,7 @@ type Association struct {
 	Main                    bool    `json:"Main"`
 	RouteTableAssociationID string  `json:"RouteTableAssociationId"`
 	RouteTableID            string  `json:"RouteTableId"`
+	GatewayID               *string `json:"GatewayId,omitempty"`
 	SubnetID                *string `json:"SubnetId,omitempty"`
 }
 
@@ -96,8 +96,69 @@ func (self *SRouteTable) GetVpcId() string {
 	return self.VpcID
 }
 
-func (self *SRouteTable) GetType() string {
-	return api.ROUTE_TABLE_TYPE_VPC
+func (self *SRouteTable) GetType() cloudprovider.RouteTableType {
+	for i := range self.Associations {
+		if self.Associations[i].Main {
+			return cloudprovider.RouteTableTypeSystem
+		}
+	}
+	return cloudprovider.RouteTableTypeCustom
+}
+
+func (self *SRouteTable) GetAssociations() []cloudprovider.RouteTableAssociation {
+	result := []cloudprovider.RouteTableAssociation{}
+	for i := range self.Associations {
+		if self.Associations[i].GatewayID != nil {
+			association := cloudprovider.RouteTableAssociation{
+				AssociationId:        self.Associations[i].RouteTableAssociationID,
+				AssociationType:      cloudprovider.RouteTableAssociaToRouter,
+				AssociatedResourceId: *self.Associations[i].GatewayID,
+			}
+			result = append(result, association)
+		}
+		if self.Associations[i].SubnetID != nil {
+			association := cloudprovider.RouteTableAssociation{
+				AssociationId:        self.Associations[i].RouteTableAssociationID,
+				AssociationType:      cloudprovider.RouteTableAssociaToSubnet,
+				AssociatedResourceId: *self.Associations[i].SubnetID,
+			}
+			result = append(result, association)
+		}
+	}
+	return result
+}
+
+func (self *SRouteTable) CreateRoute(route cloudprovider.RouteSet) error {
+	err := self.region.CreateRoute(self.RouteTableID, route.Destination, route.NextHop)
+	if err != nil {
+		return errors.Wrapf(err, "self.region.CreateRoute(%s,%s,%s)", self.RouteTableID, route.Destination, route.NextHop)
+	}
+	return nil
+}
+
+func (self *SRouteTable) UpdateRoute(route cloudprovider.RouteSet) error {
+	routeInfo := strings.Split(route.RouteId, ":")
+	if len(routeInfo) != 2 {
+		return errors.Wrap(cloudprovider.ErrNotSupported, "invalid route info")
+	}
+	err := self.region.RemoveRoute(self.RouteTableID, routeInfo[0])
+	if err != nil {
+		return errors.Wrapf(err, "self.region.RemoveRoute(%s,%s)", self.RouteTableID, route.Destination)
+	}
+
+	err = self.CreateRoute(route)
+	if err != nil {
+		return errors.Wrapf(err, "self.CreateRoute(%s)", jsonutils.Marshal(route).String())
+	}
+	return nil
+}
+
+func (self *SRouteTable) RemoveRoute(route cloudprovider.RouteSet) error {
+	err := self.region.RemoveRoute(self.RouteTableID, route.Destination)
+	if err != nil {
+		return errors.Wrapf(err, "self.region.RemoveRoute(%s,%s)", self.RouteTableID, route.Destination)
+	}
+	return nil
 }
 
 func (self *SRouteTable) GetIRoutes() ([]cloudprovider.ICloudRoute, error) {
@@ -165,6 +226,37 @@ func (self *SRegion) CreateRoute(routeTableId string, DestinationCIDRBlock strin
 	_, err := self.ec2Client.CreateRoute(input)
 	if err != nil {
 		return errors.Wrapf(err, "self.ec2Client.CreateRoute(%s)", jsonutils.Marshal(input).String())
+	}
+	return nil
+}
+
+func (self *SRegion) ReplaceRoute(routeTableId string, DestinationCIDRBlock string, targetId string) error {
+	input := &ec2.ReplaceRouteInput{}
+	input.RouteTableId = &routeTableId
+	input.DestinationCidrBlock = &DestinationCIDRBlock
+	segs := strings.Split(targetId, "-")
+	if len(segs) == 0 {
+		return fmt.Errorf("invalid aws vpc targetid:%s", targetId)
+	}
+	switch segs[0] {
+	case "i":
+		input.InstanceId = &targetId
+	case "igw", "vgw":
+		input.GatewayId = &targetId
+	case "pcx":
+		input.VpcPeeringConnectionId = &targetId
+	case "eni":
+		input.NetworkInterfaceId = &targetId
+	case "nat":
+		input.NatGatewayId = &targetId
+	case "eigw":
+		input.EgressOnlyInternetGatewayId = &targetId
+	default:
+		return fmt.Errorf("invalid aws vpc targetid:%s", targetId)
+	}
+	_, err := self.ec2Client.ReplaceRoute(input)
+	if err != nil {
+		return errors.Wrapf(err, "self.ec2Client.ReplaceRouteInput(%s)", jsonutils.Marshal(input).String())
 	}
 	return nil
 }

@@ -17,6 +17,8 @@ package aws
 import (
 	"strings"
 
+	"yunion.io/x/jsonutils"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
@@ -36,12 +38,48 @@ type SRoute struct {
 	VpcPeeringConnectionID *string `json:"VpcPeeringConnectionId,omitempty"`
 }
 
+func (self *SRoute) GetId() string {
+	return self.DestinationCIDRBlock + ":" + self.GetNextHop()
+}
+
+func (self *SRoute) GetName() string {
+	return ""
+}
+
+func (self *SRoute) GetGlobalId() string {
+	return self.GetId()
+}
+
+func (self *SRoute) GetStatus() string {
+	if self.State == "active" {
+		return api.ROUTE_ENTRY_STATUS_AVAILIABLE
+	}
+	return api.ROUTE_ENTRY_STATUS_UNKNOWN
+}
+
+func (self *SRoute) Refresh() error {
+	return nil
+}
+
+func (self *SRoute) IsEmulated() bool {
+	return false
+}
+
+func (self *SRoute) GetMetadata() *jsonutils.JSONDict {
+	return nil
+}
+
 func (self *SRoute) GetType() string {
-	if self.GetNextHop() == "local" {
+	switch self.Origin {
+	case "CreateRouteTable":
+		return api.ROUTE_ENTRY_TYPE_SYSTEM
+	case "CreateRoute":
+		return api.ROUTE_ENTRY_TYPE_CUSTOM
+	case "EnableVgwRoutePropagation":
+		return api.ROUTE_ENTRY_TYPE_PROPAGATE
+	default:
 		return api.ROUTE_ENTRY_TYPE_SYSTEM
 	}
-
-	return api.ROUTE_ENTRY_TYPE_CUSTOM
 }
 
 func (self *SRoute) GetCidr() string {
@@ -60,7 +98,7 @@ func (self *SRoute) GetNextHopType() string {
 	case "vgw":
 		return api.Next_HOP_TYPE_VPN
 	case "pcx":
-		return api.Next_HOP_TYPE_ROUTER
+		return api.Next_HOP_TYPE_VPCPEERING
 	case "eni":
 		return api.Next_HOP_TYPE_NETWORK
 	case "nat":

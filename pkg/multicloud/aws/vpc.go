@@ -146,6 +146,15 @@ func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
 	return itables, nil
 }
 
+func (self *SVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudRouteTable, error) {
+	routeTable, err := self.region.GetRouteTable(routeTableId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "self.region.GetRouteTable(routeTableId:%s)", routeTableId)
+	}
+	routeTable.vpc = self
+	return routeTable, nil
+}
+
 func (self *SVpc) Delete() error {
 	// 删除vpc会同步删除关联的安全组
 	return self.region.DeleteVpc(self.VpcId)
@@ -232,6 +241,18 @@ func (self *SVpc) GetICloudVpcPeeringConnections() ([]cloudprovider.ICloudVpcPee
 	return ret, nil
 }
 
+func (self *SVpc) GetICloudAccepterVpcPeeringConnections() ([]cloudprovider.ICloudVpcPeeringConnection, error) {
+	svpcPCs, err := self.getAccepterVpcPeeringConnections()
+	if err != nil {
+		return nil, errors.Wrap(err, "self.getAccepterVpcPeeringConnections()")
+	}
+	ret := []cloudprovider.ICloudVpcPeeringConnection{}
+	for i := range svpcPCs {
+		ret = append(ret, svpcPCs[i])
+	}
+	return ret, nil
+}
+
 func (self *SVpc) GetICloudVpcPeeringConnectionById(id string) (cloudprovider.ICloudVpcPeeringConnection, error) {
 	vpcPc, err := self.getSVpcPeeringConnectionById(id)
 	if err != nil {
@@ -275,7 +296,26 @@ func (self *SVpc) getSVpcPeeringConnectionById(id string) (*SVpcPeeringConnectio
 func (self *SVpc) getRequesterVpcPeeringConnections() ([]*SVpcPeeringConnection, error) {
 	vpcPCs, err := self.region.DescribeRequesterVpcPeeringConnections(self.VpcId)
 	if err != nil {
-		return nil, errors.Wrap(err, "self.region.DescribeVpcPeeringConnections()")
+		return nil, errors.Wrap(err, "self.region.DescribeRequesterVpcPeeringConnections()")
+	}
+	ivpcPCs := []*SVpcPeeringConnection{}
+	for i := range vpcPCs {
+		if vpcPCs[i].Status.Code != nil && (*vpcPCs[i].Status.Code == ec2.VpcPeeringConnectionStateReasonCodeDeleted ||
+			*vpcPCs[i].Status.Code == ec2.VpcPeeringConnectionStateReasonCodeDeleting) {
+			continue
+		}
+		svpcPC := SVpcPeeringConnection{}
+		svpcPC.vpc = self
+		svpcPC.vpcPC = vpcPCs[i]
+		ivpcPCs = append(ivpcPCs, &svpcPC)
+	}
+	return ivpcPCs, nil
+}
+
+func (self *SVpc) getAccepterVpcPeeringConnections() ([]*SVpcPeeringConnection, error) {
+	vpcPCs, err := self.region.DescribeAccepterVpcPeeringConnections(self.VpcId)
+	if err != nil {
+		return nil, errors.Wrap(err, "self.region.DescribeAccepterVpcPeeringConnections()")
 	}
 	ivpcPCs := []*SVpcPeeringConnection{}
 	for i := range vpcPCs {

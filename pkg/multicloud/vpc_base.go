@@ -32,6 +32,10 @@ func (self *SVpc) GetICloudVpcPeeringConnections() ([]cloudprovider.ICloudVpcPee
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudVpcPeeringConnections")
 }
 
+func (self *SVpc) GetICloudAccepterVpcPeeringConnections() ([]cloudprovider.ICloudVpcPeeringConnection, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudVpcPeeringConnections")
+}
+
 func (self *SVpc) GetICloudVpcPeeringConnectionById(id string) (cloudprovider.ICloudVpcPeeringConnection, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudVpcPeeringConnectionById")
 }

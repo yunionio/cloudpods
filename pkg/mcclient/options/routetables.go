@@ -62,7 +62,7 @@ type RouteTableCreateOptions struct {
 	RoutesOptions
 }
 
-func (opts *RouteTableCreateOptions) Params() (*jsonutils.JSONDict, error) {
+func (opts *RouteTableCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params, err := optionsStructToParams(opts)
 	if err != nil {
 		return nil, err
@@ -79,6 +79,18 @@ type RouteTableGetOptions struct {
 	ID string
 }
 
+type RouteTableIdOptions struct {
+	ID string
+}
+
+func (opts *RouteTableIdOptions) GetId() string {
+	return opts.ID
+}
+
+func (opts *RouteTableIdOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
 type RouteTableUpdateOptions struct {
 	ID   string `json:"-"`
 	Name string
@@ -86,7 +98,11 @@ type RouteTableUpdateOptions struct {
 	RoutesOptions
 }
 
-func (opts *RouteTableUpdateOptions) Params() (*jsonutils.JSONDict, error) {
+func (opts *RouteTableUpdateOptions) GetId() string {
+	return opts.ID
+}
+
+func (opts *RouteTableUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	params, err := optionsStructToParams(opts)
 	if err != nil {
 		return nil, err
@@ -107,7 +123,11 @@ type RouteTableAddRoutesOptions struct {
 	RoutesOptions
 }
 
-func (opts *RouteTableAddRoutesOptions) Params() (*jsonutils.JSONDict, error) {
+func (opts *RouteTableAddRoutesOptions) GetId() string {
+	return opts.ID
+}
+
+func (opts *RouteTableAddRoutesOptions) Params() (jsonutils.JSONObject, error) {
 	if len(opts.Cidr) == 0 {
 		return nil, fmt.Errorf("nothing to add")
 	}
@@ -126,7 +146,11 @@ type RouteTableDelRoutesOptions struct {
 	Cidr []string
 }
 
-func (opts *RouteTableDelRoutesOptions) Params() (*jsonutils.JSONDict, error) {
+func (opts *RouteTableDelRoutesOptions) GetId() string {
+	return opts.ID
+}
+
+func (opts *RouteTableDelRoutesOptions) Params() (jsonutils.JSONObject, error) {
 	if len(opts.Cidr) == 0 {
 		return nil, fmt.Errorf("nothing to del")
 	}
@@ -148,4 +172,12 @@ type RouteTableListOptions struct {
 	Cloudregion string
 
 	BaseListOptions
+}
+
+func (opts *RouteTableListOptions) Params() (jsonutils.JSONObject, error) {
+	return ListStructToParams(opts)
+}
+
+type RouteTableSyncstatusOptions struct {
+	ID string
 }

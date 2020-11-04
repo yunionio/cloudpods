@@ -154,6 +154,8 @@ func InitHandlers(app *appsrv.Application) {
 		models.OpenstackCachedLbManager,
 		models.OpenstackCachedLbbgManager,
 		models.RouteTableManager,
+		models.RouteTableAssociationManager,
+		models.RouteTableRouteSetManager,
 
 		models.SchedpolicyManager,
 		models.DynamicschedtagManager,

@@ -47,4 +47,17 @@ func init() {
 		}
 		return nil
 	})
+
+	type RouteReplaceOptions struct {
+		ROUTETABLEID string `help:"routetable id"`
+		CIDRBLOCK    string
+		TARGETID     string
+	}
+	shellutils.R(&RouteReplaceOptions{}, "route-replace", "replace route", func(cli *aws.SRegion, args *RouteReplaceOptions) error {
+		err := cli.ReplaceRoute(args.ROUTETABLEID, args.CIDRBLOCK, args.TARGETID)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 }

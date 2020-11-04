@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -44,8 +45,42 @@ type SRouteEntry struct {
 	NextHop     string // route next hop (ip or id)
 }
 
+func (route *SRouteEntry) GetId() string {
+	if len(route.ID) == 0 {
+		return route.Destination + ":" + route.NextHop
+	}
+	return route.ID
+}
+
+func (route *SRouteEntry) GetName() string {
+	return ""
+}
+
+func (route *SRouteEntry) GetGlobalId() string {
+	return route.GetId()
+}
+
+func (route *SRouteEntry) GetStatus() string {
+	return ""
+}
+
+func (route *SRouteEntry) Refresh() error {
+	return nil
+}
+
+func (route *SRouteEntry) IsEmulated() bool {
+	return false
+}
+
+func (route *SRouteEntry) GetMetadata() *jsonutils.JSONDict {
+	return nil
+}
+
 func (route *SRouteEntry) GetType() string {
-	return route.Type
+	if route.Type == ROUTE_TYPE_PEER {
+		return api.ROUTE_ENTRY_TYPE_CUSTOM
+	}
+	return api.ROUTE_ENTRY_TYPE_SYSTEM
 }
 
 func (route *SRouteEntry) GetCidr() string {
@@ -54,7 +89,12 @@ func (route *SRouteEntry) GetCidr() string {
 
 func (route *SRouteEntry) GetNextHopType() string {
 	// In Huawei Cloud, NextHopType is same with itself
-	return route.GetType()
+	switch route.Type {
+	case ROUTE_TYPE_PEER:
+		return api.Next_HOP_TYPE_VPCPEERING
+	default:
+		return ""
+	}
 }
 
 func (route *SRouteEntry) GetNextHop() string {
@@ -123,8 +163,8 @@ func (self *SRouteTable) GetVpcId() string {
 	return self.VpcId
 }
 
-func (self *SRouteTable) GetType() string {
-	return self.Type
+func (self *SRouteTable) GetType() cloudprovider.RouteTableType {
+	return cloudprovider.RouteTableTypeSystem
 }
 
 func (self *SRouteTable) GetIRoutes() ([]cloudprovider.ICloudRoute, error) {
@@ -208,6 +248,42 @@ func (self *SRouteTable) fetchRoutesForPeer() error {
 		})
 	}
 	self.Routes = routesPeer
+	return nil
+}
+
+func (self *SRouteTable) GetAssociations() []cloudprovider.RouteTableAssociation {
+	result := []cloudprovider.RouteTableAssociation{}
+	return result
+}
+
+func (self *SRouteTable) CreateRoute(route cloudprovider.RouteSet) error {
+	if route.NextHopType != api.Next_HOP_TYPE_VPCPEERING {
+		return cloudprovider.ErrNotSupported
+	}
+	err := self.region.CreatePeeringRoute(self.vpc.GetId(), route.Destination, route.NextHop)
+	if err != nil {
+		return errors.Wrapf(err, " self.region.CreatePeeringRoute(%s,%s,%s)", self.vpc.GetId(), route.Destination, route.NextHop)
+	}
+	return nil
+}
+
+func (self *SRouteTable) UpdateRoute(route cloudprovider.RouteSet) error {
+	err := self.RemoveRoute(route)
+	if err != nil {
+		return errors.Wrap(err, "self.RemoveRoute(route)")
+	}
+	err = self.CreateRoute(route)
+	if err != nil {
+		return errors.Wrap(err, "self.CreateRoute(route)")
+	}
+	return nil
+}
+
+func (self *SRouteTable) RemoveRoute(route cloudprovider.RouteSet) error {
+	err := self.region.DeletePeeringRoute(route.RouteId)
+	if err != nil {
+		return errors.Wrapf(err, "self.region.DeletePeeringRoute(%s)", route.RouteId)
+	}
 	return nil
 }
 

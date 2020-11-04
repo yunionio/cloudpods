@@ -110,6 +110,10 @@ func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
 	return rts, nil
 }
 
+func (self *SVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudRouteTable, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
 func (self *SVpc) getWireByZoneId(zoneId string) *SWire {
 	for i := 0; i <= len(self.iwires); i++ {
 		wire := self.iwires[i].(*SWire)
@@ -214,6 +218,23 @@ func (self *SVpc) GetSVpcPeeringConnections() ([]SVpcPC, error) {
 	return svpcPCs, nil
 }
 
+func (self *SVpc) GetAccepterSVpcPeeringConnections() ([]SVpcPC, error) {
+	result := []SVpcPC{}
+	svpcPCs, err := self.region.GetAllVpcPeeringConnections("")
+	if err != nil {
+		return nil, errors.Wrapf(err, "self.region.GetAllVpcPeeringConnections(%s)", self.GetId())
+	}
+
+	for i := range svpcPCs {
+		if svpcPCs[i].PeerVpcID == self.GetId() {
+			svpcPCs[i].vpc = self
+			result = append(result, svpcPCs[i])
+		}
+
+	}
+	return result, nil
+}
+
 func (self *SVpc) GetSVpcPeeringConnectionById(id string) (*SVpcPC, error) {
 	svpcPC, err := self.region.GetVpcPeeringConnectionbyId(id)
 	if err != nil {
@@ -312,6 +333,18 @@ func (self *SVpc) AcceptCrossRegionSVpcPeeringConnection(id string) error {
 func (self *SVpc) GetICloudVpcPeeringConnections() ([]cloudprovider.ICloudVpcPeeringConnection, error) {
 	result := []cloudprovider.ICloudVpcPeeringConnection{}
 	SVpcPCs, err := self.GetSVpcPeeringConnections()
+	if err != nil {
+		return nil, errors.Wrap(err, "self.GetSVpcPeeringConnections()")
+	}
+	for i := range SVpcPCs {
+		result = append(result, &SVpcPCs[i])
+	}
+	return result, nil
+}
+
+func (self *SVpc) GetICloudAccepterVpcPeeringConnections() ([]cloudprovider.ICloudVpcPeeringConnection, error) {
+	result := []cloudprovider.ICloudVpcPeeringConnection{}
+	SVpcPCs, err := self.GetAccepterSVpcPeeringConnections()
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetSVpcPeeringConnections()")
 	}

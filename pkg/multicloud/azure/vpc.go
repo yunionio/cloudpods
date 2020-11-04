@@ -162,6 +162,10 @@ func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
 	return rts, nil
 }
 
+func (self *SVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudRouteTable, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
 func (self *SVpc) fetchWires() error {
 	networks := make([]cloudprovider.ICloudNetwork, len(*self.Properties.Subnets))
 	if len(self.region.izones) == 0 {

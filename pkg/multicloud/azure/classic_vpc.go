@@ -160,6 +160,10 @@ func (self *SClassicVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, er
 	return rts, nil
 }
 
+func (self *SClassicVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudRouteTable, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
 func (self *SClassicVpc) fetchWires() error {
 	networks := make([]cloudprovider.ICloudNetwork, len(self.Properties.Subnets))
 	wire := SClassicWire{zone: self.region.izones[0].(*SZone), vpc: self}

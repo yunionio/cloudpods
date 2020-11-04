@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -39,7 +40,37 @@ type SRouteEntry struct {
 	DestinationCidrBlock string
 	NextHopType          string
 	InstanceId           string
+	RouteEntryId         string
+	RouteEntryName       string
 	NextHops             SNextHops
+}
+
+func (route *SRouteEntry) GetId() string {
+	return route.RouteEntryId
+}
+
+func (route *SRouteEntry) GetName() string {
+	return route.RouteEntryName
+}
+
+func (route *SRouteEntry) GetGlobalId() string {
+	return route.GetId()
+}
+
+func (route *SRouteEntry) GetStatus() string {
+	return ""
+}
+
+func (route *SRouteEntry) Refresh() error {
+	return nil
+}
+
+func (route *SRouteEntry) IsEmulated() bool {
+	return false
+}
+
+func (route *SRouteEntry) GetMetadata() *jsonutils.JSONDict {
+	return nil
 }
 
 // Custom：自定义路由。 System：系统路由。
@@ -52,7 +83,28 @@ func (route *SRouteEntry) GetCidr() string {
 }
 
 func (route *SRouteEntry) GetNextHopType() string {
-	return route.NextHopType
+	switch route.NextHopType {
+	case "Instance":
+		return api.Next_HOP_TYPE_INSTANCE
+	case "HaVip":
+		return api.Next_HOP_TYPE_HAVIP
+	case "VpnGateway":
+		return api.Next_HOP_TYPE_VPN
+	case "NatGateway":
+		return api.Next_HOP_TYPE_NAT
+	case "NetworkInterface":
+		return api.Next_HOP_TYPE_NETWORK
+	case "RouterInterface":
+		return api.Next_HOP_TYPE_ROUTER
+	case "IPv6Gateway":
+		return api.Next_HOP_TYPE_IPV6
+	case "InternetGateway":
+		return api.Next_HOP_TYPE_INTERNET
+	case "Next_HOP_TYPE_EGRESS_INTERNET":
+		return api.Next_HOP_TYPE_EGRESS_INTERNET
+	default:
+		return ""
+	}
 }
 
 func (route *SRouteEntry) GetNextHop() string {
@@ -120,8 +172,16 @@ func (self *SRouteTable) GetRegionId() string {
 }
 
 // VRouter：VPC路由器。 VBR：边界路由器。
-func (self *SRouteTable) GetType() string {
-	return self.RouteTableType
+func (self *SRouteTable) GetType() cloudprovider.RouteTableType {
+	switch self.RouteTableType {
+	case "System":
+		return cloudprovider.RouteTableTypeSystem
+	case "Custom":
+		return cloudprovider.RouteTableTypeCustom
+	default:
+		return cloudprovider.RouteTableTypeSystem
+
+	}
 }
 
 func (self *SRouteTable) GetVpcId() string {
@@ -197,6 +257,42 @@ func (self *SRouteTable) RemoteGetRoutes(offset int, limit int) ([]*SRouteEntry,
 	}
 	routeTable := routeTables[0]
 	return routeTable.RouteEntrys.RouteEntry, resp.TotalCount, nil
+}
+
+func (self *SRouteTable) GetAssociations() []cloudprovider.RouteTableAssociation {
+	result := []cloudprovider.RouteTableAssociation{}
+	switch self.RouterType {
+	case "VRouter":
+		for i := range self.VSwitchIds.VSwitchId {
+			association := cloudprovider.RouteTableAssociation{
+				AssociationId:        self.RouteTableId + ":" + self.VSwitchIds.VSwitchId[i],
+				AssociationType:      cloudprovider.RouteTableAssociaToSubnet,
+				AssociatedResourceId: self.VSwitchIds.VSwitchId[i],
+			}
+			result = append(result, association)
+		}
+	case "VBR":
+		association := cloudprovider.RouteTableAssociation{
+			AssociationId:        self.RouteTableId + ":" + self.RouterId,
+			AssociationType:      cloudprovider.RouteTableAssociaToRouter,
+			AssociatedResourceId: self.RouterId,
+		}
+		result = append(result, association)
+	}
+
+	return result
+}
+
+func (self *SRouteTable) CreateRoute(route cloudprovider.RouteSet) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (self *SRouteTable) UpdateRoute(route cloudprovider.RouteSet) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (self *SRouteTable) RemoveRoute(route cloudprovider.RouteSet) error {
+	return cloudprovider.ErrNotSupported
 }
 
 func (self *SVpc) RemoteGetRouteTableList(offset int, limit int) ([]*SRouteTable, int, error) {

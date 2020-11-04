@@ -129,6 +129,10 @@ func (self *SVPC) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
 	return rts, nil
 }
 
+func (self *SVPC) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudRouteTable, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
 func (self *SVPC) Delete() error {
 	return self.region.DeleteVpc(self.GetId())
 }
