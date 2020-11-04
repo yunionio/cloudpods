@@ -41,9 +41,10 @@ type CommonAlertCreateInput struct {
 	AlertType string `json:"alert_type"`
 
 	//scope Resource
-	Scope     string `json:"scope"`
-	DomainId  string `json:"domain_id"`
-	ProjectId string `json:"project_id"`
+	Scope       string `json:"scope"`
+	DomainId    string `json:"domain_id"`
+	ProjectId   string `json:"project_id"`
+	GetPointStr bool   `json:"get_point_str"`
 }
 
 type CommonMetricInputQuery struct {
@@ -88,6 +89,7 @@ type CommonAlertUpdateInput struct {
 	Recipients []string `json:"recipients"`
 	// systemalert policy may need update through operator
 	ForceUpdate bool `json:"force_update"`
+	GetPointStr bool `json:"get_point_str"`
 }
 
 type CommonAlertDetails struct {
@@ -117,4 +119,5 @@ type CommonAlertMetricDetails struct {
 	Filters                []MetricQueryTag `json:"filters"`
 	FieldDescription       MetricFieldDetail
 	FieldOpt               string `json:"field_opt"`
+	GetPointStr            bool   `json:"get_point_str"`
 }

@@ -21,23 +21,23 @@ func (s *mathReducer) GetType() string {
 	return s.Type
 }
 
-func (s *mathReducer) Reduce(series *tsdb.TimeSeries) *float64 {
+func (s *mathReducer) Reduce(series *tsdb.TimeSeries) (*float64, []string) {
 	if len(series.Points) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	value := float64(0)
 	allNull := true
-
+	valArr := make([]string, 0)
 	switch s.Type {
 	case "avg":
 		validPointsCount := 0
 		for _, point := range series.Points {
-			if point.IsValid() {
+			if point.IsValids() {
 				values := point.Values()
 				tem, err := s.mathValue(values)
 				if err != nil {
-					return nil
+					return nil, valArr
 				}
 				value += tem
 				validPointsCount++
@@ -49,11 +49,11 @@ func (s *mathReducer) Reduce(series *tsdb.TimeSeries) *float64 {
 		}
 	case "sum":
 		for _, point := range series.Points {
-			if point.IsValid() {
+			if point.IsValids() {
 				values := point.Values()
 				tem, err := s.mathValue(values)
 				if err != nil {
-					return nil
+					return nil, valArr
 				}
 				value += tem
 				allNull = false
@@ -62,12 +62,12 @@ func (s *mathReducer) Reduce(series *tsdb.TimeSeries) *float64 {
 	case "min":
 		value = math.MaxFloat64
 		for _, point := range series.Points {
-			if point.IsValid() {
+			if point.IsValids() {
 				allNull = false
 				values := point.Values()
 				tem, err := s.mathValue(values)
 				if err != nil {
-					return nil
+					return nil, valArr
 				}
 				if value > tem {
 					value = tem
@@ -77,12 +77,12 @@ func (s *mathReducer) Reduce(series *tsdb.TimeSeries) *float64 {
 	case "max":
 		value = -math.MaxFloat64
 		for _, point := range series.Points {
-			if point.IsValid() {
+			if point.IsValids() {
 				allNull = false
 				values := point.Values()
 				tem, err := s.mathValue(values)
 				if err != nil {
-					return nil
+					return nil, valArr
 				}
 				if value < tem {
 					value = tem
@@ -95,11 +95,11 @@ func (s *mathReducer) Reduce(series *tsdb.TimeSeries) *float64 {
 	case "last":
 		points := series.Points
 		for i := len(points) - 1; i >= 0; i-- {
-			if points[i].IsValid() {
+			if points[i].IsValids() {
 				values := points[i].Values()
 				tem, err := s.mathValue(values)
 				if err != nil {
-					return nil
+					return nil, valArr
 				}
 				value = tem
 				allNull = false
@@ -109,12 +109,12 @@ func (s *mathReducer) Reduce(series *tsdb.TimeSeries) *float64 {
 	case "median":
 		var values []float64
 		for _, point := range series.Points {
-			if point.IsValid() {
+			if point.IsValids() {
 				allNull = false
 				values := point.Values()
 				tem, err := s.mathValue(values)
 				if err != nil {
-					return nil
+					return nil, valArr
 				}
 				values = append(values, tem)
 			}
@@ -134,7 +134,7 @@ func (s *mathReducer) Reduce(series *tsdb.TimeSeries) *float64 {
 		allNull, value = calculateDiff(series, allNull, value, percentDiff)
 	case "count_non_null":
 		for _, v := range series.Points {
-			if v.IsValid() {
+			if v.IsValids() {
 				value++
 			}
 		}
@@ -145,10 +145,10 @@ func (s *mathReducer) Reduce(series *tsdb.TimeSeries) *float64 {
 	}
 
 	if allNull {
-		return nil
+		return nil, valArr
 	}
 
-	return &value
+	return &value, valArr
 }
 
 func (reducer *mathReducer) mathValue(values []float64) (float64, error) {

@@ -32,9 +32,9 @@ func NewSuggestRuleReducer(t string, duration time.Duration) Reducer {
 	}
 }
 
-func (s *suggestRuleReducer) Reduce(series *tsdb.TimeSeries) *float64 {
+func (s *suggestRuleReducer) Reduce(series *tsdb.TimeSeries) (*float64, []string) {
 	if int(s.duration.Seconds()) > len(series.Points) {
-		return nil
+		return nil, nil
 	}
 	return s.queryReducer.Reduce(series)
 }

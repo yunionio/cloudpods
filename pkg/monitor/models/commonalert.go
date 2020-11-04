@@ -17,6 +17,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
@@ -28,6 +29,7 @@ import (
 const (
 	CommonAlertMetadataAlertType = "alert_type"
 	CommonAlertMetadataFieldOpt  = "field_opt"
+	CommonAlertMetadataPointStr  = "point_str"
 )
 
 var (
@@ -187,6 +189,14 @@ func (alert *SCommonAlert) getFieldOpt() string {
 	return alert.GetMetadata(CommonAlertMetadataFieldOpt, nil)
 }
 
+func (alert *SCommonAlert) setPointStr(ctx context.Context, userCred mcclient.TokenCredential, fieldOpt string) error {
+	return alert.SetMetadata(ctx, CommonAlertMetadataPointStr, fieldOpt, userCred)
+}
+
+func (alert *SCommonAlert) getPointStr() string {
+	return alert.GetMetadata(CommonAlertMetadataPointStr, nil)
+}
+
 func (alert *SCommonAlert) CustomizeCreate(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider,
@@ -278,6 +288,9 @@ func (alert *SCommonAlert) PostCreate(ctx context.Context,
 	}
 	if fieldOpt != "" {
 		alert.setFieldOpt(ctx, userCred, fieldOpt)
+	}
+	if input.GetPointStr {
+		alert.setPointStr(ctx, userCred, strconv.FormatBool(input.GetPointStr))
 	}
 	_, err := alert.PerformSetScope(ctx, userCred, query, data)
 	if err != nil {
@@ -487,6 +500,11 @@ func (alert *SCommonAlert) GetCommonAlertMetricDetailsFromAlertCondition(index i
 	if fieldOpt != "" {
 		metricDetails.FieldOpt = strings.Split(fieldOpt, "+")[index]
 	}
+	poinStr := alert.getPointStr()
+	if len(poinStr) != 0 {
+		bl, _ := strconv.ParseBool(poinStr)
+		metricDetails.GetPointStr = bl
+	}
 	getCommonAlertMetricDetailsFromCondition(cond, metricDetails)
 	return metricDetails
 }
@@ -527,17 +545,8 @@ func getCommonAlertMetricDetailsFromCondition(cond *monitor.AlertCondition,
 			break
 		}
 	}
-	newQueryTags := make([]monitor.MetricQueryTag, 0)
-	for i, tagFilter := range q.Model.Tags {
-		if tagFilter.Key == "tenant_id" {
-			continue
-		}
-		if tagFilter.Key == "domain_id" {
-			continue
-		}
-		newQueryTags = append(newQueryTags, q.Model.Tags[i])
-	}
-	cond.Query.Model.Tags = newQueryTags
+
+	cond.Query.Model.Tags = filterDefaultTags(q.Model.Tags)
 	metricDetails.Measurement = measurement
 	metricDetails.Field = field
 	metricDetails.DB = db
@@ -546,6 +555,23 @@ func getCommonAlertMetricDetailsFromCondition(cond *monitor.AlertCondition,
 
 	//fill measurement\field desciption info
 	getMetricDescriptionDetails(metricDetails)
+}
+
+func filterDefaultTags(queryTag []monitor.MetricQueryTag) []monitor.MetricQueryTag {
+	newQueryTags := make([]monitor.MetricQueryTag, 0)
+	for i, tagFilter := range queryTag {
+		if tagFilter.Key == "tenant_id" {
+			continue
+		}
+		if tagFilter.Key == "domain_id" {
+			continue
+		}
+		if tagFilter.Key == hostconsts.TELEGRAF_TAG_KEY_RES_TYPE {
+			continue
+		}
+		newQueryTags = append(newQueryTags, queryTag[i])
+	}
+	return newQueryTags
 }
 
 func getMetricDescriptionDetails(metricDetails *monitor.CommonAlertMetricDetails) {
@@ -747,6 +773,9 @@ func (alert *SCommonAlert) PostUpdate(
 		if err != nil {
 			log.Errorln(errors.Wrap(err, "Alert PerformSetScope"))
 		}
+	}
+	if updateInput.GetPointStr {
+		alert.setPointStr(ctx, userCred, strconv.FormatBool(updateInput.GetPointStr))
 	}
 	CommonAlertManager.SetSubscriptionAlert(alert)
 }

@@ -300,8 +300,8 @@ func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricInputQ
 			})
 	}
 
+	metricMeasurement, _ := MetricMeasurementManager.GetCache().Get(query.Model.Measurement)
 	if query.Model.Database == "" {
-		metricMeasurement, _ := MetricMeasurementManager.GetCache().Get(query.Model.Measurement)
 		database := ""
 		if metricMeasurement == nil {
 			log.Warningf("Not found measurement %s from metrics measurement cache", query.Model.Measurement)
@@ -361,6 +361,14 @@ func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricInputQ
 				Condition: "and",
 			})
 		}
+	}
+	if metricMeasurement.ResType == hostconsts.TELEGRAF_TAG_ONECLOUD_RES_TYPE {
+		query.Model.Tags = append(query.Model.Tags, monitor.MetricQueryTag{
+			Key:       hostconsts.TELEGRAF_TAG_KEY_RES_TYPE,
+			Operator:  "=",
+			Value:     hostconsts.TELEGRAF_TAG_ONECLOUD_RES_TYPE,
+			Condition: "and",
+		})
 	}
 }
 
