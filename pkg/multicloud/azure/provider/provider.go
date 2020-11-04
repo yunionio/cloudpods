@@ -31,7 +31,7 @@ import (
 )
 
 type SAzureProviderFactory struct {
-	cloudprovider.SPublicCloudBaseProviderFactor
+	cloudprovider.SPublicCloudBaseProviderFactory
 }
 
 func (self *SAzureProviderFactory) GetId() string {

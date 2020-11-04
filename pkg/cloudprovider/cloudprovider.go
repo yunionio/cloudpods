@@ -698,34 +698,34 @@ func (factory *SPremiseBaseProviderFactory) NeedSyncSkuFromCloud() bool {
 	return false
 }
 
-type SPublicCloudBaseProviderFactor struct {
+type SPublicCloudBaseProviderFactory struct {
 	baseProviderFactory
 }
 
-func (factory *SPublicCloudBaseProviderFactor) IsPublicCloud() bool {
+func (factory *SPublicCloudBaseProviderFactory) IsPublicCloud() bool {
 	return true
 }
 
-func (factory *SPublicCloudBaseProviderFactor) IsSupportPrepaidResources() bool {
+func (factory *SPublicCloudBaseProviderFactory) IsSupportPrepaidResources() bool {
 	return true
 }
 
-func (factory *SPublicCloudBaseProviderFactor) NeedSyncSkuFromCloud() bool {
+func (factory *SPublicCloudBaseProviderFactory) NeedSyncSkuFromCloud() bool {
 	return false
 }
 
-type SPrivateCloudBaseProviderFactor struct {
+type SPrivateCloudBaseProviderFactory struct {
 	baseProviderFactory
 }
 
-func (factory *SPrivateCloudBaseProviderFactor) IsPublicCloud() bool {
+func (factory *SPrivateCloudBaseProviderFactory) IsPublicCloud() bool {
 	return false
 }
 
-func (factory *SPrivateCloudBaseProviderFactor) IsSupportPrepaidResources() bool {
+func (factory *SPrivateCloudBaseProviderFactory) IsSupportPrepaidResources() bool {
 	return false
 }
 
-func (factory *SPrivateCloudBaseProviderFactor) NeedSyncSkuFromCloud() bool {
+func (factory *SPrivateCloudBaseProviderFactory) NeedSyncSkuFromCloud() bool {
 	return true
 }

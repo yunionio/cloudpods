@@ -30,7 +30,7 @@ import (
 
 // tag:finished
 type SUcloudProviderFactory struct {
-	cloudprovider.SPublicCloudBaseProviderFactor
+	cloudprovider.SPublicCloudBaseProviderFactory
 }
 
 func (self *SUcloudProviderFactory) GetId() string {
