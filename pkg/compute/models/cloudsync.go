@@ -248,9 +248,9 @@ func syncRegionVPCs(ctx context.Context, userCred mcclient.TokenCredential, sync
 			if localRegion.GetDriver().IsSecurityGroupBelongVpc() || localRegion.GetDriver().IsSupportClassicSecurityGroup() || j == 0 { //有vpc属性的每次都同步,支持classic的vpc也同步，否则仅同步一次
 				syncVpcSecGroup(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
 			}
-			syncVpcRouteTables(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
 			syncVpcNatgateways(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
 			syncVpcPeerConnections(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
+			syncVpcRouteTables(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
 		}()
 	}
 }
@@ -267,6 +267,17 @@ func syncVpcPeerConnections(ctx context.Context, userCred mcclient.TokenCredenti
 
 	result := localVpc.SyncVpcPeeringConnections(ctx, userCred, peerConnections)
 	syncResults.Add(VpcPeeringConnectionManager, result)
+
+	accepterPeerings, err := remoteVpc.GetICloudAccepterVpcPeeringConnections()
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return
+		}
+		log.Errorf("GetICloudVpcPeeringConnections for vpc %s failed %v", localVpc.Name, err)
+		return
+	}
+	backSyncResult := localVpc.BackSycVpcPeeringConnectionsVpc(accepterPeerings)
+	syncResults.Add(VpcPeeringConnectionManager, backSyncResult)
 
 	log.Infof("SyncVpcPeeringConnections for vpc %s result: %s", localVpc.Name, result.Result())
 	if result.IsError() {
@@ -300,7 +311,7 @@ func syncVpcRouteTables(ctx context.Context, userCred mcclient.TokenCredential, 
 		log.Errorf(msg)
 		return
 	}
-	_, _, result := RouteTableManager.SyncRouteTables(ctx, userCred, localVpc, routeTables, provider)
+	localRouteTables, remoteRouteTables, result := RouteTableManager.SyncRouteTables(ctx, userCred, localVpc, routeTables, provider)
 
 	syncResults.Add(RouteTableManager, result)
 
@@ -309,6 +320,18 @@ func syncVpcRouteTables(ctx context.Context, userCred mcclient.TokenCredential, 
 	log.Infof(notes)
 	if result.IsError() {
 		return
+	}
+	for i := 0; i < len(localRouteTables); i++ {
+		func() {
+			lockman.LockObject(ctx, &localRouteTables[i])
+			defer lockman.ReleaseObject(ctx, &localRouteTables[i])
+
+			if localRouteTables[i].Deleted {
+				return
+			}
+			localRouteTables[i].SyncRouteTableRouteSets(ctx, userCred, remoteRouteTables[i], provider)
+			localRouteTables[i].SyncRouteTableAssociations(ctx, userCred, remoteRouteTables[i], provider)
+		}()
 	}
 }
 

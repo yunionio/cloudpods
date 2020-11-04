@@ -27,11 +27,21 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
+const (
+	ROUTE_TABLE_UPDATING     = "updating"
+	ROUTE_TABLE_UPDATEFAILED = "update_falied"
+	ROUTE_TABLE_AVAILABLE    = "available"
+	ROUTE_TABLE_UNKNOWN      = "unknown"
+)
+
 type RouteTableDetails struct {
 	apis.StatusInfrasResourceBaseDetails
 	VpcResourceInfo
 
 	SRouteTable
+
+	RouteSetCount    int
+	AccociationCount int
 }
 
 type SRoute struct {
@@ -105,6 +115,15 @@ type RouteTableUpdateInput struct {
 	apis.StatusInfrasResourceBaseUpdateInput
 
 	Routes *SRoutes `json:"routes"`
+}
+
+type RouteTableFilterListBase struct {
+	RouteTableId string `json:"RouteTableId"`
+}
+
+type RouteTableFilterList struct {
+	RouteTableFilterListBase
+	VpcFilterListInput
 }
 
 func init() {

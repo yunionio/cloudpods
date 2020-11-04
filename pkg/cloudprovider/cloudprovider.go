@@ -216,6 +216,8 @@ type ICloudProviderFactory interface {
 	IsSupportVpcPeeringVpcCidrOverlap() bool
 	ValidateCrossRegionVpcPeeringBandWidth(bandwidth int) error
 
+	IsSupportModifyRouteTable() bool
+
 	GetSupportedDnsZoneTypes() []TDnsZoneType
 	GetSupportedDnsTypes() map[TDnsZoneType][]TDnsType
 	GetSupportedDnsPolicyTypes() map[TDnsZoneType][]TDnsPolicyType
@@ -630,6 +632,10 @@ func (factory *baseProviderFactory) IsSupportVpcPeeringVpcCidrOverlap() bool {
 
 func (factory *baseProviderFactory) ValidateCrossRegionVpcPeeringBandWidth(bandwidth int) error {
 	return nil
+}
+
+func (factory *baseProviderFactory) IsSupportModifyRouteTable() bool {
+	return false
 }
 
 func (factory *baseProviderFactory) GetSupportedDnsZoneTypes() []TDnsZoneType {

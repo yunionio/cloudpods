@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -185,6 +186,28 @@ func (rt *SRouteTable) PerformPurge(ctx context.Context, userCred mcclient.Token
 }
 
 func (rt *SRouteTable) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	routeSets, err := rt.GetRouteTableRouteSets()
+	if err != nil {
+		return errors.Wrapf(err, "GetRouteTableRouteSets for %s(%s)", rt.Name, rt.Id)
+	}
+	for i := range routeSets {
+		err = routeSets[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "Delete routeSet %s(%s)", routeSets[i].Name, routeSets[i].Id)
+		}
+	}
+
+	associations, err := rt.GetRouteTableAssociations()
+	if err != nil {
+		return errors.Wrapf(err, "GetRouteTableAssociations for %s(%s)", rt.Name, rt.Id)
+	}
+	for i := range associations {
+		err = associations[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "Delete routetable associations %s(%s)", associations[i].Name, associations[i].Id)
+		}
+	}
+
 	return rt.SStatusInfrasResourceBase.Delete(ctx, userCred)
 }
 
@@ -300,7 +323,7 @@ func (manager *SRouteTableManager) FetchCustomizeColumns(
 	isList bool,
 ) []api.RouteTableDetails {
 	rows := make([]api.RouteTableDetails, len(objs))
-
+	routeTableIds := make([]string, len(objs))
 	virtRows := manager.SStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	vpcRows := manager.SVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
@@ -309,6 +332,41 @@ func (manager *SRouteTableManager) FetchCustomizeColumns(
 			StatusInfrasResourceBaseDetails: virtRows[i],
 			VpcResourceInfo:                 vpcRows[i],
 		}
+		routeTable := objs[i].(*SRouteTable)
+		routeTableIds[i] = routeTable.GetId()
+	}
+
+	routeSets := []SRouteTableRouteSet{}
+	q := RouteTableRouteSetManager.Query().In("route_table_id", routeTableIds)
+	err := db.FetchModelObjects(RouteTableRouteSetManager, q, &routeSets)
+	if err != nil {
+		return rows
+	}
+	routeSetMap := map[string][]string{}
+	for i := range routeSets {
+		if _, ok := routeSetMap[routeSets[i].RouteTableId]; !ok {
+			routeSetMap[routeSets[i].RouteTableId] = []string{}
+		}
+		routeSetMap[routeSets[i].RouteTableId] = append(routeSetMap[routeSets[i].RouteTableId], routeSets[i].Id)
+	}
+
+	associations := []SRouteTableAssociation{}
+	q = RouteTableAssociationManager.Query().In("route_table_id", routeTableIds)
+	err = db.FetchModelObjects(RouteTableAssociationManager, q, &associations)
+	if err != nil {
+		return rows
+	}
+	associationMap := map[string][]string{}
+	for i := range associations {
+		if _, ok := associationMap[associations[i].RouteTableId]; !ok {
+			associationMap[associations[i].RouteTableId] = []string{}
+		}
+		associationMap[associations[i].RouteTableId] = append(associationMap[associations[i].RouteTableId], associations[i].Id)
+	}
+
+	for i := range rows {
+		rows[i].RouteSetCount = len(routeSetMap[routeTableIds[i]])
+		rows[i].AccociationCount = len(associationMap[routeTableIds[i]])
 	}
 
 	return rows
@@ -346,7 +404,7 @@ func (man *SRouteTableManager) SyncRouteTables(ctx context.Context, userCred mcc
 	}
 
 	for i := 0; i < len(commondb); i += 1 {
-		err := commondb[i].SyncWithCloudRouteTable(ctx, userCred, vpc, commonext[i], provider.GetOwnerId())
+		err := commondb[i].SyncWithCloudRouteTable(ctx, userCred, vpc, commonext[i], provider)
 		if err != nil {
 			syncResult.UpdateError(err)
 			continue
@@ -389,7 +447,7 @@ func (man *SRouteTableManager) newRouteTableFromCloud(userCred mcclient.TokenCre
 		}
 	}
 	routeTable := &SRouteTable{
-		Type:   cloudRouteTable.GetType(),
+		Type:   string(cloudRouteTable.GetType()),
 		Routes: &routes,
 	}
 	routeTable.VpcId = vpc.Id
@@ -428,7 +486,11 @@ func (man *SRouteTableManager) insertFromCloud(ctx context.Context, userCred mcc
 	if err := man.TableSpec().Insert(ctx, routeTable); err != nil {
 		return nil, err
 	}
-	SyncCloudDomain(userCred, routeTable, provider.GetOwnerId())
+	if provider != nil {
+		SyncCloudDomain(userCred, routeTable, provider.GetOwnerId())
+		routeTable.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
+	}
+
 	db.OpsLog.LogEvent(routeTable, db.ACT_CREATE, routeTable.GetShortDesc(ctx), userCred)
 	return routeTable, nil
 }
@@ -445,7 +507,7 @@ func (self *SRouteTable) syncRemoveCloudRouteTable(ctx context.Context, userCred
 	return err
 }
 
-func (self *SRouteTable) SyncWithCloudRouteTable(ctx context.Context, userCred mcclient.TokenCredential, vpc *SVpc, cloudRouteTable cloudprovider.ICloudRouteTable, syncOwnerId mcclient.IIdentityProvider) error {
+func (self *SRouteTable) SyncWithCloudRouteTable(ctx context.Context, userCred mcclient.TokenCredential, vpc *SVpc, cloudRouteTable cloudprovider.ICloudRouteTable, provider *SCloudprovider) error {
 	man := self.GetModelManager().(*SRouteTableManager)
 	routeTable, err := man.newRouteTableFromCloud(userCred, vpc, cloudRouteTable)
 	if err != nil {
@@ -461,11 +523,155 @@ func (self *SRouteTable) SyncWithCloudRouteTable(ctx context.Context, userCred m
 	if err != nil {
 		return err
 	}
-
-	SyncCloudDomain(userCred, self, syncOwnerId)
+	if provider != nil {
+		SyncCloudDomain(userCred, self, provider.GetOwnerId())
+		self.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
+	}
 
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
+}
+
+func (self *SRouteTable) SyncRouteTableRouteSets(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudRouteTable, provider *SCloudprovider) compare.SyncResult {
+	lockman.LockRawObject(ctx, self.Keyword(), fmt.Sprintf("%s-records", self.Id))
+	defer lockman.ReleaseRawObject(ctx, self.Keyword(), fmt.Sprintf("%s-records", self.Id))
+
+	syncResult := compare.SyncResult{}
+
+	iRoutes, err := ext.GetIRoutes()
+	if err != nil {
+		syncResult.Error(errors.Wrapf(err, "GetIRoutes"))
+		return syncResult
+	}
+
+	dbRouteSets, err := self.GetRouteTableRouteSets()
+	if err != nil {
+		syncResult.Error(errors.Wrapf(err, "GetRouteTableRouteSets"))
+		return syncResult
+	}
+
+	removed := make([]SRouteTableRouteSet, 0)
+	commondb := make([]SRouteTableRouteSet, 0)
+	commonext := make([]cloudprovider.ICloudRoute, 0)
+	added := make([]cloudprovider.ICloudRoute, 0)
+	if err := compare.CompareSets(dbRouteSets, iRoutes, &removed, &commondb, &commonext, &added); err != nil {
+		syncResult.Error(err)
+		return syncResult
+	}
+
+	for i := range dbRouteSets {
+		if len(dbRouteSets[i].ExternalId) == 0 {
+			removed = append(removed, dbRouteSets[i])
+		}
+	}
+
+	for i := 0; i < len(removed); i++ {
+		err := removed[i].syncRemoveRouteSet(ctx, userCred)
+		if err != nil {
+			syncResult.DeleteError(err)
+		} else {
+			syncResult.Delete()
+		}
+	}
+
+	for i := 0; i < len(commondb); i++ {
+		err := commondb[i].syncWithCloudRouteSet(ctx, userCred, provider, commonext[i])
+		if err != nil {
+			syncResult.UpdateError(err)
+			continue
+		}
+		syncResult.Update()
+	}
+
+	for i := 0; i < len(added); i++ {
+		_, err := RouteTableRouteSetManager.newRouteSetFromCloud(ctx, userCred, self, provider, added[i])
+		if err != nil {
+			syncResult.AddError(err)
+			continue
+		}
+		syncResult.Add()
+	}
+
+	return syncResult
+}
+
+func (self *SRouteTable) GetRouteTableRouteSets() ([]SRouteTableRouteSet, error) {
+	routes := []SRouteTableRouteSet{}
+	q := RouteTableRouteSetManager.Query().Equals("route_table_id", self.Id)
+	err := db.FetchModelObjects(RouteTableRouteSetManager, q, &routes)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return routes, nil
+}
+
+func (self *SRouteTable) SyncRouteTableAssociations(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudRouteTable, provider *SCloudprovider) compare.SyncResult {
+	lockman.LockRawObject(ctx, self.Keyword(), fmt.Sprintf("%s-records", self.Id))
+	defer lockman.ReleaseRawObject(ctx, self.Keyword(), fmt.Sprintf("%s-records", self.Id))
+
+	syncResult := compare.SyncResult{}
+
+	extAssociations := ext.GetAssociations()
+
+	dbAssociation, err := self.GetRouteTableAssociations()
+	if err != nil {
+		syncResult.Error(errors.Wrapf(err, "GetRouteTableRouteSets"))
+		return syncResult
+	}
+
+	removed := make([]SRouteTableAssociation, 0)
+	commondb := make([]SRouteTableAssociation, 0)
+	commonext := make([]cloudprovider.RouteTableAssociation, 0)
+	added := make([]cloudprovider.RouteTableAssociation, 0)
+	if err := compare.CompareSets(dbAssociation, extAssociations, &removed, &commondb, &commonext, &added); err != nil {
+		syncResult.Error(err)
+		return syncResult
+	}
+
+	for i := range dbAssociation {
+		if len(dbAssociation[i].ExternalId) == 0 {
+			removed = append(removed, dbAssociation[i])
+		}
+	}
+
+	for i := 0; i < len(removed); i++ {
+		err := removed[i].syncRemoveAssociation(ctx, userCred)
+		if err != nil {
+			syncResult.DeleteError(err)
+		} else {
+			syncResult.Delete()
+		}
+	}
+
+	for i := 0; i < len(commondb); i++ {
+		err := commondb[i].syncWithCloudAssociation(ctx, userCred, provider, commonext[i])
+		if err != nil {
+			syncResult.UpdateError(err)
+			continue
+		}
+		syncResult.Update()
+	}
+
+	for i := 0; i < len(added); i++ {
+		_, err := RouteTableAssociationManager.newAssociationFromCloud(ctx, userCred, self, provider, added[i])
+		if err != nil {
+			syncResult.AddError(err)
+			continue
+		}
+		syncResult.Add()
+	}
+
+	return syncResult
+}
+
+func (self *SRouteTable) GetRouteTableAssociations() ([]SRouteTableAssociation, error) {
+	association := []SRouteTableAssociation{}
+	q := RouteTableAssociationManager.Query().Equals("route_table_id", self.Id)
+	err := db.FetchModelObjects(RouteTableAssociationManager, q, &association)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return association, nil
 }
 
 func (self *SRouteTable) getVpc() (*SVpc, error) {
@@ -489,4 +695,31 @@ func (self *SRouteTable) getCloudProviderInfo() SCloudProviderInfo {
 	region, _ := self.getRegion()
 	provider := self.GetCloudprovider()
 	return MakeCloudProviderInfo(region, nil, provider)
+}
+
+func (self *SRouteTable) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "syncstatus")
+}
+
+func (self *SRouteTable) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.VpcSyncstatusInput) (jsonutils.JSONObject, error) {
+	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "RouteTableSyncStatusTask", "")
+}
+
+func (self *SRouteTable) GetICloudRouteTable() (cloudprovider.ICloudRouteTable, error) {
+	vpc, err := self.getVpc()
+	if err != nil {
+		return nil, errors.Wrap(err, "self.getVpc()")
+	}
+	ivpc, err := vpc.GetIVpc()
+	if err != nil {
+		return nil, errors.Wrap(err, "self.GetIVpc()")
+	}
+	if len(self.ExternalId) == 0 {
+		return nil, errors.Wrap(errors.ErrNotFound, "ExternalId not found")
+	}
+	iRouteTable, err := ivpc.GetIRouteTableById(self.ExternalId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ivpc.GetIRouteTableById(%s)", self.ExternalId)
+	}
+	return iRouteTable, nil
 }

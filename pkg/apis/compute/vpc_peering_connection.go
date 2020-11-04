@@ -43,7 +43,8 @@ type VpcPeeringConnectionCreateInput struct {
 
 type VpcPeeringConnectionListInput struct {
 	apis.EnabledStatusInfrasResourceBaseListInput
-	VpcId     string
+	apis.ExternalizedResourceBaseListInput
+	VpcFilterListInput
 	PeerVpcId string
 }
 

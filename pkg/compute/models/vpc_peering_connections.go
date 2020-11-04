@@ -36,6 +36,7 @@ import (
 type SVpcPeeringConnectionManager struct {
 	db.SEnabledStatusInfrasResourceBaseManager
 	db.SExternalizedResourceBaseManager
+	SVpcResourceBaseManager
 }
 
 var VpcPeeringConnectionManager *SVpcPeeringConnectionManager
@@ -57,9 +58,11 @@ type SVpcPeeringConnection struct {
 	db.SExternalizedResourceBase
 
 	SVpcResourceBase
-	PeerVpcId     string `width:"36" charset:"ascii" nullable:"true" list:"domain" create:"required" json:"peer_vpc_id"`
-	PeerAccountId string `width:"36" charset:"ascii" nullable:"true" list:"domain"`
-	Bandwidth     int    `nullable:"false" default:"0" list:"user" create:"optional"`
+	ExtPeerVpcId     string `width:"36" charset:"ascii" nullable:"true" list:"domain"`
+	ExtPeerAccountId string `width:"36" charset:"ascii" nullable:"true" list:"domain"`
+	PeerVpcId        string `width:"36" charset:"ascii" nullable:"true" list:"domain" create:"required" json:"peer_vpc_id"`
+	PeerAccountId    string `width:"36" charset:"ascii" nullable:"true" list:"domain"`
+	Bandwidth        int    `nullable:"false" default:"0" list:"user" create:"optional"`
 }
 
 func (manager *SVpcPeeringConnectionManager) GetContextManagers() [][]db.IModelManager {
@@ -81,16 +84,16 @@ func (manager *SVpcPeeringConnectionManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.ListItemFilter")
 	}
 
-	if len(query.VpcId) > 0 {
-		vpc, err := VpcManager.FetchByIdOrName(userCred, query.VpcId)
-		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2("vpc_id", query.VpcId)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-		q = q.Equals("vpc_id", vpc.GetId())
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
 	}
+
+	q, err = manager.SVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VpcFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
+	}
+
 	if len(query.PeerVpcId) > 0 {
 		peerVpc, err := VpcManager.FetchByIdOrName(userCred, query.PeerVpcId)
 		if err != nil {
@@ -221,6 +224,21 @@ func (self *SVpcPeeringConnection) PostCreate(ctx context.Context, userCred mccl
 	task.ScheduleRun(nil)
 }
 
+func (manager *SVpcPeeringConnectionManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SInfrasResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SVpcResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
+}
+
 func (self *SVpcPeeringConnection) GetExtraDetails(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -304,10 +322,18 @@ func (manager *SVpcPeeringConnectionManager) OrderByExtraFields(
 	userCred mcclient.TokenCredential,
 	query api.VpcPeeringConnectionListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, err := manager.SEnabledStatusInfrasResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.EnabledStatusInfrasResourceBaseListInput)
+	var err error
+
+	q, err = manager.SStatusInfrasResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusInfrasResourceBaseListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.OrderByExtraFields")
+		return nil, errors.Wrap(err, "SStatusInfrasResourceBaseManager.OrderByExtraFields")
 	}
+
+	q, err = manager.SVpcResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VpcFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVpcResourceBaseManager.OrderByExtraFields")
+	}
+
 	return q, nil
 }
 
@@ -340,7 +366,8 @@ func (self *SVpcPeeringConnection) SyncWithCloudPeerConnection(ctx context.Conte
 	_, err := db.Update(self, func() error {
 		self.Status = ext.GetStatus()
 		self.ExternalId = ext.GetGlobalId()
-		self.PeerAccountId = ext.GetPeerAccountId()
+		self.ExtPeerVpcId = ext.GetPeerVpcId()
+		self.ExtPeerAccountId = ext.GetPeerAccountId()
 		return nil
 	})
 	if err != nil {

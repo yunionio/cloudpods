@@ -12,9 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
+package options
 
-const (
-	ROUTE_TABLE_TYPE_VPC = "VPC" // VPC路由器
-	ROUTE_TABLE_TYPE_VBR = "VBR" // 边界路由器
-)
+import "yunion.io/x/jsonutils"
+
+type RouteTableAssociationListOptions struct {
+	BaseListOptions
+	RouteTableId string
+	VpcId        string
+}
+
+func (opts *RouteTableAssociationListOptions) Params() (jsonutils.JSONObject, error) {
+	return ListStructToParams(opts)
+}
+
+type RouteTableAssociationIdOptions struct {
+	ID string `json:"route table routeset ID"`
+}
+
+func (opts *RouteTableAssociationIdOptions) GetId() string {
+	return opts.ID
+}
+
+func (opts *RouteTableAssociationIdOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}

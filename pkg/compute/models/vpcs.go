@@ -301,6 +301,18 @@ func (self *SVpc) GetNetworks() ([]SNetwork, error) {
 	return nets, nil
 }
 
+func (self *SVpc) GetNetworkByExtId(extId string) (*SNetwork, error) {
+	network, err := db.FetchByExternalIdAndManagerId(NetworkManager, extId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		wireQ := self.getWireQuery().SubQuery()
+		q = q.In("wire_id", wireQ.Query(wireQ.Field("id")).SubQuery())
+		return q
+	})
+	if err != nil {
+		return nil, err
+	}
+	return network.(*SNetwork), nil
+}
+
 func (self *SVpc) GetNetworkCount() (int, error) {
 	q := self.getNetworkQuery()
 	return q.CountWithError()
@@ -1432,6 +1444,51 @@ func (self *SVpc) GetVpcPeeringConnections() ([]SVpcPeeringConnection, error) {
 	return peers, nil
 }
 
+func (self *SVpc) GetVpcPeeringConnectionByExtId(extId string) (*SVpcPeeringConnection, error) {
+	peer, err := db.FetchByExternalIdAndManagerId(VpcPeeringConnectionManager, extId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.Equals("vpc_id", self.Id)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return peer.(*SVpcPeeringConnection), nil
+}
+
+func (self *SVpc) GetAccepterVpcPeeringConnectionByExtId(extId string) (*SVpcPeeringConnection, error) {
+	peer, err := db.FetchByExternalIdAndManagerId(VpcPeeringConnectionManager, extId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.Equals("peer_vpc_id", self.Id)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return peer.(*SVpcPeeringConnection), nil
+}
+
+func (self *SVpc) BackSycVpcPeeringConnectionsVpc(exts []cloudprovider.ICloudVpcPeeringConnection) compare.SyncResult {
+	result := compare.SyncResult{}
+	for i := range exts {
+		Peering, err := self.GetAccepterVpcPeeringConnectionByExtId(exts[i].GetId())
+		if err != nil {
+			if errors.Cause(err) != errors.ErrNotFound {
+				result.Error(err)
+			}
+			break
+		}
+		if len(Peering.PeerVpcId) == 0 {
+			_, err := db.Update(Peering, func() error {
+				Peering.PeerVpcId = self.GetId()
+				return nil
+			})
+			if err != nil {
+				result.Error(err)
+				break
+			}
+		}
+	}
+	return result
+
+}
+
 func (self *SVpc) SyncVpcPeeringConnections(ctx context.Context, userCred mcclient.TokenCredential, exts []cloudprovider.ICloudVpcPeeringConnection) compare.SyncResult {
 	result := compare.SyncResult{}
 
@@ -1495,16 +1552,16 @@ func (self *SVpc) newFromCloudPeerConnection(ctx context.Context, userCred mccli
 	peer.Status = ext.GetStatus()
 	peer.VpcId = self.Id
 	peer.Enabled = tristate.True
-	peer.PeerVpcId = ext.GetPeerVpcId()
+	peer.ExtPeerVpcId = ext.GetPeerVpcId()
 	manager := self.GetCloudprovider()
-	peerVpc, _ := db.FetchByExternalIdAndManagerId(VpcManager, peer.PeerVpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+	peerVpc, _ := db.FetchByExternalIdAndManagerId(VpcManager, peer.ExtPeerVpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 		managerQ := CloudproviderManager.Query("id").Equals("provider", manager.Provider)
 		return q.In("manager_id", managerQ.SubQuery())
 	})
 	if peerVpc != nil {
 		peer.PeerVpcId = peerVpc.GetId()
 	}
-	peer.PeerAccountId = ext.GetPeerAccountId()
+	peer.ExtPeerAccountId = ext.GetPeerAccountId()
 	err := VpcPeeringConnectionManager.TableSpec().Insert(ctx, peer)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Insert")

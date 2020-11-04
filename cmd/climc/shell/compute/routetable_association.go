@@ -21,14 +21,7 @@ import (
 )
 
 func init() {
-	cmd := shell.NewResourceCmd(&modules.RouteTables).WithKeyword("routetable")
-	cmd.List(&options.RouteTableListOptions{})
-	cmd.Show(&options.RouteTableIdOptions{})
-	cmd.Create(&options.RouteTableCreateOptions{})
-	cmd.Update(&options.RouteTableUpdateOptions{})
-	cmd.Delete(&options.RouteTableIdOptions{})
-	cmd.Perform("syncstatus", &options.RouteTableIdOptions{})
-	cmd.Perform("add-routes", &options.RouteTableAddRoutesOptions{})
-	cmd.Perform("del-routes", &options.RouteTableDelRoutesOptions{})
-	cmd.Perform("purge", &options.RouteTableIdOptions{})
+	cmd := shell.NewResourceCmd(&modules.RouteTableRouteAssociations).WithKeyword("routetable-association")
+	cmd.List(&options.RouteTableAssociationListOptions{})
+	cmd.Show(&options.RouteTableAssociationIdOptions{})
 }

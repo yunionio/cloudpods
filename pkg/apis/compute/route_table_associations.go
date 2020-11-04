@@ -14,7 +14,10 @@
 
 package compute
 
-const (
-	ROUTE_TABLE_TYPE_VPC = "VPC" // VPC路由器
-	ROUTE_TABLE_TYPE_VBR = "VBR" // 边界路由器
-)
+import "yunion.io/x/onecloud/pkg/apis"
+
+type RouteTableAssociationListInput struct {
+	apis.StatusStandaloneResourceListInput
+	apis.ExternalizedResourceBaseListInput
+	RouteTableFilterList
+}

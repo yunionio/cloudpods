@@ -76,6 +76,10 @@ func (vpc *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
+func (self *SVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudRouteTable, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
 func (vpc *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
 	firewalls, err := vpc.region.GetFirewalls(vpc.globalnetwork.SelfLink, 0, "")
 	if err != nil {
