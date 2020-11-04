@@ -30,6 +30,9 @@ const (
 	DBINSTANCE_DELETING          = "deleting"      //删除中
 	DBINSTANCE_DELETE_FAILED     = "delete_failed" //删除失败
 	DBINSTANCE_MAINTENANCE       = "maintenance"   //维护中
+	DBINSTANCE_ISOLATING         = "isolating"     //隔离中
+	DBINSTANCE_ISOLATE           = "isolate"       //已隔离
+	DBINSTANCE_UPGRADING         = "upgrading"     //升级中
 	DBINSTANCE_UNKNOWN           = "unknown"
 
 	DBINSTANCE_CHANGE_CONFIG        = "change_config"        //调整配置
