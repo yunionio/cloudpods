@@ -436,8 +436,8 @@ func (manager *SMetricMeasurementManager) reloadCache() error {
 	if err := db.FetchModelObjects(manager, q, &objs); err != nil {
 		return errors.Wrap(err, "Fetch all measurements")
 	}
-	for _, obj := range objs {
-		manager.measurementsCache.set(obj.Name, &obj)
+	for i, obj := range objs {
+		manager.measurementsCache.set(obj.Name, &objs[i])
 	}
 	return nil
 }
