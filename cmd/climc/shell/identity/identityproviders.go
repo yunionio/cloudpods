@@ -265,8 +265,11 @@ func init() {
 	type IdentityProviderCreateCASOptions struct {
 		NAME string `help:"name of identity provider" json:"-"`
 
-		AutoCreateProject   bool `help:"automatically create a default project when importing domain" json:"-"`
+		AutoCreateProject   bool `help:"automatically create a project if the default_project not exists" json:"-"`
 		NoAutoCreateProject bool `help:"do not create default project when importing domain" json:"-"`
+
+		AutoCreateUser   bool `help:"automatically create a user" json:"-"`
+		NoAutoCreateUser bool `help:"do not automatically create a user" json:"-"`
 
 		TargetDomain string `help:"target domain without creating new domain" json:"-"`
 
@@ -283,6 +286,11 @@ func init() {
 			params.Add(jsonutils.JSONTrue, "auto_create_project")
 		} else if args.NoAutoCreateProject {
 			params.Add(jsonutils.JSONFalse, "auto_create_project")
+		}
+		if args.AutoCreateUser {
+			params.Add(jsonutils.JSONTrue, "auto_create_user")
+		} else if args.NoAutoCreateUser {
+			params.Add(jsonutils.JSONFalse, "auto_create_user")
 		}
 
 		params.Add(jsonutils.NewString("cas"), "driver")
@@ -700,6 +708,20 @@ func init() {
 	}
 	R(&IdpGetRedirectUriOptions{}, "idp-sso-url", "Get sso url of a SSO idp", func(s *mcclient.ClientSession, args *IdpGetRedirectUriOptions) error {
 		result, err := modules.IdentityProviders.GetSpecific(s, args.ID, "sso-redirect-uri", jsonutils.Marshal(args))
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type IdpSetDefaultSsoOptions struct {
+		ID string `help:"id or name of idp to set default Sso" json:"-"`
+
+		api.PerformDefaultSsoInput
+	}
+	R(&IdpSetDefaultSsoOptions{}, "idp-default-sso", "Enable/disable default SSO", func(s *mcclient.ClientSession, args *IdpSetDefaultSsoOptions) error {
+		result, err := modules.IdentityProviders.PerformAction(s, args.ID, "default-sso", jsonutils.Marshal(args))
 		if err != nil {
 			return err
 		}

@@ -104,6 +104,8 @@ type SIdentityProvider struct {
 	IconUri string `width:"256" charset:"utf8" nullable:"true" list:"user" create:"domain_optional" update:"domain"`
 	// 是否是SSO登录方式
 	IsSso tristate.TriState `nullable:"true" list:"domain"`
+	// 是否是缺省SSO登录方式
+	IsDefault tristate.TriState `nullable:"true" list:"domain"`
 }
 
 func (manager *SIdentityProviderManager) initializeAutoCreateUser() error {
@@ -498,7 +500,7 @@ func (ident *SIdentityProvider) PostCreate(ctx context.Context, userCred mcclien
 		return
 	}
 
-	if len(ident.TargetDomainId) == 0 && ident.AutoCreateUser.IsTrue() && ident.IsSso.IsTrue() {
+	if len(ident.TargetDomainId) == 0 && ident.AutoCreateUser.IsTrue() && ident.IsSso.IsTrue() && !ident.isAutoCreateDomain() {
 		// SSO driver need to create the target domain immediately
 		domain, err := ident.SyncOrCreateDomain(ctx, api.DefaultRemoteDomainId, ident.Name, fmt.Sprintf("%s provider %s", ident.Driver, ident.Name), false)
 		if err != nil {
@@ -793,7 +795,7 @@ func (self *SIdentityProvider) ValidateDeleteCondition(ctx context.Context) erro
 	if self.Enabled.IsTrue() {
 		return httperrors.NewInvalidStatusError("cannot delete enabled idp")
 	}
-	if self.Driver == api.IdentityDriverLDAP || self.AutoCreateUser.IsTrue() {
+	if self.Driver == api.IdentityDriverLDAP || (self.IsSso.IsTrue() && self.isAutoCreateDomain()) || self.AutoCreateUser.IsTrue() {
 		prjCnt, err := self.GetProjectCount()
 		if err != nil {
 			return httperrors.NewGeneralError(err)
@@ -980,6 +982,7 @@ func (self *SIdentityProvider) GetSingleDomain(ctx context.Context, extId string
 }
 
 func (self *SIdentityProvider) SyncOrCreateDomain(ctx context.Context, extId string, extName string, extDesc string, createDefaultProject bool) (*SDomain, error) {
+	log.Debugf("SyncOrCreateDomain extId: %s extName: %s", extId, extName)
 	domainId, err := IdmappingManager.RegisterIdMap(ctx, self.Id, extId, api.IdMappingEntityDomain)
 	if err != nil {
 		return nil, errors.Wrap(err, "IdmappingManager.RegisterIdMap")
@@ -989,6 +992,7 @@ func (self *SIdentityProvider) SyncOrCreateDomain(ctx context.Context, extId str
 		return nil, errors.Wrap(err, "DomainManager.FetchDomainById")
 	}
 	if err == nil {
+		// find the domain
 		if domain.Name != extName {
 			// sync domain name
 			newName, err := db.GenerateName2(DomainManager, nil, extName, domain, 1)
@@ -1007,6 +1011,7 @@ func (self *SIdentityProvider) SyncOrCreateDomain(ctx context.Context, extId str
 		return domain, nil
 	}
 
+	// otherwise, create the domain
 	lockman.LockClass(ctx, DomainManager, "")
 	defer lockman.ReleaseClass(ctx, DomainManager, "")
 
@@ -1358,14 +1363,38 @@ func (idp *SIdentityProvider) GetDetailsSsoRedirectUri(ctx context.Context, user
 	return output, nil
 }
 
-func (idp *SIdentityProvider) SyncOrCreateDomainAndUser(ctx context.Context, extUsrId, extUsrName string) (*SDomain, *SUser, error) {
+func (idp *SIdentityProvider) SyncOrCreateDomainAndUser(ctx context.Context, extDomainId, extDomainName string, extUsrId, extUsrName string) (*SDomain, *SUser, error) {
 	var (
 		domain *SDomain
 		usr    *SUser
 		err    error
 	)
+	if len(extUsrId) == 0 && len(extUsrName) == 0 {
+		return nil, nil, errors.Wrap(httperrors.ErrUnauthenticated, "empty userId or userName")
+	}
+	if len(extUsrId) == 0 {
+		extUsrId = extUsrName
+	} else if len(extUsrName) == 0 {
+		extUsrName = extUsrId
+	}
+
+	var domainDesc string
+	if len(extDomainId) == 0 && len(extDomainName) == 0 {
+		extDomainId = api.DefaultRemoteDomainId
+		extDomainName = idp.Name
+		domainDesc = fmt.Sprintf("%s provider %s", idp.Driver, idp.Name)
+	} else if len(extDomainId) == 0 {
+		extDomainId = extDomainName
+		domainDesc = fmt.Sprintf("%s provider %s autocreated for %s", idp.Driver, idp.Name, extDomainName)
+	} else if len(extDomainName) == 0 {
+		extDomainName = extDomainId
+		domainDesc = fmt.Sprintf("%s provider %s autocreated for %s", idp.Driver, idp.Name, extDomainId)
+	} else {
+		domainDesc = fmt.Sprintf("%s provider %s autocreated for %s(%s)", idp.Driver, idp.Name, extDomainName, extDomainId)
+	}
+
 	if idp.AutoCreateUser.IsTrue() {
-		domain, err = idp.GetSingleDomain(ctx, api.DefaultRemoteDomainId, idp.Name, fmt.Sprintf("%s provider %s", idp.Driver, idp.Name), false)
+		domain, err = idp.GetSingleDomain(ctx, extDomainId, extDomainName, domainDesc, false)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "idp.GetSingleDomain")
 		}
@@ -1480,4 +1509,79 @@ func (idp *SIdentityProvider) PerformEnable(
 		}
 	}
 	return idp.SEnabledStatusStandaloneResourceBase.PerformEnable(ctx, userCred, query, input)
+}
+
+func (idp *SIdentityProvider) isAutoCreateDomain() bool {
+	configs, err := GetConfigs(idp, false, nil, nil)
+	if err != nil {
+		log.Errorf("GetConfigs fail %s", err)
+		return false
+	}
+	if vjson, ok := configs[idp.Driver]["domain_id_attribute"]; ok {
+		v, _ := vjson.GetString()
+		if len(v) > 0 {
+			return true
+		}
+	}
+	if vjson, ok := configs[idp.Driver]["domain_id_attribute"]; ok {
+		v, _ := vjson.GetString()
+		if len(v) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func (idp *SIdentityProvider) PerformDefaultSso(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.PerformDefaultSsoInput,
+) (jsonutils.JSONObject, error) {
+	if !idp.IsSso.IsTrue() {
+		return nil, errors.Wrap(httperrors.ErrNotSupported, "idp is not a sso idp")
+	}
+
+	if input.Enable != nil {
+		if *input.Enable {
+			// enable
+			// first disable any other idp
+			q := IdentityProviderManager.Query().IsTrue("is_sso").IsTrue("is_default").NotEquals("id", idp.Id)
+			idps := make([]SIdentityProvider, 0)
+			err := db.FetchModelObjects(IdentityProviderManager, q, &idps)
+			if err != nil && errors.Cause(err) != sql.ErrNoRows {
+				return nil, errors.Wrap(err, "FetchModelObjects")
+			}
+			for i := range idps {
+				err := idps[i].setIsDefault(tristate.False)
+				if err != nil {
+					return nil, errors.Wrap(err, "disable other idp fail")
+				}
+			}
+			if !idp.IsDefault.IsTrue() {
+				err := idp.setIsDefault(tristate.True)
+				if err != nil {
+					return nil, errors.Wrap(err, "update is_default fail")
+				}
+			}
+		} else {
+			// disable
+			if idp.IsDefault.IsTrue() {
+				err := idp.setIsDefault(tristate.False)
+				if err != nil {
+					return nil, errors.Wrap(err, "update is_default fail")
+				}
+			}
+		}
+	}
+
+	return nil, nil
+}
+
+func (idp *SIdentityProvider) setIsDefault(val tristate.TriState) error {
+	_, err := db.Update(idp, func() error {
+		idp.IsDefault = val
+		return nil
+	})
+	return errors.Wrap(err, "update")
 }
