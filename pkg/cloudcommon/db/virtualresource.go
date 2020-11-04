@@ -82,11 +82,10 @@ func (manager *SVirtualResourceBaseManager) GetIVirtualModelManager() IVirtualMo
 }
 */
 
-func (manager *SVirtualResourceBaseManager) FilterByName(q *sqlchemy.SQuery, name string) *sqlchemy.SQuery {
+/*func (manager *SVirtualResourceBaseManager) FilterByName(q *sqlchemy.SQuery, name string) *sqlchemy.SQuery {
 	q = manager.SStatusStandaloneResourceBaseManager.FilterByName(q, name)
-	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("pending_deleted")), sqlchemy.IsFalse(q.Field("pending_deleted"))))
 	return q
-}
+}*/
 
 func (manager *SVirtualResourceBaseManager) FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	q = manager.SStatusStandaloneResourceBaseManager.FilterByHiddenSystemAttributes(q, userCred, query, scope)

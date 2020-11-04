@@ -81,3 +81,20 @@ func OnCommonOptionsChange(oOpts, nOpts interface{}) bool {
 
 	return changed
 }
+
+func OnDBOptionsChange(oOpts, nOpts interface{}) bool {
+	oldOpts := oOpts.(*DBOptions)
+	newOpts := nOpts.(*DBOptions)
+
+	changed := false
+
+	if oldOpts.HistoricalUniqueName != newOpts.HistoricalUniqueName {
+		if newOpts.HistoricalUniqueName {
+			consts.EnableHistoricalUniqueName()
+		} else {
+			consts.DisableHistoricalUniqueName()
+		}
+	}
+
+	return changed
+}
