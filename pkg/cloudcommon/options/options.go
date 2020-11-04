@@ -127,6 +127,8 @@ type DBOptions struct {
 
 	QueryOffsetOptimization bool `help:"apply query offset optimization"`
 
+	HistoricalUniqueName bool `help:"use historically unique name" default:"false"`
+
 	LockmanMethod string `help:"method for lock synchronization" choices:"inmemory|etcd" default:"inmemory"`
 
 	EtcdOptions

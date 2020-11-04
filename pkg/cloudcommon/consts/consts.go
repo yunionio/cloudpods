@@ -35,6 +35,8 @@ var (
 	maxPagingLimit     int64 = 2048
 
 	domainizedNamespace = true
+
+	historicalUniqueName = false
 )
 
 func SetRegion(region string) {
@@ -84,4 +86,16 @@ func SetDomainizedNamespace(domainNS bool) {
 
 func IsDomainizedNamespace() bool {
 	return nonDefaultDomainProjects && domainizedNamespace
+}
+
+func EnableHistoricalUniqueName() {
+	historicalUniqueName = true
+}
+
+func DisableHistoricalUniqueName() {
+	historicalUniqueName = false
+}
+
+func IsHistoricalUniqueName() bool {
+	return historicalUniqueName
 }
