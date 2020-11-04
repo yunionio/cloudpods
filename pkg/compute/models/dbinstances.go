@@ -448,7 +448,7 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 
 func (self *SDBInstance) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
-	pendingUsage := SRegionQuota{Loadbalancer: 1}
+	pendingUsage := SRegionQuota{Rds: 1}
 	pendingUsage.SetKeys(self.GetQuotaKeys())
 	err := quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, true)
 	if err != nil {

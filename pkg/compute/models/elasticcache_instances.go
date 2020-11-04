@@ -711,12 +711,15 @@ func (manager *SElasticcacheManager) ValidateCreateData(ctx context.Context, use
 
 func (manager *SElasticcacheManager) validateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	var region *SCloudregion
+	var provider *SCloudprovider
 	if id, _ := data.GetString("network"); len(id) > 0 {
 		network, err := db.FetchByIdOrName(NetworkManager, userCred, strings.Split(id, ",")[0])
 		if err != nil {
 			return nil, fmt.Errorf("getting network failed")
 		}
 		region = network.(*SNetwork).GetRegion()
+		vpc := network.(*SNetwork).GetVpc()
+		provider = vpc.GetCloudprovider()
 	}
 
 	if region == nil {
@@ -751,11 +754,30 @@ func (manager *SElasticcacheManager) validateCreateData(ctx context.Context, use
 	}
 	data.Update(jsonutils.Marshal(input))
 
-	return region.GetDriver().ValidateCreateElasticcacheData(ctx, userCred, nil, data)
+	ret, err := region.GetDriver().ValidateCreateElasticcacheData(ctx, userCred, nil, data)
+	if err != nil {
+		return nil, errors.Wrap(err, "region.GetDriver().ValidateCreateElasticcacheData")
+	}
+
+	cachePendingUsage := &SRegionQuota{Cache: 1}
+	quotaKeys := fetchRegionalQuotaKeys(rbacutils.ScopeProject, ownerId, region, provider)
+	cachePendingUsage.SetKeys(quotaKeys)
+	if err = quotas.CheckSetPendingQuota(ctx, userCred, cachePendingUsage); err != nil {
+		return nil, errors.Wrap(err, "quotas.CheckSetPendingQuota")
+	}
+
+	return ret, nil
 }
 
 func (self *SElasticcache) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+
+	pendingUsage := SRegionQuota{Cache: 1}
+	pendingUsage.SetKeys(self.GetQuotaKeys())
+	err := quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, true)
+	if err != nil {
+		log.Errorf("CancelPendingUsage error %s", err)
+	}
 
 	password, _ := data.GetString("password")
 	if reset, _ := data.Bool("reset_password"); reset && len(password) == 0 {
