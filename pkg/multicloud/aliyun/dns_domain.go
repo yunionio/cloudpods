@@ -249,6 +249,9 @@ func (self *SDomain) GetId() string {
 }
 
 func (self *SDomain) GetName() string {
+	if len(self.PunyCode) > 0 {
+		return self.PunyCode
+	}
 	return self.DomainName
 }
 
