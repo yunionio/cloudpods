@@ -173,6 +173,9 @@ func (self *SDomian) GetId() string {
 }
 
 func (self *SDomian) GetName() string {
+	if len(self.Punycode) > 0 {
+		return self.Punycode
+	}
 	return self.Name
 }
 
