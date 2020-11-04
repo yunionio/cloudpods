@@ -95,7 +95,7 @@ func (self *SCachedLoadbalancerCertificate) ValidateDeleteCondition(ctx context.
 	men := []db.IModelManager{
 		LoadbalancerListenerManager,
 	}
-	lbcertId := self.Id
+	lbcertId := self.CertificateId
 	for _, man := range men {
 		t := man.TableSpec().Instance()
 		pdF := t.Field("pending_deleted")
