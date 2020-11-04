@@ -46,6 +46,12 @@ func TestParseSchedtagConfig(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name:    "with resource type",
+			args:    args{"ssd:require:zones"},
+			want:    &compute.SchedtagConfig{Id: "ssd", Strategy: "require", ResourceType: "zones"},
+			wantErr: false,
+		},
+		{
 			name:    "invalid strategy",
 			args:    args{"ssd:require2"},
 			want:    nil,
