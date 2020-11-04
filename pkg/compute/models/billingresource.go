@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/billing"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
@@ -58,6 +59,14 @@ func (self *SBillingResourceBase) getBillingBaseInfo() SBillingBaseInfo {
 		info.BillingCycle = self.BillingCycle
 	}
 	return info
+}
+
+func (self *SBillingResourceBase) IsNotDeletablePrePaid() bool {
+	if options.Options.PrepaidDeleteExpireCheck {
+		return self.IsValidPrePaid()
+	}
+
+	return false
 }
 
 func (self *SBillingResourceBase) IsValidPrePaid() bool {
