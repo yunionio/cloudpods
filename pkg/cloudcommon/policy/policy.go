@@ -91,85 +91,8 @@ type sPolicyData struct {
 }
 
 func (data sPolicyData) getPolicy() (rbacutils.TPolicy, error) {
-	return rbacutils.DecodePolicy(data.Policy)
+	return rbacutils.DecodePolicyData(data.Policy)
 }
-
-/*
-func parseJsonPolicy(obj jsonutils.JSONObject, enabled bool) (rbacutils.SPolicyInfo, error) {
-	sp := rbacutils.SPolicyInfo{}
-	pData := sPolicyData{}
-	err := obj.Unmarshal(&pData)
-	if err != nil {
-		return sp, errors.Wrap(err, "Unmarshal")
-	}
-	if enabled && !pData.Enabled {
-		return sp, errors.Wrap(httperrors.ErrInvalidFormat, "not enabled")
-	}
-	if len(pData.Name) == 0 {
-		return sp, errors.Wrap(httperrors.ErrInvalidFormat, "missing name")
-	}
-
-	if pData.Policy == nil {
-		return sp, errors.Wrap(httperrors.ErrInvalidFormat, "missing policy")
-	}
-
-	policy := rbacutils.SRbacPolicyCore{}
-	err = policy.Decode(pData.Policy)
-	if err != nil {
-		log.Errorf("policy decode error %s", err)
-		return sp, errors.Wrap(err, "policy.Decode")
-	}
-
-	sp.SharedDomainIds = make([]string, len(pData.SharedDomains))
-	for i := range pData.SharedDomains {
-		sp.SharedDomainIds[i] = pData.SharedDomains[i].Id
-	}
-
-	sp.Id = pData.Id
-	sp.Name = pData.Name
-	sp.Policy = &policy
-	return sp, nil
-}*/
-
-/*
-func remotePolicyFetcher(ctx context.Context) (map[rbacutils.TRbacScope][]rbacutils.SPolicyInfo, error) {
-	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
-
-	policies := make(map[rbacutils.TRbacScope][]rbacutils.SPolicyInfo)
-
-	offset := 0
-	for {
-		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewInt(2048), "limit")
-		params.Add(jsonutils.NewInt(int64(offset)), "offset")
-		params.Add(jsonutils.NewString("system"), "scope")
-		params.Add(jsonutils.JSONTrue, "enabled")
-		result, err := modules.Policies.List(s, params)
-		if err != nil {
-			return nil, errors.Wrap(err, "modules.Policies.List")
-		}
-
-		for i := 0; i < len(result.Data); i += 1 {
-			sp, err := parseJsonPolicy(result.Data[i], true)
-			if err != nil {
-				log.Errorf("error parse policty %s", err)
-				continue
-			}
-
-			if _, ok := policies[sp.Scope]; !ok {
-				policies[sp.Scope] = make([]rbacutils.SPolicyInfo, 0)
-			}
-			policies[sp.Scope] = append(policies[sp.Scope], sp)
-		}
-
-		offset += len(result.Data)
-		if offset >= result.Total {
-			break
-		}
-	}
-	return policies, nil
-}
-*/
 
 func (manager *SPolicyManager) init(refreshInterval time.Duration) {
 	manager.refreshInterval = refreshInterval
@@ -204,42 +127,6 @@ func (manager *SPolicyManager) init(refreshInterval time.Duration) {
 
 	manager.fetchWorker = appsrv.NewWorkerManager("policyFetchWorker", 1, 2048, isDB)
 }
-
-/*
-func (manager *SPolicyManager) DoSync(first bool) (time.Duration, error) {
-	var err error
-
-	nopanic.Run(func() {
-		var policies map[rbacutils.TRbacScope][]rbacutils.SPolicyInfo
-		policies, err = DefaultPolicyFetcher(context.Background())
-		if err == nil {
-			manager.lock.Lock()
-			defer manager.lock.Unlock()
-			manager.policies = policies
-			manager.cache.Invalidate()
-		} else {
-			log.Errorf("sync rbac policy failed: %s", err)
-		}
-	})
-
-	var nextInterval time.Duration
-	if err != nil {
-		nextInterval = manager.failedRetryInterval
-	} else {
-		nextInterval = manager.refreshInterval
-	}
-
-	return nextInterval, err
-}
-
-func (manager *SPolicyManager) NeedSync(dat *jsonutils.JSONDict) bool {
-	return true
-}
-
-func (manager *SPolicyManager) Name() string {
-	return "PolicyManager"
-}
-*/
 
 func getMaskedLoginIp(userCred mcclient.TokenCredential) string {
 	loginIp, _ := netutils.NewIPV4Addr(userCred.GetLoginIp())
