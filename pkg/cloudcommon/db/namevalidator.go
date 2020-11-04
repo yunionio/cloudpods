@@ -20,18 +20,31 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/stringutils"
+	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 func isNameUnique(manager IModelManager, ownerId mcclient.IIdentityProvider, name string, uniqValues jsonutils.JSONObject) (bool, error) {
-	q := manager.Query()
+	return isRawNameUnique(manager, ownerId, name, uniqValues, false)
+}
+
+func isRawNameUnique(manager IModelManager, ownerId mcclient.IIdentityProvider, name string, uniqValues jsonutils.JSONObject, isRaw bool) (bool, error) {
+	var q *sqlchemy.SQuery
+	if isRaw {
+		q = manager.TableSpec().Instance().Query()
+	} else {
+		q = manager.Query()
+	}
 	q = manager.FilterByName(q, name)
 	q = manager.FilterByOwner(q, ownerId, manager.NamespaceScope())
-	q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
-	if uniqValues != nil {
-		q = manager.FilterByUniqValues(q, uniqValues)
+	if !isRaw {
+		q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
+		if uniqValues != nil {
+			q = manager.FilterByUniqValues(q, uniqValues)
+		}
 	}
 	cnt, err := q.CountWithError()
 	if err != nil {
@@ -56,14 +69,25 @@ func NewNameValidator(manager IModelManager, ownerId mcclient.IIdentityProvider,
 }
 
 func isAlterNameUnique(model IModel, name string) (bool, error) {
+	return isRawAlterNameUnique(model, name, false)
+}
+
+func isRawAlterNameUnique(model IModel, name string, isRaw bool) (bool, error) {
 	manager := model.GetModelManager()
-	q := manager.Query()
+	var q *sqlchemy.SQuery
+	if isRaw {
+		q = manager.TableSpec().Instance().Query()
+	} else {
+		q = manager.Query()
+	}
 	q = manager.FilterByName(q, name)
 	q = manager.FilterByOwner(q, model.GetOwnerId(), manager.NamespaceScope())
-	q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
 	q = manager.FilterByNotId(q, model.GetId())
-	if uniqValues := model.GetUniqValues(); uniqValues != nil {
-		q = manager.FilterByUniqValues(q, uniqValues)
+	if !isRaw {
+		q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
+		if uniqValues := model.GetUniqValues(); uniqValues != nil {
+			q = manager.FilterByUniqValues(q, uniqValues)
+		}
 	}
 	cnt, err := q.CountWithError()
 	if err != nil {
@@ -111,9 +135,9 @@ func GenerateName2(manager IModelManager, ownerId mcclient.IIdentityProvider, hi
 		var uniq bool
 		var err error
 		if model == nil {
-			uniq, err = isNameUnique(manager, ownerId, name, nil)
+			uniq, err = isRawNameUnique(manager, ownerId, name, nil, consts.IsHistoricalUniqueName())
 		} else {
-			uniq, err = isAlterNameUnique(model, name)
+			uniq, err = isRawAlterNameUnique(model, name, consts.IsHistoricalUniqueName())
 		}
 		if err != nil {
 			return "", err

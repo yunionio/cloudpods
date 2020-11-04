@@ -17,6 +17,7 @@ package tasks
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"yunion.io/x/jsonutils"
 
@@ -173,12 +174,19 @@ func onObjScheduleFail(
 	task.OnScheduleFailCallback(ctx, obj, reason)
 }
 
+type sortedIScheduleModelList []IScheduleModel
+
+func (a sortedIScheduleModelList) Len() int           { return len(a) }
+func (a sortedIScheduleModelList) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a sortedIScheduleModelList) Less(i, j int) bool { return a[i].GetName() < a[j].GetName() }
+
 func onSchedulerResults(
 	ctx context.Context,
 	task IScheduleTask,
 	objs []IScheduleModel,
 	results []*schedapi.CandidateResource,
 ) {
+	sort.Sort(sortedIScheduleModelList(objs))
 	succCount := 0
 	for idx := 0; idx < len(objs); idx += 1 {
 		obj := objs[idx]
