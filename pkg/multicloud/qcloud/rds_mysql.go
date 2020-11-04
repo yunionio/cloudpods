@@ -284,6 +284,12 @@ func (self *SMySQLInstance) GetStatus() string {
 	if self.InitFlag == 0 {
 		return api.DBINSTANCE_INIT
 	}
+	switch self.Status {
+	case 4:
+		return api.DBINSTANCE_ISOLATING
+	case 5:
+		return api.DBINSTANCE_ISOLATE
+	}
 	switch self.TaskStatus {
 	case 0:
 		switch self.Status {
@@ -291,10 +297,9 @@ func (self *SMySQLInstance) GetStatus() string {
 			return api.DBINSTANCE_DEPLOYING
 		case 1:
 			return api.DBINSTANCE_RUNNING
-		case 4, 5:
-			return api.DBINSTANCE_DELETING
 		}
 	case 1:
+		return api.DBINSTANCE_UPGRADING
 	case 2: //数据导入中
 		return api.DBINSTANCE_IMPORTING
 	case 3, 4: //开放关闭外网地址
@@ -343,11 +348,15 @@ func (self *SMySQLInstance) IsAutoRenew() bool {
 }
 
 func (self *SMySQLInstance) GetExpiredAt() time.Time {
-	t, _ := timeutils.ParseTimeStr(self.DeadlineTime)
-	if t.IsZero() {
-		return t
+	offline, _ := timeutils.ParseTimeStr(self.OfflineTime)
+	if !offline.IsZero() {
+		return offline.Add(time.Hour * -8)
 	}
-	return t.Add(time.Hour * -8)
+	deadline, _ := timeutils.ParseTimeStr(self.DeadlineTime)
+	if !deadline.IsZero() {
+		return deadline.Add(time.Hour * -8)
+	}
+	return time.Time{}
 }
 
 func (self *SMySQLInstance) GetVcpuCount() int {
