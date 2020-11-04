@@ -121,7 +121,7 @@ type SNetwork struct {
 	IsAutoAlloc tristate.TriState `nullable:"true" list:"user" get:"user" update:"user" create:"optional"`
 
 	// 线路类型
-	BgpType string `width:"64" charset:"utf8" nullable:"false" get:"user" update:"user" create:"optional"`
+	BgpType string `width:"64" charset:"utf8" nullable:"false" list:"user" get:"user" update:"user" create:"optional"`
 }
 
 func (manager *SNetworkManager) GetContextManagers() [][]db.IModelManager {
