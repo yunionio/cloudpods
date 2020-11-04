@@ -67,5 +67,9 @@ func OnOptionsChange(oldOptions, newOptions interface{}) bool {
 		changed = true
 	}
 
+	if options.OnDBOptionsChange(&oldOpts.DBOptions, &newOpts.DBOptions) {
+		changed = true
+	}
+
 	return changed
 }

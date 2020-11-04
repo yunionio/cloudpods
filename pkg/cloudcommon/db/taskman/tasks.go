@@ -329,6 +329,7 @@ func (manager *STaskManager) NewParallelTask(
 	}
 	for _, obj := range objs {
 		to := STaskObject{TaskId: task.Id, ObjId: obj.GetId()}
+		to.SetModelManager(TaskObjectManager, &to)
 		err := TaskObjectManager.TableSpec().Insert(ctx, &to)
 		if err != nil {
 			log.Errorf("Taskobject insert error %s", err)

@@ -44,6 +44,12 @@ func InitDB(options *common_options.DBOptions) {
 
 	consts.QueryOffsetOptimization = options.QueryOffsetOptimization
 
+	if options.HistoricalUniqueName {
+		consts.EnableHistoricalUniqueName()
+	} else {
+		consts.DisableHistoricalUniqueName()
+	}
+
 	dialect, sqlStr, err := options.GetDBConnection()
 	if err != nil {
 		log.Fatalf("Invalid SqlConnection string: %s error: %v", options.SqlConnection, err)
