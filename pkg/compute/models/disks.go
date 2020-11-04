@@ -1095,7 +1095,7 @@ func (self *SDisk) validateDeleteCondition(ctx context.Context, isPurge bool) er
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("Virtual disk %s(%s) used by virtual servers", self.Name, self.Id)
 	}
-	if !isPurge && self.IsValidPrePaid() {
+	if !isPurge && self.IsNotDeletablePrePaid() {
 		return httperrors.NewForbiddenError("not allow to delete prepaid disk in valid status")
 	}
 	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx)

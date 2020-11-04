@@ -1063,23 +1063,44 @@ func (r *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheInput
 		return nil, errors.Wrap(err, "CreateInstances")
 	}
 
-	instanceId, err := resp.GetString("DealId")
-	if err != nil {
-		return nil, errors.Wrap(err, "dealId")
+	instanceId := ""
+	if resp.Contains("InstanceIds") {
+		ids := []string{}
+		if err := resp.Unmarshal(&ids, "InstanceIds"); err != nil {
+			log.Debugf("Unmarshal.InstanceIds %s", resp)
+		} else {
+			if len(ids) > 0 {
+				instanceId = ids[0]
+			}
+		}
 	}
 
-	//instanceId := ""
-	//err = cloudprovider.Wait(5*time.Second, 900*time.Second, func() (bool, error) {
-	//	instanceId, err = r.GetElasticcacheIdByDeal(dealId)
-	//	if err != nil {
-	//		return false, nil
-	//	}
-	//
-	//	return true, nil
-	//})
-	//if err != nil {
-	//	return nil, errors.Wrap(err, "Wait.GetElasticcacheIdByDeal")
-	//}
+	// try to fetch instance id from deal id
+	if len(instanceId) == 0 {
+		dealId, err := resp.GetString("DealId")
+		if err != nil {
+			return nil, errors.Wrap(err, "dealId")
+		}
+
+		// maybe is a dealId not a instance ID.
+		if strings.HasPrefix(dealId, "crs-") {
+			instanceId = dealId
+		} else {
+			err = cloudprovider.Wait(5*time.Second, 900*time.Second, func() (bool, error) {
+				_realInstanceId, err := r.GetElasticcacheIdByDeal(dealId)
+				if err != nil {
+					return false, nil
+				}
+
+				instanceId = _realInstanceId
+				return true, nil
+			})
+			if err != nil {
+				return nil, errors.Wrap(err, "Wait.GetElasticcacheIdByDeal")
+			}
+		}
+	}
+
 	err = r.SetResourceTags("redis", "instance", []string{instanceId}, ec.Tags, false)
 	if err != nil {
 		log.Errorf("SetResourceTags(redis:%s,error:%s)", instanceId, err)
