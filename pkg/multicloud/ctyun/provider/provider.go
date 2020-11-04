@@ -29,7 +29,7 @@ import (
 )
 
 type SCtyunProviderFactory struct {
-	cloudprovider.SPublicCloudBaseProviderFactor
+	cloudprovider.SPublicCloudBaseProviderFactory
 }
 
 func (self *SCtyunProviderFactory) GetId() string {

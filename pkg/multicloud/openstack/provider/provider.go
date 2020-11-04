@@ -30,7 +30,7 @@ import (
 )
 
 type SOpenStackProviderFactory struct {
-	cloudprovider.SPrivateCloudBaseProviderFactor
+	cloudprovider.SPrivateCloudBaseProviderFactory
 }
 
 var EndpointTypes = []string{"admin", "internal", "public"}
