@@ -2977,8 +2977,11 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 			}
 			if guestnics[i].NetworkId == localNet.Id {
 				if guestnics[i].MacAddr == vnics[i].GetMAC() {
-					if guestnics[i].IpAddr == vnics[i].GetIP() { // nothing changes
-						// do nothing
+					if guestnics[i].IpAddr == vnics[i].GetIP() {
+						if err := NetworkAddressManager.syncGuestnetworkICloudNic(
+							ctx, userCred, &guestnics[i], vnics[i]); err != nil {
+							result.AddError(err)
+						}
 					} else if len(vnics[i].GetIP()) > 0 {
 						// ip changed
 						removed = append(removed, sRemoveGuestnic{nic: &guestnics[i]})
@@ -3051,7 +3054,7 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 			Ifname: "",
 		}
 		// always try allocate from reserved pool
-		_, err = self.Attach2Network(ctx, userCred, Attach2NetworkArgs{
+		guestnetworks, err := self.Attach2Network(ctx, userCred, Attach2NetworkArgs{
 			Network:             add.net,
 			IpAddr:              ipStr,
 			NicDriver:           add.nic.GetDriver(),
@@ -3065,6 +3068,13 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 			result.AddError(err)
 		} else {
 			result.Add()
+			for i := range guestnetworks {
+				guestnetwork := &guestnetworks[i]
+				if NetworkAddressManager.syncGuestnetworkICloudNic(
+					ctx, userCred, guestnetwork, add.nic); err != nil {
+					result.AddError(err)
+				}
+			}
 		}
 	}
 

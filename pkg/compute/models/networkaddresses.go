@@ -16,7 +16,9 @@ package models
 
 import (
 	"context"
+	"fmt"
 	"strconv"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -24,6 +26,8 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -125,12 +129,126 @@ func (man *SNetworkAddressManager) deleteByGuestnetworkId(ctx context.Context, u
 	var errs []error
 	for i := range nas {
 		na := &nas[i]
-		err := db.DeleteModel(ctx, userCred, na)
-		if err != nil {
+		if err := na.remoteUnassignAddress(ctx, userCred); err != nil {
 			errs = append(errs, err)
+			continue
+		}
+		if err := db.DeleteModel(ctx, userCred, na); err != nil {
+			errs = append(errs, err)
+			continue
 		}
 	}
 	return errors.NewAggregate(errs)
+}
+
+func (man *SNetworkAddressManager) syncGuestnetworkICloudNic(ctx context.Context, userCred mcclient.TokenCredential, guestnetwork *SGuestnetwork, iNic cloudprovider.ICloudNic) error {
+	ipAddrs, err := iNic.GetSubAddress()
+	if err != nil {
+		return err
+	}
+	if err := man.syncGuestnetworkSubIPs(ctx, userCred, guestnetwork, ipAddrs); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (man *SNetworkAddressManager) syncGuestnetworkSubIPs(ctx context.Context, userCred mcclient.TokenCredential, guestnetwork *SGuestnetwork, ipAddrs []string) error {
+	nas, err := man.fetchByGuestnetworkId(ctx, guestnetwork.RowId)
+	if err != nil {
+		return errors.Wrap(err, "fetchByGuestnetworkId")
+	}
+	var gotIpAddrs []string
+	for i := range nas {
+		gotIpAddrs = append(gotIpAddrs, nas[i].IpAddr)
+	}
+
+	var removes, adds []string
+	for _, ip0 := range gotIpAddrs {
+		ok := false
+		for _, ip1 := range ipAddrs {
+			if ip0 == ip1 {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			removes = append(removes, ip0)
+		}
+	}
+	for _, ip1 := range ipAddrs {
+		ok := false
+		for _, ip0 := range gotIpAddrs {
+			if ip0 == ip1 {
+				ok = true
+			}
+		}
+		if !ok {
+			adds = append(adds, ip1)
+		}
+	}
+	if err := man.removeGuestnetworkSubIPs(ctx, userCred, guestnetwork, removes); err != nil {
+		return err
+	}
+	if err := man.addGuestnetworkSubIPs(ctx, userCred, guestnetwork, adds); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (man *SNetworkAddressManager) removeGuestnetworkSubIPs(ctx context.Context, userCred mcclient.TokenCredential, guestnetwork *SGuestnetwork, ipAddrs []string) error {
+	q := man.queryByGuestnetworkId(ctx, guestnetwork.RowId)
+	q = q.In("ip_addr", ipAddrs)
+
+	var nas []SNetworkAddress
+	if err := db.FetchModelObjects(man, q, &nas); err != nil {
+		return errors.Wrapf(err, "removeGuestnetworkSubIPs by ipAddrs %s", strings.Join(ipAddrs, ", "))
+	}
+
+	for i := range nas {
+		na := &nas[i]
+		if err := db.DeleteModel(ctx, userCred, na); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (man *SNetworkAddressManager) addGuestnetworkSubIPs(ctx context.Context, userCred mcclient.TokenCredential, guestnetwork *SGuestnetwork, ipAddrs []string) error {
+	net := guestnetwork.GetNetwork()
+	if net == nil {
+		return errors.Wrapf(errors.ErrNotFound, "find network %s of guestnetwork %d",
+			guestnetwork.NetworkId, guestnetwork.RowId)
+	}
+
+	lockman.LockObject(ctx, net)
+	defer lockman.ReleaseObject(ctx, net)
+	var (
+		usedAddrMap = net.GetUsedAddresses()
+		usedAddrs   []string
+	)
+	for _, ipAddr := range ipAddrs {
+		if _, ok := usedAddrMap[ipAddr]; ok {
+			usedAddrs = append(usedAddrs, ipAddr)
+		}
+	}
+	if len(usedAddrs) > 0 {
+		return errors.Errorf("addGuestnetworkSubIPs: ipaddr %s already used", strings.Join(usedAddrs, ", "))
+	}
+	for _, ipAddr := range ipAddrs {
+		m, err := db.NewModelObject(man)
+		if err != nil {
+			return errors.Wrapf(err, "addGuestnetworkSubIPs")
+		}
+		na := m.(*SNetworkAddress)
+		na.ParentType = api.NetworkAddressParentTypeGuestnetwork
+		na.ParentId = strconv.FormatInt(guestnetwork.RowId, 10)
+		na.Type = api.NetworkAddressTypeSubIP
+		na.IpAddr = ipAddr
+		if err := man.TableSpec().Insert(ctx, na); err != nil {
+			return errors.Wrapf(err, "addGuestnetworkSubIPs")
+		}
+	}
+	return nil
 }
 
 func (man *SNetworkAddressManager) BatchCreateValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -206,6 +324,132 @@ func (man *SNetworkAddressManager) ValidateCreateData(ctx context.Context, userC
 	}
 
 	return input, nil
+}
+
+func (na *SNetworkAddress) parentIdInt64() int64 {
+	r, err := strconv.ParseInt(na.ParentId, 10, 64)
+	if err != nil {
+		panic(fmt.Sprintf("networkaddress %s: invalid parent_id %s", na.Id, na.ParentId))
+	}
+	return r
+}
+
+func (na *SNetworkAddress) getGuestnetwork(ctx context.Context, userCred mcclient.TokenCredential) (*SGuestnetwork, error) {
+	if na.ParentType == api.NetworkAddressParentTypeGuestnetwork {
+		guestnetwork, err := GuestnetworkManager.fetchByRowId(ctx, userCred, na.parentIdInt64())
+		if err != nil {
+			return nil, err
+		}
+		return guestnetwork, nil
+	}
+	return nil, errors.Errorf("getGuestnetwork: expect parent_type %s, got %s", api.NetworkAddressParentTypeGuestnetwork, na.ParentType)
+}
+
+func (na *SNetworkAddress) getGuest(ctx context.Context, userCred mcclient.TokenCredential) (*SGuest, error) {
+	guestnetwork, err := na.getGuestnetwork(ctx, userCred)
+	if err != nil {
+		return nil, err
+	}
+	guest := guestnetwork.GetGuest()
+	if guest != nil {
+		return guest, nil
+	}
+	return nil, errors.Wrapf(errors.ErrNotFound, "getGuest: guestnetwork guest_id %s", guestnetwork.GuestId)
+}
+
+func (na *SNetworkAddress) getIVM(ctx context.Context, userCred mcclient.TokenCredential) (cloudprovider.ICloudVM, error) {
+	guest, err := na.getGuest(ctx, userCred)
+	if err != nil {
+		return nil, err
+	}
+	if guest.ExternalId == "" {
+		return nil, errors.Errorf("getIVM: guest %s(%s) has empty external_id", guest.Name, guest.Id)
+	}
+	ivm, err := guest.GetIVM()
+	if err != nil {
+		return nil, err
+	}
+	return ivm, nil
+}
+
+func (na *SNetworkAddress) getICloudNic(ctx context.Context, userCred mcclient.TokenCredential) (cloudprovider.ICloudNic, error) {
+	guestnetwork, err := na.getGuestnetwork(ctx, userCred)
+	if err != nil {
+		return nil, err
+	}
+
+	iVM, err := na.getIVM(ctx, userCred)
+	if err != nil {
+		return nil, err
+	}
+	iNics, err := iVM.GetINics()
+	if err != nil {
+		return nil, err
+	}
+	for _, iNic := range iNics {
+		if iNic.GetIP() == guestnetwork.IpAddr && iNic.GetMAC() == guestnetwork.MacAddr {
+			return iNic, nil
+		}
+	}
+	return nil, errors.Wrapf(errors.ErrNotFound, "getICloudNic: no cloud nic with ip %s, mac %s", guestnetwork.IpAddr, guestnetwork.MacAddr)
+}
+
+func (na *SNetworkAddress) remoteAssignAddress(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if na.ParentType == api.NetworkAddressParentTypeGuestnetwork {
+		guest, err := na.getGuest(ctx, userCred)
+		if err != nil {
+			return err
+		}
+		if guest.ExternalId != "" {
+			iNic, err := na.getICloudNic(ctx, userCred)
+			if err != nil {
+				return err
+			}
+			if err := iNic.AssignAddress([]string{na.IpAddr}); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (na *SNetworkAddress) remoteUnassignAddress(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if na.ParentType == api.NetworkAddressParentTypeGuestnetwork {
+		guest, err := na.getGuest(ctx, userCred)
+		if err != nil {
+			if errors.Cause(err) == errors.ErrNotFound {
+				return nil
+			}
+			return err
+		}
+		if guest.ExternalId != "" {
+			iNic, err := na.getICloudNic(ctx, userCred)
+			if err != nil {
+				if errors.Cause(err) == errors.ErrNotFound {
+					return nil
+				}
+				return err
+			}
+			if err := iNic.UnassignAddress([]string{na.IpAddr}); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (na *SNetworkAddress) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	if err := na.remoteAssignAddress(ctx, userCred); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (na *SNetworkAddress) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	if err := na.remoteUnassignAddress(ctx, userCred); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (man *SNetworkAddressManager) ListItemExportKeys(ctx context.Context,
