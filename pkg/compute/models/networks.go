@@ -2018,6 +2018,9 @@ func (manager *SNetworkManager) ListItemFilter(
 	if len(input.AllocPolicy) > 0 {
 		q = q.In("alloc_policy", input.AllocPolicy)
 	}
+	if len(input.BgpType) > 0 {
+		q = q.In("bgp_type", input.BgpType)
+	}
 
 	if input.IsAutoAlloc != nil {
 		if *input.IsAutoAlloc {
