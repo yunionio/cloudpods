@@ -121,7 +121,7 @@ type SNetwork struct {
 	IsAutoAlloc tristate.TriState `nullable:"true" list:"user" get:"user" update:"user" create:"optional"`
 
 	// 线路类型
-	BgpType string `width:"64" charset:"utf8" nullable:"false" get:"user" update:"user" create:"optional"`
+	BgpType string `width:"64" charset:"utf8" nullable:"false" list:"user" get:"user" update:"user" create:"optional"`
 }
 
 func (manager *SNetworkManager) GetContextManagers() [][]db.IModelManager {
@@ -2017,6 +2017,9 @@ func (manager *SNetworkManager) ListItemFilter(
 	}
 	if len(input.AllocPolicy) > 0 {
 		q = q.In("alloc_policy", input.AllocPolicy)
+	}
+	if len(input.BgpType) > 0 {
+		q = q.In("bgp_type", input.BgpType)
 	}
 
 	if input.IsAutoAlloc != nil {
