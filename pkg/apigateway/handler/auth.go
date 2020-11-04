@@ -522,7 +522,8 @@ func (h *AuthHandlers) doLogin(ctx context.Context, w http.ResponseWriter, req *
 		if err != nil {
 			return errors.Wrap(err, "isUserTotpCredInitialed")
 		}
-		authToken = clientman.NewAuthToken(token.GetTokenString(), isUserEnableTotp(userInfo), isTotpInit)
+		isIdpLogin := body.Contains("idp_driver")
+		authToken = clientman.NewAuthToken(token.GetTokenString(), isUserEnableTotp(userInfo), isTotpInit, isIdpLogin)
 	}
 
 	if !isUserAllowWebconsole(userInfo) {
