@@ -184,6 +184,7 @@ func TestGenericSchedulerSchedule(t *testing.T) {
 				},
 			},
 		}
+		res.ForecastResult.Candidates = nil
 		if !reflect.DeepEqual(res.ForecastResult, forcastResult) {
 			t.Errorf("want: %v, real: %v", forcastResult, res.ForecastResult)
 		}

@@ -159,6 +159,7 @@ func transToSchedForecastResult(result *SchedResultItemList) *api.SchedForecastR
 	for _, candi := range output.Candidates {
 		if len(candi.Error) == 0 {
 			readyCount++
+			ret.Candidates = append(ret.Candidates, candi)
 			continue
 		}
 		ret.NotAllowReasons = append(ret.NotAllowReasons, candi.Error)
@@ -170,6 +171,5 @@ func transToSchedForecastResult(result *SchedResultItemList) *api.SchedForecastR
 	} else {
 		ret.CanCreate = true
 	}
-
 	return ret
 }

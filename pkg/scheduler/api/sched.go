@@ -270,9 +270,10 @@ type FilteredCandidate struct {
 }
 
 type SchedForecastResult struct {
-	CanCreate          bool                `json:"can_create"`
-	ReqCount           int64               `json:"req_count"`
-	AllowCount         int64               `json:"allow_count"`
-	NotAllowReasons    []string            `json:"not_allow_reasons"`
-	FilteredCandidates []FilteredCandidate `json:"filtered_candidates"`
+	CanCreate          bool                     `json:"can_create"`
+	Candidates         []*api.CandidateResource `json:"candidates"`
+	ReqCount           int64                    `json:"req_count"`
+	AllowCount         int64                    `json:"allow_count"`
+	NotAllowReasons    []string                 `json:"not_allow_reasons"`
+	FilteredCandidates []FilteredCandidate      `json:"filtered_candidates"`
 }

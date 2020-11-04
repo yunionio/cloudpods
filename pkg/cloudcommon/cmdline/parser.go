@@ -36,23 +36,27 @@ var (
 	ErrorEmptyDesc = errors.New("Empty description")
 )
 
-// ParseSchedtagConfig desc format: <schedtagName>:<strategy>
+// ParseSchedtagConfig desc format: <schedtagName>:<strategy>:<resource_type>
 func ParseSchedtagConfig(desc string) (*compute.SchedtagConfig, error) {
 	if len(desc) == 0 {
 		return nil, ErrorEmptyDesc
 	}
 	parts := strings.Split(desc, ":")
-	if len(parts) != 2 {
+	if len(parts) < 2 {
 		return nil, fmt.Errorf("Invalid desc: %s", desc)
 	}
 	strategy := parts[1]
 	if !utils.IsInStringArray(strategy, compute.STRATEGY_LIST) {
 		return nil, fmt.Errorf("Invalid strategy: %s", strategy)
 	}
-	return &compute.SchedtagConfig{
+	conf := &compute.SchedtagConfig{
 		Id:       parts[0],
 		Strategy: parts[1],
-	}, nil
+	}
+	if len(parts) == 3 {
+		conf.ResourceType = parts[2]
+	}
+	return conf, nil
 }
 
 // ParseResourceSchedtagConfig desc format: <idx>:<schedtagName>:<strategy>
