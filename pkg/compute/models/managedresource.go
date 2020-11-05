@@ -306,42 +306,39 @@ func (manager *SManagedResourceBaseManager) OrderByExtraFields(
 	userCred mcclient.TokenCredential,
 	query api.ManagedResourceListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, orders, fields := manager.GetOrderBySubQuery(q, userCred, query)
-	if len(orders) > 0 {
-		q = db.OrderByFields(q, orders, fields)
+	if !db.NeedOrderQuery(manager.GetOrderByFields(query)) {
+		return q, nil
 	}
+	orderQ := CloudproviderManager.Query("id")
+	subOrderQ := orderQ.SubQuery()
+	orderQ, orders, fields := manager.GetOrderBySubQuery(orderQ, subOrderQ, orderQ.Field("id"), userCred, query, nil, nil)
+	q = q.LeftJoin(subOrderQ, sqlchemy.Equals(q.Field(manager.getManagerIdFileName()), subOrderQ.Field("id")))
+	q = db.OrderByFields(q, orders, fields)
 	return q, nil
 }
 
 func (manager *SManagedResourceBaseManager) GetOrderBySubQuery(
 	q *sqlchemy.SQuery,
+	subq *sqlchemy.SSubQuery,
+	subqField sqlchemy.IQueryField,
 	userCred mcclient.TokenCredential,
 	query api.ManagedResourceListInput,
+	orders []string,
+	fields []sqlchemy.IQueryField,
 ) (*sqlchemy.SQuery, []string, []sqlchemy.IQueryField) {
-	var orders []string
-	var fields []sqlchemy.IQueryField
-	orders = manager.GetOrderByFields(query)
-	if db.NeedOrderQuery(orders) {
-		providers := CloudproviderManager.Query("id", "name", "cloudaccount_id").SubQuery()
-		accounts := CloudaccountManager.Query("id", "name", "provider", "brand").SubQuery()
-		subq := providers.Query(
-			providers.Field("id"),
-			providers.Field("name"),
-			accounts.Field("name").Label("account"),
-			accounts.Field("provider"),
-			accounts.Field("brand"),
-		).Join(
-			accounts,
-			sqlchemy.Equals(providers.Field("cloudaccount_id"), accounts.Field("id")),
-		).SubQuery()
-		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field(manager.getManagerIdFileName()), subq.Field("id")))
-		fields = []sqlchemy.IQueryField{
-			subq.Field("name"),
-			subq.Field("account"),
-			subq.Field("provider"),
-			subq.Field("brand"),
-		}
+	if !db.NeedOrderQuery(manager.GetOrderByFields(query)) {
+		return q, orders, fields
 	}
+	providers := CloudproviderManager.Query().SubQuery()
+	accounts := CloudaccountManager.Query().SubQuery()
+	q = q.LeftJoin(providers, sqlchemy.Equals(subqField, providers.Field("id")))
+	q = q.LeftJoin(accounts, sqlchemy.Equals(providers.Field("cloudaccount_id"), accounts.Field("id")))
+	q = q.AppendField(providers.Field("name").Label("manager"))
+	q = q.AppendField(accounts.Field("name").Label("account"))
+	q = q.AppendField(accounts.Field("provider"))
+	q = q.AppendField(accounts.Field("brand"))
+	orders = append(orders, query.OrderByManager, query.OrderByAccount, query.OrderByProvider, query.OrderByBrand)
+	fields = append(fields, subq.Field("manager"), subq.Field("account"), subq.Field("provider"), subq.Field("brand"))
 	return q, orders, fields
 }
 

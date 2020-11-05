@@ -198,48 +198,37 @@ func (manager *SHostResourceBaseManager) OrderByExtraFields(
 	userCred mcclient.TokenCredential,
 	query api.HostFilterListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, orders, fields := manager.GetOrderBySubQuery(q, userCred, query)
-	if len(orders) > 0 {
-		q = db.OrderByFields(q, orders, fields)
+	if !db.NeedOrderQuery(manager.GetOrderByFields(query)) {
+		return q, nil
 	}
+	orderQ := HostManager.Query("id")
+	orderSubQ := orderQ.SubQuery()
+	orderQ, orders, fields := manager.GetOrderBySubQuery(orderQ, orderSubQ, orderQ.Field("id"), userCred, query, nil, nil)
+	q = q.LeftJoin(orderSubQ, sqlchemy.Equals(q.Field(manager.getHostIdFieldName()), orderSubQ.Field("id")))
+	q = db.OrderByFields(q, orders, fields)
 	return q, nil
 }
 
 func (manager *SHostResourceBaseManager) GetOrderBySubQuery(
 	q *sqlchemy.SQuery,
+	subq *sqlchemy.SSubQuery,
+	joinField sqlchemy.IQueryField,
 	userCred mcclient.TokenCredential,
 	query api.HostFilterListInput,
+	orders []string,
+	fields []sqlchemy.IQueryField,
 ) (*sqlchemy.SQuery, []string, []sqlchemy.IQueryField) {
-	hostQ := HostManager.Query("id", "name", "sn")
-	var orders []string
-	var fields []sqlchemy.IQueryField
-
-	if db.NeedOrderQuery(manager.SZoneResourceBaseManager.GetOrderByFields(query.ZonalFilterListInput)) {
-		var zoneOrders []string
-		var zoneFields []sqlchemy.IQueryField
-		hostQ, zoneOrders, zoneFields = manager.SZoneResourceBaseManager.GetOrderBySubQuery(hostQ, userCred, query.ZonalFilterListInput)
-		if len(zoneOrders) > 0 {
-			orders = append(orders, zoneOrders...)
-			fields = append(fields, zoneFields...)
-		}
+	if !db.NeedOrderQuery(manager.GetOrderByFields(query)) {
+		return q, orders, fields
 	}
-	if db.NeedOrderQuery(manager.SManagedResourceBaseManager.GetOrderByFields(query.ManagedResourceListInput)) {
-		var manOrders []string
-		var manFields []sqlchemy.IQueryField
-		hostQ, manOrders, manFields = manager.SManagedResourceBaseManager.GetOrderBySubQuery(hostQ, userCred, query.ManagedResourceListInput)
-		if len(manOrders) > 0 {
-			orders = append(orders, manOrders...)
-			fields = append(fields, manFields...)
-		}
-	}
-	if db.NeedOrderQuery(manager.GetOrderByFields(query)) {
-		subq := hostQ.SubQuery()
-		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field(manager.getHostIdFieldName()), subq.Field("id")))
-		if db.NeedOrderQuery([]string{query.OrderByHost, query.OrderByHostSN}) {
-			orders = append(orders, query.OrderByHost, query.OrderByHostSN)
-			fields = append(fields, subq.Field("name"), subq.Field("sn"))
-		}
-	}
+	hostQ := HostManager.Query().SubQuery()
+	q = q.LeftJoin(hostQ, sqlchemy.Equals(joinField, hostQ.Field("id")))
+	q = q.AppendField(hostQ.Field("name").Label("host"))
+	q = q.AppendField(hostQ.Field("sn").Label("host_sn"))
+	orders = append(orders, query.OrderByHost, query.OrderByHostSN)
+	fields = append(fields, subq.Field("host"), subq.Field("host_sn"))
+	q, orders, fields = manager.SZoneResourceBaseManager.GetOrderBySubQuery(q, subq, hostQ.Field("zone_id"), userCred, query.ZonalFilterListInput, orders, fields)
+	q, orders, fields = manager.SManagedResourceBaseManager.GetOrderBySubQuery(q, subq, hostQ.Field("manager_id"), userCred, query.ManagedResourceListInput, orders, fields)
 	return q, orders, fields
 }
 
