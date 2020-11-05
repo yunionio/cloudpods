@@ -19,12 +19,12 @@ import (
 	"regexp"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 func isNameUnique(manager IModelManager, ownerId mcclient.IIdentityProvider, name string, uniqValues jsonutils.JSONObject) (bool, error) {
@@ -123,11 +123,14 @@ func GenerateAlterName(model IModel, hint string) (string, error) {
 }
 
 func GenerateName2(manager IModelManager, ownerId mcclient.IIdentityProvider, hint string, model IModel, baseIndex int) (string, error) {
-	_, pattern, patternLen := stringutils.ParseNamePattern(hint)
+	_, pattern, patternLen, offset := stringutils2.ParseNamePattern2(hint)
 	var name string
 	if patternLen == 0 {
 		name = hint
 	} else {
+		if offset > 0 {
+			baseIndex = offset
+		}
 		name = fmt.Sprintf(pattern, baseIndex)
 		baseIndex += 1
 	}
