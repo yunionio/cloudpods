@@ -548,7 +548,6 @@ func getCommonAlertMetricDetailsFromCondition(cond *monitor.AlertCondition,
 			break
 		}
 	}
-
 	cond.Query.Model.Tags = filterDefaultTags(q.Model.Tags)
 	metricDetails.Measurement = measurement
 	metricDetails.Field = field

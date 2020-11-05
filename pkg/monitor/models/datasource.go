@@ -289,6 +289,18 @@ func (self *SDataSourceManager) GetMeasurementsWithDescriptionInfos(query jsonut
 		return strings.Compare(m1.Measurement, m2.Measurement) < 0
 	})
 	ret.Add(jsonutils.Marshal(&rtnMeasurements), "measurements")
+	resTypeMap := make(map[string][]monitor.InfluxMeasurement, 0)
+	resTypes := make([]string, 0)
+	for _, measurement := range rtnMeasurements {
+		if typeMeasurements, ok := resTypeMap[measurement.ResType]; ok {
+			resTypeMap[measurement.ResType] = append(typeMeasurements, measurement)
+			continue
+		}
+		resTypes = append(resTypes, measurement.ResType)
+		resTypeMap[measurement.ResType] = []monitor.InfluxMeasurement{measurement}
+	}
+	ret.Add(jsonutils.Marshal(&resTypes), "res_types")
+	ret.Add(jsonutils.Marshal(&resTypeMap), "res_type_measurements")
 	return ret, nil
 }
 
@@ -522,6 +534,7 @@ func (self *SDataSourceManager) getFilterMeasurement(queryChan *influxdbQueryCha
 	if len(rtnMeasurement.FieldKey) != 0 {
 		rtnMeasurement.Measurement = measurement.Measurement
 		rtnMeasurement.Database = measurement.Database
+		rtnMeasurement.ResType = measurement.ResType
 	}
 	queryChan.queryRtnChan <- *rtnMeasurement
 	return nil

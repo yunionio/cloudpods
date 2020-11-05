@@ -368,6 +368,7 @@ func (manager *SMetricMeasurementManager) getInfluxdbMeasurements() (influxdbMea
 		influxdbMeasurements = append(influxdbMeasurements, monitor.InfluxMeasurement{
 			Database:    metric[i].Database,
 			Measurement: metric[i].Name,
+			ResType:     metric[i].ResType,
 		})
 	}
 	return
