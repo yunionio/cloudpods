@@ -201,6 +201,15 @@ ret:
 				case 't':
 					buffer = append(buffer, '\t')
 					i++
+				case 'b':
+					buffer = append(buffer, '\b')
+					i++
+				case 'f':
+					buffer = append(buffer, '\f')
+					i++
+				case '\\':
+					buffer = append(buffer, '\\')
+					i++
 				default:
 					buffer = append(buffer, str[i])
 					i++
@@ -268,25 +277,69 @@ func parseJSONValue(str []byte, offset int) (JSONObject, int, error) {
 	}
 }
 
+// https://www.ietf.org/rfc/rfc4627.txt
+//
+//         string = quotation-mark *char quotation-mark
+//
+//         char = unescaped /
+//                escape (
+//                    %x22 /          ; "    quotation mark  U+0022
+//                    %x5C /          ; \    reverse solidus U+005C
+//                    %x2F /          ; /    solidus         U+002F
+//                    %x62 /          ; b    backspace       U+0008
+//                    %x66 /          ; f    form feed       U+000C
+//                    %x6E /          ; n    line feed       U+000A
+//                    %x72 /          ; r    carriage return U+000D
+//                    %x74 /          ; t    tab             U+0009
+//                    %x75 4HEXDIG )  ; uXXXX                U+XXXX
+//
+//         escape = %x5C              ; \
+//
+//         quotation-mark = %x22      ; "
+//
+//         unescaped = %x20-21 / %x23-5B / %x5D-10FFFF
+//
+func escapeJsonChar(sb *strings.Builder, ch byte) {
+	switch ch {
+	case '"':
+		sb.Write([]byte{'\\', '"'})
+	case '\\':
+		sb.Write([]byte{'\\', '\\'})
+	case '\b':
+		sb.Write([]byte{'\\', 'b'})
+	case '\f':
+		sb.Write([]byte{'\\', 'f'})
+	case '\n':
+		sb.Write([]byte{'\\', 'n'})
+	case '\r':
+		sb.Write([]byte{'\\', 'r'})
+	case '\t':
+		sb.Write([]byte{'\\', 't'})
+	default:
+		sb.WriteByte(ch)
+		/*if ((ch >= 0x20 && ch <= 0x21) || (ch >= 0x23 || ch <= 0x5B) || (ch >= 0x5D && ch <= 0x10FFFF)) && ch != 0x81 && ch != 0x8d && ch != 0x8f && ch != 0x90 && ch != 0x9d {
+			sb.WriteRune(ch)
+		} else if ch <= 0xff {
+			sb.Write([]byte{'\\', 'x'})
+			sb.WriteString(fmt.Sprintf("%02x", ch))
+		} else if ch <= 0xffff {
+			sb.Write([]byte{'\\', 'u'})
+			sb.WriteString(fmt.Sprintf("%04x", ch))
+		} else {
+			sb.Write([]byte{'\\', 'u'})
+			sb.WriteString(fmt.Sprintf("%04x", ch>>16))
+			sb.Write([]byte{'\\', 'u'})
+			sb.WriteString(fmt.Sprintf("%04x", (ch & 0xffff)))
+		}*/
+	}
+}
+
 func quoteString(str string) string {
 	sb := &strings.Builder{}
 	sb.Grow(len(str) + 2)
 	sb.WriteByte('"')
-	for i := 0; i < len(str); i++ {
-		switch c := str[i]; c {
-		case '"':
-			sb.Write([]byte{'\\', '"'})
-		case '\r':
-			sb.Write([]byte{'\\', 'r'})
-		case '\n':
-			sb.Write([]byte{'\\', 'n'})
-		case '\t':
-			sb.Write([]byte{'\\', 't'})
-		case '\\':
-			sb.Write([]byte{'\\', '\\'})
-		default:
-			sb.WriteByte(c)
-		}
+	for i := 0; i < len(str); i += 1 {
+		escapeJsonChar(sb, str[i])
 	}
 	sb.WriteByte('"')
 	return sb.String()
