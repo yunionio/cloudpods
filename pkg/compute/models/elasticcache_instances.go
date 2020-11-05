@@ -1112,6 +1112,7 @@ func (self *SElasticcache) CustomizeDelete(ctx context.Context, userCred mcclien
 }
 
 func (self *SElasticcache) StartDeleteElasticcacheTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_RELEASING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "ElasticcacheDeleteTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
