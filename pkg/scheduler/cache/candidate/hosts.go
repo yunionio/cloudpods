@@ -193,7 +193,7 @@ func NewGuestReservedResourceUsedByBuilder(b *HostBuilder, host *computemodels.S
 	for _, g := range gst {
 		dSize := guestDiskSize(&g, true)
 		disk += int64(dSize)
-		if o.GetOptions().IgnoreNonrunningGuests && !utils.IsInStringArray(g.Status, computeapi.VM_RUNNING_STATUS) {
+		if o.GetOptions().IgnoreNonrunningGuests && (g.Status == computeapi.VM_READY) {
 			continue
 		}
 		cpu += int64(g.VcpuCount)
