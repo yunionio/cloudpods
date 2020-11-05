@@ -163,39 +163,35 @@ func (manager *SNatgatewayResourceBaseManager) OrderByExtraFields(
 	userCred mcclient.TokenCredential,
 	query api.NatGatewayFilterListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, orders, fields := manager.GetOrderBySubQuery(q, userCred, query)
-	if len(orders) > 0 {
-		q = db.OrderByFields(q, orders, fields)
+	if !db.NeedOrderQuery(manager.GetOrderByFields(query)) {
+		return q, nil
 	}
+	orderQ := NatGatewayManager.Query("id")
+	orderSubQ := orderQ.SubQuery()
+	orderQ, orders, fields := manager.GetOrderBySubQuery(orderQ, orderSubQ, orderQ.Field("id"), userCred, query, nil, nil)
+	q = q.LeftJoin(orderSubQ, sqlchemy.Equals(q.Field("natgateway_id"), orderSubQ.Field("id")))
+	q = db.OrderByFields(q, orders, fields)
 	return q, nil
 }
 
 func (manager *SNatgatewayResourceBaseManager) GetOrderBySubQuery(
 	q *sqlchemy.SQuery,
+	subq *sqlchemy.SSubQuery,
+	joinField sqlchemy.IQueryField,
 	userCred mcclient.TokenCredential,
 	query api.NatGatewayFilterListInput,
+	orders []string,
+	fields []sqlchemy.IQueryField,
 ) (*sqlchemy.SQuery, []string, []sqlchemy.IQueryField) {
-	natQ := NatGatewayManager.Query("id", "name")
-	var orders []string
-	var fields []sqlchemy.IQueryField
-
-	if db.NeedOrderQuery(manager.SVpcResourceBaseManager.GetOrderByFields(query.VpcFilterListInput)) {
-		var vpcOrders []string
-		var vpcFields []sqlchemy.IQueryField
-		natQ, vpcOrders, vpcFields = manager.SVpcResourceBaseManager.GetOrderBySubQuery(natQ, userCred, query.VpcFilterListInput)
-		if len(vpcOrders) > 0 {
-			orders = append(orders, vpcOrders...)
-			fields = append(fields, vpcFields...)
-		}
+	if !db.NeedOrderQuery(manager.GetOrderByFields(query)) {
+		return q, orders, fields
 	}
-	if db.NeedOrderQuery(manager.GetOrderByFields(query)) {
-		subq := natQ.SubQuery()
-		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("natgateway_id"), subq.Field("id")))
-		if db.NeedOrderQuery([]string{query.OrderByNatgateway}) {
-			orders = append(orders, query.OrderByNatgateway)
-			fields = append(fields, subq.Field("name"))
-		}
-	}
+	natQ := NatGatewayManager.Query().SubQuery()
+	q = q.LeftJoin(natQ, sqlchemy.Equals(joinField, natQ.Field("id")))
+	q = q.AppendField(natQ.Field("name").Label("natgateway"))
+	orders = append(orders, query.OrderByNatgateway)
+	fields = append(fields, subq.Field("natgateway"))
+	q, orders, fields = manager.SVpcResourceBaseManager.GetOrderBySubQuery(q, subq, natQ.Field("vpc_id"), userCred, query.VpcFilterListInput, orders, fields)
 	return q, orders, fields
 }
 
