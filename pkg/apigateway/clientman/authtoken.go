@@ -54,10 +54,12 @@ func setPrivateKey(key *rsa.PrivateKey) {
 }
 
 type SAuthToken struct {
-	token          string
-	verifyTotp     bool
-	enableTotp     bool
-	initTotp       bool
+	token      string
+	verifyTotp bool
+	enableTotp bool
+	initTotp   bool
+	isSsoLogin bool
+
 	retryCount     int    // 重试计数器
 	lockExpireTime uint32 // 锁定时间
 }
@@ -75,6 +77,11 @@ func (t SAuthToken) encodeBytes() []byte {
 		msg.WriteByte(TotpDisable)
 	}
 	if t.initTotp {
+		msg.WriteByte(TotpEnable)
+	} else {
+		msg.WriteByte(TotpDisable)
+	}
+	if t.isSsoLogin {
 		msg.WriteByte(TotpEnable)
 	} else {
 		msg.WriteByte(TotpDisable)
@@ -134,10 +141,15 @@ func decodeBytes(tt []byte) (*SAuthToken, error) {
 	} else {
 		ret.initTotp = false
 	}
-	// 3: skip rand number
-	ret.retryCount = int(tt[4])
-	ret.lockExpireTime = binary.LittleEndian.Uint32(tt[5:])
-	ret.token = string(tt[9:])
+	if tt[3] == TotpEnable {
+		ret.isSsoLogin = true
+	} else {
+		ret.isSsoLogin = false
+	}
+	// 4: skip rand number
+	ret.retryCount = int(tt[5])
+	ret.lockExpireTime = binary.LittleEndian.Uint32(tt[6:])
+	ret.token = string(tt[10:])
 	return &ret, nil
 }
 
@@ -185,6 +197,7 @@ func (t SAuthToken) GetAuthCookie(token mcclient.TokenCredential) string {
 	info.Add(jsonutils.NewBool(t.verifyTotp), "totp_verified")                // 用户totp验证通过
 	info.Add(jsonutils.NewBool(t.initTotp), "totp_init")                      // 是否初始化TOTP密钥
 	info.Add(jsonutils.NewBool(t.enableTotp), "totp_on")                      // 用户totp 开启状态。 True（已开启）|False(未开启)
+	info.Add(jsonutils.NewBool(t.isSsoLogin), "is_sso")                       // 用户是否通过SSO登录
 	info.Add(jsonutils.NewBool(options.Options.EnableTotp), "system_totp_on") // 全局totp 开启状态。 True（已开启）|False(未开启)
 	info.Add(jsonutils.NewString(token.GetUserId()), "user_id")
 	info.Add(jsonutils.NewString(token.GetUserName()), "user")
@@ -217,11 +230,12 @@ func (t *SAuthToken) SetToken(tid string) {
 	t.token = tid
 }
 
-func NewAuthToken(tid string, enableTotp bool, isTotpInit bool) *SAuthToken {
+func NewAuthToken(tid string, enableTotp bool, isTotpInit bool, isSsoLogin bool) *SAuthToken {
 	return &SAuthToken{
 		token:      tid,
 		enableTotp: enableTotp,
 		initTotp:   isTotpInit,
+		isSsoLogin: isSsoLogin,
 		verifyTotp: false,
 	}
 }
