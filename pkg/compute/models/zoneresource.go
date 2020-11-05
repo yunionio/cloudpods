@@ -151,32 +151,35 @@ func (manager *SZoneResourceBaseManager) OrderByExtraFields(
 	userCred mcclient.TokenCredential,
 	query api.ZonalFilterListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, orders, fields := manager.GetOrderBySubQuery(q, userCred, query)
-	if len(orders) > 0 {
-		q = db.OrderByFields(q, orders, fields)
+	if !db.NeedOrderQuery(manager.GetOrderByFields(query)) {
+		return q, nil
 	}
+	orderQ := ZoneManager.Query("id")
+	orderSubQ := orderQ.SubQuery()
+	orderQ, orders, fields := manager.GetOrderBySubQuery(orderQ, orderSubQ, orderQ.Field("id"), userCred, query, nil, nil)
+	q = q.LeftJoin(orderSubQ, sqlchemy.Equals(q.Field("zone_id"), orderSubQ.Field("id")))
+	q = db.OrderByFields(q, orders, fields)
 	return q, nil
 }
 
 func (manager *SZoneResourceBaseManager) GetOrderBySubQuery(
 	q *sqlchemy.SQuery,
+	subq *sqlchemy.SSubQuery,
+	joinField sqlchemy.IQueryField,
 	userCred mcclient.TokenCredential,
 	query api.ZonalFilterListInput,
+	orders []string,
+	fields []sqlchemy.IQueryField,
 ) (*sqlchemy.SQuery, []string, []sqlchemy.IQueryField) {
-	zoneQ := ZoneManager.Query("id", "name")
-	var orders []string
-	var fields []sqlchemy.IQueryField
-	if db.NeedOrderQuery(manager.SCloudregionResourceBaseManager.GetOrderByFields(query.RegionalFilterListInput)) {
-		zoneQ, orders, fields = manager.SCloudregionResourceBaseManager.GetOrderBySubQuery(zoneQ, userCred, query.RegionalFilterListInput)
+	if !db.NeedOrderQuery(manager.GetOrderByFields(query)) {
+		return q, orders, fields
 	}
-	if db.NeedOrderQuery(manager.GetOrderByFields(query)) {
-		subq := zoneQ.SubQuery()
-		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("zone_id"), subq.Field("id")))
-		if db.NeedOrderQuery([]string{query.OrderByZone}) {
-			orders = append(orders, query.OrderByZone)
-			fields = append(fields, subq.Field("name"))
-		}
-	}
+	zoneQ := ZoneManager.Query().SubQuery()
+	q = q.LeftJoin(zoneQ, sqlchemy.Equals(joinField, zoneQ.Field("id")))
+	q = q.AppendField(zoneQ.Field("name").Label("zone"))
+	orders = append(orders, query.OrderByZone)
+	fields = append(fields, subq.Field("zone"))
+	q, orders, fields = manager.SCloudregionResourceBaseManager.GetOrderBySubQuery(q, subq, zoneQ.Field("cloudregion_id"), userCred, query.RegionalFilterListInput, orders, fields)
 	return q, orders, fields
 }
 

@@ -179,39 +179,35 @@ func (manager *SDBInstanceResourceBaseManager) OrderByExtraFields(
 	userCred mcclient.TokenCredential,
 	query api.DBInstanceFilterListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, orders, fields := manager.GetOrderBySubQuery(q, userCred, query)
-	if len(orders) > 0 {
-		q = db.OrderByFields(q, orders, fields)
+	if !db.NeedOrderQuery(manager.GetOrderByFields(query)) {
+		return q, nil
 	}
+	orderQ := DBInstanceManager.Query("id")
+	orderSubQ := orderQ.SubQuery()
+	orderQ, orders, fields := manager.GetOrderBySubQuery(orderQ, orderSubQ, orderQ.Field("id"), userCred, query, nil, nil)
+	q = q.LeftJoin(orderSubQ, sqlchemy.Equals(q.Field("dbinstance_id"), orderSubQ.Field("id")))
+	q = db.OrderByFields(q, orders, fields)
 	return q, nil
 }
 
 func (manager *SDBInstanceResourceBaseManager) GetOrderBySubQuery(
 	q *sqlchemy.SQuery,
+	subq *sqlchemy.SSubQuery,
+	joinField sqlchemy.IQueryField,
 	userCred mcclient.TokenCredential,
 	query api.DBInstanceFilterListInput,
+	orders []string,
+	fields []sqlchemy.IQueryField,
 ) (*sqlchemy.SQuery, []string, []sqlchemy.IQueryField) {
-	dbQ := DBInstanceManager.Query("id", "name")
-	var orders []string
-	var fields []sqlchemy.IQueryField
-
-	if db.NeedOrderQuery(manager.SVpcResourceBaseManager.GetOrderByFields(query.VpcFilterListInput)) {
-		var vpcOrders []string
-		var vpcFields []sqlchemy.IQueryField
-		dbQ, vpcOrders, vpcFields = manager.SVpcResourceBaseManager.GetOrderBySubQuery(dbQ, userCred, query.VpcFilterListInput)
-		if len(vpcOrders) > 0 {
-			orders = append(orders, vpcOrders...)
-			fields = append(fields, vpcFields...)
-		}
+	if !db.NeedOrderQuery(manager.GetOrderByFields(query)) {
+		return q, orders, fields
 	}
-	if db.NeedOrderQuery(manager.GetOrderByFields(query)) {
-		subq := dbQ.SubQuery()
-		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("dbinstance_id"), subq.Field("id")))
-		if db.NeedOrderQuery([]string{query.OrderByDBInstance}) {
-			orders = append(orders, query.OrderByDBInstance)
-			fields = append(fields, subq.Field("name"))
-		}
-	}
+	dbQ := DBInstanceManager.Query().SubQuery()
+	q = q.LeftJoin(dbQ, sqlchemy.Equals(joinField, dbQ.Field("id")))
+	q = q.AppendField(dbQ.Field("name").Label("dbinstance"))
+	orders = append(orders, query.OrderByDBInstance)
+	fields = append(fields, subq.Field("dbinstance"))
+	q, orders, fields = manager.SVpcResourceBaseManager.GetOrderBySubQuery(q, subq, dbQ.Field("vpc_id"), userCred, query.VpcFilterListInput, orders, fields)
 	return q, orders, fields
 }
 
