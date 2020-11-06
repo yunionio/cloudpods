@@ -130,7 +130,7 @@ func init() {
 			Cpu:  args.CpuNum,
 			Mem:  args.MemSize,
 		}
-		vm, err := host.CloneVM(context.Background(), temVm, idss[0].(*esxi.SDatastore), createParams)
+		vm, err := host.CloneVM(context.Background(), temVm, nil, idss[0].(*esxi.SDatastore), createParams)
 		if err != nil {
 			return errors.Wrap(err, "SHost.CloneVMFromTemplate")
 		}
@@ -195,6 +195,68 @@ func init() {
 			return err
 		}
 		printList(vmnics, []string{})
+		return nil
+	})
+
+	shellutils.R(&VirtualMachineShowOptions{}, "vm-snapshots", "Show vm snapshots details", func(cli *esxi.SESXiClient, args *VirtualMachineShowOptions) error {
+		vm, err := getVM(cli, args)
+		if err != nil {
+			return err
+		}
+		vmsps, err := vm.GetInstanceSnapshots()
+		if err != nil {
+			return err
+		}
+		printList(vmsps, []string{})
+		return nil
+	})
+
+	type VirtualMachineSnapshotCreateOptions struct {
+		VirtualMachineShowOptions
+		NAME string `help:"Name of snapshot"`
+		Desc string `help:"Description of snapshot"`
+	}
+	shellutils.R(&VirtualMachineSnapshotCreateOptions{}, "vm-snapshot-create", "Create vm snapshot", func(cli *esxi.SESXiClient, args *VirtualMachineSnapshotCreateOptions) error {
+		vm, err := getVM(cli, &args.VirtualMachineShowOptions)
+		if err != nil {
+			return err
+		}
+		sp, err := vm.CreateInstanceSnapshot(context.Background(), args.NAME, args.Desc)
+		if err != nil {
+			return err
+		}
+		printObject(sp)
+		return nil
+	})
+
+	type VirtualMachineSnapshotOptions struct {
+		VirtualMachineShowOptions
+		ID string `help:"ID of snapshot"`
+	}
+	shellutils.R(&VirtualMachineSnapshotOptions{}, "vm-snapshot-delete", "Delete vm snapshot", func(cli *esxi.SESXiClient, args *VirtualMachineSnapshotOptions) error {
+		vm, err := getVM(cli, &args.VirtualMachineShowOptions)
+		if err != nil {
+			return err
+		}
+		sp, err := vm.GetInstanceSnapshot(args.ID)
+		if err != nil {
+			return err
+		}
+		err = sp.Delete()
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	shellutils.R(&VirtualMachineSnapshotOptions{}, "vm-snapshot-reset", "Reset vm to snapshot", func(cli *esxi.SESXiClient, args *VirtualMachineSnapshotOptions) error {
+		vm, err := getVM(cli, &args.VirtualMachineShowOptions)
+		if err != nil {
+			return err
+		}
+		err = vm.ResetToInstanceSnapshot(context.Background(), args.ID)
+		if err != nil {
+			return err
+		}
 		return nil
 	})
 
