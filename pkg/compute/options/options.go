@@ -158,6 +158,8 @@ type ComputeOptions struct {
 
 	DefaultNetworkGatewayAddressEsxi uint32 `help:"Default address for network gateway" default:"1"`
 
+	NoCheckOsTypeForCachedImage bool `help:"Don't check os type for cached image"`
+
 	esxi.EsxiOptions
 }
 
