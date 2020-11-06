@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -49,6 +50,7 @@ func init() {
 
 type SInstanceSnapshot struct {
 	db.SVirtualResourceBase
+	db.SExternalizedResourceBase
 
 	// 云主机Id
 	GuestId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
@@ -72,6 +74,7 @@ type SInstanceSnapshot struct {
 
 type SInstanceSnapshotManager struct {
 	db.SVirtualResourceBaseManager
+	db.SExternalizedResourceBaseManager
 }
 
 var InstanceSnapshotManager *SInstanceSnapshotManager
@@ -143,6 +146,17 @@ func (manager *SInstanceSnapshotManager) QueryDistinctExtraField(q *sqlchemy.SQu
 
 func (self *SInstanceSnapshot) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
 	return false
+}
+
+func (self *SInstanceSnapshot) GetGuest() (*SGuest, error) {
+	if len(self.GuestId) == 0 {
+		return nil, errors.ErrNotFound
+	}
+	guest := GuestManager.FetchGuestById(self.GuestId)
+	if guest == nil {
+		return nil, errors.ErrNotFound
+	}
+	return guest, nil
 }
 
 func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential, out api.InstanceSnapshotDetails) api.InstanceSnapshotDetails {
@@ -220,16 +234,11 @@ func (self *SInstanceSnapshot) StartCreateInstanceSnapshotTask(
 	return nil
 }
 
-func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(
-	ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, name string, autoDelete bool,
-) (*SInstanceSnapshot, error) {
-	instanceSnapshot := &SInstanceSnapshot{}
+func (manager *SInstanceSnapshotManager) fillInstanceSnapshot(userCred mcclient.TokenCredential, guest *SGuest, instanceSnapshot *SInstanceSnapshot) {
 	instanceSnapshot.SetModelManager(manager, instanceSnapshot)
-	instanceSnapshot.Name = name
 	instanceSnapshot.ProjectId = userCred.GetProjectId()
 	instanceSnapshot.DomainId = userCred.GetProjectDomainId()
 	instanceSnapshot.GuestId = guest.Id
-	instanceSnapshot.AutoDelete = autoDelete
 	guestSchedInput := guest.ToSchedDesc()
 
 	for i := 0; i < len(guestSchedInput.Disks); i++ {
@@ -285,6 +294,14 @@ func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(
 	instanceSnapshot.OsType = guest.OsType
 	instanceSnapshot.ServerMetadata = serverMetadata
 	instanceSnapshot.InstanceType = guest.InstanceType
+}
+
+func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, name string, autoDelete bool) (*SInstanceSnapshot, error) {
+	instanceSnapshot := &SInstanceSnapshot{}
+	instanceSnapshot.SetModelManager(manager, instanceSnapshot)
+	instanceSnapshot.Name = name
+	instanceSnapshot.AutoDelete = autoDelete
+	manager.fillInstanceSnapshot(userCred, guest, instanceSnapshot)
 	err := manager.TableSpec().Insert(ctx, instanceSnapshot)
 	if err != nil {
 		return nil, err
@@ -300,13 +317,15 @@ func (self *SInstanceSnapshot) ToInstanceCreateInput(
 		return nil, errors.Wrap(err, "unmarshal sched input")
 	}
 
-	isjs := make([]SInstanceSnapshotJoint, 0)
-	err := InstanceSnapshotJointManager.Query().Equals("instance_snapshot_id", self.Id).Asc("disk_index").All(&isjs)
-	if err != nil {
-		return nil, errors.Wrap(err, "fetch instance snapshots")
-	}
-	for i := 0; i < len(serverConfig.Disks); i++ {
-		serverConfig.Disks[i].SnapshotId = isjs[serverConfig.Disks[i].Index].SnapshotId
+	if len(self.ExternalId) > 0 {
+		isjs := make([]SInstanceSnapshotJoint, 0)
+		err := InstanceSnapshotJointManager.Query().Equals("instance_snapshot_id", self.Id).Asc("disk_index").All(&isjs)
+		if err != nil {
+			return nil, errors.Wrap(err, "fetch instance snapshots")
+		}
+		for i := 0; i < len(serverConfig.Disks); i++ {
+			serverConfig.Disks[i].SnapshotId = isjs[serverConfig.Disks[i].Index].SnapshotId
+		}
 	}
 	sourceInput.Disks = serverConfig.Disks
 	if sourceInput.VmemSize == 0 {
@@ -415,4 +434,59 @@ func (self *SInstanceSnapshot) DecRefCount(ctx context.Context, userCred mcclien
 		self.StartInstanceSnapshotDeleteTask(ctx, userCred, "")
 	}
 	return err
+}
+
+func (is *SInstanceSnapshot) syncRemoveCloudInstanceSnapshot(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, is)
+	defer lockman.ReleaseObject(ctx, is)
+
+	err := is.ValidateDeleteCondition(ctx)
+	if err != nil {
+		err = is.SetStatus(userCred, api.INSTANCE_SNAPSHOT_UNKNOWN, "sync to delete")
+	} else {
+		err = is.RealDelete(ctx, userCred)
+	}
+	return err
+}
+
+func (is *SInstanceSnapshot) SyncWithCloudInstanceSnapshot(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudInstanceSnapshot, guest *SGuest) error {
+	diff, err := db.UpdateWithLock(ctx, is, func() error {
+		is.Status = ext.GetStatus()
+		InstanceSnapshotManager.fillInstanceSnapshot(userCred, guest, is)
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	db.OpsLog.LogSyncUpdate(is, diff, userCred)
+	return nil
+}
+
+func (manager *SInstanceSnapshotManager) newFromCloudInstanceSnapshot(ctx context.Context, userCred mcclient.TokenCredential, extSnapshot cloudprovider.ICloudInstanceSnapshot, guest *SGuest) (*SInstanceSnapshot, error) {
+	instanceSnapshot := SInstanceSnapshot{}
+	instanceSnapshot.SetModelManager(manager, &instanceSnapshot)
+	newName, err := db.GenerateName(manager, nil, extSnapshot.GetName())
+	if err == nil {
+		instanceSnapshot.Name = extSnapshot.GetName()
+	} else {
+		instanceSnapshot.Name = newName
+	}
+	instanceSnapshot.ExternalId = extSnapshot.GetGlobalId()
+	instanceSnapshot.Status = extSnapshot.GetStatus()
+	manager.fillInstanceSnapshot(userCred, guest, &instanceSnapshot)
+	err = manager.TableSpec().Insert(ctx, &instanceSnapshot)
+	if err != nil {
+		return nil, err
+	}
+	db.OpsLog.LogEvent(&instanceSnapshot, db.ACT_CREATE, instanceSnapshot.GetShortDesc(ctx), userCred)
+	return &instanceSnapshot, nil
+}
+
+func (self *SInstanceSnapshot) GetRegionDriver() IRegionDriver {
+	guest, _ := self.GetGuest()
+	var provider string
+	if guest != nil {
+		provider = guest.GetHost().GetProviderName()
+	}
+	return GetRegionDriver(provider)
 }
