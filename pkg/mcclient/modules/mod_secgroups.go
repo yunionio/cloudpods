@@ -23,7 +23,7 @@ var (
 func init() {
 	SecGroups = NewComputeManager("secgroup", "secgroups",
 		[]string{"ID", "Name", "Rules",
-			"Is_public", "Created_at",
+			"Is_public", "Created_at", "Tenant_Id", "Tenant",
 			"Guest_cnt", "Description", "in_rules", "out_rules"},
 		[]string{})
 
