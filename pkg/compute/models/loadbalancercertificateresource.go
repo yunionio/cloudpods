@@ -125,10 +125,14 @@ func (manager *SLoadbalancerCertificateResourceBaseManager) OrderByExtraFields(
 	userCred mcclient.TokenCredential,
 	query api.LoadbalancerCertificateFilterListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, orders, fields := manager.GetOrderBySubQuery(q, userCred, query)
-	if len(orders) > 0 {
-		q = db.OrderByFields(q, orders, fields)
+	if !db.NeedOrderQuery(manager.GetOrderByFields(query)) {
+		return q, nil
 	}
+	orderQ := LoadbalancerCertificateManager.Query("id")
+	orderSubQ := orderQ.SubQuery()
+	orderQ, orders, fields := manager.GetOrderBySubQuery(orderQ, orderSubQ, orderQ.Field("id"), userCred, query, nil, nil)
+	q = q.LeftJoin(orderSubQ, sqlchemy.Equals(q.Field("certificate_id"), orderSubQ.Field("id")))
+	q = db.OrderByFields(q, orders, fields)
 	return q, nil
 }
 
@@ -145,18 +149,21 @@ func (manager *SLoadbalancerCertificateResourceBaseManager) QueryDistinctExtraFi
 
 func (manager *SLoadbalancerCertificateResourceBaseManager) GetOrderBySubQuery(
 	q *sqlchemy.SQuery,
+	subq *sqlchemy.SSubQuery,
+	joinField sqlchemy.IQueryField,
 	userCred mcclient.TokenCredential,
 	query api.LoadbalancerCertificateFilterListInput,
+	orders []string,
+	fields []sqlchemy.IQueryField,
 ) (*sqlchemy.SQuery, []string, []sqlchemy.IQueryField) {
-	certQ := LoadbalancerCertificateManager.Query("id", "name")
-	var orders []string
-	var fields []sqlchemy.IQueryField
-	if db.NeedOrderQuery(manager.GetOrderByFields(query)) {
-		subq := certQ.SubQuery()
-		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("certificate_id"), subq.Field("id")))
-		orders = append(orders, query.OrderByCertificate)
-		fields = append(fields, subq.Field("name"))
+	if !db.NeedOrderQuery(manager.GetOrderByFields(query)) {
+		return q, orders, fields
 	}
+	certQ := LoadbalancerCertificateManager.Query().SubQuery()
+	q = q.LeftJoin(certQ, sqlchemy.Equals(joinField, certQ.Field("id")))
+	q = q.AppendField(certQ.Field("name").Label("certificate"))
+	orders = append(orders, query.OrderByCertificate)
+	fields = append(fields, subq.Field("certificate"))
 	return q, orders, fields
 }
 
