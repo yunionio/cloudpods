@@ -922,7 +922,8 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SDatastore, params SCreateVMParam) (*SVirtualMachine, error) {
 	ovm := from.getVmObj()
 
-	deviceChange := make([]types.BaseVirtualDeviceConfigSpec, 0, 5)
+	deviceChange := make([]types.BaseVirtualDeviceConfigSpec, 0, 3)
+	addDeviceChange := make([]types.BaseVirtualDeviceConfigSpec, 0, 3)
 
 	// change nic if set
 	if params.Nics != nil && len(params.Nics) > 0 {
@@ -958,11 +959,16 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 				op = types.VirtualDeviceConfigSpecOperationEdit
 				host.changeNic(originNics[nicIndex], dev)
 				dev = originNics[nicIndex]
+				deviceChange = append(deviceChange, &types.VirtualDeviceConfigSpec{
+					Operation: op,
+					Device:    dev,
+				})
+			} else {
+				addDeviceChange = append(addDeviceChange, &types.VirtualDeviceConfigSpec{
+					Operation: op,
+					Device:    dev,
+				})
 			}
-			deviceChange = append(deviceChange, &types.VirtualDeviceConfigSpec{
-				Operation: op,
-				Device:    dev,
-			})
 		}
 	}
 
@@ -980,7 +986,7 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 				if host.isVersion50() {
 					driver = "scsi"
 				}
-				deviceChange = append(deviceChange, addDevSpec(NewSCSIDev(key, 100, driver)))
+				addDeviceChange = append(deviceChange, addDevSpec(NewSCSIDev(key, 100, driver)))
 			}
 		} else {
 			ideDevs, err := from.FindController(ctx, "ide")
@@ -989,8 +995,8 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 			}
 			if len(ideDevs) == 0 {
 				// add ide driver
-				deviceChange = append(deviceChange, addDevSpec(NewIDEDev(200, 0)))
-				deviceChange = append(deviceChange, addDevSpec(NewIDEDev(200, 1)))
+				addDeviceChange = append(deviceChange, addDevSpec(NewIDEDev(200, 0)))
+				addDeviceChange = append(deviceChange, addDevSpec(NewIDEDev(200, 1)))
 			}
 		}
 
@@ -1062,11 +1068,29 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 	if vm == nil {
 		return nil, errors.Error("clone successfully but unable to NewVirtualMachine")
 	}
+
+	deviceChange = addDeviceChange
 	// resize system disk
 	if rootDiskSizeMb > 0 && int64(vm.vdisks[0].GetDiskSizeMB()) != rootDiskSizeMb {
-		err = vm.vdisks[0].Resize(ctx, rootDiskSizeMb)
+		vdisk := vm.vdisks[0].getVirtualDisk()
+		originSize := vdisk.CapacityInKB
+		vdisk.CapacityInKB = rootDiskSizeMb * 1024
+		spec := &types.VirtualDeviceConfigSpec{}
+		spec.Operation = types.VirtualDeviceConfigSpecOperationEdit
+		spec.Device = vdisk
+		deviceChange = append(deviceChange, spec)
+		log.Infof("resize system disk: %dGB => %dGB", originSize/1024/1024, rootDiskSizeMb/1024)
+	}
+	if len(deviceChange) > 0 {
+		spec = types.VirtualMachineConfigSpec{}
+		spec.DeviceChange = deviceChange
+		task, err = vm.getVmObj().Reconfigure(ctx, spec)
 		if err != nil {
-			return vm, errors.Wrap(err, "resize for root disk")
+			return vm, errors.Wrap(err, "Reconfigure to resize disks")
+		}
+		err = task.Wait(ctx)
+		if err != nil {
+			return vm, errors.Wrap(err, "Wait task to resize disks")
 		}
 	}
 	// add data disk
