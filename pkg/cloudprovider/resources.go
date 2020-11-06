@@ -921,6 +921,7 @@ type ICloudElasticcache interface {
 	UpdateAuthMode(noPasswordAccess bool, password string) error
 	UpdateInstanceParameters(config jsonutils.JSONObject) error
 	UpdateBackupPolicy(config SCloudElasticCacheBackupPolicyUpdateInput) error
+	Renew(bc billing.SBillingCycle) error
 
 	SetMetadata(tags map[string]string, replace bool) error
 	UpdateSecurityGroups(secgroupIds []string) error

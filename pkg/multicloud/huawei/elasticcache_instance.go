@@ -28,6 +28,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 // https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423020.html
@@ -747,4 +748,12 @@ func (instance *SElasticcache) SetMetadata(tags map[string]string, replace bool)
 
 func (self *SElasticcache) UpdateSecurityGroups(secgroupIds []string) error {
 	return errors.Wrap(cloudprovider.ErrNotSupported, "UpdateSecurityGroups")
+}
+
+func (self *SElasticcache) Renew(bc billing.SBillingCycle) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (self *SElasticcache) SetAutoRenew(autoRenew bool) error {
+	return cloudprovider.ErrNotSupported
 }

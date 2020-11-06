@@ -2652,3 +2652,7 @@ func (self *SHuaWeiRegionDriver) GetBackendStatusForAdd() []string {
 func (self *SHuaWeiRegionDriver) GetRdsSupportSecgroupCount() int {
 	return 1
 }
+
+func (self *SHuaWeiRegionDriver) IsSupportedElasticcacheAutoRenew() bool {
+	return false
+}

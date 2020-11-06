@@ -29,6 +29,7 @@ var (
 	ElasticCacheBackup    modulebase.ResourceManager
 	ElasticCacheAcl       modulebase.ResourceManager
 	ElasticCacheParameter modulebase.ResourceManager
+	ElasticCacheSecgroup  modulebase.JointResourceManager
 )
 
 type ElasticCacheManager struct {
@@ -60,11 +61,19 @@ func init() {
 		[]string{},
 		[]string{})
 
+	ElasticCacheSecgroup = NewJointComputeManager("elasticcachesecgroup",
+		"elasticcachesecgroups",
+		[]string{},
+		[]string{},
+		&ElasticCache,
+		&SecGroups)
+
 	registerCompute(&ElasticCache)
 	registerCompute(&ElasticCacheAccount)
 	registerCompute(&ElasticCacheAcl)
 	registerCompute(&ElasticCacheBackup)
 	registerCompute(&ElasticCacheParameter)
+	registerCompute(&ElasticCacheSecgroup)
 }
 
 func (self *ElasticCacheManager) GetLoginInfo(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
