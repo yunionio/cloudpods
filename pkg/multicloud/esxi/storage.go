@@ -270,6 +270,44 @@ func (self *SDatastore) FetchTemplateVMs() ([]*SVirtualMachine, error) {
 	return self.datacenter.fetchVMsWithFilter(filter)
 }
 
+func (self *SDatastore) FetchTemplateVMById(id string) (*SVirtualMachine, error) {
+	mods := self.getDatastore()
+	filter := property.Filter{}
+	uuid := toTemplateUuid(id)
+	filter["summary.config.uuid"] = uuid
+	filter["config.template"] = true
+	filter["datastore"] = mods.Reference()
+	vms, err := self.datacenter.fetchVMsWithFilter(filter)
+	if err != nil {
+		return nil, err
+	}
+	if len(vms) == 0 {
+		return nil, errors.ErrNotFound
+	}
+	return vms[0], nil
+}
+
+func (self *SDatastore) FetchFakeTempateVMById(id string, regex string) (*SVirtualMachine, error) {
+	mods := self.getDatastore()
+	filter := property.Filter{}
+	uuid := toTemplateUuid(id)
+	filter["summary.config.uuid"] = uuid
+	filter["datastore"] = mods.Reference()
+	filter["summary.runtime.powerState"] = types.VirtualMachinePowerStatePoweredOff
+	movms, err := self.datacenter.fetchMoVms(filter, []string{"name"})
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to fetch mo.VirtualMachines")
+	}
+	vms, err := self.datacenter.fetchFakeTemplateVMs(movms, regex)
+	if err != nil {
+		return nil, err
+	}
+	if len(vms) == 0 {
+		return nil, errors.ErrNotFound
+	}
+	return vms[0], nil
+}
+
 func (self *SDatastore) FetchFakeTempateVMs(regex string) ([]*SVirtualMachine, error) {
 	mods := self.getDatastore()
 	filter := property.Filter{}
