@@ -762,6 +762,61 @@ var CapacityUsedCloudStorageProvider = []string{
 	api.CLOUD_PROVIDER_VMWARE,
 }
 
+func (sm *SStorageManager) SyncCapacityUsedForEsxiStorage(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	cpQ := CloudproviderManager.Query("id").Equals("provider", api.CLOUD_PROVIDER_VMWARE)
+	cloudproviders := make([]SCloudprovider, 0)
+	err := db.FetchModelObjects(CloudproviderManager, cpQ, &cloudproviders)
+	if err != nil {
+		log.Errorf("unable to FetchModelObjects: %v", err)
+	}
+	for i := range cloudproviders {
+		cp := cloudproviders[i]
+		icp, err := cp.GetProvider()
+		if err != nil {
+			log.Errorf("unable to GetProvider: %v", err)
+			continue
+		}
+		iregion, err := icp.GetOnPremiseIRegion()
+		if err != nil {
+			log.Errorf("unable to GetOnPremiseIRegion: %v", err)
+			continue
+		}
+		css, err := iregion.GetIStorages()
+		if err != nil {
+			log.Errorf("unable to GetIStorages: %v", err)
+			continue
+		}
+		storageSizeMap := make(map[string]int64, len(css))
+		for i := range css {
+			id := css[i].GetGlobalId()
+			size := css[i].GetCapacityUsedMB()
+			storageSizeMap[id] = size
+		}
+		sQ := sm.Query().Equals("manager_id", cp.GetId())
+		storages := make([]SStorage, 0, 5)
+		err = db.FetchModelObjects(sm, sQ, &storages)
+		if err != nil {
+			log.Errorf("unable to fetch storages with sql %q: %v", sQ.String(), err)
+			continue
+		}
+		for i := range storages {
+			s := &storages[i]
+			newSize, ok := storageSizeMap[s.GetExternalId()]
+			if !ok {
+				log.Warningf("can't find usedSize for storage %q", s.GetId())
+				continue
+			}
+			_, err = db.Update(s, func() error {
+				s.ActualCapacityUsed = newSize
+				return nil
+			})
+			if err != nil {
+				log.Errorf("unable to udpate storage %q: %v", s.GetId(), err)
+			}
+		}
+	}
+}
+
 func (sm *SStorageManager) SyncCapacityUsedForStorage(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	cpSubQ := CloudproviderManager.Query("id").In("provider", CapacityUsedCloudStorageProvider).SubQuery()
 	sQ := sm.Query()

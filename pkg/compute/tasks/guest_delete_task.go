@@ -317,17 +317,17 @@ func (self *GuestDeleteTask) OnGuestDeleteComplete(ctx context.Context, obj db.I
 	guest.DeleteEip(ctx, self.UserCred)
 	guest.GetDriver().OnDeleteGuestFinalCleanup(ctx, guest, self.UserCred)
 	// sync capacity used for storage
-	ja, err := self.Params.GetArray(STORAGEIDS)
-	if err == nil {
-		storageIds := make([]string, len(ja))
-		for i := range ja {
-			storageIds[i], _ = ja[i].GetString()
-		}
-		err = guest.SyncCapacityUsedForStorage(ctx, storageIds)
-		if err != nil {
-			log.Errorf("unable to SyncCapacityUsedForStoarage: %v", err)
-		}
-	}
+	// ja, err := self.Params.GetArray(STORAGEIDS)
+	// if err == nil {
+	// 	storageIds := make([]string, len(ja))
+	// 	for i := range ja {
+	// 		storageIds[i], _ = ja[i].GetString()
+	// 	}
+	// 	err = guest.SyncCapacityUsedForStorage(ctx, storageIds)
+	// 	if err != nil {
+	// 		log.Errorf("unable to SyncCapacityUsedForStoarage: %v", err)
+	// 	}
+	// }
 	self.DeleteGuest(ctx, guest)
 }
 

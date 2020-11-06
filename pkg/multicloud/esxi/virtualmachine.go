@@ -1119,7 +1119,7 @@ func (self *SVirtualMachine) DoCustomize(ctx context.Context, params jsonutils.J
 	spec.NicSettingMap = maps
 
 	var (
-		osName = "Linux"
+		osName string
 		name   = "yunionhost"
 	)
 	if params.Contains("os_name") {
@@ -1135,7 +1135,7 @@ func (self *SVirtualMachine) DoCustomize(ctx context.Context, params jsonutils.J
 			TimeZone: "Asia/Shanghai",
 		}
 		spec.Identity = &linuxPrep
-	} else {
+	} else if osName == "Windows" {
 		sysPrep := types.CustomizationSysprep{
 			GuiUnattended: types.CustomizationGuiUnattended{
 				TimeZone:  210,
