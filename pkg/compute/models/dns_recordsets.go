@@ -18,12 +18,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
-	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -121,11 +121,11 @@ func (manager *SDnsRecordSetManager) ValidateCreateData(ctx context.Context, use
 		return input, err
 	}
 	input.Name = strings.ToLower(input.Name)
-	if input.Name != "*" && input.Name != "@" {
-		if !regutils.MatchDomainName(input.Name) {
-			return input, httperrors.NewInputParameterError("invalid domain name %s", input.Name)
-		}
+	rrRegexp := regexp.MustCompile(`^(([a-zA-Z0-9_][a-zA-Z0-9_-]{0,61}[a-zA-Z0-9_])|[a-zA-Z0-9_]|\*{1}){1}(\.(([a-zA-Z0-9_][a-zA-Z0-9_-]{0,61}[a-zA-Z0-9_])|[a-zA-Z0-9_]))*$|^@{1}$`)
+	if !rrRegexp.MatchString(input.Name) {
+		return input, httperrors.NewInputParameterError("invalid record name %s", input.Name)
 	}
+
 	if len(input.DnsZoneId) == 0 {
 		return input, httperrors.NewMissingParameterError("dns_zone_id")
 	}
