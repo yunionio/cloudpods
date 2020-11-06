@@ -106,32 +106,9 @@ func (self *SDatastoreImageCache) getFakeTempateVMs() ([]*SVirtualMachine, error
 	return self.datastore.FetchFakeTempateVMs("")
 }
 
-func (self *SDatastoreImageCache) GetIImages() ([]cloudprovider.ICloudImage, error) {
+func (self *SDatastoreImageCache) GetIImageInImagecache() ([]cloudprovider.ICloudImage, error) {
 	ctx := context.Background()
 	ret := make([]cloudprovider.ICloudImage, 0, 2)
-	log.Infof("start to GetIImages")
-
-	realTemplates, err := self.getTempalteVMs()
-	if err != nil {
-		return nil, errors.Wrap(err, "getTemplateVMs")
-	}
-	fakeTemplates, err := self.getFakeTempateVMs()
-	if err != nil {
-		return nil, errors.Wrap(err, "getFakeTempateVMs")
-	}
-
-	for i := range realTemplates {
-		ret = append(ret, NewVMTemplate(realTemplates[i], self))
-	}
-	for i := range fakeTemplates {
-		ret = append(ret, NewVMTemplate(fakeTemplates[i], self))
-	}
-
-	log.Errorf("get templates successfully")
-	for i := range fakeTemplates {
-		log.Infof("fake template name: %s", fakeTemplates[i].GetName())
-	}
-
 	files, err := self.datastore.ListDir(ctx, IMAGE_CACHE_DIR_NAME)
 	if errors.Cause(err) == errors.ErrNotFound {
 		return ret, nil
@@ -177,8 +154,74 @@ func (self *SDatastoreImageCache) GetIImages() ([]cloudprovider.ICloudImage, err
 	return ret, nil
 }
 
+func (self *SDatastoreImageCache) GetIImageInTemplateVMs() ([]cloudprovider.ICloudImage, error) {
+	ret := make([]cloudprovider.ICloudImage, 0, 2)
+	log.Infof("start to GetIImages")
+
+	realTemplates, err := self.getTempalteVMs()
+	if err != nil {
+		return nil, errors.Wrap(err, "getTemplateVMs")
+	}
+	fakeTemplates, err := self.getFakeTempateVMs()
+	if err != nil {
+		return nil, errors.Wrap(err, "getFakeTempateVMs")
+	}
+
+	for i := range realTemplates {
+		ret = append(ret, NewVMTemplate(realTemplates[i], self))
+	}
+	for i := range fakeTemplates {
+		ret = append(ret, NewVMTemplate(fakeTemplates[i], self))
+	}
+
+	log.Infof("get templates successfully")
+	for i := range fakeTemplates {
+		log.Infof("fake template name: %s", fakeTemplates[i].GetName())
+	}
+	return ret, nil
+}
+
+func (self *SDatastoreImageCache) GetIImageInTemplateVMsById(id string) (cloudprovider.ICloudImage, error) {
+	if tempalteNameRegex != nil {
+		vm, err := self.datastore.FetchFakeTempateVMById(id, "")
+		log.Infof("FetchFakeTempateVMById: %v, %v", vm, err)
+		if err == nil {
+			return NewVMTemplate(vm, self), nil
+		}
+		if errors.Cause(err) != errors.ErrNotFound {
+			return nil, err
+		}
+	}
+	vm, err := self.datastore.FetchTemplateVMById(id)
+	if err == nil {
+		return NewVMTemplate(vm, self), nil
+	}
+	return nil, err
+}
+
+func (self *SDatastoreImageCache) GetIImages() ([]cloudprovider.ICloudImage, error) {
+	images1, err := self.GetIImageInTemplateVMs()
+	if err != nil {
+		return nil, err
+	}
+	images2, err := self.GetIImageInImagecache()
+	if err != nil {
+		return nil, err
+	}
+	return append(images1, images2...), nil
+}
+
 func (self *SDatastoreImageCache) GetIImageById(extId string) (cloudprovider.ICloudImage, error) {
-	images, err := self.GetIImages()
+	// check templatevms
+	image, err := self.GetIImageInTemplateVMsById(extId)
+	if err == nil {
+		return image, nil
+	}
+	if errors.Cause(err) != errors.ErrNotFound {
+		return nil, err
+	}
+	log.Infof("start to GetIImageInImagecache")
+	images, err := self.GetIImageInImagecache()
 	if err != nil {
 		return nil, err
 	}
