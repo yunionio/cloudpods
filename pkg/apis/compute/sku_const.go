@@ -74,7 +74,7 @@ type ServerSkuListInput struct {
 	UsableResourceListInput
 
 	// filter sku by memory size in MB
-	MemorySizeMb int `json:"memory_size_mb"`
+	MemorySizeMb []int `json:"memory_size_mb"`
 	// filter sku by CPU core count
 	CpuCoreCount []int `json:"cpu_core_count"`
 
