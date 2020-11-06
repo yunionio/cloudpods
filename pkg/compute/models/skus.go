@@ -828,12 +828,22 @@ func (manager *SServerSkuManager) ListItemFilter(
 		q = q.Equals("prepaid_status", query.PrepaidStatus)
 	}
 
-	// 按区间查询内存, 避免0.75G这样的套餐不好过滤
-	memSizeMB := query.MemorySizeMb
-	if memSizeMB > 0 {
-		s, e := intervalMem(int(memSizeMB))
-		q = q.GT("memory_size_mb", s)
-		q = q.LE("memory_size_mb", e)
+	conditions := []sqlchemy.ICondition{}
+	for _, sizeMb := range query.MemorySizeMb {
+		// 按区间查询内存, 避免0.75G这样的套餐不好过滤
+		if sizeMb > 0 {
+			s, e := intervalMem(sizeMb)
+			conditions = append(
+				conditions,
+				sqlchemy.AND(
+					sqlchemy.GE(q.Field("memory_size_mb"), s),
+					sqlchemy.LE(q.Field("memory_size_mb"), e),
+				),
+			)
+		}
+	}
+	if len(conditions) > 0 {
+		q = q.Filter(sqlchemy.OR(conditions...))
 	}
 	if len(query.CpuCoreCount) > 0 {
 		q = q.In("cpu_core_count", query.CpuCoreCount)
