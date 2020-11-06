@@ -1,0 +1,7 @@
+ _output/alpine-build/_cache
+pkg
+vendor
+cmd
+locales
+docs
+scripts
