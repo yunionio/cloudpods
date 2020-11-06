@@ -161,10 +161,14 @@ func (manager *SLoadbalancerClusterResourceBaseManager) OrderByExtraFields(
 	userCred mcclient.TokenCredential,
 	query api.LoadbalancerClusterFilterListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, orders, fields := manager.GetOrderBySubQuery(q, userCred, query)
-	if len(orders) > 0 {
-		q = db.OrderByFields(q, orders, fields)
+	if !db.NeedOrderQuery(manager.GetOrderByFields(query)) {
+		return q, nil
 	}
+	orderQ := LoadbalancerClusterManager.Query("id")
+	orderSubQ := orderQ.SubQuery()
+	orderQ, orders, fields := manager.GetOrderBySubQuery(orderQ, orderSubQ, orderQ.Field("id"), userCred, query, nil, nil)
+	q = q.LeftJoin(orderSubQ, sqlchemy.Equals(q.Field("cluster_id"), orderSubQ.Field("id")))
+	q = db.OrderByFields(q, orders, fields)
 	return q, nil
 }
 
@@ -191,31 +195,22 @@ func (manager *SLoadbalancerClusterResourceBaseManager) QueryDistinctExtraField(
 
 func (manager *SLoadbalancerClusterResourceBaseManager) GetOrderBySubQuery(
 	q *sqlchemy.SQuery,
+	subq *sqlchemy.SSubQuery,
+	joinField sqlchemy.IQueryField,
 	userCred mcclient.TokenCredential,
 	query api.LoadbalancerClusterFilterListInput,
+	orders []string,
+	fields []sqlchemy.IQueryField,
 ) (*sqlchemy.SQuery, []string, []sqlchemy.IQueryField) {
-	clusterQ := LoadbalancerClusterManager.Query("id", "name")
-	var orders []string
-	var fields []sqlchemy.IQueryField
-
-	if db.NeedOrderQuery(manager.SZoneResourceBaseManager.GetOrderByFields(query.ZonalFilterListInput)) {
-		var zoneOrders []string
-		var zoneFields []sqlchemy.IQueryField
-		clusterQ, zoneOrders, zoneFields = manager.SZoneResourceBaseManager.GetOrderBySubQuery(clusterQ, userCred, query.ZonalFilterListInput)
-		if len(zoneOrders) > 0 {
-			orders = append(orders, zoneOrders...)
-			fields = append(fields, zoneFields...)
-		}
+	if !db.NeedOrderQuery(manager.GetOrderByFields(query)) {
+		return q, orders, fields
 	}
-
-	if db.NeedOrderQuery(manager.GetOrderByFields(query)) {
-		subq := clusterQ.SubQuery()
-		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("cluster_id"), subq.Field("id")))
-		if db.NeedOrderQuery([]string{query.OrderByCluster}) {
-			orders = append(orders, query.OrderByCluster)
-			fields = append(fields, subq.Field("name"))
-		}
-	}
+	clusterQ := LoadbalancerClusterManager.Query().SubQuery()
+	q = q.LeftJoin(clusterQ, sqlchemy.Equals(joinField, clusterQ.Field("id")))
+	q = q.AppendField(clusterQ.Field("name").Label("cluster"))
+	orders = append(orders, query.OrderByCluster)
+	fields = append(fields, subq.Field("cluster"))
+	q, orders, fields = manager.SZoneResourceBaseManager.GetOrderBySubQuery(q, subq, clusterQ.Field("zone_id"), userCred, query.ZonalFilterListInput, orders, fields)
 	return q, orders, fields
 }
 

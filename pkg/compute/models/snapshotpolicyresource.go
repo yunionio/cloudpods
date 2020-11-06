@@ -123,10 +123,14 @@ func (manager *SSnapshotPolicyResourceBaseManager) OrderByExtraFields(
 	userCred mcclient.TokenCredential,
 	query api.SnapshotPolicyFilterListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, orders, fields := manager.GetOrderBySubQuery(q, userCred, query)
-	if len(orders) > 0 {
-		q = db.OrderByFields(q, orders, fields)
+	if !db.NeedOrderQuery(manager.GetOrderByFields(query)) {
+		return q, nil
 	}
+	orderQ := SnapshotPolicyManager.Query("id")
+	orderSubQ := orderQ.SubQuery()
+	orderQ, orders, fields := manager.GetOrderBySubQuery(orderQ, orderSubQ, orderQ.Field("id"), userCred, query, nil, nil)
+	q = q.LeftJoin(orderSubQ, sqlchemy.Equals(q.Field("snapshotpolicy_id"), orderSubQ.Field("id")))
+	q = db.OrderByFields(q, orders, fields)
 	return q, nil
 }
 
@@ -143,19 +147,21 @@ func (manager *SSnapshotPolicyResourceBaseManager) QueryDistinctExtraField(q *sq
 
 func (manager *SSnapshotPolicyResourceBaseManager) GetOrderBySubQuery(
 	q *sqlchemy.SQuery,
+	subq *sqlchemy.SSubQuery,
+	joinField sqlchemy.IQueryField,
 	userCred mcclient.TokenCredential,
 	query api.SnapshotPolicyFilterListInput,
+	orders []string,
+	fields []sqlchemy.IQueryField,
 ) (*sqlchemy.SQuery, []string, []sqlchemy.IQueryField) {
-	snapQ := SnapshotPolicyManager.Query("id", "name")
-	var orders []string
-	var fields []sqlchemy.IQueryField
-	if db.NeedOrderQuery(manager.GetOrderByFields(query)) {
-		subq := snapQ.SubQuery()
-		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("snapshotpolicy_id"), subq.Field("id")))
-		orders = append(orders, query.OrderBySnapshotpolicy)
-		fields = append(fields, subq.Field("name"))
+	if !db.NeedOrderQuery(manager.GetOrderByFields(query)) {
+		return q, orders, fields
 	}
-
+	snapQ := SnapshotPolicyManager.Query().SubQuery()
+	q = q.LeftJoin(snapQ, sqlchemy.Equals(joinField, snapQ.Field("id")))
+	q = q.AppendField(snapQ.Field("name").Label("snapshotpolicy"))
+	orders = append(orders, query.OrderBySnapshotpolicy)
+	fields = append(fields, subq.Field("snapshotpolicy"))
 	return q, orders, fields
 }
 
