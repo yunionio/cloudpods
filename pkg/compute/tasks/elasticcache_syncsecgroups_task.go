@@ -87,6 +87,7 @@ func (self *ElasticcacheSyncsecgroupsTask) OnElasticcacheSyncSecgroupsComplete(c
 		return
 	}
 
+	cache.SetStatus(self.UserCred, iec.GetStatus(), "UpdateSecurityGroups")
 	self.SetStageComplete(ctx, nil)
 }
 

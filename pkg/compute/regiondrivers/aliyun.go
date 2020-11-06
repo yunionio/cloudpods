@@ -1090,7 +1090,7 @@ func (self *SAliyunRegionDriver) ValidateCreateDBInstanceData(ctx context.Contex
 
 func (self *SAliyunRegionDriver) IsSupportedBillingCycle(bc billing.SBillingCycle, resource string) bool {
 	switch resource {
-	case models.DBInstanceManager.KeywordPlural():
+	case models.DBInstanceManager.KeywordPlural(), models.ElasticcacheManager.KeywordPlural():
 		years := bc.GetYears()
 		months := bc.GetMonths()
 		if (years >= 1 && years <= 3) || (months >= 1 && months <= 9) {

@@ -2861,3 +2861,65 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateElasticcache(
 func (self *SManagedVirtualizationRegionDriver) RequestSyncSecgroupsForElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement RequestSyncSecgroupsForElasticcache")
 }
+
+func (self *SManagedVirtualizationRegionDriver) RequestRenewElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, bc billing.SBillingCycle) (time.Time, error) {
+	iregion, err := ec.GetIRegion()
+	if err != nil {
+		return time.Time{}, errors.Wrap(err, "GetIRegion")
+	}
+
+	if len(ec.GetExternalId()) == 0 {
+		return time.Time{}, errors.Wrap(err, "ExternalId is empty")
+	}
+
+	iec, err := iregion.GetIElasticcacheById(ec.GetExternalId())
+	if err != nil {
+		return time.Time{}, errors.Wrap(err, "GetIElasticcacheById")
+	}
+
+	oldExpired := iec.GetExpiredAt()
+	err = iec.Renew(bc)
+	if err != nil {
+		return time.Time{}, err
+	}
+	//避免有些云续费后过期时间刷新比较慢问题
+	cloudprovider.WaitCreated(15*time.Second, 5*time.Minute, func() bool {
+		err := iec.Refresh()
+		if err != nil {
+			log.Errorf("failed refresh instance %s error: %v", ec.Name, err)
+		}
+		newExipred := iec.GetExpiredAt()
+		if newExipred.After(oldExpired) {
+			return true
+		}
+		return false
+	})
+	return iec.GetExpiredAt(), nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) IsSupportedElasticcacheAutoRenew() bool {
+	return true
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheSetAutoRenew(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, autoRenew bool, task taskman.ITask) error {
+	iregion, err := ec.GetIRegion()
+	if err != nil {
+		return errors.Wrap(err, "GetIRegion")
+	}
+
+	if len(ec.GetExternalId()) == 0 {
+		return errors.Wrap(err, "ExternalId is empty")
+	}
+
+	iec, err := iregion.GetIElasticcacheById(ec.GetExternalId())
+	if err != nil {
+		return errors.Wrap(err, "GetIElasticcacheById")
+	}
+
+	err = iec.SetAutoRenew(autoRenew)
+	if err != nil {
+		return errors.Wrap(err, "SetAutoRenew")
+	}
+
+	return ec.SetAutoRenew(autoRenew)
+}

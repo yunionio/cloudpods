@@ -102,3 +102,19 @@ type ElasticCacheRemoteUpdateOptions struct {
 	ID string `json:"-"`
 	computeapi.ElasticcacheRemoteUpdateInput
 }
+
+type ElasticCacheAutoRenewOptions struct {
+	ElasticCacheIdOptions
+	AutoRenew bool `help:"Set elastic cache auto renew or manual renew"`
+}
+
+func (o *ElasticCacheAutoRenewOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	params.Set("auto_renew", jsonutils.NewBool(o.AutoRenew))
+	return params, nil
+}
+
+type ElasticCacheRenewOptions struct {
+	ID       string `json:"-"`
+	Duration string `help:"valid duration of the elastic cache, e.g. 1H, 1D, 1W, 1M, 1Y, ADMIN ONLY option"`
+}

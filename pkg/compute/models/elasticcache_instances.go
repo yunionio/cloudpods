@@ -31,7 +31,6 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
-	"yunion.io/x/onecloud/pkg/apis/billing"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -556,6 +555,19 @@ func (self *SElasticcache) SyncWithCloudElasticcache(ctx context.Context, userCr
 		self.MaintainEndTime = extInstance.GetMaintainEndTime()
 		self.AuthMode = extInstance.GetAuthMode()
 
+		factory, err := provider.GetProviderFactory()
+		if err != nil {
+			return errors.Wrap(err, "SyncWithCloudElasticcache.GetProviderFactory")
+		}
+
+		if factory.IsSupportPrepaidResources() {
+			self.BillingType = extInstance.GetBillingType()
+			if expired := extInstance.GetExpiredAt(); !expired.IsZero() {
+				self.ExpiredAt = expired
+			}
+			self.AutoRenew = extInstance.IsAutoRenew()
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -847,7 +859,7 @@ func (self *SElasticcache) GetCreateAliyunElasticcacheParams(data *jsonutils.JSO
 	}
 
 	switch self.BillingType {
-	case billing.BILLING_TYPE_PREPAID:
+	case billing_api.BILLING_TYPE_PREPAID:
 		input.ChargeType = "PrePaid"
 		billingCycle, err := bc.ParseBillingCycle(self.BillingCycle)
 		if err != nil {
@@ -938,7 +950,7 @@ func (self *SElasticcache) GetCreateHuaweiElasticcacheParams(data *jsonutils.JSO
 	}
 
 	switch self.BillingType {
-	case billing.BILLING_TYPE_PREPAID:
+	case billing_api.BILLING_TYPE_PREPAID:
 		input.ChargeType = "PrePaid"
 		billingCycle, err := bc.ParseBillingCycle(self.BillingCycle)
 		if err != nil {
@@ -1025,7 +1037,7 @@ func (self *SElasticcache) GetCreateQCloudElasticcacheParams(data *jsonutils.JSO
 	}
 
 	switch self.BillingType {
-	case billing.BILLING_TYPE_PREPAID:
+	case billing_api.BILLING_TYPE_PREPAID:
 		input.ChargeType = "PrePaid"
 		billingCycle, err := bc.ParseBillingCycle(self.BillingCycle)
 		if err != nil {
@@ -2162,6 +2174,116 @@ func (self *SElasticcache) StartSyncSecgroupsTask(ctx context.Context, userCred 
 		return err
 	}
 
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SElasticcache) AllowPerformSetAutoRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "set-auto-renew")
+}
+
+func (self *SElasticcache) SetAutoRenew(autoRenew bool) error {
+	_, err := db.Update(self, func() error {
+		self.AutoRenew = autoRenew
+		return nil
+	})
+	return err
+}
+
+/*
+设置自动续费
+要求实例状态为running
+要求实例计费类型为包年包月(预付费)
+*/
+func (self *SElasticcache) PerformSetAutoRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.GuestAutoRenewInput) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Status, []string{api.ELASTIC_CACHE_STATUS_RUNNING}) {
+		return nil, httperrors.NewUnsupportOperationError("The elastic cache status need be %s, current is %s", api.ELASTIC_CACHE_STATUS_RUNNING, self.Status)
+	}
+
+	if self.BillingType != billing_api.BILLING_TYPE_PREPAID {
+		return nil, httperrors.NewUnsupportOperationError("Only %s elastic cache support set auto renew operation", billing_api.BILLING_TYPE_PREPAID)
+	}
+
+	if self.AutoRenew == input.AutoRenew {
+		return nil, nil
+	}
+
+	region := self.GetRegion()
+	if region == nil {
+		return nil, httperrors.NewResourceNotFoundError("elastic cache no related region found")
+	}
+
+	if !region.GetDriver().IsSupportedElasticcacheAutoRenew() {
+		err := self.SetAutoRenew(input.AutoRenew)
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+
+		logclient.AddSimpleActionLog(self, logclient.ACT_SET_AUTO_RENEW, jsonutils.Marshal(input), userCred, true)
+		return nil, nil
+	}
+
+	return nil, self.StartSetAutoRenewTask(ctx, userCred, input.AutoRenew, "")
+}
+
+func (self *SElasticcache) StartSetAutoRenewTask(ctx context.Context, userCred mcclient.TokenCredential, autoRenew bool, parentTaskId string) error {
+	self.SetStatus(userCred, api.ELASTIC_CACHE_SET_AUTO_RENEW, "")
+
+	data := jsonutils.NewDict()
+	data.Set("auto_renew", jsonutils.NewBool(autoRenew))
+	task, err := taskman.TaskManager.NewTask(ctx, "ElasticcacheRenewTask", self, userCred, data, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "ElasticcacheRenewTask")
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SElasticcache) AllowPerformRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "renew")
+}
+
+func (self *SElasticcache) PerformRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.BillingType != billing_api.BILLING_TYPE_PREPAID {
+		return nil, httperrors.NewUnsupportOperationError("Only %s elastic cache support renew operation", billing_api.BILLING_TYPE_PREPAID)
+	}
+
+	durationStr, _ := data.GetString("duration")
+	if len(durationStr) == 0 {
+		return nil, httperrors.NewInputParameterError("missong duration")
+	}
+
+	bc, err := bc.ParseBillingCycle(durationStr)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("invalid duration %s: %s", durationStr, err)
+	}
+
+	region := self.GetRegion()
+	if region == nil {
+		return nil, httperrors.NewResourceNotFoundError("elastic cache no related region found")
+	}
+
+	if !region.GetDriver().IsSupportedBillingCycle(bc, self.KeywordPlural()) {
+		return nil, httperrors.NewInputParameterError("unsupported duration %s", durationStr)
+	}
+
+	err = self.startRenewTask(ctx, userCred, durationStr, "")
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
+}
+
+func (self *SElasticcache) startRenewTask(ctx context.Context, userCred mcclient.TokenCredential, duration string, parentTaskId string) error {
+	self.SetStatus(userCred, api.ELASTIC_CACHE_RENEWING, "")
+	data := jsonutils.NewDict()
+	data.Add(jsonutils.NewString(duration), "duration")
+	task, err := taskman.TaskManager.NewTask(ctx, "ElasticcacheRenewTask", self, userCred, data, parentTaskId, "", nil)
+	if err != nil {
+		log.Errorf("fail to crate ElasticcacheRenewTask %s", err)
+		return err
+	}
 	task.ScheduleRun(nil)
 	return nil
 }

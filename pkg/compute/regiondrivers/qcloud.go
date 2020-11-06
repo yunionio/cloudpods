@@ -1405,7 +1405,7 @@ func (self *SQcloudRegionDriver) ValidateCreateDBInstanceData(ctx context.Contex
 
 func (self *SQcloudRegionDriver) IsSupportedBillingCycle(bc billing.SBillingCycle, resource string) bool {
 	switch resource {
-	case models.DBInstanceManager.KeywordPlural():
+	case models.DBInstanceManager.KeywordPlural(), models.ElasticcacheManager.KeywordPlural():
 		years := bc.GetYears()
 		months := bc.GetMonths()
 		if (years >= 1 && years <= 3) || (months >= 1 && months <= 12) {
@@ -1648,8 +1648,13 @@ func (self *SQcloudRegionDriver) RequestSyncSecgroupsForElasticcache(ctx context
 			}
 
 			vpc := ec.GetVpc()
+			vpcId, err := self.GetSecurityGroupVpcId(ctx, userCred, ec.GetRegion(), nil, vpc, false)
+			if err != nil {
+				return nil, errors.Wrap(err, "GetSecurityGroupVpcId")
+			}
+
 			for i := range ess {
-				externalId, err := self.RequestSyncSecurityGroup(ctx, task.GetUserCred(), vpc.GetId(), vpc, ess[i].GetSecGroup(), extProjectId)
+				externalId, err := self.RequestSyncSecurityGroup(ctx, task.GetUserCred(), vpcId, vpc, ess[i].GetSecGroup(), extProjectId)
 				if err != nil {
 					return nil, errors.Wrap(err, "RequestSyncSecurityGroup")
 				}

@@ -408,3 +408,15 @@ func (self *SBaseRegionDriver) IsDBInstanceNeedSecgroup() bool {
 func (self *SBaseRegionDriver) GetRdsSupportSecgroupCount() int {
 	return 0
 }
+
+func (self *SBaseRegionDriver) RequestRenewElasticcache(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SElasticcache, bc billing.SBillingCycle) (time.Time, error) {
+	return time.Time{}, fmt.Errorf("Not Implement RequestRenewElasticcache")
+}
+
+func (self *SBaseRegionDriver) IsSupportedElasticcacheAutoRenew() bool {
+	return false
+}
+
+func (self *SBaseRegionDriver) RequestElasticcacheSetAutoRenew(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, autoRenew bool, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestElasticcacheSetAutoRenew")
+}
