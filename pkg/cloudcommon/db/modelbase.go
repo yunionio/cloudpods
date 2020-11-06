@@ -548,17 +548,24 @@ func (model *SModelBase) CustomizeDelete(ctx context.Context, userCred mcclient.
 	return nil
 }
 
-func cleanModelUsages(ctx context.Context, userCred mcclient.TokenCredential, model IModel) {
+func (model *SModelBase) cleanModelUsages(ctx context.Context, userCred mcclient.TokenCredential) {
 	usages := model.GetIModel().GetUsages()
 	if CancelUsages != nil && len(usages) > 0 {
 		CancelUsages(ctx, userCred, usages)
 	}
 }
 
+func (model *SModelBase) RecoverUsages(ctx context.Context, userCred mcclient.TokenCredential) {
+	usages := model.GetIModel().GetUsages()
+	if AddUsages != nil && len(usages) > 0 {
+		AddUsages(ctx, userCred, usages)
+	}
+}
+
 func (model *SModelBase) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
 	// clean usage on predelete
 	// clean usage before fakedelete for pending delete models
-	cleanModelUsages(ctx, userCred, model)
+	model.cleanModelUsages(ctx, userCred)
 }
 
 func (model *SModelBase) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
