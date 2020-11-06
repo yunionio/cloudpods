@@ -107,11 +107,30 @@ func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, err
 
 func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
 	rts := []cloudprovider.ICloudRouteTable{}
+	routetables, err := self.region.GetAllRouteTables(self.GetId(), []string{})
+	if err != nil {
+		return nil, errors.Wrapf(err, "self.region.GetAllRouteTables(%s, []string{})", self.GetId())
+	}
+	for i := range routetables {
+		routetables[i].vpc = self
+		rts = append(rts, &routetables[i])
+	}
 	return rts, nil
 }
 
 func (self *SVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudRouteTable, error) {
-	return nil, cloudprovider.ErrNotSupported
+	routetables, err := self.region.GetAllRouteTables(self.GetId(), []string{routeTableId})
+	if err != nil {
+		return nil, errors.Wrapf(err, "self.region.GetAllRouteTables(%s, []string{})", self.GetId())
+	}
+	if len(routetables) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	if len(routetables) > 1 {
+		return nil, cloudprovider.ErrDuplicateId
+	}
+	routetables[0].vpc = self
+	return &routetables[0], nil
 }
 
 func (self *SVpc) getWireByZoneId(zoneId string) *SWire {
