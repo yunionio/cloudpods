@@ -627,9 +627,14 @@ func (manager *SDBInstanceAccountManager) SyncDBInstanceAccounts(ctx context.Con
 		result.Error(err)
 		return nil, nil, result
 	}
-	accountMaps := map[string]SDBInstanceAccount{}
+	accountMaps := map[string][]SDBInstanceAccount{}
 	for i := range dbAccounts {
-		accountMaps[fmt.Sprintf("%s:%s", dbAccounts[i].Name, dbAccounts[i].Host)] = dbAccounts[i]
+		key := fmt.Sprintf("%s:%s", dbAccounts[i].Name, dbAccounts[i].Host)
+		_, ok := accountMaps[key]
+		if !ok {
+			accountMaps[key] = []SDBInstanceAccount{}
+		}
+		accountMaps[key] = append(accountMaps[key], dbAccounts[i])
 	}
 	remoteMaps := map[string]cloudprovider.ICloudDBInstanceAccount{}
 	for i := range cloudAccounts {
@@ -637,7 +642,7 @@ func (manager *SDBInstanceAccountManager) SyncDBInstanceAccounts(ctx context.Con
 	}
 
 	for key, account := range remoteMaps {
-		local, ok := accountMaps[key]
+		locals, ok := accountMaps[key]
 		if !ok {
 			_account, err := manager.newFromCloudDBInstanceAccount(ctx, userCred, instance, account)
 			if err != nil {
@@ -649,25 +654,45 @@ func (manager *SDBInstanceAccountManager) SyncDBInstanceAccounts(ctx context.Con
 			localAccounts = append(localAccounts, *_account)
 			continue
 		}
-		err = local.SyncWithCloudDBInstanceAccount(ctx, userCred, instance, account)
-		if err != nil {
-			result.UpdateError(err)
-			continue
+		password := ""
+		for i := range locals {
+			if i == 0 {
+				err = locals[i].SyncWithCloudDBInstanceAccount(ctx, userCred, instance, account)
+				if err != nil {
+					result.UpdateError(err)
+					continue
+				}
+				result.Update()
+				remoteAccounts = append(remoteAccounts, account)
+				localAccounts = append(localAccounts, locals[0])
+			} else {
+				if passwd, err := locals[i].GetPassword(); err == nil && len(passwd) > 0 {
+					password = passwd
+				}
+				err := locals[i].Purge(ctx, userCred)
+				if err != nil {
+					result.DeleteError(err)
+					continue
+				}
+				result.Delete()
+			}
 		}
-		result.Update()
-		remoteAccounts = append(remoteAccounts, account)
-		localAccounts = append(localAccounts, local)
+		if len(password) > 0 {
+			locals[0].savePassword(password)
+		}
 	}
 
-	for key, account := range accountMaps {
+	for key, accounts := range accountMaps {
 		_, ok := remoteMaps[key]
 		if !ok {
-			err := account.Purge(ctx, userCred)
-			if err != nil {
-				result.DeleteError(err)
-				continue
+			for i := range accounts {
+				err := accounts[i].Purge(ctx, userCred)
+				if err != nil {
+					result.DeleteError(err)
+					continue
+				}
+				result.Delete()
 			}
-			result.Delete()
 		}
 	}
 
