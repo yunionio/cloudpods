@@ -201,6 +201,9 @@ func (model *SDomainLevelResourceBase) PerformChangeOwner(ctx context.Context, u
 		}
 	}
 
+	// cancel usage
+	model.cleanModelUsages(ctx, userCred)
+
 	_, err = Update(model, func() error {
 		model.DomainId = ownerId.GetProjectDomainId()
 		model.DomainSrc = string(apis.OWNER_SOURCE_LOCAL)
@@ -209,6 +212,9 @@ func (model *SDomainLevelResourceBase) PerformChangeOwner(ctx context.Context, u
 	if err != nil {
 		return nil, errors.Wrap(err, "Update")
 	}
+
+	// add usage
+	model.RecoverUsages(ctx, userCred)
 
 	OpsLog.SyncOwner(model, former, userCred)
 	notes := struct {

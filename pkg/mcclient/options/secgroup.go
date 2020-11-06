@@ -18,6 +18,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
+
+	"yunion.io/x/onecloud/pkg/apis"
 )
 
 type SecgroupListOptions struct {
@@ -117,4 +119,9 @@ func (opts *SecurityGroupUncacheSecurityGroup) Params() (jsonutils.JSONObject, e
 	params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
 	params.Remove("id")
 	return params, nil
+}
+
+type SecgroupChangeOwnerOptions struct {
+	SecgroupIdOptions
+	apis.ProjectizedResourceInput
 }

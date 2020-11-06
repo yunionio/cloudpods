@@ -379,6 +379,9 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 		}
 	}
 
+	// cancel usage
+	model.cleanModelUsages(ctx, userCred)
+
 	_, err = Update(model, func() error {
 		model.DomainId = ownerId.GetProjectDomainId()
 		model.ProjectId = ownerId.GetProjectId()
@@ -388,6 +391,9 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 	if err != nil {
 		return nil, errors.Wrap(err, "Update")
 	}
+
+	// add usage
+	model.RecoverUsages(ctx, userCred)
 
 	OpsLog.SyncOwner(model, former, userCred)
 	notes := struct {
@@ -454,13 +460,6 @@ func (model *SVirtualResourceBase) PerformCancelDelete(ctx context.Context, user
 		model.RecoverUsages(ctx, userCred)
 	}
 	return nil, nil
-}
-
-func (model *SVirtualResourceBase) RecoverUsages(ctx context.Context, userCred mcclient.TokenCredential) {
-	usages := model.GetIModel().GetUsages()
-	if AddUsages != nil && len(usages) > 0 {
-		AddUsages(ctx, userCred, usages)
-	}
 }
 
 func (model *SVirtualResourceBase) DoCancelPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
