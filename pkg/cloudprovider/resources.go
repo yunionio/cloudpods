@@ -320,6 +320,11 @@ type ICloudVM interface {
 	GetError() error
 
 	SetMetadata(tags map[string]string, replace bool) error
+
+	CreateInstanceSnapshot(ctx context.Context, name string, desc string) (ICloudInstanceSnapshot, error)
+	GetInstanceSnapshot(idStr string) (ICloudInstanceSnapshot, error)
+	GetInstanceSnapshots() ([]ICloudInstanceSnapshot, error)
+	ResetToInstanceSnapshot(ctx context.Context, idStr string) error
 }
 
 type ICloudNic interface {
@@ -422,6 +427,13 @@ type ICloudSnapshot interface {
 	GetSizeMb() int32
 	GetDiskId() string
 	GetDiskType() string
+	Delete() error
+}
+
+type ICloudInstanceSnapshot interface {
+	IVirtualResource
+
+	GetDescription() string
 	Delete() error
 }
 
