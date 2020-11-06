@@ -288,7 +288,8 @@ func (manager *SCachedimageManager) GetImageById(ctx context.Context, userCred m
 	imgObj, _ := manager.FetchById(imageId)
 	if imgObj != nil {
 		cachedImage := imgObj.(*SCachedimage)
-		if !refresh && cachedImage.GetStatus() == cloudprovider.IMAGE_STATUS_ACTIVE && len(cachedImage.GetOSType()) > 0 && !cachedImage.isRefreshSessionExpire() {
+		oSTypeOk := options.Options.NoCheckOsTypeForCachedImage || len(cachedImage.GetOSType()) > 0
+		if !refresh && cachedImage.GetStatus() == cloudprovider.IMAGE_STATUS_ACTIVE && oSTypeOk && !cachedImage.isRefreshSessionExpire() {
 			return cachedImage.GetImage()
 		} else if len(cachedImage.ExternalId) > 0 { // external image, request refresh
 			return cachedImage.requestRefreshExternalImage(ctx, userCred)
