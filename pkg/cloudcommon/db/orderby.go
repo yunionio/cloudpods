@@ -29,7 +29,7 @@ func OrderByFields(q *sqlchemy.SQuery, fieldOrders []string, fields []sqlchemy.I
 	for i := range fields {
 		if sqlchemy.SQL_ORDER_ASC.Equals(fieldOrders[i]) {
 			q = q.Asc(fields[i])
-		} else {
+		} else if sqlchemy.SQL_ORDER_DESC.Equals(fieldOrders[i]) {
 			q = q.Desc(fields[i])
 		}
 	}

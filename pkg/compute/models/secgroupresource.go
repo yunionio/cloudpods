@@ -127,10 +127,14 @@ func (manager *SSecurityGroupResourceBaseManager) OrderByExtraFields(
 	userCred mcclient.TokenCredential,
 	query api.SecgroupFilterListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, orders, fields := manager.GetOrderBySubQuery(q, userCred, query)
-	if len(orders) > 0 {
-		q = db.OrderByFields(q, orders, fields)
+	if !db.NeedOrderQuery(manager.GetOrderByFields(query)) {
+		return q, nil
 	}
+	orderQ := SecurityGroupManager.Query("id")
+	orderSubQ := orderQ.SubQuery()
+	orderQ, orders, fields := manager.GetOrderBySubQuery(orderQ, orderSubQ, orderQ.Field("id"), userCred, query, nil, nil)
+	q = q.LeftJoin(orderSubQ, sqlchemy.Equals(q.Field("secgroup_id"), orderSubQ.Field("id")))
+	q = db.OrderByFields(q, orders, fields)
 	return q, nil
 }
 
@@ -147,18 +151,21 @@ func (manager *SSecurityGroupResourceBaseManager) QueryDistinctExtraField(q *sql
 
 func (manager *SSecurityGroupResourceBaseManager) GetOrderBySubQuery(
 	q *sqlchemy.SQuery,
+	subq *sqlchemy.SSubQuery,
+	joinField sqlchemy.IQueryField,
 	userCred mcclient.TokenCredential,
 	query api.SecgroupFilterListInput,
+	orders []string,
+	fields []sqlchemy.IQueryField,
 ) (*sqlchemy.SQuery, []string, []sqlchemy.IQueryField) {
-	secgrpQ := SecurityGroupManager.Query("id", "name")
-	var orders []string
-	var fields []sqlchemy.IQueryField
-	if db.NeedOrderQuery(manager.GetOrderByFields(query)) {
-		subq := secgrpQ.SubQuery()
-		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("secgroup_id"), subq.Field("id")))
-		orders = append(orders, query.OrderBySecgroup)
-		fields = append(fields, subq.Field("name"))
+	if !db.NeedOrderQuery(manager.GetOrderByFields(query)) {
+		return q, orders, fields
 	}
+	secgrpQ := SecurityGroupManager.Query().SubQuery()
+	q = q.LeftJoin(secgrpQ, sqlchemy.Equals(joinField, secgrpQ.Field("id")))
+	q = q.AppendField(secgrpQ.Field("name").Label("secgroup"))
+	orders = append(orders, query.OrderBySecgroup)
+	fields = append(fields, subq.Field("secgroup"))
 	return q, orders, fields
 }
 

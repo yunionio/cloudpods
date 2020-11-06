@@ -126,10 +126,14 @@ func (manager *SSchedtagResourceBaseManager) OrderByExtraFields(
 	userCred mcclient.TokenCredential,
 	query api.SchedtagFilterListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, orders, fields := manager.GetOrderBySubQuery(q, userCred, query)
-	if len(orders) > 0 {
-		q = db.OrderByFields(q, orders, fields)
+	if !db.NeedOrderQuery(manager.GetOrderByFields(query)) {
+		return q, nil
 	}
+	orderQ := SchedtagManager.Query("id")
+	orderSubQ := orderQ.SubQuery()
+	orderQ, orders, fields := manager.GetOrderBySubQuery(orderQ, orderSubQ, orderQ.Field("id"), userCred, query, nil, nil)
+	q = q.LeftJoin(orderSubQ, sqlchemy.Equals(q.Field("schedtag_id"), orderSubQ.Field("id")))
+	q = db.OrderByFields(q, orders, fields)
 	return q, nil
 }
 
@@ -146,18 +150,22 @@ func (manager *SSchedtagResourceBaseManager) QueryDistinctExtraField(q *sqlchemy
 
 func (manager *SSchedtagResourceBaseManager) GetOrderBySubQuery(
 	q *sqlchemy.SQuery,
+	subq *sqlchemy.SSubQuery,
+	joinField sqlchemy.IQueryField,
 	userCred mcclient.TokenCredential,
 	query api.SchedtagFilterListInput,
+	orders []string,
+	fields []sqlchemy.IQueryField,
 ) (*sqlchemy.SQuery, []string, []sqlchemy.IQueryField) {
-	tagQ := SchedtagManager.Query("id", "name", "resource_type")
-	var orders []string
-	var fields []sqlchemy.IQueryField
-	if db.NeedOrderQuery(manager.GetOrderByFields(query)) {
-		subq := tagQ.SubQuery()
-		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("schedtag_id"), subq.Field("id")))
-		orders = append(orders, query.OrderBySchedtag, query.OrderByResourceType)
-		fields = append(fields, subq.Field("name"), subq.Field("resource_type"))
+	if !db.NeedOrderQuery(manager.GetOrderByFields(query)) {
+		return q, orders, fields
 	}
+	tagQ := SchedtagManager.Query().SubQuery()
+	q = q.LeftJoin(tagQ, sqlchemy.Equals(joinField, tagQ.Field("id")))
+	q = q.AppendField(tagQ.Field("name").Label("schedtag"))
+	q = q.AppendField(tagQ.Field("resource_type").Label("resource_type"))
+	orders = append(orders, query.OrderBySchedtag, query.OrderByResourceType)
+	fields = append(fields, subq.Field("schedtag"), subq.Field("resource_type"))
 	return q, orders, fields
 }
 

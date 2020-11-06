@@ -222,47 +222,36 @@ func (manager *SVpcResourceBaseManager) OrderByExtraFields(
 	userCred mcclient.TokenCredential,
 	query api.VpcFilterListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, orders, fields := manager.GetOrderBySubQuery(q, userCred, query)
-	if len(orders) > 0 {
-		q = db.OrderByFields(q, orders, fields)
+	if !db.NeedOrderQuery(manager.GetOrderByFields(query)) {
+		return q, nil
 	}
+	orderQ := VpcManager.Query("id")
+	orderSubQ := orderQ.SubQuery()
+	orderQ, orders, fields := manager.GetOrderBySubQuery(orderQ, orderSubQ, orderQ.Field("id"), userCred, query, nil, nil)
+	q = q.LeftJoin(orderSubQ, sqlchemy.Equals(q.Field("vpc_id"), orderSubQ.Field("id")))
+	q = db.OrderByFields(q, orders, fields)
 	return q, nil
 }
 
 func (manager *SVpcResourceBaseManager) GetOrderBySubQuery(
 	q *sqlchemy.SQuery,
+	subq *sqlchemy.SSubQuery,
+	subqField sqlchemy.IQueryField,
 	userCred mcclient.TokenCredential,
 	query api.VpcFilterListInput,
+	orders []string,
+	fields []sqlchemy.IQueryField,
 ) (*sqlchemy.SQuery, []string, []sqlchemy.IQueryField) {
-	vpcQ := VpcManager.Query("id", "name")
-	var orders []string
-	var fields []sqlchemy.IQueryField
-	if db.NeedOrderQuery(manager.SCloudregionResourceBaseManager.GetOrderByFields(query.RegionalFilterListInput)) {
-		var regionOrders []string
-		var regionFields []sqlchemy.IQueryField
-		vpcQ, regionOrders, regionFields = manager.SCloudregionResourceBaseManager.GetOrderBySubQuery(vpcQ, userCred, query.RegionalFilterListInput)
-		if len(regionOrders) > 0 {
-			orders = append(orders, regionOrders...)
-			fields = append(fields, regionFields...)
-		}
+	if !db.NeedOrderQuery(manager.GetOrderByFields(query)) {
+		return q, orders, fields
 	}
-	if db.NeedOrderQuery(manager.SManagedResourceBaseManager.GetOrderByFields(query.ManagedResourceListInput)) {
-		var managerOrders []string
-		var managerFields []sqlchemy.IQueryField
-		vpcQ, managerOrders, managerFields = manager.SManagedResourceBaseManager.GetOrderBySubQuery(vpcQ, userCred, query.ManagedResourceListInput)
-		if len(managerOrders) > 0 {
-			orders = append(orders, managerOrders...)
-			fields = append(fields, managerFields...)
-		}
-	}
-	if db.NeedOrderQuery(manager.GetOrderByFields(query)) {
-		subq := vpcQ.SubQuery()
-		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("vpc_id"), subq.Field("id")))
-		if db.NeedOrderQuery([]string{query.OrderByVpc}) {
-			orders = append(orders, query.OrderByVpc)
-			fields = append(fields, subq.Field("name"))
-		}
-	}
+	vpcQ := VpcManager.Query().SubQuery()
+	q = q.LeftJoin(vpcQ, sqlchemy.Equals(subqField, vpcQ.Field("id")))
+	q = q.AppendField(vpcQ.Field("name").Label("vpc"))
+	orders = append(orders, query.OrderByVpc)
+	fields = append(fields, subq.Field("vpc"))
+	q, orders, fields = manager.SCloudregionResourceBaseManager.GetOrderBySubQuery(q, subq, vpcQ.Field("cloudregion_id"), userCred, query.RegionalFilterListInput, orders, fields)
+	q, orders, fields = manager.SManagedResourceBaseManager.GetOrderBySubQuery(q, subq, vpcQ.Field("manager_id"), userCred, query.ManagedResourceListInput, orders, fields)
 	return q, orders, fields
 }
 

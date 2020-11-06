@@ -189,39 +189,35 @@ func (manager *SNetworkResourceBaseManager) OrderByExtraFields(
 	userCred mcclient.TokenCredential,
 	query api.NetworkFilterListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, orders, fields := manager.GetOrderBySubQuery(q, userCred, query)
-	if len(orders) > 0 {
-		q = db.OrderByFields(q, orders, fields)
+	if !db.NeedOrderQuery(manager.GetOrderByFields(query)) {
+		return q, nil
 	}
+	orderQ := NetworkManager.Query("id")
+	orderSubQ := orderQ.SubQuery()
+	orderQ, orders, fields := manager.GetOrderBySubQuery(orderQ, orderSubQ, orderQ.Field("id"), userCred, query, nil, nil)
+	q = q.LeftJoin(orderSubQ, sqlchemy.Equals(q.Field("network_id"), orderSubQ.Field("id")))
+	q = db.OrderByFields(q, orders, fields)
 	return q, nil
 }
 
 func (manager *SNetworkResourceBaseManager) GetOrderBySubQuery(
 	q *sqlchemy.SQuery,
+	subq *sqlchemy.SSubQuery,
+	joinField sqlchemy.IQueryField,
 	userCred mcclient.TokenCredential,
 	query api.NetworkFilterListInput,
+	orders []string,
+	fields []sqlchemy.IQueryField,
 ) (*sqlchemy.SQuery, []string, []sqlchemy.IQueryField) {
-	netQ := NetworkManager.Query("id", "name")
-	var orders []string
-	var fields []sqlchemy.IQueryField
-
-	if db.NeedOrderQuery(manager.SWireResourceBaseManager.GetOrderByFields(query.WireFilterListInput)) {
-		var wireOrders []string
-		var wireFields []sqlchemy.IQueryField
-		netQ, wireOrders, wireFields = manager.SWireResourceBaseManager.GetOrderBySubQuery(netQ, userCred, query.WireFilterListInput)
-		if len(wireOrders) > 0 {
-			orders = append(orders, wireOrders...)
-			fields = append(fields, wireFields...)
-		}
+	if !db.NeedOrderQuery(manager.GetOrderByFields(query)) {
+		return q, orders, fields
 	}
-	if db.NeedOrderQuery(manager.GetOrderByFields(query)) {
-		subq := netQ.SubQuery()
-		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("network_id"), subq.Field("id")))
-		if db.NeedOrderQuery([]string{query.OrderByNetwork}) {
-			orders = append(orders, query.OrderByNetwork)
-			fields = append(fields, subq.Field("name"))
-		}
-	}
+	netQ := NetworkManager.Query().SubQuery()
+	q = q.LeftJoin(netQ, sqlchemy.Equals(joinField, netQ.Field("id")))
+	q = q.AppendField(netQ.Field("name").Label("network"))
+	orders = append(orders, query.OrderByNetwork)
+	fields = append(fields, subq.Field("network"))
+	q, orders, fields = manager.SWireResourceBaseManager.GetOrderBySubQuery(q, subq, netQ.Field("wire_id"), userCred, query.WireFilterListInput, orders, fields)
 	return q, orders, fields
 }
 
