@@ -145,7 +145,7 @@ type ComputeOptions struct {
 
 	EnableAutoRenameProject bool `help:"when it set true, auto create project will rename when cloud project name changed" default:"false"`
 
-	SyncStorageCapacityUsedIntervalMinutes int  `help:"interval sync storage capacity used" default:"10"`
+	SyncStorageCapacityUsedIntervalMinutes int  `help:"interval sync storage capacity used" default:"20"`
 	LockStorageFromCachedimage             bool `help:"must use storage in where selected cachedimage when creating vm"`
 
 	SyncExtDiskSnapshotIntervalMinutes int `help:"sync snapshot for external disk" default:"20"`
@@ -158,6 +158,8 @@ type ComputeOptions struct {
 	EnableAutoMergeSecurityGroup bool `help:"Enable auto merge secgroup when sync security group from cloud, default False" default:"false"`
 
 	DefaultNetworkGatewayAddressEsxi uint32 `help:"Default address for network gateway" default:"1"`
+
+	NoCheckOsTypeForCachedImage bool `help:"Don't check os type for cached image"`
 
 	esxi.EsxiOptions
 }
