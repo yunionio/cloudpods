@@ -4580,6 +4580,11 @@ func (self *SGuest) AllowPerformInstanceSnapshot(ctx context.Context,
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "instance-snapshot")
 }
 
+var supportInstanceSnapshotHypervisors = []string{
+	api.HYPERVISOR_KVM,
+	api.HYPERVISOR_ESXI,
+}
+
 func (self *SGuest) validateCreateInstanceSnapshot(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -4587,7 +4592,7 @@ func (self *SGuest) validateCreateInstanceSnapshot(
 	data jsonutils.JSONObject,
 ) (*SRegionQuota, error) {
 
-	if self.Hypervisor != api.HYPERVISOR_KVM {
+	if !utils.IsInStringArray(self.Hypervisor, supportInstanceSnapshotHypervisors) {
 		return nil, httperrors.NewBadRequestError("guest hypervisor %s can't create instance snapshot", self.Hypervisor)
 	}
 
