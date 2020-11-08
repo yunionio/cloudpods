@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -163,6 +164,57 @@ func (record *SAlertRecord) GetEvalData() ([]monitor.EvalMatch, error) {
 		return nil, errors.Wrap(err, "unmarshal evalMatchs error")
 	}
 	return ret, nil
+}
+
+func (record *SAlertRecord) CustomizeCreate(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) error {
+	obj, err := db.NewModelObject(AlertRecordManager)
+	if err != nil {
+		return errors.Wrapf(err, "NewModelObject %s", AlertRecordManager.Keyword())
+	}
+	q := AlertRecordManager.Query().Equals("alert_id", record.AlertId).Desc("created_at")
+	if err := q.First(obj); err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil
+		} else {
+			return errors.Wrapf(err, "Get latest alertrecord error by alertId:%s", record.AlertId)
+		}
+	}
+	latestRecord := obj.(*SAlertRecord)
+	if latestRecord.GetState() == monitor.AlertStateAlerting && record.GetState() == monitor.AlertStateOK {
+		err := record.unionEvalMatch(latestRecord)
+		if err != nil {
+			return errors.Wrap(err, "unionEvalMatch error")
+		}
+	}
+	return nil
+}
+
+func (record *SAlertRecord) unionEvalMatch(alertingRecord *SAlertRecord) error {
+	matches, err := record.GetEvalData()
+	if err != nil {
+		return err
+	}
+	alertingMatches, err := alertingRecord.GetEvalData()
+	if err != nil {
+		return err
+	}
+	newEvalMatchs := make([]monitor.EvalMatch, 0)
+getNewMatchTag:
+	for i, _ := range matches {
+		for j, _ := range alertingMatches {
+			if matches[i].Tags["name"] == alertingMatches[j].Tags["name"] {
+				newEvalMatchs = append(newEvalMatchs, matches[i])
+				continue getNewMatchTag
+			}
+		}
+	}
+	record.EvalData = jsonutils.Marshal(&newEvalMatchs)
+	return nil
 }
 
 func (record *SAlertRecord) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {

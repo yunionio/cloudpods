@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -34,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/monitor/alerting"
 	"yunion.io/x/onecloud/pkg/monitor/alerting/notifiers/templates"
+	"yunion.io/x/onecloud/pkg/monitor/models"
 	"yunion.io/x/onecloud/pkg/monitor/options"
 )
 
@@ -159,6 +161,9 @@ func (oc *OneCloudNotifier) Notify(ctx *alerting.EvalContext, _ jsonutils.JSONOb
 	default:
 		config = GetNotifyTemplateConfig(ctx)
 	}
+
+	oc.filterMatchTagsForConfig(&config)
+
 	contentConfig := oc.buildContent(config)
 
 	var content string
@@ -185,6 +190,27 @@ func (oc *OneCloudNotifier) Notify(ctx *alerting.EvalContext, _ jsonutils.JSONOb
 	sendImp := factory.newSendnotify(oc, msg, config)
 
 	return sendImp.send()
+}
+
+var (
+	companyInfo models.SCompanyInfo
+)
+
+func (oc *OneCloudNotifier) filterMatchTagsForConfig(config *monitor.NotificationTemplateConfig) {
+	ctx := context.Background()
+	ctx = i18n.WithLangTag(ctx, language.Chinese)
+	sCompanyInfo, err := models.GetCompanyInfo(ctx)
+	if err != nil {
+		log.Errorf("GetCompanyInfo error:%#v", err)
+		return
+	}
+	for i, _ := range config.Matches {
+		if val, ok := config.Matches[i].Tags[hostconsts.TELEGRAF_TAG_KEY_BRAND]; ok {
+			if val == hostconsts.TELEGRAF_TAG_ONECLOUD_BRAND {
+				config.Matches[i].Tags[hostconsts.TELEGRAF_TAG_KEY_BRAND] = sCompanyInfo.Name
+			}
+		}
+	}
 }
 
 func (oc *OneCloudNotifier) buildContent(config monitor.NotificationTemplateConfig) *templates.TemplateConfig {
