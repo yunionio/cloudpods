@@ -79,6 +79,8 @@ type ScopedPolicyDetails struct {
 type ScopedPolicyBindingListInput struct {
 	apis.ResourceBaseListInput
 
+	Name []string `json:"name"`
+
 	PolicyId  string `json:"policy_id"`
 	DomainId  string `json:"domain_id"`
 	ProjectId string `json:"project_id"`
@@ -88,6 +90,8 @@ type ScopedPolicyBindingListInput struct {
 	Effective *bool `json:"effective"`
 
 	Scope rbacutils.TRbacScope `json:"scope"`
+
+	OrderByScopedpolicy string `json:"order_by_scopedpolicy"`
 }
 
 type ScopedPolicyBindingDetails struct {
