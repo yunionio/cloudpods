@@ -22,6 +22,8 @@ type LoadbalancerAclDetails struct {
 	CloudregionResourceInfo
 
 	SLoadbalancerAcl
+
+	LbListenerCount int `json:"lb_listener_count"`
 }
 
 type LoadbalancerAclResourceInfo struct {

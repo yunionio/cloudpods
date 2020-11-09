@@ -48,6 +48,8 @@ func loadbalancerCertificateLoadFiles(cert, pkey string, allowEmpty bool) (*json
 }
 
 type LoadbalancerCertificateCreateOptions struct {
+	SharableProjectizedResourceBaseCreateInput
+
 	NAME string
 
 	Cert string `required:"true" json:"-" help:"path to certificate file"`
@@ -59,6 +61,14 @@ func (opts *LoadbalancerCertificateCreateOptions) Params() (*jsonutils.JSONDict,
 	if err != nil {
 		return nil, err
 	}
+
+	sp, err := opts.SharableProjectizedResourceBaseCreateInput.Params()
+	if err != nil {
+		return nil, err
+	}
+
+	params.Update(sp)
+
 	paramsCertKey, err := loadbalancerCertificateLoadFiles(opts.Cert, opts.Pkey, false)
 	if err != nil {
 		return nil, err
@@ -98,5 +108,17 @@ func (opts *LoadbalancerCertificateUpdateOptions) Params() (*jsonutils.JSONDict,
 	if err != nil {
 		return nil, err
 	}
+
 	return paramsCertKey, nil
+}
+
+type LoadbalancerCertificatePublicOptions struct {
+	ID             string   `json:"-"`
+	Scope          string   `help:"sharing scope" choices:"system|domain|project"`
+	SharedProjects []string `help:"Share to projects"`
+	SharedDomains  []string `help:"Share to domains"`
+}
+
+type LoadbalancerCertificatePrivateOptions struct {
+	ID string `json:"-"`
 }

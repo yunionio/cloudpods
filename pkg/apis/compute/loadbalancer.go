@@ -104,7 +104,7 @@ type LoadbalancerAgentListInput struct {
 }
 
 type LoadbalancerCertificateListInput struct {
-	apis.VirtualResourceListInput
+	apis.SharableVirtualResourceListInput
 	apis.ExternalizedResourceBaseListInput
 
 	UsableResourceListInput

@@ -33,13 +33,14 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 // +onecloud:swagger-gen-ignore
 type SCachedLoadbalancerAclManager struct {
 	SLoadbalancerLogSkipper
-	db.SSharableVirtualResourceBaseManager
+	db.SVirtualResourceBaseManager
 	SManagedResourceBaseManager
 	SCloudregionResourceBaseManager
 	SLoadbalancerAclResourceBaseManager
@@ -49,7 +50,7 @@ var CachedLoadbalancerAclManager *SCachedLoadbalancerAclManager
 
 func init() {
 	CachedLoadbalancerAclManager = &SCachedLoadbalancerAclManager{
-		SSharableVirtualResourceBaseManager: db.NewSharableVirtualResourceBaseManager(
+		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
 			SCachedLoadbalancerAcl{},
 			"cachedloadbalanceracls_tbl",
 			"cachedloadbalanceracl",
@@ -61,7 +62,7 @@ func init() {
 }
 
 type SCachedLoadbalancerAcl struct {
-	db.SSharableVirtualResourceBase
+	db.SVirtualResourceBase
 	db.SExternalizedResourceBase
 	SManagedResourceBase
 	SCloudregionResourceBase
@@ -79,21 +80,21 @@ func (lbacl *SCachedLoadbalancerAcl) ValidateUpdateData(ctx context.Context, use
 	if err != nil {
 		return nil, err
 	}
-	input := apis.SharableVirtualResourceBaseUpdateInput{}
+	input := apis.VirtualResourceBaseUpdateInput{}
 	err = data.Unmarshal(&input)
 	if err != nil {
 		return nil, errors.Wrap(err, "Unmarshal")
 	}
-	input, err = lbacl.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input)
+	input, err = lbacl.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input)
 	if err != nil {
-		return nil, errors.Wrap(err, "SSharableVirtualResourceBase.ValidateUpdateData")
+		return nil, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
 	}
 	data.Update(jsonutils.Marshal(input))
 	return data, nil
 }
 
 func (lbacl *SCachedLoadbalancerAcl) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	lbacl.SSharableVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
+	lbacl.SVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
 	lbacl.SetStatus(userCred, api.LB_SYNC_CONF, "")
 	lbacl.StartLoadBalancerAclSyncTask(ctx, userCred, "")
 }
@@ -166,7 +167,7 @@ func (man *SCachedLoadbalancerAclManager) ValidateCreateData(ctx context.Context
 }
 
 func (lbacl *SCachedLoadbalancerAcl) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	lbacl.SSharableVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+	lbacl.SVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
 
 	lbacl.SetStatus(userCred, api.LB_CREATING, "")
 	if err := lbacl.StartLoadBalancerAclCreateTask(ctx, userCred, ""); err != nil {
@@ -236,15 +237,15 @@ func (man *SCachedLoadbalancerAclManager) FetchCustomizeColumns(
 ) []api.CachedLoadbalancerAclDetails {
 	rows := make([]api.CachedLoadbalancerAclDetails, len(objs))
 
-	virtRows := man.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	virtRows := man.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	manRows := man.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	regionRows := man.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i] = api.CachedLoadbalancerAclDetails{
-			SharableVirtualResourceDetails: virtRows[i],
-			ManagedResourceInfo:            manRows[i],
-			CloudregionResourceInfo:        regionRows[i],
+			VirtualResourceDetails:  virtRows[i],
+			ManagedResourceInfo:     manRows[i],
+			CloudregionResourceInfo: regionRows[i],
 		}
 	}
 
@@ -262,6 +263,7 @@ func (lbacl *SCachedLoadbalancerAcl) ValidateDeleteCondition(ctx context.Context
 	lbaclId := lbacl.Id
 	n, err := t.Query().
 		Filter(sqlchemy.OR(sqlchemy.IsNull(pdF), sqlchemy.IsFalse(pdF))).
+		Equals("domain_id", lbacl.DomainId).
 		Equals("acl_id", lbaclId).
 		CountWithError()
 	if err != nil {
@@ -510,24 +512,24 @@ func (man *SCachedLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx contex
 	}
 
 	f := aclEntites.Fingerprint()
-	if LoadbalancerAclManager.CountByFingerPrint(f) == 0 {
-		localAcl := SLoadbalancerAcl{}
+	if LoadbalancerAclManager.CountByFingerPrint(provider.ProjectId, f) == 0 {
+		localAcl := &SLoadbalancerAcl{}
 		localAcl.Name = acl.Name
 		localAcl.Description = acl.Description
 		localAcl.AclEntries = &aclEntites
 		localAcl.Fingerprint = f
-		// usercread
-		localAcl.DomainId = userCred.GetProjectDomainId()
-		localAcl.ProjectId = userCred.GetProjectId()
-		localAcl.ProjectSrc = string(apis.OWNER_SOURCE_CLOUD)
+		localAcl.IsPublic = true
+		localAcl.PublicScope = string(rbacutils.ScopeDomain)
 		err := LoadbalancerAclManager.TableSpec().Insert(ctx, &localAcl)
 		if err != nil {
 			return nil, errors.Wrap(err, "cachedLoadbalancerAclManager.new.InsertAcl")
 		}
+
+		SyncCloudProject(userCred, localAcl, provider.GetOwnerId(), extAcl, provider.GetId())
 	}
 
 	{
-		localAcl, err := LoadbalancerAclManager.FetchByFingerPrint(f)
+		localAcl, err := LoadbalancerAclManager.FetchByFingerPrint(provider.ProjectId, f)
 		if err != nil {
 			return nil, errors.Wrap(err, "cachedLoadbalancerAclManager.new.FetchByFingerPrint")
 		}
@@ -561,9 +563,9 @@ func (manager *SCachedLoadbalancerAclManager) ListItemFilter(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.SharableVirtualResourceListInput)
+	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
 	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
@@ -590,9 +592,9 @@ func (manager *SCachedLoadbalancerAclManager) OrderByExtraFields(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SSharableVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.SharableVirtualResourceListInput)
+	q, err = manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.OrderByExtraFields")
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
 	}
 	q, err = manager.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
@@ -613,7 +615,7 @@ func (manager *SCachedLoadbalancerAclManager) OrderByExtraFields(
 func (manager *SCachedLoadbalancerAclManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SSharableVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	q, err = manager.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -640,9 +642,9 @@ func (manager *SCachedLoadbalancerAclManager) ListItemExportKeys(ctx context.Con
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SSharableVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	q, err = manager.SVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
 	if err != nil {
-		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemExportKeys")
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemExportKeys")
 	}
 	if keys.ContainsAny(manager.SManagedResourceBaseManager.GetExportKeys()...) {
 		q, err = manager.SManagedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)

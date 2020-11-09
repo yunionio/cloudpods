@@ -100,6 +100,7 @@ func (self *SCachedLoadbalancerCertificate) ValidateDeleteCondition(ctx context.
 		t := man.TableSpec().Instance()
 		pdF := t.Field("pending_deleted")
 		n, err := t.Query().
+			Equals("domain_id", self.DomainId).
 			Equals("certificate_id", lbcertId).
 			Filter(sqlchemy.OR(sqlchemy.IsNull(pdF), sqlchemy.IsFalse(pdF))).
 			CountWithError()
@@ -111,6 +112,10 @@ func (self *SCachedLoadbalancerCertificate) ValidateDeleteCondition(ctx context.
 				lbcertId, n, man.KeywordPlural())
 		}
 	}
+	return nil
+}
+
+func (self *SCachedLoadbalancerCertificate) ValidatePurgeCondition(ctx context.Context) error {
 	return nil
 }
 
@@ -312,12 +317,14 @@ func (man *SCachedLoadbalancerCertificateManager) newFromCloudLoadbalancerCertif
 	lbcert.CloudregionId = region.Id
 
 	c := SLoadbalancerCertificate{}
-	q1 := LoadbalancerCertificateManager.Query().IsFalse("pending_deleted").Equals("fingerprint", extCertificate.GetFingerprint())
+	q1 := LoadbalancerCertificateManager.Query().IsFalse("pending_deleted")
+	q1 = q1.Equals("fingerprint", extCertificate.GetFingerprint())
+	q1 = q1.Equals("tenant_id", provider.ProjectId)
 	err = q1.First(&c)
 	if err != nil {
 		switch err {
 		case sql.ErrNoRows:
-			localcert, err := LoadbalancerCertificateManager.CreateCertificate(ctx, userCred, lbcert.Name, extCertificate)
+			localcert, err := LoadbalancerCertificateManager.CreateCertificate(ctx, userCred, provider, lbcert.Name, extCertificate)
 			if err != nil {
 				return nil, fmt.Errorf("newFromCloudLoadbalancerCertificate CreateCertificate %s", err)
 			}
