@@ -52,6 +52,8 @@ type SInstanceSnapshot struct {
 	db.SVirtualResourceBase
 	db.SExternalizedResourceBase
 
+	SManagedResourceBase
+
 	// 云主机Id
 	GuestId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
 	// 云主机配置
@@ -75,6 +77,7 @@ type SInstanceSnapshot struct {
 type SInstanceSnapshotManager struct {
 	db.SVirtualResourceBaseManager
 	db.SExternalizedResourceBaseManager
+	SManagedResourceBaseManager
 }
 
 var InstanceSnapshotManager *SInstanceSnapshotManager
@@ -95,6 +98,16 @@ func (manager *SInstanceSnapshotManager) ListItemFilter(
 	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
 	}
 
 	guestStr := query.ServerId
@@ -130,6 +143,25 @@ func (manager *SInstanceSnapshotManager) OrderByExtraFields(
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
 	}
 
+	q, err = manager.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SInstanceSnapshotManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, err
+	}
+
 	return q, nil
 }
 
@@ -137,6 +169,11 @@ func (manager *SInstanceSnapshotManager) QueryDistinctExtraField(q *sqlchemy.SQu
 	var err error
 
 	q, err = manager.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -208,10 +245,12 @@ func (manager *SInstanceSnapshotManager) FetchCustomizeColumns(
 	rows := make([]api.InstanceSnapshotDetails, len(objs))
 
 	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i] = api.InstanceSnapshotDetails{
 			VirtualResourceDetails: virtRows[i],
+			ManagedResourceInfo:    manRows[i],
 		}
 		rows[i] = objs[i].(*SInstanceSnapshot).getMoreDetails(userCred, rows[i])
 	}
@@ -301,6 +340,8 @@ func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(ctx context.Cont
 	instanceSnapshot.SetModelManager(manager, instanceSnapshot)
 	instanceSnapshot.Name = name
 	instanceSnapshot.AutoDelete = autoDelete
+	host := guest.GetHost()
+	instanceSnapshot.ManagerId = host.ManagerId
 	manager.fillInstanceSnapshot(userCred, guest, instanceSnapshot)
 	err := manager.TableSpec().Insert(ctx, instanceSnapshot)
 	if err != nil {
@@ -473,6 +514,8 @@ func (manager *SInstanceSnapshotManager) newFromCloudInstanceSnapshot(ctx contex
 	}
 	instanceSnapshot.ExternalId = extSnapshot.GetGlobalId()
 	instanceSnapshot.Status = extSnapshot.GetStatus()
+	host := guest.GetHost()
+	instanceSnapshot.ManagerId = host.ManagerId
 	manager.fillInstanceSnapshot(userCred, guest, &instanceSnapshot)
 	err = manager.TableSpec().Insert(ctx, &instanceSnapshot)
 	if err != nil {
