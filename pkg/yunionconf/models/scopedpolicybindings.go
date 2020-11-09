@@ -163,6 +163,13 @@ func (manager *SScopedPolicyBindingManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SResourceBaseManager.ListItemFilter")
 	}
 
+	var policySubq *sqlchemy.SSubQuery
+	if len(query.Name) > 0 {
+		subq := ScopedPolicyManager.Query("id")
+		subq = subq.Filter(sqlchemy.ContainsAny(subq.Field("name"), query.Name))
+		policySubq = subq.SubQuery()
+	}
+
 	if len(query.PolicyId) > 0 {
 		policyObj, err := ScopedPolicyManager.FetchByIdOrName(userCred, query.PolicyId)
 		if err != nil {
@@ -173,7 +180,6 @@ func (manager *SScopedPolicyBindingManager) ListItemFilter(
 			}
 		}
 		query.PolicyId = policyObj.GetId()
-
 	}
 
 	if len(query.ProjectId) > 0 {
@@ -232,11 +238,11 @@ func (manager *SScopedPolicyBindingManager) ListItemFilter(
 	}
 
 	effective := (query.Effective != nil && *query.Effective)
-	q = filterByOwnerId(q, query.DomainId, query.ProjectId, effective, query.Category, query.PolicyId)
+	q = filterByOwnerId(q, query.DomainId, query.ProjectId, effective, query.Category, query.PolicyId, policySubq)
 	if query.Effective != nil && *query.Effective && (len(query.ProjectId) > 0 || len(query.DomainId) > 0) {
 		bindingQ := manager.Query().SubQuery()
 		maxq := bindingQ.Query(bindingQ.Field("category"), sqlchemy.MAX("max_priority", bindingQ.Field("priority")))
-		maxq = filterByOwnerId(maxq, query.DomainId, query.ProjectId, *query.Effective, query.Category, query.PolicyId)
+		maxq = filterByOwnerId(maxq, query.DomainId, query.ProjectId, *query.Effective, query.Category, query.PolicyId, policySubq)
 		maxq = maxq.GroupBy(bindingQ.Field("category"))
 		subq := maxq.SubQuery()
 		q = q.Join(subq, sqlchemy.Equals(q.Field("category"), subq.Field("category")))
@@ -246,7 +252,7 @@ func (manager *SScopedPolicyBindingManager) ListItemFilter(
 	return q, nil
 }
 
-func filterByOwnerId(q *sqlchemy.SQuery, domainId, projectId string, effective bool, category []string, policyId string) *sqlchemy.SQuery {
+func filterByOwnerId(q *sqlchemy.SQuery, domainId, projectId string, effective bool, category []string, policyId string, policySubq *sqlchemy.SSubQuery) *sqlchemy.SQuery {
 	if len(projectId) > 0 {
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.AND(sqlchemy.IsNullOrEmpty(q.Field("domain_id")), sqlchemy.IsNullOrEmpty(q.Field("project_id"))),
@@ -274,6 +280,9 @@ func filterByOwnerId(q *sqlchemy.SQuery, domainId, projectId string, effective b
 	if len(policyId) > 0 {
 		q = q.Equals("policy_id", policyId)
 	}
+	if policySubq != nil {
+		q = q.In("policy_id", policySubq)
+	}
 	return q
 }
 
@@ -281,13 +290,21 @@ func (manager *SScopedPolicyBindingManager) OrderByExtraFields(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
-	query api.ScopedPolicyListInput,
+	query api.ScopedPolicyBindingListInput,
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
 	q, err = manager.SResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ResourceBaseListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SResourceBaseManager.OrderByExtraFields")
+	}
+
+	if db.NeedOrderQuery([]string{query.OrderByScopedpolicy}) {
+		subq := ScopedPolicyManager.Query("id", "name").SubQuery()
+		q = q.Join(subq, sqlchemy.Equals(subq.Field("id"), q.Field("policy_id")))
+		q = db.OrderByFields(q,
+			[]string{query.OrderByScopedpolicy},
+			[]sqlchemy.IQueryField{subq.Field("name")})
 	}
 
 	return q, nil
