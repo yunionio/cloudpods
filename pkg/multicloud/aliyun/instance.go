@@ -334,9 +334,16 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 }
 
 func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
-	nics := make([]cloudprovider.ICloudNic, 0)
-	for _, ip := range self.VpcAttributes.PrivateIpAddress.IpAddress {
-		nic := SInstanceNic{instance: self, ipAddr: ip}
+	var (
+		networkInterfaces = self.NetworkInterfaces.NetworkInterface
+		nics              []cloudprovider.ICloudNic
+	)
+	for _, networkInterface := range networkInterfaces {
+		nic := SInstanceNic{
+			instance: self,
+			ipAddr:   networkInterface.PrimaryIpAddress,
+			macAddr:  networkInterface.MacAddress,
+		}
 		nics = append(nics, &nic)
 	}
 	return nics, nil

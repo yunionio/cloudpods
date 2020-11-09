@@ -300,7 +300,11 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 			continue
 		}
 
-		nic := SInstanceNic{instance: self, ipAddr: ip.IP}
+		nic := SInstanceNic{
+			instance: self,
+			ipAddr:   ip.IP,
+			macAddr:  ip.MAC,
+		}
 		nics = append(nics, &nic)
 	}
 
