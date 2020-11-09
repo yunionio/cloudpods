@@ -437,4 +437,53 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	R(&options.ElasticCacheAutoRenewOptions{}, "elastic-cache-auto-renew", "Set elastisc cache auto renew", func(s *mcclient.ClientSession, opts *options.ElasticCacheAutoRenewOptions) error {
+		params, err := options.StructToParams(opts)
+		if err != nil {
+			return err
+		}
+		result, err := modules.ElasticCache.PerformAction(s, opts.ID, "set-auto-renew", params)
+		if err != nil {
+			return err
+		}
+
+		printObject(result)
+		return nil
+	})
+
+	R(&options.ElasticCacheRenewOptions{}, "elastic-cache-renew", "Renew elastisc cache", func(s *mcclient.ClientSession, opts *options.ElasticCacheRenewOptions) error {
+		params, err := options.StructToParams(opts)
+		if err != nil {
+			return err
+		}
+		result, err := modules.ElasticCache.PerformAction(s, opts.ID, "renew", params)
+		if err != nil {
+			return err
+		}
+
+		printObject(result)
+		return nil
+	})
+
+	type ElasticcacheSecgroupListOptions struct {
+		options.BaseListOptions
+		Elasticcache string `help:"ID or Name of elastic cache" json:"elasticcache"`
+		Secgroup     string `help:"Secgroup ID or name"`
+	}
+
+	R(&ElasticcacheSecgroupListOptions{}, "elastic-cache-secgroup-list", "List elastisc cache secgroups", func(s *mcclient.ClientSession, opts *ElasticcacheSecgroupListOptions) error {
+		params, err := options.ListStructToParams(opts)
+		if err != nil {
+			return err
+		}
+
+		result, err := modules.ElasticCacheSecgroup.List(s, params)
+		if err != nil {
+			return err
+		}
+
+		printList(result, nil)
+		return nil
+	})
 }

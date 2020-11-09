@@ -149,7 +149,7 @@ func syncElasticcacheSecgroups(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	result := localInstance.SyncElasticcacheSecgroups(ctx, userCred, secgroupIds)
-	syncResults.Add(ElasticcacheAclManager, result)
+	syncResults.Add(ElasticcachesecgroupManager, result)
 
 	msg := result.Result()
 	log.Infof("SyncElasticcacheSecgroups for dbinstance %s result: %s", localInstance.Name, msg)

@@ -44,6 +44,10 @@ const (
 	ELASTIC_CACHE_STATUS_UNKNOWN               = "unknown"               //（未知状态）
 	ELASTIC_CACHE_STATUS_SYNCING               = "syncing"               //（同步中）
 	ELASTIC_CACHE_STATUS_SYNC_FAILED           = "sync_failed"           //（同步失败）
+	ELASTIC_CACHE_RENEWING                     = "renewing"              //（续费中）
+	ELASTIC_CACHE_RENEW_FAILED                 = "renew_failed"          //（续费失败）
+	ELASTIC_CACHE_SET_AUTO_RENEW               = "set_auto_renew"        //（设置自动续费）
+	ELASTIC_CACHE_SET_AUTO_RENEW_FAILED        = "set_auto_renew_failed" //（设置自动续费失败）
 )
 
 const (

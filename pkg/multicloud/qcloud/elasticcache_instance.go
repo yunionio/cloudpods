@@ -14,6 +14,7 @@ import (
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 type SElasticcache struct {
@@ -269,8 +270,23 @@ func (self *SElasticcache) GetExpiredAt() time.Time {
 	return t
 }
 
+// https://cloud.tencent.com/document/product/239/31785
 func (self *SElasticcache) SetAutoRenew(autoRenew bool) error {
-	panic("implement me")
+	params := map[string]string{}
+	params["Operation"] = "modifyAutoRenew"
+	params["InstanceId.0"] = self.GetId()
+	if autoRenew {
+		params["AutoRenews.0"] = "1"
+	} else {
+		params["AutoRenews.0"] = "0"
+	}
+
+	_, err := self.region.redisRequest("ModifyInstance", params)
+	if err != nil {
+		return errors.Wrap(err, "ModifyInstance")
+	}
+
+	return nil
 }
 
 func (self *SElasticcache) IsAutoRenew() bool {
@@ -917,6 +933,23 @@ func (self *SElasticcache) UpdateSecurityGroups(secgroupIds []string) error {
 	_, err := self.region.redisRequest("ModifyDBInstanceSecurityGroups", params)
 	if err != nil {
 		return errors.Wrap(err, "ModifyDBInstanceSecurityGroups")
+	}
+
+	return nil
+}
+
+func (self *SElasticcache) Renew(bc billing.SBillingCycle) error {
+	month := bc.GetMonths()
+	if month <= 0 {
+		return errors.Wrap(fmt.Errorf("month should great than 0"), "GetMonths")
+	}
+
+	params := map[string]string{}
+	params["InstanceId"] = self.GetId()
+	params["Period"] = fmt.Sprintf("%d", month)
+	_, err := self.region.redisRequest("RenewInstance", params)
+	if err != nil {
+		return errors.Wrap(err, "RenewInstance")
 	}
 
 	return nil
