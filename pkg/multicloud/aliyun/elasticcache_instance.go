@@ -26,10 +26,11 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/apis/billing"
+	billingapi "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 // https://help.aliyun.com/document_detail/60933.html?spm=a2c4g.11186623.6.726.38f82ca9U1Gtxw
@@ -631,7 +632,7 @@ func (self *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheIn
 	params["VpcId"] = ec.VpcId
 	params["VSwitchId"] = ec.NetworkId
 	params["ChargeType"] = ec.ChargeType
-	if strings.ToLower(ec.ChargeType) == billing.BILLING_TYPE_PREPAID && ec.BC != nil {
+	if strings.ToLower(ec.ChargeType) == billingapi.BILLING_TYPE_PREPAID && ec.BC != nil {
 		if ec.BC.GetMonths() >= 1 && ec.BC.GetMonths() <= 9 {
 			params["Period"] = strconv.Itoa(ec.BC.GetMonths())
 		} else if ec.BC.GetMonths() == 12 || ec.BC.GetMonths() == 24 || ec.BC.GetMonths() == 36 {
@@ -937,4 +938,42 @@ func (instance *SElasticcache) SetMetadata(tags map[string]string, replace bool)
 
 func (self *SElasticcache) UpdateSecurityGroups(secgroupIds []string) error {
 	return errors.Wrap(cloudprovider.ErrNotSupported, "UpdateSecurityGroups")
+}
+
+// https://help.aliyun.com/document_detail/60903.html?spm=a2c4g.11174283.6.877.34653436jn6t4C
+// https://help.aliyun.com/document_detail/95584.html?spm=a2c4g.11186623.6.907.60e3292bWsVIOE
+// https://help.aliyun.com/document_detail/60909.html?spm=a2c4g.11186623.6.910.17664ce0jfir7F
+func (self *SElasticcache) Renew(bc billing.SBillingCycle) error {
+	month := bc.GetMonths()
+	if month <= 0 {
+		return errors.Wrap(fmt.Errorf("month should great than 0"), "GetMonths")
+	}
+
+	if (month >= 1 && month <= 9) || month == 12 || month == 24 || month == 36 {
+		return errors.Wrap(fmt.Errorf("month %d is invalid, required: 1~9、12、24、36", month), "GetMonths")
+	}
+
+	params := map[string]string{}
+	params["InstanceId"] = self.GetId()
+	params["Period"] = fmt.Sprintf("%d", month)
+	params["AutoPay"] = "true"
+	_, err := self.region.kvsRequest("RenewInstance", params)
+	if err != nil {
+		return errors.Wrap(err, "RenewInstance")
+	}
+
+	return nil
+}
+
+func (self *SElasticcache) SetAutoRenew(autoRenew bool) error {
+	params := map[string]string{}
+	params["DBInstanceId"] = self.GetId()
+	params["Duration"] = "1"
+	params["AutoRenew"] = fmt.Sprintf("%v", autoRenew)
+	_, err := self.region.kvsRequest("ModifyInstanceAutoRenewalAttribute", params)
+	if err != nil {
+		return errors.Wrap(err, "ModifyInstanceAutoRenewalAttribute")
+	}
+
+	return nil
 }
