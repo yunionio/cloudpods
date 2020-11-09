@@ -865,6 +865,7 @@ func (self *SElasticcache) GetCreateAliyunElasticcacheParams(data *jsonutils.JSO
 		if err != nil {
 			return nil, errors.Wrap(err, "elasticcache.GetCreateAliyunElasticcacheParams.BillingCycle")
 		}
+		billingCycle.AutoRenew = self.AutoRenew
 		input.BC = &billingCycle
 	default:
 		input.ChargeType = "PostPaid"
@@ -956,6 +957,7 @@ func (self *SElasticcache) GetCreateHuaweiElasticcacheParams(data *jsonutils.JSO
 		if err != nil {
 			return nil, errors.Wrap(err, "elasticcache.GetCreateHuaweiElasticcacheParams.BillingCycle")
 		}
+		billingCycle.AutoRenew = self.AutoRenew
 		input.BC = &billingCycle
 	default:
 		input.ChargeType = "PostPaid"
@@ -1043,6 +1045,7 @@ func (self *SElasticcache) GetCreateQCloudElasticcacheParams(data *jsonutils.JSO
 		if err != nil {
 			return nil, errors.Wrap(err, "elasticcache.GetCreateHuaweiElasticcacheParams.BillingCycle")
 		}
+		billingCycle.AutoRenew = self.AutoRenew
 		input.BC = &billingCycle
 	default:
 		input.ChargeType = "PostPaid"

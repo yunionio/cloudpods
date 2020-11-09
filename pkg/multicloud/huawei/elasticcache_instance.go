@@ -488,7 +488,7 @@ func (self *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheIn
 		bssParam := jsonutils.NewDict()
 		bssParam.Set("charging_mode", jsonutils.NewString("prePaid"))
 		bssParam.Set("is_auto_pay", jsonutils.NewString("true"))
-		bssParam.Set("is_auto_renew", jsonutils.NewString("false"))
+		bssParam.Set("is_auto_renew", jsonutils.NewString(fmt.Sprintf("%v", ec.BC.AutoRenew)))
 		if ec.BC.GetMonths() >= 1 && ec.BC.GetMonths() >= 9 {
 			bssParam.Set("period_type", jsonutils.NewString("month"))
 			bssParam.Set("period_num", jsonutils.NewInt(int64(ec.BC.GetMonths())))
