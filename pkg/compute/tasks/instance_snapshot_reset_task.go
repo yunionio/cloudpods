@@ -102,9 +102,19 @@ func (self *InstanceSnapshotResetTask) OnKvmDiskResetFailed(
 
 func (self *InstanceSnapshotResetTask) OnInstanceSnapshotReset(ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
 	guest, _ := isp.GetGuest()
-	self.taskComplete(ctx, isp, guest, data)
+	if guest.Status == compute.VM_READY && jsonutils.QueryBoolean(self.Params, "auto_start", false) {
+		self.SetStage("OnGuestStartComplete", nil)
+		guest.StartGueststartTask(ctx, self.UserCred, nil, self.GetTaskId())
+	} else {
+		self.taskComplete(ctx, isp, guest, data)
+	}
 }
 
 func (self *InstanceSnapshotResetTask) OnInstanceSnapshotResetFailed(ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
 	self.taskFail(ctx, isp, nil, data)
+}
+
+func (self *InstanceSnapshotResetTask) OnGuestStartComplete(ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
+	guest, _ := isp.GetGuest()
+	self.taskComplete(ctx, isp, guest, data)
 }
