@@ -50,7 +50,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/userdata"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -4682,28 +4681,24 @@ func (self *SGuest) AllowPerformInstanceSnapshotReset(ctx context.Context,
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "instance-snapshot")
 }
 
-func (self *SGuest) PerformInstanceSnapshotReset(
-	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject,
-) (jsonutils.JSONObject, error) {
+func (self *SGuest) PerformInstanceSnapshotReset(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerResetInput) (jsonutils.JSONObject, error) {
 
 	if self.Status != api.VM_READY {
 		return nil, httperrors.NewInvalidStatusError("guest can't do snapshot in status %s", self.Status)
 	}
 
-	dataDict := data.(*jsonutils.JSONDict)
-	instanceSnapshotV := validators.NewModelIdOrNameValidator(
-		"instance_snapshot", "instance_snapshot", self.GetOwnerId(),
-	)
-	err := instanceSnapshotV.Validate(dataDict)
+	obj, err := InstanceSnapshotManager.FetchByIdOrName(userCred, input.InstanceSnapshot)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "unable to fetch instance snapshot %q", input.InstanceSnapshot)
 	}
-	instanceSnapshot := instanceSnapshotV.Model.(*SInstanceSnapshot)
+
+	instanceSnapshot := obj.(*SInstanceSnapshot)
+
 	if instanceSnapshot.Status != api.INSTANCE_SNAPSHOT_READY {
 		return nil, httperrors.NewBadRequestError("Instance sanpshot not ready")
 	}
 
-	err = self.StartSnapshotResetTask(ctx, userCred, instanceSnapshot)
+	err = self.StartSnapshotResetTask(ctx, userCred, instanceSnapshot, input.AutoStart)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("start snapshot reset failed %s", err)
 	}
@@ -4711,12 +4706,15 @@ func (self *SGuest) PerformInstanceSnapshotReset(
 	return nil, nil
 }
 
-func (self *SGuest) StartSnapshotResetTask(
-	ctx context.Context, userCred mcclient.TokenCredential, instanceSnapshot *SInstanceSnapshot) error {
+func (self *SGuest) StartSnapshotResetTask(ctx context.Context, userCred mcclient.TokenCredential, instanceSnapshot *SInstanceSnapshot, autoStart *bool) error {
 
+	data := jsonutils.NewDict()
+	if autoStart != nil && *autoStart {
+		data.Set("auto_start", jsonutils.JSONTrue)
+	}
 	self.SetStatus(userCred, api.VM_START_SNAPSHOT_RESET, "start snapshot reset task")
 	if task, err := taskman.TaskManager.NewTask(
-		ctx, "InstanceSnapshotResetTask", instanceSnapshot, userCred, nil, "", "", nil,
+		ctx, "InstanceSnapshotResetTask", instanceSnapshot, userCred, data, "", "", nil,
 	); err != nil {
 		return err
 	} else {

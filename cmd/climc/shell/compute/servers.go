@@ -728,6 +728,7 @@ func init() {
 	type ServerRollBackSnapshot struct {
 		ID               string `help:"ID or name of VM" json:"-"`
 		InstanceSnapshot string `help:"Instance snapshot id or name" json:"instance_snapshot"`
+		AutoStart        bool   `help:"Auto start VM"`
 	}
 	R(&ServerRollBackSnapshot{}, "instance-snapshot-reset", "reset instance snapshot", func(s *mcclient.ClientSession, opts *ServerRollBackSnapshot) error {
 		params := jsonutils.Marshal(opts)
