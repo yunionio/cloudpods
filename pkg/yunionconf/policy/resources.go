@@ -20,7 +20,10 @@ import (
 )
 
 var (
-	yunionconfSystemResources = []string{}
+	yunionconfSystemResources = []string{
+		"scopedpolicies",
+		"scopedpolicybindings",
+	}
 	yunionconfDomainResources = []string{}
 	yunionconfUserResources   = []string{
 		"parameters",
