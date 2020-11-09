@@ -645,6 +645,9 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 			params["UsedTime"] = fmt.Sprintf("%d", desc.BillingCycle.GetYears())
 		}
 		params["AutoRenew"] = "False"
+		if desc.BillingCycle.AutoRenew {
+			params["AutoRenew"] = "True"
+		}
 	}
 
 	action := "CreateDBInstance"
@@ -766,6 +769,28 @@ func (rds *SDBInstance) CreateAccount(conf *cloudprovider.SDBInstanceAccountCrea
 
 func (rds *SDBInstance) Renew(bc billing.SBillingCycle) error {
 	return rds.region.RenewInstance(rds.DBInstanceId, bc)
+}
+
+func (rds *SDBInstance) SetAutoRenew(autoRenew bool) error {
+	return rds.region.ModifyInstanceAutoRenewalAttribute(rds.DBInstanceId, 1, autoRenew)
+}
+
+func (region *SRegion) ModifyInstanceAutoRenewalAttribute(rdsId string, month int, autoRenew bool) error {
+	params := map[string]string{
+		"RegionId":     region.RegionId,
+		"DBInstanceId": rdsId,
+		"AutoRenew":    "False",
+		"ClientToken":  utils.GenRequestId(20),
+	}
+	if autoRenew {
+		params["AutoRenew"] = "True"
+		params["Duration"] = fmt.Sprintf("%d", month)
+	}
+	_, err := region.rdsRequest("ModifyInstanceAutoRenewalAttribute", params)
+	if err != nil {
+		return errors.Wrap(err, "ModifyInstanceAutoRenewalAttribute")
+	}
+	return nil
 }
 
 func (region *SRegion) RenewDBInstance(instanceId string, bc billing.SBillingCycle) error {

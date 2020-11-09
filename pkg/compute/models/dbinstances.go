@@ -901,6 +901,64 @@ func (self *SDBInstance) PerformRenew(ctx context.Context, userCred mcclient.Tok
 	return nil, self.StartDBInstanceRenewTask(ctx, userCred, durationStr, "")
 }
 
+func (self *SDBInstance) AllowPerformSetAutoRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "set-auto-renew")
+}
+
+func (self *SDBInstance) SetAutoRenew(autoRenew bool) error {
+	_, err := db.Update(self, func() error {
+		self.AutoRenew = autoRenew
+		return nil
+	})
+	return err
+}
+
+// 设置自动续费
+// 要求RDS状态为running
+// 要求RDS计费类型为包年包月(预付费)
+func (self *SDBInstance) PerformSetAutoRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DBInstanceAutoRenewInput) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Status, []string{api.DBINSTANCE_RUNNING}) {
+		return nil, httperrors.NewUnsupportOperationError("The dbinstance status need be %s, current is %s", api.DBINSTANCE_RUNNING, self.Status)
+	}
+
+	if self.BillingType != billing_api.BILLING_TYPE_PREPAID {
+		return nil, httperrors.NewUnsupportOperationError("Only %s dbinstance support this operation", billing_api.BILLING_TYPE_PREPAID)
+	}
+
+	if self.AutoRenew == input.AutoRenew {
+		return nil, nil
+	}
+
+	driver, err := self.GetRegionDriver()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRegionDriver")
+	}
+
+	if !driver.IsSupportedDBInstanceAutoRenew() {
+		err := self.SetAutoRenew(input.AutoRenew)
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+
+		logclient.AddSimpleActionLog(self, logclient.ACT_SET_AUTO_RENEW, jsonutils.Marshal(input), userCred, true)
+		return nil, nil
+	}
+
+	return nil, self.StartSetAutoRenewTask(ctx, userCred, input.AutoRenew, "")
+}
+
+func (self *SDBInstance) StartSetAutoRenewTask(ctx context.Context, userCred mcclient.TokenCredential, autoRenew bool, parentTaskId string) error {
+	data := jsonutils.NewDict()
+	data.Set("auto_renew", jsonutils.NewBool(autoRenew))
+	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceSetAutoRenewTask", self, userCred, data, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	self.SetStatus(userCred, api.DBINSTANCE_SET_AUTO_RENEW, "")
+	task.ScheduleRun(nil)
+	return nil
+}
+
 func (self *SDBInstance) AllowPerformPublicConnection(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "public-connection")
 }

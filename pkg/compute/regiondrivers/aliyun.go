@@ -1573,6 +1573,10 @@ func (self *SAliyunRegionDriver) IsSupportedDBInstance() bool {
 	return true
 }
 
+func (self *SAliyunRegionDriver) IsSupportedDBInstanceAutoRenew() bool {
+	return true
+}
+
 func (self *SAliyunRegionDriver) IsSupportedElasticcache() bool {
 	return true
 }

@@ -1720,6 +1720,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 				log.Errorf("failed to parse billing cycle %s: %v", dbinstance.BillingCycle, err)
 			} else if bc.IsValid() {
 				desc.BillingCycle = &bc
+				desc.BillingCycle.AutoRenew = dbinstance.AutoRenew
 			}
 		}
 
