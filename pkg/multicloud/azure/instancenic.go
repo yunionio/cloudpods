@@ -85,10 +85,6 @@ func (self *SInstanceNic) Delete() error {
 
 func (self *SInstanceNic) GetMAC() string {
 	mac := self.Properties.MacAddress
-	if len(mac) == 0 {
-		ip, _ := netutils.NewIPV4Addr(self.GetIP())
-		return ip.ToMac("00:16:")
-	}
 	return strings.Replace(strings.ToLower(mac), "-", ":", -1)
 }
 

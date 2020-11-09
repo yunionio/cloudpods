@@ -15,14 +15,13 @@
 package apsara
 
 import (
-	"yunion.io/x/pkg/util/netutils"
-
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SInstanceNic struct {
 	instance *SInstance
 	ipAddr   string
+	macAddr  string
 }
 
 func (self *SInstanceNic) GetIP() string {
@@ -30,8 +29,7 @@ func (self *SInstanceNic) GetIP() string {
 }
 
 func (self *SInstanceNic) GetMAC() string {
-	ip, _ := netutils.NewIPV4Addr(self.ipAddr)
-	return ip.ToMac("00:16:")
+	return self.macAddr
 }
 
 func (self *SInstanceNic) InClassicNetwork() bool {
