@@ -37,6 +37,7 @@ type SimpleSnapshot struct {
 
 type InstanceSnapshotDetails struct {
 	apis.VirtualResourceDetails
+	ManagedResourceInfo
 	SInstanceSnapshot
 
 	// 云主机状态
@@ -57,6 +58,8 @@ type InstanceSnapshotDetails struct {
 
 type InstanceSnapshotListInput struct {
 	apis.VirtualResourceListInput
+	apis.ExternalizedResourceBaseListInput
+	ManagedResourceListInput
 
 	ServerFilterListInput
 
