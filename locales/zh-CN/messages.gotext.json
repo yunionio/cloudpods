@@ -851,13 +851,25 @@
             "id": "%s not support create eip",
             "message": "%s not support create eip",
             "translation": "%s不支持创建EIP",
-            "position": "pkg/compute/guestdrivers/esxi.go:209:42"
+            "position": "pkg/compute/guestdrivers/esxi.go:233:42"
+        },
+        {
+            "id": "can't resize disk for guest with instance snapshots",
+            "message": "can't resize disk for guest with instance snapshots",
+            "translation": "无法为有主机快照的虚拟机调整磁盘大小",
+            "position": "pkg/compute/guestdrivers/esxi.go:245:38"
         },
         {
             "id": "esxi guest migrate require prefer_host",
             "message": "esxi guest migrate require prefer_host",
             "translation": "ESXi虚机迁移需要指定prefer_host",
-            "position": "pkg/compute/guestdrivers/esxi.go:470:39"
+            "position": "pkg/compute/guestdrivers/esxi.go:525:39"
+        },
+        {
+            "id": "can't rebuild root for a guest with instance snapshots",
+            "message": "can't rebuild root for a guest with instance snapshots",
+            "translation": "无法为有主机快照的虚拟机重装系统",
+            "position": "pkg/compute/guestdrivers/esxi.go:673:45"
         },
         {
             "id": "Unknown google storage type %s",
@@ -959,67 +971,73 @@
             "id": "The %s disk size must be in the range of 10GB ~ 16000GB",
             "message": "The %s disk size must be in the range of 10GB ~ 16000GB",
             "translation": "%s盘的大小必须在10GB到16000GB范围内",
-            "position": "pkg/compute/guestdrivers/qcloud.go:147:50"
+            "position": "pkg/compute/guestdrivers/qcloud.go:148:50"
         },
         {
             "id": "The %s disk size must be in the range of 50GB ~ 16000GB",
             "message": "The %s disk size must be in the range of 50GB ~ 16000GB",
             "translation": "%s盘的大小必须在50GB到16000GB范围内",
-            "position": "pkg/compute/guestdrivers/qcloud.go:151:50"
+            "position": "pkg/compute/guestdrivers/qcloud.go:152:50"
         },
         {
             "id": "The %s disk size must be in the range of 100GB ~ 16000GB",
             "message": "The %s disk size must be in the range of 100GB ~ 16000GB",
             "translation": "%s盘的大小必须在100GB到16000GB范围内",
-            "position": "pkg/compute/guestdrivers/qcloud.go:155:50"
+            "position": "pkg/compute/guestdrivers/qcloud.go:156:50"
+        },
+        {
+            "id": "The %s disk size must be in the range of 20GB ~ 32000GB",
+            "message": "The %s disk size must be in the range of 20GB ~ 32000GB",
+            "translation": "",
+            "position": "pkg/compute/guestdrivers/qcloud.go:160:50"
         },
         {
             "id": "storage %s can not be data disk",
             "message": "storage %s can not be data disk",
             "translation": "%s存储不能作为数据盘",
-            "position": "pkg/compute/guestdrivers/qcloud.go:158:49"
+            "position": "pkg/compute/guestdrivers/qcloud.go:163:49"
         },
         {
             "id": "Data disk size must be an integer multiple of 10G",
             "message": "Data disk size must be an integer multiple of 10G",
             "translation": "数据盘大小必须是10GB的整数倍",
-            "position": "pkg/compute/guestdrivers/qcloud.go:161:49"
+            "position": "pkg/compute/guestdrivers/qcloud.go:166:49"
         },
         {
             "id": "failed to found system disk error: %v",
             "message": "failed to found system disk error: %v",
             "translation": "找不到系统盘：%v",
-            "position": "pkg/compute/guestdrivers/qcloud.go:171:46"
+            "position": "pkg/compute/guestdrivers/qcloud.go:176:46"
         },
         {
             "id": "failed to found storage for disk %s(%s)",
             "message": "failed to found storage for disk %s(%s)",
             "translation": "找不到磁盘%s(%s)所属的存储",
-            "position": "pkg/compute/guestdrivers/qcloud.go:175:46"
+            "position": "pkg/compute/guestdrivers/qcloud.go:180:46"
         },
         {
             "id": "The system disk is locally stored and does not support changing configuration",
             "message": "The system disk is locally stored and does not support changing configuration",
             "translation": "系统盘存储在本地，不支持变更配置",
-            "position": "pkg/compute/guestdrivers/qcloud.go:179:48"
+            "position": "pkg/compute/guestdrivers/qcloud.go:184:48"
         },
         {
             "id": "Not support create local storage disks",
             "message": "Not support create local storage disks",
             "translation": "不支持创建本地盘",
-            "position": "pkg/compute/guestdrivers/qcloud.go:198:48"
+            "position": "pkg/compute/guestdrivers/qcloud.go:207:48"
         },
         {
             "id": "Please input new disk backend type",
             "message": "Please input new disk backend type",
             "translation": "请指定新的磁盘类型",
-            "position": "pkg/compute/guestdrivers/qcloud.go:200:44"
+            "position": "pkg/compute/guestdrivers/qcloud.go:209:44"
         },
         {
             "id": "The disk is locally stored and does not support detach",
             "message": "The disk is locally stored and does not support detach",
             "translation": "磁盘存储在本地，不支持解绑",
-            "position": "pkg/compute/guestdrivers/qcloud.go:216:47"
+            "position": "pkg/compute/guestdrivers/qcloud.go:225:47"
         },
         {
             "id": "Host %s is not online",
@@ -1235,19 +1253,19 @@
             "id": "missing duration/expire_time",
             "message": "missing duration/expire_time",
             "translation": "未指定duration/expire_time",
-            "position": "pkg/compute/models/billingresource.go:179:49"
+            "position": "pkg/compute/models/billingresource.go:188:49"
         },
         {
             "id": "expire time is before current expire at",
             "message": "expire time is before current expire at",
             "translation": "新的过期时间先于当前值",
-            "position": "pkg/compute/models/billingresource.go:187:49"
+            "position": "pkg/compute/models/billingresource.go:196:49"
         },
         {
             "id": "invalid duration %s: %s",
             "message": "invalid duration %s: %s",
             "translation": "无效的duration %s: %s",
-            "position": "pkg/compute/models/billingresource.go:193:49"
+            "position": "pkg/compute/models/billingresource.go:202:49"
         },
         {
             "id": "missing name",
@@ -2615,151 +2633,151 @@
             "id": "invalid billing_cycle %s",
             "message": "invalid billing_cycle %s",
             "translation": "无效的计费周期%s",
-            "position": "pkg/compute/models/elasticcache_instances.go:733:50"
+            "position": "pkg/compute/models/elasticcache_instances.go:736:50"
         },
         {
             "id": "unmarshal VirtualResourceCreateInput fail %s",
             "message": "unmarshal VirtualResourceCreateInput fail %s",
             "translation": "unmarshal VirtualResourceCreateInput失败：%s",
-            "position": "pkg/compute/models/elasticcache_instances.go:746:48"
+            "position": "pkg/compute/models/elasticcache_instances.go:749:48"
         },
         {
             "id": "Cannot do restart elasticcache instance in status %s",
             "message": "Cannot do restart elasticcache instance in status %s",
             "translation": "无法重启状态为%s的弹性缓存实例",
-            "position": "pkg/compute/models/elasticcache_instances.go:1056:47"
+            "position": "pkg/compute/models/elasticcache_instances.go:1078:47"
         },
         {
             "id": "Elastic cache is locked, cannot delete",
             "message": "Elastic cache is locked, cannot delete",
             "translation": "弹性缓存已锁定，不可删除",
-            "position": "pkg/compute/models/elasticcache_instances.go:1074:42"
+            "position": "pkg/compute/models/elasticcache_instances.go:1096:42"
         },
         {
             "id": "Elastic cache is not expired, cannot delete",
             "message": "Elastic cache is not expired, cannot delete",
             "translation": "弹性缓存未过期，不可删除",
-            "position": "pkg/compute/models/elasticcache_instances.go:1078:42"
+            "position": "pkg/compute/models/elasticcache_instances.go:1100:42"
         },
         {
             "id": "provider mismatch: %s instance can't use %s sku",
             "message": "provider mismatch: %s instance can't use %s sku",
             "translation": "provider不匹配：%s缓存实例不可使用%s sku",
-            "position": "pkg/compute/models/elasticcache_instances.go:1113:48"
+            "position": "pkg/compute/models/elasticcache_instances.go:1135:48"
         },
         {
             "id": "region mismatch: instance region %s, sku region %s",
             "message": "region mismatch: instance region %s, sku region %s",
             "translation": "region不匹配：实例region %s，sku region %s",
-            "position": "pkg/compute/models/elasticcache_instances.go:1118:48"
+            "position": "pkg/compute/models/elasticcache_instances.go:1140:48"
         },
         {
             "id": "zone mismatch: instance zone %s, sku zone %s",
             "message": "zone mismatch: instance zone %s, sku zone %s",
             "translation": "zone不匹配：实例zone %s，sku zone %s",
-            "position": "pkg/compute/models/elasticcache_instances.go:1122:48"
+            "position": "pkg/compute/models/elasticcache_instances.go:1144:48"
         },
         {
             "id": "engine version mismatch: instance version %s, sku version %s",
             "message": "engine version mismatch: instance version %s, sku version %s",
             "translation": "引擎版本不匹配：实例版本%s，sku版本%s",
-            "position": "pkg/compute/models/elasticcache_instances.go:1126:48"
+            "position": "pkg/compute/models/elasticcache_instances.go:1148:48"
         },
         {
             "id": "can not change specification in status %s",
             "message": "can not change specification in status %s",
             "translation": "无法为状态为%s的缓存实例变更配置",
-            "position": "pkg/compute/models/elasticcache_instances.go:1135:50"
+            "position": "pkg/compute/models/elasticcache_instances.go:1157:50"
         },
         {
             "id": "auth mode aready in status %s",
             "message": "auth mode aready in status %s",
             "translation": "认证模式的状态已为%s",
-            "position": "pkg/compute/models/elasticcache_instances.go:1186:42"
+            "position": "pkg/compute/models/elasticcache_instances.go:1208:42"
         },
         {
             "id": "maintain time has no change",
             "message": "maintain time has no change",
             "translation": "运维时间参数没有变化",
-            "position": "pkg/compute/models/elasticcache_instances.go:1298:48"
+            "position": "pkg/compute/models/elasticcache_instances.go:1320:48"
         },
         {
             "id": "public connection aready allocated",
             "message": "public connection aready allocated",
             "translation": "公网连接已分配",
-            "position": "pkg/compute/models/elasticcache_instances.go:1335:42"
+            "position": "pkg/compute/models/elasticcache_instances.go:1357:42"
         },
         {
             "id": "release public connection aready released",
             "message": "release public connection aready released",
             "translation": "公网连接已释放",
-            "position": "pkg/compute/models/elasticcache_instances.go:1376:42"
+            "position": "pkg/compute/models/elasticcache_instances.go:1398:42"
         },
         {
             "id": "invalid parameter format. json dict required",
             "message": "invalid parameter format. json dict required",
             "translation": "无效参数格式：必须为JSON Object",
-            "position": "pkg/compute/models/elasticcache_instances.go:1433:48"
+            "position": "pkg/compute/models/elasticcache_instances.go:1455:48"
         },
         {
             "id": "Elasticcache has %d task active, can't sync status",
             "message": "Elasticcache has %d task active, can't sync status",
             "translation": "弹性缓存已有%d个任务在执行，无法执行同步状态操作",
-            "position": "pkg/compute/models/elasticcache_instances.go:1521:44"
+            "position": "pkg/compute/models/elasticcache_instances.go:1543:44"
         },
         {
             "id": "elasticcache billing type is %s",
             "message": "elasticcache billing type is %s",
             "translation": "弹性缓存的计费类型为%s",
-            "position": "pkg/compute/models/elasticcache_instances.go:1768:44"
+            "position": "pkg/compute/models/elasticcache_instances.go:1790:44"
         },
         {
             "id": "elasticcache billing type %s not support cancel expire",
             "message": "elasticcache billing type %s not support cancel expire",
             "translation": "弹性缓存的计费类型%s不支持取消过期时间",
-            "position": "pkg/compute/models/elasticcache_instances.go:1794:39"
+            "position": "pkg/compute/models/elasticcache_instances.go:1816:39"
         },
         {
             "id": "Cannot add security groups in status %s",
             "message": "Cannot add security groups in status %s",
             "translation": "虚机状态%s不可执行添加安全组操作",
-            "position": "pkg/compute/models/elasticcache_instances.go:1867:43"
+            "position": "pkg/compute/models/elasticcache_instances.go:1889:43"
         },
         {
             "id": "region",
             "message": "region",
             "translation": "",
-            "position": "pkg/compute/models/elasticcache_instances.go:1872:37"
+            "position": "pkg/compute/models/elasticcache_instances.go:1894:37"
         },
         {
             "id": "regiondriver",
             "message": "regiondriver",
             "translation": "",
-            "position": "pkg/compute/models/elasticcache_instances.go:1877:37"
+            "position": "pkg/compute/models/elasticcache_instances.go:1899:37"
         },
         {
             "id": "not supported bind security group",
             "message": "not supported bind security group",
             "translation": "不支持绑定安全组",
-            "position": "pkg/compute/models/elasticcache_instances.go:1882:41"
+            "position": "pkg/compute/models/elasticcache_instances.go:1904:41"
         },
         {
             "id": "beyond security group quantity limit, max items %d.",
             "message": "beyond security group quantity limit, max items %d.",
             "translation": "超过可绑定的安全组数量限制，最多 %d 个",
-            "position": "pkg/compute/models/elasticcache_instances.go:1886:39"
+            "position": "pkg/compute/models/elasticcache_instances.go:1908:39"
         },
         {
             "id": "The secgroup name %s does not meet the requirements, please change the name",
             "message": "The secgroup name %s does not meet the requirements, please change the name",
             "translation": "安全组名称%s不符合要求",
-            "position": "pkg/compute/models/elasticcache_instances.go:1905:49"
+            "position": "pkg/compute/models/elasticcache_instances.go:1927:49"
         },
         {
             "id": "secgroups will be empty after update.",
             "message": "secgroups will be empty after update.",
             "translation": "",
-            "position": "pkg/compute/models/elasticcache_instances.go:2048:48"
+            "position": "pkg/compute/models/elasticcache_instances.go:2070:48"
         },
         {
             "id": "%s is not modifiable",
@@ -3191,925 +3209,925 @@
             "id": "failed to find %s",
             "message": "failed to find %s",
             "translation": "找不到%s",
-            "position": "pkg/compute/models/guest_actions.go:1418:43"
+            "position": "pkg/compute/models/guest_actions.go:1424:43"
         },
         {
             "id": "invlid image",
             "message": "invlid image",
             "translation": "无效的镜像",
-            "position": "pkg/compute/models/guest_actions.go:1426:49"
+            "position": "pkg/compute/models/guest_actions.go:1432:49"
         },
         {
             "id": "image size exceeds root disk size",
             "message": "image size exceeds root disk size",
             "translation": "镜像大小超过系统盘大小",
-            "position": "pkg/compute/models/guest_actions.go:1429:49"
+            "position": "pkg/compute/models/guest_actions.go:1435:49"
         },
         {
             "id": "Cannot switch OS between %s-%s",
             "message": "Cannot switch OS between %s-%s",
             "translation": "无法切换操作系统：%s-%s",
-            "position": "pkg/compute/models/guest_actions.go:1434:45"
+            "position": "pkg/compute/models/guest_actions.go:1440:45"
         },
         {
             "id": "Can not rebuild root with with diff uefi image",
             "message": "Can not rebuild root with with diff uefi image",
             "translation": "镜像uefi状态不同重装操作系统",
-            "position": "pkg/compute/models/guest_actions.go:1448:53"
+            "position": "pkg/compute/models/guest_actions.go:1454:53"
         },
         {
             "id": "No template for root disk, cannot rebuild root",
             "message": "No template for root disk, cannot rebuild root",
             "translation": "找不到模板，无法重装系统",
-            "position": "pkg/compute/models/guest_actions.go:1459:45"
+            "position": "pkg/compute/models/guest_actions.go:1465:45"
         },
         {
             "id": "%s not support rebuild root with a different image",
             "message": "%s not support rebuild root with a different image",
             "translation": "不支持使用另外一个镜像重装系统",
-            "position": "pkg/compute/models/guest_actions.go:1462:49"
+            "position": "pkg/compute/models/guest_actions.go:1468:49"
         },
         {
             "id": "Cannot reset root in status %s",
             "message": "Cannot reset root in status %s",
             "translation": "状态为%s不支持重装系统",
-            "position": "pkg/compute/models/guest_actions.go:1467:47"
+            "position": "pkg/compute/models/guest_actions.go:1473:47"
         },
         {
             "id": "keypair %s not found",
             "message": "keypair %s not found",
             "translation": "找不到密钥对%s",
-            "position": "pkg/compute/models/guest_actions.go:1494:52"
+            "position": "pkg/compute/models/guest_actions.go:1500:52"
         },
         {
             "id": "No Disk Info Provided",
             "message": "No Disk Info Provided",
             "translation": "未提供Disk Info",
-            "position": "pkg/compute/models/guest_actions.go:1589:44"
+            "position": "pkg/compute/models/guest_actions.go:1595:44"
         },
         {
             "id": "No valid host",
             "message": "No valid host",
             "translation": "找不到宿主机",
-            "position": "pkg/compute/models/guest_actions.go:1612:44"
+            "position": "pkg/compute/models/guest_actions.go:1618:44"
         },
         {
             "id": "No valid storage on current host",
             "message": "No valid storage on current host",
             "translation": "所在宿主机无可用存储",
-            "position": "pkg/compute/models/guest_actions.go:1618:45"
+            "position": "pkg/compute/models/guest_actions.go:1624:45"
         },
         {
             "id": "Not eough storage space on current host",
             "message": "Not eough storage space on current host",
             "translation": "所在宿主机存储空间不足",
-            "position": "pkg/compute/models/guest_actions.go:1622:45"
+            "position": "pkg/compute/models/guest_actions.go:1628:45"
         },
         {
             "id": "failed to find disk %s",
             "message": "failed to find disk %s",
             "translation": "查找磁盘错误：%s",
-            "position": "pkg/compute/models/guest_actions.go:1676:43"
+            "position": "pkg/compute/models/guest_actions.go:1682:43"
         },
         {
             "id": "check isAttach2Disk fail %s",
             "message": "check isAttach2Disk fail %s",
             "translation": "isAttach2Disk失败：%s",
-            "position": "pkg/compute/models/guest_actions.go:1684:49"
+            "position": "pkg/compute/models/guest_actions.go:1690:49"
         },
         {
             "id": "Cannot detach sys disk",
             "message": "Cannot detach sys disk",
             "translation": "不可解绑系统盘",
-            "position": "pkg/compute/models/guest_actions.go:1688:54"
+            "position": "pkg/compute/models/guest_actions.go:1694:54"
         },
         {
             "id": "Cannot keep detached disk",
             "message": "Cannot keep detached disk",
             "translation": "无法保留已解绑的磁盘",
-            "position": "pkg/compute/models/guest_actions.go:1695:50"
+            "position": "pkg/compute/models/guest_actions.go:1701:50"
         },
         {
             "id": "Server in %s not able to detach disk",
             "message": "Server in %s not able to detach disk",
             "translation": "虚机状态%s不支持解绑磁盘",
-            "position": "pkg/compute/models/guest_actions.go:1708:49"
+            "position": "pkg/compute/models/guest_actions.go:1714:49"
         },
         {
             "id": "Disk %s not attached",
             "message": "Disk %s not attached",
             "translation": "磁盘%s未挂载",
-            "position": "pkg/compute/models/guest_actions.go:1711:48"
+            "position": "pkg/compute/models/guest_actions.go:1717:48"
         },
         {
             "id": "Only allowed to attach isolated device when guest is ready",
             "message": "Only allowed to attach isolated device when guest is ready",
             "translation": "仅当虚机为关机状态时才可挂载透传设备",
-            "position": "pkg/compute/models/guest_actions.go:1747:47"
+            "position": "pkg/compute/models/guest_actions.go:1753:47"
         },
         {
             "id": "Missing isolated device",
             "message": "Missing isolated device",
             "translation": "未指定透传设备",
-            "position": "pkg/compute/models/guest_actions.go:1755:45"
+            "position": "pkg/compute/models/guest_actions.go:1761:45"
         },
         {
             "id": "Isolated device %s not found",
             "message": "Isolated device %s not found",
             "translation": "找不到透传设备%s",
-            "position": "pkg/compute/models/guest_actions.go:1785:39"
+            "position": "pkg/compute/models/guest_actions.go:1791:39"
         },
         {
             "id": "Isolated device is not attached to this guest",
             "message": "Isolated device is not attached to this guest",
             "translation": "透传设备未挂载到此虚机",
-            "position": "pkg/compute/models/guest_actions.go:1799:39"
+            "position": "pkg/compute/models/guest_actions.go:1805:39"
         },
         {
             "id": "guest attach gpu count must \u003e 0",
             "message": "guest attach gpu count must \u003e 0",
             "translation": "GPU数量必须大于1",
-            "position": "pkg/compute/models/guest_actions.go:1836:45"
+            "position": "pkg/compute/models/guest_actions.go:1842:45"
         },
         {
             "id": "fetch gpu failed %s",
             "message": "fetch gpu failed %s",
             "translation": "获取GPU失败：%s",
-            "position": "pkg/compute/models/guest_actions.go:1858:43"
+            "position": "pkg/compute/models/guest_actions.go:1864:43"
         },
         {
             "id": "guest %s host %s isolated device not enough",
             "message": "guest %s host %s isolated device not enough",
             "translation": "虚机%s所在宿主机%s透传设备不足",
-            "position": "pkg/compute/models/guest_actions.go:1861:39"
+            "position": "pkg/compute/models/guest_actions.go:1867:39"
         },
         {
             "id": "attach devices is not string array",
             "message": "attach devices is not string array",
             "translation": "挂载设备列表参数类型不是字符串数组",
-            "position": "pkg/compute/models/guest_actions.go:1933:50"
+            "position": "pkg/compute/models/guest_actions.go:1939:50"
         },
         {
             "id": "detach devices is not string array",
             "message": "detach devices is not string array",
             "translation": "卸载设备列表参数类型不是字符串数组",
-            "position": "pkg/compute/models/guest_actions.go:1946:50"
+            "position": "pkg/compute/models/guest_actions.go:1952:50"
         },
         {
             "id": "ip %s not found",
             "message": "ip %s not found",
             "translation": "找不到IP %s",
-            "position": "pkg/compute/models/guest_actions.go:1979:44"
+            "position": "pkg/compute/models/guest_actions.go:1985:44"
         },
         {
             "id": "mac %s not found",
             "message": "mac %s not found",
             "translation": "找不到MAC %s",
-            "position": "pkg/compute/models/guest_actions.go:1988:44"
+            "position": "pkg/compute/models/guest_actions.go:1994:44"
         },
         {
             "id": "no either ip_addr or mac specified",
             "message": "no either ip_addr or mac specified",
             "translation": "未指定ip_addr或mac",
-            "position": "pkg/compute/models/guest_actions.go:2001:48"
+            "position": "pkg/compute/models/guest_actions.go:2007:48"
         },
         {
             "id": "Cannot change network ip_addr in status %s",
             "message": "Cannot change network ip_addr in status %s",
             "translation": "状态为%s无法变更IP地址",
-            "position": "pkg/compute/models/guest_actions.go:2010:47"
+            "position": "pkg/compute/models/guest_actions.go:2016:47"
         },
         {
             "id": "cannot change mac when guest is running",
             "message": "cannot change mac when guest is running",
             "translation": "虚机运行中无法变更MAC地址",
-            "position": "pkg/compute/models/guest_actions.go:2056:50"
+            "position": "pkg/compute/models/guest_actions.go:2062:50"
         },
         {
             "id": "check mac uniqueness fail %s",
             "message": "check mac uniqueness fail %s",
             "translation": "MAC地址唯一性检查失败",
-            "position": "pkg/compute/models/guest_actions.go:2061:51"
+            "position": "pkg/compute/models/guest_actions.go:2067:51"
         },
         {
             "id": "mac addr %s has been occupied",
             "message": "mac addr %s has been occupied",
             "translation": "MAC地址%s已被占用",
-            "position": "pkg/compute/models/guest_actions.go:2064:45"
+            "position": "pkg/compute/models/guest_actions.go:2070:45"
         },
         {
             "id": "Cannot detach network in status %s",
             "message": "Cannot detach network in status %s",
             "translation": "虚机状态%s无法执行解绑网络操作",
-            "position": "pkg/compute/models/guest_actions.go:2121:47"
+            "position": "pkg/compute/models/guest_actions.go:2127:47"
         },
         {
             "id": "Cannot attach network in status %s",
             "message": "Cannot attach network in status %s",
             "translation": "虚机状态%s无法执行绑定网络操作",
-            "position": "pkg/compute/models/guest_actions.go:2183:44"
+            "position": "pkg/compute/models/guest_actions.go:2189:44"
         },
         {
             "id": "Cannot change bandwidth in status %s",
             "message": "Cannot change bandwidth in status %s",
             "translation": "虚机状态%s无法变更带宽大小",
-            "position": "pkg/compute/models/guest_actions.go:2247:44"
+            "position": "pkg/compute/models/guest_actions.go:2253:44"
         },
         {
             "id": "Bandwidth must be non-negative",
             "message": "Bandwidth must be non-negative",
             "translation": "带宽值必须非负",
-            "position": "pkg/compute/models/guest_actions.go:2252:44"
+            "position": "pkg/compute/models/guest_actions.go:2258:44"
         },
         {
             "id": "Cannot change setting in status %s",
             "message": "Cannot change setting in status %s",
             "translation": "虚机状态%s不可变更配置",
-            "position": "pkg/compute/models/guest_actions.go:2284:44"
+            "position": "pkg/compute/models/guest_actions.go:2290:44"
         },
         {
             "id": "Not allow to change config",
             "message": "Not allow to change config",
             "translation": "不允许变更配置",
-            "position": "pkg/compute/models/guest_actions.go:2337:47"
+            "position": "pkg/compute/models/guest_actions.go:2343:47"
         },
         {
             "id": "Guest have backup not allow to change config",
             "message": "Guest have backup not allow to change config",
             "translation": "主备机不允许变更配置",
-            "position": "pkg/compute/models/guest_actions.go:2341:44"
+            "position": "pkg/compute/models/guest_actions.go:2347:44"
         },
         {
             "id": "Cannot change config in %s",
             "message": "Cannot change config in %s",
             "translation": "虚机状态为%s不可变更配置",
-            "position": "pkg/compute/models/guest_actions.go:2349:47"
+            "position": "pkg/compute/models/guest_actions.go:2355:47"
         },
         {
             "id": "Cannot change config with different instance family",
             "message": "Cannot change config with different instance family",
             "translation": "不可变更套餐类型",
-            "position": "pkg/compute/models/guest_actions.go:2369:49"
+            "position": "pkg/compute/models/guest_actions.go:2375:49"
         },
         {
             "id": "Params vcpu_count parse error",
             "message": "Params vcpu_count parse error",
             "translation": "参数vcpu_count解析出错",
-            "position": "pkg/compute/models/guest_actions.go:2392:46"
+            "position": "pkg/compute/models/guest_actions.go:2398:46"
         },
         {
             "id": "Memory size must be number[+unit], like 256M, 1G or 256",
             "message": "Memory size must be number[+unit], like 256M, 1G or 256",
             "translation": "内存大小参数错误，如256M，1G，或256",
-            "position": "pkg/compute/models/guest_actions.go:2407:46"
+            "position": "pkg/compute/models/guest_actions.go:2413:46"
         },
         {
             "id": "Params vmem_size parse error",
             "message": "Params vmem_size parse error",
             "translation": "参数vmem_size解析出错",
-            "position": "pkg/compute/models/guest_actions.go:2411:34"
+            "position": "pkg/compute/models/guest_actions.go:2417:34"
         },
         {
             "id": "cannot change CPU/Memory spec in status %s",
             "message": "cannot change CPU/Memory spec in status %s",
             "translation": "虚机状态为%s无法变更CPU/内存配置",
-            "position": "pkg/compute/models/guest_actions.go:2425:47"
+            "position": "pkg/compute/models/guest_actions.go:2431:47"
         },
         {
             "id": "Unmarshal disks configure error %s",
             "message": "Unmarshal disks configure error %s",
             "translation": "Unmarshal磁盘配置出错：%s",
-            "position": "pkg/compute/models/guest_actions.go:2445:49"
+            "position": "pkg/compute/models/guest_actions.go:2451:49"
         },
         {
             "id": "Parse disk info error: %s",
             "message": "Parse disk info error: %s",
             "translation": "解析磁盘信息出错：%s",
-            "position": "pkg/compute/models/guest_actions.go:2453:45"
+            "position": "pkg/compute/models/guest_actions.go:2459:45"
         },
         {
             "id": "host not connect storage %s",
             "message": "host not connect storage %s",
             "translation": "宿主机未连接存储%s",
-            "position": "pkg/compute/models/guest_actions.go:2463:53"
+            "position": "pkg/compute/models/guest_actions.go:2469:53"
         },
         {
             "id": "Cannot reduce disk size",
             "message": "Cannot reduce disk size",
             "translation": "不可缩小磁盘大小",
-            "position": "pkg/compute/models/guest_actions.go:2478:51"
+            "position": "pkg/compute/models/guest_actions.go:2484:51"
         },
         {
             "id": "Fetch storage error: %s",
             "message": "Fetch storage error: %s",
             "translation": "获取存储出错：%s",
-            "position": "pkg/compute/models/guest_actions.go:2507:46"
+            "position": "pkg/compute/models/guest_actions.go:2513:46"
         },
         {
             "id": "Host resource is not enough",
             "message": "Host resource is not enough",
             "translation": "宿主机资源不足",
-            "position": "pkg/compute/models/guest_actions.go:2541:44"
+            "position": "pkg/compute/models/guest_actions.go:2547:44"
         },
         {
             "id": "Create disk on host error: %s",
             "message": "Create disk on host error: %s",
             "translation": "在宿主机上创建磁盘出错：%s",
-            "position": "pkg/compute/models/guest_actions.go:2572:45"
+            "position": "pkg/compute/models/guest_actions.go:2578:45"
         },
         {
             "id": "Cannot reset VM in status %s",
             "message": "Cannot reset VM in status %s",
             "translation": "虚机状态为%s无法重装系统",
-            "position": "pkg/compute/models/guest_actions.go:2717:46"
+            "position": "pkg/compute/models/guest_actions.go:2723:46"
         },
         {
             "id": "Guest has %d task active, can't sync status",
             "message": "Guest has %d task active, can't sync status",
             "translation": "虚机已有%d个活跃任务执行中，无法执行同步状态操作",
-            "position": "pkg/compute/models/guest_actions.go:2732:44"
+            "position": "pkg/compute/models/guest_actions.go:2738:44"
         },
         {
             "id": "Cannot stop server in status %s",
             "message": "Cannot stop server in status %s",
             "translation": "虚机状态%s无法执行关机操作",
-            "position": "pkg/compute/models/guest_actions.go:2790:47"
+            "position": "pkg/compute/models/guest_actions.go:2796:47"
         },
         {
             "id": "Cannot do restart server in status %s",
             "message": "Cannot do restart server in status %s",
             "translation": "虚机状态%s无法执行重启操作",
-            "position": "pkg/compute/models/guest_actions.go:2806:47"
+            "position": "pkg/compute/models/guest_actions.go:2812:47"
         },
         {
             "id": "Cannot send keys in status %s",
             "message": "Cannot send keys in status %s",
             "translation": "虚机状态%s无法发送键盘指令",
-            "position": "pkg/compute/models/guest_actions.go:2819:47"
+            "position": "pkg/compute/models/guest_actions.go:2825:47"
         },
         {
             "id": "cannot associate eip in status %s",
             "message": "cannot associate eip in status %s",
             "translation": "虚机状态%s无法关联EIP",
-            "position": "pkg/compute/models/guest_actions.go:2891:47"
+            "position": "pkg/compute/models/guest_actions.go:2897:47"
         },
         {
             "id": "already associate with eip",
             "message": "already associate with eip",
             "translation": "虚机已关联EIP",
-            "position": "pkg/compute/models/guest_actions.go:2900:47"
+            "position": "pkg/compute/models/guest_actions.go:2906:47"
         },
         {
             "id": "eip %s not found",
             "message": "eip %s not found",
             "translation": "找不到EIP %s",
-            "position": "pkg/compute/models/guest_actions.go:2909:51"
+            "position": "pkg/compute/models/guest_actions.go:2915:51"
         },
         {
             "id": "eip has been associated",
             "message": "eip has been associated",
             "translation": "EIP已被关联",
-            "position": "pkg/compute/models/guest_actions.go:2925:42"
+            "position": "pkg/compute/models/guest_actions.go:2931:42"
         },
         {
             "id": "cannot associate eip and instance in different region",
             "message": "cannot associate eip and instance in different region",
             "translation": "虚机与EIP不在同一region无法关联",
-            "position": "pkg/compute/models/guest_actions.go:2929:48"
+            "position": "pkg/compute/models/guest_actions.go:2935:48"
         },
         {
             "id": "cannot associate eip and instance in different zone",
             "message": "cannot associate eip and instance in different zone",
             "translation": "虚机与EIP不在同一个zone下无法关联",
-            "position": "pkg/compute/models/guest_actions.go:2948:49"
+            "position": "pkg/compute/models/guest_actions.go:2954:49"
         },
         {
             "id": "cannot associate eip and instance in different provider",
             "message": "cannot associate eip and instance in different provider",
             "translation": "虚机与EIP不属于同一provider无法关联",
-            "position": "pkg/compute/models/guest_actions.go:2958:48"
+            "position": "pkg/compute/models/guest_actions.go:2964:48"
         },
         {
             "id": "No eip to dissociate",
             "message": "No eip to dissociate",
             "translation": "没有可解关联的EIP",
-            "position": "pkg/compute/models/guest_actions.go:2984:47"
+            "position": "pkg/compute/models/guest_actions.go:2990:47"
         },
         {
             "id": "No host???",
             "message": "No host???",
             "translation": "找不到宿主机",
-            "position": "pkg/compute/models/guest_actions.go:3026:47"
+            "position": "pkg/compute/models/guest_actions.go:3032:47"
         },
         {
             "id": "No valid cloud provider",
             "message": "No valid cloud provider",
             "translation": "无可用的cloudprovider",
-            "position": "pkg/compute/models/guest_actions.go:3032:49"
+            "position": "pkg/compute/models/guest_actions.go:3038:49"
         },
         {
             "id": "No cloudregion???",
             "message": "No cloudregion???",
             "translation": "找不到cloudregion",
-            "position": "pkg/compute/models/guest_actions.go:3037:48"
+            "position": "pkg/compute/models/guest_actions.go:3043:48"
         },
         {
             "id": "Out of eip quota: %s",
             "message": "Out of eip quota: %s",
             "translation": "EIP配额不足：%s",
-            "position": "pkg/compute/models/guest_actions.go:3054:44"
+            "position": "pkg/compute/models/guest_actions.go:3060:44"
         },
         {
             "id": "Cannot swith to backup when guest in status %s",
             "message": "Cannot swith to backup when guest in status %s",
             "translation": "虚机状态为%s时无法切换到备机",
-            "position": "pkg/compute/models/guest_actions.go:3164:44"
+            "position": "pkg/compute/models/guest_actions.go:3170:44"
         },
         {
             "id": "Guest no backup host",
             "message": "Guest no backup host",
             "translation": "虚机没有备用宿主机",
-            "position": "pkg/compute/models/guest_actions.go:3167:44"
+            "position": "pkg/compute/models/guest_actions.go:3173:44"
         },
         {
             "id": "Guest can't switch to backup, mirror job not ready",
             "message": "Guest can't switch to backup, mirror job not ready",
             "translation": "虚机无法切换到备机，因镜像任务未结束",
-            "position": "pkg/compute/models/guest_actions.go:3172:44"
+            "position": "pkg/compute/models/guest_actions.go:3178:44"
         },
         {
             "id": "failed to found guest %s",
             "message": "failed to found guest %s",
             "translation": "找不到虚机%s",
-            "position": "pkg/compute/models/guest_actions.go:3217:51"
+            "position": "pkg/compute/models/guest_actions.go:3223:51"
         },
         {
             "id": "input data not key value dict",
             "message": "input data not key value dict",
             "translation": "输入数据不是键值字典",
-            "position": "pkg/compute/models/guest_actions.go:3229:48"
+            "position": "pkg/compute/models/guest_actions.go:3235:48"
         },
         {
             "id": "Guest %s not found",
             "message": "Guest %s not found",
             "translation": "找不到虚机%s",
-            "position": "pkg/compute/models/guest_actions.go:3339:42"
+            "position": "pkg/compute/models/guest_actions.go:3345:42"
         },
         {
             "id": "Fetch guest error %s",
             "message": "Fetch guest error %s",
             "translation": "查找虚机失败：%s",
-            "position": "pkg/compute/models/guest_actions.go:3374:49"
+            "position": "pkg/compute/models/guest_actions.go:3380:49"
         },
         {
             "id": "Already have backup server",
             "message": "Already have backup server",
             "translation": "虚机已有备用机",
-            "position": "pkg/compute/models/guest_actions.go:3448:44"
+            "position": "pkg/compute/models/guest_actions.go:3454:44"
         },
         {
             "id": "Cannot create backup with shared storage",
             "message": "Cannot create backup with shared storage",
             "translation": "使用共享存储不可创建备机",
-            "position": "pkg/compute/models/guest_actions.go:3451:44"
+            "position": "pkg/compute/models/guest_actions.go:3457:44"
         },
         {
             "id": "Backup only support hypervisor kvm",
             "message": "Backup only support hypervisor kvm",
             "translation": "仅KVM虚机支持创建主备机",
-            "position": "pkg/compute/models/guest_actions.go:3454:44"
+            "position": "pkg/compute/models/guest_actions.go:3460:44"
         },
         {
             "id": "Cannot create backup with isolated devices",
             "message": "Cannot create backup with isolated devices",
             "translation": "使用透传设备无法创建备机",
-            "position": "pkg/compute/models/guest_actions.go:3457:44"
+            "position": "pkg/compute/models/guest_actions.go:3463:44"
         },
         {
             "id": "GuestDisksHasSnapshot fail %s",
             "message": "GuestDisksHasSnapshot fail %s",
             "translation": "GuestDisksHasSnapshot失败：%s",
-            "position": "pkg/compute/models/guest_actions.go:3461:48"
+            "position": "pkg/compute/models/guest_actions.go:3467:48"
         },
         {
             "id": "Cannot create backup with snapshot",
             "message": "Cannot create backup with snapshot",
             "translation": "无法从快照创建备机",
-            "position": "pkg/compute/models/guest_actions.go:3464:44"
+            "position": "pkg/compute/models/guest_actions.go:3470:44"
         },
         {
             "id": "Guest without backup",
             "message": "Guest without backup",
             "translation": "虚机无备机",
-            "position": "pkg/compute/models/guest_actions.go:3502:44"
+            "position": "pkg/compute/models/guest_actions.go:3508:44"
         },
         {
             "id": "Guest backup host not found",
             "message": "Guest backup host not found",
             "translation": "备机所在宿主机找不到",
-            "position": "pkg/compute/models/guest_actions.go:3506:42"
+            "position": "pkg/compute/models/guest_actions.go:3512:42"
         },
         {
             "id": "Backup host is offline",
             "message": "Backup host is offline",
             "translation": "备机所在宿主机离线",
-            "position": "pkg/compute/models/guest_actions.go:3509:44"
+            "position": "pkg/compute/models/guest_actions.go:3515:44"
         },
         {
             "id": "guest doesn't need reconcile backup",
             "message": "guest doesn't need reconcile backup",
             "translation": "虚机不需要做reconcile操作",
-            "position": "pkg/compute/models/guest_actions.go:3558:44"
+            "position": "pkg/compute/models/guest_actions.go:3564:44"
         },
         {
             "id": "guest billing type %s not support cancel expire",
             "message": "guest billing type %s not support cancel expire",
             "translation": "虚机的计费类型%s不支持取消过期时间",
-            "position": "pkg/compute/models/guest_actions.go:3636:44"
+            "position": "pkg/compute/models/guest_actions.go:3642:44"
         },
         {
             "id": "guest billing type is %s",
             "message": "guest billing type is %s",
             "translation": "虚机的计费类型为%s",
-            "position": "pkg/compute/models/guest_actions.go:3657:44"
+            "position": "pkg/compute/models/guest_actions.go:3663:44"
         },
         {
             "id": "guest %s unsupport postpaid expire",
             "message": "guest %s unsupport postpaid expire",
             "translation": "虚机%s不支持后付费自动过期",
-            "position": "pkg/compute/models/guest_actions.go:3661:44"
+            "position": "pkg/compute/models/guest_actions.go:3667:44"
         },
         {
             "id": "Invalid desc: %s",
             "message": "Invalid desc: %s",
             "translation": "无效的desc内容",
-            "position": "pkg/compute/models/guest_actions.go:3850:48"
+            "position": "pkg/compute/models/guest_actions.go:3856:48"
         },
         {
             "id": "Server Id is empty",
             "message": "Server Id is empty",
             "translation": "虚机Id为空",
-            "position": "pkg/compute/models/guest_actions.go:3853:48"
+            "position": "pkg/compute/models/guest_actions.go:3859:48"
         },
         {
             "id": "Server Name is empty",
             "message": "Server Name is empty",
             "translation": "虚机名为空",
-            "position": "pkg/compute/models/guest_actions.go:3856:48"
+            "position": "pkg/compute/models/guest_actions.go:3862:48"
         },
         {
             "id": "Server %s already exists",
             "message": "Server %s already exists",
             "translation": "虚机%s已存在",
-            "position": "pkg/compute/models/guest_actions.go:3859:48"
+            "position": "pkg/compute/models/guest_actions.go:3865:48"
         },
         {
             "id": "Empty import nics",
             "message": "Empty import nics",
             "translation": "导入网卡列表为空",
-            "position": "pkg/compute/models/guest_actions.go:3937:43"
+            "position": "pkg/compute/models/guest_actions.go:3943:43"
         },
         {
             "id": "ip %s or mac %s has been registered",
             "message": "ip %s or mac %s has been registered",
             "translation": "IP %s或MAC %s已被注册",
-            "position": "pkg/compute/models/guest_actions.go:3946:44"
+            "position": "pkg/compute/models/guest_actions.go:3952:44"
         },
         {
             "id": "Not found network by ip %s",
             "message": "Not found network by ip %s",
             "translation": "无法通过IP %s找到网络",
-            "position": "pkg/compute/models/guest_actions.go:3950:38"
+            "position": "pkg/compute/models/guest_actions.go:3956:38"
         },
         {
             "id": "Empty import disks",
             "message": "Empty import disks",
             "translation": "导入磁盘列表为空",
-            "position": "pkg/compute/models/guest_actions.go:3981:43"
+            "position": "pkg/compute/models/guest_actions.go:3987:43"
         },
         {
             "id": "Unmarshal data error %s",
             "message": "Unmarshal data error %s",
             "translation": "Unmarshal数据失败：%s",
-            "position": "pkg/compute/models/guest_actions.go:4000:48"
+            "position": "pkg/compute/models/guest_actions.go:4006:48"
         },
         {
             "id": "Some host config missing xml_file_path",
             "message": "Some host config missing xml_file_path",
             "translation": "部分宿主机配置缺少xml_file_path",
-            "position": "pkg/compute/models/guest_actions.go:4003:48"
+            "position": "pkg/compute/models/guest_actions.go:4009:48"
         },
         {
             "id": "Some host config missing host ip",
             "message": "Some host config missing host ip",
             "translation": "部分宿主机缺少HostIp字段",
-            "position": "pkg/compute/models/guest_actions.go:4006:48"
+            "position": "pkg/compute/models/guest_actions.go:4012:48"
         },
         {
             "id": "Invalid host ip %s",
             "message": "Invalid host ip %s",
             "translation": "无效的宿主机IP %s",
-            "position": "pkg/compute/models/guest_actions.go:4010:48"
+            "position": "pkg/compute/models/guest_actions.go:4016:48"
         },
         {
             "id": "Invalid server mac address %s",
             "message": "Invalid server mac address %s",
             "translation": "无效虚机MAC地址%s",
-            "position": "pkg/compute/models/guest_actions.go:4017:46"
+            "position": "pkg/compute/models/guest_actions.go:4023:46"
         },
         {
             "id": "Invalid server ip address %s",
             "message": "Invalid server ip address %s",
             "translation": "无效的虚机IP地址 %s",
-            "position": "pkg/compute/models/guest_actions.go:4021:46"
+            "position": "pkg/compute/models/guest_actions.go:4027:46"
         },
         {
             "id": "NewTask error: %s",
             "message": "NewTask error: %s",
             "translation": "创建任务失败：%s",
-            "position": "pkg/compute/models/guest_actions.go:4041:48"
+            "position": "pkg/compute/models/guest_actions.go:4047:48"
         },
         {
             "id": "Hypervisor %s can't generate libvirt xml",
             "message": "Hypervisor %s can't generate libvirt xml",
             "translation": "Hypervisor %s无法创建libvirt XML",
-            "position": "pkg/compute/models/guest_actions.go:4057:44"
+            "position": "pkg/compute/models/guest_actions.go:4063:44"
         },
         {
             "id": "Generate xml failed: %s",
             "message": "Generate xml failed: %s",
             "translation": "生成XML失败：%s",
-            "position": "pkg/compute/models/guest_actions.go:4083:48"
+            "position": "pkg/compute/models/guest_actions.go:4089:48"
         },
         {
             "id": "not support hypervisor %s",
             "message": "not support hypervisor %s",
             "translation": "不支持hypervisor %s",
-            "position": "pkg/compute/models/guest_actions.go:4170:44"
+            "position": "pkg/compute/models/guest_actions.go:4176:44"
         },
         {
             "id": "not support %s",
             "message": "not support %s",
             "translation": "不支持%s",
-            "position": "pkg/compute/models/guest_actions.go:4179:44"
+            "position": "pkg/compute/models/guest_actions.go:4185:44"
         },
         {
             "id": "guest has been converted",
             "message": "guest has been converted",
             "translation": "虚机已被转换过",
-            "position": "pkg/compute/models/guest_actions.go:4182:44"
+            "position": "pkg/compute/models/guest_actions.go:4188:44"
         },
         {
             "id": "host %s is not kvm host",
             "message": "host %s is not kvm host",
             "translation": "宿主机%s不是KVM类型",
-            "position": "pkg/compute/models/guest_actions.go:4192:45"
+            "position": "pkg/compute/models/guest_actions.go:4198:45"
         },
         {
             "id": "guest status must be ready",
             "message": "guest status must be ready",
             "translation": "虚机必须为关机状态",
-            "position": "pkg/compute/models/guest_actions.go:4198:44"
+            "position": "pkg/compute/models/guest_actions.go:4204:44"
         },
         {
             "id": "Check set pending quota error %s",
             "message": "Check set pending quota error %s",
             "translation": "检查并设置待使用配置时出错：%s",
-            "position": "pkg/compute/models/guest_actions.go:4239:44"
+            "position": "pkg/compute/models/guest_actions.go:4245:44"
         },
         {
             "id": "host not found???",
             "message": "host not found???",
             "translation": "找不到宿主机",
-            "position": "pkg/compute/models/guest_actions.go:4288:48"
+            "position": "pkg/compute/models/guest_actions.go:4294:48"
         },
         {
             "id": "empty ip list",
             "message": "empty ip list",
             "translation": "空的IP列表",
-            "position": "pkg/compute/models/guest_actions.go:4293:48"
+            "position": "pkg/compute/models/guest_actions.go:4299:48"
         },
         {
             "id": "Unreachable IP %s: %s",
             "message": "Unreachable IP %s: %s",
             "translation": "IP %s不可达：%s",
-            "position": "pkg/compute/models/guest_actions.go:4299:49"
+            "position": "pkg/compute/models/guest_actions.go:4305:49"
         },
         {
             "id": "Unavailable IP %s: occupied",
             "message": "Unavailable IP %s: occupied",
             "translation": "IP %s不可用：已被占用",
-            "position": "pkg/compute/models/guest_actions.go:4307:50"
+            "position": "pkg/compute/models/guest_actions.go:4313:50"
         },
         {
             "id": "some disk missing!!!",
             "message": "some disk missing!!!",
             "translation": "部分磁盘找不到",
-            "position": "pkg/compute/models/guest_actions.go:4340:49"
+            "position": "pkg/compute/models/guest_actions.go:4346:49"
         },
         {
             "id": "disk %s not attached to server",
             "message": "disk %s not attached to server",
             "translation": "磁盘%s未挂载到虚机",
-            "position": "pkg/compute/models/guest_actions.go:4376:47"
+            "position": "pkg/compute/models/guest_actions.go:4382:47"
         },
         {
             "id": "Hypervisor %s can't do io throttle",
             "message": "Hypervisor %s can't do io throttle",
             "translation": "Hypervisor %s无法实现io限速",
-            "position": "pkg/compute/models/guest_actions.go:4408:44"
+            "position": "pkg/compute/models/guest_actions.go:4414:44"
         },
         {
             "id": "Cannot do io throttle in status %s",
             "message": "Cannot do io throttle in status %s",
             "translation": "虚机状态%s无法设定io限速",
-            "position": "pkg/compute/models/guest_actions.go:4411:46"
+            "position": "pkg/compute/models/guest_actions.go:4417:46"
         },
         {
             "id": "bps must \u003e 0",
             "message": "bps must \u003e 0",
             "translation": "bps必须大于0",
-            "position": "pkg/compute/models/guest_actions.go:4418:48"
+            "position": "pkg/compute/models/guest_actions.go:4424:48"
         },
         {
             "id": "iops must \u003e 0",
             "message": "iops must \u003e 0",
             "translation": "iops必须大于0",
-            "position": "pkg/compute/models/guest_actions.go:4425:48"
+            "position": "pkg/compute/models/guest_actions.go:4431:48"
         },
         {
             "id": "guest %s hypervisor %s can't migrate",
             "message": "guest %s hypervisor %s can't migrate",
             "translation": "虚机%s hypervisor %s不支持迁移",
-            "position": "pkg/compute/models/guest_actions.go:4455:46"
+            "position": "pkg/compute/models/guest_actions.go:4461:46"
         },
         {
             "id": "guest %s has backup, can't migrate",
             "message": "guest %s has backup, can't migrate",
             "translation": "虚机%s有备机，不可迁移",
-            "position": "pkg/compute/models/guest_actions.go:4459:46"
+            "position": "pkg/compute/models/guest_actions.go:4465:46"
         },
         {
             "id": "can't rescue geust %s with local storage",
             "message": "can't rescue geust %s with local storage",
             "translation": "虚机%s使用本地存储不支持救援模式",
-            "position": "pkg/compute/models/guest_actions.go:4463:47"
+            "position": "pkg/compute/models/guest_actions.go:4469:47"
         },
         {
             "id": "guest %s status %s can't migrate",
             "message": "guest %s status %s can't migrate",
             "translation": "虚机%s状态为%s不可迁移",
-            "position": "pkg/compute/models/guest_actions.go:4468:46"
+            "position": "pkg/compute/models/guest_actions.go:4474:46"
         },
         {
             "id": "guest %s status %s has isolated device, can't do migrate",
             "message": "guest %s status %s has isolated device, can't do migrate",
             "translation": "虚机%s状态为%s，有透传设备，无法迁移",
-            "position": "pkg/compute/models/guest_actions.go:4472:47"
+            "position": "pkg/compute/models/guest_actions.go:4478:47"
         },
         {
             "id": "cannot migrate with cdrom",
             "message": "cannot migrate with cdrom",
             "translation": "虚机有cdrom不可迁移",
-            "position": "pkg/compute/models/guest_actions.go:4479:47"
+            "position": "pkg/compute/models/guest_actions.go:4485:47"
         },
         {
             "id": "guest %s status %s can't migrate with local storage",
             "message": "guest %s status %s can't migrate with local storage",
             "translation": "虚机%s状态%s因使用本地存储无法迁移",
-            "position": "pkg/compute/models/guest_actions.go:4483:47"
+            "position": "pkg/compute/models/guest_actions.go:4489:47"
         },
         {
             "id": "missing guest id",
             "message": "missing guest id",
             "translation": "未指定虚机Id",
-            "position": "pkg/compute/models/guest_actions.go:4499:48"
+            "position": "pkg/compute/models/guest_actions.go:4505:48"
         },
         {
             "id": "Check input guests is exist",
             "message": "Check input guests is exist",
             "translation": "部分指定的虚机不存在",
-            "position": "pkg/compute/models/guest_actions.go:4524:44"
+            "position": "pkg/compute/models/guest_actions.go:4530:44"
         },
         {
             "id": "guest hypervisor %s can't create instance snapshot",
             "message": "guest hypervisor %s can't create instance snapshot",
             "translation": "虚机hypervisor %s无法创建实例快照",
-            "position": "pkg/compute/models/guest_actions.go:4591:44"
+            "position": "pkg/compute/models/guest_actions.go:4597:44"
         },
         {
             "id": "Can't do instance snapshot with backup guest",
             "message": "Can't do instance snapshot with backup guest",
             "translation": "备份机无法创建快照",
-            "position": "pkg/compute/models/guest_actions.go:4595:44"
+            "position": "pkg/compute/models/guest_actions.go:4601:44"
         },
         {
             "id": "guest can't do snapshot in status %s",
             "message": "guest can't do snapshot in status %s",
             "translation": "虚机状态为%s无法做快照",
-            "position": "pkg/compute/models/guest_actions.go:4599:47"
+            "position": "pkg/compute/models/guest_actions.go:4605:47"
         },
         {
             "id": "guests disk %d snapshot full, can't take anymore",
             "message": "guests disk %d snapshot full, can't take anymore",
             "translation": "虚机%d号磁盘快照数达到上限，不可再创建",
-            "position": "pkg/compute/models/guest_actions.go:4629:46"
+            "position": "pkg/compute/models/guest_actions.go:4635:46"
         },
         {
             "id": "create instance snapshot failed: %s",
             "message": "create instance snapshot failed: %s",
             "translation": "创建快照失败：%s",
-            "position": "pkg/compute/models/guest_actions.go:4663:48"
+            "position": "pkg/compute/models/guest_actions.go:4669:48"
         },
         {
             "id": "start create snapshot task failed: %s",
             "message": "start create snapshot task failed: %s",
             "translation": "创建快照任务失败：%s",
-            "position": "pkg/compute/models/guest_actions.go:4669:48"
+            "position": "pkg/compute/models/guest_actions.go:4675:48"
         },
         {
             "id": "Instance sanpshot not ready",
             "message": "Instance sanpshot not ready",
             "translation": "快照未准备好",
-            "position": "pkg/compute/models/guest_actions.go:4709:44"
+            "position": "pkg/compute/models/guest_actions.go:4715:44"
         },
         {
             "id": "start snapshot reset failed %s",
             "message": "start snapshot reset failed %s",
             "translation": "从快照恢复失败：%s",
-            "position": "pkg/compute/models/guest_actions.go:4714:48"
+            "position": "pkg/compute/models/guest_actions.go:4720:48"
         },
         {
             "id": "count must \u003e 0",
             "message": "count must \u003e 0",
             "translation": "count必须大于0",
-            "position": "pkg/compute/models/guest_actions.go:4751:48"
+            "position": "pkg/compute/models/guest_actions.go:4757:48"
         },
         {
             "id": "Generate snapshot name failed %s",
             "message": "Generate snapshot name failed %s",
             "translation": "生成快照名称失败：%s",
-            "position": "pkg/compute/models/guest_actions.go:4796:48"
+            "position": "pkg/compute/models/guest_actions.go:4802:48"
         },
         {
             "id": "not a baremetal server",
             "message": "not a baremetal server",
             "translation": "不是裸金属服务器",
-            "position": "pkg/compute/models/guest_actions.go:4873:47"
+            "position": "pkg/compute/models/guest_actions.go:4879:47"
         },
         {
             "id": "no valid host",
             "message": "no valid host",
             "translation": "找不到宿主机",
-            "position": "pkg/compute/models/guest_actions.go:4877:47"
+            "position": "pkg/compute/models/guest_actions.go:4883:47"
         },
         {
             "id": "host is not a baremetal",
             "message": "host is not a baremetal",
             "translation": "宿主机不是裸金属",
-            "position": "pkg/compute/models/guest_actions.go:4880:47"
+            "position": "pkg/compute/models/guest_actions.go:4886:47"
         },
         {
             "id": "no such group %s",
             "message": "no such group %s",
             "translation": "找不到主机组%s",
-            "position": "pkg/compute/models/guest_actions.go:4987:49"
+            "position": "pkg/compute/models/guest_actions.go:4993:49"
         },
         {
             "id": "group and guest should belong to same project",
             "message": "group and guest should belong to same project",
             "translation": "主机组与虚机应属于同一个项目",
-            "position": "pkg/compute/models/guest_actions.go:4994:44"
+            "position": "pkg/compute/models/guest_actions.go:5000:44"
         },
         {
             "id": "can not bind or unbind disabled instance group",
             "message": "can not bind or unbind disabled instance group",
             "translation": "无法关联或解关联已禁用的主机组",
-            "position": "pkg/compute/models/guest_actions.go:4997:44"
+            "position": "pkg/compute/models/guest_actions.go:5003:44"
         },
         {
             "id": "The guest %s does not have any public IP",
             "message": "The guest %s does not have any public IP",
             "translation": "虚机没有公网IP",
-            "position": "pkg/compute/models/guest_actions.go:5018:48"
+            "position": "pkg/compute/models/guest_actions.go:5024:48"
         },
         {
             "id": "The guest status need be %s or %s, current is %s",
             "message": "The guest status need be %s or %s, current is %s",
             "translation": "虚机状态要求为%s或%s，当前状态为%s",
-            "position": "pkg/compute/models/guest_actions.go:5021:52"
+            "position": "pkg/compute/models/guest_actions.go:5027:52"
         },
         {
             "id": "The %s guest not support public ip to eip operation",
             "message": "The %s guest not support public ip to eip operation",
             "translation": "%s虚机不支持转发公网IP为EIP",
-            "position": "pkg/compute/models/guest_actions.go:5024:52"
+            "position": "pkg/compute/models/guest_actions.go:5030:52"
         },
         {
             "id": "Only %s guest support this operation",
             "message": "Only %s guest support this operation",
             "translation": "仅%s虚机支持此操作",
-            "position": "pkg/compute/models/guest_actions.go:5062:52"
+            "position": "pkg/compute/models/guest_actions.go:5068:52"
         },
         {
             "id": "no support for instance snapshot in guest template for now",
@@ -4337,169 +4355,169 @@
             "id": "Miss operating system???",
             "message": "Miss operating system???",
             "translation": "未指定操作系统镜像？",
-            "position": "pkg/compute/models/guests.go:1203:44"
+            "position": "pkg/compute/models/guests.go:1205:44"
         },
         {
             "id": "parse disk description error %s",
             "message": "parse disk description error %s",
             "translation": "解析磁盘描述信息出错：%s",
-            "position": "pkg/compute/models/guests.go:1282:50"
+            "position": "pkg/compute/models/guests.go:1284:50"
         },
         {
             "id": "Snapshot error: disk index %d \u003e 0 but disk type is %s",
             "message": "Snapshot error: disk index %d \u003e 0 but disk type is %s",
             "translation": "快照错误：序号%d大于0的磁盘类型为%s",
-            "position": "pkg/compute/models/guests.go:1285:46"
+            "position": "pkg/compute/models/guests.go:1287:46"
         },
         {
             "id": "cannot create prepaid server on prepaid resource type",
             "message": "cannot create prepaid server on prepaid resource type",
             "translation": "无法在预付费的资源类型上创建预付费的虚机",
-            "position": "pkg/compute/models/guests.go:1303:44"
+            "position": "pkg/compute/models/guests.go:1305:44"
         },
         {
             "id": "parse network description error %s",
             "message": "parse network description error %s",
             "translation": "解析网络描述信息出错：%s",
-            "position": "pkg/compute/models/guests.go:1340:49"
+            "position": "pkg/compute/models/guests.go:1342:49"
         },
         {
             "id": "Cannot create backup with isolated device",
             "message": "Cannot create backup with isolated device",
             "translation": "无法创建带有透传设备的主备机",
-            "position": "pkg/compute/models/guests.go:1357:45"
+            "position": "pkg/compute/models/guests.go:1359:45"
         },
         {
             "id": "parse isolated device description error %s",
             "message": "parse isolated device description error %s",
             "translation": "解析透传设备描述信息出错：%s",
-            "position": "pkg/compute/models/guests.go:1361:49"
+            "position": "pkg/compute/models/guests.go:1363:49"
         },
         {
             "id": "Keypair %s not found",
             "message": "Keypair %s not found",
             "translation": "找不到密钥对%s",
-            "position": "pkg/compute/models/guests.go:1374:51"
+            "position": "pkg/compute/models/guests.go:1376:51"
         },
         {
             "id": "Secgroup %s not found",
             "message": "Secgroup %s not found",
             "translation": "找不到安全组%s",
-            "position": "pkg/compute/models/guests.go:1383:51"
+            "position": "pkg/compute/models/guests.go:1385:51"
         },
         {
             "id": "%s shall bind up to %d security groups",
             "message": "%s shall bind up to %d security groups",
             "translation": "%s最多可关联%d个安全组",
-            "position": "pkg/compute/models/guests.go:1408:48"
+            "position": "pkg/compute/models/guests.go:1410:48"
         },
         {
             "id": "Invalid userdata: %v",
             "message": "Invalid userdata: %v",
             "translation": "无效的userdata：%v",
-            "position": "pkg/compute/models/guests.go:1436:48"
+            "position": "pkg/compute/models/guests.go:1438:48"
         },
         {
             "id": "invalid parameters for policy definition %s",
             "message": "invalid parameters for policy definition %s",
             "translation": "策略定义中有无效参数：%s",
-            "position": "pkg/compute/models/guests.go:1461:47"
+            "position": "pkg/compute/models/guests.go:1463:47"
         },
         {
             "id": "policy definition %s require cloudregion in %s",
             "message": "policy definition %s require cloudregion in %s",
             "translation": "策略定义%s要求cloudregion在%s范围中",
-            "position": "pkg/compute/models/guests.go:1474:48"
+            "position": "pkg/compute/models/guests.go:1476:48"
         },
         {
             "id": "policy definition %s require cloudregion not in %s",
             "message": "policy definition %s require cloudregion not in %s",
             "translation": "策略定义%s要求cloudregion不在%s范围中",
-            "position": "pkg/compute/models/guests.go:1478:48"
+            "position": "pkg/compute/models/guests.go:1480:48"
         },
         {
             "id": "invalid policy definition %s(%s) condition %s",
             "message": "invalid policy definition %s(%s) condition %s",
             "translation": "策略定义%s(%s)包含无效的条件%s",
-            "position": "pkg/compute/models/guests.go:1481:47"
+            "position": "pkg/compute/models/guests.go:1483:47"
         },
         {
             "id": "policy definition %s require must contains tag %s",
             "message": "policy definition %s require must contains tag %s",
             "translation": "策略定义%s要求必须包含%s标签",
-            "position": "pkg/compute/models/guests.go:1498:49"
+            "position": "pkg/compute/models/guests.go:1500:49"
         },
         {
             "id": "policy definition %s require except tag %s",
             "message": "policy definition %s require except tag %s",
             "translation": "策略定义%s要求不可有%s标签",
-            "position": "pkg/compute/models/guests.go:1502:49"
+            "position": "pkg/compute/models/guests.go:1504:49"
         },
         {
             "id": "invalid category %s for policy definition %s(%s)",
             "message": "invalid category %s for policy definition %s(%s)",
             "translation": "类别%s在策略定义%s(%s)中无效",
-            "position": "pkg/compute/models/guests.go:1509:46"
+            "position": "pkg/compute/models/guests.go:1511:46"
         },
         {
             "id": "public ip not supported for %s",
             "message": "public ip not supported for %s",
             "translation": "%s 不支持静态公网IP",
-            "position": "pkg/compute/models/guests.go:1543:44"
+            "position": "pkg/compute/models/guests.go:1545:44"
         },
         {
             "id": "invalid public_ip_charge_type %s",
             "message": "invalid public_ip_charge_type %s",
             "translation": "无效的静态公网IP类型 %s",
-            "position": "pkg/compute/models/guests.go:1552:44"
+            "position": "pkg/compute/models/guests.go:1554:44"
         },
         {
             "id": "eip not supported for %s",
             "message": "eip not supported for %s",
             "translation": "%s不支持EIP",
-            "position": "pkg/compute/models/guests.go:1560:44"
+            "position": "pkg/compute/models/guests.go:1562:44"
         },
         {
             "id": "eip %s status invalid %s",
             "message": "eip %s status invalid %s",
             "translation": "EIP %s状态无效%s",
-            "position": "pkg/compute/models/guests.go:1574:44"
+            "position": "pkg/compute/models/guests.go:1576:44"
         },
         {
             "id": "eip %s has been associated",
             "message": "eip %s has been associated",
             "translation": "EIP %s已被占用",
-            "position": "pkg/compute/models/guests.go:1577:43"
+            "position": "pkg/compute/models/guests.go:1579:43"
         },
         {
             "id": "cannot assoicate with eip %s: different cloudprovider",
             "message": "cannot assoicate with eip %s: different cloudprovider",
             "translation": "EIP %s属于不同cloudprovider，无法绑定",
-            "position": "pkg/compute/models/guests.go:1583:39"
+            "position": "pkg/compute/models/guests.go:1585:39"
         },
         {
             "id": "cannot assoicate with eip %s: different region",
             "message": "cannot assoicate with eip %s: different region",
             "translation": "EIP %s属于不同的region，无法绑定",
-            "position": "pkg/compute/models/guests.go:1590:39"
+            "position": "pkg/compute/models/guests.go:1592:39"
         },
         {
             "id": "fetch disk size failed",
             "message": "fetch disk size failed",
             "translation": "获取磁盘大小失败",
-            "position": "pkg/compute/models/guests.go:5349:63"
+            "position": "pkg/compute/models/guests.go:5356:63"
         },
         {
             "id": "image %s do not belong to guest image %s",
             "message": "image %s do not belong to guest image %s",
             "translation": "镜像%s不在虚机镜像%s中",
-            "position": "pkg/compute/models/guests.go:5415:41"
+            "position": "pkg/compute/models/guests.go:5422:41"
         },
         {
             "id": "miss some subimage of guest image",
             "message": "miss some subimage of guest image",
             "translation": "部分虚机镜像的子镜像未指定",
-            "position": "pkg/compute/models/guests.go:5421:39"
+            "position": "pkg/compute/models/guests.go:5428:39"
         },
         {
             "id": "Baremetal %s not enabled",
@@ -5165,7 +5183,7 @@
             "id": "can't delete snapshot in deleting",
             "message": "can't delete snapshot in deleting",
             "translation": "快照正删除中",
-            "position": "pkg/compute/models/instance_snapshots.go:366:39"
+            "position": "pkg/compute/models/instance_snapshots.go:383:39"
         },
         {
             "id": "Isolated device used by server",
@@ -7559,19 +7577,19 @@
             "id": "%s does not support creating loadbalancer",
             "message": "%s does not support creating loadbalancer",
             "translation": "%s不支持创建负载均衡实例",
-            "position": "pkg/compute/regiondrivers/esxi.go:43:51"
+            "position": "pkg/compute/regiondrivers/esxi.go:45:51"
         },
         {
             "id": "%s does not support creating loadbalancer acl",
             "message": "%s does not support creating loadbalancer acl",
             "translation": "%s不支持创建负载均衡访问控制规则",
-            "position": "pkg/compute/regiondrivers/esxi.go:47:47"
+            "position": "pkg/compute/regiondrivers/esxi.go:49:47"
         },
         {
             "id": "%s does not support creating loadbalancer certificate",
             "message": "%s does not support creating loadbalancer certificate",
             "translation": "%s不支持创建负载均衡证书",
-            "position": "pkg/compute/regiondrivers/esxi.go:51:47"
+            "position": "pkg/compute/regiondrivers/esxi.go:53:47"
         },
         {
             "id": "Google dbinstance not support prepaid billing type",
@@ -7739,109 +7757,109 @@
             "id": "zone info missing",
             "message": "zone info missing",
             "translation": "zone信息未指定",
-            "position": "pkg/compute/regiondrivers/kvm.go:88:48"
+            "position": "pkg/compute/regiondrivers/kvm.go:90:48"
         },
         {
             "id": "vpc lb is not allowed for now",
             "message": "vpc lb is not allowed for now",
             "translation": "VPC中的负载均衡暂不支持",
-            "position": "pkg/compute/regiondrivers/kvm.go:91:48"
+            "position": "pkg/compute/regiondrivers/kvm.go:93:48"
         },
         {
             "id": "zone %s(%s) has no lbcluster",
             "message": "zone %s(%s) has no lbcluster",
             "translation": "zone %s(%s)没有可用负载均衡转发集群",
-            "position": "pkg/compute/regiondrivers/kvm.go:97:49"
+            "position": "pkg/compute/regiondrivers/kvm.go:99:49"
         },
         {
             "id": "no viable lbcluster",
             "message": "no viable lbcluster",
             "translation": "没有可用的负载均衡转发集群",
-            "position": "pkg/compute/regiondrivers/kvm.go:119:49"
+            "position": "pkg/compute/regiondrivers/kvm.go:121:49"
         },
         {
             "id": "host %s has no access ip",
             "message": "host %s has no access ip",
             "translation": "宿主机%s没有可访问的IP",
-            "position": "pkg/compute/regiondrivers/kvm.go:199:50"
+            "position": "pkg/compute/regiondrivers/kvm.go:201:50"
         },
         {
             "id": "error getting host of guest %s",
             "message": "error getting host of guest %s",
             "translation": "查找虚机%s所在宿主机出错",
-            "position": "pkg/compute/regiondrivers/kvm.go:230:50"
+            "position": "pkg/compute/regiondrivers/kvm.go:232:50"
         },
         {
             "id": "error loadbalancer of backend group %s",
             "message": "error loadbalancer of backend group %s",
             "translation": "查找负载均衡后端组%s所属的实例出错",
-            "position": "pkg/compute/regiondrivers/kvm.go:233:50"
+            "position": "pkg/compute/regiondrivers/kvm.go:235:50"
         },
         {
             "id": "region of host %q (%s) != region of loadbalancer %q (%s)",
             "message": "region of host %q (%s) != region of loadbalancer %q (%s)",
             "translation": "宿主机%q(%s)所属的region与负载均衡实例所属的%q(%s)不一致",
-            "position": "pkg/compute/regiondrivers/kvm.go:240:50"
+            "position": "pkg/compute/regiondrivers/kvm.go:242:50"
         },
         {
             "id": "redirect must have at least one of scheme, host, path changed",
             "message": "redirect must have at least one of scheme, host, path changed",
             "translation": "跳转应至少变更scheme, host, path中的一项",
-            "position": "pkg/compute/regiondrivers/kvm.go:325:50"
+            "position": "pkg/compute/regiondrivers/kvm.go:327:50"
         },
         {
             "id": "backend_group argument is missing",
             "message": "backend_group argument is missing",
             "translation": "未指定backend_group参数",
-            "position": "pkg/compute/regiondrivers/kvm.go:333:50"
+            "position": "pkg/compute/regiondrivers/kvm.go:335:50"
         },
         {
             "id": "non redirect lblistener rule must have backend_group set",
             "message": "non redirect lblistener rule must have backend_group set",
             "translation": "非跳转类型监听必须指定backend_group参数",
-            "position": "pkg/compute/regiondrivers/kvm.go:416:48"
+            "position": "pkg/compute/regiondrivers/kvm.go:418:48"
         },
         {
             "id": "redirect can only be enabled for http/https listener",
             "message": "redirect can only be enabled for http/https listener",
             "translation": "仅http/https监听可启用跳转功能",
-            "position": "pkg/compute/regiondrivers/kvm.go:499:49"
+            "position": "pkg/compute/regiondrivers/kvm.go:501:49"
         },
         {
             "id": "non http listener must have backend group set",
             "message": "non http listener must have backend group set",
             "translation": "非http监听必须指定后端组",
-            "position": "pkg/compute/regiondrivers/kvm.go:677:50"
+            "position": "pkg/compute/regiondrivers/kvm.go:679:50"
         },
         {
             "id": "no available eip network",
             "message": "no available eip network",
             "translation": "",
-            "position": "pkg/compute/regiondrivers/kvm.go:930:38"
+            "position": "pkg/compute/regiondrivers/kvm.go:932:38"
         },
         {
             "id": "bad network type %q, want %q",
             "message": "bad network type %q, want %q",
             "translation": "无效的子网类型%q，期望%q",
-            "position": "pkg/compute/regiondrivers/kvm.go:934:43"
+            "position": "pkg/compute/regiondrivers/kvm.go:936:43"
         },
         {
             "id": "failed to found vpc for network %s(%s)",
             "message": "failed to found vpc for network %s(%s)",
             "translation": "查找子网%s(%s)所属的VPC时出错",
-            "position": "pkg/compute/regiondrivers/kvm.go:940:43"
+            "position": "pkg/compute/regiondrivers/kvm.go:942:43"
         },
         {
             "id": "network %s(%s) does not belong to %s",
             "message": "network %s(%s) does not belong to %s",
             "translation": "子网%s(%s)不属于%s",
-            "position": "pkg/compute/regiondrivers/kvm.go:947:47"
+            "position": "pkg/compute/regiondrivers/kvm.go:949:47"
         },
         {
             "id": "Kvm snapshot missing storage ??",
             "message": "Kvm snapshot missing storage ??",
             "translation": "KVM快照找不到所属的存储",
-            "position": "pkg/compute/regiondrivers/kvm.go:955:43"
+            "position": "pkg/compute/regiondrivers/kvm.go:957:43"
         },
         {
             "id": "failed to find acl %s",
@@ -7865,7 +7883,7 @@
             "id": "can not make backup in status %s",
             "message": "can not make backup in status %s",
             "translation": "无法在状态%s时创建备份",
-            "position": "pkg/compute/regiondrivers/managedvirtual.go:2236:48"
+            "position": "pkg/compute/regiondrivers/managedvirtual.go:2257:48"
         },
         {
             "id": "loadbalancer listener %s is already updating",
@@ -8408,400 +8426,10 @@
             "position": "pkg/mcclient/modules/mod_users.go:139:48"
         },
         {
-            "id": "url is empty",
-            "message": "url is empty",
-            "translation": "URL不应为空",
-            "position": "pkg/monitor/alerting/notifiers/dingding.go:50:52"
-        },
-        {
-            "id": "invalid url: %v",
-            "message": "invalid url: %v",
-            "translation": "无效的URL: %v",
-            "position": "pkg/monitor/alerting/notifiers/dingding.go:53:52"
-        },
-        {
-            "id": "unsupport type: %s",
-            "message": "unsupport type: %s",
-            "translation": "不支持的类型：%s",
-            "position": "pkg/monitor/alerting/notifiers/dingding.go:63:52"
-        },
-        {
-            "id": "app_id is empty",
-            "message": "app_id is empty",
-            "translation": "app_id为空",
-            "position": "pkg/monitor/alerting/notifiers/feishu.go:43:52"
-        },
-        {
-            "id": "app_secret is empty",
-            "message": "app_secret is empty",
-            "translation": "app_secret为空",
-            "position": "pkg/monitor/alerting/notifiers/feishu.go:46:52"
-        },
-        {
-            "id": "channel is empty",
-            "message": "channel is empty",
-            "translation": "channel为空",
-            "position": "pkg/monitor/alerting/notifiers/onecloud.go:50:52"
-        },
-        {
-            "id": "parameter %s is empty",
-            "message": "parameter %s is empty",
-            "translation": "参数%s为空",
-            "position": "pkg/monitor/errors/error.go:8:42"
-        },
-        {
-            "id": "unsupported no_data_state %s",
-            "message": "unsupported no_data_state %s",
-            "translation": "不支持的no_data_state：%s",
-            "position": "pkg/monitor/models/alert.go:269:43"
-        },
-        {
-            "id": "unsupported execution_error_state %s",
-            "message": "unsupported execution_error_state %s",
-            "translation": "不支持的execution_error_state：%s",
-            "position": "pkg/monitor/models/alert.go:276:43"
-        },
-        {
-            "id": "metric %s is invalid format, usage \u003cmeasurement\u003e.\u003cfield\u003e",
-            "message": "metric %s is invalid format, usage \u003cmeasurement\u003e.\u003cfield\u003e",
-            "translation": "指标%s的格式无效，应为\u003cmeasurement\u003e.\u003cfield\u003e",
-            "position": "pkg/monitor/models/alert.go:380:51"
-        },
-        {
-            "id": "Cannot change state on pause alert",
-            "message": "Cannot change state on pause alert",
-            "translation": "无法变更状态为暂停的告警状态",
-            "position": "pkg/monitor/models/alert.go:436:2"
-        },
-        {
-            "id": "alert already attached to notification",
-            "message": "alert already attached to notification",
-            "translation": "告警已绑定到通知",
-            "position": "pkg/monitor/models/alert.go:575:47"
-        },
-        {
-            "id": "Alert is already un-paused",
-            "message": "Alert is already un-paused",
-            "translation": "报警已非暂停状态",
-            "position": "pkg/monitor/models/alert.go:701:47"
-        },
-        {
-            "id": "Alert is already paused",
-            "message": "Alert is already paused",
-            "translation": "告警已是暂停状态",
-            "position": "pkg/monitor/models/alert.go:705:47"
-        },
-        {
-            "id": "Invalid refresh format: %s",
-            "message": "Invalid refresh format: %s",
-            "translation": "refresh参数格式无效：%s",
-            "position": "pkg/monitor/models/alertdashboard.go:92:49"
-        },
-        {
-            "id": "not find alert %s",
-            "message": "not find alert %s",
-            "translation": "找不到告警%s",
-            "position": "pkg/monitor/models/alertnotification.go:135:51"
-        },
-        {
-            "id": "not find notification %s",
-            "message": "not find notification %s",
-            "translation": "找不到通知%s",
-            "position": "pkg/monitor/models/alertnotification.go:142:51"
-        },
-        {
-            "id": "dashboard_id is empty",
-            "message": "dashboard_id is empty",
-            "translation": "",
-            "position": "pkg/monitor/models/alertpannel.go:92:49"
-        },
-        {
-            "id": "can not find dashboard:%s",
-            "message": "can not find dashboard:%s",
-            "translation": "",
-            "position": "pkg/monitor/models/alertpannel.go:96:50"
-        },
-        {
-            "id": "the Comparator is illegal: %s",
-            "message": "the Comparator is illegal: %s",
-            "translation": "",
-            "position": "pkg/monitor/models/alertpannel.go:105:52"
-        },
-        {
-            "id": "the reduce is illegal %s",
-            "message": "the reduce is illegal %s",
-            "translation": "",
-            "position": "pkg/monitor/models/alertpannel.go:110:52"
-        },
-        {
-            "id": "the reduce is illegal: %s",
-            "message": "the reduce is illegal: %s",
-            "translation": "",
-            "position": "pkg/monitor/models/alertpannel.go:278:52"
-        },
-        {
-            "id": "Alert resource driver not found",
-            "message": "Alert resource driver not found",
-            "translation": "",
-            "position": "pkg/monitor/models/alertresourcedrivers.go:24:2"
-        },
-        {
-            "id": "Alert resource driver duplicate match",
-            "message": "Alert resource driver duplicate match",
-            "translation": "",
-            "position": "pkg/monitor/models/alertresourcedrivers.go:25:2"
-        },
-        {
-            "id": "Invalid level format: %s",
-            "message": "Invalid level format: %s",
-            "translation": "参数level的格式无效：%s",
-            "position": "pkg/monitor/models/commonalert.go:93:49"
-        },
-        {
-            "id": "Invalid period format: %s",
-            "message": "Invalid period format: %s",
-            "translation": "参数period的格式无效：%s",
-            "position": "pkg/monitor/models/commonalert.go:96:49"
-        },
-        {
-            "id": "the AlertType is illegal:%s",
-            "message": "the AlertType is illegal:%s",
-            "translation": "参数AlertType无效：%s",
-            "position": "pkg/monitor/models/commonalert.go:125:50"
-        },
-        {
-            "id": "Cannot delete system alert",
-            "message": "Cannot delete system alert",
-            "translation": "不可删除系统告警",
-            "position": "pkg/monitor/models/commonalert.go:393:42"
-        },
-        {
-            "id": "threshold:%s should be number type",
-            "message": "threshold:%s should be number type",
-            "translation": "",
-            "position": "pkg/monitor/models/commonalert.go:909:50"
-        },
-        {
-            "id": "Default data source not found",
-            "message": "Default data source not found",
-            "translation": "找不到默认数据源",
-            "position": "pkg/monitor/models/datasource.go:61:2"
-        },
-        {
-            "id": "not support database",
-            "message": "not support database",
-            "translation": "不支持此数据库",
-            "position": "pkg/monitor/models/datasource.go:301:63"
-        },
-        {
-            "id": "not support type %q",
-            "message": "not support type %q",
-            "translation": "不支持类型%q",
-            "position": "pkg/monitor/models/meteralert.go:147:48"
-        },
-        {
-            "id": "unsupported resource type %s",
-            "message": "unsupported resource type %s",
-            "translation": "不支持资源类型%s",
-            "position": "pkg/monitor/models/nodealert.go:160:51"
-        },
-        {
-            "id": "not found alert notification used by %s",
-            "message": "not found alert notification used by %s",
-            "translation": "找不到被%s使用的告警通知",
-            "position": "pkg/monitor/models/nodealert.go:629:41"
-        },
-        {
-            "id": "unsupported notification type %s",
-            "message": "unsupported notification type %s",
-            "translation": "不支持告警类型%s",
-            "position": "pkg/monitor/models/notification.go:80:49"
-        },
-        {
-            "id": "Alert notification used by %d alert",
-            "message": "Alert notification used by %d alert",
-            "translation": "通知被%d个告警使用",
-            "position": "pkg/monitor/models/notification.go:216:37"
-        },
-        {
-            "id": "input not json dict",
-            "message": "input not json dict",
-            "translation": "",
-            "position": "pkg/monitor/models/query_signature.go:25:43"
-        },
-        {
-            "id": "not found signature",
-            "message": "not found signature",
-            "translation": "",
-            "position": "pkg/monitor/models/query_signature.go:30:38"
-        },
-        {
-            "id": "signature error",
-            "message": "signature error",
-            "translation": "",
-            "position": "pkg/monitor/models/query_signature.go:35:39"
-        },
-        {
-            "id": "not found res_id %q",
-            "message": "not found res_id %q",
-            "translation": "找不到res_id %q",
-            "position": "pkg/monitor/models/suggestsysalert.go:200:49"
-        },
-        {
-            "id": "not found type %q",
-            "message": "not found type %q",
-            "translation": "找不到类型%q",
-            "position": "pkg/monitor/models/suggestsysalert.go:203:49"
-        },
-        {
-            "id": "type %s rule already exists",
-            "message": "type %s rule already exists",
-            "translation": "类型为%s的规则已存在",
-            "position": "pkg/monitor/models/suggestsysrule.go:170:53"
-        },
-        {
-            "id": "no found rule setting",
-            "message": "no found rule setting",
-            "translation": "找不到规则设置",
-            "position": "pkg/monitor/models/suggestsysrule.go:176:51"
-        },
-        {
-            "id": "Invalid time_from format: %s",
-            "message": "Invalid time_from format: %s",
-            "translation": "",
-            "position": "pkg/monitor/models/suggestsysrule.go:332:50"
-        },
-        {
-            "id": "not found resource_type %q",
-            "message": "not found resource_type %q",
-            "translation": "找不到resource_type %q",
-            "position": "pkg/monitor/models/suggestsysruleconfig.go:253:43"
-        },
-        {
-            "id": "not found driver by type %q",
-            "message": "not found driver by type %q",
-            "translation": "找不到driver类型%q",
-            "position": "pkg/monitor/models/suggestsysruleconfig.go:258:44"
-        },
-        {
-            "id": "resource type %q of driver does not match input %q",
-            "message": "resource type %q of driver does not match input %q",
-            "translation": "driver %q的资源类型与输入参数的资源类型%q不匹配",
-            "position": "pkg/monitor/models/suggestsysruleconfig.go:261:49"
-        },
-        {
-            "id": "resource type must provided when resource_id specified",
-            "message": "resource type must provided when resource_id specified",
-            "translation": "当resource_id指定时，必须也指定资源类型",
-            "position": "pkg/monitor/models/suggestsysruleconfig.go:266:47"
-        },
-        {
-            "id": "type or resource_type must provided",
-            "message": "type or resource_type must provided",
-            "translation": "参数type或resource_type必须要指定",
-            "position": "pkg/monitor/models/suggestsysruleconfig.go:269:47"
-        },
-        {
-            "id": "not found rule by type %q",
-            "message": "not found rule by type %q",
-            "translation": "无法根据类型%q找到规则",
-            "position": "pkg/monitor/models/suggestsysruleconfig.go:284:42"
-        },
-        {
-            "id": "Invalid interval format: %s",
-            "message": "Invalid interval format: %s",
-            "translation": "参数interval的格式无效：%s",
-            "position": "pkg/monitor/models/unifiedmonitor.go:270:43"
-        },
-        {
-            "id": "Unsupported notification type",
-            "message": "Unsupported notification type",
-            "translation": "不支持的通知类型",
-            "position": "pkg/monitor/notifydrivers/drivers.go:29:2"
-        },
-        {
-            "id": "the evalType is illegal",
-            "message": "the evalType is illegal",
-            "translation": "evalType参数非法",
-            "position": "pkg/monitor/suggestsysdrivers/influxdbbasedriver.go:58:44"
-        },
-        {
-            "id": "Influxdb invalid status",
-            "message": "Influxdb invalid status",
-            "translation": "influxdb无效状态",
-            "position": "pkg/monitor/tsdb/driver/influxdb/influxdb.go:36:2"
-        },
-        {
             "id": "Not find executor for data source",
             "message": "Not find executor for data source",
             "translation": "找不到数据源对应的执行器",
             "position": "pkg/monitor/tsdb/query_endpoint.go:36:2"
-        },
-        {
-            "id": "Condition is missing the threshold parameter",
-            "message": "Condition is missing the threshold parameter",
-            "translation": "条件缺少threshold参数",
-            "position": "pkg/monitor/validators/validators.go:30:2"
-        },
-        {
-            "id": "Condition is missing the type parameter",
-            "message": "Condition is missing the type parameter",
-            "translation": "条件缺少type参数",
-            "position": "pkg/monitor/validators/validators.go:31:2"
-        },
-        {
-            "id": "Invalid condition evaluator type",
-            "message": "Invalid condition evaluator type",
-            "translation": "无效的求值类型",
-            "position": "pkg/monitor/validators/validators.go:32:2"
-        },
-        {
-            "id": "Unknown alert condition",
-            "message": "Unknown alert condition",
-            "translation": "未知的告警条件",
-            "position": "pkg/monitor/validators/validators.go:33:2"
-        },
-        {
-            "id": "Alert is missing conditions",
-            "message": "Alert is missing conditions",
-            "translation": "告警缺少告警条件",
-            "position": "pkg/monitor/validators/validators.go:34:2"
-        },
-        {
-            "id": "input condition is empty",
-            "message": "input condition is empty",
-            "translation": "输入条件为空",
-            "position": "pkg/monitor/validators/validators.go:48:43"
-        },
-        {
-            "id": "Unkown alert condition type: %s",
-            "message": "Unkown alert condition type: %s",
-            "translation": "未知的告警条件类型：%s",
-            "position": "pkg/monitor/validators/validators.go:61:43"
-        },
-        {
-            "id": "Unkown operator %s",
-            "message": "Unkown operator %s",
-            "translation": "未知的操作符%s",
-            "position": "pkg/monitor/validators/validators.go:76:43"
-        },
-        {
-            "id": "select for nothing in query",
-            "message": "select for nothing in query",
-            "translation": "查询内容为空",
-            "position": "pkg/monitor/validators/validators.go:118:44"
-        },
-        {
-            "id": "query duration err: from: %s, to:%s",
-            "message": "query duration err: from: %s, to:%s",
-            "translation": "查询区间无效：from：%s，to：%s",
-            "position": "pkg/monitor/validators/validators.go:142:44"
-        },
-        {
-            "id": "query duration `to` err: %s",
-            "message": "query duration `to` err: %s",
-            "translation": "查询区间参数to无效：%s",
-            "position": "pkg/monitor/validators/validators.go:146:42"
         },
         {
             "id": "security group id should not be empty",
@@ -8832,30 +8460,6 @@
             "message": "failed parsing url %q: %v",
             "translation": "解析URL %q出错：%v",
             "position": "pkg/proxy/http.go:66:33"
-        },
-        {
-            "id": "bad ip",
-            "message": "bad ip",
-            "translation": "无效的IP",
-            "position": "pkg/util/iproute2/route.go:26:2"
-        },
-        {
-            "id": "user not found",
-            "message": "user not found",
-            "translation": "用户未找到",
-            "position": "pkg/yunionconf/models/parameters.go:197:46"
-        },
-        {
-            "id": "check name duplication fail %s",
-            "message": "check name duplication fail %s",
-            "translation": "检查名称重复失败 %s",
-            "position": "pkg/yunionconf/models/parameters.go:209:48"
-        },
-        {
-            "id": "policy is referenced",
-            "message": "policy is referenced",
-            "translation": "该策略被使用",
-            "position": "pkg/yunionconf/models/scopedpolicies.go:98:37"
         }
     ]
 }
