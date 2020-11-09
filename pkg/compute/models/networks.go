@@ -1920,6 +1920,28 @@ func (manager *SNetworkManager) ListItemFilter(
 		}
 	}
 
+	storageStr := input.StorageId
+	if len(storageStr) > 0 {
+		storage, err := StorageManager.FetchByIdOrName(userCred, storageStr)
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to fetch storage %q", storageStr)
+		}
+		hoststorages := HoststorageManager.Query("host_id").Equals("storage_id", storage.GetId()).SubQuery()
+		hostSq := HostManager.Query("id").In("id", hoststorages).SubQuery()
+		sq := HostwireManager.Query("wire_id").In("host_id", hostSq)
+
+		ovnHosts := HostManager.Query().In("id", hoststorages).IsNotEmpty("ovn_version")
+		if n, _ := ovnHosts.CountWithError(); n > 0 {
+			wireQuery := WireManager.Query("id").IsNotNull("vpc_id")
+			q = q.Filter(sqlchemy.OR(
+				sqlchemy.In(q.Field("wire_id"), wireQuery.SubQuery()),
+				sqlchemy.In(q.Field("wire_id"), sq.SubQuery())),
+			)
+		} else {
+			q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
+		}
+	}
+
 	ip := ""
 	exactIpMatch := false
 	if len(input.Ip) > 0 {
