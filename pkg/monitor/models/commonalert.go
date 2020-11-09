@@ -20,6 +20,8 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -30,6 +32,10 @@ const (
 	CommonAlertMetadataAlertType = "alert_type"
 	CommonAlertMetadataFieldOpt  = "field_opt"
 	CommonAlertMetadataPointStr  = "point_str"
+
+	COMPANY_COPYRIGHT_ONECLOUD = "北京云联万维技术有限公司"
+	BRAND_ONECLOUD_NAME_CN     = "云联壹云"
+	BRAND_ONECLOUD_NAME_EN     = "YunionCloud"
 )
 
 var (
@@ -956,4 +962,32 @@ func (alert *SCommonAlert) PerformConfig(ctx context.Context, userCred mcclient.
 		return nil
 	})
 	return jsonutils.Marshal(alert), err
+}
+
+type SCompanyInfo struct {
+	Copyright string `json:"copyright"`
+	Name      string `json:"name"`
+}
+
+func GetCompanyInfo(ctx context.Context) (SCompanyInfo, error) {
+	session := auth.GetAdminSession(context.Background(), "", "")
+	obj, err := modules.Info.Get(session, "info", jsonutils.NewDict())
+	if err != nil {
+		return SCompanyInfo{}, err
+	}
+	var info SCompanyInfo
+	err = obj.Unmarshal(&info)
+	if err != nil {
+		return SCompanyInfo{}, err
+	}
+	if strings.Contains(info.Copyright, COMPANY_COPYRIGHT_ONECLOUD) {
+		//lang := i18n.Lang(ctx)
+		//switch lang {
+		//case language.English:
+		//	info.Name = BRAND_ONECLOUD_NAME_EN
+		//default:
+		//}
+		info.Name = BRAND_ONECLOUD_NAME_CN
+	}
+	return info, nil
 }
