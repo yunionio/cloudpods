@@ -125,9 +125,6 @@ func AddDefaultRule(rules []SecurityRule, defaultRule SecurityRule, localRuleStr
 		defaultRule.Priority = max
 	}
 	defaultRule.Priority -= int(order)
-	if onlyAllowRules {
-		defaultRule.Priority = -1
-	}
 	return append(rules, defaultRule)
 }
 
