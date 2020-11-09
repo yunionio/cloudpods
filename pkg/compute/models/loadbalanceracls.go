@@ -35,6 +35,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -166,10 +167,10 @@ func loadbalancerAclsValidateAclEntries(data *jsonutils.JSONDict, update bool) (
 	return data, nil
 }
 
-func (man *SLoadbalancerAclManager) FetchByFingerPrint(fingerprint string) (*SLoadbalancerAcl, error) {
+func (man *SLoadbalancerAclManager) FetchByFingerPrint(projectId string, fingerprint string) (*SLoadbalancerAcl, error) {
 	ret := &SLoadbalancerAcl{}
 	q := man.Query().IsFalse("pending_deleted")
-	q = q.Equals("fingerprint", fingerprint).Asc("created_at").Limit(1)
+	q = q.Equals("tenant_id", projectId).Equals("fingerprint", fingerprint).Asc("created_at").Limit(1)
 	err := q.First(ret)
 	if err != nil {
 		return nil, err
@@ -178,9 +179,9 @@ func (man *SLoadbalancerAclManager) FetchByFingerPrint(fingerprint string) (*SLo
 	return ret, nil
 }
 
-func (man *SLoadbalancerAclManager) CountByFingerPrint(fingerprint string) int {
+func (man *SLoadbalancerAclManager) CountByFingerPrint(projectId string, fingerprint string) int {
 	q := man.Query().IsFalse("pending_deleted")
-	return q.Equals("fingerprint", fingerprint).Asc("created_at").Count()
+	return q.Equals("tenant_id", projectId).Equals("fingerprint", fingerprint).Asc("created_at").Count()
 }
 
 func (man *SLoadbalancerAclManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -299,6 +300,23 @@ func (manager *SLoadbalancerAclManager) FetchCustomizeColumns(
 		}
 	}
 
+	for i := range objs {
+		q := LoadbalancerListenerManager.Query().Equals("acl_id", objs[i].(*SLoadbalancerAcl).GetId())
+		ownerId, queryScope, err := db.FetchCheckQueryOwnerScope(ctx, userCred, query, LoadbalancerListenerManager, policy.PolicyActionList, true)
+		if err != nil {
+			log.Errorf("FetchCheckQueryOwnerScope error: %v", err)
+			return rows
+		}
+
+		q = LoadbalancerListenerManager.FilterByOwner(q, ownerId, queryScope)
+		count, err := q.CountWithError()
+		if err != nil {
+			log.Errorf("db.CountWithError error: %v", err)
+		}
+
+		rows[i].LbListenerCount = count
+	}
+
 	return rows
 }
 
@@ -365,7 +383,6 @@ func (lbacl *SLoadbalancerAcl) PerformPatch(ctx context.Context, userCred mcclie
 func (lbacl *SLoadbalancerAcl) ValidateDeleteCondition(ctx context.Context) error {
 	men := []db.IModelManager{
 		LoadbalancerListenerManager,
-		CachedLoadbalancerAclManager,
 	}
 
 	lbaclId := lbacl.Id
@@ -397,6 +414,18 @@ func (lbacl *SLoadbalancerAcl) PerformPurge(ctx context.Context, userCred mcclie
 
 func (lbacl *SLoadbalancerAcl) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	if !lbacl.PendingDeleted {
+		caches, err := lbacl.GetCachedAcls()
+		if err != nil {
+			return errors.Wrap(err, "GetCachedAcls")
+		}
+
+		for i := range caches {
+			err := caches[i].MarkPendingDelete(userCred)
+			if err != nil {
+				return errors.Wrap(err, "MarkPendingDelete")
+			}
+		}
+
 		return lbacl.DoPendingDelete(ctx, userCred)
 	}
 
