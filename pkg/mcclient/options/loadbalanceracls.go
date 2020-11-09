@@ -19,7 +19,35 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/apis"
 )
+
+type SharableProjectizedResourceBaseCreateInput struct {
+	apis.ProjectizedResourceCreateInput
+	apis.SharableResourceBaseCreateInput
+}
+
+func (opts *SharableProjectizedResourceBaseCreateInput) Params() (*jsonutils.JSONDict, error) {
+	params, err := optionsStructToParams(opts.SharableResourceBaseCreateInput)
+	if err != nil {
+		return nil, err
+	}
+
+	projectInput, err := optionsStructToParams(opts.ProjectizedResourceCreateInput.ProjectizedResourceInput)
+	if err != nil {
+		return nil, err
+	}
+
+	domainInput, err := optionsStructToParams(opts.ProjectizedResourceCreateInput.DomainizedResourceInput)
+	if err != nil {
+		return nil, err
+	}
+
+	params.Update(projectInput)
+	params.Update(domainInput)
+	return params, nil
+}
 
 type AclEntry struct {
 	Cidr    string
@@ -70,6 +98,8 @@ func (entries AclEntries) String() string {
 }
 
 type LoadbalancerAclCreateOptions struct {
+	SharableProjectizedResourceBaseCreateInput
+
 	NAME     string
 	AclEntry []string `help:"acl entry with cidr and comment separated by #, e.g. 10.9.0.0/16#no comment" json:"-"`
 	Manager  string   `json:"manager_id"`
@@ -103,11 +133,29 @@ type LoadbalancerAclActionPatchOptions struct {
 	Del []string `help:"acl entry with cidr and comment separated by #, e.g. 10.9.0.0/16#no comment" json:"-"`
 }
 
+type LoadbalancerAclPublicOptions struct {
+	ID             string   `json:"-"`
+	Scope          string   `help:"sharing scope" choices:"system|domain|project"`
+	SharedProjects []string `help:"Share to projects"`
+	SharedDomains  []string `help:"Share to domains"`
+}
+
+type LoadbalancerAclPrivateOptions struct {
+	ID string `json:"-"`
+}
+
 func (opts *LoadbalancerAclCreateOptions) Params() (*jsonutils.JSONDict, error) {
 	params, err := optionsStructToParams(opts)
 	if err != nil {
 		return nil, err
 	}
+
+	sp, err := opts.SharableProjectizedResourceBaseCreateInput.Params()
+	if err != nil {
+		return nil, err
+	}
+
+	params.Update(sp)
 	aclEntries := NewAclEntries(opts.AclEntry)
 	aclEntriesJson := jsonutils.Marshal(aclEntries)
 	params.Set("acl_entries", aclEntriesJson)
@@ -119,6 +167,7 @@ func (opts *LoadbalancerAclUpdateOptions) Params() (*jsonutils.JSONDict, error) 
 	if err != nil {
 		return nil, err
 	}
+
 	// - when it's nil, we leave it alone without updating
 	// - when it's non-nil, we update it as a whole
 	if opts.AclEntry != nil {

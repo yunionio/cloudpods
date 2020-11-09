@@ -32,6 +32,8 @@ func init() {
 			[]string{
 				"id",
 				"name",
+				"project",
+				"is_public",
 				"acl_entries",
 			},
 			[]string{"tenant"},

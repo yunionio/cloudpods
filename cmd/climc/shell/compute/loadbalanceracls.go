@@ -137,4 +137,21 @@ func init() {
 		printLbAcl(lbacl)
 		return nil
 	})
+	R(&options.LoadbalancerAclPublicOptions{}, "lbacl-public", "Public lbacl", func(s *mcclient.ClientSession, opts *options.LoadbalancerAclPublicOptions) error {
+		params := jsonutils.Marshal(opts)
+		lbacl, err := modules.LoadbalancerAcls.PerformAction(s, opts.ID, "public", params)
+		if err != nil {
+			return err
+		}
+		printLbAcl(lbacl)
+		return nil
+	})
+	R(&options.LoadbalancerAclPrivateOptions{}, "lbacl-private", "Private lbacl", func(s *mcclient.ClientSession, opts *options.LoadbalancerAclPrivateOptions) error {
+		lbacl, err := modules.LoadbalancerAcls.PerformAction(s, opts.ID, "private", nil)
+		if err != nil {
+			return err
+		}
+		printLbAcl(lbacl)
+		return nil
+	})
 }
