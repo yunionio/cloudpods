@@ -640,7 +640,10 @@ func (self *SRegion) ModifyMySQLAutoRenewFlag(ids []string, autoRenew bool) erro
 	for idx, id := range ids {
 		params[fmt.Sprintf("InstanceIds.%d", idx)] = id
 	}
-	params["AutoRenew"] = fmt.Sprintf("%v", autoRenew)
+	params["AutoRenew"] = "0"
+	if autoRenew {
+		params["AutoRenew"] = "1"
+	}
 	_, err := self.cdbRequest("ModifyAutoRenewFlag", params)
 	return err
 }
