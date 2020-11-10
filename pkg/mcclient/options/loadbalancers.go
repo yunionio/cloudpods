@@ -29,7 +29,7 @@ type LoadbalancerCreateOptions struct {
 	Network          string
 	Address          string
 	AddressType      string `choices:"intranet|internet"`
-	LoadbalancerSpec string `choices:"slb.s1.small|slb.s2.small|slb.s2.medium|slb.s3.small|slb.s3.medium|slb.s3.large"`
+	LoadbalancerSpec string `choices:"slb.s1.small|slb.s2.small|slb.s2.medium|slb.s3.small|slb.s3.medium|slb.s3.large|network"`
 	ChargeType       string `choices:"traffic|bandwidth"`
 	Bandwidth        int
 	Zone             string

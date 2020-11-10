@@ -15,6 +15,8 @@
 package aws
 
 import (
+	"strings"
+
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 
 	"yunion.io/x/jsonutils"
@@ -79,6 +81,41 @@ func (self *SRegion) UntagResources(arns []string, tagKeys []string) error {
 	}
 	if out != nil && len(out.FailedResourcesMap) > 0 {
 		return errors.Wrapf(cloudprovider.ErrNotSupported, "client.UntagResources(%s),error:%s", jsonutils.Marshal(params).String(), jsonutils.Marshal(out).String())
+	}
+	return nil
+}
+
+func (self *SRegion) UpdateResourceTags(arn string, oldTags, tags map[string]string, replace bool) error {
+	addTags := map[string]string{}
+	for k, v := range tags {
+		if strings.HasPrefix(k, "aws:") {
+			return errors.Wrap(cloudprovider.ErrNotSupported, "The aws: prefix is reserved for AWS use")
+		}
+		if _, ok := oldTags[k]; !ok {
+			addTags[k] = v
+		} else {
+			if oldTags[k] != v {
+				addTags[k] = v
+			}
+		}
+	}
+	delTags := []string{}
+	if replace {
+		for k := range oldTags {
+			if _, ok := tags[k]; !ok {
+				if !strings.HasPrefix(k, "aws:") {
+					delTags = append(delTags, k)
+				}
+			}
+		}
+	}
+	err := self.UntagResources([]string{arn}, delTags)
+	if err != nil {
+		return errors.Wrapf(err, "self.host.zone.region.UntagResources([]string{%s}, %s)", arn, jsonutils.Marshal(delTags).String())
+	}
+	err = self.TagResources([]string{arn}, addTags)
+	if err != nil {
+		return errors.Wrapf(err, "self.host.zone.region.TagResources([]string{%s}, %s)", arn, jsonutils.Marshal(addTags).String())
 	}
 	return nil
 }

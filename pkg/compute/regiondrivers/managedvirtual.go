@@ -265,6 +265,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncstatusLoadbalancer(ct
 		if err != nil {
 			return nil, err
 		}
+		models.SyncVirtualResourceMetadata(ctx, userCred, lb, iLoadbalancer)
 		status := iLoadbalancer.GetStatus()
 		if utils.IsInStringArray(status, []string{api.LB_STATUS_ENABLED, api.LB_STATUS_DISABLED}) {
 			return nil, lb.SetStatus(userCred, status, "")
@@ -2846,7 +2847,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncElasticcacheStatus(ct
 		if err != nil {
 			return nil, errors.Wrap(err, "elasticcache.GetIElasticcache")
 		}
-
+		models.SyncVirtualResourceMetadata(ctx, userCred, elasticcache, iElasticcache)
 		return nil, elasticcache.SetStatus(userCred, iElasticcache.GetStatus(), "syncstatus")
 	})
 	return nil

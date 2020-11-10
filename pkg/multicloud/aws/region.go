@@ -893,6 +893,21 @@ func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalanc
 
 	// params.SetSecurityGroups()
 	params.SetSubnets(ConvertedList(loadbalancer.NetworkIDs))
+
+	tagInput := []*elbv2.Tag{}
+	keys := []string{}
+	values := []string{}
+	for k, v := range loadbalancer.Tags {
+		keys = append(keys, k)
+		values = append(values, v)
+	}
+	for i := range keys {
+		tagInput = append(tagInput, &elbv2.Tag{
+			Key:   &keys[i],
+			Value: &values[i],
+		})
+	}
+	params.SetTags(tagInput)
 	ret, err := client.CreateLoadBalancer(params)
 	if err != nil {
 		return nil, err
