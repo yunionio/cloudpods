@@ -34,7 +34,7 @@ func TestAwsRuleSync(t *testing.T) {
 
 	data := []TestData{
 		{
-			Name: "Test out deny rules",
+			Name: "Test remove out allow rules",
 			LocalRules: secrules.SecurityRuleSet{
 				localRuleWithPriority("out:deny any", 1),
 			},
@@ -48,6 +48,30 @@ func TestAwsRuleSync(t *testing.T) {
 			OutDels: []cloudprovider.SecurityRule{
 				remoteRuleWithName("", "out:allow any", 1),
 			},
+		},
+		{
+			Name: "Test out deny rules",
+			LocalRules: secrules.SecurityRuleSet{
+				localRuleWithPriority("out:deny any", 1),
+			},
+			RemoteRules: []cloudprovider.SecurityRule{},
+			Common:      []cloudprovider.SecurityRule{},
+			InAdds:      []cloudprovider.SecurityRule{},
+			OutAdds:     []cloudprovider.SecurityRule{},
+			InDels:      []cloudprovider.SecurityRule{},
+			OutDels:     []cloudprovider.SecurityRule{},
+		},
+		{
+			Name:        "Test out allow rules",
+			LocalRules:  secrules.SecurityRuleSet{},
+			RemoteRules: []cloudprovider.SecurityRule{},
+			Common:      []cloudprovider.SecurityRule{},
+			InAdds:      []cloudprovider.SecurityRule{},
+			OutAdds: []cloudprovider.SecurityRule{
+				remoteRuleWithName("", "out:allow any", 0),
+			},
+			InDels:  []cloudprovider.SecurityRule{},
+			OutDels: []cloudprovider.SecurityRule{},
 		},
 	}
 
