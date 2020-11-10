@@ -398,3 +398,7 @@ func (self *SBaseGuestDriver) RequestRemoteUpdate(ctx context.Context, guest *mo
 	// nil ops
 	return nil
 }
+
+func (self *SBaseGuestDriver) ValidateRebuildRoot(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, input *api.ServerRebuildRootInput) (*api.ServerRebuildRootInput, error) {
+	return input, nil
+}

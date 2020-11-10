@@ -249,7 +249,7 @@ func (self *SBaremetalGuestDriver) GetStorageTypes() []string {
 	}
 }
 
-func (self *SBaremetalGuestDriver) ChooseHostStorage(host *models.SHost, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
+func (self *SBaremetalGuestDriver) ChooseHostStorage(host *models.SHost, guest *models.SGuest, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
 	if len(storageIds) != 0 {
 		return models.StorageManager.FetchStorageById(storageIds[0]), nil
 	}

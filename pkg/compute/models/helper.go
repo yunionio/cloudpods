@@ -100,7 +100,7 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 			return nil, err
 		}
 
-		defaultStorage, err := GetDriver(hypervisor).ChooseHostStorage(baremetal, &api.DiskConfig{}, nil)
+		defaultStorage, err := GetDriver(hypervisor).ChooseHostStorage(baremetal, nil, &api.DiskConfig{}, nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "ChooseHostStorage")
 		}

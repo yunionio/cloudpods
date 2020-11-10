@@ -1393,6 +1393,12 @@ func (self *SGuest) AllowPerformRebuildRoot(ctx context.Context, userCred mcclie
 
 // 重装系统(更换系统镜像)
 func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.ServerRebuildRootInput) (*api.SGuest, error) {
+
+	input, err := self.GetDriver().ValidateRebuildRoot(ctx, userCred, self, input)
+	if err != nil {
+		return nil, err
+	}
+
 	imageId := input.GetImageName()
 
 	if len(imageId) > 0 {
