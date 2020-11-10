@@ -68,37 +68,16 @@ func (self *InstanceSnapshotResetTask) OnInit(
 	isp := obj.(*models.SInstanceSnapshot)
 	guest := models.GuestManager.FetchGuestById(isp.GuestId)
 
-	self.GuestDiskResetTask(ctx, isp, guest, 0)
-}
-
-func (self *InstanceSnapshotResetTask) GuestDiskResetTask(
-	ctx context.Context, isp *models.SInstanceSnapshot, guest *models.SGuest, diskIndex int) {
-
-	disks := guest.GetDisks()
-	if diskIndex >= len(disks) {
-		self.taskComplete(ctx, isp, guest, nil)
-		return
-	}
-
-	isj, err := isp.GetInstanceSnapshotJointAt(diskIndex)
-	if err != nil {
-		self.taskFail(ctx, isp, guest, jsonutils.NewString(err.Error()))
-		return
-	}
-
+	self.SetStage("OnInstanceSnapshotReset", nil)
 	params := jsonutils.NewDict()
-	params.Set("disk_index", jsonutils.NewInt(int64(diskIndex)))
-	self.SetStage("OnDiskReset", params)
-
-	disk := disks[diskIndex].GetDisk()
-	err = disk.StartResetDisk(ctx, self.UserCred, isj.SnapshotId, false, guest, self.Id)
-	if err != nil {
+	params.Set("disk_index", jsonutils.NewInt(0))
+	if err := isp.GetRegionDriver().RequestResetToInstanceSnapshot(ctx, guest, isp, self, params); err != nil {
 		self.taskFail(ctx, isp, guest, jsonutils.NewString(err.Error()))
 		return
 	}
 }
 
-func (self *InstanceSnapshotResetTask) OnDiskReset(
+func (self *InstanceSnapshotResetTask) OnKvmDiskReset(
 	ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
 
 	guest := models.GuestManager.FetchGuestById(isp.GuestId)
@@ -108,10 +87,34 @@ func (self *InstanceSnapshotResetTask) OnDiskReset(
 		self.taskFail(ctx, isp, guest, jsonutils.NewString(err.Error()))
 		return
 	}
-	self.GuestDiskResetTask(ctx, isp, guest, int(diskIndex+1))
+	params := jsonutils.NewDict()
+	params.Set("disk_index", jsonutils.NewInt(diskIndex+1))
+	if err := isp.GetRegionDriver().RequestResetToInstanceSnapshot(ctx, guest, isp, self, params); err != nil {
+		self.taskFail(ctx, isp, guest, jsonutils.NewString(err.Error()))
+		return
+	}
 }
 
-func (self *InstanceSnapshotResetTask) OnDiskResetFailed(
+func (self *InstanceSnapshotResetTask) OnKvmDiskResetFailed(
 	ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
 	self.taskFail(ctx, isp, nil, data)
+}
+
+func (self *InstanceSnapshotResetTask) OnInstanceSnapshotReset(ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
+	guest, _ := isp.GetGuest()
+	if guest.Status == compute.VM_READY && jsonutils.QueryBoolean(self.Params, "auto_start", false) {
+		self.SetStage("OnGuestStartComplete", nil)
+		guest.StartGueststartTask(ctx, self.UserCred, nil, self.GetTaskId())
+	} else {
+		self.taskComplete(ctx, isp, guest, data)
+	}
+}
+
+func (self *InstanceSnapshotResetTask) OnInstanceSnapshotResetFailed(ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
+	self.taskFail(ctx, isp, nil, data)
+}
+
+func (self *InstanceSnapshotResetTask) OnGuestStartComplete(ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
+	guest, _ := isp.GetGuest()
+	self.taskComplete(ctx, isp, guest, data)
 }

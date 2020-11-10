@@ -80,44 +80,68 @@ func (self *SESXiGuestDriver) GetDefaultSysDiskBackend() string {
 	return api.STORAGE_LOCAL
 }
 
-func (self *SESXiGuestDriver) ChooseHostStorage(host *models.SHost, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
-	if !options.Options.LockStorageFromCachedimage || len(diskConfig.ImageId) == 0 {
-		return self.SVirtualizedGuestDriver.ChooseHostStorage(host, diskConfig, storageIds)
-	}
-	var (
-		image *cloudprovider.SImage
-		err   error
-	)
-	obj, err := models.CachedimageManager.FetchById(diskConfig.ImageId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "unable to fetch cachedimage %s", diskConfig.ImageId)
-	}
-	cachedimage := obj.(*models.SCachedimage)
-	if len(cachedimage.ExternalId) > 0 || cachedimage.ImageType != cloudprovider.CachedImageTypeSystem {
-		return self.SVirtualizedGuestDriver.ChooseHostStorage(host, diskConfig, storageIds)
-	}
-	storages, err := cachedimage.GetStorages()
-	if err != nil {
-		return nil, errors.Wrapf(err, "unable to GetStorages of cachedimage %s", diskConfig.ImageId)
-	}
-	if len(storages) == 0 {
-		log.Warningf("there no storage associated with cachedimage %q", image.Id)
-		return self.SVirtualizedGuestDriver.ChooseHostStorage(host, diskConfig, storageIds)
-	}
-	if len(storages) > 1 {
-		log.Warningf("there are multiple storageCache associated with caheimage %q", image.Id)
-	}
-	wantStorageIds := make([]string, len(storages))
-	for i := range wantStorageIds {
-		wantStorageIds[i] = storages[i].GetId()
-	}
-	for i := range wantStorageIds {
-		if utils.IsInStringArray(wantStorageIds[i], storageIds) {
-			log.Infof("use storage %q in where cachedimage %q", wantStorageIds[i], image.Id)
-			return &storages[i], nil
+func (self *SESXiGuestDriver) ChooseHostStorage(host *models.SHost, guest *models.SGuest, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
+	switch {
+	case !options.Options.LockStorageFromCachedimage:
+		return self.SVirtualizedGuestDriver.ChooseHostStorage(host, guest, diskConfig, storageIds)
+	case len(diskConfig.ImageId) == 0:
+		var (
+			image *cloudprovider.SImage
+			err   error
+		)
+		obj, err := models.CachedimageManager.FetchById(diskConfig.ImageId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to fetch cachedimage %s", diskConfig.ImageId)
 		}
+		cachedimage := obj.(*models.SCachedimage)
+		if len(cachedimage.ExternalId) > 0 || cachedimage.ImageType != cloudprovider.CachedImageTypeSystem {
+			return self.SVirtualizedGuestDriver.ChooseHostStorage(host, guest, diskConfig, storageIds)
+		}
+		storages, err := cachedimage.GetStorages()
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to GetStorages of cachedimage %s", diskConfig.ImageId)
+		}
+		if len(storages) == 0 {
+			log.Warningf("there no storage associated with cachedimage %q", image.Id)
+			return self.SVirtualizedGuestDriver.ChooseHostStorage(host, guest, diskConfig, storageIds)
+		}
+		if len(storages) > 1 {
+			log.Warningf("there are multiple storageCache associated with caheimage %q", image.Id)
+		}
+		wantStorageIds := make([]string, len(storages))
+		for i := range wantStorageIds {
+			wantStorageIds[i] = storages[i].GetId()
+		}
+		for i := range wantStorageIds {
+			if utils.IsInStringArray(wantStorageIds[i], storageIds) {
+				log.Infof("use storage %q in where cachedimage %q", wantStorageIds[i], image.Id)
+				return &storages[i], nil
+			}
+		}
+		return self.SVirtualizedGuestDriver.ChooseHostStorage(host, guest, diskConfig, storageIds)
+	default:
+		ispId := guest.GetMetadata("__base_instance_snapshot_id", nil)
+		if len(ispId) == 0 {
+			return self.SVirtualizedGuestDriver.ChooseHostStorage(host, guest, diskConfig, storageIds)
+		}
+		obj, err := models.InstanceSnapshotManager.FetchById(ispId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to fetch InstanceSnapshot %q", ispId)
+		}
+		isp := obj.(*models.SInstanceSnapshot)
+		ispGuest, err := isp.GetGuest()
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to fetch Guest of InstanceSnapshot %q", ispId)
+		}
+		storages := ispGuest.GetStorages()
+		if len(storages) == 0 {
+			return self.SVirtualizedGuestDriver.ChooseHostStorage(host, guest, diskConfig, storageIds)
+		}
+		if utils.IsInStringArray(storages[0].GetId(), storageIds) {
+			return storages[0], nil
+		}
+		return self.SVirtualizedGuestDriver.ChooseHostStorage(host, guest, diskConfig, storageIds)
 	}
-	return self.SVirtualizedGuestDriver.ChooseHostStorage(host, diskConfig, storageIds)
 }
 
 func (self *SESXiGuestDriver) GetMinimalSysDiskSizeGb() int {
@@ -177,6 +201,9 @@ func (self *SESXiGuestDriver) ValidateCreateData(ctx context.Context, userCred m
 		return data, nil
 	}
 	rootDisk := data.Disks[0]
+	if len(rootDisk.ImageId) == 0 {
+		return data, nil
+	}
 	image, err := models.CachedimageManager.GetImageInfo(ctx, userCred, rootDisk.ImageId, false)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to GetImageInfo of image %q", rootDisk.ImageId)
@@ -213,6 +240,13 @@ func (self *SESXiGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *mod
 	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY}) {
 		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
 	}
+	count, err := guest.GetInstanceSnapshotCount()
+	if err != nil {
+		return errors.Wrapf(err, "unable to GetInstanceSnapshotCount for guest %q", guest.GetId())
+	}
+	if count > 0 {
+		return httperrors.NewForbiddenError("can't resize disk for guest with instance snapshots")
+	}
 	/*if !utils.IsInStringArray(storage.StorageType, []string{models.STORAGE_PUBLIC_CLOUD, models.STORAGE_CLOUD_SSD, models.STORAGE_CLOUD_EFFICIENCY}) {
 		return fmt.Errorf("Cannot resize %s disk", storage.StorageType)
 	}*/
@@ -225,6 +259,11 @@ type SEsxiImageInfo struct {
 	StorageCacheHostIp string
 }
 
+type SEsxiInstanceSnapshotInfo struct {
+	InstanceSnapshotId string
+	InstanceId         string
+}
+
 func (self *SESXiGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
 	desc := guest.GetJsonDescAtHypervisor(ctx, host)
 	// add image_info
@@ -234,6 +273,25 @@ func (self *SESXiGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mc
 	}
 	templateId, _ := disks[0].GetString("template_id")
 	if len(templateId) == 0 {
+		// try to check instance_snapshot_id
+		ispId := guest.GetMetadata("__base_instance_snapshot_id", userCred)
+		if len(ispId) == 0 {
+			return desc, nil
+		}
+		obj, err := models.InstanceSnapshotManager.FetchById(ispId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to fetch InstanceSnapshot %q", ispId)
+		}
+		isp := obj.(*models.SInstanceSnapshot)
+		ispGuest, err := isp.GetGuest()
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to fetch Guest of InstanceSnapshot %q", ispId)
+		}
+		isInfo := SEsxiInstanceSnapshotInfo{
+			InstanceSnapshotId: isp.GetExternalId(),
+			InstanceId:         ispGuest.GetExternalId(),
+		}
+		desc.Set("instance_snapshot_info", jsonutils.Marshal(isInfo))
 		return desc, nil
 	}
 	model, err := models.CachedimageManager.FetchById(templateId)
@@ -606,4 +664,21 @@ func (self *SESXiGuestDriver) RequestSyncstatusOnHost(ctx context.Context, guest
 	body := jsonutils.NewDict()
 	body.Add(jsonutils.NewString(status), "status")
 	return body, nil
+}
+
+func (self *SESXiGuestDriver) ValidateRebuildRoot(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, input *api.ServerRebuildRootInput) (*api.ServerRebuildRootInput, error) {
+	// check snapshot
+	count, err := guest.GetInstanceSnapshotCount()
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to GetInstanceSnapshotCount for guest %q", guest.GetId())
+	}
+	if count > 0 {
+		return input, httperrors.NewForbiddenError("can't rebuild root for a guest with instance snapshots")
+	}
+	return input, nil
+}
+
+func (self *SESXiGuestDriver) StartDeleteGuestTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
+	params.Add(jsonutils.JSONTrue, "delete_snapshots")
+	return self.SBaseGuestDriver.StartDeleteGuestTask(ctx, userCred, guest, params, parentTaskId)
 }

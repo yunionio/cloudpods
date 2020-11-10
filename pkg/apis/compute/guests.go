@@ -430,3 +430,9 @@ type ServerDissociateEipInput struct {
 	// 是否自动释放
 	AudoDelete *bool `json:"auto_delete"`
 }
+
+type ServerResetInput struct {
+	InstanceSnapshot string `json:"instance_snapshot"`
+	// 自动启动
+	AutoStart *bool `json:"auto_start"`
+}

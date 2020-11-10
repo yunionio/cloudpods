@@ -676,6 +676,10 @@ func syncVMPeripherals(ctx context.Context, userCred mcclient.TokenCredential, l
 	if err != nil {
 		log.Errorf("syncVMSecgroups error %s", err)
 	}
+	result := local.SyncInstanceSnapshots(ctx, userCred, provider)
+	if result.IsError() {
+		log.Errorf("syncVMInstanceSnapshots error %v", result.AllError())
+	}
 }
 
 func syncVMNics(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, host *SHost, localVM *SGuest, remoteVM cloudprovider.ICloudVM) error {

@@ -693,16 +693,22 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 }
 
 type SCreateVMParam struct {
-	Name         string
-	Uuid         string
-	OsName       string
-	Cpu          int
-	Mem          int
-	Bios         string
-	Cdrom        jsonutils.JSONObject
-	Disks        []SDiskInfo
-	Nics         []jsonutils.JSONObject
-	ResourcePool string
+	Name                 string
+	Uuid                 string
+	OsName               string
+	Cpu                  int
+	Mem                  int
+	Bios                 string
+	Cdrom                jsonutils.JSONObject
+	Disks                []SDiskInfo
+	Nics                 []jsonutils.JSONObject
+	ResourcePool         string
+	InstanceSnapshotInfo SEsxiInstanceSnapshotInfo
+}
+
+type SEsxiInstanceSnapshotInfo struct {
+	InstanceSnapshotId string
+	InstanceId         string
 }
 
 type SDiskInfo struct {
@@ -720,6 +726,18 @@ type SEsxiImageInfo struct {
 }
 
 func (self *SHost) CreateVM2(ctx context.Context, ds *SDatastore, params SCreateVMParam) (*SVirtualMachine, error) {
+	if len(params.InstanceSnapshotInfo.InstanceSnapshotId) > 0 {
+		temvm, err := self.manager.SearchTemplateVM(params.InstanceSnapshotInfo.InstanceId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "SEsxiClient.SearchTemplateVM for image %q", params.InstanceSnapshotInfo.InstanceId)
+		}
+		isp, err := temvm.GetInstanceSnapshot(params.InstanceSnapshotInfo.InstanceSnapshotId)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to GetInstanceSnapshot")
+		}
+		sp := isp.(*SVirtualMachineSnapshot)
+		return self.CloneVM(ctx, temvm, &sp.snapshotTree.Snapshot, ds, params)
+	}
 	if len(params.Disks) == 0 {
 		return self.DoCreateVM(ctx, ds, params)
 	}
@@ -731,7 +749,7 @@ func (self *SHost) CreateVM2(ctx context.Context, ds *SDatastore, params SCreate
 	if err != nil {
 		return nil, errors.Wrapf(err, "SEsxiClient.SearchTemplateVM for image %q", imageInfo.ImageExternalId)
 	}
-	return self.CloneVM(ctx, temvm, ds, params)
+	return self.CloneVM(ctx, temvm, nil, ds, params)
 }
 
 func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreateVMParam) (*SVirtualMachine, error) {
@@ -955,7 +973,7 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 	return evm, nil
 }
 
-func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SDatastore, params SCreateVMParam) (*SVirtualMachine, error) {
+func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, snapshot *types.ManagedObjectReference, ds *SDatastore, params SCreateVMParam) (*SVirtualMachine, error) {
 	ovm := from.getVmObj()
 
 	deviceChange := make([]types.BaseVirtualDeviceConfigSpec, 0, 3)
@@ -1066,6 +1084,7 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 		PowerOn:  false,
 		Template: false,
 		Location: relocateSpec,
+		Snapshot: snapshot,
 	}
 
 	// uuid first

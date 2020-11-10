@@ -67,7 +67,7 @@ func (self *SHuaweiGuestDriver) GetStorageTypes() []string {
 	return []string{api.STORAGE_HUAWEI_SATA, api.STORAGE_HUAWEI_SAS, api.STORAGE_HUAWEI_SSD}
 }
 
-func (self *SHuaweiGuestDriver) ChooseHostStorage(host *models.SHost, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
+func (self *SHuaweiGuestDriver) ChooseHostStorage(host *models.SHost, guest *models.SGuest, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
 	return self.chooseHostStorage(self, host, diskConfig.Backend, storageIds), nil
 }
 

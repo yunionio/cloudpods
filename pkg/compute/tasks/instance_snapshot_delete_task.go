@@ -55,33 +55,14 @@ func (self *InstanceSnapshotDeleteTask) OnInit(
 	ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 
 	isp := obj.(*models.SInstanceSnapshot)
-	self.StartSnapshotDelete(ctx, isp)
-}
-
-func (self *InstanceSnapshotDeleteTask) StartSnapshotDelete(
-	ctx context.Context, isp *models.SInstanceSnapshot) {
-
-	snapshots, err := isp.GetSnapshots()
-	if err != nil {
-		self.taskFail(ctx, isp, jsonutils.NewString(err.Error()))
-		return
-	}
-	if len(snapshots) == 0 {
-		self.taskComplete(ctx, isp, nil)
-		return
-	}
-
-	params := jsonutils.NewDict()
-	params.Set("del_snapshot_id", jsonutils.NewString(snapshots[0].Id))
-	self.SetStage("OnSnapshotDelete", params)
-	err = snapshots[0].StartSnapshotDeleteTask(ctx, self.UserCred, false, self.Id)
-	if err != nil {
+	self.SetStage("OnInstanceSnapshotDelete", nil)
+	if err := isp.GetRegionDriver().RequestDeleteInstanceSnapshot(ctx, isp, self); err != nil {
 		self.taskFail(ctx, isp, jsonutils.NewString(err.Error()))
 		return
 	}
 }
 
-func (self *InstanceSnapshotDeleteTask) OnSnapshotDelete(
+func (self *InstanceSnapshotDeleteTask) OnKvmSnapshotDelete(
 	ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
 	snapshotId, _ := self.Params.GetString("del_snapshot_id")
 	// detach snapshot and instance
@@ -98,11 +79,22 @@ func (self *InstanceSnapshotDeleteTask) OnSnapshotDelete(
 		self.taskFail(ctx, isp, jsonutils.NewString(err.Error()))
 		return
 	}
-	self.StartSnapshotDelete(ctx, isp)
+	if err := isp.GetRegionDriver().RequestDeleteInstanceSnapshot(ctx, isp, self); err != nil {
+		self.taskFail(ctx, isp, jsonutils.NewString(err.Error()))
+		return
+	}
 }
 
-func (self *InstanceSnapshotDeleteTask) OnSnapshotDeleteFailed(
+func (self *InstanceSnapshotDeleteTask) OnKvmSnapshotDeleteFailed(
 	ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
+	self.taskFail(ctx, isp, data)
+}
 
+func (self *InstanceSnapshotDeleteTask) OnInstanceSnapshotDelete(ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
+	self.taskComplete(ctx, isp, data)
+
+}
+
+func (self *InstanceSnapshotDeleteTask) OnInstanceSnapshotDeleteFailed(ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
 	self.taskFail(ctx, isp, data)
 }

@@ -16,20 +16,16 @@ package tasks
 
 import (
 	"context"
-	"fmt"
-	"strconv"
 
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/rand"
 )
 
 type InstanceSnapshotCreateTask struct {
@@ -88,55 +84,16 @@ func (self *InstanceSnapshotCreateTask) OnInit(
 
 	isp := obj.(*models.SInstanceSnapshot)
 	guest := models.GuestManager.FetchGuestById(isp.GuestId)
-
-	self.GuestDiskCreateSnapshot(ctx, isp, guest, 0)
-}
-
-func (self *InstanceSnapshotCreateTask) GuestDiskCreateSnapshot(
-	ctx context.Context, isp *models.SInstanceSnapshot, guest *models.SGuest, diskIndex int) {
-
-	disks := guest.GetDisks()
-	if diskIndex >= len(disks) {
-		self.taskComplete(ctx, isp, guest, nil)
-		return
-	}
-
-	lockman.LockClass(ctx, models.SnapshotManager, self.UserCred.GetProjectId())
-	defer lockman.ReleaseClass(ctx, models.SnapshotManager, self.UserCred.GetProjectId())
-
-	snapshotName, err := db.GenerateName(models.SnapshotManager, self.UserCred,
-		fmt.Sprintf("%s-%s", isp.Name, rand.String(8)))
-	if err != nil {
-		self.taskFail(ctx, isp, guest, jsonutils.NewString(fmt.Sprintf("Generate snapshot name %s", err)))
-		return
-	}
-
-	snapshot, err := models.SnapshotManager.CreateSnapshot(
-		ctx, self.UserCred, compute.SNAPSHOT_MANUAL, disks[diskIndex].DiskId,
-		guest.Id, "", snapshotName, -1)
-	if err != nil {
-		self.taskFail(ctx, isp, guest, jsonutils.NewString(err.Error()))
-		return
-	}
-
-	err = models.InstanceSnapshotJointManager.CreateJoint(ctx, isp.Id, snapshot.Id, int8(diskIndex))
-	if err != nil {
-		self.taskFail(ctx, isp, guest, jsonutils.NewString(err.Error()))
-		return
-	}
-
+	self.SetStage("OnInstanceSnapshot", nil)
 	params := jsonutils.NewDict()
-	params.Set("disk_index", jsonutils.NewInt(int64(diskIndex)))
-	params.Set(strconv.Itoa(diskIndex), jsonutils.NewString(snapshot.Id))
-	self.SetStage("OnDiskSnapshot", params)
-
-	if err := snapshot.StartSnapshotCreateTask(ctx, self.UserCred, nil, self.Id); err != nil {
+	params.Set("disk_index", jsonutils.NewInt(0))
+	if err := isp.GetRegionDriver().RequestCreateInstanceSnapshot(ctx, guest, isp, self, params); err != nil {
 		self.taskFail(ctx, isp, guest, jsonutils.NewString(err.Error()))
 		return
 	}
 }
 
-func (self *InstanceSnapshotCreateTask) OnDiskSnapshot(
+func (self *InstanceSnapshotCreateTask) OnKvmDiskSnapshot(
 	ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
 
 	guest := models.GuestManager.FetchGuestById(isp.GuestId)
@@ -147,10 +104,24 @@ func (self *InstanceSnapshotCreateTask) OnDiskSnapshot(
 		return
 	}
 
-	self.GuestDiskCreateSnapshot(ctx, isp, guest, int(diskIndex+1))
+	params := jsonutils.NewDict()
+	params.Set("disk_index", jsonutils.NewInt(diskIndex+1))
+	if err := isp.GetRegionDriver().RequestCreateInstanceSnapshot(ctx, guest, isp, self, params); err != nil {
+		self.taskFail(ctx, isp, guest, jsonutils.NewString(err.Error()))
+		return
+	}
 }
 
-func (self *InstanceSnapshotCreateTask) OnDiskSnapshotFailed(
+func (self *InstanceSnapshotCreateTask) OnKvmDiskSnapshotFailed(
 	ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
+	self.taskFail(ctx, isp, nil, data)
+}
+
+func (self *InstanceSnapshotCreateTask) OnInstanceSnapshot(ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
+	guest, _ := isp.GetGuest()
+	self.taskComplete(ctx, isp, guest, data)
+}
+
+func (self *InstanceSnapshotCreateTask) OnInstanceSnapshotFailed(ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
 	self.taskFail(ctx, isp, nil, data)
 }

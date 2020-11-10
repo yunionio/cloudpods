@@ -288,6 +288,22 @@ func (disk *SVirtualDisk) GetId() string {
 	return backing.GetUuid()
 }
 
+func (disk *SVirtualDisk) MatchId(id string) bool {
+	vmid := disk.vm.GetGlobalId()
+	if !strings.HasPrefix(id, vmid) {
+		return false
+	}
+	backingUuid := id[len(vmid)+1:]
+	backing := disk.getBackingInfo()
+	for backing != nil {
+		if backing.GetUuid() == backingUuid {
+			return true
+		}
+		backing = backing.GetParent()
+	}
+	return false
+}
+
 func (disk *SVirtualDisk) GetName() string {
 	backing := disk.getBackingInfo()
 	return path.Base(backing.GetFileName())
@@ -362,8 +378,7 @@ func (disk *SVirtualDisk) GetTemplateId() string {
 }
 
 func (disk *SVirtualDisk) GetDiskType() string {
-	backing := disk.getBackingInfo()
-	if backing.GetParent() != nil {
+	if disk.index == 0 {
 		return api.DISK_TYPE_SYS
 	}
 	return api.DISK_TYPE_DATA
