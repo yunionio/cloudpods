@@ -66,7 +66,11 @@ func (*DeployerServer) DeployGuestFs(ctx context.Context, req *deployapi.DeployP
 		}
 	}()
 	log.Infof("********* Deploy guest fs on %s", req.DiskPath)
-	var disk = diskutils.GetIDisk(req)
+	var disk = diskutils.GetIDisk(diskutils.DiskParams{
+		Hypervisor: req.GuestDesc.Hypervisor,
+		DiskPath:   req.DiskPath,
+		VddkInfo:   req.VddkInfo,
+	})
 	if len(req.GuestDesc.Hypervisor) == 0 {
 		req.GuestDesc.Hypervisor = comapi.HYPERVISOR_KVM
 	}
@@ -92,25 +96,38 @@ func (*DeployerServer) DeployGuestFs(ctx context.Context, req *deployapi.DeployP
 	return ret, nil
 }
 
-func (*DeployerServer) ResizeFs(ctx context.Context, req *deployapi.ResizeFsParams,
-) (*deployapi.Empty, error) {
+func (*DeployerServer) ResizeFs(ctx context.Context, req *deployapi.ResizeFsParams) (res *deployapi.Empty, err error) {
+	// There will be some occasional unknown panic, so temporarily capture panic here.
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorf("DeployGuestFs: %s, stack:\n %s", debug.Stack())
+			msg := "panic: "
+			if str, ok := r.(fmt.Stringer); ok {
+				msg += str.String()
+			}
+			res, err = nil, errors.Error(msg)
+		}
+	}()
 	log.Infof("********* Resize fs on %s", req.DiskPath)
-	disk := diskutils.NewKVMGuestDisk(req.DiskPath)
+	var disk = diskutils.GetIDisk(diskutils.DiskParams{
+		Hypervisor: req.Hypervisor,
+		DiskPath:   req.DiskPath,
+		VddkInfo:   req.VddkInfo,
+	})
 	defer disk.Disconnect()
 	if err := disk.Connect(); err != nil {
 		return new(deployapi.Empty), errors.Wrap(err, "disk connect failed")
 	}
 
-	root := disk.MountKvmRootfs()
+	root := disk.MountRootfs()
+	defer disk.UmountRootfs(root)
 	if root == nil {
 		err := disk.ResizePartition()
 		return new(deployapi.Empty), err
 	} else {
 		if !root.IsResizeFsPartitionSupport() {
-			disk.UmountKvmRootfs(root)
-			return new(deployapi.Empty), nil
+			return new(deployapi.Empty), errors.ErrNotSupported
 		} else {
-			disk.UmountKvmRootfs(root)
 			err := disk.ResizePartition()
 			return new(deployapi.Empty), err
 		}
