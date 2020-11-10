@@ -505,10 +505,24 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 	}
 
 	params.Add(volumeObj, "volume")
+	// 目前只支持创建按需资源，返回job id。 如果创建包年包月资源则返回order id
+	_id, err := self.ecsClient.Disks.AsyncCreate(params)
+	if err != nil {
+		log.Debugf("AsyncCreate with params: %s", params)
+		return "", errors.Wrap(err, "AsyncCreate")
+	}
 
-	disk := SDisk{}
-	err := DoCreate(self.ecsClient.Disks.Create, params, &disk)
-	return disk.ID, err
+	// 按需计费
+	volumeId, err := self.GetTaskEntityID(self.ecsClient.Disks.ServiceType(), _id, "volume_id")
+	if err != nil {
+		return "", errors.Wrap(err, "GetAllSubTaskEntityIDs")
+	}
+
+	if len(volumeId) == 0 {
+		return "", errors.Errorf("CreateInstance job %s result is emtpy", _id)
+	} else {
+		return volumeId, nil
+	}
 }
 
 // https://support.huaweicloud.com/api-evs/zh-cn_topic_0058762428.html
