@@ -18,9 +18,9 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/multicloud/esxi"
@@ -49,24 +49,17 @@ func (sd *SAgentDisk) PrepareSaveToGlance(ctx context.Context, params interface{
 	return storage.PrepareSaveToGlance(ctx, p.TaskId, p.DiskInfo)
 }
 
-func (sd *SAgentDisk) ReSize(ctx context.Context, diskInfo interface{}) (jsonutils.JSONObject, error) {
+func (sd *SAgentDisk) Resize(ctx context.Context, diskInfo interface{}) (jsonutils.JSONObject, error) {
 	body, ok := diskInfo.(*jsonutils.JSONDict)
 	if !ok {
 		return nil, errors.Wrap(hostutils.ParamsError, "PrepareSaveToGlance params format error")
 	}
-	// check parameters
-	params := []string{"size", "host_info", "vm_private_id", "disk_private_id"}
-	for _, param := range params {
-		if !body.Contains(param) {
-			return nil, httperrors.NewMissingParameterError(param)
-		}
-	}
 
 	type sResize struct {
-		SizeMb   int64 `json:"size"`
+		SizeMb   int64 `json:"size_mb"`
 		HostInfo vcenter.SVCenterAccessInfo
-		VMId     string `json:"vm_private_id"`
-		DiskId   string `json:"disk_private_id"`
+		VMId     string `json:"vm_id"`
+		DiskId   string `json:"disk_id"`
 	}
 	resize := sResize{}
 	err := body.Unmarshal(&resize)
@@ -86,32 +79,23 @@ func (sd *SAgentDisk) ReSize(ctx context.Context, diskInfo interface{}) (jsonuti
 	if err != nil {
 		return nil, errors.Wrapf(err, "fail to find vm by ID %s", resize.VMId)
 	}
-	idisks, err := ivm.GetIDisks()
+	vm := ivm.(*esxi.SVirtualMachine)
+	iDisk, err := vm.GetIDiskById(resize.DiskId)
 	if err != nil {
-		return nil, errors.Wrapf(err, "fail to get idisks of vm %s", resize.VMId)
+		return nil, errors.Wrapf(err, "fail to get idisk  %q of vm %s", resize.DiskId, resize.VMId)
 	}
-	var (
-		idisk   cloudprovider.ICloudDisk
-		hasDisk bool
-	)
-	for i := range idisks {
-		if idisks[i].GetId() == resize.DiskId {
-			idisk = idisks[i]
-			hasDisk = true
-		}
+	disk := iDisk.(*esxi.SVirtualDisk)
+	err = disk.Resize(ctx, resize.SizeMb)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to resize to %dMB", resize.SizeMb)
 	}
-	if !hasDisk {
-		return nil, errors.Wrapf(err, "no such disk %s", resize.DiskId)
-	}
-	url := idisk.GetAccessPath()
-	vm, disk := ivm.(*esxi.SVirtualMachine), idisk.(*esxi.SVirtualDisk)
-	online := jsonutils.QueryBoolean(body, "online", false)
-	if online {
-		esxiClient.DoExtendDiskOnline(vm, disk, resize.SizeMb)
-	} else {
-		esxiClient.ExtendDisk(url, resize.SizeMb)
-	}
+
 	desc := jsonutils.NewDict()
 	desc.Add(jsonutils.NewInt(resize.SizeMb), "disk_size")
+	// try to resize partition
+	err = iDisk.(*esxi.SVirtualDisk).ResizePartition(ctx, resize.HostInfo)
+	if err != nil {
+		log.Errorf("unable to ResizePartition: %v", err)
+	}
 	return desc, nil
 }
