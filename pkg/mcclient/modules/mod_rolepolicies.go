@@ -59,7 +59,7 @@ func init() {
 	RolePolicies = SRolePolicyManager{NewIdentityV3Manager(
 		"rolepolicy",
 		"rolepolicies",
-		[]string{"role", "role_id", "project", "project_id", "policy", "policy_id", "ips", "scope"},
+		[]string{"id", "name", "role", "role_id", "project", "project_id", "policy", "policy_id", "ips", "scope"},
 		[]string{},
 	)}
 

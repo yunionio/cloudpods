@@ -73,4 +73,16 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type RolePolicyDeleteOptions struct {
+		ID string `json:"-" help:"id or role policy binding"`
+	}
+	R(&RolePolicyDeleteOptions{}, "role-policy-delete", "Delete role policy binding", func(s *mcclient.ClientSession, args *RolePolicyDeleteOptions) error {
+		result, err := modules.RolePolicies.Delete(s, args.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

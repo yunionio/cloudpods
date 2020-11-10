@@ -449,3 +449,29 @@ func (manager *SRolePolicyManager) fetchByRoleId(roleId string) ([]SRolePolicy, 
 	}
 	return rps, nil
 }
+
+func (manager *SRolePolicyManager) FilterById(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery {
+	parts := strings.Split(idStr, ":")
+	if len(parts) == 3 {
+		return q.Equals("role_id", parts[0]).Equals("project_id", parts[1]).Equals("policy_id", parts[2])
+	} else {
+		return q.Equals("ips", idStr)
+	}
+}
+
+func (manager *SRolePolicyManager) FilterByNotId(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery {
+	parts := strings.Split(idStr, ":")
+	if len(parts) == 3 {
+		return q.Filter(sqlchemy.OR(
+			sqlchemy.NotEquals(q.Field("role_id"), parts[0]),
+			sqlchemy.NotEquals(q.Field("project_id"), parts[1]),
+			sqlchemy.NotEquals(q.Field("policy_id"), parts[2]),
+		))
+	} else {
+		return q
+	}
+}
+
+func (manager *SRolePolicyManager) FilterByName(q *sqlchemy.SQuery, name string) *sqlchemy.SQuery {
+	return manager.FilterById(q, name)
+}
