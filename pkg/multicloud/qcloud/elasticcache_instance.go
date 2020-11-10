@@ -274,7 +274,7 @@ func (self *SElasticcache) GetExpiredAt() time.Time {
 func (self *SElasticcache) SetAutoRenew(autoRenew bool) error {
 	params := map[string]string{}
 	params["Operation"] = "modifyAutoRenew"
-	params["InstanceId.0"] = self.GetId()
+	params["InstanceIds.0"] = self.GetId()
 	if autoRenew {
 		params["AutoRenews.0"] = "1"
 	} else {
