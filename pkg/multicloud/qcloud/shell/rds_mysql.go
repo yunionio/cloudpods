@@ -129,6 +129,15 @@ func init() {
 		MONTH int `choices:"1|2|3|4|5|6|7|8|9|10|11|12|24|36"`
 	}
 
+	type MySQLAutoRenewOptions struct {
+		MySQLInstanceIdOptions
+		AutoRenew bool
+	}
+
+	shellutils.R(&MySQLAutoRenewOptions{}, "mysql-instance-set-auto-renew", "Set Auto Renew for mysql instance", func(cli *qcloud.SRegion, args *MySQLAutoRenewOptions) error {
+		return cli.ModifyMySQLAutoRenewFlag([]string{args.ID}, args.AutoRenew)
+	})
+
 	shellutils.R(&MySQLRenewOptions{}, "mysql-instance-renew", "Renew mysql instance", func(cli *qcloud.SRegion, args *MySQLRenewOptions) error {
 		return cli.RenewMySQLDBInstance(args.ID, args.MONTH)
 	})
