@@ -2513,28 +2513,47 @@ func (manager *SHostManager) totalCountQ(
 		}
 		q = q.Filter(cond(hosts.Field("is_baremetal")))
 	}
+	isolatedDevices := IsolatedDeviceManager.Query().SubQuery()
+	iq := isolatedDevices.Query(
+		isolatedDevices.Field("host_id"),
+		isolatedDevices.Field("reserved_memory", "isolated_reserved_memory"),
+		isolatedDevices.Field("reserved_cpu", "isolated_reserved_cpu"),
+		isolatedDevices.Field("reserved_storage", "isolated_reserved_storage"),
+	).IsNullOrEmpty("guest_id").SubQuery()
+	q = q.LeftJoin(iq, sqlchemy.Equals(q.Field("id"), iq.Field("host_id")))
+	q.AppendField(
+		iq.Field("isolated_reserved_memory"),
+		iq.Field("isolated_reserved_cpu"),
+		iq.Field("isolated_reserved_storage"),
+	)
 	q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, providers, brands, cloudEnv, rangeObjs)
 	return q
 }
 
 type HostStat struct {
-	MemSize     int
-	MemReserved int
-	MemCmtbound float32
-	CpuCount    int
-	CpuReserved int
-	CpuCmtbound float32
-	StorageSize int
+	MemSize                 int
+	MemReserved             int
+	MemCmtbound             float32
+	CpuCount                int
+	CpuReserved             int
+	CpuCmtbound             float32
+	StorageSize             int
+	IsolatedReservedMemory  int64
+	IsolatedReservedCpu     int64
+	IsolatedReservedStorage int64
 }
 
 type HostsCountStat struct {
-	StorageSize    int64
-	Count          int64
-	Memory         int64
-	MemoryVirtual  float64
-	MemoryReserved int64
-	CPU            int64
-	CPUVirtual     float64
+	StorageSize             int64
+	Count                   int64
+	Memory                  int64
+	MemoryVirtual           float64
+	MemoryReserved          int64
+	CPU                     int64
+	CPUVirtual              float64
+	IsolatedReservedMemory  int64
+	IsolatedReservedCpu     int64
+	IsolatedReservedStorage int64
 }
 
 func (manager *SHostManager) calculateCount(q *sqlchemy.SQuery) HostsCountStat {
@@ -2548,13 +2567,16 @@ func (manager *SHostManager) calculateCount(q *sqlchemy.SQuery) HostsCountStat {
 		return aSize
 	}
 	var (
-		tStore int64   = 0
-		tCnt   int64   = 0
-		tMem   int64   = 0
-		tVmem  float64 = 0.0
-		rMem   int64   = 0
-		tCPU   int64   = 0
-		tVCPU  float64 = 0.0
+		tStore  int64   = 0
+		tCnt    int64   = 0
+		tMem    int64   = 0
+		tVmem   float64 = 0.0
+		rMem    int64   = 0
+		tCPU    int64   = 0
+		tVCPU   float64 = 0.0
+		irMem   int64   = 0
+		irCpu   int64   = 0
+		irStore int64   = 0
 	)
 	stats := make([]HostStat, 0)
 	err := q.All(&stats)
@@ -2582,15 +2604,21 @@ func (manager *SHostManager) calculateCount(q *sqlchemy.SQuery) HostsCountStat {
 		rMem += int64(stat.MemReserved)
 		tVmem += float64(float32(aMem) * stat.MemCmtbound)
 		tVCPU += float64(float32(aCpu) * stat.CpuCmtbound)
+		irMem += stat.IsolatedReservedMemory
+		irCpu += stat.IsolatedReservedCpu
+		irStore += stat.IsolatedReservedStorage
 	}
 	return HostsCountStat{
-		StorageSize:    tStore,
-		Count:          tCnt,
-		Memory:         tMem,
-		MemoryVirtual:  tVmem,
-		MemoryReserved: rMem,
-		CPU:            tCPU,
-		CPUVirtual:     tVCPU,
+		StorageSize:             tStore,
+		Count:                   tCnt,
+		Memory:                  tMem,
+		MemoryVirtual:           tVmem,
+		MemoryReserved:          rMem,
+		CPU:                     tCPU,
+		CPUVirtual:              tVCPU,
+		IsolatedReservedCpu:     irCpu,
+		IsolatedReservedMemory:  irMem,
+		IsolatedReservedStorage: irStore,
 	}
 }
 
