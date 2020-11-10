@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"regexp"
+	"strconv"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -27,6 +28,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -965,6 +967,61 @@ func (self *SKVMRegionDriver) RequestDeleteSnapshot(ctx context.Context, snapsho
 	return models.GetStorageDriver(storage.StorageType).RequestDeleteSnapshot(ctx, snapshot, task)
 }
 
+func (self *SKVMRegionDriver) RequestDeleteInstanceSnapshot(ctx context.Context, isp *models.SInstanceSnapshot, task taskman.ITask) error {
+	snapshots, err := isp.GetSnapshots()
+	if err != nil {
+		return err
+	}
+	if len(snapshots) == 0 {
+		task.SetStage("OnInstanceSnapshotDelete", nil)
+		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+			return nil, nil
+		})
+		return nil
+	}
+
+	params := jsonutils.NewDict()
+	params.Set("del_snapshot_id", jsonutils.NewString(snapshots[0].Id))
+	task.SetStage("OnKvmSnapshotDelete", params)
+	err = snapshots[0].StartSnapshotDeleteTask(ctx, task.GetUserCred(), false, task.GetTaskId())
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (self *SKVMRegionDriver) RequestResetToInstanceSnapshot(ctx context.Context, guest *models.SGuest, isp *models.SInstanceSnapshot, task taskman.ITask, params *jsonutils.JSONDict) error {
+	disks := guest.GetDisks()
+	diskIndexI64, err := params.Int("disk_index")
+	if err != nil {
+		return errors.Wrap(err, "get 'disk_index' from params")
+	}
+	diskIndex := int(diskIndexI64)
+	if diskIndex >= len(disks) {
+		task.SetStage("OnInstanceSnapshotReset", nil)
+		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+			return nil, nil
+		})
+		return nil
+	}
+
+	isj, err := isp.GetInstanceSnapshotJointAt(diskIndex)
+	if err != nil {
+		return err
+	}
+
+	params = jsonutils.NewDict()
+	params.Set("disk_index", jsonutils.NewInt(int64(diskIndex)))
+	task.SetStage("OnKvmDiskReset", params)
+
+	disk := disks[diskIndex].GetDisk()
+	err = disk.StartResetDisk(ctx, task.GetUserCred(), isj.SnapshotId, false, guest, task.GetTaskId())
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (self *SKVMRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SnapshotCreateInput) error {
 	host := storage.GetMasterHost()
 	if host == nil {
@@ -979,6 +1036,53 @@ func (self *SKVMRegionDriver) RequestCreateSnapshot(ctx context.Context, snapsho
 		return httperrors.NewInternalServerError("Kvm snapshot missing storage ??")
 	}
 	return models.GetStorageDriver(storage.StorageType).RequestCreateSnapshot(ctx, snapshot, task)
+}
+
+func (self *SKVMRegionDriver) RequestCreateInstanceSnapshot(ctx context.Context, guest *models.SGuest, isp *models.SInstanceSnapshot, task taskman.ITask, params *jsonutils.JSONDict) error {
+	disks := guest.GetDisks()
+	diskIndexI64, err := params.Int("disk_index")
+	if err != nil {
+		return errors.Wrap(err, "get 'disk_index' from params")
+	}
+	diskIndex := int(diskIndexI64)
+	if diskIndex >= len(disks) {
+		task.SetStage("OnInstanceSnapshot", nil)
+		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+			return nil, nil
+		})
+		return nil
+	}
+
+	lockman.LockClass(ctx, models.SnapshotManager, task.GetUserCred().GetProjectId())
+	defer lockman.ReleaseClass(ctx, models.SnapshotManager, task.GetUserCred().GetProjectId())
+
+	snapshotName, err := db.GenerateName(models.SnapshotManager, task.GetUserCred(),
+		fmt.Sprintf("%s-%s", isp.Name, rand.String(8)))
+	if err != nil {
+		return errors.Wrap(err, "Generate snapshot name")
+	}
+
+	snapshot, err := models.SnapshotManager.CreateSnapshot(
+		ctx, task.GetUserCred(), api.SNAPSHOT_MANUAL, disks[diskIndex].DiskId,
+		guest.Id, "", snapshotName, -1)
+	if err != nil {
+		return err
+	}
+
+	err = models.InstanceSnapshotJointManager.CreateJoint(ctx, isp.Id, snapshot.Id, int8(diskIndex))
+	if err != nil {
+		return err
+	}
+
+	params = jsonutils.NewDict()
+	params.Set("disk_index", jsonutils.NewInt(int64(diskIndex)))
+	params.Set(strconv.Itoa(diskIndex), jsonutils.NewString(snapshot.Id))
+	task.SetStage("OnKvmDiskSnapshot", params)
+
+	if err := snapshot.StartSnapshotCreateTask(ctx, task.GetUserCred(), nil, task.GetTaskId()); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (self *SKVMRegionDriver) SnapshotIsOutOfChain(disk *models.SDisk) bool {

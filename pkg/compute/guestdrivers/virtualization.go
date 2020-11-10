@@ -174,7 +174,7 @@ func (self *SVirtualizedGuestDriver) GetStorageTypes() []string {
 	return nil
 }
 
-func (self *SVirtualizedGuestDriver) ChooseHostStorage(host *models.SHost, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
+func (self *SVirtualizedGuestDriver) ChooseHostStorage(host *models.SHost, guest *models.SGuest, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
 	if len(storageIds) == 0 {
 		return host.GetLeastUsedStorage(diskConfig.Backend), nil
 	}

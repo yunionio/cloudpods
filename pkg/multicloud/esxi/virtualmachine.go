@@ -24,6 +24,7 @@ import (
 
 	"github.com/vmware/govmomi/nfc"
 	"github.com/vmware/govmomi/object"
+	"github.com/vmware/govmomi/vim25/methods"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
@@ -48,18 +49,19 @@ import (
 	"yunion.io/x/onecloud/pkg/util/version"
 )
 
-var VIRTUAL_MACHINE_PROPS = []string{"name", "parent", "runtime", "summary", "config", "guest", "resourcePool", "layoutEx"}
+var VIRTUAL_MACHINE_PROPS = []string{"name", "parent", "runtime", "summary", "config", "guest", "resourcePool", "layoutEx", "snapshot"}
 
 type SVirtualMachine struct {
 	multicloud.SInstanceBase
 	SManagedObject
 
-	vnics  []SVirtualNIC
-	vdisks []SVirtualDisk
-	vga    SVirtualVGA
-	cdroms []SVirtualCdrom
-	devs   map[int32]SVirtualDevice
-	ihost  cloudprovider.ICloudHost
+	vnics     []SVirtualNIC
+	vdisks    []SVirtualDisk
+	vga       SVirtualVGA
+	cdroms    []SVirtualCdrom
+	devs      map[int32]SVirtualDevice
+	ihost     cloudprovider.ICloudHost
+	snapshots []SVirtualMachineSnapshot
 
 	guestIps map[string]string
 }
@@ -253,7 +255,7 @@ func (self *SVirtualMachine) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 
 func (self *SVirtualMachine) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {
 	for i := 0; i < len(self.vdisks); i += 1 {
-		if self.vdisks[i].GetGlobalId() == idStr {
+		if self.vdisks[i].MatchId(idStr) {
 			return &self.vdisks[i], nil
 		}
 	}
@@ -1356,4 +1358,90 @@ func (self *SVirtualMachine) IsTemplate() bool {
 		return true
 	}
 	return movm.Config != nil && movm.Config.Template
+}
+
+func (self *SVirtualMachine) fetchSnapshots() {
+	movm := self.getVirtualMachine()
+	if movm.Snapshot == nil {
+		return
+	}
+	self.snapshots = self.extractSnapshots(movm.Snapshot.RootSnapshotList, make([]SVirtualMachineSnapshot, 0, len(movm.Snapshot.RootSnapshotList)))
+}
+
+func (self *SVirtualMachine) extractSnapshots(tree []types.VirtualMachineSnapshotTree, snapshots []SVirtualMachineSnapshot) []SVirtualMachineSnapshot {
+	for i := range tree {
+		snapshots = append(snapshots, SVirtualMachineSnapshot{
+			snapshotTree: tree[i],
+			vm:           self,
+		})
+		snapshots = self.extractSnapshots(tree[i].ChildSnapshotList, snapshots)
+	}
+	return snapshots
+}
+
+func (self *SVirtualMachine) GetInstanceSnapshots() ([]cloudprovider.ICloudInstanceSnapshot, error) {
+	if self.snapshots == nil {
+		self.fetchSnapshots()
+	}
+	ret := make([]cloudprovider.ICloudInstanceSnapshot, 0, len(self.snapshots))
+	for i := range self.snapshots {
+		ret = append(ret, &self.snapshots[i])
+	}
+	return ret, nil
+}
+
+func (self *SVirtualMachine) GetInstanceSnapshot(idStr string) (cloudprovider.ICloudInstanceSnapshot, error) {
+	if self.snapshots == nil {
+		self.fetchSnapshots()
+	}
+	for i := range self.snapshots {
+		if self.snapshots[i].GetGlobalId() == idStr {
+			// copyone
+			sp := self.snapshots[i]
+			return &sp, nil
+		}
+	}
+	return nil, errors.ErrNotFound
+}
+
+func (self *SVirtualMachine) CreateInstanceSnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudInstanceSnapshot, error) {
+	ovm := self.getVmObj()
+	task, err := ovm.CreateSnapshot(ctx, name, desc, false, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "CreateSnapshot")
+	}
+	info, err := task.WaitForResult(ctx, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "task.Wait")
+	}
+	sp := info.Result.(types.ManagedObjectReference)
+	err = self.Refresh()
+	if err != nil {
+		return nil, errors.Wrap(err, "create successfully")
+	}
+	self.fetchSnapshots()
+	for i := range self.snapshots {
+		if self.snapshots[i].snapshotTree.Snapshot == sp {
+			// copyone
+			sp := self.snapshots[i]
+			return &sp, nil
+		}
+	}
+	return nil, errors.Wrap(errors.ErrNotFound, "create successfully")
+}
+
+func (self *SVirtualMachine) ResetToInstanceSnapshot(ctx context.Context, idStr string) error {
+	cloudIsp, err := self.GetInstanceSnapshot(idStr)
+	if err != nil {
+		return errors.Wrap(err, "GetInstanceSnapshot")
+	}
+	isp := cloudIsp.(*SVirtualMachineSnapshot)
+	req := types.RevertToSnapshot_Task{
+		This: isp.snapshotTree.Snapshot.Reference(),
+	}
+	res, err := methods.RevertToSnapshot_Task(ctx, self.manager.client.Client, &req)
+	if err != nil {
+		return errors.Wrap(err, "RevertToSnapshot_Task")
+	}
+	return object.NewTask(self.manager.client.Client, res.Returnval).Wait(ctx)
 }
