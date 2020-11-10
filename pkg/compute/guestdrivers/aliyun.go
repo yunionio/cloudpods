@@ -77,7 +77,7 @@ func (self *SAliyunGuestDriver) GetStorageTypes() []string {
 	}
 }
 
-func (self *SAliyunGuestDriver) ChooseHostStorage(host *models.SHost, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
+func (self *SAliyunGuestDriver) ChooseHostStorage(host *models.SHost, guest *models.SGuest, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
 	return self.chooseHostStorage(self, host, diskConfig.Backend, storageIds), nil
 }
 

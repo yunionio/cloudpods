@@ -74,7 +74,7 @@ type IGuestDriver interface {
 	GetRandomNetworkTypes() []string
 
 	GetStorageTypes() []string
-	ChooseHostStorage(host *SHost, diskConfig *api.DiskConfig, storageIds []string) (*SStorage, error)
+	ChooseHostStorage(host *SHost, guest *SGuest, diskConfig *api.DiskConfig, storageIds []string) (*SStorage, error)
 
 	StartGuestCreateTask(guest *SGuest, ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, pendingUsage quotas.IQuota, parentTaskId string) error
 
@@ -142,6 +142,8 @@ type IGuestDriver interface {
 	IsNeedRestartForResetLoginInfo() bool
 	IsRebuildRootSupportChangeImage() bool
 	IsRebuildRootSupportChangeUEFI() bool
+
+	ValidateRebuildRoot(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, input *api.ServerRebuildRootInput) (*api.ServerRebuildRootInput, error)
 
 	IsSupportdDcryptPasswordFromSecretKey() bool
 

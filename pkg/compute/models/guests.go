@@ -1199,7 +1199,9 @@ func (manager *SGuestManager) validateCreateData(
 		return nil, err
 	}
 
-	if input.Hypervisor != api.HYPERVISOR_KVM && len(input.Disks[0].ImageId) == 0 && len(input.Disks[0].SnapshotId) == 0 && input.Cdrom == "" {
+	optionSystemHypervisor := []string{api.HYPERVISOR_KVM, api.HYPERVISOR_ESXI}
+
+	if !utils.IsInStringArray(input.Hypervisor, optionSystemHypervisor) && len(input.Disks[0].ImageId) == 0 && len(input.Disks[0].SnapshotId) == 0 && input.Cdrom == "" {
 		return nil, httperrors.NewBadRequestError("Miss operating system???")
 	}
 
@@ -3458,9 +3460,9 @@ func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.T
 
 func (self *SGuest) ChooseHostStorage(host *SHost, diskConfig *api.DiskConfig, candidate *schedapi.CandidateDisk) (*SStorage, error) {
 	if candidate == nil || len(candidate.StorageIds) == 0 {
-		return self.GetDriver().ChooseHostStorage(host, diskConfig, nil)
+		return self.GetDriver().ChooseHostStorage(host, nil, diskConfig, nil)
 	}
-	return self.GetDriver().ChooseHostStorage(host, diskConfig, candidate.StorageIds)
+	return self.GetDriver().ChooseHostStorage(host, nil, diskConfig, candidate.StorageIds)
 }
 
 func (self *SGuest) createDiskOnHost(
@@ -5317,6 +5319,11 @@ func (self *SGuest) GetInstanceSnapshots() ([]SInstanceSnapshot, error) {
 		return nil, err
 	}
 	return instanceSnapshots, nil
+}
+
+func (self *SGuest) GetInstanceSnapshotCount() (int, error) {
+	q := InstanceSnapshotManager.Query().Equals("guest_id", self.Id)
+	return q.CountWithError()
 }
 
 func (self *SGuest) GetDiskSnapshotsNotInInstanceSnapshots() ([]SSnapshot, error) {

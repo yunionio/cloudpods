@@ -91,7 +91,7 @@ func (self *SOpenStackGuestDriver) GetStorageTypes() []string {
 	return storages
 }
 
-func (self *SOpenStackGuestDriver) ChooseHostStorage(host *models.SHost, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
+func (self *SOpenStackGuestDriver) ChooseHostStorage(host *models.SHost, guest *models.SGuest, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
 	return self.chooseHostStorage(self, host, diskConfig.Backend, storageIds), nil
 }
 
