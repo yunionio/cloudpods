@@ -60,7 +60,7 @@ func (self *SAwsRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.Secu
 }
 
 func (self *SAwsRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.SecurityRule {
-	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:allow any")}
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:deny any")}
 }
 
 func (self *SAwsRegionDriver) GetSecurityGroupRuleMaxPriority() int {
