@@ -1392,6 +1392,10 @@ func (self *SQcloudRegionDriver) IsSupportedDBInstance() bool {
 	return true
 }
 
+func (self *SQcloudRegionDriver) IsSupportedDBInstanceAutoRenew() bool {
+	return true
+}
+
 func (self *SQcloudRegionDriver) GetRdsSupportSecgroupCount() int {
 	return 5
 }

@@ -357,3 +357,8 @@ type DBInstanceNetworkListInput struct {
 
 	NetworkFilterListInput
 }
+
+type DBInstanceAutoRenewInput struct {
+	// 是否自动续费
+	AutoRenew bool `json:"auto_renew"`
+}
