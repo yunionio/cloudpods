@@ -28,7 +28,7 @@ import (
 )
 
 type DBInstanceSetAutoRenewTask struct {
-	taskman.ITask
+	taskman.STask
 }
 
 func init() {
