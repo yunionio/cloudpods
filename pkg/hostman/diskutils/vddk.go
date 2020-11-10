@@ -423,6 +423,10 @@ func (vd *VDDKDisk) DisconnectBlockDevice() error {
 	return fmt.Errorf("vddk disk has not connected")
 }
 
+func (vd *VDDKDisk) ResizePartition() error {
+	return vd.kvmDisk.ResizePartition()
+}
+
 type VDDKPartition struct {
 	*guestfs.SLocalGuestFS
 }
