@@ -2234,9 +2234,9 @@ func (self *SElasticcache) StartSetAutoRenewTask(ctx context.Context, userCred m
 
 	data := jsonutils.NewDict()
 	data.Set("auto_renew", jsonutils.NewBool(autoRenew))
-	task, err := taskman.TaskManager.NewTask(ctx, "ElasticcacheRenewTask", self, userCred, data, parentTaskId, "", nil)
+	task, err := taskman.TaskManager.NewTask(ctx, "ElasticcacheSetAutoRenewTask", self, userCred, data, parentTaskId, "", nil)
 	if err != nil {
-		return errors.Wrap(err, "ElasticcacheRenewTask")
+		return errors.Wrap(err, "ElasticcacheSetAutoRenewTask")
 	}
 	task.ScheduleRun(nil)
 	return nil
