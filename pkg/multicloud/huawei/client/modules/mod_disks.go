@@ -15,6 +15,9 @@
 package modules
 
 import (
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/responses"
 )
@@ -39,4 +42,27 @@ func NewDiskManager(regionId string, projectId string, signer auth.Signer, debug
 
 func (self *SDiskManager) List(querys map[string]string) (*responses.ListResult, error) {
 	return self.ListInContextWithSpec(nil, "detail", querys, self.KeywordPlural)
+}
+
+// https://support.huaweicloud.com/api-evs/evs_04_2003.html
+func (self *SDiskManager) AsyncCreate(params jsonutils.JSONObject) (string, error) {
+	origin_version := self.version
+	self.version = "v2.1"
+	defer func() { self.version = origin_version }()
+
+	ret, err := self.CreateInContextWithSpec(nil, "", params, "")
+	if err != nil {
+		log.Debugf("AsyncCreate %s", err)
+		return "", err
+	}
+
+	log.Debugf("AsyncCreate result %s", ret.String())
+	// 按需机器
+	jobId, err := ret.GetString("job_id")
+	if err == nil {
+		return jobId, nil
+	}
+
+	// 包年包月机器
+	return ret.GetString("order_id")
 }
