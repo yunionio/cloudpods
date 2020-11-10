@@ -1496,6 +1496,7 @@ func (self *SQcloudRegionDriver) ValidateCreateElasticcacheData(ctx context.Cont
 	err := data.Unmarshal(&secgroups, "secgroup_ids")
 	if err != nil {
 		log.Debugf("Unmarshal.security_groups %s", err)
+		data.Set("secgroup_ids", jsonutils.NewArray(jsonutils.NewString(api.SECGROUP_DEFAULT_ID)))
 		secgroups = []string{api.SECGROUP_DEFAULT_ID}
 	}
 
