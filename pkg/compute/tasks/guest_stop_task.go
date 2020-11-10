@@ -69,7 +69,7 @@ func (self *GuestStopTask) OnGuestStopTaskComplete(ctx context.Context, guest *m
 	if guest.Status == api.VM_READY && guest.DisableDelete.IsFalse() && guest.ShutdownBehavior == api.SHUTDOWN_TERMINATE {
 		guest.StartAutoDeleteGuestTask(ctx, self.UserCred, "")
 	}
-	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_STOP, "", self.UserCred, true)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_STOP, "success", self.UserCred, true)
 }
 
 func (self *GuestStopTask) OnGuestStopTaskCompleteFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
