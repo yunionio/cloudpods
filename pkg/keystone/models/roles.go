@@ -552,6 +552,9 @@ func (role *SRole) AllowPerformSetPolicies(ctx context.Context, userCred mcclien
 }
 
 func (role *SRole) PerformSetPolicies(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.RolePerformSetPoliciesInput) (jsonutils.JSONObject, error) {
+	if len(input.Action) == 0 {
+		input.Action = api.ROLE_SET_POLICY_ACTION_DEFAULT
+	}
 	normalInputIds := stringutils2.NewSortedStrings(nil)
 	normalInputs := make(map[string]sRolePerformAddPolicyInput, len(input.Policies))
 	for i := range input.Policies {
@@ -585,11 +588,13 @@ func (role *SRole) PerformSetPolicies(ctx context.Context, userCred mcclient.Tok
 
 	addedIds, updatedIds, deletedIds := stringutils2.Split(normalInputIds, existRpIds)
 
-	for _, idstr := range deletedIds {
-		toDel := existRpMap[idstr]
-		err := RolePolicyManager.deleteRecord(ctx, toDel.RoleId, toDel.ProjectId, toDel.PolicyId)
-		if err != nil {
-			return nil, errors.Wrap(err, "RolePolicyManager.deleteRecord")
+	if input.Action == api.ROLE_SET_POLICY_ACTION_REPLACE {
+		for _, idstr := range deletedIds {
+			toDel := existRpMap[idstr]
+			err := RolePolicyManager.deleteRecord(ctx, toDel.RoleId, toDel.ProjectId, toDel.PolicyId)
+			if err != nil {
+				return nil, errors.Wrap(err, "RolePolicyManager.deleteRecord")
+			}
 		}
 	}
 
