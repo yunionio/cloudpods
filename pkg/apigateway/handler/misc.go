@@ -383,7 +383,9 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 			return
 		} else {
 			names[name+"/"+domainId] = true
-			_, err := modules.UsersV3.Get(s, name, nil)
+			params := jsonutils.NewDict()
+			params.Set("domain_id", jsonutils.NewString(domainId))
+			_, err := modules.UsersV3.Get(s, name, params)
 			if err == nil {
 				continue
 			}
