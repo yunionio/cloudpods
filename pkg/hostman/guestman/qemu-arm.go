@@ -258,7 +258,8 @@ func (s *SKVMGuestInstance) generateArmStartScript(data *jsonutils.JSONDict) (st
 	if cdrom != nil && cdrom.Contains("path") {
 		cdromPath, _ := cdrom.GetString("path")
 		if len(cdromPath) > 0 {
-			cmd += fmt.Sprintf("-cdrom %s", cdromPath)
+			cmd += " -device virtio-scsi-device -device scsi-cd,drive=cd0,share-rw=true"
+			cmd += fmt.Sprintf(" -drive if=none,file=%s,id=cd0,media=cdrom", cdromPath)
 		}
 	}
 
