@@ -41,6 +41,7 @@ const (
 	APP_CONTEXT_KEY_OBJECT_ID       = AppContextKey("objectid")
 	APP_CONTEXT_KEY_OBJECT_TYPE     = AppContextKey("objecttype")
 	APP_CONTEXT_KEY_START_TIME      = AppContextKey("starttime")
+	APP_CONTEXT_KEY_TASKNAME        = AppContextKey("taskname")
 
 	APP_CONTEXT_KEY_HOST_ID = AppContextKey("hostid")
 
