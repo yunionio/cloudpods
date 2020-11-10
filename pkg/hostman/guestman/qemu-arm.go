@@ -258,7 +258,7 @@ func (s *SKVMGuestInstance) generateArmStartScript(data *jsonutils.JSONDict) (st
 	if cdrom != nil && cdrom.Contains("path") {
 		cdromPath, _ := cdrom.GetString("path")
 		if len(cdromPath) > 0 {
-			cmd += fmt.Sprintf("-cdrom %s", cdromPath)
+			cmd += fmt.Sprintf(" -cdrom %s", cdromPath)
 		}
 	}
 
