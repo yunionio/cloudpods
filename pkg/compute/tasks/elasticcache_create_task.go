@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -59,13 +58,15 @@ func (self *ElasticcacheCreateTask) OnInit(ctx context.Context, obj db.IStandalo
 		secgroups := []string{}
 		err := self.GetParams().Unmarshal(&secgroups, "secgroup_ids")
 		if err != nil {
-			self.taskFail(ctx, elasticcache, jsonutils.Marshal(errors.Wrap(err, "Unmarshal.secgroup_ids")))
+			notes := fmt.Sprintf("Unmarshal.secgroup_ids %s", err)
+			self.taskFail(ctx, elasticcache, jsonutils.NewString(notes))
 			return
 		}
 		secgroupInput := api.ElasticcacheSecgroupsInput{SecgroupIds: secgroups}
 		_, err = elasticcache.ProcessElasticcacheSecgroupsInput(ctx, self.UserCred, "set", &secgroupInput)
 		if err != nil {
-			self.taskFail(ctx, elasticcache, jsonutils.Marshal(errors.Wrap(err, "ProcessElasticcacheSecgroupsInput")))
+			notes := fmt.Sprintf("ProcessElasticcacheSecgroupsInput %s", err)
+			self.taskFail(ctx, elasticcache, jsonutils.NewString(notes))
 			return
 		}
 
