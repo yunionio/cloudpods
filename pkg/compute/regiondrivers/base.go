@@ -364,6 +364,10 @@ func (self *SBaseRegionDriver) IsSupportedDBInstance() bool {
 	return false
 }
 
+func (self *SBaseRegionDriver) IsSupportedDBInstanceAutoRenew() bool {
+	return false
+}
+
 func (self *SBaseRegionDriver) IsSupportedElasticcache() bool {
 	return false
 }

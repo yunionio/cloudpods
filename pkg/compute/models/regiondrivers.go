@@ -162,6 +162,7 @@ type IDBInstanceDriver interface {
 	RequestChangeDBInstanceConfig(ctx context.Context, userCred mcclient.TokenCredential, instance *SDBInstance, task taskman.ITask) error
 
 	IsSupportedDBInstance() bool
+	IsSupportedDBInstanceAutoRenew() bool
 	IsSupportDBInstancePublicConnection() bool
 	IsSupportKeepDBInstanceManualBackup() bool
 

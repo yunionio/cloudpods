@@ -16,24 +16,26 @@ package compute
 
 const (
 	//实例状态
-	DBINSTANCE_INIT              = "init"              //初始化
-	DBINSTANCE_DEPLOYING         = "deploying"         //部署中
-	DBINSTANCE_RUNNING           = "running"           //运行中
-	DBINSTANCE_REBOOTING         = "rebooting"         //重启中
-	DBINSTANCE_MIGRATING         = "migrating"         //迁移中
-	DBINSTANCE_BACKING_UP        = "backing_up"        //备份中
-	DBINSTANCE_BACKING_UP_FAILED = "backing_up_failed" //备份失败
-	DBINSTANCE_RESTORING         = "restoring"         //备份恢复中
-	DBINSTANCE_RESTORE_FAILED    = "restore_failed"
-	DBINSTANCE_IMPORTING         = "importing"     //数据导入中
-	DBINSTANCE_CLONING           = "cloning"       //克隆中
-	DBINSTANCE_DELETING          = "deleting"      //删除中
-	DBINSTANCE_DELETE_FAILED     = "delete_failed" //删除失败
-	DBINSTANCE_MAINTENANCE       = "maintenance"   //维护中
-	DBINSTANCE_ISOLATING         = "isolating"     //隔离中
-	DBINSTANCE_ISOLATE           = "isolate"       //已隔离
-	DBINSTANCE_UPGRADING         = "upgrading"     //升级中
-	DBINSTANCE_UNKNOWN           = "unknown"
+	DBINSTANCE_INIT                  = "init"              //初始化
+	DBINSTANCE_DEPLOYING             = "deploying"         //部署中
+	DBINSTANCE_RUNNING               = "running"           //运行中
+	DBINSTANCE_REBOOTING             = "rebooting"         //重启中
+	DBINSTANCE_MIGRATING             = "migrating"         //迁移中
+	DBINSTANCE_BACKING_UP            = "backing_up"        //备份中
+	DBINSTANCE_BACKING_UP_FAILED     = "backing_up_failed" //备份失败
+	DBINSTANCE_RESTORING             = "restoring"         //备份恢复中
+	DBINSTANCE_RESTORE_FAILED        = "restore_failed"
+	DBINSTANCE_IMPORTING             = "importing"             //数据导入中
+	DBINSTANCE_CLONING               = "cloning"               //克隆中
+	DBINSTANCE_DELETING              = "deleting"              //删除中
+	DBINSTANCE_DELETE_FAILED         = "delete_failed"         //删除失败
+	DBINSTANCE_MAINTENANCE           = "maintenance"           //维护中
+	DBINSTANCE_ISOLATING             = "isolating"             //隔离中
+	DBINSTANCE_ISOLATE               = "isolate"               //已隔离
+	DBINSTANCE_UPGRADING             = "upgrading"             //升级中
+	DBINSTANCE_SET_AUTO_RENEW        = "set_auto_renew"        //设置自动续费中
+	DBINSTANCE_SET_AUTO_RENEW_FAILED = "set_auto_renew_failed" //设置自动续费失败
+	DBINSTANCE_UNKNOWN               = "unknown"
 
 	DBINSTANCE_CHANGE_CONFIG        = "change_config"        //调整配置
 	DBINSTANCE_CHANGE_CONFIG_FAILED = "change_config_failed" //调整配置失败
