@@ -47,9 +47,20 @@ type RolePolicyDetails struct {
 	Scope rbacutils.TRbacScope `json:"scope"`
 
 	Description string `json:"description"`
+
+	SRolePolicy
 }
 
+const (
+	ROLE_SET_POLICY_ACTION_REPLACE = "replace"
+	ROLE_SET_POLICY_ACTION_UPDATE  = "update"
+	ROLE_SET_POLICY_ACTION_DEFAULT = ROLE_SET_POLICY_ACTION_REPLACE
+)
+
 type RolePerformSetPoliciesInput struct {
+	// 操作：replace|update, 默认为replace
+	Action string `json:"action"`
+	// 权限列表
 	Policies []RolePerformAddPolicyInput `json:"policies"`
 }
 

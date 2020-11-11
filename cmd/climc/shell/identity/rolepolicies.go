@@ -60,4 +60,29 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type RoleSetPolicyOptions struct {
+		ID string `json:"-" help:"role id or name to set policies"`
+		api.RolePerformSetPoliciesInput
+	}
+	R(&RoleSetPolicyOptions{}, "role-set-policies", "Set policies for a role", func(s *mcclient.ClientSession, args *RoleSetPolicyOptions) error {
+		result, err := modules.RolesV3.PerformAction(s, args.ID, "set-policies", jsonutils.Marshal(args))
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type RolePolicyDeleteOptions struct {
+		ID string `json:"-" help:"id or role policy binding"`
+	}
+	R(&RolePolicyDeleteOptions{}, "role-policy-delete", "Delete role policy binding", func(s *mcclient.ClientSession, args *RolePolicyDeleteOptions) error {
+		result, err := modules.RolePolicies.Delete(s, args.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }
