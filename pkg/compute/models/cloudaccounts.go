@@ -2413,8 +2413,10 @@ func (account *SCloudaccount) probeAccountStatus(ctx context.Context, userCred m
 		case cloudprovider.ErrNoBalancePermission:
 			status = api.CLOUD_PROVIDER_HEALTH_NO_PERMISSION
 		default:
-			log.Errorf("manager.GetBalance %s fail %s", account.Name, err)
 			status = api.CLOUD_PROVIDER_HEALTH_UNKNOWN
+			if account.Status != status {
+				logclient.AddSimpleActionLog(account, logclient.ACT_PROBE, errors.Wrapf(err, "GetBalance"), userCred, false)
+			}
 		}
 	}
 	version := manager.GetVersion()
