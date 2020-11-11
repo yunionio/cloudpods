@@ -712,6 +712,9 @@ func hostUsage(
 	count[fmt.Sprintf("%s.memory.virtual", prefix)] = result.MemoryVirtual
 	count[fmt.Sprintf("%s.cpu.virtual", prefix)] = result.CPUVirtual
 	count[fmt.Sprintf("%s.memory.reserved", prefix)] = result.MemoryReserved
+	count[fmt.Sprintf("%s.memory.reserved.isolated", prefix)] = result.IsolatedReservedMemory
+	count[fmt.Sprintf("%s.cpu.reserved.isolated", prefix)] = result.IsolatedReservedCpu
+	count[fmt.Sprintf("%s.storage.reserved.isolated", prefix)] = result.IsolatedReservedStorage
 
 	return count
 }
