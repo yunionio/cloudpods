@@ -195,17 +195,51 @@ func (manager *SGuestnetworkManager) GenerateMac(netId string, suggestion string
 	return "", fmt.Errorf("maximal retry reached")
 }
 
+type newGuestNetworkArgs struct {
+	guest   *SGuest
+	network *SNetwork
+
+	index int8
+
+	ipAddr              string
+	allocDir            api.IPAllocationDirection
+	tryReserved         bool
+	requireDesignatedIP bool
+	useDesignatedIP     bool
+
+	ifname      string
+	macAddr     string
+	bwLimit     int
+	nicDriver   string
+	teamWithMac string
+
+	virtual bool
+}
+
 func (manager *SGuestnetworkManager) newGuestNetwork(
-	ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, network *SNetwork,
-	index int8, address string, mac string, driver string, bwLimit int,
-	virtual bool, reserved bool,
-	allocDir api.IPAllocationDirection,
-	requiredDesignatedIp bool,
-	reUseAddr bool,
-	ifname string, teamWithMac string,
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	args newGuestNetworkArgs,
 ) (*SGuestnetwork, error) {
 	gn := SGuestnetwork{}
 	gn.SetModelManager(GuestnetworkManager, &gn)
+
+	var (
+		guest                = args.guest
+		network              = args.network
+		index                = args.index
+		address              = args.ipAddr
+		mac                  = args.macAddr
+		driver               = args.nicDriver
+		bwLimit              = args.bwLimit
+		virtual              = args.virtual
+		reserved             = args.tryReserved
+		allocDir             = args.allocDir
+		requiredDesignatedIp = args.requireDesignatedIP
+		reUseAddr            = args.useDesignatedIP
+		ifname               = args.ifname
+		teamWithMac          = args.teamWithMac
+	)
 
 	gn.GuestId = guest.Id
 	gn.NetworkId = network.Id

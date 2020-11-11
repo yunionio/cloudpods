@@ -166,7 +166,18 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 		}
 		nicConfs = append(nicConfs, nicConf)
 	}
-	gn, err := guest.Attach2Network(ctx, userCred, selNet, pendingUsage, netConfig.Address, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, netConfig.Reserved, api.IPAllocationDefault, netConfig.RequireDesignatedIP, false, nicConfs)
+	gn, err := guest.Attach2Network(ctx, userCred, models.Attach2NetworkArgs{
+		Network:             selNet,
+		PendingUsage:        pendingUsage,
+		IpAddr:              netConfig.Address,
+		NicDriver:           netConfig.Driver,
+		BwLimit:             netConfig.BwLimit,
+		Virtual:             netConfig.Vip,
+		TryReserved:         netConfig.Reserved,
+		AllocDir:            api.IPAllocationDefault,
+		RequireDesignatedIP: netConfig.RequireDesignatedIP,
+		NicConfs:            nicConfs,
+	})
 	return gn, err
 }
 
