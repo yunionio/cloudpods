@@ -162,7 +162,6 @@ type IDBInstanceDriver interface {
 
 	RequestCreateDBInstance(ctx context.Context, userCred mcclient.TokenCredential, dbinstance *SDBInstance, task taskman.ITask) error
 	RequestCreateDBInstanceBackup(ctx context.Context, userCred mcclient.TokenCredential, instance *SDBInstance, backup *SDBInstanceBackup, task taskman.ITask) error
-	RequestRenewDBInstance(instance *SDBInstance, bc billing.SBillingCycle) (time.Time, error)
 	RequestChangeDBInstanceConfig(ctx context.Context, userCred mcclient.TokenCredential, instance *SDBInstance, task taskman.ITask) error
 
 	IsSupportedDBInstance() bool
