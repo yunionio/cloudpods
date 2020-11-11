@@ -401,7 +401,14 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 }
 
 func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
-	return self.host.zone.region.UpdateVM(self.InstanceId, name)
+	addTags := map[string]string{}
+	addTags["Name"] = name
+	Arn := self.GetArn()
+	err := self.host.zone.region.TagResources([]string{Arn}, addTags)
+	if err != nil {
+		return errors.Wrapf(err, "self.host.zone.region.TagResources([]string{%s}, %s)", Arn, jsonutils.Marshal(addTags).String())
+	}
+	return nil
 }
 
 func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
@@ -1140,4 +1147,71 @@ func (self *SInstance) GetProjectId() string {
 
 func (self *SInstance) GetError() error {
 	return nil
+}
+
+func (self *SInstance) SetMetadata(tags map[string]string, replace bool) error {
+	oldTagsJson, err := FetchTags(self.host.zone.region.ec2Client, self.InstanceId)
+	if err != nil {
+		return errors.Wrapf(err, "FetchTags(self.host.zone.region.ec2Client, %s)", self.InstanceId)
+	}
+	oldTags := map[string]string{}
+	err = oldTagsJson.Unmarshal(oldTags)
+	if err != nil {
+		return errors.Wrapf(err, "(%s).Unmarshal(oldTags)", oldTagsJson.String())
+	}
+	addTags := map[string]string{}
+	for k, v := range tags {
+		if strings.HasPrefix(k, "aws:") {
+			return errors.Wrap(cloudprovider.ErrNotSupported, "The aws: prefix is reserved for AWS use")
+		}
+		if _, ok := oldTags[k]; !ok {
+			addTags[k] = v
+		} else {
+			if oldTags[k] != v {
+				addTags[k] = v
+			}
+		}
+	}
+	delTags := []string{}
+	if replace {
+		for k := range oldTags {
+			if _, ok := tags[k]; !ok {
+				if !strings.HasPrefix(k, "aws:") {
+					delTags = append(delTags, k)
+				}
+			}
+		}
+	}
+	Arn := self.GetArn()
+	err = self.host.zone.region.UntagResources([]string{Arn}, delTags)
+	if err != nil {
+		return errors.Wrapf(err, "self.host.zone.region.UntagResources([]string{%s}, %s)", Arn, jsonutils.Marshal(delTags).String())
+	}
+	err = self.host.zone.region.TagResources([]string{Arn}, addTags)
+	if err != nil {
+		return errors.Wrapf(err, "self.host.zone.region.TagResources([]string{%s}, %s)", Arn, jsonutils.Marshal(addTags).String())
+	}
+	return nil
+}
+
+func (self *SInstance) GetAccountId() string {
+	identity, err := self.host.zone.region.client.GetCallerIdentity()
+	if err != nil {
+		log.Errorf(err.Error() + "self.region.client.GetCallerIdentity()")
+		return ""
+	}
+	return identity.Account
+}
+
+func (self *SInstance) GetArn() string {
+	partition := ""
+	switch self.host.zone.region.client.GetAccessEnv() {
+	case api.CLOUD_ACCESS_ENV_AWS_GLOBAL:
+		partition = "aws"
+	case api.CLOUD_ACCESS_ENV_AWS_CHINA:
+		partition = "aws-cn"
+	default:
+		partition = "aws"
+	}
+	return fmt.Sprintf("arn:%s:ec2:%s:%s:instance/%s", partition, self.host.zone.region.GetId(), self.GetAccountId(), self.InstanceId)
 }

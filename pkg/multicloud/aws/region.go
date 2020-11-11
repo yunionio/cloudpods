@@ -36,6 +36,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 	"github.com/aws/aws-sdk-go/service/s3"
 
 	"yunion.io/x/jsonutils"
@@ -95,12 +96,13 @@ const (
 type SRegion struct {
 	multicloud.SRegion
 
-	client      *SAwsClient
-	ec2Client   *ec2.EC2
-	iamClient   *iam.IAM
-	s3Client    *s3.S3
-	elbv2Client *elbv2.ELBV2
-	acmClient   *acm.ACM
+	client                 *SAwsClient
+	ec2Client              *ec2.EC2
+	iamClient              *iam.IAM
+	s3Client               *s3.S3
+	elbv2Client            *elbv2.ELBV2
+	acmClient              *acm.ACM
+	resourceGroupTagClient *resourcegroupstaggingapi.ResourceGroupsTaggingAPI
 
 	izones []cloudprovider.ICloudZone
 	ivpcs  []cloudprovider.ICloudVpc
@@ -159,6 +161,17 @@ func (self *SRegion) GetS3Client() (*s3.S3, error) {
 		self.s3Client = s3.New(s)
 	}
 	return self.s3Client, nil
+}
+
+func (self *SRegion) getResourceGroupTagClient() (*resourcegroupstaggingapi.ResourceGroupsTaggingAPI, error) {
+	if self.resourceGroupTagClient == nil {
+		s, err := self.getAwsSession()
+		if err != nil {
+			return nil, err
+		}
+		self.resourceGroupTagClient = resourcegroupstaggingapi.New(s)
+	}
+	return self.resourceGroupTagClient, nil
 }
 
 var UnmarshalHandler = request.NamedHandler{Name: "yunion.query.Unmarshal", Fn: Unmarshal}
