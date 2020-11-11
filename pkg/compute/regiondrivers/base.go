@@ -311,10 +311,6 @@ func (self *SBaseRegionDriver) InitDBInstanceUser(ctx context.Context, dbinstanc
 	return nil
 }
 
-func (self *SBaseRegionDriver) RequestRenewDBInstance(instance *models.SDBInstance, bc billing.SBillingCycle) (time.Time, error) {
-	return time.Time{}, fmt.Errorf("Not Implement RequestRenewDBInstance")
-}
-
 func (self *SBaseRegionDriver) RequestChangeDBInstanceConfig(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement RequestChangeDBInstanceConfig")
 }
