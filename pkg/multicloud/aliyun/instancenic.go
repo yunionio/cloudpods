@@ -23,6 +23,8 @@ type SInstanceNic struct {
 	id       string
 	ipAddr   string
 	macAddr  string
+
+	cloudprovider.DummyICloudNic
 }
 
 func (self *SInstanceNic) GetId() string {

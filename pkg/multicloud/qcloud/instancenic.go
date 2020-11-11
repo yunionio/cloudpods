@@ -24,6 +24,8 @@ type SInstanceNic struct {
 	instance *SInstance
 	ipAddr   string
 	classic  bool
+
+	cloudprovider.DummyICloudNic
 }
 
 func (self *SInstanceNic) GetId() string {

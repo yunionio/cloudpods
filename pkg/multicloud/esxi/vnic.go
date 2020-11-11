@@ -25,11 +25,13 @@ import (
 
 type SVirtualNIC struct {
 	SVirtualDevice
+
+	cloudprovider.DummyICloudNic
 }
 
 func NewVirtualNIC(vm *SVirtualMachine, dev types.BaseVirtualDevice, index int) SVirtualNIC {
 	return SVirtualNIC{
-		NewVirtualDevice(vm, dev, index),
+		SVirtualDevice: NewVirtualDevice(vm, dev, index),
 	}
 }
 
@@ -52,6 +54,10 @@ func (nic *SVirtualNIC) GetIP() string {
 	}
 	log.Warningf("cannot find ip for mac %s", nic.GetMAC())
 	return ""
+}
+
+func (nic *SVirtualNIC) GetDriver() string {
+	return nic.SVirtualDevice.GetDriver()
 }
 
 func (nic *SVirtualNIC) GetMAC() string {

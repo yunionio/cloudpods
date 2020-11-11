@@ -28,6 +28,8 @@ type SInstanceNic struct {
 	PortID    string    `json:"port_id"`
 	MACAddr   string    `json:"mac_addr"`
 	NetID     string    `json:"net_id"`
+
+	cloudprovider.DummyICloudNic
 }
 
 type FixedIP struct {

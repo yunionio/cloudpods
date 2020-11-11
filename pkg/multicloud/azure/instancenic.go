@@ -65,6 +65,8 @@ type SInstanceNic struct {
 	Type       string
 	Location   string
 	Properties InterfacePropertiesFormat `json:"properties,omitempty"`
+
+	cloudprovider.DummyICloudNic
 }
 
 func (self *SInstanceNic) GetIP() string {
