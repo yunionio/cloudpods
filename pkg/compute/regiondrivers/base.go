@@ -17,7 +17,6 @@ package regiondrivers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -300,10 +299,6 @@ func (self *SBaseRegionDriver) GetSecgroupVpcid(vpcId string) string {
 
 func (self *SBaseRegionDriver) InitDBInstanceUser(ctx context.Context, dbinstance *models.SDBInstance, task taskman.ITask, desc *cloudprovider.SManagedDBInstanceCreateConfig) error {
 	return nil
-}
-
-func (self *SBaseRegionDriver) RequestRenewDBInstance(instance *models.SDBInstance, bc billing.SBillingCycle) (time.Time, error) {
-	return time.Time{}, fmt.Errorf("Not Implement RequestRenewDBInstance")
 }
 
 func (self *SBaseRegionDriver) RequestChangeDBInstanceConfig(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, task taskman.ITask) error {
