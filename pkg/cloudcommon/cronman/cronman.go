@@ -393,6 +393,7 @@ func (job *SCronJob) runJobInWorker(isStart bool) {
 	log.Debugf("Cron job: %s started", job.Name)
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_APPNAME, "Cron-Service")
+	ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_TASKNAME, job.Name)
 	userCred := DefaultAdminSessionGenerator()
 	job.job(ctx, userCred, isStart)
 }
