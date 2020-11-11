@@ -43,6 +43,8 @@ type SInstancePort struct {
 	NetId     string
 	PortId    string
 	PortState string
+
+	cloudprovider.DummyICloudNic
 }
 
 func (region *SRegion) GetInstancePorts(instanceId string) ([]SInstancePort, error) {

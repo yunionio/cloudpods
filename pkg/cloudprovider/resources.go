@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -335,7 +336,30 @@ type ICloudNic interface {
 	InClassicNetwork() bool
 	GetDriver() string
 	GetINetwork() ICloudNetwork
+
+	AssignNAddress(count int) ([]string, error)
+	AssignAddress(ipAddrs []string) error
+	// UnassignAddress should not return error if the network interface is
+	// now not present, or the addresses is not assigned to the network
+	// interface in the first place
+	UnassignAddress(ipAddrs []string) error
 }
+
+type DummyICloudNic struct{}
+
+var _ ICloudNic = DummyICloudNic{}
+
+func (d DummyICloudNic) GetId() string              { panic(errors.ErrNotImplemented) }
+func (d DummyICloudNic) GetIP() string              { panic(errors.ErrNotImplemented) }
+func (d DummyICloudNic) GetMAC() string             { panic(errors.ErrNotImplemented) }
+func (d DummyICloudNic) InClassicNetwork() bool     { panic(errors.ErrNotImplemented) }
+func (d DummyICloudNic) GetDriver() string          { panic(errors.ErrNotImplemented) }
+func (d DummyICloudNic) GetINetwork() ICloudNetwork { panic(errors.ErrNotImplemented) }
+func (d DummyICloudNic) AssignNAddress(count int) ([]string, error) {
+	return nil, errors.ErrNotImplemented
+}
+func (d DummyICloudNic) AssignAddress(ipAddrs []string) error   { return errors.ErrNotImplemented }
+func (d DummyICloudNic) UnassignAddress(ipAddrs []string) error { return errors.ErrNotImplemented }
 
 type ICloudEIP interface {
 	IBillingResource
