@@ -16,14 +16,16 @@ package tasks
 
 import (
 	"context"
-	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -37,33 +39,62 @@ func init() {
 	taskman.RegisterTask(DBInstanceRenewTask{})
 }
 
+func (self *DBInstanceRenewTask) taskFailed(ctx context.Context, rds *models.SDBInstance, err error) {
+	db.OpsLog.LogEvent(rds, db.ACT_REW_FAIL, err, self.UserCred)
+	logclient.AddActionLogWithStartable(self, rds, logclient.ACT_RENEW, err, self.UserCred, false)
+	rds.SetStatus(self.GetUserCred(), api.DBINSTANCE_RENEW_FAILED, err.Error())
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+}
+
 func (self *DBInstanceRenewTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	instance := obj.(*models.SDBInstance)
+	rds := obj.(*models.SDBInstance)
 
-	durationStr, _ := self.GetParams().GetString("duration")
-	bc, _ := billing.ParseBillingCycle(durationStr)
-
-	exp, err := instance.GetRegion().GetDriver().RequestRenewDBInstance(instance, bc)
+	duration, _ := self.GetParams().GetString("duration")
+	bc, err := billing.ParseBillingCycle(duration)
 	if err != nil {
-		// msg := fmt.Sprintf("RequestRenewDBInstance failed %s", err)
-		// log.Errorf(msg)
-		db.OpsLog.LogEvent(instance, db.ACT_REW_FAIL, err, self.UserCred)
-		logclient.AddActionLogWithStartable(self, instance, logclient.ACT_RENEW, err, self.UserCred, false)
-		instance.SetStatus(self.GetUserCred(), api.DBINSTANCE_RENEW_FAILED, err.Error())
-		self.SetStageFailed(ctx, jsonutils.Marshal(err))
+		self.taskFailed(ctx, rds, errors.Wrapf(err, "ParseBillingCycle(%s)", duration))
 		return
 	}
 
-	err = instance.SaveRenewInfo(ctx, self.UserCred, &bc, &exp, "")
+	iRds, err := rds.GetIDBInstance()
 	if err != nil {
-		msg := fmt.Sprintf("SaveRenewInfo fail %s", err)
-		log.Errorf(msg)
-		self.SetStageFailed(ctx, jsonutils.NewString(msg))
+		self.taskFailed(ctx, rds, errors.Wrapf(err, "GetIDBInstance"))
+		return
+	}
+	oldExpired := iRds.GetExpiredAt()
+
+	err = iRds.Renew(bc)
+	if err != nil {
+		self.taskFailed(ctx, rds, errors.Wrapf(err, "iRds.Renew"))
 		return
 	}
 
-	logclient.AddActionLogWithStartable(self, instance, logclient.ACT_RENEW, nil, self.UserCred, true)
+	err = cloudprovider.WaitCreated(15*time.Second, 5*time.Minute, func() bool {
+		err := iRds.Refresh()
+		if err != nil {
+			log.Errorf("failed refresh rds %s error: %v", rds.Name, err)
+		}
+		newExipred := iRds.GetExpiredAt()
+		if newExipred.After(oldExpired) {
+			return true
+		}
+		return false
+	})
+	if err != nil {
+		self.taskFailed(ctx, rds, errors.Wrapf(err, "wait expired time refresh"))
+		return
+	}
 
-	models.StartResourceSyncStatusTask(ctx, self.UserCred, instance, "DBInstanceSyncStatusTask", self.GetTaskId())
+	logclient.AddActionLogWithStartable(self, rds, logclient.ACT_RENEW, map[string]string{"duration": duration}, self.UserCred, true)
+
+	self.SetStage("OnSyncstatusComplete", nil)
+	models.StartResourceSyncStatusTask(ctx, self.UserCred, rds, "DBInstanceSyncStatusTask", self.GetTaskId())
+}
+
+func (self *DBInstanceRenewTask) OnSyncstatusComplete(ctx context.Context, rds *models.SDBInstance, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *DBInstanceRenewTask) OnSyncstatusCompleteFailed(ctx context.Context, rds *models.SDBInstance, reason jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, reason)
 }
