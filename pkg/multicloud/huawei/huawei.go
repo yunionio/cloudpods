@@ -17,6 +17,7 @@ package huawei
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -47,6 +48,14 @@ const (
 	HUAWEI_DEFAULT_REGION = "cn-north-1"
 	HUAWEI_API_VERSION    = "2018-12-25"
 )
+
+var HUAWEI_REGION_CACHES = map[string]userRegionsCache{}
+
+type userRegionsCache struct {
+	UserId   string
+	ExpireAt time.Time
+	Regions  []SRegion
+}
 
 type HuaweiClientConfig struct {
 	cpcfg cloudprovider.ProviderConfig
@@ -167,13 +176,22 @@ func (self *SHuaweiClient) newGeneralAPIClient() (*client.Client, error) {
 func (self *SHuaweiClient) fetchRegions() error {
 	huawei, _ := self.newGeneralAPIClient()
 	if self.regions == nil {
-		regions := make([]SRegion, 0)
-		err := doListAll(huawei.Regions.List, nil, &regions)
+		userId, err := self.GetUserId()
 		if err != nil {
-			return err
+			return errors.Wrap(err, "GetUserId")
 		}
 
-		self.regions = regions
+		if regionsCache, ok := HUAWEI_REGION_CACHES[userId]; !ok || regionsCache.ExpireAt.Sub(time.Now()).Seconds() > 0 {
+			regions := make([]SRegion, 0)
+			err := doListAll(huawei.Regions.List, nil, &regions)
+			if err != nil {
+				return errors.Wrap(err, "Regions.List")
+			}
+
+			HUAWEI_REGION_CACHES[userId] = userRegionsCache{ExpireAt: time.Now().Add(24 * time.Hour), UserId: userId, Regions: regions}
+		}
+
+		self.regions = HUAWEI_REGION_CACHES[userId].Regions
 	}
 
 	filtedRegions := make([]SRegion, 0)
