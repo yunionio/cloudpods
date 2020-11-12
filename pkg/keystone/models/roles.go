@@ -351,8 +351,14 @@ func (role *SRole) UpdateInContext(ctx context.Context, userCred mcclient.TokenC
 	if !ok {
 		return nil, httperrors.NewInputParameterError("not supported update context %s", ctxObjs[0].Keyword())
 	}
-	if project.DomainId != role.DomainId && !role.GetIsPublic() {
-		return nil, httperrors.NewInputParameterError("inconsistent domain for project and roles")
+	if project.DomainId != role.DomainId {
+		projectOwner := &db.SOwnerId{
+			ProjectId: project.Id,
+			DomainId:  project.DomainId,
+		}
+		if !role.IsSharable(projectOwner) {
+			return nil, httperrors.NewInputParameterError("inconsistent domain for project and roles")
+		}
 	}
 	err := validateJoinProject(userCred, project, []string{role.Id})
 	if err != nil {
