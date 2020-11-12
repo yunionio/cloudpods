@@ -49,20 +49,21 @@ func (self *SQcloudHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb
 	if sizeGb%10 != 0 {
 		return fmt.Errorf("The disk size must be a multiple of 10Gb")
 	}
-	if storage.StorageType == api.STORAGE_CLOUD_BASIC {
-		if sizeGb < 10 || sizeGb > 16000 {
-			return fmt.Errorf("The %s disk size must be in the range of 10 ~ 16000GB", storage.StorageType)
-		}
-	} else if storage.StorageType == api.STORAGE_CLOUD_PREMIUM {
-		if sizeGb < 50 || sizeGb > 16000 {
-			return fmt.Errorf("The %s disk size must be in the range of 50 ~ 16000GB", storage.StorageType)
-		}
-	} else if storage.StorageType == api.STORAGE_CLOUD_SSD {
-		if sizeGb < 100 || sizeGb > 16000 {
-			return fmt.Errorf("The %s disk size must be in the range of 100 ~ 16000GB", storage.StorageType)
-		}
-	} else {
-		return fmt.Errorf("Not support create %s disk", storage.StorageType)
+	min, max := 0, 0
+	switch storage.StorageType {
+	case api.STORAGE_CLOUD_BASIC:
+		min, max = 10, 16000
+	case api.STORAGE_CLOUD_PREMIUM:
+		min, max = 50, 16000
+	case api.STORAGE_CLOUD_SSD:
+		min, max = 100, 16000
+	case api.STORAGE_CLOUD_HSSD:
+		min, max = 20, 320000
+	default:
+		return fmt.Errorf("Not support create or resize %s disk", storage.StorageType)
+	}
+	if sizeGb < min || sizeGb > max {
+		return fmt.Errorf("The %s disk size must be in the range of %d ~ %dGB", storage.StorageType, min, max)
 	}
 	return nil
 }
