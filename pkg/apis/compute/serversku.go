@@ -23,15 +23,11 @@ type ServerSkuCreateInput struct {
 
 	// 区域名称或Id,建议使用Id
 	// default: default
-	Cloudregion string `json:"cloudregion"`
-	// swagger:ignore
-	CloudregionId string
+	CloudregionId string `json:"cloudregion_id"`
 
 	// 可用区名称或Id, 建议使用Id
 	// required: false
-	Zone string `json:"zone"`
-	// swagger:ignore
-	ZoneId string
+	ZoneId string `json:"zone_id"`
 
 	// 是否启用
 	// default: true
