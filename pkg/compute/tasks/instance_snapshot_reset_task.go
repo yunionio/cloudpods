@@ -104,7 +104,7 @@ func (self *InstanceSnapshotResetTask) OnKvmDiskResetFailed(
 
 func (self *InstanceSnapshotResetTask) OnInstanceSnapshotReset(ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
 	guest, _ := isp.GetGuest()
-	if guest.Status == compute.VM_READY && jsonutils.QueryBoolean(self.Params, "auto_start", false) {
+	if jsonutils.QueryBoolean(self.Params, "auto_start", false) {
 		self.SetStage("OnGuestStartComplete", nil)
 		isp.SetStatus(self.UserCred, compute.INSTANCE_SNAPSHOT_READY, "")
 		guest.StartGueststartTask(ctx, self.UserCred, nil, self.GetTaskId())
