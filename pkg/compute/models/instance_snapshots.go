@@ -419,8 +419,8 @@ func (self *SInstanceSnapshot) GetInstanceSnapshotJointAt(diskIndex int) (*SInst
 }
 
 func (self *SInstanceSnapshot) ValidateDeleteCondition(ctx context.Context) error {
-	if self.Status == api.INSTANCE_SNAPSHOT_START_DELETE {
-		return httperrors.NewBadRequestError("can't delete snapshot in deleting")
+	if self.Status == api.INSTANCE_SNAPSHOT_START_DELETE || self.Status == api.INSTANCE_SNAPSHOT_RESET {
+		return httperrors.NewForbiddenError("can't delete instance snapshot with wrong status")
 	}
 	return nil
 }
