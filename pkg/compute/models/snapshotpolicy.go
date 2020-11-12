@@ -732,6 +732,9 @@ func computeNextSyncTime(weekDays, timePoints []int, base time.Time) time.Time {
 	if base.IsZero() {
 		base = time.Now()
 	}
+
+	// Add 1 hour to base to prevent the calculation result from being equal to the input base
+	base = base.Add(time.Hour)
 	base = base.Truncate(time.Hour)
 
 	baseWeekday := int(base.Weekday())
@@ -739,8 +742,8 @@ func computeNextSyncTime(weekDays, timePoints []int, base time.Time) time.Time {
 		baseWeekday = 7
 	}
 	weekDays = append(weekDays, weekDays[0]+7)
-	index := sort.SearchInts(weekDays, baseWeekday)
-	addDay := weekDays[index] - baseWeekday
+	indexw := sort.SearchInts(weekDays, baseWeekday)
+	addDay := weekDays[indexw] - baseWeekday
 	nextTime := base.AddDate(0, 0, addDay)
 
 	// find timePoint closest to the base
@@ -750,6 +753,11 @@ func computeNextSyncTime(weekDays, timePoints []int, base time.Time) time.Time {
 	} else {
 		baseHour := base.Hour()
 		index := sort.SearchInts(timePoints, baseHour)
+		if index == len(timePoints) {
+			// indexw + 1 must less than len(weekDays)
+			addDay = weekDays[indexw+1] - baseWeekday
+			nextTime = base.AddDate(0, 0, addDay)
+		}
 		index = index % len(timePoints)
 		if timePoints[index] == baseHour {
 			index = (index + 1) % len(timePoints)
@@ -760,10 +768,6 @@ func computeNextSyncTime(weekDays, timePoints []int, base time.Time) time.Time {
 	}
 	nextTime = time.Date(nextTime.Year(), nextTime.Month(), nextTime.Day(), newHour, 0, 0, 0, base.Location())
 
-	if !nextTime.After(base) {
-		// If the calculated NextSyncTime and base are equal, add 1 hour to base and recursive processing.
-		return computeNextSyncTime(weekDays, timePoints, base.Add(time.Hour))
-	}
 	return nextTime
 }
 
