@@ -349,6 +349,26 @@ func (cli *SESXiClient) scanAllMObjects(props []string, dst interface{}) error {
 	return cli.scanMObjects(cli.client.ServiceContent.RootFolder, props, dst)
 }
 
+func (cli *SESXiClient) SearchVM(id string) (*SVirtualMachine, error) {
+	filter := property.Filter{}
+	filter["summary.config.uuid"] = id
+	var movms []mo.VirtualMachine
+	err := cli.scanMObjectsWithFilter(cli.client.ServiceContent.RootFolder, VIRTUAL_MACHINE_PROPS, &movms, filter)
+	if err != nil {
+		return nil, err
+	}
+	if len(movms) == 0 {
+		return nil, errors.ErrNotFound
+	}
+	vm := NewVirtualMachine(cli, &movms[0], nil)
+	dc, err := vm.fetchDatacenter()
+	if err != nil {
+		return nil, errors.Wrap(err, "fetchDatacenter")
+	}
+	vm.datacenter = dc
+	return vm, nil
+}
+
 func (cli *SESXiClient) SearchTemplateVM(id string) (*SVirtualMachine, error) {
 	filter := property.Filter{}
 	uuid := toTemplateUuid(id)
