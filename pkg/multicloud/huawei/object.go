@@ -46,6 +46,10 @@ func (o *SObject) GetAcl() cloudprovider.TBucketACLType {
 	input.Bucket = o.bucket.Name
 	input.Key = o.Key
 	output, err := obscli.GetObjectAcl(input)
+	if err != nil {
+		log.Errorf("GetObjectAcl error: %v", err)
+		return acl
+	}
 	acl = obsAcl2CannedAcl(output.Grants)
 	return acl
 }
