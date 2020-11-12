@@ -5119,6 +5119,9 @@ func (self *SGuest) ToCreateInput(userCred mcclient.TokenCredential) *api.Server
 	userInput.KeypairId = genInput.KeypairId
 	userInput.EipBw = genInput.EipBw
 	userInput.EipChargeType = genInput.EipChargeType
+	userInput.PublicIpBw = genInput.PublicIpBw
+	userInput.PublicIpChargeType = genInput.PublicIpChargeType
+	userInput.AutoRenew = genInput.AutoRenew
 	// cloned server should belongs to the project creating it
 	userInput.ProjectId = userCred.GetProjectId()
 	userInput.ProjectDomainId = userCred.GetProjectDomainId()
@@ -5144,7 +5147,6 @@ func (self *SGuest) ToCreateInput(userCred mcclient.TokenCredential) *api.Server
 	userInput.Description = ""
 	userInput.BillingType = ""
 	userInput.BillingCycle = ""
-	userInput.Duration = ""
 	return userInput
 }
 
@@ -5176,6 +5178,7 @@ func (self *SGuest) toCreateInput() *api.ServerCreateInput {
 	r.Disks = self.ToDisksConfig()
 	r.Networks = self.ToNetworksConfig()
 	r.IsolatedDevices = self.ToIsolatedDevicesConfig()
+	r.AutoRenew = self.AutoRenew
 
 	if keypair := self.getKeypair(); keypair != nil {
 		r.KeypairId = keypair.Id
@@ -5183,9 +5186,15 @@ func (self *SGuest) toCreateInput() *api.ServerCreateInput {
 	if host := self.GetHost(); host != nil {
 		r.ResourceType = host.ResourceType
 	}
-	if eip, _ := self.GetEipOrPublicIp(); eip != nil && eip.Mode == api.EIP_MODE_STANDALONE_EIP {
-		r.EipBw = eip.Bandwidth
-		r.EipChargeType = eip.ChargeType
+	if eip, _ := self.GetEipOrPublicIp(); eip != nil {
+		switch eip.Mode {
+		case api.EIP_MODE_STANDALONE_EIP:
+			r.EipBw = eip.Bandwidth
+			r.EipChargeType = eip.ChargeType
+		case api.EIP_MODE_INSTANCE_PUBLICIP:
+			r.PublicIpBw = eip.Bandwidth
+			r.PublicIpChargeType = eip.ChargeType
+		}
 	}
 	if zone := self.getZone(); zone != nil {
 		r.PreferRegion = zone.GetRegion().GetId()
