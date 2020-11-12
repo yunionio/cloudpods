@@ -25,6 +25,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -121,6 +122,15 @@ func (self *SElb) GetMetadata() *jsonutils.JSONDict {
 	}
 
 	for k, v := range attrs {
+		metadata.Add(jsonutils.NewString(v), k)
+	}
+
+	tags, err := self.region.FetchElbTags(self.LoadBalancerArn)
+	if err != nil {
+		log.Errorf("self.region.FetchElbTags() %s", err)
+		return metadata
+	}
+	for k, v := range tags {
 		metadata.Add(jsonutils.NewString(v), k)
 	}
 
@@ -470,5 +480,38 @@ func (self *SRegion) CreateElbBackendgroup(group *cloudprovider.SLoadbalancerBac
 }
 
 func (self *SElb) SetMetadata(tags map[string]string, replace bool) error {
-	return cloudprovider.ErrNotSupported
+	oldTags, err := self.region.FetchElbTags(self.LoadBalancerArn)
+	if err != nil {
+		return errors.Wrapf(err, "self.region.FetchElbTags(%s)", self.LoadBalancerArn)
+	}
+	err = self.region.UpdateResourceTags(self.LoadBalancerArn, oldTags, tags, replace)
+	if err != nil {
+		return errors.Wrap(err, "self.region.UpdateResourceTags(self.LoadBalancerArn, oldTags, tags, replace)")
+	}
+	return nil
+}
+
+func (self *SRegion) FetchElbTags(arn string) (map[string]string, error) {
+	client, err := self.GetElbV2Client()
+	if err != nil {
+		return nil, err
+	}
+	params := elbv2.DescribeTagsInput{}
+	params.SetResourceArns([]*string{&arn})
+	output, err := client.DescribeTags(&params)
+	if err != nil {
+		return nil, errors.Wrapf(err, "client.DescribeTags(%s)", jsonutils.Marshal(params).String())
+	}
+	result := map[string]string{}
+	for i := range output.TagDescriptions {
+		if output.TagDescriptions[i].ResourceArn != nil && *output.TagDescriptions[i].ResourceArn == arn {
+			for j := range output.TagDescriptions[i].Tags {
+				if output.TagDescriptions[i].Tags[j].Key != nil && output.TagDescriptions[i].Tags[j].Value != nil {
+					result[*output.TagDescriptions[i].Tags[j].Key] = *output.TagDescriptions[i].Tags[j].Value
+				}
+			}
+			return result, nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
