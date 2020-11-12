@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -135,41 +134,28 @@ func (self *SCASDriver) Authenticate(ctx context.Context, ident mcclient.SAuthen
 	log.Debugf("CAS response: %s qs: %s", resp, query.QueryString())
 	attrs := fetchAttributes(resp)
 
-	var usrId, usrName string
+	var domainId, domainName, usrId, usrName string
+	if v, ok := attrs[self.casConfig.DomainIdAttribute]; ok && len(v) > 0 {
+		domainId = v[0]
+	}
+	if v, ok := attrs[self.casConfig.DomainNameAttribute]; ok && len(v) > 0 {
+		domainName = v[0]
+	}
 	if v, ok := attrs[self.casConfig.UserIdAttribute]; ok && len(v) > 0 {
 		usrId = v[0]
 	}
 	if v, ok := attrs[self.casConfig.UserNameAttribute]; ok && len(v) > 0 {
 		usrName = v[0]
 	}
-	if len(usrId) == 0 && len(usrName) == 0 {
-		return nil, errors.Wrap(httperrors.ErrUnauthenticated, "empty userId or userName")
-	}
-	if len(usrId) == 0 {
-		usrId = usrName
-	} else if len(usrName) == 0 {
-		usrName = usrId
-	}
 
-	if len(usrId) == 0 {
-		return nil, errors.Wrap(httperrors.ErrUnauthenticated, "empty cas:user")
-	}
 	idp, err := models.IdentityProviderManager.FetchIdentityProviderById(self.IdpId)
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetIdentityProvider")
 	}
-	domain, usr, err := idp.SyncOrCreateDomainAndUser(ctx, usrId, usrName)
+	domain, usr, err := idp.SyncOrCreateDomainAndUser(ctx, domainId, domainName, usrId, usrName)
 	if err != nil {
 		return nil, errors.Wrap(err, "idp.SyncOrCreateDomainAndUser")
 	}
-	/*domain, err := idp.GetSingleDomain(ctx, api.DefaultRemoteDomainId, self.IdpName, fmt.Sprintf("cas provider %s", self.IdpName), false)
-	if err != nil {
-		return nil, errors.Wrap(err, "idp.GetSingleDomain")
-	}
-	usr, err := idp.SyncOrCreateUser(ctx, usrId, usrName, domain.Id, true, nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "idp.SyncOrCreateUser")
-	}*/
 	extUser, err := models.UserManager.FetchUserExtended(usr.Id, "", "", "")
 	if err != nil {
 		return nil, errors.Wrap(err, "models.UserManager.FetchUserExtended")
