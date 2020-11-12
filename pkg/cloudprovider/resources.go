@@ -337,6 +337,11 @@ type ICloudNic interface {
 	GetDriver() string
 	GetINetwork() ICloudNetwork
 
+	// GetSubAddress returns non-primary/secondary/alias ipv4 addresses of
+	// the network interface
+	//
+	// Implement it when any AssignXx ops methods are implemented
+	GetSubAddress() ([]string, error)
 	AssignNAddress(count int) ([]string, error)
 	AssignAddress(ipAddrs []string) error
 	// UnassignAddress should not return error if the network interface is
@@ -355,6 +360,9 @@ func (d DummyICloudNic) GetMAC() string             { panic(errors.ErrNotImpleme
 func (d DummyICloudNic) InClassicNetwork() bool     { panic(errors.ErrNotImplemented) }
 func (d DummyICloudNic) GetDriver() string          { panic(errors.ErrNotImplemented) }
 func (d DummyICloudNic) GetINetwork() ICloudNetwork { panic(errors.ErrNotImplemented) }
+func (d DummyICloudNic) GetSubAddress() ([]string, error) {
+	return nil, nil
+}
 func (d DummyICloudNic) AssignNAddress(count int) ([]string, error) {
 	return nil, errors.ErrNotImplemented
 }

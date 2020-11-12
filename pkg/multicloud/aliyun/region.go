@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 
 	"yunion.io/x/jsonutils"
@@ -81,6 +82,17 @@ func (self *SRegion) getSdkClient() (*sdk.Client, error) {
 		self.sdkClient = cli
 	}
 	return self.sdkClient, nil
+}
+
+func (self *SRegion) getEcsClient() (*ecs.Client, error) {
+	sdkClient, err := self.getSdkClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "getSdkClient")
+	}
+	ecsClient := &ecs.Client{
+		Client: *sdkClient,
+	}
+	return ecsClient, nil
 }
 
 func (self *SRegion) getOSSExternalDomain() string {
