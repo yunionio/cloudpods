@@ -727,9 +727,9 @@ type SEsxiImageInfo struct {
 
 func (self *SHost) CreateVM2(ctx context.Context, ds *SDatastore, params SCreateVMParam) (*SVirtualMachine, error) {
 	if len(params.InstanceSnapshotInfo.InstanceSnapshotId) > 0 {
-		temvm, err := self.manager.SearchTemplateVM(params.InstanceSnapshotInfo.InstanceId)
+		temvm, err := self.manager.SearchVM(params.InstanceSnapshotInfo.InstanceId)
 		if err != nil {
-			return nil, errors.Wrapf(err, "SEsxiClient.SearchTemplateVM for image %q", params.InstanceSnapshotInfo.InstanceId)
+			return nil, errors.Wrapf(err, "SEsxiClient.SearchVM for image %q", params.InstanceSnapshotInfo.InstanceId)
 		}
 		isp, err := temvm.GetInstanceSnapshot(params.InstanceSnapshotInfo.InstanceSnapshotId)
 		if err != nil {
