@@ -136,6 +136,22 @@ func TestSSnapshotPolicy_ComputeNextSyncTime(t *testing.T) {
 				base: "2020-10-31 01:00:00",
 				want: "2020-10-31 02:00:00",
 			},
+			{
+				in: &SSnapshotPolicy{
+					RepeatWeekdays: SnapshotPolicyManager.RepeatWeekdaysParseIntArray([]int{6}),
+					TimePoints:     SnapshotPolicyManager.TimePointsParseIntArray([]int{2, 4}),
+				},
+				base: "2020-10-31 05:00:00",
+				want: "2020-11-07 02:00:00",
+			},
+			{
+				in: &SSnapshotPolicy{
+					RepeatWeekdays: SnapshotPolicyManager.RepeatWeekdaysParseIntArray([]int{1, 2, 3, 4, 5, 6, 7}),
+					TimePoints:     SnapshotPolicyManager.TimePointsParseIntArray([]int{0}),
+				},
+				base: "2020-10-31 05:00:00",
+				want: "2020-11-01 00:00:00",
+			},
 		}
 		for _, c := range cases {
 			base, _ := time.Parse(timeStr, c.base)
