@@ -205,6 +205,11 @@ func (man *SSuggestSysAlertManager) ValidateCreateData(
 	return data, nil
 }
 
+func (self *SSuggestSysAlert) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	return nil
+}
+
 func (man *SSuggestSysAlertManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -319,7 +324,7 @@ func (self *SSuggestSysAlert) Delete(ctx context.Context, userCred mcclient.Toke
 }
 
 func (self *SSuggestSysAlert) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return db.DeleteModel(ctx, userCred, self)
+	return self.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
 func (self *SSuggestSysAlert) StartDeleteTask(

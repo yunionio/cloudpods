@@ -7,6 +7,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	compute_api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/apis/monitor"
@@ -94,27 +95,18 @@ func (drv *SecGroupRuleInServer) getSecGroupIdsInThisRule() ([]string, error) {
 }
 
 func (drv *SecGroupRuleInServer) getServersBySecGroupIds(secGroupIdArr []string) ([]jsonutils.JSONObject, error) {
-	i, count := 1, 0
 	param := jsonutils.NewDict()
 	param.Add(jsonutils.NewString("hypervisor.notin(baremetal,container)"), "filter.0")
-	filterSecGroupIds := make([]string, 0)
-	jump := false
-	for {
-		tmp := count + 50
-		if tmp > len(secGroupIdArr) {
-			tmp = len(secGroupIdArr)
-			jump = true
+	servers := make([]jsonutils.JSONObject, 0)
+	for _, secGroupId := range secGroupIdArr {
+		param.Set("secgroup_id", jsonutils.NewString(secGroupId))
+		serversPart, err := ListAllResources(&modules.Servers, param)
+		if err != nil {
+			return nil, errors.Wrap(err, "SecGroupRuleInServer getServers error")
 		}
-		filterSecGroupIds = secGroupIdArr[count:tmp]
-		param.Add(jsonutils.NewString(fmt.Sprintf("`secgroup.in(%s)", strings.Join(filterSecGroupIds, ","))),
-			fmt.Sprintf("filter.%d", i))
-		if jump {
-			break
-		}
-		i++
-		count = tmp
+		servers = append(servers, serversPart...)
 	}
-	return ListAllResources(&modules.Servers, param)
+	return servers, nil
 }
 
 func (drv *SecGroupRuleInServer) StartResolveTask(ctx context.Context, userCred mcclient.TokenCredential,
