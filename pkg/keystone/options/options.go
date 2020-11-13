@@ -52,6 +52,8 @@ type SKeystoneOptions struct {
 	DefaultPolicyQuota  int `default:"500" help:"default quota for policy per domain, default is 500"`
 
 	SessionEndpointType string `help:"Client session end point type"`
+
+	AllowJoinProjectsAcrossDomains bool `help:"allow users/groups to join projects across domains" default:"false"`
 }
 
 var (

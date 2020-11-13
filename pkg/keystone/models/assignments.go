@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -248,7 +249,7 @@ func (manager *SAssignmentManager) ProjectAddUser(ctx context.Context, userCred 
 		return err
 	}
 	if project.DomainId != user.DomainId {
-		if project.DomainId != api.DEFAULT_DOMAIN_ID {
+		if project.DomainId != api.DEFAULT_DOMAIN_ID && !options.Options.AllowJoinProjectsAcrossDomains {
 			return httperrors.NewInputParameterError("join user into project of default domain or identical domain")
 		} else if !db.IsAllowPerform(rbacutils.ScopeSystem, userCred, user, "join-project") {
 			return httperrors.NewForbiddenError("not enough privilege")
@@ -348,7 +349,7 @@ func (manager *SAssignmentManager) projectAddGroup(ctx context.Context, userCred
 		return err
 	}
 	if project.DomainId != group.DomainId {
-		if project.DomainId != api.DEFAULT_DOMAIN_ID {
+		if project.DomainId != api.DEFAULT_DOMAIN_ID && !options.Options.AllowJoinProjectsAcrossDomains {
 			return httperrors.NewInputParameterError("join group into project of default domain or identical domain")
 		} else if !db.IsAllowPerform(rbacutils.ScopeSystem, userCred, group, "join-project") {
 			return httperrors.NewForbiddenError("not enough privilege")
