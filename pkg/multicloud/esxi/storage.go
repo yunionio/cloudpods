@@ -389,15 +389,20 @@ func (self *SDatastore) isLocalVMFS() bool {
 
 func (self *SDatastore) GetStorageType() string {
 	moStore := self.getDatastore()
-	switch strings.ToLower(moStore.Summary.Type) {
+	t := strings.ToLower(moStore.Summary.Type)
+	switch t {
 	case "vmfs":
 		if self.isLocalVMFS() {
 			return api.STORAGE_LOCAL
 		} else {
 			return api.STORAGE_NAS
 		}
-	case "nfs", "nfs41", "cifs", "vsan":
-		return api.STORAGE_NAS
+	case "nfs", "nfs41":
+		return api.STORAGE_NFS
+	case "vsan":
+		return api.STORAGE_VSAN
+	case "cifs":
+		return api.STORAGE_CIFS
 	default:
 		log.Fatalf("unsupported datastore type %s", moStore.Summary.Type)
 		return ""
