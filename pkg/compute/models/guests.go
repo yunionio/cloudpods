@@ -3460,9 +3460,9 @@ func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.T
 
 func (self *SGuest) ChooseHostStorage(host *SHost, diskConfig *api.DiskConfig, candidate *schedapi.CandidateDisk) (*SStorage, error) {
 	if candidate == nil || len(candidate.StorageIds) == 0 {
-		return self.GetDriver().ChooseHostStorage(host, nil, diskConfig, nil)
+		return self.GetDriver().ChooseHostStorage(host, self, diskConfig, nil)
 	}
-	return self.GetDriver().ChooseHostStorage(host, nil, diskConfig, candidate.StorageIds)
+	return self.GetDriver().ChooseHostStorage(host, self, diskConfig, candidate.StorageIds)
 }
 
 func (self *SGuest) createDiskOnHost(
