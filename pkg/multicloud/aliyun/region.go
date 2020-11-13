@@ -211,7 +211,11 @@ func (self *SRegion) GetId() string {
 }
 
 func (self *SRegion) GetName() string {
-	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_ALIYUN_CN, self.LocalName)
+	if self.GetCloudEnv() == ALIYUN_FINANCE_CLOUDENV && !strings.Contains(self.LocalName, "金融") {
+		return fmt.Sprintf("%s %s %s", CLOUD_PROVIDER_ALIYUN_CN, self.LocalName, "金融云")
+	} else {
+		return fmt.Sprintf("%s %s", CLOUD_PROVIDER_ALIYUN_CN, self.LocalName)
+	}
 }
 
 func (self *SRegion) GetGlobalId() string {
@@ -227,7 +231,7 @@ func (self *SRegion) GetProvider() string {
 }
 
 func (self *SRegion) GetCloudEnv() string {
-	return ""
+	return self.client.cloudEnv
 }
 
 func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
