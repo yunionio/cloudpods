@@ -2516,10 +2516,10 @@ func (manager *SHostManager) totalCountQ(
 	isolatedDevices := IsolatedDeviceManager.Query().SubQuery()
 	iq := isolatedDevices.Query(
 		isolatedDevices.Field("host_id"),
-		isolatedDevices.Field("reserved_memory", "isolated_reserved_memory"),
-		isolatedDevices.Field("reserved_cpu", "isolated_reserved_cpu"),
-		isolatedDevices.Field("reserved_storage", "isolated_reserved_storage"),
-	).IsNullOrEmpty("guest_id").SubQuery()
+		sqlchemy.SUM("isolated_reserved_memory", isolatedDevices.Field("reserved_memory")),
+		sqlchemy.SUM("isolated_reserved_cpu", isolatedDevices.Field("reserved_cpu")),
+		sqlchemy.SUM("isolated_reserved_storage", isolatedDevices.Field("reserved_storage")),
+	).IsNullOrEmpty("guest_id").GroupBy(isolatedDevices.Field("host_id")).SubQuery()
 	q = q.LeftJoin(iq, sqlchemy.Equals(q.Field("id"), iq.Field("host_id")))
 	q.AppendField(
 		iq.Field("isolated_reserved_memory"),
@@ -2527,6 +2527,7 @@ func (manager *SHostManager) totalCountQ(
 		iq.Field("isolated_reserved_storage"),
 	)
 	q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, providers, brands, cloudEnv, rangeObjs)
+	log.Debugf("hostCount: %s", q.String())
 	return q
 }
 
