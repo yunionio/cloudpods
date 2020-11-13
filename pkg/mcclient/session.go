@@ -27,6 +27,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
@@ -147,7 +148,11 @@ func (this *ClientSession) GetServiceVersionURL(service, endpointType, apiVersio
 		endpointType = this.endpointType
 	}
 	service = this.getServiceName(service, apiVersion)
-	url, err := this.GetServiceCatalog().GetServiceURL(service, this.region, this.zone, endpointType)
+	catalog := this.GetServiceCatalog()
+	if gotypes.IsNil(catalog) {
+		return this.client.authUrl, nil
+	}
+	url, err := catalog.GetServiceURL(service, this.region, this.zone, endpointType)
 	if err != nil && service == api.SERVICE_TYPE {
 		return this.client.authUrl, nil
 	}
