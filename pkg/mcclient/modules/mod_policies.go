@@ -64,7 +64,7 @@ func policyReadFilter(session *mcclient.ClientSession, s jsonutils.JSONObject, q
 }
 
 func policyWriteFilter(session *mcclient.ClientSession, s jsonutils.JSONObject, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	ret := jsonutils.NewDict()
+	ret := s.(*jsonutils.JSONDict).CopyExcludes("policy")
 	if s.Contains("policy") {
 		blobJson, err := s.Get("policy")
 		if err != nil {
@@ -80,17 +80,6 @@ func policyWriteFilter(session *mcclient.ClientSession, s jsonutils.JSONObject, 
 		}
 		// ret.Add(jsonutils.NewString(blobJson.String()), "blob")
 		ret.Add(blobJson, "blob")
-	}
-	for _, k := range []string{
-		"type", "enabled", "domain", "domain_id", "project_domain", "description", "is_public", "public_scope", "shared_domains",
-	} {
-		if s.Contains(k) {
-			val, err := s.Get(k)
-			if err != nil {
-				return nil, err
-			}
-			ret.Add(val, k)
-		}
 	}
 	return ret, nil
 }
