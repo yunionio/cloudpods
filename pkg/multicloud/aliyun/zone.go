@@ -16,6 +16,7 @@ package aliyun
 
 import (
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -139,7 +140,11 @@ func (self *SZone) GetId() string {
 }
 
 func (self *SZone) GetName() string {
-	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_ALIYUN_CN, self.LocalName)
+	if self.region.GetCloudEnv() == ALIYUN_FINANCE_CLOUDENV && !strings.Contains(self.LocalName, "金融") {
+		return fmt.Sprintf("%s %s %s", CLOUD_PROVIDER_ALIYUN_CN, self.LocalName, "金融云")
+	} else {
+		return fmt.Sprintf("%s %s", CLOUD_PROVIDER_ALIYUN_CN, self.LocalName)
+	}
 }
 
 func (self *SZone) GetGlobalId() string {
