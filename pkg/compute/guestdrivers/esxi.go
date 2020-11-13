@@ -84,7 +84,7 @@ func (self *SESXiGuestDriver) ChooseHostStorage(host *models.SHost, guest *model
 	switch {
 	case !options.Options.LockStorageFromCachedimage:
 		return self.SVirtualizedGuestDriver.ChooseHostStorage(host, guest, diskConfig, storageIds)
-	case len(diskConfig.ImageId) == 0:
+	case len(diskConfig.ImageId) > 0:
 		var (
 			image *cloudprovider.SImage
 			err   error
