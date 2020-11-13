@@ -217,7 +217,11 @@ func Marshal(obj interface{}) JSONObject {
 	if obj == nil {
 		return JSONNull
 	}
-	objValue := reflect.Indirect(reflect.ValueOf(obj))
+	val := reflect.ValueOf(obj)
+	if kind := val.Kind(); val.IsZero() && kind == reflect.Ptr {
+		return JSONNull
+	}
+	objValue := reflect.Indirect(val)
 	return marshalValue(objValue, nil)
 }
 
