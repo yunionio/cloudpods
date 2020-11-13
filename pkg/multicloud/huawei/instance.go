@@ -1212,8 +1212,8 @@ func (self *SRegion) ChangeVMConfig2(zoneId string, instanceId string, instanceT
 	return err
 }
 
-// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0142763126.html
-// 微版本2.6及以上?
+// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0142763126.html 微版本2.6及以上?
+// https://support.huaweicloud.com/api-ecs/ecs_02_0208.html
 func (self *SRegion) GetInstanceVNCUrl(instanceId string) (jsonutils.JSONObject, error) {
 	params := jsonutils.NewDict()
 	vncObj := jsonutils.NewDict()
@@ -1221,7 +1221,7 @@ func (self *SRegion) GetInstanceVNCUrl(instanceId string) (jsonutils.JSONObject,
 	vncObj.Add(jsonutils.NewString("vnc"), "protocol")
 	params.Add(vncObj, "remote_console")
 
-	ret, err := self.ecsClient.NovaServers.PerformAction2("remote-consoles", instanceId, params, "")
+	ret, err := self.ecsClient.Servers.PerformAction2("remote_console", instanceId, params, "remote_console")
 	if err != nil {
 		return nil, err
 	}
