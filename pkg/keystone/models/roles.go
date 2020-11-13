@@ -149,6 +149,8 @@ func (manager *SRoleManager) initSysRole(ctx context.Context) error {
 	// insert
 	role := SRole{}
 	role.Name = api.SystemAdminRole
+	role.IsPublic = true
+	role.PublicScope = string(rbacutils.ScopeSystem)
 	role.DomainId = api.DEFAULT_DOMAIN_ID
 	role.Description = "Boostrap system default admin role"
 	role.SetModelManager(manager, &role)

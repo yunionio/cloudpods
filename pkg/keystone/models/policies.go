@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -584,4 +585,48 @@ func (policy *SPolicy) fetchMatchableRoles() ([]SRole, error) {
 		return nil, errors.Wrap(err, "FetchRoles")
 	}
 	return roles, nil
+}
+
+func (policy *SPolicy) AllowPerformBindRole(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicDomainInput) bool {
+	return true
+}
+
+// 绑定角色
+func (policy *SPolicy) PerformBindRole(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.PolicyBindRoleInput) (jsonutils.JSONObject, error) {
+	var projectId string
+	prefList := make([]netutils.IPV4Prefix, 0)
+	for _, ipStr := range input.Ips {
+		pref, err := netutils.NewIPV4Prefix(ipStr)
+		if err != nil {
+			return nil, errors.Wrapf(httperrors.ErrInputParameter, "invalid prefix %s", ipStr)
+		}
+		prefList = append(prefList, pref)
+	}
+	if len(input.ProjectId) > 0 {
+		proj, err := ProjectManager.FetchByIdOrName(userCred, input.ProjectId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, errors.Wrapf(httperrors.ErrNotFound, "%s %s", ProjectManager.Keyword(), input.ProjectId)
+			} else {
+				return nil, errors.Wrap(err, "ProjectManager.FetchByIdOrName")
+			}
+		}
+		projectId = proj.GetId()
+	}
+	if len(input.RoleId) == 0 {
+		return nil, errors.Wrap(httperrors.ErrInputParameter, "missing role_id")
+	}
+	role, err := RoleManager.FetchByIdOrName(userCred, input.RoleId)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, errors.Wrapf(httperrors.ErrNotFound, "%s %s", RoleManager.Keyword(), input.RoleId)
+		} else {
+			return nil, errors.Wrap(err, "RoleManager.FetchByIdOrName")
+		}
+	}
+	err = RolePolicyManager.newRecord(ctx, role.GetId(), projectId, policy.Id, tristate.True, prefList)
+	if err != nil {
+		return nil, errors.Wrap(err, "newRecord")
+	}
+	return nil, nil
 }

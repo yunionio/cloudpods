@@ -154,6 +154,36 @@ var (
 					Action:   PolicyActionPerform,
 					Result:   rbacutils.Allow,
 				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "roles",
+					Action:   PolicyActionCreate,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "roles",
+					Action:   PolicyActionUpdate,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "roles",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "roles",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "roles",
+					Action:   PolicyActionPerform,
+					Result:   rbacutils.Allow,
+				},
 			},
 		},
 	}

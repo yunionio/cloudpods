@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -236,6 +237,21 @@ func init() {
 			return err
 		}
 
+		printObject(result)
+		return nil
+	})
+
+	type PolicyBindRoleOptions struct {
+		POLICY string `json:"-" help:"policy Id or name"`
+		api.PolicyBindRoleInput
+	}
+	R(&PolicyBindRoleOptions{}, "policy-bind-role", "Policy bind role", func(s *mcclient.ClientSession, args *PolicyBindRoleOptions) error {
+		params := jsonutils.Marshal(args)
+		log.Debugf("params: %s", params)
+		result, err := modules.Policies.PerformAction(s, args.POLICY, "bind-role", params)
+		if err != nil {
+			return err
+		}
 		printObject(result)
 		return nil
 	})

@@ -22,3 +22,12 @@ type PolicyDetails struct {
 
 	SPolicy
 }
+
+type PolicyBindRoleInput struct {
+	// 角色ID
+	RoleId string `json:"role_id"`
+	// 项目ID
+	ProjectId string `json:"project_id"`
+	//	IP白名单
+	Ips []string `json:"ips"`
+}
