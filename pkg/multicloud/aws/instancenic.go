@@ -20,14 +20,16 @@ import (
 
 type SInstanceNic struct {
 	instance *SInstance
-	ipAddr   string
-	macAddr  string
+
+	id      string
+	ipAddr  string
+	macAddr string
 
 	cloudprovider.DummyICloudNic
 }
 
 func (self *SInstanceNic) GetId() string {
-	return ""
+	return self.id
 }
 
 func (self *SInstanceNic) GetIP() string {
