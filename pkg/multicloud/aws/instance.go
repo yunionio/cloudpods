@@ -284,6 +284,7 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 	for _, networkInterface := range networkInterfaces {
 		nic := SInstanceNic{
 			instance: self,
+			id:       networkInterface.NetworkInterfaceId,
 			ipAddr:   networkInterface.PrivateIpAddress,
 			macAddr:  networkInterface.MacAddress,
 		}
