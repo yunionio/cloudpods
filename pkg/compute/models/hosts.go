@@ -2503,11 +2503,17 @@ func (manager *SHostManager) totalCountQ(
 		q = q.Filter(cond(hosts.Field("enabled")))
 	}
 	if !isBaremetal.IsNone() {
-		cond := sqlchemy.IsFalse
 		if isBaremetal.Bool() {
-			cond = sqlchemy.IsTrue
+			q = q.Filter(sqlchemy.AND(
+				sqlchemy.IsTrue(hosts.Field("is_baremetal")),
+				sqlchemy.Equals(hosts.Field("host_type"), api.HOST_TYPE_BAREMETAL),
+			))
+		} else {
+			q = q.Filter(sqlchemy.OR(
+				sqlchemy.IsFalse(hosts.Field("is_baremetal")),
+				sqlchemy.NotEquals(hosts.Field("host_type"), api.HOST_TYPE_BAREMETAL),
+			))
 		}
-		q = q.Filter(cond(hosts.Field("is_baremetal")))
 	}
 	isolatedDevices := IsolatedDeviceManager.Query().SubQuery()
 	iq := isolatedDevices.Query(
