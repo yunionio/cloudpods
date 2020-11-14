@@ -109,13 +109,47 @@ func (m *SAlertResourceManager) ReconcileFromRecord(ctx context.Context, userCre
 	if err != nil {
 		return errors.Wrapf(err, "Get record %s eval data", record.GetId())
 	}
+	oldResources, err := m.getResourceFromAlertId(record.AlertId)
+	if err != nil {
+		return errors.Wrap(err, "ReconcileFromRecord getResourceFromAlertId error")
+	}
 	errs := make([]error, 0)
 	for _, match := range matches {
 		if err := m.reconcileFromRecordMatch(ctx, userCred, ownerId, record, match); err != nil {
 			errs = append(errs, err)
 		}
 	}
+	if len(errs) == 0 {
+		delErrs := m.deleteOldResource(ctx, userCred, record, oldResources)
+		if len(delErrs) != 0 {
+			errs = append(errs, delErrs...)
+		}
+	}
 	return errors.NewAggregate(errs)
+}
+
+func (m *SAlertResourceManager) deleteOldResource(ctx context.Context, userCred mcclient.TokenCredential,
+	record *SAlertRecord, oldResources []SAlertResource) (errs []error) {
+	matches, _ := record.GetEvalData()
+	needDelResources := make([]SAlertResource, 0)
+LoopRes:
+	for _, oldResource := range oldResources {
+		for _, match := range matches {
+			resourceD, _ := GetAlertResourceDriver(match)
+			if oldResource.Name == resourceD.GetUniqCond().Name {
+				continue LoopRes
+			}
+		}
+		needDelResources = append(needDelResources, oldResource)
+	}
+	for i, _ := range needDelResources {
+		if err := needDelResources[i].DetachAlert(ctx, userCred, record.AlertId); err != nil {
+			errs = append(errs, errors.Wrapf(err, "deleteOldResource remove resource %s alert %s",
+				needDelResources[i].GetName(),
+				record.AlertId))
+		}
+	}
+	return
 }
 
 type AlertResourceUniqCond struct {
@@ -140,6 +174,17 @@ func (m *SAlertResourceManager) getResourceFromMatch(ctx context.Context, userCr
 		return nil, errors.Wrapf(sqlchemy.ErrDuplicateEntry, "duplicate resource match by %#v", uniqCond)
 	}
 	return &objs[0], nil
+}
+
+func (m *SAlertResourceManager) getResourceFromAlertId(alertId string) ([]SAlertResource, error) {
+	searchResourceIdQuery := GetAlertResourceAlertManager().Query(GetAlertResourceAlertManager().GetMasterFieldName())
+	searchResourceIdQuery = searchResourceIdQuery.Equals(GetAlertResourceAlertManager().GetSlaveFieldName(), alertId)
+	query := m.Query().In("id", searchResourceIdQuery.SubQuery())
+	objs := make([]SAlertResource, 0)
+	if err := db.FetchModelObjects(m, query, &objs); err != nil {
+		return nil, errors.Wrapf(err, "getResourceFromAlertId:%s error", alertId)
+	}
+	return objs, nil
 }
 
 func (m *SAlertResourceManager) reconcileFromRecordMatch(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, record *SAlertRecord, match monitor.EvalMatch) error {

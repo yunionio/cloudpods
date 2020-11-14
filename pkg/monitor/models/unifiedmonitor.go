@@ -252,7 +252,9 @@ func doQuery(query monitor.MetricInputQuery) (*mq.Metrics, error) {
 		return nil, err
 	}
 	// drop metas contains raw_query
-	metrics.Metas = nil
+	if !query.ShowMeta {
+		metrics.Metas = nil
+	}
 	return metrics, nil
 }
 

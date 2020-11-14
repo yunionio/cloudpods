@@ -17,6 +17,7 @@ package alerting
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -186,15 +187,16 @@ func (c *EvalContext) GetNotificationTemplateConfig() monitor.NotificationTempla
 		desc += "Error: " + c.Error.Error()
 	}
 	return monitor.NotificationTemplateConfig{
-		Title:       c.GetNotificationTitle(),
-		Name:        c.Rule.Name,
-		Matches:     c.GetEvalMatches(),
-		StartTime:   c.StartTime.Format("2006-01-02 15:04:05"),
-		EndTime:     c.EndTime.Format("2006-01-02 15:04:05"),
-		Description: desc,
-		Level:       c.Rule.Level,
-		NoDataFound: c.NoDataFound,
-		WebUrl:      c.GetCallbackURLPrefix(),
+		Title:        c.GetNotificationTitle(),
+		Name:         c.Rule.Name,
+		ResourceName: c.GetResourceNameOfMathes(),
+		Matches:      c.GetEvalMatches(),
+		StartTime:    c.StartTime.Format("2006-01-02 15:04:05"),
+		EndTime:      c.EndTime.Format("2006-01-02 15:04:05"),
+		Description:  desc,
+		Level:        c.Rule.Level,
+		NoDataFound:  c.NoDataFound,
+		WebUrl:       c.GetCallbackURLPrefix(),
 	}
 }
 
@@ -210,4 +212,18 @@ func (c *EvalContext) GetEvalMatches() []monitor.EvalMatch {
 		})
 	}
 	return ret
+}
+
+func (c *EvalContext) GetResourceNameOfMathes() string {
+	names := strings.Builder{}
+	matches := c.GetEvalMatches()
+	for i, match := range matches {
+		if name, ok := match.Tags["name"]; ok {
+			names.WriteString(name)
+			if i < len(matches)-1 {
+				names.WriteString("、")
+			}
+		}
+	}
+	return names.String()
 }
