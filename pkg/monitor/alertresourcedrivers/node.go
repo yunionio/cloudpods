@@ -36,12 +36,19 @@ func (drvF *nodeDriverF) GetType() monitor.AlertResourceType {
 
 func (drvF *nodeDriverF) IsEvalMatched(input monitor.EvalMatch) bool {
 	tags := input.Tags
-	_, hasResType := tags[hostconsts.TELEGRAF_TAG_KEY_RES_TYPE]
+	resType, hasResType := tags[hostconsts.TELEGRAF_TAG_KEY_RES_TYPE]
 	if !hasResType {
 		return false
 	}
-	_, hasHostType := tags[hostconsts.TELEGRAF_TAG_KEY_HOST_TYPE]
+	if resType != hostconsts.TELEGRAF_TAG_ONECLOUD_RES_TYPE {
+		return false
+	}
+	hostType, hasHostType := tags[hostconsts.TELEGRAF_TAG_KEY_HOST_TYPE]
 	if !hasHostType {
+		return false
+	}
+	if hostType != hostconsts.TELEGRAF_TAG_ONECLOUD_HOST_TYPE_HOST &&
+		hostType != hostconsts.TELEGRAF_TAG_ONECLOUD_HOST_TYPE_CONTROLLER {
 		return false
 	}
 	_, hasHost := tags[NODE_TAG_HOST_KEY]

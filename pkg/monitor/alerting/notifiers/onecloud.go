@@ -151,8 +151,9 @@ func GetNotifyTemplateConfigOfEN(ctx *alerting.EvalContext) monitor.Notification
 // Notify sends the alert notification.
 func (oc *OneCloudNotifier) Notify(ctx *alerting.EvalContext, _ jsonutils.JSONObject) error {
 	log.Infof("Sending alert notification %s to onecloud", ctx.GetRuleTitle())
+	oc.Ctx = i18n.WithLangTag(oc.Ctx, language.Chinese)
 	var config monitor.NotificationTemplateConfig
-	lang := i18n.Lang(ctx.Ctx)
+	lang := i18n.Lang(oc.Ctx)
 	switch lang {
 	case language.English:
 		config = GetNotifyTemplateConfigOfEN(ctx)
@@ -239,7 +240,7 @@ type sendUserImpl struct {
 }
 
 func (s *sendUserImpl) send() error {
-	return notifyclient.NotifyAllWithoutRobot(s.Setting.UserIds, false, notify.TNotifyPriority(s.msg.Priority),
+	return notifyclient.NotifyAllWithoutRobotWithCtx(s.Ctx, s.Setting.UserIds, false, notify.TNotifyPriority(s.msg.Priority),
 		"DEFAULT", jsonutils.Marshal(&s.config))
 }
 
@@ -248,7 +249,7 @@ type sendSysImpl struct {
 }
 
 func (s *sendSysImpl) send() error {
-	notifyclient.SystemNotify(notify.TNotifyPriority(s.msg.Priority), "DEFAULT",
+	notifyclient.SystemNotifyWithCtx(s.Ctx, notify.TNotifyPriority(s.msg.Priority), "DEFAULT",
 		jsonutils.Marshal(&s.config))
 	return nil
 }

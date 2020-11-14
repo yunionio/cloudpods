@@ -1,18 +1,9 @@
-## {{.title}}
-- 时间: {{.start_time}}
-- 级别: {{.level}}
-- 详情地址: {{.web_url}}/commonalerts
+{{.title}}
+策略名称: {{.name}}
+触发时间: {{.start_time}}
+报警级别: {{.level}}
+触发条件: {{.description}}
+资源数量：{{len .matches}}
+资源名称：{{.resource_name}}
 
-{{ range .matches}}
-- 指标: {{.metric}}
-- 触发值: {{html .value_str}}
-
-### 触发条件:
-- {{html $.description}}
-
-### 标签
- > 名称: {{ index .tags "name" }}
- > ip: {{ index .tags "ip" }}
- > 平台: {{ index .tags "brand" }}
-------
-{{- end}}
+详情地址: {{.web_url}}/commonalerts
