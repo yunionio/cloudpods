@@ -19,9 +19,12 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/delayedwork"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -37,6 +40,8 @@ import (
 type SNetworkAddressManager struct {
 	db.SStandaloneAnonResourceBaseManager
 	SNetworkResourceBaseManager
+
+	delayedWorkManager *delayedwork.DelayedWorkManager
 }
 
 var NetworkAddressManager *SNetworkAddressManager
@@ -51,6 +56,7 @@ func init() {
 		),
 	}
 	NetworkAddressManager.SetVirtualObject(NetworkAddressManager)
+	NetworkAddressManager.delayedWorkManager = delayedwork.NewDelayedWorkManager()
 }
 
 type SNetworkAddress struct {
@@ -63,6 +69,11 @@ type SNetworkAddress struct {
 	IpAddr string `width:"16" charset:"ascii" list:"user" create:"optional"`
 
 	SubCtrVid int `create:"optional"`
+}
+
+func (man *SNetworkAddressManager) InitializeData() error {
+	go man.delayedWorkManager.Start(context.Background())
+	return nil
 }
 
 func (man *SNetworkAddressManager) queryByParentTypeId(ctx context.Context, typ string, id string) *sqlchemy.SQuery {
@@ -423,6 +434,8 @@ func (na *SNetworkAddress) remoteAssignAddress(ctx context.Context, userCred mcc
 			if err := iNic.AssignAddress([]string{na.IpAddr}); err != nil {
 				return err
 			}
+		} else {
+			NetworkAddressManager.submitGuestSyncTask(ctx, userCred, guest)
 		}
 	}
 	return nil
@@ -448,6 +461,8 @@ func (na *SNetworkAddress) remoteUnassignAddress(ctx context.Context, userCred m
 			if err := iNic.UnassignAddress([]string{na.IpAddr}); err != nil {
 				return err
 			}
+		} else {
+			NetworkAddressManager.submitGuestSyncTask(ctx, userCred, guest)
 		}
 	}
 	return nil
@@ -591,4 +606,22 @@ func (man *SNetworkAddressManager) FilterByOwner(q *sqlchemy.SQuery, owner mccli
 		}
 	}
 	return q
+}
+
+func (man *SNetworkAddressManager) submitGuestSyncTask(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest) {
+	man.delayedWorkManager.Submit(ctx, delayedwork.DelayedWorkRequest{
+		ID:        guest.Id,
+		SoftDelay: 2 * time.Second,
+		HardDelay: 5 * time.Second,
+		Func: func(ctx context.Context) {
+			var (
+				fwOnly       = false
+				parentTaskId = ""
+			)
+			err := guest.StartSyncTask(ctx, userCred, fwOnly, parentTaskId)
+			if err != nil {
+				log.Errorf("guest StartSyncTask: %v", err)
+			}
+		},
+	})
 }
