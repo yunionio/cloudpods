@@ -295,3 +295,7 @@ func refreshHours() float64 {
 func (self *SZone) getCosEndpoint() string {
 	return fmt.Sprintf("cos.%s.myqcloud.com", self.GetId())
 }
+
+func (self *SZone) getCosWebsiteEndpoint() string {
+	return fmt.Sprintf("cos-website.%s.myqcloud.com", self.GetId())
+}

@@ -17,17 +17,14 @@ type BucketLoggingEnabled struct {
 // BucketPutLoggingOptions is the options of PutBucketLogging
 type BucketPutLoggingOptions struct {
 	XMLName        xml.Name              `xml:"BucketLoggingStatus"`
-	LoggingEnabled *BucketLoggingEnabled `xml:"LoggingEnabled"`
+	LoggingEnabled *BucketLoggingEnabled `xml:"LoggingEnabled,omitempty"`
 }
 
 // BucketGetLoggingResult is the result of GetBucketLogging
-type BucketGetLoggingResult struct {
-	XMLName        xml.Name              `xml:"BucketLoggingStatus"`
-	LoggingEnabled *BucketLoggingEnabled `xml:"LoggingEnabled"`
-}
+type BucketGetLoggingResult BucketPutLoggingOptions
 
 // PutBucketLogging https://cloud.tencent.com/document/product/436/17054
-func (s *BucketService) PutBucketLoggingTest(ctx context.Context, opt *BucketPutLoggingOptions) (*Response, error) {
+func (s *BucketService) PutLogging(ctx context.Context, opt *BucketPutLoggingOptions) (*Response, error) {
 	sendOpt := sendOptions{
 		baseURL: s.client.BaseURL.BucketURL,
 		uri:     "/?logging",
@@ -39,7 +36,7 @@ func (s *BucketService) PutBucketLoggingTest(ctx context.Context, opt *BucketPut
 }
 
 // GetBucketLogging https://cloud.tencent.com/document/product/436/17053
-func (s *BucketService) GetBucketLoggingTest(ctx context.Context) (*BucketGetLoggingResult, *Response, error) {
+func (s *BucketService) GetLogging(ctx context.Context) (*BucketGetLoggingResult, *Response, error) {
 	var res BucketGetLoggingResult
 	sendOpt := sendOptions{
 		baseURL: s.client.BaseURL.BucketURL,

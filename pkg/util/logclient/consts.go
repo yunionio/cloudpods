@@ -126,9 +126,14 @@ const (
 	ACT_GUEST_PANICKED              = "guest_panicked"
 	ACT_HOST_MAINTAINING            = "host_maintaining"
 
-	ACT_MKDIR         = "mkdir"
-	ACT_DELETE_OBJECT = "delete_object"
-	ACT_UPLOAD_OBJECT = "upload_object"
+	ACT_MKDIR          = "mkdir"
+	ACT_DELETE_OBJECT  = "delete_object"
+	ACT_UPLOAD_OBJECT  = "upload_object"
+	ACT_SET_WEBSITE    = "set_website"
+	ACT_DELETE_WEBSITE = "delete_website"
+	ACT_SET_CORS       = "set_cors"
+	ACT_DELETE_CORS    = "delete_cors"
+	ACT_SET_REFERER    = "set_referer"
 
 	ACT_NAT_CREATE_SNAT = "nat_create_snat"
 	ACT_NAT_CREATE_DNAT = "nat_create_dnat"

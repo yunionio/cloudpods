@@ -114,8 +114,9 @@ func (s *ObjectService) ListParts(ctx context.Context, name, uploadID string, op
 
 // CompleteMultipartUploadOptions is the option of CompleteMultipartUpload
 type CompleteMultipartUploadOptions struct {
-	XMLName xml.Name `xml:"CompleteMultipartUpload"`
-	Parts   []Object `xml:"Part"`
+	XMLName       xml.Name     `xml:"CompleteMultipartUpload" header:"-" url:"-"`
+	Parts         []Object     `xml:"Part" header:"-" url:"-"`
+	XOptionHeader *http.Header `header:"-,omitempty" xml:"-" url:"-"`
 }
 
 // CompleteMultipartUploadResult is the result CompleteMultipartUpload
@@ -161,11 +162,12 @@ func (s *ObjectService) CompleteMultipartUpload(ctx context.Context, name, uploa
 	u := fmt.Sprintf("/%s?uploadId=%s", encodeURIComponent(name), uploadID)
 	var res CompleteMultipartUploadResult
 	sendOpt := sendOptions{
-		baseURL: s.client.BaseURL.BucketURL,
-		uri:     u,
-		method:  http.MethodPost,
-		body:    opt,
-		result:  &res,
+		baseURL:   s.client.BaseURL.BucketURL,
+		uri:       u,
+		method:    http.MethodPost,
+		optHeader: opt,
+		body:      opt,
+		result:    &res,
 	}
 	resp, err := s.client.send(ctx, &sendOpt)
 	// If the error occurs during the copy operation, the error response is embedded in the 200 OK response. This means that a 200 OK response can contain either a success or an error.

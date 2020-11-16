@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"strings"
 	"text/template"
 
 	"strconv"
@@ -21,7 +22,7 @@ import (
 
 const (
 	// Version current go sdk version
-	Version               = "0.7.3"
+	Version               = "0.7.10"
 	userAgent             = "cos-go-sdk-v5/" + Version
 	contentTypeXML        = "application/xml"
 	defaultServiceBaseURL = "http://service.cos.myqcloud.com"
@@ -39,6 +40,8 @@ type BaseURL struct {
 	BucketURL *url.URL
 	// 访问 service API 的基础 URL（不包含 path 部分）: http://example.com
 	ServiceURL *url.URL
+	// 访问 job API 的基础 URL （不包含 path 部分）: http://example.com
+	BatchURL *url.URL
 }
 
 // NewBucketURL 生成 BaseURL 所需的 BucketURL
@@ -69,6 +72,7 @@ func NewBucketURL(bucketName, region string, secure bool) *url.URL {
 type Client struct {
 	client *http.Client
 
+	Host      string
 	UserAgent string
 	BaseURL   *BaseURL
 
@@ -77,6 +81,7 @@ type Client struct {
 	Service *ServiceService
 	Bucket  *BucketService
 	Object  *ObjectService
+	Batch   *BatchService
 }
 
 type service struct {
@@ -93,6 +98,7 @@ func NewClient(uri *BaseURL, httpClient *http.Client) *Client {
 	if uri != nil {
 		baseURL.BucketURL = uri.BucketURL
 		baseURL.ServiceURL = uri.ServiceURL
+		baseURL.BatchURL = uri.BatchURL
 	}
 	if baseURL.ServiceURL == nil {
 		baseURL.ServiceURL, _ = url.Parse(defaultServiceBaseURL)
@@ -107,6 +113,7 @@ func NewClient(uri *BaseURL, httpClient *http.Client) *Client {
 	c.Service = (*ServiceService)(&c.common)
 	c.Bucket = (*BucketService)(&c.common)
 	c.Object = (*ObjectService)(&c.common)
+	c.Batch = (*BatchService)(&c.common)
 	return c
 }
 
@@ -157,6 +164,9 @@ func (c *Client) newRequest(ctx context.Context, baseURL *url.URL, uri, method s
 	}
 	if req.Header.Get("Content-Type") == "" && contentType != "" {
 		req.Header.Set("Content-Type", contentType)
+	}
+	if c.Host != "" {
+		req.Host = c.Host
 	}
 	return
 }
@@ -320,6 +330,8 @@ type ACLHeaderOptions struct {
 	XCosGrantRead        string `header:"x-cos-grant-read,omitempty" url:"-" xml:"-"`
 	XCosGrantWrite       string `header:"x-cos-grant-write,omitempty" url:"-" xml:"-"`
 	XCosGrantFullControl string `header:"x-cos-grant-full-control,omitempty" url:"-" xml:"-"`
+	XCosGrantReadACP     string `header:"x-cos-grant-read-acp,omitempty" url:"-" xml:"-"`
+	XCosGrantWriteACP    string `header:"x-cos-grant-write-acp,omitempty" url:"-" xml:"-"`
 }
 
 // ACLGrantee is the param of ACLGrant
@@ -343,4 +355,54 @@ type ACLXml struct {
 	XMLName           xml.Name `xml:"AccessControlPolicy"`
 	Owner             *Owner
 	AccessControlList []ACLGrant `xml:"AccessControlList>Grant,omitempty"`
+}
+
+func decodeACL(resp *Response, res *ACLXml) {
+	ItemMap := map[string]string{
+		"ACL":          "x-cos-acl",
+		"READ":         "x-cos-grant-read",
+		"WRITE":        "x-cos-grant-write",
+		"READ_ACP":     "x-cos-grant-read-acp",
+		"WRITE_ACP":    "x-cos-grant-write-acp",
+		"FULL_CONTROL": "x-cos-grant-full-control",
+	}
+	publicACL := make(map[string]int)
+	resACL := make(map[string][]string)
+	for _, item := range res.AccessControlList {
+		if item.Grantee == nil {
+			continue
+		}
+		if item.Grantee.ID == "qcs::cam::anyone:anyone" || item.Grantee.URI == "http://cam.qcloud.com/groups/global/AllUsers" {
+			publicACL[item.Permission] = 1
+		} else if item.Grantee.ID != res.Owner.ID {
+			resACL[item.Permission] = append(resACL[item.Permission], "id=\""+item.Grantee.ID+"\"")
+		}
+	}
+	if publicACL["FULL_CONTROL"] == 1 || (publicACL["READ"] == 1 && publicACL["WRITE"] == 1) {
+		resACL["ACL"] = []string{"public-read-write"}
+	} else if publicACL["READ"] == 1 {
+		resACL["ACL"] = []string{"public-read"}
+	} else {
+		resACL["ACL"] = []string{"private"}
+	}
+
+	for item, header := range ItemMap {
+		if len(resp.Header.Get(header)) > 0 || len(resACL[item]) == 0 {
+			continue
+		}
+		resp.Header.Set(header, uniqueGrantID(resACL[item]))
+	}
+}
+
+func uniqueGrantID(grantIDs []string) string {
+	res := []string{}
+	filter := make(map[string]int)
+	for _, id := range grantIDs {
+		if filter[id] != 0 {
+			continue
+		}
+		filter[id] = 1
+		res = append(res, id)
+	}
+	return strings.Join(res, ",")
 }
