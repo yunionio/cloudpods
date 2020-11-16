@@ -56,6 +56,7 @@ type SInstanceSnapshot struct {
 
 	SManagedResourceBase
 	SCloudregionResourceBase
+	db.SMultiArchResourceBase
 
 	// 云主机Id
 	GuestId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
@@ -73,8 +74,6 @@ type SInstanceSnapshot struct {
 	KeypairId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
 	// 操作系统类型
 	OsType string `width:"36" charset:"ascii" nullable:"true" list:"user"`
-	// CPU架构
-	OsArch string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	// 套餐名称
 	InstanceType string `width:"64" charset:"utf8" nullable:"true" list:"user" create:"optional"`
 	// 主机快照磁盘容量和
@@ -86,6 +85,7 @@ type SInstanceSnapshotManager struct {
 	db.SExternalizedResourceBaseManager
 	SManagedResourceBaseManager
 	SCloudregionResourceBaseManager
+	db.SMultiArchResourceBaseManager
 }
 
 var InstanceSnapshotManager *SInstanceSnapshotManager
@@ -116,6 +116,11 @@ func (manager *SInstanceSnapshotManager) ListItemFilter(
 	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = manager.SMultiArchResourceBaseManager.ListItemFilter(ctx, q, userCred, query.MultiArchResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SMultiArchResourceBaseManager.ListItemFilter")
 	}
 
 	guestStr := query.ServerId

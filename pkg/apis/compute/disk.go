@@ -105,6 +105,7 @@ type SnapshotPolicyFilterListInput struct {
 type DiskListInput struct {
 	apis.VirtualResourceListInput
 	apis.ExternalizedResourceBaseListInput
+	apis.MultiArchResourceBaseListInput
 	billing.BillingResourceListInput
 	StorageFilterListInput
 

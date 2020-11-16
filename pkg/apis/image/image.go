@@ -22,6 +22,7 @@ import (
 
 type ImageListInput struct {
 	apis.SharableVirtualResourceListInput
+	apis.MultiArchResourceBaseListInput
 
 	// 以镜像的格式过滤，可能值为：qcow2, iso, vmdk, vhd, raw等
 	DiskFormats []string `json:"disk_formats"`
@@ -46,6 +47,7 @@ type ImageListInput struct {
 
 type GuestImageListInput struct {
 	apis.SharableVirtualResourceListInput
+	apis.MultiArchResourceBaseListInput
 
 	// 是否删除保护
 	Protected *bool `json:"protected"`
