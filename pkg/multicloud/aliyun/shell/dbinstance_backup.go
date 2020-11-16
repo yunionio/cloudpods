@@ -15,6 +15,8 @@
 package shell
 
 import (
+	"fmt"
+
 	"yunion.io/x/onecloud/pkg/multicloud/aliyun"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -58,6 +60,20 @@ func init() {
 			return err
 		}
 		printList(backups, 0, 0, 0, []string{})
+		return nil
+	})
+
+	type DBInstanceBackupCreateOptions struct {
+		INSTANCE_ID string
+		Database    []string
+	}
+
+	shellutils.R(&DBInstanceBackupCreateOptions{}, "dbinstance-backup-create", "Create dbintance backup", func(cli *aliyun.SRegion, args *DBInstanceBackupCreateOptions) error {
+		backupId, err := cli.CreateDBInstanceBackup(args.INSTANCE_ID, args.Database)
+		if err != nil {
+			return err
+		}
+		fmt.Println("backup id: ", backupId)
 		return nil
 	})
 
