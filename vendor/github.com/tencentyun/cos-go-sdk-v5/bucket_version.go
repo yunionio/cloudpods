@@ -13,10 +13,7 @@ type BucketPutVersionOptions struct {
 }
 
 // BucketGetVersionResult is the result of GetBucketVersioning
-type BucketGetVersionResult struct {
-	XMLName xml.Name `xml:"VersioningConfiguration"`
-	Status  string   `xml:"Status"`
-}
+type BucketGetVersionResult BucketPutVersionOptions
 
 // PutVersion https://cloud.tencent.com/document/product/436/19889
 // Status has Suspended\Enabled

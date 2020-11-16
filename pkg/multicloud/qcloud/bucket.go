@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/tencentyun/cos-go-sdk-v5"
@@ -165,6 +166,14 @@ func (b *SBucket) getBucketUrlHost() string {
 
 func (b *SBucket) getBucketUrl() string {
 	return fmt.Sprintf("https://%s", b.getBucketUrlHost())
+}
+
+func (b *SBucket) getWebsiteUrl() string {
+	if b.zone != nil {
+		return fmt.Sprintf("https://%s.%s", b.getFullName(), b.zone.getCosWebsiteEndpoint())
+	} else {
+		return fmt.Sprintf("https://%s.%s", b.getFullName(), b.region.getCosWebsiteEndpoint())
+	}
 }
 
 func (b *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
@@ -510,4 +519,211 @@ func (b *SBucket) CopyPart(ctx context.Context, key string, uploadId string, par
 		return "", errors.Wrap(err, "coscli.Object.CopyPart")
 	}
 	return result.ETag, nil
+}
+
+func (b *SBucket) SetWebsite(websitConf cloudprovider.SBucketWebsiteConf) error {
+	if len(websitConf.Index) == 0 {
+		return errors.Wrap(cloudprovider.ErrNotSupported, "missing Index")
+	}
+	if len(websitConf.ErrorDocument) == 0 {
+		return errors.Wrap(cloudprovider.ErrNotSupported, "missing ErrorDocument")
+	}
+	if websitConf.Protocol != "http" && websitConf.Protocol != "https" {
+		return errors.Wrap(cloudprovider.ErrNotSupported, "missing Protocol")
+	}
+
+	coscli, err := b.region.GetCosClient(b)
+	if err != nil {
+		return errors.Wrap(err, "b.region.GetCosClient")
+	}
+
+	rulesOpts := []cos.WebsiteRoutingRule{}
+	for i := range websitConf.Rules {
+		rulesOpts = append(rulesOpts, cos.WebsiteRoutingRule{
+			ConditionErrorCode: websitConf.Rules[i].ConditionErrorCode,
+			ConditionPrefix:    websitConf.Rules[i].ConditionPrefix,
+
+			RedirectProtocol:         websitConf.Rules[i].RedirectProtocol,
+			RedirectReplaceKey:       websitConf.Rules[i].RedirectReplaceKey,
+			RedirectReplaceKeyPrefix: websitConf.Rules[i].ConditionPrefix,
+		})
+	}
+	opts := &cos.BucketPutWebsiteOptions{
+		Index:            websitConf.Index,
+		Error:            &cos.ErrorDocument{Key: websitConf.ErrorDocument},
+		RedirectProtocol: &cos.RedirectRequestsProtocol{Protocol: websitConf.Protocol},
+	}
+	if len(rulesOpts) > 0 {
+		opts.RoutingRules = &cos.WebsiteRoutingRules{Rules: rulesOpts}
+	}
+
+	_, err = coscli.Bucket.PutWebsite(context.Background(), opts)
+	if err != nil {
+		return errors.Wrap(err, "PutWebsite")
+	}
+	return nil
+}
+
+func (b *SBucket) GetWebsiteConf() (cloudprovider.SBucketWebsiteConf, error) {
+	coscli, err := b.region.GetCosClient(b)
+	if err != nil {
+		return cloudprovider.SBucketWebsiteConf{}, errors.Wrap(err, "b.region.GetCosClient")
+	}
+	websiteResult, _, err := coscli.Bucket.GetWebsite(context.Background())
+	if err != nil {
+		if strings.Contains(err.Error(), "NoSuchWebsiteConfiguration") {
+			return cloudprovider.SBucketWebsiteConf{}, nil
+		}
+		return cloudprovider.SBucketWebsiteConf{}, errors.Wrap(err, "coscli.Bucket.GetWebsite")
+	}
+
+	result := cloudprovider.SBucketWebsiteConf{
+		Index: websiteResult.Index,
+	}
+	if websiteResult.Error != nil {
+		result.ErrorDocument = websiteResult.Error.Key
+	}
+	if websiteResult.RedirectProtocol != nil {
+		result.Protocol = websiteResult.RedirectProtocol.Protocol
+	}
+	routingRules := []cloudprovider.SBucketWebsiteRoutingRule{}
+	if websiteResult.RoutingRules != nil {
+		for i := range websiteResult.RoutingRules.Rules {
+			routingRules = append(routingRules, cloudprovider.SBucketWebsiteRoutingRule{
+				ConditionErrorCode: websiteResult.RoutingRules.Rules[i].ConditionErrorCode,
+				ConditionPrefix:    websiteResult.RoutingRules.Rules[i].ConditionPrefix,
+
+				RedirectProtocol:         websiteResult.RoutingRules.Rules[i].RedirectProtocol,
+				RedirectReplaceKey:       websiteResult.RoutingRules.Rules[i].RedirectReplaceKey,
+				RedirectReplaceKeyPrefix: websiteResult.RoutingRules.Rules[i].RedirectReplaceKeyPrefix,
+			})
+		}
+	}
+	result.Rules = routingRules
+	result.Url = b.getWebsiteUrl()
+	return result, nil
+}
+
+func (b *SBucket) DeleteWebSiteConf() error {
+	coscli, err := b.region.GetCosClient(b)
+	if err != nil {
+		return errors.Wrap(err, "b.region.GetCosClient")
+	}
+	_, err = coscli.Bucket.DeleteWebsite(context.Background())
+	if err != nil {
+		return errors.Wrap(err, "coscli.Bucket.DeleteWebsite")
+	}
+	return nil
+}
+
+func (b *SBucket) SetCORS(rules []cloudprovider.SBucketCORSRule) error {
+	for i := range rules {
+		if len(rules[i].AllowedOrigins) == 0 {
+			return errors.Wrap(cloudprovider.ErrNotSupported, "missing AllowedOrigins")
+		}
+		if len(rules[i].AllowedMethods) == 0 {
+			return errors.Wrap(cloudprovider.ErrNotSupported, "missing AllowedMethods")
+		}
+	}
+	coscli, err := b.region.GetCosClient(b)
+	if err != nil {
+		return errors.Wrap(err, "b.region.GetCosClient")
+	}
+	opts := cos.BucketPutCORSOptions{}
+	for i := range rules {
+		opts.Rules = append(opts.Rules, cos.BucketCORSRule{
+			AllowedOrigins: rules[i].AllowedOrigins,
+			AllowedMethods: rules[i].AllowedMethods,
+			AllowedHeaders: rules[i].AllowedHeaders,
+			MaxAgeSeconds:  rules[i].MaxAgeSeconds,
+			ExposeHeaders:  rules[i].ExposeHeaders,
+		})
+	}
+	_, err = coscli.Bucket.PutCORS(context.Background(), &opts)
+	if err != nil {
+		return errors.Wrap(err, "coscli.Bucket.PutCORS")
+	}
+	return nil
+}
+
+func (b *SBucket) GetCORSRules() ([]cloudprovider.SBucketCORSRule, error) {
+	coscli, err := b.region.GetCosClient(b)
+	if err != nil {
+		return nil, errors.Wrap(err, "b.region.GetCosClient")
+	}
+	conf, _, err := coscli.Bucket.GetCORS(context.Background())
+	result := []cloudprovider.SBucketCORSRule{}
+	for i := range conf.Rules {
+		result = append(result, cloudprovider.SBucketCORSRule{
+			AllowedOrigins: conf.Rules[i].AllowedOrigins,
+			AllowedMethods: conf.Rules[i].AllowedMethods,
+			AllowedHeaders: conf.Rules[i].AllowedHeaders,
+			MaxAgeSeconds:  conf.Rules[i].MaxAgeSeconds,
+			ExposeHeaders:  conf.Rules[i].ExposeHeaders,
+		})
+	}
+	return result, nil
+}
+
+func (b *SBucket) DeleteCORS() error {
+	coscli, err := b.region.GetCosClient(b)
+	if err != nil {
+		return errors.Wrap(err, "b.region.GetCosClient")
+	}
+	_, err = coscli.Bucket.DeleteCORS(context.Background())
+	if err != nil {
+		return errors.Wrap(err, "coscli.Bucket.DeleteCORS")
+	}
+	return nil
+}
+
+func (b *SBucket) SetReferer(conf cloudprovider.SBucketRefererConf) error {
+	coscli, err := b.region.GetCosClient(b)
+	if err != nil {
+		return errors.Wrap(err, "b.region.GetCosClient")
+	}
+	opts := cos.BucketPutRefererOptions{
+		Status:                  "Enabled",
+		RefererType:             "White-List",
+		EmptyReferConfiguration: "Deny",
+	}
+	if !conf.Enabled {
+		opts.Status = "Disabled"
+	}
+	if conf.Type != "White-List" {
+		opts.RefererType = "Black-List"
+	}
+	if conf.AllowEmptyRefer {
+		opts.EmptyReferConfiguration = "Allow"
+	}
+	opts.DomainList = conf.DomainList
+	_, err = coscli.Bucket.PutReferer(context.Background(), &opts)
+	if err != nil {
+		return errors.Wrap(err, "coscli.Bucket.PutReferer")
+	}
+	return nil
+}
+func (b *SBucket) GetReferer() (cloudprovider.SBucketRefererConf, error) {
+	result := cloudprovider.SBucketRefererConf{}
+	coscli, err := b.region.GetCosClient(b)
+	if err != nil {
+		return result, errors.Wrap(err, "b.region.GetCosClient")
+	}
+	referResult, _, err := coscli.Bucket.GetReferer(context.Background())
+
+	result.Enabled = true
+	result.Type = "White-List"
+	result.AllowEmptyRefer = false
+
+	if referResult.Status == "Disabled" {
+		result.Enabled = false
+	}
+	if referResult.RefererType == "Black-List" {
+		result.Type = "Black-List"
+	}
+	if referResult.EmptyReferConfiguration == "Allow" {
+		result.AllowEmptyRefer = true
+	}
+	result.DomainList = referResult.DomainList
+	return result, nil
 }

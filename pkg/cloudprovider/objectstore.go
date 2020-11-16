@@ -76,6 +76,50 @@ type SBucketAccessUrl struct {
 	Primary     bool
 }
 
+type SBucketWebsiteRoutingRule struct {
+	ConditionErrorCode string
+	ConditionPrefix    string
+
+	RedirectProtocol         string
+	RedirectReplaceKey       string
+	RedirectReplaceKeyPrefix string
+}
+
+type SBucketWebsiteConf struct {
+	// 主页
+	Index string
+	// 错误时返回的文档
+	ErrorDocument string
+	// http或https
+	Protocol string
+
+	Rules []SBucketWebsiteRoutingRule
+	// 网站访问url,一般由bucketid，region等组成
+	Url string
+}
+
+type SBucketCORSRule struct {
+	AllowedMethods []string
+	// 允许的源站，可以设为*
+	AllowedOrigins []string
+	AllowedHeaders []string
+	MaxAgeSeconds  int
+	ExposeHeaders  []string
+}
+
+type SBucketRefererConf struct {
+	// conf id
+	Id string
+	// 是否开启防盗链
+	Enabled bool
+	// Black-List、White-List
+	Type string
+	// 域名列表
+	DomainList []string
+	// 是否允许空referer 访问
+	AllowEmptyRefer bool
+}
+
 type SBaseCloudObject struct {
 	Key          string
 	SizeBytes    int64
@@ -165,6 +209,17 @@ type ICloudBucket interface {
 	CopyPart(ctx context.Context, key string, uploadId string, partIndex int, srcBucketName string, srcKey string, srcOffset int64, srcLength int64) (string, error)
 	CompleteMultipartUpload(ctx context.Context, key string, uploadId string, partEtags []string) error
 	AbortMultipartUpload(ctx context.Context, key string, uploadId string) error
+
+	SetWebsite(conf SBucketWebsiteConf) error
+	GetWebsiteConf() (SBucketWebsiteConf, error)
+	DeleteWebSiteConf() error
+
+	SetCORS(rules []SBucketCORSRule) error
+	GetCORSRules() ([]SBucketCORSRule, error)
+	DeleteCORS() error
+
+	SetReferer(conf SBucketRefererConf) error
+	GetReferer() (SBucketRefererConf, error)
 }
 
 type ICloudObject interface {

@@ -241,9 +241,14 @@ const (
 	ACT_HOST_MAINTENANCE                 = "host_maintenance"
 	ACT_HOST_DOWN                        = "host_down"
 
-	ACT_UPLOAD_OBJECT = "upload_obj"
-	ACT_DELETE_OBJECT = "delete_obj"
-	ACT_MKDIR         = "mkdir"
+	ACT_UPLOAD_OBJECT  = "upload_obj"
+	ACT_DELETE_OBJECT  = "delete_obj"
+	ACT_MKDIR          = "mkdir"
+	ACT_SET_WEBSITE    = "set_website"
+	ACT_DELETE_WEBSITE = "delete_website"
+	ACT_SET_CORS       = "set_cors"
+	ACT_DELETE_CORS    = "delete_cors"
+	ACT_SET_REFERER    = "set_referer"
 
 	ACT_GRANT_PRIVILEGE  = "grant_privilege"
 	ACT_REVOKE_PRIVILEGE = "revoke_privilege"

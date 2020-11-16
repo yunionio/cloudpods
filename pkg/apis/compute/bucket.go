@@ -182,3 +182,81 @@ type BucketGetObjectsOutput struct {
 	// 下一页请求的paging_marker标识
 	NextMarker string `json:"next_marker"`
 }
+
+type BucketWebsiteRoutingRule struct {
+	ConditionErrorCode string
+	ConditionPrefix    string
+
+	RedirectProtocol         string
+	RedirectReplaceKey       string
+	RedirectReplaceKeyPrefix string
+}
+
+type BucketWebsiteConf struct {
+	// 主页
+	Index string
+	// 错误时返回的文档
+	ErrorDocument string
+	// http或https
+	Protocol string
+
+	Rules []BucketWebsiteRoutingRule
+	// 访问网站url
+	Url string
+}
+
+func (input *BucketWebsiteConf) Validate() error {
+	if len(input.Index) == 0 {
+		return httperrors.NewMissingParameterError("index")
+	}
+	if len(input.ErrorDocument) == 0 {
+		return httperrors.NewMissingParameterError("error_document")
+	}
+	if len(input.Protocol) == 0 {
+		return httperrors.NewMissingParameterError("protocol")
+	}
+	return nil
+}
+
+type BucketCORSRule struct {
+	AllowedMethods []string
+	// 允许的源站，可以是*
+	AllowedOrigins []string
+	AllowedHeaders []string
+	MaxAgeSeconds  int
+	ExposeHeaders  []string
+}
+
+type BucketCORSRules struct {
+	Rules []BucketCORSRule
+}
+
+func (input *BucketCORSRules) Validate() error {
+	for i := range input.Rules {
+		if len(input.Rules[i].AllowedOrigins) == 0 {
+			return httperrors.NewMissingParameterError("allowed_origins")
+		}
+		if len(input.Rules[i].AllowedMethods) == 0 {
+			return httperrors.NewMissingParameterError("allowed_methods")
+		}
+	}
+	return nil
+}
+
+type BucketRefererConf struct {
+	// 是否开启防盗链
+	Enabled bool
+	// Black-List、White-List
+	Type string
+	// 域名列表
+	DomainList []string
+	// 是否允许空refer 访问
+	AllowEmptyRefer bool
+}
+
+func (input *BucketRefererConf) Validate() error {
+	if len(input.DomainList) == 0 {
+		return httperrors.NewMissingParameterError("domain_list")
+	}
+	return nil
+}
