@@ -134,6 +134,7 @@ type ComputeOptions struct {
 
 	EnableHostHealthCheck bool `help:"enable host health check" default:"true"`
 	HostHealthTimeout     int  `help:"second of wait host reconnect" default:"60"`
+	HostUpgrading         bool `help:"service host upgrading" default:"false"`
 
 	FetchEtcdServiceInfoAndUseEtcdLock bool `default:"true" help:"fetch etcd service info and use etcd lock"`
 

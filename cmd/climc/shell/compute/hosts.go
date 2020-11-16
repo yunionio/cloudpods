@@ -831,4 +831,18 @@ func init() {
 			return nil
 		},
 	)
+
+	type SetHostServicesUpgrading struct {
+		Upgrading string `help:"services host upgrading" choices:"true|false"`
+	}
+	R(&SetHostServicesUpgrading{}, "set-host-services-upgrading", "set host services upgrading",
+		func(s *mcclient.ClientSession, args *SetHostServicesUpgrading) error {
+			res, err := modules.Hosts.PerformClassAction(s, "set-host-services-upgrading", jsonutils.Marshal(args))
+			if err != nil {
+				return err
+			}
+			printObject(res)
+			return nil
+		},
+	)
 }

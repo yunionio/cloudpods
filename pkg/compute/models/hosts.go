@@ -5145,6 +5145,9 @@ func (host *SHost) PerformHostMaintenance(ctx context.Context, userCred mcclient
 
 func (host *SHost) OnHostDown(ctx context.Context, userCred mcclient.TokenCredential) {
 	log.Errorf("watched host down %s", host.Id)
+	if options.Options.HostUpgrading {
+		return
+	}
 	db.OpsLog.LogEvent(host, db.ACT_HOST_DOWN, "", userCred)
 	if _, err := host.SaveCleanUpdates(func() error {
 		host.EnableHealthCheck = false
@@ -5261,6 +5264,30 @@ func (host *SHost) StartMaintainTask(ctx context.Context, userCred mcclient.Toke
 
 func (host *SHost) IsMaintaining() bool {
 	return utils.IsInStringArray(host.Status, []string{api.BAREMETAL_START_MAINTAIN, api.BAREMETAL_MAINTAINING, api.BAREMETAL_MAINTAIN_FAIL})
+}
+
+func (manager *SHostManager) AllowPerformSetHostServicesUpgrading(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) bool {
+	return db.IsAdminAllowClassPerform(userCred, manager, "set-host-services-upgrading")
+}
+
+func (manager *SHostManager) PerformSetHostServicesUpgrading(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	if upgrading, err := data.Bool("upgrading"); err != nil {
+		return nil, httperrors.NewMissingParameterError("upgrading")
+	} else {
+		log.Infof("set host services upgrading %v", upgrading)
+		options.Options.HostUpgrading = upgrading
+		return nil, nil
+	}
 }
 
 // InstanceGroups returns the enabled group of guest in host and their frequency of occurrence
