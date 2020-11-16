@@ -384,7 +384,7 @@ func (self *SHuaweiClient) GetIHostById(id string) (cloudprovider.ICloudHost, er
 		ihost, err := self.iregions[i].GetIHostById(id)
 		if err == nil {
 			return ihost, nil
-		} else if err != cloudprovider.ErrNotFound {
+		} else if errors.Cause(err) != cloudprovider.ErrNotFound {
 			return nil, err
 		}
 	}
@@ -396,7 +396,7 @@ func (self *SHuaweiClient) GetIVpcById(id string) (cloudprovider.ICloudVpc, erro
 		ivpc, err := self.iregions[i].GetIVpcById(id)
 		if err == nil {
 			return ivpc, nil
-		} else if err != cloudprovider.ErrNotFound {
+		} else if errors.Cause(err) != cloudprovider.ErrNotFound {
 			return nil, err
 		}
 	}
@@ -408,7 +408,7 @@ func (self *SHuaweiClient) GetIStorageById(id string) (cloudprovider.ICloudStora
 		istorage, err := self.iregions[i].GetIStorageById(id)
 		if err == nil {
 			return istorage, nil
-		} else if err != cloudprovider.ErrNotFound {
+		} else if errors.Cause(err) != cloudprovider.ErrNotFound {
 			return nil, err
 		}
 	}

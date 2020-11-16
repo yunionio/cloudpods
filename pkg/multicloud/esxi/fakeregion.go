@@ -15,6 +15,7 @@
 package esxi
 
 import (
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -53,7 +54,7 @@ func (cli *SESXiClient) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 	}
 	for _, host := range hosts {
 		vm, err := host.GetIVMById(id)
-		if err != cloudprovider.ErrNotFound {
+		if errors.Cause(err) != cloudprovider.ErrNotFound {
 			return vm, err
 		}
 	}
@@ -67,7 +68,7 @@ func (self *SESXiClient) GetIDiskById(id string) (cloudprovider.ICloudDisk, erro
 	}
 	for _, storage := range storages {
 		disk, err := storage.GetIDiskById(id)
-		if err != cloudprovider.ErrNotFound {
+		if errors.Cause(err) != cloudprovider.ErrNotFound {
 			return disk, err
 		}
 	}
