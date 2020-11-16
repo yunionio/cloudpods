@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -674,9 +673,8 @@ func (client *SQcloudClient) fetchRegions() error {
 func (client *SQcloudClient) getCosClient(bucket *SBucket) (*cos.Client, error) {
 	var baseUrl *cos.BaseURL
 	if bucket != nil {
-		u, _ := url.Parse(bucket.getBucketUrl())
 		baseUrl = &cos.BaseURL{
-			BucketURL: u,
+			BucketURL: cos.NewBucketURL(fmt.Sprintf("%s-%s", bucket.Name, client.appId), bucket.region.Region, false),
 		}
 	}
 	cosClient := cos.NewClient(
