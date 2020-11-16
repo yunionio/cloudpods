@@ -22,7 +22,6 @@ type BucketInventoryFilter struct {
 
 // BucketInventoryOptionalFields ...
 type BucketInventoryOptionalFields struct {
-	XMLName               xml.Name `xml:"OptionalFields,omitempty"`
 	BucketInventoryFields []string `xml:"Field,omitempty"`
 }
 
@@ -33,23 +32,16 @@ type BucketInventorySchedule struct {
 
 // BucketInventoryEncryption ...
 type BucketInventoryEncryption struct {
-	XMLName xml.Name `xml:"Encryption"`
-	SSECOS  string   `xml:"SSE-COS,omitempty"`
+	SSECOS string `xml:"SSE-COS"`
 }
 
-// BucketInventoryDestinationContent ...
-type BucketInventoryDestinationContent struct {
+// BucketInventoryDestination ...
+type BucketInventoryDestination struct {
 	Bucket     string                     `xml:"Bucket"`
 	AccountId  string                     `xml:"AccountId,omitempty"`
 	Prefix     string                     `xml:"Prefix,omitempty"`
 	Format     string                     `xml:"Format"`
 	Encryption *BucketInventoryEncryption `xml:"Encryption,omitempty"`
-}
-
-// BucketInventoryDestination ...
-type BucketInventoryDestination struct {
-	XMLName           xml.Name                           `xml:"Destination"`
-	BucketDestination *BucketInventoryDestinationContent `xml:"COSBucketDestination"`
 }
 
 // BucketPutInventoryOptions ...
@@ -61,7 +53,7 @@ type BucketPutInventoryOptions struct {
 	Filter                 *BucketInventoryFilter         `xml:"Filter,omitempty"`
 	OptionalFields         *BucketInventoryOptionalFields `xml:"OptionalFields,omitempty"`
 	Schedule               *BucketInventorySchedule       `xml:"Schedule"`
-	Destination            *BucketInventoryDestination    `xml:"Destination"`
+	Destination            *BucketInventoryDestination    `xml:"Destination>COSBucketDestination"`
 }
 
 // ListBucketInventoryConfigResult result of ListBucketInventoryConfiguration
@@ -74,7 +66,7 @@ type ListBucketInventoryConfigResult struct {
 }
 
 // PutBucketInventory https://cloud.tencent.com/document/product/436/33707
-func (s *BucketService) PutBucketInventoryTest(ctx context.Context, id string, opt *BucketPutInventoryOptions) (*Response, error) {
+func (s *BucketService) PutInventory(ctx context.Context, id string, opt *BucketPutInventoryOptions) (*Response, error) {
 	u := fmt.Sprintf("/?inventory&id=%s", id)
 	sendOpt := sendOptions{
 		baseURL: s.client.BaseURL.BucketURL,
@@ -88,7 +80,7 @@ func (s *BucketService) PutBucketInventoryTest(ctx context.Context, id string, o
 }
 
 // GetBucketInventory https://cloud.tencent.com/document/product/436/33705
-func (s *BucketService) GetBucketInventoryTest(ctx context.Context, id string) (*BucketGetInventoryResult, *Response, error) {
+func (s *BucketService) GetInventory(ctx context.Context, id string) (*BucketGetInventoryResult, *Response, error) {
 	u := fmt.Sprintf("/?inventory&id=%s", id)
 	var res BucketGetInventoryResult
 	sendOpt := sendOptions{
@@ -102,7 +94,7 @@ func (s *BucketService) GetBucketInventoryTest(ctx context.Context, id string) (
 }
 
 // DeleteBucketInventory https://cloud.tencent.com/document/product/436/33704
-func (s *BucketService) DeleteBucketInventoryTest(ctx context.Context, id string) (*Response, error) {
+func (s *BucketService) DeleteInventory(ctx context.Context, id string) (*Response, error) {
 	u := fmt.Sprintf("/?inventory&id=%s", id)
 	sendOpt := sendOptions{
 		baseURL: s.client.BaseURL.BucketURL,
@@ -114,7 +106,7 @@ func (s *BucketService) DeleteBucketInventoryTest(ctx context.Context, id string
 }
 
 // ListBucketInventoryConfigurations https://cloud.tencent.com/document/product/436/33706
-func (s *BucketService) ListBucketInventoryConfigurationsTest(ctx context.Context, token string) (*ListBucketInventoryConfigResult, *Response, error) {
+func (s *BucketService) ListInventoryConfigurations(ctx context.Context, token string) (*ListBucketInventoryConfigResult, *Response, error) {
 	var res ListBucketInventoryConfigResult
 	var u string
 	if token == "" {

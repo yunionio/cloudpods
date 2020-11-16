@@ -102,3 +102,61 @@ type Bucket struct {
 	Region       string `xml:"Location,omitempty"`
 	CreationDate string `xml:",omitempty"`
 }
+
+type BucketGetObjectVersionsOptions struct {
+	Prefix          string `url:"prefix,omitempty"`
+	Delimiter       string `url:"delimiter,omitempty"`
+	EncodingType    string `url:"encoding-type,omitempty"`
+	KeyMarker       string `url:"key-marker,omitempty"`
+	VersionIdMarker string `url:"version-id-marker,omitempty"`
+	MaxKeys         int    `url:"max-keys,omitempty"`
+}
+
+type BucketGetObjectVersionsResult struct {
+	XMLName             xml.Name                         `xml:"ListVersionsResult"`
+	Name                string                           `xml:"Name,omitempty"`
+	EncodingType        string                           `xml:"EncodingType,omitempty"`
+	Prefix              string                           `xml:"Prefix,omitempty"`
+	KeyMarker           string                           `xml:"KeyMarker,omitempty"`
+	VersionIdMarker     string                           `xml:"VersionIdMarker,omitempty"`
+	MaxKeys             int                              `xml:"MaxKeys,omitempty"`
+	Delimiter           string                           `xml:"Delimiter,omitempty"`
+	IsTruncated         bool                             `xml:"IsTruncated,omitempty"`
+	NextKeyMarker       string                           `xml:"NextKeyMarker,omitempty"`
+	NextVersionIdMarker string                           `xml:"NextVersionIdMarker,omitempty"`
+	CommonPrefixes      []string                         `xml:"CommonPrefixes>Prefix,omitempty"`
+	Version             []ListVersionsResultVersion      `xml:"Version,omitempty"`
+	DeleteMarker        []ListVersionsResultDeleteMarker `xml:"DeleteMarker,omitempty"`
+}
+
+type ListVersionsResultVersion struct {
+	Key          string `xml:"Key,omitempty"`
+	VersionId    string `xml:"VersionId,omitempty"`
+	IsLatest     bool   `xml:"IsLatest,omitempty"`
+	LastModified string `xml:"LastModified,omitempty"`
+	ETag         string `xml:"ETag,omitempty"`
+	Size         int    `xml:"Size,omitempty"`
+	StorageClass string `xml:"StorageClass,omitempty"`
+	Owner        *Owner `xml:"Owner,omitempty"`
+}
+
+type ListVersionsResultDeleteMarker struct {
+	Key          string `xml:"Key,omitempty"`
+	VersionId    string `xml:"VersionId,omitempty"`
+	IsLatest     bool   `xml:"IsLatest,omitempty"`
+	LastModified string `xml:"LastModified,omitempty"`
+	Owner        *Owner `xml:"Owner,omitempty"`
+}
+
+func (s *BucketService) GetObjectVersions(ctx context.Context, opt *BucketGetObjectVersionsOptions) (*BucketGetObjectVersionsResult, *Response, error) {
+	var res BucketGetObjectVersionsResult
+	sendOpt := sendOptions{
+		baseURL:  s.client.BaseURL.BucketURL,
+		uri:      "/?versions",
+		method:   http.MethodGet,
+		optQuery: opt,
+		result:   &res,
+	}
+	resp, err := s.client.send(ctx, &sendOpt)
+	return &res, resp, err
+}

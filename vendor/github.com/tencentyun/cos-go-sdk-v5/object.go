@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -129,6 +130,7 @@ type ObjectPutHeaderOptions struct {
 	ContentType        string `header:"Content-Type,omitempty" url:"-"`
 	ContentMD5         string `header:"Content-MD5,omitempty" url:"-"`
 	ContentLength      int    `header:"Content-Length,omitempty" url:"-"`
+	ContentLanguage    string `header:"Content-Language,omitempty" url:"-"`
 	Expect             string `header:"Expect,omitempty" url:"-"`
 	Expires            string `header:"Expires,omitempty" url:"-"`
 	XCosContentSHA1    string `header:"x-cos-content-sha1,omitempty" url:"-"`
@@ -188,6 +190,7 @@ type ObjectCopyHeaderOptions struct {
 	CacheControl                    string `header:"Cache-Control,omitempty" url:"-"`
 	ContentDisposition              string `header:"Content-Disposition,omitempty" url:"-"`
 	ContentEncoding                 string `header:"Content-Encoding,omitempty" url:"-"`
+	ContentLanguage                 string `header:"Content-Language,omitempty" url:"-"`
 	ContentType                     string `header:"Content-Type,omitempty" url:"-"`
 	Expires                         string `header:"Expires,omitempty" url:"-"`
 	Expect                          string `header:"Expect,omitempty" url:"-"`
@@ -208,6 +211,8 @@ type ObjectCopyHeaderOptions struct {
 	XCosCopySourceSSECustomerAglo   string `header:"x-cos-copy-source-server-side-encryption-customer-algorithm,omitempty" url:"-" xml:"-"`
 	XCosCopySourceSSECustomerKey    string `header:"x-cos-copy-source-server-side-encryption-customer-key,omitempty" url:"-" xml:"-"`
 	XCosCopySourceSSECustomerKeyMD5 string `header:"x-cos-copy-source-server-side-encryption-customer-key-MD5,omitempty" url:"-" xml:"-"`
+	//兼容其他自定义头部
+	XOptionHeader *http.Header `header:"-,omitempty" url:"-" xml:"-"`
 }
 
 // ObjectCopyOptions is the option of Copy, choose header or body
@@ -232,11 +237,15 @@ type ObjectCopyResult struct {
 //
 // https://cloud.tencent.com/document/product/436/10881
 func (s *ObjectService) Copy(ctx context.Context, name, sourceURL string, opt *ObjectCopyOptions, id ...string) (*ObjectCopyResult, *Response, error) {
+	surl := strings.SplitN(sourceURL, "/", 2)
+	if len(surl) < 2 {
+		return nil, nil, errors.New(fmt.Sprintf("x-cos-copy-source format error: %s", sourceURL))
+	}
 	var u string
 	if len(id) == 1 {
-		u = fmt.Sprintf("%s?versionId=%s", encodeURIComponent(sourceURL), id[0])
+		u = fmt.Sprintf("%s/%s?versionId=%s", surl[0], encodeURIComponent(surl[1]), id[0])
 	} else if len(id) == 0 {
-		u = encodeURIComponent(sourceURL)
+		u = fmt.Sprintf("%s/%s", surl[0], encodeURIComponent(surl[1]))
 	} else {
 		return nil, nil, errors.New("wrong params")
 	}
@@ -268,19 +277,35 @@ func (s *ObjectService) Copy(ctx context.Context, name, sourceURL string, opt *O
 	return &res, resp, err
 }
 
+type ObjectDeleteOptions struct {
+	// SSE-C
+	XCosSSECustomerAglo   string `header:"x-cos-server-side-encryption-customer-algorithm,omitempty" url:"-" xml:"-"`
+	XCosSSECustomerKey    string `header:"x-cos-server-side-encryption-customer-key,omitempty" url:"-" xml:"-"`
+	XCosSSECustomerKeyMD5 string `header:"x-cos-server-side-encryption-customer-key-MD5,omitempty" url:"-" xml:"-"`
+	//兼容其他自定义头部
+	XOptionHeader *http.Header `header:"-,omitempty" url:"-" xml:"-"`
+	VersionId     string       `header:"-" url:"VersionId,omitempty" xml:"-"`
+}
+
 // Delete Object请求可以将一个文件（Object）删除。
 //
 // https://www.qcloud.com/document/product/436/7743
-func (s *ObjectService) Delete(ctx context.Context, name string) (*Response, error) {
+func (s *ObjectService) Delete(ctx context.Context, name string, opt ...*ObjectDeleteOptions) (*Response, error) {
+	var optHeader *ObjectDeleteOptions
 	// When use "" string might call the delete bucket interface
 	if len(name) == 0 {
 		return nil, errors.New("empty object name")
 	}
+	if len(opt) > 0 {
+		optHeader = opt[0]
+	}
 
 	sendOpt := sendOptions{
-		baseURL: s.client.BaseURL.BucketURL,
-		uri:     "/" + encodeURIComponent(name),
-		method:  http.MethodDelete,
+		baseURL:   s.client.BaseURL.BucketURL,
+		uri:       "/" + encodeURIComponent(name),
+		method:    http.MethodDelete,
+		optHeader: optHeader,
+		optQuery:  optHeader,
 	}
 	resp, err := s.client.send(ctx, &sendOpt)
 	return resp, err
@@ -417,9 +442,10 @@ type ObjectDeleteMultiResult struct {
 	XMLName        xml.Name `xml:"DeleteResult"`
 	DeletedObjects []Object `xml:"Deleted,omitempty"`
 	Errors         []struct {
-		Key     string
-		Code    string
-		Message string
+		Key       string `xml:",omitempty"`
+		Code      string `xml:",omitempty"`
+		Message   string `xml:",omitempty"`
+		VersionId string `xml:",omitempty"`
 	} `xml:"Error,omitempty"`
 }
 
@@ -449,6 +475,7 @@ type Object struct {
 	LastModified string `xml:",omitempty"`
 	StorageClass string `xml:",omitempty"`
 	Owner        *Owner `xml:",omitempty"`
+	VersionId    string `xml:",omitempty"`
 }
 
 // MultiUploadOptions is the option of the multiupload,
@@ -574,18 +601,42 @@ func SplitFileIntoChunks(filePath string, partSize int64) ([]Chunk, int, error) 
 
 }
 
-// MultiUpload 为高级upload接口，并发分块上传
+// MultiUpload/Upload 为高级upload接口，并发分块上传
 // 注意该接口目前只供参考
 //
 // 当 partSize > 0 时，由调用者指定分块大小，否则由 SDK 自动切分，单位为MB
 // 由调用者指定分块大小时，请确认分块数量不超过10000
 //
-
 func (s *ObjectService) MultiUpload(ctx context.Context, name string, filepath string, opt *MultiUploadOptions) (*CompleteMultipartUploadResult, *Response, error) {
+	return s.Upload(ctx, name, filepath, opt)
+}
+
+func (s *ObjectService) Upload(ctx context.Context, name string, filepath string, opt *MultiUploadOptions) (*CompleteMultipartUploadResult, *Response, error) {
+	if opt == nil {
+		opt = &MultiUploadOptions{}
+	}
 	// 1.Get the file chunk
 	chunks, partNum, err := SplitFileIntoChunks(filepath, opt.PartSize)
 	if err != nil {
 		return nil, nil, err
+	}
+	if partNum == 0 {
+		var opt0 *ObjectPutOptions
+		if opt.OptIni != nil {
+			opt0 = &ObjectPutOptions{
+				opt.OptIni.ACLHeaderOptions,
+				opt.OptIni.ObjectPutHeaderOptions,
+			}
+		}
+		rsp, err := s.PutFromFile(ctx, name, filepath, opt0)
+		if err != nil {
+			return nil, rsp, err
+		}
+		result := &CompleteMultipartUploadResult{
+			Key:  name,
+			ETag: rsp.Header.Get("ETag"),
+		}
+		return result, rsp, nil
 	}
 
 	// 2.Init
@@ -651,4 +702,70 @@ func (s *ObjectService) MultiUpload(ctx context.Context, name string, filepath s
 	v, resp, err := s.CompleteMultipartUpload(context.Background(), name, uploadID, optcom)
 
 	return v, resp, err
+}
+
+type ObjectPutTaggingOptions struct {
+	XMLName xml.Name           `xml:"Tagging"`
+	TagSet  []ObjectTaggingTag `xml:"TagSet>Tag,omitempty"`
+}
+type ObjectTaggingTag BucketTaggingTag
+type ObjectGetTaggingResult ObjectPutTaggingOptions
+
+func (s *ObjectService) PutTagging(ctx context.Context, name string, opt *ObjectPutTaggingOptions, id ...string) (*Response, error) {
+	var u string
+	if len(id) == 1 {
+		u = fmt.Sprintf("/%s?tagging&versionId=%s", encodeURIComponent(name), id[0])
+	} else if len(id) == 0 {
+		u = fmt.Sprintf("/%s?tagging", encodeURIComponent(name))
+	} else {
+		return nil, errors.New("wrong params")
+	}
+	sendOpt := &sendOptions{
+		baseURL: s.client.BaseURL.BucketURL,
+		uri:     u,
+		method:  http.MethodPut,
+		body:    opt,
+	}
+	resp, err := s.client.send(ctx, sendOpt)
+	return resp, err
+}
+
+func (s *ObjectService) GetTagging(ctx context.Context, name string, id ...string) (*ObjectGetTaggingResult, *Response, error) {
+	var u string
+	if len(id) == 1 {
+		u = fmt.Sprintf("/%s?tagging&versionId=%s", encodeURIComponent(name), id[0])
+	} else if len(id) == 0 {
+		u = fmt.Sprintf("/%s?tagging", encodeURIComponent(name))
+	} else {
+		return nil, nil, errors.New("wrong params")
+	}
+
+	var res ObjectGetTaggingResult
+	sendOpt := &sendOptions{
+		baseURL: s.client.BaseURL.BucketURL,
+		uri:     u,
+		method:  http.MethodGet,
+		result:  &res,
+	}
+	resp, err := s.client.send(ctx, sendOpt)
+	return &res, resp, err
+}
+
+func (s *ObjectService) DeleteTagging(ctx context.Context, name string, id ...string) (*Response, error) {
+	var u string
+	if len(id) == 1 {
+		u = fmt.Sprintf("/%s?tagging&versionId=%s", encodeURIComponent(name), id[0])
+	} else if len(id) == 0 {
+		u = fmt.Sprintf("/%s?tagging", encodeURIComponent(name))
+	} else {
+		return nil, errors.New("wrong params")
+	}
+
+	sendOpt := &sendOptions{
+		baseURL: s.client.BaseURL.BucketURL,
+		uri:     u,
+		method:  http.MethodDelete,
+	}
+	resp, err := s.client.send(ctx, sendOpt)
+	return resp, err
 }

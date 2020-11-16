@@ -583,7 +583,7 @@ github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/http
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile
-# github.com/tencentyun/cos-go-sdk-v5 v0.0.0-20191108095731-8ca4b370cde4
+# github.com/tencentyun/cos-go-sdk-v5 v0.7.10
 github.com/tencentyun/cos-go-sdk-v5
 github.com/tencentyun/cos-go-sdk-v5/debug
 # github.com/texttheater/golang-levenshtein v0.0.0-20180516184445-d188e65d659e
