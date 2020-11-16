@@ -1260,7 +1260,7 @@ func (host *SHost) newLocalStorageCache() (*SDatastoreImageCache, error) {
 		}
 		_, err := ds.CheckFile(ctx, IMAGE_CACHE_DIR_NAME)
 		if err != nil {
-			if err != cloudprovider.ErrNotFound {
+			if errors.Cause(err) != cloudprovider.ErrNotFound {
 				// return nil, err
 				if len(errmsg) > 0 {
 					errmsg += ","
