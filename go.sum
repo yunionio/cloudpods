@@ -1138,6 +1138,8 @@ yunion.io/x/pkg v0.0.0-20200814072949-4f1b541857d6 h1:UarEDTBGkgcgc+nc+PZ75uo9M9
 yunion.io/x/pkg v0.0.0-20200814072949-4f1b541857d6/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=
 yunion.io/x/pkg v0.0.0-20201028134817-3ed15ee169bc h1:cgwWI6k9LsXpq6yiOuEIprsXmPyPGUa60sOZu57e8Jo=
 yunion.io/x/pkg v0.0.0-20201028134817-3ed15ee169bc/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=
+yunion.io/x/pkg v0.0.0-20201123083159-ca3aea986ff2 h1:NeCr2J8HjcIuJvEhP0rwWA1UKP8ReOv6HVf5k9YPtyA=
+yunion.io/x/pkg v0.0.0-20201123083159-ca3aea986ff2/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=
 yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e h1:v+EzIadodSwkdZ/7bremd7J8J50Cise/HCylsOJngmo=
 yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e/go.mod h1:0iFKpOs1y4lbCxeOmq3Xx/0AcQoewVPwj62eRluioEo=
 yunion.io/x/sqlchemy v0.0.0-20201029091740-cd5e77b56d4b h1:xBAzDPvvmsOBjxAj0PLHMNLVdPNOlYFHAm7T3IZ2ehs=
