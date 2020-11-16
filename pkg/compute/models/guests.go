@@ -78,6 +78,7 @@ type SGuestManager struct {
 	SNetworkResourceBaseManager
 	SDiskResourceBaseManager
 	SScalingGroupResourceBaseManager
+	db.SMultiArchResourceBaseManager
 }
 
 var GuestManager *SGuestManager
@@ -102,6 +103,7 @@ type SGuest struct {
 
 	SBillingResourceBase
 	SDeletePreventableResourceBase
+	db.SMultiArchResourceBase
 
 	SHostResourceBase `width:"36" charset:"ascii" nullable:"true" list:"user" get:"user" index:"true"`
 
@@ -147,9 +149,6 @@ type SGuest struct {
 	// 虚拟化技术
 	// example: kvm
 	Hypervisor string `width:"16" charset:"ascii" nullable:"false" default:"kvm" list:"user" create:"required"`
-	// 虚拟机CPU架构
-	// example: x86 arm
-	OsArch string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	// 套餐名称
 	InstanceType string `width:"64" charset:"utf8" nullable:"true" list:"user" create:"optional"`
@@ -196,6 +195,10 @@ func (manager *SGuestManager) ListItemFilter(
 	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SMultiArchResourceBaseManager.ListItemFilter(ctx, q, userCred, query.MultiArchResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "MultiArchResourceBaseListInput.ListItemFilter")
 	}
 
 	netQ := GuestnetworkManager.Query("guest_id").Snapshot()

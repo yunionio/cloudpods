@@ -48,6 +48,7 @@ type SSnapshotManager struct {
 	SCloudregionResourceBaseManager
 	SDiskResourceBaseManager
 	SStorageResourceBaseManager
+	db.SMultiArchResourceBaseManager
 }
 
 type SSnapshot struct {
@@ -56,6 +57,7 @@ type SSnapshot struct {
 
 	SManagedResourceBase
 	SCloudregionResourceBase `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	db.SMultiArchResourceBase
 
 	// 磁盘Id
 	DiskId string `width:"36" charset:"ascii" nullable:"true" create:"required" list:"user" index:"true"`
@@ -72,7 +74,6 @@ type SSnapshot struct {
 	DiskType    string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	// 操作系统类型
 	OsType string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional"`
-	OsArch string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	// create disk from snapshot, snapshot as disk backing file
 	RefCount int `nullable:"false" default:"0" list:"user"`
@@ -126,6 +127,10 @@ func (manager *SSnapshotManager) ListItemFilter(
 	q, err = manager.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SMultiArchResourceBaseManager.ListItemFilter(ctx, q, userCred, query.MultiArchResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SMultiArchResourceBaseManager.ListItemFilter")
 	}
 
 	if query.FakeDeleted != nil && *query.FakeDeleted {

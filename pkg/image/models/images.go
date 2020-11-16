@@ -62,6 +62,7 @@ const (
 
 type SImageManager struct {
 	db.SSharableVirtualResourceBaseManager
+	db.SMultiArchResourceBaseManager
 }
 
 var ImageManager *SImageManager
@@ -109,6 +110,7 @@ func init() {
 */
 type SImage struct {
 	db.SSharableVirtualResourceBase
+	db.SMultiArchResourceBase
 
 	// 镜像大小, 单位Byte
 	Size int64 `nullable:"true" list:"user" create:"optional"`
@@ -135,8 +137,6 @@ type SImage struct {
 	IsGuestImage tristate.TriState `nullable:"false" default:"false" create:"optional" list:"user"`
 	// 是否是数据盘镜像
 	IsData tristate.TriState `nullable:"false" default:"false" create:"optional" list:"user"`
-	// 操作系统CPU架构
-	OsArch string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	// image copy from url, save origin checksum before probe
 	// 从镜像时长导入的镜像校验和
@@ -1182,6 +1182,10 @@ func (manager *SImageManager) ListItemFilter(
 	q, err := manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.SharableVirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SMultiArchResourceBaseManager.ListItemFilter(ctx, q, userCred, query.MultiArchResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SMultiArchResourceBaseManager.ListItemFilter")
 	}
 	if len(query.DiskFormats) > 0 {
 		q = q.In("disk_format", query.DiskFormats)

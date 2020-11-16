@@ -47,13 +47,14 @@ import (
 
 type SGuestImageManager struct {
 	db.SSharableVirtualResourceBaseManager
+	db.SMultiArchResourceBaseManager
 }
 
 var GuestImageManager *SGuestImageManager
 
 func init() {
 	GuestImageManager = &SGuestImageManager{
-		db.NewSharableVirtualResourceBaseManager(
+		SSharableVirtualResourceBaseManager: db.NewSharableVirtualResourceBaseManager(
 			SGuestImage{},
 			"guestimages_tbl",
 			"guestimage",
@@ -65,10 +66,9 @@ func init() {
 
 type SGuestImage struct {
 	db.SSharableVirtualResourceBase
+	db.SMultiArchResourceBase
 
 	Protected tristate.TriState `nullable:"false" default:"true" list:"user" get:"user" create:"optional" update:"user"`
-	// 操作系统CPU架构
-	OsArch string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 }
 
 func (manager *SGuestImageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential,
@@ -580,6 +580,10 @@ func (manager *SGuestImageManager) ListItemFilter(
 	q, err := manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.SharableVirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SMultiArchResourceBaseManager.ListItemFilter(ctx, q, userCred, query.MultiArchResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SMultiArchResourceBaseManager.ListItemFilter")
 	}
 	if query.Protected != nil {
 		if *query.Protected {
