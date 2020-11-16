@@ -337,7 +337,7 @@ func (self *SUcloudClient) GetIHostById(id string) (cloudprovider.ICloudHost, er
 		ihost, err := self.iregions[i].GetIHostById(id)
 		if err == nil {
 			return ihost, nil
-		} else if err != cloudprovider.ErrNotFound {
+		} else if errors.Cause(err) != cloudprovider.ErrNotFound {
 			return nil, err
 		}
 	}
@@ -349,7 +349,7 @@ func (self *SUcloudClient) GetIVpcById(id string) (cloudprovider.ICloudVpc, erro
 		ihost, err := self.iregions[i].GetIVpcById(id)
 		if err == nil {
 			return ihost, nil
-		} else if err != cloudprovider.ErrNotFound {
+		} else if errors.Cause(err) != cloudprovider.ErrNotFound {
 			return nil, err
 		}
 	}
@@ -361,7 +361,7 @@ func (self *SUcloudClient) GetIStorageById(id string) (cloudprovider.ICloudStora
 		ihost, err := self.iregions[i].GetIStorageById(id)
 		if err == nil {
 			return ihost, nil
-		} else if err != cloudprovider.ErrNotFound {
+		} else if errors.Cause(err) != cloudprovider.ErrNotFound {
 			return nil, err
 		}
 	}
