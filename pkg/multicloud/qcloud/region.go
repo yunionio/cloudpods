@@ -152,6 +152,8 @@ func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalanc
 		if len(loadbalancer.ZoneID) > 0 {
 			if len(loadbalancer.SlaveZoneID) > 0 {
 				params["MasterZoneId"] = loadbalancer.ZoneID
+			} else {
+				params["ZoneId"] = loadbalancer.ZoneID
 			}
 		}
 	}
