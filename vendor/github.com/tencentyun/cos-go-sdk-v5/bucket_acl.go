@@ -6,7 +6,7 @@ import (
 )
 
 // BucketGetACLResult is same to the ACLXml
-type BucketGetACLResult ACLXml
+type BucketGetACLResult = ACLXml
 
 // GetACL 使用API读取Bucket的ACL表，只有所有者有权操作。
 //
@@ -20,6 +20,9 @@ func (s *BucketService) GetACL(ctx context.Context) (*BucketGetACLResult, *Respo
 		result:  &res,
 	}
 	resp, err := s.client.send(ctx, &sendOpt)
+	if err == nil {
+		decodeACL(resp, &res)
+	}
 	return &res, resp, err
 }
 

@@ -842,6 +842,10 @@ func (self *SRegion) getCosEndpoint() string {
 	return fmt.Sprintf("cos.%s.myqcloud.com", self.GetId())
 }
 
+func (self *SRegion) getCosWebsiteEndpoint() string {
+	return fmt.Sprintf("cos-website.%s.myqcloud.com", self.GetId())
+}
+
 func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
 	iBuckets, err := region.client.getIBuckets()
 	if err != nil {

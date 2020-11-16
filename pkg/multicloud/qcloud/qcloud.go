@@ -58,6 +58,7 @@ const (
 	QCLOUD_SQLSERVER_API_VERSION = "2018-03-28"
 	QCLOUD_REDIS_API_VERSION     = "2018-04-12"
 	QCLOUD_SSL_API_VERSION       = "2019-12-05"
+	QCLOUD_CDN_API_VERSION       = "2018-06-06"
 )
 
 type QcloudClientConfig struct {
@@ -242,6 +243,12 @@ func monitorRequest(client *common.Client, apiName string, params map[string]str
 	debug bool) (jsonutils.JSONObject, error) {
 	domain := "monitor.tencentcloudapi.com"
 	return _jsonRequest(client, domain, QCLOUD_API_VERSION_METRICS, apiName, params, debug, true)
+}
+
+func cdnRequest(client *common.Client, apiName string, params map[string]string,
+	debug bool) (jsonutils.JSONObject, error) {
+	domain := "cdn.tencentcloudapi.com"
+	return _jsonRequest(client, domain, QCLOUD_CDN_API_VERSION, apiName, params, debug, true)
 }
 
 // ============phpJsonRequest============
@@ -645,6 +652,14 @@ func (client *SQcloudClient) camRequest(apiName string, params map[string]string
 		return nil, err
 	}
 	return camRequest(cli, apiName, params, client.debug)
+}
+
+func (client *SQcloudClient) cdnRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := client.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	return cdnRequest(cli, apiName, params, client.debug)
 }
 
 func (client *SQcloudClient) jsonRequest(apiName string, params map[string]string, retry bool) (jsonutils.JSONObject, error) {

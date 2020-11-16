@@ -342,4 +342,141 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type BucketSetWebsiteOption struct {
+		ID string `help:"ID or name of bucket" json:"-"`
+		// 主页
+		Index string `help:"main page"`
+		// 错误时返回的文档
+		ErrorDocument string `help:"error return"`
+		// http或https
+		Protocol string `help:"force https" choices:"http|https"`
+	}
+	R(&BucketSetWebsiteOption{}, "bucket-set-website", "Set bucket website", func(s *mcclient.ClientSession, args *BucketSetWebsiteOption) error {
+		conf := api.BucketWebsiteConf{
+			Index:         args.Index,
+			ErrorDocument: args.ErrorDocument,
+			Protocol:      args.Protocol,
+		}
+		result, err := modules.Buckets.PerformAction(s, args.ID, "set-website", jsonutils.Marshal(conf))
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type BucketGetWebsiteConfOption struct {
+		ID string `help:"ID or name of bucket" json:"-"`
+	}
+	R(&BucketGetWebsiteConfOption{}, "bucket-get-website", "Get bucket website", func(s *mcclient.ClientSession, args *BucketGetWebsiteConfOption) error {
+		result, err := modules.Buckets.GetSpecific(s, args.ID, "website", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type BucketDeleteWebsiteConfOption struct {
+		ID string `help:"ID or name of bucket" json:"-"`
+	}
+	R(&BucketDeleteWebsiteConfOption{}, "bucket-delete-website", "Delete bucket website", func(s *mcclient.ClientSession, args *BucketDeleteWebsiteConfOption) error {
+		result, err := modules.Buckets.PerformAction(s, args.ID, "delete-website", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type BucketSetCorsOption struct {
+		ID             string   `help:"ID or name of bucket" json:"-"`
+		AllowedMethods []string `help:"allowed http method" choices:"PUT|GET|POST|DELETE|HEAD"`
+		// 允许的源站，可以设为*
+		AllowedOrigins []string
+		AllowedHeaders []string
+		MaxAgeSeconds  int
+		ExposeHeaders  []string
+	}
+	R(&BucketSetCorsOption{}, "bucket-set-cors", "Set bucket cors", func(s *mcclient.ClientSession, args *BucketSetCorsOption) error {
+
+		rule := api.BucketCORSRule{
+			AllowedOrigins: args.AllowedOrigins,
+			AllowedMethods: args.AllowedMethods,
+			AllowedHeaders: args.AllowedHeaders,
+			MaxAgeSeconds:  args.MaxAgeSeconds,
+			ExposeHeaders:  args.ExposeHeaders,
+		}
+		rules := api.BucketCORSRules{Rules: []api.BucketCORSRule{rule}}
+		result, err := modules.Buckets.PerformAction(s, args.ID, "set-cors", jsonutils.Marshal(rules))
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type BucketGetCorsOption struct {
+		ID string `help:"ID or name of bucket" json:"-"`
+	}
+	R(&BucketGetCorsOption{}, "bucket-get-cors", "Get bucket cors", func(s *mcclient.ClientSession, args *BucketGetCorsOption) error {
+		result, err := modules.Buckets.GetSpecific(s, args.ID, "cors", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type BucketDeleteCorsOption struct {
+		ID string `help:"ID or name of bucket" json:"-"`
+	}
+	R(&BucketGetWebsiteConfOption{}, "bucket-delete-cors", "Delete bucket cors", func(s *mcclient.ClientSession, args *BucketGetWebsiteConfOption) error {
+		result, err := modules.Buckets.PerformAction(s, args.ID, "delete-cors", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type BucketSetRefererOption struct {
+		ID string `help:"ID or name of bucket" json:"-"`
+		// 是否开启防盗链
+		Enabled bool `help:"enable refer"`
+		// Black-List、White-List
+		Type string `help:"domain list type" choices:"Black-List|White-List"`
+		// 域名列表
+		DomainList []string
+		// 是否允许空referer 访问
+		AllowEmptyRefer bool `help:"all empty refer access"`
+	}
+	R(&BucketSetRefererOption{}, "bucket-set-referer", "Set bucket referer", func(s *mcclient.ClientSession, args *BucketSetRefererOption) error {
+		conf := api.BucketRefererConf{
+			Enabled:         args.Enabled,
+			Type:            args.Type,
+			DomainList:      args.DomainList,
+			AllowEmptyRefer: args.AllowEmptyRefer,
+		}
+		result, err := modules.Buckets.PerformAction(s, args.ID, "set-referer", jsonutils.Marshal(conf))
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type BucketGetRefererOption struct {
+		ID string `help:"ID or name of bucket" json:"-"`
+	}
+	R(&BucketGetRefererOption{}, "bucket-get-referer", "get bucket referer", func(s *mcclient.ClientSession, args *BucketGetRefererOption) error {
+		result, err := modules.Buckets.GetSpecific(s, args.ID, "referer", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 }

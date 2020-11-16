@@ -75,6 +75,14 @@ func (args ObjectHeaderOptions) Options2Header() http.Header {
 	return meta
 }
 
+func printList(data interface{}, columns []string) {
+	printutils.PrintGetterList(data, columns)
+}
+
+func printObject(obj interface{}) {
+	printutils.PrintInterfaceObject(obj)
+}
+
 func S3Shell() {
 	type BucketListOptions struct {
 	}
@@ -373,6 +381,173 @@ func S3Shell() {
 			return err
 		}
 		fmt.Println("Success!")
+		return nil
+	})
+
+	type BucketSetWebsiteOption struct {
+		BUCKET string `help:"name of bucket to put object"`
+		// 主页
+		Index string `help:"main page"`
+		// 错误时返回的文档
+		ErrorDocument string `help:"error return"`
+		// http或https
+		Protocol string `help:"force https" choices:"http|https"`
+	}
+	shellutils.R(&BucketSetWebsiteOption{}, "bucket-set-website", "Set bucket website", func(cli cloudprovider.ICloudRegion, args *BucketSetWebsiteOption) error {
+		bucket, err := cli.GetIBucketById(args.BUCKET)
+		if err != nil {
+			return err
+		}
+		conf := cloudprovider.SBucketWebsiteConf{
+			Index:         args.Index,
+			ErrorDocument: args.ErrorDocument,
+			Protocol:      args.Protocol,
+		}
+		err = bucket.SetWebsite(conf)
+		if err != nil {
+			return err
+		}
+		fmt.Println("Success!")
+		return nil
+	})
+
+	type BucketGetWebsiteConfOption struct {
+		BUCKET string `help:"name of bucket to put object"`
+	}
+	shellutils.R(&BucketGetWebsiteConfOption{}, "bucket-get-website", "Get bucket website", func(cli cloudprovider.ICloudRegion, args *BucketGetWebsiteConfOption) error {
+		bucket, err := cli.GetIBucketById(args.BUCKET)
+		if err != nil {
+			return err
+		}
+		conf, err := bucket.GetWebsiteConf()
+		if err != nil {
+			return err
+		}
+		printObject(conf)
+		return nil
+	})
+
+	type BucketDeleteWebsiteConfOption struct {
+		BUCKET string `help:"name of bucket to put object"`
+	}
+	shellutils.R(&BucketDeleteWebsiteConfOption{}, "bucket-delete-website", "Delete bucket website", func(cli cloudprovider.ICloudRegion, args *BucketDeleteWebsiteConfOption) error {
+		bucket, err := cli.GetIBucketById(args.BUCKET)
+		if err != nil {
+			return err
+		}
+		err = bucket.DeleteWebSiteConf()
+		if err != nil {
+			return err
+		}
+		fmt.Println("Success!")
+		return nil
+	})
+
+	type BucketSetCorsOption struct {
+		BUCKET         string `help:"name of bucket to put object"`
+		AllowedMethods []string
+		// 允许的源站，可以设为*
+		AllowedOrigins []string
+		AllowedHeaders []string
+		MaxAgeSeconds  int
+		ExposeHeaders  []string
+	}
+	shellutils.R(&BucketSetCorsOption{}, "bucket-set-cors", "Set bucket cors", func(cli cloudprovider.ICloudRegion, args *BucketSetCorsOption) error {
+		bucket, err := cli.GetIBucketById(args.BUCKET)
+		if err != nil {
+			return err
+		}
+		rule := cloudprovider.SBucketCORSRule{
+			AllowedOrigins: args.AllowedOrigins,
+			AllowedMethods: args.AllowedMethods,
+			AllowedHeaders: args.AllowedHeaders,
+			MaxAgeSeconds:  args.MaxAgeSeconds,
+			ExposeHeaders:  args.ExposeHeaders,
+		}
+		err = bucket.SetCORS([]cloudprovider.SBucketCORSRule{rule})
+		if err != nil {
+			return err
+		}
+		fmt.Println("Success!")
+		return nil
+	})
+
+	type BucketGetCorsOption struct {
+		BUCKET string `help:"name of bucket to put object"`
+	}
+	shellutils.R(&BucketGetCorsOption{}, "bucket-get-cors", "Get bucket cors", func(cli cloudprovider.ICloudRegion, args *BucketGetCorsOption) error {
+		bucket, err := cli.GetIBucketById(args.BUCKET)
+		if err != nil {
+			return err
+		}
+		rules, err := bucket.GetCORSRules()
+		if err != nil {
+			return err
+		}
+		printList(rules, []string{"AllowedOrigins", "AllowedMethods", "AllowedHeaders", "MaxAgeSeconds", "ExposeHeaders"})
+		return nil
+	})
+
+	type BucketDeleteCorsOption struct {
+		BUCKET string `help:"name of bucket to put object"`
+	}
+	shellutils.R(&BucketGetWebsiteConfOption{}, "bucket-delete-cors", "Delete bucket cors", func(cli cloudprovider.ICloudRegion, args *BucketGetWebsiteConfOption) error {
+		bucket, err := cli.GetIBucketById(args.BUCKET)
+		if err != nil {
+			return err
+		}
+		err = bucket.DeleteCORS()
+		if err != nil {
+			return err
+		}
+		fmt.Println("Success!")
+		return nil
+	})
+
+	type BucketSetRefererOption struct {
+		BUCKET string `help:"name of bucket to put object"`
+		// 是否开启防盗链
+		Enabled bool `help:"enable refer"`
+		// Black-List、White-List
+		Type string `help:"domain list type" choices:"Black-List|White-List"`
+		// 域名列表
+		DomainList []string
+		// 是否允许空refer 访问
+		AllowEmptyRefer bool `help:"all empty refer access"`
+	}
+	shellutils.R(&BucketSetRefererOption{}, "bucket-set-referer", "Set bucket referer", func(cli cloudprovider.ICloudRegion, args *BucketSetRefererOption) error {
+		bucket, err := cli.GetIBucketById(args.BUCKET)
+		if err != nil {
+			return err
+		}
+		conf := cloudprovider.SBucketRefererConf{
+			Enabled:         args.Enabled,
+			Type:            args.Type,
+			DomainList:      args.DomainList,
+			AllowEmptyRefer: args.AllowEmptyRefer,
+		}
+		err = bucket.SetReferer(conf)
+		if err != nil {
+			return err
+		}
+		fmt.Println("Success!")
+		return nil
+
+	})
+
+	type BucketGetRefererOption struct {
+		BUCKET string `help:"name of bucket to put object"`
+	}
+	shellutils.R(&BucketGetRefererOption{}, "bucket-get-referer", "get bucket referer", func(cli cloudprovider.ICloudRegion, args *BucketGetRefererOption) error {
+		bucket, err := cli.GetIBucketById(args.BUCKET)
+		if err != nil {
+			return err
+		}
+		conf, err := bucket.GetReferer()
+		if err != nil {
+			return err
+		}
+		printObject(conf)
 		return nil
 	})
 

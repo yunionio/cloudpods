@@ -28,11 +28,7 @@ type PutBucketReplicationOptions struct {
 }
 
 //  GetBucketReplicationResult is the result of GetBucketReplication
-type GetBucketReplicationResult struct {
-	XMLName xml.Name                `xml:"ReplicationConfiguration"`
-	Role    string                  `xml:"Role"`
-	Rule    []BucketReplicationRule `xml:"Rule"`
-}
+type GetBucketReplicationResult PutBucketReplicationOptions
 
 // PutBucketReplication https://cloud.tencent.com/document/product/436/19223
 func (s *BucketService) PutBucketReplication(ctx context.Context, opt *PutBucketReplicationOptions) (*Response, error) {

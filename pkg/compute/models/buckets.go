@@ -1230,6 +1230,292 @@ func (bucket *SBucket) GetDetailsAcl(
 	return output, nil
 }
 
+func (bucket *SBucket) AllowPerformSetWebsite(
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.BucketWebsiteConf,
+) bool {
+	return bucket.IsOwner(userCred)
+}
+
+func (bucket *SBucket) PerformSetWebsite(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.BucketWebsiteConf,
+) (jsonutils.JSONObject, error) {
+	err := input.Validate()
+	if err != nil {
+		return nil, err
+	}
+	iBucket, err := bucket.GetIBucket()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIBucket")
+	}
+	bucketWebsiteConf := cloudprovider.SBucketWebsiteConf{
+		Index:         input.Index,
+		ErrorDocument: input.ErrorDocument,
+		Protocol:      input.Protocol,
+	}
+	for i := range input.Rules {
+		bucketWebsiteConf.Rules = append(bucketWebsiteConf.Rules, cloudprovider.SBucketWebsiteRoutingRule{
+			ConditionErrorCode: input.Rules[i].ConditionErrorCode,
+			ConditionPrefix:    input.Rules[i].ConditionPrefix,
+
+			RedirectProtocol:         input.Rules[i].RedirectProtocol,
+			RedirectReplaceKey:       input.Rules[i].RedirectReplaceKey,
+			RedirectReplaceKeyPrefix: input.Rules[i].RedirectReplaceKeyPrefix,
+		})
+	}
+	err = iBucket.SetWebsite(bucketWebsiteConf)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("iBucket.SetWebsite error %s", err)
+	}
+	db.OpsLog.LogEvent(bucket, db.ACT_SET_WEBSITE, bucketWebsiteConf, userCred)
+	logclient.AddActionLogWithContext(ctx, bucket, logclient.ACT_SET_WEBSITE, bucketWebsiteConf, userCred, true)
+	return nil, nil
+}
+
+func (bucket *SBucket) AllowPerformDeleteWebsite(
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.BucketWebsiteConf,
+) bool {
+	return bucket.IsOwner(userCred)
+}
+
+func (bucket *SBucket) PerformDeleteWebsite(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	iBucket, err := bucket.GetIBucket()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIBucket")
+	}
+	err = iBucket.DeleteWebSiteConf()
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("iBucket.DeleteWebSiteConf error %s", err)
+	}
+	db.OpsLog.LogEvent(bucket, db.ACT_DELETE_WEBSITE, "", userCred)
+	logclient.AddActionLogWithContext(ctx, bucket, logclient.ACT_DELETE_WEBSITE, "", userCred, true)
+	return nil, nil
+}
+
+func (bucket *SBucket) AllowGetDetailsWebsite(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) bool {
+	return bucket.IsOwner(userCred)
+}
+
+func (bucket *SBucket) GetDetailsWebsite(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	input jsonutils.JSONObject,
+) (api.BucketWebsiteConf, error) {
+	websiteConf := api.BucketWebsiteConf{}
+	iBucket, err := bucket.GetIBucket()
+	if err != nil {
+		return websiteConf, errors.Wrap(err, "GetIBucket")
+	}
+	conf, err := iBucket.GetWebsiteConf()
+	if err != nil {
+		return websiteConf, httperrors.NewInternalServerError("iBucket.GetWebsiteConf error %s", err)
+	}
+
+	websiteConf.Index = conf.Index
+	websiteConf.ErrorDocument = conf.ErrorDocument
+	websiteConf.Protocol = conf.Protocol
+	websiteConf.Url = conf.Url
+
+	for i := range conf.Rules {
+		websiteConf.Rules = append(websiteConf.Rules, api.BucketWebsiteRoutingRule{
+			ConditionErrorCode: conf.Rules[i].ConditionErrorCode,
+			ConditionPrefix:    conf.Rules[i].ConditionPrefix,
+
+			RedirectProtocol:         conf.Rules[i].RedirectProtocol,
+			RedirectReplaceKey:       conf.Rules[i].RedirectReplaceKey,
+			RedirectReplaceKeyPrefix: conf.Rules[i].RedirectReplaceKeyPrefix,
+		})
+	}
+	return websiteConf, nil
+}
+
+func (bucket *SBucket) AllowPerformSetCors(
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.BucketCORSRules,
+) bool {
+	return bucket.IsOwner(userCred)
+}
+
+func (bucket *SBucket) PerformSetCors(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.BucketCORSRules,
+) (jsonutils.JSONObject, error) {
+	err := input.Validate()
+	if err != nil {
+		return nil, err
+	}
+	iBucket, err := bucket.GetIBucket()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIBucket")
+	}
+	rules := []cloudprovider.SBucketCORSRule{}
+	for i := range input.Rules {
+		rules = append(rules, cloudprovider.SBucketCORSRule{
+			AllowedOrigins: input.Rules[i].AllowedOrigins,
+			AllowedMethods: input.Rules[i].AllowedMethods,
+			AllowedHeaders: input.Rules[i].AllowedHeaders,
+			MaxAgeSeconds:  input.Rules[i].MaxAgeSeconds,
+			ExposeHeaders:  input.Rules[i].ExposeHeaders,
+		})
+	}
+	err = iBucket.SetCORS(rules)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("iBucket.SetCORS error %s", err)
+	}
+	db.OpsLog.LogEvent(bucket, db.ACT_SET_CORS, rules, userCred)
+	logclient.AddActionLogWithContext(ctx, bucket, logclient.ACT_SET_CORS, rules, userCred, true)
+	return nil, nil
+}
+
+func (bucket *SBucket) AllowPerformDeleteCors(
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input jsonutils.JSONObject,
+) bool {
+	return bucket.IsOwner(userCred)
+}
+
+func (bucket *SBucket) PerformDeleteCors(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	iBucket, err := bucket.GetIBucket()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIBucket")
+	}
+	err = iBucket.DeleteCORS()
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("iBucket.DeleteCORS error %s", err)
+	}
+	db.OpsLog.LogEvent(bucket, db.ACT_DELETE_CORS, "", userCred)
+	logclient.AddActionLogWithContext(ctx, bucket, logclient.ACT_DELETE_CORS, "", userCred, true)
+	return nil, nil
+}
+
+func (bucket *SBucket) AllowGetDetailsCors(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) bool {
+	return bucket.IsOwner(userCred)
+}
+
+func (bucket *SBucket) GetDetailsCors(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	input jsonutils.JSONObject,
+) (api.BucketCORSRules, error) {
+	rules := api.BucketCORSRules{}
+	iBucket, err := bucket.GetIBucket()
+	if err != nil {
+		return rules, errors.Wrap(err, "GetIBucket")
+	}
+	corsRules, err := iBucket.GetCORSRules()
+	if err != nil {
+		return rules, httperrors.NewInternalServerError("iBucket.GetCORSRules error %s", err)
+	}
+
+	for i := range corsRules {
+		rules.Rules = append(rules.Rules, api.BucketCORSRule{
+			AllowedOrigins: corsRules[i].AllowedOrigins,
+			AllowedMethods: corsRules[i].AllowedMethods,
+			AllowedHeaders: corsRules[i].AllowedHeaders,
+			MaxAgeSeconds:  corsRules[i].MaxAgeSeconds,
+			ExposeHeaders:  corsRules[i].ExposeHeaders,
+		})
+	}
+
+	return rules, nil
+}
+
+func (bucket *SBucket) AllowPerformSetReferer(
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.BucketRefererConf,
+) bool {
+	return bucket.IsOwner(userCred)
+}
+
+func (bucket *SBucket) PerformSetReferer(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.BucketRefererConf,
+) (jsonutils.JSONObject, error) {
+	err := input.Validate()
+	if err != nil {
+		return nil, err
+	}
+	iBucket, err := bucket.GetIBucket()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIBucket")
+	}
+	conf := cloudprovider.SBucketRefererConf{
+		Enabled:         input.Enabled,
+		Type:            input.Type,
+		DomainList:      input.DomainList,
+		AllowEmptyRefer: input.AllowEmptyRefer,
+	}
+
+	err = iBucket.SetReferer(conf)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("iBucket.SetRefer error %s", err)
+	}
+	db.OpsLog.LogEvent(bucket, db.ACT_SET_REFERER, conf, userCred)
+	logclient.AddActionLogWithContext(ctx, bucket, logclient.ACT_SET_REFERER, conf, userCred, true)
+	return nil, nil
+}
+
+func (bucket *SBucket) AllowGetDetailsReferer(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) bool {
+	return bucket.IsOwner(userCred)
+}
+
+func (bucket *SBucket) GetDetailsReferer(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	input jsonutils.JSONObject,
+) (api.BucketRefererConf, error) {
+	conf := api.BucketRefererConf{}
+	iBucket, err := bucket.GetIBucket()
+	if err != nil {
+		return conf, errors.Wrap(err, "GetIBucket")
+	}
+	referConf, err := iBucket.GetReferer()
+	if err != nil {
+		return conf, httperrors.NewInternalServerError("iBucket.GetRefer error %s", err)
+	}
+	conf.Enabled = referConf.Enabled
+	conf.Type = referConf.Type
+	conf.DomainList = referConf.DomainList
+	conf.AllowEmptyRefer = referConf.AllowEmptyRefer
+
+	return conf, nil
+}
+
 func (manager *SBucketManager) usageQByCloudEnv(q *sqlchemy.SQuery, providers []string, brands []string, cloudEnv string) *sqlchemy.SQuery {
 	return CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
 }
