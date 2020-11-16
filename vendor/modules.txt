@@ -1077,7 +1077,7 @@ yunion.io/x/log/hooks
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v0.0.0-20201028134817-3ed15ee169bc
+# yunion.io/x/pkg v0.0.0-20201123083159-ca3aea986ff2
 yunion.io/x/pkg/errors
 yunion.io/x/pkg/gotypes
 yunion.io/x/pkg/prettytable
@@ -1087,6 +1087,7 @@ yunion.io/x/pkg/tristate
 yunion.io/x/pkg/util/cache
 yunion.io/x/pkg/util/clock
 yunion.io/x/pkg/util/compare
+yunion.io/x/pkg/util/delayedwork
 yunion.io/x/pkg/util/errors
 yunion.io/x/pkg/util/fileutils
 yunion.io/x/pkg/util/filterclause
