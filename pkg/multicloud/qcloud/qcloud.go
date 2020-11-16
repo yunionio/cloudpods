@@ -787,7 +787,7 @@ func (client *SQcloudClient) fetchBuckets() error {
 		}
 		b := SBucket{
 			region:     region.(*SRegion),
-			AppId:      appId,
+			appId:      appId,
 			Name:       name,
 			Location:   bInfo.Region,
 			CreateDate: createAt,
