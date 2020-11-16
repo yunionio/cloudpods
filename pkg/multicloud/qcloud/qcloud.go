@@ -883,7 +883,7 @@ func (client *SQcloudClient) GetIHostById(id string) (cloudprovider.ICloudHost, 
 		ihost, err := client.iregions[i].GetIHostById(id)
 		if err == nil {
 			return ihost, nil
-		} else if err != cloudprovider.ErrNotFound {
+		} else if errors.Cause(err) != cloudprovider.ErrNotFound {
 			return nil, err
 		}
 	}
@@ -895,7 +895,7 @@ func (client *SQcloudClient) GetIVpcById(id string) (cloudprovider.ICloudVpc, er
 		ihost, err := client.iregions[i].GetIVpcById(id)
 		if err == nil {
 			return ihost, nil
-		} else if err != cloudprovider.ErrNotFound {
+		} else if errors.Cause(err) != cloudprovider.ErrNotFound {
 			return nil, err
 		}
 	}
@@ -907,7 +907,7 @@ func (client *SQcloudClient) GetIStorageById(id string) (cloudprovider.ICloudSto
 		ihost, err := client.iregions[i].GetIStorageById(id)
 		if err == nil {
 			return ihost, nil
-		} else if err != cloudprovider.ErrNotFound {
+		} else if errors.Cause(err) != cloudprovider.ErrNotFound {
 			return nil, err
 		}
 	}

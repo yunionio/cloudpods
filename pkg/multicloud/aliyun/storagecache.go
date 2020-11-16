@@ -157,15 +157,13 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	bucketName := strings.ToLower(fmt.Sprintf("imgcache-%s-%s", self.region.GetId(), image.ImageId))
 	exist, err := self.region.IBucketExist(bucketName)
 	if err != nil {
-		log.Errorf("IsBucketExist err %s", err)
-		return "", err
+		return "", errors.Wrapf(err, "IBucketExist(%s)", bucketName)
 	}
 	if !exist {
 		log.Debugf("Bucket %s not exists, to create ...", bucketName)
 		err = self.region.CreateIBucket(bucketName, "", "")
 		if err != nil {
-			log.Errorf("Create bucket error %s", err)
-			return "", err
+			return "", errors.Wrapf(err, "CreateIBucket %s", bucketName)
 		}
 	} else {
 		log.Debugf("Bucket %s exists", bucketName)
@@ -175,15 +173,13 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 
 	bucket, err := self.region.GetIBucketByName(bucketName)
 	if err != nil {
-		log.Errorf("Bucket error %s %s", bucketName, err)
-		return "", err
+		return "", errors.Wrapf(err, "GetIBucketByName %s", bucketName)
 	}
 	log.Debugf("To upload image to bucket %s ...", bucketName)
 	err = cloudprovider.UploadObject(context.Background(), bucket, image.ImageId, 0, reader, sizeByte, "", "", nil, false)
 	// err = bucket.PutObject(image.ImageId, reader)
 	if err != nil {
-		log.Errorf("PutObject error %s %s", image.ImageId, err)
-		return "", err
+		return "", errors.Wrapf(err, "UploadObject %s", image.ImageId)
 	}
 
 	defer bucket.DeleteObject(context.Background(), image.ImageId) // remove object
@@ -214,22 +210,19 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	// ensure privileges
 	err = self.region.GetClient().EnableImageImport()
 	if err != nil {
-		log.Errorf("fail to enable import privileges: %s", err)
-		return "", err
+		return "", errors.Wrapf(err, "EnableImageImport")
 	}
 
 	task, err := self.region.ImportImage(imageName, image.OsArch, image.OsType, image.OsDistribution, bucketName, image.ImageId)
 
 	if err != nil {
-		log.Errorf("ImportImage error %s %s %s", image.ImageId, bucketName, err)
-		return "", err
+		return "", errors.Wrapf(err, "ImportImage %s %s", image.ImageId, bucketName)
 	}
 
 	// timeout: 1hour = 3600 seconds
 	err = self.region.waitTaskStatus(ImportImageTask, task.TaskId, TaskStatusFinished, 15*time.Second, 3600*time.Second)
 	if err != nil {
-		log.Errorf("waitTaskStatus %s", err)
-		return task.ImageId, err
+		return task.ImageId, errors.Wrapf(err, "waitTaskStatus")
 	}
 
 	return task.ImageId, nil

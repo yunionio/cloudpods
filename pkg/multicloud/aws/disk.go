@@ -25,6 +25,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -188,7 +189,7 @@ func (self *SDisk) GetMountpoint() string {
 }
 
 func (self *SDisk) Delete(ctx context.Context) error {
-	if _, err := self.storage.zone.region.GetDisk(self.DiskId); err == cloudprovider.ErrNotFound {
+	if _, err := self.storage.zone.region.GetDisk(self.DiskId); err != nil && errors.Cause(err) == cloudprovider.ErrNotFound {
 		log.Errorf("Failed to find disk %s when delete", self.DiskId)
 		return nil
 	}
