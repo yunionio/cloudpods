@@ -126,4 +126,5 @@ const (
 	StorageMatch     = "storage_match"
 	StorageType      = "storage_type"
 	StorageOwnership = "storage_ownership"
+	StorageMedium    = "storage_medium"
 )
