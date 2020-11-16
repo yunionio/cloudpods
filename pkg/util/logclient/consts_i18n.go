@@ -438,6 +438,26 @@ func init() {
 		EN("Upload Object").
 		CN("上传对象"),
 	)
+	t.Set(ACT_SET_WEBSITE, i18n.NewTableEntry().
+		EN("Set Static Website").
+		CN("设置静态网站"),
+	)
+	t.Set(ACT_DELETE_WEBSITE, i18n.NewTableEntry().
+		EN("Delete Static Website").
+		CN("删除静态网站"),
+	)
+	t.Set(ACT_SET_CORS, i18n.NewTableEntry().
+		EN("Set CORS").
+		CN("设置CORS"),
+	)
+	t.Set(ACT_DELETE_CORS, i18n.NewTableEntry().
+		EN("Delete CORS").
+		CN("删除CORS"),
+	)
+	t.Set(ACT_SET_REFERER, i18n.NewTableEntry().
+		EN("Set Referer").
+		CN("设置Referer"),
+	)
 
 	t.Set(ACT_NAT_CREATE_SNAT, i18n.NewTableEntry().
 		EN("Nat Create Snat").
