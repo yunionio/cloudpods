@@ -1100,37 +1100,6 @@ func (self *SAliyunRegionDriver) IsSupportedBillingCycle(bc billing.SBillingCycl
 	return false
 }
 
-func (self *SAliyunRegionDriver) RequestCreateDBInstanceBackup(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, backup *models.SDBInstanceBackup, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRds, err := instance.GetIDBInstance()
-		if err != nil {
-			return nil, errors.Wrap(err, "instance.GetIDBInstance")
-		}
-
-		desc := &cloudprovider.SDBInstanceBackupCreateConfig{
-			Name: backup.Name,
-		}
-		if len(backup.DBNames) > 0 {
-			desc.Databases = strings.Split(backup.DBNames, ",")
-		}
-
-		_, err = iRds.CreateIBackup(desc)
-		if err != nil {
-			return nil, errors.Wrap(err, "iRds.CreateBackup")
-		}
-
-		backups, err := iRds.GetIDBInstanceBackups()
-		if err != nil {
-			return nil, errors.Wrap(err, "iRds.GetIDBInstanceBackups")
-		}
-		result := models.DBInstanceBackupManager.SyncDBInstanceBackups(ctx, userCred, backup.GetCloudprovider(), instance, backup.GetRegion(), backups)
-		log.Infof("SyncDBInstanceBackups for dbinstance %s(%s) result: %s", instance.Name, instance.Id, result.Result())
-		instance.SetStatus(userCred, api.DBINSTANCE_RUNNING, "")
-		return nil, nil
-	})
-	return nil
-}
-
 func (self *SAliyunRegionDriver) ValidateCreateDBInstanceAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceAccountCreateInput) (api.DBInstanceAccountCreateInput, error) {
 	if len(input.Name) < 2 || len(input.Name) > 16 {
 		return input, httperrors.NewInputParameterError("Aliyun DBInstance account name length shoud be 2~16 characters")
