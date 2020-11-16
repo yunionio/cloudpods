@@ -15,6 +15,8 @@
 package aliyun
 
 import (
+	"yunion.io/x/pkg/errors"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -55,7 +57,7 @@ const (
 func (self *SAliyunClient) EnableImageImport() error {
 	_, err := self.GetRole(AliyunECSImageImportRole)
 	if err != nil {
-		if err != cloudprovider.ErrNotFound {
+		if errors.Cause(err) != cloudprovider.ErrNotFound {
 			return err
 		}
 		_, err = self.CreateRole(AliyunECSImageImportRole,

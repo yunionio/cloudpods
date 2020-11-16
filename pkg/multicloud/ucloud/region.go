@@ -310,7 +310,7 @@ func (self *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 		ihost, err := izones[i].GetIHostById(id)
 		if err == nil {
 			return ihost, nil
-		} else if err != cloudprovider.ErrNotFound {
+		} else if errors.Cause(err) != cloudprovider.ErrNotFound {
 			return nil, err
 		}
 	}
@@ -343,7 +343,7 @@ func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, er
 		istore, err := izones[i].GetIStorageById(id)
 		if err == nil {
 			return istore, nil
-		} else if err != cloudprovider.ErrNotFound {
+		} else if errors.Cause(err) != cloudprovider.ErrNotFound {
 			return nil, err
 		}
 	}
