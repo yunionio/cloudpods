@@ -495,7 +495,7 @@ func (manager *SAlertResourceManager) GetAdminRoleUsers(ctx context.Context, use
 			userId, err := roleAssign.GetString("user", "id")
 			if err != nil {
 				log.Errorf("roleAssign:%v", roleAssign)
-				return
+				continue
 			}
 			//_, err = mc_modules.NotifyReceiver.GetById(session, userId, jsonutils.NewDict())
 			//if err != nil {
@@ -519,6 +519,7 @@ func (manager *SAlertResourceManager) sendWebsocketInfo(uids []string, alertReso
 	params.Set("obj_name", jsonutils.NewString(""))
 	params.Set("success", jsonutils.JSONTrue)
 	params.Set("action", jsonutils.NewString("alertResourceCount"))
+	params.Set("ignore_alert", jsonutils.JSONTrue)
 	params.Set("notes", jsonutils.NewString(fmt.Sprintf("priority=%s; content=%s", string(npk.NotifyPriorityCritical),
 		jsonutils.Marshal(&alertResourceCount).String())))
 	for _, uid := range uids {
