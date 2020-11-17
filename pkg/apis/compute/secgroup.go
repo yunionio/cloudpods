@@ -287,3 +287,7 @@ type SecurityGroupCloneInput struct {
 	Name        string
 	Description string
 }
+
+type SecgroupImportRulesInput struct {
+	Rules []SSecgroupRuleCreateInput `json:"rules"`
+}
