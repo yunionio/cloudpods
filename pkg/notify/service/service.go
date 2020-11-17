@@ -58,6 +58,11 @@ func StartService() {
 	db.EnsureAppInitSyncDB(applicaion, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
 
+	err := models.ReceiverManager.StartWatchUserInKeystone()
+	if err != nil {
+		log.Logger().Panic(err.Error())
+	}
+
 	// init notify service
 	models.NotifyService = rpc.NewSRpcService(opts.SocketFileDir, models.ConfigManager, models.TemplateManager)
 	models.NotifyService.InitAll()
