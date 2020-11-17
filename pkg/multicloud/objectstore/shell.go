@@ -75,8 +75,8 @@ func (args ObjectHeaderOptions) Options2Header() http.Header {
 	return meta
 }
 
-func printList(data interface{}, columns []string) {
-	printutils.PrintGetterList(data, columns)
+func printList(data interface{}, total, offset, limit int, columns []string) {
+	printutils.PrintInterfaceList(data, total, offset, limit, columns)
 }
 
 func printObject(obj interface{}) {
@@ -484,7 +484,7 @@ func S3Shell() {
 		if err != nil {
 			return err
 		}
-		printList(rules, []string{"AllowedOrigins", "AllowedMethods", "AllowedHeaders", "MaxAgeSeconds", "ExposeHeaders"})
+		printList(rules, len(rules), 0, len(rules), nil)
 		return nil
 	})
 
@@ -548,6 +548,22 @@ func S3Shell() {
 			return err
 		}
 		printObject(conf)
+		return nil
+	})
+
+	type BucketGetCdnDomainOption struct {
+		BUCKET string `help:"name of bucket to put object"`
+	}
+	shellutils.R(&BucketGetCdnDomainOption{}, "bucket-get-cdn-domains", "get bucket cdn domains", func(cli cloudprovider.ICloudRegion, args *BucketGetCdnDomainOption) error {
+		bucket, err := cli.GetIBucketById(args.BUCKET)
+		if err != nil {
+			return err
+		}
+		domains, err := bucket.GetCdnDomains()
+		if err != nil {
+			return err
+		}
+		printList(domains, len(domains), 0, len(domains), nil)
 		return nil
 	})
 

@@ -220,6 +220,8 @@ type ICloudBucket interface {
 
 	SetReferer(conf SBucketRefererConf) error
 	GetReferer() (SBucketRefererConf, error)
+
+	GetCdnDomains() ([]SCdnDomain, error)
 }
 
 type ICloudObject interface {

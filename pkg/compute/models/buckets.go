@@ -1448,6 +1448,40 @@ func (bucket *SBucket) GetDetailsCors(
 	return rules, nil
 }
 
+func (bucket *SBucket) AllowGetDetailsCdnDomain(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) bool {
+	return bucket.IsOwner(userCred)
+}
+
+func (bucket *SBucket) GetDetailsCdnDomain(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	input jsonutils.JSONObject,
+) (api.CdnDomains, error) {
+	domains := api.CdnDomains{}
+	iBucket, err := bucket.GetIBucket()
+	if err != nil {
+		return domains, errors.Wrap(err, "GetIBucket")
+	}
+	cdnDomains, err := iBucket.GetCdnDomains()
+	if err != nil {
+		return domains, httperrors.NewInternalServerError("iBucket.GetCdnDomains error %s", err)
+	}
+	for i := range cdnDomains {
+		domains.Domains = append(domains.Domains, api.CdnDomain{
+			Domain:     cdnDomains[i].Domain,
+			Area:       cdnDomains[i].Area,
+			Cname:      cdnDomains[i].Cname,
+			Origin:     cdnDomains[i].Origin,
+			OriginType: cdnDomains[i].OriginType,
+		})
+	}
+	return domains, nil
+}
+
 func (bucket *SBucket) AllowPerformSetReferer(
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
