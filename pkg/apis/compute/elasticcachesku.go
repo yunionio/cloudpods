@@ -20,6 +20,7 @@ type ElasticcacheSkuDetails struct {
 	apis.StatusStandaloneResourceDetails
 	CloudregionResourceInfo
 	ZoneResourceInfoBase
+	SlaveZoneResourceInfoBase
 
 	SElasticcacheSku
 }

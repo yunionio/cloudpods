@@ -32,6 +32,9 @@ type ElasticcacheDetails struct {
 
 	// 关联安全组列表
 	Secgroups []apis.StandaloneShortDesc `json:"secgroups"`
+
+	// 备可用区列表
+	SlaveZoneInfos []apis.StandaloneShortDesc `json:"slave_zone_infos"`
 }
 
 type ElasticcacheResourceInfo struct {

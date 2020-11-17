@@ -58,7 +58,11 @@ func (self *SZone) addWire(wire *SWire) {
 
 func (self *SZone) getStorageType() {
 	if len(self.storageTypes) == 0 {
-		self.storageTypes = StorageTypes
+		if sts, err := self.region.GetZoneSupportedDiskTypes(self.GetId()); err == nil {
+			self.storageTypes = sts
+		} else {
+			self.storageTypes = StorageTypes
+		}
 	}
 }
 
