@@ -262,6 +262,38 @@ func (self *SESXiHostDriver) RequestPrepareSaveDiskOnHost(ctx context.Context, h
 	return err
 }
 
+func (self *SESXiHostDriver) RequestResizeDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, sizeMb int64, task taskman.ITask) error {
+	guest := disk.GetGuest()
+	if guest == nil {
+		return fmt.Errorf("unable to find guest has disk %s", disk.GetId())
+	}
+	spec := struct {
+		HostInfo vcenter.SVCenterAccessInfo
+		VMId     string
+		DiskId   string
+		SizeMb   int64
+	}{}
+
+	account := host.GetCloudaccount()
+	accessInfo, err := account.GetVCenterAccessInfo(host.ExternalId)
+	if err != nil {
+		return err
+	}
+	spec.HostInfo = accessInfo
+	spec.DiskId = disk.GetExternalId()
+	spec.VMId = guest.GetExternalId()
+	spec.SizeMb = sizeMb
+
+	body := jsonutils.NewDict()
+	body.Add(jsonutils.Marshal(spec), "disk")
+
+	url := fmt.Sprintf("/disks/agent/resize/%s", disk.Id)
+	header := task.GetTaskRequestHeader()
+
+	_, err = host.EsxiRequest(ctx, httputils.POST, url, header, body)
+	return err
+}
+
 func (self *SESXiHostDriver) RequestSaveUploadImageOnHost(ctx context.Context, host *models.SHost, disk *models.SDisk, imageId string, task taskman.ITask, data jsonutils.JSONObject) error {
 
 	imagePath, _ := data.GetString("backup")
