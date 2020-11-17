@@ -866,6 +866,9 @@ func (rm *SReceiverManager) OnUpdate(oldObj, newObj *jsonutils.JSONDict) {
 		log.Errorf("fail to FetchByIDs: %v", err)
 		return
 	}
+	if len(receivers) == 0 {
+		return
+	}
 	receiver := &receivers[0]
 	uname, _ := newObj.GetString("name")
 	domainId, _ := newObj.GetString("domain_id")
@@ -887,6 +890,9 @@ func (rm *SReceiverManager) OnDelete(obj *jsonutils.JSONDict) {
 	receivers, err := rm.FetchByIDs(context.Background(), userId)
 	if err != nil {
 		log.Errorf("fail to FetchByIDs: %v", err)
+		return
+	}
+	if len(receivers) == 0 {
 		return
 	}
 	receiver := &receivers[0]
