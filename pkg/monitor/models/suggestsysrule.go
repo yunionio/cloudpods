@@ -40,6 +40,10 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+const (
+	SUGGESTRULE_METADATA_IGNORETIME = "ignore_time_from"
+)
+
 var (
 	SuggestSysRuleManager *SSuggestSysRuleManager
 )
@@ -135,7 +139,6 @@ func (man *SSuggestSysRuleManager) ValidateCreateData(
 	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject,
 	data monitor.SuggestSysRuleCreateInput) (monitor.SuggestSysRuleCreateInput, error) {
 	if data.Period == "" {
-		// default 30s
 		data.Period = "12h"
 	} else {
 		data.Period = parseDuration(data.Period)
@@ -244,7 +247,31 @@ func (self *SSuggestSysRule) getMoreDetails(out monitor.SuggestSysRuleDetails) m
 	out.Enabled = self.GetEnabled()
 	self.Period = showDuration(self.Period)
 	self.TimeFrom = showDuration(self.TimeFrom)
+	ignore, _ := strconv.ParseBool(self.getIgnoreTimeFrom())
+	if ignore {
+		self.TimeFrom = ""
+	}
+	self.getMetricDetails(&out)
 	return out
+}
+
+func (self *SSuggestSysRule) getMetricDetails(out *monitor.SuggestSysRuleDetails) {
+	if out.Setting.ScaleRule != nil {
+		scaleRule := *out.Setting.ScaleRule
+		commonAlertMetricDetails := make([]*monitor.CommonAlertMetricDetails, len(scaleRule))
+		for i, rule := range scaleRule {
+			metricDetails := monitor.CommonAlertMetricDetails{
+				Comparator:  rule.EvalType,
+				Threshold:   rule.Threshold,
+				DB:          rule.Database,
+				Measurement: rule.Measurement,
+				Field:       rule.Field,
+			}
+			getMetricDescriptionDetails(&metricDetails)
+			commonAlertMetricDetails[i] = &metricDetails
+		}
+		out.CommonAlertMetricDetails = commonAlertMetricDetails
+	}
 }
 
 func (self *SSuggestSysRule) GetExtraDetails(
@@ -259,6 +286,10 @@ func (self *SSuggestSysRule) GetExtraDetails(
 // after create, update Cronjob's info
 func (self *SSuggestSysRule) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	ignore, err := data.GetString("ignore_time_from")
+	if err == nil {
+		self.setIgnoreTimeFrom(ctx, userCred, ignore)
+	}
 	self.updateCronjob()
 }
 
@@ -266,7 +297,20 @@ func (self *SSuggestSysRule) PostCreate(ctx context.Context, userCred mcclient.T
 func (self *SSuggestSysRule) PostUpdate(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	ignore, err := data.GetString("ignore_time_from")
+	if err == nil {
+		self.setIgnoreTimeFrom(ctx, userCred, ignore)
+	}
 	self.updateCronjob()
+}
+
+func (self *SSuggestSysRule) setIgnoreTimeFrom(ctx context.Context, userCred mcclient.TokenCredential,
+	ignore string) error {
+	return self.SetMetadata(ctx, SUGGESTRULE_METADATA_IGNORETIME, ignore, userCred)
+}
+
+func (self *SSuggestSysRule) getIgnoreTimeFrom() string {
+	return self.GetMetadata(SUGGESTRULE_METADATA_IGNORETIME, nil)
 }
 
 func (self *SSuggestSysRule) updateCronjob() {
@@ -528,6 +572,10 @@ func (man *SSuggestSysRuleManager) initUpdateDefaultRule(rule ruleInfo) error {
 			})
 			if err != nil {
 				return errors.Wrap(err, "initUpdateDefaultRule error")
+			}
+			if ruleCreateInput.IgnoreTimeFrom != nil {
+				suggestRule.setIgnoreTimeFrom(context.Background(), auth.AdminCredential(),
+					strconv.FormatBool(*ruleCreateInput.IgnoreTimeFrom))
 			}
 		}
 	}

@@ -145,7 +145,7 @@ func (drv *OssSecAcl) getBucketsByAcl() ([]jsonutils.JSONObject, error) {
 				Description: acl,
 			},
 		}
-		suggestSysAlert.Name = GenerateName(suggestSysAlert.Name, string(drv.GetType()))
+		//suggestSysAlert.Name = GenerateName(suggestSysAlert.Name, string(drv.GetType()))
 		suggestSysAlert.Problem = jsonutils.Marshal(&problems)
 		bucketArr = append(bucketArr, jsonutils.Marshal(suggestSysAlert))
 	}
