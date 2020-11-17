@@ -243,6 +243,8 @@ func (rm *SReceiverManager) ValidateCreateData(ctx context.Context, userCred mcc
 			return input, err
 		}
 		uname, _ := userObj.GetString("name")
+		uid, _ := userObj.GetString("id")
+		input.UID = uid
 		input.UName = uname
 		domainId, _ := userObj.GetString("domain_id")
 		input.ProjectDomainId = domainId
@@ -260,7 +262,9 @@ func (rm *SReceiverManager) ValidateCreateData(ctx context.Context, userCred mcc
 				return input, err
 			}
 			uid, _ := userObj.GetString("id")
+			uname, _ := userObj.GetString("name")
 			input.UID = uid
+			input.UName = uname
 			domainId, _ := userObj.GetString("domain_id")
 			input.ProjectDomainId = domainId
 		}
