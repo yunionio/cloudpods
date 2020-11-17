@@ -164,6 +164,23 @@ func (self *SAliyunGuestDriver) GetGuestInitialStateAfterRebuild() string {
 	return api.VM_READY
 }
 
+func (self *SAliyunGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCapability {
+	return cloudprovider.SInstanceCapability{
+		Hypervisor: self.GetHypervisor(),
+		Provider:   self.GetProvider(),
+		DefaultAccount: cloudprovider.SDefaultAccount{
+			Linux: cloudprovider.SOsDefaultAccount{
+				DefaultAccount: api.VM_DEFAULT_LINUX_LOGIN_USER,
+				Changeable:     false,
+			},
+			Windows: cloudprovider.SOsDefaultAccount{
+				DefaultAccount: api.VM_DEFAULT_WINDOWS_LOGIN_USER,
+				Changeable:     false,
+			},
+		},
+	}
+}
+
 func (self *SAliyunGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
 	userName := "root"
 	if desc.OsType == "Windows" {

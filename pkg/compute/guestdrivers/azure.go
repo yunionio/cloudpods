@@ -222,6 +222,23 @@ func (self *SAzureGuestDriver) GetGuestInitialStateAfterRebuild() string {
 	return api.VM_READY
 }
 
+func (self *SAzureGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCapability {
+	return cloudprovider.SInstanceCapability{
+		Hypervisor: self.GetHypervisor(),
+		Provider:   self.GetProvider(),
+		DefaultAccount: cloudprovider.SDefaultAccount{
+			Linux: cloudprovider.SOsDefaultAccount{
+				DefaultAccount: api.VM_AZURE_DEFAULT_LOGIN_USER,
+				Changeable:     false,
+			},
+			Windows: cloudprovider.SOsDefaultAccount{
+				DefaultAccount: api.VM_DEFAULT_WINDOWS_LOGIN_USER,
+				Changeable:     false,
+			},
+		},
+	}
+}
+
 func (self *SAzureGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
 	return api.VM_AZURE_DEFAULT_LOGIN_USER
 }
