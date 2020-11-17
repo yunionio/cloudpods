@@ -17,6 +17,7 @@ package host_health
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -87,7 +88,7 @@ func (c *SEtcdClient) OnKeepaliveFailure() {
 	for timeout > 0 {
 		timeout -= c.requestExpend
 		if err := c.cli.RestartSession(); err != nil {
-			log.Errorf("restart session failed %s", err)
+			log.Errorf("etcd restart session failed %s", err)
 		} else {
 			break
 		}
@@ -99,12 +100,34 @@ func (c *SEtcdClient) OnKeepaliveFailure() {
 		); err != nil {
 			log.Errorf("put host key failed %s", err)
 		} else {
+			log.Infof("etcd client restart session success")
 			return
 		}
 	}
 	log.Errorln("keep etcd lease failed")
 	if c.onUnhealthy != nil {
 		c.onUnhealthy()
+	}
+	go c.Reconnect()
+}
+
+func (c *SEtcdClient) Reconnect() {
+	for {
+		if err := c.cli.RestartSession(); err != nil {
+			log.Errorf("restart session failed %s", err)
+			time.Sleep(1 * time.Second)
+		} else {
+			break
+		}
+	}
+	if err := c.cli.PutSession(context.Background(),
+		fmt.Sprintf("%s/%s", api.HOST_HEALTH_PREFIX, c.hostId),
+		api.HOST_HEALTH_STATUS_RUNNING,
+	); err != nil {
+		log.Errorf("put host key failed %s", err)
+		go c.Reconnect()
+	} else {
+		return
 	}
 }
 
