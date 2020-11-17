@@ -477,8 +477,8 @@ func (manager *SSecurityGroupManager) ValidateCreateData(
 
 	input.Status = api.SECGROUP_STATUS_READY
 
-	for i, rule := range input.Rules {
-		err = rule.Check()
+	for i := range input.Rules {
+		err = input.Rules[i].Check()
 		if err != nil {
 			return input, httperrors.NewInputParameterError("rule %d is invalid: %s", i, err)
 		}
@@ -1215,4 +1215,35 @@ func (sg *SSecurityGroup) GetUsages() []db.IUsage {
 	return []db.IUsage{
 		&usage,
 	}
+}
+
+func (self *SSecurityGroup) AllowPerformImportRules(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "import-rules")
+}
+
+func (self *SSecurityGroup) PerformImportRules(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SecgroupImportRulesInput) (jsonutils.JSONObject, error) {
+	for i := range input.Rules {
+		err := input.Rules[i].Check()
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("rule %d is invalid: %s", i, err)
+		}
+	}
+	for _, r := range input.Rules {
+		rule := &SSecurityGroupRule{
+			Priority:    int64(r.Priority),
+			Protocol:    r.Protocol,
+			Ports:       r.Ports,
+			Direction:   r.Direction,
+			CIDR:        r.CIDR,
+			Action:      r.Action,
+			Description: r.Description,
+		}
+		rule.SecgroupId = self.Id
+
+		err := SecurityGroupRuleManager.TableSpec().Insert(ctx, rule)
+		if err != nil {
+			return nil, httperrors.NewGeneralError(errors.Wrapf(err, "Insert rule"))
+		}
+	}
+	return nil, nil
 }

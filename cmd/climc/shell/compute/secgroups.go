@@ -35,4 +35,5 @@ func init() {
 	cmd.Perform("uncache-secgroup", &options.SecurityGroupUncacheSecurityGroup{})
 	cmd.Perform("purge", &options.SecgroupIdOptions{})
 	cmd.Perform("change-owner", &options.SecgroupChangeOwnerOptions{})
+	cmd.Perform("import-rules", &options.SecgroupImportRulesOptions{})
 }

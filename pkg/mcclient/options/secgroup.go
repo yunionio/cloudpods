@@ -15,6 +15,10 @@
 package options
 
 import (
+	"fmt"
+	"strconv"
+	"strings"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
@@ -124,4 +128,37 @@ func (opts *SecurityGroupUncacheSecurityGroup) Params() (jsonutils.JSONObject, e
 type SecgroupChangeOwnerOptions struct {
 	SecgroupIdOptions
 	apis.ProjectizedResourceInput
+}
+
+type SecgroupImportRulesOptions struct {
+	SecgroupIdOptions
+
+	RULE []string `help:"rule pattern: rule|priority eg: in:allow any 1"`
+}
+
+func (opts *SecgroupImportRulesOptions) Params() (jsonutils.JSONObject, error) {
+	rules := jsonutils.NewArray()
+	for _, rule := range opts.RULE {
+		priority := 1
+		var r *secrules.SecurityRule = nil
+		var err error
+		info := strings.Split(rule, "|")
+		switch len(info) {
+		case 1:
+		case 2:
+			priority, err = strconv.Atoi(info[1])
+			if err != nil {
+				return nil, errors.Wrapf(err, "Parse rule %s priority %s", rule, info[1])
+			}
+		default:
+			return nil, fmt.Errorf("invalid rule %s", rule)
+		}
+		r, err = secrules.ParseSecurityRule(info[0])
+		if err != nil {
+			return nil, errors.Wrapf(err, "ParseSecurityRule(%s)", rule)
+		}
+		r.Priority = priority
+		rules.Add(jsonutils.Marshal(r))
+	}
+	return jsonutils.Marshal(map[string]*jsonutils.JSONArray{"rules": rules}), nil
 }
