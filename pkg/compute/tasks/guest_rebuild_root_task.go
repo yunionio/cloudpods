@@ -45,7 +45,7 @@ func (self *GuestRebuildRootTask) OnInit(ctx context.Context, obj db.IStandalone
 	guest := obj.(*models.SGuest)
 	if jsonutils.QueryBoolean(self.Params, "need_stop", false) {
 		self.SetStage("OnStopServerComplete", nil)
-		guest.StartGuestStopTask(ctx, self.UserCred, false, self.GetTaskId())
+		guest.StartGuestStopTask(ctx, self.UserCred, false, false, self.GetTaskId())
 	} else {
 		self.StartRebuildRootDisk(ctx, guest)
 	}

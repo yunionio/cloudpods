@@ -781,7 +781,10 @@ func (region *SRegion) DeployVM(ctx context.Context, instanceId, name, password,
 func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
 	cpu := self.GetVcpuCount()
 	memoryMb := self.GetVmemSizeMB()
-	self.StopVM(ctx, true)
+	opts := &cloudprovider.ServerStopOptions{
+		IsForce: true,
+	}
+	self.StopVM(ctx, opts)
 	return self.host.zone.region.ReplaceSystemDisk(self, cpu, memoryMb, desc.ImageId, desc.Password, desc.PublicKey, desc.SysSizeGB)
 }
 
@@ -832,7 +835,10 @@ func (region *SRegion) ReplaceSystemDisk(instance *SInstance, cpu int, memoryMb 
 		return "", err
 	}
 
-	newInstance.StopVM(context.Background(), true)
+	opts := &cloudprovider.ServerStopOptions{
+		IsForce: true,
+	}
+	newInstance.StopVM(context.Background(), opts)
 	cloudprovider.WaitStatus(newInstance, api.VM_READY, time.Second*5, time.Minute*5)
 
 	newInstance.deleteVM(context.Background(), true)
@@ -1064,8 +1070,8 @@ func (self *SInstance) StartVM(ctx context.Context) error {
 	return cloudprovider.WaitStatus(self, api.VM_RUNNING, 10*time.Second, 300*time.Second)
 }
 
-func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
-	err := self.host.zone.region.StopVM(self.ID, isForce)
+func (self *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerStopOptions) error {
+	err := self.host.zone.region.StopVM(self.ID, opts.IsForce)
 	if err != nil {
 		return err
 	}

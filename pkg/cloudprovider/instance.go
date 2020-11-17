@@ -46,6 +46,11 @@ type SPublicIpInfo struct {
 	PublicIpChargeType TElasticipChargeType
 }
 
+type ServerStopOptions struct {
+	IsForce      bool
+	StopCharging bool
+}
+
 type SManagedVMCreateConfig struct {
 	Name                string
 	ExternalImageId     string

@@ -358,7 +358,10 @@ func (as *SAgentStorage) waitVmToolsVersion(ctx context.Context, vm *esxi.SVirtu
 	}
 	timeUpper = time.Now().Add(timeout)
 	for vm.GetStatus() == api.VM_RUNNING && time.Now().Before(timeUpper) {
-		vm.StopVM(ctx, true)
+		opts := &cloudprovider.ServerStopOptions{
+			IsForce: true,
+		}
+		vm.StopVM(ctx, opts)
 		time.Sleep(5 * time.Second)
 	}
 	return

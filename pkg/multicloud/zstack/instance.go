@@ -279,8 +279,8 @@ func (region *SRegion) StartVM(instanceId string) error {
 	return err
 }
 
-func (instance *SInstance) StopVM(ctx context.Context, isForce bool) error {
-	err := instance.host.zone.region.StopVM(instance.UUID, isForce)
+func (instance *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerStopOptions) error {
+	err := instance.host.zone.region.StopVM(instance.UUID, opts.IsForce)
 	if err != nil {
 		return err
 	}

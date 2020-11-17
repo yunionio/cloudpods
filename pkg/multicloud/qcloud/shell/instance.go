@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strings"
 
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/qcloud"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -122,11 +123,16 @@ func init() {
 	})
 
 	type InstanceStopOptions struct {
-		ID    string `help:"instance ID"`
-		Force bool   `help:"Force stop instance"`
+		ID           string `help:"instance ID"`
+		Force        bool   `help:"Force stop instance"`
+		StopCharging bool   `help:"Stop charging"`
 	}
 	shellutils.R(&InstanceStopOptions{}, "instance-stop", "Stop a instance", func(cli *qcloud.SRegion, args *InstanceStopOptions) error {
-		err := cli.StopVM(args.ID, args.Force)
+		opts := &cloudprovider.ServerStopOptions{
+			IsForce:      args.Force,
+			StopCharging: args.StopCharging,
+		}
+		err := cli.StopVM(args.ID, opts)
 		if err != nil {
 			return err
 		}

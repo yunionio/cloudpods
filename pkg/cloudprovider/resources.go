@@ -293,7 +293,7 @@ type ICloudVM interface {
 	// GetSecurityGroup() ICloudSecurityGroup
 
 	StartVM(ctx context.Context) error
-	StopVM(ctx context.Context, isForce bool) error
+	StopVM(ctx context.Context, opts *ServerStopOptions) error
 	DeleteVM(ctx context.Context) error
 
 	UpdateVM(ctx context.Context, name string) error

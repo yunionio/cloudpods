@@ -454,8 +454,8 @@ func (self *SInstance) StartVM(ctx context.Context) error {
 	return cloudprovider.ErrTimeout
 }
 
-func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
-	err := self.host.zone.region.StopVM(self.InstanceId, isForce)
+func (self *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerStopOptions) error {
+	err := self.host.zone.region.StopVM(self.InstanceId, opts.IsForce, opts.StopCharging)
 	if err != nil {
 		return err
 	}
@@ -657,7 +657,7 @@ func (self *SRegion) doStartVM(instanceId string) error {
 	return self.instanceOperation(instanceId, "StartInstance", nil)
 }
 
-func (self *SRegion) doStopVM(instanceId string, isForce bool) error {
+func (self *SRegion) doStopVM(instanceId string, isForce, stopCharging bool) error {
 	params := make(map[string]string)
 	if isForce {
 		params["ForceStop"] = "true"
@@ -665,6 +665,9 @@ func (self *SRegion) doStopVM(instanceId string, isForce bool) error {
 		params["ForceStop"] = "false"
 	}
 	params["StoppedMode"] = "KeepCharging"
+	if stopCharging {
+		params["StoppedMode"] = "StopCharging"
+	}
 	return self.instanceOperation(instanceId, "StopInstance", params)
 }
 
@@ -711,7 +714,7 @@ func (self *SRegion) StartVM(instanceId string) error {
 	// return self.waitInstanceStatus(instanceId, InstanceStatusRunning, time.Second*5, time.Second*180) // 3 minutes to timeout
 }
 
-func (self *SRegion) StopVM(instanceId string, isForce bool) error {
+func (self *SRegion) StopVM(instanceId string, isForce, stopCharging bool) error {
 	status, err := self.GetInstanceStatus(instanceId)
 	if err != nil {
 		log.Errorf("Fail to get instance status on StopVM: %s", err)
@@ -724,7 +727,7 @@ func (self *SRegion) StopVM(instanceId string, isForce bool) error {
 		log.Errorf("StopVM: vm status is %s expect %s", status, InstanceStatusRunning)
 		return cloudprovider.ErrInvalidStatus
 	}
-	return self.doStopVM(instanceId, isForce)
+	return self.doStopVM(instanceId, isForce, stopCharging)
 	// if err != nil {
 	//  return err
 	// }

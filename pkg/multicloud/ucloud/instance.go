@@ -400,7 +400,7 @@ func (self *SInstance) StartVM(ctx context.Context) error {
 	return nil
 }
 
-func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
+func (self *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerStopOptions) error {
 	err := self.host.zone.region.StopVM(self.GetId())
 	if err != nil {
 		return err
