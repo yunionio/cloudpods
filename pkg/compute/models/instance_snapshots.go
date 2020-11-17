@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -358,16 +359,25 @@ func (self *SInstanceSnapshot) ToInstanceCreateInput(
 		return nil, errors.Wrap(err, "unmarshal sched input")
 	}
 
-	if len(self.ExternalId) > 0 {
+	cp := self.GetCloudprovider()
+	if cp == nil {
+		return nil, fmt.Errorf("unable to get cloudprovider of isp %q", self.GetId())
+	}
+	if cp.Provider != api.CLOUD_PROVIDER_VMWARE {
 		isjs := make([]SInstanceSnapshotJoint, 0)
 		err := InstanceSnapshotJointManager.Query().Equals("instance_snapshot_id", self.Id).Asc("disk_index").All(&isjs)
 		if err != nil {
 			return nil, errors.Wrap(err, "fetch instance snapshots")
 		}
+
 		for i := 0; i < len(serverConfig.Disks); i++ {
-			serverConfig.Disks[i].SnapshotId = isjs[serverConfig.Disks[i].Index].SnapshotId
+			index := serverConfig.Disks[i].Index
+			if index < len(isjs) {
+				serverConfig.Disks[i].SnapshotId = isjs[index].SnapshotId
+			}
 		}
 	}
+
 	sourceInput.Disks = serverConfig.Disks
 	if sourceInput.VmemSize == 0 {
 		sourceInput.VmemSize = serverConfig.Memory
@@ -391,7 +401,9 @@ func (self *SInstanceSnapshot) ToInstanceCreateInput(
 	}
 	sourceInput.OsType = self.OsType
 	sourceInput.InstanceType = self.InstanceType
-	sourceInput.Networks = serverConfig.Networks
+	if len(sourceInput.Networks) == 0 {
+		sourceInput.Networks = serverConfig.Networks
+	}
 	return sourceInput, nil
 }
 
@@ -419,8 +431,8 @@ func (self *SInstanceSnapshot) GetInstanceSnapshotJointAt(diskIndex int) (*SInst
 }
 
 func (self *SInstanceSnapshot) ValidateDeleteCondition(ctx context.Context) error {
-	if self.Status == api.INSTANCE_SNAPSHOT_START_DELETE {
-		return httperrors.NewBadRequestError("can't delete snapshot in deleting")
+	if self.Status == api.INSTANCE_SNAPSHOT_START_DELETE || self.Status == api.INSTANCE_SNAPSHOT_RESET {
+		return httperrors.NewForbiddenError("can't delete instance snapshot with wrong status")
 	}
 	return nil
 }

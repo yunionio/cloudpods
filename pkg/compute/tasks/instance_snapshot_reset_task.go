@@ -42,6 +42,7 @@ func (self *InstanceSnapshotResetTask) taskFail(
 		guest = models.GuestManager.FetchGuestById(isp.GuestId)
 	}
 	guest.SetStatus(self.UserCred, compute.VM_SNAPSHOT_RESET_FAILED, reason.String())
+	isp.SetStatus(self.UserCred, compute.INSTANCE_SNAPSHOT_READY, "")
 
 	db.OpsLog.LogEvent(guest, db.ACT_VM_RESET_SNAPSHOT_FAILED, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_RESET, reason, self.UserCred, false)
@@ -52,6 +53,7 @@ func (self *InstanceSnapshotResetTask) taskFail(
 func (self *InstanceSnapshotResetTask) taskComplete(
 	ctx context.Context, isp *models.SInstanceSnapshot, guest *models.SGuest, data jsonutils.JSONObject) {
 
+	isp.SetStatus(self.UserCred, compute.INSTANCE_SNAPSHOT_READY, "")
 	if guest == nil {
 		guest = models.GuestManager.FetchGuestById(isp.GuestId)
 	}
@@ -102,8 +104,9 @@ func (self *InstanceSnapshotResetTask) OnKvmDiskResetFailed(
 
 func (self *InstanceSnapshotResetTask) OnInstanceSnapshotReset(ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
 	guest, _ := isp.GetGuest()
-	if guest.Status == compute.VM_READY && jsonutils.QueryBoolean(self.Params, "auto_start", false) {
+	if jsonutils.QueryBoolean(self.Params, "auto_start", false) {
 		self.SetStage("OnGuestStartComplete", nil)
+		isp.SetStatus(self.UserCred, compute.INSTANCE_SNAPSHOT_READY, "")
 		guest.StartGueststartTask(ctx, self.UserCred, nil, self.GetTaskId())
 	} else {
 		self.taskComplete(ctx, isp, guest, data)

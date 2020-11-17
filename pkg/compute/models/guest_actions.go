@@ -4713,6 +4713,7 @@ func (self *SGuest) StartSnapshotResetTask(ctx context.Context, userCred mcclien
 		data.Set("auto_start", jsonutils.JSONTrue)
 	}
 	self.SetStatus(userCred, api.VM_START_SNAPSHOT_RESET, "start snapshot reset task")
+	instanceSnapshot.SetStatus(userCred, api.INSTANCE_SNAPSHOT_RESET, "start snapshot reset task")
 	if task, err := taskman.TaskManager.NewTask(
 		ctx, "InstanceSnapshotResetTask", instanceSnapshot, userCred, data, "", "", nil,
 	); err != nil {
