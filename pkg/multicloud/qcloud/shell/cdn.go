@@ -34,4 +34,19 @@ func init() {
 		}
 		return nil
 	})
+
+	type CdnDomainListOption struct {
+		Domains    []string
+		Origins    []string
+		DomainType string `help:"origin domain type" choices:"cos|cname"`
+	}
+	shellutils.R(&CdnDomainListOption{}, "cdn-domain-list", "list cdn domain", func(cli *qcloud.SRegion, args *CdnDomainListOption) error {
+		domains, err := cli.GetClient().DescribeAllCdnDomains(args.Domains, args.Origins, args.DomainType)
+		if err != nil {
+			return err
+		}
+		printList(domains, len(domains), 0, len(domains), nil)
+		return nil
+	})
+
 }

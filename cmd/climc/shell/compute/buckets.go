@@ -479,4 +479,16 @@ func init() {
 		return nil
 	})
 
+	type BucketGetCdnDomainOption struct {
+		ID string `help:"ID or name of bucket" json:"-"`
+	}
+	R(&BucketGetRefererOption{}, "bucket-get-cdn-domain", "get bucket cdn domain", func(s *mcclient.ClientSession, args *BucketGetRefererOption) error {
+		result, err := modules.Buckets.GetSpecific(s, args.ID, "cdn-domain", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 }

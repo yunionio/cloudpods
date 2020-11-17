@@ -105,3 +105,7 @@ func (b *SBaseBucket) SetReferer(conf cloudprovider.SBucketRefererConf) error {
 func (b *SBaseBucket) GetReferer() (cloudprovider.SBucketRefererConf, error) {
 	return cloudprovider.SBucketRefererConf{}, cloudprovider.ErrNotImplemented
 }
+
+func (b *SBaseBucket) GetCdnDomains() ([]cloudprovider.SCdnDomain, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
