@@ -243,6 +243,8 @@ func (rm *SReceiverManager) ValidateCreateData(ctx context.Context, userCred mcc
 			return input, err
 		}
 		uname, _ := userObj.GetString("name")
+		uid, _ := userObj.GetString("id")
+		input.UID = uid
 		input.UName = uname
 		domainId, _ := userObj.GetString("domain_id")
 		input.ProjectDomainId = domainId
@@ -260,7 +262,9 @@ func (rm *SReceiverManager) ValidateCreateData(ctx context.Context, userCred mcc
 				return input, err
 			}
 			uid, _ := userObj.GetString("id")
+			uname, _ := userObj.GetString("name")
 			input.UID = uid
+			input.UName = uname
 			domainId, _ := userObj.GetString("domain_id")
 			input.ProjectDomainId = domainId
 		}
@@ -862,6 +866,9 @@ func (rm *SReceiverManager) OnUpdate(oldObj, newObj *jsonutils.JSONDict) {
 		log.Errorf("fail to FetchByIDs: %v", err)
 		return
 	}
+	if len(receivers) == 0 {
+		return
+	}
 	receiver := &receivers[0]
 	uname, _ := newObj.GetString("name")
 	domainId, _ := newObj.GetString("domain_id")
@@ -883,6 +890,9 @@ func (rm *SReceiverManager) OnDelete(obj *jsonutils.JSONDict) {
 	receivers, err := rm.FetchByIDs(context.Background(), userId)
 	if err != nil {
 		log.Errorf("fail to FetchByIDs: %v", err)
+		return
+	}
+	if len(receivers) == 0 {
 		return
 	}
 	receiver := &receivers[0]

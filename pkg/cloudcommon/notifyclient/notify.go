@@ -333,7 +333,13 @@ func notifyRobot(ctx context.Context, robot string, recipientId []string, isGrou
 	if err != nil {
 		return err
 	}
-	jarray, _ := result.Get("types")
+	if result == nil {
+		return nil
+	}
+	jarray, err := result.Get("types")
+	if err != nil {
+		return err
+	}
 	cTypes := jarray.(*jsonutils.JSONArray).GetStringArray()
 	for _, ct := range cTypes {
 		RawNotifyWithCtx(ctx, recipientId, isGroup, npk.TNotifyChannel(ct), priority, event, data)
