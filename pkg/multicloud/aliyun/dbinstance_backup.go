@@ -184,9 +184,13 @@ func (rds *SDBInstance) GetIDBInstanceBackups() ([]cloudprovider.ICloudDBInstanc
 	return ibackups, nil
 }
 
-func (rds *SDBInstance) CreateIBackup(conf *cloudprovider.SDBInstanceBackupCreateConfig) (string, error) {
+func (self *SRegion) CreateDBInstanceBackup(rdsId string, databases []string) (string, error) {
+	rds, err := self.GetDBInstanceDetail(rdsId)
+	if err != nil {
+		return "", errors.Wrapf(err, "GetDBInstanceDetail")
+	}
 	params := map[string]string{
-		"DBInstanceId": rds.DBInstanceId,
+		"DBInstanceId": rdsId,
 	}
 	switch rds.Engine {
 	case api.DBINSTANCE_TYPE_MYSQL:
@@ -199,9 +203,9 @@ func (rds *SDBInstance) CreateIBackup(conf *cloudprovider.SDBInstanceBackupCreat
 			params["BackupMethod"] = "Snapshot"
 		} else {
 			params["BackupMethod"] = "Physical"
-			if len(conf.Databases) > 0 {
+			if len(databases) > 0 {
 				params["BackupStrategy"] = "db"
-				params["DBName"] = strings.Join(conf.Databases, ",")
+				params["DBName"] = strings.Join(databases, ",")
 				params["BackupMethod"] = "Logical"
 			}
 		}
@@ -218,7 +222,7 @@ func (rds *SDBInstance) CreateIBackup(conf *cloudprovider.SDBInstanceBackupCreat
 	case api.DBINSTANCE_TYPE_PPAS:
 		params["BackupMethod"] = "Physical"
 	}
-	body, err := rds.region.rdsRequest("CreateBackup", params)
+	body, err := self.rdsRequest("CreateBackup", params)
 	if err != nil {
 		return "", errors.Wrap(err, "CreateBackup")
 	}
@@ -226,7 +230,11 @@ func (rds *SDBInstance) CreateIBackup(conf *cloudprovider.SDBInstanceBackupCreat
 	if err != nil {
 		return "", errors.Wrap(err, "body.BackupJobId")
 	}
-	return "", rds.region.waitBackupCreateComplete(rds.DBInstanceId, jobId)
+	return self.waitBackupCreateComplete(rds.DBInstanceId, jobId)
+}
+
+func (rds *SDBInstance) CreateIBackup(conf *cloudprovider.SDBInstanceBackupCreateConfig) (string, error) {
+	return rds.region.CreateDBInstanceBackup(rds.DBInstanceId, conf.Databases)
 }
 
 func (backup *SDBInstanceBackup) Delete() error {
@@ -249,6 +257,7 @@ type SDBInstanceBackupJob struct {
 	TaskAction           string
 	BackupStatus         string
 	BackupJobId          string
+	BackupId             string
 }
 
 type SDBInstanceBackupJobs struct {
@@ -279,25 +288,40 @@ func (region *SRegion) GetDBInstanceBackupJobs(instanceId, jobId string) (*SDBIn
 	return &jobs, nil
 }
 
-func (region *SRegion) waitBackupCreateComplete(instanceId, jobId string) error {
-	for i := 0; i < 20*40; i++ {
+func (region *SRegion) waitBackupCreateComplete(instanceId, jobId string) (string, error) {
+	err := cloudprovider.Wait(time.Second*10, time.Minute*40, func() (bool, error) {
 		jobs, err := region.GetDBInstanceBackupJobs(instanceId, jobId)
 		if err != nil {
-			return errors.Wrapf(err, "region.GetDBInstanceBackupJobs(%s, %s)", instanceId, jobId)
+			return false, errors.Wrapf(err, "region.GetDBInstanceBackupJobs(%s, %s)", instanceId, jobId)
 		}
 		if len(jobs.BackupJob) == 0 {
-			return nil
+			return true, nil
 		}
 		for _, job := range jobs.BackupJob {
 			log.Infof("instance %s backup job %s status: %s(%s)", instanceId, jobId, job.BackupStatus, job.Process)
 			if job.BackupStatus == "Finished" && job.BackupJobId == jobId {
-				return nil
+				return true, nil
 			}
 			if job.BackupStatus == "Failed" && job.BackupJobId == jobId {
-				return fmt.Errorf("instance %s backup job %s failed", instanceId, jobId)
+				return false, fmt.Errorf("instance %s backup job %s failed", instanceId, jobId)
 			}
 		}
-		time.Sleep(time.Second * 3)
+		return false, nil
+	})
+	if err != nil {
+		return "", errors.Wrapf(err, "wait backup create job")
 	}
-	return fmt.Errorf("timeout for waiting create job complete")
+	jobs, err := region.GetDBInstanceBackupJobs(instanceId, jobId)
+	if err != nil {
+		return "", errors.Wrapf(err, "region.GetDBInstanceBackupJobs(%s, %s)", instanceId, jobId)
+	}
+	for _, job := range jobs.BackupJob {
+		if job.BackupStatus == "Finished" && job.BackupJobId == jobId {
+			if len(job.BackupId) == 0 {
+				return "", fmt.Errorf("Missing backup id")
+			}
+			return job.BackupId, nil
+		}
+	}
+	return "", fmt.Errorf("failed to found backup job %s backupid", jobId)
 }
