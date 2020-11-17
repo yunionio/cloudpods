@@ -118,6 +118,8 @@ message DeployParams {
 
 message ResizeFsParams {
   string disk_path = 1;
+  string hypervisor = 2;
+  VDDKConInfo vddk_info = 3;
 }
 
 message FormatFsParams {

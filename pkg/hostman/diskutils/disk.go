@@ -25,10 +25,17 @@ type IDisk interface {
 	Disconnect() error
 	MountRootfs() fsdriver.IRootFsDriver
 	UmountRootfs(driver fsdriver.IRootFsDriver)
+	ResizePartition() error
 }
 
-func GetIDisk(params *apis.DeployParams) IDisk {
-	hypervisor := params.GuestDesc.Hypervisor
+type DiskParams struct {
+	Hypervisor string
+	DiskPath   string
+	VddkInfo   *apis.VDDKConInfo
+}
+
+func GetIDisk(params DiskParams) IDisk {
+	hypervisor := params.Hypervisor
 	switch hypervisor {
 	case comapi.HYPERVISOR_KVM:
 		return NewKVMGuestDisk(params.DiskPath)
