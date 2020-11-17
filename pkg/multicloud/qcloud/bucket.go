@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/s3cli"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
@@ -168,12 +169,16 @@ func (b *SBucket) getBucketUrl() string {
 	return fmt.Sprintf("https://%s", b.getBucketUrlHost())
 }
 
-func (b *SBucket) getWebsiteUrl() string {
+func (b *SBucket) getBucketWebsiteUrlHost() string {
 	if b.zone != nil {
-		return fmt.Sprintf("https://%s.%s", b.getFullName(), b.zone.getCosWebsiteEndpoint())
+		return fmt.Sprintf("%s.%s", b.getFullName(), b.zone.getCosWebsiteEndpoint())
 	} else {
-		return fmt.Sprintf("https://%s.%s", b.getFullName(), b.region.getCosWebsiteEndpoint())
+		return fmt.Sprintf("%s.%s", b.getFullName(), b.region.getCosWebsiteEndpoint())
 	}
+}
+
+func (b *SBucket) getWebsiteUrl() string {
+	return fmt.Sprintf("https://%s", b.getBucketWebsiteUrlHost())
 }
 
 func (b *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
@@ -725,5 +730,60 @@ func (b *SBucket) GetReferer() (cloudprovider.SBucketRefererConf, error) {
 		result.AllowEmptyRefer = true
 	}
 	result.DomainList = referResult.DomainList
+	return result, nil
+}
+
+func toAPICdnArea(area string) string {
+	switch area {
+	case "mainland":
+		return api.CDN_AREA_MAINLAND
+	case "overseas":
+		return api.CDN_AREA_OVERSEAS
+	case "global":
+		return api.CDN_AREA_GLOBAL
+	default:
+		return ""
+	}
+}
+
+func (b *SBucket) GetCdnDomains() ([]cloudprovider.SCdnDomain, error) {
+	result := []cloudprovider.SCdnDomain{}
+	bucketHost := b.getBucketUrlHost()
+	bucketWebsiteHost := b.getBucketWebsiteUrlHost()
+
+	bucketCdnDomains, err := b.region.client.DescribeAllCdnDomains(nil, []string{bucketHost}, "cos")
+	if err != nil {
+		return nil, errors.Wrapf(err, `b.region.client.DescribeAllCdnDomains(nil, []string{%s}, "cos")`, bucketHost)
+	}
+	if len(bucketCdnDomains) > 1 {
+		return nil, cloudprovider.ErrDuplicateId
+	}
+	if len(bucketCdnDomains) == 1 {
+		result = append(result, cloudprovider.SCdnDomain{
+			Domain:     bucketCdnDomains[0].Domain,
+			Cname:      bucketCdnDomains[0].Cname,
+			Area:       toAPICdnArea(bucketCdnDomains[0].Area),
+			Origin:     bucketHost,
+			OriginType: api.CDN_ORIGIN_TYPE_BUCKET,
+		})
+	}
+
+	bucketWebsiteCdnDomains, err := b.region.client.DescribeAllCdnDomains(nil, []string{bucketWebsiteHost}, "cos")
+	if err != nil {
+		return nil, errors.Wrapf(err, `b.region.client.DescribeAllCdnDomains(nil, []string{%s}, "cos")`, bucketWebsiteHost)
+	}
+	if len(bucketWebsiteCdnDomains) > 1 {
+		return nil, cloudprovider.ErrDuplicateId
+	}
+
+	if len(bucketWebsiteCdnDomains) == 1 {
+		result = append(result, cloudprovider.SCdnDomain{
+			Domain:     bucketWebsiteCdnDomains[0].Domain,
+			Cname:      bucketWebsiteCdnDomains[0].Cname,
+			Area:       toAPICdnArea(bucketWebsiteCdnDomains[0].Area),
+			Origin:     bucketWebsiteHost,
+			OriginType: api.CDN_ORIGIN_TYPE_BUCKET,
+		})
+	}
 	return result, nil
 }
