@@ -66,3 +66,11 @@ func (self *SDiskManager) AsyncCreate(params jsonutils.JSONObject) (string, erro
 	// 包年包月机器
 	return ret.GetString("order_id")
 }
+
+// https://support.huaweicloud.com/api-evs/evs_04_2003.html
+func (self *SDiskManager) GetDiskTypes() (*responses.ListResult, error) {
+	originKeyword := self.ResourceKeyword
+	self.ResourceKeyword = ""
+	defer func() { self.ResourceKeyword = originKeyword }()
+	return self.ListInContextWithSpec(self.ctx, "types", nil, "volume_types")
+}

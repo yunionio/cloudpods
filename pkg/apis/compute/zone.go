@@ -104,6 +104,15 @@ type Zone1ResourceInfoBase struct {
 	Zone1ExtId string `json:"zone_1_ext_id"`
 }
 
+type SlaveZoneResourceInfoBase struct {
+	// 可用区名称
+	// example: 北京2区
+	SlaveZone string `json:"slave_zone"`
+
+	// 纳管云的zoneId
+	SlaveZoneExtId string `json:"slave_zone_ext_id"`
+}
+
 type ZoneResourceInfo struct {
 	ZoneResourceInfoBase
 

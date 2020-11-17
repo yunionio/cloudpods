@@ -49,7 +49,7 @@ func (self *SAwsHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb in
 		if sizeGb < 1 || sizeGb > 16384 {
 			return fmt.Errorf("The %s disk size must be in the range of 1G ~ 16384GB", storage.StorageType)
 		}
-	} else if storage.StorageType == api.STORAGE_IO1_SSD {
+	} else if storage.StorageType == api.STORAGE_IO1_SSD || storage.StorageType == api.STORAGE_IO2_SSD {
 		if sizeGb < 4 || sizeGb > 16384 {
 			return fmt.Errorf("The %s disk size must be in the range of 4G ~ 16384GB", storage.StorageType)
 		}
