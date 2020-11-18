@@ -12,17 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package hostconsts
+package consts
 
 const (
-	TELEGRAF_TAG_KEY_BRAND      = "brand"
-	TELEGRAF_TAG_KEY_PLATFORM   = "platform"
-	TELEGRAF_TAG_KEY_HYPERVISOR = "hypervisor"
-	TELEGRAF_TAG_KEY_RES_TYPE   = "res_type"
-	TELEGRAF_TAG_KEY_HOST_TYPE  = "host_type"
-
-	TELEGRAF_TAG_ONECLOUD_BRAND                = "OneCloud"
-	TELEGRAF_TAG_ONECLOUD_RES_TYPE             = "host"
-	TELEGRAF_TAG_ONECLOUD_HOST_TYPE_HOST       = "host"
-	TELEGRAF_TAG_ONECLOUD_HOST_TYPE_CONTROLLER = "controller"
+	DEPLOY_DRIVER_NBD        = "nbd"
+	DEPLOY_DRIVER_LIBGUESTFS = "libguestfs"
 )

@@ -116,6 +116,13 @@ type CommonOptions struct {
 	BaseOptions
 }
 
+type HostCommonOptions struct {
+	CommonOptions
+
+	ExecutorSocketPath     string `help:"Executor socket path" default:"/var/run/onecloud/exec.sock"`
+	DeployServerSocketPath string `help:"Deploy server listen socket path" default:"/var/run/onecloud/deploy.sock"`
+}
+
 type DBOptions struct {
 	SqlConnection string `help:"SQL connection string" alias:"connection"`
 

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package diskutils
+package nbd
 
 import (
 	"fmt"
@@ -24,7 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/stringutils"
 
-	"yunion.io/x/onecloud/pkg/hostman/guestfs"
+	"yunion.io/x/onecloud/pkg/hostman/guestfs/kvmpart"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
@@ -128,7 +128,7 @@ func (p *SKVMGuestLVMPartition) SetupDevice() bool {
 	return false
 }
 
-func (p *SKVMGuestLVMPartition) FindPartitions() []*guestfs.SKVMGuestDiskPartition {
+func (p *SKVMGuestLVMPartition) FindPartitions() []*kvmpart.SKVMGuestDiskPartition {
 	if !p.isVgActive() {
 		return nil
 	}
@@ -139,10 +139,10 @@ func (p *SKVMGuestLVMPartition) FindPartitions() []*guestfs.SKVMGuestDiskPartiti
 		return nil
 	}
 
-	parts := []*guestfs.SKVMGuestDiskPartition{}
+	parts := []*kvmpart.SKVMGuestDiskPartition{}
 	for _, f := range files {
 		partPath := fmt.Sprintf("/dev/%s/%s", p.vgname, f.Name())
-		part := guestfs.NewKVMGuestDiskPartition(partPath, p.partDev, true)
+		part := kvmpart.NewKVMGuestDiskPartition(partPath, p.partDev, true)
 		parts = append(parts, part)
 	}
 	return parts

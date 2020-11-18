@@ -37,6 +37,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
+	"yunion.io/x/onecloud/pkg/hostman/guestfs/kvmpart"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 )
 
@@ -61,17 +62,19 @@ type VDDKDisk struct {
 	Proc     *Command
 	Pid      int
 
-	kvmDisk *SKVMGuestDisk
+	kvmDisk      *SKVMGuestDisk
+	deployDriver string
 }
 
-func NewVDDKDisk(vddkInfo *apis.VDDKConInfo, diskPath string) *VDDKDisk {
+func NewVDDKDisk(vddkInfo *apis.VDDKConInfo, diskPath, deployDriver string) *VDDKDisk {
 	return &VDDKDisk{
-		Host:     vddkInfo.Host,
-		Port:     int(vddkInfo.Port),
-		User:     vddkInfo.User,
-		Passwd:   vddkInfo.Passwd,
-		VmRef:    vddkInfo.Vmref,
-		DiskPath: diskPath,
+		Host:         vddkInfo.Host,
+		Port:         int(vddkInfo.Port),
+		User:         vddkInfo.User,
+		Passwd:       vddkInfo.Passwd,
+		VmRef:        vddkInfo.Vmref,
+		DiskPath:     diskPath,
+		deployDriver: deployDriver,
 	}
 }
 
@@ -139,7 +142,7 @@ func (vd *VDDKDisk) Connect() error {
 	if err != nil {
 		return err
 	}
-	vd.kvmDisk = NewKVMGuestDisk(flatFile)
+	vd.kvmDisk = NewKVMGuestDisk(flatFile, vd.deployDriver)
 	return vd.kvmDisk.Connect()
 }
 
@@ -428,7 +431,7 @@ func (vd *VDDKDisk) ResizePartition() error {
 }
 
 type VDDKPartition struct {
-	*guestfs.SLocalGuestFS
+	*kvmpart.SLocalGuestFS
 }
 
 func (vp *VDDKPartition) Mount() bool {
@@ -455,6 +458,14 @@ func (vp *VDDKPartition) GetPhysicalPartitionType() string {
 	return ""
 }
 
-func newVDDKPartition(mntPath string) *VDDKPartition {
-	return &VDDKPartition{guestfs.NewLocalGuestFS(mntPath)}
+func (vp *VDDKPartition) GetPartDev() string {
+	return ""
+}
+
+func (vp *VDDKPartition) IsMounted() bool {
+	return true
+}
+
+func (vp *VDDKPartition) Zerofree() {
+	return
 }

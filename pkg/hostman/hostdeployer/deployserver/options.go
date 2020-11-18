@@ -14,17 +14,39 @@
 
 package deployserver
 
-import "yunion.io/x/onecloud/pkg/cloudcommon/options"
+import (
+	"os"
+
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+)
 
 type SDeployOptions struct {
-	options.BaseOptions
+	common_options.HostCommonOptions
 
-	DeployServerSocketPath string   `help:"Deploy server listen socket path" default:"/var/run/deploy.sock"`
-	PrivatePrefixes        []string `help:"IPv4 private prefixes"`
-	ChntpwPath             string   `help:"path to chntpw tool" default:"/usr/local/bin/chntpw.static"`
-	EnableRemoteExecutor   bool     `help:"Enable remote executor" default:"false"`
-	ExecSocketPath         string   `help:"Exec socket paht" default:"/var/run/exec.sock"`
-	CloudrootDir           string   `help:"User cloudroot home dir" default:"/opt"`
+	PrivatePrefixes      []string `help:"IPv4 private prefixes"`
+	ChntpwPath           string   `help:"path to chntpw tool" default:"/usr/local/bin/chntpw.static"`
+	EnableRemoteExecutor bool     `help:"Enable remote executor" default:"false"`
+	CloudrootDir         string   `help:"User cloudroot home dir" default:"/opt"`
+	ImageDeployDriver    string   `help:"Image deploy driver" default:"nbd" choices:"nbd|libguestfs"`
+	CommonConfigFile     string   `help:"common config file for container"`
 }
 
 var DeployOption SDeployOptions
+
+func Parse() (hostOpts SDeployOptions) {
+	common_options.ParseOptions(&hostOpts, os.Args, "host.conf", "host")
+	if len(hostOpts.CommonConfigFile) > 0 {
+		commonCfg := &common_options.HostCommonOptions{}
+		commonCfg.Config = hostOpts.CommonConfigFile
+		common_options.ParseOptions(commonCfg, []string{os.Args[0]}, "common.conf", "host")
+		baseOpt := hostOpts.BaseOptions.BaseOptions
+		hostOpts.HostCommonOptions = *commonCfg
+		// keep base options
+		hostOpts.BaseOptions.BaseOptions = baseOpt
+	}
+	return hostOpts
+}
+
+func init() {
+	DeployOption = Parse()
+}

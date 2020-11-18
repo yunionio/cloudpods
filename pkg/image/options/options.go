@@ -40,7 +40,7 @@ type SImageOptions struct {
 
 	TorrentClientPath string `help:"path to torrent executable" default:"/opt/yunion/bin/torrent"`
 
-	DeployServerSocketPath string `help:"Deploy server listen socket path" default:"/var/run/deploy.sock"`
+	DeployServerSocketPath string `help:"Deploy server listen socket path" default:"/var/run/onecloud/deploy.sock"`
 }
 
 var (
