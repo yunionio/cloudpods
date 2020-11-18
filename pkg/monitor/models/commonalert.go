@@ -17,6 +17,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
@@ -925,4 +926,45 @@ func (alert *SCommonAlert) PerformConfig(ctx context.Context, userCred mcclient.
 		return nil
 	})
 	return jsonutils.Marshal(alert), err
+}
+
+func (alert *SCommonAlert) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) bool {
+	return db.IsProjectAllowPerform(userCred, alert, "disable")
+}
+
+func (alert *SCommonAlert) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) (jsonutils.JSONObject, error) {
+	err := db.EnabledPerformEnable(alert, ctx, userCred, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "EnabledPerformEnable")
+	}
+	err = alert.StartDetachTask(ctx, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "alert StartDetachTask error")
+	}
+	return nil, nil
+}
+
+func (alert *SCommonAlert) StartDetachTask(ctx context.Context, userCred mcclient.TokenCredential) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "DetachAlertResourceTask", alert, userCred, jsonutils.NewDict(), "", "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (alert *SCommonAlert) DetachAlertResourceOnDisable(ctx context.Context,
+	userCred mcclient.TokenCredential) (errs []error) {
+	resources, err := GetAlertResourceManager().getResourceFromAlertId(alert.Id)
+	if err != nil {
+		errs = append(errs, errors.Wrap(err, "getResourceFromAlert error"))
+		return
+	}
+	for _, resource := range resources {
+		err := resource.DetachAlert(ctx, userCred, alert.Id)
+		if err != nil {
+			errs = append(errs, errors.Wrapf(err, "resource:%s DetachAlert:%s err", resource.Id, alert.Id))
+		}
+	}
+	return
 }
