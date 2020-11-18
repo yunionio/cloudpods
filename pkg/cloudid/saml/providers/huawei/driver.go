@@ -15,33 +15,68 @@
 package huawei
 
 import (
+	"context"
+	"database/sql"
+
+	"yunion.io/x/pkg/errors"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudid/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/samlutils"
 	"yunion.io/x/onecloud/pkg/util/samlutils/idp"
 )
 
-func (d *SHuaweiSAMLDriver) GetIdpInitiatedLoginData(cloudAccoutId string, userId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLIdpInitiatedLoginData, error) {
+func (d *SHuaweiSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCred mcclient.TokenCredential, cloudAccountId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLIdpInitiatedLoginData, error) {
 	// not supported
 	data := samlutils.SSAMLIdpInitiatedLoginData{}
 
 	return data, httperrors.ErrNotSupported
 }
 
-func (d *SHuaweiSAMLDriver) GetSpInitiatedLoginData(cloudAccoutId string, userId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLSpInitiatedLoginData, error) {
-	// TODO
+func (d *SHuaweiSAMLDriver) GetSpInitiatedLoginData(ctx context.Context, userCred mcclient.TokenCredential, cloudAccountId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLSpInitiatedLoginData, error) {
 	data := samlutils.SSAMLSpInitiatedLoginData{}
 
-	data.NameId = "yunionoss"
+	_account, err := models.CloudaccountManager.FetchById(cloudAccountId)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return data, httperrors.NewResourceNotFoundError("cloudaccount", cloudAccountId)
+		}
+		return data, httperrors.NewGeneralError(err)
+	}
+	account := _account.(*models.SCloudaccount)
+	if account.Provider != api.CLOUD_PROVIDER_HUAWEI {
+		return data, httperrors.NewClientError("cloudaccount %s is %s not %s", account.Id, account.Provider, api.CLOUD_PROVIDER_HUAWEI)
+	}
+	if account.SAMLAuth.IsFalse() {
+		return data, httperrors.NewNotSupportedError("cloudaccount %s not open saml auth", account.Id)
+	}
+
+	_, valid := account.IsSAMLProviderValid()
+	if !valid {
+		return data, httperrors.NewResourceNotReadyError("SAMLProvider for account %s not ready", account.Id)
+	}
+
+	groups, err := account.GetUserCloudgroups(userCred.GetUserId())
+	if err != nil {
+		return data, httperrors.NewGeneralError(errors.Wrapf(err, "GetUserCloudgroups"))
+	}
+	if len(groups) == 0 {
+		return data, httperrors.NewResourceNotFoundError("no available group found")
+	}
+
+	data.NameId = userCred.GetUserName()
 	data.NameIdFormat = samlutils.NAME_ID_FORMAT_TRANSIENT
 	data.AudienceRestriction = sp.GetEntityId()
-	for k, v := range map[string]string{
-		"User":  "ec2admin",
-		"Group": "ec2admin",
+	for k, v := range map[string][]string{
+		"User":   []string{userCred.GetUserName()},
+		"Groups": groups,
 	} {
 		data.Attributes = append(data.Attributes, samlutils.SSAMLResponseAttribute{
 			Name: k, FriendlyName: k,
 			NameFormat: "urn:oasis:names:tc:SAML:2.0:attrname-format:uri",
-			Values:     []string{v},
+			Values:     v,
 		})
 	}
 

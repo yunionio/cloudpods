@@ -15,7 +15,7 @@
 package qcloud
 
 import (
-	"yunion.io/x/onecloud/pkg/cloudid/saml/providers"
+	"yunion.io/x/onecloud/pkg/cloudid/models"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -34,5 +34,5 @@ func (d *SQcloudSAMLDriver) GetMetadataUrl() string {
 }
 
 func init() {
-	providers.Register(&SQcloudSAMLDriver{})
+	models.Register(&SQcloudSAMLDriver{})
 }

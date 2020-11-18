@@ -42,8 +42,7 @@ func NewProxyHandlerWithService(prefix string, serviceName string) *InfluxdbProx
 }
 
 func requestManipulator(ctx context.Context, r *http.Request) (*http.Request, error) {
-	r.Header.Del("Cookie")
-	token := AppContextToken(ctx)
+	token, _, _ := fetchAuthInfo(ctx, r)
 	if token != nil {
 		r.Header.Set("X-Auth-Token", token.GetTokenString())
 	}

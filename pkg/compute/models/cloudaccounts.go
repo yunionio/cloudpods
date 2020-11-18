@@ -163,6 +163,8 @@ type SCloudaccount struct {
 
 	// 公有云子账号登录地址
 	IamLoginUrl string `width:"512" charset:"ascii" nullable:"false" list:"domain" update:"domain"`
+
+	SAMLAuth tristate.TriState `nullable:"false" get:"user" update:"domain" create:"optional" list:"user" default:"false"`
 }
 
 func (self *SCloudaccount) GetCloudproviders() []SCloudprovider {
@@ -992,6 +994,9 @@ func (manager *SCloudaccountManager) validateCreateData(
 	input.SCloudaccount, err = providerDriver.ValidateCreateCloudaccountData(ctx, userCred, input.SCloudaccountCredential)
 	if err != nil {
 		return input, err
+	}
+	if input.SAMLAuth != nil && *input.SAMLAuth && !providerDriver.IsSupportSAMLAuth() {
+		return input, httperrors.NewNotSupportedError("%s not support saml auth", input.Provider)
 	}
 	if len(input.Brand) > 0 && input.Brand != providerDriver.GetName() {
 		brands := providerDriver.GetSupportedBrands()

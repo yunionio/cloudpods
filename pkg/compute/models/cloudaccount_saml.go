@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -27,8 +26,9 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
-	"yunion.io/x/onecloud/pkg/util/samlutils"
 )
 
 func (account *SCloudaccount) AllowGetDetailsSaml(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -37,6 +37,10 @@ func (account *SCloudaccount) AllowGetDetailsSaml(ctx context.Context, userCred 
 
 func (account *SCloudaccount) GetDetailsSaml(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (api.GetCloudaccountSamlOutput, error) {
 	output := api.GetCloudaccountSamlOutput{}
+
+	if account.SAMLAuth.IsFalse() {
+		return output, httperrors.NewNotSupportedError("account %s not enable saml auth", account.Name)
+	}
 
 	provider, err := account.GetProvider()
 	if err != nil {
@@ -50,18 +54,19 @@ func (account *SCloudaccount) GetDetailsSaml(ctx context.Context, userCred mccli
 	output.RedirectLoginUrl = httputils.JoinPath(options.Options.ApiServer, cloudid.SAML_IDP_PREFIX, "redirect/login", account.Id)
 	output.RedirectLogoutUrl = httputils.JoinPath(options.Options.ApiServer, cloudid.SAML_IDP_PREFIX, "redirect/logout", account.Id)
 	output.MetadataUrl = httputils.JoinPath(options.Options.ApiServer, cloudid.SAML_IDP_PREFIX, "metadata", account.Id)
-	// XXXXX
-	// TODO, find idpName for this cloudaccount
-	// XXXXX
-	idpName := "saml.yunion.io"
-	output.InitLoginUrl = provider.GetSamlSpInitiatedLoginUrl(idpName)
-	if len(output.InitLoginUrl) == 0 {
-		input := samlutils.SIdpInitiatedLoginInput{
-			EntityID: output.EntityId,
-			IdpId:    account.Id,
-		}
-		output.InitLoginUrl = httputils.JoinPath(options.Options.ApiServer, cloudid.SAML_IDP_PREFIX, fmt.Sprintf("sso?%s", jsonutils.Marshal(input).QueryString()))
+	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	params := map[string]string{
+		"scope":           "system",
+		"cloudaccount_id": account.Id,
+		"status":          cloudid.SAML_PROVIDER_STATUS_AVAILABLE,
 	}
-
+	samlproviders, _ := modules.SAMLProviders.List(s, jsonutils.Marshal(params))
+	for _, sp := range samlproviders.Data {
+		authUrl, _ := sp.GetString("auth_url")
+		if len(authUrl) > 0 {
+			output.InitLoginUrl = authUrl
+			break
+		}
+	}
 	return output, nil
 }
