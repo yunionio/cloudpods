@@ -21,7 +21,7 @@ import (
 )
 
 type SHostOptions struct {
-	common_options.CommonOptions
+	common_options.HostCommonOptions
 	common_options.EtcdOptions
 
 	HostType        string   `help:"Host server type, either hypervisor or kubelet" default:"hypervisor"`
@@ -110,11 +110,9 @@ type SHostOptions struct {
 
 	MaxReservedMemory int `default:"10240" help:"host reserved memory"`
 
-	DeployServerSocketPath    string `help:"Deploy server listen socket path" default:"/var/run/deploy.sock"`
-	DefaultRequestWorkerCount int    `default:"8" help:"default request worker count"`
-	EnableRemoteExecutor      bool   `help:"Enable remote executor" default:"false"`
-	ExecutorSocketPath        string `help:"Executor socket path" default:"/var/run/exec.sock"`
-	CommonConfigFile          string `help:"common config file for container"`
+	DefaultRequestWorkerCount int `default:"8" help:"default request worker count"`
+
+	CommonConfigFile string `help:"common config file for container"`
 
 	AllowSwitchVMs bool `help:"allow machines run as switch (spoof mac)" default:"true"`
 	AllowRouterVMs bool `help:"allow machines run as router (spoof ip)" default:"true"`
@@ -131,10 +129,11 @@ type SHostOptions struct {
 	OvnEipBridge              string `help:"name of bridge for eip traffic management" default:"$HOST_OVN_EIP_BRIDGE|breip"`
 	OvnUnderlayMtu            int    `help:"mtu of ovn underlay network" default:"1500"`
 
-	EnableHealthChecker bool   `help:"enable host health checker" default:"true"`
-	HealthDriver        string `help:"Component save host health state" default:"etcd"`
-	HostHealthTimeout   int    `help:"host health timeout" default:"30"`
-	HostLeaseTimeout    int    `help:"lease timeout" default:"10"`
+	EnableRemoteExecutor bool   `help:"Enable remote executor" default:"false"`
+	EnableHealthChecker  bool   `help:"enable host health checker" default:"true"`
+	HealthDriver         string `help:"Component save host health state" default:"etcd"`
+	HostHealthTimeout    int    `help:"host health timeout" default:"30"`
+	HostLeaseTimeout     int    `help:"lease timeout" default:"10"`
 
 	SyncStorageInfoDurationSecond int  `help:"sync storage size duration, unit is second" default:"60"`
 	StartHostIgnoreSysError       bool `help:"start host agent ignore sys error" default:"false"`
@@ -147,11 +146,11 @@ var (
 func Parse() (hostOpts SHostOptions) {
 	common_options.ParseOptions(&hostOpts, os.Args, "host.conf", "host")
 	if len(hostOpts.CommonConfigFile) > 0 {
-		commonCfg := &common_options.CommonOptions{}
+		commonCfg := &common_options.HostCommonOptions{}
 		commonCfg.Config = hostOpts.CommonConfigFile
 		common_options.ParseOptions(commonCfg, []string{os.Args[0]}, "common.conf", "host")
 		baseOpt := hostOpts.BaseOptions.BaseOptions
-		hostOpts.CommonOptions = *commonCfg
+		hostOpts.HostCommonOptions = *commonCfg
 		// keep base options
 		hostOpts.BaseOptions.BaseOptions = baseOpt
 	}
