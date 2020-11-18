@@ -2550,9 +2550,11 @@ type HostsCountStat struct {
 	StorageSize             int64
 	Count                   int64
 	Memory                  int64
+	MemoryTotal             int64
 	MemoryVirtual           float64
 	MemoryReserved          int64
 	CPU                     int64
+	CPUTotal                int64
 	CPUVirtual              float64
 	IsolatedReservedMemory  int64
 	IsolatedReservedCpu     int64
@@ -2580,6 +2582,9 @@ func (manager *SHostManager) calculateCount(q *sqlchemy.SQuery) HostsCountStat {
 		irMem   int64   = 0
 		irCpu   int64   = 0
 		irStore int64   = 0
+
+		totalMem int64 = 0
+		totalCPU int64 = 0
 	)
 	stats := make([]HostStat, 0)
 	err := q.All(&stats)
@@ -2597,7 +2602,9 @@ func (manager *SHostManager) calculateCount(q *sqlchemy.SQuery) HostsCountStat {
 		aMem := usableSize(stat.MemSize, stat.MemReserved)
 		aCpu := usableSize(int(stat.CpuCount), int(stat.CpuReserved))
 		tMem += int64(aMem)
+		totalMem += int64(stat.MemSize)
 		tCPU += int64(aCpu)
+		totalCPU += int64(stat.CpuCount)
 		if stat.MemCmtbound <= 0.0 {
 			stat.MemCmtbound = options.Options.DefaultMemoryOvercommitBound
 		}
@@ -2615,9 +2622,11 @@ func (manager *SHostManager) calculateCount(q *sqlchemy.SQuery) HostsCountStat {
 		StorageSize:             tStore,
 		Count:                   tCnt,
 		Memory:                  tMem,
+		MemoryTotal:             totalMem,
 		MemoryVirtual:           tVmem,
 		MemoryReserved:          rMem,
 		CPU:                     tCPU,
+		CPUTotal:                totalCPU,
 		CPUVirtual:              tVCPU,
 		IsolatedReservedCpu:     irCpu,
 		IsolatedReservedMemory:  irMem,

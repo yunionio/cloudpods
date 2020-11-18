@@ -708,7 +708,9 @@ func hostUsage(
 	result := models.HostManager.TotalCount(userCred, scope, rangeObjs, "", "", hostTypes, resourceTypes, providers, brands, cloudEnv, enabled, isBaremetal)
 	count[prefix] = result.Count
 	count[fmt.Sprintf("%s.memory", prefix)] = result.Memory
+	count[fmt.Sprintf("%s.memory.total", prefix)] = result.MemoryTotal
 	count[fmt.Sprintf("%s.cpu", prefix)] = result.CPU
+	count[fmt.Sprintf("%s.cpu.total", prefix)] = result.CPUTotal
 	count[fmt.Sprintf("%s.memory.virtual", prefix)] = result.MemoryVirtual
 	count[fmt.Sprintf("%s.cpu.virtual", prefix)] = result.CPUVirtual
 	count[fmt.Sprintf("%s.memory.reserved", prefix)] = result.MemoryReserved
