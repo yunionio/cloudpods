@@ -120,18 +120,14 @@ func (*DeployerServer) ResizeFs(ctx context.Context, req *deployapi.ResizeFsPara
 	}
 
 	root := disk.MountRootfs()
-	defer disk.UmountRootfs(root)
-	if root == nil {
-		err := disk.ResizePartition()
-		return new(deployapi.Empty), err
-	} else {
-		if !root.IsResizeFsPartitionSupport() {
-			return new(deployapi.Empty), errors.ErrNotSupported
-		} else {
-			err := disk.ResizePartition()
-			return new(deployapi.Empty), err
-		}
+	if root != nil && !root.IsResizeFsPartitionSupport() {
+		return new(deployapi.Empty), errors.ErrNotSupported
 	}
+
+	// must umount rootfs before resize partition
+	disk.UmountRootfs(root)
+	err = disk.ResizePartition()
+	return new(deployapi.Empty), err
 }
 
 func (*DeployerServer) FormatFs(ctx context.Context, req *deployapi.FormatFsParams) (*deployapi.Empty, error) {
