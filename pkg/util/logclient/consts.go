@@ -185,4 +185,6 @@ const (
 
 	ACT_SYNC_VPCS        = "sync_vpcs"
 	ACT_SYNC_RECORD_SETS = "sync_record_sets"
+
+	ACT_DETACH_ALERTRESOURCE = "detach_alertresoruce"
 )
