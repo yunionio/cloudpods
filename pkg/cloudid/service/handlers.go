@@ -65,6 +65,9 @@ func InitHandlers(app *appsrv.Application) {
 		models.CloudgroupcacheManager,
 		models.CloudpolicyManager,
 		models.CloudpolicycacheManager,
+		models.SAMLProviderManager,
+		models.CloudroleManager,
+		models.SamluserManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

@@ -15,28 +15,12 @@
 package cloudid
 
 import (
-	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/mcclient/options/cloudid"
 )
 
 func init() {
-	type CloudpolicycacheListOptions struct {
-		options.BaseListOptions
-
-		CloudpolyId    string
-		CloudaccountId string
-	}
-	R(&CloudpolicycacheListOptions{}, "cloud-policy-cache-list", "List cloud policy caches", func(s *mcclient.ClientSession, opts *CloudpolicycacheListOptions) error {
-		params, err := options.ListStructToParams(opts)
-		if err != nil {
-			return err
-		}
-		result, err := modules.Cloudpolicycaches.List(s, params)
-		if err != nil {
-			return err
-		}
-		printList(result, modules.Cloudpolicycaches.GetColumns(s))
-		return nil
-	})
+	cmd := shell.NewResourceCmd(&modules.Cloudpolicycaches).WithKeyword("cloud-policy-cache")
+	cmd.List(&cloudid.CloudpolicycacheListOptions{})
 }

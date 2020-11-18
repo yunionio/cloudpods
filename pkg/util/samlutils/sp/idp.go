@@ -37,7 +37,7 @@ func NewSAMLIdp(entityId, redirectSsoUrl string) *SSAMLIdentityProvider {
 
 func NewSAMLIdpFromDescriptor(desc samlutils.EntityDescriptor) (*SSAMLIdentityProvider, error) {
 	entityId := desc.EntityId
-	if desc.IDPSSODescriptor != nil {
+	if desc.IDPSSODescriptor == nil {
 		return nil, errors.Wrap(httperrors.ErrInputParameter, "missing IDPSSODescriptor")
 	}
 	redirectSsoUrl := findSSOUrl(desc, samlutils.BINDING_HTTP_REDIRECT)

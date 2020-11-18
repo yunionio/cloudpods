@@ -15,17 +15,49 @@
 package aws
 
 import (
+	"context"
+	"database/sql"
+	"fmt"
+
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudid/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/samlutils"
 	"yunion.io/x/onecloud/pkg/util/samlutils/idp"
 )
 
-func (d *SAWSSAMLDriver) GetIdpInitiatedLoginData(cloudAccoutId string, userId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLIdpInitiatedLoginData, error) {
-	// TODO
+func (d *SAWSSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCred mcclient.TokenCredential, cloudAccountId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLIdpInitiatedLoginData, error) {
 	data := samlutils.SSAMLIdpInitiatedLoginData{}
 
-	data.NameId = "ec2s3readonly"
+	_account, err := models.CloudaccountManager.FetchById(cloudAccountId)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return data, httperrors.NewResourceNotFoundError("cloudaccount", cloudAccountId)
+		}
+		return data, httperrors.NewGeneralError(err)
+	}
+	account := _account.(*models.SCloudaccount)
+	if account.Provider != api.CLOUD_PROVIDER_AWS {
+		return data, httperrors.NewClientError("cloudaccount %s is %s not %s", account.Id, account.Provider, api.CLOUD_PROVIDER_AWS)
+	}
+	if account.SAMLAuth.IsFalse() {
+		return data, httperrors.NewNotSupportedError("cloudaccount %s not open saml auth", account.Id)
+	}
+
+	SAMLProvider, valid := account.IsSAMLProviderValid()
+	if !valid {
+		return data, httperrors.NewResourceNotReadyError("SAMLProvider for account %s not ready", account.Id)
+	}
+
+	role, err := account.SyncRole(userCred.GetUserId())
+	if err != nil {
+		return data, httperrors.NewGeneralError(errors.Wrapf(err, "SyncRole"))
+	}
+
+	data.NameId = userCred.GetUserName()
 	data.NameIdFormat = samlutils.NAME_ID_FORMAT_PERSISTENT
 	data.AudienceRestriction = "https://signin.aws.amazon.com/saml"
 	for _, v := range []struct {
@@ -36,17 +68,17 @@ func (d *SAWSSAMLDriver) GetIdpInitiatedLoginData(cloudAccoutId string, userId s
 		{
 			name:         "https://aws.amazon.com/SAML/Attributes/Role",
 			friendlyName: "RoleEntitlement",
-			value:        "arn:aws:iam::285906155448:role/ec2s3readonly,arn:aws:iam::285906155448:saml-provider/saml.yunion.cn",
+			value:        fmt.Sprintf("%s,%s", role.ExternalId, SAMLProvider.ExternalId),
 		},
 		{
 			name:         "https://aws.amazon.com/SAML/Attributes/RoleSessionName",
 			friendlyName: "RoleSessionName",
-			value:        "ec2s3readonly",
+			value:        userCred.GetUserId(),
 		},
 		{
 			name:         "urn:oid:1.3.6.1.4.1.5923.1.1.1.3",
 			friendlyName: "eduPersonOrgDN",
-			value:        "ec2s3readonly",
+			value:        userCred.GetUserName(),
 		},
 	} {
 		data.Attributes = append(data.Attributes, samlutils.SSAMLResponseAttribute{
@@ -60,7 +92,7 @@ func (d *SAWSSAMLDriver) GetIdpInitiatedLoginData(cloudAccoutId string, userId s
 	return data, nil
 }
 
-func (d *SAWSSAMLDriver) GetSpInitiatedLoginData(cloudAccoutId string, userId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLSpInitiatedLoginData, error) {
+func (d *SAWSSAMLDriver) GetSpInitiatedLoginData(ctx context.Context, userCred mcclient.TokenCredential, cloudAccountId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLSpInitiatedLoginData, error) {
 	// not supported
 	return samlutils.SSAMLSpInitiatedLoginData{}, errors.ErrNotSupported
 }

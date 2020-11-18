@@ -15,6 +15,7 @@
 package shell
 
 import (
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/aws"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -44,11 +45,24 @@ func init() {
 			return err
 		}
 		printObject(role)
+		document := role.GetDocument()
+		if document != nil {
+			printObject(document)
+		}
 		return nil
 	})
 
 	shellutils.R(&RoleNameOptions{}, "cloud-role-delete", "Delete role", func(cli *aws.SRegion, args *RoleNameOptions) error {
 		return cli.GetClient().DeleteRole(args.ROLE)
+	})
+
+	shellutils.R(&cloudprovider.SRoleCreateOptions{}, "cloud-role-create", "Create role", func(cli *aws.SRegion, args *cloudprovider.SRoleCreateOptions) error {
+		role, err := cli.GetClient().CreateRole(args)
+		if err != nil {
+			return err
+		}
+		printObject(role)
+		return nil
 	})
 
 }

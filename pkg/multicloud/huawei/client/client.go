@@ -33,60 +33,62 @@ type Client struct {
 	// 标记初始化状态
 	init bool
 
-	Balances           *modules.SBalanceManager
-	Bandwidths         *modules.SBandwidthManager
-	Credentials        *modules.SCredentialManager
-	Disks              *modules.SDiskManager
-	Domains            *modules.SDomainManager
-	Eips               *modules.SEipManager
-	Elasticcache       *modules.SElasticcacheManager
-	DcsAvailableZone   *modules.SDcsAvailableZoneManager
-	Flavors            *modules.SFlavorManager
-	Images             *modules.SImageManager
-	OpenStackImages    *modules.SImageManager
-	Interface          *modules.SInterfaceManager
-	Jobs               *modules.SJobManager
-	Keypairs           *modules.SKeypairManager
-	Elb                *modules.SLoadbalancerManager
-	ElbBackend         *modules.SElbBackendManager
-	ElbBackendGroup    *modules.SElbBackendGroupManager
-	ElbListeners       *modules.SElbListenersManager
-	ElbCertificates    *modules.SElbCertificatesManager
-	ElbHealthCheck     *modules.SElbHealthCheckManager
-	ElbL7policies      *modules.SElbL7policiesManager
-	ElbPolicies        *modules.SElbPoliciesManager
-	ElbWhitelist       *modules.SElbWhitelistManager
-	Orders             *modules.SOrderManager
-	Port               *modules.SPortManager
-	Projects           *modules.SProjectManager
-	Regions            *modules.SRegionManager
-	SecurityGroupRules *modules.SSecgroupRuleManager
-	SecurityGroups     *modules.SSecurityGroupManager
-	NovaSecurityGroups *modules.SSecurityGroupManager
-	Servers            *modules.SServerManager
-	ServersV2          *modules.SServerManager
-	NovaServers        *modules.SServerManager
-	Snapshots          *modules.SSnapshotManager
-	OsSnapshots        *modules.SSnapshotManager
-	Subnets            *modules.SSubnetManager
-	Users              *modules.SUserManager
-	Vpcs               *modules.SVpcManager
-	Zones              *modules.SZoneManager
-	VpcRoutes          *modules.SVpcRouteManager
-	SNatRules          *modules.SNatSRuleManager
-	DNatRules          *modules.SNatDRuleManager
-	NatGateways        *modules.SNatGatewayManager
-	VpcPeerings        *modules.SVpcPeeringManager
-	DBInstance         *modules.SDBInstanceManager
-	DBInstanceBackup   *modules.SDBInstanceBackupManager
-	DBInstanceFlavor   *modules.SDBInstanceFlavorManager
-	DBInstanceJob      *modules.SDBInstanceJobManager
-	Traces             *modules.STraceManager
-	CloudEye           *modules.SCloudEyeManager
-	Quotas             *modules.SQuotaManager
-	EnterpriseProjects *modules.SEnterpriseProjectManager
-	Roles              *modules.SRoleManager
-	Groups             *modules.SGroupManager
+	Balances             *modules.SBalanceManager
+	Bandwidths           *modules.SBandwidthManager
+	Credentials          *modules.SCredentialManager
+	Disks                *modules.SDiskManager
+	Domains              *modules.SDomainManager
+	Eips                 *modules.SEipManager
+	Elasticcache         *modules.SElasticcacheManager
+	DcsAvailableZone     *modules.SDcsAvailableZoneManager
+	Flavors              *modules.SFlavorManager
+	Images               *modules.SImageManager
+	OpenStackImages      *modules.SImageManager
+	Interface            *modules.SInterfaceManager
+	Jobs                 *modules.SJobManager
+	Keypairs             *modules.SKeypairManager
+	Elb                  *modules.SLoadbalancerManager
+	ElbBackend           *modules.SElbBackendManager
+	ElbBackendGroup      *modules.SElbBackendGroupManager
+	ElbListeners         *modules.SElbListenersManager
+	ElbCertificates      *modules.SElbCertificatesManager
+	ElbHealthCheck       *modules.SElbHealthCheckManager
+	ElbL7policies        *modules.SElbL7policiesManager
+	ElbPolicies          *modules.SElbPoliciesManager
+	ElbWhitelist         *modules.SElbWhitelistManager
+	Orders               *modules.SOrderManager
+	Port                 *modules.SPortManager
+	Projects             *modules.SProjectManager
+	Regions              *modules.SRegionManager
+	SecurityGroupRules   *modules.SSecgroupRuleManager
+	SecurityGroups       *modules.SSecurityGroupManager
+	NovaSecurityGroups   *modules.SSecurityGroupManager
+	Servers              *modules.SServerManager
+	ServersV2            *modules.SServerManager
+	NovaServers          *modules.SServerManager
+	Snapshots            *modules.SSnapshotManager
+	OsSnapshots          *modules.SSnapshotManager
+	Subnets              *modules.SSubnetManager
+	Users                *modules.SUserManager
+	Vpcs                 *modules.SVpcManager
+	Zones                *modules.SZoneManager
+	VpcRoutes            *modules.SVpcRouteManager
+	SNatRules            *modules.SNatSRuleManager
+	DNatRules            *modules.SNatDRuleManager
+	NatGateways          *modules.SNatGatewayManager
+	VpcPeerings          *modules.SVpcPeeringManager
+	DBInstance           *modules.SDBInstanceManager
+	DBInstanceBackup     *modules.SDBInstanceBackupManager
+	DBInstanceFlavor     *modules.SDBInstanceFlavorManager
+	DBInstanceJob        *modules.SDBInstanceJobManager
+	Traces               *modules.STraceManager
+	CloudEye             *modules.SCloudEyeManager
+	Quotas               *modules.SQuotaManager
+	EnterpriseProjects   *modules.SEnterpriseProjectManager
+	Roles                *modules.SRoleManager
+	Groups               *modules.SGroupManager
+	SAMLProviders        *modules.SAMLProviderManager
+	SAMLProviderMappings *modules.SAMLProviderMappingManager
 }
 
 func (self *Client) SetHttpClient(httpClient *http.Client) {
@@ -142,6 +144,8 @@ func (self *Client) SetHttpClient(httpClient *http.Client) {
 	self.EnterpriseProjects.SetHttpClient(httpClient)
 	self.Roles.SetHttpClient(httpClient)
 	self.Groups.SetHttpClient(httpClient)
+	self.SAMLProviders.SetHttpClient(httpClient)
+	self.SAMLProviderMappings.SetHttpClient(httpClient)
 }
 
 func (self *Client) InitWithOptions(regionId, domainId, projectId string, credential auth.Credential) error {
@@ -229,6 +233,10 @@ func (self *Client) initManagers() {
 		self.Roles.SetDomainId(self.domainId)
 		self.Groups = modules.NewGroupManager(self.signer, self.debug)
 		self.Groups.SetDomainId(self.domainId)
+		self.SAMLProviders = modules.NewSAMLProviderManager(self.signer, self.debug)
+		self.SAMLProviders.SetDomainId(self.domainId)
+		self.SAMLProviderMappings = modules.NewSAMLProviderMappingManager(self.signer, self.debug)
+		self.SAMLProviderMappings.SetDomainId(self.domainId)
 	}
 
 	self.init = true

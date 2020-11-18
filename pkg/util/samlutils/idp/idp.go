@@ -83,7 +83,11 @@ func (idp *SSAMLIdpInstance) AddHandlers(app *appsrv.Application, prefix string,
 		handler = middleware(handler)
 	}
 	app.AddHandler("GET", idp.redirectLogoutPath, handler)
-	app.AddHandler("GET", idp.idpInitiatedSSOPath, idp.idpInitiatedSSOHandler)
+	handler = idp.idpInitiatedSSOHandler
+	if middleware != nil {
+		handler = middleware(handler)
+	}
+	app.AddHandler("GET", idp.idpInitiatedSSOPath, handler)
 
 	log.Infof("IDP metadata: %s", idp.getMetadataUrl(IDP_ID_KEY))
 	log.Infof("IDP redirect login: %s", idp.getRedirectLoginUrl(IDP_ID_KEY))
@@ -141,7 +145,7 @@ func (idp *SSAMLIdpInstance) getIdpInitiatedSSOUrl() string {
 func (idp *SSAMLIdpInstance) metadataHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	params := appctx.AppContextParams(ctx)
 	idpId := params[IDP_ID_KEY]
-	desc := idp.getMetadata(idpId)
+	desc := idp.GetMetadata(idpId)
 	appsrv.SendXmlWithIndent(w, nil, desc, true)
 }
 
@@ -187,7 +191,7 @@ func (idp *SSAMLIdpInstance) idpInitiatedSSOHandler(ctx context.Context, w http.
 	appsrv.SendHTML(w, respHtml)
 }
 
-func (idp *SSAMLIdpInstance) getMetadata(idpId string) samlutils.EntityDescriptor {
+func (idp *SSAMLIdpInstance) GetMetadata(idpId string) samlutils.EntityDescriptor {
 	input := samlutils.SSAMLIdpMetadataInput{
 		EntityId:          idp.saml.GetEntityId(),
 		CertString:        idp.saml.GetCertString(),

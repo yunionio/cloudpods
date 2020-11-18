@@ -15,7 +15,7 @@
 package awscn
 
 import (
-	"yunion.io/x/onecloud/pkg/cloudid/saml/providers"
+	"yunion.io/x/onecloud/pkg/cloudid/models"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -34,5 +34,5 @@ func (d *SAWSCNSAMLDriver) GetMetadataUrl() string {
 }
 
 func init() {
-	providers.Register(&SAWSCNSAMLDriver{})
+	models.Register(&SAWSCNSAMLDriver{})
 }

@@ -289,6 +289,14 @@ func (self *SHuaweiProvider) GetSamlEntityId() string {
 	return cloudprovider.SAML_ENTITY_ID_HUAWEI_CLOUD
 }
 
-func (self *SHuaweiProvider) GetSamlSpInitiatedLoginUrl(idpName string) string {
-	return self.client.GetSamlSpInitiatedLoginUrl(idpName)
+func (self *SHuaweiProvider) GetICloudSAMLProviders() ([]cloudprovider.ICloudSAMLProvider, error) {
+	return self.client.GetICloudSAMLProviders()
+}
+
+func (self *SHuaweiProvider) CreateICloudSAMLProvider(opts *cloudprovider.SAMLProviderCreateOptions) (cloudprovider.ICloudSAMLProvider, error) {
+	sp, err := self.client.CreateSAMLProvider(opts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateSAMLProvider")
+	}
+	return sp, nil
 }

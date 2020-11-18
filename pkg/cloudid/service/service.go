@@ -61,8 +61,10 @@ func StartService() {
 	if !opts.IsSlaveNode {
 		cron := cronman.InitCronJobManager(true, options.Options.CronJobWorkerCount)
 		cron.AddJobAtIntervalsWithStartRun("SyncCloudaccounts", time.Duration(opts.CloudaccountSyncIntervalMinutes)*time.Minute, models.CloudaccountManager.SyncCloudaccounts, true)
+		cron.AddJobAtIntervalsWithStartRun("SyncSAMLProviders", time.Duration(opts.SAMLProviderSyncIntervalHours)*time.Hour, models.CloudaccountManager.SyncSAMLProviders, true)
 		cron.AddJobAtIntervalsWithStartRun("SyncSystemCloudpolicies", time.Duration(opts.SystemPoliciesSyncIntervalHours)*time.Hour, models.CloudaccountManager.SyncCloudidSystemPolicies, true)
 		cron.AddJobAtIntervalsWithStartRun("SyncCloudIdResources", time.Duration(opts.CloudIdResourceSyncIntervalHours)*time.Hour, models.CloudaccountManager.SyncCloudidResources, true)
+		cron.AddJobAtIntervalsWithStartRun("SyncCloudroles", time.Duration(opts.CloudroleSyncIntervalHours)*time.Hour, models.CloudaccountManager.SyncCloudroles, true)
 		cron.Start()
 		defer cron.Stop()
 	}

@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/samlutils"
 )
 
 type ICloudResource interface {
@@ -1101,6 +1102,28 @@ type ICloudVpcPeeringConnection interface {
 	GetPeerVpcId() string
 	GetPeerAccountId() string
 	GetEnabled() bool
+	Delete() error
+}
+
+type ICloudSAMLProvider interface {
+	ICloudResource
+
+	GetMetadataDocument() (*samlutils.EntityDescriptor, error)
+
+	GetAuthUrl() string
+	Delete() error
+}
+
+type ICloudrole interface {
+	GetGlobalId() string
+	GetName() string
+
+	GetDocument() *jsonutils.JSONDict
+	GetSAMLProvider() string
+
+	GetICloudpolicies() ([]ICloudpolicy, error)
+	AttachPolicy(id string) error
+	DetachPolicy(id string) error
 
 	Delete() error
 }

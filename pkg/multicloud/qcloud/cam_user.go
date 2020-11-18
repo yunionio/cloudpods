@@ -55,7 +55,7 @@ func (user *SUser) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, erro
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range policies {
-		if policies[i].PolicyType == "QCS" {
+		if policies[i].PolicyType == "QCS" || policies[i].PolicyType == "" {
 			policies[i].client = user.client
 			ret = append(ret, &policies[i])
 		}
@@ -79,7 +79,7 @@ func (user *SUser) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, erro
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range policies {
-		if policies[i].PolicyType != "QCS" {
+		if policies[i].PolicyType == "User" {
 			policies[i].client = user.client
 			ret = append(ret, &policies[i])
 		}

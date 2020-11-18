@@ -370,16 +370,58 @@ func (self *SQcloudProvider) GetSamlEntityId() string {
 	return cloudprovider.SAML_ENTITY_ID_QCLOUD
 }
 
-func (self *SQcloudProvider) GetSamlSpInitiatedLoginUrl(idpName string) string {
-	return self.client.GetSamlSpInitiatedLoginUrl(idpName)
-}
-
 func (self *SQcloudProvider) GetICloudDnsZones() ([]cloudprovider.ICloudDnsZone, error) {
 	return self.client.GetICloudDnsZones()
 }
+
 func (self *SQcloudProvider) GetICloudDnsZoneById(id string) (cloudprovider.ICloudDnsZone, error) {
 	return self.client.GetDomainById(id)
 }
+
 func (self *SQcloudProvider) CreateICloudDnsZone(opts *cloudprovider.SDnsZoneCreateOptions) (cloudprovider.ICloudDnsZone, error) {
 	return self.client.CreateICloudDnsZone(opts)
+}
+
+func (self *SQcloudProvider) CreateICloudSAMLProvider(opts *cloudprovider.SAMLProviderCreateOptions) (cloudprovider.ICloudSAMLProvider, error) {
+	saml, err := self.client.CreateSAMLProvider(opts.Name, opts.Metadata.String(), "")
+	if err != nil {
+		return nil, errors.Wrap(err, "CreateSAMLProvider")
+	}
+	return saml, nil
+}
+
+func (self *SQcloudProvider) GetICloudSAMLProviders() ([]cloudprovider.ICloudSAMLProvider, error) {
+	return self.client.GetICloudSAMLProviders()
+}
+
+func (self *SQcloudProvider) CreateICloudrole(opts *cloudprovider.SRoleCreateOptions) (cloudprovider.ICloudrole, error) {
+	if len(opts.SAMLProvider) > 0 {
+		document := fmt.Sprintf(`{"version":"2.0","statement":[{"action":"name/sts:AssumeRoleWithSAML","effect":"allow","principal":{"federated":["qcs::cam::uin/%s:saml-provider/%s"]},"condition":{}}]}`, self.client.GetAccountId(), opts.SAMLProvider)
+		role, err := self.client.CreateRole(opts.Name, document, opts.Desc)
+		if err != nil {
+			return nil, errors.Wrapf(err, "CreateRole")
+		}
+		return role, nil
+	}
+	role, err := self.client.CreateRole(opts.Name, "", opts.Desc)
+	if err != nil {
+		return nil, errors.Wrapf(err, "")
+	}
+	return role, nil
+}
+
+func (self *SQcloudProvider) GetICloudroles() ([]cloudprovider.ICloudrole, error) {
+	return self.client.GetICloudroles()
+}
+
+func (self *SQcloudProvider) GetICloudroleByName(name string) (cloudprovider.ICloudrole, error) {
+	role, err := self.client.GetRole(name)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRole(%s)", name)
+	}
+	return role, nil
+}
+
+func (self *SQcloudProvider) GetICloudroleById(id string) (cloudprovider.ICloudrole, error) {
+	return self.GetICloudroleByName(id)
 }

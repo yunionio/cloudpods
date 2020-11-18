@@ -170,6 +170,10 @@ func (self *SResourceManager) GetInContextWithSpec(ctx manager.IManagerContext, 
 		request.AddQueryParam(k, v)
 	}
 
+	if len(self.DomainId) > 0 {
+		request.AddHeaderParam("X-Domain-Id", self.DomainId)
+	}
+
 	return self._get(request, responseKey)
 }
 
@@ -216,6 +220,27 @@ func (self *SResourceManager) UpdateInContextWithSpec(ctx manager.IManagerContex
 	return self._do(request, responseKey)
 }
 
+func (self *SResourceManager) Patch(id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return self.PatchInContext(self.ctx, id, params)
+}
+
+func (self *SResourceManager) PatchInContext(ctx manager.IManagerContext, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return self.PatchInContextWithSpec(ctx, id, "", params, self.Keyword)
+}
+
+func (self *SResourceManager) PatchInContextWithSpec(ctx manager.IManagerContext, id string, spec string, params jsonutils.JSONObject, responseKey string) (jsonutils.JSONObject, error) {
+	request := self.newRequest("PATCH", id, spec, ctx)
+	content := getContent(params)
+	if len(content) > 0 {
+		request.SetContent([]byte(content))
+	}
+	if len(self.DomainId) > 0 {
+		request.AddHeaderParam("X-Domain-Id", self.DomainId)
+	}
+
+	return self._do(request, responseKey)
+}
+
 func (self *SResourceManager) Delete(id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return self.DeleteInContext(self.ctx, id, params)
 }
@@ -248,6 +273,9 @@ func (self *SResourceManager) PerformAction(action string, id string, params jso
 func (self *SResourceManager) PerformAction2(action string, id string, params jsonutils.JSONObject, responseKey string) (jsonutils.JSONObject, error) {
 	request := self.newRequest("POST", id, action, nil)
 	request.SetContent([]byte(getContent(params)))
+	if len(self.DomainId) > 0 {
+		request.AddHeaderParam("X-Domain-Id", self.DomainId)
+	}
 
 	return self._do(request, responseKey)
 }

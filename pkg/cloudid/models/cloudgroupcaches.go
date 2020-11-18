@@ -283,6 +283,7 @@ func (self *SCloudgroupcache) GetOrCreateICloudgroup(ctx context.Context, userCr
 		return nil, errors.Wrap(err, "CreateICloudgroup")
 	}
 	_, err = db.Update(self, func() error {
+		self.Name = groupName
 		self.ExternalId = iGroup.GetGlobalId()
 		self.Status = api.CLOUD_GROUP_CACHE_STATUS_AVAILABLE
 		return nil
