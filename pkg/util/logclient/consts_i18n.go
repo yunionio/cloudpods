@@ -629,4 +629,8 @@ func init() {
 		EN("Freeze").
 		CN("解冻资源"),
 	)
+	t.Set(ACT_DETACH_ALERTRESOURCE, i18n.NewTableEntry().
+		EN("Detach AlertResource").
+		CN("取消关联报警资源"),
+	)
 }
