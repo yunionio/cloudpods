@@ -42,6 +42,9 @@ var (
 		"recyclebins",
 		// migrate system resources to domain resources
 		"hosts",
+		"baremetalnetworks",
+		"hoststorages",
+		"hostwires",
 		"isolated-devices",
 		"vpcs",
 		"storages",
