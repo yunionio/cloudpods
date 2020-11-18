@@ -395,7 +395,7 @@ func (s *SDeployService) InitService() {
 	if err := s.PrepareEnv(); err != nil {
 		log.Fatalln(err)
 	}
-	if err := fsdriver.Init(DeployOption.PrivatePrefixes); err != nil {
+	if err := fsdriver.Init(DeployOption.PrivatePrefixes, DeployOption.CloudrootDir); err != nil {
 		log.Fatalln(err)
 	}
 	s.O = &DeployOption.BaseOptions

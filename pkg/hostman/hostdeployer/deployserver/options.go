@@ -24,6 +24,7 @@ type SDeployOptions struct {
 	ChntpwPath             string   `help:"path to chntpw tool" default:"/usr/local/bin/chntpw.static"`
 	EnableRemoteExecutor   bool     `help:"Enable remote executor" default:"false"`
 	ExecSocketPath         string   `help:"Exec socket paht" default:"/var/run/exec.sock"`
+	CloudrootDir           string   `help:"User cloudroot home dir" default:"/opt"`
 }
 
 var DeployOption SDeployOptions

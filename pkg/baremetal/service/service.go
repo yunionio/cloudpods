@@ -64,7 +64,7 @@ func (s *BaremetalService) StartService() {
 		log.Infof("auth complete")
 	})
 
-	fsdriver.Init(nil)
+	fsdriver.Init(nil, "")
 	app := app_common.InitApp(&o.Options.BaseOptions, false)
 
 	common_options.StartOptionManager(&o.Options, o.Options.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, o.OnOptionsChange)

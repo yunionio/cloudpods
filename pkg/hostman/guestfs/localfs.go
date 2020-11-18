@@ -222,8 +222,15 @@ func (f *SLocalGuestFS) Chmod(sPath string, mode uint32, caseInsensitive bool) e
 	return nil
 }
 
-func (f *SLocalGuestFS) UserAdd(user string, caseInsensitive bool) error {
-	output, err := procutils.NewCommand("chroot", f.mountPath, "useradd", "-m", "-s", "/bin/bash", user).Output()
+func (f *SLocalGuestFS) UserAdd(user, homeDir string, caseInsensitive bool) error {
+	if err := f.Mkdir(homeDir, 0755, false); err != nil {
+		return errors.Wrap(err, "Mkdir")
+	}
+	cmd := []string{"chroot", f.mountPath, "useradd", "-m", "-s", "/bin/bash", user}
+	if len(homeDir) > 0 {
+		cmd = append(cmd, "-d", path.Join(homeDir, user))
+	}
+	output, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output()
 	if err != nil {
 		log.Errorf("Useradd fail: %s, %s", err, output)
 		return fmt.Errorf("%s", output)
