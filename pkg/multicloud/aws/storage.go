@@ -91,7 +91,7 @@ func (self *SStorage) GetStorageType() string {
 }
 
 func (self *SStorage) GetMediumType() string {
-	if self.storageType == api.STORAGE_GP2_SSD || self.storageType == api.STORAGE_IO1_SSD {
+	if self.storageType == api.STORAGE_GP2_SSD || self.storageType == api.STORAGE_IO1_SSD || self.storageType == api.STORAGE_IO2_SSD {
 		return api.DISK_TYPE_SSD
 	} else {
 		return api.DISK_TYPE_ROTATE
