@@ -142,7 +142,7 @@ func (self *GuestSwitchToBackupTask) OnComplete(ctx context.Context, guest *mode
 }
 
 func (self *GuestSwitchToBackupTask) OnSwitched(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	if err := guest.SetMetadata(ctx, "__mirror_job_status", "", self.UserCred); err != nil {
+	if err := guest.SetMetadata(ctx, api.MIRROR_JOB, "", self.UserCred); err != nil {
 		self.OnSwitchedFailed(ctx, guest, jsonutils.NewString("guest set metadata failed"))
 		return
 	}
@@ -256,13 +256,13 @@ func (self *GuestStartAndSyncToBackupTask) OnStartBackupGuest(ctx context.Contex
 }
 
 func (self *GuestStartAndSyncToBackupTask) OnStartBackupGuestFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	guest.SetMetadata(ctx, "__mirror_job_status", "failed", self.UserCred)
+	guest.SetMetadata(ctx, api.MIRROR_JOB, api.MIRROR_JOB_FAILED, self.UserCred)
 	db.OpsLog.LogEvent(guest, db.ACT_BACKUP_START_FAILED, data.String(), self.UserCred)
 	self.SetStageFailed(ctx, data)
 }
 
 func (self *GuestStartAndSyncToBackupTask) OnRequestSyncToBackup(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	guest.SetMetadata(ctx, "__mirror_job_status", "", self.UserCred)
+	guest.SetMetadata(ctx, api.MIRROR_JOB, "", self.UserCred)
 	guest.SetStatus(self.UserCred, api.VM_BLOCK_STREAM, "OnSyncToBackup")
 	self.SetStageComplete(ctx, nil)
 }

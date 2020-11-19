@@ -60,7 +60,7 @@ type Monitor interface {
 	DeviceAdd(dev string, params map[string]interface{}, callback StringCallback)
 
 	BlockStream(drive string, callback StringCallback)
-	DriveMirror(callback StringCallback, drive, target, syncMode string, unmap bool)
+	DriveMirror(callback StringCallback, drive, target, syncMode string, unmap, blockReplication bool)
 
 	MigrateSetCapability(capability, state string, callback StringCallback)
 	Migrate(destStr string, copyIncremental, copyFull bool, callback StringCallback)
