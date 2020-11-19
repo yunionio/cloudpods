@@ -46,6 +46,7 @@ const (
 	// aws storage type
 	STORAGE_GP2_SSD      = "gp2"      // aws general purpose ssd
 	STORAGE_IO1_SSD      = "io1"      // aws Provisioned IOPS SSD
+	STORAGE_IO2_SSD      = "io2"      // aws Provisioned IOPS 2 SSD
 	STORAGE_ST1_HDD      = "st1"      // aws Throughput Optimized HDD
 	STORAGE_SC1_HDD      = "sc1"      // aws Cold HDD
 	STORAGE_STANDARD_HDD = "standard" // aws Magnetic volumes

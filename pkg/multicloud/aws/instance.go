@@ -763,6 +763,13 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 			} else {
 				ebs.SetIops(32000)
 			}
+		} else if disk.Category == api.STORAGE_IO2_SSD {
+			iops := int64(disk.Size * 100)
+			if iops < 64000 {
+				ebs.SetIops(iops)
+			} else {
+				ebs.SetIops(64000)
+			}
 		}
 
 		blockDevice := &ec2.BlockDeviceMapping{
