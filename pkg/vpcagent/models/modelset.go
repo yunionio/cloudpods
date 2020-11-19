@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/log"
 
+	computeapis "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	mcclient_modulebase "yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	mcclient_modules "yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -34,6 +35,7 @@ type (
 	SecurityGroups     map[string]*SecurityGroup
 	SecurityGroupRules map[string]*SecurityGroupRule
 	Elasticips         map[string]*Elasticip
+	NetworkAddresses   map[string]*NetworkAddress
 
 	Guestnetworks  map[string]*Guestnetwork  // key: rowId
 	Guestsecgroups map[string]*Guestsecgroup // key: guestId/secgroupId
@@ -300,6 +302,21 @@ func (ms Networks) joinGuestnetworks(subEntries Guestnetworks) bool {
 	return true
 }
 
+func (ms Networks) joinNetworkAddresses(subEntries NetworkAddresses) bool {
+	correct := true
+	for _, subEntry := range subEntries {
+		netId := subEntry.NetworkId
+		m, ok := ms[netId]
+		if !ok {
+			log.Errorf("cannot find network id %s of network address %s", netId, subEntry.Id)
+			correct = false
+			break
+		}
+		subEntry.Network = m
+	}
+	return correct
+}
+
 func (ms Networks) joinElasticips(subEntries Elasticips) bool {
 	for _, m := range ms {
 		m.Elasticips = Elasticips{}
@@ -389,6 +406,56 @@ func (set Guestnetworks) joinElasticips(subEntries Elasticips) bool {
 		gn.Elasticip = eip
 	}
 	return correct
+}
+
+func (set Guestnetworks) joinNetworkAddresses(subEntries NetworkAddresses) bool {
+	correct := true
+	byRowId := map[string]*Guestnetwork{}
+	for _, guestnetwork := range set {
+		rowIdStr := fmt.Sprintf("%d", guestnetwork.RowId)
+		byRowId[rowIdStr] = guestnetwork
+	}
+	for _, subEntry := range subEntries {
+		if subEntry.ParentType != computeapis.NetworkAddressParentTypeGuestnetwork {
+			continue
+		}
+		switch subEntry.Type {
+		case computeapis.NetworkAddressTypeSubIP:
+			parentId := subEntry.ParentId
+			guestnetwork, ok := byRowId[parentId]
+			if !ok {
+				log.Errorf("cannot find guestnetwork row id %s of network address %s", parentId, subEntry.Id)
+				correct = false
+			}
+			if guestnetwork.SubIPs == nil {
+				guestnetwork.SubIPs = NetworkAddresses{}
+			}
+			guestnetwork.SubIPs[subEntry.Id] = subEntry
+			subEntry.Guestnetwork = guestnetwork
+		}
+	}
+	return correct
+}
+
+func (set NetworkAddresses) ModelManager() mcclient_modulebase.IBaseManager {
+	return &mcclient_modules.NetworkAddresses
+}
+
+func (set NetworkAddresses) NewModel() db.IModel {
+	return &NetworkAddress{}
+}
+
+func (set NetworkAddresses) AddModel(i db.IModel) {
+	m := i.(*NetworkAddress)
+	set[m.Id] = m
+}
+
+func (set NetworkAddresses) Copy() apihelper.IModelSet {
+	setCopy := NetworkAddresses{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
 }
 
 func (set SecurityGroups) ModelManager() mcclient_modulebase.IBaseManager {
