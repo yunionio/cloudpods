@@ -53,6 +53,7 @@ type SuggestSysRuleConfigDetails struct {
 	RuleId      string `json:"rule_id"`
 	Rule        string `json:"rule"`
 	RuleEnabled bool   `json:"rule_enabled"`
+	ResName     string `json:"res_name"`
 }
 
 type SuggestSysRuleConfigListInput struct {
@@ -61,4 +62,8 @@ type SuggestSysRuleConfigListInput struct {
 	Type         *SuggestDriverType   `json:"type"`
 	ResourceType *MonitorResourceType `json:"resource_type"`
 	IgnoreAlert  *bool                `json:"ignore_alert"`
+}
+
+type SuggestSysRuleConfigTypeInfo struct {
+	Name string `json:"name"`
 }
