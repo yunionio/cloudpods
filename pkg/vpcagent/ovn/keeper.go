@@ -17,6 +17,7 @@ package ovn
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"yunion.io/x/log"
@@ -443,9 +444,19 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 		}
 	}
 
+	var (
+		subIPs  = []string{guestnetwork.IpAddr}
+		subIPms = []string{fmt.Sprintf("%s/%d", guestnetwork.IpAddr, guestnetwork.Network.GuestIpMask)}
+	)
+	for _, na := range guestnetwork.SubIPs {
+		subIPs = append(subIPs, na.IpAddr)
+		subIPms = append(subIPms, fmt.Sprintf("%s/%d", na.IpAddr, na.Network.GuestIpMask))
+	}
+	sort.Strings(subIPs[1:])
+	sort.Strings(subIPms[1:])
 	gnp := &ovn_nb.LogicalSwitchPort{
 		Name:          lportName,
-		Addresses:     []string{fmt.Sprintf("%s %s", guestnetwork.MacAddr, guestnetwork.IpAddr)},
+		Addresses:     []string{fmt.Sprintf("%s %s", guestnetwork.MacAddr, strings.Join(subIPs, " "))},
 		Dhcpv4Options: &dhcpOpt,
 		Options:       map[string]string{},
 	}
@@ -459,10 +470,9 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 		}
 	} else {
 		gnp.PortSecurity = []string{
-			fmt.Sprintf("%s %s/%d",
+			fmt.Sprintf("%s %s",
 				guestnetwork.MacAddr,
-				guestnetwork.IpAddr,
-				guestnetwork.Network.GuestIpMask,
+				strings.Join(subIPms, " "),
 			),
 		}
 	}
