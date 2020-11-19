@@ -148,10 +148,28 @@ func (h *SHostInfo) IsHugepagesEnabled() bool {
 	return h.enableHugePages || options.HostOptions.HugepagesOption == "native"
 }
 
+/* In this order init host service:
+ * 1. prepare env, fix environment variable path
+ * 2. detect hostinfo, fill host capability and custom host field
+ * 3. prepare hostbridge, start openvswitch service
+ * 4. parse host config, config ip address
+ * 5. check is ovn support, setup ovn chassis
+ */
 func (h *SHostInfo) Init() error {
 	if err := h.prepareEnv(); err != nil {
 		return err
 	}
+
+	log.Infof("Start detectHostInfo")
+	if err := h.detectHostInfo(); err != nil {
+		return err
+	}
+
+	if err := hostbridge.Prepare(options.HostOptions.BridgeDriver); err != nil {
+		log.Errorln(err)
+		return err
+	}
+
 	log.Infof("Start parseConfig")
 	if err := h.parseConfig(); err != nil {
 		return err
@@ -160,15 +178,6 @@ func (h *SHostInfo) Init() error {
 		if err := h.setupOvnChassis(); err != nil {
 			return err
 		}
-	}
-
-	log.Infof("Start detectHostInfo")
-	if err := h.detectHostInfo(); err != nil {
-		return err
-	}
-	if err := hostbridge.Prepare(options.HostOptions.BridgeDriver); err != nil {
-		log.Errorln(err)
-		return err
 	}
 
 	return nil
