@@ -15,6 +15,8 @@
 package azure
 
 import (
+	"fmt"
+	"net/url"
 	"time"
 )
 
@@ -85,22 +87,18 @@ type MetricValue struct {
 
 func (self *SRegion) GetMonitorData(name string, ns string, external_id string, since time.Time,
 	until time.Time) (*ResponseMetirc, error) {
-	params := map[string]string{
-		"metricnamespace": ns,
-		"metricnames":     name,
-		"interval":        "PT1M",
-		"aggregation":     "Average",
-		"api-version":     "2018-01-01",
-	}
+	params := url.Values{}
+	params.Set("metricnamespace", ns)
+	params.Set("metricnames", name)
+	params.Set("interval", "PT1M")
+	params.Set("aggregation", "Average")
+	params.Set("api-version", "2018-01-01")
 	if !since.IsZero() && !until.IsZero() {
-		params["timespan"] = since.UTC().Format(time.RFC3339) + "/" + until.UTC().Format(time.RFC3339)
+		params.Set("timespan", since.UTC().Format(time.RFC3339)+"/"+until.UTC().Format(time.RFC3339))
 	}
-	rtn, err := self.client.ListResourcesOfMetirc("microsoft.insights/metrics", external_id, params)
-	if err != nil {
-		return nil, err
-	}
+	resource := fmt.Sprintf("%s/provider/microsoft.insights/metrics")
 	elements := ResponseMetirc{}
-	err = rtn.Unmarshal(&elements)
+	err := self.get(resource, params, &elements)
 	if err != nil {
 		return nil, err
 	}

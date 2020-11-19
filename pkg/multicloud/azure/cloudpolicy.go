@@ -74,11 +74,6 @@ func (role *SCloudpolicy) Delete() error {
 
 func (cli *SAzureClient) GetRoles(name, policyType string) ([]SCloudpolicy, error) {
 	ret := []SCloudpolicy{}
-	subscriptionId, err := cli.getDefaultSubscriptionId()
-	if err != nil {
-		return nil, errors.Wrap(err, "getDefaultSubscriptionId")
-	}
-	params := url.Values{}
 	filter := []string{}
 	if len(name) > 0 {
 		filter = append(filter, fmt.Sprintf("roleName eq '%s'", name))
@@ -86,16 +81,14 @@ func (cli *SAzureClient) GetRoles(name, policyType string) ([]SCloudpolicy, erro
 	if len(policyType) > 0 {
 		filter = append(filter, fmt.Sprintf("Type eq '%s'", policyType))
 	}
+	params := url.Values{}
 	if len(filter) > 0 {
 		params.Set("$filter", strings.Join(filter, " and "))
 	}
-	resource := "providers/Microsoft.Authorization/roleDefinitions"
-	if len(params) > 0 {
-		resource = fmt.Sprintf("%s?%s", resource, params.Encode())
-	}
-	err = cli.listSubscriptionResource(subscriptionId, resource, &ret)
+	resource := "Microsoft.Authorization/roleDefinitions"
+	err := cli.list(resource, params, &ret)
 	if err != nil {
-		return nil, errors.Wrap(err, "listSubscriptionResource")
+		return nil, errors.Wrap(err, "list")
 	}
 	return ret, nil
 }
@@ -150,7 +143,7 @@ func (cli *SAzureClient) AssignPolicy(objectId, roleName, subscriptionId string)
 	}
 	for _, subscriptionId := range subscriptionIds {
 		resource := fmt.Sprintf("subscriptions/%s/providers/Microsoft.Authorization/roleAssignments/%s", subscriptionId, stringutils.UUID4())
-		err = cli.Put(resource, jsonutils.Marshal(body))
+		_, err = cli.put(resource, jsonutils.Marshal(body))
 		if err != nil {
 			return errors.Wrapf(err, "AssignPolicy %s for subscription %s", roleName, subscriptionId)
 		}
@@ -174,28 +167,21 @@ type SAssignment struct {
 
 func (cli *SAzureClient) GetAssignments(objectId string) ([]SAssignment, error) {
 	ret := []SAssignment{}
-	subscriptionId, err := cli.getDefaultSubscriptionId()
-	if err != nil {
-		return nil, errors.Wrap(err, "getDefaultSubscriptionId")
-	}
 	params := url.Values{}
 	if len(objectId) > 0 {
 		params.Set("$filter", fmt.Sprintf("principalId eq '%s'", objectId))
 	}
-	resource := "providers/Microsoft.Authorization/roleAssignments"
-	if len(params) > 0 {
-		resource = fmt.Sprintf("%s?%s", resource, params.Encode())
-	}
-	err = cli.listSubscriptionResource(subscriptionId, resource, &ret)
+	resource := "Microsoft.Authorization/roleAssignments"
+	err := cli.list(resource, params, &ret)
 	if err != nil {
-		return nil, errors.Wrap(err, "listSubscriptionResource")
+		return nil, errors.Wrap(err, "list")
 	}
 	return ret, nil
 }
 
 func (cli *SAzureClient) GetRole(roleId string) (*SCloudpolicy, error) {
 	role := &SCloudpolicy{}
-	err := cli.Get(roleId, nil, role)
+	err := cli.get(roleId, nil, role)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetRole(%s)", roleId)
 	}

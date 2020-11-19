@@ -61,7 +61,7 @@ func init() {
 	}
 
 	shellutils.R(&AssignmentIdOption{}, "assignment-delete", "Delete role assignment", func(cli *azure.SRegion, args *AssignmentIdOption) error {
-		return cli.GetClient().Delete(args.ID)
+		return cli.GetClient().GDelete(args.ID)
 	})
 
 	type ObjectPolicyListOptions struct {

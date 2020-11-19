@@ -22,21 +22,19 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SNetwork struct {
+	multicloud.SResourceBase
 	wire *SWire
 
-	AvailableIpAddressCount *int `json:"availableIpAddressCount,omitempty"`
-	ID                      string
-	Name                    string
-	Properties              SubnetPropertiesFormat
-	AddressPrefix           string `json:"addressPrefix,omitempty"`
-}
-
-func (self *SNetwork) GetMetadata() *jsonutils.JSONDict {
-	return nil
+	//AvailableIpAddressCount int `json:"availableIpAddressCount,omitempty"`
+	ID            string
+	Name          string
+	Properties    SubnetPropertiesFormat
+	AddressPrefix string `json:"addressPrefix,omitempty"`
 }
 
 func (self *SNetwork) GetId() string {
@@ -51,29 +49,12 @@ func (self *SNetwork) GetGlobalId() string {
 	return strings.ToLower(self.ID)
 }
 
-func (self *SNetwork) IsEmulated() bool {
-	return false
-}
-
 func (self *SNetwork) GetStatus() string {
-	return "available"
+	return api.NETWORK_STATUS_AVAILABLE
 }
 
 func (self *SNetwork) Delete() error {
-	vpc := self.wire.vpc
-	subnets := []SNetwork{}
-	if vpc.Properties.Subnets != nil {
-		for i := 0; i < len(*vpc.Properties.Subnets); i++ {
-			if (*vpc.Properties.Subnets)[i].Name == self.Name {
-				continue
-			}
-			subnets = append(subnets, (*vpc.Properties.Subnets)[i])
-		}
-		vpc.Properties.Subnets = &subnets
-		vpc.Properties.ProvisioningState = ""
-		return self.wire.vpc.region.client.Update(jsonutils.Marshal(vpc), nil)
-	}
-	return nil
+	return self.wire.vpc.region.del(self.ID)
 }
 
 func (self *SNetwork) GetGateway() string {
@@ -123,11 +104,11 @@ func (self *SNetwork) GetServerType() string {
 }
 
 func (self *SNetwork) Refresh() error {
-	if new, err := self.wire.zone.region.GetNetworkDetail(self.ID); err != nil {
+	network, err := self.wire.zone.region.GetNetwork(self.ID)
+	if err != nil {
 		return err
-	} else {
-		return jsonutils.Update(self, new)
 	}
+	return jsonutils.Update(self, network)
 }
 
 func (self *SNetwork) GetAllocTimeoutSeconds() int {

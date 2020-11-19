@@ -21,24 +21,13 @@ import (
 
 func init() {
 	type DiskListOptions struct {
-		Classic bool `help:"List classic disks"`
-		Offset  int  `help:"List offset"`
-		Limit   int  `help:"List limit"`
 	}
 	shellutils.R(&DiskListOptions{}, "disk-list", "List disks", func(cli *azure.SRegion, args *DiskListOptions) error {
-		if args.Classic {
-			disks, err := cli.GetClassicDisks()
-			if err != nil {
-				return err
-			}
-			printList(disks, len(disks), args.Offset, args.Limit, []string{})
-			return nil
-		}
 		disks, err := cli.GetDisks()
 		if err != nil {
 			return err
 		}
-		printList(disks, len(disks), args.Offset, args.Limit, []string{})
+		printList(disks, len(disks), 0, 0, []string{})
 		return nil
 	})
 
@@ -53,13 +42,7 @@ func init() {
 	}
 
 	shellutils.R(&DiskCreateOptions{}, "disk-create", "Create disk", func(cli *azure.SRegion, args *DiskCreateOptions) error {
-		var disk *azure.SDisk
-		var err error
-		if len(args.SnapshotId) > 0 {
-			disk, err = cli.CreateDiskBySnapshot(args.NAME, args.SnapshotId)
-		} else {
-			disk, err = cli.CreateDisk(args.STORAGETYPE, args.NAME, args.SizeGb, args.Desc, args.Image, args.ResourceGroup)
-		}
+		disk, err := cli.CreateDisk(args.STORAGETYPE, args.NAME, args.SizeGb, args.Desc, args.Image, args.SnapshotId, args.ResourceGroup)
 		if err != nil {
 			return err
 		}
@@ -72,12 +55,21 @@ func init() {
 	}
 
 	shellutils.R(&DiskOptions{}, "disk-show", "Show disk", func(cli *azure.SRegion, args *DiskOptions) error {
-		if disk, err := cli.GetDisk(args.ID); err != nil {
+		disk, err := cli.GetDisk(args.ID)
+		if err != nil {
 			return err
-		} else {
-			printObject(disk)
-			return nil
 		}
+		printObject(disk)
+		return nil
+	})
+
+	shellutils.R(&DiskOptions{}, "classic-disk-show", "Show classic disk", func(cli *azure.SRegion, args *DiskOptions) error {
+		disk, err := cli.GetClassicDisk(args.ID)
+		if err != nil {
+			return err
+		}
+		printObject(disk)
+		return nil
 	})
 
 	shellutils.R(&DiskOptions{}, "disk-delete", "Delete disks", func(cli *azure.SRegion, args *DiskOptions) error {

@@ -19,19 +19,18 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SWire struct {
+	multicloud.SResourceBase
+
 	zone      *SZone
 	vpc       *SVpc
 	inetworks []cloudprovider.ICloudNetwork
-}
-
-func (self *SWire) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SWire) GetId() string {
@@ -54,54 +53,28 @@ func (self *SWire) GetStatus() string {
 	return "available"
 }
 
-func (self *SWire) Refresh() error {
-	return nil
-}
-
-func (self *SWire) addNetwork(network *SNetwork) {
-	if self.inetworks == nil {
-		self.inetworks = make([]cloudprovider.ICloudNetwork, 0)
-	}
-	find := false
-	for i := 0; i < len(self.inetworks); i += 1 {
-		if self.inetworks[i].GetGlobalId() == strings.ToLower(network.ID) {
-			find = true
-			break
-		}
-	}
-	if !find {
-		self.inetworks = append(self.inetworks, network)
-	}
-}
-
-func (self *SRegion) createNetwork(vpc *SVpc, subnetName string, cidr string, desc string) (*SNetwork, error) {
-	subnet := SNetwork{
-		Name: subnetName,
-		Properties: SubnetPropertiesFormat{
-			AddressPrefix: cidr,
+func (self *SRegion) CreateNetwork(vpcId, name string, cidr string, desc string) (*SNetwork, error) {
+	params := map[string]interface{}{
+		"Name": name,
+		"Properties": map[string]interface{}{
+			"AddressPrefix": cidr,
 		},
 	}
-	if vpc.Properties.Subnets == nil {
-		subnets := []SNetwork{subnet}
-		vpc.Properties.Subnets = &subnets
-	} else {
-		*vpc.Properties.Subnets = append(*vpc.Properties.Subnets, subnet)
-	}
-	vpc.Properties.ProvisioningState = ""
-	err := self.client.Update(jsonutils.Marshal(vpc), vpc)
+	resource := fmt.Sprintf("%s/subnets/%s", vpcId, name)
+	network := &SNetwork{}
+	resp, err := self.put(resource, jsonutils.Marshal(params))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "put(%s)", resource)
 	}
-	for i := 0; i < len(*vpc.Properties.Subnets); i++ {
-		if (*vpc.Properties.Subnets)[i].Name == subnetName {
-			subnet.ID = (*vpc.Properties.Subnets)[i].ID
-		}
+	err = resp.Unmarshal(network)
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
 	}
-	return &subnet, nil
+	return network, nil
 }
 
 func (self *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
-	network, err := self.zone.region.createNetwork(self.vpc, opts.Name, opts.Cidr, opts.Desc)
+	network, err := self.zone.region.CreateNetwork(self.vpc.ID, opts.Name, opts.Cidr, opts.Desc)
 	if err != nil {
 		return nil, err
 	}
@@ -123,14 +96,17 @@ func (self *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, e
 			return networks[i], nil
 		}
 	}
-	return nil, cloudprovider.ErrNotFound
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, netid)
 }
 
 func (self *SWire) GetINetworks() ([]cloudprovider.ICloudNetwork, error) {
-	if err := self.vpc.fetchNetworks(); err != nil {
-		return nil, err
+	ret := []cloudprovider.ICloudNetwork{}
+	networks := self.vpc.GetNetworks()
+	for i := range networks {
+		networks[i].wire = self
+		ret = append(ret, &networks[i])
 	}
-	return self.inetworks, nil
+	return ret, nil
 }
 
 func (self *SWire) GetIVpc() cloudprovider.ICloudVpc {
@@ -139,20 +115,4 @@ func (self *SWire) GetIVpc() cloudprovider.ICloudVpc {
 
 func (self *SWire) GetIZone() cloudprovider.ICloudZone {
 	return self.zone
-}
-
-func (self *SWire) getNetworkById(networkId string) *SNetwork {
-	if networks, err := self.GetINetworks(); err != nil {
-		log.Errorf("getNetworkById error: %v", err)
-		return nil
-	} else {
-		log.Debugf("search for networks %d", len(networks))
-		for i := 0; i < len(networks); i++ {
-			network := networks[i].(*SNetwork)
-			if strings.ToLower(networkId) == strings.ToLower(network.ID) {
-				return network
-			}
-		}
-	}
-	return nil
 }

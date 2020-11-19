@@ -16,13 +16,12 @@ package azure
 
 import (
 	"context"
+	"net/url"
 	"strings"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/storage"
-
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -30,10 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
-type SClassicDisk struct {
-	storage *SClassicStorage
-	multicloud.SDisk
-
+type ClassicProperties struct {
 	DiskName        string
 	Caching         string
 	OperatingSystem string
@@ -44,81 +40,17 @@ type SClassicDisk struct {
 	CreatedTime     string
 	SourceImageName string
 	VhdUri          string
-	diskType        string
 	StorageAccount  SubResource
 }
 
-func (self *SRegion) GetStorageAccountsDisksWithSnapshots(storageaccounts ...*SStorageAccount) ([]SClassicDisk, []SClassicSnapshot, error) {
-	disks, snapshots := []SClassicDisk{}, []SClassicSnapshot{}
-	for i := 0; i < len(storageaccounts); i++ {
-		_disks, _snapshots, err := self.GetStorageAccountDisksWithSnapshots(storageaccounts[i])
-		if err != nil {
-			return nil, nil, err
-		}
-		disks = append(disks, _disks...)
-		snapshots = append(snapshots, _snapshots...)
-	}
-	return disks, snapshots, nil
-}
+type SClassicDisk struct {
+	multicloud.SDisk
+	region *SRegion
 
-func (self *SRegion) GetStorageAccountDisksWithSnapshots(storageaccount *SStorageAccount) ([]SClassicDisk, []SClassicSnapshot, error) {
-	disks, snapshots := []SClassicDisk{}, []SClassicSnapshot{}
-	containers, err := storageaccount.GetContainers()
-	if err != nil {
-		return nil, nil, err
-	}
-	for _, container := range containers {
-		if container.Name == "vhds" {
-			files, err := container.ListAllFiles(&storage.IncludeBlobDataset{Snapshots: true, Metadata: true})
-			if err != nil {
-				log.Errorf("List storage %s container %s files error: %v", storageaccount.Name, container.Name, err)
-				return nil, nil, err
-			}
-
-			for _, file := range files {
-				if strings.HasSuffix(file.Name, ".vhd") {
-					diskType := api.DISK_TYPE_DATA
-					if _diskType, ok := file.Metadata["microsoftazurecompute_disktype"]; ok && _diskType == "OSDisk" {
-						diskType = api.DISK_TYPE_SYS
-					}
-					diskName := file.Name
-					if _diskName, ok := file.Metadata["microsoftazurecompute_diskname"]; ok {
-						diskName = _diskName
-					}
-					if file.Snapshot.IsZero() {
-						disks = append(disks, SClassicDisk{
-							DiskName:   diskName,
-							diskType:   diskType,
-							DiskSizeGB: int32(file.Properties.ContentLength / 1024 / 1024 / 1024),
-							diskSizeMB: int32(file.Properties.ContentLength / 1024 / 1024),
-							VhdUri:     file.GetURL(),
-						})
-					} else {
-						snapshots = append(snapshots, SClassicSnapshot{
-							region:   self,
-							Name:     file.Snapshot.String(),
-							sizeMB:   int32(file.Properties.ContentLength / 1024 / 1024),
-							diskID:   file.GetURL(),
-							diskName: diskName,
-						})
-					}
-				}
-			}
-		}
-	}
-	return disks, snapshots, nil
-}
-
-func (self *SRegion) GetClassicDisks() ([]SClassicDisk, error) {
-	storageaccounts, err := self.GetClassicStorageAccounts()
-	if err != nil {
-		return nil, err
-	}
-	disks, _, err := self.GetStorageAccountsDisksWithSnapshots(storageaccounts...)
-	if err != nil {
-		return nil, err
-	}
-	return disks, nil
+	Id         string
+	Name       string
+	Type       string
+	Properties ClassicProperties
 }
 
 func (self *SClassicDisk) GetMetadata() *jsonutils.JSONDict {
@@ -129,6 +61,15 @@ func (self *SClassicDisk) GetMetadata() *jsonutils.JSONDict {
 
 func (self *SClassicDisk) CreateISnapshot(ctx context.Context, name, desc string) (cloudprovider.ICloudSnapshot, error) {
 	return nil, cloudprovider.ErrNotSupported
+}
+
+func (self *SRegion) GetClassicDisk(id string) (*SClassicDisk, error) {
+	disk := &SClassicDisk{region: self}
+	err := self.get(id, url.Values{}, disk)
+	if err != nil {
+		return nil, errors.Wrapf(err, "get(%s)", id)
+	}
+	return disk, nil
 }
 
 func (self *SClassicDisk) Delete(ctx context.Context) error {
@@ -164,10 +105,10 @@ func (self *SClassicDisk) GetDiskFormat() string {
 }
 
 func (self *SClassicDisk) GetDiskSizeMB() int {
-	if self.DiskSizeGB > 0 {
-		return int(self.DiskSizeGB * 1024)
+	if self.Properties.DiskSizeGB > 0 {
+		return int(self.Properties.DiskSizeGB * 1024)
 	}
-	return int(self.diskSizeMB)
+	return 0
 }
 
 func (self *SClassicDisk) GetIsAutoDelete() bool {
@@ -179,7 +120,7 @@ func (self *SClassicDisk) GetTemplateId() string {
 }
 
 func (self *SClassicDisk) GetDiskType() string {
-	return self.diskType
+	return self.Properties.OperatingSystem
 }
 
 func (self *SClassicDisk) GetCreatedAt() time.Time {
@@ -191,32 +132,32 @@ func (self *SClassicDisk) GetExpiredAt() time.Time {
 }
 
 func (self *SClassicDisk) GetGlobalId() string {
-	return self.VhdUri
+	return strings.ToLower(self.Id)
 }
 
 func (self *SClassicDisk) GetId() string {
-	return self.VhdUri
-}
-
-func (self *SClassicDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
-	return nil, cloudprovider.ErrNotSupported
-}
-
-func (region *SRegion) GetClassicSnapShots(diskId string) ([]SClassicSnapshot, error) {
-	result := []SClassicSnapshot{}
-	return result, nil
+	return self.GetGlobalId()
 }
 
 func (self *SClassicDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
-	return nil, cloudprovider.ErrNotSupported
+	return []cloudprovider.ICloudSnapshot{}, nil
 }
 
 func (self *SClassicDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
-	return self.storage, nil
+	storage := struct {
+		Properties struct {
+			AccountType string
+		}
+	}{}
+	err := self.region.get(self.Properties.StorageAccount.ID, url.Values{}, &storage)
+	if err != nil {
+		return nil, errors.Wrapf(err, "get(%s)", self.Properties.StorageAccount.ID)
+	}
+	return &SClassicStorage{region: self.region, AccountType: storage.Properties.AccountType}, nil
 }
 
 func (self *SClassicDisk) GetName() string {
-	return self.DiskName
+	return self.Properties.DiskName
 }
 
 func (self *SClassicDisk) GetStatus() string {

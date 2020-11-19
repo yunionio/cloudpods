@@ -26,47 +26,60 @@ func init() {
 	type InstanceListOptions struct {
 		Classic   bool `help:"List classic instance"`
 		ScaleSets bool `help:"List Scale Sets instance"`
-		Limit     int  `help:"page size"`
-		Offset    int  `help:"page offset"`
 	}
 	shellutils.R(&InstanceListOptions{}, "instance-list", "List intances", func(cli *azure.SRegion, args *InstanceListOptions) error {
-		if args.Classic {
-			instances, err := cli.GetClassicInstances()
-			if err != nil {
-				return err
-			}
-			printList(instances, len(instances), args.Offset, args.Limit, []string{})
-			return nil
-		} else if args.ScaleSets {
-			instances, err := cli.GetInstanceScaleSets()
-			if err != nil {
-				return err
-			}
-			printList(instances, len(instances), args.Offset, args.Limit, []string{})
-			return nil
-		}
 		instances, err := cli.GetInstances()
 		if err != nil {
 			return err
 		}
-		printList(instances, len(instances), args.Offset, args.Limit, []string{})
+		printList(instances, len(instances), 0, 0, []string{})
+		return nil
+	})
+
+	shellutils.R(&InstanceListOptions{}, "classic-instance-list", "List classic instance", func(cli *azure.SRegion, args *InstanceListOptions) error {
+		instances, err := cli.GetClassicInstances()
+		if err != nil {
+			return err
+		}
+		printList(instances, len(instances), 0, 0, []string{})
+		return nil
+	})
+
+	type SClassicInstacneIdOptions struct {
+		ID string
+	}
+
+	shellutils.R(&SClassicInstacneIdOptions{}, "classic-instance-disk-list", "List classic instance disks", func(cli *azure.SRegion, args *SClassicInstacneIdOptions) error {
+		disks, err := cli.GetClassicInstanceDisks(args.ID)
+		if err != nil {
+			return err
+		}
+		printList(disks, len(disks), 0, 0, []string{})
+		return nil
+	})
+
+	shellutils.R(&InstanceListOptions{}, "instance-scaleset-list", "List classic instance", func(cli *azure.SRegion, args *InstanceListOptions) error {
+		instances, err := cli.GetInstanceScaleSets()
+		if err != nil {
+			return err
+		}
+		printList(instances, len(instances), 0, 0, []string{})
 		return nil
 	})
 
 	type InstanceSizeListOptions struct {
-		Location string
 	}
 
 	shellutils.R(&InstanceSizeListOptions{}, "instance-size-list", "List intances", func(cli *azure.SRegion, args *InstanceSizeListOptions) error {
-		if vmSize, err := cli.GetVMSize(args.Location); err != nil {
+		vmSizes, err := cli.ListVmSizes()
+		if err != nil {
 			return err
-		} else {
-			printObject(vmSize)
-			return nil
 		}
+		printList(vmSizes, 0, 0, 0, nil)
+		return nil
 	})
 	shellutils.R(&InstanceSizeListOptions{}, "resource-sku-list", "List resource sku", func(cli *azure.SRegion, args *InstanceSizeListOptions) error {
-		skus, err := cli.GetResourceSkus(args.Location)
+		skus, err := cli.GetClient().ListResourceSkus()
 		if err != nil {
 			return err
 		}
@@ -78,7 +91,8 @@ func init() {
 		NAME          string `help:"Name of instance"`
 		IMAGE         string `help:"image ID"`
 		CPU           int    `help:"CPU count"`
-		MEMORYGB      int    `help:"MemoryGB"`
+		MEMORYMB      int    `help:"MemoryMb"`
+		InstanceType  string `help:"Instance Type"`
 		SYSDISKSIZEGB int    `help:"System Disk Size"`
 		Disk          []int  `help:"Data disk sizes int GB"`
 		STORAGE       string `help:"Storage type"`
@@ -88,7 +102,7 @@ func init() {
 		OsType        string `help:"Operation system type" choices:"Linux|Windows"`
 	}
 	shellutils.R(&InstanceCreateOptions{}, "instance-create", "Create a instance", func(cli *azure.SRegion, args *InstanceCreateOptions) error {
-		instance, e := cli.CreateInstanceSimple(args.NAME, args.IMAGE, args.OsType, args.CPU, args.MEMORYGB, args.SYSDISKSIZEGB, args.STORAGE, args.Disk, args.NETWORK, args.PASSWD, args.PublicKey)
+		instance, e := cli.CreateInstanceSimple(args.NAME, args.IMAGE, args.OsType, args.CPU, args.MEMORYMB, args.SYSDISKSIZEGB, args.STORAGE, args.Disk, args.NETWORK, args.PASSWD, args.PublicKey)
 		if e != nil {
 			return e
 		}
@@ -155,13 +169,12 @@ func init() {
 	})
 
 	type InstanceConfigOptions struct {
-		ID     string `help:"Instance ID"`
-		NCPU   int    `help:"Number of cpu core"`
-		MEMERY int    `helo:"Instance memery in mb"`
+		ID            string `help:"Instance ID"`
+		INSTANCE_TYPE string `help:"Instance Vm Size"`
 	}
 
-	shellutils.R(&InstanceConfigOptions{}, "instance-change-conf", "Attach a disk to intance", func(cli *azure.SRegion, args *InstanceConfigOptions) error {
-		return cli.ChangeVMConfig(context.Background(), args.ID, args.NCPU, args.MEMERY)
+	shellutils.R(&InstanceConfigOptions{}, "instance-change-config", "Attach a disk to intance", func(cli *azure.SRegion, args *InstanceConfigOptions) error {
+		return cli.ChangeConfig(args.ID, args.INSTANCE_TYPE)
 	})
 
 	type InstanceDeployOptions struct {
