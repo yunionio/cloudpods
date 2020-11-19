@@ -670,13 +670,16 @@ func (self *SGuest) ValidateAttachDisk(ctx context.Context, disk *SDisk) error {
 		}
 	}
 
-	attached, err := disk.isAttached()
-	if err != nil {
-		return httperrors.NewInternalServerError("isAttached check failed %s", err)
+	if disk.IsLocal() {
+		attached, err := disk.isAttached()
+		if err != nil {
+			return httperrors.NewInternalServerError("isAttached check failed %s", err)
+		}
+		if attached {
+			return httperrors.NewInputParameterError("Disk %s has been attached", disk.Name)
+		}
 	}
-	if attached {
-		return httperrors.NewInputParameterError("Disk %s has been attached", disk.Name)
-	}
+
 	if len(disk.GetPathAtHost(self.GetHost())) == 0 {
 		return httperrors.NewInputParameterError("Disk %s not belong the guest's host", disk.Name)
 	}
