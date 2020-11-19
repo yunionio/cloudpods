@@ -142,6 +142,9 @@ type DBInstanceCreateInput struct {
 	// required: true
 	DiskSizeGB int `json:"disk_size_gb"`
 
+	// 指定连接端口
+	Port int `json:"port"`
+
 	// rds初始化密码
 	// 阿里云不需要此参数
 	// 华为云会默认创建一个用户,若不传此参数, 则为随机密码
@@ -163,6 +166,9 @@ type DBInstanceCreateInput struct {
 
 	// swagger:ignore
 	Provider string
+
+	// 从备份中创建新实例
+	DBInstancebackupId string `json:"dbinstancebackup_id"`
 }
 
 type SDBInstanceChangeConfigInput struct {

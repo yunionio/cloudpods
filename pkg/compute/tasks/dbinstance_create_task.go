@@ -48,12 +48,17 @@ func (self *DBInstanceCreateTask) OnInit(ctx context.Context, obj db.IStandalone
 	self.CreateDBInstance(ctx, dbinstance)
 }
 
-func (self *DBInstanceCreateTask) CreateDBInstance(ctx context.Context, dbinstance *models.SDBInstance) {
-	region := dbinstance.GetRegion()
+func (self *DBInstanceCreateTask) CreateDBInstance(ctx context.Context, rds *models.SDBInstance) {
+	region := rds.GetRegion()
 	self.SetStage("OnCreateDBInstanceComplete", nil)
-	err := region.GetDriver().RequestCreateDBInstance(ctx, self.UserCred, dbinstance, self)
+	var err error
+	if len(rds.DBInstancebackupId) > 0 {
+		err = region.GetDriver().RequestCreateDBInstanceFromBackup(ctx, self.UserCred, rds, self)
+	} else {
+		err = region.GetDriver().RequestCreateDBInstance(ctx, self.UserCred, rds, self)
+	}
 	if err != nil {
-		self.taskFailed(ctx, dbinstance, err)
+		self.taskFailed(ctx, rds, err)
 		return
 	}
 }

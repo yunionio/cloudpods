@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -135,6 +136,9 @@ type SDBInstance struct {
 	Zone2 string `width:"36" charset:"ascii" nullable:"false" create:"optional" list:"user"`
 	// 可用区3
 	Zone3 string `width:"36" charset:"ascii" nullable:"false" create:"optional" list:"user"`
+
+	// 从备份创建新实例
+	DBInstancebackupId string `width:"36" name:"dbinstancebackup_id" charset:"ascii" nullable:"false" create:"optional"`
 }
 
 func (manager *SDBInstanceManager) GetContextManagers() [][]db.IModelManager {
@@ -274,8 +278,18 @@ func (man *SDBInstanceManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field
 }
 
 func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.DBInstanceCreateInput) (*jsonutils.JSONDict, error) {
+	if len(input.DBInstancebackupId) > 0 {
+		_backup, err := validators.ValidateModel(userCred, DBInstanceBackupManager, &input.DBInstancebackupId)
+		if err != nil {
+			return nil, err
+		}
+		backup := _backup.(*SDBInstanceBackup)
+		err = backup.fillRdsConfig(&input)
+		if err != nil {
+			return nil, err
+		}
+	}
 	data := input.JSON(input)
-	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerId)
 	addressV := validators.NewIPv4AddrValidator("address")
 	secgroupV := validators.NewModelIdOrNameValidator("secgroup", "secgroup", ownerId)
 	masterV := validators.NewModelIdOrNameValidator("master_instance", "dbinstance", ownerId)
@@ -283,7 +297,6 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 	zone2V := validators.NewModelIdOrNameValidator("zone2", "zone", ownerId)
 	zone3V := validators.NewModelIdOrNameValidator("zone3", "zone", ownerId)
 	keyV := map[string]validators.IValidator{
-		"network":  networkV,
 		"address":  addressV.Optional(true),
 		"master":   masterV.ModelIdKey("master_instance_id").Optional(true),
 		"secgroup": secgroupV.Optional(true),
@@ -318,10 +331,36 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 		}
 	}
 
-	network := networkV.Model.(*SNetwork)
-	input.NetworkExternalId = network.ExternalId
+	var vpc *SVpc
+	var network *SNetwork
+	if len(input.NetworkId) > 0 {
+		_network, err := validators.ValidateModel(userCred, NetworkManager, &input.NetworkId)
+		if err != nil {
+			return nil, err
+		}
+		network = _network.(*SNetwork)
+		input.NetworkExternalId = network.ExternalId
+		if len(input.Address) > 0 {
+			ip := net.ParseIP(input.Address).To4()
+			if ip == nil {
+				return nil, httperrors.NewInputParameterError("invalid address: %s", input.Address)
+			}
+			addr, _ := netutils.NewIPV4Addr(input.Address)
+			if !network.IsAddressInRange(addr) {
+				return nil, httperrors.NewInputParameterError("Ip %s not in network %s(%s) range", input.Address, network.Name, network.Id)
+			}
+		}
+		vpc = network.GetVpc()
+	} else if len(input.VpcId) > 0 {
+		_vpc, err := validators.ValidateModel(userCred, VpcManager, &input.VpcId)
+		if err != nil {
+			return nil, err
+		}
+		vpc = _vpc.(*SVpc)
+	} else {
+		return nil, httperrors.NewMissingParameterError("vpc_id")
+	}
 
-	vpc := network.GetVpc()
 	input.VpcId = vpc.Id
 	input.ManagerId = vpc.ManagerId
 	cloudprovider := vpc.GetCloudprovider()
