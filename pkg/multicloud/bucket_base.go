@@ -94,7 +94,7 @@ func (b *SBaseBucket) GetCORSRules() ([]cloudprovider.SBucketCORSRule, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (b *SBaseBucket) DeleteCORS() error {
+func (b *SBaseBucket) DeleteCORS(id []string) error {
 	return cloudprovider.ErrNotImplemented
 }
 

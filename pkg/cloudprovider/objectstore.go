@@ -105,6 +105,8 @@ type SBucketCORSRule struct {
 	AllowedHeaders []string
 	MaxAgeSeconds  int
 	ExposeHeaders  []string
+	// 规则区别标识
+	Id string
 }
 
 type SBucketRefererConf struct {
@@ -216,7 +218,7 @@ type ICloudBucket interface {
 
 	SetCORS(rules []SBucketCORSRule) error
 	GetCORSRules() ([]SBucketCORSRule, error)
-	DeleteCORS() error
+	DeleteCORS(id []string) error
 
 	SetReferer(conf SBucketRefererConf) error
 	GetReferer() (SBucketRefererConf, error)

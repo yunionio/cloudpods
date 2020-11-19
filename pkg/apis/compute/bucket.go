@@ -225,18 +225,24 @@ type BucketCORSRule struct {
 	AllowedHeaders []string
 	MaxAgeSeconds  int
 	ExposeHeaders  []string
+	// 规则区别标识
+	Id string
 }
 
 type BucketCORSRules struct {
-	Rules []BucketCORSRule
+	Data []BucketCORSRule `json:"data"`
+}
+
+type BucketCORSRuleDeleteInput struct {
+	Id []string
 }
 
 func (input *BucketCORSRules) Validate() error {
-	for i := range input.Rules {
-		if len(input.Rules[i].AllowedOrigins) == 0 {
+	for i := range input.Data {
+		if len(input.Data[i].AllowedOrigins) == 0 {
 			return httperrors.NewMissingParameterError("allowed_origins")
 		}
-		if len(input.Rules[i].AllowedMethods) == 0 {
+		if len(input.Data[i].AllowedMethods) == 0 {
 			return httperrors.NewMissingParameterError("allowed_methods")
 		}
 	}
