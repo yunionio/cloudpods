@@ -1000,25 +1000,26 @@ func (self *SAliyunRegionDriver) ValidateCreateDBInstanceData(ctx context.Contex
 		return input, httperrors.NewInputParameterError("slave dbinstance not support prepaid billing type")
 	}
 
-	wire := network.GetWire()
-	if wire == nil {
-		return input, httperrors.NewGeneralError(fmt.Errorf("failed to found wire for network %s(%s)", network.Name, network.Id))
-	}
-	zone := wire.GetZone()
-	if zone == nil {
-		return input, httperrors.NewGeneralError(fmt.Errorf("failed to found zone for wire %s(%s)", wire.Name, wire.Id))
-	}
-
-	match := false
-	for _, sku := range skus {
-		if utils.IsInStringArray(zone.Id, []string{sku.Zone1, sku.Zone2, sku.Zone3}) {
-			match = true
-			break
+	if network != nil {
+		wire := network.GetWire()
+		if wire == nil {
+			return input, httperrors.NewGeneralError(fmt.Errorf("failed to found wire for network %s(%s)", network.Name, network.Id))
 		}
-	}
+		zone := wire.GetZone()
+		if zone == nil {
+			return input, httperrors.NewGeneralError(fmt.Errorf("failed to found zone for wire %s(%s)", wire.Name, wire.Id))
+		}
 
-	if !match {
-		return input, httperrors.NewInputParameterError("failed to match any skus in the network %s(%s) zone %s(%s)", network.Name, network.Id, zone.Name, zone.Id)
+		match := false
+		for _, sku := range skus {
+			if utils.IsInStringArray(zone.Id, []string{sku.Zone1, sku.Zone2, sku.Zone3}) {
+				match = true
+				break
+			}
+		}
+		if !match {
+			return input, httperrors.NewInputParameterError("failed to match any skus in the network %s(%s) zone %s(%s)", network.Name, network.Id, zone.Name, zone.Id)
+		}
 	}
 
 	var master *models.SDBInstance
