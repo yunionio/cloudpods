@@ -233,7 +233,7 @@ func (manager *SDiskManager) ListItemFilter(
 	}
 
 	if len(query.ImageId) > 0 {
-		img, err := CachedimageManager.getImageInfo(ctx, userCred, query.ImageId, false)
+		img, err := CachedimageManager.getImageInfo(ctx, userCred, "", query.ImageId, false)
 		if err != nil {
 			return nil, errors.Wrap(err, "CachedimageManager.getImageInfo")
 		}
@@ -1656,14 +1656,14 @@ func totalDiskSize(
 	}
 }
 
-func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info *api.DiskConfig) (*api.DiskConfig, error) {
+func parseDiskInfoWithCloudregion(ctx context.Context, userCred mcclient.TokenCredential, info *api.DiskConfig, cloudregionId string) (*api.DiskConfig, error) {
 	if info.SnapshotId != "" {
 		if err := fillDiskConfigBySnapshot(userCred, info, info.SnapshotId); err != nil {
 			return nil, err
 		}
 	}
 	if info.ImageId != "" {
-		if err := fillDiskConfigByImage(ctx, userCred, info, info.ImageId); err != nil {
+		if err := fillDiskConfigByImage(ctx, userCred, info, cloudregionId, info.ImageId); err != nil {
 			return nil, err
 		}
 	}
@@ -1675,6 +1675,10 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 		return nil, httperrors.NewInputParameterError("Diskinfo index %d: both imageID and size are absent", info.Index)
 	}
 	return info, nil
+}
+
+func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info *api.DiskConfig) (*api.DiskConfig, error) {
+	return parseDiskInfoWithCloudregion(ctx, userCred, info, "")
 }
 
 func fillDiskConfigBySnapshot(userCred mcclient.TokenCredential, diskConfig *api.DiskConfig, snapshotId string) error {
@@ -1708,11 +1712,11 @@ func fillDiskConfigBySnapshot(userCred mcclient.TokenCredential, diskConfig *api
 }
 
 func fillDiskConfigByImage(ctx context.Context, userCred mcclient.TokenCredential,
-	diskConfig *api.DiskConfig, imageId string) error {
+	diskConfig *api.DiskConfig, cloudregionId, imageId string) error {
 	if userCred == nil {
 		diskConfig.ImageId = imageId
 	} else {
-		image, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, false)
+		image, err := CachedimageManager.getImageInfo(ctx, userCred, cloudregionId, imageId, false)
 		if err != nil {
 			log.Errorf("getImageInfo %s fail %s", imageId, err)
 			return err
@@ -1739,7 +1743,7 @@ func fillDiskConfigByImage(ctx context.Context, userCred mcclient.TokenCredentia
 }
 
 func parseIsoInfo(ctx context.Context, userCred mcclient.TokenCredential, imageId string) (*cloudprovider.SImage, error) {
-	image, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, false)
+	image, err := CachedimageManager.getImageInfo(ctx, userCred, "", imageId, false)
 	if err != nil {
 		log.Errorf("getImageInfo fail %s", err)
 		return nil, err

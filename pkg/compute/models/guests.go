@@ -1133,7 +1133,7 @@ func (manager *SGuestManager) validateCreateData(
 			return nil, httperrors.NewInputParameterError("No disk information provided")
 		}
 		diskConfig := input.Disks[0]
-		diskConfig, err = parseDiskInfo(ctx, userCred, diskConfig)
+		diskConfig, err = parseDiskInfoWithCloudregion(ctx, userCred, diskConfig, input.PreferRegion)
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("Invalid root image: %s", err)
 		}
@@ -1253,7 +1253,7 @@ func (manager *SGuestManager) validateCreateData(
 			dataDiskDefs = append(dataDiskDefs, disks[idx])
 		}
 
-		rootDiskConfig, err := parseDiskInfo(ctx, userCred, disks[0])
+		rootDiskConfig, err := parseDiskInfoWithCloudregion(ctx, userCred, disks[0], input.PreferRegion)
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err) // should no error
 		}
@@ -1279,7 +1279,7 @@ func (manager *SGuestManager) validateCreateData(
 		//data.Set("disk.0", jsonutils.Marshal(rootDiskConfig))
 
 		for i := 0; i < len(dataDiskDefs); i += 1 {
-			diskConfig, err := parseDiskInfo(ctx, userCred, dataDiskDefs[i])
+			diskConfig, err := parseDiskInfoWithCloudregion(ctx, userCred, dataDiskDefs[i], input.PreferRegion)
 			if err != nil {
 				return nil, httperrors.NewInputParameterError("parse disk description error %s", err)
 			}

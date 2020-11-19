@@ -4552,7 +4552,7 @@ func (self *SHost) PerformCacheImage(ctx context.Context, userCred mcclient.Toke
 		return nil, httperrors.NewInvalidStatusError("Cannot perform cache image in status %s", self.Status)
 	}
 	imageId, _ := data.GetString("image")
-	img, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, false)
+	img, err := CachedimageManager.getImageInfo(ctx, userCred, "", imageId, false)
 	if err != nil {
 		log.Errorln(err)
 		return nil, httperrors.NewNotFoundError("image %s not found", imageId)
@@ -5382,7 +5382,7 @@ func (self *SHost) AllowPerformInsertIso(ctx context.Context,
 func (self *SHost) PerformInsertIso(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if utils.IsInStringArray(self.Status, []string{api.BAREMETAL_READY, api.BAREMETAL_RUNNING}) {
 		imageStr, err := data.GetString("image")
-		image, err := CachedimageManager.getImageInfo(ctx, userCred, imageStr, false)
+		image, err := CachedimageManager.getImageInfo(ctx, userCred, "", imageStr, false)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("image", imageStr)

@@ -204,7 +204,7 @@ func (self *SESXiGuestDriver) ValidateCreateData(ctx context.Context, userCred m
 	if len(rootDisk.ImageId) == 0 {
 		return data, nil
 	}
-	image, err := models.CachedimageManager.GetImageInfo(ctx, userCred, rootDisk.ImageId, false)
+	image, err := models.CachedimageManager.GetImageInfo(ctx, userCred, "", rootDisk.ImageId, false)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to GetImageInfo of image %q", rootDisk.ImageId)
 	}

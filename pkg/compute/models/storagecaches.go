@@ -538,7 +538,7 @@ func (self *SStoragecache) PerformUncacheImage(ctx context.Context, userCred mcc
 			return nil, httperrors.NewForbiddenError("cannot uncache non-customized images")
 		}
 		imageId = imgObj.GetId()
-		_, err := CachedimageManager.getImageInfo(ctx, userCred, imageStr, isForce)
+		_, err := CachedimageManager.getImageInfo(ctx, userCred, "", imageStr, isForce)
 		if err != nil {
 			log.Infof("image %s not found %s", imageStr, err)
 			if !isForce {
@@ -578,7 +578,7 @@ func (self *SStoragecache) PerformCacheImage(ctx context.Context, userCred mccli
 	}
 	isForce := jsonutils.QueryBoolean(data, "is_force", false)
 
-	image, err := CachedimageManager.getImageInfo(ctx, userCred, imageStr, isForce)
+	image, err := CachedimageManager.getImageInfo(ctx, userCred, "", imageStr, isForce)
 	if err != nil {
 		log.Infof("image %s not found %s", imageStr, err)
 		return nil, httperrors.NewImageNotFoundError(imageStr)
