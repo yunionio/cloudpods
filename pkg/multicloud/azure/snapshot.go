@@ -15,7 +15,7 @@
 package azure
 
 import (
-	"fmt"
+	"net/url"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -23,6 +23,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SnapshotSku struct {
@@ -31,6 +32,7 @@ type SnapshotSku struct {
 }
 
 type SSnapshot struct {
+	multicloud.SResourceBase
 	region *SRegion
 
 	ID         string
@@ -50,10 +52,6 @@ func (self *SSnapshot) GetGlobalId() string {
 	return strings.ToLower(self.ID)
 }
 
-func (self *SSnapshot) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (self *SSnapshot) GetName() string {
 	return self.Name
 }
@@ -68,29 +66,20 @@ func (self *SSnapshot) GetStatus() string {
 	}
 }
 
-func (self *SSnapshot) IsEmulated() bool {
-	return false
-}
-
-func (self *SRegion) CreateSnapshot(diskId, snapName, desc string) (*SSnapshot, error) {
-	disk, err := self.GetDisk(diskId)
-	if err != nil {
-		return nil, err
-	}
-	snapshot := SSnapshot{
-		region:   self,
-		Name:     snapName,
-		Location: self.Name,
-		Properties: DiskProperties{
-			CreationData: CreationData{
-				CreateOption:     "Copy",
-				SourceResourceID: diskId,
+func (self *SRegion) CreateSnapshot(diskId, name, desc string) (*SSnapshot, error) {
+	params := map[string]interface{}{
+		"Name":     name,
+		"Location": self.Name,
+		"Properties": map[string]interface{}{
+			"CreationData": map[string]string{
+				"CreateOption":     "Copy",
+				"SourceResourceID": diskId,
 			},
-			DiskSizeGB: disk.Properties.DiskSizeGB,
 		},
-		Type: "Microsoft.Compute/snapshots",
+		"Type": "Microsoft.Compute/snapshots",
 	}
-	return &snapshot, self.client.Create(jsonutils.Marshal(snapshot), &snapshot)
+	snapshot := &SSnapshot{region: self}
+	return snapshot, self.create("", jsonutils.Marshal(params), snapshot)
 }
 
 func (self *SSnapshot) Delete() error {
@@ -98,11 +87,11 @@ func (self *SSnapshot) Delete() error {
 }
 
 func (self *SSnapshot) GetSizeMb() int32 {
-	return self.Properties.DiskSizeGB * 1024
+	return self.Properties.DiskSizeGB.Int32() * 1024
 }
 
 func (self *SRegion) DeleteSnapshot(snapshotId string) error {
-	return self.client.Delete(snapshotId)
+	return self.del(snapshotId)
 }
 
 type AccessURIOutput struct {
@@ -119,7 +108,11 @@ type AccessURI struct {
 }
 
 func (self *SRegion) GrantAccessSnapshot(snapshotId string) (string, error) {
-	body, err := self.client.PerformAction(snapshotId, "beginGetAccess", fmt.Sprintf(`{"access": "Read", "durationInSeconds": %d}`, 3600*24))
+	params := map[string]interface{}{
+		"access":            "Read",
+		"durationInSeconds": 3600 * 24,
+	}
+	body, err := self.perform(snapshotId, "beginGetAccess", jsonutils.Marshal(params))
 	if err != nil {
 		return "", err
 	}
@@ -128,7 +121,7 @@ func (self *SRegion) GrantAccessSnapshot(snapshotId string) (string, error) {
 }
 
 func (self *SSnapshot) Refresh() error {
-	snapshot, err := self.region.GetSnapshotDetail(self.ID)
+	snapshot, err := self.region.GetSnapshot(self.ID)
 	if err != nil {
 		return err
 	}
@@ -136,47 +129,20 @@ func (self *SSnapshot) Refresh() error {
 }
 
 func (self *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
-	if strings.HasPrefix(snapshotId, "https://") {
-		//TODO
-		return nil, cloudprovider.ErrNotImplemented
-	}
-	return self.GetSnapshotDetail(snapshotId)
+	return self.GetSnapshot(snapshotId)
 }
 
 func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
-	snapshots, err := self.GetSnapShots("")
+	snapshots, err := self.ListSnapshots()
 	if err != nil {
 		return nil, err
 	}
-	classicSnapshots := []SClassicSnapshot{}
-	storages, err := self.GetStorageAccounts()
-	if err != nil {
-		return nil, err
-	}
-	_, _classicSnapshots, err := self.GetStorageAccountsDisksWithSnapshots(storages...)
-	if err != nil {
-		return nil, err
-	}
-	classicSnapshots = append(classicSnapshots, _classicSnapshots...)
-	classicStorages, err := self.GetClassicStorageAccounts()
-	if err != nil {
-		return nil, err
-	}
-	_, _classicSnapshots, err = self.GetStorageAccountsDisksWithSnapshots(classicStorages...)
-	if err != nil {
-		return nil, err
-	}
-	classicSnapshots = append(classicSnapshots, _classicSnapshots...)
-	isnapshots := make([]cloudprovider.ICloudSnapshot, len(snapshots)+len(classicSnapshots))
-	for i := 0; i < len(snapshots); i++ {
+	ret := []cloudprovider.ICloudSnapshot{}
+	for i := range snapshots {
 		snapshots[i].region = self
-		isnapshots[i] = &snapshots[i]
+		ret = append(ret, &snapshots[i])
 	}
-	for i := 0; i < len(classicSnapshots); i++ {
-		classicSnapshots[i].region = self
-		isnapshots[len(snapshots)+i] = &classicSnapshots[i]
-	}
-	return isnapshots, nil
+	return ret, nil
 }
 
 func (self *SSnapshot) GetDiskId() string {
@@ -189,4 +155,18 @@ func (self *SSnapshot) GetDiskType() string {
 
 func (self *SSnapshot) GetProjectId() string {
 	return getResourceGroup(self.ID)
+}
+
+func (region *SRegion) GetSnapshot(snapshotId string) (*SSnapshot, error) {
+	snapshot := SSnapshot{region: region}
+	return &snapshot, region.get(snapshotId, url.Values{}, &snapshot)
+}
+
+func (region *SRegion) ListSnapshots() ([]SSnapshot, error) {
+	result := []SSnapshot{}
+	err := region.list("Microsoft.Compute/snapshots", url.Values{}, &result)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }

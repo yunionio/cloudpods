@@ -49,7 +49,7 @@ func (self *SHost) GetName() string {
 }
 
 func (self *SHost) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s", self.zone.region.GetGlobalId(), self.zone.region.SubscriptionID)
+	return fmt.Sprintf("%s/%s", self.zone.region.GetGlobalId(), self.zone.region.client.subscriptionId)
 }
 
 func (self *SHost) IsEmulated() bool {
@@ -64,43 +64,25 @@ func (self *SHost) Refresh() error {
 	return nil
 }
 
-func (self *SHost) searchNetorkInterface(IPAddr string, networkId string, secgroupId string) (*SInstanceNic, error) {
-	interfaces, err := self.zone.region.GetNetworkInterfaces()
+func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
+	nic, err := self.zone.region.CreateNetworkInterface(desc.ProjectId, fmt.Sprintf("%s-ipconfig", desc.Name), desc.IpAddr, desc.ExternalNetworkId, desc.ExternalSecgroupId)
 	if err != nil {
+		return nil, errors.Wrapf(err, "CreateNetworkInterface")
+	}
+
+	instance, err := self.zone.region._createVM(desc, nic.ID)
+	if err != nil {
+		self.zone.region.DeleteNetworkInterface(nic.ID)
 		return nil, err
 	}
-	for i, nic := range interfaces {
-		for _, ipConf := range nic.Properties.IPConfigurations {
-			if ipConf.Properties.PrivateIPAddress == IPAddr && networkId == ipConf.Properties.Subnet.ID && ipConf.Properties.PrivateIPAllocationMethod == "Static" {
-				if nic.Properties.NetworkSecurityGroup == nil || nic.Properties.NetworkSecurityGroup.ID != secgroupId {
-					nic.Properties.NetworkSecurityGroup = &SSecurityGroup{ID: secgroupId}
-					if err := self.zone.region.client.Update(jsonutils.Marshal(nic), nil); err != nil {
-						log.Errorf("assign secgroup %s for nic %#v failed: %v", secgroupId, nic, err)
-						return nil, err
-					}
-				}
-				return &interfaces[i], nil
-			}
-		}
-	}
-	return nil, cloudprovider.ErrNotFound
+	instance.host = self
+	return instance, nil
 }
 
-func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	net := self.zone.getNetworkById(desc.ExternalNetworkId)
-	if net == nil {
-		return nil, fmt.Errorf("invalid network ID %s", desc.ExternalNetworkId)
-	}
-	nic, err := self.searchNetorkInterface(desc.IpAddr, net.GetId(), desc.ExternalSecgroupId)
+func (self *SRegion) _createVM(desc *cloudprovider.SManagedVMCreateConfig, nicId string) (*SInstance, error) {
+	image, err := self.GetImageById(desc.ExternalImageId)
 	if err != nil {
-		if errors.Cause(err) == cloudprovider.ErrNotFound {
-			nic, err = self.zone.region.CreateNetworkInterface(desc.ProjectId, fmt.Sprintf("%s-ipconfig", desc.Name), desc.IpAddr, net.GetId(), desc.ExternalSecgroupId)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, err
-		}
+		return nil, errors.Wrapf(err, "GetImageById(%s)", desc.ExternalImageId)
 	}
 
 	if len(desc.Password) == 0 {
@@ -108,139 +90,117 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 		desc.Password = seclib2.RandomPassword2(12)
 	}
 
-	vmId, err := self._createVM(desc, nic.ID)
-	if err != nil {
-		self.zone.region.DeleteNetworkInterface(nic.ID)
-		return nil, err
-	}
-	if vm, err := self.zone.region.GetInstance(vmId); err != nil {
-		return nil, err
-	} else {
-		vm.host = self
-		return vm, err
-	}
-}
-
-func (self *SHost) _createVM(desc *cloudprovider.SManagedVMCreateConfig, nicId string) (string, error) {
-	image, err := self.zone.region.GetImageById(desc.ExternalImageId)
-	if err != nil {
-		log.Errorf("Get Image %s fail %s", desc.ExternalImageId, err)
-		return "", err
-	}
-
 	if image.Properties.ProvisioningState != ImageStatusAvailable {
-		log.Errorf("image %s status %s", desc.ExternalImageId, image.Properties.ProvisioningState)
-		return "", fmt.Errorf("image not ready")
-	}
-	storage, err := self.zone.getStorageByType(desc.SysDisk.StorageType)
-	if err != nil {
-		return "", fmt.Errorf("Storage %s not avaiable: %s", desc.SysDisk.StorageType, err)
+		return nil, fmt.Errorf("image %s not ready status: %s", desc.ExternalImageId, image.Properties.ProvisioningState)
 	}
 	if !utils.IsInStringArray(desc.OsType, []string{osprofile.OS_TYPE_LINUX, osprofile.OS_TYPE_WINDOWS}) {
 		desc.OsType = image.GetOsType()
 	}
-	sysDiskSize := int32(desc.SysDisk.SizeGB)
 	computeName := desc.Name
-	for _, k := range []string{"`", "~", "!", "@", "#", "$", `%`, "^", "&", "*", "(", ")", "=", "+", "_", "[", "]", "{", "}", "\\", "|", ";", ":", ".", "'", `"`, ",", "<", ">", "/", "?"} {
-		computeName = strings.Replace(computeName, k, "", -1)
+	for _, k := range "`~!@#$%^&*()=+_[]{}\\|;:.'\",<>/?" {
+		computeName = strings.Replace(computeName, string(k), "", -1)
 	}
 	if len(computeName) > 15 {
 		computeName = computeName[:15]
 	}
-	instance := SInstance{
-		Name:     desc.Name,
-		Location: self.zone.region.Name,
-		Properties: VirtualMachineProperties{
-			HardwareProfile: HardwareProfile{
-				VMSize: "",
+	osProfile := map[string]string{
+		"ComputerName":  computeName,
+		"AdminUsername": api.VM_AZURE_DEFAULT_LOGIN_USER,
+		"AdminPassword": desc.Password,
+	}
+	if len(desc.UserData) > 0 {
+		osProfile["CustomData"] = desc.UserData
+	}
+	params := jsonutils.Marshal(map[string]interface{}{
+		"Name":     desc.Name,
+		"Location": self.Name,
+		"Properties": map[string]interface{}{
+			"HardwareProfile": map[string]string{
+				"VMSize": "",
 			},
-			OsProfile: OsProfile{
-				// Windows computer name cannot be more than 15 characters long, be entirely numeric, or contain the following characters: ` ~ ! @ # $ % ^ & * ( ) = + _ [ ] { } \\ | ; : . ' \" , < > / ?."
-				ComputerName:  computeName,
-				AdminUsername: api.VM_AZURE_DEFAULT_LOGIN_USER,
-				AdminPassword: desc.Password,
-				CustomData:    desc.UserData,
-			},
-			NetworkProfile: NetworkProfile{
-				NetworkInterfaces: []NetworkInterfaceReference{
-					{
-						ID: nicId,
+			"OsProfile": osProfile,
+			"NetworkProfile": map[string]interface{}{
+				"NetworkInterfaces": []map[string]string{
+					map[string]string{
+						"Id": nicId,
 					},
 				},
 			},
-			StorageProfile: StorageProfile{
-				ImageReference: image.getImageReference(),
-				OsDisk: OSDisk{
-					Name:    fmt.Sprintf("vdisk_%s_%d", desc.Name, time.Now().UnixNano()),
-					Caching: "ReadWrite",
-					ManagedDisk: &ManagedDiskParameters{
-						StorageAccountType: storage.storageType,
+			"StorageProfile": map[string]interface{}{
+				"ImageReference": image.getImageReference(),
+				"OsDisk": map[string]interface{}{
+					"Name":    fmt.Sprintf("vdisk_%s_%d", desc.Name, time.Now().UnixNano()),
+					"Caching": "ReadWrite",
+					"ManagedDisk": map[string]string{
+						"StorageAccountType": desc.SysDisk.StorageType,
 					},
-					CreateOption: "FromImage",
-					DiskSizeGB:   &sysDiskSize,
-					OsType:       desc.OsType,
+					"CreateOption": "FromImage",
+					"DiskSizeGB":   desc.SysDisk.SizeGB,
+					"OsType":       desc.OsType,
 				},
 			},
 		},
-		Type: "Microsoft.Compute/virtualMachines",
-	}
+		"Type": "Microsoft.Compute/virtualMachines",
+	}).(*jsonutils.JSONDict)
 	if len(desc.PublicKey) > 0 && desc.OsType == osprofile.OS_TYPE_LINUX {
-		instance.Properties.OsProfile.LinuxConfiguration = &LinuxConfiguration{
-			DisablePasswordAuthentication: false,
-			SSH: &SSHConfiguration{
-				PublicKeys: []SSHPublicKey{
-					{
-						KeyData: desc.PublicKey,
-						Path:    fmt.Sprintf("/home/%s/.ssh/authorized_keys", api.VM_AZURE_DEFAULT_LOGIN_USER),
+		linuxConfiguration := map[string]interface{}{
+			"DisablePasswordAuthentication": false,
+			"SSH": map[string]interface{}{
+				"PublicKeys": []map[string]string{
+					map[string]string{
+						"KeyData": desc.PublicKey,
+						"Path":    fmt.Sprintf("/home/%s/.ssh/authorized_keys", api.VM_AZURE_DEFAULT_LOGIN_USER),
 					},
 				},
 			},
 		}
+		params.Add(jsonutils.Marshal(linuxConfiguration), "Properties", "OsProfile", "LinuxConfiguration")
 	}
 
-	_dataDisks := []DataDisk{}
+	dataDisks := jsonutils.NewArray()
 	for i := 0; i < len(desc.DataDisks); i++ {
-		diskName := fmt.Sprintf("vdisk_%s_%d", desc.Name, time.Now().UnixNano())
-		size := int32(desc.DataDisks[i].SizeGB)
-		lun := int32(i)
-		_dataDisks = append(_dataDisks, DataDisk{
-			Name:         diskName,
-			DiskSizeGB:   &size,
-			CreateOption: "Empty",
-			Lun:          lun,
+		dataDisk := jsonutils.Marshal(map[string]interface{}{
+			"Name":         fmt.Sprintf("vdisk_%s_%d", desc.Name, time.Now().UnixNano()),
+			"DiskSizeGB":   desc.DataDisks[i].SizeGB,
+			"CreateOption": "Empty",
+			"Lun":          i,
 		})
+		dataDisks.Add(dataDisk)
 	}
-	if len(_dataDisks) > 0 {
-		instance.Properties.StorageProfile.DataDisks = _dataDisks
+	if dataDisks.Length() > 0 {
+		params.Add(dataDisks, "Properties", "StorageProfile", "DataDisks")
 	}
 
+	instance := &SInstance{}
 	if len(desc.InstanceType) > 0 {
-		instance.Properties.HardwareProfile.VMSize = desc.InstanceType
+		params.Add(jsonutils.NewString(desc.InstanceType), "Properties", "HardwareProfile", "VMSize")
 		log.Debugf("Try HardwareProfile : %s", desc.InstanceType)
-		err = self.zone.region.client.CreateWithResourceGroup(desc.ProjectId, jsonutils.Marshal(instance), &instance)
+		err = self.create(desc.ProjectId, params, instance)
 		if err != nil {
-			log.Errorf("Failed for %s: %s", desc.InstanceType, err)
-			return "", fmt.Errorf("Failed to create specification %s.%s", desc.InstanceType, err.Error())
+			return nil, errors.Wrapf(err, "create")
 		}
-		return instance.ID, nil
+		return instance, nil
 	}
 
-	for _, profile := range self.zone.region.getHardwareProfile(desc.Cpu, desc.MemoryMB) {
-		instance.Properties.HardwareProfile.VMSize = profile
+	for _, profile := range self.getHardwareProfile(desc.Cpu, desc.MemoryMB) {
+		params.Add(jsonutils.NewString(profile), "Properties", "HardwareProfile", "VMSize")
 		log.Debugf("Try HardwareProfile : %s", profile)
-		err = self.zone.region.client.CreateWithResourceGroup(desc.ProjectId, jsonutils.Marshal(instance), &instance)
+		err = self.create(desc.ProjectId, params, &instance)
 		if err != nil {
 			for _, key := range []string{`"code":"InvalidParameter"`, `"code":"NicInUse"`} {
 				if strings.Contains(err.Error(), key) {
-					return "", err
+					return nil, err
 				}
 			}
 			log.Errorf("Failed for %s: %s", profile, err)
 			continue
 		}
-		return instance.ID, nil
+		return instance, nil
 	}
-	return "", fmt.Errorf("instance type %dC%dMB not avaiable", desc.Cpu, desc.MemoryMB)
+	if err != nil {
+		return nil, err
+	}
+	return nil, fmt.Errorf("instance type %dC%dMB not avaiable", desc.Cpu, desc.MemoryMB)
 }
 
 func (self *SHost) GetAccessIp() string {

@@ -15,50 +15,40 @@
 package azure
 
 import (
+	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
-type ClassicStorageProperties struct {
-	ProvisioningState       string
-	Status                  string
-	Endpoints               []string
-	AccountType             string `json:"accountType"`
-	GeoPrimaryRegion        string
-	StatusOfPrimaryRegion   string
-	GeoSecondaryRegion      string
-	StatusOfSecondaryRegion string
-	//CreationTime            time.Time
-}
+const (
+	STORAGE_LRS = "Standard-LRS"
+	STORAGE_GRS = "Standard-GRS"
+)
 
 type SClassicStorage struct {
-	zone *SZone
+	multicloud.SResourceBase
+	region *SRegion
 
-	Properties ClassicStorageProperties
-	Name       string
-	ID         string
-	Type       string
-	Location   string
-}
-
-func (self *SClassicStorage) GetMetadata() *jsonutils.JSONDict {
-	return nil
+	AccountType string
 }
 
 func (self *SClassicStorage) GetId() string {
-	return self.ID
+	zone := self.region.getZone()
+	return fmt.Sprintf("%s-%s-classic", zone.GetGlobalId(), self.AccountType)
 }
 
 func (self *SClassicStorage) GetName() string {
-	return self.Name
+	return self.AccountType
 }
 
 func (self *SClassicStorage) GetGlobalId() string {
-	return strings.ToLower(self.ID)
+	return self.GetId()
 }
 
 func (self *SClassicStorage) IsEmulated() bool {
@@ -66,7 +56,7 @@ func (self *SClassicStorage) IsEmulated() bool {
 }
 
 func (self *SClassicStorage) GetIZone() cloudprovider.ICloudZone {
-	return self.zone
+	return self.region.getZone()
 }
 
 func (self *SClassicStorage) GetEnabled() bool {
@@ -86,38 +76,23 @@ func (self *SClassicStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (
 }
 
 func (self *SClassicStorage) GetIDiskById(diskId string) (cloudprovider.ICloudDisk, error) {
-	disks, err := self.GetIDisks()
+	disk, err := self.region.GetClassicDisk(diskId)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "GetDisk(%s)", diskId)
 	}
-	for i := 0; i < len(disks); i++ {
-		if disks[i].GetId() == diskId {
-			return disks[i], nil
-		}
-	}
-	return nil, cloudprovider.ErrNotFound
+	return disk, nil
 }
 
 func (self *SClassicStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	storageaccount, err := self.zone.region.GetStorageAccountDetail(self.ID)
-	disks, _, err := self.zone.region.GetStorageAccountDisksWithSnapshots(storageaccount)
-	if err != nil {
-		return nil, err
-	}
-	idisks := make([]cloudprovider.ICloudDisk, len(disks))
-	for i := 0; i < len(disks); i++ {
-		disks[i].storage = self
-		idisks[i] = &disks[i]
-	}
-	return idisks, nil
+	return []cloudprovider.ICloudDisk{}, nil
 }
 
 func (self *SClassicStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
-	return self.zone.region.getStoragecache()
+	return self.region.getStoragecache()
 }
 
 func (self *SClassicStorage) GetMediumType() string {
-	if strings.Contains(self.Properties.AccountType, "Premium") {
+	if self.AccountType == STORAGE_LRS {
 		return api.DISK_TYPE_SSD
 	}
 	return api.DISK_TYPE_ROTATE
@@ -133,7 +108,7 @@ func (self *SClassicStorage) GetStatus() string {
 }
 
 func (self *SClassicStorage) GetStorageType() string {
-	return strings.ToLower(self.Properties.AccountType)
+	return strings.ToLower(self.AccountType)
 }
 
 func (self *SClassicStorage) Refresh() error {

@@ -21,25 +21,13 @@ import (
 
 func init() {
 	type SecurityGroupListOptions struct {
-		Classic bool   `help:"List classic secgroups"`
-		Name    string `help:"Secgroup name"`
-		Limit   int    `help:"page size"`
-		Offset  int    `help:"page offset"`
 	}
 	shellutils.R(&SecurityGroupListOptions{}, "security-group-list", "List security group", func(cli *azure.SRegion, args *SecurityGroupListOptions) error {
-		if args.Classic {
-			secgrps, err := cli.GetClassicSecurityGroups(args.Name)
-			if err != nil {
-				return err
-			}
-			printList(secgrps, len(secgrps), args.Offset, args.Limit, []string{})
-			return nil
-		}
-		secgrps, err := cli.GetSecurityGroups(args.Name)
+		secgrps, err := cli.ListSecgroups()
 		if err != nil {
 			return err
 		}
-		printList(secgrps, len(secgrps), args.Offset, args.Limit, []string{})
+		printList(secgrps, len(secgrps), 0, 0, []string{})
 		return nil
 	})
 

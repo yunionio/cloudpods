@@ -30,8 +30,10 @@ func LogRequest() autorest.PrepareDecorator {
 			if err != nil {
 				log.Errorln(err)
 			}
-			dump, _ := httputil.DumpRequestOut(r, true)
-			log.Errorf("%s", string(dump))
+			auth := r.Header.Get("Authorization")
+			if len(auth) > 0 {
+				log.Debugf("Authorization: %s", auth)
+			}
 			return r, err
 		})
 	}

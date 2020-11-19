@@ -16,6 +16,7 @@ package azure
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	"yunion.io/x/pkg/errors"
@@ -59,7 +60,7 @@ func (u *SUsage) GetCurrentQuotaUsedCount() int {
 func (region *SRegion) GetUsage(resourceType string) ([]SUsage, error) {
 	usage := []SUsage{}
 	resource := fmt.Sprintf("%s/locations/%s/usages", resourceType, region.Name)
-	err := region.client.ListAll(resource, &usage)
+	err := region.client.list(resource, url.Values{}, &usage)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ListAll(%s)", resource)
 	}
