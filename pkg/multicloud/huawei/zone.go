@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -61,6 +62,7 @@ func (self *SZone) getStorageType() {
 		if sts, err := self.region.GetZoneSupportedDiskTypes(self.GetId()); err == nil {
 			self.storageTypes = sts
 		} else {
+			log.Errorf("GetZoneSupportedDiskTypes %s %s", self.GetId(), err)
 			self.storageTypes = StorageTypes
 		}
 	}
