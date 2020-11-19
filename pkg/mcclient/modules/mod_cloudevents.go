@@ -23,7 +23,7 @@ var (
 func init() {
 	Cloudevents = NewCloudeventManager("cloudevent", "cloudevents",
 		[]string{"Action", "Service", "Success",
-			"Resource_Type", "Cloudprovider_Id", "Manager", "Provider"},
+			"Resource_Type", "Cloudprovider_Id", "Manager", "Provider", "Domain", "Domain_Id"},
 		[]string{})
 
 	register(&Cloudevents)
