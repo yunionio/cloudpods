@@ -451,6 +451,7 @@ func S3Shell() {
 		AllowedHeaders []string
 		MaxAgeSeconds  int
 		ExposeHeaders  []string
+		Id             string
 	}
 	shellutils.R(&BucketSetCorsOption{}, "bucket-set-cors", "Set bucket cors", func(cli cloudprovider.ICloudRegion, args *BucketSetCorsOption) error {
 		bucket, err := cli.GetIBucketById(args.BUCKET)
@@ -463,6 +464,7 @@ func S3Shell() {
 			AllowedHeaders: args.AllowedHeaders,
 			MaxAgeSeconds:  args.MaxAgeSeconds,
 			ExposeHeaders:  args.ExposeHeaders,
+			Id:             args.Id,
 		}
 		err = bucket.SetCORS([]cloudprovider.SBucketCORSRule{rule})
 		if err != nil {
@@ -489,14 +491,15 @@ func S3Shell() {
 	})
 
 	type BucketDeleteCorsOption struct {
-		BUCKET string `help:"name of bucket to put object"`
+		BUCKET string   `help:"name of bucket to put object"`
+		Ids    []string `help:"rule ids to delete"`
 	}
-	shellutils.R(&BucketGetWebsiteConfOption{}, "bucket-delete-cors", "Delete bucket cors", func(cli cloudprovider.ICloudRegion, args *BucketGetWebsiteConfOption) error {
+	shellutils.R(&BucketDeleteCorsOption{}, "bucket-delete-cors", "Delete bucket cors", func(cli cloudprovider.ICloudRegion, args *BucketDeleteCorsOption) error {
 		bucket, err := cli.GetIBucketById(args.BUCKET)
 		if err != nil {
 			return err
 		}
-		err = bucket.DeleteCORS()
+		err = bucket.DeleteCORS(args.Ids)
 		if err != nil {
 			return err
 		}

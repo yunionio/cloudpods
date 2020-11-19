@@ -1367,13 +1367,14 @@ func (bucket *SBucket) PerformSetCors(
 		return nil, errors.Wrap(err, "GetIBucket")
 	}
 	rules := []cloudprovider.SBucketCORSRule{}
-	for i := range input.Rules {
+	for i := range input.Data {
 		rules = append(rules, cloudprovider.SBucketCORSRule{
-			AllowedOrigins: input.Rules[i].AllowedOrigins,
-			AllowedMethods: input.Rules[i].AllowedMethods,
-			AllowedHeaders: input.Rules[i].AllowedHeaders,
-			MaxAgeSeconds:  input.Rules[i].MaxAgeSeconds,
-			ExposeHeaders:  input.Rules[i].ExposeHeaders,
+			AllowedOrigins: input.Data[i].AllowedOrigins,
+			AllowedMethods: input.Data[i].AllowedMethods,
+			AllowedHeaders: input.Data[i].AllowedHeaders,
+			MaxAgeSeconds:  input.Data[i].MaxAgeSeconds,
+			ExposeHeaders:  input.Data[i].ExposeHeaders,
+			Id:             input.Data[i].Id,
 		})
 	}
 	err = iBucket.SetCORS(rules)
@@ -1388,7 +1389,7 @@ func (bucket *SBucket) PerformSetCors(
 func (bucket *SBucket) AllowPerformDeleteCors(
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	input jsonutils.JSONObject,
+	input api.BucketCORSRuleDeleteInput,
 ) bool {
 	return bucket.IsOwner(userCred)
 }
@@ -1397,13 +1398,13 @@ func (bucket *SBucket) PerformDeleteCors(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	input jsonutils.JSONObject,
+	input api.BucketCORSRuleDeleteInput,
 ) (jsonutils.JSONObject, error) {
 	iBucket, err := bucket.GetIBucket()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetIBucket")
 	}
-	err = iBucket.DeleteCORS()
+	err = iBucket.DeleteCORS(input.Id)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("iBucket.DeleteCORS error %s", err)
 	}
@@ -1436,12 +1437,13 @@ func (bucket *SBucket) GetDetailsCors(
 	}
 
 	for i := range corsRules {
-		rules.Rules = append(rules.Rules, api.BucketCORSRule{
+		rules.Data = append(rules.Data, api.BucketCORSRule{
 			AllowedOrigins: corsRules[i].AllowedOrigins,
 			AllowedMethods: corsRules[i].AllowedMethods,
 			AllowedHeaders: corsRules[i].AllowedHeaders,
 			MaxAgeSeconds:  corsRules[i].MaxAgeSeconds,
 			ExposeHeaders:  corsRules[i].ExposeHeaders,
+			Id:             corsRules[i].Id,
 		})
 	}
 
@@ -1471,8 +1473,9 @@ func (bucket *SBucket) GetDetailsCdnDomain(
 		return domains, httperrors.NewInternalServerError("iBucket.GetCdnDomains error %s", err)
 	}
 	for i := range cdnDomains {
-		domains.Domains = append(domains.Domains, api.CdnDomain{
+		domains.Data = append(domains.Data, api.CdnDomain{
 			Domain:     cdnDomains[i].Domain,
+			Status:     cdnDomains[i].Status,
 			Area:       cdnDomains[i].Area,
 			Cname:      cdnDomains[i].Cname,
 			Origin:     cdnDomains[i].Origin,
