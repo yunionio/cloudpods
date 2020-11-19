@@ -36,3 +36,11 @@ func (backup *SDBInstanceBackupBase) Delete() error {
 func (backup *SDBInstanceBackupBase) GetProjectId() string {
 	return ""
 }
+
+func (backup *SDBInstanceBackupBase) CreateICloudDBInstance(opts *cloudprovider.SManagedDBInstanceCreateConfig) (cloudprovider.ICloudDBInstance, error) {
+	return nil, errors.Wrap(cloudprovider.ErrNotImplemented, "CreateICloudDBInstance")
+}
+
+func (backup *SDBInstanceBackupBase) GetBackupMethod() cloudprovider.TBackupMethod {
+	return cloudprovider.BackupMethodUnknown
+}

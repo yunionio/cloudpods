@@ -132,6 +132,9 @@ type SDBInstance struct {
 	Zone2 string `width:"36" charset:"ascii" nullable:"false" create:"optional" list:"user"`
 	// 可用区3
 	Zone3 string `width:"36" charset:"ascii" nullable:"false" create:"optional" list:"user"`
+
+	// 从备份创建新实例
+	DBInstancebackupId string `width:"36" name:"dbinstancebackup_id" charset:"ascii" nullable:"false" create:"optional"`
 }
 
 func (manager *SDBInstanceManager) GetContextManagers() [][]db.IModelManager {
@@ -284,6 +287,17 @@ func (manager *SDBInstanceManager) BatchCreateValidateCreateData(ctx context.Con
 }
 
 func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.DBInstanceCreateInput) (api.DBInstanceCreateInput, error) {
+	if len(input.DBInstancebackupId) > 0 {
+		_backup, err := validators.ValidateModel(userCred, DBInstanceBackupManager, &input.DBInstancebackupId)
+		if err != nil {
+			return input, err
+		}
+		backup := _backup.(*SDBInstanceBackup)
+		err = backup.fillRdsConfig(&input)
+		if err != nil {
+			return input, err
+		}
+	}
 	for _, v := range map[string]*string{"zone1": &input.Zone1, "zone2": &input.Zone2, "zone3": &input.Zone3} {
 		if len(*v) > 0 {
 			_, err := validators.ValidateModel(userCred, ZoneManager, v)
@@ -298,28 +312,35 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 			return input, httperrors.NewWeakPasswordError()
 		}
 	}
-	if len(input.NetworkId) == 0 {
-		return input, httperrors.NewMissingParameterError("network_id")
-	}
-	_network, err := validators.ValidateModel(userCred, NetworkManager, &input.NetworkId)
-	if err != nil {
-		return input, err
-	}
-
-	network := _network.(*SNetwork)
-
-	if len(input.Address) > 0 {
-		ip := net.ParseIP(input.Address).To4()
-		if ip == nil {
-			return input, httperrors.NewInputParameterError("invalid address: %s", input.Address)
+	var vpc *SVpc
+	var network *SNetwork
+	if len(input.NetworkId) > 0 {
+		_network, err := validators.ValidateModel(userCred, NetworkManager, &input.NetworkId)
+		if err != nil {
+			return input, err
 		}
-		addr, _ := netutils.NewIPV4Addr(input.Address)
-		if !network.IsAddressInRange(addr) {
-			return input, httperrors.NewInputParameterError("Ip %s not in network %s(%s) range", input.Address, network.Name, network.Id)
+		network = _network.(*SNetwork)
+		if len(input.Address) > 0 {
+			ip := net.ParseIP(input.Address).To4()
+			if ip == nil {
+				return input, httperrors.NewInputParameterError("invalid address: %s", input.Address)
+			}
+			addr, _ := netutils.NewIPV4Addr(input.Address)
+			if !network.IsAddressInRange(addr) {
+				return input, httperrors.NewInputParameterError("Ip %s not in network %s(%s) range", input.Address, network.Name, network.Id)
+			}
 		}
+		vpc = network.GetVpc()
+	} else if len(input.VpcId) > 0 {
+		_vpc, err := validators.ValidateModel(userCred, VpcManager, &input.VpcId)
+		if err != nil {
+			return input, err
+		}
+		vpc = _vpc.(*SVpc)
+	} else {
+		return input, httperrors.NewMissingParameterError("vpc_id")
 	}
 
-	vpc := network.GetVpc()
 	input.VpcId = vpc.Id
 	input.ManagerId = vpc.ManagerId
 	cloudprovider := vpc.GetCloudprovider()
