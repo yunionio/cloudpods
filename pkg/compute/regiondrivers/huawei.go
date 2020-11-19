@@ -2170,12 +2170,13 @@ func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceData(ctx context.Contex
 		return input, httperrors.NewInputParameterError("The disk_size_gb must be an integer multiple of 10")
 	}
 
-	if len(input.Password) == 0 {
-		return input, httperrors.NewMissingParameterError("password")
+	if len(input.Password) == 0 { // 华为云RDS必须要有密码
+		resetPassword := true
+		input.ResetPassword = &resetPassword
 	}
 
 	if len(input.SecgroupIds) == 0 {
-		input.SecgroupIds = []string{"default"}
+		input.SecgroupIds = []string{api.SECGROUP_DEFAULT_ID}
 	}
 
 	return input, nil
