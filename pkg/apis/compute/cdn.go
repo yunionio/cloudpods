@@ -15,17 +15,23 @@
 package compute
 
 const (
-	CDN_AREA_MAINLAND      = "mainland"
-	CDN_AREA_OVERSEAS      = "overseas"
-	CDN_AREA_GLOBAL        = "global"
-	CDN_ORIGIN_TYPE_DOMAIN = "domain"
-	CDN_ORIGIN_TYPE_IP     = "ip"
-	CDN_ORIGIN_TYPE_BUCKET = "bucket"
+	CDN_DOMAIN_STATUS_ONLINE      = "online"
+	CDN_DOMAIN_STATUS_OFFLINE     = "offline"
+	CDN_DOMAIN_STATUS_PROCESSING  = "processing"
+	CDN_DOMAIN_STATUS_REJECTED    = "rejected"
+	CDN_DOMAIN_AREA_MAINLAND      = "mainland"
+	CDN_DOMAIN_AREA_OVERSEAS      = "overseas"
+	CDN_DOMAIN_AREA_GLOBAL        = "global"
+	CDN_DOMAIN_ORIGIN_TYPE_DOMAIN = "domain"
+	CDN_DOMAIN_ORIGIN_TYPE_IP     = "ip"
+	CDN_DOMAIN_ORIGIN_TYPE_BUCKET = "bucket"
 )
 
 type CdnDomain struct {
 	// cdn加速域名
 	Domain string
+	// 状态 rejected(域名未审核)|processing(部署中)|online|offline
+	Status string
 	// 区域 mainland|overseas|global
 	Area string
 	// cdn Cname
@@ -37,5 +43,5 @@ type CdnDomain struct {
 }
 
 type CdnDomains struct {
-	Domains []CdnDomain
+	Data []CdnDomain `json:"data"`
 }

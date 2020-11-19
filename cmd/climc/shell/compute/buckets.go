@@ -398,6 +398,7 @@ func init() {
 		AllowedHeaders []string
 		MaxAgeSeconds  int
 		ExposeHeaders  []string
+		RuleId         string
 	}
 	R(&BucketSetCorsOption{}, "bucket-set-cors", "Set bucket cors", func(s *mcclient.ClientSession, args *BucketSetCorsOption) error {
 
@@ -407,8 +408,9 @@ func init() {
 			AllowedHeaders: args.AllowedHeaders,
 			MaxAgeSeconds:  args.MaxAgeSeconds,
 			ExposeHeaders:  args.ExposeHeaders,
+			Id:             args.RuleId,
 		}
-		rules := api.BucketCORSRules{Rules: []api.BucketCORSRule{rule}}
+		rules := api.BucketCORSRules{Data: []api.BucketCORSRule{rule}}
 		result, err := modules.Buckets.PerformAction(s, args.ID, "set-cors", jsonutils.Marshal(rules))
 		if err != nil {
 			return err
@@ -430,10 +432,13 @@ func init() {
 	})
 
 	type BucketDeleteCorsOption struct {
-		ID string `help:"ID or name of bucket" json:"-"`
+		ID string   `help:"ID or name of bucket" json:"-"`
+		Id []string `"help:Id of rules to delete"`
 	}
-	R(&BucketGetWebsiteConfOption{}, "bucket-delete-cors", "Delete bucket cors", func(s *mcclient.ClientSession, args *BucketGetWebsiteConfOption) error {
-		result, err := modules.Buckets.PerformAction(s, args.ID, "delete-cors", nil)
+	R(&BucketDeleteCorsOption{}, "bucket-delete-cors", "Delete bucket cors", func(s *mcclient.ClientSession, args *BucketDeleteCorsOption) error {
+		input := api.BucketCORSRuleDeleteInput{}
+		input.Id = args.Id
+		result, err := modules.Buckets.PerformAction(s, args.ID, "delete-cors", jsonutils.Marshal(input))
 		if err != nil {
 			return err
 		}

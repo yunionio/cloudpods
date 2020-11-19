@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -642,9 +643,40 @@ func (b *SBucket) SetCORS(rules []cloudprovider.SBucketCORSRule) error {
 			AllowedHeaders: rules[i].AllowedHeaders,
 			MaxAgeSeconds:  rules[i].MaxAgeSeconds,
 			ExposeHeaders:  rules[i].ExposeHeaders,
+			ID:             rules[i].Id,
 		})
 	}
-	_, err = coscli.Bucket.PutCORS(context.Background(), &opts)
+
+	newSet := []cos.BucketCORSRule{}
+	updateSet := map[int]cos.BucketCORSRule{}
+
+	oldConf, _, err := coscli.Bucket.GetCORS(context.Background())
+	if err != nil {
+		if !strings.Contains(err.Error(), "NoSuchCORSConfiguration") {
+			return errors.Wrap(err, "b.region.GetCORS")
+		}
+	}
+
+	for i := range opts.Rules {
+		index, err := strconv.Atoi(opts.Rules[i].ID)
+		if err == nil && index < len(oldConf.Rules) {
+			updateSet[index] = opts.Rules[i]
+		} else {
+			newSet = append(newSet, opts.Rules[i])
+		}
+	}
+	updatedOpts := cos.BucketPutCORSOptions{}
+	for i := range oldConf.Rules {
+		if _, ok := updateSet[i]; !ok {
+			updatedOpts.Rules = append(updatedOpts.Rules, oldConf.Rules[i])
+		} else {
+			updatedOpts.Rules = append(updatedOpts.Rules, updateSet[i])
+		}
+	}
+
+	updatedOpts.Rules = append(updatedOpts.Rules, newSet...)
+
+	_, err = coscli.Bucket.PutCORS(context.Background(), &updatedOpts)
 	if err != nil {
 		return errors.Wrap(err, "coscli.Bucket.PutCORS")
 	}
@@ -657,6 +689,12 @@ func (b *SBucket) GetCORSRules() ([]cloudprovider.SBucketCORSRule, error) {
 		return nil, errors.Wrap(err, "b.region.GetCosClient")
 	}
 	conf, _, err := coscli.Bucket.GetCORS(context.Background())
+	if err != nil {
+		if strings.Contains(err.Error(), "NoSuchCORSConfiguration") {
+			return nil, nil
+		}
+		return nil, errors.Wrap(err, "b.region.GetCORS")
+	}
 	result := []cloudprovider.SBucketCORSRule{}
 	for i := range conf.Rules {
 		result = append(result, cloudprovider.SBucketCORSRule{
@@ -665,19 +703,55 @@ func (b *SBucket) GetCORSRules() ([]cloudprovider.SBucketCORSRule, error) {
 			AllowedHeaders: conf.Rules[i].AllowedHeaders,
 			MaxAgeSeconds:  conf.Rules[i].MaxAgeSeconds,
 			ExposeHeaders:  conf.Rules[i].ExposeHeaders,
+			Id:             strconv.Itoa(i),
 		})
 	}
 	return result, nil
 }
 
-func (b *SBucket) DeleteCORS() error {
+func (b *SBucket) DeleteCORS(id []string) error {
 	coscli, err := b.region.GetCosClient(b)
 	if err != nil {
 		return errors.Wrap(err, "b.region.GetCosClient")
 	}
-	_, err = coscli.Bucket.DeleteCORS(context.Background())
-	if err != nil {
-		return errors.Wrap(err, "coscli.Bucket.DeleteCORS")
+
+	existedRules := []cos.BucketCORSRule{}
+	if len(id) > 0 {
+		conf, _, err := coscli.Bucket.GetCORS(context.Background())
+		if err != nil {
+			if strings.Contains(err.Error(), "NoSuchCORSConfiguration") {
+				return nil
+			}
+			return errors.Wrap(err, "b.region.GetCORS")
+		}
+		existedRules = conf.Rules
+	}
+
+	excludeMap := map[int]bool{}
+	for i := range id {
+		index, err := strconv.Atoi(id[i])
+		if err == nil {
+			excludeMap[index] = true
+		}
+	}
+	newRules := []cos.BucketCORSRule{}
+	for i := range existedRules {
+		if _, ok := excludeMap[i]; !ok {
+			newRules = append(newRules, existedRules[i])
+		}
+	}
+	if len(newRules) < len(existedRules) {
+		if len(newRules) == 0 {
+			_, err = coscli.Bucket.DeleteCORS(context.Background())
+			if err != nil {
+				return errors.Wrap(err, "coscli.Bucket.DeleteCORS")
+			}
+			return nil
+		}
+		_, err = coscli.Bucket.PutCORS(context.Background(), &cos.BucketPutCORSOptions{Rules: newRules})
+		if err != nil {
+			return errors.Wrap(err, "coscli.Bucket.PutCORS")
+		}
 	}
 	return nil
 }
@@ -715,6 +789,9 @@ func (b *SBucket) GetReferer() (cloudprovider.SBucketRefererConf, error) {
 		return result, errors.Wrap(err, "b.region.GetCosClient")
 	}
 	referResult, _, err := coscli.Bucket.GetReferer(context.Background())
+	if err != nil {
+		return result, errors.Wrap(err, " coscli.Bucket.GetReferer")
+	}
 
 	result.Enabled = true
 	result.Type = "White-List"
@@ -736,11 +813,25 @@ func (b *SBucket) GetReferer() (cloudprovider.SBucketRefererConf, error) {
 func toAPICdnArea(area string) string {
 	switch area {
 	case "mainland":
-		return api.CDN_AREA_MAINLAND
+		return api.CDN_DOMAIN_AREA_MAINLAND
 	case "overseas":
-		return api.CDN_AREA_OVERSEAS
+		return api.CDN_DOMAIN_AREA_OVERSEAS
 	case "global":
-		return api.CDN_AREA_GLOBAL
+		return api.CDN_DOMAIN_AREA_GLOBAL
+	default:
+		return ""
+	}
+}
+func toAPICdnStatus(status string) string {
+	switch status {
+	case "online":
+		return api.CDN_DOMAIN_STATUS_ONLINE
+	case "offline":
+		return api.CDN_DOMAIN_STATUS_OFFLINE
+	case "processing":
+		return api.CDN_DOMAIN_STATUS_PROCESSING
+	case "rejected":
+		return api.CDN_DOMAIN_STATUS_REJECTED
 	default:
 		return ""
 	}
@@ -755,16 +846,15 @@ func (b *SBucket) GetCdnDomains() ([]cloudprovider.SCdnDomain, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, `b.region.client.DescribeAllCdnDomains(nil, []string{%s}, "cos")`, bucketHost)
 	}
-	if len(bucketCdnDomains) > 1 {
-		return nil, cloudprovider.ErrDuplicateId
-	}
-	if len(bucketCdnDomains) == 1 {
+
+	for i := range bucketCdnDomains {
 		result = append(result, cloudprovider.SCdnDomain{
-			Domain:     bucketCdnDomains[0].Domain,
-			Cname:      bucketCdnDomains[0].Cname,
-			Area:       toAPICdnArea(bucketCdnDomains[0].Area),
+			Domain:     bucketCdnDomains[i].Domain,
+			Status:     toAPICdnStatus(bucketCdnDomains[i].Status),
+			Cname:      bucketCdnDomains[i].Cname,
+			Area:       toAPICdnArea(bucketCdnDomains[i].Area),
 			Origin:     bucketHost,
-			OriginType: api.CDN_ORIGIN_TYPE_BUCKET,
+			OriginType: api.CDN_DOMAIN_ORIGIN_TYPE_BUCKET,
 		})
 	}
 
@@ -772,17 +862,15 @@ func (b *SBucket) GetCdnDomains() ([]cloudprovider.SCdnDomain, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, `b.region.client.DescribeAllCdnDomains(nil, []string{%s}, "cos")`, bucketWebsiteHost)
 	}
-	if len(bucketWebsiteCdnDomains) > 1 {
-		return nil, cloudprovider.ErrDuplicateId
-	}
 
-	if len(bucketWebsiteCdnDomains) == 1 {
+	for i := range bucketWebsiteCdnDomains {
 		result = append(result, cloudprovider.SCdnDomain{
-			Domain:     bucketWebsiteCdnDomains[0].Domain,
-			Cname:      bucketWebsiteCdnDomains[0].Cname,
-			Area:       toAPICdnArea(bucketWebsiteCdnDomains[0].Area),
+			Domain:     bucketWebsiteCdnDomains[i].Domain,
+			Status:     toAPICdnStatus(bucketCdnDomains[i].Status),
+			Cname:      bucketWebsiteCdnDomains[i].Cname,
+			Area:       toAPICdnArea(bucketWebsiteCdnDomains[i].Area),
 			Origin:     bucketWebsiteHost,
-			OriginType: api.CDN_ORIGIN_TYPE_BUCKET,
+			OriginType: api.CDN_DOMAIN_ORIGIN_TYPE_BUCKET,
 		})
 	}
 	return result, nil
