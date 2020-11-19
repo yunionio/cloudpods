@@ -1396,7 +1396,7 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 	imageId := input.GetImageName()
 
 	if len(imageId) > 0 {
-		img, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, false)
+		img, err := CachedimageManager.getImageInfo(ctx, userCred, "", imageId, false)
 		if err != nil {
 			return nil, httperrors.NewNotFoundError("failed to find %s", imageId)
 		}

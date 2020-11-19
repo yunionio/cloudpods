@@ -227,7 +227,7 @@ func (manager *SDiskManager) ListItemFilter(
 	}
 
 	if len(query.ImageId) > 0 {
-		img, err := CachedimageManager.getImageInfo(ctx, userCred, query.ImageId, false)
+		img, err := CachedimageManager.getImageInfo(ctx, userCred, "", query.ImageId, false)
 		if err != nil {
 			return nil, errors.Wrap(err, "CachedimageManager.getImageInfo")
 		}
@@ -1705,7 +1705,7 @@ func fillDiskConfigByImage(ctx context.Context, userCred mcclient.TokenCredentia
 	if userCred == nil {
 		diskConfig.ImageId = imageId
 	} else {
-		image, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, false)
+		image, err := CachedimageManager.getImageInfo(ctx, userCred, "", imageId, false)
 		if err != nil {
 			log.Errorf("getImageInfo %s fail %s", imageId, err)
 			return err
@@ -1729,7 +1729,7 @@ func fillDiskConfigByImage(ctx context.Context, userCred mcclient.TokenCredentia
 }
 
 func parseIsoInfo(ctx context.Context, userCred mcclient.TokenCredential, imageId string) (*cloudprovider.SImage, error) {
-	image, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, false)
+	image, err := CachedimageManager.getImageInfo(ctx, userCred, "", imageId, false)
 	if err != nil {
 		log.Errorf("getImageInfo fail %s", err)
 		return nil, err

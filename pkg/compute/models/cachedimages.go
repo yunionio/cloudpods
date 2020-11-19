@@ -308,8 +308,33 @@ func (manager *SCachedimageManager) GetImageById(ctx context.Context, userCred m
 	return cachedImage.GetImage()
 }
 
-func (manager *SCachedimageManager) getImageByName(ctx context.Context, userCred mcclient.TokenCredential, imageId string, refresh bool) (*cloudprovider.SImage, error) {
-	imgObj, _ := manager.FetchByName(userCred, imageId)
+func (manager *SCachedimageManager) getImageByName(ctx context.Context, userCred mcclient.TokenCredential, cloudregionId string, imageId string, refresh bool) (*cloudprovider.SImage, error) {
+	imgObj, err := manager.FetchByName(userCred, imageId)
+	if errors.Cause(err) == sqlchemy.ErrDuplicateEntry && len(cloudregionId) == 0 {
+		// add region filter
+		q := manager.Query().Equals("name", imageId)
+		listInput := api.CachedimageListInput{}
+		listInput.CloudregionId = cloudregionId
+		q, err := manager.ListItemFilter(ctx, q, userCred, listInput)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to ListItemFilter")
+		}
+		n, err := q.CountWithError()
+		if err != nil {
+			return nil, errors.Wrap(err, "q.CountWithError")
+		}
+		if n == 0 {
+			return nil, errors.ErrNotFound
+		}
+		if n > 1 {
+			return nil, errors.Error("Duplicate name under one cloudregion")
+		}
+		imgObj = &SCachedimage{}
+		err = q.First(imgObj)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to parse first image")
+		}
+	}
 	if imgObj != nil {
 		cachedImage := imgObj.(*SCachedimage)
 		if !refresh && cachedImage.GetStatus() == cloudprovider.IMAGE_STATUS_ACTIVE && len(cachedImage.GetOSType()) > 0 && !cachedImage.isRefreshSessionExpire() {
@@ -330,13 +355,13 @@ func (manager *SCachedimageManager) getImageByName(ctx context.Context, userCred
 	return cachedImage.GetImage()
 }
 
-func (manager *SCachedimageManager) getImageInfo(ctx context.Context, userCred mcclient.TokenCredential, imageId string, refresh bool) (*cloudprovider.SImage, error) {
+func (manager *SCachedimageManager) getImageInfo(ctx context.Context, userCred mcclient.TokenCredential, cloudregionId string, imageId string, refresh bool) (*cloudprovider.SImage, error) {
 	img, err := manager.GetImageById(ctx, userCred, imageId, refresh)
 	if err == nil {
 		return img, nil
 	}
 	log.Errorf("getImageInfoById %s fail %s", imageId, err)
-	return manager.getImageByName(ctx, userCred, imageId, refresh)
+	return manager.getImageByName(ctx, userCred, cloudregionId, imageId, refresh)
 }
 
 func (self *SCachedimage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.CachedimageDetails, error) {

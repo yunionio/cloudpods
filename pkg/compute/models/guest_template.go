@@ -199,7 +199,7 @@ func (gtm *SGuestTemplateManager) validateContent(ctx context.Context, userCred 
 	}
 	// check Image
 	imageId := input.Disks[0].ImageId
-	image, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, true)
+	image, err := CachedimageManager.getImageInfo(ctx, userCred, "", imageId, true)
 	if err != nil {
 		return nil, errors.Wrapf(err, "getImageInfo of '%s'", imageId)
 	}
@@ -461,7 +461,7 @@ func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.
 	// fill image info
 	switch gt.ImageType {
 	case IMAGE_TYPE_NORMAL:
-		image, err := CachedimageManager.getImageInfo(ctx, userCred, gt.ImageId, false)
+		image, err := CachedimageManager.getImageInfo(ctx, userCred, "", gt.ImageId, false)
 		if err == nil {
 			configInfo.Image = image.Name
 		} else {

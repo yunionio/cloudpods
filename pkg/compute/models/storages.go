@@ -1455,7 +1455,7 @@ func (manager *SStorageManager) ListItemFilter(
 	}
 
 	if len(query.ImageId) > 0 {
-		image, err := CachedimageManager.getImageInfo(ctx, userCred, query.ImageId, false)
+		image, err := CachedimageManager.getImageInfo(ctx, userCred, "", query.ImageId, false)
 		if err != nil {
 			return nil, errors.Wrap(err, "CachedimageManager.getImageInfo")
 		}
