@@ -1800,6 +1800,85 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 	return nil
 }
 
+func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstanceFromBackup(ctx context.Context, userCred mcclient.TokenCredential, rds *models.SDBInstance, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		_backup, err := models.DBInstanceBackupManager.FetchById(rds.DBInstancebackupId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "DBInstanceBackupManager.FetchById(%s)", rds.DBInstancebackupId)
+		}
+		backup := _backup.(*models.SDBInstanceBackup)
+		iBackup, err := backup.GetIDBInstanceBackup()
+		if err != nil {
+			return nil, errors.Wrapf(err, "backup.GetIDBInstanceBackup")
+		}
+		vpc, err := rds.GetVpc()
+		if err != nil {
+			return nil, errors.Wrap(err, "rds.GetVpc()")
+		}
+		desc := cloudprovider.SManagedDBInstanceCreateConfig{
+			Name:          rds.Name,
+			Description:   rds.Description,
+			StorageType:   rds.StorageType,
+			DiskSizeGB:    rds.DiskSizeGB,
+			VcpuCount:     rds.VcpuCount,
+			VmemSizeMb:    rds.VmemSizeMb,
+			VpcId:         vpc.ExternalId,
+			Engine:        rds.Engine,
+			EngineVersion: rds.EngineVersion,
+			Category:      rds.Category,
+			Port:          rds.Port,
+		}
+		if len(backup.DBInstanceId) > 0 {
+			parentRds, err := backup.GetDBInstance()
+			if err != nil {
+				return nil, errors.Wrapf(err, "backup.GetDBInstance")
+			}
+			desc.RdsId = parentRds.ExternalId
+		}
+
+		log.Debugf("create from backup params: %s", jsonutils.Marshal(desc).String())
+
+		networks, err := rds.GetDBNetworks()
+		if err != nil {
+			return nil, errors.Wrapf(err, "dbinstance.GetDBNetworks")
+		}
+
+		if len(networks) > 0 {
+			net, err := networks[0].GetNetwork()
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetNetwork")
+			}
+			desc.NetworkId, desc.Address = net.ExternalId, networks[0].IpAddr
+		}
+		if rds.BillingType == billing_api.BILLING_TYPE_PREPAID {
+			bc, err := billing.ParseBillingCycle(rds.BillingCycle)
+			if err != nil {
+				log.Errorf("failed to parse billing cycle %s: %v", rds.BillingCycle, err)
+			} else if bc.IsValid() {
+				desc.BillingCycle = &bc
+				desc.BillingCycle.AutoRenew = rds.AutoRenew
+			}
+		}
+
+		iRds, err := iBackup.CreateICloudDBInstance(&desc)
+		if err != nil {
+			return nil, errors.Wrapf(err, "iBackup.CreateICloudDBInstance")
+		}
+
+		err = db.SetExternalId(rds, userCred, iRds.GetGlobalId())
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.SetExternalId")
+		}
+
+		err = cloudprovider.WaitStatus(iRds, api.DBINSTANCE_RUNNING, time.Second*5, time.Hour*1)
+		if err != nil {
+			return nil, errors.Wrapf(err, "cloudprovider.WaitStatus runing")
+		}
+		return nil, nil
+	})
+	return nil
+}
+
 func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *models.SElasticcache, task taskman.ITask, data *jsonutils.JSONDict) error {
 	task.ScheduleRun(nil)
 	return nil
@@ -2432,14 +2511,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstanceBackup(ct
 			return nil, errors.Wrapf(err, "backup.GetIDBInstanceBackup")
 		}
 
-		_, err = db.Update(backup, func() error {
-			backup.StartTime = iBackup.GetStartTime()
-			backup.EndTime = iBackup.GetEndTime()
-			backup.BackupSizeMb = iBackup.GetBackupSizeMb()
-			return nil
-		})
+		err = backup.SyncWithCloudDBInstanceBackup(ctx, userCred, iBackup, instance.GetCloudprovider())
 		if err != nil {
-			return nil, errors.Wrap(err, "db.Update")
+			log.Warningf("sync backup info error: %v", err)
 		}
 
 		instance.SetStatus(userCred, api.DBINSTANCE_RUNNING, "")

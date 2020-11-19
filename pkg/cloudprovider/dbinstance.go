@@ -16,6 +16,14 @@ package cloudprovider
 
 import "yunion.io/x/onecloud/pkg/util/billing"
 
+type TBackupMethod string
+
+const (
+	BackupMethodLogical  = TBackupMethod("Logical")
+	BackupMethodPhysical = TBackupMethod("Physical")
+	BackupMethodUnknown  = TBackupMethod("")
+)
+
 type SDBInstanceNetwork struct {
 	IP        string
 	NetworkId string
@@ -61,6 +69,9 @@ type SManagedDBInstanceCreateConfig struct {
 
 	BillingCycle *billing.SBillingCycle
 	Tags         map[string]string
+
+	// 仅从备份恢复到新实例用到
+	RdsId string
 }
 
 type SManagedDBInstanceChangeConfig struct {

@@ -823,6 +823,10 @@ func syncDBInstanceResource(ctx context.Context, userCred mcclient.TokenCredenti
 	if err != nil {
 		log.Errorf("syncDBInstanceAccounts: %v", err)
 	}
+	err = syncDBInstanceBackups(ctx, userCred, syncResults, localInstance, remoteInstance)
+	if err != nil {
+		log.Errorf("syncDBInstanceBackups: %v", err)
+	}
 }
 
 func syncDBInstanceNetwork(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localInstance *SDBInstance, remoteInstance cloudprovider.ICloudDBInstance) error {
@@ -852,6 +856,26 @@ func syncDBInstanceSecgroups(ctx context.Context, userCred mcclient.TokenCredent
 
 	msg := result.Result()
 	log.Infof("SyncDBInstanceSecgroups for dbinstance %s result: %s", localInstance.Name, msg)
+	if result.IsError() {
+		return result.AllError()
+	}
+	return nil
+}
+
+func syncDBInstanceBackups(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localInstance *SDBInstance, remoteInstance cloudprovider.ICloudDBInstance) error {
+	backups, err := remoteInstance.GetIDBInstanceBackups()
+	if err != nil {
+		return errors.Wrapf(err, "GetIDBInstanceBackups")
+	}
+
+	region := localInstance.GetRegion()
+	provider := localInstance.GetCloudprovider()
+
+	result := DBInstanceBackupManager.SyncDBInstanceBackups(ctx, userCred, provider, localInstance, region, backups)
+	syncResults.Add(DBInstanceBackupManager, result)
+
+	msg := result.Result()
+	log.Infof("SyncDBInstanceBackups for dbinstance %s result: %s", localInstance.Name, msg)
 	if result.IsError() {
 		return result.AllError()
 	}
