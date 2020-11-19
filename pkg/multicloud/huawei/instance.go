@@ -470,7 +470,7 @@ func (self *SInstance) StartVM(ctx context.Context) error {
 	return cloudprovider.ErrTimeout
 }
 
-func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
+func (self *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerStopOptions) error {
 	if self.Status == InstanceStatusStopped {
 		return nil
 	}
@@ -480,7 +480,7 @@ func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
 		return nil
 	}
 
-	err := self.host.zone.region.StopVM(self.GetId(), isForce)
+	err := self.host.zone.region.StopVM(self.GetId(), opts.IsForce)
 	if err != nil {
 		return err
 	}

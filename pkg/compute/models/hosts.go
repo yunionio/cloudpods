@@ -3594,7 +3594,9 @@ func (self *SHost) PerformStop(ctx context.Context, userCred mcclient.TokenCrede
 				return nil, self.InitializedGuestStop(ctx, userCred, guest)
 			}
 			self.SetStatus(userCred, api.BAREMETAL_START_MAINTAIN, "")
-			return guest.PerformStop(ctx, userCred, query, data)
+			input := api.ServerStopInput{}
+			data.Unmarshal(&input)
+			return guest.PerformStop(ctx, userCred, query, input)
 		}
 	}
 	return nil, self.StartBaremetalUnmaintenanceTask(ctx, userCred, false, "stop")

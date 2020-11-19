@@ -116,11 +116,12 @@ func init() {
 	})
 
 	type InstanceStopOptions struct {
-		ID    string `help:"instance ID"`
-		Force bool   `help:"Force stop instance"`
+		ID           string `help:"instance ID"`
+		Force        bool   `help:"Force stop instance"`
+		StopCharging bool   `help:"Stop Charging"`
 	}
 	shellutils.R(&InstanceStopOptions{}, "instance-stop", "Stop a instance", func(cli *aliyun.SRegion, args *InstanceStopOptions) error {
-		err := cli.StopVM(args.ID, args.Force)
+		err := cli.StopVM(args.ID, args.Force, args.StopCharging)
 		if err != nil {
 			return err
 		}

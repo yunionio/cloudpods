@@ -706,13 +706,16 @@ func (self *SManagedVirtualizedGuestDriver) RequestStopOnHost(ctx context.Contex
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		ihost, err := host.GetIHost()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "host.GetIHost")
 		}
 		ivm, err := ihost.GetIVMById(guest.ExternalId)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "ihost.GetIVMById")
 		}
-		err = ivm.StopVM(ctx, true)
+		opts := &cloudprovider.ServerStopOptions{}
+		task.GetParams().Unmarshal(&opts)
+
+		err = ivm.StopVM(ctx, opts)
 		return nil, err
 	})
 	return nil

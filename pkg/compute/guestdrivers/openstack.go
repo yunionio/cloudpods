@@ -268,7 +268,10 @@ func (self *SOpenStackGuestDriver) RemoteDeployGuestForRebuildRoot(ctx context.C
 		log.Debugf("VMrebuildRoot %s new instance, wait status %s ...", iVM.GetGlobalId(), initialState)
 		cloudprovider.WaitStatus(iVM, initialState, time.Second*5, time.Second*1800)
 
-		iVM.StopVM(ctx, true)
+		opts := &cloudprovider.ServerStopOptions{
+			IsForce: true,
+		}
+		iVM.StopVM(ctx, opts)
 
 		iDisks, err = iVM.GetIDisks()
 		if err != nil {

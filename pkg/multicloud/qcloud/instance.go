@@ -417,8 +417,8 @@ func (self *SInstance) StartVM(ctx context.Context) error {
 	return cloudprovider.ErrTimeout
 }
 
-func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
-	err := self.host.zone.region.StopVM(self.InstanceId, isForce)
+func (self *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerStopOptions) error {
+	err := self.host.zone.region.StopVM(self.InstanceId, opts)
 	if err != nil {
 		return err
 	}
@@ -467,7 +467,10 @@ func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SMan
 	if err != nil {
 		return "", err
 	}
-	self.StopVM(ctx, true)
+	opts := &cloudprovider.ServerStopOptions{
+		IsForce: true,
+	}
+	self.StopVM(ctx, opts)
 	instance, err := self.host.zone.region.GetInstance(self.InstanceId)
 	if err != nil {
 		return "", err
@@ -638,14 +641,17 @@ func (self *SRegion) doStartVM(instanceId string) error {
 	return self.instanceOperation(instanceId, "StartInstances", nil, true)
 }
 
-func (self *SRegion) doStopVM(instanceId string, isForce bool) error {
+func (self *SRegion) doStopVM(instanceId string, opts *cloudprovider.ServerStopOptions) error {
 	params := make(map[string]string)
-	if isForce {
+	if opts.IsForce {
 		// params["ForceStop"] = "FALSE"
 		params["StopType"] = "HARD"
 	} else {
 		// params["ForceStop"] = "FALSE"
 		params["StopType"] = "SOFT"
+	}
+	if opts.StopCharging {
+		params["StoppedMode"] = "STOP_CHARGING"
 	}
 	return self.instanceOperation(instanceId, "StopInstances", params, true)
 }
@@ -672,7 +678,7 @@ func (self *SRegion) StartVM(instanceId string) error {
 	return self.doStartVM(instanceId)
 }
 
-func (self *SRegion) StopVM(instanceId string, isForce bool) error {
+func (self *SRegion) StopVM(instanceId string, opts *cloudprovider.ServerStopOptions) error {
 	status, err := self.GetInstanceStatus(instanceId)
 	if err != nil {
 		log.Errorf("Fail to get instance status on StopVM: %s", err)
@@ -681,7 +687,7 @@ func (self *SRegion) StopVM(instanceId string, isForce bool) error {
 	if status == InstanceStatusStopped {
 		return nil
 	}
-	return self.doStopVM(instanceId, isForce)
+	return self.doStopVM(instanceId, opts)
 }
 
 func (self *SRegion) DeleteVM(instanceId string) error {

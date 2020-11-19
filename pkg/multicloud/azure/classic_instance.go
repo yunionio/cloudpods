@@ -448,8 +448,8 @@ func (self *SClassicInstance) StartVM(ctx context.Context) error {
 	return cloudprovider.WaitStatus(self, api.VM_RUNNING, 10*time.Second, 300*time.Second)
 }
 
-func (self *SClassicInstance) StopVM(ctx context.Context, isForce bool) error {
-	err := self.host.zone.region.StopClassicVM(self.ID, isForce)
+func (self *SClassicInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerStopOptions) error {
+	err := self.host.zone.region.StopClassicVM(self.ID, opts.IsForce)
 	if err != nil {
 		return err
 	}

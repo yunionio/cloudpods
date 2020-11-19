@@ -430,7 +430,7 @@ func (instance *SInstance) StartVM(ctx context.Context) error {
 	return instance.host.zone.region.StartInstance(instance.SelfLink)
 }
 
-func (instance *SInstance) StopVM(ctx context.Context, isForce bool) error {
+func (instance *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerStopOptions) error {
 	return instance.host.zone.region.StopInstance(instance.SelfLink)
 }
 

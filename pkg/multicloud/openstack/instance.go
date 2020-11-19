@@ -406,8 +406,8 @@ func (instance *SInstance) StartVM(ctx context.Context) error {
 	return cloudprovider.WaitStatus(instance, api.VM_RUNNING, 10*time.Second, 8*time.Minute)
 }
 
-func (instance *SInstance) StopVM(ctx context.Context, isForce bool) error {
-	err := instance.host.zone.region.StopVM(instance.Id, isForce)
+func (instance *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerStopOptions) error {
+	err := instance.host.zone.region.StopVM(instance.Id, opts.IsForce)
 	if err != nil {
 		return errors.Wrapf(err, "StopVM(%s)", instance.Id)
 	}

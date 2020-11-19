@@ -902,14 +902,13 @@ func (self *SGuest) NotifyAdminServerEvent(ctx context.Context, event string, pr
 	notifyclient.SystemNotifyWithCtx(ctx, priority, event, kwargs)
 }
 
-func (self *SGuest) StartGuestStopTask(ctx context.Context, userCred mcclient.TokenCredential, isForce bool, parentTaskId string) error {
+func (self *SGuest) StartGuestStopTask(ctx context.Context, userCred mcclient.TokenCredential, isForce, stopCharging bool, parentTaskId string) error {
 	if len(parentTaskId) == 0 {
 		self.SetStatus(userCred, api.VM_START_STOP, "")
 	}
 	params := jsonutils.NewDict()
-	if isForce {
-		params.Add(jsonutils.JSONTrue, "is_force")
-	}
+	params.Add(jsonutils.NewBool(isForce), "is_force")
+	params.Add(jsonutils.NewBool(stopCharging), "stop_charging")
 	if len(parentTaskId) > 0 {
 		params.Add(jsonutils.JSONTrue, "subtask")
 	}
@@ -2786,14 +2785,12 @@ func (self *SGuest) AllowPerformStop(ctx context.Context,
 }
 
 func (self *SGuest) PerformStop(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
-	data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	input api.ServerStopInput) (jsonutils.JSONObject, error) {
 	// XXX if is force, force stop guest
-	var isForce = jsonutils.QueryBoolean(data, "is_force", false)
-	if isForce || utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_STOP_FAILED}) {
-		return nil, self.StartGuestStopTask(ctx, userCred, isForce, "")
-	} else {
-		return nil, httperrors.NewInvalidStatusError("Cannot stop server in status %s", self.Status)
+	if input.IsForce || utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_STOP_FAILED}) {
+		return nil, self.StartGuestStopTask(ctx, userCred, input.IsForce, input.StopCharging, "")
 	}
+	return nil, httperrors.NewInvalidStatusError("Cannot stop server in status %s", self.Status)
 }
 
 func (self *SGuest) AllowPerformRestart(ctx context.Context,

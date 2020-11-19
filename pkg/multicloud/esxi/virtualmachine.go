@@ -456,11 +456,11 @@ func makeNicStartConnected(nic *SVirtualNIC) *types.VirtualDeviceConfigSpec {
 	return &editSpec
 }
 
-func (self *SVirtualMachine) StopVM(ctx context.Context, isForce bool) error {
+func (self *SVirtualMachine) StopVM(ctx context.Context, opts *cloudprovider.ServerStopOptions) error {
 	if self.GetStatus() == api.VM_READY {
 		return nil
 	}
-	if !isForce && self.isToolsOk() {
+	if !opts.IsForce && self.isToolsOk() {
 		return self.shutdownVM(ctx)
 	} else {
 		return self.poweroffVM(ctx)

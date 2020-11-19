@@ -552,8 +552,9 @@ func (opts *ServerCreateOptions) Params() (*computeapi.ServerCreateInput, error)
 }
 
 type ServerStopOptions struct {
-	ID    []string `help:"ID or Name of server" json:"-"`
-	Force *bool    `help:"Stop server forcefully" json:"is_force"`
+	ID           []string `help:"ID or Name of server" json:"-"`
+	Force        *bool    `help:"Stop server forcefully" json:"is_force"`
+	StopCharging *bool    `help:"Stop charging when server stop"`
 }
 
 func (o *ServerStopOptions) GetIds() []string {
