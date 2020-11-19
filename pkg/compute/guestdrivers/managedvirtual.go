@@ -649,8 +649,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx conte
 			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return nil, nil
 			}
-			log.Errorf("host.GetIHost fail %s", err)
-			return nil, err
+			return nil, errors.Wrapf(err, "host.GetIHost")
 		}
 
 		// 创建失败时external id为空。此时直接返回即可。不需要再调用公有云api
@@ -663,14 +662,11 @@ func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx conte
 			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return nil, nil
 			}
-
-			log.Errorf("ihost.GetIVMById fail %s", err)
-			return nil, err
+			return nil, errors.Wrapf(err, "ihost.GetIVMById(%s)", guest.ExternalId)
 		}
 		err = ivm.DeleteVM(ctx)
 		if err != nil {
-			log.Errorf("ivm.DeleteVM fail %s", err)
-			return nil, err
+			return nil, errors.Wrapf(err, "ivm.DeleteVM")
 		}
 
 		for _, guestdisk := range guest.GetDisks() {
@@ -682,16 +678,14 @@ func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx conte
 					if errors.Cause(err) == cloudprovider.ErrNotFound {
 						continue
 					}
-					log.Errorf("disk.GetIDisk fail %s", err)
-					return nil, err
+					return nil, errors.Wrapf(err, "disk.GetIDisk")
 				}
 				if idisk.GetStatus() == api.DISK_DEALLOC {
 					continue
 				}
 				err = idisk.Delete(ctx)
 				if err != nil {
-					log.Errorf("idisk.Delete fail %s", err)
-					return nil, err
+					return nil, errors.Wrapf(err, "idisk.Delete")
 				}
 			}
 		}
