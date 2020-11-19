@@ -816,6 +816,9 @@ type ICloudDBInstanceBackup interface {
 	GetBackupSizeMb() int
 	GetDBNames() string
 	GetBackupMode() string
+	GetBackupMethod() TBackupMethod
+
+	CreateICloudDBInstance(opts *SManagedDBInstanceCreateConfig) (ICloudDBInstance, error)
 
 	Delete() error
 }

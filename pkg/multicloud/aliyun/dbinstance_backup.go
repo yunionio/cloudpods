@@ -19,8 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/coredns/coredns/plugin/pkg/log"
-
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
@@ -324,4 +323,34 @@ func (region *SRegion) waitBackupCreateComplete(instanceId, jobId string) (strin
 		}
 	}
 	return "", fmt.Errorf("failed to found backup job %s backupid", jobId)
+}
+
+func (self *SDBInstanceBackup) GetBackupMethod() cloudprovider.TBackupMethod {
+	return cloudprovider.TBackupMethod(self.BackupMethod)
+}
+
+func (self *SDBInstanceBackup) CreateICloudDBInstance(opts *cloudprovider.SManagedDBInstanceCreateConfig) (cloudprovider.ICloudDBInstance, error) {
+	rdsId, err := self.region.CreateDBInstanceByBackup(self.BackupId, opts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateDBInstanceByBackup")
+	}
+	return self.region.GetDBInstanceDetail(rdsId)
+}
+
+func (self *SRegion) CreateDBInstanceByBackup(backupId string, opts *cloudprovider.SManagedDBInstanceCreateConfig) (string, error) {
+	params := map[string]string{
+		"DBInstanceId":          opts.RdsId,
+		"DBInstanceStorageType": opts.StorageType,
+		"PayType":               "Postpaid",
+		"BackupId":              backupId,
+	}
+	resp, err := self.rdsRequest("CloneDBInstance", params)
+	if err != nil {
+		return "", errors.Wrapf(err, "rdsRequest")
+	}
+	rdsId, err := resp.GetString("DBInstanceId")
+	if err != nil {
+		return "", fmt.Errorf("missing DBInstanceId after CloneDBInstance")
+	}
+	return rdsId, nil
 }

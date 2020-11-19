@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type OperationError struct {
@@ -32,6 +33,7 @@ type OperationError struct {
 }
 
 type SDBInstanceBackup struct {
+	multicloud.SDBInstanceBackupBase
 	rds *SDBInstance
 
 	Kind            string
