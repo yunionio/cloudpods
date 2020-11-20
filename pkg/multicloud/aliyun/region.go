@@ -91,9 +91,23 @@ func (self *SRegion) getOSSInternalDomain() string {
 	return getOSSInternalDomain(self.RegionId)
 }
 
+func (self *SRegion) getRegionId() string {
+	if self.client.cloudEnv == ALIYUN_FINANCE_CLOUDENV {
+		switch self.RegionId {
+		case "cn-hangzhou":
+			return "cn-hzfinance"
+		case "cn-shanghai-finance-1":
+			return "cn-shanghai-finance-1-pub"
+		case "cn-shenzhen-finance-1":
+			return "cn-szfinance"
+		}
+	}
+	return self.RegionId
+}
+
 func (self *SRegion) GetOssClient() (*oss.Client, error) {
 	if self.ossClient == nil {
-		cli, err := self.client.getOssClient(self.RegionId)
+		cli, err := self.client.getOssClient(self.getRegionId())
 		if err != nil {
 			return nil, errors.Wrap(err, "self.client.getOssClient")
 		}
@@ -990,9 +1004,7 @@ func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
 	}
 	ret := make([]cloudprovider.ICloudBucket, 0)
 	for i := range iBuckets {
-		loc := iBuckets[i].GetLocation()
-		// remove oss- prefix
-		if loc[4:] != region.GetId() {
+		if iBuckets[i].GetIRegion().GetId() != region.GetId() {
 			continue
 		}
 		ret = append(ret, iBuckets[i])
