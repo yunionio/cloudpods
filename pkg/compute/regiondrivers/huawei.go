@@ -2340,7 +2340,7 @@ func validatorSlaveZones(ownerId mcclient.IIdentityProvider, data *jsonutils.JSO
 
 		skuModel := _skuModel.(*models.SElasticcacheSku)
 		for _, zoneId := range zones {
-			if err := ValidateElasticcacheSku(zoneId, chargeType, skuModel); err != nil {
+			if err := ValidateElasticcacheSku(zoneId, chargeType, skuModel, nil); err != nil {
 				return err
 			}
 		}
@@ -2350,9 +2350,15 @@ func validatorSlaveZones(ownerId mcclient.IIdentityProvider, data *jsonutils.JSO
 	return nil
 }
 
-func ValidateElasticcacheSku(zoneId string, chargeType string, sku *models.SElasticcacheSku) error {
+func ValidateElasticcacheSku(zoneId string, chargeType string, sku *models.SElasticcacheSku, network *models.SNetwork) error {
 	if sku.ZoneId != zoneId {
 		return httperrors.NewResourceNotFoundError("zone mismatch, elastic cache sku zone %s != %s", sku.ZoneId, zoneId)
+	}
+
+	if network != nil {
+		if zone := network.GetZone(); zone != nil && zone.Id != sku.ZoneId {
+			return httperrors.NewResourceNotFoundError("elastic cache sku zone (%s) and subnet zone (%s) mismatch", sku.ZoneId, zone.Id)
+		}
 	}
 
 	if chargeType == billing_api.BILLING_TYPE_PREPAID {
@@ -2409,8 +2415,8 @@ func (self *SHuaWeiRegionDriver) ValidateCreateElasticcacheData(ctx context.Cont
 	sku := instanceTypeV.Model.(*models.SElasticcacheSku)
 	zoneId, _ := data.GetString("zone_id")
 	billingType, _ := data.GetString("billing_type")
-
-	if err := ValidateElasticcacheSku(zoneId, billingType, sku); err != nil {
+	network := networkV.Model.(*models.SNetwork)
+	if err := ValidateElasticcacheSku(zoneId, billingType, sku, network); err != nil {
 		return nil, err
 	} else {
 		data.Set("instance_type", jsonutils.NewString(sku.InstanceSpec))
@@ -2462,7 +2468,6 @@ func (self *SHuaWeiRegionDriver) ValidateCreateElasticcacheData(ctx context.Cont
 		data.Set("billing_cycle", jsonutils.NewString(cycle.String()))
 	}
 
-	network := networkV.Model.(*models.SNetwork)
 	vpc := network.GetVpc()
 	if vpc == nil {
 		return nil, httperrors.NewNotFoundError("network %s related vpc not found", network.GetId())

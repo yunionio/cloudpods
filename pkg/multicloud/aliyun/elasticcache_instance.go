@@ -882,7 +882,8 @@ func (self *SElasticcache) GetSecurityGroupIds() ([]string, error) {
 func (self *SElasticcache) GetICloudElasticcacheAccount(accountId string) (cloudprovider.ICloudElasticcacheAccount, error) {
 	segs := strings.Split(accountId, "/")
 	if len(segs) < 2 {
-		return nil, errors.Wrap(fmt.Errorf("%s", accountId), "elasticcache.GetICloudElasticcacheAccount invalid account id ")
+		log.Debugf("elasticcache.GetICloudElasticcacheAccount invalid account id %s", accountId)
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "invalid account id")
 	}
 
 	return self.GetICloudElasticcacheAccountByName(segs[1])
