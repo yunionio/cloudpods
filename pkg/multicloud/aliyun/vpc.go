@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -289,4 +290,36 @@ func (self *SVpc) GetINatGateways() ([]cloudprovider.ICloudNatGateway, error) {
 		inats = append(inats, &nats[i])
 	}
 	return inats, nil
+}
+
+func (self *SVpc) GetAuthorityOwnerId() string {
+	return self.region.client.ownerId
+}
+
+func (self *SRegion) GrantInstanceToCen(opts *cloudprovider.SVpcJointInterVpcNetworkOption, instance SCenAttachInstanceInput) error {
+	params := make(map[string]string)
+	params["CenId"] = opts.InterVpcNetworkId
+	params["CenOwnerId"] = opts.NetworkAuthorityOwnerId
+
+	params["InstanceId"] = instance.InstanceId
+	params["InstanceType"] = instance.InstanceType
+	params["RegionId"] = instance.InstanceRegion
+	_, err := self.vpcRequest("GrantInstanceToCen", params)
+	if err != nil {
+		return errors.Wrapf(err, `self.vpcRequest("GrantInstanceToCen", %s)`, jsonutils.Marshal(params).String())
+	}
+	return nil
+}
+
+func (self *SVpc) ProposeJoinICloudInterVpcNetwork(opts *cloudprovider.SVpcJointInterVpcNetworkOption) error {
+	instance := SCenAttachInstanceInput{
+		InstanceType:   "VPC",
+		InstanceId:     self.GetId(),
+		InstanceRegion: self.region.GetId(),
+	}
+	err := self.region.GrantInstanceToCen(opts, instance)
+	if err != nil {
+		return errors.Wrapf(err, "self.region.GrantInstanceToCen(%s,%s)", self.GetId(), jsonutils.Marshal(opts).String())
+	}
+	return nil
 }

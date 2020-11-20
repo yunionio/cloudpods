@@ -61,7 +61,7 @@ func (route *SRouteEntry) GetGlobalId() string {
 }
 
 func (route *SRouteEntry) GetStatus() string {
-	return ""
+	return api.ROUTE_ENTRY_STATUS_AVAILIABLE
 }
 
 func (route *SRouteEntry) Refresh() error {
@@ -136,7 +136,7 @@ func (self *SRouteTable) GetGlobalId() string {
 }
 
 func (self *SRouteTable) GetStatus() string {
-	return ""
+	return api.ROUTE_TABLE_AVAILABLE
 }
 
 func (self *SRouteTable) Refresh() error {

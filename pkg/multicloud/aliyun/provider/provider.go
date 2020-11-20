@@ -372,3 +372,40 @@ func (self *SAliyunProvider) CreateICloudDnsZone(opts *cloudprovider.SDnsZoneCre
 		return self.client.CreatePublicICloudDnsZone(opts)
 	}
 }
+
+func (self *SAliyunProvider) GetICloudInterVpcNetworks() ([]cloudprovider.ICloudInterVpcNetwork, error) {
+	scens, err := self.client.GetAllCens()
+	if err != nil {
+		return nil, errors.Wrap(err, "self.client.GetAllCens()")
+	}
+
+	iVpcNetworks := []cloudprovider.ICloudInterVpcNetwork{}
+	for i := range scens {
+		iVpcNetworks = append(iVpcNetworks, &scens[i])
+	}
+	return iVpcNetworks, nil
+
+}
+func (self *SAliyunProvider) GetICloudInterVpcNetworkById(id string) (cloudprovider.ICloudInterVpcNetwork, error) {
+	iVpcNetwork, err := self.GetICloudInterVpcNetworks()
+	if err != nil {
+		return nil, errors.Wrap(err, "self.GetICloudInterVpcNetworks()")
+	}
+	for i := range iVpcNetwork {
+		if iVpcNetwork[i].GetId() == id {
+			return iVpcNetwork[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+func (self *SAliyunProvider) CreateICloudInterVpcNetwork(opts *cloudprovider.SInterVpcNetworkCreateOptions) (cloudprovider.ICloudInterVpcNetwork, error) {
+	cenId, err := self.client.CreateCen(opts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "self.client.CreateCen(%s)", jsonutils.Marshal(opts).String())
+	}
+	ivpcNetwork, err := self.GetICloudInterVpcNetworkById(cenId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "self.GetICloudInterVpcNetworkById(%s)", cenId)
+	}
+	return ivpcNetwork, nil
+}

@@ -156,6 +156,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.RouteTableManager,
 		models.RouteTableAssociationManager,
 		models.RouteTableRouteSetManager,
+		models.InterVpcNetworkRouteSetManager,
 
 		models.SchedpolicyManager,
 		models.DynamicschedtagManager,
@@ -198,6 +199,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.DnsTrafficPolicyManager,
 
 		models.VpcPeeringConnectionManager,
+		models.InterVpcNetworkManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
@@ -228,6 +230,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.DnsZoneVpcManager,
 		models.DBInstanceSecgroupManager,
 		models.ElasticcachesecgroupManager,
+		models.InterVpcNetworkVpcManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewJointModelHandler(manager)

@@ -37,8 +37,8 @@ func init() {
 
 func (self *RouteTableSyncStatusTask) taskFailed(ctx context.Context, routeTable *models.SRouteTable, err error) {
 	routeTable.SetStatus(self.GetUserCred(), api.ROUTE_TABLE_UNKNOWN, err.Error())
-	db.OpsLog.LogEvent(routeTable, db.ACT_CREATE, routeTable.GetShortDesc(ctx), self.GetUserCred())
-	logclient.AddActionLogWithContext(ctx, routeTable, logclient.ACT_UPDATE, err, self.UserCred, false)
+	db.OpsLog.LogEvent(routeTable, db.ACT_SYNC_STATUS, err, self.GetUserCred())
+	logclient.AddActionLogWithContext(ctx, routeTable, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 

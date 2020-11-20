@@ -34,7 +34,7 @@ type RouteTableUpdateTask struct {
 
 func (self *RouteTableUpdateTask) taskFailed(ctx context.Context, routeTable *models.SRouteTable, err error) {
 	routeTable.SetStatus(self.GetUserCred(), api.ROUTE_TABLE_UPDATEFAILED, err.Error())
-	db.OpsLog.LogEvent(routeTable, db.ACT_CREATE, routeTable.GetShortDesc(ctx), self.GetUserCred())
+	db.OpsLog.LogEvent(routeTable, db.ACT_UPDATE, err, self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, routeTable, logclient.ACT_UPDATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
@@ -79,26 +79,33 @@ func (self *RouteTableUpdateTask) OnInit(ctx context.Context, obj db.IStandalone
 	switch action {
 	case "create":
 		err = iRouteTable.CreateRoute(cloudRouteSet)
+		if err != nil {
+			self.taskFailed(ctx, routeTable, errors.Wrapf(err, "iRouteTable.CreateRoute(%s)", jsonutils.Marshal(cloudRouteSet).String()))
+			return
+		}
 	case "update":
 		err = iRouteTable.UpdateRoute(cloudRouteSet)
+		if err != nil {
+			self.taskFailed(ctx, routeTable, errors.Wrapf(err, "iRouteTable.UpdateRoute(%s)", jsonutils.Marshal(cloudRouteSet).String()))
+			return
+		}
 	case "delete":
 		err = iRouteTable.RemoveRoute(cloudRouteSet)
+		if err != nil {
+			self.taskFailed(ctx, routeTable, errors.Wrapf(err, "iRouteTable.RemoveRoute(%s)", jsonutils.Marshal(cloudRouteSet).String()))
+			return
+		}
 	default:
 		self.taskFailed(ctx, routeTable, errors.Wrapf(err, "invalid routetable update action"))
 		return
 	}
-
-	if err != nil {
-		self.taskFailed(ctx, routeTable, errors.Wrapf(err, "iRouteTable.CreateRoute(%s)", jsonutils.Marshal(cloudRouteSet).String()))
-		return
-	}
+	logclient.AddActionLogWithContext(ctx, routeTable, logclient.ACT_UPDATE, nil, self.UserCred, true)
 
 	self.SetStage("OnSyncRouteTableComplete", nil)
 	models.StartResourceSyncStatusTask(ctx, self.GetUserCred(), routeTable, "RouteTableSyncStatusTask", self.GetTaskId())
 }
 
 func (self *RouteTableUpdateTask) OnSyncRouteTableComplete(ctx context.Context, routeTable *models.SRouteTable, data jsonutils.JSONObject) {
-	routeTable.SetStatus(self.GetUserCred(), api.DNS_ZONE_STATUS_AVAILABLE, "")
 	self.SetStageComplete(ctx, nil)
 }
 

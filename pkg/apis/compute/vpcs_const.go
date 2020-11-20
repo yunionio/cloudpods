@@ -55,6 +55,8 @@ type VpcListInput struct {
 
 	DnsZoneFilterListBase
 
+	InterVpcNetworkFilterListBase
+
 	UsableResourceListInput
 	UsableVpcResourceListInput
 
