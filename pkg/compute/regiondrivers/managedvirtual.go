@@ -2288,7 +2288,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheUpdateBackupP
 }
 
 func (self *SManagedVirtualizationRegionDriver) ValidateCreateElasticcacheAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if name, _ := data.GetString("name");name == "root" {
+	if name, _ := data.GetString("name"); name == "root" {
 		return nil, httperrors.NewConflictError("account name 'root' is not allowed")
 	}
 
