@@ -866,7 +866,7 @@ func (b *SBucket) GetCdnDomains() ([]cloudprovider.SCdnDomain, error) {
 	for i := range bucketWebsiteCdnDomains {
 		result = append(result, cloudprovider.SCdnDomain{
 			Domain:     bucketWebsiteCdnDomains[i].Domain,
-			Status:     toAPICdnStatus(bucketCdnDomains[i].Status),
+			Status:     toAPICdnStatus(bucketWebsiteCdnDomains[i].Status),
 			Cname:      bucketWebsiteCdnDomains[i].Cname,
 			Area:       toAPICdnArea(bucketWebsiteCdnDomains[i].Area),
 			Origin:     bucketWebsiteHost,
