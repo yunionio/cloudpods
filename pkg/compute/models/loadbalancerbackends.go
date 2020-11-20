@@ -187,7 +187,8 @@ func (man *SLoadbalancerBackendManager) ValidateBackendVpc(lb *SLoadbalancer, gu
 		return httperrors.NewBadRequestError("%s", err)
 	}
 	if len(lb.VpcId) > 0 {
-		if vpc.Id != lb.VpcId {
+		lbVpc := lb.GetVpc()
+		if lbVpc != nil && !lbVpc.IsEmulated && vpc.Id != lb.VpcId {
 			return httperrors.NewBadRequestError("guest %s(%s) vpc %s(%s) not same as loadbalancer vpc %s", guest.Name, guest.Id, vpc.Name, vpc.Id, lb.VpcId)
 		}
 		return nil
