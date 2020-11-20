@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/log" // on-premise virtualization technologies
 
 	_ "yunion.io/x/onecloud/pkg/multicloud/aliyun/provider"
+	_ "yunion.io/x/onecloud/pkg/multicloud/apsara/provider" // aliyun apsara stack
 	_ "yunion.io/x/onecloud/pkg/multicloud/aws/provider"
 	_ "yunion.io/x/onecloud/pkg/multicloud/azure/provider"
 	_ "yunion.io/x/onecloud/pkg/multicloud/ctyun/provider"

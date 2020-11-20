@@ -16,10 +16,12 @@ package shell
 
 import (
 	"yunion.io/x/onecloud/pkg/multicloud/aliyun"
+	"yunion.io/x/onecloud/pkg/multicloud/test"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func init() {
+	test.TestShell()
 	type RegionListOptions struct {
 	}
 	shellutils.R(&RegionListOptions{}, "region-list", "List regions", func(cli *aliyun.SRegion, args *RegionListOptions) error {
