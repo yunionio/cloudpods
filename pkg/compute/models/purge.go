@@ -176,7 +176,7 @@ func (lbcert *SCachedLoadbalancerCertificate) purge(ctx context.Context, userCre
 	lockman.LockObject(ctx, lbcert)
 	defer lockman.ReleaseObject(ctx, lbcert)
 
-	err := lbcert.ValidateDeleteCondition(ctx)
+	err := lbcert.ValidatePurgeCondition(ctx)
 	if err != nil {
 		return err
 	}
