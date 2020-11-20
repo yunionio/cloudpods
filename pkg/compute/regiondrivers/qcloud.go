@@ -1701,7 +1701,7 @@ func (self *SQcloudRegionDriver) ValidateCreateElasticcacheAccountData(ctx conte
 		return nil, httperrors.NewWeakPasswordError()
 	}
 
-	return data, nil
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateElasticcacheAccountData(ctx, userCred, ownerId, data)
 }
 
 func (self *SQcloudRegionDriver) RequestCreateElasticcacheAccount(ctx context.Context, userCred mcclient.TokenCredential, ea *models.SElasticcacheAccount, task taskman.ITask) error {
