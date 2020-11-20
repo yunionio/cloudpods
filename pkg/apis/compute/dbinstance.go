@@ -24,12 +24,13 @@ type DBInstanceCreateInput struct {
 	apis.VirtualResourceCreateInput
 	DeletePreventableCreateInput
 
-	// Ip子网名称或Id,建议使用Id
+	// Ip子网Id
 	// 谷歌云并不实际使用Ip子网,仅仅通过Ip子网确定Vpc
 	// required: true
-	Network string `json:"network"`
+	NetworkId string `json:"network_id"`
+
 	// swagger:ignore
-	NetworkId string
+	Network string `json:"network" yunion-deprecated-by:"network_id"`
 
 	// Ip子网内的地址,不填则按照ip子网的地址分配策略分配一个ip
 	// required: false
@@ -66,8 +67,10 @@ type DBInstanceCreateInput struct {
 	// swagger:ignore
 	CloudregionId string
 
+	VpcId string `json:"vpc_id"`
+
 	// swagger:ignore
-	VpcId string
+	Vpc string `json:"vpc" yunion-deprecated-by:"vpc_id"`
 
 	// swagger:ignore
 	ManagerId string
