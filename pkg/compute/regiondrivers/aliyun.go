@@ -1370,7 +1370,7 @@ func (self *SAliyunRegionDriver) ValidateCreateElasticcacheAccountData(ctx conte
 			accountPrivilegeV.Value)
 	}
 
-	return data, nil
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateElasticcacheAccountData(ctx, userCred, ownerId, data)
 }
 
 func (self *SAliyunRegionDriver) RequestCreateElasticcacheAccount(ctx context.Context, userCred mcclient.TokenCredential, ea *models.SElasticcacheAccount, task taskman.ITask) error {
