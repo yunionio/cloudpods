@@ -16,6 +16,7 @@ package provider
 
 import (
 	"context"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -174,6 +175,33 @@ func (self *SAliyunProviderFactory) ValidateUpdateCloudaccountCredential(ctx con
 	return output, nil
 }
 
+func validateClientCloudenv(client *aliyun.SAliyunClient) error {
+	regions := client.GetIRegions()
+	if len(regions) == 0 {
+		return nil
+	}
+
+	isFinanceAccount := false
+	for i := range regions {
+		if strings.Contains(regions[i].GetName(), "-finance") {
+			isFinanceAccount = true
+			break
+		}
+	}
+
+	if isFinanceAccount {
+		if regions[0].GetCloudEnv() != "FinanceCloud" {
+			return errors.Wrap(httperrors.ErrInvalidCredential,"aksk is aliyun finance account")
+		}
+	} else {
+		if regions[0].GetCloudEnv() == "FinanceCloud" {
+			return errors.Wrap(httperrors.ErrInvalidCredential,"aksk is not aliyun finance account")
+		}
+	}
+
+	return nil
+}
+
 func (self *SAliyunProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
 	client, err := aliyun.NewAliyunClient(
 		aliyun.NewAliyunClientConfig(
@@ -185,6 +213,12 @@ func (self *SAliyunProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig
 	if err != nil {
 		return nil, err
 	}
+
+	err = validateClientCloudenv(client)
+	if err != nil {
+		return nil, errors.Wrap(err, "validateClientCloudenv")
+	}
+
 	return &SAliyunProvider{
 		SBaseProvider: cloudprovider.NewBaseProvider(self),
 		client:        client,
