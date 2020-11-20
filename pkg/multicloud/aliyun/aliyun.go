@@ -61,6 +61,19 @@ const (
 	ALIYUN_ALIDNS_API_VERSION = "2015-01-09"
 )
 
+var (
+	// https://help.aliyun.com/document_detail/31837.html?spm=a2c4g.11186623.2.18.675f2b8cu8CN5K#concept-zt4-cvy-5db
+	OSS_FINANCE_REGION_MAP = map[string]string{
+		"cn-hzfinance":              "cn-hangzhou",
+		"cn-shanghai-finance-1-pub": "cn-shanghai-finance-1",
+		"cn-szfinance":              "cn-shenzhen-finance-1",
+
+		"cn-hzjbp":              "cn-hangzhou",
+		"cn-shanghai-finance-1": "cn-shanghai-finance-1",
+		"cn-shenzhen-finance-1": "cn-shenzhen-finance-1",
+	}
+)
+
 type AliyunClientConfig struct {
 	cpcfg        cloudprovider.ProviderConfig
 	cloudEnv     string // 服务区域 InternationalCloud | FinanceCloud
@@ -318,6 +331,10 @@ func (client *SAliyunClient) getOssClient(regionId string) (*oss.Client, error) 
 }
 
 func (self *SAliyunClient) getRegionByRegionId(id string) (cloudprovider.ICloudRegion, error) {
+	_id, ok := OSS_FINANCE_REGION_MAP[id]
+	if ok {
+		id = _id
+	}
 	for i := 0; i < len(self.iregions); i += 1 {
 		if self.iregions[i].GetId() == id {
 			return self.iregions[i], nil
