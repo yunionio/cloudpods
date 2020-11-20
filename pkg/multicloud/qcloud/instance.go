@@ -696,8 +696,7 @@ func (self *SRegion) DeleteVM(instanceId string) error {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			return nil
 		}
-		log.Errorf("Fail to get instance status on DeleteVM: %s", err)
-		return err
+		return errors.Wrapf(err, "self.GetInstanceStatus")
 	}
 	log.Debugf("Instance status on delete is %s", status)
 	if status != InstanceStatusStopped {
@@ -748,10 +747,11 @@ func (self *SRegion) DeployVM(instanceId string, name string, password string, k
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {
-	if err := self.host.zone.region.DeleteVM(self.InstanceId); err != nil {
-		return err
+	err := self.host.zone.region.DeleteVM(self.InstanceId)
+	if err != nil {
+		return errors.Wrapf(err, "region.DeleteVM(%s)", self.InstanceId)
 	}
-	return cloudprovider.WaitDeleted(self, 10*time.Second, 300*time.Second) // 5minutes
+	return cloudprovider.WaitDeleted(self, 10*time.Second, 10*time.Minute) // 5minutes
 }
 
 func (self *SRegion) UpdateVM(instanceId string, name, osType string) error {
