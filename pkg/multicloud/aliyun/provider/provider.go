@@ -183,7 +183,7 @@ func validateClientCloudenv(client *aliyun.SAliyunClient) error {
 
 	isFinanceAccount := false
 	for i := range regions {
-		if strings.Contains(regions[i].GetName(), "-finance") {
+		if strings.Contains(regions[i].GetId(), "-finance") {
 			isFinanceAccount = true
 			break
 		}
