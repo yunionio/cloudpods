@@ -1486,7 +1486,8 @@ func (self *SQcloudRegionDriver) ValidateCreateElasticcacheData(ctx context.Cont
 	billingType, _ := data.GetString("billing_type")
 	// validate sku
 	sku := instanceTypeV.Model.(*models.SElasticcacheSku)
-	if err := ValidateElasticcacheSku(zoneId, billingType, sku); err != nil {
+	network := networkV.Model.(*models.SNetwork)
+	if err := ValidateElasticcacheSku(zoneId, billingType, sku, network); err != nil {
 		return nil, err
 	} else {
 		data.Set("instance_type", jsonutils.NewString(sku.InstanceSpec))
@@ -1528,7 +1529,6 @@ func (self *SQcloudRegionDriver) ValidateCreateElasticcacheData(ctx context.Cont
 		data.Set("billing_cycle", jsonutils.NewString(cycle.String()))
 	}
 
-	network := networkV.Model.(*models.SNetwork)
 	vpc := network.GetVpc()
 	if vpc == nil {
 		return nil, httperrors.NewNotFoundError("network %s related vpc not found", network.GetId())

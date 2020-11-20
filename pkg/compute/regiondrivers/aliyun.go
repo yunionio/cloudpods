@@ -1205,6 +1205,7 @@ func (self *SAliyunRegionDriver) ValidateCreateElasticcacheData(ctx context.Cont
 	// validate sku
 	billingType, _ := data.GetString("billing_type")
 	zone := zoneV.Model.(*models.SZone)
+	network := networkV.Model.(*models.SNetwork)
 	if sku, err := data.GetString("instance_type"); err != nil || len(sku) == 0 {
 		return nil, httperrors.NewMissingParameterError("instance_type")
 	} else {
@@ -1214,7 +1215,7 @@ func (self *SAliyunRegionDriver) ValidateCreateElasticcacheData(ctx context.Cont
 		}
 
 		skuModel := _skuModel.(*models.SElasticcacheSku)
-		if err := ValidateElasticcacheSku(zone.Id, billingType, skuModel); err != nil {
+		if err := ValidateElasticcacheSku(zone.Id, billingType, skuModel, network); err != nil {
 			return nil, err
 		} else {
 			data.Set("instance_type", jsonutils.NewString(skuModel.InstanceSpec))
@@ -1238,7 +1239,6 @@ func (self *SAliyunRegionDriver) ValidateCreateElasticcacheData(ctx context.Cont
 		data.Set("billing_cycle", jsonutils.NewString(cycle.String()))
 	}
 
-	network := networkV.Model.(*models.SNetwork)
 	vpc := network.GetVpc()
 	if vpc == nil {
 		return nil, httperrors.NewNotFoundError("network %s related vpc not found", network.GetId())
