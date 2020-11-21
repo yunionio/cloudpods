@@ -1608,12 +1608,17 @@ func (h *SHostInfo) stop() {
 }
 
 func (h *SHostInfo) unregister() {
-	h.stopped = true
-	_, err := modules.Hosts.PerformAction(
-		h.GetSession(), h.HostId, "offline", nil)
-	if err != nil {
-		log.Errorln(err)
+	for {
+		_, err := modules.Hosts.PerformAction(
+			h.GetSession(), h.HostId, "offline", nil)
+		if err != nil {
+			log.Errorf("put host offline failed: %s", err)
+			time.Sleep(time.Second * 1)
+		} else {
+			break
+		}
 	}
+	h.stopped = true
 }
 
 func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) {
