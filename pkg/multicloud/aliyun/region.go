@@ -74,7 +74,7 @@ func (self *SRegion) GetMetadata() *jsonutils.JSONDict {
 
 func (self *SRegion) getSdkClient() (*sdk.Client, error) {
 	if self.sdkClient == nil {
-		cli, err := sdk.NewClientWithAccessKey(self.RegionId, self.client.accessKey, self.client.accessSecret)
+		cli, err := self.client.getSdkClient(self.RegionId)
 		if err != nil {
 			return nil, err
 		}

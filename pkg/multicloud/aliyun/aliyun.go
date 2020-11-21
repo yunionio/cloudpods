@@ -222,10 +222,15 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 }
 
 func (self *SAliyunClient) getDefaultClient() (*sdk.Client, error) {
+	client, err := self.getSdkClient(ALIYUN_DEFAULT_REGION)
+	return client, err
+}
+
+func (self *SAliyunClient) getSdkClient(regionId string) (*sdk.Client, error) {
 	transport := httputils.GetTransport(true)
 	transport.Proxy = self.cpcfg.ProxyFunc
 	client, err := sdk.NewClientWithOptions(
-		ALIYUN_DEFAULT_REGION,
+		regionId,
 		&sdk.Config{
 			HttpTransport: transport,
 		},
