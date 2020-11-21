@@ -24,6 +24,10 @@ type SInstanceNic struct {
 	macAddr  string
 }
 
+func (self *SInstanceNic) GetId() string {
+	return ""
+}
+
 func (self *SInstanceNic) GetIP() string {
 	return self.ipAddr
 }

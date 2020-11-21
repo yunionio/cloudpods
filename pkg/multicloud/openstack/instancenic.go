@@ -59,6 +59,10 @@ func (region *SRegion) GetInstancePorts(instanceId string) ([]SInstancePort, err
 	return ports, nil
 }
 
+func (nic *SInstancePort) GetId() string {
+	return ""
+}
+
 func (nic *SInstancePort) GetIP() string {
 	for i := range nic.FixedIps {
 		if regutils.MatchIPAddr(nic.FixedIps[i].IpAddress) {

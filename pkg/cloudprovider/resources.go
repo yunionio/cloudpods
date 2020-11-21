@@ -329,6 +329,7 @@ type ICloudVM interface {
 }
 
 type ICloudNic interface {
+	GetId() string
 	GetIP() string
 	GetMAC() string
 	InClassicNetwork() bool

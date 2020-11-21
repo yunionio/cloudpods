@@ -33,6 +33,10 @@ type SNetworkInterface struct {
 	Kind          string
 }
 
+func (nic *SNetworkInterface) GetId() string {
+	return ""
+}
+
 func (nic *SNetworkInterface) GetIP() string {
 	return nic.NetworkIP
 }

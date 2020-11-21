@@ -20,8 +20,13 @@ import (
 
 type SInstanceNic struct {
 	instance *SInstance
+	id       string
 	ipAddr   string
 	macAddr  string
+}
+
+func (self *SInstanceNic) GetId() string {
+	return self.id
 }
 
 func (self *SInstanceNic) GetIP() string {

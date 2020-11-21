@@ -37,6 +37,10 @@ type SInstanceNic struct {
 	ZStackTime
 }
 
+func (nic *SInstanceNic) GetId() string {
+	return ""
+}
+
 func (nic *SInstanceNic) GetIP() string {
 	return nic.IP
 }

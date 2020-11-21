@@ -47,6 +47,10 @@ func (self *SInstanceNic) GetMAC() string {
 	return self.MACAddr
 }
 
+func (self *SInstanceNic) GetId() string {
+	return ""
+}
+
 func (self *SInstanceNic) GetDriver() string {
 	return "virtio"
 }
