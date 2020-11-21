@@ -26,6 +26,10 @@ type SInstanceNic struct {
 	classic  bool
 }
 
+func (self *SInstanceNic) GetId() string {
+	return ""
+}
+
 func (self *SInstanceNic) GetIP() string {
 	return self.ipAddr
 }

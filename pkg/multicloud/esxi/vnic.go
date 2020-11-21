@@ -41,6 +41,10 @@ func (nic *SVirtualNIC) getVirtualEthernetCard() *types.VirtualEthernetCard {
 	return nil
 }
 
+func (nic *SVirtualNIC) GetId() string {
+	return ""
+}
+
 func (nic *SVirtualNIC) GetIP() string {
 	guestIps := nic.vm.getGuestIps()
 	if ip, ok := guestIps[nic.GetMAC()]; ok {

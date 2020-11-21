@@ -31,6 +31,10 @@ type SClassicInstanceNic struct {
 	Location string
 }
 
+func (self *SClassicInstanceNic) GetId() string {
+	return ""
+}
+
 func (self *SClassicInstanceNic) GetIP() string {
 	return self.IP
 }
