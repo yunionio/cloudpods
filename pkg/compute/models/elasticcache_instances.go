@@ -1344,7 +1344,7 @@ func (self *SElasticcache) GetAdminAccount() (*SElasticcacheAccount, error) {
 		}
 	}
 
-	return nil, httperrors.NewNotFoundError(fmt.Sprintf("no admin account found for elastic cache %s", self.Id))
+	return nil, httperrors.NewNotFoundError("no admin account found for elastic cache %s", self.Id)
 }
 
 func (self *SElasticcache) StartResetPasswordTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
