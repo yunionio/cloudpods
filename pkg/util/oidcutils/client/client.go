@@ -126,6 +126,9 @@ func (cli *SOIDCClient) FetchToken(ctx context.Context, code string, redirUri st
 	if err != nil {
 		return nil, errors.Wrap(err, "request access token")
 	}
+	if respJson.Contains("data") && !respJson.Contains("access_token") {
+		respJson, _ = respJson.Get("data")
+	}
 	log.Debugf("AccesToken response: %s", respJson)
 	accessTokenResp := oidcutils.SOIDCAccessTokenResponse{}
 	err = respJson.Unmarshal(&accessTokenResp)
@@ -147,6 +150,9 @@ func (cli *SOIDCClient) FetchUserInfo(ctx context.Context, accessToken string) (
 	header, body, err := httputils.JSONRequest(cli.httpclient, ctx, httputils.GET, url, header, nil, cli.isDebug)
 	if err != nil {
 		return nil, errors.Wrap(err, "request userinfo")
+	}
+	if body.Contains("data") {
+		body, _ = body.Get("data")
 	}
 	info := make(map[string]string)
 	err = body.Unmarshal(&info)
