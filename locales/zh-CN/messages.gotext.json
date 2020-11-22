@@ -616,13 +616,13 @@
         {
             "id": "Model not found error: cannot find %q with id/name %q",
             "message": "Model not found error: cannot find %q with id/name %q",
-            "translation": "无法通过名称或Id找到%q所指定的资源",
+            "translation": "无法通过名称或ID找到%q（%q）",
             "position": "pkg/cloudcommon/validators/errors.go:157:17"
         },
         {
             "id": "Model not found error: cannot find %q with id/name %q: %s",
             "message": "Model not found error: cannot find %q with id/name %q: %s",
-            "translation": "无法通过名称或Id找到%q所指定的资源：%s",
+            "translation": "无法通过名称或ID找到%q（%q）：%s",
             "position": "pkg/cloudcommon/validators/errors.go:157:17"
         },
         {
