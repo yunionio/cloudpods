@@ -460,6 +460,7 @@ func (man *SRouteTableManager) newRouteTableFromCloud(userCred mcclient.TokenCre
 		routeTable.Name = newName
 	}
 	// routeTable.ManagerId = vpc.ManagerId
+	routeTable.Status = cloudRouteTable.GetStatus()
 	routeTable.ExternalId = cloudRouteTable.GetGlobalId()
 	routeTable.Description = cloudRouteTable.GetDescription()
 	// routeTable.ProjectId = userCred.GetProjectId()
@@ -515,6 +516,7 @@ func (self *SRouteTable) SyncWithCloudRouteTable(ctx context.Context, userCred m
 	}
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		// self.CloudregionId = routeTable.CloudregionId
+		self.Status = routeTable.GetStatus()
 		self.VpcId = vpc.Id
 		self.Type = routeTable.Type
 		self.Routes = routeTable.Routes

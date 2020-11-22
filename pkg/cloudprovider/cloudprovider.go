@@ -290,6 +290,10 @@ type ICloudProvider interface {
 	GetICloudDnsZones() ([]ICloudDnsZone, error)
 	GetICloudDnsZoneById(id string) (ICloudDnsZone, error)
 	CreateICloudDnsZone(opts *SDnsZoneCreateOptions) (ICloudDnsZone, error)
+
+	GetICloudInterVpcNetworks() ([]ICloudInterVpcNetwork, error)
+	GetICloudInterVpcNetworkById(id string) (ICloudInterVpcNetwork, error)
+	CreateICloudInterVpcNetwork(opts *SInterVpcNetworkCreateOptions) (ICloudInterVpcNetwork, error)
 }
 
 func IsSupportProject(prod ICloudProvider) bool {
@@ -298,6 +302,10 @@ func IsSupportProject(prod ICloudProvider) bool {
 
 func IsSupportDnsZone(prod ICloudProvider) bool {
 	return utils.IsInStringArray(CLOUD_CAPABILITY_DNSZONE, prod.GetCapabilities())
+}
+
+func IsSupportInterVpcNetwork(prod ICloudProvider) bool {
+	return utils.IsInStringArray(CLOUD_CAPABILITY_INTERVPCNETWORK, prod.GetCapabilities())
 }
 
 func IsSupportCompute(prod ICloudProvider) bool {
@@ -500,6 +508,20 @@ func (self *SBaseProvider) CreateIProject(name string) (ICloudProject, error) {
 
 func (self *SBaseProvider) GetSamlEntityId() string {
 	return ""
+}
+
+func (self *SBaseProvider) GetSamlSpInitiatedLoginUrl(idpName string) string {
+	return ""
+}
+
+func (self *SBaseProvider) GetICloudInterVpcNetworks() ([]ICloudInterVpcNetwork, error) {
+	return nil, ErrNotImplemented
+}
+func (self *SBaseProvider) GetICloudInterVpcNetworkById(id string) (ICloudInterVpcNetwork, error) {
+	return nil, ErrNotImplemented
+}
+func (self *SBaseProvider) CreateICloudInterVpcNetwork(opts *SInterVpcNetworkCreateOptions) (ICloudInterVpcNetwork, error) {
+	return nil, ErrNotImplemented
 }
 
 func NewBaseProvider(factory ICloudProviderFactory) SBaseProvider {

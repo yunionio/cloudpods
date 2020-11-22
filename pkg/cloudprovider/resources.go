@@ -475,7 +475,10 @@ type ICloudVpc interface {
 	GetICloudVpcPeeringConnectionById(id string) (ICloudVpcPeeringConnection, error)
 	CreateICloudVpcPeeringConnection(opts *VpcPeeringConnectionCreateOptions) (ICloudVpcPeeringConnection, error)
 	AcceptICloudVpcPeeringConnection(id string) error
+
 	GetAuthorityOwnerId() string
+
+	ProposeJoinICloudInterVpcNetwork(opts *SVpcJointInterVpcNetworkOption) error
 }
 
 type ICloudWire interface {
@@ -1128,4 +1131,26 @@ type ICloudrole interface {
 	DetachPolicy(id string) error
 
 	Delete() error
+}
+
+type ICloudInterVpcNetwork interface {
+	ICloudResource
+	GetAuthorityOwnerId() string
+	GetICloudVpcIds() ([]string, error)
+	AttachVpc(opts *SInterVpcNetworkAttachVpcOption) error
+	DetachVpc(opts *SInterVpcNetworkDetachVpcOption) error
+	Delete() error
+	GetIRoutes() ([]ICloudInterVpcNetworkRoute, error)
+	EnableRouteEntry(routeId string) error
+	DisableRouteEntry(routeId string) error
+}
+
+type ICloudInterVpcNetworkRoute interface {
+	ICloudResource
+	GetInstanceId() string
+	GetInstanceType() string
+	GetInstanceRegionId() string
+
+	GetEnabled() bool
+	GetCidr() string
 }

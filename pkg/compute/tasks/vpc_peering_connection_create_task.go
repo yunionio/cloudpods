@@ -38,8 +38,8 @@ func init() {
 
 func (self *VpcPeeringConnectionCreateTask) taskFailed(ctx context.Context, peer *models.SVpcPeeringConnection, err error) {
 	peer.SetStatus(self.UserCred, api.VPC_PEERING_CONNECTION_STATUS_CREATE_FAILED, err.Error())
-	db.OpsLog.LogEvent(peer, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
-	logclient.AddActionLogWithStartable(self, peer, logclient.ACT_ALLOCATE, err, self.UserCred, false)
+	db.OpsLog.LogEvent(peer, db.ACT_CREATE, err, self.UserCred)
+	logclient.AddActionLogWithStartable(self, peer, logclient.ACT_CREATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 

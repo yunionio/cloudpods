@@ -265,4 +265,11 @@ const (
 
 	ACT_SYNC_VPCS        = "sync_vpcs"
 	ACT_SYNC_RECORD_SETS = "sync_record_sets"
+
+	ACT_NETWORK_ADD_VPC             = "network_add_vpc"
+	ACT_NETWORK_ADD_VPC_FAILED      = "network_add_vpc_failed"
+	ACT_NETWORK_REMOVE_VPC          = "network_remove_vpc"
+	ACT_NETWORK_REMOVE_VPC_FAILED   = "network_remove_vpc_failed"
+	ACT_NETWORK_MODIFY_ROUTE        = "network_modify_route"
+	ACT_NETWORK_MODIFY_ROUTE_FAILED = "network_modify_route_failed"
 )

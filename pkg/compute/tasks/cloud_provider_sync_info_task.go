@@ -98,6 +98,7 @@ func (self *CloudProviderSyncInfoTask) OnSyncCloudProviderPreInfoComplete(ctx co
 
 	taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
 		provider.SyncCallSyncCloudproviderRegions(ctx, self.UserCred, syncRange)
+		provider.SyncCallSyncCloudproviderInterVpcNetwork(ctx, self.UserCred)
 		return nil, nil
 	})
 }

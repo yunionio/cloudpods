@@ -107,7 +107,7 @@ func (self *SRouteTableSet) GetGlobalId() string {
 }
 
 func (self *SRouteTableSet) GetStatus() string {
-	return ""
+	return api.ROUTE_TABLE_AVAILABLE
 }
 
 func (self *SRouteTableSet) Refresh() error {

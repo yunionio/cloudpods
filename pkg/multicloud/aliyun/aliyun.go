@@ -59,6 +59,7 @@ const (
 	ALIYUN_STS_API_VERSION    = "2015-04-01"
 	ALIYUN_PVTZ_API_VERSION   = "2018-01-01"
 	ALIYUN_ALIDNS_API_VERSION = "2015-01-09"
+	ALIYUN_CBN_API_VERSION    = "2017-09-12"
 )
 
 var (
@@ -274,6 +275,14 @@ func (self *SAliyunClient) alidnsRequest(apiName string, params map[string]strin
 		return nil, err
 	}
 	return jsonRequest(cli, "alidns.aliyuncs.com", ALIYUN_ALIDNS_API_VERSION, apiName, params, self.debug)
+}
+
+func (self *SAliyunClient) cbnRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := self.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	return jsonRequest(cli, "cbn.aliyuncs.com", ALIYUN_CBN_API_VERSION, apiName, params, self.debug)
 }
 
 func (self *SAliyunClient) fetchRegions() error {
@@ -510,6 +519,7 @@ func (region *SAliyunClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_EVENT,
 		cloudprovider.CLOUD_CAPABILITY_CLOUDID,
 		cloudprovider.CLOUD_CAPABILITY_DNSZONE,
+		cloudprovider.CLOUD_CAPABILITY_INTERVPCNETWORK,
 	}
 	return caps
 }

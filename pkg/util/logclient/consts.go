@@ -187,4 +187,7 @@ const (
 	ACT_SYNC_RECORD_SETS = "sync_record_sets"
 
 	ACT_DETACH_ALERTRESOURCE = "detach_alertresoruce"
+	ACT_NETWORK_ADD_VPC      = "network_add_vpc"
+	ACT_NETWORK_REMOVE_VPC   = "network_remove_vpc"
+	ACT_NETWORK_MODIFY_ROUTE = "network_modify_route"
 )
