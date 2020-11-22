@@ -472,6 +472,9 @@ func init() {
 		AutoCreateProject   bool `help:"automatically create a default project when importing domain" json:"-"`
 		NoAutoCreateProject bool `help:"do not create default project when importing domain" json:"-"`
 
+		AutoCreateUser   bool `help:"automatically create a user" json:"-"`
+		NoAutoCreateUser bool `help:"do not automatically create a user" json:"-"`
+
 		TargetDomain string `help:"target domain without creating new domain" json:"-"`
 
 		api.SOIDCIdpConfigOptions
@@ -487,6 +490,11 @@ func init() {
 			params.Add(jsonutils.JSONTrue, "auto_create_project")
 		} else if args.NoAutoCreateProject {
 			params.Add(jsonutils.JSONFalse, "auto_create_project")
+		}
+		if args.AutoCreateUser {
+			params.Add(jsonutils.JSONTrue, "auto_create_user")
+		} else if args.NoAutoCreateUser {
+			params.Add(jsonutils.JSONFalse, "auto_create_user")
 		}
 
 		params.Add(jsonutils.NewString("oidc"), "driver")
