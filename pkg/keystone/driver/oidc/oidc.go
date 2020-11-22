@@ -47,7 +47,10 @@ func NewOIDCDriver(idpId, idpName, template, targetDomainId string, conf api.TCo
 	if err != nil {
 		return nil, errors.Wrap(err, "NewBaseIdentityDriver")
 	}
-	drv := SOIDCDriver{SBaseIdentityDriver: base}
+	drv := SOIDCDriver{
+		SBaseIdentityDriver: base,
+		isDebug:             false,
+	}
 	drv.SetVirtualObject(&drv)
 	err = drv.prepareConfig()
 	if err != nil {
