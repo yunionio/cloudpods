@@ -34,7 +34,7 @@ import (
 type SJointResourceBase struct {
 	SResourceBase
 
-	RowId int64 `primary:"true" auto_increment:"true"`
+	RowId int64 `primary:"true" auto_increment:"true" list:"user"`
 }
 
 type SJointResourceBaseManager struct {
