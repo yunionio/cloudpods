@@ -1508,9 +1508,7 @@ func (bucket *SBucket) PerformSetReferer(
 		return nil, errors.Wrap(err, "GetIBucket")
 	}
 	conf := cloudprovider.SBucketRefererConf{
-		Enabled:         input.Enabled,
-		Type:            input.Type,
-		DomainList:      input.DomainList,
+		WhiteList:       input.WhiteList,
 		AllowEmptyRefer: input.AllowEmptyRefer,
 	}
 
@@ -1545,9 +1543,8 @@ func (bucket *SBucket) GetDetailsReferer(
 	if err != nil {
 		return conf, httperrors.NewInternalServerError("iBucket.GetRefer error %s", err)
 	}
-	conf.Enabled = referConf.Enabled
-	conf.Type = referConf.Type
-	conf.DomainList = referConf.DomainList
+	conf.WhiteList = referConf.WhiteList
+	conf.BlackList = referConf.BlackList
 	conf.AllowEmptyRefer = referConf.AllowEmptyRefer
 
 	return conf, nil

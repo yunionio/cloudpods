@@ -250,19 +250,14 @@ func (input *BucketCORSRules) Validate() error {
 }
 
 type BucketRefererConf struct {
-	// 是否开启防盗链
-	Enabled bool
-	// Black-List、White-List
-	Type string
-	// 域名列表
-	DomainList []string
-	// 是否允许空refer 访问
+	// 白名单域名列表
+	WhiteList []string
+	// 黑名单域名列表
+	BlackList []string
+	// 是否允许空referer 访问
 	AllowEmptyRefer bool
 }
 
 func (input *BucketRefererConf) Validate() error {
-	if len(input.DomainList) == 0 {
-		return httperrors.NewMissingParameterError("domain_list")
-	}
 	return nil
 }
