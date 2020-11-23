@@ -205,6 +205,11 @@ func (manager *SDomainManager) ListItemFilter(
 		q = q.In("id", subq.SubQuery())
 	}
 
+	if len(query.IdpEntityId) > 0 {
+		subq := IdmappingManager.Query("public_id").Equals("local_id", query.IdpEntityId).Equals("entity_type", api.IdMappingEntityDomain)
+		q = q.Equals("id", subq.SubQuery())
+	}
+
 	return q, nil
 }
 

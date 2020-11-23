@@ -166,6 +166,9 @@ type DomainListInput struct {
 
 	// 按IDP过滤
 	IdpId string `json:"idp_id"`
+
+	// 按IDP_ENTITY_ID过滤
+	IdpEntityId string `json:"idp_entity_id"`
 }
 
 type UserListInput struct {
@@ -190,6 +193,9 @@ type UserListInput struct {
 
 	// 关联IDP
 	IdpId string `json:"idp_id"`
+
+	// 按IDP_ENTITY_ID过滤
+	IdpEntityId string `json:"idp_entity_id"`
 }
 
 type EndpointListInput struct {
