@@ -230,14 +230,7 @@ func (self *SRegion) GetId() string {
 
 func (self *SRegion) GetName() string {
 	if self.GetCloudEnv() == ALIYUN_FINANCE_CLOUDENV && !strings.Contains(self.LocalName, "金融") {
-		i := strings.Index(self.LocalName, "可用")
-		var localname string
-		if i >= 0 {
-			localname = self.LocalName[0:i] + "金融云 " + self.LocalName[i:]
-		} else {
-			localname = self.LocalName + " 金融云"
-		}
-		return fmt.Sprintf("%s %s", CLOUD_PROVIDER_ALIYUN_CN, localname)
+		return fmt.Sprintf("%s %s %s", CLOUD_PROVIDER_ALIYUN_CN, self.LocalName, "金融云")
 	} else {
 		return fmt.Sprintf("%s %s", CLOUD_PROVIDER_ALIYUN_CN, self.LocalName)
 	}
