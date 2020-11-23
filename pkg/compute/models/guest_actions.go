@@ -4620,19 +4620,27 @@ func (self *SGuest) validateCreateInstanceSnapshot(
 		return nil, err
 	}
 
-	disks := self.GetDisks()
-	for i := 0; i < len(disks); i++ {
-		if storage := disks[i].GetDisk().GetStorage(); utils.IsInStringArray(storage.StorageType, api.FIEL_STORAGE) {
-			count, err := SnapshotManager.GetDiskManualSnapshotCount(disks[i].DiskId)
-			if err != nil {
-				return nil, httperrors.NewInternalServerError("%v", err)
-			}
-			if count >= options.Options.DefaultMaxManualSnapshotCount {
-				return nil, httperrors.NewBadRequestError("guests disk %d snapshot full, can't take anymore", i)
+	// construct Quota
+	pendingUsage := &SRegionQuota{InstanceSnapshot: 1}
+	cp := self.GetHost().GetCloudprovider()
+	if cp == nil {
+		return nil, fmt.Errorf("unable to get cloudprovider of isp %q", self.GetId())
+	}
+	if utils.IsInStringArray(cp.Provider, ProviderHasSubSnapshot) {
+		disks := self.GetDisks()
+		for i := 0; i < len(disks); i++ {
+			if storage := disks[i].GetDisk().GetStorage(); utils.IsInStringArray(storage.StorageType, api.FIEL_STORAGE) {
+				count, err := SnapshotManager.GetDiskManualSnapshotCount(disks[i].DiskId)
+				if err != nil {
+					return nil, httperrors.NewInternalServerError("%v", err)
+				}
+				if count >= options.Options.DefaultMaxManualSnapshotCount {
+					return nil, httperrors.NewBadRequestError("guests disk %d snapshot full, can't take anymore", i)
+				}
 			}
 		}
+		pendingUsage.Snapshot = len(disks)
 	}
-	pendingUsage := &SRegionQuota{Snapshot: len(disks)}
 	keys, err := self.GetRegionalQuotaKeys()
 	if err != nil {
 		return nil, err
