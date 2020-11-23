@@ -385,13 +385,13 @@ func (self *SApsaraClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 	}
 	subAccount := cloudprovider.SSubAccount{}
 	subAccount.Name = self.cpcfg.Name
-	subAccount.Account = self.cpcfg.EcsEndpoint
+	subAccount.Account = self.accessKey
 	subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
 	return []cloudprovider.SSubAccount{subAccount}, nil
 }
 
 func (self *SApsaraClient) GetAccountId() string {
-	return self.ownerId
+	return self.cpcfg.EcsEndpoint
 }
 
 func (self *SApsaraClient) GetIRegions() []cloudprovider.ICloudRegion {
