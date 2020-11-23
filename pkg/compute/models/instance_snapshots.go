@@ -364,6 +364,10 @@ var HypervisorIndependentInstanceSnapshot = []string{
 	api.HYPERVISOR_KVM,
 }
 
+var ProviderHasSubSnapshot = []string{
+	api.CLOUD_PROVIDER_ONECLOUD,
+}
+
 func (self *SInstanceSnapshot) ToInstanceCreateInput(
 	sourceInput *api.ServerCreateInput) (*api.ServerCreateInput, error) {
 
@@ -376,7 +380,7 @@ func (self *SInstanceSnapshot) ToInstanceCreateInput(
 	if cp == nil {
 		return nil, fmt.Errorf("unable to get cloudprovider of isp %q", self.GetId())
 	}
-	if cp.Provider != api.CLOUD_PROVIDER_VMWARE {
+	if utils.IsInStringArray(cp.Provider, ProviderHasSubSnapshot) {
 		isjs := make([]SInstanceSnapshotJoint, 0)
 		err := InstanceSnapshotJointManager.Query().Equals("instance_snapshot_id", self.Id).Asc("disk_index").All(&isjs)
 		if err != nil {
