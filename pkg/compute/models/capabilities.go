@@ -48,6 +48,9 @@ type SCapabilities struct {
 	DisabledRdsEngineBrands     []string `json:",allowempty"`
 	CloudIdBrands               []string `json:",allowempty"`
 	DisabledCloudIdBrands       []string `json:",allowempty"`
+	// 支持SAML 2.0
+	SamlAuthBrands              []string `json:",allowempty"`
+	DisabledSamlAuthBrands      []string `json:",allowempty"`
 	PublicIpBrands              []string `json:",allowempty"`
 	NetworkManageBrands         []string `json:",allowempty"`
 	DisabledNetworkManageBrands []string `json:",allowempty"`
@@ -271,6 +274,7 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabi
 	capa.CloudIdBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_CLOUDID)
 	capa.PublicIpBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_PUBLIC_IP)
 	capa.LoadbalancerEngineBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_LOADBALANCER)
+	capa.SamlAuthBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_SAML_AUTH)
 
 	if utils.IsInStringArray(api.HYPERVISOR_KVM, capa.Hypervisors) || utils.IsInStringArray(api.HYPERVISOR_BAREMETAL, capa.Hypervisors) {
 		capa.Brands = append(capa.Brands, api.ONECLOUD_BRAND_ONECLOUD)
@@ -289,6 +293,7 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabi
 	capa.DisabledNetworkManageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_NETWORK)
 	capa.DisabledObjectStorageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE)
 	capa.DisabledCloudIdBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_CLOUDID)
+	capa.DisabledSamlAuthBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_SAML_AUTH)
 
 	return
 }
