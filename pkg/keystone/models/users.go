@@ -400,6 +400,11 @@ func (manager *SUserManager) ListItemFilter(
 		q = q.In("id", subq.SubQuery())
 	}
 
+	if len(query.IdpEntityId) > 0 {
+		subq := IdmappingManager.Query("public_id").Equals("local_id", query.IdpEntityId).Equals("entity_type", api.IdMappingEntityUser)
+		q = q.Equals("id", subq.SubQuery())
+	}
+
 	return q, nil
 }
 
