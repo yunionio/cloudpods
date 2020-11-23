@@ -443,3 +443,7 @@ func (self *SAliyunProvider) CreateICloudInterVpcNetwork(opts *cloudprovider.SIn
 	}
 	return ivpcNetwork, nil
 }
+
+func (self *SAliyunProvider) GetCloudRegionExternalIdPrefix() string {
+	return self.client.GetAccessEnv() + "/"
+}
