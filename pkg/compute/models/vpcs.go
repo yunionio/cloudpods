@@ -223,7 +223,7 @@ func (manager *SVpcManager) GetOrCreateVpcForClassicNetwork(ctx context.Context,
 	vpc.IsDefault = false
 	vpc.CloudregionId = region.Id
 	vpc.SetModelManager(manager, vpc)
-	vpc.Name = fmt.Sprintf("emulated vpc for %s %s classic network", region.Name, cloudprovider.Name)
+	vpc.Name = "-"
 	vpc.IsEmulated = true
 	vpc.SetEnabled(false)
 	vpc.Status = api.VPC_STATUS_UNAVAILABLE
@@ -639,6 +639,26 @@ func (manager *SVpcManager) InitializeData() error {
 				return nil
 			}); err != nil {
 				return errors.Wrap(err, "db set default external_access_mode")
+			}
+		}
+	}
+
+	{
+		vpcs := []SVpc{}
+		q := manager.Query().IsTrue("is_emulated").IsNotEmpty("external_id").NotEquals("name", "-")
+		err := db.FetchModelObjects(manager, q, &vpcs)
+		if err != nil {
+			return errors.Wrapf(err, "db.FetchModelObjects")
+		}
+		for i := range vpcs {
+			if vpcs[i].ExternalId == manager.getVpcExternalIdForClassicNetwork(vpcs[i].CloudregionId, vpcs[i].ManagerId) {
+				_, err = db.Update(&vpcs[i], func() error {
+					vpcs[i].Name = "-"
+					return nil
+				})
+				if err != nil {
+					return errors.Wrapf(err, "db.Update class vpc name")
+				}
 			}
 		}
 	}
