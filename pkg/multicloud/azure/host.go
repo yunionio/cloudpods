@@ -252,7 +252,7 @@ func (self *SHost) GetSysInfo() jsonutils.JSONObject {
 }
 
 func (self *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	return self.zone.istorages, nil
+	return self.zone.getIStorages(), nil
 }
 
 func (self *SHost) GetIVMById(instanceId string) (cloudprovider.ICloudVM, error) {
