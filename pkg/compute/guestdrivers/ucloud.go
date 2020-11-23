@@ -96,6 +96,21 @@ func (self *SUCloudGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *m
 	return nil
 }
 
+func (self *SUCloudGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCapability {
+	return cloudprovider.SInstanceCapability{
+		Hypervisor: self.GetHypervisor(),
+		Provider:   self.GetProvider(),
+		DefaultAccount: cloudprovider.SDefaultAccount{
+			Linux: cloudprovider.SOsDefaultAccount{
+				DefaultAccount: api.VM_DEFAULT_LINUX_LOGIN_USER,
+			},
+			Windows: cloudprovider.SOsDefaultAccount{
+				DefaultAccount: api.VM_DEFAULT_WINDOWS_LOGIN_USER,
+			},
+		},
+	}
+}
+
 func (self *SUCloudGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
 	if desc.OsType == "Windows" {
 		return "Administrator"

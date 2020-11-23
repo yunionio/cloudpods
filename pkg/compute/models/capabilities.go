@@ -77,6 +77,8 @@ type SCapabilities struct {
 	StorageTypes3     map[string]map[string]*SimpleStorageInfo `json:",allowempty"`
 	DataStorageTypes2 map[string][]string                      `json:",allowempty"`
 	DataStorageTypes3 map[string]map[string]*SimpleStorageInfo `json:",allowempty"`
+
+	InstanceCapabilities []cloudprovider.SInstanceCapability
 }
 
 func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, region *SCloudregion, zone *SZone) (SCapabilities, error) {
@@ -109,6 +111,13 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 		domainId = ""
 	}
 	capa.Hypervisors = getHypervisors(region, zone, domainId)
+	capa.InstanceCapabilities = []cloudprovider.SInstanceCapability{}
+	for _, hypervisor := range capa.Hypervisors {
+		driver := GetDriver(hypervisor)
+		if driver != nil {
+			capa.InstanceCapabilities = append(capa.InstanceCapabilities, driver.GetInstanceCapability())
+		}
+	}
 	getBrands(region, zone, domainId, &capa)
 	// capa.Brands, capa.ComputeEngineBrands, capa.NetworkManageBrands, capa.ObjectStorageBrands = a, c, n, o
 	capa.ResourceTypes = getResourceTypes(region, zone, domainId)
