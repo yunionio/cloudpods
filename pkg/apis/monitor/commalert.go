@@ -23,6 +23,9 @@ const (
 	CommonAlertFieldOpt_Division = "/"
 
 	DEFAULT_SEND_NOTIFY_CHANNEL = "users"
+
+	METRIC_QUERY_TYPE_NO_DATA     = "nodata_query"
+	METRIC_QUERY_NO_DATA_THESHOLD = "nodata"
 )
 
 var CommonAlertLevels = []string{"normal", "important", "fatal"}
@@ -45,6 +48,7 @@ type CommonAlertCreateInput struct {
 	DomainId    string `json:"domain_id"`
 	ProjectId   string `json:"project_id"`
 	GetPointStr bool   `json:"get_point_str"`
+	MetaName    string `json:"meta_name"`
 }
 
 type CommonMetricInputQuery struct {
@@ -63,7 +67,8 @@ type CommonAlertQuery struct {
 	// 报警阀值
 	Threshold float64 `json:"threshold"`
 	//field yunsuan
-	FieldOpt string `json:"field_opt"`
+	FieldOpt      string `json:"field_opt"`
+	ConditionType string `json:"condition_type"`
 }
 
 type CommonAlertListInput struct {
@@ -88,8 +93,9 @@ type CommonAlertUpdateInput struct {
 	// 通知接受者
 	Recipients []string `json:"recipients"`
 	// systemalert policy may need update through operator
-	ForceUpdate bool `json:"force_update"`
-	GetPointStr bool `json:"get_point_str"`
+	ForceUpdate bool   `json:"force_update"`
+	GetPointStr bool   `json:"get_point_str"`
+	MetaName    string `json:"meta_name"`
 }
 
 type CommonAlertDetails struct {
@@ -106,8 +112,10 @@ type CommonAlertDetails struct {
 }
 
 type CommonAlertMetricDetails struct {
-	Comparator string  `json:"comparator"`
-	Threshold  float64 `json:"threshold"`
+	Comparator    string  `json:"comparator"`
+	Threshold     float64 `json:"threshold"`
+	ConditionType string  `json:"condition_type"`
+	ThresholdStr  string  `json:"threshold_str"`
 	// metric points'value的运算方式
 	Reduce                 string           `json:"reduce"`
 	DB                     string           `json:"db"`
