@@ -992,15 +992,20 @@ func (alert *SCommonAlert) StartDetachTask(ctx context.Context, userCred mcclien
 
 func (alert *SCommonAlert) DetachAlertResourceOnDisable(ctx context.Context,
 	userCred mcclient.TokenCredential) (errs []error) {
-	resources, err := GetAlertResourceManager().getResourceFromAlertId(alert.Id)
+	return CommonAlertManager.DetachAlertResourceByAlertId(ctx, userCred, alert.Id)
+}
+
+func (manager *SCommonAlertManager) DetachAlertResourceByAlertId(ctx context.Context,
+	userCred mcclient.TokenCredential, alertId string) (errs []error) {
+	resources, err := GetAlertResourceManager().getResourceFromAlertId(alertId)
 	if err != nil {
 		errs = append(errs, errors.Wrap(err, "getResourceFromAlert error"))
 		return
 	}
 	for _, resource := range resources {
-		err := resource.DetachAlert(ctx, userCred, alert.Id)
+		err := resource.DetachAlert(ctx, userCred, alertId)
 		if err != nil {
-			errs = append(errs, errors.Wrapf(err, "resource:%s DetachAlert:%s err", resource.Id, alert.Id))
+			errs = append(errs, errors.Wrapf(err, "resource:%s DetachAlert:%s err", resource.Id, alertId))
 		}
 	}
 	return
