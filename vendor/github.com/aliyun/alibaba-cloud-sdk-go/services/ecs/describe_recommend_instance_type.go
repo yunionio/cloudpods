@@ -21,7 +21,6 @@ import (
 )
 
 // DescribeRecommendInstanceType invokes the ecs.DescribeRecommendInstanceType API synchronously
-// api document: https://help.aliyun.com/api/ecs/describerecommendinstancetype.html
 func (client *Client) DescribeRecommendInstanceType(request *DescribeRecommendInstanceTypeRequest) (response *DescribeRecommendInstanceTypeResponse, err error) {
 	response = CreateDescribeRecommendInstanceTypeResponse()
 	err = client.DoAction(request, response)
@@ -29,8 +28,6 @@ func (client *Client) DescribeRecommendInstanceType(request *DescribeRecommendIn
 }
 
 // DescribeRecommendInstanceTypeWithChan invokes the ecs.DescribeRecommendInstanceType API asynchronously
-// api document: https://help.aliyun.com/api/ecs/describerecommendinstancetype.html
-// asynchronous document: https://help.aliyun.com/document_detail/66220.html
 func (client *Client) DescribeRecommendInstanceTypeWithChan(request *DescribeRecommendInstanceTypeRequest) (<-chan *DescribeRecommendInstanceTypeResponse, <-chan error) {
 	responseChan := make(chan *DescribeRecommendInstanceTypeResponse, 1)
 	errChan := make(chan error, 1)
@@ -53,8 +50,6 @@ func (client *Client) DescribeRecommendInstanceTypeWithChan(request *DescribeRec
 }
 
 // DescribeRecommendInstanceTypeWithCallback invokes the ecs.DescribeRecommendInstanceType API asynchronously
-// api document: https://help.aliyun.com/api/ecs/describerecommendinstancetype.html
-// asynchronous document: https://help.aliyun.com/document_detail/66220.html
 func (client *Client) DescribeRecommendInstanceTypeWithCallback(request *DescribeRecommendInstanceTypeRequest, callback func(response *DescribeRecommendInstanceTypeResponse, err error)) <-chan int {
 	result := make(chan int, 1)
 	err := client.AddAsyncTask(func() {
@@ -77,16 +72,27 @@ func (client *Client) DescribeRecommendInstanceTypeWithCallback(request *Describ
 type DescribeRecommendInstanceTypeRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
+	InstancePpsRx        requests.Integer `position:"Query" name:"InstancePpsRx"`
+	Memory               requests.Float   `position:"Query" name:"Memory"`
+	InstancePpsTx        requests.Integer `position:"Query" name:"InstancePpsTx"`
+	IoOptimized          string           `position:"Query" name:"IoOptimized"`
+	NetworkType          string           `position:"Query" name:"NetworkType"`
+	Scene                string           `position:"Query" name:"Scene"`
+	InstanceBandwidthTx  requests.Integer `position:"Query" name:"InstanceBandwidthTx"`
+	Cores                requests.Integer `position:"Query" name:"Cores"`
+	InstanceBandwidthRx  requests.Integer `position:"Query" name:"InstanceBandwidthRx"`
+	SystemDiskCategory   string           `position:"Query" name:"SystemDiskCategory"`
+	InstanceType         string           `position:"Query" name:"InstanceType"`
+	InstanceChargeType   string           `position:"Query" name:"InstanceChargeType"`
+	MaxPrice             requests.Float   `position:"Query" name:"MaxPrice"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	Channel              string           `position:"Query" name:"channel"`
-	NetworkType          string           `position:"Query" name:"NetworkType"`
+	InstanceTypeFamily   *[]string        `position:"Query" name:"InstanceTypeFamily"  type:"Repeated"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	Operator             string           `position:"Query" name:"operator"`
-	Token                string           `position:"Query" name:"token"`
-	Scene                string           `position:"Query" name:"Scene"`
-	InstanceType         string           `position:"Query" name:"InstanceType"`
-	ProxyId              string           `position:"Query" name:"proxyId"`
+	SpotStrategy         string           `position:"Query" name:"SpotStrategy"`
+	PriorityStrategy     string           `position:"Query" name:"PriorityStrategy"`
+	InstanceFamilyLevel  string           `position:"Query" name:"InstanceFamilyLevel"`
+	ZoneId               string           `position:"Query" name:"ZoneId"`
 }
 
 // DescribeRecommendInstanceTypeResponse is the response struct for api DescribeRecommendInstanceType
@@ -101,7 +107,8 @@ func CreateDescribeRecommendInstanceTypeRequest() (request *DescribeRecommendIns
 	request = &DescribeRecommendInstanceTypeRequest{
 		RpcRequest: &requests.RpcRequest{},
 	}
-	request.InitWithApiInfo("Ecs", "2014-05-26", "DescribeRecommendInstanceType", "ecs", "openAPI")
+	request.InitWithApiInfo("Ecs", "2014-05-26", "DescribeRecommendInstanceType", "", "")
+	request.Method = requests.POST
 	return
 }
 

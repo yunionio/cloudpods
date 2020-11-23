@@ -28,6 +28,7 @@ type BandwidthPackage struct {
 	InternetChargeType string            `json:"InternetChargeType" xml:"InternetChargeType"`
 	BusinessStatus     string            `json:"BusinessStatus" xml:"BusinessStatus"`
 	IpCount            string            `json:"IpCount" xml:"IpCount"`
+	ISP                string            `json:"ISP" xml:"ISP"`
 	CreationTime       string            `json:"CreationTime" xml:"CreationTime"`
 	Status             string            `json:"Status" xml:"Status"`
 	PublicIpAddresses  PublicIpAddresses `json:"PublicIpAddresses" xml:"PublicIpAddresses"`

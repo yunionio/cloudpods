@@ -21,7 +21,6 @@ import (
 )
 
 // DescribeNetworkInterfaces invokes the ecs.DescribeNetworkInterfaces API synchronously
-// api document: https://help.aliyun.com/api/ecs/describenetworkinterfaces.html
 func (client *Client) DescribeNetworkInterfaces(request *DescribeNetworkInterfacesRequest) (response *DescribeNetworkInterfacesResponse, err error) {
 	response = CreateDescribeNetworkInterfacesResponse()
 	err = client.DoAction(request, response)
@@ -29,8 +28,6 @@ func (client *Client) DescribeNetworkInterfaces(request *DescribeNetworkInterfac
 }
 
 // DescribeNetworkInterfacesWithChan invokes the ecs.DescribeNetworkInterfaces API asynchronously
-// api document: https://help.aliyun.com/api/ecs/describenetworkinterfaces.html
-// asynchronous document: https://help.aliyun.com/document_detail/66220.html
 func (client *Client) DescribeNetworkInterfacesWithChan(request *DescribeNetworkInterfacesRequest) (<-chan *DescribeNetworkInterfacesResponse, <-chan error) {
 	responseChan := make(chan *DescribeNetworkInterfacesResponse, 1)
 	errChan := make(chan error, 1)
@@ -53,8 +50,6 @@ func (client *Client) DescribeNetworkInterfacesWithChan(request *DescribeNetwork
 }
 
 // DescribeNetworkInterfacesWithCallback invokes the ecs.DescribeNetworkInterfaces API asynchronously
-// api document: https://help.aliyun.com/api/ecs/describenetworkinterfaces.html
-// asynchronous document: https://help.aliyun.com/document_detail/66220.html
 func (client *Client) DescribeNetworkInterfacesWithCallback(request *DescribeNetworkInterfacesRequest, callback func(response *DescribeNetworkInterfacesResponse, err error)) <-chan int {
 	result := make(chan int, 1)
 	err := client.AddAsyncTask(func() {
@@ -77,10 +72,12 @@ func (client *Client) DescribeNetworkInterfacesWithCallback(request *DescribeNet
 type DescribeNetworkInterfacesRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer                `position:"Query" name:"ResourceOwnerId"`
+	ServiceManaged       requests.Boolean                `position:"Query" name:"ServiceManaged"`
 	SecurityGroupId      string                          `position:"Query" name:"SecurityGroupId"`
 	Type                 string                          `position:"Query" name:"Type"`
 	PageNumber           requests.Integer                `position:"Query" name:"PageNumber"`
 	ResourceGroupId      string                          `position:"Query" name:"ResourceGroupId"`
+	NextToken            string                          `position:"Query" name:"NextToken"`
 	PageSize             requests.Integer                `position:"Query" name:"PageSize"`
 	Tag                  *[]DescribeNetworkInterfacesTag `position:"Query" name:"Tag"  type:"Repeated"`
 	NetworkInterfaceName string                          `position:"Query" name:"NetworkInterfaceName"`
@@ -88,10 +85,13 @@ type DescribeNetworkInterfacesRequest struct {
 	OwnerAccount         string                          `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer                `position:"Query" name:"OwnerId"`
 	VSwitchId            string                          `position:"Query" name:"VSwitchId"`
+	PrivateIpAddress     *[]string                       `position:"Query" name:"PrivateIpAddress"  type:"Repeated"`
 	InstanceId           string                          `position:"Query" name:"InstanceId"`
 	VpcId                string                          `position:"Query" name:"VpcId"`
 	PrimaryIpAddress     string                          `position:"Query" name:"PrimaryIpAddress"`
+	MaxResults           requests.Integer                `position:"Query" name:"MaxResults"`
 	NetworkInterfaceId   *[]string                       `position:"Query" name:"NetworkInterfaceId"  type:"Repeated"`
+	Status               string                          `position:"Query" name:"Status"`
 }
 
 // DescribeNetworkInterfacesTag is a repeated param struct in DescribeNetworkInterfacesRequest
@@ -107,6 +107,7 @@ type DescribeNetworkInterfacesResponse struct {
 	TotalCount           int                  `json:"TotalCount" xml:"TotalCount"`
 	PageNumber           int                  `json:"PageNumber" xml:"PageNumber"`
 	PageSize             int                  `json:"PageSize" xml:"PageSize"`
+	NextToken            string               `json:"NextToken" xml:"NextToken"`
 	NetworkInterfaceSets NetworkInterfaceSets `json:"NetworkInterfaceSets" xml:"NetworkInterfaceSets"`
 }
 
@@ -115,7 +116,8 @@ func CreateDescribeNetworkInterfacesRequest() (request *DescribeNetworkInterface
 	request = &DescribeNetworkInterfacesRequest{
 		RpcRequest: &requests.RpcRequest{},
 	}
-	request.InitWithApiInfo("Ecs", "2014-05-26", "DescribeNetworkInterfaces", "ecs", "openAPI")
+	request.InitWithApiInfo("Ecs", "2014-05-26", "DescribeNetworkInterfaces", "", "")
+	request.Method = requests.POST
 	return
 }
 

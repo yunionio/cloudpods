@@ -18,8 +18,10 @@ package ecs
 // ValueItem is a nested struct in ecs response
 type ValueItem struct {
 	Value              string `json:"Value" xml:"Value"`
+	ExpiredTime        string `json:"ExpiredTime" xml:"ExpiredTime"`
 	ZoneId             string `json:"ZoneId" xml:"ZoneId"`
 	InstanceChargeType string `json:"InstanceChargeType" xml:"InstanceChargeType"`
 	InstanceType       string `json:"InstanceType" xml:"InstanceType"`
 	Count              int    `json:"Count" xml:"Count"`
+	DiskCategory       string `json:"DiskCategory" xml:"DiskCategory"`
 }

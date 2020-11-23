@@ -23,12 +23,14 @@ type Permission struct {
 	SourceGroupId           string `json:"SourceGroupId" xml:"SourceGroupId"`
 	SourceGroupName         string `json:"SourceGroupName" xml:"SourceGroupName"`
 	SourceCidrIp            string `json:"SourceCidrIp" xml:"SourceCidrIp"`
+	Ipv6SourceCidrIp        string `json:"Ipv6SourceCidrIp" xml:"Ipv6SourceCidrIp"`
 	Policy                  string `json:"Policy" xml:"Policy"`
 	NicType                 string `json:"NicType" xml:"NicType"`
 	SourceGroupOwnerAccount string `json:"SourceGroupOwnerAccount" xml:"SourceGroupOwnerAccount"`
 	DestGroupId             string `json:"DestGroupId" xml:"DestGroupId"`
 	DestGroupName           string `json:"DestGroupName" xml:"DestGroupName"`
 	DestCidrIp              string `json:"DestCidrIp" xml:"DestCidrIp"`
+	Ipv6DestCidrIp          string `json:"Ipv6DestCidrIp" xml:"Ipv6DestCidrIp"`
 	DestGroupOwnerAccount   string `json:"DestGroupOwnerAccount" xml:"DestGroupOwnerAccount"`
 	Priority                string `json:"Priority" xml:"Priority"`
 	Direction               string `json:"Direction" xml:"Direction"`

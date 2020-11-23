@@ -21,7 +21,6 @@ import (
 )
 
 // AuthorizeSecurityGroup invokes the ecs.AuthorizeSecurityGroup API synchronously
-// api document: https://help.aliyun.com/api/ecs/authorizesecuritygroup.html
 func (client *Client) AuthorizeSecurityGroup(request *AuthorizeSecurityGroupRequest) (response *AuthorizeSecurityGroupResponse, err error) {
 	response = CreateAuthorizeSecurityGroupResponse()
 	err = client.DoAction(request, response)
@@ -29,8 +28,6 @@ func (client *Client) AuthorizeSecurityGroup(request *AuthorizeSecurityGroupRequ
 }
 
 // AuthorizeSecurityGroupWithChan invokes the ecs.AuthorizeSecurityGroup API asynchronously
-// api document: https://help.aliyun.com/api/ecs/authorizesecuritygroup.html
-// asynchronous document: https://help.aliyun.com/document_detail/66220.html
 func (client *Client) AuthorizeSecurityGroupWithChan(request *AuthorizeSecurityGroupRequest) (<-chan *AuthorizeSecurityGroupResponse, <-chan error) {
 	responseChan := make(chan *AuthorizeSecurityGroupResponse, 1)
 	errChan := make(chan error, 1)
@@ -53,8 +50,6 @@ func (client *Client) AuthorizeSecurityGroupWithChan(request *AuthorizeSecurityG
 }
 
 // AuthorizeSecurityGroupWithCallback invokes the ecs.AuthorizeSecurityGroup API asynchronously
-// api document: https://help.aliyun.com/api/ecs/authorizesecuritygroup.html
-// asynchronous document: https://help.aliyun.com/document_detail/66220.html
 func (client *Client) AuthorizeSecurityGroupWithCallback(request *AuthorizeSecurityGroupRequest, callback func(response *AuthorizeSecurityGroupResponse, err error)) <-chan int {
 	result := make(chan int, 1)
 	err := client.AddAsyncTask(func() {
@@ -84,6 +79,8 @@ type AuthorizeSecurityGroupRequest struct {
 	Description             string           `position:"Query" name:"Description"`
 	SourceGroupOwnerId      requests.Integer `position:"Query" name:"SourceGroupOwnerId"`
 	SourceGroupOwnerAccount string           `position:"Query" name:"SourceGroupOwnerAccount"`
+	Ipv6SourceCidrIp        string           `position:"Query" name:"Ipv6SourceCidrIp"`
+	Ipv6DestCidrIp          string           `position:"Query" name:"Ipv6DestCidrIp"`
 	Policy                  string           `position:"Query" name:"Policy"`
 	PortRange               string           `position:"Query" name:"PortRange"`
 	ResourceOwnerAccount    string           `position:"Query" name:"ResourceOwnerAccount"`
@@ -107,7 +104,8 @@ func CreateAuthorizeSecurityGroupRequest() (request *AuthorizeSecurityGroupReque
 	request = &AuthorizeSecurityGroupRequest{
 		RpcRequest: &requests.RpcRequest{},
 	}
-	request.InitWithApiInfo("Ecs", "2014-05-26", "AuthorizeSecurityGroup", "ecs", "openAPI")
+	request.InitWithApiInfo("Ecs", "2014-05-26", "AuthorizeSecurityGroup", "", "")
+	request.Method = requests.POST
 	return
 }
 

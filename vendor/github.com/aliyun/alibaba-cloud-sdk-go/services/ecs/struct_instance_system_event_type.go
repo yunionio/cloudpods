@@ -17,11 +17,14 @@ package ecs
 
 // InstanceSystemEventType is a nested struct in ecs response
 type InstanceSystemEventType struct {
-	InstanceId       string           `json:"InstanceId" xml:"InstanceId"`
-	EventId          string           `json:"EventId" xml:"EventId"`
-	EventPublishTime string           `json:"EventPublishTime" xml:"EventPublishTime"`
-	NotBefore        string           `json:"NotBefore" xml:"NotBefore"`
-	EventFinishTime  string           `json:"EventFinishTime" xml:"EventFinishTime"`
-	EventType        EventType        `json:"EventType" xml:"EventType"`
-	EventCycleStatus EventCycleStatus `json:"EventCycleStatus" xml:"EventCycleStatus"`
+	InstanceId        string            `json:"InstanceId" xml:"InstanceId"`
+	EventId           string            `json:"EventId" xml:"EventId"`
+	EventPublishTime  string            `json:"EventPublishTime" xml:"EventPublishTime"`
+	NotBefore         string            `json:"NotBefore" xml:"NotBefore"`
+	EventFinishTime   string            `json:"EventFinishTime" xml:"EventFinishTime"`
+	Reason            string            `json:"Reason" xml:"Reason"`
+	ImpactLevel       string            `json:"ImpactLevel" xml:"ImpactLevel"`
+	EventType         EventType         `json:"EventType" xml:"EventType"`
+	EventCycleStatus  EventCycleStatus  `json:"EventCycleStatus" xml:"EventCycleStatus"`
+	ExtendedAttribute ExtendedAttribute `json:"ExtendedAttribute" xml:"ExtendedAttribute"`
 }

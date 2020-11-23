@@ -21,7 +21,6 @@ import (
 )
 
 // ResizeDisk invokes the ecs.ResizeDisk API synchronously
-// api document: https://help.aliyun.com/api/ecs/resizedisk.html
 func (client *Client) ResizeDisk(request *ResizeDiskRequest) (response *ResizeDiskResponse, err error) {
 	response = CreateResizeDiskResponse()
 	err = client.DoAction(request, response)
@@ -29,8 +28,6 @@ func (client *Client) ResizeDisk(request *ResizeDiskRequest) (response *ResizeDi
 }
 
 // ResizeDiskWithChan invokes the ecs.ResizeDisk API asynchronously
-// api document: https://help.aliyun.com/api/ecs/resizedisk.html
-// asynchronous document: https://help.aliyun.com/document_detail/66220.html
 func (client *Client) ResizeDiskWithChan(request *ResizeDiskRequest) (<-chan *ResizeDiskResponse, <-chan error) {
 	responseChan := make(chan *ResizeDiskResponse, 1)
 	errChan := make(chan error, 1)
@@ -53,8 +50,6 @@ func (client *Client) ResizeDiskWithChan(request *ResizeDiskRequest) (<-chan *Re
 }
 
 // ResizeDiskWithCallback invokes the ecs.ResizeDisk API asynchronously
-// api document: https://help.aliyun.com/api/ecs/resizedisk.html
-// asynchronous document: https://help.aliyun.com/document_detail/66220.html
 func (client *Client) ResizeDiskWithCallback(request *ResizeDiskRequest, callback func(response *ResizeDiskResponse, err error)) <-chan int {
 	result := make(chan int, 1)
 	err := client.AddAsyncTask(func() {
@@ -77,13 +72,13 @@ func (client *Client) ResizeDiskWithCallback(request *ResizeDiskRequest, callbac
 type ResizeDiskRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	ClientToken          string           `position:"Query" name:"ClientToken"`
+	Type                 string           `position:"Query" name:"Type"`
+	DiskId               string           `position:"Query" name:"DiskId"`
+	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	NewSize              requests.Integer `position:"Query" name:"NewSize"`
-	DiskId               string           `position:"Query" name:"DiskId"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	Type                 string           `position:"Query" name:"Type"`
 }
 
 // ResizeDiskResponse is the response struct for api ResizeDisk
@@ -97,7 +92,8 @@ func CreateResizeDiskRequest() (request *ResizeDiskRequest) {
 	request = &ResizeDiskRequest{
 		RpcRequest: &requests.RpcRequest{},
 	}
-	request.InitWithApiInfo("Ecs", "2014-05-26", "ResizeDisk", "ecs", "openAPI")
+	request.InitWithApiInfo("Ecs", "2014-05-26", "ResizeDisk", "", "")
+	request.Method = requests.POST
 	return
 }
 

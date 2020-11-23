@@ -21,7 +21,6 @@ import (
 )
 
 // DescribeSnapshots invokes the ecs.DescribeSnapshots API synchronously
-// api document: https://help.aliyun.com/api/ecs/describesnapshots.html
 func (client *Client) DescribeSnapshots(request *DescribeSnapshotsRequest) (response *DescribeSnapshotsResponse, err error) {
 	response = CreateDescribeSnapshotsResponse()
 	err = client.DoAction(request, response)
@@ -29,8 +28,6 @@ func (client *Client) DescribeSnapshots(request *DescribeSnapshotsRequest) (resp
 }
 
 // DescribeSnapshotsWithChan invokes the ecs.DescribeSnapshots API asynchronously
-// api document: https://help.aliyun.com/api/ecs/describesnapshots.html
-// asynchronous document: https://help.aliyun.com/document_detail/66220.html
 func (client *Client) DescribeSnapshotsWithChan(request *DescribeSnapshotsRequest) (<-chan *DescribeSnapshotsResponse, <-chan error) {
 	responseChan := make(chan *DescribeSnapshotsResponse, 1)
 	errChan := make(chan error, 1)
@@ -53,8 +50,6 @@ func (client *Client) DescribeSnapshotsWithChan(request *DescribeSnapshotsReques
 }
 
 // DescribeSnapshotsWithCallback invokes the ecs.DescribeSnapshots API asynchronously
-// api document: https://help.aliyun.com/api/ecs/describesnapshots.html
-// asynchronous document: https://help.aliyun.com/document_detail/66220.html
 func (client *Client) DescribeSnapshotsWithCallback(request *DescribeSnapshotsRequest, callback func(response *DescribeSnapshotsResponse, err error)) <-chan int {
 	result := make(chan int, 1)
 	err := client.AddAsyncTask(func() {
@@ -98,6 +93,8 @@ type DescribeSnapshotsRequest struct {
 	InstanceId           string                  `position:"Query" name:"InstanceId"`
 	Encrypted            requests.Boolean        `position:"Query" name:"Encrypted"`
 	SnapshotType         string                  `position:"Query" name:"SnapshotType"`
+	KMSKeyId             string                  `position:"Query" name:"KMSKeyId"`
+	Category             string                  `position:"Query" name:"Category"`
 	Status               string                  `position:"Query" name:"Status"`
 }
 
@@ -122,7 +119,8 @@ func CreateDescribeSnapshotsRequest() (request *DescribeSnapshotsRequest) {
 	request = &DescribeSnapshotsRequest{
 		RpcRequest: &requests.RpcRequest{},
 	}
-	request.InitWithApiInfo("Ecs", "2014-05-26", "DescribeSnapshots", "ecs", "openAPI")
+	request.InitWithApiInfo("Ecs", "2014-05-26", "DescribeSnapshots", "", "")
+	request.Method = requests.POST
 	return
 }
 

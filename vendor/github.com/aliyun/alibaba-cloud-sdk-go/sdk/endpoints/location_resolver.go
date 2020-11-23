@@ -15,39 +15,51 @@ package endpoints
 
 import (
 	"encoding/json"
-	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"sync"
 	"time"
+
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 )
 
 const (
+	// EndpointCacheExpireTime ...
 	EndpointCacheExpireTime = 3600 //Seconds
 )
 
+// Cache caches endpoint for specific product and region
 type Cache struct {
 	sync.RWMutex
 	cache map[string]interface{}
 }
 
-func (c Cache) Get(k string) (v interface{}) {
+// Get ...
+func (c *Cache) Get(k string) (v interface{}) {
 	c.RLock()
 	v = c.cache[k]
 	c.RUnlock()
 	return
 }
 
-func (c Cache) Set(k string, v interface{}) {
+// Set ...
+func (c *Cache) Set(k string, v interface{}) {
 	c.Lock()
 	c.cache[k] = v
 	c.Unlock()
 }
 
-var lastClearTimePerProduct = Cache{cache: make(map[string]interface{})}
-var endpointCache = Cache{cache: make(map[string]interface{})}
+var lastClearTimePerProduct = &Cache{cache: make(map[string]interface{})}
+var endpointCache = &Cache{cache: make(map[string]interface{})}
 
+// LocationResolver ...
 type LocationResolver struct {
 }
 
+func (resolver *LocationResolver) GetName() (name string) {
+	name = "location resolver"
+	return
+}
+
+// TryResolve resolves endpoint giving product and region
 func (resolver *LocationResolver) TryResolve(param *ResolveParam) (endpoint string, support bool, err error) {
 	if len(param.LocationProduct) <= 0 {
 		support = false
@@ -56,8 +68,10 @@ func (resolver *LocationResolver) TryResolve(param *ResolveParam) (endpoint stri
 
 	//get from cache
 	cacheKey := param.Product + "#" + param.RegionId
-	if endpointCache.cache != nil && len(endpointCache.Get(cacheKey).(string)) > 0 && !CheckCacheIsExpire(cacheKey) {
-		endpoint = endpointCache.Get(cacheKey).(string)
+	var ok bool
+	endpoint, ok = endpointCache.Get(cacheKey).(string)
+
+	if ok && len(endpoint) > 0 && !CheckCacheIsExpire(cacheKey) {
 		support = true
 		return
 	}
@@ -81,13 +95,23 @@ func (resolver *LocationResolver) TryResolve(param *ResolveParam) (endpoint stri
 	}
 
 	response, err := param.CommonApi(getEndpointRequest)
-	var getEndpointResponse GetEndpointResponse
+	if err != nil {
+		support = false
+		return
+	}
+
 	if !response.IsSuccess() {
 		support = false
 		return
 	}
 
-	json.Unmarshal([]byte(response.GetHttpContentString()), &getEndpointResponse)
+	var getEndpointResponse GetEndpointResponse
+	err = json.Unmarshal([]byte(response.GetHttpContentString()), &getEndpointResponse)
+	if err != nil {
+		support = false
+		return
+	}
+
 	if !getEndpointResponse.Success || getEndpointResponse.Endpoints == nil {
 		support = false
 		return
@@ -108,8 +132,13 @@ func (resolver *LocationResolver) TryResolve(param *ResolveParam) (endpoint stri
 	return
 }
 
+// CheckCacheIsExpire ...
 func CheckCacheIsExpire(cacheKey string) bool {
-	lastClearTime := lastClearTimePerProduct.Get(cacheKey).(int64)
+	lastClearTime, ok := lastClearTimePerProduct.Get(cacheKey).(int64)
+	if !ok {
+		return true
+	}
+
 	if lastClearTime <= 0 {
 		lastClearTime = time.Now().Unix()
 		lastClearTimePerProduct.Set(cacheKey, lastClearTime)
@@ -124,18 +153,21 @@ func CheckCacheIsExpire(cacheKey string) bool {
 	return false
 }
 
+// GetEndpointResponse ...
 type GetEndpointResponse struct {
 	Endpoints *EndpointsObj
 	RequestId string
 	Success   bool
 }
 
+// EndpointsObj ...
 type EndpointsObj struct {
 	Endpoint []EndpointObj
 }
 
+// EndpointObj ...
 type EndpointObj struct {
-	Protocols   map[string]string
+	// Protocols   map[string]string
 	Type        string
 	Namespace   string
 	Id          string

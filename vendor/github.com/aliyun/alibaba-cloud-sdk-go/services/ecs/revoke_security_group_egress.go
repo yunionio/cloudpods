@@ -21,7 +21,6 @@ import (
 )
 
 // RevokeSecurityGroupEgress invokes the ecs.RevokeSecurityGroupEgress API synchronously
-// api document: https://help.aliyun.com/api/ecs/revokesecuritygroupegress.html
 func (client *Client) RevokeSecurityGroupEgress(request *RevokeSecurityGroupEgressRequest) (response *RevokeSecurityGroupEgressResponse, err error) {
 	response = CreateRevokeSecurityGroupEgressResponse()
 	err = client.DoAction(request, response)
@@ -29,8 +28,6 @@ func (client *Client) RevokeSecurityGroupEgress(request *RevokeSecurityGroupEgre
 }
 
 // RevokeSecurityGroupEgressWithChan invokes the ecs.RevokeSecurityGroupEgress API asynchronously
-// api document: https://help.aliyun.com/api/ecs/revokesecuritygroupegress.html
-// asynchronous document: https://help.aliyun.com/document_detail/66220.html
 func (client *Client) RevokeSecurityGroupEgressWithChan(request *RevokeSecurityGroupEgressRequest) (<-chan *RevokeSecurityGroupEgressResponse, <-chan error) {
 	responseChan := make(chan *RevokeSecurityGroupEgressResponse, 1)
 	errChan := make(chan error, 1)
@@ -53,8 +50,6 @@ func (client *Client) RevokeSecurityGroupEgressWithChan(request *RevokeSecurityG
 }
 
 // RevokeSecurityGroupEgressWithCallback invokes the ecs.RevokeSecurityGroupEgress API asynchronously
-// api document: https://help.aliyun.com/api/ecs/revokesecuritygroupegress.html
-// asynchronous document: https://help.aliyun.com/document_detail/66220.html
 func (client *Client) RevokeSecurityGroupEgressWithCallback(request *RevokeSecurityGroupEgressRequest, callback func(response *RevokeSecurityGroupEgressResponse, err error)) <-chan int {
 	result := make(chan int, 1)
 	err := client.AddAsyncTask(func() {
@@ -82,6 +77,8 @@ type RevokeSecurityGroupEgressRequest struct {
 	ClientToken           string           `position:"Query" name:"ClientToken"`
 	SecurityGroupId       string           `position:"Query" name:"SecurityGroupId"`
 	Description           string           `position:"Query" name:"Description"`
+	Ipv6DestCidrIp        string           `position:"Query" name:"Ipv6DestCidrIp"`
+	Ipv6SourceCidrIp      string           `position:"Query" name:"Ipv6SourceCidrIp"`
 	Policy                string           `position:"Query" name:"Policy"`
 	PortRange             string           `position:"Query" name:"PortRange"`
 	ResourceOwnerAccount  string           `position:"Query" name:"ResourceOwnerAccount"`
@@ -107,7 +104,8 @@ func CreateRevokeSecurityGroupEgressRequest() (request *RevokeSecurityGroupEgres
 	request = &RevokeSecurityGroupEgressRequest{
 		RpcRequest: &requests.RpcRequest{},
 	}
-	request.InitWithApiInfo("Ecs", "2014-05-26", "RevokeSecurityGroupEgress", "ecs", "openAPI")
+	request.InitWithApiInfo("Ecs", "2014-05-26", "RevokeSecurityGroupEgress", "", "")
+	request.Method = requests.POST
 	return
 }
 
