@@ -3719,6 +3719,18 @@ func (self *SGuest) DeleteAllDisksInDB(ctx context.Context, userCred mcclient.To
 	return nil
 }
 
+func (self *SGuest) DeleteAllInstanceSnapshotInDB(ctx context.Context, userCred mcclient.TokenCredential) error {
+	isps, err := self.GetInstanceSnapshots()
+	if err != nil {
+		return errors.Wrap(err, "unable to GetInstanceSnapshots")
+	}
+	for i := range isps {
+		err = isps[i].RealDelete(ctx, userCred)
+		return errors.Wrapf(err, "unable to real delete instance snapshot %q for guest %q", isps[i].GetName(), self.GetId())
+	}
+	return nil
+}
+
 func (self *SGuest) isNeedDoResetPasswd() bool {
 	guestdisks := self.GetDisks()
 	disk := guestdisks[0].GetDisk()

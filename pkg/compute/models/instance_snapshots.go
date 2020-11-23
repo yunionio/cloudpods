@@ -356,6 +356,10 @@ func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(ctx context.Cont
 	return instanceSnapshot, nil
 }
 
+var HypervisorIndependentInstanceSnapshot = []string{
+	api.HYPERVISOR_KVM,
+}
+
 func (self *SInstanceSnapshot) ToInstanceCreateInput(
 	sourceInput *api.ServerCreateInput) (*api.ServerCreateInput, error) {
 
