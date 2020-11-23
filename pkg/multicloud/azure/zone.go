@@ -26,12 +26,7 @@ type SZone struct {
 	multicloud.SResourceBase
 	region *SRegion
 
-	istorages        []cloudprovider.ICloudStorage
-	iclassicStorages []cloudprovider.ICloudStorage
-
-	storageTypes        []string
-	classicStorageTypes []string
-	Name                string
+	Name string
 }
 
 func (self *SZone) GetId() string {
@@ -98,13 +93,18 @@ func (self *SZone) GetIClassicStorages() []cloudprovider.ICloudStorage {
 	return ret
 }
 
-func (self *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
+func (self *SZone) getIStorages() []cloudprovider.ICloudStorage {
 	ret := []cloudprovider.ICloudStorage{}
 	storages := self.ListStorageTypes()
 	for i := range storages {
 		storages[i].zone = self
 		ret = append(ret, &storages[i])
 	}
+	return ret
+}
+
+func (self *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
+	ret := self.getIStorages()
 	ret = append(ret, self.GetIClassicStorages()...)
 	return ret, nil
 }
