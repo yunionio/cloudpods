@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -430,6 +431,43 @@ func (self *SInstanceSnapshot) GetSnapshots() ([]SSnapshot, error) {
 		}
 		return snapshots, nil
 	}
+}
+
+func (self *SInstanceSnapshot) GetQuotaKeys() quotas.IQuotaKeys {
+	return fetchRegionalQuotaKeys(
+		rbacutils.ScopeProject,
+		self.GetOwnerId(),
+		self.GetRegion(),
+		self.GetCloudprovider(),
+	)
+}
+
+func (self *SInstanceSnapshot) GetUsages() []db.IUsage {
+	if self.PendingDeleted || self.Deleted {
+		return nil
+	}
+	usage := SRegionQuota{InstanceSnapshot: 1}
+	keys := self.GetQuotaKeys()
+	usage.SetKeys(keys)
+	return []db.IUsage{
+		&usage,
+	}
+}
+
+func TotalInstanceSnapshotCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) (int, error) {
+	q := InstanceSnapshotManager.Query()
+
+	switch scope {
+	case rbacutils.ScopeSystem:
+	case rbacutils.ScopeDomain:
+		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
+	case rbacutils.ScopeProject:
+		q = q.Equals("tenant_id", ownerId.GetProjectId())
+	}
+
+	q = RangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"), nil, nil)
+	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
+	return q.CountWithError()
 }
 
 func (self *SInstanceSnapshot) GetInstanceSnapshotJointAt(diskIndex int) (*SInstanceSnapshotJoint, error) {

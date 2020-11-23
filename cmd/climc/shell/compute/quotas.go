@@ -58,7 +58,8 @@ type RegionQuotaOptions struct {
 
 	Eip int64 `help:"Elastic IP count" json:"eip,omitzero"`
 
-	Snapshot int64 `help:"Snapshot count" json:"snapshot,omitzero"`
+	Snapshot         int64 `help:"Snapshot count" json:"snapshot,omitzero"`
+	InstanceSnapshot int64 `help:"Instance snapshot count" json:"instance_snapshot,omitzero"`
 
 	Bucket    int64 `help:"bucket count" json:"bucket,omitzero"`
 	ObjectGB  int64 `help:"object size in GB" json:"object_gb,omitzero"`
