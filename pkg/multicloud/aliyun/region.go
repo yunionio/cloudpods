@@ -151,6 +151,10 @@ func (self *SRegion) kvsRequest(action string, params map[string]string) (jsonut
 		return nil, err
 	}
 
+	if _, ok := params["RegionId"]; ok {
+		params["RegionId"] = transRegionIdFromEcsRegionId(self, "redis")
+	}
+
 	return jsonRequest(client, "r-kvstore.aliyuncs.com", ALIYUN_API_VERSION_KVS, action, params, self.client.debug)
 }
 
@@ -907,7 +911,7 @@ func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbala
 	params["RegionId"] = region.RegionId
 	params["LoadBalancerName"] = loadbalancer.Name
 	if len(loadbalancer.ZoneID) > 0 {
-		params["MasterZoneId"] = loadbalancer.ZoneID
+		params["MasterZoneId"] = transZoneIdFromEcsZoneId(region, "elb", loadbalancer.ZoneID)
 	}
 
 	if len(loadbalancer.VpcID) > 0 {

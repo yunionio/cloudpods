@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	v "yunion.io/x/pkg/util/version"
 
+	apis "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -161,13 +162,36 @@ func (self *SSkuResourcesMeta) GetServerSkusByRegionExternalId(regionExternalId 
 	return result, nil
 }
 
+func getElaticCacheSkuRegionExtId(regionExtId string) string {
+	if strings.HasPrefix(regionExtId, apis.CLOUD_ACCESS_ENV_ALIYUN_FINANCE) && strings.HasSuffix(regionExtId, "cn-hangzhou") {
+		return regionExtId + "-finance"
+	}
+
+	return regionExtId
+}
+
+func getElaticCacheSkuZoneId(zoneExtId string) string {
+	if strings.HasPrefix(zoneExtId, apis.CLOUD_ACCESS_ENV_ALIYUN_FINANCE) {
+		if strings.HasSuffix(zoneExtId, "cn-hangzhou-finance-b") || strings.HasSuffix(zoneExtId, "cn-hangzhou-finance-c") || strings.HasSuffix(zoneExtId, "cn-hangzhou-finance-d") {
+			zoneExtId = strings.Replace(zoneExtId, "-finance", "", -1)
+		} else if strings.Contains(zoneExtId, "cn-hangzhou") {
+			zoneExtId = strings.Replace(zoneExtId, "-finance", "", 1)
+		}
+	}
+
+	return zoneExtId
+}
+
 func (self *SSkuResourcesMeta) GetElasticCacheSkusByRegionExternalId(regionExternalId string) ([]SElasticcacheSku, error) {
 	regionId, zoneMaps, err := self.GetRegionIdAndZoneMaps(regionExternalId)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetRegionIdAndZoneMaps")
 	}
 	result := []SElasticcacheSku{}
-	objs, err := self.getSkusByRegion(self.ElasticCacheBase, regionExternalId)
+
+	// aliyun finance cloud
+	remoteRegion := getElaticCacheSkuRegionExtId(regionExternalId)
+	objs, err := self.getSkusByRegion(self.ElasticCacheBase, remoteRegion)
 	if err != nil {
 		return nil, errors.Wrap(err, "getSkusByRegion")
 	}
@@ -179,16 +203,16 @@ func (self *SSkuResourcesMeta) GetElasticCacheSkusByRegionExternalId(regionExter
 			return nil, errors.Wrapf(err, "obj.Unmarshal")
 		}
 		if len(sku.ZoneId) > 0 {
-			zoneId := self.getZoneIdBySuffix(zoneMaps, sku.ZoneId)
+			zoneId := self.getZoneIdBySuffix(zoneMaps, getElaticCacheSkuZoneId(sku.ZoneId))
 			if len(zoneId) == 0 {
-				return nil, fmt.Errorf("invalid sku %s %s master zoneId: %s", sku.Id, sku.CloudregionId, sku.ZoneId)
+				return nil, fmt.Errorf("invalid sku %s %s master zoneId: %s", sku.Id, sku.CloudregionId, getElaticCacheSkuZoneId(sku.ZoneId))
 			}
 			sku.ZoneId = zoneId
 		}
 		if len(sku.SlaveZoneId) > 0 {
-			zoneId := self.getZoneIdBySuffix(zoneMaps, sku.SlaveZoneId)
+			zoneId := self.getZoneIdBySuffix(zoneMaps, getElaticCacheSkuZoneId(sku.SlaveZoneId))
 			if len(zoneId) == 0 {
-				return nil, fmt.Errorf("invalid sku %s %s slave zoneId: %s", sku.Id, sku.CloudregionId, sku.SlaveZoneId)
+				return nil, fmt.Errorf("invalid sku %s %s slave zoneId: %s", sku.Id, sku.CloudregionId, getElaticCacheSkuZoneId(sku.SlaveZoneId))
 			}
 			sku.SlaveZoneId = zoneId
 		}

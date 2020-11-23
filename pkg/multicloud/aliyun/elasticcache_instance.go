@@ -242,7 +242,7 @@ func (self *SElasticcache) GetVpcId() string {
 }
 
 func (self *SElasticcache) GetZoneId() string {
-	zone, err := self.region.getZoneById(self.ZoneID)
+	zone, err := self.region.getZoneById(transZoneIdToEcsZoneId(self.region, "redis", self.ZoneID))
 	if err != nil {
 		log.Errorf("failed to find zone for elasticcache %s error: %v", self.GetId(), err)
 		return ""
@@ -613,7 +613,7 @@ func (self *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheIn
 	}
 
 	if len(ec.ZoneIds) > 0 {
-		params["ZoneId"] = ec.ZoneIds[0]
+		params["ZoneId"] = transZoneIdFromEcsZoneId(self, "redis", ec.ZoneIds[0])
 	}
 
 	if len(ec.PrivateIpAddress) > 0 {
