@@ -33,6 +33,7 @@ const (
 	CommonAlertMetadataAlertType = "alert_type"
 	CommonAlertMetadataFieldOpt  = "field_opt"
 	CommonAlertMetadataPointStr  = "point_str"
+	CommonAlertMetadataName      = "meta_name"
 
 	COMPANY_COPYRIGHT_ONECLOUD = "北京云联万维技术有限公司"
 	BRAND_ONECLOUD_NAME_CN     = "云联壹云"
@@ -204,6 +205,14 @@ func (alert *SCommonAlert) getPointStr() string {
 	return alert.GetMetadata(CommonAlertMetadataPointStr, nil)
 }
 
+func (alert *SCommonAlert) setMetaName(ctx context.Context, userCred mcclient.TokenCredential, metaName string) error {
+	return alert.SetMetadata(ctx, CommonAlertMetadataName, metaName, userCred)
+}
+
+func (alert *SCommonAlert) getMetaName() string {
+	return alert.GetMetadata(CommonAlertMetadataName, nil)
+}
+
 func (alert *SCommonAlert) CustomizeCreate(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider,
@@ -298,6 +307,9 @@ func (alert *SCommonAlert) PostCreate(ctx context.Context,
 	}
 	if input.GetPointStr {
 		alert.setPointStr(ctx, userCred, strconv.FormatBool(input.GetPointStr))
+	}
+	if len(input.MetaName) != 0 {
+		alert.setMetaName(ctx, userCred, input.MetaName)
 	}
 	_, err := alert.PerformSetScope(ctx, userCred, query, data)
 	if err != nil {
@@ -534,6 +546,11 @@ func getCommonAlertMetricDetailsFromCondition(cond *monitor.AlertCondition,
 	}
 	metricDetails.Reduce = cond.Reducer.Type
 
+	metricDetails.ConditionType = cond.Type
+	if metricDetails.ConditionType == monitor.METRIC_QUERY_TYPE_NO_DATA {
+		metricDetails.ThresholdStr = monitor.METRIC_QUERY_NO_DATA_THESHOLD
+	}
+
 	q := cond.Query
 	measurement := q.Model.Measurement
 	field := ""
@@ -646,8 +663,12 @@ func (man *SCommonAlertManager) toAlertCreatInput(input monitor.CommonAlertCreat
 	ret.Level = input.Level
 	//ret.Settings =monitor.AlertSetting{}
 	for _, metricquery := range input.CommonMetricInputQuery.MetricQuery {
+		conditionType := "query"
+		if len(metricquery.ConditionType) != 0 {
+			conditionType = metricquery.ConditionType
+		}
 		condition := monitor.AlertCondition{
-			Type:    "query",
+			Type:    conditionType,
 			Query:   *metricquery.AlertQuery,
 			Reducer: monitor.Condition{Type: metricquery.Reduce},
 			Evaluator: monitor.Condition{Type: getQueryEvalType(metricquery.Comparator),
@@ -710,6 +731,7 @@ func (alert *SCommonAlert) ValidateUpdateData(
 			data.Set("channel", channels)
 		}
 	}
+	tmp := jsonutils.NewArray()
 	if metric_query, _ := data.GetArray("metric_query"); len(metric_query) > 0 {
 		for i := range metric_query {
 			query := new(monitor.CommonAlertQuery)
@@ -726,17 +748,20 @@ func (alert *SCommonAlert) ValidateUpdateData(
 			/*if query.Threshold == 0 {
 				return data, httperrors.NewInputParameterError("threshold is meaningless")
 			}*/
-			if strings.Contains(query.From, "now-") || strings.Contains(query.To, "now") {
+			if strings.Contains(query.From, "now-") {
 				query.To = "now"
 				query.From = "1h"
 			}
+			tmp.Add(jsonutils.Marshal(query))
 		}
+		data.Add(tmp, "metric_query")
 		metricQuery := new(monitor.CommonMetricInputQuery)
 		err := data.Unmarshal(metricQuery)
 		if err != nil {
 			return data, errors.Wrap(err, "metric_query Unmarshal error")
 		}
 		scope, _ := data.GetString("scope")
+		log.Errorf("update query from:%s", metricQuery.From)
 		err = CommonAlertManager.ValidateMetricQuery(metricQuery, scope, userCred)
 		if err != nil {
 			return data, errors.Wrap(err, "metric query error")
@@ -785,6 +810,9 @@ func (alert *SCommonAlert) PostUpdate(
 	}
 	if updateInput.GetPointStr {
 		alert.setPointStr(ctx, userCred, strconv.FormatBool(updateInput.GetPointStr))
+	}
+	if len(updateInput.MetaName) != 0 {
+		alert.setMetaName(ctx, userCred, updateInput.MetaName)
 	}
 	CommonAlertManager.SetSubscriptionAlert(alert)
 }
