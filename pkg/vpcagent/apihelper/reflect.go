@@ -108,6 +108,7 @@ func GetModels(opts *GetModelsOptions) error {
 			minUpdatedAtFilter(minUpdatedAt), // order matters, filter.0
 			"manager_id.isnullorempty()",     // len(manager_id) > 0 is for pubcloud objects
 			"external_id.isnullorempty()",    // len(external_id) > 0 is for pubcloud objects
+			"cloud_env=onpremise",
 		},
 		OrderBy: []string{"updated_at"},
 		Order:   "asc",
