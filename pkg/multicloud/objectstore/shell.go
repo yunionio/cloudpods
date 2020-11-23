@@ -508,12 +508,7 @@ func S3Shell() {
 	})
 
 	type BucketSetRefererOption struct {
-		BUCKET string `help:"name of bucket to put object"`
-		// 是否开启防盗链
-		Enabled bool `help:"enable refer"`
-		// Black-List、White-List
-		Type string `help:"domain list type" choices:"Black-List|White-List"`
-		// 域名列表
+		BUCKET     string `help:"name of bucket to put object"`
 		DomainList []string
 		// 是否允许空refer 访问
 		AllowEmptyRefer bool `help:"all empty refer access"`
@@ -524,9 +519,7 @@ func S3Shell() {
 			return err
 		}
 		conf := cloudprovider.SBucketRefererConf{
-			Enabled:         args.Enabled,
-			Type:            args.Type,
-			DomainList:      args.DomainList,
+			WhiteList:       args.DomainList,
 			AllowEmptyRefer: args.AllowEmptyRefer,
 		}
 		err = bucket.SetReferer(conf)
