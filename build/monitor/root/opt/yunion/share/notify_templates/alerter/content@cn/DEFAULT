@@ -2,7 +2,7 @@
 策略名称: {{.name}}
 触发时间: {{.start_time}}
 报警级别: {{.level}}
-触发条件: {{.description}}
+触发条件: {{.description | unescaped}}
 资源数量：{{len .matches}}
 资源名称：{{.resource_name}}
 

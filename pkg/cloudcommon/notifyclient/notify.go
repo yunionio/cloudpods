@@ -91,13 +91,19 @@ func getTemplate(ctx context.Context, topic string, contType string, channel npk
 		if err != nil {
 			return nil, err
 		}
-		tmp, err := template.New(key).Parse(string(cont))
+		tmp := template.New(key)
+		tmp.Funcs(template.FuncMap{"unescaped": unescaped})
+		tmp, err = tmp.Parse(string(cont))
 		if err != nil {
 			return nil, err
 		}
 		templatesTable[key] = tmp
 	}
 	return templatesTable[key], nil
+}
+
+func unescaped(str string) template.HTML {
+	return template.HTML(str)
 }
 
 func getContent(ctx context.Context, topic string, contType string, channel npk.TNotifyChannel, data jsonutils.JSONObject) (string, error) {

@@ -223,9 +223,23 @@ func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series tsdb
 	if alertDetails.GetPointStr {
 		evalMatch.ValueStr = c.jointPointStr(series, evalMatch.ValueStr, valStrArr)
 	}
-	evalMatch.MeasurementDesc = alertDetails.MeasurementDisplayName
-	evalMatch.FieldDesc = alertDetails.FieldDescription.DisplayName
+	c.newRuleDescription(context, alertDetails)
 	return evalMatch, nil
+}
+
+func (c *QueryCondition) newRuleDescription(context *alerting.EvalContext, alertDetails *monitor.CommonAlertMetricDetails) {
+	ruleDes := alerting.RuleDescription{
+		AlertRecordRule: monitor.AlertRecordRule{
+			Metric:          fmt.Sprintf("%s.%s", alertDetails.Measurement, alertDetails.Field),
+			Measurement:     alertDetails.Measurement,
+			MeasurementDesc: alertDetails.MeasurementDisplayName,
+			Field:           alertDetails.Field,
+			FieldDesc:       alertDetails.FieldDescription.DisplayName,
+			Comparator:      alertDetails.Comparator,
+			Threshold:       c.RationalizeValueFromUnit(alertDetails.Threshold, alertDetails.FieldDescription.Unit, ""),
+		},
+	}
+	context.RuleDescription = &ruleDes
 }
 
 func (c *QueryCondition) jointPointStr(series tsdb.TimeSeries, value string, valStrArr []string) string {
