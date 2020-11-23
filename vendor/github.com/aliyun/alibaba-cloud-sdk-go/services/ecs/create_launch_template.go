@@ -21,7 +21,6 @@ import (
 )
 
 // CreateLaunchTemplate invokes the ecs.CreateLaunchTemplate API synchronously
-// api document: https://help.aliyun.com/api/ecs/createlaunchtemplate.html
 func (client *Client) CreateLaunchTemplate(request *CreateLaunchTemplateRequest) (response *CreateLaunchTemplateResponse, err error) {
 	response = CreateCreateLaunchTemplateResponse()
 	err = client.DoAction(request, response)
@@ -29,8 +28,6 @@ func (client *Client) CreateLaunchTemplate(request *CreateLaunchTemplateRequest)
 }
 
 // CreateLaunchTemplateWithChan invokes the ecs.CreateLaunchTemplate API asynchronously
-// api document: https://help.aliyun.com/api/ecs/createlaunchtemplate.html
-// asynchronous document: https://help.aliyun.com/document_detail/66220.html
 func (client *Client) CreateLaunchTemplateWithChan(request *CreateLaunchTemplateRequest) (<-chan *CreateLaunchTemplateResponse, <-chan error) {
 	responseChan := make(chan *CreateLaunchTemplateResponse, 1)
 	errChan := make(chan error, 1)
@@ -53,8 +50,6 @@ func (client *Client) CreateLaunchTemplateWithChan(request *CreateLaunchTemplate
 }
 
 // CreateLaunchTemplateWithCallback invokes the ecs.CreateLaunchTemplate API asynchronously
-// api document: https://help.aliyun.com/api/ecs/createlaunchtemplate.html
-// asynchronous document: https://help.aliyun.com/document_detail/66220.html
 func (client *Client) CreateLaunchTemplateWithCallback(request *CreateLaunchTemplateRequest, callback func(response *CreateLaunchTemplateResponse, err error)) <-chan int {
 	result := make(chan int, 1)
 	err := client.AddAsyncTask(func() {
@@ -105,6 +100,7 @@ type CreateLaunchTemplateRequest struct {
 	Description                 string                                  `position:"Query" name:"Description"`
 	SystemDiskCategory          string                                  `position:"Query" name:"SystemDisk.Category"`
 	UserData                    string                                  `position:"Query" name:"UserData"`
+	PasswordInherit             requests.Boolean                        `position:"Query" name:"PasswordInherit"`
 	InstanceType                string                                  `position:"Query" name:"InstanceType"`
 	InstanceChargeType          string                                  `position:"Query" name:"InstanceChargeType"`
 	EnableVmOsConfig            requests.Boolean                        `position:"Query" name:"EnableVmOsConfig"`
@@ -151,6 +147,7 @@ type CreateLaunchTemplateDataDisk struct {
 	DiskName           string `name:"DiskName"`
 	Description        string `name:"Description"`
 	DeleteWithInstance string `name:"DeleteWithInstance"`
+	Device             string `name:"Device"`
 }
 
 // CreateLaunchTemplateResponse is the response struct for api CreateLaunchTemplate
@@ -165,7 +162,8 @@ func CreateCreateLaunchTemplateRequest() (request *CreateLaunchTemplateRequest) 
 	request = &CreateLaunchTemplateRequest{
 		RpcRequest: &requests.RpcRequest{},
 	}
-	request.InitWithApiInfo("Ecs", "2014-05-26", "CreateLaunchTemplate", "ecs", "openAPI")
+	request.InitWithApiInfo("Ecs", "2014-05-26", "CreateLaunchTemplate", "", "")
+	request.Method = requests.POST
 	return
 }
 

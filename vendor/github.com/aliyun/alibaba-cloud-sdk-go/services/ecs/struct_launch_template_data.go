@@ -19,6 +19,7 @@ package ecs
 type LaunchTemplateData struct {
 	ImageId                     string                                            `json:"ImageId" xml:"ImageId"`
 	ImageOwnerAlias             string                                            `json:"ImageOwnerAlias" xml:"ImageOwnerAlias"`
+	PasswordInherit             bool                                              `json:"PasswordInherit" xml:"PasswordInherit"`
 	InstanceType                string                                            `json:"InstanceType" xml:"InstanceType"`
 	SecurityGroupId             string                                            `json:"SecurityGroupId" xml:"SecurityGroupId"`
 	VpcId                       string                                            `json:"VpcId" xml:"VpcId"`

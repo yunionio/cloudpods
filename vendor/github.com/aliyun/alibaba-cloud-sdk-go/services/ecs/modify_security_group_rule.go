@@ -21,7 +21,6 @@ import (
 )
 
 // ModifySecurityGroupRule invokes the ecs.ModifySecurityGroupRule API synchronously
-// api document: https://help.aliyun.com/api/ecs/modifysecuritygrouprule.html
 func (client *Client) ModifySecurityGroupRule(request *ModifySecurityGroupRuleRequest) (response *ModifySecurityGroupRuleResponse, err error) {
 	response = CreateModifySecurityGroupRuleResponse()
 	err = client.DoAction(request, response)
@@ -29,8 +28,6 @@ func (client *Client) ModifySecurityGroupRule(request *ModifySecurityGroupRuleRe
 }
 
 // ModifySecurityGroupRuleWithChan invokes the ecs.ModifySecurityGroupRule API asynchronously
-// api document: https://help.aliyun.com/api/ecs/modifysecuritygrouprule.html
-// asynchronous document: https://help.aliyun.com/document_detail/66220.html
 func (client *Client) ModifySecurityGroupRuleWithChan(request *ModifySecurityGroupRuleRequest) (<-chan *ModifySecurityGroupRuleResponse, <-chan error) {
 	responseChan := make(chan *ModifySecurityGroupRuleResponse, 1)
 	errChan := make(chan error, 1)
@@ -53,8 +50,6 @@ func (client *Client) ModifySecurityGroupRuleWithChan(request *ModifySecurityGro
 }
 
 // ModifySecurityGroupRuleWithCallback invokes the ecs.ModifySecurityGroupRule API asynchronously
-// api document: https://help.aliyun.com/api/ecs/modifysecuritygrouprule.html
-// asynchronous document: https://help.aliyun.com/document_detail/66220.html
 func (client *Client) ModifySecurityGroupRuleWithCallback(request *ModifySecurityGroupRuleRequest, callback func(response *ModifySecurityGroupRuleResponse, err error)) <-chan int {
 	result := make(chan int, 1)
 	err := client.AddAsyncTask(func() {
@@ -84,6 +79,8 @@ type ModifySecurityGroupRuleRequest struct {
 	Description             string           `position:"Query" name:"Description"`
 	SourceGroupOwnerId      requests.Integer `position:"Query" name:"SourceGroupOwnerId"`
 	SourceGroupOwnerAccount string           `position:"Query" name:"SourceGroupOwnerAccount"`
+	Ipv6SourceCidrIp        string           `position:"Query" name:"Ipv6SourceCidrIp"`
+	Ipv6DestCidrIp          string           `position:"Query" name:"Ipv6DestCidrIp"`
 	Policy                  string           `position:"Query" name:"Policy"`
 	PortRange               string           `position:"Query" name:"PortRange"`
 	ResourceOwnerAccount    string           `position:"Query" name:"ResourceOwnerAccount"`
@@ -107,7 +104,8 @@ func CreateModifySecurityGroupRuleRequest() (request *ModifySecurityGroupRuleReq
 	request = &ModifySecurityGroupRuleRequest{
 		RpcRequest: &requests.RpcRequest{},
 	}
-	request.InitWithApiInfo("Ecs", "2014-05-26", "ModifySecurityGroupRule", "ecs", "openAPI")
+	request.InitWithApiInfo("Ecs", "2014-05-26", "ModifySecurityGroupRule", "", "")
+	request.Method = requests.POST
 	return
 }
 

@@ -21,7 +21,6 @@ import (
 )
 
 // InvokeCommand invokes the ecs.InvokeCommand API synchronously
-// api document: https://help.aliyun.com/api/ecs/invokecommand.html
 func (client *Client) InvokeCommand(request *InvokeCommandRequest) (response *InvokeCommandResponse, err error) {
 	response = CreateInvokeCommandResponse()
 	err = client.DoAction(request, response)
@@ -29,8 +28,6 @@ func (client *Client) InvokeCommand(request *InvokeCommandRequest) (response *In
 }
 
 // InvokeCommandWithChan invokes the ecs.InvokeCommand API asynchronously
-// api document: https://help.aliyun.com/api/ecs/invokecommand.html
-// asynchronous document: https://help.aliyun.com/document_detail/66220.html
 func (client *Client) InvokeCommandWithChan(request *InvokeCommandRequest) (<-chan *InvokeCommandResponse, <-chan error) {
 	responseChan := make(chan *InvokeCommandResponse, 1)
 	errChan := make(chan error, 1)
@@ -53,8 +50,6 @@ func (client *Client) InvokeCommandWithChan(request *InvokeCommandRequest) (<-ch
 }
 
 // InvokeCommandWithCallback invokes the ecs.InvokeCommand API asynchronously
-// api document: https://help.aliyun.com/api/ecs/invokecommand.html
-// asynchronous document: https://help.aliyun.com/document_detail/66220.html
 func (client *Client) InvokeCommandWithCallback(request *InvokeCommandRequest, callback func(response *InvokeCommandResponse, err error)) <-chan int {
 	result := make(chan int, 1)
 	err := client.AddAsyncTask(func() {
@@ -76,14 +71,15 @@ func (client *Client) InvokeCommandWithCallback(request *InvokeCommandRequest, c
 // InvokeCommandRequest is the request struct for api InvokeCommand
 type InvokeCommandRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	CommandId            string           `position:"Query" name:"CommandId"`
-	Frequency            string           `position:"Query" name:"Frequency"`
-	Timed                requests.Boolean `position:"Query" name:"Timed"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	InstanceId           *[]string        `position:"Query" name:"InstanceId"  type:"Repeated"`
+	ResourceOwnerId      requests.Integer       `position:"Query" name:"ResourceOwnerId"`
+	CommandId            string                 `position:"Query" name:"CommandId"`
+	Frequency            string                 `position:"Query" name:"Frequency"`
+	Timed                requests.Boolean       `position:"Query" name:"Timed"`
+	ResourceOwnerAccount string                 `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                 `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer       `position:"Query" name:"OwnerId"`
+	InstanceId           *[]string              `position:"Query" name:"InstanceId"  type:"Repeated"`
+	Parameters           map[string]interface{} `position:"Query" name:"Parameters"`
 }
 
 // InvokeCommandResponse is the response struct for api InvokeCommand
@@ -98,7 +94,8 @@ func CreateInvokeCommandRequest() (request *InvokeCommandRequest) {
 	request = &InvokeCommandRequest{
 		RpcRequest: &requests.RpcRequest{},
 	}
-	request.InitWithApiInfo("Ecs", "2014-05-26", "InvokeCommand", "ecs", "openAPI")
+	request.InitWithApiInfo("Ecs", "2014-05-26", "InvokeCommand", "", "")
+	request.Method = requests.POST
 	return
 }
 

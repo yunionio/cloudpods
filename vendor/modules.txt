@@ -60,10 +60,11 @@ github.com/RoaringBitmap/roaring
 github.com/Shopify/sarama
 # github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6
 github.com/StackExchange/wmi
-# github.com/aliyun/alibaba-cloud-sdk-go v0.0.0-20181031125837-1b0ec6f46eb1
+# github.com/aliyun/alibaba-cloud-sdk-go v1.61.684
 github.com/aliyun/alibaba-cloud-sdk-go/sdk
 github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth
 github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/credentials
+github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/credentials/provider
 github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/signers
 github.com/aliyun/alibaba-cloud-sdk-go/sdk/endpoints
 github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors

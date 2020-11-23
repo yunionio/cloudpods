@@ -19,6 +19,8 @@ package ecs
 type Capacity struct {
 	TotalVcpus            int     `json:"TotalVcpus" xml:"TotalVcpus"`
 	AvailableVcpus        int     `json:"AvailableVcpus" xml:"AvailableVcpus"`
+	TotalVgpus            int     `json:"TotalVgpus" xml:"TotalVgpus"`
+	AvailableVgpus        int     `json:"AvailableVgpus" xml:"AvailableVgpus"`
 	TotalMemory           float64 `json:"TotalMemory" xml:"TotalMemory"`
 	AvailableMemory       float64 `json:"AvailableMemory" xml:"AvailableMemory"`
 	TotalLocalStorage     int     `json:"TotalLocalStorage" xml:"TotalLocalStorage"`

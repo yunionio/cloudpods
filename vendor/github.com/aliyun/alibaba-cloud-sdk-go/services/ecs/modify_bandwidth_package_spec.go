@@ -21,7 +21,6 @@ import (
 )
 
 // ModifyBandwidthPackageSpec invokes the ecs.ModifyBandwidthPackageSpec API synchronously
-// api document: https://help.aliyun.com/api/ecs/modifybandwidthpackagespec.html
 func (client *Client) ModifyBandwidthPackageSpec(request *ModifyBandwidthPackageSpecRequest) (response *ModifyBandwidthPackageSpecResponse, err error) {
 	response = CreateModifyBandwidthPackageSpecResponse()
 	err = client.DoAction(request, response)
@@ -29,8 +28,6 @@ func (client *Client) ModifyBandwidthPackageSpec(request *ModifyBandwidthPackage
 }
 
 // ModifyBandwidthPackageSpecWithChan invokes the ecs.ModifyBandwidthPackageSpec API asynchronously
-// api document: https://help.aliyun.com/api/ecs/modifybandwidthpackagespec.html
-// asynchronous document: https://help.aliyun.com/document_detail/66220.html
 func (client *Client) ModifyBandwidthPackageSpecWithChan(request *ModifyBandwidthPackageSpecRequest) (<-chan *ModifyBandwidthPackageSpecResponse, <-chan error) {
 	responseChan := make(chan *ModifyBandwidthPackageSpecResponse, 1)
 	errChan := make(chan error, 1)
@@ -53,8 +50,6 @@ func (client *Client) ModifyBandwidthPackageSpecWithChan(request *ModifyBandwidt
 }
 
 // ModifyBandwidthPackageSpecWithCallback invokes the ecs.ModifyBandwidthPackageSpec API asynchronously
-// api document: https://help.aliyun.com/api/ecs/modifybandwidthpackagespec.html
-// asynchronous document: https://help.aliyun.com/document_detail/66220.html
 func (client *Client) ModifyBandwidthPackageSpecWithCallback(request *ModifyBandwidthPackageSpecRequest, callback func(response *ModifyBandwidthPackageSpecResponse, err error)) <-chan int {
 	result := make(chan int, 1)
 	err := client.AddAsyncTask(func() {
@@ -95,7 +90,8 @@ func CreateModifyBandwidthPackageSpecRequest() (request *ModifyBandwidthPackageS
 	request = &ModifyBandwidthPackageSpecRequest{
 		RpcRequest: &requests.RpcRequest{},
 	}
-	request.InitWithApiInfo("Ecs", "2014-05-26", "ModifyBandwidthPackageSpec", "ecs", "openAPI")
+	request.InitWithApiInfo("Ecs", "2014-05-26", "ModifyBandwidthPackageSpec", "", "")
+	request.Method = requests.POST
 	return
 }
 
