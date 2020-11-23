@@ -968,6 +968,7 @@ func (self *SQcloudClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_DNSZONE,
 		cloudprovider.CLOUD_CAPABILITY_PUBLIC_IP,
 		cloudprovider.CLOUD_CAPABILITY_INTERVPCNETWORK,
+		cloudprovider.CLOUD_CAPABILITY_SAML_AUTH,
 	}
 	return caps
 }
