@@ -172,3 +172,23 @@ func (manager *SSchedtagResourceBaseManager) GetOrderBySubQuery(
 func (manager *SSchedtagResourceBaseManager) GetOrderByFields(query api.SchedtagFilterListInput) []string {
 	return []string{query.OrderBySchedtag, query.OrderByResourceType}
 }
+
+func InsertJointResourceSchedtag(ctx context.Context, jointMan ISchedtagJointManager, resourceId, schedtagId string) (ISchedtagJointModel, error) {
+	newTagObj, err := db.NewModelObject(jointMan)
+	if err != nil {
+		return nil, errors.Wrap(err, "NewModelObject")
+	}
+
+	objectKey := jointMan.GetResourceIdKey(jointMan)
+	createData := jsonutils.NewDict()
+	createData.Add(jsonutils.NewString(schedtagId), "schedtag_id")
+	createData.Add(jsonutils.NewString(resourceId), objectKey)
+	if err := createData.Unmarshal(newTagObj); err != nil {
+		return nil, errors.Wrapf(err, "Create %s joint schedtag", jointMan.Keyword())
+	}
+	if err := newTagObj.GetModelManager().TableSpec().Insert(ctx, newTagObj); err != nil {
+		return nil, errors.Wrap(err, "Insert to database")
+	}
+
+	return newTagObj.(ISchedtagJointModel), nil
+}

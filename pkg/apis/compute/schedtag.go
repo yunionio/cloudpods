@@ -109,3 +109,7 @@ type SchedtagJointsListInput struct {
 	apis.JointResourceBaseListInput
 	SchedtagFilterListInput
 }
+
+type SchedtagSetResourceInput struct {
+	ResourceIds []string `json:"resource_ids"`
+}
