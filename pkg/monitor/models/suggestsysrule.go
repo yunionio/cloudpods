@@ -672,19 +672,19 @@ func showDuration(dur string) string {
 func showDuration_(dur int64, sign string) string {
 	var durUp, durSign int64
 	var upSign, durStr string
-	if sign == "s" && dur > 60 {
+	if sign == "s" && dur >= 60 {
 		upSign = "m"
 		durUp = dur / 60
 		durSign = dur % 60
 		durStr = showDuration_(durUp, upSign)
 	}
-	if sign == "m" && dur > 60 {
+	if sign == "m" && dur >= 60 {
 		upSign = "h"
 		durUp = dur / 60
 		durSign = dur % 60
 		durStr = showDuration_(durUp, upSign)
 	}
-	if sign == "h" && dur > 24 {
+	if sign == "h" && dur >= 24 {
 		upSign = "d"
 		durUp = dur / 24
 		durSign = dur % 24
