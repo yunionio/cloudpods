@@ -729,7 +729,7 @@ func (self *SHost) CreateVM2(ctx context.Context, ds *SDatastore, params SCreate
 	if len(params.InstanceSnapshotInfo.InstanceSnapshotId) > 0 {
 		temvm, err := self.manager.SearchVM(params.InstanceSnapshotInfo.InstanceId)
 		if err != nil {
-			return nil, errors.Wrapf(err, "SEsxiClient.SearchVM for image %q", params.InstanceSnapshotInfo.InstanceId)
+			return nil, errors.Wrapf(err, "can't find vm %q, please sync status for vm or sync cloudaccount", params.InstanceSnapshotInfo.InstanceId)
 		}
 		isp, err := temvm.GetInstanceSnapshot(params.InstanceSnapshotInfo.InstanceSnapshotId)
 		if err != nil {
