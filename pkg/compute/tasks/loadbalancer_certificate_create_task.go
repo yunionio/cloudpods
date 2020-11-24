@@ -53,7 +53,7 @@ func (self *LoadbalancerCertificateCreateTask) OnInit(ctx context.Context, obj d
 	}
 	self.SetStage("OnLoadbalancerCertificateCreateComplete", nil)
 	if err := region.GetDriver().RequestCreateLoadbalancerCertificate(ctx, self.GetUserCred(), lbcert, self); err != nil {
-		self.taskFail(ctx, lbcert, jsonutils.Marshal(err))
+		self.taskFail(ctx, lbcert, jsonutils.NewString(err.Error()))
 	}
 }
 

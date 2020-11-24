@@ -94,7 +94,7 @@ func (self *GuestDetachDiskTask) OnDetachDiskComplete(ctx context.Context, guest
 			db.OpsLog.LogEvent(disk, db.ACT_DELETE, "", self.UserCred)
 			err := guest.GetDriver().RequestDeleteDetachedDisk(ctx, disk, self, purge)
 			if err != nil {
-				self.OnTaskFail(ctx, guest, disk, jsonutils.Marshal(err))
+				self.OnTaskFail(ctx, guest, disk, jsonutils.NewString(err.Error()))
 			}
 			return
 		}

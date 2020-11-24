@@ -41,7 +41,7 @@ func (self *BaremetalServerResetTask) OnInit(ctx context.Context, obj db.IStanda
 	_, err := baremetal.BaremetalSyncRequest(ctx, "POST", url, headers, nil)
 	if err != nil {
 		log.Errorln(err)
-		self.SetStageFailed(ctx, jsonutils.Marshal(err))
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	} else {
 		self.SetStageComplete(ctx, nil)
 	}

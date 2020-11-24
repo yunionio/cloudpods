@@ -54,7 +54,7 @@ func (self *ElasticcacheSyncsecgroupsTask) OnInit(ctx context.Context, obj db.IS
 	self.SetStage("OnElasticcacheSyncSecgroupsComplete", nil)
 	err := region.GetDriver().RequestSyncSecgroupsForElasticcache(ctx, self.GetUserCred(), cache, self)
 	if err != nil {
-		self.taskFailed(ctx, cache, jsonutils.Marshal(err))
+		self.taskFailed(ctx, cache, jsonutils.NewString(err.Error()))
 		return
 	}
 }
@@ -65,25 +65,25 @@ func (self *ElasticcacheSyncsecgroupsTask) OnElasticcacheSyncSecgroupsComplete(c
 	secgroups := []string{}
 	err := data.Unmarshal(&secgroups, "ext_secgroup_ids")
 	if err != nil {
-		self.taskFailed(ctx, cache, jsonutils.Marshal(err))
+		self.taskFailed(ctx, cache, jsonutils.NewString(err.Error()))
 		return
 	}
 
 	iregion, err := cache.GetIRegion()
 	if err != nil {
-		self.taskFailed(ctx, cache, jsonutils.Marshal(err))
+		self.taskFailed(ctx, cache, jsonutils.NewString(err.Error()))
 		return
 	}
 
 	iec, err := iregion.GetIElasticcacheById(cache.GetExternalId())
 	if err != nil {
-		self.taskFailed(ctx, cache, jsonutils.Marshal(err))
+		self.taskFailed(ctx, cache, jsonutils.NewString(err.Error()))
 		return
 	}
 
 	err = iec.UpdateSecurityGroups(secgroups)
 	if err != nil {
-		self.taskFailed(ctx, cache, jsonutils.Marshal(err))
+		self.taskFailed(ctx, cache, jsonutils.NewString(err.Error()))
 		return
 	}
 

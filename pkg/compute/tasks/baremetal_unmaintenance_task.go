@@ -45,7 +45,7 @@ func (self *BaremetalUnmaintenanceTask) OnInit(ctx context.Context, obj db.IStan
 		if len(action) > 0 {
 			logclient.AddActionLogWithStartable(self, baremetal, action, err, self.UserCred, false)
 		}
-		self.SetStageFailed(ctx, jsonutils.Marshal(err))
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	} else {
 		if len(action) > 0 {
 			logclient.AddActionLogWithStartable(self, baremetal, action, "", self.UserCred, true)

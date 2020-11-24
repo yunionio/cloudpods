@@ -56,7 +56,7 @@ func (self *GuestDeleteBackupTask) OnInit(ctx context.Context, obj db.IStandalon
 	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(),
 		ctx, "POST", url, self.GetTaskRequestHeader(), nil, false)
 	if err != nil {
-		self.OnFail(ctx, guest, jsonutils.Marshal(err))
+		self.OnFail(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
 }

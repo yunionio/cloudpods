@@ -59,7 +59,7 @@ func (self *HostStorageDetachTask) OnInit(ctx context.Context, obj db.IStandalon
 	self.SetStage("OnDetachStorageComplete", nil)
 	err = host.GetHostDriver().RequestDetachStorage(ctx, host, storage, self)
 	if err != nil {
-		self.taskFail(ctx, host, jsonutils.Marshal(err))
+		self.taskFail(ctx, host, jsonutils.NewString(err.Error()))
 	}
 }
 

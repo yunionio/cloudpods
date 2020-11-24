@@ -73,7 +73,7 @@ func (self *DiskSaveTask) StartBackupDisk(ctx context.Context, disk *models.SDis
 	if err := host.GetHostDriver().RequestPrepareSaveDiskOnHost(ctx, host, disk, imageId, self); err != nil {
 		log.Errorf("Backup failed: %v", err)
 		disk.SetDiskReady(ctx, self.GetUserCred(), err.Error())
-		self.TaskFailed(ctx, jsonutils.Marshal(err))
+		self.TaskFailed(ctx, jsonutils.NewString(err.Error()))
 		db.OpsLog.LogEvent(disk, db.ACT_SAVE_FAIL, err.Error(), self.GetUserCred())
 	}
 }
@@ -99,7 +99,7 @@ func (self *DiskSaveTask) OnDiskBackupComplete(ctx context.Context, disk *models
 		}
 		if err := self.UploadDisk(ctx, host, disk, imageId, data); err != nil {
 			log.Errorf("UploadDisk failed: %v", err)
-			self.TaskFailed(ctx, jsonutils.Marshal(err))
+			self.TaskFailed(ctx, jsonutils.NewString(err.Error()))
 		}
 		self.RefreshImageCache(ctx, imageId)
 	}

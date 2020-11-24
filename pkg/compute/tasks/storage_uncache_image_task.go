@@ -72,7 +72,7 @@ func (self *StorageUncacheImageTask) OnInit(ctx context.Context, obj db.IStandal
 	err = host.GetHostDriver().RequestUncacheImage(ctx, host, storageCache, self)
 
 	if err != nil {
-		self.OnTaskFailed(ctx, storageCache, jsonutils.Marshal(err))
+		self.OnTaskFailed(ctx, storageCache, jsonutils.NewString(err.Error()))
 	}
 }
 

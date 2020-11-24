@@ -59,7 +59,7 @@ func (self *GuestSwitchToBackupTask) OnEnsureMasterGuestStoped(ctx context.Conte
 	self.SetStage("OnBackupGuestStoped", nil)
 	err := guest.GetDriver().RequestStopOnHost(ctx, guest, backupHost, self)
 	if err != nil {
-		self.OnFail(ctx, guest, jsonutils.Marshal(err))
+		self.OnFail(ctx, guest, jsonutils.NewString(err.Error()))
 	}
 }
 
@@ -212,7 +212,7 @@ func (self *GuestStartAndSyncToBackupTask) checkTemplete(ctx context.Context, gu
 		err := guest.GetDriver().CheckDiskTemplateOnStorage(ctx, self.UserCred, diskCat.Root.GetTemplateId(), diskCat.Root.DiskFormat,
 			diskCat.Root.BackupStorageId, self)
 		if err != nil {
-			self.SetStageFailed(ctx, jsonutils.Marshal(err))
+			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		}
 	} else {
 		self.OnCheckTemplete(ctx, guest, nil)
@@ -223,7 +223,7 @@ func (self *GuestStartAndSyncToBackupTask) OnCheckTemplete(ctx context.Context, 
 	self.SetStage("OnStartBackupGuest", nil)
 	host := models.HostManager.FetchHostById(guest.BackupHostId)
 	if _, err := guest.GetDriver().RequestStartOnHost(ctx, guest, host, self.UserCred, self); err != nil {
-		self.SetStageFailed(ctx, jsonutils.Marshal(err))
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	}
 }
 
@@ -248,7 +248,7 @@ func (self *GuestStartAndSyncToBackupTask) OnStartBackupGuest(ctx context.Contex
 		self.SetStage("OnRequestSyncToBackup", nil)
 		err = guest.GetDriver().RequestSyncToBackup(ctx, guest, self)
 		if err != nil {
-			self.SetStageFailed(ctx, jsonutils.Marshal(err))
+			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		}
 	} else {
 		self.SetStageComplete(ctx, nil)

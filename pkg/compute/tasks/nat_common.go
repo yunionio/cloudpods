@@ -46,7 +46,7 @@ func NatToBindIPStage(ctx context.Context, task iTask, nat models.INatHelper) {
 
 	eipId, _ := task.GetParams().GetString("eip_id")
 	if err := natgateway.GetRegion().GetDriver().RequestBindIPToNatgateway(ctx, task, natgateway, eipId); err != nil {
-		task.TaskFailed(ctx, nat, jsonutils.Marshal(err))
+		task.TaskFailed(ctx, nat, jsonutils.NewString(err.Error()))
 		return
 	}
 }

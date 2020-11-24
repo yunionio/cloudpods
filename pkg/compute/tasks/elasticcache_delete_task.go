@@ -54,7 +54,7 @@ func (self *ElasticcacheDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 
 	self.SetStage("OnElasticcacheDeleteComplete", nil)
 	if err := region.GetDriver().RequestDeleteElasticcache(ctx, self.GetUserCred(), ec, self); err != nil {
-		self.taskFail(ctx, ec, jsonutils.Marshal(err))
+		self.taskFail(ctx, ec, jsonutils.NewString(err.Error()))
 		return
 	} else {
 		ec.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RELEASED, "")

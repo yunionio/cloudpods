@@ -56,7 +56,7 @@ func (self *VpcDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 	self.SetStage("OnDeleteVpcComplete", nil)
 	err = region.GetDriver().RequestDeleteVpc(ctx, self.UserCred, region, vpc, self)
 	if err != nil {
-		self.taskFailed(ctx, vpc, jsonutils.Marshal(err))
+		self.taskFailed(ctx, vpc, jsonutils.NewString(err.Error()))
 		return
 	}
 }

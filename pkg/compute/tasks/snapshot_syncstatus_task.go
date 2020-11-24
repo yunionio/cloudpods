@@ -54,7 +54,7 @@ func (self *SnapshotSyncstatusTask) OnInit(ctx context.Context, obj db.IStandalo
 	self.SetStage("OnSnapshotSyncStatusComplete", nil)
 	err := region.GetDriver().RequestSyncSnapshotStatus(ctx, self.GetUserCred(), snapshot, self)
 	if err != nil {
-		self.taskFailed(ctx, snapshot, jsonutils.Marshal(err))
+		self.taskFailed(ctx, snapshot, jsonutils.NewString(err.Error()))
 		return
 	}
 }

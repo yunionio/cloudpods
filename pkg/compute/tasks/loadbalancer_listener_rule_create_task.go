@@ -238,7 +238,7 @@ func (self *LoadbalancerListenerRuleCreateTask) OnCreateLoadbalancerListenerRule
 	}
 	self.SetStage("OnLoadbalancerListenerRuleCreateComplete", nil)
 	if err := region.GetDriver().RequestCreateLoadbalancerListenerRule(ctx, self.GetUserCred(), lbr, self); err != nil {
-		self.taskFail(ctx, lbr, jsonutils.Marshal(err))
+		self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
 	}
 }
 

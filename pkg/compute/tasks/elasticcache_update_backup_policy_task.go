@@ -54,7 +54,7 @@ func (self *ElasticcacheUpdateBackupPolicyTask) OnInit(ctx context.Context, obj 
 
 	self.SetStage("OnElasticcacheUpdateBackupPolicyComplete", nil)
 	if err := region.GetDriver().RequestElasticcacheUpdateBackupPolicy(ctx, self.GetUserCred(), elasticcache, self); err != nil {
-		self.OnElasticcacheUpdateBackupPolicyCompleteFailed(ctx, elasticcache, jsonutils.Marshal(err))
+		self.OnElasticcacheUpdateBackupPolicyCompleteFailed(ctx, elasticcache, jsonutils.NewString(err.Error()))
 		return
 	}
 

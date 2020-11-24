@@ -44,7 +44,7 @@ func (self *DBInstanceBackupCreateTask) taskFailed(ctx context.Context, backup *
 	if instance != nil {
 		instance.SetStatus(self.UserCred, api.DBINSTANCE_BACKING_UP_FAILED, err.Error())
 	}
-	self.SetStageFailed(ctx, jsonutils.Marshal(err))
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *DBInstanceBackupCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

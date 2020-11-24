@@ -53,7 +53,7 @@ func (self *LoadbalancerDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 	}
 	self.SetStage("OnLoadbalancerDeleteComplete", nil)
 	if err := region.GetDriver().RequestDeleteLoadbalancer(ctx, self.GetUserCred(), lb, self); err != nil {
-		self.taskFail(ctx, lb, jsonutils.Marshal(err))
+		self.taskFail(ctx, lb, jsonutils.NewString(err.Error()))
 	}
 }
 

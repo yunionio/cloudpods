@@ -39,7 +39,7 @@ func (self *DBInstanceAccountResetPasswordTask) taskFailed(ctx context.Context, 
 	account.SetStatus(self.UserCred, api.DBINSTANCE_USER_RESET_PASSWD_FAILED, err.Error())
 	db.OpsLog.LogEvent(account, db.ACT_RESET_PASSWORD, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, account, logclient.ACT_RESET_PASSWORD, err, self.UserCred, false)
-	self.SetStageFailed(ctx, jsonutils.Marshal(err))
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *DBInstanceAccountResetPasswordTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

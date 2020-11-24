@@ -56,7 +56,7 @@ func (self *SnapshotCreateTask) TaskComplete(ctx context.Context, snapshot *mode
 func (self *SnapshotCreateTask) DoDiskSnapshot(ctx context.Context, snapshot *models.SSnapshot) {
 	self.SetStage("OnCreateSnapshot", nil)
 	if err := snapshot.GetRegionDriver().RequestCreateSnapshot(ctx, snapshot, self); err != nil {
-		self.TaskFailed(ctx, snapshot, jsonutils.Marshal(err))
+		self.TaskFailed(ctx, snapshot, jsonutils.NewString(err.Error()))
 	}
 }
 

@@ -40,7 +40,7 @@ func (self *DBInstanceBackupDeleteTask) taskFailed(ctx context.Context, backup *
 	backup.SetStatus(self.UserCred, api.DBINSTANCE_BACKUP_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(backup, db.ACT_DELETE, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, backup, logclient.ACT_DELETE, err, self.UserCred, false)
-	self.SetStageFailed(ctx, jsonutils.Marshal(err))
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *DBInstanceBackupDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
