@@ -172,7 +172,7 @@ func (self *LoadbalancerListenerCreateTask) OnInit(ctx context.Context, obj db.I
 	}
 	self.SetStage("OnLoadbalancerListenerCreateComplete", nil)
 	if err := region.GetDriver().RequestCreateLoadbalancerListener(ctx, self.GetUserCred(), lblis, self); err != nil {
-		self.taskFail(ctx, lblis, jsonutils.Marshal(err))
+		self.taskFail(ctx, lblis, jsonutils.NewString(err.Error()))
 	}
 }
 

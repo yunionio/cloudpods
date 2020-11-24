@@ -53,7 +53,7 @@ func (self *HostImportLibvirtServersTask) RequestHostPrepareImport(
 	header := self.GetTaskRequestHeader()
 	if _, err := host.Request(ctx, self.UserCred, "POST",
 		"/servers/prepare-import-from-libvirt", header, self.Params); err != nil {
-		self.TaskFailed(ctx, host, jsonutils.Marshal(err))
+		self.TaskFailed(ctx, host, jsonutils.NewString(err.Error()))
 	}
 }
 

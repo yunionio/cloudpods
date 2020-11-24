@@ -41,7 +41,7 @@ func (self *DBInstanceAccountRevokePrivilegeTask) taskFailed(ctx context.Context
 	account.SetStatus(self.UserCred, api.DBINSTANCE_USER_AVAILABLE, err.Error())
 	db.OpsLog.LogEvent(account, db.ACT_REVOKE_PRIVILEGE, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, account, logclient.ACT_REVOKE_PRIVILEGE, err, self.UserCred, false)
-	self.SetStageFailed(ctx, jsonutils.Marshal(err))
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *DBInstanceAccountRevokePrivilegeTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

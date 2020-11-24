@@ -73,7 +73,7 @@ func (self *SnapshotDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 
 	self.SetStage("OnRequestSnapshot", nil)
 	if err := regionDriver.RequestDeleteSnapshot(ctx, snapshot, self); err != nil {
-		self.TaskFailed(ctx, snapshot, jsonutils.Marshal(err))
+		self.TaskFailed(ctx, snapshot, jsonutils.NewString(err.Error()))
 	}
 }
 
@@ -126,7 +126,7 @@ func (self *SnapshotDeleteTask) OnReloadDiskSnapshot(ctx context.Context, snapsh
 		self.SetStage("OnDeleteSnapshot", nil)
 		err = guest.GetDriver().RequestDeleteSnapshot(ctx, guest, self, params)
 		if err != nil {
-			self.TaskFailed(ctx, snapshot, jsonutils.Marshal(err))
+			self.TaskFailed(ctx, snapshot, jsonutils.NewString(err.Error()))
 		}
 	} else {
 		self.TaskComplete(ctx, snapshot, nil)
@@ -180,7 +180,7 @@ func (self *BatchSnapshotsDeleteTask) StartStorageDeleteSnapshot(ctx context.Con
 	self.SetStage("OnStorageDeleteSnapshot", nil)
 	err := host.GetHostDriver().RequestDeleteSnapshotsWithStorage(ctx, host, snapshot, self)
 	if err != nil {
-		self.SetStageFailed(ctx, jsonutils.Marshal(err))
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	}
 }
 

@@ -43,7 +43,7 @@ func (self *GuestPublicipToEipTask) OnInit(ctx context.Context, obj db.IStandalo
 		db.OpsLog.LogEvent(guest, db.ACT_EIP_CONVERT_FAIL, err, self.UserCred)
 		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_EIP_CONVERT, err, self.UserCred, false)
 		guest.SetStatus(self.GetUserCred(), api.VM_EIP_CONVERT_FAILED, err.Error())
-		self.SetStageFailed(ctx, jsonutils.Marshal(err))
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return
 	}
 }

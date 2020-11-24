@@ -133,7 +133,7 @@ func doScheduleObjects(
 	s := auth.GetSession(ctx, task.GetUserCred(), options.Options.Region, "")
 	output, err := modules.SchedManager.DoSchedule(s, schedInput, len(objs))
 	if err != nil {
-		onSchedulerRequestFail(ctx, task, objs, jsonutils.Marshal(err))
+		onSchedulerRequestFail(ctx, task, objs, jsonutils.NewString(err.Error()))
 		return
 	}
 	onSchedulerResults(ctx, task, objs, output.Candidates)

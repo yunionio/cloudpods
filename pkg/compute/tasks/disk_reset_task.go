@@ -174,7 +174,7 @@ func (self *DiskCleanUpSnapshotsTask) StartCleanUpSnapshots(ctx context.Context,
 	self.SetStage("OnCleanUpSnapshots", nil)
 	err := host.GetHostDriver().RequestCleanUpDiskSnapshots(ctx, host, disk, self.Params, self)
 	if err != nil {
-		self.SetStageFailed(ctx, jsonutils.Marshal(err))
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	}
 }
 

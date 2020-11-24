@@ -57,7 +57,7 @@ func (self *LoadbalancerListenerSyncTask) OnInit(ctx context.Context, obj db.ISt
 	userCred := self.GetUserCred()
 	err := driver.RequestSyncLoadbalancerBackendGroup(ctx, userCred, lblis, self)
 	if err != nil {
-		self.taskFail(ctx, lblis, jsonutils.Marshal(err))
+		self.taskFail(ctx, lblis, jsonutils.NewString(err.Error()))
 	}
 }
 
@@ -69,7 +69,7 @@ func (self *LoadbalancerListenerSyncTask) OnLoadbalancerBackendgroupSyncComplete
 	}
 	self.SetStage("OnLoadbalancerListenerSyncComplete", nil)
 	if err := region.GetDriver().RequestSyncLoadbalancerListener(ctx, self.GetUserCred(), lblis, self); err != nil {
-		self.taskFail(ctx, lblis, jsonutils.Marshal(err))
+		self.taskFail(ctx, lblis, jsonutils.NewString(err.Error()))
 	}
 }
 

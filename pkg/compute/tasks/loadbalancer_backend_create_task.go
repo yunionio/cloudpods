@@ -58,7 +58,7 @@ func (self *LoadbalancerBackendCreateTask) OnInit(ctx context.Context, obj db.IS
 
 	self.SetStage("OnLoadbalancerBackendCreateComplete", nil)
 	if err := region.GetDriver().RequestCreateLoadbalancerBackend(ctx, self.GetUserCred(), lbb, self); err != nil {
-		self.taskFail(ctx, lbb, jsonutils.Marshal(err))
+		self.taskFail(ctx, lbb, jsonutils.NewString(err.Error()))
 	}
 }
 

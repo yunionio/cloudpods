@@ -53,7 +53,7 @@ func (self *ElasticcacheRemoteUpdateTask) OnInit(ctx context.Context, obj db.ISt
 	replaceTags := jsonutils.QueryBoolean(self.Params, "replace_tags", false)
 
 	if err := region.GetDriver().RequestRemoteUpdateElasticcache(ctx, self.GetUserCred(), ec, replaceTags, self); err != nil {
-		self.taskFail(ctx, ec, jsonutils.Marshal(err))
+		self.taskFail(ctx, ec, jsonutils.NewString(err.Error()))
 	}
 }
 

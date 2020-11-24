@@ -53,7 +53,7 @@ func (self *LoadbalancerBackendGroupDeleteTask) OnInit(ctx context.Context, obj 
 	}
 	self.SetStage("OnLoadbalancerBackendGroupDeleteComplete", nil)
 	if err := region.GetDriver().RequestDeleteLoadbalancerBackendGroup(ctx, self.GetUserCred(), lbbg, self); err != nil {
-		self.taskFail(ctx, lbbg, jsonutils.Marshal(err))
+		self.taskFail(ctx, lbbg, jsonutils.NewString(err.Error()))
 	}
 }
 

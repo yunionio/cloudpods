@@ -41,7 +41,7 @@ func (self *GuestSoftResetTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 	if err == nil {
 		self.SetStageComplete(ctx, nil)
 	} else {
-		self.SetStageFailed(ctx, jsonutils.Marshal(err))
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	}
 }
 

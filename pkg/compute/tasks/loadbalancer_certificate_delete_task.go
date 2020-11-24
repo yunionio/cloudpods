@@ -53,7 +53,7 @@ func (self *LoadbalancerCertificateDeleteTask) OnInit(ctx context.Context, obj d
 	}
 	self.SetStage("OnLoadbalancerCertificateDeleteComplete", nil)
 	if err := region.GetDriver().RequestDeleteLoadbalancerCertificate(ctx, self.GetUserCred(), lbcert, self); err != nil {
-		self.taskFail(ctx, lbcert, jsonutils.Marshal(err))
+		self.taskFail(ctx, lbcert, jsonutils.NewString(err.Error()))
 	}
 }
 

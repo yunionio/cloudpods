@@ -42,7 +42,7 @@ func (self *DBInstanceRecoveryTask) taskFailed(ctx context.Context, instance *mo
 	instance.SetStatus(self.UserCred, api.DBINSTANCE_RESTORE_FAILED, err.Error())
 	db.OpsLog.LogEvent(instance, db.ACT_RESTORE, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, instance, logclient.ACT_RESTORE, err, self.UserCred, false)
-	self.SetStageFailed(ctx, jsonutils.Marshal(err))
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *DBInstanceRecoveryTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
