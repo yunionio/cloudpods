@@ -406,3 +406,7 @@ func (self *SAliyunProvider) CreateICloudDnsZone(opts *cloudprovider.SDnsZoneCre
 		return self.client.CreatePublicICloudDnsZone(opts)
 	}
 }
+
+func (self *SAliyunProvider) GetCloudRegionExternalIdPrefix() string {
+	return self.client.GetAccessEnv() + "/"
+}
