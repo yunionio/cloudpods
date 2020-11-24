@@ -251,25 +251,30 @@ func (man *SNetworkAddressManager) addGuestnetworkSubIPs(ctx context.Context, us
 	return nil
 }
 
-func (man *SNetworkAddressManager) BatchCreateValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (man *SNetworkAddressManager) BatchPreValidate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict, count int) error {
 	var (
 		input api.NetworkAddressCreateInput
 		err   error
 	)
-	if data, err = man.SStandaloneAnonResourceBaseManager.BatchCreateValidateCreateData(ctx, userCred, ownerId, query, data); err != nil {
-		return nil, err
+	if err = man.SStandaloneAnonResourceBaseManager.BatchPreValidate(ctx, userCred, ownerId, query, data, count); err != nil {
+		return err
 	}
 	if err = data.Unmarshal(&input); err != nil {
-		return nil, err
+		return err
 	}
-	input, err = man.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	input, err = man.validateCreateData(ctx, userCred, ownerId, query, input, count)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return input.JSON(input), nil
+	data.Update(input.JSON(input))
+	return nil
 }
 
 func (man *SNetworkAddressManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.NetworkAddressCreateInput) (api.NetworkAddressCreateInput, error) {
+	return man.validateCreateData(ctx, userCred, ownerId, query, input, 1)
+}
+
+func (man *SNetworkAddressManager) validateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.NetworkAddressCreateInput, count int) (api.NetworkAddressCreateInput, error) {
 	if _, err := man.SStandaloneAnonResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StandaloneAnonResourceCreateInput); err != nil {
 		return input, err
 	}
@@ -292,6 +297,16 @@ func (man *SNetworkAddressManager) ValidateCreateData(ctx context.Context, userC
 				net = gn.GetNetwork()
 				if net == nil {
 					return input, httperrors.NewInternalServerError("cannot fetch network of guestnetwork %d", gn.RowId)
+				}
+				if net.IsManaged() && count > 1 {
+					// barriers for batch create
+					// - dispatcher has policy of one fail,
+					//   all fail for batch creation
+					// - the revert action there only marks
+					//   local models as deleted without
+					//   cleanup of already assigned private
+					//   addresses
+					return input, httperrors.NewNotSupportedError("batch create is not supported for external resources")
 				}
 				input.ParentId = gn.RowId
 				input.NetworkId = net.Id
