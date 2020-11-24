@@ -432,6 +432,9 @@ func (na *SNetworkAddress) remoteAssignAddress(ctx context.Context, userCred mcc
 				return err
 			}
 			if err := iNic.AssignAddress([]string{na.IpAddr}); err != nil {
+				if errors.Cause(err) == cloudprovider.ErrAddressCountExceed {
+					return httperrors.NewNotAcceptableError("exceed address count limit: %v", err)
+				}
 				return err
 			}
 		} else {
