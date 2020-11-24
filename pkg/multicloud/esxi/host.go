@@ -973,6 +973,7 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 	return evm, nil
 }
 
+// If snapshot is not nil, params.Disks will be ignored
 func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, snapshot *types.ManagedObjectReference, ds *SDatastore, params SCreateVMParam) (*SVirtualMachine, error) {
 	ovm := from.getVmObj()
 
@@ -1027,7 +1028,7 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, snapshot 
 		}
 	}
 
-	if len(params.Disks) > 0 {
+	if len(params.Disks) > 0 && snapshot == nil {
 		driver := params.Disks[0].Driver
 		if driver == "scsi" || driver == "pvscsi" {
 			scsiDevs, err := from.FindController(ctx, "scsi")
@@ -1117,6 +1118,10 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, snapshot 
 	vm := NewVirtualMachine(host.manager, &moVM, host.datacenter)
 	if vm == nil {
 		return nil, errors.Error("clone successfully but unable to NewVirtualMachine")
+	}
+
+	if snapshot != nil {
+		return vm, nil
 	}
 
 	deviceChange = addDeviceChange
