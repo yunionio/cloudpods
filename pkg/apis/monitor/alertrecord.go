@@ -34,7 +34,9 @@ type AlertRecordCreateInput struct {
 
 type AlertRecordRule struct {
 	Metric          string `json:"metric"`
+	Measurement     string `json:"measurement"`
 	MeasurementDesc string `json:"measurement_desc"`
+	Field           string `json:"field"`
 	FieldDesc       string `json:"field_desc"`
 	// 比较运算符, 比如: >, <, >=, <=
 	Comparator string `json:"comparator"`
