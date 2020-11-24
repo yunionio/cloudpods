@@ -75,6 +75,8 @@ type SInstanceSnapshot struct {
 	OsType string `width:"36" charset:"ascii" nullable:"true" list:"user"`
 	// 套餐名称
 	InstanceType string `width:"64" charset:"utf8" nullable:"true" list:"user" create:"optional"`
+	// 主机快照磁盘容量和
+	SizeMb int `nullable:"false"`
 }
 
 type SInstanceSnapshotManager struct {
@@ -201,31 +203,46 @@ func (self *SInstanceSnapshot) GetGuest() (*SGuest, error) {
 }
 
 func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential, out api.InstanceSnapshotDetails) api.InstanceSnapshotDetails {
-	if guest := GuestManager.FetchGuestById(self.GuestId); guest != nil {
+	guest := GuestManager.FetchGuestById(self.GuestId)
+	if guest != nil {
 		out.Guest = guest.Name
 		out.GuestStatus = guest.Status
 	}
 	var osType string
-	snapshots, _ := self.GetSnapshots()
-	out.Snapshots = []api.SimpleSnapshot{}
-	for i := 0; i < len(snapshots); i++ {
-		if snapshots[i].DiskType == api.DISK_TYPE_SYS {
-			osType = snapshots[i].OsType
-		}
-		out.Snapshots = append(out.Snapshots, api.SimpleSnapshot{
-			Id:            snapshots[i].Id,
-			Name:          snapshots[i].Name,
-			StorageId:     snapshots[i].StorageId,
-			DiskType:      snapshots[i].DiskType,
-			CloudregionId: snapshots[i].CloudregionId,
-			Size:          snapshots[i].Size,
-			Status:        snapshots[i].Status,
-			StorageType:   snapshots[i].GetStorageType(),
-		})
-		out.Size += snapshots[i].Size
+	cp := self.GetCloudprovider()
+	if utils.IsInStringArray(cp.Provider, ProviderHasSubSnapshot) {
+		snapshots, _ := self.GetSnapshots()
+		out.Snapshots = []api.SimpleSnapshot{}
+		for i := 0; i < len(snapshots); i++ {
+			if snapshots[i].DiskType == api.DISK_TYPE_SYS {
+				osType = snapshots[i].OsType
+			}
+			out.Snapshots = append(out.Snapshots, api.SimpleSnapshot{
+				Id:            snapshots[i].Id,
+				Name:          snapshots[i].Name,
+				StorageId:     snapshots[i].StorageId,
+				DiskType:      snapshots[i].DiskType,
+				CloudregionId: snapshots[i].CloudregionId,
+				Size:          snapshots[i].Size,
+				Status:        snapshots[i].Status,
+				StorageType:   snapshots[i].GetStorageType(),
+			})
+			out.Size += snapshots[i].Size
 
-		if len(snapshots[i].StorageId) > 0 && out.StorageType == "" {
-			out.StorageType = snapshots[i].GetStorageType()
+			if len(snapshots[i].StorageId) > 0 && out.StorageType == "" {
+				out.StorageType = snapshots[i].GetStorageType()
+			}
+		}
+	} else {
+		out.Size = self.SizeMb
+		disk, err := guest.GetSystemDisk()
+		if err != nil {
+			log.Errorf("unable to GetSystemDisk of guest %q", guest.GetId())
+		} else {
+			s := disk.GetStorage()
+			if s != nil {
+				out.StorageType = s.StorageType
+			}
 		}
 	}
 	if len(osType) > 0 {
@@ -350,6 +367,8 @@ func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(ctx context.Cont
 	instanceSnapshot.Name = name
 	instanceSnapshot.AutoDelete = autoDelete
 	manager.fillInstanceSnapshot(userCred, guest, instanceSnapshot)
+	// compute size of instanceSnapshot
+	instanceSnapshot.SizeMb = guest.getDiskSize()
 	err := manager.TableSpec().Insert(ctx, instanceSnapshot)
 	if err != nil {
 		return nil, err
