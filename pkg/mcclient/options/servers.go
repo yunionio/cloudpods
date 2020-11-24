@@ -473,6 +473,8 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 		AutoPrepaidRecycle: opts.AutoPrepaidRecycle,
 		EipBw:              opts.EipBw,
 		EipChargeType:      opts.EipChargeType,
+		PublicIpBw:         opts.PublicIpBw,
+		PublicIpChargeType: opts.PublicIpChargeType,
 		Eip:                opts.Eip,
 		EnableCloudInit:    opts.EnableCloudInit,
 		OsType:             opts.OsType,
