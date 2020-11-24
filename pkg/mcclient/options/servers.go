@@ -474,6 +474,8 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 		EipBw:              opts.EipBw,
 		EipBgpType:         opts.EipBgpType,
 		EipChargeType:      opts.EipChargeType,
+		PublicIpBw:         opts.PublicIpBw,
+		PublicIpChargeType: opts.PublicIpChargeType,
 		Eip:                opts.Eip,
 		EnableCloudInit:    opts.EnableCloudInit,
 		OsType:             opts.OsType,
