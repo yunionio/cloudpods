@@ -42,12 +42,17 @@ type EvalContext struct {
 	StartTime          time.Time
 	EndTime            time.Time
 	Rule               *Rule
+	RuleDescription    *RuleDescription
 
 	NoDataFound    bool
 	PrevAlertState monitor.AlertStateType
 
 	Ctx      context.Context
 	UserCred mcclient.TokenCredential
+}
+
+type RuleDescription struct {
+	monitor.AlertRecordRule
 }
 
 // NewEvalContext is the EvalContext constructor.
