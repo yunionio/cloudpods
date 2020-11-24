@@ -54,7 +54,7 @@ func (self *ElasticcacheChangeSpecTask) OnInit(ctx context.Context, obj db.IStan
 
 	self.SetStage("OnElasticcacheChangeSpecComplete", nil)
 	if err := region.GetDriver().RequestElasticcacheChangeSpec(ctx, self.GetUserCred(), elasticcache, self); err != nil {
-		self.OnElasticcacheChangeSpecCompleteFailed(ctx, elasticcache, jsonutils.Marshal(err))
+		self.OnElasticcacheChangeSpecCompleteFailed(ctx, elasticcache, jsonutils.NewString(err.Error()))
 		return
 	}
 

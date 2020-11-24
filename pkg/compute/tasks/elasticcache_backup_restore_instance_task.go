@@ -54,7 +54,7 @@ func (self *ElasticcacheBackupRestoreInstanceTask) OnInit(ctx context.Context, o
 
 	self.SetStage("OnElasticcacheBackupRestoreInstanceComplete", nil)
 	if err := region.GetDriver().RequestElasticcacheBackupRestoreInstance(ctx, self.GetUserCred(), eb, self); err != nil {
-		self.OnElasticcacheBackupRestoreInstanceCompleteFailed(ctx, eb, jsonutils.Marshal(err))
+		self.OnElasticcacheBackupRestoreInstanceCompleteFailed(ctx, eb, jsonutils.NewString(err.Error()))
 		return
 	}
 

@@ -54,7 +54,7 @@ func (self *ElasticcacheUpdateAuthModeTask) OnInit(ctx context.Context, obj db.I
 
 	self.SetStage("OnElasticcacheUpdateAuthModeComplete", nil)
 	if err := region.GetDriver().RequestUpdateElasticcacheAuthMode(ctx, self.GetUserCred(), elasticcache, self); err != nil {
-		self.OnElasticcacheUpdateAuthModeCompleteFailed(ctx, elasticcache, jsonutils.Marshal(err))
+		self.OnElasticcacheUpdateAuthModeCompleteFailed(ctx, elasticcache, jsonutils.NewString(err.Error()))
 		return
 	}
 

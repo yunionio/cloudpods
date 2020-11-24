@@ -54,7 +54,7 @@ func (self *ElasticcacheSetMaintainTimeTask) OnInit(ctx context.Context, obj db.
 
 	self.SetStage("OnElasticcacheSetMaintainTimeComplete", nil)
 	if err := region.GetDriver().RequestElasticcacheSetMaintainTime(ctx, self.GetUserCred(), elasticcache, self); err != nil {
-		self.OnElasticcacheSetMaintainTimeCompleteFailed(ctx, elasticcache, jsonutils.Marshal(err))
+		self.OnElasticcacheSetMaintainTimeCompleteFailed(ctx, elasticcache, jsonutils.NewString(err.Error()))
 		return
 	}
 

@@ -54,7 +54,7 @@ func (self *ElasticcacheSyncstatusTask) OnInit(ctx context.Context, obj db.IStan
 	self.SetStage("OnElasticcacheSyncStatusComplete", nil)
 	err := region.GetDriver().RequestSyncElasticcacheStatus(ctx, self.GetUserCred(), cache, self)
 	if err != nil {
-		self.taskFailed(ctx, cache, jsonutils.Marshal(err))
+		self.taskFailed(ctx, cache, jsonutils.NewString(err.Error()))
 		return
 	}
 }
