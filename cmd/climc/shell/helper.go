@@ -138,20 +138,21 @@ func (cmd ResourceCmd) Create(args ICreateOpt) {
 }
 
 func (cmd ResourceCmd) CreateWithKeyword(keyword string, args ICreateOpt) {
+	cmd.Run(keyword, args, cmd.create)
+}
+
+func (cmd ResourceCmd) create(s *mcclient.ClientSession, args ICreateOpt) error {
 	man := cmd.manager
-	callback := func(s *mcclient.ClientSession, args ICreateOpt) error {
-		params, err := args.Params()
-		if err != nil {
-			return err
-		}
-		ret, err := man.(modulebase.Manager).Create(s, params)
-		if err != nil {
-			return err
-		}
-		printObject(ret)
-		return nil
+	params, err := args.Params()
+	if err != nil {
+		return err
 	}
-	cmd.Run(keyword, args, callback)
+	ret, err := man.(modulebase.Manager).Create(s, params)
+	if err != nil {
+		return err
+	}
+	printObject(ret)
+	return nil
 }
 
 type IIdOpt interface {
