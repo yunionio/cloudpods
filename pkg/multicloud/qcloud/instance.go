@@ -881,6 +881,7 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 		eip.AddressName = address
 		eip.AddressType = EIP_TYPE_WANIP
 		eip.AddressStatus = EIP_STATUS_BIND
+		eip.Bandwidth = self.InternetAccessible.InternetMaxBandwidthOut
 		return &eip, nil
 	}
 	return nil, nil
