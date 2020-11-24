@@ -350,6 +350,8 @@ type ICloudNic interface {
 	UnassignAddress(ipAddrs []string) error
 }
 
+const ErrAddressCountExceed = errors.Error("ErrAddressCountExceed")
+
 type DummyICloudNic struct{}
 
 var _ ICloudNic = DummyICloudNic{}
