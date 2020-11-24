@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"time"
 
+	alierr "github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 
 	"yunion.io/x/pkg/errors"
@@ -189,6 +190,11 @@ func (self *SInstanceNic) AssignAddress(ipAddrs []string) error {
 	request.PrivateIpAddress = &ipAddrs
 	resp, err := ecsClient.AssignPrivateIpAddresses(request)
 	if err != nil {
+		if aerr, ok := err.(*alierr.ServerError); ok {
+			if aerr.ErrorCode() == "InvalidOperation.Ipv4CountExceeded" {
+				return errors.Wrap(cloudprovider.ErrAddressCountExceed, aerr.Message())
+			}
+		}
 		return errors.Wrapf(err, "AssignPrivateIpAddresses")
 	}
 
