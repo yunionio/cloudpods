@@ -54,7 +54,7 @@ func (self *ElasticcacheSyncTask) OnInit(ctx context.Context, obj db.IStandalone
 
 	self.SetStage("OnElasticcacheSyncComplete", nil)
 	if err := region.GetDriver().RequestSyncElasticcache(ctx, self.GetUserCred(), ec, self); err != nil {
-		self.taskFail(ctx, ec, jsonutils.Marshal(err))
+		self.taskFail(ctx, ec, jsonutils.NewString(err.Error()))
 		return
 	} else {
 		logclient.AddActionLogWithStartable(self, ec, logclient.ACT_SYNC_CONF, "", self.UserCred, true)

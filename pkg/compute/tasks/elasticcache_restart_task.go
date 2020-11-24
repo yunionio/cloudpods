@@ -54,7 +54,7 @@ func (self *ElasticcacheRestartTask) OnInit(ctx context.Context, obj db.IStandal
 
 	self.SetStage("OnElasticcacheRestartComplete", nil)
 	if err := region.GetDriver().RequestRestartElasticcache(ctx, self.GetUserCred(), ec, self); err != nil {
-		self.taskFail(ctx, ec, jsonutils.Marshal(err))
+		self.taskFail(ctx, ec, jsonutils.NewString(err.Error()))
 		return
 	} else {
 		logclient.AddActionLogWithStartable(self, ec, logclient.ACT_VM_RESTART, nil, self.UserCred, true)

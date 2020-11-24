@@ -61,7 +61,7 @@ func (self *ElasticcacheCreateTask) OnSyncSecurityGroupComplete(ctx context.Cont
 	region := elasticcache.GetRegion()
 	self.SetStage("OnElasticcacheCreateComplete", nil)
 	if err := region.GetDriver().RequestCreateElasticcache(ctx, self.GetUserCred(), elasticcache, self); err != nil {
-		self.taskFail(ctx, elasticcache, jsonutils.Marshal(err))
+		self.taskFail(ctx, elasticcache, jsonutils.Marshal(err.Error()))
 		return
 	}
 }
