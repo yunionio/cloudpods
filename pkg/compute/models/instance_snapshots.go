@@ -281,8 +281,8 @@ func (self *SInstanceSnapshot) StartCreateInstanceSnapshotTask(
 
 func (manager *SInstanceSnapshotManager) fillInstanceSnapshot(userCred mcclient.TokenCredential, guest *SGuest, instanceSnapshot *SInstanceSnapshot) {
 	instanceSnapshot.SetModelManager(manager, instanceSnapshot)
-	instanceSnapshot.ProjectId = userCred.GetProjectId()
-	instanceSnapshot.DomainId = userCred.GetProjectDomainId()
+	instanceSnapshot.ProjectId = guest.ProjectId
+	instanceSnapshot.DomainId = guest.DomainId
 	instanceSnapshot.GuestId = guest.Id
 	guestSchedInput := guest.ToSchedDesc()
 

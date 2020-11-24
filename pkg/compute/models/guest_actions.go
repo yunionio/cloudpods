@@ -4341,6 +4341,17 @@ func (guest *SGuest) PerformChangeOwner(ctx context.Context, userCred mcclient.T
 			return nil, err
 		}
 	}
+	// change owner for instance snapshot
+	isps, err := guest.GetInstanceSnapshots()
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to GetInstanceSnapshots")
+	}
+	for i := range isps {
+		_, err := isps[i].PerformChangeOwner(ctx, userCred, query, input)
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to change owner for instance snapshot %s", isps[i].GetId())
+		}
+	}
 	return guest.SVirtualResourceBase.PerformChangeOwner(ctx, userCred, query, input)
 }
 
