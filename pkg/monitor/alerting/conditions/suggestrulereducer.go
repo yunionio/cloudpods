@@ -33,8 +33,8 @@ func NewSuggestRuleReducer(t string, duration time.Duration) Reducer {
 }
 
 func (s *suggestRuleReducer) Reduce(series *tsdb.TimeSeries) *float64 {
-	if int(s.duration.Seconds()) > len(series.Points) {
-		return nil
-	}
+	/*if int(s.duration.Seconds()) > len(series.Points) {
+		return nil, nil
+	}*/
 	return s.queryReducer.Reduce(series)
 }
