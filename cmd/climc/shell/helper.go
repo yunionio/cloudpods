@@ -134,10 +134,10 @@ func (cmd ResourceCmd) List(args IListOpt) {
 }
 
 func (cmd ResourceCmd) Create(args ICreateOpt) {
-	cmd.CreateWithKeyworkd("create", args)
+	cmd.CreateWithKeyword("create", args)
 }
 
-func (cmd ResourceCmd) CreateWithKeyworkd(keyword string, args ICreateOpt) {
+func (cmd ResourceCmd) CreateWithKeyword(keyword string, args ICreateOpt) {
 	man := cmd.manager
 	callback := func(s *mcclient.ClientSession, args ICreateOpt) error {
 		params, err := args.Params()
