@@ -62,6 +62,10 @@ func (self *SQcloudProviderFactory) IsSupportCreateCloudgroup() bool {
 	return true
 }
 
+func (self *SQcloudProviderFactory) IsSupportSAMLAuth() bool {
+	return true
+}
+
 func (self *SQcloudProviderFactory) IsSupportCrossCloudEnvVpcPeering() bool {
 	return false
 }
