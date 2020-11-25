@@ -136,7 +136,7 @@ func (self *SQcloudGuestDriver) ValidateCreateData(ctx context.Context, userCred
 		if sysDisk.SizeMb > 1024*1024 {
 			return nil, fmt.Errorf("The %s system disk size must be less than 1024GB", sysDisk.Backend)
 		}
-	case api.STORAGE_LOCAL_PRO:
+	case api.STORAGE_LOCAL_PRO, api.STORAGE_CLOUD_HSSD: //https://cloud.tencent.com/document/product/362/2353
 		return nil, fmt.Errorf("storage %s can not be system disk", sysDisk.Backend)
 	}
 
