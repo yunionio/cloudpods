@@ -61,6 +61,10 @@ func (self *SQcloudProviderFactory) IsSupportCreateCloudgroup() bool {
 	return true
 }
 
+func (self *SQcloudProviderFactory) IsSupportSAMLAuth() bool {
+	return true
+}
+
 func (self *SQcloudProviderFactory) GetSupportedDnsZoneTypes() []cloudprovider.TDnsZoneType {
 	return []cloudprovider.TDnsZoneType{
 		cloudprovider.PublicZone,

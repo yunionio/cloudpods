@@ -64,6 +64,10 @@ func (self *SHuaweiProviderFactory) IsSupportCreateCloudgroup() bool {
 	return true
 }
 
+func (factory *SHuaweiProviderFactory) IsSupportSAMLAuth() bool {
+	return true
+}
+
 func (self *SHuaweiProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {

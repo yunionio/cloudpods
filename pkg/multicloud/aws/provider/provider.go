@@ -55,6 +55,10 @@ func (factory *SAwsProviderFactory) IsSystemCloudpolicyUnified() bool {
 	return false
 }
 
+func (factory *SAwsProviderFactory) IsSupportSAMLAuth() bool {
+	return true
+}
+
 func (self *SAwsProviderFactory) GetSupportedDnsZoneTypes() []cloudprovider.TDnsZoneType {
 	return []cloudprovider.TDnsZoneType{
 		cloudprovider.PublicZone,
