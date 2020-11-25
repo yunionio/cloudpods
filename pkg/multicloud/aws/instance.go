@@ -378,8 +378,8 @@ func (self *SInstance) StartVM(ctx context.Context) error {
 	return cloudprovider.ErrTimeout
 }
 
-func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
-	err := self.host.zone.region.StopVM(self.InstanceId, isForce)
+func (self *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerStopOptions) error {
+	err := self.host.zone.region.StopVM(self.InstanceId, opts.IsForce)
 	if err != nil {
 		return err
 	}
@@ -762,6 +762,13 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 				ebs.SetIops(iops)
 			} else {
 				ebs.SetIops(32000)
+			}
+		} else if disk.Category == api.STORAGE_IO2_SSD {
+			iops := int64(disk.Size * 100)
+			if iops < 64000 {
+				ebs.SetIops(iops)
+			} else {
+				ebs.SetIops(64000)
 			}
 		}
 

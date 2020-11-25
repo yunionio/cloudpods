@@ -77,8 +77,13 @@ func DealAlertData(drvType monitor.SuggestDriverType, oldAlerts []models.SSugges
 			delete(oldMap, res_id)
 		} else {
 			//新增的alert
-			_, err := db.DoCreate(models.SuggestSysAlertManager, context.Background(), adminCredential, nil, newAlert,
-				adminCredential)
+			ownerId, err := models.SuggestSysAlertManager.FetchOwnerId(context.Background(), newAlert)
+			if err != nil {
+				log.Errorf("create SuggestSysAlert FetchOwnerId param:%v. error:%v", newAlert, err)
+				continue
+			}
+			_, err = db.DoCreate(models.SuggestSysAlertManager, context.Background(), adminCredential, nil, newAlert,
+				ownerId)
 			if err != nil {
 				log.Errorf("create new suggest alert %v error: %v", newAlert, err)
 			}
@@ -154,6 +159,7 @@ func getSuggestSysAlertFromJson(obj jsonutils.JSONObject, rule models.ISuggestSy
 		suggestSysAlert.Cloudaccount = val
 	}
 	suggestSysAlert.Type = string(rule.GetType())
+	suggestSysAlert.Name = fmt.Sprintf("%s-%s", suggestSysAlert.Name, suggestSysAlert.Type)
 	suggestSysAlert.ResMeta = obj
 	suggestSysAlert.Action = string(rule.GetAction())
 	suggestSysAlert.Status = monitor.SUGGEST_ALERT_READY

@@ -39,7 +39,7 @@ func (self *GuestSaveImageTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 	log.Infof("Saving server image: %s", guest.Name)
 	if restart, _ := self.GetParams().Bool("restart"); restart {
 		self.SetStage("OnStopServerComplete", nil)
-		guest.StartGuestStopTask(ctx, self.GetUserCred(), false, self.GetTaskId())
+		guest.StartGuestStopTask(ctx, self.GetUserCred(), false, false, self.GetTaskId())
 	} else {
 		self.OnStopServerComplete(ctx, guest, nil)
 	}

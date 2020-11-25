@@ -36,10 +36,14 @@ const (
 	Next_HOP_TYPE_VPCPEERING       = "VpcPeering"            // vpc对等连接
 	Next_HOP_TYPE_INTERVPCNETWORK  = "InterVpcNetwork"       //vpc 互联网络
 	Next_HOP_TYPE_DIRECTCONNECTION = "DirectConnection"      //专线
+	Next_HOP_TYPE_VPC              = "VPC"
+	Next_HOP_TYPE_VBR              = "VBR" // 边界路由器
 )
 
 const (
 	ROUTE_ENTRY_STATUS_AVAILIABLE = "available"
+	ROUTE_ENTRY_STATUS_CONFLICT   = "conflict"
+	ROUTE_ENTRY_STATUS_DISABLED   = "disabled"
 	ROUTE_ENTRY_STATUS_UNKNOWN    = "unknown"
 )
 

@@ -16,6 +16,7 @@ package provider
 
 import (
 	"context"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -174,6 +175,33 @@ func (self *SAliyunProviderFactory) ValidateUpdateCloudaccountCredential(ctx con
 	return output, nil
 }
 
+func validateClientCloudenv(client *aliyun.SAliyunClient) error {
+	regions := client.GetIRegions()
+	if len(regions) == 0 {
+		return nil
+	}
+
+	isFinanceAccount := false
+	for i := range regions {
+		if strings.Contains(regions[i].GetId(), "-finance") {
+			isFinanceAccount = true
+			break
+		}
+	}
+
+	if isFinanceAccount {
+		if regions[0].GetCloudEnv() != "FinanceCloud" {
+			return errors.Wrap(httperrors.ErrInvalidCredential, "aksk is aliyun finance account")
+		}
+	} else {
+		if regions[0].GetCloudEnv() == "FinanceCloud" {
+			return errors.Wrap(httperrors.ErrInvalidCredential, "aksk is not aliyun finance account")
+		}
+	}
+
+	return nil
+}
+
 func (self *SAliyunProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
 	client, err := aliyun.NewAliyunClient(
 		aliyun.NewAliyunClientConfig(
@@ -185,6 +213,12 @@ func (self *SAliyunProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig
 	if err != nil {
 		return nil, err
 	}
+
+	err = validateClientCloudenv(client)
+	if err != nil {
+		return nil, errors.Wrap(err, "validateClientCloudenv")
+	}
+
 	return &SAliyunProvider{
 		SBaseProvider: cloudprovider.NewBaseProvider(self),
 		client:        client,
@@ -371,4 +405,45 @@ func (self *SAliyunProvider) CreateICloudDnsZone(opts *cloudprovider.SDnsZoneCre
 	} else {
 		return self.client.CreatePublicICloudDnsZone(opts)
 	}
+}
+
+func (self *SAliyunProvider) GetICloudInterVpcNetworks() ([]cloudprovider.ICloudInterVpcNetwork, error) {
+	scens, err := self.client.GetAllCens()
+	if err != nil {
+		return nil, errors.Wrap(err, "self.client.GetAllCens()")
+	}
+
+	iVpcNetworks := []cloudprovider.ICloudInterVpcNetwork{}
+	for i := range scens {
+		iVpcNetworks = append(iVpcNetworks, &scens[i])
+	}
+	return iVpcNetworks, nil
+
+}
+func (self *SAliyunProvider) GetICloudInterVpcNetworkById(id string) (cloudprovider.ICloudInterVpcNetwork, error) {
+	iVpcNetwork, err := self.GetICloudInterVpcNetworks()
+	if err != nil {
+		return nil, errors.Wrap(err, "self.GetICloudInterVpcNetworks()")
+	}
+	for i := range iVpcNetwork {
+		if iVpcNetwork[i].GetId() == id {
+			return iVpcNetwork[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+func (self *SAliyunProvider) CreateICloudInterVpcNetwork(opts *cloudprovider.SInterVpcNetworkCreateOptions) (cloudprovider.ICloudInterVpcNetwork, error) {
+	cenId, err := self.client.CreateCen(opts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "self.client.CreateCen(%s)", jsonutils.Marshal(opts).String())
+	}
+	ivpcNetwork, err := self.GetICloudInterVpcNetworkById(cenId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "self.GetICloudInterVpcNetworkById(%s)", cenId)
+	}
+	return ivpcNetwork, nil
+}
+
+func (self *SAliyunProvider) GetCloudRegionExternalIdPrefix() string {
+	return self.client.GetAccessEnv() + "/"
 }

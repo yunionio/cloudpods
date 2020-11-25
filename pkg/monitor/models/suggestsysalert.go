@@ -241,17 +241,6 @@ func (self *SSuggestSysAlert) GetType() monitor.SuggestDriverType {
 	return monitor.SuggestDriverType(self.Type)
 }
 
-func (self *SSuggestSysAlert) GetShowName() string {
-	rule, _ := SuggestSysRuleManager.GetRules(self.GetType())
-	var showName string
-	if len(rule) != 0 {
-		showName = fmt.Sprintf("%s-%s", self.Name, rule[0].Name)
-	} else {
-		showName = fmt.Sprintf("%s-%s", self.Name, self.Type)
-	}
-	return showName
-}
-
 func (self *SSuggestSysAlert) getMoreDetails(out monitor.SuggestSysAlertDetails) monitor.SuggestSysAlertDetails {
 	err := self.ResMeta.Unmarshal(&out)
 	if err != nil {
@@ -261,9 +250,18 @@ func (self *SSuggestSysAlert) getMoreDetails(out monitor.SuggestSysAlertDetails)
 	out.Account = self.Cloudaccount
 	out.ResType = string(drv.GetResourceType())
 	out.RuleName = strings.ToLower(string(drv.GetType()))
-	out.ShowName = self.GetShowName()
+	out.ShowName = self.Name
 	out.Suggest = string(drv.GetSuggest())
+	out.ResName = SuggestSysAlertManager.getOriName(self.Name, self.Type)
 	return out
+}
+
+func (self *SSuggestSysAlertManager) getOriName(name, typ string) string {
+	lastIndex := strings.LastIndex(name, fmt.Sprintf("-%s", typ))
+	if lastIndex == -1 || lastIndex == 0 {
+		lastIndex = len(name)
+	}
+	return name[:lastIndex]
 }
 
 func (manager *SSuggestSysAlertManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
@@ -363,7 +361,8 @@ func (self *SSuggestSysAlert) AllowPerformIgnore(ctx context.Context, userCred m
 	return db.IsProjectAllowPerform(userCred, self, "ignore")
 }
 
-func (self *SSuggestSysAlert) GetSuggestConfig(scope rbacutils.TRbacScope, domainId string, projectId string) (*SSuggestSysRuleConfig, error) {
+func (self *SSuggestSysAlert) GetSuggestConfig(scope rbacutils.TRbacScope, domainId string, projectId string,
+	batchIgnore bool) (*SSuggestSysRuleConfig, error) {
 	if scope == "" {
 		scope = rbacutils.ScopeSystem
 	}
@@ -377,7 +376,10 @@ func (self *SSuggestSysAlert) GetSuggestConfig(scope rbacutils.TRbacScope, domai
 	} else if scope == rbacutils.ScopeProject {
 		scopeId = projectId
 	}
-	q := SuggestSysRuleConfigManager.Query().Equals("type", drvType).Equals("resource_id", resId).Equals("resource_type", resType)
+	q := SuggestSysRuleConfigManager.Query().Equals("type", drvType).Equals("resource_type", resType)
+	if !batchIgnore {
+		q = q.Equals("resource_id", resId)
+	}
 	q = SuggestSysRuleConfigManager.FilterByScope(q, scope, scopeId)
 	configs := make([]SSuggestSysRuleConfig, 0)
 	if err := db.FetchModelObjects(SuggestSysRuleConfigManager, q, &configs); err != nil {
@@ -394,7 +396,7 @@ func (self *SSuggestSysAlert) PerformIgnore(ctx context.Context, userCred mcclie
 	if data.Scope == "" {
 		data.Scope = string(rbacutils.ScopeSystem)
 	}
-	config, err := self.GetSuggestConfig(rbacutils.TRbacScope(data.Scope), data.ProjectDomainId, data.ProjectId)
+	config, err := self.GetSuggestConfig(rbacutils.TRbacScope(data.Scope), data.ProjectDomainId, data.ProjectId, data.BatchIgnore)
 	if err != nil {
 		return nil, err
 	}
@@ -403,14 +405,20 @@ func (self *SSuggestSysAlert) PerformIgnore(ctx context.Context, userCred mcclie
 	resType := drv.GetResourceType()
 	if config == nil {
 		createData := new(monitor.SuggestSysRuleConfigCreateInput)
-		createData.Name = self.GetShowName()
+		createData.Name = self.Name
 		createData.ScopedResourceCreateInput = data.ScopedResourceCreateInput
 		createData.Type = &drvType
 		createData.ResourceType = &resType
-		createData.ResourceId = &self.ResId
+		if !data.BatchIgnore {
+			createData.ResourceId = &self.ResId
+		}
+		ownerId, err := SuggestSysAlertManager.FetchOwnerId(ctx, jsonutils.Marshal(&data))
+		if err != nil {
+			return nil, errors.Wrap(err, "SuggestSysAlertManager FetchOwnerId error")
+		}
 		createData.IgnoreAlert = true
 		data := createData.JSON(createData)
-		conf, err := db.DoCreate(SuggestSysRuleConfigManager, ctx, userCred, nil, data, userCred)
+		conf, err := db.DoCreate(SuggestSysRuleConfigManager, ctx, userCred, nil, data, ownerId)
 		if err != nil {
 			return nil, err
 		}

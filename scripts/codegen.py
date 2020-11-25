@@ -134,6 +134,7 @@ class ModelAPI(FuncDispatcher):
         self.run_model("image")
         self.run_model("cloudid")
         self.run_model("notify")
+        self.run_model("cloudevent")
 
     def gen_monitor(self):
         self.run(pkg=["monitor", "models"], out=["monitor"])
@@ -187,6 +188,11 @@ class SwaggerCode(FuncDispatcher):
     def gen_notify(self):
         self.run("notify", pkg=["models"], out="notify")
 
+    def gen_cloudevent(self):
+        self.run("cloudevent", pkg=["models"], out="cloudevent")
+
+
+
 class SwaggerYAML(FuncDispatcher):
 
     def __init__(self, swagger_dir, out_dir):
@@ -221,6 +227,9 @@ class SwaggerYAML(FuncDispatcher):
 
     def gen_notify(self):
         self.run("notify")
+
+    def gen_cloudevent(self):
+        self.run("cloudevent")
 
 class SwaggerServe(object):
 

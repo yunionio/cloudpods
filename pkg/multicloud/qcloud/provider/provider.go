@@ -425,3 +425,15 @@ func (self *SQcloudProvider) GetICloudroleByName(name string) (cloudprovider.ICl
 func (self *SQcloudProvider) GetICloudroleById(id string) (cloudprovider.ICloudrole, error) {
 	return self.GetICloudroleByName(id)
 }
+
+func (self *SQcloudProvider) GetICloudInterVpcNetworks() ([]cloudprovider.ICloudInterVpcNetwork, error) {
+	return self.client.GetICloudInterVpcNetworks()
+}
+
+func (self *SQcloudProvider) GetICloudInterVpcNetworkById(id string) (cloudprovider.ICloudInterVpcNetwork, error) {
+	return self.client.GetICloudInterVpcNetworkById(id)
+}
+
+func (self *SQcloudProvider) CreateICloudInterVpcNetwork(opts *cloudprovider.SInterVpcNetworkCreateOptions) (cloudprovider.ICloudInterVpcNetwork, error) {
+	return self.client.CreateICloudInterVpcNetwork(opts)
+}

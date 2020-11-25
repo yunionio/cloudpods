@@ -172,7 +172,6 @@ func (self *SEipAddress) GetAssociationType() string {
 	case EIP_INTANNCE_TYPE_SLB:
 		return api.EIP_ASSOCIATE_TYPE_LOADBALANCER
 	default:
-		log.Fatalf("unsupported type: %s", self.InstanceType)
 		return "unsupported"
 	}
 }

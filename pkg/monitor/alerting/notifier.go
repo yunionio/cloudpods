@@ -17,7 +17,6 @@ package alerting
 import (
 	"database/sql"
 	"fmt"
-	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -143,30 +142,45 @@ func (n *notificationService) getNeededNotifiers(nIds []string, evalCtx *EvalCon
 		}
 	}
 	if shouldNotify {
-		var matches []*monitor.EvalMatch
-		if evalCtx.Firing {
-			matches = evalCtx.EvalMatches
-		} else {
-			matches = evalCtx.AlertOkEvalMatches
-		}
-		recordCreateInput := monitor.AlertRecordCreateInput{
-			StandaloneResourceCreateInput: apis.StandaloneResourceCreateInput{
-				GenerateName: evalCtx.Rule.Name,
-			},
-			AlertId:   evalCtx.Rule.Id,
-			Level:     evalCtx.Rule.Level,
-			State:     string(evalCtx.Rule.State),
-			EvalData:  matches,
-			AlertRule: newAlertRecordRule(evalCtx),
-		}
-		createData := recordCreateInput.JSON(recordCreateInput)
-		record, err := db.DoCreate(models.AlertRecordManager, evalCtx.Ctx, evalCtx.UserCred, jsonutils.NewDict(), createData, evalCtx.UserCred)
-		if err != nil {
-			log.Errorf("create alert record err:%v", err)
-		}
-		record.PostCreate(evalCtx.Ctx, evalCtx.UserCred, evalCtx.UserCred, nil, createData)
+		n.createAlertRecordWhenNotify(evalCtx)
 	}
+	if !shouldNotify && evalCtx.shouldUpdateAlertState() && evalCtx.NoDataFound {
+		n.detachAlertResourceWhenNodata(evalCtx)
+	}
+
 	return result, nil
+}
+
+func (n *notificationService) createAlertRecordWhenNotify(evalCtx *EvalContext) {
+	var matches []*monitor.EvalMatch
+	if evalCtx.Firing {
+		matches = evalCtx.EvalMatches
+	} else {
+		matches = evalCtx.AlertOkEvalMatches
+	}
+	recordCreateInput := monitor.AlertRecordCreateInput{
+		StandaloneResourceCreateInput: apis.StandaloneResourceCreateInput{
+			GenerateName: evalCtx.Rule.Name,
+		},
+		AlertId:   evalCtx.Rule.Id,
+		Level:     evalCtx.Rule.Level,
+		State:     string(evalCtx.Rule.State),
+		EvalData:  matches,
+		AlertRule: newAlertRecordRule(evalCtx),
+	}
+	createData := recordCreateInput.JSON(recordCreateInput)
+	record, err := db.DoCreate(models.AlertRecordManager, evalCtx.Ctx, evalCtx.UserCred, jsonutils.NewDict(), createData, evalCtx.UserCred)
+	if err != nil {
+		log.Errorf("create alert record err:%v", err)
+	}
+	record.PostCreate(evalCtx.Ctx, evalCtx.UserCred, evalCtx.UserCred, nil, createData)
+}
+
+func (n *notificationService) detachAlertResourceWhenNodata(evalCtx *EvalContext) {
+	errs := models.CommonAlertManager.DetachAlertResourceByAlertId(evalCtx.Ctx, evalCtx.UserCred, evalCtx.Rule.Id)
+	if len(errs) != 0 {
+		log.Errorf("detachAlertResourceWhenNodata err:%#v", errors.NewAggregate(errs))
+	}
 }
 
 type NotifierPlugin struct {
@@ -205,25 +219,14 @@ func InitNotifier(config NotificationConfig) (Notifier, error) {
 
 func newAlertRecordRule(evalCtx *EvalContext) monitor.AlertRecordRule {
 	alertRule := monitor.AlertRecordRule{}
+	if evalCtx.RuleDescription != nil {
+		alertRule = evalCtx.RuleDescription.AlertRecordRule
+	}
 	if evalCtx.Rule.Frequency < 60 {
 		alertRule.Period = fmt.Sprintf("%ds", evalCtx.Rule.Frequency)
 	} else {
 		alertRule.Period = fmt.Sprintf("%dm", evalCtx.Rule.Frequency/60)
 	}
-	ruleStr := evalCtx.Rule.Message
-	ruleElementArr := strings.Split(ruleStr, " ")
-	if len(ruleElementArr) == 3 {
-		alertRule.Metric = ruleElementArr[0]
-		alertRule.Comparator = ruleElementArr[1]
-		alertRule.Threshold = ruleElementArr[2]
-	}
-	if len(evalCtx.EvalMatches) != 0 {
-		alertRule.MeasurementDesc = evalCtx.EvalMatches[0].MeasurementDesc
-		alertRule.FieldDesc = evalCtx.EvalMatches[0].FieldDesc
-	}
-	if len(evalCtx.AlertOkEvalMatches) != 0 {
-		alertRule.MeasurementDesc = evalCtx.AlertOkEvalMatches[0].MeasurementDesc
-		alertRule.FieldDesc = evalCtx.AlertOkEvalMatches[0].FieldDesc
-	}
+
 	return alertRule
 }

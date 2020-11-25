@@ -15,33 +15,33 @@
 package shell
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/azure"
+	"yunion.io/x/onecloud/pkg/multicloud/apsara"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func init() {
-	type AccountBalanceOptions struct {
+	type LoadbalancerListOptions struct {
+		Ids []string `help:"Loadbalancer ids"`
 	}
-	shellutils.R(&AccountBalanceOptions{}, "balance", "Get account balance", func(cli *azure.SRegion, args *AccountBalanceOptions) error {
-		if result1, err := cli.GetClient().QueryAccountBalance(); err != nil {
+	shellutils.R(&LoadbalancerListOptions{}, "lb-list", "List loadbalancers", func(cli *apsara.SRegion, args *LoadbalancerListOptions) error {
+		lbs, err := cli.GetLoadbalancers(args.Ids)
+		if err != nil {
 			return err
-		} else if result1 != nil {
-			printObject(result1)
-			return nil
 		}
-
-		// result2, err := cli.GetClient().QueryCashCoupons()
-		// if err != nil {
-		// 	return err
-		// }
-		// printList(result2, len(result2), 0, 0, nil)
-
-		// result3, err := cli.GetClient().QueryPrepaidCards()
-		// if err != nil {
-		// 	return err
-		// }
-		// printList(result3, len(result3), 0, 0, nil)
-		// return nil
+		printList(lbs, len(lbs), 0, 0, []string{})
 		return nil
 	})
+
+	type LoadbalancerOptions struct {
+		ID string `help:"ID of loadbalancer"`
+	}
+	shellutils.R(&LoadbalancerOptions{}, "lb-show", "Show loadbalancer", func(cli *apsara.SRegion, args *LoadbalancerOptions) error {
+		lb, err := cli.GetLoadbalancerDetail(args.ID)
+		if err != nil {
+			return err
+		}
+		printObject(lb)
+		return nil
+	})
+
 }

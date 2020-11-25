@@ -218,6 +218,7 @@ func (manager *SElasticcacheManager) FetchCustomizeColumns(
 
 	netIds := make([]string, len(objs))
 	cacheIds := make([]string, len(objs))
+	zoneIds := []string{}
 	for i := range rows {
 		rows[i] = api.ElasticcacheDetails{
 			VirtualResourceDetails: virtRows[i],
@@ -226,6 +227,13 @@ func (manager *SElasticcacheManager) FetchCustomizeColumns(
 		}
 		netIds[i] = objs[i].(*SElasticcache).NetworkId
 		cacheIds[i] = objs[i].(*SElasticcache).Id
+
+		sz := strings.Split(objs[i].(*SElasticcache).SlaveZones, ",")
+		for j := range sz {
+			if !utils.IsInStringArray(sz[j], zoneIds) {
+				zoneIds = append(zoneIds, sz[j])
+			}
+		}
 	}
 
 	networks := make(map[string]SNetwork)
@@ -254,7 +262,48 @@ func (manager *SElasticcacheManager) FetchCustomizeColumns(
 		}
 	}
 
+	// zone ids
+	if len(zoneIds) > 0 {
+		zss := fetchElasticcacheSlaveZones(zoneIds)
+		for i := range objs {
+			if len(objs[i].(*SElasticcache).SlaveZones) > 0 {
+				sz := strings.Split(objs[i].(*SElasticcache).SlaveZones, ",")
+				szi := []apis.StandaloneShortDesc{}
+				for j := range sz {
+					if info, ok := zss[sz[j]]; ok {
+						szi = append(szi, info)
+					} else {
+						szi = append(szi, apis.StandaloneShortDesc{Id: sz[j], Name: sz[j]})
+					}
+				}
+
+				rows[i].SlaveZoneInfos = szi
+			}
+		}
+	}
+
 	return rows
+}
+
+func fetchElasticcacheSlaveZones(zoneIds []string) map[string]apis.StandaloneShortDesc {
+	zones := []SZone{}
+	err := ZoneManager.Query().In("id", zoneIds).All(&zones)
+	if err != nil {
+		log.Debugf("fetchElasticcacheSlaveZones.ZoneManager %s", err)
+		return nil
+	}
+
+	ret := make(map[string]apis.StandaloneShortDesc)
+	for i := range zones {
+		zsd := apis.StandaloneShortDesc{
+			Id:   zones[i].Id,
+			Name: zones[i].Name,
+		}
+
+		ret[zsd.Id] = zsd
+	}
+
+	return ret
 }
 
 func (self *SElasticcache) GetElasticcacheParameters() ([]SElasticcacheParameter, error) {
@@ -1295,7 +1344,7 @@ func (self *SElasticcache) GetAdminAccount() (*SElasticcacheAccount, error) {
 		}
 	}
 
-	return nil, httperrors.NewNotFoundError(fmt.Sprintf("no admin account found for elastic cache %s", self.Id))
+	return nil, httperrors.NewNotFoundError("no admin account found for elastic cache %s", self.Id)
 }
 
 func (self *SElasticcache) StartResetPasswordTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {

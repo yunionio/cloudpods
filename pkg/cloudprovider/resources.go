@@ -294,7 +294,7 @@ type ICloudVM interface {
 	// GetSecurityGroup() ICloudSecurityGroup
 
 	StartVM(ctx context.Context) error
-	StopVM(ctx context.Context, isForce bool) error
+	StopVM(ctx context.Context, opts *ServerStopOptions) error
 	DeleteVM(ctx context.Context) error
 
 	UpdateVM(ctx context.Context, name string) error
@@ -417,7 +417,6 @@ type ICloudDisk interface {
 	Delete(ctx context.Context) error
 
 	CreateISnapshot(ctx context.Context, name string, desc string) (ICloudSnapshot, error)
-	GetISnapshot(idStr string) (ICloudSnapshot, error)
 	GetISnapshots() ([]ICloudSnapshot, error)
 
 	GetExtSnapshotPolicyIds() ([]string, error)
@@ -476,7 +475,10 @@ type ICloudVpc interface {
 	GetICloudVpcPeeringConnectionById(id string) (ICloudVpcPeeringConnection, error)
 	CreateICloudVpcPeeringConnection(opts *VpcPeeringConnectionCreateOptions) (ICloudVpcPeeringConnection, error)
 	AcceptICloudVpcPeeringConnection(id string) error
+
 	GetAuthorityOwnerId() string
+
+	ProposeJoinICloudInterVpcNetwork(opts *SVpcJointInterVpcNetworkOption) error
 }
 
 type ICloudWire interface {
@@ -849,6 +851,9 @@ type ICloudDBInstanceBackup interface {
 	GetBackupSizeMb() int
 	GetDBNames() string
 	GetBackupMode() string
+	GetBackupMethod() TBackupMethod
+
+	CreateICloudDBInstance(opts *SManagedDBInstanceCreateConfig) (ICloudDBInstance, error)
 
 	Delete() error
 }
@@ -1126,4 +1131,26 @@ type ICloudrole interface {
 	DetachPolicy(id string) error
 
 	Delete() error
+}
+
+type ICloudInterVpcNetwork interface {
+	ICloudResource
+	GetAuthorityOwnerId() string
+	GetICloudVpcIds() ([]string, error)
+	AttachVpc(opts *SInterVpcNetworkAttachVpcOption) error
+	DetachVpc(opts *SInterVpcNetworkDetachVpcOption) error
+	Delete() error
+	GetIRoutes() ([]ICloudInterVpcNetworkRoute, error)
+	EnableRouteEntry(routeId string) error
+	DisableRouteEntry(routeId string) error
+}
+
+type ICloudInterVpcNetworkRoute interface {
+	ICloudResource
+	GetInstanceId() string
+	GetInstanceType() string
+	GetInstanceRegionId() string
+
+	GetEnabled() bool
+	GetCidr() string
 }

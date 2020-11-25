@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -66,6 +67,22 @@ func (self *SKVMGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, own
 	keys.Brand = api.ONECLOUD_BRAND_ONECLOUD
 	keys.Hypervisor = api.HYPERVISOR_KVM
 	return keys
+}
+
+func (self *SKVMGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCapability {
+	return cloudprovider.SInstanceCapability{
+		Hypervisor: self.GetHypervisor(),
+		Provider:   self.GetProvider(),
+		DefaultAccount: cloudprovider.SDefaultAccount{
+			Linux: cloudprovider.SOsDefaultAccount{
+				DefaultAccount: api.VM_DEFAULT_LINUX_LOGIN_USER,
+				Changeable:     true,
+			},
+			Windows: cloudprovider.SOsDefaultAccount{
+				DefaultAccount: api.VM_DEFAULT_WINDOWS_LOGIN_USER,
+			},
+		},
+	}
 }
 
 func (self *SKVMGuestDriver) GetDefaultSysDiskBackend() string {
@@ -298,13 +315,13 @@ func (self *SKVMGuestDriver) RequestSyncstatusOnHost(ctx context.Context, guest 
 }
 
 func (self *SKVMGuestDriver) OnDeleteGuestFinalCleanup(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential) error {
-	if ispId := guest.GetMetadata("__base_instance_snapshot_id", userCred); len(ispId) > 0 {
+	if ispId := guest.GetMetadata(api.BASE_INSTANCE_SNAPSHOT_ID, userCred); len(ispId) > 0 {
 		ispM, err := models.InstanceSnapshotManager.FetchById(ispId)
 		if err == nil {
 			isp := ispM.(*models.SInstanceSnapshot)
 			isp.DecRefCount(ctx, userCred)
 		}
-		guest.SetMetadata(ctx, "__base_instance_snapshot_id", "", userCred)
+		guest.SetMetadata(ctx, api.BASE_INSTANCE_SNAPSHOT_ID, "", userCred)
 	}
 	return nil
 }

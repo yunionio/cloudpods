@@ -295,6 +295,10 @@ func (self *SBaseRegionDriver) RequestCreateDBInstance(ctx context.Context, user
 	return fmt.Errorf("Not Implement RequestCreateDBInstance")
 }
 
+func (self *SBaseRegionDriver) RequestCreateDBInstanceFromBackup(ctx context.Context, userCred mcclient.TokenCredential, dbinstance *models.SDBInstance, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestCreateDBInstanceFromBackup")
+}
+
 func (self *SBaseRegionDriver) RequestCreateDBInstanceBackup(ctx context.Context, userCred mcclient.TokenCredential, dbinstance *models.SDBInstance, backup *models.SDBInstanceBackup, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement RequestCreateDBInstanceBackup")
 }

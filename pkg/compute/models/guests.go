@@ -1820,7 +1820,7 @@ func (manager *SGuestManager) SetPropertiesWithInstanceSnapshot(
 					delete(metadata, "passwd")
 					metadata["login_key"], _ = utils.EncryptAESBase64(guest.Id, passwd.(string))
 				}
-				metadata["__base_instance_snapshot_id"] = isp.Id
+				metadata[api.BASE_INSTANCE_SNAPSHOT_ID] = isp.Id
 				guest.SetAllMetadata(ctx, metadata, userCred)
 			}
 		}
@@ -3709,11 +3709,17 @@ func (self *SGuest) DeleteAllDisksInDB(ctx context.Context, userCred mcclient.To
 		}
 
 		if disk != nil {
-			db.OpsLog.LogEvent(disk, db.ACT_DELETE, nil, userCred)
-			db.OpsLog.LogEvent(disk, db.ACT_DELOCATE, nil, userCred)
-			err = disk.RealDelete(ctx, userCred)
+			cnt, err := disk.GetGuestDiskCount()
 			if err != nil {
-				return err
+				return errors.Wrap(err, "disk.GetGuestDiskCount")
+			}
+			if cnt == 0 {
+				db.OpsLog.LogEvent(disk, db.ACT_DELETE, nil, userCred)
+				db.OpsLog.LogEvent(disk, db.ACT_DELOCATE, nil, userCred)
+				err = disk.RealDelete(ctx, userCred)
+				if err != nil {
+					return errors.Wrap(err, "disk.RealDelete")
+				}
 			}
 		}
 	}

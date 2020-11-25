@@ -27,6 +27,7 @@ type VpcListOptions struct {
 	Region             string `help:"ID or Name of region" json:"-"`
 	Globalvpc          string `help:"Filter by globalvpc"`
 	DnsZoneId          string `help:"Filter by DnsZone"`
+	InterVpcNetworkId  string `help:"Filter by InterVpcNetwork"`
 	ExternalAccessMode string `help:"Filter by external access mode" choices:"distgw|eip|eip-distgw"`
 }
 

@@ -25,17 +25,35 @@ func init() {
 	type StorageAccountListOptions struct {
 	}
 	shellutils.R(&StorageAccountListOptions{}, "storage-account-list", "List storage account", func(cli *azure.SRegion, args *StorageAccountListOptions) error {
-		if accounts, err := cli.GetStorageAccounts(); err != nil {
+		accounts, err := cli.ListStorageAccounts()
+		if err != nil {
 			return err
-		} else {
-			printList(accounts, len(accounts), 0, 0, []string{})
-			return nil
 		}
+		printList(accounts, len(accounts), 0, 0, []string{})
+		return nil
+	})
+
+	shellutils.R(&StorageAccountListOptions{}, "classic-storage-account-list", "List classic storage account", func(cli *azure.SRegion, args *StorageAccountListOptions) error {
+		accounts, err := cli.ListClassicStorageAccounts()
+		if err != nil {
+			return err
+		}
+		printList(accounts, len(accounts), 0, 0, []string{})
+		return nil
 	})
 
 	type StorageAccountOptions struct {
 		ID string `help:"StorageAccount ID"`
 	}
+
+	shellutils.R(&StorageAccountOptions{}, "classic-storage-account-show", "Show storage account detail", func(cli *azure.SRegion, args *StorageAccountOptions) error {
+		account, err := cli.GetClassicStorageAccount(args.ID)
+		if err != nil {
+			return err
+		}
+		printObject(account)
+		return nil
+	})
 
 	shellutils.R(&StorageAccountOptions{}, "storage-account-delete", "Delete storage account", func(cli *azure.SRegion, args *StorageAccountOptions) error {
 		return cli.DeleteStorageAccount(args.ID)
@@ -145,7 +163,10 @@ func init() {
 	}
 
 	shellutils.R(&StorageAccountCheckeOptions{}, "storage-uniq-name", "Get a uniqel storage account name", func(cli *azure.SRegion, args *StorageAccountCheckeOptions) error {
-		uniqName := cli.GetUniqStorageAccountName()
+		uniqName, err := cli.GetUniqStorageAccountName()
+		if err != nil {
+			return err
+		}
 		fmt.Println(uniqName)
 		return nil
 	})

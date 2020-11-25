@@ -474,6 +474,8 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 		EipBw:              opts.EipBw,
 		EipBgpType:         opts.EipBgpType,
 		EipChargeType:      opts.EipChargeType,
+		PublicIpBw:         opts.PublicIpBw,
+		PublicIpChargeType: opts.PublicIpChargeType,
 		Eip:                opts.Eip,
 		EnableCloudInit:    opts.EnableCloudInit,
 		OsType:             opts.OsType,
@@ -552,8 +554,9 @@ func (opts *ServerCreateOptions) Params() (*computeapi.ServerCreateInput, error)
 }
 
 type ServerStopOptions struct {
-	ID    []string `help:"ID or Name of server" json:"-"`
-	Force *bool    `help:"Stop server forcefully" json:"is_force"`
+	ID           []string `help:"ID or Name of server" json:"-"`
+	Force        *bool    `help:"Stop server forcefully" json:"is_force"`
+	StopCharging *bool    `help:"Stop charging when server stop"`
 }
 
 func (o *ServerStopOptions) GetIds() []string {
@@ -899,7 +902,11 @@ type ResourceMetadataOptions struct {
 	TAGS []string `help:"Tags info, eg: hypervisor=aliyun、os_type=Linux、os_version"`
 }
 
-func (opts *ResourceMetadataOptions) Params() (*jsonutils.JSONDict, error) {
+func (opts *ResourceMetadataOptions) GetId() string {
+	return opts.ID
+}
+
+func (opts *ResourceMetadataOptions) Params() (jsonutils.JSONObject, error) {
 	params := jsonutils.NewDict()
 	for _, tag := range opts.TAGS {
 		info := strings.Split(tag, "=")

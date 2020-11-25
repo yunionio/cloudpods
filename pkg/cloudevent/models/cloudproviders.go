@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	proxyapi "yunion.io/x/onecloud/pkg/apis/cloudcommon/proxy"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -35,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudevent/options"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -44,6 +46,7 @@ import (
 
 type SCloudproviderManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
+	db.SProjectizedResourceBaseManager
 }
 
 var CloudproviderManager *SCloudproviderManager
@@ -62,6 +65,7 @@ func init() {
 
 type SCloudprovider struct {
 	db.SEnabledStatusStandaloneResourceBase
+	db.SProjectizedResourceBase
 
 	SyncStatus     string
 	LastSync       time.Time
@@ -109,6 +113,17 @@ func (manager *SCloudproviderManager) GetLocalCloudproviders() ([]SCloudprovider
 		return nil, err
 	}
 	return dbProviders, nil
+}
+
+func (manager *SCloudproviderManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (manager *SCloudproviderManager) syncCloudproviders(ctx context.Context, userCred mcclient.TokenCredential) compare.SyncResult {
@@ -176,6 +191,8 @@ func (provider *SCloudprovider) syncWithRegionProvider(ctx context.Context, user
 		provider.Status = cloudprovider.Status
 		provider.Enabled = cloudprovider.Enabled
 		provider.Brand = cloudprovider.Brand
+		provider.ProjectId = cloudprovider.ProjectId
+		provider.DomainId = cloudprovider.DomainId
 		return nil
 	})
 	return err

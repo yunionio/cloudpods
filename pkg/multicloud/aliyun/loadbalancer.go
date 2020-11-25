@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -133,7 +134,7 @@ func (lb *SLoadbalancer) GetNetworkIds() []string {
 }
 
 func (lb *SLoadbalancer) GetZoneId() string {
-	zone, err := lb.region.getZoneById(lb.MasterZoneId)
+	zone, err := lb.region.getZoneById(transZoneIdToEcsZoneId(lb.region, "elb", lb.MasterZoneId))
 	if err != nil {
 		log.Errorf("failed to find zone for lb %s error: %v", lb.LoadBalancerName, err)
 		return ""
@@ -413,4 +414,68 @@ func (lb *SLoadbalancer) GetProjectId() string {
 
 func (lb *SLoadbalancer) SetMetadata(tags map[string]string, replace bool) error {
 	return lb.region.SetResourceTags("slb", "instance", []string{lb.LoadBalancerId}, tags, replace)
+}
+
+// mapping aliyun finance zoneId to aliyun finance ecs zoneId
+func transZoneIdToEcsZoneId(region *SRegion, service, zoneId string) string {
+	if region.GetCloudEnv() == ALIYUN_FINANCE_CLOUDENV {
+		switch service {
+		case "elb", "redis":
+			if utils.IsInStringArray(zoneId, []string{"cn-hangzhou-finance-b", "cn-hangzhou-finance-c", "cn-hangzhou-finance-d"}) {
+				return strings.Replace(zoneId, "-finance", "", -1)
+			}
+		default:
+			return zoneId
+		}
+	}
+
+	return zoneId
+}
+
+// mapping aliyun finance ecs zoneId to dest service zone id
+func transZoneIdFromEcsZoneId(region *SRegion, service, zoneId string) string {
+	if region.GetCloudEnv() == ALIYUN_FINANCE_CLOUDENV {
+		switch service {
+		case "elb", "redis":
+			if utils.IsInStringArray(zoneId, []string{"cn-hangzhou-b", "cn-hangzhou-c", "cn-hangzhou-d"}) {
+				return strings.Replace(zoneId, "cn-hangzhou", "cn-hangzhou-finance", -1)
+			}
+		default:
+			return zoneId
+		}
+	}
+
+	return zoneId
+}
+
+// mapping aliyun finance regionId to aliyun finance ecs regionId
+func transRegionIdToEcsRegionId(region *SRegion, service string) string {
+	if region.GetCloudEnv() == ALIYUN_FINANCE_CLOUDENV {
+		switch service {
+		case "redis":
+			if region.GetId() == "cn-hangzhou-finance" {
+				return "cn-hangzhou"
+			}
+		default:
+			return region.GetId()
+		}
+	}
+
+	return region.GetId()
+}
+
+// mapping aliyun finance regionId from aliyun finance ecs regionId
+func transRegionIdFromEcsRegionId(region *SRegion, service string) string {
+	if region.GetCloudEnv() == ALIYUN_FINANCE_CLOUDENV {
+		switch service {
+		case "redis":
+			if region.GetId() == "cn-hangzhou" {
+				return "cn-hangzhou-finance"
+			}
+		default:
+			return region.GetId()
+		}
+	}
+
+	return region.GetId()
 }

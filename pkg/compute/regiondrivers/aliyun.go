@@ -1000,25 +1000,26 @@ func (self *SAliyunRegionDriver) ValidateCreateDBInstanceData(ctx context.Contex
 		return input, httperrors.NewInputParameterError("slave dbinstance not support prepaid billing type")
 	}
 
-	wire := network.GetWire()
-	if wire == nil {
-		return input, httperrors.NewGeneralError(fmt.Errorf("failed to found wire for network %s(%s)", network.Name, network.Id))
-	}
-	zone := wire.GetZone()
-	if zone == nil {
-		return input, httperrors.NewGeneralError(fmt.Errorf("failed to found zone for wire %s(%s)", wire.Name, wire.Id))
-	}
-
-	match := false
-	for _, sku := range skus {
-		if utils.IsInStringArray(zone.Id, []string{sku.Zone1, sku.Zone2, sku.Zone3}) {
-			match = true
-			break
+	if network != nil {
+		wire := network.GetWire()
+		if wire == nil {
+			return input, httperrors.NewGeneralError(fmt.Errorf("failed to found wire for network %s(%s)", network.Name, network.Id))
 		}
-	}
+		zone := wire.GetZone()
+		if zone == nil {
+			return input, httperrors.NewGeneralError(fmt.Errorf("failed to found zone for wire %s(%s)", wire.Name, wire.Id))
+		}
 
-	if !match {
-		return input, httperrors.NewInputParameterError("failed to match any skus in the network %s(%s) zone %s(%s)", network.Name, network.Id, zone.Name, zone.Id)
+		match := false
+		for _, sku := range skus {
+			if utils.IsInStringArray(zone.Id, []string{sku.Zone1, sku.Zone2, sku.Zone3}) {
+				match = true
+				break
+			}
+		}
+		if !match {
+			return input, httperrors.NewInputParameterError("failed to match any skus in the network %s(%s) zone %s(%s)", network.Name, network.Id, zone.Name, zone.Id)
+		}
 	}
 
 	var master *models.SDBInstance
@@ -1204,6 +1205,7 @@ func (self *SAliyunRegionDriver) ValidateCreateElasticcacheData(ctx context.Cont
 	// validate sku
 	billingType, _ := data.GetString("billing_type")
 	zone := zoneV.Model.(*models.SZone)
+	network := networkV.Model.(*models.SNetwork)
 	if sku, err := data.GetString("instance_type"); err != nil || len(sku) == 0 {
 		return nil, httperrors.NewMissingParameterError("instance_type")
 	} else {
@@ -1213,7 +1215,7 @@ func (self *SAliyunRegionDriver) ValidateCreateElasticcacheData(ctx context.Cont
 		}
 
 		skuModel := _skuModel.(*models.SElasticcacheSku)
-		if err := ValidateElasticcacheSku(zone.Id, billingType, skuModel); err != nil {
+		if err := ValidateElasticcacheSku(zone.Id, billingType, skuModel, network); err != nil {
 			return nil, err
 		} else {
 			data.Set("instance_type", jsonutils.NewString(skuModel.InstanceSpec))
@@ -1237,7 +1239,6 @@ func (self *SAliyunRegionDriver) ValidateCreateElasticcacheData(ctx context.Cont
 		data.Set("billing_cycle", jsonutils.NewString(cycle.String()))
 	}
 
-	network := networkV.Model.(*models.SNetwork)
 	vpc := network.GetVpc()
 	if vpc == nil {
 		return nil, httperrors.NewNotFoundError("network %s related vpc not found", network.GetId())
@@ -1369,7 +1370,7 @@ func (self *SAliyunRegionDriver) ValidateCreateElasticcacheAccountData(ctx conte
 			accountPrivilegeV.Value)
 	}
 
-	return data, nil
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateElasticcacheAccountData(ctx, userCred, ownerId, data)
 }
 
 func (self *SAliyunRegionDriver) RequestCreateElasticcacheAccount(ctx context.Context, userCred mcclient.TokenCredential, ea *models.SElasticcacheAccount, task taskman.ITask) error {

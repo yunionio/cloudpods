@@ -129,6 +129,17 @@ func (self *SVpc) GetDnsZones() ([]SDnsZone, error) {
 	return dnsZones, nil
 }
 
+func (self *SVpc) GetInterVpcNetworks() ([]SInterVpcNetwork, error) {
+	sq := InterVpcNetworkVpcManager.Query("inter_vpc_network_id").Equals("vpc_id", self.Id)
+	q := InterVpcNetworkManager.Query().In("id", sq.SubQuery())
+	vpcNetworks := []SInterVpcNetwork{}
+	err := db.FetchModelObjects(InterVpcNetworkManager, q, &vpcNetworks)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return vpcNetworks, nil
+}
+
 func (self *SVpc) GetDnsZoneCount() (int, error) {
 	sq := DnsZoneVpcManager.Query("dns_zone_id").Equals("vpc_id", self.Id)
 	q := DnsZoneManager.Query().In("id", sq.SubQuery())
@@ -271,7 +282,7 @@ func (manager *SVpcManager) GetOrCreateVpcForClassicNetwork(ctx context.Context,
 	vpc.IsDefault = false
 	vpc.CloudregionId = region.Id
 	vpc.SetModelManager(manager, vpc)
-	vpc.Name = fmt.Sprintf("emulated vpc for %s %s classic network", region.Name, cloudprovider.Name)
+	vpc.Name = "-"
 	vpc.IsEmulated = true
 	vpc.SetEnabled(false)
 	vpc.Status = api.VPC_STATUS_UNAVAILABLE
@@ -719,6 +730,26 @@ func (manager *SVpcManager) InitializeData() error {
 		}
 	}
 
+	{
+		vpcs := []SVpc{}
+		q := manager.Query().IsTrue("is_emulated").IsNotEmpty("external_id").NotEquals("name", "-")
+		err := db.FetchModelObjects(manager, q, &vpcs)
+		if err != nil {
+			return errors.Wrapf(err, "db.FetchModelObjects")
+		}
+		for i := range vpcs {
+			if vpcs[i].ExternalId == manager.getVpcExternalIdForClassicNetwork(vpcs[i].CloudregionId, vpcs[i].ManagerId) {
+				_, err = db.Update(&vpcs[i], func() error {
+					vpcs[i].Name = "-"
+					return nil
+				})
+				if err != nil {
+					return errors.Wrapf(err, "db.Update class vpc name")
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -916,6 +947,17 @@ func (self *SVpc) RealDelete(ctx context.Context, userCred mcclient.TokenCredent
 		}
 	}
 
+	vpcNetwork, err := self.GetInterVpcNetworks()
+	if err != nil {
+		return errors.Wrapf(err, "self.GetInterVpcNetwork")
+	}
+	for i := range vpcNetwork {
+		err = vpcNetwork[i].RemoveVpc(ctx, self.Id)
+		if err != nil {
+			return errors.Wrapf(err, "remove vpc from InterVpcNetwork %s", vpcNetwork[i].Id)
+		}
+	}
+
 	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
 }
 
@@ -1024,6 +1066,18 @@ func (manager *SVpcManager) ListItemFilter(
 			return nil, httperrors.NewGeneralError(err)
 		}
 		sq := DnsZoneVpcManager.Query("vpc_id").Equals("dns_zone_id", dnsZone.GetId())
+		q = q.In("id", sq.SubQuery())
+	}
+
+	if len(query.InterVpcNetworkId) > 0 {
+		vpcNetwork, err := InterVpcNetworkManager.FetchByIdOrName(userCred, query.InterVpcNetworkId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("inter_vpc_network", query.InterVpcNetworkId)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		sq := InterVpcNetworkVpcManager.Query("vpc_id").Equals("inter_vpc_network_id", vpcNetwork.GetId())
 		q = q.In("id", sq.SubQuery())
 	}
 

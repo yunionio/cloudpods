@@ -48,6 +48,9 @@ type SCapabilities struct {
 	DisabledRdsEngineBrands     []string `json:",allowempty"`
 	CloudIdBrands               []string `json:",allowempty"`
 	DisabledCloudIdBrands       []string `json:",allowempty"`
+	// 支持SAML 2.0
+	SamlAuthBrands              []string `json:",allowempty"`
+	DisabledSamlAuthBrands      []string `json:",allowempty"`
 	PublicIpBrands              []string `json:",allowempty"`
 	NetworkManageBrands         []string `json:",allowempty"`
 	DisabledNetworkManageBrands []string `json:",allowempty"`
@@ -77,6 +80,8 @@ type SCapabilities struct {
 	StorageTypes3     map[string]map[string]*SimpleStorageInfo `json:",allowempty"`
 	DataStorageTypes2 map[string][]string                      `json:",allowempty"`
 	DataStorageTypes3 map[string]map[string]*SimpleStorageInfo `json:",allowempty"`
+
+	InstanceCapabilities []cloudprovider.SInstanceCapability
 }
 
 func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, region *SCloudregion, zone *SZone) (SCapabilities, error) {
@@ -109,6 +114,13 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 		domainId = ""
 	}
 	capa.Hypervisors = getHypervisors(region, zone, domainId)
+	capa.InstanceCapabilities = []cloudprovider.SInstanceCapability{}
+	for _, hypervisor := range capa.Hypervisors {
+		driver := GetDriver(hypervisor)
+		if driver != nil {
+			capa.InstanceCapabilities = append(capa.InstanceCapabilities, driver.GetInstanceCapability())
+		}
+	}
 	getBrands(region, zone, domainId, &capa)
 	// capa.Brands, capa.ComputeEngineBrands, capa.NetworkManageBrands, capa.ObjectStorageBrands = a, c, n, o
 	capa.ResourceTypes = getResourceTypes(region, zone, domainId)
@@ -273,6 +285,7 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabi
 	capa.CloudIdBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_CLOUDID)
 	capa.PublicIpBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_PUBLIC_IP)
 	capa.LoadbalancerEngineBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_LOADBALANCER)
+	capa.SamlAuthBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_SAML_AUTH)
 
 	if utils.IsInStringArray(api.HYPERVISOR_KVM, capa.Hypervisors) || utils.IsInStringArray(api.HYPERVISOR_BAREMETAL, capa.Hypervisors) {
 		capa.Brands = append(capa.Brands, api.ONECLOUD_BRAND_ONECLOUD)
@@ -291,6 +304,7 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabi
 	capa.DisabledNetworkManageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_NETWORK)
 	capa.DisabledObjectStorageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE)
 	capa.DisabledCloudIdBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_CLOUDID)
+	capa.DisabledSamlAuthBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_SAML_AUTH)
 
 	return
 }

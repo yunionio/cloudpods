@@ -2,7 +2,6 @@ package suggestsysdrivers
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -61,7 +60,7 @@ func (drv *SecGroupRuleInServer) GetLatestAlerts(rule *models.SSuggestSysRule,
 		if err != nil {
 			return nil, err
 		}
-		suggestSysAlert.Name = fmt.Sprintf("%s-%s", suggestSysAlert.Name, string(drv.GetType()))
+		//suggestSysAlert.Name = fmt.Sprintf("%s-%s", suggestSysAlert.Name, string(drv.GetType()))
 		suggestSysAlert.Amount = 0
 		secGroupRuleInServerArr = append(secGroupRuleInServerArr, jsonutils.Marshal(suggestSysAlert))
 	}

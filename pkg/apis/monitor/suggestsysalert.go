@@ -56,6 +56,7 @@ type SuggestSysAlertDetails struct {
 	Suggest  string `json:"suggest"`
 	Brand    string `json:"brand"`
 	Account  string `json:"account"`
+	ResName  string `json:"res_name"`
 }
 
 type SuggestSysAlertUpdateInput struct {
@@ -76,6 +77,7 @@ type SuggestSysAlertUpdateInput struct {
 
 type SuggestAlertIngoreInput struct {
 	apis.ScopedResourceCreateInput
+	BatchIgnore bool `json:"batch_ignore"`
 }
 
 type SuggestAlertProblem struct {

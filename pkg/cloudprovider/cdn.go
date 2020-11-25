@@ -17,6 +17,8 @@ package cloudprovider
 type SCdnDomain struct {
 	// cdn加速域名
 	Domain string
+	// 状态 rejected(域名未审核)|processing(部署中)|online|offline
+	Status string
 	// 区域 mainland|overseas|global
 	Area string
 	// cdn Cname

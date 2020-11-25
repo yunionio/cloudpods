@@ -59,6 +59,20 @@ const (
 	ALIYUN_STS_API_VERSION    = "2015-04-01"
 	ALIYUN_PVTZ_API_VERSION   = "2018-01-01"
 	ALIYUN_ALIDNS_API_VERSION = "2015-01-09"
+	ALIYUN_CBN_API_VERSION    = "2017-09-12"
+)
+
+var (
+	// https://help.aliyun.com/document_detail/31837.html?spm=a2c4g.11186623.2.18.675f2b8cu8CN5K#concept-zt4-cvy-5db
+	OSS_FINANCE_REGION_MAP = map[string]string{
+		"cn-hzfinance":              "cn-hangzhou",
+		"cn-shanghai-finance-1-pub": "cn-shanghai-finance-1",
+		"cn-szfinance":              "cn-shenzhen-finance-1",
+
+		"cn-hzjbp":              "cn-hangzhou",
+		"cn-shanghai-finance-1": "cn-shanghai-finance-1",
+		"cn-shenzhen-finance-1": "cn-shenzhen-finance-1",
+	}
 )
 
 type AliyunClientConfig struct {
@@ -263,6 +277,14 @@ func (self *SAliyunClient) alidnsRequest(apiName string, params map[string]strin
 	return jsonRequest(cli, "alidns.aliyuncs.com", ALIYUN_ALIDNS_API_VERSION, apiName, params, self.debug)
 }
 
+func (self *SAliyunClient) cbnRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := self.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	return jsonRequest(cli, "cbn.aliyuncs.com", ALIYUN_CBN_API_VERSION, apiName, params, self.debug)
+}
+
 func (self *SAliyunClient) fetchRegions() error {
 	body, err := self.ecsRequest("DescribeRegions", map[string]string{"AcceptLanguage": "zh-CN"})
 	if err != nil {
@@ -318,6 +340,10 @@ func (client *SAliyunClient) getOssClient(regionId string) (*oss.Client, error) 
 }
 
 func (self *SAliyunClient) getRegionByRegionId(id string) (cloudprovider.ICloudRegion, error) {
+	_id, ok := OSS_FINANCE_REGION_MAP[id]
+	if ok {
+		id = _id
+	}
 	for i := 0; i < len(self.iregions); i += 1 {
 		if self.iregions[i].GetId() == id {
 			return self.iregions[i], nil
@@ -493,6 +519,7 @@ func (region *SAliyunClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_EVENT,
 		cloudprovider.CLOUD_CAPABILITY_CLOUDID,
 		cloudprovider.CLOUD_CAPABILITY_DNSZONE,
+		cloudprovider.CLOUD_CAPABILITY_INTERVPCNETWORK,
 	}
 	return caps
 }

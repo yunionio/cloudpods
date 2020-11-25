@@ -485,7 +485,7 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 		params.SetSnapshotId(snapshotId)
 	}
 
-	if category == api.STORAGE_IO1_SSD {
+	if category == api.STORAGE_IO1_SSD || category == api.STORAGE_IO2_SSD {
 		params.SetIops(200)
 	}
 

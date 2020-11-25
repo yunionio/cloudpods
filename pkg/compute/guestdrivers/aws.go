@@ -86,6 +86,23 @@ func (self *SAwsGuestDriver) GetWindowsUserDataType() string {
 	return cloudprovider.CLOUD_EC2
 }
 
+func (self *SAwsGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCapability {
+	return cloudprovider.SInstanceCapability{
+		Hypervisor: self.GetHypervisor(),
+		Provider:   self.GetProvider(),
+		DefaultAccount: cloudprovider.SDefaultAccount{
+			Linux: cloudprovider.SOsDefaultAccount{
+				DefaultAccount: api.VM_DEFAULT_LINUX_LOGIN_USER,
+				Changeable:     false,
+			},
+			Windows: cloudprovider.SOsDefaultAccount{
+				DefaultAccount: api.VM_DEFAULT_WINDOWS_LOGIN_USER,
+				Changeable:     false,
+			},
+		},
+	}
+}
+
 func (self *SAwsGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
 	// return fetchAwsUserName(desc)
 	if desc.OsType == "Windows" {
@@ -125,6 +142,7 @@ func (self *SAwsGuestDriver) GetStorageTypes() []string {
 	return []string{
 		api.STORAGE_GP2_SSD,
 		api.STORAGE_IO1_SSD,
+		api.STORAGE_IO2_SSD,
 		api.STORAGE_ST1_HDD,
 		api.STORAGE_SC1_HDD,
 		api.STORAGE_STANDARD_HDD,
@@ -181,10 +199,10 @@ func (self *SAwsGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *mode
 	if !utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_READY}) {
 		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
 	}
-	if disk.DiskType == api.DISK_TYPE_SYS && !utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_IO1_SSD, api.STORAGE_STANDARD_HDD, api.STORAGE_GP2_SSD}) {
+	if disk.DiskType == api.DISK_TYPE_SYS && !utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_IO1_SSD, api.STORAGE_IO2_SSD, api.STORAGE_STANDARD_HDD, api.STORAGE_GP2_SSD}) {
 		return fmt.Errorf("Cannot resize system disk with unsupported volumes type %s", storage.StorageType)
 	}
-	if !utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_GP2_SSD, api.STORAGE_IO1_SSD, api.STORAGE_ST1_HDD, api.STORAGE_SC1_HDD, api.STORAGE_STANDARD_HDD}) {
+	if !utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_GP2_SSD, api.STORAGE_IO1_SSD, api.STORAGE_IO2_SSD, api.STORAGE_ST1_HDD, api.STORAGE_SC1_HDD, api.STORAGE_STANDARD_HDD}) {
 		return fmt.Errorf("Cannot resize %s disk", storage.StorageType)
 	}
 	return nil

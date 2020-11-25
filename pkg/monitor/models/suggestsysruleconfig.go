@@ -196,7 +196,8 @@ func (man *SSuggestSysRuleConfigManager) AllowGetPropertySupportTypes(ctx contex
 	return true
 }
 
-func (man *SSuggestSysRuleConfigManager) GetPropertySupportTypes(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*monitor.SuggestSysRuleConfigSupportTypes, error) {
+func (man *SSuggestSysRuleConfigManager) GetPropertySupportTypes(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject) (*monitor.SuggestSysRuleConfigSupportTypes, error) {
 	ret := &monitor.SuggestSysRuleConfigSupportTypes{
 		Types:         make([]monitor.SuggestDriverType, 0),
 		ResourceTypes: make([]string, 0),
@@ -209,21 +210,70 @@ func (man *SSuggestSysRuleConfigManager) GetPropertySupportTypes(ctx context.Con
 	return ret, nil
 }
 
+func (man *SSuggestSysRuleConfigManager) AllowGetPropertyTypeInfo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return true
+}
+
+func (man *SSuggestSysRuleConfigManager) GetPropertyTypeInfo(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject) (*monitor.SuggestSysRuleConfigTypeInfo, error) {
+	searchInput := new(monitor.SuggestSysRuleConfigListInput)
+	err := query.Unmarshal(searchInput)
+	if err != nil {
+		return nil, errors.Errorf("GetPropertyTypeInfo Unmarshal error:%v", err)
+	}
+	if searchInput.Type == nil {
+		return nil, httperrors.NewInputParameterError("SuggestSysRuleConfig type is empty")
+	}
+	ownerId, err := man.FetchOwnerId(ctx, query)
+	if err != nil {
+		return nil, errors.Errorf("SSuggestSysRuleConfigManager FetchOwnerId error:%v", err)
+	}
+	if ownerId == nil {
+		return nil, httperrors.NewInputParameterError("project or domain is empty")
+	}
+	configs, err := man.getConfigsOfBatchType(rbacutils.TRbacScope(searchInput.Scope), ownerId, string(*searchInput.Type))
+	if err != nil {
+		return nil, errors.Errorf("SSuggestSysRuleConfigManager getConfigsOfBatchType error:%v", err)
+	}
+	typeInfo := new(monitor.SuggestSysRuleConfigTypeInfo)
+	if len(configs) != 0 {
+		typeInfo.Name = configs[0].Name
+	}
+	return typeInfo, nil
+}
+
+func (man *SSuggestSysRuleConfigManager) getConfigsQueryByScope(scope rbacutils.TRbacScope,
+	ownerId mcclient.IIdentityProvider) *sqlchemy.SQuery {
+	query := man.Query()
+	switch scope {
+	case rbacutils.ScopeSystem:
+		query = query.IsNullOrEmpty("domain_id").IsNullOrEmpty("tenant_id")
+	case rbacutils.ScopeDomain:
+		query = query.Equals("domain_id", ownerId.GetProjectDomainId()).IsNullOrEmpty("tenant_id")
+	case rbacutils.ScopeProject:
+		query = query.Equals("tenant_id", ownerId.GetProjectId())
+	}
+	return query
+}
+
+func (man *SSuggestSysRuleConfigManager) getConfigsOfBatchType(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, Typ string) ([]SSuggestSysRuleConfig, error) {
+	query := man.getConfigsQueryByScope(scope, ownerId)
+	query = query.Equals("type", Typ).IsNullOrEmpty("resource_id")
+	configs := make([]SSuggestSysRuleConfig, 0)
+	if err := db.FetchModelObjects(man, query, &configs); err != nil {
+		return nil, err
+	}
+	return configs, nil
+}
+
 func (man *SSuggestSysRuleConfigManager) NamespaceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeNone
 }
 
 func (man *SSuggestSysRuleConfigManager) GetConfigsByScope(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential, ignoreAlert bool) ([]SSuggestSysRuleConfig, error) {
-	q := man.Query().Equals("ignore_alert", ignoreAlert)
+	q := man.getConfigsQueryByScope(scope, userCred)
+	q = q.Equals("ignore_alert", ignoreAlert)
 	configs := make([]SSuggestSysRuleConfig, 0)
-	switch scope {
-	case rbacutils.ScopeSystem:
-		q = q.IsNullOrEmpty("domain_id").IsNullOrEmpty("tenant_id")
-	case rbacutils.ScopeDomain:
-		q = q.Equals("domain_id", userCred.GetProjectDomainId()).IsNullOrEmpty("tenant_id")
-	case rbacutils.ScopeProject:
-		q = q.Equals("tenant_id", userCred.GetProjectId())
-	}
 	if err := db.FetchModelObjects(man, q, &configs); err != nil {
 		return nil, err
 	}
@@ -351,6 +401,9 @@ func (conf *SSuggestSysRuleConfig) getMoreColumns(out monitor.SuggestSysRuleConf
 		out.RuleId = rule.GetId()
 		out.Rule = rule.GetName()
 		out.RuleEnabled = rule.GetEnabled()
+		if len(conf.ResourceId) != 0 {
+			out.ResName = SuggestSysAlertManager.getOriName(conf.Name, conf.Type)
+		}
 	}
 	return out
 }

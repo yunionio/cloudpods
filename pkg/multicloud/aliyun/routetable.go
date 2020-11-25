@@ -58,7 +58,7 @@ func (route *SRouteEntry) GetGlobalId() string {
 }
 
 func (route *SRouteEntry) GetStatus() string {
-	return ""
+	return api.ROUTE_ENTRY_STATUS_AVAILIABLE
 }
 
 func (route *SRouteEntry) Refresh() error {
@@ -180,7 +180,6 @@ func (self *SRouteTable) GetType() cloudprovider.RouteTableType {
 		return cloudprovider.RouteTableTypeCustom
 	default:
 		return cloudprovider.RouteTableTypeSystem
-
 	}
 }
 
@@ -199,7 +198,7 @@ func (self *SRouteTable) GetIRoutes() ([]cloudprovider.ICloudRoute, error) {
 }
 
 func (self *SRouteTable) GetStatus() string {
-	return ""
+	return api.ROUTE_TABLE_AVAILABLE
 }
 
 func (self *SRouteTable) IsEmulated() bool {

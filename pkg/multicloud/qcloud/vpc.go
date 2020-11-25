@@ -408,3 +408,16 @@ func (self *SVpc) AcceptICloudVpcPeeringConnection(id string) error {
 func (self *SVpc) GetAuthorityOwnerId() string {
 	return self.region.client.ownerName
 }
+
+func (self *SVpc) ProposeJoinICloudInterVpcNetwork(opts *cloudprovider.SVpcJointInterVpcNetworkOption) error {
+	instance := SCcnAttachInstanceInput{
+		InstanceType:   "VPC",
+		InstanceId:     self.GetId(),
+		InstanceRegion: self.region.GetId(),
+	}
+	err := self.region.AttachCcnInstances(opts.InterVpcNetworkId, opts.NetworkAuthorityOwnerId, []SCcnAttachInstanceInput{instance})
+	if err != nil {
+		return errors.Wrapf(err, "self.region.AttachCcnInstance(%s,%s,%s)", jsonutils.Marshal(opts).String(), self.GetId(), self.region.GetId())
+	}
+	return nil
+}

@@ -21,6 +21,7 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"path"
 	"strconv"
 	"strings"
@@ -66,9 +67,6 @@ type SStorageEndpoints struct {
 }
 
 type AccountProperties struct {
-	//classic
-	ClassicStorageProperties
-
 	//normal
 	PrimaryEndpoints   SStorageEndpoints `json:"primaryEndpoints,omitempty"`
 	ProvisioningState  string
@@ -101,19 +99,22 @@ type SStorageAccount struct {
 	Properties AccountProperties `json:"properties"`
 }
 
-func (self *SRegion) GetStorageAccounts() ([]*SStorageAccount, error) {
-	iBuckets, err := self.client.getIBuckets()
+func (self *SRegion) listStorageAccounts() ([]SStorageAccount, error) {
+	accounts := []SStorageAccount{}
+	err := self.list("Microsoft.Storage/storageAccounts", url.Values{}, &accounts)
 	if err != nil {
-		return nil, errors.Wrap(err, "getIBuckets")
+		return nil, errors.Wrapf(err, "list")
 	}
-	ret := make([]*SStorageAccount, 0)
-	for i := range iBuckets {
-		if iBuckets[i].GetLocation() != self.GetId() {
-			continue
-		}
-		ret = append(ret, iBuckets[i].(*SStorageAccount))
+	result := []SStorageAccount{}
+	for i := range accounts {
+		accounts[i].region = self
+		result = append(result, accounts[i])
 	}
-	return ret, nil
+	return result, nil
+}
+
+func (self *SRegion) ListStorageAccounts() ([]SStorageAccount, error) {
+	return self.listStorageAccounts()
 }
 
 func randomString(prefix string, length int) string {
@@ -126,55 +127,29 @@ func randomString(prefix string, length int) string {
 	return prefix + string(result)
 }
 
-func (self *SRegion) GetUniqStorageAccountName() string {
-	for {
-		uniqString := randomString("storage", 8)
-		requestBody := fmt.Sprintf(`{"name": "%s", "type": "Microsoft.Storage/storageAccounts"}`, uniqString)
-		body, err := self.client.CheckNameAvailability("Microsoft.Storage", requestBody)
-		if err != nil {
-			continue
-		}
-		if avaliable, _ := body.Bool("nameAvailable"); avaliable {
-			return uniqString
+func (self *SRegion) GetUniqStorageAccountName() (string, error) {
+	for i := 0; i < 20; i++ {
+		name := randomString("storage", 8)
+		exist, err := self.checkStorageAccountNameExist(name)
+		if err == nil && !exist {
+			return name, nil
 		}
 	}
+	return "", fmt.Errorf("failed to found uniq storage name")
 }
 
-type sStorageAccountCheckNameAvailabilityInput struct {
-	Name string
-	Type string
-}
-
-type sStorageAccountCheckNameAvailabilityOutput struct {
+type sNameAvailableOutput struct {
 	NameAvailable bool   `json:"nameAvailable"`
 	Reason        string `json:"reason"`
 	Message       string `json:"message"`
 }
 
 func (self *SRegion) checkStorageAccountNameExist(name string) (bool, error) {
-	url := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Storage/checkNameAvailability?api-version=2019-04-01", self.client.subscriptionId)
-	body := jsonutils.Marshal(sStorageAccountCheckNameAvailabilityInput{
-		Name: name,
-		Type: "Microsoft.Storage/storageAccounts",
-	})
-	resp, err := self.client.jsonRequest("POST", url, body.String())
+	ok, err := self.client.CheckNameAvailability("Microsoft.Storage/storageAccounts", name)
 	if err != nil {
-		return false, errors.Wrap(err, "jsonRequest")
+		return false, errors.Wrapf(err, "CheckNameAvailability(%s)", name)
 	}
-	output := sStorageAccountCheckNameAvailabilityOutput{}
-	err = resp.Unmarshal(&output)
-	if err != nil {
-		return false, errors.Wrap(err, "Unmarshal")
-	}
-	if output.NameAvailable {
-		return false, nil
-	} else {
-		if output.Reason == "AlreadyExists" {
-			return true, nil
-		} else {
-			return false, errors.Error(output.Reason)
-		}
-	}
+	return !ok, nil
 }
 
 type SStorageAccountSku struct {
@@ -196,7 +171,7 @@ type SStorageAccountSku struct {
 
 func (self *SRegion) GetStorageAccountSkus() ([]SStorageAccountSku, error) {
 	skus := make([]SStorageAccountSku, 0)
-	err := self.client.List("providers/Microsoft.Storage/skus?api-version=2019-04-01", &skus)
+	err := self.client.list("Microsoft.Storage/skus", url.Values{}, &skus)
 	if err != nil {
 		return nil, errors.Wrap(err, "List")
 	}
@@ -254,11 +229,10 @@ func (self *SRegion) createStorageAccount(name string, skuName string) (*SStorag
 		Type: "Microsoft.Storage/storageAccounts",
 	}
 
-	err := self.client.Create(jsonutils.Marshal(storageaccount), &storageaccount)
+	err := self.create("", jsonutils.Marshal(storageaccount), &storageaccount)
 	if err != nil {
 		return nil, errors.Wrap(err, "Create")
 	}
-	self.client.invalidateIBuckets()
 	return &storageaccount, nil
 }
 
@@ -268,7 +242,10 @@ func (self *SRegion) CreateStorageAccount(storageAccount string) (*SStorageAccou
 		return account, nil
 	}
 	if errors.Cause(err) == cloudprovider.ErrNotFound {
-		uniqName := self.GetUniqStorageAccountName()
+		uniqName, err := self.GetUniqStorageAccountName()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetUniqStorageAccountName")
+		}
 		stoargeaccount := SStorageAccount{
 			region: self,
 			Sku: SSku{
@@ -284,21 +261,21 @@ func (self *SRegion) CreateStorageAccount(storageAccount string) (*SStorageAccou
 			Type: "Microsoft.Storage/storageAccounts",
 			Tags: map[string]string{"id": storageAccount},
 		}
-		return &stoargeaccount, self.client.Create(jsonutils.Marshal(stoargeaccount), &stoargeaccount)
+		return &stoargeaccount, self.create("", jsonutils.Marshal(stoargeaccount), &stoargeaccount)
 	}
 	return nil, err
 }
 
 func (self *SRegion) getStorageAccountID(storageAccount string) (*SStorageAccount, error) {
-	accounts, err := self.GetStorageAccounts()
+	accounts, err := self.ListStorageAccounts()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "ListStorageAccounts")
 	}
 	for i := 0; i < len(accounts); i++ {
 		for k, v := range accounts[i].Tags {
 			if k == "id" && v == storageAccount {
 				accounts[i].region = self
-				return accounts[i], nil
+				return &accounts[i], nil
 			}
 		}
 	}
@@ -307,7 +284,7 @@ func (self *SRegion) getStorageAccountID(storageAccount string) (*SStorageAccoun
 
 func (self *SRegion) GetStorageAccountDetail(accountId string) (*SStorageAccount, error) {
 	account := SStorageAccount{region: self}
-	err := self.client.Get(accountId, []string{}, &account)
+	err := self.get(accountId, url.Values{}, &account)
 	if err != nil {
 		return nil, err
 	}
@@ -321,7 +298,7 @@ type AccountKeys struct {
 }
 
 func (self *SRegion) GetStorageAccountKey(accountId string) (string, error) {
-	body, err := self.client.PerformAction(accountId, "listKeys", "")
+	body, err := self.perform(accountId, "listKeys", nil)
 	if err != nil {
 		return "", err
 	}
@@ -342,23 +319,25 @@ func (self *SRegion) GetStorageAccountKey(accountId string) (string, error) {
 }
 
 func (self *SRegion) DeleteStorageAccount(accountId string) error {
-	return self.client.Delete(accountId)
+	return self.del(accountId)
 }
 
-func (self *SRegion) GetClassicStorageAccounts() ([]*SStorageAccount, error) {
-	result := make([]*SStorageAccount, 0)
+func (self *SRegion) ListClassicStorageAccounts() ([]SStorageAccount, error) {
 	accounts := make([]SStorageAccount, 0)
-	err := self.client.ListAll("Microsoft.ClassicStorage/storageAccounts", &accounts)
+	err := self.list("Microsoft.ClassicStorage/storageAccounts", url.Values{}, &accounts)
 	if err != nil {
 		return nil, err
 	}
-	for i := 0; i < len(accounts); i++ {
-		if accounts[i].Location == self.Name {
-			accounts[i].region = self
-			result = append(result, &accounts[i])
-		}
+	return accounts, nil
+}
+
+func (self *SRegion) GetClassicStorageAccount(id string) (*SStorageAccount, error) {
+	account := &SStorageAccount{}
+	err := self.get(id, url.Values{}, account)
+	if err != nil {
+		return nil, errors.Wrapf(err, "get(%s)", id)
 	}
-	return result, nil
+	return account, nil
 }
 
 func (self *SStorageAccount) GetAccountKey() (accountKey string, err error) {
@@ -367,18 +346,6 @@ func (self *SStorageAccount) GetAccountKey() (accountKey string, err error) {
 	}
 	self.accountKey, err = self.region.GetStorageAccountKey(self.ID)
 	return self.accountKey, err
-}
-
-func (self *SStorageAccount) GetBlobBaseUrl() string {
-	if self.Type == "Microsoft.Storage/storageAccounts" {
-		return self.Properties.PrimaryEndpoints.Blob
-	}
-	for _, url := range self.Properties.Endpoints {
-		if strings.Contains(url, ".blob.") {
-			return url
-		}
-	}
-	return ""
 }
 
 func (self *SStorageAccount) getBlobServiceClient() (*storage.BlobStorageClient, error) {

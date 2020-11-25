@@ -72,7 +72,7 @@ type SPolicyDefinition struct {
 
 func (client *SAzureClient) GetPolicyDefinitions() ([]SPolicyDefinition, error) {
 	definitions := []SPolicyDefinition{}
-	err := client.ListAll("Microsoft.Authorization/policyDefinitions", &definitions)
+	err := client.list("Microsoft.Authorization/policyDefinitions", url.Values{}, &definitions)
 	if err != nil {
 		return nil, errors.Wrap(err, "Microsoft.Authorization/policyDefinitions.List")
 	}
@@ -81,7 +81,7 @@ func (client *SAzureClient) GetPolicyDefinitions() ([]SPolicyDefinition, error) 
 
 func (client *SAzureClient) GetPolicyDefinition(id string) (*SPolicyDefinition, error) {
 	definition := &SPolicyDefinition{}
-	err := client.Get(id, []string{}, definition)
+	err := client.get(id, url.Values{}, definition)
 	if err != nil {
 		return nil, errors.Wrapf(err, "get %s", id)
 	}
@@ -129,10 +129,11 @@ func (assignment *SPolicyAssignment) GetParameters() *jsonutils.JSONDict {
 func (client *SAzureClient) GetPolicyAssignments(defineId string) ([]SPolicyAssignment, error) {
 	assignments := []SPolicyAssignment{}
 	resource := "Microsoft.Authorization/policyAssignments"
+	params := url.Values{}
 	if len(defineId) > 0 {
-		resource += ("?$filter=" + url.PathEscape("policyDefinitionId eq ") + fmt.Sprintf("'%s'", defineId))
+		params.Set("$filter", fmt.Sprintf(`policyDefinitionId eq '%s'`, defineId))
 	}
-	err := client.ListAll(resource, &assignments)
+	err := client.list(resource, params, &assignments)
 	if err != nil {
 		return nil, errors.Wrap(err, "Microsoft.Authorization/policyAssignments.List")
 	}

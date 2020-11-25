@@ -438,3 +438,12 @@ type ServerResetInput struct {
 	// 自动启动
 	AutoStart *bool `json:"auto_start"`
 }
+
+type ServerStopInput struct {
+	// 是否强制关机
+	IsForce bool `json:"is_force"`
+
+	// 是否关机停止计费, 若平台不支持停止计费，此参数无作用
+	// 目前仅阿里云，腾讯云此参数生效
+	StopCharging bool `json:"stop_charging"`
+}

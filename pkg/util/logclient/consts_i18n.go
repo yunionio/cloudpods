@@ -633,4 +633,16 @@ func init() {
 		EN("Detach AlertResource").
 		CN("取消关联报警资源"),
 	)
+	t.Set(ACT_NETWORK_ADD_VPC, i18n.NewTableEntry().
+		EN("Network Add Vpc").
+		CN("网络加入vpc实例"),
+	)
+	t.Set(ACT_NETWORK_REMOVE_VPC, i18n.NewTableEntry().
+		EN("Network Remove Vpc").
+		CN("网络移除vpc实例"),
+	)
+	t.Set(ACT_NETWORK_MODIFY_ROUTE, i18n.NewTableEntry().
+		EN("Modify Network Route").
+		CN("修改网络路由策略"),
+	)
 }

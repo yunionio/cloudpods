@@ -135,12 +135,44 @@ func (manager *SElasticcacheSkuManager) FetchCustomizeColumns(
 	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	regRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	zoneRows := manager.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	slavezoneRows := manager.FetchSlaveZoneResourceInfos(ctx, userCred, query, objs)
 
 	for i := range rows {
 		rows[i] = api.ElasticcacheSkuDetails{
 			StatusStandaloneResourceDetails: stdRows[i],
 			CloudregionResourceInfo:         regRows[i],
 			ZoneResourceInfoBase:            zoneRows[i].ZoneResourceInfoBase,
+			SlaveZoneResourceInfoBase:       slavezoneRows[i],
+		}
+	}
+
+	return rows
+}
+
+func (self *SElasticcacheSkuManager) FetchSlaveZoneResourceInfos(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{}) []api.SlaveZoneResourceInfoBase {
+	rows := make([]api.SlaveZoneResourceInfoBase, len(objs))
+	zoneIds := []string{}
+	for i := range objs {
+		slavezone := objs[i].(*SElasticcacheSku).SlaveZoneId
+		if len(slavezone) > 0 {
+			zoneIds = append(zoneIds, slavezone)
+		}
+	}
+
+	zones := make(map[string]SZone)
+	err := db.FetchStandaloneObjectsByIds(ZoneManager, zoneIds, &zones)
+	if err != nil {
+		log.Errorf("FetchStandaloneObjectsByIds fail %s", err)
+		return rows
+	}
+
+	for i := range objs {
+		if zone, ok := zones[objs[i].(*SElasticcacheSku).SlaveZoneId]; ok {
+			rows[i].SlaveZone = zone.GetName()
+			rows[i].SlaveZoneExtId = fetchExternalId(zone.GetExternalId())
 		}
 	}
 

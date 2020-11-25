@@ -42,4 +42,13 @@ func init() {
 		}
 		return nil
 	})
+
+	shellutils.R(&DiskListOptions{}, "disk-types", "List disk types", func(cli *huawei.SRegion, args *DiskListOptions) error {
+		ret, e := cli.GetDiskTypes()
+		if e != nil {
+			return e
+		}
+		printList(ret, 0, 0, 0, nil)
+		return nil
+	})
 }

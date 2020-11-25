@@ -27,10 +27,13 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SCloudeventManager struct {
 	db.SModelBaseManager
+	db.SProjectizedResourceBaseManager
 }
 
 var CloudeventManager *SCloudeventManager
@@ -49,6 +52,7 @@ func init() {
 
 type SCloudevent struct {
 	db.SModelBase
+	db.SProjectizedResourceBase
 
 	EventId      int64                `primary:"true" auto_increment:"true" list:"user"`
 	Name         string               `width:"128" charset:"utf8" nullable:"false" index:"true" list:"user"`
@@ -125,6 +129,67 @@ func (manager *SCloudeventManager) ListItemFilter(
 	return q, nil
 }
 
+func (self *SCloudevent) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.CloudeventDetails, error) {
+	return api.CloudeventDetails{}, nil
+}
+
+func (manager *SCloudeventManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.CloudeventDetails {
+	rows := make([]api.CloudeventDetails, len(objs))
+	base := manager.SModelBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	projRows := manager.SProjectizedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i].ModelBaseDetails = base[i]
+		rows[i].ProjectizedResourceInfo = projRows[i]
+	}
+	return rows
+}
+
+func (manager *SCloudeventManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeProject
+}
+
+func (self *SCloudevent) GetOwnerId() mcclient.IIdentityProvider {
+	owner := db.SOwnerId{DomainId: self.DomainId, ProjectId: self.ProjectId}
+	return &owner
+}
+
+func (manager *SCloudeventManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	return manager.SProjectizedResourceBaseManager.FilterByOwner(q, owner, scope)
+}
+
+func (manager *SCloudeventManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	return manager.SProjectizedResourceBaseManager.FetchOwnerId(ctx, data)
+}
+
+func (manager *SCloudeventManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {
+	return manager.SProjectizedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+}
+
+func (manager *SCloudeventManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	return manager.SProjectizedResourceBaseManager.QueryDistinctExtraField(q, field)
+}
+
+func (manager *SCloudeventManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.CloudeventListInput,
+) (*sqlchemy.SQuery, error) {
+	return manager.SProjectizedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ProjectizedResourceListInput)
+}
+
 func (manager *SCloudeventManager) SyncCloudevent(ctx context.Context, userCred mcclient.TokenCredential, cloudprovider *SCloudprovider, iEvents []cloudprovider.ICloudEvent) int {
 	count := 0
 	for _, iEvent := range iEvents {
@@ -142,6 +207,8 @@ func (manager *SCloudeventManager) SyncCloudevent(ctx context.Context, userCred 
 			Brand:           cloudprovider.Brand,
 			CloudproviderId: cloudprovider.Id,
 		}
+		event.DomainId = cloudprovider.DomainId
+		event.ProjectId = cloudprovider.ProjectId
 		if len(event.Brand) == 0 {
 			event.Brand = event.Provider
 		}

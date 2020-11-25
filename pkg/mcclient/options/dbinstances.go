@@ -22,23 +22,24 @@ import (
 )
 
 type DBInstanceCreateOptions struct {
-	NAME          string   `help:"DBInstance Name"`
-	InstanceType  string   `help:"InstanceType for DBInstance"`
-	VcpuCount     int      `help:"Core of cpu for DBInstance"`
-	VmemSizeMb    int      `help:"Memory size of DBInstance"`
-	Port          int      `help:"Port of DBInstance"`
-	Category      string   `help:"Category of DBInstance"`
-	Network       string   `help:"Network of DBInstance"`
-	Address       string   `help:"Address of DBInstance"`
-	Engine        string   `help:"Engine of DBInstance"`
-	EngineVersion string   `help:"EngineVersion of DBInstance Engine"`
-	StorageType   string   `help:"StorageTyep of DBInstance"`
-	Secgroup      string   `help:"Secgroup name or Id for DBInstance"`
-	Zone          string   `help:"ZoneId or name for DBInstance"`
-	DiskSizeGB    int      `help:"Storage size for DBInstance"`
-	Duration      string   `help:"Duration for DBInstance"`
-	AllowDelete   *bool    `help:"not lock dbinstance" `
-	Tags          []string `help:"Tags info,prefix with 'user:', eg: user:project=default" json:"-"`
+	NAME               string   `help:"DBInstance Name"`
+	InstanceType       string   `help:"InstanceType for DBInstance"`
+	VcpuCount          int      `help:"Core of cpu for DBInstance"`
+	VmemSizeMb         int      `help:"Memory size of DBInstance"`
+	Port               int      `help:"Port of DBInstance"`
+	Category           string   `help:"Category of DBInstance"`
+	Network            string   `help:"Network of DBInstance"`
+	Address            string   `help:"Address of DBInstance"`
+	Engine             string   `help:"Engine of DBInstance"`
+	EngineVersion      string   `help:"EngineVersion of DBInstance Engine"`
+	StorageType        string   `help:"StorageTyep of DBInstance"`
+	Secgroup           string   `help:"Secgroup name or Id for DBInstance"`
+	Zone               string   `help:"ZoneId or name for DBInstance"`
+	DiskSizeGB         int      `help:"Storage size for DBInstance"`
+	Duration           string   `help:"Duration for DBInstance"`
+	AllowDelete        *bool    `help:"not lock dbinstance" `
+	Tags               []string `help:"Tags info,prefix with 'user:', eg: user:project=default" json:"-"`
+	DBInstancebackupId string   `help:"create dbinstance from backup" json:"dbinstancebackup_id"`
 }
 
 func (opts *DBInstanceCreateOptions) Params() (*jsonutils.JSONDict, error) {

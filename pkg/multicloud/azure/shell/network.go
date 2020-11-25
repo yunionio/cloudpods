@@ -21,37 +21,44 @@ import (
 
 func init() {
 	type NetworkListOptions struct {
-		Limit  int `help:"page size"`
-		Offset int `help:"page offset"`
+		VPC    string `help:"Vpc Id"`
+		Limit  int    `help:"page size"`
+		Offset int    `help:"page offset"`
 	}
 	shellutils.R(&NetworkListOptions{}, "network-list", "List networks", func(cli *azure.SRegion, args *NetworkListOptions) error {
-		if vpcs, err := cli.GetIVpcs(); err != nil {
-			return nil
-		} else {
-			networks := make([]azure.SNetwork, 0)
-			for _, _vpc := range vpcs {
-				vpc := _vpc.(*azure.SVpc)
-				if _networks := vpc.GetNetworks(); len(_networks) > 0 {
-					networks = append(networks, _networks...)
-				}
-
-			}
-			printList(networks, len(networks), args.Offset, args.Limit, []string{})
+		vpc, err := cli.GetVpc(args.VPC)
+		if err != nil {
+			return err
 		}
+		networks := vpc.GetNetworks()
+		printList(networks, len(networks), args.Offset, args.Limit, []string{})
+		return nil
+	})
+
+	type NetworkCreateOptions struct {
+		VPC  string
+		NAME string
+		CIDR string
+	}
+
+	shellutils.R(&NetworkCreateOptions{}, "network-create", "Create network", func(cli *azure.SRegion, args *NetworkCreateOptions) error {
+		network, err := cli.CreateNetwork(args.VPC, args.NAME, args.CIDR, "")
+		if err != nil {
+			return err
+		}
+		printObject(network)
 		return nil
 	})
 
 	type NetworkInterfaceListOptions struct {
-		Limit  int `help:"page size"`
-		Offset int `help:"page offset"`
 	}
 
 	shellutils.R(&NetworkInterfaceListOptions{}, "network-interface-list", "List network interface", func(cli *azure.SRegion, args *NetworkInterfaceListOptions) error {
-		if interfaces, err := cli.GetNetworkInterfaces(); err != nil {
+		nics, err := cli.GetNetworkInterfaces()
+		if err != nil {
 			return err
-		} else {
-			printList(interfaces, len(interfaces), args.Offset, args.Limit, []string{})
 		}
+		printList(nics, len(nics), 0, 0, []string{})
 		return nil
 	})
 
@@ -60,12 +67,12 @@ func init() {
 	}
 
 	shellutils.R(&NetworkInterfaceOptions{}, "network-interface-show", "Show network interface", func(cli *azure.SRegion, args *NetworkInterfaceOptions) error {
-		if networkInterface, err := cli.GetNetworkInterfaceDetail(args.ID); err != nil {
+		nic, err := cli.GetNetworkInterface(args.ID)
+		if err != nil {
 			return err
-		} else {
-			printObject(networkInterface)
-			return nil
 		}
+		printObject(nic)
+		return nil
 	})
 
 	type NetworkInterfaceCreateOptions struct {

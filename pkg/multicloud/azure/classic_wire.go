@@ -18,20 +18,18 @@ import (
 	"fmt"
 	"strings"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SClassicWire struct {
+	multicloud.SResourceBase
+
 	zone      *SZone
 	vpc       *SClassicVpc
 	inetworks []cloudprovider.ICloudNetwork
-}
-
-func (self *SClassicWire) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SClassicWire) GetId() string {
@@ -54,34 +52,8 @@ func (self *SClassicWire) GetStatus() string {
 	return "available"
 }
 
-func (self *SClassicWire) Refresh() error {
-	return nil
-}
-
-func (self *SClassicWire) addNetwork(network *SClassicNetwork) {
-	if self.inetworks == nil {
-		self.inetworks = make([]cloudprovider.ICloudNetwork, 0)
-	}
-	find := false
-	for i := 0; i < len(self.inetworks); i += 1 {
-		if self.inetworks[i].GetName() == network.Name {
-			find = true
-			break
-		}
-	}
-	if !find {
-		self.inetworks = append(self.inetworks, network)
-	}
-}
-
 func (self *SClassicWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
 	return nil, cloudprovider.ErrNotImplemented
-	// if network, err := self.zone.region.createNetwork(self.vpc, name, cidr, desc); err != nil {
-	// 	return nil, err
-	// } else {
-	// 	network.wire = self
-	// 	return network, nil
-	// }
 }
 
 func (self *SClassicWire) GetBandwidth() int {
@@ -102,10 +74,13 @@ func (self *SClassicWire) GetINetworkById(netid string) (cloudprovider.ICloudNet
 }
 
 func (self *SClassicWire) GetINetworks() ([]cloudprovider.ICloudNetwork, error) {
-	if err := self.vpc.fetchNetworks(); err != nil {
-		return nil, err
+	networks := self.vpc.GetNetworks()
+	ret := []cloudprovider.ICloudNetwork{}
+	for i := range networks {
+		networks[i].wire = self
+		ret = append(ret, &networks[i])
 	}
-	return self.inetworks, nil
+	return ret, nil
 }
 
 func (self *SClassicWire) GetIVpc() cloudprovider.ICloudVpc {

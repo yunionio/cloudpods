@@ -137,29 +137,18 @@ func (region *SRegion) GetICloudEvents(start time.Time, end time.Time, withReadE
 
 func (region *SRegion) GetEvents(start time.Time, end time.Time) ([]SEvent, error) {
 	events := []SEvent{}
-	params := url.Values{}
 	if start.IsZero() {
 		start = time.Now().AddDate(0, 0, -7)
 	}
 	if end.IsZero() {
 		end = time.Now()
 	}
+	params := url.Values{}
 	params.Set("$filter", fmt.Sprintf("eventTimestamp ge '%s' and eventTimestamp le '%s' and eventChannels eq 'Admin, Operation' and levels eq 'Critical,Error,Warning,Informational'", start.Format("2006-01-02T15:04:05Z"), end.Format("2006-01-02T15:04:05Z")))
-	nextLink := fmt.Sprintf("microsoft.insights/eventtypes/management/values?%s", params.Encode())
-	var err error
-	for {
-		_events := []SEvent{}
-		nextLink, err = region.client.ListAllWithNextToken(nextLink, &_events)
-		if err != nil {
-			return nil, err
-		}
-		events = append(events, _events...)
-		if len(nextLink) > 0 {
-			nextLink = nextLink[strings.Index(nextLink, "microsoft.insights"):]
-		}
-		if len(nextLink) == 0 || len(_events) == 0 {
-			break
-		}
+	resource := fmt.Sprintf("microsoft.insights/eventtypes/management/values")
+	err := region.client.list(resource, params, &events)
+	if err != nil {
+		return nil, err
 	}
 	return events, nil
 }

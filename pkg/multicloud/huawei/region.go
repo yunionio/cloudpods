@@ -1007,3 +1007,35 @@ func (self *SRegion) GetIElasticcaches() ([]cloudprovider.ICloudElasticcache, er
 func (region *SRegion) GetCapabilities() []string {
 	return region.client.GetCapabilities()
 }
+
+func (self *SRegion) GetDiskTypes() ([]SDiskType, error) {
+	ret, err := self.ecsClient.Disks.GetDiskTypes()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetDiskTypes")
+	}
+
+	dts := []SDiskType{}
+	_ret := jsonutils.NewArray(ret.Data...)
+	err = _ret.Unmarshal(&dts)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal")
+	}
+
+	return dts, nil
+}
+
+func (self *SRegion) GetZoneSupportedDiskTypes(zoneId string) ([]string, error) {
+	dts, err := self.GetDiskTypes()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetDiskTypes")
+	}
+
+	ret := []string{}
+	for i := range dts {
+		if dts[i].IsAvaliableInZone(zoneId) {
+			ret = append(ret, dts[i].Name)
+		}
+	}
+
+	return ret, nil
+}

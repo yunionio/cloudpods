@@ -114,6 +114,10 @@ func (self *SCachedLoadbalancerCertificate) ValidateDeleteCondition(ctx context.
 	return nil
 }
 
+func (self *SCachedLoadbalancerCertificate) ValidatePurgeCondition(ctx context.Context) error {
+	return nil
+}
+
 func (self *SCachedLoadbalancerCertificate) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
 }

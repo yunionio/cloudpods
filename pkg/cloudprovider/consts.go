@@ -41,17 +41,19 @@ const (
 )
 
 const (
-	CLOUD_CAPABILITY_PROJECT      = "project"
-	CLOUD_CAPABILITY_COMPUTE      = "compute"
-	CLOUD_CAPABILITY_NETWORK      = "network"
-	CLOUD_CAPABILITY_LOADBALANCER = "loadbalancer"
-	CLOUD_CAPABILITY_OBJECTSTORE  = "objectstore"
-	CLOUD_CAPABILITY_RDS          = "rds"
-	CLOUD_CAPABILITY_CACHE        = "cache" // 弹性缓存包含redis、memcached
-	CLOUD_CAPABILITY_EVENT        = "event"
-	CLOUD_CAPABILITY_CLOUDID      = "cloudid"
-	CLOUD_CAPABILITY_DNSZONE      = "dnszone"
-	CLOUD_CAPABILITY_PUBLIC_IP    = "public_ip"
+	CLOUD_CAPABILITY_PROJECT         = "project"
+	CLOUD_CAPABILITY_COMPUTE         = "compute"
+	CLOUD_CAPABILITY_NETWORK         = "network"
+	CLOUD_CAPABILITY_LOADBALANCER    = "loadbalancer"
+	CLOUD_CAPABILITY_OBJECTSTORE     = "objectstore"
+	CLOUD_CAPABILITY_RDS             = "rds"
+	CLOUD_CAPABILITY_CACHE           = "cache" // 弹性缓存包含redis、memcached
+	CLOUD_CAPABILITY_EVENT           = "event"
+	CLOUD_CAPABILITY_CLOUDID         = "cloudid"
+	CLOUD_CAPABILITY_DNSZONE         = "dnszone"
+	CLOUD_CAPABILITY_PUBLIC_IP       = "public_ip"
+	CLOUD_CAPABILITY_INTERVPCNETWORK = "intervpcnetwork"
+	CLOUD_CAPABILITY_SAML_AUTH       = "saml_auth" // 是否支持SAML 2.0
 )
 
 const (

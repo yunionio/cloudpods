@@ -670,13 +670,16 @@ func (self *SGuest) ValidateAttachDisk(ctx context.Context, disk *SDisk) error {
 		}
 	}
 
-	attached, err := disk.isAttached()
-	if err != nil {
-		return httperrors.NewInternalServerError("isAttached check failed %s", err)
+	if disk.IsLocal() {
+		attached, err := disk.isAttached()
+		if err != nil {
+			return httperrors.NewInternalServerError("isAttached check failed %s", err)
+		}
+		if attached {
+			return httperrors.NewInputParameterError("Disk %s has been attached", disk.Name)
+		}
 	}
-	if attached {
-		return httperrors.NewInputParameterError("Disk %s has been attached", disk.Name)
-	}
+
 	if len(disk.GetPathAtHost(self.GetHost())) == 0 {
 		return httperrors.NewInputParameterError("Disk %s not belong the guest's host", disk.Name)
 	}
@@ -902,14 +905,13 @@ func (self *SGuest) NotifyAdminServerEvent(ctx context.Context, event string, pr
 	notifyclient.SystemNotifyWithCtx(ctx, priority, event, kwargs)
 }
 
-func (self *SGuest) StartGuestStopTask(ctx context.Context, userCred mcclient.TokenCredential, isForce bool, parentTaskId string) error {
+func (self *SGuest) StartGuestStopTask(ctx context.Context, userCred mcclient.TokenCredential, isForce, stopCharging bool, parentTaskId string) error {
 	if len(parentTaskId) == 0 {
 		self.SetStatus(userCred, api.VM_START_STOP, "")
 	}
 	params := jsonutils.NewDict()
-	if isForce {
-		params.Add(jsonutils.JSONTrue, "is_force")
-	}
+	params.Add(jsonutils.NewBool(isForce), "is_force")
+	params.Add(jsonutils.NewBool(stopCharging), "stop_charging")
 	if len(parentTaskId) > 0 {
 		params.Add(jsonutils.JSONTrue, "subtask")
 	}
@@ -1018,15 +1020,11 @@ func (self *SGuest) StartInsertIsoTask(ctx context.Context, imageId string, boot
 	return nil
 }
 
-func (self *SGuest) IsDisksShared() bool {
-	return self.getDefaultStorageType() == api.STORAGE_RBD
-}
-
 func (self *SGuest) StartGueststartTask(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	data *jsonutils.JSONDict, parentTaskId string,
 ) error {
-	if self.Hypervisor == api.HYPERVISOR_KVM && self.IsDisksShared() {
+	if self.Hypervisor == api.HYPERVISOR_KVM && self.guestDisksStorageTypeIsShared() {
 		return self.GuestSchedStartTask(ctx, userCred, data, parentTaskId)
 	} else {
 		return self.GuestNonSchedStartTask(ctx, userCred, data, parentTaskId)
@@ -2095,6 +2093,12 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 			}
 			return nil, httperrors.NewBadRequestError("%v", err)
 		}
+		if _, err := db.Update(&ngn[0], func() error {
+			ngn[0].EipId = gn.EipId
+			return nil
+		}); err != nil {
+			return nil, err
+		}
 
 		return ngn, nil
 	}()
@@ -2756,16 +2760,14 @@ func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCr
 
 	status := input.Status
 	if len(self.BackupHostId) > 0 && status == api.VM_RUNNING {
-		if len(self.GetMetadata("__mirror_job_status", userCred)) == 0 {
-			self.SetMetadata(ctx, "__mirror_job_status", "ready", userCred)
-		}
-	} else if ispId := self.GetMetadata("__base_instance_snapshot_id", userCred); len(ispId) > 0 {
+		self.SetMetadata(ctx, api.MIRROR_JOB, api.MIRROR_JOB_READY, userCred)
+	} else if ispId := self.GetMetadata(api.BASE_INSTANCE_SNAPSHOT_ID, userCred); len(ispId) > 0 {
 		ispM, err := InstanceSnapshotManager.FetchById(ispId)
 		if err == nil {
 			isp := ispM.(*SInstanceSnapshot)
 			isp.DecRefCount(ctx, userCred)
 		}
-		self.SetMetadata(ctx, "__base_instance_snapshot_id", "", userCred)
+		self.SetMetadata(ctx, api.BASE_INSTANCE_SNAPSHOT_ID, "", userCred)
 	}
 
 	if preStatus != self.Status && !self.isNotRunningStatus(preStatus) && self.isNotRunningStatus(self.Status) {
@@ -2786,14 +2788,12 @@ func (self *SGuest) AllowPerformStop(ctx context.Context,
 }
 
 func (self *SGuest) PerformStop(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
-	data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	input api.ServerStopInput) (jsonutils.JSONObject, error) {
 	// XXX if is force, force stop guest
-	var isForce = jsonutils.QueryBoolean(data, "is_force", false)
-	if isForce || utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_STOP_FAILED}) {
-		return nil, self.StartGuestStopTask(ctx, userCred, isForce, "")
-	} else {
-		return nil, httperrors.NewInvalidStatusError("Cannot stop server in status %s", self.Status)
+	if input.IsForce || utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_STOP_FAILED}) {
+		return nil, self.StartGuestStopTask(ctx, userCred, input.IsForce, input.StopCharging, "")
 	}
+	return nil, httperrors.NewInvalidStatusError("Cannot stop server in status %s", self.Status)
 }
 
 func (self *SGuest) AllowPerformRestart(ctx context.Context,
@@ -3172,13 +3172,12 @@ func (self *SGuest) PerformSwitchToBackup(ctx context.Context, userCred mcclient
 		return nil, httperrors.NewBadRequestError("Guest no backup host")
 	}
 
-	mirrorJobStatus := self.GetMetadata("__mirror_job_status", userCred)
-	if mirrorJobStatus != "ready" {
+	mirrorJobStatus := self.GetMetadata(api.MIRROR_JOB, userCred)
+	if mirrorJobStatus != api.MIRROR_JOB_READY {
 		return nil, httperrors.NewBadRequestError("Guest can't switch to backup, mirror job not ready")
 	}
 
 	oldStatus := self.Status
-	self.SetStatus(userCred, api.VM_SWITCH_TO_BACKUP, "Switch to backup")
 	deleteBackup := jsonutils.QueryBoolean(data, "delete_backup", false)
 	purgeBackup := jsonutils.QueryBoolean(data, "purge_backup", false)
 
@@ -3190,6 +3189,7 @@ func (self *SGuest) PerformSwitchToBackup(ctx context.Context, userCred mcclient
 		log.Errorln(err)
 		return nil, err
 	} else {
+		self.SetStatus(userCred, api.VM_SWITCH_TO_BACKUP, "Switch to backup")
 		task.ScheduleRun(nil)
 	}
 	return nil, nil
@@ -3292,27 +3292,12 @@ func (self *SGuest) AllowPerformBlockStreamFailed(ctx context.Context, userCred 
 
 func (self *SGuest) PerformBlockStreamFailed(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if len(self.BackupHostId) > 0 {
-		self.SetMetadata(ctx, "__mirror_job_status", "failed", userCred)
+		self.SetMetadata(ctx, api.MIRROR_JOB, api.MIRROR_JOB_FAILED, userCred)
 	}
 	if self.Status == api.VM_BLOCK_STREAM || self.Status == api.VM_RUNNING {
 		reason, _ := data.GetString("reason")
 		logclient.AddSimpleActionLog(self, logclient.ACT_VM_BLOCK_STREAM, reason, userCred, false)
 		return nil, self.SetStatus(userCred, api.VM_BLOCK_STREAM_FAIL, reason)
-	}
-	return nil, nil
-}
-
-func (self *SGuest) AllowPerformSlaveStarted(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "slave-started")
-}
-
-func (self *SGuest) PerformSlaveStarted(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.GetMetadata("__mirror_job_status", userCred) == "failed" {
-		if port, err := data.Int("nbd_server_port"); err != nil {
-			return nil, httperrors.NewMissingParameterError("nbd_server_port")
-		} else {
-			self.StartMirrorJob(ctx, userCred, port, "")
-		}
 	}
 	return nil, nil
 }

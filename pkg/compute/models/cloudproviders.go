@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -811,6 +812,11 @@ func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) 
 
 	account := self.GetCloudaccount()
 
+	endpoints := cloudprovider.SApsaraEndpoints{}
+	if account.Options != nil {
+		account.Options.Unmarshal(&endpoints)
+	}
+
 	return cloudprovider.GetProvider(cloudprovider.ProviderConfig{
 		Id:        self.Id,
 		Name:      self.Name,
@@ -819,6 +825,8 @@ func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) 
 		Account:   self.Account,
 		Secret:    passwd,
 		ProxyFunc: account.proxyFunc(),
+
+		SApsaraEndpoints: endpoints,
 	})
 }
 
@@ -1697,4 +1705,109 @@ func (self *SCloudprovider) PerformSetSchedtag(ctx context.Context, userCred mcc
 
 func (self *SCloudprovider) GetSchedtagJointManager() ISchedtagJointManager {
 	return CloudproviderschedtagManager
+}
+
+func (self *SCloudprovider) GetInterVpcNetworks() ([]SInterVpcNetwork, error) {
+	networks := []SInterVpcNetwork{}
+	q := InterVpcNetworkManager.Query().Equals("manager_id", self.Id)
+	err := db.FetchModelObjects(InterVpcNetworkManager, q, &networks)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return networks, nil
+
+}
+
+func (self *SCloudprovider) SyncInterVpcNetwork(ctx context.Context, userCred mcclient.TokenCredential, interVpcNetworks []cloudprovider.ICloudInterVpcNetwork) ([]SInterVpcNetwork, []cloudprovider.ICloudInterVpcNetwork, compare.SyncResult) {
+	lockman.LockRawObject(ctx, self.Keyword(), fmt.Sprintf("%s-interVpcNetwork", self.Id))
+	defer lockman.ReleaseRawObject(ctx, self.Keyword(), fmt.Sprintf("%s-interVpcNetwork", self.Id))
+
+	result := compare.SyncResult{}
+
+	localNetworks := []SInterVpcNetwork{}
+	remoteNetworks := []cloudprovider.ICloudInterVpcNetwork{}
+
+	dbNetworks, err := self.GetInterVpcNetworks()
+	if err != nil {
+		result.Error(errors.Wrapf(err, "GetInterVpcNetworks"))
+		return nil, nil, result
+	}
+
+	removed := make([]SInterVpcNetwork, 0)
+	commondb := make([]SInterVpcNetwork, 0)
+	commonext := make([]cloudprovider.ICloudInterVpcNetwork, 0)
+	added := make([]cloudprovider.ICloudInterVpcNetwork, 0)
+
+	err = compare.CompareSets(dbNetworks, interVpcNetworks, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		result.Error(err)
+		return nil, nil, result
+	}
+
+	for i := 0; i < len(removed); i += 1 {
+		err = removed[i].syncRemove(ctx, userCred)
+		if err != nil {
+			result.DeleteError(err)
+			continue
+		}
+		result.Delete()
+	}
+
+	for i := 0; i < len(commondb); i += 1 {
+		err = commondb[i].SyncWithCloudInterVpcNetwork(ctx, userCred, commonext[i])
+		if err != nil {
+			result.UpdateError(errors.Wrapf(err, "SyncWithCloudInterVpcNetwork"))
+			continue
+		}
+		localNetworks = append(localNetworks, commondb[i])
+		remoteNetworks = append(remoteNetworks, commonext[i])
+
+		result.Update()
+	}
+
+	for i := 0; i < len(added); i += 1 {
+		network, err := InterVpcNetworkManager.newFromCloudInterVpcNetwork(ctx, userCred, added[i], self)
+		if err != nil {
+			result.AddError(err)
+			continue
+		}
+
+		localNetworks = append(localNetworks, *network)
+		remoteNetworks = append(remoteNetworks, added[i])
+
+		result.Add()
+	}
+
+	return localNetworks, remoteNetworks, result
+}
+
+func (self *SCloudprovider) SyncCallSyncCloudproviderInterVpcNetwork(ctx context.Context, userCred mcclient.TokenCredential) {
+	driver, err := self.GetProvider()
+	if err != nil {
+		log.Errorf("failed to get ICloudProvider from SCloudprovider:%s %s", self.GetName(), self.Id)
+		return
+	}
+	if cloudprovider.IsSupportInterVpcNetwork(driver) {
+		networks, err := driver.GetICloudInterVpcNetworks()
+		if err != nil {
+			log.Errorf("failed to get inter vpc network for Manager %s error: %v", self.Id, err)
+			return
+		} else {
+			localNetwork, remoteNetwork, result := self.SyncInterVpcNetwork(ctx, userCred, networks)
+			if result.IsError() {
+				return
+			}
+			for i := range localNetwork {
+				lockman.LockObject(ctx, &localNetwork[i])
+				defer lockman.ReleaseObject(ctx, &localNetwork[i])
+
+				if localNetwork[i].Deleted {
+					return
+				}
+				localNetwork[i].SyncInterVpcNetworkRouteSets(ctx, userCred, remoteNetwork[i])
+			}
+			log.Infof("Sync inter vpc network for cloudaccount %s result: %s", self.GetName(), result.Result())
+			return
+		}
+	}
 }
