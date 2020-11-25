@@ -31,7 +31,8 @@ func TestMeetComplxity(t *testing.T) {
 		want bool
 	}{
 		{"123456", false},
-		{"123abcABC!@#", true},
+		{"123abcABC!@#", false},
+		{"123abcABC-@=", true},
 	}
 	for _, c := range cases {
 		if c.want != MeetComplxity(c.in) {
