@@ -273,12 +273,14 @@ func (self *SStoragecachedimage) Detach(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SStoragecachedimage) ValidateDeleteCondition(ctx context.Context) error {
-	cnt, err := self.getReferenceCount()
-	if err != nil {
-		return httperrors.NewInternalServerError("getReferenceCount fail %s", err)
-	}
-	if cnt > 0 {
-		return httperrors.NewNotEmptyError("Image is in use")
+	if self.Status != api.CACHED_IMAGE_STATUS_CACHE_FAILED {
+		cnt, err := self.getReferenceCount()
+		if err != nil {
+			return httperrors.NewInternalServerError("getReferenceCount fail %s", err)
+		}
+		if cnt > 0 {
+			return httperrors.NewNotEmptyError("Image is in use")
+		}
 	}
 	return self.SJointResourceBase.ValidateDeleteCondition(ctx)
 }
