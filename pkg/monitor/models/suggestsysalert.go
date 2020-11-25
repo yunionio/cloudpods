@@ -412,13 +412,9 @@ func (self *SSuggestSysAlert) PerformIgnore(ctx context.Context, userCred mcclie
 		if !data.BatchIgnore {
 			createData.ResourceId = &self.ResId
 		}
-		ownerId, err := SuggestSysAlertManager.FetchOwnerId(ctx, jsonutils.Marshal(&data))
-		if err != nil {
-			return nil, errors.Wrap(err, "SuggestSysAlertManager FetchOwnerId error")
-		}
 		createData.IgnoreAlert = true
 		data := createData.JSON(createData)
-		conf, err := db.DoCreate(SuggestSysRuleConfigManager, ctx, userCred, nil, data, ownerId)
+		conf, err := db.DoCreate(SuggestSysRuleConfigManager, ctx, userCred, nil, data, userCred)
 		if err != nil {
 			return nil, err
 		}
