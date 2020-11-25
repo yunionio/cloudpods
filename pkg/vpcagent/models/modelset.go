@@ -15,6 +15,8 @@
 package models
 
 import (
+	"fmt"
+
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -33,7 +35,7 @@ type (
 	SecurityGroupRules map[string]*SecurityGroupRule
 	Elasticips         map[string]*Elasticip
 
-	Guestnetworks  map[string]*Guestnetwork  // key: guestId/ifname
+	Guestnetworks  map[string]*Guestnetwork  // key: rowId
 	Guestsecgroups map[string]*Guestsecgroup // key: guestId/secgroupId
 
 	DnsRecords map[string]*DnsRecord
@@ -332,7 +334,8 @@ func (set Guestnetworks) NewModel() db.IModel {
 
 func (set Guestnetworks) AddModel(i db.IModel) {
 	m := i.(*Guestnetwork)
-	set[m.GuestId+"/"+m.Ifname] = m
+	k := fmt.Sprintf("%d", m.RowId)
+	set[k] = m
 }
 
 func (set Guestnetworks) Copy() apihelper.IModelSet {
