@@ -2023,6 +2023,12 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 			}
 			return nil, httperrors.NewBadRequestError(err.Error())
 		}
+		if _, err := db.Update(&ngn[0], func() error {
+			ngn[0].EipId = gn.EipId
+			return nil
+		}); err != nil {
+			return nil, err
+		}
 
 		return ngn, nil
 	}()
