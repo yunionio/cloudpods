@@ -168,6 +168,7 @@ func (p *DiskSchedtagPredicate) DoSelect(
 	res []ISchedtagCandidateResource,
 ) []ISchedtagCandidateResource {
 	return p.GetUsedStorages(res, input.(*diskW).Backend)
+
 }
 
 func (p *DiskSchedtagPredicate) GetCandidateResourceSortScore(selectRes ISchedtagCandidateResource) int64 {
@@ -207,8 +208,8 @@ func (p *DiskSchedtagPredicate) GetUsedStorages(res []ISchedtagCandidateResource
 	} else {
 		backendStorages = storages
 	}
-	if len(backendStorages) == 0 {
+	/*if len(backendStorages) == 0 {
 		backendStorages = storages
-	}
+	}*/
 	return backendStorages
 }
