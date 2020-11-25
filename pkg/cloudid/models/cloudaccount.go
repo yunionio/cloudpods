@@ -1216,6 +1216,7 @@ func (self *SCloudaccount) newFromCloudSAMLProvider(ctx context.Context, userCre
 	saml.ExternalId = ext.GetGlobalId()
 	saml.DomainId = self.DomainId
 	saml.CloudaccountId = self.Id
+	saml.AuthUrl = ext.GetAuthUrl()
 	metadata, err := ext.GetMetadataDocument()
 	if err != nil {
 		log.Errorf("failed to get metadata from %s(%s) error: %v", self.Name, self.Provider, err)
