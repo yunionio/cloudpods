@@ -42,7 +42,7 @@ import (
 
 func StartService() {
 	opts := &options.Options
-	common_options.ParseOptions(opts, os.Args, "alerter.conf", "alerter")
+	common_options.ParseOptions(opts, os.Args, "monitor.conf", "monitor")
 
 	commonOpts := &opts.CommonOptions
 	common_app.InitAuth(commonOpts, func() {
