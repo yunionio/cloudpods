@@ -37,7 +37,7 @@ func init() {
 	cmd.CreateWithKeyworkd("create-aws", &options.SAWSCloudAccountCreateOptions{})
 	cmd.CreateWithKeyworkd("create-openstack", &options.SOpenStackCloudAccountCreateOptions{})
 	cmd.CreateWithKeyworkd("create-huawei", &options.SHuaweiCloudAccountCreateOptions{})
-	cmd.CreateWithKeyworkd("create-ucloud", &options.SHuaweiCloudAccountCreateOptions{})
+	cmd.CreateWithKeyworkd("create-ucloud", &options.SUcloudCloudAccountCreateOptions{})
 	cmd.CreateWithKeyworkd("create-zstack", &options.SZStackCloudAccountCreateOptions{})
 	cmd.CreateWithKeyworkd("create-s3", &options.SS3CloudAccountCreateOptions{})
 	cmd.CreateWithKeyworkd("create-ceph", &options.SCephCloudAccountCreateOptions{})
