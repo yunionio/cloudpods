@@ -154,5 +154,5 @@ func (self *SStorage) GetMountPoint() string {
 }
 
 func (self *SStorage) IsSysDiskStore() bool {
-	return true
+	return strings.ToLower(self.storageType) != api.STORAGE_CLOUD_HSSD
 }
