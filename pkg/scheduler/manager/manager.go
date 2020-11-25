@@ -97,6 +97,9 @@ func (sm *SchedulerManager) start() {
 }
 
 func (sm *SchedulerManager) schedule(info *api.SchedInfo) (*core.ScheduleResult, error) {
+	// force sync clean expire cache before do schedule
+	sm.ExpireManager.Trigger()
+
 	log.V(10).Infof("SchedulerManager do schedule, input: %#v", info)
 	task, err := sm.TaskManager.AddTask(sm, info)
 	if err != nil {
