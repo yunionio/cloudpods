@@ -41,6 +41,8 @@ var (
 	CommonAlertType             = []string{monitor.CommonAlertNomalAlertType, monitor.CommonAlertSystemAlertType}
 	CommonAlertReducerFieldOpts = []string{"/"}
 	CommonAlertNotifyTypes      = []string{"email", "mobile", "dingtalk", "webconsole", "feishu"}
+
+	ConditionTypes = []string{"query", "nodata_query"}
 )
 
 func ValidateAlertCreateInput(input monitor.AlertCreateInput) error {
@@ -57,8 +59,8 @@ func ValidateAlertCreateInput(input monitor.AlertCreateInput) error {
 
 func ValidateAlertCondition(input monitor.AlertCondition) error {
 	condType := input.Type
-	if condType != "query" {
-		return httperrors.NewInputParameterError("Unkown alert condition type: %s", condType)
+	if err := ValidateAlertConditionType(condType); err != nil {
+		return err
 	}
 	if err := ValidateAlertConditionQuery(input.Query); err != nil {
 		return err
@@ -163,6 +165,16 @@ func ValidateAlertConditionEvaluator(input monitor.Condition) error {
 	}
 	if typ != "no_value" {
 		return errors.Wrapf(ErrInvalidEvaluatorType, "type: %s", typ)
+	}
+	return nil
+}
+
+func ValidateAlertConditionType(typ string) error {
+	if typ == "" {
+		return httperrors.NewInputParameterError("alert condition type is empty")
+	}
+	if !utils.IsInStringArray(typ, ConditionTypes) {
+		return httperrors.NewInputParameterError("Unkown alert condition type: %s", typ)
 	}
 	return nil
 }
