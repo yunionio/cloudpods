@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -123,6 +124,9 @@ func (guest *SGuest) purge(ctx context.Context, userCred mcclient.TokenCredentia
 	guest.EjectIso(userCred)
 	guest.DeleteEip(ctx, userCred)
 	guest.DeleteAllDisksInDB(ctx, userCred)
+	if !utils.IsInStringArray(guest.Hypervisor, HypervisorIndependentInstanceSnapshot) {
+		guest.DeleteAllInstanceSnapshotInDB(ctx, userCred)
+	}
 
 	err := guest.ValidatePurgeCondition(ctx)
 	if err != nil {

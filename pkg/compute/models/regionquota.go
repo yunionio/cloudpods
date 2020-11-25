@@ -79,7 +79,8 @@ type SRegionQuota struct {
 	// Bw    int `default:"-1" allow_zero:"true"`
 	// Ebw   int `default:"-1" allow_zero:"true"`
 
-	Snapshot int `default:"-1" allow_zero:"true" json:"snapshot"`
+	Snapshot         int `default:"-1" allow_zero:"true" json:"snapshot"`
+	InstanceSnapshot int `default:"-1" allow_zero:"true" json:"instance_snapshot"`
 
 	Bucket    int `default:"-1" allow_zero:"true" json:"bucket"`
 	ObjectGB  int `default:"-1" allow_zero:"true" json:"object_gb"`
@@ -131,6 +132,7 @@ func (self *SRegionQuota) FetchSystemQuota() {
 	// self.Bw = defaultValue(options.Options.DefaultBwQuota)
 	// self.Ebw = defaultValue(options.Options.DefaultEbwQuota)
 	self.Snapshot = defaultValue(options.Options.DefaultSnapshotQuota)
+	self.InstanceSnapshot = defaultValue(options.Options.DefaultInstanceSnapshotQuota)
 	self.Bucket = defaultValue(options.Options.DefaultBucketQuota)
 	self.ObjectGB = defaultValue(options.Options.DefaultObjectGBQuota)
 	self.ObjectCnt = defaultValue(options.Options.DefaultObjectCntQuota)
@@ -191,6 +193,9 @@ func (self *SRegionQuota) FetchUsage(ctx context.Context) error {
 	snapshotCount, _ := TotalSnapshotCount(scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv)
 	self.Snapshot = snapshotCount
 
+	instanceSnapshotCount, _ := TotalInstanceSnapshotCount(scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv)
+	self.InstanceSnapshot = instanceSnapshotCount
+
 	bucketUsage := BucketManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv)
 	self.Bucket = bucketUsage.Buckets
 	self.ObjectGB = int(bucketUsage.Bytes / 1000 / 1000 / 1000)
@@ -223,6 +228,9 @@ func (self *SRegionQuota) ResetNegative() {
 	// }
 	if self.Snapshot < 0 {
 		self.Snapshot = 0
+	}
+	if self.InstanceSnapshot < 0 {
+		self.InstanceSnapshot = 0
 	}
 	if self.Bucket < 0 {
 		self.Bucket = 0
@@ -263,6 +271,9 @@ func (self *SRegionQuota) IsEmpty() bool {
 	if self.Snapshot > 0 {
 		return false
 	}
+	if self.InstanceSnapshot > 0 {
+		return false
+	}
 	if self.Bucket > 0 {
 		return false
 	}
@@ -292,6 +303,7 @@ func (self *SRegionQuota) Add(quota quotas.IQuota) {
 	// self.Bw = self.Bw + quotas.NonNegative(squota.Bw)
 	// self.Ebw = self.Ebw + quotas.NonNegative(squota.Ebw)
 	self.Snapshot = self.Snapshot + quotas.NonNegative(squota.Snapshot)
+	self.InstanceSnapshot = self.InstanceSnapshot + quotas.NonNegative(squota.InstanceSnapshot)
 	self.Bucket = self.Bucket + quotas.NonNegative(squota.Bucket)
 	self.ObjectGB = self.ObjectGB + quotas.NonNegative(squota.ObjectGB)
 	self.ObjectCnt = self.ObjectCnt + quotas.NonNegative(squota.ObjectCnt)
@@ -308,6 +320,7 @@ func (self *SRegionQuota) Sub(quota quotas.IQuota) {
 	// self.Bw = nonNegative(self.Bw - squota.Bw)
 	// self.Ebw = nonNegative(self.Ebw - squota.Ebw)
 	self.Snapshot = nonNegative(self.Snapshot - squota.Snapshot)
+	self.InstanceSnapshot = nonNegative(self.InstanceSnapshot - squota.InstanceSnapshot)
 	self.Bucket = nonNegative(self.Bucket - squota.Bucket)
 	self.ObjectGB = nonNegative(self.ObjectGB - squota.ObjectGB)
 	self.ObjectCnt = nonNegative(self.ObjectCnt - squota.ObjectCnt)
@@ -336,6 +349,9 @@ func (self *SRegionQuota) Allocable(request quotas.IQuota) int {
 	//}
 	if self.Snapshot >= 0 && squota.Snapshot > 0 && (cnt < 0 || cnt > self.Snapshot/squota.Snapshot) {
 		cnt = self.Snapshot / squota.Snapshot
+	}
+	if self.InstanceSnapshot >= 0 && squota.InstanceSnapshot > 0 && (cnt < 0 || cnt > self.InstanceSnapshot/squota.InstanceSnapshot) {
+		cnt = self.InstanceSnapshot / squota.InstanceSnapshot
 	}
 	if self.Bucket >= 0 && squota.Bucket > 0 && (cnt < 0 || cnt > self.Bucket/squota.Bucket) {
 		cnt = self.Bucket / squota.Bucket
@@ -377,6 +393,9 @@ func (self *SRegionQuota) Update(quota quotas.IQuota) {
 	//}
 	if squota.Snapshot > 0 {
 		self.Snapshot = squota.Snapshot
+	}
+	if squota.InstanceSnapshot > 0 {
+		self.InstanceSnapshot = squota.InstanceSnapshot
 	}
 	if squota.Bucket > 0 {
 		self.Bucket = squota.Bucket
@@ -420,6 +439,9 @@ func (used *SRegionQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) err
 	if quotas.Exceed(used.Snapshot, sreq.Snapshot, squota.Snapshot) {
 		err.Add("snapshot", squota.Snapshot, used.Snapshot, sreq.Snapshot)
 	}
+	if quotas.Exceed(used.InstanceSnapshot, sreq.InstanceSnapshot, squota.InstanceSnapshot) {
+		err.Add("instance_snapshot", squota.InstanceSnapshot, used.InstanceSnapshot, sreq.InstanceSnapshot)
+	}
 	if quotas.Exceed(used.Bucket, sreq.Bucket, squota.Bucket) {
 		err.Add("bucket", squota.Bucket, used.Bucket, sreq.Bucket)
 	}
@@ -453,6 +475,7 @@ func (self *SRegionQuota) ToJSON(prefix string) jsonutils.JSONObject {
 	//ret.Add(jsonutils.NewInt(int64(self.Bw)), keyName(prefix, "bw"))
 	//ret.Add(jsonutils.NewInt(int64(self.Ebw)), keyName(prefix, "ebw"))
 	ret.Add(jsonutils.NewInt(int64(self.Snapshot)), keyName(prefix, "snapshot"))
+	ret.Add(jsonutils.NewInt(int64(self.InstanceSnapshot)), keyName(prefix, "instance_snapshot"))
 	ret.Add(jsonutils.NewInt(int64(self.Bucket)), keyName(prefix, "bucket"))
 	ret.Add(jsonutils.NewInt(int64(self.ObjectGB)), keyName(prefix, "object_gb"))
 	ret.Add(jsonutils.NewInt(int64(self.ObjectCnt)), keyName(prefix, "object_cnt"))

@@ -295,6 +295,8 @@ func getSystemGeneralUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.I
 
 		SnapshotUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
 
+		InstanceSnapshotUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
+
 		LoadbalancerUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
 
 		DBInstanceUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
@@ -379,6 +381,8 @@ func getDomainGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 
 		SnapshotUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 
+		InstanceSnapshotUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+
 		LoadbalancerUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 
 		DBInstanceUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
@@ -420,6 +424,8 @@ func getProjectGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityP
 		nicsUsage("", rangeObjs, hostTypes, providers, brands, cloudEnv, scope, cred),
 
 		SnapshotUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+
+		InstanceSnapshotUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 
 		LoadbalancerUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 
@@ -866,6 +872,13 @@ func SnapshotUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvide
 	cnt, _ := models.TotalSnapshotCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv)
 	count := make(map[string]interface{})
 	count[getKey(scope, "snapshot")] = cnt
+	return count
+}
+
+func InstanceSnapshotUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) Usage {
+	cnt, _ := models.TotalInstanceSnapshotCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv)
+	count := make(map[string]interface{})
+	count[getKey(scope, "instance_snapshot")] = cnt
 	return count
 }
 
