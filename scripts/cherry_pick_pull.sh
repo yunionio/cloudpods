@@ -156,32 +156,6 @@ EOF
 hub pull-request -F "${prtext}" -h "${GITHUB_USER}:${NEWBRANCH}" -b "${MAIN_REPO_ORG}:${rel}"
 }
 
-function extract-subject {
-  local patch="$1"
-
-  python -c '
-import os
-import email.parser
-import email.header
-with open("'"$patch"'", "r") as f:
-    m = email.parser.Parser().parse(f, headersonly=True)
-subj = m["subject"]
-subj = email.header.decode_header(subj)
-s = u""
-for txt, enc in subj:
-    txt = txt.decode(enc) if enc else txt
-    txt = txt.decode("ascii") if isinstance(txt, bytes) else txt
-    txt = txt.replace(u"\n", u"")
-    if txt.startswith(u"[PATCH"):
-        i = txt.index(u"]")
-        txt = txt[i+1:]
-    s += txt
-s = s.strip() + u"\n"
-s = s.encode("utf-8") # write out utf-8 bytes whatsoever
-os.write(1, s)
-'
-}
-
 git checkout -b "${NEWBRANCHUNIQ}" "${BRANCH}"
 cleanbranch="${NEWBRANCHUNIQ}"
 
@@ -219,9 +193,7 @@ for pull in "${PULLS[@]}"; do
     fi
   }
 
-  # set the subject
-  subject=$(extract-subject "/tmp/${pull}.patch")
-  SUBJECTS+=("#${pull}: ${subject}")
+SUBJECTS+=("$(hub pr show -f "%i: %t" ${pull})")
 
   # remove the patch file from /tmp
   rm -f "/tmp/${pull}.patch"
