@@ -4341,6 +4341,17 @@ func (guest *SGuest) PerformChangeOwner(ctx context.Context, userCred mcclient.T
 			return nil, err
 		}
 	}
+	// change owner for instance snapshot
+	isps, err := guest.GetInstanceSnapshots()
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to GetInstanceSnapshots")
+	}
+	for i := range isps {
+		_, err := isps[i].PerformChangeOwner(ctx, userCred, query, input)
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to change owner for instance snapshot %s", isps[i].GetId())
+		}
+	}
 	return guest.SVirtualResourceBase.PerformChangeOwner(ctx, userCred, query, input)
 }
 
@@ -4613,19 +4624,27 @@ func (self *SGuest) validateCreateInstanceSnapshot(
 		return nil, err
 	}
 
-	disks := self.GetDisks()
-	for i := 0; i < len(disks); i++ {
-		if storage := disks[i].GetDisk().GetStorage(); utils.IsInStringArray(storage.StorageType, api.FIEL_STORAGE) {
-			count, err := SnapshotManager.GetDiskManualSnapshotCount(disks[i].DiskId)
-			if err != nil {
-				return nil, httperrors.NewInternalServerError("%v", err)
-			}
-			if count >= options.Options.DefaultMaxManualSnapshotCount {
-				return nil, httperrors.NewBadRequestError("guests disk %d snapshot full, can't take anymore", i)
+	// construct Quota
+	pendingUsage := &SRegionQuota{InstanceSnapshot: 1}
+	cp := self.GetHost().GetCloudprovider()
+	if cp == nil {
+		return nil, fmt.Errorf("unable to get cloudprovider of isp %q", self.GetId())
+	}
+	if utils.IsInStringArray(cp.Provider, ProviderHasSubSnapshot) {
+		disks := self.GetDisks()
+		for i := 0; i < len(disks); i++ {
+			if storage := disks[i].GetDisk().GetStorage(); utils.IsInStringArray(storage.StorageType, api.FIEL_STORAGE) {
+				count, err := SnapshotManager.GetDiskManualSnapshotCount(disks[i].DiskId)
+				if err != nil {
+					return nil, httperrors.NewInternalServerError("%v", err)
+				}
+				if count >= options.Options.DefaultMaxManualSnapshotCount {
+					return nil, httperrors.NewBadRequestError("guests disk %d snapshot full, can't take anymore", i)
+				}
 			}
 		}
+		pendingUsage.Snapshot = len(disks)
 	}
-	pendingUsage := &SRegionQuota{Snapshot: len(disks)}
 	keys, err := self.GetRegionalQuotaKeys()
 	if err != nil {
 		return nil, err
