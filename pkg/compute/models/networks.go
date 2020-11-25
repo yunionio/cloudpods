@@ -1750,7 +1750,6 @@ func (self *SNetwork) RealDelete(ctx context.Context, userCred mcclient.TokenCre
 	DeleteResourceJointSchedtags(self, ctx, userCred)
 	db.OpsLog.LogEvent(self, db.ACT_DELOCATE, self.GetShortDesc(ctx), userCred)
 	self.SetStatus(userCred, api.NETWORK_STATUS_DELETED, "real delete")
-	self.ClearSchedDescCache()
 	networkinterfaces, err := self.GetNetworkInterfaces()
 	if err != nil {
 		return errors.Wrap(err, "GetNetworkInterfaces")
@@ -1771,7 +1770,11 @@ func (self *SNetwork) RealDelete(ctx context.Context, userCred mcclient.TokenCre
 			return errors.Wrapf(err, "reservedIps.Release %s(%d)", reservedIps[i].IpAddr, reservedIps[i].Id)
 		}
 	}
-	return self.SSharableVirtualResourceBase.Delete(ctx, userCred)
+	if err := self.SSharableVirtualResourceBase.Delete(ctx, userCred); err != nil {
+		return err
+	}
+	self.ClearSchedDescCache()
+	return nil
 }
 
 func (self *SNetwork) StartDeleteNetworkTask(ctx context.Context, userCred mcclient.TokenCredential) error {
