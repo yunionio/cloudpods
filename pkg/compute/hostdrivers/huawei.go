@@ -59,7 +59,13 @@ func (self *SHuaweiHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb
 
 func (self *SHuaweiHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	if len(guests) >= 1 {
-		return nil, httperrors.NewBadRequestError("Disk must be dettached")
+		if disk.DiskType == api.DISK_TYPE_SYS {
+			if g := disk.GetGuest(); g != nil && g.Status != api.VM_READY {
+				return nil, httperrors.NewBadRequestError("Server must in status ready")
+			}
+		} else {
+			return nil, httperrors.NewBadRequestError("Disk must be dettached")
+		}
 	}
 	return data, nil
 }
