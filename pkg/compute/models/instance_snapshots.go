@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -54,6 +55,7 @@ type SInstanceSnapshot struct {
 	db.SExternalizedResourceBase
 
 	SManagedResourceBase
+	SCloudregionResourceBase
 
 	// 云主机Id
 	GuestId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
@@ -75,12 +77,15 @@ type SInstanceSnapshot struct {
 	OsArch string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	// 套餐名称
 	InstanceType string `width:"64" charset:"utf8" nullable:"true" list:"user" create:"optional"`
+	// 主机快照磁盘容量和
+	SizeMb int `nullable:"false"`
 }
 
 type SInstanceSnapshotManager struct {
 	db.SVirtualResourceBaseManager
 	db.SExternalizedResourceBaseManager
 	SManagedResourceBaseManager
+	SCloudregionResourceBaseManager
 }
 
 var InstanceSnapshotManager *SInstanceSnapshotManager
@@ -200,31 +205,46 @@ func (self *SInstanceSnapshot) GetGuest() (*SGuest, error) {
 }
 
 func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential, out api.InstanceSnapshotDetails) api.InstanceSnapshotDetails {
-	if guest := GuestManager.FetchGuestById(self.GuestId); guest != nil {
+	guest := GuestManager.FetchGuestById(self.GuestId)
+	if guest != nil {
 		out.Guest = guest.Name
 		out.GuestStatus = guest.Status
 	}
 	var osType string
-	snapshots, _ := self.GetSnapshots()
-	out.Snapshots = []api.SimpleSnapshot{}
-	for i := 0; i < len(snapshots); i++ {
-		if snapshots[i].DiskType == api.DISK_TYPE_SYS {
-			osType = snapshots[i].OsType
-		}
-		out.Snapshots = append(out.Snapshots, api.SimpleSnapshot{
-			Id:            snapshots[i].Id,
-			Name:          snapshots[i].Name,
-			StorageId:     snapshots[i].StorageId,
-			DiskType:      snapshots[i].DiskType,
-			CloudregionId: snapshots[i].CloudregionId,
-			Size:          snapshots[i].Size,
-			Status:        snapshots[i].Status,
-			StorageType:   snapshots[i].GetStorageType(),
-		})
-		out.Size += snapshots[i].Size
+	cp := self.GetCloudprovider()
+	if utils.IsInStringArray(cp.Provider, ProviderHasSubSnapshot) {
+		snapshots, _ := self.GetSnapshots()
+		out.Snapshots = []api.SimpleSnapshot{}
+		for i := 0; i < len(snapshots); i++ {
+			if snapshots[i].DiskType == api.DISK_TYPE_SYS {
+				osType = snapshots[i].OsType
+			}
+			out.Snapshots = append(out.Snapshots, api.SimpleSnapshot{
+				Id:            snapshots[i].Id,
+				Name:          snapshots[i].Name,
+				StorageId:     snapshots[i].StorageId,
+				DiskType:      snapshots[i].DiskType,
+				CloudregionId: snapshots[i].CloudregionId,
+				Size:          snapshots[i].Size,
+				Status:        snapshots[i].Status,
+				StorageType:   snapshots[i].GetStorageType(),
+			})
+			out.Size += snapshots[i].Size
 
-		if len(snapshots[i].StorageId) > 0 && out.StorageType == "" {
-			out.StorageType = snapshots[i].GetStorageType()
+			if len(snapshots[i].StorageId) > 0 && out.StorageType == "" {
+				out.StorageType = snapshots[i].GetStorageType()
+			}
+		}
+	} else {
+		out.Size = self.SizeMb
+		disk, err := guest.GetSystemDisk()
+		if err != nil {
+			log.Errorf("unable to GetSystemDisk of guest %q", guest.GetId())
+		} else {
+			s := disk.GetStorage()
+			if s != nil {
+				out.StorageType = s.StorageType
+			}
 		}
 	}
 	if len(osType) > 0 {
@@ -278,10 +298,15 @@ func (self *SInstanceSnapshot) StartCreateInstanceSnapshotTask(
 
 func (manager *SInstanceSnapshotManager) fillInstanceSnapshot(userCred mcclient.TokenCredential, guest *SGuest, instanceSnapshot *SInstanceSnapshot) {
 	instanceSnapshot.SetModelManager(manager, instanceSnapshot)
-	instanceSnapshot.ProjectId = userCred.GetProjectId()
-	instanceSnapshot.DomainId = userCred.GetProjectDomainId()
+	instanceSnapshot.ProjectId = guest.ProjectId
+	instanceSnapshot.DomainId = guest.DomainId
 	instanceSnapshot.GuestId = guest.Id
 	guestSchedInput := guest.ToSchedDesc()
+
+	host := guest.GetHost()
+	instanceSnapshot.ManagerId = host.ManagerId
+	zone := host.GetZone()
+	instanceSnapshot.CloudregionId = zone.CloudregionId
 
 	for i := 0; i < len(guestSchedInput.Disks); i++ {
 		guestSchedInput.Disks[i].ImageId = ""
@@ -344,14 +369,22 @@ func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(ctx context.Cont
 	instanceSnapshot.SetModelManager(manager, instanceSnapshot)
 	instanceSnapshot.Name = name
 	instanceSnapshot.AutoDelete = autoDelete
-	host := guest.GetHost()
-	instanceSnapshot.ManagerId = host.ManagerId
 	manager.fillInstanceSnapshot(userCred, guest, instanceSnapshot)
+	// compute size of instanceSnapshot
+	instanceSnapshot.SizeMb = guest.getDiskSize()
 	err := manager.TableSpec().Insert(ctx, instanceSnapshot)
 	if err != nil {
 		return nil, err
 	}
 	return instanceSnapshot, nil
+}
+
+var HypervisorIndependentInstanceSnapshot = []string{
+	api.HYPERVISOR_KVM,
+}
+
+var ProviderHasSubSnapshot = []string{
+	api.CLOUD_PROVIDER_ONECLOUD,
 }
 
 func (self *SInstanceSnapshot) ToInstanceCreateInput(
@@ -366,7 +399,7 @@ func (self *SInstanceSnapshot) ToInstanceCreateInput(
 	if cp == nil {
 		return nil, fmt.Errorf("unable to get cloudprovider of isp %q", self.GetId())
 	}
-	if cp.Provider != api.CLOUD_PROVIDER_VMWARE {
+	if utils.IsInStringArray(cp.Provider, ProviderHasSubSnapshot) {
 		isjs := make([]SInstanceSnapshotJoint, 0)
 		err := InstanceSnapshotJointManager.Query().Equals("instance_snapshot_id", self.Id).Asc("disk_index").All(&isjs)
 		if err != nil {
@@ -424,6 +457,43 @@ func (self *SInstanceSnapshot) GetSnapshots() ([]SSnapshot, error) {
 		}
 		return snapshots, nil
 	}
+}
+
+func (self *SInstanceSnapshot) GetQuotaKeys() quotas.IQuotaKeys {
+	return fetchRegionalQuotaKeys(
+		rbacutils.ScopeProject,
+		self.GetOwnerId(),
+		self.GetRegion(),
+		self.GetCloudprovider(),
+	)
+}
+
+func (self *SInstanceSnapshot) GetUsages() []db.IUsage {
+	if self.PendingDeleted || self.Deleted {
+		return nil
+	}
+	usage := SRegionQuota{InstanceSnapshot: 1}
+	keys := self.GetQuotaKeys()
+	usage.SetKeys(keys)
+	return []db.IUsage{
+		&usage,
+	}
+}
+
+func TotalInstanceSnapshotCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) (int, error) {
+	q := InstanceSnapshotManager.Query()
+
+	switch scope {
+	case rbacutils.ScopeSystem:
+	case rbacutils.ScopeDomain:
+		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
+	case rbacutils.ScopeProject:
+		q = q.Equals("tenant_id", ownerId.GetProjectId())
+	}
+
+	q = RangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"), nil, nil)
+	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
+	return q.CountWithError()
 }
 
 func (self *SInstanceSnapshot) GetInstanceSnapshotJointAt(diskIndex int) (*SInstanceSnapshotJoint, error) {
@@ -529,8 +599,6 @@ func (manager *SInstanceSnapshotManager) newFromCloudInstanceSnapshot(ctx contex
 	}
 	instanceSnapshot.ExternalId = extSnapshot.GetGlobalId()
 	instanceSnapshot.Status = extSnapshot.GetStatus()
-	host := guest.GetHost()
-	instanceSnapshot.ManagerId = host.ManagerId
 	manager.fillInstanceSnapshot(userCred, guest, &instanceSnapshot)
 	err = manager.TableSpec().Insert(ctx, &instanceSnapshot)
 	if err != nil {
@@ -541,10 +609,40 @@ func (manager *SInstanceSnapshotManager) newFromCloudInstanceSnapshot(ctx contex
 }
 
 func (self *SInstanceSnapshot) GetRegionDriver() IRegionDriver {
-	guest, _ := self.GetGuest()
-	var provider string
-	if guest != nil {
-		provider = guest.GetHost().GetProviderName()
+	cp := self.GetCloudprovider()
+	return GetRegionDriver(cp.Provider)
+}
+
+func (ism *SInstanceSnapshotManager) InitializeData() error {
+	q := ism.Query().IsNullOrEmpty("cloudregion_id")
+	var isps []SInstanceSnapshot
+	err := db.FetchModelObjects(ism, q, &isps)
+	if err != nil {
+		return errors.Wrap(err, "unable to FetchModelObjects")
 	}
-	return GetRegionDriver(provider)
+	var (
+		cloudregionId string
+	)
+	for i := range isps {
+		isp := &isps[i]
+		guest, err := isp.GetGuest()
+		if errors.Cause(err) == errors.ErrNotFound {
+			cloudregionId = api.DEFAULT_REGION_ID
+		}
+		if err != nil {
+			return errors.Wrapf(err, "unable to GetGuest for isp %q", isp.GetId())
+		} else {
+			host := guest.GetHost()
+			zone := host.GetZone()
+			cloudregionId = zone.CloudregionId
+		}
+		_, err = db.Update(isp, func() error {
+			isp.CloudregionId = cloudregionId
+			return nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "unable to Update db")
+		}
+	}
+	return nil
 }
