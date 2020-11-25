@@ -751,7 +751,7 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrapf(err, "region.DeleteVM(%s)", self.InstanceId)
 	}
-	return cloudprovider.WaitDeleted(self, 10*time.Second, 10*time.Minute) // 5minutes
+	return cloudprovider.WaitDeleted(self, 10*time.Second, 20*time.Minute) // 20minutes
 }
 
 func (self *SRegion) UpdateVM(instanceId string, name, osType string) error {
