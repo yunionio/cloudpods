@@ -304,6 +304,14 @@ func (self *SCloudaccount) ValidateUpdateData(
 		input.Options = optionsJson
 	}
 
+	factory, err := self.GetProviderFactory()
+	if err != nil {
+		return input, httperrors.NewGeneralError(errors.Wrapf(err, "GetProviderFactory"))
+	}
+	if input.SAMLAuth != nil && *input.SAMLAuth && !factory.IsSupportSAMLAuth() {
+		return input, httperrors.NewNotSupportedError("%s not support saml auth", self.Provider)
+	}
+
 	if len(input.ProxySettingId) > 0 {
 		var proxySetting *proxy.SProxySetting
 		proxySetting, input.ProxySettingResourceInput, err = proxy.ValidateProxySettingResourceInput(userCred, input.ProxySettingResourceInput)

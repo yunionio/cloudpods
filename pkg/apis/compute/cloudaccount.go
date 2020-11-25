@@ -319,6 +319,8 @@ type CloudaccountUpdateInput struct {
 	// 带删除的options key
 	RemoveOptions []string `json:"remove_options"`
 
+	SAMLAuth *bool `json:"saml_auth"`
+
 	proxyapi.ProxySettingResourceInput
 }
 
