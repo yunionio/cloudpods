@@ -55,7 +55,7 @@ func (b *SBucket) GetName() string {
 
 func (b *SBucket) GetAcl() cloudprovider.TBucketACLType {
 	acl := cloudprovider.ACLPrivate
-	osscli, err := b.region.GetOssClient()
+	osscli, err := b.getOssClient()
 	if err != nil {
 		log.Errorf("b.region.GetOssClient fail %s", err)
 		return acl
@@ -147,6 +147,23 @@ func (b *SBucket) SetAcl(aclStr cloudprovider.TBucketACLType) error {
 		return errors.Wrap(err, "SetBucketACL")
 	}
 	return nil
+}
+
+func (b *SBucket) getOssClient() (*oss.Client, error) {
+	if b.region.client.GetAccessEnv() == ALIYUN_FINANCE_CLOUDENV {
+		osscli, err := b.region.GetOssClient()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetOssClient")
+		}
+		info, err := osscli.GetBucketInfo(b.Name)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetBucketInfo")
+		}
+		if len(info.BucketInfo.ExtranetEndpoint) > 0 {
+			return b.region.client.getOssClientByEndpoint(info.BucketInfo.ExtranetEndpoint)
+		}
+	}
+	return b.region.GetOssClient()
 }
 
 func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, maxCount int) (cloudprovider.SListObjectResult, error) {

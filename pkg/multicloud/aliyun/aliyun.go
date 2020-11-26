@@ -317,7 +317,7 @@ func getOSSInternalDomain(regionId string) string {
 }
 
 // https://help.aliyun.com/document_detail/31837.html?spm=a2c4g.11186623.2.6.XqEgD1
-func (client *SAliyunClient) getOssClient(regionId string) (*oss.Client, error) {
+func (client *SAliyunClient) getOssClientByEndpoint(endpoint string) (*oss.Client, error) {
 	// NOTE
 	//
 	// oss package as of version 20181116160301-c6838fdc33ed does not
@@ -331,12 +331,16 @@ func (client *SAliyunClient) getOssClient(regionId string) (*oss.Client, error) 
 	cliOpts := []oss.ClientOption{
 		oss.HTTPClient(httpClient),
 	}
-	ep := getOSSExternalDomain(regionId)
-	cli, err := oss.New(ep, client.accessKey, client.accessSecret, cliOpts...)
+	cli, err := oss.New(endpoint, client.accessKey, client.accessSecret, cliOpts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "oss.New")
 	}
 	return cli, nil
+}
+
+func (client *SAliyunClient) getOssClient(regionId string) (*oss.Client, error) {
+	ep := getOSSExternalDomain(regionId)
+	return client.getOssClientByEndpoint(ep)
 }
 
 func (self *SAliyunClient) getRegionByRegionId(id string) (cloudprovider.ICloudRegion, error) {
