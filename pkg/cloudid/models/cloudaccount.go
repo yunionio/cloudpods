@@ -1106,6 +1106,9 @@ func (self *SCloudaccount) StartSAMLProviderCreateTask(ctx context.Context, user
 	}
 	sp, valid := self.IsSAMLProviderValid()
 	if valid {
+		if sp.IsNeedUpldateMetadata() {
+			return sp.StartSAMLProviderUpdateMetadataTask(ctx, userCred, "")
+		}
 		return nil
 	}
 	return sp.StartSAMLProviderCreateTask(ctx, userCred, "")
@@ -1226,7 +1229,7 @@ func (self *SCloudaccount) newFromCloudSAMLProvider(ctx context.Context, userCre
 		saml.EntityId = metadata.EntityId
 		saml.MetadataDocument = metadata.String()
 	}
-	if saml.EntityId != options.Options.ApiServer {
+	if saml.EntityId != options.Options.ApiServer || saml.IsNeedUpldateMetadata() {
 		saml.Status = api.SAML_PROVIDER_STATUS_NOT_MATCH
 	}
 	return SAMLProviderManager.TableSpec().Insert(ctx, saml)
