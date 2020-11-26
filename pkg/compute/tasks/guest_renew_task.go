@@ -51,7 +51,7 @@ func (self *GuestRenewTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 		db.OpsLog.LogEvent(guest, db.ACT_REW_FAIL, err, self.UserCred)
 		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RENEW, err, self.UserCred, false)
 		guest.SetStatus(self.GetUserCred(), api.VM_RENEW_FAILED, msg)
-		self.SetStageFailed(ctx, jsonutils.Marshal(err))
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return
 	}
 

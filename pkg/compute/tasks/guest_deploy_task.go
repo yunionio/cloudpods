@@ -75,7 +75,7 @@ func (self *GuestDeployTask) DeployOnHost(ctx context.Context, guest *models.SGu
 
 func (self *GuestDeployTask) OnDeployGuestFail(ctx context.Context, guest *models.SGuest, err error) {
 	guest.SetStatus(self.UserCred, api.VM_DEPLOY_FAILED, err.Error())
-	self.SetStageFailed(ctx, jsonutils.Marshal(err))
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_DEPLOY, err, self.UserCred, false)
 	db.OpsLog.LogEvent(guest, db.ACT_VM_DEPLOY_FAIL, err.Error(), self.UserCred)
 }

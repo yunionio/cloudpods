@@ -53,7 +53,7 @@ func (self *LoadbalancerStopTask) OnInit(ctx context.Context, obj db.IStandalone
 	}
 	self.SetStage("OnLoadbalancerStopComplete", nil)
 	if err := region.GetDriver().RequestStopLoadbalancer(ctx, self.GetUserCred(), lb, self); err != nil {
-		self.taskFail(ctx, lb, jsonutils.Marshal(err))
+		self.taskFail(ctx, lb, jsonutils.NewString(err.Error()))
 	}
 }
 

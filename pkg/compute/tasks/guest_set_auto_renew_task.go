@@ -45,7 +45,7 @@ func (self *GuestSetAutoRenewTask) OnInit(ctx context.Context, obj db.IStandalon
 		db.OpsLog.LogEvent(guest, db.ACT_SET_AUTO_RENEW_FAIL, err, self.UserCred)
 		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_SET_AUTO_RENEW, err, self.UserCred, false)
 		guest.SetStatus(self.GetUserCred(), api.VM_SET_AUTO_RENEW_FAILED, err.Error())
-		self.SetStageFailed(ctx, jsonutils.Marshal(err))
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return
 	}
 }

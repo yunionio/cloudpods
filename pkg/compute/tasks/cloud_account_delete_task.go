@@ -56,7 +56,7 @@ func (self *CloudAccountDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 		if err != nil {
 			// very unlikely
 			account.SetStatus(self.UserCred, api.CLOUD_PROVIDER_DELETE_FAILED, err.Error())
-			self.SetStageFailed(ctx, jsonutils.Marshal(err))
+			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 			return
 		}
 	}

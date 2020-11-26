@@ -53,7 +53,7 @@ func (self *LoadbalancerStartTask) OnInit(ctx context.Context, obj db.IStandalon
 	}
 	self.SetStage("OnLoadbalancerStartComplete", nil)
 	if err := region.GetDriver().RequestStartLoadbalancer(ctx, self.GetUserCred(), lb, self); err != nil {
-		self.taskFail(ctx, lb, jsonutils.Marshal(err))
+		self.taskFail(ctx, lb, jsonutils.NewString(err.Error()))
 	}
 }
 

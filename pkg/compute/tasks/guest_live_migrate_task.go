@@ -180,7 +180,7 @@ func (self *GuestMigrateTask) OnCachedCdromComplete(ctx context.Context, guest *
 		_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST",
 			url, header, body, false)
 		if err != nil {
-			self.TaskFailed(ctx, guest, jsonutils.Marshal(err))
+			self.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
 			return
 		}
 	} else {
@@ -225,7 +225,7 @@ func (self *GuestMigrateTask) OnSrcPrepareComplete(ctx context.Context, guest *m
 	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(),
 		ctx, "POST", url, headers, body, false)
 	if err != nil {
-		self.TaskFailed(ctx, guest, jsonutils.Marshal(err))
+		self.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
 	}
 }
 
@@ -365,7 +365,7 @@ func (self *GuestLiveMigrateTask) OnStartDestComplete(ctx context.Context, guest
 	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(),
 		ctx, "POST", url, headers, body, false)
 	if err != nil {
-		self.OnLiveMigrateCompleteFailed(ctx, guest, jsonutils.Marshal(err))
+		self.OnLiveMigrateCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 	}
 }
 
@@ -423,7 +423,7 @@ func (self *GuestLiveMigrateTask) OnLiveMigrateComplete(ctx context.Context, gue
 	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(),
 		ctx, "POST", url, headers, body, false)
 	if err != nil {
-		self.OnResumeDestGuestCompleteFailed(ctx, guest, jsonutils.Marshal(err))
+		self.OnResumeDestGuestCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 	}
 }
 

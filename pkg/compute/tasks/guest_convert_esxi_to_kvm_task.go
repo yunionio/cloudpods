@@ -127,7 +127,7 @@ func (self *GuestConvertEsxiToKvmTask) SaveScheduleResult(ctx context.Context, o
 
 	self.SetStage("OnHostCreateGuest", nil)
 	if err = self.RequestHostCreateGuestFromEsxi(ctx, targetGuest, esxiAccessInfo); err != nil {
-		self.taskFailed(ctx, guest, jsonutils.Marshal(err))
+		self.taskFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
 	host.ClearSchedDescCache()

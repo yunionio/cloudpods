@@ -83,7 +83,7 @@ func (self *SnapshotPolicyApplyTask) OnInit(ctx context.Context, obj db.IStandal
 	if err := disk.GetStorage().GetRegion().GetDriver().RequestPreSnapshotPolicyApply(ctx, self.UserCred, self, disk, snapshotPolicy,
 		data); err != nil {
 
-		self.taskFail(ctx, disk, &spd, jsonutils.Marshal(err))
+		self.taskFail(ctx, disk, &spd, jsonutils.NewString(err.Error()))
 		return
 	}
 }
@@ -125,7 +125,7 @@ func (self *SnapshotPolicyApplyTask) OnPreSnapshotPolicyApplyComplete(ctx contex
 	if err := disk.GetStorage().GetRegion().GetDriver().
 		RequestApplySnapshotPolicy(ctx, self.UserCred, self, disk, &snapshotPolicy, data); err != nil {
 
-		self.taskFail(ctx, disk, &spd, jsonutils.Marshal(err))
+		self.taskFail(ctx, disk, &spd, jsonutils.NewString(err.Error()))
 	}
 }
 
@@ -197,7 +197,7 @@ func (self *SnapshotPolicyCancelTask) OnInit(ctx context.Context, obj db.IStanda
 	self.SetStage("OnSnapshotPolicyCancel", nil)
 	if err := disk.GetStorage().GetRegion().GetDriver().RequestCancelSnapshotPolicy(ctx, self.UserCred, self, disk, snapshotPolicy, data); err != nil {
 
-		self.taskFail(ctx, disk, &spd, jsonutils.Marshal(err))
+		self.taskFail(ctx, disk, &spd, jsonutils.NewString(err.Error()))
 		// fmt.Sprintf("faile to detach snapshot policy %s and disk %s: %s", snapshotPolicy.Id, disk.Id, err.Error()))
 	}
 }

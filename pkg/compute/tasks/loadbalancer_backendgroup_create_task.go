@@ -72,7 +72,7 @@ func (self *LoadbalancerLoadbalancerBackendGroupCreateTask) OnInit(ctx context.C
 	self.SetStage("OnLoadbalancerBackendGroupCreateComplete", nil)
 
 	if err := region.GetDriver().RequestCreateLoadbalancerBackendGroup(ctx, self.GetUserCred(), lbbg, backends, self); err != nil {
-		self.taskFail(ctx, lbbg, jsonutils.Marshal(err))
+		self.taskFail(ctx, lbbg, jsonutils.NewString(err.Error()))
 	}
 }
 
@@ -112,7 +112,7 @@ func (self *HuaweiLoadbalancerLoadbalancerBackendGroupCreateTask) OnInit(ctx con
 
 	self.SetStage("OnLoadbalancerBackendGroupCreateComplete", nil)
 	if err := region.GetDriver().RequestCreateLoadbalancerBackendGroup(ctx, self.GetUserCred(), lbbg, backends, self); err != nil {
-		self.taskFail(ctx, lbbg, jsonutils.Marshal(err))
+		self.taskFail(ctx, lbbg, jsonutils.NewString(err.Error()))
 	}
 }
 
@@ -139,7 +139,7 @@ func (self *AwsLoadbalancerLoadbalancerBackendGroupCreateTask) OnInit(ctx contex
 
 	self.SetStage("OnLoadbalancerBackendGroupCreateComplete", nil)
 	if err := region.GetDriver().RequestCreateLoadbalancerBackendGroup(ctx, self.GetUserCred(), lbbg, backends, self); err != nil {
-		self.taskFail(ctx, lbbg, jsonutils.Marshal(err))
+		self.taskFail(ctx, lbbg, jsonutils.NewString(err.Error()))
 	}
 }
 
@@ -153,7 +153,7 @@ func (self *OpenstackLoadbalancerLoadbalancerBackendGroupCreateTask) OnInit(ctx 
 
 	backends, err := lbbg.GetBackendsParams()
 	if err != nil {
-		self.taskFail(ctx, lbbg, jsonutils.Marshal(err))
+		self.taskFail(ctx, lbbg, jsonutils.NewString(err.Error()))
 		return
 	}
 
@@ -167,6 +167,6 @@ func (self *OpenstackLoadbalancerLoadbalancerBackendGroupCreateTask) OnInit(ctx 
 
 	self.SetStage("OnLoadbalancerBackendGroupCreateComplete", nil)
 	if err := region.GetDriver().RequestCreateLoadbalancerBackendGroup(ctx, self.GetUserCred(), lbbg, backends, self); err != nil {
-		self.taskFail(ctx, lbbg, jsonutils.Marshal(err))
+		self.taskFail(ctx, lbbg, jsonutils.NewString(err.Error()))
 	}
 }
