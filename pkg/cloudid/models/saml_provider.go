@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -152,12 +153,48 @@ func (self *SSAMLProvider) StartSAMLProviderDeleteTask(ctx context.Context, user
 	return nil
 }
 
+func (self *SSAMLProvider) IsNeedUpldateMetadata() bool {
+	if len(self.ExternalId) == 0 || len(self.EntityId) == 0 || len(self.MetadataDocument) == 0 {
+		return false
+	}
+	metadata := SamlIdpInstance().GetMetadata(self.Id)
+	if self.EntityId != metadata.EntityId {
+		return false
+	}
+
+	keyword := fmt.Sprintf("login/%s", self.CloudaccountId)
+	if strings.Contains(self.MetadataDocument, keyword) {
+		return false
+	}
+	return true
+}
+
+func (self *SSAMLProvider) StartSAMLProviderUpdateMetadataTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "SAMLProviderUpdateMetadataTask", self, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	self.SetStatus(userCred, api.SAML_PROVIDER_STATUS_UPDATE_METADATA, "")
+	task.ScheduleRun(nil)
+	return nil
+}
+
 func (self *SSAMLProvider) StartSAMLProviderCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "SAMLProviderCreateTask", self, userCred, nil, parentTaskId, "", nil)
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
 	self.SetStatus(userCred, api.SAML_PROVIDER_STATUS_CREATING, "")
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SSAMLProvider) StartSAMLProviderSyncTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "SAMLProviderSyncTask", self, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	self.SetStatus(userCred, api.SAML_PROVIDER_STATUS_SYNC, "")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -178,6 +215,9 @@ func (self *SSAMLProvider) SyncWithCloudSAMLProvider(ctx context.Context, userCr
 		if metadata != nil {
 			self.EntityId = metadata.EntityId
 			self.MetadataDocument = metadata.String()
+			if self.IsNeedUpldateMetadata() {
+				self.Status = api.SAML_PROVIDER_STATUS_NOT_MATCH
+			}
 		}
 		if self.EntityId != options.Options.ApiServer {
 			self.Status = api.SAML_PROVIDER_STATUS_NOT_MATCH

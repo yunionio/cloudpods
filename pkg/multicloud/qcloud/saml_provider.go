@@ -79,6 +79,10 @@ func (self *SAMLProvider) GetMetadataDocument() (*samlutils.EntityDescriptor, er
 	return &ret, nil
 }
 
+func (self *SAMLProvider) UpdateMetadata(metadata samlutils.EntityDescriptor) error {
+	return self.client.UpdateSAMLProvider(self.Name, metadata.String(), "")
+}
+
 func (self *SQcloudClient) ListSAMLProviders() ([]SAMLProvider, error) {
 	resp, err := self.camRequest("ListSAMLProviders", nil)
 	if err != nil {
