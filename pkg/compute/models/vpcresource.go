@@ -32,6 +32,11 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+type IVpcResource interface {
+	GetVpc() *SVpc
+	GetRegion() *SCloudregion
+}
+
 type SVpcResourceBase struct {
 	VpcId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" json:"vpc_id"`
 }
@@ -306,4 +311,19 @@ func (self *SVpcResourceBase) GetChangeOwnerCandidateDomainIds() []string {
 		return vpc.GetChangeOwnerCandidateDomainIds()
 	}
 	return nil
+}
+
+func IsOneCloudVpcResource(res IVpcResource) bool {
+	vpc := res.GetVpc()
+	if vpc == nil {
+		return false
+	}
+	region := res.GetRegion()
+	if region == nil {
+		return false
+	}
+	if region.Provider == api.CLOUD_PROVIDER_ONECLOUD && vpc.Id != api.DEFAULT_VPC_ID {
+		return true
+	}
+	return false
 }
