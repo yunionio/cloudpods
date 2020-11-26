@@ -64,9 +64,14 @@ func IsTcpPortUsed(addr string, port int) bool {
 	return false
 }
 
-// MyIP returns source ip used to communicate with udp:114.114.114.114:53
+// MyIP returns source ip used to communicate with udp:114.114.114.114
 func MyIP() (ip string, err error) {
-	conn, err := net.Dial("udp4", "114.114.114.114:53")
+	return MyIPTo("114.114.114.114")
+}
+
+// MyIPTo returns source ip used to communicate with udp:dstIP
+func MyIPTo(dstIP string) (ip string, err error) {
+	conn, err := net.Dial("udp4", dstIP+":53")
 	if err != nil {
 		return
 	}
