@@ -113,10 +113,9 @@ func (opts *LoadbalancerCertificateUpdateOptions) Params() (*jsonutils.JSONDict,
 }
 
 type LoadbalancerCertificatePublicOptions struct {
-	ID             string   `json:"-"`
-	Scope          string   `help:"sharing scope" choices:"system|domain|project"`
-	SharedProjects []string `help:"Share to projects"`
-	SharedDomains  []string `help:"Share to domains"`
+	SharableResourcePublicBaseOptions
+
+	ID string `json:"-"`
 }
 
 type LoadbalancerCertificatePrivateOptions struct {
