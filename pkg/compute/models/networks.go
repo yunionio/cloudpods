@@ -1719,7 +1719,9 @@ func (self *SNetwork) PostCreate(ctx context.Context, userCred mcclient.TokenCre
 		}
 	} else {
 		self.SetStatus(userCred, api.NETWORK_STATUS_AVAILABLE, "")
-		self.ClearSchedDescCache()
+		if err := self.ClearSchedDescCache(); err != nil {
+			log.Errorf("network post create clear schedcache error: %v", err)
+		}
 	}
 }
 
@@ -1810,12 +1812,7 @@ func (self *SNetwork) isManaged() bool {
 }
 
 func (self *SNetwork) isOneCloudVpcNetwork() bool {
-	vpc := self.GetVpc()
-	region := self.GetRegion()
-	if region.Provider == api.CLOUD_PROVIDER_ONECLOUD && vpc.Id != api.DEFAULT_VPC_ID {
-		return true
-	}
-	return false
+	return IsOneCloudVpcResource(self)
 }
 
 func parseIpToIntArray(ip string) ([]int, error) {
