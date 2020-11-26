@@ -18,7 +18,7 @@ type ExtraSpecs struct {
 }
 
 func (self *SDiskType) IsAvaliableInZone(zoneId string) bool {
-	if len(self.QosSpecsID) > 0 && strings.Contains(zoneId, self.ExtraSpecs.RESKEYAvailabilityZones) && !strings.Contains(zoneId, self.ExtraSpecs.OSVendorExtendedSoldOutAvailabilityZones) {
+	if len(self.QosSpecsID) > 0 && strings.Contains(self.ExtraSpecs.RESKEYAvailabilityZones, zoneId) && !strings.Contains(self.ExtraSpecs.OSVendorExtendedSoldOutAvailabilityZones, zoneId) {
 		return true
 	}
 
