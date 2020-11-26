@@ -155,6 +155,13 @@ var (
 					Action:   PolicyActionGet,
 					Result:   rbacutils.Allow,
 				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "cloudaccounts",
+					Action:   PolicyActionGet,
+					Extra:    []string{"saml"},
+					Result:   rbacutils.Allow,
+				},
 			},
 		},
 		{
