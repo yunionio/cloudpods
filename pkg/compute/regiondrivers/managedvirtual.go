@@ -129,20 +129,49 @@ func (self *SManagedVirtualizationRegionDriver) ValidateUpdateLoadbalancerListen
 	return data, nil
 }
 
+func validateUniqueById(ctx context.Context, userCred mcclient.TokenCredential, man db.IResourceModelManager, id string) error {
+	q := man.Query().Equals("id", id)
+	q = man.FilterByOwner(q, userCred, man.NamespaceScope())
+	count, err := q.CountWithError()
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return httperrors.NewResourceNotFoundError("failed to find %s %s", man.Keyword(), id)
+		}
+		return httperrors.NewGeneralError(err)
+	}
+
+	if count > 1 {
+		return httperrors.NewDuplicateResourceError(id)
+	}
+
+	return nil
+}
+
 func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict, lb *models.SLoadbalancer, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
 	if aclStatus, _ := data.GetString("acl_status"); aclStatus == api.LB_BOOL_ON {
 		aclId, _ := data.GetString("acl_id")
 		if len(aclId) == 0 {
 			return nil, httperrors.NewMissingParameterError("acl")
 		}
-		_, err := models.LoadbalancerAclManager.FetchById(aclId)
+
+		err := validateUniqueById(ctx, userCred, models.LoadbalancerAclManager, aclId)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError("failed to find acl %s", aclId)
-			}
-			return nil, httperrors.NewGeneralError(err)
+			return nil, err
 		}
 	}
+
+	if lt, _ := data.GetString("listener_type"); lt == api.LB_LISTENER_TYPE_HTTPS {
+		certId, _ := data.GetString("certificate_id")
+		if len(certId) == 0 {
+			return nil, httperrors.NewMissingParameterError("certificate_id")
+		}
+
+		err := validateUniqueById(ctx, userCred, models.LoadbalancerCertificateManager, certId)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return data, nil
 }
 
@@ -152,6 +181,21 @@ func (self *SManagedVirtualizationRegionDriver) ValidateUpdateLoadbalancerListen
 	}
 	if listenerPort, _ := data.Int("listener_port"); listenerPort != 0 && listenerPort != int64(lblis.ListenerPort) {
 		return nil, httperrors.NewInputParameterError("cannot change loadbalancer listener listener_port")
+	}
+
+	aclId, _ := data.GetString("acl_id")
+	if len(aclId) > 0 && lblis.AclId != aclId {
+		err := validateUniqueById(ctx, userCred, models.LoadbalancerAclManager, aclId)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if certId, _ := data.GetString("certificate_id"); len(certId) > 0 {
+		err := validateUniqueById(ctx, userCred, models.LoadbalancerCertificateManager, certId)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return data, nil
 }
