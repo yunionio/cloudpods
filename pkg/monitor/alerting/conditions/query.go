@@ -219,9 +219,23 @@ func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series tsdb
 	evalMatch.Tags = c.filterTags(series.Tags, *alertDetails)
 	evalMatch.Value = value
 	evalMatch.ValueStr = c.RationalizeValueFromUnit(*value, alertDetails.FieldDescription.Unit, alertDetails.FieldOpt)
-	evalMatch.MeasurementDesc = alertDetails.MeasurementDisplayName
-	evalMatch.FieldDesc = alertDetails.FieldDescription.DisplayName
+	c.newRuleDescription(context, alertDetails)
 	return evalMatch, nil
+}
+
+func (c *QueryCondition) newRuleDescription(context *alerting.EvalContext, alertDetails *monitor.CommonAlertMetricDetails) {
+	ruleDes := alerting.RuleDescription{
+		AlertRecordRule: monitor.AlertRecordRule{
+			Metric:          fmt.Sprintf("%s.%s", alertDetails.Measurement, alertDetails.Field),
+			Measurement:     alertDetails.Measurement,
+			MeasurementDesc: alertDetails.MeasurementDisplayName,
+			Field:           alertDetails.Field,
+			FieldDesc:       alertDetails.FieldDescription.DisplayName,
+			Comparator:      alertDetails.Comparator,
+			Threshold:       c.RationalizeValueFromUnit(alertDetails.Threshold, alertDetails.FieldDescription.Unit, ""),
+		},
+	}
+	context.RuleDescription = &ruleDes
 }
 
 var fileSize = []string{"bps", "Bps", "byte"}
