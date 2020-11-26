@@ -235,7 +235,7 @@ func init() {
 			return err
 		}
 		for k, v := range rc {
-			fmt.Printf("export %s='%s'\n", k, v)
+			fmt.Printf(`export %s="%s"`+"\n", k, v)
 		}
 		return nil
 	})
