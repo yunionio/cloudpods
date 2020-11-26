@@ -59,6 +59,7 @@ type SDiskManager struct {
 	db.SExternalizedResourceBaseManager
 	SStorageResourceBaseManager
 	SBillingResourceBaseManager
+	db.SMultiArchResourceBaseManager
 }
 
 var DiskManager *SDiskManager
@@ -81,6 +82,7 @@ type SDisk struct {
 
 	SBillingResourceBase
 	SStorageResourceBase `width:"128" charset:"ascii" nullable:"true" list:"admin" create:"optional"`
+	db.SMultiArchResourceBase
 
 	// 磁盘存储类型
 	// example: qcow2
@@ -115,9 +117,6 @@ type SDisk struct {
 	// swap: 交换盘
 	// example: sys
 	DiskType string `width:"32" charset:"ascii" nullable:"true" list:"user" update:"admin" json:"disk_type"`
-
-	// cpu架构
-	OsArch string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	// # is persistent
 	Nonpersistent bool `default:"false" list:"user" json:"nonpersistent"`
@@ -168,6 +167,11 @@ func (manager *SDiskManager) ListItemFilter(
 	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = manager.SMultiArchResourceBaseManager.ListItemFilter(ctx, q, userCred, query.MultiArchResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SMultiArchResourceBaseManager.ListItemFilter")
 	}
 
 	if query.Unused != nil {

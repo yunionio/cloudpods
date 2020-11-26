@@ -59,6 +59,8 @@ type InstanceSnapshotDetails struct {
 type InstanceSnapshotListInput struct {
 	apis.VirtualResourceListInput
 	apis.ExternalizedResourceBaseListInput
+	apis.MultiArchResourceBaseListInput
+
 	ManagedResourceListInput
 
 	ServerFilterListInput

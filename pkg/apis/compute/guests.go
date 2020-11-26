@@ -25,6 +25,7 @@ type ServerListInput struct {
 	apis.VirtualResourceListInput
 	apis.ExternalizedResourceBaseListInput
 	apis.DeletePreventableResourceBaseListInput
+	apis.MultiArchResourceBaseListInput
 
 	HostFilterListInput
 

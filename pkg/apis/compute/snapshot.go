@@ -72,6 +72,7 @@ type SSnapshotPolicyCreateInternalInput struct {
 type SnapshotListInput struct {
 	apis.VirtualResourceListInput
 	apis.ExternalizedResourceBaseListInput
+	apis.MultiArchResourceBaseListInput
 
 	ManagedResourceListInput
 	RegionalFilterListInput

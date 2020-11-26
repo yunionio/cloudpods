@@ -120,6 +120,8 @@ type HostListInput struct {
 	BootMode []string `json:"boot_mode"`
 	// 虚拟机所在的二层网络
 	ServerIdForNetwork string `json:"server_id_for_network"`
+	// 宿主机 cpu 架构
+	CpuArchitecture string `json:"cpu_architecture"`
 }
 
 type HostDetails struct {
