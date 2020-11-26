@@ -63,6 +63,8 @@ func init() {
 		Enabled  bool   `help:"create policy enabled"`
 		Disabled bool   `help:"create policy disabled"`
 		Desc     string `help:"policy description"`
+		Scope    string `help:"scope of policy"`
+		IsSystem *bool  `help:"create system policy" negative:"no-system"`
 	}
 	R(&PolicyCreateOptions{}, "policy-create", "Create a new policy", func(s *mcclient.ClientSession, args *PolicyCreateOptions) error {
 		policyBytes, err := ioutil.ReadFile(args.FILE)
@@ -83,6 +85,16 @@ func init() {
 		}
 		if len(args.Desc) > 0 {
 			params.Add(jsonutils.NewString(args.Desc), "description")
+		}
+		if len(args.Scope) > 0 {
+			params.Add(jsonutils.NewString(args.Scope), "scope")
+		}
+		if args.IsSystem != nil {
+			if *args.IsSystem {
+				params.Add(jsonutils.JSONTrue, "is_system")
+			} else {
+				params.Add(jsonutils.JSONFalse, "is_system")
+			}
 		}
 
 		result, err := modules.Policies.Create(s, params)
