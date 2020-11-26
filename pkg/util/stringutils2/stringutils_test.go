@@ -208,3 +208,32 @@ func TestGetCharTypeCount(t *testing.T) {
 		}
 	}
 }
+
+func TestRoleName(t *testing.T) {
+	cases := []struct {
+		in     string
+		want   string
+		random bool
+		length int
+	}{
+		{
+			in:     "小琪",
+			random: true,
+			length: 17,
+		},
+		{
+			in:   "123^567",
+			want: "123567",
+		},
+	}
+	for _, c := range cases {
+		got := GenerateRoleName(c.in)
+		if c.random {
+			if len(got) != c.length {
+				t.Errorf("GenerateRoleName %s random want %d length got %d(%s)", c.in, c.length, len(got), got)
+			}
+		} else if got != c.want {
+			t.Errorf("GenerateRoleName %s want %s got %s", c.in, c.want, got)
+		}
+	}
+}
