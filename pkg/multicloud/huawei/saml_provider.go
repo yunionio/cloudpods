@@ -88,6 +88,10 @@ func (self *SAMLProvider) GetMetadataDocument() (*samlutils.EntityDescriptor, er
 	return &metadata, nil
 }
 
+func (self *SAMLProvider) UpdateMetadata(metadata samlutils.EntityDescriptor) error {
+	return self.client.UpdateSAMLProviderMetadata(self.Id, metadata.String())
+}
+
 func (self *SHuaweiClient) ListSAMLProviders() ([]SAMLProvider, error) {
 	client, err := self.newGeneralAPIClient()
 	if err != nil {
