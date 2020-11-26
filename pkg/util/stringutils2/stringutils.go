@@ -18,8 +18,10 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"math/rand"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	"yunion.io/x/pkg/util/osprofile"
@@ -208,6 +210,35 @@ func GetCharTypeCount(str string) int {
 		if complexity[i] > 0 {
 			ret += 1
 		}
+	}
+	return ret
+}
+
+// Qcloud: 1-128个英文字母、数字和+=,.@_-
+// Aws: 请使用字母数字和‘+=,.@-_’字符。 最长 64 个字符
+// Common: 1-64个字符, 数字字母或 +=,.@-_
+func GenerateRoleName(roleName string) string {
+	ret := ""
+	for _, s := range roleName {
+		if (s >= '0' && s <= '9') || (s >= 'a' && s <= 'z') || (s >= 'A' && s <= 'Z') || strings.Contains("+=,.@-_", string(s)) {
+			ret += string(s)
+		}
+	}
+
+	if len(ret) == 0 {
+		return func(length int) string {
+			bytes := []byte("23456789abcdefghijkmnpqrstuvwxyz")
+			result := []byte{}
+			r := rand.New(rand.NewSource(time.Now().UnixNano()))
+			for i := 0; i < length; i++ {
+				result = append(result, bytes[r.Intn(len(bytes))])
+			}
+			return "role-" + string(result)
+		}(12)
+	}
+
+	if len(ret) > 64 {
+		return ret[:64]
 	}
 	return ret
 }

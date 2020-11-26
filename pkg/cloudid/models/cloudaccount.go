@@ -44,6 +44,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 // +onecloud:swagger-gen-ignore
@@ -1623,7 +1624,7 @@ func (self *SCloudaccount) RegisterCloudrole(userId, spId string) (*SCloudrole, 
 	role.CloudaccountId = self.Id
 	role.OwnerId = userId
 	role.SAMLProviderId = spId
-	role.Name = user.GetName()
+	role.Name = stringutils2.GenerateRoleName(user.GetName())
 	role.Status = api.CLOUD_ROLE_STATUS_CREATING
 	role.DomainId = self.DomainId
 	return role, CloudroleManager.TableSpec().Insert(context.TODO(), role)
