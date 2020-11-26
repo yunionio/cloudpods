@@ -53,7 +53,7 @@ func (self *LoadbalancerAclSyncTask) OnInit(ctx context.Context, obj db.IStandal
 	}
 	self.SetStage("OnLoadbalancerAclSyncComplete", nil)
 	if err := region.GetDriver().RequestSyncLoadbalancerAcl(ctx, self.GetUserCred(), lbacl, self); err != nil {
-		self.taskFail(ctx, lbacl, jsonutils.Marshal(err))
+		self.taskFail(ctx, lbacl, jsonutils.NewString(err.Error()))
 	}
 }
 

@@ -71,7 +71,7 @@ func (self *SecurityGroupCacheTask) OnInit(ctx context.Context, obj db.IStandalo
 
 	err = region.GetDriver().RequestCacheSecurityGroup(ctx, self.UserCred, region, vpc, secgroup, classic, "", self)
 	if err != nil {
-		self.taskFailed(ctx, secgroup, jsonutils.Marshal(err))
+		self.taskFailed(ctx, secgroup, jsonutils.NewString(err.Error()))
 		return
 	}
 }

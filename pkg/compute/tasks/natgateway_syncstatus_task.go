@@ -54,7 +54,7 @@ func (self *NatGatewaySyncstatusTask) OnInit(ctx context.Context, obj db.IStanda
 	self.SetStage("OnNatGatewaySyncStatusComplete", nil)
 	err := region.GetDriver().RequestSyncNatGatewayStatus(ctx, self.GetUserCred(), natgateway, self)
 	if err != nil {
-		self.taskFailed(ctx, natgateway, jsonutils.Marshal(err))
+		self.taskFailed(ctx, natgateway, jsonutils.NewString(err.Error()))
 		return
 	}
 }

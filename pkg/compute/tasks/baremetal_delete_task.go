@@ -61,7 +61,7 @@ func (self *BaremetalDeleteTask) OnDeleteBaremetalComplete(ctx context.Context, 
 	err := baremetal.RealDelete(ctx, self.UserCred)
 	if err != nil {
 		log.Errorf("RealDelete fail %s", err)
-		self.OnFailure(ctx, baremetal, jsonutils.Marshal(err))
+		self.OnFailure(ctx, baremetal, jsonutils.NewString(err.Error()))
 		return
 	}
 	self.SetStageComplete(ctx, nil)

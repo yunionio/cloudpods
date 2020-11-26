@@ -41,7 +41,7 @@ func (self *DBInstanceRebootTask) taskFailed(ctx context.Context, dbinstance *mo
 	dbinstance.SetStatus(self.UserCred, api.DBINSTANCE_REBOOT_FAILED, err.Error())
 	db.OpsLog.LogEvent(dbinstance, db.ACT_REBOOT, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_REBOOT, err, self.UserCred, false)
-	self.SetStageFailed(ctx, jsonutils.Marshal(err))
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *DBInstanceRebootTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

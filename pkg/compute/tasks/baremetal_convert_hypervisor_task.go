@@ -60,7 +60,7 @@ func (self *BaremetalConvertHypervisorTask) OnInit(ctx context.Context, obj db.I
 	paramsDict := params.(*jsonutils.JSONDict)
 	input, err := cmdline.FetchServerCreateInputByJSON(paramsDict)
 	if err != nil {
-		self.SetStageFailed(ctx, jsonutils.Marshal(err))
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return
 	}
 	input.ParentTaskId = self.GetTaskId()

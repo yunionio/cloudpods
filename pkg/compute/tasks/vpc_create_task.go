@@ -56,7 +56,7 @@ func (self *VpcCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 	self.SetStage("OnCreateVpcComplete", nil)
 	err = region.GetDriver().RequestCreateVpc(ctx, self.UserCred, region, vpc, self)
 	if err != nil {
-		self.TaskFailed(ctx, vpc, jsonutils.Marshal(err))
+		self.TaskFailed(ctx, vpc, jsonutils.NewString(err.Error()))
 		return
 	}
 }

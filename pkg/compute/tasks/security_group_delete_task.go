@@ -39,7 +39,7 @@ func init() {
 func (self *SecurityGroupDeleteTask) taskFailed(ctx context.Context, secgroup *models.SSecurityGroup, err error) {
 	secgroup.SetStatus(self.UserCred, api.SECGROUP_STATUS_READY, "")
 	logclient.AddActionLogWithContext(ctx, secgroup, logclient.ACT_DELOCATE, err, self.UserCred, false)
-	self.SetStageFailed(ctx, jsonutils.Marshal(err))
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *SecurityGroupDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

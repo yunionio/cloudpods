@@ -53,7 +53,7 @@ func (self *LoadbalancerRemoteUpdateTask) OnInit(ctx context.Context, obj db.ISt
 	replaceTags := jsonutils.QueryBoolean(self.Params, "replace_tags", false)
 
 	if err := region.GetDriver().RequestRemoteUpdateLoadbalancer(ctx, self.GetUserCred(), lb, replaceTags, self); err != nil {
-		self.taskFail(ctx, lb, jsonutils.Marshal(err))
+		self.taskFail(ctx, lb, jsonutils.NewString(err.Error()))
 	}
 }
 

@@ -38,7 +38,7 @@ func (self *GuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	guest := obj.(*models.SGuest)
 	err := guest.GetDriver().DoGuestCreateDisksTask(ctx, guest, self)
 	if err != nil {
-		self.SetStageFailed(ctx, jsonutils.Marshal(err))
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	}
 }
 

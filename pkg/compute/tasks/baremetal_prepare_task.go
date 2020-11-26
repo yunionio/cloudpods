@@ -41,7 +41,7 @@ func (self *BaremetalPrepareTask) OnInit(ctx context.Context, obj db.IStandalone
 	self.SetStage("OnSyncConfigComplete", nil)
 	_, err := baremetal.BaremetalSyncRequest(ctx, "POST", url, headers, self.Params)
 	if err != nil {
-		self.OnFailure(ctx, baremetal, jsonutils.Marshal(err))
+		self.OnFailure(ctx, baremetal, jsonutils.NewString(err.Error()))
 	}
 }
 

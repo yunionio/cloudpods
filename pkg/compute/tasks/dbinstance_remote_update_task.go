@@ -47,7 +47,7 @@ func (self *DBInstanceRemoteUpdateTask) OnInit(ctx context.Context, obj db.IStan
 	replaceTags := jsonutils.QueryBoolean(self.Params, "replace_tags", false)
 
 	if err := instance.GetRegion().GetDriver().RequestRemoteUpdateDBInstance(ctx, self.GetUserCred(), instance, replaceTags, self); err != nil {
-		self.taskFail(ctx, instance, jsonutils.Marshal(err))
+		self.taskFail(ctx, instance, jsonutils.NewString(err.Error()))
 	}
 }
 

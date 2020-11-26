@@ -41,7 +41,7 @@ func (self *DBInstanceDatabaseCreateTask) taskFailed(ctx context.Context, databa
 	database.SetStatus(self.UserCred, api.DBINSTANCE_DATABASE_CREATE_FAILE, err.Error())
 	db.OpsLog.LogEvent(database, db.ACT_CREATE, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, database, logclient.ACT_CREATE, err, self.UserCred, false)
-	self.SetStageFailed(ctx, jsonutils.Marshal(err))
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *DBInstanceDatabaseCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

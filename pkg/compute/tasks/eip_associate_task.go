@@ -67,7 +67,7 @@ func (self *EipAssociateTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 
 	self.SetStage("OnAssociateEipComplete", nil)
 	if err := driver.RequestAssociateEip(ctx, self.UserCred, server, eip, self); err != nil {
-		self.TaskFail(ctx, eip, jsonutils.Marshal(err), server)
+		self.TaskFail(ctx, eip, jsonutils.NewString(err.Error()), server)
 		return
 	}
 }

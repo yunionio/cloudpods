@@ -51,7 +51,7 @@ func (self *TemplateBindingServers) OnInit(ctx context.Context, obj db.IStandalo
 	template := obj.(*models.SDevtoolTemplate)
 	_, err := template.Binding(ctx, self.UserCred, nil, self.Params)
 	if err != nil {
-		self.SetStageFailed(ctx, jsonutils.Marshal(err))
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	} else {
 		self.SetStageComplete(ctx, nil)
 	}

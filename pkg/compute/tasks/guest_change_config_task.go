@@ -161,7 +161,7 @@ func (self *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, ob
 func (self *GuestChangeConfigTask) startGuestChangeCpuMemSpec(ctx context.Context, guest *models.SGuest, instanceType string, vcpuCount int64, vmemSize int64) {
 	err := guest.GetDriver().RequestChangeVmConfig(ctx, guest, self, instanceType, vcpuCount, vmemSize)
 	if err != nil {
-		self.markStageFailed(ctx, guest, jsonutils.Marshal(err))
+		self.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
 }
