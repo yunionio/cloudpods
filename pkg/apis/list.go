@@ -310,3 +310,7 @@ type EnabledStatusInfrasResourceBaseListInput struct {
 	StatusInfrasResourceBaseListInput
 	EnabledResourceBaseListInput
 }
+
+type MultiArchResourceBaseListInput struct {
+	OsArch string `json:"os_arch"`
+}

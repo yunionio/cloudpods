@@ -125,7 +125,7 @@ type SHost struct {
 	// CPUMicrocode
 	CpuMicrocode string `width:"64" charset:"ascii" nullable:"true" get:"domain" update:"domain" create:"domain_optional"`
 	// CPU架构
-	CpuArchitecture string `width:"16" charset:"ascii" nullable:"true" get:"domain" update:"domain" create:"domain_optional"`
+	CpuArchitecture string `width:"16" charset:"ascii" nullable:"true" get:"domain" list:"domain" update:"domain" create:"domain_optional"`
 
 	// 内存大小,单位Mb
 	MemSize int `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
@@ -430,6 +430,9 @@ func (manager *SHostManager) ListItemFilter(
 	}
 	if len(query.BootMode) > 0 {
 		q = q.In("boot_mode", query.BootMode)
+	}
+	if len(query.CpuArchitecture) > 0 {
+		q = q.Equals("cpu_architecture", query.CpuArchitecture)
 	}
 
 	// for provider onecloud
