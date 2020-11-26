@@ -533,7 +533,11 @@ func (cli *SESXiClient) getPrivateId(idStr string) string {
 func (cli *SESXiClient) checkHostManagedByVCenter() error {
 	host, err := cli.FindHostByIp(cli.host)
 	if err != nil {
-		return err
+		if errors.Cause(err) == errors.ErrNotFound {
+			// host might be behind a NAT
+			return nil
+		}
+		return errors.Wrap(err, "cli.FindHostByIp")
 	}
 	if host.IsManagedByVCenter() {
 		return fmt.Errorf("ESXi host is managed by vcenter %s, please connect to vcenter instead for full management functions!", host.GetManagementServerIp())
@@ -561,18 +565,18 @@ func (cli *SESXiClient) FindHostByIp(hostIp string) (*SHost, error) {
 	hostRef, err := searchIndex.FindByIp(cli.context, nil, cli.getPrivateId(hostIp), false)
 	if err != nil {
 		log.Errorf("searchIndex.FindByIp fail %s", err)
-		return nil, err
+		return nil, errors.Wrap(err, "searchIndex.FindByIp")
 	}
 
 	if hostRef == nil {
-		return nil, fmt.Errorf("cannot find %s", cli.getPrivateId(hostIp))
+		return nil, errors.Wrapf(errors.ErrNotFound, "cannot find %s", cli.getPrivateId(hostIp))
 	}
 
 	var host mo.HostSystem
 	err = cli.reference2Object(hostRef.Reference(), HOST_SYSTEM_PROPS, &host)
 	if err != nil {
 		log.Errorf("reference2Object fail %s", err)
-		return nil, err
+		return nil, errors.Wrap(err, "cli.reference2Object")
 	}
 
 	h := NewHost(cli, &host, nil)
