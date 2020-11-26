@@ -857,6 +857,10 @@ func (manager *SWireManager) InitializeData() error {
 	return nil
 }
 
+func (wire *SWire) isOneCloudVpcWire() bool {
+	return IsOneCloudVpcResource(wire)
+}
+
 func (wire *SWire) getEnabledHosts() []SHost {
 	hosts := make([]SHost, 0)
 
@@ -866,9 +870,13 @@ func (wire *SWire) getEnabledHosts() []SHost {
 	q := hostQuery.Query()
 	q = q.Join(hostwireQuery, sqlchemy.AND(sqlchemy.Equals(hostQuery.Field("id"), hostwireQuery.Field("host_id")),
 		sqlchemy.IsFalse(hostwireQuery.Field("deleted"))))
-	q = q.Filter(sqlchemy.Equals(hostwireQuery.Field("wire_id"), wire.Id))
 	q = q.Filter(sqlchemy.IsTrue(hostQuery.Field("enabled")))
 	q = q.Filter(sqlchemy.Equals(hostQuery.Field("host_status"), api.HOST_ONLINE))
+	if wire.isOneCloudVpcWire() {
+		q = q.Filter(sqlchemy.NOT(sqlchemy.IsNullOrEmpty(hostQuery.Field("ovn_version"))))
+	} else {
+		q = q.Filter(sqlchemy.Equals(hostwireQuery.Field("wire_id"), wire.Id))
+	}
 
 	err := db.FetchModelObjects(HostManager, q, &hosts)
 	if err != nil {
@@ -883,10 +891,9 @@ func (wire *SWire) clearHostSchedDescCache() error {
 	hosts := wire.getEnabledHosts()
 	if hosts != nil {
 		for i := 0; i < len(hosts); i += 1 {
-			err := hosts[i].ClearSchedDescCache()
-			if err != nil {
-				log.Errorf("%s", err)
-				return err
+			host := hosts[i]
+			if err := host.ClearSchedDescCache(); err != nil {
+				return errors.Wrapf(err, "wire %s clear host %s sched cache", wire.GetName(), host.GetName())
 			}
 		}
 	}
