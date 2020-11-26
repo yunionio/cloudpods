@@ -17,8 +17,10 @@ package compute
 import "yunion.io/x/onecloud/pkg/apis"
 
 type LoadbalancerCertificateDetails struct {
-	apis.VirtualResourceDetails
+	apis.SharableVirtualResourceDetails
 	SLoadbalancerCertificate
+
+	LbListenerCount int `json:"lb_listener_count"`
 }
 
 type LoadbalancerCertificateResourceInfo struct {

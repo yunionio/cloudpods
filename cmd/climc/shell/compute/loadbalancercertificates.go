@@ -15,6 +15,8 @@
 package compute
 
 import (
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -75,6 +77,23 @@ func init() {
 	})
 	R(&options.LoadbalancerCertificateDeleteOptions{}, "lbcert-purge", "Purge lbcert", func(s *mcclient.ClientSession, opts *options.LoadbalancerCertificateDeleteOptions) error {
 		lbcert, err := modules.LoadbalancerCertificates.PerformAction(s, opts.ID, "purge", nil)
+		if err != nil {
+			return err
+		}
+		printObject(lbcert)
+		return nil
+	})
+	R(&options.LoadbalancerCertificatePublicOptions{}, "lbcert-public", "Public lbcert", func(s *mcclient.ClientSession, opts *options.LoadbalancerCertificatePublicOptions) error {
+		params := jsonutils.Marshal(opts)
+		lbcert, err := modules.LoadbalancerCertificates.PerformAction(s, opts.ID, "public", params)
+		if err != nil {
+			return err
+		}
+		printObject(lbcert)
+		return nil
+	})
+	R(&options.LoadbalancerCertificatePrivateOptions{}, "lbcert-private", "Private lbcert", func(s *mcclient.ClientSession, opts *options.LoadbalancerCertificatePrivateOptions) error {
+		lbcert, err := modules.LoadbalancerCertificates.PerformAction(s, opts.ID, "private", nil)
 		if err != nil {
 			return err
 		}
