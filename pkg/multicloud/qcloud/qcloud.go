@@ -462,6 +462,7 @@ func _baseJsonRequest(client *common.Client, req tchttp.Request, resp qcloudResp
 			"Code=InvalidInstance.NotSupported", // Code=InvalidInstance.NotSupported, Message=The request does not support the instances `ins-bg54517v` which are in operation or in a special state., 重装系统后立即关机有可能会引发 Code=InvalidInstance.NotSupported 错误, 重试可以避免任务失败
 			"i/o timeout",
 			"Code=InvalidAddressId.StatusNotPermit", // Code=InvalidAddressId.StatusNotPermit, Message=The status `"UNBINDING"` for AddressId `"eip-m3kix9kx"` is not permit to do this operation., EIP删除需要重试
+			"Code=RequestLimitExceeded",
 		} {
 			if strings.Contains(err.Error(), msg) {
 				needRetry = true
