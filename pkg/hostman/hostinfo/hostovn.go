@@ -17,6 +17,7 @@ package hostinfo
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"yunion.io/x/pkg/errors"
 
@@ -71,10 +72,18 @@ func (oh *OvnHelper) mustPrepOvsdbConfig() {
 	{
 		encapIp := opts.OvnEncapIp
 		if encapIp == "" {
-			var err error
-			encapIp, err = netutils2.MyIP()
+			var (
+				err  error
+				meth = opts.OvnEncapIpDetectionMethod
+			)
+			switch {
+			case strings.HasPrefix(meth, "can-reach:"):
+				encapIp, err = netutils2.MyIPTo(meth[10:])
+			default:
+				encapIp, err = netutils2.MyIP()
+			}
 			if err != nil {
-				panic(errors.Wrap(ErrOvnConfig, "determine default encap ip"))
+				panic(errors.Wrapf(ErrOvnConfig, "determine encap ip, method: %q: %v", meth, err))
 			}
 		}
 		args = append(args, "external_ids:ovn-encap-type=geneve")
