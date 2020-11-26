@@ -89,6 +89,11 @@ func (self *SAMLProvider) GetMetadataDocument() (*samlutils.EntityDescriptor, er
 	return &metadata, nil
 }
 
+func (self *SAMLProvider) UpdateMetadata(metadata samlutils.EntityDescriptor) error {
+	_, err := self.client.UpdateSAMLProvider(self.Arn, metadata.String())
+	return err
+}
+
 type SAMLProviders struct {
 	SAMLProviderList []SAMLProvider `xml:"SAMLProviderList>member"`
 }
